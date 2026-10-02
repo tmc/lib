@@ -253,7 +253,7 @@ func checkVersion() error {
 }
 
 // InvalidContextId returns the value of CUPTI_INVALID_CONTEXT_ID for the loaded library,
-// by the version cuptiGetVersion reports:
+// by the version reported by the loaded library:
 //
 //   - 0xFFFFFFFF before version 130200
 //   - 0 from version 130200
@@ -271,7 +271,7 @@ func InvalidContextId() uint32 {
 }
 
 // InvalidStreamId returns the value of CUPTI_INVALID_STREAM_ID for the loaded library,
-// by the version cuptiGetVersion reports:
+// by the version reported by the loaded library:
 //
 //   - 0xFFFFFFFF before version 130200
 //   - 0 from version 130200
@@ -289,8 +289,8 @@ func InvalidStreamId() uint32 {
 }
 
 // Record returns the record that begins with r, as a pointer to the type
-// its Kind selects in the loaded library, by the version cuptiGetVersion
-// reports. The pointer aliases r. Record returns nil if no library loads,
+// its Kind selects in the loaded library, by the version reported
+// by the loaded library. The pointer aliases r. Record returns nil if no library loads,
 // or for a Kind this package does not decode, such as an unknown one.
 // A library newer than any version this package knows is taken to
 // write the newest record this package knows for each Kind.

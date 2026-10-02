@@ -49,6 +49,41 @@ func (d Device) Attribute(attrib DeviceAttribute) (int32, error) {
 	return deviceGetAttribute(attrib, d)
 }
 
+// CliqueCount retrieves the number of fabric cliques.
+//
+// Retrieves the number of fabric cliques that the device is part of.
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuDeviceGetCliqueCount.
+func (d Device) CliqueCount() (uint, error) {
+	return deviceGetCliqueCount(d)
+}
+
+// CliqueInfo retrieves fabric clique information.
+//
+// Returns the fabric clique information for the cliques that the device is a part of. User must specify the size of the cliqueInfo array in count. The same parameter count will return the actual number of entries updated in the cliqueInfo array.
+//
+//   - cliqueInfo: Array to store the fabric clique information
+//   - count: Input: Size of the cliqueInfo array. Output: Number of entries updated in the cliqueInfo array
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuDeviceGetCliqueInfo.
+func (d Device) CliqueInfo(cliqueInfo *CliqueInfo, count *uint) error {
+	return deviceGetCliqueInfo(cliqueInfo, count, d)
+}
+
 // DefaultMemPool returns the default mempool of a device.
 //
 // The default mempool of a device contains device memory from that device.
@@ -108,6 +143,22 @@ func (d Device) DevResource(type_ DevResourceType) (DevResource, error) {
 // Wraps cuDeviceGetExecAffinitySupport.
 func (d Device) ExecAffinitySupport(type_ ExecAffinityType) (int32, error) {
 	return deviceGetExecAffinitySupport(type_, d)
+}
+
+// FabricClusterUuid retrieves the fabric cluster UUID.
+//
+// Retrieves the fabric cluster UUID for the given device.
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuDeviceGetFabricClusterUuid.
+func (d Device) FabricClusterUuid() (Uuid, error) {
+	return deviceGetFabricClusterUuid(d)
 }
 
 // GraphMemAttribute queries asynchronous allocation attributes related to graphs.
@@ -600,6 +651,123 @@ func (d Device) UnregisterAsyncNotification(callback AsyncCallbackHandle) error 
 	return deviceUnregisterAsyncNotification(d, callback)
 }
 
+// LogicalEndpointAdd associates a device to a multicast logical endpoint.
+//
+// Associates a device to a logical endpoint. The type of the logical endpoint must be [LogicalEndpointTypeMulticast]. The added device will be a part of the multicast team of size specified by [LogicalEndpointProp].multicast.numDevices during [LogicalEndpointCreate]. The association of the device to the multicast logical endpoint is permanent during the life time of the multicast logical endpoint. All devices must be added to the multicast logical endpoint before any memory can be bound to any device in the team. A multicast logical endpoint will not be ready for use until all devices have been added. User can query whether the logical endpoint is ready for use via [LogicalEndpointQuery].
+// This call may fail with [ErrInvalidDevice] if the device specified by dev does not belong to the same clique as the other devices previously added to this multicast logical endpoint.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint id representing a multicast logical endpoint
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuLogicalEndpointAddDevice.
+func (d Device) LogicalEndpointAdd(leId LogicalEndpointId) error {
+	return logicalEndpointAddDevice(leId, d)
+}
+
+// LogicalEndpointBindAddr binds a memory allocation represented by a virtual address to a logical endpoint.
+//
+// Binds the memory allocation specified by its mapped address ptr to a logical endpoint represented by leId at the offset offset. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the logical endpoint range and ptr must be multiples of the value for bindAlignment as returned by [LogicalEndpointGetLimits].
+// The size cannot be larger than the size of the allocated memory. Similarly the size + offset cannot be larger than the total size of the logical endpoint.
+// For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated.
+// For multicast endpoints, the device named by dev must have been added to the multicast team via [Device.LogicalEndpointAdd].
+// For unicast endpoints the device named by dev must be the owner device specified during [LogicalEndpointCreate] via [LogicalEndpointProp].unicast.device.
+// Externally shareable as well as imported multicast endpoints can be bound only to externally shareable memory. Imported unicast endpoints cannot be bound to any memory.
+// This call will return [ErrInvalidValue] if [LogicalEndpointQuery] has not been called for the logical endpoint to ensure that the endpoint is ready for memory binding.
+// Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running. This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using logical endpoints, verify that the system configuration is in a valid state and all required driver daemons are running properly.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint to which memory will be associated
+//   - offset: Offset into the logical endpoint space
+//   - ptr: Virtual address of the memory allocation
+//   - size: Size of memory that will be bound to the logical endpoint
+//   - flags: Flags for future use, must be zero for now
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointBindAddr.
+func (d Device) LogicalEndpointBindAddr(leId LogicalEndpointId, offset uint64, ptr uintptr, size uint64, flags uint64) error {
+	return logicalEndpointBindAddr(leId, d, offset, ptr, size, flags)
+}
+
+// LogicalEndpointBindMem binds memory object represented by a handle to the logical endpoint.
+//
+// Binds the memory allocation specified by memHandle to a logical endpoint represented by leId at the offset offset. The memory must have been allocated via [MemCreate]. The intended size of the bind, the offset in the logical endpoint range offset and the offset in the memory handle memOffset must be multiples of the value for bindAlignment as returned by [LogicalEndpointGetLimits].
+// The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + offset cannot be larger than the total size of the logical endpoint.
+// For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated.
+// For multicast endpoints, the device named by dev must have been added to the multicast team via [Device.LogicalEndpointAdd].
+// For unicast endpoints the device named by dev must be the owner device specified during [LogicalEndpointCreate] via [LogicalEndpointProp].unicast.device.
+// Externally shareable as well as imported multicast endpoints can be bound only to externally shareable memory. Imported unicast endpoints cannot be bound to any memory.
+// This call will return [ErrInvalidValue] if [LogicalEndpointQuery] has not been called for the logical endpoint to ensure that the endpoint is ready for memory binding.
+// Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running. This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using logical endpoints, verify that the system configuration is in a valid state and all required driver daemons are running properly.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint to which memory will be associated
+//   - offset: Offset into the logical endpoint space
+//   - memHandle: Handle representing a memory allocation
+//   - memOffset: Offset into the memory for the attachment
+//   - size: Size of memory that will be bound to the logical endpoint
+//   - flags: Flags for future use, must be zero for now
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointBindMem.
+func (d Device) LogicalEndpointBindMem(leId LogicalEndpointId, offset uint64, memHandle uint64, memOffset uint64, size uint64, flags uint64) error {
+	return logicalEndpointBindMem(leId, d, offset, memHandle, memOffset, size, flags)
+}
+
+// LogicalEndpointUnbind unbinds any binding at offset from the logical endpoint.
+//
+// Unbinds any memory allocations bound to the logical endpoint on dev at offset and up to the given size. The intended size of the unbind and the offset in the logical endpoint range offset must be multiples of the value for bindAlignment as returned by [LogicalEndpointGetLimits].
+//
+// Note: The offset must correspond to a value specified during a bind call. The size must either match the bind call of the offset or be the combined size of multiple bind calls. The size + offset must fully enclose all bindings that are covered.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint id representing a logical endpoint
+//   - offset: Offset into the logical endpoint
+//   - size: Desired size to unbind
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointUnbind.
+func (d Device) LogicalEndpointUnbind(leId LogicalEndpointId, offset uint64, size uint64) error {
+	return logicalEndpointUnbind(leId, d, offset, size)
+}
+
 // MulticastAdd associates a device to a multicast object.
 //
 // Associates a device to a multicast object. The added device will be a part of the multicast team of size specified by [MulticastObjectProp].numDevices during [MulticastCreate]. The association of the device to the multicast object is permanent during the life time of the multicast object. All devices must be added to the multicast team before any memory can be bound to any device in the team. Any calls to [MulticastBindMem], [Device.MulticastBindMemV2], [DevicePtr.MulticastBindAddr], or [Device.MulticastBindAddrV2] will block until all devices have been added. Similarly all devices must be added to the multicast team before a virtual address range can be mapped to the multicast object. A call to [DevicePtr.MemMap] will block until all devices have been added.
@@ -628,7 +796,7 @@ func (d Device) MulticastAdd(mcHandle uint64) error {
 // Binds a memory allocation specified by its mapped address memptr to a multicast object represented by mcHandle. The binding will be applicable for the device dev. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the multicast range mcOffset and memptr must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memptr should be aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the total size of the multicast object.
 // On systems with Rubin+ (SM_107+) GPUs, memptr may be aligned to 256 instead of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended]. In such a case the size + memptr cannot be larger than the size of the allocated memory. Similarly the size + mcOffset + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] cannot be larger than the size of the than the size of the multicast object. The next available mcOffset for the next bind will be mcOffset + size + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]
-// Also note that the ability to accept a memptr that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error CUDA_ERROR_MULTICAST_RESOURCE_FULL
+// Also note that the ability to accept a memptr that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error [ErrMulticastResourceFull]
 // For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated. In both cases, the device named by dev must have been added to the multicast team via [Device.MulticastAdd]. Externally shareable as well as imported multicast objects can be bound only to externally shareable memory. Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running.
 // This call may fail if the devices added via [Device.MulticastAdd] do not belong to the same clique.
 // This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using multicast, verify that the system configuration is in a valid state and all required driver daemons are running properly.
@@ -646,7 +814,7 @@ func (d Device) MulticastAdd(mcHandle uint64) error {
 //   - [ErrIllegalState]
 //   - [ErrInvalidDevice]
 //   - [ErrInvalidValue]
-//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrMulticastResourceFull]
 //   - [ErrNotInitialized]
 //   - [ErrNotPermitted]
 //   - [ErrNotSupported]
@@ -663,7 +831,7 @@ func (d Device) MulticastBindAddrV2(mcHandle uint64, mcOffset uint, memptr Devic
 // Binds a memory allocation specified by memHandle and created via [MemCreate] to a multicast object represented by mcHandle and created via [MulticastCreate]. The binding will be applicable for the device dev. The intended size of the bind, the offset in the multicast range mcOffset as well as the offset in the memory memOffset must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memOffset should be aligned to the granularity of the memory allocation(see [MemGetAllocationGranularity]) or to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the size of the multicast object.
 // On systems with Rubin+ (SM_107+) GPUs, memOffset may be aligned to 256 instead of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended]. In such a case the size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] cannot be larger than the size of the than the size of the multicast object. The next available mcOffset for the next bind will be mcOffset + size + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum].
-// Also note that the ability to accept a memOffset that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error CUDA_ERROR_MULTICAST_RESOURCE_FULL
+// Also note that the ability to accept a memOffset that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error [ErrMulticastResourceFull]
 // The memory allocation must have beeen created on one of the devices that was added to the multicast team via [Device.MulticastAdd]. For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated. In both cases, the device named by dev must have been added to the multicast team via [Device.MulticastAdd]. Externally shareable as well as imported multicast objects can be bound only to externally shareable memory. Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running.
 // This call may fail if the devices added via [Device.MulticastAdd] do not belong to the same clique.
 // This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using multicast, verify that the system configuration is in a valid state and all required driver daemons are running properly.
@@ -682,7 +850,7 @@ func (d Device) MulticastBindAddrV2(mcHandle uint64, mcOffset uint, memptr Devic
 //   - [ErrIllegalState]
 //   - [ErrInvalidDevice]
 //   - [ErrInvalidValue]
-//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrMulticastResourceFull]
 //   - [ErrNotInitialized]
 //   - [ErrNotPermitted]
 //   - [ErrNotSupported]

@@ -6,5 +6,5 @@ const (
 	// Version is CUDA_VERSION. CUDA API version number.
 	//
 	// This is the version of the headers the bindings were generated from, not of the library loaded at run time. [DriverGetVersion] reports that.
-	Version = 13020
+	Version = 13040
 )

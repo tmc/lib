@@ -66,7 +66,7 @@
         "outputs": [
           {
             "path": "nvidia/cublas/constants.gen.go",
-            "sha256": "b4c0ac733331064082ec92178728fe2250a20ed086be878a7d87617870e4f386"
+            "sha256": "7f95137192611cb4675be81c8373d4b7bd2edc1a2b50435b0d7b2b48fdb412f9"
           },
           {
             "path": "nvidia/cublas/doc.gen.go",
@@ -90,7 +90,7 @@
           },
           {
             "path": "nvidia/cublas/init.gen.go",
-            "sha256": "e2321d2b3ea56b07883fe4a459c21ffea920763cf70eeee523c23c6274a37302"
+            "sha256": "9d27ad799081a600106350654b07164a311c76bfde3f8bb9060eae5e921c565b"
           },
           {
             "path": "nvidia/cublas/layout.gen_test.go",
@@ -110,11 +110,11 @@
           },
           {
             "path": "nvidia/cublas/provenance.gen.go",
-            "sha256": "c7d660f94117d3b288eb795188afe05d2e7d196209204f6ff79ae6bfaf7ba025"
+            "sha256": "a5bc6ef21d435cab67181c5ba3e6e8d34b1caf8c06affd75cbf96763ed27dc90"
           },
           {
             "path": "nvidia/cublas/provenance.json",
-            "sha256": "2c3077f04dbcfcf8e8bcb7af247fff90d100028dcab8b2096850bd657dd0bfa6"
+            "sha256": "2b4222ada91f8aba82aadc580d60ea319c7158dc2219b28e1638fa519766e65f"
           },
           {
             "path": "nvidia/cublas/result.gen.go",
@@ -122,28 +122,28 @@
           },
           {
             "path": "nvidia/cublas/types.gen.go",
-            "sha256": "67e7d66c770a5f620cb165c84b73ef01c8e62b234985991da940c23a53fb168e"
+            "sha256": "af1a6960aeae1aea291141e235384f6b0100652d92606690d106939d27690a7d"
           }
         ],
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at dc14e827e5463455889b74d5f72c93051e5cb89e",
+        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
         "duplicate_header_check": "Before generation, compare all five cuBLAS header names across the include path and reject differing copies. The headers list pins the directly read cublas/ and libcublas/ copies; the oracle includes one identical copy per name."
       },
       "header": {
         "path": "cublas/cublas_api.h",
         "repository": "headers",
-        "sha256": "7a9fec18f54db0ef918af506b709385b3ca5290832b4c71a4716edbd6f47ce82"
+        "sha256": "c1b432ebf9d61aedfac3230c456c7501f7925a2e5a8951172f47bb58d2e093a4"
       },
       "note": "The generator is cmd/cublas-survey. cmd/gen-nvidia -api cublas is the wrong tool and produces an unrelated surface. The recipe was recovered by diffing a scratch regeneration against the committed package. That regeneration first dropped loader_unix.gen.go and loader_windows.gen.go, breaking the Windows build, because cmd/cublas-survey had never set ffigen PlatformLoader; the generator was fixed before this regeneration was taken. The loader now pins the Linux soname major and no longer falls back to the unversioned libcublas.so.",
       "package": "github.com/tmc/lib/nvidia/cublas",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
+          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac"
+          "tree": "764491dc369a44337547d89cf0d7341268bf7928"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -347,7 +347,7 @@
           },
           {
             "path": "nvidia/cublaslt/doc.gen.go",
-            "sha256": "25592d57182d621eb6e974e92b05df1168d8d6df55ac75cecd5e131902f5e941"
+            "sha256": "896b0fb2634849ef4cb5f0caa3b803ef50afe64d4e8b6e28e7c989dc97c4e8af"
           },
           {
             "path": "nvidia/cublaslt/emulation_desc.gen.go",
@@ -355,15 +355,15 @@
           },
           {
             "path": "nvidia/cublaslt/enums.gen.go",
-            "sha256": "1644cd011f4ed21e2ab0195d476abff204e758c6b31284106a63a9c762fc55b7"
+            "sha256": "be342023401994a1a7685928d1a0041495fc448b9de7b28c86c7fa8dd370a16a"
           },
           {
             "path": "nvidia/cublaslt/funcs.gen.go",
-            "sha256": "ff92da7159b0acc12aac2c36d56333ad98234e84d1916468340e1d1824462249"
+            "sha256": "07c7b77ae56066029b7fb063a6e33c121aa6ab419131de5d2cecfcb641d7509e"
           },
           {
             "path": "nvidia/cublaslt/handle.gen.go",
-            "sha256": "e6883b127621f1e1907f2704c7b7a20bcd6a2a82e405d8ece68e396638a78cc6"
+            "sha256": "fffa37d2d87475ebc48639931373d488684edc825b217998d4075195fbc4c0c2"
           },
           {
             "path": "nvidia/cublaslt/handles.gen.go",
@@ -371,7 +371,7 @@
           },
           {
             "path": "nvidia/cublaslt/init.gen.go",
-            "sha256": "ee726289ab94b5053416cf021950ab7545535b89bff82623c15f03752f00def0"
+            "sha256": "feb798bd2a9ac676cafacfd97fb7a7edf3b5a254937f1193b2cdf6a7ac67683b"
           },
           {
             "path": "nvidia/cublaslt/layout.gen_test.go",
@@ -407,11 +407,11 @@
           },
           {
             "path": "nvidia/cublaslt/provenance.gen.go",
-            "sha256": "bf6b800d20d2292d904f9574be19121af62b402c6f8bae367c443d217a276d05"
+            "sha256": "3e6b127bebb9b82c1e5aa573f4401349f747cec99b17280644383975e4f7086c"
           },
           {
             "path": "nvidia/cublaslt/provenance.json",
-            "sha256": "33d895883d139587b178da60f9c639da957c21184053fd606640d70022743200"
+            "sha256": "2f2536508f80be118310d7db67a906c4d214f9a6f5e7fd816df08b1d9d4f0e71"
           },
           {
             "path": "nvidia/cublaslt/result.gen.go",
@@ -423,28 +423,28 @@
           },
           {
             "path": "nvidia/cublaslt/types.gen.go",
-            "sha256": "3e88165f19118f27a612ce075f55c59440771c795cb31ff9b2fed51981a412b9"
+            "sha256": "1e50ae1606c1d468af042eddc06b5215a9186a27df2098f7cf85b2802008705a"
           }
         ],
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at dc14e827e5463455889b74d5f72c93051e5cb89e",
+        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
         "duplicate_header_check": "Before generation, compare all five cuBLAS header names across the include path and reject differing copies. The headers list pins the directly read cublas/ and libcublas/ copies; the oracle includes one identical copy per name."
       },
       "header": {
         "path": "cublas/cublasLt.h",
         "repository": "headers",
-        "sha256": "c6284e0a11864bcd89f59f9b326d85a51dcad415d4e6afde3f49f5b8321c6bd1"
+        "sha256": "e8d82298d0cd6223960a062c230d0d842c884d4a65dd79d592154ea318cb9af9"
       },
       "note": "The generator is cmd/cublaslt-survey. As with cublas, the survey had never set ffigen PlatformLoader, and it also never emitted callbacks.gen.go, so a regeneration would have dropped the Windows loader and the exported LoggerCallback type. Both were fixed in the generator before this regeneration was taken; callbacks.gen.go is now generated rather than carried from an old gen-nvidia run, which also repairs its garbled doc comment. The loader pins the Linux soname major.",
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
+          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16 regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac"
+          "tree": "764491dc369a44337547d89cf0d7341268bf7928"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -3449,7 +3449,29 @@
           "-docs-dir",
           "${CODEGEN_REPO}/docs",
           "-upstream-version",
-          "13.2.0",
+          "13.4",
+          "-floor-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-12.2/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-12.3/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-12.4/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-12.5/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-12.6/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-12.8/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-12.9/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-13.0/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-13.1/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-13.2/cupti.h",
+          "-history-header",
+          "${HEADERS_REPO}/pinned/cupti/cuda-13.3/cupti.h",
           "-output",
           "${OUTPUT_DIR}"
         ],
@@ -3474,19 +3496,23 @@
           },
           {
             "path": "nvidia/cupti/doc.gen.go",
-            "sha256": "9e37d3a624ec4dfbda17a372b317baa1612bdf5f2f6ba89dff84a36977274ca7"
+            "sha256": "3352325513480d168abe9d55185ee8fc363d471b2e005ea443c49a421f9f01c7"
           },
           {
             "path": "nvidia/cupti/enums.gen.go",
-            "sha256": "02b667fd3b02f6c0a59ac8fe13086472431b24929b670cf63463fc832721d0c1"
+            "sha256": "6ad795c7a8afde0a68e978c83d64f184f457e2fd28ddb6a622a550af62cfd751"
           },
           {
             "path": "nvidia/cupti/event_group.gen.go",
             "sha256": "8cf529621a03e7dae3b63687a76bd9a128df8a0f6db6352663ffb64d2ae1be8d"
           },
           {
+            "path": "nvidia/cupti/frozennames.txt",
+            "sha256": "ffc8775cc1f57f8bb40f1da0e784aa4d30d573e7ca8be03812a207fa8f459d61"
+          },
+          {
             "path": "nvidia/cupti/funcs.gen.go",
-            "sha256": "e2589db31c60e1deb3294af2e0ac233ac8c926355b310c002cdf6bc1b57655f5"
+            "sha256": "f2aeb683f473df4c8e8ba81758a8e5ff6d51c81d3663335e8cf91e23ce592450"
           },
           {
             "path": "nvidia/cupti/handles.gen.go",
@@ -3494,11 +3520,11 @@
           },
           {
             "path": "nvidia/cupti/init.gen.go",
-            "sha256": "8c7e2ce5708fbda4cfb9670effe5b500634e258cc9865eccb5481bc81d8edf22"
+            "sha256": "0c04a0e8bf8dad3c60fcaa3e474a9c54083219cf6a23d0b10c52488a44b6a1b3"
           },
           {
             "path": "nvidia/cupti/layout.gen_test.go",
-            "sha256": "1ebaaa53f013351d9c05faf3c439676df3396a04ac85d6411c4c4a11f3da1551"
+            "sha256": "b012d2c69ade1834ac84a1aced83a706c4cb900c20c00442669596511888ba1f"
           },
           {
             "path": "nvidia/cupti/loader.gen_test.go",
@@ -3513,28 +3539,32 @@
             "sha256": "d85170f9f8edca88ec693495fd112719d2be07a4f4e3ffb0ba6cac9864a07f61"
           },
           {
+            "path": "nvidia/cupti/loadtime.gen_test.go",
+            "sha256": "c22968c3d67c1a892b02b00e75c775513e5763239c6ae107c84630bbf4155f23"
+          },
+          {
             "path": "nvidia/cupti/param_layout.gen.go",
             "sha256": "2aad025799669e4b5403cb282a76462df2fc981b6b3c53339425dfa9b089dff7"
           },
           {
             "path": "nvidia/cupti/provenance.gen.go",
-            "sha256": "7552ac08f91ee6b6899bd2c74d716b6b124793d1a49a918591ebe63d3ef90c75"
+            "sha256": "d38858861fdfca459cfc942482cbff2389d5f060ab7c710436e741a52cd1e2ba"
           },
           {
             "path": "nvidia/cupti/provenance.json",
-            "sha256": "4aa741408919b89121a659cddd8772420a7fbe6bbf73049c729842a9acb597b0"
+            "sha256": "da45947d272b2d49d5f41c566afcbccf455ff4c2f3025a995dfc1b6237162c08"
           },
           {
             "path": "nvidia/cupti/result.gen.go",
-            "sha256": "806e2fcfcdd857d3b02250f416d807246c89f8ffa4bf80dceed220b8d59294be"
+            "sha256": "2791801d1981e1a32c079fd829f5c82d2ab23d7fbbf10060823b54f7fb666662"
           },
           {
             "path": "nvidia/cupti/structs.gen.go",
-            "sha256": "f56d4edf157dc0cea4956590bac3d3d5b2016ab4e0ef4aef69fcb0b10ac0d788"
+            "sha256": "13848febc0e6aa2533248202c8ebe0459e12403c9dfc87247abe7d0fe22eccae"
           },
           {
             "path": "nvidia/cupti/subscriber.gen.go",
-            "sha256": "2e00fa7097bb902a61dae95ec2fb630d202e14be566f55fffac6ce9b423fee7d"
+            "sha256": "a6333f16371f038f2876d322e7f7e4ec58ee1b581eac48ef9e299ff18954e2ce"
           },
           {
             "path": "nvidia/cupti/types.gen.go",
@@ -3656,8 +3686,8 @@
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Private local generator commit used for this reproduction; not published. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen a57cbfdc: counted slice fields and typed union members. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -5306,6 +5336,7 @@
           "go",
           "run",
           "./cmd/cusparse-survey",
+          "-allow-missing-contract",
           "-header",
           "${HEADERS_REPO}/cusparse/cusparse.h",
           "-headers-dir",
@@ -5624,7 +5655,7 @@
           },
           {
             "path": "nvidia/cusparse/constants.gen.go",
-            "sha256": "8a09e1b88ea0d652e119d0679dfb49e9e1081e4ee9ef738233aa4f5cceaf3b1f"
+            "sha256": "badcbfb33bc8fa5ead5b5c4d8fb75da5f167ee6ddf7a1c894e3fc46ffd0c730e"
           },
           {
             "path": "nvidia/cusparse/dn_mat_descr.gen.go",
@@ -5636,27 +5667,27 @@
           },
           {
             "path": "nvidia/cusparse/doc.gen.go",
-            "sha256": "a03f554abbd3f260febf10d2e58a846ca0fffda75390195af7755aa7c065aeff"
+            "sha256": "c76c841d6d328b8829fb75240fd223ff7d8bacc2d85ce393befcc0d8ca49f03d"
           },
           {
             "path": "nvidia/cusparse/enums.gen.go",
-            "sha256": "7fc2545cc0c35d9ed127613a920fd5db7af8f816b7b1a0cf2d0f48dba9601534"
+            "sha256": "cd1a28b5a4909290bf5db6a0297359cba7ce06a783a3dda60d99696f9b80b452"
           },
           {
             "path": "nvidia/cusparse/funcs.gen.go",
-            "sha256": "b47eac5a1a4041e0583e1fd25a74efc8a71f5517ccf3eb444d6c64343995679b"
+            "sha256": "785448ebc8d4e25975b27efff07b3f63d0d04a846df79dc71c46e828d9a5246e"
           },
           {
             "path": "nvidia/cusparse/handle.gen.go",
-            "sha256": "6383546b811971c61932e9112097fdedc5e0be7d620285a4efbd61fd94d24c85"
+            "sha256": "0d071ec2984c0cc4fa9a44d9197920855e1725a621ef26b9a0518bf03b33e1fa"
           },
           {
             "path": "nvidia/cusparse/handles.gen.go",
-            "sha256": "473707a028b41f09bee1b8a1befb51532e99050c08bcef25f000b454ac3dc0f5"
+            "sha256": "84c83fea2bbd333a0031a0527182ebd8bf258162a2103f8cf7a049173026d8e9"
           },
           {
             "path": "nvidia/cusparse/init.gen.go",
-            "sha256": "d1abbe9a0e247cdce4b966cf95a027e9640d74f6b53e7f2f58a5f020f25da019"
+            "sha256": "7a7a74917491bacdc9e34c78575840cda044082e4a3bd2452d2297e486fba491"
           },
           {
             "path": "nvidia/cusparse/loader.gen_test.go",
@@ -5672,11 +5703,11 @@
           },
           {
             "path": "nvidia/cusparse/provenance.gen.go",
-            "sha256": "96826b43166748b22cd10ea4913f5d40e2fac82f3e60d3b9e7363fbd73fd2448"
+            "sha256": "5aed3dde03d59e5d439450a094e89db59c75c1678af6b1cea6dc3cd445a7f45a"
           },
           {
             "path": "nvidia/cusparse/provenance.json",
-            "sha256": "f218e052d29cb8e2eb3dfce99af57db0c436d3cbd1796d982185f9e5d080328a"
+            "sha256": "027f091daf1d1ffdb4bfc55a17c60f0d640f4836f564b20303c50f91bcc9ac4f"
           },
           {
             "path": "nvidia/cusparse/result.gen.go",
@@ -5692,11 +5723,11 @@
           },
           {
             "path": "nvidia/cusparse/sp_mv_op_descr.gen.go",
-            "sha256": "6ee34156ead90cd9e27298d565adb8398d637a49549a2f417fdfd84fb512cf20"
+            "sha256": "3055e45628b35e4c506a7daafedbc493b2f4db56053302f11f036afa6f7f027f"
           },
           {
             "path": "nvidia/cusparse/sp_mv_op_plan.gen.go",
-            "sha256": "70b72a06c7f0a2b18f6a1e5989f3e23bfa9a3b893ddad6f0685825b67207a363"
+            "sha256": "3234f3127f2ffa5b186183c17e7596afeeee55f66bf812ceb01b3c61f93a1f62"
           },
           {
             "path": "nvidia/cusparse/sp_sm_descr.gen.go",
@@ -5712,14 +5743,14 @@
           },
           {
             "path": "nvidia/cusparse/types.gen.go",
-            "sha256": "6c3d2f5b37affbfa00a1d0e78f09a65a56600aa09787fe3d8373be454fb35245"
+            "sha256": "7b57e3a72f096b9e97db4d0ff7cb4c7d29553e23a418d4203471374ad958b97a"
           }
         ],
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.25.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
+        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965"
       },
       "generator_sources": [
         {
@@ -5740,15 +5771,143 @@
         },
         {
           "path": "cmd/cusparse-survey/main.go",
-          "sha256": "8b5c703d72f7e69313151effe02f782cfdd99391541b6e51a04fea0a6c04ade6"
+          "sha256": "c3bc28a8d37da129120191fa99f45edf6c533bb677ccf9595f5e4ca05f8f807f"
         },
         {
           "path": "cmd/cusparse-survey/main_test.go",
           "sha256": "33d3257b6e6bbd8971a3cf01f023c619bdf3556d7b9ba25b10970df5ee47ce34"
         },
         {
+          "path": "contrib/cuda/apiconfig.go",
+          "sha256": "258421d383f01810eaf3979a0d921cae4ecb020fbbb66f9e581a65fd5c3aff7e"
+        },
+        {
+          "path": "contrib/cuda/compiler_example_test.go",
+          "sha256": "c4c8e3b67adbd9dbb9e22608baafe8544f652f5b6a2edbbec74d308e224cc14c"
+        },
+        {
+          "path": "contrib/cuda/config_types.go",
+          "sha256": "a3683ae22787593e1e0ed3e69a1717d06ee892aed3bb4984ee3956f453660997"
+        },
+        {
+          "path": "contrib/cuda/cublas_config.go",
+          "sha256": "eb1dc1b526db84992c650c8b4e4a157b3bc03e571c5573655a96be910d56c0e1"
+        },
+        {
+          "path": "contrib/cuda/cublaslt_config.go",
+          "sha256": "4bcada3cafbcad0e14d42cda13ca7cfb9891a9f6f953ee112afc9b1005fb0de7"
+        },
+        {
+          "path": "contrib/cuda/cuda_config.go",
+          "sha256": "bd6d9351e82cfe2f9f714d89f5fcc1a4be3451d43ce1fc38450fc9a0f3fe4acf"
+        },
+        {
+          "path": "contrib/cuda/cuda_config_test.go",
+          "sha256": "f2db7d78e5e6bbd28b265de3ecf3f5dae2baca8f878bfb33a629c672d6cebec0"
+        },
+        {
+          "path": "contrib/cuda/cuda_defines.go",
+          "sha256": "e78bc711b8eaad56b1011e998e0a251c9e91debcbf76d4926c6fea0fbeed2bf0"
+        },
+        {
+          "path": "contrib/cuda/cudnn_config.go",
+          "sha256": "cf9268726001f5fe215398347012d8acdbbdd5b991ebf724e7557afb14e4fa17"
+        },
+        {
+          "path": "contrib/cuda/cufft_config.go",
+          "sha256": "5c3373ee4de5aa83dced3fe9c750868708290d7a8b9163c1727fe728b1932196"
+        },
+        {
+          "path": "contrib/cuda/cupti_config.go",
+          "sha256": "55fe778fcb5a28ec69816355fc54ba966d3f46d629e586052be289593eebfe43"
+        },
+        {
+          "path": "contrib/cuda/customizations.go",
+          "sha256": "9fd9a09545bb053ecae8418c3aa8a48e8b6fcd1d34f795261e89ecd822bc8e77"
+        },
+        {
+          "path": "contrib/cuda/doc.go",
+          "sha256": "c897b320233f98e2e00d7164dee9ffb0edb6959958c5bcd42d39f38b57cf8047"
+        },
+        {
+          "path": "contrib/cuda/elementcount_test.go",
+          "sha256": "d22b0ebb4c2a4343c7827b008d545c1df63370578e1b36294610ab90816c752c"
+        },
+        {
+          "path": "contrib/cuda/exdocs.go",
+          "sha256": "5e45befd36911f1ff57fb5b2e939a86075934ca1b9e4340436df6ddeefab098c"
+        },
+        {
+          "path": "contrib/cuda/exdocs_test.go",
+          "sha256": "49964677982e41e44ec7309616c60d92fb1ef03c541dae58b64c5229478c1c9e"
+        },
+        {
+          "path": "contrib/cuda/fabricmanager_config.go",
+          "sha256": "42d2f3764eb94cb3766148424783dde1470aa2eca72f25cf8d1293cfe603c80b"
+        },
+        {
+          "path": "contrib/cuda/names.go",
+          "sha256": "b8187866c243a8b55aa27202caff8039a214394a67d9f0b5f044a06935b72714"
+        },
+        {
+          "path": "contrib/cuda/names_test.go",
+          "sha256": "92eeecb4967030227f9c3f00bdfbbad280564a7aead8df179299aa576011bd3d"
+        },
+        {
+          "path": "contrib/cuda/nccl_config.go",
+          "sha256": "12e84b700066cea8f67517604c590d551ea0398deab6a227cc2a5a426eacdea5"
+        },
+        {
+          "path": "contrib/cuda/nvfatbin_config.go",
+          "sha256": "ee093bdfeca6b8241708db6c2a37ae9558b2e441aadea59cf3746d3b956f535b"
+        },
+        {
+          "path": "contrib/cuda/nvjitlink_config.go",
+          "sha256": "44e22055b140d412eda5f1e991cf0455fd9b5e65ef4b614ee716442d5fda09a6"
+        },
+        {
+          "path": "contrib/cuda/nvml_config.go",
+          "sha256": "184095fcd26011b722e2396aa7a534885c31af88f5b1885ce4f81ecd8c399e09"
+        },
+        {
+          "path": "contrib/cuda/nvrtc_config.go",
+          "sha256": "dcd0aac0c476ba545420e2da3053c664122dafcd80145a41d67a7118b8a8e592"
+        },
+        {
+          "path": "contrib/cuda/nvvm_config.go",
+          "sha256": "2e7af48c0d93a3fe3ea9c12bb4ea1693eedbcfa77968098d52bc15295bf76755"
+        },
+        {
+          "path": "contrib/cuda/paramtype.go",
+          "sha256": "9e147acf1454ad3417f9a1a7935ce44e9b3954a9b84d3aca0102bebe80359223"
+        },
+        {
+          "path": "contrib/cuda/paramtype_test.go",
+          "sha256": "4a961f45476838106642a1565b63eba21be72b989bf95374a4ab74a6f9133212"
+        },
+        {
+          "path": "contrib/cuda/sanitizer_config.go",
+          "sha256": "6568c66ecdaf5879e4fc17f6b4d386cb66350ca2c2d4413641882f9f0b3d5982"
+        },
+        {
+          "path": "contrib/cuda/testdata/cudnn_macros.h",
+          "sha256": "4045396faf6cd587f4d9f3481f5b2653b173513ec528a08798f7f17e014b1aa3"
+        },
+        {
+          "path": "contrib/cuda/testdata/nvfatbin.h",
+          "sha256": "8253f21b82fcc956116454750002f707fce3a6dfa9fd754f853e34802ab472f2"
+        },
+        {
+          "path": "contrib/cuda/testdata/nvjitlink.h",
+          "sha256": "ff49e75174e09d6620dae28e7e4c79e0e2d1939ffc83467af6c627bb4be89b28"
+        },
+        {
+          "path": "contrib/cuda/testdata/nvrtc_outputs.h",
+          "sha256": "46986ebe2cd0ded5511482c10390777d1b722cf6c42099da95dbc6de45b1f222"
+        },
+        {
           "path": "go.mod",
-          "sha256": "51dd9da44e697201c9a6b137f5d7b49a2cdc1fdef6a85ee6f849b151640f88bb"
+          "sha256": "45d79c1fa8befa8f8b2fb754e9992cae0c50477fae1e873d33c809fffc53feef"
         },
         {
           "path": "go.sum",
@@ -5788,7 +5947,7 @@
         },
         {
           "path": "internal/cparser/clang.go",
-          "sha256": "98fe7c5d36097004787dbe3488e0a5cf1015ab8c023fc97e44d32a0edc397f91"
+          "sha256": "fad0ed1240ce245a95671db57b720f3c1ff6922771a6375a99dd8cbeb83b3bc9"
         },
         {
           "path": "internal/cparser/clang_test.go",
@@ -5863,12 +6022,20 @@
           "sha256": "bfcf0d109967e6aa26386fc2e5fc3da9753c89776ffcd60db7a2d60730813b72"
         },
         {
+          "path": "internal/cparser/fielddir_test.go",
+          "sha256": "d459449d6456e2ba4b524132d856d5bb3b449c316b504205a7ee2516ed7d17a4"
+        },
+        {
           "path": "internal/cparser/flagsenum.go",
           "sha256": "6ce5dbda0b314472a89cc71ff4738da9326d5107f12e2249328d1b50b18dc65e"
         },
         {
           "path": "internal/cparser/flagsenum_test.go",
           "sha256": "76f98f70c9274a92208aee7764a102900b9cc91d40b9a1025b0bf72bbd266590"
+        },
+        {
+          "path": "internal/cparser/forwarders_test.go",
+          "sha256": "718958dfb1e8be577d55ee53aa497d2507e9f667511920da0a07a395e11fb442"
         },
         {
           "path": "internal/cparser/funcptrtypedef_test.go",
@@ -5904,7 +6071,7 @@
         },
         {
           "path": "internal/cparser/layoutverify.go",
-          "sha256": "d6c47f633ec43b4f3a8d241e3d14064c0caac25818b008347162a9fd351e2678"
+          "sha256": "9c0be4f55ceb3c7bfa9ba02e962c706ade5779b1d5ce3381015300acf48fe4ad"
         },
         {
           "path": "internal/cparser/layoutverify_test.go",
@@ -5940,7 +6107,7 @@
         },
         {
           "path": "internal/cparser/parser.go",
-          "sha256": "1888277f9d1789aad26f666dea70b0a04f7513ef9f78a95cf680a673d7ef16ba"
+          "sha256": "f4f07388dc2c278aa458db070c1903ecb014bbc8ab0a4ae6f40d96cf696af56c"
         },
         {
           "path": "internal/cparser/parser_test.go",
@@ -6019,6 +6186,10 @@
           "sha256": "5c032a5f26ae70353d411256239ee71efedb99d7ec04eadff08f39a222f6b5c4"
         },
         {
+          "path": "internal/cparser/testdata/forwarders.h",
+          "sha256": "7b22d2faf9772cff7a506b43d927f3bc60c495af58b2c5a69857aa007619b092"
+        },
+        {
           "path": "internal/cparser/testdata/nvml_fixture.h",
           "sha256": "237f571c58f46208a26422158abc2080b0ea2a128b14118518a9da5db0463768"
         },
@@ -6040,7 +6211,7 @@
         },
         {
           "path": "internal/cparser/types.go",
-          "sha256": "044327a37da666f90c8d2e1f8faf75f441414968fcba78e1c0c1f014b1a3453b"
+          "sha256": "ccaf3a476823e4c5090a3d8cc8c26e2e9ef4f8dbccb2f909cc8af8e4e84c994f"
         },
         {
           "path": "internal/cparser/ucx_forms_test.go",
@@ -6064,11 +6235,11 @@
         },
         {
           "path": "internal/ffigen/accessors.go",
-          "sha256": "ab74c3188ef30dbbd8e06cc1b94a0f343b36b2d575b0f2a7351067783126a742"
+          "sha256": "c5abe56fb3141952bd24b6e96ed2b05f372146d448b495a0ebd42ead8b1e9f0a"
         },
         {
           "path": "internal/ffigen/accessors_test.go",
-          "sha256": "c0da21c15cda3b5c9134af9eaee184bcee29055b400dfadf630cf5533a8e1a80"
+          "sha256": "11eeb3e09c080827a63c2452904eaeb88015f3481dd5673dbc2cb974bf67d930"
         },
         {
           "path": "internal/ffigen/aligned_test.go",
@@ -6076,7 +6247,11 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "6b59f1b67647adaf5682bca4a9fccf50250286e2066b181392d538faf79a4973"
+          "sha256": "54a09f08480cfe7e83b89c3f5ead4a20e0a710c079a5735eff1d2a12bf028fe3"
+        },
+        {
+          "path": "internal/ffigen/asynchost.go",
+          "sha256": "8880353c81115db633abff716cc761a70c3e5a4e6ce687ee9f3b164ec05d9f4f"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -6087,12 +6262,20 @@
           "sha256": "f6432edb0d35ab96ae2206fc4fe780ec6723150e3e6568211a174fe82e8a5d92"
         },
         {
+          "path": "internal/ffigen/byvalue.go",
+          "sha256": "00dc638fba9a99bec92f201355c88b87d52589c3d1f8b337aa6e6deace1d7040"
+        },
+        {
+          "path": "internal/ffigen/byvalue_test.go",
+          "sha256": "e710fb5d4a897c119fa99fe235a0c1b89c2f296a99a95f23fb8721839fde0ae0"
+        },
+        {
           "path": "internal/ffigen/callbridge.go",
-          "sha256": "b89ac7d560c77f2be6c3d963fd22998cb3a5b1b2c812307cad4dbf60a98b92f1"
+          "sha256": "30e9929d7445cf2ad40d73cd6156dcea5e540ff642abfd8c922146c0ee7c47ad"
         },
         {
           "path": "internal/ffigen/callbridge_allocs_test.go",
-          "sha256": "aadb9108c438ab05dcf449bc179e50b1e3548c194423ab91320a289037d93a72"
+          "sha256": "3a910f01368fab014a79dd2a7546319d26870d70a6f54863665e46c685fa8230"
         },
         {
           "path": "internal/ffigen/callbridge_shapes_test.go",
@@ -6111,12 +6294,44 @@
           "sha256": "d9ea6d2f4cb016ea0c70af45a97dc6b3e4f7175049f52c95d72c58e8105d9387"
         },
         {
+          "path": "internal/ffigen/callreport.go",
+          "sha256": "665b6ae4064977d559d44b239fc387f82cade231cb7b85397237303a40e8ff0b"
+        },
+        {
+          "path": "internal/ffigen/callreport_test.go",
+          "sha256": "3cc34b285ea8c820bd63a317083ac71abe6a74451ce91e78ddd909accf839029"
+        },
+        {
+          "path": "internal/ffigen/canonicalname_test.go",
+          "sha256": "9825a86b694cafed8440348ffa4c4912e593ab7368d91d6693083529da0938b8"
+        },
+        {
           "path": "internal/ffigen/closemethod.go",
           "sha256": "660d6d86b1d6582dd1c9c1f4e19090ed30ccc1178a76f3515dea75c17c345d4e"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
           "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
+        },
+        {
+          "path": "internal/ffigen/counted.go",
+          "sha256": "aa6814f541df01ca98ead9f62f91dc33c6277e3d4d1e427d95a9d0938f113c49"
+        },
+        {
+          "path": "internal/ffigen/counted_test.go",
+          "sha256": "4b0ba8ff1aa02324ebdf382bdc7e6acf19702fef0d264257999a53b5c97a029c"
+        },
+        {
+          "path": "internal/ffigen/cuda_hostbuffer_test.go",
+          "sha256": "e3894d969aa5bbf2a0da89c0d46e1b4e3a8f664657f3d5a90bce718217d25315"
+        },
+        {
+          "path": "internal/ffigen/customslice_test.go",
+          "sha256": "ad8a0d79ee900f44f880d59aa9aa143c047ddb901fd476a65621e3905980852e"
+        },
+        {
+          "path": "internal/ffigen/deferredout_test.go",
+          "sha256": "7dce738c3829dacb0460d9cdaf53f02d6ff7ddd4b6fcd85db13a3349882f7438"
         },
         {
           "path": "internal/ffigen/dim3_test.go",
@@ -6144,15 +6359,27 @@
         },
         {
           "path": "internal/ffigen/docsurvival_test.go",
-          "sha256": "82c40b1ea53afdc5772f48eb0bf2ece2e72b7193f02d31da0b35a5b0f21ea9cd"
+          "sha256": "7b4aae72e2e791a02ff2a6d9c14734be6dd87ece2a8d838d0e51809cba112132"
         },
         {
           "path": "internal/ffigen/elementcount_test.go",
-          "sha256": "f53299a50ec24982b1ec88556252e9f931dc42fc60ab334e84c2b2ad4d2158cd"
+          "sha256": "822083c39f68f51dc7be16e187349fff199e1252bff657f13327d899a6f8f2fa"
         },
         {
           "path": "internal/ffigen/enumeration_test.go",
           "sha256": "589aef9feac26b053db44ac39922ce6bdbe5d94e0f81920e77a6e24269e02b0f"
+        },
+        {
+          "path": "internal/ffigen/enumremap.go",
+          "sha256": "40050085f5bcc6d2321c7ca9ca453c5879be69b25fd3ff3cdc9599c32056f325"
+        },
+        {
+          "path": "internal/ffigen/enumremap_test.go",
+          "sha256": "bfcb168ec3fb4c3e9e91f18d0dd34acae03cb9f7c2a05f277689159df376ad45"
+        },
+        {
+          "path": "internal/ffigen/errorlog.go",
+          "sha256": "194776e07966a9613f7331e9a6a6f832e107cc575204f7a2e15d96e259cb4fff"
         },
         {
           "path": "internal/ffigen/externaldocs.go",
@@ -6171,12 +6398,32 @@
           "sha256": "6a4c1ac656c3ee229e7c95d72f70228d7cd68b9f5ae74df2c69b3a14ea7ad221"
         },
         {
+          "path": "internal/ffigen/flatunion.go",
+          "sha256": "d7ba08c250b8430b4f5bc3cfdcba148bb61e9c86d5c895183afc6b92d4edb928"
+        },
+        {
+          "path": "internal/ffigen/flatunion_test.go",
+          "sha256": "cd017ce4dc5b57ff6b22ed918a8af3d66ad72a289c63a06c50ac5f22edcd2852"
+        },
+        {
+          "path": "internal/ffigen/floorshim_test.go",
+          "sha256": "144e0d2ac4c7f154de296e4fac2a611a7f5c048b4f6f2d6da3e39f1d2d652255"
+        },
+        {
+          "path": "internal/ffigen/functionfiles.go",
+          "sha256": "73722777126e26521ee113574f9b4d2b96e86849172020955c6d68f5513954ff"
+        },
+        {
+          "path": "internal/ffigen/functionfiles_test.go",
+          "sha256": "25b8ee3375ce62ae7c7a370800708cc0188ca50f5df72de096985a45871ee6ff"
+        },
+        {
           "path": "internal/ffigen/generator.go",
-          "sha256": "9dffd6233ab84741dd57311afa8a73aff874419a3cc089e156efc1aa50a606b3"
+          "sha256": "6cc9bc7246d75a9578ce1fbbaac633f483f1d174422cfe4da411d2c27d3258e2"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "2f777fe2ba7786fe22e31c7921ec35b46eb414776bf51793a29e6260123d5eee"
+          "sha256": "dd340345d6011009e748b235aa115934c3ebb2486a49914f1c9d1ad8cca9f083"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -6192,7 +6439,7 @@
         },
         {
           "path": "internal/ffigen/image.go",
-          "sha256": "d8be7389cd01e58a536e431c8261b28c0afaba364128d5a06d110046e19dd2a2"
+          "sha256": "3cf8bcc214d355699026b2740154411f5671405cbe190bdb8638e56d13278dbb"
         },
         {
           "path": "internal/ffigen/includedenum.go",
@@ -6201,6 +6448,30 @@
         {
           "path": "internal/ffigen/includedenum_test.go",
           "sha256": "61f5651c1f81cb0bba43a8c6ae701cd044ddae27a9bc6097fe9fcc523c37be8f"
+        },
+        {
+          "path": "internal/ffigen/infields.go",
+          "sha256": "4703782b5962d579535e8ee79eea7a04318f5907cb3543ffeaef7d4f1ec4cdb0"
+        },
+        {
+          "path": "internal/ffigen/infields_test.go",
+          "sha256": "52e2a834cc7115fc457c7b2798f08c9fef0f716af4168a9aad0711d0814dff4e"
+        },
+        {
+          "path": "internal/ffigen/initializers.go",
+          "sha256": "950e0843bad4737f9a093a4718e56103f3923458430cd5a74b0f3fc49f6c0183"
+        },
+        {
+          "path": "internal/ffigen/install.go",
+          "sha256": "afe0df1de46e29995447ab4c25ea67709d8464420e7f8d9702907852c397512a"
+        },
+        {
+          "path": "internal/ffigen/install_test.go",
+          "sha256": "93a54be1c65071a7bfa24a50397ce01bd685648680f1d61dd1773a942db5fde9"
+        },
+        {
+          "path": "internal/ffigen/loadbindings_test.go",
+          "sha256": "ccd63e6d253c17fb82de3acc7f25a1d8b1177236152a2ba64477420b1fc5be20"
         },
         {
           "path": "internal/ffigen/loaderrors.go",
@@ -6224,15 +6495,23 @@
         },
         {
           "path": "internal/ffigen/multilib_test.go",
-          "sha256": "54d883452b51a42314e9742785517a0fbc1b218a00428aaa8c1f538800f82e08"
+          "sha256": "72df4b4e3f22aa6ce0767262284864bc32e8e7f910e8fd74728079b8ff94d4dd"
         },
         {
           "path": "internal/ffigen/negativeresult.go",
-          "sha256": "391d6da4372ab1a6d1995ddf7056a8c115f128152e0e9424e78735fec5c300f2"
+          "sha256": "a7053706c880bc3682e1278e8583a42bb2044f4c52d5fe4470fe426451dc3ded"
         },
         {
           "path": "internal/ffigen/negativeresult_test.go",
           "sha256": "6b2c985f7592de426e42a66ac26fa67643915645a3b87110261e59d29a96fde4"
+        },
+        {
+          "path": "internal/ffigen/pairedslice.go",
+          "sha256": "4a7be78e7eac328b4ddb624ed93c44ce146c3bbcd0f4a89910f7b438558593f1"
+        },
+        {
+          "path": "internal/ffigen/paramlayout.go",
+          "sha256": "7e6fe9a9a42def063f2b27aed3fe8bb3085f8209cb55d3ea20f5c1ba9f13af54"
         },
         {
           "path": "internal/ffigen/platform_loader.go",
@@ -6243,16 +6522,48 @@
           "sha256": "ea39ae41031766520951586d198b916f13ee73472726f8cdd917126a2b844f58"
         },
         {
+          "path": "internal/ffigen/publicpointer_test.go",
+          "sha256": "a7b60bca6463a05217865c793ca3985e211a49c5cbedb0c23d1b2e4c0b02ecdb"
+        },
+        {
+          "path": "internal/ffigen/releaserange.go",
+          "sha256": "7a353a239edb4d9068b05d784def62a1322756b779ba9f7d01dbd19911ba560f"
+        },
+        {
+          "path": "internal/ffigen/releaserange_test.go",
+          "sha256": "74ca9c1440b4ef83170e6822e47fd6ddc90080ef2958169b90e5a6f49bb23e6b"
+        },
+        {
+          "path": "internal/ffigen/requestedslice.go",
+          "sha256": "c1cacc6e2d84069f44df2f1c9c058a6a9e791fb028efb40b265242d3ce40285e"
+        },
+        {
+          "path": "internal/ffigen/requestedslice_test.go",
+          "sha256": "9a8dc9b8ea5ef98323db30ba4fe9607dc64e92eed0d2e1be666ff0810c3c32d4"
+        },
+        {
+          "path": "internal/ffigen/retained_doc_test.go",
+          "sha256": "6a37442ef3e2ea14ec14c42147468d5f683ef3a4213164f81c9f00cde3410975"
+        },
+        {
           "path": "internal/ffigen/returnerrors_test.go",
           "sha256": "2ebb4670afa5977859ca02d7fa12a3031bd9c89f6e0ec2b64ba39ff5dc0c6d1d"
         },
         {
           "path": "internal/ffigen/scalar.go",
-          "sha256": "b241b7d262490ac68f45b20003ef914e5f6ac4ca58bb5e3858d85ea2cfbb1ed9"
+          "sha256": "88c2b8d9cfda7a17a27049b79ce13a0851b7ea5e5d63484e9850bf92b2b16a5c"
         },
         {
           "path": "internal/ffigen/scalarpointer_test.go",
           "sha256": "fde6c20ec9eace0fcae88357a3a58dd6aa33d6b2655abdd6088a3cd703097338"
+        },
+        {
+          "path": "internal/ffigen/shape.go",
+          "sha256": "351a5e568698f76167bca34c036c3e8c3f77b5145eca3e5bfaf2193e87c9dcda"
+        },
+        {
+          "path": "internal/ffigen/shape_test.go",
+          "sha256": "8c6419d7ade8dd7f06fab2bc893e559d2000830cd2dfb30b1511773e215d558e"
         },
         {
           "path": "internal/ffigen/sizedslice.go",
@@ -6263,16 +6574,60 @@
           "sha256": "d84cde000f4872fd3ce8be845c3245b0ee2f7138d63abf25c3c512acaf6ad33d"
         },
         {
+          "path": "internal/ffigen/sonames.go",
+          "sha256": "7ce25e5affced501d3d2949d673226a571ec9ac0477ad714e6b181e207cadb5c"
+        },
+        {
+          "path": "internal/ffigen/sonames_test.go",
+          "sha256": "5b2bd301e98d31d67eef5033084702569a449230011d72bcc26d1c42bb6cdaae"
+        },
+        {
+          "path": "internal/ffigen/stringresult.go",
+          "sha256": "1177db97d0567dd6eb4b7d0a32b694484efcce8c29ae93d3aeccf882d30eab42"
+        },
+        {
+          "path": "internal/ffigen/stringresult_test.go",
+          "sha256": "cd087fef943164528298916a079a7828c7102cd0b6734ecbc1433245088dadc9"
+        },
+        {
+          "path": "internal/ffigen/struct_names_test.go",
+          "sha256": "c31be38a6bc8e124305227c81111841311a828cb8c4578f01008ce1c186ce6e5"
+        },
+        {
           "path": "internal/ffigen/structbyvalue_test.go",
           "sha256": "976c6468be70a556d67ae6cdb28c0f0fd2c225b8289b3fbb2320e97a35c8bab6"
         },
         {
+          "path": "internal/ffigen/symbolfallback_test.go",
+          "sha256": "9c8ad5b50c369a33a9607fc2aef275c49e21aa5206e90020e2da9867ffa245b8"
+        },
+        {
           "path": "internal/ffigen/symbollinks.go",
-          "sha256": "2789a53aa3327e875b1a7f6b08975761a6a6f0988275aa2f29f15c648152410c"
+          "sha256": "ee71649ab801fad0bfa0c7aff4b4fd1627960f32410c34d05f97c7dcd0dedcf3"
         },
         {
           "path": "internal/ffigen/symbollinks_test.go",
           "sha256": "4e6d4edd60803dcd87c695a889707412853432b27a615810319a7b12dcc8dc2e"
+        },
+        {
+          "path": "internal/ffigen/taggedrecords.go",
+          "sha256": "5abb711d6e338fddbdb15535d30e251f72027ddd0b9be8d2797a1badecc6b275"
+        },
+        {
+          "path": "internal/ffigen/taggedrecords_test.go",
+          "sha256": "e1aa2dae3b5d304efbd0b177c322e4db85a2e11e516f8581cecb92fbc48eccc5"
+        },
+        {
+          "path": "internal/ffigen/testdata/accessors.h",
+          "sha256": "6b53313418c5131c2ff1ec767c9092625d6135ae55347737053ea1d632151d60"
+        },
+        {
+          "path": "internal/ffigen/testdata/counted.h",
+          "sha256": "f50969028d667c261ef99482ddd22b1dbd1aca8b28cd721fcb23810815f5ec55"
+        },
+        {
+          "path": "internal/ffigen/toolkitsearch.go",
+          "sha256": "bf808c275e1d124fcf23e4ed337c738bb2a78cde46cd722b224ed80435fd3a87"
         },
         {
           "path": "internal/ffigen/unsafe_customization_test.go",
@@ -6285,6 +6640,14 @@
         {
           "path": "internal/ffigen/versioncheck_encoding_test.go",
           "sha256": "01be98ca1ce40c187d7336ce11d73791c02d745827b09007ea1e87a439742f3b"
+        },
+        {
+          "path": "internal/ffigen/versionedfuncs.go",
+          "sha256": "565caa3fe00847a5861b0b7851d10539453032a2ecfc43eed36c9588b909ddeb"
+        },
+        {
+          "path": "internal/ffigen/versionedfuncs_test.go",
+          "sha256": "80a3dcc330d8d670b7e2fe89c9d215ec0273b3a765c924db7a19ae0ac85d3ca1"
         },
         {
           "path": "internal/goident/dim3.go",
@@ -6318,7 +6681,7 @@
       "header": {
         "path": "cusparse/cusparse.h",
         "repository": "headers",
-        "sha256": "446549afb6720ec5d56e85648c03b4dbfa9d9bda8d29acdbed3b6fdbb0912fcb"
+        "sha256": "65749b43a6acd035d3923e718f9a8f18d49d1e76d35dad85ea5331d1a851073b"
       },
       "header_dependencies": [
         {
@@ -6391,8 +6754,8 @@
       "package": "github.com/tmc/lib/nvidia/cusparse",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -7348,10 +7711,13 @@
           "${HEADERS_REPO}/driver/cuda.h",
           "-headers-dir",
           "${HEADERS_REPO}",
+          "-floor-header",
+          "${HEADERS_REPO}/pinned/driver/cuda-12.2/cuda.h",
           "-docs-dir",
           "${CODEGEN_REPO}/docs",
           "-output",
-          "${OUTPUT_DIR}"
+          "${OUTPUT_DIR}",
+          "-allow-api-removal"
         ],
         "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate.",
         "cwd": "${CODEGEN_REPO}",
@@ -7359,7 +7725,7 @@
           "GOWORK": "off",
           "GOTOOLCHAIN": "go1.27.0"
         },
-        "note": " Tier 0 loader-only BindFailures backport from existing emitter; no driver API regeneration or signature changes.",
+        "note": "Regenerated from the CUDA 13.4 driver header with CUDA 12.2 as the floor; the prior generated output was based on pinned CUDA 13.2 (sha256 673873a2). CUDA 13.4 adds customStorageInfo_out and padding0 to checkpoint/restore arguments and removes reserved1; it adds gpuDirectRDMACapable to MemPoolProps, localityDomainId to CuDevSmResourceGroupParams, and changes CoredumpGenerationFlags from int32 to uint32. The 12.2 floor keeps Stream.Ctx and Stream.LaunchHostFunc at their older signatures and exposes the newer signatures as CtxV2 and LaunchHostFuncV2. MemLocation.Id remains an int32 field; Localized views the same union storage.",
         "outputs": [
           {
             "path": "nvidia/driver/array.gen.go",
@@ -7371,7 +7737,7 @@
           },
           {
             "path": "nvidia/driver/callbacks.gen.go",
-            "sha256": "ef1cc7c57a42c02aadc3c108ca38d839f5972df2f28eb01a0278c30d75994a27"
+            "sha256": "5618aa5eeac2d84ce460ba225ba1aa58d9ee83f55f99200c18a654743a2c193b"
           },
           {
             "path": "nvidia/driver/child_graph_node.gen.go",
@@ -7379,11 +7745,11 @@
           },
           {
             "path": "nvidia/driver/constants.gen.go",
-            "sha256": "bc56465bda38dbea23985c34f25e5a8ce6cec430c068bd608a6ba32762d4639f"
+            "sha256": "ab70d94b1e4d1350a594e91bb138709061e2adc4b780694a28ad04ef0b6f1ebc"
           },
           {
             "path": "nvidia/driver/context.gen.go",
-            "sha256": "8076844e9d4e36d55984249f69caf56715d492bc5c4a45f66bc0f4d3c4b7152a"
+            "sha256": "9205d3ffd4354f0460c6e21b0b3588f8f96c0e9f1e686275165aca9974754878"
           },
           {
             "path": "nvidia/driver/coredump_callback_handle.gen.go",
@@ -7391,23 +7757,23 @@
           },
           {
             "path": "nvidia/driver/device.gen.go",
-            "sha256": "6b25efd712b84d423ddc8c8f5b2e544ca5c1a0c92648977093f1b0ec77013aaa"
+            "sha256": "e2c343fb39369120822a1954aa5e24890a2df29e63fc4942ac526e15250b390c"
           },
           {
             "path": "nvidia/driver/device_ptr.gen.go",
-            "sha256": "0a20a885b163076105bba9f6a8017fe66442defb453ce1a6b0f22a326b6f926e"
+            "sha256": "c226908c0441b89a23ad40b2c4c5de80a0dde7a1ba94df3f44898a5a079aebbf"
           },
           {
             "path": "nvidia/driver/doc.gen.go",
-            "sha256": "89b946d05027d923cb4d5a7c6bc1aeb5a752ed327ac135666b5f023662074efe"
+            "sha256": "ca27e2656e61cf789e833054390b67149b797f88456d3450e6776fefaf2a7046"
           },
           {
             "path": "nvidia/driver/enums.gen.go",
-            "sha256": "6695fbf95d78d16fcaf2d718030ed57be2de9acb6a4397cf040b754a74de33b1"
+            "sha256": "f02c168941a36eea1f81ef2da413515d1ad0066a562230dff122d36909eb9c6a"
           },
           {
             "path": "nvidia/driver/event.gen.go",
-            "sha256": "1fef9c0a612b8c72fdd9c7515e5e1c61fd555789a0ed8bf1e854c57f27723fe6"
+            "sha256": "0c9148483ab053fcf37f08ba952c435c589c916ffeeef1850122dfb6310f11c9"
           },
           {
             "path": "nvidia/driver/event_record_node.gen.go",
@@ -7435,15 +7801,15 @@
           },
           {
             "path": "nvidia/driver/funcs.gen.go",
-            "sha256": "e17a9eac3a92e3e767b7113efbe2d668725a76d6859bb885d4a9df793dd608cb"
+            "sha256": "d9b4c967cae98a6f72ca122d438720488c6df6d122c97ab369b062b66227152d"
           },
           {
             "path": "nvidia/driver/function.gen.go",
-            "sha256": "2dacc1940489ff86e2a6c4838a83aae6d5bf6b85e249c08b90a7a3b765fe18e9"
+            "sha256": "00a09ac1d33caaaf6946d5025afebfc10dd6d296cd09808a569d948418eee446"
           },
           {
             "path": "nvidia/driver/graph.gen.go",
-            "sha256": "67afd3b61db0cb15b9a7a1a157d443ad6fcf860d208bab9a2c12c045148d4273"
+            "sha256": "95cd488953d742dc2cd9d8aafa61ecaa5f61384e65a38509f8d9c31409befb21"
           },
           {
             "path": "nvidia/driver/graph_exec.gen.go",
@@ -7451,7 +7817,7 @@
           },
           {
             "path": "nvidia/driver/graph_node.gen.go",
-            "sha256": "6bd89db4e24bbb2d7ea19c19f154f96a8dd0fc92aa7d29ab9a43607f817c8996"
+            "sha256": "e90a1a9d340a1a562ed078b950cd9422e8a35bca1059897ff8e998c45e815e4e"
           },
           {
             "path": "nvidia/driver/graphics_resource.gen.go",
@@ -7459,11 +7825,11 @@
           },
           {
             "path": "nvidia/driver/green_ctx.gen.go",
-            "sha256": "de4690a59af961057636418e384e41b8d17fcac81f9ccdd19bbe8c4b8a5273d3"
+            "sha256": "2d4ec389cd52089261480e5289848cf66f5850a0c3e7e32353c2569d9577d6d1"
           },
           {
             "path": "nvidia/driver/handles.gen.go",
-            "sha256": "f4e2ae062a88377166e143b27b87730009ba9e9093353b2332e2e94f89de1def"
+            "sha256": "39f71fb526a4e010ae8ff5117060f29b0bb752e370ea5bb826767d25ac9aef48"
           },
           {
             "path": "nvidia/driver/host_node.gen.go",
@@ -7471,11 +7837,11 @@
           },
           {
             "path": "nvidia/driver/init.gen.go",
-            "sha256": "24be930343fe23561d9a9e33d6a77f197d96e5e13be16bc55a1d7f445c998050"
+            "sha256": "f83ba06e821bb6c4515315c652cb1240ab586ece36a1a3255f90575e8eaaa8c7"
           },
           {
             "path": "nvidia/driver/kernel.gen.go",
-            "sha256": "b7b4af6f6eb96733ee1656db38264afc44e2b26aac7c04d53e108d3bd97545dc"
+            "sha256": "b20d8274d25ab9019868bd48b3e3d92ce2fc6a6d0989a334aeca2205d4144a64"
           },
           {
             "path": "nvidia/driver/kernel_node.gen.go",
@@ -7483,7 +7849,7 @@
           },
           {
             "path": "nvidia/driver/layout.gen_test.go",
-            "sha256": "b0bd5c6d71b21588bae4ff19a2fbfabd4a165435c989811abd725087b589ea81"
+            "sha256": "5d51752c05b905ee24aca53969a4d17114e123ea69cd0900c651028c88b40d61"
           },
           {
             "path": "nvidia/driver/library.gen.go",
@@ -7495,7 +7861,7 @@
           },
           {
             "path": "nvidia/driver/loader.gen_test.go",
-            "sha256": "2d0dc90ef1ba193549921b020c5f764f2a364671491d3b92de0fffea80cbaa41"
+            "sha256": "6bc400bd99c03d4f44e07014a612e831a544f8081b3093d8b7339b66d1f1ed33"
           },
           {
             "path": "nvidia/driver/loader_unix.gen.go",
@@ -7523,7 +7889,7 @@
           },
           {
             "path": "nvidia/driver/memory_pool.gen.go",
-            "sha256": "60720871e40a57c094b33270ca4e1f22b6c1488f4e402e98f399c44ecc87797e"
+            "sha256": "a0a53c948836157be269d318f3ded8eae1f3bb2f5faf90daac8416c67a347447"
           },
           {
             "path": "nvidia/driver/memset_node.gen.go",
@@ -7539,23 +7905,23 @@
           },
           {
             "path": "nvidia/driver/provenance.gen.go",
-            "sha256": "625fbb6a244cc7dc685d4d8b869c84262a0ed9c0ec01ae4e3ff70790819ac1d4"
+            "sha256": "8a14990b35bc2947f2d4f84b379c4ca90796a7f2d53de310e59baaf9aeaeaab1"
           },
           {
             "path": "nvidia/driver/provenance.json",
-            "sha256": "c1d692996c2c6d5380a6688ff148798ef59d45aae153634287c4b8cf5ddcaee7"
+            "sha256": "e2352cbb2effe33d059be27d5c024cef8e3a653f9e7f58e9d053a05c02941699"
           },
           {
             "path": "nvidia/driver/result.gen.go",
-            "sha256": "584657e672b5f1b53be5f6fc3cc7cb97c4cc4df1cc08ba0009ba1baaca123695"
+            "sha256": "01cd6c1d811c0a03927198b409f5cfb6942af04b21540eb0c5831580ed03f27c"
           },
           {
             "path": "nvidia/driver/stream.gen.go",
-            "sha256": "4b072331a69ab2fa66a9b98b8cbb8ac9bc495b09326fa4540ce6741e70157f54"
+            "sha256": "2b41d12f16a5e242554b0e23078ae1ca627607bb2bd04d641b961816e021c674"
           },
           {
             "path": "nvidia/driver/structs.gen.go",
-            "sha256": "911ea8024ce01f1a66fae13f43d3c9bb2719ecc2cfc227bcfe9d474acaf1d9d4"
+            "sha256": "526eed69d4c78d5560d3ba65a1dd29950ea4a993faca848ffb80007f130f525e"
           },
           {
             "path": "nvidia/driver/surf_ref.gen.go",
@@ -7568,39 +7934,1202 @@
           {
             "path": "nvidia/driver/user_object.gen.go",
             "sha256": "d3224bc7c6c44bb2e63652cf89b7e613b81ef4703a6843f1dd9cc4e03dc0c348"
+          },
+          {
+            "path": "nvidia/driver/checkpoint_operation_handle.gen.go",
+            "sha256": "8c5d050ccef01bc6cab0f76872c032216a583df4dd0f4bf4ac17a2e404d76031"
+          },
+          {
+            "path": "nvidia/driver/types.gen.go",
+            "sha256": "96953ba681d0b2d615a7378e7ee1b4b5997c8204b12b6130c599ffe9a65adc7e"
+          },
+          {
+            "path": "nvidia/driver/frozennames.txt",
+            "sha256": "76f2c8d8d1d38eb5c6cce7745eb91760902ba553e718fe67b9290db9ed5f1859"
           }
         ],
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf"
+        "source_state": "clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
       },
+      "generator_sources": [
+        {
+          "path": "cmd/driver-survey/hoist_test.go",
+          "sha256": "a5ee65f0835608787c2494d55b1c6bc93863ee5a0178425276404e3f1e852bd2"
+        },
+        {
+          "path": "cmd/driver-survey/identifiers_test.go",
+          "sha256": "59cd53e879f676b694fa69532ce1c34e4f843d1722c4e266259c25fbc330103f"
+        },
+        {
+          "path": "cmd/driver-survey/main.go",
+          "sha256": "7bb9e06db720064d6614626206d0a3575c4ce07224afb27e97d9a351056d760a"
+        },
+        {
+          "path": "cmd/driver-survey/parse_config.go",
+          "sha256": "5e49ebcd166e56529dcc9472065371c47c2c82dedc358bd6f150e0e473aa148c"
+        },
+        {
+          "path": "contrib/cuda/apiconfig.go",
+          "sha256": "258421d383f01810eaf3979a0d921cae4ecb020fbbb66f9e581a65fd5c3aff7e"
+        },
+        {
+          "path": "contrib/cuda/compiler_example_test.go",
+          "sha256": "c4c8e3b67adbd9dbb9e22608baafe8544f652f5b6a2edbbec74d308e224cc14c"
+        },
+        {
+          "path": "contrib/cuda/config_types.go",
+          "sha256": "a3683ae22787593e1e0ed3e69a1717d06ee892aed3bb4984ee3956f453660997"
+        },
+        {
+          "path": "contrib/cuda/cublas_config.go",
+          "sha256": "eb1dc1b526db84992c650c8b4e4a157b3bc03e571c5573655a96be910d56c0e1"
+        },
+        {
+          "path": "contrib/cuda/cublaslt_config.go",
+          "sha256": "4bcada3cafbcad0e14d42cda13ca7cfb9891a9f6f953ee112afc9b1005fb0de7"
+        },
+        {
+          "path": "contrib/cuda/cuda_config.go",
+          "sha256": "44300a982e7f1a80ae9bf2a311f8d3c735a6ddcc17e7c24e9b02217cbf8ae7b4"
+        },
+        {
+          "path": "contrib/cuda/cuda_config_test.go",
+          "sha256": "f2db7d78e5e6bbd28b265de3ecf3f5dae2baca8f878bfb33a629c672d6cebec0"
+        },
+        {
+          "path": "contrib/cuda/cuda_defines.go",
+          "sha256": "e78bc711b8eaad56b1011e998e0a251c9e91debcbf76d4926c6fea0fbeed2bf0"
+        },
+        {
+          "path": "contrib/cuda/cudnn_config.go",
+          "sha256": "cf9268726001f5fe215398347012d8acdbbdd5b991ebf724e7557afb14e4fa17"
+        },
+        {
+          "path": "contrib/cuda/cufft_config.go",
+          "sha256": "5c3373ee4de5aa83dced3fe9c750868708290d7a8b9163c1727fe728b1932196"
+        },
+        {
+          "path": "contrib/cuda/cupti_config.go",
+          "sha256": "55fe778fcb5a28ec69816355fc54ba966d3f46d629e586052be289593eebfe43"
+        },
+        {
+          "path": "contrib/cuda/customizations.go",
+          "sha256": "9fd9a09545bb053ecae8418c3aa8a48e8b6fcd1d34f795261e89ecd822bc8e77"
+        },
+        {
+          "path": "contrib/cuda/doc.go",
+          "sha256": "c897b320233f98e2e00d7164dee9ffb0edb6959958c5bcd42d39f38b57cf8047"
+        },
+        {
+          "path": "contrib/cuda/elementcount_test.go",
+          "sha256": "d22b0ebb4c2a4343c7827b008d545c1df63370578e1b36294610ab90816c752c"
+        },
+        {
+          "path": "contrib/cuda/exdocs.go",
+          "sha256": "5e45befd36911f1ff57fb5b2e939a86075934ca1b9e4340436df6ddeefab098c"
+        },
+        {
+          "path": "contrib/cuda/exdocs_test.go",
+          "sha256": "49964677982e41e44ec7309616c60d92fb1ef03c541dae58b64c5229478c1c9e"
+        },
+        {
+          "path": "contrib/cuda/fabricmanager_config.go",
+          "sha256": "42d2f3764eb94cb3766148424783dde1470aa2eca72f25cf8d1293cfe603c80b"
+        },
+        {
+          "path": "contrib/cuda/names.go",
+          "sha256": "b8187866c243a8b55aa27202caff8039a214394a67d9f0b5f044a06935b72714"
+        },
+        {
+          "path": "contrib/cuda/names_test.go",
+          "sha256": "92eeecb4967030227f9c3f00bdfbbad280564a7aead8df179299aa576011bd3d"
+        },
+        {
+          "path": "contrib/cuda/nccl_config.go",
+          "sha256": "12e84b700066cea8f67517604c590d551ea0398deab6a227cc2a5a426eacdea5"
+        },
+        {
+          "path": "contrib/cuda/nvfatbin_config.go",
+          "sha256": "ee093bdfeca6b8241708db6c2a37ae9558b2e441aadea59cf3746d3b956f535b"
+        },
+        {
+          "path": "contrib/cuda/nvjitlink_config.go",
+          "sha256": "44e22055b140d412eda5f1e991cf0455fd9b5e65ef4b614ee716442d5fda09a6"
+        },
+        {
+          "path": "contrib/cuda/nvml_config.go",
+          "sha256": "184095fcd26011b722e2396aa7a534885c31af88f5b1885ce4f81ecd8c399e09"
+        },
+        {
+          "path": "contrib/cuda/nvrtc_config.go",
+          "sha256": "dcd0aac0c476ba545420e2da3053c664122dafcd80145a41d67a7118b8a8e592"
+        },
+        {
+          "path": "contrib/cuda/nvvm_config.go",
+          "sha256": "2e7af48c0d93a3fe3ea9c12bb4ea1693eedbcfa77968098d52bc15295bf76755"
+        },
+        {
+          "path": "contrib/cuda/paramtype.go",
+          "sha256": "9e147acf1454ad3417f9a1a7935ce44e9b3954a9b84d3aca0102bebe80359223"
+        },
+        {
+          "path": "contrib/cuda/paramtype_test.go",
+          "sha256": "4a961f45476838106642a1565b63eba21be72b989bf95374a4ab74a6f9133212"
+        },
+        {
+          "path": "contrib/cuda/sanitizer_config.go",
+          "sha256": "6568c66ecdaf5879e4fc17f6b4d386cb66350ca2c2d4413641882f9f0b3d5982"
+        },
+        {
+          "path": "contrib/cuda/testdata/cudnn_macros.h",
+          "sha256": "4045396faf6cd587f4d9f3481f5b2653b173513ec528a08798f7f17e014b1aa3"
+        },
+        {
+          "path": "contrib/cuda/testdata/nvfatbin.h",
+          "sha256": "8253f21b82fcc956116454750002f707fce3a6dfa9fd754f853e34802ab472f2"
+        },
+        {
+          "path": "contrib/cuda/testdata/nvjitlink.h",
+          "sha256": "ff49e75174e09d6620dae28e7e4c79e0e2d1939ffc83467af6c627bb4be89b28"
+        },
+        {
+          "path": "contrib/cuda/testdata/nvrtc_outputs.h",
+          "sha256": "46986ebe2cd0ded5511482c10390777d1b722cf6c42099da95dbc6de45b1f222"
+        },
+        {
+          "path": "gen/apiremoval.go",
+          "sha256": "acd0ca12477bc247495d8025ac7a6a0f0c768001a299313ab936a58202416ca2"
+        },
+        {
+          "path": "gen/apiremoval_test.go",
+          "sha256": "67b68339fd7a320b1c8e26a78cf95d0b5d2e884e94c2c36218bdf2d731c357d4"
+        },
+        {
+          "path": "gen/apply.go",
+          "sha256": "bb8debc809103bad6269e3aad09b8aca2388c524e5a5ae98966f2545822990e4"
+        },
+        {
+          "path": "gen/apply_test.go",
+          "sha256": "5d86218677869da1cc779264a8b7ba629c88dae084c341c9fad2b165ec55a319"
+        },
+        {
+          "path": "gen/frozennames.go",
+          "sha256": "a7ce8efdf103f46c156c8be4908909dbdbf619d16eea5ad06e85a612e02a8bda"
+        },
+        {
+          "path": "gen/frozennames_test.go",
+          "sha256": "286e16147e35168a62c572c85bcf42789ef3d10422df04c298bda86a9c9eaba5"
+        },
+        {
+          "path": "gen/gen.go",
+          "sha256": "0df14f30e9e97784c071fdb5d08513817caeec57aa585c7a8daffebf27d78b42"
+        },
+        {
+          "path": "gen/gen_test.go",
+          "sha256": "cf01c28195773306015bd48e803a5a3f6594a99bff32d2eac838189b720b93cd"
+        },
+        {
+          "path": "gen/genfile.go",
+          "sha256": "754bbf326c4b65585362035a052a35ae32e48bf1733401e9cef145c689456aa3"
+        },
+        {
+          "path": "gen/genfile_test.go",
+          "sha256": "643d7475ebb173bcc6525bcba017a1612a91685095c86346306d23c49914d6d6"
+        },
+        {
+          "path": "gen/imports.go",
+          "sha256": "6b0a1fd32ee389b6f41d6f84813bb1f7b62aac2347f34041f25cd13cf51415be"
+        },
+        {
+          "path": "gen/imports_test.go",
+          "sha256": "c4f9c4312cc34ec8e56e228c2553df3c1e3be9f5f9809eb7c81975e04d5e7e17"
+        },
+        {
+          "path": "gen/packageplan/doc.go",
+          "sha256": "78232338b317f56c75452521578adc6bf5ddef796b8a8e9ba7208237af65042b"
+        },
+        {
+          "path": "gen/packageplan/load.go",
+          "sha256": "36a1409687bfb9f867dd351e4a09a900be6b33060103c99c85178056603caf42"
+        },
+        {
+          "path": "gen/packageplan/packageplan_test.go",
+          "sha256": "b6dd1ad489058756935ac23e4c5caf59c25c284b149ace37d2b9cb0ee46e25b4"
+        },
+        {
+          "path": "gen/packageplan/render.go",
+          "sha256": "cbba6db6013eda6555a05ddd8d51bbc46942f051be9f452083bb2140c3cddbb5"
+        },
+        {
+          "path": "gen/packageplan/types.go",
+          "sha256": "07897839e56f634b61911f207eee22ab28cc213c46776f55f7168d9db59f5f98"
+        },
+        {
+          "path": "gen/packageplan/validate.go",
+          "sha256": "c0573003388e12aa500a0499673d0bbff2263f829c83eddd77ff499ae43bf7f8"
+        },
+        {
+          "path": "gen/wrapper.go",
+          "sha256": "a32abe2d9d6ab5324c7ac9829113317da6adfd76e5f7c9a51417268ab3d88cc1"
+        },
+        {
+          "path": "gen/wrapper.txtar",
+          "sha256": "758c1f3b294ae0e35b5865c8c5dba7bfaba19552211357989037836070d6c9f2"
+        },
+        {
+          "path": "gen/wrapper_builder.go",
+          "sha256": "2cb0c629ca2b6a82afe3a771690170b4b1f2f2b7a704eb47363e10401650f300"
+        },
+        {
+          "path": "gen/wrapper_generate.go",
+          "sha256": "52c2f9a1eb8861542e6c699d8e15ec918940c1ed741d200a2da6aa7fca2f5dec"
+        },
+        {
+          "path": "gen/wrapper_test.go",
+          "sha256": "e077fc2657c954e2801ba571aa663e9be77e6821f22a2fb443f221dd8d12abec"
+        },
+        {
+          "path": "go.mod",
+          "sha256": "45d79c1fa8befa8f8b2fb754e9992cae0c50477fae1e873d33c809fffc53feef"
+        },
+        {
+          "path": "go.sum",
+          "sha256": "ec5e02d69647403fb5c9fffb4ec47ae0125042ed6877f79bf02730caeb526571"
+        },
+        {
+          "path": "internal/callbridge/callbridge.go",
+          "sha256": "14f86bfd5848e528a4e55a3266ead7542d5c1aa8b6947bb4682e6e949a2b4f4c"
+        },
+        {
+          "path": "internal/callbridge/callbridge_test.go",
+          "sha256": "a011d42fd171cb3871b5e35d9b3a24937998ccf54abd2a767ae37f5837eb1d33"
+        },
+        {
+          "path": "internal/cparser/PARSEPATHS.md",
+          "sha256": "eae249ad2d408e5244e43fdb571b5cf2da0198211437a14a29cbf9bdf892f8e5"
+        },
+        {
+          "path": "internal/cparser/aligned.go",
+          "sha256": "da881a4e1d500bd3cdcb7aa09f3783168123a703e552f12bfdbda2db491b9b35"
+        },
+        {
+          "path": "internal/cparser/aligned_test.go",
+          "sha256": "7e7634d2c879aa708741a9def422bc5fe2cfb131fd303bc91929275b4ac140f0"
+        },
+        {
+          "path": "internal/cparser/arraybound_clang_test.go",
+          "sha256": "d8bef43d5cd0dd8efd862fd738207f90998d15f253175d2d384c8adce8b69b3f"
+        },
+        {
+          "path": "internal/cparser/arraybound_test.go",
+          "sha256": "eb1f888aa4cc00d3a491422fc7b275188a6ada945eeecc283f87035eebea8c8f"
+        },
+        {
+          "path": "internal/cparser/arrayparam_test.go",
+          "sha256": "d8fc9eb558099e755d9f1258662897212dc0d671e45dde9aebdbe1b5ba4c9b14"
+        },
+        {
+          "path": "internal/cparser/boundary_test.go",
+          "sha256": "a0a68b2fb0d4597c49d6bee7513b79df48a73048845d2f0eef47bd4d8e071fe2"
+        },
+        {
+          "path": "internal/cparser/cints_test.go",
+          "sha256": "b297f9fd702dcc8afcad316d22e498c9ccfd69c749056b45736141f4d15d24fc"
+        },
+        {
+          "path": "internal/cparser/clang.go",
+          "sha256": "fad0ed1240ce245a95671db57b720f3c1ff6922771a6375a99dd8cbeb83b3bc9"
+        },
+        {
+          "path": "internal/cparser/clang_test.go",
+          "sha256": "2e367837bbd93cf8258845dbfc86eff6b30bb1e28cd9465dd3356c31ab4c8e7a"
+        },
+        {
+          "path": "internal/cparser/clangenums_test.go",
+          "sha256": "57fa1e6b392443f43a809fa2b5533a8418af2e41695035d6425569fc13daf847"
+        },
+        {
+          "path": "internal/cparser/clangnames_test.go",
+          "sha256": "86c12990be802e9452c72f29e2e99377a0868a419b17589a09834d66930f5c18"
+        },
+        {
+          "path": "internal/cparser/clangtypes_test.go",
+          "sha256": "ca220605feda78523a85f39a136f093770c7d9c4f49f5c314053b01f992d5a5a"
+        },
+        {
+          "path": "internal/cparser/conditional_test.go",
+          "sha256": "004707fa2df64358d17384c47d15581f48088083265aa36512bd4a9718c60c0e"
+        },
+        {
+          "path": "internal/cparser/cudnn_max_test.go",
+          "sha256": "37583f62c2b30816b78f98f9b7878fce109be0711370499e75ab9f6f8e1b77eb"
+        },
+        {
+          "path": "internal/cparser/defaults.go",
+          "sha256": "cbe5e8d815670352f42735d40e135e1fba870005fe66e6b469e4b21a0a9eff4e"
+        },
+        {
+          "path": "internal/cparser/defaults_test.go",
+          "sha256": "b5accd4a0fbbf2828ebb70bfd1884402c8654b51dc45ba593d0479f3a36bca19"
+        },
+        {
+          "path": "internal/cparser/deprecated_test.go",
+          "sha256": "034059f3d88a153af72d080432d6b035daa51e0601762962df5ef1f0bef5b784"
+        },
+        {
+          "path": "internal/cparser/docs_test.go",
+          "sha256": "74cdf53542d0c696db0202c50c8f7358fecb3ca3a933af818249f9ebf70c580a"
+        },
+        {
+          "path": "internal/cparser/doxygencode_test.go",
+          "sha256": "b6f2c465971e542e61458e374b897e9c62526e1c61063c2cd6dd4b06f009f456"
+        },
+        {
+          "path": "internal/cparser/enum_leading_comma_test.go",
+          "sha256": "e12cc5920207b64de550176c6f2fe79a2286ba005a9b02e048e145abda1a717d"
+        },
+        {
+          "path": "internal/cparser/enumexpr_test.go",
+          "sha256": "d30df4352a430b1d6bd86a1a60c38cce844775e2fab32dd74b4f9915c62a5613"
+        },
+        {
+          "path": "internal/cparser/enumoracle.go",
+          "sha256": "db1c9570e8545c08cf5eea1dfb965909ee2df7e3fafbec81699ff28b46761ecd"
+        },
+        {
+          "path": "internal/cparser/enumoracle_paths_test.go",
+          "sha256": "2ccb1189078427f5f756727db247cf823e32c2b94c91fadc4573b4f3c43c3fa1"
+        },
+        {
+          "path": "internal/cparser/enumoracle_test.go",
+          "sha256": "5c0fb663c795e08faed254bef1cf78705ea4ade375f99f9aa04851b72aaf3070"
+        },
+        {
+          "path": "internal/cparser/enumvalue_clang_test.go",
+          "sha256": "3eaf0edb6a7617ed90784c113a41e111dc31bceed5b404ec70c2ac98dd6e6793"
+        },
+        {
+          "path": "internal/cparser/enumvalue_regex_test.go",
+          "sha256": "bfcf0d109967e6aa26386fc2e5fc3da9753c89776ffcd60db7a2d60730813b72"
+        },
+        {
+          "path": "internal/cparser/fielddir_test.go",
+          "sha256": "d459449d6456e2ba4b524132d856d5bb3b449c316b504205a7ee2516ed7d17a4"
+        },
+        {
+          "path": "internal/cparser/flagsenum.go",
+          "sha256": "6ce5dbda0b314472a89cc71ff4738da9326d5107f12e2249328d1b50b18dc65e"
+        },
+        {
+          "path": "internal/cparser/flagsenum_test.go",
+          "sha256": "76f98f70c9274a92208aee7764a102900b9cc91d40b9a1025b0bf72bbd266590"
+        },
+        {
+          "path": "internal/cparser/forwarders_test.go",
+          "sha256": "718958dfb1e8be577d55ee53aa497d2507e9f667511920da0a07a395e11fb442"
+        },
+        {
+          "path": "internal/cparser/funcptrtypedef_test.go",
+          "sha256": "1e804a24de9b0f521ed06bc6f01aaf49d4ebe7f5bee51f6024f25821fd73e5dc"
+        },
+        {
+          "path": "internal/cparser/functype_test.go",
+          "sha256": "7d96ebefe666eb97dde48522b286f37611887085532ddf5b734302f991b97d18"
+        },
+        {
+          "path": "internal/cparser/initializer.go",
+          "sha256": "c43b2ae1dc41c62c1d3bc996b2e1b28b3bb1092ea7d689db43e6d52b080a0f35"
+        },
+        {
+          "path": "internal/cparser/initializer_test.go",
+          "sha256": "55156548b1e3932698eb71f7a4ad0fc7374ab103c770665eb1e9805c1522aec7"
+        },
+        {
+          "path": "internal/cparser/layout.go",
+          "sha256": "afd3172f1eceb18bdfc5c7796243a89d245df8ebd3f76e64d4bffac13c71258d"
+        },
+        {
+          "path": "internal/cparser/layout_test.go",
+          "sha256": "aa83488f85135c5119ae62dfce91df7091f37dfd261a4083f271c249b805cd69"
+        },
+        {
+          "path": "internal/cparser/layoutcompare.go",
+          "sha256": "bc4b154cb4de9ff21e05caeabe6a1ca0baa1c62e52842d2d0c643392905c8c85"
+        },
+        {
+          "path": "internal/cparser/layoutcompare_test.go",
+          "sha256": "02d08f744f3e60812bc7f1a555007664eb22c78e4a3ecf344e4301e1d9033f6e"
+        },
+        {
+          "path": "internal/cparser/layoutverify.go",
+          "sha256": "9c0be4f55ceb3c7bfa9ba02e962c706ade5779b1d5ce3381015300acf48fe4ad"
+        },
+        {
+          "path": "internal/cparser/layoutverify_test.go",
+          "sha256": "4aae7c0f4bef5f4325f56e5f83b1d0ee7985d423556e5c3866373f0890411741"
+        },
+        {
+          "path": "internal/cparser/macroenum.go",
+          "sha256": "0b3bec6a0fe2dae11c896271f6baa5a82dcdac15858ef6e544da6564972715b6"
+        },
+        {
+          "path": "internal/cparser/macroenum_test.go",
+          "sha256": "723b36510e865c5ec6282d8a1d405cd29abd0f6b3e81acb9ff75cb7d848b0917"
+        },
+        {
+          "path": "internal/cparser/members.go",
+          "sha256": "508924709d57d651875dc3fd50a9dc1b781d2b66cf70524dc8a97af1bd1ab4b8"
+        },
+        {
+          "path": "internal/cparser/members_test.go",
+          "sha256": "7a5a47317aa59e112f6639dda19422d35997dbffd487da10edfabc5c1fe989b3"
+        },
+        {
+          "path": "internal/cparser/namespace_test.go",
+          "sha256": "9aa1eb358643fd5f4de32c337cbc129d1ebaf1fa8c6eefcdbd084c81ce1d2e41"
+        },
+        {
+          "path": "internal/cparser/oracle.go",
+          "sha256": "8f30713e689a96f154694fd6903330a40448a2a57d8692bfe94136385c49372a"
+        },
+        {
+          "path": "internal/cparser/oracle_test.go",
+          "sha256": "d7065c35f3dd16b4b693a41626597c77175d1ce9d51467b525fe46c71ee148e3"
+        },
+        {
+          "path": "internal/cparser/parser.go",
+          "sha256": "f4f07388dc2c278aa458db070c1903ecb014bbc8ab0a4ae6f40d96cf696af56c"
+        },
+        {
+          "path": "internal/cparser/parser_test.go",
+          "sha256": "8f7a42db65973504f75ea5e4def51c72c9663736f96b9bc47636459186939f59"
+        },
+        {
+          "path": "internal/cparser/primitives.go",
+          "sha256": "b61c5c5552643b39ad48d7ec7b9a8c631f029c69ddbf781b823710d245df7ec9"
+        },
+        {
+          "path": "internal/cparser/probelines_test.go",
+          "sha256": "4c2ae1ce4bd32fac66ccc5c6a8f897ee5ec48eeb8ce85580fc2ad24ee9616227"
+        },
+        {
+          "path": "internal/cparser/recorddump.go",
+          "sha256": "b7ab46b4ba8bc7c542c638b49b6ea06eb4a4529389b551a14058d8e099ac2cae"
+        },
+        {
+          "path": "internal/cparser/recorddump_test.go",
+          "sha256": "87a3848f542c4ae36a5054c128085438b1cce9daaa15eb7f7737d40fc6434349"
+        },
+        {
+          "path": "internal/cparser/recordoracle.go",
+          "sha256": "a42236e30cc94c26a64e2b0499ce24d55108fcc4f5cd81485124a024a495fc6b"
+        },
+        {
+          "path": "internal/cparser/recordoracle_test.go",
+          "sha256": "decb36fc23196220df3d2e40467b4824eb39c85f68edf5e9f48f8a8eec6b5389"
+        },
+        {
+          "path": "internal/cparser/recordprobe.go",
+          "sha256": "ce4aa23ad1585944d933e3ec80aed54567cb46acd79259b0fb0d0ee7d792e8a4"
+        },
+        {
+          "path": "internal/cparser/recordprobe_test.go",
+          "sha256": "d6051c44c826d11f2c9809a97a5bf77dce8c99981ea51926443eb3c3d105c11b"
+        },
+        {
+          "path": "internal/cparser/requiredecl_test.go",
+          "sha256": "72bbe08267f1698a3df3ad21c123d50f47c79361547b9304b826c2d2f422f226"
+        },
+        {
+          "path": "internal/cparser/resize_flag_test.go",
+          "sha256": "51d5e16f7d5906e4c52a073f3a6163976fa5b2d017591fe753e24fdc6e739318"
+        },
+        {
+          "path": "internal/cparser/semantic_max_test.go",
+          "sha256": "05ceb7a1bd554fd201e91854e334572bdd4840af82b92f21fc213b120b6fe6b8"
+        },
+        {
+          "path": "internal/cparser/sizeofbound_test.go",
+          "sha256": "6e4e8c485878b21fa08e32878d6cc9b7f9b8a48815db8a1214c2bc8f599ee046"
+        },
+        {
+          "path": "internal/cparser/staticfunc_test.go",
+          "sha256": "9a4634846ad3cae18efa79d5bd9ad5efb22d0a418bed9076edd0cfb0ceee1080"
+        },
+        {
+          "path": "internal/cparser/testdata/cublas_fixture.h",
+          "sha256": "db0988ce60eba4ce0e31c8784c1389d2f39f7633ab57abd84781fabedd5e9448"
+        },
+        {
+          "path": "internal/cparser/testdata/cuda.h",
+          "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+        },
+        {
+          "path": "internal/cparser/testdata/cufft_fixture.h",
+          "sha256": "4d6e81f7d69d09a796db1c438c99e463453677c8848eeb98c6468c393add1dd3"
+        },
+        {
+          "path": "internal/cparser/testdata/cupti_fixture.h",
+          "sha256": "9e83f1b4c4aacdbb50ff2c0214d81821bfc9ffdd666baa84c325f7ff31a0cd6a"
+        },
+        {
+          "path": "internal/cparser/testdata/enumvalues.h",
+          "sha256": "5c032a5f26ae70353d411256239ee71efedb99d7ec04eadff08f39a222f6b5c4"
+        },
+        {
+          "path": "internal/cparser/testdata/forwarders.h",
+          "sha256": "7b22d2faf9772cff7a506b43d927f3bc60c495af58b2c5a69857aa007619b092"
+        },
+        {
+          "path": "internal/cparser/testdata/nvml_fixture.h",
+          "sha256": "237f571c58f46208a26422158abc2080b0ea2a128b14118518a9da5db0463768"
+        },
+        {
+          "path": "internal/cparser/testdata/nvrtc_fixture.h",
+          "sha256": "d6d172050ce1a69eb12d7bd53b946d990012379963501d264fc7ed8a42953c60"
+        },
+        {
+          "path": "internal/cparser/testdata/recorddump.c",
+          "sha256": "fa8a60760278776557da1aa208474b7a850eb83e0a159b22d49e8608cbe9202f"
+        },
+        {
+          "path": "internal/cparser/testdata/recorddump.dump",
+          "sha256": "3b44f40fc7bdc473281eae2cc8ecbdc230b93c81b5dc0a5ca6fca38f59b11469"
+        },
+        {
+          "path": "internal/cparser/testdata/recorddump.h",
+          "sha256": "e3c60beca1f4ac617d51c22cd0df72f4376b894be695a49cb5a48c046c7e523f"
+        },
+        {
+          "path": "internal/cparser/types.go",
+          "sha256": "ccaf3a476823e4c5090a3d8cc8c26e2e9ef4f8dbccb2f909cc8af8e4e84c994f"
+        },
+        {
+          "path": "internal/cparser/ucx_forms_test.go",
+          "sha256": "ce3d4991b791c02942f37762655e544267648879f75593e793f2378525a20c88"
+        },
+        {
+          "path": "internal/cparser/union_test.go",
+          "sha256": "c6f1911ba9629922022404c73b41f364fc8dea4aa26c7ed04eea6f6d5dce7682"
+        },
+        {
+          "path": "internal/cparser/values.go",
+          "sha256": "5e77354f17285f94c5aad54023eb48ccfcef679a49af998a9b18f059827ab19b"
+        },
+        {
+          "path": "internal/cparser/values_test.go",
+          "sha256": "0afeb0c6ef9a094bd9001189f2cfc5f09f06308cf754af5ab4cffcb7918a1b49"
+        },
+        {
+          "path": "internal/cparser/versionalias_test.go",
+          "sha256": "37f01d823a79b84d09aaa23b3959ce55f697b590001c40af659c00487f45d587"
+        },
+        {
+          "path": "internal/cudadriver/cudadriver.go",
+          "sha256": "9f171a6a4d93eaad73c6f486ce518d5e3f532f56a0c15b66f526e6b8398d2e1e"
+        },
+        {
+          "path": "internal/dochoist/dochoist.go",
+          "sha256": "b8b997113ac5b55fe94fb128dc4b872308a8d8f859b898d24c14f4d9a8e44d56"
+        },
+        {
+          "path": "internal/dochoist/dochoist_test.go",
+          "sha256": "7d9a578cc8e4ad6134b63ebc75b1b7f0dd9b61c755c3b9d626b0f7114182d517"
+        },
+        {
+          "path": "internal/doclink/doclink.go",
+          "sha256": "513b9a2277d8f34fdcd11596b7e0dcd0bd8887ef59ea497b33cd24ca8abdf1dc"
+        },
+        {
+          "path": "internal/doclink/doclink_test.go",
+          "sha256": "9ce29b21c9d98a879412de79f2f534e908f03c2272d28f5192d1e913d0ad434f"
+        },
+        {
+          "path": "internal/docprose/code.go",
+          "sha256": "a613569486de32c0016cd577917b7c3b113dc0fab728f5ea65fed3e016037c80"
+        },
+        {
+          "path": "internal/docprose/code_test.go",
+          "sha256": "e51a1f755b372f64c9b6d01dc7cca06213e5f3bb560ba0ffd9a3ea1b504699e6"
+        },
+        {
+          "path": "internal/docprose/deprecated.go",
+          "sha256": "b3d15fa6d50f8afe346c1c7b9150a038034ea6130bee37933d7a261a2b001534"
+        },
+        {
+          "path": "internal/docprose/deprecated_test.go",
+          "sha256": "b5d94eb7cf04f2994027c60a5ea3bba54789d2f0d4cd9e3eeee84b5fdb10d477"
+        },
+        {
+          "path": "internal/docprose/deprecation.go",
+          "sha256": "9429994e187a1b469e8941412e65590640147e777fa27c40c306e23095ede4ca"
+        },
+        {
+          "path": "internal/docprose/deprecation_test.go",
+          "sha256": "ebd662f3f3693a21ab3f53b5511149cd734cbd8ddaef07d9e241d012fbc02ac6"
+        },
+        {
+          "path": "internal/docprose/docprose.go",
+          "sha256": "1ac9ee3c5f9b4bacfd9b50463bc5cbc0fe11b0a09d2664202210c1cb4e04d796"
+        },
+        {
+          "path": "internal/docprose/docprose_test.go",
+          "sha256": "3fc4c38fd4202eb3ccd6ce2c01428f0ae2e0688acc90e804402ab894135e38a7"
+        },
+        {
+          "path": "internal/docprose/returns.go",
+          "sha256": "54ce969d3f1c09a9e8832903eb217faca384e156d10dcd999602e071e4b6e3e0"
+        },
+        {
+          "path": "internal/docprose/returns_test.go",
+          "sha256": "81a4685bf2c1e212d49af703896741e911bd21ac50d0f859d5865ec6085f9c10"
+        },
+        {
+          "path": "internal/docsentence/docsentence.go",
+          "sha256": "ce0604910813001804abbc861c9f50ccaea0503cb0c2ce051c82b2a57b800887"
+        },
+        {
+          "path": "internal/docsentence/docsentence_test.go",
+          "sha256": "03baf195b4f71a9d7d851bf355439481c800aba5eb7f94c05587338cca1056ec"
+        },
+        {
+          "path": "internal/docsentence/lead.go",
+          "sha256": "bc11e5ee35686b0202564a8b26fb678ffaad056d0824d129a460315392365449"
+        },
+        {
+          "path": "internal/docsentence/lead_test.go",
+          "sha256": "6bcfdbe30408d400af344e31d49ff7c1256f44316d83ed18b822036ce03546fe"
+        },
+        {
+          "path": "internal/ffigen/accessors.go",
+          "sha256": "c5abe56fb3141952bd24b6e96ed2b05f372146d448b495a0ebd42ead8b1e9f0a"
+        },
+        {
+          "path": "internal/ffigen/accessors_test.go",
+          "sha256": "11eeb3e09c080827a63c2452904eaeb88015f3481dd5673dbc2cb974bf67d930"
+        },
+        {
+          "path": "internal/ffigen/aligned_test.go",
+          "sha256": "cb88ec5bcf9b346cfcf8053f9e39eeef7b08c56357515ec6d5f9d74e6dfa6aae"
+        },
+        {
+          "path": "internal/ffigen/apiconfig.go",
+          "sha256": "54a09f08480cfe7e83b89c3f5ead4a20e0a710c079a5735eff1d2a12bf028fe3"
+        },
+        {
+          "path": "internal/ffigen/asynchost.go",
+          "sha256": "8880353c81115db633abff716cc761a70c3e5a4e6ce687ee9f3b164ec05d9f4f"
+        },
+        {
+          "path": "internal/ffigen/bindsymbol.go",
+          "sha256": "76629398913a4342291681a3aeea0bd803505611b887ee70a18a6ac26c43bbf1"
+        },
+        {
+          "path": "internal/ffigen/boundsymbol_test.go",
+          "sha256": "f6432edb0d35ab96ae2206fc4fe780ec6723150e3e6568211a174fe82e8a5d92"
+        },
+        {
+          "path": "internal/ffigen/byvalue.go",
+          "sha256": "00dc638fba9a99bec92f201355c88b87d52589c3d1f8b337aa6e6deace1d7040"
+        },
+        {
+          "path": "internal/ffigen/byvalue_test.go",
+          "sha256": "e710fb5d4a897c119fa99fe235a0c1b89c2f296a99a95f23fb8721839fde0ae0"
+        },
+        {
+          "path": "internal/ffigen/callbridge.go",
+          "sha256": "30e9929d7445cf2ad40d73cd6156dcea5e540ff642abfd8c922146c0ee7c47ad"
+        },
+        {
+          "path": "internal/ffigen/callbridge_allocs_test.go",
+          "sha256": "3a910f01368fab014a79dd2a7546319d26870d70a6f54863665e46c685fa8230"
+        },
+        {
+          "path": "internal/ffigen/callbridge_shapes_test.go",
+          "sha256": "4a732249a1fb2d50877ba901b33f54fc3a0a94fc6a91a772cee01dca5fd9adfa"
+        },
+        {
+          "path": "internal/ffigen/callbridge_stack_test.go",
+          "sha256": "5e63c2ec0a73b7afa4157c2004050a2141be2f1887da57ea26c2f3c92ea5abf9"
+        },
+        {
+          "path": "internal/ffigen/callbridge_test.go",
+          "sha256": "bd30e81ece0991a96494fc3ccf663b3a327f536be35fea9e16c9c6d2c77086b9"
+        },
+        {
+          "path": "internal/ffigen/callerror_test.go",
+          "sha256": "d9ea6d2f4cb016ea0c70af45a97dc6b3e4f7175049f52c95d72c58e8105d9387"
+        },
+        {
+          "path": "internal/ffigen/callreport.go",
+          "sha256": "665b6ae4064977d559d44b239fc387f82cade231cb7b85397237303a40e8ff0b"
+        },
+        {
+          "path": "internal/ffigen/callreport_test.go",
+          "sha256": "3cc34b285ea8c820bd63a317083ac71abe6a74451ce91e78ddd909accf839029"
+        },
+        {
+          "path": "internal/ffigen/canonicalname_test.go",
+          "sha256": "9825a86b694cafed8440348ffa4c4912e593ab7368d91d6693083529da0938b8"
+        },
+        {
+          "path": "internal/ffigen/closemethod.go",
+          "sha256": "660d6d86b1d6582dd1c9c1f4e19090ed30ccc1178a76f3515dea75c17c345d4e"
+        },
+        {
+          "path": "internal/ffigen/closemethod_test.go",
+          "sha256": "f691f3dabd2a9bd5e1f9bf128090101779b5baad07dd2ad22c2c3b2cdfc08b55"
+        },
+        {
+          "path": "internal/ffigen/counted.go",
+          "sha256": "aa6814f541df01ca98ead9f62f91dc33c6277e3d4d1e427d95a9d0938f113c49"
+        },
+        {
+          "path": "internal/ffigen/counted_test.go",
+          "sha256": "4b0ba8ff1aa02324ebdf382bdc7e6acf19702fef0d264257999a53b5c97a029c"
+        },
+        {
+          "path": "internal/ffigen/cuda_hostbuffer_test.go",
+          "sha256": "e3894d969aa5bbf2a0da89c0d46e1b4e3a8f664657f3d5a90bce718217d25315"
+        },
+        {
+          "path": "internal/ffigen/customslice_test.go",
+          "sha256": "ad8a0d79ee900f44f880d59aa9aa143c047ddb901fd476a65621e3905980852e"
+        },
+        {
+          "path": "internal/ffigen/deferredout_test.go",
+          "sha256": "7dce738c3829dacb0460d9cdaf53f02d6ff7ddd4b6fcd85db13a3349882f7438"
+        },
+        {
+          "path": "internal/ffigen/dim3_test.go",
+          "sha256": "d3aa9a57d3f05e34e32acbd562c5e5cfcca72a35413b2a3073d566bede32e615"
+        },
+        {
+          "path": "internal/ffigen/doc.go",
+          "sha256": "630ce6e937ee3a8d73f831da01c4d3fe15fee5dd5cc89597ee7f2945620dcf24"
+        },
+        {
+          "path": "internal/ffigen/doc_test.go",
+          "sha256": "079550bcfa3f6b43557b14d1d4bb6a55c1090f810a8f3318f7e909f017f5dda5"
+        },
+        {
+          "path": "internal/ffigen/dochoist_test.go",
+          "sha256": "a13c537d80b4003395d9bff051fc855ddd964c25761cd7a954b8d171ce8e461a"
+        },
+        {
+          "path": "internal/ffigen/docmarker_test.go",
+          "sha256": "2488a30235997e622908fae374f621ab9e14786f2c8d2a0039dc1667aced0388"
+        },
+        {
+          "path": "internal/ffigen/docsentences_test.go",
+          "sha256": "6d64a2cb0fcdbff7e29e627f2d9ebeee32e8e80ad5d0a34f2d644493d0df2ae6"
+        },
+        {
+          "path": "internal/ffigen/docsurvival_test.go",
+          "sha256": "7b4aae72e2e791a02ff2a6d9c14734be6dd87ece2a8d838d0e51809cba112132"
+        },
+        {
+          "path": "internal/ffigen/elementcount_test.go",
+          "sha256": "822083c39f68f51dc7be16e187349fff199e1252bff657f13327d899a6f8f2fa"
+        },
+        {
+          "path": "internal/ffigen/enumeration_test.go",
+          "sha256": "589aef9feac26b053db44ac39922ce6bdbe5d94e0f81920e77a6e24269e02b0f"
+        },
+        {
+          "path": "internal/ffigen/enumremap.go",
+          "sha256": "40050085f5bcc6d2321c7ca9ca453c5879be69b25fd3ff3cdc9599c32056f325"
+        },
+        {
+          "path": "internal/ffigen/enumremap_test.go",
+          "sha256": "bfcb168ec3fb4c3e9e91f18d0dd34acae03cb9f7c2a05f277689159df376ad45"
+        },
+        {
+          "path": "internal/ffigen/errorlog.go",
+          "sha256": "194776e07966a9613f7331e9a6a6f832e107cc575204f7a2e15d96e259cb4fff"
+        },
+        {
+          "path": "internal/ffigen/externaldocs.go",
+          "sha256": "ca14f201d693c6d91d0ff231a1420b78d2e32253f35181d1025f1a983ceab871"
+        },
+        {
+          "path": "internal/ffigen/externaldocs_test.go",
+          "sha256": "f87a1f535de6a5bbad72a83b5684c921e73e9a087c23986f81141ad78aa5f055"
+        },
+        {
+          "path": "internal/ffigen/externalenum.go",
+          "sha256": "30ec53157995311a5c1eca2f86e9ad02b65381fddbf8f2b846fae5b40fa2b4a7"
+        },
+        {
+          "path": "internal/ffigen/externalenum_test.go",
+          "sha256": "6a4c1ac656c3ee229e7c95d72f70228d7cd68b9f5ae74df2c69b3a14ea7ad221"
+        },
+        {
+          "path": "internal/ffigen/flatunion.go",
+          "sha256": "d7ba08c250b8430b4f5bc3cfdcba148bb61e9c86d5c895183afc6b92d4edb928"
+        },
+        {
+          "path": "internal/ffigen/flatunion_test.go",
+          "sha256": "029d47e21f84773ee4792577b2abb6d9d4766b7d76b333258270804fa2e40a27"
+        },
+        {
+          "path": "internal/ffigen/floorshim_test.go",
+          "sha256": "144e0d2ac4c7f154de296e4fac2a611a7f5c048b4f6f2d6da3e39f1d2d652255"
+        },
+        {
+          "path": "internal/ffigen/functionfiles.go",
+          "sha256": "73722777126e26521ee113574f9b4d2b96e86849172020955c6d68f5513954ff"
+        },
+        {
+          "path": "internal/ffigen/functionfiles_test.go",
+          "sha256": "25b8ee3375ce62ae7c7a370800708cc0188ca50f5df72de096985a45871ee6ff"
+        },
+        {
+          "path": "internal/ffigen/generator.go",
+          "sha256": "6cc9bc7246d75a9578ce1fbbaac633f483f1d174422cfe4da411d2c27d3258e2"
+        },
+        {
+          "path": "internal/ffigen/generator_test.go",
+          "sha256": "dd340345d6011009e748b235aa115934c3ebb2486a49914f1c9d1ad8cca9f083"
+        },
+        {
+          "path": "internal/ffigen/gostyle_test.go",
+          "sha256": "6529e03594f03a2bdbb4d410a8a90294091de3cb2a30ee5e943edf1d096ee850"
+        },
+        {
+          "path": "internal/ffigen/hostform.go",
+          "sha256": "e6399e7fccb47f6486ccf85cb6811121ddce6af8b33b1b5d0cb1239f396095c3"
+        },
+        {
+          "path": "internal/ffigen/hostform_test.go",
+          "sha256": "a194ffee2bb6f6c2538d43b0f1e259c00c8eee04d7c3f0ba0ef927c5d2b73650"
+        },
+        {
+          "path": "internal/ffigen/image.go",
+          "sha256": "3cf8bcc214d355699026b2740154411f5671405cbe190bdb8638e56d13278dbb"
+        },
+        {
+          "path": "internal/ffigen/includedenum.go",
+          "sha256": "df7ed3ea14be809c50558691cbee1fc66c10fa288941ff65f8d2dea94284950b"
+        },
+        {
+          "path": "internal/ffigen/includedenum_test.go",
+          "sha256": "61f5651c1f81cb0bba43a8c6ae701cd044ddae27a9bc6097fe9fcc523c37be8f"
+        },
+        {
+          "path": "internal/ffigen/infields.go",
+          "sha256": "4703782b5962d579535e8ee79eea7a04318f5907cb3543ffeaef7d4f1ec4cdb0"
+        },
+        {
+          "path": "internal/ffigen/infields_test.go",
+          "sha256": "52e2a834cc7115fc457c7b2798f08c9fef0f716af4168a9aad0711d0814dff4e"
+        },
+        {
+          "path": "internal/ffigen/initializers.go",
+          "sha256": "950e0843bad4737f9a093a4718e56103f3923458430cd5a74b0f3fc49f6c0183"
+        },
+        {
+          "path": "internal/ffigen/install.go",
+          "sha256": "afe0df1de46e29995447ab4c25ea67709d8464420e7f8d9702907852c397512a"
+        },
+        {
+          "path": "internal/ffigen/install_test.go",
+          "sha256": "93a54be1c65071a7bfa24a50397ce01bd685648680f1d61dd1773a942db5fde9"
+        },
+        {
+          "path": "internal/ffigen/loadbindings_test.go",
+          "sha256": "ccd63e6d253c17fb82de3acc7f25a1d8b1177236152a2ba64477420b1fc5be20"
+        },
+        {
+          "path": "internal/ffigen/loaderrors.go",
+          "sha256": "230109d75df95c50946d9518e7345db3cc3980579aa91cdef93b4bba201ce612"
+        },
+        {
+          "path": "internal/ffigen/loaderrors_test.go",
+          "sha256": "f78347b3f0885a8207af96d4995dc03aaa06e3715ea6073034f1dc89e3debd24"
+        },
+        {
+          "path": "internal/ffigen/macroconst.go",
+          "sha256": "eaa70cb0092ab9aa9713d7a19e7da95f721c7803696a2120ba1c1b8c96f5c408"
+        },
+        {
+          "path": "internal/ffigen/macroconst_test.go",
+          "sha256": "d5f0254a17cef801e4c0fb43d81d32ae57f50bf4a83ca75b12cfca1b74a4abd4"
+        },
+        {
+          "path": "internal/ffigen/multilib.go",
+          "sha256": "6e821388bcba67f9eb4e9dfe69f6fa9b5ed87c7f30b5668e9d41f25d7f053cf1"
+        },
+        {
+          "path": "internal/ffigen/multilib_test.go",
+          "sha256": "72df4b4e3f22aa6ce0767262284864bc32e8e7f910e8fd74728079b8ff94d4dd"
+        },
+        {
+          "path": "internal/ffigen/negativeresult.go",
+          "sha256": "a7053706c880bc3682e1278e8583a42bb2044f4c52d5fe4470fe426451dc3ded"
+        },
+        {
+          "path": "internal/ffigen/negativeresult_test.go",
+          "sha256": "6b2c985f7592de426e42a66ac26fa67643915645a3b87110261e59d29a96fde4"
+        },
+        {
+          "path": "internal/ffigen/pairedslice.go",
+          "sha256": "4a7be78e7eac328b4ddb624ed93c44ce146c3bbcd0f4a89910f7b438558593f1"
+        },
+        {
+          "path": "internal/ffigen/paramlayout.go",
+          "sha256": "7e6fe9a9a42def063f2b27aed3fe8bb3085f8209cb55d3ea20f5c1ba9f13af54"
+        },
+        {
+          "path": "internal/ffigen/platform_loader.go",
+          "sha256": "ca338e189d68daa377d60d3c88a8b72ede998c11a25864570e6f77ca2e4dd82b"
+        },
+        {
+          "path": "internal/ffigen/platform_loader_test.go",
+          "sha256": "ea39ae41031766520951586d198b916f13ee73472726f8cdd917126a2b844f58"
+        },
+        {
+          "path": "internal/ffigen/publicpointer_test.go",
+          "sha256": "a7b60bca6463a05217865c793ca3985e211a49c5cbedb0c23d1b2e4c0b02ecdb"
+        },
+        {
+          "path": "internal/ffigen/releaserange.go",
+          "sha256": "7a353a239edb4d9068b05d784def62a1322756b779ba9f7d01dbd19911ba560f"
+        },
+        {
+          "path": "internal/ffigen/releaserange_test.go",
+          "sha256": "74ca9c1440b4ef83170e6822e47fd6ddc90080ef2958169b90e5a6f49bb23e6b"
+        },
+        {
+          "path": "internal/ffigen/requestedslice.go",
+          "sha256": "c1cacc6e2d84069f44df2f1c9c058a6a9e791fb028efb40b265242d3ce40285e"
+        },
+        {
+          "path": "internal/ffigen/requestedslice_test.go",
+          "sha256": "9a8dc9b8ea5ef98323db30ba4fe9607dc64e92eed0d2e1be666ff0810c3c32d4"
+        },
+        {
+          "path": "internal/ffigen/retained_doc_test.go",
+          "sha256": "6a37442ef3e2ea14ec14c42147468d5f683ef3a4213164f81c9f00cde3410975"
+        },
+        {
+          "path": "internal/ffigen/returnerrors_test.go",
+          "sha256": "2ebb4670afa5977859ca02d7fa12a3031bd9c89f6e0ec2b64ba39ff5dc0c6d1d"
+        },
+        {
+          "path": "internal/ffigen/scalar.go",
+          "sha256": "88c2b8d9cfda7a17a27049b79ce13a0851b7ea5e5d63484e9850bf92b2b16a5c"
+        },
+        {
+          "path": "internal/ffigen/scalarpointer_test.go",
+          "sha256": "fde6c20ec9eace0fcae88357a3a58dd6aa33d6b2655abdd6088a3cd703097338"
+        },
+        {
+          "path": "internal/ffigen/shape.go",
+          "sha256": "351a5e568698f76167bca34c036c3e8c3f77b5145eca3e5bfaf2193e87c9dcda"
+        },
+        {
+          "path": "internal/ffigen/shape_test.go",
+          "sha256": "8c6419d7ade8dd7f06fab2bc893e559d2000830cd2dfb30b1511773e215d558e"
+        },
+        {
+          "path": "internal/ffigen/sizedslice.go",
+          "sha256": "329ead357500b132cc3c2d29362774f95222a583c84f72b5d4303f8f7be7b9a7"
+        },
+        {
+          "path": "internal/ffigen/slicelen_test.go",
+          "sha256": "d84cde000f4872fd3ce8be845c3245b0ee2f7138d63abf25c3c512acaf6ad33d"
+        },
+        {
+          "path": "internal/ffigen/sonames.go",
+          "sha256": "7ce25e5affced501d3d2949d673226a571ec9ac0477ad714e6b181e207cadb5c"
+        },
+        {
+          "path": "internal/ffigen/sonames_test.go",
+          "sha256": "5b2bd301e98d31d67eef5033084702569a449230011d72bcc26d1c42bb6cdaae"
+        },
+        {
+          "path": "internal/ffigen/stringresult.go",
+          "sha256": "1177db97d0567dd6eb4b7d0a32b694484efcce8c29ae93d3aeccf882d30eab42"
+        },
+        {
+          "path": "internal/ffigen/stringresult_test.go",
+          "sha256": "cd087fef943164528298916a079a7828c7102cd0b6734ecbc1433245088dadc9"
+        },
+        {
+          "path": "internal/ffigen/struct_names_test.go",
+          "sha256": "c31be38a6bc8e124305227c81111841311a828cb8c4578f01008ce1c186ce6e5"
+        },
+        {
+          "path": "internal/ffigen/structbyvalue_test.go",
+          "sha256": "976c6468be70a556d67ae6cdb28c0f0fd2c225b8289b3fbb2320e97a35c8bab6"
+        },
+        {
+          "path": "internal/ffigen/symbolfallback_test.go",
+          "sha256": "9c8ad5b50c369a33a9607fc2aef275c49e21aa5206e90020e2da9867ffa245b8"
+        },
+        {
+          "path": "internal/ffigen/symbollinks.go",
+          "sha256": "ee71649ab801fad0bfa0c7aff4b4fd1627960f32410c34d05f97c7dcd0dedcf3"
+        },
+        {
+          "path": "internal/ffigen/symbollinks_test.go",
+          "sha256": "4e6d4edd60803dcd87c695a889707412853432b27a615810319a7b12dcc8dc2e"
+        },
+        {
+          "path": "internal/ffigen/taggedrecords.go",
+          "sha256": "5abb711d6e338fddbdb15535d30e251f72027ddd0b9be8d2797a1badecc6b275"
+        },
+        {
+          "path": "internal/ffigen/taggedrecords_test.go",
+          "sha256": "e1aa2dae3b5d304efbd0b177c322e4db85a2e11e516f8581cecb92fbc48eccc5"
+        },
+        {
+          "path": "internal/ffigen/testdata/accessors.h",
+          "sha256": "6b53313418c5131c2ff1ec767c9092625d6135ae55347737053ea1d632151d60"
+        },
+        {
+          "path": "internal/ffigen/testdata/counted.h",
+          "sha256": "f50969028d667c261ef99482ddd22b1dbd1aca8b28cd721fcb23810815f5ec55"
+        },
+        {
+          "path": "internal/ffigen/toolkitsearch.go",
+          "sha256": "bf808c275e1d124fcf23e4ed337c738bb2a78cde46cd722b224ed80435fd3a87"
+        },
+        {
+          "path": "internal/ffigen/unsafe_customization_test.go",
+          "sha256": "d05e24c52e7657052e6f7312f87aefa0b411d8d00a215f9311cf0a1d997ebe18"
+        },
+        {
+          "path": "internal/ffigen/versionalias_test.go",
+          "sha256": "74397fc177f90a43ac3755b61ee58da120e517ce5105f86dea6fc923eae08eef"
+        },
+        {
+          "path": "internal/ffigen/versioncheck_encoding_test.go",
+          "sha256": "01be98ca1ce40c187d7336ce11d73791c02d745827b09007ea1e87a439742f3b"
+        },
+        {
+          "path": "internal/ffigen/versionedfuncs.go",
+          "sha256": "565caa3fe00847a5861b0b7851d10539453032a2ecfc43eed36c9588b909ddeb"
+        },
+        {
+          "path": "internal/ffigen/versionedfuncs_test.go",
+          "sha256": "80a3dcc330d8d670b7e2fe89c9d215ec0273b3a765c924db7a19ae0ac85d3ca1"
+        },
+        {
+          "path": "internal/genflag/genflag.go",
+          "sha256": "0c9f7c6921090b1c71740dec3665fc78adb7e64caeb7777bd64959cb4873a698"
+        },
+        {
+          "path": "internal/genflag/genflag_test.go",
+          "sha256": "d1f536a10cec0064e58595210086877a083bd2241371d6b4ccdc7a6b980fa4aa"
+        },
+        {
+          "path": "internal/goident/dim3.go",
+          "sha256": "61bf8fca6bfcd13fbcd962f16ed28e355839c2f622c7d5982b44f40d77bd4c92"
+        },
+        {
+          "path": "internal/goident/dim3_test.go",
+          "sha256": "3ad7cd9eacd66757fdea67dae5b7affa1bbac07188d201c62af63bf7c2491368"
+        },
+        {
+          "path": "internal/goident/initialisms.go",
+          "sha256": "a2baa01fb964ca357bb877e875d7af5fe5946db8286d182b334dac35463f8f87"
+        },
+        {
+          "path": "internal/goident/method.go",
+          "sha256": "6470e5b64063a6eb57379829a0f94b2233e1eb593489913c2d0f3fd3b04ed7f8"
+        },
+        {
+          "path": "internal/goident/method_test.go",
+          "sha256": "0a7d70c1288ad82a65ac7dc03fca394af85d7c405b5fdec95172ef4fa3db121e"
+        },
+        {
+          "path": "internal/goident/policy.go",
+          "sha256": "b7d60dcf230fff0397690314b9f75a6e96daa9595a208129ff6c39f87b1ac726"
+        },
+        {
+          "path": "internal/goident/policy_test.go",
+          "sha256": "59488d9c28a54733bba3295bd05068aae671b79aa4af2cd5aae484682faacdb9"
+        },
+        {
+          "path": "internal/liftdoc/liftdoc.go",
+          "sha256": "48c5e0bd2b9a959c01dfcca4541991d962cbcadc186c59f245909ee0471ff495"
+        },
+        {
+          "path": "internal/liftdoc/liftdoc_test.go",
+          "sha256": "462c651108dbb82d0493beb4db4adbacf06f4bbd57da799e22b4c321054f0381"
+        },
+        {
+          "path": "internal/nvidiadocs/nvidiadocs.go",
+          "sha256": "c12c60ced8c7ba025479d442954f4fd4897dca31a274ea7b4f3d6ad292a9311e"
+        },
+        {
+          "path": "internal/nvidiadocs/nvidiadocs_test.go",
+          "sha256": "b4bf6fb88176c67f3abe4524146ff0e2ac0d3bee51d54556a0b0c4b9774fa741"
+        },
+        {
+          "path": "internal/nvidiaprovenance/README.md",
+          "sha256": "9140e0853c0bb34b3fc513e87ebad7290b89eea79ec33fd372e9116153db4a9a"
+        },
+        {
+          "path": "internal/nvidiaprovenance/movecheck_test.go",
+          "sha256": "9da70c15d355460f104c33b4c860b1235e6999c4c58bea9dd775e2dd8ceeea5f"
+        },
+        {
+          "path": "internal/nvidiaprovenance/record.go",
+          "sha256": "01e3006fc6d317a85f4cbb66c12575b507b5196b6fa30496a5e9b569b1d5a40d"
+        },
+        {
+          "path": "internal/nvidiaprovenance/record_test.go",
+          "sha256": "e16bd21122e007f5457d09313f7c5ad6bf1d13035d6419def0d618ee59588fb9"
+        },
+        {
+          "path": "internal/nvidiatypes/nvidiatypes.go",
+          "sha256": "b251194220cc83f5adc1274fa0a523aa0b5349e43a5e6e39382d14daf7665002"
+        },
+        {
+          "path": "internal/nvidiatypes/nvidiatypes_test.go",
+          "sha256": "ca91e1414e1562d750fa8b8bd5e674f337f2adf20a4606581ebf2b29b9caad38"
+        },
+        {
+          "path": "template/template.go",
+          "sha256": "18112328b4cbe5a5644c1429e039dafe71693ab755b038acbbb6af94d2a1bcf1"
+        }
+      ],
       "header": {
         "path": "driver/cuda.h",
         "repository": "headers",
-        "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+        "sha256": "7a79d67ca888061b1dfbe4739b51ad64f85a2f3ad874947ce09b2c635b4c7072"
       },
-      "note": "The generator is cmd/driver-survey, not cmd/gen-nvidia -api cuda. The recorded argv is a recovered candidate, not a reproduction. Regeneration is still an API change and must not be bundled into an unrelated one, but it is a smaller change than it looked: 52 of the 94 apidiff breaks measured 2026-09-06 were a generator defect, not a design difference, and are fixed in codegen 746029c.",
+      "note": "Regenerated against CUDA 13.4 with a CUDA 12.2 floor from the CUDA 13.2 baseline (driver header sha256 673873a2). Approved layout and type changes follow upstream header evolution; Stream.Ctx and Stream.LaunchHostFunc retain the 12.2-floor names, with the newer forms exposed through V2 methods.",
       "package": "github.com/tmc/lib/nvidia/driver",
       "repositories": {
         "codegen": {
-          "commit": "446fae667d7143fdba4122b281b8306fccd58b57",
-          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen a57cbfdc: counted slice fields and typed union members. Regenerated at libgen 446fae66: 8-byte integer structs call through ffi.",
+          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen a57cbfdc: counted slice fields and typed union members. Regenerated at libgen 446fae66: 8-byte integer structs call through ffi. Driver regenerated at libgen b21f0331 for CUDA 13.4 with a CUDA 12.2 floor.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "53f428bf7943cda8b16fdbaf82aa923a4a43049d"
+          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
         },
         "headers": {
-          "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
-          "note": "The checkout carried unrelated uncommitted changes, so this commit does not identify the whole input tree; the header below was clean and its sha256 is the exact input.",
+          "commit": "2df1f8e060edb10fd1cdedb5cca90404bfa97992",
+          "note": "Clean cuda-headers checkout at commit 2df1f8e060edb10fd1cdedb5cca90404bfa97992; directly read driver headers are hashed below.",
           "url": "https://github.com/tmc/cuda-headers.git"
         }
       },
-      "status": "generation-partially-reproduced",
+      "status": "generation-reproduced",
       "header_dependencies": [
         {
           "path": "driver/cuda.h",
           "repository": "headers",
-          "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+          "sha256": "7a79d67ca888061b1dfbe4739b51ad64f85a2f3ad874947ce09b2c635b4c7072"
+        },
+        {
+          "path": "pinned/driver/cuda-12.2/cuda.h",
+          "repository": "headers",
+          "sha256": "a2b4436404c3a9a4231d667c811f24e9ddac256ab3f30c7a486120550abd78d5"
         }
       ]
     },
@@ -11233,12 +12762,16 @@
             "sha256": "a7d9cc55c695a64edf957681256f73057044245c1763182bbe14844651629caa"
           },
           {
+            "path": "nvidia/nvjitlink/flags.gen.go",
+            "sha256": "a0a5e6f7093fb660911e9bbf7739b811cdfe82a504ef5386a607bd2bed1e5ea8"
+          },
+          {
             "path": "nvidia/nvjitlink/funcs.gen.go",
-            "sha256": "85ea3041932d8fcfd0ab0ad1c12c5e35a81455597cfb1a4de4f7cfa4db98116e"
+            "sha256": "030eb41c486c7688ff74942a3b6c3bd23fa2e00a7eb06567816be4a7de121f71"
           },
           {
             "path": "nvidia/nvjitlink/handle.gen.go",
-            "sha256": "884540ef70218d031bbf5bdfdd1448860cc00fd4ce25d78d77aef30d0511b32e"
+            "sha256": "4cc5b2b635a3d236e009a619a2e93c53904f786fc49815be92475f61ebdab7a9"
           },
           {
             "path": "nvidia/nvjitlink/handles.gen.go",
@@ -11246,7 +12779,7 @@
           },
           {
             "path": "nvidia/nvjitlink/init.gen.go",
-            "sha256": "fa8526565d007b0353dfe852055b1b1b8d828e9c58742e8f214dc3012eeca6be"
+            "sha256": "e98b626a16d23ac31cae14d87298f1172538f055b0744fc08468723eff72590d"
           },
           {
             "path": "nvidia/nvjitlink/loader.gen_test.go",
@@ -11262,22 +12795,18 @@
           },
           {
             "path": "nvidia/nvjitlink/provenance.gen.go",
-            "sha256": "1bd93ba402a267c90d913a0b43e90e07b1e36bdff314c45d0ce0db65a69a70d8"
+            "sha256": "df269c3d96d5a8dbcd3442dc658802e89e692a948e88e723a8ed828b22b050c9"
+          },
+          {
+            "path": "nvidia/nvjitlink/provenance.json",
+            "sha256": "7a31eda309e8afa37313940ca3d4a8ffa02efd2357c58e15c2ac581e392bbce8"
           },
           {
             "path": "nvidia/nvjitlink/result.gen.go",
             "sha256": "835add22880b843a2e8d3913465264a9915bbf66f966ed5d65ec7d9eeea5f265"
-          },
-          {
-            "path": "nvidia/nvjitlink/provenance.json",
-            "sha256": "6a0d406c64259685f22ded3bbceecc7325932b3e8853d5adaeda487372bcf7cb"
-          },
-          {
-            "path": "nvidia/nvjitlink/flags.gen.go",
-            "sha256": "a0a5e6f7093fb660911e9bbf7739b811cdfe82a504ef5386a607bd2bed1e5ea8"
           }
         ],
-        "source_state": "clean codegen checkout recorded after generation",
+        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
         "supplemental_runs": [
           {
             "argv": [
@@ -11326,14 +12855,14 @@
       "header": {
         "path": "nvjitlink/nvJitLink.h",
         "repository": "headers",
-        "sha256": "6bd4880984986486e2cee5ddfe848d82efcf2be8454dcad4499b3bc41939b871"
+        "sha256": "4837ebb7294c5956360b940d747ff5f46067cfe855dc00bbd2d9d736bbc8faa5"
       },
       "note": "Regenerated to add the post-load version gate: the loader calls this library's own version entry point once after binding symbols and refuses the load if the major does not match the declared soname major.",
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
       "repositories": {
         "codegen": {
-          "commit": "b7ab7043ada900d657a7a46a49aa9fb2aec6b1a9",
-          "tree": "105f82b1fac43a2eb0bcee68494f1354b2cf24c9",
+          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen e987d3a nvjitlink-survey at libgen b7ab704"
         },
@@ -12517,6 +14046,28 @@
           "${HEADERS_REPO}/sanitizer/sanitizer.h",
           "-upstream-version",
           "13.3.27",
+          "-release-header",
+          "12.2=${HEADERS_REPO}/pinned/sanitizer/cuda-12.2/sanitizer.h",
+          "-release-header",
+          "12.3=${HEADERS_REPO}/pinned/sanitizer/cuda-12.3/sanitizer.h",
+          "-release-header",
+          "12.4=${HEADERS_REPO}/pinned/sanitizer/cuda-12.4/sanitizer.h",
+          "-release-header",
+          "12.5=${HEADERS_REPO}/pinned/sanitizer/cuda-12.5/sanitizer.h",
+          "-release-header",
+          "12.6=${HEADERS_REPO}/pinned/sanitizer/cuda-12.6/sanitizer.h",
+          "-release-header",
+          "12.8=${HEADERS_REPO}/pinned/sanitizer/cuda-12.8/sanitizer.h",
+          "-release-header",
+          "12.9=${HEADERS_REPO}/pinned/sanitizer/cuda-12.9/sanitizer.h",
+          "-release-header",
+          "13.0=${HEADERS_REPO}/pinned/sanitizer/cuda-13.0/sanitizer.h",
+          "-release-header",
+          "13.1=${HEADERS_REPO}/pinned/sanitizer/cuda-13.1/sanitizer.h",
+          "-release-header",
+          "13.2=${HEADERS_REPO}/pinned/sanitizer/cuda-13.2/sanitizer.h",
+          "-release-header",
+          "13.3=${HEADERS_REPO}/pinned/sanitizer/cuda-13.3/sanitizer.h",
           "-output",
           "${OUTPUT_DIR}"
         ],
@@ -12546,12 +14097,16 @@
         },
         "outputs": [
           {
+            "path": "nvidia/sanitizer/callback_layout.gen.go",
+            "sha256": "67c9dc6535d09fafad553ba34f3ec800efc41d383a58b22262de20daf212db1e"
+          },
+          {
             "path": "nvidia/sanitizer/doc.gen.go",
             "sha256": "3e59e888731e9e240f2ad104175876b789f4f5865cd87f0bd18288a80a2bf57a"
           },
           {
             "path": "nvidia/sanitizer/enums.gen.go",
-            "sha256": "31b465e1ca7b10b76d9394f2adecb06a47ea5dbf3e3be064f92050c0053a09d1"
+            "sha256": "4af30f160f4de9b6a13cb8a3a76d6e8dc51ea6944acc26b4580eee523a99b49f"
           },
           {
             "path": "nvidia/sanitizer/funcs.gen.go",
@@ -12563,7 +14118,7 @@
           },
           {
             "path": "nvidia/sanitizer/init.gen.go",
-            "sha256": "84e6778708109757f0b1c783071595993ac16a319f9d5d771adc7ea46f8b9952"
+            "sha256": "2663e9fa5ef00bae73dd79b25b2a97c5818f649f25007477c6fa3f9eafeafb9c"
           },
           {
             "path": "nvidia/sanitizer/launch_handle.gen.go",
@@ -12571,7 +14126,7 @@
           },
           {
             "path": "nvidia/sanitizer/layout.gen_test.go",
-            "sha256": "add281cbddd0459023d9f4c259ef8962815b320c605572c188d319f5cc4bee86"
+            "sha256": "0099f71291f8ba13ae86f28153ff2ac22b8c026d68940076e66ee41b5a51005c"
           },
           {
             "path": "nvidia/sanitizer/loader.gen_test.go",
@@ -12587,11 +14142,11 @@
           },
           {
             "path": "nvidia/sanitizer/provenance.gen.go",
-            "sha256": "462b6cb44d152b21361b3de7fb6dab2c8636ff4e0cd0e867041c7dd57c8930e7"
+            "sha256": "996b469e9b9a8fc310585ad4a4a44307e18bab4648fec7cb89275dd92d9f303d"
           },
           {
             "path": "nvidia/sanitizer/provenance.json",
-            "sha256": "7a2822c266c2285da327925914d8624a5fc29ef966d7e72c86210911a7a874ab"
+            "sha256": "e20ef32eb5f168aaeff8534bbe4789c95864e41b205934948100d0ff1c673cd3"
           },
           {
             "path": "nvidia/sanitizer/result.gen.go",
@@ -12603,7 +14158,7 @@
           },
           {
             "path": "nvidia/sanitizer/structs.gen.go",
-            "sha256": "a8fe915a1ccc4b59ff53228713f3ae61c5e599e98073a8d3dc88a1a064b00983"
+            "sha256": "1eefce417c921604bf9d89038aff9fefb849580f5392c92b5d80667574340101"
           },
           {
             "path": "nvidia/sanitizer/subscriber.gen.go",
@@ -12614,7 +14169,7 @@
             "sha256": "b8478e417bf04d7952fd7c8e6f136e2f9e3e715914d1ae475286e10a7ff7c273"
           }
         ],
-        "source_state": "clean tracked libgen sources at 3005ecfdb35134468c9a9d93532ee08f6c7c53cf",
+        "source_state": "clean tracked libgen sources at d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
         "toolchain": {
           "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
           "clang_target": "arm64-apple-darwin25.6.0",
@@ -12653,7 +14208,7 @@
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_meta.h",
           "path": "sanitizer/generated_cuda_meta.h",
           "repository": "headers",
-          "sha256": "864cc984dd0c5a3fb07d9a6d5202f0394d25d1a82fd7538ce9719bdff2b3b1e6"
+          "sha256": "692fad3884ca3cde3ee55da2c7d83776b23b9fa566d5be83aeff92c489f42435"
         },
         {
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_profiler_api_meta.h",
@@ -12665,7 +14220,7 @@
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_runtime_api_meta.h",
           "path": "sanitizer/generated_cuda_runtime_api_meta.h",
           "repository": "headers",
-          "sha256": "73b5920aae5578813030c7725bfca5699e2e4aa0b5f63ae921763c9a37df17c1"
+          "sha256": "37129c292cd5c76cadde730d455d31d5bd02b5425f245803aea4ea2eb4e20c99"
         },
         {
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/generated_cuda_vdpau_interop_meta.h",
@@ -12689,13 +14244,13 @@
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_callbacks.h",
           "path": "sanitizer/sanitizer_callbacks.h",
           "repository": "headers",
-          "sha256": "627b37b97e88214d3878e17ab9e80f87407fcb67bedb9b250d9683f3a0e74019"
+          "sha256": "2ec7ffb2ab57d60eb598157ae328672b4194648096b792bb478b40b48d72f647"
         },
         {
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_driver_cbid.h",
           "path": "sanitizer/sanitizer_driver_cbid.h",
           "repository": "headers",
-          "sha256": "ca5345d1fb7f00a574d13ccf524ef2e9029f4797e4ad64ae7f723477a06051b0"
+          "sha256": "5fc200a2694167108c2aa810aa28faf2a4eb4e2a6249546493ca0f6f046927e5"
         },
         {
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_memory.h",
@@ -12707,7 +14262,7 @@
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_patching.h",
           "path": "sanitizer/sanitizer_patching.h",
           "repository": "headers",
-          "sha256": "6992c4ad49305bc002ad17d3687ce948aaf0faaf4ab1e389c9dab020395c2ef7"
+          "sha256": "c8f624394e45f942e53ffe7c37e0f0dcc59fd4074d68341e74845a6a34ff4c9d"
         },
         {
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_result.h",
@@ -12719,7 +14274,7 @@
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_runtime_cbid.h",
           "path": "sanitizer/sanitizer_runtime_cbid.h",
           "repository": "headers",
-          "sha256": "075ca15a2ff56bfd773d3517911837ded4db35115c34499cc5c37ecd0576f28a"
+          "sha256": "ab5720589fc34ec77170d2c00c90790038ecdd5a42c1286971437661faf6e6d4"
         },
         {
           "archive_member": "cuda_sanitizer_api-linux-x86_64-13.3.27-archive/compute-sanitizer/include/sanitizer_stream.h",
@@ -12731,8 +14286,8 @@
       "package": "github.com/tmc/lib/nvidia/sanitizer",
       "repositories": {
         "codegen": {
-          "commit": "936c8b2a37552d41ab78f1de81f7227c4cc28d7b",
-          "tree": "0d68e5678e79cab9f3902ff01007d8a23518d9ac",
+          "commit": "d7ee8ed06aa51d0064cac98c7a7c181168aa1965",
+          "tree": "764491dc369a44337547d89cf0d7341268bf7928",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (LaunchHandle.SetCallbackData). regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a; sanitizer-survey migration at libgen c1387a4 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },

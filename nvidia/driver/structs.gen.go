@@ -324,7 +324,20 @@ type HostNodeParamsV2 struct {
 	// Argument to pass to the function
 	UserData uintptr
 	// The sync mode to use for the host task
-	SyncMode uint32
+	SyncMode       uint32
+	AnonymousUnion [1]uint64
+}
+
+// Ctx returns a pointer to the ctx member of CUDA_HOST_NODE_PARAMS_v2, which shares its
+// storage with every other member of the union.
+func (h *HostNodeParamsV2) Ctx() *Context {
+	return (*Context)(unsafe.Pointer(&h.AnonymousUnion))
+}
+
+// GCtx returns a pointer to the gCtx member of CUDA_HOST_NODE_PARAMS_v2, which shares its
+// storage with every other member of the union.
+func (h *HostNodeParamsV2) GCtx() *GreenCtx {
+	return (*GreenCtx)(unsafe.Pointer(&h.AnonymousUnion))
 }
 
 // ConditionalNodeParams represents conditional node parameters.
@@ -978,7 +991,20 @@ type ExtSemSignalNodeParamsV2 struct {
 	// Array of external semaphore signal parameters.
 	ParamsArray uintptr
 	// Number of handles and parameters supplied in extSemArray and paramsArray.
-	NumExtSems uint32
+	NumExtSems     uint32
+	AnonymousUnion [1]uint64
+}
+
+// Ctx returns a pointer to the ctx member of CUDA_EXT_SEM_SIGNAL_NODE_PARAMS_v2, which shares its
+// storage with every other member of the union.
+func (e *ExtSemSignalNodeParamsV2) Ctx() *Context {
+	return (*Context)(unsafe.Pointer(&e.AnonymousUnion))
+}
+
+// GCtx returns a pointer to the gCtx member of CUDA_EXT_SEM_SIGNAL_NODE_PARAMS_v2, which shares its
+// storage with every other member of the union.
+func (e *ExtSemSignalNodeParamsV2) GCtx() *GreenCtx {
+	return (*GreenCtx)(unsafe.Pointer(&e.AnonymousUnion))
 }
 
 // ExtSemWaitNodeParams represents semaphore wait node parameters.
@@ -998,7 +1024,20 @@ type ExtSemWaitNodeParamsV2 struct {
 	// Array of external semaphore wait parameters.
 	ParamsArray uintptr
 	// Number of handles and parameters supplied in extSemArray and paramsArray.
-	NumExtSems uint32
+	NumExtSems     uint32
+	AnonymousUnion [1]uint64
+}
+
+// Ctx returns a pointer to the ctx member of CUDA_EXT_SEM_WAIT_NODE_PARAMS_v2, which shares its
+// storage with every other member of the union.
+func (e *ExtSemWaitNodeParamsV2) Ctx() *Context {
+	return (*Context)(unsafe.Pointer(&e.AnonymousUnion))
+}
+
+// GCtx returns a pointer to the gCtx member of CUDA_EXT_SEM_WAIT_NODE_PARAMS_v2, which shares its
+// storage with every other member of the union.
+func (e *ExtSemWaitNodeParamsV2) GCtx() *GreenCtx {
+	return (*GreenCtx)(unsafe.Pointer(&e.AnonymousUnion))
 }
 
 // ArrayMapInfo specifies the CUDA array or CUDA mipmapped array memory mapping information.
@@ -1029,6 +1068,18 @@ type MemLocation struct {
 	// Specifies the location type, which modifies the meaning of id.
 	Type MemLocationType
 	Id   int32
+}
+
+// MemLocationLocalized is the type of the localized member of MemLocation.
+type MemLocationLocalized struct {
+	DeviceId         uint8
+	LocalityDomainId uint8
+}
+
+// Localized returns a pointer to the localized member of CUmemLocation_v1, which shares its
+// storage with every other member of the union.
+func (m *MemLocation) Localized() *MemLocationLocalized {
+	return (*MemLocationLocalized)(unsafe.Pointer(&m.Id))
 }
 
 // MemAllocationProp specifies the allocation properties for a allocation.
@@ -1075,9 +1126,10 @@ type MemPoolProps struct {
 	// Maximum pool size. When set to 0, defaults to a system dependent value.
 	MaxSize uint
 	// Bitmask indicating intended usage for the pool.
-	Usage uint16
+	Usage                uint16
+	GpuDirectRDMACapable uint8
 	// reserved for future use, must be 0
-	Reserved [54]uint8
+	Reserved [53]uint8
 }
 
 // MemPoolPtrExportData represents opaque data for exporting a pool allocation.
@@ -1175,7 +1227,20 @@ type ChildGraphNodeParams struct {
 // EventRecordNodeParams represents event record node parameters.
 type EventRecordNodeParams struct {
 	// The event to record when the node executes
-	Event Event
+	Event          Event
+	AnonymousUnion [1]uint64
+}
+
+// Ctx returns a pointer to the ctx member of CUDA_EVENT_RECORD_NODE_PARAMS, which shares its
+// storage with every other member of the union.
+func (e *EventRecordNodeParams) Ctx() *Context {
+	return (*Context)(unsafe.Pointer(&e.AnonymousUnion))
+}
+
+// GCtx returns a pointer to the gCtx member of CUDA_EVENT_RECORD_NODE_PARAMS, which shares its
+// storage with every other member of the union.
+func (e *EventRecordNodeParams) GCtx() *GreenCtx {
+	return (*GreenCtx)(unsafe.Pointer(&e.AnonymousUnion))
 }
 
 // EventWaitNodeParams represents event wait node parameters.
@@ -1281,6 +1346,32 @@ func (g *GraphNodeParams) Conditional() *ConditionalNodeParams {
 	return (*ConditionalNodeParams)(unsafe.Pointer(&g.AnonymousUnion))
 }
 
+// AsBytes returns a pointer to the asBytes member of CUgraphNodeParams, which shares its
+// storage with every other member of the union.
+func (g *GraphNodeParams) AsBytes() *[232]byte {
+	return (*[232]byte)(unsafe.Pointer(&g.AnonymousUnion))
+}
+
+// CheckpointCustomStoragePerDeviceData represents Per-GPU data for zero-copy mapped device memory used with CUDA checkpoint/restore on custom storage.
+type CheckpointCustomStoragePerDeviceData struct {
+	// Zero-copy mapped device memory pointer for the user to copy to/from
+	DevPtr DevicePtr
+	// Size of mapped memory
+	Size uint
+	// Stream the user may use for the copy; the CUDA driver synchronizes on this stream before completing checkpoint or restore
+	Stream Stream
+}
+
+// CheckpointCustomStorageInfo represents output from CUDA custom storage checkpoint/restore: per-GPU device pointers and a handle to complete the operation.
+type CheckpointCustomStorageInfo struct {
+	// Handle returned that is needed to complete checkpoint or restore
+	Handle CheckpointOperationHandle
+	// Returned pointer to array of per-device data, one per device. User should set to NULL
+	PerDeviceData uintptr
+	// Number of devices (and elements in perDeviceData array)
+	DeviceCount uint32
+}
+
 // CheckpointLockArgs represents CUDA checkpoint optional lock arguments.
 type CheckpointLockArgs struct {
 	// Timeout in milliseconds to attempt to lock the process, 0 indicates no timeout
@@ -1293,8 +1384,10 @@ type CheckpointLockArgs struct {
 
 // CheckpointCheckpointArgs represents CUDA checkpoint optional checkpoint arguments.
 type CheckpointCheckpointArgs struct {
+	// Optional custom storage; if NULL, GPU memory is checkpointed to host
+	CustomStorageInfoOut uintptr
 	// Reserved for future use, must be zeroed
-	Reserved [8]uint64
+	Reserved [56]byte
 }
 
 // CheckpointGpuPair represents CUDA checkpoint GPU UUID pairs for device remapping during restore.
@@ -1311,10 +1404,12 @@ type CheckpointRestoreArgs struct {
 	GpuPairs uintptr
 	// Number of gpu pairs to remap
 	GpuPairsCount uint32
-	// Reserved for future use, must be zeroed
-	Reserved [44]byte
-	// Reserved for future use, must be zeroed
-	Reserved1 uint64
+	// Padding to align the following fields
+	Padding0 uint32
+	// Optional custom storage; if NULL, GPU memory is restored from host
+	CustomStorageInfoOut uintptr
+	// Reserved for future use, must be zeroed; includes alignment before customStorageInfo
+	Reserved [40]byte
 }
 
 // CheckpointUnlockArgs represents CUDA checkpoint optional unlock arguments.
@@ -1334,6 +1429,54 @@ type MemDecompressParams struct {
 	Padding     [20]uint8
 }
 
+// CliqueInfo represents fabric clique information.
+type CliqueInfo struct {
+	// Type of the fabric clique
+	Type CliqueType
+	// ID of the fabric clique
+	Id uint32
+}
+
+// LogicalEndpointFabricHandle represents fabric handle for a logical endpoint.
+type LogicalEndpointFabricHandle struct {
+	Data [64]uint8
+}
+
+// LogicalEndpointProp represents properties of a logical endpoint construction.
+type LogicalEndpointProp struct {
+	// Type of the logical endpoint defined in [LogicalEndpointType]
+	Type           LogicalEndpointType
+	AnonymousUnion [1]uint32
+	// Size of the logical endpoint
+	Size uint64
+	// A bitmask of IPC handle types defined in [LogicalEndpointIpcHandleType]
+	IpcHandleTypes uint32
+	// A bitmask of flags defined in [LogicalEndpointFlag]
+	Flags uint32
+}
+
+// LogicalEndpointPropUnicast is the type of the unicast member of LogicalEndpointProp.
+type LogicalEndpointPropUnicast struct {
+	Device Device
+}
+
+// Unicast returns a pointer to the unicast member of CUlogicalEndpointProp, which shares its
+// storage with every other member of the union.
+func (l *LogicalEndpointProp) Unicast() *LogicalEndpointPropUnicast {
+	return (*LogicalEndpointPropUnicast)(unsafe.Pointer(&l.AnonymousUnion))
+}
+
+// LogicalEndpointPropMulticast is the type of the multicast member of LogicalEndpointProp.
+type LogicalEndpointPropMulticast struct {
+	NumDevices uint32
+}
+
+// Multicast returns a pointer to the multicast member of CUlogicalEndpointProp, which shares its
+// storage with every other member of the union.
+func (l *LogicalEndpointProp) Multicast() *LogicalEndpointPropMulticast {
+	return (*LogicalEndpointPropMulticast)(unsafe.Pointer(&l.AnonymousUnion))
+}
+
 // DevSmResource represents data for SM-related resources All parameters in this structure are OUTPUT only.
 //
 // Do not write to any of the fields in this structure.
@@ -1344,7 +1487,8 @@ type DevSmResource struct {
 	MinSmPartitionSize     uint32
 	SmCoscheduledAlignment uint32
 	// The flags set on this SM resource. For possible values see [DevsmresourcegroupFlags].
-	Flags uint32
+	Flags            uint32
+	LocalityDomainId uint32
 }
 
 // DevWorkqueueConfigResource represents data for workqueue configuration related resources.
@@ -1372,8 +1516,10 @@ type CuDevSmResourceGroupParams struct {
 	// When possible, combine co-scheduled groups together into larger groups of this size.
 	PreferredCoscheduledSmCount uint32
 	// The flags set on this SM resource group. For possible values see [DevsmresourcegroupFlags].
-	Flags    uint32
-	Reserved [12]uint32
+	Flags uint32
+	// Locality domain that the SM must be located on. Only valid if [DevSmResourceGroupLocalityDomainId] is set in flags
+	LocalityDomainId uint32
+	Reserved         [11]uint32
 }
 
 // DevResource represents CUdevResource_v1.

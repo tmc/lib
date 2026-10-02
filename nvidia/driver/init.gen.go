@@ -423,6 +423,99 @@ func checkLibSym(symbol string) error {
 	return nil
 }
 
+// A symbolChain lists the symbols one function may bind, newest first, and
+// records the one that bound. A function the header declares under several
+// versions with one prototype binds the newest version the library exports.
+type symbolChain struct {
+	symbols  []string
+	fallback string // tried last, only in a library whose version was verified
+	bound    string // the symbol that bound, or ""
+}
+
+// missing returns the *SymbolError for a chain that bound nothing. It names
+// the first symbol the library exports but that could not be bound, or else
+// the newest symbol.
+func (c *symbolChain) missing() error {
+	for _, s := range c.symbols {
+		if err := unbound[s]; err != nil {
+			return &SymbolError{Symbol: s, Err: err}
+		}
+	}
+	if err := unbound[c.fallback]; c.fallback != "" && err != nil {
+		return &SymbolError{Symbol: c.fallback, Err: err}
+	}
+	return &SymbolError{Symbol: c.symbols[0]}
+}
+
+// checkLibChain loads the library if necessary and reports whether any of
+// c's symbols bound. It returns the load error if the library is
+// unavailable, or *SymbolError if none of the symbols is callable.
+func checkLibChain(c *symbolChain) error {
+	if err := checkLib(); err != nil {
+		return err
+	}
+	if c.bound == "" {
+		return c.missing()
+	}
+	return nil
+}
+
+// registerSymChain resolves the first of c's symbols the library exports.
+func registerSymChain(c *symbolChain) uintptr {
+	for _, s := range c.symbols {
+		if sym := registerSym(s); sym != 0 {
+			c.bound = s
+			return sym
+		}
+	}
+	return 0
+}
+
+var (
+	chainCuCtxCreate                       = symbolChain{symbols: []string{"cuCtxCreate_v4", "cuCtxCreate_v2"}}
+	chainCuEventElapsedTime                = symbolChain{symbols: []string{"cuEventElapsedTime_v2", "cuEventElapsedTime"}}
+	chainCuGraphAddDependencies            = symbolChain{symbols: []string{"cuGraphAddDependencies_v2", "cuGraphAddDependencies"}}
+	chainCuGraphAddNode                    = symbolChain{symbols: []string{"cuGraphAddNode_v3", "cuGraphAddNode_v2", "cuGraphAddNode"}}
+	chainCuGraphGetEdges                   = symbolChain{symbols: []string{"cuGraphGetEdges_v2", "cuGraphGetEdges"}}
+	chainCuGraphNodeGetDependencies        = symbolChain{symbols: []string{"cuGraphNodeGetDependencies_v2", "cuGraphNodeGetDependencies"}}
+	chainCuGraphNodeGetDependentNodes      = symbolChain{symbols: []string{"cuGraphNodeGetDependentNodes_v2", "cuGraphNodeGetDependentNodes"}}
+	chainCuGraphNodeSetParams              = symbolChain{symbols: []string{"cuGraphNodeSetParams_v2", "cuGraphNodeSetParams"}}
+	chainCuGraphRemoveDependencies         = symbolChain{symbols: []string{"cuGraphRemoveDependencies_v2", "cuGraphRemoveDependencies"}}
+	chainCuStreamGetCaptureInfo            = symbolChain{symbols: []string{"cuStreamGetCaptureInfo_v3", "cuStreamGetCaptureInfo_v2"}}
+	chainCuStreamUpdateCaptureDependencies = symbolChain{symbols: []string{"cuStreamUpdateCaptureDependencies_v2", "cuStreamUpdateCaptureDependencies"}}
+)
+
+// chains maps a C function name to its symbolChain.
+var chains = map[string]*symbolChain{
+	"cuCtxCreate":                       &chainCuCtxCreate,
+	"cuEventElapsedTime":                &chainCuEventElapsedTime,
+	"cuGraphAddDependencies":            &chainCuGraphAddDependencies,
+	"cuGraphAddNode":                    &chainCuGraphAddNode,
+	"cuGraphGetEdges":                   &chainCuGraphGetEdges,
+	"cuGraphNodeGetDependencies":        &chainCuGraphNodeGetDependencies,
+	"cuGraphNodeGetDependentNodes":      &chainCuGraphNodeGetDependentNodes,
+	"cuGraphNodeSetParams":              &chainCuGraphNodeSetParams,
+	"cuGraphRemoveDependencies":         &chainCuGraphRemoveDependencies,
+	"cuStreamGetCaptureInfo":            &chainCuStreamGetCaptureInfo,
+	"cuStreamUpdateCaptureDependencies": &chainCuStreamUpdateCaptureDependencies,
+}
+
+// BoundSymbol returns the symbol the loaded library bound for the C
+// function name, loading the library first if necessary, or "" if none
+// bound. It answers for the functions that bind the first of several
+// symbols the library exports: BoundSymbol("cuCtxCreate") returns
+// "cuCtxCreate_v4" when the library exports it, and an older spelling
+// otherwise. It returns "" for any other name.
+func BoundSymbol(name string) string {
+	if err := checkLib(); err != nil {
+		return ""
+	}
+	if c := chains[name]; c != nil {
+		return c.bound
+	}
+	return ""
+}
+
 // registerFuncs binds all raw function pointers to their library symbols.
 func registerFuncs() {
 	register(&fnGetErrorName, "cuGetErrorName")
@@ -435,6 +528,7 @@ func registerFuncs() {
 	symarrayGetMemoryRequirements = registerSym("cuArrayGetMemoryRequirements")
 	symarrayGetPlane = registerSym("cuArrayGetPlane")
 	symarrayGetSparseProperties = registerSym("cuArrayGetSparseProperties")
+	symcheckpointOperationComplete = registerSym("cuCheckpointOperationComplete")
 	symCheckpointProcessCheckpoint = registerSym("cuCheckpointProcessCheckpoint")
 	symCheckpointProcessGetRestoreThreadId = registerSym("cuCheckpointProcessGetRestoreThreadId")
 	symCheckpointProcessGetState = registerSym("cuCheckpointProcessGetState")
@@ -450,7 +544,9 @@ func registerFuncs() {
 	symCoredumpSetAttribute = registerSym("cuCoredumpSetAttribute")
 	symCoredumpSetAttributeGlobal = registerSym("cuCoredumpSetAttributeGlobal")
 	symctxAttach = registerSym("cuCtxAttach")
-	symctxCreate = registerSym("cuCtxCreate_v4")
+	symctxCreate = registerSymChain(&chainCuCtxCreate)
+	floorctxCreate = chainCuCtxCreate.bound == "cuCtxCreate_v2"
+	symctxCreateV4 = registerSym("cuCtxCreate_v4")
 	symctxDestroy = registerSym("cuCtxDestroy_v2")
 	symctxDetach = registerSym("cuCtxDetach")
 	symctxDisablePeerAccess = registerSym("cuCtxDisablePeerAccess")
@@ -490,10 +586,13 @@ func registerFuncs() {
 	symdeviceGet = registerSym("cuDeviceGet")
 	symdeviceGetAttribute = registerSym("cuDeviceGetAttribute")
 	symdeviceGetByPCIBusId = registerSym("cuDeviceGetByPCIBusId")
+	symdeviceGetCliqueCount = registerSym("cuDeviceGetCliqueCount")
+	symdeviceGetCliqueInfo = registerSym("cuDeviceGetCliqueInfo")
 	symDeviceGetCount = registerSym("cuDeviceGetCount")
 	symdeviceGetDefaultMemPool = registerSym("cuDeviceGetDefaultMemPool")
 	symdeviceGetDevResource = registerSym("cuDeviceGetDevResource")
 	symdeviceGetExecAffinitySupport = registerSym("cuDeviceGetExecAffinitySupport")
+	symdeviceGetFabricClusterUuid = registerSym("cuDeviceGetFabricClusterUuid")
 	symdeviceGetGraphMemAttribute = registerSym("cuDeviceGetGraphMemAttribute")
 	symdeviceGetHostAtomicCapabilities = registerSym("cuDeviceGetHostAtomicCapabilities")
 	symdeviceGetLuid = registerSym("cuDeviceGetLuid")
@@ -520,7 +619,9 @@ func registerFuncs() {
 	symDriverGetVersion = registerSym("cuDriverGetVersion")
 	symeventCreate = registerSym("cuEventCreate")
 	symeventDestroy = registerSym("cuEventDestroy_v2")
-	symeventElapsedTime = registerSym("cuEventElapsedTime_v2")
+	symeventElapsedTime = registerSymChain(&chainCuEventElapsedTime)
+	symeventElapsedTimeV1 = registerSym("cuEventElapsedTime")
+	symeventElapsedTimeV2 = registerSym("cuEventElapsedTime_v2")
 	symeventQuery = registerSym("cuEventQuery")
 	symeventRecord = registerSym("cuEventRecord")
 	symeventRecordWithFlags = registerSym("cuEventRecordWithFlags")
@@ -544,7 +645,9 @@ func registerFuncs() {
 	symGetProcAddress = registerSym("cuGetProcAddress_v2")
 	symgraphAddBatchMemOpNode = registerSym("cuGraphAddBatchMemOpNode")
 	symgraphAddChildGraphNode = registerSym("cuGraphAddChildGraphNode")
-	symgraphAddDependencies = registerSym("cuGraphAddDependencies_v2")
+	symgraphAddDependencies = registerSymChain(&chainCuGraphAddDependencies)
+	floorgraphAddDependencies = chainCuGraphAddDependencies.bound == "cuGraphAddDependencies"
+	symgraphAddDependenciesV2 = registerSym("cuGraphAddDependencies_v2")
 	symgraphAddEmptyNode = registerSym("cuGraphAddEmptyNode")
 	symgraphAddEventRecordNode = registerSym("cuGraphAddEventRecordNode")
 	symgraphAddEventWaitNode = registerSym("cuGraphAddEventWaitNode")
@@ -556,7 +659,10 @@ func registerFuncs() {
 	symgraphAddMemFreeNode = registerSym("cuGraphAddMemFreeNode")
 	symgraphAddMemcpyNode = registerSym("cuGraphAddMemcpyNode")
 	symgraphAddMemsetNode = registerSym("cuGraphAddMemsetNode")
-	symgraphAddNode = registerSym("cuGraphAddNode_v2")
+	symgraphAddNode = registerSymChain(&chainCuGraphAddNode)
+	floorgraphAddNode = chainCuGraphAddNode.bound == "cuGraphAddNode"
+	symgraphAddNodeV2 = registerSym("cuGraphAddNode_v2")
+	symgraphAddNodeV3 = registerSym("cuGraphAddNode_v3")
 	symgraphBatchMemOpNodeGetParams = registerSym("cuGraphBatchMemOpNodeGetParams")
 	symgraphBatchMemOpNodeSetParams = registerSym("cuGraphBatchMemOpNodeSetParams")
 	symgraphChildGraphNodeGetGraph = registerSym("cuGraphChildGraphNodeGetGraph")
@@ -589,7 +695,9 @@ func registerFuncs() {
 	symgraphExternalSemaphoresSignalNodeSetParams = registerSym("cuGraphExternalSemaphoresSignalNodeSetParams")
 	symgraphExternalSemaphoresWaitNodeGetParams = registerSym("cuGraphExternalSemaphoresWaitNodeGetParams")
 	symgraphExternalSemaphoresWaitNodeSetParams = registerSym("cuGraphExternalSemaphoresWaitNodeSetParams")
-	symgraphGetEdges = registerSym("cuGraphGetEdges_v2")
+	symgraphGetEdges = registerSymChain(&chainCuGraphGetEdges)
+	floorgraphGetEdges = chainCuGraphGetEdges.bound == "cuGraphGetEdges"
+	symgraphGetEdgesV2 = registerSym("cuGraphGetEdges_v2")
 	symgraphGetId = registerSym("cuGraphGetId")
 	symgraphGetNodes = registerSym("cuGraphGetNodes")
 	symgraphGetRootNodes = registerSym("cuGraphGetRootNodes")
@@ -611,17 +719,25 @@ func registerFuncs() {
 	symgraphMemsetNodeSetParams = registerSym("cuGraphMemsetNodeSetParams")
 	symgraphNodeFindInClone = registerSym("cuGraphNodeFindInClone")
 	symgraphNodeGetContainingGraph = registerSym("cuGraphNodeGetContainingGraph")
-	symgraphNodeGetDependencies = registerSym("cuGraphNodeGetDependencies_v2")
-	symgraphNodeGetDependentNodes = registerSym("cuGraphNodeGetDependentNodes_v2")
+	symgraphNodeGetDependencies = registerSymChain(&chainCuGraphNodeGetDependencies)
+	floorgraphNodeGetDependencies = chainCuGraphNodeGetDependencies.bound == "cuGraphNodeGetDependencies"
+	symgraphNodeGetDependenciesV2 = registerSym("cuGraphNodeGetDependencies_v2")
+	symgraphNodeGetDependentNodes = registerSymChain(&chainCuGraphNodeGetDependentNodes)
+	floorgraphNodeGetDependentNodes = chainCuGraphNodeGetDependentNodes.bound == "cuGraphNodeGetDependentNodes"
+	symgraphNodeGetDependentNodesV2 = registerSym("cuGraphNodeGetDependentNodes_v2")
 	symgraphNodeGetEnabled = registerSym("cuGraphNodeGetEnabled")
 	symgraphNodeGetLocalId = registerSym("cuGraphNodeGetLocalId")
 	symgraphNodeGetParams = registerSym("cuGraphNodeGetParams")
 	symgraphNodeGetToolsId = registerSym("cuGraphNodeGetToolsId")
 	symgraphNodeGetType = registerSym("cuGraphNodeGetType")
 	symgraphNodeSetEnabled = registerSym("cuGraphNodeSetEnabled")
-	symgraphNodeSetParams = registerSym("cuGraphNodeSetParams")
+	symgraphNodeSetParams = registerSymChain(&chainCuGraphNodeSetParams)
+	symgraphNodeSetParamsV1 = registerSym("cuGraphNodeSetParams")
+	symgraphNodeSetParamsV2 = registerSym("cuGraphNodeSetParams_v2")
 	symgraphReleaseUserObject = registerSym("cuGraphReleaseUserObject")
-	symgraphRemoveDependencies = registerSym("cuGraphRemoveDependencies_v2")
+	symgraphRemoveDependencies = registerSymChain(&chainCuGraphRemoveDependencies)
+	floorgraphRemoveDependencies = chainCuGraphRemoveDependencies.bound == "cuGraphRemoveDependencies"
+	symgraphRemoveDependenciesV2 = registerSym("cuGraphRemoveDependencies_v2")
 	symgraphRetainUserObject = registerSym("cuGraphRetainUserObject")
 	symgraphUpload = registerSym("cuGraphUpload")
 	symgraphicsMapResources = registerSym("cuGraphicsMapResources")
@@ -659,7 +775,8 @@ func registerFuncs() {
 	symLaunchCooperativeKernelMultiDevice = registerSym("cuLaunchCooperativeKernelMultiDevice")
 	symlaunchGrid = registerSym("cuLaunchGrid")
 	symlaunchGridAsync = registerSym("cuLaunchGridAsync")
-	symlaunchHostFunc = registerSym("cuLaunchHostFunc_v2")
+	symlaunchHostFunc = registerSym("cuLaunchHostFunc")
+	symlaunchHostFuncV2 = registerSym("cuLaunchHostFunc_v2")
 	symlaunchKernel = registerSym("cuLaunchKernel")
 	symlaunchKernelEx = registerSym("cuLaunchKernelEx")
 	symlibraryEnumerateKernels = registerSym("cuLibraryEnumerateKernels")
@@ -677,6 +794,18 @@ func registerFuncs() {
 	symlinkComplete = registerSym("cuLinkComplete")
 	symLinkCreate = registerSym("cuLinkCreate_v2")
 	symlinkDestroy = registerSym("cuLinkDestroy")
+	symlogicalEndpointAddDevice = registerSym("cuLogicalEndpointAddDevice")
+	symlogicalEndpointBindAddr = registerSym("cuLogicalEndpointBindAddr")
+	symlogicalEndpointBindMem = registerSym("cuLogicalEndpointBindMem")
+	symLogicalEndpointCreate = registerSym("cuLogicalEndpointCreate")
+	symLogicalEndpointDestroy = registerSym("cuLogicalEndpointDestroy")
+	symLogicalEndpointExport = registerSym("cuLogicalEndpointExport")
+	symLogicalEndpointGetLimits = registerSym("cuLogicalEndpointGetLimits")
+	symLogicalEndpointIdRelease = registerSym("cuLogicalEndpointIdRelease")
+	symLogicalEndpointIdReserve = registerSym("cuLogicalEndpointIdReserve")
+	symLogicalEndpointImport = registerSym("cuLogicalEndpointImport")
+	symLogicalEndpointQuery = registerSym("cuLogicalEndpointQuery")
+	symlogicalEndpointUnbind = registerSym("cuLogicalEndpointUnbind")
 	symLogsCurrent = registerSym("cuLogsCurrent")
 	symLogsDumpToFile = registerSym("cuLogsDumpToFile")
 	symLogsDumpToMemory = registerSym("cuLogsDumpToMemory")
@@ -706,6 +835,7 @@ func registerFuncs() {
 	symMemGetDefaultMemPool = registerSym("cuMemGetDefaultMemPool")
 	symmemGetHandleForAddressRange = registerSym("cuMemGetHandleForAddressRange")
 	symMemGetInfo = registerSym("cuMemGetInfo_v2")
+	symmemGetLocationInfo = registerSym("cuMemGetLocationInfo")
 	symMemGetMemPool = registerSym("cuMemGetMemPool")
 	symMemHostAlloc = registerSym("cuMemHostAlloc")
 	symMemHostGetDevicePointer = registerSym("cuMemHostGetDevicePointer_v2")
@@ -822,6 +952,7 @@ func registerFuncs() {
 	symstreamBeginCapture = registerSym("cuStreamBeginCapture_v2")
 	symstreamBeginCaptureToCig = registerSym("cuStreamBeginCaptureToCig")
 	symstreamBeginCaptureToGraph = registerSym("cuStreamBeginCaptureToGraph")
+	symstreamBeginRecaptureToGraph = registerSym("cuStreamBeginRecaptureToGraph")
 	symstreamCopyAttributes = registerSym("cuStreamCopyAttributes")
 	symstreamCreate = registerSym("cuStreamCreate")
 	symstreamCreateWithPriority = registerSym("cuStreamCreateWithPriority")
@@ -829,8 +960,11 @@ func registerFuncs() {
 	symstreamEndCapture = registerSym("cuStreamEndCapture")
 	symstreamEndCaptureToCig = registerSym("cuStreamEndCaptureToCig")
 	symstreamGetAttribute = registerSym("cuStreamGetAttribute")
-	symstreamGetCaptureInfo = registerSym("cuStreamGetCaptureInfo_v3")
-	symstreamGetCtx = registerSym("cuStreamGetCtx_v2")
+	symstreamGetCaptureInfo = registerSymChain(&chainCuStreamGetCaptureInfo)
+	floorstreamGetCaptureInfo = chainCuStreamGetCaptureInfo.bound == "cuStreamGetCaptureInfo_v2"
+	symstreamGetCaptureInfoV3 = registerSym("cuStreamGetCaptureInfo_v3")
+	symstreamGetCtx = registerSym("cuStreamGetCtx")
+	symstreamGetCtxV2 = registerSym("cuStreamGetCtx_v2")
 	symstreamGetDevResource = registerSym("cuStreamGetDevResource")
 	symstreamGetDevice = registerSym("cuStreamGetDevice")
 	symstreamGetFlags = registerSym("cuStreamGetFlags")
@@ -841,7 +975,9 @@ func registerFuncs() {
 	symstreamQuery = registerSym("cuStreamQuery")
 	symstreamSetAttribute = registerSym("cuStreamSetAttribute")
 	symstreamSynchronize = registerSym("cuStreamSynchronize")
-	symstreamUpdateCaptureDependencies = registerSym("cuStreamUpdateCaptureDependencies_v2")
+	symstreamUpdateCaptureDependencies = registerSymChain(&chainCuStreamUpdateCaptureDependencies)
+	floorstreamUpdateCaptureDependencies = chainCuStreamUpdateCaptureDependencies.bound == "cuStreamUpdateCaptureDependencies"
+	symstreamUpdateCaptureDependenciesV2 = registerSym("cuStreamUpdateCaptureDependencies_v2")
 	symstreamWaitEvent = registerSym("cuStreamWaitEvent")
 	symstreamWaitValue32 = registerSym("cuStreamWaitValue32_v2")
 	symstreamWaitValue64 = registerSym("cuStreamWaitValue64_v2")
@@ -907,6 +1043,7 @@ func clearFuncs() {
 	symarrayGetMemoryRequirements = 0
 	symarrayGetPlane = 0
 	symarrayGetSparseProperties = 0
+	symcheckpointOperationComplete = 0
 	symCheckpointProcessCheckpoint = 0
 	symCheckpointProcessGetRestoreThreadId = 0
 	symCheckpointProcessGetState = 0
@@ -922,7 +1059,10 @@ func clearFuncs() {
 	symCoredumpSetAttribute = 0
 	symCoredumpSetAttributeGlobal = 0
 	symctxAttach = 0
+	chainCuCtxCreate.bound = ""
 	symctxCreate = 0
+	floorctxCreate = false
+	symctxCreateV4 = 0
 	symctxDestroy = 0
 	symctxDetach = 0
 	symctxDisablePeerAccess = 0
@@ -962,10 +1102,13 @@ func clearFuncs() {
 	symdeviceGet = 0
 	symdeviceGetAttribute = 0
 	symdeviceGetByPCIBusId = 0
+	symdeviceGetCliqueCount = 0
+	symdeviceGetCliqueInfo = 0
 	symDeviceGetCount = 0
 	symdeviceGetDefaultMemPool = 0
 	symdeviceGetDevResource = 0
 	symdeviceGetExecAffinitySupport = 0
+	symdeviceGetFabricClusterUuid = 0
 	symdeviceGetGraphMemAttribute = 0
 	symdeviceGetHostAtomicCapabilities = 0
 	symdeviceGetLuid = 0
@@ -992,7 +1135,10 @@ func clearFuncs() {
 	symDriverGetVersion = 0
 	symeventCreate = 0
 	symeventDestroy = 0
+	chainCuEventElapsedTime.bound = ""
 	symeventElapsedTime = 0
+	symeventElapsedTimeV1 = 0
+	symeventElapsedTimeV2 = 0
 	symeventQuery = 0
 	symeventRecord = 0
 	symeventRecordWithFlags = 0
@@ -1016,7 +1162,10 @@ func clearFuncs() {
 	symGetProcAddress = 0
 	symgraphAddBatchMemOpNode = 0
 	symgraphAddChildGraphNode = 0
+	chainCuGraphAddDependencies.bound = ""
 	symgraphAddDependencies = 0
+	floorgraphAddDependencies = false
+	symgraphAddDependenciesV2 = 0
 	symgraphAddEmptyNode = 0
 	symgraphAddEventRecordNode = 0
 	symgraphAddEventWaitNode = 0
@@ -1028,7 +1177,11 @@ func clearFuncs() {
 	symgraphAddMemFreeNode = 0
 	symgraphAddMemcpyNode = 0
 	symgraphAddMemsetNode = 0
+	chainCuGraphAddNode.bound = ""
 	symgraphAddNode = 0
+	floorgraphAddNode = false
+	symgraphAddNodeV2 = 0
+	symgraphAddNodeV3 = 0
 	symgraphBatchMemOpNodeGetParams = 0
 	symgraphBatchMemOpNodeSetParams = 0
 	symgraphChildGraphNodeGetGraph = 0
@@ -1061,7 +1214,10 @@ func clearFuncs() {
 	symgraphExternalSemaphoresSignalNodeSetParams = 0
 	symgraphExternalSemaphoresWaitNodeGetParams = 0
 	symgraphExternalSemaphoresWaitNodeSetParams = 0
+	chainCuGraphGetEdges.bound = ""
 	symgraphGetEdges = 0
+	floorgraphGetEdges = false
+	symgraphGetEdgesV2 = 0
 	symgraphGetId = 0
 	symgraphGetNodes = 0
 	symgraphGetRootNodes = 0
@@ -1083,17 +1239,29 @@ func clearFuncs() {
 	symgraphMemsetNodeSetParams = 0
 	symgraphNodeFindInClone = 0
 	symgraphNodeGetContainingGraph = 0
+	chainCuGraphNodeGetDependencies.bound = ""
 	symgraphNodeGetDependencies = 0
+	floorgraphNodeGetDependencies = false
+	symgraphNodeGetDependenciesV2 = 0
+	chainCuGraphNodeGetDependentNodes.bound = ""
 	symgraphNodeGetDependentNodes = 0
+	floorgraphNodeGetDependentNodes = false
+	symgraphNodeGetDependentNodesV2 = 0
 	symgraphNodeGetEnabled = 0
 	symgraphNodeGetLocalId = 0
 	symgraphNodeGetParams = 0
 	symgraphNodeGetToolsId = 0
 	symgraphNodeGetType = 0
 	symgraphNodeSetEnabled = 0
+	chainCuGraphNodeSetParams.bound = ""
 	symgraphNodeSetParams = 0
+	symgraphNodeSetParamsV1 = 0
+	symgraphNodeSetParamsV2 = 0
 	symgraphReleaseUserObject = 0
+	chainCuGraphRemoveDependencies.bound = ""
 	symgraphRemoveDependencies = 0
+	floorgraphRemoveDependencies = false
+	symgraphRemoveDependenciesV2 = 0
 	symgraphRetainUserObject = 0
 	symgraphUpload = 0
 	symgraphicsMapResources = 0
@@ -1132,6 +1300,7 @@ func clearFuncs() {
 	symlaunchGrid = 0
 	symlaunchGridAsync = 0
 	symlaunchHostFunc = 0
+	symlaunchHostFuncV2 = 0
 	symlaunchKernel = 0
 	symlaunchKernelEx = 0
 	symlibraryEnumerateKernels = 0
@@ -1149,6 +1318,18 @@ func clearFuncs() {
 	symlinkComplete = 0
 	symLinkCreate = 0
 	symlinkDestroy = 0
+	symlogicalEndpointAddDevice = 0
+	symlogicalEndpointBindAddr = 0
+	symlogicalEndpointBindMem = 0
+	symLogicalEndpointCreate = 0
+	symLogicalEndpointDestroy = 0
+	symLogicalEndpointExport = 0
+	symLogicalEndpointGetLimits = 0
+	symLogicalEndpointIdRelease = 0
+	symLogicalEndpointIdReserve = 0
+	symLogicalEndpointImport = 0
+	symLogicalEndpointQuery = 0
+	symlogicalEndpointUnbind = 0
 	symLogsCurrent = 0
 	symLogsDumpToFile = 0
 	symLogsDumpToMemory = 0
@@ -1178,6 +1359,7 @@ func clearFuncs() {
 	symMemGetDefaultMemPool = 0
 	symmemGetHandleForAddressRange = 0
 	symMemGetInfo = 0
+	symmemGetLocationInfo = 0
 	symMemGetMemPool = 0
 	symMemHostAlloc = 0
 	symMemHostGetDevicePointer = 0
@@ -1294,6 +1476,7 @@ func clearFuncs() {
 	symstreamBeginCapture = 0
 	symstreamBeginCaptureToCig = 0
 	symstreamBeginCaptureToGraph = 0
+	symstreamBeginRecaptureToGraph = 0
 	symstreamCopyAttributes = 0
 	symstreamCreate = 0
 	symstreamCreateWithPriority = 0
@@ -1301,8 +1484,12 @@ func clearFuncs() {
 	symstreamEndCapture = 0
 	symstreamEndCaptureToCig = 0
 	symstreamGetAttribute = 0
+	chainCuStreamGetCaptureInfo.bound = ""
 	symstreamGetCaptureInfo = 0
+	floorstreamGetCaptureInfo = false
+	symstreamGetCaptureInfoV3 = 0
 	symstreamGetCtx = 0
+	symstreamGetCtxV2 = 0
 	symstreamGetDevResource = 0
 	symstreamGetDevice = 0
 	symstreamGetFlags = 0
@@ -1313,7 +1500,10 @@ func clearFuncs() {
 	symstreamQuery = 0
 	symstreamSetAttribute = 0
 	symstreamSynchronize = 0
+	chainCuStreamUpdateCaptureDependencies.bound = ""
 	symstreamUpdateCaptureDependencies = 0
+	floorstreamUpdateCaptureDependencies = false
+	symstreamUpdateCaptureDependenciesV2 = 0
 	symstreamWaitEvent = 0
 	symstreamWaitValue32 = 0
 	symstreamWaitValue64 = 0
@@ -1417,6 +1607,11 @@ func HasArrayGetSparseProperties() bool {
 	return Has("cuArrayGetSparseProperties")
 }
 
+// HasCheckpointOperationComplete reports whether cuCheckpointOperationComplete resolved in the loaded library.
+func HasCheckpointOperationComplete() bool {
+	return Has("cuCheckpointOperationComplete")
+}
+
 // HasCheckpointProcessCheckpoint reports whether cuCheckpointProcessCheckpoint resolved in the loaded library.
 func HasCheckpointProcessCheckpoint() bool {
 	return Has("cuCheckpointProcessCheckpoint")
@@ -1492,8 +1687,14 @@ func HasCtxAttach() bool {
 	return Has("cuCtxAttach")
 }
 
-// HasCtxCreate reports whether cuCtxCreate_v4 resolved in the loaded library.
+// HasCtxCreate reports whether cuCtxCreate bound, through any of
+// cuCtxCreate_v4, cuCtxCreate_v2. BoundSymbol reports which.
 func HasCtxCreate() bool {
+	return BoundSymbol("cuCtxCreate") != ""
+}
+
+// HasCtxCreateV4 reports whether cuCtxCreate_v4 resolved in the loaded library.
+func HasCtxCreateV4() bool {
 	return Has("cuCtxCreate_v4")
 }
 
@@ -1692,6 +1893,16 @@ func HasDeviceGetByPCIBusId() bool {
 	return Has("cuDeviceGetByPCIBusId")
 }
 
+// HasDeviceGetCliqueCount reports whether cuDeviceGetCliqueCount resolved in the loaded library.
+func HasDeviceGetCliqueCount() bool {
+	return Has("cuDeviceGetCliqueCount")
+}
+
+// HasDeviceGetCliqueInfo reports whether cuDeviceGetCliqueInfo resolved in the loaded library.
+func HasDeviceGetCliqueInfo() bool {
+	return Has("cuDeviceGetCliqueInfo")
+}
+
 // HasDeviceGetCount reports whether cuDeviceGetCount resolved in the loaded library.
 func HasDeviceGetCount() bool {
 	return Has("cuDeviceGetCount")
@@ -1710,6 +1921,11 @@ func HasDeviceGetDevResource() bool {
 // HasDeviceGetExecAffinitySupport reports whether cuDeviceGetExecAffinitySupport resolved in the loaded library.
 func HasDeviceGetExecAffinitySupport() bool {
 	return Has("cuDeviceGetExecAffinitySupport")
+}
+
+// HasDeviceGetFabricClusterUuid reports whether cuDeviceGetFabricClusterUuid resolved in the loaded library.
+func HasDeviceGetFabricClusterUuid() bool {
+	return Has("cuDeviceGetFabricClusterUuid")
 }
 
 // HasDeviceGetGraphMemAttribute reports whether cuDeviceGetGraphMemAttribute resolved in the loaded library.
@@ -1842,8 +2058,20 @@ func HasEventDestroy() bool {
 	return Has("cuEventDestroy_v2")
 }
 
-// HasEventElapsedTime reports whether cuEventElapsedTime_v2 resolved in the loaded library.
+// HasEventElapsedTime reports whether cuEventElapsedTime bound, through
+// any of cuEventElapsedTime_v2, cuEventElapsedTime. BoundSymbol reports
+// which.
 func HasEventElapsedTime() bool {
+	return BoundSymbol("cuEventElapsedTime") != ""
+}
+
+// HasEventElapsedTimeV1 reports whether cuEventElapsedTime resolved in the loaded library.
+func HasEventElapsedTimeV1() bool {
+	return Has("cuEventElapsedTime")
+}
+
+// HasEventElapsedTimeV2 reports whether cuEventElapsedTime_v2 resolved in the loaded library.
+func HasEventElapsedTimeV2() bool {
 	return Has("cuEventElapsedTime_v2")
 }
 
@@ -1962,8 +2190,15 @@ func HasGraphAddChildGraphNode() bool {
 	return Has("cuGraphAddChildGraphNode")
 }
 
-// HasGraphAddDependencies reports whether cuGraphAddDependencies_v2 resolved in the loaded library.
+// HasGraphAddDependencies reports whether cuGraphAddDependencies bound,
+// through any of cuGraphAddDependencies_v2, cuGraphAddDependencies.
+// BoundSymbol reports which.
 func HasGraphAddDependencies() bool {
+	return BoundSymbol("cuGraphAddDependencies") != ""
+}
+
+// HasGraphAddDependenciesV2 reports whether cuGraphAddDependencies_v2 resolved in the loaded library.
+func HasGraphAddDependenciesV2() bool {
 	return Has("cuGraphAddDependencies_v2")
 }
 
@@ -2022,9 +2257,21 @@ func HasGraphAddMemsetNode() bool {
 	return Has("cuGraphAddMemsetNode")
 }
 
-// HasGraphAddNode reports whether cuGraphAddNode_v2 resolved in the loaded library.
+// HasGraphAddNode reports whether cuGraphAddNode bound, through any of
+// cuGraphAddNode_v3, cuGraphAddNode_v2, cuGraphAddNode. BoundSymbol
+// reports which.
 func HasGraphAddNode() bool {
+	return BoundSymbol("cuGraphAddNode") != ""
+}
+
+// HasGraphAddNodeV2 reports whether cuGraphAddNode_v2 resolved in the loaded library.
+func HasGraphAddNodeV2() bool {
 	return Has("cuGraphAddNode_v2")
+}
+
+// HasGraphAddNodeV3 reports whether cuGraphAddNode_v3 resolved in the loaded library.
+func HasGraphAddNodeV3() bool {
+	return Has("cuGraphAddNode_v3")
 }
 
 // HasGraphBatchMemOpNodeGetParams reports whether cuGraphBatchMemOpNodeGetParams resolved in the loaded library.
@@ -2187,8 +2434,14 @@ func HasGraphExternalSemaphoresWaitNodeSetParams() bool {
 	return Has("cuGraphExternalSemaphoresWaitNodeSetParams")
 }
 
-// HasGraphGetEdges reports whether cuGraphGetEdges_v2 resolved in the loaded library.
+// HasGraphGetEdges reports whether cuGraphGetEdges bound, through any of
+// cuGraphGetEdges_v2, cuGraphGetEdges. BoundSymbol reports which.
 func HasGraphGetEdges() bool {
+	return BoundSymbol("cuGraphGetEdges") != ""
+}
+
+// HasGraphGetEdgesV2 reports whether cuGraphGetEdges_v2 resolved in the loaded library.
+func HasGraphGetEdgesV2() bool {
 	return Has("cuGraphGetEdges_v2")
 }
 
@@ -2297,13 +2550,28 @@ func HasGraphNodeGetContainingGraph() bool {
 	return Has("cuGraphNodeGetContainingGraph")
 }
 
-// HasGraphNodeGetDependencies reports whether cuGraphNodeGetDependencies_v2 resolved in the loaded library.
+// HasGraphNodeGetDependencies reports whether cuGraphNodeGetDependencies
+// bound, through any of cuGraphNodeGetDependencies_v2,
+// cuGraphNodeGetDependencies. BoundSymbol reports which.
 func HasGraphNodeGetDependencies() bool {
+	return BoundSymbol("cuGraphNodeGetDependencies") != ""
+}
+
+// HasGraphNodeGetDependenciesV2 reports whether cuGraphNodeGetDependencies_v2 resolved in the loaded library.
+func HasGraphNodeGetDependenciesV2() bool {
 	return Has("cuGraphNodeGetDependencies_v2")
 }
 
-// HasGraphNodeGetDependentNodes reports whether cuGraphNodeGetDependentNodes_v2 resolved in the loaded library.
+// HasGraphNodeGetDependentNodes reports whether
+// cuGraphNodeGetDependentNodes bound, through any of
+// cuGraphNodeGetDependentNodes_v2, cuGraphNodeGetDependentNodes.
+// BoundSymbol reports which.
 func HasGraphNodeGetDependentNodes() bool {
+	return BoundSymbol("cuGraphNodeGetDependentNodes") != ""
+}
+
+// HasGraphNodeGetDependentNodesV2 reports whether cuGraphNodeGetDependentNodes_v2 resolved in the loaded library.
+func HasGraphNodeGetDependentNodesV2() bool {
 	return Has("cuGraphNodeGetDependentNodes_v2")
 }
 
@@ -2337,9 +2605,21 @@ func HasGraphNodeSetEnabled() bool {
 	return Has("cuGraphNodeSetEnabled")
 }
 
-// HasGraphNodeSetParams reports whether cuGraphNodeSetParams resolved in the loaded library.
+// HasGraphNodeSetParams reports whether cuGraphNodeSetParams bound,
+// through any of cuGraphNodeSetParams_v2, cuGraphNodeSetParams.
+// BoundSymbol reports which.
 func HasGraphNodeSetParams() bool {
+	return BoundSymbol("cuGraphNodeSetParams") != ""
+}
+
+// HasGraphNodeSetParamsV1 reports whether cuGraphNodeSetParams resolved in the loaded library.
+func HasGraphNodeSetParamsV1() bool {
 	return Has("cuGraphNodeSetParams")
+}
+
+// HasGraphNodeSetParamsV2 reports whether cuGraphNodeSetParams_v2 resolved in the loaded library.
+func HasGraphNodeSetParamsV2() bool {
+	return Has("cuGraphNodeSetParams_v2")
 }
 
 // HasGraphReleaseUserObject reports whether cuGraphReleaseUserObject resolved in the loaded library.
@@ -2347,8 +2627,15 @@ func HasGraphReleaseUserObject() bool {
 	return Has("cuGraphReleaseUserObject")
 }
 
-// HasGraphRemoveDependencies reports whether cuGraphRemoveDependencies_v2 resolved in the loaded library.
+// HasGraphRemoveDependencies reports whether cuGraphRemoveDependencies
+// bound, through any of cuGraphRemoveDependencies_v2,
+// cuGraphRemoveDependencies. BoundSymbol reports which.
 func HasGraphRemoveDependencies() bool {
+	return BoundSymbol("cuGraphRemoveDependencies") != ""
+}
+
+// HasGraphRemoveDependenciesV2 reports whether cuGraphRemoveDependencies_v2 resolved in the loaded library.
+func HasGraphRemoveDependenciesV2() bool {
 	return Has("cuGraphRemoveDependencies_v2")
 }
 
@@ -2537,8 +2824,13 @@ func HasLaunchGridAsync() bool {
 	return Has("cuLaunchGridAsync")
 }
 
-// HasLaunchHostFunc reports whether cuLaunchHostFunc_v2 resolved in the loaded library.
+// HasLaunchHostFunc reports whether cuLaunchHostFunc resolved in the loaded library.
 func HasLaunchHostFunc() bool {
+	return Has("cuLaunchHostFunc")
+}
+
+// HasLaunchHostFuncV2 reports whether cuLaunchHostFunc_v2 resolved in the loaded library.
+func HasLaunchHostFuncV2() bool {
 	return Has("cuLaunchHostFunc_v2")
 }
 
@@ -2625,6 +2917,66 @@ func HasLinkCreate() bool {
 // HasLinkDestroy reports whether cuLinkDestroy resolved in the loaded library.
 func HasLinkDestroy() bool {
 	return Has("cuLinkDestroy")
+}
+
+// HasLogicalEndpointAddDevice reports whether cuLogicalEndpointAddDevice resolved in the loaded library.
+func HasLogicalEndpointAddDevice() bool {
+	return Has("cuLogicalEndpointAddDevice")
+}
+
+// HasLogicalEndpointBindAddr reports whether cuLogicalEndpointBindAddr resolved in the loaded library.
+func HasLogicalEndpointBindAddr() bool {
+	return Has("cuLogicalEndpointBindAddr")
+}
+
+// HasLogicalEndpointBindMem reports whether cuLogicalEndpointBindMem resolved in the loaded library.
+func HasLogicalEndpointBindMem() bool {
+	return Has("cuLogicalEndpointBindMem")
+}
+
+// HasLogicalEndpointCreate reports whether cuLogicalEndpointCreate resolved in the loaded library.
+func HasLogicalEndpointCreate() bool {
+	return Has("cuLogicalEndpointCreate")
+}
+
+// HasLogicalEndpointDestroy reports whether cuLogicalEndpointDestroy resolved in the loaded library.
+func HasLogicalEndpointDestroy() bool {
+	return Has("cuLogicalEndpointDestroy")
+}
+
+// HasLogicalEndpointExport reports whether cuLogicalEndpointExport resolved in the loaded library.
+func HasLogicalEndpointExport() bool {
+	return Has("cuLogicalEndpointExport")
+}
+
+// HasLogicalEndpointGetLimits reports whether cuLogicalEndpointGetLimits resolved in the loaded library.
+func HasLogicalEndpointGetLimits() bool {
+	return Has("cuLogicalEndpointGetLimits")
+}
+
+// HasLogicalEndpointIdRelease reports whether cuLogicalEndpointIdRelease resolved in the loaded library.
+func HasLogicalEndpointIdRelease() bool {
+	return Has("cuLogicalEndpointIdRelease")
+}
+
+// HasLogicalEndpointIdReserve reports whether cuLogicalEndpointIdReserve resolved in the loaded library.
+func HasLogicalEndpointIdReserve() bool {
+	return Has("cuLogicalEndpointIdReserve")
+}
+
+// HasLogicalEndpointImport reports whether cuLogicalEndpointImport resolved in the loaded library.
+func HasLogicalEndpointImport() bool {
+	return Has("cuLogicalEndpointImport")
+}
+
+// HasLogicalEndpointQuery reports whether cuLogicalEndpointQuery resolved in the loaded library.
+func HasLogicalEndpointQuery() bool {
+	return Has("cuLogicalEndpointQuery")
+}
+
+// HasLogicalEndpointUnbind reports whether cuLogicalEndpointUnbind resolved in the loaded library.
+func HasLogicalEndpointUnbind() bool {
+	return Has("cuLogicalEndpointUnbind")
 }
 
 // HasLogsCurrent reports whether cuLogsCurrent resolved in the loaded library.
@@ -2770,6 +3122,11 @@ func HasMemGetHandleForAddressRange() bool {
 // HasMemGetInfo reports whether cuMemGetInfo_v2 resolved in the loaded library.
 func HasMemGetInfo() bool {
 	return Has("cuMemGetInfo_v2")
+}
+
+// HasMemGetLocationInfo reports whether cuMemGetLocationInfo resolved in the loaded library.
+func HasMemGetLocationInfo() bool {
+	return Has("cuMemGetLocationInfo")
 }
 
 // HasMemGetMemPool reports whether cuMemGetMemPool resolved in the loaded library.
@@ -3352,6 +3709,11 @@ func HasStreamBeginCaptureToGraph() bool {
 	return Has("cuStreamBeginCaptureToGraph")
 }
 
+// HasStreamBeginRecaptureToGraph reports whether cuStreamBeginRecaptureToGraph resolved in the loaded library.
+func HasStreamBeginRecaptureToGraph() bool {
+	return Has("cuStreamBeginRecaptureToGraph")
+}
+
 // HasStreamCopyAttributes reports whether cuStreamCopyAttributes resolved in the loaded library.
 func HasStreamCopyAttributes() bool {
 	return Has("cuStreamCopyAttributes")
@@ -3387,13 +3749,25 @@ func HasStreamGetAttribute() bool {
 	return Has("cuStreamGetAttribute")
 }
 
-// HasStreamGetCaptureInfo reports whether cuStreamGetCaptureInfo_v3 resolved in the loaded library.
+// HasStreamGetCaptureInfo reports whether cuStreamGetCaptureInfo bound,
+// through any of cuStreamGetCaptureInfo_v3, cuStreamGetCaptureInfo_v2.
+// BoundSymbol reports which.
 func HasStreamGetCaptureInfo() bool {
+	return BoundSymbol("cuStreamGetCaptureInfo") != ""
+}
+
+// HasStreamGetCaptureInfoV3 reports whether cuStreamGetCaptureInfo_v3 resolved in the loaded library.
+func HasStreamGetCaptureInfoV3() bool {
 	return Has("cuStreamGetCaptureInfo_v3")
 }
 
-// HasStreamGetCtx reports whether cuStreamGetCtx_v2 resolved in the loaded library.
+// HasStreamGetCtx reports whether cuStreamGetCtx resolved in the loaded library.
 func HasStreamGetCtx() bool {
+	return Has("cuStreamGetCtx")
+}
+
+// HasStreamGetCtxV2 reports whether cuStreamGetCtx_v2 resolved in the loaded library.
+func HasStreamGetCtxV2() bool {
 	return Has("cuStreamGetCtx_v2")
 }
 
@@ -3447,8 +3821,16 @@ func HasStreamSynchronize() bool {
 	return Has("cuStreamSynchronize")
 }
 
-// HasStreamUpdateCaptureDependencies reports whether cuStreamUpdateCaptureDependencies_v2 resolved in the loaded library.
+// HasStreamUpdateCaptureDependencies reports whether
+// cuStreamUpdateCaptureDependencies bound, through any of
+// cuStreamUpdateCaptureDependencies_v2, cuStreamUpdateCaptureDependencies.
+// BoundSymbol reports which.
 func HasStreamUpdateCaptureDependencies() bool {
+	return BoundSymbol("cuStreamUpdateCaptureDependencies") != ""
+}
+
+// HasStreamUpdateCaptureDependenciesV2 reports whether cuStreamUpdateCaptureDependencies_v2 resolved in the loaded library.
+func HasStreamUpdateCaptureDependenciesV2() bool {
 	return Has("cuStreamUpdateCaptureDependencies_v2")
 }
 

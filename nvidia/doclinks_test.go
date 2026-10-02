@@ -13,7 +13,9 @@ import (
 	"testing"
 )
 
-var wrapsLine = regexp.MustCompile(`^Wraps (\w+)(?:, bound as (\w+))?\.$`)
+// wrapsLine matches the line naming the C function a declaration wraps and
+// the symbols it binds, which may be several tried in turn.
+var wrapsLine = regexp.MustCompile(`^Wraps (\w+)(?:, bound as (\w+)|, bound to the first of .+)?\.$`)
 
 // unlinkedCNames reports doc comments on exported declarations in the
 // generated files of dir that name a C function the package wraps without
@@ -74,8 +76,8 @@ func unlinkedCNames(dir string) ([]string, error) {
 		for _, d := range f.Decls {
 			switch d := d.(type) {
 			case *ast.FuncDecl:
-				if strings.HasPrefix(d.Name.Name, "Has") {
-					continue // "HasX reports whether cuX resolved" names the symbol on purpose
+				if strings.HasPrefix(d.Name.Name, "Has") || d.Name.Name == "BoundSymbol" {
+					continue // "HasX reports whether cuX resolved" names the symbol on purpose, as BoundSymbol's argument does
 				}
 				check(d.Name.Name, d.Doc)
 			case *ast.GenDecl:

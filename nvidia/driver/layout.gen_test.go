@@ -491,11 +491,29 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(HostNodeParams{}.UserData); got != 8 {
 		t.Errorf("offsetof(HostNodeParams.UserData) = %d, want 8", got)
 	}
-	if got := unsafe.Sizeof(HostNodeParamsV2{}); got != 24 {
-		t.Errorf("sizeof(HostNodeParamsV2) = %d, want 24", got)
+	if got := unsafe.Sizeof(HostNodeParamsV2{}); got != 32 {
+		t.Errorf("sizeof(HostNodeParamsV2) = %d, want 32", got)
 	}
 	if got := unsafe.Alignof(HostNodeParamsV2{}); got != 8 {
 		t.Errorf("alignof(HostNodeParamsV2) = %d, want 8", got)
+	}
+	{ // HostNodeParamsV2.Ctx
+		var v HostNodeParamsV2
+		if got := uintptr(unsafe.Pointer(v.Ctx())) - uintptr(unsafe.Pointer(&v)); got != 24 {
+			t.Errorf("offset of HostNodeParamsV2.Ctx() = %d, want 24", got)
+		}
+		if got := unsafe.Sizeof(*v.Ctx()); got != 8 {
+			t.Errorf("sizeof(*HostNodeParamsV2.Ctx()) = %d, want 8", got)
+		}
+	}
+	{ // HostNodeParamsV2.GCtx
+		var v HostNodeParamsV2
+		if got := uintptr(unsafe.Pointer(v.GCtx())) - uintptr(unsafe.Pointer(&v)); got != 24 {
+			t.Errorf("offset of HostNodeParamsV2.GCtx() = %d, want 24", got)
+		}
+		if got := unsafe.Sizeof(*v.GCtx()); got != 8 {
+			t.Errorf("sizeof(*HostNodeParamsV2.GCtx()) = %d, want 8", got)
+		}
 	}
 	if got := unsafe.Offsetof(HostNodeParamsV2{}.Fn); got != 0 {
 		t.Errorf("offsetof(HostNodeParamsV2.Fn) = %d, want 0", got)
@@ -1430,11 +1448,29 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ExtSemSignalNodeParams{}.NumExtSems); got != 16 {
 		t.Errorf("offsetof(ExtSemSignalNodeParams.NumExtSems) = %d, want 16", got)
 	}
-	if got := unsafe.Sizeof(ExtSemSignalNodeParamsV2{}); got != 24 {
-		t.Errorf("sizeof(ExtSemSignalNodeParamsV2) = %d, want 24", got)
+	if got := unsafe.Sizeof(ExtSemSignalNodeParamsV2{}); got != 32 {
+		t.Errorf("sizeof(ExtSemSignalNodeParamsV2) = %d, want 32", got)
 	}
 	if got := unsafe.Alignof(ExtSemSignalNodeParamsV2{}); got != 8 {
 		t.Errorf("alignof(ExtSemSignalNodeParamsV2) = %d, want 8", got)
+	}
+	{ // ExtSemSignalNodeParamsV2.Ctx
+		var v ExtSemSignalNodeParamsV2
+		if got := uintptr(unsafe.Pointer(v.Ctx())) - uintptr(unsafe.Pointer(&v)); got != 24 {
+			t.Errorf("offset of ExtSemSignalNodeParamsV2.Ctx() = %d, want 24", got)
+		}
+		if got := unsafe.Sizeof(*v.Ctx()); got != 8 {
+			t.Errorf("sizeof(*ExtSemSignalNodeParamsV2.Ctx()) = %d, want 8", got)
+		}
+	}
+	{ // ExtSemSignalNodeParamsV2.GCtx
+		var v ExtSemSignalNodeParamsV2
+		if got := uintptr(unsafe.Pointer(v.GCtx())) - uintptr(unsafe.Pointer(&v)); got != 24 {
+			t.Errorf("offset of ExtSemSignalNodeParamsV2.GCtx() = %d, want 24", got)
+		}
+		if got := unsafe.Sizeof(*v.GCtx()); got != 8 {
+			t.Errorf("sizeof(*ExtSemSignalNodeParamsV2.GCtx()) = %d, want 8", got)
+		}
 	}
 	if got := unsafe.Offsetof(ExtSemSignalNodeParamsV2{}.ExtSemArray); got != 0 {
 		t.Errorf("offsetof(ExtSemSignalNodeParamsV2.ExtSemArray) = %d, want 0", got)
@@ -1460,11 +1496,29 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ExtSemWaitNodeParams{}.NumExtSems); got != 16 {
 		t.Errorf("offsetof(ExtSemWaitNodeParams.NumExtSems) = %d, want 16", got)
 	}
-	if got := unsafe.Sizeof(ExtSemWaitNodeParamsV2{}); got != 24 {
-		t.Errorf("sizeof(ExtSemWaitNodeParamsV2) = %d, want 24", got)
+	if got := unsafe.Sizeof(ExtSemWaitNodeParamsV2{}); got != 32 {
+		t.Errorf("sizeof(ExtSemWaitNodeParamsV2) = %d, want 32", got)
 	}
 	if got := unsafe.Alignof(ExtSemWaitNodeParamsV2{}); got != 8 {
 		t.Errorf("alignof(ExtSemWaitNodeParamsV2) = %d, want 8", got)
+	}
+	{ // ExtSemWaitNodeParamsV2.Ctx
+		var v ExtSemWaitNodeParamsV2
+		if got := uintptr(unsafe.Pointer(v.Ctx())) - uintptr(unsafe.Pointer(&v)); got != 24 {
+			t.Errorf("offset of ExtSemWaitNodeParamsV2.Ctx() = %d, want 24", got)
+		}
+		if got := unsafe.Sizeof(*v.Ctx()); got != 8 {
+			t.Errorf("sizeof(*ExtSemWaitNodeParamsV2.Ctx()) = %d, want 8", got)
+		}
+	}
+	{ // ExtSemWaitNodeParamsV2.GCtx
+		var v ExtSemWaitNodeParamsV2
+		if got := uintptr(unsafe.Pointer(v.GCtx())) - uintptr(unsafe.Pointer(&v)); got != 24 {
+			t.Errorf("offset of ExtSemWaitNodeParamsV2.GCtx() = %d, want 24", got)
+		}
+		if got := unsafe.Sizeof(*v.GCtx()); got != 8 {
+			t.Errorf("sizeof(*ExtSemWaitNodeParamsV2.GCtx()) = %d, want 8", got)
+		}
 	}
 	if got := unsafe.Offsetof(ExtSemWaitNodeParamsV2{}.ExtSemArray); got != 0 {
 		t.Errorf("offsetof(ExtSemWaitNodeParamsV2.ExtSemArray) = %d, want 0", got)
@@ -1520,11 +1574,25 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(MemLocation{}); got != 4 {
 		t.Errorf("alignof(MemLocation) = %d, want 4", got)
 	}
+	{ // MemLocation.Id
+		if got := unsafe.Offsetof(MemLocation{}.Id); got != 4 {
+			t.Errorf("offsetof(MemLocation.Id) = %d, want 4", got)
+		}
+		if got := unsafe.Sizeof(MemLocation{}.Id); got != 4 {
+			t.Errorf("sizeof(MemLocation.Id) = %d, want 4", got)
+		}
+	}
+	{ // MemLocation.Localized
+		var v MemLocation
+		if got := uintptr(unsafe.Pointer(v.Localized())) - uintptr(unsafe.Pointer(&v)); got != 4 {
+			t.Errorf("offset of MemLocation.Localized() = %d, want 4", got)
+		}
+		if got := unsafe.Sizeof(*v.Localized()); got != 2 {
+			t.Errorf("sizeof(*MemLocation.Localized()) = %d, want 2", got)
+		}
+	}
 	if got := unsafe.Offsetof(MemLocation{}.Type); got != 0 {
 		t.Errorf("offsetof(MemLocation.Type) = %d, want 0", got)
-	}
-	if got := unsafe.Offsetof(MemLocation{}.Id); got != 4 {
-		t.Errorf("offsetof(MemLocation.Id) = %d, want 4", got)
 	}
 	if got := unsafe.Sizeof(MemAllocationProp{}); got != 32 {
 		t.Errorf("sizeof(MemAllocationProp) = %d, want 32", got)
@@ -1616,8 +1684,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(MemPoolProps{}.Usage); got != 32 {
 		t.Errorf("offsetof(MemPoolProps.Usage) = %d, want 32", got)
 	}
-	if got := unsafe.Offsetof(MemPoolProps{}.Reserved); got != 34 {
-		t.Errorf("offsetof(MemPoolProps.Reserved) = %d, want 34", got)
+	if got := unsafe.Offsetof(MemPoolProps{}.GpuDirectRDMACapable); got != 34 {
+		t.Errorf("offsetof(MemPoolProps.GpuDirectRDMACapable) = %d, want 34", got)
+	}
+	if got := unsafe.Offsetof(MemPoolProps{}.Reserved); got != 35 {
+		t.Errorf("offsetof(MemPoolProps.Reserved) = %d, want 35", got)
 	}
 	if got := unsafe.Sizeof(MemPoolPtrExportData{}); got != 64 {
 		t.Errorf("sizeof(MemPoolPtrExportData) = %d, want 64", got)
@@ -1772,11 +1843,29 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(ChildGraphNodeParams{}.Ownership); got != 8 {
 		t.Errorf("offsetof(ChildGraphNodeParams.Ownership) = %d, want 8", got)
 	}
-	if got := unsafe.Sizeof(EventRecordNodeParams{}); got != 8 {
-		t.Errorf("sizeof(EventRecordNodeParams) = %d, want 8", got)
+	if got := unsafe.Sizeof(EventRecordNodeParams{}); got != 16 {
+		t.Errorf("sizeof(EventRecordNodeParams) = %d, want 16", got)
 	}
 	if got := unsafe.Alignof(EventRecordNodeParams{}); got != 8 {
 		t.Errorf("alignof(EventRecordNodeParams) = %d, want 8", got)
+	}
+	{ // EventRecordNodeParams.Ctx
+		var v EventRecordNodeParams
+		if got := uintptr(unsafe.Pointer(v.Ctx())) - uintptr(unsafe.Pointer(&v)); got != 8 {
+			t.Errorf("offset of EventRecordNodeParams.Ctx() = %d, want 8", got)
+		}
+		if got := unsafe.Sizeof(*v.Ctx()); got != 8 {
+			t.Errorf("sizeof(*EventRecordNodeParams.Ctx()) = %d, want 8", got)
+		}
+	}
+	{ // EventRecordNodeParams.GCtx
+		var v EventRecordNodeParams
+		if got := uintptr(unsafe.Pointer(v.GCtx())) - uintptr(unsafe.Pointer(&v)); got != 8 {
+			t.Errorf("offset of EventRecordNodeParams.GCtx() = %d, want 8", got)
+		}
+		if got := unsafe.Sizeof(*v.GCtx()); got != 8 {
+			t.Errorf("sizeof(*EventRecordNodeParams.GCtx()) = %d, want 8", got)
+		}
 	}
 	if got := unsafe.Offsetof(EventRecordNodeParams{}.Event); got != 0 {
 		t.Errorf("offsetof(EventRecordNodeParams.Event) = %d, want 0", got)
@@ -1837,8 +1926,8 @@ func TestGeneratedLayouts(t *testing.T) {
 		if got := uintptr(unsafe.Pointer(v.Host())) - uintptr(unsafe.Pointer(&v)); got != 16 {
 			t.Errorf("offset of GraphNodeParams.Host() = %d, want 16", got)
 		}
-		if got := unsafe.Sizeof(*v.Host()); got != 24 {
-			t.Errorf("sizeof(*GraphNodeParams.Host()) = %d, want 24", got)
+		if got := unsafe.Sizeof(*v.Host()); got != 32 {
+			t.Errorf("sizeof(*GraphNodeParams.Host()) = %d, want 32", got)
 		}
 	}
 	{ // GraphNodeParams.Graph
@@ -1864,8 +1953,8 @@ func TestGeneratedLayouts(t *testing.T) {
 		if got := uintptr(unsafe.Pointer(v.EventRecord())) - uintptr(unsafe.Pointer(&v)); got != 16 {
 			t.Errorf("offset of GraphNodeParams.EventRecord() = %d, want 16", got)
 		}
-		if got := unsafe.Sizeof(*v.EventRecord()); got != 8 {
-			t.Errorf("sizeof(*GraphNodeParams.EventRecord()) = %d, want 8", got)
+		if got := unsafe.Sizeof(*v.EventRecord()); got != 16 {
+			t.Errorf("sizeof(*GraphNodeParams.EventRecord()) = %d, want 16", got)
 		}
 	}
 	{ // GraphNodeParams.ExtSemSignal
@@ -1873,8 +1962,8 @@ func TestGeneratedLayouts(t *testing.T) {
 		if got := uintptr(unsafe.Pointer(v.ExtSemSignal())) - uintptr(unsafe.Pointer(&v)); got != 16 {
 			t.Errorf("offset of GraphNodeParams.ExtSemSignal() = %d, want 16", got)
 		}
-		if got := unsafe.Sizeof(*v.ExtSemSignal()); got != 24 {
-			t.Errorf("sizeof(*GraphNodeParams.ExtSemSignal()) = %d, want 24", got)
+		if got := unsafe.Sizeof(*v.ExtSemSignal()); got != 32 {
+			t.Errorf("sizeof(*GraphNodeParams.ExtSemSignal()) = %d, want 32", got)
 		}
 	}
 	{ // GraphNodeParams.ExtSemWait
@@ -1882,8 +1971,8 @@ func TestGeneratedLayouts(t *testing.T) {
 		if got := uintptr(unsafe.Pointer(v.ExtSemWait())) - uintptr(unsafe.Pointer(&v)); got != 16 {
 			t.Errorf("offset of GraphNodeParams.ExtSemWait() = %d, want 16", got)
 		}
-		if got := unsafe.Sizeof(*v.ExtSemWait()); got != 24 {
-			t.Errorf("sizeof(*GraphNodeParams.ExtSemWait()) = %d, want 24", got)
+		if got := unsafe.Sizeof(*v.ExtSemWait()); got != 32 {
+			t.Errorf("sizeof(*GraphNodeParams.ExtSemWait()) = %d, want 32", got)
 		}
 	}
 	{ // GraphNodeParams.Alloc
@@ -1922,6 +2011,15 @@ func TestGeneratedLayouts(t *testing.T) {
 			t.Errorf("sizeof(*GraphNodeParams.Conditional()) = %d, want 32", got)
 		}
 	}
+	{ // GraphNodeParams.AsBytes
+		var v GraphNodeParams
+		if got := uintptr(unsafe.Pointer(v.AsBytes())) - uintptr(unsafe.Pointer(&v)); got != 16 {
+			t.Errorf("offset of GraphNodeParams.AsBytes() = %d, want 16", got)
+		}
+		if got := unsafe.Sizeof(*v.AsBytes()); got != 232 {
+			t.Errorf("sizeof(*GraphNodeParams.AsBytes()) = %d, want 232", got)
+		}
+	}
 	if got := unsafe.Offsetof(GraphNodeParams{}.Type); got != 0 {
 		t.Errorf("offsetof(GraphNodeParams.Type) = %d, want 0", got)
 	}
@@ -1930,6 +2028,36 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(GraphNodeParams{}.Reserved2); got != 248 {
 		t.Errorf("offsetof(GraphNodeParams.Reserved2) = %d, want 248", got)
+	}
+	if got := unsafe.Sizeof(CheckpointCustomStoragePerDeviceData{}); got != 24 {
+		t.Errorf("sizeof(CheckpointCustomStoragePerDeviceData) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(CheckpointCustomStoragePerDeviceData{}); got != 8 {
+		t.Errorf("alignof(CheckpointCustomStoragePerDeviceData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CheckpointCustomStoragePerDeviceData{}.DevPtr); got != 0 {
+		t.Errorf("offsetof(CheckpointCustomStoragePerDeviceData.DevPtr) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(CheckpointCustomStoragePerDeviceData{}.Size); got != 8 {
+		t.Errorf("offsetof(CheckpointCustomStoragePerDeviceData.Size) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CheckpointCustomStoragePerDeviceData{}.Stream); got != 16 {
+		t.Errorf("offsetof(CheckpointCustomStoragePerDeviceData.Stream) = %d, want 16", got)
+	}
+	if got := unsafe.Sizeof(CheckpointCustomStorageInfo{}); got != 24 {
+		t.Errorf("sizeof(CheckpointCustomStorageInfo) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(CheckpointCustomStorageInfo{}); got != 8 {
+		t.Errorf("alignof(CheckpointCustomStorageInfo) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CheckpointCustomStorageInfo{}.Handle); got != 0 {
+		t.Errorf("offsetof(CheckpointCustomStorageInfo.Handle) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(CheckpointCustomStorageInfo{}.PerDeviceData); got != 8 {
+		t.Errorf("offsetof(CheckpointCustomStorageInfo.PerDeviceData) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(CheckpointCustomStorageInfo{}.DeviceCount); got != 16 {
+		t.Errorf("offsetof(CheckpointCustomStorageInfo.DeviceCount) = %d, want 16", got)
 	}
 	if got := unsafe.Sizeof(CheckpointLockArgs{}); got != 64 {
 		t.Errorf("sizeof(CheckpointLockArgs) = %d, want 64", got)
@@ -1952,8 +2080,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Alignof(CheckpointCheckpointArgs{}); got != 8 {
 		t.Errorf("alignof(CheckpointCheckpointArgs) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(CheckpointCheckpointArgs{}.Reserved); got != 0 {
-		t.Errorf("offsetof(CheckpointCheckpointArgs.Reserved) = %d, want 0", got)
+	if got := unsafe.Offsetof(CheckpointCheckpointArgs{}.CustomStorageInfoOut); got != 0 {
+		t.Errorf("offsetof(CheckpointCheckpointArgs.CustomStorageInfoOut) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(CheckpointCheckpointArgs{}.Reserved); got != 8 {
+		t.Errorf("offsetof(CheckpointCheckpointArgs.Reserved) = %d, want 8", got)
 	}
 	if got := unsafe.Sizeof(CheckpointGpuPair{}); got != 32 {
 		t.Errorf("sizeof(CheckpointGpuPair) = %d, want 32", got)
@@ -1979,11 +2110,14 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(CheckpointRestoreArgs{}.GpuPairsCount); got != 8 {
 		t.Errorf("offsetof(CheckpointRestoreArgs.GpuPairsCount) = %d, want 8", got)
 	}
-	if got := unsafe.Offsetof(CheckpointRestoreArgs{}.Reserved); got != 12 {
-		t.Errorf("offsetof(CheckpointRestoreArgs.Reserved) = %d, want 12", got)
+	if got := unsafe.Offsetof(CheckpointRestoreArgs{}.Padding0); got != 12 {
+		t.Errorf("offsetof(CheckpointRestoreArgs.Padding0) = %d, want 12", got)
 	}
-	if got := unsafe.Offsetof(CheckpointRestoreArgs{}.Reserved1); got != 56 {
-		t.Errorf("offsetof(CheckpointRestoreArgs.Reserved1) = %d, want 56", got)
+	if got := unsafe.Offsetof(CheckpointRestoreArgs{}.CustomStorageInfoOut); got != 16 {
+		t.Errorf("offsetof(CheckpointRestoreArgs.CustomStorageInfoOut) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(CheckpointRestoreArgs{}.Reserved); got != 24 {
+		t.Errorf("offsetof(CheckpointRestoreArgs.Reserved) = %d, want 24", got)
 	}
 	if got := unsafe.Sizeof(CheckpointUnlockArgs{}); got != 64 {
 		t.Errorf("sizeof(CheckpointUnlockArgs) = %d, want 64", got)
@@ -2021,8 +2155,65 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(MemDecompressParams{}.Padding); got != 44 {
 		t.Errorf("offsetof(MemDecompressParams.Padding) = %d, want 44", got)
 	}
-	if got := unsafe.Sizeof(DevSmResource{}); got != 16 {
-		t.Errorf("sizeof(DevSmResource) = %d, want 16", got)
+	if got := unsafe.Sizeof(CliqueInfo{}); got != 8 {
+		t.Errorf("sizeof(CliqueInfo) = %d, want 8", got)
+	}
+	if got := unsafe.Alignof(CliqueInfo{}); got != 4 {
+		t.Errorf("alignof(CliqueInfo) = %d, want 4", got)
+	}
+	if got := unsafe.Offsetof(CliqueInfo{}.Type); got != 0 {
+		t.Errorf("offsetof(CliqueInfo.Type) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(CliqueInfo{}.Id); got != 4 {
+		t.Errorf("offsetof(CliqueInfo.Id) = %d, want 4", got)
+	}
+	if got := unsafe.Sizeof(LogicalEndpointFabricHandle{}); got != 64 {
+		t.Errorf("sizeof(LogicalEndpointFabricHandle) = %d, want 64", got)
+	}
+	if got := unsafe.Alignof(LogicalEndpointFabricHandle{}); got != 1 {
+		t.Errorf("alignof(LogicalEndpointFabricHandle) = %d, want 1", got)
+	}
+	if got := unsafe.Offsetof(LogicalEndpointFabricHandle{}.Data); got != 0 {
+		t.Errorf("offsetof(LogicalEndpointFabricHandle.Data) = %d, want 0", got)
+	}
+	if got := unsafe.Sizeof(LogicalEndpointProp{}); got != 24 {
+		t.Errorf("sizeof(LogicalEndpointProp) = %d, want 24", got)
+	}
+	if got := unsafe.Alignof(LogicalEndpointProp{}); got != 8 {
+		t.Errorf("alignof(LogicalEndpointProp) = %d, want 8", got)
+	}
+	{ // LogicalEndpointProp.Unicast
+		var v LogicalEndpointProp
+		if got := uintptr(unsafe.Pointer(v.Unicast())) - uintptr(unsafe.Pointer(&v)); got != 4 {
+			t.Errorf("offset of LogicalEndpointProp.Unicast() = %d, want 4", got)
+		}
+		if got := unsafe.Sizeof(*v.Unicast()); got != 4 {
+			t.Errorf("sizeof(*LogicalEndpointProp.Unicast()) = %d, want 4", got)
+		}
+	}
+	{ // LogicalEndpointProp.Multicast
+		var v LogicalEndpointProp
+		if got := uintptr(unsafe.Pointer(v.Multicast())) - uintptr(unsafe.Pointer(&v)); got != 4 {
+			t.Errorf("offset of LogicalEndpointProp.Multicast() = %d, want 4", got)
+		}
+		if got := unsafe.Sizeof(*v.Multicast()); got != 4 {
+			t.Errorf("sizeof(*LogicalEndpointProp.Multicast()) = %d, want 4", got)
+		}
+	}
+	if got := unsafe.Offsetof(LogicalEndpointProp{}.Type); got != 0 {
+		t.Errorf("offsetof(LogicalEndpointProp.Type) = %d, want 0", got)
+	}
+	if got := unsafe.Offsetof(LogicalEndpointProp{}.Size); got != 8 {
+		t.Errorf("offsetof(LogicalEndpointProp.Size) = %d, want 8", got)
+	}
+	if got := unsafe.Offsetof(LogicalEndpointProp{}.IpcHandleTypes); got != 16 {
+		t.Errorf("offsetof(LogicalEndpointProp.IpcHandleTypes) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(LogicalEndpointProp{}.Flags); got != 20 {
+		t.Errorf("offsetof(LogicalEndpointProp.Flags) = %d, want 20", got)
+	}
+	if got := unsafe.Sizeof(DevSmResource{}); got != 20 {
+		t.Errorf("sizeof(DevSmResource) = %d, want 20", got)
 	}
 	if got := unsafe.Alignof(DevSmResource{}); got != 4 {
 		t.Errorf("alignof(DevSmResource) = %d, want 4", got)
@@ -2038,6 +2229,9 @@ func TestGeneratedLayouts(t *testing.T) {
 	}
 	if got := unsafe.Offsetof(DevSmResource{}.Flags); got != 12 {
 		t.Errorf("offsetof(DevSmResource.Flags) = %d, want 12", got)
+	}
+	if got := unsafe.Offsetof(DevSmResource{}.LocalityDomainId); got != 16 {
+		t.Errorf("offsetof(DevSmResource.LocalityDomainId) = %d, want 16", got)
 	}
 	if got := unsafe.Sizeof(DevWorkqueueConfigResource{}); got != 12 {
 		t.Errorf("sizeof(DevWorkqueueConfigResource) = %d, want 12", got)
@@ -2081,8 +2275,11 @@ func TestGeneratedLayouts(t *testing.T) {
 	if got := unsafe.Offsetof(CuDevSmResourceGroupParams{}.Flags); got != 12 {
 		t.Errorf("offsetof(CuDevSmResourceGroupParams.Flags) = %d, want 12", got)
 	}
-	if got := unsafe.Offsetof(CuDevSmResourceGroupParams{}.Reserved); got != 16 {
-		t.Errorf("offsetof(CuDevSmResourceGroupParams.Reserved) = %d, want 16", got)
+	if got := unsafe.Offsetof(CuDevSmResourceGroupParams{}.LocalityDomainId); got != 16 {
+		t.Errorf("offsetof(CuDevSmResourceGroupParams.LocalityDomainId) = %d, want 16", got)
+	}
+	if got := unsafe.Offsetof(CuDevSmResourceGroupParams{}.Reserved); got != 20 {
+		t.Errorf("offsetof(CuDevSmResourceGroupParams.Reserved) = %d, want 20", got)
 	}
 	if got := unsafe.Sizeof(DevResource{}); got != 144 {
 		t.Errorf("sizeof(DevResource) = %d, want 144", got)
@@ -2095,8 +2292,8 @@ func TestGeneratedLayouts(t *testing.T) {
 		if got := uintptr(unsafe.Pointer(v.Sm())) - uintptr(unsafe.Pointer(&v)); got != 96 {
 			t.Errorf("offset of DevResource.Sm() = %d, want 96", got)
 		}
-		if got := unsafe.Sizeof(*v.Sm()); got != 16 {
-			t.Errorf("sizeof(*DevResource.Sm()) = %d, want 16", got)
+		if got := unsafe.Sizeof(*v.Sm()); got != 20 {
+			t.Errorf("sizeof(*DevResource.Sm()) = %d, want 20", got)
 		}
 	}
 	{ // DevResource.WqConfig

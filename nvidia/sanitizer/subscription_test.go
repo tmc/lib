@@ -150,3 +150,75 @@ func TestBoolToUint32(t *testing.T) {
 		t.Error("boolToUint32(false) != 0")
 	}
 }
+
+// TestDispatchTranslatesRuntimeCBID checks that a CUDA 12 library's runtime
+// callback IDs reach the handler in this package's numbering, and that other
+// domains' IDs pass through.
+func TestDispatchTranslatesRuntimeCBID(t *testing.T) {
+	saved := handler.Load()
+	t.Cleanup(func() { handler.Store(saved) })
+
+	var got uint32
+	fn := func(_ uintptr, _ CallbackDomain, cbid uint32, _ unsafe.Pointer) { got = cbid }
+	tests := []struct {
+		major  int
+		domain CallbackDomain
+		cbid   uint32
+		want   uint32
+	}{
+		{12, CbDomainRuntimeApi, 254, uint32(RuntimeCBIDCudaMemAdviseV1)},
+		{12, CbDomainRuntimeApi, 448, uint32(RuntimeCBIDCudaMemAdvise)},
+		{12, CbDomainDriverApi, 254, 254},
+		{13, CbDomainRuntimeApi, 448, uint32(RuntimeCBIDCudaMemAdvise)},
+	}
+	for _, tt := range tests {
+		handler.Store(&handlerState{fn: fn, major: tt.major})
+		dispatch(0, tt.domain, tt.cbid, nil)
+		if got != tt.want {
+			t.Errorf("CUDA %d, %v, cbid %d: handler got %d, want %d", tt.major, tt.domain, tt.cbid, got, tt.want)
+		}
+	}
+}
+
+// TestDispatchAllocs checks that translating a CUDA 12 runtime callback ID
+// costs no allocation on the callback path.
+func TestDispatchAllocs(t *testing.T) {
+	saved := handler.Load()
+	t.Cleanup(func() { handler.Store(saved) })
+
+	var sum uint32
+	handler.Store(&handlerState{fn: func(_ uintptr, _ CallbackDomain, cbid uint32, _ unsafe.Pointer) { sum += cbid }, major: 12})
+	n := testing.AllocsPerRun(100, func() {
+		for cbid := uint32(0); cbid < 490; cbid++ {
+			dispatch(0, CbDomainRuntimeApi, cbid, nil)
+		}
+	})
+	if n != 0 {
+		t.Errorf("dispatch allocates %v times per run", n)
+	}
+}
+
+// TestSubscriptionLibCBID checks the translation EnableCallback and
+// CallbackState apply before calling the library.
+func TestSubscriptionLibCBID(t *testing.T) {
+	tests := []struct {
+		major  int
+		domain CallbackDomain
+		cbid   RuntimeAPICBID
+		want   uint32
+		ok     bool
+	}{
+		{12, CbDomainRuntimeApi, RuntimeCBIDCudaMemAdvise, 448, true},
+		{12, CbDomainRuntimeApi, RuntimeCBIDCudaMemAdviseV1, 254, true},
+		{13, CbDomainRuntimeApi, RuntimeCBIDCudaMemAdvise, 448, true},
+		{13, CbDomainRuntimeApi, RuntimeCBIDCudaMemAdviseV1, 0, false},
+		{12, CbDomainDriverApi, 900, 900, true},
+	}
+	for _, tt := range tests {
+		s := &Subscription{major: tt.major}
+		got, err := s.libCBID(tt.domain, uint32(tt.cbid))
+		if got != tt.want || (err == nil) != tt.ok {
+			t.Errorf("CUDA %d: libCBID(%v, %v) = %d, %v, want %d, ok %v", tt.major, tt.domain, tt.cbid, got, err, tt.want, tt.ok)
+		}
+	}
+}

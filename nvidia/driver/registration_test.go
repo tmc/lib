@@ -14,7 +14,8 @@ import (
 // registrations consistently. Check the shipped pointers and symbol guards.
 func TestGeneratedRegistrationCoverage(t *testing.T) {
 	declared := make(map[string]bool)
-	registered := make(map[string]string)
+	registered := make(map[string][]string)
+	chains := make(map[string][]string)
 	cleared := make(map[string]bool)
 	guarded := make(map[string]bool)
 	for _, filename := range []string{"funcs.gen.go", "result.gen.go", "init.gen.go"} {
@@ -26,6 +27,13 @@ func TestGeneratedRegistrationCoverage(t *testing.T) {
 			if g, ok := d.(*ast.GenDecl); ok && g.Tok == token.VAR {
 				for _, spec := range g.Specs {
 					v := spec.(*ast.ValueSpec)
+					for i, name := range v.Names {
+						if i < len(v.Values) {
+							if symbols := symbolChainNames(v.Values[i]); symbols != nil {
+								chains[name.Name] = symbols
+							}
+						}
+					}
 					prefix := "fn"
 					switch t := v.Type.(type) {
 					case *ast.FuncType:
@@ -61,17 +69,30 @@ func TestGeneratedRegistrationCoverage(t *testing.T) {
 							cleared[lhs.Name] = true
 						}
 					case *ast.CallExpr:
-						// symX = registerSym("symbol") binds a positional call.
 						callee, ok := rhs.Fun.(*ast.Ident)
-						if fn.Name.Name == "registerFuncs" && lhs != nil && ok && callee.Name == "registerSym" && len(rhs.Args) == 1 {
+						if fn.Name.Name != "registerFuncs" || lhs == nil || !ok {
+							break
+						}
+						var symbols []string
+						switch {
+						case callee.Name == "registerSym" && len(rhs.Args) == 1:
 							symbol, err := strconv.Unquote(rhs.Args[0].(*ast.BasicLit).Value)
 							if err != nil {
 								t.Fatal(err)
 							}
+							symbols = []string{symbol}
+						case callee.Name == "registerSymChain" && len(rhs.Args) == 1:
+							if addr, ok := rhs.Args[0].(*ast.UnaryExpr); ok {
+								if name, ok := addr.X.(*ast.Ident); ok {
+									symbols = chains[name.Name]
+								}
+							}
+						}
+						if symbols != nil {
 							if _, exists := registered[lhs.Name]; exists {
 								t.Errorf("%s registered more than once", lhs.Name)
 							}
-							registered[lhs.Name] = symbol
+							registered[lhs.Name] = symbols
 						}
 					}
 				}
@@ -93,7 +114,7 @@ func TestGeneratedRegistrationCoverage(t *testing.T) {
 					if _, exists := registered[name]; exists {
 						t.Errorf("%s registered more than once", name)
 					}
-					registered[name] = symbol
+					registered[name] = []string{symbol}
 				}
 				if callee.Name == "checkLibSym" && len(call.Args) == 1 {
 					if literal, ok := call.Args[0].(*ast.BasicLit); ok {
@@ -112,11 +133,13 @@ func TestGeneratedRegistrationCoverage(t *testing.T) {
 		t.Fatal("no generated function pointers or guards found")
 	}
 	symbols := make(map[string]bool)
-	for name, symbol := range registered {
+	for name, registeredSymbols := range registered {
 		if !declared[name] {
 			t.Errorf("registered pointer %s is not declared", name)
 		}
-		symbols[symbol] = true
+		for _, symbol := range registeredSymbols {
+			symbols[symbol] = true
+		}
 	}
 	for name := range declared {
 		if _, ok := registered[name]; !ok {
@@ -131,6 +154,45 @@ func TestGeneratedRegistrationCoverage(t *testing.T) {
 			t.Errorf("guarded symbol %s is not registered", symbol)
 		}
 	}
+}
+
+func symbolChainNames(expr ast.Expr) []string {
+	lit, ok := expr.(*ast.CompositeLit)
+	if !ok {
+		return nil
+	}
+	typ, ok := lit.Type.(*ast.Ident)
+	if !ok || typ.Name != "symbolChain" {
+		return nil
+	}
+	for _, elt := range lit.Elts {
+		field, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		key, ok := field.Key.(*ast.Ident)
+		if !ok || key.Name != "symbols" {
+			continue
+		}
+		list, ok := field.Value.(*ast.CompositeLit)
+		if !ok {
+			return nil
+		}
+		var names []string
+		for _, item := range list.Elts {
+			value, ok := item.(*ast.BasicLit)
+			if !ok || value.Kind != token.STRING {
+				return nil
+			}
+			name, err := strconv.Unquote(value.Value)
+			if err != nil {
+				return nil
+			}
+			names = append(names, name)
+		}
+		return names
+	}
+	return nil
 }
 
 // An older library may omit even a generated, registered optional API. Model

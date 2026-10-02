@@ -24,6 +24,17 @@ type AsyncCallback func(info uintptr, userData uintptr, callback AsyncCallbackHa
 // memory belongs to the C library and must not be traced by the collector.
 type CoredumpStatusCallback func(userData uintptr, pid int32, dev Device)
 
+// GraphRecaptureCallback is the Go form of CUgraphRecaptureCallback.
+//
+// It corresponds to the C signature
+//
+//	typedef CUresult (CUDA_CB *CUgraphRecaptureCallback)(void *data, CUgraphNode node, const CUgraphNodeParams *originalParams, const CUgraphNodeParams *recaptureParams, CUgraphRecaptureStatus status);
+//
+// Pass one to the API by converting it with purego.NewCallback, which is
+// why every pointer argument is a uintptr rather than a Go pointer: the
+// memory belongs to the C library and must not be traced by the collector.
+type GraphRecaptureCallback func(data uintptr, node GraphNode, originalParams uintptr, recaptureParams uintptr, status GraphRecaptureStatus) Result
+
 // HostFn is the Go form of CUhostFn.
 //
 // It corresponds to the C signature

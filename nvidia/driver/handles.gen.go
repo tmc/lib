@@ -92,6 +92,9 @@ type GreenCtx uintptr
 // LinkState is an opaque handle for CUlinkState.
 type LinkState uintptr
 
+// CheckpointOperationHandle is an opaque handle for CUcheckpointOperationHandle.
+type CheckpointOperationHandle uintptr
+
 // CoredumpCallbackHandle is an opaque handle for CUcoredumpCallbackHandle.
 type CoredumpCallbackHandle uintptr
 

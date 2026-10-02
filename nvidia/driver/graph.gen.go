@@ -65,9 +65,29 @@ func (g Graph) AddChildGraphNode(dependencies *GraphNode, numDependencies uint, 
 // Errors:
 //   - [ErrInvalidValue]
 //
-// Wraps cuGraphAddDependencies, bound as cuGraphAddDependencies_v2.
+// Wraps cuGraphAddDependencies, bound to the first of cuGraphAddDependencies_v2, cuGraphAddDependencies that the library exports. On libraries without cuGraphAddDependencies_v2, it calls cuGraphAddDependencies; a non-nil edgeData returns [ErrNotSupported].
 func (g Graph) AddDependencies(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
 	return graphAddDependencies(g, from, to, edgeData, numDependencies)
+}
+
+// AddDependenciesV2 adds dependency edges to a graph.
+//
+// The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
+// If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error.
+//
+// See also: [Graph.RemoveDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
+//
+//   - from: Array of nodes that provide the dependencies
+//   - to: Array of dependent nodes
+//   - edgeData: Optional array of edge data. If NULL, default (zeroed) edge data is assumed
+//   - numDependencies: Number of dependencies to be added
+//
+// Errors:
+//   - [ErrInvalidValue]
+//
+// Wraps cuGraphAddDependencies, bound as cuGraphAddDependencies_v2.
+func (g Graph) AddDependenciesV2(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
+	return graphAddDependenciesV2(g, from, to, edgeData, numDependencies)
 }
 
 // AddEmptyNode creates an empty node and adds it to a graph.
@@ -361,6 +381,31 @@ func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, mems
 // Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
 // nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
 // Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+// A handle to the new node will be returned in phGraphNode.
+//
+// See also: [NewGraph], [GraphNode.SetParamsV2], [GraphExec.NodeSetParams]
+//
+//   - dependencies: Dependencies of the node
+//   - dependencyData: Optional edge data for the dependencies. If NULL, the data is assumed to be default (zeroed) for all dependencies
+//   - numDependencies: Number of dependencies
+//   - nodeParams: Specification of the node
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphAddNode, bound to the first of cuGraphAddNode_v3, cuGraphAddNode_v2, cuGraphAddNode that the library exports. On libraries without cuGraphAddNode_v3 or cuGraphAddNode_v2, it calls cuGraphAddNode; a non-nil dependencyData returns [ErrNotSupported].
+func (g Graph) AddNode(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
+	return graphAddNode(g, dependencies, dependencyData, numDependencies, nodeParams)
+}
+
+// AddNodeV2 adds a node of arbitrary type to a graph.
+//
+// Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
+// nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
+// Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
 // A handle to the new node will be returned in phGraphNode.
 //
 // See also: [NewGraph], [GraphNode.SetParams], [GraphExec.NodeSetParams]
@@ -376,8 +421,33 @@ func (g Graph) AddMemsetNode(dependencies *GraphNode, numDependencies uint, mems
 //   - [ErrNotSupported]
 //
 // Wraps cuGraphAddNode, bound as cuGraphAddNode_v2.
-func (g Graph) AddNode(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
-	return graphAddNode(g, dependencies, dependencyData, numDependencies, nodeParams)
+func (g Graph) AddNodeV2(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
+	return graphAddNodeV2(g, dependencies, dependencyData, numDependencies, nodeParams)
+}
+
+// AddNodeV3 adds a node of arbitrary type to a graph.
+//
+// Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
+// nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
+// Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+// A handle to the new node will be returned in phGraphNode.
+//
+// See also: [NewGraph], [GraphNode.SetParamsV2], [GraphExec.NodeSetParams]
+//
+//   - dependencies: Dependencies of the node
+//   - dependencyData: Optional edge data for the dependencies. If NULL, the data is assumed to be default (zeroed) for all dependencies
+//   - numDependencies: Number of dependencies
+//   - nodeParams: Specification of the node
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphAddNode_v3.
+func (g Graph) AddNodeV3(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
+	return graphAddNodeV3(g, dependencies, dependencyData, numDependencies, nodeParams)
 }
 
 // Clone clones a graph.
@@ -472,9 +542,31 @@ func (g Graph) Destroy() error {
 //   - [ErrLossyQuery]
 //   - [ErrNotInitialized]
 //
-// Wraps cuGraphGetEdges, bound as cuGraphGetEdges_v2.
+// Wraps cuGraphGetEdges, bound to the first of cuGraphGetEdges_v2, cuGraphGetEdges that the library exports. On libraries without cuGraphGetEdges_v2, it calls cuGraphGetEdges; a non-nil edgeData returns [ErrNotSupported].
 func (g Graph) Edges(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numEdges *uint) error {
 	return graphGetEdges(g, from, to, edgeData, numEdges)
+}
+
+// EdgesV2 returns a graph’s dependency edges.
+//
+// Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well.
+//
+// See also: [Graph.GetNodes], [Graph.RootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.Dependencies], [GraphNode.DependentNodes]
+//
+//   - from: Location to return edge endpoints
+//   - to: Location to return edge endpoints
+//   - edgeData: Optional location to return edge data
+//   - numEdges: See description
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
+// Wraps cuGraphGetEdges, bound as cuGraphGetEdges_v2.
+func (g Graph) EdgesV2(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numEdges *uint) error {
+	return graphGetEdgesV2(g, from, to, edgeData, numEdges)
 }
 
 // Id returns the id of a given graph.
@@ -636,9 +728,30 @@ func (g Graph) ReleaseUserObject(object UserObject, count uint32) error {
 // Errors:
 //   - [ErrInvalidValue]
 //
-// Wraps cuGraphRemoveDependencies, bound as cuGraphRemoveDependencies_v2.
+// Wraps cuGraphRemoveDependencies, bound to the first of cuGraphRemoveDependencies_v2, cuGraphRemoveDependencies that the library exports. On libraries without cuGraphRemoveDependencies_v2, it calls cuGraphRemoveDependencies; a non-nil edgeData returns [ErrNotSupported].
 func (g Graph) RemoveDependencies(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
 	return graphRemoveDependencies(g, from, to, edgeData, numDependencies)
+}
+
+// RemoveDependenciesV2 removes dependency edges from a graph.
+//
+// The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
+// If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge.
+// Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error.
+//
+// See also: [Graph.AddDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
+//
+//   - from: Array of nodes that provide the dependencies
+//   - to: Array of dependent nodes
+//   - edgeData: Optional array of edge data. If NULL, edge data is assumed to be default (zeroed)
+//   - numDependencies: Number of dependencies to be removed
+//
+// Errors:
+//   - [ErrInvalidValue]
+//
+// Wraps cuGraphRemoveDependencies, bound as cuGraphRemoveDependencies_v2.
+func (g Graph) RemoveDependenciesV2(from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
+	return graphRemoveDependenciesV2(g, from, to, edgeData, numDependencies)
 }
 
 // RetainUserObject retains a reference to a user object from a graph.

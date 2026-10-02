@@ -77,6 +77,7 @@ var (
 	symarrayGetMemoryRequirements                         uintptr
 	symarrayGetPlane                                      uintptr
 	symarrayGetSparseProperties                           uintptr
+	symcheckpointOperationComplete                        uintptr
 	symCheckpointProcessCheckpoint                        uintptr
 	symCheckpointProcessGetRestoreThreadId                uintptr
 	symCheckpointProcessGetState                          uintptr
@@ -93,6 +94,8 @@ var (
 	symCoredumpSetAttributeGlobal                         uintptr
 	symctxAttach                                          uintptr
 	symctxCreate                                          uintptr
+	floorctxCreate                                        bool // symctxCreate is cuCtxCreate_v2
+	symctxCreateV4                                        uintptr
 	symctxDestroy                                         uintptr
 	symctxDetach                                          uintptr
 	symctxDisablePeerAccess                               uintptr
@@ -132,10 +135,13 @@ var (
 	symdeviceGet                                          uintptr
 	symdeviceGetAttribute                                 uintptr
 	symdeviceGetByPCIBusId                                uintptr
+	symdeviceGetCliqueCount                               uintptr
+	symdeviceGetCliqueInfo                                uintptr
 	symDeviceGetCount                                     uintptr
 	symdeviceGetDefaultMemPool                            uintptr
 	symdeviceGetDevResource                               uintptr
 	symdeviceGetExecAffinitySupport                       uintptr
+	symdeviceGetFabricClusterUuid                         uintptr
 	symdeviceGetGraphMemAttribute                         uintptr
 	symdeviceGetHostAtomicCapabilities                    uintptr
 	symdeviceGetLuid                                      uintptr
@@ -163,6 +169,8 @@ var (
 	symeventCreate                                        uintptr
 	symeventDestroy                                       uintptr
 	symeventElapsedTime                                   uintptr
+	symeventElapsedTimeV1                                 uintptr
+	symeventElapsedTimeV2                                 uintptr
 	symeventQuery                                         uintptr
 	symeventRecord                                        uintptr
 	symeventRecordWithFlags                               uintptr
@@ -187,6 +195,8 @@ var (
 	symgraphAddBatchMemOpNode                             uintptr
 	symgraphAddChildGraphNode                             uintptr
 	symgraphAddDependencies                               uintptr
+	floorgraphAddDependencies                             bool // symgraphAddDependencies is cuGraphAddDependencies
+	symgraphAddDependenciesV2                             uintptr
 	symgraphAddEmptyNode                                  uintptr
 	symgraphAddEventRecordNode                            uintptr
 	symgraphAddEventWaitNode                              uintptr
@@ -199,6 +209,9 @@ var (
 	symgraphAddMemcpyNode                                 uintptr
 	symgraphAddMemsetNode                                 uintptr
 	symgraphAddNode                                       uintptr
+	floorgraphAddNode                                     bool // symgraphAddNode is cuGraphAddNode
+	symgraphAddNodeV2                                     uintptr
+	symgraphAddNodeV3                                     uintptr
 	symgraphBatchMemOpNodeGetParams                       uintptr
 	symgraphBatchMemOpNodeSetParams                       uintptr
 	symgraphChildGraphNodeGetGraph                        uintptr
@@ -232,6 +245,8 @@ var (
 	symgraphExternalSemaphoresWaitNodeGetParams           uintptr
 	symgraphExternalSemaphoresWaitNodeSetParams           uintptr
 	symgraphGetEdges                                      uintptr
+	floorgraphGetEdges                                    bool // symgraphGetEdges is cuGraphGetEdges
+	symgraphGetEdgesV2                                    uintptr
 	symgraphGetId                                         uintptr
 	symgraphGetNodes                                      uintptr
 	symgraphGetRootNodes                                  uintptr
@@ -254,7 +269,11 @@ var (
 	symgraphNodeFindInClone                               uintptr
 	symgraphNodeGetContainingGraph                        uintptr
 	symgraphNodeGetDependencies                           uintptr
+	floorgraphNodeGetDependencies                         bool // symgraphNodeGetDependencies is cuGraphNodeGetDependencies
+	symgraphNodeGetDependenciesV2                         uintptr
 	symgraphNodeGetDependentNodes                         uintptr
+	floorgraphNodeGetDependentNodes                       bool // symgraphNodeGetDependentNodes is cuGraphNodeGetDependentNodes
+	symgraphNodeGetDependentNodesV2                       uintptr
 	symgraphNodeGetEnabled                                uintptr
 	symgraphNodeGetLocalId                                uintptr
 	symgraphNodeGetParams                                 uintptr
@@ -262,8 +281,12 @@ var (
 	symgraphNodeGetType                                   uintptr
 	symgraphNodeSetEnabled                                uintptr
 	symgraphNodeSetParams                                 uintptr
+	symgraphNodeSetParamsV1                               uintptr
+	symgraphNodeSetParamsV2                               uintptr
 	symgraphReleaseUserObject                             uintptr
 	symgraphRemoveDependencies                            uintptr
+	floorgraphRemoveDependencies                          bool // symgraphRemoveDependencies is cuGraphRemoveDependencies
+	symgraphRemoveDependenciesV2                          uintptr
 	symgraphRetainUserObject                              uintptr
 	symgraphUpload                                        uintptr
 	symgraphicsMapResources                               uintptr
@@ -302,6 +325,7 @@ var (
 	symlaunchGrid                                         uintptr
 	symlaunchGridAsync                                    uintptr
 	symlaunchHostFunc                                     uintptr
+	symlaunchHostFuncV2                                   uintptr
 	symlaunchKernel                                       uintptr
 	symlaunchKernelEx                                     uintptr
 	symlibraryEnumerateKernels                            uintptr
@@ -319,6 +343,18 @@ var (
 	symlinkComplete                                       uintptr
 	symLinkCreate                                         uintptr
 	symlinkDestroy                                        uintptr
+	symlogicalEndpointAddDevice                           uintptr
+	symlogicalEndpointBindAddr                            uintptr
+	symlogicalEndpointBindMem                             uintptr
+	symLogicalEndpointCreate                              uintptr
+	symLogicalEndpointDestroy                             uintptr
+	symLogicalEndpointExport                              uintptr
+	symLogicalEndpointGetLimits                           uintptr
+	symLogicalEndpointIdRelease                           uintptr
+	symLogicalEndpointIdReserve                           uintptr
+	symLogicalEndpointImport                              uintptr
+	symLogicalEndpointQuery                               uintptr
+	symlogicalEndpointUnbind                              uintptr
 	symLogsCurrent                                        uintptr
 	symLogsDumpToFile                                     uintptr
 	symLogsDumpToMemory                                   uintptr
@@ -348,6 +384,7 @@ var (
 	symMemGetDefaultMemPool                               uintptr
 	symmemGetHandleForAddressRange                        uintptr
 	symMemGetInfo                                         uintptr
+	symmemGetLocationInfo                                 uintptr
 	symMemGetMemPool                                      uintptr
 	symMemHostAlloc                                       uintptr
 	symMemHostGetDevicePointer                            uintptr
@@ -464,6 +501,7 @@ var (
 	symstreamBeginCapture                                 uintptr
 	symstreamBeginCaptureToCig                            uintptr
 	symstreamBeginCaptureToGraph                          uintptr
+	symstreamBeginRecaptureToGraph                        uintptr
 	symstreamCopyAttributes                               uintptr
 	symstreamCreate                                       uintptr
 	symstreamCreateWithPriority                           uintptr
@@ -472,7 +510,10 @@ var (
 	symstreamEndCaptureToCig                              uintptr
 	symstreamGetAttribute                                 uintptr
 	symstreamGetCaptureInfo                               uintptr
+	floorstreamGetCaptureInfo                             bool // symstreamGetCaptureInfo is cuStreamGetCaptureInfo_v2
+	symstreamGetCaptureInfoV3                             uintptr
 	symstreamGetCtx                                       uintptr
+	symstreamGetCtxV2                                     uintptr
 	symstreamGetDevResource                               uintptr
 	symstreamGetDevice                                    uintptr
 	symstreamGetFlags                                     uintptr
@@ -484,6 +525,8 @@ var (
 	symstreamSetAttribute                                 uintptr
 	symstreamSynchronize                                  uintptr
 	symstreamUpdateCaptureDependencies                    uintptr
+	floorstreamUpdateCaptureDependencies                  bool // symstreamUpdateCaptureDependencies is cuStreamUpdateCaptureDependencies
+	symstreamUpdateCaptureDependenciesV2                  uintptr
 	symstreamWaitEvent                                    uintptr
 	symstreamWaitValue32                                  uintptr
 	symstreamWaitValue64                                  uintptr
@@ -890,6 +933,12 @@ func fnarrayGetSparseProperties(a0 *ArraySparseProperties, a1 Array) Result {
 	return Result(r1)
 }
 
+// fncheckpointOperationComplete calls cuCheckpointOperationComplete.
+func fncheckpointOperationComplete(a0 CheckpointOperationHandle) Result {
+	r1, _ := ffiCall1(symcheckpointOperationComplete, 0, uintptr(a0))
+	return Result(r1)
+}
+
 // fnCheckpointProcessCheckpoint calls cuCheckpointProcessCheckpoint.
 func fnCheckpointProcessCheckpoint(a0 int32, a1 *CheckpointCheckpointArgs) Result {
 	r1, _ := ffiCallWidths2(symCheckpointProcessCheckpoint, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
@@ -980,9 +1029,22 @@ func fnctxAttach(a0 *Context, a1 uint32) Result {
 	return Result(r1)
 }
 
-// fnctxCreate calls cuCtxCreate_v4.
+// fnctxCreate calls cuCtxCreate_v4, or cuCtxCreate_v2 when floorctxCreate is set.
 func fnctxCreate(a0 *Context, a1 *CtxCreateParams, a2 uint32, a3 Device) Result {
+	if floorctxCreate {
+		if a1 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCallWidths3(symctxCreate, 0, 0x3c, uintptr(unsafe.Pointer(a0)), uintptr(a2), uintptr(a3))
+		return Result(r1)
+	}
 	r1, _ := ffiCallWidths4(symctxCreate, 0, 0xf0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
+	return Result(r1)
+}
+
+// fnctxCreateV4 calls cuCtxCreate_v4.
+func fnctxCreateV4(a0 *Context, a1 *CtxCreateParams, a2 uint32, a3 Device) Result {
+	r1, _ := ffiCallWidths4(symctxCreateV4, 0, 0xf0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -1220,6 +1282,18 @@ func fndeviceGetByPCIBusId(a0 *Device, a1 *byte) Result {
 	return Result(r1)
 }
 
+// fndeviceGetCliqueCount calls cuDeviceGetCliqueCount.
+func fndeviceGetCliqueCount(a0 *uint, a1 Device) Result {
+	r1, _ := ffiCallWidths2(symdeviceGetCliqueCount, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fndeviceGetCliqueInfo calls cuDeviceGetCliqueInfo.
+func fndeviceGetCliqueInfo(a0 *CliqueInfo, a1 *uint, a2 Device) Result {
+	r1, _ := ffiCallWidths3(symdeviceGetCliqueInfo, 0, 0x30, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(a2))
+	return Result(r1)
+}
+
 // fnDeviceGetCount calls cuDeviceGetCount.
 func fnDeviceGetCount(a0 *int32) Result {
 	r1, _ := ffiCall1(symDeviceGetCount, 0, uintptr(unsafe.Pointer(a0)))
@@ -1241,6 +1315,12 @@ func fndeviceGetDevResource(a0 Device, a1 *DevResource, a2 DevResourceType) Resu
 // fndeviceGetExecAffinitySupport calls cuDeviceGetExecAffinitySupport.
 func fndeviceGetExecAffinitySupport(a0 *int32, a1 ExecAffinityType, a2 Device) Result {
 	r1, _ := ffiCallWidths3(symdeviceGetExecAffinitySupport, 0, 0x3c, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fndeviceGetFabricClusterUuid calls cuDeviceGetFabricClusterUuid.
+func fndeviceGetFabricClusterUuid(a0 *Uuid, a1 Device) Result {
+	r1, _ := ffiCallWidths2(symdeviceGetFabricClusterUuid, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
 	return Result(r1)
 }
 
@@ -1400,9 +1480,21 @@ func fneventDestroy(a0 Event) Result {
 	return Result(r1)
 }
 
-// fneventElapsedTime calls cuEventElapsedTime_v2.
+// fneventElapsedTime calls the first of cuEventElapsedTime_v2, cuEventElapsedTime that the library exports.
 func fneventElapsedTime(a0 *float32, a1 Event, a2 Event) Result {
 	r1, _ := ffiCall3(symeventElapsedTime, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fneventElapsedTimeV1 calls cuEventElapsedTime.
+func fneventElapsedTimeV1(a0 *float32, a1 Event, a2 Event) Result {
+	r1, _ := ffiCall3(symeventElapsedTimeV1, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fneventElapsedTimeV2 calls cuEventElapsedTime_v2.
+func fneventElapsedTimeV2(a0 *float32, a1 Event, a2 Event) Result {
+	r1, _ := ffiCall3(symeventElapsedTimeV2, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(a2))
 	return Result(r1)
 }
 
@@ -1544,9 +1636,22 @@ func fngraphAddChildGraphNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a
 	return Result(r1)
 }
 
-// fngraphAddDependencies calls cuGraphAddDependencies_v2.
+// fngraphAddDependencies calls cuGraphAddDependencies_v2, or cuGraphAddDependencies when floorgraphAddDependencies is set.
 func fngraphAddDependencies(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 uint) Result {
+	if floorgraphAddDependencies {
+		if a3 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCall4(symgraphAddDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a4))
+		return Result(r1)
+	}
 	r1, _ := ffiCall5(symgraphAddDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphAddDependenciesV2 calls cuGraphAddDependencies_v2.
+func fngraphAddDependenciesV2(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 uint) Result {
+	r1, _ := ffiCall5(symgraphAddDependenciesV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
 	return Result(r1)
 }
 
@@ -1616,9 +1721,28 @@ func fngraphAddMemsetNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 uint, a4 *M
 	return Result(r1)
 }
 
-// fngraphAddNode calls cuGraphAddNode_v2.
+// fngraphAddNode calls the first of cuGraphAddNode_v3, cuGraphAddNode_v2 that the library exports, or cuGraphAddNode when floorgraphAddNode is set.
 func fngraphAddNode(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 *GraphEdgeData, a4 uint, a5 *GraphNodeParams) Result {
+	if floorgraphAddNode {
+		if a3 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCall5(symgraphAddNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+		return Result(r1)
+	}
 	r1, _ := ffiCall6(symgraphAddNode, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngraphAddNodeV2 calls cuGraphAddNode_v2.
+func fngraphAddNodeV2(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 *GraphEdgeData, a4 uint, a5 *GraphNodeParams) Result {
+	r1, _ := ffiCall6(symgraphAddNodeV2, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
+	return Result(r1)
+}
+
+// fngraphAddNodeV3 calls cuGraphAddNode_v3.
+func fngraphAddNodeV3(a0 *GraphNode, a1 Graph, a2 *GraphNode, a3 *GraphEdgeData, a4 uint, a5 *GraphNodeParams) Result {
+	r1, _ := ffiCall6(symgraphAddNodeV3, 0, uintptr(unsafe.Pointer(a0)), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4), uintptr(unsafe.Pointer(a5)))
 	return Result(r1)
 }
 
@@ -1814,9 +1938,22 @@ func fngraphExternalSemaphoresWaitNodeSetParams(a0 GraphNode, a1 *ExtSemWaitNode
 	return Result(r1)
 }
 
-// fngraphGetEdges calls cuGraphGetEdges_v2.
+// fngraphGetEdges calls cuGraphGetEdges_v2, or cuGraphGetEdges when floorgraphGetEdges is set.
 func fngraphGetEdges(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 *uint) Result {
+	if floorgraphGetEdges {
+		if a3 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCall4(symgraphGetEdges, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a4)))
+		return Result(r1)
+	}
 	r1, _ := ffiCall5(symgraphGetEdges, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
+	return Result(r1)
+}
+
+// fngraphGetEdgesV2 calls cuGraphGetEdges_v2.
+func fngraphGetEdgesV2(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 *uint) Result {
+	r1, _ := ffiCall5(symgraphGetEdgesV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -1946,15 +2083,41 @@ func fngraphNodeGetContainingGraph(a0 GraphNode, a1 *Graph) Result {
 	return Result(r1)
 }
 
-// fngraphNodeGetDependencies calls cuGraphNodeGetDependencies_v2.
+// fngraphNodeGetDependencies calls cuGraphNodeGetDependencies_v2, or cuGraphNodeGetDependencies when floorgraphNodeGetDependencies is set.
 func fngraphNodeGetDependencies(a0 GraphNode, a1 *GraphNode, a2 *GraphEdgeData, a3 *uint) Result {
+	if floorgraphNodeGetDependencies {
+		if a2 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCall3(symgraphNodeGetDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a3)))
+		return Result(r1)
+	}
 	r1, _ := ffiCall4(symgraphNodeGetDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
-// fngraphNodeGetDependentNodes calls cuGraphNodeGetDependentNodes_v2.
+// fngraphNodeGetDependenciesV2 calls cuGraphNodeGetDependencies_v2.
+func fngraphNodeGetDependenciesV2(a0 GraphNode, a1 *GraphNode, a2 *GraphEdgeData, a3 *uint) Result {
+	r1, _ := ffiCall4(symgraphNodeGetDependenciesV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngraphNodeGetDependentNodes calls cuGraphNodeGetDependentNodes_v2, or cuGraphNodeGetDependentNodes when floorgraphNodeGetDependentNodes is set.
 func fngraphNodeGetDependentNodes(a0 GraphNode, a1 *GraphNode, a2 *GraphEdgeData, a3 *uint) Result {
+	if floorgraphNodeGetDependentNodes {
+		if a2 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCall3(symgraphNodeGetDependentNodes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a3)))
+		return Result(r1)
+	}
 	r1, _ := ffiCall4(symgraphNodeGetDependentNodes, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
+	return Result(r1)
+}
+
+// fngraphNodeGetDependentNodesV2 calls cuGraphNodeGetDependentNodes_v2.
+func fngraphNodeGetDependentNodesV2(a0 GraphNode, a1 *GraphNode, a2 *GraphEdgeData, a3 *uint) Result {
+	r1, _ := ffiCall4(symgraphNodeGetDependentNodesV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)))
 	return Result(r1)
 }
 
@@ -1994,9 +2157,21 @@ func fngraphNodeSetEnabled(a0 GraphExec, a1 GraphNode, a2 uint32) Result {
 	return Result(r1)
 }
 
-// fngraphNodeSetParams calls cuGraphNodeSetParams.
+// fngraphNodeSetParams calls the first of cuGraphNodeSetParams_v2, cuGraphNodeSetParams that the library exports.
 func fngraphNodeSetParams(a0 GraphNode, a1 *GraphNodeParams) Result {
 	r1, _ := ffiCall2(symgraphNodeSetParams, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeSetParamsV1 calls cuGraphNodeSetParams.
+func fngraphNodeSetParamsV1(a0 GraphNode, a1 *GraphNodeParams) Result {
+	r1, _ := ffiCall2(symgraphNodeSetParamsV1, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fngraphNodeSetParamsV2 calls cuGraphNodeSetParams_v2.
+func fngraphNodeSetParamsV2(a0 GraphNode, a1 *GraphNodeParams) Result {
+	r1, _ := ffiCall2(symgraphNodeSetParamsV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
 	return Result(r1)
 }
 
@@ -2006,9 +2181,22 @@ func fngraphReleaseUserObject(a0 Graph, a1 UserObject, a2 uint32) Result {
 	return Result(r1)
 }
 
-// fngraphRemoveDependencies calls cuGraphRemoveDependencies_v2.
+// fngraphRemoveDependencies calls cuGraphRemoveDependencies_v2, or cuGraphRemoveDependencies when floorgraphRemoveDependencies is set.
 func fngraphRemoveDependencies(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 uint) Result {
+	if floorgraphRemoveDependencies {
+		if a3 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCall4(symgraphRemoveDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a4))
+		return Result(r1)
+	}
 	r1, _ := ffiCall5(symgraphRemoveDependencies, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fngraphRemoveDependenciesV2 calls cuGraphRemoveDependencies_v2.
+func fngraphRemoveDependenciesV2(a0 Graph, a1 *GraphNode, a2 *GraphNode, a3 *GraphEdgeData, a4 uint) Result {
+	r1, _ := ffiCall5(symgraphRemoveDependenciesV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(a4))
 	return Result(r1)
 }
 
@@ -2222,9 +2410,15 @@ func fnlaunchGridAsync(a0 Function, a1 int32, a2 int32, a3 Stream) Result {
 	return Result(r1)
 }
 
-// fnlaunchHostFunc calls cuLaunchHostFunc_v2.
-func fnlaunchHostFunc(a0 Stream, a1 uintptr, a2 uintptr, a3 uint32) Result {
-	r1, _ := ffiCallWidths4(symlaunchHostFunc, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
+// fnlaunchHostFunc calls cuLaunchHostFunc.
+func fnlaunchHostFunc(a0 Stream, a1 uintptr, a2 uintptr) Result {
+	r1, _ := ffiCall3(symlaunchHostFunc, 0, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnlaunchHostFuncV2 calls cuLaunchHostFunc_v2.
+func fnlaunchHostFuncV2(a0 Stream, a1 uintptr, a2 uintptr, a3 uint32) Result {
+	r1, _ := ffiCallWidths4(symlaunchHostFuncV2, 0, 0xc0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -2327,6 +2521,78 @@ func fnLinkCreate(a0 uint32, a1 *JITOption, a2 *uintptr, a3 *LinkState) Result {
 // fnlinkDestroy calls cuLinkDestroy.
 func fnlinkDestroy(a0 LinkState) Result {
 	r1, _ := ffiCall1(symlinkDestroy, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnlogicalEndpointAddDevice calls cuLogicalEndpointAddDevice.
+func fnlogicalEndpointAddDevice(a0 LogicalEndpointId, a1 Device) Result {
+	r1, _ := ffiCallWidths2(symlogicalEndpointAddDevice, 0, 0xf, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnlogicalEndpointBindAddr calls cuLogicalEndpointBindAddr.
+func fnlogicalEndpointBindAddr(a0 LogicalEndpointId, a1 Device, a2 uint64, a3 uintptr, a4 uint64, a5 uint64) Result {
+	r1, _ := ffiCallWidths6(symlogicalEndpointBindAddr, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5))
+	return Result(r1)
+}
+
+// fnlogicalEndpointBindMem calls cuLogicalEndpointBindMem.
+func fnlogicalEndpointBindMem(a0 LogicalEndpointId, a1 Device, a2 uint64, a3 uint64, a4 uint64, a5 uint64, a6 uint64) Result {
+	r1, _ := ffiCallWidths7(symlogicalEndpointBindMem, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
+	return Result(r1)
+}
+
+// fnLogicalEndpointCreate calls cuLogicalEndpointCreate.
+func fnLogicalEndpointCreate(a0 LogicalEndpointId, a1 *LogicalEndpointProp) Result {
+	r1, _ := ffiCallWidths2(symLogicalEndpointCreate, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnLogicalEndpointDestroy calls cuLogicalEndpointDestroy.
+func fnLogicalEndpointDestroy(a0 LogicalEndpointId) Result {
+	r1, _ := ffiCallWidths1(symLogicalEndpointDestroy, 0, 0x3, uintptr(a0))
+	return Result(r1)
+}
+
+// fnLogicalEndpointExport calls cuLogicalEndpointExport.
+func fnLogicalEndpointExport(a0 uintptr, a1 LogicalEndpointId, a2 LogicalEndpointIpcHandleType) Result {
+	r1, _ := ffiCallWidths3(symLogicalEndpointExport, 0, 0x3c, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnLogicalEndpointGetLimits calls cuLogicalEndpointGetLimits.
+func fnLogicalEndpointGetLimits(a0 *uint64, a1 *uint64, a2 *LogicalEndpointProp) Result {
+	r1, _ := ffiCall3(symLogicalEndpointGetLimits, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnLogicalEndpointIdRelease calls cuLogicalEndpointIdRelease.
+func fnLogicalEndpointIdRelease(a0 LogicalEndpointId, a1 uint32) Result {
+	r1, _ := ffiCallWidths2(symLogicalEndpointIdRelease, 0, 0xf, uintptr(a0), uintptr(a1))
+	return Result(r1)
+}
+
+// fnLogicalEndpointIdReserve calls cuLogicalEndpointIdReserve.
+func fnLogicalEndpointIdReserve(a0 *LogicalEndpointId, a1 uint32) Result {
+	r1, _ := ffiCallWidths2(symLogicalEndpointIdReserve, 0, 0xc, uintptr(unsafe.Pointer(a0)), uintptr(a1))
+	return Result(r1)
+}
+
+// fnLogicalEndpointImport calls cuLogicalEndpointImport.
+func fnLogicalEndpointImport(a0 LogicalEndpointId, a1 uintptr, a2 LogicalEndpointIpcHandleType) Result {
+	r1, _ := ffiCallWidths3(symLogicalEndpointImport, 0, 0x33, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
+// fnLogicalEndpointQuery calls cuLogicalEndpointQuery.
+func fnLogicalEndpointQuery(a0 LogicalEndpointId, a1 uint32, a2 *int32) Result {
+	r1, _ := ffiCallWidths3(symLogicalEndpointQuery, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)))
+	return Result(r1)
+}
+
+// fnlogicalEndpointUnbind calls cuLogicalEndpointUnbind.
+func fnlogicalEndpointUnbind(a0 LogicalEndpointId, a1 Device, a2 uint64, a3 uint64) Result {
+	r1, _ := ffiCallWidths4(symlogicalEndpointUnbind, 0, 0xf, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3))
 	return Result(r1)
 }
 
@@ -2501,6 +2767,12 @@ func fnmemGetHandleForAddressRange(a0 unsafe.Pointer, a1 DevicePtr, a2 uint, a3 
 // fnMemGetInfo calls cuMemGetInfo_v2.
 func fnMemGetInfo(a0 *uint, a1 *uint) Result {
 	r1, _ := ffiCall2(symMemGetInfo, 0, uintptr(unsafe.Pointer(a0)), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnmemGetLocationInfo calls cuMemGetLocationInfo.
+func fnmemGetLocationInfo(a0 DevicePtr, a1 uint, a2 uint, a3 uint, a4 *MemLocation) Result {
+	r1, _ := ffiCall5(symmemGetLocationInfo, 0, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(unsafe.Pointer(a4)))
 	return Result(r1)
 }
 
@@ -3200,6 +3472,12 @@ func fnstreamBeginCaptureToGraph(a0 Stream, a1 Graph, a2 *GraphNode, a3 *GraphEd
 	return Result(r1)
 }
 
+// fnstreamBeginRecaptureToGraph calls cuStreamBeginRecaptureToGraph.
+func fnstreamBeginRecaptureToGraph(a0 Stream, a1 StreamCaptureMode, a2 Graph, a3 uintptr, a4 uintptr) Result {
+	r1, _ := ffiCallWidths5(symstreamBeginRecaptureToGraph, 0, 0xc, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
 // fnstreamCopyAttributes calls cuStreamCopyAttributes.
 func fnstreamCopyAttributes(a0 Stream, a1 Stream) Result {
 	r1, _ := ffiCall2(symstreamCopyAttributes, 0, uintptr(a0), uintptr(a1))
@@ -3242,15 +3520,34 @@ func fnstreamGetAttribute(a0 Stream, a1 int32, a2 *[8]uint64) Result {
 	return Result(r1)
 }
 
-// fnstreamGetCaptureInfo calls cuStreamGetCaptureInfo_v3.
+// fnstreamGetCaptureInfo calls cuStreamGetCaptureInfo_v3, or cuStreamGetCaptureInfo_v2 when floorstreamGetCaptureInfo is set.
 func fnstreamGetCaptureInfo(a0 Stream, a1 *StreamCaptureStatus, a2 *uint64, a3 *Graph, a4 **GraphNode, a5 **GraphEdgeData, a6 *uint) Result {
+	if floorstreamGetCaptureInfo {
+		if a5 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCall6(symstreamGetCaptureInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a6)))
+		return Result(r1)
+	}
 	r1, _ := ffiCall7(symstreamGetCaptureInfo, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
 	return Result(r1)
 }
 
-// fnstreamGetCtx calls cuStreamGetCtx_v2.
-func fnstreamGetCtx(a0 Stream, a1 *Context, a2 *GreenCtx) Result {
-	r1, _ := ffiCall3(symstreamGetCtx, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
+// fnstreamGetCaptureInfoV3 calls cuStreamGetCaptureInfo_v3.
+func fnstreamGetCaptureInfoV3(a0 Stream, a1 *StreamCaptureStatus, a2 *uint64, a3 *Graph, a4 **GraphNode, a5 **GraphEdgeData, a6 *uint) Result {
+	r1, _ := ffiCall7(symstreamGetCaptureInfoV3, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(unsafe.Pointer(a3)), uintptr(unsafe.Pointer(a4)), uintptr(unsafe.Pointer(a5)), uintptr(unsafe.Pointer(a6)))
+	return Result(r1)
+}
+
+// fnstreamGetCtx calls cuStreamGetCtx.
+func fnstreamGetCtx(a0 Stream, a1 *Context) Result {
+	r1, _ := ffiCall2(symstreamGetCtx, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)))
+	return Result(r1)
+}
+
+// fnstreamGetCtxV2 calls cuStreamGetCtx_v2.
+func fnstreamGetCtxV2(a0 Stream, a1 *Context, a2 *GreenCtx) Result {
+	r1, _ := ffiCall3(symstreamGetCtxV2, 0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)))
 	return Result(r1)
 }
 
@@ -3314,9 +3611,22 @@ func fnstreamSynchronize(a0 Stream) Result {
 	return Result(r1)
 }
 
-// fnstreamUpdateCaptureDependencies calls cuStreamUpdateCaptureDependencies_v2.
+// fnstreamUpdateCaptureDependencies calls cuStreamUpdateCaptureDependencies_v2, or cuStreamUpdateCaptureDependencies when floorstreamUpdateCaptureDependencies is set.
 func fnstreamUpdateCaptureDependencies(a0 Stream, a1 *GraphNode, a2 *GraphEdgeData, a3 uint, a4 uint32) Result {
+	if floorstreamUpdateCaptureDependencies {
+		if a2 != nil {
+			return ErrNotSupported
+		}
+		r1, _ := ffiCallWidths4(symstreamUpdateCaptureDependencies, 0, 0xc0, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(a3), uintptr(a4))
+		return Result(r1)
+	}
 	r1, _ := ffiCallWidths5(symstreamUpdateCaptureDependencies, 0, 0x300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnstreamUpdateCaptureDependenciesV2 calls cuStreamUpdateCaptureDependencies_v2.
+func fnstreamUpdateCaptureDependenciesV2(a0 Stream, a1 *GraphNode, a2 *GraphEdgeData, a3 uint, a4 uint32) Result {
+	r1, _ := ffiCallWidths5(symstreamUpdateCaptureDependenciesV2, 0, 0x300, uintptr(a0), uintptr(unsafe.Pointer(a1)), uintptr(unsafe.Pointer(a2)), uintptr(a3), uintptr(a4))
 	return Result(r1)
 }
 
@@ -3897,16 +4207,38 @@ func arrayGetSparseProperties(array Array) (ArraySparseProperties, error) {
 
 var slotArrayGetSparseProperties outSlot[ArraySparseProperties]
 
+// checkpointOperationComplete completes a custom-storage checkpoint or restores operation.
+//
+// After [CheckpointProcessCheckpoint] or [CheckpointProcessRestore] with custom storage, [CheckpointOperationHandle.Complete] should be called when the application has finished or enqueued (on a stream) the required copies (for checkpoint, GPU mappings to custom storage and for restore, custom storage into GPU mappings) so the driver can finish the operation.
+// [CheckpointOperationHandle.Complete] will first synchronize on the streams returned by [CheckpointProcessCheckpoint] or [CheckpointProcessRestore]. The driver assumes that the application has completed copying the memory to or from custom storage once synchronization is done. None of the streams returned by [CheckpointProcessCheckpoint] or [CheckpointProcessRestore] should be in stream capture mode; any attempt to do so would result in [ErrStreamCaptureUnsupported]. Once the synchronization is done, [CheckpointOperationHandle.Complete] will unmap the GPU memory that was mapped on each GPU in a particular [CheckpointProcessCheckpoint] or [CheckpointProcessRestore] operation. [CheckpointOperationHandle.Complete] identifies the operation to be completed using handle. This handle is set by [CheckpointProcessCheckpoint] or [CheckpointProcessRestore].
+// When the call returns successfully, the target process will be in the [ProcessStateCheckpointed] state when completing a checkpoint operation or the [ProcessStateLocked] state when completing a restore operation.
+//
+//   - handle: [CheckpointCustomStorageInfo].handle set by a prior [CheckpointProcessCheckpoint] or [CheckpointProcessRestore] call
+//
+// Errors:
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
+// Wraps cuCheckpointOperationComplete.
+func checkpointOperationComplete(handle CheckpointOperationHandle) error {
+	if err := checkLibSym("cuCheckpointOperationComplete"); err != nil {
+		return err
+	}
+	return toError(fncheckpointOperationComplete(handle), "cuCheckpointOperationComplete")
+}
+
 // CheckpointProcessCheckpoint checkpoints a CUDA process’s GPU memory contents.
 //
 // Checkpoints a CUDA process specified by pid. The GPU memory contents will be brought into host memory or mapped onto the calling process’s GPUs for user-defined behavior. Underlying GPU references are released when checkpointing completes. The process must be in the [ProcessStateLocked] state to checkpoint.
-// When [CheckpointCheckpointArgs].customStorageInfo_out is not NULL, all the GPU memory allocated by the process with pid will be mapped onto the calling process’s GPUs so the application can copy the memory to custom storage. Upon return of this call, the pointer referenced by [CheckpointCheckpointArgs].customStorageInfo_out will point to a CUcheckpointCustomStorageInfo struct allocated and populated by the driver. For each GPU which contains data from the checkpointed process, there is a corresponding entry in the CUcheckpointCustomStoragePerDeviceData array.
-//   - The device pointers and sizes for the contiguously mapped memory on a particular GPU are set in the CUcheckpointCustomStoragePerDeviceData.devPtr and CUcheckpointCustomStoragePerDeviceData.size fields respectively.
-//   - A stream belonging to the primary context of a particular GPU is set in CUcheckpointCustomStoragePerDeviceData.stream. The application can use the stream to find out which GPU the memory is mapped on and to enqueue the copies to custom storage.
+// When [CheckpointCheckpointArgs].customStorageInfo_out is not NULL, all the GPU memory allocated by the process with pid will be mapped onto the calling process’s GPUs so the application can copy the memory to custom storage. Upon return of this call, the pointer referenced by [CheckpointCheckpointArgs].customStorageInfo_out will point to a [CheckpointCustomStorageInfo] struct allocated and populated by the driver. For each GPU which contains data from the checkpointed process, there is a corresponding entry in the [CheckpointCustomStoragePerDeviceData] array.
+//   - The device pointers and sizes for the contiguously mapped memory on a particular GPU are set in the [CheckpointCustomStoragePerDeviceData].devPtr and [CheckpointCustomStoragePerDeviceData].size fields respectively.
+//   - A stream belonging to the primary context of a particular GPU is set in [CheckpointCustomStoragePerDeviceData].stream. The application can use the stream to find out which GPU the memory is mapped on and to enqueue the copies to custom storage.
 //
-// The application is responsible for copying the mapped data from the GPU at the specified device address to custom storage. When checkpointing to custom storage, the application is expected to call cuCheckpointOperationComplete. The CUcheckpointCustomStorageInfo.handle set by this call should be passed to cuCheckpointOperationComplete in handle. The driver synchronizes all the streams in cuCheckpointOperationComplete, at which point the copy to custom storage is considered complete.
-// When checkpointing to custom storage, the application is expected to retain primary contexts of all the devices used by the process to be checkpointed. Otherwise [CheckpointProcessCheckpoint] will return [ErrInvalidContext]. Unlike other checkpoint operations, checkpointing to custom storage requires [Init] to have been called before execution. Checkpointing the calling process’s GPU memory to custom storage is not supported. Upon successful return, the target process will be in the CU_PROCESS_STATE_CHECKPOINTING state.
-// When [CheckpointCheckpointArgs].customStorageInfo_out is NULL, the GPU memory contents will be brought into host memory by [CheckpointProcessCheckpoint]. The application is not expected to copy the GPU memory contents. The application is also not expected to call cuCheckpointOperationComplete. Upon successful return, the target process will be in the [ProcessStateCheckpointed] state.
+// The application is responsible for copying the mapped data from the GPU at the specified device address to custom storage. When checkpointing to custom storage, the application is expected to call [CheckpointOperationHandle.Complete]. The [CheckpointCustomStorageInfo].handle set by this call should be passed to [CheckpointOperationHandle.Complete] in handle. The driver synchronizes all the streams in [CheckpointOperationHandle.Complete], at which point the copy to custom storage is considered complete.
+// When checkpointing to custom storage, the application is expected to retain primary contexts of all the devices used by the process to be checkpointed. Otherwise [CheckpointProcessCheckpoint] will return [ErrInvalidContext]. Unlike other checkpoint operations, checkpointing to custom storage requires [Init] to have been called before execution. Checkpointing the calling process’s GPU memory to custom storage is not supported. Upon successful return, the target process will be in the [ProcessStateCheckpointing] state.
+// When [CheckpointCheckpointArgs].customStorageInfo_out is NULL, the GPU memory contents will be brought into host memory by [CheckpointProcessCheckpoint]. The application is not expected to copy the GPU memory contents. The application is also not expected to call [CheckpointOperationHandle.Complete]. Upon successful return, the target process will be in the [ProcessStateCheckpointed] state.
 //
 //   - pid: The process ID of the CUDA process
 //   - args: Optional checkpoint operation arguments
@@ -4012,16 +4344,16 @@ func CheckpointProcessLock(pid int32, args *CheckpointLockArgs) error {
 // GPU UUID pairs can be specified in args to remap the process old GPUs onto new GPUs. The GPU to restore onto needs to have enough memory and be of the same chip type as the old GPU. If an array of GPU UUID pairs is specified, it must contain every checkpointed GPU.
 // CUDA process restore requires persistence mode to be enabled or [Init] to have been called before execution.
 // When [CheckpointRestoreArgs].customStorageInfo_out is not NULL, all the GPU memory to be restored for the process with pid will be mapped onto the calling process’s GPUs so the application can copy the memory back to the GPU.
-// Upon return of this call, the pointer referenced by [CheckpointRestoreArgs].customStorageInfo_out will point to a CUcheckpointCustomStorageInfo struct allocated and populated by the driver. For each GPU which contains data from the restored process, there is a corresponding entry in the CUcheckpointCustomStoragePerDeviceData array.
-//   - The device pointers and sizes for the contiguously mapped memory on a particular GPU are set in the CUcheckpointCustomStoragePerDeviceData.devPtr and CUcheckpointCustomStoragePerDeviceData.size fields respectively.
-//   - A stream belonging to the primary context of the GPU is set in CUcheckpointCustomStoragePerDeviceData.stream. The application can use the stream to find out which GPU the memory is mapped on and to enqueue the copies from custom storage back to the GPU.
+// Upon return of this call, the pointer referenced by [CheckpointRestoreArgs].customStorageInfo_out will point to a [CheckpointCustomStorageInfo] struct allocated and populated by the driver. For each GPU which contains data from the restored process, there is a corresponding entry in the [CheckpointCustomStoragePerDeviceData] array.
+//   - The device pointers and sizes for the contiguously mapped memory on a particular GPU are set in the [CheckpointCustomStoragePerDeviceData].devPtr and [CheckpointCustomStoragePerDeviceData].size fields respectively.
+//   - A stream belonging to the primary context of the GPU is set in [CheckpointCustomStoragePerDeviceData].stream. The application can use the stream to find out which GPU the memory is mapped on and to enqueue the copies from custom storage back to the GPU.
 //
-// The application is responsible for copying the data from custom storage to the GPU at the specified device address. When restoring from custom storage, the application is expected to call cuCheckpointOperationComplete. The CUcheckpointCustomStorageInfo.handle set by this call should be passed to cuCheckpointOperationComplete in handle. The driver synchronizes all the streams in cuCheckpointOperationComplete, at which point the copy from custom storage is considered complete.
+// The application is responsible for copying the data from custom storage to the GPU at the specified device address. When restoring from custom storage, the application is expected to call [CheckpointOperationHandle.Complete]. The [CheckpointCustomStorageInfo].handle set by this call should be passed to [CheckpointOperationHandle.Complete] in handle. The driver synchronizes all the streams in [CheckpointOperationHandle.Complete], at which point the copy from custom storage is considered complete.
 // When restoring from custom storage, the application is expected to retain primary contexts of all the devices used by the process to be restored. Otherwise [CheckpointProcessRestore] will return [ErrInvalidContext]
 // . Restoring the calling process’s
 // GPU memory from custom storage is not supported. Upon successful return, the target process will be in the
-// CU_PROCESS_STATE_RESTORING state.
-// When [CheckpointRestoreArgs].customStorageInfo_out is NULL, the GPU memory contents will be restored from host memory by [CheckpointProcessRestore]. The application is not expected to copy back the GPU memory contents. The application is also not expected to call cuCheckpointOperationComplete. Upon successful return, the target process will be in the [ProcessStateLocked] state.
+// [ProcessStateRestoring] state.
+// When [CheckpointRestoreArgs].customStorageInfo_out is NULL, the GPU memory contents will be restored from host memory by [CheckpointProcessRestore]. The application is not expected to copy back the GPU memory contents. The application is also not expected to call [CheckpointOperationHandle.Complete]. Upon successful return, the target process will be in the [ProcessStateLocked] state.
 //
 // See also: [Init]
 //
@@ -4118,7 +4450,7 @@ func coredumpDeregisterStartCallback(callback CoredumpCallbackHandle) error {
 //   - [CoredumpEnableUserTrigger]: Bool where true means that a coredump can be created by writing to the system pipe specified by [CoredumpPipe]. The default value is false unless set to true globally or locally.
 //   - [CoredumpFile]: String of up to 1023 characters that defines the location where any coredumps generated by this context will be written. The default value is core.cuda.HOSTNAME.PID where HOSTNAME is the host name of the machine running the CUDA applications and PID is the process ID of the CUDA application.
 //   - [CoredumpPipe]: String of up to 1023 characters that defines the name of the pipe that will be monitored if user-triggered coredumps are enabled. The default value is corepipe.cuda.HOSTNAME.PID where HOSTNAME is the host name of the machine running the CUDA application and PID is the process ID of the CUDA application.
-//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. CU_COREDUMP_FAULTED_CONTEXTS_ONLY - The coredump will only include contexts that have encountered an exception or a trap. CU_COREDUMP_NO_ERRBAR_AT_EXIT - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. CU_COREDUMP_LOG_ONLY - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
+//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. [CoredumpFaultedContextsOnly] - The coredump will only include contexts that have encountered an exception or a trap. [CoredumpNoErrbarAtExit] - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. [CoredumpLogOnly] - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
 //
 // See also: [CoredumpGetAttributeGlobal], [CoredumpSetAttribute], [CoredumpSetAttributeGlobal]
 //
@@ -4153,7 +4485,7 @@ func CoredumpGetAttribute(attrib CoredumpSettings, value unsafe.Pointer, size *u
 //   - [CoredumpEnableUserTrigger]: Bool where true means that a coredump can be created by writing to the system pipe specified by [CoredumpPipe]. The default value is false.
 //   - [CoredumpFile]: String of up to 1023 characters that defines the location where any coredumps generated by this context will be written. The default value is core.cuda.HOSTNAME.PID where HOSTNAME is the host name of the machine running the CUDA applications and PID is the process ID of the CUDA application.
 //   - [CoredumpPipe]: String of up to 1023 characters that defines the name of the pipe that will be monitored if user-triggered coredumps are enabled. The default value is corepipe.cuda.HOSTNAME.PID where HOSTNAME is the host name of the machine running the CUDA application and PID is the process ID of the CUDA application.
-//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. CU_COREDUMP_FAULTED_CONTEXTS_ONLY - The coredump will only include contexts that have encountered an exception or a trap. CU_COREDUMP_NO_ERRBAR_AT_EXIT - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. CU_COREDUMP_LOG_ONLY - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
+//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. [CoredumpFaultedContextsOnly] - The coredump will only include contexts that have encountered an exception or a trap. [CoredumpNoErrbarAtExit] - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. [CoredumpLogOnly] - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
 //
 // See also: [CoredumpGetAttribute], [CoredumpSetAttribute], [CoredumpSetAttributeGlobal]
 //
@@ -4249,7 +4581,7 @@ var slotCoredumpRegisterStartCallback outSlot[CoredumpCallbackHandle]
 //   - [CoredumpTriggerHost]: Bool where true means that the host CPU will also create a coredump. The default value is true unless set to false globally or or locally. This value is deprecated as of CUDA 12.5 - raise the [CoredumpSkipAbort] flag to disable host device abort() if needed.
 //   - [CoredumpLightweight]: Bool where true means that any resulting coredumps will not have a dump of GPU memory or non-reloc ELF images. The default value is false. This attribute is deprecated as of CUDA 12.5, please use [CoredumpSettingsCoredumpGenerationFlags] instead.
 //   - [CoredumpFile]: String of up to 1023 characters that defines the location where any coredumps generated by this context will be written. The default value is core.cuda.HOSTNAME.PID where HOSTNAME is the host name of the machine running the CUDA applications and PID is the process ID of the CUDA application.
-//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. CU_COREDUMP_FAULTED_CONTEXTS_ONLY - The coredump will only include contexts that have encountered an exception or a trap. CU_COREDUMP_NO_ERRBAR_AT_EXIT - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. CU_COREDUMP_LOG_ONLY - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
+//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. [CoredumpFaultedContextsOnly] - The coredump will only include contexts that have encountered an exception or a trap. [CoredumpNoErrbarAtExit] - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. [CoredumpLogOnly] - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
 //
 // Note: [CoredumpSettingsCoredumpGenerationFlags] replaces all previously set coredump flags. Mixing [CoredumpSettingsCoredumpGenerationFlags] with the deprecated boolean attributes ([CoredumpTriggerHost], [CoredumpLightweight]) can result in undefined behavior. To avoid issues, either use only [CoredumpSettingsCoredumpGenerationFlags] or combine all desired flag bits (including [CoredumpSkipAbort]) in a single call.
 //
@@ -4289,7 +4621,7 @@ func CoredumpSetAttribute(attrib CoredumpSettings, value unsafe.Pointer, size *u
 //   - [CoredumpEnableUserTrigger]: Bool where true means that a coredump can be created by writing to the system pipe specified by [CoredumpPipe]. The default value is false.
 //   - [CoredumpFile]: String of up to 1023 characters that defines the location where any coredumps generated by this context will be written. The default value is core.cuda.HOSTNAME.PID where HOSTNAME is the host name of the machine running the CUDA applications and PID is the process ID of the CUDA application.
 //   - [CoredumpPipe]: String of up to 1023 characters that defines the name of the pipe that will be monitored if user-triggered coredumps are enabled. This value may not be changed after [CoredumpEnableUserTrigger] is set to true. The default value is corepipe.cuda.HOSTNAME.PID where HOSTNAME is the host name of the machine running the CUDA application and PID is the process ID of the CUDA application.
-//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. CU_COREDUMP_FAULTED_CONTEXTS_ONLY - The coredump will only include contexts that have encountered an exception or a trap. CU_COREDUMP_NO_ERRBAR_AT_EXIT - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. CU_COREDUMP_LOG_ONLY - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
+//   - [CoredumpSettingsCoredumpGenerationFlags]: An integer with values to allow granular control the data contained in a coredump specified as a bitwise OR combination of the following values: [CoredumpDefaultFlags] - if set by itself, coredump generation returns to its default settings of including all memory regions that it is able to access. [CoredumpSkipNonrelocatedElfImages] - Coredump will not include the data from CUDA source modules that are not relocated at runtime. [CoredumpSkipGlobalMemory] - Coredump will not include device-side global data that does not belong to any context. [CoredumpSkipSharedMemory] - Coredump will not include grid-scale shared memory for the warp that the dumped kernel belonged to. [CoredumpSkipLocalMemory] - Coredump will not include local memory from the kernel. [CoredumpLightweightFlags] - Enables all of the above options. Equiavlent to setting the [CoredumpLightweight] attribute to true. [CoredumpSkipAbort] - If set, GPU exceptions will not raise an abort() in the host CPU process. Same functional goal as [CoredumpTriggerHost] but better reflects the default behavior. [CoredumpSkipConstbankMemory] - Coredump will not include constbank memory. [CoredumpGzipCompress] - The generated coredump will be compressed with gzip, and .gz suffix will be appended to the filename, if it’s not a part of it already. [CoredumpFaultedContextsOnly] - The coredump will only include contexts that have encountered an exception or a trap. [CoredumpNoErrbarAtExit] - By default, when coredumps are requested, the GPU will ensure memory faults and other errors prevent warps from exiting, if possible. This can potentially affect the performance of the application. Setting this flag will disable this functionality, making it possible for faulted warps to exit, but also avoiding the potential performance hit. [CoredumpLogOnly] - Setting this flag will disable actual generation of the coredump file, but exception details will still be logged.
 //
 // Note: [CoredumpSettingsCoredumpGenerationFlags] replaces all previously set coredump flags. Mixing [CoredumpSettingsCoredumpGenerationFlags] with the deprecated boolean attributes ([CoredumpTriggerHost], [CoredumpLightweight]) can result in undefined behavior. To avoid issues, either use only [CoredumpSettingsCoredumpGenerationFlags] or combine all desired flag bits (including [CoredumpSkipAbort]) in a single call.
 //
@@ -4385,15 +4717,15 @@ var slotCtxAttach outSlot[Context]
 //   - [ErrOutOfMemory]
 //   - [ErrUnknown]
 //
-// Wraps cuCtxCreate, bound as cuCtxCreate_v4.
+// Wraps cuCtxCreate, bound to the first of cuCtxCreate_v4, cuCtxCreate_v2 that the library exports. On libraries without cuCtxCreate_v4, it calls cuCtxCreate_v2; a non-nil ctxCreateParams returns [ErrNotSupported].
 func ctxCreate(ctxCreateParams *CtxCreateParams, flags CtxFlags, dev Device) (Context, error) {
-	if err := checkLibSym("cuCtxCreate_v4"); err != nil {
+	if err := checkLibChain(&chainCuCtxCreate); err != nil {
 		var zero Context
 		return zero, err
 	}
 	out := slotCtxCreate.get()
 	defer slotCtxCreate.put(out)
-	if err := toError(fnctxCreate(out, ctxCreateParams, uint32(flags), dev), "cuCtxCreate_v4"); err != nil {
+	if err := toError(fnctxCreate(out, ctxCreateParams, uint32(flags), dev), chainCuCtxCreate.bound); err != nil {
 		var zero Context
 		return zero, err
 	}
@@ -4401,6 +4733,63 @@ func ctxCreate(ctxCreateParams *CtxCreateParams, flags CtxFlags, dev Device) (Co
 }
 
 var slotCtxCreate outSlot[Context]
+
+// ctxCreateV4 creates a CUDA context.
+//
+// Creates a new CUDA context and associates it with the calling thread. The flags parameter is described below. The context is created with a usage count of 1 and the caller of [NewContext] must call [Context.Close] when done using the context. If a context is already current to the thread, it is supplanted by the newly created context and may be restored by a subsequent call to [CtxPopCurrent].
+// A regular CUDA context can be created by setting ctxCreateParams to NULL.
+// A CUDA context can be created with execution affinity. The type and the amount of execution resource the context can use is limited by paramsArray and numExecAffinityParams in execAffinity. The paramsArray is an array of [ExecAffinityParam] and the numExecAffinityParams describes the size of the paramsArray. If two [ExecAffinityParam] in the array have the same type, the latter execution affinity parameter overrides the former execution affinity parameter. The supported execution affinity types are:
+//   - [ExecAffinityTypeSmCount] limits the portion of SMs that the context can use. The portion of SMs is specified as the number of SMs via [ExecAffinitySmCount]. This limit will be internally rounded up to the next hardware-supported amount. Hence, it is imperative to query the actual execution affinity of the context via [CtxGetExecAffinity] after context creation. Currently, this attribute is only supported under Volta+ MPS.
+//
+// A CUDA context can be created in CIG(CUDA in Graphics) mode by setting cigParams. Data from graphics client is shared with CUDA via the sharedData in cigParams. Support for D3D12 graphics client can be determined using [Device.Attribute] with [DevAttrD3d12CigSupported]. sharedData is a ID3D12CommandQueue handle. Support for Vulkan graphics client can be determined using [Device.Attribute] with [DevAttrVulkanCigSupported]. sharedData is a Nvidia specific data blob populated by calling vkGetExternalComputeQueueDataNV(). execAffinityParams and cigParams are mutually exclusive and cannot both be non-NULL. Setting both to non-NULL values will result in undefined behavior. If both execAffinityParams and cigParams are NULL, the context will be created as a regular CUDA context.
+// The three LSBs of the flags parameter can be used to control how the OS thread, which owns the CUDA context at the time of an API call, interacts with the OS scheduler when waiting for results from the GPU. Only one of the scheduling flags can be set when creating a context.
+//   - [CtxSchedSpin]: Instruct CUDA to actively spin when waiting for results from the GPU. This can decrease latency when waiting for the GPU, but may lower the performance of CPU threads if they are performing work in parallel with the CUDA thread.
+//   - [CtxSchedYield]: Instruct CUDA to yield its thread when waiting for results from the GPU. This can increase latency when waiting for the GPU, but can increase the performance of CPU threads performing work in parallel with the GPU.
+//   - [CtxSchedBlockingSync]: Instruct CUDA to block the CPU thread on a synchronization primitive when waiting for the GPU to finish work.
+//   - [CtxBlockingSync]: Instruct CUDA to block the CPU thread on a synchronization primitive when waiting for the GPU to finish work. Deprecated: This flag was deprecated as of CUDA 4.0 and was replaced with [CtxSchedBlockingSync].
+//   - [CtxSchedAuto]: The default value if the flags parameter is zero, uses a heuristic based on the number of active CUDA contexts in the process C and the number of logical processors in the system P. If C > P, then CUDA will yield to other OS threads when waiting for the GPU ( [CtxSchedYield]), otherwise CUDA will not yield while waiting for results and actively spin on the processor ( [CtxSchedSpin]). Additionally, on Tegra devices, [CtxSchedAuto] uses a heuristic based on the power profile of the platform and may choose [CtxSchedBlockingSync] for low-powered devices.
+//   - [CtxMapHost]: Instruct CUDA to support mapped pinned allocations. This flag must be set in order to allocate pinned host memory that is accessible to the GPU.
+//   - [CtxLmemResizeToMax]: Instruct CUDA to not reduce local memory after resizing local memory for a kernel. This can prevent thrashing by local memory allocations when launching many kernels with high local memory usage at the cost of potentially increased memory usage. Deprecated: This flag is deprecated and the behavior enabled by this flag is now the default and cannot be disabled. Instead, the per-thread stack size can be controlled with [CtxSetLimit].
+//   - [CtxCoredumpEnable]: If GPU coredumps have not been enabled globally with [CoredumpSetAttributeGlobal] or environment variables, this flag can be set during context creation to instruct CUDA to create a coredump if this context raises an exception during execution. These environment variables are described in the CUDA-GDB user guide under the “GPU core dump support” section. The initial attributes will be taken from the global attributes at the time of context creation. The other attributes that control coredump output can be modified by calling [CoredumpSetAttribute] from the created context after it becomes current. This flag is not supported when CUDA context is created in CIG(CUDA in Graphics) mode.
+//   - [CtxUserCoredumpEnable]: If user-triggered GPU coredumps have not been enabled globally with [CoredumpSetAttributeGlobal] or environment variables, this flag can be set during context creation to instruct CUDA to create a coredump if data is written to a certain pipe that is present in the OS space. These environment variables are described in the CUDA-GDB user guide under the “GPU core dump support” section. It is important to note that the pipe name must be set with [CoredumpSetAttributeGlobal] before creating the context if this flag is used. Setting this flag implies that [CtxCoredumpEnable] is set. The initial attributes will be taken from the global attributes at the time of context creation. The other attributes that control coredump output can be modified by calling [CoredumpSetAttribute] from the created context after it becomes current. Setting this flag on any context creation is equivalent to setting the [CoredumpEnableUserTrigger] attribute to true globally. This flag is not supported when CUDA context is created in CIG(CUDA in Graphics) mode.
+//   - [CtxSyncMemops]: Ensures that synchronous memory operations initiated on this context will always synchronize. See further documentation in the section titled “API Synchronization behavior” to learn more about cases when synchronous memory operations can exhibit asynchronous behavior.
+//
+// Context creation will fail with [ErrUnknown] if the compute mode of the device is [ComputemodeProhibited]. The function [Device.Attribute] can be used with [DevAttrComputeMode] to determine the compute mode of the device. The nvidia-smi tool can be used to set the compute mode for * devices. Documentation for nvidia-smi can be obtained by passing a -h option to it.
+// Context creation will fail with [ErrInvalidValue] if invalid parameter was passed by client to create the CUDA context.
+// Context creation in CIG mode will fail with [ErrNotSupported] if CIG is not supported by the device or the driver.
+//
+// See also: [Context.Close], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CoredumpSetAttributeGlobal], [CoredumpSetAttribute], [CtxSynchronize] [CtxGetExecAffinity]
+//
+//   - ctxCreateParams: Context creation parameters. Can be NULL to create a regular CUDA context. See [CtxCreateParams] for details
+//   - flags: Context creation flags
+//   - dev: Device to create context on
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidDevice]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrUnknown]
+//
+// Wraps cuCtxCreate, bound as cuCtxCreate_v4.
+func ctxCreateV4(ctxCreateParams *CtxCreateParams, flags CtxFlags, dev Device) (Context, error) {
+	if err := checkLibSym("cuCtxCreate_v4"); err != nil {
+		var zero Context
+		return zero, err
+	}
+	out := slotCtxCreateV4.get()
+	defer slotCtxCreateV4.put(out)
+	if err := toError(fnctxCreateV4(out, ctxCreateParams, uint32(flags), dev), "cuCtxCreate_v4"); err != nil {
+		var zero Context
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotCtxCreateV4 outSlot[Context]
 
 // ctxDestroy destroys a CUDA context.
 //
@@ -4836,7 +5225,7 @@ var slotCtxGetId outSlot[uint64]
 //   - [LimitDevRuntimePendingLaunchCount]: maximum number of outstanding device runtime launches that can be made from this context.
 //   - [LimitMaxL2FetchGranularity]: L2 cache fetch granularity.
 //   - [LimitPersistingL2CacheSize]: Persisting L2 cache size in bytes
-//   - CU_LIMIT_PER_BLOCK_MEMORY_SIZE: Per-block memory in bytes.
+//   - [LimitPerBlockMemorySize]: Per-block memory in bytes.
 //
 // See also: [NewContext], [Context.Close], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSetLimit], [CtxSynchronize], cudaDeviceGetLimit
 //
@@ -5104,7 +5493,7 @@ func CtxSetFlags(flags uint32) error {
 //   - [LimitDevRuntimePendingLaunchCount] controls the maximum number of outstanding device runtime launches that can be made from the current context. A grid is outstanding from the point of launch up until the grid is known to have been completed. Device runtime launches which violate this limitation fail and return cudaErrorLaunchPendingCountExceeded when cudaGetLastError() is called after launch. If more pending launches than the default (2048 launches) are needed for a module using the device runtime, this limit can be increased. Keep in mind that being able to sustain additional pending launches will require the driver to reserve larger amounts of device memory upfront which can no longer be used for allocations. If these reservations fail, [CtxSetLimit] will return [ErrOutOfMemory], and the limit can be reset to a lower value. This limit is only applicable to devices of compute capability 3.5 and higher. Attempting to set this limit on devices of compute capability less than 3.5 will result in the error [ErrUnsupportedLimit] being returned.
 //   - [LimitMaxL2FetchGranularity] controls the L2 cache fetch granularity. Values can range from 0B to 128B. This is purely a performance hint and it can be ignored or clamped depending on the platform.
 //   - [LimitPersistingL2CacheSize] controls size in bytes available for persisting L2 cache. This is purely a performance hint and it can be ignored or clamped depending on the platform.
-//   - CU_LIMIT_PER_BLOCK_MEMORY_SIZE constrols size in bytes of per-block memory.
+//   - [LimitPerBlockMemorySize] constrols size in bytes of per-block memory.
 //
 // See also: [NewContext], [Context.Close], [Context.ApiVersion], [CtxGetCacheConfig], [CtxGetDevice], [CtxGetFlags], [CtxGetLimit], [CtxPopCurrent], [Context.PushCurrent], [CtxSetCacheConfig], [CtxSynchronize], cudaDeviceSetLimit
 //
@@ -5318,7 +5707,7 @@ var slotDevResourceGenerateDesc outSlot[DevResourceDesc]
 //   - input should be a valid [DevResourceTypeSm] resource that originates from querying the green context, device context, or device.
 //   - The remainder group may be NULL.
 //   - There are no API flags at this time, so the value passed in should be 0.
-//   - A [CuDevSmResourceGroupParams] array of size nbGroups. Each entry must be zero-initialized. smCount: must be either 0 or in the range of [2,inputSmCount] where inputSmCount is the amount of SMs the input resource has. smCount must be a multiple of 2, as well as a multiple of coscheduledSmCount if it is nonzero. When assigning SMs to a group (and if results are expected by having the result parameter set), smCount cannot end up with 0 or a value less than coscheduledSmCount otherwise [ErrInvalidResourceConfiguration] will be returned. coscheduledSmCount: allows grouping SMs together in order to be able to launch clusters on Compute Architecture 9.0+. The default value may be queried from the device’s [DevResourceTypeSm] resource (8 on Compute Architecture 9.0+ and 2 otherwise). The maximum is 32 on Compute Architecture 9.0+ and 2 otherwise. A coscheduledSmCount of 0 uses the default value internally while preserving 0 in groupParams. Cluster occupancy will be derived from the resulting SM topology. preferredCoscheduledSmCount: Attempts to merge coscheduledSmCount groups into larger groups, in order to make use of preferredClusterDimensions on Compute Architecture 10.0+. The default value is set to coscheduledSmCount. flags: [DevSmResourceGroupBackfill]: Treats constraints as a hint, ignoring them if necessary to reach the requested smCount. Lets smCount be a non-multiple of coscheduledSmCount, filling the difference between SM count and already assigned co-scheduled groupings with other SMs. This lets any resulting group behave similar to the remainder group for example. When used with CU_DEV_SM_RESOURCE_GROUP_LOCALITY_DOMAIN_ID, backfill fills up to the requested smCount using the target locality domain first, then SMs not attributed to any locality domain, then SMs from other locality domains. If no SMs can be found in the requested locality domain, [ErrInvalidResourceConfiguration] is returned. CU_DEV_SM_RESOURCE_GROUP_LOCALITY_DOMAIN_ID: Specifies that the SM partition should be localized to the specified localityDomainId. localityDomainId: Specifies the locality domain that the partitioned SMs must be located on. Only valid when CU_DEV_SM_RESOURCE_GROUP_LOCALITY_DOMAIN_ID is set in flags.
+//   - A [CuDevSmResourceGroupParams] array of size nbGroups. Each entry must be zero-initialized. smCount: must be either 0 or in the range of [2,inputSmCount] where inputSmCount is the amount of SMs the input resource has. smCount must be a multiple of 2, as well as a multiple of coscheduledSmCount if it is nonzero. When assigning SMs to a group (and if results are expected by having the result parameter set), smCount cannot end up with 0 or a value less than coscheduledSmCount otherwise [ErrInvalidResourceConfiguration] will be returned. coscheduledSmCount: allows grouping SMs together in order to be able to launch clusters on Compute Architecture 9.0+. The default value may be queried from the device’s [DevResourceTypeSm] resource (8 on Compute Architecture 9.0+ and 2 otherwise). The maximum is 32 on Compute Architecture 9.0+ and 2 otherwise. A coscheduledSmCount of 0 uses the default value internally while preserving 0 in groupParams. Cluster occupancy will be derived from the resulting SM topology. preferredCoscheduledSmCount: Attempts to merge coscheduledSmCount groups into larger groups, in order to make use of preferredClusterDimensions on Compute Architecture 10.0+. The default value is set to coscheduledSmCount. flags: [DevSmResourceGroupBackfill]: Treats constraints as a hint, ignoring them if necessary to reach the requested smCount. Lets smCount be a non-multiple of coscheduledSmCount, filling the difference between SM count and already assigned co-scheduled groupings with other SMs. This lets any resulting group behave similar to the remainder group for example. When used with [DevSmResourceGroupLocalityDomainId], backfill fills up to the requested smCount using the target locality domain first, then SMs not attributed to any locality domain, then SMs from other locality domains. If no SMs can be found in the requested locality domain, [ErrInvalidResourceConfiguration] is returned. [DevSmResourceGroupLocalityDomainId]: Specifies that the SM partition should be localized to the specified localityDomainId. localityDomainId: Specifies the locality domain that the partitioned SMs must be located on. Only valid when [DevSmResourceGroupLocalityDomainId] is set in flags.
 //
 // Example params and their effect:
 //
@@ -5534,6 +5923,59 @@ func deviceGetByPCIBusId(pciBusId string) (Device, error) {
 
 var slotDeviceGetByPCIBusId outSlot[Device]
 
+// deviceGetCliqueCount retrieves the number of fabric cliques.
+//
+// Retrieves the number of fabric cliques that the device is part of.
+//
+//   - dev: Device for which the number of fabric cliques is requested
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuDeviceGetCliqueCount.
+func deviceGetCliqueCount(dev Device) (uint, error) {
+	if err := checkLibSym("cuDeviceGetCliqueCount"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	out := slotDeviceGetCliqueCount.get()
+	defer slotDeviceGetCliqueCount.put(out)
+	if err := toError(fndeviceGetCliqueCount(out, dev), "cuDeviceGetCliqueCount"); err != nil {
+		var zero uint
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotDeviceGetCliqueCount outSlot[uint]
+
+// deviceGetCliqueInfo retrieves fabric clique information.
+//
+// Returns the fabric clique information for the cliques that the device is a part of. User must specify the size of the cliqueInfo array in count. The same parameter count will return the actual number of entries updated in the cliqueInfo array.
+//
+//   - cliqueInfo: Array to store the fabric clique information
+//   - count: Input: Size of the cliqueInfo array. Output: Number of entries updated in the cliqueInfo array
+//   - dev: Device for which the clique information is requested
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuDeviceGetCliqueInfo.
+func deviceGetCliqueInfo(cliqueInfo *CliqueInfo, count *uint, dev Device) error {
+	if err := checkLibSym("cuDeviceGetCliqueInfo"); err != nil {
+		return err
+	}
+	return toError(fndeviceGetCliqueInfo(cliqueInfo, count, dev), "cuDeviceGetCliqueInfo")
+}
+
 // DeviceGetCount returns the number of compute-capable devices.
 //
 // Returns in *count the number of devices with compute capability greater than or equal to 2.0 that are available for execution. If there is no such device, [DeviceGetCount] returns 0.
@@ -5659,6 +6101,36 @@ func deviceGetExecAffinitySupport(type_ ExecAffinityType, dev Device) (int32, er
 }
 
 var slotDeviceGetExecAffinitySupport outSlot[int32]
+
+// deviceGetFabricClusterUuid retrieves the fabric cluster UUID.
+//
+// Retrieves the fabric cluster UUID for the given device.
+//
+//   - dev: Device for which the fabric cluster UUID is requested
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuDeviceGetFabricClusterUuid.
+func deviceGetFabricClusterUuid(dev Device) (Uuid, error) {
+	if err := checkLibSym("cuDeviceGetFabricClusterUuid"); err != nil {
+		var zero Uuid
+		return zero, err
+	}
+	out := slotDeviceGetFabricClusterUuid.get()
+	defer slotDeviceGetFabricClusterUuid.put(out)
+	if err := toError(fndeviceGetFabricClusterUuid(out, dev), "cuDeviceGetFabricClusterUuid"); err != nil {
+		var zero Uuid
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotDeviceGetFabricClusterUuid outSlot[Uuid]
 
 // deviceGetGraphMemAttribute queries asynchronous allocation attributes related to graphs.
 //
@@ -6480,15 +6952,15 @@ func eventDestroy(hEvent Event) error {
 //   - [ErrNotReady]
 //   - [ErrUnknown]
 //
-// Wraps cuEventElapsedTime, bound as cuEventElapsedTime_v2.
+// Wraps cuEventElapsedTime, bound to the first of cuEventElapsedTime_v2, cuEventElapsedTime that the library exports.
 func eventElapsedTime(hStart Event, hEnd Event) (float32, error) {
-	if err := checkLibSym("cuEventElapsedTime_v2"); err != nil {
+	if err := checkLibChain(&chainCuEventElapsedTime); err != nil {
 		var zero float32
 		return zero, err
 	}
 	out := slotEventElapsedTime.get()
 	defer slotEventElapsedTime.put(out)
-	if err := toError(fneventElapsedTime(out, hStart, hEnd), "cuEventElapsedTime_v2"); err != nil {
+	if err := toError(fneventElapsedTime(out, hStart, hEnd), chainCuEventElapsedTime.bound); err != nil {
 		var zero float32
 		return zero, err
 	}
@@ -6496,6 +6968,78 @@ func eventElapsedTime(hStart Event, hEnd Event) (float32, error) {
 }
 
 var slotEventElapsedTime outSlot[float32]
+
+// eventElapsedTimeV1 computes the elapsed time between two events.
+//
+// Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds). Note this API is not guaranteed to return the latest errors for pending work. As such this API is intended to serve as an elapsed time calculation only and any polling for completion on the events to be compared should be done with [Event.Query] instead.
+// If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
+// If [Event.Record] has not been called on either event then [ErrInvalidHandle] is returned. If [Event.Record] has been called on both events but one or both of them has not yet been completed (that is, [Event.Query] would return [ErrNotReady] on at least one of the events), [ErrNotReady] is returned. If either event was created with the [EventDisableTiming] flag, then this function will return [ErrInvalidHandle].
+//
+// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.Close], cudaEventElapsedTime
+//
+//   - hStart: Starting event
+//   - hEnd: Ending event
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotReady]
+//   - [ErrUnknown]
+//
+// Wraps cuEventElapsedTime.
+func eventElapsedTimeV1(hStart Event, hEnd Event) (float32, error) {
+	if err := checkLibSym("cuEventElapsedTime"); err != nil {
+		var zero float32
+		return zero, err
+	}
+	out := slotEventElapsedTimeV1.get()
+	defer slotEventElapsedTimeV1.put(out)
+	if err := toError(fneventElapsedTimeV1(out, hStart, hEnd), "cuEventElapsedTime"); err != nil {
+		var zero float32
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotEventElapsedTimeV1 outSlot[float32]
+
+// eventElapsedTimeV2 computes the elapsed time between two events.
+//
+// Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds). Note this API is not guaranteed to return the latest errors for pending work. As such this API is intended to serve as an elapsed time calculation only and any polling for completion on the events to be compared should be done with [Event.Query] instead.
+// If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
+// If [Event.Record] has not been called on either event then [ErrInvalidHandle] is returned. If [Event.Record] has been called on both events but one or both of them has not yet been completed (that is, [Event.Query] would return [ErrNotReady] on at least one of the events), [ErrNotReady] is returned. If either event was created with the [EventDisableTiming] flag, then this function will return [ErrInvalidHandle].
+//
+// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.Close], cudaEventElapsedTime
+//
+//   - hStart: Starting event
+//   - hEnd: Ending event
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotReady]
+//   - [ErrUnknown]
+//
+// Wraps cuEventElapsedTime, bound as cuEventElapsedTime_v2.
+func eventElapsedTimeV2(hStart Event, hEnd Event) (float32, error) {
+	if err := checkLibSym("cuEventElapsedTime_v2"); err != nil {
+		var zero float32
+		return zero, err
+	}
+	out := slotEventElapsedTimeV2.get()
+	defer slotEventElapsedTimeV2.put(out)
+	if err := toError(fneventElapsedTimeV2(out, hStart, hEnd), "cuEventElapsedTime_v2"); err != nil {
+		var zero float32
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotEventElapsedTimeV2 outSlot[float32]
 
 // eventQuery queries an event’s status.
 //
@@ -6719,7 +7263,7 @@ func FlushGPUDirectRDMAWrites(target FlushGPUDirectRDMAWritesTarget, scope Flush
 //   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks.
 //   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed. A non-portable cluster size may only function on the specific SKUs the program is tested on. The launch might fail if the program is run on a different hardware platform. CUDA API provides cudaOccupancyMaxActiveClusters to assist with checking whether the desired size can be launched on the current device. A portable cluster size is guaranteed to be functional on all compute capabilities higher than the target compute capability. The portable cluster size for sm_90 is 8 blocks per cluster. This value may increase for future compute capabilities. The specific hardware unit may support higher cluster sizes that’s not guaranteed to be portable.
 //   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
+//   - [FuncAttributeSharedMemoryMode]: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded:
 //   - [FuncAttributeMaxThreadsPerBlock]
@@ -6928,7 +7472,7 @@ func funcLoad(function Function) error {
 //   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks. The width, height, and depth values must either all be 0 or all be positive. The validity of the cluster dimensions is checked at launch time. If the value is set during compile time, it cannot be set at runtime. Setting it at runtime will return [ErrNotPermitted].
 //   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed.
 //   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
+//   - [FuncAttributeSharedMemoryMode]: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Kernel.SetAttribute]
 //
@@ -7210,12 +7754,36 @@ var slotGraphAddChildGraphNode outSlot[GraphNode]
 // Errors:
 //   - [ErrInvalidValue]
 //
-// Wraps cuGraphAddDependencies, bound as cuGraphAddDependencies_v2.
+// Wraps cuGraphAddDependencies, bound to the first of cuGraphAddDependencies_v2, cuGraphAddDependencies that the library exports. On libraries without cuGraphAddDependencies_v2, it calls cuGraphAddDependencies; a non-nil edgeData returns [ErrNotSupported].
 func graphAddDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
+	if err := checkLibChain(&chainCuGraphAddDependencies); err != nil {
+		return err
+	}
+	return toError(fngraphAddDependencies(hGraph, from, to, edgeData, numDependencies), chainCuGraphAddDependencies.bound)
+}
+
+// graphAddDependenciesV2 adds dependency edges to a graph.
+//
+// The number of dependencies to be added is defined by numDependencies Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
+// If numDependencies is 0, elements in from and to will be ignored. Specifying an existing dependency will return an error.
+//
+// See also: [Graph.RemoveDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
+//
+//   - hGraph: Graph to which dependencies are added
+//   - from: Array of nodes that provide the dependencies
+//   - to: Array of dependent nodes
+//   - edgeData: Optional array of edge data. If NULL, default (zeroed) edge data is assumed
+//   - numDependencies: Number of dependencies to be added
+//
+// Errors:
+//   - [ErrInvalidValue]
+//
+// Wraps cuGraphAddDependencies, bound as cuGraphAddDependencies_v2.
+func graphAddDependenciesV2(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
 	if err := checkLibSym("cuGraphAddDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphAddDependencies(hGraph, from, to, edgeData, numDependencies), "cuGraphAddDependencies_v2")
+	return toError(fngraphAddDependenciesV2(hGraph, from, to, edgeData, numDependencies), "cuGraphAddDependencies_v2")
 }
 
 // graphAddEmptyNode creates an empty node and adds it to a graph.
@@ -7642,6 +8210,44 @@ var slotGraphAddMemsetNode outSlot[GraphNode]
 // Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
 // nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
 // Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+// A handle to the new node will be returned in phGraphNode.
+//
+// See also: [NewGraph], [GraphNode.SetParamsV2], [GraphExec.NodeSetParams]
+//
+//   - hGraph: Graph to which to add the node
+//   - dependencies: Dependencies of the node
+//   - dependencyData: Optional edge data for the dependencies. If NULL, the data is assumed to be default (zeroed) for all dependencies
+//   - numDependencies: Number of dependencies
+//   - nodeParams: Specification of the node
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphAddNode, bound to the first of cuGraphAddNode_v3, cuGraphAddNode_v2, cuGraphAddNode that the library exports. On libraries without cuGraphAddNode_v3 or cuGraphAddNode_v2, it calls cuGraphAddNode; a non-nil dependencyData returns [ErrNotSupported].
+func graphAddNode(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
+	if err := checkLibChain(&chainCuGraphAddNode); err != nil {
+		var zero GraphNode
+		return zero, err
+	}
+	out := slotGraphAddNode.get()
+	defer slotGraphAddNode.put(out)
+	if err := toError(fngraphAddNode(out, hGraph, dependencies, dependencyData, numDependencies, nodeParams), chainCuGraphAddNode.bound); err != nil {
+		var zero GraphNode
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotGraphAddNode outSlot[GraphNode]
+
+// graphAddNodeV2 adds a node of arbitrary type to a graph.
+//
+// Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
+// nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
+// Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
 // A handle to the new node will be returned in phGraphNode.
 //
 // See also: [NewGraph], [GraphNode.SetParams], [GraphExec.NodeSetParams]
@@ -7658,21 +8264,59 @@ var slotGraphAddMemsetNode outSlot[GraphNode]
 //   - [ErrNotSupported]
 //
 // Wraps cuGraphAddNode, bound as cuGraphAddNode_v2.
-func graphAddNode(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
+func graphAddNodeV2(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
 	if err := checkLibSym("cuGraphAddNode_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
-	out := slotGraphAddNode.get()
-	defer slotGraphAddNode.put(out)
-	if err := toError(fngraphAddNode(out, hGraph, dependencies, dependencyData, numDependencies, nodeParams), "cuGraphAddNode_v2"); err != nil {
+	out := slotGraphAddNodeV2.get()
+	defer slotGraphAddNodeV2.put(out)
+	if err := toError(fngraphAddNodeV2(out, hGraph, dependencies, dependencyData, numDependencies, nodeParams), "cuGraphAddNode_v2"); err != nil {
 		var zero GraphNode
 		return zero, err
 	}
 	return *out, nil
 }
 
-var slotGraphAddNode outSlot[GraphNode]
+var slotGraphAddNodeV2 outSlot[GraphNode]
+
+// graphAddNodeV3 adds a node of arbitrary type to a graph.
+//
+// Creates a new node in hGraph described by nodeParams with numDependencies dependencies specified via dependencies. numDependencies may be 0. dependencies may be null if numDependencies is 0. dependencies may not have any duplicate entries.
+// nodeParams is a tagged union. The node type should be specified in the type field, and type-specific parameters in the corresponding union member. All unused bytes - that is, reserved0 and all bytes past the utilized union member - must be set to zero. It is recommended to use brace initialization or memset to ensure all bytes are initialized.
+// Note that for some node types, nodeParams may contain “out parameters” which are modified during the call, such as nodeParams->alloc.dptr.
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+// A handle to the new node will be returned in phGraphNode.
+//
+// See also: [NewGraph], [GraphNode.SetParamsV2], [GraphExec.NodeSetParams]
+//
+//   - hGraph: Graph to which to add the node
+//   - dependencies: Dependencies of the node
+//   - dependencyData: Optional edge data for the dependencies. If NULL, the data is assumed to be default (zeroed) for all dependencies
+//   - numDependencies: Number of dependencies
+//   - nodeParams: Specification of the node
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphAddNode_v3.
+func graphAddNodeV3(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, nodeParams *GraphNodeParams) (GraphNode, error) {
+	if err := checkLibSym("cuGraphAddNode_v3"); err != nil {
+		var zero GraphNode
+		return zero, err
+	}
+	out := slotGraphAddNodeV3.get()
+	defer slotGraphAddNodeV3.put(out)
+	if err := toError(fngraphAddNodeV3(out, hGraph, dependencies, dependencyData, numDependencies, nodeParams), "cuGraphAddNode_v3"); err != nil {
+		var zero GraphNode
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotGraphAddNodeV3 outSlot[GraphNode]
 
 // graphBatchMemOpNodeGetParams returns a batch mem op node’s parameters.
 //
@@ -8550,12 +9194,38 @@ func graphExternalSemaphoresWaitNodeSetParams(hNode GraphNode, nodeParams *ExtSe
 //   - [ErrLossyQuery]
 //   - [ErrNotInitialized]
 //
-// Wraps cuGraphGetEdges, bound as cuGraphGetEdges_v2.
+// Wraps cuGraphGetEdges, bound to the first of cuGraphGetEdges_v2, cuGraphGetEdges that the library exports. On libraries without cuGraphGetEdges_v2, it calls cuGraphGetEdges; a non-nil edgeData returns [ErrNotSupported].
 func graphGetEdges(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numEdges *uint) error {
+	if err := checkLibChain(&chainCuGraphGetEdges); err != nil {
+		return err
+	}
+	return toError(fngraphGetEdges(hGraph, from, to, edgeData, numEdges), chainCuGraphGetEdges.bound)
+}
+
+// graphGetEdgesV2 returns a graph’s dependency edges.
+//
+// Returns a list of hGraph's dependency edges. Edges are returned via corresponding indices in from, to and edgeData; that is, the node in toi has a dependency on the node in fromi with data edgeDatai. from and to may both be NULL, in which case this function only returns the number of edges in numEdges. Otherwise, numEdges entries will be filled in. If numEdges is higher than the actual number of edges, the remaining entries in from and to will be set to NULL, and the number of edges actually returned will be written to numEdges. edgeData may alone be NULL, in which case the edges must all have default (zeroed) edge data. Attempting a lossy query via NULL edgeData will result in [ErrLossyQuery]. If edgeData is non-NULL then from and to must be as well.
+//
+// See also: [Graph.GetNodes], [Graph.RootNodes], [Graph.AddDependencies], [Graph.RemoveDependencies], [GraphNode.Dependencies], [GraphNode.DependentNodes]
+//
+//   - hGraph: Graph to get the edges from
+//   - from: Location to return edge endpoints
+//   - to: Location to return edge endpoints
+//   - edgeData: Optional location to return edge data
+//   - numEdges: See description
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
+// Wraps cuGraphGetEdges, bound as cuGraphGetEdges_v2.
+func graphGetEdgesV2(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numEdges *uint) error {
 	if err := checkLibSym("cuGraphGetEdges_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphGetEdges(hGraph, from, to, edgeData, numEdges), "cuGraphGetEdges_v2")
+	return toError(fngraphGetEdgesV2(hGraph, from, to, edgeData, numEdges), "cuGraphGetEdges_v2")
 }
 
 // graphGetId returns the id of a given graph.
@@ -9162,12 +9832,38 @@ var slotGraphNodeGetContainingGraph outSlot[Graph]
 //   - [ErrLossyQuery]
 //   - [ErrNotInitialized]
 //
-// Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
+// Wraps cuGraphNodeGetDependencies, bound to the first of cuGraphNodeGetDependencies_v2, cuGraphNodeGetDependencies that the library exports. On libraries without cuGraphNodeGetDependencies_v2, it calls cuGraphNodeGetDependencies; a non-nil edgeData returns [ErrNotSupported].
 func graphNodeGetDependencies(hNode GraphNode, dependencies *GraphNode, edgeData *GraphEdgeData, numDependencies *uint) error {
+	if err := checkLibChain(&chainCuGraphNodeGetDependencies); err != nil {
+		return err
+	}
+	return toError(fngraphNodeGetDependencies(hNode, dependencies, edgeData, numDependencies), chainCuGraphNodeGetDependencies.bound)
+}
+
+// graphNodeGetDependenciesV2 returns a node’s dependencies.
+//
+// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies.
+// Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well.
+//
+// See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+//
+//   - hNode: Node to query
+//   - dependencies: Pointer to return the dependencies
+//   - edgeData: Optional array to return edge data for each dependency
+//   - numDependencies: See description
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
+// Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
+func graphNodeGetDependenciesV2(hNode GraphNode, dependencies *GraphNode, edgeData *GraphEdgeData, numDependencies *uint) error {
 	if err := checkLibSym("cuGraphNodeGetDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphNodeGetDependencies(hNode, dependencies, edgeData, numDependencies), "cuGraphNodeGetDependencies_v2")
+	return toError(fngraphNodeGetDependenciesV2(hNode, dependencies, edgeData, numDependencies), "cuGraphNodeGetDependencies_v2")
 }
 
 // graphNodeGetDependentNodes returns a node’s dependent nodes.
@@ -9188,12 +9884,38 @@ func graphNodeGetDependencies(hNode GraphNode, dependencies *GraphNode, edgeData
 //   - [ErrLossyQuery]
 //   - [ErrNotInitialized]
 //
-// Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
+// Wraps cuGraphNodeGetDependentNodes, bound to the first of cuGraphNodeGetDependentNodes_v2, cuGraphNodeGetDependentNodes that the library exports. On libraries without cuGraphNodeGetDependentNodes_v2, it calls cuGraphNodeGetDependentNodes; a non-nil edgeData returns [ErrNotSupported].
 func graphNodeGetDependentNodes(hNode GraphNode, dependentNodes *GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) error {
+	if err := checkLibChain(&chainCuGraphNodeGetDependentNodes); err != nil {
+		return err
+	}
+	return toError(fngraphNodeGetDependentNodes(hNode, dependentNodes, edgeData, numDependentNodes), chainCuGraphNodeGetDependentNodes.bound)
+}
+
+// graphNodeGetDependentNodesV2 returns a node’s dependent nodes.
+//
+// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes.
+// Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well.
+//
+// See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+//
+//   - hNode: Node to query
+//   - dependentNodes: Pointer to return the dependent nodes
+//   - edgeData: Optional pointer to return edge data for dependent nodes
+//   - numDependentNodes: See description
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
+// Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
+func graphNodeGetDependentNodesV2(hNode GraphNode, dependentNodes *GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) error {
 	if err := checkLibSym("cuGraphNodeGetDependentNodes_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphNodeGetDependentNodes(hNode, dependentNodes, edgeData, numDependentNodes), "cuGraphNodeGetDependentNodes_v2")
+	return toError(fngraphNodeGetDependentNodesV2(hNode, dependentNodes, edgeData, numDependentNodes), "cuGraphNodeGetDependentNodes_v2")
 }
 
 // graphNodeGetEnabled queries whether a node in the given graphExec is enabled.
@@ -9378,6 +10100,30 @@ func graphNodeSetEnabled(hGraphExec GraphExec, hNode GraphNode, isEnabled uint32
 //
 // Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
 // Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+//
+// See also: [Graph.AddNodeV3], [GraphNode.Params], [GraphExec.NodeSetParams]
+//
+//   - hNode: Node to set the parameters for
+//   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphNodeSetParams, bound to the first of cuGraphNodeSetParams_v2, cuGraphNodeSetParams that the library exports.
+func graphNodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) error {
+	if err := checkLibChain(&chainCuGraphNodeSetParams); err != nil {
+		return err
+	}
+	return toError(fngraphNodeSetParams(hNode, nodeParams), chainCuGraphNodeSetParams.bound)
+}
+
+// graphNodeSetParamsV1 updates a graph node’s parameters.
+//
+// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
+// Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
 //
 // See also: [Graph.AddNode], [GraphNode.Params], [GraphExec.NodeSetParams]
 //
@@ -9389,11 +10135,35 @@ func graphNodeSetEnabled(hGraphExec GraphExec, hNode GraphNode, isEnabled uint32
 //   - [ErrNotSupported]
 //
 // Wraps cuGraphNodeSetParams.
-func graphNodeSetParams(hNode GraphNode, nodeParams *GraphNodeParams) error {
+func graphNodeSetParamsV1(hNode GraphNode, nodeParams *GraphNodeParams) error {
 	if err := checkLibSym("cuGraphNodeSetParams"); err != nil {
 		return err
 	}
-	return toError(fngraphNodeSetParams(hNode, nodeParams), "cuGraphNodeSetParams")
+	return toError(fngraphNodeSetParamsV1(hNode, nodeParams), "cuGraphNodeSetParams")
+}
+
+// graphNodeSetParamsV2 updates a graph node’s parameters.
+//
+// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
+// Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+//
+// See also: [Graph.AddNodeV3], [GraphNode.Params], [GraphExec.NodeSetParams]
+//
+//   - hNode: Node to set the parameters for
+//   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphNodeSetParams_v2.
+func graphNodeSetParamsV2(hNode GraphNode, nodeParams *GraphNodeParams) error {
+	if err := checkLibSym("cuGraphNodeSetParams_v2"); err != nil {
+		return err
+	}
+	return toError(fngraphNodeSetParamsV2(hNode, nodeParams), "cuGraphNodeSetParams_v2")
 }
 
 // graphReleaseUserObject releases a user object reference from a graph.
@@ -9435,12 +10205,37 @@ func graphReleaseUserObject(graph Graph, object UserObject, count uint32) error 
 // Errors:
 //   - [ErrInvalidValue]
 //
-// Wraps cuGraphRemoveDependencies, bound as cuGraphRemoveDependencies_v2.
+// Wraps cuGraphRemoveDependencies, bound to the first of cuGraphRemoveDependencies_v2, cuGraphRemoveDependencies that the library exports. On libraries without cuGraphRemoveDependencies_v2, it calls cuGraphRemoveDependencies; a non-nil edgeData returns [ErrNotSupported].
 func graphRemoveDependencies(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
+	if err := checkLibChain(&chainCuGraphRemoveDependencies); err != nil {
+		return err
+	}
+	return toError(fngraphRemoveDependencies(hGraph, from, to, edgeData, numDependencies), chainCuGraphRemoveDependencies.bound)
+}
+
+// graphRemoveDependenciesV2 removes dependency edges from a graph.
+//
+// The number of dependencies to be removed is defined by numDependencies. Elements in from and to at corresponding indices define a dependency. Each node in from and to must belong to hGraph.
+// If numDependencies is 0, elements in from and to will be ignored. Specifying an edge that does not exist in the graph, with data matching edgeData, results in an error. edgeData is nullable, which is equivalent to passing default (zeroed) data for each edge.
+// Dependencies cannot be removed from graphs which contain allocation or free nodes. Any attempt to do so will return an error.
+//
+// See also: [Graph.AddDependencies], [Graph.Edges], [GraphNode.Dependencies], [GraphNode.DependentNodes]
+//
+//   - hGraph: Graph from which to remove dependencies
+//   - from: Array of nodes that provide the dependencies
+//   - to: Array of dependent nodes
+//   - edgeData: Optional array of edge data. If NULL, edge data is assumed to be default (zeroed)
+//   - numDependencies: Number of dependencies to be removed
+//
+// Errors:
+//   - [ErrInvalidValue]
+//
+// Wraps cuGraphRemoveDependencies, bound as cuGraphRemoveDependencies_v2.
+func graphRemoveDependenciesV2(hGraph Graph, from *GraphNode, to *GraphNode, edgeData *GraphEdgeData, numDependencies uint) error {
 	if err := checkLibSym("cuGraphRemoveDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fngraphRemoveDependencies(hGraph, from, to, edgeData, numDependencies), "cuGraphRemoveDependencies_v2")
+	return toError(fngraphRemoveDependenciesV2(hGraph, from, to, edgeData, numDependencies), "cuGraphRemoveDependencies_v2")
 }
 
 // graphRetainUserObject retains a reference to a user object from a graph.
@@ -9723,7 +10518,7 @@ func graphicsUnregisterResource(resource GraphicsResource) error {
 //
 // Note: The API is not supported on 32-bit platforms.
 // The supported flags are:
-//   - CU_GREEN_CTX_NONE : Default behavior.
+//   - [GreenCtxNone] : Default behavior.
 //   - [GreenCtxDefaultStream] : Creates a default stream to use inside the green context.
 //
 // See also: [GreenCtx.Close], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]
@@ -10235,7 +11030,7 @@ func IpcOpenMemHandle(handle IpcMemHandle, flags IpcmemFlags) (DevicePtr, error)
 //   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks.
 //   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed. A non-portable cluster size may only function on the specific SKUs the program is tested on. The launch might fail if the program is run on a different hardware platform. CUDA API provides cudaOccupancyMaxActiveClusters to assist with checking whether the desired size can be launched on the current device. A portable cluster size is guaranteed to be functional on all compute capabilities higher than the target compute capability. The portable cluster size for sm_90 is 8 blocks per cluster. This value may increase for future compute capabilities. The specific hardware unit may support higher cluster sizes that’s not guaranteed to be portable.
 //   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
+//   - [FuncAttributeSharedMemoryMode]: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // Note: If another thread is trying to set the same attribute on the same device using [Kernel.SetAttribute] simultaneously, the attribute query will give the old or new value depending on the interleavings chosen by the OS scheduler and memory consistency.
 //
@@ -10428,7 +11223,7 @@ var slotKernelGetParamInfo outSlot[struct {
 //   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks. The width, height, and depth values must either all be 0 or all be positive. The validity of the cluster dimensions is checked at launch time. If the value is set during compile time, it cannot be set at runtime. Setting it at runtime will return [ErrNotPermitted].
 //   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed.
 //   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
+//   - [FuncAttributeSharedMemoryMode]: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // Note: The API has stricter locking requirements in comparison to its legacy counterpart [Function.SetAttribute] due to device-wide semantics. If multiple threads are trying to set the same attribute on the same device simultaneously, the attribute setting will depend on the interleavings chosen by the OS scheduler and memory consistency.
 //
@@ -10723,6 +11518,41 @@ func launchGridAsync(f Function, gridWidth int32, gridHeight int32, hStream Stre
 //   - hStream: Stream to enqueue function call in
 //   - fn: The function to call once preceding stream operations are complete (see [HostFn])
 //   - userData: User-specified data to be passed to the function
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
+// Wraps cuLaunchHostFunc.
+func launchHostFunc(hStream Stream, fn uintptr, userData uintptr) error {
+	if err := checkLibSym("cuLaunchHostFunc"); err != nil {
+		return err
+	}
+	return toError(fnlaunchHostFunc(hStream, fn, userData), "cuLaunchHostFunc")
+}
+
+// launchHostFuncV2 enqueues a host function call in a stream.
+//
+// Enqueues a host function to run in a stream. The function will be called after currently enqueued work and will block work added after it.
+// The host function must not make any CUDA API calls. Attempting to use a CUDA API may result in [ErrNotPermitted], but this is not required. The host function must not perform any synchronization that may depend on outstanding CUDA work not mandated to run earlier. Host functions without a mandated order (such as in independent streams) execute in undefined order and may be serialized.
+// For the purposes of Unified Memory, execution makes a number of guarantees:
+//   - The stream is considered idle for the duration of the function’s execution. Thus, for example, the function may always use memory attached to the stream it was enqueued in.
+//   - The start of execution of the function has the same effect as synchronizing an event recorded in the same stream immediately prior to the function. It thus synchronizes streams which have been “joined” prior to the function.
+//   - Adding device work to any stream does not have the effect of making the stream active until all preceding host functions and stream callbacks have executed. Thus, for example, a function might use global attached memory even if work has been added to another stream, if the work has been ordered behind the function call with an event.
+//   - Completion of the function does not cause a stream to become active except as described above. The stream will remain idle if no device work follows the function, and will remain idle across consecutive host functions or stream callbacks without device work in between. Thus, for example, stream synchronization can be done by signaling from a host function at the end of the stream.
+//
+// Note that, in contrast to [Stream.AddCallback], the function will not be called in the event of an error in the CUDA context.
+//
+// Note: This function uses standard default stream semantics.
+//
+// See also: [NewStream], [Stream.Query], [Stream.Synchronize], [Stream.WaitEvent], [Stream.Close], [MemAllocManaged], [Stream.AttachMemAsync], [Stream.AddCallback]
+//
+//   - hStream: Stream to enqueue function call in
+//   - fn: The function to call once preceding stream operations are complete (see [HostFn])
+//   - userData: User-specified data to be passed to the function
 //   - syncMode: Synchronization mode for the host function
 //
 // Errors:
@@ -10733,11 +11563,11 @@ func launchGridAsync(f Function, gridWidth int32, gridHeight int32, hStream Stre
 //   - [ErrNotSupported]
 //
 // Wraps cuLaunchHostFunc_v2.
-func launchHostFunc(hStream Stream, fn uintptr, userData uintptr, syncMode uint32) error {
+func launchHostFuncV2(hStream Stream, fn uintptr, userData uintptr, syncMode uint32) error {
 	if err := checkLibSym("cuLaunchHostFunc_v2"); err != nil {
 		return err
 	}
-	return toError(fnlaunchHostFunc(hStream, fn, userData, syncMode), "cuLaunchHostFunc_v2")
+	return toError(fnlaunchHostFuncV2(hStream, fn, userData, syncMode), "cuLaunchHostFunc_v2")
 }
 
 // launchKernel launches a CUDA function [Function] or a CUDA kernel [Kernel].
@@ -11390,6 +12220,377 @@ func linkDestroy(state LinkState) error {
 	return toError(fnlinkDestroy(state), "cuLinkDestroy")
 }
 
+// logicalEndpointAddDevice associates a device to a multicast logical endpoint.
+//
+// Associates a device to a logical endpoint. The type of the logical endpoint must be [LogicalEndpointTypeMulticast]. The added device will be a part of the multicast team of size specified by [LogicalEndpointProp].multicast.numDevices during [LogicalEndpointCreate]. The association of the device to the multicast logical endpoint is permanent during the life time of the multicast logical endpoint. All devices must be added to the multicast logical endpoint before any memory can be bound to any device in the team. A multicast logical endpoint will not be ready for use until all devices have been added. User can query whether the logical endpoint is ready for use via [LogicalEndpointQuery].
+// This call may fail with [ErrInvalidDevice] if the device specified by dev does not belong to the same clique as the other devices previously added to this multicast logical endpoint.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint id representing a multicast logical endpoint
+//   - dev: Device that will be associated with the multicast logical endpoint
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuLogicalEndpointAddDevice.
+func logicalEndpointAddDevice(leId LogicalEndpointId, dev Device) error {
+	if err := checkLibSym("cuLogicalEndpointAddDevice"); err != nil {
+		return err
+	}
+	return toError(fnlogicalEndpointAddDevice(leId, dev), "cuLogicalEndpointAddDevice")
+}
+
+// logicalEndpointBindAddr binds a memory allocation represented by a virtual address to a logical endpoint.
+//
+// Binds the memory allocation specified by its mapped address ptr to a logical endpoint represented by leId at the offset offset. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the logical endpoint range and ptr must be multiples of the value for bindAlignment as returned by [LogicalEndpointGetLimits].
+// The size cannot be larger than the size of the allocated memory. Similarly the size + offset cannot be larger than the total size of the logical endpoint.
+// For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated.
+// For multicast endpoints, the device named by dev must have been added to the multicast team via [Device.LogicalEndpointAdd].
+// For unicast endpoints the device named by dev must be the owner device specified during [LogicalEndpointCreate] via [LogicalEndpointProp].unicast.device.
+// Externally shareable as well as imported multicast endpoints can be bound only to externally shareable memory. Imported unicast endpoints cannot be bound to any memory.
+// This call will return [ErrInvalidValue] if [LogicalEndpointQuery] has not been called for the logical endpoint to ensure that the endpoint is ready for memory binding.
+// Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running. This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using logical endpoints, verify that the system configuration is in a valid state and all required driver daemons are running properly.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint to which memory will be associated
+//   - dev: Device on which the memory will be bound to the logical endpoint
+//   - offset: Offset into the logical endpoint space
+//   - ptr: Virtual address of the memory allocation
+//   - size: Size of memory that will be bound to the logical endpoint
+//   - flags: Flags for future use, must be zero for now
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointBindAddr.
+func logicalEndpointBindAddr(leId LogicalEndpointId, dev Device, offset uint64, ptr uintptr, size uint64, flags uint64) error {
+	if err := checkLibSym("cuLogicalEndpointBindAddr"); err != nil {
+		return err
+	}
+	return toError(fnlogicalEndpointBindAddr(leId, dev, offset, ptr, size, flags), "cuLogicalEndpointBindAddr")
+}
+
+// logicalEndpointBindMem binds memory object represented by a handle to the logical endpoint.
+//
+// Binds the memory allocation specified by memHandle to a logical endpoint represented by leId at the offset offset. The memory must have been allocated via [MemCreate]. The intended size of the bind, the offset in the logical endpoint range offset and the offset in the memory handle memOffset must be multiples of the value for bindAlignment as returned by [LogicalEndpointGetLimits].
+// The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + offset cannot be larger than the total size of the logical endpoint.
+// For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated.
+// For multicast endpoints, the device named by dev must have been added to the multicast team via [Device.LogicalEndpointAdd].
+// For unicast endpoints the device named by dev must be the owner device specified during [LogicalEndpointCreate] via [LogicalEndpointProp].unicast.device.
+// Externally shareable as well as imported multicast endpoints can be bound only to externally shareable memory. Imported unicast endpoints cannot be bound to any memory.
+// This call will return [ErrInvalidValue] if [LogicalEndpointQuery] has not been called for the logical endpoint to ensure that the endpoint is ready for memory binding.
+// Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running. This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using logical endpoints, verify that the system configuration is in a valid state and all required driver daemons are running properly.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint to which memory will be associated
+//   - dev: Device on which the memory will be bound to the logical endpoint
+//   - offset: Offset into the logical endpoint space
+//   - memHandle: Handle representing a memory allocation
+//   - memOffset: Offset into the memory for the attachment
+//   - size: Size of memory that will be bound to the logical endpoint
+//   - flags: Flags for future use, must be zero for now
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointBindMem.
+func logicalEndpointBindMem(leId LogicalEndpointId, dev Device, offset uint64, memHandle uint64, memOffset uint64, size uint64, flags uint64) error {
+	if err := checkLibSym("cuLogicalEndpointBindMem"); err != nil {
+		return err
+	}
+	return toError(fnlogicalEndpointBindMem(leId, dev, offset, memHandle, memOffset, size, flags), "cuLogicalEndpointBindMem")
+}
+
+// LogicalEndpointCreate creates a logical endpoint with the requested properties and associates it with the logical endpoint id.
+//
+// This creates a logical endpoint as described by prop. The number of participating devices is determined by the [LogicalEndpointProp].type. If the type is [LogicalEndpointTypeUnicast] then [LogicalEndpointProp].unicast.device specifies the owner device of the unicast logical endpoint. If the type is [LogicalEndpointTypeMulticast] then [LogicalEndpointProp].multicast.numDevices specifies the number of devices in the multicast logical endpoint team.
+// Devices can be added to a multicast logical endpoint via [Device.LogicalEndpointAdd]. After all the participating devices have been added, a call to [LogicalEndpointQuery] must be made to ensure that the logical endpoint is ready for memory binding and access.
+// A unicast logical endpoint does not have a notion of adding devices via [Device.LogicalEndpointAdd]. However, a call to [LogicalEndpointQuery] must still be made to ensure that the logical endpoint is ready for memory binding and access.
+// Memory is bound to the logical endpoint via either [Device.LogicalEndpointBindAddr] or [Device.LogicalEndpointBindMem], and can be unbound via [Device.LogicalEndpointUnbind]. The total amount of memory that can be bound per device is specified by [LogicalEndpointProp].size. This size must be a multiple of the value for bindAlignment as returned by [LogicalEndpointGetLimits]. The maximum size for the logical endpoint cannot exceed the value for maxSize as returned by [LogicalEndpointGetLimits]. The bind alignment and maximum size depend on the properties of the logical endpoint.
+//
+// See also: [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint id that will be associated with the newly created logical endpoint
+//   - prop: Properties of the logical endpoint to create
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//
+// Wraps cuLogicalEndpointCreate.
+func LogicalEndpointCreate(leId LogicalEndpointId, prop *LogicalEndpointProp) error {
+	if err := checkLibSym("cuLogicalEndpointCreate"); err != nil {
+		return err
+	}
+	return toError(fnLogicalEndpointCreate(leId, prop), "cuLogicalEndpointCreate")
+}
+
+// LogicalEndpointDestroy removes the association of the logical endpoint from the logical endpoint id.
+//
+// Removes the association between the logical endpoint id and the logical endpoint resources. Any memory bound by this process to any device associated with the logical endpoint will be unbound. If this was the last reference to the logical endpoint, all associated resources will be destroyed.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint id of the logical endpoint to be destroyed
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//
+// Wraps cuLogicalEndpointDestroy.
+func LogicalEndpointDestroy(leId LogicalEndpointId) error {
+	if err := checkLibSym("cuLogicalEndpointDestroy"); err != nil {
+		return err
+	}
+	return toError(fnLogicalEndpointDestroy(leId), "cuLogicalEndpointDestroy")
+}
+
+// LogicalEndpointExport exports a logical endpoint associated with leId to an IPC handle.
+//
+// Given a logical endpoint id leId, create a shareable handle handle that can be used to share the logical endpoint with other processes. The recipient process can convert the shareable handle back into a logical endpoint id using [LogicalEndpointImport]. The implementation of what this handle is and how it can be transfered is defined by the requested handle type in handletype.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - handle: Pointer to the location in which to store the requested handle type
+//   - leId: Logical endpoint id of logical endpoint
+//   - handleType: Type of shareable handle requested. Defines type and size of the handle output parameter
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//
+// Wraps cuLogicalEndpointExport.
+func LogicalEndpointExport(handle uintptr, leId LogicalEndpointId, handleType LogicalEndpointIpcHandleType) error {
+	if err := checkLibSym("cuLogicalEndpointExport"); err != nil {
+		return err
+	}
+	return toError(fnLogicalEndpointExport(handle, leId, handleType), "cuLogicalEndpointExport")
+}
+
+// LogicalEndpointGetLimits calculates the minimum alignment and the maximum size for the given logical endpoint properties.
+//
+// The bindAlignment can be used as a multiple for size and bind offset values. The maxSize is the maximum size of the logical endpoint. If maxSize is less than [LogicalEndpointProp]:size the user must adjust the request to the smaller value.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointQuery]
+//
+//   - prop: Properties of the logical endpoint
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointGetLimits.
+func LogicalEndpointGetLimits(prop *LogicalEndpointProp) (bindAlignment uint64, maxSize uint64, err error) {
+	if err := checkLibSym("cuLogicalEndpointGetLimits"); err != nil {
+		return 0, 0, err
+	}
+	outs := slotLogicalEndpointGetLimits.get()
+	defer slotLogicalEndpointGetLimits.put(outs)
+	if err := toError(fnLogicalEndpointGetLimits(&outs.out0, &outs.out1, prop), "cuLogicalEndpointGetLimits"); err != nil {
+		return 0, 0, err
+	}
+	return outs.out0, outs.out1, nil
+}
+
+var slotLogicalEndpointGetLimits outSlot[struct {
+	out0 uint64
+	out1 uint64
+}]
+
+// LogicalEndpointIdRelease releases a range of logical endpoint ids.
+//
+// Releases up to count logical endpoint ids starting at baseLeId. The range of ids represented by [ baseLeId, baseLeId + count) must all be previously reserved. All logical endpoints in the range must be destroyed before they can be released.
+//
+// See also: [LogicalEndpointCreate], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - baseLeId: First logical endpoint id to be released back to the system
+//   - count: Number of logical endpoint ids to release back to the system
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//
+// Wraps cuLogicalEndpointIdRelease.
+func LogicalEndpointIdRelease(baseLeId LogicalEndpointId, count uint32) error {
+	if err := checkLibSym("cuLogicalEndpointIdRelease"); err != nil {
+		return err
+	}
+	return toError(fnLogicalEndpointIdRelease(baseLeId, count), "cuLogicalEndpointIdRelease")
+}
+
+// LogicalEndpointIdReserve reserves a range of logical endpoint ids.
+//
+// Reserves a range of logical endpoint ids starting at *baseLeId and extending for count. The reserved ids can be used to create or import logical endpoints via [LogicalEndpointCreate] or [LogicalEndpointImport] respectively.
+//
+// See also: [LogicalEndpointCreate], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - count: The number of logical endpoint ids to reserve
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//
+// Wraps cuLogicalEndpointIdReserve.
+func LogicalEndpointIdReserve(count uint32) (LogicalEndpointId, error) {
+	if err := checkLibSym("cuLogicalEndpointIdReserve"); err != nil {
+		var zero LogicalEndpointId
+		return zero, err
+	}
+	out := slotLogicalEndpointIdReserve.get()
+	defer slotLogicalEndpointIdReserve.put(out)
+	if err := toError(fnLogicalEndpointIdReserve(out, count), "cuLogicalEndpointIdReserve"); err != nil {
+		var zero LogicalEndpointId
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotLogicalEndpointIdReserve outSlot[LogicalEndpointId]
+
+// LogicalEndpointImport imports a logical endpoint from the given IPC handle and associates it with a logical endpoint id.
+//
+// Imports a logical endpoint from the given IPC handle and associates it with the logical endpoint id specified by leId.
+// If the current process cannot support the logical endpoint described by the shareable handle, this API will error as [ErrNotSupported]. If handle is of type [LogicalEndpointIpcHandleTypeFabric] and the importer process does not have access permissions, then [ErrNotPermitted] will be returned
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint id that will be used to access the exported logical endpoint
+//   - handle: Shareable handle representing the logical endpoint that is to be imported
+//   - handleType: Handle type of the exported handle
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//
+// Wraps cuLogicalEndpointImport.
+func LogicalEndpointImport(leId LogicalEndpointId, handle uintptr, handleType LogicalEndpointIpcHandleType) error {
+	if err := checkLibSym("cuLogicalEndpointImport"); err != nil {
+		return err
+	}
+	return toError(fnLogicalEndpointImport(leId, handle, handleType), "cuLogicalEndpointImport")
+}
+
+// LogicalEndpointQuery determines if all logical endpoints in the range have been successfully constructed.
+//
+// Queries the driver to determine if all logical endpoints in the given range starting at leId and extending for count have been successfully constructed.
+// Provides a mechanism to ensure that it is safe to begin using a logical endpoint ID. Using a logical endpoint ID before verifying that it is fully constructed can result in undefined behavior.
+// This is not a blocking API, it returns immediately with a queryStatus of 0 if any logical endpoint ID in the given range is not fully constructed, and a non-zero value otherwise.
+// Construction of a multicast logical endpoint may fail here if the devices added via [Device.LogicalEndpointAdd] do not belong to the same clique.
+// This API may return [ErrIllegalState] if no devices are found on which this logical endpoint can be accessed.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [Device.LogicalEndpointUnbind], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits]
+//
+//   - leId: First logical endpoint ID to be queried
+//   - count: Number of logical endpoints IDs to be queried
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointQuery.
+func LogicalEndpointQuery(leId LogicalEndpointId, count uint32) (int32, error) {
+	if err := checkLibSym("cuLogicalEndpointQuery"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	out := slotLogicalEndpointQuery.get()
+	defer slotLogicalEndpointQuery.put(out)
+	if err := toError(fnLogicalEndpointQuery(leId, count, out), "cuLogicalEndpointQuery"); err != nil {
+		var zero int32
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotLogicalEndpointQuery outSlot[int32]
+
+// logicalEndpointUnbind unbinds any binding at offset from the logical endpoint.
+//
+// Unbinds any memory allocations bound to the logical endpoint on dev at offset and up to the given size. The intended size of the unbind and the offset in the logical endpoint range offset must be multiples of the value for bindAlignment as returned by [LogicalEndpointGetLimits].
+//
+// Note: The offset must correspond to a value specified during a bind call. The size must either match the bind call of the offset or be the combined size of multiple bind calls. The size + offset must fully enclose all bindings that are covered.
+//
+// See also: [LogicalEndpointCreate], [LogicalEndpointIdReserve], [LogicalEndpointIdRelease], [Device.LogicalEndpointAdd], [LogicalEndpointDestroy], [Device.LogicalEndpointBindAddr], [Device.LogicalEndpointBindMem], [LogicalEndpointExport], [LogicalEndpointImport], [LogicalEndpointGetLimits], [LogicalEndpointQuery]
+//
+//   - leId: Logical endpoint id representing a logical endpoint
+//   - dev: Device on which the memory is bound to the logical endpoint
+//   - offset: Offset into the logical endpoint
+//   - size: Desired size to unbind
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//   - [ErrNotPermitted]
+//   - [ErrNotSupported]
+//   - [ErrOutOfMemory]
+//   - [ErrSystemNotReady]
+//
+// Wraps cuLogicalEndpointUnbind.
+func logicalEndpointUnbind(leId LogicalEndpointId, dev Device, offset uint64, size uint64) error {
+	if err := checkLibSym("cuLogicalEndpointUnbind"); err != nil {
+		return err
+	}
+	return toError(fnlogicalEndpointUnbind(leId, dev, offset, size), "cuLogicalEndpointUnbind")
+}
+
 // LogsCurrent sets log iterator to point to the end of log buffer, where the next message would be written.
 //
 //   - flags: Reserved for future use, must be 0
@@ -11570,7 +12771,7 @@ var slotMemAddressReserve outSlot[DevicePtr]
 // The advice parameter can take the following values:
 //   - [MemAdviseSetReadMostly]: This implies that the data is mostly going to be read from and only occasionally written to. Any read accesses from any processor to this region will create a read-only copy of at least the accessed pages in that processor’s memory. Additionally, if [DevicePtr.MemPrefetchAsync] is called on this region, it will create a read-only copy of the data on the destination processor. If the target location for [DevicePtr.MemPrefetchAsync] is a host NUMA node and a read-only copy already exists on another host NUMA node, that copy will be migrated to the targeted host NUMA node. If any processor writes to this region, all copies of the corresponding page will be invalidated except for the one where the write occurred. If the writing processor is the CPU and the preferred location of the page is a host NUMA node, then the page will also be migrated to that host NUMA node. The location argument is ignored for this advice. Note that for a page to be read-duplicated, the accessing processor must either be the CPU or a GPU that has a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Also, if a context is created on a device that does not have the device attribute [DevAttrConcurrentManagedAccess] set, then read-duplication will not occur until all such contexts are destroyed. If the memory region refers to valid system-allocated pageable memory, then the accessing device must have a non-zero value for the device attribute [DevAttrPageableMemoryAccess] for a read-only copy to be created on that device. Note however that if the accessing device also has a non-zero value for the device attribute [DevAttrPageableMemoryAccessUsesHostPageTables], then setting this advice will not create a read-only copy when that device accesses this memory region.
 //   - [MemAdviseUnsetReadMostly]: Undoes the effect of [MemAdviseSetReadMostly] and also prevents the Unified Memory driver from attempting heuristic read-duplication on the memory range. Any read-duplicated copies of the data will be collapsed into a single copy. The location for the collapsed copy will be the preferred location if the page has a preferred location and one of the read-duplicated copies was resident at that location. Otherwise, the location chosen is arbitrary. Note: The location argument is ignored for this advice.
-//   - [MemAdviseSetPreferredLocation]: This advice sets the preferred location for the data to be the memory belonging to location. When [MemLocation].type is [MemLocationTypeHost], [MemLocation].id is ignored and the preferred location is set to be host memory. To set the preferred location to a specific host NUMA node, applications must set [MemLocation].type to [MemLocationTypeHostNuma] and [MemLocation].id must specify the NUMA ID of the host NUMA node. If [MemLocation].type is set to [MemLocationTypeHostNumaCurrent], [MemLocation].id will be ignored and the the host NUMA node closest to the calling thread’s CPU will be used as the preferred location. If [MemLocation].type is a [MemLocationTypeDevice], then [MemLocation].id must be a valid device ordinal and the device must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. A [MemLocation].type of CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN is unsupported. Setting the preferred location does not cause data to migrate to that location immediately. Instead, it guides the migration policy when a fault occurs on that memory region. If the data is already in its preferred location and the faulting processor can establish a mapping without requiring the data to be migrated, then data migration will be avoided. On the other hand, if the data is not in its preferred location or if a direct mapping cannot be established, then it will be migrated to the processor accessing it. It is important to note that setting the preferred location does not prevent data prefetching done using [DevicePtr.MemPrefetchAsync]. Having a preferred location can override the page thrash detection and resolution logic in the Unified Memory driver. Normally, if a page is detected to be constantly thrashing between for example host and device memory, the page may eventually be pinned to host memory by the Unified Memory driver. But if the preferred location is set as device memory, then the page will continue to thrash indefinitely. If [MemAdviseSetReadMostly] is also set on this memory region or any subset of it, then the policies associated with that advice will override the policies of this advice, unless read accesses from location will not result in a read-only copy being created on that procesor as outlined in description for the advice [MemAdviseSetReadMostly]. If the memory region refers to valid system-allocated pageable memory, and [MemLocation].type is [MemLocationTypeDevice] then [MemLocation].id must be a valid device that has a non-zero alue for the device attribute [DevAttrPageableMemoryAccess].
+//   - [MemAdviseSetPreferredLocation]: This advice sets the preferred location for the data to be the memory belonging to location. When [MemLocation].type is [MemLocationTypeHost], [MemLocation].id is ignored and the preferred location is set to be host memory. To set the preferred location to a specific host NUMA node, applications must set [MemLocation].type to [MemLocationTypeHostNuma] and [MemLocation].id must specify the NUMA ID of the host NUMA node. If [MemLocation].type is set to [MemLocationTypeHostNumaCurrent], [MemLocation].id will be ignored and the the host NUMA node closest to the calling thread’s CPU will be used as the preferred location. If [MemLocation].type is a [MemLocationTypeDevice], then [MemLocation].id must be a valid device ordinal and the device must have a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. A [MemLocation].type of [MemLocationTypeDeviceLocalityDomain] is unsupported. Setting the preferred location does not cause data to migrate to that location immediately. Instead, it guides the migration policy when a fault occurs on that memory region. If the data is already in its preferred location and the faulting processor can establish a mapping without requiring the data to be migrated, then data migration will be avoided. On the other hand, if the data is not in its preferred location or if a direct mapping cannot be established, then it will be migrated to the processor accessing it. It is important to note that setting the preferred location does not prevent data prefetching done using [DevicePtr.MemPrefetchAsync]. Having a preferred location can override the page thrash detection and resolution logic in the Unified Memory driver. Normally, if a page is detected to be constantly thrashing between for example host and device memory, the page may eventually be pinned to host memory by the Unified Memory driver. But if the preferred location is set as device memory, then the page will continue to thrash indefinitely. If [MemAdviseSetReadMostly] is also set on this memory region or any subset of it, then the policies associated with that advice will override the policies of this advice, unless read accesses from location will not result in a read-only copy being created on that procesor as outlined in description for the advice [MemAdviseSetReadMostly]. If the memory region refers to valid system-allocated pageable memory, and [MemLocation].type is [MemLocationTypeDevice] then [MemLocation].id must be a valid device that has a non-zero alue for the device attribute [DevAttrPageableMemoryAccess].
 //   - [MemAdviseUnsetPreferredLocation]: Undoes the effect of [MemAdviseSetPreferredLocation] and changes the preferred location to none. The location argument is ignored for this advice.
 //   - [MemAdviseSetAccessedBy]: This advice implies that the data will be accessed by processor location. The [MemLocation].type must be either [MemLocationTypeDevice] with [MemLocation].id representing a valid device ordinal or [MemLocationTypeHost] and [MemLocation].id will be ignored. All other location types are invalid. If [MemLocation].id is a GPU, then the device attribute [DevAttrConcurrentManagedAccess] must be non-zero. This advice does not cause data migration and has no impact on the location of the data per se. Instead, it causes the data to always be mapped in the specified processor’s page tables, as long as the location of the data permits a mapping to be established. If the data gets migrated for any reason, the mappings are updated accordingly. This advice is recommended in scenarios where data locality is not important, but avoiding faults is. Consider for example a system containing multiple GPUs with peer-to-peer access enabled, where the data located on one GPU is occasionally accessed by peer GPUs. In such scenarios, migrating data over to the other GPUs is not as important because the accesses are infrequent and the overhead of migration may be too high. But preventing faults can still help improve performance, and so having a mapping set up in advance is useful. Note that on CPU access of this data, the data may be migrated to host memory because the CPU typically cannot access device memory directly. Any GPU that had the [MemAdviseSetAccessedBy] flag set for this data will now have its mapping updated to point to the page in host memory. If [MemAdviseSetReadMostly] is also set on this memory region or any subset of it, then the policies associated with that advice will override the policies of this advice. Additionally, if the preferred location of this memory region or any subset of it is also location, then the policies associated with [MemAdviseSetPreferredLocation] will override the policies of this advice. If the memory region refers to valid system-allocated pageable memory, and [MemLocation].type is [MemLocationTypeDevice] then device in [MemLocation].id must have a non-zero value for the device attribute [DevAttrPageableMemoryAccess]. Additionally, if [MemLocation].id has a non-zero value for the device attribute [DevAttrPageableMemoryAccessUsesHostPageTables], then this call has no effect.
 //   - [MemAdviseUnsetAccessedBy]: Undoes the effect of [MemAdviseSetAccessedBy]. Any mappings to the data from location may be removed at any time causing accesses to result in non-fatal page faults. If the memory region refers to valid system-allocated pageable memory, and [MemLocation].type is [MemLocationTypeDevice] then device in [MemLocation].id must have a non-zero value for the device attribute [DevAttrPageableMemoryAccess]. Additionally, if [MemLocation].id has a non-zero value for the device attribute [DevAttrPageableMemoryAccessUsesHostPageTables], then this call has no effect.
@@ -11903,14 +13104,14 @@ var slotMemBatchDecompressAsync outSlot[uint]
 
 // MemCreate creates a CUDA memory handle representing a memory allocation of a given size described by the given properties.
 //
-// This creates a memory allocation on the target device specified through the prop structure. The created allocation will not have any device or host mappings. The generic memory handle for the allocation can be mapped to the address space of calling process via [DevicePtr.MemMap]. This handle cannot be transmitted directly to other processes (see [MemExportToShareableHandle]). On Windows, the caller must also pass an LPSECURITYATTRIBUTE in prop to be associated with this handle which limits or allows access to this handle for a recipient process (see [MemAllocationProp].win32HandleMetaData for more). The size of this allocation must be a multiple of the the value given via [MemGetAllocationGranularity] with the [MemAllocGranularityMinimum] flag. To create a CPU allocation that doesn’t target any specific NUMA nodes, applications must set [MemAllocationProp].[MemLocation].type to [MemLocationTypeHost]. [MemAllocationProp].[MemLocation].id is ignored for HOST allocations. HOST allocations are not IPC capable and [MemAllocationProp].requestedHandleTypes must be 0, any other value will result in [ErrInvalidValue]. To create a CPU allocation targeting a specific host NUMA node, applications must set [MemAllocationProp].[MemLocation].type to [MemLocationTypeHostNuma] and [MemAllocationProp].[MemLocation].id must specify the NUMA ID of the CPU. On systems where NUMA is not available [MemAllocationProp].[MemLocation].id must be set to 0. Specifying [MemLocationTypeHostNumaCurrent] as the [MemLocation].type will result in [ErrInvalidValue]. Specifying CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN as the [MemLocation].type will localize the allocation to the specified locality domain. [MemAllocationProp].[MemLocation].localized.deviceId must specify the device ID. [MemAllocationProp].[MemLocation].localized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
+// This creates a memory allocation on the target device specified through the prop structure. The created allocation will not have any device or host mappings. The generic memory handle for the allocation can be mapped to the address space of calling process via [DevicePtr.MemMap]. This handle cannot be transmitted directly to other processes (see [MemExportToShareableHandle]). On Windows, the caller must also pass an LPSECURITYATTRIBUTE in prop to be associated with this handle which limits or allows access to this handle for a recipient process (see [MemAllocationProp].win32HandleMetaData for more). The size of this allocation must be a multiple of the the value given via [MemGetAllocationGranularity] with the [MemAllocGranularityMinimum] flag. To create a CPU allocation that doesn’t target any specific NUMA nodes, applications must set [MemAllocationProp].[MemLocation].type to [MemLocationTypeHost]. [MemAllocationProp].[MemLocation].id is ignored for HOST allocations. HOST allocations are not IPC capable and [MemAllocationProp].requestedHandleTypes must be 0, any other value will result in [ErrInvalidValue]. To create a CPU allocation targeting a specific host NUMA node, applications must set [MemAllocationProp].[MemLocation].type to [MemLocationTypeHostNuma] and [MemAllocationProp].[MemLocation].id must specify the NUMA ID of the CPU. On systems where NUMA is not available [MemAllocationProp].[MemLocation].id must be set to 0. Specifying [MemLocationTypeHostNumaCurrent] as the [MemLocation].type will result in [ErrInvalidValue]. Specifying [MemLocationTypeDeviceLocalityDomain] as the [MemLocation].type will localize the allocation to the specified locality domain. [MemAllocationProp].[MemLocation].localized.deviceId must specify the device ID. [MemAllocationProp].[MemLocation].localized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute [DevAttrLocalityDomainCount].
 // Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application.
 // When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory.
 // The IMEX channel security model works on a per user basis. Which means all processes under a user can share memory if the user has access to a valid IMEX channel. When multi-user isolation is desired, a separate IMEX channel is required for each user.
 // These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c <major number> 0
 // If [MemAllocationProp].allocFlags.usage contains CU_MEM_CREATE_USAGE_TILE_POOL flag then the memory allocation is intended only to be used as backing tile pool for sparse CUDA arrays and sparse CUDA mipmapped arrays. (see [Stream.MemMapArrayAsync]).
 //
-// Note: On devices with a single locality domain, CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device allocation created with [MemLocationTypeDevice]. The resulting allocation will be of type [MemLocationTypeDevice].
+// Note: On devices with a single locality domain, [MemLocationTypeDeviceLocalityDomain] and localityDomainId 0 is equivalent to a full-device allocation created with [MemLocationTypeDevice]. The resulting allocation will be of type [MemLocationTypeDevice].
 //
 // See also: [MemRelease], [MemExportToShareableHandle], [MemImportFromShareableHandle]
 //
@@ -12213,7 +13414,7 @@ var slotMemGetAllocationPropertiesFromHandle outSlot[MemAllocationProp]
 
 // MemGetDefaultMemPool returns the default memory pool for a given location and allocation type.
 //
-// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost], [MemLocationTypeHostNuma], or CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN.
+// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost], [MemLocationTypeHostNuma], or [MemLocationTypeDeviceLocalityDomain]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with [MemLocationTypeDeviceLocalityDomain].
 //
 // See also: [Stream.MemAllocAsync], [MemoryPool.TrimTo], [MemoryPool.Attribute], [MemoryPool.SetAttribute], [MemoryPool.SetAccess], [MemGetMemPool], [NewMemoryPool]
 //
@@ -12248,7 +13449,7 @@ var slotMemGetDefaultMemPool outSlot[MemoryPool]
 // Users must ensure the dptr and size are aligned to the host page size.
 // The handle will be interpreted as a pointer to an integer to store the dma_buf file descriptor. Users must ensure the entire address range is backed and mapped when the address range is allocated by [DevicePtr.MemAddressReserve]. All the physical allocations backing the address range must be resident on the same device and have identical allocation properties. Users are also expected to retrieve a new handle every time the underlying physical allocation(s) corresponding to a previously queried VA range are changed.
 // For [MemRangeHandleType].[MemRangeHandleTypeDmaBufFd], users may set flags to [MemRangeFlagDmaBufMappingTypePcie]. Which when set on a supported platform, will give a DMA_BUF handle mapped via PCIE BAR1 or will return an error otherwise.
-// If the device attribute CU_DEVICE_ATTRIBUTE_DMA_BUF_MMAP_SUPPORTED is set and a [MemRangeHandleType].[MemRangeHandleTypeDmaBufFd] is requested for a device memory range then the returned dmabuf file descriptor may be passed as the file descriptor argument to the mmap() system call.
+// If the device attribute [DevAttrDmaBufMmapSupported] is set and a [MemRangeHandleType].[MemRangeHandleTypeDmaBufFd] is requested for a device memory range then the returned dmabuf file descriptor may be passed as the file descriptor argument to the mmap() system call.
 // For device memory on x86 systems the mapping will be a write combined mapping. On coherent ARM platforms these mappings will be regular cached memory. On all other platforms these mappings will be uncached.
 //
 //   - handle: Pointer to the location where the returned handle will be stored
@@ -12300,9 +13501,43 @@ var slotMemGetInfo outSlot[struct {
 	out1 uint
 }]
 
+// memGetLocationInfo gets residency information for a memory address range.
+//
+// Retrieves memory location information for the specified address range starting at ptr with size size. The API summarizes the location information with a granularity specified by summaryGranularity. For each summary region, the API determines the most common location by sampling memory at intervals defined by samplingGranularity within that region.
+// The location information is returned in the locationOut array, with one entry per summary region. The total number of locations returned will be ceil(size/summaryGranularity). The user is expected to allocate the locationOut array with sufficient memory.
+// For example, with an address range of 1GB, a summaryGranularity of 128MB, and a samplingGranularity of 2MB, the function will:
+//   - Divide the 1GB range into 8 summary regions of 128MB each
+//   - Within each 128MB region, sample every 2MB to determine the most common location. If there is a tie a random winner is chosen.
+//   - Populate the locationOut array with 8 entries, one for each 128MB region summaryGranularity should be less than or equal to size and greater than 0. samplingGranularity should be less than or equal to summaryGranularity. If the samplingGranularity is set to 0, a system dependent value is used as the granularity. In all other cases, the call returns [ErrInvalidValue].
+//
+// When the memory is not resident on any processor, the call returns [Success] and the returned location type for that interval is [MemLocationTypeNone].
+// The memory range must refer to one of the following:
+//   - Managed memory allocated via [MemAllocManaged], via cuMemAllocFromPool from a managed memory pool or declared via managed variables.
+//   - System-allocated pageable memory that is not registered via [MemHostRegister]. If the memory range does not refer to one of the above, the call returns [ErrInvalidValue].
+//
+// All devices on the system must have non-zero value of device attribute [DevAttrConcurrentManagedAccess]. If not, this call returns [ErrNotSupported].
+//
+//   - ptr: Starting address of the memory range to query
+//   - size: Size in bytes of the memory range to query
+//   - summaryGranularity: Granularity in bytes at which to summarize location information
+//   - samplingGranularity: Granularity in bytes at which to sample memory within each summary region
+//   - locationOut: Array to store location information, one entry per summary region
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuMemGetLocationInfo.
+func memGetLocationInfo(ptr DevicePtr, size uint, summaryGranularity uint, samplingGranularity uint, locationOut *MemLocation) error {
+	if err := checkLibSym("cuMemGetLocationInfo"); err != nil {
+		return err
+	}
+	return toError(fnmemGetLocationInfo(ptr, size, summaryGranularity, samplingGranularity, locationOut), "cuMemGetLocationInfo")
+}
+
 // MemGetMemPool gets the current memory pool for a memory location and of a particular allocation type.
 //
-// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], [MemLocationTypeHostNuma], or CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. In all other cases, the call returns [ErrInvalidValue]
+// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], [MemLocationTypeHostNuma], or [MemLocationTypeDeviceLocalityDomain]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. [MemAllocationTypeManaged] can not be used with [MemLocationTypeDeviceLocalityDomain]. In all other cases, the call returns [ErrInvalidValue]
 // Returns the last pool provided to [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for this location and allocation type or the location’s default memory pool if [MemoryPool.MemSetMemPool] or [Device.SetMemPool] for that allocType and location has never been called. By default the current mempool of a location is the default mempool for a device. Otherwise the returned pool must have been set with [Device.SetMemPool].
 //
 // See also: [Device.DefaultMemPool], [NewMemoryPool], [Device.SetMemPool], [MemoryPool.MemSetMemPool]
@@ -12607,7 +13842,7 @@ func memMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32, hStream Stream) e
 // memPoolCreate creates a memory pool.
 //
 // Creates a CUDA memory pool and returns the handle in pool. The poolProps determines the properties of the pool such as the backing device and IPC capabilities.
-// To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].[MemLocation].type to [MemLocationTypeHost]. [MemPoolProps].[MemLocation].id is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].[MemLocation].type to [MemLocationTypeHostNuma] and [MemPoolProps].[MemLocation].id must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].[MemLocation].type will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].[MemLocation].type to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN, [MemPoolProps].[MemLocation].localized.deviceId must specify the device ID, and [MemPoolProps].[MemLocation].localized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute CU_DEVICE_ATTRIBUTE_LOCALITY_DOMAIN_COUNT.
+// To create a memory pool for HOST memory not targeting a specific NUMA node, applications must set set [MemPoolProps].[MemLocation].type to [MemLocationTypeHost]. [MemPoolProps].[MemLocation].id is ignored for such pools. Pools created with the type [MemLocationTypeHost] are not IPC capable and [MemPoolProps].handleTypes must be 0, any other values will result in [ErrInvalidValue]. To create a memory pool targeting a specific host NUMA node, applications must set [MemPoolProps].[MemLocation].type to [MemLocationTypeHostNuma] and [MemPoolProps].[MemLocation].id must specify the NUMA ID of the host memory node. Specifying [MemLocationTypeHostNumaCurrent] as the [MemPoolProps].[MemLocation].type will result in [ErrInvalidValue]. To create a memory pool targeting a specific device locality domain, applications must set [MemPoolProps].[MemLocation].type to [MemLocationTypeDeviceLocalityDomain], [MemPoolProps].[MemLocation].localized.deviceId must specify the device ID, and [MemPoolProps].[MemLocation].localized.localityDomainId must specify the locality domain ID. The locality domain ID must be a valid locality domain ID for the specified device. See also [Device.Attribute] with the attribute [DevAttrLocalityDomainCount].
 // By default, the pool’s memory will be accessible from the device it is allocated on. In the case of pools created with [MemLocationTypeHostNuma] or [MemLocationTypeHost], their default accessibility will be from the host CPU. Applications can control the maximum size of the pool by specifying a non-zero value for [MemPoolProps].maxSize. If set to 0, the maximum size of the pool will default to a system dependent value.
 // Applications that intend to use [MemHandleTypeFabric] based memory sharing must ensure: (1) nvidia-caps-imex-channels character device is created by the driver and is listed under /proc/devices (2) have at least one IMEX channel file accessible by the user launching the application.
 // When exporter and importer CUDA processes have been granted access to the same IMEX channel, they can securely share memory.
@@ -12615,7 +13850,7 @@ func memMapArrayAsync(mapInfoList *ArrayMapInfo, count uint32, hStream Stream) e
 // These channel files exist in /dev/nvidia-caps-imex-channels/channel* and can be created using standard OS native calls like mknod on Linux. For example: To create channel0 with the major number from /proc/devices users can execute the following command: mknod /dev/nvidia-caps-imex-channels/channel0 c <major number> 0
 // To create a managed memory pool, applications must set [MemPoolProps].[MemAllocationType] to [MemAllocationTypeManaged]. [MemPoolProps].[MemAllocationHandleType] must also be set to [MemHandleTypeNone] since IPC is not supported. For managed memory pools, [MemPoolProps].[MemLocation] will be treated as the preferred location for all allocations created from the pool. An application can also set [MemLocationTypeNone] to indicate no preferred location. [MemPoolProps].maxSize must be set to zero for managed memory pools. [MemPoolProps].usage should be zero as decompress for managed memory is not supported. For managed memory pools, all devices on the system must have non-zero concurrentManagedAccess. If not, this call returns [ErrNotSupported]
 //
-// Note: On devices with a single locality domain, a memory pool created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 is equivalent to a full-device memory pool created with [MemLocationTypeDevice]. The pool will report [MemLocationTypeDevice] for [MempoolAttrLocationType] and -1 for CU_MEMPOOL_ATTR_LOCALITY_DOMAIN_ID.
+// Note: On devices with a single locality domain, a memory pool created with [MemLocationTypeDeviceLocalityDomain] and localityDomainId 0 is equivalent to a full-device memory pool created with [MemLocationTypeDevice]. The pool will report [MemLocationTypeDevice] for [MempoolAttrLocationType] and -1 for [MempoolAttrLocalityDomainId].
 //
 // Note: Specifying [MemHandleTypeNone] creates a memory pool that will not support IPC.
 //
@@ -12764,11 +13999,11 @@ var slotMemPoolGetAccess outSlot[MemaccessFlags]
 //   - [MempoolAttrExportHandleTypes]: (value type = [MemAllocationHandleType]) Available export handle types for the mempool. For imported pools this value is always [MemHandleTypeNone] as an imported pool cannot be re-exported
 //   - [MempoolAttrLocationId]: (value type = int) The location id for the mempool. If the location type for this pool is [MemLocationTypeInvisible] then ID will be CU_DEVICE_INVALID.
 //   - [MempoolAttrLocationType]: (value type = [MemLocationType]) The location type for the mempool. For imported memory pools where the device is not directly visible to the importing process or pools imported via fabric handles across nodes this will be [MemLocationTypeInvisible].
-//   - CU_MEMPOOL_ATTR_LOCALITY_DOMAIN_ID: (value type = int) The locality domain id for the mempool, if the mempool is localized to a locality domain. A value of -1 indicates that the mempool is not localized to a locality domain.
+//   - [MempoolAttrLocalityDomainId]: (value type = int) The locality domain id for the mempool, if the mempool is localized to a locality domain. A value of -1 indicates that the mempool is not localized to a locality domain.
 //   - [MempoolAttrMaxPoolSize]: (value type = cuuint64_t) Maximum size of the pool in bytes, this value may be higher than what was initially passed to [NewMemoryPool] due to alignment requirements. A value of 0 indicates no maximum size. For [MemAllocationTypeManaged] and IPC imported pools this value will be system dependent.
 //   - [MempoolAttrHwDecompressEnabled]: (value type = int) Indicates whether the pool has hardware compresssion enabled
 //
-// Note: On devices with a single locality domain, mempools created with CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN and localityDomainId 0 are equivalent to full-device mempools created with [MemLocationTypeDevice]. The value of this attribute will be -1 for such mempools.
+// Note: On devices with a single locality domain, mempools created with [MemLocationTypeDeviceLocalityDomain] and localityDomainId 0 are equivalent to full-device mempools created with [MemLocationTypeDevice]. The value of this attribute will be -1 for such mempools.
 //
 // See also: [Stream.MemAllocAsync], [DevicePtr.FreeAsync], [Device.DefaultMemPool], [Device.MemPool], [NewMemoryPool]
 //
@@ -12932,7 +14167,7 @@ func memPoolTrimTo(pool MemoryPool, minBytesToKeep uint) error {
 // memPrefetchAsync prefetches memory to the specified destination location.
 //
 // devPtr is the base device pointer of the memory to be prefetched and location specifies the destination location. count specifies the number of bytes to copy. hStream is the stream in which the operation is enqueued. The memory range must refer to managed memory allocated via [MemAllocManaged], via cuMemAllocFromPool from a managed memory pool or declared via managed variables.
-// Specifying [MemLocationTypeDevice] for [MemLocation].type will prefetch memory to GPU specified by device ordinal [MemLocation].id which must have non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Additionally, hStream must be associated with a device that has a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Specifying [MemLocationTypeHost] as [MemLocation].type will prefetch data to host memory. Applications can request prefetching memory to a specific host NUMA node by specifying [MemLocationTypeHostNuma] for [MemLocation].type and a valid host NUMA node id in [MemLocation].id Users can also request prefetching memory to the host NUMA node closest to the current thread’s CPU by specifying [MemLocationTypeHostNumaCurrent] for [MemLocation].type. Note when [MemLocation].type is etiher [MemLocationTypeHost] OR [MemLocationTypeHostNumaCurrent], [MemLocation].id will be ignored. Prefetching to CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN locations is not supported.
+// Specifying [MemLocationTypeDevice] for [MemLocation].type will prefetch memory to GPU specified by device ordinal [MemLocation].id which must have non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Additionally, hStream must be associated with a device that has a non-zero value for the device attribute [DevAttrConcurrentManagedAccess]. Specifying [MemLocationTypeHost] as [MemLocation].type will prefetch data to host memory. Applications can request prefetching memory to a specific host NUMA node by specifying [MemLocationTypeHostNuma] for [MemLocation].type and a valid host NUMA node id in [MemLocation].id Users can also request prefetching memory to the host NUMA node closest to the current thread’s CPU by specifying [MemLocationTypeHostNumaCurrent] for [MemLocation].type. Note when [MemLocation].type is etiher [MemLocationTypeHost] OR [MemLocationTypeHostNumaCurrent], [MemLocation].id will be ignored. Prefetching to [MemLocationTypeDeviceLocalityDomain] locations is not supported.
 // The start address and end address of the memory range will be rounded down and rounded up respectively to be aligned to CPU page size before the prefetch operation is enqueued in the stream.
 // If no physical memory has been allocated for this region, then this memory region will be populated and mapped on the destination device. If there’s insufficient memory to prefetch the desired region, the Unified Memory driver may evict pages from other [MemAllocManaged] allocations to host memory in order to make room. Device memory allocated using [MemAlloc] or [NewArray] will not be evicted.
 // By default, any mappings to the previous location of the migrated pages are removed and mappings for the new location are only setup on the destination location. The exact behavior however also depends on the settings applied to this memory range via [DevicePtr.MemAdvise] as described below:
@@ -13149,7 +14384,7 @@ func memSetAccess(ptr DevicePtr, size uint, desc *MemAccessDesc, count uint) err
 
 // memSetMemPool sets the current memory pool for a memory location and allocation type.
 //
-// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue].
+// The memory location can be of one of [MemLocationTypeDevice], [MemLocationTypeHost] or [MemLocationTypeHostNuma], [MemLocationTypeDeviceLocalityDomain]. The allocation type can be one of [MemAllocationTypePinned] or [MemAllocationTypeManaged]. When the allocation type is [MemAllocationTypeManaged], the location type can also be [MemLocationTypeNone] to indicate no preferred location for the managed memory pool. In all other cases, the call returns [ErrInvalidValue].
 // When a memory pool is set as the current memory pool, the location parameter should be the same as the location of the pool. The location and allocation type specified must match those of the pool otherwise [ErrInvalidValue] is returned. By default, a memory location’s current memory pool is its default memory pool that can be obtained via [MemGetDefaultMemPool]. If the location type is [MemLocationTypeDevice] and the allocation type is [MemAllocationTypePinned], then this API is the equivalent of calling [Device.SetMemPool] with the location id as the device. For further details on the implications, please refer to the documentation for [Device.SetMemPool].
 //
 // Note: Use [MemoryPool.MemAllocFromPoolAsync] to specify asynchronous allocations from a device different than the one the stream runs on.
@@ -15145,7 +16380,7 @@ func multicastAddDevice(mcHandle uint64, dev Device) error {
 // Binds a memory allocation specified by its mapped address memptr to a multicast object represented by mcHandle. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the multicast range mcOffset and memptr must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memptr should be aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the total size of the multicast object.
 // On systems with Rubin+ (SM_107+) GPUs, memptr may be aligned to 256 instead of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended]. In such a case the size + memptr cannot be larger than the size of the allocated memory. Similarly the size + mcOffset + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] cannot be larger than the size of the than the size of the multicast object. The next available mcOffset for the next bind will be mcOffset + size + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]
-// Also note that the ability to accept a memptr that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error CUDA_ERROR_MULTICAST_RESOURCE_FULL
+// Also note that the ability to accept a memptr that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error [ErrMulticastResourceFull]
 // The memory allocation must have beeen created on one of the devices that was added to the multicast team via [Device.MulticastAdd]. Externally shareable as well as imported multicast objects can be bound only to externally shareable memory. Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running.
 // This call may fail if the devices added via [Device.MulticastAdd] do not belong to the same clique.
 // This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using multicast, verify that the system configuration is in a valid state and all required driver daemons are running properly.
@@ -15163,7 +16398,7 @@ func multicastAddDevice(mcHandle uint64, dev Device) error {
 //   - [ErrIllegalState]
 //   - [ErrInvalidDevice]
 //   - [ErrInvalidValue]
-//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrMulticastResourceFull]
 //   - [ErrNotInitialized]
 //   - [ErrNotPermitted]
 //   - [ErrNotSupported]
@@ -15183,7 +16418,7 @@ func multicastBindAddr(mcHandle uint64, mcOffset uint, memptr DevicePtr, size ui
 // Binds a memory allocation specified by its mapped address memptr to a multicast object represented by mcHandle. The binding will be applicable for the device dev. The memory must have been allocated via [MemCreate] or cudaMallocAsync. The intended size of the bind, the offset in the multicast range mcOffset and memptr must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memptr should be aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the total size of the multicast object.
 // On systems with Rubin+ (SM_107+) GPUs, memptr may be aligned to 256 instead of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended]. In such a case the size + memptr cannot be larger than the size of the allocated memory. Similarly the size + mcOffset + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] cannot be larger than the size of the than the size of the multicast object. The next available mcOffset for the next bind will be mcOffset + size + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]
-// Also note that the ability to accept a memptr that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error CUDA_ERROR_MULTICAST_RESOURCE_FULL
+// Also note that the ability to accept a memptr that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error [ErrMulticastResourceFull]
 // For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated. In both cases, the device named by dev must have been added to the multicast team via [Device.MulticastAdd]. Externally shareable as well as imported multicast objects can be bound only to externally shareable memory. Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running.
 // This call may fail if the devices added via [Device.MulticastAdd] do not belong to the same clique.
 // This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using multicast, verify that the system configuration is in a valid state and all required driver daemons are running properly.
@@ -15202,7 +16437,7 @@ func multicastBindAddr(mcHandle uint64, mcOffset uint, memptr DevicePtr, size ui
 //   - [ErrIllegalState]
 //   - [ErrInvalidDevice]
 //   - [ErrInvalidValue]
-//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrMulticastResourceFull]
 //   - [ErrNotInitialized]
 //   - [ErrNotPermitted]
 //   - [ErrNotSupported]
@@ -15222,7 +16457,7 @@ func multicastBindAddrV2(mcHandle uint64, dev Device, mcOffset uint, memptr Devi
 // Binds a memory allocation specified by memHandle and created via [MemCreate] to a multicast object represented by mcHandle and created via [MulticastCreate]. The intended size of the bind, the offset in the multicast range mcOffset as well as the offset in the memory memOffset must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memOffset should be aligned to the granularity of the memory allocation(see [MemGetAllocationGranularity]) or to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the size of the multicast object.
 // On systems with Rubin+ (SM_107+) GPUs, memOffset may be aligned to 256 instead of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended]. In such a case the size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] cannot be larger than the size of the than the size of the multicast object. The next available mcOffset for the next bind will be mcOffset + size + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum].
-// Also note that the ability to accept a memOffset that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error CUDA_ERROR_MULTICAST_RESOURCE_FULL
+// Also note that the ability to accept a memOffset that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error [ErrMulticastResourceFull]
 // The memory allocation must have beeen created on one of the devices that was added to the multicast team via [Device.MulticastAdd]. Externally shareable as well as imported multicast objects can be bound only to externally shareable memory. Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running.
 // This call may fail if the devices added via [Device.MulticastAdd] do not belong to the same clique.
 // This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using multicast, verify that the system configuration is in a valid state and all required driver daemons are running properly.
@@ -15241,7 +16476,7 @@ func multicastBindAddrV2(mcHandle uint64, dev Device, mcOffset uint, memptr Devi
 //   - [ErrIllegalState]
 //   - [ErrInvalidDevice]
 //   - [ErrInvalidValue]
-//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrMulticastResourceFull]
 //   - [ErrNotInitialized]
 //   - [ErrNotPermitted]
 //   - [ErrNotSupported]
@@ -15261,7 +16496,7 @@ func MulticastBindMem(mcHandle uint64, mcOffset uint, memHandle uint64, memOffse
 // Binds a memory allocation specified by memHandle and created via [MemCreate] to a multicast object represented by mcHandle and created via [MulticastCreate]. The binding will be applicable for the device dev. The intended size of the bind, the offset in the multicast range mcOffset as well as the offset in the memory memOffset must be a multiple of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum]. For best performance however, size, mcOffset and memOffset should be aligned to the granularity of the memory allocation(see [MemGetAllocationGranularity]) or to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityRecommended].
 // The size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset cannot be larger than the size of the multicast object.
 // On systems with Rubin+ (SM_107+) GPUs, memOffset may be aligned to 256 instead of the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended]. In such a case the size + memOffset cannot be larger than the size of the allocated memory. Similarly the size + mcOffset + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] cannot be larger than the size of the than the size of the multicast object. The next available mcOffset for the next bind will be mcOffset + size + the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum].
-// Also note that the ability to accept a memOffset that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error CUDA_ERROR_MULTICAST_RESOURCE_FULL
+// Also note that the ability to accept a memOffset that is not aligned to the value returned by [MulticastGetGranularity] with the flag [MulticastGranularityMinimum] or [MulticastGranularityRecommended] is limited by HW resources and may result in error [ErrMulticastResourceFull]
 // The memory allocation must have beeen created on one of the devices that was added to the multicast team via [Device.MulticastAdd]. For device memory, i.e., type [MemLocationTypeDevice], the memory allocation must have been created on the device specified by dev. For host NUMA memory, i.e., type [MemLocationTypeHostNuma], the memory allocation must have been created on the CPU NUMA node closest to dev. That is, the value returned when querying [DevAttrHostNumaId] for dev, must be the CPU NUMA node where the memory was allocated. In both cases, the device named by dev must have been added to the multicast team via [Device.MulticastAdd]. Externally shareable as well as imported multicast objects can be bound only to externally shareable memory. Note that this call will return [ErrOutOfMemory] if there are insufficient resources required to perform the bind. This call may also return [ErrSystemNotReady] if the necessary system software is not initialized or running.
 // This call may fail if the devices added via [Device.MulticastAdd] do not belong to the same clique.
 // This call may return [ErrIllegalState] if the system configuration is in an illegal state. In such cases, to continue using multicast, verify that the system configuration is in a valid state and all required driver daemons are running properly.
@@ -15281,7 +16516,7 @@ func MulticastBindMem(mcHandle uint64, mcOffset uint, memHandle uint64, memOffse
 //   - [ErrIllegalState]
 //   - [ErrInvalidDevice]
 //   - [ErrInvalidValue]
-//   - CUDA_ERROR_MULTICAST_RESOURCE_FULL
+//   - [ErrMulticastResourceFull]
 //   - [ErrNotInitialized]
 //   - [ErrNotPermitted]
 //   - [ErrNotSupported]
@@ -15859,7 +17094,7 @@ func paramSetv(hfunc Function, offset int32, ptr unsafe.Pointer, numbytes uint32
 //   - [PointerAttributeIsHwDecompressCapable]:
 //
 // Returns in *data a boolean that indicates whether the pointer points to memory that is capable to be used for hardware accelerated decompression.
-//   - CU_POINTER_ATTRIBUTE_LOCALITY_DOMAIN_ORDINAL:
+//   - [PointerAttributeLocalityDomainOrdinal]:
 //
 // Returns in *data an integer representing the locality domain ordinal of the allocation, or -1 if the allocation is not localized to a locality domain.
 // Note that for most allocations in the unified virtual address space the host and device pointer for accessing the allocation will be the same. The exceptions to this are
@@ -16122,7 +17357,7 @@ func streamBeginCapture(hStream Stream, mode StreamCaptureMode) error {
 
 // streamBeginCaptureToCig begins capture to CIG on a stream.
 //
-// Support for CIG streams with D3D12 can be determined using [Device.Attribute] with CU_DEVICE_ATTRIBUTE_D3D12_CIG_STREAMS_SUPPORTED.
+// Support for CIG streams with D3D12 can be determined using [Device.Attribute] with [DevAttrD3d12CigStreamsSupported].
 // Begin CIG (CUDA in Graphics) capture on hStream for the graphics API as provided in streamCigCaptureParams. When a stream is in CIG capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graphics API command list/command buffer. All kernel launches and memory copy/memory set operations on the CIG stream will be recorded. When the command list is executed by the graphics API, all the stream’s operations will execute in order along with other graphics API commands in the command list.
 // CIG stream capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in CIG capture mode.
 // The context must be also created in CIG mode previously, otherwise this operation will fail and [ErrInvalidContext] will be returned.
@@ -16180,6 +17415,39 @@ func streamBeginCaptureToGraph(hStream Stream, hGraph Graph, dependencies *Graph
 		return err
 	}
 	return toError(fnstreamBeginCaptureToGraph(hStream, hGraph, dependencies, dependencyData, numDependencies, mode), "cuStreamBeginCaptureToGraph")
+}
+
+// streamBeginRecaptureToGraph begins graph capture on a stream to an existing graph.
+//
+// Begin graph capture on hStream to the existing hGraph. The node creation order while recapturing the graph must be identical to the original graph. The recapture will fail immediately for:
+//   - Topology mismatches between the existing graph and the recaptured graph
+//   - Parameter mismatches for memory allocation or free nodes
+//
+// Any other node parameter mismatches during recapture can be configured to call the function provided in callbackFunc. The recapture will fail immediately if the callback returns anything other than [Success].
+// If the recapture fails for any reason, the graph will be in an undefined state and should be destroyed.
+// See [Stream.BeginCapture] for additional detail on beginning the capture.
+//
+// Note: Any user objects associated with graph will be released prior to the recapture.
+//
+// See also: [NewStream], [Stream.BeginCapture], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode]
+//
+//   - hStream: Stream in which to initiate capture
+//   - mode: Controls the interaction of this capture sequence with other API calls that are potentially unsafe. For more details see [ThreadExchangeStreamCaptureMode]
+//   - hGraph: Existing CUDA graph to be captured into
+//   - callbackFunc: Function that will be called for all parameter mismatches from the original graph (see [GraphRecaptureCallback])
+//   - userData: A generic pointer to user data that is passed into the callback function
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
+// Wraps cuStreamBeginRecaptureToGraph.
+func streamBeginRecaptureToGraph(hStream Stream, mode StreamCaptureMode, hGraph Graph, callbackFunc uintptr, userData uintptr) error {
+	if err := checkLibSym("cuStreamBeginRecaptureToGraph"); err != nil {
+		return err
+	}
+	return toError(fnstreamBeginRecaptureToGraph(hStream, mode, hGraph, callbackFunc, userData), "cuStreamBeginRecaptureToGraph")
 }
 
 // streamCopyAttributes copies attributes from source stream to destination stream.
@@ -16408,15 +17676,84 @@ var slotStreamGetAttribute outSlot[[8]uint64]
 //   - [ErrLossyQuery]
 //   - [ErrStreamCaptureImplicit]
 //
-// Wraps cuStreamGetCaptureInfo, bound as cuStreamGetCaptureInfo_v3.
+// Wraps cuStreamGetCaptureInfo, bound to the first of cuStreamGetCaptureInfo_v3, cuStreamGetCaptureInfo_v2 that the library exports. On libraries without cuStreamGetCaptureInfo_v3, it calls cuStreamGetCaptureInfo_v2; a non-nil edgeDataOut returns [ErrNotSupported].
 func streamGetCaptureInfo(hStream Stream, captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut **GraphNode, edgeDataOut **GraphEdgeData, numDependenciesOut *uint) error {
+	if err := checkLibChain(&chainCuStreamGetCaptureInfo); err != nil {
+		return err
+	}
+	return toError(fnstreamGetCaptureInfo(hStream, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut), chainCuStreamGetCaptureInfo.bound)
+}
+
+// streamGetCaptureInfoV3 queries a stream’s capture state.
+//
+// Query stream state related to stream capture.
+// If called on CU_STREAM_LEGACY (the “null stream”) while a stream not created with [StreamNonBlocking] is capturing, returns [ErrStreamCaptureImplicit].
+// Valid data (other than capture status) is returned only if both of the following are true:
+//   - the call returns [Success]
+//   - the returned capture status is [StreamCaptureStatusActive]
+//
+// If edgeDataOut is non-NULL then dependenciesOut must be as well. If dependenciesOut is non-NULL and edgeDataOut is NULL, but there is non-zero edge data for one or more of the current stream dependencies, the call will return [ErrLossyQuery].
+//
+// See also: [Stream.BeginCapture], [Stream.IsCapturing], [Stream.UpdateCaptureDependencies]
+//
+//   - hStream: The stream to query
+//   - captureStatusOut: Location to return the capture status of the stream; required
+//   - idOut: Optional location to return an id for the capture sequence, which is unique over the lifetime of the process
+//   - graphOut: Optional location to return the graph being captured into. All operations other than destroy and node removal are permitted on the graph while the capture sequence is in progress. This API does not transfer ownership of the graph, which is transferred or destroyed at [Stream.EndCapture]. Note that the graph handle may be invalidated before end of capture for certain errors. Nodes that are or become unreachable from the original stream at [Stream.EndCapture] due to direct actions on the graph do not trigger [ErrStreamCaptureUnjoined]
+//   - dependenciesOut: Optional location to store a pointer to an array of nodes. The next node to be captured in the stream will depend on this set of nodes, absent operations such as event wait which modify this set. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated. The node handles may be copied out and are valid until they or the graph is destroyed. The driver-owned array may also be passed directly to APIs that operate on the graph (not the stream) without copying
+//   - edgeDataOut: Optional location to store a pointer to an array of graph edge data. This array parallels dependenciesOut; the next node to be added has an edge to dependencies_outi with annotation edgeData_outi for each i. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated
+//   - numDependenciesOut: Optional location to store the size of the array returned in dependenciesOut
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrStreamCaptureImplicit]
+//
+// Wraps cuStreamGetCaptureInfo, bound as cuStreamGetCaptureInfo_v3.
+func streamGetCaptureInfoV3(hStream Stream, captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut **GraphNode, edgeDataOut **GraphEdgeData, numDependenciesOut *uint) error {
 	if err := checkLibSym("cuStreamGetCaptureInfo_v3"); err != nil {
 		return err
 	}
-	return toError(fnstreamGetCaptureInfo(hStream, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut), "cuStreamGetCaptureInfo_v3")
+	return toError(fnstreamGetCaptureInfoV3(hStream, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut), "cuStreamGetCaptureInfo_v3")
 }
 
-// streamGetCtx queries the contexts associated with a stream.
+// streamGetCtx queries the context associated with a stream.
+//
+// Returns the CUDA context that the stream is associated with.
+// If the stream was created via the API [GreenCtx.StreamCreate], the returned context is equivalent to the one returned by [CtxFromGreenCtx] on the green context associated with the stream at creation time.
+// The stream handle hStream can refer to any of the following:
+//   - a stream created via any of the CUDA driver APIs such as [NewStream] and [StreamCreateWithPriority], or their runtime API equivalents such as cudaStreamCreate, cudaStreamCreateWithFlags and cudaStreamCreateWithPriority. The returned context is the context that was active in the calling thread when the stream was created. Passing an invalid handle will result in undefined behavior.
+//   - any of the special streams such as the NULL stream, CU_STREAM_LEGACY and CU_STREAM_PER_THREAD. The runtime API equivalents of these are also accepted, which are NULL, cudaStreamLegacy and cudaStreamPerThread respectively. Specifying any of the special handles will return the context current to the calling thread. If no context is current to the calling thread, [ErrInvalidContext] is returned.
+//
+// See also: [Stream.Close], [StreamCreateWithPriority], [Stream.Priority], [Stream.Flags], [Stream.Device] [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
+//
+//   - hStream: Handle to the stream to be queried
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
+// Wraps cuStreamGetCtx.
+func streamGetCtx(hStream Stream) (Context, error) {
+	if err := checkLibSym("cuStreamGetCtx"); err != nil {
+		var zero Context
+		return zero, err
+	}
+	out := slotStreamGetCtx.get()
+	defer slotStreamGetCtx.put(out)
+	if err := toError(fnstreamGetCtx(hStream, out), "cuStreamGetCtx"); err != nil {
+		var zero Context
+		return zero, err
+	}
+	return *out, nil
+}
+
+var slotStreamGetCtx outSlot[Context]
+
+// streamGetCtxV2 queries the contexts associated with a stream.
 //
 // Returns the contexts that the stream is associated with.
 // If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx.
@@ -16436,19 +17773,19 @@ func streamGetCaptureInfo(hStream Stream, captureStatusOut *StreamCaptureStatus,
 //   - [ErrNotInitialized]
 //
 // Wraps cuStreamGetCtx_v2.
-func streamGetCtx(hStream Stream) (pCtx Context, pGreenCtx GreenCtx, err error) {
+func streamGetCtxV2(hStream Stream) (pCtx Context, pGreenCtx GreenCtx, err error) {
 	if err := checkLibSym("cuStreamGetCtx_v2"); err != nil {
 		return 0, 0, err
 	}
-	outs := slotStreamGetCtx.get()
-	defer slotStreamGetCtx.put(outs)
-	if err := toError(fnstreamGetCtx(hStream, &outs.out1, &outs.out2), "cuStreamGetCtx_v2"); err != nil {
+	outs := slotStreamGetCtxV2.get()
+	defer slotStreamGetCtxV2.put(outs)
+	if err := toError(fnstreamGetCtxV2(hStream, &outs.out1, &outs.out2), "cuStreamGetCtx_v2"); err != nil {
 		return 0, 0, err
 	}
 	return outs.out1, outs.out2, nil
 }
 
-var slotStreamGetCtx outSlot[struct {
+var slotStreamGetCtxV2 outSlot[struct {
 	out1 Context
 	out2 GreenCtx
 }]
@@ -16779,12 +18116,39 @@ func streamSynchronize(hStream Stream) error {
 //   - [ErrIllegalState]
 //   - [ErrInvalidValue]
 //
-// Wraps cuStreamUpdateCaptureDependencies, bound as cuStreamUpdateCaptureDependencies_v2.
+// Wraps cuStreamUpdateCaptureDependencies, bound to the first of cuStreamUpdateCaptureDependencies_v2, cuStreamUpdateCaptureDependencies that the library exports. On libraries without cuStreamUpdateCaptureDependencies_v2, it calls cuStreamUpdateCaptureDependencies; a non-nil dependencyData returns [ErrNotSupported].
 func streamUpdateCaptureDependencies(hStream Stream, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, flags StreamupdatecapturedependenciesFlags) error {
+	if err := checkLibChain(&chainCuStreamUpdateCaptureDependencies); err != nil {
+		return err
+	}
+	return toError(fnstreamUpdateCaptureDependencies(hStream, dependencies, dependencyData, numDependencies, uint32(flags)), chainCuStreamUpdateCaptureDependencies.bound)
+}
+
+// streamUpdateCaptureDependenciesV2 updates the set of dependencies in a capturing stream.
+//
+// Modifies the dependency set of a capturing stream. The dependency set is the set of nodes that the next captured node in the stream will depend on along with the edge data for those dependencies.
+// Valid flags are [StreamAddCaptureDependencies] and [StreamSetCaptureDependencies]. These control whether the set passed to the API is added to the existing set or replaces it. A flags value of 0 defaults to [StreamAddCaptureDependencies].
+// Nodes that are removed from the dependency set via this API do not result in [ErrStreamCaptureUnjoined] if they are unreachable from the stream at [Stream.EndCapture].
+// Returns [ErrIllegalState] if the stream is not capturing.
+//
+// See also: [Stream.BeginCapture], [Stream.CaptureInfo]
+//
+//   - hStream: The stream to update
+//   - dependencies: The set of dependencies to add
+//   - dependencyData: Optional array of data associated with each dependency
+//   - numDependencies: The size of the dependencies array
+//   - flags: See above
+//
+// Errors:
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//
+// Wraps cuStreamUpdateCaptureDependencies, bound as cuStreamUpdateCaptureDependencies_v2.
+func streamUpdateCaptureDependenciesV2(hStream Stream, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, flags StreamupdatecapturedependenciesFlags) error {
 	if err := checkLibSym("cuStreamUpdateCaptureDependencies_v2"); err != nil {
 		return err
 	}
-	return toError(fnstreamUpdateCaptureDependencies(hStream, dependencies, dependencyData, numDependencies, uint32(flags)), "cuStreamUpdateCaptureDependencies_v2")
+	return toError(fnstreamUpdateCaptureDependenciesV2(hStream, dependencies, dependencyData, numDependencies, uint32(flags)), "cuStreamUpdateCaptureDependencies_v2")
 }
 
 // streamWaitEvent makes a compute stream wait on an event.

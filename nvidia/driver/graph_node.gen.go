@@ -50,9 +50,31 @@ func (g GraphNode) ContainingGraph() (Graph, error) {
 //   - [ErrLossyQuery]
 //   - [ErrNotInitialized]
 //
-// Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
+// Wraps cuGraphNodeGetDependencies, bound to the first of cuGraphNodeGetDependencies_v2, cuGraphNodeGetDependencies that the library exports. On libraries without cuGraphNodeGetDependencies_v2, it calls cuGraphNodeGetDependencies; a non-nil edgeData returns [ErrNotSupported].
 func (g GraphNode) Dependencies(dependencies *GraphNode, edgeData *GraphEdgeData, numDependencies *uint) error {
 	return graphNodeGetDependencies(g, dependencies, edgeData, numDependencies)
+}
+
+// DependenciesV2 returns a node’s dependencies.
+//
+// Returns a list of node's dependencies. dependencies may be NULL, in which case this function will return the number of dependencies in numDependencies. Otherwise, numDependencies entries will be filled in. If numDependencies is higher than the actual number of dependencies, the remaining entries in dependencies will be set to NULL, and the number of nodes actually obtained will be returned in numDependencies.
+// Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependencies must be as well.
+//
+// See also: [GraphNode.DependentNodes], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+//
+//   - dependencies: Pointer to return the dependencies
+//   - edgeData: Optional array to return edge data for each dependency
+//   - numDependencies: See description
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
+// Wraps cuGraphNodeGetDependencies, bound as cuGraphNodeGetDependencies_v2.
+func (g GraphNode) DependenciesV2(dependencies *GraphNode, edgeData *GraphEdgeData, numDependencies *uint) error {
+	return graphNodeGetDependenciesV2(g, dependencies, edgeData, numDependencies)
 }
 
 // DependentNodes returns a node’s dependent nodes.
@@ -72,9 +94,31 @@ func (g GraphNode) Dependencies(dependencies *GraphNode, edgeData *GraphEdgeData
 //   - [ErrLossyQuery]
 //   - [ErrNotInitialized]
 //
-// Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
+// Wraps cuGraphNodeGetDependentNodes, bound to the first of cuGraphNodeGetDependentNodes_v2, cuGraphNodeGetDependentNodes that the library exports. On libraries without cuGraphNodeGetDependentNodes_v2, it calls cuGraphNodeGetDependentNodes; a non-nil edgeData returns [ErrNotSupported].
 func (g GraphNode) DependentNodes(dependentNodes *GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) error {
 	return graphNodeGetDependentNodes(g, dependentNodes, edgeData, numDependentNodes)
+}
+
+// DependentNodesV2 returns a node’s dependent nodes.
+//
+// Returns a list of node's dependent nodes. dependentNodes may be NULL, in which case this function will return the number of dependent nodes in numDependentNodes. Otherwise, numDependentNodes entries will be filled in. If numDependentNodes is higher than the actual number of dependent nodes, the remaining entries in dependentNodes will be set to NULL, and the number of nodes actually obtained will be returned in numDependentNodes.
+// Note that if an edge has non-zero (non-default) edge data and edgeData is NULL, this API will return [ErrLossyQuery]. If edgeData is non-NULL, then dependentNodes must be as well.
+//
+// See also: [GraphNode.Dependencies], [Graph.GetNodes], [Graph.RootNodes], [Graph.Edges], [Graph.AddDependencies], [Graph.RemoveDependencies]
+//
+//   - dependentNodes: Pointer to return the dependent nodes
+//   - edgeData: Optional pointer to return edge data for dependent nodes
+//   - numDependentNodes: See description
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrNotInitialized]
+//
+// Wraps cuGraphNodeGetDependentNodes, bound as cuGraphNodeGetDependentNodes_v2.
+func (g GraphNode) DependentNodesV2(dependentNodes *GraphNode, edgeData *GraphEdgeData, numDependentNodes *uint) error {
+	return graphNodeGetDependentNodesV2(g, dependentNodes, edgeData, numDependentNodes)
 }
 
 // Enabled queries whether a node in the given graphExec is enabled.
@@ -186,6 +230,26 @@ func (g GraphNode) SetEnabled(hGraphExec GraphExec, isEnabled uint32) error {
 //
 // Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
 // Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+//
+// See also: [Graph.AddNodeV3], [GraphNode.Params], [GraphExec.NodeSetParams]
+//
+//   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphNodeSetParams, bound to the first of cuGraphNodeSetParams_v2, cuGraphNodeSetParams that the library exports.
+func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
+	return graphNodeSetParams(g, nodeParams)
+}
+
+// SetParamsV1 updates a graph node’s parameters.
+//
+// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
+// Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
 //
 // See also: [Graph.AddNode], [GraphNode.Params], [GraphExec.NodeSetParams]
 //
@@ -196,8 +260,28 @@ func (g GraphNode) SetEnabled(hGraphExec GraphExec, isEnabled uint32) error {
 //   - [ErrNotSupported]
 //
 // Wraps cuGraphNodeSetParams.
-func (g GraphNode) SetParams(nodeParams *GraphNodeParams) error {
-	return graphNodeSetParams(g, nodeParams)
+func (g GraphNode) SetParamsV1(nodeParams *GraphNodeParams) error {
+	return graphNodeSetParamsV1(g, nodeParams)
+}
+
+// SetParamsV2 updates a graph node’s parameters.
+//
+// Sets the parameters of graph node hNode to nodeParams. The node type specified by nodeParams->type must match the type of hNode. nodeParams must be fully initialized and all unused bytes (reserved, padding) zeroed.
+// Modifying parameters is not supported for node types [GraphNodeTypeMemAlloc] and [GraphNodeTypeMemFree].
+// For kernel nodes, if both the kernel node’s [Function] and ctx are non-NULL, the underlying device context of ctx must match the device context that the [Function] was loaded into; otherwise the call returns [ErrInvalidContext].
+//
+// See also: [Graph.AddNodeV3], [GraphNode.Params], [GraphExec.NodeSetParams]
+//
+//   - nodeParams: Parameters to copy
+//
+// Errors:
+//   - [ErrInvalidContext]
+//   - [ErrInvalidValue]
+//   - [ErrNotSupported]
+//
+// Wraps cuGraphNodeSetParams_v2.
+func (g GraphNode) SetParamsV2(nodeParams *GraphNodeParams) error {
+	return graphNodeSetParamsV2(g, nodeParams)
 }
 
 // Close removes a node from the graph.

@@ -49,9 +49,55 @@ func (e *Event) Close() error {
 //   - [ErrNotReady]
 //   - [ErrUnknown]
 //
-// Wraps cuEventElapsedTime, bound as cuEventElapsedTime_v2.
+// Wraps cuEventElapsedTime, bound to the first of cuEventElapsedTime_v2, cuEventElapsedTime that the library exports.
 func (e Event) ElapsedTime(hEnd Event) (float32, error) {
 	return eventElapsedTime(e, hEnd)
+}
+
+// ElapsedTimeV1 computes the elapsed time between two events.
+//
+// Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds). Note this API is not guaranteed to return the latest errors for pending work. As such this API is intended to serve as an elapsed time calculation only and any polling for completion on the events to be compared should be done with [Event.Query] instead.
+// If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
+// If [Event.Record] has not been called on either event then [ErrInvalidHandle] is returned. If [Event.Record] has been called on both events but one or both of them has not yet been completed (that is, [Event.Query] would return [ErrNotReady] on at least one of the events), [ErrNotReady] is returned. If either event was created with the [EventDisableTiming] flag, then this function will return [ErrInvalidHandle].
+//
+// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.Close], cudaEventElapsedTime
+//
+//   - hEnd: Ending event
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotReady]
+//   - [ErrUnknown]
+//
+// Wraps cuEventElapsedTime.
+func (e Event) ElapsedTimeV1(hEnd Event) (float32, error) {
+	return eventElapsedTimeV1(e, hEnd)
+}
+
+// ElapsedTimeV2 computes the elapsed time between two events.
+//
+// Computes the elapsed time between two events (in milliseconds with a resolution of around 0.5 microseconds). Note this API is not guaranteed to return the latest errors for pending work. As such this API is intended to serve as an elapsed time calculation only and any polling for completion on the events to be compared should be done with [Event.Query] instead.
+// If either event was last recorded in a non-NULL stream, the resulting time may be greater than expected (even if both used the same stream handle). This happens because the [Event.Record] operation takes place asynchronously and there is no guarantee that the measured latency is actually just between the two events. Any number of other different stream operations could execute in between the two measured events, thus altering the timing in a significant way.
+// If [Event.Record] has not been called on either event then [ErrInvalidHandle] is returned. If [Event.Record] has been called on both events but one or both of them has not yet been completed (that is, [Event.Query] would return [ErrNotReady] on at least one of the events), [ErrNotReady] is returned. If either event was created with the [EventDisableTiming] flag, then this function will return [ErrInvalidHandle].
+//
+// See also: [NewEvent], [Event.Record], [Event.Query], [Event.Synchronize], [Event.Close], cudaEventElapsedTime
+//
+//   - hEnd: Ending event
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotReady]
+//   - [ErrUnknown]
+//
+// Wraps cuEventElapsedTime, bound as cuEventElapsedTime_v2.
+func (e Event) ElapsedTimeV2(hEnd Event) (float32, error) {
+	return eventElapsedTimeV2(e, hEnd)
 }
 
 // Query queries an event’s status.

@@ -2,7 +2,7 @@
 // Source: cusparse.h (sha256:c6e40396d48f...)
 // Input SHA256: c6e40396d48fab66529a9626d95e0effd1bd79942586fd5e05e94ef07f0f3d97
 // Input scope: explicit header roots only; see provenance.json for limitations
-// Upstream version: 13.4
-// Version source: explicit generator flag; not independently verified
+// Upstream version: unrecorded
+// Version source: unrecorded
 
 package cusparse

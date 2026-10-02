@@ -1,6 +1,7 @@
 package sanitizer
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,15 @@ import (
 // for a memory resource callback, and so on. It is valid only until this
 // function returns, so anything worth keeping must be copied out here. It is
 // nil for domains that carry no data.
+//
+// For the runtime API domain, cbid is a [RuntimeAPICBID] in this package's
+// numbering, whatever release the library is. CUDA 13.0 renumbered the runtime
+// callback IDs, so a CUDA 12 library's IDs are translated before fn sees them,
+// and an ID that only CUDA 12 declares arrives as its CUDA 12-only constant.
+// Other domains' IDs pass through unchanged.
+// For older layouts, callback data for the supported domains is a normalized,
+// read-only snapshot in this package's CUDA 13.4 layout. Do not retain its
+// pointer after fn returns.
 //
 // This type is written by hand rather than generated so that cbdata is an
 // unsafe.Pointer. The generated form makes every callback pointer a uintptr,
@@ -93,10 +103,11 @@ type CallbackFunc func(userdata uintptr, domain CallbackDomain, cbid uint32, cbd
 // the raw [Subscriber] handle from [Subscription.Handle], which are outside
 // this type's control.
 type Subscription struct {
-	mu   sync.Mutex // serializes the enable/query calls, per the header's warning
-	sub  Subscriber
-	once sync.Once
-	err  error
+	mu    sync.Mutex // serializes the enable/query calls, per the header's warning
+	sub   Subscriber
+	major int // the library's CUDA major, which numbers the runtime callback IDs
+	once  sync.Once
+	err   error
 }
 
 // handler holds the Go function the trampoline dispatches to.
@@ -109,7 +120,9 @@ type Subscription struct {
 var handler atomic.Pointer[handlerState]
 
 type handlerState struct {
-	fn CallbackFunc
+	fn          CallbackFunc
+	major       int
+	runtimeSize int
 }
 
 var (
@@ -137,6 +150,13 @@ func dispatch(userdata uintptr, domain CallbackDomain, cbid uint32, cbdata unsaf
 		// address outlives every subscription (see newTrampoline), so this is
 		// a reachable state and must be a no-op, not a nil call.
 		return
+	}
+	if domain == CbDomainRuntimeApi {
+		cbid = uint32(runtimeAPICBIDFromLib(h.major, cbid))
+	}
+	cbdata, kind := normalizeCallbackData(h.runtimeSize, domain, cbid, cbdata)
+	if kind != callbackDataNone {
+		defer releaseCallbackData(kind, cbdata)
 	}
 	h.fn(userdata, domain, cbid, cbdata)
 }
@@ -192,7 +212,9 @@ func newTrampoline() (uintptr, error) {
 //
 // If the library is missing, SubscribeFunc returns the loader's error; if the
 // symbol is missing it returns *SymbolError; if a subscriber already exists it
-// returns the library's own [ErrMaxLimitReached]. It never panics.
+// returns the library's own [ErrMaxLimitReached]. A library older than CUDA
+// 12.2, whose runtime callback IDs this package cannot translate, is
+// unsubscribed again and reported as an error. It never panics.
 func SubscribeFunc(fn CallbackFunc, userdata uintptr) (*Subscription, error) {
 	if fn == nil {
 		return nil, fmt.Errorf("sanitizer: SubscribeFunc: nil callback")
@@ -219,19 +241,77 @@ func SubscribeFunc(fn CallbackFunc, userdata uintptr) (*Subscription, error) {
 		// failure.
 		return nil, err
 	}
+	major, err := libMajor(sub)
+	if err != nil {
+		unsubscribe(sub)
+		return nil, err
+	}
+	runtimeSize, err := libSize(sub)
+	if err != nil {
+		unsubscribe(sub)
+		return nil, err
+	}
 
 	// Store the handler only after the library has accepted the subscription.
 	// No callback can arrive before this point: subscribing enables nothing,
 	// and enabling requires the handle being returned here.
-	handler.Store(&handlerState{fn: fn})
-	return &Subscription{sub: sub}, nil
+	handler.Store(&handlerState{fn: fn, major: major, runtimeSize: runtimeSize})
+	return &Subscription{sub: sub, major: major}, nil
+}
+
+// libMajor reports the CUDA major of the loaded library, which decides how
+// it numbers runtime callback IDs. The library has no version entry point,
+// so libMajor asks which runtime IDs it accepts: each release accepts exactly
+// the IDs below its SANITIZER_CBID_RUNTIME_API_SIZE, and the sizes of the
+// supported majors do not overlap.
+func libMajor(sub Subscriber) (int, error) {
+	var err error
+	major, ok := runtimeAPICBIDLibMajor(func(cbid uint32) bool {
+		if err != nil {
+			return false
+		}
+		_, e := getCallbackState(sub, CbDomainRuntimeApi, cbid)
+		if e != nil && !errors.Is(e, ErrInvalidParameter) {
+			err = e
+		}
+		return e == nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("sanitizer: probing runtime callback IDs: %w", err)
+	}
+	if !ok {
+		return 0, errors.New("sanitizer: library predates CUDA 12.2, the oldest release supported")
+	}
+	return major, nil
+}
+
+func libSize(sub Subscriber) (int, error) {
+	var probeErr error
+	size, ok := runtimeAPICBIDLibSize(func(cbid uint32) bool {
+		if probeErr != nil {
+			return false
+		}
+		_, err := getCallbackState(sub, CbDomainRuntimeApi, cbid)
+		if err != nil && !errors.Is(err, ErrInvalidParameter) {
+			probeErr = err
+		}
+		return err == nil
+	})
+	if probeErr != nil {
+		return 0, fmt.Errorf("sanitizer: probing runtime callback ID range: %w", probeErr)
+	}
+	if !ok {
+		return 0, fmt.Errorf("sanitizer: unsupported runtime callback ID range")
+	}
+	return size, nil
 }
 
 // Handle returns the raw subscriber handle, for the generated
 // [Subscriber] methods and for calls this type does not wrap.
 //
 // Calls made through the handle bypass the mutex documented on
-// [Subscription], and unsubscribing through it leaves this Subscription
+// [Subscription] and take runtime callback IDs in the library's own
+// numbering, not this package's; unsubscribing through it leaves this Subscription
 // believing it still owns a live subscriber.
 func (s *Subscription) Handle() Subscriber { return s.sub }
 
@@ -250,14 +330,24 @@ func (s *Subscription) EnableAllDomains(enable bool) error {
 }
 
 // EnableCallback enables or disables one callback in one domain.
+// A runtime API cbid is a [RuntimeAPICBID]; see [CallbackFunc].
 func (s *Subscription) EnableCallback(enable bool, domain CallbackDomain, cbid uint32) error {
+	cbid, err := s.libCBID(domain, cbid)
+	if err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return enableCallback(boolToUint32(enable), s.sub, domain, cbid)
 }
 
 // CallbackState reports whether one callback in one domain is enabled.
+// A runtime API cbid is a [RuntimeAPICBID]; see [CallbackFunc].
 func (s *Subscription) CallbackState(domain CallbackDomain, cbid uint32) (bool, error) {
+	cbid, err := s.libCBID(domain, cbid)
+	if err != nil {
+		return false, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	v, err := getCallbackState(s.sub, domain, cbid)
@@ -288,6 +378,18 @@ func (s *Subscription) Unsubscribe() error {
 		handler.Store(nil)
 	})
 	return s.err
+}
+
+// libCBID translates a runtime API callback ID to the library's numbering.
+func (s *Subscription) libCBID(domain CallbackDomain, cbid uint32) (uint32, error) {
+	if domain != CbDomainRuntimeApi {
+		return cbid, nil
+	}
+	v, ok := runtimeAPICBIDToLib(s.major, RuntimeAPICBID(cbid))
+	if !ok {
+		return 0, fmt.Errorf("sanitizer: runtime callback %v: not in CUDA %d", RuntimeAPICBID(cbid), s.major)
+	}
+	return v, nil
 }
 
 func boolToUint32(b bool) uint32 {

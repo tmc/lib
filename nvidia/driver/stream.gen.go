@@ -118,7 +118,7 @@ func (s Stream) BeginCapture(mode StreamCaptureMode) error {
 
 // BeginCaptureToCig begins capture to CIG on a stream.
 //
-// Support for CIG streams with D3D12 can be determined using [Device.Attribute] with CU_DEVICE_ATTRIBUTE_D3D12_CIG_STREAMS_SUPPORTED.
+// Support for CIG streams with D3D12 can be determined using [Device.Attribute] with [DevAttrD3d12CigStreamsSupported].
 // Begin CIG (CUDA in Graphics) capture on hStream for the graphics API as provided in streamCigCaptureParams. When a stream is in CIG capture mode, all operations pushed into the stream will not be executed, but will instead be captured into a graphics API command list/command buffer. All kernel launches and memory copy/memory set operations on the CIG stream will be recorded. When the command list is executed by the graphics API, all the stream’s operations will execute in order along with other graphics API commands in the command list.
 // CIG stream capture may not be initiated if stream is CU_STREAM_LEGACY. Capture must be ended on the same stream in which it was initiated, and it may only be initiated if the stream is not already in CIG capture mode.
 // The context must be also created in CIG mode previously, otherwise this operation will fail and [ErrInvalidContext] will be returned.
@@ -168,6 +168,35 @@ func (s Stream) BeginCaptureToCig(streamCigCaptureParams *StreamCigCaptureParams
 // Wraps cuStreamBeginCaptureToGraph.
 func (s Stream) BeginCaptureToGraph(hGraph Graph, dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, mode StreamCaptureMode) error {
 	return streamBeginCaptureToGraph(s, hGraph, dependencies, dependencyData, numDependencies, mode)
+}
+
+// BeginRecaptureToGraph begins graph capture on a stream to an existing graph.
+//
+// Begin graph capture on hStream to the existing hGraph. The node creation order while recapturing the graph must be identical to the original graph. The recapture will fail immediately for:
+//   - Topology mismatches between the existing graph and the recaptured graph
+//   - Parameter mismatches for memory allocation or free nodes
+//
+// Any other node parameter mismatches during recapture can be configured to call the function provided in callbackFunc. The recapture will fail immediately if the callback returns anything other than [Success].
+// If the recapture fails for any reason, the graph will be in an undefined state and should be destroyed.
+// See [Stream.BeginCapture] for additional detail on beginning the capture.
+//
+// Note: Any user objects associated with graph will be released prior to the recapture.
+//
+// See also: [NewStream], [Stream.BeginCapture], [Stream.IsCapturing], [Stream.EndCapture], [ThreadExchangeStreamCaptureMode]
+//
+//   - mode: Controls the interaction of this capture sequence with other API calls that are potentially unsafe. For more details see [ThreadExchangeStreamCaptureMode]
+//   - hGraph: Existing CUDA graph to be captured into
+//   - callbackFunc: Function that will be called for all parameter mismatches from the original graph (see [GraphRecaptureCallback])
+//   - userData: A generic pointer to user data that is passed into the callback function
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidValue]
+//   - [ErrNotInitialized]
+//
+// Wraps cuStreamBeginRecaptureToGraph.
+func (s Stream) BeginRecaptureToGraph(mode StreamCaptureMode, hGraph Graph, callbackFunc uintptr, userData uintptr) error {
+	return streamBeginRecaptureToGraph(s, mode, hGraph, callbackFunc, userData)
 }
 
 // CopyAttributes copies attributes from source stream to destination stream.
@@ -291,12 +320,63 @@ func (s Stream) Attribute(attr int32) ([8]uint64, error) {
 //   - [ErrLossyQuery]
 //   - [ErrStreamCaptureImplicit]
 //
-// Wraps cuStreamGetCaptureInfo, bound as cuStreamGetCaptureInfo_v3.
+// Wraps cuStreamGetCaptureInfo, bound to the first of cuStreamGetCaptureInfo_v3, cuStreamGetCaptureInfo_v2 that the library exports. On libraries without cuStreamGetCaptureInfo_v3, it calls cuStreamGetCaptureInfo_v2; a non-nil edgeDataOut returns [ErrNotSupported].
 func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut **GraphNode, edgeDataOut **GraphEdgeData, numDependenciesOut *uint) error {
 	return streamGetCaptureInfo(s, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut)
 }
 
-// Ctx queries the contexts associated with a stream.
+// CaptureInfoV3 queries a stream’s capture state.
+//
+// Query stream state related to stream capture.
+// If called on CU_STREAM_LEGACY (the “null stream”) while a stream not created with [StreamNonBlocking] is capturing, returns [ErrStreamCaptureImplicit].
+// Valid data (other than capture status) is returned only if both of the following are true:
+//   - the call returns [Success]
+//   - the returned capture status is [StreamCaptureStatusActive]
+//
+// If edgeDataOut is non-NULL then dependenciesOut must be as well. If dependenciesOut is non-NULL and edgeDataOut is NULL, but there is non-zero edge data for one or more of the current stream dependencies, the call will return [ErrLossyQuery].
+//
+// See also: [Stream.BeginCapture], [Stream.IsCapturing], [Stream.UpdateCaptureDependencies]
+//
+//   - captureStatusOut: Location to return the capture status of the stream; required
+//   - idOut: Optional location to return an id for the capture sequence, which is unique over the lifetime of the process
+//   - graphOut: Optional location to return the graph being captured into. All operations other than destroy and node removal are permitted on the graph while the capture sequence is in progress. This API does not transfer ownership of the graph, which is transferred or destroyed at [Stream.EndCapture]. Note that the graph handle may be invalidated before end of capture for certain errors. Nodes that are or become unreachable from the original stream at [Stream.EndCapture] due to direct actions on the graph do not trigger [ErrStreamCaptureUnjoined]
+//   - dependenciesOut: Optional location to store a pointer to an array of nodes. The next node to be captured in the stream will depend on this set of nodes, absent operations such as event wait which modify this set. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated. The node handles may be copied out and are valid until they or the graph is destroyed. The driver-owned array may also be passed directly to APIs that operate on the graph (not the stream) without copying
+//   - edgeDataOut: Optional location to store a pointer to an array of graph edge data. This array parallels dependenciesOut; the next node to be added has an edge to dependencies_outi with annotation edgeData_outi for each i. The array pointer is valid until the next API call which operates on the stream or until the capture is terminated
+//   - numDependenciesOut: Optional location to store the size of the array returned in dependenciesOut
+//
+// Errors:
+//   - [ErrInvalidValue]
+//   - [ErrLossyQuery]
+//   - [ErrStreamCaptureImplicit]
+//
+// Wraps cuStreamGetCaptureInfo, bound as cuStreamGetCaptureInfo_v3.
+func (s Stream) CaptureInfoV3(captureStatusOut *StreamCaptureStatus, idOut *uint64, graphOut *Graph, dependenciesOut **GraphNode, edgeDataOut **GraphEdgeData, numDependenciesOut *uint) error {
+	return streamGetCaptureInfoV3(s, captureStatusOut, idOut, graphOut, dependenciesOut, edgeDataOut, numDependenciesOut)
+}
+
+// Ctx queries the context associated with a stream.
+//
+// Returns the CUDA context that the stream is associated with.
+// If the stream was created via the API [GreenCtx.StreamCreate], the returned context is equivalent to the one returned by [CtxFromGreenCtx] on the green context associated with the stream at creation time.
+// The stream handle hStream can refer to any of the following:
+//   - a stream created via any of the CUDA driver APIs such as [NewStream] and [StreamCreateWithPriority], or their runtime API equivalents such as cudaStreamCreate, cudaStreamCreateWithFlags and cudaStreamCreateWithPriority. The returned context is the context that was active in the calling thread when the stream was created. Passing an invalid handle will result in undefined behavior.
+//   - any of the special streams such as the NULL stream, CU_STREAM_LEGACY and CU_STREAM_PER_THREAD. The runtime API equivalents of these are also accepted, which are NULL, cudaStreamLegacy and cudaStreamPerThread respectively. Specifying any of the special handles will return the context current to the calling thread. If no context is current to the calling thread, [ErrInvalidContext] is returned.
+//
+// See also: [Stream.Close], [StreamCreateWithPriority], [Stream.Priority], [Stream.Flags], [Stream.Device] [Stream.WaitEvent], [Stream.Query], [Stream.Synchronize], [Stream.AddCallback], cudaStreamCreate, cudaStreamCreateWithFlags
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
+// Wraps cuStreamGetCtx.
+func (s Stream) Ctx() (Context, error) {
+	return streamGetCtx(s)
+}
+
+// CtxV2 queries the contexts associated with a stream.
 //
 // Returns the contexts that the stream is associated with.
 // If the stream is associated with a green context, the API returns the green context in pGreenCtx and the primary context of the associated device in pCtx.
@@ -314,8 +394,8 @@ func (s Stream) CaptureInfo(captureStatusOut *StreamCaptureStatus, idOut *uint64
 //   - [ErrNotInitialized]
 //
 // Wraps cuStreamGetCtx_v2.
-func (s Stream) Ctx() (pCtx Context, pGreenCtx GreenCtx, err error) {
-	return streamGetCtx(s)
+func (s Stream) CtxV2() (pCtx Context, pGreenCtx GreenCtx, err error) {
+	return streamGetCtxV2(s)
 }
 
 // DevResource gets stream resources.
@@ -533,9 +613,32 @@ func (s Stream) Synchronize() error {
 //   - [ErrIllegalState]
 //   - [ErrInvalidValue]
 //
-// Wraps cuStreamUpdateCaptureDependencies, bound as cuStreamUpdateCaptureDependencies_v2.
+// Wraps cuStreamUpdateCaptureDependencies, bound to the first of cuStreamUpdateCaptureDependencies_v2, cuStreamUpdateCaptureDependencies that the library exports. On libraries without cuStreamUpdateCaptureDependencies_v2, it calls cuStreamUpdateCaptureDependencies; a non-nil dependencyData returns [ErrNotSupported].
 func (s Stream) UpdateCaptureDependencies(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, flags StreamupdatecapturedependenciesFlags) error {
 	return streamUpdateCaptureDependencies(s, dependencies, dependencyData, numDependencies, flags)
+}
+
+// UpdateCaptureDependenciesV2 updates the set of dependencies in a capturing stream.
+//
+// Modifies the dependency set of a capturing stream. The dependency set is the set of nodes that the next captured node in the stream will depend on along with the edge data for those dependencies.
+// Valid flags are [StreamAddCaptureDependencies] and [StreamSetCaptureDependencies]. These control whether the set passed to the API is added to the existing set or replaces it. A flags value of 0 defaults to [StreamAddCaptureDependencies].
+// Nodes that are removed from the dependency set via this API do not result in [ErrStreamCaptureUnjoined] if they are unreachable from the stream at [Stream.EndCapture].
+// Returns [ErrIllegalState] if the stream is not capturing.
+//
+// See also: [Stream.BeginCapture], [Stream.CaptureInfo]
+//
+//   - dependencies: The set of dependencies to add
+//   - dependencyData: Optional array of data associated with each dependency
+//   - numDependencies: The size of the dependencies array
+//   - flags: See above
+//
+// Errors:
+//   - [ErrIllegalState]
+//   - [ErrInvalidValue]
+//
+// Wraps cuStreamUpdateCaptureDependencies, bound as cuStreamUpdateCaptureDependencies_v2.
+func (s Stream) UpdateCaptureDependenciesV2(dependencies *GraphNode, dependencyData *GraphEdgeData, numDependencies uint, flags StreamupdatecapturedependenciesFlags) error {
+	return streamUpdateCaptureDependenciesV2(s, dependencies, dependencyData, numDependencies, flags)
 }
 
 // WaitEvent makes a compute stream wait on an event.
@@ -720,6 +823,37 @@ func (s Stream) GraphicsUnmapResources(count uint32, resources *GraphicsResource
 //
 //   - fn: The function to call once preceding stream operations are complete (see [HostFn])
 //   - userData: User-specified data to be passed to the function
+//
+// Errors:
+//   - [ErrDeinitialized]
+//   - [ErrInvalidContext]
+//   - [ErrInvalidHandle]
+//   - [ErrNotInitialized]
+//   - [ErrNotSupported]
+//
+// Wraps cuLaunchHostFunc.
+func (s Stream) LaunchHostFunc(fn uintptr, userData uintptr) error {
+	return launchHostFunc(s, fn, userData)
+}
+
+// LaunchHostFuncV2 enqueues a host function call in a stream.
+//
+// Enqueues a host function to run in a stream. The function will be called after currently enqueued work and will block work added after it.
+// The host function must not make any CUDA API calls. Attempting to use a CUDA API may result in [ErrNotPermitted], but this is not required. The host function must not perform any synchronization that may depend on outstanding CUDA work not mandated to run earlier. Host functions without a mandated order (such as in independent streams) execute in undefined order and may be serialized.
+// For the purposes of Unified Memory, execution makes a number of guarantees:
+//   - The stream is considered idle for the duration of the function’s execution. Thus, for example, the function may always use memory attached to the stream it was enqueued in.
+//   - The start of execution of the function has the same effect as synchronizing an event recorded in the same stream immediately prior to the function. It thus synchronizes streams which have been “joined” prior to the function.
+//   - Adding device work to any stream does not have the effect of making the stream active until all preceding host functions and stream callbacks have executed. Thus, for example, a function might use global attached memory even if work has been added to another stream, if the work has been ordered behind the function call with an event.
+//   - Completion of the function does not cause a stream to become active except as described above. The stream will remain idle if no device work follows the function, and will remain idle across consecutive host functions or stream callbacks without device work in between. Thus, for example, stream synchronization can be done by signaling from a host function at the end of the stream.
+//
+// Note that, in contrast to [Stream.AddCallback], the function will not be called in the event of an error in the CUDA context.
+//
+// Note: This function uses standard default stream semantics.
+//
+// See also: [NewStream], [Stream.Query], [Stream.Synchronize], [Stream.WaitEvent], [Stream.Close], [MemAllocManaged], [Stream.AttachMemAsync], [Stream.AddCallback]
+//
+//   - fn: The function to call once preceding stream operations are complete (see [HostFn])
+//   - userData: User-specified data to be passed to the function
 //   - syncMode: Synchronization mode for the host function
 //
 // Errors:
@@ -730,8 +864,8 @@ func (s Stream) GraphicsUnmapResources(count uint32, resources *GraphicsResource
 //   - [ErrNotSupported]
 //
 // Wraps cuLaunchHostFunc_v2.
-func (s Stream) LaunchHostFunc(fn uintptr, userData uintptr, syncMode uint32) error {
-	return launchHostFunc(s, fn, userData, syncMode)
+func (s Stream) LaunchHostFuncV2(fn uintptr, userData uintptr, syncMode uint32) error {
+	return launchHostFuncV2(s, fn, userData, syncMode)
 }
 
 // MemAllocAsync allocates memory with stream ordered semantics.

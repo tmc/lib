@@ -34,6 +34,7 @@
 //
 // # Checkpointing
 //
+//   - [CheckpointOperationHandle.Complete]: Complete a custom-storage checkpoint or restore operation.
 //   - [CheckpointProcessCheckpoint]: Checkpoint a CUDA process’s GPU memory contents.
 //   - [CheckpointProcessGetRestoreThreadId]: Returns the restore thread ID for a CUDA process.
 //   - [CheckpointProcessGetState]: Returns the process state of a CUDA process.
@@ -56,6 +57,7 @@
 //
 //   - [CtxAttach]: Increment a context’s usage-count.
 //   - [NewContext]: Create a CUDA context.
+//   - [CtxCreateV4]: Create a CUDA context.
 //   - [Context.Close]: Destroy a CUDA context.
 //   - [Context.Detach]: Decrement a context’s usage-count.
 //   - [Context.DisablePeerAccess]: Disables direct access to memory allocations in a peer context and unregisters any registered allocations.
@@ -114,10 +116,13 @@
 //   - [DeviceGet]: Returns a handle to a compute device.
 //   - [Device.Attribute]: Returns information about the device.
 //   - [DeviceGetByPCIBusId]: Returns a handle to a compute device.
+//   - [Device.CliqueCount]: Retrieves the number of fabric cliques.
+//   - [Device.CliqueInfo]: Retrieves fabric clique information.
 //   - [DeviceGetCount]: Returns the number of compute-capable devices.
 //   - [Device.DefaultMemPool]: Returns the default mempool of a device.
 //   - [Device.DevResource]: Get device resources.
 //   - [Device.ExecAffinitySupport]: Returns information about the execution affinity support of the device.
+//   - [Device.FabricClusterUuid]: Retrieves the fabric cluster UUID.
 //   - [Device.GraphMemAttribute]: Query asynchronous allocation attributes related to graphs.
 //   - [Device.HostAtomicCapabilities]: Queries details about atomic operations supported between the device and host.
 //   - [Device.Luid]: Return an LUID and device node mask for the device.
@@ -152,6 +157,8 @@
 //   - [NewEvent]: Creates an event.
 //   - [Event.Close]: Destroys an event.
 //   - [Event.ElapsedTime]: Computes the elapsed time between two events.
+//   - [Event.ElapsedTimeV1]: Computes the elapsed time between two events.
+//   - [Event.ElapsedTimeV2]: Computes the elapsed time between two events.
 //   - [Event.Query]: Queries an event’s status.
 //   - [Event.Record]: Records an event.
 //   - [Event.RecordWithFlags]: Records an event.
@@ -181,6 +188,7 @@
 //   - [Graph.AddBatchMemOpNode]: Creates a batch memory operation node and adds it to a graph.
 //   - [Graph.AddChildGraphNode]: Creates a child graph node and adds it to a graph.
 //   - [Graph.AddDependencies]: Adds dependency edges to a graph.
+//   - [Graph.AddDependenciesV2]: Adds dependency edges to a graph.
 //   - [Graph.AddEmptyNode]: Creates an empty node and adds it to a graph.
 //   - [Graph.AddEventRecordNode]: Creates an event record node and adds it to a graph.
 //   - [Graph.AddEventWaitNode]: Creates an event wait node and adds it to a graph.
@@ -193,6 +201,8 @@
 //   - [Graph.AddMemcpyNode]: Creates a memcpy node and adds it to a graph.
 //   - [Graph.AddMemsetNode]: Creates a memset node and adds it to a graph.
 //   - [Graph.AddNode]: Adds a node of arbitrary type to a graph.
+//   - [Graph.AddNodeV2]: Adds a node of arbitrary type to a graph.
+//   - [Graph.AddNodeV3]: Adds a node of arbitrary type to a graph.
 //   - [BatchMemOpNode.Params]: Returns a batch mem op node’s parameters.
 //   - [BatchMemOpNode.SetParams]: Sets a batch mem op node’s parameters.
 //   - [ChildGraphNode.Graph]: Gets a handle to the embedded graph of a child graph node.
@@ -226,6 +236,7 @@
 //   - [ExternalSemaphoresWaitNode.Params]: Returns an external semaphore wait node’s parameters.
 //   - [ExternalSemaphoresWaitNode.SetParams]: Sets an external semaphore wait node’s parameters.
 //   - [Graph.Edges]: Returns a graph’s dependency edges.
+//   - [Graph.EdgesV2]: Returns a graph’s dependency edges.
 //   - [Graph.Id]: Returns the id of a given graph.
 //   - [Graph.GetNodes]: Returns a graph’s nodes.
 //   - [Graph.RootNodes]: Returns a graph’s root nodes.
@@ -248,7 +259,9 @@
 //   - [GraphNode.FindInClone]: Finds a cloned version of a node.
 //   - [GraphNode.ContainingGraph]: Returns the graph that contains a given graph node.
 //   - [GraphNode.Dependencies]: Returns a node’s dependencies.
+//   - [GraphNode.DependenciesV2]: Returns a node’s dependencies.
 //   - [GraphNode.DependentNodes]: Returns a node’s dependent nodes.
+//   - [GraphNode.DependentNodesV2]: Returns a node’s dependent nodes.
 //   - [GraphNode.Enabled]: Query whether a node in the given graphExec is enabled.
 //   - [GraphNode.LocalId]: Returns the local node id of a given graph node.
 //   - [GraphNode.Params]: Return a graph node’s parameters.
@@ -256,8 +269,11 @@
 //   - [GraphNode.Type]: Returns a node’s type.
 //   - [GraphNode.SetEnabled]: Enables or disables the specified node in the given graphExec.
 //   - [GraphNode.SetParams]: Update a graph node’s parameters.
+//   - [GraphNode.SetParamsV1]: Update a graph node’s parameters.
+//   - [GraphNode.SetParamsV2]: Update a graph node’s parameters.
 //   - [Graph.ReleaseUserObject]: Release a user object reference from a graph.
 //   - [Graph.RemoveDependencies]: Removes dependency edges from a graph.
+//   - [Graph.RemoveDependenciesV2]: Removes dependency edges from a graph.
 //   - [Graph.RetainUserObject]: Retain a reference to a user object from a graph.
 //   - [GraphExec.Upload]: Uploads an executable graph in a stream.
 //   - [Stream.GraphicsMapResources]: Map graphics resources for access by CUDA.
@@ -299,6 +315,7 @@
 //   - [Function.LaunchGrid]: Launches a CUDA function.
 //   - [Function.LaunchGridAsync]: Launches a CUDA function.
 //   - [Stream.LaunchHostFunc]: Enqueues a host function call in a stream.
+//   - [Stream.LaunchHostFuncV2]: Enqueues a host function call in a stream.
 //   - [Function.LaunchKernel]: Launches a CUDA function [Function] or a CUDA kernel [Kernel].
 //   - [Function.LaunchKernelEx]: Launches a CUDA function [Function] or a CUDA kernel [Kernel] with launch-time configuration.
 //
@@ -359,6 +376,7 @@
 //   - [MemGetDefaultMemPool]: Returns the default memory pool for a given location and allocation type.
 //   - [DevicePtr.MemGetHandleForAddressRange]: Retrieve handle for an address range.
 //   - [MemGetInfo]: Gets free and total memory.
+//   - [DevicePtr.MemGetLocationInfo]: Gets residency information for a memory address range.
 //   - [MemGetMemPool]: Gets the current memory pool for a memory location and of a particular allocation type.
 //   - [MemHostAlloc]: Allocates page-locked host memory.
 //   - [MemHostGetDevicePointer]: Passes back device pointer of mapped pinned memory.
@@ -511,6 +529,7 @@
 //   - [Stream.BeginCapture]: Begins graph capture on a stream.
 //   - [Stream.BeginCaptureToCig]: Begins capture to CIG on a stream.
 //   - [Stream.BeginCaptureToGraph]: Begins graph capture on a stream to an existing graph.
+//   - [Stream.BeginRecaptureToGraph]: Begin graph capture on a stream to an existing graph.
 //   - [Stream.CopyAttributes]: Copies attributes from source stream to destination stream.
 //   - [NewStream]: Create a stream.
 //   - [StreamCreateWithPriority]: Create a stream with the given priority.
@@ -519,7 +538,9 @@
 //   - [Stream.EndCaptureToCig]: Ends CIG capture on a stream.
 //   - [Stream.Attribute]: Queries stream attribute.
 //   - [Stream.CaptureInfo]: Query a stream’s capture state.
-//   - [Stream.Ctx]: Query the contexts associated with a stream.
+//   - [Stream.CaptureInfoV3]: Query a stream’s capture state.
+//   - [Stream.Ctx]: Query the context associated with a stream.
+//   - [Stream.CtxV2]: Query the contexts associated with a stream.
 //   - [Stream.DevResource]: Get stream resources.
 //   - [Stream.Device]: Returns the device handle of the stream.
 //   - [Stream.Flags]: Query the flags of a given stream.
@@ -531,6 +552,7 @@
 //   - [Stream.SetAttribute]: Sets stream attribute.
 //   - [Stream.Synchronize]: Wait until a stream’s tasks are completed.
 //   - [Stream.UpdateCaptureDependencies]: Update the set of dependencies in a capturing stream.
+//   - [Stream.UpdateCaptureDependenciesV2]: Update the set of dependencies in a capturing stream.
 //   - [Stream.WaitEvent]: Make a compute stream wait on an event.
 //   - [Stream.WaitValue32]: Wait on a memory location.
 //   - [Stream.WaitValue64]: Wait on a memory location.
@@ -564,6 +586,18 @@
 //
 // # Other
 //
+//   - [Device.LogicalEndpointAdd]: Associates a device to a multicast logical endpoint.
+//   - [Device.LogicalEndpointBindAddr]: Bind a memory allocation represented by a virtual address to a logical endpoint.
+//   - [Device.LogicalEndpointBindMem]: Binds memory object represented by a handle to the logical endpoint.
+//   - [LogicalEndpointCreate]: Creates a logical endpoint with the requested properties and associates it with the logical endpoint id.
+//   - [LogicalEndpointDestroy]: Removes the association of the logical endpoint from the logical endpoint id.
+//   - [LogicalEndpointExport]: Exports a logical endpoint associated with leId to an IPC handle.
+//   - [LogicalEndpointGetLimits]: Calculates the minimum alignment and the maximum size for the given logical endpoint properties.
+//   - [LogicalEndpointIdRelease]: Releases a range of logical endpoint ids.
+//   - [LogicalEndpointIdReserve]: Reserves a range of logical endpoint ids.
+//   - [LogicalEndpointImport]: Imports a logical endpoint from the given IPC handle and associates it with a logical endpoint id.
+//   - [LogicalEndpointQuery]: Determines if all logical endpoints in the range have been successfully constructed.
+//   - [Device.LogicalEndpointUnbind]: Unbinds any binding at offset from the logical endpoint.
 //   - [LogsCurrent]: Sets log iterator to point to the end of log buffer, where the next message would be written.
 //   - [LogsDumpToFile]: Dump accumulated driver logs into a file.
 //   - [LogsDumpToMemory]: Dump accumulated driver logs into a buffer.
@@ -575,6 +609,26 @@
 //   - [Function.ParamSeti]: Adds an integer parameter to the function’s argument list.
 //   - [Function.ParamSetv]: Adds arbitrary data to the function’s argument list.
 //   - [ThreadExchangeStreamCaptureMode]: Swaps the stream capture interaction mode for a thread.
+//
+// # Functions bound at load time
+//
+// Each function below binds, when the library loads, the first of its
+// symbols that the library exports, newest first, so that it also runs
+// against libraries older than the header. A shim takes the newest
+// prototype and reaches its last symbol, an older version with fewer
+// parameters, as its documentation describes.
+//
+//   - [Event.ElapsedTime]: cuEventElapsedTime_v2, cuEventElapsedTime.
+//   - [Graph.AddDependencies]: cuGraphAddDependencies_v2, cuGraphAddDependencies (shim).
+//   - [Graph.AddNode]: cuGraphAddNode_v3, cuGraphAddNode_v2, cuGraphAddNode (shim).
+//   - [Graph.Edges]: cuGraphGetEdges_v2, cuGraphGetEdges (shim).
+//   - [Graph.RemoveDependencies]: cuGraphRemoveDependencies_v2, cuGraphRemoveDependencies (shim).
+//   - [GraphNode.Dependencies]: cuGraphNodeGetDependencies_v2, cuGraphNodeGetDependencies (shim).
+//   - [GraphNode.DependentNodes]: cuGraphNodeGetDependentNodes_v2, cuGraphNodeGetDependentNodes (shim).
+//   - [GraphNode.SetParams]: cuGraphNodeSetParams_v2, cuGraphNodeSetParams.
+//   - [NewContext]: cuCtxCreate_v4, cuCtxCreate_v2 (shim).
+//   - [Stream.CaptureInfo]: cuStreamGetCaptureInfo_v3, cuStreamGetCaptureInfo_v2 (shim).
+//   - [Stream.UpdateCaptureDependencies]: cuStreamUpdateCaptureDependencies_v2, cuStreamUpdateCaptureDependencies (shim).
 //
 // [CUDA Driver API Documentation]: https://docs.nvidia.com/cuda/cuda-driver-api/
 package driver

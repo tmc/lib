@@ -987,7 +987,8 @@ const (
 	DevAttrCooperativeLaunch DeviceAttribute = 95
 	// Deprecated: [LaunchCooperativeKernelMultiDevice] is deprecated.
 	DevAttrCooperativeMultiDeviceLaunch DeviceAttribute = 96
-	DevAttrMaxSharedMemoryPerBlockOptin DeviceAttribute = 97 // Maximum optin shared memory per block
+	// DevAttrMaxSharedMemoryPerBlockOptin: Maximum optin shared memory per block. That is shared memory that is available for dynamic allocation or static allocation (including architecture specific static shared memory) on this device but is not guaranteed to be portable.
+	DevAttrMaxSharedMemoryPerBlockOptin DeviceAttribute = 97
 	// DevAttrCanFlushRemoteWrites: The [StreamWaitValueFlush] flag and the [StreamMemOpFlushRemoteWrites] MemOp are supported on the device. See CUDA_MEMOP for additional details.
 	DevAttrCanFlushRemoteWrites DeviceAttribute = 98
 	// DevAttrHostRegisterSupported: Device supports host memory registration via cudaHostRegister.
@@ -1072,7 +1073,21 @@ const (
 	// DevAttrOnlyPartialHostNativeAtomicSupported: Link between the device and the host supports only some native atomic operations
 	DevAttrOnlyPartialHostNativeAtomicSupported DeviceAttribute = 147
 	// DevAttrAtomicReductionSupported: Device supports atomic reduction operations in stream batch memory operations
-	DevAttrAtomicReductionSupported DeviceAttribute = 148
+	DevAttrAtomicReductionSupported         DeviceAttribute = 148
+	DevAttrLocalityDomainCount              DeviceAttribute = 149 // Number of locality domains
+	DevAttrMaxOversizedSharedMemoryPerBlock DeviceAttribute = 150 // Maximum oversized shared memory per block
+	DevAttrD3d12CigStreamsSupported         DeviceAttribute = 151 // Device supports CIG streams with D3D12
+	// DevAttrDmaBufMmapSupported: Device supports mmap() of dmabuf file descriptors for CUDA device memory allocations
+	DevAttrDmaBufMmapSupported                DeviceAttribute = 152
+	DevAttrLogicalEndpointUnicastSupported    DeviceAttribute = 153 // Device supports unicast logical endpoints
+	DevAttrLogicalEndpointMulticastSupported  DeviceAttribute = 154 // Device supports multicast logical endpoints
+	DevAttrLogicalEndpointCountedOpsSupported DeviceAttribute = 155 // Device supports counted operations via logical endpoints
+	// DevAttrLogicalEndpointUnicastAccessOnOwnerDeviceSupported: Device supports unicast logical endpoint access on the owner device
+	DevAttrLogicalEndpointUnicastAccessOnOwnerDeviceSupported DeviceAttribute = 156
+	DevAttrLocalityDomainMultiprocessorCount                  DeviceAttribute = 157 // Number of multiprocessors on each locality domain
+	DevAttrLogicalEndpointSupportedHandleTypes                DeviceAttribute = 158 // Handle types supported with logical endpoint IPC
+	// DevAttrGpuDirectRdmaWithLocalizedMemorySupported: Device supports GPUDirect RDMA with localized memory using the default RDMA mapping link
+	DevAttrGpuDirectRdmaWithLocalizedMemorySupported DeviceAttribute = 161
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1374,6 +1389,28 @@ func (e DeviceAttribute) String() string {
 		return "DevAttrOnlyPartialHostNativeAtomicSupported"
 	case DevAttrAtomicReductionSupported:
 		return "DevAttrAtomicReductionSupported"
+	case DevAttrLocalityDomainCount:
+		return "DevAttrLocalityDomainCount"
+	case DevAttrMaxOversizedSharedMemoryPerBlock:
+		return "DevAttrMaxOversizedSharedMemoryPerBlock"
+	case DevAttrD3d12CigStreamsSupported:
+		return "DevAttrD3d12CigStreamsSupported"
+	case DevAttrDmaBufMmapSupported:
+		return "DevAttrDmaBufMmapSupported"
+	case DevAttrLogicalEndpointUnicastSupported:
+		return "DevAttrLogicalEndpointUnicastSupported"
+	case DevAttrLogicalEndpointMulticastSupported:
+		return "DevAttrLogicalEndpointMulticastSupported"
+	case DevAttrLogicalEndpointCountedOpsSupported:
+		return "DevAttrLogicalEndpointCountedOpsSupported"
+	case DevAttrLogicalEndpointUnicastAccessOnOwnerDeviceSupported:
+		return "DevAttrLogicalEndpointUnicastAccessOnOwnerDeviceSupported"
+	case DevAttrLocalityDomainMultiprocessorCount:
+		return "DevAttrLocalityDomainMultiprocessorCount"
+	case DevAttrLogicalEndpointSupportedHandleTypes:
+		return "DevAttrLogicalEndpointSupportedHandleTypes"
+	case DevAttrGpuDirectRdmaWithLocalizedMemorySupported:
+		return "DevAttrGpuDirectRdmaWithLocalizedMemorySupported"
 	}
 	return fmt.Sprintf("DeviceAttribute(%d)", e)
 }
@@ -1419,6 +1456,8 @@ const (
 	PointerAttributeMemoryBlockId PointerAttribute = 20
 	// PointerAttributeIsHwDecompressCapable: Returns in *data a boolean that indicates whether the pointer points to memory that is capable to be used for hardware accelerated decompression.
 	PointerAttributeIsHwDecompressCapable PointerAttribute = 21
+	// PointerAttributeLocalityDomainOrdinal: Returns in *data an integer representing the locality domain ordinal of the memory allocation, or -1 if the allocation is not localized to a locality domain.
+	PointerAttributeLocalityDomainOrdinal PointerAttribute = 22
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1466,6 +1505,8 @@ func (e PointerAttribute) String() string {
 		return "PointerAttributeMemoryBlockId"
 	case PointerAttributeIsHwDecompressCapable:
 		return "PointerAttributeIsHwDecompressCapable"
+	case PointerAttributeLocalityDomainOrdinal:
+		return "PointerAttributeLocalityDomainOrdinal"
 	}
 	return fmt.Sprintf("PointerAttribute(%d)", e)
 }
@@ -1490,7 +1531,7 @@ const (
 	FuncAttributeBinaryVersion FunctionAttribute = 6
 	// FuncAttributeCacheModeCa: The attribute to indicate whether the function has been compiled with user specified option "-Xptxas --dlcm=ca" set .
 	FuncAttributeCacheModeCa FunctionAttribute = 7
-	// FuncAttributeMaxDynamicSharedSizeBytes: The maximum size in bytes of dynamically-allocated shared memory that can be used by this function. If the user-specified dynamic shared memory size is larger than this value, the launch will fail. The default value of this attribute is [DevAttrMaxSharedMemoryPerBlock] - [FuncAttributeSharedSizeBytes], except when [FuncAttributeSharedSizeBytes] is greater than [DevAttrMaxSharedMemoryPerBlock], then the default value of this attribute is 0. The value can be increased to [DevAttrMaxSharedMemoryPerBlockOptin] - [FuncAttributeSharedSizeBytes]. See [Function.SetAttribute], [Kernel.SetAttribute]
+	// FuncAttributeMaxDynamicSharedSizeBytes: The maximum size in bytes of dynamically-allocated shared memory that can be used by this function. If the user-specified dynamic shared memory size is larger than this value, the launch will fail. The default value of this attribute is [DevAttrMaxSharedMemoryPerBlock] - [FuncAttributeSharedSizeBytes], except when [FuncAttributeSharedSizeBytes] is greater than [DevAttrMaxSharedMemoryPerBlock], then the default value of this attribute is 0. The value can be increased to [DevAttrMaxSharedMemoryPerBlockOptin] - [FuncAttributeSharedSizeBytes]. This attribute is ignored if [FuncAttributeSharedMemoryMode] or [LaunchAttributeSharedMemoryMode] is set. This attribute cannot be used to access oversized shared memory. Oversized shared memory can only be accessed by setting [FuncAttributeSharedMemoryMode] or [LaunchAttributeSharedMemoryMode]. See [Function.SetAttribute], [Kernel.SetAttribute]
 	FuncAttributeMaxDynamicSharedSizeBytes FunctionAttribute = 8
 	// FuncAttributePreferredSharedMemoryCarveout: On devices where the L1 cache and shared memory use the same hardware resources, this sets the shared memory carveout preference, in percent of the total shared memory. Refer to [DevAttrMaxSharedMemoryPerMultiprocessor]. This is only a hint, and the driver can choose a different ratio if required to execute the function. See [Function.SetAttribute], [Kernel.SetAttribute]
 	FuncAttributePreferredSharedMemoryCarveout FunctionAttribute = 9
@@ -1506,6 +1547,10 @@ const (
 	FuncAttributeNonPortableClusterSizeAllowed FunctionAttribute = 14
 	// FuncAttributeClusterSchedulingPolicyPreference: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy] / cudaClusterSchedulingPolicy. See [Function.SetAttribute], [Kernel.SetAttribute]
 	FuncAttributeClusterSchedulingPolicyPreference FunctionAttribute = 15
+	// FuncAttributeDeviceNodeUpdateSupported: Whether the function can be updated on device. 1 means device node update is supported, 0 is unsupported. See [Function.Attribute].
+	FuncAttributeDeviceNodeUpdateSupported FunctionAttribute = 16
+	// FuncAttributeSharedMemoryMode: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode. See [Function.SetAttribute], [Kernel.SetAttribute]
+	FuncAttributeSharedMemoryMode FunctionAttribute = 17
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -1543,6 +1588,10 @@ func (e FunctionAttribute) String() string {
 		return "FuncAttributeNonPortableClusterSizeAllowed"
 	case FuncAttributeClusterSchedulingPolicyPreference:
 		return "FuncAttributeClusterSchedulingPolicyPreference"
+	case FuncAttributeDeviceNodeUpdateSupported:
+		return "FuncAttributeDeviceNodeUpdateSupported"
+	case FuncAttributeSharedMemoryMode:
+		return "FuncAttributeSharedMemoryMode"
 	}
 	return fmt.Sprintf("FunctionAttribute(%d)", e)
 }
@@ -1946,17 +1995,20 @@ const (
 	TargetCompute100  JitTarget = 100 // Compute device class 10.0.
 	TargetCompute110  JitTarget = 110 // Compute device class 11.0.
 	TargetCompute103  JitTarget = 103 // Compute device class 10.3.
+	TargetCompute107  JitTarget = 107 // Compute device class 10.7.
 	TargetCompute120  JitTarget = 120 // Compute device class 12.0.
 	TargetCompute121  JitTarget = 121 // Compute device class 12.1.
 	TargetCompute90A  JitTarget = 65626
 	TargetCompute100A JitTarget = 65636
 	TargetCompute110A JitTarget = 65646
 	TargetCompute103A JitTarget = 65639
+	TargetCompute107A JitTarget = 65643
 	TargetCompute120A JitTarget = 65656
 	TargetCompute121A JitTarget = 65657
 	TargetCompute100F JitTarget = 131172
 	TargetCompute110F JitTarget = 131182
 	TargetCompute103F JitTarget = 131175
+	TargetCompute107F JitTarget = 131179
 	TargetCompute120F JitTarget = 131192
 	TargetCompute121F JitTarget = 131193
 )
@@ -2006,6 +2058,8 @@ func (e JitTarget) String() string {
 		return "TargetCompute110"
 	case TargetCompute103:
 		return "TargetCompute103"
+	case TargetCompute107:
+		return "TargetCompute107"
 	case TargetCompute120:
 		return "TargetCompute120"
 	case TargetCompute121:
@@ -2018,6 +2072,8 @@ func (e JitTarget) String() string {
 		return "TargetCompute110A"
 	case TargetCompute103A:
 		return "TargetCompute103A"
+	case TargetCompute107A:
+		return "TargetCompute107A"
 	case TargetCompute120A:
 		return "TargetCompute120A"
 	case TargetCompute121A:
@@ -2028,6 +2084,8 @@ func (e JitTarget) String() string {
 		return "TargetCompute110F"
 	case TargetCompute103F:
 		return "TargetCompute103F"
+	case TargetCompute107F:
+		return "TargetCompute107F"
 	case TargetCompute120F:
 		return "TargetCompute120F"
 	case TargetCompute121F:
@@ -2218,6 +2276,7 @@ const (
 	LimitCigEnabled Limit = 0x08
 	// LimitCigShmemFallbackEnabled: When set to zero, CUDA will fail to launch a kernel on a CIG context, instead of using the fallback path, if the kernel uses more shared memory than available
 	LimitCigShmemFallbackEnabled Limit = 0x09
+	LimitPerBlockMemorySize      Limit = 0x0A // Per-block memory size
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2243,6 +2302,8 @@ func (e Limit) String() string {
 		return "LimitCigEnabled"
 	case LimitCigShmemFallbackEnabled:
 		return "LimitCigShmemFallbackEnabled"
+	case LimitPerBlockMemorySize:
+		return "LimitPerBlockMemorySize"
 	}
 	return fmt.Sprintf("Limit(%d)", e)
 }
@@ -2339,6 +2400,7 @@ const (
 	GraphNodeTypeBatchMemOp GraphNodeType = 12
 	// GraphNodeTypeConditional: Conditional Node. May be used to implement a conditional execution path or loop inside of a graph. The graph(s) contained within the body of the conditional node can be selectively executed or iterated upon based on the value of a conditional variable. Handles must be created in advance of creating the node using [Graph.ConditionalHandleCreate]. The following restrictions apply to graphs which contain conditional nodes: The graph cannot be used in a child node. Only one instantiation of the graph may exist at any point in time. The graph cannot be cloned. To set the control value, supply a default value when creating the handle and/or call cudaGraphSetConditional from device code.
 	GraphNodeTypeConditional GraphNodeType = 13
+	GraphNodeTypeReserved16  GraphNodeType = 16 // Reserved
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2372,6 +2434,8 @@ func (e GraphNodeType) String() string {
 		return "GraphNodeTypeBatchMemOp"
 	case GraphNodeTypeConditional:
 		return "GraphNodeTypeConditional"
+	case GraphNodeTypeReserved16:
+		return "GraphNodeTypeReserved16"
 	}
 	return fmt.Sprintf("GraphNodeType(%d)", e)
 }
@@ -2466,7 +2530,8 @@ const (
 	ClusterSchedulingPolicyDefault ClusterSchedulingPolicy = 0 // the default policy
 	ClusterSchedulingPolicySpread  ClusterSchedulingPolicy = 1 // spread the blocks within a cluster to the SMs
 	// ClusterSchedulingPolicyLoadBalancing: allow the hardware to load-balance the blocks in a cluster to the SMs
-	ClusterSchedulingPolicyLoadBalancing ClusterSchedulingPolicy = 2
+	ClusterSchedulingPolicyLoadBalancing      ClusterSchedulingPolicy = 2
+	ClusterSchedulingPolicyRubinDsmemLocality ClusterSchedulingPolicy = 3
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2478,6 +2543,8 @@ func (e ClusterSchedulingPolicy) String() string {
 		return "ClusterSchedulingPolicySpread"
 	case ClusterSchedulingPolicyLoadBalancing:
 		return "ClusterSchedulingPolicyLoadBalancing"
+	case ClusterSchedulingPolicyRubinDsmemLocality:
+		return "ClusterSchedulingPolicyRubinDsmemLocality"
 	}
 	return fmt.Sprintf("ClusterSchedulingPolicy(%d)", e)
 }
@@ -2538,6 +2605,10 @@ const (
 	SharedMemoryModeRequirePortable SharedMemoryMode = 1
 	// SharedMemoryModeAllowNonPortable: Specifies that the dynamic shared size bytes requested may be a non-portable size but still within the bounds of [DevAttrMaxSharedMemoryPerBlockOptin]
 	SharedMemoryModeAllowNonPortable SharedMemoryMode = 2
+	// SharedMemoryModeAllowOversizedSharedMemory: Specifies that oversized shared memory configurations may be used (with the limitation of only 8kB L1 cache)
+	SharedMemoryModeAllowOversizedSharedMemory SharedMemoryMode = 3
+	// SharedMemoryModePreferOversizedSharedMemory: Specifies that oversized shared memory configurations may be used (with the limitation of only 8kB L1 cache), and prefer an oversized shared memory configuration
+	SharedMemoryModePreferOversizedSharedMemory SharedMemoryMode = 4
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -2549,6 +2620,10 @@ func (e SharedMemoryMode) String() string {
 		return "SharedMemoryModeRequirePortable"
 	case SharedMemoryModeAllowNonPortable:
 		return "SharedMemoryModeAllowNonPortable"
+	case SharedMemoryModeAllowOversizedSharedMemory:
+		return "SharedMemoryModeAllowOversizedSharedMemory"
+	case SharedMemoryModePreferOversizedSharedMemory:
+		return "SharedMemoryModePreferOversizedSharedMemory"
 	}
 	return fmt.Sprintf("SharedMemoryMode(%d)", e)
 }
@@ -2589,7 +2664,7 @@ const (
 	LaunchAttributeNvlinkUtilCentricScheduling LaunchAttributeID = 16
 	// LaunchAttributePortableClusterSizeMode: Valid for graph nodes, launches. This controls whether the kernel launch is allowed to use a non-portable cluster size. Valid values for [LaunchAttributeValue].portableClusterSizeMode are described in [LaunchAttributePortableClusterMode]. Any other value will return [ErrInvalidValue]
 	LaunchAttributePortableClusterSizeMode LaunchAttributeID = 17
-	// LaunchAttributeSharedMemoryMode: Valid for graph nodes, launches. This indicates if the kernel is allowed to use a non-portable dynamic shared memory mode.
+	// LaunchAttributeSharedMemoryMode: Valid for graph nodes, launches. This controls a kernel's use of non-portable or oversized shared memory configurations.
 	LaunchAttributeSharedMemoryMode LaunchAttributeID = 18
 )
 
@@ -3316,6 +3391,8 @@ const (
 	MemLocationTypeHostNumaCurrent MemLocationType = 0x4
 	// MemLocationTypeInvisible: Location is not visible but device is accessible, id is always CU_DEVICE_INVALID
 	MemLocationTypeInvisible MemLocationType = 0x5
+	// MemLocationTypeDeviceLocalityDomain: Location is a portion of device memory, specified by the locality domain ID.
+	MemLocationTypeDeviceLocalityDomain MemLocationType = 0x6
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3333,6 +3410,8 @@ func (e MemLocationType) String() string {
 		return "MemLocationTypeHostNumaCurrent"
 	case MemLocationTypeInvisible:
 		return "MemLocationTypeInvisible"
+	case MemLocationTypeDeviceLocalityDomain:
+		return "MemLocationTypeDeviceLocalityDomain"
 	}
 	return fmt.Sprintf("MemLocationType(%d)", e)
 }
@@ -3567,6 +3646,7 @@ const (
 	MempoolAttrLocationType                   MempoolAttribute = 12
 	MempoolAttrMaxPoolSize                    MempoolAttribute = 13
 	MempoolAttrHwDecompressEnabled            MempoolAttribute = 14
+	MempoolAttrLocalityDomainId               MempoolAttribute = 15
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3600,6 +3680,8 @@ func (e MempoolAttribute) String() string {
 		return "MempoolAttrMaxPoolSize"
 	case MempoolAttrHwDecompressEnabled:
 		return "MempoolAttrHwDecompressEnabled"
+	case MempoolAttrLocalityDomainId:
+		return "MempoolAttrLocalityDomainId"
 	}
 	return fmt.Sprintf("MempoolAttribute(%d)", e)
 }
@@ -3961,7 +4043,9 @@ const (
 	// ProcessStateCheckpointed: Application memory contents have been checkpointed and underlying allocations and device handles have been released
 	ProcessStateCheckpointed ProcessState = 2
 	// ProcessStateFailed: Application entered an uncorrectable error during the checkpoint/restore process
-	ProcessStateFailed ProcessState = 3
+	ProcessStateFailed        ProcessState = 3
+	ProcessStateCheckpointing ProcessState = 4 // Application memory contents are being checkpointed
+	ProcessStateRestoring     ProcessState = 5 // Application memory contents are being restored
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -3975,6 +4059,10 @@ func (e ProcessState) String() string {
 		return "ProcessStateCheckpointed"
 	case ProcessStateFailed:
 		return "ProcessStateFailed"
+	case ProcessStateCheckpointing:
+		return "ProcessStateCheckpointing"
+	case ProcessStateRestoring:
+		return "ProcessStateRestoring"
 	}
 	return fmt.Sprintf("ProcessState(%d)", e)
 }
@@ -4021,6 +4109,116 @@ func (e MemDecompressAlgorithm) String() string {
 		return "MemDecompressAlgorithmLZ4"
 	}
 	return fmt.Sprintf("MemDecompressAlgorithm(%d)", e)
+}
+
+// CliqueType represents fabric clique types.
+type CliqueType int32
+
+const (
+	CliqueTypeUnicastPointer           CliqueType = 0 // Unicast pointer clique
+	CliqueTypeMulticastPointer         CliqueType = 1 // Multicast pointer clique
+	CliqueTypeUnicastLogicalEndpoint   CliqueType = 2 // Unicast logical endpoint clique
+	CliqueTypeMulticastLogicalEndpoint CliqueType = 3 // Multicast logical endpoint clique
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e CliqueType) String() string {
+	switch e {
+	case CliqueTypeUnicastPointer:
+		return "CliqueTypeUnicastPointer"
+	case CliqueTypeMulticastPointer:
+		return "CliqueTypeMulticastPointer"
+	case CliqueTypeUnicastLogicalEndpoint:
+		return "CliqueTypeUnicastLogicalEndpoint"
+	case CliqueTypeMulticastLogicalEndpoint:
+		return "CliqueTypeMulticastLogicalEndpoint"
+	}
+	return fmt.Sprintf("CliqueType(%d)", e)
+}
+
+// LogicalEndpointIpcHandleType represents IPC handle types that can be requested/queried for a given logical endpoint.
+type LogicalEndpointIpcHandleType int32
+
+const (
+	LogicalEndpointIpcHandleTypeNone   LogicalEndpointIpcHandleType = 0
+	LogicalEndpointIpcHandleTypeFabric LogicalEndpointIpcHandleType = 1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e LogicalEndpointIpcHandleType) String() string {
+	switch e {
+	case LogicalEndpointIpcHandleTypeNone:
+		return "LogicalEndpointIpcHandleTypeNone"
+	case LogicalEndpointIpcHandleTypeFabric:
+		return "LogicalEndpointIpcHandleTypeFabric"
+	}
+	return fmt.Sprintf("LogicalEndpointIpcHandleType(%d)", e)
+}
+
+// LogicalEndpointType represents logical endpoint type.
+type LogicalEndpointType int32
+
+const (
+	LogicalEndpointTypeInvalid   LogicalEndpointType = 0
+	LogicalEndpointTypeUnicast   LogicalEndpointType = 1
+	LogicalEndpointTypeMulticast LogicalEndpointType = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e LogicalEndpointType) String() string {
+	switch e {
+	case LogicalEndpointTypeInvalid:
+		return "LogicalEndpointTypeInvalid"
+	case LogicalEndpointTypeUnicast:
+		return "LogicalEndpointTypeUnicast"
+	case LogicalEndpointTypeMulticast:
+		return "LogicalEndpointTypeMulticast"
+	}
+	return fmt.Sprintf("LogicalEndpointType(%d)", e)
+}
+
+// LogicalEndpointFlag represents flags for [LogicalEndpointProp].
+type LogicalEndpointFlag int32
+
+const (
+	LogicalEndpointFlagNone LogicalEndpointFlag = 0x0 // Default flag for logical endpoint construction
+	// LogicalEndpointFlagCountedOps: Indicate the programmer's intention to use counted operations with the logical endpoint
+	LogicalEndpointFlagCountedOps LogicalEndpointFlag = 0x1
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e LogicalEndpointFlag) String() string {
+	switch e {
+	case LogicalEndpointFlagNone:
+		return "LogicalEndpointFlagNone"
+	case LogicalEndpointFlagCountedOps:
+		return "LogicalEndpointFlagCountedOps"
+	}
+	return fmt.Sprintf("LogicalEndpointFlag(%d)", e)
+}
+
+// GraphRecaptureStatus specifies the graph recapture status (CUgraphRecaptureStatus).
+type GraphRecaptureStatus int32
+
+const (
+	GraphRecaptureEligibleForUpdate GraphRecaptureStatus = 0 // Node is eligible for update in an instantiated graph.
+	// GraphRecaptureIneligibleForUpdate: Parameter changes in the node cannot be applied to an instantiated graph.
+	GraphRecaptureIneligibleForUpdate GraphRecaptureStatus = 1
+	// GraphRecaptureError: Error while attempting to recapture the node. The recapture will be ended regardless of the return value from the callback.
+	GraphRecaptureError GraphRecaptureStatus = 2
+)
+
+// String returns the constant name, or a numeric representation for unknown values.
+func (e GraphRecaptureStatus) String() string {
+	switch e {
+	case GraphRecaptureEligibleForUpdate:
+		return "GraphRecaptureEligibleForUpdate"
+	case GraphRecaptureIneligibleForUpdate:
+		return "GraphRecaptureIneligibleForUpdate"
+	case GraphRecaptureError:
+		return "GraphRecaptureError"
+	}
+	return fmt.Sprintf("GraphRecaptureStatus(%d)", e)
 }
 
 // FunctionLoadingState specifies the function loading state (CUfunctionLoadingState).
@@ -4077,7 +4275,7 @@ func (e CoredumpSettings) String() string {
 }
 
 // CoredumpGenerationFlags represents flags for controlling coredump contents.
-type CoredumpGenerationFlags int32
+type CoredumpGenerationFlags uint32
 
 const (
 	CoredumpDefaultFlags              CoredumpGenerationFlags = 0
@@ -4088,6 +4286,9 @@ const (
 	CoredumpSkipAbort                 CoredumpGenerationFlags = 1 << 4
 	CoredumpSkipConstbankMemory       CoredumpGenerationFlags = 1 << 5
 	CoredumpGzipCompress              CoredumpGenerationFlags = 1 << 6
+	CoredumpFaultedContextsOnly       CoredumpGenerationFlags = 1 << 7
+	CoredumpNoErrbarAtExit            CoredumpGenerationFlags = 1 << 30
+	CoredumpLogOnly                   CoredumpGenerationFlags = 1 << 31
 	CoredumpLightweightFlags          CoredumpGenerationFlags = CoredumpSkipNonrelocatedElfImages | CoredumpSkipGlobalMemory | CoredumpSkipSharedMemory | CoredumpSkipLocalMemory | CoredumpSkipConstbankMemory
 )
 
@@ -4110,6 +4311,12 @@ func (e CoredumpGenerationFlags) String() string {
 		return "CoredumpSkipConstbankMemory"
 	case CoredumpGzipCompress:
 		return "CoredumpGzipCompress"
+	case CoredumpFaultedContextsOnly:
+		return "CoredumpFaultedContextsOnly"
+	case CoredumpNoErrbarAtExit:
+		return "CoredumpNoErrbarAtExit"
+	case CoredumpLogOnly:
+		return "CoredumpLogOnly"
 	case CoredumpLightweightFlags:
 		return "CoredumpLightweightFlags"
 	}
@@ -4120,13 +4327,15 @@ func (e CoredumpGenerationFlags) String() string {
 type GreenctxcreateFlags int32
 
 const (
-	// GreenCtxDefaultStream: Required. Creates a default stream to use inside the green context
-	GreenCtxDefaultStream GreenctxcreateFlags = 0x1
+	GreenCtxNone          GreenctxcreateFlags = 0x0
+	GreenCtxDefaultStream GreenctxcreateFlags = 0x1 // Creates a default stream to use inside the green context
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
 func (e GreenctxcreateFlags) String() string {
 	switch e {
+	case GreenCtxNone:
+		return "GreenCtxNone"
 	case GreenCtxDefaultStream:
 		return "GreenCtxDefaultStream"
 	}
@@ -4139,6 +4348,8 @@ type DevsmresourcegroupFlags int32
 const (
 	DevSmResourceGroupDefault  DevsmresourcegroupFlags = 0
 	DevSmResourceGroupBackfill DevsmresourcegroupFlags = 0x1
+	// DevSmResourceGroupLocalityDomainId: The SMs must be located on a specific locality domain, specified by localityDomainId
+	DevSmResourceGroupLocalityDomainId DevsmresourcegroupFlags = 0x1 << 1
 )
 
 // String returns the constant name, or a numeric representation for unknown values.
@@ -4148,6 +4359,8 @@ func (e DevsmresourcegroupFlags) String() string {
 		return "DevSmResourceGroupDefault"
 	case DevSmResourceGroupBackfill:
 		return "DevSmResourceGroupBackfill"
+	case DevSmResourceGroupLocalityDomainId:
+		return "DevSmResourceGroupLocalityDomainId"
 	}
 	return fmt.Sprintf("DevsmresourcegroupFlags(%d)", e)
 }

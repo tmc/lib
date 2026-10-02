@@ -151,7 +151,7 @@ func (g GreenCtx) WaitEvent(hEvent Event) error {
 //
 // Note: The API is not supported on 32-bit platforms.
 // The supported flags are:
-//   - CU_GREEN_CTX_NONE : Default behavior.
+//   - [GreenCtxNone] : Default behavior.
 //   - [GreenCtxDefaultStream] : Creates a default stream to use inside the green context.
 //
 // See also: [GreenCtx.Close], [CtxFromGreenCtx], [Context.SetCurrent], [Context.PushCurrent], [DevResourceGenerateDesc], [Device.PrimaryCtxRetain], [NewContext]

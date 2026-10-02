@@ -37,6 +37,7 @@ const (
 	ErrStubLibrary             Result = 34  // This indicates that the CUDA driver that the application has loaded is a stub library. Applications that run with the stub rather than a real driver loaded will result in CUDA API returning this error.
 	ErrCallRequiresNewerDriver Result = 36  // This indicates that the API call requires a newer CUDA driver than the one currently installed. Users should install an updated NVIDIA CUDA driver to allow the API call to succeed.
 	ErrDeviceUnavailable       Result = 46  // This indicates that requested CUDA device is unavailable at the current time. Devices are often unavailable due to use of [ComputemodeExclusiveProcess] or [ComputemodeProhibited].
+	ErrMulticastResourceFull   Result = 47  // The API call failed because of a hardware resource required to bind memory to a multicast object is unavailable.
 	ErrNoDevice                Result = 100 // This indicates that no CUDA-capable devices were detected by the installed CUDA driver.
 	ErrInvalidDevice           Result = 101 // This indicates that the device ordinal supplied by the user does not correspond to a valid CUDA device or that the action requested is invalid for the specified device.
 	ErrDeviceNotLicensed       Result = 102 // This error indicates that the Grid license is not applied.
@@ -68,6 +69,7 @@ const (
 	ErrUnsupportedExecAffinity      Result = 224 // This indicates that the [ExecAffinityType] passed to the API call is not supported by the active device.
 	ErrUnsupportedDevsideSync       Result = 225 // This indicates that the code to be compiled by the PTX JIT contains unsupported call to cudaDeviceSynchronize.
 	ErrContained                    Result = 226 // This indicates that an exception occurred on the device that is now contained by the GPU's error containment capability. Common causes are - a. Certain types of invalid accesses of peer GPU memory over nvlink b. Certain classes of hardware errors This leaves the process in an inconsistent state and any further CUDA work will return the same error. To continue using CUDA, the process must be terminated and relaunched.
+	ErrInsufficientLoaderVersion    Result = 227 // This indicates that the Loader version is insufficient for fatbin
 	ErrInvalidSource                Result = 300 // This indicates that the device kernel source is invalid. This includes compilation/linker errors encountered in device code or user error.
 	ErrFileNotFound                 Result = 301 // This indicates that the file specified was not found.
 	ErrSharedObjectSymbolNotFound   Result = 302 // This indicates that a link to a shared object failed to resolve.
@@ -129,6 +131,8 @@ const (
 	ErrInvalidResourceConfiguration Result = 915 // This error indicates one or more resources are insufficient or non-applicable for the operation.
 	ErrKeyRotation                  Result = 916 // This error indicates that an error happened during the key rotation sequence.
 	ErrStreamDetached               Result = 917 // This error indicates that the requested operation is not permitted because the stream is in a detached state. This can occur if the green context associated with the stream has been destroyed, limiting the stream's operational capabilities.
+	ErrGraphRecaptureFailure        Result = 918 // This error indicates that a graph recapture failed and had to be terminated.
+	ErrFabricNotReady               Result = 919 // The GPU fabric is not ready within the bounded wait while the fabric manager probe is still in progress (or not converging in time). Applications may retry after a delay; for the initialization wait budget, see environment variables such as CUDA_FABRIC_INIT_TIMEOUT_MS. The CUDA Runtime uses the same value as cudaErrorFabricNotReady.
 	ErrUnknown                      Result = 999
 )
 
@@ -231,6 +235,7 @@ var resultNames = map[Result]string{
 	ErrStubLibrary:                  "ErrStubLibrary",
 	ErrCallRequiresNewerDriver:      "ErrCallRequiresNewerDriver",
 	ErrDeviceUnavailable:            "ErrDeviceUnavailable",
+	ErrMulticastResourceFull:        "ErrMulticastResourceFull",
 	ErrNoDevice:                     "ErrNoDevice",
 	ErrInvalidDevice:                "ErrInvalidDevice",
 	ErrDeviceNotLicensed:            "ErrDeviceNotLicensed",
@@ -259,6 +264,7 @@ var resultNames = map[Result]string{
 	ErrUnsupportedExecAffinity:      "ErrUnsupportedExecAffinity",
 	ErrUnsupportedDevsideSync:       "ErrUnsupportedDevsideSync",
 	ErrContained:                    "ErrContained",
+	ErrInsufficientLoaderVersion:    "ErrInsufficientLoaderVersion",
 	ErrInvalidSource:                "ErrInvalidSource",
 	ErrFileNotFound:                 "ErrFileNotFound",
 	ErrSharedObjectSymbolNotFound:   "ErrSharedObjectSymbolNotFound",
@@ -320,5 +326,7 @@ var resultNames = map[Result]string{
 	ErrInvalidResourceConfiguration: "ErrInvalidResourceConfiguration",
 	ErrKeyRotation:                  "ErrKeyRotation",
 	ErrStreamDetached:               "ErrStreamDetached",
+	ErrGraphRecaptureFailure:        "ErrGraphRecaptureFailure",
+	ErrFabricNotReady:               "ErrFabricNotReady",
 	ErrUnknown:                      "ErrUnknown",
 }

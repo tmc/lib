@@ -23,7 +23,7 @@ import "unsafe"
 //   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks.
 //   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed. A non-portable cluster size may only function on the specific SKUs the program is tested on. The launch might fail if the program is run on a different hardware platform. CUDA API provides cudaOccupancyMaxActiveClusters to assist with checking whether the desired size can be launched on the current device. A portable cluster size is guaranteed to be functional on all compute capabilities higher than the target compute capability. The portable cluster size for sm_90 is 8 blocks per cluster. This value may increase for future compute capabilities. The specific hardware unit may support higher cluster sizes that’s not guaranteed to be portable.
 //   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
+//   - [FuncAttributeSharedMemoryMode]: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // With a few execeptions, function attributes may also be queried on unloaded function handles returned from [Module.EnumerateFunctions]. [ErrFunctionNotLoaded] is returned if the attribute requires a fully loaded function but the function is not loaded. The loading state of a function may be queried using cuFuncIsloaded. [Function.Load] may be called to explicitly load a function before querying the following attributes that require the function to be loaded:
 //   - [FuncAttributeMaxThreadsPerBlock]
@@ -147,7 +147,7 @@ func (f Function) Load() error {
 //   - [FuncAttributeRequiredClusterDepth]: The required cluster depth in blocks. The width, height, and depth values must either all be 0 or all be positive. The validity of the cluster dimensions is checked at launch time. If the value is set during compile time, it cannot be set at runtime. Setting it at runtime will return [ErrNotPermitted].
 //   - [FuncAttributeNonPortableClusterSizeAllowed]: Indicates whether the function can be launched with non-portable cluster size. 1 is allowed, 0 is disallowed.
 //   - [FuncAttributeClusterSchedulingPolicyPreference]: The block scheduling policy of a function. The value type is [ClusterSchedulingPolicy].
-//   - CU_FUNC_ATTRIBUTE_SHARED_MEMORY_MODE: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
+//   - [FuncAttributeSharedMemoryMode]: The shared memory mode of a function. The value type is [SharedMemoryMode] / cudaSharedMemoryMode.
 //
 // See also: [CtxGetCacheConfig], [CtxSetCacheConfig], [Function.SetCacheConfig], [Function.LaunchKernel], cudaFuncGetAttributes, cudaFuncSetAttribute, [Kernel.SetAttribute]
 //

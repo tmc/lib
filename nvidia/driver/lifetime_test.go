@@ -121,7 +121,7 @@ func bindLifetimeStub(t *testing.T) {
 		"cuLaunchKernelEx":     &symlaunchKernelEx,
 		"cuDeviceGet":          &symdeviceGet,
 		"cuMemcpyHtoDAsync_v2": &symmemcpyHtoDAsync,
-		"cuLaunchHostFunc_v2":  &symlaunchHostFunc,
+		"cuLaunchHostFunc_v2":  &symlaunchHostFuncV2,
 	})
 	hookOnce.Do(func() { hookFn = purego.NewCallback(churnHook) })
 	purego.SyscallN(symStubSetHook, hookFn)
@@ -250,7 +250,7 @@ func TestLifetimeReentry(t *testing.T) {
 	bindLifetimeStub(t)
 	reentered.Store(0)
 	for i := range 10 {
-		if err := Stream(0).LaunchHostFunc(reenterOnce(), uintptr(i+1), 0); err != nil {
+		if err := Stream(0).LaunchHostFuncV2(reenterOnce(), uintptr(i+1), 0); err != nil {
 			t.Fatal(err)
 		}
 	}

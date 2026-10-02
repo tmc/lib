@@ -10,6 +10,8 @@
     "cuda.h",
     "-headers-dir",
     "cuda-headers",
+    "-floor-header",
+    "cuda.h",
     "-docs-dir",
     "docs",
     "-output",
@@ -17,11 +19,15 @@
   ],
   "inputs": [
     {
-      "path": "cuda.h",
-      "sha256": "673873a292718591d75ea3c2e65330b1f8f8278eac3c96b32245418fb0817851"
+      "path": "driver/cuda.h",
+      "sha256": "7a79d67ca888061b1dfbe4739b51ad64f85a2f3ad874947ce09b2c635b4c7072"
+    },
+    {
+      "path": "pinned/driver/cuda-12.2/cuda.h",
+      "sha256": "a2b4436404c3a9a4231d667c811f24e9ddac256ab3f30c7a486120550abd78d5"
     }
   ],
-  "source_hash": "1f925e706ea12d27b8a2c5d2c6a4177e95c053e52b7ac520ed366ab42a88c2ea",
+  "source_hash": "c75b2fc9e3d78f43a96220c5a3cd2fb5faef97a157d9946c4aec14e5bff44df8",
   "limitations": [
     "Hash covers listed explicit header roots only, not transitive includes, docs, generator sources, toolchain or runtime compatibility.",
     "argv records portable argument names; host-specific paths are intentionally redacted.",

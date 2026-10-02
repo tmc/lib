@@ -4,6 +4,10 @@ package driver
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -141,5 +145,65 @@ func TestLibraryConflictImplicit(t *testing.T) {
 	asked := &LibraryConflictError{Loaded: "/a", Requested: "/b"}
 	if got := asked.Error(); strings.Contains(got, want) {
 		t.Errorf("explicit conflict Error() = %q, want no ordering advice", got)
+	}
+}
+
+// TestLoadTimeBindingsDocumented checks that the package documentation lists
+// each function bound to the first of several symbols, with the symbols it
+// tries and whether it is a shim, just as the loader binds them.
+func TestLoadTimeBindingsDocumented(t *testing.T) {
+	files, err := filepath.Glob("*.gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var src strings.Builder
+	for _, name := range files {
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		src.Write(data)
+	}
+	text := src.String()
+
+	_, section, ok := strings.Cut(text, "\n// # Functions bound at load time\n")
+	if !ok {
+		t.Fatal("package documentation has no section \"Functions bound at load time\"")
+	}
+	row := regexp.MustCompile(`^//   - \S+: (.+?)( \(shim\))?\.$`)
+	var doc []string
+	for _, line := range strings.Split(section, "\n") {
+		if !strings.HasPrefix(line, "//") || strings.HasPrefix(line, "// # ") {
+			break
+		}
+		if m := row.FindStringSubmatch(line); m != nil {
+			doc = append(doc, m[1]+m[2])
+		}
+	}
+
+	shims := make(map[string]bool)
+	for _, m := range regexp.MustCompile(`(?m)^\s*floor\w+ = (chain\w+)\.bound == "`).FindAllStringSubmatch(text, -1) {
+		shims[m[1]] = true
+	}
+	var bound []string
+	for _, m := range regexp.MustCompile(`(?m)^\s*(chain\w+)\s*= symbolChain\{symbols: \[\]string\{([^}]*)\}`).FindAllStringSubmatch(text, -1) {
+		s := strings.ReplaceAll(m[2], `"`, "")
+		if shims[m[1]] {
+			s += " (shim)"
+		}
+		bound = append(bound, s)
+	}
+	if len(bound) != len(chains) {
+		t.Fatalf("found %d symbolChain declarations, want %d", len(bound), len(chains))
+	}
+	for _, s := range doc {
+		if !slices.Contains(bound, s) {
+			t.Errorf("documented as bound at load time, but no chain binds it: %s", s)
+		}
+	}
+	for _, s := range bound {
+		if !slices.Contains(doc, s) {
+			t.Errorf("bound at load time, but not documented: %s", s)
+		}
 	}
 }

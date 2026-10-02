@@ -10,6 +10,8 @@
     "cublas_api.h",
     "-headers-dir",
     "cuda-headers",
+    "-docs-dir",
+    "docs",
     "-output",
     "${OUTPUT_DIR}"
   ],
