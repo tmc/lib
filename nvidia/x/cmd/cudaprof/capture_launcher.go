@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
-	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
 	"github.com/tmc/lib/nvidia/x/internal/capturefiles"
 )
 
@@ -91,6 +91,7 @@ const (
 // --max-records, which bounds how many journal frames the reader decodes and
 // cannot recover a record that was never written.
 type captureLoss struct {
+	byKind          *captureKindLosses
 	Native          uint64 `json:"native_dropped,omitempty"`
 	Queue           uint64 `json:"queue_dropped,omitempty"`
 	QueueOversize   uint64 `json:"queue_oversize_dropped,omitempty"`
@@ -217,6 +218,9 @@ func (l captureLoss) retainedFraction() (float64, bool) {
 // captureOptions is the policy for one capture invocation. command contains
 // the target argv after the -- separator and is never interpreted by a shell.
 type captureOptions struct {
+	CapturePlanFile        string
+	CapturePlanCooperative bool
+
 	// Iterations, when set, runs the iterations gate on the written
 	// capture, and the capture fails when the gate does.
 	Iterations *iterationsOptions
@@ -378,10 +382,15 @@ const (
 // captureOutcomeTargetFailed, with capture_success false, because its records
 // stop where the target did.
 type captureResult struct {
-	StacksRequested    bool              `json:"stacks_requested,omitempty"`
-	Isolation          *isolation.Result `json:"gpu_isolation,omitempty"`
-	IsolationBinding   isolation.Binding `json:"isolation_binding"`
-	isolationRaw       []byte
+	StacksRequested  bool              `json:"stacks_requested,omitempty"`
+	Isolation        *isolation.Result `json:"gpu_isolation,omitempty"`
+	IsolationBinding isolation.Binding `json:"isolation_binding"`
+	isolationRaw     []byte
+	planBudget       *cudaprof.CaptureBudget
+
+	CapturePlanManifest json.RawMessage `json:"capture_plan_manifest,omitempty"`
+	CapturePlanError    string          `json:"capture_plan_error,omitempty"`
+
 	Protocol           int    `json:"protocol"`
 	Session            string `json:"session"`
 	State              string `json:"state"`
@@ -792,6 +801,18 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 			o.NoInject = true
 		case "--json":
 			o.JSON = true
+		case "--capture-plan-cooperative":
+			o.CapturePlanCooperative = true
+		case "--capture-plan":
+			v, next, err := captureValue(args, i, value, hasValue)
+			if err != nil {
+				return o, err
+			}
+			i = next
+			if v == "" {
+				return o, fmt.Errorf("capture plan path is empty")
+			}
+			o.CapturePlanFile = v
 		case "--launch-manifest":
 			o.LaunchManifest = true
 		case "--iteration-marker", "--skip-iterations", "--expect-markers":
@@ -827,6 +848,9 @@ func parseCaptureArgs(args []string) (captureOptions, error) {
 	}
 	if i == 0 || i >= len(args) {
 		return o, errors.New("capture requires -- followed by a target command")
+	}
+	if o.CapturePlanCooperative && o.CapturePlanFile == "" {
+		return o, errors.New("--capture-plan-cooperative requires --capture-plan")
 	}
 	if o.Iterations != nil {
 		switch {

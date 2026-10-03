@@ -97,13 +97,14 @@ type captureRecordPayload struct {
 	// The finalized record carries the breakdown of what the producer lost.
 	// Dropped above is their sum, and a sum cannot be acted on: the mechanisms
 	// have different remedies and one of them is not a remedy the reader has.
-	NativeDropped   uint64 `json:"native_dropped"`
-	QueueDropped    uint64 `json:"queue_dropped"`
-	QueueOversize   uint64 `json:"queue_oversize_dropped"`
-	QueueContention uint64 `json:"queue_contention_dropped"`
-	QueueCapacity   uint64 `json:"queue_capacity_dropped"`
-	Offered         uint64 `json:"offered"`
-	Retained        uint64 `json:"retained"`
+	NativeDropped   uint64             `json:"native_dropped"`
+	QueueDropped    uint64             `json:"queue_dropped"`
+	QueueOversize   uint64             `json:"queue_oversize_dropped"`
+	QueueContention uint64             `json:"queue_contention_dropped"`
+	QueueCapacity   uint64             `json:"queue_capacity_dropped"`
+	Offered         uint64             `json:"offered"`
+	Retained        uint64             `json:"retained"`
+	ByKind          *captureKindLosses `json:"by_kind"`
 	// The pcsampling summary record. The agent folds samples in fixed-size
 	// tables, so these say how much of the run the pcsample records above
 	// actually account for.
@@ -1264,6 +1265,7 @@ func observeJournal(path, session string, targetPID int, maxRecords int64) (wire
 				recovered.Stats.Dropped = payload.Dropped
 			}
 			metrics.loss = captureLoss{
+				byKind:          payload.ByKind,
 				Native:          payload.NativeDropped,
 				Queue:           payload.QueueDropped,
 				QueueOversize:   payload.QueueOversize,

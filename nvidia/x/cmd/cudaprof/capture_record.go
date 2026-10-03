@@ -57,16 +57,33 @@ func runCaptureCommand(args []string) error {
 	if opts.Inject == "" && !opts.NoInject {
 		fmt.Fprintln(os.Stderr, "cudaprof: error: no injection library specified (--inject /path/to/agent.so, CUDAPROF_INJECT, or CUDAPROF_AGENT); target will not run")
 	}
-	result, runErr := runCapture(context.Background(), opts)
+	result, runErr := runCaptureWithPlan(context.Background(), opts, runCapture)
 	attachCaptureIsolation(&result, opts.IsolationReceipt)
 	if opts.LaunchManifest {
 		result.LaunchManifest = buildLaunchManifest(result)
 	}
 	budget := captureArtifactBudget{FileBytes: opts.CaptureFileBytes, TotalBytes: opts.CaptureTotalBytes}
-	result.recordLimits(opts.MaxJournalRecords, budget)
+	maxJournalRecords := opts.MaxJournalRecords
+	if result.planBudget != nil {
+		budget = budget.effective()
+		budget.FileBytes = min(budget.FileBytes, int64(result.planBudget.MaxBytes))
+		budget.TotalBytes = min(budget.TotalBytes, int64(result.planBudget.MaxBytes))
+		if maxJournalRecords <= 0 || uint64(maxJournalRecords) > result.planBudget.MaxRecords {
+			maxJournalRecords = int64(result.planBudget.MaxRecords)
+		}
+	}
+	result.recordLimits(maxJournalRecords, budget)
 	if opts.Output != "" {
 		omitted, err := writeCapture(opts.Output, result, budget)
 		if err != nil {
+			if result.planBudget != nil {
+				result.CapturePlanError = err.Error()
+				result.CaptureSuccess = false
+				result.CaptureError = "capture plan output failed: " + err.Error()
+				if statusErr := json.NewEncoder(os.Stdout).Encode(compactCaptureStatus(result)); statusErr != nil {
+					return fmt.Errorf("write capture diagnostic: %w", statusErr)
+				}
+			}
 			return fmt.Errorf("write capture: %w", err)
 		}
 		result.OmittedFiles = omitted
@@ -970,7 +987,12 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 		return nil, err
 	}
 	tmpName := tmp.Name()
-	if err := cudacapture.WriteLimits(tmp, c, limits); err != nil {
+	var output io.Writer = tmp
+	if result.planBudget != nil {
+		defer os.Remove(tmpName)
+		output = &capturePlanOutputWriter{writer: tmp, remaining: int64(result.planBudget.MaxBytes)}
+	}
+	if err := cudacapture.WriteLimits(output, c, limits); err != nil {
 		_ = tmp.Close()
 		return nil, err
 	}
