@@ -10,6 +10,9 @@ import (
 // greatest_common_domain on Layout._set(shape, stride) in NVlabs/CuTe commit
 // 111253d17e2f0f8631f43999b43ac4afa5954b04. Python tuple spaces and trailing
 // commas are omitted in Go notation; singleton tuples retain parentheses.
+// The pinned reference requires Python 3.12: under Python 3.14 its
+// prefix_product raises NameError. See testdata/common_domain_oracles.py for
+// reproduction and testdata/common_domain_oracles.txt for the reference output.
 func TestInversePyCuTe(t *testing.T) {
 	for _, test := range []struct{ input, inverse, null string }{
 		{"8:1", "8:1", "1:0"},
@@ -46,6 +49,13 @@ func TestGreatestCommonDomainPyCuTe(t *testing.T) {
 		{"((2,3),4):((1,2),6)", "(6,4):(1,6)", "(2,3,4):(1,2,6)"},
 		{"(1,8):(0,1)", "(2,4):(1,2)", "(2,4):(1,2)"},
 		{"8:2", "8:0", "(8):(1)"},
+		{"(4,6,4):(1,4,24)", "(3,3):(1,3)", "(1):(0)"},
+		{"(10,15,10):(1,10,150)", "((3,5),10):((1,3),15)", "(5):(30)"},
+		{"(2,3,5):(1,2,6)", "(5,3,2):(1,5,15)", "(1):(0)"},
+		{"(1,4,6,4):(1,1,4,24)", "((3,1),3):((1,3),3)", "(1):(0)"},
+		{"(2,6):(1,2)", "(3,4):(1,3)", "(2):(6)"},
+		{"(4,3):(1,4)", "(2,6):(1,2)", "(2,2,3):(1,2,4)"},
+		{"(2,5,3):(1,2,10)", "(5,2,3):(1,5,10)", "(3):(10)"},
 	} {
 		t.Run(test.a+"/"+test.b, func(t *testing.T) {
 			a, b := mustParse(t, test.a), mustParse(t, test.b)
@@ -133,6 +143,70 @@ func TestCommonDomainDivideProperty(t *testing.T) {
 						if err != nil || got != want {
 							t.Fatalf("first mode %v at %d = %d, %v; want %d", first, i, got, err, want)
 						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestCommonDomainGeneratedShapePairs(t *testing.T) {
+	var layouts []Layout
+	for x := 1; x <= 3; x++ {
+		layouts = append(layouts, mustParse(t, fmt.Sprintf("%d:1", x)))
+		for y := 1; y <= 3; y++ {
+			layouts = append(layouts, mustParse(t, fmt.Sprintf("(%d,%d):(1,%d)", x, y, x)))
+			for z := 1; z <= 3; z++ {
+				layouts = append(layouts,
+					mustParse(t, fmt.Sprintf("(%d,%d,%d):(1,%d,%d)", x, y, z, x, x*y)),
+					mustParse(t, fmt.Sprintf("((%d,%d),%d):((1,%d),%d)", x, y, z, x, x*y)))
+			}
+		}
+	}
+	// 66 layouts yield 4,356 ordered pairs with equal and unequal rank,
+	// nested profiles, size-one modes and different total sizes.
+	for _, a := range layouts {
+		for _, b := range layouts {
+			tile, err := GreatestCommonDomain(a, b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reverse, err := GreatestCommonDomain(b, a)
+			if err != nil || reverse.String() != tile.String() {
+				t.Fatalf("asymmetric %v/%v: %v/%v, %v", a, b, tile, reverse, err)
+			}
+			// Euclid here is an independent size oracle, not the production gcd.
+			x, y := a.Size(), b.Size()
+			for y != 0 {
+				x, y = y, x%y
+			}
+			if x%tile.Size() != 0 {
+				t.Fatalf("%v/%v common size %d does not divide gcd %d", a, b, tile.Size(), x)
+			}
+			if a.Shape().String() == b.Shape().String() && tile.Size() != a.Size() {
+				t.Fatalf("identical shape %v lost common factors: %v", a.Shape(), tile)
+			}
+			for _, l := range []Layout{a, b} {
+				d, err := LogicalDivide(l, tile)
+				if err != nil {
+					t.Fatalf("divide %v by %v: %v", l, tile, err)
+				}
+				first, err := d.Mode(0)
+				if err != nil || first.Size() != tile.Size() || d.Size() != l.Size() {
+					t.Fatalf("invalid split %v/%v: %v, %v", l, tile, d, err)
+				}
+				for i := 0; i < tile.Size(); i++ {
+					j, e := tile.Index(i)
+					if e != nil {
+						t.Fatal(e)
+					}
+					want, e := l.Index(j)
+					if e != nil {
+						t.Fatal(e)
+					}
+					got, e := first.Index(i)
+					if e != nil || got != want {
+						t.Fatalf("split %v/%v coordinate %d: got %d want %d, %v", l, tile, i, got, want, e)
 					}
 				}
 			}
