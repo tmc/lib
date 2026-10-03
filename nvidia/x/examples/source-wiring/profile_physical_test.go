@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalineinfo"
 )
@@ -61,7 +60,7 @@ func TestSamplePCsPhysical(t *testing.T) {
 		}
 		return nil
 	}
-	p, err := samplePCs(ctx, cupti.Context(cuCtx.Raw()), a, 10, "", workload)
+	p, err := samplePCs(ctx, cuCtx.Raw(), a, 10, "", workload)
 	if err != nil {
 		t.Fatal(err)
 	}

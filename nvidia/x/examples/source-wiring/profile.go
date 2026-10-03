@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudafuse"
 	"github.com/tmc/lib/nvidia/x/cudalineinfo"
@@ -85,7 +86,7 @@ func profile(ctx context.Context, cfg profileConfig, a *cudalineinfo.Attribution
 
 	if cfg.pcSampling {
 		fmt.Println()
-		p, period, err := samplePCsAdaptive(ctx, cupti.Context(cuCtx.Raw()), a, cfg.period, cfg.pprof, workload)
+		p, period, err := samplePCsAdaptive(ctx, cuCtx.Raw(), a, cfg.period, cfg.pprof, workload)
 		if err != nil {
 			return fmt.Errorf("pc sampling: %w", err)
 		}
@@ -156,7 +157,7 @@ func writeCost(w io.Writer, kernel string, launches int, costs []cost) {
 // retry samples a quarter as often; the period that worked is returned, so
 // a report says what the numbers were taken at rather than a run failing on
 // a knob the reader has to find by hand.
-func samplePCsAdaptive(ctx context.Context, cuCtx cupti.Context, a *cudalineinfo.Attribution, period uint, pprofPath string, workload func(between func() error) error) (cudalineinfo.Profile, uint, error) {
+func samplePCsAdaptive(ctx context.Context, cuCtx driver.Context, a *cudalineinfo.Attribution, period uint, pprofPath string, workload func(between func() error) error) (cudalineinfo.Profile, uint, error) {
 	for {
 		p, err := samplePCs(ctx, cuCtx, a, period, pprofPath, workload)
 		if !errors.Is(err, cupti.ErrOutOfMemory) || period >= maxPeriod {
@@ -177,7 +178,7 @@ const maxPeriod = 31
 // stops. With pprofPath set, the same samples also go to a pprof profile
 // whose stacks run from the SASS instruction up through the Go frames that
 // built the site.
-func samplePCs(ctx context.Context, cuCtx cupti.Context, a *cudalineinfo.Attribution, period uint, pprofPath string, workload func(between func() error) error) (p cudalineinfo.Profile, err error) {
+func samplePCs(ctx context.Context, cuCtx driver.Context, a *cudalineinfo.Attribution, period uint, pprofPath string, workload func(between func() error) error) (p cudalineinfo.Profile, err error) {
 	inv, err := stallReasons(cuCtx)
 	if err != nil {
 		return p, fmt.Errorf("stall reasons: %w", err)
@@ -302,7 +303,7 @@ func perPC(metricID uint64, records []cuptisass.Record) []cudaprofagent.Count {
 
 // stallReasons reads the native reason inventory, which is only readable
 // while sampling is enabled on the context.
-func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err error) {
+func stallReasons(cuCtx driver.Context) (inv cuptipcsampling.ReasonInventory, err error) {
 	disable, err := cuptipcsampling.Enable(cuCtx)
 	if disable != nil {
 		defer func() { err = errors.Join(err, disable()) }()

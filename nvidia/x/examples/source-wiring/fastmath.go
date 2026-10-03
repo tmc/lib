@@ -152,7 +152,7 @@ func (r *loadedKernel) launch() error {
 	}
 	args = append(args, int32(r.n))
 	stream := r.dev.DefaultStream()
-	if err := cudalaunch.OwnedKernel(r.fn).Grid(uint32((r.n + 255) / 256)).Block(256).On(stream).Launch(args...); err != nil {
+	if err := cudalaunch.OwnedKernel(r.fn).Grid(uint32((r.n+255)/256), 1, 1).Block(256, 1, 1).On(stream).Launch(args...); err != nil {
 		return fmt.Errorf("launch: %w", err)
 	}
 	return stream.Synchronize(context.Background())
