@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudacache"
@@ -115,4 +117,37 @@ func boundedPMConfig(cfg cuptipmsampling.Config, limits runtimeBudget) (cuptipms
 		cfg.MaxCounterDataBytes = min(cfg.MaxCounterDataBytes, cap)
 	}
 	return cfg, nil
+}
+
+// rangeCounterBudget reserves the other quarters for retained and encoded copies.
+func rangeCounterBudget(limits runtimeBudget) (int, error) {
+	if limits.bytes < 4 {
+		return 0, errors.New("range counter image byte budget exhausted")
+	}
+	return limits.bytes / 4, nil
+}
+
+func retainObservedResult(plan cudaprof.CapturePlan, pass cudaprof.CapturePass, r cudaprof.CaptureProviderResult) cudaprof.CaptureProviderResult {
+	if r.Status != "complete" {
+		return r
+	}
+	var reasons []string
+	if r.Identity != plan.Identity {
+		reasons = append(reasons, "observed identity differs from plan")
+	}
+	if r.Environment != plan.Environment {
+		reasons = append(reasons, "observed environment differs from plan")
+	}
+	cfg, ok := pass.Configs[r.Provider]
+	if !ok || !reflect.DeepEqual(r.Config, cfg) {
+		reasons = append(reasons, "observed provider configuration differs from plan")
+	}
+	if len(reasons) > 0 {
+		r.Status = "partial"
+		if r.Reason != "" {
+			reasons = append([]string{r.Reason}, reasons...)
+		}
+		r.Reason = strings.Join(reasons, "; ")
+	}
+	return r
 }

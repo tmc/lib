@@ -1,7 +1,9 @@
 package main
 
 import (
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,5 +104,57 @@ func TestBoundedPMConfig(t *testing.T) {
 				t.Fatalf("caps changed: %+v", got)
 			}
 		})
+	}
+}
+
+func TestRangeCounterBudget(t *testing.T) {
+	for _, bytes := range []int{-1, 0, 1, 2, 3} {
+		if _, err := rangeCounterBudget(runtimeBudget{bytes: bytes}); err == nil {
+			t.Fatalf("tiny budget %d admitted", bytes)
+		}
+	}
+	got, err := rangeCounterBudget(runtimeBudget{bytes: 32 << 20})
+	if err != nil || got != 8<<20 || got < 6395772 {
+		t.Fatalf("observed image within remaining budget refused: %d %v", got, err)
+	}
+	got, err = rangeCounterBudget(runtimeBudget{bytes: 4})
+	if err != nil || got != 1 {
+		t.Fatalf("minimum budget: %d %v", got, err)
+	}
+}
+
+func TestRetainObservedResult(t *testing.T) {
+	plan := cudaprof.CapturePlan{}
+	pass := cudaprof.CapturePass{Configs: map[cudaprof.CaptureProvider]cudaprof.CaptureProviderConfig{cudaprof.CaptureSASS: {SASSMetrics: []cudaprof.CaptureSASSMetric{{MetricID: 1}}}}}
+	original := cudaprof.CaptureProviderResult{Provider: cudaprof.CaptureSASS, Status: "complete", Raw: []byte("native bytes"), Config: pass.Configs[cudaprof.CaptureSASS], Process: 42, Generation: 123, Context: "7"}
+	if got := retainObservedResult(plan, pass, original); !reflect.DeepEqual(got, original) {
+		t.Fatalf("matching result changed: %+v", got)
+	}
+	for _, mode := range []string{"environment", "identity", "config"} {
+		t.Run(mode, func(t *testing.T) {
+			observed := original
+			switch mode {
+			case "environment":
+				observed.Environment.ClockMode = "actual 1234 MHz"
+			case "identity":
+				observed.Identity.Entry = "actual_entry"
+			case "config":
+				observed.Config = cudaprof.CaptureProviderConfig{SASSMetrics: []cudaprof.CaptureSASSMetric{{MetricID: 2}}}
+			}
+			got := retainObservedResult(plan, pass, observed)
+			if got.Status != "partial" || !strings.Contains(got.Reason, "observed") || !strings.Contains(got.Reason, mode) {
+				t.Fatalf("mismatch not demoted: %+v", got)
+			}
+			got.Status = observed.Status
+			got.Reason = observed.Reason
+			if !reflect.DeepEqual(got, observed) {
+				t.Fatal("actual native fields were overwritten")
+			}
+		})
+	}
+	original.Status = "partial"
+	original.Reason = "actual saturation"
+	if got := retainObservedResult(plan, pass, original); !reflect.DeepEqual(got, original) {
+		t.Fatal("existing partial result changed")
 	}
 }

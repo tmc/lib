@@ -354,6 +354,10 @@ func collect(dev *cuda.Device, dir string) (err error) {
 	var collectionErr error
 	switch provider {
 	case cudaprof.CaptureRange:
+		counterBudget, budgetErr := rangeCounterBudget(limits)
+		if budgetErr != nil {
+			return budgetErr
+		}
 		metrics := pass.Configs[provider].Metrics
 		rp, e := cuptirange.NewPlan(p.Chip, nil, metrics, min(4<<20, limits.bytes))
 		collectionErr = e
@@ -363,7 +367,7 @@ func collect(dev *cuda.Device, dir string) (err error) {
 			if !bytes.Equal(image, p.RangeImage) {
 				collectionErr = errors.New("actual range configuration differs from preparation")
 			} else {
-				capture, collectionErr = rp.CaptureReplay(dev, cuptirange.Limits{MaxRanges: uint(limits.records), MaxRangeTreeNodes: 1024, MaxCounterBytes: min(4<<20, limits.bytes), MaxPasses: uint(limits.passes)}, cuptirange.CaptureOptions{Mode: cuptirange.Regions, MaxDepth: 2}, cuptirange.Replay{Synchronize: driver.CtxSynchronize, Run: func(_ uint, s *cuptirange.Scope) error { return s.Region("work", launch) }})
+				capture, collectionErr = rp.CaptureReplay(dev, cuptirange.Limits{MaxRanges: uint(limits.records), MaxRangeTreeNodes: 1024, MaxCounterBytes: counterBudget, MaxPasses: uint(limits.passes)}, cuptirange.CaptureOptions{Mode: cuptirange.Regions, MaxDepth: 2}, cuptirange.Replay{Synchronize: driver.CtxSynchronize, Run: func(_ uint, s *cuptirange.Scope) error { return s.Region("work", launch) }})
 			}
 		}
 		cleanup := error(nil)
@@ -470,6 +474,7 @@ func collect(dev *cuda.Device, dir string) (err error) {
 	if err != nil {
 		return err
 	}
+	r = retainObservedResult(plan, *pass, r)
 	publication := cudaprof.CapturePublication{Version: 1, Result: r, Artifact: p.Artifact, Workload: p.Workload, CompilerKey: p.CompilerKey}
 	transport := os.Getenv("CUDAPROF_TRANSPORT")
 	if transport == "" {
