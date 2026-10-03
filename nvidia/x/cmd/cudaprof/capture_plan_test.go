@@ -41,6 +41,15 @@ func TestCapturePlanDefaultRouteUnchanged(t *testing.T) {
 	}
 }
 
+func TestCapturePlanHelp(t *testing.T) {
+	text := captureHelp()
+	for _, want := range []string{"--capture-plan <path>", "--capture-plan-cooperative", "separate replay identities", "Missing or incomplete providers remain so"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("capture help missing %q", want)
+		}
+	}
+}
+
 func TestCapturePlanCooperativeRemainingBudgets(t *testing.T) {
 	plan := cliCapturePlan()
 	plan.Passes = append(plan.Passes, cudaprof.CapturePass{ID: "second", Replay: "replay", Providers: []cudaprof.CaptureProvider{cudaprof.CaptureActivity}})

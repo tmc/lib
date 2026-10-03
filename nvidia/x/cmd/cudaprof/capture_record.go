@@ -1050,6 +1050,9 @@ func captureHelp() string {
 	return fmt.Sprintf(`Usage: cudaprof capture [options] -- command [args...]
 
 Options:
+  --capture-plan <path>         run a validated bounded provider plan in separate passes
+  --capture-plan-cooperative    accept target-owned provider publications and code receipts;
+                                requires --capture-plan, preserves replay isolation
   --inject <path>               path to CUPTI agent shared library (or set CUDAPROF_INJECT);
                                 the default is cupti_agent.so beside this command or in
                                 GOBIN, built by go generate ./x/cmd/cudaprof
@@ -1190,9 +1193,10 @@ Options:
   --drain-timeout <duration>    drain timeout after target completion
   --require-complete            require complete capture without dropped records
 
-Hardware counters are out of scope here: capture records a CUPTI activity timeline, and
-counter collection needs the CUPTI Profiling API with replay. That exists in-process --
-github.com/tmc/lib/nvidia/x/cuptirange profiles ranges with user replay (Plan.Capture), and
+Without a capture plan, capture records the existing CUPTI activity timeline.
+The opt-in cooperative plan composes target-owned range, PM and SASS collection
+with separate replay identities. Missing or incomplete providers remain so.
+github.com/tmc/lib/nvidia/x/cuptirange owns range profiling with user replay;
 cuptimetrics lists the metrics a given chip offers.
 `, captureMaxRecords, captureFileBytes, captureTotalBytes,
 		captureRangeNone, captureRangeProfilerAPI, finalizeExit, finalizeProfilerStop, captureOutcomePartialRecovered,
