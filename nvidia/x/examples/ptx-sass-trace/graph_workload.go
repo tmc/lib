@@ -38,8 +38,8 @@ type graphResult struct {
 
 // stepDim reads a step's explicit dimension fields, where an omitted Y or Z
 // means one, as elsewhere in this example's flags.
-func stepDim(x, y, z uint32) cudalaunch.Dim3 {
-	d := cudalaunch.Dim3{X: x, Y: y, Z: z}
+func stepDim(x, y, z uint32) driver.Dim3 {
+	d := driver.Dim3{X: x, Y: y, Z: z}
 	if d.X == 0 {
 		d.X = 1
 	}
@@ -112,13 +112,13 @@ func runWorkloadInGraph(
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() { retainCleanup("start event", start.Destroy()) }()
+	defer func() { retainCleanup("start event", start.Close()) }()
 
 	end, err := dev.NewEvent()
 	if err != nil {
 		return nil, nil, err
 	}
-	defer func() { retainCleanup("end event", end.Destroy()) }()
+	defer func() { retainCleanup("end event", end.Close()) }()
 
 	var g *cudagraph.Graph
 	defer func() {

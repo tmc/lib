@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/google/pprof/profile"
-	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
@@ -394,7 +393,7 @@ func capture(dir string, cfg config) (result *captureMetadata, err error) {
 
 		var sampErr error
 		cudaprof.Do(ctx, labels, func(ctx context.Context) {
-			meta.PCSampling, sampErr = withPCSampling(ctx, cupti.Context(cuCtx.Raw()), code, cubin, rec, uint32(cfg.pcPeriod), runMeasured)
+			meta.PCSampling, sampErr = withPCSampling(ctx, cuCtx.Raw(), code, cubin, rec, uint32(cfg.pcPeriod), runMeasured)
 		})
 		// A sampling failure must not discard a workload that ran and verified,
 		// so it is reported after the workload's own error.

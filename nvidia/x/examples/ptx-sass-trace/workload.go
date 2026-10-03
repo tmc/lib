@@ -433,19 +433,19 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 	if err != nil {
 		return res, err
 	}
-	defer func() { err = errors.Join(err, stream.Destroy()) }()
+	defer func() { err = errors.Join(err, stream.Close()) }()
 
 	start, err := dev.NewEvent()
 	if err != nil {
 		return res, err
 	}
-	defer func() { err = errors.Join(err, start.Destroy()) }()
+	defer func() { err = errors.Join(err, start.Close()) }()
 
 	end, err := dev.NewEvent()
 	if err != nil {
 		return res, err
 	}
-	defer func() { err = errors.Join(err, end.Destroy()) }()
+	defer func() { err = errors.Join(err, end.Close()) }()
 
 	res.Intervals = make(map[string][]int64)
 
@@ -507,7 +507,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		passStr := strconv.Itoa(pass)
 
 		// 1. RMSNorm
-		launchNorm := cudalaunch.OwnedKernel(fnNorm).Grid(uint32(normRows)).Block(256).On(stream)
+		launchNorm := cudalaunch.OwnedKernel(fnNorm).Grid(uint32(normRows), 1, 1).Block(256, 1, 1).On(stream)
 		var nsNorm int64
 		cudaprof.Do(ctx, cudaprof.Labels(
 			"layer", "0",
@@ -532,7 +532,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		}
 
 		// 2. Q8_0 Matvec
-		launchQ8 := cudalaunch.OwnedKernel(fnQ8).Grid(uint32((q8Rows*32 + 255) / 256)).Block(256).On(stream)
+		launchQ8 := cudalaunch.OwnedKernel(fnQ8).Grid(uint32((q8Rows*32+255)/256), 1, 1).Block(256, 1, 1).On(stream)
 		var nsQ8 int64
 		cudaprof.Do(ctx, cudaprof.Labels(
 			"layer", "0",
@@ -557,7 +557,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		}
 
 		// 3. SwiGLU
-		launchSwiGLU := cudalaunch.OwnedKernel(fnSwiGLU).Grid(uint32((cols + 255) / 256)).Block(256).On(stream)
+		launchSwiGLU := cudalaunch.OwnedKernel(fnSwiGLU).Grid(uint32((cols+255)/256), 1, 1).Block(256, 1, 1).On(stream)
 		var nsSwiGLU int64
 		cudaprof.Do(ctx, cudaprof.Labels(
 			"layer", "0",
@@ -582,7 +582,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		}
 
 		// 4. MoE Expert Dispatch for all 6 slots
-		launchMoE := cudalaunch.OwnedKernel(fnMoE).Grid(uint32((expertRows + 255) / 256)).Block(256).On(stream)
+		launchMoE := cudalaunch.OwnedKernel(fnMoE).Grid(uint32((expertRows+255)/256), 1, 1).Block(256, 1, 1).On(stream)
 		for slot := 0; slot < 6; slot++ {
 			expertID := expertIDs[slot]
 			var nsMoE int64
@@ -615,7 +615,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		}
 
 		// 5. Quantized Sub-Byte Dot Product: SIMD vs Scalar
-		launchIQSimd := cudalaunch.OwnedKernel(fnIQ2Simd).Grid(uint32((iqCount + 255) / 256)).Block(256).On(stream)
+		launchIQSimd := cudalaunch.OwnedKernel(fnIQ2Simd).Grid(uint32((iqCount+255)/256), 1, 1).Block(256, 1, 1).On(stream)
 		var nsIQSimd int64
 		cudaprof.Do(ctx, cudaprof.Labels(
 			"kernel", "ds4_iq2_simd",
@@ -632,7 +632,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 			res.Intervals["ds4_iq2_simd"] = append(res.Intervals["ds4_iq2_simd"], nsIQSimd)
 		}
 
-		launchIQScalar := cudalaunch.OwnedKernel(fnIQ2Scalar).Grid(uint32((iqCount + 255) / 256)).Block(256).On(stream)
+		launchIQScalar := cudalaunch.OwnedKernel(fnIQ2Scalar).Grid(uint32((iqCount+255)/256), 1, 1).Block(256, 1, 1).On(stream)
 		var nsIQScalar int64
 		cudaprof.Do(ctx, cudaprof.Labels(
 			"kernel", "ds4_iq2_scalar",
@@ -663,7 +663,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		}
 
 		// 6. Shared Memory Cooperative Staging
-		launchSmem := cudalaunch.OwnedKernel(fnSmem).Grid(uint32(expertRows)).Block(256).SharedMem(uint32(cols * 4)).On(stream)
+		launchSmem := cudalaunch.OwnedKernel(fnSmem).Grid(uint32(expertRows), 1, 1).Block(256, 1, 1).SharedMem(uint32(cols * 4)).On(stream)
 		var nsSmem int64
 		cudaprof.Do(ctx, cudaprof.Labels(
 			"kernel", "ds4_smem_stage_matvec",
@@ -688,7 +688,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 
 		// 7. Baseline vector_add & compute
 		if fnVecAdd != nil && kVecAdd != nil {
-			launchVec := cudalaunch.OwnedKernel(fnVecAdd).Grid(uint32((nVec + 255) / 256)).Block(256).On(stream)
+			launchVec := cudalaunch.OwnedKernel(fnVecAdd).Grid(uint32((nVec+255)/256), 1, 1).Block(256, 1, 1).On(stream)
 			var nsVec int64
 			cudaprof.Do(ctx, cudaprof.Labels("kernel", "vector_add", "phase", "memory", "pass", passStr), func(ctx context.Context) {
 				nsVec, err = runKernel(ctx, launchVec, []any{daVec, dbVec, dcVec, int32(nVec)}, stream, start, end, kVecAdd, rec, record)
@@ -716,7 +716,7 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		}
 
 		if fnCompute != nil && kCompute != nil {
-			launchComp := cudalaunch.OwnedKernel(fnCompute).Grid(uint32((nVec + 255) / 256)).Block(256).On(stream)
+			launchComp := cudalaunch.OwnedKernel(fnCompute).Grid(uint32((nVec+255)/256), 1, 1).Block(256, 1, 1).On(stream)
 			var nsComp int64
 			cudaprof.Do(ctx, cudaprof.Labels("kernel", "compute", "phase", "compute", "pass", passStr), func(ctx context.Context) {
 				nsComp, err = runKernel(ctx, launchComp, []any{dcVec, int32(nVec), int32(cfg.rounds)}, stream, start, end, kCompute, rec, record)
@@ -751,44 +751,44 @@ func runWorkload(ctx context.Context, dev *cuda.Device, mod *cuda.Module, rec *l
 		var steps []PipelineStep
 		steps = append(steps, PipelineStep{
 			Name:     kNorm.Name,
-			Launcher: cudalaunch.OwnedKernel(fnNorm).Grid(uint32(normRows)).Block(256).On(stream),
+			Launcher: cudalaunch.OwnedKernel(fnNorm).Grid(uint32(normRows), 1, 1).Block(256, 1, 1).On(stream),
 			Args:     []any{dX, dGamma, dXNorm, int32(normRows), int32(cols), float32(1e-5)},
 		})
 		steps = append(steps, PipelineStep{
 			Name:     kQ8.Name,
-			Launcher: cudalaunch.OwnedKernel(fnQ8).Grid(uint32((q8Rows*32 + 255) / 256)).Block(256).On(stream),
+			Launcher: cudalaunch.OwnedKernel(fnQ8).Grid(uint32((q8Rows*32+255)/256), 1, 1).Block(256, 1, 1).On(stream),
 			Args:     []any{dWQ8, dXNorm, dH, int32(q8Rows), int32(cols)},
 		})
 		steps = append(steps, PipelineStep{
 			Name:     kSwiGLU.Name,
-			Launcher: cudalaunch.OwnedKernel(fnSwiGLU).Grid(uint32((cols + 255) / 256)).Block(256).On(stream),
+			Launcher: cudalaunch.OwnedKernel(fnSwiGLU).Grid(uint32((cols+255)/256), 1, 1).Block(256, 1, 1).On(stream),
 			Args:     []any{dH, dUp, dSwiGLU, int32(cols)},
 		})
 		for slot := 0; slot < 6; slot++ {
 			steps = append(steps, PipelineStep{
 				Name:     kMoE.Name,
-				Launcher: cudalaunch.OwnedKernel(fnMoE).Grid(uint32((expertRows + 255) / 256)).Block(256).On(stream),
+				Launcher: cudalaunch.OwnedKernel(fnMoE).Grid(uint32((expertRows+255)/256), 1, 1).Block(256, 1, 1).On(stream),
 				Args:     []any{dExpertWeights, dSwiGLU, dMoEOut, dExpertIDs, int32(slot), int32(expertRows), int32(cols)},
 			})
 		}
 		steps = append(steps, PipelineStep{
 			Name:     kIQ2Simd.Name,
-			Launcher: cudalaunch.OwnedKernel(fnIQ2Simd).Grid(uint32((iqCount + 255) / 256)).Block(256).On(stream),
+			Launcher: cudalaunch.OwnedKernel(fnIQ2Simd).Grid(uint32((iqCount+255)/256), 1, 1).Block(256, 1, 1).On(stream),
 			Args:     []any{dIQQ, dIQA, dIQOutSimd, scaleIQ, int32(iqCount)},
 		})
 		steps = append(steps, PipelineStep{
 			Name:     kIQ2Scalar.Name,
-			Launcher: cudalaunch.OwnedKernel(fnIQ2Scalar).Grid(uint32((iqCount + 255) / 256)).Block(256).On(stream),
+			Launcher: cudalaunch.OwnedKernel(fnIQ2Scalar).Grid(uint32((iqCount+255)/256), 1, 1).Block(256, 1, 1).On(stream),
 			Args:     []any{dIQQ, dIQA, dIQOutScalar, scaleIQ, int32(iqCount)},
 		})
 		steps = append(steps, PipelineStep{
 			Name:     kSmem.Name,
-			Launcher: cudalaunch.OwnedKernel(fnSmem).Grid(uint32(expertRows)).Block(256).SharedMem(uint32(cols * 4)).On(stream),
+			Launcher: cudalaunch.OwnedKernel(fnSmem).Grid(uint32(expertRows), 1, 1).Block(256, 1, 1).SharedMem(uint32(cols * 4)).On(stream),
 			Args:     []any{dSmemA, dSwiGLU, dSmemOut, int32(expertRows), int32(cols)},
 		})
 		steps = append(steps, PipelineStep{
 			Name:     kCompute.Name,
-			Launcher: cudalaunch.OwnedKernel(fnCompute).Grid(uint32((nVec + 255) / 256)).Block(256).On(stream),
+			Launcher: cudalaunch.OwnedKernel(fnCompute).Grid(uint32((nVec+255)/256), 1, 1).Block(256, 1, 1).On(stream),
 			Args:     []any{dcVec, int32(nVec), int32(cfg.rounds)},
 		})
 

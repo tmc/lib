@@ -84,15 +84,15 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 				rc.recvPtr = 0
 			}
 			if rc.start != nil {
-				_ = rc.start.Destroy()
+				_ = rc.start.Close()
 				rc.start = nil
 			}
 			if rc.end != nil {
-				_ = rc.end.Destroy()
+				_ = rc.end.Close()
 				rc.end = nil
 			}
 			if rc.stream != nil {
-				_ = rc.stream.Destroy()
+				_ = rc.stream.Close()
 				rc.stream = nil
 			}
 			if rc.dev != nil {
@@ -128,14 +128,14 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 		}
 		start, err := dev.NewEvent()
 		if err != nil {
-			stream.Destroy()
+			stream.Close()
 			dev.Close()
 			return nil, fmt.Errorf("create start event on device %d: %w", ord, err)
 		}
 		end, err := dev.NewEvent()
 		if err != nil {
-			start.Destroy()
-			stream.Destroy()
+			start.Close()
+			stream.Close()
 			dev.Close()
 			return nil, fmt.Errorf("create end event on device %d: %w", ord, err)
 		}
@@ -196,11 +196,11 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 	for r, rc := range rankCtxs {
 		var err error
 		_ = rc.dev.WithContext(func() error {
-			rc.sendPtr, err = driver.MemAlloc(sendBytes)
+			rc.sendPtr, err = driver.MemAllocBytes(sendBytes)
 			if err != nil {
 				return err
 			}
-			rc.recvPtr, err = driver.MemAlloc(recvBytes)
+			rc.recvPtr, err = driver.MemAllocBytes(recvBytes)
 			return err
 		})
 		if err != nil {
@@ -277,21 +277,21 @@ func runNCCLWorkload(ctx context.Context, ordinals []int, mode string, elements,
 						if op == "allreduce" {
 							_, _, collectiveLine, _ = runtime.Caller(0)
 							err = comms[r].AllReduce(
-								nccl.Buffer(rc.sendPtr),
-								nccl.Buffer(rc.recvPtr),
+								rc.sendPtr,
+								rc.recvPtr,
 								uint(elements),
 								nccl.Int32,
 								nccl.Sum,
-								nccl.Stream(rc.stream.Raw()),
+								rc.stream.Raw(),
 							)
 						} else {
 							_, _, collectiveLine, _ = runtime.Caller(0)
 							err = comms[r].AllGather(
-								nccl.Buffer(rc.sendPtr),
-								nccl.Buffer(rc.recvPtr),
+								rc.sendPtr,
+								rc.recvPtr,
 								uint(elements),
 								nccl.Int32,
-								nccl.Stream(rc.stream.Raw()),
+								rc.stream.Raw(),
 							)
 						}
 						if err != nil {

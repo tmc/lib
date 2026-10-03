@@ -83,10 +83,10 @@ func TestStepDescription(t *testing.T) {
 		if desc.Function != fn {
 			t.Errorf("Function = %v, want %v", desc.Function, fn)
 		}
-		if want := (cudalaunch.Dim3{X: 4, Y: 2, Z: 1}); desc.Grid != want {
+		if want := (driver.Dim3{X: 4, Y: 2, Z: 1}); desc.Grid != want {
 			t.Errorf("Grid = %+v, want %+v", desc.Grid, want)
 		}
-		if want := (cudalaunch.Dim3{X: 128, Y: 2, Z: 1}); desc.Block != want {
+		if want := (driver.Dim3{X: 128, Y: 2, Z: 1}); desc.Block != want {
 			t.Errorf("Block = %+v, want %+v", desc.Block, want)
 		}
 		if desc.SharedMem != 1024 {
@@ -99,7 +99,7 @@ func TestStepDescription(t *testing.T) {
 		if err != nil {
 			t.Fatalf("stepDescription: %v", err)
 		}
-		one := cudalaunch.Dim3{X: 1, Y: 1, Z: 1}
+		one := driver.Dim3{X: 1, Y: 1, Z: 1}
 		if desc.Grid != one || desc.Block != one {
 			t.Errorf("default dims = grid %+v block %+v, want %+v each", desc.Grid, desc.Block, one)
 		}
@@ -122,10 +122,10 @@ func TestStepDescription(t *testing.T) {
 		if desc.Function != fn {
 			t.Errorf("Function = %v, want %v", desc.Function, fn)
 		}
-		if want := (cudalaunch.Dim3{X: 16, Y: 1, Z: 1}); desc.Grid != want {
+		if want := (driver.Dim3{X: 16, Y: 1, Z: 1}); desc.Grid != want {
 			t.Errorf("Grid = %+v, want %+v", desc.Grid, want)
 		}
-		if want := (cudalaunch.Dim3{X: 64, Y: 1, Z: 1}); desc.Block != want {
+		if want := (driver.Dim3{X: 64, Y: 1, Z: 1}); desc.Block != want {
 			t.Errorf("Block = %+v, want %+v", desc.Block, want)
 		}
 		if desc.SharedMem != 256 {
@@ -181,7 +181,7 @@ extern "C" __global__ void add_one(unsigned int *p, int n) {
 	if err != nil {
 		t.Fatalf("compiled.Load: %v", err)
 	}
-	defer dev.WithContext(mod.Unload)
+	defer dev.WithContext(mod.Close)
 
 	fn, err := mod.Function("add_one")
 	if err != nil {
@@ -198,18 +198,18 @@ extern "C" __global__ void add_one(unsigned int *p, int n) {
 	if err != nil {
 		t.Fatalf("dev.NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	n := int32(64)
 	steps := []PipelineStep{
 		{
 			Name:     "step1",
-			Launcher: cudalaunch.Kernel(fn).Grid(1).Block(64).On(stream),
+			Launcher: cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(64, 1, 1).On(stream),
 			Args:     []any{buf.Ptr(), n},
 		},
 		{
 			Name:     "step2",
-			Launcher: cudalaunch.Kernel(fn).Grid(1).Block(64).On(stream),
+			Launcher: cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(64, 1, 1).On(stream),
 			Args:     []any{buf.Ptr(), n},
 		},
 	}

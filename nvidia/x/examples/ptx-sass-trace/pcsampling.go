@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
@@ -115,7 +115,7 @@ func pcSamplingBudget(reasons int, period uint32) (cuptipcsampling.Config, error
 
 // stallReasons reads the native reason inventory for cuCtx, enabling sampling
 // for the duration of the query and disabling it again.
-func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err error) {
+func stallReasons(cuCtx driver.Context) (inv cuptipcsampling.ReasonInventory, err error) {
 	disable, err := cuptipcsampling.Enable(cuCtx)
 	if disable != nil {
 		defer func() { err = errors.Join(err, disable()) }()
@@ -133,7 +133,7 @@ func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err
 //
 // The returned result is valid even when fn fails, so a partial run still
 // reports what it collected.
-func withPCSampling(ctx context.Context, cuCtx cupti.Context, code *cudacapture.Code, cubin []byte, rec *launchRecorder, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
+func withPCSampling(ctx context.Context, cuCtx driver.Context, code *cudacapture.Code, cubin []byte, rec *launchRecorder, period uint32, fn func(context.Context)) (res *pcSamplingResult, err error) {
 	// The reason inventory cannot be read on a context where sampling is off,
 	// and the configuration Start needs is built from that inventory, so this
 	// enable is scoped to the query alone. Start enables the context again on

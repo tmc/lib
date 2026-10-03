@@ -199,7 +199,7 @@ func TestActivityLaunchCount(t *testing.T) {
 		t.Fatal(err)
 	}
 	var p driver.DevicePtr
-	if err := dev.WithContext(func() (err error) { p, err = driver.MemAlloc(4); return err }); err != nil {
+	if err := dev.WithContext(func() (err error) { p, err = driver.MemAllocBytes(4); return err }); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
