@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
+	"github.com/tmc/lib/nvidia/x/cudaevidence"
 )
 
 const (
@@ -61,6 +63,8 @@ func manifestRecords(result captureResult) []launchManifestRecord {
 			r.SharedMemory = activity.DynamicSharedMemory
 			break
 		}
+		// This metadata-only path cannot bind a compiler/workload identity.
+		r.BlockXEvidence, _ = classifyLaunchBlockX(r, nil)
 		records = append(records, r)
 	}
 	return records
@@ -81,18 +85,19 @@ type launchManifest struct {
 }
 
 type launchManifestRecord struct {
-	CallbackID          uint32      `json:"callback_id"`
-	ActivityCorrelation uint32      `json:"activity_correlation,omitempty"`
-	Correlation         uint32      `json:"correlation"`
-	Domain              string      `json:"domain"`
-	Function            string      `json:"function"`
-	Symbol              string      `json:"symbol,omitempty"`
-	Module              string      `json:"module"`
-	Stream              uint32      `json:"stream"`
-	Grid                [3]uint32   `json:"grid"`
-	Block               [3]uint32   `json:"block"`
-	SharedMemory        uint32      `json:"shared_memory"`
-	Parameters          launchBytes `json:"parameters"`
+	BlockXEvidence      cudaevidence.Value `json:"block_x_evidence"`
+	CallbackID          uint32             `json:"callback_id"`
+	ActivityCorrelation uint32             `json:"activity_correlation,omitempty"`
+	Correlation         uint32             `json:"correlation"`
+	Domain              string             `json:"domain"`
+	Function            string             `json:"function"`
+	Symbol              string             `json:"symbol,omitempty"`
+	Module              string             `json:"module"`
+	Stream              uint32             `json:"stream"`
+	Grid                [3]uint32          `json:"grid"`
+	Block               [3]uint32          `json:"block"`
+	SharedMemory        uint32             `json:"shared_memory"`
+	Parameters          launchBytes        `json:"parameters"`
 }
 
 type launchBytes struct {
