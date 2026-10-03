@@ -1,0 +1,11 @@
+Recovery note, 2026-10-03T23:04:27Z.
+Commit a717bfd45274c68042ad953293c250225f0200f9 is an unchanged cherry-pick
+of original lane40 implementation 5394e116a7ecae856490d7e3e9b0b83de7d431de
+onto next833b65ed50312565b71dc28be0773891c98b2ad2. Original author/date and
+message are preserved; no adaptations were needed or committed.
+Codex CLI 0.160.0; model exact runtime identifier unavailable; tty unavailable
+(pipe-based tool execution). Codex subagent session:
+01a0f3ea-8c08-72b1-a932-000ee0ebdd6b, task /root/grade45.
+Parent Codex session: 01a0e209-f57f-7300-91cd-4a82fcd77ef4.
+Parent iTerm pane: 026363F7-C2F7-4118-9920-4953A7B20D93; no subagent pane.
+Receipts: /Users/tmc/tmp/lib-wt-next/20261003-lane40/.
