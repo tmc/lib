@@ -40,18 +40,7 @@ func TestNativeRangeMatchesReferenceSample(t *testing.T) {
 	if err := checkReferenceBinary(sample); err != nil {
 		t.Fatal(err)
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(home, "tmp"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	work, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cuptirange-reference-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(work) })
+	work := t.TempDir()
 	cmd := exec.Command(sample, "0", rangeReferenceMetric)
 	cmd.Dir = work
 	cmd.Env = withLibraryPath(os.Environ(), filepath.Join(cudaRoot, "lib64"))
