@@ -150,6 +150,9 @@ func newSession(cfg Config, api sessionAPI) (result *Session, err error) {
 	if sizeParams.CounterDataSize == 0 {
 		return nil, errors.New("cuptipmsampling: counter data size returned zero")
 	}
+	if sizeParams.CounterDataSize > uint(^uint(0)>>1) || (cfg.MaxCounterDataBytes != 0 && sizeParams.CounterDataSize > cfg.MaxCounterDataBytes) {
+		return nil, errors.New("cuptipmsampling: counter data size exceeds allocation limit")
+	}
 
 	// 4. Allocate and initialize counter data image
 	counterData := make([]byte, sizeParams.CounterDataSize)

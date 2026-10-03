@@ -127,6 +127,11 @@ type Config struct {
 	// MaxSamples is the maximum number of samples the counter data image can store.
 	MaxSamples uint32
 
+	// MaxCounterDataBytes bounds native-requested counter-image storage before
+	// allocation. Zero preserves the uncapped legacy behavior. Bounded capture
+	// callers must supply a positive limit in addition to MaxSamples.
+	MaxCounterDataBytes uint
+
 	// MetricNames is the list of metric names scheduled in ConfigImage.
 	MetricNames []string
 }

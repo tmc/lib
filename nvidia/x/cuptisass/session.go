@@ -204,75 +204,7 @@ func (s *Session) DataProperties() (numPatchedRecords, numInstances uint, err er
 
 // Flush retrieves all collected SASS metric records from CUPTI's internal buffers and clears them.
 func (s *Session) Flush() ([]Record, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.closed || s.closing {
-		return nil, errors.New("cuptisass: session is closed")
-	}
-
-	var props cupti.SassMetricsGetDataPropertiesParams
-	props.StructSize = uint(unsafe.Offsetof(props.NumOfInstances) + unsafe.Sizeof(props.NumOfInstances))
-	props.Ctx = driver.Context(s.ctx)
-
-	if err := cupti.SassMetricsGetDataProperties(&props); err != nil {
-		return nil, fmt.Errorf("cuptisass: flush query properties: %w", err)
-	}
-
-	if props.NumOfPatchedInstructionRecords == 0 || props.NumOfInstances == 0 {
-		return nil, nil
-	}
-
-	numRecords := props.NumOfPatchedInstructionRecords
-	numInstances := props.NumOfInstances
-
-	rawRecords := make([]cupti.SassMetricsData, numRecords)
-	rawValues := make([][]cupti.SassMetricsInstanceValue, numRecords)
-
-	var pin runtime.Pinner
-	pin.Pin(&rawRecords[0])
-	for i := uint(0); i < numRecords; i++ {
-		rawValues[i] = make([]cupti.SassMetricsInstanceValue, numInstances)
-		pin.Pin(&rawValues[i][0])
-		rawRecords[i].StructSize = uint(unsafe.Sizeof(cupti.SassMetricsData{}))
-		rawRecords[i].PInstanceValues = uintptr(unsafe.Pointer(&rawValues[i][0]))
-	}
-
-	var flushParams cupti.SassMetricsFlushDataParams
-	flushParams.StructSize = uint(unsafe.Offsetof(flushParams.NumOfInstances) + unsafe.Sizeof(flushParams.NumOfInstances))
-	flushParams.Ctx = driver.Context(s.ctx)
-	flushParams.NumOfPatchedInstructionRecords = numRecords
-	flushParams.NumOfInstances = numInstances
-	flushParams.PMetricsData = uintptr(unsafe.Pointer(&rawRecords[0]))
-
-	err := cupti.SassMetricsFlushData(&flushParams)
-	if err != nil {
-		pin.Unpin()
-		return nil, fmt.Errorf("cuptisass: flush data: %w", err)
-	}
-
-	records := make([]Record, numRecords)
-	for i := uint(0); i < numRecords; i++ {
-		name := readCString(rawRecords[i].FunctionName)
-		if rawRecords[i].FunctionName != 0 {
-			nativeFree(rawRecords[i].FunctionName)
-		}
-		records[i] = Record{
-			CubinCRC:      rawRecords[i].CubinCrc,
-			FunctionIndex: rawRecords[i].FunctionIndex,
-			FunctionName:  name,
-			PCOffset:      rawRecords[i].PcOffset,
-			Values:        make([]InstanceValue, numInstances),
-		}
-		for j := uint(0); j < numInstances; j++ {
-			records[i].Values[j] = InstanceValue{
-				MetricID: rawValues[i][j].MetricId,
-				Value:    rawValues[i][j].Value,
-			}
-		}
-	}
-	pin.Unpin()
-	return records, nil
+	return s.flushData(nil, nativeFlushAPI())
 }
 
 // Close disables SASS metrics collection if active, resets the device configuration,
