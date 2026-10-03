@@ -123,6 +123,9 @@ To retain late GPU isolation evidence in a new capture:
 To print the build of this cudaprof:
   cudaprof version
 
+To import a bounded offline Nsight Compute project export:
+  cudaprof import-ncu [-json] [-limit N] envelope.json
+
 To print the usage of a command:
   cudaprof help [command]
 `
@@ -160,6 +163,7 @@ func commands() []command {
 		{name: "probe", run: func(args []string) error { return runProbeCommand(args[1:]) }},
 		{name: "counter-receipt", run: func(args []string) error { return runCounterReceiptCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
+		{name: "import-ncu", usage: importNCUUsage, run: func(args []string) error { return runImportNCUCommand(args[1:], os.Stdout) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
 		{name: "export-compare", run: func(args []string) error { return runTraceAlias("compare", args) }},
 		{name: "export", run: func(args []string) error { return runTraceAlias("export", args) }},
