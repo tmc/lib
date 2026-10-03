@@ -466,7 +466,9 @@ extern "C" __global__ void tile_scale_copy(const float* in, long long in_stride,
 
 	// Launch automatically infers Grid(3, 2, 1) and binds pointers, strides, and tile shapes.
 	launcher := cudalaunch.Kernel(fn.Raw()).Block(16, 16, 1)
-	if err := launcher.Launch(inPart, outPart, int32(rows), int32(cols)); err != nil {
+	if err := dev.WithContext(func() error {
+		return launcher.Launch(inPart, outPart, int32(rows), int32(cols))
+	}); err != nil {
 		t.Fatalf("launcher.Launch failed: %v", err)
 	}
 
