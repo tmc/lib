@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ianlancetaylor/demangle"
+	"github.com/tmc/lib/nvidia/x/cudaevidence"
 )
 
 // occupancyCaveat qualifies every recommendation derived from an occupancy or
@@ -146,14 +147,18 @@ func (l Location) kernelKey() string {
 
 // Item represents a single diagnosis or performance recommendation.
 type Item struct {
-	Severity                 Severity      `json:"severity"`
-	Category                 Category      `json:"category"`
-	EvidenceLevel            EvidenceLevel `json:"evidence_level,omitempty"`
-	Location                 Location      `json:"location"`
-	Finding                  string        `json:"finding"`
-	ActionableRecommendation string        `json:"actionable_recommendation"`
-	NextMeasurement          string        `json:"next_measurement,omitempty"`
-	DeviceTimeNanos          int64         `json:"device_time_nanos,omitempty"`
+	// ClassifiedShare preserves the evidence class and denominator basis when
+	// WithShareEvidence admits a source-bound profile share. Nil means the
+	// legacy producer has not supplied classified evidence.
+	ClassifiedShare          *cudaevidence.Value `json:"classified_share,omitempty"`
+	Severity                 Severity            `json:"severity"`
+	Category                 Category            `json:"category"`
+	EvidenceLevel            EvidenceLevel       `json:"evidence_level,omitempty"`
+	Location                 Location            `json:"location"`
+	Finding                  string              `json:"finding"`
+	ActionableRecommendation string              `json:"actionable_recommendation"`
+	NextMeasurement          string              `json:"next_measurement,omitempty"`
+	DeviceTimeNanos          int64               `json:"device_time_nanos,omitempty"`
 
 	// HostTimeNanos is host time a finding accounts for: time a host thread
 	// spent inside API calls, which no kernel profile holds. It is kept apart
