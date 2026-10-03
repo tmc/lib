@@ -83,7 +83,7 @@ func (m *Modules) Close() error {
 	}
 	for len(m.pending) > 0 {
 		i := len(m.pending) - 1
-		if err := m.dev.WithContext(func() error { return m.pending[i].Unload() }); err != nil {
+		if err := m.dev.WithContext(func() error { return m.pending[i].Close() }); err != nil {
 			return fmt.Errorf("cudaagreement: unload module: %w", err)
 		}
 		m.pending = m.pending[:i]
@@ -163,7 +163,7 @@ func launchStep(mods *Modules, stream *cuda.Stream, s Step, bufs map[string]Buff
 	if err != nil {
 		return Buffer{}, err
 	}
-	if err := cudalaunch.OwnedKernel(fn).Grid(s.Grid).Block(s.Block).On(stream).Launch(args...); err != nil {
+	if err := cudalaunch.OwnedKernel(fn).Grid(s.Grid, 1, 1).Block(s.Block, 1, 1).On(stream).Launch(args...); err != nil {
 		return Buffer{}, fmt.Errorf("cudaagreement: launch %s: %w", s.Name, err)
 	}
 	return out, nil
@@ -297,7 +297,7 @@ func (e *GraphExecutor) addStep(graph **cudagraph.Graph, prev *cudagraph.Node, s
 	if prev != nil {
 		deps = append(deps, prev)
 	}
-	node, err := (*graph).AddLauncher(cudalaunch.OwnedKernel(fn).Grid(s.Grid).Block(s.Block), args, deps...)
+	node, err := (*graph).AddLauncher(cudalaunch.OwnedKernel(fn).Grid(s.Grid, 1, 1).Block(s.Block, 1, 1), args, deps...)
 	if err != nil {
 		return nil, Buffer{}, fmt.Errorf("%w: %w", errDeclined, err)
 	}

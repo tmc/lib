@@ -53,7 +53,7 @@ func AllocatePlan(l *Layout) (*CommPlan, error) {
 		{&p.DupCounts, 2},
 	}
 	for _, a := range allocs {
-		ptr, err := driver.MemAlloc(uint(alignUp(a.elems, 4) * int32Bytes))
+		ptr, err := driver.MemAllocBytes(uint(alignUp(a.elems, 4) * int32Bytes))
 		if err != nil {
 			p.Close()
 			return nil, fmt.Errorf("moonep: allocate plan (%d elems): %w", a.elems, err)

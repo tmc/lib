@@ -64,7 +64,7 @@ func newHarness(t *testing.T) *harness {
 			t.Error(err)
 		}
 		if h.stream != nil {
-			if err := h.stream.Destroy(); err != nil {
+			if err := h.stream.Close(); err != nil {
 				t.Error(err)
 			}
 		}

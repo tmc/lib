@@ -234,7 +234,7 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	if _, err := art.Schema.Pack(args...); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: persistent worker arguments: %w", err)
 	}
-	if err := cudalaunch.OwnedKernel(fn).Grid(e.Grid.CTAs).Block(e.Grid.ThreadsPerCTA).On(stream).Launch(args...); err != nil {
+	if err := cudalaunch.OwnedKernel(fn).Grid(e.Grid.CTAs, 1, 1).Block(e.Grid.ThreadsPerCTA, 1, 1).On(stream).Launch(args...); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: launch persistent worker: %w", err)
 	}
 	timeout := e.Timeout

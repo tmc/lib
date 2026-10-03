@@ -181,7 +181,7 @@ func (e *Engine) LinearGEMVOn(
 	}
 	return e.run(func() error {
 		return cudalaunch.Kernel(e.fusedGEMVFn).
-			Grid(uint32(outDim)).Block(128).On(s).
+			Grid(uint32(outDim), 1, 1).Block(128, 1, 1).On(s).
 			Launch(x, packed, scales, outY, int32(inDim), int32(outDim), int32(groupSize))
 	})
 }
@@ -202,7 +202,7 @@ func (e *Engine) Dequantize(
 	numPairs := (totalElements + 1) / 2
 	return e.run(func() error {
 		return cudalaunch.Kernel(e.dequantFn).
-			Grid(uint32((numPairs+127)/128)).Block(128).
+			Grid(uint32((numPairs+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(packed, scales, out, int32(totalElements), int32(groupSize))
 	})
 }
@@ -218,7 +218,7 @@ func (e *Engine) Close() error {
 	if e.mod == 0 {
 		return nil
 	}
-	if err := e.dev.WithContext(e.mod.Unload); err != nil {
+	if err := e.dev.WithContext(e.mod.Close); err != nil {
 		return err
 	}
 	e.mod = 0

@@ -202,7 +202,7 @@ func BenchmarkMXFP4GEMV_Qwen38_Layer(b *testing.B) {
 	defer outDev.Free()
 
 	stream, _ := dev.NewStream()
-	defer stream.Destroy()
+	defer stream.Close()
 
 	b.SetBytes(int64(outDim * (inDim / 2))) // 4-bit weight bytes transferred per step
 	b.ResetTimer()

@@ -118,7 +118,7 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *Re
 	if merr != nil {
 		return rep.fail(merr), nil
 	}
-	cleanup(func() error { return dev.WithContext(module.Unload) })
+	cleanup(func() error { return dev.WithContext(module.Close) })
 
 	var fn driver.Function
 	if ferr := dev.WithContext(func() error {
@@ -133,7 +133,7 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *Re
 	if serr != nil {
 		return rep.fail(serr), nil
 	}
-	cleanup(stream.Destroy)
+	cleanup(stream.Close)
 
 	bufs, berr := allocBuffers(dev, task.N)
 	if berr != nil {
@@ -142,7 +142,7 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *Re
 	cleanup(bufs.free)
 
 	launch := func(f driver.Function) error {
-		return cudalaunch.Kernel(f).Grid(task.Grid).Block(task.Block).On(stream).
+		return cudalaunch.Kernel(f).Grid(task.Grid, 1, 1).Block(task.Block, 1, 1).On(stream).
 			Launch(bufs.out, bufs.a, bufs.b, task.Alpha, int32(task.N))
 	}
 
@@ -177,7 +177,7 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *Re
 		if lerr != nil {
 			return nil, fmt.Errorf("task %s: loading its own baseline kernel: %w", task.Name, lerr)
 		}
-		cleanup(func() error { return dev.WithContext(baseModule.Unload) })
+		cleanup(func() error { return dev.WithContext(baseModule.Close) })
 		var baseFn driver.Function
 		if gerr := dev.WithContext(func() error {
 			var e error

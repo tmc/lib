@@ -125,7 +125,7 @@ func NewBuffer(b nvlshm.Bootstrap, dev driver.Device, cfg Config) (*Buffer, erro
 		{&buf.BuilderBar, 1, true},
 	}
 	for _, a := range locals {
-		p, err := driver.MemAlloc(uint(a.elems * int32Bytes))
+		p, err := driver.MemAllocBytes(uint(a.elems * int32Bytes))
 		if err != nil {
 			return fail(fmt.Errorf("moonep: local scratch (%d elems): %w", a.elems, err))
 		}

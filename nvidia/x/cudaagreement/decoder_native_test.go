@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"runtime"
 	"slices"
 	"sort"
 	"strings"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cublas"
 	"github.com/tmc/lib/nvidia/cupti"
@@ -71,14 +69,14 @@ func newDecoderDevice(t *testing.T, h *harness) *decoderDevice {
 		if err := d.blas.SetMathMode(cublas.DefaultMath); err != nil {
 			return err
 		}
-		return d.blas.SetStream(cublas.Stream(h.stream.Raw()))
+		return d.blas.SetStream(h.stream.Raw())
 	})
 	if err != nil {
 		t.Fatalf("cuBLAS: %v", err)
 	}
 	t.Cleanup(func() {
 		synchronize(t, h.stream)
-		if err := h.dev.WithContext(d.blas.Destroy); err != nil {
+		if err := h.dev.WithContext(d.blas.Close); err != nil {
 			t.Error(err)
 		}
 	})
@@ -177,7 +175,7 @@ func (r *decoderRig) reset(t *testing.T) {
 }
 
 func (r *decoderRig) launch(name string, grid int, args ...any) error {
-	err := cudalaunch.OwnedKernel(r.d.fn[name]).Grid(uint32(grid)).Block(decoderBlock).On(r.d.h.stream).Launch(args...)
+	err := cudalaunch.OwnedKernel(r.d.fn[name]).Grid(uint32(grid), 1, 1).Block(decoderBlock, 1, 1).On(r.d.h.stream).Launch(args...)
 	if err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}
@@ -187,22 +185,17 @@ func (r *decoderRig) launch(name string, grid int, args ...any) error {
 // gemm is one column-major fp32 cuBLAS call, strided-batched when batch > 1.
 func (r *decoderRig) gemm(ta, tb cublas.Operation, m, n, k int, a cudamem.Slice[float32], lda int, sa int, b cudamem.Slice[float32], ldb int, sb int, c cudamem.Slice[float32], ldc int, sc int, batch int) error {
 	return r.d.h.dev.WithContext(func() error {
-		alpha, beta := float32(1), float32(0)
-		var pin runtime.Pinner
-		pin.Pin(&alpha)
-		pin.Pin(&beta)
-		defer pin.Unpin()
-		pa, pb := uintptr(unsafe.Pointer(&alpha)), uintptr(unsafe.Pointer(&beta))
+		alpha, beta := cublas.Float32Scalar(1), cublas.Float32Scalar(0)
 		if batch == 1 {
 			return r.d.blas.GemmEx(ta, tb, int32(m), int32(n), int32(k),
-				pa, uintptr(a.Ptr()), cublas.R32F, int32(lda),
-				uintptr(b.Ptr()), cublas.R32F, int32(ldb),
-				pb, uintptr(c.Ptr()), cublas.R32F, int32(ldc), cublas.Compute32F, cublas.GemmDefault)
+				alpha, a.Ptr(), cublas.R32F, int32(lda),
+				b.Ptr(), cublas.R32F, int32(ldb),
+				beta, c.Ptr(), cublas.R32F, int32(ldc), cublas.Compute32F, cublas.GemmDefault)
 		}
 		return r.d.blas.GemmStridedBatchedEx(ta, tb, int32(m), int32(n), int32(k),
-			pa, uintptr(a.Ptr()), cublas.R32F, int32(lda), int64(sa),
-			uintptr(b.Ptr()), cublas.R32F, int32(ldb), int64(sb),
-			pb, uintptr(c.Ptr()), cublas.R32F, int32(ldc), int64(sc), int32(batch), cublas.Compute32F, cublas.GemmDefault)
+			alpha, a.Ptr(), cublas.R32F, int32(lda), int64(sa),
+			b.Ptr(), cublas.R32F, int32(ldb), int64(sb),
+			beta, c.Ptr(), cublas.R32F, int32(ldc), int64(sc), int32(batch), cublas.Compute32F, cublas.GemmDefault)
 	})
 }
 

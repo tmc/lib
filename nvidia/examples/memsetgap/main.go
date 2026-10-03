@@ -99,12 +99,12 @@ func run(iters, mib, gapUS int, markers bool) error {
 
 	return dev.WithContext(func() error {
 		bytes := uint(mib) << 20
-		src, err := driver.MemAlloc(bytes)
+		src, err := driver.MemAllocBytes(bytes)
 		if err != nil {
 			return fmt.Errorf("allocating %d MiB source: %w", mib, err)
 		}
 		defer src.Free()
-		dst, err := driver.MemAlloc(bytes)
+		dst, err := driver.MemAllocBytes(bytes)
 		if err != nil {
 			return fmt.Errorf("allocating %d MiB destination: %w", mib, err)
 		}
@@ -114,7 +114,7 @@ func run(iters, mib, gapUS int, markers bool) error {
 		if err != nil {
 			return err
 		}
-		defer stream.Destroy()
+		defer stream.Close()
 		raw := stream.Raw()
 
 		// Commit both buffers before the measured loop. An untouched

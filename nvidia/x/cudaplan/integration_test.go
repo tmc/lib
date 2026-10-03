@@ -134,7 +134,7 @@ func TestCompilerAffineEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 	t.Log("native execution qualified on device")
 }
 
@@ -801,7 +801,7 @@ func TestRegisterTileConversionEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cudareg.TargetFor: %v", err)
 	}
-	cta, err := cudagroup.New(cudagroup.CTA, cudagroup.Dim3{X: 256, Y: 1, Z: 1})
+	cta, err := cudagroup.New(cudagroup.CTA, driver.Dim3{X: 256, Y: 1, Z: 1})
 	if err != nil {
 		t.Fatalf("cudagroup.New: %v", err)
 	}
