@@ -126,6 +126,11 @@ To print the build of this cudaprof:
 To import a bounded offline Nsight Compute project export:
   cudaprof import-ncu [-json] [-limit N] envelope.json
 
+To read immutable profiling history or plan an observation-driven bisect:
+  cudaprof history snapshot.ndjson
+  cudaprof history compare [flags] before.json after.json
+  cudaprof bisect request.json
+
 To print the usage of a command:
   cudaprof help [command]
 `
@@ -164,6 +169,8 @@ func commands() []command {
 		{name: "counter-receipt", run: func(args []string) error { return runCounterReceiptCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "import-ncu", usage: importNCUUsage, run: func(args []string) error { return runImportNCUCommand(args[1:], os.Stdout) }},
+		{name: "history", usage: historyUsage, run: func(args []string) error { return runHistoryCommand(args[1:], os.Stdout) }},
+		{name: "bisect", usage: bisectUsage, run: func(args []string) error { return runBisectCommand(args[1:], os.Stdout) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
 		{name: "export-compare", run: func(args []string) error { return runTraceAlias("compare", args) }},
 		{name: "export", run: func(args []string) error { return runTraceAlias("export", args) }},
