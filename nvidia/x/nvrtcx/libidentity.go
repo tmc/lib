@@ -1,12 +1,72 @@
 package nvrtcx
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 )
+
+var loadedCompilerIdentities sync.Map // opened name -> first verified mapped file
+
+// loadedCompilerIdentity is used only after NVRTC has actually loaded. Linux
+// can bind an on-disk descriptor to the process mapping. Other platforms do
+// not supply that proof here and must disable compiled-artifact caching.
+func loadedCompilerIdentity(name string) (string, bool, error) {
+	path, supported, err := checkedMappedCompilerPath(name)
+	if err != nil || !supported {
+		return "", supported, err
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", true, fmt.Errorf("nvrtcx: compiler identity: %w", err)
+	}
+	defer f.Close()
+	before, err := f.Stat()
+	if err != nil {
+		return "", true, err
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", true, err
+	}
+	after, err := f.Stat()
+	if err != nil {
+		return "", true, err
+	}
+	current, err := os.Stat(path)
+	if err != nil {
+		return "", true, err
+	}
+	if !os.SameFile(before, after) || !os.SameFile(before, current) || before.Size() != after.Size() || before.Size() != current.Size() || before.ModTime() != after.ModTime() || before.ModTime() != current.ModTime() {
+		return "", true, fmt.Errorf("nvrtcx: compiler file changed during identity check")
+	}
+	// Check the mapping again after hashing; a rename in the interval must not
+	// attribute replacement bytes to the already-loaded compiler.
+	if _, _, err := checkedMappedCompilerPath(name); err != nil {
+		return "", true, err
+	}
+	id := fmt.Sprintf("file=%q sha256=%x size=%d%s", path, h.Sum(nil), before.Size(), fileSerial(before))
+	old, _ := loadedCompilerIdentities.LoadOrStore(name, id)
+	if old.(string) != id {
+		return "", true, fmt.Errorf("nvrtcx: loaded compiler file changed; restart process before compilation")
+	}
+	return id, true, nil
+}
+
+func verifyLoadedCompilerIdentity(name, expected string) error {
+	id, supported, err := loadedCompilerIdentity(name)
+	if err != nil {
+		return err
+	}
+	if supported && id != expected {
+		return fmt.Errorf("nvrtcx: compiler identity changed during compilation")
+	}
+	return nil
+}
 
 // libraryIdentity describes the file behind the NVRTC library opened as
 // name, for the compiler cache key: its resolved path, size, modification

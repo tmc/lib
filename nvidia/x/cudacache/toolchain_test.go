@@ -232,8 +232,20 @@ func TestCompilerCacheKey_ToolDSOMismatchInvalidatesKey(t *testing.T) {
 	stale := f.id
 	stale.Provenance.Tools = append([]cudacache.ToolDigest(nil), f.id.Provenance.Tools...)
 	stale.Provenance.Tools[0].SHA256 = sha('9')
-	if got, ok := mustLookup(t, f.adapter, stale); ok || got != nil {
-		t.Fatalf("Lookup with mutated nvrtc sha256 = %v, %v; want miss", got, ok)
+	if got, ok, err := f.adapter.Lookup(context.Background(), "input", stale); ok || got != nil || !errors.Is(err, cudacache.ErrToolIdentityChanged) {
+		t.Fatalf("Lookup with fabricated nvrtc sha256 = %v, %v, %v; want identity refusal", got, ok, err)
+	}
+	// A genuine update receives a newly measured identity and different key;
+	// it is a clean miss, not a false-digest input error.
+	rewriteInPlace(t, f.nvrtc, "nvrtc bytes, build 2")
+	updated := f.id
+	updated.Provenance.Tools = append([]cudacache.ToolDigest(nil), f.id.Provenance.Tools...)
+	updated.Provenance.Tools[0] = digestTool(t, "nvrtc", f.nvrtc)
+	if cudacache.CompilerCacheKey("input", updated) == cudacache.CompilerCacheKey("input", f.id) {
+		t.Fatal("actual updated tool reused old key")
+	}
+	if got, ok := mustLookup(t, f.adapter, updated); ok || got != nil {
+		t.Fatalf("updated tool lookup=%v,%t; want clean miss", got, ok)
 	}
 }
 

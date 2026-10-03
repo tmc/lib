@@ -660,7 +660,14 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		cfg.flags = slices.DeleteFunc(cfg.flags, isNoCacheFlag)
 		sourceFlags = slices.DeleteFunc(sourceFlags, isNoCacheFlag)
 	}
-	identity := fmt.Sprintf("nvrtc %d.%d %s %s output=%d cache=%q", major, minor, nvrtc.Path(), libraryIdentity(nvrtc.Path()), cfg.output, cacheMagic)
+	toolIdentity, toolQualified, err := loadedCompilerIdentity(nvrtc.Path())
+	if err != nil {
+		return nil, err
+	}
+	if !toolQualified {
+		cfg.useCache = false
+	}
+	identity := fmt.Sprintf("nvrtc %d.%d %s %s output=%d cache=%q", major, minor, nvrtc.Path(), toolIdentity, cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
 	inputKey = computeCacheKey(inputKey, "name-expressions-v1", cfg.expressions, nil)
 	if len(deps) > 0 && allTracked {
@@ -670,6 +677,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	key := compilerCacheKey(inputKey, identity)
 	if cfg.useCache {
 		if cached, ok := lookupCache(key); ok {
+			if err := verifyLoadedCompilerIdentity(nvrtc.Path(), toolIdentity); err != nil {
+				return nil, err
+			}
 			return cached, nil
 		}
 	}
@@ -678,6 +688,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		// Recheck cache inside singleflight
 		if cfg.useCache {
 			if cached, ok := lookupCache(key); ok {
+				if err := verifyLoadedCompilerIdentity(nvrtc.Path(), toolIdentity); err != nil {
+					return nil, err
+				}
 				return cached, nil
 			}
 		}
@@ -752,6 +765,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 
 		defer func() {
 			result, resultErr = finishProgram(result, resultErr, func() error { return prog.Destroy() })
+			if err := verifyLoadedCompilerIdentity(nvrtc.Path(), toolIdentity); err != nil {
+				result, resultErr = nil, err
+			}
 			if resultErr == nil && cfg.useCache {
 				if err := storeCache(key, result); err != nil {
 					result, resultErr = nil, err

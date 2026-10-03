@@ -129,6 +129,10 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 		c.quarantineEntry(key, data, m.ArtifactKey)
 		return nil, false, fmt.Errorf("%w: artifact digest %s, manifest records %s", ErrCorruptArtifact, art.Digest, m.PayloadSHA256)
 	}
+	if err := checkCompilerArtifact(id, art); err != nil {
+		c.quarantineEntry(key, data, m.ArtifactKey)
+		return nil, false, fmt.Errorf("%w: %v", ErrCorruptArtifact, err)
+	}
 	if len(id.Provenance.Tools) > 0 && m.Recorded.Fingerprint() != id.Provenance.Fingerprint() {
 		heal, err := c.healToolchain(key, id.Provenance, m.Recorded, m.Nonce)
 		if err != nil {
@@ -160,6 +164,9 @@ func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerId
 	if art == nil {
 		return errors.New("cudacache: nil artifact")
 	}
+	if err := checkCompilerArtifact(id, art); err != nil {
+		return err
+	}
 	key := CompilerCacheKey(inputKey, id)
 	artKey := key + "-" + art.Digest
 	if err := a.cache.PutArtifact(ctx, artKey, art); err != nil {
@@ -176,6 +183,36 @@ func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerId
 	}
 	if err := a.cache.writeManifest(m); err != nil {
 		return fmt.Errorf("cudacache: %w", err)
+	}
+	return nil
+}
+
+// checkCompilerArtifact checks the artifact metadata this API can bind. The
+// input key is opaque; it does not supply an expected entry or source payload.
+func checkCompilerArtifact(id CompilerIdentity, art *cudakernel.Artifact) error {
+	if err := art.Validate(); err != nil {
+		return fmt.Errorf("cudacache: artifact: %w", err)
+	}
+	if id.TargetArch == "" || id.TargetArch != art.Target {
+		return errors.New("cudacache: artifact target differs from compiler identity")
+	}
+	valid := false
+	switch id.OutputKind {
+	case nvrtcx.OutputAuto:
+		valid = art.Kind == cudakernel.KindPTX || art.Kind == cudakernel.KindCUBIN
+	case nvrtcx.OutputPTX:
+		valid = art.Kind == cudakernel.KindPTX
+	case nvrtcx.OutputCUBIN:
+		valid = art.Kind == cudakernel.KindCUBIN
+	case nvrtcx.OutputLTOIR:
+		valid = art.Kind == cudakernel.KindLTOIR
+	case nvrtcx.OutputTileIR:
+		valid = art.Kind == cudakernel.KindTileIR
+	case nvrtcx.OutputPTXTileIR:
+		valid = art.Kind == cudakernel.KindPTX || art.Kind == cudakernel.KindTileIR
+	}
+	if !valid {
+		return errors.New("cudacache: artifact kind differs from compiler output or is unsupported")
 	}
 	return nil
 }

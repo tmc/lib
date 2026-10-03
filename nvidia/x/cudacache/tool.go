@@ -95,15 +95,21 @@ func DigestTool(name, path string) (ToolDigest, error) {
 	if after != before || named != before {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %s changed while it was hashed: %w", name, path, ErrToolIdentityChanged)
 	}
-	return ToolDigest{Name: name, SHA256: hex.EncodeToString(h.Sum(nil)), File: before}, nil
+	d := ToolDigest{Name: name, SHA256: hex.EncodeToString(h.Sum(nil)), File: before}
+	toolMemoMu.Lock()
+	toolMemo[name+"\x00"+path] = d
+	toolMemoMu.Unlock()
+	return d, nil
 }
 
 // VerifyTool reports whether d.File.Path still holds the contents d recorded.
 // A missing file, a different digest, or a change during hashing reports
 // ErrToolIdentityChanged.
 //
-// When d.File.Unix is true and the current identity equals d.File, the
-// recorded digest is reused without reading the file. That assumes a write
+// When d.File.Unix is true, the current identity equals d.File, and this
+// process previously hashed that identity to d.SHA256, the recorded digest
+// is reused without reading the file. A caller's stat fields alone cannot
+// establish its claimed digest. The reuse assumes a write
 // changes the modification or change time; on a filesystem whose timestamps
 // are too coarse to record a same-size write, such a write goes undetected.
 // Without Unix identity the file is always rehashed.
@@ -116,7 +122,12 @@ func VerifyTool(d ToolDigest) error {
 		return fmt.Errorf("verify tool %s: %w: %w", d.Name, ErrToolIdentityChanged, err)
 	}
 	if d.File.Unix && cur == d.File {
-		return nil
+		toolMemoMu.Lock()
+		known, ok := toolMemo[d.Name+"\x00"+d.File.Path]
+		toolMemoMu.Unlock()
+		if ok && known.File == d.File && known.SHA256 == d.SHA256 {
+			return nil
+		}
 	}
 	now, err := DigestTool(d.Name, d.File.Path)
 	if err != nil {
