@@ -65,22 +65,24 @@ func ParseCUBIN(cubin []byte) (*CUBINInfo, error) {
 		StaticSharedMemory: make(map[string]uint32),
 	}
 
-	// CUDA ABI 7 stores the base SM in bits 0..7; ABI 8 moved it to
-	// bits 8..15. This depends on the ELF ABI, not the GPU generation:
-	// CUDA 13 also emits ABI 8 for sm_80. See LLVM BinaryFormat/ELF.h
-	// (EF_CUDA_SM, EF_CUDA_SM_MASK) and Object/ELFObjectFile.cpp.
-	// Architecture-specific suffixes require metadata beyond these bits.
-	offset := 36 // ELF32 e_flags
-	if file.Class == elf.ELFCLASS64 {
-		offset = 48
+	// CUDA ABI 7 stores the SM in the low byte; ABI 8 stores it in
+	// bits 8–15. Unknown ABI versions carry no architecture evidence.
+	// See LLVM's CUDA ELF ABI update (llvm-project pull request 159451).
+	var flags uint32
+	switch file.Class {
+	case elf.ELFCLASS64:
+		flags = file.ByteOrder.Uint32(cubin[48:52])
+	case elf.ELFCLASS32:
+		flags = file.ByteOrder.Uint32(cubin[36:40])
 	}
-	flags := file.ByteOrder.Uint32(cubin[offset : offset+4])
 	var sm uint32
-	switch file.ABIVersion {
-	case 7:
-		sm = flags & 0xff
-	case 8:
-		sm = (flags >> 8) & 0xff
+	if file.Machine == elf.EM_CUDA {
+		switch cubin[8] {
+		case 7:
+			sm = flags & 0xff
+		case 8:
+			sm = (flags >> 8) & 0xff
+		}
 	}
 	if sm != 0 {
 		info.Arch = fmt.Sprintf("sm_%d", sm)
