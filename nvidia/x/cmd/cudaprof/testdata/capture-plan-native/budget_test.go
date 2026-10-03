@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"reflect"
 	"strconv"
 	"strings"
@@ -156,5 +157,44 @@ func TestRetainObservedResult(t *testing.T) {
 	original.Reason = "actual saturation"
 	if got := retainObservedResult(plan, pass, original); !reflect.DeepEqual(got, original) {
 		t.Fatal("existing partial result changed")
+	}
+}
+
+func TestPublicationActualEncodedBudget(t *testing.T) {
+	// Model real image encoding inside provider raw and publication, then the
+	// exact controller code packet and outer manifest byte field.
+	image := make([]byte, 6395772)
+	native, _ := json.Marshal(struct {
+		Image []byte `json:"image"`
+	}{image})
+	publication, _ := json.Marshal(struct {
+		Raw []byte `json:"raw"`
+	}{native})
+	code := []byte("actual bounded compressed code receipt")
+	packet, _ := json.Marshal(struct {
+		Publication []byte `json:"publication"`
+		CodeCapture []byte `json:"code_capture"`
+	}{publication, code})
+	outer, _ := json.Marshal(packet)
+	if len(publication) <= 32<<20/4 {
+		t.Fatal("control no longer exceeds old fixed quarter")
+	}
+	if err := publicationStorageBudget(32<<20, len(publication), len(code), 0); err != nil {
+		t.Fatalf("actual observed image encoding refused: %v", err)
+	}
+	if err := publicationStorageBudget(len(outer), len(publication), len(code), 0); err != nil {
+		t.Fatalf("exact encoding boundary refused: %v", err)
+	}
+	if err := publicationStorageBudget(len(outer)-1, len(publication), len(code), 0); err == nil {
+		t.Fatal("one-byte nested overflow admitted")
+	}
+	if err := publicationStorageBudget(len(outer), len(publication), len(code), 1); err == nil {
+		t.Fatal("existing transport lost from aggregate budget")
+	}
+	if err := publicationStorageBudget(32<<20, 32<<20, 1, 0); err == nil {
+		t.Fatal("raw aggregate overflow admitted")
+	}
+	if err := publicationStorageBudget(32<<20, int(^uint(0)>>1), 0, 0); err == nil {
+		t.Fatal("large count arithmetic admitted")
 	}
 }

@@ -151,3 +151,31 @@ func retainObservedResult(plan cudaprof.CapturePlan, pass cudaprof.CapturePass, 
 	}
 	return r
 }
+
+// publicationStorageBudget checks actual transport bytes and the controller's
+// publication/code JSON byte fields, then their enclosing manifest Raw field.
+// Future journal records and manifest metadata remain controller-budgeted.
+func publicationStorageBudget(limit, publication, code, existing int) error {
+	if limit <= 0 || publication < 0 || code < 0 || existing < 0 {
+		return errors.New("invalid publication byte budget")
+	}
+	available := uint64(limit)
+	spend := func(n uint64) bool {
+		if n > available {
+			return false
+		}
+		available -= n
+		return true
+	}
+	if !spend(uint64(publication)) || !spend(uint64(code)) || !spend(uint64(existing)) {
+		return errors.New("transport exceeds aggregate byte budget")
+	}
+	encoded := func(n int) uint64 { return 4 * ((uint64(n) + 2) / 3) }
+	// Exact JSON for two nonnil []byte fields, including quotes and braces.
+	packet := uint64(len(`{"publication":"","code_capture":""}`)) + encoded(publication) + encoded(code)
+	outer := 2 + 4*((packet+2)/3)
+	if outer > uint64(limit) || uint64(existing) > uint64(limit)-outer {
+		return errors.New("publication exceeds nested encoded byte budget")
+	}
+	return nil
+}

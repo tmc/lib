@@ -547,15 +547,16 @@ func writeCodePublication(dir string, provider cudaprof.CaptureProvider, p packe
 	capture := &cudacapture.Capture{Profile: &profile.Profile{SampleType: []*profile.ValueType{{Type: "code_receipt", Unit: "bytes"}}, Comments: []string{"code-only producer receipt; no GPU timing samples"}}, Code: code, Modules: []cudacapture.Module{{ID: fmt.Sprintf("producer-loaded-%x", uint64(loaded)), Generation: 1, Code: code}}, Files: map[string][]byte{"kernel.cu": []byte(p.Source), "kernel.ptx": []byte(p.PTX), "kernel.cubin": p.Artifact.Raw, "kernel.sass": []byte(p.SASS)}}
 	var codeBytes int
 	for _, data := range capture.Files {
-		if len(data) > limit/4-codeBytes {
+		if len(data) > limit-codeBytes {
 			return errors.New("code packet exceeds aggregate budget")
 		}
 		codeBytes += len(data)
 	}
-	if len(publication) > limit/4 {
-		return errors.New("publication exceeds aggregate encoded budget")
+	if len(publication) > limit {
+		return errors.New("publication exceeds aggregate byte budget")
 	}
-	remaining := limit/4 - len(publication)
+	remaining := limit - len(publication)
+	existing := 0
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -572,9 +573,13 @@ func writeCodePublication(dir string, provider cudaprof.CaptureProvider, p packe
 			return errors.New("existing transport exceeds aggregate budget")
 		}
 		remaining -= int(info.Size())
+		existing += int(info.Size())
 	}
 	output := &limitedOutput{remaining: remaining}
 	if err := cudacapture.WriteLimits(output, capture, cudacapture.Limits{Files: 4, FileBytes: int64(remaining), TotalBytes: int64(remaining), InputBytes: int64(remaining)}); err != nil {
+		return err
+	}
+	if err := publicationStorageBudget(limit, len(publication), output.Len(), existing); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(dir, "capture-provider-"+string(provider)+".pprof"), output.Bytes(), 0600); err != nil {
