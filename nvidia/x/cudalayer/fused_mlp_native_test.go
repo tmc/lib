@@ -3,6 +3,11 @@
 package cudalayer_test
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"math"
 	"os"
 	"testing"
@@ -23,6 +28,16 @@ func (s fusedMLPKernelSetter) SetAttribute(attr driver.FunctionAttribute, value 
 }
 
 func TestDeviceFunc_HardwarePendingOnNoGPU(t *testing.T) {
+	runNumericalMLP(t, false)
+}
+
+func TestNumericalOracle_MLPHealthyAndNaNStore(t *testing.T) {
+	t.Run("healthy", func(t *testing.T) { runNumericalMLP(t, false) })
+	t.Run("device NaN store", func(t *testing.T) { runNumericalMLP(t, true) })
+}
+
+func runNumericalMLP(t *testing.T, corrupt bool) {
+	t.Helper()
 	if os.Getenv("GPU_LOCK_HELD") == "" {
 		t.Skip("SKIPPED, NOT VERIFIED: native launch requires GPU_LOCK_HELD or gpu-lock")
 	}
@@ -49,7 +64,20 @@ func TestDeviceFunc_HardwarePendingOnNoGPU(t *testing.T) {
 		t.Fatal(err)
 	}
 	subs := map[string]string{"FORWARD_DEVICE_FUNCTION": unit.Source, "LOSS_DEVICE_FUNCTION": "", "KERNEL_NAME": "mlp64_kernel", "FUNC_NAME": "fused_mlp64_eval", "IN_WIDTH": "64", "OUT_WIDTH": "64"}
-	compiled, err := nvrtcx.SpliceAndCompile(dev, cudalayer.OuterKernelTemplate, subs, nvrtcx.WithArch(major, minor))
+	const nanStore = `
+extern "C" __global__ void numerical_nan_store(float* out) {
+  if (blockIdx.x == 0 && threadIdx.x == 0) out[1003] = __int_as_float(0x7fc00123);
+}
+`
+	template := cudalayer.OuterKernelTemplate
+	if corrupt {
+		template += nanStore
+	}
+	source, err := nvrtcx.SpliceTemplate(template, subs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiled, err := nvrtcx.SpliceAndCompile(dev, template, subs, nvrtcx.WithArch(major, minor))
 	if err != nil {
 		t.Fatalf("compile spliced MLP: %v", err)
 	}
@@ -131,6 +159,18 @@ func TestDeviceFunc_HardwarePendingOnNoGPU(t *testing.T) {
 		if err = driver.CtxSynchronize(); err != nil {
 			return err
 		}
+		if corrupt {
+			store, e := module.Function("numerical_nan_store")
+			if e != nil {
+				return e
+			}
+			if e = store.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&outPtr)}); e != nil {
+				return e
+			}
+			if e = driver.CtxSynchronize(); e != nil {
+				return e
+			}
+		}
 		return outPtr.CopyToHost(got)
 	}); err != nil {
 		t.Fatal(err)
@@ -152,10 +192,25 @@ func TestDeviceFunc_HardwarePendingOnNoGPU(t *testing.T) {
 		}
 		want = next
 	}
-	for i, wantValue := range want {
-		if math.Abs(float64(got[i]-wantValue)) > 1e-4 {
-			t.Fatalf("output[%d]=%g, want %g", i, got[i], wantValue)
-		}
+	inputBytes := make([]byte, 4*(len(input)+len(params)))
+	for i, v := range input {
+		binary.LittleEndian.PutUint32(inputBytes[4*i:], math.Float32bits(v))
 	}
-	t.Logf("compiled, loaded and launched fused MLP on sm_%d%d; %d values across %d blocks matched reference", major, minor, len(got), grid)
+	for i, v := range params {
+		binary.LittleEndian.PutUint32(inputBytes[4*(len(input)+i):], math.Float32bits(v))
+	}
+	sourceHash, inputHash := sha256.Sum256([]byte(source)), sha256.Sum256(inputBytes)
+	p := cudatest.CUDAOutputPolicy{Target: fmt.Sprintf("sm_%d%d", major, minor), DType: "fp32", MathMode: "NVRTC default FP32", SourceDigest: hex.EncodeToString(sourceHash[:]), InputDigest: hex.EncodeToString(inputHash[:]), Elements: len(want), Absolute: 1e-4, NaN: "reject", Infinity: "reject", Zero: "equal"}
+	comparison := cudatest.CompareCUDAOutputFP32(got, want, p)
+	if corrupt {
+		var mismatch *cudatest.CUDAOutputMismatch
+		if !errors.As(comparison, &mismatch) || mismatch.Index != 1003 || mismatch.ActualBits != 0x7fc00123 {
+			t.Fatalf("device NaN control escaped: %v", comparison)
+		}
+		t.Logf("device NaN rejected through MLP comparison: %v", comparison)
+	} else if comparison != nil {
+		t.Fatal(comparison)
+	}
+	imageHash := sha256.Sum256([]byte(compiled.PTX()))
+	t.Logf("compiled, loaded and launched fused MLP on sm_%d%d; corrupt=%t, %d values across %d blocks checked; PTX=%x source=%s input=%s math=%s", major, minor, corrupt, len(got), grid, imageHash, p.SourceDigest, p.InputDigest, p.MathMode)
 }
