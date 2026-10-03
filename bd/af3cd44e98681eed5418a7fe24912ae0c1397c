@@ -1,0 +1,7 @@
+commit: bdaf3cd44e98681eed5418a7fe24912ae0c1397c
+date: 2026-10-03T02:42:05-07:00
+agent: Codex CLI 0.160.0; claude-code: not used
+model: GPT-6 (runtime override unavailable)
+tty: not a tty; pid: 19523
+ITERM_SESSION_ID: 026363F7-C2F7-4118-9920-4953A7B20D93
+independent help review: REFERENCE-TEMP-HYGIENE.md; TestCapturePlanHelp PASS
