@@ -128,7 +128,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "duplicate_header_check": "Before generation, compare all five cuBLAS header names across the include path and reject differing copies. The headers list pins the directly read cublas/ and libcublas/ copies; the oracle includes one identical copy per name."
       },
       "header": {
@@ -140,10 +140,10 @@
       "package": "github.com/tmc/lib/nvidia/cublas",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -429,7 +429,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "duplicate_header_check": "Before generation, compare all five cuBLAS header names across the include path and reject differing copies. The headers list pins the directly read cublas/ and libcublas/ copies; the oracle includes one identical copy per name."
       },
       "header": {
@@ -441,10 +441,10 @@
       "package": "github.com/tmc/lib/nvidia/cublaslt",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8cdab9e: cublasLtNumericalImplFlags_t, spelled as macros above a uint64_t typedef, is now the NumericalImplFlags type with typed constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen fc6bb16 regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -641,7 +641,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -702,20 +703,9 @@
             "sha256": "da5dbc885f2173bf5316a5b40c3c32e85bb5ebd39111fe1b8d57b67f77e9736f"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -727,8 +717,8 @@
       "package": "github.com/tmc/lib/nvidia/cublasmp",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -917,7 +907,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -1006,20 +997,9 @@
             "sha256": "abadeb1d4a8f0ad0542922146f03aaa13e095e5812b79b4de830be90a6307c3f"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -1031,8 +1011,8 @@
       "package": "github.com/tmc/lib/nvidia/cudensitymat",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -1308,20 +1288,9 @@
             "sha256": "89f8c29ad1b33c6446fbe52b94d7998b9d946c0c00edf25c7024b4944f9ff999"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "clang",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "go1.27.0",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         },
         "comparison": "All 37 generated outputs, including provenance.json and layout/loader tests, reproduce from cudnn-survey at libgen 56a7881b. apidiff reports zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64; package tests pass and vet passes on linux/amd64, linux/arm64, darwin/arm64 and windows/amd64. Receiver methods Clip and SetClip, zero-argument descriptor getters, size_t-as-int results, and the ffi call bridge are preserved.",
         "options": {
@@ -1441,8 +1410,8 @@
       "package": "github.com/tmc/lib/nvidia/cudnn",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: input arrays are slices, outputs are returned (more than four as a config struct), size_t is int, and Nd drops from methods taking slices. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Final regeneration uses cudnn-survey at libgen 56a7881b after fixes for getter output configs and configured size_t results. Regenerated at libgen 86484557: host buffers typed as pointers. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -1760,7 +1729,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -1832,20 +1802,9 @@
             "sha256": "f623438fb66849fc0cc178cb65e3e0772e3d158ac691f6d4b40c89793d34cb32"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -1879,8 +1838,8 @@
       "package": "github.com/tmc/lib/nvidia/cudss",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen f14ae40 to drop scraped page chrome. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -2033,7 +1992,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "Loads the single tracked docs/cufft-docs.json file. Device-pointer parameters are passed as driver.DevicePtr; cufftSetStream uses driver.Stream.",
         "outputs": [
@@ -2095,8 +2055,7 @@
           }
         ],
         "toolchain": {
-          "go": "go version go1.25.0 darwin/arm64",
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)"
+          "go": "go version go1.27.0 darwin/arm64"
         },
         "maintained_files_excluded": [
           "double_physical_test.go",
@@ -2115,7 +2074,7 @@
           "api_removal_guard": true,
           "unclaimed_generated_file_guard": true
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "header": {
         "path": "cufft/cufft.h",
@@ -2126,9 +2085,9 @@
       "package": "github.com/tmc/lib/nvidia/cufft",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
           "note": "Unpublished at the time of recording: the commit adds APIConfig.LibraryError, without which this generation does not reproduce. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: methods drop the receiver words they repeat and parameters are camel case. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c; cufft-survey migration at libgen 08aac43 Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -2740,9 +2699,7 @@
           ]
         },
         "environment": {
-          "GOPROXY": "off",
-          "GOSUMDB": "off",
-          "GOTOOLCHAIN": "local",
+          "GOTOOLCHAIN": "go1.27.0",
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
@@ -2811,19 +2768,18 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
-          "go": "go version go1.25.0 darwin/arm64"
+          "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "generator_sources": [
         {
           "path": "cmd/cufile-survey/main.go",
-          "sha256": "102b5e6e9020dd6667adc6323b04ffe22822060a8bc2d0cd52514a7bee1c23e6"
+          "sha256": "829c8557c0c2bcd2c1d559bfcd989f3757c31e02f435b2ccfbe71b83fcc4980a"
         },
         {
           "path": "go.mod",
-          "sha256": "51dd9da44e697201c9a6b137f5d7b49a2cdc1fdef6a85ee6f849b151640f88bb"
+          "sha256": "45d79c1fa8befa8f8b2fb754e9992cae0c50477fae1e873d33c809fffc53feef"
         },
         {
           "path": "go.sum",
@@ -2863,7 +2819,7 @@
         },
         {
           "path": "internal/cparser/clang.go",
-          "sha256": "81a6e77f8553a8c16a86ce218f3a459f3ce04c9ea5eb1f8e69be8cb8c7711964"
+          "sha256": "fad0ed1240ce245a95671db57b720f3c1ff6922771a6375a99dd8cbeb83b3bc9"
         },
         {
           "path": "internal/cparser/clang_test.go",
@@ -2979,7 +2935,7 @@
         },
         {
           "path": "internal/cparser/layoutverify.go",
-          "sha256": "d6c47f633ec43b4f3a8d241e3d14064c0caac25818b008347162a9fd351e2678"
+          "sha256": "9c0be4f55ceb3c7bfa9ba02e962c706ade5779b1d5ce3381015300acf48fe4ad"
         },
         {
           "path": "internal/cparser/layoutverify_test.go",
@@ -3015,7 +2971,7 @@
         },
         {
           "path": "internal/cparser/parser.go",
-          "sha256": "1888277f9d1789aad26f666dea70b0a04f7513ef9f78a95cf680a673d7ef16ba"
+          "sha256": "f4f07388dc2c278aa458db070c1903ecb014bbc8ab0a4ae6f40d96cf696af56c"
         },
         {
           "path": "internal/cparser/parser_test.go",
@@ -3039,11 +2995,11 @@
         },
         {
           "path": "internal/cparser/recordoracle.go",
-          "sha256": "0f0dadffa7f606a0539823a03d5e8cbcf7abbe828f472d244b0214e54f6967b8"
+          "sha256": "a42236e30cc94c26a64e2b0499ce24d55108fcc4f5cd81485124a024a495fc6b"
         },
         {
           "path": "internal/cparser/recordoracle_test.go",
-          "sha256": "771d94266d96f4bbeeef925cbabaa8434ce39d5043300aa38d881c041abcc162"
+          "sha256": "decb36fc23196220df3d2e40467b4824eb39c85f68edf5e9f48f8a8eec6b5389"
         },
         {
           "path": "internal/cparser/recordprobe.go",
@@ -3115,7 +3071,7 @@
         },
         {
           "path": "internal/cparser/types.go",
-          "sha256": "0fbee6fa2a43c25d7d4f7a956a1cfe33ead523ebaf0b2888a994c1720bfd965a"
+          "sha256": "ccaf3a476823e4c5090a3d8cc8c26e2e9ef4f8dbccb2f909cc8af8e4e84c994f"
         },
         {
           "path": "internal/cparser/ucx_forms_test.go",
@@ -3139,11 +3095,11 @@
         },
         {
           "path": "internal/ffigen/accessors.go",
-          "sha256": "ab74c3188ef30dbbd8e06cc1b94a0f343b36b2d575b0f2a7351067783126a742"
+          "sha256": "c5abe56fb3141952bd24b6e96ed2b05f372146d448b495a0ebd42ead8b1e9f0a"
         },
         {
           "path": "internal/ffigen/accessors_test.go",
-          "sha256": "c0da21c15cda3b5c9134af9eaee184bcee29055b400dfadf630cf5533a8e1a80"
+          "sha256": "11eeb3e09c080827a63c2452904eaeb88015f3481dd5673dbc2cb974bf67d930"
         },
         {
           "path": "internal/ffigen/aligned_test.go",
@@ -3151,7 +3107,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "8f2b83bf15886010d83494f334ddb3b3cfe8735ed0a5972f7ab9b81c62936950"
+          "sha256": "54a09f08480cfe7e83b89c3f5ead4a20e0a710c079a5735eff1d2a12bf028fe3"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -3163,11 +3119,11 @@
         },
         {
           "path": "internal/ffigen/callbridge.go",
-          "sha256": "787ca88baffbab14c392ed38fd16160ccc05755d581d1ff5ed10a43a9acd437d"
+          "sha256": "30e9929d7445cf2ad40d73cd6156dcea5e540ff642abfd8c922146c0ee7c47ad"
         },
         {
           "path": "internal/ffigen/callbridge_allocs_test.go",
-          "sha256": "aadb9108c438ab05dcf449bc179e50b1e3548c194423ab91320a289037d93a72"
+          "sha256": "3a910f01368fab014a79dd2a7546319d26870d70a6f54863665e46c685fa8230"
         },
         {
           "path": "internal/ffigen/callbridge_shapes_test.go",
@@ -3179,7 +3135,7 @@
         },
         {
           "path": "internal/ffigen/callbridge_test.go",
-          "sha256": "6896f1b847d0b164de2445e5361e75e3a6b35dd939364eb7f48347b24a50600c"
+          "sha256": "bd30e81ece0991a96494fc3ccf663b3a327f536be35fea9e16c9c6d2c77086b9"
         },
         {
           "path": "internal/ffigen/callerror_test.go",
@@ -3187,7 +3143,7 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
+          "sha256": "660d6d86b1d6582dd1c9c1f4e19090ed30ccc1178a76f3515dea75c17c345d4e"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
@@ -3219,11 +3175,11 @@
         },
         {
           "path": "internal/ffigen/docsurvival_test.go",
-          "sha256": "82c40b1ea53afdc5772f48eb0bf2ece2e72b7193f02d31da0b35a5b0f21ea9cd"
+          "sha256": "7b4aae72e2e791a02ff2a6d9c14734be6dd87ece2a8d838d0e51809cba112132"
         },
         {
           "path": "internal/ffigen/elementcount_test.go",
-          "sha256": "f53299a50ec24982b1ec88556252e9f931dc42fc60ab334e84c2b2ad4d2158cd"
+          "sha256": "822083c39f68f51dc7be16e187349fff199e1252bff657f13327d899a6f8f2fa"
         },
         {
           "path": "internal/ffigen/enumeration_test.go",
@@ -3231,11 +3187,11 @@
         },
         {
           "path": "internal/ffigen/externaldocs.go",
-          "sha256": "6a8dd7acf12ea204c3b63e58d0ef66bb0af4ba893802fedd96e8ac6189ae5c16"
+          "sha256": "ca14f201d693c6d91d0ff231a1420b78d2e32253f35181d1025f1a983ceab871"
         },
         {
           "path": "internal/ffigen/externaldocs_test.go",
-          "sha256": "a5b0e4b0061d98e367d87baa279327baa36f9d2268abd1ff6641751c11057363"
+          "sha256": "f87a1f535de6a5bbad72a83b5684c921e73e9a087c23986f81141ad78aa5f055"
         },
         {
           "path": "internal/ffigen/externalenum.go",
@@ -3247,15 +3203,15 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "9da4990d71aacfea965aa133e627ec6faab5ff47d1534d6a117e060b96a6a86b"
+          "sha256": "6cc9bc7246d75a9578ce1fbbaac633f483f1d174422cfe4da411d2c27d3258e2"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "6f859bb58b36be9f255b9bd1ae9244a060d62ef9f5ce72c6573cdebbebe6df3c"
+          "sha256": "dd340345d6011009e748b235aa115934c3ebb2486a49914f1c9d1ad8cca9f083"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
-          "sha256": "c4194ef46960a934051c343105112c2ca86c4e706bfcf57184a074f012367a02"
+          "sha256": "6529e03594f03a2bdbb4d410a8a90294091de3cb2a30ee5e943edf1d096ee850"
         },
         {
           "path": "internal/ffigen/hostform.go",
@@ -3267,7 +3223,7 @@
         },
         {
           "path": "internal/ffigen/image.go",
-          "sha256": "d8be7389cd01e58a536e431c8261b28c0afaba364128d5a06d110046e19dd2a2"
+          "sha256": "3cf8bcc214d355699026b2740154411f5671405cbe190bdb8638e56d13278dbb"
         },
         {
           "path": "internal/ffigen/includedenum.go",
@@ -3287,23 +3243,23 @@
         },
         {
           "path": "internal/ffigen/macroconst.go",
-          "sha256": "cd678061f37d61cb54252f10c97508d556a65d33f45c98bf432d983624d77fa0"
+          "sha256": "eaa70cb0092ab9aa9713d7a19e7da95f721c7803696a2120ba1c1b8c96f5c408"
         },
         {
           "path": "internal/ffigen/macroconst_test.go",
-          "sha256": "a5d9161aac3a3a6daa3f461e3f65a2f23a0362b2ce437beba2bcbd72087f81e9"
+          "sha256": "d5f0254a17cef801e4c0fb43d81d32ae57f50bf4a83ca75b12cfca1b74a4abd4"
         },
         {
           "path": "internal/ffigen/multilib.go",
-          "sha256": "d7921c50d5a9f7286394864e8971d31c043f56a720c36b7131a69ab30ccf0fef"
+          "sha256": "6e821388bcba67f9eb4e9dfe69f6fa9b5ed87c7f30b5668e9d41f25d7f053cf1"
         },
         {
           "path": "internal/ffigen/multilib_test.go",
-          "sha256": "31d350a2c97b97bc827386685492f15ff3011be1aba457f013b32badff7812cf"
+          "sha256": "72df4b4e3f22aa6ce0767262284864bc32e8e7f910e8fd74728079b8ff94d4dd"
         },
         {
           "path": "internal/ffigen/negativeresult.go",
-          "sha256": "391d6da4372ab1a6d1995ddf7056a8c115f128152e0e9424e78735fec5c300f2"
+          "sha256": "a7053706c880bc3682e1278e8583a42bb2044f4c52d5fe4470fe426451dc3ded"
         },
         {
           "path": "internal/ffigen/negativeresult_test.go",
@@ -3323,11 +3279,11 @@
         },
         {
           "path": "internal/ffigen/scalar.go",
-          "sha256": "b9b9eb65e1663f56801ab81b7b51c2c0b4489b90ece721f182a511d7dde9d0fc"
+          "sha256": "88c2b8d9cfda7a17a27049b79ce13a0851b7ea5e5d63484e9850bf92b2b16a5c"
         },
         {
           "path": "internal/ffigen/scalarpointer_test.go",
-          "sha256": "a5412648ff87167cb75e59d6cf8741af7608f574e1b1afb2159bfc802e708f40"
+          "sha256": "fde6c20ec9eace0fcae88357a3a58dd6aa33d6b2655abdd6088a3cd703097338"
         },
         {
           "path": "internal/ffigen/sizedslice.go",
@@ -3343,7 +3299,7 @@
         },
         {
           "path": "internal/ffigen/symbollinks.go",
-          "sha256": "2789a53aa3327e875b1a7f6b08975761a6a6f0988275aa2f29f15c648152410c"
+          "sha256": "ee71649ab801fad0bfa0c7aff4b4fd1627960f32410c34d05f97c7dcd0dedcf3"
         },
         {
           "path": "internal/ffigen/symbollinks_test.go",
@@ -3383,11 +3339,11 @@
         },
         {
           "path": "internal/goident/policy.go",
-          "sha256": "a07a962af62638981a56f0237040841030d5695740192a43a378e27fec25c8c8"
+          "sha256": "b7d60dcf230fff0397690314b9f75a6e96daa9595a208129ff6c39f87b1ac726"
         },
         {
           "path": "internal/goident/policy_test.go",
-          "sha256": "5fc1a60813e8bb06cdf27d4f690d89de7cc033ae3fe70312ebd3dd9d3dc84739"
+          "sha256": "59488d9c28a54733bba3295bd05068aae671b79aa4af2cd5aae484682faacdb9"
         }
       ],
       "header": {
@@ -3411,8 +3367,8 @@
       "package": "github.com/tmc/lib/nvidia/cufile",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Regenerated at libgen bc4b7c9: constants.gen.go binds the cuFile flag, length and error-base macros. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 446fae66: 8-byte integer structs call through ffi."
         },
@@ -3479,7 +3435,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The prior CUPTI migration was reproduced twice with GOTOOLCHAIN=go1.27.0 from the pinned CUDA 13.2 CUPTI header family. This bridge correction was regenerated once with GOTOOLCHAIN=go1.27.0. The explicit ffi bridge was restored in libgen commit 2ee197be; regeneration restores all 173 ffiCall sites and pooled output slots. The package test passes and apidiff reports no exported API changes. gen.Apply reported no API removals; apidiff reported zero incompatible changes on linux/amd64, linux/arm64 and darwin/arm64. The generated ActivityDeviceAttribute compatibility type preserves the prior exported fields and C layout. nvidia-reproduce hashes only the primary header; all 19 declared header digests were independently verified against the headers checkout. Regenerated at libgen dcb1372d: deprecation notices and sibling header docs restored.",
         "outputs": [
@@ -3573,10 +3530,9 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "header": {
         "path": "cupti/cupti.h",
@@ -3708,8 +3664,8 @@
       "package": "github.com/tmc/lib/nvidia/cupti",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Private local generator commit used for this reproduction; not published. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen a57cbfdc: counted slice fields and typed union members. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -5320,9 +5276,7 @@
           ]
         },
         "environment": {
-          "GOPROXY": "off",
-          "GOSUMDB": "off",
-          "GOTOOLCHAIN": "local",
+          "GOTOOLCHAIN": "go1.27.0",
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
         },
@@ -5391,19 +5345,18 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "generator_sources": [
         {
           "path": "cmd/curand-survey/main.go",
-          "sha256": "c09f5f724edbb7293a8bb20d0e2287808165f192138fb5d0249f69b2871f3765"
+          "sha256": "fcccbcfa36baa1e2893c7d81482bba1e22a5ff647d4a082dabab4fb30a80b337"
         },
         {
           "path": "go.mod",
-          "sha256": "51dd9da44e697201c9a6b137f5d7b49a2cdc1fdef6a85ee6f849b151640f88bb"
+          "sha256": "45d79c1fa8befa8f8b2fb754e9992cae0c50477fae1e873d33c809fffc53feef"
         },
         {
           "path": "go.sum",
@@ -5443,7 +5396,7 @@
         },
         {
           "path": "internal/cparser/clang.go",
-          "sha256": "81a6e77f8553a8c16a86ce218f3a459f3ce04c9ea5eb1f8e69be8cb8c7711964"
+          "sha256": "fad0ed1240ce245a95671db57b720f3c1ff6922771a6375a99dd8cbeb83b3bc9"
         },
         {
           "path": "internal/cparser/clang_test.go",
@@ -5559,7 +5512,7 @@
         },
         {
           "path": "internal/cparser/layoutverify.go",
-          "sha256": "d6c47f633ec43b4f3a8d241e3d14064c0caac25818b008347162a9fd351e2678"
+          "sha256": "9c0be4f55ceb3c7bfa9ba02e962c706ade5779b1d5ce3381015300acf48fe4ad"
         },
         {
           "path": "internal/cparser/layoutverify_test.go",
@@ -5595,7 +5548,7 @@
         },
         {
           "path": "internal/cparser/parser.go",
-          "sha256": "1888277f9d1789aad26f666dea70b0a04f7513ef9f78a95cf680a673d7ef16ba"
+          "sha256": "f4f07388dc2c278aa458db070c1903ecb014bbc8ab0a4ae6f40d96cf696af56c"
         },
         {
           "path": "internal/cparser/parser_test.go",
@@ -5619,11 +5572,11 @@
         },
         {
           "path": "internal/cparser/recordoracle.go",
-          "sha256": "0f0dadffa7f606a0539823a03d5e8cbcf7abbe828f472d244b0214e54f6967b8"
+          "sha256": "a42236e30cc94c26a64e2b0499ce24d55108fcc4f5cd81485124a024a495fc6b"
         },
         {
           "path": "internal/cparser/recordoracle_test.go",
-          "sha256": "771d94266d96f4bbeeef925cbabaa8434ce39d5043300aa38d881c041abcc162"
+          "sha256": "decb36fc23196220df3d2e40467b4824eb39c85f68edf5e9f48f8a8eec6b5389"
         },
         {
           "path": "internal/cparser/recordprobe.go",
@@ -5695,7 +5648,7 @@
         },
         {
           "path": "internal/cparser/types.go",
-          "sha256": "0fbee6fa2a43c25d7d4f7a956a1cfe33ead523ebaf0b2888a994c1720bfd965a"
+          "sha256": "ccaf3a476823e4c5090a3d8cc8c26e2e9ef4f8dbccb2f909cc8af8e4e84c994f"
         },
         {
           "path": "internal/cparser/ucx_forms_test.go",
@@ -5719,11 +5672,11 @@
         },
         {
           "path": "internal/ffigen/accessors.go",
-          "sha256": "ab74c3188ef30dbbd8e06cc1b94a0f343b36b2d575b0f2a7351067783126a742"
+          "sha256": "c5abe56fb3141952bd24b6e96ed2b05f372146d448b495a0ebd42ead8b1e9f0a"
         },
         {
           "path": "internal/ffigen/accessors_test.go",
-          "sha256": "c0da21c15cda3b5c9134af9eaee184bcee29055b400dfadf630cf5533a8e1a80"
+          "sha256": "11eeb3e09c080827a63c2452904eaeb88015f3481dd5673dbc2cb974bf67d930"
         },
         {
           "path": "internal/ffigen/aligned_test.go",
@@ -5731,7 +5684,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "8f2b83bf15886010d83494f334ddb3b3cfe8735ed0a5972f7ab9b81c62936950"
+          "sha256": "54a09f08480cfe7e83b89c3f5ead4a20e0a710c079a5735eff1d2a12bf028fe3"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -5743,11 +5696,11 @@
         },
         {
           "path": "internal/ffigen/callbridge.go",
-          "sha256": "787ca88baffbab14c392ed38fd16160ccc05755d581d1ff5ed10a43a9acd437d"
+          "sha256": "30e9929d7445cf2ad40d73cd6156dcea5e540ff642abfd8c922146c0ee7c47ad"
         },
         {
           "path": "internal/ffigen/callbridge_allocs_test.go",
-          "sha256": "aadb9108c438ab05dcf449bc179e50b1e3548c194423ab91320a289037d93a72"
+          "sha256": "3a910f01368fab014a79dd2a7546319d26870d70a6f54863665e46c685fa8230"
         },
         {
           "path": "internal/ffigen/callbridge_shapes_test.go",
@@ -5759,7 +5712,7 @@
         },
         {
           "path": "internal/ffigen/callbridge_test.go",
-          "sha256": "6896f1b847d0b164de2445e5361e75e3a6b35dd939364eb7f48347b24a50600c"
+          "sha256": "bd30e81ece0991a96494fc3ccf663b3a327f536be35fea9e16c9c6d2c77086b9"
         },
         {
           "path": "internal/ffigen/callerror_test.go",
@@ -5767,7 +5720,7 @@
         },
         {
           "path": "internal/ffigen/closemethod.go",
-          "sha256": "49404c3976ac05b9cb46174dabbf2f0bb2a74cabe5ffa3ecf05c4c3558003ecd"
+          "sha256": "660d6d86b1d6582dd1c9c1f4e19090ed30ccc1178a76f3515dea75c17c345d4e"
         },
         {
           "path": "internal/ffigen/closemethod_test.go",
@@ -5799,11 +5752,11 @@
         },
         {
           "path": "internal/ffigen/docsurvival_test.go",
-          "sha256": "82c40b1ea53afdc5772f48eb0bf2ece2e72b7193f02d31da0b35a5b0f21ea9cd"
+          "sha256": "7b4aae72e2e791a02ff2a6d9c14734be6dd87ece2a8d838d0e51809cba112132"
         },
         {
           "path": "internal/ffigen/elementcount_test.go",
-          "sha256": "f53299a50ec24982b1ec88556252e9f931dc42fc60ab334e84c2b2ad4d2158cd"
+          "sha256": "822083c39f68f51dc7be16e187349fff199e1252bff657f13327d899a6f8f2fa"
         },
         {
           "path": "internal/ffigen/enumeration_test.go",
@@ -5811,11 +5764,11 @@
         },
         {
           "path": "internal/ffigen/externaldocs.go",
-          "sha256": "6a8dd7acf12ea204c3b63e58d0ef66bb0af4ba893802fedd96e8ac6189ae5c16"
+          "sha256": "ca14f201d693c6d91d0ff231a1420b78d2e32253f35181d1025f1a983ceab871"
         },
         {
           "path": "internal/ffigen/externaldocs_test.go",
-          "sha256": "a5b0e4b0061d98e367d87baa279327baa36f9d2268abd1ff6641751c11057363"
+          "sha256": "f87a1f535de6a5bbad72a83b5684c921e73e9a087c23986f81141ad78aa5f055"
         },
         {
           "path": "internal/ffigen/externalenum.go",
@@ -5827,15 +5780,15 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "9da4990d71aacfea965aa133e627ec6faab5ff47d1534d6a117e060b96a6a86b"
+          "sha256": "6cc9bc7246d75a9578ce1fbbaac633f483f1d174422cfe4da411d2c27d3258e2"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "6f859bb58b36be9f255b9bd1ae9244a060d62ef9f5ce72c6573cdebbebe6df3c"
+          "sha256": "dd340345d6011009e748b235aa115934c3ebb2486a49914f1c9d1ad8cca9f083"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
-          "sha256": "c4194ef46960a934051c343105112c2ca86c4e706bfcf57184a074f012367a02"
+          "sha256": "6529e03594f03a2bdbb4d410a8a90294091de3cb2a30ee5e943edf1d096ee850"
         },
         {
           "path": "internal/ffigen/hostform.go",
@@ -5847,7 +5800,7 @@
         },
         {
           "path": "internal/ffigen/image.go",
-          "sha256": "d8be7389cd01e58a536e431c8261b28c0afaba364128d5a06d110046e19dd2a2"
+          "sha256": "3cf8bcc214d355699026b2740154411f5671405cbe190bdb8638e56d13278dbb"
         },
         {
           "path": "internal/ffigen/includedenum.go",
@@ -5867,23 +5820,23 @@
         },
         {
           "path": "internal/ffigen/macroconst.go",
-          "sha256": "cd678061f37d61cb54252f10c97508d556a65d33f45c98bf432d983624d77fa0"
+          "sha256": "eaa70cb0092ab9aa9713d7a19e7da95f721c7803696a2120ba1c1b8c96f5c408"
         },
         {
           "path": "internal/ffigen/macroconst_test.go",
-          "sha256": "a5d9161aac3a3a6daa3f461e3f65a2f23a0362b2ce437beba2bcbd72087f81e9"
+          "sha256": "d5f0254a17cef801e4c0fb43d81d32ae57f50bf4a83ca75b12cfca1b74a4abd4"
         },
         {
           "path": "internal/ffigen/multilib.go",
-          "sha256": "d7921c50d5a9f7286394864e8971d31c043f56a720c36b7131a69ab30ccf0fef"
+          "sha256": "6e821388bcba67f9eb4e9dfe69f6fa9b5ed87c7f30b5668e9d41f25d7f053cf1"
         },
         {
           "path": "internal/ffigen/multilib_test.go",
-          "sha256": "31d350a2c97b97bc827386685492f15ff3011be1aba457f013b32badff7812cf"
+          "sha256": "72df4b4e3f22aa6ce0767262284864bc32e8e7f910e8fd74728079b8ff94d4dd"
         },
         {
           "path": "internal/ffigen/negativeresult.go",
-          "sha256": "391d6da4372ab1a6d1995ddf7056a8c115f128152e0e9424e78735fec5c300f2"
+          "sha256": "a7053706c880bc3682e1278e8583a42bb2044f4c52d5fe4470fe426451dc3ded"
         },
         {
           "path": "internal/ffigen/negativeresult_test.go",
@@ -5903,11 +5856,11 @@
         },
         {
           "path": "internal/ffigen/scalar.go",
-          "sha256": "b9b9eb65e1663f56801ab81b7b51c2c0b4489b90ece721f182a511d7dde9d0fc"
+          "sha256": "88c2b8d9cfda7a17a27049b79ce13a0851b7ea5e5d63484e9850bf92b2b16a5c"
         },
         {
           "path": "internal/ffigen/scalarpointer_test.go",
-          "sha256": "a5412648ff87167cb75e59d6cf8741af7608f574e1b1afb2159bfc802e708f40"
+          "sha256": "fde6c20ec9eace0fcae88357a3a58dd6aa33d6b2655abdd6088a3cd703097338"
         },
         {
           "path": "internal/ffigen/sizedslice.go",
@@ -5923,7 +5876,7 @@
         },
         {
           "path": "internal/ffigen/symbollinks.go",
-          "sha256": "2789a53aa3327e875b1a7f6b08975761a6a6f0988275aa2f29f15c648152410c"
+          "sha256": "ee71649ab801fad0bfa0c7aff4b4fd1627960f32410c34d05f97c7dcd0dedcf3"
         },
         {
           "path": "internal/ffigen/symbollinks_test.go",
@@ -5963,11 +5916,11 @@
         },
         {
           "path": "internal/goident/policy.go",
-          "sha256": "a07a962af62638981a56f0237040841030d5695740192a43a378e27fec25c8c8"
+          "sha256": "b7d60dcf230fff0397690314b9f75a6e96daa9595a208129ff6c39f87b1ac726"
         },
         {
           "path": "internal/goident/policy_test.go",
-          "sha256": "5fc1a60813e8bb06cdf27d4f690d89de7cc033ae3fe70312ebd3dd9d3dc84739"
+          "sha256": "59488d9c28a54733bba3295bd05068aae671b79aa4af2cd5aae484682faacdb9"
         }
       ],
       "header": {
@@ -6071,8 +6024,8 @@
       "package": "github.com/tmc/lib/nvidia/curand",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (SetOffset, SetOrdering). Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -6192,7 +6145,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "header": {
         "path": "cusolver/cusolverDn.h",
@@ -6203,9 +6156,9 @@
       "package": "github.com/tmc/lib/nvidia/cusolver",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen a8270fa regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -6361,7 +6314,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -6434,20 +6388,9 @@
             "sha256": "59c9aae332480a5cbff3b17277e318246c9156167529f8f5c41a284a3114805a"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -6459,8 +6402,8 @@
       "package": "github.com/tmc/lib/nvidia/cusolvermp",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen ebad1633 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -6947,8 +6890,6 @@
           ]
         },
         "environment": {
-          "GOPROXY": "off",
-          "GOSUMDB": "off",
           "GOTOOLCHAIN": "go1.27.0",
           "GOWORK": "off",
           "TMPDIR": "${SCRATCH_DIR}"
@@ -7070,10 +7011,9 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
-          "go": "go version go1.25.0 darwin/arm64"
+          "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "generator_sources": [
         {
@@ -7122,7 +7062,7 @@
         },
         {
           "path": "contrib/cuda/cuda_config.go",
-          "sha256": "bd6d9351e82cfe2f9f714d89f5fcc1a4be3451d43ce1fc38450fc9a0f3fe4acf"
+          "sha256": "44300a982e7f1a80ae9bf2a311f8d3c735a6ddcc17e7c24e9b02217cbf8ae7b4"
         },
         {
           "path": "contrib/cuda/cuda_config_test.go",
@@ -7610,7 +7550,7 @@
         },
         {
           "path": "internal/ffigen/callbridge_test.go",
-          "sha256": "6896f1b847d0b164de2445e5361e75e3a6b35dd939364eb7f48347b24a50600c"
+          "sha256": "bd30e81ece0991a96494fc3ccf663b3a327f536be35fea9e16c9c6d2c77086b9"
         },
         {
           "path": "internal/ffigen/callerror_test.go",
@@ -7726,7 +7666,7 @@
         },
         {
           "path": "internal/ffigen/flatunion_test.go",
-          "sha256": "cd017ce4dc5b57ff6b22ed918a8af3d66ad72a289c63a06c50ac5f22edcd2852"
+          "sha256": "029d47e21f84773ee4792577b2abb6d9d4766b7d76b333258270804fa2e40a27"
         },
         {
           "path": "internal/ffigen/floorshim_test.go",
@@ -8077,8 +8017,8 @@
       "package": "github.com/tmc/lib/nvidia/cusparse",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 80aa768, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -8112,7 +8052,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -8193,20 +8134,9 @@
             "sha256": "b8c7d4e21ac908e0b6eafaa2786398345e0a8eec88b77c784b26aa02eaca41b5"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         },
         "layout_requirement": "The codegen and header checkouts must be siblings named libgen and cuda-headers. The captured input inventory is relative to their common parent; changing that layout changes the metadata hash. Binding outputs do not change."
       },
@@ -8219,8 +8149,8 @@
       "package": "github.com/tmc/lib/nvidia/custatevec",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -8406,7 +8336,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "header": {
         "path": "libcutensor/cutensor.h",
@@ -8417,10 +8347,10 @@
       "package": "github.com/tmc/lib/nvidia/cutensor",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
           "note": "Unpublished at the time of recording; it is the commit this generation was taken from. The later commit a96f510 fixes the cublas and cublaslt surveys and does not affect this package. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c; regenerate at libgen f3b353d8, dropping the header's claim that descCompute sets the alpha and beta type Regenerated at libgen 1c7003cb: requested-count arrays bind as slices. Regenerated at libgen 936c8b2a: foreign word types call through ffi.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934"
         },
         "headers": {
           "commit": "61bf77642fad3b237dd956cc0d5040f0637e5241",
@@ -8545,7 +8475,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -8642,20 +8573,9 @@
             "sha256": "7324f47b5ab3bed1bd25093e75d0122a34c328363de8ad63a5b0b774af7c8f60"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -8684,8 +8604,8 @@
       "package": "github.com/tmc/lib/nvidia/cutensornet",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8d0f6db: doc prose naming a deprecated function now links it. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -8838,7 +8758,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -8932,20 +8853,9 @@
             "sha256": "1da01ce3c313d2412cabb18d03eedbaac65bfc50017a399a38aeb24e2c29b602"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -8984,8 +8894,8 @@
       "package": "github.com/tmc/lib/nvidia/dcgm",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen b3dc359c"
         },
@@ -9279,7 +9189,7 @@
         "toolchain": {
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "generator_sources": [
         {
@@ -10436,10 +10346,10 @@
       "package": "github.com/tmc/lib/nvidia/driver",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
           "note": "Unpublished at the time of recording. This is the commit the recovery was verified against, not the commit that produced the committed bytes, which is unknown. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 72ec663: Function methods use receiver f. Regenerated at libgen 8da282f: methods drop the receiver words they repeat (GraphExec.Launch, GraphNode.KernelNodeGetParams) and parameters and their doc mentions are camel case. Regenerated at libgen 3a98258: copy methods are named by direction, and host copies take a []T with the pointer form renamed Ptr. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen de368ea: graph node kinds have their own types. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated driver to link the TensorMap note. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 9c31466 (docs refetch d0f7ef1) regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen a57cbfdc: counted slice fields and typed union members. Regenerated at libgen 446fae66: 8-byte integer structs call through ffi. Driver regenerated at libgen b21f0331 for CUDA 13.4 with a CUDA 12.2 floor.",
           "url": "https://github.com/tmc/libgen.git",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092"
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934"
         },
         "headers": {
           "commit": "2df1f8e060edb10fd1cdedb5cca90404bfa97992",
@@ -10485,7 +10395,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "Generated by fabricmanager-survey, which replaced gen-nvidia as the recipe at libgen f1b4a2d. apidiff reported no incompatible change against the gen-nvidia output on linux/amd64, linux/arm64 or darwin/arm64.",
         "outputs": [
@@ -10542,10 +10453,8 @@
             "sha256": "35f93cc1da305a7178201621e412daae9e6cf4c01c29649c5d267d01dc673b09"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
           "go": "go version go1.27.0 darwin/arm64"
         }
       },
@@ -10571,8 +10480,8 @@
       "package": "github.com/tmc/lib/nvidia/fabricmanager",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a fabricmanager-survey at libgen f1b4a2d"
         },
@@ -10623,7 +10532,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -10671,20 +10581,9 @@
             "sha256": "7f4c81125259d0bca5218cf77e979ba9cccc41a1203c558b526e3ba30dfcf17e"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -10696,8 +10595,8 @@
       "package": "github.com/tmc/lib/nvidia/gdrcopy",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "regenerate at libgen 0b6b362 regenerate at libgen e987d3a Regenerated at libgen 446fae66: 8-byte integer structs call through ffi."
         },
@@ -11345,7 +11244,6 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
         },
         "note": "Moved the recorded recipe from gen-nvidia to nccl-survey. ffigen now emits the configured function groups and initializer constructors, routes small by-value aggregates through RegisterFunc using compiler-measured layouts, and refuses unsupported layouts. Public API compatibility was checked against the prior package on three platforms.",
@@ -11357,7 +11255,7 @@
           "initializer_macros": true,
           "compiler_measured_by_value_routing": true
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "maintained_files_excluded": [
           "README.md",
           "comm_array_test.go",
@@ -11611,8 +11509,8 @@
       "package": "github.com/tmc/lib/nvidia/nccl",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: ParamHandle methods drop the ParamGet stem. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen b3dc359c Regenerated with nccl-survey at libgen d61bc79a; the package API is compatible, and 12-byte team aggregates now use compiler-measured ffi registration. Regenerated at libgen de1b8c78: split function files keep only their own comments, and the generated-code header precedes the package clause. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen 288aadde: parameter API takes and returns Go strings; WinFlags. Regenerated at libgen af502c40: deferred outputs of Split, Shrink, Grow and WindowRegister are caller-owned. Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -11720,7 +11618,10 @@
           "GOWORK": "off",
           "GOTOOLCHAIN": "go1.27.0"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        }
       },
       "generator_sources": [
         {
@@ -11729,7 +11630,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/config.go",
-          "sha256": "5c145946a8af32aa46e0756b7d8e7c28c4a9a002e69f0eb5fa163db486409319"
+          "sha256": "fae1bdb63991fea2ad058cb5a63f7a195b1ba3ee6d1e9c1f6fcbb99e0f3721d0"
         },
         {
           "path": "cmd/gen-nccl-extensions/constants.go",
@@ -11781,7 +11682,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/main_test.go",
-          "sha256": "cebb789b21e3981df69cd5355717f13f6f9d05dd113520fc639d9bd78d97dca0"
+          "sha256": "86830bc622144cc5ab1c27b5c7685f48befe6550d8c6728d217aa55d7794275e"
         },
         {
           "path": "cmd/gen-nccl-extensions/testdata/ep.cc",
@@ -11797,7 +11698,7 @@
         },
         {
           "path": "go.mod",
-          "sha256": "51dd9da44e697201c9a6b137f5d7b49a2cdc1fdef6a85ee6f849b151640f88bb"
+          "sha256": "45d79c1fa8befa8f8b2fb754e9992cae0c50477fae1e873d33c809fffc53feef"
         },
         {
           "path": "go.sum",
@@ -11805,11 +11706,11 @@
         },
         {
           "path": "internal/ffigen/accessors.go",
-          "sha256": "ab74c3188ef30dbbd8e06cc1b94a0f343b36b2d575b0f2a7351067783126a742"
+          "sha256": "c5abe56fb3141952bd24b6e96ed2b05f372146d448b495a0ebd42ead8b1e9f0a"
         },
         {
           "path": "internal/ffigen/accessors_test.go",
-          "sha256": "c0da21c15cda3b5c9134af9eaee184bcee29055b400dfadf630cf5533a8e1a80"
+          "sha256": "11eeb3e09c080827a63c2452904eaeb88015f3481dd5673dbc2cb974bf67d930"
         },
         {
           "path": "internal/ffigen/aligned_test.go",
@@ -11817,7 +11718,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "6b59f1b67647adaf5682bca4a9fccf50250286e2066b181392d538faf79a4973"
+          "sha256": "54a09f08480cfe7e83b89c3f5ead4a20e0a710c079a5735eff1d2a12bf028fe3"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -11829,11 +11730,11 @@
         },
         {
           "path": "internal/ffigen/callbridge.go",
-          "sha256": "b89ac7d560c77f2be6c3d963fd22998cb3a5b1b2c812307cad4dbf60a98b92f1"
+          "sha256": "30e9929d7445cf2ad40d73cd6156dcea5e540ff642abfd8c922146c0ee7c47ad"
         },
         {
           "path": "internal/ffigen/callbridge_allocs_test.go",
-          "sha256": "aadb9108c438ab05dcf449bc179e50b1e3548c194423ab91320a289037d93a72"
+          "sha256": "3a910f01368fab014a79dd2a7546319d26870d70a6f54863665e46c685fa8230"
         },
         {
           "path": "internal/ffigen/callbridge_shapes_test.go",
@@ -11845,7 +11746,7 @@
         },
         {
           "path": "internal/ffigen/callbridge_test.go",
-          "sha256": "6896f1b847d0b164de2445e5361e75e3a6b35dd939364eb7f48347b24a50600c"
+          "sha256": "bd30e81ece0991a96494fc3ccf663b3a327f536be35fea9e16c9c6d2c77086b9"
         },
         {
           "path": "internal/ffigen/callerror_test.go",
@@ -11885,11 +11786,11 @@
         },
         {
           "path": "internal/ffigen/docsurvival_test.go",
-          "sha256": "82c40b1ea53afdc5772f48eb0bf2ece2e72b7193f02d31da0b35a5b0f21ea9cd"
+          "sha256": "7b4aae72e2e791a02ff2a6d9c14734be6dd87ece2a8d838d0e51809cba112132"
         },
         {
           "path": "internal/ffigen/elementcount_test.go",
-          "sha256": "f53299a50ec24982b1ec88556252e9f931dc42fc60ab334e84c2b2ad4d2158cd"
+          "sha256": "822083c39f68f51dc7be16e187349fff199e1252bff657f13327d899a6f8f2fa"
         },
         {
           "path": "internal/ffigen/enumeration_test.go",
@@ -11913,11 +11814,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "9dffd6233ab84741dd57311afa8a73aff874419a3cc089e156efc1aa50a606b3"
+          "sha256": "6cc9bc7246d75a9578ce1fbbaac633f483f1d174422cfe4da411d2c27d3258e2"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "2f777fe2ba7786fe22e31c7921ec35b46eb414776bf51793a29e6260123d5eee"
+          "sha256": "dd340345d6011009e748b235aa115934c3ebb2486a49914f1c9d1ad8cca9f083"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -11933,7 +11834,7 @@
         },
         {
           "path": "internal/ffigen/image.go",
-          "sha256": "d8be7389cd01e58a536e431c8261b28c0afaba364128d5a06d110046e19dd2a2"
+          "sha256": "3cf8bcc214d355699026b2740154411f5671405cbe190bdb8638e56d13278dbb"
         },
         {
           "path": "internal/ffigen/includedenum.go",
@@ -11965,11 +11866,11 @@
         },
         {
           "path": "internal/ffigen/multilib_test.go",
-          "sha256": "54d883452b51a42314e9742785517a0fbc1b218a00428aaa8c1f538800f82e08"
+          "sha256": "72df4b4e3f22aa6ce0767262284864bc32e8e7f910e8fd74728079b8ff94d4dd"
         },
         {
           "path": "internal/ffigen/negativeresult.go",
-          "sha256": "391d6da4372ab1a6d1995ddf7056a8c115f128152e0e9424e78735fec5c300f2"
+          "sha256": "a7053706c880bc3682e1278e8583a42bb2044f4c52d5fe4470fe426451dc3ded"
         },
         {
           "path": "internal/ffigen/negativeresult_test.go",
@@ -11989,7 +11890,7 @@
         },
         {
           "path": "internal/ffigen/scalar.go",
-          "sha256": "b241b7d262490ac68f45b20003ef914e5f6ac4ca58bb5e3858d85ea2cfbb1ed9"
+          "sha256": "88c2b8d9cfda7a17a27049b79ce13a0851b7ea5e5d63484e9850bf92b2b16a5c"
         },
         {
           "path": "internal/ffigen/scalarpointer_test.go",
@@ -12009,7 +11910,7 @@
         },
         {
           "path": "internal/ffigen/symbollinks.go",
-          "sha256": "2789a53aa3327e875b1a7f6b08975761a6a6f0988275aa2f29f15c648152410c"
+          "sha256": "ee71649ab801fad0bfa0c7aff4b4fd1627960f32410c34d05f97c7dcd0dedcf3"
         },
         {
           "path": "internal/ffigen/symbollinks_test.go",
@@ -12043,8 +11944,8 @@
       "package": "github.com/tmc/lib/nvidia/ncclep",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         }
@@ -12285,7 +12186,10 @@
           "GOWORK": "off",
           "GOTOOLCHAIN": "go1.27.0"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        }
       },
       "generator_sources": [
         {
@@ -12294,7 +12198,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/config.go",
-          "sha256": "5c145946a8af32aa46e0756b7d8e7c28c4a9a002e69f0eb5fa163db486409319"
+          "sha256": "fae1bdb63991fea2ad058cb5a63f7a195b1ba3ee6d1e9c1f6fcbb99e0f3721d0"
         },
         {
           "path": "cmd/gen-nccl-extensions/constants.go",
@@ -12350,7 +12254,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/main_test.go",
-          "sha256": "cebb789b21e3981df69cd5355717f13f6f9d05dd113520fc639d9bd78d97dca0"
+          "sha256": "86830bc622144cc5ab1c27b5c7685f48befe6550d8c6728d217aa55d7794275e"
         },
         {
           "path": "cmd/gen-nccl-extensions/testdata/ep.cc",
@@ -12366,7 +12270,7 @@
         },
         {
           "path": "go.mod",
-          "sha256": "51dd9da44e697201c9a6b137f5d7b49a2cdc1fdef6a85ee6f849b151640f88bb"
+          "sha256": "45d79c1fa8befa8f8b2fb754e9992cae0c50477fae1e873d33c809fffc53feef"
         },
         {
           "path": "go.sum",
@@ -12374,11 +12278,11 @@
         },
         {
           "path": "internal/ffigen/accessors.go",
-          "sha256": "ab74c3188ef30dbbd8e06cc1b94a0f343b36b2d575b0f2a7351067783126a742"
+          "sha256": "c5abe56fb3141952bd24b6e96ed2b05f372146d448b495a0ebd42ead8b1e9f0a"
         },
         {
           "path": "internal/ffigen/accessors_test.go",
-          "sha256": "c0da21c15cda3b5c9134af9eaee184bcee29055b400dfadf630cf5533a8e1a80"
+          "sha256": "11eeb3e09c080827a63c2452904eaeb88015f3481dd5673dbc2cb974bf67d930"
         },
         {
           "path": "internal/ffigen/aligned_test.go",
@@ -12386,7 +12290,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "6b59f1b67647adaf5682bca4a9fccf50250286e2066b181392d538faf79a4973"
+          "sha256": "54a09f08480cfe7e83b89c3f5ead4a20e0a710c079a5735eff1d2a12bf028fe3"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -12398,11 +12302,11 @@
         },
         {
           "path": "internal/ffigen/callbridge.go",
-          "sha256": "b89ac7d560c77f2be6c3d963fd22998cb3a5b1b2c812307cad4dbf60a98b92f1"
+          "sha256": "30e9929d7445cf2ad40d73cd6156dcea5e540ff642abfd8c922146c0ee7c47ad"
         },
         {
           "path": "internal/ffigen/callbridge_allocs_test.go",
-          "sha256": "aadb9108c438ab05dcf449bc179e50b1e3548c194423ab91320a289037d93a72"
+          "sha256": "3a910f01368fab014a79dd2a7546319d26870d70a6f54863665e46c685fa8230"
         },
         {
           "path": "internal/ffigen/callbridge_shapes_test.go",
@@ -12414,7 +12318,7 @@
         },
         {
           "path": "internal/ffigen/callbridge_test.go",
-          "sha256": "6896f1b847d0b164de2445e5361e75e3a6b35dd939364eb7f48347b24a50600c"
+          "sha256": "bd30e81ece0991a96494fc3ccf663b3a327f536be35fea9e16c9c6d2c77086b9"
         },
         {
           "path": "internal/ffigen/callerror_test.go",
@@ -12454,11 +12358,11 @@
         },
         {
           "path": "internal/ffigen/docsurvival_test.go",
-          "sha256": "82c40b1ea53afdc5772f48eb0bf2ece2e72b7193f02d31da0b35a5b0f21ea9cd"
+          "sha256": "7b4aae72e2e791a02ff2a6d9c14734be6dd87ece2a8d838d0e51809cba112132"
         },
         {
           "path": "internal/ffigen/elementcount_test.go",
-          "sha256": "f53299a50ec24982b1ec88556252e9f931dc42fc60ab334e84c2b2ad4d2158cd"
+          "sha256": "822083c39f68f51dc7be16e187349fff199e1252bff657f13327d899a6f8f2fa"
         },
         {
           "path": "internal/ffigen/enumeration_test.go",
@@ -12482,11 +12386,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "9dffd6233ab84741dd57311afa8a73aff874419a3cc089e156efc1aa50a606b3"
+          "sha256": "6cc9bc7246d75a9578ce1fbbaac633f483f1d174422cfe4da411d2c27d3258e2"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "2f777fe2ba7786fe22e31c7921ec35b46eb414776bf51793a29e6260123d5eee"
+          "sha256": "dd340345d6011009e748b235aa115934c3ebb2486a49914f1c9d1ad8cca9f083"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -12502,7 +12406,7 @@
         },
         {
           "path": "internal/ffigen/image.go",
-          "sha256": "d8be7389cd01e58a536e431c8261b28c0afaba364128d5a06d110046e19dd2a2"
+          "sha256": "3cf8bcc214d355699026b2740154411f5671405cbe190bdb8638e56d13278dbb"
         },
         {
           "path": "internal/ffigen/includedenum.go",
@@ -12534,11 +12438,11 @@
         },
         {
           "path": "internal/ffigen/multilib_test.go",
-          "sha256": "54d883452b51a42314e9742785517a0fbc1b218a00428aaa8c1f538800f82e08"
+          "sha256": "72df4b4e3f22aa6ce0767262284864bc32e8e7f910e8fd74728079b8ff94d4dd"
         },
         {
           "path": "internal/ffigen/negativeresult.go",
-          "sha256": "391d6da4372ab1a6d1995ddf7056a8c115f128152e0e9424e78735fec5c300f2"
+          "sha256": "a7053706c880bc3682e1278e8583a42bb2044f4c52d5fe4470fe426451dc3ded"
         },
         {
           "path": "internal/ffigen/negativeresult_test.go",
@@ -12558,7 +12462,7 @@
         },
         {
           "path": "internal/ffigen/scalar.go",
-          "sha256": "b241b7d262490ac68f45b20003ef914e5f6ac4ca58bb5e3858d85ea2cfbb1ed9"
+          "sha256": "88c2b8d9cfda7a17a27049b79ce13a0851b7ea5e5d63484e9850bf92b2b16a5c"
         },
         {
           "path": "internal/ffigen/scalarpointer_test.go",
@@ -12578,7 +12482,7 @@
         },
         {
           "path": "internal/ffigen/symbollinks.go",
-          "sha256": "2789a53aa3327e875b1a7f6b08975761a6a6f0988275aa2f29f15c648152410c"
+          "sha256": "ee71649ab801fad0bfa0c7aff4b4fd1627960f32410c34d05f97c7dcd0dedcf3"
         },
         {
           "path": "internal/ffigen/symbollinks_test.go",
@@ -12607,8 +12511,8 @@
       "package": "github.com/tmc/lib/nvidia/ncclll",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         }
@@ -12864,7 +12768,10 @@
           "GOWORK": "off",
           "GOTOOLCHAIN": "go1.27.0"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
+        "toolchain": {
+          "go": "go version go1.27.0 darwin/arm64"
+        }
       },
       "generator_sources": [
         {
@@ -12873,7 +12780,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/config.go",
-          "sha256": "5c145946a8af32aa46e0756b7d8e7c28c4a9a002e69f0eb5fa163db486409319"
+          "sha256": "fae1bdb63991fea2ad058cb5a63f7a195b1ba3ee6d1e9c1f6fcbb99e0f3721d0"
         },
         {
           "path": "cmd/gen-nccl-extensions/constants.go",
@@ -12925,7 +12832,7 @@
         },
         {
           "path": "cmd/gen-nccl-extensions/main_test.go",
-          "sha256": "cebb789b21e3981df69cd5355717f13f6f9d05dd113520fc639d9bd78d97dca0"
+          "sha256": "86830bc622144cc5ab1c27b5c7685f48befe6550d8c6728d217aa55d7794275e"
         },
         {
           "path": "cmd/gen-nccl-extensions/testdata/ep.cc",
@@ -12941,7 +12848,7 @@
         },
         {
           "path": "go.mod",
-          "sha256": "51dd9da44e697201c9a6b137f5d7b49a2cdc1fdef6a85ee6f849b151640f88bb"
+          "sha256": "45d79c1fa8befa8f8b2fb754e9992cae0c50477fae1e873d33c809fffc53feef"
         },
         {
           "path": "go.sum",
@@ -12949,11 +12856,11 @@
         },
         {
           "path": "internal/ffigen/accessors.go",
-          "sha256": "ab74c3188ef30dbbd8e06cc1b94a0f343b36b2d575b0f2a7351067783126a742"
+          "sha256": "c5abe56fb3141952bd24b6e96ed2b05f372146d448b495a0ebd42ead8b1e9f0a"
         },
         {
           "path": "internal/ffigen/accessors_test.go",
-          "sha256": "c0da21c15cda3b5c9134af9eaee184bcee29055b400dfadf630cf5533a8e1a80"
+          "sha256": "11eeb3e09c080827a63c2452904eaeb88015f3481dd5673dbc2cb974bf67d930"
         },
         {
           "path": "internal/ffigen/aligned_test.go",
@@ -12961,7 +12868,7 @@
         },
         {
           "path": "internal/ffigen/apiconfig.go",
-          "sha256": "6b59f1b67647adaf5682bca4a9fccf50250286e2066b181392d538faf79a4973"
+          "sha256": "54a09f08480cfe7e83b89c3f5ead4a20e0a710c079a5735eff1d2a12bf028fe3"
         },
         {
           "path": "internal/ffigen/bindsymbol.go",
@@ -12973,11 +12880,11 @@
         },
         {
           "path": "internal/ffigen/callbridge.go",
-          "sha256": "b89ac7d560c77f2be6c3d963fd22998cb3a5b1b2c812307cad4dbf60a98b92f1"
+          "sha256": "30e9929d7445cf2ad40d73cd6156dcea5e540ff642abfd8c922146c0ee7c47ad"
         },
         {
           "path": "internal/ffigen/callbridge_allocs_test.go",
-          "sha256": "aadb9108c438ab05dcf449bc179e50b1e3548c194423ab91320a289037d93a72"
+          "sha256": "3a910f01368fab014a79dd2a7546319d26870d70a6f54863665e46c685fa8230"
         },
         {
           "path": "internal/ffigen/callbridge_shapes_test.go",
@@ -12989,7 +12896,7 @@
         },
         {
           "path": "internal/ffigen/callbridge_test.go",
-          "sha256": "6896f1b847d0b164de2445e5361e75e3a6b35dd939364eb7f48347b24a50600c"
+          "sha256": "bd30e81ece0991a96494fc3ccf663b3a327f536be35fea9e16c9c6d2c77086b9"
         },
         {
           "path": "internal/ffigen/callerror_test.go",
@@ -13029,11 +12936,11 @@
         },
         {
           "path": "internal/ffigen/docsurvival_test.go",
-          "sha256": "82c40b1ea53afdc5772f48eb0bf2ece2e72b7193f02d31da0b35a5b0f21ea9cd"
+          "sha256": "7b4aae72e2e791a02ff2a6d9c14734be6dd87ece2a8d838d0e51809cba112132"
         },
         {
           "path": "internal/ffigen/elementcount_test.go",
-          "sha256": "f53299a50ec24982b1ec88556252e9f931dc42fc60ab334e84c2b2ad4d2158cd"
+          "sha256": "822083c39f68f51dc7be16e187349fff199e1252bff657f13327d899a6f8f2fa"
         },
         {
           "path": "internal/ffigen/enumeration_test.go",
@@ -13057,11 +12964,11 @@
         },
         {
           "path": "internal/ffigen/generator.go",
-          "sha256": "9dffd6233ab84741dd57311afa8a73aff874419a3cc089e156efc1aa50a606b3"
+          "sha256": "6cc9bc7246d75a9578ce1fbbaac633f483f1d174422cfe4da411d2c27d3258e2"
         },
         {
           "path": "internal/ffigen/generator_test.go",
-          "sha256": "2f777fe2ba7786fe22e31c7921ec35b46eb414776bf51793a29e6260123d5eee"
+          "sha256": "dd340345d6011009e748b235aa115934c3ebb2486a49914f1c9d1ad8cca9f083"
         },
         {
           "path": "internal/ffigen/gostyle_test.go",
@@ -13077,7 +12984,7 @@
         },
         {
           "path": "internal/ffigen/image.go",
-          "sha256": "d8be7389cd01e58a536e431c8261b28c0afaba364128d5a06d110046e19dd2a2"
+          "sha256": "3cf8bcc214d355699026b2740154411f5671405cbe190bdb8638e56d13278dbb"
         },
         {
           "path": "internal/ffigen/includedenum.go",
@@ -13109,11 +13016,11 @@
         },
         {
           "path": "internal/ffigen/multilib_test.go",
-          "sha256": "54d883452b51a42314e9742785517a0fbc1b218a00428aaa8c1f538800f82e08"
+          "sha256": "72df4b4e3f22aa6ce0767262284864bc32e8e7f910e8fd74728079b8ff94d4dd"
         },
         {
           "path": "internal/ffigen/negativeresult.go",
-          "sha256": "391d6da4372ab1a6d1995ddf7056a8c115f128152e0e9424e78735fec5c300f2"
+          "sha256": "a7053706c880bc3682e1278e8583a42bb2044f4c52d5fe4470fe426451dc3ded"
         },
         {
           "path": "internal/ffigen/negativeresult_test.go",
@@ -13133,7 +13040,7 @@
         },
         {
           "path": "internal/ffigen/scalar.go",
-          "sha256": "b241b7d262490ac68f45b20003ef914e5f6ac4ca58bb5e3858d85ea2cfbb1ed9"
+          "sha256": "88c2b8d9cfda7a17a27049b79ce13a0851b7ea5e5d63484e9850bf92b2b16a5c"
         },
         {
           "path": "internal/ffigen/scalarpointer_test.go",
@@ -13153,7 +13060,7 @@
         },
         {
           "path": "internal/ffigen/symbollinks.go",
-          "sha256": "2789a53aa3327e875b1a7f6b08975761a6a6f0988275aa2f29f15c648152410c"
+          "sha256": "ee71649ab801fad0bfa0c7aff4b4fd1627960f32410c34d05f97c7dcd0dedcf3"
         },
         {
           "path": "internal/ffigen/symbollinks_test.go",
@@ -13182,8 +13089,8 @@
       "package": "github.com/tmc/lib/nvidia/ncclm2n",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped at libgen 72ec663, which changed an internal/ffigen source; output unchanged. Restamped at libgen 8da282f, which changed an internal/ffigen source; output unchanged. Restamped at libgen 3a98258, which changed a generator source; output unchanged. Restamped at libgen 8d0f6db, which changed a generator source; output unchanged. Restamped at libgen 4d9ccca, which changed a generator source; output unchanged. Restamped at libgen de368ea, which changed a generator source; output unchanged. Restamped at libgen 8cdab9e, which changed a generator source; output unchanged. Restamped at libgen d99589a, which changed a generator source; output unchanged. Restamped at libgen bc4b7c9, which changed a generator source; output unchanged. Regenerated at libgen f14ae40 to drop scraped page chrome. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. Regenerated at libgen 93cb27c: device pointers as driver.DevicePtr, streams as driver.Stream. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen b64b685 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a regenerate at libgen cb1116d regenerate at libgen fd74952f regenerate at libgen 8f63c92d regenerate at libgen ebad1633 regenerate at libgen dcfe7f39 regenerate at libgen 294fc372 regenerate at libgen b3dc359c Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         }
@@ -13343,7 +13250,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files. The lazy loader was refined in the generator after this generation was recorded, and the package was regenerated to pick it up: init.gen.go changed and provenance.gen.go is new. The pinned codegen commit predates that work, so it no longer reproduces those two files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -13404,20 +13312,9 @@
             "sha256": "913b7f02c4bc359a506cf5e8a8dea63b4a8201984c8e386f7a5b0600617f3b18"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -13461,8 +13358,8 @@
       "package": "github.com/tmc/lib/nvidia/nvcomp",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -13537,7 +13434,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -13613,7 +13511,7 @@
             "sha256": "cb68343607bd13313e74e82328de232cb9dd1f9166ce60df693ebc76287ab103"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "supplemental_runs": [
           {
             "argv": [
@@ -13672,18 +13570,7 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -13712,8 +13599,8 @@
       "package": "github.com/tmc/lib/nvidia/nvdec",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Restamped for provenance argv recorded by base name, nvdec Destroy methods and LibraryPropertyType constants. Regenerated at libgen 80aa768: parameters are camel case."
         },
@@ -13771,7 +13658,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "outputs": [
           {
@@ -13827,20 +13715,9 @@
             "sha256": "405b9346e6bccecf3d890f3d817cc60be2ca0de57d433abb2a2642c301e3462b"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -13852,8 +13729,8 @@
       "package": "github.com/tmc/lib/nvidia/nvenc",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git"
         },
         "lib": {
@@ -13908,7 +13785,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "maintained_files_excluded": [
           "abi_test.go",
@@ -13970,20 +13848,9 @@
             "sha256": "88c241ea4ea5829460433ec3375309cb848c5c920ee8008092b3776f177c422b"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "clang",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.25.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -13995,8 +13862,8 @@
       "package": "github.com/tmc/lib/nvidia/nvfatbin",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: parameters are camel case. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a nvfatbin-survey at libgen 78568b2"
         },
@@ -14066,7 +13933,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "limitations": [
           "The recorded header is the top-level nvjitlink/nvJitLink.h, which is not a pinned file: it tracks whatever CUDA release the headers repository last fetched. A pinned input exists at pinned/nvjitlink/cuda-13.0 but is a different header and does not produce these outputs."
@@ -14140,7 +14008,7 @@
             "sha256": "835add22880b843a2e8d3913465264a9915bbf66f966ed5d65ec7d9eeea5f265"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "supplemental_runs": [
           {
             "argv": [
@@ -14172,18 +14040,7 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "clang",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.25.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -14195,8 +14052,8 @@
       "package": "github.com/tmc/lib/nvidia/nvjitlink",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 0b6b362 regenerate at libgen e987d3a nvjitlink-survey at libgen b7ab704"
         },
@@ -14253,7 +14110,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "The platform loader and the corrected Windows library name were added after this generation was recorded: init.gen.go changed and loader_unix.gen.go and loader_windows.gen.go are new. The pinned codegen commit predates that work, so it no longer reproduces those three files. Their recorded digests are the integrated files.",
         "outputs": [
@@ -14330,20 +14188,9 @@
             "sha256": "db9789f622654642f785271a5dddd7f58a397c3a75a34a365f489f63d85c0f9e"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -14367,8 +14214,8 @@
       "package": "github.com/tmc/lib/nvidia/nvjpeg2k",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 8da282f: doc comments name snake_case parameters by their Go names. regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen fd74952f regenerate at libgen ebad1633 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -14428,7 +14275,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "note": "Regenerated from the pinned CUDA 13.3 NVML header. Previous header SHA256: 3f2b1619b009e70a99751fb0b4f1119c0c9a91e7e042bd024737fab1524729ca; new header SHA256: 31a26e3ce6f0b98a76cea38a3cf28aa112a20cfb37e9057786c768712d6a487f. This restores all 72 L18-L35 RX/TX and per-second metrics. Generated files were copied from the complete generator output without manual edits.",
         "outputs": [
@@ -14526,10 +14374,9 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
           "go": "go version go1.27.0 darwin/arm64"
         },
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe"
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs."
       },
       "header": {
         "path": "pinned/nvml/cuda-13.3/nvml.h",
@@ -14544,8 +14391,8 @@
       "package": "github.com/tmc/lib/nvidia/nvml",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated with the pinned NVML header; nvgen defaults to the same pin. Regenerated at libgen 4029439a: C source dropped from scraped docs. Regenerated at libgen a57cbfdc: counted slice fields and typed union members."
         },
@@ -14602,7 +14449,8 @@
         "cwd": "${CODEGEN_REPO}",
         "environment": {
           "GOWORK": "off",
-          "TMPDIR": "${SCRATCH_DIR}"
+          "TMPDIR": "${SCRATCH_DIR}",
+          "GOTOOLCHAIN": "go1.27.0"
         },
         "options": {
           "clang": true,
@@ -14676,21 +14524,10 @@
           }
         ],
         "comparison": "All 15 generated outputs, including layout and loader tests, provenance, and the genoptions flags output, match the clean generation. apidiff reports no public API changes on linux/amd64, linux/arm64, or darwin/arm64. Changes are recipe ownership, paired header-slice and error-log wrappers, accepted runtime majors 12 and 13, generated method ordering, and documentation; shipped names and signatures are preserved.",
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "note": "Reproduced from a clean libgen worktree; nvjitlink outputs also regenerate byte-identically at the same ffigen source commit.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "clang",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "go1.27.0",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         },
         "supplemental_runs": [
           {
@@ -14732,9 +14569,9 @@
       "package": "github.com/tmc/lib/nvidia/nvrtc",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
           "note": "The generator changes these bytes depend on -- the ErrorLogParams customization and its errorLogDetail helper, Generator.zeroValue, the bundled-headers entries and NVRTC_INSTALL_HEADERS_* define group in contrib/cuda/nvrtc_config.go, and the \\ingroup strip in internal/cparser -- are committed here. Two untracked directories unrelated to generation, cgotest/ and cmd/fetch-ptx-isa/, were present in the checkout. The repository is github.com/tmc/libgen; earlier entries record its former github.com/tmc/codegen URL. init.gen.go was restamped at this commit for the LibraryError loader and changes nothing else. Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 80aa768: parameters are camel case. Regenerated at libgen 266be11: out-params become results, driver.Dims, MemAlloc[T], nvrtc.Header. regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 50579d6 regenerate at libgen 99b3dcb regenerate at libgen 0b6b362 regenerate at libgen e987d3a regenerate at libgen b3dc359c NVRTC survey recipe committed at 336715e0; AcceptedMajors and empty error-log preservation committed at 4e528182 and f776782a. Regenerated at libgen 4029439a: C source dropped from scraped docs.",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git"
         },
         "headers": {
@@ -14851,20 +14688,9 @@
             "sha256": "86a4dcf8ce3a41226aaa6b18cee6b445c5e1eb690c31fd9d3a1bff98536d3d31"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CC": "cc",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         },
         "comparison": "All recorded outputs regenerated with the recorded recipe; package compile and API review recorded in the release receipt. GPU qualification is separate."
       },
@@ -14943,8 +14769,8 @@
       "package": "github.com/tmc/lib/nvidia/nvshmem",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "regenerate at libgen 4222a55 regenerate at libgen 0b6b362 regenerate at libgen 143fa41 regenerate at libgen e987d3a Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
@@ -15271,7 +15097,7 @@
             "sha256": "cebaa763ebefd329a4d559684c4c63e1297a4a4b3ece1a6a0f4758cde317f39b"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "supplemental_runs": [
           {
             "argv": [
@@ -15303,17 +15129,7 @@
           }
         ],
         "toolchain": {
-          "clang": "Apple clang version 21.0.1 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.27.0 darwin/arm64",
-          "go_environment": {
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "go1.27.0",
-            "GOVERSION": "go1.27.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "header": {
@@ -15325,8 +15141,8 @@
       "package": "github.com/tmc/lib/nvidia/nvvm",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "NVVM bindings generated from the recorded nvvm-survey recipe after toolkit library search support landed in ffigen."
         },
@@ -15504,20 +15320,9 @@
             "sha256": "b8478e417bf04d7952fd7c8e6f136e2f9e3e715914d1ae475286e10a7ff7c273"
           }
         ],
-        "source_state": "Verified with clean tracked libgen sources at b21f0331ce056aadf1325f3e71ba2a477838b3fe",
+        "source_state": "Generator identity restamped to clean tracked libgen sources at 57ba48fc2c49acaf1dc24aa350ea4367499621ea; recorded outputs re-verified unchanged after test/config repairs.",
         "toolchain": {
-          "clang": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
-          "clang_target": "arm64-apple-darwin25.6.0",
-          "go": "go version go1.25.0 darwin/arm64",
-          "go_environment": {
-            "CC": "clang",
-            "CGO_ENABLED": "1",
-            "GOARCH": "arm64",
-            "GOFLAGS": "",
-            "GOOS": "darwin",
-            "GOTOOLCHAIN": "auto",
-            "GOVERSION": "go1.25.0"
-          }
+          "go": "go version go1.27.0 darwin/arm64"
         }
       },
       "headers": [
@@ -15656,8 +15461,8 @@
       "package": "github.com/tmc/lib/nvidia/sanitizer",
       "repositories": {
         "codegen": {
-          "commit": "b21f0331ce056aadf1325f3e71ba2a477838b3fe",
-          "tree": "0341b894fa81a15f3ac9055f148192b2f48fb092",
+          "commit": "57ba48fc2c49acaf1dc24aa350ea4367499621ea",
+          "tree": "5206b1a4cbfdbae22db7aa549b6d7f9b33e51934",
           "url": "https://github.com/tmc/libgen.git",
           "note": "Regenerated at this commit for Go-style names (Get dropped, receiver prefixes trimmed, lowercase parameters), typed flags enums and []byte image parameters. Regenerated at libgen 4d9ccca: launch extents grouped into Dim3. Regenerated at libgen 80aa768: methods drop the receiver words they repeat (LaunchHandle.SetCallbackData). regenerate at libgen 4222a55 regenerate at libgen 65f4987 regenerate at libgen 0b6b362 regenerate at libgen e987d3a; sanitizer-survey migration at libgen c1387a4 Regenerated at libgen 936c8b2a: foreign word types call through ffi."
         },
