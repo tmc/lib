@@ -94,6 +94,8 @@ Each range/PM/SASS publication now has a standard code-only
 It retains source/PTX/the exact loaded CUBIN/native SASS; its profile contains
 no synthetic timing samples. Its producer module identity names the loaded
 handle, not an invented CUPTI module ID. This is a producer receipt, not driver
-attestation. A conservative factor-four aggregate limit covers publication,
-code packet, and already-written transport bytes before publication; the
-controller separately checks later journal growth and final encoding.
+attestation. Checked actual transport sizes and nested base64 encoding sizes
+bound publication and code packet bytes before writing. The controller
+separately checks later journal growth and final manifest encoding. Range
+counter storage reserves three quarters of remaining bytes for retained and
+encoded copies; the original plan limits are not increased.
