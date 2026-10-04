@@ -658,6 +658,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	}
 	if !hasNVRTCCache(major, minor) {
 		cfg.flags = slices.DeleteFunc(cfg.flags, isNoCacheFlag)
+		sourceFlags = slices.DeleteFunc(sourceFlags, isNoCacheFlag)
 	}
 	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d cache=%q", major, minor, nvrtc.Path(), cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
