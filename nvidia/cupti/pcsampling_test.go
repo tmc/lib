@@ -1,6 +1,7 @@
 package cupti
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"unsafe"
@@ -102,5 +103,15 @@ func TestPCSamplingStallReasonsRejects(t *testing.T) {
 				t.Fatalf("pcSamplingStallReasons = %+v, %v, want error containing %q", inv, err, tt.want)
 			}
 		})
+	}
+}
+
+// A CUPTI release with no measured layout is unsupported, not malformed, so a
+// caller can tell an old toolkit from a broken one.
+func TestPCSamplingStallReasonsUnsupportedVersion(t *testing.T) {
+	countQuery, namesQuery := fakeReasonQueries(t, 1, []PCSamplingStallReasonInfo{{1, "a"}})
+	_, err := pcSamplingStallReasons(1, 4, 20, countQuery, namesQuery)
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Fatalf("pcSamplingStallReasons(CUPTI 20) = %v, want errors.ErrUnsupported", err)
 	}
 }

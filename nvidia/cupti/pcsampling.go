@@ -98,7 +98,7 @@ func pcSamplingStallReasons(ctx driver.Context, maxReasons int, version uint32, 
 	}
 	layout, ok := PCSamplingReasonLayoutFor(version)
 	if !ok {
-		return PCSamplingReasonInventory{}, fmt.Errorf("cupti: unsupported reason inventory layout for CUPTI %d", version)
+		return PCSamplingReasonInventory{}, fmt.Errorf("cupti: reason inventory layout for CUPTI %d: %w", version, errors.ErrUnsupported)
 	}
 	var pin runtime.Pinner
 	defer pin.Unpin()

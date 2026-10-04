@@ -73,6 +73,9 @@ type physicalPipeline struct {
 
 func physicalCheck(tb testing.TB, err error) {
 	tb.Helper()
+	if errors.Is(err, errors.ErrUnsupported) {
+		tb.Skipf("installed CUPTI has no qualified layout: %v", err)
+	}
 	if err != nil {
 		tb.Fatal(err)
 	}

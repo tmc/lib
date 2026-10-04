@@ -33,7 +33,7 @@ func CounterAvailability(dev *cuda.Device, maxBytes int) (image []byte, err erro
 		return nil, err
 	}
 	if !qualifiedLayout(version) || unsafe.Sizeof(uintptr(0)) != 8 {
-		return nil, fmt.Errorf("cuptirange: unqualified counter availability version %d", version)
+		return nil, fmt.Errorf("cuptirange: counter availability for CUPTI %d: %w", version, errors.ErrUnsupported)
 	}
 	err = dev.WithContext(func() error {
 		init := cupti.ProfilerInitializeParams{}
