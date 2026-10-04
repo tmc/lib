@@ -13,10 +13,27 @@ import (
 
 	"github.com/tmc/lib/nvidia/nvfatbin"
 	"github.com/tmc/lib/nvidia/nvjitlink"
+	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/nvfatbinx"
 	"github.com/tmc/lib/nvidia/x/nvjitlinkx"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
+
+// requireNVFatbin skips t when the selected toolkit predates nvFatbin, which
+// first shipped in CUDA 12.4. On a toolkit that should have it, a library that
+// fails to load is a failure.
+func requireNVFatbin(t *testing.T) {
+	t.Helper()
+	err := nvfatbin.Load("")
+	if err == nil {
+		return
+	}
+	major, minor, verr := nvrtc.Version()
+	if verr == nil && (major < 12 || major == 12 && minor < 4) {
+		t.Skipf("toolkit %d.%d predates nvFatbin (CUDA 12.4): %v", major, minor, err)
+	}
+	t.Fatal(err)
+}
 
 // TestNativePackaging needs a compatible nvFatbin library and cuobjdump. It
 // packages and inventories two PTX targets without loading a module or a GPU.
@@ -28,6 +45,7 @@ func TestNativePackaging(t *testing.T) {
 	if tool == "" {
 		t.Fatal("CUOBJDUMP must identify the qualified utility")
 	}
+	requireNVFatbin(t)
 	major, minor, err := nvfatbin.Version()
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +109,7 @@ func TestCompiledPackaging(t *testing.T) {
 	if os.Getenv("NVFATBIN_TEST") != "1" || os.Getenv("CUDA_COMPILER_TEST") != "1" {
 		t.Skip("NVFATBIN_TEST=1 and CUDA_COMPILER_TEST=1 required")
 	}
+	requireNVFatbin(t)
 	for _, tt := range []struct {
 		name   string
 		output nvrtcx.OutputKind
