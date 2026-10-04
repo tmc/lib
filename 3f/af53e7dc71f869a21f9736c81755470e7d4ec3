@@ -7,3 +7,11 @@ ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
 Manual signed fallback: git-auto-commit-message failed twice earlier in this goal; no retry.
 Source and host review: main-successor-independent-review/REVIEW.md
 Physical packet: native.stdout, native.stderr, native.rc, native-receipt.json; independent physical audit pending.
+
+Integrated commit: 3faf53e7dc71f869a21f9736c81755470e7d4ec3
+Date: 2026-10-04T01:03:28-07:00
+Replay of independently reviewed source: 14a579061f90a97807976fb6447e700c1cbc36cb
+Codex CLI0.160.0 / GPT-6; Claude Code not used; noninteractive tool shell
+Note process PID:28143, parent PID:28141
+Own session026363F7-C2F7-4118-9920-4953A7B20D93; ITERM_SESSION_ID:w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Source bytes and zero-context stable patch preserved; physical evidence scoped to frozen candidate packets, not wholesale current-tree hardware qualification.
