@@ -20,3 +20,14 @@ Independent ACCEPT: /Users/tmc/tmp/lib-wt-next/20261004-next-main-rebase/indepen
 12 affected host packages, profiler/CLI full host tests, focused race, vet and namespace/LIFO probe pass.
 All 252 original commits and notes preserved; 39 local tracked edits and75 pinned untracked sources unchanged; index empty.
 No new native qualification claim.
+
+Commit: 56077983853fd32379760d07354724b1ee2d397a
+Date: 2026-10-04T07:21:55.785872+00:00
+Agent: codex-cli 0.160.0; model GPT-6; Claude Code not used
+TTY: not a tty
+PID: 83343; parent PID: 83342
+Own session: 026363F7-C2F7-4118-9920-4953A7B20D93
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Second user-requested rebase includes main48d18a91c. All253 zero-context patch identities and signatures match; originalnotes preserved.
+Independent ACCEPT: /Users/tmc/tmp/lib-wt-next/20261004-next-main-rebase2/independent-review/nvrtcx-supplement/review.md
+Host nvrtcx/egraph/cudafuse pass;39tracked edits/75untracked source pins unchanged;index empty. Actual NVRTC/GPU execution remains unclaimed.
