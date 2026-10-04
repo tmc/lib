@@ -107,7 +107,9 @@ func newEventCompletion(dev *cuda.Device, stream *cuda.Stream, event *cuda.Event
 	return &Completion{state: s}, nil
 }
 
-// newHostCompletion creates a test double completion for host-only testing.
+// newHostCompletion creates a completion for an owned drain function.
+// Native execution passes Stream.Synchronize; tests may supply a controlled
+// wait. A canceled or failed drain retains every release callback.
 func newHostCompletion(waitFn func(context.Context) error, destroyFn func() error, releases ...func()) *Completion {
 	s := &completionState{
 		wait:     waitFn,

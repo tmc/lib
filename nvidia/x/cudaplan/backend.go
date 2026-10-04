@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 )
 
@@ -20,10 +21,9 @@ const (
 	// BackendCuBLASLt executes dense matrix multiplication using cublasltx.
 	BackendCuBLASLt
 
-	// BackendMega executes a contiguous region of steps as tasks of one
-	// persistent worker, scheduled on the device from their dependencies.
-	// A region reaches it through [LowerRegion], which refuses the steps it
-	// cannot derive a schedule for.
+	// BackendMega executes an admitted contiguous region sequentially in one
+	// finite single-CTA worker. LowerRegion retains dependency and workspace
+	// metadata; this backend does not implement a persistent task scheduler.
 	BackendMega
 )
 
@@ -56,6 +56,9 @@ func NewKernelRegistry() *KernelRegistry {
 
 // Register adds a compiled kernel artifact under the specified key.
 func (r *KernelRegistry) Register(key string, art *cudakernel.Artifact) error {
+	if r == nil {
+		return errors.New("cudaplan: nil kernel registry")
+	}
 	if key == "" {
 		return errors.New("cudaplan: empty kernel key")
 	}
@@ -65,12 +68,18 @@ func (r *KernelRegistry) Register(key string, art *cudakernel.Artifact) error {
 	if err := art.Validate(); err != nil {
 		return fmt.Errorf("cudaplan: invalid artifact for %q: %w", key, err)
 	}
+	if r.artifacts == nil {
+		r.artifacts = make(map[string]*cudakernel.Artifact)
+	}
 	r.artifacts[key] = art
 	return nil
 }
 
 // Get returns the registered kernel artifact for key, or nil if not found.
 func (r *KernelRegistry) Get(key string) *cudakernel.Artifact {
+	if r == nil {
+		return nil
+	}
 	return r.artifacts[key]
 }
 
@@ -88,13 +97,63 @@ type StepPlan struct {
 	Dependencies    []int // Step indices this step depends on
 }
 
-// SelectBackend chooses the execution backend based on operation characteristics and device capabilities.
-func SelectBackend(opKind string, enableGraph bool) TargetBackend {
-	if opKind == "matmul" {
-		return BackendCuBLASLt
+// BackendRequest contains the facts used to select one region's backend.
+// Capability flags describe available entry points, not observed performance.
+type BackendRequest struct {
+	FiniteMegaRequested bool
+	FiniteMegaAdmitted  bool
+	Kind                cudair.NodeKind
+	GraphRequested      bool
+	GraphAvailable      bool
+	VendorAvailable     bool
+	RequireArtifact     bool
+	Artifact            *cudakernel.Artifact
+}
+
+// BackendDecision records a backend and its admission reason.
+type BackendDecision struct {
+	Backend TargetBackend
+	Reason  string
+}
+
+// SelectBackend applies the admission policy without opening a CUDA device.
+// Mega execution requires a separately admitted task-body implementation and
+// is never inferred from the operation's name or a task graph alone.
+func SelectBackend(r BackendRequest) (BackendDecision, error) {
+	if r.Kind < cudair.KindConstant || r.Kind > cudair.KindConcat {
+		return BackendDecision{}, fmt.Errorf("%w: non-executable node kind %s", ErrUnsupportedBackend, r.Kind)
 	}
-	if enableGraph {
-		return BackendGraph
+	if r.FiniteMegaRequested {
+		if r.GraphRequested || !r.FiniteMegaAdmitted || r.Artifact == nil || r.Kind == cudair.KindMatMul {
+			return BackendDecision{}, fmt.Errorf("%w: finite worker region not admitted", ErrUnsupportedBackend)
+		}
+		if err := r.Artifact.Validate(); err != nil {
+			return BackendDecision{}, fmt.Errorf("cudaplan: finite worker artifact: %w", err)
+		}
+		return BackendDecision{BackendMega, "finite FP32 region admitted to one CTA"}, nil
 	}
-	return BackendLaunch
+	if r.Kind == cudair.KindMatMul {
+		if !r.VendorAvailable {
+			return BackendDecision{}, fmt.Errorf("%w: cuBLASLt unavailable", ErrUnsupportedBackend)
+		}
+		if r.GraphRequested && !r.GraphAvailable {
+			return BackendDecision{}, fmt.Errorf("%w: matmul stream capture unavailable", ErrUnsupportedBackend)
+		}
+		return BackendDecision{BackendCuBLASLt, "rank-2 matmul uses cuBLASLt"}, nil
+	}
+	if r.RequireArtifact && r.Artifact == nil {
+		return BackendDecision{}, fmt.Errorf("%w: kernel artifact missing", ErrUnsupportedBackend)
+	}
+	if r.Artifact != nil {
+		if err := r.Artifact.Validate(); err != nil {
+			return BackendDecision{}, fmt.Errorf("cudaplan: backend artifact: %w", err)
+		}
+	}
+	if r.GraphRequested {
+		if !r.GraphAvailable {
+			return BackendDecision{}, fmt.Errorf("%w: graph entry points unavailable", ErrUnsupportedBackend)
+		}
+		return BackendDecision{BackendGraph, "admitted kernel graph replay"}, nil
+	}
+	return BackendDecision{BackendLaunch, "ordinary kernel dispatch"}, nil
 }

@@ -22,6 +22,7 @@ type planConfig struct {
 	peakBudget  int
 	enableGraph bool
 	registry    *KernelRegistry
+	finiteMega  bool
 	// Injected failures for testing
 	injectCompileErrorAfterResource bool
 	injectResourceCleanupHook       func()
@@ -85,7 +86,7 @@ func WithInjectedCompileFailure(inject bool, onResourceAcquired func()) PlanOpti
 type ExecutablePlan struct {
 	mu               sync.Mutex
 	dev              *cuda.Device
-	snap             *cudair.Snapshot
+	snap             nodeSnapshot
 	steps            []StepPlan
 	workspace        *WorkspaceManager
 	modules          map[*cudakernel.Artifact]*cuda.Module
@@ -104,15 +105,34 @@ type ExecutablePlan struct {
 	failedInvocation *Completion
 	closed           bool
 	staleGraph       bool
+	megaArtifact     *cudakernel.Artifact
+	megaNames        []string
+	megaLowering     Lowering
 }
 
 // Compile builds an ExecutablePlan from a validated cudair.Snapshot.
 // On compilation failure, acquired resources are closed. If cleanup also fails,
 // Compile returns the closed-to-execution plan with the error; the caller must
 // retry its Close before releasing the device. Otherwise the error result is nil.
-func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err error) {
-	if snap == nil {
+func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err error) {
+	if source == nil {
 		return nil, errors.New("cudaplan: nil snapshot")
+	}
+	snap, err := freezeExecution(source)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]bool)
+	for _, node := range snap.Order() {
+		if node.Name == "" || names[node.Name] {
+			return nil, fmt.Errorf("cudaplan: duplicate or empty tensor name %q", node.Name)
+		}
+		names[node.Name] = true
+		if node.Kind == cudair.KindMatMul {
+			if err := validateMatMulNode(node); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	cfg := planConfig{
@@ -124,6 +144,9 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 				return nil, err
 			}
 		}
+	}
+	if cfg.finiteMega && cfg.enableGraph {
+		return nil, fmt.Errorf("%w: finite Mega cannot be combined with graph replay", ErrUnsupportedBackend)
 	}
 	if cfg.enableGraph {
 		if cfg.dev == nil || !graphAvailable() {
@@ -145,6 +168,20 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 		requiredOutputs: make(map[string]int),
 		intermediateLoc: make(map[string]int),
 	}
+	if cfg.finiteMega {
+		target := "sm_80"
+		if cfg.dev != nil {
+			major, minor, e := cfg.dev.ComputeCapability()
+			if e != nil {
+				return nil, e
+			}
+			target = fmt.Sprintf("sm_%d%d", major, minor)
+		}
+		plan.megaArtifact, plan.megaNames, err = finiteMegaArtifact(snap, target)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Defer cleanup on any error during compilation
 	defer func() {
@@ -158,6 +195,9 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 		plan.requiredInputs[inp.Name] = inp.SizeBytes()
 	}
 	for _, out := range snap.Outputs() {
+		if out.Kind == cudair.KindInput {
+			return nil, fmt.Errorf("%w: an input-only output requires an explicit copy operation", ErrUnsupportedBackend)
+		}
 		plan.requiredOutputs[out.Name] = out.SizeBytes()
 	}
 
@@ -211,7 +251,11 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 
 	if hasMatMul && cfg.dev != nil {
 		plan.graphCapture = cfg.enableGraph
-		engine, err := cublasltx.NewEngine(cfg.dev, cublasltx.WithWorkspaceBytes(16*1024*1024))
+		vendorBytes, err := vendorWorkspaceBudget(totalScratchBytes, cfg.peakBudget)
+		if err != nil {
+			return nil, err
+		}
+		engine, err := cublasltx.NewEngine(cfg.dev, cublasltx.WithWorkspaceBytes(vendorBytes))
 		plan.cublasEngine = engine
 		if err != nil {
 			return nil, fmt.Errorf("cudaplan: init cublaslt engine: %w", err)
@@ -234,7 +278,6 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 			}
 		}
 
-		backend := SelectBackend(n.Op, cfg.enableGraph)
 		var art *cudakernel.Artifact
 		if cfg.registry != nil {
 			art = cfg.registry.Get(n.Op)
@@ -242,6 +285,20 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 				art = cfg.registry.Get(n.Name)
 			}
 		}
+		if cfg.finiteMega {
+			art = plan.megaArtifact
+		}
+		decision, err := SelectBackend(BackendRequest{
+			Kind: n.Kind, GraphRequested: cfg.enableGraph,
+			GraphAvailable:  cfg.dev == nil || graphAvailable(),
+			VendorAvailable: cfg.dev == nil || plan.cublasEngine != nil,
+			RequireArtifact: cfg.dev != nil, Artifact: art,
+			FiniteMegaRequested: cfg.finiteMega, FiniteMegaAdmitted: plan.megaArtifact != nil,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("cudaplan: select backend for %s: %w", n.Name, err)
+		}
+		backend := decision.Backend
 		if cfg.dev != nil && (backend == BackendLaunch || backend == BackendGraph) && art == nil {
 			return nil, fmt.Errorf("%w: no kernel artifact for %s", ErrUnsupportedBackend, n.Name)
 		}
@@ -298,7 +355,24 @@ func Compile(snap *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, err 
 		stepIdx++
 	}
 
+	if cfg.finiteMega {
+		plan.megaLowering, err = LowerRegion(plan.steps, Region{0, len(plan.steps)})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return plan, nil
+}
+
+func vendorWorkspaceBudget(scratch, peak int) (int, error) {
+	if scratch < 0 || scratch > int(^uint(0)>>1)-255 {
+		return 0, ErrWorkspaceBudgetExceeded
+	}
+	aligned := (scratch + 255) &^ 255
+	if aligned > peak {
+		return 0, ErrWorkspaceBudgetExceeded
+	}
+	return min(16*1024*1024, peak-aligned), nil
 }
 
 func (p *ExecutablePlan) loadModule(art *cudakernel.Artifact, load func() (driver.Module, error), own func(driver.Module) (*cuda.Module, error)) error {
@@ -337,8 +411,8 @@ func (p *ExecutablePlan) RequiredInputs() map[string]int {
 
 // Steps returns the plan's dispatches in execution order.
 //
-// The slices each step holds are shared with the plan; treat the result as
-// read-only. It is here so that a region of a compiled plan can be lowered by
+// Step slices are copied. Artifact descriptors must be treated as immutable.
+// It is here so that a region of a compiled plan can be lowered by
 // [LowerRegion] without the plan having to know what it is lowered into.
 func (p *ExecutablePlan) Steps() []StepPlan {
 	if p == nil {
@@ -346,7 +420,12 @@ func (p *ExecutablePlan) Steps() []StepPlan {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return append([]StepPlan(nil), p.steps...)
+	steps := append([]StepPlan(nil), p.steps...)
+	for i := range steps {
+		steps[i].InputNames = append([]string(nil), steps[i].InputNames...)
+		steps[i].Dependencies = append([]int(nil), steps[i].Dependencies...)
+	}
+	return steps
 }
 
 // RequiredOutputs returns the map of output node names to required buffer byte lengths.
@@ -370,6 +449,10 @@ func (p *ExecutablePlan) RequiredOutputs() map[string]int {
 // Invariant: An ExecutablePlan admits only one active invocation at a time.
 // A submission error may return a non-nil Completion for work already queued.
 // Wait on that completion or call Close to drain it before releasing bindings.
+// The device and stream must remain open until the completion is closed.
+// Completion drains the stream, conservatively including any other work
+// submitted to that stream before the drain. Done stays false until that
+// drain succeeds.
 func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (completion *Completion, retErr error) {
 	if p == nil {
 		return nil, errors.New("cudaplan: nil plan")
@@ -392,12 +475,45 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 	if p.dev == nil || stream == nil {
 		return nil, ErrExecutionUnavailable
 	}
+	if stream.Device() != p.dev {
+		return nil, ErrCrossDeviceBuffer
+	}
 
 	// Validate bindings against plan requirements
 	if err := bindings.Validate(p.dev, p.requiredInputs, p.requiredOutputs); err != nil {
 		return nil, fmt.Errorf("cudaplan: validate bindings: %w", err)
 	}
+	if err := bindings.validateTypes(p.snap); err != nil {
+		return nil, err
+	}
 
+	releases, err := bindings.borrow()
+	if err != nil {
+		return nil, err
+	}
+	if p.workspace != nil {
+		buffer := p.workspace.Buffer()
+		if buffer.Len() > 0 {
+			release, e := buffer.Borrow(p.dev)
+			if e != nil {
+				for _, release := range releases {
+					release()
+				}
+				return nil, fmt.Errorf("cudaplan: borrow workspace: %w", e)
+			}
+			releases = append(releases, release)
+		}
+	}
+	// Until submission succeeds, all borrowed owners can be released locally.
+	transferred := false
+	borrowReleases := releases
+	defer func() {
+		if !transferred {
+			for _, release := range borrowReleases {
+				release()
+			}
+		}
+	}()
 	// Retain borrowed buffers
 	p.inFlight = true
 	releasePlan := func() {
@@ -406,17 +522,6 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 		p.mu.Unlock()
 	}
 
-	var releases []func()
-	for _, b := range bindings.inputs {
-		if b.Release != nil {
-			releases = append(releases, b.Release)
-		}
-	}
-	for _, b := range bindings.outputs {
-		if b.Release != nil {
-			releases = append(releases, b.Release)
-		}
-	}
 	releases = append(releases, releasePlan)
 
 	// Resolve buffer pointers for all nodes (inputs, outputs, and intermediates)
@@ -457,43 +562,101 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 		}
 	}
 
-	// Record completion event
-	event, err := p.dev.NewEvent()
-	if err != nil {
-		p.inFlight = false
-		return nil, fmt.Errorf("cudaplan: create completion event: %w", err)
-	}
 	// A failed enqueue can leave earlier work on the stream. Preserve all
-	// leases until that stream has drained, even if event recording failed.
+	// leases until that stream has drained. Using the existing owned stream
+	// avoids allocating another native owner for every invocation.
+	var executed []ExecutedStep
 	defer func() {
 		if retErr != nil {
+			transferred = true
 			p.inFlight = true
 			completion = newHostCompletion(stream.Synchronize, nil, releases...)
 			p.failedInvocation = completion
+		}
+		if completion != nil {
+			completion.steps = executed
 		}
 	}()
 
 	if p.graphReplay {
 		if err := p.graphExec.Launch(stream); err != nil {
-			_ = event.Close()
 			return nil, fmt.Errorf("cudaplan: replay graph: %w", err)
 		}
-	} else if err := p.enqueue(stream, nodePointers); err != nil {
-		_ = event.Close()
+		for i, step := range p.steps {
+			executed = append(executed, ExecutedStep{i, step.NodeName, BackendGraph})
+		}
+	} else if err := p.enqueueWith(stream, nodePointers, func(i int, step StepPlan) {
+		executed = append(executed, ExecutedStep{i, step.NodeName, BackendLaunch})
+		if step.Backend == BackendCuBLASLt {
+			executed[len(executed)-1].Backend = BackendCuBLASLt
+		}
+		if step.Backend == BackendMega {
+			executed[len(executed)-1].Backend = BackendMega
+		}
+	}); err != nil {
 		return nil, err
 	}
-
-	if err := event.Record(stream); err != nil {
-		_ = event.Close()
-		p.inFlight = false
-		return nil, fmt.Errorf("cudaplan: record completion event: %w", err)
-	}
-
-	return newEventCompletion(p.dev, stream, event, releases)
+	completion = newHostCompletion(stream.Synchronize, nil, releases...)
+	transferred = true
+	return completion, nil
 }
 
 func (p *ExecutablePlan) enqueue(stream *cuda.Stream, nodePointers map[string]driver.DevicePtr) error {
-	for _, step := range p.steps {
+	return p.enqueueWith(stream, nodePointers, nil)
+}
+
+func (p *ExecutablePlan) enqueueWith(stream *cuda.Stream, nodePointers map[string]driver.DevicePtr, record func(int, StepPlan)) error {
+	if p.megaArtifact != nil {
+		for _, id := range p.megaLowering.TaskIDs() {
+			binding, ok := p.megaLowering.Binding(id)
+			if !ok || binding.Artifact != p.megaArtifact || binding.Backend != BackendMega {
+				return fmt.Errorf("%w: finite worker task binding %s", ErrUnsupportedBackend, id)
+			}
+			for _, name := range binding.InputNames {
+				if nodePointers[name] == 0 {
+					return fmt.Errorf("%w: task %s input %s", ErrMissingBinding, id, name)
+				}
+			}
+			if !binding.IsOutput {
+				if p.workspace == nil {
+					return fmt.Errorf("%w: finite worker workspace", ErrMissingBinding)
+				}
+				ptr, err := p.workspace.SliceAt(binding.WorkspaceOffset, binding.WorkspaceBytes)
+				if err != nil {
+					return err
+				}
+				nodePointers[binding.OutputName] = ptr
+			}
+		}
+		mod := p.modules[p.megaArtifact]
+		if mod == nil {
+			return fmt.Errorf("%w: finite worker module missing", ErrUnsupportedBackend)
+		}
+		kernel, err := mod.Function(p.megaArtifact.EntryPoint)
+		if err != nil {
+			return err
+		}
+		args := make([]any, len(p.megaNames))
+		for i, name := range p.megaNames {
+			if nodePointers[name] == 0 {
+				return fmt.Errorf("%w: finite worker tensor %s", ErrMissingBinding, name)
+			}
+			args[i] = nodePointers[name]
+		}
+		if _, err := p.megaArtifact.Schema.Pack(args...); err != nil {
+			return err
+		}
+		if err := cudalaunch.OwnedKernel(kernel).Grid(1, 1, 1).Block(256, 1, 1).On(stream).Launch(args...); err != nil {
+			return err
+		}
+		if record != nil {
+			for i, step := range p.steps {
+				record(i, step)
+			}
+		}
+		return nil
+	}
+	for i, step := range p.steps {
 		switch step.Backend {
 		case BackendCuBLASLt:
 			if p.cublasEngine == nil {
@@ -531,6 +694,9 @@ func (p *ExecutablePlan) enqueue(stream *cuda.Stream, nodePointers map[string]dr
 			}
 
 		case BackendLaunch, BackendGraph:
+			if step.Artifact == nil {
+				return fmt.Errorf("%w: missing artifact for %s", ErrUnsupportedBackend, step.NodeName)
+			}
 			if step.Artifact != nil {
 				mod := p.modules[step.Artifact]
 				if mod == nil {
@@ -555,6 +721,11 @@ func (p *ExecutablePlan) enqueue(stream *cuda.Stream, nodePointers map[string]dr
 					return fmt.Errorf("cudaplan: launch %s: %w", step.NodeName, err)
 				}
 			}
+		default:
+			return fmt.Errorf("%w: step %s selects %s", ErrUnsupportedBackend, step.NodeName, step.Backend)
+		}
+		if record != nil {
+			record(i, step)
 		}
 	}
 

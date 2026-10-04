@@ -6,9 +6,29 @@ import "context"
 // the borrowed input/output buffers and workspace leases until GPU execution completes.
 type Completion struct {
 	state *completionState
+	steps []ExecutedStep
 }
 
-// Done reports whether the GPU execution has completed.
+// ExecutedStep identifies a successfully submitted dispatch. Submission does
+// not establish numerical correctness or completion; use Completion.Wait to
+// observe completion. A graph replay reports Graph for every captured step.
+type ExecutedStep struct {
+	Index    int
+	NodeName string
+	Backend  TargetBackend
+}
+
+// ExecutedSteps returns the actual successfully submitted backends, in plan
+// order. On a partial submission failure, unsubmitted steps are absent.
+func (c *Completion) ExecutedSteps() []ExecutedStep {
+	if c == nil {
+		return nil
+	}
+	return append([]ExecutedStep(nil), c.steps...)
+}
+
+// Done reports whether a successful native drain has been observed. It does
+// not poll the device; work may have finished before Wait observes it.
 func (c *Completion) Done() bool {
 	if c == nil || c.state == nil {
 		return true

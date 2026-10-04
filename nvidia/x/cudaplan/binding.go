@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -43,15 +45,21 @@ var (
 )
 
 // BufferBinding describes a physical device memory binding for a graph node.
+// Raw pointers do not establish allocation ownership or dtype; their caller
+// must provide compatible storage and retain it until actual completion.
 type BufferBinding struct {
 	NodeName  string
 	DevicePtr driver.DevicePtr
 	Bytes     int
 	Device    *cuda.Device
 	Release   func() // Optional release callback to retain allocation
+	borrow    func() (func(), error)
+	typed     bool
+	dtype     cudair.DataType
 }
 
-// Bindings manages the mapping from node names to buffer bindings.
+// Bindings manages the mapping from node names to buffer bindings. Do not
+// modify a Bindings concurrently with validation or Execute.
 type Bindings struct {
 	inputs  map[string]BufferBinding
 	outputs map[string]BufferBinding
@@ -123,22 +131,107 @@ func (b *Bindings) SetOutput(name string, ptr driver.DevicePtr, bytes int, dev *
 	return nil
 }
 
-// SetInputSlice binds a cudamem.Slice as an input.
+// SetInputSlice binds a cudamem.Slice as an input, checking its actual device.
+// Each Execute borrows the allocation afresh until completion; setting a
+// binding does not keep an otherwise unused allocation alive.
 func SetInputSlice[T any](b *Bindings, name string, s cudamem.Slice[T], dev *cuda.Device) error {
 	if s.SizeBytes() > uintptr(math.MaxInt) {
 		return errors.New("cudaplan: input byte length overflows int")
 	}
 	bytes := int(s.SizeBytes())
-	return b.SetInput(name, s.Ptr(), bytes, dev)
+	if s.Device() != dev || dev == nil {
+		return ErrCrossDeviceBuffer
+	}
+	if err := b.SetInput(name, s.Ptr(), bytes, dev); err != nil {
+		return err
+	}
+	binding := b.inputs[name]
+	binding.typed = true
+	binding.dtype = sliceDataType[T]()
+	binding.borrow = func() (func(), error) { return s.Borrow(dev) }
+	b.inputs[name] = binding
+	return nil
 }
 
-// SetOutputSlice binds a cudamem.Slice as an output.
+// SetOutputSlice binds a cudamem.Slice as an output, checking its actual device.
+// Each Execute borrows the allocation afresh until completion.
 func SetOutputSlice[T any](b *Bindings, name string, s cudamem.Slice[T], dev *cuda.Device) error {
 	if s.SizeBytes() > uintptr(math.MaxInt) {
 		return errors.New("cudaplan: output byte length overflows int")
 	}
 	bytes := int(s.SizeBytes())
-	return b.SetOutput(name, s.Ptr(), bytes, dev)
+	if s.Device() != dev || dev == nil {
+		return ErrCrossDeviceBuffer
+	}
+	if err := b.SetOutput(name, s.Ptr(), bytes, dev); err != nil {
+		return err
+	}
+	binding := b.outputs[name]
+	binding.typed = true
+	binding.dtype = sliceDataType[T]()
+	binding.borrow = func() (func(), error) { return s.Borrow(dev) }
+	b.outputs[name] = binding
+	return nil
+}
+
+func sliceDataType[T any]() cudair.DataType {
+	switch reflect.TypeFor[T]().Kind() {
+	case reflect.Float32:
+		return cudair.Float32
+	case reflect.Int32:
+		return cudair.Int32
+	case reflect.Int64:
+		return cudair.Int64
+	case reflect.Uint8:
+		return cudair.Uint8
+	case reflect.Int8:
+		return cudair.Int8
+	}
+	return cudair.DataType(-1)
+}
+
+func (b *Bindings) validateTypes(snap nodeSnapshot) error {
+	if snap == nil {
+		return errors.New("cudaplan: missing execution snapshot")
+	}
+	for _, nodes := range [][]*cudair.Node{snap.Inputs(), snap.Outputs()} {
+		for _, node := range nodes {
+			binding, ok := b.inputs[node.Name]
+			if !ok {
+				binding = b.outputs[node.Name]
+			}
+			if binding.typed && binding.dtype != node.Type {
+				return fmt.Errorf("cudaplan: binding %s dtype %s does not match %s", node.Name, binding.dtype, node.Type)
+			}
+		}
+	}
+	return nil
+}
+
+// borrow retains typed allocation owners for one invocation. Raw pointer
+// bindings remain the caller's responsibility until completion.
+func (b *Bindings) borrow() ([]func(), error) {
+	var releases []func()
+	for _, bindings := range []map[string]BufferBinding{b.inputs, b.outputs} {
+		for name, binding := range bindings {
+			if binding.borrow != nil {
+				release, err := binding.borrow()
+				if err != nil {
+					for _, release := range releases {
+						release()
+					}
+					return nil, fmt.Errorf("cudaplan: borrow %s: %w", name, err)
+				}
+				if release != nil {
+					releases = append(releases, release)
+				}
+			}
+			if binding.Release != nil {
+				releases = append(releases, binding.Release)
+			}
+		}
+	}
+	return releases, nil
 }
 
 // Validate verifies all input and output bindings against the plan's requirements,

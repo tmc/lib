@@ -181,7 +181,24 @@ func TestNativeReductionGraphReplayReference(t *testing.T) {
 	runNativeGraphReference(t, "reduction")
 }
 
+// TestNativeIntermediateReductionReference exercises a parallel reduction
+// whose input is scratch, rather than caller storage. Reusing that scratch at
+// the reduction step races writes against other warps' still-live reads.
+func TestNativeIntermediateReductionReference(t *testing.T) {
+	runNativePlanReference(t, "intermediate", true)
+}
+
 func runNativeGraphReference(t *testing.T, kind string) {
+	runNativePlanReference(t, kind, false)
+}
+
+func TestNativeFiniteMegaReference(t *testing.T) {
+	for _, kind := range []string{"kernel", "reduction", "branch"} {
+		t.Run(kind, func(t *testing.T) { runNativePlanReference(t, kind, true) })
+	}
+}
+
+func runNativePlanReference(t *testing.T, kind string, mega bool) {
 	t.Helper()
 	gate := "CUDAPLAN_GRAPH_NATIVE"
 	if kind == "matmul" {
@@ -189,6 +206,9 @@ func runNativeGraphReference(t *testing.T, kind string) {
 	}
 	if kind == "reduction" {
 		gate = "CUDAPLAN_REDUCTION_GRAPH_NATIVE"
+	}
+	if mega {
+		gate = "CUDAPLAN_MEGA_NATIVE"
 	}
 	if os.Getenv(gate) != "1" {
 		t.Skipf("native graph qualification requires %s=1", gate)
@@ -203,6 +223,25 @@ func runNativeGraphReference(t *testing.T, kind string) {
 	snap, registry, output := graphFixture(t, target, kind == "matmul")
 	if kind == "reduction" {
 		snap, registry, output = reductionFixture(t, target)
+	}
+	if kind == "intermediate" {
+		snap, output = intermediateReductionFixture(t)
+	}
+	if kind == "branch" {
+		g := cudair.NewGraph()
+		x := g.AddInput("x", []int{513}, cudair.Float32)
+		a := g.AddInput("a", []int{513}, cudair.Float32)
+		b := g.AddInput("b", []int{513}, cudair.Float32)
+		y := g.AddBinary("add", g.AddBinary("mul", x, a), g.AddUnary("neg", b))
+		if err := g.SetOutputs(y); err != nil {
+			t.Fatal(err)
+		}
+		var err error
+		snap, err = g.Snapshot()
+		if err != nil {
+			t.Fatal(err)
+		}
+		output = y.Name
 	}
 	ordinal, err := strconv.Atoi(os.Getenv("CUDAPLAN_NATIVE_DEVICE"))
 	if err != nil || ordinal < 0 {
@@ -286,19 +325,55 @@ func runNativeGraphReference(t *testing.T, kind string) {
 	for _, input := range snap.Inputs() {
 		inputs[input.Name] = alloc(input.NumElements())
 	}
-	out, rebound := alloc(replayElements), alloc(replayElements)
-	for _, replay := range []bool{false, true} {
-		p, err := cudaplan.Compile(snap, cudaplan.WithDevice(dev), cudaplan.WithKernelRegistry(registry), cudaplan.WithGraphReplay(replay))
+	outputElements := snap.Outputs()[0].NumElements()
+	out, rebound := alloc(outputElements), alloc(outputElements)
+	modes := []bool{false, true}
+	if mega {
+		modes = []bool{false}
+	}
+	for _, replay := range modes {
+		p, err := cudaplan.Compile(snap, cudaplan.WithDevice(dev), cudaplan.WithKernelRegistry(registry), cudaplan.WithGraphReplay(replay), cudaplan.WithFiniteMega(mega))
 		if p != nil {
 			plans = append(plans, p)
 		}
 		if err != nil {
 			t.Fatal(err)
 		}
+		if mega {
+			artifact := p.Steps()[0].Artifact
+			t.Logf("finite_worker entry=%s target=%s digest=%s ptx=\n%s", artifact.EntryPoint, artifact.Target, artifact.Digest, artifact.Raw)
+		}
 		for round := range 3 {
 			data := replayInputs(round)
+			if kind == "intermediate" {
+				data = intermediateReductionInputs(round)
+			}
 			if kind == "reduction" {
 				data = reductionInputs(round)
+				if mega {
+					// A float32 accumulator loses the middle value. This pins
+					// the actual reference's float64 accumulation boundary.
+					for i := range 8 {
+						data["x"][i] = 0
+					}
+					data["x"][0], data["x"][1], data["x"][2] = 16777216, float32(round+1), -16777216
+				}
+			}
+			if kind == "branch" {
+				data = make(map[string][]float32)
+				for name, input := range inputs {
+					values := make([]float32, input.Len())
+					for i := range values {
+						values[i] = float32(i%17-8+round) / 4
+						if name == "a" {
+							values[i] = float32(i%5-2-round) / 2
+						}
+						if name == "b" {
+							values[i] = float32(i%7+round) / 8
+						}
+					}
+					data[name] = values
+				}
 			}
 			binding := cudaplan.NewBindings()
 			for name, b := range inputs {
@@ -313,7 +388,7 @@ func runNativeGraphReference(t *testing.T, kind string) {
 			if round == 2 {
 				dest = rebound
 			}
-			poison := make([]float32, replayElements)
+			poison := make([]float32, outputElements)
 			for i := range poison {
 				poison[i] = float32(math.NaN())
 			}
@@ -340,13 +415,39 @@ func runNativeGraphReference(t *testing.T, kind string) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			receipt := c.ExecutedSteps()
+			if len(receipt) != len(p.Steps()) {
+				t.Fatalf("submitted %d of %d steps", len(receipt), len(p.Steps()))
+			}
+			for i, step := range p.Steps() {
+				wantBackend := step.Backend
+				if replay {
+					wantBackend = cudaplan.BackendGraph
+				}
+				if receipt[i].Index != i || receipt[i].NodeName != step.NodeName || receipt[i].Backend != wantBackend {
+					t.Fatalf("actual backend receipt=%+v planned=%+v", receipt[i], step)
+				}
+			}
+			canceled, cancelWait := context.WithCancel(context.Background())
+			cancelWait()
+			if err := c.Wait(canceled); !errors.Is(err, context.Canceled) {
+				t.Fatalf("canceled native wait: %v", err)
+			}
+			if err := dest.Free(); !errors.Is(err, cudamem.ErrInUse) {
+				t.Fatalf("queued output owner not retained: %v", err)
+			}
+			for name, input := range inputs {
+				if err := input.Free(); !errors.Is(err, cudamem.ErrInUse) {
+					t.Fatalf("canceled input %s owner not retained: %v", name, err)
+				}
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			err = c.Wait(ctx)
 			cancel()
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := make([]float32, replayElements)
+			got := make([]float32, outputElements)
 			if err := dest.CopyToHost(got); err != nil {
 				t.Fatal(err)
 			}
@@ -357,11 +458,82 @@ func runNativeGraphReference(t *testing.T, kind string) {
 			if !sameReplayOutput(got, want[output]) {
 				t.Fatalf("replay=%v round=%d output differs from cudaref: got=%v want=%v", replay, round, got, want[output])
 			}
+			if kind == "intermediate" && !sameReplayOutput(got, intermediateReductionReference(data["x"])) {
+				t.Fatal("intermediate reduction differs from independent row sums")
+			}
+			t.Logf("raw_output=%v reference=%v", got, want[output])
 			got[0]++
 			if sameReplayOutput(got, want[output]) {
 				t.Fatal("corrupted readback accepted")
 			}
-			t.Logf("target=%s device=%d replay=%v round=%d exact_reference=pass", target, ordinal, replay, round)
+			t.Logf("target=%s device=%d replay=%v mega=%v round=%d submitted=%+v exact_reference=pass", target, ordinal, replay, mega, round, receipt)
 		}
+	}
+}
+
+func intermediateReductionFixture(t *testing.T) (*cudair.Snapshot, string) {
+	t.Helper()
+	g := cudair.NewGraph()
+	x := g.AddInput("x", []int{1024, 4}, cudair.Float32)
+	y := g.AddUnary("neg", g.AddReduce("sum", g.AddUnary("neg", x), 1))
+	if err := g.SetOutputs(y); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := g.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap, y.Name
+}
+
+func intermediateReductionInputs(round int) map[string][]float32 {
+	x := make([]float32, 1024*4)
+	for i := range x {
+		x[i] = float32(1+i+round*4096) / 4
+	}
+	return map[string][]float32{"x": x}
+}
+
+func intermediateReductionReference(x []float32) []float32 {
+	y := make([]float32, 1024)
+	for row := range y {
+		var sum float64
+		for col := range 4 {
+			sum += float64(x[row*4+col])
+		}
+		y[row] = float32(sum)
+	}
+	return y
+}
+
+func TestIntermediateReductionFixtureOracle(t *testing.T) {
+	snap, output := intermediateReductionFixture(t)
+	for round := range 3 {
+		data := intermediateReductionInputs(round)
+		result, err := cudaref.EvaluateSnapshot(snap, data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := intermediateReductionReference(data["x"])
+		if !sameReplayOutput(result[output], want) {
+			t.Fatal("neg-sum-neg disagrees with independent row sums")
+		}
+		want[0]++
+		if sameReplayOutput(result[output], want) {
+			t.Fatal("corrupted intermediate output accepted")
+		}
+	}
+	p, err := cudaplan.Compile(snap, cudaplan.WithFiniteMega(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	steps := p.Steps()
+	if len(steps) != 3 {
+		t.Fatal("missing intermediate reduction steps")
+	}
+	a, b := steps[0], steps[1]
+	if a.WorkspaceOffset < b.WorkspaceOffset+b.WorkspaceBytes && b.WorkspaceOffset < a.WorkspaceOffset+a.WorkspaceBytes {
+		t.Fatal("intermediate reduction aliases its live input")
 	}
 }
