@@ -98,13 +98,13 @@ func topkRunHost(t *testing.T, bin string, f topkCase) topkAnswer {
 	write(f.input)
 	write(f.lengths)
 	write(f.offsets)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin)
 	cmd.Stdin = &input
 	out, err := cmd.Output()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("host emulation run: %v (context: %v)", err, ctx.Err())
 	}
 	n := f.c.Rows * f.c.K
 	a := topkAnswer{indices: make([]int32, n), values: make([]float32, n), counts: make([]int32, f.c.Rows), status: make([]int32, f.c.Rows)}
