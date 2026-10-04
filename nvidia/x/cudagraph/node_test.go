@@ -112,81 +112,101 @@ func TestNodeGraphConstruction(t *testing.T) {
 	}
 	defer runtime.KeepAlive(args)
 
-	err = dev.WithContext(func() error {
-		g, err := cudagraph.New()
-		if err != nil {
-			return err
-		}
-		defer g.Destroy()
-
-		n1, err := g.AddEmptyNode()
-		if err != nil {
-			return fmt.Errorf("AddEmptyNode n1: %w", err)
-		}
-		if n1.Raw() == 0 {
-			t.Error("expected non-zero raw node handle")
-		}
-		if n1.Graph() != g {
-			t.Error("node graph pointer mismatch")
-		}
-
-		n2, err := g.AddEmptyNode(n1)
-		if err != nil {
-			return fmt.Errorf("AddEmptyNode n2: %w", err)
-		}
-
-		n3, err := g.AddEmptyNode()
-		if err != nil {
-			return fmt.Errorf("AddEmptyNode n3: %w", err)
-		}
-
-		// Add manual standard dependency edge between empty nodes
-		if err := g.AddDependency(n2, n3); err != nil {
-			return fmt.Errorf("AddDependency failed: %w", err)
-		}
-
-		// Add kernel nodes for programmatic dependency edge (PDL requires kernel nodes)
-		kp1 := driver.KernelNodeParams{
-			Func:         fn,
-			GridDim:      driver.Dim3{X: 1, Y: 1, Z: 1},
-			BlockDim:     driver.Dim3{X: 128, Y: 1, Z: 1},
-			KernelParams: uintptr(unsafe.Pointer(&args[0])),
-		}
-		k1, err := g.AddKernelNode(&kp1, n3)
-		if err != nil {
-			return fmt.Errorf("AddKernelNode k1: %w", err)
-		}
-
-		kp2 := driver.KernelNodeParams{
-			Func:         fn,
-			GridDim:      driver.Dim3{X: 1, Y: 1, Z: 1},
-			BlockDim:     driver.Dim3{X: 128, Y: 1, Z: 1},
-			KernelParams: uintptr(unsafe.Pointer(&args[0])),
-		}
-		k2, err := g.AddKernelNode(&kp2)
-		if err != nil {
-			return fmt.Errorf("AddKernelNode k2: %w", err)
-		}
-
-		// Add programmatic dependency edge between kernel nodes
-		if err := g.AddProgrammaticDependency(k1, k2); err != nil {
-			return fmt.Errorf("AddProgrammaticDependency failed: %w", err)
-		}
-
-		// Instantiate graph to verify topology validity
-		exec, err := g.Instantiate()
-		if err != nil {
-			return fmt.Errorf("Instantiate failed: %w", err)
-		}
-		defer exec.Destroy()
-
-		// Destroy node
-		if err := k2.Destroy(); err != nil {
-			t.Errorf("Destroy node failed: %v", err)
-		}
-		return nil
-	})
+	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name         string
+		programmatic bool
+	}{
+		{"standard", false},
+		{"programmatic", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.programmatic && major < 9 {
+				t.Skipf("programmatic dependent launch requires compute capability 9.0 or later; device is %d.%d", major, minor)
+			}
+			err := dev.WithContext(func() error {
+				g, err := cudagraph.New()
+				if err != nil {
+					return err
+				}
+				defer g.Destroy()
+
+				n1, err := g.AddEmptyNode()
+				if err != nil {
+					return fmt.Errorf("AddEmptyNode n1: %w", err)
+				}
+				if n1.Raw() == 0 {
+					t.Error("expected non-zero raw node handle")
+				}
+				if n1.Graph() != g {
+					t.Error("node graph pointer mismatch")
+				}
+
+				n2, err := g.AddEmptyNode(n1)
+				if err != nil {
+					return fmt.Errorf("AddEmptyNode n2: %w", err)
+				}
+
+				n3, err := g.AddEmptyNode()
+				if err != nil {
+					return fmt.Errorf("AddEmptyNode n3: %w", err)
+				}
+
+				// Add manual standard dependency edge between empty nodes
+				if err := g.AddDependency(n2, n3); err != nil {
+					return fmt.Errorf("AddDependency failed: %w", err)
+				}
+
+				// Add kernel nodes for programmatic dependency edge (PDL requires kernel nodes)
+				kp1 := driver.KernelNodeParams{
+					Func:         fn,
+					GridDim:      driver.Dim3{X: 1, Y: 1, Z: 1},
+					BlockDim:     driver.Dim3{X: 128, Y: 1, Z: 1},
+					KernelParams: uintptr(unsafe.Pointer(&args[0])),
+				}
+				k1, err := g.AddKernelNode(&kp1, n3)
+				if err != nil {
+					return fmt.Errorf("AddKernelNode k1: %w", err)
+				}
+
+				kp2 := driver.KernelNodeParams{
+					Func:         fn,
+					GridDim:      driver.Dim3{X: 1, Y: 1, Z: 1},
+					BlockDim:     driver.Dim3{X: 128, Y: 1, Z: 1},
+					KernelParams: uintptr(unsafe.Pointer(&args[0])),
+				}
+				k2, err := g.AddKernelNode(&kp2)
+				if err != nil {
+					return fmt.Errorf("AddKernelNode k2: %w", err)
+				}
+
+				if tt.programmatic {
+					if err := g.AddProgrammaticDependency(k1, k2); err != nil {
+						return fmt.Errorf("AddProgrammaticDependency failed: %w", err)
+					}
+				} else if err := g.AddDependency(k1, k2); err != nil {
+					return fmt.Errorf("AddDependency kernel nodes: %w", err)
+				}
+
+				// Instantiate graph to verify topology validity
+				exec, err := g.Instantiate()
+				if err != nil {
+					return fmt.Errorf("Instantiate failed: %w", err)
+				}
+				defer exec.Destroy()
+
+				// Destroy node
+				if err := k2.Destroy(); err != nil {
+					t.Errorf("Destroy node failed: %v", err)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
