@@ -157,6 +157,7 @@ func TestEncodingRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Skipf("no nvdisasm: %v", err)
 	}
+	skipUnlessBinaryArch(t, tool, fixtureArch)
 
 	want := readEncodingFixture(t).Functions[0].Instructions
 	var raw []byte
@@ -219,6 +220,26 @@ func runBinaryMode(t *testing.T, tool string, raw []byte) ([]byte, error) {
 		t.Fatal(err)
 	}
 	return exec.CommandContext(context.Background(), tool, "--binary", fixtureArch, path).CombinedOutput()
+}
+
+// skipUnlessBinaryArch skips t when tool's --binary option does not list arch,
+// as nvdisasm before CUDA 12.9 does not list SM121a.
+func skipUnlessBinaryArch(t *testing.T, tool, arch string) {
+	t.Helper()
+	help, _ := exec.CommandContext(context.Background(), tool, "--help").CombinedOutput()
+	_, section, ok := strings.Cut(string(help), "--binary")
+	if !ok {
+		t.Fatalf("%s --help does not describe --binary:\n%s", tool, help)
+	}
+	_, allowed, ok := strings.Cut(section, "Allowed values for this option:")
+	if !ok {
+		t.Fatalf("%s --help lists no --binary values", tool)
+	}
+	// The value list ends at the next option, which starts a line with "--".
+	allowed, _, _ = strings.Cut(allowed, "\n--")
+	if !strings.Contains(allowed, "'"+arch+"'") {
+		t.Skipf("%s --binary does not accept %s", tool, arch)
+	}
 }
 
 func sliceOf(b [16]byte) []byte { return b[:] }
