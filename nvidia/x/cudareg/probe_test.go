@@ -63,30 +63,42 @@ func TestLegalCountBoundaries(t *testing.T) {
 		{32, true}, {96, true}, {248, true}, {256, true},
 		{264, false}, {512, false},
 	}
-	for _, target := range []string{"sm_90a", "sm_121a"} {
-		for _, action := range []string{"dec", "inc"} {
-			for _, tt := range tests {
-				got := assembles(t, ptxas, target, action, tt.count)
-				if got != tt.want {
-					t.Errorf("%s setmaxnreg.%s %d: ptxas accepted=%v, package says legal=%v",
-						target, action, tt.count, got, tt.want)
+	// Each target is assembled at the oldest PTX ISA that has it, so an older
+	// ptxas checks every target it knows.
+	for _, tg := range []struct{ target, isa string }{
+		{"sm_90a", "8.0"},
+		{"sm_121a", "8.8"},
+	} {
+		t.Run(tg.target, func(t *testing.T) {
+			if out, err := assemble(t, ptxas, tg.target, tg.isa, ""); err != nil {
+				t.Skipf("ptxas %s does not assemble %s at PTX %s: %s", ptxas, tg.target, tg.isa, out)
+			}
+			for _, action := range []string{"dec", "inc"} {
+				for _, tt := range tests {
+					insn := fmt.Sprintf("setmaxnreg.%s.sync.aligned.u32 %d;", action, tt.count)
+					_, err := assemble(t, ptxas, tg.target, tg.isa, insn)
+					if got := err == nil; got != tt.want {
+						t.Errorf("%s setmaxnreg.%s %d: ptxas accepted=%v, package says legal=%v",
+							tg.target, action, tt.count, got, tt.want)
+					}
 				}
 			}
-		}
+		})
 	}
 }
 
-func assembles(t *testing.T, ptxas, target, action string, count uint32) bool {
+// assemble runs ptxas on an entry holding insn, returning its output.
+func assemble(t *testing.T, ptxas, target, isa, insn string) ([]byte, error) {
 	t.Helper()
 	dir := t.TempDir()
 	src := filepath.Join(dir, "probe.ptx")
-	body := fmt.Sprintf(".version 9.0\n.target %s\n.address_size 64\n"+
-		".visible .entry probe()\n{\n  setmaxnreg.%s.sync.aligned.u32 %d;\n  ret;\n}\n",
-		target, action, count)
+	body := fmt.Sprintf(".version %s\n.target %s\n.address_size 64\n"+
+		".visible .entry probe()\n{\n  %s\n  ret;\n}\n",
+		isa, target, insn)
 	if err := os.WriteFile(src, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return exec.Command(ptxas, "-arch="+target, src, "-o", filepath.Join(dir, "out.cubin")).Run() == nil
+	return exec.Command(ptxas, "-arch="+target, src, "-o", filepath.Join(dir, "out.cubin")).CombinedOutput()
 }
 
 // TestUnprobedTargetIsAdmitted covers the failure this package had in the
