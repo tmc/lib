@@ -1,5 +1,7 @@
 package cuptirange
 
+import "github.com/tmc/lib/nvidia/internal/cuptiversion"
+
 // The Range Profiler's two host parameter structs grew at different releases, so
 // a version cannot be classified once and applied to both. Measured in
 // cupti_profiler_host.h across the five CUDA 13 toolkits installed on the GB10
@@ -36,29 +38,35 @@ package cuptirange
 // measured 24/26/28 header. All four use the base shapes. These are observed
 // builds, not a universal mapping from toolkit releases to API versions.
 //
-// Every version absent from the table fails closed: a struct size inferred from
-// a version number has no witness.
-func qualifiedLayout(version uint32) bool {
-	switch version {
-	case 24, 26, 27, 28, 130001, 130101, 130200, 130202, 130301, 130400:
-		return true
-	}
-	return false
+// A version absent from the table uses the newest row at or below it in the
+// same major: CUPTI's structs only grow within a major, and CUPTI writes no
+// further than the size a struct declares, so a measured older size stays
+// valid. A new major, or a version older than every row, has no layout.
+func layoutVersion(version uint32) (uint32, bool) {
+	return cuptiversion.Layout(version, 24, 26, 27, 28, 130001, 130101, 130200, 130202, 130301, 130400)
 }
 
-// singlePassInitialize reports whether version's Initialize_Params carries
-// pSinglePassMetricSetName as its final field.
+// qualifiedLayout reports whether version has a layout.
+func qualifiedLayout(version uint32) bool {
+	_, ok := layoutVersion(version)
+	return ok
+}
+
+// singlePassInitialize reports whether version's Initialize_Params layout
+// carries pSinglePassMetricSetName as its final field.
 func singlePassInitialize(version uint32) bool {
-	switch version {
+	l, _ := layoutVersion(version)
+	switch l {
 	case 130200, 130202, 130301, 130400:
 		return true
 	}
 	return false
 }
 
-// scopedProperties reports whether version's GetMetricProperties_Params carries
-// metricCollectionScope as its final field, which CUPTI fills only when the
-// declared size reaches it.
+// scopedProperties reports whether version's GetMetricProperties_Params layout
+// carries metricCollectionScope as its final field, which CUPTI fills only when
+// the declared size reaches it.
 func scopedProperties(version uint32) bool {
-	return version == 130101 || singlePassInitialize(version)
+	l, _ := layoutVersion(version)
+	return l == 130101 || singlePassInitialize(version)
 }

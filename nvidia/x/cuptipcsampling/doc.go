@@ -21,7 +21,8 @@
 // draining, and cleanup, reporting loss, remaining samples, consumer failure,
 // and cancellation separately.
 //
-// Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts.
+// Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts. A 13.x
+// release newer than the newest qualified one uses that release's layout.
 // This layout restriction is not native hardware qualification. Native reason
 // counts are not legacy stall enums or inferred instruction metrics.
 //

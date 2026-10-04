@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/cuptiversion"
 )
 
 // PCSamplingReasonLayout describes the parameter sizes used by the native
@@ -27,26 +28,23 @@ type PCSamplingReasonLayout struct {
 // 12.8 and 12.9 libraries on the GB10 host; 130001, 130101, 130200,
 // 130202, 130301 and 130400 are the CUDA 13 versions whose cupti_pcsampling.h
 // has been measured, 130200 being [ApiVersion], the header these types were
-// generated from. A version absent from that list has no layout witness and is
-// refused, because these structs are filled in place by CUPTI through the
-// pointer it is given: a size declared for an unmeasured layout is a native
-// write at the wrong offset rather than an error. The parameter structs contain
+// generated from. These structs are filled in place by CUPTI through the
+// pointer it is given, so the declared size must be one that was measured.
+// A later release in the same major uses the newest measured layout at or
+// below it: CUPTI writes no further than the size a struct declares. A new
+// major or an older release is refused. The parameter structs contain
 // pointers and are admitted only on 64-bit hosts.
 func PCSamplingReasonLayoutFor(version uint32) (PCSamplingReasonLayout, bool) {
 	if unsafe.Sizeof(uintptr(0)) != 8 {
 		return PCSamplingReasonLayout{}, false
 	}
-	switch {
-	case version == 24, version == 26, version == 28,
-		version == 130001, version == 130101, version == 130200,
-		version == 130202, version == 130301, version == 130400:
-		return PCSamplingReasonLayout{
-			CountParamsSize: uint(unsafe.Sizeof(PCSamplingGetNumStallReasonsParams{})),
-			NamesParamsSize: uint(unsafe.Sizeof(PCSamplingGetStallReasonsParams{})),
-		}, true
-	default:
+	if _, ok := cuptiversion.Layout(version, 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400); !ok {
 		return PCSamplingReasonLayout{}, false
 	}
+	return PCSamplingReasonLayout{
+		CountParamsSize: uint(unsafe.Sizeof(PCSamplingGetNumStallReasonsParams{})),
+		NamesParamsSize: uint(unsafe.Sizeof(PCSamplingGetStallReasonsParams{})),
+	}, true
 }
 
 // PCSamplingStallReasonInfo is a name and native index returned by the PC
@@ -100,7 +98,7 @@ func pcSamplingStallReasons(ctx driver.Context, maxReasons int, version uint32, 
 	}
 	layout, ok := PCSamplingReasonLayoutFor(version)
 	if !ok {
-		return PCSamplingReasonInventory{}, fmt.Errorf("cupti: unqualified reason inventory layout for CUPTI %d", version)
+		return PCSamplingReasonInventory{}, fmt.Errorf("cupti: unsupported reason inventory layout for CUPTI %d", version)
 	}
 	var pin runtime.Pinner
 	defer pin.Unpin()

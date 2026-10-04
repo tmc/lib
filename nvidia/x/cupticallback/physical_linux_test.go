@@ -42,7 +42,7 @@ func TestPhysicalCallbackLifecycle(t *testing.T) {
 	_ = withContext(t)
 
 	if err := cupticallback.CheckVersion(); err != nil {
-		t.Skipf("CUPTI unavailable or unqualified version: %v", err)
+		t.Skipf("CUPTI unavailable or unsupported version: %v", err)
 	}
 
 	var (

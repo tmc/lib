@@ -16,12 +16,15 @@ import "fmt"
 // driver 580.173.02 the kernel-replay controls in x/cuptibench (DS4 bounds,
 // graph allocation identity, forward and reversed graph kernel association,
 // host pass budget) passed against CUPTI 130400 as they do against 130202.
+//
+// A later release in the same major takes the replay contract of the newest
+// layout at or below it, as [layoutVersion] does for struct sizes.
 func ReplayModeSupport(version uint32, mode ReplayMode) error {
 	switch mode {
 	case UserReplay:
 		return nil
 	case KernelReplay:
-		if version == 130200 || version == 130202 || version == 130400 {
+		if l, _ := layoutVersion(version); l == 130200 || l == 130202 || l == 130400 {
 			return nil
 		}
 		return fmt.Errorf("cuptirange: kernel replay is not qualified for CUPTI version %d", version)

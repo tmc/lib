@@ -40,7 +40,7 @@ func TestPhysicalCheckpointLifecycle(t *testing.T) {
 	ctx := withContext(t)
 
 	if err := cupticheckpoint.CheckVersion(); err != nil {
-		t.Skipf("CUPTI unavailable or unqualified version: %v", err)
+		t.Skipf("CUPTI unavailable or unsupported version: %v", err)
 	}
 
 	opts := cupticheckpoint.Options{

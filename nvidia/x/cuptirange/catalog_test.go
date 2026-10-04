@@ -73,7 +73,7 @@ func TestCatalogFailureOwnership(t *testing.T) {
 	if err := c.Close(); err != nil || c.plan.host != 0 || closes != 2 {
 		t.Fatalf("close=%v calls=%d", err, closes)
 	}
-	if _, err := newCatalog("chip", nil, 999, hostAPI{initialize: func(*cupti.ProfilerHostInitializeParams) error { t.Fatal("unknown ABI called"); return nil }}); err == nil {
+	if _, err := newCatalog("chip", nil, 140000, hostAPI{initialize: func(*cupti.ProfilerHostInitializeParams) error { t.Fatal("unknown ABI called"); return nil }}); err == nil {
 		t.Fatal("unknown version accepted")
 	}
 	if _, err := newCatalog("chip", nil, 28, hostAPI{initialize: func(*cupti.ProfilerHostInitializeParams) error { return nil }}); err == nil {

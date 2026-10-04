@@ -39,7 +39,7 @@ func TestPhysicalCounterAvailability(t *testing.T) {
 	withContext(t)
 
 	if _, err := cuptipmsampling.CheckVersion(); err != nil {
-		t.Skipf("CUPTI unavailable or unqualified version: %v", err)
+		t.Skipf("CUPTI unavailable or unsupported version: %v", err)
 	}
 
 	img, err := cuptipmsampling.CounterAvailability(0)

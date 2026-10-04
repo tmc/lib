@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/internal/cuptiversion"
 )
 
 // Collection reads native storage whose shape comes from cupti_sass_metrics.h,
-// so every admitted CUPTI version needs a measured witness for that header,
-// not a range comparison.
+// so every qualified CUPTI version has a measured witness for that header.
 //
 // Measured across the eight CUDA toolkits installed on the GB10 host, whose
 // CUPTI_API_VERSION values are 24, 26, 28, 130001, 130101, 130202, 130301, and
@@ -19,14 +19,16 @@ import (
 // [cupti.ApiVersion], the version the Go types in nvidia/cupti were generated
 // from.
 //
-// The list is an enumeration rather than a CUDA 13 range because the witness is
-// per version, not per family. Admitting a new version means measuring its header.
-func qualifiedVersion(v uint32) bool {
-	switch v {
-	case 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400:
-		return true
-	}
-	return false
+// The witness is per version, not per family. Qualifying a new version means
+// measuring its header; until then it runs on the layout below it.
+var qualified = []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400}
+
+// supportedVersion reports whether CUPTI version v has a layout: a
+// qualified version, or a later release in the same major, which uses the
+// newest qualified layout at or below it (see [cuptiversion.Layout]).
+func supportedVersion(v uint32) bool {
+	_, ok := cuptiversion.Layout(v, qualified...)
+	return ok
 }
 
 // CheckVersion verifies that the loaded CUPTI library version matches an
@@ -36,8 +38,8 @@ func CheckVersion() error {
 	if err != nil {
 		return fmt.Errorf("cuptisass: get version: %w", err)
 	}
-	if !qualifiedVersion(v) {
-		return fmt.Errorf("cuptisass: unqualified CUPTI version %d", v)
+	if !supportedVersion(v) {
+		return fmt.Errorf("cuptisass: unsupported CUPTI version %d", v)
 	}
 	return nil
 }

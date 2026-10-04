@@ -3,14 +3,25 @@ package cuptirange
 import "testing"
 
 func TestReplayModeSupport(t *testing.T) {
-	for _, version := range []uint32{24, 26, 27, 28, 130001, 130101, 130200, 130201, 130202, 130301, 130400} {
-		if err := ReplayModeSupport(version, UserReplay); err != nil {
+	for _, tt := range []struct {
+		version uint32
+		kernel  bool
+	}{
+		{24, false}, {26, false}, {27, false}, {28, false},
+		{130001, false}, {130101, false}, {130200, true}, {130202, true},
+		{130301, false}, {130400, true},
+		// Unmeasured releases take the contract of the layout below them.
+		{130201, true}, {130300, true}, {130302, false}, {130401, true}, {130500, true},
+	} {
+		if err := ReplayModeSupport(tt.version, UserReplay); err != nil {
 			t.Fatal(err)
 		}
-		want := version == 130200 || version == 130202 || version == 130400
-		if err := ReplayModeSupport(version, KernelReplay); (err == nil) != want {
-			t.Fatalf("version=%d error=%v", version, err)
+		if err := ReplayModeSupport(tt.version, KernelReplay); (err == nil) != tt.kernel {
+			t.Fatalf("version=%d error=%v", tt.version, err)
 		}
+	}
+	if ReplayModeSupport(140000, KernelReplay) == nil {
+		t.Fatal("accepted kernel replay on a new major")
 	}
 	if ReplayModeSupport(130202, ReplayMode(2)) == nil {
 		t.Fatal("accepted unknown replay")

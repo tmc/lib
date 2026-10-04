@@ -167,8 +167,11 @@ func TestPlanRuntimeHostLayout(t *testing.T) {
 		{"CUDA 13.2", 130202, nil, 56},
 		{"CUDA 13.3", 130301, nil, 56},
 		{"CUDA 13.4", 130400, nil, 56},
-		{"unknown version", 29, nil, 0},
-		{"unreported 13.1 encoding", 130100, nil, 0},
+		{"CUDA 13.4 L4", 130401, nil, 56},
+		{"unmeasured 13.1 encoding", 130100, nil, 48},
+		{"unmeasured CUDA 12", 29, nil, 48},
+		{"older than measured", 20, nil, 0},
+		{"new major", 140000, nil, 0},
 		{"version failure", 0, stop, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

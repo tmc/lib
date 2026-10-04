@@ -73,9 +73,9 @@ func TestIdentifyCubinNativeFailure(t *testing.T) {
 		version uint32
 		mutate  func(*cupti.GetCubinCrcParams) error
 	}{
-		// 27 is refused: it is not an encoding any library reports. 28 is
-		// CUDA 12.9's, and the rows below reach the native query.
-		{"version", 27, nil},
+		// 20 (CUDA 12.2) is older than every measured layout and is
+		// refused. 28 is CUDA 12.9's, and the rows below reach the native query.
+		{"version", 20, nil},
 		{"native error", 28, func(p *cupti.GetCubinCrcParams) error { return failure }},
 		{"pointer", 28, func(p *cupti.GetCubinCrcParams) error { p.Cubin++; return nil }},
 		{"length", 28, func(p *cupti.GetCubinCrcParams) error { p.CubinSize++; return nil }},

@@ -16,9 +16,15 @@ func TestPCSamplingReasonLayoutFor(t *testing.T) {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, want 32/48", version, layout)
 		}
 	}
-	// A version inside the CUDA 13 range but with no measured header is
-	// refused: the witness is per version, not per family.
-	for _, version := range []uint32{0, 25, 27, 29, 120000, 130002, 130100, 130201, 130500, 139999, 140000} {
+	// A later release in the same major uses the newest measured layout
+	// below it.
+	for _, version := range []uint32{25, 27, 29, 130002, 130100, 130201, 130401, 130500, 139999} {
+		if layout, ok := PCSamplingReasonLayoutFor(version); !ok || layout.CountParamsSize != 32 || layout.NamesParamsSize != 48 {
+			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, %v, want 32/48, true", version, layout, ok)
+		}
+	}
+	// A new major, or a release older than any measured one, is refused.
+	for _, version := range []uint32{0, 20, 120000, 130000, 140000} {
 		if layout, ok := PCSamplingReasonLayoutFor(version); ok || layout != (PCSamplingReasonLayout{}) {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, %v, want zero, false", version, layout, ok)
 		}

@@ -40,7 +40,7 @@ func TestProperties(t *testing.T) {
 
 func TestPropertiesRejectsUnknownABIAndScope(t *testing.T) {
 	p := &Plan{host: 1}
-	for _, version := range []uint32{0, 25, 29, 130000, 130201, 130300} {
+	for _, version := range []uint32{0, 20, 120901, 130000, 140000} {
 		if _, err := p.properties("metric", 64, version, func(*cupti.ProfilerHostGetMetricPropertiesParams) error {
 			t.Fatal("queried unqualified ABI")
 			return nil

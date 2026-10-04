@@ -25,16 +25,18 @@ func TestVersionQualification(t *testing.T) {
 		{name: "CUDA 13.3 API version", version: 130301, want: true},
 		{name: "CUDA 13.4 API version", version: 130400, want: true},
 		{name: "zero version", version: 0, want: false},
-		{name: "unmeasured 130100", version: 130100, want: false},
-		{name: "unmeasured 130201", version: 130201, want: false},
-		{name: "unmeasured 130500", version: 130500, want: false},
+		{name: "CUDA 12.2 API version", version: 20, want: false},
+		{name: "CUDA 13.4 L4 runtime version", version: 130401, want: true},
+		{name: "unmeasured 130100 uses an earlier layout", version: 130100, want: true},
+		{name: "unmeasured 130201 uses an earlier layout", version: 130201, want: true},
+		{name: "unmeasured 130500 uses an earlier layout", version: 130500, want: true},
 		{name: "unmeasured CUDA 14", version: 140000, want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := qualifiedVersion(tt.version); got != tt.want {
-				t.Errorf("qualifiedVersion(%d) = %v, want %v", tt.version, got, tt.want)
+			if got := supportedVersion(tt.version); got != tt.want {
+				t.Errorf("supportedVersion(%d) = %v, want %v", tt.version, got, tt.want)
 			}
 		})
 	}
@@ -179,7 +181,7 @@ func TestReadCString(t *testing.T) {
 // the table admits, it must admit the version whose struct shapes these types
 // actually are.
 func TestGeneratedVersionIsQualified(t *testing.T) {
-	if !qualifiedVersion(cupti.ApiVersion) {
-		t.Errorf("qualifiedVersion(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
+	if !supportedVersion(cupti.ApiVersion) {
+		t.Errorf("supportedVersion(cupti.ApiVersion = %d) = false, want true", cupti.ApiVersion)
 	}
 }

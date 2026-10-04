@@ -5,11 +5,11 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/internal/cuptiversion"
 )
 
 // Collection reads native storage whose shape comes from cupti_pmsampling.h,
-// so every admitted CUPTI version needs a measured witness for that header,
-// not a range comparison.
+// so every qualified CUPTI version has a measured witness for that header.
 //
 // Measured across the eight CUDA toolkits installed on the GB10 host, whose
 // CUPTI_API_VERSION values are 24, 26, 28, 130001, 130101, 130202, 130301, and
@@ -22,18 +22,20 @@ import (
 //
 // 130200 is admitted on a different witness: it is [cupti.ApiVersion], the version
 // the Go types in nvidia/cupti were generated from.
-func qualifiedVersion(v uint32) bool {
-	switch v {
-	case 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400:
-		return true
-	}
-	return false
+var qualified = []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400}
+
+// supportedVersion reports whether CUPTI version v has a layout: a
+// qualified version, or a later release in the same major, which uses the
+// newest qualified layout at or below it (see [cuptiversion.Layout]).
+func supportedVersion(v uint32) bool {
+	_, ok := cuptiversion.Layout(v, qualified...)
+	return ok
 }
 
 // setConfigStructSize returns the version-specific prefix size for
 // [cupti.PmSamplingSetConfigParams].
 func setConfigStructSize(v uint32) uint {
-	if v == 24 {
+	if l, _ := cuptiversion.Layout(v, qualified...); l == 24 {
 		// CUDA 12.6 layout ends at triggerMode
 		var p cupti.PmSamplingSetConfigParams
 		return uint(unsafe.Offsetof(p.TriggerMode) + unsafe.Sizeof(p.TriggerMode))
@@ -50,8 +52,8 @@ func CheckVersion() (uint32, error) {
 	if err != nil {
 		return 0, fmt.Errorf("cuptipmsampling: get version: %w", err)
 	}
-	if !qualifiedVersion(v) {
-		return 0, fmt.Errorf("cuptipmsampling: unqualified CUPTI version %d", v)
+	if !supportedVersion(v) {
+		return 0, fmt.Errorf("cuptipmsampling: unsupported CUPTI version %d", v)
 	}
 	return v, nil
 }

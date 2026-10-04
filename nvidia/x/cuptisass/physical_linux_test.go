@@ -40,7 +40,7 @@ func TestPhysicalDiscovery(t *testing.T) {
 	_ = withContext(t)
 
 	if err := cuptisass.CheckVersion(); err != nil {
-		t.Skipf("CUPTI unavailable or unqualified version: %v", err)
+		t.Skipf("CUPTI unavailable or unsupported version: %v", err)
 	}
 
 	chip, err := cuptisass.DeviceChipName(0)
@@ -74,7 +74,7 @@ func TestPhysicalSessionLifecycle(t *testing.T) {
 	ctx := withContext(t)
 
 	if err := cuptisass.CheckVersion(); err != nil {
-		t.Skipf("CUPTI unavailable or unqualified version: %v", err)
+		t.Skipf("CUPTI unavailable or unsupported version: %v", err)
 	}
 
 	chip, err := cuptisass.DeviceChipName(0)

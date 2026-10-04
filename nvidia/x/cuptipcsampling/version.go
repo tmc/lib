@@ -1,8 +1,9 @@
 package cuptipcsampling
 
+import "github.com/tmc/lib/nvidia/internal/cuptiversion"
+
 // Collection reads native storage whose shape comes from cupti_pcsampling.h, so
-// every admitted CUPTI version needs a measured witness for that header, not a
-// version comparison.
+// every qualified CUPTI version has a measured witness for that header.
 //
 // Measured across the eight CUDA toolkits installed on the GB10 host, whose
 // CUPTI_API_VERSION values are 24, 26, 28, 130001, 130101, 130202, 130301 and
@@ -17,20 +18,15 @@ package cuptipcsampling
 // same toolkits, takes four distinct sizes over 13.0 through 13.4 and grows at
 // two different releases for its two range-profiler structs.
 //
-// The list is an enumeration rather than a CUDA 13 range because the witness is
-// per version, not per family, and within this same family the range profiler's
-// cupti_profiler_host.h changed shape twice: at 13.1 and again at 13.2, measured
-// in x/cuptirange. A range would admit a release whose header no host here has,
-// on the strength of headers measured for earlier ones, and CUPTI's backward
-// compatibility runs through the size these structs declare: a size declared for
-// an unmeasured layout is a native write at the wrong offset, not an error
-// return. Admitting a new version means measuring its header.
+// The witness is per version, not per family: within CUDA 13 the range
+// profiler's cupti_profiler_host.h changed shape at 13.1 and again at 13.2,
+// measured in x/cuptirange. A later release in the same major is still
+// admitted, on the newest measured layout at or below it: CUPTI's backward
+// compatibility runs through the size each struct declares, and the size
+// declared is always one that was measured. A new major is refused.
 func qualifiedSamplingVersion(v uint32) bool {
-	switch v {
-	case 130001, 130101, 130200, 130202, 130301, 130400:
-		return true
-	}
-	return false
+	_, ok := cuptiversion.Layout(v, 130001, 130101, 130200, 130202, 130301, 130400)
+	return ok
 }
 
 // qualifiedQueryVersion reports whether v has a recorded parameter layout for
@@ -48,9 +44,6 @@ func qualifiedSamplingVersion(v uint32) bool {
 // through the sampling path. Admitting one means measuring a run, not reading
 // the header again.
 func qualifiedQueryVersion(v uint32) bool {
-	switch v {
-	case 24, 26, 28:
-		return true
-	}
-	return qualifiedSamplingVersion(v)
+	_, ok := cuptiversion.Layout(v, 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400)
+	return ok
 }
