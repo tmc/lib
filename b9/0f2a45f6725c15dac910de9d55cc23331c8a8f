@@ -1,0 +1,9 @@
+Commit:b90f2a45f6725c15dac910de9d55cc23331c8a8f
+Date:2026-10-04T01:18:22-07:00
+Codex CLI0.160.0; GPT-6; Claude Code not used; noninteractive tool shell; note PID51739 parentPID51737
+OwnSID026363F7-C2F7-4118-9920-4953A7B20D93; ITERM_SESSION_ID:w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Manual signed fallback after two earlier git-auto-commit-message failures.
+Independent combined source review:20261004-native-integration/independent-review/review.md
+Independent old5s/new30s delay controls; all four package race gates/vet and bounded extent fuzz pass. Initialtimeoutfailure retained.
+Actual physical packet audits:03independent-physical-review/OWN-PHYSICAL-GRADE.md;74main-adaptation/independent-review/physical-review.md;75FP32physical/independent-review/OWN-PHYSICAL-GRADE.md.
+Only host emulation helper changed after recorded GPU binary; no whole updated binary physical claim.
