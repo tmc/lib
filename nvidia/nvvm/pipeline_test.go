@@ -38,6 +38,7 @@ func TestCompilerPipeline(t *testing.T) {
 	check(err)
 	arch := fmt.Sprintf("%d%d", major, minor)
 	t.Logf("target sm_%s", arch)
+	irFile := "testdata/sin-typed.ll"
 	if nvvm.Has("nvvmLLVMVersion") {
 		llvm, err := nvvm.LLVMVersion("compute_" + arch)
 		check(err)
@@ -45,12 +46,13 @@ func TestCompilerPipeline(t *testing.T) {
 			t.Fatalf("invalid LLVM version %d", llvm)
 		}
 		t.Logf("NVVM LLVM version %d", llvm)
+		irFile = testIR(int(llvm))
 	}
 	ctx, err := driver.NewContext(dev, 0)
 	check(err)
 	defer func() { check(ctx.Close()) }()
 
-	ir, err := os.ReadFile("testdata/sin.ll")
+	ir, err := os.ReadFile(irFile)
 	check(err)
 	libdevice, err := os.ReadFile(os.Getenv("CUDA_LIBDEVICE"))
 	check(err)
@@ -138,4 +140,16 @@ func TestCompilerPipeline(t *testing.T) {
 		t.Fatal("compiler omitted diagnostics for invalid IR")
 	}
 	t.Log("verified invalid-IR rejection and compiler diagnostics")
+}
+
+// testIR returns the test kernel in the IR dialect of an NVVM whose target
+// reports llvm as its LLVM version. Before LLVM 17 NVVM parses typed pointers,
+// which is every target of CUDA 12 and pre-Blackwell targets of CUDA 13; later
+// targets parse opaque pointers. An NVVM too old to report a version takes the
+// typed form.
+func testIR(llvm int) string {
+	if llvm >= 17 {
+		return "testdata/sin.ll"
+	}
+	return "testdata/sin-typed.ll"
 }
