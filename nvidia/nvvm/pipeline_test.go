@@ -115,17 +115,24 @@ func TestCompilerPipeline(t *testing.T) {
 	}
 	t.Logf("verified %d sine results", len(data))
 
-	// The descriptor API writes the full 128-byte object into aligned storage.
-	descriptor := driver.NewTensorMap()
-	dim := [2]uint64{32, 4}
-	globalStride := uint64(128)
-	box, stride := [2]uint32{32, 1}, [2]uint32{1, 1}
-	check(driver.TensorMapEncodeTiled(descriptor, driver.TensorMapDataTypeFloat32, 2, ptr, &dim[0], &globalStride, &box[0], &stride[0], driver.TensorMapInterleaveNone, driver.TensorMapSwizzleNone, 0, 0))
-	if *descriptor == (driver.TensorMap{}) {
-		t.Fatal("tensor-map encode left a zero descriptor")
+	// Tensor maps need compute capability 9.0; an older device reports
+	// CUDA_ERROR_NOT_SUPPORTED. The step stays on this locked thread, where the
+	// context is current, so it is logged as skipped rather than a subtest.
+	if major < 9 {
+		t.Logf("tensor-map step skipped: requires compute capability 9.0; device is %d.%d", major, minor)
+	} else {
+		// The descriptor API writes the full 128-byte object into aligned storage.
+		descriptor := driver.NewTensorMap()
+		dim := [2]uint64{32, 4}
+		globalStride := uint64(128)
+		box, stride := [2]uint32{32, 1}, [2]uint32{1, 1}
+		check(driver.TensorMapEncodeTiled(descriptor, driver.TensorMapDataTypeFloat32, 2, ptr, &dim[0], &globalStride, &box[0], &stride[0], driver.TensorMapInterleaveNone, driver.TensorMapSwizzleNone, 0, 0))
+		if *descriptor == (driver.TensorMap{}) {
+			t.Fatal("tensor-map encode left a zero descriptor")
+		}
+		check(driver.TensorMapReplaceAddress(descriptor, ptr))
+		t.Log("verified tensor-map encoding and address replacement")
 	}
-	check(driver.TensorMapReplaceAddress(descriptor, ptr))
-	t.Log("verified tensor-map encoding and address replacement")
 	invalid, err := nvvm.CreateProgram()
 	check(err)
 	defer func() { check(invalid.Destroy()) }()
