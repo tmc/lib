@@ -340,11 +340,11 @@ func TestUnreadablePerProcessSidecarIsReported(t *testing.T) {
 		t.Fatal(err)
 	}
 	oldRead := readExternalStackFile
-	readExternalStackFile = func(path string) ([]byte, error) {
+	readExternalStackFile = func(path string, limit int64) ([]byte, error) {
 		if path == bad {
 			return nil, os.ErrPermission
 		}
-		return oldRead(path)
+		return oldRead(path, limit)
 	}
 	t.Cleanup(func() { readExternalStackFile = oldRead })
 	got, err := readExternalStackSidecar(base, 303)

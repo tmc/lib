@@ -811,13 +811,13 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 		}
 		var sidecarErr error
 		stackPath := filepath.Join(result.ScratchDir, cudacapture.ExternalStacksName)
-		stackSidecar, sidecarErr = readExternalStackSidecar(stackPath, uint64(result.TargetPID))
+		stackSidecar, sidecarErr = readExternalStackSidecar(stackPath, uint64(result.TargetPID), result.Session)
 		if stackSidecar.exists {
 			attachment := captureAttachment{name: cudacapture.ExternalStacksName, path: stackPath, size: int64(len(stackSidecar.data)), data: stackSidecar.data, rawName: cudacapture.ExternalStacksName, rawSize: stackSidecar.rawSize}
 			switch {
 			case sidecarErr != nil:
 				omitted = append(omitted, omitAttachment(attachment, "external stack sidecar damaged: "+sidecarErr.Error()))
-			case stackSidecar.rawSize > budget.FileBytes:
+			case int64(len(stackSidecar.data)) > budget.FileBytes:
 				omitted = append(omitted, omitAttachment(attachment, fmt.Sprintf("external stack sidecar exceeds capture file budget of %d bytes", budget.FileBytes)))
 			default:
 				kept = append(kept, attachment)

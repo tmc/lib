@@ -196,7 +196,7 @@ func RecordExternalStack(kind cupti.ExternalCorrelationKind, id uint64, stack []
 	}
 	externalStacksMu.Lock()
 	defer externalStacksMu.Unlock()
-	if len(stack) == 0 || len(stack) > maxCallstackFrames+1 {
+	if !validExternalStackFrames(stack) {
 		externalStackLosses++
 		_ = appendExternalStackLoss(externalStackLosses)
 		return false
@@ -222,6 +222,23 @@ func RecordExternalStack(kind cupti.ExternalCorrelationKind, id uint64, stack []
 	}
 	externalStacks[key] = append(externalStacks[key], s)
 	externalStackCount++
+	return true
+}
+
+func validExternalStackFrames(stack []string) bool {
+	if len(stack) == 0 || len(stack) > maxCallstackFrames+1 {
+		return false
+	}
+	var size int
+	for _, frame := range stack {
+		if frame == "" || len(frame) > 4096 {
+			return false
+		}
+		size += len(frame)
+		if size > 8192 {
+			return false
+		}
+	}
 	return true
 }
 
@@ -257,8 +274,13 @@ type ExternalStackTable struct {
 	Losses  uint64 `json:"losses"`
 	// LossesLowerBound distinguishes checkpointed sidecar counts from the
 	// exact in-memory count returned by WriteExternalStackTable.
-	LossesLowerBound bool                  `json:"losses_lower_bound,omitempty"`
-	Stacks           []ExternalStackRecord `json:"stacks"`
+	LossesLowerBound bool `json:"losses_lower_bound,omitempty"`
+	// DiscardedRecords counts sidecar rows or trailing fragments discarded by
+	// the controller. It is not a count of proven lost call stacks. A bounded
+	// file omission may contain more records than the reported lower bound.
+	DiscardedRecords           uint64                `json:"discarded_records,omitempty"`
+	DiscardedRecordsLowerBound bool                  `json:"discarded_records_lower_bound,omitempty"`
+	Stacks                     []ExternalStackRecord `json:"stacks"`
 }
 
 // WriteExternalStackTable writes the retained stacks in deterministic JSON.

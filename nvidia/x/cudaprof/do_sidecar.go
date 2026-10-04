@@ -18,6 +18,7 @@ type externalStackSidecarLine struct {
 	Losses       string   `json:"losses,omitempty"`
 	LowerBound   bool     `json:"losses_lower_bound"`
 	Process      uint64   `json:"process,omitempty"`
+	Epoch        string   `json:"epoch,omitempty"`
 	ExternalKind uint32   `json:"external_kind,omitempty"`
 	ExternalID   uint64   `json:"external_id,omitempty"`
 	Frames       []string `json:"frames,omitempty"`
@@ -43,9 +44,10 @@ var openExternalStackSidecarFile = func(path string) (externalStackSidecarFile, 
 
 var externalStackSidecarState struct {
 	sync.Mutex
-	path string
-	file externalStackSidecarFile
-	size int64
+	path     string
+	file     externalStackSidecarFile
+	size     int64
+	poisoned bool
 }
 
 func closeExternalStackSidecar() {
@@ -55,10 +57,14 @@ func closeExternalStackSidecar() {
 		_ = externalStackSidecarState.file.Close()
 	}
 	externalStackSidecarState.path, externalStackSidecarState.file, externalStackSidecarState.size = "", nil, 0
+	externalStackSidecarState.poisoned = false
 }
 
 func sidecarFile(path string) (externalStackSidecarFile, int64, error) {
 	if externalStackSidecarState.path == path && externalStackSidecarState.file != nil {
+		if externalStackSidecarState.poisoned {
+			return nil, 0, fmt.Errorf("cudaprof: external stack sidecar has a partial write")
+		}
 		return externalStackSidecarState.file, externalStackSidecarState.size, nil
 	}
 	if externalStackSidecarState.file != nil {
@@ -76,6 +82,7 @@ func sidecarFile(path string) (externalStackSidecarFile, int64, error) {
 		return nil, 0, fmt.Errorf("cudaprof: stat external stack sidecar: %w", err)
 	}
 	externalStackSidecarState.path, externalStackSidecarState.file, externalStackSidecarState.size = path, f, info.Size()
+	externalStackSidecarState.poisoned = false
 	return f, info.Size(), nil
 }
 
@@ -94,6 +101,9 @@ func writeExternalStackSidecar(data []byte) error {
 		return fmt.Errorf("cudaprof: external stack sidecar exceeds %d bytes", maxExternalStackSidecarBytes)
 	}
 	n, err := f.Write(data)
+	if n != len(data) || err != nil {
+		externalStackSidecarState.poisoned = true
+	}
 	if err != nil {
 		return fmt.Errorf("cudaprof: append external stack sidecar: %w", err)
 	}
@@ -132,6 +142,9 @@ func appendExternalStackRecord(record ExternalStackRecord, losses uint64) error 
 		return fmt.Errorf("cudaprof: external stack sidecar exceeds %d bytes", maxExternalStackSidecarBytes)
 	}
 	n, err := f.Write(data)
+	if n != len(data) || err != nil {
+		externalStackSidecarState.poisoned = true
+	}
 	if err != nil {
 		return fmt.Errorf("cudaprof: append external stack sidecar: %w", err)
 	}
@@ -162,6 +175,10 @@ func externalStackSidecarPath() (string, error) {
 }
 
 func marshalExternalStackSidecarLine(line externalStackSidecarLine) ([]byte, error) {
+	line.Epoch = os.Getenv("CUDAPROF_SESSION")
+	if len(line.Epoch) > 128 || (line.Kind == "stack" && !validExternalStackFrames(line.Frames)) {
+		return nil, fmt.Errorf("cudaprof: external stack record exceeds field budget")
+	}
 	data, err := json.Marshal(line)
 	if err != nil {
 		return nil, fmt.Errorf("cudaprof: encode external stack sidecar: %w", err)

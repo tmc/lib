@@ -1449,7 +1449,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 	if waitErr == nil {
 		result.TargetExitCode = 0
 		if result.Cancelled {
-			return result, runctx.Err()
+			return result, context.Cause(runctx)
 		}
 		return result, nil
 	}
@@ -1465,7 +1465,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 		}
 		result = markTargetFailed(result)
 		if result.Cancelled {
-			return result, runctx.Err()
+			return result, context.Cause(runctx)
 		}
 		return result, nil
 	}
