@@ -1,0 +1,22 @@
+Commit: d86f389ef93b57dec793dd91f9bb80522bdd545f
+Date: 2026-10-04T06:55:06.581019+00:00
+Agent: Codex CLI; model GPT-6
+TTY: not a tty
+PID: 31084; parent PID: 31081
+Own session: 026363F7-C2F7-4118-9920-4953A7B20D93
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Manual signed fallback: git-auto-commit-message exhausted its two failed attempts earlier in this goal.
+Host conflict-package tests and vet passed; independent profiler review pending at creation.
+
+Commit: 5d667d54b6c694a57c20346a21852be7d60d98f7
+Date: 2026-10-04T07:05:29.267966+00:00
+Agent: codex-cli 0.160.0; model GPT-6; Claude Code not used
+TTY: not a tty
+PID: 54243; parent PID: 54242
+Own session: 026363F7-C2F7-4118-9920-4953A7B20D93
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Rebased next onto main 3908fb17ba8a345f4ee131b54a007231320dce53.
+Independent ACCEPT: /Users/tmc/tmp/lib-wt-next/20261004-next-main-rebase/independent-review/profiler-review.md
+12 affected host packages, profiler/CLI full host tests, focused race, vet and namespace/LIFO probe pass.
+All 252 original commits and notes preserved; 39 local tracked edits and75 pinned untracked sources unchanged; index empty.
+No new native qualification claim.

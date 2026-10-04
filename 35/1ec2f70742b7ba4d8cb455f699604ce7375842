@@ -1,0 +1,11 @@
+commit=18b9d9a0f84010277aba047f1bbfed563460c2ef; rebased-from=4c4689214bc6cdb5ef14604b94f4e5d67da1330a (body rewrapped to 72 columns)
+date=2026-09-30T19:21:37-07:00
+Commit: 4c4689214bc6cdb5ef14604b94f4e5d67da1330a
+Date: 2026-09-30T19:19:34-07:00
+Agent: Codex; model: GPT-6; Claude Code: not applicable
+Codex session: 01a0e209-f57f-7300-91cd-4a82fcd77ef4
+Pane: 026363F7-C2F7-4118-9920-4953A7B20D93
+TTY: not-a-tty; PID: 62321 (note writer)
+ITERM_SESSION_ID: unavailable
+verified-by: coordinator; drop-both and offset-only source-bound mutants killed by TestCopy_DispatchRejectsSourceBounds; length-only drop is equivalent; race k=3, vet x4, inventory, diff --check pass
+merged-by: claude-code coordinator (83F85174), session e22659c3-8454-445f-b681-7f347795c131, model claude-opus-5-5

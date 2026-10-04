@@ -1,0 +1,3 @@
+Commit: 3aee4b79c84dc075c7156012f4025889cd7f3390. Date: 2026-10-03. Agent: Codex CLI 0.160.0, GPT-6; claude-code not used. Root session: 01a0e209-f57f-7300-91cd-4a82fcd77ef4. iTerm session: 026363F7-C2F7-4118-9920-4953A7B20D93. TTY: noninteractive tool process. PID: recorded by git execution environment, not inferred. Implementation: grade59; independent final source review: root. Host/mutant evidence: /Users/tmc/tmp/lib-wt-next/20261003-lane42/HANDOFF.md. Native bank-conflict qualification remains separate and pending.
+
+Provenance note writer PID: 95474; tty: not a tty; date: 2026-10-03T23:08:15Z
