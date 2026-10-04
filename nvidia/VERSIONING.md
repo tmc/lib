@@ -427,7 +427,15 @@ promises to load against:
 |---|---|---|
 | `driver`, `nvml` | CUDA 12.2 (driver r535) | 2026-09-30 |
 | other libraries shipped in the CUDA toolkit | CUDA 12.2, or the first toolkit release that shipped the library | 2026-09-30 |
-| libraries versioned separately (cuDNN, NCCL, DCGM, NVSHMEM, cuTENSOR, cuDSS, the cuQuantum libraries, nvCOMP, gdrcopy, …) | the version generated for `v0.1.0`; history accumulates from that tag | 2026-10-04 |
+| libraries versioned separately (cuDNN, NCCL, DCGM, NVSHMEM, cuTENSOR, cuDSS, the cuQuantum libraries, nvCOMP, gdrcopy, …) | the version generated for `v0.1.0` | 2026-10-04 |
+
+History and floor are separate. The generator also reads pinned headers
+of releases older than the floor, so the API changelog and the
+`since=` labels say when each declaration appeared. For separately versioned
+libraries that history is backfilled from past releases (decided
+2026-10-04). It changes labels only: plain names keep their meaning at
+the floor, and the loader never admits a release below the floor, so a
+`since=` older than the floor is informational.
 
 The loader tries soname majors newest first, admits a library only when
 its reported version is at or above the floor, and gates on the
@@ -853,6 +861,16 @@ and restamps, and only when all of these hold for that exact commit:
 5. The physical tests pass on L4 at the r535 floor and on an r610+
    ceiling host, and x/ is green on all three hosts as defined above.
 6. Every importable x/ package states the exemption in its doc comment.
+7. Each package commits `api.gen.txt`, and `CUDA-API.md`, the per-release
+   API changelog, is generated from them with its checks passing (decided
+   2026-10-04). Names present at the floor and removed before the ceiling
+   stay bound, with a `Deprecated:` paragraph saying when NVIDIA
+   deprecated and removed them; their `Has` predicate reports false where
+   the symbol is absent.
+
+When every gate holds, the lanes report the exact tmc/ffi, libgen and
+lib hashes and the tag, and stop. Nothing is tagged or pushed without
+tmc's go (decided 2026-10-04).
 
 Earlier decisions that still hold: host buffers are never `uintptr`;
 every commit builds the whole repository; separately versioned
