@@ -19,6 +19,13 @@ func TestNativeFlowCallback(t *testing.T) {
 	if os.Getenv("NVRTC_FLOW_TEST") != "1" {
 		t.Skip("NVRTC_FLOW_TEST=1 requires NVRTC flow callbacks and matched builtins")
 	}
+	if err := nvrtc.Load(""); err != nil {
+		t.Fatal(err)
+	}
+	if !nvrtc.Has("nvrtcSetFlowCallback") {
+		major, minor, _ := nvrtc.Version()
+		t.Skipf("NVRTC %d.%d has no nvrtcSetFlowCallback", major, minor)
+	}
 	const source = `extern "C" __global__ void flow(int* out) { out[threadIdx.x] = threadIdx.x + 1; }`
 	for _, cancel := range []bool{false, true} {
 		name := "continue"

@@ -19,6 +19,10 @@ func TestNativeResourceSplitArray(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Fatal(err)
 	}
+	if !driver.Has("cuDeviceGetDevResource") {
+		version, _ := driver.DriverGetVersion()
+		t.Skipf("driver %d has no cuDeviceGetDevResource", version)
+	}
 	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Fatal(err)
