@@ -23,9 +23,10 @@
 // # Toolkit versions
 //
 // [Disassembler] runs nvdisasm, whose options differ between toolkits. Of the
-// options this package emits, only --emit-json moved: it is absent in CUDA 12.6
-// and present from 12.8 on, measured against the eight toolkits installed on
-// the GB10 host, so [JSON] mode is unavailable under 12.6.
+// options this package emits, only --emit-json moved: it is absent in CUDA 12.2
+// and 12.6 and present from 12.8 on, measured against the eight toolkits
+// installed on the GB10 host and the CUDA 12.2 floor, so [JSON] mode is
+// unavailable before 12.8.
 // [Disassembler.Disassemble] checks
 // the command line it is about to run against what the resolved nvdisasm
 // accepts and reports an error naming the tool and its version, rather than

@@ -162,9 +162,10 @@ type Config struct {
 	// error summary. Meaningful for [Memcheck].
 	LeakCheck Toggle
 
-	// TrackUnusedMemory maps to --track-unused-memory, which the tool spells
-	// as a bare flag: ToggleYes emits it and ToggleNo emits nothing, leaving
-	// the tool's default. Meaningful for [Initcheck].
+	// TrackUnusedMemory maps to --track-unused-memory. CUDA 12.6 and later
+	// spell it as a bare flag: ToggleYes emits it and ToggleNo emits nothing,
+	// leaving the tool's default. Earlier releases take yes or no, which [Run]
+	// passes when the installed tool does. Meaningful for [Initcheck].
 	TrackUnusedMemory Toggle
 
 	// CheckAPIMemoryAccess maps to --check-api-memory-access. Meaningful
@@ -172,8 +173,7 @@ type Config struct {
 	CheckAPIMemoryAccess Toggle
 
 	// Kill maps to --kill, which terminates the application on a
-	// communication error. The tool spells it as a bare flag: ToggleYes emits
-	// it and ToggleNo emits nothing, leaving the tool's default.
+	// communication error. It is spelled like [Config.TrackUnusedMemory].
 	Kill Toggle
 
 	// NVTX maps to --nvtx, enabling NVTX range support in reports.
@@ -379,7 +379,11 @@ func (c Config) killDelay() time.Duration {
 // A flag with no value is one the tool spells without an argument. Passing one
 // anyway is rejected outright ("extra yes detected on the input command line")
 // rather than ignored, which is why arity is part of what CheckOptions checks.
-func (c Config) flags(logFile string) []cudatool.Flag {
+//
+// --kill and --track-unused-memory are bare from CUDA 12.6 and take yes or no
+// before it. With caps nil they are spelled bare; otherwise they are spelled
+// the way caps says the installed tool takes them.
+func (c Config) flags(logFile string, caps *cudatool.Caps) []cudatool.Flag {
 	var flags []cudatool.Flag
 	add := func(name, value string) {
 		flags = append(flags, cudatool.Flag{Name: name, Value: value})
@@ -396,9 +400,16 @@ func (c Config) flags(logFile string) []cudatool.Flag {
 			add(name, no)
 		}
 	}
-	// bare emits an option the tool spells without an argument, so ToggleNo
-	// selects the tool's own default by emitting nothing.
+	// bare emits an option CUDA 12.6 and later spell without an argument, so
+	// ToggleNo selects the tool's own default by emitting nothing. A tool
+	// that takes an argument for it gets yes or no.
 	bare := func(name string, t Toggle) {
+		if caps != nil {
+			if a, ok := caps.Arity(name); ok && a == cudatool.Value {
+				toggle(name, t, "yes", "no")
+				return
+			}
+		}
 		if t == ToggleYes {
 			flags = append(flags, cudatool.Flag{Name: name})
 		}
@@ -436,7 +447,8 @@ func (c Config) flags(logFile string) []cudatool.Flag {
 }
 
 // Args returns the full compute-sanitizer argument vector for running prog with
-// appArgs, writing the tool's report to logFile. The returned slice starts with
+// appArgs, writing the tool's report to logFile, as CUDA 12.6 and later spell
+// it. [Run] spells it for the installed tool. The returned slice starts with
 // the compute-sanitizer options, then prog, then appArgs, matching the tool's
 // "compute-sanitizer [options] app [app args]" form. It does not include the
 // executable itself.
@@ -446,13 +458,19 @@ func (c Config) flags(logFile string) []cudatool.Flag {
 // [Config.CheckOptions]'s question, because answering it means executing the
 // tool.
 func (c Config) Args(logFile, prog string, appArgs ...string) ([]string, error) {
+	return c.args(logFile, nil, prog, appArgs...)
+}
+
+// args is [Config.Args] spelled for the tool caps describes, or as Args spells
+// it when caps is nil.
+func (c Config) args(logFile string, caps *cudatool.Caps, prog string, appArgs ...string) ([]string, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
 	if prog == "" {
 		return nil, fmt.Errorf("%w: empty program path", ErrInvalidConfig)
 	}
-	args := cudatool.Args(c.flags(logFile)...)
+	args := cudatool.Args(c.flags(logFile, caps)...)
 	args = append(args, c.ExtraArgs...)
 	args = append(args, prog)
 	args = append(args, appArgs...)
@@ -483,11 +501,18 @@ func (c Config) CheckOptions(ctx context.Context) error {
 	if err := c.validate(); err != nil {
 		return err
 	}
+	_, err := c.checkOptions(ctx)
+	return err
+}
+
+// checkOptions is [Config.CheckOptions], also returning the capabilities the
+// check used, or nil if they could not be determined.
+func (c Config) checkOptions(ctx context.Context) (*cudatool.Caps, error) {
 	caps, err := cudatool.Capabilities(ctx, DefaultToolName, c.Path)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	// The log path's value does not matter to the check, only that --log-file
 	// is an option that takes one.
-	return errors.Join(caps.Check(c.flags("compute-sanitizer.log")...), caps.CheckNames(c.ExtraArgs...))
+	return &caps, errors.Join(caps.Check(c.flags("compute-sanitizer.log", &caps)...), caps.CheckNames(c.ExtraArgs...))
 }

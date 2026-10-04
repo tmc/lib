@@ -23,7 +23,7 @@ func recordedCaps(t *testing.T, v cudatool.Version) cudatool.Caps {
 // emit against every nvdisasm the corpus records.
 //
 // Mode JSON is the one option that moved: --emit-json arrived in 13.0, so a
-// request for it under 12.6 must be reported as unsupported rather than handed
+// request for it under 12.x must be reported as unsupported rather than handed
 // to a tool that answers "Unknown option". Everything else is accepted by every
 // recorded version, including the arities: --life-range-mode takes an argument
 // on all of them, and a record saying otherwise fails here.
@@ -34,7 +34,7 @@ func TestOptionsAgainstRecordedToolkits(t *testing.T) {
 		reject []cudatool.Version
 	}{
 		{name: "text", o: Options{}},
-		{name: "json", o: Options{Mode: JSON}, reject: []cudatool.Version{cudatool.V(12, 6)}},
+		{name: "json", o: Options{Mode: JSON}, reject: []cudatool.Version{cudatool.V(12, 2), cudatool.V(12, 6)}},
 		{name: "control flow", o: Options{Mode: ControlFlow, PrintInstructionOffsetsCFG: true}},
 		{name: "basic block flow", o: Options{Mode: BasicBlockFlow, PrintInstructionOffsetsCFG: true}},
 		{name: "register life", o: Options{Mode: RegisterLife, LifeRangeMode: "count", PrintCode: true}},
@@ -78,6 +78,7 @@ func TestEmitJSONArrivedIn130(t *testing.T) {
 		version cudatool.Version
 		accepts bool
 	}{
+		{cudatool.V(12, 2), false},
 		{cudatool.V(12, 6), false},
 		{cudatool.V(13, 0), true},
 		{cudatool.V(13, 4), true},

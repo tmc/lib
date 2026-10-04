@@ -1,0 +1,60 @@
+--check-api-memory-access value default=yes
+--check-cache-control value default=no
+--check-device-heap value default=yes
+--check-exit-code value default=yes
+--check-optix value default=no
+--check-optix-leaks value default=no
+--check-warpgroup-mma value default=yes
+--coredump-name value
+--demangle value default=full values=full,simple,no
+--destroy-on-device-error value values=context,kernel
+--error-exitcode value
+--force-blocking-launches value default=no
+--force-synchronization-limit value
+--generate-coredump value default=no
+--help bare short=-h
+--ignore-getprocaddress-notfound value
+--injection-path value
+--injection-path32 value
+--kernel-regex value
+--kernel-regex-exclude value
+--kill value default=yes
+--language value default=c
+--launch-count value short=-c default=0
+--launch-skip value short=-s default=0
+--launch-timeout value
+--leak-check value default=no
+--log-file value
+--max-connections value default=10
+--missing-barrier-init-is-fatal value
+--mode value default=launch-and-attach
+--num-callers-device value default=0
+--num-callers-host value default=0
+--num-cuda-barriers value default=0
+--nvtx value default=yes
+--padding value default=0
+--port value default=49152
+--prefix value default==========
+--print-level value default=warn
+--print-limit value default=100
+--print-session-details value default=no
+--quiet bare short=-q
+--racecheck-detect-level value default=warn
+--racecheck-memcpy-async value default=yes
+--racecheck-num-workers value default=0
+--racecheck-report value default=analysis values=all,hazard,analysis
+--read value
+--report-api-errors value default=explicit values=all,explicit,no
+--require-cuda-init value default=yes
+--save value
+--save-session-details value default=no
+--show-backtrace value default=yes values=no,host,device,yes
+--support-32bit value default=no
+--target-processes value values=application-only,all
+--target-processes-filter value
+--tool value default=memcheck values=memcheck,racecheck,synccheck,initcheck
+--track-stream-ordered-races value values=all,use-before-alloc,use-after-free,no
+--track-unused-memory value default=no
+--unused-memory-threshold value default=0
+--version bare short=-v
+--xml value default=no

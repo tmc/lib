@@ -187,7 +187,8 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 	// Check the options against the resolved tool before running it. A
 	// compute-sanitizer that rejects its command line writes no report, which
 	// would otherwise surface as ErrNoVerdict and say nothing about the cause.
-	if err := cfg.CheckOptions(ctx); err != nil {
+	caps, err := cfg.checkOptions(ctx)
+	if err != nil {
 		res.Err = err
 		return res, nil
 	}
@@ -203,7 +204,7 @@ func Run(ctx context.Context, cfg Config, prog string, args ...string) (*Result,
 		defer os.Remove(logPath)
 	}
 
-	toolArgs, err := cfg.Args(logPath, prog, args...)
+	toolArgs, err := cfg.args(logPath, caps, prog, args...)
 	if err != nil {
 		return nil, err
 	}

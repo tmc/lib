@@ -45,7 +45,7 @@ func TestKnownOptionsVersionSelection(t *testing.T) {
 	}{
 		{"exact", V(13, 0), V(13, 0), true},
 		{"between records", V(13, 2), V(13, 0), true},
-		{"below everything", V(11, 8), V(12, 6), true},
+		{"below everything", V(11, 8), V(12, 2), true},
 		{"above everything", V(14, 0), Version{}, false},
 	}
 	for _, tt := range tests {

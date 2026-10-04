@@ -28,14 +28,13 @@ func recordedCaps(t *testing.T, v cudatool.Version) cudatool.Caps {
 // TestConfigFlagsAgainstRecordedToolkits checks the command lines this package
 // builds against every compute-sanitizer the option corpus records.
 //
-// Every option this package emits exists, with the same arity, on 12.6, 13.0 and
-// 13.4, so none of these rows fails today. They are the gate on the release that
-// renames one of these options or changes its arity: a change lands here, and at
-// run time as a Go error, rather than as a command line the tool rejects while
-// writing no report.
+// Each command line is spelled for the toolkit it is checked against, as [Run]
+// spells it. The rows are the gate on the release that renames one of these
+// options or changes its arity: a change lands here, and at run time as a Go
+// error, rather than as a command line the tool rejects while writing no report.
 //
-// Arity changes do happen. Compute Sanitizer 2022.4.1 spells --kill and
-// --track-unused-memory with an argument, where 12.6 and later spell both bare.
+// Arity changes do happen. CUDA 12.2 spells --kill and --track-unused-memory
+// with an argument, where 12.6 and later spell both bare.
 func TestConfigFlagsAgainstRecordedToolkits(t *testing.T) {
 	tests := []struct {
 		name string
@@ -86,9 +85,9 @@ func TestConfigFlagsAgainstRecordedToolkits(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flags := tt.cfg.flags("compute-sanitizer.log")
 			for _, v := range versions {
-				if err := recordedCaps(t, v).Check(flags...); err != nil {
+				caps := recordedCaps(t, v)
+				if err := caps.Check(tt.cfg.flags("compute-sanitizer.log", &caps)...); err != nil {
 					t.Errorf("%v: %v", v, err)
 				}
 			}
@@ -100,30 +99,38 @@ func TestConfigFlagsAgainstRecordedToolkits(t *testing.T) {
 // separately from the command lines themselves.
 //
 // --kill and --track-unused-memory are the ones that matter: compute-sanitizer
-// spells both without an argument on every installed version, and passing one
-// is rejected outright with "extra yes detected on the input command line" and
-// no report written. [Config] therefore emits them bare, and a record claiming
-// they take a value would make Run refuse a command line the tool accepts.
+// 12.6 and later spell both without an argument, and passing one is rejected
+// outright with "extra yes detected on the input command line" and no report
+// written. 12.2 requires the argument. [Run] spells them for the installed tool,
+// so a record with the wrong arity would make it emit a command line the tool
+// rejects.
 func TestMeasuredArities(t *testing.T) {
+	bareFrom := func(v cudatool.Version) cudatool.Arity {
+		if v.Compare(cudatool.V(12, 6)) < 0 {
+			return cudatool.Value
+		}
+		return cudatool.Bare
+	}
+	value := func(cudatool.Version) cudatool.Arity { return cudatool.Value }
 	tests := []struct {
 		option string
-		arity  cudatool.Arity
+		arity  func(cudatool.Version) cudatool.Arity
 	}{
-		{"--kill", cudatool.Bare},
-		{"--track-unused-memory", cudatool.Bare},
-		{"--leak-check", cudatool.Value},
-		{"--require-cuda-init", cudatool.Value},
-		{"--check-api-memory-access", cudatool.Value},
-		{"--nvtx", cudatool.Value},
-		{"--tool", cudatool.Value},
-		{"--error-exitcode", cudatool.Value},
-		{"--log-file", cudatool.Value},
-		{"--racecheck-report", cudatool.Value},
-		{"--target-processes", cudatool.Value},
-		{"--demangle", cudatool.Value},
-		{"--destroy-on-device-error", cudatool.Value},
-		{"--print-limit", cudatool.Value},
-		{"--launch-timeout", cudatool.Value},
+		{"--kill", bareFrom},
+		{"--track-unused-memory", bareFrom},
+		{"--leak-check", value},
+		{"--require-cuda-init", value},
+		{"--check-api-memory-access", value},
+		{"--nvtx", value},
+		{"--tool", value},
+		{"--error-exitcode", value},
+		{"--log-file", value},
+		{"--racecheck-report", value},
+		{"--target-processes", value},
+		{"--demangle", value},
+		{"--destroy-on-device-error", value},
+		{"--print-limit", value},
+		{"--launch-timeout", value},
 	}
 	for _, tt := range tests {
 		t.Run(tt.option, func(t *testing.T) {
@@ -134,11 +141,37 @@ func TestMeasuredArities(t *testing.T) {
 					t.Errorf("%v does not accept %s", v, tt.option)
 					continue
 				}
-				if arity != tt.arity {
-					t.Errorf("%v %s arity = %v, want %v", v, tt.option, arity, tt.arity)
+				if want := tt.arity(v); arity != want {
+					t.Errorf("%v %s arity = %v, want %v", v, tt.option, arity, want)
 				}
 			}
 		})
+	}
+}
+
+// TestFlagsFollowInstalledArity checks that --kill and --track-unused-memory are
+// spelled the way each recorded toolkit takes them.
+func TestFlagsFollowInstalledArity(t *testing.T) {
+	cfg := Config{Tool: Initcheck, Kill: ToggleYes, TrackUnusedMemory: ToggleNo}
+	tests := []struct {
+		version cudatool.Version
+		want    string
+	}{
+		{cudatool.V(12, 2), "--track-unused-memory no --kill yes"},
+		{cudatool.V(12, 6), "--kill"},
+		{cudatool.V(13, 4), "--kill"},
+	}
+	for _, tt := range tests {
+		caps := recordedCaps(t, tt.version)
+		var got []string
+		for _, f := range cfg.flags("", &caps) {
+			if f.Name == "--kill" || f.Name == "--track-unused-memory" {
+				got = append(got, cudatool.Args(f)...)
+			}
+		}
+		if s := strings.Join(got, " "); s != tt.want {
+			t.Errorf("%v: %q, want %q", tt.version, s, tt.want)
+		}
 	}
 }
 
