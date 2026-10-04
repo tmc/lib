@@ -55,6 +55,9 @@ func TestNativeStartStopMatchesReferenceSample(t *testing.T) {
 		if parseErr != nil {
 			t.Fatalf("parse reference run %d: %v\n%s", i+1, parseErr, out)
 		}
+		if report.Total == 0 {
+			t.Fatalf("reference run %d recorded no user samples (offered=%d dropped=%d non-user=%d)", i+1, report.Offered, report.Dropped, report.NonUser)
+		}
 		referenceRuns = append(referenceRuns, report)
 	}
 	sampleLib, err := pcSampleCUPTILibrary(sample)
@@ -243,7 +246,18 @@ __global__ void VectorMultiply(const int *a, const int *b, int *c, int n) {
 		if !ok || !final.Valid {
 			return fmt.Errorf("package final sampling batch unavailable or invalid")
 		}
-		total = batch.TotalSamples + final.TotalSamples
+		user, err := pcReferenceUserSamples(batch.TotalSamples, batch.DroppedSamples, batch.NonUserSamples)
+		if err != nil {
+			return err
+		}
+		finalUser, err := pcReferenceUserSamples(final.TotalSamples, final.DroppedSamples, final.NonUserSamples)
+		if err != nil {
+			return err
+		}
+		if ^uint64(0)-user < finalUser {
+			return fmt.Errorf("package PC user sample sum overflow")
+		}
+		total = user + finalUser
 		for _, sampledBatch := range []cuptipcsampling.Batch{batch, final} {
 			for _, pc := range sampledBatch.PCs {
 				if pc.Name == "" {
