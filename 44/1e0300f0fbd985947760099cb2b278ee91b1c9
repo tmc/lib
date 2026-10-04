@@ -1,0 +1,1 @@
+commit 82b9214f7 2026-09-23T23:09:41Z; claude-code 2.1.280 (Claude Code); model claude-opus-5-5; pid 29901; ITERM_SESSION_ID=w13t0p16:83F85174-6333-4D12-A1D1-E43469447ABD; session=e22659c3-8454-445f-b681-7f347795c131; user-approved lock-form fix (2026-09-23); mutant restoring the old != "1" check FAILs TestCandidateLoadRequiresGPULock/one and /held

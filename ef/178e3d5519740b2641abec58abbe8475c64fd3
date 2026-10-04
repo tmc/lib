@@ -1,0 +1,10 @@
+commit: 3f609dff6
+date: 2026-09-22T22:48:19-07:00
+agent: Claude Code 2.1.280
+model: claude-opus-5-5[1m]
+tty: ttys239
+pid: 16790
+ITERM_SESSION_ID: w13t0p9:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
+note: history rewrite for the first public release; see main-clean and next
