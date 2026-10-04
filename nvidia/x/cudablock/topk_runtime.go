@@ -66,6 +66,10 @@ func CompileTopK(dev *cuda.Device, config TopKConfig) (*TopK, error) {
 }
 
 func compileTopKSource(dev *cuda.Device, config TopKConfig, source string) (*TopK, error) {
+	return compileTopKNamedSource(dev, config, source, "topk_fp32")
+}
+
+func compileTopKNamedSource(dev *cuda.Device, config TopKConfig, source, entry string) (*TopK, error) {
 	if _, err := config.Extents(); err != nil {
 		return nil, err
 	}
@@ -76,7 +80,7 @@ func compileTopKSource(dev *cuda.Device, config TopKConfig, source string) (*Top
 	if err != nil {
 		return nil, fmt.Errorf("cudablock: topk capability: %w", err)
 	}
-	artifact, err := topkCompileArtifact(source, fmt.Sprintf("sm_%d%d", major, minor))
+	artifact, err := topkCompileNamedArtifact(source, fmt.Sprintf("sm_%d%d", major, minor), entry)
 	if err != nil {
 		t := &TopK{config: config, device: dev}
 		if errors.As(err, &t.cleanup) {
@@ -88,6 +92,10 @@ func compileTopKSource(dev *cuda.Device, config TopKConfig, source string) (*Top
 }
 
 func topkCompileArtifact(source, target string) (*cudakernel.Artifact, error) {
+	return topkCompileNamedArtifact(source, target, "topk_fp32")
+}
+
+func topkCompileNamedArtifact(source, target, entry string) (*cudakernel.Artifact, error) {
 	cm, err := nvrtcx.Compile(source, nvrtcx.WithName("cudablock_topk.cu"), nvrtcx.WithPhysicalArchTarget(target), nvrtcx.WithFlag("--std=c++17"), nvrtcx.WithFlag("--generate-line-info"), nvrtcx.WithNoCache())
 	if err != nil {
 		return nil, err
@@ -96,7 +104,7 @@ func topkCompileArtifact(source, target string) (*cudakernel.Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
-	a, err := cm.ToArtifact("topk_fp32", schema, target)
+	a, err := cm.ToArtifact(entry, schema, target)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +120,12 @@ func topkCompileArtifact(source, target string) (*cudakernel.Artifact, error) {
 }
 
 func topkLoadArtifact(dev *cuda.Device, config TopKConfig, artifact *cudakernel.Artifact) (*TopK, error) {
+	if _, err := config.Extents(); err != nil {
+		return nil, err
+	}
+	if dev == nil {
+		return nil, fmt.Errorf("cudablock: nil topk device")
+	}
 	if err := artifact.Validate(); err != nil {
 		return nil, err
 	}
@@ -126,7 +140,7 @@ func topkLoadArtifact(dev *cuda.Device, config TopKConfig, artifact *cudakernel.
 		return t, fmt.Errorf("cudablock: own topk module: %w", err)
 	}
 	t.raw = 0
-	t.kernel, err = t.module.Function("topk_fp32")
+	t.kernel, err = t.module.Function(artifact.EntryPoint)
 	if err != nil {
 		return t, fmt.Errorf("cudablock: resolve topk: %w", err)
 	}
@@ -157,6 +171,11 @@ func (t *TopK) Artifact() *cudakernel.Artifact {
 // After any device completion failure the buffers remain borrowed; retry Close
 // to drain them. Cancellation is not offered by this synchronous initial API.
 func (t *TopK) Execute(stream *cuda.Stream, b TopKBuffers) error {
+	input := topkBuffer{name: "input", ptr: uint64(b.Input.Ptr()), length: b.Input.Len(), owner: b.Input.Device(), borrow: b.Input.Borrow}
+	return t.execute(stream, b, input)
+}
+
+func (t *TopK) execute(stream *cuda.Stream, b TopKBuffers, input topkBuffer) error {
 	if t == nil {
 		return fmt.Errorf("cudablock: closed topk")
 	}
@@ -168,12 +187,12 @@ func (t *TopK) Execute(stream *cuda.Stream, b TopKBuffers) error {
 	if stream == nil || stream.Device() != t.device {
 		return fmt.Errorf("cudablock: topk stream device mismatch")
 	}
-	releases, err := t.borrow(b)
+	releases, err := t.borrowInput(b, input)
 	if err != nil {
 		return err
 	}
 	t.pendingRelease, t.pendingStream = releases, stream
-	completed, err := topkInvoke(t.config, func() error { return t.launch(stream, b) }, func() error { return stream.Synchronize(nil) }, func() ([]int32, []int32, error) {
+	completed, err := topkInvoke(t.config, func() error { return t.launchInput(stream, b, driver.DevicePtr(input.ptr), 1) }, func() error { return stream.Synchronize(nil) }, func() ([]int32, []int32, error) {
 		status, counts := make([]int32, t.config.Rows), make([]int32, t.config.Rows)
 		if err := b.Status.CopyToHost(status); err != nil {
 			return nil, nil, err
@@ -233,8 +252,8 @@ func topkInvoke(c TopKConfig, launch, wait func() error, read func() ([]int32, [
 	return true, publishErr
 }
 
-func (t *TopK) launch(stream *cuda.Stream, b TopKBuffers) error {
-	ptrs := []driver.DevicePtr{b.Input.Ptr(), b.Lengths.Ptr(), b.Offsets.Ptr(), b.ScratchIndices.Ptr(), b.ScratchValues.Ptr(), b.ScratchCounts.Ptr(), b.Status.Ptr()}
+func (t *TopK) launchInput(stream *cuda.Stream, b TopKBuffers, input driver.DevicePtr, threads uint32) error {
+	ptrs := []driver.DevicePtr{input, b.Lengths.Ptr(), b.Offsets.Ptr(), b.ScratchIndices.Ptr(), b.ScratchValues.Ptr(), b.ScratchCounts.Ptr(), b.Status.Ptr()}
 	stride := uint64(t.config.RowStride)
 	width, k, rows, values := int32(t.config.Width), int32(t.config.K), int32(t.config.Rows), int32(0)
 	if t.config.Values {
@@ -246,34 +265,41 @@ func (t *TopK) launch(stream *cuda.Stream, b TopKBuffers) error {
 	}
 	args = append(args, unsafe.Pointer(&stride), unsafe.Pointer(&width), unsafe.Pointer(&k), unsafe.Pointer(&rows), unsafe.Pointer(&values))
 	return stream.WithHandle(func(handle driver.Stream) error {
-		return t.kernel.Launch([3]uint32{uint32(rows), 1, 1}, [3]uint32{1, 1, 1}, 0, handle, args)
+		return t.kernel.Launch([3]uint32{uint32(rows), 1, 1}, [3]uint32{threads, 1, 1}, 0, handle, args)
 	})
 }
 
 type topkBuffer struct {
-	name         string
-	ptr          uint64
-	length, need int
-	owner        *cuda.Device
-	borrow       func(*cuda.Device) (func(), error)
+	name             string
+	ptr              uint64
+	length, need     int
+	owner            *cuda.Device
+	borrow           func(*cuda.Device) (func(), error)
+	bytes, alignment uint64 // Zero defaults to the FP32/int32 four-byte format.
 }
 
 func (t *TopK) borrow(b TopKBuffers) ([]func(), error) {
+	input := topkBuffer{name: "input", ptr: uint64(b.Input.Ptr()), length: b.Input.Len(), owner: b.Input.Device(), borrow: b.Input.Borrow}
+	return t.borrowInput(b, input)
+}
+
+func (t *TopK) borrowInput(b TopKBuffers, input topkBuffer) ([]func(), error) {
 	e, err := t.config.Extents()
 	if err != nil {
 		return nil, err
 	}
 	floatBuf := func(name string, s cudamem.Slice[float32], n int) topkBuffer {
-		return topkBuffer{name, uint64(s.Ptr()), s.Len(), n, s.Device(), s.Borrow}
+		return topkBuffer{name: name, ptr: uint64(s.Ptr()), length: s.Len(), need: n, owner: s.Device(), borrow: s.Borrow}
 	}
 	intBuf := func(name string, s cudamem.Slice[int32], n int) topkBuffer {
-		return topkBuffer{name, uint64(s.Ptr()), s.Len(), n, s.Device(), s.Borrow}
+		return topkBuffer{name: name, ptr: uint64(s.Ptr()), length: s.Len(), need: n, owner: s.Device(), borrow: s.Borrow}
 	}
 	v := 0
 	if t.config.Values {
 		v = e.Results
 	}
-	bufs := []topkBuffer{floatBuf("input", b.Input, e.Input), intBuf("lengths", b.Lengths, e.RowMetadata), intBuf("offsets", b.Offsets, e.RowMetadata), intBuf("scratch indices", b.ScratchIndices, e.Results), floatBuf("scratch values", b.ScratchValues, v), intBuf("scratch counts", b.ScratchCounts, e.RowMetadata), intBuf("status", b.Status, e.RowMetadata), intBuf("indices", b.Indices, e.Results), floatBuf("values", b.Values, v), intBuf("counts", b.Counts, e.RowMetadata)}
+	input.need = e.Input
+	bufs := []topkBuffer{input, intBuf("lengths", b.Lengths, e.RowMetadata), intBuf("offsets", b.Offsets, e.RowMetadata), intBuf("scratch indices", b.ScratchIndices, e.Results), floatBuf("scratch values", b.ScratchValues, v), intBuf("scratch counts", b.ScratchCounts, e.RowMetadata), intBuf("status", b.Status, e.RowMetadata), intBuf("indices", b.Indices, e.Results), floatBuf("values", b.Values, v), intBuf("counts", b.Counts, e.RowMetadata)}
 	if err := topkCheckBuffers(bufs, t.device); err != nil {
 		return nil, err
 	}
@@ -309,16 +335,29 @@ func topkCheckBuffers(bufs []topkBuffer, dev *cuda.Device) error {
 			}
 			continue
 		}
-		if b.length != b.need || b.ptr == 0 || b.ptr%4 != 0 || b.owner != dev || b.ptr > ^uint64(0)-uint64(b.need)*4 {
+		bytes, alignment := b.format()
+		if b.need < 0 || b.length != b.need || b.ptr == 0 || b.ptr%alignment != 0 || b.owner != dev || uint64(b.need) > ^uint64(0)/bytes || b.ptr > ^uint64(0)-uint64(b.need)*bytes {
 			return fmt.Errorf("cudablock: invalid topk %s buffer", b.name)
 		}
 		for _, a := range bufs[:i] {
-			if a.need > 0 && a.ptr < b.ptr+uint64(b.need)*4 && b.ptr < a.ptr+uint64(a.need)*4 {
+			aBytes, _ := a.format()
+			if a.need > 0 && a.ptr < b.ptr+uint64(b.need)*bytes && b.ptr < a.ptr+uint64(a.need)*aBytes {
 				return fmt.Errorf("cudablock: topk buffers %s and %s alias", a.name, b.name)
 			}
 		}
 	}
 	return nil
+}
+
+func (b topkBuffer) format() (bytes, alignment uint64) {
+	bytes, alignment = b.bytes, b.alignment
+	if bytes == 0 {
+		bytes = 4
+	}
+	if alignment == 0 {
+		alignment = 4
+	}
+	return bytes, alignment
 }
 
 func (t *TopK) release() {
