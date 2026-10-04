@@ -225,6 +225,20 @@ func scanSharedConversions(fn *cudasass.Function) sharedConversionScan {
 				continue
 			}
 			values[dest] = fresh(inst.Address)
+		case "IADD3":
+			// Only the observed scalar form with discarded predicate outputs
+			// is supported. Its result has no inferred address provenance.
+			if len(operands) != 6 || operands[1] != "PT" || operands[2] != "PT" || operands[5] != "RZ" || !conversionImmediate(operands[4]) {
+				refuse(inst.Address, "unsupported IADD3 operands")
+				continue
+			}
+			dest, destOK := conversionRegister(operands[0])
+			source, sourceOK := conversionRegister(operands[3])
+			if !destOK || !sourceOK || dest == 255 || source == 255 {
+				refuse(inst.Address, "unsupported IADD3 register")
+				continue
+			}
+			values[dest] = fresh(inst.Address)
 		case "LDC.64":
 			if len(operands) != 2 {
 				refuse(inst.Address, "unsupported pair write")
