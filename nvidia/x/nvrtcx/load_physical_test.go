@@ -25,7 +25,17 @@ func TestDriverJITDiagnostics(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	const header = ".version 8.0\n.target sm_90\n.address_size 64\n.visible .entry probe() {\n"
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := major*10 + minor
+	// PTX 8.0 supports targets through sm_90. The fixture uses no
+	// architecture-specific instructions, so newer GPUs can JIT that target.
+	if target > 90 {
+		target = 90
+	}
+	header := fmt.Sprintf(".version 8.0\n.target sm_%d\n.address_size 64\n.visible .entry probe() {\n", target)
 	for _, tt := range []struct {
 		name, body string
 		invalid    bool
