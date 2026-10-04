@@ -33,6 +33,7 @@ type CommPlan struct {
 
 	mu     sync.Mutex
 	closed bool
+	active int
 }
 
 // AllocatePlan allocates a plan's device tensors for l. Contents are
@@ -64,12 +65,16 @@ func AllocatePlan(l *Layout) (*CommPlan, error) {
 }
 
 // Close frees the plan's device memory. The plan must not be referenced by
-// any in-flight kernel. Close is idempotent.
+// any in-flight raw transport kernel. Tracked local dedup work prevents Close
+// until completion. Close is idempotent.
 func (p *CommPlan) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.closed {
 		return nil
+	}
+	if p.active != 0 {
+		return errors.New("moonep: plan has incomplete local work")
 	}
 	p.closed = true
 	var errs []error
