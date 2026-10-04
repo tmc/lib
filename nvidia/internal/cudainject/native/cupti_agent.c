@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/un.h>
+#include <unwind.h>
 #endif
 
 /* CUDAPROF_AGENT_REVISION is set by the build to the revision of the source
@@ -1312,9 +1313,11 @@ static int append_api(const char *domain, const CUpti_ActivityAPI *api) {
    each driver launch on that thread asks whether it is still inside
    libcublasLt: a return address inside the library's code means the launch is
    the call's (a split-K GEMM launches twice), and none means the call has
-   returned. The walk follows frame records, which AArch64 code keeps; code
-   built without them ends the walk early and leaves the call with no
-   launches, which the reader reports rather than guesses at.
+   returned. The walk follows frame records, which AArch64 code keeps. The
+   x86-64 driver and libraries omit them, so a walk that misses the library
+   is retried with the unwinder, which reads the libraries' .eh_frame tables
+   instead. A stack neither can walk leaves the call with no launches, which
+   the reader reports rather than guesses at.
 
    The library is loaded when the target decides, so it is looked for at
    start and then on each callback until it appears. dl_iterate_phdr's
@@ -1475,9 +1478,27 @@ static void gemm_log(int level, const char *function, const char *message) {
 	atomic_fetch_sub(&callback_active, 1);
 }
 
-/* gemm_in_library reports whether a caller of this function is code in
-   libcublasLt, by the return addresses in this thread's frame records. */
-__attribute__((noinline)) static int gemm_in_library(void) {
+#ifdef __linux__
+struct gemm_unwind {
+	int found;
+	int depth;
+};
+
+static _Unwind_Reason_Code gemm_unwind_frame(struct _Unwind_Context *ctx, void *arg) {
+	struct gemm_unwind *u = arg;
+	uintptr_t pc = (uintptr_t)_Unwind_GetIP(ctx);
+	if (pc >= gemm_text_lo && pc < gemm_text_hi) {
+		u->found = 1;
+		return _URC_END_OF_STACK;
+	}
+	return ++u->depth < 64 ? _URC_NO_REASON : _URC_END_OF_STACK;
+}
+#endif
+
+/* gemm_frames_in_library reports whether a caller of gemm_in_library is
+   code in libcublasLt, by the return addresses in this thread's frame
+   records. */
+__attribute__((always_inline)) static inline int gemm_frames_in_library(void) {
 	if (gemm_stack_state == 0) {
 		gemm_stack_state = -1;
 #ifdef __linux__
@@ -1504,6 +1525,19 @@ __attribute__((noinline)) static int gemm_in_library(void) {
 		fp = (const uintptr_t *)fp[0];
 	}
 	return 0;
+}
+
+/* gemm_in_library reports whether a caller of this function is code in
+   libcublasLt: by frame records, or else by the unwinder. */
+__attribute__((noinline)) static int gemm_in_library(void) {
+	if (gemm_frames_in_library()) return 1;
+#ifdef __linux__
+	struct gemm_unwind u = {0, 0};
+	_Unwind_Backtrace(gemm_unwind_frame, &u);
+	return u.found;
+#else
+	return 0;
+#endif
 }
 
 static int gemm_launch_cbid(CUpti_CallbackId cbid) {
