@@ -35,7 +35,7 @@ func TestCUBINArchitectureABI(t *testing.T) {
 					}
 					order.PutUint16(image[18:20], uint16(elf.EM_X86_64))
 					info, err = ParseCUBIN(image)
-					if err != nil || info.Arch != "" {
+					if err == nil || info != nil {
 						t.Fatalf("non-CUDA architecture: %+v, %v", info, err)
 					}
 				})

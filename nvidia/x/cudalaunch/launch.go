@@ -486,8 +486,8 @@ func (l *Launcher) ResolveArgs(args ...any) ([]any, error) {
 		if attr.Id != driver.LaunchAttributeClusterDimension {
 			continue
 		}
-		b := unsafe.Slice((*byte)(unsafe.Pointer(&attr.Value[0])), 12)
-		cluster := [3]uint32{binary.LittleEndian.Uint32(b[0:4]), binary.LittleEndian.Uint32(b[4:8]), binary.LittleEndian.Uint32(b[8:12])}
+		dim := attr.Value.ClusterDim()
+		cluster := [3]uint32{dim.X, dim.Y, dim.Z}
 		for i, extent := range inferred.Dims() {
 			if cluster[i] == 0 || extent%cluster[i] != 0 {
 				return nil, fmt.Errorf("%w: inferred grid %v is not divisible by cluster dimension %v", ErrClusterGridMismatch, inferred, cluster)

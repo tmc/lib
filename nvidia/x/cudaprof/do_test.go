@@ -173,11 +173,11 @@ func BenchmarkDoCostAfterStackBudgetFull(b *testing.B) {
 	base := filepath.Join(b.TempDir(), "external-stacks.json")
 	oldPath, hadPath := os.LookupEnv(ExternalStacksEnv)
 	_ = os.Setenv(ExternalStacksEnv, base)
-	oldPush, oldPop := pushExternalCorrelationID, popExternalCorrelationID
+	oldPush, oldPop := pushExternalID, popExternalID
 	oldBudget, oldKind := externalStackBudget, correlationKind.Load()
 	var last uint64
-	pushExternalCorrelationID = func(_ cupti.ExternalCorrelationKind, id uint64) error { last = id; return nil }
-	popExternalCorrelationID = func(cupti.ExternalCorrelationKind) (uint64, error) { return last, nil }
+	pushExternalID = func(_ cupti.ExternalCorrelationKind, id uint64) error { last = id; return nil }
+	popExternalID = func(cupti.ExternalCorrelationKind) (uint64, error) { return last, nil }
 	ResetExternalStacks()
 	externalStackBudget = 1
 	Correlate(cupti.ExternalCorrelationKindCustom0)
@@ -188,7 +188,7 @@ func BenchmarkDoCostAfterStackBudgetFull(b *testing.B) {
 		sidecarTargetCallSite()
 	}
 	b.StopTimer()
-	pushExternalCorrelationID, popExternalCorrelationID = oldPush, oldPop
+	pushExternalID, popExternalID = oldPush, oldPop
 	externalStackBudget = oldBudget
 	correlationKind.Store(oldKind)
 	ResetExternalStacks()
@@ -203,11 +203,11 @@ func BenchmarkDoCostWithinStackBudget(b *testing.B) {
 	base := filepath.Join(b.TempDir(), "external-stacks.json")
 	oldPath, hadPath := os.LookupEnv(ExternalStacksEnv)
 	_ = os.Setenv(ExternalStacksEnv, base)
-	oldPush, oldPop := pushExternalCorrelationID, popExternalCorrelationID
+	oldPush, oldPop := pushExternalID, popExternalID
 	oldBudget, oldKind := externalStackBudget, correlationKind.Load()
 	var last uint64
-	pushExternalCorrelationID = func(_ cupti.ExternalCorrelationKind, id uint64) error { last = id; return nil }
-	popExternalCorrelationID = func(cupti.ExternalCorrelationKind) (uint64, error) { return last, nil }
+	pushExternalID = func(_ cupti.ExternalCorrelationKind, id uint64) error { last = id; return nil }
+	popExternalID = func(cupti.ExternalCorrelationKind) (uint64, error) { return last, nil }
 	ResetExternalStacks()
 	externalStackBudget = b.N + 10
 	Correlate(cupti.ExternalCorrelationKindCustom0)
@@ -216,7 +216,7 @@ func BenchmarkDoCostWithinStackBudget(b *testing.B) {
 		sidecarTargetCallSite()
 	}
 	b.StopTimer()
-	pushExternalCorrelationID, popExternalCorrelationID = oldPush, oldPop
+	pushExternalID, popExternalID = oldPush, oldPop
 	externalStackBudget = oldBudget
 	correlationKind.Store(oldKind)
 	ResetExternalStacks()
