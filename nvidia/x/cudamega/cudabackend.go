@@ -44,6 +44,11 @@ func (c *cudaSource) Begin(p *Program) error {
 	if c.p != p {
 		return fmt.Errorf("backend was built for another program")
 	}
+	for _, s := range p.steps {
+		if s.Operation.Kind != Add && s.Operation.Kind != Multiply || s.Operation.moe != nil {
+			return fmt.Errorf("scalar CUDA backend refuses typed payload")
+		}
+	}
 	fmt.Fprintf(&c.defs, "constexpr unsigned task_count = %d;\n", len(p.steps))
 	fmt.Fprintf(&c.defs, "constexpr unsigned grid_ctas = %d;\n", p.grid.CTAs)
 	// Only a dependency wait polls, so only a graph with a dependency edge

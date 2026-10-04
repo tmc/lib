@@ -279,6 +279,10 @@ type Program struct {
 //     release publishes a completion word that a CTA in another block will
 //     read, and that is the same defect seen from the other side.
 func NewProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Grid, target Target) (*Program, error) {
+	return newProgram(g, operations, grid, target, false)
+}
+
+func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Grid, target Target, typed bool) (*Program, error) {
 	tasks := g.Tasks()
 	if len(tasks) == 0 || len(tasks) > 1024 || len(operations) != len(tasks) {
 		return nil, fmt.Errorf("finite program requires 1..1024 operations matching its tasks")
@@ -321,8 +325,18 @@ func NewProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	indices := make(map[string]int, len(tasks))
 	for i, t := range tasks {
 		op, ok := operations[t.ID]
-		if !ok || op.Kind != Add && op.Kind != Multiply {
+		if !ok || op.Kind != Add && op.Kind != Multiply && !(typed && op.Kind == MoEGateUp && op.moe != nil) {
 			return nil, fmt.Errorf("task %q has no supported operation", t.ID)
+		}
+		if op.moe != nil {
+			if !typed || op.Kind != MoEGateUp || len(tasks) != 1 || len(t.Deps) != 0 || grid.CTAs != 1 || grid.ThreadsPerCTA != 32 || t.Scope != cudataskgraph.ScopeDevice {
+				return nil, fmt.Errorf("typed weight payload requires one independent device-scope task and one 32-thread CTA")
+			}
+			if err := op.moe.validate(); err != nil {
+				return nil, err
+			}
+			value := *op.moe
+			op.moe = &value
 		}
 		if err := supportsScope(target, t.Scope); err != nil {
 			return nil, fmt.Errorf("task %q: %w", t.ID, err)
@@ -415,6 +429,10 @@ func supportsScope(target Target, s cudataskgraph.Scope) error {
 func (p *Program) Steps() []Step {
 	out := make([]Step, len(p.steps))
 	for i, s := range p.steps {
+		if s.Operation.moe != nil {
+			value := *s.Operation.moe
+			s.Operation.moe = &value
+		}
 		s.Task.Deps = append([]string(nil), s.Task.Deps...)
 		s.Deps = append([]int(nil), s.Deps...)
 		s.EdgeScope = append([]cudataskgraph.Scope(nil), s.EdgeScope...)

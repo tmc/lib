@@ -14,6 +14,7 @@ import (
 type Operation struct {
 	Kind   Opcode
 	Scalar uint32
+	moe    *MoEWeightConfig
 }
 
 type Opcode uint8
@@ -21,6 +22,9 @@ type Opcode uint8
 const (
 	Add Opcode = iota + 1
 	Multiply
+	// MoEGateUp is the typed payload emitted only by MoEWeightSource.
+	// The scalar ProgramSource and public NewProgram refuse it.
+	MoEGateUp
 )
 
 // Abort codes the generated worker writes to the volatile abort buffer. Zero
