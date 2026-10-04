@@ -122,7 +122,7 @@ type Options struct {
 	MaxNOPFraction float64
 
 	// InferredSharedSlots lists slot or kernel names whose SASS must not contain
-	// shared-space address conversions.
+	// shared-space address conversions. Labels do not prove slot attribution.
 	InferredSharedSlots []string
 
 	// CheckSharedConversions, when true, verifies that no shared-space address
@@ -199,6 +199,9 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 
 	match := Match(m, d)
 	r := &Report{}
+	if (opts.CheckSharedConversions || len(opts.InferredSharedSlots) > 0) && len(match.Pairs) == 0 {
+		return r, errors.New("cudalowering: shared conversion analysis requires a matched executable kernel")
+	}
 	for _, p := range match.Pairs {
 		ptx := p.PTX.Summary()
 		sass := p.SASS.Summary()
@@ -263,12 +266,22 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 		}
 
 		if opts.CheckSharedConversions || len(opts.InferredSharedSlots) > 0 {
+			if m.Target != "sm_121" || d.Target != "sm_121" {
+				return r, fmt.Errorf("cudalowering: %s: shared conversion analysis unavailable for PTX target %q and SASS target %q (requires both exact sm_121)", p.PTX.Name, m.Target, d.Target)
+			}
 			cvtaCount := ptx.Count("cvta.shared") + ptx.Count("cvta.to.shared")
-			sassConvCount := countSharedConversions(p.SASS)
+			scan := scanSharedConversions(p.SASS)
+			sassConvCount := len(scan.chains)
 			if cvtaCount > 0 || sassConvCount > 0 {
 				detail := ""
 				if len(opts.InferredSharedSlots) > 0 {
-					detail = fmt.Sprintf("inferred slots: %s", strings.Join(opts.InferredSharedSlots, ", "))
+					detail = fmt.Sprintf("requested labels (not slot attribution): %s", strings.Join(opts.InferredSharedSlots, ", "))
+				}
+				for _, chain := range scan.chains {
+					if detail != "" {
+						detail += "; "
+					}
+					detail += "observed SM121 mechanism: " + chain.String()
 				}
 				r.Divergences = append(r.Divergences, Divergence{
 					Kind:       SharedConversion,
@@ -279,6 +292,9 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 					SASSCount:  sassConvCount,
 					Detail:     detail,
 				})
+			}
+			if len(scan.refusals) != 0 {
+				return r, fmt.Errorf("cudalowering: %s: shared conversion analysis unavailable: %s", p.PTX.Name, strings.Join(scan.refusals, "; "))
 			}
 		}
 
@@ -302,10 +318,11 @@ func Compare(m *cudaptx.Module, d *cudasass.Disassembly, opts *Options) (*Report
 	return r, nil
 }
 
-// VerifyNoSharedConversions verifies that neither the PTX module nor the SASS disassembly
-// contains shared-space address conversions for the given kernel slots.
-// If any shared conversion instructions or cvta.shared opcodes are found, they are reported
-// as [SharedConversion] divergences in the returned report.
+// VerifyNoSharedConversions checks matched kernels for PTX shared conversions
+// and the bounded observed SM121 SASS conversion mechanism. Unsupported SASS
+// returns an error and a partial report; it cannot establish conversion absence.
+// Slots are descriptive caller labels, not evidence of per-slot attribution.
+// This textual check does not attest a machine-code encoding or other targets.
 func VerifyNoSharedConversions(m *cudaptx.Module, d *cudasass.Disassembly, slots ...string) (*Report, error) {
 	if len(slots) == 0 {
 		return nil, errors.New("cudalowering: no inferred shared slots specified")
@@ -318,18 +335,7 @@ func VerifyNoSharedConversions(m *cudaptx.Module, d *cudasass.Disassembly, slots
 }
 
 func countSharedConversions(fn *cudasass.Function) int {
-	if fn == nil {
-		return 0
-	}
-	count := 0
-	for _, inst := range fn.Instructions {
-		op := strings.ToUpper(inst.Opcode)
-		if op == "CVTA.SHARED" || strings.HasPrefix(op, "CVTA.SHARED.") ||
-			op == "CVTA.TO.SHARED" || strings.HasPrefix(op, "CVTA.TO.SHARED.") {
-			count++
-		}
-	}
-	return count
+	return len(scanSharedConversions(fn).chains)
 }
 
 // countNOPs returns the number of NOP instructions in fn and the number of them

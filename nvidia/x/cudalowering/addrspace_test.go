@@ -13,7 +13,7 @@ func TestVerifyNoSharedConversions_Host(t *testing.T) {
 	// Case 1: Kernel without inference has cvta.shared in PTX and conversion in SASS.
 	ptxWithoutInference := `
 .version 8.0
-.target sm_90
+.target sm_121
 .address_size 64
 
 .entry test_kernel_without (
@@ -29,13 +29,7 @@ func TestVerifyNoSharedConversions_Host(t *testing.T) {
     ret;
 }
 `
-	sassWithoutInference := `
-code for sm_90
-Function : test_kernel_without
-/*0000*/ CVTA.SHARED R2, R1 ;
-/*0010*/ LD.E R3, [R2] ;
-/*0020*/ RET ;
-`
+	sassWithoutInference := strings.Replace(observedSharedConversion, "Function : kernel", "Function : test_kernel_without", 1)
 	mWithout, err := cudaptx.Parse(strings.NewReader(ptxWithoutInference))
 	if err != nil {
 		t.Fatalf("parse PTX without inference: %v", err)
@@ -56,7 +50,7 @@ Function : test_kernel_without
 	for _, d := range reportWithout.Divergences {
 		if d.Kind == SharedConversion {
 			foundSharedConv = true
-			if !strings.Contains(d.Detail, "inferred slots: %slot") {
+			if !strings.Contains(d.Detail, "requested labels (not slot attribution): %slot") {
 				t.Errorf("slot label missing from conversion report: %+v", d)
 			}
 			if d.PTXCount == 0 && d.SASSCount == 0 {
@@ -74,7 +68,7 @@ Function : test_kernel_without
 	// Case 2: Kernel with inference has direct ld.shared and no conversions.
 	ptxWithInference := `
 .version 8.0
-.target sm_90
+.target sm_121
 .address_size 64
 
 .entry test_kernel_with (
@@ -88,7 +82,7 @@ Function : test_kernel_without
 }
 `
 	sassWithInference := `
-code for sm_90
+code for sm_121
 Function : test_kernel_with
 /*0000*/ LDS R1, [R0] ;
 /*0010*/ RET ;

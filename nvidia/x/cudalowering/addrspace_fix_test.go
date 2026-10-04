@@ -9,19 +9,9 @@ import (
 )
 
 func TestCountSharedConversions(t *testing.T) {
-	fn := &cudasass.Function{Instructions: []cudasass.Instruction{
-		{Opcode: "CVTA.SHARED"},
-		{Opcode: "CVTA.SHARED.U64"},
-		{Opcode: "CVTA.GLOBAL"},
-		{Opcode: "LD.E"},
-		{Opcode: "LDG.E"},
-		{Opcode: "LDS"},
-		{Opcode: "ST.E"},
-		{Opcode: "STG.E"},
-		{Opcode: "STS"},
-	}}
-	if got := countSharedConversions(fn); got != 2 {
-		t.Fatalf("countSharedConversions = %d, want 2", got)
+	fn := parseConversionFixture(t, observedSharedConversion)
+	if got := countSharedConversions(fn); got != 1 {
+		t.Fatalf("countSharedConversions = %d, want 1", got)
 	}
 	if _, err := VerifyNoSharedConversions(nil, nil); err == nil {
 		t.Fatal("VerifyNoSharedConversions accepted an empty slot list")
@@ -30,21 +20,24 @@ func TestCountSharedConversions(t *testing.T) {
 
 func TestVerifyNoSharedConversions_RejectsMismatchedPair(t *testing.T) {
 	ptx, err := cudaptx.Parse(strings.NewReader(`.version 8.0
-.target sm_90
+.target sm_121
 .address_size 64
 .entry matched() { ret; }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	sass, err := cudasass.Parse(strings.NewReader(`code for sm_90
+	sass, err := cudasass.Parse(strings.NewReader(`code for sm_121
 Function : unrelated
 /*0000*/ RET ;
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	report, err := VerifyNoSharedConversions(ptx, sass, "%slot")
+	if _, err := VerifyNoSharedConversions(ptx, sass, "%slot"); err == nil || !strings.Contains(err.Error(), "matched executable kernel") {
+		t.Fatalf("required mismatched comparison error = %v", err)
+	}
+	report, err := Compare(ptx, sass, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,14 +48,14 @@ Function : unrelated
 
 func TestVerifyNoSharedConversions_RequiresSlotWithValidPair(t *testing.T) {
 	ptx, err := cudaptx.Parse(strings.NewReader(`.version 8.0
-.target sm_90
+.target sm_121
 .address_size 64
 .entry matched() { ret; }
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	sass, err := cudasass.Parse(strings.NewReader(`code for sm_90
+	sass, err := cudasass.Parse(strings.NewReader(`code for sm_121
 Function : matched
 /*0000*/ RET ;
 `))
@@ -76,7 +69,7 @@ Function : matched
 
 func TestVerifyNoSharedConversions_GlobalTrafficIsNotConversion(t *testing.T) {
 	ptx, err := cudaptx.Parse(strings.NewReader(`.version 8.0
-.target sm_90
+.target sm_121
 .address_size 64
 .entry global_only() {
   .reg .b32 %r<2>;
@@ -87,7 +80,7 @@ func TestVerifyNoSharedConversions_GlobalTrafficIsNotConversion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sass, err := cudasass.Parse(strings.NewReader(`code for sm_90
+	sass, err := cudasass.Parse(strings.NewReader(`code for sm_121
 Function : global_only
 /*0000*/ LDG.E R1, [R0] ;
 /*0010*/ STG.E [R0], R1 ;
@@ -109,7 +102,7 @@ func TestVerifyNoSharedConversionsPTXOnly(t *testing.T) {
 	for _, opcode := range []string{"cvta.shared.u64", "cvta.to.shared.u64"} {
 		t.Run(opcode, func(t *testing.T) {
 			ptx, err := cudaptx.Parse(strings.NewReader(`.version 8.0
-.target sm_90
+.target sm_121
 .address_size 64
 .entry ptx_only() {
   .reg .b64 %rd<2>;
@@ -119,7 +112,7 @@ func TestVerifyNoSharedConversionsPTXOnly(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			sass, err := cudasass.Parse(strings.NewReader(`code for sm_90
+			sass, err := cudasass.Parse(strings.NewReader(`code for sm_121
 Function : ptx_only
 /*0000*/ RET ;
 `))

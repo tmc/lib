@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudalowering"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
@@ -68,13 +69,19 @@ func ExampleReport_Err() {
 }
 
 func ExampleVerifyNoSharedConversions() {
-	m, d := parse("testdata/lowering.sm90.ptx", "testdata/lowering.sm90.sass")
-
+	m, err := cudaptx.Parse(strings.NewReader(".version 8.0\n.target sm_121\n.address_size 64\n.entry kernel() { ret; }\n"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	d, err := cudasass.Parse(strings.NewReader("code for sm_121\nFunction : kernel\n/*0000*/ LDS R1, [R0];\n/*0010*/ EXIT;\n"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	r, err := cudalowering.VerifyNoSharedConversions(m, d, "%sharedSlot")
 	if err != nil {
 		log.Fatal(err)
 	}
-	// The lowering.sm90 kernels do not contain shared conversion divergences.
+	// This supported direct-access fragment contains no recognized conversion.
 	hasSharedConv := false
 	for _, div := range r.Divergences {
 		if div.Kind == cudalowering.SharedConversion {
