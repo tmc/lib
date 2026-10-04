@@ -141,6 +141,14 @@ func TestNativeAffineArtifact(t *testing.T) {
 	}
 	defer dev.Close()
 
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if major != 12 || minor != 1 {
+		t.Skipf("sm_121a fixture requires compute capability 12.1; device is %d.%d", major, minor)
+	}
+
 	mod, err := art.Load(dev)
 	if err != nil {
 		t.Fatalf("art.Load on device: %v", err)
