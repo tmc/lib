@@ -320,7 +320,7 @@ func TestNativeBackwardReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	nativePlan, err := cudaplan.Compile(snap, cudaplan.WithDevice(dev))
 	if err != nil {

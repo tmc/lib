@@ -17,7 +17,8 @@ const (
 	GradientModeIgnore GradientMode = iota
 	// GradientModeOverwrite overwrites gradient memory directly.
 	GradientModeOverwrite
-	// GradientModeAccumulate atomically adds gradients into memory.
+	// GradientModeAccumulate adds gradients to existing output memory. The
+	// emitter must declare its policy for concurrently shared outputs.
 	GradientModeAccumulate
 )
 
@@ -50,7 +51,9 @@ func (m GradientMode) String() string {
 // indexed output write.
 //
 // Context accessor integer constants and arithmetic offsets are checked at emission; dynamic
-// offsets are checked against FwdCtxBytes at run time by LoadByte/StoreByte.
+// offsets are checked against FwdCtxBytes at run time by LoadByte/StoreByte
+// and LoadFloat/StoreFloat. Float access uses aligned four-byte offsets and
+// checked spans; load destinations must be matching scalar body locals.
 type Emitter interface {
 	EmitForward(name string) (string, error)
 	InputWidth() int
@@ -65,6 +68,12 @@ type BackwardEmitter interface {
 	Emitter
 	EmitBackward(name string, nThreads int) (string, error)
 	BackwardShmemBytes(nThreads int, mode GradientMode) int
+}
+
+// BackwardModeEmitter selects the parameter-gradient write mode at emission.
+// Its output buffer belongs to one sample; batch reduction is a separate step.
+type BackwardModeEmitter interface {
+	EmitBackwardMode(name string, nThreads int, mode GradientMode) (string, error)
 }
 
 // CompositeEmitter represents a sequential composition and exposes its ordered child emitters.
@@ -299,7 +308,7 @@ func EmitBackwardFromBody(n BackwardEmitter, name, body string) (string, error) 
 
 	var offsetPreamble string
 	if n.FwdCtxAlignedPerElement() && ctxBytes > 0 {
-		offsetPreamble = fmt.Sprintf("\tfwd_ctx += lane_id() * %d;\n", ctxBytes)
+		offsetPreamble = fmt.Sprintf("\tif (fwd_ctx) fwd_ctx += lane_id() * %d;\n", ctxBytes)
 	}
 	offsetPreamble += backwardContextAccessor(ctxBytes)
 
@@ -311,15 +320,20 @@ func forwardContextAccessor(size int) string {
 	if size == 0 {
 		return ""
 	}
-	return fmt.Sprintf("\tstruct __cudair_context { uint8_t* p; int n; __device__ bool StoreByte(int i, uint8_t v) { if (i < 0 || i >= n || p == nullptr) return false; p[i] = v; return true; } __device__ bool LoadByte(int i, uint8_t* v) const { if (i < 0 || i >= n || p == nullptr || v == nullptr) return false; *v = p[i]; return true; } };\n\t__cudair_context __cudair_ctx{fwd_ctx, %d};\n", size)
+	return fmt.Sprintf("\tstruct __cudair_context { uint8_t* p; int n; __device__ bool StoreByte(int i, uint8_t v) { if (i < 0 || i >= n || p == nullptr) return false; p[i] = v; return true; } __device__ bool LoadByte(int i, uint8_t* v) const { if (i < 0 || i >= n || p == nullptr || v == nullptr) return false; *v = p[i]; return true; } %s %s };\n\t__cudair_context __cudair_ctx{fwd_ctx, %d};\n", contextFloatLoad, contextFloatStore, size)
 }
 
 func backwardContextAccessor(size int) string {
 	if size == 0 {
 		return ""
 	}
-	return fmt.Sprintf("\tstruct __cudair_context { const uint8_t* p; int n; __device__ bool LoadByte(int i, uint8_t* v) const { if (i < 0 || i >= n || p == nullptr || v == nullptr) return false; *v = p[i]; return true; } };\n\t__cudair_context __cudair_ctx{fwd_ctx, %d};\n", size)
+	return fmt.Sprintf("\tstruct __cudair_context { const uint8_t* p; int n; __device__ bool LoadByte(int i, uint8_t* v) const { if (i < 0 || i >= n || p == nullptr || v == nullptr) return false; *v = p[i]; return true; } %s };\n\t__cudair_context __cudair_ctx{fwd_ctx, %d};\n", contextFloatLoad, size)
 }
+
+// Byte copies avoid requiring an aligned native float pointer. Offsets are
+// nevertheless four-byte aligned, and subtraction avoids offset overflow.
+const contextFloatLoad = `__device__ bool LoadFloat(int i, float* v) const { if (i < 0 || i % 4 != 0 || n < 4 || i > n - 4 || p == nullptr || v == nullptr) return false; uint8_t* b = reinterpret_cast<uint8_t*>(v); for (int j = 0; j < 4; ++j) b[j] = p[i+j]; return true; }`
+const contextFloatStore = `__device__ bool StoreFloat(int i, float v) { if (i < 0 || i % 4 != 0 || n < 4 || i > n - 4 || p == nullptr) return false; const uint8_t* b = reinterpret_cast<const uint8_t*>(&v); for (int j = 0; j < 4; ++j) p[i+j] = b[j]; return true; }`
 
 // Unit carries concatenated device code, emitted symbol names, and resource requirements.
 type Unit struct {
@@ -375,6 +389,9 @@ func EmitBackwardTree(root BackwardEmitter, name string, nThreads int, mode Grad
 	}
 	if nThreads <= 0 {
 		return Unit{}, fmt.Errorf("cudair: invalid backward thread count %d", nThreads)
+	}
+	if mode < GradientModeIgnore || mode > GradientModeAccumulate {
+		return Unit{}, fmt.Errorf("cudair: invalid gradient mode %d", mode)
 	}
 	usedNames := map[string]bool{name: true}
 	return emitBackwardTreeRecursive(root, name, usedNames, nThreads, mode)
@@ -437,6 +454,8 @@ func emitBackwardTreeRecursive(node BackwardEmitter, name string, usedNames map[
 	src := ""
 	if composite, ok := node.(BackwardCompositeSymbolEmitter); ok && len(childSymbols) != 0 {
 		src, err = composite.EmitBackwardWithChildren(name, childSymbols, nThreads, mode)
+	} else if emitter, ok := node.(BackwardModeEmitter); ok {
+		src, err = emitter.EmitBackwardMode(name, nThreads, mode)
 	} else {
 		src, err = node.EmitBackward(name, nThreads)
 	}
@@ -445,7 +464,7 @@ func emitBackwardTreeRecursive(node BackwardEmitter, name string, usedNames map[
 	}
 	var preamble string
 	if node.FwdCtxAlignedPerElement() && declared > 0 {
-		preamble = fmt.Sprintf("\tfwd_ctx += lane_id() * %d;\n", declared)
+		preamble = fmt.Sprintf("\tif (fwd_ctx) fwd_ctx += lane_id() * %d;\n", declared)
 	}
 	if err := validateEmittedContextUse(node, src, childSymbols, preamble); err != nil {
 		return Unit{}, err

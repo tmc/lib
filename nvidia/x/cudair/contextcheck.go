@@ -99,19 +99,42 @@ func validateGeneratedContextBody(node Emitter, source string, children []ChildS
 		}
 		if token.text == "__cudair_ctx" {
 			if i+3 >= len(tokens) || tokens[i+1].text != "." || tokens[i+3].text != "(" ||
-				(tokens[i+2].text != "LoadByte" && tokens[i+2].text != "StoreByte") {
+				(tokens[i+2].text != "LoadByte" && tokens[i+2].text != "StoreByte" && tokens[i+2].text != "LoadFloat" && tokens[i+2].text != "StoreFloat") {
 				return fail("context accessor used in an unsupported form")
 			}
-			if backwardSource && tokens[i+2].text == "StoreByte" {
+			if backwardSource && strings.HasPrefix(tokens[i+2].text, "Store") {
 				return fail("backward context is read-only")
 			}
 			_, args, ok := callArguments(tokens, i+3)
 			if !ok || len(args) != 2 {
 				return fail("invalid context accessor arguments")
 			}
+			if strings.HasPrefix(tokens[i+2].text, "Load") {
+				dest := tokens[args[1][0]:args[1][1]]
+				if len(dest) != 2 || dest[0].text != "&" {
+					return fail("context load destination must be an address of a scalar body local")
+				}
+				typeName := "uint8_t"
+				if tokens[i+2].text == "LoadFloat" {
+					typeName = "float"
+				}
+				declared := false
+				for j := 0; j+1 < i; j++ {
+					if tokens[j].text == typeName && tokens[j+1].text == dest[1].text {
+						declared = true
+					}
+				}
+				if !declared {
+					return fail("context load destination is not a matching scalar body local")
+				}
+			}
 			if value := integerConstant(tokens[args[0][0]:args[0][1]]); value != nil {
 				offset, exact := constant.Uint64Val(value)
-				if !exact || offset >= uint64(ctxBytes) {
+				width := uint64(1)
+				if strings.HasSuffix(tokens[i+2].text, "Float") {
+					width = 4
+				}
+				if !exact || uint64(ctxBytes) < width || offset > uint64(ctxBytes)-width || width == 4 && offset%4 != 0 {
 					return fail("constant context offset is outside the declared region")
 				}
 			}
@@ -175,7 +198,8 @@ func validateBodyWrites(node Emitter, tokens []cudaToken, children []ChildSymbol
 	for i := 0; i+1 < len(tokens); i++ {
 		if tokens[i+1].text == "(" && i > 0 && isCUDAIdentStart(tokens[i].text[0]) {
 			name := tokens[i].text
-			if !keywords[name] && !childNames[name] && name != "__expf" && name != "LoadByte" && name != "StoreByte" {
+			contextCall := i >= 2 && tokens[i-1].text == "." && tokens[i-2].text == "__cudair_ctx" && (name == "LoadByte" || name == "StoreByte" || name == "LoadFloat" || name == "StoreFloat")
+			if !keywords[name] && !childNames[name] && name != "__expf" && !contextCall {
 				return fail("call is outside the generated write allowlist")
 			}
 		}

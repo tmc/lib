@@ -17,7 +17,7 @@ import (
 
 // PinnedFusedMLP64SourceHash pins the canonical source output of the 3-layer width-64 MLP.
 // Computed via sha256.Sum256([]byte(unit.Source)).
-const PinnedFusedMLP64SourceHash = "5fbe27c48cc1f2a368fdde606668657d70291171aecdba0329deb1eea1cce11d"
+const PinnedFusedMLP64SourceHash = "78250957fac0ab1a7fe9ceeef93bccbbf288908e6cebd2d7e23bffff6c0ad1b9"
 
 func TestFusedMLP64_EmitsSingleDeviceFunction(t *testing.T) {
 	mlp, err := cudalayer.NewFusedMLP(64, 64, 64, 3)
@@ -57,7 +57,11 @@ func TestFusedMLP64_EmitsSingleDeviceFunction(t *testing.T) {
 	}
 	parentBody := unit.Source[parentStart:parentEnd]
 	for i, input := range []string{"input", "h0", "h1"} {
-		call := fmt.Sprintf("%s(%s, params + %d, fwd_ctx)", unit.Symbols[i], input, i*64*64)
+		ctx := "fwd_ctx"
+		if i > 0 {
+			ctx = fmt.Sprintf("(fwd_ctx ? fwd_ctx + WARP_SIZE * %d : nullptr)", i*512)
+		}
+		call := fmt.Sprintf("%s(%s, params + %d, %s)", unit.Symbols[i], input, i*64*64, ctx)
 		if strings.Count(parentBody, call) != 1 {
 			t.Fatalf("parent must call %s once: %s", call, parentBody)
 		}
@@ -145,7 +149,14 @@ func TestFusedMLP64_NoIntermediateGlobalAllocation(t *testing.T) {
 		if !strings.Contains(body, "out[out_idx] = val;") {
 			t.Fatalf("child %q does not write only its local output vector:\n%s", symbol, body)
 		}
-		if hasNonAllowlistedWrite(body, "out", "val", "out_idx", "in_idx") {
+		// The generated bounded accessor is independently validated by cudair.
+		// Inspect the supplied body after the fixed accessor declaration.
+		accessor := strings.Index(body, "__cudair_context __cudair_ctx{")
+		if accessor < 0 {
+			t.Fatal("missing bounded context accessor")
+		}
+		body = body[accessor+strings.IndexByte(body[accessor:], '\n')+1:]
+		if hasNonAllowlistedWrite(body, "out", "val", "out_idx", "in_idx", "saved_input", "saved_value") {
 			t.Fatalf("child %q has a write outside body locals:\n%s", symbol, body)
 		}
 	}
@@ -423,11 +434,15 @@ func TestFusedMLP_BackwardParameterOffsetsAndGradientChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i, offset := range []int{0, 6, 15} {
+		ctx := "fwd_ctx"
+		if i > 0 {
+			ctx = fmt.Sprintf("(fwd_ctx ? fwd_ctx + WARP_SIZE * %d : nullptr)", []int{0, 20, 44}[i])
+		}
 		input := "input"
 		if i > 0 {
 			input = fmt.Sprintf("h%d", i-1)
 		}
-		forwardCall := fmt.Sprintf("%s(%s, params + %d, fwd_ctx)", forward.Symbols[i], input, offset)
+		forwardCall := fmt.Sprintf("%s(%s, params + %d, %s)", forward.Symbols[i], input, offset, ctx)
 		if !strings.Contains(forward.Source, forwardCall) {
 			t.Fatalf("missing forward parameter layout %q:\n%s", forwardCall, forward.Source)
 		}
@@ -442,7 +457,7 @@ func TestFusedMLP_BackwardParameterOffsetsAndGradientChain(t *testing.T) {
 				t.Fatalf("missing intermediate gradient %q", declaration)
 			}
 		}
-		backwardCall := fmt.Sprintf("%s(%s, params + %d, fwd_ctx, (dL_dparams ? dL_dparams + %d : nullptr), %s)", backward.Symbols[i], dy, offset, offset, dx)
+		backwardCall := fmt.Sprintf("%s(%s, params + %d, %s, (dL_dparams ? dL_dparams + %d : nullptr), %s)", backward.Symbols[i], dy, offset, ctx, offset, dx)
 		if !strings.Contains(backward.Source, backwardCall) {
 			t.Fatalf("missing backward parameter layout or gradient chain %q:\n%s", backwardCall, backward.Source)
 		}

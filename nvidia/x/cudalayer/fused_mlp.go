@@ -26,6 +26,15 @@ func NewMLPLayer(name string, inWidth, outWidth int, activation string) (*MLPLay
 	if inWidth <= 0 || outWidth <= 0 {
 		return nil, fmt.Errorf("%w: widths must be positive (in=%d, out=%d)", ErrInvalidMLPConfig, inWidth, outWidth)
 	}
+	const maxExtent = int(^uint32(0) >> 1)
+	if inWidth > maxExtent/(4*32) || outWidth > maxExtent/(4*32)-inWidth || inWidth > maxExtent/outWidth || outWidth > maxExtent-15 {
+		return nil, fmt.Errorf("%w: dimensions overflow CUDA extents", ErrInvalidMLPConfig)
+	}
+	switch strings.ToLower(activation) {
+	case "", "none", "relu", "silu":
+	default:
+		return nil, fmt.Errorf("%w: unsupported activation %q", ErrInvalidMLPConfig, activation)
+	}
 	// Pad to 16 for tensor alignment if necessary, matching tiny-cuda-nn
 	padded := outWidth
 	if padded%16 != 0 {
@@ -58,7 +67,7 @@ func (l *MLPLayer) OutputWidth() int { return l.outputWidth }
 func (l *MLPLayer) PaddedOutputWidth() int { return l.paddedWidth }
 
 // FwdCtxBytes returns the forward context bytes required by this layer.
-func (l *MLPLayer) FwdCtxBytes() (int, error) { return 0, nil }
+func (l *MLPLayer) FwdCtxBytes() (int, error) { return 4 * (l.inputWidth + l.outputWidth), nil }
 
 // FwdCtxAlignedPerElement reports whether context is aligned per element.
 func (l *MLPLayer) FwdCtxAlignedPerElement() bool { return true }
@@ -77,34 +86,84 @@ func (l *MLPLayer) EmitForward(name string) (string, error) {
 		return "", fmt.Errorf("cudalayer: unsupported activation %q", l.activation)
 	}
 
-	body := fmt.Sprintf(`	tvec<float, %d> out;
+	body := fmt.Sprintf(`	for (int in_idx = 0; in_idx < %d; ++in_idx) {
+		bool saved_input = __cudair_ctx.StoreFloat(in_idx * 4, input[in_idx]);
+		(void)saved_input;
+	}
+	tvec<float, %d> out;
 	for (int out_idx = 0; out_idx < %d; ++out_idx) {
 		float val = 0.0f;
 		for (int in_idx = 0; in_idx < %d; ++in_idx) {
 			val += input[in_idx] * params[in_idx * %d + out_idx];
 		}
+		bool saved_value = __cudair_ctx.StoreFloat((%d + out_idx) * 4, val);
+		(void)saved_value;
 		%s
 		out[out_idx] = val;
 	}
-	return out;`, l.outputWidth, l.outputWidth, l.inputWidth, l.outputWidth, actCode)
+	return out;`, l.inputWidth, l.outputWidth, l.outputWidth, l.inputWidth, l.outputWidth, l.inputWidth, actCode)
 
 	return cudair.EmitFromBody(l, name, body)
 }
 
-// EmitBackward computes only the linear input gradient. It omits the
-// activation derivative and parameter gradient and ignores the gradient mode.
+// EmitBackward emits input gradients without parameter writes.
 func (l *MLPLayer) EmitBackward(name string, nThreads int) (string, error) {
-	body := fmt.Sprintf(`	if (dL_dx) {
+	return l.EmitBackwardMode(name, nThreads, cudair.GradientModeIgnore)
+}
+
+// EmitBackwardMode emits derivatives using the saved input and preactivation.
+// Parameter outputs are per sample in input-major order: in*OutputWidth+out.
+// Overwrite and accumulate operate on a disjoint sample buffer, not a shared
+// batch buffer. Input gradients are always overwritten when requested.
+func (l *MLPLayer) EmitBackwardMode(name string, nThreads int, mode cudair.GradientMode) (string, error) {
+	if nThreads <= 0 || mode < cudair.GradientModeIgnore || mode > cudair.GradientModeAccumulate {
+		return "", fmt.Errorf("cudalayer: invalid backward threads or gradient mode")
+	}
+	derivative := "1.0f"
+	switch strings.ToLower(l.activation) {
+	case "relu":
+		derivative = "(saved > 0.0f ? 1.0f : 0.0f)"
+	case "silu":
+		derivative = "sigmoid * (1.0f + saved * (1.0f - sigmoid))"
+	}
+	var body strings.Builder
+	fmt.Fprintf(&body, `	tvec<float, %d> delta;
+	for (int out_idx = 0; out_idx < %d; ++out_idx) {
+		float saved = 0.0f;
+		bool loaded = __cudair_ctx.LoadFloat((%d + out_idx) * 4, &saved);
+		if (!loaded) return;
+		float sigmoid = 1.0f / (1.0f + __expf(-saved));
+		delta[out_idx] = dL_dy[out_idx] * %s;
+	}
+	if (dL_dx) {
 		for (int in_idx = 0; in_idx < %d; ++in_idx) {
 			float grad = 0.0f;
 			for (int out_idx = 0; out_idx < %d; ++out_idx) {
-				grad += dL_dy[out_idx] * params[in_idx * %d + out_idx];
+				grad += delta[out_idx] * params[in_idx * %d + out_idx];
 			}
 			(*dL_dx)[in_idx] = grad;
 		}
-	}`, l.inputWidth, l.outputWidth, l.outputWidth)
+	}
+`, l.outputWidth, l.outputWidth, l.inputWidth, derivative, l.inputWidth, l.outputWidth, l.outputWidth)
+	if mode != cudair.GradientModeIgnore {
+		op := "="
+		if mode == cudair.GradientModeAccumulate {
+			op = "+="
+		}
+		fmt.Fprintf(&body, `	if (dL_dparams) {
+		for (int in_idx = 0; in_idx < %d; ++in_idx) {
+			float saved_input = 0.0f;
+			bool loaded_input = __cudair_ctx.LoadFloat(in_idx * 4, &saved_input);
+			if (!loaded_input) return;
+			for (int out_idx = 0; out_idx < %d; ++out_idx) {
+				dL_dparams[in_idx * %d + out_idx] %s saved_input * delta[out_idx];
+			}
+		}
+	}
+`, l.inputWidth, l.outputWidth, l.outputWidth, op)
+	}
 
-	return cudair.EmitBackwardFromBody(l, name, body)
+	return cudair.EmitBackwardFromBody(l, name, body.String())
 }
 
 // BackwardShmemBytes reports shared memory demand for backward pass.
@@ -112,9 +171,9 @@ func (l *MLPLayer) BackwardShmemBytes(nThreads int, mode cudair.GradientMode) in
 	return 0
 }
 
-// FusedMLP expresses a multi-layer perceptron as a composable cudair tree.
-// Hidden activations between layers remain in-register and never round-trip
-// through global device memory.
+// FusedMLP expresses dense layers as a composable cudair tree. Forward child
+// results use local vectors; each child saves its input and preactivation in
+// bounded context for backward. Compiler register residency is not guaranteed.
 type FusedMLP struct {
 	name        string
 	inputWidth  int
@@ -126,18 +185,35 @@ type FusedMLP struct {
 // NewFusedMLP constructs an MLP tree consisting of numLayers dense layers.
 // For a 3-layer width-64 MLP, pass (64, 64, 64, 3).
 func NewFusedMLP(inputWidth, hiddenWidth, outputWidth, numLayers int) (*FusedMLP, error) {
-	if inputWidth <= 0 || hiddenWidth <= 0 || outputWidth <= 0 || numLayers < 1 {
+	return NewFusedMLPWithActivation(inputWidth, hiddenWidth, outputWidth, numLayers, "relu")
+}
+
+// NewFusedMLPWithActivation selects none, relu or silu for hidden layers.
+// The output layer remains linear. ReLU's derivative at zero is zero. SiLU
+// uses NVRTC __expf in both forward and backward. Architectures admit at most
+// 1024 layers and checked signed-32-bit parameter and warp-context extents.
+func NewFusedMLPWithActivation(inputWidth, hiddenWidth, outputWidth, numLayers int, activation string) (*FusedMLP, error) {
+	activation = strings.ToLower(activation)
+	if activation == "" {
+		activation = "none"
+	}
+	if activation != "none" && activation != "relu" && activation != "silu" {
+		return nil, fmt.Errorf("%w: unsupported hidden activation %q", ErrInvalidMLPConfig, activation)
+	}
+	if inputWidth <= 0 || hiddenWidth <= 0 || outputWidth <= 0 || numLayers < 1 || numLayers > 1024 {
 		return nil, fmt.Errorf("%w: invalid dimensions or layer count", ErrInvalidMLPConfig)
 	}
 
 	layers := make([]*MLPLayer, numLayers)
+	parameterCount := 0
+	contextBytes := 0
 	for i := 0; i < numLayers; i++ {
 		layerIn := hiddenWidth
 		if i == 0 {
 			layerIn = inputWidth
 		}
 		layerOut := hiddenWidth
-		act := "relu"
+		act := activation
 		if i == numLayers-1 {
 			layerOut = outputWidth
 			act = "none" // output activation is identity by default
@@ -148,6 +224,16 @@ func NewFusedMLP(inputWidth, hiddenWidth, outputWidth, numLayers int) (*FusedMLP
 		if err != nil {
 			return nil, err
 		}
+		count := layerIn * layerOut
+		if count > int(^uint32(0)>>1)-31-parameterCount {
+			return nil, fmt.Errorf("%w: parameter extent overflow", ErrInvalidMLPConfig)
+		}
+		parameterCount += count
+		bytes, _ := layer.FwdCtxBytes()
+		if bytes > int(^uint32(0)>>1)/32-contextBytes {
+			return nil, fmt.Errorf("%w: warp context extent overflow", ErrInvalidMLPConfig)
+		}
+		contextBytes += bytes
 		layers[i] = layer
 	}
 
@@ -174,7 +260,8 @@ func (m *FusedMLP) PaddedOutputWidth() int {
 	return m.layers[len(m.layers)-1].PaddedOutputWidth()
 }
 
-// FwdCtxBytes returns total forward context memory bytes.
+// FwdCtxBytes returns the parent's own context size, zero. cudair.EmitTree
+// includes the separately owned child regions in Unit.FwdCtxBytes.
 func (m *FusedMLP) FwdCtxBytes() (int, error) { return 0, nil }
 
 // FwdCtxAlignedPerElement reports whether context is aligned per element.
@@ -189,8 +276,7 @@ func (m *FusedMLP) Children() []cudair.Emitter {
 	return res
 }
 
-// EmitForward renders the parent device function that sequences through all child layers
-// inline in registers without storing intermediate activations to global memory.
+// EmitForward requires the tree emitter to assign child symbols and context.
 func (m *FusedMLP) EmitForward(name string) (string, error) {
 	return "", fmt.Errorf("cudalayer: fused MLP must be emitted with cudair.EmitTree")
 }
@@ -231,14 +317,10 @@ func (m *FusedMLP) EmitForwardWithChildren(name string, children []cudair.ChildS
 	return cudair.EmitFromBody(m, name, body)
 }
 
-// EmitBackward composes only the layers' linear input gradients. It omits
-// activation derivatives and parameter gradients and ignores the gradient mode.
+// EmitBackward composes input gradients. Parameter writes are selected by
+// cudair.EmitBackwardTree's gradient mode.
 func (m *FusedMLP) EmitBackward(name string, nThreads int) (string, error) {
-	children := make([]cudair.ChildSymbol, len(m.layers))
-	for i, layer := range m.layers {
-		children[i].Name = fmt.Sprintf("%s_%d_%s", name, i, layer.Name())
-	}
-	return m.EmitBackwardWithChildren(name, children, nThreads, cudair.GradientModeIgnore)
+	return "", fmt.Errorf("%w: fused MLP requires cudair.EmitBackwardTree for child context offsets", cudair.ErrBackwardEmissionUnsupported)
 }
 
 // BackwardShmemBytes reports the maximum demand of the child backward passes.
