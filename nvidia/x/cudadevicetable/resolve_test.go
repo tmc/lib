@@ -1,8 +1,12 @@
 package cudadevicetable
 
 import (
+	"bytes"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -17,6 +21,7 @@ func TestResolverAnswersATargetTheTableLacks(t *testing.T) {
 	if err != nil {
 		t.Skipf("no ptxas available to resolve with: %v", err)
 	}
+	skipUnlessFixtureISA(t, ptxas)
 	// sm_86 is old enough to be uncontroversial and is not in the table.
 	const target = "sm_86"
 	if _, ok := LookupTarget(target); ok {
@@ -169,6 +174,7 @@ func TestResolverResolvesEveryRecordedTargetAlone(t *testing.T) {
 	if err != nil {
 		t.Skipf("no ptxas available to resolve with: %v", err)
 	}
+	skipUnlessFixtureISA(t, ptxas)
 	for _, target := range Targets() {
 		t.Run(target, func(t *testing.T) {
 			// A fresh Resolver per target is the point: a shared one would
@@ -179,5 +185,29 @@ func TestResolverResolvesEveryRecordedTargetAlone(t *testing.T) {
 				t.Errorf("Resolve(%s) alone: %v", target, err)
 			}
 		})
+	}
+}
+
+// skipUnlessFixtureISA skips t when ptxas cannot read the PTX ISA the
+// embedded fixtures declare. An older ptxas makes every probe inconclusive,
+// which the resolver reports correctly; it is not a measurement to test.
+func skipUnlessFixtureISA(t *testing.T, ptxas string) {
+	t.Helper()
+	src, err := fixtureFS.ReadFile("ptxprobe/cluster.ptx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	isa := regexp.MustCompile(`(?m)^\.version (\S+)$`).FindSubmatch(src)
+	if isa == nil {
+		t.Fatal("ptxprobe/cluster.ptx declares no .version")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "empty.ptx")
+	body := fmt.Sprintf(".version %s\n.target sm_80\n.address_size 64\n.visible .entry empty() { ret; }\n", isa[1])
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command(ptxas, "-arch=sm_80", path, "-o", filepath.Join(dir, "out.cubin")).CombinedOutput(); err != nil {
+		t.Skipf("%s cannot assemble PTX %s, the fixtures' ISA: %s", ptxas, isa[1], bytes.TrimSpace(out))
 	}
 }
