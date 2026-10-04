@@ -1,0 +1,7 @@
+Commit:6372860db90b9a833602c8bb9aee06fc3ab74375
+Date:2026-10-04T04:28:21.654825-07:00
+Codex CLI0.160.0 GPT-6; Claude Code not used; noninteractive shell; notePID22534 parentPID22469
+OwnSID026363F7-C2F7-4118-9920-4953A7B20D93; ITERM_SESSION_ID:w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Manual signed fallback after two earlier git-auto-commit-message failures.
+Independent repaired source/physical ACCEPT: D128 preactivated FP32 GB10sm121 NVRTC13.0;24 actual recurrence invocations/144 refusals,1230720 checked values,17healthy and7detected arithmetic mutants; actualbinary56350a71f026693a89972ae3dc4eb80e34c82d0745042b23d4bffd11d3cd11a1. Source-identical six-file replay on current next passes fullrace3 15.665s/vet/format/diff. No BF16/TensorCore/raw-logit/performance claim or whole-new-head physical rerun.
+Receipts:/Users/tmc/tmp/lib-wt-next/20261004-lane76-kda/independent-review/grade59/OWN-PHYSICAL-GRADE.md and alignment-repair/physical-run. Earlier failed alignment packet retained.
