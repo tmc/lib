@@ -50,6 +50,9 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	})
 	check := func(err error) {
 		t.Helper()
+		if errors.Is(err, errors.ErrUnsupported) {
+			t.Skipf("installed CUPTI has no qualified layout: %v", err)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
