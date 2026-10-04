@@ -2,16 +2,13 @@ package nvrtcx_test
 
 import (
 	"crypto/sha256"
-	"os"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
 func TestMixedTileCompilation(t *testing.T) {
-	if os.Getenv("CUDA_TILE_TEST") != "1" {
-		t.Skip("CUDA_TILE_TEST=1 requires NVRTC supporting mixed Tile/SIMT compilation")
-	}
+	requireTile(t)
 	cm, err := nvrtcx.Compile(`#include "cuda_tile.h"
 extern "C" __tile_global__ void tile_fill(int* out) {
  auto i = cuda::tiles::bid().x;

@@ -89,12 +89,29 @@ func compileTileMatrix(t *testing.T, major, minor int, mixed bool) *nvrtcx.Compi
 	return cm
 }
 
+// requireTile skips t unless CUDA_TILE_TEST=1 and the loaded NVRTC can
+// compile Tile code, which arrived in NVRTC 13.3.
+func requireTile(t *testing.T) {
+	t.Helper()
+	if os.Getenv("CUDA_TILE_TEST") != "1" {
+		t.Skip("CUDA_TILE_TEST is not 1: Tile tests need NVRTC 13.3 and a TileIR-capable driver")
+	}
+	if err := nvrtc.Load(""); err != nil {
+		t.Skipf("NVRTC unavailable: %v", err)
+	}
+	major, minor, err := nvrtc.Version()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if major < 13 || major == 13 && minor < 3 {
+		t.Skipf("Tile compilation requires NVRTC 13.3; NVRTC is %d.%d", major, minor)
+	}
+}
+
 // This gate compiles the numerical fixture without requiring a CUDA context.
 // It does not establish that either artifact loads or executes.
 func TestTileMatrixCompilation(t *testing.T) {
-	if os.Getenv("CUDA_TILE_TEST") != "1" {
-		t.Skip("CUDA_TILE_TEST=1 requires NVRTC supporting Tile compilation")
-	}
+	requireTile(t)
 	t.Run("standalone", func(t *testing.T) { compileTileMatrix(t, 12, 1, false) })
 	t.Run("mixed", func(t *testing.T) { compileTileMatrix(t, 12, 1, true) })
 }
@@ -103,9 +120,7 @@ func TestTileMatrixCompilation(t *testing.T) {
 // the qualified GB10 host. This strict gate retains that unresolved failure;
 // neither mixed compilation nor an extern-C entry substitutes for this check.
 func TestTileOnlyTemplateLoweredName(t *testing.T) {
-	if os.Getenv("CUDA_TILE_TEST") != "1" {
-		t.Skip("CUDA_TILE_TEST=1 requires NVRTC supporting Tile template names")
-	}
+	requireTile(t)
 	t.Logf("source=%s\narch=compute_121 std=c++20 output=TileIR expression=%s cache=disabled", tileMatrixSource, tileMatrixName)
 	cm, err := nvrtcx.Compile(tileMatrixSource, nvrtcx.WithArch(12, 1),
 		nvrtcx.WithFlag("--std=c++20"), nvrtcx.WithOutput(nvrtcx.OutputTileIR),
@@ -122,9 +137,7 @@ func TestTileOnlyTemplateLoweredName(t *testing.T) {
 
 func runTileMatrix(t *testing.T, mixed bool) {
 	t.Helper()
-	if os.Getenv("CUDA_TILE_TEST") != "1" {
-		t.Skip("CUDA_TILE_TEST=1 requires NVRTC 13.3 and a TileIR-capable driver")
-	}
+	requireTile(t)
 	check := func(err error) {
 		t.Helper()
 		if err != nil {
