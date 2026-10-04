@@ -72,6 +72,9 @@ func buildSpinTools(t *testing.T) spinTools {
 	build := exec.Command("sh", filepath.Join("..", "..", "..", "internal", "cudainject", "native", "build_agent.sh"), dir)
 	build.Env = append(os.Environ(), "CUDA_HOME="+filepath.Dir(filepath.Dir(nvcc)))
 	if out, err := build.CombinedOutput(); err != nil {
+		if bytes.Contains(out, []byte("cupti_agent needs CUPTI 12.8 or newer")) {
+			t.Skipf("toolkit %s: cupti_agent needs CUPTI 12.8 or newer", filepath.Dir(filepath.Dir(nvcc)))
+		}
 		t.Fatalf("build agent: %v\n%s", err, out)
 	}
 	return tools

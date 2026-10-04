@@ -8,6 +8,11 @@
 #include <cupti_activity.h>
 #include <cupti_pcsampling.h>
 #include <cupti_version.h>
+#if CUPTI_API_VERSION < 26
+/* CUpti_ActivityMemcpy6 and CUpti_ActivityUnifiedMemoryCounter3 first
+   appear in CUPTI 12.8, whose CUPTI_API_VERSION is 26. */
+#error "cupti_agent needs CUPTI 12.8 or newer"
+#endif
 #include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
