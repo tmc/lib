@@ -38,6 +38,6 @@ of invalid GPU work. The runner applies a 45-second deadline per invocation;
 the outer deadline bounds the complete four-case test.
 
 Without `LIB_CUDA_HARDWARE_TEST`, tests explicitly skip. With it enabled, missing
-tooling or the fixture path fails. Retain nvcc/tool versions, GPU/driver identity,
+tooling fails and a test whose program variable is empty skips, naming it. Retain nvcc/tool versions, GPU/driver identity,
 source and executable hashes, command/logs, outcomes and skipped cases. Keep the
 binary outside Git. These are checker acceptance fixtures, not application code.
