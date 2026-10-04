@@ -106,6 +106,17 @@ __global__ void __cluster_dims__(%d, 1, 1) dsmem_reduce(unsigned *out) {
     __shared__ unsigned window;
     cg::cluster_group cluster = cg::this_cluster();
 	unsigned rank = cluster.block_rank();
+	// Initialize every window before the planted missing-publication barrier.
+	// The control must observe a stale defined value, not uninitialized memory.
+	if (threadIdx.x == 0) window = 0;
+	cluster.sync();
+	// A bounded scheduling skew makes rank 0 reach its remote reads before
+	// peers publish unless the publication barrier orders that dependency.
+	// This is a correctness fixture, not a timing or throughput benchmark.
+	if (rank != 0) {
+		unsigned long long start = clock64();
+		while (clock64() - start < 1000000ull) {}
+	}
 	if (threadIdx.x == 0) window = seed_for(rank);
 	unsigned base = 0;
 	asm volatile("%s" : "=r"(base) : "r"((unsigned)__cvta_generic_to_shared(&window)));

@@ -2,6 +2,8 @@ package cudacluster
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -40,7 +42,10 @@ func runReduction(t *testing.T, clusterSize int, mut Mutant) (uint32, error) {
 	if err := Check(target); err != nil {
 		t.Fatalf("Check(%q): %v", target, err)
 	}
-	nvcc, _ := cudatest.NVCC(t)
+	var nvcc string
+	if os.Getenv("CUDA_CLUSTER_PREBUILT_DIR") == "" {
+		nvcc, _ = cudatest.NVCC(t)
+	}
 
 	src, err := ReductionFixture(target, clusterSize, mut)
 	if err != nil {
@@ -48,15 +53,7 @@ func runReduction(t *testing.T, clusterSize int, mut Mutant) (uint32, error) {
 	}
 	src += reductionMain(clusterSize)
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cudacluster-native-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	got, err := compileRunTotal(t, nvcc, target, dir, "reduce", src)
 	if err != nil {
@@ -110,23 +107,16 @@ func requireNativeLock(getenv func(string) string) error {
 
 func compileRunTotal(t *testing.T, nvcc, target, dir, name, src string) (uint32, error) {
 	t.Helper()
-	file := filepath.Join(dir, name+".cu")
-	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	bin := filepath.Join(dir, name)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	build := exec.CommandContext(ctx, nvcc, "-arch="+target, "-o", bin, file)
-	if out, err := build.CombinedOutput(); err != nil {
-		return 0, fmt.Errorf("nvcc %s: %v: %s", target, err, out)
+	bin, err := clusterFixtureBinary(t, nvcc, target, dir, name, src)
+	if err != nil {
+		return 0, err
 	}
 
 	runCtx, runCancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer runCancel()
 	run := exec.CommandContext(runCtx, bin)
 	out, _ := run.CombinedOutput()
+	retainClusterRun(t, dir, name, run.Args, out)
 	if run.ProcessState == nil {
 		return classifyFixtureResult(false, fixtureTimedOut(runCtx), 0, string(out))
 	}
@@ -135,6 +125,176 @@ func compileRunTotal(t *testing.T, nvcc, target, dir, name, src string) (uint32,
 
 func fixtureTimedOut(ctx context.Context) bool {
 	return errors.Is(ctx.Err(), context.DeadlineExceeded)
+}
+
+type clusterBuildReceipt struct {
+	SourceDigest string
+	BinaryDigest string
+	Target       string
+	Command      []string
+}
+
+func clusterDigest(data []byte) string { return fmt.Sprintf("%x", sha256.Sum256(data)) }
+
+func clusterFixtureKey(target, src string) string {
+	return clusterDigest([]byte(target + "\x00" + src))
+}
+
+// clusterFixtureBinary separates offline compilation from locked execution.
+// Receipts bind retained bytes; they are not driver or compiler attestations.
+func clusterFixtureBinary(t *testing.T, nvcc, target, dir, name, src string) (string, error) {
+	t.Helper()
+	key := clusterFixtureKey(target, src)
+	if root := os.Getenv("CUDA_CLUSTER_PREBUILT_DIR"); root != "" {
+		return readClusterBinary(filepath.Join(root, key), target, src)
+	}
+	if root := os.Getenv("CUDA_CLUSTER_ARTIFACT_DIR"); root != "" {
+		dir = filepath.Join(root, key)
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			return "", fmt.Errorf("create fresh fixture packet: %w", err)
+		}
+	}
+	file, bin := filepath.Join(dir, "fixture.cu"), filepath.Join(dir, "fixture")
+	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	build := exec.CommandContext(ctx, nvcc, "-arch="+target, "-o", bin, file)
+	out, buildErr := build.CombinedOutput()
+	command, _ := json.Marshal(build.Args)
+	for path, data := range map[string][]byte{"build-command.json": command, "build-output.txt": out} {
+		if err := os.WriteFile(filepath.Join(dir, path), data, 0o644); err != nil {
+			return "", err
+		}
+	}
+	if buildErr != nil {
+		return "", fmt.Errorf("nvcc %s: %w: %s", target, buildErr, out)
+	}
+	image, err := os.ReadFile(bin)
+	if err != nil {
+		return "", err
+	}
+	receipt, _ := json.Marshal(clusterBuildReceipt{clusterDigest([]byte(src)), clusterDigest(image), target, build.Args})
+	if err := os.WriteFile(filepath.Join(dir, "build.json"), receipt, 0o644); err != nil {
+		return "", err
+	}
+	t.Logf("fixture %s source=%s binary=%s build=%s", name, clusterDigest([]byte(src)), clusterDigest(image), command)
+	return bin, nil
+}
+
+func readClusterBinary(dir, target, src string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "build.json"))
+	if err != nil {
+		return "", err
+	}
+	var receipt clusterBuildReceipt
+	if err := json.Unmarshal(data, &receipt); err != nil {
+		return "", err
+	}
+	stored, err := os.ReadFile(filepath.Join(dir, "fixture.cu"))
+	if err != nil {
+		return "", err
+	}
+	bin := filepath.Join(dir, "fixture")
+	image, err := os.ReadFile(bin)
+	if err != nil {
+		return "", err
+	}
+	if string(stored) != src || receipt.Target != target || receipt.SourceDigest != clusterDigest(stored) || receipt.BinaryDigest != clusterDigest(image) || len(receipt.Command) == 0 {
+		return "", fmt.Errorf("prebuilt fixture source, target, or binary differs from receipt")
+	}
+	return bin, nil
+}
+
+func retainClusterRun(t *testing.T, fallback, name string, command []string, output []byte) {
+	t.Helper()
+	root := os.Getenv("CUDA_CLUSTER_RUN_DIR")
+	if root == "" {
+		root = fallback
+	}
+	dir, err := os.MkdirTemp(root, name+"-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	args, _ := json.Marshal(command)
+	for path, data := range map[string][]byte{"run-command.json": args, "run-output.txt": output} {
+		if err := os.WriteFile(filepath.Join(dir, path), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Logf("actual fixture command=%s output=%q retained=%s", args, output, dir)
+}
+
+func TestBuildClusterNativeFixtures(t *testing.T) {
+	if os.Getenv("CUDA_CLUSTER_BUILD_ONLY") != "1" {
+		t.Skip("offline fixture compilation requires CUDA_CLUSTER_BUILD_ONLY=1")
+	}
+	if os.Getenv("CUDA_CLUSTER_ARTIFACT_DIR") == "" || os.Getenv("CUDA_CLUSTER_PREBUILT_DIR") != "" {
+		t.Fatal("offline build requires fresh CUDA_CLUSTER_ARTIFACT_DIR and no prebuilt directory")
+	}
+	nvcc, _ := cudatest.NVCC(t)
+	target := clusterTarget()
+	for _, item := range []struct{ name, source string }{
+		{"healthy2", mustClusterReduction(t, target, 2, MutantNone)},
+		{"healthy4", mustClusterReduction(t, target, 4, MutantNone)},
+		{"local4", mustClusterReduction(t, target, 4, MutantLocalWindow)},
+		{"nosync4", mustClusterReduction(t, target, 4, MutantNoSync)},
+		{"oracle2", cooperativeReductionFixture(2)},
+		{"oracle4", cooperativeReductionFixture(4)},
+		{"geometry4", rankGeometrySource(4)},
+	} {
+		if _, err := clusterFixtureBinary(t, nvcc, target, t.TempDir(), item.name, item.source); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func mustClusterReduction(t *testing.T, target string, size int, mutant Mutant) string {
+	t.Helper()
+	source, err := ReductionFixture(target, size, mutant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return source + reductionMain(size)
+}
+
+func TestClusterPrebuiltBytesBoundToSource(t *testing.T) {
+	for _, changed := range []string{"none", "source", "binary", "target", "missing"} {
+		t.Run(changed, func(t *testing.T) {
+			dir := t.TempDir()
+			source, image := []byte("fixture source"), []byte("host-only synthetic binary")
+			receipt := clusterBuildReceipt{clusterDigest(source), clusterDigest(image), "sm_121a", []string{"nvcc", "-arch=sm_121a"}}
+			data, err := json.Marshal(receipt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for name, bytes := range map[string][]byte{"fixture.cu": source, "fixture": image, "build.json": data} {
+				if err := os.WriteFile(filepath.Join(dir, name), bytes, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			target := "sm_121a"
+			switch changed {
+			case "source":
+				source = []byte("different source")
+			case "binary":
+				if err := os.WriteFile(filepath.Join(dir, "fixture"), []byte("changed"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			case "target":
+				target = "sm_90"
+			case "missing":
+				if err := os.Remove(filepath.Join(dir, "build.json")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_, err = readClusterBinary(dir, target, string(source))
+			if (err != nil) != (changed != "none") {
+				t.Fatalf("readClusterBinary changed=%s error=%v", changed, err)
+			}
+		})
+	}
 }
 
 var errFixtureTimeout = errors.New("fixture did not finish")
@@ -612,37 +772,24 @@ func runRankGeometry(t *testing.T, clusterSize int) error {
 	if err := Check(target); err != nil {
 		t.Fatalf("Check(%q): %v", target, err)
 	}
-	nvcc, _ := cudatest.NVCC(t)
+	var nvcc string
+	if os.Getenv("CUDA_CLUSTER_PREBUILT_DIR") == "" {
+		nvcc, _ = cudatest.NVCC(t)
+	}
 
 	src := rankGeometrySource(clusterSize)
 
-	home, err := os.UserHomeDir()
+	dir := t.TempDir()
+	bin, err := clusterFixtureBinary(t, nvcc, target, dir, "geom", src)
 	if err != nil {
-		t.Fatal(err)
-	}
-	dir, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cudacluster-native-geom-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
-	file := filepath.Join(dir, "geom.cu")
-	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	bin := filepath.Join(dir, "geom")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	build := exec.CommandContext(ctx, nvcc, "-arch="+target, "-o", bin, file)
-	if out, err := build.CombinedOutput(); err != nil {
-		return fmt.Errorf("nvcc %s: %w: %s", target, err, out)
+		return err
 	}
 
 	runCtx, runCancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer runCancel()
 	run := exec.CommandContext(runCtx, bin)
 	out, err := run.CombinedOutput()
+	retainClusterRun(t, dir, "geom", run.Args, out)
 	if runCtx.Err() != nil {
 		return fmt.Errorf("fixture timed out: %s", out)
 	}
