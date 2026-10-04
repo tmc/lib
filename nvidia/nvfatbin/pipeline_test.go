@@ -13,14 +13,30 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvfatbin"
+	"github.com/tmc/lib/nvidia/nvrtc"
 )
+
+// requireNVFatbin loads nvFatbin, skipping t when the installed toolkit
+// predates it and failing t on any other load error.
+func requireNVFatbin(t *testing.T) {
+	t.Helper()
+	err := nvfatbin.Load("")
+	if err == nil {
+		return
+	}
+	major, minor, verr := nvrtc.Version()
+	if verr == nil && (major < 12 || major == 12 && minor < 4) {
+		t.Skipf("toolkit %d.%d predates nvFatbin (CUDA 12.4): %v", major, minor, err)
+	}
+	t.Fatal(err)
+}
 
 // TestFatbinPipeline packages PTX into a fatbinary, loads it with the CUDA
 // driver and checks the kernel's output.
 //
 // It is opt-in so that absent hardware cannot masquerade as success. Once
-// NVFATBIN_PHYSICAL_TEST=1 is set, every missing prerequisite is a failure and
-// nothing below skips.
+// NVFATBIN_PHYSICAL_TEST=1 is set, every missing prerequisite is a failure,
+// except a toolkit older than CUDA 12.4, which has no nvFatbin to test.
 //
 // Prerequisites, all of them:
 //   - libnvfatbin.so.13 on the loader path, or NVFATBIN_LIB_PATH pointing at
@@ -33,6 +49,7 @@ func TestFatbinPipeline(t *testing.T) {
 	if os.Getenv("NVFATBIN_PHYSICAL_TEST") != "1" {
 		t.Skip("set NVFATBIN_PHYSICAL_TEST=1 to run against a real libnvfatbin and NVIDIA GPU")
 	}
+	requireNVFatbin(t)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	check := func(err error) {
@@ -144,6 +161,7 @@ func TestDestroyZeroesHandle(t *testing.T) {
 	if os.Getenv("NVFATBIN_PHYSICAL_TEST") != "1" {
 		t.Skip("set NVFATBIN_PHYSICAL_TEST=1 to run against a real libnvfatbin")
 	}
+	requireNVFatbin(t)
 	handle, err := nvfatbin.Create()
 	if err != nil {
 		t.Fatal(err)
@@ -167,6 +185,7 @@ func TestUnrecognizedOption(t *testing.T) {
 	if os.Getenv("NVFATBIN_LIBRARY_TEST") != "1" {
 		t.Skip("set NVFATBIN_LIBRARY_TEST=1 to run against a real libnvfatbin (no GPU needed)")
 	}
+	requireNVFatbin(t)
 	handle, err := nvfatbin.Create("-not-an-option")
 	if err == nil {
 		handle.Destroy()
