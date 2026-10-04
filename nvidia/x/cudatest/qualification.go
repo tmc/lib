@@ -52,11 +52,17 @@ type QualificationPolicy struct {
 // Checked/Expected and GuardsChecked/GuardsExpected describe separate checks.
 // User+NonUser+Dropped+Unnamed is the full Offered sampling population.
 type QualificationFacts struct {
-	PositiveRuns            uint64 `json:"positive_runs"`
-	NegativeRuns            uint64 `json:"negative_runs"`
-	Launches                uint64 `json:"launches"`
-	CompletedLaunches       uint64 `json:"completed_launches"`
-	Synchronizations        uint64 `json:"synchronizations"`
+	PositiveRuns      uint64 `json:"positive_runs"`
+	NegativeRuns      uint64 `json:"negative_runs"`
+	Launches          uint64 `json:"launches"`
+	CompletedLaunches uint64 `json:"completed_launches"`
+	Synchronizations  uint64 `json:"synchronizations"`
+	// CopyExecutions counts owner CopyWithLayouts invocations that reached
+	// device execution, separately from kernel launches and individual driver
+	// transfers within a plan. CompletedCopyExecutions counts those invocations
+	// whose completion was checked before reading their destination.
+	CopyExecutions          uint64 `json:"copy_executions"`
+	CompletedCopyExecutions uint64 `json:"completed_copy_executions"`
 	Expected                uint64 `json:"expected"`
 	Checked                 uint64 `json:"checked"`
 	GuardsExpected          uint64 `json:"guards_expected"`
@@ -434,11 +440,17 @@ func (r *qualificationReader) row(row QualificationRow, revision string) error {
 }
 
 func qualificationFacts(kind string, f QualificationFacts, p QualificationPolicy) error {
-	if f.PositiveRuns == 0 || f.NegativeRuns == 0 || f.Launches == 0 || f.CompletedLaunches != f.Launches || f.Synchronizations == 0 {
+	if f.PositiveRuns == 0 || f.NegativeRuns == 0 || f.CompletedLaunches != f.Launches || f.Synchronizations == 0 {
 		return errors.New("missing executed positive/negative/completion controls")
+	}
+	if kind != "copy" && f.Launches == 0 {
+		return errors.New("missing executed kernel launches")
 	}
 	switch kind {
 	case "copy":
+		if f.CopyExecutions == 0 || f.CompletedCopyExecutions != f.CopyExecutions {
+			return errors.New("copy lacks actual completed copy invocations")
+		}
 		if f.Expected == 0 || f.Checked != f.Expected || f.GuardsExpected < 2 || f.GuardsChecked != f.GuardsExpected || f.ScalarRuns == 0 || f.VectorRuns == 0 || f.CollapsedAliasRuns == 0 || f.AliasRefusals == 0 {
 			return errors.New("copy lacks full output/guard/path/alias controls")
 		}
@@ -621,10 +633,21 @@ func qualificationTestOutcome(data []byte, pkg, test string) (string, error) {
 		var event struct {
 			Action, Package, Test, Output string
 			Elapsed                       float64
-			Time                          string
+			Time, OutputType              string
 		}
 		if err := json.Unmarshal(raw, &event); err != nil {
 			return "", fmt.Errorf("raw test JSON: %w", err)
+		}
+		// Go 1.27 test2json distinguishes framing and error output. These
+		// annotations do not replace the run/pass/fail/skip action ledger.
+		switch event.OutputType {
+		case "":
+		case "frame", "error", "error-continue":
+			if event.Action != "output" {
+				return "", errors.New("output type on non-output test event")
+			}
+		default:
+			return "", errors.New("unknown raw test output type")
 		}
 		if event.Package != "" && event.Package != pkg {
 			return "", errors.New("unexpected package in one recorded attempt")
@@ -689,7 +712,7 @@ func qualificationTestKeys(data []byte) error {
 			return errors.New("duplicate raw test event key")
 		}
 		switch key {
-		case "Time", "Action", "Package", "Test", "Elapsed", "Output", "FailedBuild", "ImportPath":
+		case "Time", "Action", "Package", "Test", "Elapsed", "Output", "OutputType", "FailedBuild", "ImportPath":
 		default:
 			return errors.New("unknown or case-aliased raw test event key")
 		}

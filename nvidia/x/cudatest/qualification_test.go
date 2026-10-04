@@ -59,6 +59,10 @@ func qualificationSyntheticFixture(t *testing.T) qualificationFixture {
 		facts := QualificationFacts{PositiveRuns: 1, NegativeRuns: 1, Launches: 2, CompletedLaunches: 2, Synchronizations: 1, Expected: 1003, Checked: 1003, GuardsExpected: 2, GuardsChecked: 2, ScalarRuns: 1, VectorRuns: 1, CollapsedAliasRuns: 1, AliasRefusals: 1, ExplicitSharedCast: true, ABOutputsChecked: true, MatchedKernelInspection: true, RegistersA: 16, RegistersB: 18, RankGeometryMatched: true, PostReadOrdered: true, CooperativeOracleChecked: true, LocalWindowControlDetected: true, Offered: 150, User: 100, NonUser: 20, Dropped: 20, Unnamed: 10, ReferenceUser: 100, ExpectedActivity: 3, IsolationChecked: true, DropControlOffered: 1000, DropControlDropped: 900, WorkloadGeometryMatched: true, PrintedToleranceChecked: true}
 		run := QualificationRun{Version: 1, Kind: kind, Test: name, Package: pkg, Identity: id, Workload: workload, Inputs: inputs, Sources: sources, Artifacts: artifacts, Policy: policy, Log: qualificationTestFile(f.files, kind+"/go-test.json", qualificationTestLog(t, pkg, name, "pass")), Command: []string{"/home/tmc/ml-explore/bin/gpu-lock", "env", "GOWORK=off", "go", "test", "-tags=native", "-count=1", "-run", "^" + name + "$", "-json", "-timeout=1s", "./x/cudatest"}, Result: "pass", Native: true, WallMillis: 20, Facts: facts}
 		run.Facts.ConversionCountA = 1
+		if kind == "copy" {
+			run.Facts.CopyExecutions = 1
+			run.Facts.CompletedCopyExecutions = 1
+		}
 		receipt := qualificationTestFile(f.files, kind+"/run.json", qualificationTestJSON(t, run))
 		f.records[kind] = run
 		f.matrix.Rows = append(f.matrix.Rows, QualificationRow{Kind: kind, Status: "qualified", Identity: id, Workload: workload, Inputs: inputs, Policy: policy, Sources: sources, Artifacts: artifacts, Runs: []QualificationFile{receipt}})
