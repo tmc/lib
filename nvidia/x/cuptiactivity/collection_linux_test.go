@@ -18,6 +18,13 @@ func TestNativeCollection(t *testing.T) {
 	if os.Getenv("CUPTI_ACTIVITY_TEST") != "1" {
 		t.Skip("CUPTI_ACTIVITY_TEST=1 required; also needs a CUPTI matching the generated layouts, see the package doc")
 	}
+	version, err := cupti.GetVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version < 130000 {
+		t.Skipf("activity record decoding requires CUPTI 13.x; loaded version is %d", version)
+	}
 	config := cuptiactivity.Config{
 		Kinds:       []cupti.ActivityKind{cupti.ActivityKindDriver, cupti.ActivityKindMemcpy},
 		BufferBytes: 1 << 20, MaxBuffers: 16, MaxRecords: 100000,
