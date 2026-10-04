@@ -108,9 +108,9 @@ func searchPaths(goos string, getenv func(string) string) []string {
 //
 // Use it when the library is installed but not reachable by name, which is the
 // normal case: see [SearchPaths]. It is an alternative to [Load], not a
-// replacement: [Load] with an explicit path, or the SANITIZER_LIB_PATH
-// environment variable, still wins where the install is somewhere else
-// entirely.
+// replacement: [Load] with an explicit path still wins where the install is
+// somewhere else entirely, and so does the SANITIZER_LIB_PATH environment
+// variable, which when set is the only path LoadFromToolkit tries.
 //
 // If the library is already loaded, LoadFromToolkit returns nil without
 // opening anything, exactly as [Load] does. If no candidate opens, it returns
@@ -118,6 +118,12 @@ func searchPaths(goos string, getenv func(string) string) []string {
 // to a library that is not this one.
 func LoadFromToolkit() error {
 	if Loaded() {
+		return nil
+	}
+	if p := os.Getenv("SANITIZER_LIB_PATH"); p != "" {
+		if err := Load(""); err != nil {
+			return &NotFoundError{Tried: []LoadAttempt{{Path: p, Err: err}}}
+		}
 		return nil
 	}
 	paths := SearchPaths()

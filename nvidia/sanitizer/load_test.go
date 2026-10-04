@@ -2,6 +2,7 @@ package sanitizer
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -107,8 +108,30 @@ func TestLoadFromToolkitFailsClosed(t *testing.T) {
 	if len(nf.Tried) == 0 {
 		t.Error("NotFoundError.Tried is empty; the error must name what it tried")
 	}
-	if runtime.GOOS == "linux" && len(nf.Tried) != len(SearchPaths()) {
+	if runtime.GOOS == "linux" && os.Getenv("SANITIZER_LIB_PATH") == "" && len(nf.Tried) != len(SearchPaths()) {
 		t.Errorf("tried %d paths, SearchPaths reports %d", len(nf.Tried), len(SearchPaths()))
+	}
+	if Loaded() {
+		t.Error("Loaded() is true after LoadFromToolkit failed")
+	}
+}
+
+// TestLoadFromToolkitPrefersEnvironment checks that SANITIZER_LIB_PATH, when
+// set, is the only path LoadFromToolkit tries, so a toolkit prefix that sorts
+// earlier cannot load a different library than the one the environment names.
+func TestLoadFromToolkitPrefersEnvironment(t *testing.T) {
+	if Loaded() {
+		t.Skipf("library already loaded from %s", Path())
+	}
+	const missing = "/nonexistent/libsanitizer-public.so"
+	t.Setenv("SANITIZER_LIB_PATH", missing)
+	err := LoadFromToolkit()
+	var nf *NotFoundError
+	if !errors.As(err, &nf) {
+		t.Fatalf("LoadFromToolkit error = %v (%T), want *NotFoundError", err, err)
+	}
+	if len(nf.Tried) != 1 || nf.Tried[0].Path != missing {
+		t.Errorf("tried %v, want only %s", nf.Tried, missing)
 	}
 	if Loaded() {
 		t.Error("Loaded() is true after LoadFromToolkit failed")
