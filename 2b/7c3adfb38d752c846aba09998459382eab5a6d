@@ -7,3 +7,11 @@ ITERM_SESSION_ID:w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
 Manual signed fallback after two earlier git-auto-commit-message failures in this goal.
 Independent source review: main-adaptation/independent-review/review.md
 Actual fresh CUPTI producer and three-capture packet: main-adaptation/physical; rc0, no skips, real GPU lock released. Independent physical audit pending.
+
+Integrated commit: 2b7c3adfb38d752c846aba09998459382eab5a6d
+Date: 2026-10-04T01:03:28-07:00
+Replay of independently reviewed source: 0aceb8c6fb2d0d700196c29fbbe69a97a64556eb
+Codex CLI0.160.0 / GPT-6; Claude Code not used; noninteractive tool shell
+Note process PID:28143, parent PID:28141
+Own session026363F7-C2F7-4118-9920-4953A7B20D93; ITERM_SESSION_ID:w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Source bytes and zero-context stable patch preserved; physical evidence scoped to frozen candidate packets, not wholesale current-tree hardware qualification.
