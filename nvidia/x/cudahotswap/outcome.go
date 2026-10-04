@@ -1,4 +1,4 @@
-package main
+package cudahotswap
 
 import (
 	"context"
@@ -15,6 +15,8 @@ const (
 	// OutcomeOK means the candidate compiled, loaded, ran, and matched the
 	// reference on every trial.
 	OutcomeOK Outcome = "ok"
+	// OutcomeABIMismatch means the candidate parameter ABI differs from the retained kernel.
+	OutcomeABIMismatch Outcome = "abi_mismatch"
 	// OutcomeCompileError means NVRTC rejected the source. The compiler log is
 	// the evidence and is reported verbatim.
 	OutcomeCompileError Outcome = "compile_error"
@@ -44,7 +46,7 @@ const (
 	// on the candidate and must never be read as one.
 	OutcomeNoDevice Outcome = "no_device"
 	// OutcomeHarnessError means the harness itself failed, or hit a driver
-	// error it does not classify. It is not a verdict on the candidate either.
+	// error it does not Classify. It is not a verdict on the candidate either.
 	OutcomeHarnessError Outcome = "harness_error"
 )
 
@@ -53,20 +55,24 @@ const (
 // every subsequent CUDA call returns the same error. A harness that kept going
 // would report the first fault again for every later candidate, so the CLI
 // stops and a loop must re-exec it per candidate.
-func (o Outcome) poisonsContext() bool {
+func (o Outcome) PoisonsContext() bool {
 	return o == OutcomeDeviceFault || o == OutcomeTimeout
 }
 
-// classify maps an error from a CUDA call to an outcome. The second result
+// Classify maps an error from a CUDA call to an outcome. The second result
 // reports whether the error was recognized: an unrecognized driver code becomes
 // OutcomeHarnessError, never OutcomeOK, so a code added to a future driver
 // cannot be absorbed as a pass.
-func classify(err error) (Outcome, bool) {
+func Classify(err error) (Outcome, bool) {
 	if err == nil {
 		return OutcomeOK, true
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return OutcomeTimeout, true
+	}
+	var abi *ABIError
+	if errors.As(err, &abi) {
+		return OutcomeABIMismatch, true
 	}
 	var res driver.Result
 	if !errors.As(err, &res) {
@@ -107,9 +113,9 @@ func classify(err error) (Outcome, bool) {
 	return OutcomeHarnessError, false
 }
 
-// exitCode maps an outcome to a process exit status. A caller that reads only
+// ExitCode maps an outcome to a process exit status. A caller that reads only
 // the status still cannot confuse "no device" with "the candidate is correct".
-func (o Outcome) exitCode() int {
+func (o Outcome) ExitCode() int {
 	switch o {
 	case OutcomeOK:
 		return 0

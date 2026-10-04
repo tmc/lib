@@ -1,4 +1,4 @@
-package main
+package cudahotswap
 
 import (
 	"context"
@@ -31,12 +31,12 @@ func TestClassify(t *testing.T) {
 		{"wrapped", fmt.Errorf("launch: %w", driver.ErrIllegalAddress), OutcomeDeviceFault},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, recognized := classify(tt.err)
+			got, recognized := Classify(tt.err)
 			if got != tt.want {
-				t.Errorf("classify(%v) = %q, want %q", tt.err, got, tt.want)
+				t.Errorf("Classify(%v) = %q, want %q", tt.err, got, tt.want)
 			}
 			if !recognized {
-				t.Errorf("classify(%v) reported the error as unrecognized", tt.err)
+				t.Errorf("Classify(%v) reported the error as unrecognized", tt.err)
 			}
 		})
 	}
@@ -55,9 +55,9 @@ func TestClassifyRefusesToGuess(t *testing.T) {
 		{"success wrapped as an error", driver.Success},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, recognized := classify(tt.err)
+			got, recognized := Classify(tt.err)
 			if got != OutcomeHarnessError {
-				t.Errorf("classify(%v) = %q, want %q", tt.err, got, OutcomeHarnessError)
+				t.Errorf("Classify(%v) = %q, want %q", tt.err, got, OutcomeHarnessError)
 			}
 			if recognized {
 				t.Error("an unmapped error was reported as recognized")
@@ -70,19 +70,19 @@ func TestClassifyRefusesToGuess(t *testing.T) {
 // change, so two different failures reaching the same exit code would still
 // have to be distinguishable in the report.
 func TestOutcomeExitCodesSeparateTheThreeKinds(t *testing.T) {
-	if OutcomeOK.exitCode() != 0 {
+	if OutcomeOK.ExitCode() != 0 {
 		t.Error("ok must exit 0")
 	}
-	if OutcomeNoDevice.exitCode() == OutcomeOK.exitCode() {
+	if OutcomeNoDevice.ExitCode() == OutcomeOK.ExitCode() {
 		t.Error("no_device shares an exit code with ok: an absent GPU would read as a passing kernel")
 	}
 	for _, o := range []Outcome{OutcomeCompileError, OutcomeLoadError, OutcomeMissingEntry,
 		OutcomeLaunchRejected, OutcomeDeviceFault, OutcomeTimeout, OutcomeWrongAnswer} {
-		if o.exitCode() != 1 {
-			t.Errorf("%s exits %d, want 1", o, o.exitCode())
+		if o.ExitCode() != 1 {
+			t.Errorf("%s exits %d, want 1", o, o.ExitCode())
 		}
 	}
-	if OutcomeHarnessError.exitCode() == 1 {
+	if OutcomeHarnessError.ExitCode() == 1 {
 		t.Error("harness_error shares an exit code with a failed candidate")
 	}
 }
@@ -92,8 +92,8 @@ func TestPoisoningOutcomes(t *testing.T) {
 	for _, o := range []Outcome{OutcomeOK, OutcomeCompileError, OutcomeLoadError,
 		OutcomeMissingEntry, OutcomeLaunchRejected, OutcomeDeviceFault, OutcomeTimeout,
 		OutcomeWrongAnswer, OutcomeNoDevice, OutcomeHarnessError} {
-		if got := o.poisonsContext(); got != poison[o] {
-			t.Errorf("%s.poisonsContext() = %v, want %v", o, got, poison[o])
+		if got := o.PoisonsContext(); got != poison[o] {
+			t.Errorf("%s.PoisonsContext() = %v, want %v", o, got, poison[o])
 		}
 	}
 }

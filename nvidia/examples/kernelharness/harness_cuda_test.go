@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cudahotswap"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
@@ -33,15 +34,15 @@ func TestFixtureOutcomes(t *testing.T) {
 	}
 	cases := []struct {
 		file string
-		want Outcome
+		want cudahotswap.Outcome
 	}{
-		{"testdata/axpby_correct.cu", OutcomeOK},
-		{"testdata/axpby_wrong.cu", OutcomeWrongAnswer},
-		{"testdata/axpby_partial.cu", OutcomeWrongAnswer},
-		{"testdata/axpby_nocompile.cu", OutcomeCompileError},
-		{"testdata/axpby_noentry.cu", OutcomeMissingEntry},
+		{"testdata/axpby_correct.cu", cudahotswap.OutcomeOK},
+		{"testdata/axpby_wrong.cu", cudahotswap.OutcomeWrongAnswer},
+		{"testdata/axpby_partial.cu", cudahotswap.OutcomeWrongAnswer},
+		{"testdata/axpby_nocompile.cu", cudahotswap.OutcomeCompileError},
+		{"testdata/axpby_noentry.cu", cudahotswap.OutcomeMissingEntry},
 	}
-	seen := map[Outcome]string{}
+	seen := map[cudahotswap.Outcome]string{}
 	for _, tc := range cases {
 		t.Run(tc.file, func(t *testing.T) {
 			source, err := os.ReadFile(tc.file)
@@ -58,13 +59,13 @@ func TestFixtureOutcomes(t *testing.T) {
 			if rep.ContextPoisoned {
 				t.Fatalf("%s poisoned the context; later fixtures in this process are meaningless", tc.file)
 			}
-			if rep.Outcome == OutcomeWrongAnswer {
+			if rep.Outcome == cudahotswap.OutcomeWrongAnswer {
 				last := rep.Correctness.Trials[len(rep.Correctness.Trials)-1]
 				if last.Comparison.Worst == nil {
 					t.Error("a wrong answer reported no worst element")
 				}
 			}
-			if rep.Outcome == OutcomeCompileError && rep.Reason == "" {
+			if rep.Outcome == cudahotswap.OutcomeCompileError && rep.Reason == "" {
 				t.Error("a compile error reported no compiler diagnostic")
 			}
 			seen[rep.Outcome] = tc.file
@@ -94,7 +95,7 @@ func TestCorrectCandidateIsMeasured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.Outcome != OutcomeOK {
+	if rep.Outcome != cudahotswap.OutcomeOK {
 		t.Fatalf("outcome %q: %s", rep.Outcome, rep.Reason)
 	}
 	if rep.Timing == nil || !rep.Timing.Resolved {
@@ -132,7 +133,7 @@ func TestBaselinesPassTheirOwnOracle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if rep.Outcome != OutcomeOK {
+			if rep.Outcome != cudahotswap.OutcomeOK {
 				t.Fatalf("task %s baseline: outcome %q: %s", name, rep.Outcome, rep.Reason)
 			}
 		})
@@ -165,8 +166,8 @@ func TestDeviceFaultFixture(t *testing.T) {
 	if rep == nil {
 		t.Fatal("no report")
 	}
-	if rep.Outcome != OutcomeDeviceFault {
-		t.Fatalf("outcome %q, want %q (reason: %s)", rep.Outcome, OutcomeDeviceFault, rep.Reason)
+	if rep.Outcome != cudahotswap.OutcomeDeviceFault {
+		t.Fatalf("outcome %q, want %q (reason: %s)", rep.Outcome, cudahotswap.OutcomeDeviceFault, rep.Reason)
 	}
 	if !rep.ContextPoisoned {
 		t.Error("a device fault did not mark the context poisoned")

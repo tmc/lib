@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"sort"
+
+	"github.com/tmc/lib/nvidia/x/cudahotswap"
 )
 
 // KernelABI is the fixed signature every candidate must define. It is fixed so
@@ -19,7 +21,7 @@ type Task struct {
 	Name    string
 	Entry   string
 	Summary string
-	// N is the element count. Reference and Compare both run over exactly N
+	// N is the element count. Reference and cudahotswap.Compare both run over exactly N
 	// elements; a candidate that writes fewer leaves the untouched tail at its
 	// initialized value, which the comparison sees.
 	N int
@@ -28,7 +30,7 @@ type Task struct {
 	// Grid and Block are chosen by the harness, not by the candidate, so two
 	// candidates are timed under the same launch geometry.
 	Grid, Block uint32
-	Tolerance   Tolerance
+	Tolerance   cudahotswap.Tolerance
 	// Reference computes the expected output on the CPU. It accumulates in
 	// float64 and narrows once, so it does not share the candidate's rounding.
 	Reference func(a, b []float32, alpha float32) []float32
@@ -127,7 +129,7 @@ var tasks = map[string]*Task{
 	"axpby": {
 		Name: "axpby", Entry: "axpby", Summary: "out[i] = alpha*a[i] + b[i]",
 		N: 1 << 20, Alpha: 2.5, Grid: 1024, Block: 256,
-		Tolerance:      Tolerance{Abs: 1e-6, Rel: 1e-6},
+		Tolerance:      cudahotswap.Tolerance{Abs: 1e-6, Rel: 1e-6},
 		Reference:      axpbyReference,
 		ReferenceDoc:   "axpbyReference in examples/kernelharness/tasks.go: float64 accumulation on the CPU, narrowed once",
 		Baseline:       axpbyBaseline,
@@ -136,7 +138,7 @@ var tasks = map[string]*Task{
 	"relu_axpby": {
 		Name: "relu_axpby", Entry: "relu_axpby", Summary: "out[i] = max(alpha*a[i] + b[i], 0)",
 		N: 1 << 20, Alpha: 1.75, Grid: 1024, Block: 256,
-		Tolerance:      Tolerance{Abs: 1e-6, Rel: 1e-6},
+		Tolerance:      cudahotswap.Tolerance{Abs: 1e-6, Rel: 1e-6},
 		Reference:      reluAxpbyReference,
 		ReferenceDoc:   "reluAxpbyReference in examples/kernelharness/tasks.go: float64 accumulation on the CPU, narrowed once",
 		Baseline:       reluAxpbyBaseline,
@@ -148,7 +150,7 @@ var tasks = map[string]*Task{
 		// A reciprocal square root is where a candidate is most likely to reach
 		// for a fast approximation. 2e-3 relative admits rsqrtf and the
 		// -use_fast_math form; it does not admit a wrong expression.
-		Tolerance:      Tolerance{Abs: 1e-5, Rel: 2e-3},
+		Tolerance:      cudahotswap.Tolerance{Abs: 1e-5, Rel: 2e-3},
 		Reference:      rsqrtScaleReference,
 		ReferenceDoc:   "rsqrtScaleReference in examples/kernelharness/tasks.go: float64 math.Sqrt on the CPU, narrowed once",
 		Baseline:       rsqrtScaleBaseline,

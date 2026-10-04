@@ -1,4 +1,4 @@
-package main
+package cudahotswap
 
 import (
 	"fmt"
@@ -13,7 +13,8 @@ type Tolerance struct {
 	Rel float64 `json:"rel"`
 }
 
-// Mismatch is one element that failed the comparison.
+// Mismatch is one element that failed the comparison. In JSON its finite
+// values are numbers; nonfinite values are "NaN", "+Inf" or "-Inf" strings.
 type Mismatch struct {
 	Index  int     `json:"index"`
 	Got    float64 `json:"got"`
@@ -34,7 +35,7 @@ type Comparison struct {
 }
 
 // OK reports whether every element was within tolerance and finite.
-func (c Comparison) OK() bool { return c.Mismatches == 0 && c.NonFinite == 0 }
+func (c Comparison) OK() bool { return c.Elements > 0 && c.Mismatches == 0 && c.NonFinite == 0 }
 
 // Compare checks got against want under tol. A NaN or infinity in got always
 // counts as a failure, whatever the tolerance: no tolerance admits a NaN.
@@ -44,6 +45,9 @@ func (c Comparison) OK() bool { return c.Mismatches == 0 && c.NonFinite == 0 }
 // increase to pass -- not merely the largest absolute error, which a single
 // large-magnitude element would always win.
 func Compare(got, want []float32, tol Tolerance) (Comparison, error) {
+	if tol.Abs < 0 || tol.Rel < 0 || math.IsNaN(tol.Abs) || math.IsNaN(tol.Rel) || math.IsInf(tol.Abs, 0) || math.IsInf(tol.Rel, 0) {
+		return Comparison{}, fmt.Errorf("tolerance must be finite and nonnegative")
+	}
 	if len(got) != len(want) {
 		return Comparison{}, fmt.Errorf("output length %d, reference length %d", len(got), len(want))
 	}
@@ -55,6 +59,9 @@ func Compare(got, want []float32, tol Tolerance) (Comparison, error) {
 	worstRatio := math.Inf(-1)
 	for i := range want {
 		g, w := float64(got[i]), float64(want[i])
+		if math.IsNaN(w) || math.IsInf(w, 0) {
+			return Comparison{}, fmt.Errorf("reference element %d is not finite", i)
+		}
 		if math.IsNaN(g) || math.IsInf(g, 0) {
 			c.NonFinite++
 		}

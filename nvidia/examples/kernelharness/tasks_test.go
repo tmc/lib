@@ -3,6 +3,8 @@ package main
 import (
 	"math"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudahotswap"
 )
 
 // The references are checked against values worked out by hand, not against
@@ -22,7 +24,7 @@ func TestReferences(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.fn(a, b, tt.alpha)
-			c, err := Compare(got, tt.want, Tolerance{Abs: 1e-6})
+			c, err := cudahotswap.Compare(got, tt.want, cudahotswap.Tolerance{Abs: 1e-6})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -42,7 +44,7 @@ func TestRsqrtScaleReference(t *testing.T) {
 		float32(3 / math.Sqrt(16+eps)),
 		float32(-1 / math.Sqrt(eps)),
 	}
-	c, err := Compare(got, want, Tolerance{Rel: 1e-6})
+	c, err := cudahotswap.Compare(got, want, cudahotswap.Tolerance{Rel: 1e-6})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +132,7 @@ func TestTolerancesRejectTheWrongFixtures(t *testing.T) {
 	for i := range a {
 		wrong[i] = task.Alpha*a[i] - b[i]
 	}
-	c, err := Compare(wrong, want, task.Tolerance)
+	c, err := cudahotswap.Compare(wrong, want, task.Tolerance)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +147,7 @@ func TestTolerancesRejectTheWrongFixtures(t *testing.T) {
 	for i := len(partial) / 2; i < len(partial); i++ {
 		partial[i] = nan
 	}
-	c, err = Compare(partial, want, task.Tolerance)
+	c, err = cudahotswap.Compare(partial, want, task.Tolerance)
 	if err != nil {
 		t.Fatal(err)
 	}
