@@ -41,18 +41,7 @@ func TestNativeStartStopMatchesReferenceSample(t *testing.T) {
 	if err := checkPCReferenceBinary(sample); err != nil {
 		t.Fatal(err)
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(home, "tmp"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	work, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cuptipcsampling-reference-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(work) })
+	work := t.TempDir()
 	var referenceRuns []pcReferenceReport
 	for i := 0; i < 3; i++ {
 		cmd := exec.Command(sample)
