@@ -239,7 +239,7 @@ func TestLazyFusionBoundary_HardwareExecutionPendingReport(t *testing.T) {
 	}
 
 	for _, target := range knownTargets {
-		err := plan.Execute(target)
+		err := plan.CheckTarget(target)
 		if err == nil {
 			t.Fatalf("target %s returned nil error (prohibited fake GPU execution)", target)
 		}
@@ -257,7 +257,7 @@ func TestLazyFusionBoundary_HardwareExecutionPendingReport(t *testing.T) {
 	}
 
 	for _, target := range unknownTargets {
-		err := plan.Execute(target)
+		err := plan.CheckTarget(target)
 		if err == nil {
 			t.Fatalf("unknown target %s returned nil error, want ErrUnsupported", target)
 		}

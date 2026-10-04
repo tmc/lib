@@ -34,8 +34,8 @@ func ExampleLazyArray() {
 	fmt.Printf("output buffers allocated: %d\n", plan.OutputBuffers)
 	fmt.Printf("total allocations: %d\n", ctx.Tracker.Snapshot().Allocations)
 
-	// Execution on known targets reports ErrHardwarePending without physical GPU
-	execErr := plan.Execute("sm_121a")
+	// CheckTarget is a status lookup, not an execution receipt.
+	execErr := plan.CheckTarget("sm_121a")
 	fmt.Printf("hardware pending: %t\n", errors.Is(execErr, cudaerrors.ErrHardwarePending))
 
 	// Output:

@@ -30,10 +30,10 @@ type MaterializedPlan struct {
 	RootNode       *LazyNode
 }
 
-// Execute returns a fixed result based on target: known targets return
+// CheckTarget returns a fixed result based on target: known targets return
 // ErrHardwarePending and unknown targets return ErrUnsupported. It does not
 // probe hardware or execute a kernel.
-func (p *MaterializedPlan) Execute(target string) error {
+func (p *MaterializedPlan) CheckTarget(target string) error {
 	if !isKnownTarget(target) {
 		return fmt.Errorf("cudafuse: target %q: %w", target, cudaerrors.ErrUnsupported)
 	}
