@@ -383,9 +383,9 @@ func distillBorrow(v []distillView, dev *cuda.Device) ([]func(), error) {
 	return releases, nil
 }
 
-// CheckSparseTeacherStatus requires one successful device write per row.
 var errDistillStatus = errors.New("cudareduce: sparse teacher device status refusal")
 
+// CheckSparseTeacherStatus requires a zero validation status for each row.
 func CheckSparseTeacherStatus(status []int32, rows int) error {
 	if rows < 1 || len(status) != rows {
 		return fmt.Errorf("cudareduce: sparse teacher status extent disagrees")
