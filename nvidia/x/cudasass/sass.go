@@ -13,6 +13,11 @@ import (
 
 // Disassembly represents a parsed collection of disassembled SASS functions.
 type Disassembly struct {
+	// Target is the explicit architecture declared by .target or a code-for
+	// preamble. It is empty when declarations are missing, malformed,
+	// conflicting, or exceed the parser's target declaration bounds.
+	// It is not inferred from instruction spellings or binary encodings.
+	Target    string
 	Functions []*Function
 	funcMap   map[string]*Function
 	sections  []Section
@@ -203,12 +208,26 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	curSection := -1
 	pendingBanner := ""
 	archAlign := uint64(16)
+	targetDeclarations := 0
+	targetUnknown := false
 	curSecHasAddr := false
 	curSecLastAddr := uint64(0)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
+
+		if target, declared := disassemblyTarget(trimmed); declared {
+			targetDeclarations++
+			if target == "" || targetDeclarations > 4096 || (d.Target != "" && d.Target != target) {
+				targetUnknown = true
+			}
+			if targetUnknown {
+				d.Target = ""
+			} else {
+				d.Target = target
+			}
+		}
 
 		if strings.HasPrefix(trimmed, ".target") {
 			fields := strings.Fields(trimmed)
@@ -551,4 +570,37 @@ func encodingWord(s string) (uint64, bool) {
 		return 0, false
 	}
 	return word, true
+}
+
+// disassemblyTarget extracts only an explicit bounded architecture token.
+// Target failures leave ordinary instruction parsing usable; consumers that
+// need target identity must reject an unavailable Disassembly.Target.
+func disassemblyTarget(line string) (target string, declared bool) {
+	var rest string
+	if line == ".target" || line == "code for" {
+		return "", true
+	} else if strings.HasPrefix(line, ".target ") || strings.HasPrefix(line, ".target\t") {
+		rest = line[len(".target"):]
+	} else if strings.HasPrefix(line, "code for ") {
+		rest = line[len("code for "):]
+	} else {
+		return "", false
+	}
+	rest = strings.TrimLeft(rest, " \t")
+	end := 0
+	for end < len(rest) && rest[end] != ' ' && rest[end] != '\t' && rest[end] != ',' {
+		if end >= 128 {
+			return "", true
+		}
+		c := rest[end]
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+			return "", true
+		}
+		end++
+	}
+	token := rest[:end]
+	if !strings.HasPrefix(token, "sm_") || len(token) <= len("sm_") {
+		return "", true
+	}
+	return strings.Clone(token), true
 }
