@@ -210,8 +210,8 @@ func TestGeneratePDLCUDA(t *testing.T) {
 			opts: egraph.CodegenOptions{KernelName: "PDLGEMVPipelineKernel"},
 			wantContains: []string{
 				"PDLGEMVPipelineKernel",
-				"cudaTriggerProgrammaticLaunchCompletion()",
-				"cudaGridDependencySynchronize()",
+				"egraph_trigger_programmatic_launch_completion()",
+				"egraph_grid_dependency_synchronize()",
 				"asm volatile(\"griddepcontrol.wait;\":::\"memory\");",
 				"(a) PDL Preamble",
 				"(b) PDL Barrier",
@@ -237,7 +237,7 @@ func TestGeneratePDLCUDA(t *testing.T) {
 			opts: egraph.CodegenOptions{KernelName: "PDLSplitKernel"},
 			wantContains: []string{
 				"PDLSplitKernel",
-				"cudaGridDependencySynchronize()",
+				"egraph_grid_dependency_synchronize()",
 				"asm volatile(\"griddepcontrol.wait;\":::\"memory\");",
 				"(a) PDL Preamble",
 				"(b) PDL Barrier",
@@ -259,7 +259,7 @@ func TestGeneratePDLCUDA(t *testing.T) {
 			wantContains: []string{
 				"PDLSwiGLUKernel",
 				"w_prefetch",
-				"cudaGridDependencySynchronize()",
+				"egraph_grid_dependency_synchronize()",
 				"asm volatile(\"griddepcontrol.wait;\":::\"memory\");",
 				"silu",
 			},
@@ -278,7 +278,7 @@ func TestGeneratePDLCUDA(t *testing.T) {
 			wantContains: []string{
 				"PDLRMSNormKernel",
 				"w_norm_val",
-				"cudaGridDependencySynchronize()",
+				"egraph_grid_dependency_synchronize()",
 				"asm volatile(\"griddepcontrol.wait;\":::\"memory\");",
 				"rsqrtf",
 			},
@@ -296,7 +296,7 @@ func TestGeneratePDLCUDA(t *testing.T) {
 			wantContains: []string{
 				"PDLQ8_0Kernel",
 				"scale_prefetch",
-				"cudaGridDependencySynchronize()",
+				"egraph_grid_dependency_synchronize()",
 				"asm volatile(\"griddepcontrol.wait;\":::\"memory\");",
 				"warp_sum",
 			},
@@ -323,7 +323,7 @@ func TestGeneratePDLCUDA(t *testing.T) {
 				if err != nil {
 					t.Fatalf("ks.GenerateCUDA failed: %v", err)
 				}
-				if !strings.Contains(splitSrc, "cudaGridDependencySynchronize()") {
+				if !strings.Contains(splitSrc, "egraph_grid_dependency_synchronize()") {
 					t.Errorf("ks.GenerateCUDA missing synchronization barrier")
 				}
 			}
@@ -450,6 +450,14 @@ func TestPDLCostModelSelection(t *testing.T) {
 func TestPDLKernelCompilesNVRTC(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
+
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if major < 9 {
+		t.Skipf("programmatic dependent launch requires compute capability 9.0 or later; device is %d.%d", major, minor)
+	}
 
 	src, err := egraph.GenerateCUDA(&egraph.Expr{
 		Op: "pdl_gemv_pipeline",

@@ -70,7 +70,7 @@ func (ks *KernelSplit) GenerateCUDA(opts CodegenOptions) (string, error) {
 
 // GeneratePDLCUDA generates a complete, compilable CUDA C++ kernel partitioned into:
 // (a) Preamble: executes independent loads/computations (weights, biases, constants).
-// (b) Barrier: emits cudaGridDependencySynchronize() / griddepcontrol.wait;.
+// (b) Barrier: emits egraph_grid_dependency_synchronize() / griddepcontrol.wait;.
 // (c) Dependent Body: consumes predecessor kernel output.
 func GeneratePDLCUDA(expr *Expr, opts CodegenOptions) (string, error) {
 	opts.EnablePDL = true
@@ -310,7 +310,7 @@ func hasPDLPreambleWork(n ENode, childCosts []float64) bool {
 
 // generatePDLKernel produces CUDA C++ source code partitioned into:
 // (a) Preamble: executes independent loads / computations.
-// (b) Barrier: emits cudaGridDependencySynchronize() / griddepcontrol.wait;.
+// (b) Barrier: emits egraph_grid_dependency_synchronize() / griddepcontrol.wait;.
 // (c) Dependent Body: consumes predecessor output.
 func generatePDLKernel(expr *Expr, opts CodegenOptions) string {
 	scalarType := "float"
@@ -343,7 +343,7 @@ func generatePDLKernel(expr *Expr, opts CodegenOptions) string {
     __syncthreads();
 
     // Trigger launch of dependent grids
-    cudaTriggerProgrammaticLaunchCompletion();
+    egraph_trigger_programmatic_launch_completion();
 
     // =========================================================================
     // (a) PDL Preamble: Independent Prologue Work (Stage 2 Weight Fetch)
@@ -358,7 +358,7 @@ func generatePDLKernel(expr *Expr, opts CodegenOptions) string {
     // =========================================================================
     // (b) PDL Barrier: Wait for predecessor completion
     // =========================================================================
-    cudaGridDependencySynchronize();
+    egraph_grid_dependency_synchronize();
     asm volatile("griddepcontrol.wait;":::"memory");
 
     // =========================================================================
@@ -402,7 +402,7 @@ func generatePDLKernel(expr *Expr, opts CodegenOptions) string {
     // =========================================================================
     // (b) PDL Barrier: Synchronize on predecessor completion
     // =========================================================================
-    cudaGridDependencySynchronize();
+    egraph_grid_dependency_synchronize();
     asm volatile("griddepcontrol.wait;":::"memory");
 
     // =========================================================================
@@ -450,7 +450,7 @@ func generatePDLKernel(expr *Expr, opts CodegenOptions) string {
     // =========================================================================
     // (b) PDL Barrier: Synchronize on predecessor completion
     // =========================================================================
-    cudaGridDependencySynchronize();
+    egraph_grid_dependency_synchronize();
     asm volatile("griddepcontrol.wait;":::"memory");
 
     // =========================================================================
@@ -502,7 +502,7 @@ func generatePDLKernel(expr *Expr, opts CodegenOptions) string {
     // =========================================================================
     // (b) PDL Barrier: Synchronize on predecessor completion
     // =========================================================================
-    cudaGridDependencySynchronize();
+    egraph_grid_dependency_synchronize();
     asm volatile("griddepcontrol.wait;":::"memory");
 
     // =========================================================================
@@ -547,7 +547,7 @@ func generatePDLKernel(expr *Expr, opts CodegenOptions) string {
     // =========================================================================
     // (b) PDL Barrier: Synchronize on predecessor grid completion
     // =========================================================================
-    cudaGridDependencySynchronize();
+    egraph_grid_dependency_synchronize();
     asm volatile("griddepcontrol.wait;":::"memory");
 
     // =========================================================================

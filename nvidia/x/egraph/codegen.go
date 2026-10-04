@@ -20,7 +20,7 @@ type CodegenOptions struct {
 	// UseWarpSum enables intra-warp reduction helpers.
 	UseWarpSum bool
 	// EnablePDL partitions the generated kernel into preamble, barrier
-	// (cudaGridDependencySynchronize), and dependent body.
+	// (egraph_grid_dependency_synchronize), and dependent body.
 	EnablePDL bool
 	// PredecessorInput optionally specifies the variable name representing
 	// the predecessor kernel output. Defaults to "x" or "in".
@@ -176,12 +176,12 @@ __device__ __forceinline__ float warp_sum(float val) {
 }
 
 // Grid dependency synchronization for Programmatic Dependent Launch (PDL).
-__device__ __forceinline__ void cudaGridDependencySynchronize(void) {
+__device__ __forceinline__ void egraph_grid_dependency_synchronize(void) {
     asm volatile("griddepcontrol.wait;":::"memory");
 }
 
 // Trigger launch of dependent grids for Programmatic Dependent Launch (PDL).
-__device__ __forceinline__ void cudaTriggerProgrammaticLaunchCompletion(void) {
+__device__ __forceinline__ void egraph_trigger_programmatic_launch_completion(void) {
     asm volatile("griddepcontrol.launch_dependents;":::);
 }
 
