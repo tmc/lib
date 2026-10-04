@@ -28,6 +28,7 @@ func TestCompileTMAFixture(t *testing.T) {
 	}
 	nvcc, _ := cudatest.NVCC(t)
 	target := tmaTarget()
+	cudatest.SkipUnlessTarget(t, nvcc, target)
 	s, e := FixtureSource(target, 32)
 	if e != nil {
 		t.Fatal(e)
@@ -54,6 +55,7 @@ func TestNativeTMAReference(t *testing.T) {
 	}
 	nvcc, _ := cudatest.NVCC(t)
 	target := tmaTarget()
+	cudatest.SkipUnlessTarget(t, nvcc, target)
 	s, _ := FixtureSource(target, 32)
 	s += `#include <cuda_runtime.h>
 int main(){float h[32],o[32];for(int i=0;i<32;i++)h[i]=i;float*d=0,*q=0;if(cudaMalloc(&d,sizeof h)||cudaMalloc(&q,sizeof o))return 2;if(cudaMemcpy(d,h,sizeof h,cudaMemcpyHostToDevice))return 3;tma_fixture<<<1,32,sizeof h>>>(d,q);if(cudaDeviceSynchronize())return 4;if(cudaMemcpy(o,q,sizeof o,cudaMemcpyDeviceToHost))return 5;for(int i=0;i<32;i++)if(o[i]!=h[i])return 6;return 0;}`
@@ -127,6 +129,7 @@ func compileFixture(t *testing.T, nvcc, target, src string, args ...string) stri
 func TestCompileTMAInstructionFixture(t *testing.T) {
 	nvcc := nvccOrSkip(t)
 	target := tmaTarget()
+	cudatest.SkipUnlessTarget(t, nvcc, target)
 	src, err := TMAFixtureSource(target)
 	if err != nil {
 		t.Fatal(err)
@@ -157,6 +160,7 @@ func TestCompileTMAInstructionFixture(t *testing.T) {
 func TestTMAFixturePassesTheMapInParamSpace(t *testing.T) {
 	nvcc := nvccOrSkip(t)
 	target := tmaTarget()
+	cudatest.SkipUnlessTarget(t, nvcc, target)
 	src, err := TMAFixtureSource(target)
 	if err != nil {
 		t.Fatal(err)

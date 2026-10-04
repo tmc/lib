@@ -8,6 +8,7 @@ package cudatest
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,4 +48,25 @@ func NVCC(t *testing.T) (string, cudatool.Version) {
 	}
 	t.Logf("nvcc %s (CUDA %s)", nvcc, v)
 	return nvcc, v
+}
+
+// SkipUnlessTarget skips t when nvcc cannot generate code for target, such as
+// sm_121a on a toolkit older than CUDA 12.9. A feature suffix (the "a" of
+// sm_90a, the "f" of sm_100f) is dropped before the lookup, because nvcc
+// --list-gpu-code names only base targets.
+func SkipUnlessTarget(t *testing.T, nvcc, target string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), versionTimeout)
+	defer cancel()
+	out, err := cudatool.Run(ctx, nvcc, "", nil, "--list-gpu-code")
+	if err != nil {
+		t.Fatalf("nvcc --list-gpu-code: %v", err)
+	}
+	base := strings.TrimRight(target, "af")
+	for _, code := range strings.Fields(string(out.Stdout)) {
+		if code == base {
+			return
+		}
+	}
+	t.Skipf("nvcc %s cannot generate %s; it lists %s", nvcc, target, strings.Join(strings.Fields(string(out.Stdout)), " "))
 }
