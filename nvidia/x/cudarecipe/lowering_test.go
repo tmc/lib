@@ -44,6 +44,9 @@ esac
 		t.Fatal(err)
 	}
 	cubin := metadataELF(false, 0, elf.EM_CUDA)
+	// CUDA ELF ABI 7 stores the SM in the low flags byte. This synthetic
+	// known-target fixture must not rely on the unknown-ABI fallback.
+	cubin[8] = 7
 	binary.LittleEndian.PutUint32(cubin[48:], 90)
 	i, _ := NewInspector(t.TempDir())
 	tool := cudasass.Disassembler{Path: path}
