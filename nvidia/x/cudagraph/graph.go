@@ -119,7 +119,8 @@ type InstantiateOptions struct {
 	UseNodePriority bool
 	// RetainKernelOrder records native symbols only when completion dependencies
 	// prove a unique kernel order. Unsupported nodes or parallel kernels fail
-	// before instantiation.
+	// before instantiation. A driver before CUDA 12.3, which cannot name a
+	// kernel, fails with an error wrapping [errors.ErrUnsupported].
 	RetainKernelOrder bool
 }
 

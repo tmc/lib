@@ -27,6 +27,10 @@ func (e *Exec) KernelOrder() (driver.GraphExec, []string, error) {
 }
 
 func snapshotKernelOrder(g driver.Graph) ([]string, error) {
+	// Kernel symbols are named through cuFuncGetName, which arrived in CUDA 12.3.
+	if !driver.Has("cuFuncGetName") {
+		return nil, fmt.Errorf("cudagraph: kernel order needs cuFuncGetName: %w", errors.ErrUnsupported)
+	}
 	const limit = 65536
 	nodes, err := g.NodesBounded(limit)
 	if err != nil {
