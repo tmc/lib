@@ -1,0 +1,44 @@
+Commit: d86f389ef93b57dec793dd91f9bb80522bdd545f
+Date: 2026-10-04T06:55:06.581019+00:00
+Agent: Codex CLI; model GPT-6
+TTY: not a tty
+PID: 31084; parent PID: 31081
+Own session: 026363F7-C2F7-4118-9920-4953A7B20D93
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Manual signed fallback: git-auto-commit-message exhausted its two failed attempts earlier in this goal.
+Host conflict-package tests and vet passed; independent profiler review pending at creation.
+
+Commit: 5d667d54b6c694a57c20346a21852be7d60d98f7
+Date: 2026-10-04T07:05:29.267966+00:00
+Agent: codex-cli 0.160.0; model GPT-6; Claude Code not used
+TTY: not a tty
+PID: 54243; parent PID: 54242
+Own session: 026363F7-C2F7-4118-9920-4953A7B20D93
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Rebased next onto main 3908fb17ba8a345f4ee131b54a007231320dce53.
+Independent ACCEPT: /Users/tmc/tmp/lib-wt-next/20261004-next-main-rebase/independent-review/profiler-review.md
+12 affected host packages, profiler/CLI full host tests, focused race, vet and namespace/LIFO probe pass.
+All 252 original commits and notes preserved; 39 local tracked edits and75 pinned untracked sources unchanged; index empty.
+No new native qualification claim.
+
+Commit: 56077983853fd32379760d07354724b1ee2d397a
+Date: 2026-10-04T07:21:55.785872+00:00
+Agent: codex-cli 0.160.0; model GPT-6; Claude Code not used
+TTY: not a tty
+PID: 83343; parent PID: 83342
+Own session: 026363F7-C2F7-4118-9920-4953A7B20D93
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Second user-requested rebase includes main48d18a91c. All253 zero-context patch identities and signatures match; originalnotes preserved.
+Independent ACCEPT: /Users/tmc/tmp/lib-wt-next/20261004-next-main-rebase2/independent-review/nvrtcx-supplement/review.md
+Host nvrtcx/egraph/cudafuse pass;39tracked edits/75untracked source pins unchanged;index empty. Actual NVRTC/GPU execution remains unclaimed.
+
+Commit: bec645dd8cfd0dec58eae48810f20d93d3f11059
+Date: 2026-10-04T07:29:05.256653+00:00
+Agent: codex-cli 0.160.0; model GPT-6; Claude Code not used
+TTY: not a tty
+PID: 99442; parent PID: 99441
+Own session: 026363F7-C2F7-4118-9920-4953A7B20D93
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+User-requested rebase final main6f598fee7;232signed replays+21main equivalent patches cover all253 priorpatches and notes. Exact source tree equals tested56077983.
+Independent ACCEPT: /Users/tmc/tmp/lib-wt-next/20261004-next-main-rebase2/independent-review/import-coverage/review.md
+All39tracked edits/75untracked source pins unchanged;index empty. Native qualification is not extended by this source-identity proof.
