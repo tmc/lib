@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"unsafe"
@@ -423,7 +424,8 @@ func WithHeader(name, content string) Option {
 }
 
 // WithNoCache disables the compilation cache for this compilation pass,
-// and passes --no-cache to disable the driver disk cache.
+// and passes --no-cache to disable NVRTC's own cache. NVRTC releases before
+// 12.9 have no cache and reject the flag, so Compile omits it there.
 func WithNoCache() Option {
 	return func(o *options) {
 		o.useCache = false
@@ -431,6 +433,17 @@ func WithNoCache() Option {
 			o.flags = append(o.flags, "--no-cache")
 		}
 	}
+}
+
+// hasNVRTCCache reports whether NVRTC major.minor has its own cache
+// and accepts --no-cache. Both arrived in 12.9; earlier releases
+// reject the flag with NVRTC_ERROR_INVALID_OPTION.
+func hasNVRTCCache(major, minor int32) bool {
+	return major > 12 || major == 12 && minor >= 9
+}
+
+func isNoCacheFlag(f string) bool {
+	return f == "--no-cache" || f == "-no-cache"
 }
 
 // LoadOutput loads one selected artifact. It never falls back to another format.
@@ -557,11 +570,8 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	}
 
 	// Disable cache if --no-cache was requested in custom flags
-	for _, f := range cfg.flags {
-		if f == "--no-cache" || f == "-no-cache" {
-			cfg.useCache = false
-			break
-		}
+	if slices.ContainsFunc(cfg.flags, isNoCacheFlag) {
+		cfg.useCache = false
 	}
 
 	// Apply line info default: on by default for profilers and debuggers,
@@ -645,6 +655,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	major, minor, err := nvrtc.Version()
 	if err != nil {
 		return nil, fmt.Errorf("nvrtcx: compiler version: %w", err)
+	}
+	if !hasNVRTCCache(major, minor) {
+		cfg.flags = slices.DeleteFunc(cfg.flags, isNoCacheFlag)
 	}
 	identity := fmt.Sprintf("nvrtc %d.%d %s output=%d cache=%q", major, minor, nvrtc.Path(), cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
