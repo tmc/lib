@@ -3,6 +3,7 @@
 package cuptirange_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -71,6 +72,9 @@ func TestNativeRangeCapture(t *testing.T) {
 				t.Error(err)
 			}
 		}()
+	}
+	if errors.Is(err, errors.ErrUnsupported) {
+		t.Skipf("range profiling unsupported by the installed CUPTI: %v", err)
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -207,6 +211,9 @@ extern "C" __global__ void heavy_kernel(unsigned int *out, unsigned int trips) {
 				t.Error(err)
 			}
 		}()
+	}
+	if errors.Is(err, errors.ErrUnsupported) {
+		t.Skipf("range profiling unsupported by the installed CUPTI: %v", err)
 	}
 	if err != nil {
 		t.Fatal(err)

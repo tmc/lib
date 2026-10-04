@@ -44,7 +44,8 @@ type hostAPI struct {
 // Host initialization admits the measured 64-bit layouts for CUPTI 24, 26, 28,
 // 130001, 130101, 130200, 130202, 130301 and 130400. A later release of the
 // same CUDA major uses the newest of those layouts at or below it; a new major
-// or an older release fails before creating a host object.
+// or an older release fails before creating a host object, with an error
+// wrapping [errors.ErrUnsupported].
 func NewPlan(chip string, availability []byte, metrics []string, maxConfigBytes int) (plan *Plan, err error) {
 	return newPlan(chip, availability, metrics, maxConfigBytes, hostAPI{
 		version:    cupti.GetVersion,
