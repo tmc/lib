@@ -26,7 +26,7 @@ var corpusTools = []string{"nvcc", "ptxas", "nvdisasm", "cuobjdump", "nvlink", "
 // the toolkits installed on this host, and with -update rewrites them.
 //
 // It is the gate on a toolkit upgrade: when /usr/local/cuda moves to a version
-// the corpus records, every option and every arity must still match, and a
+// the corpus records, every recorded option and arity must still match, and a
 // difference is reported here rather than discovered in a caller's command line.
 // Moving it to a version the corpus does not record fails too, because that is
 // the version every caller gets and nothing describes it without running it.
@@ -86,12 +86,18 @@ func TestCorpusMatchesInstalledToolkits(t *testing.T) {
 
 // diffOptions reports every difference between the recorded and live option
 // sets, rather than stopping at the first, so one run names the whole change.
+//
+// A record is keyed by major.minor, and a later patch release may add an
+// option: 13.4.92 adds --support-32bit to the compute-sanitizer 13.4.59 that
+// the 13.4 record came from. An added option is only logged, because a caller
+// that emits only recorded options still gets a command line the tool accepts.
+// A removed option or a changed spelling is an error.
 func diffOptions(t *testing.T, recorded, live Options) {
 	t.Helper()
 	for _, opt := range live {
 		was, ok := recorded.Find(opt.Name)
 		if !ok {
-			t.Errorf("%s is new: the tool accepts it and the record does not", opt.Name)
+			t.Logf("%s is new: the tool accepts it and the record does not", opt.Name)
 			continue
 		}
 		if was.Arity != opt.Arity {
