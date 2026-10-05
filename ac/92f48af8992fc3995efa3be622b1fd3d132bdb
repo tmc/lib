@@ -1,0 +1,4 @@
+Commit: ac92f48af8992fc3995efa3be622b1fd3d132bdb
+Date: 2026-10-05T14:56:18.458513+00:00
+Agent: Codex CLI 0.160.0; model unavailable; tty unavailable; pid 47102; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Evidence: root independent SOURCE/CPU grade /home/tmc/tmp/lib-wt-next/20261005-root-death-v4-review/SOURCE-CPU-GRADE.md; death cells race3 6.543s, final with receipt controls 6.586s; full author Linux race3 117.832s/CLI1.014s; vet/gofmt/diff clean. No native GPU qualification.
