@@ -433,7 +433,7 @@ History and floor are separate. The generator also reads pinned headers
 of releases older than the floor, so the API changelog and the
 `since=` labels say when each declaration appeared. For separately versioned
 libraries that history is backfilled from past releases (decided
-2026-10-04). It changes labels only: plain names keep their meaning at
+2026-10-04; scheduled for v0.1.1, so v0.1.0 labels them since the floor). It changes labels only: plain names keep their meaning at
 the floor, and the loader never admits a release below the floor, so a
 `since=` older than the floor is informational.
 
@@ -862,8 +862,12 @@ and restamps, and only when all of these hold for that exact commit:
    ceiling host, and x/ is green on all three hosts as defined above.
 6. Every importable x/ package states the exemption in its doc comment.
 7. Each package commits `api.gen.txt`, and `CUDA-API.md`, the per-release
-   API changelog, is generated from them with its checks passing (decided
-   2026-10-04). Names present at the floor and removed before the ceiling
+   API changelog, is generated from them with its checks passing, with
+   toolkit history from the 12.2 floor (decided 2026-10-04). The
+   backfill for separately versioned libraries, complete `since=`
+   labels for them, and data-driven NVRTC option checks wait for v0.1.1:
+   landing them later changes neither `frozennames.txt` nor apidiff,
+   which is the test for deferring anything. Names present at the floor and removed before the ceiling
    stay bound, with a `Deprecated:` paragraph saying when NVIDIA
    deprecated and removed them; their `Has` predicate reports false where
    the symbol is absent.
