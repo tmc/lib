@@ -3,7 +3,13 @@ package cudahotswap
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"sort"
+
+	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
 // Version identifies retained compiled code. Number is State.Version, not the
@@ -99,6 +105,14 @@ func (s *Service) selectRetainedChecking(ctx context.Context, name string, versi
 		return State{}, errors.New("select kernel: version is not retained")
 	}
 	s.table.mu.RUnlock()
+	if checking != nil {
+		if checking.prior == nil || checking.prior.gen != target || checking.rollback == nil {
+			return State{}, errors.New("rollback kernel: retained owner changed")
+		}
+		if err := checking.custody.verifyInherited(); err != nil {
+			return State{}, err
+		}
+	}
 	lease, err := s.acquire(ctx, name)
 	cleanup := s.retainCleanup(lease)
 	defer func() { err = errors.Join(err, cleanup.close(ctx)); s.observeError(err) }()
@@ -108,6 +122,12 @@ func (s *Service) selectRetainedChecking(ctx context.Context, name string, versi
 	if lease == nil {
 		return State{}, errors.New("select kernel: acquire returned no lease")
 	}
+	if checking != nil {
+		if err := checking.custody.verifyLease(lease); err != nil {
+			return State{}, err
+		}
+	}
+
 	if err := ctx.Err(); err != nil {
 		return State{}, err
 	}
@@ -118,7 +138,12 @@ func (s *Service) selectRetainedChecking(ctx context.Context, name string, versi
 	if err != nil {
 		return State{}, err
 	}
-	stamp, err := s.table.selectVersion(name, version)
+	var stamp generationStamp
+	if checking != nil {
+		stamp, err = s.table.selectReserved(name, version, checking.rollback)
+	} else {
+		stamp, err = s.table.selectVersion(name, version)
+	}
 	if err != nil {
 		return State{}, err
 	}
@@ -133,4 +158,74 @@ func (s *Service) selectRetainedChecking(ctx context.Context, name string, versi
 	s.states[name] = state
 	s.mu.Unlock()
 	return state, nil
+}
+
+// rollbackCustody binds default request leases across application callbacks.
+// A custom test acquisition has no native custody claim.
+type rollbackCustody struct {
+	dir       string
+	owner     cudalock.Owner
+	inherited bool
+}
+
+func captureRollbackCustody(lease io.Closer) (*rollbackCustody, error) {
+	actual, ok := lease.(requestLease)
+	if !ok {
+		return nil, nil
+	}
+	if actual.handle == nil {
+		return nil, errors.New("rollback custody: missing request handle")
+	}
+	c := &rollbackCustody{dir: actual.handle.Dir(), owner: actual.handle.Owner()}
+	c.inherited = actual.handle.IsNested() && c.owner.PID != os.Getpid()
+	if err := c.verifyInherited(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func sameRollbackOwner(a, b cudalock.Owner) bool {
+	return a.PID == b.PID && a.Host == b.Host && a.Epoch == b.Epoch && a.At.Equal(b.At)
+}
+
+// Verify the original directory before acquisition so changed inheritance
+// cannot cause fallback to an unrelated root lease.
+func (c *rollbackCustody) verifyInherited() error {
+	if c == nil {
+		return nil
+	}
+	if filepath.Clean(c.dir) != filepath.Clean(cudalock.DefaultDir()) {
+		return errors.New("rollback custody: lock directory changed")
+	}
+	if c.inherited {
+		owner, err := cudalock.Inherited(os.Getenv)
+		if err != nil {
+			return fmt.Errorf("rollback custody: %w", err)
+		}
+		if !sameRollbackOwner(c.owner, owner) {
+			return errors.New("rollback custody: inherited owner changed")
+		}
+	}
+	return nil
+}
+
+func (c *rollbackCustody) verifyLease(lease io.Closer) error {
+	if c == nil {
+		return nil
+	}
+	if err := c.verifyInherited(); err != nil {
+		return err
+	}
+	actual, ok := lease.(requestLease)
+	if !ok || actual.handle == nil || filepath.Clean(actual.handle.Dir()) != filepath.Clean(c.dir) {
+		return errors.New("rollback custody: acquired a different request lease")
+	}
+	if c.inherited {
+		if !actual.handle.IsNested() || !sameRollbackOwner(c.owner, actual.handle.Owner()) {
+			return errors.New("rollback custody: acquired a different inherited owner")
+		}
+	} else if actual.handle.Owner().PID != c.owner.PID || actual.handle.Owner().Host != c.owner.Host {
+		return errors.New("rollback custody: acquired a different standalone owner")
+	}
+	return nil
 }

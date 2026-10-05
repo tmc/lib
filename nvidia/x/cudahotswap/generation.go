@@ -38,10 +38,11 @@ type kernelEntry struct {
 // mutation revision. Selecting a retained version does not create an aliasing
 // second module owner. A raw handle remains valid only through its pin.
 type generationTable struct {
-	mu      sync.RWMutex
-	entries map[string]*kernelEntry
-	next    uint64
-	closed  bool
+	mu       sync.RWMutex
+	entries  map[string]*kernelEntry
+	next     uint64
+	rollback map[*generationReservation]struct{}
+	closed   bool
 }
 
 type generationStamp struct {
@@ -79,7 +80,7 @@ func (t *generationTable) publish(name string, candidate *generation, expected u
 			return generationStamp{}, err
 		}
 	}
-	if t.next == math.MaxUint64 {
+	if !t.canAdvanceLocked(1) {
 		return generationStamp{}, errors.New("kernel generation counter exhausted")
 	}
 	t.next++
@@ -108,6 +109,53 @@ func (t *generationTable) selectVersion(name string, version uint64) (generation
 }
 
 func (t *generationTable) selectLocked(name string, version uint64) (generationStamp, error) {
+	return t.selectReservedLocked(name, version, nil)
+}
+
+// generationReservation reserves one later mutation, not a predetermined
+// stamp. Interleaved mutations still receive strictly increasing revisions.
+type generationReservation struct {
+	name    string
+	version uint64
+}
+
+func (t *generationTable) canAdvanceLocked(n uint64) bool {
+	remaining := uint64(math.MaxUint64) - t.next
+	reserved := uint64(len(t.rollback))
+	return reserved <= remaining && n <= remaining-reserved
+}
+
+func (t *generationTable) reserveRollback(name string, prior *generation) (*generationReservation, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	e := t.entries[name]
+	if t.closed || e == nil || e.current.Load() != prior || prior == nil || prior.retired || prior.owner == nil {
+		return nil, errors.New("reserve rollback: prior generation is unavailable")
+	}
+	if !t.canAdvanceLocked(2) {
+		return nil, errors.New("kernel generation counter exhausted")
+	}
+	token := &generationReservation{name: name, version: prior.version}
+	if t.rollback == nil {
+		t.rollback = make(map[*generationReservation]struct{})
+	}
+	t.rollback[token] = struct{}{}
+	return token, nil
+}
+
+func (t *generationTable) releaseRollback(token *generationReservation) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.rollback, token)
+}
+
+func (t *generationTable) selectReserved(name string, version uint64, token *generationReservation) (generationStamp, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.selectReservedLocked(name, version, token)
+}
+
+func (t *generationTable) selectReservedLocked(name string, version uint64, token *generationReservation) (generationStamp, error) {
 	if t.closed {
 		return generationStamp{}, errors.New("kernel table is closed")
 	}
@@ -115,8 +163,16 @@ func (t *generationTable) selectLocked(name string, version uint64) (generationS
 	if e == nil || e.versions[version] == nil || e.versions[version].retired {
 		return generationStamp{}, errors.New("kernel version is not retained")
 	}
-	if t.next == math.MaxUint64 {
+	if token != nil {
+		_, reserved := t.rollback[token]
+		if !reserved || token.name != name || token.version != version || t.next == math.MaxUint64 {
+			return generationStamp{}, errors.New("kernel rollback reservation is unavailable")
+		}
+	} else if !t.canAdvanceLocked(1) {
 		return generationStamp{}, errors.New("kernel generation counter exhausted")
+	}
+	if token != nil {
+		delete(t.rollback, token)
 	}
 	t.next++
 	e.revision = t.next

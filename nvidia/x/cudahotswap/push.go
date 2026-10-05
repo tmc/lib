@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
 )
@@ -71,7 +72,11 @@ type candidatePreparationError struct {
 func (e *candidatePreparationError) Error() string { return e.cause.Error() }
 func (e *candidatePreparationError) Unwrap() error { return e.cause }
 
-type pushCheck struct{ prior *generationPin }
+type pushCheck struct {
+	prior    *generationPin
+	rollback *generationReservation
+	custody  *rollbackCustody
+}
 
 // mutationAvailable requires the mutation gate. The application callback may
 // launch and pin, but cannot invalidate this request's exact rollback target.
@@ -112,6 +117,9 @@ func (s *Service) replayLease(ctx context.Context, name string) (io.Closer, erro
 // after publication, with all service gates and the lease released, so it may
 // Launch or Pin through the service. A failed hook rolls back to the exact
 // prior selected version under a fresh rollback lease unless KeepOnFailure.
+// Rollback uses a separate 30-second cooperative acquisition context, preserving
+// validated inherited lease custody. CUDA graph patch calls themselves require
+// an outer process watchdog; their execution is not bounded by this context.
 //
 // Same-kernel mutations and Close are refused while the hook is active. The
 // callback must finish or retain submitted launch owners, including on failure.
@@ -159,7 +167,7 @@ func (s *Service) Push(ctx context.Context, name string, source Source, label st
 		}
 		s.observeError(err)
 		if err != nil && !config.KeepOnFailure && !serviceDeviceFault(err) {
-			selected, rollbackErr := s.selectRetainedChecking(ctx, name, p.state.Version, false, label+": rollback", checking)
+			selected, rollbackErr := s.rollbackCheckedKernel(ctx, name, p.state.Version, label+": rollback", checking)
 			if selected.Generation != 0 {
 				result.Selected = selected
 				result.RolledBack = true
@@ -205,6 +213,12 @@ func (s *Service) pushGPU(ctx context.Context, p *preparedCandidate, label strin
 		return nil, config, err
 	}
 	checking = &pushCheck{prior: prior}
+	if config.Checker != nil && !config.KeepOnFailure {
+		checking.rollback, err = s.table.reserveRollback(p.name, prior.gen)
+		if err != nil {
+			return checking, config, err
+		}
+	}
 	s.mu.Lock()
 	if s.checking == nil {
 		s.checking = make(map[string]*pushCheck)
@@ -220,6 +234,11 @@ func (s *Service) pushGPU(ctx context.Context, p *preparedCandidate, label strin
 	if lease == nil {
 		return checking, config, errors.New("push kernel: acquire returned no lease")
 	}
+	checking.custody, err = captureRollbackCustody(lease)
+	if err != nil {
+		return checking, config, err
+	}
+
 	if err := ctx.Err(); err != nil {
 		return checking, config, err
 	}
@@ -359,6 +378,7 @@ func (s *Service) releasePushCheck(name string, checking *pushCheck) {
 	defer s.mutations.Unlock()
 	// Dropping this CPU pin does not collect modules outside a GPU lease.
 	// Retired modules remain table-owned until later leased collection.
+	s.table.releaseRollback(checking.rollback)
 	s.table.mu.Lock()
 	if !checking.prior.released.Swap(true) {
 		checking.prior.gen.pins.Add(-1)
@@ -470,4 +490,18 @@ func cloneReplayMetrics(m ReplayMetrics) ReplayMetrics {
 		m.MaxULP = &v
 	}
 	return m
+}
+
+// The detached context only bounds cooperative lease acquisition. Synchronous
+// driver graph calls still require the caller's outer process watchdog.
+func (s *Service) rollbackCheckedKernel(ctx context.Context, name string, version uint64, label string, checking *pushCheck) (State, error) {
+	if checking == nil || checking.rollback == nil {
+		return State{}, errors.New("rollback kernel: missing reserved checking owner")
+	}
+	if err := checking.custody.verifyInherited(); err != nil {
+		return State{}, err
+	}
+	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	return s.selectRetainedChecking(rollbackCtx, name, version, false, label, checking)
 }
