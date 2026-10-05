@@ -170,8 +170,7 @@ Using the wrong tool invents phantom API changes. A Makefile target
    layout and loader tests: these are host checks and Darwin evidence.
    Target-platform ABI and runtime checks are separate and are not
    implied by them.
-3. `go test ./...` on the dgx box for the runtime tests. See the
-   gpu-test-targets note: dgx is the CUDA machine. Report skips
+3. `go test ./...` on a CUDA host for the runtime tests. Report skips
    explicitly; an exit-zero run whose GPU tests skipped does not
    establish the target cell.
 4. Rewrites `upstream.json`.
@@ -613,9 +612,7 @@ it as a deprecated alias of the new one.
 
 Nothing is published yet. `git ls-remote --tags origin` lists no
 `nvidia/` tag, and `proxy.golang.org` has no versions of this module.
-The private `dgx` remote still carries the stale `nvidia/v0.1.0` at
-`5176fd8bc` (2026-08-31). It must be deleted there before the real
-`v0.1.0` is tagged, since the two would collide. Until the first push to
+Until the first push to
 a public remote, the API can still change without cost to anyone.
 
 Rules that keep regenerations additive:
@@ -843,9 +840,8 @@ Time budget per ceiling move, once the tooling exists: under an hour.
 
 Rev 2 planned this release as `v0.2.0`; it was renamed `v0.1.0` on
 2026-09-29 when the `rel/v0.2.0` branch was retired. No `nvidia/` tag
-exists on origin or locally; the stale one at `5176fd8bc` remains on the
-private `dgx` remote and is deleted there first. The release is tagged from a candidate commit that 05A0 signs
-and restamps, and only when all of these hold for that exact commit:
+exists on any remote. The release is tagged from a signed, restamped
+candidate commit, and only when all of these hold for that exact commit:
 
 1. Every generated package reproduces its committed bytes from the argv
    recorded in `upstream.json`, and the provenance includes every header
@@ -867,13 +863,13 @@ and restamps, and only when all of these hold for that exact commit:
    backfill for separately versioned libraries, complete `since=`
    labels for them, and data-driven NVRTC option checks wait for v0.1.1:
    landing them later changes neither `frozennames.txt` nor apidiff,
-   which is the test for deferring anything. Names present at the floor and removed before the ceiling
-   stay bound, with a `Deprecated:` paragraph saying when NVIDIA
+   which is the test for deferring anything. Names present at the floor
+   and removed before the ceiling stay bound, with a `Deprecated:` paragraph saying when NVIDIA
    deprecated and removed them; their `Has` predicate reports false where
    the symbol is absent.
 
-When every gate holds, the lanes report the exact tmc/ffi, libgen and
-lib hashes and the tag, and stop. Nothing is tagged or pushed without
+When every gate holds, the release report gives the exact tmc/ffi,
+libgen and lib hashes and the tag, and work stops there. Nothing is tagged or pushed without
 tmc's go (decided 2026-10-04).
 
 Earlier decisions that still hold: host buffers are never `uintptr`;
@@ -881,15 +877,37 @@ every commit builds the whole repository; separately versioned
 libraries refresh in their own commits; the compatibility policy moves
 into the `nvidia` package doc, and this file stays a working note.
 
+API decisions from the review of the first candidate (decided
+2026-10-05), all made before the tag because each changes exported
+names:
+
+- Generated enum types get Go names, not C typedef spellings
+  (`CublasoperationT`); a package that reuses another package's enum
+  aliases it (`type Operation = cublas.Operation`).
+- Device memory is `driver.DevicePtr` in every package.
+- Getters return their value: `cublaslt.GetProperty` returns
+  `(int32, error)`.
+- Every generated wrapper folds the library status into `error`;
+  nvdec's `(Result, error)` results go.
+- A type with one handle-only release function gets `Close() error`
+  and no `Destroy`, including when the C function takes a pointer to
+  the handle. No `Deprecated: use Close` shims.
+- The package-level library teardown is `UnloadLibrary()`, not
+  `Close()`.
+- Methods drop `Get` consistently: `driver.Array.Descriptor3D()`.
+- Generated names use Go initialisms: `ID`, `GPU`, `PCI`, `UUID`.
+
 ## What to do first
 
-1. Land the naming rule, `Has` predicates for every version and
-   `frozennames.txt` for every package (Task 7), and the deprecation-doc
-   rule.
-2. Fix transitive header capture in `internal/nvidiaprovenance`.
-3. Regenerate every package with its recorded recipe, restamp, and run
-   the reproduce gate.
-4. Run the hardware gates on the signed candidate.
-5. Tag `nvidia/v0.1.0` and publish in the order under "Publishing"
-   (tmc/ffi before lib).
-6. `cmd/nvidia-changelog` and the header constants, when time allows.
+1. Bring the candidate up to date with main and apply the review
+   decisions above in the generators, fix transitive header capture
+   in `internal/nvidiaprovenance`, then regenerate every package
+   with its recorded recipe, restamp, and run the reproduce gate.
+2. Fix the plain names that bind `_v2` where the floor declares v1
+   (`nvml` memory info, fan speed, retired pages, power limit and CUDA
+   driver version; `driver` `MemAdvise`, `MemPrefetchAsync` and
+   `DeviceGetUuid`).
+3. Run the gates above on the signed candidate, including the hardware
+   gates.
+4. Tag `nvidia/v0.1.0` and publish in the order under "Publishing"
+   (tmc/ffi before lib), on tmc's go.
