@@ -47,10 +47,11 @@ func publicNativeRequire(t *testing.T) string {
 }
 
 type publicRecordingLoader struct {
-	base    *NVRTCLoader
-	dir     string
-	next    int
-	receipt *nativereceipt.Session
+	base     *NVRTCLoader
+	dir      string
+	next     int
+	receipt  *nativereceipt.Session
+	compiled map[*Compilation]string
 }
 
 func (l *publicRecordingLoader) Compile(ctx context.Context, source Source) (*Compilation, error) {
@@ -82,11 +83,40 @@ func (l *publicRecordingLoader) Compile(ctx context.Context, source Source) (*Co
 	}{source, c.Key, c.Dependencies}); err != nil {
 		return nil, err
 	}
+	if l.compiled == nil {
+		l.compiled = make(map[*Compilation]string)
+	}
+	l.compiled[c] = dir
 	return c, nil
 }
 
 func (l *publicRecordingLoader) Load(ctx context.Context, c *Compilation) (Kernel, error) {
-	return l.base.Load(ctx, c)
+	kernel, err := l.base.Load(ctx, c)
+	if err != nil {
+		return kernel, err
+	}
+	dir := l.compiled[c]
+	if dir == "" || kernel == nil || kernel.Raw() == 0 {
+		return kernel, errors.New("public load receipt: actual compilation or function absent")
+	}
+	image, err := c.CUBIN()
+	if err != nil {
+		return kernel, err
+	}
+	var nativeContext driver.Context
+	if err := l.base.dev.WithContext(func() error { var err error; nativeContext, err = driver.CtxGetCurrent(); return err }); err != nil {
+		return kernel, err
+	}
+	if err := l.receipt.Capture("public-after-load", fmt.Sprintf("%x", sha256.Sum256([]byte(c.PTX))), fmt.Sprintf("%x", sha256.Sum256(image))); err != nil {
+		return kernel, err
+	}
+	if err := publicWriteJSON(filepath.Join(dir, "loaded.json"), struct {
+		Key, Entry, PTXSHA256, CUBINSHA256 string
+		Function, Context                  uint64
+	}{c.Key, c.Entry, fmt.Sprintf("%x", sha256.Sum256([]byte(c.PTX))), fmt.Sprintf("%x", sha256.Sum256(image)), uint64(kernel.Raw()), uint64(nativeContext)}); err != nil {
+		return kernel, err
+	}
+	return kernel, nil
 }
 
 func publicWriteJSON(path string, value any) error {
@@ -117,6 +147,7 @@ type publicNativeFrame struct {
 	execs     []*cudagraph.Exec
 	graphs    []*cudagraph.Graph
 	n         int
+	process   nativereceipt.Process
 }
 
 func (f *publicNativeFrame) close() error {
@@ -269,6 +300,14 @@ func publicNativeFrameNew(t *testing.T, dir string, n int) *publicNativeFrame {
 	if err != nil {
 		t.Fatal(err)
 	}
+	f.process, err = nativereceipt.Identity(os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.process.ExecutableSHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
+	if f.process.Executable != binary {
+		t.Fatal("public receipt: actual executable path differs")
+	}
 	build, _ := debug.ReadBuildInfo()
 	if err := publicWriteJSON(filepath.Join(dir, "runtime.json"), struct {
 		Target                [2]int
@@ -326,10 +365,21 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 			t.Fatalf("actual public replay: %+v, %v", result, err)
 		}
 	}
-	if _, err := f.service.Push(context.Background(), "kernel", Source{Code: "extern \"C\" __global__ void axpby(int n) {}", Filename: "bad-abi.cu", Entry: "axpby"}, "bad ABI"); err == nil {
+	abiResult, abiErr := f.service.Push(context.Background(), "kernel", Source{Code: "extern \"C\" __global__ void axpby(int n) {}", Filename: "bad-abi.cu", Entry: "axpby"}, "bad ABI")
+	if abiErr == nil {
 		t.Fatal("actual public ABI mismatch was admitted")
 	}
-	if _, err := f.service.Revert(context.Background(), "kernel", "baseline"); err != nil {
+	if err := publicWriteJSON(filepath.Join(dir, "bad-abi.json"), struct {
+		Result *PushResult
+		Error  string
+	}{abiResult, abiErr.Error()}); err != nil {
+		t.Fatal(err)
+	}
+	reverted, err := f.service.Revert(context.Background(), "kernel", "baseline")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := publicWriteJSON(filepath.Join(dir, "kernel-revert.json"), reverted); err != nil {
 		t.Fatal(err)
 	}
 	inplace := func(rewrite bool) Source {
@@ -427,7 +477,8 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 			}
 		}
 	}
-	read := func(want float32) error {
+	readIndex := 0
+	read := func(arm string, exec *cudagraph.Exec, retained *Pin, want float32) error {
 		view, err := cudamem.Reinterpret[float32](f.buffers[0])
 		if err != nil {
 			return err
@@ -436,6 +487,53 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 		if err := view.CopyToHost(out); err != nil {
 			return err
 		}
+		graphExec, _, err := exec.KernelOrder()
+		if err != nil {
+			return err
+		}
+		var state State
+		var function driver.Function
+		if retained != nil {
+			state, function = retained.state, retained.Function()
+		} else {
+			f.service.mu.Lock()
+			state = f.service.states["graph"]
+			f.service.mu.Unlock()
+			f.service.graphs.mu.Lock()
+			for _, binding := range f.service.graphs.bindings {
+				if binding.exec == exec && binding.pin != nil && binding.pin.gen != nil {
+					function = binding.pin.gen.function
+					if state.Version != binding.pin.gen.version || state.SourceDigest != binding.pin.gen.digest {
+						f.service.graphs.mu.Unlock()
+						return errors.New("graph receipt: selected state differs from retained graph generation")
+					}
+				}
+			}
+			f.service.graphs.mu.Unlock()
+		}
+		var nativeContext driver.Context
+		if err := f.dev.WithContext(func() error { var err error; nativeContext, err = driver.CtxGetCurrent(); return err }); err != nil {
+			return err
+		}
+		var stream driver.Stream
+		if err := f.stream.WithHandle(func(h driver.Stream) error { stream = h; return nil }); err != nil {
+			return err
+		}
+		if function == 0 || graphExec == 0 || nativeContext == 0 || stream == 0 {
+			return errors.New("graph receipt: missing actual native owner")
+		}
+		if err := publicWriteJSON(filepath.Join(dir, fmt.Sprintf("graph-readback-%03d.json", readIndex)), struct {
+			Process                              nativereceipt.Process
+			Arm                                  string
+			State                                State
+			Function, Context, Stream, GraphExec uint64
+			Output                               []float32
+			Expected                             float32
+			Completed                            bool
+		}{f.process, arm, state, uint64(function), uint64(nativeContext), uint64(stream), uint64(graphExec), out, want, true}); err != nil {
+			return err
+		}
+		readIndex++
 		for _, value := range out {
 			if value != want {
 				return fmt.Errorf("graph output %v, want all %g", out, want)
@@ -451,7 +549,7 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		return read(11)
+		return read("checker", bound, nil, 11)
 	}}, "graph output checker"); err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +571,7 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := read(11); err != nil {
+	if err := read("rollback", bound, nil, 11); err != nil {
 		t.Fatal("graph callback rollback output: ", err)
 	}
 	if err := f.raw[0].Launch(f.stream); err != nil {
@@ -482,7 +580,7 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 	if err := f.stream.Synchronize(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := read(7); err != nil {
+	if err := read("raw-skipped-patch", f.raw[0], pin, 7); err != nil {
 		t.Fatal("skipped-patch raw graph control: ", err)
 	}
 	if _, err := f.service.Revert(context.Background(), "graph", "graph A"); err != nil {
@@ -495,13 +593,23 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := read(7); err != nil {
+	if err := read("reverted", bound, nil, 7); err != nil {
 		t.Fatal("public Revert graph output: ", err)
 	}
 	if err := publicWriteJSON(filepath.Join(dir, "graph.json"), struct {
 		Patched, Skipped, Reverted int
 		Push                       *PushResult
 	}{11, 7, 7, result}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.close(); err != nil {
+		t.Fatal("public native owner completion: ", err)
+	}
+	if err := publicWriteJSON(filepath.Join(dir, "public-cleanup.json"), struct {
+		Process                                                     nativereceipt.Process
+		DeviceClosed, ServiceClosed, StreamClosed                   bool
+		Pins, RawExecs, BoundExecs, RawGraphs, BoundGraphs, Buffers int
+	}{f.process, f.dev == nil, f.service == nil, f.stream == nil, len(f.pins), len(f.raw), len(f.execs), len(f.rawGraphs), len(f.graphs), len(f.buffers)}); err != nil {
 		t.Fatal(err)
 	}
 }
