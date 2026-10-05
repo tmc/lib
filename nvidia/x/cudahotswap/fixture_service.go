@@ -53,12 +53,13 @@ type FixtureConfig struct {
 // Service.Close also closes retained fixtures. The zero value owns nothing.
 // A Fixture must not be copied after use.
 type Fixture struct {
-	mu       sync.Mutex
-	service  *Service
-	state    State
-	replay   *replayFixture
-	geometry *LaunchGeometry
-	parent   *requestCleanup
+	mu        sync.Mutex
+	service   *Service
+	state     State
+	replay    *replayFixture
+	geometry  *LaunchGeometry
+	parent    *requestCleanup
+	stageSpec *StageSpec
 }
 
 // State identifies the baseline and settings observed at recording.

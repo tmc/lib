@@ -34,11 +34,12 @@ type replayOutput struct {
 }
 
 type replaySpec struct {
-	Signature cudalaunch.Signature
-	Args      []any // Declared pointer positions must be nil.
-	Buffers   []replayBuffer
-	Outputs   []replayOutput
-	Config    cudalaunch.Config
+	Signature          cudalaunch.Signature
+	Args               []any // Declared pointer positions must be nil.
+	Buffers            []replayBuffer
+	Outputs            []replayOutput
+	Config             cudalaunch.Config
+	stageOwnedGeometry bool // Only a checked stage callable supplies launch geometry.
 }
 
 type replayPolicy struct {
@@ -56,8 +57,15 @@ type replayPolicy struct {
 // completion, under its request lease; it must not acquire a second
 // exclusive lease. Failed releases remain reachable for Close to retry.
 type replayArm struct {
-	Kernel  Kernel
+	Kernel  replayCallable
 	Release func() error
+}
+
+// replayCallable admits a real host-stage call without forging a CUDA function
+// or PTX signature. The native backend separately verifies its device owner.
+type replayCallable interface {
+	Launch(cudalaunch.Config, ...any) error
+	Wait(context.Context, *cuda.Stream) error
 }
 
 // A backend retains unresolved work and owners on errors. End must drain before
@@ -124,7 +132,11 @@ func validateReplay(spec replaySpec, p replayPolicy) error {
 		return fmt.Errorf("replay requires a bounded complete argument and output schema")
 	}
 	g, b := spec.Config.Grid, spec.Config.Block
-	if g.X == 0 || g.X > 1<<31-1 || g.Y == 0 || g.Y > 65535 || g.Z == 0 || g.Z > 65535 || b.X == 0 || b.Y == 0 || b.Z == 0 || uint64(b.X)*uint64(b.Y) > 1024 || uint64(b.X)*uint64(b.Y)*uint64(b.Z) > 1024 {
+	if spec.stageOwnedGeometry {
+		if g.X|g.Y|g.Z|b.X|b.Y|b.Z|spec.Config.SharedMem != 0 {
+			return fmt.Errorf("stage replay requires geometry owned by the stage source")
+		}
+	} else if g.X == 0 || g.X > 1<<31-1 || g.Y == 0 || g.Y > 65535 || g.Z == 0 || g.Z > 65535 || b.X == 0 || b.Y == 0 || b.Z == 0 || uint64(b.X)*uint64(b.Y) > 1024 || uint64(b.X)*uint64(b.Y)*uint64(b.Z) > 1024 {
 		return fmt.Errorf("replay launch geometry is unsupported")
 	}
 	declared := make(map[int]replayBuffer)
@@ -827,9 +839,13 @@ func (b *cudaReplayBackend) Run(ctx context.Context, arm replayArm, spec replayS
 	if !b.initialized {
 		return 0, fmt.Errorf("replay backend is not prepared")
 	}
-	kernel, ok := arm.Kernel.(*nativeKernel)
-	if !ok || kernel == nil || kernel.dev != b.dev {
+	owner, ok := arm.Kernel.(interface{ replayDevice() *cuda.Device })
+	if !ok || owner.replayDevice() != b.dev {
 		return 0, fmt.Errorf("replay kernel owner does not match device")
+	}
+	_, stageCall := arm.Kernel.(*stageCallable)
+	if spec.stageOwnedGeometry != stageCall {
+		return 0, fmt.Errorf("replay callable does not match the declared geometry owner")
 	}
 	args := append([]any(nil), spec.Args...)
 	for _, buf := range spec.Buffers {

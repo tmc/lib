@@ -384,19 +384,23 @@ func replayNativeBits(data []byte) []uint32 {
 }
 
 func (o *replayNativeObserver) Run(ctx context.Context, arm replayArm, spec replaySpec, timed bool) (time.Duration, error) {
+	kernel, ok := arm.Kernel.(Kernel)
+	if !ok {
+		return 0, fmt.Errorf("native kernel observer requires a kernel callable")
+	}
 	if o.emit != nil {
-		if err := o.emit(map[string]any{"kind": "attempt", "index": len(o.runs), "kernel": o.names[arm.Kernel], "timed": timed}); err != nil {
+		if err := o.emit(map[string]any{"kind": "attempt", "index": len(o.runs), "kernel": o.names[kernel], "timed": timed}); err != nil {
 			return 0, err
 		}
 	}
 	d, err := o.cudaReplayBackend.Run(ctx, arm, spec, timed)
 	if err != nil {
 		if o.emit != nil {
-			_ = o.emit(map[string]any{"kind": "submission_or_completion_error", "index": len(o.runs), "kernel": o.names[arm.Kernel], "error": err.Error(), "queued": "unknown"})
+			_ = o.emit(map[string]any{"kind": "submission_or_completion_error", "index": len(o.runs), "kernel": o.names[kernel], "error": err.Error(), "queued": "unknown"})
 		}
 		return d, err
 	}
-	r := replayNativeRun{Kernel: o.names[arm.Kernel], Timed: timed, EventNanos: -1, Function: uint64(arm.Kernel.Raw()), Buffers: make(map[int][]uint32), CallerGuarded: make(map[int][]uint32)}
+	r := replayNativeRun{Kernel: o.names[kernel], Timed: timed, EventNanos: -1, Function: uint64(kernel.Raw()), Buffers: make(map[int][]uint32), CallerGuarded: make(map[int][]uint32)}
 	if timed {
 		r.EventNanos = d.Nanoseconds()
 	}

@@ -68,8 +68,8 @@ func newReportEvents(limits reportEventLimits) (*reportEvents, error) {
 }
 
 func (r *reportEvents) append(state State, report *Report) (uint64, error) {
-	if r == nil || report == nil || state.Name == "" || state.Kind != "kernel" || state.Generation == 0 || state.Version == 0 {
-		return 0, errors.New("report event requires a kernel state and report")
+	if r == nil || report == nil || state.Name == "" || state.Kind != "kernel" && state.Kind != "stage" || state.Generation == 0 || state.Version == 0 {
+		return 0, errors.New("report event requires a kernel or stage state and report")
 	}
 	if !reportEventFits(state, report, r.limits.bytes) {
 		return 0, errors.New("report event exceeds snapshot budget")

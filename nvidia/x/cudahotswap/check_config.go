@@ -6,7 +6,7 @@ import (
 )
 
 // Checker checks the application after a candidate is selected. It receives
-// the selected kernel and settings stamp. It may launch through Service using
+// the selected entry and settings stamp. It may launch through Service using
 // ctx; Push releases its GPU lease before calling it. A nil error means the
 // application check passed. The hook must finish its submitted work before
 // returning, including on errors, or retain the returned launch owners.
@@ -24,8 +24,8 @@ type CheckConfig struct {
 	KeepOnFailure bool
 }
 
-// SetCheck copies per-kernel check settings. The fixture must belong to this
-// service and kernel and must have recorded successfully. The caller keeps it
+// SetCheck copies per-entry check settings. The fixture must belong to this
+// service and entry and must have recorded successfully. The caller keeps it
 // open while configured; Push refuses a fixture closed after configuration.
 // This changes ConfigRevision and label without changing selected code or
 // acquiring a GPU lease. A failed call changes neither settings nor revision.

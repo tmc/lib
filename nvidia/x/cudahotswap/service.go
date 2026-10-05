@@ -56,6 +56,7 @@ type Service struct {
 	poison      error
 	checking    map[string]*pushCheck
 	watch       watchState
+	stages      stageRegistry
 }
 
 type requestLease struct{ handle *cudalock.Handle }
@@ -564,6 +565,9 @@ func (s *Service) Close(ctx context.Context) error {
 	}
 	s.mu.Unlock()
 	s.stopReports()
+	if err := s.drainStages(ctx); err != nil {
+		return err
+	}
 	for _, p := range pending {
 		if err := p.Wait(ctx); err != nil {
 			return err
@@ -593,6 +597,9 @@ func (s *Service) Close(ctx context.Context) error {
 		if err := f.close(ctx); err != nil {
 			return err
 		}
+	}
+	if err := s.closeStages(); err != nil {
+		return err
 	}
 	if s.closing == nil {
 		s.table.mu.RLock()
