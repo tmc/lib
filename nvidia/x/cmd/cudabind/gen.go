@@ -13,6 +13,7 @@ import (
 )
 
 const imps = `import (
+	"encoding/json"
 	"crypto/sha256"
 	"embed"
 	"fmt"

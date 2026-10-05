@@ -184,6 +184,7 @@ func (g *gen) parameterWitness(cfg *config, m *module, compileName, newName stri
 		g.p("err = stream.WithHandle(func(h driver.Stream) error { return kernel.Launch([3]uint32{1,1,1}, [3]uint32{1,1,1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), %s}) }); if err != nil { t.Fatal(err) }", strings.Join(args, ", "))
 		g.p("if err := stream.Synchronize(t.Context()); err != nil { t.Fatal(err) }")
 		g.p("got := make([]uint64, len(want)); if err := out.CopyToHost(got); err != nil { t.Fatal(err) }")
+		g.p("receipt, err := json.Marshal(struct { Kind, Kernel string; Observed, Expected []uint64 }{%q, %q, got, want}); if err != nil { t.Fatal(err) }; t.Logf(\"native-readback %%s\", receipt)", "parameter-abi", k.name)
 		base = 0
 		for i, p := range k.params {
 			g.p("if got[%d] != want[%d] { t.Fatalf(%q, got[%d], want[%d]) }", base, base, k.name+" argument "+p.cName+" size = %d; Go has %d", base, base)

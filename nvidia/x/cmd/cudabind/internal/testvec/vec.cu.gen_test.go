@@ -3,6 +3,7 @@
 package testvec
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -515,6 +516,14 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const uns
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "scale_all", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("scale_all argument x size = %d; Go has %d", got[0], want[0])
 	}
@@ -692,6 +701,14 @@ for (unsigned int j = 0; j < sizeof(arg3) && j < 4; ++j) out[24+j] = ((const uns
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "shift", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("shift argument p size = %d; Go has %d", got[0], want[0])
 	}
@@ -896,6 +913,14 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[34+j] = ((const uns
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "fill", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("fill argument pair size = %d; Go has %d", got[0], want[0])
 	}
@@ -1108,6 +1133,14 @@ for (unsigned int j = 0; j < sizeof(arg2) && j < 8; ++j) out[15+j] = ((const uns
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "sum", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("sum argument in size = %d; Go has %d", got[0], want[0])
 	}
@@ -1281,6 +1314,14 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const uns
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "bounded_copy", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("bounded_copy argument out size = %d; Go has %d", got[0], want[0])
 	}
@@ -1435,6 +1476,14 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[18+j] = ((const uns
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "decode_packing", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("decode_packing argument value size = %d; Go has %d", got[0], want[0])
 	}
@@ -1621,6 +1670,14 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[22+j] = ((const uns
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "decode_nested", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("decode_nested argument value size = %d; Go has %d", got[0], want[0])
 	}
@@ -1797,6 +1854,14 @@ for (unsigned int j = 0; j < sizeof(arg0) && j < 4; ++j) out[1+j] = ((const unsi
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	receipt, err := json.Marshal(struct {
+		Kind, Kernel       string
+		Observed, Expected []uint64
+	}{"parameter-abi", "contract_counts", got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
 	if got[0] != want[0] {
 		t.Fatalf("contract_counts argument n size = %d; Go has %d", got[0], want[0])
 	}
