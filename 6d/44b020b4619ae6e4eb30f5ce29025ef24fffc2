@@ -1,0 +1,4 @@
+Commit: 6d44b020b4619ae6e4eb30f5ce29025ef24fffc2
+Date: 2026-10-05T15:03:37.115774+00:00
+Agent: Codex CLI 0.160.0; model unavailable; tty unavailable; pid 51458; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Evidence: independent SOURCE/CPU grade /home/tmc/tmp/lib-nvidia-lane64/20261005-root-process-digest-review/SOURCE-CPU-GRADE.md; Linux focusedrace3 1.241s, compiled mutant killed, source3884/external1213 verified; Mac fullrace3 24.783s/1.595s and vet/fmt/diff clean. No repaired native physical qualification.
