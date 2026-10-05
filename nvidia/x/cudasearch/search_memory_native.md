@@ -32,7 +32,7 @@ A skip, absent counter, unsuccessful collection or partial
 packet leaves native qualification pending. Never replace unavailable metrics
 with theoretical occupancy, a host duration or a zero value.
 
-The packet retains CUDA source, loaded PTX, compiler flags/logs, driver/NVRTC/CUPTI
+The packet retains CUDA source, explicitly selected PTX loader input, compiler flags/logs, driver/NVRTC/CUPTI
 library hashes and versions, source manifest, exact input/reference/readback
 bytes, raw collection quality and metrics, execution/trial receipts, catalogs,
 policy identities and consulted trajectory IDs. Inputs are finite exactly
@@ -65,3 +65,11 @@ and [SM throughput definition](https://docs.nvidia.com/nsight-compute/Customizat
 Actual availability and dimensions must be checked on the target. The adapter
 currently accepts the native `percent` dimensional token only; an unexpected
 token requires reviewing the retained native properties before extending it.
+
+
+The virtual WithArch compilation options are unchanged. The producer selects
+OutputPTX explicitly with LoadOutput and retains the exact selected bytes in
+fixture.ptx; it never falls back to another output. This binds the loader input,
+not the driver's resulting JIT CUBIN or SASS. compiler output type/extent and
+artifact digest are retained in toolchain.json. Partial-load cleanup ownership
+remains in the existing io.Closer retry chain.

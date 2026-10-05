@@ -361,7 +361,11 @@ func TestNativeSearchMemoryProducerConsumer(t *testing.T) {
 	if compiled.PTX() == "" {
 		t.Fatal("native producer requires retained PTX")
 	}
-	module, err := compiled.Load(dev)
+	image, artifact, selected, err := memoryNativeSelectPTX(compiled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	module, err := compiled.LoadOutput(dev, selected)
 	if err != nil {
 		var failed io.Closer
 		if errors.As(err, &failed) {
@@ -378,14 +382,14 @@ func TestNativeSearchMemoryProducerConsumer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifact := memoryNativeDigest([]byte(compiled.PTX()))
+	// Artifact identity is the exact selected PTX input to LoadOutput.
 	compiler := memoryNativeDigest([]byte(fmt.Sprintf("%s/%v/%s", tools.Fingerprint(), flags, target)))
 	policy := memoryNativeDigest([]byte("fp32 exact finite affine; fmad=false; signed-zero bits; all tails; no tolerance"))
 	domain := memoryNativeDigest([]byte("lane46 scalar-to-float4/fp32/contiguous/exact/v1/" + target))
 	memoryNativeWrite(t, root, "fixture.cu", []byte(memoryNativeSource))
-	memoryNativeWrite(t, root, "fixture.ptx", []byte(compiled.PTX()))
+	memoryNativeWrite(t, root, "fixture.ptx", image)
 	memoryNativeWrite(t, root, "compiler.log", []byte(compiled.Log()))
-	memoryNativeWrite(t, root, "toolchain.json", map[string]any{"tools": tools, "nvrtc_version": []int32{nvMajor, nvMinor}, "flags": flags, "target": target, "artifact_digest": artifact, "compiler_key": compiler, "policy_id": policy, "domain": domain})
+	memoryNativeWrite(t, root, "toolchain.json", map[string]any{"tools": tools, "nvrtc_version": []int32{nvMajor, nvMinor}, "flags": flags, "target": target, "artifact_digest": artifact, "loaded_output": "ptx", "loaded_output_bytes": len(image), "compiler_key": compiler, "policy_id": policy, "domain": domain})
 	cache, err := cudacache.New(cudacache.Config{RootDir: filepath.Join(root, "cache")})
 	if err != nil {
 		t.Fatal(err)
