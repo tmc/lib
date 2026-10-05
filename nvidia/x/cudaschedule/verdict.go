@@ -91,6 +91,8 @@ func (v Verdict) FindingLabel() string {
 
 // RunRecord captures the recorded outcome of executing a kernel binary.
 type RunRecord struct {
+	// Custody is present for controlled recorded-run attempts.
+	Custody *RecordedCustody `json:"custody,omitempty"`
 	// Mismatch identifies the comparison that failed in the executing runner.
 	// It is absent for older runners; consumers must not infer it from prose.
 	Mismatch    *MismatchIdentity `json:"mismatch_identity,omitempty"`
