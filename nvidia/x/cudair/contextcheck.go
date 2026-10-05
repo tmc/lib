@@ -196,10 +196,31 @@ func validateBodyWrites(node Emitter, tokens []cudaToken, children []ChildSymbol
 	}
 	keywords := map[string]bool{"if": true, "for": true, "while": true, "switch": true, "sizeof": true, "return": true, "static_cast": true, "reinterpret_cast": true, "const_cast": true, "lane_id": true}
 	for i := 0; i+1 < len(tokens); i++ {
-		if tokens[i+1].text == "(" && i > 0 && isCUDAIdentStart(tokens[i].text[0]) {
+		if tokens[i+1].text == "(" && isCUDAIdentStart(tokens[i].text[0]) {
 			name := tokens[i].text
+			mathCall := name == "expf" || name == "erff" || name == "sqrtf" || name == "rsqrtf"
+			if mathCall {
+				if locals[name] || i > 0 && (tokens[i-1].text == "." || tokens[i-1].text == "::" || tokens[i-1].text == "->") {
+					return fail("math intrinsic must be an unshadowed value call")
+				}
+				_, args, ok := callArguments(tokens, i+1)
+				if !ok || len(args) != 1 || args[0][0] == args[0][1] {
+					return fail("math intrinsic requires one value argument")
+				}
+				for j := args[0][0]; j < args[0][1]; j++ {
+					text := tokens[j].text
+					if text == "&" || text == "fwd_ctx" || text == "__cudair_ctx" || text == "nullptr" || text == "reinterpret_cast" || text == "const_cast" || text == "dynamic_cast" {
+						return fail("math intrinsic cannot receive a pointer or context")
+					}
+					if text == "input" || text == "params" || strings.HasPrefix(text, "dL_d") {
+						if j+1 >= args[0][1] || tokens[j+1].text != "[" {
+							return fail("math intrinsic requires parameter values, not buffers")
+						}
+					}
+				}
+			}
 			contextCall := i >= 2 && tokens[i-1].text == "." && tokens[i-2].text == "__cudair_ctx" && (name == "LoadByte" || name == "StoreByte" || name == "LoadFloat" || name == "StoreFloat")
-			if !keywords[name] && !childNames[name] && name != "__expf" && !contextCall {
+			if !keywords[name] && !childNames[name] && name != "__expf" && !mathCall && !contextCall {
 				return fail("call is outside the generated write allowlist")
 			}
 		}
