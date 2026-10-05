@@ -895,7 +895,10 @@ names:
 - The package-level library teardown is `UnloadLibrary()`, not
   `Close()`.
 - Methods drop `Get` consistently: `driver.Array.Descriptor3D()`.
-- Generated names use Go initialisms: `ID`, `GPU`, `PCI`, `UUID`.
+- Generated names keep the C casing of initialisms (`FieldId`,
+  `GpuId`, `NewDeviceByPciBusId`). A rename touches about 1,210 names
+  and every caller, so it was declined; the rule is stated here so it
+  is a choice rather than an accident.
 
 ## What to do first
 
