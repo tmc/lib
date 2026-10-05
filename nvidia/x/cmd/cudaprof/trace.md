@@ -35,7 +35,7 @@ remain in the JSON receipt.
 
 Default bounds are 512 MiB input, 256 MiB journals, one million records per
 journal, 30 seconds per external invocation, 4 MiB stdout and stderr each, and
-10,000 importer rows. External snapshots use `~/tmp/cudaprof-trace` and are
+10,000 importer rows. External snapshots use a temporary directory and are
 removed after querying. Native summaries need no external executable.
 
 Comparison archives are inspected without extraction. Supported alignment

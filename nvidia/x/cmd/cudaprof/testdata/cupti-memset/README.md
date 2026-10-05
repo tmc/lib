@@ -25,9 +25,9 @@ works around it with `capture --memsets=false`.
 
 ## Run
 
-On the shared GB10, only under the GPU lock:
+On a shared GPU host, only under its GPU lock wrapper (`$GPU_LOCK`):
 
-	GPU_LOCK_LABEL=cupti-repro ~/ml-explore/bin/gpu-lock \
+	GPU_LOCK_LABEL=cupti-repro $GPU_LOCK \
 		env CUDA_INJECTION64_PATH=$PWD/memsetonly.so KIND=2 HOSTFN=1 \
 		./repro 20000 k.cubin < /dev/null
 

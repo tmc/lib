@@ -1,9 +1,10 @@
 # Physical stream and graph correlation
 
-From the `nvidia` module, run under an exclusive GPU hold:
+From the `nvidia` module, run under an exclusive GPU hold, where
+`$GPU_LOCK` is the host's exclusive-GPU wrapper:
 
 ```sh
-GPU_LANE=correlation ~/ml-explore/bin/gpu-slot -- env \
+GPU_LANE=correlation $GPU_LOCK -- env \
   GOWORK=off TMPDIR="$HOME/tmp" CUDAPROF_CORRELATION_TEST=1 \
   CUDAPROF_CORRELATION_OUTPUT="$HOME/tmp/correlation" \
   go test ./x/cmd/cudaprof -run '^TestPhysicalCorrelation$' -count=1 -v

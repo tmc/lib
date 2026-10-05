@@ -35,7 +35,7 @@ without collection to estimate profiler overhead; the captured device span
 alone cannot measure that overhead. No GPU campaign was run for this change.
 
 `cudaprof ab` deliberately does not acquire a GPU lock. The inspected local
-`~/ml-explore/bin/gpu-lock` uses tickets to admit waiters to a directory mutex;
+GPU lock wrapper uses tickets to admit waiters to a directory mutex;
 within each lane tickets are FIFO, short jobs have preference, and batch jobs
 age to avoid starvation. Dead-process tickets can be reaped, live holders
 are not removed merely by age, and configured time limits terminate the
