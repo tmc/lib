@@ -34,7 +34,7 @@ Two consequences follow:
 
 - The Go version says how the Go API moved. The manifest says which
   NVIDIA release each package was generated from. They are independent.
-- `x/` (hand-written; 457 of 755 nvidia commits at `fd350702` touch only
+- `x/` (hand-written; 457 of 755 nvidia commits as of 2026-09-14 touch only
   files under `nvidia/x/`) lives in the same tag line, while "Release
   line" below exempts it from the compatibility promise. Those two
   facts do not sit together: a consumer reading `nvidia/v0.1.3` cannot
@@ -68,8 +68,8 @@ Two consequences follow:
    archive produced which directory. The checked-out tree is still a
    mix (cudart 13.3.29 beside cupti 13.3.75 beside cccl 13.2.86).
 2. `nvidia/upstream.json` still declares itself `partial-provenance`,
-   but the coverage gap it was written about is closed. Measured at
-   `fd350702`: all 35 packages carry a recorded generation argv,
+   but the coverage gap it was written about is closed. Measured on
+   2026-09-14: all 35 packages carry a recorded generation argv,
    `coverage.missing_argv` is empty, and none carries
    `generation-unrecorded`. 31 are `generation-reproduced`; 4 are
    `generation-partially-reproduced` -- cupti, driver, nvjitlink and
@@ -317,7 +317,7 @@ policy alone.
 
 That replaced a strict `cuptiGetVersion() == CUPTI_API_VERSION`
 equality, which was our policy rather than a CUPTI requirement and was
-stricter than the layouts require. Measured 2026-09-13 on dgx: an agent
+stricter than the layouts require. Measured 2026-09-13 on a GB10 (linux/arm64): an agent
 built against each of the 13.0, 13.1, 13.2, 13.3 and 13.4 header sets,
 run against each of the five runtimes, all 25 cells collected kernel and
 memcpy records with no drops, including a four-minor skew. The reason is
@@ -360,7 +360,7 @@ requires investigation of older-record support and native delivery.
   unchecked deferred cleanup and do not demonstrate leak-free repeated
   in-process reuse.
 - The executed examples are not evidence of anything native. Measured
-  2026-09-14 on dgx (linux/arm64): `go test ./... -run '^Example'`
+  2026-09-14 on a GB10 (linux/arm64): `go test ./... -run '^Example'`
   produced the same 196 passing examples, with no skips and no
   failures, against every toolkit tried. Examples carrying an `Output:`
   directive print Go values and error strings and do not reach a CUDA
@@ -385,7 +385,7 @@ requires investigation of older-record support and native delivery.
 
 - The version-sensitive population is the hardware tier behind the
   `*_physical` tags, and it does discriminate. Measured 2026-09-14 on
-  dgx with `cublas`, `cublaslt`, `cufft`, `curand`, `nvjitlink`,
+  a GB10 with `cublas`, `cublaslt`, `cufft`, `curand`, `nvjitlink`,
   `nvfatbin`, `nvvm`, `cupti` and `nvml` `_physical` tags, `go test
   ./... -count=1 -p 1`, one cell per toolkit:
 
@@ -608,7 +608,7 @@ respelled two `CUpti_ActivityAttribute` enumerators between 13.2 and
 13.3 and kept their values (20:
 `..._ENABLE_MULTI_SUBSCRIBER_GRAPH_LEVEL_TRACE` became
 `..._ENABLE_MULTI_SUBSCRIBER_GRAPH_TRACE`; 23: `..._CIG_MODE` became
-`..._ENABLE_CIG_MODE`; measured 2026-09-14 on dgx). A constant-drift
+`..._ENABLE_CIG_MODE`; measured 2026-09-14 on a GB10). A constant-drift
 check passes before and after. Under the release line the old Go name
 cannot be dropped, since `CheckAPIRemoval` refuses it, so libgen keeps
 it as a deprecated alias of the new one.
