@@ -1,0 +1,11 @@
+commit=6238057ab1a2bc206cd653d6fd17a9c61cb47d56
+date=2026-10-05T10:44:57.770644+00:00
+agent=Codex
+version=0.160.0
+model=runtime-not-exposed
+tty=noninteractive
+writer_pid=79733
+ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+source=d63e41672897e88f8ed4c4891fb11d322d6852a3
+Independent source/host review: /home/tmc/tmp/lib-wt-next/20261005-lane59-replay-independent/review_stream/SOURCE-HOST-GRADE.md
+Five live integrated hashes equal accepted frozen source. Native qualification remains separate.
