@@ -49,9 +49,10 @@ func DefaultBudget() SearchBudget {
 type BeamConfig struct {
 	EvaluatorID string // Caller-qualified evaluator/callback policy identity, if needed.
 	Profile     *ProfileActions
-	BeamWidth   int          // Number of top candidate states retained per depth level
-	Budget      SearchBudget // Search resource budget
-	RootName    string       // E-graph named root to extract/evaluate (default: "root")
+	Memory      *SearchMemory // Optional frozen catalog and cross-task exploration policy.
+	BeamWidth   int           // Number of top candidate states retained per depth level
+	Budget      SearchBudget  // Search resource budget
+	RootName    string        // E-graph named root to extract/evaluate (default: "root")
 }
 
 // BeamSearch executes deterministic beam exploration over e-graph rewrite transitions.
@@ -115,6 +116,12 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	startTime := time.Now()
 	budget := b.cfg.Budget
 	profile := freezeProfileActions(b.cfg.Profile)
+	if err := validateMemoryEvaluator(b.cfg.Memory, eval); err != nil {
+		return nil, err
+	}
+	if err := freezeSearchMemory(b.cfg.Memory, &profile); err != nil {
+		return nil, err
+	}
 	ctx, work, err := searchWorkBudget(ctx, budget, eval)
 	if err != nil {
 		return nil, err
@@ -158,7 +165,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	if err != nil {
 		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
 		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "beam",
-			ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
+			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
 			Rejected: []CandidateRejection{rejection(initial, eval, err)}, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
 			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory,
@@ -188,7 +195,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
+		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
 	}
 
 	seenStates := make(map[string]bool)

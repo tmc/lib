@@ -14,12 +14,13 @@ import (
 type MCTSConfig struct {
 	EvaluatorID  string // Caller-qualified evaluator/callback policy identity, if needed.
 	Profile      *ProfileActions
-	Iterations   int          // Number of MCTS simulation iterations
-	ExplorationC float64      // UCT exploration constant (e.g. math.Sqrt(2))
-	Seed         int64        // Seed for each Search invocation; zero selects 42.
-	RolloutDepth int          // Maximum simulation rollout depth
-	Budget       SearchBudget // Resource limits
-	RootName     string       // E-graph named root (default: "root")
+	Memory       *SearchMemory // Optional frozen catalog and cross-task exploration policy.
+	Iterations   int           // Number of MCTS simulation iterations
+	ExplorationC float64       // UCT exploration constant (e.g. math.Sqrt(2))
+	Seed         int64         // Seed for each Search invocation; zero selects 42.
+	RolloutDepth int           // Maximum simulation rollout depth
+	Budget       SearchBudget  // Resource limits
+	RootName     string        // E-graph named root (default: "root")
 }
 
 // DefaultMCTSConfig returns standard MCTS configuration.
@@ -113,6 +114,12 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	rng := rand.New(rand.NewSource(m.cfg.Seed))
 	budget := m.cfg.Budget
 	profile := freezeProfileActions(m.cfg.Profile)
+	if err := validateMemoryEvaluator(m.cfg.Memory, eval); err != nil {
+		return nil, err
+	}
+	if err := freezeSearchMemory(m.cfg.Memory, &profile); err != nil {
+		return nil, err
+	}
 	ctx, work, err := searchWorkBudget(ctx, budget, eval)
 	if err != nil {
 		return nil, err
@@ -150,7 +157,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	if err != nil {
 		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
 		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "mcts", Seed: m.cfg.Seed,
-			ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
+			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
 			Rejected: []CandidateRejection{rejection(initial, eval, err)}, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
 			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory,
@@ -187,7 +194,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
+		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
 	}
 
 	for iter := 0; iter < m.cfg.Iterations; iter++ {

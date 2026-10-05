@@ -61,6 +61,8 @@ type profileActions struct {
 	fallback string
 	ranks    map[string]int
 	decision *ProfileDecision
+	memory   *MemoryDecision
+	weights  map[string]float64
 }
 
 func freezeProfileActions(config *ProfileActions) (p profileActions) {
@@ -137,25 +139,34 @@ func (p profileActions) rank(action egraph.ActionCandidate) int {
 }
 
 func (p profileActions) order(actions []egraph.ActionCandidate) {
-	if len(p.ranks) == 0 {
+	if len(p.ranks) == 0 && len(p.weights) == 0 {
 		return
 	}
-	sort.SliceStable(actions, func(i, j int) bool { return p.rank(actions[i]) < p.rank(actions[j]) })
+	sort.SliceStable(actions, func(i, j int) bool {
+		wi, wj := p.memoryWeight(actions[i].Rule.Name), p.memoryWeight(actions[j].Rule.Name)
+		if wi != wj {
+			return wi > wj
+		}
+		return p.rank(actions[i]) < p.rank(actions[j])
+	})
 }
 
 func (p profileActions) choose(actions []egraph.ActionCandidate, rng *rand.Rand) int {
-	if len(p.ranks) == 0 {
+	if len(p.ranks) == 0 && len(p.weights) == 0 {
 		return rng.Intn(len(actions))
 	}
 	best := len(p.ranks)
+	bestWeight := math.Inf(-1)
 	var choices []int
 	for i, action := range actions {
 		rank := p.rank(action)
-		if rank < best {
+		weight := p.memoryWeight(action.Rule.Name)
+		if weight > bestWeight || weight == bestWeight && rank < best {
+			bestWeight = weight
 			best = rank
 			choices = choices[:0]
 		}
-		if rank == best {
+		if weight == bestWeight && rank == best {
 			choices = append(choices, i)
 		}
 	}

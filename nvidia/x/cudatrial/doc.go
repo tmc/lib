@@ -11,6 +11,16 @@
 // across distinct timing channels. Optional hardware lock verification ensures
 // trials have exclusive GPU access.
 //
+// [TrajectoryMemory] ranks qualified producer-declared rollouts by dimensionless
+// log2 speedup, retaining negative regression and correctness-failure rewards.
+// [ObserveTrajectory] requires a live device, inherited hardware lock and
+// explicit completed event receipts. A nil device remains PendingHardware.
+// Persisted checksums establish integrity, not physical execution or producer
+// authenticity; hardware admission and independent numerical controls remain
+// the native producer's responsibility.
+// Record accepts only the exact live observation. ImportTrusted is an explicit
+// trust boundary for persisted observations and is not native qualification.
+//
 // Basic usage:
 //
 //	arms := []cudatrial.Arm{

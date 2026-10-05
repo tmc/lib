@@ -26,6 +26,7 @@ type SearchResult struct {
 	ProfileGuidance *cudaprof.SearchGuidance
 	ProfileFallback string // Reason configured evidence could not guide exploration.
 	ProfileDecision *ProfileDecision
+	MemoryDecision  *MemoryDecision // Frozen exploration priors; never an objective measurement.
 	// StopReason records why exploration stopped early. A nonnil result may
 	// accompany an error and still contain the best already validated plan.
 	StopReason       error

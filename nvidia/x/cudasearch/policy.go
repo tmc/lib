@@ -84,5 +84,8 @@ func makeSearchPolicy(strategy, root string, budget SearchBudget, options map[st
 			complete = false
 		}
 	}
+	if profile.memory != nil {
+		id.Options["memory_decision"] = profile.memory.ID
+	}
 	return id, complete, nil
 }

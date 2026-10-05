@@ -1,0 +1,1108 @@
+{
+  "known_states": {
+    "memory_bandwidth_limited": {
+      "state_name": "memory_bandwidth_limited",
+      "primary_bottleneck": "memory_bound",
+      "secondary_characteristics": [
+        "High memory throughput utilization",
+        "Bandwidth saturation",
+        "Potential coalescing issues",
+        "Cache inefficiencies"
+      ],
+      "performance_signature": "Memory bandwidth is the primary limiting factor with potential for access pattern optimization",
+      "context_description": "Workload is limited by memory bandwidth, showing signs of inefficient access patterns or cache behavior",
+      "relative_patterns": {
+        "memory_pressure": "high",
+        "compute_utilization": "underutilized",
+        "access_patterns": "potentially_uncoalesced",
+        "cache_behavior": "suboptimal"
+      }
+    },
+    "compute_throughput_limited": {
+      "state_name": "compute_throughput_limited",
+      "primary_bottleneck": "compute_bound",
+      "secondary_characteristics": [
+        "High compute unit utilization",
+        "Instruction throughput bottleneck",
+        "Potential for specialized units",
+        "Arithmetic intensity"
+      ],
+      "performance_signature": "Compute units are saturated, indicating opportunity for algorithmic or instruction-level optimization",
+      "context_description": "Workload is compute-intensive with potential for specialized hardware utilization or algorithmic improvements",
+      "relative_patterns": {
+        "compute_pressure": "high",
+        "memory_utilization": "adequate",
+        "instruction_mix": "potentially_suboptimal",
+        "parallelism": "high"
+      }
+    },
+    "latency_occupancy_limited": {
+      "state_name": "latency_occupancy_limited",
+      "primary_bottleneck": "latency_bound",
+      "secondary_characteristics": [
+        "Low occupancy",
+        "Insufficient parallelism",
+        "Resource underutilization",
+        "Synchronization overhead"
+      ],
+      "performance_signature": "Neither memory nor compute are saturated, indicating latency hiding or occupancy issues",
+      "context_description": "Workload has insufficient parallelism or resource conflicts limiting occupancy and latency hiding",
+      "relative_patterns": {
+        "occupancy": "low",
+        "parallelism": "insufficient",
+        "resource_conflicts": "present",
+        "latency_hiding": "poor"
+      }
+    }
+  },
+  "optimization_strategies": {
+    "high_level_inefficiency": {
+      "optimizations": [
+        {
+          "technique": "algorithmic_changes",
+          "predicted_improvement": null,
+          "description": "Replace the current algorithm with a more efficient approach",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "dynamic_programming",
+          "predicted_improvement": null,
+          "description": "Utilize memory to avoid redundant computation",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "data_structure_optimizations",
+          "predicted_improvement": null,
+          "description": "Change underlying data structures/representations",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Instructions uncessary for computing the kernel",
+      "secondary_characteristics": "Excessive or redundant compute operations, memory accesses. Poor scaling, inefficient program logic. Can have misleadingly high utilization."
+    },
+    "memory_bandwidth_saturated": {
+      "optimizations": [
+        {
+          "technique": "vectorized_memory_access",
+          "predicted_improvement": null,
+          "description": "Use float4/int4/half2 for wider transactions",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "memory_coalescing_optimization",
+          "predicted_improvement": null,
+          "description": "Align access patterns to cache lines",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "shared_memory_tiling",
+          "predicted_improvement": null,
+          "description": "Cache frequently accessed data on-chip",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "data_layout_transformation",
+          "predicted_improvement": null,
+          "description": "Convert AoS to SoA layouts",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "compression_techniques",
+          "predicted_improvement": null,
+          "description": "Use mixed precision (FP16) to halve bandwidth",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Global memory bandwidth saturation",
+      "secondary_characteristics": "Memory throughput >80%, Bandwidth utilization high, Coalescing efficiency varies"
+    },
+    "memory_latency_bound": {
+      "optimizations": [
+        {
+          "technique": "shared_memory_blocking",
+          "predicted_improvement": null,
+          "description": "Tile data to fit in shared memory",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "register_blocking",
+          "predicted_improvement": null,
+          "description": "Keep frequently used data in registers",
+          "category": "latency",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "prefetching_strategies",
+          "predicted_improvement": null,
+          "description": "Software prefetching for predictable patterns",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "cache_aware_algorithms",
+          "predicted_improvement": null,
+          "description": "Restructure for better locality",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "texture_memory_usage",
+          "predicted_improvement": null,
+          "description": "Use texture cache for read-only data",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Memory access latency and cache misses",
+      "secondary_characteristics": "Memory throughput 40-70%, High cache miss rate, Random access patterns"
+    },
+    "memory_bank_conflicts": {
+      "optimizations": [
+        {
+          "technique": "bank_conflict_padding",
+          "predicted_improvement": null,
+          "description": "Add padding to shared memory arrays",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "access_pattern_swizzling",
+          "predicted_improvement": null,
+          "description": "Use XOR patterns to distribute accesses",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "broadcast_optimization",
+          "predicted_improvement": null,
+          "description": "Structure for broadcast reads when possible",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "memory_layout_permutation",
+          "predicted_improvement": null,
+          "description": "Reorder data to avoid conflicts",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Shared memory bank conflicts causing serialization",
+      "secondary_characteristics": "Shared memory bank conflicts detected, Irregular access patterns in shared memory"
+    },
+    "cache_inefficient": {
+      "optimizations": [
+        {
+          "technique": "cache_blocking_algorithms",
+          "predicted_improvement": null,
+          "description": "Structure working sets for cache sizes",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "temporal_locality_optimization",
+          "predicted_improvement": null,
+          "description": "Reorder computations for reuse",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "l2_cache_persistence",
+          "predicted_improvement": null,
+          "description": "Mark critical data for L2 retention",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "read_only_cache_optimization",
+          "predicted_improvement": null,
+          "description": "Use __ldg() for read-only data",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Cache misses and inefficient cache utilization",
+      "secondary_characteristics": "Low L1/L2 cache hit rates, Spatial locality issues, Poor temporal reuse"
+    },
+    "compute_throughput_saturated": {
+      "optimizations": [
+        {
+          "technique": "tensor_core_utilization",
+          "predicted_improvement": null,
+          "description": "Use Tensor Cores for matrix operations",
+          "category": "compute",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "instruction_level_parallelism",
+          "predicted_improvement": null,
+          "description": "Unroll loops and reorder operations",
+          "category": "compute",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "fast_math_optimization",
+          "predicted_improvement": null,
+          "description": "Use fast math flags and intrinsics",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "specialized_instruction_usage",
+          "predicted_improvement": null,
+          "description": "Use GPU-specific intrinsics",
+          "category": "compute",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "vectorized_operations",
+          "predicted_improvement": null,
+          "description": "Use vector data types and operations",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "SIMD_operations",
+          "predicted_improvement": null,
+          "description": "Use packed SIMD datatypes such as half2",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Instruction throughput and arithmetic unit saturation",
+      "secondary_characteristics": "Compute throughput >80%, All execution units busy, High arithmetic intensity"
+    },
+    "instruction_mix_suboptimal": {
+      "optimizations": [
+        {
+          "technique": "instruction_scheduling_optimization",
+          "predicted_improvement": null,
+          "description": "Reorder for better pipeline usage",
+          "category": "compute",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "functional_unit_balancing",
+          "predicted_improvement": null,
+          "description": "Balance load across different units",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "loop_fusion_optimization",
+          "predicted_improvement": null,
+          "description": "Combine kernels to balance instruction mix",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "mathematical_transformation",
+          "predicted_improvement": null,
+          "description": "Adjust operators to solve the problem in a different way",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Poor instruction scheduling and functional unit utilization",
+      "secondary_characteristics": "Unbalanced use of functional units, Some units idle while others saturated"
+    },
+    "thread_divergence_high": {
+      "optimizations": [
+        {
+          "technique": "predicated_execution",
+          "predicted_improvement": null,
+          "description": "Replace branches with conditional arithmetic",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "branch_reduction_techniques",
+          "predicted_improvement": null,
+          "description": "Use lookup tables and bit manipulation",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "warp_level_primitives",
+          "predicted_improvement": null,
+          "description": "Use shuffle and vote functions",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "stream_compaction",
+          "predicted_improvement": null,
+          "description": "Filter and compact data to reduce divergence",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "work_distribution_optimization",
+          "predicted_improvement": null,
+          "description": "Sort data to group similar work",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "SIMT efficiency loss due to divergent execution paths",
+      "secondary_characteristics": "High warp divergence, Branching in inner loops, Irregular control flow"
+    },
+    "low_occupancy_register_pressure": {
+      "optimizations": [
+        {
+          "technique": "register_pressure_reduction",
+          "predicted_improvement": null,
+          "description": "Reduce variable scope and reuse",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "variable_scoping_optimization",
+          "predicted_improvement": null,
+          "description": "Limit variable lifetimes",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "spill_elimination",
+          "predicted_improvement": null,
+          "description": "Restructure to avoid local memory usage",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "launch_bounds_tuning",
+          "predicted_improvement": null,
+          "description": "Use __launch_bounds__ to control registers",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "algorithmic_register_reduction",
+          "predicted_improvement": null,
+          "description": "Change algorithm to use fewer registers",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Register pressure limiting number of active warps",
+      "secondary_characteristics": "Low occupancy due to high register usage, Register spills detected"
+    },
+    "low_occupancy_shared_memory": {
+      "optimizations": [
+        {
+          "technique": "shared_memory_optimization",
+          "predicted_improvement": null,
+          "description": "Reduce per-block shared memory usage",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "dynamic_shared_memory",
+          "predicted_improvement": null,
+          "description": "Use dynamic allocation for flexibility",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "shared_memory_reuse",
+          "predicted_improvement": null,
+          "description": "Reuse buffers for multiple phases",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "block_size_adaptation",
+          "predicted_improvement": null,
+          "description": "Adjust block size to optimize occupancy",
+          "category": "latency",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Shared memory usage limiting number of resident blocks",
+      "secondary_characteristics": "Low occupancy due to shared memory limits, High shared memory usage per block"
+    },
+    "insufficient_parallelism": {
+      "optimizations": [
+        {
+          "technique": "work_per_thread_increase",
+          "predicted_improvement": null,
+          "description": "Assign more work to each thread",
+          "category": "latency",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "thread_coarsening",
+          "predicted_improvement": null,
+          "description": "Process multiple elements per thread",
+          "category": "latency",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "persistent_kernel_pattern",
+          "predicted_improvement": null,
+          "description": "Use long-running kernels with work queues",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "grid_size_optimization",
+          "predicted_improvement": null,
+          "description": "Ensure sufficient blocks for latency hiding",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "cooperative_groups",
+          "predicted_improvement": null,
+          "description": "Use grid-wide synchronization",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Not enough parallel work to hide latency",
+      "secondary_characteristics": "Low warp utilization, Small problem sizes, Insufficient work per SM"
+    },
+    "hybrid_bound": {
+      "optimizations": [
+        {
+          "technique": "memory_compute_overlap",
+          "predicted_improvement": null,
+          "description": "Pipeline memory and compute operations to hide latency",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "adaptive_block_sizing",
+          "predicted_improvement": null,
+          "description": "Adjust thread-block sizes dynamically to balance resource usage",
+          "category": "latency",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "algorithmic_optimization",
+          "predicted_improvement": null,
+          "description": "Restructure algorithms for better memory-compute balance",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "fused_operations",
+          "predicted_improvement": null,
+          "description": "Fuse memory-bound and compute-bound kernels to reduce intermediate traffic",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "SIMD_operations",
+          "predicted_improvement": null,
+          "description": "Use packed SIMD datatypes (e.g., half2) to improve both bandwidth and compute throughput",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Balanced memory-compute limitations (hybrid)",
+      "secondary_characteristics": "Memory throughput 40-70% and compute throughput 40-70%, indicating that neither memory nor compute dominates. Latency hiding is moderate and improvement is possible from both sides."
+    },
+    "memory_compute_balanced": {
+      "optimizations": [
+        {
+          "technique": "memory_compute_overlap",
+          "predicted_improvement": null,
+          "description": "Pipeline memory and compute operations",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "adaptive_tiling",
+          "predicted_improvement": null,
+          "description": "Dynamically adjust tile sizes for balance",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "fused_operations",
+          "predicted_improvement": null,
+          "description": "Combine memory-bound and compute-bound kernels",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "algorithmic_rebalancing",
+          "predicted_improvement": null,
+          "description": "Choose algorithms that balance both aspects",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Balanced memory and compute load with room for optimization in both",
+      "secondary_characteristics": "Memory throughput 40-60%, Compute throughput 40-60%, Both contribute to bottleneck"
+    },
+    "latency_memory_bound": {
+      "optimizations": [
+        {
+          "technique": "occupancy_memory_codesign",
+          "predicted_improvement": null,
+          "description": "Jointly optimize occupancy and memory",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "hierarchical_tiling",
+          "predicted_improvement": null,
+          "description": "Multi-level tiling for both occupancy and locality",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "resource_balanced_design",
+          "predicted_improvement": null,
+          "description": "Balance all resource constraints",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "workload_restructuring",
+          "predicted_improvement": null,
+          "description": "Fundamental algorithm changes",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Both occupancy and memory access patterns need optimization",
+      "secondary_characteristics": "Low occupancy combined with memory issues, Multiple bottlenecks present"
+    },
+    "api_overhead_dominant": {
+      "optimizations": [
+        {
+          "technique": "kernel_fusion",
+          "predicted_improvement": null,
+          "description": "Combine multiple small kernels",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "cuda_graphs",
+          "predicted_improvement": null,
+          "description": "Use graphs to batch operations",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "persistent_kernels",
+          "predicted_improvement": null,
+          "description": "Long-running kernels with internal queues",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "asynchronous_execution",
+          "predicted_improvement": null,
+          "description": "Overlap with streams",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "dynamic_parallelism",
+          "predicted_improvement": null,
+          "description": "Launch child kernels from GPU",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "CUDA API overhead and kernel launch latency",
+      "secondary_characteristics": "Small kernels with high launch overhead, Frequent CPU-GPU synchronization"
+    },
+    "transfer_bandwidth_limited": {
+      "optimizations": [
+        {
+          "technique": "transfer_optimization",
+          "predicted_improvement": null,
+          "description": "Use pinned memory and async transfers",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "data_compression",
+          "predicted_improvement": null,
+          "description": "Compress data before transfer",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "zero_copy_memory",
+          "predicted_improvement": null,
+          "description": "Direct GPU access to host memory",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "unified_memory_optimization",
+          "predicted_improvement": null,
+          "description": "Use managed memory with hints",
+          "category": "memory",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        },
+        {
+          "technique": "pipeline_parallelism",
+          "predicted_improvement": null,
+          "description": "Overlap transfers with computation",
+          "category": "general",
+          "actual_improvement": null,
+          "confidence_score": 0.5,
+          "last_updated": null,
+          "usage_count": 0,
+          "predicted_speedup": 1.0,
+          "actual_speedup": null,
+          "initial_elapsed_cycles": null
+        }
+      ],
+      "primary_bottleneck": "Host-device transfer bandwidth and latency",
+      "secondary_characteristics": "High PCIe transfer overhead, Large data movement, Host-device bottleneck"
+    }
+  },
+  "composite_optimizations": {},
+  "discovered_states": {
+  }
+}

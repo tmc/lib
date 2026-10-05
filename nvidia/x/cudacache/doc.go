@@ -1,6 +1,16 @@
 // Package cudacache provides content-addressed local and remote caching
 // for compiled CUDA kernel artifacts and search evaluation receipts.
 //
+// [StrategyKnowledgeBase] stores a bounded, checksummed exploration catalog.
+// [KernelBlasterGroups] explicitly maps sixteen upstream strategy groups to
+// eight local categories; the upstream catalog defines only three known states.
+// Predictions are not measured speedups. [Cache.PutTrajectory] and
+// [Cache.GetTrajectory] keep qualified trajectory declarations separate from
+// compiled artifacts and quarantine corrupt persisted receipts.
+// Default reward and persistence methods require an [cudatrial.ObserveTrajectory]
+// value. Trusted import methods require an explicit caller decision about the
+// persisted producer's provenance; checksums do not establish execution.
+//
 // # Overview
 //
 // The package manages two distinct categories of cached data with strict

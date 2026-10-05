@@ -15,6 +15,16 @@
 // candidate factorizations that fail shared memory or register capacity
 // constraints before permutation and bypass evaluation.
 //
+// [SearchMemory] freezes a canonical bottleneck category, target-specific
+// strategy catalog and compatible trajectory rewards once per Search. Priors
+// order legal transitions; they do not change objective costs or validate a
+// rewrite. [ClassifyBottleneck] is a deterministic producer-declared heuristic
+// and reports PendingHardware. Its percentages cannot establish native evidence.
+// [CollectBottleneckProfile] separately collects bounded whole-operation CUPTI
+// counters under a live GPU lock. [ObserveCandidateTrajectory] admits completed
+// executable ABBA trials for cross-task replay. Both retain exact execution
+// identities; a hardware-observed category remains a heuristic.
+//
 // Basic usage:
 //
 //	bindings := cudasearch.WorkloadBindings{

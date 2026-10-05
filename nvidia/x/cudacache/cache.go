@@ -70,6 +70,7 @@ type Cache struct {
 	maxRemoteBytes   int64
 	remote           RemoteSource
 	trust            TrustPolicy
+	trajectoryMu     sync.Mutex // Serializes trajectory publication and quarantine.
 
 	// flightMu guards concurrent writes/downloads for identical keys.
 	flightMu sync.Mutex
