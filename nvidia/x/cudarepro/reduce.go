@@ -12,8 +12,7 @@ import (
 // interpretation of a campaign's free-form input or geometry labels. Callers
 // importing campaign records must obtain these values from the workload's
 // recorded input contract. This capability supports uint64 inputs only.
-// Recorded injection subsets require the campaign producer's replay API and
-// are not supported by this type yet.
+// Schedule, when present, binds injection decisions to pristine Source.
 type Case struct {
 	Source    string
 	Inputs    []uint64
@@ -21,6 +20,7 @@ type Case struct {
 	Grid      [3]uint32
 	Block     [3]uint32
 	SharedMem uint32
+	Schedule  *Schedule
 }
 
 // ReduceOptions bounds reduction work. Neither field has a default.
@@ -58,6 +58,7 @@ type Reduction struct {
 func cloneCase(c Case) Case {
 	c.Inputs = slices.Clone(c.Inputs)
 	c.Shape = slices.Clone(c.Shape)
+	c.Schedule = cloneSchedule(c.Schedule)
 	return c
 }
 
@@ -85,6 +86,11 @@ func Reduce(ctx context.Context, original Case, finding cudaschedule.RunRecord, 
 			return r, fmt.Errorf("reduce finding: zero launch extent")
 		}
 	}
+	if original.Schedule != nil {
+		if err := checkScheduleRun(original, finding); err != nil {
+			return r, err
+		}
+	}
 	finding, err := snapshot(finding)
 	if err != nil {
 		return r, err
@@ -95,7 +101,11 @@ func Reduce(ctx context.Context, original Case, finding cudaschedule.RunRecord, 
 	}
 	measure := func(c Case) (Measurement, error) {
 		return Measure(ctx, identity, opts.Repeats, func(ctx context.Context) (cudaschedule.RunRecord, error) {
-			return replay(ctx, cloneCase(c))
+			run, err := replay(ctx, cloneCase(c))
+			if err == nil && c.Schedule != nil {
+				err = checkScheduleRun(c, run)
+			}
+			return run, err
 		})
 	}
 	r.Baseline, err = measure(original)
@@ -203,6 +213,21 @@ func Reduce(ctx context.Context, original Case, finding cudaschedule.RunRecord, 
 			}
 			if !accepted {
 				break
+			}
+		}
+	}
+	if r.Reduced.Schedule != nil {
+		for width := len(r.Reduced.Schedule.Decisions); width > 0 && !r.BudgetExhausted; width /= 2 {
+			for start := 0; start+width <= len(r.Reduced.Schedule.Decisions) && !r.BudgetExhausted; {
+				c := cloneCase(r.Reduced)
+				c.Schedule.Decisions = append(c.Schedule.Decisions[:start], c.Schedule.Decisions[start+width:]...)
+				accepted, err := try("injected sites", c)
+				if err != nil {
+					return r, err
+				}
+				if !accepted {
+					start += width
+				}
 			}
 		}
 	}
