@@ -1,0 +1,9 @@
+commit: 8f20e0c6628903b047089c78ad0d381ddba835c1
+date: 2026-10-05T06:08:44.412828+00:00
+agent: Codex CLI 0.160.0
+model: runtime not exposed
+tty: none
+provenance writer pid: 11625
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+source: a5145a626c271ff5d9c7448aab602078b385bc99
+independent review: OWN-MISMATCH-PRODUCER-GRADE.md
