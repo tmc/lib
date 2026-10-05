@@ -3,7 +3,9 @@
 package testvec
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -81,7 +83,22 @@ func deviceLayout(t *testing.T, dev *cuda.Device, defines ...string) []int64 {
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	row := struct {
+		Kind, SourceSHA256 string
+		Defines            []string
+		Observed           []int64
+	}{"abi-witness", fmt.Sprintf("%x", sha256.Sum256([]byte(vecModuleLayoutSource()))), defines, got}
+	logWitnessReadback(t, row)
 	return got
+}
+
+func logWitnessReadback(t *testing.T, row any) {
+	t.Helper()
+	b, err := json.Marshal(row)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", b)
 }
 
 func TestWitness_StaleBindingNamesField(t *testing.T) {
@@ -198,6 +215,10 @@ func TestLaunch_NativeEarlyRefusals(t *testing.T) {
 	if err := out.CopyToHost(unchanged); err != nil {
 		t.Fatal(err)
 	}
+	logWitnessReadback(t, struct {
+		Kind   string
+		Output []float32
+	}{"refused-short-output", unchanged})
 	for i, x := range unchanged {
 		if x != -42 {
 			t.Fatalf("refused launch wrote output[%d] = %g", i, x)
@@ -213,6 +234,10 @@ func TestLaunch_NativeEarlyRefusals(t *testing.T) {
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	logWitnessReadback(t, struct {
+		Kind   string
+		Output []float32
+	}{"healthy-bounded-output", got})
 	for i, x := range got {
 		if x != float32(i) {
 			t.Fatalf("positive launch output[%d] = %g", i, x)
