@@ -48,7 +48,11 @@ type config struct {
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr, newSession); err != nil && !onlyCancellation(err) && !errors.Is(err, flag.ErrHelp) {
+	invoke := func() error { return run(ctx, os.Args[1:], os.Stdout, os.Stderr, newSession) }
+	if isClientCommand(os.Args[1:]) {
+		invoke = func() error { return runClient(ctx, os.Args[1:], os.Stdout, os.Stderr) }
+	}
+	if err := invoke(); err != nil && !onlyCancellation(err) && !errors.Is(err, flag.ErrHelp) {
 		fmt.Fprintln(os.Stderr, "cudahotswap:", err)
 		os.Exit(4)
 	}
