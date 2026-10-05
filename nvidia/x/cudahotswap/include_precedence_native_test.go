@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -121,13 +122,22 @@ func TestDS4IncludePrecedenceNative(t *testing.T) {
 					t.Fatal(err)
 				}
 				src := fmt.Sprintf("#include %q\nextern \"C\" __global__ void choice(int *out) { out[1] = HEADER_VALUE; }\n", name)
-				opts := []nvrtcx.Option{nvrtcx.WithName("ds4_header_control.cu"), nvrtcx.WithArch(major, minor), nvrtcx.WithOutput(nvrtcx.OutputCUBIN), nvrtcx.WithIncludePaths(dir), nvrtcx.WithFlag("--std=c++17"), nvrtcx.WithFlag("--fmad=false"), nvrtcx.WithNoCache()}
+				opts := []nvrtcx.Option{nvrtcx.WithName("ds4_header_control.cu"), nvrtcx.WithDeviceArch(dev), nvrtcx.WithOutput(nvrtcx.OutputCUBIN), nvrtcx.WithIncludePaths(dir), nvrtcx.WithFlag("--std=c++17"), nvrtcx.WithFlag("--fmad=false"), nvrtcx.WithNoCache()}
 				if tt.memory {
 					opts = append(opts, nvrtcx.WithHeader(name, memory))
 				}
 				flags, err := nvrtcx.CompileFlags(opts...)
 				if err != nil {
 					t.Fatal(err)
+				}
+				physical := fmt.Sprintf("--gpu-architecture=sm_%d%d", major, minor)
+				if !ds4HeaderHasFlag(flags, physical) {
+					t.Fatalf("actual device flags %v lack %s", flags, physical)
+				}
+				for _, flag := range flags {
+					if strings.Contains(flag, "compute_") {
+						t.Fatal("CUBIN header control selected virtual architecture")
+					}
 				}
 				sourceSum := fmt.Sprintf("%x", sha256.Sum256([]byte(src)))
 				if err := proof.Capture("header-before-compile", sourceSum, ""); err != nil {
@@ -204,5 +214,34 @@ func TestDS4IncludePrecedenceNative(t *testing.T) {
 				return // A failed native arm must not dispatch another arm.
 			}
 		}
+	}
+}
+
+func ds4HeaderHasFlag(flags []string, want string) bool {
+	for _, flag := range flags {
+		if flag == want {
+			return true
+		}
+	}
+	return false
+}
+
+// This control uses no device: output-kind validation refuses a virtual
+// architecture before creating an NVRTC program or performing CUDA work.
+func TestDS4IncludePrecedencePhysicalFlagsCPU(t *testing.T) {
+	flags, err := nvrtcx.CompileFlags(nvrtcx.WithPhysicalArch(12, 1), nvrtcx.WithOutput(nvrtcx.OutputCUBIN))
+	if err != nil || !ds4HeaderHasFlag(flags, "--gpu-architecture=sm_121") {
+		t.Fatalf("physical CUBIN flags %v: %v", flags, err)
+	}
+	if _, err := nvrtcx.CompileFlags(nvrtcx.WithDeviceArch(nil)); err == nil {
+		t.Fatal("accepted missing device owner")
+	}
+	virtual, err := nvrtcx.CompileFlags(nvrtcx.WithArch(12, 1), nvrtcx.WithOutput(nvrtcx.OutputCUBIN))
+	if err != nil || !ds4HeaderHasFlag(virtual, "--gpu-architecture=compute_121") {
+		t.Fatalf("virtual control flags %v: %v", virtual, err)
+	}
+	compiled, err := nvrtcx.Compile(`extern "C" __global__ void choice(int *out) { out[1] = 7; }`, nvrtcx.WithArch(12, 1), nvrtcx.WithOutput(nvrtcx.OutputCUBIN), nvrtcx.WithNoCache())
+	if compiled != nil || err == nil || !strings.Contains(err.Error(), "OutputCUBIN requires a physical architecture") {
+		t.Fatalf("virtual CUBIN refusal %v: %v", compiled, err)
 	}
 }
