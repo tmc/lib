@@ -1,0 +1,4 @@
+Commit: c9f95884fb528cb4f710acb5c441732d2b07e614
+Date: 2026-10-05T15:27:45.322545+00:00
+Agent: Codex CLI 0.160.0; model unavailable; tty unavailable; pid 65560; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Evidence: independent hotswap_stream exact5 SOURCE/CPU grade plus review_stream example grade; full root race3 117.606/1.583s; postexample race3 1.462s, boundedfuzz196666 executions/3.401s; vet/fmt/diff clean, three valid independent mutants killed. Native worker attachment and instrumented counts remain open.
