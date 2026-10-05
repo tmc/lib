@@ -249,6 +249,10 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 	if _, err := recordedExpectOwned(budget, controller, config, "held", holder); err != nil {
 		return err
 	}
+	if _, err := recordedStoreJSON(filepath.Join(config.Directory, "holder-retained.json"), result.Custody); err != nil {
+		return err
+	}
+
 	queue, queueCancel := context.WithTimeout(budget, config.Limits.Queue+config.Limits.Admission)
 	defer queueCancel()
 	supervisor, err = recordedAcceptOwned(queue, listener, config.Controller, holder, controller)
@@ -285,6 +289,10 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 	if _, err := recordedExpectOwned(admission, controller, config, "retained", holder); err != nil {
 		return err
 	}
+	if _, err := recordedStoreJSON(filepath.Join(config.Directory, "supervisor-retained.json"), result.Custody); err != nil {
+		return err
+	}
+
 	if err := recordedSend(admission, supervisor, recordedMessageOf(config, "exec", "")); err != nil {
 		return err
 	}
@@ -314,6 +322,10 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 	if _, err := recordedExpectOwned(admission, controller, config, "verified", holder); err != nil {
 		return err
 	}
+	if _, err := recordedStoreJSON(filepath.Join(config.Directory, "worker-verified.json"), result.Custody); err != nil {
+		return err
+	}
+
 	if !recordedAlive(s) || !recordedAlive(w) {
 		return fmt.Errorf("recorded helper: worker or supervisor died before permit")
 	}
