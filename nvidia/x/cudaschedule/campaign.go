@@ -27,6 +27,9 @@ type ConfirmationSummary struct {
 	Findings  int       `json:"findings"`
 	Confirmed bool      `json:"confirmed"`
 	Outcomes  []Verdict `json:"outcomes"`
+	// Runs preserves each actual classified attempt, including the initial run,
+	// in the same order as Outcomes. It includes loaded-artifact receipts.
+	Runs []RunRecord `json:"runs"`
 }
 
 // CampaignArms adds a known-racy PTX input and a clean control to a campaign.
@@ -503,6 +506,7 @@ func runCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 
 		if verdict.IsFinding() && verdict != VerdictGpuWedged {
 			outcomes := []Verdict{verdict}
+			runs := []RunRecord{runRec}
 			findings := 1
 			for attempt := 2; attempt <= opts.ConfirmRuns; attempt++ {
 				runLabel := fmt.Sprintf("variant-confirm-%d", attempt)
@@ -524,6 +528,7 @@ func runCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 				}
 				confirmVerdict := Classify(confirmRec)
 				outcomes = append(outcomes, confirmVerdict)
+				runs = append(runs, confirmRec)
 				if confirmVerdict == verdict {
 					findings++
 				}
@@ -536,6 +541,7 @@ func runCampaign(ctx context.Context, opts CampaignOptions) (*CampaignReport, er
 				Findings:  findings,
 				Confirmed: findings == opts.ConfirmRuns,
 				Outcomes:  outcomes,
+				Runs:      runs,
 			}
 		}
 
