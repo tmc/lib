@@ -93,6 +93,7 @@ func ExamplePerturb() {
     fence.sc.gpu;
     ret;
 }
+
 `
 	rewrite, err := cudaschedule.Perturb(ptx, cudaschedule.Options{
 		Seed:      1,
@@ -105,6 +106,35 @@ func ExamplePerturb() {
 
 	// Output:
 	// injected: 0
+}
+
+func ExampleReplay() {
+	const ptx = `.version 8.7
+.target sm_90
+.address_size 64
+.visible .entry example() {
+    membar.gl;
+    ret;
+}
+`
+	opts := cudaschedule.Options{Seed: 17, Intensity: 2}
+	drawn, err := cudaschedule.Perturb(ptx, opts)
+	if err != nil {
+		panic(err)
+	}
+	replayed, err := cudaschedule.Replay(ptx, opts, drawn.Report.Decisions)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(replayed.PTX == drawn.PTX)
+	empty, err := cudaschedule.Replay(ptx, opts, nil)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(empty.PTX == ptx)
+	// Output:
+	// true
+	// true
 }
 
 func ExampleClassify() {

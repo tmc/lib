@@ -63,18 +63,7 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 
 	rng := newSplitMix64(opts.Seed)
 	decisions := make([]InjectionDecision, len(analysis))
-	injectedSites := 0
-	var totalNs uint64
-
-	type edit struct {
-		offset int
-		order  int // 0 for before, 1 for after
-		text   string
-	}
-	var edits []edit
-
 	for i, site := range analysis {
-		beforePoint, afterPoint := injectionPoints(src, site)
 		placement := rng.unit()
 		hit := opts.Focus != "" && (strings.Contains(site.Head, opts.Focus) || strings.Contains(site.Text, opts.Focus))
 
@@ -120,21 +109,6 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 			}
 		}
 
-		if beforeNs > 0 {
-			indent := lineIndent(src, beforePoint)
-			insertText := fmt.Sprintf("%snanosleep.u32 %d; // ptx_schedule before\n", indent, beforeNs)
-			edits = append(edits, edit{offset: beforePoint, order: 0, text: insertText})
-		}
-		if afterNs > 0 {
-			insertText := fmt.Sprintf("\nnanosleep.u32 %d; // ptx_schedule after\n", afterNs)
-			edits = append(edits, edit{offset: afterPoint, order: 1, text: insertText})
-		}
-
-		if beforeNs > 0 || afterNs > 0 {
-			injectedSites++
-			totalNs += uint64(beforeNs) + uint64(afterNs)
-		}
-
 		decisions[i] = InjectionDecision{
 			Site:     site,
 			BeforeNs: beforeNs,
@@ -142,10 +116,37 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 		}
 	}
 
+	return rewriteDecisions(src, opts.Seed, intensity, len(analysis), decisions), nil
+}
+
+// rewriteDecisions is shared by seeded draws and validated recorded replay.
+func rewriteDecisions(src string, seed uint64, intensity float64, sitesTotal int, decisions []InjectionDecision) Rewrite {
+	type edit struct {
+		offset int
+		order  int // 0 for before, 1 for after
+		text   string
+	}
+	var edits []edit
+	injectedSites := 0
+	var totalNs uint64
+	for _, decision := range decisions {
+		beforePoint, afterPoint := injectionPoints(src, decision.Site)
+		if decision.BeforeNs > 0 {
+			indent := lineIndent(src, beforePoint)
+			edits = append(edits, edit{beforePoint, 0, fmt.Sprintf("%snanosleep.u32 %d; // ptx_schedule before\n", indent, decision.BeforeNs)})
+		}
+		if decision.AfterNs > 0 {
+			edits = append(edits, edit{afterPoint, 1, fmt.Sprintf("\nnanosleep.u32 %d; // ptx_schedule after\n", decision.AfterNs)})
+		}
+		if decision.BeforeNs > 0 || decision.AfterNs > 0 {
+			injectedSites++
+			totalNs += uint64(decision.BeforeNs) + uint64(decision.AfterNs)
+		}
+	}
 	report := RewriteReport{
-		Seed:               opts.Seed,
+		Seed:               seed,
 		Intensity:          intensity,
-		SitesTotal:         len(analysis),
+		SitesTotal:         sitesTotal,
 		SitesInjected:      injectedSites,
 		InjectedNsPerVisit: totalNs,
 		Decisions:          decisions,
@@ -156,7 +157,7 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 		return Rewrite{
 			PTX:    src,
 			Report: report,
-		}, nil
+		}
 	}
 
 	// Sort edits by offset ascending; for identical offsets, order 0 precedes order 1.
@@ -170,9 +171,9 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 	var b strings.Builder
 	header := fmt.Sprintf(
 		"// ptx_schedule: seed=%d intensity=%g sites_total=%d sites_injected=%d injected_ns_per_visit=%d\n",
-		opts.Seed,
+		seed,
 		intensity,
-		len(analysis),
+		sitesTotal,
 		injectedSites,
 		totalNs,
 	)
@@ -193,7 +194,7 @@ func Perturb(src string, opts Options) (Rewrite, error) {
 	return Rewrite{
 		PTX:    b.String(),
 		Report: report,
-	}, nil
+	}
 }
 
 func injectionPoints(src string, site Site) (int, int) {

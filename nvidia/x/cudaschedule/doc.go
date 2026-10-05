@@ -26,6 +26,15 @@
 // The site taxonomy is a closed set: unsupported ordering-sensitive families such as multimem.*
 // return an error, never an unclassified site.
 //
+// [Replay] applies an explicit subset of recorded injection decisions to
+// pristine PTX. Each complete site record must match [Analyze], including
+// source spans and backedge block indices. Duplicate or changed sites,
+// delays above the original options' ceiling and sleeps after a backedge
+// are errors. Replay retains decision order and derives injection counts;
+// it does not redraw decisions from the seed. The full recorded list with
+// the original options reproduces [Perturb] byte for byte, while an empty
+// subset returns the pristine source.
+//
 // # Verdict Taxonomy
 //
 // [Classify] maps execution outcomes into nine verdicts:
