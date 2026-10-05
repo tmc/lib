@@ -1,0 +1,50 @@
+.version 8.7
+.target sm_70
+.address_size 64
+
+.visible .entry schedule_race(
+    .param .u64 output
+)
+{
+    .reg .pred %p<3>;
+    .reg .b32 %r<4>;
+    .reg .b64 %rd<5>;
+    .shared .align 4 .b32 handoff;
+
+    ld.param.u64 %rd0, [output];
+    mov.u32 %r0, %tid.x;
+    setp.eq.u32 %p1, %r0, 0;
+    @!%p1 bra INIT_DONE;
+    mov.u32 %r3, 0;
+    st.volatile.shared.u32 [handoff], %r3;
+INIT_DONE:
+    bar.sync 0;
+    setp.lt.u32 %p0, %r0, 32;
+    @!%p0 bra READER;
+    mov.u32 %r1, 1;
+    setp.eq.u32 %p1, %r0, 0;
+    @%p1 st.volatile.shared.u32 [handoff], %r1;
+    bra JOIN;
+
+READER:
+    // Bounded reader work makes the pristine writer likely to publish first.
+    // Delaying the writer's shared store can reverse this order.
+    // Special-register reads keep the spin observable to the compiler.
+    mov.u64 %rd2, %globaltimer;
+READER_DELAY:
+    mov.u64 %rd3, %globaltimer;
+    sub.u64 %rd4, %rd3, %rd2;
+    setp.lt.u64 %p2, %rd4, 8000;
+    @%p2 bra READER_DELAY;
+    bra JOIN;
+
+JOIN:
+    ld.volatile.shared.u32 %r2, [handoff];
+    setp.eq.u32 %p1, %r0, 32;
+    @!%p1 bra DONE;
+    st.volatile.global.u32 [%rd0], %r2;
+    st.volatile.global.u64 [%rd0+8], %rd2;
+    st.volatile.global.u64 [%rd0+16], %rd3;
+DONE:
+    ret;
+}

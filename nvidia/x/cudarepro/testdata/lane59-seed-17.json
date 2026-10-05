@@ -1,0 +1,164 @@
+{
+  "seed": 17,
+  "status": "executed",
+  "verdict": 4,
+  "run": {
+    "exit_code": 0,
+    "exited": true,
+    "timed_out": false,
+    "stdout": "READER_START_NS: 454578740230144\nREADER_END_NS: 454578740238336\nREADER_DELAY_NS: 8192\nMISMATCH: shared handoff produced 0, want 1\nPASS\n",
+    "stderr": "",
+    "ptx_sha256": "dd65f3d5e0d2c2db64acae33936a9a4b5d3173bda347e55f39d9ce2e690e78f0",
+    "ptx_digest_source": "runner_receipt",
+    "expected_ptx_sha256": "dd65f3d5e0d2c2db64acae33936a9a4b5d3173bda347e55f39d9ce2e690e78f0",
+    "ptx_path": "/home/tmc/tmp/lib-nvidia-gpu-validation-20261001/receipts-fc2eb5d9c/schedule-native-691652800/planted/cudaschedule-3238603726/variant/seed-17/variant-1/module.ptx",
+    "stdout_path": "/home/tmc/tmp/lib-nvidia-gpu-validation-20261001/receipts-fc2eb5d9c/schedule-native-691652800/planted/cudaschedule-3238603726/variant/seed-17/variant-1/stdout.txt",
+    "stderr_path": "/home/tmc/tmp/lib-nvidia-gpu-validation-20261001/receipts-fc2eb5d9c/schedule-native-691652800/planted/cudaschedule-3238603726/variant/seed-17/variant-1/stderr.txt",
+    "replay_script_path": "/home/tmc/tmp/lib-nvidia-gpu-validation-20261001/receipts-fc2eb5d9c/schedule-native-691652800/planted/cudaschedule-3238603726/variant/seed-17/variant-1/replay.sh"
+  },
+  "report": {
+    "seed": 17,
+    "intensity": 2,
+    "sites_total": 8,
+    "sites_injected": 8,
+    "injected_ns_per_visit": 120430,
+    "decisions": [
+      {
+        "site": {
+          "ordinal": 0,
+          "callable": "schedule_race",
+          "kind": 5,
+          "span": {
+            "start": 340,
+            "end": 378
+          },
+          "head": "st.volatile.shared.u32",
+          "text": "st.volatile.shared.u32 [handoff], %r3;"
+        },
+        "before_ns": 0,
+        "after_ns": 1967
+      },
+      {
+        "site": {
+          "ordinal": 1,
+          "callable": "schedule_race",
+          "kind": 3,
+          "span": {
+            "start": 394,
+            "end": 405
+          },
+          "head": "bar.sync",
+          "text": "bar.sync 0;"
+        },
+        "before_ns": 1649,
+        "after_ns": 0
+      },
+      {
+        "site": {
+          "ordinal": 2,
+          "callable": "schedule_race",
+          "kind": 5,
+          "span": {
+            "start": 511,
+            "end": 554
+          },
+          "head": "st.volatile.shared.u32",
+          "text": "@%p1 st.volatile.shared.u32 [handoff], %r1;",
+          "predicate": "@%p1"
+        },
+        "before_ns": 41336,
+        "after_ns": 0
+      },
+      {
+        "site": {
+          "ordinal": 3,
+          "callable": "schedule_race",
+          "kind": 10,
+          "span": {
+            "start": 939,
+            "end": 961
+          },
+          "block_index": 5,
+          "head": "bra",
+          "text": "@%p2 bra READER_DELAY;",
+          "predicate": "@%p2"
+        },
+        "before_ns": 1558,
+        "after_ns": 0
+      },
+      {
+        "site": {
+          "ordinal": 4,
+          "callable": "schedule_race",
+          "kind": 5,
+          "span": {
+            "start": 987,
+            "end": 1025
+          },
+          "head": "ld.volatile.shared.u32",
+          "text": "ld.volatile.shared.u32 %r2, [handoff];"
+        },
+        "before_ns": 0,
+        "after_ns": 54677
+      },
+      {
+        "site": {
+          "ordinal": 5,
+          "callable": "schedule_race",
+          "kind": 5,
+          "span": {
+            "start": 1080,
+            "end": 1115
+          },
+          "head": "st.volatile.global.u32",
+          "text": "st.volatile.global.u32 [%rd0], %r2;"
+        },
+        "before_ns": 0,
+        "after_ns": 1609
+      },
+      {
+        "site": {
+          "ordinal": 6,
+          "callable": "schedule_race",
+          "kind": 5,
+          "span": {
+            "start": 1120,
+            "end": 1158
+          },
+          "head": "st.volatile.global.u64",
+          "text": "st.volatile.global.u64 [%rd0+8], %rd2;"
+        },
+        "before_ns": 0,
+        "after_ns": 15994
+      },
+      {
+        "site": {
+          "ordinal": 7,
+          "callable": "schedule_race",
+          "kind": 5,
+          "span": {
+            "start": 1163,
+            "end": 1202
+          },
+          "head": "st.volatile.global.u64",
+          "text": "st.volatile.global.u64 [%rd0+16], %rd3;"
+        },
+        "before_ns": 0,
+        "after_ns": 1640
+      }
+    ]
+  },
+  "confirmation": {
+    "attempts": 2,
+    "findings": 2,
+    "confirmed": true,
+    "outcomes": [
+      4,
+      4
+    ]
+  },
+  "pristine_source_sha256": "e7270d009661c19b75d197dffea64c824080c1b21fa637dfa5543d36b29be49d",
+  "launch_geometry": "grid=1x1x1 block=64x1x1",
+  "input_reference": "schedule_race zero-initialized uint64 output",
+  "max_sleep_ns": 64000
+}
