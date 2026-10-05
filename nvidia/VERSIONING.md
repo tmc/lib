@@ -414,7 +414,10 @@ and its future existence is not approval to widen sonames.
 
 ## Release line
 
-The first tag is `nvidia/v0.1.0`. Every later release stays on the
+The first tag is `nvidia/v0.1.0`. Like any v0 module, it makes no
+compatibility promise across minor versions: `v0.2.0` may rename or
+remove API, while `frozennames.txt` and apidiff gate the patch releases
+within a minor line (decided 2026-10-05). Ceiling moves stay on the
 `v0.1.x` line. The version encodes no NVIDIA number (see "Mixing"
 below); `upstream.json` records which releases each package spans.
 
@@ -592,7 +595,7 @@ The three inputs:
 | Signal | Result |
 |---|---|
 | apidiff compatible, `frozennames.txt` lines only added | patch bump on `v0.1.x` |
-| apidiff incompatible, or a `frozennames.txt` line removed or changed | fail: needs `-allow-api-removal` and a release decision |
+| apidiff incompatible, or a `frozennames.txt` line removed or changed | fail on a patch: needs `-allow-api-removal` and a new minor version |
 
 apidiff is run as `apidiff -m -incompatible` against export data of the
 last tag written with `apidiff -m -w` from the module cache. The
@@ -877,40 +880,38 @@ every commit builds the whole repository; separately versioned
 libraries refresh in their own commits; the compatibility policy moves
 into the `nvidia` package doc, and this file stays a working note.
 
-API decisions from the review of the first candidate (decided
-2026-10-05), all made before the tag because each changes exported
-names:
+The review of the first candidate (2026-10-05) found API-shape
+problems. v0.1.0 fixes only correctness: nvdec folds the decoder status
+into `error`, since today a failed decode can return a nil error. The
+rest is planned for `v0.2.0`:
 
 - Generated enum types get Go names, not C typedef spellings
   (`CublasoperationT`); a package that reuses another package's enum
   aliases it (`type Operation = cublas.Operation`).
-- Device memory is `driver.DevicePtr` in every package.
+- Device memory is `driver.DevicePtr` in every package, and host
+  memory is never `uintptr`.
 - Getters return their value: `cublaslt.GetProperty` returns
   `(int32, error)`.
-- Every generated wrapper folds the library status into `error`;
-  nvdec's `(Result, error)` results go.
 - A type with one handle-only release function gets `Close() error`
   and no `Destroy`, including when the C function takes a pointer to
-  the handle. No `Deprecated: use Close` shims.
-- The package-level library teardown is `UnloadLibrary()`, not
-  `Close()`.
+  the handle, and the `Deprecated: use Close` shims go.
+- The package-level library teardown becomes `UnloadLibrary()`.
 - Methods drop `Get` consistently: `driver.Array.Descriptor3D()`.
-- Generated names keep the C casing of initialisms (`FieldId`,
-  `GpuId`, `NewDeviceByPciBusId`). A rename touches about 1,210 names
-  and every caller, so it was declined; the rule is stated here so it
-  is a choice rather than an accident.
+- Initialisms keep their C casing (`FieldId`, `GpuId`). A rename
+  touches about 1,210 names and every caller; it is revisited for
+  `v0.2.0`.
 
 ## What to do first
 
-1. Bring the candidate up to date with main and apply the review
-   decisions above in the generators, fix transitive header capture
-   in `internal/nvidiaprovenance`, then regenerate every package
-   with its recorded recipe, restamp, and run the reproduce gate.
-2. Fix the plain names that bind `_v2` where the floor declares v1
-   (`nvml` memory info, fan speed, retired pages, power limit and CUDA
-   driver version; `driver` `MemAdvise`, `MemPrefetchAsync` and
-   `DeviceGetUuid`).
-3. Run the gates above on the signed candidate, including the hardware
-   gates.
+1. Bring the candidate up to date with main. Fix the plain names that
+   bind `_v2` where the floor declares v1 (`nvml` memory info, fan
+   speed, retired pages, power limit and CUDA driver version; `driver`
+   `MemAdvise`, `MemPrefetchAsync` and `DeviceGetUuid`) and nvdec's
+   status, in the generators.
+2. Meet gates 1, 3, 6 and 7: transitive header capture, `Note:` on
+   announced deprecations, the x/ exemption in every importable x/
+   package, and `api.gen.txt` with `CUDA-API.md`.
+3. Regenerate every package with its recorded recipe, restamp, and run
+   the reproduce gate and the hardware gates on the signed candidate.
 4. Tag `nvidia/v0.1.0` and publish in the order under "Publishing"
    (tmc/ffi before lib), on tmc's go.
