@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sort"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -79,6 +80,7 @@ func (s *Service) RegisterGraph(ctx context.Context, name string, exec *cudagrap
 // not establish completion. Its zero value owns no work.
 type GraphLaunch struct {
 	mu      sync.Mutex
+	states  []State
 	service *Service
 	pending *graphPending
 	lease   io.Closer
@@ -107,10 +109,12 @@ func (s *Service) LaunchGraph(ctx context.Context, exec *cudagraph.Exec) (*Graph
 	r := s.graphs
 	r.mu.Lock()
 	bound := false
+	names := make(map[string]bool)
 	unavailable := r.closed || r.patch != nil || r.pending[exec] != nil
 	for _, b := range r.bindings {
 		if b.exec == exec {
 			bound = true
+			names[b.name] = true
 			unavailable = unavailable || b.failed
 		}
 	}
@@ -131,6 +135,14 @@ func (s *Service) LaunchGraph(ctx context.Context, exec *cudagraph.Exec) (*Graph
 	s.mu.Unlock()
 	if err = ctx.Err(); err == nil {
 		p.pending, err = r.launch(exec)
+		if p.pending != nil {
+			s.mu.Lock()
+			for name := range names {
+				p.states = append(p.states, s.states[name])
+			}
+			s.mu.Unlock()
+			sort.Slice(p.states, func(i, j int) bool { return p.states[i].Name < p.states[j].Name })
+		}
 	}
 	s.observeError(err)
 	if p.pending == nil {

@@ -327,6 +327,7 @@ func (s *Service) List() []State {
 // work using Function before Release, including graph replay and forward passes.
 type Pin struct {
 	mu      sync.Mutex
+	state   State
 	service *Service
 	pin     *generationPin
 	cleanup *requestCleanup
@@ -346,7 +347,10 @@ func (s *Service) Pin(name string) (*Pin, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Pin{service: s, pin: p}, nil
+	s.mu.Lock()
+	state := s.states[name]
+	s.mu.Unlock()
+	return &Pin{service: s, pin: p, state: state}, nil
 }
 
 // Function returns the retained function, or zero after Release.
@@ -415,6 +419,7 @@ func (p *Pin) Release(ctx context.Context) error {
 // retains it, so discarding this result cannot abandon submitted work.
 type PendingLaunch struct {
 	mu        sync.Mutex
+	state     State
 	service   *Service
 	kernel    Kernel
 	pin       *generationPin
@@ -464,13 +469,14 @@ func (s *Service) Launch(ctx context.Context, name string, cfg cudalaunch.Config
 		return nil, errors.Join(errors.New("launch kernel: invalid module owner"), cleanup.Close())
 	}
 	s.mu.Lock()
+	state := s.states[name]
 	if geometry := s.settings[name].geometry; geometry != nil {
 		cfg.Grid = geometry.Grid
 		cfg.Block = geometry.Block
 		cfg.SharedMem = geometry.SharedMem
 	}
 	s.mu.Unlock()
-	result := &PendingLaunch{service: s, kernel: k, pin: p, lease: lease, stream: cfg.Stream}
+	result := &PendingLaunch{service: s, kernel: k, pin: p, lease: lease, stream: cfg.Stream, state: state}
 	s.mu.Lock()
 	s.pending[result] = struct{}{}
 	s.mu.Unlock()
