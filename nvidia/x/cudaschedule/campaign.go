@@ -574,6 +574,11 @@ func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx stri
 	var oraclePID, oracleModules int
 	var oracleAccesses uint64
 	finishRecord := func(rec RunRecord) RunRecord {
+		output, err := snapshotOutput(rec.Output)
+		if err != nil {
+			rec.HarnessErr = err.Error()
+		}
+		rec.Output = output
 		clean, identity, identityErr := takeMismatchIdentity(rec.Stdout)
 		if identityErr != nil {
 			if rec.HarnessErr == "" {

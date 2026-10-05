@@ -45,3 +45,12 @@ func ExampleContract_Validate() {
 	fmt.Println(c.Validate())
 	// Output: <nil>
 }
+
+func ExampleRecordedOutput() {
+	t := recorded(3)
+	t.ReadbackA[2], t.ReadbackB[2] = t.FillA, t.FillB
+	evidence := RecordedOutput{TwoFill: t, Ordinary: t.Reference, Policy: policy(t)}
+	report, err := CheckOutput(evidence.TwoFill, evidence.Ordinary, evidence.Policy)
+	fmt.Println(report.Written.Unwritten, report.NumericalMismatch == nil, err)
+	// Output: [{2 3}] true <nil>
+}

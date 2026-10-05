@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudaoutputcoverage"
 )
 
 // Verdict classifies the execution outcome of a PTX variant or baseline run.
@@ -91,6 +93,9 @@ func (v Verdict) FindingLabel() string {
 
 // RunRecord captures the recorded outcome of executing a kernel binary.
 type RunRecord struct {
+	// Output retains the output-write oracle's completed readbacks and numerical
+	// policy. Classify recomputes its report rather than trusting supplied counts.
+	Output *cudaoutputcoverage.RecordedOutput `json:"output_contract,omitempty"`
 	// Custody is present for controlled recorded-run attempts.
 	Custody *RecordedCustody `json:"custody,omitempty"`
 	// Mismatch identifies the comparison that failed in the executing runner.
@@ -161,6 +166,18 @@ func Classify(run RunRecord) Verdict {
 	// 3. Process crash or non-zero exit.
 	if !run.Exited || run.ExitCode != 0 {
 		return VerdictCrash
+	}
+	if run.Output != nil {
+		if run.Output.PTXDigest != run.PTXDigest {
+			return VerdictHarnessError
+		}
+		report, err := cudaoutputcoverage.CheckOutput(run.Output.TwoFill, run.Output.Ordinary, run.Output.Policy)
+		if err != nil {
+			return VerdictHarnessError
+		}
+		if len(report.Written.Unwritten) != 0 || len(report.Written.Nondeterministic) != 0 || report.NumericalMismatch != nil {
+			return VerdictMismatch
+		}
 	}
 
 	combined := run.Stdout
