@@ -219,7 +219,7 @@ func (s *Service) watchSnapshot() ([]watchedKernel, []string, <-chan struct{}, e
 		return nil, nil, nil, io.ErrClosedPipe
 	}
 	if s.poison != nil {
-		return nil, nil, nil, fmt.Errorf("watch: service context is poisoned: %w", s.poison)
+		return nil, nil, nil, fmt.Errorf("watch: %w: %w", ErrPoisoned, s.poison)
 	}
 	if s.watch.changed == nil {
 		s.watch.changed = make(chan struct{})

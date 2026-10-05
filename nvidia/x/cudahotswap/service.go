@@ -182,7 +182,7 @@ func (s *Service) available() error {
 		return errors.New("service is closed")
 	}
 	if s.poison != nil {
-		return fmt.Errorf("service context is poisoned: %w", s.poison)
+		return fmt.Errorf("%w: %w", ErrPoisoned, s.poison)
 	}
 	return nil
 }
