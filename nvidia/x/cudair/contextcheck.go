@@ -176,6 +176,26 @@ func validateBodyWrites(node Emitter, tokens []cudaToken, children []ChildSymbol
 			}
 		}
 		if tokens[i].text == "*" && i+2 < len(tokens) && isCUDAIdentStart(tokens[i+1].text[0]) && (tokens[i+2].text == "=" || tokens[i+2].text == ";") {
+			// A multiplication at the end of an initializer is not a pointer
+			// declarator. Only a complete declaration prefix (or a leading
+			// dereference store) gives this star pointer meaning.
+			start := i - 1
+			for start >= 0 && tokens[start].text != ";" && tokens[start].text != "{" && tokens[start].text != "}" {
+				start--
+			}
+			start++
+			pointer := start == i
+			if start < i {
+				pointer = true
+				for j := start; j < i; j++ {
+					if !isCUDAIdentStart(tokens[j].text[0]) || locals[tokens[j].text] || tokens[j].text == "return" {
+						pointer = false
+					}
+				}
+			}
+			if !pointer {
+				continue
+			}
 			if backward && tokens[i+2].text == "=" && (tokens[i+1].text == "dL_dx" || tokens[i+1].text == "dL_dparams") {
 				return fail("direct gradient-pointer assignment is not supported: " + tokens[i+1].text)
 			}
