@@ -1,0 +1,4 @@
+Commit: 6b30509a3c1570d01b4173eadae91538d82a6de0
+Date: 2026-10-05T14:50:53.238909+00:00
+Agent: Codex CLI 0.160.0; model unavailable; tty unavailable; pid 43236; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Evidence: independently accepted Linux source/CPU runtime v3 plus import-only successor; Mac race count=3 118.067s/1.485s; vet, gofmt, diff clean. No native GPU qualification.
