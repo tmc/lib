@@ -366,6 +366,9 @@ func uniqueSymbol(base string, used map[string]bool) string {
 // EmitTree walks the emitter tree, verifies adjacent width agreement in Go, generates unique nested
 // symbol names, and returns a concatenated Unit.
 func EmitTree(root Emitter, name string) (Unit, error) {
+	if dag, ok := root.(DAGEmitter); ok {
+		return emitDAG(dag, name)
+	}
 	if root == nil {
 		return Unit{}, fmt.Errorf("cudair: nil root emitter")
 	}
