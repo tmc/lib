@@ -51,6 +51,57 @@
 // source with NVRTC and checks them, and the constants, against the device
 // compiler.
 //
+// # Launch contracts
+//
+// Generated launch methods check nonempty slice storage and the declared C
+// pointee alignment through cudakernel's alignment rule. They also check
+// nonzero geometry, block dimensions, device and kernel thread limits, and
+// dynamic plus static shared memory against the device's reported opt-in
+// maximum. Dynamic shared memory must also fit the kernel's configured limit;
+// the binding does not raise that limit or choose launch geometry.
+//
+// Declare argument relationships in the kernel's immediately preceding comment:
+//
+//	// copy writes n elements.
+//	// cudabind: len(out) >= n
+//	// cudabind: grid.x * block.x >= n
+//	__global__ void copy(float* out, int n);
+//
+// A contract compares nonnegative integer expressions with >= or ==. Expressions
+// support integer parameters, len(slice), grid.x/y/z, block.x/y/z, sharedBytes,
+// integer literals, parentheses, addition and multiplication. Arithmetic is
+// checked for overflow. Missing parameters, unsupported expressions and malformed
+// declarations fail generation. Limits are 32 contracts, 1024 bytes per expression
+// and nesting depth 16. Empty slices are refused even when a count is zero; use a
+// caller-side zero-work branch. SetLaunchChecks(false) explicitly disables these
+// checks; they are enabled by default. Module and stream lifetime checks remain.
+// Distinct contract sets on redeclarations are refused; put the contracts on one
+// declaration. A parameter named sharedBytes cannot be used as an integer count
+// in a contract because that name denotes the launch's shared-memory byte count.
+//
+// # ABI witnesses
+//
+// The generated tests append witness kernels to the same compile helper as the
+// bound kernels, using the same source, embedded headers, defines and options.
+// Device readback supplies aggregate sizes, field offsets and widths, declared
+// C alignments, and sentinel parameter bytes. Sizes and offsets are compared to
+// actual Go values. Alignment is compared to the binding's cudakernel.Schema
+// alignment, not Go allocation alignment: a padded uint4 mirror can have Go
+// storage alignment 4 and declared CUDA ABI alignment 16. A slice of that mirror
+// still requires a 16-byte-aligned device address.
+//
+// Sentinel tests exclude record padding, whose value C does not specify. Opaque
+// unions, bit-field records and opaque toolkit mappings passed by value are
+// refused; pointers to them
+// remain supported. Witnesses are bounded to 64 parameters, 4096 bytes per
+// parameter and 16384 output words. The witness establishes ABI agreement only,
+// not kernel semantics, device allocation alignment or application correctness.
+// An embedded source digest check separately refuses stale generated sources.
+// Each sentinel launch first validates layout and parameter widths from its own
+// compiled module, so a wider stale C parameter is refused before host marshalling.
+// Device tests require CUDABIND_NATIVE=1 and an inherited gpu-lock lease. Without
+// that opt-in the generated device tests skip before initializing CUDA.
+//
 // The generated names are unexported when the -type name is. Each binding
 // in a package needs its own -type, and its own -prefix if two bindings
 // declare C types of the same name.

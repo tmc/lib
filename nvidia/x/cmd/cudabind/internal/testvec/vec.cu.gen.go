@@ -6,10 +6,12 @@ import (
 	"crypto/sha256"
 	"embed"
 	"fmt"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -18,14 +20,15 @@ import (
 var vecModuleFiles embed.FS
 
 // vecModuleSum is the SHA-256 of the files vec.cu.gen.go was generated from.
-const vecModuleSum = "d8f4ac486dc911261588d7ae1a38500bd2f4bbe4bcf90e66cc14c90b046cec12"
+const vecModuleSum = "c118e60a0d3a3dc95f4abd6320731250467f2f528e0d4053cca91b68b1892e90"
 
 // vecModule is vec.cu, compiled with NVRTC and loaded on a device.
 type vecModule struct {
-	dev     *cuda.Device
-	mod     *cuda.Module
-	raw     driver.Module
-	kernels [4]*cuda.Kernel
+	dev       *cuda.Device
+	mod       *cuda.Module
+	raw       driver.Module
+	unchecked atomic.Bool
+	kernels   [8]*cuda.Kernel
 }
 
 // The enum constants and numeric macros of vec.cu.
@@ -48,6 +51,10 @@ var vecModuleKernels = [...]struct {
 	{"shift", true},
 	{"fill", false},
 	{"sum", false},
+	{"bounded_copy", false},
+	{"decode_packing", false},
+	{"decode_nested", false},
+	{"contract_counts", false},
 }
 
 // compileVecModule compiles vec.cu for dev with the options cudabind was run with, then opts.
@@ -121,15 +128,111 @@ func newVecModule(dev *cuda.Device, cm *nvrtcx.CompiledModule) (*vecModule, erro
 
 // Close unloads the module. Work that uses it must be complete.
 func (m *vecModule) Close() error {
+	if m == nil {
+		return nil
+	}
 	return m.mod.Close()
 }
 
 func (m *vecModule) launch(k int, stream *cuda.Stream, grid, block [3]uint32, sharedBytes uint32, args ...unsafe.Pointer) error {
+	if m == nil || m.kernels[k] == nil || stream == nil {
+		return fmt.Errorf("closed module or nil stream")
+	}
 	err := stream.WithHandle(func(h driver.Stream) error {
 		return m.kernels[k].Launch(grid, block, sharedBytes, h, args)
 	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", vecModuleKernels[k].name, err)
+	}
+	return nil
+}
+func vecModuleRequired(name string, actual, required uint64, equal bool) error {
+	if actual < required || equal && actual != required {
+		return fmt.Errorf("%s: actual %d; this launch requires %d", name, actual, required)
+	}
+	return nil
+}
+
+// SetLaunchChecks enables or explicitly disables generated preconditions. Checks are enabled by default.
+func (m *vecModule) SetLaunchChecks(enabled bool) error {
+	if m == nil {
+		return fmt.Errorf("nil module")
+	}
+	m.unchecked.Store(!enabled)
+	return nil
+}
+func vecModuleCount(name string, n int64) (uint64, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("%s has count %d; requires at least 0", name, n)
+	}
+	return uint64(n), nil
+}
+func vecModuleArithmetic(name string, a, b uint64, multiply bool) (uint64, error) {
+	if multiply {
+		if b != 0 && a > ^uint64(0)/b {
+			return 0, fmt.Errorf("%s count product overflows: %d * %d", name, a, b)
+		}
+		return a * b, nil
+	}
+	if a > ^uint64(0)-b {
+		return 0, fmt.Errorf("%s count sum overflows: %d + %d", name, a, b)
+	}
+	return a + b, nil
+}
+func vecModuleExtent(name string, count int, pointer driver.DevicePtr, alignment int) error {
+	if count < 1 {
+		return fmt.Errorf("%s has %d elements; this launch requires at least 1", name, count)
+	}
+	if pointer == 0 {
+		return fmt.Errorf("%s has pointer 0; %d elements require nonzero storage", name, count)
+	}
+	return cudakernel.CheckPointerAlignment(name, pointer, alignment)
+}
+func vecModuleGeometry(grid, block [3]uint32, shared uint32, deviceAttribute func(driver.DeviceAttribute) (int, error), kernelAttribute func(driver.FunctionAttribute) (int, error)) error {
+	attrs := [...]driver.DeviceAttribute{driver.DevAttrMaxBlockDimX, driver.DevAttrMaxBlockDimY, driver.DevAttrMaxBlockDimZ}
+	var threads uint64 = 1
+	for i, d := range block {
+		if grid[i] == 0 || d == 0 {
+			return fmt.Errorf("grid/block dimension %d has %d/%d; requires at least 1/1", i, grid[i], d)
+		}
+		limit, err := deviceAttribute(attrs[i])
+		if err != nil {
+			return fmt.Errorf("block limit: %w", err)
+		}
+		if limit < 1 || uint64(d) > uint64(limit) {
+			return fmt.Errorf("block dimension %d has %d; maximum %d", i, d, limit)
+		}
+		threads, err = vecModuleArithmetic("block", threads, uint64(d), true)
+		if err != nil {
+			return err
+		}
+	}
+	for _, limitSource := range []func() (int, error){func() (int, error) { return deviceAttribute(driver.DevAttrMaxThreadsPerBlock) }, func() (int, error) { return kernelAttribute(driver.FuncAttributeMaxThreadsPerBlock) }} {
+		limit, err := limitSource()
+		if err != nil {
+			return fmt.Errorf("thread limit: %w", err)
+		}
+		if limit < 1 || threads > uint64(limit) {
+			return fmt.Errorf("block has %d threads; maximum %d", threads, limit)
+		}
+	}
+	limit, err := deviceAttribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
+	if err != nil {
+		return fmt.Errorf("shared memory limit: %w", err)
+	}
+	static, err := kernelAttribute(driver.FuncAttributeSharedSizeBytes)
+	if err != nil {
+		return fmt.Errorf("static shared memory: %w", err)
+	}
+	if limit < 0 || static < 0 || uint64(shared)+uint64(static) > uint64(limit) {
+		return fmt.Errorf("sharedBytes has %d dynamic and %d static bytes; maximum %d", shared, static, limit)
+	}
+	dynamic, err := kernelAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	if err != nil {
+		return fmt.Errorf("dynamic shared memory limit: %w", err)
+	}
+	if dynamic < 0 || uint64(shared) > uint64(dynamic) {
+		return fmt.Errorf("sharedBytes has %d bytes; configured maximum %d", shared, dynamic)
 	}
 	return nil
 }
@@ -139,7 +242,44 @@ func (m *vecModule) launch(k int, stream *cuda.Stream, grid, block [3]uint32, sh
 //	__global__ void scale_all(float * x, int n)
 //
 // scale_all multiplies each of the n values of x by scale.
+// cudabind: len(x) >= n
+// cudabind: grid.x * block.x >= n
 func (m *vecModule) scaleAll(stream *cuda.Stream, grid, block [3]uint32, x cudamem.Slice[float32], n int32) error {
+	if m == nil {
+		return fmt.Errorf("scale_all: nil module")
+	}
+	if !m.unchecked.Load() {
+		cudabindContract0 := uint64(x.Len())
+		cudabindContract1, err := vecModuleCount("n", int64(n))
+		if err != nil {
+			return err
+		}
+		if err := vecModuleRequired("len(x) >= n", cudabindContract0, cudabindContract1, false); err != nil {
+			return err
+		}
+		cudabindContract3 := uint64(grid[0])
+		cudabindContract4 := uint64(block[0])
+		cudabindContract2, err := vecModuleArithmetic("launch contract", cudabindContract3, cudabindContract4, true)
+		if err != nil {
+			return err
+		}
+		cudabindContract5, err := vecModuleCount("n", int64(n))
+		if err != nil {
+			return err
+		}
+		if err := vecModuleRequired("grid.x * block.x >= n", cudabindContract2, cudabindContract5, false); err != nil {
+			return err
+		}
+		if err := vecModuleExtent("x", x.Len(), x.Ptr(), 4); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[0] == nil {
+			return fmt.Errorf("scale_all: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, 0, m.dev.Attribute, m.kernels[0].Attribute); err != nil {
+			return err
+		}
+	}
 	ptrs := [...]driver.DevicePtr{x.Ptr()}
 	return m.launch(0, stream, grid, block, 0, unsafe.Pointer(&ptrs[0]), unsafe.Pointer(&n))
 }
@@ -150,6 +290,23 @@ func (m *vecModule) scaleAll(stream *cuda.Stream, grid, block [3]uint32, x cudam
 //
 // shift moves each of the n points by origin and records op.
 func (m *vecModule) shift(stream *cuda.Stream, grid, block [3]uint32, p cudamem.Slice[point], tags cudamem.Slice[pair], n int32, op int32) error {
+	if m == nil {
+		return fmt.Errorf("shift: nil module")
+	}
+	if !m.unchecked.Load() {
+		if err := vecModuleExtent("p", p.Len(), p.Ptr(), 8); err != nil {
+			return err
+		}
+		if err := vecModuleExtent("tags", tags.Len(), tags.Ptr(), 16); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[1] == nil {
+			return fmt.Errorf("shift: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, 0, m.dev.Attribute, m.kernels[1].Attribute); err != nil {
+			return err
+		}
+	}
 	ptrs := [...]driver.DevicePtr{p.Ptr(), tags.Ptr()}
 	return m.launch(1, stream, grid, block, 0, unsafe.Pointer(&ptrs[0]), unsafe.Pointer(&ptrs[1]), unsafe.Pointer(&n), unsafe.Pointer(&op))
 }
@@ -160,6 +317,20 @@ func (m *vecModule) shift(stream *cuda.Stream, grid, block [3]uint32, p cudamem.
 //
 // fill sets out to pair, whose Go name is also that of its type.
 func (m *vecModule) fill(stream *cuda.Stream, grid, block [3]uint32, pair_ pair, out cudamem.Slice[pair]) error {
+	if m == nil {
+		return fmt.Errorf("fill: nil module")
+	}
+	if !m.unchecked.Load() {
+		if err := vecModuleExtent("out", out.Len(), out.Ptr(), 16); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[2] == nil {
+			return fmt.Errorf("fill: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, 0, m.dev.Attribute, m.kernels[2].Attribute); err != nil {
+			return err
+		}
+	}
 	ptrs := [...]driver.DevicePtr{out.Ptr()}
 	return m.launch(2, stream, grid, block, 0, unsafe.Pointer(&pair_), unsafe.Pointer(&ptrs[0]))
 }
@@ -169,9 +340,187 @@ func (m *vecModule) fill(stream *cuda.Stream, grid, block [3]uint32, pair_ pair,
 //	__global__ void sum(const int * in, int n, int * out)
 //
 // sum adds the n values of in into *out, one block, through shared memory.
+// cudabind: len(in) >= n
+// cudabind: len(out) >= 1
+// cudabind: sharedBytes >= block.x * 4
 func (m *vecModule) sum(stream *cuda.Stream, grid, block [3]uint32, sharedBytes uint32, in cudamem.Slice[int32], n int32, out cudamem.Slice[int32]) error {
+	if m == nil {
+		return fmt.Errorf("sum: nil module")
+	}
+	if !m.unchecked.Load() {
+		cudabindContract0 := uint64(in.Len())
+		cudabindContract1, err := vecModuleCount("n", int64(n))
+		if err != nil {
+			return err
+		}
+		if err := vecModuleRequired("len(in) >= n", cudabindContract0, cudabindContract1, false); err != nil {
+			return err
+		}
+		cudabindContract2 := uint64(out.Len())
+		cudabindContract3 := uint64(1)
+		if err := vecModuleRequired("len(out) >= 1", cudabindContract2, cudabindContract3, false); err != nil {
+			return err
+		}
+		cudabindContract4 := uint64(sharedBytes)
+		cudabindContract6 := uint64(block[0])
+		cudabindContract7 := uint64(4)
+		cudabindContract5, err := vecModuleArithmetic("launch contract", cudabindContract6, cudabindContract7, true)
+		if err != nil {
+			return err
+		}
+		if err := vecModuleRequired("sharedBytes >= block.x * 4", cudabindContract4, cudabindContract5, false); err != nil {
+			return err
+		}
+		if err := vecModuleExtent("in", in.Len(), in.Ptr(), 4); err != nil {
+			return err
+		}
+		if err := vecModuleExtent("out", out.Len(), out.Ptr(), 4); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[3] == nil {
+			return fmt.Errorf("sum: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, sharedBytes, m.dev.Attribute, m.kernels[3].Attribute); err != nil {
+			return err
+		}
+	}
 	ptrs := [...]driver.DevicePtr{in.Ptr(), out.Ptr()}
 	return m.launch(3, stream, grid, block, sharedBytes, unsafe.Pointer(&ptrs[0]), unsafe.Pointer(&n), unsafe.Pointer(&ptrs[1]))
+}
+
+// boundedCopy launches bounded_copy:
+//
+//	__global__ void bounded_copy(float * out, int n)
+//
+// bounded_copy supplies the concrete output-count precondition fixture.
+// cudabind: len(out) >= n
+// cudabind: grid.x * block.x >= n
+func (m *vecModule) boundedCopy(stream *cuda.Stream, grid, block [3]uint32, out cudamem.Slice[float32], n int32) error {
+	if m == nil {
+		return fmt.Errorf("bounded_copy: nil module")
+	}
+	if !m.unchecked.Load() {
+		cudabindContract0 := uint64(out.Len())
+		cudabindContract1, err := vecModuleCount("n", int64(n))
+		if err != nil {
+			return err
+		}
+		if err := vecModuleRequired("len(out) >= n", cudabindContract0, cudabindContract1, false); err != nil {
+			return err
+		}
+		cudabindContract3 := uint64(grid[0])
+		cudabindContract4 := uint64(block[0])
+		cudabindContract2, err := vecModuleArithmetic("launch contract", cudabindContract3, cudabindContract4, true)
+		if err != nil {
+			return err
+		}
+		cudabindContract5, err := vecModuleCount("n", int64(n))
+		if err != nil {
+			return err
+		}
+		if err := vecModuleRequired("grid.x * block.x >= n", cudabindContract2, cudabindContract5, false); err != nil {
+			return err
+		}
+		if err := vecModuleExtent("out", out.Len(), out.Ptr(), 4); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[4] == nil {
+			return fmt.Errorf("bounded_copy: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, 0, m.dev.Attribute, m.kernels[4].Attribute); err != nil {
+			return err
+		}
+	}
+	ptrs := [...]driver.DevicePtr{out.Ptr()}
+	return m.launch(4, stream, grid, block, 0, unsafe.Pointer(&ptrs[0]), unsafe.Pointer(&n))
+}
+
+// decodePacking launches decode_packing:
+//
+//	__global__ void decode_packing(Packing value, Packing * out)
+//
+// decode_packing supplies a stale field offset and by-value ABI control.
+func (m *vecModule) decodePacking(stream *cuda.Stream, grid, block [3]uint32, value packing, out cudamem.Slice[packing]) error {
+	if m == nil {
+		return fmt.Errorf("decode_packing: nil module")
+	}
+	if !m.unchecked.Load() {
+		if err := vecModuleExtent("out", out.Len(), out.Ptr(), 8); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[5] == nil {
+			return fmt.Errorf("decode_packing: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, 0, m.dev.Attribute, m.kernels[5].Attribute); err != nil {
+			return err
+		}
+	}
+	ptrs := [...]driver.DevicePtr{out.Ptr()}
+	return m.launch(5, stream, grid, block, 0, unsafe.Pointer(&value), unsafe.Pointer(&ptrs[0]))
+}
+
+// decodeNested launches decode_nested:
+//
+//	__global__ void decode_nested(Nested value, Nested * out)
+//
+// decode_nested exercises same-size vector alignment and by-value decoding.
+func (m *vecModule) decodeNested(stream *cuda.Stream, grid, block [3]uint32, value nested, out cudamem.Slice[nested]) error {
+	if m == nil {
+		return fmt.Errorf("decode_nested: nil module")
+	}
+	if !m.unchecked.Load() {
+		if err := vecModuleExtent("out", out.Len(), out.Ptr(), 4); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[6] == nil {
+			return fmt.Errorf("decode_nested: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, 0, m.dev.Attribute, m.kernels[6].Attribute); err != nil {
+			return err
+		}
+	}
+	ptrs := [...]driver.DevicePtr{out.Ptr()}
+	return m.launch(6, stream, grid, block, 0, unsafe.Pointer(&value), unsafe.Pointer(&ptrs[0]))
+}
+
+// contractCounts launches contract_counts:
+//
+//	__global__ void contract_counts(int n)
+//
+// contract_counts supplies a scalar-only prelaunch predicate control.
+// cudabind: block.x == 128
+// cudabind: grid.x * block.x >= n
+func (m *vecModule) contractCounts(stream *cuda.Stream, grid, block [3]uint32, n int32) error {
+	if m == nil {
+		return fmt.Errorf("contract_counts: nil module")
+	}
+	if !m.unchecked.Load() {
+		cudabindContract0 := uint64(block[0])
+		cudabindContract1 := uint64(128)
+		if err := vecModuleRequired("block.x == 128", cudabindContract0, cudabindContract1, true); err != nil {
+			return err
+		}
+		cudabindContract3 := uint64(grid[0])
+		cudabindContract4 := uint64(block[0])
+		cudabindContract2, err := vecModuleArithmetic("launch contract", cudabindContract3, cudabindContract4, true)
+		if err != nil {
+			return err
+		}
+		cudabindContract5, err := vecModuleCount("n", int64(n))
+		if err != nil {
+			return err
+		}
+		if err := vecModuleRequired("grid.x * block.x >= n", cudabindContract2, cudabindContract5, false); err != nil {
+			return err
+		}
+		if m.dev == nil || m.kernels[7] == nil {
+			return fmt.Errorf("contract_counts: closed module")
+		}
+		if err := vecModuleGeometry(grid, block, 0, m.dev.Attribute, m.kernels[7].Attribute); err != nil {
+			return err
+		}
+	}
+	return m.launch(7, stream, grid, block, 0, unsafe.Pointer(&n))
 }
 
 func (m *vecModule) copyGlobal(name string, p unsafe.Pointer, size uintptr, toDevice bool) error {
@@ -222,7 +571,7 @@ func (m *vecModule) setOrigin(v point) error {
 	return m.copyGlobal("origin", unsafe.Pointer(&v), unsafe.Sizeof(v), true)
 }
 
-// point is the C type Point, declared at vec.cu:16.
+// point is the C type Point, declared at vec.cu:20.
 type point struct {
 	X float32
 	Y float64
@@ -235,6 +584,23 @@ type pair struct {
 	B [4]uint32
 }
 
+// packing is the C type Packing, declared at vec.cu:92.
+type packing struct {
+	Head  int32
+	Value float64
+}
+
+// alignedVector is the C type AlignedVector, declared at vec.cu:100.
+type alignedVector struct {
+	Lanes [4]uint32
+}
+
+// nested is the C type Nested, declared at vec.cu:102.
+type nested struct {
+	Head   int32
+	Vector alignedVector
+}
+
 // The sizes and offsets of the C types, as clang lays them out.
 var _ = [1]struct{}{}[unsafe.Sizeof(point{})-16]
 var _ = [1]struct{}{}[unsafe.Offsetof(point{}.X)-0]
@@ -242,3 +608,11 @@ var _ = [1]struct{}{}[unsafe.Offsetof(point{}.Y)-8]
 var _ = [1]struct{}{}[unsafe.Sizeof(pair{})-32]
 var _ = [1]struct{}{}[unsafe.Offsetof(pair{}.A)-0]
 var _ = [1]struct{}{}[unsafe.Offsetof(pair{}.B)-16]
+var _ = [1]struct{}{}[unsafe.Sizeof(packing{})-16]
+var _ = [1]struct{}{}[unsafe.Offsetof(packing{}.Head)-0]
+var _ = [1]struct{}{}[unsafe.Offsetof(packing{}.Value)-8]
+var _ = [1]struct{}{}[unsafe.Sizeof(alignedVector{})-16]
+var _ = [1]struct{}{}[unsafe.Offsetof(alignedVector{}.Lanes)-0]
+var _ = [1]struct{}{}[unsafe.Sizeof(nested{})-20]
+var _ = [1]struct{}{}[unsafe.Offsetof(nested{}.Head)-0]
+var _ = [1]struct{}{}[unsafe.Offsetof(nested{}.Vector)-4]

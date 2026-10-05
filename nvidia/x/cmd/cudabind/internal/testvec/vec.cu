@@ -8,7 +8,11 @@
 
 // Pair needs padding in Go before b, which C aligns to 16 bytes.
 struct Pair {
+#ifdef VEC_WIDE_A
+    long long a;
+#else
     int a;
+#endif
     uint4 b;
 };
 
@@ -31,6 +35,8 @@ __constant__ float scale;
 __device__ Point origin;
 
 // scale_all multiplies each of the n values of x by scale.
+// cudabind: len(x) >= n
+// cudabind: grid.x * block.x >= n
 extern "C" __global__ void scale_all(float* x, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
@@ -55,6 +61,9 @@ extern "C" __global__ void fill(Pair pair, Pair* out) {
 }
 
 // sum adds the n values of in into *out, one block, through shared memory.
+// cudabind: len(in) >= n
+// cudabind: len(out) >= 1
+// cudabind: sharedBytes >= block.x * 4
 extern "C" __global__ void sum(const int* in, int n, int* out) {
     extern __shared__ int s[];
     int t = threadIdx.x;
@@ -68,3 +77,34 @@ extern "C" __global__ void sum(const int* in, int n, int* out) {
         *out = total;
     }
 }
+
+// bounded_copy supplies the concrete output-count precondition fixture.
+// cudabind: len(out) >= n
+// cudabind: grid.x * block.x >= n
+extern "C" __global__ void bounded_copy(float* out, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = (float)i;
+}
+
+#ifdef VEC_PACKED
+struct __attribute__((packed)) Packing { int head; double value; };
+#else
+struct Packing { int head; double value; };
+#endif
+// decode_packing supplies a stale field offset and by-value ABI control.
+extern "C" __global__ void decode_packing(Packing value, Packing* out) { *out = value; }
+
+#ifdef VEC_ALIGNED_VECTOR
+struct alignas(16) AlignedVector { unsigned int lanes[4]; };
+#else
+struct alignas(4) AlignedVector { unsigned int lanes[4]; };
+#endif
+struct Nested { int head; AlignedVector vector; };
+
+// decode_nested exercises same-size vector alignment and by-value decoding.
+extern "C" __global__ void decode_nested(Nested value, Nested* out) { *out = value; }
+
+// contract_counts supplies a scalar-only prelaunch predicate control.
+// cudabind: block.x == 128
+// cudabind: grid.x * block.x >= n
+extern "C" __global__ void contract_counts(int n) { (void)n; }

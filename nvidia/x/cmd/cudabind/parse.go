@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/internal/libclang"
 )
 
@@ -28,19 +29,25 @@ type module struct {
 }
 
 type kernel struct {
-	name   string // C name, qualified for C++ linkage
-	method string
-	cxx    bool // has C++ linkage, so is found by name expression
-	decl   string
-	doc    string
-	params []param
-	shared bool
+	name      string // C name, qualified for C++ linkage
+	method    string
+	cxx       bool // has C++ linkage, so is found by name expression
+	decl      string
+	doc       string
+	params    []param
+	shared    bool
+	contracts []launchContract
 }
 
 type param struct {
-	name  string
-	typ   string
-	slice bool // a pointer, passed as a cudamem.Slice
+	name         string
+	cName        string
+	cType        string
+	alignment    int64
+	width        int64
+	abiAlignment int64
+	typ          string
+	slice        bool // a pointer, passed as a cudamem.Slice
 }
 
 type global struct {
@@ -66,6 +73,7 @@ type record struct {
 	cName  string // as C source spells it
 	goName string
 	size   int64
+	align  int64
 	opaque bool // an array of size bytes
 	fields []field
 	decl   string // where C declares it
@@ -76,6 +84,7 @@ type field struct {
 	goName string
 	typ    string
 	off    int64
+	size   int64
 }
 
 // A goType is a Go type with the size and alignment Go gives it.
@@ -88,6 +97,21 @@ type goType struct {
 type mapped struct {
 	cName string
 	typ   goType
+	align int64
+}
+
+func validateWitnessSchemas(m *module) error {
+	for _, r := range m.records {
+		if _, err := cudakernel.NewSchema(cudakernel.Param{Name: r.cName, Type: r.cName, ByteWidth: int(r.size), Alignment: int(r.align)}); err != nil {
+			return fmt.Errorf("ABI witness type %s: %w", r.cName, err)
+		}
+	}
+	for _, r := range m.mapped {
+		if _, err := cudakernel.NewSchema(cudakernel.Param{Name: r.cName, Type: r.cName, ByteWidth: int(r.typ.size), Alignment: int(r.align)}); err != nil {
+			return fmt.Errorf("ABI witness type %s: %w", r.cName, err)
+		}
+	}
+	return nil
 }
 
 // parse parses cfg.file with libclang.
@@ -316,6 +340,12 @@ func macroValueIndex(name, declFile, helperFile string, count int) (int, bool) {
 
 // bind binds the kernels and variables the flags select.
 func (b *binder) bind(decls []decl) error {
+	// A later annotated definition must not disappear behind a prototype.
+	// Distinct contract sets on redeclarations are refused, not guessed.
+	var err error
+	if decls, err = coalesceKernelDecls(decls); err != nil {
+		return err
+	}
 	seen := make(map[string]string) // name → mangled name
 	kernels, globals := make(map[string]bool), make(map[string]bool)
 	var errs []error
@@ -324,6 +354,9 @@ func (b *binder) bind(decls []decl) error {
 		// kernel, only of a variable.
 		def := d.c.Definition()
 		if def.IsNull() {
+			def = d.c
+		}
+		if !d.isVar && hasLaunchContract(d.c.RawComment()) {
 			def = d.c
 		}
 		if m, ok := seen[d.name]; ok {
@@ -365,6 +398,35 @@ func (b *binder) bind(decls []decl) error {
 	return errors.Join(errs...)
 }
 
+func coalesceKernelDecls(decls []decl) ([]decl, error) {
+	indices := make(map[string]int)
+	var out []decl
+	for _, d := range decls {
+		if d.isVar {
+			out = append(out, d)
+			continue
+		}
+		i, ok := indices[d.name]
+		if !ok {
+			indices[d.name] = len(out)
+			out = append(out, d)
+			continue
+		}
+		old := out[i]
+		if old.c.Mangling() != d.c.Mangling() {
+			return nil, fmt.Errorf("kernel %s is overloaded, which cudabind does not support", d.name)
+		}
+		a, b := old.c.RawComment(), d.c.RawComment()
+		if hasLaunchContract(a) && hasLaunchContract(b) && a != b {
+			return nil, fmt.Errorf("kernel %s has different contracts on multiple declarations", d.name)
+		}
+		if !hasLaunchContract(a) && hasLaunchContract(b) {
+			out[i] = d
+		}
+	}
+	return out, nil
+}
+
 func (b *binder) kernel(c libclang.Cursor, name string) error {
 	k := &kernel{
 		name:   name,
@@ -373,22 +435,41 @@ func (b *binder) kernel(c libclang.Cursor, name string) error {
 		doc:    docComment(c.RawComment(), c.Spelling()),
 		shared: slices.Contains(b.cfg.shared, name),
 	}
+	if k.method == "Close" || k.method == "SetLaunchChecks" || k.method == "launch" || k.method == "copyGlobal" {
+		return fmt.Errorf("kernel %s conflicts with generated method %s", name, k.method)
+	}
 	if err := b.claim(k.method, name); err != nil {
 		return err
 	}
 	used := make(map[string]bool)
-	for _, name := range []string{"m", "ptrs", "stream", "grid", "block", "sharedBytes",
+	for _, name := range []string{"m", "ptrs", "stream", "grid", "block", "sharedBytes", "err",
 		"cuda", "cudamem", "driver", "unsafe", "fmt", "nvrtcx"} {
 		used[name] = true
+	}
+	for _, suffix := range []string{"Required", "Count", "Arithmetic", "Extent", "Geometry"} {
+		used[b.cfg.typeName+suffix] = true
 	}
 	var cparams []string
 	for _, a := range c.Arguments() {
 		t := a.Type()
 		cparams = append(cparams, strings.TrimSpace(t.Spelling()+" "+a.Spelling()))
 		var p param
+		p.cName, p.cType = a.Spelling(), t.Spelling()
+		p.width, p.alignment = t.Canonical().Size(), t.Canonical().Align()
+		p.abiAlignment = p.alignment
+		if t.Canonical().Kind() == libclang.Pointer {
+			elem := t.Canonical().Pointee().Canonical()
+			p.alignment = elem.Align()
+			if elem.Kind() == libclang.Void || elem.Size() < 0 {
+				p.alignment = 1
+			}
+		}
 		var err error
 		if p.typ, p.slice, err = b.paramType(t); err != nil {
 			return fmt.Errorf("kernel %s: parameter %s: %w", name, a.Spelling(), err)
+		}
+		if _, err := cudakernel.NewSchema(cudakernel.Param{Name: "element", Type: "u8", ByteWidth: 1, Alignment: int(p.alignment)}); err != nil {
+			return fmt.Errorf("kernel %s: parameter %s element alignment: %w", name, a.Spelling(), err)
 		}
 		k.params = append(k.params, p)
 	}
@@ -404,8 +485,15 @@ func (b *binder) kernel(c libclang.Cursor, name string) error {
 			p.name += "_"
 		}
 		used[p.name] = true
+		if p.cName == "" {
+			p.cName = p.name
+		}
 	}
 	k.decl = fmt.Sprintf("__global__ void %s(%s)", c.Spelling(), strings.Join(cparams, ", "))
+	var err error
+	if k.contracts, err = parseLaunchContracts(c.RawComment(), k.params); err != nil {
+		return fmt.Errorf("kernel %s: %w", name, err)
+	}
 	b.m.kernels = append(b.m.kernels, k)
 	return nil
 }
@@ -425,6 +513,9 @@ func (b *binder) global(c libclang.Cursor, name string) error {
 	getter := b.funcName(c.Spelling())
 	setter := b.funcName("set") + camel(c.Spelling())
 	for _, n := range []string{getter, setter} {
+		if n == "Close" || n == "SetLaunchChecks" || n == "launch" || n == "copyGlobal" {
+			return fmt.Errorf("variable %s conflicts with generated method %s", name, n)
+		}
 		if err := b.claim(n, name); err != nil {
 			return err
 		}
@@ -561,7 +652,7 @@ func (b *binder) shape(t libclang.Type, def libclang.Cursor) (goType, error) {
 			}
 		}
 	}
-	b.m.mapped = append(b.m.mapped, mapped{t.Spelling(), g})
+	b.m.mapped = append(b.m.mapped, mapped{cName: t.Spelling(), typ: g, align: t.Align()})
 	return g, nil
 }
 
@@ -576,7 +667,7 @@ func (b *binder) mirror(t libclang.Type, def libclang.Cursor) (goType, error) {
 		return goType{}, fmt.Errorf("unnamed type %s", cName)
 	}
 	short := cName[strings.LastIndex(cName, ":")+1:]
-	r := &record{cName: cName, goName: b.typeName(short), size: t.Size()}
+	r := &record{cName: cName, goName: b.typeName(short), size: t.Size(), align: t.Align()}
 	file, line, _ := def.Location()
 	if rel, err := relative(b.cfg.dir, file); err == nil {
 		file = rel
@@ -609,7 +700,7 @@ func (b *binder) mirror(t libclang.Type, def libclang.Cursor) (goType, error) {
 				return goType{}, fmt.Errorf("%s: two fields named %s in Go", cName, name)
 			}
 			names[name] = true
-			r.fields = append(r.fields, field{f.Spelling(), name, ft.expr, coff})
+			r.fields = append(r.fields, field{cName: f.Spelling(), goName: name, typ: ft.expr, off: coff, size: ft.size})
 			off, align = coff+ft.size, max(align, ft.align)
 		}
 		if off < r.size {

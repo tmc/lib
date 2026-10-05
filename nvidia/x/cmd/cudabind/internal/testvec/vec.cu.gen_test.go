@@ -3,30 +3,189 @@
 package testvec
 
 import (
+	"fmt"
 	"math"
+	"os"
 	"testing"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
-// TestVecModuleLayout checks that the Go types and constants of vec.cu.gen.go have the
-// sizes, field offsets and values NVRTC gives the C ones.
-func TestVecModuleLayout(t *testing.T) {
-	dev := cudatest.Require(t)
-	want := []struct {
-		c string
-		v int64
-	}{
-		{"sizeof(Point)", int64(unsafe.Sizeof(point{}))},
+type vecModuleLayoutValue struct {
+	c string
+	v int64
+}
+
+func vecModuleLayoutExpected() ([]vecModuleLayoutValue, error) {
+	abiAlignment5, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(Point)", Type: "Point", ByteWidth: 16, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment11, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(Pair)", Type: "Pair", ByteWidth: 32, Alignment: 16})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment17, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(Packing)", Type: "Packing", ByteWidth: 16, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment21, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(AlignedVector)", Type: "AlignedVector", ByteWidth: 16, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment27, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(Nested)", Type: "Nested", ByteWidth: 20, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment29, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(uint4)", Type: "uint4", ByteWidth: 16, Alignment: 16})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment31, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(scale_all argument x)", Type: "float *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment33, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(scale_all argument n)", Type: "int", ByteWidth: 4, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment35, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(shift argument p)", Type: "Point *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment37, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(shift argument tags)", Type: "Pair *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment39, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(shift argument n)", Type: "int", ByteWidth: 4, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment41, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(shift argument op)", Type: "Op", ByteWidth: 4, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment43, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(fill argument pair)", Type: "Pair", ByteWidth: 32, Alignment: 16})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment45, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(fill argument out)", Type: "Pair *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment47, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(sum argument in)", Type: "const int *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment49, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(sum argument n)", Type: "int", ByteWidth: 4, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment51, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(sum argument out)", Type: "int *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment53, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(bounded_copy argument out)", Type: "float *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment55, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(bounded_copy argument n)", Type: "int", ByteWidth: 4, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment57, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(decode_packing argument value)", Type: "Packing", ByteWidth: 16, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment59, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(decode_packing argument out)", Type: "Packing *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment61, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(decode_nested argument value)", Type: "Nested", ByteWidth: 20, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment63, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(decode_nested argument out)", Type: "Nested *", ByteWidth: 8, Alignment: 8})
+	if err != nil {
+		return nil, err
+	}
+	abiAlignment65, err := cudakernel.NewSchema(cudakernel.Param{Name: "alignof(contract_counts argument n)", Type: "int", ByteWidth: 4, Alignment: 4})
+	if err != nil {
+		return nil, err
+	}
+	want := []vecModuleLayoutValue{
 		{"offsetof(Point, x)", int64(unsafe.Offsetof(point{}.X))},
+		{"sizeof(Point.x)", int64(unsafe.Sizeof(point{}.X))},
 		{"offsetof(Point, y)", int64(unsafe.Offsetof(point{}.Y))},
-		{"sizeof(Pair)", int64(unsafe.Sizeof(pair{}))},
+		{"sizeof(Point.y)", int64(unsafe.Sizeof(point{}.Y))},
+		{"sizeof(Point)", int64(unsafe.Sizeof(point{}))},
+		{"alignof(Point)", int64(abiAlignment5.Params[0].Alignment)},
 		{"offsetof(Pair, a)", int64(unsafe.Offsetof(pair{}.A))},
+		{"sizeof(Pair.a)", int64(unsafe.Sizeof(pair{}.A))},
 		{"offsetof(Pair, b)", int64(unsafe.Offsetof(pair{}.B))},
+		{"sizeof(Pair.b)", int64(unsafe.Sizeof(pair{}.B))},
+		{"sizeof(Pair)", int64(unsafe.Sizeof(pair{}))},
+		{"alignof(Pair)", int64(abiAlignment11.Params[0].Alignment)},
+		{"offsetof(Packing, head)", int64(unsafe.Offsetof(packing{}.Head))},
+		{"sizeof(Packing.head)", int64(unsafe.Sizeof(packing{}.Head))},
+		{"offsetof(Packing, value)", int64(unsafe.Offsetof(packing{}.Value))},
+		{"sizeof(Packing.value)", int64(unsafe.Sizeof(packing{}.Value))},
+		{"sizeof(Packing)", int64(unsafe.Sizeof(packing{}))},
+		{"alignof(Packing)", int64(abiAlignment17.Params[0].Alignment)},
+		{"offsetof(AlignedVector, lanes)", int64(unsafe.Offsetof(alignedVector{}.Lanes))},
+		{"sizeof(AlignedVector.lanes)", int64(unsafe.Sizeof(alignedVector{}.Lanes))},
+		{"sizeof(AlignedVector)", int64(unsafe.Sizeof(alignedVector{}))},
+		{"alignof(AlignedVector)", int64(abiAlignment21.Params[0].Alignment)},
+		{"offsetof(Nested, head)", int64(unsafe.Offsetof(nested{}.Head))},
+		{"sizeof(Nested.head)", int64(unsafe.Sizeof(nested{}.Head))},
+		{"offsetof(Nested, vector)", int64(unsafe.Offsetof(nested{}.Vector))},
+		{"sizeof(Nested.vector)", int64(unsafe.Sizeof(nested{}.Vector))},
+		{"sizeof(Nested)", int64(unsafe.Sizeof(nested{}))},
+		{"alignof(Nested)", int64(abiAlignment27.Params[0].Alignment)},
 		{"sizeof(uint4)", int64(unsafe.Sizeof(*new([4]uint32)))},
+		{"alignof(uint4)", int64(abiAlignment29.Params[0].Alignment)},
+		{"sizeof(scale_all argument x)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(scale_all argument x)", int64(abiAlignment31.Params[0].Alignment)},
+		{"sizeof(scale_all argument n)", int64(unsafe.Sizeof(*new(int32)))},
+		{"alignof(scale_all argument n)", int64(abiAlignment33.Params[0].Alignment)},
+		{"sizeof(shift argument p)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(shift argument p)", int64(abiAlignment35.Params[0].Alignment)},
+		{"sizeof(shift argument tags)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(shift argument tags)", int64(abiAlignment37.Params[0].Alignment)},
+		{"sizeof(shift argument n)", int64(unsafe.Sizeof(*new(int32)))},
+		{"alignof(shift argument n)", int64(abiAlignment39.Params[0].Alignment)},
+		{"sizeof(shift argument op)", int64(unsafe.Sizeof(*new(int32)))},
+		{"alignof(shift argument op)", int64(abiAlignment41.Params[0].Alignment)},
+		{"sizeof(fill argument pair)", int64(unsafe.Sizeof(*new(pair)))},
+		{"alignof(fill argument pair)", int64(abiAlignment43.Params[0].Alignment)},
+		{"sizeof(fill argument out)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(fill argument out)", int64(abiAlignment45.Params[0].Alignment)},
+		{"sizeof(sum argument in)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(sum argument in)", int64(abiAlignment47.Params[0].Alignment)},
+		{"sizeof(sum argument n)", int64(unsafe.Sizeof(*new(int32)))},
+		{"alignof(sum argument n)", int64(abiAlignment49.Params[0].Alignment)},
+		{"sizeof(sum argument out)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(sum argument out)", int64(abiAlignment51.Params[0].Alignment)},
+		{"sizeof(bounded_copy argument out)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(bounded_copy argument out)", int64(abiAlignment53.Params[0].Alignment)},
+		{"sizeof(bounded_copy argument n)", int64(unsafe.Sizeof(*new(int32)))},
+		{"alignof(bounded_copy argument n)", int64(abiAlignment55.Params[0].Alignment)},
+		{"sizeof(decode_packing argument value)", int64(unsafe.Sizeof(*new(packing)))},
+		{"alignof(decode_packing argument value)", int64(abiAlignment57.Params[0].Alignment)},
+		{"sizeof(decode_packing argument out)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(decode_packing argument out)", int64(abiAlignment59.Params[0].Alignment)},
+		{"sizeof(decode_nested argument value)", int64(unsafe.Sizeof(*new(nested)))},
+		{"alignof(decode_nested argument value)", int64(abiAlignment61.Params[0].Alignment)},
+		{"sizeof(decode_nested argument out)", int64(unsafe.Sizeof(*new(driver.DevicePtr)))},
+		{"alignof(decode_nested argument out)", int64(abiAlignment63.Params[0].Alignment)},
+		{"sizeof(contract_counts argument n)", int64(unsafe.Sizeof(*new(int32)))},
+		{"alignof(contract_counts argument n)", int64(abiAlignment65.Params[0].Alignment)},
 		{"OP_ADD", opAdd},
 		{"OP_MUL", opMul},
 		{"geom::Side::LEFT", geomSideLeft},
@@ -35,25 +194,180 @@ func TestVecModuleLayout(t *testing.T) {
 		{"VEC_LANES", vecLanes},
 		{"__double_as_longlong((double)(VEC_HALF))", int64(math.Float64bits(vecHalf))},
 	}
-	const src = `
+	return want, nil
+}
+
+// vecModuleCheckLayout compares device readback, not the generator's own layout constants.
+func vecModuleCheckLayout(got []int64) error {
+	want, err := vecModuleLayoutExpected()
+	if err != nil {
+		return err
+	}
+	if len(got) != len(want) {
+		return fmt.Errorf("ABI witness has %d values; requires %d", len(got), len(want))
+	}
+	for i, w := range want {
+		if got[i] != w.v {
+			return fmt.Errorf("%s = %d; Go schema has %d", w.c, got[i], w.v)
+		}
+	}
+	return nil
+}
+func vecModuleLayoutSource() string {
+	return `
 extern "C" __global__ void cudabind_layout(long long* out) {
-	out[0] = (long long)(sizeof(Point));
-	out[1] = (long long)((char*)&((Point*)out)->x - (char*)out);
-	out[2] = (long long)((char*)&((Point*)out)->y - (char*)out);
-	out[3] = (long long)(sizeof(Pair));
-	out[4] = (long long)((char*)&((Pair*)out)->a - (char*)out);
-	out[5] = (long long)((char*)&((Pair*)out)->b - (char*)out);
-	out[6] = (long long)(sizeof(uint4));
-	out[7] = (long long)(OP_ADD);
-	out[8] = (long long)(OP_MUL);
-	out[9] = (long long)(geom::Side::LEFT);
-	out[10] = (long long)(geom::Side::RIGHT);
-	out[11] = (long long)(VEC_WARP);
-	out[12] = (long long)(VEC_LANES);
-	out[13] = (long long)(__double_as_longlong((double)(VEC_HALF)));
+out[0] = (long long)(__builtin_offsetof(Point, x));
+out[1] = (long long)(sizeof(((Point*)0)->x));
+out[2] = (long long)(__builtin_offsetof(Point, y));
+out[3] = (long long)(sizeof(((Point*)0)->y));
+out[4] = (long long)(sizeof(Point));
+out[5] = (long long)(alignof(Point));
+out[6] = (long long)(__builtin_offsetof(Pair, a));
+out[7] = (long long)(sizeof(((Pair*)0)->a));
+out[8] = (long long)(__builtin_offsetof(Pair, b));
+out[9] = (long long)(sizeof(((Pair*)0)->b));
+out[10] = (long long)(sizeof(Pair));
+out[11] = (long long)(alignof(Pair));
+out[12] = (long long)(__builtin_offsetof(Packing, head));
+out[13] = (long long)(sizeof(((Packing*)0)->head));
+out[14] = (long long)(__builtin_offsetof(Packing, value));
+out[15] = (long long)(sizeof(((Packing*)0)->value));
+out[16] = (long long)(sizeof(Packing));
+out[17] = (long long)(alignof(Packing));
+out[18] = (long long)(__builtin_offsetof(AlignedVector, lanes));
+out[19] = (long long)(sizeof(((AlignedVector*)0)->lanes));
+out[20] = (long long)(sizeof(AlignedVector));
+out[21] = (long long)(alignof(AlignedVector));
+out[22] = (long long)(__builtin_offsetof(Nested, head));
+out[23] = (long long)(sizeof(((Nested*)0)->head));
+out[24] = (long long)(__builtin_offsetof(Nested, vector));
+out[25] = (long long)(sizeof(((Nested*)0)->vector));
+out[26] = (long long)(sizeof(Nested));
+out[27] = (long long)(alignof(Nested));
+out[28] = (long long)(sizeof(uint4));
+out[29] = (long long)(alignof(uint4));
+out[30] = (long long)(sizeof(float *));
+out[31] = (long long)(alignof(float *));
+out[32] = (long long)(sizeof(int));
+out[33] = (long long)(alignof(int));
+out[34] = (long long)(sizeof(Point *));
+out[35] = (long long)(alignof(Point *));
+out[36] = (long long)(sizeof(Pair *));
+out[37] = (long long)(alignof(Pair *));
+out[38] = (long long)(sizeof(int));
+out[39] = (long long)(alignof(int));
+out[40] = (long long)(sizeof(Op));
+out[41] = (long long)(alignof(Op));
+out[42] = (long long)(sizeof(Pair));
+out[43] = (long long)(alignof(Pair));
+out[44] = (long long)(sizeof(Pair *));
+out[45] = (long long)(alignof(Pair *));
+out[46] = (long long)(sizeof(const int *));
+out[47] = (long long)(alignof(const int *));
+out[48] = (long long)(sizeof(int));
+out[49] = (long long)(alignof(int));
+out[50] = (long long)(sizeof(int *));
+out[51] = (long long)(alignof(int *));
+out[52] = (long long)(sizeof(float *));
+out[53] = (long long)(alignof(float *));
+out[54] = (long long)(sizeof(int));
+out[55] = (long long)(alignof(int));
+out[56] = (long long)(sizeof(Packing));
+out[57] = (long long)(alignof(Packing));
+out[58] = (long long)(sizeof(Packing *));
+out[59] = (long long)(alignof(Packing *));
+out[60] = (long long)(sizeof(Nested));
+out[61] = (long long)(alignof(Nested));
+out[62] = (long long)(sizeof(Nested *));
+out[63] = (long long)(alignof(Nested *));
+out[64] = (long long)(sizeof(int));
+out[65] = (long long)(alignof(int));
+out[66] = (long long)(OP_ADD);
+out[67] = (long long)(OP_MUL);
+out[68] = (long long)(geom::Side::LEFT);
+out[69] = (long long)(geom::Side::RIGHT);
+out[70] = (long long)(VEC_WARP);
+out[71] = (long long)(VEC_LANES);
+out[72] = (long long)(__double_as_longlong((double)(VEC_HALF)));
 }
 `
-	cm, err := compileVecModule(dev, src)
+}
+func vecModuleSentinelPointer(t *testing.T, dev *cuda.Device) driver.DevicePtr {
+	t.Helper()
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	buffer, err := cudamem.Alloc[byte](dev, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := buffer.Free(); err != nil {
+			t.Error(err)
+		}
+	})
+	return buffer.Ptr()
+}
+func vecModuleReadLayout(t *testing.T, dev *cuda.Device, m *vecModule) []int64 {
+	t.Helper()
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	want, err := vecModuleLayoutExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_layout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[int64](dev, len(want))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]int64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	return got
+}
+
+// TestVecModuleLayout checks that the Go types and constants of vec.cu.gen.go have the
+// sizes, field offsets and values NVRTC gives the C ones.
+func TestVecModuleLayout(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	defer func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want, err := vecModuleLayoutExpected()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cm, err := compileVecModule(dev, vecModuleLayoutSource())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +375,11 @@ extern "C" __global__ void cudabind_layout(long long* out) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.Close()
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	k, err := m.mod.Function("cudabind_layout")
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +388,11 @@ extern "C" __global__ void cudabind_layout(long long* out) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer out.Free()
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	p := out.Ptr()
 	stream := dev.DefaultStream()
 	err = stream.WithHandle(func(h driver.Stream) error {
@@ -86,9 +408,1408 @@ extern "C" __global__ void cudabind_layout(long long* out) {
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
-	for i, w := range want {
-		if got[i] != w.v {
-			t.Errorf("%s = %d, Go has %d", w.c, got[i], w.v)
+	if err := vecModuleCheckLayout(got); err != nil {
+		t.Fatal(err)
+	}
+}
+func vecModuleParameterSchema0() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "x", Type: "float *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+		cudakernel.Param{Name: "n", Type: "int", ByteWidth: 4, Alignment: 4, IsPointer: false},
+	)
+}
+func TestVecModuleParameterABI0(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
 		}
+	})
+	if _, err := vecModuleParameterSchema0(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_0(unsigned long long* out, float * arg0, int arg1) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 8; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+out[9] = sizeof(arg1);
+for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const unsigned char*)&arg1)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 14)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 14)
+	var arg0 driver.DevicePtr
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	arg0 = vecModuleSentinelPointer(t, dev)
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	want[5] = uint64(bytes0[4])
+	want[6] = uint64(bytes0[5])
+	want[7] = uint64(bytes0[6])
+	want[8] = uint64(bytes0[7])
+	var arg1 int32
+	bytes1 := unsafe.Slice((*byte)(unsafe.Pointer(&arg1)), int(unsafe.Sizeof(arg1)))
+	for j := range bytes1 {
+		bytes1[j] = 34
+	}
+	want[9] = uint64(len(bytes1))
+	want[10] = uint64(bytes1[0])
+	want[11] = uint64(bytes1[1])
+	want[12] = uint64(bytes1[2])
+	want[13] = uint64(bytes1[3])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0), unsafe.Pointer(&arg1)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("scale_all argument x size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("scale_all argument x byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("scale_all argument x byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("scale_all argument x byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("scale_all argument x byte 3 = %d; Go has %d", got[4], want[4])
+	}
+	if got[5] != want[5] {
+		t.Fatalf("scale_all argument x byte 4 = %d; Go has %d", got[5], want[5])
+	}
+	if got[6] != want[6] {
+		t.Fatalf("scale_all argument x byte 5 = %d; Go has %d", got[6], want[6])
+	}
+	if got[7] != want[7] {
+		t.Fatalf("scale_all argument x byte 6 = %d; Go has %d", got[7], want[7])
+	}
+	if got[8] != want[8] {
+		t.Fatalf("scale_all argument x byte 7 = %d; Go has %d", got[8], want[8])
+	}
+	if got[9] != want[9] {
+		t.Fatalf("scale_all argument n size = %d; Go has %d", got[9], want[9])
+	}
+	if got[10] != want[10] {
+		t.Fatalf("scale_all argument n byte 0 = %d; Go has %d", got[10], want[10])
+	}
+	if got[11] != want[11] {
+		t.Fatalf("scale_all argument n byte 1 = %d; Go has %d", got[11], want[11])
+	}
+	if got[12] != want[12] {
+		t.Fatalf("scale_all argument n byte 2 = %d; Go has %d", got[12], want[12])
+	}
+	if got[13] != want[13] {
+		t.Fatalf("scale_all argument n byte 3 = %d; Go has %d", got[13], want[13])
+	}
+}
+func vecModuleParameterSchema1() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "p", Type: "Point *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+		cudakernel.Param{Name: "tags", Type: "Pair *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+		cudakernel.Param{Name: "n", Type: "int", ByteWidth: 4, Alignment: 4, IsPointer: false},
+		cudakernel.Param{Name: "op", Type: "Op", ByteWidth: 4, Alignment: 4, IsPointer: false},
+	)
+}
+func TestVecModuleParameterABI1(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := vecModuleParameterSchema1(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_1(unsigned long long* out, Point * arg0, Pair * arg1, int arg2, Op arg3) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 8; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+out[9] = sizeof(arg1);
+for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[10+j] = ((const unsigned char*)&arg1)[j];
+out[18] = sizeof(arg2);
+for (unsigned int j = 0; j < sizeof(arg2) && j < 4; ++j) out[19+j] = ((const unsigned char*)&arg2)[j];
+out[23] = sizeof(arg3);
+for (unsigned int j = 0; j < sizeof(arg3) && j < 4; ++j) out[24+j] = ((const unsigned char*)&arg3)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 28)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 28)
+	var arg0 driver.DevicePtr
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	arg0 = vecModuleSentinelPointer(t, dev)
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	want[5] = uint64(bytes0[4])
+	want[6] = uint64(bytes0[5])
+	want[7] = uint64(bytes0[6])
+	want[8] = uint64(bytes0[7])
+	var arg1 driver.DevicePtr
+	bytes1 := unsafe.Slice((*byte)(unsafe.Pointer(&arg1)), int(unsafe.Sizeof(arg1)))
+	for j := range bytes1 {
+		bytes1[j] = 34
+	}
+	arg1 = vecModuleSentinelPointer(t, dev)
+	want[9] = uint64(len(bytes1))
+	want[10] = uint64(bytes1[0])
+	want[11] = uint64(bytes1[1])
+	want[12] = uint64(bytes1[2])
+	want[13] = uint64(bytes1[3])
+	want[14] = uint64(bytes1[4])
+	want[15] = uint64(bytes1[5])
+	want[16] = uint64(bytes1[6])
+	want[17] = uint64(bytes1[7])
+	var arg2 int32
+	bytes2 := unsafe.Slice((*byte)(unsafe.Pointer(&arg2)), int(unsafe.Sizeof(arg2)))
+	for j := range bytes2 {
+		bytes2[j] = 35
+	}
+	want[18] = uint64(len(bytes2))
+	want[19] = uint64(bytes2[0])
+	want[20] = uint64(bytes2[1])
+	want[21] = uint64(bytes2[2])
+	want[22] = uint64(bytes2[3])
+	var arg3 int32
+	bytes3 := unsafe.Slice((*byte)(unsafe.Pointer(&arg3)), int(unsafe.Sizeof(arg3)))
+	for j := range bytes3 {
+		bytes3[j] = 36
+	}
+	want[23] = uint64(len(bytes3))
+	want[24] = uint64(bytes3[0])
+	want[25] = uint64(bytes3[1])
+	want[26] = uint64(bytes3[2])
+	want[27] = uint64(bytes3[3])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0), unsafe.Pointer(&arg1), unsafe.Pointer(&arg2), unsafe.Pointer(&arg3)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("shift argument p size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("shift argument p byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("shift argument p byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("shift argument p byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("shift argument p byte 3 = %d; Go has %d", got[4], want[4])
+	}
+	if got[5] != want[5] {
+		t.Fatalf("shift argument p byte 4 = %d; Go has %d", got[5], want[5])
+	}
+	if got[6] != want[6] {
+		t.Fatalf("shift argument p byte 5 = %d; Go has %d", got[6], want[6])
+	}
+	if got[7] != want[7] {
+		t.Fatalf("shift argument p byte 6 = %d; Go has %d", got[7], want[7])
+	}
+	if got[8] != want[8] {
+		t.Fatalf("shift argument p byte 7 = %d; Go has %d", got[8], want[8])
+	}
+	if got[9] != want[9] {
+		t.Fatalf("shift argument tags size = %d; Go has %d", got[9], want[9])
+	}
+	if got[10] != want[10] {
+		t.Fatalf("shift argument tags byte 0 = %d; Go has %d", got[10], want[10])
+	}
+	if got[11] != want[11] {
+		t.Fatalf("shift argument tags byte 1 = %d; Go has %d", got[11], want[11])
+	}
+	if got[12] != want[12] {
+		t.Fatalf("shift argument tags byte 2 = %d; Go has %d", got[12], want[12])
+	}
+	if got[13] != want[13] {
+		t.Fatalf("shift argument tags byte 3 = %d; Go has %d", got[13], want[13])
+	}
+	if got[14] != want[14] {
+		t.Fatalf("shift argument tags byte 4 = %d; Go has %d", got[14], want[14])
+	}
+	if got[15] != want[15] {
+		t.Fatalf("shift argument tags byte 5 = %d; Go has %d", got[15], want[15])
+	}
+	if got[16] != want[16] {
+		t.Fatalf("shift argument tags byte 6 = %d; Go has %d", got[16], want[16])
+	}
+	if got[17] != want[17] {
+		t.Fatalf("shift argument tags byte 7 = %d; Go has %d", got[17], want[17])
+	}
+	if got[18] != want[18] {
+		t.Fatalf("shift argument n size = %d; Go has %d", got[18], want[18])
+	}
+	if got[19] != want[19] {
+		t.Fatalf("shift argument n byte 0 = %d; Go has %d", got[19], want[19])
+	}
+	if got[20] != want[20] {
+		t.Fatalf("shift argument n byte 1 = %d; Go has %d", got[20], want[20])
+	}
+	if got[21] != want[21] {
+		t.Fatalf("shift argument n byte 2 = %d; Go has %d", got[21], want[21])
+	}
+	if got[22] != want[22] {
+		t.Fatalf("shift argument n byte 3 = %d; Go has %d", got[22], want[22])
+	}
+	if got[23] != want[23] {
+		t.Fatalf("shift argument op size = %d; Go has %d", got[23], want[23])
+	}
+	if got[24] != want[24] {
+		t.Fatalf("shift argument op byte 0 = %d; Go has %d", got[24], want[24])
+	}
+	if got[25] != want[25] {
+		t.Fatalf("shift argument op byte 1 = %d; Go has %d", got[25], want[25])
+	}
+	if got[26] != want[26] {
+		t.Fatalf("shift argument op byte 2 = %d; Go has %d", got[26], want[26])
+	}
+	if got[27] != want[27] {
+		t.Fatalf("shift argument op byte 3 = %d; Go has %d", got[27], want[27])
+	}
+}
+func vecModuleParameterSchema2() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "pair", Type: "Pair", ByteWidth: 32, Alignment: 16, IsPointer: false},
+		cudakernel.Param{Name: "out", Type: "Pair *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+	)
+}
+func TestVecModuleParameterABI2(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := vecModuleParameterSchema2(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_2(unsigned long long* out, Pair arg0, Pair * arg1) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 32; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+out[33] = sizeof(arg1);
+for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[34+j] = ((const unsigned char*)&arg1)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 42)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 42)
+	var arg0 pair
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	want[17] = uint64(bytes0[16])
+	want[18] = uint64(bytes0[17])
+	want[19] = uint64(bytes0[18])
+	want[20] = uint64(bytes0[19])
+	want[21] = uint64(bytes0[20])
+	want[22] = uint64(bytes0[21])
+	want[23] = uint64(bytes0[22])
+	want[24] = uint64(bytes0[23])
+	want[25] = uint64(bytes0[24])
+	want[26] = uint64(bytes0[25])
+	want[27] = uint64(bytes0[26])
+	want[28] = uint64(bytes0[27])
+	want[29] = uint64(bytes0[28])
+	want[30] = uint64(bytes0[29])
+	want[31] = uint64(bytes0[30])
+	want[32] = uint64(bytes0[31])
+	var arg1 driver.DevicePtr
+	bytes1 := unsafe.Slice((*byte)(unsafe.Pointer(&arg1)), int(unsafe.Sizeof(arg1)))
+	for j := range bytes1 {
+		bytes1[j] = 34
+	}
+	arg1 = vecModuleSentinelPointer(t, dev)
+	want[33] = uint64(len(bytes1))
+	want[34] = uint64(bytes1[0])
+	want[35] = uint64(bytes1[1])
+	want[36] = uint64(bytes1[2])
+	want[37] = uint64(bytes1[3])
+	want[38] = uint64(bytes1[4])
+	want[39] = uint64(bytes1[5])
+	want[40] = uint64(bytes1[6])
+	want[41] = uint64(bytes1[7])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0), unsafe.Pointer(&arg1)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("fill argument pair size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("fill argument pair byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("fill argument pair byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("fill argument pair byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("fill argument pair byte 3 = %d; Go has %d", got[4], want[4])
+	}
+	if got[17] != want[17] {
+		t.Fatalf("fill argument pair byte 16 = %d; Go has %d", got[17], want[17])
+	}
+	if got[18] != want[18] {
+		t.Fatalf("fill argument pair byte 17 = %d; Go has %d", got[18], want[18])
+	}
+	if got[19] != want[19] {
+		t.Fatalf("fill argument pair byte 18 = %d; Go has %d", got[19], want[19])
+	}
+	if got[20] != want[20] {
+		t.Fatalf("fill argument pair byte 19 = %d; Go has %d", got[20], want[20])
+	}
+	if got[21] != want[21] {
+		t.Fatalf("fill argument pair byte 20 = %d; Go has %d", got[21], want[21])
+	}
+	if got[22] != want[22] {
+		t.Fatalf("fill argument pair byte 21 = %d; Go has %d", got[22], want[22])
+	}
+	if got[23] != want[23] {
+		t.Fatalf("fill argument pair byte 22 = %d; Go has %d", got[23], want[23])
+	}
+	if got[24] != want[24] {
+		t.Fatalf("fill argument pair byte 23 = %d; Go has %d", got[24], want[24])
+	}
+	if got[25] != want[25] {
+		t.Fatalf("fill argument pair byte 24 = %d; Go has %d", got[25], want[25])
+	}
+	if got[26] != want[26] {
+		t.Fatalf("fill argument pair byte 25 = %d; Go has %d", got[26], want[26])
+	}
+	if got[27] != want[27] {
+		t.Fatalf("fill argument pair byte 26 = %d; Go has %d", got[27], want[27])
+	}
+	if got[28] != want[28] {
+		t.Fatalf("fill argument pair byte 27 = %d; Go has %d", got[28], want[28])
+	}
+	if got[29] != want[29] {
+		t.Fatalf("fill argument pair byte 28 = %d; Go has %d", got[29], want[29])
+	}
+	if got[30] != want[30] {
+		t.Fatalf("fill argument pair byte 29 = %d; Go has %d", got[30], want[30])
+	}
+	if got[31] != want[31] {
+		t.Fatalf("fill argument pair byte 30 = %d; Go has %d", got[31], want[31])
+	}
+	if got[32] != want[32] {
+		t.Fatalf("fill argument pair byte 31 = %d; Go has %d", got[32], want[32])
+	}
+	if got[33] != want[33] {
+		t.Fatalf("fill argument out size = %d; Go has %d", got[33], want[33])
+	}
+	if got[34] != want[34] {
+		t.Fatalf("fill argument out byte 0 = %d; Go has %d", got[34], want[34])
+	}
+	if got[35] != want[35] {
+		t.Fatalf("fill argument out byte 1 = %d; Go has %d", got[35], want[35])
+	}
+	if got[36] != want[36] {
+		t.Fatalf("fill argument out byte 2 = %d; Go has %d", got[36], want[36])
+	}
+	if got[37] != want[37] {
+		t.Fatalf("fill argument out byte 3 = %d; Go has %d", got[37], want[37])
+	}
+	if got[38] != want[38] {
+		t.Fatalf("fill argument out byte 4 = %d; Go has %d", got[38], want[38])
+	}
+	if got[39] != want[39] {
+		t.Fatalf("fill argument out byte 5 = %d; Go has %d", got[39], want[39])
+	}
+	if got[40] != want[40] {
+		t.Fatalf("fill argument out byte 6 = %d; Go has %d", got[40], want[40])
+	}
+	if got[41] != want[41] {
+		t.Fatalf("fill argument out byte 7 = %d; Go has %d", got[41], want[41])
+	}
+}
+func vecModuleParameterSchema3() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "in", Type: "const int *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+		cudakernel.Param{Name: "n", Type: "int", ByteWidth: 4, Alignment: 4, IsPointer: false},
+		cudakernel.Param{Name: "out", Type: "int *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+	)
+}
+func TestVecModuleParameterABI3(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := vecModuleParameterSchema3(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_3(unsigned long long* out, const int * arg0, int arg1, int * arg2) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 8; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+out[9] = sizeof(arg1);
+for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const unsigned char*)&arg1)[j];
+out[14] = sizeof(arg2);
+for (unsigned int j = 0; j < sizeof(arg2) && j < 8; ++j) out[15+j] = ((const unsigned char*)&arg2)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 23)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 23)
+	var arg0 driver.DevicePtr
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	arg0 = vecModuleSentinelPointer(t, dev)
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	want[5] = uint64(bytes0[4])
+	want[6] = uint64(bytes0[5])
+	want[7] = uint64(bytes0[6])
+	want[8] = uint64(bytes0[7])
+	var arg1 int32
+	bytes1 := unsafe.Slice((*byte)(unsafe.Pointer(&arg1)), int(unsafe.Sizeof(arg1)))
+	for j := range bytes1 {
+		bytes1[j] = 34
+	}
+	want[9] = uint64(len(bytes1))
+	want[10] = uint64(bytes1[0])
+	want[11] = uint64(bytes1[1])
+	want[12] = uint64(bytes1[2])
+	want[13] = uint64(bytes1[3])
+	var arg2 driver.DevicePtr
+	bytes2 := unsafe.Slice((*byte)(unsafe.Pointer(&arg2)), int(unsafe.Sizeof(arg2)))
+	for j := range bytes2 {
+		bytes2[j] = 35
+	}
+	arg2 = vecModuleSentinelPointer(t, dev)
+	want[14] = uint64(len(bytes2))
+	want[15] = uint64(bytes2[0])
+	want[16] = uint64(bytes2[1])
+	want[17] = uint64(bytes2[2])
+	want[18] = uint64(bytes2[3])
+	want[19] = uint64(bytes2[4])
+	want[20] = uint64(bytes2[5])
+	want[21] = uint64(bytes2[6])
+	want[22] = uint64(bytes2[7])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0), unsafe.Pointer(&arg1), unsafe.Pointer(&arg2)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("sum argument in size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("sum argument in byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("sum argument in byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("sum argument in byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("sum argument in byte 3 = %d; Go has %d", got[4], want[4])
+	}
+	if got[5] != want[5] {
+		t.Fatalf("sum argument in byte 4 = %d; Go has %d", got[5], want[5])
+	}
+	if got[6] != want[6] {
+		t.Fatalf("sum argument in byte 5 = %d; Go has %d", got[6], want[6])
+	}
+	if got[7] != want[7] {
+		t.Fatalf("sum argument in byte 6 = %d; Go has %d", got[7], want[7])
+	}
+	if got[8] != want[8] {
+		t.Fatalf("sum argument in byte 7 = %d; Go has %d", got[8], want[8])
+	}
+	if got[9] != want[9] {
+		t.Fatalf("sum argument n size = %d; Go has %d", got[9], want[9])
+	}
+	if got[10] != want[10] {
+		t.Fatalf("sum argument n byte 0 = %d; Go has %d", got[10], want[10])
+	}
+	if got[11] != want[11] {
+		t.Fatalf("sum argument n byte 1 = %d; Go has %d", got[11], want[11])
+	}
+	if got[12] != want[12] {
+		t.Fatalf("sum argument n byte 2 = %d; Go has %d", got[12], want[12])
+	}
+	if got[13] != want[13] {
+		t.Fatalf("sum argument n byte 3 = %d; Go has %d", got[13], want[13])
+	}
+	if got[14] != want[14] {
+		t.Fatalf("sum argument out size = %d; Go has %d", got[14], want[14])
+	}
+	if got[15] != want[15] {
+		t.Fatalf("sum argument out byte 0 = %d; Go has %d", got[15], want[15])
+	}
+	if got[16] != want[16] {
+		t.Fatalf("sum argument out byte 1 = %d; Go has %d", got[16], want[16])
+	}
+	if got[17] != want[17] {
+		t.Fatalf("sum argument out byte 2 = %d; Go has %d", got[17], want[17])
+	}
+	if got[18] != want[18] {
+		t.Fatalf("sum argument out byte 3 = %d; Go has %d", got[18], want[18])
+	}
+	if got[19] != want[19] {
+		t.Fatalf("sum argument out byte 4 = %d; Go has %d", got[19], want[19])
+	}
+	if got[20] != want[20] {
+		t.Fatalf("sum argument out byte 5 = %d; Go has %d", got[20], want[20])
+	}
+	if got[21] != want[21] {
+		t.Fatalf("sum argument out byte 6 = %d; Go has %d", got[21], want[21])
+	}
+	if got[22] != want[22] {
+		t.Fatalf("sum argument out byte 7 = %d; Go has %d", got[22], want[22])
+	}
+}
+func vecModuleParameterSchema4() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "out", Type: "float *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+		cudakernel.Param{Name: "n", Type: "int", ByteWidth: 4, Alignment: 4, IsPointer: false},
+	)
+}
+func TestVecModuleParameterABI4(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := vecModuleParameterSchema4(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_4(unsigned long long* out, float * arg0, int arg1) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 8; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+out[9] = sizeof(arg1);
+for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const unsigned char*)&arg1)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 14)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 14)
+	var arg0 driver.DevicePtr
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	arg0 = vecModuleSentinelPointer(t, dev)
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	want[5] = uint64(bytes0[4])
+	want[6] = uint64(bytes0[5])
+	want[7] = uint64(bytes0[6])
+	want[8] = uint64(bytes0[7])
+	var arg1 int32
+	bytes1 := unsafe.Slice((*byte)(unsafe.Pointer(&arg1)), int(unsafe.Sizeof(arg1)))
+	for j := range bytes1 {
+		bytes1[j] = 34
+	}
+	want[9] = uint64(len(bytes1))
+	want[10] = uint64(bytes1[0])
+	want[11] = uint64(bytes1[1])
+	want[12] = uint64(bytes1[2])
+	want[13] = uint64(bytes1[3])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0), unsafe.Pointer(&arg1)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("bounded_copy argument out size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("bounded_copy argument out byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("bounded_copy argument out byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("bounded_copy argument out byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("bounded_copy argument out byte 3 = %d; Go has %d", got[4], want[4])
+	}
+	if got[5] != want[5] {
+		t.Fatalf("bounded_copy argument out byte 4 = %d; Go has %d", got[5], want[5])
+	}
+	if got[6] != want[6] {
+		t.Fatalf("bounded_copy argument out byte 5 = %d; Go has %d", got[6], want[6])
+	}
+	if got[7] != want[7] {
+		t.Fatalf("bounded_copy argument out byte 6 = %d; Go has %d", got[7], want[7])
+	}
+	if got[8] != want[8] {
+		t.Fatalf("bounded_copy argument out byte 7 = %d; Go has %d", got[8], want[8])
+	}
+	if got[9] != want[9] {
+		t.Fatalf("bounded_copy argument n size = %d; Go has %d", got[9], want[9])
+	}
+	if got[10] != want[10] {
+		t.Fatalf("bounded_copy argument n byte 0 = %d; Go has %d", got[10], want[10])
+	}
+	if got[11] != want[11] {
+		t.Fatalf("bounded_copy argument n byte 1 = %d; Go has %d", got[11], want[11])
+	}
+	if got[12] != want[12] {
+		t.Fatalf("bounded_copy argument n byte 2 = %d; Go has %d", got[12], want[12])
+	}
+	if got[13] != want[13] {
+		t.Fatalf("bounded_copy argument n byte 3 = %d; Go has %d", got[13], want[13])
+	}
+}
+func vecModuleParameterSchema5() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "value", Type: "Packing", ByteWidth: 16, Alignment: 8, IsPointer: false},
+		cudakernel.Param{Name: "out", Type: "Packing *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+	)
+}
+func TestVecModuleParameterABI5(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := vecModuleParameterSchema5(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_5(unsigned long long* out, Packing arg0, Packing * arg1) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 16; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+out[17] = sizeof(arg1);
+for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[18+j] = ((const unsigned char*)&arg1)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 26)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 26)
+	var arg0 packing
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	want[9] = uint64(bytes0[8])
+	want[10] = uint64(bytes0[9])
+	want[11] = uint64(bytes0[10])
+	want[12] = uint64(bytes0[11])
+	want[13] = uint64(bytes0[12])
+	want[14] = uint64(bytes0[13])
+	want[15] = uint64(bytes0[14])
+	want[16] = uint64(bytes0[15])
+	var arg1 driver.DevicePtr
+	bytes1 := unsafe.Slice((*byte)(unsafe.Pointer(&arg1)), int(unsafe.Sizeof(arg1)))
+	for j := range bytes1 {
+		bytes1[j] = 34
+	}
+	arg1 = vecModuleSentinelPointer(t, dev)
+	want[17] = uint64(len(bytes1))
+	want[18] = uint64(bytes1[0])
+	want[19] = uint64(bytes1[1])
+	want[20] = uint64(bytes1[2])
+	want[21] = uint64(bytes1[3])
+	want[22] = uint64(bytes1[4])
+	want[23] = uint64(bytes1[5])
+	want[24] = uint64(bytes1[6])
+	want[25] = uint64(bytes1[7])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0), unsafe.Pointer(&arg1)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("decode_packing argument value size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("decode_packing argument value byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("decode_packing argument value byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("decode_packing argument value byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("decode_packing argument value byte 3 = %d; Go has %d", got[4], want[4])
+	}
+	if got[9] != want[9] {
+		t.Fatalf("decode_packing argument value byte 8 = %d; Go has %d", got[9], want[9])
+	}
+	if got[10] != want[10] {
+		t.Fatalf("decode_packing argument value byte 9 = %d; Go has %d", got[10], want[10])
+	}
+	if got[11] != want[11] {
+		t.Fatalf("decode_packing argument value byte 10 = %d; Go has %d", got[11], want[11])
+	}
+	if got[12] != want[12] {
+		t.Fatalf("decode_packing argument value byte 11 = %d; Go has %d", got[12], want[12])
+	}
+	if got[13] != want[13] {
+		t.Fatalf("decode_packing argument value byte 12 = %d; Go has %d", got[13], want[13])
+	}
+	if got[14] != want[14] {
+		t.Fatalf("decode_packing argument value byte 13 = %d; Go has %d", got[14], want[14])
+	}
+	if got[15] != want[15] {
+		t.Fatalf("decode_packing argument value byte 14 = %d; Go has %d", got[15], want[15])
+	}
+	if got[16] != want[16] {
+		t.Fatalf("decode_packing argument value byte 15 = %d; Go has %d", got[16], want[16])
+	}
+	if got[17] != want[17] {
+		t.Fatalf("decode_packing argument out size = %d; Go has %d", got[17], want[17])
+	}
+	if got[18] != want[18] {
+		t.Fatalf("decode_packing argument out byte 0 = %d; Go has %d", got[18], want[18])
+	}
+	if got[19] != want[19] {
+		t.Fatalf("decode_packing argument out byte 1 = %d; Go has %d", got[19], want[19])
+	}
+	if got[20] != want[20] {
+		t.Fatalf("decode_packing argument out byte 2 = %d; Go has %d", got[20], want[20])
+	}
+	if got[21] != want[21] {
+		t.Fatalf("decode_packing argument out byte 3 = %d; Go has %d", got[21], want[21])
+	}
+	if got[22] != want[22] {
+		t.Fatalf("decode_packing argument out byte 4 = %d; Go has %d", got[22], want[22])
+	}
+	if got[23] != want[23] {
+		t.Fatalf("decode_packing argument out byte 5 = %d; Go has %d", got[23], want[23])
+	}
+	if got[24] != want[24] {
+		t.Fatalf("decode_packing argument out byte 6 = %d; Go has %d", got[24], want[24])
+	}
+	if got[25] != want[25] {
+		t.Fatalf("decode_packing argument out byte 7 = %d; Go has %d", got[25], want[25])
+	}
+}
+func vecModuleParameterSchema6() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "value", Type: "Nested", ByteWidth: 20, Alignment: 4, IsPointer: false},
+		cudakernel.Param{Name: "out", Type: "Nested *", ByteWidth: 8, Alignment: 8, IsPointer: true},
+	)
+}
+func TestVecModuleParameterABI6(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := vecModuleParameterSchema6(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_6(unsigned long long* out, Nested arg0, Nested * arg1) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 20; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+out[21] = sizeof(arg1);
+for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[22+j] = ((const unsigned char*)&arg1)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_6")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 30)
+	var arg0 nested
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	want[5] = uint64(bytes0[4])
+	want[6] = uint64(bytes0[5])
+	want[7] = uint64(bytes0[6])
+	want[8] = uint64(bytes0[7])
+	want[9] = uint64(bytes0[8])
+	want[10] = uint64(bytes0[9])
+	want[11] = uint64(bytes0[10])
+	want[12] = uint64(bytes0[11])
+	want[13] = uint64(bytes0[12])
+	want[14] = uint64(bytes0[13])
+	want[15] = uint64(bytes0[14])
+	want[16] = uint64(bytes0[15])
+	want[17] = uint64(bytes0[16])
+	want[18] = uint64(bytes0[17])
+	want[19] = uint64(bytes0[18])
+	want[20] = uint64(bytes0[19])
+	var arg1 driver.DevicePtr
+	bytes1 := unsafe.Slice((*byte)(unsafe.Pointer(&arg1)), int(unsafe.Sizeof(arg1)))
+	for j := range bytes1 {
+		bytes1[j] = 34
+	}
+	arg1 = vecModuleSentinelPointer(t, dev)
+	want[21] = uint64(len(bytes1))
+	want[22] = uint64(bytes1[0])
+	want[23] = uint64(bytes1[1])
+	want[24] = uint64(bytes1[2])
+	want[25] = uint64(bytes1[3])
+	want[26] = uint64(bytes1[4])
+	want[27] = uint64(bytes1[5])
+	want[28] = uint64(bytes1[6])
+	want[29] = uint64(bytes1[7])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0), unsafe.Pointer(&arg1)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("decode_nested argument value size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("decode_nested argument value byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("decode_nested argument value byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("decode_nested argument value byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("decode_nested argument value byte 3 = %d; Go has %d", got[4], want[4])
+	}
+	if got[5] != want[5] {
+		t.Fatalf("decode_nested argument value byte 4 = %d; Go has %d", got[5], want[5])
+	}
+	if got[6] != want[6] {
+		t.Fatalf("decode_nested argument value byte 5 = %d; Go has %d", got[6], want[6])
+	}
+	if got[7] != want[7] {
+		t.Fatalf("decode_nested argument value byte 6 = %d; Go has %d", got[7], want[7])
+	}
+	if got[8] != want[8] {
+		t.Fatalf("decode_nested argument value byte 7 = %d; Go has %d", got[8], want[8])
+	}
+	if got[9] != want[9] {
+		t.Fatalf("decode_nested argument value byte 8 = %d; Go has %d", got[9], want[9])
+	}
+	if got[10] != want[10] {
+		t.Fatalf("decode_nested argument value byte 9 = %d; Go has %d", got[10], want[10])
+	}
+	if got[11] != want[11] {
+		t.Fatalf("decode_nested argument value byte 10 = %d; Go has %d", got[11], want[11])
+	}
+	if got[12] != want[12] {
+		t.Fatalf("decode_nested argument value byte 11 = %d; Go has %d", got[12], want[12])
+	}
+	if got[13] != want[13] {
+		t.Fatalf("decode_nested argument value byte 12 = %d; Go has %d", got[13], want[13])
+	}
+	if got[14] != want[14] {
+		t.Fatalf("decode_nested argument value byte 13 = %d; Go has %d", got[14], want[14])
+	}
+	if got[15] != want[15] {
+		t.Fatalf("decode_nested argument value byte 14 = %d; Go has %d", got[15], want[15])
+	}
+	if got[16] != want[16] {
+		t.Fatalf("decode_nested argument value byte 15 = %d; Go has %d", got[16], want[16])
+	}
+	if got[17] != want[17] {
+		t.Fatalf("decode_nested argument value byte 16 = %d; Go has %d", got[17], want[17])
+	}
+	if got[18] != want[18] {
+		t.Fatalf("decode_nested argument value byte 17 = %d; Go has %d", got[18], want[18])
+	}
+	if got[19] != want[19] {
+		t.Fatalf("decode_nested argument value byte 18 = %d; Go has %d", got[19], want[19])
+	}
+	if got[20] != want[20] {
+		t.Fatalf("decode_nested argument value byte 19 = %d; Go has %d", got[20], want[20])
+	}
+	if got[21] != want[21] {
+		t.Fatalf("decode_nested argument out size = %d; Go has %d", got[21], want[21])
+	}
+	if got[22] != want[22] {
+		t.Fatalf("decode_nested argument out byte 0 = %d; Go has %d", got[22], want[22])
+	}
+	if got[23] != want[23] {
+		t.Fatalf("decode_nested argument out byte 1 = %d; Go has %d", got[23], want[23])
+	}
+	if got[24] != want[24] {
+		t.Fatalf("decode_nested argument out byte 2 = %d; Go has %d", got[24], want[24])
+	}
+	if got[25] != want[25] {
+		t.Fatalf("decode_nested argument out byte 3 = %d; Go has %d", got[25], want[25])
+	}
+	if got[26] != want[26] {
+		t.Fatalf("decode_nested argument out byte 4 = %d; Go has %d", got[26], want[26])
+	}
+	if got[27] != want[27] {
+		t.Fatalf("decode_nested argument out byte 5 = %d; Go has %d", got[27], want[27])
+	}
+	if got[28] != want[28] {
+		t.Fatalf("decode_nested argument out byte 6 = %d; Go has %d", got[28], want[28])
+	}
+	if got[29] != want[29] {
+		t.Fatalf("decode_nested argument out byte 7 = %d; Go has %d", got[29], want[29])
+	}
+}
+func vecModuleParameterSchema7() (cudakernel.Schema, error) {
+	return cudakernel.NewSchema(
+		cudakernel.Param{Name: "n", Type: "int", ByteWidth: 4, Alignment: 4, IsPointer: false},
+	)
+}
+func TestVecModuleParameterABI7(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
+	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := vecModuleParameterSchema7(); err != nil {
+		t.Fatal(err)
+	}
+	const parameterSource = `
+extern "C" __global__ void cudabind_parameter_7(unsigned long long* out, int arg0) {
+out[0] = sizeof(arg0);
+for (unsigned int j = 0; j < sizeof(arg0) && j < 4; ++j) out[1+j] = ((const unsigned char*)&arg0)[j];
+}
+`
+	cm, err := compileVecModule(dev, vecModuleLayoutSource()+parameterSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newVecModule(dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := vecModuleCheckLayout(vecModuleReadLayout(t, dev, m)); err != nil {
+		t.Fatal(err)
+	}
+	kernel, err := m.mod.Function("cudabind_parameter_7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cudamem.Alloc[uint64](dev, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
+	want := make([]uint64, 5)
+	var arg0 int32
+	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
+	for j := range bytes0 {
+		bytes0[j] = 33
+	}
+	want[0] = uint64(len(bytes0))
+	want[1] = uint64(bytes0[0])
+	want[2] = uint64(bytes0[1])
+	want[3] = uint64(bytes0[2])
+	want[4] = uint64(bytes0[3])
+	if err := out.CopyFromHost(make([]uint64, len(want))); err != nil {
+		t.Fatal(err)
+	}
+	pointer := out.Ptr()
+	stream := dev.DefaultStream()
+	err = stream.WithHandle(func(h driver.Stream) error {
+		return kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, h, []unsafe.Pointer{unsafe.Pointer(&pointer), unsafe.Pointer(&arg0)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Synchronize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got := make([]uint64, len(want))
+	if err := out.CopyToHost(got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != want[0] {
+		t.Fatalf("contract_counts argument n size = %d; Go has %d", got[0], want[0])
+	}
+	if got[1] != want[1] {
+		t.Fatalf("contract_counts argument n byte 0 = %d; Go has %d", got[1], want[1])
+	}
+	if got[2] != want[2] {
+		t.Fatalf("contract_counts argument n byte 1 = %d; Go has %d", got[2], want[2])
+	}
+	if got[3] != want[3] {
+		t.Fatalf("contract_counts argument n byte 2 = %d; Go has %d", got[3], want[3])
+	}
+	if got[4] != want[4] {
+		t.Fatalf("contract_counts argument n byte 3 = %d; Go has %d", got[4], want[4])
 	}
 }

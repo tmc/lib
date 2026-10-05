@@ -1,14 +1,27 @@
 package testvec
 
 import (
+	"os"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 func TestKernels(t *testing.T) {
+	if os.Getenv("CUDABIND_NATIVE") != "1" {
+		t.Skip("set CUDABIND_NATIVE=1 under gpu-lock")
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Fatal(err)
+	}
 	dev := cudatest.Require(t)
+	t.Cleanup(func() {
+		if err := dev.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	m, err := loadVecModule(dev)
 	if err != nil {
 		t.Fatal(err)

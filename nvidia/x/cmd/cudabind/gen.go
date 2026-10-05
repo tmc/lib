@@ -18,12 +18,16 @@ const imps = `import (
 	"fmt"
 	"io/fs"
 	"math"
+	"os"
+	"sync/atomic"
 	"testing"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -48,6 +52,9 @@ func (g *gen) doc(text string) {
 
 // generate returns the Go source of the binding of m and of its test.
 func generate(cfg *config, m *module) (src, test []byte, err error) {
+	if err := validateWitnessSchemas(m); err != nil {
+		return nil, nil, err
+	}
 	sum, err := sumFiles(cfg.dir, m.files)
 	if err != nil {
 		return nil, nil, err
@@ -72,6 +79,7 @@ func generate(cfg *config, m *module) (src, test []byte, err error) {
 	g.p("dev *cuda.Device")
 	g.p("mod *cuda.Module")
 	g.p("raw driver.Module")
+	g.p("unchecked atomic.Bool")
 	g.p("kernels [%d]*cuda.Kernel", len(m.kernels))
 	g.p("}")
 	g.p("")
@@ -171,16 +179,19 @@ func generate(cfg *config, m *module) (src, test []byte, err error) {
 	g.p("")
 	g.p("// Close unloads the module. Work that uses it must be complete.")
 	g.p("func (m *%s) Close() error {", t)
+	g.p("if m == nil { return nil }")
 	g.p("return m.mod.Close()")
 	g.p("}")
 	g.p("")
 	g.p("func (m *%s) launch(k int, stream *cuda.Stream, grid, block [3]uint32, sharedBytes uint32, args ...unsafe.Pointer) error {", t)
+	g.p("if m == nil || m.kernels[k] == nil || stream == nil { return fmt.Errorf(\"closed module or nil stream\") }")
 	g.p("err := stream.WithHandle(func(h driver.Stream) error {")
 	g.p("return m.kernels[k].Launch(grid, block, sharedBytes, h, args)")
 	g.p("})")
 	g.p("if err != nil { return fmt.Errorf(\"%%s: %%w\", %sKernels[k].name, err) }", t)
 	g.p("return nil")
 	g.p("}")
+	g.launchHelpers(t)
 
 	for i, k := range m.kernels {
 		g.p("")
@@ -207,6 +218,7 @@ func generate(cfg *config, m *module) (src, test []byte, err error) {
 			shared = "sharedBytes"
 		}
 		g.p("func (m *%s) %s(stream *cuda.Stream, grid, block [3]uint32, %s) error {", t, k.method, strings.Join(params, ", "))
+		g.kernelChecks(t, k, i, shared)
 		if len(ptrs) > 0 {
 			g.p("ptrs := [...]driver.DevicePtr{%s}", strings.Join(ptrs, ", "))
 		}
@@ -297,19 +309,32 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	var checks []check
 	c := func(cExpr, goExpr string) check { return check{cExpr, cExpr, goExpr} }
 	for _, r := range m.records {
-		checks = append(checks, c("sizeof("+r.cName+")", fmt.Sprintf("int64(unsafe.Sizeof(%s{}))", r.goName)))
 		for _, f := range r.fields {
 			if f.cName != "" {
 				checks = append(checks, check{
 					fmt.Sprintf("offsetof(%s, %s)", r.cName, f.cName),
-					fmt.Sprintf("(char*)&((%s*)out)->%s - (char*)out", r.cName, f.cName),
+					fmt.Sprintf("__builtin_offsetof(%s, %s)", r.cName, f.cName),
 					fmt.Sprintf("int64(unsafe.Offsetof(%s{}.%s))", r.goName, f.goName),
 				})
+				checks = append(checks, check{fmt.Sprintf("sizeof(%s.%s)", r.cName, f.cName), fmt.Sprintf("sizeof(((%s*)0)->%s)", r.cName, f.cName), fmt.Sprintf("int64(unsafe.Sizeof(%s{}.%s))", r.goName, f.goName)})
 			}
 		}
+		checks = append(checks, c("sizeof("+r.cName+")", fmt.Sprintf("int64(unsafe.Sizeof(%s{}))", r.goName)))
+		checks = append(checks, c("alignof("+r.cName+")", fmt.Sprintf("int64(abiAlignment%d.Params[0].Alignment)", len(checks))))
 	}
 	for _, mt := range m.mapped {
 		checks = append(checks, c("sizeof("+mt.cName+")", fmt.Sprintf("int64(unsafe.Sizeof(*new(%s)))", mt.typ.expr)))
+		checks = append(checks, c("alignof("+mt.cName+")", fmt.Sprintf("int64(abiAlignment%d.Params[0].Alignment)", len(checks))))
+	}
+	for _, k := range m.kernels {
+		for _, p := range k.params {
+			typ := p.typ
+			if p.slice {
+				typ = "driver.DevicePtr"
+			}
+			checks = append(checks, check{fmt.Sprintf("sizeof(%s argument %s)", k.name, p.cName), "sizeof(" + p.cType + ")", fmt.Sprintf("int64(unsafe.Sizeof(*new(%s)))", typ)})
+			checks = append(checks, check{fmt.Sprintf("alignof(%s argument %s)", k.name, p.cName), "alignof(" + p.cType + ")", fmt.Sprintf("int64(abiAlignment%d.Params[0].Alignment)", len(checks))})
+		}
 	}
 	for _, k := range m.consts {
 		switch {
@@ -324,37 +349,94 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	var g gen
 	g.header(cfg)
 	if len(checks) == 0 {
+		if err := g.parameterWitness(cfg, m, compileName, newName); err != nil {
+			return nil, err
+		}
 		return format(testName(cfg.output), g.Bytes())
 	}
-	g.p("// Test%sLayout checks that the Go types and constants of %s have the", T, cfg.output)
-	g.p("// sizes, field offsets and values NVRTC gives the C ones.")
-	g.p("func Test%sLayout(t *testing.T) {", T)
-	g.p("dev := cudatest.Require(t)")
-	g.p("want := []struct {")
-	g.p("c string")
-	g.p("v int64")
-	g.p("}{")
+	g.p("type %sLayoutValue struct { c string; v int64 }", cfg.typeName)
+	g.p("func %sLayoutExpected() ([]%sLayoutValue, error) {", cfg.typeName, cfg.typeName)
+	for i, c := range checks {
+		if !strings.HasPrefix(c.cExpr, "alignof(") {
+			continue
+		}
+		var align int64
+		var width int64
+		var typeName string
+		for _, r := range m.records {
+			if c.cExpr == "alignof("+r.cName+")" {
+				align = r.align
+				width, typeName = r.size, r.cName
+			}
+		}
+		for _, mt := range m.mapped {
+			if c.cExpr == "alignof("+mt.cName+")" {
+				align = mt.align
+				width, typeName = mt.typ.size, mt.cName
+			}
+		}
+		for _, k := range m.kernels {
+			for _, p := range k.params {
+				if c.name == "alignof("+k.name+" argument "+p.cName+")" {
+					align = p.abiAlignment
+					width = p.width
+					typeName = p.cType
+				}
+			}
+		}
+		g.p("abiAlignment%d, err := cudakernel.NewSchema(cudakernel.Param{Name:%q,Type:%q,ByteWidth:%d,Alignment:%d}); if err != nil { return nil, err }", i, c.name, typeName, width, align)
+	}
+	g.p("want := []%sLayoutValue{", cfg.typeName)
 	for _, c := range checks {
 		g.p("{%q, %s},", c.name, c.goExpr)
 	}
 	g.p("}")
-	g.p("const src = `")
+	g.p("return want, nil")
+	g.p("}")
+	g.p("// %sCheckLayout compares device readback, not the generator's own layout constants.", cfg.typeName)
+	g.p("func %sCheckLayout(got []int64) error {", cfg.typeName)
+	g.p("want, err := %sLayoutExpected(); if err != nil { return err }", cfg.typeName)
+	g.p("if len(got) != len(want) { return fmt.Errorf(\"ABI witness has %%d values; requires %%d\", len(got), len(want)) }")
+	g.p("for i, w := range want { if got[i] != w.v { return fmt.Errorf(\"%%s = %%d; Go schema has %%d\", w.c, got[i], w.v) } }; return nil")
+	g.p("}")
+	g.p("func %sLayoutSource() string { return `", cfg.typeName)
 	g.p(`extern "C" __global__ void cudabind_layout(long long* out) {`)
 	for i, c := range checks {
-		g.p("\tout[%d] = (long long)(%s);", i, c.cExpr)
+		g.p("out[%d] = (long long)(%s);", i, c.cExpr)
 	}
 	g.p("}")
-	g.p("`")
-	g.p("cm, err := %s(dev, src)", compileName)
+	g.p("` }")
+	g.p("func %sSentinelPointer(t *testing.T,dev *cuda.Device) driver.DevicePtr {", cfg.typeName)
+	g.p("t.Helper();if _,err:=cudalock.Inherited(os.Getenv);err!=nil{t.Fatal(err)}")
+	g.p("buffer,err:=cudamem.Alloc[byte](dev,1);if err!=nil{t.Fatal(err)};t.Cleanup(func(){if err:=buffer.Free();err!=nil{t.Error(err)}});return buffer.Ptr()")
+	g.p("}")
+	g.p("func %sReadLayout(t *testing.T, dev *cuda.Device, m *%s) []int64 {", cfg.typeName, cfg.typeName)
+	g.p("t.Helper(); if _,err:=cudalock.Inherited(os.Getenv); err!=nil {t.Fatal(err)}")
+	g.p("want,err:=%sLayoutExpected();if err!=nil{t.Fatal(err)}", cfg.typeName)
+	g.p("kernel,err:=m.mod.Function(\"cudabind_layout\");if err!=nil{t.Fatal(err)}")
+	g.p("out,err:=cudamem.Alloc[int64](dev,len(want));if err!=nil{t.Fatal(err)};defer func(){if err:=out.Free();err!=nil{t.Error(err)}}()")
+	g.p("pointer:=out.Ptr();stream:=dev.DefaultStream()")
+	g.p("err=stream.WithHandle(func(h driver.Stream)error{return kernel.Launch([3]uint32{1,1,1},[3]uint32{1,1,1},0,h,[]unsafe.Pointer{unsafe.Pointer(&pointer)})});if err!=nil{t.Fatal(err)}")
+	g.p("if err:=stream.Synchronize(t.Context());err!=nil{t.Fatal(err)}")
+	g.p("got:=make([]int64,len(want));if err:=out.CopyToHost(got);err!=nil{t.Fatal(err)};return got")
+	g.p("}")
+	g.p("// Test%sLayout checks that the Go types and constants of %s have the", T, cfg.output)
+	g.p("// sizes, field offsets and values NVRTC gives the C ones.")
+	g.p("func Test%sLayout(t *testing.T) {", T)
+	g.nativeGuard()
+	g.p("dev := cudatest.Require(t)")
+	g.p("defer func() { if err := dev.Close(); err != nil { t.Error(err) } }()")
+	g.p("want, err := %sLayoutExpected(); if err != nil { t.Fatal(err) }", cfg.typeName)
+	g.p("cm, err := %s(dev, %sLayoutSource())", compileName, cfg.typeName)
 	g.p("if err != nil { t.Fatal(err) }")
 	g.p("m, err := %s(dev, cm)", newName)
 	g.p("if err != nil { t.Fatal(err) }")
-	g.p("defer m.Close()")
+	g.p("defer func() { if err := m.Close(); err != nil { t.Error(err) } }()")
 	g.p("k, err := m.mod.Function(\"cudabind_layout\")")
 	g.p("if err != nil { t.Fatal(err) }")
 	g.p("out, err := cudamem.Alloc[int64](dev, len(want))")
 	g.p("if err != nil { t.Fatal(err) }")
-	g.p("defer out.Free()")
+	g.p("defer func() { if err := out.Free(); err != nil { t.Error(err) } }()")
 	g.p("p := out.Ptr()")
 	g.p("stream := dev.DefaultStream()")
 	g.p("err = stream.WithHandle(func(h driver.Stream) error {")
@@ -364,10 +446,11 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	g.p("if err := stream.Synchronize(t.Context()); err != nil { t.Fatal(err) }")
 	g.p("got := make([]int64, len(want))")
 	g.p("if err := out.CopyToHost(got); err != nil { t.Fatal(err) }")
-	g.p("for i, w := range want {")
-	g.p("if got[i] != w.v { t.Errorf(\"%%s = %%d, Go has %%d\", w.c, got[i], w.v) }")
+	g.p("if err := %sCheckLayout(got); err != nil { t.Fatal(err) }", cfg.typeName)
 	g.p("}")
-	g.p("}")
+	if err := g.parameterWitness(cfg, m, compileName, newName); err != nil {
+		return nil, err
+	}
 	return format(testName(cfg.output), g.Bytes())
 }
 
@@ -378,6 +461,11 @@ func (g *gen) header(cfg *config) {
 	g.p("")
 	g.WriteString(imps)
 	g.p("")
+}
+
+func (g *gen) nativeGuard() {
+	g.p("if os.Getenv(\"CUDABIND_NATIVE\") != \"1\" { t.Skip(\"set CUDABIND_NATIVE=1 under gpu-lock for ABI witness execution\") }")
+	g.p("if _,err := cudalock.Inherited(os.Getenv); err != nil { t.Fatal(err) }")
 }
 
 // format removes the unused imports from src and formats it.
