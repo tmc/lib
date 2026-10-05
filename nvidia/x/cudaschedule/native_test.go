@@ -99,6 +99,7 @@ func TestCampaignNativeHarness(t *testing.T) {
 		t.Fatalf("reader delay %d ns below threshold %d ns", elapsed, scheduleReaderDelayThreshold)
 	}
 	if got[0] != 1 {
+		fmt.Fprintln(os.Stdout, "CUDASCHEDULE_MISMATCH_IDENTITY:0 exact-uint64")
 		fmt.Fprintf(os.Stdout, "MISMATCH: shared handoff produced %d, want 1\n", got[0])
 		return
 	}

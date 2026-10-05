@@ -574,6 +574,23 @@ func executeRun(ctx context.Context, opts CampaignOptions, seed uint64, ptx stri
 	var oraclePID, oracleModules int
 	var oracleAccesses uint64
 	finishRecord := func(rec RunRecord) RunRecord {
+		clean, identity, identityErr := takeMismatchIdentity(rec.Stdout)
+		if identityErr != nil {
+			if rec.HarnessErr == "" {
+				rec.HarnessErr = identityErr.Error()
+			} else {
+				rec.HarnessErr += "; " + identityErr.Error()
+			}
+		} else if identity != nil {
+			if rec.Mismatch != nil && *rec.Mismatch != *identity {
+				rec.HarnessErr = "conflicting mismatch identity receipts"
+			} else {
+				rec.Stdout, rec.Mismatch = clean, identity
+			}
+		}
+		if rec.Mismatch != nil && rec.Mismatch.Policy != "exact-uint64" {
+			rec.HarnessErr = "unsupported mismatch identity policy"
+		}
 		rec.ExpectedPTXDigest = expectedDigest
 		rec.OracleAttached = opts.OracleAttached
 		if opts.RunVariant == nil {

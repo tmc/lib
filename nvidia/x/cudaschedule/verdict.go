@@ -91,14 +91,17 @@ func (v Verdict) FindingLabel() string {
 
 // RunRecord captures the recorded outcome of executing a kernel binary.
 type RunRecord struct {
-	ExitCode    int    `json:"exit_code"`
-	Exited      bool   `json:"exited"`
-	TimedOut    bool   `json:"timed_out"`
-	Signal      string `json:"signal,omitempty"`
-	PristineRun bool   `json:"pristine_run,omitempty"`
-	Stdout      string `json:"stdout"`
-	Stderr      string `json:"stderr"`
-	HarnessErr  string `json:"harness_error,omitempty"`
+	// Mismatch identifies the comparison that failed in the executing runner.
+	// It is absent for older runners; consumers must not infer it from prose.
+	Mismatch    *MismatchIdentity `json:"mismatch_identity,omitempty"`
+	ExitCode    int               `json:"exit_code"`
+	Exited      bool              `json:"exited"`
+	TimedOut    bool              `json:"timed_out"`
+	Signal      string            `json:"signal,omitempty"`
+	PristineRun bool              `json:"pristine_run,omitempty"`
+	Stdout      string            `json:"stdout"`
+	Stderr      string            `json:"stderr"`
+	HarnessErr  string            `json:"harness_error,omitempty"`
 	// PTXDigest is the runner-reported SHA-256 digest of the loaded PTX.
 	PTXDigest string `json:"ptx_sha256,omitempty"`
 	// PTXDigestSource identifies the receipt as "runner_receipt".
