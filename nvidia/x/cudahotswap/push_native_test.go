@@ -10,10 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime/debug"
-	"syscall"
 	"testing"
 	"time"
 
@@ -495,9 +493,19 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 	if os.Getenv("HOTSWAP_PUBLIC_COLD") != "1" {
 		t.Skip("HOTSWAP_PUBLIC_COLD=1 requires twenty reviewed cold-process controls")
 	}
-	root := os.Getenv("HOTSWAP_PUBLIC_SOURCE_ROOT")
-	if !filepath.IsAbs(root) {
-		t.Fatal("absolute NVIDIA module source root required")
+	binary := os.Getenv("HOTSWAP_PUBLIC_COLD_BINARY")
+	expected := os.Getenv("HOTSWAP_PUBLIC_COLD_SHA256")
+	if !filepath.IsAbs(binary) || len(expected) != 64 {
+		t.Fatal("absolute prepared cold harness and SHA256 required")
+	}
+	data, err := replayPacketFile(binary, 16<<20)
+	if err != nil || fmt.Sprintf("%x", sha256.Sum256(data)) != expected {
+		t.Fatalf("prepared cold harness identity: %v", err)
+	}
+	if err := publicWriteJSON(filepath.Join(dir, "cold-harness.json"), struct {
+		Binary, SHA256, Scope string
+	}{binary, expected, "prepared executable startup; Go build excluded"}); err != nil {
+		t.Fatal(err)
 	}
 	f := publicNativeFrameNew(t, filepath.Join(dir, "latency"), 1<<20)
 	f.recordAXPBY(t)
@@ -515,29 +523,13 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 			t.Fatalf("scripted public Push %d: %+v %v", i, result, pushErr)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-		command := exec.CommandContext(ctx, "go", "run", "./examples/kernelharness", "-task", "axpby", "-kernel", file, "-json")
-		command.Dir = root
-		command.Env = append(os.Environ(), "GOWORK=off")
-		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-		command.Cancel = func() error {
-			if command.Process != nil {
-				return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
-			}
-			return nil
-		}
-		command.WaitDelay = 2 * time.Second
+		command := publicColdCommand(ctx, binary, file)
 		start = time.Now()
 		var out, diagnostics publicProcessCapture
 		command.Stdout, command.Stderr = &out, &diagnostics
 		coldErr := command.Run()
 		stdout, stderr := out.Bytes(), diagnostics.Bytes()
 		coldWall := time.Since(start).Nanoseconds()
-		// Contain descendants after every outcome, including early leader exit.
-		if command.Process != nil {
-			if err := syscall.Kill(-command.Process.Pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-				t.Fatal("cold process-group cleanup: ", err)
-			}
-		}
 		cancel()
 		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("cold-%02d.stdout", i)), stdout, 0600); err != nil {
 			t.Fatal(err)
@@ -559,7 +551,7 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 			PushError                           string
 			Cold                                Report
 			Scope                               string
-		}{i, pushWall, coldWall, result, fmt.Sprint(pushErr), cold, "request/process wall latency only; retained replay versus default harness; compiler cache reuse, no kernel throughput claim"}); err != nil {
+		}{i, pushWall, coldWall, result, fmt.Sprint(pushErr), cold, "request/process wall latency only; prepared harness startup excludes Go build; retained replay versus default harness; compiler cache reuse, no kernel throughput claim"}); err != nil {
 			t.Fatal(err)
 		}
 	}
