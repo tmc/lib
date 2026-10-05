@@ -115,8 +115,8 @@ func (l *NVRTCLoader) Load(ctx context.Context, c *Compilation) (Kernel, error) 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if c == nil || c.loader != l || c.native == nil || c.PTX != c.native.PTX() || c.Key != c.native.Key() || c.Entry != c.entry {
-		return nil, fmt.Errorf("load kernel: invalid or changed native compilation")
+	if err := l.validateCompilation(c); err != nil {
+		return nil, fmt.Errorf("load kernel: %w", err)
 	}
 	sig, err := cudalaunch.SignatureFromPTX(c.PTX, c.Entry)
 	if err != nil {
