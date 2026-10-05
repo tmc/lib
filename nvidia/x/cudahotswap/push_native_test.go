@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/nativereceipt"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
@@ -46,15 +47,23 @@ func publicNativeRequire(t *testing.T) string {
 }
 
 type publicRecordingLoader struct {
-	base *NVRTCLoader
-	dir  string
-	next int
+	base    *NVRTCLoader
+	dir     string
+	next    int
+	receipt *nativereceipt.Session
 }
 
 func (l *publicRecordingLoader) Compile(ctx context.Context, source Source) (*Compilation, error) {
+	sum := fmt.Sprintf("%x", sha256.Sum256([]byte(source.Code)))
+	if err := l.receipt.Capture("public-before-compile", sum, ""); err != nil {
+		return nil, err
+	}
 	c, err := l.base.Compile(ctx, source)
 	if err != nil {
-		return c, err // Actual compiler error owner is retained by Service.
+		return c, errors.Join(err, l.receipt.Capture("public-compile-error", sum, ""))
+	}
+	if err := l.receipt.Capture("public-after-compile", sum, fmt.Sprintf("%x", sha256.Sum256([]byte(c.PTX)))); err != nil {
+		return c, err
 	}
 	l.next++
 	dir := filepath.Join(l.dir, fmt.Sprintf("compile-%03d", l.next))
@@ -234,7 +243,16 @@ func publicNativeFrameNew(t *testing.T, dir string, n int) *publicNativeFrame {
 	}
 	// Only a transparent recorder replaces the Loader after NewService wired
 	// its actual native replay backend to this exact native loader/device.
-	f.service.loader = &publicRecordingLoader{base: loader, dir: dir}
+	receipt, err := nativereceipt.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := errors.Join(receipt.Write(filepath.Join(dir, "native-libraries.json")), receipt.Close()); err != nil {
+			t.Errorf("native library receipt: %v", err)
+		}
+	})
+	f.service.loader = &publicRecordingLoader{base: loader, dir: dir, receipt: receipt}
 	major, minor, err := f.dev.ComputeCapability()
 	if err != nil {
 		t.Fatal(err)
@@ -509,6 +527,10 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 	}
 	f := publicNativeFrameNew(t, filepath.Join(dir, "latency"), 1<<20)
 	f.recordAXPBY(t)
+	parentIdentity, err := nativereceipt.Identity(os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 20; i++ {
 		wrong := i%2 != 0
 		source := publicAXPBY(wrong, i)
@@ -524,10 +546,23 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 		command := publicColdCommand(ctx, binary, file)
+		receiptPath := filepath.Join(dir, fmt.Sprintf("cold-%02d.native-libraries.json", i))
+		command.Args = append(command.Args, "-native-receipt", receiptPath)
 		start = time.Now()
 		var out, diagnostics publicProcessCapture
 		command.Stdout, command.Stderr = &out, &diagnostics
-		coldErr := command.Run()
+		if err := command.Start(); err != nil {
+			cancel()
+			t.Fatal(err)
+		}
+		identity, identityErr := nativereceipt.Identity(command.Process.Pid)
+		if identityErr != nil {
+			cancel()
+			_ = command.Wait()
+			t.Fatal(identityErr)
+		}
+		identity.ExecutableSHA256 = expected
+		coldErr := command.Wait()
 		stdout, stderr := out.Bytes(), diagnostics.Bytes()
 		coldWall := time.Since(start).Nanoseconds()
 		cancel()
@@ -544,6 +579,16 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 		if (cold.Outcome == OutcomeOK) == wrong || (coldErr != nil) != wrong || wrong && cold.Outcome != OutcomeWrongAnswer {
 			t.Fatalf("cold harness verdict %d: %+v, %v", i, cold, coldErr)
 		}
+		proof, err := nativereceipt.Read(receiptPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cold.Compile == nil || identity.Parent != os.Getpid() || identity.Group != parentIdentity.Group || identity.Executable != binary {
+			t.Fatal("cold receipt: actual child identity or compilation absent")
+		}
+		if err := proof.Check(identity, fmt.Sprintf("%x", sha256.Sum256([]byte(source))), cold.Compile.PTXSHA256); err != nil {
+			t.Fatal(err)
+		}
 		if err := publicWriteJSON(filepath.Join(dir, fmt.Sprintf("latency-%02d.json", i)), struct {
 			Index                               int
 			PushWallNanos, ColdProcessWallNanos int64
@@ -551,7 +596,7 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 			PushError                           string
 			Cold                                Report
 			Scope                               string
-		}{i, pushWall, coldWall, result, fmt.Sprint(pushErr), cold, "request/process wall latency only; prepared harness startup excludes Go build; retained replay versus default harness; compiler cache reuse, no kernel throughput claim"}); err != nil {
+		}{i, pushWall, coldWall, result, fmt.Sprint(pushErr), cold, "request/process wall latency includes receipt capture and cold descriptor hashing; prepared harness startup excludes Go build; retained replay versus default harness; compiler cache reuse, no kernel throughput claim"}); err != nil {
 			t.Fatal(err)
 		}
 	}

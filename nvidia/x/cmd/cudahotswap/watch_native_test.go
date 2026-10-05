@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/internal/nativereceipt"
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
 	"github.com/tmc/lib/nvidia/x/cudalock"
 )
@@ -24,6 +26,7 @@ type nativeWatchOutput struct {
 	path, artifacts string
 	cancel          context.CancelFunc
 	index           int
+	receipt         *nativereceipt.Session
 }
 
 func nativeWatchSource(index int) string {
@@ -58,6 +61,17 @@ func (w *nativeWatchOutput) Write(data []byte) (int, error) {
 	}
 	if event.Result.Published != (w.index == 2) {
 		return 0, errors.New("watch publication disagrees with checked outcome")
+	}
+	sourceSum := fmt.Sprintf("%x", sha256.Sum256([]byte(nativeWatchSource(w.index))))
+	artifact := ""
+	if event.Result.Report.Compile != nil {
+		if event.Result.Report.Compile.SourceSHA256 != sourceSum {
+			return 0, errors.New("watch compilation source disagrees with actual candidate")
+		}
+		artifact = event.Result.Report.Compile.PTXSHA256
+	}
+	if err := w.receipt.Capture(fmt.Sprintf("watch-report-%d", w.index), sourceSum, artifact); err != nil {
+		return 0, err
 	}
 	if err := os.WriteFile(filepath.Join(w.artifacts, fmt.Sprintf("report-%d.json", w.index)), data, 0600); err != nil {
 		return 0, err
@@ -114,9 +128,21 @@ func TestNativeWatchCLIRefusalThenRepair(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	output := &nativeWatchOutput{path: path, artifacts: dir, cancel: cancel}
+	proof, err := nativereceipt.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := errors.Join(proof.Write(filepath.Join(dir, "native-libraries.json")), proof.Close()); err != nil {
+			t.Errorf("native library receipt: %v", err)
+		}
+	})
+	if err := proof.Capture("watch-before-run", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	output := &nativeWatchOutput{path: path, artifacts: dir, cancel: cancel, receipt: proof}
 	var stderr bytes.Buffer
-	err := run(ctx, []string{"-watch", path, "-n", "32"}, output, &stderr, newSession)
+	err = run(ctx, []string{"-watch", path, "-n", "32"}, output, &stderr, newSession)
 	if err != nil && !onlyCancellation(err) {
 		t.Fatalf("actual CLI: %v; stderr=%s", err, &stderr)
 	}

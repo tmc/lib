@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/tmc/lib/nvidia/internal/nativereceipt"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
 )
@@ -20,6 +23,7 @@ func main() {
 	samplesFlag := flag.Int("samples", 0, "event-timed samples per arm (0 uses the default)")
 	baselineFlag := flag.Bool("baseline", true, "time the task's baseline kernel as an interleaved second arm")
 	timeoutFlag := flag.Duration("timeout", 0, "deadline for one correctness launch (0 uses the default)")
+	receiptFlag := flag.String("native-receipt", "", "absolute path for an exclusive mapped-library receipt")
 	flag.Parse()
 
 	if *listFlag {
@@ -58,8 +62,26 @@ func main() {
 		cfg.Timeout = *timeoutFlag
 	}
 	cfg.Baseline = *baselineFlag
+	if *receiptFlag != "" {
+		if !filepath.IsAbs(*receiptFlag) {
+			fmt.Fprintln(os.Stderr, "kernelharness: native receipt path must be absolute")
+			os.Exit(4)
+		}
+		cfg.receipt, err = nativereceipt.New()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "kernelharness:", err)
+			os.Exit(4)
+		}
+	}
 
 	rep := runOnDevice(*ordinalFlag, task, *kernelFlag, string(source), cfg)
+	if cfg.receipt != nil {
+		err := errors.Join(cfg.receipt.Write(*receiptFlag), cfg.receipt.Close())
+		if err != nil {
+			rep.Outcome, rep.Recognized = cudahotswap.OutcomeHarnessError, false
+			rep.Reason = "native receipt: " + err.Error()
+		}
+	}
 	if *jsonFlag {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")

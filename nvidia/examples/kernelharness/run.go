@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/nativereceipt"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -40,6 +41,7 @@ type Config struct {
 	Timeout time.Duration
 	// Baseline enables the A/B arm against the task's own baseline kernel.
 	Baseline bool
+	receipt  *nativereceipt.Session
 }
 
 // DefaultConfig returns the configuration the CLI uses.
@@ -83,6 +85,11 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *cu
 
 	// Compile. A compile failure is the one outcome that carries the compiler
 	// log as its whole evidence, so it is reported verbatim.
+	if cfg.receipt != nil {
+		if err := cfg.receipt.Capture("candidate-before-compile", digest([]byte(source)), ""); err != nil {
+			return rep, err
+		}
+	}
 	start := time.Now()
 	compiled, cerr := nvrtcx.Compile(source, nvrtcx.WithName(name), nvrtcx.WithDeviceArch(dev), nvrtcx.WithLineInfo())
 	wall := time.Since(start).Nanoseconds()
@@ -91,11 +98,21 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *cu
 		Arch: rep.Device.Compute, WallNanos: wall,
 	}
 	if cerr != nil {
+		if cfg.receipt != nil {
+			if err := cfg.receipt.Capture("candidate-compile-error", digest([]byte(source)), ""); err != nil {
+				return rep, errors.Join(cerr, err)
+			}
+		}
 		rep.Outcome, rep.Recognized = cudahotswap.OutcomeCompileError, true
 		rep.Reason = cerr.Error()
 		return rep, nil
 	}
 	ptx := compiled.PTX()
+	if cfg.receipt != nil {
+		if err := cfg.receipt.Capture("candidate-after-compile", digest([]byte(source)), digest([]byte(ptx))); err != nil {
+			return rep, err
+		}
+	}
 	rep.Compile.PTXSHA256 = digest([]byte(ptx))
 	rep.Compile.PTXBytes = len(ptx)
 	rep.Compile.Log = compiled.Log()
@@ -154,10 +171,23 @@ func Run(dev *cuda.Device, task *Task, name, source string, cfg Config) (rep *cu
 	}{{name: "candidate", fn: fn, out: &rep.Timing}}
 
 	if cfg.Baseline && task.Baseline != "" {
+		if cfg.receipt != nil {
+			if err := cfg.receipt.Capture("baseline-before-compile", digest([]byte(task.Baseline)), ""); err != nil {
+				return rep, err
+			}
+		}
 		baseCompiled, berr := nvrtcx.Compile(task.Baseline,
 			nvrtcx.WithName(task.Name+"_baseline.cu"), nvrtcx.WithDeviceArch(dev))
 		if berr != nil {
+			if cfg.receipt != nil {
+				berr = errors.Join(berr, cfg.receipt.Capture("baseline-compile-error", digest([]byte(task.Baseline)), ""))
+			}
 			return nil, fmt.Errorf("task %s: its own baseline kernel does not compile: %w", task.Name, berr)
+		}
+		if cfg.receipt != nil {
+			if err := cfg.receipt.Capture("baseline-after-compile", digest([]byte(task.Baseline)), digest([]byte(baseCompiled.PTX()))); err != nil {
+				return rep, err
+			}
 		}
 		baseModule, lerr := baseCompiled.Load(dev)
 		if lerr != nil {

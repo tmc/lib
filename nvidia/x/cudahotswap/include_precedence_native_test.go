@@ -5,6 +5,7 @@ package cudahotswap
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/nativereceipt"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalock"
@@ -35,6 +37,15 @@ func TestDS4IncludePrecedenceNative(t *testing.T) {
 	if err := os.MkdirAll(artifacts, 0700); err != nil {
 		t.Fatal(err)
 	}
+	proof, err := nativereceipt.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := errors.Join(proof.Write(filepath.Join(artifacts, "native-libraries.json")), proof.Close()); err != nil {
+			t.Errorf("native library receipt: %v", err)
+		}
+	})
 	dev, err := cuda.NewDevice(0)
 	var modules []*cuda.Module
 	var out cudamem.Slice[int32]
@@ -118,8 +129,15 @@ func TestDS4IncludePrecedenceNative(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				sourceSum := fmt.Sprintf("%x", sha256.Sum256([]byte(src)))
+				if err := proof.Capture("header-before-compile", sourceSum, ""); err != nil {
+					t.Fatal(err)
+				}
 				cm, err := nvrtcx.Compile(src, opts...)
 				if err := retryOwners.adoptError(err); err != nil {
+					t.Fatal(err)
+				}
+				if err := proof.Capture("header-after-compile", sourceSum, fmt.Sprintf("%x", sha256.Sum256(cm.CUBIN()))); err != nil {
 					t.Fatal(err)
 				}
 				caseDir := filepath.Join(artifacts, fmt.Sprintf("absolute_%t_%s", absolute, tt.label))
