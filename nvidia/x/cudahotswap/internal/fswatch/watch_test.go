@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -101,6 +103,74 @@ func TestCanceledWatch(t *testing.T) {
 			t.Fatalf("cancel = %v", err)
 		}
 	}
+}
+
+func TestReadySnapshotBoundary(t *testing.T) {
+	for _, poll := range []bool{false, true} {
+		t.Run(fmt.Sprintf("poll_%t", poll), func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "kernel.cu")
+			if err := os.WriteFile(path, []byte("old"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			stop := errors.New("observed post-snapshot edit")
+			ready := false
+			err := Watch(ctx, []string{dir}, Config{Poll: poll, Interval: time.Millisecond, Debounce: time.Millisecond, Ready: func() error {
+				ready = true
+				return os.WriteFile(path, []byte("new"), 0600)
+			}}, func(change Change) error {
+				if !ready || change.Path != path || change.Digest != sha256.Sum256([]byte("new")) {
+					t.Fatalf("startup boundary: ready=%t, change=%+v", ready, change)
+				}
+				return stop
+			})
+			if !errors.Is(err, stop) {
+				t.Fatalf("post-snapshot change was lost: %v", err)
+			}
+			failure := errors.New("ready refused")
+			before := inotifyDescriptors()
+			var owned []string
+			err = Watch(ctx, []string{dir}, Config{Poll: poll, Ready: func() error {
+				for path := range inotifyDescriptors() {
+					if !before[path] {
+						owned = append(owned, path)
+					}
+				}
+				return failure
+			}}, func(Change) error {
+				t.Fatal("callback ran after readiness refusal")
+				return nil
+			})
+			if !errors.Is(err, failure) {
+				t.Fatalf("readiness error changed: %v", err)
+			}
+			if runtime.GOOS == "linux" && !poll && len(owned) != 1 {
+				t.Fatalf("Ready did not own its actual inotify descriptor: %v", owned)
+			}
+			for _, path := range owned {
+				if _, err := os.Readlink(path); !os.IsNotExist(err) {
+					t.Fatalf("readiness error leaked its inotify owner: %s %v", path, err)
+				}
+			}
+		})
+	}
+}
+
+func inotifyDescriptors() map[string]bool {
+	result := make(map[string]bool)
+	if runtime.GOOS != "linux" {
+		return result
+	}
+	entries, _ := os.ReadDir("/proc/self/fd")
+	for _, entry := range entries {
+		path := filepath.Join("/proc/self/fd", entry.Name())
+		if target, err := os.Readlink(path); err == nil && target == "anon_inode:inotify" {
+			result[path] = true
+		}
+	}
+	return result
 }
 
 func TestWaitCancellation(t *testing.T) {

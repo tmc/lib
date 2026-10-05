@@ -10,11 +10,15 @@ import (
 // reads. Every number says how it was obtained, and Unmeasured names what is
 // not here so that an absent field is visible rather than read as a zero.
 type Report struct {
-	Task      string  `json:"task"`
-	TaskDef   string  `json:"task_definition"`
-	Candidate string  `json:"candidate"`
-	Entry     string  `json:"entry"`
-	Outcome   Outcome `json:"outcome"`
+	// Generation and ConfigRevision identify the kernel and settings used by
+	// a Service check. Non-service harness reports omit these fields.
+	Generation     uint64  `json:"generation,omitempty"`
+	ConfigRevision uint64  `json:"config_revision,omitempty"`
+	Task           string  `json:"task"`
+	TaskDef        string  `json:"task_definition"`
+	Candidate      string  `json:"candidate"`
+	Entry          string  `json:"entry"`
+	Outcome        Outcome `json:"outcome"`
 	// Reason is the underlying error text for any outcome but ok. It is the
 	// compiler log for compile_error and the driver message otherwise.
 	Reason string `json:"reason,omitempty"`
@@ -32,6 +36,7 @@ type Report struct {
 	Timing      *TimingReport      `json:"timing,omitempty"`
 	Baseline    *TimingReport      `json:"baseline_timing,omitempty"`
 	Speedup     *SpeedupReport     `json:"speedup,omitempty"`
+	Replay      *ReplayReport      `json:"replay,omitempty"`
 
 	// Unmeasured names quantities this harness does not measure. A consumer
 	// that wants one of them must go get it; it must not infer it from here.
