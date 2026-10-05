@@ -340,6 +340,15 @@ func runRecordedAttempt(ctx context.Context, seed uint64, ptx string, opts Recor
 	if rec.PTXDigest != "" {
 		rec.PTXDigestSource = "runner_receipt"
 	}
+	cleanOutput, output, outputErr := takeOutputReceipt(rec.Stdout, actual.Worker.PID, rec.PTXDigest)
+	if outputErr != nil {
+		rec.HarnessErr = recordedPacketError(outputErr)
+	} else {
+		rec.Stdout, rec.Output = cleanOutput, output
+	}
+	if opts.RequireOutput && output == nil {
+		rec.HarnessErr = "missing worker output receipt"
+	}
 	rec.Stdout, rec.OraclePID, rec.OraclePatchedModules, rec.OracleInstrumentedAccesses = takeOracleLiveness(rec.Stdout)
 	if opts.OracleAttached && rec.OraclePID != actual.Worker.PID {
 		rec.HarnessErr = "oracle receipt worker pid mismatch"

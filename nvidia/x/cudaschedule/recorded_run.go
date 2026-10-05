@@ -31,6 +31,7 @@ type RecordedRunOptions struct {
 	LeaseExpected    time.Duration // Whole-second real lock estimate.
 	OutputLimit      int           // Maximum retained bytes per output stream.
 	OracleAttached   bool          // Require PID-bound instrumentation liveness.
+	RequireOutput    bool          // Require a worker-bound output-contract receipt.
 	CompareOutput    bool          // Execute a fresh pristine baseline before the candidate.
 }
 
