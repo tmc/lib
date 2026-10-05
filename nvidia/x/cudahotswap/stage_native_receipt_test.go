@@ -447,3 +447,14 @@ func FuzzStageNativeReceiptBoundary(f *testing.F) {
 		}
 	})
 }
+
+func TestStageNativeReceiptRefusesMissingExecutableDigest(t *testing.T) {
+	r := stageReceiptCPUFixture()
+	if err := validateStageNativeReceipt(r); err != nil {
+		t.Fatal(err)
+	}
+	r.Process.ExecutableSHA256 = ""
+	if err := validateStageNativeReceipt(r); err == nil {
+		t.Fatal("missing actual executable digest accepted")
+	}
+}

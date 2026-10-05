@@ -146,7 +146,7 @@ func TestNativeStageServiceReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = proof.Close() })
-	process, err := nativereceipt.Identity(os.Getpid())
+	process, err := stageNativeObservedProcess()
 	if err != nil {
 		t.Fatal(err)
 	}
