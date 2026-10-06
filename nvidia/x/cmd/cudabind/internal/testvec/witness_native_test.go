@@ -46,7 +46,7 @@ func deviceLayout(t *testing.T, dev *cuda.Device, defines ...string) []int64 {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, err := newWitnessModule(t, dev, cm, nvrtcx.OutputCUBIN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,15 +59,16 @@ func deviceLayout(t *testing.T, dev *cuda.Device, defines ...string) []int64 {
 	if err != nil {
 		t.Fatal(err)
 	}
+	retainWitnessCompilation(t, dev, k.Raw(), vecModuleLayoutSource(), defines, cm, nvrtcx.OutputCUBIN)
 	out, err := cudamem.Alloc[int64](dev, len(want))
-	if err != nil {
-		t.Fatal(err)
-	}
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	p := out.Ptr()
 	stream := dev.DefaultStream()
 	err = stream.WithHandle(func(h driver.Stream) error {
@@ -175,7 +176,11 @@ func TestExistingLayoutMutationAudit(t *testing.T) {
 
 func TestLaunch_NativeEarlyRefusals(t *testing.T) {
 	dev := witnessDevice(t)
-	m, err := loadVecModule(dev)
+	cm, err := compileVecModule(dev, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := newWitnessModule(t, dev, cm, nvrtcx.OutputCUBIN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,15 +189,20 @@ func TestLaunch_NativeEarlyRefusals(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	out, err := cudamem.Alloc[float32](dev, 1024)
+	k, err := m.mod.Function("bounded_copy")
 	if err != nil {
 		t.Fatal(err)
 	}
+	retainWitnessCompilation(t, dev, k.Raw(), "", nil, cm, nvrtcx.OutputCUBIN)
+	out, err := cudamem.Alloc[float32](dev, 1024)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	stream := dev.DefaultStream()
 	grid, block := [3]uint32{4, 1, 1}, [3]uint32{256, 1, 1}
 	before := make([]float32, 1024)
@@ -244,14 +254,14 @@ func TestLaunch_NativeEarlyRefusals(t *testing.T) {
 		}
 	}
 	storage, err := cudamem.Alloc[byte](dev, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
 	defer func() {
 		if err := storage.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	misaligned, err := cudamem.Reinterpret[pair](storage.Slice(4, 36))
 	if err != nil {
 		t.Fatal(err)
@@ -260,6 +270,11 @@ func TestLaunch_NativeEarlyRefusals(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "out") || !strings.Contains(err.Error(), "16") {
 		t.Fatalf("C pointee alignment refusal = %v", err)
 	}
+	logWitnessReadback(t, struct {
+		Kind, Argument, Error             string
+		ActualPointer                     uint64
+		RequiredAlignment, ActualElements int
+	}{"refused-alignment", "out", err.Error(), uint64(misaligned.Ptr()), 16, misaligned.Len()})
 	limit, err := dev.Attribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
 	if err != nil {
 		t.Fatal(err)
@@ -272,4 +287,8 @@ func TestLaunch_NativeEarlyRefusals(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "sharedBytes") {
 		t.Fatalf("actual opt-in refusal = %v", err)
 	}
+	logWitnessReadback(t, struct {
+		Kind, Argument, Error      string
+		RequiredBytes, ActualBytes int
+	}{"refused-shared-memory", "sharedBytes", err.Error(), limit, limit + 1})
 }
