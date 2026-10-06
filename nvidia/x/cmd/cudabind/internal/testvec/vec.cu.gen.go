@@ -5,7 +5,9 @@ package testvec
 import (
 	"crypto/sha256"
 	"embed"
+	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"unsafe"
 
@@ -94,6 +96,8 @@ func compileVecModule(dev *cuda.Device, extra string, opts ...nvrtcx.Option) (*n
 
 // loadVecModule compiles vec.cu for dev and loads it. The options follow those
 // cudabind was run with.
+// Failed cleanup is retained by an error implementing io.Closer, reachable
+// with errors.As. Retry Close on that error before closing dev.
 func loadVecModule(dev *cuda.Device, opts ...nvrtcx.Option) (*vecModule, error) {
 	cm, err := compileVecModule(dev, "", opts...)
 	if err != nil {
@@ -109,8 +113,19 @@ func newVecModule(dev *cuda.Device, cm *nvrtcx.CompiledModule) (*vecModule, erro
 	}
 	mod, err := cuda.OwnModule(dev, raw)
 	if err != nil {
-		dev.WithContext(raw.Close)
-		return nil, fmt.Errorf("vec.cu: %w", err)
+		unloaded := false
+		return nil, vecModuleCleanup(err, func() error {
+			if unloaded {
+				return nil
+			}
+			return dev.WithContext(func() error {
+				if err := raw.Close(); err != nil {
+					return err
+				}
+				unloaded = true
+				return nil
+			})
+		})
 	}
 	m := &vecModule{dev: dev, mod: mod, raw: raw}
 	for i, k := range vecModuleKernels {
@@ -119,11 +134,39 @@ func newVecModule(dev *cuda.Device, cm *nvrtcx.CompiledModule) (*vecModule, erro
 			name, _ = cm.LoweredName(k.name)
 		}
 		if m.kernels[i], err = mod.Function(name); err != nil {
-			mod.Close()
-			return nil, fmt.Errorf("vec.cu: %w", err)
+			return nil, vecModuleCleanup(err, mod.Close)
 		}
 	}
 	return m, nil
+}
+
+// vecModuleCleanupError retains failed cleanup for retry through errors.As and io.Closer.
+type vecModuleCleanupError struct {
+	mu    sync.Mutex
+	err   error
+	close func() error
+}
+
+func (e *vecModuleCleanupError) Error() string { return e.err.Error() }
+func (e *vecModuleCleanupError) Unwrap() error { return e.err }
+func (e *vecModuleCleanupError) Close() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.close == nil {
+		return nil
+	}
+	if err := e.close(); err != nil {
+		return fmt.Errorf("vec.cu: cleanup module: %w", err)
+	}
+	e.close = nil
+	return nil
+}
+func vecModuleCleanup(err error, close func() error) error {
+	err = fmt.Errorf("vec.cu: %w", err)
+	if cleanupErr := close(); cleanupErr != nil {
+		return &vecModuleCleanupError{err: errors.Join(err, fmt.Errorf("vec.cu: cleanup module: %w", cleanupErr)), close: close}
+	}
+	return err
 }
 
 // Close unloads the module. Work that uses it must be complete.

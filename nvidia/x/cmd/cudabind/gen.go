@@ -14,6 +14,7 @@ import (
 
 const imps = `import (
 	"encoding/json"
+	"errors"
 	"crypto/sha256"
 	"embed"
 	"fmt"
@@ -21,6 +22,7 @@ const imps = `import (
 	"math"
 	"os"
 	"sync/atomic"
+	"sync"
 	"testing"
 	"unsafe"
 
@@ -152,6 +154,8 @@ func generate(cfg *config, m *module) (src, test []byte, err error) {
 
 	g.p("// %s compiles %s for dev and loads it. The options follow those", loadName, cfg.file)
 	g.p("// cudabind was run with.")
+	g.p("// Failed cleanup is retained by an error implementing io.Closer, reachable")
+	g.p("// with errors.As. Retry Close on that error before closing dev.")
 	g.p("func %s(dev *cuda.Device, opts ...nvrtcx.Option) (*%s, error) {", loadName, t)
 	g.p("cm, err := %s(dev, \"\", opts...)", compileName)
 	g.p("if err != nil { return nil, fmt.Errorf(\"%s: %%w\", err) }", cfg.file)
@@ -163,19 +167,42 @@ func generate(cfg *config, m *module) (src, test []byte, err error) {
 	g.p("if err != nil { return nil, fmt.Errorf(\"%s: %%w\", err) }", cfg.file)
 	g.p("mod, err := cuda.OwnModule(dev, raw)")
 	g.p("if err != nil {")
-	g.p("dev.WithContext(raw.Close)")
-	g.p("return nil, fmt.Errorf(\"%s: %%w\", err)", cfg.file)
+	g.p("unloaded := false")
+	g.p("return nil, %sCleanup(err, func() error {", t)
+	g.p("if unloaded { return nil }")
+	g.p("return dev.WithContext(func() error {")
+	g.p("if err := raw.Close(); err != nil { return err }")
+	g.p("unloaded = true; return nil")
+	g.p("})")
+	g.p("})")
 	g.p("}")
 	g.p("m := &%s{dev: dev, mod: mod, raw: raw}", t)
 	g.p("for i, k := range %sKernels {", t)
 	g.p("name := k.name")
 	g.p("if k.cxx { name, _ = cm.LoweredName(k.name) }")
 	g.p("if m.kernels[i], err = mod.Function(name); err != nil {")
-	g.p("mod.Close()")
-	g.p("return nil, fmt.Errorf(\"%s: %%w\", err)", cfg.file)
+	g.p("return nil, %sCleanup(err, mod.Close)", t)
 	g.p("}")
 	g.p("}")
 	g.p("return m, nil")
+	g.p("}")
+	g.p("")
+	g.p("// %sCleanupError retains failed cleanup for retry through errors.As and io.Closer.", t)
+	g.p("type %sCleanupError struct { mu sync.Mutex; err error; close func() error }", t)
+	g.p("func (e *%sCleanupError) Error() string { return e.err.Error() }", t)
+	g.p("func (e *%sCleanupError) Unwrap() error { return e.err }", t)
+	g.p("func (e *%sCleanupError) Close() error {", t)
+	g.p("e.mu.Lock(); defer e.mu.Unlock()")
+	g.p("if e.close == nil { return nil }")
+	g.p("if err := e.close(); err != nil { return fmt.Errorf(\"%s: cleanup module: %%w\", err) }", cfg.file)
+	g.p("e.close = nil; return nil")
+	g.p("}")
+	g.p("func %sCleanup(err error, close func() error) error {", t)
+	g.p("err = fmt.Errorf(\"%s: %%w\", err)", cfg.file)
+	g.p("if cleanupErr := close(); cleanupErr != nil {")
+	g.p("return &%sCleanupError{err: errors.Join(err, fmt.Errorf(\"%s: cleanup module: %%w\", cleanupErr)), close: close}", t, cfg.file)
+	g.p("}")
+	g.p("return err")
 	g.p("}")
 	g.p("")
 	g.p("// Close unloads the module. Work that uses it must be complete.")
