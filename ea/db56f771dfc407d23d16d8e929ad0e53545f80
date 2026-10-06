@@ -1,0 +1,8 @@
+Commit: eadb56f771dfc407d23d16d8e929ad0e53545f80
+Date: 2026-10-06T17:40:20Z
+Agent: Codex CLI 0.160.0; model unavailable; tty unavailable; exec pid 82842
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Manual fallback: helper attempts exhausted earlier.
+Exact ten-file accepted lineage: /Users/tmc/tmp/lib-nvidia-implementation/62-egraph-source-emission/20261005-current-next-integration/lineage.json; independent emission/numeric-name/blank-rule grades referenced by HANDOFF.
+Root current a3eb compatibility: /Users/tmc/tmp/lib-nvidia-lane62/20261006-current-core-check; four committed baseline hashes unchanged, race3 egraph6.356/cudair7.496/vet/fmt/diff pass.
+Isolated only; shared next overlapping dirt preserved. No GPU/native/full lane acceptance.
