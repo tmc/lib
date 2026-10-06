@@ -10,11 +10,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"math"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -593,7 +597,7 @@ func TestNativeHotSwapReplay(t *testing.T) {
 	}
 	launches := 0
 	for _, tc := range manifest.Cases {
-		t.Run(tc.Name, func(t *testing.T) {
+		if !t.Run(tc.Name, func(t *testing.T) {
 			stream, err := r.dev.NewStream()
 			if stream != nil {
 				r.streams = append(r.streams, stream)
@@ -799,7 +803,9 @@ func TestNativeHotSwapReplay(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Logf("REPLAY_NATIVE_JSON %s", encoded)
-		})
+		}) {
+			return // A failed native case must not dispatch a later device arm.
+		}
 	}
 	encoded, _ = json.Marshal(map[string]any{"kind": "total-arm-count", "completed_arms": launches, "declared_arms": manifest.Launches, "count_semantics": "retained completed arm observations independent of case summaries; not CUPTI counter"})
 	t.Logf("REPLAY_NATIVE_JSON %s", encoded)
@@ -1117,5 +1123,51 @@ func TestHotSwapReplayPreparedPacketControls(t *testing.T) {
 				t.Fatalf("wrong refusal branch: %v want %s", err, needle)
 			}
 		})
+	}
+}
+
+func TestNativeReplayCaseStopCPU(t *testing.T) {
+	_, source, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("source identity missing")
+	}
+	if root := os.Getenv("HOTSWAP_REPLAY_SOURCE_ROOT"); root != "" {
+		source = filepath.Join(root, "x/cudahotswap/replay_fixture_native_test.go")
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), source, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopped := false
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "TestNativeHotSwapReplay" {
+			continue
+		}
+		ast.Inspect(fn.Body, func(node ast.Node) bool {
+			guard, ok := node.(*ast.IfStmt)
+			if !ok {
+				return true
+			}
+			not, ok := guard.Cond.(*ast.UnaryExpr)
+			if !ok || not.Op != token.NOT {
+				return true
+			}
+			call, ok := not.X.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || sel.Sel.Name != "Run" {
+				return true
+			}
+			if len(guard.Body.List) == 1 {
+				_, stopped = guard.Body.List[0].(*ast.ReturnStmt)
+			}
+			return true
+		})
+	}
+	if !stopped {
+		t.Fatal("actual native case loop lacks failed-subtest stop")
 	}
 }

@@ -382,6 +382,12 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 	if err := publicWriteJSON(filepath.Join(dir, "kernel-revert.json"), reverted); err != nil {
 		t.Fatal(err)
 	}
+	if err := publicKernelRevertReadback(f, dir, reverted); err != nil {
+		t.Fatal("kernel revert readback: ", err)
+	}
+	if err := publicConcurrentPinReadback(f, dir); err != nil {
+		t.Fatal("concurrent pin readback: ", err)
+	}
 	inplace := func(rewrite bool) Source {
 		body := "out[i] = out[i] + a[i];"
 		if rewrite {
@@ -847,4 +853,232 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+}
+
+// publicReadback32 refuses a state-only claim: every actual output is required.
+func publicReadback32(got []float32, want func(int) float32) error {
+	if len(got) != 32 || want == nil {
+		return errors.New("public readback requires exactly 32 values and an oracle")
+	}
+	for i, value := range got {
+		if value != want(i) {
+			return fmt.Errorf("public readback element %d = %g, want %g", i, value, want(i))
+		}
+	}
+	return nil
+}
+
+func publicKernelRevertReadback(f *publicNativeFrame, dir string, reverted State) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cfg := cudalaunch.Config{Grid: cudashape.Grid3D{X: 1, Y: 1, Z: 1}, Block: driver.Dims(32, 1, 1), Stream: f.stream}
+	work, err := f.service.Launch(ctx, "kernel", cfg, f.buffers[0], f.buffers[1], f.buffers[2], float32(2.5), int32(32))
+	if work != nil {
+		err = errors.Join(err, work.Wait(ctx))
+	}
+	if err != nil || work == nil {
+		return errors.Join(err, errors.New("kernel revert missing completed submission"))
+	}
+	view, err := cudamem.Reinterpret[float32](f.buffers[0])
+	if err != nil {
+		return err
+	}
+	got := make([]float32, 32)
+	if err := view.CopyToHost(got); err != nil {
+		return err
+	}
+	state := work.State()
+	if err := publicWriteJSON(filepath.Join(dir, "kernel-revert-readback.json"), struct {
+		Process              nativereceipt.Process
+		Reverted, Submission State
+		Output               []float32
+		Completed            bool
+	}{f.process, reverted, state, got, true}); err != nil {
+		return err
+	}
+	if state != reverted {
+		return errors.New("kernel revert submission state differs")
+	}
+	return publicReadback32(got, func(i int) float32 { return float32(8 * (i%31 + 1)) })
+}
+
+func publicConcurrentPinReadback(f *publicNativeFrame, dir string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	code := func(value int) Source {
+		return Source{Code: fmt.Sprintf("extern \"C\" __global__ void pin_value(float *out) { out[threadIdx.x] = %d.0f; }", value), Filename: "pin.cu", Entry: "pin_value"}
+	}
+	if _, err := f.service.Register(ctx, "concurrent", code(7), "retained original"); err != nil {
+		return err
+	}
+	pin, err := f.service.Pin("concurrent")
+	if pin != nil {
+		f.pins = append(f.pins, pin)
+	}
+	if err != nil {
+		return err
+	}
+	var buffers [2]cudamem.Slice[byte]
+	for i := range buffers {
+		buffer, err := cudamem.Alloc[byte](f.dev, 128)
+		if buffer.Ptr() != 0 {
+			f.buffers = append(f.buffers, buffer)
+		}
+		if err != nil {
+			return err
+		}
+		buffers[i] = buffer
+		view, err := cudamem.Reinterpret[float32](buffer)
+		if err != nil {
+			return err
+		}
+		poison := make([]float32, 32)
+		for j := range poison {
+			poison[j] = -123
+		}
+		if err := view.CopyFromHost(poison); err != nil {
+			return err
+		}
+	}
+	type readback struct {
+		Output []float32
+		Err    error
+	}
+	start, done := make(chan struct{}), make(chan readback, 1)
+	finished := make(chan struct{})
+	defer func() { cancel(); <-finished }()
+	go func() {
+		defer close(finished)
+		select {
+		case <-ctx.Done():
+			done <- readback{Err: ctx.Err()}
+			return
+		case <-start:
+		}
+		err := f.dev.WithContext(func() error {
+			return cudalaunch.Kernel(pin.Function()).Grid(1, 1, 1).Block(32, 1, 1).On(f.stream).Launch(buffers[0])
+		})
+		// Even a nonnil enqueue error can follow submission. Establish completion
+		// before reporting or letting the caller release the original pin.
+		err = errors.Join(err, f.stream.Synchronize(ctx))
+		var got []float32
+		if err == nil {
+			view, viewErr := cudamem.Reinterpret[float32](buffers[0])
+			err = viewErr
+			got = make([]float32, 32)
+			if err == nil {
+				err = view.CopyToHost(got)
+			}
+		}
+		done <- readback{got, err}
+	}()
+	var original readback
+	var checkerState State
+	if _, err := f.service.SetCheck("concurrent", CheckConfig{Checker: func(checkCtx context.Context, selected State) error {
+		checkerState = selected
+		close(start)
+		select {
+		case original = <-done:
+		case <-checkCtx.Done():
+			return checkCtx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return errors.Join(original.Err, publicReadback32(original.Output, func(int) float32 { return 7 }))
+	}}, "launch original during published candidate check"); err != nil {
+		cancel()
+		<-done
+		return err
+	}
+	result, err := f.service.Push(ctx, "concurrent", code(11), "candidate while original pinned")
+	if err != nil || result == nil || !result.Published {
+		cancel()
+		return errors.Join(err, errors.New("concurrent candidate was not published"))
+	}
+	cfg := cudalaunch.Config{Grid: cudashape.Grid3D{X: 1, Y: 1, Z: 1}, Block: driver.Dims(32, 1, 1), Stream: f.stream}
+	work, err := f.service.Launch(ctx, "concurrent", cfg, buffers[1])
+	if work != nil {
+		err = errors.Join(err, work.Wait(ctx))
+	}
+	if err != nil || work == nil {
+		return errors.Join(err, errors.New("concurrent selected submission missing"))
+	}
+	view, err := cudamem.Reinterpret[float32](buffers[1])
+	if err != nil {
+		return err
+	}
+	got := make([]float32, 32)
+	if err := view.CopyToHost(got); err != nil {
+		return err
+	}
+	if err := publicWriteJSON(filepath.Join(dir, "concurrent-pin-readback.json"), struct {
+		Process                                 nativereceipt.Process
+		Original, Selected, Submission, Checker State
+		OriginalFunction                        uint64
+		OriginalOutput, SelectedOutput          []float32
+		OriginalDuringChecker, Completed        bool
+	}{f.process, pin.State(), result.Selected, work.State(), checkerState, uint64(pin.Function()), original.Output, got, true, true}); err != nil {
+		return err
+	}
+	if pin.State().Version == result.Selected.Version || work.State() != result.Selected || checkerState != result.State {
+		return errors.New("concurrent retained and selected generation relation differs")
+	}
+	return publicReadback32(got, func(int) float32 { return 11 })
+}
+
+func TestPublicReadback32CPU(t *testing.T) {
+	got := make([]float32, 32)
+	for i := range got {
+		got[i] = float32(i + 1)
+	}
+	want := func(i int) float32 { return float32(i + 1) }
+	if err := publicReadback32(got, want); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		got  []float32
+		want func(int) float32
+	}{
+		{"missing", nil, want}, {"short", got[:31], want}, {"oracle", got, nil}, {"wrong", got, func(int) float32 { return 0 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if publicReadback32(tc.got, tc.want) == nil {
+				t.Fatal("invalid readback admitted")
+			}
+		})
+	}
+	got[31] = -123
+	if publicReadback32(got, want) == nil {
+		t.Fatal("last element corruption admitted")
+	}
+}
+
+func TestPublicNativeCatalogueCPU(t *testing.T) {
+	path := os.Getenv("HOTSWAP_PUBLIC_CATALOG")
+	if path == "" {
+		t.Skip("catalog export not requested")
+	}
+	if !filepath.IsAbs(path) {
+		t.Fatal("absolute catalog path required")
+	}
+	catalog := []Source{
+		{Code: publicAXPBY(false, -1), Filename: "baseline.cu", Entry: "axpby"},
+		{Code: publicAXPBY(false, 1), Filename: "candidate.cu", Entry: "axpby"},
+		{Code: publicAXPBY(true, 1), Filename: "candidate.cu", Entry: "axpby"},
+		{Code: "extern \"C\" __global__ void axpby(int n) {}", Filename: "bad-abi.cu", Entry: "axpby"},
+	}
+	for _, v := range []int{7, 11} {
+		catalog = append(catalog, Source{Code: fmt.Sprintf("extern \"C\" __global__ void pin_value(float *out) { out[threadIdx.x] = %d.0f; }", v), Filename: "pin.cu", Entry: "pin_value"})
+	}
+	for _, body := range []string{"out[i] = out[i] + a[i];", "out[i] = a[i] + out[i];"} {
+		catalog = append(catalog, Source{Code: "extern \"C\" __global__ void inplace(float *out, const float *a, unsigned n) { unsigned i=threadIdx.x; if(i<n) { " + body + " } }", Filename: "inplace.cu", Entry: "inplace"})
+	}
+	catalog = append(catalog, Source{Code: "extern \"C\" __global__ void noop(float *out, const float *a, unsigned n) {}", Filename: "noop.cu", Entry: "noop"})
+	for i, v := range []int{7, 11, 13} {
+		catalog = append(catalog, Source{Code: fmt.Sprintf("extern \"C\" __global__ void graph_value(float *out) { out[threadIdx.x] = %d.0f; }", v), Filename: []string{"graph-a.cu", "graph-b.cu", "graph-wrong.cu"}[i], Entry: "graph_value"})
+	}
+	if err := publicWriteJSON(path, catalog); err != nil {
+		t.Fatal(err)
+	}
 }
