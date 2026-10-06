@@ -1,6 +1,7 @@
 package testvec
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -142,6 +143,7 @@ func TestKernels(t *testing.T) {
 	if err := x.CopyToHost(gotX); err != nil {
 		t.Fatal(err)
 	}
+	logKernelReadback(t, "scale_all", gotX, []float32{3, 6, 9, 12})
 	if want := []float32{3, 6, 9, 12}; !equal(gotX, want) {
 		t.Errorf("scaleAll: x = %v, want %v", gotX, want)
 	}
@@ -149,6 +151,7 @@ func TestKernels(t *testing.T) {
 	if err := p.CopyToHost(gotP); err != nil {
 		t.Fatal(err)
 	}
+	logKernelReadback(t, "shift-points", gotP, []point{{2, 1.5}, {3, 2.5}})
 	if want := []point{{2, 1.5}, {3, 2.5}}; !equal(gotP, want) {
 		t.Errorf("shift: p = %v, want %v", gotP, want)
 	}
@@ -156,6 +159,7 @@ func TestKernels(t *testing.T) {
 	if err := tags.CopyToHost(gotTags); err != nil {
 		t.Fatal(err)
 	}
+	logKernelReadback(t, "shift-tags", gotTags, []pair{{A: opMul}, {A: opMul, B: [4]uint32{1, 1, 1, 1}}})
 	if want := []pair{{A: opMul}, {A: opMul, B: [4]uint32{1, 1, 1, 1}}}; !equal(gotTags, want) {
 		t.Errorf("shift: tags = %v, want %v", gotTags, want)
 	}
@@ -163,6 +167,7 @@ func TestKernels(t *testing.T) {
 	if err := filled.CopyToHost(gotFill); err != nil {
 		t.Fatal(err)
 	}
+	logKernelReadback(t, "fill", gotFill, []pair{fillWant})
 	if gotFill[0] != fillWant {
 		t.Errorf("fill: out = %v, want %v", gotFill[0], fillWant)
 	}
@@ -170,9 +175,22 @@ func TestKernels(t *testing.T) {
 	if err := out.CopyToHost(gotSum); err != nil {
 		t.Fatal(err)
 	}
+	logKernelReadback(t, "sum", gotSum, []int32{15})
 	if gotSum[0] != 15 {
 		t.Errorf("sum = %d, want 15", gotSum[0])
 	}
+}
+
+func logKernelReadback[T any](t *testing.T, label string, got, want []T) {
+	t.Helper()
+	data, err := json.Marshal(struct {
+		Kind, Label        string
+		Observed, Expected []T
+	}{"kernel-output", label, got, want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", data)
 }
 
 func equal[T comparable](a, b []T) bool {

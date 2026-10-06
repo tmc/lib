@@ -407,6 +407,10 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	g.p("if len(got) != len(want) { return fmt.Errorf(\"ABI witness has %%d values; requires %%d\", len(got), len(want)) }")
 	g.p("for i, w := range want { if got[i] != w.v { return fmt.Errorf(\"%%s = %%d; Go schema has %%d\", w.c, got[i], w.v) } }; return nil")
 	g.p("}")
+	g.p("func %sLogLayout(t *testing.T, kind string, got []int64, want []%sLayoutValue) {", cfg.typeName, cfg.typeName)
+	g.p("t.Helper(); labels := make([]string,len(want)); expected := make([]int64,len(want)); for i,w := range want { labels[i],expected[i] = w.c,w.v }")
+	g.p("receipt,err := json.Marshal(struct { Kind string; Labels []string; Observed,Expected []int64 }{kind,labels,got,expected}); if err != nil { t.Fatal(err) }; t.Logf(\"native-readback %%s\",receipt)")
+	g.p("}")
 	g.p("func %sLayoutSource() string { return `", cfg.typeName)
 	g.p(`extern "C" __global__ void cudabind_layout(long long* out) {`)
 	for i, c := range checks {
@@ -426,7 +430,8 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	g.p("pointer:=out.Ptr();stream:=dev.DefaultStream()")
 	g.p("err=stream.WithHandle(func(h driver.Stream)error{return kernel.Launch([3]uint32{1,1,1},[3]uint32{1,1,1},0,h,[]unsafe.Pointer{unsafe.Pointer(&pointer)})});if err!=nil{t.Fatal(err)}")
 	g.p("if err:=stream.Synchronize(t.Context());err!=nil{t.Fatal(err)}")
-	g.p("got:=make([]int64,len(want));if err:=out.CopyToHost(got);err!=nil{t.Fatal(err)};return got")
+	g.p("got:=make([]int64,len(want));if err:=out.CopyToHost(got);err!=nil{t.Fatal(err)}")
+	g.p("%sLogLayout(t,\"generated-layout-prerequisite\",got,want);return got", cfg.typeName)
 	g.p("}")
 	g.p("// Test%sLayout checks that the Go types and constants of %s have the", T, cfg.output)
 	g.p("// sizes, field offsets and values NVRTC gives the C ones.")
@@ -455,6 +460,7 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	g.p("if err := stream.Synchronize(t.Context()); err != nil { t.Fatal(err) }")
 	g.p("got := make([]int64, len(want))")
 	g.p("if err := out.CopyToHost(got); err != nil { t.Fatal(err) }")
+	g.p("%sLogLayout(t,\"generated-layout\",got,want)", cfg.typeName)
 	g.p("if err := %sCheckLayout(got); err != nil { t.Fatal(err) }", cfg.typeName)
 	g.p("}")
 	if err := g.parameterWitness(cfg, m, compileName, newName); err != nil {

@@ -230,6 +230,23 @@ func vecModuleCheckLayout(got []int64) error {
 	}
 	return nil
 }
+func vecModuleLogLayout(t *testing.T, kind string, got []int64, want []vecModuleLayoutValue) {
+	t.Helper()
+	labels := make([]string, len(want))
+	expected := make([]int64, len(want))
+	for i, w := range want {
+		labels[i], expected[i] = w.c, w.v
+	}
+	receipt, err := json.Marshal(struct {
+		Kind               string
+		Labels             []string
+		Observed, Expected []int64
+	}{kind, labels, got, expected})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("native-readback %s", receipt)
+}
 func vecModuleLayoutSource() string {
 	return `
 extern "C" __global__ void cudabind_layout(long long* out) {
@@ -362,6 +379,7 @@ func vecModuleReadLayout(t *testing.T, dev *cuda.Device, m *vecModule) []int64 {
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	vecModuleLogLayout(t, "generated-layout-prerequisite", got, want)
 	return got
 }
 
@@ -428,6 +446,7 @@ func TestVecModuleLayout(t *testing.T) {
 	if err := out.CopyToHost(got); err != nil {
 		t.Fatal(err)
 	}
+	vecModuleLogLayout(t, "generated-layout", got, want)
 	if err := vecModuleCheckLayout(got); err != nil {
 		t.Fatal(err)
 	}
