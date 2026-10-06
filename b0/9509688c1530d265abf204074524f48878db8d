@@ -1,0 +1,27 @@
+commit ff1470dceb9c31d04964d61ec99841813d818ca3
+commit date 2026-10-06T11:56:33-07:00
+provenance recorded 2026-10-06T18:56:51.864749+00:00
+agent Codex CLI 0.160.0
+model unavailable
+tty unavailable
+pid 11093
+ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+cherry-pick of independently accepted lane62 source; current-next integration gates pending
+
+current commit ea35715beffcc280e1bbb1b91c00c700995d4611
+review date 2026-10-06T20:22:21.008358+00:00
+agent Codex CLI 0.160.0; model unavailable; tty unavailable; pid 61483
+ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+rebase base d1566e4ba8de119d80ccdb04981996b74e61be6e
+root current-base race3 PASS13.548/45.599/5.923; vet/diff clean
+combined routing independent review pending; not integrated
+
+Integration/review provenance
+commit: b09509688c1530d265abf204074524f48878db8d
+commit date: 2026-10-06T14:37:42-07:00
+agent: codex-cli 0.160.1
+model: unavailable from runtime
+tty: unavailable (noninteractive exec)
+pid: 97525
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+review: source/host plus independent actual CPU NVRTC; no GPU qualification
