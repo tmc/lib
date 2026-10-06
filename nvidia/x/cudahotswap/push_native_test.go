@@ -614,7 +614,7 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 	}
 }
 
-func TestNativeServiceTwentyPushLatency(t *testing.T) {
+func TestNativeServiceTwentyPushPrebuiltLatency(t *testing.T) {
 	dir := publicNativeRequire(t)
 	if os.Getenv("HOTSWAP_PUBLIC_COLD") != "1" {
 		t.Skip("HOTSWAP_PUBLIC_COLD=1 requires twenty reviewed cold-process controls")
@@ -708,4 +708,143 @@ func TestNativeServiceTwentyPushLatency(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func TestNativeServiceTwentyPushLatency(t *testing.T) {
+	dir := publicNativeRequire(t)
+	if os.Getenv("HOTSWAP_PUBLIC_COLD") != "1" {
+		t.Skip("HOTSWAP_PUBLIC_COLD=1 requires twenty reviewed cold-process controls")
+	}
+	bindingPath := os.Getenv("HOTSWAP_PUBLIC_GO_RUN_BINDING")
+	if !filepath.IsAbs(bindingPath) {
+		t.Fatal("absolute reviewed Go run binding required")
+	}
+	data, err := replayPacketFile(bindingPath, 2<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding, err := publicReadGoRunBinding(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := binding.check(); err != nil {
+		t.Fatal(err)
+	}
+	if err := publicWriteJSON(filepath.Join(dir, "cold-go-run-binding.json"), binding); err != nil {
+		t.Fatal(err)
+	}
+	f := publicNativeFrameNew(t, filepath.Join(dir, "latency"), 1<<20)
+	f.recordAXPBY(t)
+	parentIdentity, err := nativereceipt.Identity(os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicColdEdits(t, func(t *testing.T, i int) {
+		wrong := i%2 != 0
+		source := publicAXPBY(wrong, i)
+		file := filepath.Join(dir, fmt.Sprintf("latency-%02d.cu", i))
+		if err := os.WriteFile(file, []byte(source), 0600); err != nil {
+			t.Fatal(err)
+		}
+		prior, err := f.service.Status("kernel")
+		if err != nil {
+			t.Fatal(err)
+		}
+		start := time.Now()
+		result, pushErr := f.service.Push(context.Background(), "kernel", Source{Code: source, Filename: file, Entry: "axpby"}, fmt.Sprintf("scripted %02d", i))
+		pushWall := time.Since(start).Nanoseconds()
+		current, stateErr := f.service.Status("kernel")
+		if stateErr != nil {
+			t.Fatal(stateErr)
+		}
+		if err := publicColdPushCheck(prior, current, result, pushErr, source, wrong); err != nil {
+			t.Fatalf("scripted public Push %d: %+v %v: %v", i, result, pushErr, err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		receiptPath := filepath.Join(dir, fmt.Sprintf("cold-%02d.native-libraries.json", i))
+		command, err := publicGoRunCommand(ctx, binding, file, receiptPath)
+		if err != nil {
+			cancel()
+			t.Fatal(err)
+		}
+		start = time.Now()
+		var out, diagnostics publicProcessCapture
+		command.Stdout, command.Stderr = &out, &diagnostics
+		if err := command.Start(); err != nil {
+			cancel()
+			t.Fatal(err)
+		}
+		identity, identityErr := nativereceipt.Identity(command.Process.Pid)
+		if identityErr != nil {
+			cancel()
+			_ = command.Wait()
+			t.Fatal(identityErr)
+		}
+		if identity.Executable != binding.GoBinary {
+			cancel()
+			_ = command.Wait()
+			t.Fatal("Go launcher executable differs")
+		}
+		identity.ExecutableSHA256 = binding.GoSHA256
+		if err := publicWriteJSON(filepath.Join(dir, fmt.Sprintf("cold-%02d.launcher.json", i)), identity); err != nil {
+			cancel()
+			_ = command.Wait()
+			t.Fatal(err)
+		}
+		coldErr := command.Wait()
+		stdout, stderr := out.Bytes(), diagnostics.Bytes()
+		coldWall := time.Since(start).Nanoseconds()
+		requestErr := ctx.Err()
+		cancel()
+		if requestErr != nil {
+			_ = publicWriteJSON(filepath.Join(dir, fmt.Sprintf("cold-%02d.custody-refusal.json", i)), struct {
+				Launcher                                       nativereceipt.Process
+				Cause                                          string
+				HarnessRetirementProven, OuterGuardianRequired bool
+			}{identity, requestErr.Error(), false, true})
+			t.Fatalf("Go run cancelled; descendant retirement remains owned by outer guardian: %v", requestErr)
+		}
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("cold-%02d.stdout", i)), stdout, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("cold-%02d.stderr", i)), stderr, 0600); err != nil {
+			t.Fatal(err)
+		}
+		var cold Report
+		if err := json.Unmarshal(stdout, &cold); err != nil {
+			t.Fatalf("cold harness JSON %d: %v, process=%v", i, err, coldErr)
+		}
+		if (cold.Outcome == OutcomeOK) == wrong || (coldErr != nil) != wrong || wrong && cold.Outcome != OutcomeWrongAnswer {
+			t.Fatalf("cold harness verdict %d: %+v, %v", i, cold, coldErr)
+		}
+		proof, err := nativereceipt.Read(receiptPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cold.Compile == nil || publicGoRunProducer(identity, parentIdentity, proof.Process) != nil {
+			t.Fatal("cold receipt: actual child identity or compilation absent")
+		}
+		if err := proof.Check(proof.Process, fmt.Sprintf("%x", sha256.Sum256([]byte(source))), cold.Compile.PTXSHA256); err != nil {
+			t.Fatal(err)
+		}
+		if err := binding.check(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := nativereceipt.Identity(proof.Process.PID); !os.IsNotExist(err) {
+			t.Fatal("Go harness remains live; outer guardian retirement required")
+		}
+		if err := publicWriteJSON(filepath.Join(dir, fmt.Sprintf("cold-%02d.processes.json", i)), struct{ Launcher, Harness nativereceipt.Process }{identity, proof.Process}); err != nil {
+			t.Fatal(err)
+		}
+		if err := publicWriteJSON(filepath.Join(dir, fmt.Sprintf("latency-%02d.json", i)), struct {
+			Index                               int
+			PushWallNanos, ColdProcessWallNanos int64
+			Push                                *PushResult
+			PushError                           string
+			Cold                                Report
+			Scope                               string
+		}{i, pushWall, coldWall, result, fmt.Sprint(pushErr), cold, "request/process wall latency includes native mapped-receipt hashing; Go source/tool binding checks are outside cold wall interval; actual go run includes Go build and harness execution; no cache eviction or fresh-cache claim; retained replay versus default harness; compiler cache reuse, no kernel throughput claim"}); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
