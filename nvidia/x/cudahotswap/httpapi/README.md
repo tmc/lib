@@ -47,8 +47,11 @@ GOWORK=off go build -o ./cudahotswap ./x/cmd/cudahotswap
 
 The demo owns SAXPY buffers and runs a CPU-reference Checker. It acquires
 GPU-lock leases for setup, readback and teardown; Service owns per-request launch
-leases. Do not place an outer GPU lock around this long-lived server, because it
-would block the service's own requests.
+leases. A finite server may run under a real outer GPU-lock holder when it
+inherits the verified holder PID and lock directory unchanged. Its request
+leases then nest under that owner. An unrelated outer holder without that
+inheritance blocks the server. Bound the server lifetime and retain its cleanup
+before releasing the outer holder.
 Its buffers remain private to the serialized loop and checker. General
 applications supply named launch/fixture resources through `httpapi.Resources`.
 

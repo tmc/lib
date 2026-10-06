@@ -17,12 +17,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
-	"github.com/tmc/lib/nvidia/x/cudahotswap/httpapi"
 )
 
 // This consumer runs on the Mac. The operator starts the demo on DGX and owns
-// the SSH forward. This test does not acquire an outer lease: Service acquires
-// per-request leases, so an outer GPU lock would deadlock its launch/check.
+// the SSH forward. A finite server launched under the real GPU-lock holder
+// inherits its verified holder PID and directory for nested request leases.
+// An unrelated outer holder without that inheritance would block the server.
 func TestNativeMacMCPWrongThenCorrect(t *testing.T) {
 	if os.Getenv("CUDAHOTSWAP_NATIVE") != "1" {
 		t.Skip("set CUDAHOTSWAP_NATIVE=1 after explicit native authorization")
@@ -59,7 +59,26 @@ func TestNativeMacMCPWrongThenCorrect(t *testing.T) {
 	}()
 	wrong := `extern "C" __global__ void saxpy(const float*x,const float*y,float*out,float a,unsigned n){unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i<n)out[i]=a*x[i]-y[i];}`
 	correct := `extern "C" __global__ void saxpy(const float*x,const float*y,float*out,float a,unsigned n){unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i<n)out[i]=a*x[i]+y[i];}`
+	status := func(filename string) cudahotswap.State {
+		res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "kernel_status", Arguments: nameInput{Name: "saxpy"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(res)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(artifacts, filename), raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+		reply, err := nativeMCPResponse(res)
+		if err != nil || res.IsError || reply.Failure != nil || reply.State == nil {
+			t.Fatalf("actual MCP status: %+v: %v", res, err)
+		}
+		return *reply.State
+	}
 	for i, source := range []string{wrong, correct} {
+		prior := status([]string{"wrong-before.json", "correct-before.json"}[i])
 		res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "push_kernel", Arguments: pushInput{Name: "saxpy", Label: "Mac native control", Source: sourceInput{Code: source, Entry: "saxpy", Filename: "native-control.cu"}}})
 		if err != nil {
 			t.Fatal(err)
@@ -71,27 +90,9 @@ func TestNativeMacMCPWrongThenCorrect(t *testing.T) {
 		if err = os.WriteFile(filepath.Join(artifacts, []string{"wrong.json", "correct.json"}[i]), raw, 0600); err != nil {
 			t.Fatal(err)
 		}
-		if len(res.Content) != 1 {
-			t.Fatal("missing MCP report")
-		}
-		text, ok := res.Content[0].(*mcp.TextContent)
-		if !ok {
-			t.Fatal("nontext report")
-		}
-		var reply httpapi.Response
-		if err = json.Unmarshal([]byte(text.Text), &reply); err != nil {
-			t.Fatal(err)
-		}
-		want := cudahotswap.OutcomeWrongAnswer
-		if i == 1 {
-			want = cudahotswap.OutcomeOK
-		}
-		if reply.Push == nil || reply.Push.Report.Outcome != want || res.IsError != (i == 0) || reply.Push.Report.Generation == 0 || reply.Push.Report.ConfigRevision == 0 {
-			t.Fatalf("control %d: %s", i, text.Text)
-		}
-		sourceDigest := sha256.Sum256([]byte(source))
-		if reply.Push.Report.Compile == nil || reply.Push.Report.Compile.SourceSHA256 != hex.EncodeToString(sourceDigest[:]) {
-			t.Fatal("report source identity does not match submitted control")
+		current := status([]string{"wrong-after.json", "correct-after.json"}[i])
+		if err := nativeMCPPushCheck(prior, current, res, source, "Mac native control", i == 0); err != nil {
+			t.Fatalf("control %d: %v", i, err)
 		}
 	}
 	if err := session.Close(); err != nil {
