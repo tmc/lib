@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/internal/nativereceipt"
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
 	"github.com/tmc/lib/nvidia/x/cudalock"
 )
@@ -27,41 +28,33 @@ type nativeWatchOutput struct {
 	cancel          context.CancelFunc
 	index           int
 	receipt         *nativereceipt.Session
-}
-
-func nativeWatchSource(index int) string {
-	switch index {
-	case 0:
-		return "extern \"C\" __global__ void replay(float*x,float*y,const float*w,unsigned n){unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i<n)y[i]=x[i]-w[i];}"
-	case 1:
-		return "extern \"C\" __global__ void replay(float*x){x[threadIdx.x]=0.0f;}"
-	default:
-		return "extern \"C\" __global__ void replay(float*x,float*y,const float*w,unsigned n){unsigned i=blockIdx.x*blockDim.x+threadIdx.x;if(i<n)y[i]=w[i]+x[i];}"
-	}
+	recorder        *watchNativeRecorder
+	service         *cudahotswap.Service
 }
 
 func (w *nativeWatchOutput) Write(data []byte) (int, error) {
-	var event struct {
-		Kernel string
-		Result *cudahotswap.PushResult
-		Error  string
-	}
+	var event watchEvent
 	if err := json.Unmarshal(data, &event); err != nil {
 		return 0, err
 	}
-	want := []cudahotswap.Outcome{cudahotswap.OutcomeWrongAnswer, cudahotswap.OutcomeABIMismatch, cudahotswap.OutcomeOK}
-	if w.index >= len(want) || event.Kernel != "kernel" || event.Result == nil || event.Result.Report.Outcome != want[w.index] {
-		return 0, fmt.Errorf("watch report %d: %+v", w.index, event)
+	selected, err := w.service.Status("kernel")
+	if err != nil {
+		return 0, err
 	}
-	if (event.Error != "") != (w.index < 2) {
-		return 0, errors.New("watch error disagrees with classified outcome")
+	observed := watchObservedEvent{Event: event, Selected: selected}
+	r := w.recorder
+	r.mu.Lock()
+	r.evidence.Events = append(r.evidence.Events, observed)
+	if w.index >= 3 || len(r.evidence.Compilations) != w.index+2 {
+		r.mu.Unlock()
+		return 0, errors.New("watch report: unexpected compilation inventory")
 	}
-	if w.index != 1 && (event.Result.Report.Replay == nil || !event.Result.Report.Replay.Native) {
-		return 0, errors.New("watch report lacks native replay evidence")
+	baseline, compiled := r.evidence.Baseline, r.evidence.Compilations[w.index+1]
+	r.mu.Unlock()
+	if err := validateWatchEvent(w.index, baseline, w.path, compiled, observed); err != nil {
+		return 0, err
 	}
-	if event.Result.Published != (w.index == 2) {
-		return 0, errors.New("watch publication disagrees with checked outcome")
-	}
+
 	sourceSum := fmt.Sprintf("%x", sha256.Sum256([]byte(nativeWatchSource(w.index))))
 	artifact := ""
 	if event.Result.Report.Compile != nil {
@@ -78,7 +71,7 @@ func (w *nativeWatchOutput) Write(data []byte) (int, error) {
 	}
 	w.Buffer.Write(data)
 	w.index++
-	if w.index == len(want) {
+	if w.index == 3 {
 		w.cancel()
 		return len(data), nil
 	}
@@ -132,17 +125,44 @@ func TestNativeWatchCLIRefusalThenRepair(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	recorder := &watchNativeRecorder{dir: dir, proof: proof, compiled: make(map[*cudahotswap.Compilation]int)}
+	recorder.evidence.Version = 1
+	recorder.evidence.WatchPath = path
 	t.Cleanup(func() {
-		if err := errors.Join(proof.Write(filepath.Join(dir, "native-libraries.json")), proof.Close()); err != nil {
+		proofPath := filepath.Join(dir, "native-libraries.json")
+		if err := errors.Join(proof.Write(proofPath), proof.Close()); err != nil {
 			t.Errorf("native library receipt: %v", err)
+			return
+		}
+		if err := recorder.finish(proofPath); err != nil {
+			t.Errorf("watch evidence: %v", err)
 		}
 	})
 	if err := proof.Capture("watch-before-run", "", ""); err != nil {
 		t.Fatal(err)
 	}
-	output := &nativeWatchOutput{path: path, artifacts: dir, cancel: cancel, receipt: proof}
+	output := &nativeWatchOutput{path: path, artifacts: dir, cancel: cancel, receipt: proof, recorder: recorder}
 	var stderr bytes.Buffer
-	err = run(ctx, []string{"-watch", path, "-n", "32"}, output, &stderr, newSession)
+	create := func(ctx context.Context, c config) (*cudahotswap.Service, func() error, error) {
+		service, close, err := newSessionWithLoader(ctx, c, func(dev *cuda.Device, paths ...string) (cudahotswap.Loader, error) {
+			base, err := cudahotswap.NewNVRTCLoader(dev, paths...)
+			if err != nil {
+				return base, err
+			}
+			return &watchNativeLoader{Loader: base, dev: dev, recorder: recorder}, nil
+		})
+		output.service = service
+		if service != nil && err == nil {
+			var stateErr error
+			recorder.evidence.Baseline, stateErr = service.Status("kernel")
+			err = errors.Join(err, stateErr)
+		}
+		if close != nil {
+			return service, func() error { return recorder.cleanup(service, close) }, err
+		}
+		return service, nil, err
+	}
+	err = run(ctx, []string{"-watch", path, "-n", "32"}, output, &stderr, create)
 	if err != nil && !onlyCancellation(err) {
 		t.Fatalf("actual CLI: %v; stderr=%s", err, &stderr)
 	}

@@ -3,8 +3,10 @@ package cudahotswap
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
@@ -96,9 +98,6 @@ func (s *Service) RecordFixture(ctx context.Context, name string, config Fixture
 	if err := s.mutationAvailable(name, nil); err != nil {
 		return nil, err
 	}
-	if s.newReplay == nil {
-		return nil, errors.New("record fixture: loader does not provide native replay")
-	}
 	s.mu.Lock()
 	state, ok := s.states[name]
 	settings := s.settings[name]
@@ -134,13 +133,6 @@ func (s *Service) RecordFixture(ctx context.Context, name string, config Fixture
 	if err := validateReplay(spec, policy); err != nil {
 		return nil, err
 	}
-	backend, err := s.newReplay(name, spec, policy, bindings)
-	if err != nil {
-		return nil, err
-	}
-	if backend == nil {
-		return nil, errors.New("record fixture: missing replay backend")
-	}
 	pin, _, err := s.table.pin(name)
 	if err != nil {
 		return nil, err
@@ -148,6 +140,27 @@ func (s *Service) RecordFixture(ctx context.Context, name string, config Fixture
 	kernel, ok := pin.gen.owner.(Kernel)
 	if !ok || kernel == nil {
 		return nil, errors.Join(errors.New("record fixture: selected owner is not a kernel"), pin.release())
+	}
+	var backend replayBackend
+	if s.newReplay != nil {
+		backend, err = s.newReplay(name, spec, policy, bindings)
+	} else {
+		owner, ok := kernel.(interface{ replayDevice() *cuda.Device })
+		if !ok || owner.replayDevice() == nil {
+			return nil, errors.Join(errors.New("record fixture: selected kernel does not provide native replay"), pin.release())
+		}
+		var native *cudaReplayBackend
+		native, err = newCUDAReplayBackend(owner.replayDevice(), spec, policy, bindings)
+		if err == nil {
+			native.acquire = func(ctx context.Context) (io.Closer, error) { return s.replayLease(ctx, name) }
+			backend = native
+		}
+	}
+	if err != nil {
+		return nil, errors.Join(err, pin.release())
+	}
+	if backend == nil {
+		return nil, errors.Join(errors.New("record fixture: missing replay backend"), pin.release())
 	}
 	replay, err := recordReplay(ctx, backend, replayArm{Kernel: kernel, Release: pin.release}, spec, policy)
 	f := &Fixture{service: s, state: state, replay: replay}

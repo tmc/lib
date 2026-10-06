@@ -223,6 +223,17 @@ func (o *sessionOwners) closeResources() error {
 }
 
 func newSession(ctx context.Context, c config) (*cudahotswap.Service, func() error, error) {
+	return newSessionWithLoader(ctx, c, func(dev *cuda.Device, paths ...string) (cudahotswap.Loader, error) {
+		return cudahotswap.NewNVRTCLoader(dev, paths...)
+	})
+}
+
+// newSessionWithLoader preserves the session owner lifecycle while allowing a
+// test to observe the actual native compiler and loader without replacing setup.
+func newSessionWithLoader(ctx context.Context, c config, create func(*cuda.Device, ...string) (cudahotswap.Loader, error)) (*cudahotswap.Service, func() error, error) {
+	if create == nil {
+		return nil, nil, errors.New("create watch session: missing loader factory")
+	}
 	o := new(sessionOwners)
 	o.acquire = acquireSessionLock
 	cleanup := func() error {
@@ -273,7 +284,7 @@ func newSession(ctx context.Context, c config) (*cudahotswap.Service, func() err
 		return nil, cleanup, err
 	}
 	o.lease = nil
-	loader, err := cudahotswap.NewNVRTCLoader(o.dev, append([]string{filepath.Dir(c.path)}, c.includes...)...)
+	loader, err := create(o.dev, append([]string{filepath.Dir(c.path)}, c.includes...)...)
 	if err != nil {
 		return nil, cleanup, err
 	}

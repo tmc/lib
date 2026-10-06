@@ -5,10 +5,12 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
 type serviceFixtureKernel struct {
@@ -207,6 +209,75 @@ func TestServiceRecordFixtureRefusesBeforeLease(t *testing.T) {
 	for _, f := range []*Fixture{nil, new(Fixture)} {
 		if f.Close(context.Background()) != nil || f.Close(nil) == nil || f.State() != (State{}) {
 			t.Fatal("zero fixture contract")
+		}
+	}
+}
+
+// A nil capability must not be mistaken for an actual device.
+type nilReplayFixtureKernel struct{ *serviceFixtureKernel }
+
+func (*nilReplayFixtureKernel) replayDevice() *cuda.Device { return nil }
+
+func TestRecordFixtureSelectedReplayCapability(t *testing.T) {
+	for _, name := range []string{"absent", "nil"} {
+		t.Run(name, func(t *testing.T) {
+			s, k, _, config, leases := serviceFixture(t)
+			s.newReplay = nil
+			g := s.table.entries["kernel"].current.Load()
+			if name == "nil" {
+				g.owner = &nilReplayFixtureKernel{k}
+			}
+			before := g.pins.Load()
+			fixture, err := s.RecordFixture(context.Background(), "kernel", config)
+			if fixture != nil || err == nil || g.pins.Load() != before || len(*leases) != 1 || len(s.fixtures) != 0 {
+				t.Fatal("missing actual selected device did not refuse without retaining a pin or lease")
+			}
+			if err := s.Close(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestRecordFixtureDerivesSelectedNativeDevice(t *testing.T) {
+	s, _, _, config, leases := serviceFixture(t)
+	s.newReplay = nil
+	g := s.table.entries["kernel"].current.Load()
+	original := g.owner
+	// A zero device has no context or allocations. The constructor must reject
+	// the empty test bindings before any device work, after finding this owner.
+	g.owner = &nativeKernel{dev: new(cuda.Device)}
+	before := g.pins.Load()
+	fixture, err := s.RecordFixture(context.Background(), "kernel", config)
+	g.owner = original
+	if fixture != nil || err == nil || !strings.Contains(err.Error(), "replay binding owner or extent mismatch") || g.pins.Load() != before || len(*leases) != 1 {
+		t.Fatalf("selected device construction or pin release: fixture=%v err=%v pins=%d", fixture, err, g.pins.Load())
+	}
+	if err := s.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRecordFixtureBackendRefusalReleasesSelectedPin(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		s, _, _, config, leases := serviceFixture(t)
+		g := s.table.entries["kernel"].current.Load()
+		before := g.pins.Load()
+		s.newReplay = func(string, replaySpec, replayPolicy, []replayDeviceBinding) (replayBackend, error) {
+			if g.pins.Load() != before+1 {
+				t.Fatal("backend constructed before selected owner adoption")
+			}
+			if fail {
+				return nil, errors.New("backend refusal")
+			}
+			return nil, nil
+		}
+		f, err := s.RecordFixture(context.Background(), "kernel", config)
+		if f != nil || err == nil || g.pins.Load() != before || len(*leases) != 1 {
+			t.Fatal("backend refusal retained selected pin or lease")
+		}
+		if err := s.Close(context.Background()); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
