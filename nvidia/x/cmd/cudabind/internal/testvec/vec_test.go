@@ -22,11 +22,26 @@ func TestKernels(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	m, err := loadVecModule(dev)
+	cm, err := compileVecModule(dev, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.Close()
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	kernel, err := m.mod.Function("scale_all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), "", nil, cm, output)
+	}
 	stream := dev.DefaultStream()
 	one := [3]uint32{1, 1, 1}
 	block := [3]uint32{32, 1, 1}
@@ -38,10 +53,14 @@ func TestKernels(t *testing.T) {
 		t.Fatalf("scale() = %v, %v, want 3", s, err)
 	}
 	x, err := cudamem.Alloc[float32](dev, 4)
+	defer func() {
+		if err := x.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer x.Free()
 	if err := x.CopyFromHost([]float32{1, 2, 3, 4}); err != nil {
 		t.Fatal(err)
 	}
@@ -53,15 +72,23 @@ func TestKernels(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, err := cudamem.Alloc[point](dev, 2)
+	defer func() {
+		if err := p.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer p.Free()
 	tags, err := cudamem.Alloc[pair](dev, 2)
+	defer func() {
+		if err := tags.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tags.Free()
 	if err := p.CopyFromHost([]point{{X: 1, Y: 1}, {X: 2, Y: 2}}); err != nil {
 		t.Fatal(err)
 	}
@@ -70,25 +97,37 @@ func TestKernels(t *testing.T) {
 	}
 
 	filled, err := cudamem.Alloc[pair](dev, 1)
+	defer func() {
+		if err := filled.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer filled.Free()
 	fillWant := pair{A: 7, B: [4]uint32{1, 2, 3, 4}}
 	if err := m.fill(stream, one, one, fillWant, filled); err != nil {
 		t.Fatal(err)
 	}
 
 	in, err := cudamem.Alloc[int32](dev, 5)
+	defer func() {
+		if err := in.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer in.Free()
 	out, err := cudamem.Alloc[int32](dev, 1)
+	defer func() {
+		if err := out.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer out.Free()
 	if err := in.CopyFromHost([]int32{1, 2, 3, 4, 5}); err != nil {
 		t.Fatal(err)
 	}

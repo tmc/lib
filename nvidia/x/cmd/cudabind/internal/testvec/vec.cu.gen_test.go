@@ -16,7 +16,23 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudatest"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
+
+var vecModuleWitnessCompilationObserver func(*testing.T, *cuda.Device, driver.Function, string, []string, *nvrtcx.CompiledModule, nvrtcx.OutputKind)
+var vecModuleWitnessModuleLoader func(*testing.T, *cuda.Device, *nvrtcx.CompiledModule) (*vecModule, nvrtcx.OutputKind, error)
+
+func vecModuleLoadWitnessModule(t *testing.T, dev *cuda.Device, cm *nvrtcx.CompiledModule) (*vecModule, nvrtcx.OutputKind, error) {
+	t.Helper()
+	if loader := vecModuleWitnessModuleLoader; loader != nil {
+		return loader(t, dev, cm)
+	}
+	if vecModuleWitnessCompilationObserver != nil {
+		return nil, nvrtcx.OutputAuto, fmt.Errorf("witness observer requires explicit module loader")
+	}
+	m, err := newVecModule(dev, cm)
+	return m, nvrtcx.OutputAuto, err
+}
 
 type vecModuleLayoutValue struct {
 	c string
@@ -299,14 +315,14 @@ func vecModuleSentinelPointer(t *testing.T, dev *cuda.Device) driver.DevicePtr {
 		t.Fatal(err)
 	}
 	buffer, err := cudamem.Alloc[byte](dev, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
 	t.Cleanup(func() {
 		if err := buffer.Free(); err != nil {
 			t.Error(err)
 		}
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	return buffer.Ptr()
 }
 func vecModuleReadLayout(t *testing.T, dev *cuda.Device, m *vecModule) []int64 {
@@ -323,14 +339,14 @@ func vecModuleReadLayout(t *testing.T, dev *cuda.Device, m *vecModule) []int64 {
 		t.Fatal(err)
 	}
 	out, err := cudamem.Alloc[int64](dev, len(want))
-	if err != nil {
-		t.Fatal(err)
-	}
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	pointer := out.Ptr()
 	stream := dev.DefaultStream()
 	err = stream.WithHandle(func(h driver.Stream) error {
@@ -359,11 +375,11 @@ func TestVecModuleLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	dev := cudatest.Require(t)
-	defer func() {
+	t.Cleanup(func() {
 		if err := dev.Close(); err != nil {
 			t.Error(err)
 		}
-	}()
+	})
 	want, err := vecModuleLayoutExpected()
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +388,7 @@ func TestVecModuleLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,15 +401,18 @@ func TestVecModuleLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[int64](dev, len(want))
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, k.Raw(), vecModuleLayoutSource(), nil, cm, output)
 	}
+	out, err := cudamem.Alloc[int64](dev, len(want))
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	p := out.Ptr()
 	stream := dev.DefaultStream()
 	err = stream.WithHandle(func(h driver.Stream) error {
@@ -447,7 +466,7 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,15 +482,18 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 14)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 14)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 14)
 	var arg0 driver.DevicePtr
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
@@ -607,7 +629,7 @@ for (unsigned int j = 0; j < sizeof(arg3) && j < 4; ++j) out[24+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -623,15 +645,18 @@ for (unsigned int j = 0; j < sizeof(arg3) && j < 4; ++j) out[24+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 28)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 28)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 28)
 	var arg0 driver.DevicePtr
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
@@ -828,7 +853,7 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[34+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -844,15 +869,18 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[34+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 42)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 42)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 42)
 	var arg0 pair
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
@@ -1049,7 +1077,7 @@ for (unsigned int j = 0; j < sizeof(arg2) && j < 8; ++j) out[15+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1065,15 +1093,18 @@ for (unsigned int j = 0; j < sizeof(arg2) && j < 8; ++j) out[15+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 23)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 23)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 23)
 	var arg0 driver.DevicePtr
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
@@ -1245,7 +1276,7 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1261,15 +1292,18 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 4; ++j) out[10+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 14)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 14)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 14)
 	var arg0 driver.DevicePtr
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
@@ -1399,7 +1433,7 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[18+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1415,15 +1449,18 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[18+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 26)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 26)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 26)
 	var arg0 packing
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
@@ -1585,7 +1622,7 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[22+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1601,15 +1638,18 @@ for (unsigned int j = 0; j < sizeof(arg1) && j < 8; ++j) out[22+j] = ((const uns
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 30)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 30)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 30)
 	var arg0 nested
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))
@@ -1800,7 +1840,7 @@ for (unsigned int j = 0; j < sizeof(arg0) && j < 4; ++j) out[1+j] = ((const unsi
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := newVecModule(dev, cm)
+	m, output, err := vecModuleLoadWitnessModule(t, dev, cm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1816,15 +1856,18 @@ for (unsigned int j = 0; j < sizeof(arg0) && j < 4; ++j) out[1+j] = ((const unsi
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := cudamem.Alloc[uint64](dev, 5)
-	if err != nil {
-		t.Fatal(err)
+	if observer := vecModuleWitnessCompilationObserver; observer != nil {
+		observer(t, dev, kernel.Raw(), vecModuleLayoutSource()+parameterSource, nil, cm, output)
 	}
+	out, err := cudamem.Alloc[uint64](dev, 5)
 	defer func() {
 		if err := out.Free(); err != nil {
 			t.Error(err)
 		}
 	}()
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := make([]uint64, 5)
 	var arg0 int32
 	bytes0 := unsafe.Slice((*byte)(unsafe.Pointer(&arg0)), int(unsafe.Sizeof(arg0)))

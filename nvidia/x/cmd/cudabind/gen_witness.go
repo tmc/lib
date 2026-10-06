@@ -154,10 +154,11 @@ func (g *gen) parameterWitness(cfg *config, m *module, compileName, newName stri
 		g.p("}")
 		g.p("`")
 		g.p("cm, err := %s(dev, %sLayoutSource()+parameterSource); if err != nil { t.Fatal(err) }", compileName, cfg.typeName)
-		g.p("m, err := %s(dev, cm); if err != nil { t.Fatal(err) }; defer func() { if err := m.Close(); err != nil { t.Error(err) } }()", newName)
+		g.p("m, output, err := %sLoadWitnessModule(t, dev, cm); if err != nil { t.Fatal(err) }; defer func() { if err := m.Close(); err != nil { t.Error(err) } }()", cfg.typeName)
 		g.p("if err := %sCheckLayout(%sReadLayout(t,dev,m)); err != nil {t.Fatal(err)}", cfg.typeName, cfg.typeName)
 		g.p("kernel, err := m.mod.Function(%q); if err != nil { t.Fatal(err) }", fmt.Sprintf("cudabind_parameter_%d", ki))
-		g.p("out, err := cudamem.Alloc[uint64](dev, %d); if err != nil { t.Fatal(err) }; defer func() { if err := out.Free(); err != nil { t.Error(err) } }()", total)
+		g.p("if observer := %sWitnessCompilationObserver; observer != nil { observer(t, dev, kernel.Raw(), %sLayoutSource()+parameterSource, nil, cm, output) }", cfg.typeName, cfg.typeName)
+		g.p("out, err := cudamem.Alloc[uint64](dev, %d); defer func() { if err := out.Free(); err != nil { t.Error(err) } }(); if err != nil { t.Fatal(err) }", total)
 		g.p("want := make([]uint64, %d)", total)
 		base = 0
 		for i, p := range k.params {

@@ -27,6 +27,7 @@ var witnessOwner struct {
 	next    int
 	session *nativereceipt.Session
 	images  [][2]string
+	roles   map[string]int
 }
 
 // The admitted native process owns this receipt. No controller identity or
@@ -50,6 +51,13 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	witnessOwner.dir, witnessOwner.session = dir, s
+	witnessOwner.roles = make(map[string]int)
+	vecModuleWitnessModuleLoader = loadWitnessOwnedModule
+	vecModuleWitnessCompilationObserver = retainWitnessCompilation
+	if vecModuleWitnessModuleLoader == nil || vecModuleWitnessCompilationObserver == nil {
+		fmt.Fprintln(os.Stderr, "witness receipt: qualification hooks absent")
+		os.Exit(2)
+	}
 	if err := s.Capture("witness-before-tests", "", ""); err != nil {
 		_ = s.Close()
 		fmt.Fprintln(os.Stderr, err)
@@ -58,7 +66,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 	proofPath := filepath.Join(dir, "native-libraries.json")
 	err = errors.Join(s.Capture("witness-after-tests", "", ""), s.Write(proofPath))
-	err = errors.Join(err, s.Close())
+	err = errors.Join(err, s.Close(), checkWitnessRoles(witnessOwner.roles))
 	if err == nil {
 		proof, readErr := nativereceipt.Read(proofPath)
 		err = readErr
@@ -210,6 +218,7 @@ func retainWitnessCompilation(t *testing.T, dev *cuda.Device, function driver.Fu
 		t.Fatal(err)
 	}
 	witnessOwner.images = append(witnessOwner.images, [2]string{sourceSHA, imageSHA})
+	witnessOwner.roles[t.Name()]++
 }
 
 // newWitnessModule is limited to the kernel-only witnesses. It does not expose

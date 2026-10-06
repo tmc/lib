@@ -116,3 +116,55 @@ func TestWitnessReceiptDirectoryLexicalAlias(t *testing.T) {
 		t.Fatal("accepted real symlink ancestor")
 	}
 }
+
+func TestWitnessReceiptRequiredRoles(t *testing.T) {
+	full := map[string]int{
+		"TestKernels": 1, "TestVecModuleLayout": 1,
+		"TestWitness_StaleBindingNamesField": 2, "TestWitness_UsesKernelDefines": 2,
+		"TestLaunch_NativeEarlyRefusals":                          1,
+		"TestExistingLayoutMutationAudit/baseline":                1,
+		"TestExistingLayoutMutationAudit/same_layout_wider_field": 1,
+		"TestExistingLayoutMutationAudit/packing":                 1,
+		"TestExistingLayoutMutationAudit/nested_vector_alignment": 1,
+		"TestVecModuleParameterABI0":                              1, "TestVecModuleParameterABI1": 1,
+		"TestVecModuleParameterABI2": 1, "TestVecModuleParameterABI3": 1,
+		"TestVecModuleParameterABI4": 1, "TestVecModuleParameterABI5": 1,
+		"TestVecModuleParameterABI6": 1, "TestVecModuleParameterABI7": 1,
+	}
+	if err := checkWitnessRoles(full); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"TestKernels", "TestVecModuleLayout", "TestVecModuleParameterABI7", "TestWitness_UsesKernelDefines"} {
+		for _, n := range []int{0, full[name] + 1} {
+			got := make(map[string]int)
+			for k, v := range full {
+				got[k] = v
+			}
+			got[name] = n
+			if err := checkWitnessRoles(got); err == nil {
+				t.Fatalf("accepted role %s with count %d", name, n)
+			}
+		}
+	}
+	got := make(map[string]int)
+	for k, v := range full {
+		got[k] = v
+	}
+	delete(got, "TestVecModuleParameterABI7")
+	got["unexecuted-role"] = 1
+	if err := checkWitnessRoles(got); err == nil {
+		t.Fatal("accepted replaced role")
+	}
+	if err := checkWitnessRoles(nil); err == nil {
+		t.Fatal("accepted missing compilation roles")
+	}
+}
+
+func TestWitnessReceiptStrictLoaderUnavailable(t *testing.T) {
+	for _, cm := range []*nvrtcx.CompiledModule{nil, {}} {
+		m, kind, err := loadWitnessOwnedModule(t, nil, cm)
+		if m != nil || err == nil || kind != nvrtcx.OutputCUBIN {
+			t.Fatalf("unavailable strict load: module=%v kind=%v error=%v", m, kind, err)
+		}
+	}
+}
