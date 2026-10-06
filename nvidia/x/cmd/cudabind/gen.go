@@ -308,13 +308,24 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	// name, with that of goExpr.
 	type check struct{ name, cExpr, goExpr string }
 	var checks []check
+	// NVRTC 13.0 has no __builtin_offsetof. Measure addresses in a
+	// trivial record object instead; no field value is read.
+	offsetObjects := make(map[*record]string)
+	for _, r := range m.records {
+		for _, f := range r.fields {
+			if f.cName != "" {
+				offsetObjects[r] = fmt.Sprintf("cudabind_layout_object_%d", len(offsetObjects))
+				break
+			}
+		}
+	}
 	c := func(cExpr, goExpr string) check { return check{cExpr, cExpr, goExpr} }
 	for _, r := range m.records {
 		for _, f := range r.fields {
 			if f.cName != "" {
 				checks = append(checks, check{
 					fmt.Sprintf("offsetof(%s, %s)", r.cName, f.cName),
-					fmt.Sprintf("__builtin_offsetof(%s, %s)", r.cName, f.cName),
+					fmt.Sprintf("(reinterpret_cast<unsigned long long>(&%s.%s) - reinterpret_cast<unsigned long long>(&%s))", offsetObjects[r], f.cName, offsetObjects[r]),
 					fmt.Sprintf("int64(unsafe.Offsetof(%s{}.%s))", r.goName, f.goName),
 				})
 				checks = append(checks, check{fmt.Sprintf("sizeof(%s.%s)", r.cName, f.cName), fmt.Sprintf("sizeof(((%s*)0)->%s)", r.cName, f.cName), fmt.Sprintf("int64(unsafe.Sizeof(%s{}.%s))", r.goName, f.goName)})
@@ -413,6 +424,12 @@ func generateTest(cfg *config, m *module, compileName, newName string) ([]byte, 
 	g.p("}")
 	g.p("func %sLayoutSource() string { return `", cfg.typeName)
 	g.p(`extern "C" __global__ void cudabind_layout(long long* out) {`)
+	for _, r := range m.records {
+		if object, ok := offsetObjects[r]; ok {
+			g.p("static_assert(__is_trivially_constructible(%s) && __is_trivially_copyable(%s) && __is_standard_layout(%s), %q);", r.cName, r.cName, r.cName, "cudabind layout requires trivial default construction and standard layout")
+			g.p("%s %s{};", r.cName, object)
+		}
+	}
 	for i, c := range checks {
 		g.p("out[%d] = (long long)(%s);", i, c.cExpr)
 	}
