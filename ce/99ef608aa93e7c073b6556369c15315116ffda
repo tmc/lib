@@ -1,0 +1,9 @@
+commit: ce99ef608aa93e7c073b6556369c15315116ffda
+commit date: 2026-10-06T14:58:46-07:00
+agent: codex-cli 0.160.1
+model: unavailable from runtime
+tty: unavailable (noninteractive exec)
+pid: 6490
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+independent grade: 007495328f9c4922b706172da91b527ba8f4b71d5f226ef9f65772742adf9478
+scope: source/CPU only; successful loaded-image native proof remains pending
