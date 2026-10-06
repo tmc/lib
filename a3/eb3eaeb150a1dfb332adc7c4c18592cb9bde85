@@ -1,0 +1,8 @@
+Commit: a3eb3eaeb150a1dfb332adc7c4c18592cb9bde85
+Date: 2026-10-06T17:34:25Z
+Agent: Codex CLI 0.160.0; model unavailable; tty unavailable; exec pid 79723
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Manual fallback: helper attempts exhausted earlier.
+Author: /Users/tmc/tmp/lib-nvidia-lane63/20261006-mcp-native-state/HANDOFF.md
+Independent root: /Users/tmc/tmp/lib-nvidia-lane63/20261006-root-mcp-state/GRADE.md; selected-state mutant killed; restored race3/vet/native-tag CPU/fmt/diff pass.
+No physical/native transport qualification.
