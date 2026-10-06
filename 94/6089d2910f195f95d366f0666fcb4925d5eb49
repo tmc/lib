@@ -1,0 +1,6 @@
+commit 946089d2910f195f95d366f0666fcb4925d5eb49
+date 2026-10-06T20:37:17.031463+00:00
+agent CodexCLI0.160.0; model unavailable; tty unavailable; pid 69300
+ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+independent grade /Users/tmc/tmp/lib-nvidia-lane68/20261006-root-constructor-review/GRADE.md
+actual root DGX libclang regeneration reproduced both bodies; SOURCE/CPU only
