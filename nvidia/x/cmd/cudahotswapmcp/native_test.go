@@ -45,7 +45,8 @@ func TestNativeMacMCPWrongThenCorrect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	client := mcp.NewClient(&mcp.Implementation{Name: "Mac-native-consumer", Version: "1"}, nil)
-	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: exec.CommandContext(ctx, binary, "-addr", addr), TerminateDuration: time.Second}, nil)
+	command := exec.CommandContext(ctx, binary, "-addr", addr)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: command, TerminateDuration: time.Second}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +100,13 @@ func TestNativeMacMCPWrongThenCorrect(t *testing.T) {
 		t.Fatal(err)
 	}
 	closed = true
-	metadata, _ := json.Marshal(map[string]any{"mcp_binary_sha256": hex.EncodeToString(digest[:]), "address": addr, "client_os": runtime.GOOS, "client_arch": runtime.GOARCH, "controls_passed": true, "mcp_process_closed": true})
+	if err := nativeMCPCommandClosed(command); err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := json.Marshal(map[string]any{"mcp_binary_sha256": hex.EncodeToString(digest[:]), "address": addr, "client_os": runtime.GOOS, "client_arch": runtime.GOARCH, "controls_passed": true, "mcp_process_closed": true, "mcp_pid": command.Process.Pid, "mcp_parent_pid": os.Getpid(), "mcp_exit_code": command.ProcessState.ExitCode()})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(artifacts, "client.json"), metadata, 0600); err != nil {
 		t.Fatal(err)
 	}
