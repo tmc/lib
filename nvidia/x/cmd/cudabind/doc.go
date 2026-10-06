@@ -90,6 +90,10 @@
 // storage alignment 4 and declared CUDA ABI alignment 16. A slice of that mirror
 // still requires a 16-byte-aligned device address.
 //
+// Records with named field offsets must be trivially default constructible,
+// trivially copyable and standard-layout. The layout witness measures member
+// addresses in a guarded record object; it does not read field values.
+//
 // Sentinel tests exclude record padding, whose value C does not specify. Opaque
 // unions, bit-field records and opaque toolkit mappings passed by value are
 // refused; pointers to them
