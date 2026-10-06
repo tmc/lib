@@ -24,6 +24,8 @@ var serviceMethods = map[string]string{
 	"SetCheck": "set_check", "SetWatchPaths": "set_watch_paths", "WatchPaths": "watch_paths", "Watch": "watch",
 	"Subscribe": "events", "Pin": "pin", "Launch": "launch", "RecordFixture": "record_fixture", "RegisterGraph": "register_graph",
 	"LaunchGraph": "launch_graph", "Close": "close",
+	"RegisterStage": "register_stage", "PushStage": "push_stage", "RevertStage": "revert_stage",
+	"RunStage": "run_stage", "RecordStageFixture": "record_stage_fixture",
 }
 
 // Endpoints returns the HTTP endpoint for each exported Service method.
@@ -62,7 +64,7 @@ func New(service Service, resources Resources) (*Handler, error) {
 	if service == nil || reflect.ValueOf(service).Kind() == reflect.Pointer && reflect.ValueOf(service).IsNil() {
 		return nil, errors.New("httpapi: nil service")
 	}
-	if len(resources.Checkers)+len(resources.Buffers)+len(resources.Streams)+len(resources.Graphs)+len(resources.Arguments) > 4096 {
+	if len(resources.Checkers)+len(resources.Buffers)+len(resources.Streams)+len(resources.Graphs)+len(resources.Arguments)+len(resources.Stages) > 4096 {
 		return nil, errors.New("httpapi: resource limit exceeded")
 	}
 	copy := Resources{Arguments: make(map[string][]string), Checkers: make(map[string]cudahotswap.Checker), Buffers: cloneMap(resources.Buffers), Streams: cloneMap(resources.Streams), Graphs: cloneMap(resources.Graphs)}
@@ -101,6 +103,11 @@ func New(service Service, resources Resources) (*Handler, error) {
 		}
 		g.Args = append([]any(nil), g.Args...)
 		copy.Graphs[name] = g
+	}
+	var err error
+	copy.Stages, err = copyStageBindings(resources.Stages, copy)
+	if err != nil {
+		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	idle := make(chan struct{})
@@ -237,7 +244,7 @@ func decodeRequest(w http.ResponseWriter, r *http.Request, request *Request) err
 	if d.Decode(new(any)) != io.EOF {
 		return errors.New("decode request: trailing JSON")
 	}
-	if len(request.Args) > 256 || len(request.Buffers) > 256 || len(request.Outputs) > 256 || len(request.Flags) > 64 || len(request.Label) > 256 || len(request.Source.Code) > 8<<20 {
+	if len(request.Args) > 256 || len(request.Buffers) > 256 || len(request.Outputs) > 256 || len(request.Flags) > 64 || len(request.Label) > 256 || len(request.Source.Code) > 8<<20 || len(request.StageCode) > 1<<20 {
 		return errors.New("decode request: field limit exceeded")
 	}
 	return nil
@@ -265,6 +272,9 @@ func (h *Handler) adopt(id string, owner retained) {
 }
 
 func (h *Handler) call(ctx context.Context, method string, q Request) (response Response, err error) {
+	if isStageMethod(method) {
+		return h.callStage(ctx, method, q)
+	}
 	mutating := method == "register" || method == "push" || method == "select" || method == "revert" || method == "set_compile_flags" || method == "set_geometry" || method == "set_check" || method == "set_watch_paths" || method == "register_graph" || method == "pin" || method == "launch" || method == "record_fixture" || method == "launch_graph" || method == "wait" || method == "release_pin" || method == "close_fixture"
 	if mutating && !validName(q.Label) {
 		return response, bad("caller label required")

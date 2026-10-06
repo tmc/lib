@@ -62,6 +62,9 @@ type Resources struct {
 	Buffers   map[string]cudamem.Slice[byte]
 	Streams   map[string]*cuda.Stream
 	Graphs    map[string]Graph
+	// Stages fixes each stage's builder, schema and named launch resources.
+	// All owners remain live until Handler.Close succeeds.
+	Stages map[string]StageBinding
 }
 
 // Argument is a typed scalar or a named application buffer. Supported scalar
@@ -87,6 +90,7 @@ type Request struct {
 	Name          string                      `json:"name,omitempty"`
 	Label         string                      `json:"label,omitempty"`
 	Source        cudahotswap.Source          `json:"source,omitempty"`
+	StageCode     string                      `json:"stage_code,omitempty"`
 	Version       uint64                      `json:"version,omitempty"`
 	Flags         []string                    `json:"flags,omitempty"`
 	Geometry      *cudahotswap.LaunchGeometry `json:"geometry,omitempty"`

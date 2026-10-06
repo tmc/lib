@@ -119,6 +119,10 @@ func TestExportedServiceEndpoints(t *testing.T) {
 func TestEveryEndpoint(t *testing.T) {
 	for method, endpoint := range Endpoints() {
 		t.Run(method, func(t *testing.T) {
+			if isStageMethod(endpoint) {
+				testStageEndpoint(t, method, endpoint)
+				return
+			}
 			f := new(fakeService)
 			h, err := New(f, Resources{Arguments: map[string][]string{"kernel": {}}, Streams: map[string]*cuda.Stream{"main": {}}, Graphs: map[string]Graph{"graph": {Exec: &cudagraph.Exec{}, Node: &cudagraph.Node{}, Stream: &cuda.Stream{}}}})
 			if err != nil {

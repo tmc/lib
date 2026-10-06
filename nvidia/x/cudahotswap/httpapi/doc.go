@@ -3,6 +3,9 @@
 // New accepts an application service and registries of named native resources.
 // Clients receive opaque lifetime handles, never raw CUDA pointers. The
 // application must keep its resources live until Handler.Close succeeds.
+// Optional StageService endpoints use application-owned StageBinding entries.
+// A caller supplies stage_code, never compiler paths, context schemas or native
+// pointers. RunStage returns only a completion handle; wait releases its owners.
 //
 // Listen accepts unix:/absolute/socket or tcp:host:port. Use an SSH forward for
 // remote TCP access; this package does not provide authentication or TLS.

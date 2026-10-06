@@ -106,3 +106,28 @@ one, and retains both MCP reports and submitted source digests. It requires
 absolute `CUDAHOTSWAP_MCP_BINARY` and `CUDAHOTSWAP_ARTIFACTS`, and
 `CUDAHOTSWAP_ADDR=tcp:127.0.0.1:8713`. It has not been physically qualified by
 the implementation's host gates.
+# Host stages
+
+Applications may implement the optional `StageService` extension and supply
+`Resources.Stages`. Each entry fixes a retained builder, immutable `StageSpec`,
+ordered buffer registry names, stream registry name, CUDA mode and compiler
+flags. The client cannot select a compiler executable, context schema or pointer.
+The application retains these owners and generation directories until
+`Handler.Close` succeeds.
+
+The five routes are `register_stage`, `push_stage`, `revert_stage`, `run_stage`
+and `record_stage_fixture`. Registration and push take `name`, `label` and
+`stage_code`; compiler flags and mode come from the application binding. Revert
+takes only the named stage and label. Stage calls refuse kernel geometry.
+
+Run takes the declared stream name and ordered buffer-only `args`. Its response
+has a completion `handle` and no invented state stamp. A handle returned with a
+failure still owns work. Call `wait` with that handle and a label, retrying after
+cancellation or cleanup failure. Fixture calls require the same ordered arguments,
+exact complete buffer extents and explicit outputs/policy; their replay arguments
+are nil placeholders for the service-owned scratch buffers. Host-only stages
+cannot record native replay fixtures.
+
+The host lifecycle test compiles and loads actual CPU-only C glue. Synthetic
+native-dispatch tests cover serialization and refusal, not GPU execution or
+native resource qualification.
