@@ -25,3 +25,7 @@ func openReceipt(string) (*os.File, error) {
 func validateProof(Receipt) error {
 	return errors.New("native receipt: Linux process mappings required")
 }
+
+func validateProofRequired(Receipt, bool) error {
+	return errors.New("native receipt: Linux process mappings required")
+}

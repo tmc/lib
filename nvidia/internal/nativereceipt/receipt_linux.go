@@ -227,6 +227,10 @@ func openReceipt(path string) (*os.File, error) {
 	return os.NewFile(uintptr(fd), path), nil
 }
 func validateProof(r Receipt) error {
+	return validateProofRequired(r, true)
+}
+
+func validateProofRequired(r Receipt, requireNVRTC bool) error {
 	files := make(map[string]File)
 	var total int64
 	key := func(major, minor uint32, inode uint64) string { return fmt.Sprintf("%d:%d:%d", major, minor, inode) }
@@ -278,8 +282,26 @@ func validateProof(r Receipt) error {
 			executable = executable || m.Path == r.Process.Executable && f.SHA256 == r.Process.ExecutableSHA256
 		}
 	}
-	if len(seen) != len(files) || !driver || !nvrtc || !executable || driver != r.DriverObserved || nvrtc != r.NVRTCObserved || builtins != r.BuiltinsObserved {
+	if len(seen) != len(files) || !driver || requireNVRTC && !nvrtc || !executable || driver != r.DriverObserved || nvrtc != r.NVRTCObserved || builtins != r.BuiltinsObserved {
 		return errors.New("native receipt: observed mapping proof disagrees")
+	}
+	if !requireNVRTC {
+		want := make(map[string]bool)
+		if !nvrtc {
+			want["NVRTC (not observed; no compiler mapping inferred)"] = true
+		}
+		if !builtins {
+			want["NVRTC builtins (possibly transient; not inferred)"] = true
+		}
+		if len(r.Unobserved) != len(want) {
+			return errors.New("native receipt: unobserved library limitations disagree")
+		}
+		for _, limitation := range r.Unobserved {
+			if !want[limitation] {
+				return errors.New("native receipt: unobserved library limitation disagrees")
+			}
+			delete(want, limitation)
+		}
 	}
 	if !builtins && len(r.Unobserved) == 0 {
 		return errors.New("native receipt: absent builtins lack explicit limitation")

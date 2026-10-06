@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/internal/nativereceipt"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -500,7 +501,14 @@ func replayVerifyNativeRun(run replayNativeRun, index int) error {
 	return nil
 }
 
+type replayRuntimeReceipt interface {
+	Capture(string, string, string) error
+	WriteDriver(string) error
+	Close() error
+}
+
 type replayNativeResources struct {
+	runtime  replayRuntimeReceipt
 	dev      *cuda.Device
 	lease    *cudalock.Handle
 	fixtures []*replayFixture
@@ -536,6 +544,12 @@ func (r *replayNativeResources) Close(ctx context.Context) error {
 		}
 		r.dev = nil
 	}
+	if r.runtime != nil {
+		if err := r.runtime.Close(); err != nil {
+			return err
+		}
+		r.runtime = nil
+	}
 	if r.lease != nil {
 		if err := r.lease.Release(); err != nil {
 			return err
@@ -568,12 +582,26 @@ func TestNativeHotSwapReplay(t *testing.T) {
 			t.Errorf("unresolved native owners/lease retained: %v", err)
 		}
 	})
+	runtimePath := os.Getenv("HOTSWAP_REPLAY_RUNTIME_RECEIPT")
+	if !filepath.IsAbs(runtimePath) {
+		t.Fatal("absolute replay runtime receipt path required")
+	}
+	r.runtime, err = nativereceipt.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.runtime.Capture("replay-before-device", "", ""); err != nil {
+		t.Fatal(err)
+	}
 	r.lease, err = cudalock.Acquire(ctx, cudalock.WithLabel("lane61-replay-native"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	r.dev, err = cuda.NewDevice(0)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.runtime.Capture("replay-after-device", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	major, minor, err := r.dev.ComputeCapability()
@@ -635,9 +663,16 @@ func TestNativeHotSwapReplay(t *testing.T) {
 				bindings = append(bindings, replayDeviceBinding{Arg: arg, Slice: whole.Slice(4, 36)})
 			}
 			load := func(name string) *replayPacketOwner {
+				metadata := imageMetadata[name]
+				if err := r.runtime.Capture("replay-before-load-"+tc.Name+"-"+name, metadata.SourceHash, metadata.ImageHash); err != nil {
+					t.Fatal(err)
+				}
 				owner, err := replayLoadPacketOwner(r.dev, images[name], imageMetadata[name].Signature)
 				r.modules = append(r.modules, owner)
 				if err != nil {
+					t.Fatal(err)
+				}
+				if err := r.runtime.Capture("replay-after-load-"+tc.Name+"-"+name, metadata.SourceHash, metadata.ImageHash); err != nil {
 					t.Fatal(err)
 				}
 				attrs := make(map[string]int)
@@ -661,6 +696,9 @@ func TestNativeHotSwapReplay(t *testing.T) {
 				t.Fatal(err)
 			}
 			observer := &replayNativeObserver{cudaReplayBackend: backend, guards: guarded, names: map[Kernel]string{base.kernel: tc.Baseline}, emit: func(value any) error {
+				if err := replayCaptureRuntimeArm(r.runtime, imageMetadata, tc.Name, value); err != nil {
+					return err
+				}
 				row := map[string]any{"case": tc.Name, "receipt": value}
 				b, err := json.Marshal(row)
 				if err == nil {
@@ -812,6 +850,60 @@ func TestNativeHotSwapReplay(t *testing.T) {
 	if launches != manifest.Launches {
 		t.Fatalf("total successful completed invocations=%d want=%d", launches, manifest.Launches)
 	}
+	proof, data, err := replayWriteRuntime(r.runtime, runtimePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err = json.Marshal(map[string]any{"kind": "runtime", "path": runtimePath, "sha256": fmt.Sprintf("%x", sha256.Sum256(data)), "process": proof.Process, "driver_observed": proof.DriverObserved, "nvrtc_observed": proof.NVRTCObserved, "builtins_observed": proof.BuiltinsObserved})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("REPLAY_NATIVE_JSON %s", encoded)
+}
+
+func replayWriteRuntime(receipt replayRuntimeReceipt, path string) (nativereceipt.Receipt, []byte, error) {
+	if receipt == nil {
+		return nativereceipt.Receipt{}, nil, errors.New("replay runtime receipt owner absent")
+	}
+	if err := receipt.WriteDriver(path); err != nil {
+		return nativereceipt.Receipt{}, nil, err
+	}
+	proof, err := nativereceipt.Read(path)
+	if err != nil {
+		return proof, nil, err
+	}
+	data, err := replayPacketFile(path, 32<<20)
+	return proof, data, err
+}
+
+// Each snapshot follows the real observer's attempt/completed-arm boundary.
+// The source and image identities come from the already verified packet.
+func replayCaptureRuntimeArm(receipt replayRuntimeReceipt, images map[string]replayPacketImage, caseName string, value any) error {
+	row, ok := value.(map[string]any)
+	if !ok {
+		return errors.New("replay runtime observation type differs")
+	}
+	var phase, name string
+	switch row["kind"] {
+	case "attempt":
+		phase = "before"
+		name, ok = row["kernel"].(string)
+	case "arm":
+		phase = "after"
+		var run replayNativeRun
+		run, ok = row["run"].(replayNativeRun)
+		name = run.Kernel
+	case "submission_or_completion_error":
+		return nil // Error observations have no completed-arm claim.
+	default:
+		return errors.New("replay runtime observation kind differs")
+	}
+	index, indexOK := row["index"].(int)
+	image, found := images[name]
+	if receipt == nil || !ok || !indexOK || index < 0 || index >= 74 || !found {
+		return errors.New("replay runtime image/index binding differs")
+	}
+	return receipt.Capture(fmt.Sprintf("replay-%s-arm-%s-%d", phase, caseName, index), image.SourceHash, image.ImageHash)
 }
 
 // A completed device arm can still be an incomplete comparison trial. The
@@ -1169,5 +1261,90 @@ func TestNativeReplayCaseStopCPU(t *testing.T) {
 	}
 	if !stopped {
 		t.Fatal("actual native case loop lacks failed-subtest stop")
+	}
+}
+
+type replayRuntimeCPU struct {
+	stages                         []nativereceipt.Stage
+	captureErr, writeErr, closeErr error
+	writes, closes                 int
+}
+
+func (r *replayRuntimeCPU) Capture(name, source, image string) error {
+	if r.captureErr != nil {
+		return r.captureErr
+	}
+	r.stages = append(r.stages, nativereceipt.Stage{Name: name, SourceSHA256: source, ArtifactSHA256: image})
+	return nil
+}
+func (r *replayRuntimeCPU) WriteDriver(string) error { r.writes++; return r.writeErr }
+func (r *replayRuntimeCPU) Close() error             { r.closes++; return r.closeErr }
+
+func TestReplayRuntimeArmBindingCPU(t *testing.T) {
+	source, image := strings.Repeat("1", 64), strings.Repeat("2", 64)
+	images := map[string]replayPacketImage{"baseline": {SourceHash: source, ImageHash: image}}
+	receipt := &replayRuntimeCPU{}
+	for _, value := range []any{
+		map[string]any{"kind": "attempt", "index": 0, "kernel": "baseline"},
+		map[string]any{"kind": "arm", "index": 0, "run": replayNativeRun{Kernel: "baseline"}},
+	} {
+		if err := replayCaptureRuntimeArm(receipt, images, "correct", value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []nativereceipt.Stage{
+		{Name: "replay-before-arm-correct-0", SourceSHA256: source, ArtifactSHA256: image},
+		{Name: "replay-after-arm-correct-0", SourceSHA256: source, ArtifactSHA256: image},
+	}
+	if !reflect.DeepEqual(receipt.stages, want) {
+		t.Fatalf("stages=%+v want=%+v", receipt.stages, want)
+	}
+	for _, tc := range []struct {
+		name  string
+		value any
+	}{
+		{"type", "arm"},
+		{"kind", map[string]any{"kind": "unknown"}},
+		{"unknown-image", map[string]any{"kind": "attempt", "index": 0, "kernel": "missing"}},
+		{"negative-index", map[string]any{"kind": "attempt", "index": -1, "kernel": "baseline"}},
+		{"excessive-index", map[string]any{"kind": "attempt", "index": 74, "kernel": "baseline"}},
+		{"index-type", map[string]any{"kind": "attempt", "index": float64(0), "kernel": "baseline"}},
+		{"run-type", map[string]any{"kind": "arm", "index": 0, "run": "baseline"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := replayCaptureRuntimeArm(receipt, images, "correct", tc.value); err == nil {
+				t.Fatal("accepted invalid runtime binding")
+			}
+		})
+	}
+	errCapture := errors.New("capture failed")
+	receipt.captureErr = errCapture
+	if err := replayCaptureRuntimeArm(receipt, images, "correct", map[string]any{"kind": "attempt", "index": 0, "kernel": "baseline"}); !errors.Is(err, errCapture) {
+		t.Fatal("capture error not propagated")
+	}
+}
+
+func TestReplayRuntimeCloseRetentionCPU(t *testing.T) {
+	failed := errors.New("close failed")
+	receipt := &replayRuntimeCPU{closeErr: failed}
+	owners := &replayNativeResources{runtime: receipt}
+	if err := owners.Close(context.Background()); !errors.Is(err, failed) || owners.runtime != receipt {
+		t.Fatal("failed close discarded receipt owner")
+	}
+	receipt.closeErr = nil
+	if err := owners.Close(context.Background()); err != nil || owners.runtime != nil || receipt.closes != 2 {
+		t.Fatal("successful retry did not retire receipt owner")
+	}
+}
+
+func TestReplayRuntimeWriteRetentionCPU(t *testing.T) {
+	failed := errors.New("write failed")
+	receipt := &replayRuntimeCPU{writeErr: failed}
+	owners := &replayNativeResources{runtime: receipt}
+	if _, _, err := replayWriteRuntime(owners.runtime, filepath.Join(t.TempDir(), "proof.json")); !errors.Is(err, failed) || owners.runtime != receipt || receipt.writes != 1 || receipt.closes != 0 {
+		t.Fatal("write failure discarded or closed the live receipt owner")
+	}
+	if err := owners.Close(context.Background()); err != nil || receipt.closes != 1 || owners.runtime != nil {
+		t.Fatal("cleanup did not close retained write-error owner")
 	}
 }

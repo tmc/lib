@@ -134,6 +134,17 @@ func (s *Session) Capture(name, source, artifact string) error {
 // and NVRTC must actually have been observed; absent builtins remain unobserved.
 // Hash time is reported; it must not be silently removed from process timing.
 func (s *Session) Write(path string) error {
+	return s.write(path, true)
+}
+
+// WriteDriver writes a precompiled-image receipt requiring an observed driver
+// and executable. NVRTC and builtins are recorded only when actually observed.
+// Their absence is explicit; this method does not load either library.
+func (s *Session) WriteDriver(path string) error {
+	return s.write(path, false)
+}
+
+func (s *Session) write(path string, requireNVRTC bool) error {
 	if s == nil {
 		return errors.New("native receipt: nil session")
 	}
@@ -148,7 +159,7 @@ func (s *Session) Write(path string) error {
 	if !filepath.IsAbs(path) {
 		return errors.New("native receipt: output must be absolute")
 	}
-	if !s.receipt.DriverObserved || !s.receipt.NVRTCObserved {
+	if !s.receipt.DriverObserved || requireNVRTC && !s.receipt.NVRTCObserved {
 		return errors.New("native receipt: required driver or NVRTC mapping absent")
 	}
 	start := time.Now()
@@ -191,8 +202,11 @@ func (s *Session) Write(path string) error {
 	if !s.receipt.BuiltinsObserved {
 		s.receipt.Unobserved = []string{"NVRTC builtins (possibly transient; not inferred)"}
 	}
+	if !s.receipt.NVRTCObserved {
+		s.receipt.Unobserved = append(s.receipt.Unobserved, "NVRTC (not observed; no compiler mapping inferred)")
+	}
 	s.receipt.Limit = "mapped descriptor file identity; no in-memory integrity or exhaustive transient-load proof"
-	if err := validateProof(s.receipt); err != nil {
+	if err := validateProofRequired(s.receipt, requireNVRTC); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(s.receipt, "", "  ")
@@ -327,6 +341,17 @@ func uniqueJSON(d *json.Decoder, depth int) error {
 // Check binds a child receipt to its admitted executable/start/group identity,
 // submitted source and actual compilation digest. Empty digests are refused.
 func (r Receipt) Check(expected Process, source, artifact string) error {
+	return r.check(expected, source, artifact, true)
+}
+
+// CheckDriver checks a precompiled-image receipt against the actual producer
+// and submitted source/image bytes. Driver and executable mapping proofs are
+// required; optional NVRTC and builtin claims must agree with all descriptors.
+func (r Receipt) CheckDriver(expected Process, source, artifact string) error {
+	return r.check(expected, source, artifact, false)
+}
+
+func (r Receipt) check(expected Process, source, artifact string, requireNVRTC bool) error {
 	p := r.Process
 	if p.PID != expected.PID || p.Parent != expected.Parent || p.Group != expected.Group || p.Start != expected.Start || p.Executable != expected.Executable || p.ExecutableSHA256 != expected.ExecutableSHA256 || p.PID <= 1 || p.Start == 0 || !validDigest(p.ExecutableSHA256) || p.ExecutableSHA256 == "" {
 		return errors.New("native receipt: producer process identity disagrees")
@@ -334,7 +359,7 @@ func (r Receipt) Check(expected Process, source, artifact string) error {
 	if source == "" || artifact == "" || !validDigest(source) || !validDigest(artifact) {
 		return errors.New("native receipt: compilation identity required")
 	}
-	if !r.DriverObserved || !r.NVRTCObserved || len(r.Stages) < 1 || len(r.Stages) > maxStages || len(r.Files) > maxFiles {
+	if !r.DriverObserved || requireNVRTC && !r.NVRTCObserved || len(r.Stages) < 1 || len(r.Stages) > maxStages || len(r.Files) > maxFiles {
 		return errors.New("native receipt: required mapping proof absent")
 	}
 	found := false
@@ -351,5 +376,5 @@ func (r Receipt) Check(expected Process, source, artifact string) error {
 			return errors.New("native receipt: mapped body hash absent")
 		}
 	}
-	return validateProof(r)
+	return validateProofRequired(r, requireNVRTC)
 }
