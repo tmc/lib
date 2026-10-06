@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
+	"unicode"
 )
 
 // validateJSON limits nested work and rejects ambiguous duplicate members.
@@ -41,6 +43,7 @@ func validateJSON(body []byte) error {
 					return err
 				}
 				name, ok := key.(string)
+				name = foldJSONName(name)
 				if !ok || seen[name] {
 					return errors.New("decode request: duplicate or invalid member")
 				}
@@ -68,4 +71,18 @@ func validateJSON(body []byte) error {
 		return errors.New("decode request: trailing JSON")
 	}
 	return nil
+}
+
+// encoding/json matches struct fields using Unicode case folding. Use the
+// smallest rune in each folding cycle so aliases share one map entry.
+func foldJSONName(name string) string {
+	return strings.Map(func(r rune) rune {
+		for {
+			next := unicode.SimpleFold(r)
+			if next <= r {
+				return next
+			}
+			r = next
+		}
+	}, name)
 }
