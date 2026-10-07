@@ -1,0 +1,4 @@
+Integration provenance: original 98f605d3dcd1e4f341d071cc7f904fb465679e7a; candidate 32fffd0ec62f9eacb35951d3f85eea76d4e9d01b
+Date 2026-10-07T06:37:11.376475+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+Codex; date 2026-10-07; model GPT-6; agent /root/hotswap_stream; commit 98f605d3dcd1e4f341d071cc7f904fb465679e7a; tty not a tty; pid 30921; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93; claude-code version not applicable
