@@ -77,8 +77,17 @@ func validateWatchEvent(index int, baseline cudahotswap.State, path string, comp
 		return errors.New("watch event: missing result or compilation")
 	}
 	compile := result.Report.Compile
-	if compile.SourceSHA256 != watchDigest([]byte(nativeWatchSource(index))) || compile.SourceSHA256 != compiled.SourceSHA256 || compile.PTXSHA256 != compiled.PTXSHA256 || compile.PTXBytes != compiled.PTXBytes || compile.SourceBytes != len(compiled.Source.Code) || !watchDigestValid(compile.PTXSHA256) {
+	if compile.SourceSHA256 != watchDigest([]byte(nativeWatchSource(index))) || compile.SourceSHA256 != compiled.SourceSHA256 || compile.SourceBytes != len(compiled.Source.Code) {
 		return errors.New("watch event: compilation identity differs")
+	}
+	// Push returns before preparing a candidate on ABI refusal. The recorder
+	// still retains the actual compiler artifact independently of this report.
+	if index == 1 {
+		if compile.PTXSHA256 != "" || compile.PTXBytes != 0 {
+			return errors.New("watch event: ABI refusal reported prepared PTX")
+		}
+	} else if compile.PTXSHA256 != compiled.PTXSHA256 || compile.PTXBytes != compiled.PTXBytes || !watchDigestValid(compile.PTXSHA256) {
+		return errors.New("watch event: compilation PTX identity differs")
 	}
 	want := []cudahotswap.Outcome{cudahotswap.OutcomeWrongAnswer, cudahotswap.OutcomeABIMismatch, cudahotswap.OutcomeOK}[index]
 	if result.Report.Outcome != want || (event.Error != "") != (index < 2) || result.Published != (index == 2) || result.RolledBack {

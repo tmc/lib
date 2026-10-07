@@ -64,6 +64,9 @@ func watchEvidenceCPUFixture() watchEvidence {
 				}
 			}
 			report.Replay = replay
+		} else {
+			report.Compile.PTXSHA256 = ""
+			report.Compile.PTXBytes = 0
 		}
 		event := watchEvent{Kernel: "kernel", Result: &cudahotswap.PushResult{State: state, Selected: selected, Published: i == 2, Report: report}}
 		if i < 2 {
@@ -120,6 +123,18 @@ func TestWatchNativeEvidenceCPU(t *testing.T) {
 		{"missing_sign", func(e *watchEvidence) { e.Events[2].Event.Result.Report.Replay.SignP = nil }},
 		{"wrong_sign", func(e *watchEvidence) { *e.Events[2].Event.Result.Report.Replay.SignP = 1 }},
 		{"missing_compile", func(e *watchEvidence) { e.Events[1].Event.Result.Report.Compile = nil }},
+		{"abi_report_ptx", func(e *watchEvidence) {
+			e.Events[1].Event.Result.Report.Compile.PTXSHA256 = e.Compilations[2].PTXSHA256
+		}},
+		{"abi_report_ptx_extent", func(e *watchEvidence) { e.Events[1].Event.Result.Report.Compile.PTXBytes = e.Compilations[2].PTXBytes }},
+		{"abi_artifact_ptx", func(e *watchEvidence) { e.Compilations[2].PTXSHA256 = "" }},
+		{"abi_artifact_ptx_extent", func(e *watchEvidence) { e.Compilations[2].PTXBytes = 0 }},
+		{"abi_report_source", func(e *watchEvidence) {
+			e.Events[1].Event.Result.Report.Compile.SourceSHA256 = watchDigest([]byte("other"))
+		}},
+		{"abi_report_source_extent", func(e *watchEvidence) { e.Events[1].Event.Result.Report.Compile.SourceBytes++ }},
+		{"wrong_answer_report_ptx_missing", func(e *watchEvidence) { e.Events[0].Event.Result.Report.Compile.PTXSHA256 = "" }},
+		{"correct_report_ptx_extent", func(e *watchEvidence) { e.Events[2].Event.Result.Report.Compile.PTXBytes++ }},
 		{"compile_source", func(e *watchEvidence) {
 			e.Events[0].Event.Result.Report.Compile.SourceSHA256 = watchDigest([]byte("other"))
 		}},
