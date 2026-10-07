@@ -445,6 +445,7 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 		t.Fatal(err)
 	}
 	var bound *cudagraph.Exec
+	graphHandles := make(map[*cudagraph.Exec]driver.GraphExec)
 	for _, register := range []bool{true, false} {
 		g, err := cudagraph.New(f.dev)
 		if g != nil {
@@ -465,7 +466,7 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		e, err := g.Instantiate()
+		e, err := g.InstantiateWithOptions(cudagraph.InstantiateOptions{RetainKernelOrder: true})
 		if e != nil {
 			if register {
 				f.execs = append(f.execs, e)
@@ -476,6 +477,13 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Retain only the actual executable identity before RegisterGraph patches
+		// the node and invalidates kernel-order evidence. Symbols are not reused.
+		graphExec, _, err := e.KernelOrder()
+		if err != nil || graphExec == 0 {
+			t.Fatalf("actual graph executable identity: %d %v", graphExec, err)
+		}
+		graphHandles[e] = graphExec
 		if register {
 			bound = e
 			if _, err := f.service.RegisterGraph(context.Background(), "graph", e, node, f.stream, driver.Dims(1, 1, 1), f.buffers[0]); err != nil {
@@ -493,7 +501,7 @@ func TestNativeServicePushReplayAndGraphs(t *testing.T) {
 		if err := view.CopyToHost(out); err != nil {
 			return err
 		}
-		graphExec, _, err := exec.KernelOrder()
+		graphExec, err := publicGraphHandle(graphHandles, exec, f.execs, f.raw)
 		if err != nil {
 			return err
 		}
