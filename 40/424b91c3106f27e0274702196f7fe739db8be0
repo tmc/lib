@@ -1,0 +1,4 @@
+Integration provenance: original 54ddd473678be8208313f5831ebe698dfcb04bc1; candidate 40424b91c3106f27e0274702196f7fe739db8be0
+Date 2026-10-07T06:37:10.954673+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+2026-10-06; Codex CLI 0.160.1; model GPT-6 exact identifier unavailable; tty none; writer PID 2485; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93. Fix duplicate declaration found by first post-source build.
