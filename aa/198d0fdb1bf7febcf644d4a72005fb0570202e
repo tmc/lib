@@ -1,0 +1,22 @@
+Integration provenance: original da86e9127fbe7ea056190cd0274d660c83fb2f15; candidate aa198d0fdb1bf7febcf644d4a72005fb0570202e
+Date 2026-10-07T06:37:11.697126+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+{
+  "name": "87",
+  "head": "da86e9127fbe7ea056190cd0274d660c83fb2f15",
+  "parent": "5740af124e9fb9a368b56c33b9f0055dfc7be9b4",
+  "branch": "lane/87-implementation-first",
+  "worktree": "/Users/tmc/tmp/lib-wt-next/20261006-implementation-first/wt87",
+  "files": 16,
+  "commit_date": "2026-10-06T22:43:02-07:00",
+  "validation": "existing host receipts retained; final independent/native qualification pending",
+  "identity": {
+    "agent": "Codex",
+    "version": "codex-cli 0.160.1",
+    "model": "not exposed by runtime",
+    "tty": "non-PTY tool invocation",
+    "pid": 96828,
+    "ITERM_SESSION_ID": "w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93",
+    "assigned_session": "026363F7-C2F7-4118-9920-4953A7B20D93"
+  }
+}
