@@ -215,10 +215,29 @@ func TestShutdownRetainedBeforePublicationWiring(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var found bool
+	var found, defaultDelegation bool
 	for _, d := range f.Decls {
 		fn, ok := d.(*ast.FuncDecl)
-		if !ok || fn.Name.Name != "collect" {
+		if !ok {
+			continue
+		}
+		if fn.Name.Name == "collect" && len(fn.Body.List) == 1 {
+			if ret, ok := fn.Body.List[0].(*ast.ReturnStmt); ok && len(ret.Results) == 1 {
+				if call, ok := ret.Results[0].(*ast.CallExpr); ok && len(call.Args) == 4 {
+					if target, ok := call.Fun.(*ast.Ident); ok && target.Name == "collectWithProof" {
+						want := []string{"index", "source", "pid", "false"}
+						defaultDelegation = true
+						for i, arg := range call.Args {
+							id, ok := arg.(*ast.Ident)
+							if !ok || id.Name != want[i] {
+								defaultDelegation = false
+							}
+						}
+					}
+				}
+			}
+		}
+		if fn.Name.Name != "collectWithProof" {
 			continue
 		}
 		for _, s := range fn.Body.List {
@@ -273,8 +292,8 @@ func TestShutdownRetainedBeforePublicationWiring(t *testing.T) {
 			found = true
 		}
 	}
-	if !found {
-		t.Fatal("collect does not retain deferred actual NVML shutdown error")
+	if !found || !defaultDelegation {
+		t.Fatal("default collect delegation or actual producer Shutdown retention differs")
 	}
 }
 

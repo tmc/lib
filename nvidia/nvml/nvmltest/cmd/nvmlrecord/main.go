@@ -41,19 +41,23 @@ type receipt struct {
 	MIG      string
 	LockPID  int
 	Calls    []observation
+	Runtime  json.RawMessage `json:",omitempty"`
 	Replay   nvmltest.Recording
 }
 
 func main() {
 	index := flag.Uint("index", 0, "device index")
 	source := flag.String("source", "", "qualified source commit/digest")
+	proof := flag.Bool("native-proof", false, "require actual process and mapped NVML proof")
 	out := flag.String("out", "", "new receipt path")
 	flag.Parse()
 	if uint64(*index) > uint64(^uint32(0)) {
 		fmt.Fprintln(os.Stderr, "nvmlrecord: device index exceeds uint32")
 		os.Exit(1)
 	}
-	if err := run(uint32(*index), *source, *out); err != nil {
+	if err := runWith(uint32(*index), *source, *out, func(index uint32, source string, pid int) (receipt, error) {
+		return collectWithProof(index, source, pid, *proof)
+	}); err != nil {
 		fmt.Fprintln(os.Stderr, "nvmlrecord:", err)
 		os.Exit(1)
 	}
@@ -82,15 +86,30 @@ func runWith(index uint32, source, out string, query func(uint32, string, int) (
 	return errors.Join(queryErr, writeReceipt(out, r))
 }
 
-func collect(index uint32, source string, pid int) (r receipt, err error) {
+func collect(index uint32, source string, pid int) (receipt, error) {
+	return collectWithProof(index, source, pid, false)
+}
+
+func collectWithProof(index uint32, source string, pid int, proof bool) (r receipt, err error) {
 	r = receipt{Version: 1, Time: time.Now().UTC().Format(time.RFC3339Nano), Source: source, MIG: "unavailable", LockPID: pid}
 	defer func() { completeUnmeasured(&r, err) }()
+	if proof {
+		if err := runtimeProofSupported(); err != nil {
+			return r, err
+		}
+	}
 	initErr := nvml.Init()
 	r.add("Init", nil, nil, initErr)
 	if err := initErr; err != nil {
 		return r, fmt.Errorf("initialize nvml: %w", err)
 	}
 	defer func() { err = errors.Join(err, cleanupObservation(&r, "Shutdown", nil, nvml.Shutdown)) }()
+	if proof {
+		r.Runtime, err = captureRuntime()
+		if err != nil {
+			return r, fmt.Errorf("capture native proof: %w", err)
+		}
+	}
 	d, err := nvml.NewDeviceByIndex(index)
 	r.add("NewDeviceByIndex", index, d, err)
 	if err != nil {
