@@ -180,8 +180,12 @@ func (d *FileDecoder) Position() (FilePosition, error) {
 
 // Finish declares the current epoch complete without reading more input.
 func (d *FileDecoder) Finish() error {
-	if err := d.check(); err != nil {
+	position, err := d.Position()
+	if err != nil {
 		return err
+	}
+	if position.high != position.offset {
+		return errors.New("inspector: unread or incomplete file input")
 	}
 	return d.decoder.Finish()
 }
