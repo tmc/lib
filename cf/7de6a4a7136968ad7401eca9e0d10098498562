@@ -1,1 +1,3 @@
 Commit cf7de6a4a7136968ad7401eca9e0d10098498562; date 2026-10-07T00:43:03-07:00; Codex GPT-6; pid 84164; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93. Bounded extent precheck; manual helper fallback.
+
+Integration provenance: commit cf7de6a4a7136968ad7401eca9e0d10098498562; commit date 2026-10-07T00:43:03-07:00; codex-cli 0.160.1; model not exposed; tty not a tty; pid 97519; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93; assigned session 026363F7-C2F7-4118-9920-4953A7B20D93. Independent final SOURCE/CPU ACCEPT cf7de6; no native qualification claimed.
