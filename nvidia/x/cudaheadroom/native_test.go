@@ -55,8 +55,16 @@ func TestNativeConfiguredHeadroom(t *testing.T) {
 		t.Fatalf("native gate requires actual inherited gpu-lock owner: %v", err)
 	}
 	dev := cudatest.RequireDevice(t)
+	var partial partialOwner
 	defer func() {
-		if err := dev.Close(); err != nil {
+		if err := partial.closeDevice(dev.Close); err != nil {
+			t.Error(err)
+		}
+	}()
+	// One immediate attempt and one deferred retry. A failed owner remains
+	// retained; device teardown must not invalidate a still-loaded module.
+	defer func() {
+		if err := partial.retry(); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -66,7 +74,7 @@ func TestNativeConfiguredHeadroom(t *testing.T) {
 	}
 	compiled, err := nvrtcx.Compile(headroomSource, nvrtcx.WithArch(major, minor))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(partial.capture(err))
 	}
 	image := []byte(compiled.PTX())
 	if len(image) == 0 {
@@ -96,16 +104,11 @@ func TestNativeConfiguredHeadroom(t *testing.T) {
 	}
 	module, _, err := compiled.LoadOwnedOutput(dev, nvrtcx.OutputPTX)
 	if err != nil {
-		var cleanup io.Closer
-		if errors.As(err, &cleanup) {
-			if closeErr := cleanup.Close(); closeErr != nil {
-				t.Error(closeErr)
-			}
-		}
-		t.Fatal(err)
+		t.Fatal(partial.capture(err))
 	}
 	defer func() {
 		if err := module.Close(); err != nil {
+			partial.owner = module
 			t.Error(err)
 		}
 	}()
