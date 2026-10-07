@@ -1,0 +1,14 @@
+{
+  "commit": "ae3e3ab3dddf406a820d9ca1a43e61e223b1a113",
+  "commit_date": "2026-10-06T20:50:59-07:00",
+  "agent": "Codex",
+  "version": "codex-cli 0.160.1",
+  "model": "unavailable from runtime",
+  "tty": "unavailable",
+  "pid": 4239,
+  "ITERM_SESSION_ID": "w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93",
+  "own_session_id": "026363F7-C2F7-4118-9920-4953A7B20D93",
+  "source_grade": "786d684415caf648c93aa2ca71858150fa2bf427ae11ddbed608f56a643045eb",
+  "retained_native_grade": "14b17c099de28f64535fafa3b10536158d5baac45d091ac5a84daa8eed412d49",
+  "scope": "fixture-only graph handle retention; lane61 incomplete"
+}
