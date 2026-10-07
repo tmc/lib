@@ -1,0 +1,15 @@
+{
+  "tag": "v4.6.1",
+  "commit": "64df9f894541e426e416131a9820cae97aa4dd81",
+  "target": "x86_64-unknown-linux-gnu",
+  "enum": "dcgmError_t",
+  "names": 137,
+  "values": 134,
+  "inputs": {
+    "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "dcgm_api_export.h": "a16f962228f6f9e741ad8b420604dec0f07936e5aba165e2183f12b619f94b47",
+    "dcgm_errors.h": "b2e1601996e929786f06390fdb9ace1c4140e5e693f80b3375822ffcbe09f894",
+    "dcgm_fields.h": "84c2805ba1bb1e24593e34536224ea825a1d7b45891880e63c86f0f5fc208421",
+    "dcgm_structs.h": "17a4546762379a360b3c73ce6a6935557446748d1046f1c05e65022c84e20c6a"
+  }
+}
