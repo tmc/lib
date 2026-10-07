@@ -56,6 +56,8 @@ var textDuration = regexp.MustCompile(`^Communicators\.\.\. \(([0-9]+\.[0-9]{2})
 // profile is NCCL 2.24.3's uniform job and aggregate communicator tables.
 // Nonuniform jobs and other versions/formats return UnsupportedError. Detailed
 // error/warning sections are retained as raw lines, not decoded into rank data.
+// Records bounds groups and retained diagnostic lines together; section headings
+// and separators do not count as diagnostic records.
 // The caller must arrange cancellation for an io.Reader that can block.
 func ReadText(r io.Reader, limits Limits) (*TextStatus, error) {
 	l, err := limits.checked()
@@ -213,7 +215,7 @@ func ReadText(r io.Reader, limits Limits) (*TextStatus, error) {
 	if i+2 >= len(lines) || lines[i+1] != "========" || lines[i+2] != "" {
 		return nil, errors.New("ras text: warnings section missing")
 	}
-	if len(lines)-start > l.Records {
+	if len(s.Groups)+(i-start)+(len(lines)-(i+3)) > l.Records {
 		return nil, errors.New("ras text: diagnostic line limit exceeded")
 	}
 	s.Errors = append([]string(nil), lines[start:i]...)
