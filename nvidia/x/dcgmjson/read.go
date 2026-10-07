@@ -51,8 +51,8 @@ type Test struct {
 	Unknown          map[string]json.RawMessage
 }
 
-// Result preserves a literal status and optional entity identity. Summary rows
-// normally omit entity identity. Warnings/info availability is independent of
+// Result preserves a literal status and optional entity identity. The producer
+// omits identity for FE_NONE, including ordinary results and summary rows. Warnings/info availability is independent of
 // whether the corresponding list is empty. Status Fail may include DCGM WARN.
 type Result struct {
 	Status                           string
@@ -197,7 +197,7 @@ func Read(r io.Reader, l Limits) (*Report, error) {
 						return nil, e
 					}
 					for _, rr := range rs {
-						v, e := readResult(rr, false, out.Version, take)
+						v, e := readResult(rr, out.Version, take)
 						if e != nil {
 							return nil, e
 						}
@@ -208,7 +208,7 @@ func Read(r io.Reader, l Limits) (*Report, error) {
 					if e = take(1); e != nil {
 						return nil, e
 					}
-					t.Summary, e = readResult(summary, true, out.Version, take)
+					t.Summary, e = readResult(summary, out.Version, take)
 					if e != nil {
 						return nil, e
 					}
@@ -230,7 +230,7 @@ func Read(r io.Reader, l Limits) (*Report, error) {
 	return out, nil
 }
 
-func readResult(raw []byte, summary bool, version string, take func(int) error) (*Result, error) {
+func readResult(raw []byte, version string, take func(int) error) (*Result, error) {
 	m, err := object(raw)
 	if err != nil {
 		return nil, err
@@ -261,8 +261,6 @@ func readResult(raw []byte, summary bool, version string, take func(int) error) 
 		if err = required(m, "entity_id", &v.Entity.ID); err != nil {
 			return nil, err
 		}
-	} else if !summary {
-		return nil, errors.New("dcgmjson: result entity identity required")
 	}
 	if _, ok := m["gpu_id"]; ok {
 		return nil, &UnsupportedError{Version: version, Format: "legacy gpu_id"}
