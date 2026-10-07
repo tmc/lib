@@ -1,1 +1,3 @@
 Commit fdc317ef586e1ae3b2d3b0cf8eec6b469ece0551; date 2026-10-07T00:37:19-07:00; Codex GPT-6; pid 70085; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93. Reviewer first/last NUL findings; manual fallback after unavailable helper.
+
+Integration provenance: commit fdc317ef586e1ae3b2d3b0cf8eec6b469ece0551; commit date 2026-10-07T00:37:19-07:00; codex-cli 0.160.1; model not exposed; tty not a tty; pid 97519; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93; assigned session 026363F7-C2F7-4118-9920-4953A7B20D93. Independent final SOURCE/CPU ACCEPT cf7de6; no native qualification claimed.
