@@ -1,0 +1,14 @@
+{"nodes":{
+	"3": {"status":"READY","host":"10.76.186.255",
+		"connections":{"1":{"host":"10.76.183.30","status":"CONNECTED","changed":true},
+			"6":{"host":"10.76.190.23","status":"CONNECTED","changed":true}
+		},
+		"changed":true,
+		"version":"580.30",
+		"hostName":""},
+	"1":{"status":"READY","host":"10.76.183.30",
+		"connections":{"0":{"host":"10.76.179.115","status":"CONNECTED","changed":true},
+		"1":{"host":"10.76.183.30","status":"CONNECTED","changed":true}},
+		"changed":true,"version":"580.30","hostName":""}},
+	"timestamp":"5/22/2025 19:46:40.891",
+	"status":"DEGRADED"}
