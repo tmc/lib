@@ -1,0 +1,16 @@
+{
+  "repository": "lib",
+  "head": "28b9e1201370c8da7f9ff490b7e5ca4442038706",
+  "original": "0d5ddb34c936862e4e64738946178fe7819adf9e",
+  "branch": "lane/implementation-first",
+  "worktree": "/Users/tmc/tmp/lib-wt-next/20261006-implementation-first/wt87",
+  "commit_date": "2026-10-06T23:13:09-07:00",
+  "agent": "Codex",
+  "version": "codex-cli 0.160.1",
+  "model": "not exposed by runtime",
+  "tty": "non-PTY",
+  "pid": 27138,
+  "ITERM_SESSION_ID": "w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93",
+  "assigned_session": "026363F7-C2F7-4118-9920-4953A7B20D93",
+  "status": "source checkpoint; root accepted G24/G25 focused repairs; IMEX/full-lane/native validation pending"
+}
