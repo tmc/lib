@@ -7,6 +7,12 @@
 // Dropped records remain explicit; absent dump statistics remain unavailable.
 // Exact raw lines preserve verbose event traces and unknown fields.
 //
+// NewDecoder supports incremental newline framing with temporary io.EOF and
+// explicit Finish. Limits apply to the entire epoch. OpenFile adds an opaque
+// in-process resume token, file replacement/truncation checks and prefix binding
+// on Linux and Darwin. Callers own polling, cancellation and append coordination.
+// Finite Read continues to refuse incomplete captures.
+//
 // Text, Prometheus, OTLP and other format versions are not supported.
 // Official source and example provenance is in testdata/README.md.
 package ncclinspector

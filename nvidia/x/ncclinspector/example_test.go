@@ -1,7 +1,9 @@
 package ncclinspector_test
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/tmc/lib/nvidia/x/ncclinspector"
@@ -61,4 +63,63 @@ func ExampleRecord() {
 	r := ncclinspector.Record{Collective: &ncclinspector.Collective{Sequence: 3}}
 	fmt.Println(r.Stats == nil)
 	// Output: true
+}
+
+func ExampleNewDecoder() {
+	b, err := os.ReadFile("testdata/stats.jsonl")
+	if err != nil {
+		panic(err)
+	}
+	var input bytes.Buffer
+	input.Write(b[:len(b)-1])
+	d, err := ncclinspector.NewDecoder(&input, ncclinspector.Limits{})
+	if err != nil {
+		panic(err)
+	}
+	_, err = d.Next()
+	fmt.Println(err == io.EOF, d.Offset())
+	input.WriteByte('\n')
+	r, err := d.Next()
+	if err != nil {
+		panic(err)
+	}
+	_, err = d.Next()
+	fmt.Println(r.Stats.CollectiveDropped, err == io.EOF, d.Finish() == nil)
+	// Output:
+	// true 0
+	// 512 true true
+}
+
+func ExampleOpenFile() {
+	d, err := ncclinspector.OpenFile("testdata/stats.jsonl", ncclinspector.Limits{}, nil)
+	if err != nil {
+		panic(err)
+	}
+	_, err = d.Next()
+	if err != nil {
+		panic(err)
+	}
+	position, err := d.Position()
+	if err != nil {
+		panic(err)
+	}
+	if err = d.Close(); err != nil {
+		panic(err)
+	}
+	d, err = ncclinspector.OpenFile("testdata/stats.jsonl", ncclinspector.Limits{}, &position)
+	if err != nil {
+		panic(err)
+	}
+	_, err = d.Next()
+	fmt.Println(position.Offset() > 0, err == io.EOF, d.Finish() == nil)
+	if err = d.Close(); err != nil {
+		panic(err)
+	}
+	// Output: true true true
+}
+
+func ExampleFilePosition_Offset() {
+	var p ncclinspector.FilePosition
+	fmt.Println(p.Offset())
+	// Output: 0
 }
