@@ -1,0 +1,9 @@
+commit c42a12c057761b6da8af4131e3b01e0f5024ab69
+date 2026-10-06T23:52:23.000913-07:00
+agent Codex hotswap_stream
+model GPT-6
+version unavailable (not Claude Code)
+tty unavailable
+pid 85781
+ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+helper failed twice missing Anthropic key; prescribed manual fallback
