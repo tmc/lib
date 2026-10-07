@@ -1,0 +1,13 @@
+{
+  "commit": "a5f251a3d5218f2b23c116da5a2b0a99626f652e",
+  "commit_date": "2026-10-06T20:56:19-07:00",
+  "agent": "Codex",
+  "version": "codex-cli 0.160.1",
+  "model": "unavailable from runtime",
+  "tty": "unavailable",
+  "pid": 16840,
+  "ITERM_SESSION_ID": "w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93",
+  "own_session_id": "026363F7-C2F7-4118-9920-4953A7B20D93",
+  "source_grade": "347b93ce6954dc5b82c10dab6687657c804578973fb551e9fd8160ba52882d7a",
+  "scope": "source-only ABI report host/native fixture correction; fresh native pending; not shared next"
+}
