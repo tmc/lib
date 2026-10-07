@@ -5,6 +5,7 @@ import (
 	"debug/elf"
 	"encoding/binary"
 	"errors"
+	"sync"
 	"testing"
 )
 
@@ -209,4 +210,51 @@ func TestCubinEmptyStringTable(t *testing.T) {
 			t.Fatal("nonzero name index in empty table accepted")
 		}
 	}
+}
+
+// Legacy .zdebug handling mutates debug/elf.Section.Size during Data reads.
+// Refuse either role before entering that decoder, including concurrent calls.
+func TestCubinSymbolsRefuseLegacyCompressedTables(t *testing.T) {
+	for _, role := range []int{1, 2} {
+		im, err := OpenCubin(symbolImage(0x21, 0, 0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		section := im.file.Sections[role]
+		section.Name = ".zdebug_str"
+		before := section.Size
+		var wg sync.WaitGroup
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if _, err := im.Symbols("raw"); err == nil {
+					t.Error("legacy compressed table accepted")
+				}
+			}()
+		}
+		wg.Wait()
+		if section.Size != before {
+			t.Fatal("read mutated section size")
+		}
+	}
+}
+
+func TestCubinSymbolsConcurrent(t *testing.T) {
+	im, err := OpenCubin(symbolImage(0x21, 0, 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rows, err := im.Symbols("raw")
+			if err != nil || len(rows) != 1 || rows[0].Value != 64 {
+				t.Error(rows, err)
+			}
+		}()
+	}
+	wg.Wait()
 }

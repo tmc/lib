@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"debug/elf"
 	"fmt"
+	text "strings"
 	"unicode/utf8"
 )
 
@@ -51,14 +52,14 @@ func (im *CubinImage) Symbols(name string) ([]CubinSymbol, error) {
 	if im.file.Class == elf.ELFCLASS32 {
 		entry = 16
 	}
-	if table.Size < entry || table.Entsize != entry || table.Size%entry != 0 || table.Size/entry > 65536 || table.Size > 8<<20 || table.Flags&elf.SHF_COMPRESSED != 0 {
+	if table.Size < entry || table.Entsize != entry || table.Size%entry != 0 || table.Size/entry > 65536 || table.Size > 8<<20 || table.Flags&elf.SHF_COMPRESSED != 0 || text.HasPrefix(table.Name, ".zdebug") {
 		return nil, fmt.Errorf("unsupported or excessive symbol table")
 	}
 	if uint64(table.Link) >= uint64(len(im.file.Sections)) {
 		return nil, fmt.Errorf("invalid symbol string table link")
 	}
 	strings := im.file.Sections[table.Link]
-	if strings.Type != elf.SHT_STRTAB || strings.Flags&elf.SHF_COMPRESSED != 0 || strings.Size > 8<<20-table.Size {
+	if strings.Type != elf.SHT_STRTAB || strings.Flags&elf.SHF_COMPRESSED != 0 || text.HasPrefix(strings.Name, ".zdebug") || strings.Size > 8<<20-table.Size {
 		return nil, fmt.Errorf("unsupported or excessive symbol string table")
 	}
 	// Validate every st_name before the standard reader, which silently drops
