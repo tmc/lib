@@ -135,6 +135,11 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 		}
 		seen[capture.ID] = true
 		facts := CaptureFacts{ID: capture.ID, Partial: capture.Partial, Truncated: capture.Truncated}
+		type statistic struct {
+			record  ncclinspector.Record
+			encoded []byte
+		}
+		var statistics []statistic
 		for _, r := range capture.Records {
 			records++
 			if records > opts.MaxRecords {
@@ -203,7 +208,7 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 				membership[id] = ranks
 			}
 			if clean.Stats != nil {
-				facts.Statistics = append(facts.Statistics, clean)
+				statistics = append(statistics, statistic{clean, b})
 				continue
 			}
 			c := *clean.Collective
@@ -226,16 +231,25 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 			first[rk] = Observation{capture.ID, clean.Header, clean.Metadata, c, nil}
 			g.Observations = append(g.Observations, Observation{capture.ID, clean.Header, clean.Metadata, c, clean.Raw})
 		}
-		sort.Slice(facts.Statistics, func(i, j int) bool {
-			a, b := facts.Statistics[i], facts.Statistics[j]
-			if a.Header.ID != b.Header.ID {
-				return a.Header.ID < b.Header.ID
+		sort.Slice(statistics, func(i, j int) bool {
+			a, b := statistics[i], statistics[j]
+			if a.record.Header.ID != b.record.Header.ID {
+				return a.record.Header.ID < b.record.Header.ID
 			}
-			if a.Header.Rank != b.Header.Rank {
-				return a.Header.Rank < b.Header.Rank
+			if a.record.Header.Rank != b.record.Header.Rank {
+				return a.record.Header.Rank < b.record.Header.Rank
 			}
-			return a.Metadata.TimestampMicros < b.Metadata.TimestampMicros
+			if a.record.Metadata.TimestampMicros != b.record.Metadata.TimestampMicros {
+				return a.record.Metadata.TimestampMicros < b.record.Metadata.TimestampMicros
+			}
+			if c := bytes.Compare(a.encoded, b.encoded); c != 0 {
+				return c < 0
+			}
+			return bytes.Compare(a.record.Raw, b.record.Raw) < 0
 		})
+		for _, s := range statistics {
+			facts.Statistics = append(facts.Statistics, s.record)
+		}
 		result.Captures = append(result.Captures, facts)
 	}
 	for _, g := range groups {
