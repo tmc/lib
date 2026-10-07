@@ -12,16 +12,6 @@ import (
 	"time"
 )
 
-// Client queries an explicit host:port. Timeout bounds the entire dial,
-// handshake and response and must be positive and at most one minute.
-// Limits bounds the response independently of the timeout. The zero Client
-// is not usable. Status issues no CONTROL commands.
-type Client struct {
-	Address string
-	Timeout time.Duration
-	Limits  Limits
-}
-
 // StatusText requests the explicitly supported legacy text profile. It sends
 // protocol 2, an integer TIMEOUT and STATUS, never SET FORMAT or CONTROL.
 // Cancellation closes the connection without changing the NCCL job.
