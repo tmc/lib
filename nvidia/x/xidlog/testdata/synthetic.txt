@@ -1,0 +1,4 @@
+NVRM: GPU at PCI:0000:65:00 : GPU-01234567-89ab-cdef-0123-456789abcdef
+NVRM: Xid (PCI:0000:65:00): 31, pid=12, name=worker, constructed fault
+NVRM: Xid (PCI:0000:65:00): 154, GPU recovery action changed from 0x0 (None) to 0x1 (GPU Reset Required)
+NVRM: Xid (PCI:0000:65:00): 9999, constructed future code
