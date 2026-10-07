@@ -1,0 +1,1 @@
+commit=81559990f date=2026-10-07 tool=Codex model=gpt-6.1-sol tty=none pid=25462 ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; signed manual fallback after two helper errors; CPU ownership/sync/malformed state gates PASS; new real-model State gate SKIP, device qualification pending
