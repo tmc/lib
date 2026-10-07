@@ -5,19 +5,20 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func workbook(t *testing.T, change func(map[string][]byte)) []byte {
 	t.Helper()
 	files := make(map[string][]byte)
-	for _, name := range []string{"workbook.xml", "sharedStrings.xml", "sheet1.xml"} {
+	for _, name := range []string{"workbook.xml", "sharedStrings.xml", "sheet1.xml", "sheet2.xml", "sheet4.xml"} {
 		b, err := os.ReadFile(filepath.Join("testdata", name))
 		if err != nil {
 			t.Fatal(err)
 		}
 		path := "xl/" + name
-		if name == "sheet1.xml" {
+		if strings.HasPrefix(name, "sheet") {
 			path = "xl/worksheets/" + name
 		}
 		files[path] = b
@@ -27,7 +28,7 @@ func workbook(t *testing.T, change func(map[string][]byte)) []byte {
 	}
 	var b bytes.Buffer
 	z := zip.NewWriter(&b)
-	for _, name := range []string{"xl/workbook.xml", "xl/sharedStrings.xml", "xl/worksheets/sheet1.xml"} {
+	for _, name := range []string{"xl/workbook.xml", "xl/sharedStrings.xml", "xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml", "xl/worksheets/sheet4.xml"} {
 		if data, ok := files[name]; ok {
 			w, err := z.Create(name)
 			if err != nil {

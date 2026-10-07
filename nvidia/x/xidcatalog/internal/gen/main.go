@@ -34,14 +34,19 @@ func main() {
 	digest := flag.String("sha256", "", "required workbook SHA256")
 	date := flag.String("retrieved", "", "retrieval date, YYYY-MM-DD")
 	out := flag.String("out", "catalog.gen.go", "output Go file")
+	decode := flag.Bool("decode", false, "import decode rules and supporting cells")
 	flag.Parse()
-	if err := run(*source, *url, *digest, *date, *out); err != nil {
+	if err := runMode(*source, *url, *digest, *date, *out, *decode); err != nil {
 		fmt.Fprintln(os.Stderr, "xidcatalog:", err)
 		os.Exit(1)
 	}
 }
 
 func run(source, url, digest, date, out string) error {
+	return runMode(source, url, digest, date, out, false)
+}
+
+func runMode(source, url, digest, date, out string, decode bool) error {
 	if len(digest) != 64 || !strings.HasPrefix(url, "https://docs.nvidia.com/") {
 		return fmt.Errorf("official URL and SHA256 required")
 	}
@@ -78,11 +83,21 @@ func run(source, url, digest, date, out string) error {
 	if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != digest {
 		return fmt.Errorf("workbook SHA256 %s differs from pin %s", got, digest)
 	}
-	rows, err := parse(data)
-	if err != nil {
-		return err
+	var generated []byte
+	if decode {
+		var rules []decodeRow
+		var evidence []sourceCell
+		rules, evidence, err = parseDecode(data)
+		if err == nil {
+			generated, err = renderDecode(rules, evidence)
+		}
+	} else {
+		var rows []xidRow
+		rows, err = parse(data)
+		if err == nil {
+			generated, err = render(rows, url, digest, date)
+		}
 	}
-	generated, err := render(rows, url, digest, date)
 	if err != nil {
 		return err
 	}

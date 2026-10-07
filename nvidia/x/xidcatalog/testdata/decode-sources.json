@@ -1,0 +1,532 @@
+[
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "A1",
+    "Value": "Xid"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "B1",
+    "Value": "Subcode V1(<R575)/V2(>=R575)\nV1(<R575): IntrInfo[9:5]\nV2(>=R575):IntrInfo[6:0]"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "C1",
+    "Value": "(V1(<R575)) IntrInfo decode for Data Center Recovery Action \nIntrInfo (binary; \"-\" user decode)"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "D1",
+    "Value": "(V2(>=R575)) IntrInfo decode for Data Center Recovery Action\nIntrInfo (binary; \"-\" user decode)"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "E1",
+    "Value": "Error Status (hex)"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "F1",
+    "Value": "Resolution Bucket \n(Data Center Recovery Action)"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "G1",
+    "Value": "(V1(<R575)) Decode for action 2"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "H1",
+    "Value": "(V2(>=R575)) Decode for action 2"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "I1",
+    "Value": "Action 2"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "J1",
+    "Value": "Resolution Bucket \n(Investigatory Action)"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "K1",
+    "Value": "Severity (for items with '*' please see Customer User Guide tab)"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "L1",
+    "Value": "HW/SW"
+  },
+  {
+    "Sheet": "Xid 144-150 Decode",
+    "Coordinate": "M1",
+    "Value": "Local/Remote (for items with '*' please see Customer User Guide tab)"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A1",
+    "Value": "Sheet Name"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B1",
+    "Value": "Column Name"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C1",
+    "Value": "Description"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A2",
+    "Value": "XIDs"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B2",
+    "Value": "Type XID"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C2",
+    "Value": "Identifies Xid entries"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A3",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B3",
+    "Value": "Code"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C3",
+    "Value": "The Xid number"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A4",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B4",
+    "Value": "Mnemonic"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C4",
+    "Value": "String to identify the condition."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A5",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B5",
+    "Value": "Description"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C5",
+    "Value": "More descriptive identifier for the condition (\"Unused\" could mean Code is deprecated or V100 or earlier)"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A6",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B6",
+    "Value": "Applies to <project>"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C6",
+    "Value": "Signifies if the Code is supported on this particular product."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A7",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B7",
+    "Value": "Resolution Bucket \n(Immediate Action)"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C7",
+    "Value": "Intended to reflect the action that is immediately needed in order to recover the system and get it back into service."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A8",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B8",
+    "Value": "Resolution Bucket (Investigatory Action)"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C8",
+    "Value": "Intended to reflect the action that is needed to investigate the fault further to try and avoid the condition occurring again. This may require FieldDiags (to check for HW issues), investigation of SI, software investigation or other steps."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A9",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B9",
+    "Value": "Xid 154 linkage"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C9",
+    "Value": "Represents if the Code is also expected to trigger an Xid 154 condition representing the derived Data Center resolution."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A10",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B10",
+    "Value": "Trigger Conditions"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C10",
+    "Value": "Description of when this condition may be seen or more details on possible actions to undertake."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A11",
+    "Value": "XID 144-150 Decode"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B11",
+    "Value": "Xid"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C11",
+    "Value": "Xid number associated with the particular row. Each Xid represents a function of NVLink operation."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A12",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B12",
+    "Value": "Subcode"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C12",
+    "Value": "The subsystem of the NVLink function. This is also presented in plain text in the Xid message (ex: NETIR_LINK_EVT)\nIf the text string differs between revisions, then the two entries will be divided by a \"/\" (V1(<R575)/V2(>=R575)). This field is encoded in the following IntrInfo bits: V1(<R575): IntrInfo[9:5]\nV2(>=R575):IntrInfo[6:0]."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A13",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B13",
+    "Value": "(V1(<R575)) IntrInfo decode for Data Center Recovery Action"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C13",
+    "Value": "Bitmask of IntrInfo for V1 messages. IntrInfo is the first register presented in the parentheses. Requires conversion of hexadecimal value to binary and applying the mask below. \"-\" bits are for optional user decode."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A14",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B14",
+    "Value": "(V2(>=R575)) IntrInfo decode for Data Center Recovery Action"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C14",
+    "Value": "Bitmask of IntrInfo for V2 messages. IntrInfo is the first register presented in the parentheses. Requires conversion of hexadecimal value to binary and applying the mask below. \"-\" bits are for optional user decode."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A15",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B15",
+    "Value": "Error Status (hex)"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C15",
+    "Value": "Error Status value represented by the second register presented in the parentheses."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A16",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B16",
+    "Value": "Resolution Bucket \n(Immediate Action)"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C16",
+    "Value": "Intended to reflect the action that is immediately needed in order to recover the system and get it back into service."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A17",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B17",
+    "Value": "(V1(<R575)) Decode for action 2"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C17",
+    "Value": "If needed, this will be the V1 IntrInfo decode required to undertake Action 2."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A18",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B18",
+    "Value": "(V2(>=R575)) Decode for action 2"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C18",
+    "Value": "If needed, this will be the V2 IntrInfo decode required to undertake Action 2."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A19",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B19",
+    "Value": "Action 2"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C19",
+    "Value": "Similar to Resolution Bucket \n(Immediate Action) above for the Decode for action 2 encoding"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A20",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B20",
+    "Value": "Resolution Bucket (Investigatory Action)"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C20",
+    "Value": "Intended to reflect the action that is needed to investigate the fault further to try and avoid the condition occurring again. This may require FieldDiags (to check for HW issues), investigation of SI, software investigation or other steps."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A21",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B21",
+    "Value": "Severity"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C21",
+    "Value": "Severity of the condition; Can be Link Fatal, Fatal (GPU) or non-fatal. \n-GPU fatal will cause all links to go down and all app channels to be RC'ed . May cause Packet Loss conditions.\n-Link fatal put the GPU in a \"drain and reset recommended state\" until jobs are drained. After job drain GPU is put to \"reset required \" state so no new jobs can be launched.\nNOTE:\n* is for promoteable errors that could be non-fatal or fatal and \"Action 2\" would apply. \n** while these are generally expected to be fatal, severity will be present and there are possible paths where this may not occur. "
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A22",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B22",
+    "Value": "HW/SW"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C22",
+    "Value": "Is the condition generally HW, SW, or FW related. Some conditions can not be uniquely classified."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A23",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B23",
+    "Value": "Local/Remote"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C23",
+    "Value": "What are the impacts of the condition on the local GPU as well as remote GPU(s) that are interconnected. \nNOTE: \n-Applies to Xid 144-148, 150. \n-Xid 149 will all be impacts to a local device (even if caused by a peer_side_down_* condition)\n-XC represents Cross Contain\"\n*** Packet Loss may present as a Xid 145 RLW_SRC_TRACK; V1 IntrInfo: ------000000----------0011100010 ; V2 IntrInfo: ------000000-------------0000111; ErrStatus 0x00000004 or 0x00000008\n**** Xid94 represents consumption of poisoned memory; Xid 48 represents ECC/DBE errors"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A24",
+    "Value": "Guidance Classes"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B24",
+    "Value": "Guidance Class"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C24",
+    "Value": "A resolution bucket assigned to a particular type of action."
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "A25",
+    "Value": ""
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "B25",
+    "Value": "Resolution Action"
+  },
+  {
+    "Sheet": "Customer User Guide",
+    "Coordinate": "C25",
+    "Value": "Steps to be taken to resolve the error that occurred."
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K96",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L96",
+    "Value": "These events (94/95) are logged when GPU drivers handle errors in GPUs that support error containment, starting with NVIDIA\u00ae A100 GPUs.\n\nFor Xid 95, these errors affect multiple applications, and the affected GPU must be reset before applications can restart. Refer https://docs.nvidia.com/deploy/gpu-debug-guidelines/index.html for GPU Reset capabilities & limitations\n\nOne possible cause of containment errors is the handling of ECC memory errors. Review the NVIDIA GPU Memory Error Management manual: https://docs.nvidia.com/deploy/a100-gpu-mem-error-mgmt/index.html#row-remapping for coverage of ECC-triggered containment errors.\n\nXid 45 will be seen in relation to this error."
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K145",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L145",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K146",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L146",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K147",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L147",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K148",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L148",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K149",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L149",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K150",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L150",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K151",
+    "Value": "CUDA 12.7; GPU driver R565"
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L151",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "K155",
+    "Value": ""
+  },
+  {
+    "Sheet": "Xids",
+    "Coordinate": "L155",
+    "Value": "\"Xid 154 will be seen in conjunction with other Xids and summarizes the recovery action required for other Xids. \nThe string will be similar to \"\"Xid 154 GPU recovery action changed from 0x0 (None) to 0x2 (Node Reboot Required)\"\" where the expected values of the text are: \"\"None\"\", \"\"Drain P2P\"\", \"\"Drain and Reset\"\", \"\"GPU Reset Required\"\", \"\"Node Reboot Required\"\". \""
+  }
+]

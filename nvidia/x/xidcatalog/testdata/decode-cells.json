@@ -1,0 +1,1749 @@
+{
+  "source_sha256": "7f70ce9684be0c9d98a367770341ccc1d8bca4465cebe42dab7e23d57df5d5a5",
+  "rows": [
+    {
+      "row": 1,
+      "cells": {
+        "A1": "Xid",
+        "B1": "Subcode V1(<R575)/V2(>=R575)\nV1(<R575): IntrInfo[9:5]\nV2(>=R575):IntrInfo[6:0]",
+        "C1": "(V1(<R575)) IntrInfo decode for Data Center Recovery Action \nIntrInfo (binary; \"-\" user decode)",
+        "D1": "(V2(>=R575)) IntrInfo decode for Data Center Recovery Action\nIntrInfo (binary; \"-\" user decode)",
+        "E1": "Error Status (hex)",
+        "F1": "Resolution Bucket \n(Data Center Recovery Action)",
+        "G1": "(V1(<R575)) Decode for action 2",
+        "H1": "(V2(>=R575)) Decode for action 2",
+        "I1": "Action 2",
+        "J1": "Resolution Bucket \n(Investigatory Action)",
+        "K1": "Severity (for items with '*' please see Customer User Guide tab)",
+        "L1": "HW/SW",
+        "M1": "Local/Remote (for items with '*' please see Customer User Guide tab)"
+      }
+    },
+    {
+      "row": 2,
+      "cells": {
+        "A2": "144",
+        "B2": "SAW_MVB",
+        "C2": "------000000----------0000100001",
+        "D2": "------000000-------------0000001",
+        "E2": "0x00000001",
+        "F2": "IGNORE",
+        "G2": "",
+        "H2": "",
+        "I2": "",
+        "J2": "CONTACT_SUPPORT",
+        "K2": "Non-fatal",
+        "L2": "HW",
+        "M2": "Local: Will lead to Xid 48. Will lead to poison or Xid94/95****; \nRemote: none"
+      }
+    },
+    {
+      "row": 3,
+      "cells": {
+        "A3": "144",
+        "B3": "SAW_MVB",
+        "C3": "------000000----------0000100001",
+        "D3": "------000000-------------0000001",
+        "E3": "0x00000002",
+        "F3": "RESET_GPU",
+        "G3": "",
+        "H3": "",
+        "I3": "",
+        "J3": "CONTACT_SUPPORT",
+        "K3": "Fatal",
+        "L3": "HW",
+        "M3": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 4,
+      "cells": {
+        "A4": "144",
+        "B4": "SAW_MVB",
+        "C4": "------000000----------0000100001",
+        "D4": "------000000-------------0000001",
+        "E4": "0x00000004",
+        "F4": "IGNORE",
+        "G4": "",
+        "H4": "",
+        "I4": "",
+        "J4": "IGNORE",
+        "K4": "Non-fatal",
+        "L4": "HW",
+        "M4": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 5,
+      "cells": {
+        "A5": "144",
+        "B5": "SAW_MVB",
+        "C5": "------000000----------0000100001",
+        "D5": "------000000-------------0000001",
+        "E5": "0x00000008",
+        "F5": "IGNORE",
+        "G5": "",
+        "H5": "",
+        "I5": "",
+        "J5": "CONTACT_SUPPORT",
+        "K5": "Non-fatal",
+        "L5": "HW",
+        "M5": "Local: XID 48; \nRemote: Will lead to poison or Xid94****"
+      }
+    },
+    {
+      "row": 6,
+      "cells": {
+        "A6": "144",
+        "B6": "SAW_MVB",
+        "C6": "------000000----------0000100001",
+        "D6": "------000000-------------0000001",
+        "E6": "0x00000010",
+        "F6": "RESET_GPU",
+        "G6": "",
+        "H6": "",
+        "I6": "",
+        "J6": "CONTACT_SUPPORT",
+        "K6": "Fatal",
+        "L6": "HW",
+        "M6": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 7,
+      "cells": {
+        "A7": "144",
+        "B7": "SAW_MVB",
+        "C7": "------000000----------0000100001",
+        "D7": "------000000-------------0000001",
+        "E7": "0x00000020",
+        "F7": "IGNORE",
+        "G7": "",
+        "H7": "",
+        "I7": "",
+        "J7": "IGNORE",
+        "K7": "Non-fatal",
+        "L7": "HW",
+        "M7": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 8,
+      "cells": {
+        "A8": "145",
+        "B8": "RLW_CTRL",
+        "C8": "------000000----------0001100010",
+        "D8": "------000000-------------0000011",
+        "E8": "0x80000000",
+        "F8": "IGNORE",
+        "G8": "",
+        "H8": "",
+        "I8": "",
+        "J8": "CONTACT_SUPPORT",
+        "K8": "Non-fatal",
+        "L8": "SW",
+        "M8": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 9,
+      "cells": {
+        "A9": "145",
+        "B9": "RLW_REMAP",
+        "C9": "------000000----------0010000010",
+        "D9": "------000000-------------0000100",
+        "E9": "0x00000001",
+        "F9": "XID_154_EVAL",
+        "G9": "",
+        "H9": "",
+        "I9": "",
+        "J9": "CONTACT_SUPPORT",
+        "K9": "Non-fatal",
+        "L9": "SW",
+        "M9": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 10,
+      "cells": {
+        "A10": "145",
+        "B10": "RLW_REMAP",
+        "C10": "------000000----------0010000010",
+        "D10": "------000000-------------0000100",
+        "E10": "0x00000002",
+        "F10": "XID_154_EVAL",
+        "G10": "",
+        "H10": "",
+        "I10": "",
+        "J10": "CONTACT_SUPPORT",
+        "K10": "Non-fatal",
+        "L10": "SW",
+        "M10": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 11,
+      "cells": {
+        "A11": "145",
+        "B11": "RLW_REMAP",
+        "C11": "------000000----------0010000010",
+        "D11": "------000000-------------0000100",
+        "E11": "0x00000004",
+        "F11": "XID_154_EVAL",
+        "G11": "",
+        "H11": "",
+        "I11": "",
+        "J11": "CHECK_NVLINK_FAILURE_FLOW",
+        "K11": "Non-fatal",
+        "L11": "SW",
+        "M11": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 12,
+      "cells": {
+        "A12": "145",
+        "B12": "RLW_REMAP",
+        "C12": "------000000----------0010000010",
+        "D12": "------000000-------------0000100",
+        "E12": "0x00000008",
+        "F12": "XID_154_EVAL",
+        "G12": "",
+        "H12": "",
+        "I12": "",
+        "J12": "CHECK_NVLINK_FAILURE_FLOW",
+        "K12": "Non-fatal",
+        "L12": "SW",
+        "M12": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 13,
+      "cells": {
+        "A13": "145",
+        "B13": "RLW_REMAP",
+        "C13": "------000000----------0010000010",
+        "D13": "------000000-------------0000100",
+        "E13": "0x00000010",
+        "F13": "XID_154_EVAL",
+        "G13": "",
+        "H13": "",
+        "I13": "",
+        "J13": "CHECK_NVLINK_FAILURE_FLOW",
+        "K13": "Non-fatal",
+        "L13": "SW",
+        "M13": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 14,
+      "cells": {
+        "A14": "145",
+        "B14": "RLW_REMAP",
+        "C14": "------000000----------0010000010",
+        "D14": "------000000-------------0000100",
+        "E14": "0x00000020",
+        "F14": "XID_154_EVAL",
+        "G14": "",
+        "H14": "",
+        "I14": "",
+        "J14": "CHECK_NVLINK_FAILURE_FLOW",
+        "K14": "Non-fatal",
+        "L14": "SW",
+        "M14": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 15,
+      "cells": {
+        "A15": "145",
+        "B15": "RLW_REMAP",
+        "C15": "------000000----------0010000010",
+        "D15": "------000000-------------0000100",
+        "E15": "0x00000040",
+        "F15": "RESET_GPU",
+        "G15": "",
+        "H15": "",
+        "I15": "",
+        "J15": "CONTACT_SUPPORT",
+        "K15": "Fatal",
+        "L15": "HW",
+        "M15": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 16,
+      "cells": {
+        "A16": "145",
+        "B16": "RLW_REMAP",
+        "C16": "------000000----------0010000010",
+        "D16": "------000000-------------0000100",
+        "E16": "0x00000080",
+        "F16": "RESET_GPU",
+        "G16": "",
+        "H16": "",
+        "I16": "",
+        "J16": "CONTACT_SUPPORT",
+        "K16": "Fatal",
+        "L16": "HW",
+        "M16": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 17,
+      "cells": {
+        "A17": "145",
+        "B17": "RLW_REMAP",
+        "C17": "------000000----------0010000010",
+        "D17": "------000000-------------0000100",
+        "E17": "0x00000100",
+        "F17": "IGNORE",
+        "G17": "",
+        "H17": "",
+        "I17": "",
+        "J17": "IGNORE",
+        "K17": "Non-fatal",
+        "L17": "HW",
+        "M17": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 18,
+      "cells": {
+        "A18": "145",
+        "B18": "RLW_REMAP",
+        "C18": "------000000----------0010000010",
+        "D18": "------000000-------------0000100",
+        "E18": "0x00000200",
+        "F18": "IGNORE",
+        "G18": "",
+        "H18": "",
+        "I18": "",
+        "J18": "IGNORE",
+        "K18": "Non-fatal",
+        "L18": "HW",
+        "M18": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 19,
+      "cells": {
+        "A19": "145",
+        "B19": "RLW_REMAP",
+        "C19": "------000000----------0010000010",
+        "D19": "------000000-------------0000100",
+        "E19": "0x80000000",
+        "F19": "IGNORE",
+        "G19": "",
+        "H19": "",
+        "I19": "",
+        "J19": "CONTACT_SUPPORT",
+        "K19": "Non-fatal",
+        "L19": "SW",
+        "M19": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 20,
+      "cells": {
+        "A20": "145",
+        "B20": "RLW_RSPCOL",
+        "C20": "------000000----------0010100010",
+        "D20": "------000000-------------0000101",
+        "E20": "0x00000001",
+        "F20": "IGNORE",
+        "G20": "",
+        "H20": "",
+        "I20": "",
+        "J20": "IGNORE",
+        "K20": "Non-fatal",
+        "L20": "HW",
+        "M20": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 21,
+      "cells": {
+        "A21": "145",
+        "B21": "RLW_RSPCOL",
+        "C21": "------000000----------0010100010",
+        "D21": "------000000-------------0000101",
+        "E21": "0x00000002",
+        "F21": "RESET_GPU",
+        "G21": "",
+        "H21": "",
+        "I21": "",
+        "J21": "CONTACT_SUPPORT",
+        "K21": "Fatal",
+        "L21": "HW",
+        "M21": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 22,
+      "cells": {
+        "A22": "145",
+        "B22": "RLW_RSPCOL",
+        "C22": "------000000----------0010100010",
+        "D22": "------000000-------------0000101",
+        "E22": "0x80000000",
+        "F22": "IGNORE",
+        "G22": "",
+        "H22": "",
+        "I22": "",
+        "J22": "CONTACT_SUPPORT",
+        "K22": "Non-fatal",
+        "L22": "SW",
+        "M22": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 23,
+      "cells": {
+        "A23": "145",
+        "B23": "RLW_RXPIPE",
+        "C23": "------000000---------00011000010",
+        "D23": "------000000------------00000110",
+        "E23": "0x00000001",
+        "F23": "IGNORE",
+        "G23": "------000000---------10011000010",
+        "H23": "------000000------------10000110",
+        "I23": "RESET_GPU",
+        "J23": "CONTACT_SUPPORT",
+        "K23": "Non-fatal*",
+        "L23": "SW",
+        "M23": "Local: none; \nRemote: PacketLoss***"
+      }
+    },
+    {
+      "row": 24,
+      "cells": {
+        "A24": "145",
+        "B24": "RLW_RXPIPE",
+        "C24": "------000000---------00011000010",
+        "D24": "------000000------------00000110",
+        "E24": "0x00000002",
+        "F24": "IGNORE",
+        "G24": "------000000---------10011000010",
+        "H24": "------000000------------10000110",
+        "I24": "RESET_GPU",
+        "J24": "CONTACT_SUPPORT",
+        "K24": "Non-fatal*",
+        "L24": "SW",
+        "M24": "Local: none; \nRemote: PacketLoss***"
+      }
+    },
+    {
+      "row": 25,
+      "cells": {
+        "A25": "145",
+        "B25": "RLW_RXPIPE",
+        "C25": "------000000---------00011000010",
+        "D25": "------000000------------00000110",
+        "E25": "0x00000004",
+        "F25": "IGNORE",
+        "G25": "------000000---------10011000010",
+        "H25": "------000000------------10000110",
+        "I25": "RESET_GPU",
+        "J25": "CONTACT_SUPPORT",
+        "K25": "Non-fatal*",
+        "L25": "SW",
+        "M25": "Local: PacketLoss***; \nRemote: none"
+      }
+    },
+    {
+      "row": 26,
+      "cells": {
+        "A26": "145",
+        "B26": "RLW_RXPIPE",
+        "C26": "------000000----------0011000010",
+        "D26": "------000000-------------0000110",
+        "E26": "0x00000008",
+        "F26": "IGNORE",
+        "G26": "",
+        "H26": "",
+        "I26": "",
+        "J26": "CONTACT_SUPPORT",
+        "K26": "Non-fatal",
+        "L26": "HW/SW",
+        "M26": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 27,
+      "cells": {
+        "A27": "145",
+        "B27": "RLW_RXPIPE",
+        "C27": "------000000----------0011000010",
+        "D27": "------000000-------------0000110",
+        "E27": "0x80000000",
+        "F27": "IGNORE",
+        "G27": "",
+        "H27": "",
+        "I27": "",
+        "J27": "CONTACT_SUPPORT",
+        "K27": "Non-fatal",
+        "L27": "SW",
+        "M27": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 28,
+      "cells": {
+        "A28": "145",
+        "B28": "RLW_SRC_TRACK",
+        "C28": "------000000----------0011100010",
+        "D28": "------000000-------------0000111",
+        "E28": "0x00000001",
+        "F28": "RESET_GPU",
+        "G28": "",
+        "H28": "",
+        "I28": "",
+        "J28": "CONTACT_SUPPORT",
+        "K28": "Fatal",
+        "L28": "HW",
+        "M28": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 29,
+      "cells": {
+        "A29": "145",
+        "B29": "RLW_SRC_TRACK",
+        "C29": "------000000----------0011100010",
+        "D29": "------000000-------------0000111",
+        "E29": "0x00000002",
+        "F29": "IGNORE",
+        "G29": "",
+        "H29": "",
+        "I29": "",
+        "J29": "IGNORE",
+        "K29": "Non-fatal",
+        "L29": "HW",
+        "M29": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 30,
+      "cells": {
+        "A30": "145",
+        "B30": "RLW_SRC_TRACK",
+        "C30": "------000000----------0011100010",
+        "D30": "------000000-------------0000111",
+        "E30": "0x00000004",
+        "F30": "XID_154_EVAL",
+        "G30": "",
+        "H30": "",
+        "I30": "",
+        "J30": "IGNORE",
+        "K30": "Non-fatal",
+        "L30": "HW/SW",
+        "M30": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 31,
+      "cells": {
+        "A31": "145",
+        "B31": "RLW_SRC_TRACK",
+        "C31": "------000000----------0011100010",
+        "D31": "------000000-------------0000111",
+        "E31": "0x00000008",
+        "F31": "XID_154_EVAL",
+        "G31": "",
+        "H31": "",
+        "I31": "",
+        "J31": "IGNORE",
+        "K31": "Non-fatal",
+        "L31": "HW/SW",
+        "M31": "Local: XC/AppCrash (Xid 45); \nRemote: none"
+      }
+    },
+    {
+      "row": 32,
+      "cells": {
+        "A32": "145",
+        "B32": "RLW_SRC_TRACK",
+        "C32": "------000000----------0011100010",
+        "D32": "------000000-------------0000111",
+        "E32": "0x00000010",
+        "F32": "RESET_GPU",
+        "G32": "",
+        "H32": "",
+        "I32": "",
+        "J32": "CONTACT_SUPPORT",
+        "K32": "Fatal",
+        "L32": "HW",
+        "M32": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 33,
+      "cells": {
+        "A33": "145",
+        "B33": "RLW_SRC_TRACK",
+        "C33": "------000000----------0011100010",
+        "D33": "------000000-------------0000111",
+        "E33": "0x00000020",
+        "F33": "RESET_GPU",
+        "G33": "",
+        "H33": "",
+        "I33": "",
+        "J33": "CONTACT_SUPPORT",
+        "K33": "Fatal",
+        "L33": "HW",
+        "M33": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 34,
+      "cells": {
+        "A34": "145",
+        "B34": "RLW_SRC_TRACK",
+        "C34": "------000000----------0011100010",
+        "D34": "------000000-------------0000111",
+        "E34": "0x80000000",
+        "F34": "IGNORE",
+        "G34": "",
+        "H34": "",
+        "I34": "",
+        "J34": "CONTACT_SUPPORT",
+        "K34": "Non-fatal",
+        "L34": "SW",
+        "M34": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 35,
+      "cells": {
+        "A35": "145",
+        "B35": "RLW_TAGSTATE",
+        "C35": "------000000----------0100000010",
+        "D35": "------000000-------------0001000",
+        "E35": "0x00000001",
+        "F35": "IGNORE",
+        "G35": "",
+        "H35": "",
+        "I35": "",
+        "J35": "IGNORE",
+        "K35": "Non-fatal",
+        "L35": "HW",
+        "M35": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 36,
+      "cells": {
+        "A36": "145",
+        "B36": "RLW_TAGSTATE",
+        "C36": "------000000----------0100000010",
+        "D36": "------000000-------------0001000",
+        "E36": "0x00000002",
+        "F36": "RESET_GPU",
+        "G36": "",
+        "H36": "",
+        "I36": "",
+        "J36": "CONTACT_SUPPORT",
+        "K36": "Fatal",
+        "L36": "HW",
+        "M36": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 37,
+      "cells": {
+        "A37": "145",
+        "B37": "RLW_TAGSTATE",
+        "C37": "------000000----------0100000010",
+        "D37": "------000000-------------0001000",
+        "E37": "0x00010000",
+        "F37": "IGNORE",
+        "G37": "",
+        "H37": "",
+        "I37": "",
+        "J37": "IGNORE",
+        "K37": "Non-fatal",
+        "L37": "HW",
+        "M37": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 38,
+      "cells": {
+        "A38": "145",
+        "B38": "RLW_TAGSTATE",
+        "C38": "------000000----------0100000010",
+        "D38": "------000000-------------0001000",
+        "E38": "0x00020000",
+        "F38": "RESET_GPU",
+        "G38": "",
+        "H38": "",
+        "I38": "",
+        "J38": "CONTACT_SUPPORT",
+        "K38": "Fatal",
+        "L38": "HW",
+        "M38": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 39,
+      "cells": {
+        "A39": "145",
+        "B39": "RLW_TAGSTATE",
+        "C39": "------000000----------0100000010",
+        "D39": "------000000-------------0001000",
+        "E39": "0x00100000",
+        "F39": "RESET_GPU",
+        "G39": "",
+        "H39": "",
+        "I39": "",
+        "J39": "CONTACT_SUPPORT",
+        "K39": "Fatal",
+        "L39": "HW",
+        "M39": "Local: Xid 48, AppCrash (Xid 45);\nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 40,
+      "cells": {
+        "A40": "145",
+        "B40": "RLW_TAGSTATE",
+        "C40": "------000000----------0100000010",
+        "D40": "------000000-------------0001000",
+        "E40": "0x80000000",
+        "F40": "IGNORE",
+        "G40": "",
+        "H40": "",
+        "I40": "",
+        "J40": "CONTACT_SUPPORT",
+        "K40": "Non-fatal",
+        "L40": "SW",
+        "M40": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 41,
+      "cells": {
+        "A41": "146",
+        "B41": "TLW_CTRL",
+        "C41": "------000000----------0100100011",
+        "D41": "------000000-------------0001001",
+        "E41": "0x00000001",
+        "F41": "IGNORE",
+        "G41": "",
+        "H41": "",
+        "I41": "",
+        "J41": "IGNORE",
+        "K41": "Non-fatal",
+        "L41": "HW",
+        "M41": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 42,
+      "cells": {
+        "A42": "146",
+        "B42": "TLW_CTRL",
+        "C42": "------000000----------0100100011",
+        "D42": "------000000-------------0001001",
+        "E42": "0x00000002",
+        "F42": "IGNORE",
+        "G42": "",
+        "H42": "",
+        "I42": "",
+        "J42": "CONTACT_SUPPORT",
+        "K42": "Non-fatal",
+        "L42": "HW",
+        "M42": "Local: XID 48; \nRemote: Will lead to poison or Xid94****"
+      }
+    },
+    {
+      "row": 43,
+      "cells": {
+        "A43": "146",
+        "B43": "TLW_CTRL",
+        "C43": "------000000----------0100100011",
+        "D43": "------000000-------------0001001",
+        "E43": "0x00000004",
+        "F43": "RESET_GPU",
+        "G43": "",
+        "H43": "",
+        "I43": "",
+        "J43": "CONTACT_SUPPORT",
+        "K43": "Fatal",
+        "L43": "HW",
+        "M43": "Local: XID 48, PacketLoss***(possible); \nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 44,
+      "cells": {
+        "A44": "146",
+        "B44": "TLW_CTRL",
+        "C44": "------000000----------0100100011",
+        "D44": "------000000-------------0001001",
+        "E44": "0x80000000",
+        "F44": "IGNORE",
+        "G44": "",
+        "H44": "",
+        "I44": "",
+        "J44": "CONTACT_SUPPORT",
+        "K44": "Non-fatal",
+        "L44": "SW",
+        "M44": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 45,
+      "cells": {
+        "A45": "146",
+        "B45": "TLW_RX/TLW_RX_PIPE0",
+        "C45": "------000000----------0101000011",
+        "D45": "------000000-------------0001010",
+        "E45": "0x00000001",
+        "F45": "IGNORE",
+        "G45": "",
+        "H45": "",
+        "I45": "",
+        "J45": "IGNORE",
+        "K45": "Non-fatal",
+        "L45": "HW",
+        "M45": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 46,
+      "cells": {
+        "A46": "146",
+        "B46": "TLW_RX/TLW_RX_PIPE0",
+        "C46": "------000000----------0101000011",
+        "D46": "------000000-------------0001010",
+        "E46": "0x00000002",
+        "F46": "IGNORE",
+        "G46": "",
+        "H46": "",
+        "I46": "",
+        "J46": "CONTACT_SUPPORT",
+        "K46": "Non-fatal",
+        "L46": "HW",
+        "M46": "Local: Will lead to Xid 48. Will lead to poison or Xid94/95****; \nRemote: none"
+      }
+    },
+    {
+      "row": 47,
+      "cells": {
+        "A47": "146",
+        "B47": "TLW_RX/TLW_RX_PIPE0",
+        "C47": "------000000----------0101000011",
+        "D47": "------000000-------------0001010",
+        "E47": "0x00000004",
+        "F47": "RESET_GPU",
+        "G47": "",
+        "H47": "",
+        "I47": "",
+        "J47": "CONTACT_SUPPORT",
+        "K47": "Fatal",
+        "L47": "HW",
+        "M47": "Local: XID 48, PacketLoss***(possible); \nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 48,
+      "cells": {
+        "A48": "146",
+        "B48": "TLW_RX/TLW_RX_PIPE0",
+        "C48": "------000000----------0101000011",
+        "D48": "------000000-------------0001010",
+        "E48": "0x80000000",
+        "F48": "IGNORE",
+        "G48": "",
+        "H48": "",
+        "I48": "",
+        "J48": "CONTACT_SUPPORT",
+        "K48": "Non-fatal",
+        "L48": "SW",
+        "M48": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 49,
+      "cells": {
+        "A49": "146",
+        "B49": "TLW_RX/TLW_RX_PIPE1",
+        "C49": "------000000----------0101000011",
+        "D49": "------000000-------------0001011",
+        "E49": "0x00000001",
+        "F49": "IGNORE",
+        "G49": "",
+        "H49": "",
+        "I49": "",
+        "J49": "IGNORE",
+        "K49": "Non-fatal",
+        "L49": "HW",
+        "M49": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 50,
+      "cells": {
+        "A50": "146",
+        "B50": "TLW_RX/TLW_RX_PIPE1",
+        "C50": "------000000----------0101000011",
+        "D50": "------000000-------------0001011",
+        "E50": "0x00000002",
+        "F50": "IGNORE",
+        "G50": "",
+        "H50": "",
+        "I50": "",
+        "J50": "CONTACT_SUPPORT",
+        "K50": "Non-fatal",
+        "L50": "HW",
+        "M50": "Local: Will lead to Xid 48. Will lead to poison or Xid94/95****; \nRemote: none"
+      }
+    },
+    {
+      "row": 51,
+      "cells": {
+        "A51": "146",
+        "B51": "TLW_RX/TLW_RX_PIPE1",
+        "C51": "------000000----------0101000011",
+        "D51": "------000000-------------0001011",
+        "E51": "0x00000004",
+        "F51": "RESET_GPU",
+        "G51": "",
+        "H51": "",
+        "I51": "",
+        "J51": "CONTACT_SUPPORT",
+        "K51": "Fatal",
+        "L51": "HW",
+        "M51": "Local: XID 48, PacketLoss***(possible); \nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 52,
+      "cells": {
+        "A52": "146",
+        "B52": "TLW_RX/TLW_RX_PIPE1",
+        "C52": "------000000----------0101000011",
+        "D52": "------000000-------------0001011",
+        "E52": "0x80000000",
+        "F52": "IGNORE",
+        "G52": "",
+        "H52": "",
+        "I52": "",
+        "J52": "CONTACT_SUPPORT",
+        "K52": "Non-fatal",
+        "L52": "SW",
+        "M52": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 53,
+      "cells": {
+        "A53": "146",
+        "B53": "TLW_TX/TLW_TX_PIPE0",
+        "C53": "------000000----------0101100011",
+        "D53": "------000000-------------0001100",
+        "E53": "0x00000001",
+        "F53": "IGNORE",
+        "G53": "",
+        "H53": "",
+        "I53": "",
+        "J53": "IGNORE",
+        "K53": "Non-fatal",
+        "L53": "HW",
+        "M53": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 54,
+      "cells": {
+        "A54": "146",
+        "B54": "TLW_TX/TLW_TX_PIPE0",
+        "C54": "------000000----------0101100011",
+        "D54": "------000000-------------0001100",
+        "E54": "0x00000002",
+        "F54": "IGNORE",
+        "G54": "",
+        "H54": "",
+        "I54": "",
+        "J54": "CONTACT_SUPPORT",
+        "K54": "Non-fatal",
+        "L54": "HW",
+        "M54": "Local: Will lead to Xid 48. Will lead to poison or Xid94/95****; \nRemote: none"
+      }
+    },
+    {
+      "row": 55,
+      "cells": {
+        "A55": "146",
+        "B55": "TLW_TX/TLW_TX_PIPE0",
+        "C55": "------000000----------0101100011",
+        "D55": "------000000-------------0001100",
+        "E55": "0x00000004",
+        "F55": "RESET_GPU",
+        "G55": "",
+        "H55": "",
+        "I55": "",
+        "J55": "CONTACT_SUPPORT",
+        "K55": "Fatal",
+        "L55": "HW",
+        "M55": "Local: XID 48, PacketLoss***(possible); \nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 56,
+      "cells": {
+        "A56": "146",
+        "B56": "TLW_TX/TLW_TX_PIPE0",
+        "C56": "------000000----------0101100011",
+        "D56": "------000000-------------0001100",
+        "E56": "0x80000000",
+        "F56": "IGNORE",
+        "G56": "",
+        "H56": "",
+        "I56": "",
+        "J56": "CONTACT_SUPPORT",
+        "K56": "Non-fatal",
+        "L56": "SW",
+        "M56": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 57,
+      "cells": {
+        "A57": "146",
+        "B57": "TLW_TX/TLW_TX_PIPE1",
+        "C57": "------000000----------0101100011",
+        "D57": "------000000-------------0001101",
+        "E57": "0x00000001",
+        "F57": "IGNORE",
+        "G57": "",
+        "H57": "",
+        "I57": "",
+        "J57": "IGNORE",
+        "K57": "Non-fatal",
+        "L57": "HW",
+        "M57": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 58,
+      "cells": {
+        "A58": "146",
+        "B58": "TLW_TX/TLW_TX_PIPE1",
+        "C58": "------000000----------0101100011",
+        "D58": "------000000-------------0001101",
+        "E58": "0x00000002",
+        "F58": "IGNORE",
+        "G58": "",
+        "H58": "",
+        "I58": "",
+        "J58": "CONTACT_SUPPORT",
+        "K58": "Non-fatal",
+        "L58": "HW",
+        "M58": "Local: Will lead to Xid 48. Will lead to poison or Xid94/95****; \nRemote: none"
+      }
+    },
+    {
+      "row": 59,
+      "cells": {
+        "A59": "146",
+        "B59": "TLW_TX/TLW_TX_PIPE1",
+        "C59": "------000000----------0101100011",
+        "D59": "------000000-------------0001101",
+        "E59": "0x00000004",
+        "F59": "RESET_GPU",
+        "G59": "",
+        "H59": "",
+        "I59": "",
+        "J59": "CONTACT_SUPPORT",
+        "K59": "Fatal",
+        "L59": "HW",
+        "M59": "Local: XID 48, PacketLoss***(possible); \nRemote: PacketLoss***(possible)"
+      }
+    },
+    {
+      "row": 60,
+      "cells": {
+        "A60": "146",
+        "B60": "TLW_TX/TLW_TX_PIPE1",
+        "C60": "------000000----------0101100011",
+        "D60": "------000000-------------0001101",
+        "E60": "0x80000000",
+        "F60": "IGNORE",
+        "G60": "",
+        "H60": "",
+        "I60": "",
+        "J60": "CONTACT_SUPPORT",
+        "K60": "Non-fatal",
+        "L60": "SW",
+        "M60": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 61,
+      "cells": {
+        "A61": "147",
+        "B61": "TREX",
+        "C61": "------000000----------0110000100",
+        "D61": "------000000-------------0001110",
+        "E61": "0x00000001",
+        "F61": "IGNORE",
+        "G61": "",
+        "H61": "",
+        "I61": "",
+        "J61": "CONTACT_SUPPORT",
+        "K61": "Non-fatal",
+        "L61": "SW",
+        "M61": "NOTE: not in production code, so should not be experienced"
+      }
+    },
+    {
+      "row": 62,
+      "cells": {
+        "A62": "147",
+        "B62": "TREX",
+        "C62": "------000000----------0110000100",
+        "D62": "------000000-------------0001110",
+        "E62": "0x80000000",
+        "F62": "IGNORE",
+        "G62": "",
+        "H62": "",
+        "I62": "",
+        "J62": "CONTACT_SUPPORT",
+        "K62": "Non-fatal",
+        "L62": "SW",
+        "M62": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 63,
+      "cells": {
+        "A63": "148",
+        "B63": "NVLPW_CTRL/NVLPW",
+        "C63": "------000000----------0000000101",
+        "D63": "------000000-------------0001111",
+        "E63": "0x80000000",
+        "F63": "IGNORE",
+        "G63": "",
+        "H63": "",
+        "I63": "",
+        "J63": "CONTACT_SUPPORT",
+        "K63": "Non-fatal",
+        "L63": "SW",
+        "M63": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 64,
+      "cells": {
+        "A64": "149",
+        "B64": "NETIR/NETIR_INT",
+        "C64": "------000000----------0000000110",
+        "D64": "------000000-------------0011000",
+        "E64": "",
+        "F64": "RESET_GPU",
+        "G64": "",
+        "H64": "",
+        "I64": "",
+        "J64": "SYMPATHETIC_REPORT_SOLO",
+        "K64": "Link Fatal",
+        "L64": "HW/SW",
+        "M64": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 65,
+      "cells": {
+        "A65": "149",
+        "B65": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C65": "------000000----------0111000110",
+        "D65": "------000000-------------0010001",
+        "E65": "",
+        "F65": "RESET_GPU",
+        "G65": "",
+        "H65": "",
+        "I65": "",
+        "J65": "SYMPATHETIC_REPORT_SOLO",
+        "K65": "Link Fatal",
+        "L65": "HW/SW",
+        "M65": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 66,
+      "cells": {
+        "A66": "149",
+        "B66": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C66": "------000001----------0111000110",
+        "D66": "------000001-------------0010001",
+        "E66": "",
+        "F66": "RESET_GPU",
+        "G66": "",
+        "H66": "",
+        "I66": "",
+        "J66": "REPORT_ISSUE (if seen >1 per day)",
+        "K66": "Link Fatal",
+        "L66": "HW/SW",
+        "M66": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 67,
+      "cells": {
+        "A67": "149",
+        "B67": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C67": "------000010----------0111000110",
+        "D67": "------000010-------------0010001",
+        "E67": "",
+        "F67": "RESET_GPU",
+        "G67": "",
+        "H67": "",
+        "I67": "",
+        "J67": "INVESTIGATE_LINK_SI",
+        "K67": "Link Fatal",
+        "L67": "HW/SW",
+        "M67": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 68,
+      "cells": {
+        "A68": "149",
+        "B68": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C68": "------000100----------0111000110",
+        "D68": "------000100-------------0010001",
+        "E68": "",
+        "F68": "RESET_GPU",
+        "G68": "",
+        "H68": "",
+        "I68": "",
+        "J68": "INVESTIGATE_LINK_SI",
+        "K68": "Link Fatal",
+        "L68": "HW",
+        "M68": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 69,
+      "cells": {
+        "A69": "149",
+        "B69": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C69": "------001010----------0111000110",
+        "D69": "------001010-------------0010001",
+        "E69": "",
+        "F69": "RESET_GPU",
+        "G69": "",
+        "H69": "",
+        "I69": "",
+        "J69": "INVESTIGATE_LINK_SI",
+        "K69": "Link Fatal",
+        "L69": "HW",
+        "M69": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 70,
+      "cells": {
+        "A70": "149",
+        "B70": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C70": "------001111----------0111000110",
+        "D70": "------001111-------------0010001",
+        "E70": "",
+        "F70": "RESET_GPU",
+        "G70": "",
+        "H70": "",
+        "I70": "",
+        "J70": "INVESTIGATE_SW_USER",
+        "K70": "Link Fatal",
+        "L70": "SW",
+        "M70": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 71,
+      "cells": {
+        "A71": "149",
+        "B71": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C71": "------010000----------0111000110",
+        "D71": "------010000-------------0010001",
+        "E71": "",
+        "F71": "RESET_GPU",
+        "G71": "",
+        "H71": "",
+        "I71": "",
+        "J71": "INVESTIGATE_SW_USER_LINK_SI",
+        "K71": "Link Fatal",
+        "L71": "SW",
+        "M71": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 72,
+      "cells": {
+        "A72": "149",
+        "B72": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C72": "------010001----------0111000110",
+        "D72": "------010001-------------0010001",
+        "E72": "",
+        "F72": "RESET_GPU",
+        "G72": "",
+        "H72": "",
+        "I72": "",
+        "J72": "INVESTIGATE_SW_USER",
+        "K72": "Link Fatal",
+        "L72": "SW",
+        "M72": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 73,
+      "cells": {
+        "A73": "149",
+        "B73": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C73": "------010010----------0111000110",
+        "D73": "------010010-------------0010001",
+        "E73": "",
+        "F73": "RESET_GPU",
+        "G73": "",
+        "H73": "",
+        "I73": "",
+        "J73": "INVESTIGATE_SW_USER_LINK_SI",
+        "K73": "Link Fatal",
+        "L73": "SW",
+        "M73": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 74,
+      "cells": {
+        "A74": "149",
+        "B74": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C74": "------010101----------0111000110",
+        "D74": "------010101-------------0010001",
+        "E74": "",
+        "F74": "RESET_GPU",
+        "G74": "",
+        "H74": "",
+        "I74": "",
+        "J74": "INVESTIGATE_PEER_DEVICE",
+        "K74": "Link Fatal",
+        "L74": "HW/SW",
+        "M74": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 75,
+      "cells": {
+        "A75": "149",
+        "B75": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C75": "------010110----------0111000110",
+        "D75": "------010110-------------0010001",
+        "E75": "",
+        "F75": "RESET_GPU",
+        "G75": "",
+        "H75": "",
+        "I75": "",
+        "J75": "INVESTIGATE_SW_USER",
+        "K75": "Link Fatal",
+        "L75": "SW",
+        "M75": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 76,
+      "cells": {
+        "A76": "149",
+        "B76": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C76": "------100000----------0111000110",
+        "D76": "------100000-------------0010001",
+        "E76": "",
+        "F76": "RESET_GPU",
+        "G76": "",
+        "H76": "",
+        "I76": "",
+        "J76": "INVESTIGATE_PEER_DEVICE",
+        "K76": "Link Fatal",
+        "L76": "HW/SW",
+        "M76": "Local: PacketLoss***(posible/delayed); \nRemote: PacketLoss*** (possible/delayed)\nOther end of link: source of link fatal"
+      }
+    },
+    {
+      "row": 77,
+      "cells": {
+        "A77": "149",
+        "B77": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C77": "------100001----------0111000110",
+        "D77": "------100001-------------0010001",
+        "E77": "",
+        "F77": "RESET_GPU",
+        "G77": "",
+        "H77": "",
+        "I77": "",
+        "J77": "INVESTIGATE_PEER_DEVICE",
+        "K77": "Link Fatal",
+        "L77": "HW/SW",
+        "M77": "Local: PacketLoss***(posible/delayed); \nRemote: PacketLoss*** (possible/delayed)\nOther end of link: source of link fatal"
+      }
+    },
+    {
+      "row": 78,
+      "cells": {
+        "A78": "149",
+        "B78": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C78": "------100010----------0111000110",
+        "D78": "------100010-------------0010001",
+        "E78": "",
+        "F78": "RESET_GPU",
+        "G78": "",
+        "H78": "",
+        "I78": "",
+        "J78": "INVESTIGATE_PEER_DEVICE",
+        "K78": "Link Fatal",
+        "L78": "HW/SW",
+        "M78": "Local: PacketLoss***(posible/delayed); \nRemote: PacketLoss*** (possible/delayed)\nOther end of link: source of link fatal"
+      }
+    },
+    {
+      "row": 79,
+      "cells": {
+        "A79": "149",
+        "B79": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C79": "------100011----------0111000110",
+        "D79": "------100011-------------0010001",
+        "E79": "",
+        "F79": "RESET_GPU",
+        "G79": "",
+        "H79": "",
+        "I79": "",
+        "J79": "INVESTIGATE_PEER_DEVICE",
+        "K79": "Link Fatal",
+        "L79": "HW",
+        "M79": "Local: PacketLoss***(posible/delayed); \nRemote: PacketLoss*** (possible/delayed)\nOther end of link: source of link fatal"
+      }
+    },
+    {
+      "row": 80,
+      "cells": {
+        "A80": "149",
+        "B80": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C80": "------100100----------0111000110",
+        "D80": "------100100-------------0010001",
+        "E80": "",
+        "F80": "RESET_GPU",
+        "G80": "",
+        "H80": "",
+        "I80": "",
+        "J80": "INVESTIGATE_PEER_DEVICE",
+        "K80": "Link Fatal",
+        "L80": "HW/SW",
+        "M80": "Local: PacketLoss***(posible/delayed); \nRemote: PacketLoss*** (possible/delayed)\nOther end of link: source of link fatal"
+      }
+    },
+    {
+      "row": 81,
+      "cells": {
+        "A81": "149",
+        "B81": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C81": "------100101----------0111000110",
+        "D81": "------100101-------------0010001",
+        "E81": "",
+        "F81": "RESET_GPU",
+        "G81": "",
+        "H81": "",
+        "I81": "",
+        "J81": "INVESTIGATE_PEER_DEVICE",
+        "K81": "Link Fatal",
+        "L81": "HW/SW",
+        "M81": "Local: PacketLoss***(posible/delayed); \nRemote: PacketLoss*** (possible/delayed)\nOther end of link: source of link fatal"
+      }
+    },
+    {
+      "row": 82,
+      "cells": {
+        "A82": "149",
+        "B82": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C82": "------100110----------0111000110",
+        "D82": "------100110-------------0010001",
+        "E82": "",
+        "F82": "IGNORE",
+        "G82": "",
+        "H82": "",
+        "I82": "",
+        "J82": "INVESTIGATE_SW/USER",
+        "K82": "Link Fatal",
+        "L82": "HW/SW",
+        "M82": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 83,
+      "cells": {
+        "A83": "149",
+        "B83": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C83": "------101000----------0111000110",
+        "D83": "------101000-------------0010001",
+        "E83": "",
+        "F83": "IGNORE",
+        "G83": "",
+        "H83": "",
+        "I83": "",
+        "J83": "INVESTIGATE_HOST",
+        "K83": "Fatal",
+        "L83": "SW",
+        "M83": "Local: fatal; \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 84,
+      "cells": {
+        "A84": "149",
+        "B84": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C84": "------101010----------0111000110",
+        "D84": "------101010-------------0010001",
+        "E84": "",
+        "F84": "RESET_GPU",
+        "G84": "",
+        "H84": "",
+        "I84": "",
+        "J84": "INVESTIGATE_LINK_SI_AND_CABLES",
+        "K84": "Link Fatal?",
+        "L84": "HW",
+        "M84": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 85,
+      "cells": {
+        "A85": "149",
+        "B85": "NETIR_LINK_EVT/NETIR_LINK_DOWN",
+        "C85": "------101011----------0111000110",
+        "D85": "------101011-------------0010001",
+        "E85": "",
+        "F85": "RESET_GPU",
+        "G85": "",
+        "H85": "",
+        "I85": "",
+        "J85": "INVESTIGATE_LINK_SI_AND_CABLES",
+        "K85": "Link Fatal?",
+        "L85": "HW",
+        "M85": "Local: PacketLoss***(possible/delayed); \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 86,
+      "cells": {
+        "A86": "149",
+        "B86": "NETIR_BER_EVENT",
+        "C86": "------000000----------1000100110",
+        "D86": "------000000-------------0010011",
+        "E86": "0x00000000",
+        "F86": "IGNORE",
+        "G86": "",
+        "H86": "",
+        "I86": "",
+        "J86": "INVESTIGATE_LINK_SI_AND_CABLES",
+        "K86": "Non-fatal",
+        "L86": "HW",
+        "M86": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 87,
+      "cells": {
+        "A87": "149",
+        "B87": "NETIR_BER_EVENT",
+        "C87": "------000000----------1000100110",
+        "D87": "------000000-------------0010011",
+        "E87": "0x00000001",
+        "F87": "IGNORE",
+        "G87": "",
+        "H87": "",
+        "I87": "",
+        "J87": "INVESTIGATE_LINK_SI_AND_CABLES",
+        "K87": "Non-fatal",
+        "L87": "HW",
+        "M87": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 88,
+      "cells": {
+        "A88": "149",
+        "B88": "NETIR_BER_EVENT",
+        "C88": "------000000----------1000100110",
+        "D88": "------000000-------------0010011",
+        "E88": "0x00000002",
+        "F88": "IGNORE",
+        "G88": "",
+        "H88": "",
+        "I88": "",
+        "J88": "INVESTIGATE_LINK_SI_AND_CABLES",
+        "K88": "Non-fatal",
+        "L88": "HW",
+        "M88": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 89,
+      "cells": {
+        "A89": "149",
+        "B89": "NETIR_BER_EVENT",
+        "C89": "------000000----------1000100110",
+        "D89": "------000000-------------0010011",
+        "E89": "0x00000003",
+        "F89": "IGNORE",
+        "G89": "",
+        "H89": "",
+        "I89": "",
+        "J89": "INVESTIGATE_LINK_SI_AND_CABLES",
+        "K89": "Non-fatal",
+        "L89": "HW",
+        "M89": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 90,
+      "cells": {
+        "A90": "149",
+        "B90": "NETIR_MFDE_EVENT",
+        "C90": "------000000----------1001000110",
+        "D90": "------000000-------------0010100",
+        "E90": "0x00000001",
+        "F90": "RESET_GPU",
+        "G90": "",
+        "H90": "",
+        "I90": "",
+        "J90": "CONTACT_SUPPORT",
+        "K90": "Fatal**",
+        "L90": "HW/SW",
+        "M90": "Local: fatal; \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 91,
+      "cells": {
+        "A91": "149",
+        "B91": "NETIR_MFDE_EVENT",
+        "C91": "------000000----------1001000110",
+        "D91": "------000000-------------0010100",
+        "E91": "0x00000003",
+        "F91": "IGNORE",
+        "G91": "",
+        "H91": "",
+        "I91": "",
+        "J91": "IGNORE",
+        "K91": "Non-fatal",
+        "L91": "NA",
+        "M91": "Local: none; \nRemote: none"
+      }
+    },
+    {
+      "row": 92,
+      "cells": {
+        "A92": "149",
+        "B92": "NETIR_MFDE_EVENT",
+        "C92": "------000000----------1001000110",
+        "D92": "------000000-------------0010100",
+        "E92": "0x00000004",
+        "F92": "RESET_GPU",
+        "G92": "",
+        "H92": "",
+        "I92": "",
+        "J92": "CONTACT_SUPPORT",
+        "K92": "Fatal**",
+        "L92": "HW/SW",
+        "M92": "Local: fatal; \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 93,
+      "cells": {
+        "A93": "149",
+        "B93": "NETIR_MFDE_EVENT",
+        "C93": "------000000----------1001000110",
+        "D93": "------000000-------------0010100",
+        "E93": "0x00000005",
+        "F93": "RESET_GPU",
+        "G93": "",
+        "H93": "",
+        "I93": "",
+        "J93": "CONTACT_SUPPORT",
+        "K93": "Fatal**",
+        "L93": "HW/SW",
+        "M93": "Local: fatal; \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 94,
+      "cells": {
+        "A94": "149",
+        "B94": "NETIR_MFDE_EVENT",
+        "C94": "------000000----------1001000110",
+        "D94": "------000000-------------0010100",
+        "E94": "0x00000007",
+        "F94": "RESET_GPU",
+        "G94": "",
+        "H94": "",
+        "I94": "",
+        "J94": "CONTACT_SUPPORT",
+        "K94": "Fatal**",
+        "L94": "HW/SW",
+        "M94": "Local: fatal; \nRemote: PacketLoss***(possible/delayed)"
+      }
+    },
+    {
+      "row": 95,
+      "cells": {
+        "A95": "150",
+        "B95": "MSE Degraded",
+        "C95": "------000000----------0000000000",
+        "D95": "------000000-------------0000000",
+        "E95": "0x00000000/0xFFFFFFFF",
+        "F95": "RESET_GPU",
+        "G95": "",
+        "H95": "",
+        "I95": "",
+        "J95": "CONTACT_SUPPORT",
+        "K95": "Fatal",
+        "L95": "FW",
+        "M95": "Local: Fatal; \nRemote: None"
+      }
+    },
+    {
+      "row": 96,
+      "cells": {
+        "A96": "150",
+        "B96": "MSE_WATCHDOG",
+        "C96": "------000000----------0000000000",
+        "D96": "------000000-------------0000000",
+        "E96": "0x00000000",
+        "F96": "RESET_GPU",
+        "G96": "",
+        "H96": "",
+        "I96": "",
+        "J96": "CONTACT_SUPPORT",
+        "K96": "Fatal",
+        "L96": "FW",
+        "M96": "Local: Fatal; \nRemote: None"
+      }
+    }
+  ],
+  "counts": {
+    "C": {
+      "32": 95
+    },
+    "D": {
+      "32": 95
+    },
+    "G": {
+      "0": 92,
+      "32": 3
+    },
+    "H": {
+      "0": 92,
+      "32": 3
+    }
+  }
+}
