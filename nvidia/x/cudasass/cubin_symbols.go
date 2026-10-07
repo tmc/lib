@@ -1,6 +1,7 @@
 package cudasass
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"debug/elf"
 	"fmt"
@@ -49,7 +50,7 @@ func (im *CubinImage) Symbols(name string) ([]CubinSymbol, error) {
 	if im.file.Class == elf.ELFCLASS32 {
 		entry = 16
 	}
-	if table.Entsize != entry || table.Size%entry != 0 || table.Size/entry > 65536 || table.Size > 8<<20 || table.Flags&elf.SHF_COMPRESSED != 0 {
+	if table.Size < entry || table.Entsize != entry || table.Size%entry != 0 || table.Size/entry > 65536 || table.Size > 8<<20 || table.Flags&elf.SHF_COMPRESSED != 0 {
 		return nil, fmt.Errorf("unsupported or excessive symbol table")
 	}
 	if uint64(table.Link) >= uint64(len(im.file.Sections)) {
@@ -58,6 +59,26 @@ func (im *CubinImage) Symbols(name string) ([]CubinSymbol, error) {
 	strings := im.file.Sections[table.Link]
 	if strings.Type != elf.SHT_STRTAB || strings.Flags&elf.SHF_COMPRESSED != 0 || strings.Size > 8<<20-table.Size {
 		return nil, fmt.Errorf("unsupported or excessive symbol string table")
+	}
+	// Validate every st_name before the standard reader, which silently drops
+	// invalid string offsets. Interpretation still belongs to debug/elf.
+	tableData, err := table.Data()
+	if err != nil {
+		return nil, fmt.Errorf("reading symbol table: %w", err)
+	}
+	stringData, err := strings.Data()
+	if err != nil {
+		return nil, fmt.Errorf("reading symbol strings: %w", err)
+	}
+	for i := uint64(0); i < uint64(len(tableData)); i += entry {
+		offset := uint64(im.file.ByteOrder.Uint32(tableData[i : i+4]))
+		if offset >= uint64(len(stringData)) {
+			return nil, fmt.Errorf("invalid symbol name offset")
+		}
+		end := bytes.IndexByte(stringData[offset:], 0)
+		if end < 0 || end > 4096 {
+			return nil, fmt.Errorf("unterminated or excessive symbol name")
+		}
 	}
 	symbols, err := im.file.Symbols()
 	if err != nil {

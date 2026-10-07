@@ -80,6 +80,9 @@ func TestCubinSymbolRefusals(t *testing.T) {
 		name   string
 		change func([]byte)
 	}{
+		{"empty table", func(b []byte) { binary.LittleEndian.PutUint64(b[160:], 0) }},
+		{"name offset", func(b []byte) { binary.LittleEndian.PutUint32(b[280:], 99) }},
+		{"unterminated name", func(b []byte) { b[308] = 1 }},
 		{"entry size", func(b []byte) { binary.LittleEndian.PutUint64(b[184:], 1) }},
 		{"oversize", func(b []byte) { binary.LittleEndian.PutUint64(b[160:], 9<<20) }},
 		{"link", func(b []byte) { binary.LittleEndian.PutUint32(b[168:], 99) }},
