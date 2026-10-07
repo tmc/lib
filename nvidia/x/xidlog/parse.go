@@ -3,11 +3,12 @@ package xidlog
 import (
 	"errors"
 	"fmt"
-	"github.com/tmc/lib/nvidia/x/xidcatalog"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/tmc/lib/nvidia/x/xidcatalog"
 )
 
 // Kind identifies a fact, uninterpreted input, malformed record or loss notice.
@@ -227,6 +228,11 @@ func ParseKmsg(raw string, o Options) (Record, error) {
 	if !strings.HasSuffix(raw, "\n") {
 		r.Partial = true
 		return malformed(r, "unterminated kmsg record"), nil
+	}
+	for _, c := range raw {
+		if (c < 0x20 && c != '\n') || c == 0x7f {
+			return malformed(r, "unescaped kmsg control character"), nil
+		}
 	}
 	lines := strings.Split(strings.TrimSuffix(raw, "\n"), "\n")
 	semi := strings.IndexByte(lines[0], ';')
