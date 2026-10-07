@@ -2,9 +2,10 @@ package xidlog_test
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/tmc/lib/nvidia/x/xidcatalog"
 	"github.com/tmc/lib/nvidia/x/xidlog"
-	"strings"
 )
 
 func inputs() xidlog.Options {

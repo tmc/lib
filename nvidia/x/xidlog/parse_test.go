@@ -2,12 +2,13 @@ package xidlog
 
 import (
 	"errors"
-	"github.com/tmc/lib/nvidia/x/xidcatalog"
 	"io"
 	"os"
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/xidcatalog"
 )
 
 func fixtureOptions() Options {
