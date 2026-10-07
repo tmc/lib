@@ -3,16 +3,12 @@ package ncclras
 import (
 	"bytes"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 )
 
 func TestReadText(t *testing.T) {
-	b, err := os.ReadFile("testdata/legacy-2.24.3.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
+	b := legacyFixture(t)
 	s, err := ReadText(bytes.NewReader(b), Limits{})
 	if err != nil {
 		t.Fatal(err)

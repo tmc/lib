@@ -13,13 +13,17 @@ import (
 	"time"
 )
 
-func legacyFixture(t *testing.T) []byte {
+func legacyFixture(t testing.TB) []byte {
 	t.Helper()
 	b, err := os.ReadFile("testdata/legacy-2.24.3.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return b
+	if !bytes.HasSuffix(b, []byte("Warnings\n========\n")) || bytes.HasSuffix(b, []byte("\n\n")) {
+		t.Fatal("fixture storage must end with one newline after warning separator")
+	}
+	// The wire response ends with an empty line, omitted from text storage.
+	return append(b, '\n')
 }
 func TestLegacyExactAggregateBudget(t *testing.T) {
 	b := legacyFixture(t)
@@ -127,7 +131,7 @@ func TestLegacyVersionAndShape(t *testing.T) {
 	}
 }
 func FuzzReadText(f *testing.F) {
-	b, _ := os.ReadFile("testdata/legacy-2.24.3.txt")
+	b := legacyFixture(f)
 	f.Add(string(b))
 	f.Fuzz(func(t *testing.T, s string) {
 		if len(s) > 4096 {
@@ -135,4 +139,11 @@ func FuzzReadText(f *testing.F) {
 		}
 		ReadText(strings.NewReader(s), Limits{Bytes: 4096, Line: 1024, Records: 64})
 	})
+}
+
+func TestLegacyFixtureWireEnding(t *testing.T) {
+	b := legacyFixture(t)
+	if !bytes.HasSuffix(b, []byte("Warnings\n========\n\n")) || bytes.HasSuffix(b, []byte("\n\n\n")) {
+		t.Fatal("fixture wire ending changed")
+	}
 }
