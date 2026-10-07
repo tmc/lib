@@ -34,6 +34,15 @@ func TestNativeConfiguredHeadroom(t *testing.T) {
 	if os.Getenv("HEADROOM_NATIVE") != "1" {
 		t.Skip("PENDING HARDWARE: set HEADROOM_NATIVE=1 for the reviewed native packet")
 	}
+	for _, name := range []string{"CUDA_LIB_PATH", "NVRTC_LIB_PATH"} {
+		path := os.Getenv(name)
+		if path == "" {
+			t.Skipf("PENDING HARDWARE: explicit %s is required", name)
+		}
+		if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+			t.Fatalf("%s must be an absolute canonical selected library path", name)
+		}
+	}
 	dir := os.Getenv("HEADROOM_RECEIPTS")
 	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir {
 		t.Fatal("HEADROOM_RECEIPTS must name an existing absolute task directory")
@@ -113,6 +122,7 @@ func TestNativeConfiguredHeadroom(t *testing.T) {
 	if initial.CompiledStatic != 256 {
 		t.Fatalf("compiled fixed[256] storage = %d, want 256", initial.CompiledStatic)
 	}
+	t.Logf("HEADROOM_INITIAL source=%s image=%s budget=%+v", sourceSHA, imageSHA, initial)
 	boundary := initial.UserLimit - initial.CompiledStatic
 	if boundary <= 1 || boundary > 1<<24 {
 		t.Fatalf("measured dynamic boundary is unsupported: %d", boundary)
@@ -127,6 +137,7 @@ func TestNativeConfiguredHeadroom(t *testing.T) {
 	if configured.FunctionDynamic != boundary || configured.Ceiling != boundary {
 		t.Fatalf("setter/readback = %+v, requested %d", configured, boundary)
 	}
+	t.Logf("HEADROOM_CONFIGURED budget=%+v", configured)
 	out, err := cudamem.Alloc[uint32](dev, 4)
 	if err != nil {
 		t.Fatal(err)
@@ -191,6 +202,7 @@ func TestNativeConfiguredHeadroom(t *testing.T) {
 	if low.FunctionDynamic != lower || low.Ceiling != lower {
 		t.Fatalf("lower-cap readback = %+v", low)
 	}
+	t.Logf("HEADROOM_LOWER budget=%+v", low)
 	if err := launch.Launch(out, uint32(boundary)); err == nil || !strings.Contains(err.Error(), "exceeds ceiling") {
 		t.Fatalf("lower cap launch = %v", err)
 	}
