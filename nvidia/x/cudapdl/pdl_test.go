@@ -414,7 +414,11 @@ func TestNativePDLReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(stream.Destroy)
+	defer func() {
+		if err := stream.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	// Compile producer and consumer kernels
 	prodComp, err := nvrtcx.Compile(nativePDLProducerSource, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
@@ -495,8 +499,8 @@ func TestNativePDLReference(t *testing.T) {
 
 	trailingCycles := int64(1000)
 	prodLauncher := cudalaunch.OwnedKernel(prodKern).
-		Grid(uint32(grid)).
-		Block(uint32(block)).
+		Grid(uint32(grid), 1, 1).
+		Block(uint32(block), 1, 1).
 		WithProgrammaticStreamSerialization(true)
 
 	prodNode, err := g.AddLauncher(prodLauncher, []any{inBuf, interBuf, int32(n), trailingCycles})
@@ -507,8 +511,8 @@ func TestNativePDLReference(t *testing.T) {
 	biasVal := float32(3.0)
 	computeCycles := int64(1000)
 	consLauncher := cudalaunch.OwnedKernel(consKern).
-		Grid(uint32(grid)).
-		Block(uint32(block))
+		Grid(uint32(grid), 1, 1).
+		Block(uint32(block), 1, 1)
 
 	consNode, err := g.AddLauncher(consLauncher, []any{interBuf, outBuf, biasVal, int32(n), computeCycles})
 	if err != nil {

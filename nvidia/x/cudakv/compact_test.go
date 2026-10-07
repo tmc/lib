@@ -640,7 +640,11 @@ func TestCUDACompactionGraph(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Destroy()
+	defer func() {
+		if err := stream.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	_ = cache.AllocSequence(1, 4)
 	_ = cache.AllocSequence(2, 4)

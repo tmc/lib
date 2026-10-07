@@ -25,7 +25,11 @@ func TestArgmaxCUDAEdgeParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer mod.Unload()
+	defer func() {
+		if err := dev.WithContext(mod.Close); err != nil {
+			t.Error(err)
+		}
+	}()
 	fn, err := mod.Function("ArgmaxLogits")
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +38,11 @@ func TestArgmaxCUDAEdgeParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Destroy()
+	defer func() {
+		if err := stream.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	wideTie := make([]float32, 259)
 	wideTie[1], wideTie[258] = 5, 5
 	tests := []struct {
@@ -64,7 +72,7 @@ func TestArgmaxCUDAEdgeParity(t *testing.T) {
 			if err := in.CopyFromHost(logits); err != nil {
 				return err
 			}
-			if err := cudalaunch.Kernel(fn).On(stream).Grid(1).Block(256).Launch(in, out, int32(len(logits))); err != nil {
+			if err := cudalaunch.Kernel(fn).On(stream).Grid(1, 1, 1).Block(256, 1, 1).Launch(in, out, int32(len(logits))); err != nil {
 				return err
 			}
 			got := []int32{0}

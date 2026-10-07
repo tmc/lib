@@ -67,7 +67,7 @@ func benchmarkPipeline(b *testing.B, view string) {
 	cleanup(dev.Close)
 	stream, err := dev.NewStreamWithFlags(driver.StreamNonBlocking)
 	check(b, err)
-	cleanup(stream.Destroy)
+	cleanup(stream.Close)
 	const width, rows = 1024, 256
 	input, err := cudamem.Alloc[float32](dev, width)
 	check(b, err)
@@ -92,7 +92,7 @@ func benchmarkPipeline(b *testing.B, view string) {
 	check(b, err)
 	module, err := compiled.Load(dev)
 	check(b, err)
-	cleanup(func() error { return dev.WithContext(module.Unload) })
+	cleanup(func() error { return dev.WithContext(module.Close) })
 	var kernels struct {
 		Norm    driver.Function `cuda:"rmsnorm"`
 		Project driver.Function `cuda:"project"`
@@ -104,13 +104,13 @@ func benchmarkPipeline(b *testing.B, view string) {
 		run  func() error
 	}{
 		{"rmsnorm", func() error {
-			return cudalaunch.Kernel(kernels.Norm).Grid(1).Block(256).On(stream).Launch(input, norm, int32(width))
+			return cudalaunch.Kernel(kernels.Norm).Grid(1, 1, 1).Block(256, 1, 1).On(stream).Launch(input, norm, int32(width))
 		}},
 		{"project", func() error {
-			return cudalaunch.Kernel(kernels.Project).Grid(rows).Block(128).On(stream).Launch(weights, norm, projection, int32(width))
+			return cudalaunch.Kernel(kernels.Project).Grid(rows, 1, 1).Block(128, 1, 1).On(stream).Launch(weights, norm, projection, int32(width))
 		}},
 		{"silu", func() error {
-			return cudalaunch.Kernel(kernels.SiLU).Grid(1).Block(rows).On(stream).Launch(projection, output)
+			return cudalaunch.Kernel(kernels.SiLU).Grid(1, 1, 1).Block(rows, 1, 1).On(stream).Launch(projection, output)
 		}},
 	}
 	selected := -1
