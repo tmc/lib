@@ -1,0 +1,13 @@
+{
+  "head": "e3e9b6bb2797170bc25aa9cfebe4bc18b4556b78",
+  "date": "2026-10-06T23:17:09-07:00",
+  "agent": "Codex",
+  "version": "codex-cli 0.160.1",
+  "model": "not exposed by runtime",
+  "tty": "non-PTY",
+  "pid": 31479,
+  "ITERM_SESSION_ID": "w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93",
+  "assigned_session": "026363F7-C2F7-4118-9920-4953A7B20D93",
+  "commit_tool": "prescribed manual fallback after earlier two helper failures due missing Anthropic key",
+  "scope": "root independent IMEX source/CPU review; authentic compatibility pending"
+}
