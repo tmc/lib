@@ -1,0 +1,1 @@
+commit=f83500df8d0119a2c9b23ade29c7bacbfb404e3b date=2026-10-07 tool=Codex model=gpt-6.1-sol tty=none pid=5861 ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; helper failed twice missing ANTHROPIC_API_KEY; signed manual fallback; host suite and linux arm64 compile passed; physical Metal gate UNREAD
