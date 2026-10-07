@@ -1,0 +1,12 @@
+{
+  "hash": "535c3a2f11af8610486b3a58a9a121aaf4103c04",
+  "date": "2026-10-06T23:45:51-07:00",
+  "tool": "codex-cli 0.160.1",
+  "model": "not exposed",
+  "tty": "non-PTY exec",
+  "pid": 71760,
+  "ITERM_SESSION_ID": "w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93",
+  "assigned_session": "026363F7-C2F7-4118-9920-4953A7B20D93",
+  "original": "f1bccfa88d8da6d1bac3f21d3181dd7c151bb0d6",
+  "scope": "accepted fixture storage normalization; exact wire bytes retained"
+}
