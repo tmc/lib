@@ -1,0 +1,8 @@
+Commit: 16d36d645a15aee3f554c0c3736bb137e553ee93
+Commit date: 2026-10-06T17:42:54-07:00
+Tool: codex-cli 0.160.1
+Model: unavailable
+TTY: unavailable
+PID: 96539
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original reviewed lane62 series cherry-picked without source changes onto a106e5430. Not integrated into shared next; unrelated egraph edits preserved.
