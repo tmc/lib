@@ -1,0 +1,19 @@
+{
+  "name": "92-lib",
+  "head": "755e8e2c6bc4e098ea66eaed4cf061e5d46987cc",
+  "parent": "1cafcefd6786ba605d26d86942445c069b5d4768",
+  "branch": "lane/92-implementation-first",
+  "worktree": "/Users/tmc/tmp/lib-nvidia-lane92/20261006-root-review/wt",
+  "files": 13,
+  "commit_date": "2026-10-06T22:43:02-07:00",
+  "validation": "existing host receipts retained; final independent/native qualification pending",
+  "identity": {
+    "agent": "Codex",
+    "version": "codex-cli 0.160.1",
+    "model": "not exposed by runtime",
+    "tty": "non-PTY tool invocation",
+    "pid": 96828,
+    "ITERM_SESSION_ID": "w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93",
+    "assigned_session": "026363F7-C2F7-4118-9920-4953A7B20D93"
+  }
+}
