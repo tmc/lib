@@ -1,0 +1,1 @@
+2026-10-07; tool=Codex; model=GPT-5; task=kvc_device_restore; tty=noninteractive; pid=tool-exec; ITERM_SESSION_ID inherited from coordinator; CPU tests on DGX and Linux arm64 compile passed; GPU continuation unqualified
