@@ -112,3 +112,21 @@ func TestCubinSymbolRefusals(t *testing.T) {
 		t.Fatal("empty query accepted")
 	}
 }
+
+func TestCubinSymbolsDuplicates(t *testing.T) {
+	original := symbolImage(0x21, 0, 0)
+	b := make([]byte, len(original)+24)
+	copy(b, original[:304])
+	copy(b[304:328], original[280:304])
+	copy(b[328:], original[304:])
+	binary.LittleEndian.PutUint64(b[160:], 72)
+	binary.LittleEndian.PutUint64(b[216:], 328)
+	im, err := OpenCubin(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := im.Symbols("raw")
+	if err != nil || len(rows) != 2 || rows[0] != rows[1] {
+		t.Fatalf("duplicates = %v, %v", rows, err)
+	}
+}
