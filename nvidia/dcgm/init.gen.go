@@ -3,15 +3,18 @@
 package dcgm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -186,6 +189,7 @@ func loadLocked(path string) error {
 // path it was opened from. An explicit path wins; otherwise it checks the
 // library path environment variable, then platform-specific default names.
 func openLibrary(path string) (uintptr, string, error) {
+	pkgConfigDiagnostic = ""
 	if path == "" {
 		path = os.Getenv("DCGM_LIB_PATH")
 	}
@@ -205,6 +209,13 @@ func openLibrary(path string) (uintptr, string, error) {
 		}
 		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
 	}
+	for _, name := range pkgConfigLibraryPaths(names) {
+		h, err := openDynamicLibrary(name)
+		if err == nil {
+			return h, name, nil
+		}
+		attempts = append(attempts, LibraryAttempt{Name: name, Err: err})
+	}
 	return 0, "", newLibraryError("", attempts)
 }
 
@@ -216,8 +227,8 @@ type LibraryAttempt struct {
 
 // LibraryError reports that libdcgm could not be opened. Attempts lists
 // every name tried in order. Path is set when an explicit path, from Load or
-// DCGM_LIB_PATH, was requested and failed. Hint, when non-empty, says where
-// pkg-config believes the library is installed.
+// DCGM_LIB_PATH, was requested and failed. Hint reports pkg-config discovery
+// results and query failures, when discovery ran.
 type LibraryError struct {
 	Library  string
 	Env      string
@@ -271,25 +282,212 @@ func newLibraryError(path string, attempts []LibraryAttempt) *LibraryError {
 	return &LibraryError{Library: "libdcgm", Env: "DCGM_LIB_PATH", Path: path, Attempts: attempts, Hint: pkgConfigHint()}
 }
 
-// pkgConfigHint asks pkg-config where the library is installed so that a
-// load failure can say so. It runs only after every dlopen attempt has
-// failed, never chooses the library, and is silent when pkg-config is
-// absent or does not know the package.
-func pkgConfigHint() string {
-	const pkg = "dcgm"
-	exe, err := exec.LookPath("pkg-config")
-	if err != nil {
-		return ""
+var pkgConfigDiagnostic string
+
+func pkgConfigHint() string { return pkgConfigDiagnostic }
+func pkgConfigLibraryPaths(names []string) []string {
+	return pkgConfigPaths(names, pkgConfigLibraryDirectories())
+}
+func pkgConfigLibraryDirectories() []string {
+	dirs, hint := pkgConfigDirectories([]string{"dcgm"})
+	pkgConfigDiagnostic = hint
+	return dirs
+}
+
+// pkgConfigOutput bounds both output and execution of a metadata query.
+type pkgConfigOutput struct {
+	data []byte
+	err  error
+	stop func()
+}
+
+func (b *pkgConfigOutput) Write(p []byte) (int, error) {
+	if len(p) > (1<<20)-len(b.data) {
+		b.err = fmt.Errorf("pkg-config output exceeds 1 MiB")
+		if b.stop != nil {
+			b.stop()
+		}
+		return 0, b.err
 	}
-	out, err := exec.Command(exe, "--variable=libdir", pkg).Output()
-	if err != nil {
-		return ""
+	b.data = append(b.data, p...)
+	return len(p), nil
+}
+
+func pkgConfigQuery(ctx context.Context, command string, env []string, args ...string) (string, error) {
+	if command == "" {
+		command = os.Getenv("PKG_CONFIG")
 	}
-	dir := strings.TrimSpace(string(out))
-	if dir == "" {
-		return ""
+	if command == "" {
+		command = "pkg-config"
 	}
-	return "pkg-config reports " + pkg + " in " + dir
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, command, args...)
+	cmd.Env = env
+	cmd.WaitDelay = 100 * time.Millisecond
+	var out, stderr pkgConfigOutput
+	out.stop = func() { _ = cmd.Process.Kill() }
+	stderr.stop = out.stop
+	cmd.Stdout, cmd.Stderr = &out, &stderr
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		} else if out.err != nil {
+			err = out.err
+		} else if stderr.err != nil {
+			err = stderr.err
+		}
+		return "", fmt.Errorf("pkg-config %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(stderr.data)))
+	}
+	return strings.TrimRight(string(out.data), "\r\n"), nil
+}
+
+// pkgConfigSplit decodes shell-style words without evaluating them.
+func pkgConfigSplit(s string) ([]string, error) {
+	var words []string
+	var word strings.Builder
+	var quote rune
+	escaped, started := false, false
+	for _, r := range s {
+		if escaped {
+			if quote == '"' && r != '\\' && r != '"' && r != '$' && r != '`' && r != '\n' {
+				word.WriteRune('\\')
+			}
+			if r != '\n' {
+				word.WriteRune(r)
+			}
+			escaped = false
+			started = true
+			continue
+		}
+		if r == '\\' && quote != '\'' {
+			escaped = true
+			started = true
+			continue
+		}
+		if quote != 0 {
+			if r == quote {
+				quote = 0
+			} else {
+				word.WriteRune(r)
+			}
+			continue
+		}
+		switch r {
+		case '\'', '"':
+			quote = r
+			started = true
+		case ' ', '\t', '\r', '\n':
+			if started {
+				words = append(words, word.String())
+				word.Reset()
+				started = false
+			}
+		default:
+			word.WriteRune(r)
+			started = true
+		}
+	}
+	if escaped || quote != 0 {
+		return nil, fmt.Errorf("unterminated pkg-config argument")
+	}
+	if started {
+		words = append(words, word.String())
+	}
+	return words, nil
+}
+
+func pkgConfigValidate(packages []string) error {
+	for _, pkg := range packages {
+		if pkg == "" || pkg[0] == '-' {
+			return fmt.Errorf("invalid pkg-config module %q", pkg)
+		}
+		for _, r := range pkg {
+			if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("._+-", r)) {
+				return fmt.Errorf("invalid pkg-config module %q", pkg)
+			}
+		}
+	}
+	return nil
+}
+
+// pkgConfigDirectories finds absolute search directories, without interpreting
+// linker library names or changing the process's loader search path.
+func pkgConfigDirectories(packages []string) ([]string, string) {
+	if len(packages) == 0 {
+		return nil, ""
+	}
+	if err := pkgConfigValidate(packages); err != nil {
+		return nil, err.Error()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var dirs, diagnostics []string
+	seen := make(map[string]bool)
+	add := func(dir string) {
+		if !filepath.IsAbs(dir) {
+			return
+		}
+		dir = filepath.Clean(dir)
+		if !seen[dir] {
+			seen[dir] = true
+			dirs = append(dirs, dir)
+		}
+	}
+	for _, pkg := range packages {
+		if ctx.Err() != nil {
+			diagnostics = append(diagnostics, ctx.Err().Error())
+			break
+		}
+		dir, err := pkgConfigQuery(ctx, "", nil, "--variable=libdir", pkg)
+		if err != nil {
+			diagnostics = append(diagnostics, err.Error())
+		} else if dir != "" {
+			add(dir)
+		}
+		out, err := pkgConfigQuery(ctx, "", nil, "--libs-only-L", pkg)
+		if err != nil {
+			diagnostics = append(diagnostics, err.Error())
+			continue
+		}
+		flags, err := pkgConfigSplit(out)
+		if err != nil {
+			diagnostics = append(diagnostics, err.Error())
+			continue
+		}
+		for i := 0; i < len(flags); i++ {
+			if flags[i] == "-L" && i+1 < len(flags) {
+				i++
+				add(flags[i])
+			} else if strings.HasPrefix(flags[i], "-L") {
+				add(strings.TrimPrefix(flags[i], "-L"))
+			}
+		}
+	}
+	hint := ""
+	if len(dirs) > 0 {
+		hint = "pkg-config reports " + strings.Join(packages, ", ") + " in " + strings.Join(dirs, ", ")
+	}
+	if len(diagnostics) > 0 {
+		if hint != "" {
+			hint += "; "
+		}
+		hint += strings.Join(diagnostics, "; ")
+	}
+	return dirs, hint
+}
+
+func pkgConfigPaths(names, dirs []string) []string {
+	var paths []string
+	for _, dir := range dirs {
+		for _, name := range names {
+			if name != filepath.Base(name) {
+				continue
+			}
+			paths = append(paths, filepath.Join(dir, name))
+		}
+	}
+	return paths
 }
 
 // libraryNames returns the platform-specific shared library names to try.
@@ -469,6 +667,11 @@ func registerFuncs() {
 	symIntrospectGetHostengineMemoryUsage = registerSym("dcgmIntrospectGetHostengineMemoryUsage")
 	symModuleGetStatuses = registerSym("dcgmModuleGetStatuses")
 	symModuleIdToName = registerSym("dcgmModuleIdToName")
+	symPolicyGet = registerSym("dcgmPolicyGet")
+	symPolicyRegisterV2 = registerSym("dcgmPolicyRegister_v2")
+	symPolicySet = registerSym("dcgmPolicySet")
+	symPolicyTrigger = registerSym("dcgmPolicyTrigger")
+	symPolicyUnregister = registerSym("dcgmPolicyUnregister")
 	symPowerProfileIdToName = registerSym("dcgmPowerProfileIdToName")
 	symProfGetSupportedMetricGroups = registerSym("dcgmProfGetSupportedMetricGroups")
 	symShutdown = registerSym("dcgmShutdown")
@@ -535,6 +738,11 @@ func clearFuncs() {
 	symIntrospectGetHostengineMemoryUsage = 0
 	symModuleGetStatuses = 0
 	symModuleIdToName = 0
+	symPolicyGet = 0
+	symPolicyRegisterV2 = 0
+	symPolicySet = 0
+	symPolicyTrigger = 0
+	symPolicyUnregister = 0
 	symPowerProfileIdToName = 0
 	symProfGetSupportedMetricGroups = 0
 	symShutdown = 0
@@ -789,6 +997,31 @@ func HasModuleGetStatuses() bool {
 // HasModuleIdToName reports whether dcgmModuleIdToName resolved in the loaded library.
 func HasModuleIdToName() bool {
 	return Has("dcgmModuleIdToName")
+}
+
+// HasPolicyGet reports whether dcgmPolicyGet resolved in the loaded library.
+func HasPolicyGet() bool {
+	return Has("dcgmPolicyGet")
+}
+
+// HasPolicyRegisterV2 reports whether dcgmPolicyRegister_v2 resolved in the loaded library.
+func HasPolicyRegisterV2() bool {
+	return Has("dcgmPolicyRegister_v2")
+}
+
+// HasPolicySet reports whether dcgmPolicySet resolved in the loaded library.
+func HasPolicySet() bool {
+	return Has("dcgmPolicySet")
+}
+
+// HasPolicyTrigger reports whether dcgmPolicyTrigger resolved in the loaded library.
+func HasPolicyTrigger() bool {
+	return Has("dcgmPolicyTrigger")
+}
+
+// HasPolicyUnregister reports whether dcgmPolicyUnregister resolved in the loaded library.
+func HasPolicyUnregister() bool {
+	return Has("dcgmPolicyUnregister")
 }
 
 // HasPowerProfileIdToName reports whether dcgmPowerProfileIdToName resolved in the loaded library.

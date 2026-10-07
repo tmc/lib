@@ -1,0 +1,12 @@
+{
+  "tag": "v2.4.7",
+  "commit": "0fb66990409818236a5fec5e9a795456351579b9",
+  "target": "x86_64-unknown-linux-gnu",
+  "inputs": {
+    "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "dcgm_agent.h": "f618e107410e35ef69bda5d7c98f522d3020fe8387f0168607a829c7a6fe42fd",
+    "dcgm_api_export.h": "42497f7663daef4b34ca212d2cbd546f7baa6383650343027e9c4d1211e952d0",
+    "dcgm_fields.h": "fbed69fe86c2b36e78e77576bb0e21399a8bf9b6e6b5d5f3ceee79efcda5b03f",
+    "dcgm_structs.h": "4cb983dd8ceaa6bac2f272f594f628111505e4f0f8357a473ad4ae3014fda15e"
+  }
+}

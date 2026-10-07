@@ -59,6 +59,11 @@ var (
 	symIntrospectGetHostengineMemoryUsage    uintptr
 	symModuleGetStatuses                     uintptr
 	symModuleIdToName                        uintptr
+	symPolicyGet                             uintptr
+	symPolicyRegisterV2                      uintptr
+	symPolicySet                             uintptr
+	symPolicyTrigger                         uintptr
+	symPolicyUnregister                      uintptr
 	symPowerProfileIdToName                  uintptr
 	symProfGetSupportedMetricGroups          uintptr
 	symShutdown                              uintptr
@@ -119,6 +124,16 @@ func ffiCall3(fn uintptr, floatMask uint32, a0, a1, a2 uintptr) (r1, rf uintptr)
 	args[1] = a1
 	args[2] = a2
 	return ffi.CallFloat(fn, 3, &args, floatMask)
+}
+
+//go:uintptrescapes
+func ffiCall4(fn uintptr, floatMask uint32, a0, a1, a2, a3 uintptr) (r1, rf uintptr) {
+	var args [ffi.MaxArgs]uintptr
+	args[0] = a0
+	args[1] = a1
+	args[2] = a2
+	args[3] = a3
+	return ffi.CallFloat(fn, 4, &args, floatMask)
 }
 
 //go:uintptrescapes
@@ -488,6 +503,36 @@ func fnModuleIdToName(a0 ModuleId, a1 *uintptr) Result {
 	return Result(r1)
 }
 
+// fnPolicyGet calls dcgmPolicyGet.
+func fnPolicyGet(a0 Handle, a1 GpuGrp, a2 int32, a3 *Policy, a4 StatusHandle) Result {
+	r1, _ := ffiCallWidths5(symPolicyGet, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(unsafe.Pointer(a3)), uintptr(a4))
+	return Result(r1)
+}
+
+// fnPolicyRegisterV2 calls dcgmPolicyRegister_v2.
+func fnPolicyRegisterV2(a0 Handle, a1 GpuGrp, a2 PolicyCondition, a3 FpRecvUpdates, a4 uint64) Result {
+	r1, _ := ffiCallWidths5(symPolicyRegisterV2, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4))
+	return Result(r1)
+}
+
+// fnPolicySet calls dcgmPolicySet.
+func fnPolicySet(a0 Handle, a1 GpuGrp, a2 *Policy, a3 StatusHandle) Result {
+	r1, _ := ffiCall4(symPolicySet, 0, uintptr(a0), uintptr(a1), uintptr(unsafe.Pointer(a2)), uintptr(a3))
+	return Result(r1)
+}
+
+// fnPolicyTrigger calls dcgmPolicyTrigger.
+func fnPolicyTrigger(a0 Handle) Result {
+	r1, _ := ffiCall1(symPolicyTrigger, 0, uintptr(a0))
+	return Result(r1)
+}
+
+// fnPolicyUnregister calls dcgmPolicyUnregister.
+func fnPolicyUnregister(a0 Handle, a1 GpuGrp, a2 PolicyCondition) Result {
+	r1, _ := ffiCallWidths3(symPolicyUnregister, 0, 0x30, uintptr(a0), uintptr(a1), uintptr(a2))
+	return Result(r1)
+}
+
 // fnPowerProfileIdToName calls dcgmPowerProfileIdToName.
 func fnPowerProfileIdToName(a0 PowerProfileType, a1 *uintptr) Result {
 	r1, _ := ffiCallWidths2(symPowerProfileIdToName, 0, 0x3, uintptr(a0), uintptr(unsafe.Pointer(a1)))
@@ -729,7 +774,7 @@ func EntityGetLatestValues(pDcgmHandle Handle, entityGroup FieldEntityGroup, ent
 	return toError(fnEntityGetLatestValues(pDcgmHandle, entityGroup, entityId, fields, count, values), "dcgmEntityGetLatestValues")
 }
 
-// FieldGroupCreate is used to create a group of fields and return the handle in dcgmFieldGroupId
+// FieldGroupCreate is used to create a group of fields and return the handle
 //
 //   - dcgmHandle: IN: DCGM handle
 //   - numFieldIds: IN: Number of field IDs that are being provided in fieldIds[]. Must be between 1 and [MaxFieldIDsPerFieldGroup]
@@ -978,7 +1023,7 @@ func GetGpuInstanceHierarchy(dcgmHandle Handle, hierarchy *MigHierarchyV2) error
 //
 //   - pDcgmHandle: in DCGM Handle of an active connection
 //   - gpuId: in GPU ID to query status for
-//   - status: out Pointer to store the GPU status
+//   - status: out The GPU status
 //
 // Wraps dcgmGetGpuStatus.
 func GetGpuStatus(pDcgmHandle Handle, gpuId uint32) (EntityStatus, error) {
@@ -1086,7 +1131,7 @@ func GroupAddEntity(pDcgmHandle Handle, groupId GpuGrp, entityGroupId FieldEntit
 	return toError(fnGroupAddEntity(pDcgmHandle, groupId, entityGroupId, entityId), "dcgmGroupAddEntity")
 }
 
-// GroupCreate is used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
+// GroupCreate is used to create a entity group handle which can store one or more entity Ids as an opaque handle returned.
 //
 // Instead of executing an operation separately for each entity, the DCGM group enables the user to execute same operation on all the entities present in the group as a single API call.
 // To create the group with all the entities present on the system, the type field should be
@@ -1350,6 +1395,93 @@ func ModuleIdToName(id ModuleId) (uintptr, error) {
 
 var slotModuleIdToName outSlot[uintptr]
 
+// PolicyGet gets the current violation policy inside the policy manager.
+//
+// Given a groupId, a number of policy structures are retrieved.
+//
+//   - pDcgmHandle: IN: DCGM Handle
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - count: IN: The size of the policy array. This is the maximum number of policies that will be retrieved and ultimately should correspond to the number of GPUs specified in the group
+//   - policy: OUT: A reference to [Policy] that will used as storage for the current policies applied to each GPU in the group
+//   - statusHandle: IN/OUT: Resulting status for the operation. Pass it as NULL if the detailed error information for the operation is not needed. Refer to [NewStatusHandle] for details on creating a status handle
+//
+// Wraps dcgmPolicyGet.
+func PolicyGet(pDcgmHandle Handle, groupId GpuGrp, count int32, policy *Policy, statusHandle StatusHandle) error {
+	if err := checkLibSym("dcgmPolicyGet"); err != nil {
+		return err
+	}
+	return toError(fnPolicyGet(pDcgmHandle, groupId, count, policy, statusHandle), "dcgmPolicyGet")
+}
+
+// PolicyRegisterV2 registers a function to be called when a specific policy condition (see [PolicyCondition]) has been violated.
+//
+// This callback(s) will be called automatically when in [OperationModeAuto] mode and only after [Handle.PolicyTrigger] when in [OperationModeManual] mode. All callbacks are made within a separate thread.
+//
+//   - pDcgmHandle: IN: DCGM Handle
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - condition: IN: The set of conditions specified as an OR'd list (see [PolicyCondition]) for which to register a callback function
+//   - callback: IN: A reference to a function that should be called should a violation occur. This function will be called prior to any actions specified by the policy are taken (see [FpRecvUpdates])
+//   - userData: IN: User data pointer to pass to the userData field of callback
+//
+// Wraps dcgmPolicyRegister_v2.
+func PolicyRegisterV2(pDcgmHandle Handle, groupId GpuGrp, condition PolicyCondition, callback FpRecvUpdates, userData uint64) error {
+	if err := checkLibSym("dcgmPolicyRegister_v2"); err != nil {
+		return err
+	}
+	return toError(fnPolicyRegisterV2(pDcgmHandle, groupId, condition, callback, userData), "dcgmPolicyRegister_v2")
+}
+
+// PolicySet sets the current violation policy inside the policy manager.
+//
+// Given the conditions within the [Policy] structure, if a violation has occurred, subsequent action(s) may be performed to either report or contain the failure.
+//
+//   - pDcgmHandle: IN: DCGM Handle
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - policy: IN: A reference to [Policy] that will be applied to all GPUs in the group
+//   - statusHandle: IN/OUT: Resulting status for the operation. Pass it as NULL if the detailed error information is not needed. Refer to [NewStatusHandle] for details on creating a status handle
+//
+// Wraps dcgmPolicySet.
+func PolicySet(pDcgmHandle Handle, groupId GpuGrp, policy *Policy, statusHandle StatusHandle) error {
+	if err := checkLibSym("dcgmPolicySet"); err != nil {
+		return err
+	}
+	return toError(fnPolicySet(pDcgmHandle, groupId, policy, statusHandle), "dcgmPolicySet")
+}
+
+// PolicyTrigger Inform the policy manager loop to perform an iteration and trigger the callbacks of any registered functions.
+//
+// Callback functions will be called from a separate thread as the calling function.
+//
+// Note: The GPU monitoring and management agent must call this method periodically if the operation
+// mode is set to manual mode ([OperationModeManual]) during initialization
+// ([Init]).
+//
+//   - pDcgmHandle: IN: DCGM Handle
+//
+// Wraps dcgmPolicyTrigger.
+func PolicyTrigger(pDcgmHandle Handle) error {
+	if err := checkLibSym("dcgmPolicyTrigger"); err != nil {
+		return err
+	}
+	return toError(fnPolicyTrigger(pDcgmHandle), "dcgmPolicyTrigger")
+}
+
+// PolicyUnregister unregisters a function to be called for a specific policy condition (see [PolicyCondition]).
+//
+// This function will unregister all callbacks for a given condition and handle.
+//
+//   - pDcgmHandle: IN: DCGM Handle
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - condition: IN: The set of conditions specified as an OR'd list (see [PolicyCondition]) for which to unregister a callback function
+//
+// Wraps dcgmPolicyUnregister.
+func PolicyUnregister(pDcgmHandle Handle, groupId GpuGrp, condition PolicyCondition) error {
+	if err := checkLibSym("dcgmPolicyUnregister"); err != nil {
+		return err
+	}
+	return toError(fnPolicyUnregister(pDcgmHandle, groupId, condition), "dcgmPolicyUnregister")
+}
+
 // PowerProfileIdToName gets Friendly Power Profile name.
 //
 // Wraps dcgmPowerProfileIdToName.
@@ -1421,7 +1553,7 @@ func Shutdown() error {
 //
 // The agent is loaded as a shared library. This mode is provided to avoid any
 // extra jitter associated with an additional autonomous agent needs to be managed. In
-// this mode, the user has to periodically call APIs such as dcgmPolicyTrigger and
+// this mode, the user has to periodically call APIs such as [Handle.PolicyTrigger] and
 // [Handle.UpdateAllFields] which tells DCGM to wake up and perform data collection and
 // operations needed for policy management.
 //

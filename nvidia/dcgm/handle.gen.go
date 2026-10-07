@@ -125,7 +125,7 @@ func (h Handle) EntityGroupEntities(entityGroup FieldEntityGroup, entities *Fiel
 	return GetEntityGroupEntities(h, entityGroup, entities, numEntities, flags)
 }
 
-// FieldGroupCreate is used to create a group of fields and return the handle in dcgmFieldGroupId
+// FieldGroupCreate is used to create a group of fields and return the handle
 //
 //   - numFieldIds: IN: Number of field IDs that are being provided in fieldIds[]. Must be between 1 and [MaxFieldIDsPerFieldGroup]
 //   - fieldIds: IN: Field IDs to be added to the newly-created field group
@@ -195,7 +195,7 @@ func (h Handle) GpuInstanceHierarchy(hierarchy *MigHierarchyV2) error {
 // GpuStatus gets the status of a GPU
 //
 //   - gpuId: in GPU ID to query status for
-//   - status: out Pointer to store the GPU status
+//   - status: out The GPU status
 //
 // Wraps dcgmGetGpuStatus.
 func (h Handle) GpuStatus(gpuId uint32) (EntityStatus, error) {
@@ -223,7 +223,7 @@ func (h Handle) GroupAddEntity(groupId GpuGrp, entityGroupId FieldEntityGroup, e
 	return GroupAddEntity(h, groupId, entityGroupId, entityId)
 }
 
-// GroupCreate is used to create a entity group handle which can store one or more entity Ids as an opaque handle returned in pDcgmGrpId.
+// GroupCreate is used to create a entity group handle which can store one or more entity Ids as an opaque handle returned.
 //
 // Instead of executing an operation separately for each entity, the DCGM group enables the user to execute same operation on all the entities present in the group as a single API call.
 // To create the group with all the entities present on the system, the type field should be
@@ -421,6 +421,72 @@ func (h Handle) NvLinkLinkStatus(linkStatus *NvLinkStatus) error {
 // Wraps dcgmGetNvLinkP2PStatus.
 func (h Handle) NvLinkP2PStatus(linkStatus *NvLinkP2PStatus) error {
 	return GetNvLinkP2PStatus(h, linkStatus)
+}
+
+// PolicyGet gets the current violation policy inside the policy manager.
+//
+// Given a groupId, a number of policy structures are retrieved.
+//
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - count: IN: The size of the policy array. This is the maximum number of policies that will be retrieved and ultimately should correspond to the number of GPUs specified in the group
+//   - policy: OUT: A reference to [Policy] that will used as storage for the current policies applied to each GPU in the group
+//   - statusHandle: IN/OUT: Resulting status for the operation. Pass it as NULL if the detailed error information for the operation is not needed. Refer to [NewStatusHandle] for details on creating a status handle
+//
+// Wraps dcgmPolicyGet.
+func (h Handle) PolicyGet(groupId GpuGrp, count int32, policy *Policy, statusHandle StatusHandle) error {
+	return PolicyGet(h, groupId, count, policy, statusHandle)
+}
+
+// PolicyRegisterV2 registers a function to be called when a specific policy condition (see [PolicyCondition]) has been violated.
+//
+// This callback(s) will be called automatically when in [OperationModeAuto] mode and only after [Handle.PolicyTrigger] when in [OperationModeManual] mode. All callbacks are made within a separate thread.
+//
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - condition: IN: The set of conditions specified as an OR'd list (see [PolicyCondition]) for which to register a callback function
+//   - callback: IN: A reference to a function that should be called should a violation occur. This function will be called prior to any actions specified by the policy are taken (see [FpRecvUpdates])
+//   - userData: IN: User data pointer to pass to the userData field of callback
+//
+// Wraps dcgmPolicyRegister_v2.
+func (h Handle) PolicyRegisterV2(groupId GpuGrp, condition PolicyCondition, callback FpRecvUpdates, userData uint64) error {
+	return PolicyRegisterV2(h, groupId, condition, callback, userData)
+}
+
+// PolicySet sets the current violation policy inside the policy manager.
+//
+// Given the conditions within the [Policy] structure, if a violation has occurred, subsequent action(s) may be performed to either report or contain the failure.
+//
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - policy: IN: A reference to [Policy] that will be applied to all GPUs in the group
+//   - statusHandle: IN/OUT: Resulting status for the operation. Pass it as NULL if the detailed error information is not needed. Refer to [NewStatusHandle] for details on creating a status handle
+//
+// Wraps dcgmPolicySet.
+func (h Handle) PolicySet(groupId GpuGrp, policy *Policy, statusHandle StatusHandle) error {
+	return PolicySet(h, groupId, policy, statusHandle)
+}
+
+// PolicyTrigger Inform the policy manager loop to perform an iteration and trigger the callbacks of any registered functions.
+//
+// Callback functions will be called from a separate thread as the calling function.
+//
+// Note: The GPU monitoring and management agent must call this method periodically if the operation
+// mode is set to manual mode ([OperationModeManual]) during initialization
+// ([Init]).
+//
+// Wraps dcgmPolicyTrigger.
+func (h Handle) PolicyTrigger() error {
+	return PolicyTrigger(h)
+}
+
+// PolicyUnregister unregisters a function to be called for a specific policy condition (see [PolicyCondition]).
+//
+// This function will unregister all callbacks for a given condition and handle.
+//
+//   - groupId: IN: Group ID representing collection of one or more GPUs. Look at [Handle.GroupCreate] for details on creating the group. Alternatively, pass in the group id as [GroupAllGPUs] to perform operation on all the GPUs
+//   - condition: IN: The set of conditions specified as an OR'd list (see [PolicyCondition]) for which to unregister a callback function
+//
+// Wraps dcgmPolicyUnregister.
+func (h Handle) PolicyUnregister(groupId GpuGrp, condition PolicyCondition) error {
+	return PolicyUnregister(h, groupId, condition)
 }
 
 // ProfGetSupportedMetricGroups gets all of the profiling metric groups for a given GPU group.

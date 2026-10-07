@@ -7,10 +7,13 @@
 // binds the read-only part of that client API: library and connection
 // lifetime, device and entity discovery, groups and field groups, field
 // watches and value retrieval, and the diagnostic and health state a client
-// can read.
+// can read. Explicit policy set/get/trigger and v2 callback registration are
+// also bound; they do not run implicitly.
+// [PolicyRegisterV1] describes the distinct legacy v2.4.7 begin/finish ABI;
+// availability depends on the loaded library. It is not a v2 alias.
 //
-// Configuration-changing management is deliberately not bound. dcgmConfigSet,
-// dcgmPolicySet, dcgmHealthSet, dcgmActionValidate, dcgmRunDiagnostic and the
+// Other configuration-changing management is not bound. dcgmConfigSet,
+// dcgmHealthSet, dcgmActionValidate, dcgmRunDiagnostic and the
 // job-tracking calls change the state of a shared service that other programs
 // on the same node are also using, and several of them make the GPU
 // unavailable for the duration. They are listed with a reason each in the
@@ -60,10 +63,15 @@
 //
 // Buffers follow the same rule everywhere: a slice or string passed into a
 // call is read during the call and not retained, and a value returned is a Go
-// copy, not a view into library memory. No callback in the bound surface is
-// registered with the library, so no Go function pointer outlives a call. The
+// copy, not a view into library memory. [NewPolicyNotifications] retains one
+// native trampoline and uses non-reused numeric tokens; close subscriptions
+// before their group, connection, host engine or library. Raw callback callers
+// must retain their trampoline for all possible late native callbacks. The
 // only handles are [Handle], [GpuGrp], [FieldGrp] and [StatusHandle]; each is
 // an opaque integer the host engine owns, and none of them is finalized.
+// [PolicyBool] and [PolicyNumber] construct the versioned policy's tagged
+// condition parameters; [ReadPolicies] initializes every requested policy slot.
+// [PolicyTrigger] is an explicit caller action, never a notification loop.
 //
 // # Versioned structures
 //

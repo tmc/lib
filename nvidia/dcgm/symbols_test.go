@@ -68,6 +68,11 @@ var boundSymbols = []string{
 	"dcgmFieldGroupGetInfo",
 	"dcgmWatchFields",
 	"dcgmUnwatchFields",
+	"dcgmPolicySet",
+	"dcgmPolicyGet",
+	"dcgmPolicyRegister_v2",
+	"dcgmPolicyUnregister",
+	"dcgmPolicyTrigger",
 	"dcgmUpdateAllFields",
 
 	// Value retrieval.
@@ -123,7 +128,6 @@ func TestUnboundSurfaceStaysUnbound(t *testing.T) {
 	requireLibrary(t)
 	for _, symbol := range []string{
 		"dcgmConfigSet",
-		"dcgmPolicySet",
 		"dcgmHealthSet",
 		"dcgmActionValidate",
 	} {
