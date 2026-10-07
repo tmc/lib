@@ -9,7 +9,9 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudaheadroom"
 	"github.com/tmc/lib/nvidia/x/cudashape"
+	"github.com/tmc/lib/nvidia/x/cudashared"
 )
 
 // DevicePtrProvider represents any type that exposes a raw GPU device pointer.
@@ -37,6 +39,8 @@ type Launcher struct {
 	counter        *Counter
 	attrs          []driver.LaunchAttribute
 	sig            *Signature
+	sharedPlan     *cudashared.Plan
+	otherStatic    int64
 }
 
 // Counter counts successful CUDA kernel submissions.
@@ -230,6 +234,13 @@ func (l *Launcher) PrepareSharedMem(targetDev ...*cuda.Device) error {
 		if err := l.owned.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, int(l.shmem)); err != nil {
 			return fmt.Errorf("cudalaunch: set max dynamic shared memory: %w", err)
 		}
+		readback, err := l.owned.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+		if err != nil {
+			return fmt.Errorf("cudalaunch: read dynamic shared memory limit: %w", err)
+		}
+		if readback < int(l.shmem) {
+			return fmt.Errorf("cudalaunch: dynamic shared memory readback %d below requested %d", readback, l.shmem)
+		}
 		return nil
 	}
 
@@ -269,6 +280,18 @@ func (l *Launcher) PrepareSharedMem(targetDev ...*cuda.Device) error {
 	})
 	if err != nil {
 		return fmt.Errorf("cudalaunch: set max dynamic shared memory: %w", err)
+	}
+	var readback int32
+	err = dev.WithContext(func() error {
+		var err error
+		readback, err = l.fn.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("cudalaunch: read dynamic shared memory limit: %w", err)
+	}
+	if readback < int32(l.shmem) {
+		return fmt.Errorf("cudalaunch: dynamic shared memory readback %d below requested %d", readback, l.shmem)
 	}
 	return nil
 }
@@ -393,7 +416,11 @@ func (l *Launcher) Launch(args ...any) error {
 		return err
 	}
 
-	if l.shmem > 0 {
+	if l.sharedPlan != nil {
+		if err := l.checkSharedPlan(); err != nil {
+			return err
+		}
+	} else if l.shmem > 0 {
 		if l.owned != nil || l.stream != nil {
 			if err := l.PrepareSharedMem(); err != nil {
 				return err
@@ -622,4 +649,47 @@ func OccupancyMaxPotentialBlockSize(fn driver.Function, dynamicSMemBytes uint, b
 		return 0, 0, fmt.Errorf("cudalaunch: occupancy calculation: %w", err)
 	}
 	return int(minGrid), int(block), nil
+}
+
+// PrepareSharedPlan binds a plan to this owned kernel, configures its dynamic
+// limit with readback, and sets the launch's dynamic bytes. otherStatic has the
+// correspondence contract of cudaheadroom.PreparePlan. Callers must serialize
+// plan/configuration/lifetime changes through launch. Launch checks fresh limits
+// and refuses overriding shared-memory modes or a changed shared-byte count.
+func (l *Launcher) PrepareSharedPlan(plan *cudashared.Plan, otherStatic int64) (cudaheadroom.Budget, error) {
+	if l == nil || l.owned == nil {
+		return cudaheadroom.Budget{}, fmt.Errorf("cudalaunch: shared plan requires an owned kernel")
+	}
+	if err := l.sharedPlanMode(); err != nil {
+		return cudaheadroom.Budget{}, err
+	}
+	b, err := cudaheadroom.PreparePlan(l.owned, plan, otherStatic)
+	if err != nil {
+		return b, err
+	}
+	if plan.DynamicBytes() > int64(^uint32(0)) {
+		return b, fmt.Errorf("cudalaunch: shared plan size exceeds launch range")
+	}
+	l.sharedPlan = plan
+	l.otherStatic = otherStatic
+	l.shmem = uint32(plan.DynamicBytes())
+	return b, nil
+}
+func (l *Launcher) sharedPlanMode() error {
+	for _, a := range l.attrs {
+		if a.Id == driver.LaunchAttributeSharedMemoryMode {
+			return fmt.Errorf("cudalaunch: shared plan does not support a launch shared-memory mode override")
+		}
+	}
+	return nil
+}
+func (l *Launcher) checkSharedPlan() error {
+	if err := l.sharedPlanMode(); err != nil {
+		return err
+	}
+	if l.sharedPlan.DynamicBytes() != int64(l.shmem) {
+		return fmt.Errorf("cudalaunch: launch shared bytes differ from bound plan")
+	}
+	_, err := cudaheadroom.CheckPlan(l.owned, l.sharedPlan, l.otherStatic)
+	return err
 }
