@@ -9,7 +9,7 @@
 //
 // NewDecoder supports incremental newline framing with temporary io.EOF and
 // explicit Finish. Limits apply to the entire epoch. OpenFile adds an opaque
-// in-process resume token, file replacement/truncation checks and prefix binding
+// versioned persistent resume cursor, file replacement/truncation checks and prefix binding
 // on Linux and Darwin. Callers own polling, cancellation and append coordination.
 // Finite Read continues to refuse incomplete captures.
 //

@@ -1,22 +1,27 @@
 package ncclinspector
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 )
 
-// FilePosition is an opaque in-process resume token for a file epoch. It binds
+// FilePosition is a resume token for a file epoch. It binds
 // file identity, the complete-record prefix and cumulative epoch limits.
-// A zero position is not a resume token. It is not a persistent wire format.
+// A zero position is not a resume token. MarshalText preserves it across restarts.
 type FilePosition struct {
-	high    int64
-	info    os.FileInfo
-	offset  int64
-	records int
-	digest  [32]byte
+	device, inode uint64
+	epoch         string
+	limits        Limits
+	high          int64
+	info          os.FileInfo
+	offset        int64
+	records       int
+	digest        [32]byte
 }
 
 // Offset returns the committed complete-record offset.
@@ -27,13 +32,15 @@ func (p FilePosition) Offset() int64 { return p.offset }
 // The caller must serialize append/rotation with reads for a coherent snapshot;
 // a file can change between checks. The zero value is not usable.
 type FileDecoder struct {
-	digest     [32]byte
-	file       *os.File
-	path       string
-	info       os.FileInfo
-	high       int64
-	readOffset int64
-	decoder    *Decoder
+	device, inode uint64
+	epoch         string
+	digest        [32]byte
+	file          *os.File
+	path          string
+	info          os.FileInfo
+	high          int64
+	readOffset    int64
+	decoder       *Decoder
 }
 
 // OpenFile opens an ordinary file epoch, optionally resuming a Position from
@@ -53,13 +60,21 @@ func OpenFile(path string, limits Limits, resume *FilePosition) (*FileDecoder, e
 	if err != nil {
 		return fail(err)
 	}
-	d := &FileDecoder{file: f, path: path, info: info, high: info.Size()}
+	device, inode, err := fileIdentity(info)
+	if err != nil {
+		return fail(err)
+	}
+	var epoch [16]byte
+	if _, err := rand.Read(epoch[:]); err != nil {
+		return fail(err)
+	}
+	d := &FileDecoder{file: f, path: path, info: info, high: info.Size(), device: device, inode: inode, epoch: hex.EncodeToString(epoch[:])}
 	d.decoder, err = NewDecoder(d, l)
 	if err != nil {
 		return fail(err)
 	}
 	if resume != nil {
-		if resume.info == nil || !os.SameFile(info, resume.info) || resume.offset < 0 || resume.offset > int64(l.Bytes) || resume.records < 1 || resume.records > l.Records || info.Size() < resume.high {
+		if resume.device != device || resume.inode != inode || resume.limits != l || resume.epoch == "" || resume.offset < 0 || resume.offset > int64(l.Bytes) || resume.records < 1 || resume.records > l.Records || info.Size() < resume.high {
 			return fail(errors.New("inspector: invalid file resume"))
 		}
 		hash, err := d.prefix(resume.offset)
@@ -69,6 +84,7 @@ func OpenFile(path string, limits Limits, resume *FilePosition) (*FileDecoder, e
 		if hash != resume.digest {
 			return fail(errors.New("inspector: changed file prefix"))
 		}
+		d.epoch = resume.epoch
 		d.digest = resume.digest
 		d.readOffset = resume.offset
 		d.decoder.offset = resume.offset
@@ -159,7 +175,7 @@ func (d *FileDecoder) Position() (FilePosition, error) {
 	if hash != d.digest {
 		return FilePosition{}, errors.New("inspector: changed file prefix")
 	}
-	return FilePosition{high: d.high, info: d.info, offset: d.decoder.Offset(), records: d.decoder.records, digest: hash}, nil
+	return FilePosition{high: d.high, info: d.info, offset: d.decoder.Offset(), records: d.decoder.records, digest: hash, device: d.device, inode: d.inode, epoch: d.epoch, limits: d.decoder.limits}, nil
 }
 
 // Finish declares the current epoch complete without reading more input.

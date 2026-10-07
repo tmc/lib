@@ -103,10 +103,19 @@ func ExampleOpenFile() {
 	if err != nil {
 		panic(err)
 	}
+	encoded, err := position.MarshalText()
+	if err != nil {
+		panic(err)
+	}
 	if err = d.Close(); err != nil {
 		panic(err)
 	}
-	d, err = ncclinspector.OpenFile("testdata/stats.jsonl", ncclinspector.Limits{}, &position)
+	// Persist encoded with the consumed records; a restarted consumer decodes it.
+	var restored ncclinspector.FilePosition
+	if err = restored.UnmarshalText(encoded); err != nil {
+		panic(err)
+	}
+	d, err = ncclinspector.OpenFile("testdata/stats.jsonl", ncclinspector.Limits{}, &restored)
 	if err != nil {
 		panic(err)
 	}

@@ -23,3 +23,11 @@ func openOrdinary(path string) (*os.File, error) {
 	}
 	return f, nil
 }
+
+func fileIdentity(info os.FileInfo) (uint64, uint64, error) {
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, 0, errors.New("inspector: unavailable file identity")
+	}
+	return uint64(st.Dev), uint64(st.Ino), nil
+}
