@@ -1,0 +1,49 @@
+{
+  "header": {
+    "id": "0xe62dedaa97644a",
+    "rank": 4,
+    "n_ranks": 8,
+    "nnodes": 1
+  },
+  "metadata": {
+    "inspector_output_format_version": "v4.1",
+    "git_rev": "9019a1912-dirty",
+    "rec_mechanism": "nccl_profiler_interface",
+    "dump_timestamp_us": 1752867229276385,
+    "hostname": "example-hostname",
+    "pid": 438776
+  },
+  "coll_perf": {
+    "coll": "ReduceScatter",
+    "coll_sn": 1231,
+    "coll_msg_size_bytes": 2147483648,
+    "coll_exec_time_us": 41057,
+    "coll_timing_source": "kernel_gpu",
+    "coll_algobw_gbs": 418.439467,
+    "coll_busbw_gbs": 366.134533,
+    "event_trace_sn": {
+      "coll_start_sn": 1,
+      "coll_stop_sn": 2,
+      "kernel_events": [
+        {
+          "channel_id": 0,
+          "kernel_start_sn": 3,
+          "kernel_stop_sn": 48,
+          "kernel_record_sn": 47
+        }
+      ]
+    },
+    "event_trace_ts": {
+      "coll_start_ts": 1752867229235059,
+      "coll_stop_ts": 1752867229235064,
+      "kernel_events": [
+        {
+          "channel_id": 0,
+          "kernel_start_ts": 1752867229235181,
+          "kernel_stop_ts": 1752867229275811,
+          "kernel_record_ts": 1752867229275811
+        }
+      ]
+    }
+  }
+}

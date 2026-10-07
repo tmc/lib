@@ -1,0 +1,24 @@
+{
+  "header": {
+    "id": "0x7f8c496ae9f661",
+    "rank": 2,
+    "n_ranks": 8,
+    "nnodes": 1
+  },
+  "metadata": {
+    "inspector_output_format_version": "v4.1",
+    "git_rev": "",
+    "rec_mechanism": "profiler_plugin",
+    "dump_timestamp_us": 1748030377748202,
+    "hostname": "example-hostname",
+    "pid": 1639453
+  },
+  "coll_perf": {
+    "coll": "AllReduce",
+    "coll_sn": 1407,
+    "coll_msg_size_bytes": 17179869184,
+    "coll_exec_time_us": 61974,
+    "coll_algobw_gbs": 277.210914,
+    "coll_busbw_gbs": 485.119099
+  }
+}
