@@ -19,33 +19,49 @@ type Budget struct {
 // Inspect queries the device and loaded function owned by kernel.
 // The caller must keep the module open and serialize configuration changes.
 func Inspect(kernel *cuda.Kernel) (Budget, error) {
-	if kernel == nil || kernel.Device() == nil {
-		return Budget{}, fmt.Errorf("cudaheadroom: kernel has no device")
+	p, err := kernelProbes(kernel)
+	if err != nil {
+		return Budget{}, err
 	}
-	return inspect(kernel)
+	return inspect(p)
 }
 
-func inspect(k *cuda.Kernel) (Budget, error) {
+// probes is a private test seam. Public entry points bind only owned methods;
+// there is no global hook and no alternate public kernel implementation.
+type probes struct {
+	device   func(driver.DeviceAttribute) (int, error)
+	function func(driver.FunctionAttribute) (int, error)
+	set      func(driver.FunctionAttribute, int) error
+}
+
+func kernelProbes(k *cuda.Kernel) (probes, error) {
 	dev := k.Device()
 	if dev == nil {
-		return Budget{}, fmt.Errorf("cudaheadroom: kernel has no device")
+		return probes{}, fmt.Errorf("cudaheadroom: kernel has no device")
 	}
-	mode, err := k.Attribute(driver.FuncAttributeSharedMemoryMode)
+	return probes{dev.Attribute, k.Attribute, k.SetAttribute}, nil
+}
+
+func inspect(p probes) (Budget, error) {
+	if p.device == nil || p.function == nil {
+		return Budget{}, fmt.Errorf("cudaheadroom: unavailable attribute probes")
+	}
+	mode, err := p.function(driver.FuncAttributeSharedMemoryMode)
 	if err != nil {
 		return Budget{}, fmt.Errorf("cudaheadroom: query shared mode: %w", err)
 	}
 	if mode != int(driver.SharedMemoryModeDefault) {
 		return Budget{}, fmt.Errorf("cudaheadroom: unsupported shared mode %d", mode)
 	}
-	user, err := dev.Attribute(driver.DevAttrMaxSharedMemoryPerBlockOptin)
+	user, err := p.device(driver.DevAttrMaxSharedMemoryPerBlockOptin)
 	if err != nil {
 		return Budget{}, fmt.Errorf("cudaheadroom: query user limit: %w", err)
 	}
-	static, err := k.Attribute(driver.FuncAttributeSharedSizeBytes)
+	static, err := p.function(driver.FuncAttributeSharedSizeBytes)
 	if err != nil {
 		return Budget{}, fmt.Errorf("cudaheadroom: query compiled static size: %w", err)
 	}
-	dynamic, err := k.Attribute(driver.FuncAttributeMaxDynamicSharedSizeBytes)
+	dynamic, err := p.function(driver.FuncAttributeMaxDynamicSharedSizeBytes)
 	if err != nil {
 		return Budget{}, fmt.Errorf("cudaheadroom: query function dynamic limit: %w", err)
 	}
@@ -53,7 +69,7 @@ func inspect(k *cuda.Kernel) (Budget, error) {
 	if err != nil {
 		return Budget{}, err
 	}
-	reserved, err := dev.Attribute(driver.DevAttrReservedSharedMemoryPerBlock)
+	reserved, err := p.device(driver.DevAttrReservedSharedMemoryPerBlock)
 	if err != nil {
 		b.ReservationError = err
 	} else if reserved < 0 {
@@ -82,7 +98,15 @@ func budget(user, static, dynamic int64) (Budget, error) {
 // Unknown correspondence must not be passed as an estimate. Static storage is
 // checked by equality and is not added to the compiled total a second time.
 func CheckPlan(kernel *cuda.Kernel, plan *cudashared.Plan, otherStatic int64) (Budget, error) {
-	b, err := Inspect(kernel)
+	p, err := kernelProbes(kernel)
+	if err != nil {
+		return Budget{}, err
+	}
+	return checkMeasuredPlan(p, plan, otherStatic)
+}
+
+func checkMeasuredPlan(p probes, plan *cudashared.Plan, otherStatic int64) (Budget, error) {
+	b, err := inspect(p)
 	if err != nil {
 		return Budget{}, err
 	}
@@ -114,7 +138,15 @@ func checkPlan(b Budget, p *cudashared.Plan, other int64, cap bool) error {
 // It does not launch. A setter error may leave function configuration changed;
 // callers must retain ownership and inspect it before proceeding.
 func PreparePlan(kernel *cuda.Kernel, plan *cudashared.Plan, otherStatic int64) (Budget, error) {
-	b, err := Inspect(kernel)
+	p, err := kernelProbes(kernel)
+	if err != nil {
+		return Budget{}, err
+	}
+	return preparePlan(p, plan, otherStatic)
+}
+
+func preparePlan(p probes, plan *cudashared.Plan, otherStatic int64) (Budget, error) {
+	b, err := inspect(p)
 	if err != nil {
 		return Budget{}, err
 	}
@@ -126,9 +158,12 @@ func PreparePlan(kernel *cuda.Kernel, plan *cudashared.Plan, otherStatic int64) 
 		if need > int64(^uint32(0)>>1) {
 			return b, fmt.Errorf("cudaheadroom: dynamic size exceeds function attribute range")
 		}
-		if err = kernel.SetAttribute(driver.FuncAttributeMaxDynamicSharedSizeBytes, int(need)); err != nil {
+		if p.set == nil {
+			return b, fmt.Errorf("cudaheadroom: unavailable dynamic limit setter")
+		}
+		if err = p.set(driver.FuncAttributeMaxDynamicSharedSizeBytes, int(need)); err != nil {
 			return b, fmt.Errorf("cudaheadroom: set dynamic limit: %w", err)
 		}
 	}
-	return CheckPlan(kernel, plan, otherStatic)
+	return checkMeasuredPlan(p, plan, otherStatic)
 }
