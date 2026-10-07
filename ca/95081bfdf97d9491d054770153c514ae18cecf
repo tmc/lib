@@ -1,0 +1,4 @@
+Integration provenance: original 2f6db18253078ec7a67e612d3d17b9b5ccb71e62; candidate ca95081bfdf97d9491d054770153c514ae18cecf
+Date 2026-10-07T06:37:10.898200+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+Source implementation committed 2026-10-06. Codex CLI 0.160.1; model GPT-6 (exact runtime identifier unavailable); tty none; writer PID 1990; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93. Qualification pending. Commit helper failed twice for missing Anthropic API key.
