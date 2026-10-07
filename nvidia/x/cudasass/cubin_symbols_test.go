@@ -258,3 +258,18 @@ func TestCubinSymbolsConcurrent(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestCubinSymbolsFileExtents(t *testing.T) {
+	for _, role := range []int{1, 2} {
+		for _, change := range []func(*elf.Section){func(s *elf.Section) { s.Offset = ^uint64(0) }, func(s *elf.Section) { s.Offset = uint64(len(symbolImage(0x21, 0, 0))) }, func(s *elf.Section) { s.FileSize++ }} {
+			im, err := OpenCubin(symbolImage(0x21, 0, 0))
+			if err != nil {
+				t.Fatal(err)
+			}
+			change(im.file.Sections[role])
+			if _, err := im.Symbols("raw"); err == nil {
+				t.Fatal("invalid declared extent accepted")
+			}
+		}
+	}
+}
