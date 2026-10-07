@@ -169,3 +169,23 @@ func TestCubinSymbolAggregateNames(t *testing.T) {
 		t.Fatal("aggregate decoded name budget ignored")
 	}
 }
+
+func TestCubinStringTableSentinels(t *testing.T) {
+	for _, pos := range []int{304, 308} {
+		b := symbolImage(0x21, 0, 0)
+		// Keep a valid matched name followed by unused non-NUL trailing data.
+		if pos == 308 {
+			b = append(b, 0, 'x')
+			binary.LittleEndian.PutUint64(b[224:], 7)
+		} else {
+			b[pos] = 'x'
+		}
+		im, err := OpenCubin(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := im.Symbols("raw"); err == nil {
+			t.Fatalf("invalid string sentinel %d accepted", pos)
+		}
+	}
+}
