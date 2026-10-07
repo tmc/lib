@@ -1,0 +1,23 @@
+NCCL version 2.24.3 compiled with CUDA 12.6
+CUDA runtime version 12060, driver version 12060
+
+Job summary
+===========
+
+  Nodes  Processes         GPUs  Processes     GPUs
+(total)   per node  per process    (total)  (total)
+      1          2            1          2        2
+
+Communicators... (0.00s)
+=============
+
+Group     Comms     Nodes     Ranks     Ranks     Ranks    Status  Errors
+    #  in group  per comm  per node  per comm  in group
+    0         1         1         2         2         2   RUNNING      OK
+
+Errors
+======
+
+Warnings
+========
+
