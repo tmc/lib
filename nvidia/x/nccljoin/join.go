@@ -28,6 +28,7 @@ type Capture struct {
 // communicator ID. Otherwise Header.Ranks defines ranks [0, Ranks). Zero limits
 // use 65536 records, 4096 ranks, 16384 groups and 16 MiB of encoded/raw input.
 // Maxima are 262144 records, 65536 ranks, 65536 groups and 64 MiB.
+// Total expected membership entries are also bounded by MaxRecords.
 type Options struct {
 	Scope                                     Scope
 	Expected                                  map[string][]int
@@ -94,9 +95,14 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 		return nil, errors.New("nccljoin: input limit exceeded")
 	}
 	membership := make(map[string][]int)
+	members := 0
 	for id, ranks := range opts.Expected {
 		if !validText(id) || len(ranks) == 0 || len(ranks) > opts.MaxRanks {
 			return nil, errors.New("nccljoin: invalid expected membership")
+		}
+		members += len(ranks)
+		if members > opts.MaxRecords {
+			return nil, errors.New("nccljoin: membership limit exceeded")
 		}
 		ranks = append([]int(nil), ranks...)
 		sort.Ints(ranks)
@@ -112,6 +118,11 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 		seq uint64
 	}
 	groups := make(map[key]*Collective)
+	type rankKey struct {
+		group key
+		rank  int
+	}
+	first := make(map[rankKey]Observation)
 	counts := make(map[string]int)
 	nodes := make(map[string]uint64)
 	names := make(map[string]string)
@@ -181,6 +192,10 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 					}
 				}
 			} else {
+				members += r.Header.Ranks
+				if members > opts.MaxRecords {
+					return nil, errors.New("nccljoin: membership limit exceeded")
+				}
 				ranks := make([]int, r.Header.Ranks)
 				for i := range ranks {
 					ranks[i] = i
@@ -204,11 +219,11 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 			if g.Name != c.Name || g.Bytes != c.Bytes {
 				return nil, errors.New("nccljoin: conflicting collective identity")
 			}
-			for _, old := range g.Observations {
-				if old.Header.Rank == r.Header.Rank && (old.Collective != c || old.Metadata.Hostname != r.Metadata.Hostname || old.Metadata.PID != r.Metadata.PID || old.Metadata.Version != r.Metadata.Version || old.Metadata.GitRevision != r.Metadata.GitRevision || old.Metadata.Mechanism != r.Metadata.Mechanism) {
-					return nil, errors.New("nccljoin: conflicting duplicate observation")
-				}
+			rk := rankKey{k, r.Header.Rank}
+			if old, ok := first[rk]; ok && (old.Collective != c || old.Metadata.Hostname != r.Metadata.Hostname || old.Metadata.PID != r.Metadata.PID || old.Metadata.Version != r.Metadata.Version || old.Metadata.GitRevision != r.Metadata.GitRevision || old.Metadata.Mechanism != r.Metadata.Mechanism) {
+				return nil, errors.New("nccljoin: conflicting duplicate observation")
 			}
+			first[rk] = Observation{capture.ID, clean.Header, clean.Metadata, c, nil}
 			g.Observations = append(g.Observations, Observation{capture.ID, clean.Header, clean.Metadata, c, clean.Raw})
 		}
 		sort.Slice(facts.Statistics, func(i, j int) bool {
