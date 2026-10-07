@@ -133,3 +133,39 @@ func TestCubinSymbolsDuplicates(t *testing.T) {
 		t.Fatalf("duplicates = %v, %v", rows, err)
 	}
 }
+
+func TestCubinSymbolNullEntry(t *testing.T) {
+	b := symbolImage(0x21, 0, 0)
+	b[256] = 1
+	im, err := OpenCubin(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := im.Symbols("raw"); err == nil {
+		t.Fatal("nonzero null symbol accepted")
+	}
+}
+
+func TestCubinSymbolAggregateNames(t *testing.T) {
+	const entries = 2200
+	original := symbolImage(0x21, 0, 0)
+	start := 256 + entries*24
+	b := make([]byte, start+4098)
+	copy(b, original[:256])
+	binary.LittleEndian.PutUint64(b[160:], entries*24)
+	binary.LittleEndian.PutUint64(b[216:], uint64(start))
+	binary.LittleEndian.PutUint64(b[224:], 4098)
+	for i := 1; i < entries; i++ {
+		copy(b[256+i*24:], original[280:304])
+	}
+	for i := 1; i <= 4096; i++ {
+		b[start+i] = 'x'
+	}
+	im, err := OpenCubin(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := im.Symbols("nonmatch"); err == nil {
+		t.Fatal("aggregate decoded name budget ignored")
+	}
+}

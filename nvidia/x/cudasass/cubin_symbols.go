@@ -25,6 +25,7 @@ func (im *CubinImage) SHA256() [32]byte { return sha256.Sum256(im.data) }
 // Symbols returns ordinary symbol-table entries with exactly the given name,
 // in table order, including duplicates and zero values. An empty result means
 // no match; a missing table returns an error wrapping elf.ErrNoSymbols.
+// Total decoded symbol names are limited to 8 MiB, including nonmatches.
 // Reserved section indices remain raw and have no SectionName. This method
 // reads no symbol payload and proves neither loading nor runtime semantics.
 func (im *CubinImage) Symbols(name string) ([]CubinSymbol, error) {
@@ -70,12 +71,22 @@ func (im *CubinImage) Symbols(name string) ([]CubinSymbol, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading symbol strings: %w", err)
 	}
+	if !bytes.Equal(tableData[:entry], make([]byte, entry)) {
+		return nil, fmt.Errorf("nonzero undefined symbol entry")
+	}
+	var decodedNames uint64
 	for i := uint64(0); i < uint64(len(tableData)); i += entry {
 		offset := uint64(im.file.ByteOrder.Uint32(tableData[i : i+4]))
 		if offset >= uint64(len(stringData)) {
 			return nil, fmt.Errorf("invalid symbol name offset")
 		}
 		end := bytes.IndexByte(stringData[offset:], 0)
+		if end >= 0 {
+			decodedNames += uint64(end)
+			if decodedNames > 8<<20 {
+				return nil, fmt.Errorf("excessive aggregate decoded symbol names")
+			}
+		}
 		if end < 0 || end > 4096 {
 			return nil, fmt.Errorf("unterminated or excessive symbol name")
 		}
