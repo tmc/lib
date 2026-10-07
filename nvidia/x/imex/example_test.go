@@ -3,9 +3,10 @@ package imex_test
 import (
 	"errors"
 	"fmt"
-	"github.com/tmc/lib/nvidia/x/imex"
 	"os"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/imex"
 )
 
 func Example() {

@@ -15,6 +15,7 @@ Official command documentation advertises finite `nvidia-imex-ctl -N -j`:
 https://docs.nvidia.com/multi-node-nvlink-systems/imex-guide/cmdservice.html
 
 No public versioned socket protocol or channel-count schema was established.
-Raw bytes and unknown fields are retained. Missing/empty version and hostname
-remain unavailable. Connection targets absent from the node map are retained,
+Raw bytes and unknown fields are retained. Missing version and hostname are nil;
+reported empty strings are preserved but supply no product or host identity.
+Connection targets absent from the node map are retained,
 not synthesized as members. Reported timestamps lack a timezone and stay text.

@@ -45,8 +45,9 @@ type Snapshot struct {
 }
 
 // Node retains one reported daemon. Version and Hostname are nil if absent;
-// an empty reported string also provides no version or hostname. Changed is a
-// producer flag. Missing connection targets are not manufactured as nodes.
+// a nonnil pointer preserves the reported string, including an empty string.
+// An empty string supplies no product version or hostname identity. Changed
+// is a producer flag. Missing targets are not manufactured as nodes.
 type Node struct {
 	Status      string
 	Host        string
