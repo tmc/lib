@@ -1,1 +1,3 @@
 Commit d2db89eff1211599eb909d0a5b40b1518732672f; date 2026-10-07T00:28:14-07:00; agent Codex GPT-6; tty not a tty; pid 64561; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93. Existing seed corpus rejects extra testdata docs; provenance stays in test comments.
+
+Integration provenance: commit d2db89eff1211599eb909d0a5b40b1518732672f; commit date 2026-10-07T00:28:14-07:00; codex-cli 0.160.1; model not exposed; tty not a tty; pid 97519; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93; assigned session 026363F7-C2F7-4118-9920-4953A7B20D93. Independent final SOURCE/CPU ACCEPT cf7de6; no native qualification claimed.
