@@ -189,3 +189,24 @@ func TestCubinStringTableSentinels(t *testing.T) {
 		}
 	}
 }
+
+func TestCubinEmptyStringTable(t *testing.T) {
+	for _, valid := range []bool{true, false} {
+		b := symbolImage(0x21, 0, 0)
+		binary.LittleEndian.PutUint64(b[224:], 0)
+		if valid {
+			binary.LittleEndian.PutUint64(b[160:], 24)
+		}
+		im, err := OpenCubin(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := im.Symbols("raw")
+		if valid && (err != nil || len(rows) != 0) {
+			t.Fatalf("valid empty table = %v,%v", rows, err)
+		}
+		if !valid && err == nil {
+			t.Fatal("nonzero name index in empty table accepted")
+		}
+	}
+}

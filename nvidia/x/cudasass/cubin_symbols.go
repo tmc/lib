@@ -75,11 +75,14 @@ func (im *CubinImage) Symbols(name string) ([]CubinSymbol, error) {
 		return nil, fmt.Errorf("nonzero undefined symbol entry")
 	}
 	var decodedNames uint64
-	if len(stringData) == 0 || stringData[0] != 0 || stringData[len(stringData)-1] != 0 {
+	if len(stringData) != 0 && (stringData[0] != 0 || stringData[len(stringData)-1] != 0) {
 		return nil, fmt.Errorf("invalid symbol string table sentinels")
 	}
 	for i := uint64(0); i < uint64(len(tableData)); i += entry {
 		offset := uint64(im.file.ByteOrder.Uint32(tableData[i : i+4]))
+		if len(stringData) == 0 && offset == 0 {
+			continue
+		}
 		if offset >= uint64(len(stringData)) {
 			return nil, fmt.Errorf("invalid symbol name offset")
 		}
