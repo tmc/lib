@@ -1,0 +1,11 @@
+Integration provenance: original 3eea43bf49ae00dcc9acaab99e67d1a6958f5ba7; candidate bb4e871aad1b8247ea301a93d7566c79122a7c2e
+Date 2026-10-07T06:37:11.625806+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+commit 3eea43bf49ae00dcc9acaab99e67d1a6958f5ba7
+date 2026-10-07T06:11:11.725537+00:00
+agent Codex; model not exposed
+version codex-cli 0.160.1
+tty not a tty
+pid 25813
+ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+independent G25 review compatibility repair; no GPU
