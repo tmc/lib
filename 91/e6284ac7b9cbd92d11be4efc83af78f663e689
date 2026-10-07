@@ -1,0 +1,4 @@
+Integration provenance: original 1979adf73294c5ca2307f999fae50d259c38fdd8; candidate 91e6284ac7b9cbd92d11be4efc83af78f663e689
+Date 2026-10-07T06:37:11.130086+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+2026-10-06; Codex CLI 0.160.1; GPT-6 exact identifier unavailable; tty none; writer PID 9756; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93. Source review fixup bounds aggregate membership and avoids quadratic duplicate scan.
