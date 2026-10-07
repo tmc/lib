@@ -1,7 +1,6 @@
 package cudainject
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -54,7 +53,7 @@ func JoinCorrelations(records []Record) (Correlations, error) {
 		switch record.Kind {
 		case KindAPI:
 			var api API
-			if err := json.Unmarshal(record.Payload, &api); err != nil {
+			if err := correlationPayload(record.Payload, &api, "domain", "callback_id", "thread_id", "correlation"); err != nil {
 				return result, fmt.Errorf("cudainject: API payload: %w", err)
 			}
 			if api.Domain != "runtime" && api.Domain != "driver" {
@@ -70,11 +69,14 @@ func JoinCorrelations(records []Record) (Correlations, error) {
 			}
 		case KindActivity:
 			var activity cudacapture.ActivityRecord
-			if err := json.Unmarshal(record.Payload, &activity); err != nil {
+			if err := correlationPayload(record.Payload, &activity, "subtype"); err != nil {
 				return result, fmt.Errorf("cudainject: activity payload: %w", err)
 			}
 			if activity.Subtype != "kernel" {
 				continue
+			}
+			if err := correlationPayload(record.Payload, &activity, "name", "valid", "start", "end", "correlation"); err != nil {
+				return result, err
 			}
 			if !activity.Valid || activity.Correlation == 0 || activity.End < activity.Start {
 				return result, errors.New("cudainject: invalid kernel correlation")
@@ -88,7 +90,7 @@ func JoinCorrelations(records []Record) (Correlations, error) {
 				ID          uint64 `json:"external_id"`
 				Correlation uint64 `json:"correlation"`
 			}
-			if err := json.Unmarshal(record.Payload, &external); err != nil {
+			if err := correlationPayload(record.Payload, &external, "external_kind", "external_id", "correlation"); err != nil {
 				return result, fmt.Errorf("cudainject: external correlation payload: %w", err)
 			}
 			if err := tracker.RecordExternalCorrelation(external.Kind, external.ID, external.Correlation); err != nil {

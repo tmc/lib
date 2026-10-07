@@ -50,7 +50,7 @@ func ExampleReadCapture() {
 }
 
 func ExampleJoinCorrelations() {
-	joins, err := cudainject.JoinCorrelations([]cudainject.Record{{Kind: cudainject.KindAPI, Payload: []byte(`{"domain":"runtime","thread_id":5,"correlation":8}`)}})
+	joins, err := cudainject.JoinCorrelations([]cudainject.Record{{Kind: cudainject.KindAPI, Payload: []byte(`{"domain":"runtime","callback_id":0,"thread_id":5,"correlation":8}`)}})
 	fmt.Println(joins.MissingActivity, err)
 	// Output: [8] <nil>
 }

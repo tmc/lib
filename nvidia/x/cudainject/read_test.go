@@ -119,7 +119,7 @@ func TestCorrelationIdJoinsLaunchToKernel(t *testing.T) {
 
 func TestExternalCorrelationReportsMissingStackAndAmbiguity(t *testing.T) {
 	records := []cudainject.Record{
-		{Kind: cudainject.KindAPI, Payload: []byte(`{"domain":"runtime","thread_id":5,"correlation":8}`)},
+		{Kind: cudainject.KindAPI, Payload: []byte(`{"domain":"runtime","callback_id":0,"thread_id":5,"correlation":8}`)},
 		{Kind: cudainject.KindActivity, Payload: []byte(`{"subtype":"kernel","name":"k","valid":true,"start":1,"end":2,"correlation":8}`)},
 		{Kind: cudainject.KindExternal, Payload: []byte(`{"external_kind":1,"external_id":17,"correlation":8}`)},
 	}
