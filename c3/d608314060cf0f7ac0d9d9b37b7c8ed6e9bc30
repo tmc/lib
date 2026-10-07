@@ -1,0 +1,4 @@
+Integration provenance: original f13bf240cb0dccd6ad0b4cb16ed6580bd86bfadd; candidate c3d608314060cf0f7ac0d9d9b37b7c8ed6e9bc30
+Date 2026-10-07T06:37:10.388204+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+commit=f13bf240cb0dccd6ad0b4cb16ed6580bd86bfadd date=2026-10-07T05:40:26Z agent=codex-cli 0.160.1 claude-code=not-used model=not-exposed tty=none shell-pid=92167 ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93 source implementation committed before independent validation
