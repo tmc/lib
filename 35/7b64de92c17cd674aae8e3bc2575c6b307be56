@@ -1,0 +1,4 @@
+Integration provenance: original 37cf913c70e66dd47197477d79f75071c2b00b70; candidate 357b64de92c17cd674aae8e3bc2575c6b307be56
+Date 2026-10-07T06:37:11.765005+00:00; Codex inherited model (not exposed); tty noninteractive; pid 61279; ITERM_SESSION_ID w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+Original note retained below:
+2026-10-06; Codex CLI0.160.1; GPT-6 exact identifier unavailable; tty none; writer PID 43809; ITERM_SESSION_ID=w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93. Independent87 validation reproduced casealias falsejoin; repair hostrace3/vet/fuzz + four compiled causal mutant kills. Linux waiting-child synthetic runtimeCPU proof passed. No GPU/native qualification. Helper failed twice missing Anthropic API key.
