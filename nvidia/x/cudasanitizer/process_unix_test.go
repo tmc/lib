@@ -3,6 +3,7 @@
 package cudasanitizer
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -19,17 +20,14 @@ func TestExitedParentKillsDescendant(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		exit    int
-		timeout time.Duration
 		noPipes bool
 	}{
-		{"clean parent", 0, 0, false},
-		{"failed parent", 3, 0, false},
-		{"context expires after parent", 0, 100 * time.Millisecond, false},
-		{"clean parent without inherited pipes", 0, 0, true},
+		{"clean parent", 0, false},
+		{"failed parent", 3, false},
+		{"clean parent without inherited pipes", 0, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := baseConfig(t)
-			cfg.Timeout = tc.timeout
 			cfg.KillDelay = 400 * time.Millisecond
 			pidFile := filepath.Join(t.TempDir(), "child.pid")
 			// Always clean up this test's child, including on the unfixed runner.
@@ -55,9 +53,6 @@ func TestExitedParentKillsDescendant(t *testing.T) {
 			if res.ExitCode != tc.exit {
 				t.Errorf("recorded parent exit = %d, want %d", res.ExitCode, tc.exit)
 			}
-			if tc.timeout > 0 && !errors.Is(res.Err, ErrTimeout) {
-				t.Errorf("timeout error = %v", res.Err)
-			}
 			deadline := time.Now().Add(time.Second)
 			for {
 				err := syscall.Kill(pid, 0)
@@ -80,6 +75,96 @@ func TestExitedParentKillsDescendant(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 			}
 		})
+	}
+	t.Run("context expires after parent", testExpiredContextKillsDescendant)
+}
+
+func testExpiredContextKillsDescendant(t *testing.T) {
+	pidFile := filepath.Join(t.TempDir(), "child.pid")
+	cmd := exec.Command(fixtureTool(t))
+	cmd.Env = fixtureEnv(fakeSpawn+"=1", fakeChildPID+"="+pidFile)
+	// A non-file writer makes exec create a pipe that the descendant inherits.
+	cmd.Stdout = new(bytes.Buffer)
+	cmd.WaitDelay = 400 * time.Millisecond
+	group, err := startGroup(cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pid int
+	waited := false
+	defer func() {
+		_ = group.close()
+		if !waited {
+			_ = cmd.Wait()
+		}
+		if pid > 1 {
+			_ = syscall.Kill(pid, syscall.SIGKILL)
+		}
+	}()
+
+	// Process startup is not part of the short deadline. Establish that the
+	// parent has exited and a live descendant holds its pipe before expiring it.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		data, err := os.ReadFile(pidFile)
+		if err == nil {
+			pid, err = strconv.Atoi(string(data))
+			if err == nil && pid > 1 {
+				out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(cmd.Process.Pid)).Output()
+				if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "Z") {
+					if err := syscall.Kill(pid, 0); err != nil {
+						t.Fatalf("descendant not alive before expiry: %v", err)
+					}
+					out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output()
+					if err != nil || strings.HasPrefix(strings.TrimSpace(string(out)), "Z") {
+						t.Fatalf("descendant already exited before expiry: state=%q, error=%v", out, err)
+					}
+					break
+				}
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			t.Fatal(err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("fixture not ready: child PID=%d, PID file=%q", pid, data)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	err = runContextWithStart(ctx, cmd, func(*exec.Cmd) (processCleanup, error) { return group, nil })
+	waited = true
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("context error = %v, want deadline exceeded", err)
+	}
+	res := new(Result)
+	res.classify(ctx, err)
+	if res.Outcome != OutcomeToolFailure || !errors.Is(res.Err, ErrTimeout) {
+		t.Errorf("timeout result = %v, %v", res.Outcome, res.Err)
+	}
+	if cmd.ProcessState == nil || cmd.ProcessState.ExitCode() != 0 {
+		t.Errorf("parent state = %v, want clean exit", cmd.ProcessState)
+	}
+	deadline = time.Now().Add(time.Second)
+	for {
+		err := syscall.Kill(pid, 0)
+		if errors.Is(err, syscall.ESRCH) {
+			pid = 0
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output()
+		if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "Z") {
+			pid = 0
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("child %d still running after context expiry", pid)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
