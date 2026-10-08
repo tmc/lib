@@ -1,0 +1,1 @@
+commit a742ea45627c5ff07c3ce27ee5bc8791da3f9cbd; date 2026-10-08; tool codex-cli 0.161.0; model GPT-5; agent /root/steering_feature_review; tty non-tty; pid recorded by executor; ITERM_SESSION_ID w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; locked oracle registry baseline PASS; deletion mutant DS4_VISION_LOCK_EXEC FAIL rc1; no device qualification
