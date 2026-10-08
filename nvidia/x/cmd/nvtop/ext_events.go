@@ -134,7 +134,7 @@ func watchEvents(handles []nvml.Device) *eventWatcher {
 		}
 	}
 	if !registered {
-		set.Free()
+		set.Close()
 		return nil
 	}
 	w := &eventWatcher{set: set, handles: handles, stop: make(chan struct{}), done: make(chan struct{})}
@@ -184,7 +184,7 @@ func (w *eventWatcher) events() []event {
 func (w *eventWatcher) close() {
 	close(w.stop)
 	<-w.done
-	w.set.Free()
+	w.set.Close()
 }
 
 // maxEvents bounds the event log.

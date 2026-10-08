@@ -123,9 +123,10 @@ func (s *nvmlSource) refresh(d *device) {
 	if u, err := hd.UtilizationRates(); err == nil {
 		d.gpuUtil = some(u.Gpu)
 	}
-	var period uint32
-	d.encUtil = get(hd.EncoderUtilization(&period))
-	d.decUtil = get(hd.DecoderUtilization(&period))
+	enc, _, encErr := hd.EncoderUtilization()
+	d.encUtil = get(enc, encErr)
+	dec, _, decErr := hd.DecoderUtilization()
+	d.decUtil = get(dec, decErr)
 
 	// A device without its own memory, such as GB10, reports
 	// nvml.ErrNotSupported or a total of 0. It shares the host's memory,
@@ -171,8 +172,7 @@ func (s *nvmlSource) refresh(d *device) {
 		d.eccCorr = get(hd.TotalEccErrors(nvml.MemoryErrorTypeCorrected, nvml.VolatileEcc))
 		d.eccUncorr = get(hd.TotalEccErrors(nvml.MemoryErrorTypeUncorrected, nvml.VolatileEcc))
 	}
-	var pending uint32
-	if mode, err := hd.MigMode(&pending); err == nil {
+	if mode, _, err := hd.MigMode(); err == nil {
 		d.mig = some(mode == 1) // NVML_DEVICE_MIG_ENABLE
 	}
 	if d.nvlink.links > 0 {
