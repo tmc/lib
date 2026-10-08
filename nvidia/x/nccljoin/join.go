@@ -28,7 +28,8 @@ type Capture struct {
 // communicator ID. Otherwise Header.Ranks defines ranks [0, Ranks). Zero limits
 // use 65536 records, 4096 ranks, 16384 groups and 16 MiB of encoded/raw input.
 // Maxima are 262144 records, 65536 ranks, 65536 groups and 64 MiB.
-// Total expected membership entries are also bounded by MaxRecords.
+// Total communicator membership entries and total collective membership slots
+// are each bounded by MaxRecords, including unobserved ranks.
 type Options struct {
 	Scope                                     Scope
 	Expected                                  map[string][]int
@@ -126,8 +127,17 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 	counts := make(map[string]int)
 	nodes := make(map[string]uint64)
 	names := make(map[string]string)
+	type rankIdentity struct {
+		id   string
+		rank int
+	}
+	type process struct {
+		host string
+		pid  int
+	}
+	processes := make(map[rankIdentity]process)
 	seen := make(map[string]bool)
-	records, totalBytes := 0, 0
+	records, totalBytes, groupMembers := 0, 0, 0
 	result := &Result{Scope: opts.Scope}
 	for _, capture := range captures {
 		if !validText(capture.ID) || seen[capture.ID] {
@@ -181,6 +191,12 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 				}
 			}
 			id := r.Header.ID
+			rank := rankIdentity{id, r.Header.Rank}
+			identity := process{r.Metadata.Hostname, r.Metadata.PID}
+			if old, ok := processes[rank]; ok && old != identity {
+				return nil, errors.New("nccljoin: conflicting rank process identity")
+			}
+			processes[rank] = identity
 			if n, ok := counts[id]; ok && (n != r.Header.Ranks || nodes[id] != r.Header.Nodes || names[id] != r.Header.Name) {
 				return nil, errors.New("nccljoin: conflicting communicator membership")
 			}
@@ -218,6 +234,10 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 				if len(groups) >= opts.MaxGroups {
 					return nil, errors.New("nccljoin: group limit exceeded")
 				}
+				if len(membership[id]) > opts.MaxRecords-groupMembers {
+					return nil, errors.New("nccljoin: collective membership limit exceeded")
+				}
+				groupMembers += len(membership[id])
 				g = &Collective{Communicator: id, Sequence: c.Sequence, Name: c.Name, Bytes: c.Bytes, Expected: append([]int(nil), membership[id]...)}
 				groups[k] = g
 			}

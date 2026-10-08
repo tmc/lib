@@ -24,3 +24,9 @@ Tests and examples are caller-constructed facts, not measured multi-GPU captures
 Required lane72 G22 same-run Inspector/RAS captures remain physical qualification.
 No start/end times, synchronized clocks, rank-specific dropped operation, health
 classification or transport identity is inferred.
+
+Within the caller-selected epoch, a communicator/rank must retain its observed
+host/PID across operations and statistics. A conflict refuses the input rather
+than joining observations from different process identities. Membership storage
+is bounded both per communicator and across all collective groups; a large rank
+count cannot multiply into unbounded unobserved-rank slices over many sequences.

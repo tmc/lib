@@ -12,6 +12,8 @@ Source: https://github.com/NVIDIA/nccl/blob/12df1a11afad322be5a204a2db890161cbf8
 
 The client implements protocol 2 from `src/ras/client.cc` and
 `src/ras/ras_internal.h` at the same revision: CLIENT PROTOCOL, TIMEOUT,
-SET FORMAT json, STATUS, then EOF. RAS text tables and other version schemas
-are explicitly unsupported. Unknown JSON fields remain in Raw.
+SET FORMAT json, STATUS, then EOF. Other JSON version schemas are explicitly
+unsupported. Unknown JSON fields remain in Raw. The separate experimental
+2.24.3 text profile is described in legacy-2.24.3.md; its fixture is constructed
+from the producer source and does not satisfy authentic capture validation.
 NVIDIA's source license is retained in LICENSE.txt.

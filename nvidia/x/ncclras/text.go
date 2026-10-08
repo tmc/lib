@@ -22,8 +22,9 @@ func (e *UnsupportedError) Error() string {
 	return fmt.Sprintf("ras: unsupported %s format or NCCL version %q", e.Format, e.Version)
 }
 
-// TextStatus is a bounded NCCL 2.24.3 uniform-job text observation. It is not a
-// JSON Status: individual rank identities, timestamps and collection timeout
+// TextStatus is a bounded NCCL 2.24.3 uniform-job text observation. The profile
+// has constructed-fixture coverage; authentic capture validation is pending.
+// Individual rank identities, timestamps and collection timeout
 // counts are unavailable. Raw retains the exact response. Errors and Warnings
 // retain uninterpreted section lines; empty sections are not a health verdict.
 type TextStatus struct {
@@ -52,8 +53,9 @@ var textVersion = regexp.MustCompile(`^NCCL version ([0-9]+\.[0-9]+\.[0-9]+(?:[+
 var textCUDA = regexp.MustCompile(`^CUDA runtime version ([0-9]+), driver version ([0-9]+)$`)
 var textDuration = regexp.MustCompile(`^Communicators\.\.\. \(([0-9]+\.[0-9]{2})s\)$`)
 
-// ReadText reads one complete legacy text STATUS response. The supported
-// profile is NCCL 2.24.3's uniform job and aggregate communicator tables.
+// ReadText reads one complete legacy text STATUS response. The experimental
+// profile is NCCL 2.24.3's uniform job and aggregate communicator tables;
+// authentic capture validation remains pending.
 // Nonuniform jobs and other versions/formats return UnsupportedError. Detailed
 // error/warning sections are retained as raw lines, not decoded into rank data.
 // Records bounds groups and retained diagnostic lines together; section headings

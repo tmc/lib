@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// StatusText requests the explicitly supported legacy text profile. It sends
+// StatusText requests the experimental legacy text profile. It sends
 // protocol 2, an integer TIMEOUT and STATUS, never SET FORMAT or CONTROL.
 // Cancellation closes the connection without changing the NCCL job.
 func (c Client) StatusText(ctx context.Context) (*TextStatus, error) {

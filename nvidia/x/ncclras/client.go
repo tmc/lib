@@ -68,7 +68,11 @@ func (c Client) Status(ctx context.Context) (*Status, error) {
 			return nil, clientError(ctx, err)
 		}
 		if string(line) != x.reply {
-			return nil, fmt.Errorf("ras protocol: unexpected response %q", line)
+			format := "protocol"
+			if x.command == "SET FORMAT json\n" {
+				format = "json"
+			}
+			return nil, fmt.Errorf("ras protocol: unexpected response %q: %w", line, &UnsupportedError{Format: format})
 		}
 	}
 	if _, err := io.WriteString(conn, "STATUS\n"); err != nil {

@@ -128,6 +128,12 @@ func Read(r io.Reader, limits Limits) (*Status, error) {
 			return nil, errors.New("ras: line limit exceeded")
 		}
 	}
+	// A legacy version preamble is producer evidence even when this reader
+	// cannot decode its text format. Do not infer a version from protocol 2.
+	first, _, _ := bytes.Cut(b, []byte{'\n'})
+	if match := textVersion.FindStringSubmatch(string(first)); match != nil {
+		return nil, &UnsupportedError{Format: "json", Version: match[1]}
+	}
 	if err := uniqueJSON(b); err != nil {
 		return nil, fmt.Errorf("ras JSON: %w", err)
 	}
@@ -140,7 +146,7 @@ func Read(r io.Reader, limits Limits) (*Status, error) {
 		return nil, fmt.Errorf("ras status: %w", err)
 	}
 	if s.Version != "2.29.1" && s.Version != "2.32.3" {
-		return nil, fmt.Errorf("ras: unsupported NCCL version %q", s.Version)
+		return nil, &UnsupportedError{Format: "json", Version: s.Version}
 	}
 	if s.CUDARuntime <= 0 || s.CUDADriver <= 0 || s.Timestamp == "" || s.CommunicatorsCount < 0 || s.CommunicatorsCount != len(s.Communicators) || !array(root["communicators"]) {
 		return nil, errors.New("ras: invalid status identity or communicator population")
