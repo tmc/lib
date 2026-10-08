@@ -1,0 +1,1 @@
+commit=188d0d46412d7cc1f8f7380040da1b2f1dde5979; date=2026-10-08; tool=codex-cli 0.161.0; model=inherited model not exposed; tty=not a tty; pid=58435; ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; helper failed twice missing ANTHROPIC_API_KEY; manual signed fallback; isolated clean-head Linux CPU ownership gate only, no native qualification
