@@ -1,0 +1,13 @@
+commit: 5ac36acd25fae09c86f5845f8b3fad5145ba1408
+date: 2026-10-08T00:39:04.437476+00:00
+agent: Codex
+version: codex-cli 0.160.1
+claude-code: not used
+model: GPT-6
+tty: unavailable (tool subprocess)
+pid: 12920
+ITERM_SESSION_ID: w3t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+session: lane49_sources
+provenance: unsigned local review commit, coordinator-authorized command-local commit.gpgsign=false
+commit helper: failed exactly twice due missing Anthropic API key
+signed fallback: failed once because SSH key passphrase unavailable
