@@ -104,7 +104,7 @@ func validateContractExpr(e ast.Expr, params map[string]param, depth int) error 
 		}
 	case *ast.CallExpr:
 		id, ok := e.Fun.(*ast.Ident)
-		if ok && id.Name == "len" && len(e.Args) == 1 {
+		if ok && id.Name == "len" && len(e.Args) == 1 && !e.Ellipsis.IsValid() {
 			arg, ok := e.Args[0].(*ast.Ident)
 			if !ok {
 				break

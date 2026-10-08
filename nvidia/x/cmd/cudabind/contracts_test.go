@@ -24,6 +24,8 @@ func TestLaunchContractSyntax(t *testing.T) {
 		{"float_count", "len(out) >= factor", false},
 		{"slice_count", "len(out) >= out", false},
 		{"scalar_length", "len(n) >= 1", false},
+		{"variadic_length", "len(out...) >= n", false},
+		{"variadic_nested", "len(out...) + 1 >= n", false},
 		{"call", "len(out) >= evil(n)", false},
 		{"division", "len(out) >= n / 2", false},
 		{"negative", "len(out) >= -1", false},
@@ -79,7 +81,7 @@ func TestGenerate_BadAnnotationFailsGeneration(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(lib.ResourceDir(), "include", "__clang_cuda_runtime_wrapper.h")); err != nil {
 		t.Skip("compatible CUDA libclang resource required")
 	}
-	for _, tt := range []struct{ name, contract string }{{"missing", "len(missing) >= n"}, {"malformed", "len(out) >="}, {"unsupported", "len(out) >= n / 2"}} {
+	for _, tt := range []struct{ name, contract string }{{"missing", "len(missing) >= n"}, {"malformed", "len(out) >="}, {"unsupported", "len(out) >= n / 2"}, {"variadic", "len(out...) >= n"}} {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			t.Chdir(dir)
