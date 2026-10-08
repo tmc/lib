@@ -11,13 +11,14 @@ import (
 	"unicode/utf8"
 )
 
-func unique(b []byte, depth int) error {
+func unique(b []byte, limits Limits) error {
 	if !utf8.Valid(b) {
 		return errors.New("imex: invalid UTF-8")
 	}
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.UseNumber()
-	if err := value(d, 0, depth); err != nil {
+	counts := scanCounts{limits: limits}
+	if err := value(d, 0, limits.Depth, scanRoot, &counts); err != nil {
 		return err
 	}
 	if _, err := d.Token(); err != io.EOF {
@@ -25,7 +26,24 @@ func unique(b []byte, depth int) error {
 	}
 	return nil
 }
-func value(d *json.Decoder, depth, max int) error {
+
+type scanContext uint8
+
+const (
+	scanGeneric scanContext = iota
+	scanRoot
+	scanNodes
+	scanNode
+	scanConnections
+)
+
+type scanCounts struct {
+	limits      Limits
+	nodes       int
+	connections int
+}
+
+func value(d *json.Decoder, depth, max int, context scanContext, counts *scanCounts) error {
 	if depth > max {
 		return errors.New("imex: JSON depth exceeded")
 	}
@@ -55,7 +73,29 @@ func value(d *json.Decoder, depth, max int) error {
 				return fmt.Errorf("imex: duplicate field %q", key)
 			}
 			keys[folded] = true
-			if err := value(d, depth+1, max); err != nil {
+			next := scanGeneric
+			switch context {
+			case scanRoot:
+				if key == "nodes" {
+					next = scanNodes
+				}
+			case scanNodes:
+				counts.nodes++
+				if counts.nodes > counts.limits.Nodes {
+					return errors.New("imex: node limit exceeded")
+				}
+				next = scanNode
+			case scanNode:
+				if key == "connections" {
+					next = scanConnections
+				}
+			case scanConnections:
+				counts.connections++
+				if counts.connections > counts.limits.Connections {
+					return errors.New("imex: connection limit exceeded")
+				}
+			}
+			if err := value(d, depth+1, max, next, counts); err != nil {
 				return err
 			}
 		}
@@ -65,7 +105,7 @@ func value(d *json.Decoder, depth, max int) error {
 		}
 	case '[':
 		for d.More() {
-			if err := value(d, depth+1, max); err != nil {
+			if err := value(d, depth+1, max, scanGeneric, counts); err != nil {
 				return err
 			}
 		}

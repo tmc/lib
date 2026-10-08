@@ -90,7 +90,7 @@ func Read(r io.Reader, profile Profile, limits Limits) (Snapshot, error) {
 	if len(b) > l.Bytes {
 		return snapshot, errors.New("imex: byte limit exceeded")
 	}
-	if err := unique(b, l.Depth); err != nil {
+	if err := unique(b, l); err != nil {
 		return snapshot, err
 	}
 	obj, err := object(b, "nodes", "timestamp", "status")
