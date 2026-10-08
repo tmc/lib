@@ -1,0 +1,1 @@
+commit b7b83fb114d992a3a8c73edde979fa4fa93684ee; date 2026-10-07; tool Codex; model GPT-6.1; tty noninteractive; subagent hard_smoke_runtime; signed commit; corpus generation and host tests pass, GPU qualification pending
