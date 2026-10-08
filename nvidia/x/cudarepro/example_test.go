@@ -51,3 +51,25 @@ func ExampleIdentity_Matches() {
 	fmt.Println(matched, err)
 	// Output: false compare failure: invalid execution evidence
 }
+
+func ExampleExportPackage() {
+	err := ExportPackage("relative", cudaschedule.SeedResult{}, Reduction{}, ExportOptions{})
+	fmt.Println(err)
+	// Output: export package: directory must be absolute and canonical
+}
+
+func ExampleDetectionProbability() {
+	p, err := DetectionProbability(1, 2, 3)
+	fmt.Println(p, err)
+	// Output: 0.875 <nil>
+}
+
+func ExampleDetectionAttempts() {
+	identity := Identity{Index: 0, Policy: "exact-uint64"}
+	run := mismatchRecord(0)
+	run.Mismatch = &cudaschedule.MismatchIdentity{Index: 0, Policy: "exact-uint64"}
+	m := Measurement{Reproductions: 2, Runs: []cudaschedule.RunRecord{run, run}}
+	attempts, err := DetectionAttempts(identity, m, 2, 0.99, 10)
+	fmt.Println(attempts, err)
+	// Output: 1 <nil>
+}

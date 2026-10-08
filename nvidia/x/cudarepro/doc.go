@@ -21,4 +21,14 @@
 // claim. Each measurement makes at most R calls to the existing runner; it
 // never retries invalid execution evidence. One reproduction in R attempts is
 // a one-off, which callers must explicitly opt into reducing.
+//
+// ExportPackage emits a standalone, runnable Go test package into an isolated
+// directory. The exported package preserves pristine and injected kernel source,
+// reduced inputs, shape, launch geometry, recorded failure identity, and the
+// required oracle (such as lane 52's memory bounds patch). For nondeterministic
+// findings, DetectionAttempts derives a bounded attempt count from the measured
+// reproduction rate for a target detection probability. Emitted tests verify
+// artifact integrity and reproduce the defect, failing if the defect reproduces
+// and passing on a fixed kernel. Without a device or native gate, tests report
+// the shared pending sentinel rather than passing.
 package cudarepro
