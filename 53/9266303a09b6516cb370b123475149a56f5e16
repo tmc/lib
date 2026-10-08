@@ -1,0 +1,1 @@
+commit=539266303a09b6516cb370b123475149a56f5e16 date=2026-10-08T09:20:45Z tool=codex-cli 0.161.0 model=GPT-5 tty=non-tty pid=39109 ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; reviewed exact four adapter paths; pinned-C integrated race61PASS0SKIP155.561s; file-owner race4PASS0SKIP1.178s; readonly Linuxarm64 compiles PASS; no CLI/Supports/model parity admission
