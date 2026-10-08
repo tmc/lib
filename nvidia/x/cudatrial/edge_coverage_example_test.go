@@ -13,8 +13,8 @@ func ExampleThreadEdgeMap() {
 	fmt.Println(a, b, c)
 	fmt.Println(m.Snapshot().Quantized()[a])
 	// Output:
-	// 21 18 23
-	// 1
+	// 21 21 23
+	// 2
 }
 
 func ExamplePersistentCoverage() {

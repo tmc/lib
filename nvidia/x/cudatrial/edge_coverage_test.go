@@ -15,7 +15,7 @@ func TestEdgeBitmap_PerThreadHashXOR(t *testing.T) {
 		block  uint64
 		want   int
 	}{
-		{0, 5, 21}, {1, 5, 21}, {0, 7, 18}, {1, 9, 28}, {0, 7, 16},
+		{0, 5, 21}, {1, 5, 21}, {0, 7, 21}, {1, 9, 27}, {0, 7, 20},
 	} {
 		i, err := m.Record(step.thread, step.block)
 		if err != nil || i != step.want {
@@ -23,7 +23,7 @@ func TestEdgeBitmap_PerThreadHashXOR(t *testing.T) {
 		}
 	}
 	b := m.Snapshot()
-	if b.counts[21] != 2 || b.counts[18] != 1 || b.counts[28] != 1 || b.counts[16] != 1 {
+	if b.counts[21] != 3 || b.counts[27] != 1 || b.counts[20] != 1 {
 		t.Fatal(b.counts)
 	}
 	before := m.Snapshot().Bytes()
@@ -35,10 +35,10 @@ func TestEdgeBitmap_PerThreadHashXOR(t *testing.T) {
 	}
 	m.Reset()
 	i, _ := m.Record(0, 7)
-	if i != 23 || m.Snapshot().counts[18] != 0 {
+	if i != 23 || m.Snapshot().counts[27] != 0 {
 		t.Fatal("reset retained predecessor or counts")
 	}
-	if b.counts[18] != 1 {
+	if b.counts[27] != 1 {
 		t.Fatal("snapshot aliased reset")
 	}
 }
@@ -108,7 +108,7 @@ func FuzzThreadEdgeMap(f *testing.F) {
 			if want[edge] < 255 {
 				want[edge]++
 			}
-			previous[thread] = block
+			previous[thread] = block >> 1
 			got, err := m.Record(thread, block)
 			if err != nil || got != edge {
 				t.Fatal(got, err, edge)

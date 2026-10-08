@@ -81,7 +81,9 @@ func NewThreadEdgeMap(size, threads int) (*ThreadEdgeMap, error) {
 }
 
 // Record applies cuFuzz's predecessor XOR formula in the map's upper half.
-// Counters saturate at 255. The block becomes this thread's predecessor.
+// Counters saturate at 255. The next predecessor is block >> 1, so opposite
+// transitions can have different indices. Block IDs are unsigned; the shift
+// is logical, unlike cuFuzz's arithmetic shift of a signed int block ID.
 func (m *ThreadEdgeMap) Record(thread int, block uint64) (int, error) {
 	if m == nil || thread < 0 || thread >= len(m.previous) {
 		return 0, fmt.Errorf("thread edge map: invalid thread")
@@ -91,7 +93,7 @@ func (m *ThreadEdgeMap) Record(thread int, block uint64) (int, error) {
 	if m.bitmap.counts[i] < 255 {
 		m.bitmap.counts[i]++
 	}
-	m.previous[thread] = block
+	m.previous[thread] = block >> 1
 	return i, nil
 }
 
