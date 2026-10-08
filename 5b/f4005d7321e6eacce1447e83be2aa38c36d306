@@ -1,0 +1,1 @@
+commit=5bf4005d7321e6eacce1447e83be2aa38c36d306 date=2026-10-07 tool=codex-cli-0.161.0 model=API-agent tty=none pid=90121 ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3 scope=compile-only physical uploader gate; helper failed twice missing ANTHROPIC_API_KEY; signed manual fallback; no CUDA runtime qualification
