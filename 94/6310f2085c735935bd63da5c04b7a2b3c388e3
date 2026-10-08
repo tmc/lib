@@ -1,0 +1,1 @@
+commit=946310f2085c735935bd63da5c04b7a2b3c388e3 date=2026-10-08T02:55:49-07:00 tool=Codex version=codex-cli 0.161.0 model=not-exposed tty=none pid=63896 ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; signed isolated cherry-pick of be502f787 onto c6ad824ff for controlled diagnostic build
