@@ -1,1 +1,1 @@
-2026-10-08 Codex model=gpt-6.1 agent=kvc_continuation_localization tty=none ITERM_SESSION_ID=D2546E0A-73B1-4877-BBF2-80E7B58D4BE3 source-only compile; no GPU replay qualification
+2026-10-08 Codex version=API model=not_exposed tty=not a tty pid=11492 ITERM_SESSION_ID=D2546E0A-73B1-4877-BBF2-80E7B58D4BE3 signed source-only diagnostic commit; no GPU replay qualification
