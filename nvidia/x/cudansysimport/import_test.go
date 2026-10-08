@@ -286,6 +286,43 @@ func TestBoundsCancellationAndRawIsolation(t *testing.T) {
 
 type failingReader struct{}
 
+type cancelingReader struct {
+	snapshot
+	cancel context.CancelFunc
+	absent bool
+}
+
+func (r cancelingReader) ReadTable(ctx context.Context, name string, limit int) (Table, error) {
+	t, err := r.snapshot.ReadTable(ctx, name, limit)
+	if name == "OSRT_API" {
+		r.cancel()
+		if r.absent {
+			return Table{}, ErrUnavailable
+		}
+	}
+	return t, err
+}
+
+func TestCancellationDuringFinalRead(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		absent bool
+	}{
+		{"present", false},
+		{"absent", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			r := cancelingReader{snapshot: testSnapshot("3.11.0"), cancel: cancel, absent: test.absent}
+			report, err := Import(ctx, r, testSource("2024.2"), Limits{})
+			if !errors.Is(err, context.Canceled) || report != nil {
+				t.Fatalf("canceled import returned report: %v, error: %v", report, err)
+			}
+		})
+	}
+}
+
 func (failingReader) ReadTable(context.Context, string, int) (Table, error) {
 	return Table{}, errors.New("sqlite tool failed")
 }

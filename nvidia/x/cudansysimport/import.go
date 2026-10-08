@@ -144,6 +144,9 @@ func Import(ctx context.Context, reader Reader, source Source, limits Limits) (*
 			return nil, err
 		}
 		t, err := reader.ReadTable(ctx, name, rowsLeft)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if errors.Is(err, ErrUnavailable) {
 			r.Providers = append(r.Providers, Provider{Table: name, Reason: "table absent from export"})
 			continue
@@ -161,6 +164,9 @@ func Import(ctx context.Context, reader Reader, source Source, limits Limits) (*
 			return nil, fmt.Errorf("nsys %s: %w", name, err)
 		}
 		for _, row := range t.Rows {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			if len(row) > bytesLeft {
 				return nil, errors.New("nsys: byte limit exceeded")
 			}
@@ -222,6 +228,9 @@ func Import(ctx context.Context, reader Reader, source Source, limits Limits) (*
 			continue
 		}
 		for _, row := range t.Rows {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			m, _ := checkRow(row, t.Columns)
 			start, _ := integer(m["start"])
 			end := optionalInt(m, "end")
@@ -268,6 +277,9 @@ func Import(ctx context.Context, reader Reader, source Source, limits Limits) (*
 		}
 	}
 	r.correlate()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return r, nil
 }
 
