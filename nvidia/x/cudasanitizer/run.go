@@ -143,6 +143,10 @@ type Result struct {
 	MissingEvidence   []string
 	ForbiddenEvidence []string
 
+	// CrashObservation records the classified defect signature mapped from the
+	// immediately preceding completed trace, when crash classification was performed.
+	CrashObservation *CrashObservation
+
 	// Duration is how long the run took.
 	Duration time.Duration
 }

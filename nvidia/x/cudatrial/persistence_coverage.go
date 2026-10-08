@@ -69,6 +69,28 @@ func (p *PersistentCoverage) Record(thread int, block uint64) (int, error) {
 	return p.current.Record(thread, block)
 }
 
+// RecordHardwareTrace records raw hardware trace bytes into the active iteration.
+// It requires StatusHardwareAvailable; passing StatusPendingHardware or any
+// non-available status strictly returns an error wrapping cudaerrors.ErrHardwarePending,
+// forbidding faked mock coverage generation.
+func (p *PersistentCoverage) RecordHardwareTrace(raw []byte, status HardwareStatus) error {
+	if p == nil || !p.active || p.spent {
+		return fmt.Errorf("persistent coverage: no active iteration")
+	}
+	if err := ValidateHardwareCoverage(raw, status); err != nil {
+		return fmt.Errorf("persistent coverage: %w", err)
+	}
+	if len(raw) != len(p.current.bitmap.counts) {
+		return fmt.Errorf("persistent coverage: mismatched hardware trace size")
+	}
+	for i, n := range raw {
+		if n > p.current.bitmap.counts[i] {
+			p.current.bitmap.counts[i] = n
+		}
+	}
+	return nil
+}
+
 // Fault permanently retires this owner and discards the incomplete trace.
 // It does not call cudaDeviceReset or return the faulting trace as coverage.
 func (p *PersistentCoverage) Fault() {

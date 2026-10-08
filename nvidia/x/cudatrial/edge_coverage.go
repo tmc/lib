@@ -34,6 +34,13 @@ func (b *EdgeBitmap) Merge(other *EdgeBitmap) error {
 	return nil
 }
 
+// MustMerge is like Merge, but panics if other is nil or has a mismatched map size.
+func (b *EdgeBitmap) MustMerge(other *EdgeBitmap) {
+	if err := b.Merge(other); err != nil {
+		panic(err)
+	}
+}
+
 // Quantized returns AFL-style hit-count classes: 0, 1, 2, 4, 8, 16, 32, 64,
 // and 128. Repeated calls do not alter the raw counters.
 func (b *EdgeBitmap) Quantized() []byte {

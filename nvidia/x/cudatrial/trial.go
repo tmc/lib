@@ -77,6 +77,7 @@ type Receipt struct {
 	Before             Conditions                   // Machine state observed immediately before the arm ran
 	After              Conditions                   // Machine state observed immediately after the arm ran
 	Provenance         map[string]string
+	Coverage           *EdgeBitmap // Execution edge coverage bitmap, if measured
 	Err                error
 }
 
@@ -173,6 +174,11 @@ func (r Receipt) HasTiming(kind TimingKind) bool {
 	default:
 		return false
 	}
+}
+
+// HasCoverage reports whether this receipt includes a non-nil coverage bitmap with nonzero counts.
+func (r Receipt) HasCoverage() bool {
+	return r.Coverage != nil && len(r.Coverage.counts) > 0
 }
 
 // DurationFor returns the duration for the specified timing kind.

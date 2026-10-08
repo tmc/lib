@@ -105,6 +105,16 @@ func (g *TraceNovelty) Evaluate(raw []byte) (bool, error) {
 	return true, nil
 }
 
+// MustEvaluate is like Evaluate, but panics if raw has a mismatched map size,
+// contains zero coverage, or if the filter is uninitialized.
+func (g *TraceNovelty) MustEvaluate(raw []byte) bool {
+	ok, err := g.Evaluate(raw)
+	if err != nil {
+		panic(err)
+	}
+	return ok
+}
+
 func traceCountClass(n byte) byte {
 	switch {
 	case n <= 1:

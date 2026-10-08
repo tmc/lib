@@ -268,6 +268,10 @@ type Config struct {
 	// MaxOutputBytes bounds the retained copy of each of the application's
 	// output streams. Zero means [DefaultMaxOutputBytes].
 	MaxOutputBytes int
+
+	// Gating selects the trace-abstraction gating mode for trial execution.
+	// When unset (zero), trace gating is disabled or uses default runner policy.
+	Gating SanitizerGating
 }
 
 // ErrInvalidConfig is returned by [Run] for a Config that cannot be used.
@@ -322,6 +326,9 @@ func (c Config) validate() error {
 	}
 	if c.PrintLimit < 0 {
 		return fmt.Errorf("%w: PrintLimit %d is negative", ErrInvalidConfig, c.PrintLimit)
+	}
+	if c.Gating != 0 && (c.Gating < GatingAllTrace || c.Gating > GatingCoverageIncrease) {
+		return fmt.Errorf("%w: invalid Gating mode %d", ErrInvalidConfig, c.Gating)
 	}
 	for _, arg := range c.ExtraArgs {
 		name := arg
