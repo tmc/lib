@@ -1,1 +1,3 @@
 commit=c360cf8a4 date=2026-10-08 tool=Codex model=GPT-5 tty=non-tty ITERM_SESSION_ID=D2546E0A-73B1-4877-BBF2-80E7B58D4BE3. Ledger-only evidence update after source/log review. No physical qualification claim. Commit helper failed twice due missing API key; signed manual fallback.
+
+provenance shell_pid=85413
