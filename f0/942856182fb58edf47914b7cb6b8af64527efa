@@ -1,1 +1,3 @@
 commit=f09428561 date=2026-10-08 tool=Codex model=gpt-6.1-sol tty=none pid=2196 ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; host CPU ownership controls 25/25 and four actual source mutants rejected; native CUDA cleanup UNREAD; commit helper failed twice missing ANTHROPIC_API_KEY, manual signed fallback
+
+Receipt correction: model=gpt-6.1-sol above was not verified. Exact runtime model is not exposed to this subagent; CODEX_MODEL is unset. Treat model as UNREAD, not measured. Commit signature and host test receipts remain unchanged.
