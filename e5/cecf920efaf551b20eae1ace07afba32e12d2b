@@ -1,0 +1,1 @@
+commit=e5cecf920efaf551b20eae1ace07afba32e12d2b date=2026-10-08T08:13:31Z tool=Codex model=gpt-6.1 tty=not a tty pid=96329 ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; helper failed twice missing Anthropic API key; signed manual fallback; diagnostic gate only
