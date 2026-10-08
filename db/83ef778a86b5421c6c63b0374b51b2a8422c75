@@ -1,0 +1,1 @@
+commit=db83ef778a86b5421c6c63b0374b51b2a8422c75 date=2026-10-08 tool=Codex model=GPT-5 subagent=/root/steering_feature_review tty=non-tty ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3 receipt=/Users/tmc/tmp/ds4-min/20261007-dsv41-runtime/SOURCE-REVIEW.md; helper failed twice due missing ANTHROPIC_API_KEY; manual signed atomic fallback
