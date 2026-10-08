@@ -47,6 +47,61 @@ func TestProtocolVersionRejectedWhenUnknown(t *testing.T) {
 	}
 }
 
+func TestReaderWireErrorRefusals(t *testing.T) {
+	t.Run("bad magic", func(t *testing.T) {
+		b := frame(t, 1, 0)
+		b[0] ^= 0xff
+		_, err := cudainject.NewDecoder(bytes.NewReader(b), cudainject.Limits{}).Next()
+		if !errors.Is(err, cudainject.ErrBadMagic) {
+			t.Fatalf("magic: %v", err)
+		}
+	})
+
+	t.Run("duplicate sequence", func(t *testing.T) {
+		b := append(frame(t, 1, 0), frame(t, 1, 0)...)
+		d := cudainject.NewDecoder(bytes.NewReader(b), cudainject.Limits{})
+		if _, err := d.Next(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.Next(); !errors.Is(err, cudainject.ErrDuplicate) {
+			t.Fatalf("duplicate: %v", err)
+		}
+	})
+
+	t.Run("session mismatch", func(t *testing.T) {
+		var buf bytes.Buffer
+		id1 := cudainject.Identity{Process: 10, Generation: 1}
+		id1.Session[0] = 1
+		id2 := id1
+		id2.Session[0] = 2
+		if err := cudainject.WriteRecord(&buf, cudainject.Record{Kind: cudainject.KindActivity, Sequence: 1, Identity: id1, Payload: []byte(`{}`)}, cudainject.Limits{}); err != nil {
+			t.Fatal(err)
+		}
+		if err := cudainject.WriteRecord(&buf, cudainject.Record{Kind: cudainject.KindActivity, Sequence: 2, Identity: id2, Payload: []byte(`{}`)}, cudainject.Limits{}); err != nil {
+			t.Fatal(err)
+		}
+		d := cudainject.NewDecoder(&buf, cudainject.Limits{})
+		d.ExpectSession(id1.Session)
+		if _, err := d.Next(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.Next(); !errors.Is(err, cudainject.ErrSession) {
+			t.Fatalf("session: %v", err)
+		}
+	})
+
+	t.Run("record limit", func(t *testing.T) {
+		b := append(frame(t, 1, 0), frame(t, 2, 0)...)
+		d := cudainject.NewDecoder(bytes.NewReader(b), cudainject.Limits{MaxRecords: 1})
+		if _, err := d.Next(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.Next(); !errors.Is(err, cudainject.ErrRecordLimit) {
+			t.Fatalf("record limit: %v", err)
+		}
+	})
+}
+
 func TestDrainReportsDropsNotSilence(t *testing.T) {
 	d := cudainject.NewDecoder(bytes.NewReader(frame(t, 1, 7)), cudainject.Limits{})
 	r, err := d.Next()
