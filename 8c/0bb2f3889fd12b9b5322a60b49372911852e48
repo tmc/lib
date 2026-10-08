@@ -1,0 +1,1 @@
+2026-10-07; tool=Codex; task=seeded_runtime_gates; syntax-only C compile PASS; no CUDA link/runtime; actual sampler public API verified in pinned source
