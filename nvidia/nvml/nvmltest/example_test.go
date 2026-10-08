@@ -169,3 +169,87 @@ func ExampleRecorder_GpuInstanceList() {
 	fmt.Println(uintptr(v[0]), err)
 	// Output: 37 <nil>
 }
+
+// inspectDevice summarizes telemetry from any Queries implementation.
+func inspectDevice(q nvmltest.Queries) (bool, int, nvml.Result, error) {
+	supported, err := q.GpmSupported()
+	if err != nil && !nvml.IsUnsupported(err) {
+		return false, 0, 0, err
+	}
+	procs, err := q.ProcessesUtilization(0)
+	if err != nil && !nvml.IsUnsupported(err) {
+		return false, 0, 0, err
+	}
+	fabric, err := q.FabricInfo()
+	if err != nil && !nvml.IsUnsupported(err) {
+		return false, 0, 0, err
+	}
+	return supported, len(procs), fabric.Status, nil
+}
+
+func ExampleQueries() {
+	rec := nvmltest.Recording{
+		Version:    nvmltest.Version,
+		Provenance: nvmltest.Provenance{Source: "synthetic example"},
+		Calls: []nvmltest.Call{
+			{Method: "GpmSupported", Args: json.RawMessage(`{}`), Result: json.RawMessage(`true`)},
+			{Method: "ProcessesUtilization", Args: json.RawMessage(`{"LastSeen":0}`), Result: json.RawMessage(`[{"Pid":101,"SmUtil":12},{"Pid":102,"SmUtil":45}]`)},
+			{Method: "FabricInfo", Args: json.RawMessage(`{}`), Result: json.RawMessage(`{"CliqueId":1,"Status":0}`)},
+		},
+	}
+	device, err := nvmltest.NewReplay(rec)
+	if err != nil {
+		panic(err)
+	}
+
+	supported, activePids, status, err := inspectDevice(device)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("gpm=%v procs=%d fabric=%d done=%v\n", supported, activePids, int32(status), device.Done())
+	// Output: gpm=true procs=2 fabric=0 done=true
+}
+
+func Example_recordedReplay() {
+	synthetic := nvmltest.Recording{
+		Version:    nvmltest.Version,
+		Provenance: nvmltest.Provenance{Source: "synthetic mock"},
+		Calls: []nvmltest.Call{
+			{Method: "GpmSupported", Args: json.RawMessage(`{}`), Result: json.RawMessage(`true`)},
+		},
+	}
+	device, err := nvmltest.NewReplay(synthetic)
+	if err != nil {
+		panic(err)
+	}
+
+	recorder, err := nvmltest.NewRecorder(device, nvmltest.Provenance{Source: "recorded session"})
+	if err != nil {
+		panic(err)
+	}
+	supported, err := recorder.GpmSupported()
+	if err != nil {
+		panic(err)
+	}
+
+	rec, err := recorder.Recording()
+	if err != nil {
+		panic(err)
+	}
+	var buf bytes.Buffer
+	if err := nvmltest.Write(&buf, rec); err != nil {
+		panic(err)
+	}
+
+	loaded, err := nvmltest.Read(&buf)
+	if err != nil {
+		panic(err)
+	}
+	replay, err := nvmltest.NewReplay(loaded)
+	if err != nil {
+		panic(err)
+	}
+	replayedSupported, err := replay.GpmSupported()
+	fmt.Printf("recorded=%v replayed=%v done=%v\n", supported, replayedSupported, replay.Done())
+	// Output: recorded=true replayed=true done=true
+}
