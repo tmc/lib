@@ -1,1 +1,3 @@
 commit b7b83fb114d992a3a8c73edde979fa4fa93684ee; date 2026-10-07; tool Codex; model GPT-6.1; tty noninteractive; subagent hard_smoke_runtime; signed commit; corpus generation and host tests pass, GPU qualification pending
+
+Receipt supplement: codex-cli 0.161.0; model-specific GPT-6.1 label in prior note was unverified, actual model identifier unavailable to subagent; tty none; ITERM_SESSION_ID w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3; tool process PID provenance unavailable after command completion.
