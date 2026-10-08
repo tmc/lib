@@ -13,3 +13,5 @@
   "independent_review": "/Users/tmc/tmp/lib-nvidia-lane93/20261007-parallel-close/HANDOFF.md",
   "publication": "none"
 }
+
+{"correction": "Author handoff was not an independent review; exact integrated cancellation regraded independently", "independent_review": "/Users/tmc/tmp/lib-nvidia-lane93/20261007-cancel-review-r2/REVIEW.md", "scope": "SOURCE/CPU accepted; removed fix compiles and fails both regression cases"}
