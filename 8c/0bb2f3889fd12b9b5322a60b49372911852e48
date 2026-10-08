@@ -1,1 +1,3 @@
 2026-10-07; tool=Codex; task=seeded_runtime_gates; syntax-only C compile PASS; no CUDA link/runtime; actual sampler public API verified in pinned source
+
+2026-10-07; Codex GPT-5; root D2546E0A; scoped documentary update; KVC readback receipt and sampled/hard-smoke source reviewed; local locked host tests PASS; no GPU claim; ITERM_SESSION_ID=w3t0p6:D2546E0A-73B1-4877-BBF2-80E7B58D4BE3
