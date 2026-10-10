@@ -1,0 +1,17 @@
+Commit: 94b4373cffde19eff257cc55cce5a89c7891020e
+Date: 2026-10-10T21:23:08Z
+Agent: Codex; model GPT-6; Claude Code version: not applicable
+TTY: not a tty; PID: 33142; ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Owned direct DCGM sampler, explicit watch lifecycle, raw native provenance, IMEX discrete fields and pinned official contract docs. Fake-native host controls only; no hardware or network query.
+
+integration_source=94b4373cf
+commit=edd0d4cec76428d3657fd0b72bdbb7af180038eb
+commit_date=2026-10-10T14:23:31-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=34962
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:23:35.809593-07:00
