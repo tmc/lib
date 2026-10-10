@@ -1,0 +1,19 @@
+claude-code=2.1.257 (Claude Code)
+model=claude-opus-5[1m]
+tty=not a tty
+n/a
+pid=91190
+ITERM_SESSION_ID=w4t0p18:3CE9C186-B1C6-40B5-9B8F-2F1DD419299D
+session=423f1bbf-df69-46f3-87ae-1b4a46c379e2
+session_url=https://claude.ai/code/session_0187SBsrLu3gqbktcLUwwiaV
+
+commit: 1602ba473561055a7d63592d37d4dbf09b22ef11
+original-commit: 045a0aaaf529d8580281c933102c7fd5d5e95def
+date: 2026-09-13T18:46:06-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
