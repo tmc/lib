@@ -1,0 +1,10 @@
+commit=333c5f321018cae5a8821e8650f6048bcdfd0ef9
+date=2026-10-10T13:03:39-07:00
+agent=Codex
+model=GPT-6
+claude-code-version=not applicable
+tty=tool execution (no tty)
+pid=85934
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation=bridge unit/race/vet and explicit close-failure controls; frozen-head Linux kernel hash-map snapshot native PASS; receipt /Users/tmc/tmp/lib-bpf/20261010-telemetry/native/native-closed.log
+manual signed fallback: git-auto-commit-message exhausted twice earlier in task
