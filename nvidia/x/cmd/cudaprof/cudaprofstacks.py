@@ -27,19 +27,24 @@ _stacks = {}
 _limit = 8 * 1024 * 1024
 _bytes = 0
 _saturated = False
+_failure = None
 _attempted = _recorded = _dropped = _truncated = 0
 
 
 def _reset_child():
-    global _lock, _pid, _generation, _writer, _agent, _ids, _bytes, _saturated, _attempted, _recorded, _dropped, _truncated, _stacks
+    global _lock, _pid, _generation, _writer, _agent, _ids, _bytes, _saturated, _attempted, _recorded, _dropped, _truncated, _stacks, _failure
     if _writer is not None:
-        os.close(_writer)
+        try:
+            os.close(_writer)
+        except OSError:
+            pass
     _lock = threading.RLock()
     _pid, _generation = os.getpid(), time.monotonic_ns()
     _writer = _agent = None
     _ids = itertools.count(1)
     _stacks = {}
     _bytes, _saturated = 0, False
+    _failure = None
     _attempted = _recorded = _dropped = _truncated = 0
 
 
@@ -48,27 +53,57 @@ if hasattr(os, 'register_at_fork'):
 
 
 def _enabled():
-    return os.environ.get('CUDAPROF_PYTHON_STACKS') == '1' and bool(os.environ.get('CUDAPROF_STACK_DIR'))
+    return _failure is None and os.environ.get('CUDAPROF_PYTHON_STACKS') == '1' and bool(os.environ.get('CUDAPROF_STACK_DIR'))
+
+
+def _observer_failed(error):
+    global _failure, _writer
+    if _failure is not None:
+        return
+    _failure = str(error)
+    if _writer is not None:
+        try:
+            os.close(_writer)
+        except OSError:
+            pass
+        _writer = None
+    # The failed journal cannot promise a terminal coverage record. Retain a
+    # separate unavailable receipt when storage permits, otherwise diagnose
+    # through stderr without risking another exception in the workload.
+    try:
+        path = os.path.join(os.environ['CUDAPROF_STACK_DIR'], 'python-%d-%d.coverage.json' % (_pid, _generation))
+        with open(path, 'w') as out:
+            json.dump({'status': 'unavailable', 'reason': _failure}, out)
+    except OSError:
+        pass
+    try:
+        sys.stderr.write('cudaprof: Python stack observer unavailable: %s\n' % _failure)
+    except (OSError, ValueError):
+        pass
 
 
 def _emit(record):
     global _writer, _bytes, _saturated
-    if _saturated:
+    if _saturated or _failure is not None:
         return False
-    if _writer is None:
-        path = os.path.join(os.environ['CUDAPROF_STACK_DIR'], 'python-%d-%d.jsonl' % (_pid, _generation))
-        _writer = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    data = (json.dumps(record, separators=(',', ':'), ensure_ascii=True) + '\n').encode()
-    if _bytes + len(data) > _limit - 512:
-        _saturated = True
-        receipt = os.path.join(os.environ['CUDAPROF_STACK_DIR'], 'python-%d-%d.coverage.json' % (_pid, _generation))
-        with open(receipt, 'w') as out:
-            json.dump({'status': 'truncated', 'reason': 'journal byte limit'}, out)
+    try:
+        if _writer is None:
+            path = os.path.join(os.environ['CUDAPROF_STACK_DIR'], 'python-%d-%d.jsonl' % (_pid, _generation))
+            _writer = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        data = (json.dumps(record, separators=(',', ':'), ensure_ascii=True) + '\n').encode()
+        if _bytes + len(data) > _limit - 512:
+            _saturated = True
+            receipt = os.path.join(os.environ['CUDAPROF_STACK_DIR'], 'python-%d-%d.coverage.json' % (_pid, _generation))
+            with open(receipt, 'w') as out:
+                json.dump({'status': 'truncated', 'reason': 'journal byte limit'}, out)
+            return False
+        if os.write(_writer, data) != len(data):
+            raise OSError('short stack journal write')
+        _bytes += len(data)
+        return True
+    except OSError as error:
+        _observer_failed(error)
         return False
-    if os.write(_writer, data) != len(data):
-        raise OSError('short stack journal write')
-    _bytes += len(data)
-    return True
 
 
 def _identity():
@@ -192,7 +227,11 @@ def start_sampler(interval=0.01):
     pid = os.getpid()
     identity = _identity()
     path = os.path.join(os.environ['CUDAPROF_STACK_DIR'], 'python-wall-%d-%d.jsonl' % (pid, time.monotonic_ns()))
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except OSError as error:
+        _observer_failed(error)
+        return stop.set
     counts = {'recorded': 0, 'dropped': 0, 'bytes': 0}
     def sample():
         try:
@@ -218,11 +257,12 @@ def start_sampler(interval=0.01):
                         stop.set()
                         break
                     if os.write(fd, encoded) != len(encoded):
-                        counts['dropped'] += 1
-                        stop.set()
-                        break
+                        raise OSError('short stack sample write')
                     counts['bytes'] += len(encoded)
                     counts['recorded'] += 1
+        except OSError as error:
+            counts['dropped'] += 1
+            _observer_failed(error)
         finally:
             coverage = {'version': 1, 'type': 'coverage', 'process': str(identity['generation'] if identity else _generation),
                         'language': 'python', 'pid': pid, 'session': os.environ.get('CUDAPROF_SESSION', ''),
@@ -230,10 +270,19 @@ def start_sampler(interval=0.01):
                         'clock': 'monotonic', 'status': 'clock_unavailable',
                         'provenance': 'wall_stack_snapshot', 'attempted': counts['recorded'] + counts['dropped'],
                         'recorded': counts['recorded'], 'dropped': counts['dropped'], 'truncated_count': 0, 'final': True}
-            os.write(fd, (json.dumps(coverage, separators=(',', ':')) + '\n').encode())
-            os.close(fd)
-            with open(path + '.coverage.json', 'w') as out:
-                json.dump(coverage, out)
+            try:
+                data = (json.dumps(coverage, separators=(',', ':')) + '\n').encode()
+                if os.write(fd, data) != len(data):
+                    raise OSError('short stack coverage write')
+                with open(path + '.coverage.json', 'w') as out:
+                    json.dump(coverage, out)
+            except OSError as error:
+                _observer_failed(error)
+            finally:
+                try:
+                    os.close(fd)
+                except OSError as error:
+                    _observer_failed(error)
     worker = threading.Thread(target=sample, name='cudaprof-wall-stacks', daemon=True)
     worker.start()
     def finish():
@@ -256,7 +305,12 @@ def _finish():
               'truncated_count': _truncated, 'final': True}
     with _lock:
         # The normal byte cap reserves space for this terminal receipt.
-        os.write(_writer, (json.dumps(record, separators=(',', ':')) + '\n').encode())
+        try:
+            data = (json.dumps(record, separators=(',', ':')) + '\n').encode()
+            if os.write(_writer, data) != len(data):
+                raise OSError('short stack coverage write')
+        except OSError as error:
+            _observer_failed(error)
 
 
 atexit.register(_finish)

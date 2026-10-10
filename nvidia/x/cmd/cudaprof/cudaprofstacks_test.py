@@ -8,14 +8,15 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 SOURCE = pathlib.Path(__file__).with_name('cudaprofstacks.py')
 
 
 class StackTests(unittest.TestCase):
     def setUp(self):
-        scratch = pathlib.Path.home() / 'tmp'
-        scratch.mkdir(exist_ok=True)
+        scratch = pathlib.Path.home() / 'tmp' / 'lib-cudaprof' / (time.strftime('%Y%m%d') + '-python-stacks')
+        scratch.mkdir(parents=True, exist_ok=True)
         self.tmp = tempfile.TemporaryDirectory(prefix='cudaprof-python-stacks-', dir=scratch)
         self.addCleanup(self.tmp.cleanup)
         self.addCleanup(os.environ.clear)
@@ -115,6 +116,80 @@ class StackTests(unittest.TestCase):
         self.assertTrue(all(r["provenance"] == "wall_stack_snapshot" for r in rows))
         self.assertTrue(all(r["generation"] == 1234 for r in rows))
         self.assertTrue(pathlib.Path(str(paths[0]) + ".coverage.json").exists())
+
+    def test_journal_io_failure(self):
+        for workload_error in (False, True):
+            with self.subTest(workload_error=workload_error):
+                self.mod._failure = None
+                for journal in pathlib.Path(self.tmp.name, "stacks").glob("*.jsonl"):
+                    journal.unlink()
+                with mock.patch.object(self.mod.os, 'write', side_effect=OSError('disk full')):
+                    if workload_error:
+                        with self.assertRaisesRegex(ValueError, 'application error'):
+                            with self.mod.submission('work'):
+                                raise ValueError('application error')
+                    else:
+                        with self.mod.submission('work'):
+                            pass
+                self.assertEqual(self.mod._failure, 'disk full')
+                self.assertIsNone(self.mod._writer)
+                events = len(self.events)
+                with self.mod.submission('disabled after failure'):
+                    pass
+                self.assertEqual(len(self.events), events)
+                receipt = next(pathlib.Path(self.tmp.name, 'stacks').glob('*.coverage.json'))
+                self.assertEqual(json.loads(receipt.read_text())['status'], 'unavailable')
+
+    def test_initialization_io_failure(self):
+        with mock.patch.object(self.mod.os, 'open', side_effect=OSError('cannot open')):
+            with self.mod.scope('work'):
+                pass
+        self.assertEqual(self.mod._failure, 'cannot open')
+        self.assertIsNone(self.mod._writer)
+
+    def test_receipt_io_failure(self):
+        with mock.patch.object(self.mod.os, 'write', side_effect=OSError('disk full')):
+            with mock.patch('builtins.open', side_effect=OSError('receipt unavailable')):
+                with self.assertRaisesRegex(ValueError, 'application error'):
+                    with self.mod.submission('work'):
+                        raise ValueError('application error')
+        self.assertEqual(self.mod._failure, 'disk full')
+        self.assertIsNone(self.mod._writer)
+
+    def test_short_journal_write(self):
+        with mock.patch.object(self.mod.os, 'write', return_value=1):
+            with self.mod.scope('work'):
+                pass
+        self.assertEqual(self.mod._failure, 'short stack journal write')
+
+    def test_sampler_initialization_io_failure(self):
+        with mock.patch.object(self.mod.os, 'open', side_effect=OSError('cannot open')):
+            stop = self.mod.start_sampler()
+            stop()
+        self.assertEqual(self.mod._failure, 'cannot open')
+
+    def test_sampler_write_failure(self):
+        failed = threading.Event()
+        def fail_write(*args):
+            failed.set()
+            raise OSError('sample storage unavailable')
+        with mock.patch.object(self.mod.os, 'write', side_effect=fail_write):
+            stop = self.mod.start_sampler(0.001)
+            try:
+                self.assertTrue(failed.wait(1), 'sampler did not attempt a write')
+            finally:
+                stop()
+        self.assertEqual(self.mod._failure, 'sample storage unavailable')
+        receipt = next(pathlib.Path(self.tmp.name, 'stacks').glob('python-*.coverage.json'))
+        self.assertEqual(json.loads(receipt.read_text())['status'], 'unavailable')
+
+    def test_terminal_io_failure(self):
+        with self.mod.scope('work'):
+            pass
+        with mock.patch.object(self.mod.os, 'write', side_effect=OSError('disk full')):
+            self.mod._finish()
+        self.assertEqual(self.mod._failure, 'disk full')
+        self.assertIsNone(self.mod._writer)
 
     def test_child_reset(self):
         self.mod._reset_child()
