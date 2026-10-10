@@ -1,0 +1,16 @@
+commit 8d1fb3e245cc9cc82b2c10e035da204a7a12b0dd
+date 2026-10-10T19:51:13.874154+00:00
+agent codex; model GPT-6; claude-code version not applicable; tty noninteractive; pid 10989; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Baseline negative controls fail at 8d4091b4b; corrected telemetry and CLI race tests and vet pass. Source/CPU evidence only; no physical CUDA qualification.
+
+integration_source=8d1fb3e24
+commit=fa9ab949cecf002475f2ec3edbbc3fdcd67e71be
+commit_date=2026-10-10T12:52:54-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=18689
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T12:53:01.556779-07:00
