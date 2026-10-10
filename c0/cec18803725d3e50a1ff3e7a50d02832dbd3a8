@@ -1,0 +1,12 @@
+Integrated isolated compile repairs 559fdf08 and 6fd2dea3; active originals preserved under /Users/tmc/tmp/lib-nvidia-implementation/active-backup-20260917/kernel-collective-mega. Codex manual repairs; Luna unavailable due usage limit. Focused tests passed in isolated worktrees.
+
+commit: c0cec18803725d3e50a1ff3e7a50d02832dbd3a8
+original-commit: b7d6e969102291278e3ecdf0ad71152e873753f7
+date: 2026-09-17T01:32:42-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
