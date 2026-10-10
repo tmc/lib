@@ -1,0 +1,23 @@
+commit=36274d996e681296145d9e913cab53fb4bd23fec
+date=2026-09-19T07:17:15Z
+claude-code=2.1.269 (Claude Code)
+model=claude-opus-5[1m] (Opus 5, 1M context)
+tty=not a tty
+n/a
+pid=29691
+ITERM_SESSION_ID=w3t0p4:ACB8A81B-42D2-463F-BD3C-9458A100C7B5
+session=fab9fc14-5717-427a-93df-1a1039b8e5b1
+session_url=n/a
+attribution=Claude Code
+prompted_by=F4405D88 independent three-kernel PTX comparison, thundergophers e09fdd3
+
+commit: ef38ace8bc36e544ceb5876d6329ba84843283fa
+original-commit: 35fad268ec6aff9ed4f08ee3d32a7fa2f011b03d
+date: 2026-09-19T00:17:03-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
