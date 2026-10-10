@@ -1,0 +1,11 @@
+agent=Codex bpf_evidence
+model=GPT-6
+claude-code version=not running
+commit=334a5bb17562849107ab3c9f6b34b8ab4f5dfa2c
+date=2026-10-10T12:58:36-07:00
+receipt-date=2026-10-10T19:59:02.078589+00:00
+tty=noninteractive
+pid=54077
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation=/Users/tmc/tmp/lib-bpf/20261010-evidence/REPORT.md
+physical gate=GB10 only exact7d7130ae6 nil-session path; newer suffix host/race checked
