@@ -1,0 +1,12 @@
+agent=Codex bpf_evidence
+model=GPT-6
+claude-code version=not running
+commit=1283c2792b30405b910fa02d944d0018a01ca7d1
+date=2026-10-10T12:41:59-07:00
+receipt-date=2026-10-10T19:43:01.236709+00:00
+tty=noninteractive
+pid=70188
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+base=4ce51ad2e
+source=lane/evidence-pipeline13d3a7941 selected evidence commits; independent fail-closed corrections
+validation=/Users/tmc/tmp/lib-bpf/20261010-evidence/REPORT.md
