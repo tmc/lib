@@ -1,0 +1,25 @@
+tool: claude-code 2.1.257
+model: claude-opus-5[1m]
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+date: 2026-09-17T14:56:00-07:00
+host: spark-31db (NVIDIA GB10, sm_121, driver 580.173.02), linux/arm64
+nvrtc: 13.0 (/usr/local/cuda-13.0/targets/sbsa-linux/lib/libnvrtc.so)
+fixture sha256: kernel.cu e7b85fe1..., types.cuh e6d906ac...
+before: ptxBytes=2834 sha=2441878635a2d58f... 1 NUL, grep reports 'binary file matches'
+after:  ptxBytes=2833 sha=283b11618f81bcfd... 0 NUL, grep counts 19 .loc records
+cubin unchanged across the fix: cdc82636405a6f23b78a4442233f557fa6ef176c788af5bb465cb5f376e972aa
+unit control: reverting ptxText to string(b) (keeping the bytes import live)
+makes TestPTXTextDropsTrailingNUL fail with the terminator visible in the
+message; the first attempt at this control only broke the build and proved
+nothing.
+
+commit: 27631401c26cecc8441af665eef2f580c5586e9b
+original-commit: bc9aee29411cbd7bee6c6a7578faa59a05025022
+date: 2026-09-17T14:55:50-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
