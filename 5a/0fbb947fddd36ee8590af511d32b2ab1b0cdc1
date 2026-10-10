@@ -1,0 +1,12 @@
+Commit: d62ee7690311b0ac46fff9918fb908927a595e16; date: 2026-09-04T20:20:34-07:00; agent: Codex; model: gpt-6-astra; installed claude-code: 2.1.257 (not executor); tty: none; shell pid: 75980; parent pid: 17351; ITERM_SESSION_ID: w15t0p2:54B33A62-339F-4D21-B1B9-0036124A7060. Local selected filesystem race tests and vet passed on Apple/CUDA packages. Physical restoration unverified; isolated candidate.
+
+commit: 5a0fbb947fddd36ee8590af511d32b2ab1b0cdc1
+original-commit: da3b85355427a2b33e44cfd23a1d1fa65e2848cb
+date: 2026-09-04T20:20:34-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
