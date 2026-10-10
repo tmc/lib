@@ -1,0 +1,21 @@
+Controls this commit rests on, measured on an NVIDIA GB10 (linux/arm64, CUDA 13.0, sm_121):
+ - two kernels with byte-identical bodies: PTX .loc keeps alpha at lines 2-4 and beta at 8-10;
+   nvdisasm emits beta's section FIRST, so ordinal attribution would invert them.
+ - mismatched PTX/SASS under differing filenames: cross-tier table is disjoint (visible).
+ - mismatched PTX/SASS under identical filenames: table fuses with no signal (the stated gap).
+Suites green on darwin/arm64 and linux/arm64.
+
+claude-code $(claude --version 2>/dev/null | head -1)
+model=claude-opus-5[1m]
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+commit: 4eec1a91c47b1d8c999cc0d8a65dc7a08ab8819d
+original-commit: af0d28eee0d846ca08c60660328bd5ed082b2298
+date: 2026-09-17T15:12:17-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
