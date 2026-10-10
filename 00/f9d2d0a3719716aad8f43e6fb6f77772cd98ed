@@ -1,0 +1,15 @@
+commit 9b2fb8ec5a20ee7decc5dc1cf3978b6a06a1ddfd date 2026-09-28T14:18:52-07:00
+agent: Claude Code, model claude-opus-5-5[1m], tty not a tty, pid 4603, ITERM_SESSION_ID=w8t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+release v0.2.0 R5 fix from the dgx GPU tier
+
+commit: 00f9d2d0a3719716aad8f43e6fb6f77772cd98ed
+original-commit: 9b2fb8ec5a20ee7decc5dc1cf3978b6a06a1ddfd
+date: 2026-09-28T14:18:52-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
