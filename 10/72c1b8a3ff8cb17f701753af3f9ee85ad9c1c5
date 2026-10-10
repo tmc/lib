@@ -1,0 +1,13 @@
+commit 144a4aeb91229925995482696fda0e1220892ef6; date 2026-10-10; Codex GPT-6; claude-code N/A; tty noninteractive; pid 29525; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; signed manual fallback; two negative baseline fixtures now explicitly measured; canonical pair unchanged
+
+integration_source=144a4aeb9
+commit=1072c1b8a3ff8cb17f701753af3f9ee85ad9c1c5
+commit_date=2026-10-10T13:48:17-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=33923
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:48:22.913021-07:00
