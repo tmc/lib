@@ -1,0 +1,1 @@
+date 2026-10-10; agent Codex; model GPT-6; tty noninteractive; pid tool subprocess; ITERM_SESSION_ID inherited parent; manual signed fallback after two previous auto-message failures
