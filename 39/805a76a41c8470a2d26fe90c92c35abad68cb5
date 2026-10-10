@@ -1,0 +1,25 @@
+commit: 8670d6c3
+date: 2026-09-20T17:07:40-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 16502
+ITERM_SESSION_ID: w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url: https://claude.ai/code/session_018cQ9QL22BMr4otz5FbpxW3
+it2_session: F76EF7EB-35BD-4585-89FA-888140AFD052
+note: errata 21.155 from ~/tmp/agent-collab/ds4-min/hcinject-src-v2/TOOL-IMPROVEMENTS.md (peer C6A7BA75).
+Mutation-tested in a detached worktree under GOWORK=off (never in place): 4 probes, all killed --
+name rows[0] instead of the furthest mover; caveat returned unconditionally; markdown render dropped;
+caveat printed below the sections instead of above. The last is the claim of the erratum itself.
+
+commit: 39805a76a41c8470a2d26fe90c92c35abad68cb5
+original-commit: f337167146cebba6fa0970b2e1aecdf4d3c86239
+date: 2026-09-21T03:07:31-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
