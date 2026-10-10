@@ -1,0 +1,14 @@
+commit: aceeb1d39b29d1b5aeb82dd18a774269ddecb57a
+date: 2026-10-10T11:43:10-07:00
+agent: Codex CLI 0.162.1
+claude-code version: 2.1.284 (installed tool; this task executed in Codex)
+model: GPT-6 per session instructions; exact serving model identifier unavailable
+tty: not a tty
+pid: 70896 (execution parent)
+ITERM_SESSION_ID: w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15
+scope: exact seven approved V4.1 CLI paths
+validation: shared locked race gate 57 top-level tests, zero failures/skips;
+locked Linux ARM64 test compilation PASS, no model/native execution
+receipts: /Users/tmc/tmp/ds4-min/20261010-v41-cli-host/shared-final.jsonl
+and /Users/tmc/tmp/ds4-min/20261010-v41-cli-host/shared-linux.log
+commit helper: two failures due missing Anthropic API key, then signed manual fallback
