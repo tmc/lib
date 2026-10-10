@@ -1,0 +1,25 @@
+Commit: 2de899a9
+Date: 2026-09-19T00:49:30Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+not a tty
+pid: 95217
+ITERM_SESSION_ID: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+Generated from a clean detached worktree of libgen at 16d4377, not from the
+shared libgen working tree, which carries another session's uncommitted
+doc-URL fix in cmd/gen-cudensitymat/config.go. That edit was the whole of
+cudensitymat's reported doc.gen.go difference; it is that session's to commit
+and was left alone.
+
+commit: ca0657f6c180070e821648dca9f8f863f07a544c
+original-commit: 3fc9fac3fd4e73e3e8f25df523d14cafc572d2e7
+date: 2026-09-18T17:49:22-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
