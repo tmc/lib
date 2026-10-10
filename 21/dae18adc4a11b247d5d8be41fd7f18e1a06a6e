@@ -1,0 +1,33 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 99803; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Prompted by the user asking whether this session was adding defect
+descriptions where fixes belong. It was: QUALIFICATION.md gap 8 named
+these inferred mappings instead of removing them.
+
+Controls verified failing against the pre-change code by restoring
+code.go from HEAD with the new package-internal test file held aside:
+  TestPTXLineUnknownWhenSourceLineIsAmbiguous  PTXLine = 12, want 0
+  TestRetIsNotAttributedByWalkingBack          PTXLine = 13, want 0
+  TestFindFunctionLineIgnoresTrailingComment   line 3, want 5
+The committed kernels.* fixture's existing expectations (SourceLine 2,
+PTXLine 12 and 14) are unchanged: each of its source lines is claimed by
+exactly one PTX instruction, so they resolve on identity, not affinity.
+
+Related: codex/ds4-min commit 04924422 fixes the template half of the
+source-line lookup on the peer branch with MatchKey and keeps the
+substring scan. That branch is 20 nvidia/ commits unmerged; this change
+does not touch it. A merge will conflict on the one line, visibly.
+
+Green: darwin/arm64 nvidia/... ; linux/arm64 (GB10) x/cudacapture,
+x/cudalowering, internal/profilebundle, cmd/cudaprof.
+
+commit: 21dae18adc4a11b247d5d8be41fd7f18e1a06a6e
+original-commit: cc88e999f2eebcf0589b88ebf373b2e090a0b3b0
+date: 2026-09-17T15:37:10-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
