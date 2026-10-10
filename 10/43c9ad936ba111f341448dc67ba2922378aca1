@@ -1,0 +1,31 @@
+agent: claude-code 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+date: 2026-09-18T17:13:16-07:00
+tty: not a tty pid: 85064
+iterm_session: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+verification: all three flags.gen.go reproduce their recorded digests from the new cwd; cmd/nvidia-reproduce gate green for nvrtc, nvvm, nvjitlink
+
+--- appended by session d9194c1a (iterm F76EF7EB), 2026-09-19T00:22Z ---
+This note was overwritten by that session and is restored here verbatim from
+refs/notes/commits@{4}; nothing of it was lost.
+
+This commit also carries a hunk that does not belong to it: an 8-line comment
+in nvidia/internal/cudainject/native/testcupti/stubcupti.c documenting that the
+compatible arm of the layout check is tautological without the short-size
+mocks. That belongs to 3fe6bb26. Session d9194c1a ran git commit --amend on a
+shared tree without re-checking HEAD, which had advanced to this commit in the
+interval, so the amend rewrote this commit instead of its own. The content is
+correct and the upstream.json work here is intact; only the grouping is wrong.
+Not rewritten because 34f410a9 already builds on this hash.
+
+commit: 1043c9ad936ba111f341448dc67ba2922378aca1
+original-commit: cc42683abf729d3bd7a19b15bee6d630d7a4d454
+date: 2026-09-18T17:14:02-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
