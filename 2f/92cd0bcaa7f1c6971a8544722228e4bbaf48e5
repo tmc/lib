@@ -20,3 +20,27 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 88943; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Fourth and last of the ptx94-docs peer report's cudaptx items.
+Verified failing against HEAD~1: '.loc 1 abc 3' gave kernel.cu:0:3,
+'.loc 1' gave kernel.cu:0, '.loc x 5 3' gave a Location with Line=5 and
+no file, and a malformed inlined_at produced a kernel.cu:0:3 frame.
+TestLocColumnZeroIsKept passes at HEAD~1 too; it guards against
+over-tightening, it does not discriminate the fix.
+
+Green: darwin/arm64 nvidia/x/... and examples/ptx-sass-trace; linux/arm64
+(GB10) x/cudaptx.
+
+history re-sign provenance
+source commit: 7aaf9512fddcc3dd800cfc296f021a3c2cc21365
+commit: 2f92cd0bcaa7f1c6971a8544722228e4bbaf48e5
+original commit date: 1789684240 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

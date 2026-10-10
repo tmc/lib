@@ -16,3 +16,23 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit 037bfc7aa5e3da924ba543be82db2162bb4c329b
+date 2026-09-24T18:47:27-07:00
+claude-code 2.1.280 (Claude Code), model claude-opus-5-5[1m], tty not a tty
+none, pid 79347, iterm w8t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
+rebased from dgx branch cudaprof-exit-group (e6f6974a, 05b2effe; session 89a9e500) onto 31367d683; added darwin build fix, linux-only test gating, and goExitRisk/doc integration with main's Go-exit refusal
+
+history re-sign provenance
+source commit: 037bfc7aa5e3da924ba543be82db2162bb4c329b
+commit: 5241decfddae7c7bfe03e659374cdd731aea2052
+original commit date: 1790300847 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

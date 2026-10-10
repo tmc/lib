@@ -23,3 +23,30 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+agent: claude-code 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+date: 2026-09-18T17:30:13-07:00
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+verification: cublas and cudnn both reproduce under cmd/nvidia-reproduce; both vet and pass TestGeneratedLayouts; 31 of 35 packages reproduce, gate exit 0
+
+Scope note, because this commit is wider than its message. The upstream.json
+hunk also moves two digests in nvml's supplemental_runs outputs:
+constants.gen.go 6ba2cbda -> b171f592 and constants.provenance.json dc734075 ->
+e2789a9a. No nvml file changed. Those recorded digests had rotted against the
+files already on disk, and libgen nvidia-provenance -refresh-outputs did not
+cover supplemental runs until this session, so they were refreshed the first
+time it did. nvml is being taken up as its own item and nothing here is a claim
+about it.
+
+history re-sign provenance
+source commit: ec1364a5d3cc43854a3a1b4a5a72079cceda9b82
+commit: 372a6875c82ce72477ecf4a9217412994755aac6
+original commit date: 1789777794 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

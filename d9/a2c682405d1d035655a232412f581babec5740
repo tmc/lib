@@ -1,0 +1,24 @@
+commit: dde87eb18c713b7dac231166b4938b4b07dc3aa7
+date: 2026-10-10T09:29:53-07:00
+agent: Codex
+version: codex-cli 0.162.1
+model: GPT-6
+claude-code-version: not used
+tty: none
+pid: 44620
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+source: fd474128fb51d163c1f431d5be3527e027fcf613
+validation: affected package tests passed at atomic prefix; independent regression/race receipts in 20261010-main-integration and lane handoffs
+
+history re-sign provenance
+source commit: dde87eb18c713b7dac231166b4938b4b07dc3aa7
+commit: d9a2c682405d1d035655a232412f581babec5740
+original commit date: 1791649793 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

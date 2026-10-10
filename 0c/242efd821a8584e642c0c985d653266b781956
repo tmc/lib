@@ -25,3 +25,32 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 9059; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Both findings reported by peer session cudavet-spec, verified here before
+fixing. Its 3c(i),(iii),(iv),(v) were already closed by a0ae4659/efa568f8;
+(ii) and the header loss are what this commit closes.
+
+Measured with gateprobe on the DGX against fixture/ref130.*:
+  before 4d050107: instrs=48 no_source_line=15 ptxline_known=5
+  after:           instrs=48 no_source_line=0  ptxline_known=7
+                   by_file: kernel.cu=33 types.cuh=15
+cudavet-spec predicted 16 of 48 from its own read of the SASS; the
+measured figure is 15.
+
+Green: darwin/arm64 nvidia/... except the unrelated load-sensitive
+internal/cudainject/nativecontrol TestBurst; linux/arm64 (GB10)
+x/cudacapture.
+
+history re-sign provenance
+source commit: caf88b1a8d3e3bcd7b1086e11d10fd436282334f
+commit: 0c242efd821a8584e642c0c985d653266b781956
+original commit date: 1789685151 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

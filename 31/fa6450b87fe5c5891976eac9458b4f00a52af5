@@ -16,3 +16,23 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+tool: claude-code 2.1.257 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty pid: 46815
+iterm_session: unset
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+date: 2026-09-17T14:42:53-07:00
+verified: GOWORK=off go test -count=1 (7 pkgs ok), go vet clean, gofmt clean, old import path absent repo-wide
+
+history re-sign provenance
+source commit: 25a6825310b3141fecc167eacc5ed3b4eecafce4
+commit: 31fa6450b87fe5c5891976eac9458b4f00a52af5
+original commit date: 1789681366 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

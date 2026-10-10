@@ -20,3 +20,27 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 7205ad4c
+date: 2026-09-22T17:21:55Z
+claude-code: 2.1.272 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 2225
+iterm_session: w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+subagent: S05-primitives (roadmap S0.5, lane 38)
+device receipts: dgx GB10 sm_121a under gpu-lock, cta-1cta and device-2cta native PASS
+control verified by lead: Await no-op leaves TestCPUBackendMatchesReference green and fails TestDependencyWaitIsLoadBearing (32 workers)
+
+history re-sign provenance
+source commit: 45bf616b04baf9fce2ba271cbbb868078fbc3d83
+commit: 00c176793dd100a11ca564cf376950e896489fe1
+original commit date: 1790097699 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

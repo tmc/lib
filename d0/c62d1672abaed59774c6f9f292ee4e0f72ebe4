@@ -22,3 +22,29 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit: 2e35cfe0
+Date: 2026-09-19T00:22:24Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+none
+pid: 17593
+ITERM_SESSION_ID: w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url=https://claude.ai/code/session_018cQ9QL22BMr4otz5FbpxW3
+origin: produced by subagent spike-memset-sync in the main worktree; committed by the parent session after review
+verification: go test ./x/cmd/cudaprof/ ./x/cudacapture/ green
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+history re-sign provenance
+source commit: bfb77089057f155fd5baaab4e08ae886d20ee94b
+commit: d0c62d1672abaed59774c6f9f292ee4e0f72ebe4
+original commit date: 1789777335 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

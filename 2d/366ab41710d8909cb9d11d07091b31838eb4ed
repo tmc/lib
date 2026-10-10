@@ -14,3 +14,21 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 71c900be9ea10e4496f9d47f5b33d8c7a96bfb90
+date: 2026-09-17T04:44:32Z
+agent: antigravity
+lane: 10-finite-taskgraph-and-persistent-executor
+status: host-verified; single-CTA DAG worker, scratch bounds checked; multi-CTA and native GPU harness pending
+
+history re-sign provenance
+source commit: c03a1e3c71305998c94a8109d0eff75091306885
+commit: 2d366ab41710d8909cb9d11d07091b31838eb4ed
+original commit date: 1789620270 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

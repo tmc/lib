@@ -19,3 +19,26 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Claude Code 2.1.257 (Claude Code)
+model=claude-opus-5
+tty=not a tty
+pid=75219
+ITERM_SESSION_ID=w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url=https://claude.ai/code/session_018cQ9QL22BMr4otz5FbpxW3
+date=2026-09-18T17:48:44Z
+Design call made by C6A7BA75 (ds4-min perf session): carry the offset, not in
+Address. Implemented here.
+
+history re-sign provenance
+source commit: 584ced06b8e8ec3a4a80daed1a2550c980f7136d
+commit: 099879a62fec562b6be9c777e913bb2ae2662cdd
+original commit date: 1789753718 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

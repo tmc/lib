@@ -23,3 +23,30 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 86269; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Third defect from the ptx94-docs peer report. Verified failing against
+HEAD~1 by restoring parser.go/ptx.go from HEAD and temporarily removing
+the FunctionName test (which fails to compile there and would otherwise
+mask the chain result): 'InlinedAt = [kernel.cu:10:5], want 2 frames'.
+
+The two guard tests (TestLocWithoutInlinedAtEndsTheChain,
+TestUnlinkedInlinedAtDoesNotChain) pass at HEAD~1 as well; they pin that
+the new linking does not over-reach, so only one of the three
+discriminates the fix.
+
+Green: darwin/arm64 nvidia/x/... and examples/ptx-sass-trace; linux/arm64
+(GB10) x/cudaptx.
+
+history re-sign provenance
+source commit: 001484fa602b71fe90dd80b3d43dc991b1268259
+commit: 3bd9961c71dac3dda82487c6f5194479d5768b49
+original commit date: 1789684164 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

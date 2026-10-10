@@ -44,3 +44,51 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+agent: Claude Code 2.1.269, model=claude-opus-5[1m]
+date: 2026-09-18T15:01:59-07:00
+tty: not a tty pid: 30929
+iterm_session: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+generator: libgen a82c4c0 'ffigen, contrib/cuda: capitalize presence predicates'
+
+authorized-by: peer session A8AA3789, ~/tmp/agent-collab/libgen/20260918-A8AA3789-rename-authorized.md,
+relaying its user's decision to rename first and wire the survey guard next.
+
+deliberate override: -allow-api-removal was passed to the ten gen-nvidia
+recipes (cudnn, cufft, cupti, fabricmanager, nccl, nvfatbin, nvjitlink,
+nvrtc, nvvm, sanitizer). The guard refused each of them because a rename
+removes the old exported name. The override was authorized for exactly this
+rename and for nothing else. The four survey recipes (cublas, cublaslt,
+curand, driver) have no guard to override; wiring genutil.CheckAPIRemoval
+into them is the next commit.
+
+evidence substituted for the guard: the exported surface of all 14 packages
+was listed by parsing each package before and after the regeneration. Every
+one of the 1293 differences pairs a removed 'func Has<lower>() bool' with an
+added 'func Has<Upper>() bool'; zero unpaired additions and zero unpaired
+removals. Per package: cublas 514, driver 381, cudnn 182, nccl 51,
+cublaslt 33, cupti 25, cufft 24, curand 18, nvrtc 18, sanitizer 12,
+nvjitlink 11, nvvm 8, fabricmanager 8, nvfatbin 8.
+
+caught by the override: with the guard suppressed, gen-nvidia's stale-output
+sweep deleted nvidia/{nvjitlink,nvrtc,nvvm}/flags.gen.go, which is written by
+a different generator (genoptions) that shares those directories. Those three
+files were restored and are unchanged here. The sweep removes any *.gen.go it
+did not write, so CheckAPIRemoval was the only thing standing between a
+co-resident generator's output and deletion.
+
+not qualified: no GPU and no NVIDIA libraries on this host. Nothing here was
+exercised against a loaded library.
+
+history re-sign provenance
+source commit: d409e8dab46c6620011927c375457ed479e290f5
+commit: 2044c77a4978d5ef52d728c7f7ea0ee6e04f8690
+original commit date: 1789768905 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

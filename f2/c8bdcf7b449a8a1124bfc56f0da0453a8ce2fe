@@ -12,3 +12,19 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit=395d3290aff1db85c82e234751c4ef3362d79148 date=2026-09-23T15:13:37-07:00 claude-code=2.1.280 (Claude Code) model=claude-opus-5-5[1m] tty=not a tty pid=95861 iterm=w19t0p2:56B33FFC-CE68-4F25-884A-584F75248DF7
+session=d8d893b5-0901-4968-ba59-536846bb8e69
+verified: dgx GB10 (GB20B), CUPTI 2026.3.0; repro dgx:~/tmp/claude-tmp/sessrepro (c/repro.c, main.go); physical tests pass with -tags cupti_physical
+
+history re-sign provenance
+source commit: 395d3290aff1db85c82e234751c4ef3362d79148
+commit: f2c8bdcf7b449a8a1124bfc56f0da0453a8ce2fe
+original commit date: 1790201617 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

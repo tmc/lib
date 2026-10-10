@@ -15,3 +15,22 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: a6f02d0e
+date: 2026-09-13T13:24:56Z
+agent: antigravity
+session_id: w4t0p20:9980FF84-BD51-4FCA-85B8-3DDBFC0B3EE9
+pid: 23476
+task: disarm cublaslt_gemm in cost model and batch rules
+
+history re-sign provenance
+source commit: 42174f11203bb99786d347cfc37beb8d44fe956e
+commit: 6b961abd5a0f4894f400da329d8cdfda28e2607b
+original commit date: 1789305893 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

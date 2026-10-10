@@ -1,0 +1,28 @@
+date 2026-10-10; Codex GPT-6; tty none; pid task-runner; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; Linux v6.8 perf_uprobe_event_init child perfmon check causes inherited unprivileged clone refusal; removes inheritance flags, snapshot coverage only; actual corrected CUDA qualification pending.
+
+commit 07fa45895; date 2026-10-10
+
+integration_source=07fa45895
+commit=148b7074c43d42f3b550db9cde70b94676a6201c
+commit_date=2026-10-10T13:32:33-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=83298
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:32:47.072998-07:00
+
+history re-sign provenance
+source commit: 148b7074c43d42f3b550db9cde70b94676a6201c
+commit: 1de97c64fd308d57d46cf1c067cf45a59b769c81
+original commit date: 1791664353 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

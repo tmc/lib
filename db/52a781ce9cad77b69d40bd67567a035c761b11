@@ -1,0 +1,28 @@
+commit c1299b836; date 2026-10-10; agent Codex /root/bpf_evidence/identity_review; codex-cli 0.162.1; model GPT-6; claude-code version not applicable; tty none (API exec); pid 44266; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; parent explicit file lease native_stall_control_test.go; linux/amd64/native cross-compile and vet plus ordinary host race pass; NO SSH or GPU run; requires root frozen-head admission; manual signed fallback after task auto-tool limit
+
+commit bb2dbca76bd804272bd3ae6796468c5c1a907517; date 2026-10-10; agent Codex /root/bpf_evidence/identity_review; codex-cli 0.162.1; model GPT-6; claude-code version not applicable; tty none (API exec); pid 51892; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; parent explicitly leased native_stall_control_test.go; linux/amd64/native cross-compile and vet plus ordinary nccltest host race pass; NO SSH, native binary execution or GPU run; root frozen-head admission required; manual signed fallback after task auto-tool limit
+
+integration_source=bb2dbca76
+commit=d8883fc9ee3ad5b4ef411bbea37fb7820182dc10
+commit_date=2026-10-10T14:01:22-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=72228
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:01:26.718908-07:00
+
+history re-sign provenance
+source commit: d8883fc9ee3ad5b4ef411bbea37fb7820182dc10
+commit: db52a781ce9cad77b69d40bd67567a035c761b11
+original commit date: 1791666082 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

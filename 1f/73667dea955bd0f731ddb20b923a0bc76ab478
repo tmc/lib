@@ -22,3 +22,29 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 48415cb77b68665d9b820904a16701463995b2fb
+date: 2026-10-04T00:17:25-07:00
+agent: Claude Code
+claude-code version: 2.1.284 (Claude Code)
+model: claude-opus-5-5
+tty: not a tty
+none
+pid: 81810 (ppid 40092)
+ITERM_SESSION_ID: w3t0p13:0D69A0CE-0A70-4FEE-8B37-91F190568778
+session=12eace46-b1e2-4bc1-9415-ebb22674bfbb
+source: cherry-picked from dgx/next (c8fb20e6a7)
+
+commit=ac8fb20e6a79cd57330dd208cbf79935ff00d0ba date=2026-10-03T00:27:21Z agent=Codex version=0.160.0 model=GPT-6 tty=noninteractive shell_pid=11999 ITERM_SESSION_ID=w5t0p8:026363F7-C2F7-4118-9920-4953A7B20D93 known_pane=026363F7-C2F7-4118-9920-4953A7B20D93 codex_session=01a0e209-f57f-7300-91cd-4a82fcd77ef4 claude-code=not-used auto-message-fallback=two-missing-Anthropic-key-failures
+
+history re-sign provenance
+source commit: 48415cb77b68665d9b820904a16701463995b2fb
+commit: 1f73667dea955bd0f731ddb20b923a0bc76ab478
+original commit date: 1791098245 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

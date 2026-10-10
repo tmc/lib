@@ -1,0 +1,36 @@
+agent=Codex bpf_evidence
+model=GPT-6
+claude-code version=not running
+commit=334a5bb17562849107ab3c9f6b34b8ab4f5dfa2c
+date=2026-10-10T12:58:36-07:00
+receipt-date=2026-10-10T19:59:02.078589+00:00
+tty=noninteractive
+pid=54077
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation=/Users/tmc/tmp/lib-bpf/20261010-evidence/REPORT.md
+physical gate=GB10 only exact7d7130ae6 nil-session path; newer suffix host/race checked
+
+integration_source=334a5bb17
+commit=dd1c2ce3ecdd0cabee940cff5e07ca48ce274aee
+commit_date=2026-10-10T12:59:04-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=54985
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T12:59:09.843381-07:00
+
+history re-sign provenance
+source commit: dd1c2ce3ecdd0cabee940cff5e07ca48ce274aee
+commit: 86fb5e2796c04087072fe06ced7fbb93097235e1
+original commit date: 1791662344 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

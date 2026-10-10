@@ -1,0 +1,17 @@
+integration_source=a1785d4e7
+integration_agent=Codex GPT-6
+integration_session=4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T12:40:29.874110-07:00
+
+history re-sign provenance
+source commit: ccb4d7054b121d7474c6e9bd0118f55794fe5544
+commit: 08ac45961101a916b0dc9c104365f3faaf8739ff
+original commit date: 1791661212 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

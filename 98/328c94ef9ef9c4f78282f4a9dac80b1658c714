@@ -1,0 +1,35 @@
+commit=23624e5b5acd252fead11b75c9dbe0f8166a40c9
+date=2026-10-10T12:59:33-07:00
+agent=Codex
+model=GPT-6
+claude-code-version=not applicable
+tty=tool execution (no tty)
+pid=64992
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation=bridge unit/race/host vet/Linux amd64+arm64 vet/C ABI fixture; Linux native hash-map mock-data receipt, no native NVML/BTF/GPU qualification
+git-auto-commit-message already failed twice this task; signed manual fallback
+
+integration_source=23624e5b5
+commit=e5c195ac6403e6529f52c2f9417edae50339b0c9
+commit_date=2026-10-10T13:02:01-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=68127
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:02:07.437467-07:00
+
+history re-sign provenance
+source commit: e5c195ac6403e6529f52c2f9417edae50339b0c9
+commit: 98328c94ef9ef9c4f78282f4a9dac80b1658c714
+original commit date: 1791662521 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

@@ -16,3 +16,23 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 3cbcc54f  date: 2026-09-15T12:51:00-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty  pid: 15402
+ITERM_SESSION_ID: FE9C2856-3582-4573-899B-332048F9D406
+session: d56928ce-d6c4-4edb-bd73-c2762257b8f8
+origin: defects found by codex validator D971672B via cdp; report /Users/tmc/tmp/nvrtc-cdp-validation/report.md
+
+history re-sign provenance
+source commit: 19107d54ab16814110248415e72addfa1d11cbc6
+commit: dcbf6b6509744e8ac76d155d7b0e359d09c72c4e
+original commit date: 1789507940 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

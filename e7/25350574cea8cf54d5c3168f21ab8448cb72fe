@@ -1,0 +1,34 @@
+Commit: 9701a8f9dd57afe2a2a75e54990687281809959b
+Date: 2026-10-10T21:17:15.464107+00:00
+Agent: Codex CLI 0.162.1
+Claude Code version: not used
+Model: GPT-6 (exact serving variant unavailable)
+TTY: none (tool subprocess)
+PID: 17004
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Task: bounded node observations, isolated codex/node-observations
+
+integration_source=9701a8f9d
+commit=8b54a4a1c35499b6c32b76ce7dacb5a94655e813
+commit_date=2026-10-10T14:19:11-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=22639
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:19:20.122755-07:00
+
+history re-sign provenance
+source commit: 8b54a4a1c35499b6c32b76ce7dacb5a94655e813
+commit: e725350574cea8cf54d5c3168f21ab8448cb72fe
+original commit date: 1791667151 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

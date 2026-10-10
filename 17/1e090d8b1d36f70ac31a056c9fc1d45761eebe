@@ -1,0 +1,26 @@
+date 2026-10-10; agent Codex; model GPT-6; claude-code version not applicable; tty noninteractive; pid 13295; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; lane96 identity contradiction controls race/vet pass; signed manual fallback following prior two tool failures
+
+integration_source=2d0030f9f
+commit=ba6445c949d84aa02c3304771145d61f9c6f0e30
+commit_date=2026-10-10T13:43:41-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=17343
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:43:46.134642-07:00
+
+history re-sign provenance
+source commit: ba6445c949d84aa02c3304771145d61f9c6f0e30
+commit: 171e090d8b1d36f70ac31a056c9fc1d45761eebe
+original commit date: 1791665021 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

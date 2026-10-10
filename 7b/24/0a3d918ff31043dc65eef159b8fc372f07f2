@@ -10,3 +10,17 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit=8e748d33ca1010c2cb86dc8eba91acd7d52e09d6; date=2026-09-16T22:02:37Z; agent=antigravity; model=gemini; tty=/dev/ttys504; pid=89284; ITERM_SESSION_ID=; Validation: cherry-pick 9241f2d8 onto main
+
+history re-sign provenance
+source commit: 7970e603bccdd6e2f1b9819d01cf47c0544c93ce
+commit: 7b240a3d918ff31043dc65eef159b8fc372f07f2
+original commit date: 1789596154 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

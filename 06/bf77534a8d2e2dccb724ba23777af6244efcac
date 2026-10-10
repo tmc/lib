@@ -1,0 +1,34 @@
+Commit: 9115ecfee73fafed2eef5ffae669ebf98c30b604
+Date: 2026-10-10T21:37:19.982049+00:00
+Agent: Codex CLI 0.162.1
+Claude Code version: not used
+Model: GPT-6 (exact serving variant unavailable)
+TTY: none
+PID: 1881
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Task: source-grounded domain/daemon opaque IMEX status limits
+
+integration_source=9115ecfee73fafed2eef5ffae669ebf98c30b604
+commit=398980ac60b6981abc2983883f3a841e5b3ca580
+commit_date=2026-10-10T14:38:19-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=6224
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:38:20.242139-07:00
+
+history re-sign provenance
+source commit: 398980ac60b6981abc2983883f3a841e5b3ca580
+commit: 06bf77534a8d2e2dccb724ba23777af6244efcac
+original commit date: 1791668299 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

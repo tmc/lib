@@ -14,3 +14,21 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Integration merge, queue phase 2.
+agent Claude Code (Opus 5 1M); claude-code 2.1.257; not a tty
+pid 99551; ITERM_SESSION_ID w12t0p15:CFA4996B-10BA-4CC4-B58A-5BE67EEC5EC2
+session=00586501-4ba4-44f5-a2c0-db865576128f
+date 2026-09-06
+
+history re-sign provenance
+source commit: 8ca7d1f7a14db0d1560f7c0b5698d5805f8e5a16
+commit: fe1208fd5a6ec06b2a32a59f95615f57976fbdb8
+original commit date: 1788689083 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

@@ -32,3 +32,39 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code: 2.1.257
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 64905
+ITERM_SESSION_ID:
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Controls: TestAdviseJSONIgnoresLimit, TestAdviseMarkdownDeclaresWhatItWithheld,
+TestAdviseLimitZeroMeansNoLimit (cmd/cudaprof/advise_limit_test.go).
+
+Against parent 4afb97eb:
+  advise_limit_test.go:91: --format=json with -limit 3 emitted 3 of 9
+  findings; JSON must emit every finding the summary counts
+  advise_limit_test.go:105: markdown report does not state what it
+  withheld; want a "Showing 3 of N" line
+  advise_limit_test.go:108: markdown report does not name the format that
+  reaches every finding
+  --- FAIL (2 of 3)
+
+TestAdviseLimitZeroMeansNoLimit passed against the parent: -limit 0 was
+already honoured. It is committed as a pin, not a fix.
+
+After: ok github.com/tmc/lib/nvidia/cmd/cudaprof
+
+history re-sign provenance
+source commit: c32df13242a0a6cfb7d129dc8572b19d33f3c3e6
+commit: e86ac620ddfb5a85f141f1fbde2e1572c1320f71
+original commit date: 1789687734 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

@@ -59,3 +59,66 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit=0ae18046 date=2026-09-15 claude-code=not-installed model=GPT-5 tty=not-a-tty pid=69669 iterm_session_id=w4t0p20:D971672B-8ED5-460D-9033-B5FF69B6DC48
+
+Provenance rescue (not in the commit message, which is about the artifact viewer):
+
+This commit also carries an unrelated correctness fix in
+nvidia/cmd/cudaprof/view_nvrtc.go -- the nvrtcx.WithNoCache() option on the
+recompile path, and its comment. That fix is why the NVRTC flag comparison
+panel reports honest numbers.
+
+The defect: the nvrtcx content-addressed cache served CUBINs that no fresh
+compile produces. Measured against NVRTC 13.0 on ds4_math.cu, fresh compiles
+of base, --ftz=true, --prec-div=false, --prec-sqrt=false and
+--extra-device-vectorization all yield CUBIN 7f5d5871d61abd48 (2305256 bytes),
+reproducibly across separate processes -- those four flags are no-ops on that
+source. Served from the cache, base gave 5f450e62 (2305232) and the four gave a
+shared 05d18dcd (2338920), and the panel reported them removing 24 FCHK and 8
+MUFU.RCP. The tell was four unrelated flags agreeing to the instruction.
+
+A comparison that invents a difference is worse than a slow one, so every
+variant on this path is compiled fresh. After the fix, --ftz=true honestly
+shows 81 changed PTX opcodes (fma.rn.f32 1421->0, fma.rn.ftz.f32 0->1498) and
+zero changed SASS rows.
+
+Found and fixed by: claude-code model=Opus 5 (1M context) session=d56928ce-d6c4-4edb-bd73-c2762257b8f8 iterm_session_id=FE9C2856-3582-4573-899B-332048F9D406 date=2026-09-15
+
+CORRECTION (same author, later the same day) to the paragraph above.
+
+The claim that those four flags 'are no-ops on that source' is WRONG, and so is
+treating the fresh compile as ground truth. Compiling the same 83695 bytes with
+nvcc -arch=sm_121: base FFMA=2686 FFMA.FTZ=0 FCHK=190; --ftz=true FFMA=996
+FFMA.FTZ=1850 FCHK=166. nvcc rewrites 1850 instructions.
+
+NVRTC 13.0 does not. It accepts --ftz=true, applies it to the PTX it returns
+(fma.rn.ftz.f32 1498, fma.rn.f32 0), and returns a CUBIN byte-identical to the
+unflagged one. NVRTC's PTX and its own CUBIN disagree on the same compile.
+Reproduced with a bare nvrtc.CreateProgram probe, no nvrtcx and no cache, so it
+is NVRTC behavior, not a wrapper or cache artifact. --use_fast_math is honored
+all the way to SASS (FFMA.FTZ 1743, FCHK 190->0); the individual flags it
+implies are not.
+
+What survives: the cache defect is real and independent. The cached path served
+ONE shared CUBIN for four distinct option sets while base got another. Four
+unrelated flags cannot agree to the instruction -- that is a keying bug, and
+WithNoCache is a correct mitigation for it. What does not survive is the
+inference that the fresh result is therefore correct; it is only self-consistent.
+
+Consequence for the viewer: for a flag NVRTC honors only in PTX, the SASS tier
+shows zero changed rows and reads as 'this flag does nothing' when nvcc says
+otherwise. PTX differing while SASS does not is the signature of a flag NVRTC
+dropped, not evidence that the flag is inert.
+
+history re-sign provenance
+source commit: f0a36411dd8273067353679463f4ebacfcb83072
+commit: ceef9adb89f890b6015df8bd806f80f651f7e251
+original commit date: 1789507940 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

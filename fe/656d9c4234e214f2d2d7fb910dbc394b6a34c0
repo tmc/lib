@@ -34,3 +34,41 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 2800dc9e3e34603f6fed059c119c6a86122ecf5a
+date: 2026-10-04T00:17:27-07:00
+agent: Claude Code
+claude-code version: 2.1.284 (Claude Code)
+model: claude-opus-5-5
+tty: not a tty
+none
+pid: 81810 (ppid 40092)
+ITERM_SESSION_ID: w3t0p13:0D69A0CE-0A70-4FEE-8B37-91F190568778
+session=12eace46-b1e2-4bc1-9415-ebb22674bfbb
+source: cherry-picked from dgx/next (4124ec2c02)
+
+commit=a4124ec2c0203e36798173f5241974125705be19
+commit-date=2026-10-02T18:15:47-07:00
+note-date=2026-10-03T01:16:32.453257+00:00
+agent=Codex
+codex-version=0.160.0
+model=GPT-6 (runtime override not exposed)
+claude-code=not-used
+tty=noninteractive
+pid=46507
+ITERM_SESSION_ID=w5t0p8:026363F7-C2F7-4118-9920-4953A7B20D93
+known-pane=026363F7-C2F7-4118-9920-4953A7B20D93
+codex-session=01a0e209-f57f-7300-91cd-4a82fcd77ef4
+scope=lane84 host contract; no native qualification
+
+history re-sign provenance
+source commit: 2800dc9e3e34603f6fed059c119c6a86122ecf5a
+commit: fe656d9c4234e214f2d2d7fb910dbc394b6a34c0
+original commit date: 1791098247 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

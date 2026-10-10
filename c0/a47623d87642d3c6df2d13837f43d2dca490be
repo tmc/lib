@@ -14,3 +14,21 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Committed 2026-09-12 by Claude Code 2.1.257
+model: Opus 5 (1M context)
+session: b72d0239-f344-4fbb-a722-8d72ac4aeed3
+session_url: https://claude.ai/code/session_01NzeFS2eQ1mSX2GAziGokYW
+Single path. Peer clearance: codex F30DABA5 (owner of the preceding nvrtc commit cee1bf94) holds lib; claude 3CE9C186 advised the headers commit that makes this possible.
+
+history re-sign provenance
+source commit: 62bdd863a62c9350d594081a6913b24afb779c1f
+commit: c0a47623d87642d3c6df2d13837f43d2dca490be
+original commit date: 1789277850 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

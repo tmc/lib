@@ -18,3 +18,25 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: f173a9d3d33a70a040c2775411f8b9e9315fe0cf
+commit date: 2026-09-30T14:53:56-07:00
+agent: Codex
+version: codex-cli 0.159.2
+model: GPT-6 (exact variant unavailable)
+claude-code version: not applicable
+tty: none
+pid: 1159043 (metadata shell)
+ITERM_SESSION_ID: unset
+
+history re-sign provenance
+source commit: f173a9d3d33a70a040c2775411f8b9e9315fe0cf
+commit: de6e9c264baf5246c723c26c67300096e6b92065
+original commit date: 1790805236 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

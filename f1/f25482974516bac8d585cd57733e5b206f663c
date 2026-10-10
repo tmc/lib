@@ -1,0 +1,26 @@
+Codex agent /root/bpf_evidence/escalation_review; model GPT-6; version unavailable; tty noninteractive; pid 94436; session w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; date 2026-10-10. Base f30189255. Five baseline-negative disk ownership/path controls fail on base and pass corrected; package race PASS 7.485s. Signed manual fallback authorized after prior two git-auto failures (missing Anthropic key). Native not run.
+
+integration_source=c7982f48b
+commit=d6d63ef19084619c96e74e9b15800ed73052b047
+commit_date=2026-10-10T13:37:52-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=126
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:38:07.766257-07:00
+
+history re-sign provenance
+source commit: d6d63ef19084619c96e74e9b15800ed73052b047
+commit: f1f25482974516bac8d585cd57733e5b206f663c
+original commit date: 1791664672 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

@@ -15,3 +15,22 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 34dbf182812c178c4496ac53112c748bd720c305
+date: 2026-09-13T05:24:43Z
+agent: antigravity
+model: gemini-2.5-pro
+pid: 60480
+iterm_session_id: w4t0p20:9980FF84-BD51-4FCA-85B8-3DDBFC0B3EE9
+
+history re-sign provenance
+source commit: a4861c82eb23a3142520ee8df54a0be4890f6a1c
+commit: c5ec5065d45f898d230b3732223a201e27ae3b14
+original commit date: 1789277081 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

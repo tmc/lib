@@ -1,0 +1,25 @@
+commit: bcd6b36c9a006d9ee1e0c94de422383da14ffc44
+date: 2026-10-10T09:02:48-07:00
+agent: Codex
+version: codex-cli 0.162.1
+model: GPT-6
+claude-code-version: not used
+tty: none (tool execution)
+pid: 13571
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation: Python observer 16 tests; focused Go adapter/script tests; baseline-negative 8 expected errors; git diff --check
+
+Additional validation: GOWORK=off go test -mod=readonly ./x/cmd/cudaprof -count=1 passed (8.588s).
+
+history re-sign provenance
+source commit: 7e9483795cd2b06bd6d4882881f3918266863717
+commit: d6e13da92a515293eb86839365cc77326ab1de7f
+original commit date: 1791649252 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

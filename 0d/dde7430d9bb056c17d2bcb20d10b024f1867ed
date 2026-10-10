@@ -21,3 +21,28 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: b60911ef
+date: 2026-09-22T18:31:18Z
+claude-code: 2.1.280 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 81819
+iterm_session: w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD
+session=41e006ea-c431-4858-a0f4-bc6efab3d868
+subagent: S1-peredge (roadmap S1.1-S1.4 + S1 overlap)
+device receipts: dgx GB10 sm_121a CUDA 13.4 under gpu-lock -- native PASS on cta-1cta, device-2cta, cross-2cta, skew-4cta at n=1048576; compile qualification PASS; spin-bound probe abort_code=4; M8 FAIL on cross-2cta only
+control verified by lead: readiness rewritten to grid_ctas fires TestPerEdgeWaitCountsTheProducersOwners ('a readiness test is written against the grid, which a subrange owner never reaches') and TestGoldenSourceMatchesGenerator
+disclosure: x/cudamegacpu/backend.go was reconstructed by replaying edits onto d18748b5 after a clobber; diff reviewed hunk by hunk against that baseline, not recovered byte-for-byte
+
+history re-sign provenance
+source commit: 11dbbca0b9996effd936f54e1accc040e36ba2e3
+commit: 0ddde7430d9bb056c17d2bcb20d10b024f1867ed
+original commit date: 1790101870 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

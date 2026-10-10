@@ -17,3 +17,24 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit 772d2dd6d45c032c8a3548d5e75c21ae90f444d5
+date 2026-09-25T02:25:34-07:00
+agent Claude Code subagent 2.1.280
+model claude-opus-5-5
+tty none (not a tty), pid 32243, ITERM_SESSION_ID w8t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+
+rebased onto 618255bcb; vet darwin+linux and go test -count=1 ./x/cudaprof/... ./x/cmd/cudaprof green there
+
+history re-sign provenance
+source commit: 2e4c2b2988a8340bc435197786191765259b6ec8
+commit: 898607f5ca9ead8bfc6929bf994c902e832f6fef
+original commit date: 1790328379 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

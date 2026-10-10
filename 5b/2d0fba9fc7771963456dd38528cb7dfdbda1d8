@@ -1,0 +1,33 @@
+commit: 671c2f631e1101dfc8bdf6b00573cc3e392be2ad
+date: 2026-10-10T21:10:17.435248+00:00
+agent: Codex subagent observability_workloads
+model: GPT-6
+claude-code version: not applicable
+tty: non-interactive
+pid: 98617
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+
+integration_source=671c2f631
+commit=1fcb5bc0e9dcc7526c82a21fa2e836196ae5cf32
+commit_date=2026-10-10T14:10:36-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=99842
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:10:49.433495-07:00
+
+history re-sign provenance
+source commit: 1fcb5bc0e9dcc7526c82a21fa2e836196ae5cf32
+commit: 5b2d0fba9fc7771963456dd38528cb7dfdbda1d8
+original commit date: 1791666636 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

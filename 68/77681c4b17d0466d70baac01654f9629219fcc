@@ -1,0 +1,30 @@
+Commit: 784cc4498c79d6738b03b746bc1fa37448a420aa
+Date: 2026-10-10T21:44:22Z
+Agent: Codex; model GPT-6; Claude Code version: not applicable
+TTY: not a tty; PID: 29982; ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Bounded raw callback JSON pipeline with source/clock/device/loss unknowns; C fixture native callback to public source and independent typed decoder. No sensor/health/OTLP/nativeGPU qualification claim.
+
+integration_source=784cc4498c79d6738b03b746bc1fa37448a420aa
+commit=6e25d22a8a0ab265a7b1c8a07874484866a156e4
+commit_date=2026-10-10T14:44:55-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=33999
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:44:55.616525-07:00
+
+history re-sign provenance
+source commit: 6e25d22a8a0ab265a7b1c8a07874484866a156e4
+commit: 6877681c4b17d0466d70baac01654f9629219fcc
+original commit date: 1791668695 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

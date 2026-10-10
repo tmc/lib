@@ -19,3 +19,26 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+tool: claude-code 2.1.257
+model: claude-opus-5[1m]
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+host: spark-31db (NVIDIA GB10, sm_121, driver 580.173.02 = CUDA 13.0), linux/arm64
+CORRECTION to the first version of this note: it said the run used CUDA 13.4.
+It did not. The host's ~/.bashrc pins NVRTC_LIB_PATH to
+/usr/local/cuda-13.0/targets/sbsa-linux/lib/libnvrtc.so, so NVRTC was 13.0
+while only ptxas/nvdisasm on PATH were 13.4.
+This change is necessary but NOT sufficient: see the follow-up commit, which
+fixes the remaining NVRTC-version coupling found once NVRTC 13.4 was pinned.
+
+history re-sign provenance
+source commit: cf6bb30ccea514573aed6823c715f4950c85b20e
+commit: efd68df8aa58b1750a32f90c1f138651b6e86432
+original commit date: 1789681835 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

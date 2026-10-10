@@ -50,3 +50,57 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 23b5413d
+date: 2026-09-20T17:37:16-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 53579
+ITERM_SESSION_ID: w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url: (none provided)
+errata: 10.6(iii), cudaprof-errata-bugs-and-gaps via TOOL-IMPROVEMENTS.md from C6A7BA75
+mutation probes killed: always protect; unreadable treated as empty; decide on the
+  capture_success token instead of the record count; parse not marking the output for
+  replacement. Run in a detached worktree under GOWORK=off.
+provenance: these three files were staged in the shared index when another session's
+  bare 'git commit' swept them into a7eb8623, whose message described only its
+  cuda/stream work. a7eb8623 has been split into 9f0e1ad9 (that work, message
+  unchanged) and this commit. Original content unchanged by the split.
+
+commit: 77d74122
+date: 2026-09-20T17:37:39-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+pid: 52687
+ITERM_SESSION_ID: w3t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session: f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url: (none provided)
+verified: GOWORK=off go test + go vet ./x/cuda/... ./x/cuptiactivity/... ./x/nvtx/... all ok on darwin
+rehashed: was 753ae88e, re-parented by the split of a7eb8623; content unchanged.
+
+commit: 99c2eef2
+date: 2026-09-20T17:37:40-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+pid: 52687
+ITERM_SESSION_ID: w3t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session: f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url: (none provided)
+verified: GOWORK=off go test + go vet ./x/cuda/... ./x/cuptiactivity/... ./x/nvtx/... all ok on darwin
+rehashed: was 47207c60, re-parented by the split of a7eb8623; content unchanged.
+
+history re-sign provenance
+source commit: 2b95310247c13a8f7591a85063d8627145edfe32
+commit: e17e6e09b50806b4690efbcd4f734af77790df8b
+original commit date: 1789985275 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

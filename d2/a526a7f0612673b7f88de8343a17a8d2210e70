@@ -15,3 +15,22 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code 2.1.269 (Claude Code), model=claude-opus-5[1m], tty=not a tty, pid=44579, ITERM_SESSION_ID=w16t0p13:82D66DD7-9369-4497-80A7-C22F2D8BB0AD, session=41e006ea-c431-4858-a0f4-bc6efab3d868, date=2026-09-22T16:39:34Z
+S0 gate: dgx (spark-31db, GB10, sm_121a) under gpu-lock, CUDA 13.4:
+  TestNativePersistentReference cta-1cta OK n=32 tasks=2 ctas=1 threads=128
+  TestNativePersistentReference device-2cta OK n=32 tasks=4 ctas=2 threads=128
+Mutation control (epoch reverted to 32 bits): exit status 11,
+  'launch at epoch 2^32 aborted with code 3' (AbortBadExtent).
+
+history re-sign provenance
+source commit: 1b8121ced535dadfbedbf724f68de114d1146ab0
+commit: d2a526a7f0612673b7f88de8343a17a8d2210e70
+original commit date: 1790095168 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

@@ -20,3 +20,27 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 3c0d363a
+date: 2026-09-14T23:56:25Z
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+none
+pid: 61029
+ITERM_SESSION_ID: w19t0p0:154F7EA1-A987-4C0B-944A-0FC8FB91A24F
+session: 2b6d6b1f-7424-4bd2-93ae-b90691afac17
+session_url: (none provided)
+attribution: Claude Code
+
+history re-sign provenance
+source commit: 6dac6615a75aaa780fee76802aea848cd9ff13eb
+commit: a40ad8848219d534450e8e676880c2f9b5590634
+original commit date: 1789430185 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

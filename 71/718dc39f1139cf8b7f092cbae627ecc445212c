@@ -10,3 +10,17 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit=6caf1534b17f5ea0316ec1bf45ea29b85c1c045b; date=2026-09-17T00:15:58Z; agent=antigravity; model=gemini; tty=/dev/ttys506; pid=17329; ITERM_SESSION_ID=; Validation: go test ./nvidia/x/cudacmp/... passed
+
+history re-sign provenance
+source commit: 3391edf3a72a4c4d531caba1282e8a5521355b71
+commit: 71718dc39f1139cf8b7f092cbae627ecc445212c
+original commit date: 1789604156 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

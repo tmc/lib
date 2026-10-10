@@ -1,0 +1,28 @@
+commit: a8b41f3a22666ba3c1308934535599f2bf42a75a
+commit-date: 2026-10-10T12:37:42-07:00
+agent: Codex delegated bpf_device
+model: inherited GPT-6
+claude-code-version: not used
+tty: unavailable (tool pipe)
+pid: 56926
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+source: reviewed lane/30-bpftime-corpus; rejected agy safety regressions
+validation: focused tests, race, vet; CUDA13/native HOLD
+
+integration_source=a8b41f3a2
+integration_agent=Codex GPT-6
+integration_session=4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T12:40:32.497834-07:00
+
+history re-sign provenance
+source commit: 47e728c02e6348d6630bae5200efadab8b29fd4d
+commit: 2c5c0b7bb7868cd5e5ebfc4a6caa1ad626d91a71
+original commit date: 1791661213 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

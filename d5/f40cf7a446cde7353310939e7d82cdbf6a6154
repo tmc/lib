@@ -1,0 +1,35 @@
+commit: 20f4ba0577de35c55e3897ebeb0cd1a68f02b44f
+commit date: 2026-10-10
+agent: Codex subagent /root/observability_operations
+codex version: 0.162.1
+claude-code installed version: 2.1.284 (not executing agent)
+model: GPT-6 (exact variant unavailable)
+tty: none
+pid: 43039
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+signed manual fallback after two helper failures: missing Anthropic API key
+
+integration_source=20f4ba057
+commit=c4ffd84cca60b77d5dce4071f82ade15fea24de2
+commit_date=2026-10-10T13:52:56-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=48497
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:52:57.779763-07:00
+
+history re-sign provenance
+source commit: c4ffd84cca60b77d5dce4071f82ade15fea24de2
+commit: d5f40cf7a446cde7353310939e7d82cdbf6a6154
+original commit date: 1791665576 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

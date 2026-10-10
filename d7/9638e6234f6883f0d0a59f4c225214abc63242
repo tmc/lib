@@ -20,3 +20,27 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit 5b738bc 2026-09-10 15:25 PDT
+claude-code: 2.1.257 (Claude Code)
+model: claude-fable-5-1
+tty: not a tty
+n/a
+pid: 28563
+ITERM_SESSION_ID: w22t0p8:7BCB0960-C21E-4660-8395-608138C07A1B
+session=81966754-74fd-480a-8ceb-8e53cf129cbe
+session_url=https://claude.ai/code/session_015HRdpSMTz24cg6AUZWCrzH
+git-auto-commit-message: unavailable this session (cgpt: missing Anthropic API key); message hand-written per CLAUDE.md.
+verification: GOOS=linux build+vet with metalprof overlay, -tags tpu build, darwin go test ./llama-infer/... all green; no CUDA device on this host.
+
+history re-sign provenance
+source commit: ff68194b2b6a6cc5a83f3ba9236626b87ee60b18
+commit: d79638e6234f6883f0d0a59f4c225214abc63242
+original commit date: 1789079156 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

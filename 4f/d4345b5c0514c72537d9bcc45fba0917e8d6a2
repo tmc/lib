@@ -28,3 +28,35 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 62595
+ITERM_SESSION_ID:
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Control: TestFindingNamesItsInstruction (cmd/cudaprof/advise_render_test.go).
+
+Against parent 3710ab23:
+  advise_render_test.go:59: finding contains a double space where an
+  instruction belongs: "Register scoreboard latency stall:
+  stall_scoreboard is 90.0% of stalls on  at PC 0x4874d0 in kernel
+  \"ds4_repack_iq2_xxs_aligned\" (900 stall cycles)"
+  --- FAIL: TestFindingNamesItsInstruction
+
+After: ok github.com/tmc/lib/nvidia/cmd/cudaprof
+TestFindingNamesKnownOpcode passes on both, confirming the SASS-present
+path already recovered the real opcode and the fix did not replace it.
+
+history re-sign provenance
+source commit: fb6c41e8d11d5732ae6a3d159110ecba2dd0d526
+commit: 4fd4345b5c0514c72537d9bcc45fba0917e8d6a2
+original commit date: 1789687537 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

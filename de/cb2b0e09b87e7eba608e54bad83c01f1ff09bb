@@ -20,3 +20,27 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 7eb1cb29336a6f369bb187871fce8378ca10a38d
+date: 2026-09-11T18:29:09-07:00
+agent: Codex CLI 0.154.0
+claude-code version: not used
+model: gpt-6-astra
+tty: non-interactive exec
+pid: 6553
+ITERM_SESSION_ID: w14t0p2:D699F357-1AA9-4E60-8BF4-2690EF93A74E
+session: D699F357-1AA9-4E60-8BF4-2690EF93A74E
+
+Validation: nativecontrol TestBurst failed in the CPU-only GOMAXPROCS=2 batch, dropping 10 of 640000 offered records. Other injection Go packages passed. No retry or threshold change. Evidence: /Users/tmc/tmp/atomic-commits-20260911/nvidia-tests.log
+
+history re-sign provenance
+source commit: 4e1f8c7a86648693554e3fa0cad733f16edbceaa
+commit: decb2b0e09b87e7eba608e54bad83c01f1ff09bb
+original commit date: 1789176549 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

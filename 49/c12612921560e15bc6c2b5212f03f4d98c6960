@@ -1,0 +1,30 @@
+agent=Codex bpf_evidence
+model=GPT-6
+claude-code version=not running
+commit=b65de81a14ec760a6b0ab2d926617f14ab8e7f98
+date=2026-10-10T12:42:47-07:00
+receipt-date=2026-10-10T19:43:01.945733+00:00
+tty=noninteractive
+pid=70188
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+base=4ce51ad2e
+source=lane/evidence-pipeline13d3a7941 selected evidence commits; independent fail-closed corrections
+validation=/Users/tmc/tmp/lib-bpf/20261010-evidence/REPORT.md
+
+integration_source=b65de81a1
+integration_agent=Codex GPT-6
+integration_session=4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T12:47:33.062822-07:00
+
+history re-sign provenance
+source commit: 59ea70494c6130b15c75917e6f206613b79f205d
+commit: 49c12612921560e15bc6c2b5212f03f4d98c6960
+original commit date: 1791661440 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

@@ -20,3 +20,27 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 83038; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Second defect from the ptx94-docs peer report, verified independently.
+Tests written first and confirmed failing against HEAD~1 (0 kernels parsed).
+Green: darwin/arm64 nvidia/x/... and examples/ptx-sass-trace; linux/arm64
+(GB10) x/cudaptx.
+
+Process note: a stray 'git stash --keep-index' of mine mid-verification
+stashed this parser.go and produced a bogus failure on both hosts. The
+stash held only my file; popped and re-verified. refs/stash here is
+repo-global with four peer stashes below it.
+
+history re-sign provenance
+source commit: 8935559b6b4c1be721a8687f39dd46bfb4d73158
+commit: f00db768056707fb68c1d8a9dde313c0dfb150bf
+original commit date: 1789684051 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

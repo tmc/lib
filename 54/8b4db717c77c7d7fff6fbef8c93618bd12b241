@@ -19,3 +19,26 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit: d282d8b9443d74c59d55334cd80e686096cb3bb6
+Commit date: 2026-09-15T17:33:38-07:00
+Recorded: 2026-09-16T00:33:39.136379+00:00
+Agent: Codex
+claude-code version: not used
+Model: unavailable in runtime metadata
+TTY: non-PTY exec
+Note process PID: 70272
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+Range subagent implemented tests; parent and export subagent reviewed. GB20B physical controls passed5subtests withoutskips; binary a7097591c2b88d22dbdaffc4125e41061d7bafe1d617e2ef7359642523e4fa99 fromf00e31f5+exacttestdelta. Main race tests and LinuxARM64vet pass. No remote push.
+
+history re-sign provenance
+source commit: 8a7e36f5e1efead19ad0ba1e4d99673d901f5bdd
+commit: 548b4db717c77c7d7fff6fbef8c93618bd12b241
+original commit date: 1789518818 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

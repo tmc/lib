@@ -1,0 +1,26 @@
+commit dfab0ac6aacb1fe0a109e26f08bd91cf5a028553; date 2026-10-10T21:05:22Z; Codex GPT-6; version unavailable; tty none; shell pid 84452; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; based95e46ac4c isolatedcudatrace lease; focused race/vetPASS; strict global evidence policy preserved; fixturemeasurement explicit, missingstatus unknown/noncounter, unavailable explicit/noncounter; no nativecalls
+
+integration_source=dfab0ac6a
+commit=2b02d16944da7906a1be1314b6739cf61200bbe4
+commit_date=2026-10-10T14:05:31-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=85320
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:05:35.947122-07:00
+
+history re-sign provenance
+source commit: 2b02d16944da7906a1be1314b6739cf61200bbe4
+commit: cc4737456407a67ab9e351538f748ce80fb72044
+original commit date: 1791666331 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

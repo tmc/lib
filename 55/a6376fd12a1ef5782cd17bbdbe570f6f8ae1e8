@@ -12,3 +12,19 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit: a50bc99c67252bff0e4a85e8250fac5a9d248a46
+Author agent: Codex (session F05CB3B5), built in isolated clone libgen/.worktrees/lib-cudnn-land; its sandbox could not write the shared .git.
+Landed by fast-forward: Claude Code 241C535C, session=8bc9bbf9-7254-414c-bfc5-2030e14950b0, 2026-09-28.
+
+history re-sign provenance
+source commit: a50bc99c67252bff0e4a85e8250fac5a9d248a46
+commit: 55a6376fd12a1ef5782cd17bbdbe570f6f8ae1e8
+original commit date: 1790590516 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

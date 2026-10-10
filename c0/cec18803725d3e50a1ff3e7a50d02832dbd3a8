@@ -10,3 +10,17 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Integrated isolated compile repairs 559fdf08 and 6fd2dea3; active originals preserved under /Users/tmc/tmp/lib-nvidia-implementation/active-backup-20260917/kernel-collective-mega. Codex manual repairs; Luna unavailable due usage limit. Focused tests passed in isolated worktrees.
+
+history re-sign provenance
+source commit: b7d6e969102291278e3ecdf0ad71152e873753f7
+commit: c0cec18803725d3e50a1ff3e7a50d02832dbd3a8
+original commit date: 1789633962 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

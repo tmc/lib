@@ -17,3 +17,24 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Tests verified as negative controls: all three fail against HEAD~1.
+Suites: darwin/arm64 ./cmd/cudaprof ok; linux/arm64 GB10 ./cmd/cudaprof has one
+pre-existing unrelated failure, TestWriteCaptureStatusIsPortableNoCodeRecording,
+present before this change and tracked separately.
+
+claude-code 2.1.257 (Claude Code)
+model=claude-opus-5[1m]
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+history re-sign provenance
+source commit: aba47f604c1b6bc3a44edfe28bd76f7d479324ae
+commit: b3e5e9472ff516f73212ef3cbb23db160294c2a5
+original commit date: 1789682849 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

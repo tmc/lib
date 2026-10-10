@@ -21,3 +21,28 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code: 2.1.257
+model: claude-opus-5 (Opus 5)
+agent: lib-x-example-fixer [F76EF7EB]
+tty: not a tty (subagent shell)
+pid: 12774
+ITERM_SESSION_ID: w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url: https://claude.ai/code/session_018cQ9QL22BMr4otz5FbpxW3
+date: 2026-09-17T23:29:54-07:00
+note: landed during lib-release-1's freeze request, on tmc's explicit override.
+This change is in the shape lib-release-1 calls cheap (nvidia/cupti and
+nvidia/x/), so it adds no file-location conflict to their split.
+
+history re-sign provenance
+source commit: 9c69da000237e7f5328b386a4a0fd98feaaa98a9
+commit: 971d217fb3480a76dbf89e738f4af02bdc4d33ba
+original commit date: 1789712994 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

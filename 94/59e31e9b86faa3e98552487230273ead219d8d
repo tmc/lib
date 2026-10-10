@@ -19,3 +19,26 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+commit: 28ee7582af605b123113c753a8846ce2ba8537cd
+date: 2026-09-18T22:51:43-07:00
+claude-code: 2.1.269
+model: claude-opus-5[1m]
+tty: not a tty
+unknown
+pid: 9302
+ITERM_SESSION_ID: w3t0p2:A8AA3789-4007-45E5-B57F-F29B698719B4
+session: a3dc249e-7838-4349-90e6-af9ae190c848
+verified-on: darwin/arm64 (host mac); all four targets regenerate byte-identical, mutation refuses on each
+
+history re-sign provenance
+source commit: edbecd4e2f2106401780943f0480b7fd62313093
+commit: 9459e31e9b86faa3e98552487230273ead219d8d
+original commit date: 1789797086 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

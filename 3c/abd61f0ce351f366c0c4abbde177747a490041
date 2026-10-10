@@ -1,0 +1,24 @@
+commit: ee78cfbf2a34a96a7fe8ca403a29940794575ff3
+date: 2026-10-10T09:59:19-07:00
+agent: Codex
+version: codex-cli 0.162.1
+model: GPT-6
+claude-code-version: not used
+tty: none
+pid: 61132
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+source: NVIDIA NCCL12df1a11afad322be5a204a2db890161cbf8131d plus reviewed hash-buffer patch bdcf1d169ede4c6ac178b8f7f9553bf916248a5c72c2645764b621a5f4061a5b
+validation: extracted production C++ formatting and actual Go parser controls fail original/pass repaired; ncclinspector host tests pass; native patched-artifact gate separate
+
+history re-sign provenance
+source commit: ee78cfbf2a34a96a7fe8ca403a29940794575ff3
+commit: 3cabd61f0ce351f366c0c4abbde177747a490041
+original commit date: 1791651559 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

@@ -23,3 +23,30 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit: b4d97c7954dbd810d37ab48edb8567a017f95b68
+Date: 2026-09-07T03:06:27.779078+00:00
+Agent: Codex; model GPT-6 (exact runtime ID unavailable)
+CLI: codex-cli 0.153.4
+Claude Code version: not applicable
+TTY: not a tty
+Note writer PID: 15636 (agent PID unavailable)
+ITERM_SESSION_ID: w15t0p8:392735FA-AF2F-4734-A236-CFA9D0C8CB44
+Session: 392735FA-AF2F-4734-A236-CFA9D0C8CB44
+Receipts: /Users/tmc/tmp/agent-collab/lib-nvidia/20260906-392735FA-provenance
+
+Current commit: b45aa19d35ef70049087cb7ec2761f2b7885e140
+Checked: 2026-09-07T03:19:08.252341+00:00
+The prior note was carried across a concurrent history rewrite. NVIDIA file bytes are unchanged from b4d97c7954dbd810d37ab48edb8567a017f95b68. Original capture identity and receipts remain as recorded above.
+
+history re-sign provenance
+source commit: 581d320b6e0c12d9720b4c166c9320907f7f9a95
+commit: 74f94607a148b2e8e658dc6b2fc2597ab34eb47b
+original commit date: 1788750717 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

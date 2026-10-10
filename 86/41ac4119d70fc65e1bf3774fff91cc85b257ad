@@ -32,3 +32,39 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+claude-code: 2.1.257
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 68060
+ITERM_SESSION_ID:
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Control: TestUnimplementedPolicyRejectedBeforeSpawn
+(cmd/cudaprof/capture_unimplemented_test.go).
+
+Against parent 1f71b691, all three subtests failed:
+  capture_unimplemented_test.go:23: parseCaptureArgs accepted
+  --follow-children, which is not implemented
+  capture_unimplemented_test.go:33: runCaptureCommand(--follow-children)
+  wrote .../capture.pprof despite failing; an unimplemented flag must not
+  produce an artifact
+  (identical pair for --deep and --exhaustive)
+
+This is the measurement that corrects the errata: the defect is not
+confined to --follow-children and is not a bootstrap failure. Three flags
+each wrote an artifact from a zero-valued result.
+
+After: ok github.com/tmc/lib/nvidia/cmd/cudaprof
+
+history re-sign provenance
+source commit: 54ac6baef30f4568f951657a31c91a2b34582cfa
+commit: 8641ac4119d70fc65e1bf3774fff91cc85b257ad
+original commit date: 1789687893 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

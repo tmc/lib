@@ -17,3 +17,24 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit: fdd06265c2f0a7d11a0a5341157f86146f11c27b
+Date: 2026-09-18T11:26:01-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+source: /tmp/lib-nvidia-nits.md (copy at ~/tmp/), GB10 run 2026-09-18
+ITERM_SESSION_ID: w14t0p1:03571A84-0299-46A1-B69A-8742F510AE88
+session: 8b461e8a-3f3e-48af-b293-0bf86f8ccf3c
+session_url: https://claude.ai/code/session_01NArEPSESRkoaZ5JfwV788N
+
+history re-sign provenance
+source commit: bb38a72a8ef23fc765fce140eb75d84f541d52a3
+commit: cf5f13c6488e5356c7757664005cfda7c625d0c6
+original commit date: 1789755961 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

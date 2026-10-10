@@ -10,3 +10,17 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit 2026-09-17; host-only lane 24/25/26/28 slices. Added explicit unknown CUBIN facts, fail-closed interposition lookup, bounded synchronized descriptor ring with lifecycle, and rank-aware effectful collective intent. Tests/race/vet and C syntax checks passed; native qualification unmeasured.
+
+history re-sign provenance
+source commit: 2e66d8e18004328da4f5dea7c291db509fd6032e
+commit: d3d3c68714083a0f99c90670421b49d24be7ea5e
+original commit date: 1789634430 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

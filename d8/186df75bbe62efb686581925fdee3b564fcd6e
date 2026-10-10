@@ -19,3 +19,26 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit: 2f66785f88c3c04c63d6975b485a117dcd694b8a
+Commit date: 2026-09-15T17:56:25-07:00
+Recorded: 2026-09-16T00:56:36.612719+00:00
+Agent: Codex
+claude-code version: not used
+Model: unavailable in runtime metadata
+TTY: non-PTY exec
+Note process PID: 80776
+ITERM_SESSION_ID: w20t0p8:FC0AB720-6DF8-4099-8BB2-CF563E430803
+Native deliberate invalid-argument recovery PASS on GB20B/CUPTI130202. Parent and export-agent independent review accepted; cuptirange race tests and LinuxARM64vet passed. Receipt ~/tmp/cuptibench-cleanup-receipts/run-disable-uR0utwTi. No remote push.
+
+history re-sign provenance
+source commit: c8ca91735dcc429986b9def95648415134c5a8f6
+commit: d8186df75bbe62efb686581925fdee3b564fcd6e
+original commit date: 1789520185 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078

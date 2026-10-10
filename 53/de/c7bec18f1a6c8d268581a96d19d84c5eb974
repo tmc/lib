@@ -20,3 +20,27 @@ model: GPT-6
 tty: not a tty
 pid: 64489
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Commit: 3bb251d8
+Date: 2026-09-19T00:40:59Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+not a tty
+pid: 64481
+ITERM_SESSION_ID: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+Restores blobs from 83647494, reverted by 433c7e97 (F76EF7EB). No new
+generation was run; the five blobs are byte-identical to 83647494's.
+
+history re-sign provenance
+source commit: f8da05ab15283a202923b7d5152291dd3432e71e
+commit: 53dec7bec18f1a6c8d268581a96d19d84c5eb974
+original commit date: 1789778441 -0700
+re-sign date: 2026-10-10T22:18:49.108143+00:00
+agent: codex
+codex version: 0.162.1
+model: GPT-6 (exact serving variant unavailable)
+claude-code version: not applicable
+tty: non-interactive
+pid: 83225
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
