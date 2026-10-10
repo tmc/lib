@@ -1,0 +1,23 @@
+commit: 7b31075a
+date: 2026-09-14T14:24:59Z
+claude-code: 2.1.257 (Claude Code)
+model: Opus 5 (1M context) / claude-opus-5[1m]
+tty: not a tty
+not a tty
+pid: 53954
+ITERM_SESSION_ID: w0t0p0:A9D76F70-EB78-4DD7-88E2-32FBE435E2B7
+session: bc9e48ad-b246-47ea-97c8-9ae5685b8376
+session_url: https://claude.ai/code/session_017SP6brAXu6EirbthCEA9bv
+fixture-source: spark-31db:~/tmp/ctlprobe/k4.cu
+nvdisasm: V13.4.49; ptxas: 13.3.73 and 13.4.59, -arch sm_121a -m 64
+
+commit: bd90f225bf933526fd203f0e4f2be7ff62cc2f04
+original-commit: 1661b2e92d82eea4a493f2720c12af2d6ac67b96
+date: 2026-09-14T07:24:50-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
