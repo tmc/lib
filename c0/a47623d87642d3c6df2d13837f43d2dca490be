@@ -1,0 +1,16 @@
+Committed 2026-09-12 by Claude Code 2.1.257
+model: Opus 5 (1M context)
+session: b72d0239-f344-4fbb-a722-8d72ac4aeed3
+session_url: https://claude.ai/code/session_01NzeFS2eQ1mSX2GAziGokYW
+Single path. Peer clearance: codex F30DABA5 (owner of the preceding nvrtc commit cee1bf94) holds lib; claude 3CE9C186 advised the headers commit that makes this possible.
+
+commit: c0a47623d87642d3c6df2d13837f43d2dca490be
+original-commit: 62bdd863a62c9350d594081a6913b24afb779c1f
+date: 2026-09-12T22:37:30-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
