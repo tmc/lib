@@ -1,0 +1,16 @@
+commit ec28662bbd9725b206e850b602654bca52d52535
+date 2026-10-10T19:59:55.901778+00:00
+agent codex; model GPT-6; claude-code version not applicable; tty noninteractive; pid 59845; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Parent review suffix: canonical units via existing dictionary, status/sequence refusal, segmented counter tracks across unavailable/omission/discontinuity/uint overflow. Self-contained runnable examples. Baseline-negative receipt /Users/tmc/tmp/lib-bpf/20261010-trace/baseline-negative.log; corrected race and vet pass. No physical claims.
+
+integration_source=ec28662bb
+commit=ab3608395e776ae7a214f7334a1d588ffb64744e
+commit_date=2026-10-10T13:00:13-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=61660
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:00:17.183303-07:00
