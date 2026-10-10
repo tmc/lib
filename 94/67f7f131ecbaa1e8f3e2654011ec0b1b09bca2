@@ -1,0 +1,15 @@
+commit: f5e649f5a66ecce655d70273703b3ab552f97720
+date: 2026-10-10T12:45:17-07:00
+agent: Codex bpf_host
+model: GPT-6
+claude-code version: not applicable
+tty: none
+pid: 88117
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation: focused host race and Linux vet; tracefs native known-answer receipt at /Users/tmc/tmp/lib-bpf/20261010-host-native/RECEIPT.md; no GPU qualification
+commit-message helper: failed twice missing Anthropic API key; manual signed fallback
+
+integration_source=f5e649f5a
+integration_agent=Codex GPT-6
+integration_session=4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T12:47:33.993936-07:00
