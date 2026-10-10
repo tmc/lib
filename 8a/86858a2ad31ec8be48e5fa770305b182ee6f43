@@ -1,0 +1,12 @@
+b885fe6e2 contains the lib regeneration at libgen b64b685 (macro constants), produced and verified by session 8bc9bbf9-7254-414c-bfc5-2030e14950b0 (Claude Code, claude-opus-5-5, ITERM 241C535C) and committed by another process from its working tree. Verification: full go test ok apart from the nativecontrol TestSustained flake; linux vet with physical tags shows only known cupti/curand warnings; TestUpstreamRecipesReproduce at b64b685 reproduced all but custatevec provenance (worktree path artifact). date: 2026-09-25T12:54:05Z
+
+commit: 8a86858a2ad31ec8be48e5fa770305b182ee6f43
+original-commit: b885fe6e2e9fd89dceb61967ff5249b7dacb913e
+date: 2026-09-25T05:21:18-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
