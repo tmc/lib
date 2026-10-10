@@ -1,0 +1,13 @@
+date 2026-10-10; agent Codex; model GPT-6; tty noninteractive; pid tool subprocess; ITERM_SESSION_ID inherited parent; manual signed fallback after two previous auto-message failures
+
+integration_source=ce2a4ecc0
+commit=7cc7b73ecdb1bb457240966c287cf917f20c5c44
+commit_date=2026-10-10T13:52:57-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=48497
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:52:58.325651-07:00
