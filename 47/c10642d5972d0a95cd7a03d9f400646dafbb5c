@@ -1,0 +1,13 @@
+commit 4aaee5fc9f296dc8d97a4ceb9c4aa3aa7b19f3ae; date 2026-10-10; agent Codex /root/bpf_evidence/identity_review; codex-cli 0.162.1; model GPT-6; claude-code version not applicable; tty none (API exec); pid 14117; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; source f30189255; synthetic reader/mapping/two-rank controls and focused race/vet passed; native 2GPU delayed peer, independent rank numerical oracle and collector off/on pending; manual signed fallback after task auto-tool limit
+
+integration_source=4aaee5fc9
+commit=47c10642d5972d0a95cd7a03d9f400646dafbb5c
+commit_date=2026-10-10T13:43:41-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=17343
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:43:46.860466-07:00
