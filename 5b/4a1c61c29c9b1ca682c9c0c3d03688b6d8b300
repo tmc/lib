@@ -1,0 +1,38 @@
+commit: 97ddc14bd15c589828a90aee52f1747611024c49
+date: 2026-10-04T00:17:27-07:00
+agent: Claude Code
+claude-code version: 2.1.284 (Claude Code)
+model: claude-opus-5-5
+tty: not a tty
+none
+pid: 81810 (ppid 40092)
+ITERM_SESSION_ID: w3t0p13:0D69A0CE-0A70-4FEE-8B37-91F190568778
+session=12eace46-b1e2-4bc1-9415-ebb22674bfbb
+source: cherry-picked from dgx/next (16f7cf611a)
+
+commit: 121b45309ad0582cd221ad4079af346ff0881630
+date: 2026-10-03T02:27:16-07:00
+agent: Codex CLI 0.160.0; claude-code: not used
+model: GPT-6 (runtime override unavailable)
+tty: not a tty; pid: 85358
+ITERM_SESSION_ID: 026363F7-C2F7-4118-9920-4953A7B20D93
+independent review: /Users/tmc/tmp/lib-wt-next/20261003-ncu-import/OWN-GRADE-85-FINAL.md
+
+commit: 616f7cf611a7aba917b7307e0a4b2b3550f81efb
+date: 2026-10-03T02:27:53-07:00
+agent: Codex CLI 0.160.0; claude-code: not used
+model: GPT-6 (runtime override unavailable)
+tty: not a tty; pid: 86213
+ITERM_SESSION_ID: 026363F7-C2F7-4118-9920-4953A7B20D93
+independent review: /Users/tmc/tmp/lib-wt-next/20261003-ncu-import/OWN-GRADE-85-FINAL.md
+
+commit: 5b4a1c61c29c9b1ca682c9c0c3d03688b6d8b300
+original-commit: 97ddc14bd15c589828a90aee52f1747611024c49
+date: 2026-10-04T00:17:27-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
