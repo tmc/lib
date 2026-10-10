@@ -1,0 +1,19 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty (agent teammate, background bash)
+pid: 99551
+ITERM_SESSION_ID: w12t0p15:CFA4996B-10BA-4CC4-B58A-5BE67EEC5EC2
+session: 00586501-4ba4-44f5-a2c0-db865576128f
+date: 2026-09-06
+role: integrator lane (adopt); merges rehearsed in ~/tmp/adopt-rehearsal before landing
+
+commit: a812b501d351ec15a81ef89f9aff28fd1570c943
+original-commit: fd609b9595687c4f8dc912913792195d65845d46
+date: 2026-09-06T02:45:51-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
