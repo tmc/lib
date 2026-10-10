@@ -1,0 +1,23 @@
+agent=Codex bpf_evidence
+model=GPT-6
+claude-code version=not running
+commit=fb94a34b6c8693d90f13606ba4ec472f71a875e5
+date=2026-10-10T13:07:35-07:00
+receipt-date=2026-10-10T20:07:48.044561+00:00
+tty=noninteractive
+pid=92437
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation=go test -race and go vet cudadiag/cudatracehost PASS
+physical gate=GB10 exact4063 numerical cleanup only; BPF host adapter CPU controls
+
+integration_source=fb94a34b6
+commit=f30189255a9dce26da762eb6c5f46c24731c1f42
+commit_date=2026-10-10T13:07:45-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=92694
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:07:53.584694-07:00
