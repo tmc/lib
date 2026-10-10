@@ -1,1 +1,3 @@
 agent: Codex bpf_device; model: inherited GPT-6; claude-code-version: not used; tty: tool pipe; pid: tool shell; ITERM_SESSION_ID: unavailable; date: 2026-10-10; source: native harness guard and concurrent ownership suffix; host race/vet PASS; physical candidate qualification pending
+
+physical qualification: exact5f61febc6 GB10sm121a guarded originals/inline/stub and concurrent private maps PASS once; physical redzone negative rejects; CUDA13.0.88 driver580.173.02 canonicallease releasedrc0; rawsha ad090ae0312d90c8bb1aa448f0fd5b5afcd205a6b605f2134519c284eac2b2bb; Ollama interference recorded, performanceHOLD; receipt /Users/tmc/tmp/lib-bpf/20261010-device/GB10-GUARDS-RECEIPT.md
