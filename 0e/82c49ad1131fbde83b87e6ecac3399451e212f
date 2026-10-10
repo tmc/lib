@@ -1,0 +1,14 @@
+claude-code 2.0.14; model claude-opus-5[1m]; tty not a tty
+n/a; pid 25441; ITERM_SESSION_ID=w4t0p18:3CE9C186-B1C6-40B5-9B8F-2F1DD419299D; session=423f1bbf-df69-46f3-87ae-1b4a46c379e2; session_url=https://claude.ai/code/session_0187SBsrLu3gqbktcLUwwiaV
+Reported by F6C226A5; ground truth independently confirmed via libcuda attribute 16 (48 SMs, cc 12.1) earlier this session.
+
+commit: 0e82c49ad1131fbde83b87e6ecac3399451e212f
+original-commit: 86698795c20ba8b140be7e1d96d50905c94d8a64
+date: 2026-09-13T16:11:12-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
