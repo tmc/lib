@@ -1,0 +1,12 @@
+commit: de046051501012f4f7d3ceac2a35c44bda439146
+commit-date: 2026-10-10T11:27:05-07:00
+agent: Codex
+model: GPT-6
+codex-cli-version: 0.162.1
+installed-claude-code-version: 2.1.284 (not used to create this commit)
+tty: not a tty
+metadata-shell-pid: 6807
+ITERM_SESSION_ID: w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15
+scope: reviewed private test-only input readback fence; one file, three added lines
+validation: bounded local checker/source/order controls passed under canonical gpu-lock; no device execution
+commit-method: helper attempted once and failed on missing Anthropic API key; manual signed commit fallback
