@@ -1,0 +1,13 @@
+commit 64d7e1c6f8123efebcc961224c011bece6e4f530; date 2026-10-10; Codex GPT-6; claude-code N/A; tty noninteractive; pid 32165; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; signed manual fallback
+
+integration_source=64d7e1c6f
+commit=ee303696e21925aeb05e36c92cde1b060df574be
+commit_date=2026-10-10T13:48:18-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=33923
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:48:23.428701-07:00
