@@ -8,3 +8,5 @@ tty: none (tool execution)
 pid: 13571
 ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
 validation: Python observer 16 tests; focused Go adapter/script tests; baseline-negative 8 expected errors; git diff --check
+
+Additional validation: GOWORK=off go test -mod=readonly ./x/cmd/cudaprof -count=1 passed (8.588s).
