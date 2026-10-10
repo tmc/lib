@@ -1,0 +1,24 @@
+Commit: 86bad446
+Date: 2026-09-19T00:27:56Z
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+none
+pid: 33113
+ITERM_SESSION_ID: w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url=https://claude.ai/code/session_018cQ9QL22BMr4otz5FbpxW3
+origin: subagent wt-kinds, branch wt-kinds; was 9d4fe38e before rebase. Merge resolution: predicate lists in capture_record.go and activity.go unioned across both features; four test files unioned at declaration level; stub cuptiActivityGetStructSize taught the three new kinds, without which the now-working layout probe correctly disabled them
+verification: go test ./internal/cudainject/... ./x/cmd/cudaprof/ ./x/cudacapture/ green on the integrated tree
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+commit: dc01ed8d294f0ea1ef3074855c0885e26ae0cc4a
+original-commit: 5a60d1f8eccec4eecf9e6a2c6ff70005f8a6251c
+date: 2026-09-18T17:27:30-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
