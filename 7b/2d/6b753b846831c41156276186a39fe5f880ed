@@ -1,0 +1,12 @@
+2026-09-17; recorded flags.gen.go digest in upstream manifest; root provenance test passes.
+
+commit: 7b2d6b753b846831c41156276186a39fe5f880ed
+original-commit: bd9cd8655e2c4296fe87a3d47ad823eca79bd16d
+date: 2026-09-17T01:45:41-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
