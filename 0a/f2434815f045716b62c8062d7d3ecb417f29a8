@@ -1,0 +1,21 @@
+Commit: fea9ea801e123024698812e46deb38db8aa4ca20
+Date: 2026-10-10T21:36:59.309352+00:00
+Agent: Codex CLI 0.162.1
+Claude Code version: not used
+Model: GPT-6 (exact serving variant unavailable)
+TTY: none (tool subprocess)
+PID: 494
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Task: physical NVLink identity versus MIG refusal guard
+
+integration_source=fea9ea801e123024698812e46deb38db8aa4ca20
+commit=0af2434815f045716b62c8062d7d3ecb417f29a8
+commit_date=2026-10-10T14:38:18-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=6190
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:38:19.409330-07:00
