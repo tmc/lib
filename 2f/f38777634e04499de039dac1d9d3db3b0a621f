@@ -1,0 +1,16 @@
+claude-code 2.1.257
+model=claude-opus-5[1m]
+ITERM_SESSION_ID=C74C662E
+session=b72d0239-f344-4fbb-a722-8d72ac4aeed3
+collaborators=3CE9C186 (found the advise mislabel), FAE87C7E
+
+commit: 2ff38777634e04499de039dac1d9d3db3b0a621f
+original-commit: 6e9a2e327852fdaffd809eba8518f9392f992577
+date: 2026-09-14T17:38:31-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
