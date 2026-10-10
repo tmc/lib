@@ -1,0 +1,10 @@
+commit=356ac77aa9dc491bc59bb77b05722bfa564a8fb5
+commit_date=2026-10-10T11:37:34-07:00
+agent=Codex
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool; not executing agent)
+model=GPT-6 (exact serving variant unavailable)
+tty=none (tool subprocess)
+pid=42398 (provenance-note writer subprocess)
+ITERM_SESSION_ID=w2t0p7:D615A99B-5E85-455C-9D6C-F9CA63070601
+qualification=source/CPU only; H100 SSH transport unavailable
