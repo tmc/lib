@@ -1,0 +1,27 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 15237; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Control TestSASSLineSurvivesCRLF fails against the parent commit with
+'cudacapture: compute: missing SASS source line' and passes after. It caught
+two independent CRLF faults, not one: the text key, and the kernel name from
+the .section regex keeping the carriage return. The second was not predicted
+-- the test was written for the first and failed twice.
+
+First attempt keyed on a new regexp of my own for the /*offset*/ comment.
+That was a second spelling of an existing parse and immediately disagreed
+with it: cudasass strips a '0x' prefix, my regexp did not, so two in-tree
+fixtures that write /* 0x0000 */ stopped resolving. Replaced with
+cudasass.ParseInstructionLine, which makes both sides the same parser.
+
+go test ./x/cudacapture/ ./internal/profilebundle/ ./cmd/cudaprof/ green on
+darwin/arm64.
+
+commit: 248f5a86233493ceee44d63d4ac5ef849f2b7e43
+original-commit: 184b91382b1a96198fd81be5b9489eb9d493048e
+date: 2026-09-17T15:54:22-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
