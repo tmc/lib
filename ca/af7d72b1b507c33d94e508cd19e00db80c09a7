@@ -1,0 +1,17 @@
+Mutation control: narrowing the allow-list to a name that is not recorded
+makes the file-set assertion fail, so it still discriminates.
+
+claude-code $(claude --version 2>/dev/null | head -1)
+model=claude-opus-5[1m]
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+commit: caaf7d72b1b507c33d94e508cd19e00db80c09a7
+original-commit: 5dd738f12a4bc5188069a4a0ac44d03c308ced56
+date: 2026-09-17T15:08:59-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
