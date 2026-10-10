@@ -1,0 +1,12 @@
+2026-09-17; fixed YAML remark parser to ignore blank lines between documents; cmd/cudaprof TileIR and remarks integration test passes.
+
+commit: f304cb8485e36e93b2477a6ed14536e0461ddfa7
+original-commit: 118190c0e5f71c7cfff6c195b2fcf653ff94e28e
+date: 2026-09-17T01:47:50-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
