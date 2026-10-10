@@ -1,0 +1,10 @@
+commit: f35522faced3205bc32ed96dd07cd9ec6a49fa01
+date: 2026-10-10T13:05:36-07:00
+agent: Codex bpf_host
+model: GPT-6
+claude-code version: not applicable
+tty: none
+pid: 87899
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation: focused race/vet; generic native noGPU receipts /Users/tmc/tmp/lib-bpf/20261010-bpfload-native/HANDOFF.md; allocation, BTF taskbirth and samebinary exec controls passed on frozen sources, no H100 support claim
+message helper failed twice missing Anthropic API key; signed manual fallback
