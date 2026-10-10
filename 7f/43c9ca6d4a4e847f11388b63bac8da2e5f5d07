@@ -1,0 +1,11 @@
+integration_source=7f43c9ca6d4a4e847f11388b63bac8da2e5f5d07
+commit=7f43c9ca6d4a4e847f11388b63bac8da2e5f5d07
+commit_date=2026-10-10T14:34:18-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=90348
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:34:18.298921-07:00
