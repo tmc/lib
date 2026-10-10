@@ -1,1 +1,3 @@
 commit 8a6fbf68bd1a426b712f698d7595e9a27c7482c0; date 2026-10-10T20:38:13Z; Codex GPT-6; version unavailable; tty none; shell pid 1255; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; raw kernel TGID/birth/exec validated, snapshot coverage remains incomplete
+
+commit 8a6fbf68b; date 2026-10-10T20:40:31Z; native Linux unprivileged pthread causal control PASS; historical746 EACCES13 vs8a6 status0, two calls/four records/no dropped or undelivered; receipt /Users/tmc/tmp/lib-bpf/20261010-thread-inherit/RECEIPT.md; shell pid 8527; tty none; model GPT-6; version unavailable; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
