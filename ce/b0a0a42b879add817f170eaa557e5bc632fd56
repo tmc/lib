@@ -1,0 +1,13 @@
+2026-10-10: signed test-only native runner log bound; agent /root/bpf_evidence/identity_review; codex-cli 0.162.1; model GPT-6; claude-code not applicable; tty none (API exec); pid 64234; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078. Manual fallback: parent exhausted git-auto-commit-message attempts. Linux amd64 native cross-build and vet pass; CPU log negative control added but not executed on macOS; no SSH or GPU run.
+
+integration_source=7d3891e58
+commit=ceb0a0a42b879add817f170eaa557e5bc632fd56
+commit_date=2026-10-10T14:01:22-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=72228
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:01:26.929967-07:00
