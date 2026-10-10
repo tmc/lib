@@ -1,0 +1,1 @@
+agent: Codex bpf_device; model: inherited GPT-6; claude-code-version: not used; tty: tool pipe; pid: tool shell; ITERM_SESSION_ID: unavailable; date: 2026-10-10; source: native harness guard and concurrent ownership suffix; host race/vet PASS; physical candidate qualification pending
