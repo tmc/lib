@@ -1,0 +1,12 @@
+commit=2710072c09178676941c9efb9a3932f81f01593b
+date=2026-10-10T12:38:21-07:00
+agent=Codex
+model=GPT-6
+claude-code-version=not applicable
+tty=tool execution (no tty)
+pid=52912
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+source=afb8b1976 v2 net import, excluding evidence trigger
+base=4ce51ad2e
+validation=focused unit and CLI tests, race, host vet; exact sensor timing/native acquisition/overhead qualification not established
+git-auto-commit-message failed twice: missing Anthropic API key; signed manual fallback
