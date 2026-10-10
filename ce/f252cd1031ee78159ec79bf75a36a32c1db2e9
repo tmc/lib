@@ -1,0 +1,21 @@
+Verified on an NVIDIA GB10 (linux/arm64, CUDA 13.0 NVRTC via NVRTC_LIB_PATH pin; ptxas/nvdisasm 13.0), sm_121.
+Negative control: all three new tests fail against HEAD~1's resolveExternalDependencies.
+End-to-end control: ~/tmp/nvrtcx-qual/cachetest2 on the DGX, WithNoCache() as oracle.
+
+claude-code 2.1.257 (Claude Code)
+model=claude-opus-5[1m]
+tty=not a tty
+pid=64688
+ITERM_SESSION_ID=
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+commit: cef252cd1031ee78159ec79bf75a36a32c1db2e9
+original-commit: 43fd88ed6c0406cb562d5c854899c79f7f34bf7a
+date: 2026-09-17T15:03:29-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
