@@ -1,0 +1,19 @@
+commit: 1ba1445b7444993c64ffea68ca26f2b067b50b03
+date: 2026-09-24T00:02:43-07:00
+agent: claude-code subagent, model claude-opus-5-5[1m]
+parent session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
+task: laya-train lib/nvidia training requests
+
+package: the request named x/cudasafetensors, but on main that package was moved to the next branch by 407b4533b (with cudaautograd and cudaattn). Recreating it on main would conflict with next, so the writer lands as the new CUDA-free package nvidia/x/safetensors. Callers that import cudasafetensors from dgx lib (3a157951) must switch imports.
+
+commit: 0939cc59e5b50813c2a288fd2a8ebf69c952ca7b
+original-commit: 1ba1445b7444993c64ffea68ca26f2b067b50b03
+date: 2026-09-24T00:02:43-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
