@@ -1,0 +1,27 @@
+commit: d83f7798e71d0335b41bbf6aa525ba8bc763b067
+date: 2026-10-04T00:17:25-07:00
+agent: Claude Code
+claude-code version: 2.1.284 (Claude Code)
+model: claude-opus-5-5
+tty: not a tty
+none
+pid: 81810 (ppid 40092)
+ITERM_SESSION_ID: w3t0p13:0D69A0CE-0A70-4FEE-8B37-91F190568778
+session=12eace46-b1e2-4bc1-9415-ebb22674bfbb
+source: cherry-picked from dgx/next (c83c899a20)
+
+commit d290adcef 2026-09-24T03:35:08-07:00
+agent: claude-code 2.1.280 model: claude-opus-5-5[1m] lane: 50 (sass telemetry channel and cfg)
+tty: not a tty pid: 20936 iterm: w8t0p7:83F85174-6333-4D12-A1D1-E43469447ABD
+session=e22659c3-8454-445f-b681-7f347795c131
+
+commit: d2d0d4fb829d35c99d341fedd61db58676cebbfe
+original-commit: d83f7798e71d0335b41bbf6aa525ba8bc763b067
+date: 2026-10-04T00:17:25-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
