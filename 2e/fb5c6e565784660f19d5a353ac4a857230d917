@@ -1,0 +1,16 @@
+commit 811d1a5f05ffdf7dc7b3d93defe5e94c2cd762a6
+date 2026-10-10T19:58:04.959280+00:00
+agent codex; model GPT-6; claude-code version not applicable; tty noninteractive; pid 47028; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Bounded diagnostic exporters; unmapped clocks require separate artifacts. Protobuf controls for clock IDs, exact integers above 2^53 and MaxInt64, unavailable transitions, record budgets, short writes. Host race/vet passed; physical/native Perfetto UI and GPU qualifications not claimed.
+
+integration_source=811d1a5f0
+commit=2efb5c6e565784660f19d5a353ac4a857230d917
+commit_date=2026-10-10T12:58:35-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=51047
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T12:58:38.282306-07:00
