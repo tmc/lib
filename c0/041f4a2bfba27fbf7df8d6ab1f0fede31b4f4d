@@ -1,0 +1,10 @@
+commit=c0041f4a2bfba27fbf7df8d6ab1f0fede31b4f4d
+date=2026-10-10T13:00:58-07:00
+agent=Codex
+model=GPT-6
+claude-code-version=not applicable
+tty=tool execution (no tty)
+pid=64992
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation=bridge unit/race/host vet/Linux amd64+arm64 vet/C ABI fixture; Linux native hash-map mock-data receipt, no native NVML/BTF/GPU qualification
+git-auto-commit-message already failed twice this task; signed manual fallback
