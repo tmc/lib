@@ -1,0 +1,18 @@
+agent: claude-code 2.1.269 (Claude Code)
+model: claude-opus-5[1m]
+date: 2026-09-18T17:16:28-07:00
+tty: not a tty pid: 96999
+iterm_session: w3t0p3:7D9D24CD-2ABC-4A39-8230-DFE17D034196
+session: 7cece841-7f85-4f43-b32f-40e5f835a6da
+verification: gen-nvcodec -windows pass run on this host (x86_64-w64-mingw32-gcc + wine64); all seven supplemental outputs reproduce; nvdec builds and vets for both darwin/arm64 and windows/amd64
+
+commit: 2e6b93327a547bcf08d58fe55247e2325851c641
+original-commit: f4e25128b586e416cd4211330af0c450c5b1eb6e
+date: 2026-09-18T17:16:23-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
