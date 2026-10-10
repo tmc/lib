@@ -1,0 +1,10 @@
+commit: 20f4ba0577de35c55e3897ebeb0cd1a68f02b44f
+commit date: 2026-10-10
+agent: Codex subagent /root/observability_operations
+codex version: 0.162.1
+claude-code installed version: 2.1.284 (not executing agent)
+model: GPT-6 (exact variant unavailable)
+tty: none
+pid: 43039
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+signed manual fallback after two helper failures: missing Anthropic API key
