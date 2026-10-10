@@ -1,0 +1,13 @@
+commit 8bb018266ba3188f59b1e23d5b7854be330847f5; date 2026-10-10T21:38:35Z; codex version unavailable; model GPT-6; tty not a tty; shell pid 7382; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; curated lane/91-xidlog-validated faa4abdf4; bounded framing/control/gap tests race and vet pass; caller supplied source identity, no native read or hardwarequalification
+
+integration_source=8bb018266
+commit=031ce25a2f316107d9a5ebfee3a3597205dd289c
+commit_date=2026-10-10T14:40:23-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=15079
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:40:24.509065-07:00
