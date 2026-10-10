@@ -1,0 +1,1 @@
+commit: 6764842735fb65571597bd0a3b77c34702cbb4bb\ndate: 2026-10-10T12:43:03-07:00\nagent: Codex bpf_host; model: GPT-6; claude-code version: not applicable; tty: none; pid: 73875; ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078\nsource: 1e1892c84 selected cudaprobe source, no generic dependency\nvalidation: decoder race/vet and source review
