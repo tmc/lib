@@ -1,0 +1,12 @@
+Commit 2026-09-17; host-only lane 24/25/26/28 slices. Added explicit unknown CUBIN facts, fail-closed interposition lookup, bounded synchronized descriptor ring with lifecycle, and rank-aware effectful collective intent. Tests/race/vet and C syntax checks passed; native qualification unmeasured.
+
+commit: d3d3c68714083a0f99c90670421b49d24be7ea5e
+original-commit: 2e66d8e18004328da4f5dea7c291db509fd6032e
+date: 2026-09-17T01:40:30-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
