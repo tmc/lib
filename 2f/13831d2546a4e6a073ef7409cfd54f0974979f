@@ -1,0 +1,10 @@
+commit: 2f13831d2546a4e6a073ef7409cfd54f0974979f
+date: 2026-10-10T16:24:13.869849+00:00
+agent: Codex
+version: codex-cli 0.162.1
+model: GPT-6
+claude-code-version: not used
+tty: none
+pid: 22127
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation: local race and remote Linux focused tests pass; original source fails both subprocess regression cases
