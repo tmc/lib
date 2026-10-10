@@ -1,0 +1,9 @@
+commit=04f5c9baa
+commit_date=2026-10-10T12:01:53-07:00
+agent=Antigravity
+claude_code_version=2.1.284
+model=gemini-2.5-pro
+tty=/dev/ttys021
+pid=33142
+ITERM_SESSION_ID=w2t0p3:A01076D7-6AF7-41A0-AD07-8E9E98A00426
+qualification=source/CPU verified; out-of-pass query bounds check, trailing manifest immutability, distinct FakeClock epochs
