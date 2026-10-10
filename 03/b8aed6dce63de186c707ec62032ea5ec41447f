@@ -1,0 +1,11 @@
+agent=Codex bpf_evidence
+model=GPT-6
+claude-code version=not running
+commit=03b8aed6dce63de186c707ec62032ea5ec41447f
+date=2026-10-10T13:52:33-07:00
+receipt-date=2026-10-10T20:57:28.075530+00:00
+tty=noninteractive
+pid=62401
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+validation=focused four-package race PASS; /Users/tmc/tmp/lib-bpf/20261010-evidence-incremental/HANDOFF.md
+physical qualification=no native gate run
