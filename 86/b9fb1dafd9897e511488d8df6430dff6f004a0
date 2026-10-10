@@ -1,0 +1,16 @@
+commit: 6a1c8d081c489964d8703bf81c29aed9ac373af2
+date: 2026-09-17T04:43:30Z
+agent: antigravity
+lane: 18-fusion-quantization-and-moe
+status: host-verified; Q8_1 d/s IEEE fp16 layout, Gather16 checked, native/W256 pending
+
+commit: 86b9fb1dafd9897e511488d8df6430dff6f004a0
+original-commit: caea0428daebda7a006a92951d73f26b120ed2ff
+date: 2026-09-16T21:43:25-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
