@@ -1,0 +1,21 @@
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m] (Opus 5, 1M context)
+tty: not a tty
+n/a
+pid: 54921
+ITERM_SESSION_ID: w4t0p18:3CE9C186-B1C6-40B5-9B8F-2F1DD419299D
+session: 423f1bbf-df69-46f3-87ae-1b4a46c379e2
+session_url: https://claude.ai/code/session_0187SBsrLu3gqbktcLUwwiaV
+review: strengthens aa51c4d7 (5F9AE590). Mutation-verified: dropping the parse
+  block and restoring the shadowed error message each fail the tests.
+
+commit: 3bc015aafb6edbfb62fc355115400b9144dc2ecd
+original-commit: 10379f38b75a6b6909347790f5912a9a54664197
+date: 2026-09-13T06:48:06-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
