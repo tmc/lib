@@ -1,0 +1,12 @@
+commit=0c82fbeb67d2ae9c510916a40c0f3ffeb32727de date=2026-09-04T15:44:42-07:00 client=codex-cli-0.153.3 model=GPT-6 tty=not-a-tty pid=76007 ITERM_SESSION_ID=w15t0p2:54B33A62-339F-4D21-B1B9-0036124A7060 source=95d6d19 review=PROFILER_FINAL_REVIEW.md dgx-parity-and-timing-control=pass
+
+commit: 8d1e3472b86d02db61bd0a201afaf2fdf1fe6a89
+original-commit: c524d3731a38560a30f173624d2f2714acabe357
+date: 2026-09-04T15:44:42-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
