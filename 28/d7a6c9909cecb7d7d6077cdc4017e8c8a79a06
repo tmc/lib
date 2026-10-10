@@ -1,0 +1,39 @@
+commit: 7ae8f59e53a2f406275adc3cd7a858ef19a368b8
+date: 2026-09-28T11:44:45-07:00
+agent: Codex
+model: GPT-6
+claude-code version: 2.1.283 (Claude Code)
+codex version: codex-cli 0.157.1
+tty: none
+pid: 23105 (note writer)
+ITERM_SESSION_ID: unset
+
+note date: 2026-09-28T18:44:45.092157+00:00
+writer pid: 577103
+
+Rebased commit: 0d7722f39189be97e9ceb9ab8363a91016b32d17
+Commit date: 2026-09-28T19:12:46-07:00
+Original commit: 7ae8f59e53a2f406275adc3cd7a858ef19a368b8
+Rebase verification: Codex, model GPT-6; tty none; note writer pid 1562549; ITERM_SESSION_ID=unset
+
+commit: 35cbd4c14
+date: 2026-09-22T22:48:17-07:00
+agent: Claude Code 2.1.280
+model: claude-opus-5-5[1m]
+tty: ttys239
+pid: 16790
+ITERM_SESSION_ID: w13t0p9:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+session_url=https://claude.ai/code/session_01EtvqCzGak7aomYVo1jAaL4
+note: history rewrite for the first public release; see main-clean and next
+
+commit: 28d7a6c9909cecb7d7d6077cdc4017e8c8a79a06
+original-commit: 0d7722f39189be97e9ceb9ab8363a91016b32d17
+date: 2026-09-28T19:12:46-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
