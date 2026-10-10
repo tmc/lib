@@ -1,0 +1,13 @@
+commit 8a6fbf68bd1a426b712f698d7595e9a27c7482c0; date 2026-10-10T20:38:13Z; Codex GPT-6; version unavailable; tty none; shell pid 1255; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; raw kernel TGID/birth/exec validated, snapshot coverage remains incomplete
+
+integration_source=8a6fbf68b
+commit=6ab842745f1d3d5cc23f32750dd603100dea070e
+commit_date=2026-10-10T13:40:23-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=8247
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:40:24.073000-07:00
