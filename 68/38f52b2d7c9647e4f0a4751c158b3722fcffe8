@@ -1,0 +1,31 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 66484
+ITERM_SESSION_ID:
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Controls: TestSampleOnlyReportStatesTheInstrumentLimit,
+TestTimedReportOmitsSampleOnlyCaveat (cmd/cudaprof/advise_header_test.go).
+
+Against parent 407034dc:
+  advise_header_test.go:49: sample-only report header missing "device idle"
+  advise_header_test.go:49: sample-only report header missing "not a share of elapsed time"
+  --- FAIL: TestSampleOnlyReportStatesTheInstrumentLimit
+
+TestTimedReportOmitsSampleOnlyCaveat passed against the parent and still
+passes: it is the negative half, and rules out a fix that prints the
+caveat unconditionally.
+
+After: ok github.com/tmc/lib/nvidia/cmd/cudaprof
+
+commit: 6838f52b2d7c9647e4f0a4751c158b3722fcffe8
+original-commit: 1be250f22cbd58bcb5315af58d946cdf1c942e29
+date: 2026-09-17T16:30:10-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
