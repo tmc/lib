@@ -1,1 +1,1 @@
-commit=b09964b43769factual-placeholder
+commit=b09964b433e8041671a8f1afd77bc751726d35f1; date=2026-10-10T12:23:43-07:00; tool=codex-cli 0.162.1; claude-code-version=not-used; model=GPT-5 family (exact model ID not exposed); tty=not-a-tty; pid=7942; ITERM_SESSION_ID=w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15; bounded integrated dsv4cpu/dsv4eval host controls passed; three external evaluator gates skipped; no model or native GPU qualification
