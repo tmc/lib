@@ -1,0 +1,30 @@
+claude-code 2.1.4; model claude-opus-5[1m]; tty not a tty; pid 5386; ITERM_SESSION_ID=unset; session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Evidence bundle: ~/tmp/nvrtcx-qual on dgx.
+  fuse/         A and B: two compilations of kernel.cu differing only by two
+                blank lines inserted after the include, so every later line
+                shifts by 2. V: varied.cu (templates, unrolled loop,
+                __forceinline__). o0-o3: the fixture at each -O level.
+  verify/subset/  measures the invariant directly from the two line tables.
+  gateprobe/      runs cudacapture.LoadCode itself; gp-old is the same probe
+                built against a0ae4659~1.
+All with /usr/local/cuda-13.0/bin (bare nvcc/nvdisasm on this host are 12.0
+and reject sm_121).
+
+Denominator: 8 matched pairs, 3 crossed. One toolchain, one architecture.
+
+Negative result recorded rather than hidden: crossing fixture/ref130 with
+mut/mutA (a one-constant mutation) reports 0 unclaimed lines in both
+directions. The invariant cannot see a fusion that preserves line numbers,
+and the doc comment says so.
+
+commit: d57ad7cddc1e7d1a2633c23f67070b0062e1a160
+original-commit: dfc5a26c2b4d9dff876f204c6d318a9b398d592f
+date: 2026-09-17T15:42:23-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
