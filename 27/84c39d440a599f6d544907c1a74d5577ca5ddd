@@ -1,0 +1,27 @@
+Agent: Claude Code 2.1.280 (Claude Code)
+Commit: dcde7c9016d7e693dd979ac81ad4e0a96054a9f9
+Date: 2026-09-26T20:23:33-07:00
+ITERM_SESSION_ID: w8t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+Landed on main by fast-forward (rebase of cudaprof-bringover onto 9c04e362e; egraph S0 cherry-picked from codex/ds4-egraph-s0, authored by C8332C52/Codex).
+Model: claude-opus-5-5[1m]
+PID: 26723
+TTY: not a tty
+claude-code 2.1.283 (Claude Code); model claude-opus-5-5; tty none; pid 714189; iterm none
+commit dcde7c9016d7e693dd979ac81ad4e0a96054a9f9
+date 2026-09-26T12:13:49-07:00
+rewritten-from 447c78e3de7d1afa43a62eb1a29b353ce343319d
+session=0985a861-e3f9-416e-ad5b-c47f17478d9e
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911
+tested under gpu-lock with spin base/target/control: -19.65 ms target vs +2.08 ms control.
+written by cudaprof-ab subagent (task /tmp/cudaprof-tasks/05-matched-ab.md), reviewed and merged by main session.
+
+commit: 2784c39d440a599f6d544907c1a74d5577ca5ddd
+original-commit: dcde7c9016d7e693dd979ac81ad4e0a96054a9f9
+date: 2026-09-26T20:22:28-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
