@@ -1,1 +1,3 @@
 date 2026-10-10; Codex GPT-6; tty none; pid task-runner; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; Linux v6.8 perf_uprobe_event_init child perfmon check causes inherited unprivileged clone refusal; removes inheritance flags, snapshot coverage only; actual corrected CUDA qualification pending.
+
+commit 07fa45895; date 2026-10-10
