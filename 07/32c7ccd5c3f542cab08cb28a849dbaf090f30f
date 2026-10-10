@@ -1,0 +1,17 @@
+commit e7c2a7661 2026-10-04T00:35:39-07:00
+agent: claude-code 2.1.284 (Claude Code); model: claude-opus-5-5[1m]
+tty: not a tty; pid: 19741; ITERM_SESSION_ID: w3t0p10:E8F57AFD-1DAC-47B0-AA52-5A76722DD540
+session=f67c2dcc-2b3c-4d7a-91ca-4741e68f9911 session_url=https://claude.ai/code/session_01JwoYMpu8gD2niLGaw5J5VP
+
+commit caceae417 2026-09-23T23:09:41Z; claude-code 2.1.280 (Claude Code); model claude-opus-5-5; pid 29901; ITERM_SESSION_ID=w13t0p16:83F85174-6333-4D12-A1D1-E43469447ABD; session=e22659c3-8454-445f-b681-7f347795c131; user-approved lock-form fix (2026-09-23); mutants: owner check removed and liveness check removed each FAIL TestInheritedRefuses; pid<=0 -> pid<0 survives (equivalent: owner record refuses pid 0)
+
+commit: 0732c7ccd5c3f542cab08cb28a849dbaf090f30f
+original-commit: e7c2a76614e7bd0559f751c89f8ece1c675d84a9
+date: 2026-10-04T00:35:39-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
