@@ -1,0 +1,45 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 72751
+ITERM_SESSION_ID: $ITERM_SESSION_ID
+session=d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+
+Controls: TestPProfPathRefusesFailedCapture, TestCaptureFailureIsDetectable,
+TestSucceededCaptureIsNotRefused (cmd/cudaprof/capture_preflight_test.go).
+
+The unit controls only fail to COMPILE against the parent, so the gate
+here is the end-to-end measurement against the real binary. Same
+artifact, produced by:
+  cudaprof capture --inject ~/tmp/fake.so -o failcap.pprof -- /bin/echo hi
+  (1025 bytes, outcome injection-failed, capture_success false)
+
+Parent ae987262:
+  $ cudaprof -top failcap.pprof
+  Type: kernel_time
+  Showing nodes accounting for 0, 0% of 0 total
+  read rc=0
+  -- a valid, empty profile, exit 0, no indication of failure.
+
+This commit:
+  $ cudaprof -top failcap.pprof
+  this capture records its own failure: capture marked as failed (outcome injection-failed)
+  read rc=1
+
+advise on the same artifact still opens it and reports Critical:
+"Incomplete or failed profile capture", so the diagnosis survives.
+
+Not done: spec 6.1's "must not write a pprof". Declined -- see the
+commit message. The artifact is the only durable record of the failure
+and TestRunCaptureCommandRejectsUnverifiedSuccessfulTarget pins it.
+
+commit: 0548a211f1a606b3ae0abd4912daf2da8d7f5c51
+original-commit: 4cc26bb88241e3aabbd98d302cc1475caf57c847
+date: 2026-09-17T16:34:50-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
