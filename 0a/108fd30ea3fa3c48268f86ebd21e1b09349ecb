@@ -1,0 +1,10 @@
+commit: 0a108fd30ea3fa3c48268f86ebd21e1b09349ecb
+commit-date: 2026-10-10T14:08:48-07:00
+agent: Codex CLI 0.162.1
+model: GPT-5
+tty: none
+pid: 70896
+ITERM_SESSION_ID: w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15
+qualification: exact 42-path V3; integrated host/source/value gates, Linux ARM64 build and 24 Linux CPU ownership/admission tests passed; no native or full-checkpoint qualification; public Pro admission remains closed
+receipt: unit3-integrated.log sha256 d3dfdd65b1c711291e890f34febef4d7e5ddb77c5ccf6c71ece2be88103a67f3
+commit helper: two failed attempts due missing Anthropic API key; manual signed fallback
