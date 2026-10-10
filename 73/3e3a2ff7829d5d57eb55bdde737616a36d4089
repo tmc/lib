@@ -1,0 +1,12 @@
+commit: 733e3a2ff7829d5d57eb55bdde737616a36d4089
+date: 2026-10-10T14:46:52-07:00
+agent: Codex
+codex-cli: 0.162.1
+claude-code: not used
+model: not exposed by runtime
+tty: not a tty
+metadata shell pid: 39136
+ITERM_SESSION_ID: w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15
+qualification: CPU host C replay and race; Linux ARM64 compile; no physical sampled-model parity
+receipt: integration-7da2b50e/terminal-receipt.json SHA256 c075d85739cf1484d0e5a02150f916b1f354ff1efa11b1a51c4dec589f72d206
+commit helper: one attempt failed missing API key; authorized signed manual fallback
