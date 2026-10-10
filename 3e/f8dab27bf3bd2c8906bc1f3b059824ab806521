@@ -1,0 +1,13 @@
+commit a6f346fe2a82a900e2353f717dc93f87ed7efbd5; date 2026-10-10T21:39:58Z; codex version unavailable; model GPT-6; tty not a tty; shell pid 13613; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; public source/clock/identity/privacy/limits consumer controls race and vet pass; supplied input loss remains unknown, no native/hardwarequalification
+
+integration_source=a6f346fe2
+commit=3ef8dab27bf3bd2c8906bc1f3b059824ab806521
+commit_date=2026-10-10T14:40:24-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=15127
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:40:25.143437-07:00
