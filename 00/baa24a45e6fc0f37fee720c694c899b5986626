@@ -1,0 +1,17 @@
+commit 80aff3165fc9a083786d296b8cc06abc9180072d
+date 2026-10-10T20:47:56.350060+00:00
+agent Codex 0.162.1; model GPT-6 (exact variant unavailable); claude-code not executing
+tty none; pid 33028; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+manual fallback: helper failed twice previously in task (missing Anthropic key)
+
+integration_source=80aff3165
+commit=00baa24a45e6fc0f37fee720c694c899b5986626
+commit_date=2026-10-10T13:50:40-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=40447
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T13:50:41.857331-07:00
