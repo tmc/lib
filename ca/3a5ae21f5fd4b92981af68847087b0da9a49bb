@@ -1,0 +1,23 @@
+commit: 90098792
+date: 2026-09-20T17:37:51-07:00
+claude-code: 2.1.269 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 53579
+ITERM_SESSION_ID: w3t0p1:F76EF7EB-35BD-4585-89FA-888140AFD052
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url: (none provided)
+errata: 10.6(i), cudaprof-errata-bugs-and-gaps via TOOL-IMPROVEMENTS.md from C6A7BA75
+mutation probes killed: space-form of -sample_index unread; menu printed without units; non-device-time note suppressed; preflight call site deleted from run()
+rehashed: was d08f91c0, re-parented by the split of a7eb8623; content unchanged.
+
+commit: ca3a5ae21f5fd4b92981af68847087b0da9a49bb
+original-commit: e9629831b2aca126bcbba3fd4594953c60df885b
+date: 2026-09-21T03:07:55-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
