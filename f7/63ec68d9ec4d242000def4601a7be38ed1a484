@@ -1,0 +1,40 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m] (Opus 5, 1M context)
+agent: activity-tier (subagent of team-lead)
+tty: /dev/ttys035
+pid: 39790 (claude --dangerously-skip-permissions)
+ITERM_SESSION_ID: unset in this subagent shell; not recorded rather than guessed
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url: https://claude.ai/code/session_018cQ9QL22BMr4otz5FbpxW3
+
+--- appended by a second session, 2026-09-17 ---
+
+This commit also carries three unrelated changes that were sitting staged in
+the shared checkout when it was made, and its subject does not mention them:
+
+  nvidia/internal/cudainject/native/cupti_agent.c  BUFFER_POOL 4 -> 64
+  nvidia/cmd/cudaprof/capture_controller.go        unfinalized target journal
+                                                   no longer reports a decoded
+                                                   bootstrap record as absent
+  nvidia/cmd/cudaprof/capture_recovery_test.go     TestUnfinalizedTargetStill
+                                                   ReportsWhatItRead
+
+All three come from root-causing why 'cudaprof capture' collected nothing on
+examples/ds4-min, and all three are verified: the controller fix has a
+mutation control, and the pool size is the measured difference between
+losing 513,943 of 548,145 activity records and losing none.
+
+Recorded by: Claude Opus 5, claude-code, session=0bb59c79-e2c8-44c3-8db0-d25a0cdb81cc
+session_url=https://claude.ai/code/session_01EaWb2xVCU4tB3dx5te7rw5
+date=2026-09-17
+
+commit: f763ec68d9ec4d242000def4601a7be38ed1a484
+original-commit: 4e795cd2384d586746b0454dcea0ef7a880d8677
+date: 2026-09-17T18:58:20-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
