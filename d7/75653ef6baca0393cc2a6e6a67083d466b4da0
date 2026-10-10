@@ -1,0 +1,11 @@
+agent=Codex bpf_evidence
+model=GPT-6
+claude-code version=not running
+commit=d775653ef6baca0393cc2a6e6a67083d466b4da0
+date=2026-10-10T12:45:49-07:00
+receipt-date=2026-10-10T19:55:38.592589+00:00
+tty=noninteractive
+pid=34448
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+source=independent evidence integration and native acquisition adapters; host dependency frozen source branch codex/bpf-host
+validation=/Users/tmc/tmp/lib-bpf/20261010-evidence/REPORT.md
