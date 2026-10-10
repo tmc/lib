@@ -1,0 +1,1 @@
+Commit f32febe37c69c3c7b387dd05f188cc975b6dd904; date 2026-10-10; tool codex-cli 0.162.1; model GPT-6; receipt pid=26338; tty non-interactive; ITERM_SESSION_ID=w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15; agent producer_gate_recovery; integrated locked race gate PASS4.674s. Helper failed once missing ANTHROPIC_API_KEY; manual signed fallback. No physical qualification.
