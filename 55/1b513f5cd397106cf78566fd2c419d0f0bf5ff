@@ -1,0 +1,19 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m] (Opus 5, 1M context)
+agent: activity-tier (subagent of team-lead)
+tty: /dev/ttys035
+pid: 39790 (claude --dangerously-skip-permissions)
+ITERM_SESSION_ID: unset in this subagent shell; not recorded rather than guessed
+session: d9194c1a-6f3d-4c9b-b6df-f78f348ff814
+session_url: https://claude.ai/code/session_018cQ9QL22BMr4otz5FbpxW3
+
+commit: 551b513f5cd397106cf78566fd2c419d0f0bf5ff
+original-commit: 92af023146782ae283bc6d9ed9a7b720d1dbe1fb
+date: 2026-09-17T18:54:53-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
