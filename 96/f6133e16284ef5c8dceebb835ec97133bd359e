@@ -1,1 +1,3 @@
 date 2026-10-10; agent Codex GPT-6; version unavailable; tty none; pid task-runner; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078; decoder host race tests pass; actual CUDA attached qualification HOLD.
+
+commit 96f6133e1; commit date 2026-10-10
