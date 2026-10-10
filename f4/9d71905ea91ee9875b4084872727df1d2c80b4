@@ -1,0 +1,14 @@
+Commit eb3d182c; date 2026-09-17T08:xxZ; coordinator takeover; added compile/runtime inspection helpers; full GOWORK=off go test ./x/... passed after integration.
+
+Verification timestamp: 2026-09-17T08:45Z; host-only tests passed; Luna agents unavailable due usage limit.
+
+commit: f49d71905ea91ee9875b4084872727df1d2c80b4
+original-commit: f77ef001a2beebd2a6775bd5842868a10e8720bd
+date: 2026-09-17T01:37:00-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
