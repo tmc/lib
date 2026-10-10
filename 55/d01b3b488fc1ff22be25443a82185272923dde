@@ -1,0 +1,16 @@
+commit fa45208003c98ae67b3ac2a28bfb214ae811ee3c
+date 2026-10-10T21:09:44.017565+00:00
+agent codex; model GPT-6; claude-code version not applicable; tty noninteractive; pid 97362; ITERM_SESSION_ID w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+Lane110 fullprompt audit suffix: costs and allocated hours remain estimates with absent energy; physicalenergy/efficiency remain unavailable, never zero. Capacity and clock validity gates remain applied. Malformed supplied counters still refuse. Public baseline fails at96263; corrected race/vet and examples pass. No native/network calls.
+
+integration_source=fa4520800
+commit=55d01b3b488fc1ff22be25443a82185272923dde
+commit_date=2026-10-10T14:12:36-07:00
+integration_agent=Codex
+model=GPT-6 (exact serving variant unavailable)
+codex_version=0.162.1
+claude_code_version=2.1.284 (installed tool, not executing agent)
+tty=none (tool subprocess)
+pid=5769
+ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+integration_date=2026-10-10T14:12:58.953081-07:00
