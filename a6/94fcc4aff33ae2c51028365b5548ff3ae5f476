@@ -1,0 +1,11 @@
+commit: a694fcc4aff33ae2c51028365b5548ff3ae5f476
+date: 2026-10-10T19:32:22Z
+agent: Codex producer_gate_recovery
+codex-version: codex-cli 0.162.1
+claude-code-version: not used
+model: not exposed to child agent
+tty: not a tty
+receipt-shell-pid: 29442
+ITERM_SESSION_ID: w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15
+scope: exact nine approved selected-address consumer paths; host/race and Linux ARM64 crosscompile only; physical opt-in disabled
+receipt: /Users/tmc/tmp/ds4-min/20261010-cuda-selected-consumers/landing
