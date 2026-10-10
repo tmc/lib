@@ -8,3 +8,5 @@ pid=64992
 ITERM_SESSION_ID=w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
 validation=bridge unit/race/host vet/Linux amd64+arm64 vet/C ABI fixture; Linux native hash-map mock-data receipt, no native NVML/BTF/GPU qualification
 git-auto-commit-message already failed twice this task; signed manual fallback
+
+Final frozen suffix head333c5f321 kernel hash-map mock-data qualification PASS; native-closed.log; binary SHA256 63286b417f21f57027a67b597b83f852860cdd5790948b62eb3f72633d31774d. Throwaway local/remote probe binaries deleted; receipts/source/hashes kept. No NVML/GPU/BTF qualification inferred.
