@@ -1,0 +1,18 @@
+claude-code: 2.1.257
+model: claude-opus-5[1m]
+ITERM_SESSION_ID: w4t0p18:3CE9C186-B1C6-40B5-9B8F-2F1DD419299D
+session: 423f1bbf-df69-46f3-87ae-1b4a46c379e2
+Found by running the env-gated hardware tier with its gates ON: 175 pass / 3 skip,
+and the three skips hid one failure. Window measured by swapping only
+LD_LIBRARY_PATH across cuda-13.0/13.1/13.2/13.3 on dgx.
+
+commit: 39bc669a72105d9b5e9e7a744989fa26e13f6140
+original-commit: d7e692c7085aa86a8ac8f9f7968573194ec3039d
+date: 2026-09-13T07:07:39-07:00
+agent: Codex
+codex-version: 0.162.1
+claude-code-version: not used
+model: GPT-6
+tty: not a tty
+pid: 64489
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
