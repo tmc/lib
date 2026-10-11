@@ -228,3 +228,188 @@ func TestRecorderBudget(t *testing.T) {
 		t.Fatal("executed query after exhausted budget")
 	}
 }
+
+type concurrentRecorderQueries struct {
+	mu      sync.Mutex
+	calls   []uint64
+	block   uint64
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (q *concurrentRecorderQueries) GpmSupported() (bool, error) { return false, nil }
+func (q *concurrentRecorderQueries) FabricInfo() (nvml.GpuFabricInfoV, error) {
+	return nvml.GpuFabricInfoV{}, nil
+}
+func (q *concurrentRecorderQueries) FieldValuesFor(...uint32) ([]nvml.FieldValue, error) {
+	return nil, nil
+}
+func (q *concurrentRecorderQueries) GpuInstanceList(uint32) ([]nvml.GpuInstance, error) {
+	return nil, nil
+}
+func (q *concurrentRecorderQueries) ProcessesUtilization(lastSeen uint64) ([]nvml.ProcessUtilizationInfoV1, error) {
+	q.mu.Lock()
+	q.calls = append(q.calls, lastSeen)
+	blocked := lastSeen == q.block
+	if blocked {
+		close(q.entered)
+	}
+	q.mu.Unlock()
+	if blocked {
+		<-q.release
+	}
+	return []nvml.ProcessUtilizationInfoV1{{Pid: uint32(lastSeen)}}, nil
+}
+
+func (q *concurrentRecorderQueries) callOrder() []uint64 {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return append([]uint64(nil), q.calls...)
+}
+
+func TestConcurrentRecorderQueriesAndSnapshots(t *testing.T) {
+	const queryCount = 32
+	const snapshotCount = 4
+	device := &concurrentRecorderQueries{block: 1, entered: make(chan struct{}), release: make(chan struct{})}
+	recorder, err := NewRecorder(device, Provenance{Source: "synthetic concurrent host fixture"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := recorder.ProcessesUtilization(0)
+	if err != nil || len(seed) != 1 || seed[0].Pid != 0 {
+		t.Fatalf("seed query returned %v, %v", seed, err)
+	}
+
+	startQueries := make(chan struct{})
+	queryResults := make(chan error, queryCount-1)
+	var queries sync.WaitGroup
+	for i := 1; i < queryCount; i++ {
+		lastSeen := uint64(i)
+		queries.Add(1)
+		go func() {
+			defer queries.Done()
+			<-startQueries
+			got, err := recorder.ProcessesUtilization(lastSeen)
+			if err != nil {
+				queryResults <- err
+				return
+			}
+			if len(got) != 1 || got[0].Pid != uint32(lastSeen) {
+				queryResults <- fmt.Errorf("query %d returned %v", lastSeen, got)
+			}
+		}()
+	}
+	close(startQueries)
+	<-device.entered
+
+	// Start each snapshot caller while query 1 is held in the fake device call.
+	// The barrier overlaps the API invocations; assertions below check snapshot
+	// prefix integrity and copy isolation without assuming which caller wins the
+	// recorder lock after the held query returns.
+	snapshotStart := make(chan struct{})
+	snapshotAttempts := make(chan struct{}, snapshotCount)
+	snapshots := make(chan Recording, snapshotCount)
+	snapshotErrors := make(chan error, snapshotCount)
+	var snapshotters sync.WaitGroup
+	for i := 0; i < snapshotCount; i++ {
+		snapshotters.Add(1)
+		go func() {
+			defer snapshotters.Done()
+			<-snapshotStart
+			snapshotAttempts <- struct{}{}
+			snapshot, err := recorder.Recording()
+			if err != nil {
+				snapshotErrors <- err
+				return
+			}
+			snapshots <- snapshot
+		}()
+	}
+	close(snapshotStart)
+	for i := 0; i < snapshotCount; i++ {
+		<-snapshotAttempts
+	}
+	close(device.release)
+	queries.Wait()
+	snapshotters.Wait()
+	close(queryResults)
+	close(snapshotErrors)
+	close(snapshots)
+	for err := range queryResults {
+		t.Error(err)
+	}
+	for err := range snapshotErrors {
+		t.Error(err)
+	}
+
+	final, err := recorder.Recording()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(final.Calls); got != queryCount {
+		t.Fatalf("recorded %d calls, want %d", got, queryCount)
+	}
+	expected, err := json.Marshal(final)
+	if err != nil {
+		t.Fatal(err)
+	}
+	callOrder := device.callOrder()
+	if len(callOrder) != queryCount {
+		t.Fatalf("device observed %d calls, want %d", len(callOrder), queryCount)
+	}
+	for i, call := range final.Calls {
+		if call.Method != "ProcessesUtilization" {
+			t.Fatalf("call %d method = %q", i, call.Method)
+		}
+		var args struct{ LastSeen uint64 }
+		if err := json.Unmarshal(call.Args, &args); err != nil {
+			t.Fatalf("call %d arguments: %v", i, err)
+		}
+		var result []nvml.ProcessUtilizationInfoV1
+		if err := json.Unmarshal(call.Result, &result); err != nil {
+			t.Fatalf("call %d result: %v", i, err)
+		}
+		if args.LastSeen != callOrder[i] || len(result) != 1 || result[0].Pid != uint32(args.LastSeen) {
+			t.Fatalf("call %d does not preserve invocation order and response: args=%d device=%d result=%v", i, args.LastSeen, callOrder[i], result)
+		}
+	}
+
+	for snapshotIndex := 0; ; snapshotIndex++ {
+		snapshot, ok := <-snapshots
+		if !ok {
+			break
+		}
+		if len(snapshot.Calls) < 1 || len(snapshot.Calls) > queryCount {
+			t.Fatalf("snapshot has %d calls, want 1..%d", len(snapshot.Calls), queryCount)
+		}
+		for i, call := range snapshot.Calls {
+			if !reflect.DeepEqual(call, final.Calls[i]) {
+				t.Fatalf("snapshot row %d is not an intact prefix of the final recording", i)
+			}
+		}
+		snapshot.Calls[0].Args[0] = byte('a' + snapshotIndex)
+		snapshot.Calls[0].Result[0] = byte('A' + snapshotIndex)
+		current, err := recorder.Recording()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := json.Marshal(current)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, expected) {
+			t.Fatal("mutating a returned snapshot changed recorder state")
+		}
+	}
+	current, err := recorder.Recording()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := json.Marshal(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, expected) {
+		t.Fatal("mutating returned snapshots changed recorder state")
+	}
+}
