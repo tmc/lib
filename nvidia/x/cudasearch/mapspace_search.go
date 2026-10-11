@@ -19,11 +19,14 @@ type MapSpaceSearchStats struct {
 }
 
 // LinearPrunedSearch performs ordered iteration over a factored mapspace,
-// pruning downstream permutation and bypass combinations whenever an
+// pruning downstream permutation, spatial and bypass combinations whenever an
 // IndexFactorization fails capacity constraints.
 type LinearPrunedSearch struct {
 	Factorizations []cudalayout.IndexFactorization
 	Permutations   []cudalayout.LoopPermutation
+	// SpatialTilings supplies the spatial axis. An empty slice selects one
+	// identity mesh. Explicit warp meshes require a positive thread limit.
+	SpatialTilings []cudalayout.SpatialTiling
 	Bypasses       []cudalayout.DatatypeBypass
 	Constraints    cudalayout.HardwareConstraints
 	DTypes         map[cudalayout.TensorRole]int
@@ -79,6 +82,7 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 		result = append(result, &LinearPrunedSearch{
 			Factorizations: append([]cudalayout.IndexFactorization(nil), partFacts...),
 			Permutations:   append([]cudalayout.LoopPermutation(nil), s.Permutations...),
+			SpatialTilings: append([]cudalayout.SpatialTiling(nil), s.SpatialTilings...),
 			Bypasses:       append([]cudalayout.DatatypeBypass(nil), s.Bypasses...),
 			Constraints:    s.Constraints,
 			DTypes:         s.DTypes,
@@ -91,11 +95,24 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 
 // Search runs pruned search over the mapspace. Orders must include each
 // non-unit factor at the specified level; unit-factor loops may be omitted.
-// Scoring uses order-independent data movement floors, not schedule latency.
+// Scoring uses order- and spatial-independent data movement floors, not
+// schedule latency. Spatial meshes describe whole-warp logical subdivisions;
+// they do not generate launches or supply reduction synchronization.
 // It rejects a candidate count that cannot be represented by its int statistics.
 func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, error) {
 	stats := MapSpaceSearchStats{}
-	downstreamPerFact, err := mapspaceDownstreamCount(len(s.Factorizations), len(s.Permutations), len(s.Bypasses))
+	if len(s.Factorizations) == 0 {
+		return stats, nil
+	}
+	spatials := s.SpatialTilings
+	if len(spatials) == 0 {
+		spatials = []cudalayout.SpatialTiling{{}}
+	}
+	orders, err := mapspaceDownstreamCount(1, len(s.Permutations), len(spatials))
+	if err != nil {
+		return stats, err
+	}
+	downstreamPerFact, err := mapspaceDownstreamCount(len(s.Factorizations), orders, len(s.Bypasses))
 	if err != nil {
 		return stats, err
 	}
@@ -121,10 +138,21 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 		// A mapping can fit only with a supplied bypass. Prune it only when every
 		// requested bypass configuration fails capacity validation.
 		fits := false
-		for _, bypass := range s.Bypasses {
-			if err := cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints); err == nil {
-				fits = true
-				break
+		for _, spatial := range spatials {
+			if err := ctx.Err(); err != nil {
+				return stats, err
+			}
+			if !s.validSpatial(fact, spatial) {
+				continue
+			}
+			for _, bypass := range s.Bypasses {
+				if err := ctx.Err(); err != nil {
+					return stats, err
+				}
+				if err := cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints); err == nil {
+					fits = true
+					break
+				}
 			}
 		}
 		if !fits {
@@ -136,40 +164,68 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 		sharedTile := fact.TileShape(cudalayout.LevelShared)
 
 		for _, perm := range s.Permutations {
+			if err := ctx.Err(); err != nil {
+				return stats, err
+			}
 			if !validMapSpacePermutation(fact, perm, s.Problem) {
-				stats.DownstreamSkipped += len(s.Bypasses)
+				stats.DownstreamSkipped += len(spatials) * len(s.Bypasses)
 				continue
 			}
-			for _, bypass := range s.Bypasses {
+			for _, spatial := range spatials {
 				if err := ctx.Err(); err != nil {
 					return stats, err
 				}
-
-				// Check bypass-specific capacity
-				if err := cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints); err != nil {
-					stats.DownstreamSkipped++
+				if !s.validSpatial(fact, spatial) {
+					stats.DownstreamSkipped += len(s.Bypasses)
 					continue
 				}
+				for _, bypass := range s.Bypasses {
+					if err := ctx.Err(); err != nil {
+						return stats, err
+					}
 
-				bypassedMap := map[string]bool{
-					"A": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorA) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorA),
-					"B": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorB) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorB),
-					"C": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorC) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorC),
-				}
+					// Check bypass-specific capacity
+					if err := cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints); err != nil {
+						stats.DownstreamSkipped++
+						continue
+					}
 
-				dm, err := cudaroofline.AnalyticalDataMovement(s.Problem, sharedTile, dtypesStr, bypassedMap)
-				if err != nil {
-					return stats, fmt.Errorf("mapspace data movement: %w", err)
+					bypassedMap := map[string]bool{
+						"A": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorA) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorA),
+						"B": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorB) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorB),
+						"C": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorC) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorC),
+					}
+
+					dm, err := cudaroofline.AnalyticalDataMovement(s.Problem, sharedTile, dtypesStr, bypassedMap)
+					if err != nil {
+						return stats, fmt.Errorf("mapspace data movement: %w", err)
+					}
+					if dm.OperationalIntensity > stats.BestIntensity {
+						stats.BestIntensity = dm.OperationalIntensity
+					}
+					stats.EvaluatedCandidates++
 				}
-				if dm.OperationalIntensity > stats.BestIntensity {
-					stats.BestIntensity = dm.OperationalIntensity
-				}
-				stats.EvaluatedCandidates++
 			}
 		}
 	}
 
 	return stats, nil
+}
+
+func (s *LinearPrunedSearch) validSpatial(fact cudalayout.IndexFactorization, spatial cudalayout.SpatialTiling) bool {
+	if err := spatial.Validate(fact, s.Problem); err != nil {
+		return false
+	}
+	if len(spatial.WarpMesh) != 0 {
+		// CUDA warp meshes require 32 threads per warp. The caller's
+		// configured block size is a conservative capacity bound, not a
+		// measured residency or launch fact.
+		warps := spatial.TotalWarps()
+		if warps <= 0 || s.Constraints.MaxThreadsPerBlock <= 0 || warps > s.Constraints.MaxThreadsPerBlock/32 {
+			return false
+		}
+	}
+	return true
 }
 
 // mapspaceDownstreamCount checks both the per-factorization product and the

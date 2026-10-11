@@ -13,7 +13,11 @@
 // In addition to program rewrite search, cudasearch supports structured
 // mapspace search over tensor loop nests ([LinearPrunedSearch]), pruning
 // candidate factorizations that fail shared memory or register capacity
-// constraints before permutation and bypass evaluation.
+// constraints before permutation, spatial and bypass evaluation. Supplied
+// spatial meshes must divide the factored tile counts. Whole-warp meshes must
+// also fit the caller's thread bound; those checks are not device launch or
+// residency qualification. The analytical traffic floor remains independent
+// of permutation and spatial placement.
 //
 // [SearchMemory] freezes a canonical bottleneck category, target-specific
 // strategy catalog and compatible trajectory rewards once per Search. Priors

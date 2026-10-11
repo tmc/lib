@@ -30,6 +30,9 @@
 // [IndexFactorization] (tiling factors across memory hierarchy levels),
 // [LoopPermutation] (nest ordering per level), [SpatialTiling] (CTA and warp
 // spatial splits), and [DatatypeBypass] (per-level tensor retention flags).
+// [SpatialTiling.Validate] checks CTA subdivisions of shared tiles and warp
+// subdivisions of register tiles. It checks logical divisibility and products;
+// it does not prove launch geometry, reduction synchronization or residency.
 // [ValidateCapacity] prunes tile factorizations that exceed block shared memory
 // capacity, register file bounds, or TMA alignment constraints.
 //

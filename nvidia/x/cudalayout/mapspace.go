@@ -217,14 +217,11 @@ func NewSpatialTiling(ctaMesh, warpMesh map[string]int) SpatialTiling {
 	return SpatialTiling{CTAMesh: cCopy, WarpMesh: wCopy}
 }
 
-// TotalWarps returns the number of warps in the threadblock spatial tiling.
+// TotalWarps returns the number of warps in the threadblock spatial tiling,
+// or zero for a non-positive factor or product overflow. Use Validate to
+// check that mesh dimensions and subdivisions match a factorization.
 func (s SpatialTiling) TotalWarps() int {
-	total := 1
-	for _, count := range s.WarpMesh {
-		if count > 0 {
-			total *= count
-		}
-	}
+	total, _ := spatialProduct(s.WarpMesh)
 	return total
 }
 
