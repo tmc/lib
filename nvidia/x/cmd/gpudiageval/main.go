@@ -26,7 +26,7 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		printUsage(stderr)
-		return errors.New("command required: run, verify, claim, or ledger")
+		return errors.New("command required: run, verify, claim, ledger, or compare")
 	}
 
 	switch args[0] {
@@ -34,6 +34,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return cmdRun(args[1:], stdout, stderr)
 	case "verify":
 		return cmdVerify(args[1:], stdout, stderr)
+	case "compare":
+		return cmdCompare(args[1:], stdout, stderr)
 	case "ledger":
 		return cmdLedger(args[1:], stdout, stderr)
 	case "claim":
@@ -55,6 +57,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  gpudiageval verify [flags]   Validate evaluation artifacts and manifest integrity")
 	fmt.Fprintln(w, "  gpudiageval claim [flags]    Display bounded comparative claim from evaluation report")
 	fmt.Fprintln(w, "  gpudiageval ledger -file path -root dir  Check qualification receipt consistency")
+	fmt.Fprintln(w, "  gpudiageval compare -protocol path -candidate path -comparator path")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Flags for 'run':")
 	fmt.Fprintln(w, "  -phase string               Evaluation phase: 'pilot' or 'qualification' (default: pilot)")
@@ -319,5 +322,5 @@ func cmdLedger(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(stdout).Encode(results)
+	return writeComparisonJSON(stdout, results)
 }
