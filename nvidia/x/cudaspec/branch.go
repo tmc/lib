@@ -256,7 +256,8 @@ func (bt *BranchTree) CommitBranch(acceptedID BranchID, expectedTokens []int32, 
 // RollbackBranch rolls back a branch and its proposed descendants, releasing
 // descendant private blocks before ancestor blocks. Release errors preserve
 // the failing branch's state and blocks for retry; completed releases are not
-// repeated. A committed descendant prevents rollback of its ancestor.
+// repeated. Committed branches and ancestors of committed branches cannot be
+// rolled back; accepted KV teardown belongs to the explicit sequence owner.
 func (bt *BranchTree) RollbackBranch(id BranchID, releaser KVBlockReleaser) error {
 	bt.mu.Lock()
 	defer bt.mu.Unlock()
@@ -268,6 +269,9 @@ func (bt *BranchTree) RollbackBranch(id BranchID, releaser KVBlockReleaser) erro
 
 func (bt *BranchTree) rollbackLocked(id BranchID, releaser KVBlockReleaser) error {
 	b := bt.branches[id]
+	if b.State == ProposalCommitted {
+		return fmt.Errorf("%w: branch %d is committed", ErrBranchNotActive, id)
+	}
 	if b.State == ProposalRolledBack {
 		return nil
 	}

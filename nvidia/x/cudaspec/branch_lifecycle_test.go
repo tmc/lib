@@ -181,3 +181,46 @@ func TestRollbackWaitsForCompletionBeforePublishing(t *testing.T) {
 		t.Fatal(holders)
 	}
 }
+
+func TestRollbackCommittedBranchRefuses(t *testing.T) {
+	for _, root := range []bool{false, true} {
+		name := "accepted leaf"
+		if root {
+			name = "committed root"
+		}
+		t.Run(name, func(t *testing.T) {
+			a := cudakv.NewBlockAllocator(1, 4)
+			block := allocateBranchBlock(t, a, 1)
+			tree := NewBranchTree(1, []int{block}, 1)
+			id := BranchID(0)
+			if !root {
+				private := allocateBranchBlock(t, a, 2)
+				b, err := tree.ProposeBranch(0, []int32{2}, []int{private})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := tree.CommitBranch(b.ID, []int32{2}, a); err != nil {
+					t.Fatal(err)
+				}
+				id, block = b.ID, private
+			}
+			release := &failingKVRelease{allocator: a}
+			if err := tree.RollbackBranch(id, release); !errors.Is(err, ErrBranchNotActive) {
+				t.Fatalf("committed rollback: %v", err)
+			}
+			branch, err := tree.GetBranch(id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if branch.State != ProposalCommitted || tree.ActiveBranch() != id {
+				t.Fatalf("accepted identity changed: state=%v active=%d", branch.State, tree.ActiveBranch())
+			}
+			if holders, _ := a.Holders(block); holders != 1 {
+				t.Fatal("accepted KV released", holders)
+			}
+			if len(release.calls) != 0 {
+				t.Fatal("release called on accepted KV", release.calls)
+			}
+		})
+	}
+}
