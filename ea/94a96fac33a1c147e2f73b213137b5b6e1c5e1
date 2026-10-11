@@ -1,0 +1,11 @@
+commit: ea94a96fac33a1c147e2f73b213137b5b6e1c5e1
+date: 2026-10-11T15:23:22-07:00
+agent: Codex; claude-code not used
+version: codex-cli 0.162.1
+model: Codex runtime model variant not exposed
+tty: none (tool pipe)
+note_pid: 11464
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+author_session: 092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+manual signed fallback: auto helper failed twice earlier; no further helper retries
+review: /Users/tmc/tmp/lib-bpf/20261011-spatial-axis-independent-review/GRADE.md
