@@ -3,15 +3,19 @@ package cudasrv
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"io"
 	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
 // Engine is the backend inference engine driving model generation.
+// Generate must stop when ctx is canceled and must not close tokenChan.
 type Engine interface {
 	Generate(ctx context.Context, req ChatCompletionRequest, tokenChan chan<- string) error
 }
@@ -45,6 +49,7 @@ func (s *Server) SetFlightRecorder(fr *cudaprof.FlightRecorder) {
 }
 
 // Handler returns the http.Handler serving API routes.
+// Chat completion requests must contain one JSON value in at most 1 MiB.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
@@ -80,9 +85,30 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.engine == nil {
+		http.Error(w, "generation unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	// Bound the entire body, including whitespace after the JSON value.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	decoder := json.NewDecoder(r.Body)
 	var req ChatCompletionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, fmt.Sprintf("invalid JSON payload: %v", err), http.StatusBadRequest)
+	err := decoder.Decode(&req)
+	if err == nil {
+		var extra any
+		if err = decoder.Decode(&extra); err == io.EOF {
+			err = nil
+		} else if err == nil {
+			err = errors.New("multiple JSON values")
+		}
+	}
+	if err != nil {
+		status := http.StatusBadRequest
+		var limit *http.MaxBytesError
+		if errors.As(err, &limit) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		http.Error(w, "invalid JSON payload", status)
 		return
 	}
 
@@ -106,16 +132,29 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, req Cha
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 	reqID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
 	tokenChan := make(chan string, 32)
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(tokenChan)
-		errChan <- s.engine.Generate(r.Context(), req, tokenChan)
+		errChan <- s.engine.Generate(ctx, req, tokenChan)
 	}()
 
-	for tok := range tokenChan {
+stream:
+	for {
+		var tok string
+		var open bool
+		select {
+		case <-ctx.Done():
+			return
+		case tok, open = <-tokenChan:
+			if !open {
+				break stream
+			}
+		}
 		atomic.AddUint64(&s.tokensTotal, 1)
 		chunk := ChatCompletionChunk{
 			ID:      reqID,
@@ -130,10 +169,20 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, req Cha
 			},
 		}
 		data, _ := json.Marshal(chunk)
-		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
-		flusher.Flush()
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return
+		}
+		if err := http.NewResponseController(w).Flush(); err != nil {
+			return
+		}
 	}
 
+	if err := <-errChan; err != nil {
+		// A failed generation must never carry a successful stop or DONE.
+		_, _ = fmt.Fprint(w, "event: error\ndata: {\"error\":\"generation failed\"}\n\n")
+		flusher.Flush()
+		return
+	}
 	finishReason := "stop"
 	finalChunk := ChatCompletionChunk{
 		ID:      reqID,
@@ -148,8 +197,12 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, req Cha
 		},
 	}
 	finalData, _ := json.Marshal(finalChunk)
-	_, _ = fmt.Fprintf(w, "data: %s\n\n", finalData)
-	_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", finalData); err != nil {
+		return
+	}
+	if _, err := fmt.Fprintf(w, "data: [DONE]\n\n"); err != nil {
+		return
+	}
 	flusher.Flush()
 }
 
