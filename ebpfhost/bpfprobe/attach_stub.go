@@ -24,3 +24,5 @@ func Attach(c Config) (*Probe, error) {
 	}
 	return nil, bpfload.ErrUnsupported
 }
+
+func attachGroupMember(*Group, Config, *Probe) error { return bpfload.ErrUnsupported }

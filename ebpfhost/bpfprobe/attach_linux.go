@@ -84,7 +84,7 @@ func AttachGroup(configs []Config) (_ *Group, err error) {
 		validated[i].execOffset = layout.exec
 		validated[i].execSize = layout.execSize
 	}
-	g := &Group{Probe: &Probe{KernelBTFHash: layout.hash, TaskStartOffset: layout.start, TaskExecOffset: layout.exec, TaskExecSize: layout.execSize}}
+	g := &Group{capacity: validated[0].Capacity, Probe: &Probe{KernelBTFHash: layout.hash, TaskStartOffset: layout.start, TaskExecOffset: layout.exec, TaskExecSize: layout.execSize}}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, g.Close())
@@ -146,6 +146,57 @@ func AttachGroup(configs []Config) (_ *Group, err error) {
 		}
 	}
 	return g, nil
+}
+
+// attachGroupMember borrows duplicate descriptors for existing maps. The new
+// probe owns only its program and perf attachment, never the shared maps/ring.
+func attachGroupMember(g *Group, c Config, p *Probe) (err error) {
+	var files []*os.File
+	defer func() {
+		for _, f := range files {
+			err = errors.Join(err, f.Close())
+		}
+	}()
+	borrow := func(o *bpfload.Object) (int, error) {
+		if o == nil {
+			return -1, errors.New("bpf probe: missing group map")
+		}
+		f, e := o.File()
+		if e != nil {
+			return -1, e
+		}
+		files = append(files, f)
+		return int(f.Fd()), nil
+	}
+	ring, err := borrow(g.events)
+	if err != nil {
+		return err
+	}
+	counts, err := borrow(g.counts)
+	if err != nil {
+		return err
+	}
+	stack, output, depth := -1, -1, -1
+	if c.UserStack {
+		stack, err = borrow(g.stacks)
+		if err != nil {
+			return err
+		}
+	}
+	if c.OutputPointer {
+		if len(g.extras) != 2 {
+			return errors.New("bpf probe: missing group output maps")
+		}
+		output, err = borrow(g.extras[0])
+		if err != nil {
+			return err
+		}
+		depth, err = borrow(g.extras[1])
+		if err != nil {
+			return err
+		}
+	}
+	return attachTo(c, p, ring, counts, output, depth, stack)
 }
 
 // Attach loads and attaches an upstream Linux BPF uprobe on amd64 or arm64. It does
