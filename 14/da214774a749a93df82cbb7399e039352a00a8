@@ -1,0 +1,11 @@
+commit: 14da214774a749a93df82cbb7399e039352a00a8
+date: 2026-10-11T00:55:40.964881+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 12275
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: OTLP CLI metrics/logs real HTTP round trips, mixed-signal refusal, partial logs failure and recurring paired drain race tests PASS
+commit helper: prior two failed attempts exhausted; signed manual fallback
