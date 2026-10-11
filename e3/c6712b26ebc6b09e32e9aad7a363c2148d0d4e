@@ -1,0 +1,11 @@
+commit: e3c6712b26ebc6b09e32e9aad7a363c2148d0d4e
+date: 2026-10-11T01:14:24.169687+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 64930
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: Canonical member/artifact URI controls reject traversal, nested escapes, encoded separators, query/fragment and duplicate paths; hostmetrics race PASS
+commit helper: prior two failed attempts exhausted; signed manual fallback
