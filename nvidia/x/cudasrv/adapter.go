@@ -61,7 +61,8 @@ func WithShapeBucket(b cudabatch.ShapeBucket) AdapterOption {
 	}
 }
 
-// WithContinuationTracker sets the multi-turn session continuation tracker.
+// WithContinuationTracker sets session transcript bookkeeping. Requests must
+// include their full conversation; snapshots do not retain reusable KV blocks.
 func WithContinuationTracker(ct *cudabatch.ContinuationTracker) AdapterOption {
 	return func(a *BatchEngineAdapter) {
 		a.contTracker = ct
@@ -163,18 +164,9 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 		SessionID:    req.SessionID,
 	}
 
-	// Check multi-turn continuation
-	if req.SessionID != "" && a.contTracker != nil {
-		if sess, ok := a.contTracker.GetSession(req.SessionID); ok && len(sess.Tokens) > 0 {
-			// Suffix tokenization on boundary
-			_, delta, err := cudabatch.SpliceContinuation(a.tokenizer, sess.Tokens, sess.FullText, fullPrompt, 4)
-			if err == nil && len(delta) > 0 {
-				// Reusing prefix tokens from previous turn
-				batchReq.PromptTokens = delta
-				batchReq.PromptBlockCount = len(sess.BlockTable)
-			}
-		}
-	}
+	// Session snapshots do not retain live KV ownership. Recompute the full
+	// request prompt; token history and block IDs alone cannot authorize
+	// suffix-only execution after completed requests release their blocks.
 
 	// Set up listener for generated tokens
 	tokListener := make(chan string, 32)
@@ -260,7 +252,7 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 			// Save continuation in session if requested
 			if req.SessionID != "" && a.contTracker != nil {
 				if r, ok := a.scheduler.Request(reqID); ok {
-					a.contTracker.StoreSession(req.SessionID, r.TotalTokensSlice(), r.BlockTable, vis, fullPrompt)
+					a.contTracker.StoreSession(req.SessionID, r.TotalTokensSlice(), nil, vis, fullPrompt)
 				}
 			}
 			return err
