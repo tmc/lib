@@ -27,7 +27,7 @@ import "github.com/tmc/lib/nvidia/internal/cuptiversion"
 // native memory error rather than a mismatch, because CUPTI writes these fields
 // in place through the pointer it is given.
 //
-// 130200 is cupti.ApiVersion, the version the bindings in nvidia/cupti were
+// 130200 is the historical version the bindings in nvidia/cupti were
 // generated from, and its struct shapes are the ones the Go types express. No
 // library on the hosts measured here reports it; the 13.2 toolkit installed
 // reports 130202, with the same two shapes.
@@ -38,12 +38,10 @@ import "github.com/tmc/lib/nvidia/internal/cuptiversion"
 // measured 24/26/28 header. All four use the base shapes. These are observed
 // builds, not a universal mapping from toolkit releases to API versions.
 //
-// A version absent from the table uses the newest row at or below it in the
-// same major: CUPTI's structs only grow within a major, and CUPTI writes no
-// further than the size a struct declares, so a measured older size stays
-// valid. A new major, or a version older than every row, has no layout.
+// Admission is exact. Runtime 130401 retains historical source admission
+// with layout 130400; this is not fresh physical qualification.
 func layoutVersion(version uint32) (uint32, bool) {
-	return cuptiversion.Layout(version, 24, 26, 27, 28, 130001, 130101, 130200, 130202, 130301, 130400)
+	return cuptiversion.AdmittedLayout(version, 24, 26, 27, 28, 130001, 130101, 130200, 130202, 130301, 130400)
 }
 
 // qualifiedLayout reports whether version has a layout.

@@ -9,8 +9,7 @@ import (
 // TestLayoutShapes pins each measured parameter-struct shape to the CUPTI
 // versions it was read from. The two structs are listed separately because they
 // did not grow together: 130101 extends the properties struct and leaves the
-// initialize struct at its 130001 shape. An unmeasured version takes the shape
-// of the newest measured one below it in the same major; any other fails closed.
+// initialize struct at its 130001 shape. Unlisted versions fail closed.
 func TestLayoutShapes(t *testing.T) {
 	for _, tt := range []struct {
 		version    uint32
@@ -29,17 +28,17 @@ func TestLayoutShapes(t *testing.T) {
 		{version: 130400, qualified: true, singlePass: true, scoped: true},
 		{version: 0},
 		{version: 20},
-		{version: 25, qualified: true},
+		{version: 25},
 		{version: 27, qualified: true},
-		{version: 29, qualified: true},
+		{version: 29},
 		{version: 120901},
 		{version: 130000},
-		{version: 130002, qualified: true},
-		{version: 130100, qualified: true},
-		{version: 130201, qualified: true, singlePass: true, scoped: true},
-		{version: 130300, qualified: true, singlePass: true, scoped: true},
+		{version: 130002},
+		{version: 130100},
+		{version: 130201},
+		{version: 130300},
 		{version: 130401, qualified: true, singlePass: true, scoped: true},
-		{version: 130500, qualified: true, singlePass: true, scoped: true},
+		{version: 130500},
 		{version: 140000},
 	} {
 		if got := qualifiedLayout(tt.version); got != tt.qualified {

@@ -48,8 +48,15 @@ func Enable(ctx driver.Context) (disable func() error, err error) {
 }
 
 func enableSampling(ctx driver.Context, api samplingControlAPI) (func() error, error) {
-	if ctx == 0 || api.device == nil || api.enable == nil || api.disable == nil {
+	if ctx == 0 || api.device == nil || api.version == nil || api.enable == nil || api.disable == nil {
 		return nil, errors.New("cuptipcsampling: invalid enable request")
+	}
+	v, err := api.version()
+	if err != nil {
+		return nil, fmt.Errorf("cuptipcsampling: query sampling version: %w", err)
+	}
+	if !qualifiedSamplingVersion(v) {
+		return nil, fmt.Errorf("cuptipcsampling: unqualified sampling control version %d", v)
 	}
 	device, err := api.device(ctx)
 	if err != nil {

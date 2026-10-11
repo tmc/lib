@@ -10,10 +10,10 @@ func TestReplayModeSupport(t *testing.T) {
 		{24, false}, {26, false}, {27, false}, {28, false},
 		{130001, false}, {130101, false}, {130200, true}, {130202, true},
 		{130301, false}, {130400, true},
-		// Unmeasured releases take the contract of the layout below them.
-		{130201, true}, {130300, true}, {130302, false}, {130401, true}, {130500, true},
+		// Unlisted runtimes are refused.
+		{130201, false}, {130300, false}, {130302, false}, {130401, true}, {130500, false},
 	} {
-		if err := ReplayModeSupport(tt.version, UserReplay); err != nil {
+		if err := ReplayModeSupport(tt.version, UserReplay); (err == nil) != qualifiedLayout(tt.version) {
 			t.Fatal(err)
 		}
 		if err := ReplayModeSupport(tt.version, KernelReplay); (err == nil) != tt.kernel {

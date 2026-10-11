@@ -17,9 +17,12 @@ import "fmt"
 // graph allocation identity, forward and reversed graph kernel association,
 // host pass budget) passed against CUPTI 130400 as they do against 130202.
 //
-// A later release in the same major takes the replay contract of the newest
-// layout at or below it, as [layoutVersion] does for struct sizes.
+// Admission is exact. Runtime 130401 retains historical source admission
+// with layout 130400; this is not fresh physical qualification.
 func ReplayModeSupport(version uint32, mode ReplayMode) error {
+	if !qualifiedLayout(version) {
+		return fmt.Errorf("cuptirange: unqualified CUPTI version %d", version)
+	}
 	switch mode {
 	case UserReplay:
 		return nil

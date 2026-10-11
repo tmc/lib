@@ -20,22 +20,20 @@ import (
 //     triggerMode (60 bytes).
 //   - All other ten parameter structs are byte-identical across all versions.
 //
-// 130200 is admitted on a different witness: it is [cupti.ApiVersion], the version
-// the Go types in nvidia/cupti were generated from.
+// 130200 retains its historical generated-header witness.
 var qualified = []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400}
 
-// supportedVersion reports whether CUPTI version v has a layout: a
-// qualified version, or a later release in the same major, which uses the
-// newest qualified layout at or below it (see [cuptiversion.Layout]).
+// Admission is exact. Runtime 130401 retains historical source admission
+// with layout 130400; this is not fresh physical qualification.
 func supportedVersion(v uint32) bool {
-	_, ok := cuptiversion.Layout(v, qualified...)
+	_, ok := cuptiversion.AdmittedLayout(v, qualified...)
 	return ok
 }
 
 // setConfigStructSize returns the version-specific prefix size for
 // [cupti.PmSamplingSetConfigParams].
 func setConfigStructSize(v uint32) uint {
-	if l, _ := cuptiversion.Layout(v, qualified...); l == 24 {
+	if l, _ := cuptiversion.AdmittedLayout(v, qualified...); l == 24 {
 		// CUDA 12.6 layout ends at triggerMode
 		var p cupti.PmSamplingSetConfigParams
 		return uint(unsafe.Offsetof(p.TriggerMode) + unsafe.Sizeof(p.TriggerMode))

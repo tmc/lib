@@ -154,3 +154,31 @@ func TestSamplingControlVersionGate(t *testing.T) {
 		t.Fatalf("calls=%v release=%v err=%v", *calls, s.canRelease(), err)
 	}
 }
+
+func TestEnableRejectsUnadmittedVersion(t *testing.T) {
+	for _, v := range []uint32{0, 28, 130002, 130003, 130100, 130201, 130402, 130500, 139999, 140000} {
+		api := samplingControlAPI{
+			version: func() (uint32, error) { return v, nil },
+			device:  func(driver.Context) (uint32, error) { t.Fatal("device before admission"); return 0, nil },
+			enable:  func(*cupti.PCSamplingEnableParams) error { t.Fatal("enable before admission"); return nil },
+			disable: func(*cupti.PCSamplingDisableParams) error { return nil },
+		}
+		if close, err := enableSampling(5, api); err == nil || close != nil {
+			t.Fatalf("accepted %d", v)
+		}
+	}
+}
+
+func TestEnableVersionQueryFailure(t *testing.T) {
+	want := errors.New("query failed")
+	api := samplingControlAPI{
+		version: func() (uint32, error) { return 0, want },
+		device:  func(driver.Context) (uint32, error) { t.Fatal("device on query failure"); return 0, nil },
+		enable:  func(*cupti.PCSamplingEnableParams) error { t.Fatal("enable on query failure"); return nil },
+		disable: func(*cupti.PCSamplingDisableParams) error { return nil },
+	}
+	close, err := enableSampling(5, api)
+	if close != nil || !errors.Is(err, want) {
+		t.Fatalf("close=%v err=%v", close != nil, err)
+	}
+}

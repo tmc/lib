@@ -16,7 +16,7 @@ func TestQualifiedVersions(t *testing.T) {
 		{24, false, true},
 		{26, false, true},
 		{28, false, true},
-		{27, false, true},
+		{27, false, false},
 		{130001, true, true},
 		{130101, true, true},
 		{130202, true, true},
@@ -28,17 +28,17 @@ func TestQualifiedVersions(t *testing.T) {
 		{120901, false, false},
 		{130000, false, false},
 		{140000, false, false},
-		// Unmeasured releases use the newest measured layout below them.
+		// Unlisted runtimes are refused.
 		// Sampling has no measured CUDA 12 layout.
-		{25, false, true},
-		{29, false, true},
-		{130002, true, true},
-		{130100, true, true},
-		{130201, true, true},
-		{130300, true, true},
+		{25, false, false},
+		{29, false, false},
+		{130002, false, false},
+		{130100, false, false},
+		{130201, false, false},
+		{130300, false, false},
 		{130401, true, true},
-		{130500, true, true},
-		{139999, true, true},
+		{130500, false, false},
+		{139999, false, false},
 	} {
 		if got := qualifiedSamplingVersion(tt.version); got != tt.sampling {
 			t.Errorf("qualifiedSamplingVersion(%d) = %v, want %v", tt.version, got, tt.sampling)
@@ -51,7 +51,7 @@ func TestQualifiedVersions(t *testing.T) {
 
 // An unwitnessed version must be refused before any native configuration call.
 func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
-	for _, version := range []uint32{0, 27, 28, 120901, 130000, 140000} {
+	for _, version := range []uint32{0, 27, 28, 120901, 130000, 130002, 130100, 130201, 130500, 139999, 140000} {
 		t.Run(fmt.Sprint(version), func(t *testing.T) {
 			api := samplingControlAPI{
 				device:  func(driver.Context) (uint32, error) { return 0, nil },

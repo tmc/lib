@@ -15,19 +15,17 @@ import (
 // 130400: cupti_sass_metrics.h is byte-identical in all eight, the same 19674
 // bytes with md5 036af92478945463a6c50d934902fcd8. Identical bytes mean
 // identical structures, which is a stronger witness than a field-by-field
-// comparison. 130200 is admitted on a different witness: it is
-// [cupti.ApiVersion], the version the Go types in nvidia/cupti were generated
-// from.
+// comparison. 130200 retains its historical generated-header witness.
 //
 // The witness is per version, not per family. Qualifying a new version means
-// measuring its header; until then it runs on the layout below it.
+// measuring its header. Unlisted runtimes are refused, except historical
+// source admission of 130401 with layout 130400.
 var qualified = []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400}
 
-// supportedVersion reports whether CUPTI version v has a layout: a
-// qualified version, or a later release in the same major, which uses the
-// newest qualified layout at or below it (see [cuptiversion.Layout]).
+// Admission is exact. Runtime 130401 retains historical source admission
+// with layout 130400; this is not fresh physical qualification.
 func supportedVersion(v uint32) bool {
-	_, ok := cuptiversion.Layout(v, qualified...)
+	_, ok := cuptiversion.AdmittedLayout(v, qualified...)
 	return ok
 }
 

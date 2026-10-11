@@ -38,3 +38,19 @@ func major(v uint32) uint32 {
 	}
 	return v / 10000
 }
+
+// AdmittedLayout returns the recorded layout for an explicitly admitted runtime.
+// Unlike Layout, it does not admit gaps or future releases. Runtime 130401
+// retains its historical source admission with layout 130400; this alias is
+// not fresh physical qualification.
+func AdmittedLayout(v uint32, qualified ...uint32) (uint32, bool) {
+	if v == 130401 {
+		v = 130400
+	}
+	for _, q := range qualified {
+		if q == v {
+			return q, true
+		}
+	}
+	return 0, false
+}

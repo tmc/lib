@@ -27,18 +27,17 @@ type PCSamplingReasonLayout struct {
 // API version. 24, 26 and 28 are the CUDA 12 encodings, reported by the 12.6,
 // 12.8 and 12.9 libraries on the GB10 host; 130001, 130101, 130200,
 // 130202, 130301 and 130400 are the CUDA 13 versions whose cupti_pcsampling.h
-// has been measured, 130200 being [ApiVersion], the header these types were
+// has been measured, 130200 being the historical API header version these types were
 // generated from. These structs are filled in place by CUPTI through the
 // pointer it is given, so the declared size must be one that was measured.
-// A later release in the same major uses the newest measured layout at or
-// below it: CUPTI writes no further than the size a struct declares. A new
-// major or an older release is refused. The parameter structs contain
+// Admission is exact, except historical source admission of 130401 using
+// layout 130400. This is not fresh physical qualification. The structs contain
 // pointers and are admitted only on 64-bit hosts.
 func PCSamplingReasonLayoutFor(version uint32) (PCSamplingReasonLayout, bool) {
 	if unsafe.Sizeof(uintptr(0)) != 8 {
 		return PCSamplingReasonLayout{}, false
 	}
-	if _, ok := cuptiversion.Layout(version, 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400); !ok {
+	if _, ok := cuptiversion.AdmittedLayout(version, 24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400); !ok {
 		return PCSamplingReasonLayout{}, false
 	}
 	return PCSamplingReasonLayout{

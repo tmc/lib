@@ -24,9 +24,9 @@ func TestVersionQualification(t *testing.T) {
 		{name: "zero version", version: 0, want: false},
 		{name: "CUDA 12.2 API version", version: 20, want: false},
 		{name: "CUDA 13.4 L4 runtime version", version: 130401, want: true},
-		{name: "unmeasured 130100 uses an earlier layout", version: 130100, want: true},
-		{name: "unmeasured 130201 uses an earlier layout", version: 130201, want: true},
-		{name: "unmeasured 130500 uses an earlier layout", version: 130500, want: true},
+		{name: "unmeasured 130100 uses an earlier layout", version: 130100, want: false},
+		{name: "unmeasured 130201 uses an earlier layout", version: 130201, want: false},
+		{name: "unmeasured 130500 uses an earlier layout", version: 130500, want: false},
 		{name: "unmeasured CUDA 14", version: 140000, want: false},
 	}
 
@@ -46,8 +46,8 @@ func TestSetConfigPrefixSize(t *testing.T) {
 	if got, want := setConfigStructSize(130400), uint(64); got != want {
 		t.Errorf("setConfigStructSize(130400) = %d, want %d", got, want)
 	}
-	if got, want := setConfigStructSize(25), uint(60); got != want {
-		t.Errorf("setConfigStructSize(25) = %d, want %d", got, want)
+	if got, want := setConfigStructSize(24), uint(60); got != want {
+		t.Errorf("setConfigStructSize(24) = %d, want %d", got, want)
 	}
 	if got, want := setConfigStructSize(130401), uint(64); got != want {
 		t.Errorf("setConfigStructSize(130401) = %d, want %d", got, want)

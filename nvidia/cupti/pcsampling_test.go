@@ -8,7 +8,7 @@ import (
 )
 
 func TestPCSamplingReasonLayoutFor(t *testing.T) {
-	for _, version := range []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400} {
+	for _, version := range []uint32{24, 26, 28, 130001, 130101, 130200, 130202, 130301, 130400, 130401} {
 		layout, ok := PCSamplingReasonLayoutFor(version)
 		if !ok {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) rejected validated layout", version)
@@ -17,15 +17,8 @@ func TestPCSamplingReasonLayoutFor(t *testing.T) {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, want 32/48", version, layout)
 		}
 	}
-	// A later release in the same major uses the newest measured layout
-	// below it.
-	for _, version := range []uint32{25, 27, 29, 130002, 130100, 130201, 130401, 130500, 139999} {
-		if layout, ok := PCSamplingReasonLayoutFor(version); !ok || layout.CountParamsSize != 32 || layout.NamesParamsSize != 48 {
-			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, %v, want 32/48, true", version, layout, ok)
-		}
-	}
 	// A new major, or a release older than any measured one, is refused.
-	for _, version := range []uint32{0, 20, 120000, 130000, 140000} {
+	for _, version := range []uint32{0, 20, 25, 27, 29, 120000, 130000, 130002, 130100, 130201, 130500, 139999, 140000} {
 		if layout, ok := PCSamplingReasonLayoutFor(version); ok || layout != (PCSamplingReasonLayout{}) {
 			t.Fatalf("PCSamplingReasonLayoutFor(%d) = %+v, %v, want zero, false", version, layout, ok)
 		}
