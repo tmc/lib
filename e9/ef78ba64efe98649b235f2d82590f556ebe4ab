@@ -1,0 +1,7 @@
+Commit: e9ef78ba64efe98649b235f2d82590f556ebe4ab
+Commit date: 2026-10-11T16:06:53-07:00
+Change: nvmltest: exercise concurrent recording
+Signature: verified SSH signature; Travis Cline <travis.cline@gmail.com>, ED25519 fingerprint SHA256:yNu2+V1wOxDWmNzS73N1SCY8yH2detoiQufQMebjXBQ
+Agent: Codex, GPT-6; model build/version is not exposed in this execution.
+Execution identity: shell PID 51899; TTY unavailable (non-interactive).
+ITERM_SESSION_ID observed in this worker shell: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF. This is recorded as the inherited worker-shell value and is not asserted to be the root coordinator's iTerm session ID.
