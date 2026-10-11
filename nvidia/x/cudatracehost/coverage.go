@@ -2,6 +2,7 @@ package cudatracehost
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -88,12 +89,17 @@ func taskGeneration(pid, tid int) (uint64, error) {
 func discoverCoverage(pid, probeCount int) (SnapshotCoverage, time.Time, error) {
 	start := time.Now()
 	c := SnapshotCoverage{Status: "unverified", Clock: "elapsed_since_discovery", FutureThreads: "unobserved", BlindInterval: "discovery_through_attachment"}
-	entries, err := os.ReadDir(fmt.Sprintf("/proc/%d/task", pid))
+	if probeCount < 1 || probeCount > 256 {
+		return c, start, fmt.Errorf("cudatracehost: invalid probe count for snapshot")
+	}
+	dir, err := os.Open(fmt.Sprintf("/proc/%d/task", pid))
 	if err != nil {
 		return c, start, err
 	}
-	if probeCount < 1 || probeCount > 256 {
-		return c, start, fmt.Errorf("cudatracehost: invalid probe count for snapshot")
+	defer dir.Close()
+	entries, err := dir.ReadDir(256/probeCount + 1)
+	if err != nil && err != io.EOF {
+		return c, start, err
 	}
 	if len(entries) > 256/probeCount {
 		return c, start, fmt.Errorf("cudatracehost: attachment snapshot exceeds 256 probes")

@@ -33,41 +33,49 @@ type Config struct {
 	Scheduler                          bool
 	UserStack                          bool
 	MaxPending                         int
+	ThreadRescanInterval               time.Duration
+	MaxThreadRescans                   int
 }
 
 // Collector owns probe lifetime and bounded host-call correlation. It exposes
 // raw scheduler events without claiming an exact request/goroutine join.
 type Collector struct {
-	execKnown   bool
-	delivered   atomic.Uint64
-	execID      uint64
-	cleanupErr  error
-	done        chan struct{}
-	stopOnce    sync.Once
-	stateMu     sync.Mutex
-	terminalErr error
-	closeMu     sync.Mutex
-	held        *os.File
-	group       *bpfprobe.Group
-	events      chan transportEvent
-	cancel      context.CancelFunc
-	wait        sync.WaitGroup
-	tagNames    map[uint64]string
-	trace       *ebpfhost.Collector
-	calls       *Correlator
-	process     cudaprobe.Process
-	pid         int
-	manifest    Manifest
+	rescanner      *threadRescanner
+	rescanCancel   context.CancelFunc
+	rescanWait     sync.WaitGroup
+	rescanInterval time.Duration
+	execKnown      bool
+	delivered      atomic.Uint64
+	execID         uint64
+	cleanupErr     error
+	done           chan struct{}
+	stopOnce       sync.Once
+	stateMu        sync.Mutex
+	terminalErr    error
+	closeMu        sync.Mutex
+	held           *os.File
+	group          *bpfprobe.Group
+	events         chan transportEvent
+	cancel         context.CancelFunc
+	wait           sync.WaitGroup
+	tagNames       map[uint64]string
+	trace          *ebpfhost.Collector
+	calls          *Correlator
+	process        cudaprobe.Process
+	pid            int
+	manifest       Manifest
 }
 
 // Result preserves raw transport even when a line cannot be decoded. Scheduler
 // is an observed host scheduling line, not GPU evidence.
 type Result struct {
-	Call      *CallInterval
-	Native    *bpfprobe.Event
-	Raw       string
-	Capture   *cudaprobe.Capture
-	Scheduler bool
+	Call          *CallInterval
+	Native        *bpfprobe.Event
+	Raw           string
+	Capture       *cudaprobe.Capture
+	Scheduler     bool
+	ThreadRescan  *ThreadRescan
+	PairingStatus string
 }
 
 // Open resolves and attaches entry/return probes. Permission, missing symbols,
@@ -189,6 +197,9 @@ func Open(cfg Config) (*Collector, error) {
 	if backend != "tracefs" && backend != "bpf" {
 		return nil, fmt.Errorf("cudatracehost: unsupported backend %s", backend)
 	}
+	if err := validateRescan(cfg, backend); err != nil {
+		return nil, err
+	}
 	var trace *ebpfhost.Collector
 	var group *bpfprobe.Group
 	coverage := SnapshotCoverage{Status: "unavailable", FutureThreads: "unobserved", BlindInterval: "backend_snapshot_unverified"}
@@ -270,6 +281,37 @@ func Open(cfg Config) (*Collector, error) {
 		m.TaskExecSize = group.TaskExecSize
 	}
 	c := &Collector{done: make(chan struct{}), held: held, trace: trace, group: group, calls: calls, process: m.Process, pid: cfg.PID, manifest: m, tagNames: tagNames}
+	if cfg.ThreadRescanInterval > 0 {
+		initial := make(map[uint32]uint64)
+		known := make(map[uint32]uint64)
+		for _, t := range coverage.Threads {
+			initial[t.TID] = t.Generation
+			known[t.TID] = t.Generation
+		}
+		c.rescanInterval = cfg.ThreadRescanInterval
+		c.rescanner = &threadRescanner{initial: initial, known: known, limit: cfg.MaxThreadRescans, probes: len(probes), now: func() int64 { return time.Since(discoveryStart).Nanoseconds() }, generation: func(tid int) (uint64, error) { return taskGeneration(cfg.PID, tid) }, process: func() error {
+			g, e := ebpfhost.ProcessStartTime(cfg.PID)
+			if e != nil {
+				return e
+			}
+			if g != generation {
+				return fmt.Errorf("cudatracehost: process lifetime changed during rescan")
+			}
+			return nil
+		}, discover: func() ([]ThreadSnapshot, error) {
+			v, _, e := discoverCoverage(cfg.PID, len(probes))
+			return v.Threads, e
+		}, attach: func(threads []ThreadSnapshot, verify func() error) error {
+			var configs []bpfprobe.Config
+			for _, t := range threads {
+				for i, p := range probes {
+					configs = append(configs, bpfprobe.Config{Path: p.Path, Offset: p.Offset, PID: int(t.TID), Tag: uint64(i), Return: p.Return, Capacity: 65536, OutputPointer: outputPointer(targets[i/2].Identity.Symbol), UserStack: cfg.UserStack, CorrelationTag: uint64(i/2 + 1), TGID: uint32(cfg.PID)})
+				}
+			}
+			return group.Add(configs, verify)
+		}}
+		c.manifest.ThreadScope = "bounded_rescan_blind_intervals_unknown"
+	}
 	if group != nil {
 		c.startReaders()
 	}
@@ -360,6 +402,7 @@ func (c *Collector) Close() error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
 	c.markTerminal(os.ErrClosed)
+	c.stopRescans()
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -389,6 +432,9 @@ func (c *Collector) Close() error {
 // is the kernel boot ID for the monotonic clock, not a sensor clock mapping.
 type Manifest struct {
 	ThreadCoverage                                SnapshotCoverage
+	ThreadRescans                                 []ThreadRescan
+	ThreadRescanInterval                          time.Duration
+	MaxThreadRescans                              int
 	TaskExecOffset, TaskExecSize                  uint32
 	KernelBTFHash                                 string
 	TaskStartOffset                               uint32
@@ -402,21 +448,30 @@ type Manifest struct {
 // Manifest returns a copy of immutable attachment provenance.
 func (c *Collector) Manifest() Manifest {
 	m := c.manifest
+	if c.rescanner != nil {
+		m.ThreadRescans = c.rescanner.snapshot()
+		m.ThreadRescanInterval = c.rescanInterval
+		m.MaxThreadRescans = c.rescanner.limit
+	}
 	m.Images = append([]ebpfhost.Image(nil), m.Images...)
 	m.ThreadCoverage.Threads = append([]ThreadSnapshot(nil), m.ThreadCoverage.Threads...)
 	return m
 }
 
 type transportEvent struct {
-	native *bpfprobe.Event
-	raw    string
-	err    error
+	coverage *ThreadRescan
+	native   *bpfprobe.Event
+	raw      string
+	err      error
 }
 
 func (c *Collector) startReaders() {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 	c.events = make(chan transportEvent, 256)
+	if c.rescanner != nil {
+		c.startRescans(ctx, c.rescanInterval)
+	}
 	send := func(e transportEvent) bool {
 		select {
 		case c.events <- e:
@@ -469,6 +524,9 @@ func (c *Collector) nextBPF(ctx context.Context) (Result, error) {
 			c.calls.Gap()
 			return Result{Raw: e.raw}, fmt.Errorf("cudatracehost: process lifetime changed during BPF read")
 		}
+		if e.coverage != nil {
+			return Result{ThreadRescan: e.coverage}, e.err
+		}
 		if e.err != nil {
 			c.calls.Gap()
 			return Result{}, e.err
@@ -499,6 +557,12 @@ func (c *Collector) nextBPF(ctx context.Context) (Result, error) {
 			return r, err
 		}
 		tid := uint32(e.native.PIDTGID)
+		if c.rescanner != nil {
+			if _, ok := c.rescanner.initial[tid]; !ok {
+				r.PairingStatus = "withheld_dynamic_thread_coverage"
+				return r, nil
+			}
+		}
 		name, ok := c.tagNames[e.native.Tag]
 		if !ok {
 			c.calls.Gap()
@@ -595,6 +659,7 @@ type StopStats struct {
 }
 
 func (c *Collector) StopAndStats() (StopStats, error) {
+	c.stopRescans()
 	s := StopStats{Delivered: c.delivered.Load(), RingStatus: "unavailable"}
 	if c.group == nil {
 		return s, nil

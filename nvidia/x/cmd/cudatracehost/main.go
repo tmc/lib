@@ -33,6 +33,8 @@ func run() (err error) {
 	flag.StringVar(&cfg.TraceRoot, "tracefs", "/sys/kernel/tracing", "tracefs mount")
 	flag.BoolVar(&cfg.Scheduler, "scheduler", true, "capture scheduler evidence for current target threads")
 	flag.BoolVar(&cfg.UserStack, "user-stack", false, "capture bounded frame-pointer user stacks (bpf only)")
+	flag.DurationVar(&cfg.ThreadRescanInterval, "thread-rescan-interval", 0, "opt-in bounded CUDA thread rescan interval (bpf only)")
+	flag.IntVar(&cfg.MaxThreadRescans, "max-thread-rescans", 32, "maximum rescan attempts, 1 to 128")
 	flag.Parse()
 	cfg.Symbols = strings.Split(symbols, ",")
 	c, err := cudatracehost.Open(cfg)
@@ -56,7 +58,7 @@ func run() (err error) {
 		if err != nil {
 			reason = err.Error()
 		}
-		err = errors.Join(err, out.Encode(map[string]any{"schema": "cudatracehost/v1", "kind": "completion", "complete": false, "reason": reason, "cleanup_status": status, "ring": stats, "written_native": writtenNative, "lifecycle_loss_status": "unknown"}))
+		err = errors.Join(err, out.Encode(map[string]any{"schema": "cudatracehost/v1", "kind": "completion", "complete": false, "reason": reason, "cleanup_status": status, "ring": stats, "written_native": writtenNative, "lifecycle_loss_status": "unknown", "manifest": c.Manifest()}))
 	}()
 	allocation := "unavailable"
 	ring := "unavailable"
@@ -69,7 +71,7 @@ func run() (err error) {
 	}
 	for {
 		r, err := c.Next(ctx)
-		if r.Raw != "" || r.Native != nil || r.Capture != nil || r.Call != nil {
+		if r.Raw != "" || r.Native != nil || r.Capture != nil || r.Call != nil || r.ThreadRescan != nil {
 			if writeErr := out.Encode(r); writeErr != nil {
 				return writeErr
 			}

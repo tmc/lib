@@ -11,7 +11,7 @@
 //
 // CUDA context lifetimes, device duration and pre-attachment history remain
 // unavailable. Scheduler capture covers the attachment thread snapshot; BPF
-// probes cover only that snapshot; new threads remain unobserved. The manifest
+// probes cover that snapshot unless bounded rescans are explicitly enabled. The manifest
 // retains BPF snapshot TIDs, /proc starttime generations verified before and
 // after attachment, and elapsed monotonic discovery/attachment boundaries.
 // Discovery and attachment are blind intervals, not atomic thread coverage.
@@ -29,4 +29,14 @@
 // collector-off workload passed. The corrected snapshot-only amd64 collector
 // passed a bounded L4 control. That receipt does not establish native arm64
 // attachment, complete thread coverage or production overhead bounds.
+//
+// Config.ThreadRescanInterval opts BPF CUDA probes into bounded thread rescans.
+// Each new attachment uses the existing ring and verifies process and task
+// start-time tokens before and after attachment. The attempt history reports
+// blind intervals; threads that start and exit between scans remain unknown.
+// Scans stop on the first error or exhausted budget. Scheduler attachments
+// remain the initial snapshot. Added-thread observations retain raw kernel
+// identity, but derived call intervals are withheld for those threads.
+// StopAndStats cancels and joins rescans before disabling probes and reading
+// final counters. Missed calls during blind intervals have no measured count.
 package cudatracehost
