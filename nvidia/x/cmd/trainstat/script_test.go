@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"rsc.io/script"
@@ -39,8 +41,12 @@ func TestScript(t *testing.T) {
 		Cmds:  scripttest.DefaultCmds(),
 		Conds: scripttest.DefaultConds(),
 	}
-	// HOME is the real one: the gotest script runs go test, which needs
-	// the module and build caches under it.
+	scripttest.Test(t, context.Background(), engine, scriptEnv(bin, fixtures, root), "testdata/script/*.txt")
+}
+
+func scriptEnv(bin, fixtures, root string) []string {
+	// Keep HOME unchanged and use the caller's Go caches and offline policy.
+	// Scripttest gives each script its own temporary directory.
 	env := []string{
 		"PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"HOME=" + os.Getenv("HOME"),
@@ -48,5 +54,70 @@ func TestScript(t *testing.T) {
 		"TESTDATA=" + fixtures,
 		"NVIDIA=" + root,
 	}
-	scripttest.Test(t, context.Background(), engine, env, "testdata/script/*.txt")
+	for _, key := range []string{"GOPATH", "GOMODCACHE", "GOCACHE", "GOPROXY", "GOSUMDB", "GOENV", "GOTOOLCHAIN", "GOROOT", "GOTMPDIR"} {
+		if value, ok := os.LookupEnv(key); ok {
+			env = append(env, key+"="+value)
+		}
+	}
+	return env
+}
+
+func TestScriptGoEnvironment(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		modcache bool
+	}{
+		{"gopath", false},
+		{"modcache", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			work := t.TempDir()
+			gopath := filepath.Join(work, "go")
+			modcache := filepath.Join(gopath, "pkg", "mod")
+			if tc.modcache {
+				modcache = filepath.Join(work, "modules")
+			}
+			t.Setenv("GOPATH", gopath)
+			t.Setenv("GOMODCACHE", "")
+			if tc.modcache {
+				t.Setenv("GOMODCACHE", modcache)
+			}
+			buildcache := filepath.Join(work, "build")
+			t.Setenv("GOCACHE", buildcache)
+			t.Setenv("GOPROXY", "off")
+			t.Setenv("GOSUMDB", "off")
+			t.Setenv("GOENV", "off")
+			t.Setenv("GOTOOLCHAIN", "local")
+
+			cmd := exec.Command("go", "env", "-json", "GOPATH", "GOMODCACHE", "GOCACHE", "GOPROXY", "GOSUMDB", "GOENV", "GOTOOLCHAIN")
+			cmd.Env = scriptEnv("", "", "")
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("go env: %v\n%s", err, out)
+			}
+			var got map[string]string
+			if err := json.Unmarshal(out, &got); err != nil {
+				t.Fatal(err)
+			}
+			want := map[string]string{
+				"GOPATH": gopath, "GOMODCACHE": modcache, "GOCACHE": buildcache,
+				"GOPROXY": "off", "GOSUMDB": "off", "GOENV": "", "GOTOOLCHAIN": "local",
+			}
+			for key, value := range want {
+				if got[key] != value {
+					t.Errorf("go env %s = %q, want %q", key, got[key], value)
+				}
+			}
+			// go env reports no configuration file when GOENV=off.
+			if !slices.Contains(cmd.Env, "GOENV=off") {
+				t.Error("script environment did not preserve GOENV=off")
+			}
+			for _, setting := range cmd.Env {
+				if setting == "HOME="+os.Getenv("HOME") {
+					return
+				}
+			}
+			t.Error("script environment changed HOME")
+		})
+	}
 }
