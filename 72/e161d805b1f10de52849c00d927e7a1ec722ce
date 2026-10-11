@@ -1,0 +1,10 @@
+commit: 72e161d805b1f10de52849c00d927e7a1ec722ce
+date: 2026-10-10T23:45:13-07:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; author/reviewer gpt-6.1-sol
+tty: none
+pid: 15229
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-wt-next/20261010-full-testing-readiness/independent-tma-bounds/GRADE.md
+review sha256: 074d763defdab2c3095ec48e00a091fa6f513441235de608a17afb931efaca0a
+commit helper: manual fallback after two retained missing-API-key failures
