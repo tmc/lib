@@ -45,6 +45,7 @@ type PlanEngine struct {
 }
 
 type planForward struct {
+	id         int64
 	gate       chan struct{}
 	step       *ExecutionStep
 	completion planCompletion
@@ -131,20 +132,20 @@ func (e *PlanEngine) ExecuteForward(ctx context.Context, step *ExecutionStep) (m
 		e.mu.Unlock()
 		return nil, nil, errors.New("cudabatch: plan completion requires drain")
 	}
-	if e.last != nil && step.StepID <= e.last.step.StepID {
+	if e.last != nil && step.StepID <= e.last.id {
 		e.mu.Unlock()
 		return nil, nil, errors.New("cudabatch: step id must increase")
 	}
-	state := &planForward{gate: make(chan struct{}, 1), step: owned}
+	state := &planForward{gate: make(chan struct{}, 1), step: owned, id: step.StepID}
 	e.current, e.last = state, state
 	e.mu.Unlock()
 	defer func() { state.gate <- struct{}{} }()
 	waitCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	if step.CancelWait != nil {
+	if cancelWait := owned.CancelWait; cancelWait != nil {
 		go func() {
 			select {
-			case <-step.CancelWait:
+			case <-cancelWait:
 				cancel()
 			case <-waitCtx.Done():
 			}
@@ -266,7 +267,7 @@ func (e *PlanEngine) WaitStep(ctx context.Context, id int64) error {
 	e.mu.Lock()
 	s := e.last
 	e.mu.Unlock()
-	if s == nil || s.step.StepID != id {
+	if s == nil || s.id != id {
 		return errors.New("cudabatch: unknown execution step")
 	}
 	return e.waitStep(ctx, s)
@@ -278,7 +279,7 @@ func (e *PlanEngine) StepDone(id int64) bool {
 	e.mu.Lock()
 	s := e.last
 	e.mu.Unlock()
-	return s != nil && s.step.StepID == id && s.done.Load()
+	return s != nil && s.id == id && s.done.Load()
 }
 
 // Close closes the owned plan. Pending completion must first be drained with an

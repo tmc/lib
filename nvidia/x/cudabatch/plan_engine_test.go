@@ -237,6 +237,7 @@ func TestPlanEngineOwnsMetadata(t *testing.T) {
 	step := planTestStep(t, 1)
 	step.Iteration = &ScheduledIteration{StepID: 1, AllocatedRows: step.Metadata.RowBindings, TotalTokens: 1}
 	e.bind = func(_ context.Context, s *ExecutionStep) (*cudaplan.Bindings, func(), error) {
+		s.StepID = 99
 		s.Metadata.RowBindings[0].BlockTable[0] = 7
 		s.Iteration.AllocatedRows[0].BlockTable[0] = 8
 		if step.Metadata.RowBindings[0].BlockTable[0] != 0 {
@@ -246,6 +247,9 @@ func TestPlanEngineOwnsMetadata(t *testing.T) {
 	}
 	if _, _, err := e.ExecuteForward(context.Background(), step); err != nil {
 		t.Fatal(err)
+	}
+	if !e.StepDone(1) || e.StepDone(99) {
+		t.Fatal("binder changed completion identity")
 	}
 }
 func TestCompilePlanEngineHostRefusal(t *testing.T) {
@@ -352,5 +356,25 @@ func TestPlanEngineCancelWait(t *testing.T) {
 	}
 	if !reflect.DeepEqual(events, []string{"release"}) || !engine.StepDone(1) {
 		t.Fatalf("canceled bind dispatched: %v", events)
+	}
+}
+
+func TestPlanEngineReuseCallerStep(t *testing.T) {
+	var events []string
+	engine := planTestEngine(&controlledPlanCompletion{done: true}, nil, &events)
+	step := planTestStep(t, 1)
+	for i := int64(1); i <= 100; i++ {
+		step.StepID = i
+		step.CancelWait = make(chan struct{})
+		if _, _, err := engine.ExecuteForward(context.Background(), step); err != nil {
+			t.Fatal(err)
+		}
+		// The bounded cancellation watcher may still be exiting. Reusing caller
+		// storage must not change the watcher's captured channel or completion ID.
+		step.CancelWait = nil
+		step.StepID = -1
+		if !engine.StepDone(i) {
+			t.Fatal("caller changed completion identity")
+		}
 	}
 }
