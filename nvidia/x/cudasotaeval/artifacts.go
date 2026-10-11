@@ -142,6 +142,17 @@ func VerifyManifest(dir string) (*ArtifactManifest, error) {
 	if err := checkArtifactJSON(json.NewDecoder(bytes.NewReader(data))); err != nil {
 		return nil, fmt.Errorf("verify manifest: decode: %w", err)
 	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return nil, fmt.Errorf("verify manifest: decode fields: %w", err)
+	}
+	for key := range fields {
+		switch key {
+		case "version", "timestamp", "files", "manifest_sha256":
+		default:
+			return nil, fmt.Errorf("verify manifest: noncanonical or unknown field %q", key)
+		}
+	}
 	var man ArtifactManifest
 	if err := json.Unmarshal(data, &man); err != nil {
 		return nil, fmt.Errorf("verify manifest: decode: %w", err)

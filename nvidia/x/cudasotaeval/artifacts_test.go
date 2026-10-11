@@ -168,3 +168,43 @@ func TestVerifyManifestDuplicateKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestVerifyManifestCanonicalFields(t *testing.T) {
+	const abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+	for _, tt := range []struct {
+		name   string
+		mutate func(string) string
+	}{
+		{"case alias", func(s string) string { return strings.Replace(s, `"version":1`, `"version":1,"Version":1`, 1) }},
+		{"sole case alias", func(s string) string { return strings.Replace(s, `"version":1`, `"Version":1`, 1) }},
+		{"unknown", func(s string) string { return strings.Replace(s, `"version":1`, `"version":1,"ignored":true`, 1) }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "Data"), []byte("abc"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			writeTestManifest(t, dir, ArtifactManifest{Version: 1, Files: map[string]string{"Data": abc}})
+			path := filepath.Join(dir, "manifest.json")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(tt.mutate(string(data))), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := VerifyManifest(dir); err == nil {
+				t.Fatal("admitted ambiguous manifest")
+			}
+		})
+	}
+	// Artifact paths are caller-owned and may have upper-case spelling.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "Data"), []byte("abc"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	writeTestManifest(t, dir, ArtifactManifest{Version: 1, Files: map[string]string{"Data": abc}})
+	if _, err := VerifyManifest(dir); err != nil {
+		t.Fatal(err)
+	}
+}
