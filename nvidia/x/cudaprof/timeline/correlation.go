@@ -57,6 +57,9 @@ func Correlations(records Records, domain string) []Correlation {
 			calls[k] = append(calls[k], i)
 		}
 	}
+	var index *rangeIndex
+	var parsed []rangeMetadata
+	contexts := make(map[int]rangeContext)
 	lifecycle := GraphLifecycle(records.GraphLifecycle)
 	out := make([]Correlation, 0, len(records.Activities))
 	for i, a := range records.Activities {
@@ -103,85 +106,24 @@ func Correlations(records Records, domain string) []Correlation {
 				m.RangeStatus = "unsupported"
 				break
 			}
-			var candidates []int
-			for j, r := range records.Ranges {
-				if r.Journal == c.Journal && r.Process == c.Process && r.Thread == c.Thread && r.Start <= c.Start && r.End >= c.End && r.End > r.Start {
-					candidates = append(candidates, j)
+			context, ok := contexts[m.Call]
+			if !ok {
+				if index == nil {
+					index = newRangeIndex(records.Ranges)
+					parsed = make([]rangeMetadata, len(records.Ranges))
 				}
+				context = resolveRangeContext(c, records.Ranges, index, parsed)
+				contexts[m.Call] = context
 			}
-			if len(candidates) == 0 {
-				break
-			}
-			// An invalid ancestor makes its nested context ambiguous too.
-			// Crossing ranges need not enclose the entire API call.
-			crossed := false
-			for _, j := range candidates {
-				r := records.Ranges[j]
-				for _, s := range records.Ranges {
-					if s.Journal != r.Journal || s.Process != r.Process || s.Thread != r.Thread || s.End <= s.Start {
-						continue
-					}
-					if r.Start < s.Start && s.Start < r.End && r.End < s.End || s.Start < r.Start && r.Start < s.End && s.End < r.End {
-						crossed = true
-						break
-					}
-				}
-				if crossed {
-					break
-				}
-			}
-			if crossed {
-				m.RangeStatus = "ambiguous"
-				break
-			}
-			// A unique minimum must be contained by every other candidate.
-			for _, j := range candidates {
-				r := records.Ranges[j]
-				inner := true
-				for _, k := range candidates {
-					if j == k {
-						continue
-					}
-					s := records.Ranges[k]
-					if r.Start < s.Start || r.End > s.End || (r.Start == s.Start && r.End == s.End) {
-						inner = false
-						break
-					}
-				}
-				if inner {
-					m.Range, m.RangeStatus = j, "matched"
-					break
-				}
-			}
-			if m.Range < 0 {
-				m.RangeStatus = "ambiguous"
-			}
+			m.Range, m.RangeStatus = context.rangeIndex, context.rangeStatus
 		}
 		if m.RangeStatus == "matched" {
-			meta, err := marker.ParseRange(records.Ranges[m.Range].Name)
-			switch {
-			case err == nil && meta.Event != "":
-				m.MetadataStatus = "unsupported"
-			case err == nil:
-				m.Metadata, m.MetadataStatus = &meta, "matched"
-				c := records.Calls[m.Call]
-				for _, r := range records.Ranges {
-					if r.Journal != c.Journal || r.Process != c.Process || r.Thread != c.Thread || r.Start > c.Start || r.End < c.End {
-						continue
-					}
-					outer, err := marker.ParseRange(r.Name)
-					if err == nil && conflictingMetadata(meta, outer) {
-						m.Metadata, m.MetadataStatus = nil, "ambiguous"
-						break
-					}
-					if err != nil && !errors.Is(err, marker.ErrNotMarker) {
-						m.Metadata, m.MetadataStatus = nil, "unsupported"
-						break
-					}
-				}
-			case errors.Is(err, marker.ErrNotMarker):
-			default:
-				m.MetadataStatus = "unsupported"
+			m.MetadataStatus = contexts[m.Call].metadataStatus
+			if m.MetadataStatus == "matched" {
+				// Return independent marker values for each activity. The cached
+				// parse is private to this invocation and never escapes to callers.
+				meta, _ := marker.ParseRange(records.Ranges[m.Range].Name)
+				m.Metadata = &meta
 			}
 		} else if m.RangeStatus != "missing" {
 			m.MetadataStatus = m.RangeStatus
@@ -208,6 +150,94 @@ func Correlations(records Records, domain string) []Correlation {
 		out = append(out, m)
 	}
 	return out
+}
+
+type rangeContext struct {
+	rangeIndex     int
+	rangeStatus    string
+	metadataStatus string
+}
+
+type rangeMetadata struct {
+	parsed bool
+	value  marker.Metadata
+	err    error
+}
+
+func readRangeMetadata(ranges []Range, cache []rangeMetadata, i int) (marker.Metadata, error) {
+	if !cache[i].parsed {
+		cache[i].value, cache[i].err = marker.ParseRange(ranges[i].Name)
+		cache[i].parsed = true
+	}
+	return cache[i].value, cache[i].err
+}
+
+func resolveRangeContext(call Call, ranges []Range, index *rangeIndex, parsed []rangeMetadata) rangeContext {
+	result := rangeContext{rangeIndex: -1, rangeStatus: "missing", metadataStatus: "missing"}
+	candidates := index.enclosing(call)
+	var start, end int64
+	found := false
+	for _, i := range candidates {
+		r := ranges[i]
+		if r.End <= r.Start {
+			continue
+		}
+		if index.crossed(i) {
+			result.rangeStatus = "ambiguous"
+			return result
+		}
+		if !found || r.Start > start {
+			start = r.Start
+		}
+		if !found || r.End < end {
+			end = r.End
+		}
+		found = true
+	}
+	if !found {
+		return result
+	}
+	// A unique innermost range has the latest start and earliest end.
+	// Equal intervals stay ambiguous, even when they carry equal metadata.
+	for _, i := range candidates {
+		r := ranges[i]
+		if r.End > r.Start && r.Start == start && r.End == end {
+			if result.rangeIndex >= 0 {
+				result.rangeIndex, result.rangeStatus = -1, "ambiguous"
+				return result
+			}
+			result.rangeIndex = i
+		}
+	}
+	if result.rangeIndex < 0 {
+		result.rangeStatus = "ambiguous"
+		return result
+	}
+	result.rangeStatus = "matched"
+	meta, err := readRangeMetadata(ranges, parsed, result.rangeIndex)
+	switch {
+	case err == nil && meta.Event != "":
+		result.metadataStatus = "unsupported"
+	case err == nil:
+		result.metadataStatus = "matched"
+		// The index preserves input order, including zero-duration ranges, so a
+		// malformed marker and a conflict retain the original refusal precedence.
+		for _, i := range candidates {
+			outer, err := readRangeMetadata(ranges, parsed, i)
+			if err == nil && conflictingMetadata(meta, outer) {
+				result.metadataStatus = "ambiguous"
+				break
+			}
+			if err != nil && !errors.Is(err, marker.ErrNotMarker) {
+				result.metadataStatus = "unsupported"
+				break
+			}
+		}
+	case errors.Is(err, marker.ErrNotMarker):
+	default:
+		result.metadataStatus = "unsupported"
+	}
+	return result
 }
 
 // conflictingMetadata compares only fields explicitly supplied by both ranges.
