@@ -26,6 +26,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/quic-go/quic-go v0.62.0 // indirect
 	github.com/tmc/ffi v0.0.0-20260906092449-1be2d95a8044 // indirect
+	github.com/tmc/lib/ebpfhost v0.0.0 // indirect
 	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
@@ -52,3 +53,5 @@ replace github.com/tmc/lib/openxla => ../openxla
 replace github.com/tmc/lib/tpu => ../tpu
 
 replace github.com/tmc/lib/hf/hftokenizer => ../hf/hftokenizer
+
+replace github.com/tmc/lib/ebpfhost => ../ebpfhost
