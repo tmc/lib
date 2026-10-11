@@ -82,6 +82,24 @@ func (a *BatchEngineAdapter) ContinuationTracker() *cudabatch.ContinuationTracke
 
 // Generate implements the cudasrv.Engine interface.
 func (a *BatchEngineAdapter) Generate(ctx context.Context, req ChatCompletionRequest, tokenChan chan<- string) error {
+	return a.generate(ctx, req, tokenChan, nil)
+}
+
+// GenerateWithUsage counts the rendered prompt's tokenizer IDs and the
+// scheduler's generated token IDs. Stream chunk lengths do not affect usage.
+func (a *BatchEngineAdapter) GenerateWithUsage(ctx context.Context, req ChatCompletionRequest, tokenChan chan<- string) (UsageStats, error) {
+	var usage UsageStats
+	err := a.generate(ctx, req, tokenChan, &usage)
+	return usage, err
+}
+
+func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionRequest, tokenChan chan<- string, usage *UsageStats) error {
+	if ctx == nil || tokenChan == nil {
+		return fmt.Errorf("cudasrv: adapter requires context and token channel")
+	}
+	if a.scheduler == nil || a.execEngine == nil {
+		return fmt.Errorf("cudasrv: adapter missing scheduler or execution engine")
+	}
 	if a.tokenizer == nil {
 		return fmt.Errorf("cudasrv: adapter missing tokenizer")
 	}
@@ -98,7 +116,11 @@ func (a *BatchEngineAdapter) Generate(ctx context.Context, req ChatCompletionReq
 		return fmt.Errorf("cudasrv: tokenize prompt: %w", err)
 	}
 	if len(tokens) == 0 {
-		tokens = []int32{1} // Ensure non-empty prompt token
+		return fmt.Errorf("cudasrv: tokenizer returned an empty prompt")
+	}
+
+	if usage != nil {
+		usage.PromptTokens = len(tokens)
 	}
 
 	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
@@ -164,10 +186,30 @@ func (a *BatchEngineAdapter) Generate(ctx context.Context, req ChatCompletionReq
 			_ = a.scheduler.Cancel(reqID)
 			return ctx.Err()
 		case tok, ok := <-tokListener:
-			if ok && tok != "" {
-				tokenChan <- tok
+			if !ok {
+				tokListener = nil
+				continue
+			}
+			if tok != "" {
+				select {
+				case tokenChan <- tok:
+				case <-ctx.Done():
+					_ = a.scheduler.Cancel(reqID)
+					return ctx.Err()
+				}
 			}
 		case err := <-doneChan:
+			if err == nil && usage != nil {
+				request, ok := a.scheduler.Request(reqID)
+				if !ok {
+					return fmt.Errorf("cudasrv: completed request missing token usage")
+				}
+				usage.CompletionTokens = len(request.GeneratedTokens)
+				if usage.PromptTokens > int(^uint(0)>>1)-usage.CompletionTokens {
+					return fmt.Errorf("cudasrv: token usage overflows")
+				}
+				usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+			}
 			// Save continuation in session if requested
 			if req.SessionID != "" && a.contTracker != nil {
 				if r, ok := a.scheduler.Request(reqID); ok {
