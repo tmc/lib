@@ -1,0 +1,9 @@
+Commit: 8ba70c7b0679e3abe939c451da711017f2e92e90
+Parent: e9ef78ba64efe98649b235f2d82590f556ebe4ab
+Commit date: 2026-10-11T16:22:18-07:00
+Change: nvmltest: freeze snapshot isolation oracle
+Signature: verified SSH signature; Travis Cline <travis.cline@gmail.com>, ED25519 fingerprint SHA256:yNu2+V1wOxDWmNzS73N1SCY8yH2detoiQufQMebjXBQ
+Agent: Codex, GPT-6; model build/version is not exposed in this execution.
+Execution identity: shell PID 5439; TTY unavailable (non-interactive).
+ITERM_SESSION_ID observed in this worker shell: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF. This inherited worker-shell value is not asserted to be the root coordinator's iTerm session ID.
+Commit helper had already failed twice in the predecessor task because ANTHROPIC_API_KEY was unset; this successor used the required manual signed fallback without further helper retries.
