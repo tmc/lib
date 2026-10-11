@@ -133,7 +133,11 @@ func TestKill(t *testing.T) {
 		u.handle('j')
 	}
 	u.handle(keyEnter)
-	if want := []sent{{1234, signals[9].sig}}; !slices.Equal(got, want) {
+	var want []sent
+	if len(signals) > 9 {
+		want = []sent{{1234, signals[9].sig}}
+	}
+	if !slices.Equal(got, want) {
 		t.Errorf("sent %v, want %v", got, want)
 	}
 	if u.frozen() {
@@ -158,8 +162,12 @@ func TestSignalDigits(t *testing.T) {
 		for _, k := range tt.keys {
 			u.handle(k)
 		}
-		if u.optSelected != tt.want {
-			t.Errorf("after F9 %q: selected %d, want %d", tt.keys, u.optSelected, tt.want)
+		want := tt.want
+		if len(signals) == 1 {
+			want = 0 // Unsupported platforms offer only Cancel.
+		}
+		if u.optSelected != want {
+			t.Errorf("after F9 %q: selected %d, want %d", tt.keys, u.optSelected, want)
 		}
 	}
 

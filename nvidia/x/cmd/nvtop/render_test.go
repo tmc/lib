@@ -43,7 +43,11 @@ func TestRender(t *testing.T) {
 				u.handle(k)
 			}
 			u.render(s)
-			golden(t, "render/"+tt.name+".golden", []byte(s.String()))
+			name := tt.name
+			if name == "kill" && len(signals) == 1 {
+				name = "kill-unsupported"
+			}
+			golden(t, "render/"+name+".golden", []byte(s.String()))
 		})
 	}
 }

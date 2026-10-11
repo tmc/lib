@@ -355,6 +355,9 @@ func (u *ui) handle(k key) {
 			if n := u.number*10 + d; u.lastDigit && n < len(signals) {
 				d = n
 			}
+			if d >= len(signals) {
+				d = 0
+			}
 			u.number = d
 			u.optSelected = d
 		}
