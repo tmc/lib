@@ -1,0 +1,32 @@
+# Serving must have a bounded synthetic process lifecycle without NVML.
+exec nvtelemetry help
+stdout 'serve'
+stdout 'fetch-endpoint'
+stdout 'deliver'
+env LD_LIBRARY_PATH=$WORK/no-nvml
+exec nvtelemetry serve -mock -listen 127.0.0.1:0 -duration 40ms -interval 5ms
+stdout 'http://127.0.0.1:[0-9]+/metrics'
+! exec nvtelemetry serve
+stderr 'explicit device UUID allowlist'
+! exec nvtelemetry serve -mock -listen 0.0.0.0:0
+stderr 'non-loopback serving requires'
+! exec nvtelemetry serve -mock -budget 2 -interval 5ms -listen 127.0.0.1:0
+stderr 'budget'
+
+# Invalid configuration must fail before network transmission.
+! exec nvtelemetry fetch-endpoint -config duplicate.json
+stderr 'invalid endpoint configuration JSON'
+! exec nvtelemetry fetch-endpoint -config remote-http.json
+stderr 'remote HTTP endpoint requires'
+! exec nvtelemetry deliver -signal invented -config duplicate.json -input request.json
+stderr 'metrics or logs signal'
+! exec nvtelemetry deliver -signal logs -config duplicate.json -input request.json
+stderr 'invalid endpoint configuration JSON'
+
+-- duplicate.json --
+{"url":"https://example.invalid","URL":"https://other.invalid"}
+-- remote-http.json --
+{"url":"http://example.invalid","timeout_nanos":1000000000,"max_bytes":4096,
+ "workload":{"Provider":"mlflow","Version":"2.22.0","RunID":"run"}}
+-- request.json --
+{"resourceLogs":[{"scopeLogs":[{"logRecords":[{}]}]}]}

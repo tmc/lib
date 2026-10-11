@@ -1,0 +1,39 @@
+# Exercise the installed command's argument handling and process exit status.
+exec nvtelemetry help
+stdout 'Commands:'
+stdout 'record'
+! exec nvtelemetry unknown
+stderr 'error: unknown command: unknown'
+! exec nvtelemetry
+stderr 'error: command required'
+! exec nvtelemetry replay
+stderr 'error: -input is required'
+
+# Mock acquisition must work without NVML, including an output path with spaces.
+mkdir recordings
+env LD_LIBRARY_PATH=$WORK/no-nvml
+exec nvtelemetry record -mock -duration 100ms -interval 10ms -output 'recordings/mock run.jsonl'
+stderr 'Recording finished: [1-9][0-9]* samples collected'
+stderr 'lost: 0'
+exists 'recordings/mock run.jsonl'
+exec nvtelemetry replay -strict -input 'recordings/mock run.jsonl'
+stdout 'Stream verified \(strict\):'
+stdout 'devices=1 phases=1 samples=[1-9][0-9]*'
+exec nvtelemetry summary -input 'recordings/mock run.jsonl' -format json
+stdout '"window": "measurement"'
+stdout '"complete": true'
+stdout '"device_uuid": "GPU-mock-0001'
+
+# Corrupt and incomplete inputs must return a failing process exit status.
+! exec nvtelemetry replay -strict -input corrupt.jsonl
+stderr 'strict stream read failed:.*truncated telemetry record'
+! exec nvtelemetry replay -strict -input incomplete.jsonl
+stderr 'strict stream read failed:.*incomplete telemetry stream'
+! exec nvtelemetry summary -input missing.jsonl
+stderr 'error: open input:'
+
+-- corrupt.jsonl --
+{"manifest":{"run_id":"corrupt","schema_version":1}}
+{"sample":
+-- incomplete.jsonl --
+{"manifest":{"run_id":"incomplete","schema_version":1,"devices":[]}}

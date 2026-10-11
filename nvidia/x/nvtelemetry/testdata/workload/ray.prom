@@ -1,0 +1,4 @@
+# TYPE ray_resources gauge
+ray_resources{Name="GPU",State="USED",instance="node1"} 0.5
+# TYPE ray_tasks gauge
+ray_tasks{Name="train",State="RUNNING",IsRetry="0"} 1

@@ -1,0 +1,16 @@
+{
+  "producer": "mlflow-skinny",
+  "version": "2.22.0",
+  "run_id": "4790069ba3984e409f20782b56bb9e3b",
+  "transport": "file-store; no endpoint/account",
+  "source": "MlflowClient.log_metric/get_metric_history; GetMetricHistory.Response; mlflow.utils.proto_json_utils.message_to_json",
+  "sha256": "241bf82ed4d325c84e7b2c9591b1a583b24bed75d15a55d1fc9c0627ce30c5b5",
+  "raw_bytes": 334,
+  "metrics": 3,
+  "steps": [
+    0,
+    1,
+    3
+  ],
+  "qualification": "native offline producer serialization; controlled metric values, no convergence/checkpoint/GPU proof"
+}

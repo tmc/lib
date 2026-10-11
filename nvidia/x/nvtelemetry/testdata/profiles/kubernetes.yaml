@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nvtelemetry-nvml
+  labels:
+    app: nvtelemetry
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: collector
+      # Supply an immutable image digest containing the current nvtelemetry binary.
+      image: REQUIRED_IMAGE_DIGEST
+      command: [nvtelemetry]
+      args: [record, -device-uuids, "$(NVTELEMETRY_DEVICE_UUIDS)", -output, /capture/telemetry.jsonl, -duration, 60s, -interval, 100ms, -budget, "10000", -byte-budget, "16777216", -buffer-records, "1000"]
+      env:
+        # Replace with a UUID independently verified against the assigned device.
+        - name: NVTELEMETRY_DEVICE_UUIDS
+          value: REQUIRED_ALLOCATED_UUID
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: utility
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+          memory: 128Mi
+          cpu: "1"
+        requests:
+          memory: 32Mi
+          cpu: 100m
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - name: capture
+          mountPath: /capture
+  volumes:
+    - name: capture
+      emptyDir:
+        sizeLimit: 32Mi

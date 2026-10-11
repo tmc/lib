@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "clock": {
+    "domain": "process_local",
+    "epoch": "fixture-epoch",
+    "unix_offset_nanos": 1700000000000000000,
+    "mapping_known": true,
+    "uncertainty_known": true,
+    "uncertainty_nanos": 0,
+    "valid_from": 0,
+    "valid_until": 10800000000000,
+    "evidence": "fixture known-answer mapping"
+  },
+  "energy": [
+    {
+      "summary": {
+        "window_name": "measurement",
+        "device_uuid": "GPU-A",
+        "method": "cumulative_counter",
+        "start_mono_nanos": 3600000000000,
+        "end_mono_nanos": 10800000000000,
+        "start_energy_mj": 100,
+        "end_energy_mj": 200100,
+        "energy_consumed_mj": 200000,
+        "energy_consumed_joules": 200,
+        "total_duration_nanos": 7200000000000,
+        "covered_duration_nanos": 7200000000000,
+        "coverage_ratio": 1,
+        "valid": true
+      },
+      "lineage": "native-nvml-counter-GPU-A",
+      "raw_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scope": "physical_device",
+      "clock_domain": "process_local",
+      "clock_epoch": "fixture-epoch",
+      "evidence": "measured"
+    }
+  ],
+  "allocations": [
+    {
+      "id": "job-A",
+      "assignment": {
+        "device": {
+          "uuid": "GPU-A"
+        },
+        "owner": {
+          "allocation_id": "job-A",
+          "job_id": "job-A"
+        },
+        "source": "fixture-scheduler",
+        "source_revision": "fixture-v1",
+        "authoritative": true,
+        "state": "assigned",
+        "clock_domain": "process_local",
+        "clock_epoch": "fixture-epoch",
+        "start_nanos": 3600000000000,
+        "end_nanos": 10800000000000,
+        "sharing": "time_slice"
+      },
+      "capacity_permille": 500,
+      "policy": "capacity_time_v1",
+      "policy_evidence": "explicit capacity scheduler policy, not observed utilization"
+    },
+    {
+      "id": "job-B",
+      "assignment": {
+        "device": {
+          "uuid": "GPU-A"
+        },
+        "owner": {
+          "allocation_id": "job-B",
+          "job_id": "job-B"
+        },
+        "source": "fixture-scheduler",
+        "source_revision": "fixture-v1",
+        "authoritative": true,
+        "state": "assigned",
+        "clock_domain": "process_local",
+        "clock_epoch": "fixture-epoch",
+        "start_nanos": 7200000000000,
+        "end_nanos": 10800000000000,
+        "sharing": "time_slice"
+      },
+      "capacity_permille": 250,
+      "policy": "capacity_time_v1",
+      "policy_evidence": "explicit capacity scheduler policy, not observed utilization"
+    }
+  ],
+  "rates": [
+    {
+      "device_uuid": "GPU-A",
+      "effective_from_unix_nanos": 1700003600000000000,
+      "effective_until_unix_nanos": 1700007200000000000,
+      "currency": "USD",
+      "minor_digits": 2,
+      "price_per_gpu_hour": "1",
+      "discount_factor": "1",
+      "region": "fixture-region",
+      "sku": "fixture-device-hour",
+      "scope": "device_usage_only",
+      "billing_quantum_nanos": 3600000000000,
+      "commitment_assumption": "none",
+      "source": "caller-pinned fixture price",
+      "revision": "fixture-price-v1"
+    },
+    {
+      "device_uuid": "GPU-A",
+      "effective_from_unix_nanos": 1700007200000000000,
+      "effective_until_unix_nanos": 1700010800000000000,
+      "currency": "USD",
+      "minor_digits": 2,
+      "price_per_gpu_hour": "2",
+      "discount_factor": "1",
+      "region": "fixture-region",
+      "sku": "fixture-device-hour",
+      "scope": "device_usage_only",
+      "billing_quantum_nanos": 3600000000000,
+      "commitment_assumption": "none",
+      "source": "caller-pinned fixture price",
+      "revision": "fixture-price-v1"
+    }
+  ],
+  "work_policy": "successful_correct_v1",
+  "work": [
+    {
+      "id": "outcome-1",
+      "allocation_id": "job-A",
+      "units": 100,
+      "unit": "output_token",
+      "success": true,
+      "correct": true,
+      "policy": "successful_correct_v1",
+      "evidence": "independent correctness oracle",
+      "clock_domain": "process_local",
+      "clock_epoch": "fixture-epoch",
+      "start_nanos": 3600000000000,
+      "end_nanos": 10800000000000
+    }
+  ]
+}

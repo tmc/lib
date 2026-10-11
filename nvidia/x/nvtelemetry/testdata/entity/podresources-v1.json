@@ -1,0 +1,1 @@
+{"podResources":[{"name":"worker","namespace":"tenant-a","containers":[{"name":"app","devices":[{"resourceName":"nvidia.com/gpu","deviceIds":["GPU-a"]}],"cpuIds":["1","2"]}]},{"name":"worker","namespace":"tenant-b","containers":[{"name":"app","devices":[{"resourceName":"nvidia.com/gpu","deviceIds":["GPU-a"]}]}]}]}

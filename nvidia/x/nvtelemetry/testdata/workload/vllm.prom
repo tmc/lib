@@ -1,0 +1,15 @@
+# TYPE vllm:prompt_tokens_total counter
+vllm:prompt_tokens_total{model_name="example"} 9007199254740993
+# TYPE vllm:generation_tokens_total counter
+vllm:generation_tokens_total{model_name="example"} 40
+# TYPE vllm:request_success_total counter
+vllm:request_success_total{model_name="example",finished_reason="stop"} 2
+vllm:request_success_total{model_name="example",finished_reason="abort"} 1
+# TYPE vllm:gpu_cache_usage_perc gauge
+vllm:gpu_cache_usage_perc{model_name="example"} 0.25
+# TYPE vllm:time_to_first_token_seconds histogram
+vllm:time_to_first_token_seconds_bucket{model_name="example",le="0.1"} 1
+vllm:time_to_first_token_seconds_bucket{model_name="example",le="1"} 2
+vllm:time_to_first_token_seconds_bucket{model_name="example",le="+Inf"} 3
+vllm:time_to_first_token_seconds_count{model_name="example"} 3
+vllm:time_to_first_token_seconds_sum{model_name="example"} 1.2

@@ -1,0 +1,1 @@
+{"schemaVersion":1,"traceEvents":[{"name":"train/step","cat":"user_annotation","ph":"X","ts":123.125,"dur":25.5,"pid":10,"tid":11,"args":{}},{"name":"aten::add","cat":"cpu_op","ph":"X","ts":125,"dur":5,"pid":10,"tid":11}]}

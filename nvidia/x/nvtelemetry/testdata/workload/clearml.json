@@ -1,0 +1,1 @@
+{"events":[{"type":"training_stats_scalar","task":"train1","metric":"loss","variant":"train","value":0.5,"iter":0,"timestamp":1700000000000},{"type":"training_stats_scalar","task":"train1","metric":"loss","variant":"train","value":0.25,"iter":1,"timestamp":1700000000020}],"returned":2,"total":2}

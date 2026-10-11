@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "node_id": "fixture-node",
+  "topology_epoch": "fixture-topology-1",
+  "clock_domain": "synthetic",
+  "clock_epoch": "fixture-1",
+  "at_nanos": 100,
+  "device_states": {"GPU-0": "present", "GPU-1": "present"},
+  "sources": [
+    {"id": "nvml-fixture", "kind": "nvml", "version": "fixture-v1", "state": "available", "last_success_nanos": 95, "has_last_success": true},
+    {"id": "rdma-fixture", "kind": "rdma", "version": "fixture-v1", "state": "failed", "last_success_nanos": 0, "has_last_success": false},
+    {"id": "bmc-fixture", "kind": "bmc", "version": "fixture-v1", "state": "unsupported", "last_success_nanos": 0, "has_last_success": false}
+  ],
+  "observations": [
+    {"source_id": "nvml-fixture", "class": "raw", "reading": {"name": "ecc_corrected_errors", "unit": "count", "backend": "nvml-fixture", "device_uuid": "GPU-0", "evidence": "measured", "int_value": 9007199254740993, "is_int": true, "timestamp_monotonic": 95, "timestamp_unix": 0}},
+    {"source_id": "nvml-fixture", "class": "raw", "reading": {"name": "xid_event", "unit": "code", "backend": "nvml-fixture", "device_uuid": "GPU-0", "evidence": "measured", "int_value": 31, "is_int": true, "timestamp_monotonic": 96, "timestamp_unix": 0}},
+    {"source_id": "nvml-fixture", "class": "raw", "reading": {"name": "temperature_celsius", "unit": "celsius", "backend": "nvml-fixture", "device_uuid": "GPU-0", "evidence": "measured", "value": 31, "timestamp_monotonic": 95, "timestamp_unix": 0}},
+    {"source_id": "rdma-fixture", "class": "raw", "reading": {"name": "rdma_errors", "unit": "count", "backend": "rdma-fixture", "device_uuid": "GPU-0", "evidence": "unavailable", "unavailable_reason": "query_failure", "timestamp_monotonic": 95, "timestamp_unix": 0}}
+  ],
+  "edges": [{"source_id": "nvml-fixture", "from": "GPU-0", "to": "GPU-1", "kind": "nvlink", "scope": "physical", "state": "available", "capability": "nominal-only", "valid_from_nanos": 0, "valid_until_nanos": 200}],
+  "lost_records": 0,
+  "complete": true
+}

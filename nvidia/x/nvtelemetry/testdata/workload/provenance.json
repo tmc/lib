@@ -1,0 +1,59 @@
+{
+  "fixtures": {
+    "clearml.json": {
+      "sha256": "e60af7446f1cc1544acc51b6e1647417b59fb2357fe475be5158b68d80390f04",
+      "kind": "source_derived_protocol_control"
+    },
+    "mlflow-native-receipt.json": {
+      "sha256": "ef5bc87aa8474e36cc40e37810505dbe1cdad7cb46c9d3973c3cac181becd185",
+      "kind": "native_offline_sdk_capture"
+    },
+    "mlflow-native.json": {
+      "sha256": "241bf82ed4d325c84e7b2c9591b1a583b24bed75d15a55d1fc9c0627ce30c5b5",
+      "kind": "native_offline_sdk_capture"
+    },
+    "mlflow.json": {
+      "sha256": "04ecf8816028139b7479a8a08b8ee4ebfa60be1b5acfe19bb15f85fa78453b2d",
+      "kind": "source_derived_protocol_control"
+    },
+    "pytorch.json": {
+      "sha256": "47249bb039f7641b655d8aeb843ca1607c61e893979ffafdd94d7dd1cda3c054",
+      "kind": "source_derived_protocol_control"
+    },
+    "ray.prom": {
+      "sha256": "9df8d969ff4b202f81e53defce1e5ee23fc43f2925db2d996aa1ec04a6c07c8a",
+      "kind": "source_derived_protocol_control"
+    },
+    "triton-after.prom": {
+      "sha256": "bc2e8b90daa9e83144060dec9127ff71dce14525d0397fc413ba78241f2193ce",
+      "kind": "source_derived_protocol_control"
+    },
+    "triton-before.prom": {
+      "sha256": "cd65b6479f727628c8975b74fcf2153f8d686cc904277959f132b2eee92a976c",
+      "kind": "source_derived_protocol_control"
+    },
+    "vllm.prom": {
+      "sha256": "71a857f6ff8c4c82aff06bae7f56fc822c8f8c0904c04dfa3fb5805f7361434f",
+      "kind": "source_derived_protocol_control"
+    },
+    "wandb.jsonl": {
+      "sha256": "3c7db6657a28ecd2ae56212fe3dd9788990da98af4a712a35abe9b3c39c8d740",
+      "kind": "source_derived_protocol_control"
+    }
+  },
+  "source_files": {
+    "clearml-callresult.py": "fadc997dbfdf5df92ba8a4c7efe887c3894ea69a19cb78389e97d78ad01c01e4",
+    "clearml.py": "3bda9375100b81880bfc3c297f91b76377ca3f1b965bb7f4f02e6b6ecf24d1aa",
+    "kineto.cpp": "03f8487ce8c917c9dbae930b7138c1b6d18bda233283f875aac93da890cc43a5",
+    "mlflow-json.py": "019315c5e8a609e1612489fc66678f4c507f5a180e99cf3daf3827b15481ebb1",
+    "mlflow.proto": "59ba30e738c7b198f12f19bddfe96d78fc8eb1c62bd045a7b0760ab7e3445320",
+    "pytorch-profiler.py": "f72c7b197d56955825f78fabc685525e84f0ffb6fc39e7adec1b808993e287dc",
+    "ray-defs.cc": "277b78c815c6472be0912d938ef37d17f25111d7a884884ed6a7e883a233a0b8",
+    "ray-reporter.py": "c1a6295cc7a24f1263435f0404539d2f22228a27508c09f2a9cf6ba078e6960c",
+    "ray.h": "8d1e67cd77a8e3eb5e810aedf1f8eb8ac7854a466f54c9e489a9dc8bff08bfae",
+    "triton.cc": "3175d8edb5760f73a73eee02c225d09de05f69a3e02210fd71adf43b72aeb390",
+    "vllm.py": "a602bc26c37fa880f13802426fb45d69bbf57b914bfb121036ade35de24605f9",
+    "wandb-handler.py": "ceab91e24e80879a2183d9f95c90bf6ca02e973dda494b8c8d4947aa220e7c51",
+    "wandb.py": "9883f15d60dcf17762ef22d8a4b1adec1bea2ef15fb18a0ba5f5ded557d814ed"
+  }
+}
