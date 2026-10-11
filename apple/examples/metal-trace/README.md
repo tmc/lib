@@ -15,7 +15,7 @@ failure; a saved live capture alone does not establish successful replay.
 Extract the capture, then use the standard Go tools:
 
 ```sh
-go run ./cmd/metalprof -extract "$HOME/tmp/metal-example/files" \
+go run ./x/cmd/metalprof -extract "$HOME/tmp/metal-example/files" \
   "$HOME/tmp/metal-example/capture.pprof"
 cd "$HOME/tmp/metal-example/files"
 go tool pprof -http=127.0.0.1:8099 -symbolize=none gpu.pprof
