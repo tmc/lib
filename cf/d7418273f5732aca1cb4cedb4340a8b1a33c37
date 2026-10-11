@@ -1,0 +1,10 @@
+commit: cfd7418273f5732aca1cb4cedb4340a8b1a33c37
+date: 2026-10-10T23:49:25-07:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; author/reviewer gpt-6.1-sol
+tty: none
+pid: 32940
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-wt-next/20261010-full-testing-readiness/independent-swizzle-overflow/GRADE.md
+review sha256: 8d57bb768742592adeaf79060bb419079983a85276ac902c9d6b3f728218d1a4
+commit helper: manual fallback after two retained missing-API-key failures
