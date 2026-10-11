@@ -34,6 +34,10 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	var (
 		dirFlag     = flag.String("dir", "", "Lock directory path (overrides $GPU_LOCKDIR)")
 		labelFlag   = flag.String("label", "", "Label recorded in lock owner file")
@@ -58,10 +62,10 @@ func main() {
 		rep, err := cudalock.Status(targetDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "cudalock: status check failed: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		fmt.Print(rep.String())
-		return
+		return 0
 	}
 
 	args := flag.Args()
@@ -70,7 +74,7 @@ func main() {
 	}
 	if len(args) == 0 {
 		flag.Usage()
-		os.Exit(2)
+		return 2
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -99,9 +103,8 @@ func main() {
 	handle, err := cudalock.Acquire(ctx, opts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cudalock: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
-	defer handle.Release()
 
 	if !*quietFlag {
 		fmt.Fprintf(os.Stderr, "cudalock: acquired (label=%s, pid=%d) — running: %v\n",
@@ -111,11 +114,14 @@ func main() {
 	exitCode, err := cudalock.Run(ctx, args, opts...)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cudalock: command error: %v\n", err)
-		os.Exit(exitCode)
 	}
-
-	if !*quietFlag {
+	if releaseErr := handle.Release(); releaseErr != nil {
+		fmt.Fprintf(os.Stderr, "cudalock: %v\n", releaseErr)
+		if exitCode == 0 {
+			exitCode = 1
+		}
+	} else if !*quietFlag {
 		fmt.Fprintf(os.Stderr, "cudalock: released (rc=%d)\n", exitCode)
 	}
-	os.Exit(exitCode)
+	return exitCode
 }
