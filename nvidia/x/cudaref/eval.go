@@ -22,7 +22,7 @@ func Evaluate(g *cudair.Graph, inputs map[string][]float32) (map[string][]float3
 
 // EvaluateSnapshot executes a validated immutable snapshot on the CPU.
 func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[string][]float32, error) {
-	values := make(map[*cudair.Node][]float32)
+	values := make(map[int][]float32)
 
 	// Validate and load inputs
 	for _, inNode := range snap.Inputs() {
@@ -38,7 +38,7 @@ func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[s
 		// Defensive copy to prevent external mutation
 		cp := make([]float32, len(buf))
 		copy(cp, buf)
-		values[inNode] = cp
+		values[inNode.ID] = cp
 	}
 
 	// Sequential execution along topological order
@@ -52,31 +52,31 @@ func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[s
 			if len(n.ConstValues) > 0 {
 				cp := make([]float32, len(n.ConstValues))
 				copy(cp, n.ConstValues)
-				values[n] = cp
+				values[n.ID] = cp
 			} else {
-				values[n] = make([]float32, n.NumElements())
+				values[n.ID] = make([]float32, n.NumElements())
 			}
 
 		case cudair.KindUnary:
-			inData := values[n.Inputs[0]]
+			inData := values[n.Inputs[0].ID]
 			out, err := ElementwiseUnary(inData, n.Op)
 			if err != nil {
 				return nil, fmt.Errorf("cudaref: node %s: %w", n.Name, err)
 			}
-			values[n] = out
+			values[n.ID] = out
 
 		case cudair.KindBinary:
-			aData := values[n.Inputs[0]]
-			bData := values[n.Inputs[1]]
-			out, err := ElementwiseBinary(aData, bData, n.Op)
+			aData := values[n.Inputs[0].ID]
+			bData := values[n.Inputs[1].ID]
+			out, err := ElementwiseBinary(expandScalar(aData, n.NumElements()), expandScalar(bData, n.NumElements()), n.Op)
 			if err != nil {
 				return nil, fmt.Errorf("cudaref: node %s: %w", n.Name, err)
 			}
-			values[n] = out
+			values[n.ID] = out
 
 		case cudair.KindMatMul:
-			aData := values[n.Inputs[0]]
-			bData := values[n.Inputs[1]]
+			aData := values[n.Inputs[0].ID]
+			bData := values[n.Inputs[1].ID]
 			M := n.Inputs[0].Shape[0]
 			K := n.Inputs[0].Shape[1]
 			N := n.Inputs[1].Shape[1]
@@ -84,52 +84,52 @@ func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[s
 			if err != nil {
 				return nil, fmt.Errorf("cudaref: node %s: %w", n.Name, err)
 			}
-			values[n] = out
+			values[n.ID] = out
 
 		case cudair.KindReduce:
-			inData := values[n.Inputs[0]]
+			inData := values[n.Inputs[0].ID]
 			inShape := n.Inputs[0].Shape
 			axis := n.Axes[0]
 			out, err := evalReduce(inData, inShape, axis, n.Op)
 			if err != nil {
 				return nil, fmt.Errorf("cudaref: node %s: %w", n.Name, err)
 			}
-			values[n] = out
+			values[n.ID] = out
 
 		case cudair.KindReshape:
-			inData := values[n.Inputs[0]]
+			inData := values[n.Inputs[0].ID]
 			out := make([]float32, len(inData))
 			copy(out, inData)
-			values[n] = out
+			values[n.ID] = out
 
 		case cudair.KindTranspose:
-			inData := values[n.Inputs[0]]
+			inData := values[n.Inputs[0].ID]
 			out, err := evalTranspose(inData, n.Inputs[0].Shape, n.Perm)
 			if err != nil {
 				return nil, fmt.Errorf("cudaref: node %s: %w", n.Name, err)
 			}
-			values[n] = out
+			values[n.ID] = out
 
 		case cudair.KindSlice:
-			inData := values[n.Inputs[0]]
+			inData := values[n.Inputs[0].ID]
 			out, err := evalSlice(inData, n.Inputs[0].Shape, n.SliceStarts, n.SliceEnds, n.SliceSteps)
 			if err != nil {
 				return nil, fmt.Errorf("cudaref: node %s: %w", n.Name, err)
 			}
-			values[n] = out
+			values[n.ID] = out
 
 		case cudair.KindConcat:
 			var inDataSlice [][]float32
 			var inShapes [][]int
 			for _, inp := range n.Inputs {
-				inDataSlice = append(inDataSlice, values[inp])
+				inDataSlice = append(inDataSlice, values[inp.ID])
 				inShapes = append(inShapes, inp.Shape)
 			}
 			out, err := evalConcat(inDataSlice, inShapes, n.Axis)
 			if err != nil {
 				return nil, fmt.Errorf("cudaref: node %s: %w", n.Name, err)
 			}
-			values[n] = out
+			values[n.ID] = out
 
 		default:
 			return nil, fmt.Errorf("cudaref: unsupported op kind %v", n.Kind)
@@ -138,7 +138,7 @@ func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[s
 
 	outputs := make(map[string][]float32, len(snap.Outputs()))
 	for _, outNode := range snap.Outputs() {
-		outputs[outNode.Name] = values[outNode]
+		outputs[outNode.Name] = values[outNode.ID]
 	}
 	return outputs, nil
 }
@@ -209,6 +209,18 @@ func evalReduce(in []float32, inShape []int, axis int, op string) ([]float32, er
 		}
 	}
 	return out, nil
+}
+
+// expandScalar applies the IR's bounded scalar broadcast contract.
+func expandScalar(values []float32, size int) []float32 {
+	if len(values) != 1 || size == 1 {
+		return values
+	}
+	out := make([]float32, size)
+	for i := range out {
+		out[i] = values[0]
+	}
+	return out
 }
 
 func evalTranspose(in []float32, inShape []int, perm []int) ([]float32, error) {

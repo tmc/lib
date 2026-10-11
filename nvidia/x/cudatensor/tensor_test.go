@@ -113,7 +113,7 @@ func TestTensorAuthoritativeOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Snapshot failed: %v", err)
 	}
-	if len(snap.Outputs()) != 1 || snap.Outputs()[0] != marked.Node() {
+	if len(snap.Outputs()) != 1 || snap.Outputs()[0].ID != marked.Node().ID {
 		t.Errorf("expected marked output in snapshot")
 	}
 }

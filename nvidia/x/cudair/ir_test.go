@@ -29,7 +29,7 @@ func TestIRGraph(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Snapshot failed: %v", err)
 	}
-	if len(snap.Outputs()) != 1 || snap.Outputs()[0] != e {
+	if len(snap.Outputs()) != 1 || snap.Outputs()[0].ID != e.ID {
 		t.Errorf("expected default terminal output to be node e")
 	}
 }

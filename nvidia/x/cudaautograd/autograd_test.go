@@ -3,8 +3,10 @@ package cudaautograd_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -13,6 +15,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudaplan"
+	"github.com/tmc/lib/nvidia/x/cudaref"
 )
 
 // TestGradientFiniteDifference verifies analytic gradients computed by cudaautograd against
@@ -414,9 +417,111 @@ func TestNegativeDifferentiateUnsupportedMutation(t *testing.T) {
 	loss := g.AddReduce("sum", x, 0)
 	_ = g.SetOutputs(loss)
 
-	snap, _ := g.Snapshot()
-	_, err := cudaautograd.Differentiate(snap, loss, []*cudair.Node{x})
-	if !errors.Is(err, cudaautograd.ErrUnsupportedMutation) {
-		t.Fatalf("expected ErrUnsupportedMutation, got: %v", err)
+	_, err := g.Snapshot()
+	if !errors.Is(err, cudair.ErrUnsupportedEffect) {
+		t.Fatalf("expected ErrUnsupportedEffect, got: %v", err)
+	}
+}
+
+func TestDifferentiateSnapshotMembership(t *testing.T) {
+	g := cudair.NewGraph()
+	x := g.AddInput("x", []int{1}, cudair.Float32)
+	loss := g.AddUnary("relu", x)
+	s, err := g.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := cudair.NewGraph()
+	other := foreign.AddInput("x", []int{1}, cudair.Float32)
+	otherLoss := foreign.AddUnary("relu", other)
+	for _, tt := range []struct {
+		name         string
+		loss, target *cudair.Node
+	}{
+		{"foreign loss", otherLoss, x}, {"foreign target", loss, other},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := cudaautograd.Differentiate(s, tt.loss, []*cudair.Node{tt.target}); !errors.Is(err, cudaautograd.ErrTargetNotFound) {
+				t.Fatalf("foreign same-ID node admitted: %v", err)
+			}
+		})
+	}
+	detached := s.NodeByID(x.ID)
+	detached.Shape[0] = 99 // Membership does not make caller-owned metadata authoritative.
+	if _, err := cudaautograd.Differentiate(s, s.NodeByID(loss.ID), []*cudair.Node{detached}); err != nil {
+		t.Fatalf("detached member control: %v", err)
+	}
+	detached.ID = loss.ID
+	if _, err := cudaautograd.Differentiate(s, loss, []*cudair.Node{detached}); !errors.Is(err, cudaautograd.ErrTargetNotFound) {
+		t.Fatalf("changed detached ID admitted: %v", err)
+	}
+	x.ID = loss.ID
+	if _, err := cudaautograd.Differentiate(s, loss, []*cudair.Node{x}); !errors.Is(err, cudaautograd.ErrTargetNotFound) {
+		t.Fatalf("changed original ID admitted: %v", err)
+	}
+}
+
+func TestScalarBroadcastGradientRanks(t *testing.T) {
+	for _, shape := range [][]int{nil, {1}, {1, 1}, {1, 1, 1, 1}} {
+		for _, left := range []bool{false, true} {
+			for _, op := range []string{"add", "sub", "mul", "div"} {
+				t.Run(fmt.Sprintf("%s/shape=%v/left=%v", op, shape, left), func(t *testing.T) {
+					g := cudair.NewGraph()
+					x := g.AddInput("x", []int{2}, cudair.Float32)
+					scalar := g.AddInput("scalar", shape, cudair.Float32)
+					a, b := x, scalar
+					if left {
+						a, b = scalar, x
+					}
+					y := g.AddBinary(op, a, b)
+					loss := g.AddReduce("sum", y, 0)
+					_ = g.SetOutputs(loss)
+					s, err := g.Snapshot()
+					if err != nil {
+						t.Fatal(err)
+					}
+					backward, err := cudaautograd.Differentiate(s, loss, []*cudair.Node{scalar, x})
+					if err != nil {
+						t.Fatal(err)
+					}
+					gradient := backward.Gradients[scalar.ID]
+					if !slices.Equal(gradient.Shape, shape) {
+						t.Fatalf("gradient shape=%v want=%v", gradient.Shape, shape)
+					}
+					inputs := map[string][]float32{"x": {1, 2}, "scalar": {2}}
+					backwardInputs := map[string][]float32{backward.LossGradInput.Name: {1}}
+					for id, node := range backward.SavedActivations {
+						backwardInputs[node.Name] = inputs[backward.ForwardNodes[id].Name]
+					}
+					got, err := cudaref.Evaluate(backward.BackwardGraph, backwardInputs)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := float32(2)
+					switch op {
+					case "sub":
+						if !left {
+							want = -2
+						}
+					case "mul":
+						want = 3
+					case "div":
+						want = -0.75
+						if left {
+							want = 1.5
+						}
+					}
+					values := got[gradient.Name]
+					if len(values) != 1 || math.Abs(float64(values[0]-want)) > 1e-6 {
+						t.Fatalf("scalar derivative=%v want=%v", values, want)
+					}
+					// Central differences of the forward loss are independent of the
+					// generated backward reduction and also check the nonscalar target.
+					if err := cudaautograd.CheckGradients(g, loss, backward, inputs, 1e-3, 1e-2); err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+		}
 	}
 }

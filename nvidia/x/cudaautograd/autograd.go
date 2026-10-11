@@ -98,6 +98,9 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 		return nil, errors.New("cudaautograd: no differentiation targets specified")
 	}
 
+	if !fwdSnap.Contains(loss) {
+		return nil, fmt.Errorf("%w: loss does not belong to snapshot", ErrTargetNotFound)
+	}
 	// Verify loss belongs to snapshot
 	foundLoss := false
 	for _, n := range fwdSnap.Nodes() {
@@ -121,15 +124,18 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 	for _, n := range fwdSnap.Nodes() {
 		fwdNodeMap[n.ID] = n
 	}
+	targets = append([]*cudair.Node(nil), targets...)
 	targetSet := make(map[int]bool, len(targets))
 	targetNames := make(map[int]string, len(targets))
-	for _, t := range targets {
+	for i, t := range targets {
 		if t == nil {
 			return nil, errors.New("cudaautograd: nil target in targets list")
 		}
-		if _, ok := fwdNodeMap[t.ID]; !ok {
+		if !fwdSnap.Contains(t) {
 			return nil, fmt.Errorf("%w: target %q (id %d)", ErrTargetNotFound, t.Name, t.ID)
 		}
+		t = fwdNodeMap[t.ID]
+		targets[i] = t
 		targetSet[t.ID] = true
 		targetNames[t.ID] = t.Name
 	}
@@ -553,6 +559,29 @@ func (ctx *diffContext) reduceBroadcast(gradNode *cudair.Node, targetShape []int
 	}
 
 	current := gradNode
+	scalar := true
+	for _, extent := range targetShape {
+		if extent != 1 {
+			scalar = false
+			break
+		}
+	}
+	if scalar {
+		// Scalar broadcasting duplicates one value across the entire result.
+		// Sum every result dimension, then restore the operand's exact rank.
+		// AddReduce deliberately retains [1] after reducing rank one, so a
+		// rank-based loop down to a zero-dimensional target would never finish.
+		for len(current.Shape) > 1 {
+			current = ctx.bwd.AddReduce("sum", current, 0)
+		}
+		if current.NumElements() != 1 {
+			current = ctx.bwd.AddReduce("sum", current, 0)
+		}
+		if !slices.Equal(current.Shape, targetShape) {
+			current = ctx.bwd.AddReshape(current, targetShape)
+		}
+		return current
+	}
 	// If rank differs, reduce leading axes
 	for len(current.Shape) > len(targetShape) {
 		current = ctx.bwd.AddReduce("sum", current, 0)

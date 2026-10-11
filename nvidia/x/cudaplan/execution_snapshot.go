@@ -14,8 +14,8 @@ type nodeSnapshot interface {
 	NodeByID(int) *cudair.Node
 }
 
-// executionSnapshot owns its metadata. The public IR snapshot exposes mutable
-// node pointers, so retaining it would let later edits change submitted work.
+// executionSnapshot owns its metadata. The IR snapshot returns detached
+// node copies. Execution uses stable IDs to join those views.
 type executionSnapshot struct {
 	order, inputs, outputs []*cudair.Node
 	byID                   map[int]*cudair.Node
@@ -29,13 +29,13 @@ func (s *executionSnapshot) NodeByID(id int) *cudair.Node { return s.byID[id] }
 func (s *executionSnapshot) ArenaPlan() *cudair.ArenaPlan { return s.arena }
 
 func freezeExecution(source *cudair.Snapshot) (*executionSnapshot, error) {
-	reachable := make(map[*cudair.Node]bool)
+	reachable := make(map[int]bool)
 	var visit func(*cudair.Node)
 	visit = func(n *cudair.Node) {
-		if n == nil || reachable[n] {
+		if n == nil || reachable[n.ID] {
 			return
 		}
-		reachable[n] = true
+		reachable[n.ID] = true
 		for _, in := range n.Inputs {
 			visit(in)
 		}
@@ -44,10 +44,10 @@ func freezeExecution(source *cudair.Snapshot) (*executionSnapshot, error) {
 	for _, out := range source.Outputs() {
 		visit(out)
 	}
-	clones := make(map[*cudair.Node]*cudair.Node)
+	clones := make(map[int]*cudair.Node)
 	s := &executionSnapshot{byID: make(map[int]*cudair.Node)}
 	for _, n := range source.Order() {
-		if !reachable[n] {
+		if !reachable[n.ID] {
 			continue
 		}
 		if n == nil || s.byID[n.ID] != nil {
@@ -64,24 +64,26 @@ func freezeExecution(source *cudair.Snapshot) (*executionSnapshot, error) {
 		c.SliceEnds = append([]int(nil), n.SliceEnds...)
 		c.SliceSteps = append([]int(nil), n.SliceSteps...)
 		c.SourceLoc.Callers = append([]cudair.Frame(nil), n.SourceLoc.Callers...)
-		clones[n] = &c
+		clones[n.ID] = &c
 		s.byID[c.ID] = &c
 		s.order = append(s.order, &c)
 		if c.Kind == cudair.KindInput {
 			s.inputs = append(s.inputs, &c)
 		}
 	}
-	for original, c := range clones {
-		for i, in := range original.Inputs {
-			c.Inputs[i] = clones[in]
+	for _, c := range clones {
+		for i, in := range c.Inputs {
+			c.Inputs[i] = clones[in.ID]
 			if c.Inputs[i] == nil {
 				return nil, fmt.Errorf("cudaplan: missing execution dependency")
 			}
 		}
-		c.StorageAlias = clones[original.StorageAlias]
+		if c.StorageAlias != nil {
+			c.StorageAlias = clones[c.StorageAlias.ID]
+		}
 	}
 	for _, out := range source.Outputs() {
-		c := clones[out]
+		c := clones[out.ID]
 		if c == nil {
 			return nil, fmt.Errorf("cudaplan: missing execution output")
 		}

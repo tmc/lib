@@ -186,8 +186,8 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 	currentTok := initialTok
 
 	// Map each cudair node to its resulting Tile IR SSA value
-	nodeSSA := make(map[*cudair.Node]string)
-	nodeTypes := make(map[*cudair.Node]Type)
+	nodeSSA := make(map[int]string)
+	nodeTypes := make(map[int]Type)
 	locCounter := 0
 
 	// Helper to record source location
@@ -237,8 +237,8 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 			Loc:        mod.Locations[strings.TrimPrefix(locRef, "#")],
 		})
 		currentTok = nextTok
-		nodeSSA[inp] = valSSA
-		nodeTypes[inp] = tileType
+		nodeSSA[inp.ID] = valSSA
+		nodeTypes[inp.ID] = tileType
 	}
 
 	// 3. Lower interior nodes in topological order
@@ -266,15 +266,15 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 				LocRef:     locRef,
 				Loc:        nodeLoc,
 			})
-			nodeSSA[node] = resSSA
-			nodeTypes[node] = tileType
+			nodeSSA[node.ID] = resSSA
+			nodeTypes[node.ID] = tileType
 
 		case cudair.KindBinary:
 			if len(node.Inputs) < 2 {
 				return nil, fmt.Errorf("tileir: binary op %d has < 2 inputs", node.ID)
 			}
-			lhsSSA := nodeSSA[node.Inputs[0]]
-			rhsSSA := nodeSSA[node.Inputs[1]]
+			lhsSSA := nodeSSA[node.Inputs[0].ID]
+			rhsSSA := nodeSSA[node.Inputs[1].ID]
 			resSSA := fmt.Sprintf("%%b%d", node.ID)
 
 			opName := "cuda_tile.addf"
@@ -289,7 +289,7 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 				opName = "cuda_tile.divf"
 			}
 
-			tileType := nodeTypes[node.Inputs[0]]
+			tileType := nodeTypes[node.Inputs[0].ID]
 			if tileType == nil {
 				tileType = NewTile([]int64{tileM, tileN}, primitiveTypeFromDataType(node.Type))
 			}
@@ -305,17 +305,17 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 				LocRef:     locRef,
 				Loc:        nodeLoc,
 			})
-			nodeSSA[node] = resSSA
-			nodeTypes[node] = tileType
+			nodeSSA[node.ID] = resSSA
+			nodeTypes[node.ID] = tileType
 
 		case cudair.KindUnary:
 			if len(node.Inputs) < 1 {
 				return nil, fmt.Errorf("tileir: unary op %d has no input", node.ID)
 			}
-			inSSA := nodeSSA[node.Inputs[0]]
+			inSSA := nodeSSA[node.Inputs[0].ID]
 			resSSA := fmt.Sprintf("%%u%d", node.ID)
 
-			tileType := nodeTypes[node.Inputs[0]]
+			tileType := nodeTypes[node.Inputs[0].ID]
 			if tileType == nil {
 				tileType = NewTile([]int64{tileM, tileN}, primitiveTypeFromDataType(node.Type))
 			}
@@ -358,15 +358,15 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 					Loc:        nodeLoc,
 				})
 			}
-			nodeSSA[node] = resSSA
-			nodeTypes[node] = tileType
+			nodeSSA[node.ID] = resSSA
+			nodeTypes[node.ID] = tileType
 
 		case cudair.KindMatMul:
 			if len(node.Inputs) < 2 {
 				return nil, fmt.Errorf("tileir: matmul op %d has < 2 inputs", node.ID)
 			}
-			aSSA := nodeSSA[node.Inputs[0]]
-			bSSA := nodeSSA[node.Inputs[1]]
+			aSSA := nodeSSA[node.Inputs[0].ID]
+			bSSA := nodeSSA[node.Inputs[1].ID]
 			resSSA := fmt.Sprintf("%%mma%d", node.ID)
 
 			accType := NewTile([]int64{tileM, tileN}, Float32)
@@ -394,15 +394,15 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 				LocRef:     locRef,
 				Loc:        nodeLoc,
 			})
-			nodeSSA[node] = resSSA
-			nodeTypes[node] = accType
+			nodeSSA[node.ID] = resSSA
+			nodeTypes[node.ID] = accType
 		}
 	}
 
 	// 4. Store outputs via store_view_tko
 	for j, out := range outputs {
 		outArgSSA := fmt.Sprintf("%%arg%d", len(inputs)+j)
-		valSSA := nodeSSA[out]
+		valSSA := nodeSSA[out.ID]
 		if valSSA == "" {
 			return nil, fmt.Errorf("tileir: missing SSA result for output %s (node %d)", out.Name, out.ID)
 		}
@@ -610,7 +610,7 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 	if len(name) > 128 {
 		return "", cudakernel.Schema{}, errors.New("tileir: kernel identifier too long")
 	}
-	counts := make(map[*cudair.Node]int)
+	counts := make(map[int]int)
 	for _, n := range snap.Nodes() {
 		if n.Type != cudair.Float32 || n.Layout != cudashape.LayoutRowMajor || len(n.Shape) > 2 || n.Effect != cudair.EffectReadOnly {
 			return "", cudakernel.Schema{}, fmt.Errorf("%w: type, layout, rank or effect at node %d", ErrUnsupportedTileOp, n.ID)
@@ -625,14 +625,14 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 		if len(n.Strides) != 0 && !cudashape.IsContiguousRowMajor(n.Shape, n.Strides) {
 			return "", cudakernel.Schema{}, fmt.Errorf("%w: noncontiguous strides", ErrUnsupportedTileOp)
 		}
-		counts[n] = count
+		counts[n.ID] = count
 	}
 	inputs, outputs := snap.Inputs(), snap.Outputs()
 	if len(outputs) == 0 {
 		return "", cudakernel.Schema{}, errors.New("tileir: missing semantic outputs")
 	}
 	params := make([]cudakernel.Param, 0, len(inputs)+len(outputs))
-	args := make(map[*cudair.Node]string)
+	args := make(map[int]string)
 	var b strings.Builder
 	b.WriteString("#include \"cuda_tile.h\"\nextern \"C\" __tile_global__ void " + name + "(")
 	for i, n := range append(append([]*cudair.Node(nil), inputs...), outputs...) {
@@ -642,7 +642,7 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 		arg := fmt.Sprintf("arg%d", i)
 		b.WriteString("float* " + arg)
 		if i < len(inputs) {
-			args[n] = arg
+			args[n.ID] = arg
 		}
 		paramName := n.Name
 		if paramName == "" {
@@ -662,7 +662,7 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 		if calls > 4096 || depth > 128 || len(index) > 4096 {
 			return "", errors.New("tileir: expression expansion budget exceeded")
 		}
-		if _, ok := counts[n]; !ok {
+		if _, ok := counts[n.ID]; !ok {
 			return "", errors.New("tileir: input outside snapshot")
 		}
 		child := func(i int, ix string) (string, error) {
@@ -674,13 +674,13 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 		combine := func(op, a, c string) string { return "ct::" + op + "(" + a + ", " + c + ")" }
 		switch n.Kind {
 		case cudair.KindInput:
-			arg, ok := args[n]
+			arg, ok := args[n.ID]
 			if !ok {
 				return "", errors.New("tileir: unbound semantic input")
 			}
 			return arg + "[" + index + "]", nil
 		case cudair.KindConstant:
-			if len(n.ConstValues) != 1 || counts[n] != 1 || math.IsNaN(float64(n.ConstValues[0])) || math.IsInf(float64(n.ConstValues[0]), 0) {
+			if len(n.ConstValues) != 1 || counts[n.ID] != 1 || math.IsNaN(float64(n.ConstValues[0])) || math.IsInf(float64(n.ConstValues[0]), 0) {
 				return "", fmt.Errorf("%w: nonfinite or nonscalar constant", ErrUnsupportedTileOp)
 			}
 			s := strconv.FormatFloat(float64(n.ConstValues[0]), 'g', -1, 32)
@@ -699,7 +699,7 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 			values := make([]string, arity)
 			for i, in := range n.Inputs {
 				ix := index
-				if counts[in] == 1 {
+				if counts[in.ID] == 1 {
 					ix = "0"
 				} else if len(in.Shape) != len(n.Shape) || !sameTileShape(in.Shape, n.Shape) {
 					return "", fmt.Errorf("%w: nonscalar broadcasting", ErrUnsupportedTileOp)
@@ -806,7 +806,7 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 		if err != nil {
 			return "", cudakernel.Schema{}, err
 		}
-		fmt.Fprintf(&b, "  if (idx < %d) arg%d[idx] = %s;\n", counts[n], len(inputs)+i, value)
+		fmt.Fprintf(&b, "  if (idx < %d) arg%d[idx] = %s;\n", counts[n.ID], len(inputs)+i, value)
 		if b.Len() > 1<<20 {
 			return "", cudakernel.Schema{}, errors.New("tileir: source byte budget exceeded")
 		}

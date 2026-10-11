@@ -172,7 +172,8 @@ type Node struct {
 	SliceSteps  []int
 	Axis        int
 
-	graph *Graph
+	graph            *Graph
+	snapshotOriginal *Node
 }
 
 // Graph returns the graph to which this node belongs.
@@ -199,9 +200,10 @@ func (n *Node) SizeBytes() int {
 
 // Graph represents a directed acyclic computation graph.
 type Graph struct {
-	nodes   []*Node
-	outputs []*Node
-	err     error
+	nodes          []*Node
+	outputs        []*Node
+	snapshotSource *Graph
+	err            error
 }
 
 // NewGraph creates an empty IR Graph.
@@ -379,7 +381,8 @@ func (g *Graph) AddBinary(op string, a, b *Node) *Node {
 	return n
 }
 
-// AddBinaryChecked creates an elementwise binary operation with explicit validation.
+// AddBinaryChecked creates an elementwise binary operation with equal input shapes
+// or a scalar (one-element) operand. Nonscalar broadcasting is not supported.
 func (g *Graph) AddBinaryChecked(op string, a, b *Node) (*Node, error) {
 	if a == nil || b == nil {
 		return nil, errors.New("cudair: nil input to AddBinary")
@@ -390,6 +393,10 @@ func (g *Graph) AddBinaryChecked(op string, a, b *Node) (*Node, error) {
 	if a.Type != b.Type {
 		return nil, fmt.Errorf("%w: binary op %s has type mismatch (%v vs %v)", ErrTypeMismatch, op, a.Type, b.Type)
 	}
+	shape, err := binaryShape(a.Shape, b.Shape)
+	if err != nil {
+		return nil, err
+	}
 	normOp := strings.ToLower(op)
 	if normOp == "multiply" {
 		normOp = "mul"
@@ -399,7 +406,7 @@ func (g *Graph) AddBinaryChecked(op string, a, b *Node) (*Node, error) {
 		Kind:   KindBinary,
 		Op:     normOp,
 		Inputs: []*Node{a, b},
-		Shape:  append([]int(nil), a.Shape...),
+		Shape:  shape,
 		Type:   a.Type,
 		Effect: EffectReadOnly,
 	}), nil
