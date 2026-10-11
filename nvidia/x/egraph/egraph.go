@@ -152,12 +152,13 @@ type EClass struct {
 
 // EGraph represents an equivalence graph with congruence closure and hash consing.
 type EGraph struct {
-	store           *egraphcore.Store[Id, *EClass]
-	worklist        []Id
-	facts           *egraphcore.FactStore[Id]
-	revision        uint64
-	origins         map[string]string
-	insertionOrigin string
+	store              *egraphcore.Store[Id, *EClass]
+	worklist           []Id
+	facts              *egraphcore.FactStore[Id]
+	revision           uint64
+	origins            map[string]string
+	insertionOrigin    string
+	insertionOriginSet bool
 }
 
 // New creates an empty E-Graph.
@@ -219,7 +220,7 @@ func (g *EGraph) Canonicalize(n ENode) ENode {
 // pending unions before hash-consing; use AddChecked to observe rebuild errors.
 func (g *EGraph) Add(node ENode) Id {
 	origin := "input"
-	if g != nil && g.insertionOrigin != "" {
+	if g != nil && g.insertionOriginSet {
 		origin = g.insertionOrigin
 	}
 	return g.addFrom(node, origin)
@@ -620,11 +621,12 @@ func (g *EGraph) Clone() *EGraph {
 		return nil
 	}
 	clone := &EGraph{
-		worklist:        make([]Id, len(g.worklist)),
-		facts:           g.Facts().Clone(),
-		revision:        g.revision,
-		insertionOrigin: g.insertionOrigin,
-		origins:         make(map[string]string, len(g.origins)),
+		worklist:           make([]Id, len(g.worklist)),
+		facts:              g.Facts().Clone(),
+		revision:           g.revision,
+		insertionOrigin:    g.insertionOrigin,
+		insertionOriginSet: g.insertionOriginSet,
+		origins:            make(map[string]string, len(g.origins)),
 	}
 	for key, origin := range g.origins {
 		clone.origins[key] = origin

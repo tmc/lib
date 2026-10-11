@@ -26,8 +26,8 @@ func (p *Pattern) instantiateFrom(g *EGraph, subst Subst, origin string) Id {
 	if g == nil {
 		return 0
 	}
-	previous := g.insertionOrigin
-	g.insertionOrigin = origin
-	defer func() { g.insertionOrigin = previous }()
+	previous, previousSet := g.insertionOrigin, g.insertionOriginSet
+	g.insertionOrigin, g.insertionOriginSet = origin, true
+	defer func() { g.insertionOrigin, g.insertionOriginSet = previous, previousSet }()
 	return p.Instantiate(g, subst)
 }
