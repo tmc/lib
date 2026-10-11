@@ -19,7 +19,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudabatch](cudabatch/) | Package cudabatch provides continuous batch scheduling, admission control, token and memory budgeting, fairness policies, validated shape binding, and KV cache lifetime tracking for LLM inference. |
 | [cudabench](cudabench/) | Package cudabench provides precise GPU event-timed benchmarking utilities for Go testing. |
 | [cudablock](cudablock/) | Package cudablock provides high-performance CUDA thread-block and warp-level primitives for collective reductions, prefix scans, and cooperative tile staging into shared memory. |
-| [cudabpf](cudabpf/) | Package cudabpf is the NVIDIA-specific half of a driver-level BPF policy bridge: the hook semantics, chunk placement, eviction ranking and time-slice-group attributes of an open-source GPU kernel driver whose UVM and scheduler have been patched to export typed struct_ops tables. |
+| [cudabpf](cudabpf/) | Package cudabpf validates NVIDIA experimental driver-policy capabilities, owns compiled-object attachments through a consumer-supplied loader, and provides host models of placement and scheduling decisions. |
 | [cudabpfdev](cudabpfdev/) | Package cudabpfdev verifies and translates bounded warp instrumentation programs. |
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
@@ -28,15 +28,20 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudacmp](cudacmp/) | Package cudacmp implements pure-Go differential CUDA performance analysis. |
 | [cudacollective](cudacollective/) | Package cudacollective defines collective communication plans, rank membership, communicator generations, multi-transport fallback resolution, and double-buffered pipelined transfers for distributed CUDA execution. |
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |
+| [cudadiag](cudadiag/) | Package cudadiag provides evidence-admitted diagnostic mechanisms for CUDA workloads. |
+| [cudadiagdemo](cudadiagdemo/) | Package cudadiagdemo exercises GPU diagnosis and regression APIs with a synthetic concurrent Go service fixture. |
 | [cudaerrors](cudaerrors/) | Package cudaerrors holds the sentinels that more than one package must agree on. |
-| [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations. |
+| [cudaevidence](cudaevidence/) | Package cudaevidence classifies CUDA observations and the conclusions drawn from them. |
+| [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations, and escalates anomalous incidents within declared resource budgets. |
 | [cudafuse](cudafuse/) | Package cudafuse compiles sub-graphs of elementwise and reduction operations into single fused CUDA mega-kernels. |
 | [cudagradcheck](cudagradcheck/) | Package cudagradcheck checks gradients computed by hand-written GPU kernels against float64 host oracles. |
 | [cudagrammar](cudagrammar/) | Package cudagrammar constrains language model generation to JSON that conforms to a schema. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
 | [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
+| [cudaheadroom](cudaheadroom/) | Package cudaheadroom checks shared-memory plans against a loaded CUDA kernel. |
 | [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
-| [cudahf](cudahf/) | Package cudahf resolves model repositories and snapshot files from the local Hugging Face cache directory. |
+| [cudahotswap](cudahotswap/) | Package cudahotswap checks and replaces CUDA kernels in a retained service. |
+| [cudainject](cudainject/) | Package cudainject builds the CUPTI injection agent and reads its artifacts. |
 | [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph, immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs. |
 | [cudakernel](cudakernel/) | Package cudakernel provides immutable kernel artifact descriptors, ABI parameter schemas, fixed-width argument packing, and hardware resource contracts for CUDA execution. |
 | [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
@@ -55,22 +60,29 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudamemtrack](cudamemtrack/) | Package cudamemtrack tracks GPU memory allocations, calculates heap fragmentation ratios, and detects memory leaks at teardown. |
 | [cudamoe](cudamoe/) | Package cudamoe provides Mixture of Experts routing and expert cache offloading for CUDA. |
 | [cudamtp](cudamtp/) | Package cudamtp implements Multi-Token Prediction (MTP) and speculative tree decoding optimized via fused CUDA C++ megakernels on NVIDIA GPUs. |
+| [cudancuimport](cudancuimport/) | Package cudancuimport reads a bounded project envelope around an offline NVIDIA Nsight Compute details CSV export. |
+| [cudansysimport](cudansysimport/) | Package cudansysimport imports a bounded subset of documented Nsight Systems SQLite exports through a small read-only database boundary. |
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
 | [cudaoptim](cudaoptim/) | Package cudaoptim implements optimizer steps for training with hand-written CUDA kernels: AdamW with decoupled weight decay, global gradient-norm clipping, and non-finite gradient detection. |
+| [cudaoutputcoverage](cudaoutputcoverage/) | Package cudaoutputcoverage checks which logical CUDA output elements were written, independently of numerical output agreement. |
 | [cudapdl](cudapdl/) | Package cudapdl implements Programmatic Dependent Launch (PDL) region composition, eligibility evaluation, and hardware/software fallback policies for NVIDIA GPUs. |
 | [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
 | [cudaplan](cudaplan/) | Package cudaplan provides executable plans, resource ownership, and completion tracking for CUDA execution graphs and compiled kernels. |
+| [cudaprecompiled](cudaprecompiled/) | Package cudaprecompiled loads CUDA C++ device code that may have been compiled ahead of time by cudaprecompile. |
 | [cudaprepack](cudaprepack/) | Package cudaprepack provides ahead-of-time (AOT) hardware layout transformations for NVIDIA Blackwell TMA (cp.async.bulk.tensor.2d) tensor boxes and microscaled sub-byte formats. |
 | [cudaprobe](cudaprobe/) | Package cudaprobe decodes CUDA API observations and tracks allocation lifetimes within one observed process. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaprofagent](cudaprofagent/) | Package cudaprofagent lets a Go program finalize an attached cudaprof CUPTI agent before it exits. |
+| [cudaprofilehistory](cudaprofilehistory/) | Package cudaprofilehistory retains bounded, immutable observations of CUDA artifacts and profiling receipts. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
 | [cudarecipe](cudarecipe/) | Package cudarecipe inspects supplied CUDA artifacts and emits bounded, schema-versioned reports. |
 | [cudareduce](cudareduce/) | Package cudareduce provides deterministic column reductions for backward passes: bias gradients, per-group embedding gradients, and the LayerNorm weight and bias gradients. |
 | [cudaref](cudaref/) | Package cudaref provides an independent CPU reference implementation and numerical oracle for validating GPU kernel operations and semantic IR execution graphs. |
 | [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
+| [cudaregress](cudaregress/) | Package cudaregress turns admitted CUDA performance and diagnostic incidents into bounded, reproducible regression trials. |
+| [cudarepro](cudarepro/) | Package cudarepro reduces recorded GPU failures without editing kernel source. |
 | [cudaroofline](cudaroofline/) | Package cudaroofline models kernel arithmetic intensity (FLOPs/byte) and evaluates a launch against device ceilings. |
 | [cudasafetensors](cudasafetensors/) | Package cudasafetensors copies tensors from safetensors files into CUDA device memory. |
 | [cudasample](cudasample/) | Package cudasample provides a CUDA greedy-argmax kernel and its CPU reference. |
@@ -78,8 +90,10 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
 | [cudaschedule](cudaschedule/) | Package cudaschedule implements deterministic schedule-perturbation campaigns for PTX assembly. |
 | [cudasearch](cudasearch/) | Package cudasearch provides workload-bound search strategies (Beam and MCTS) over e-graph program rewrite transitions for CUDA execution plans. |
+| [cudashadow](cudashadow/) | Package cudashadow provides an observation-only evaluation and deterministic replay framework for GPU driver and runtime policies. |
 | [cudashape](cudashape/) | Package cudashape provides checked multi-dimensional tensor shapes, overflow-checked byte size calculation, stride and layout analysis, and bounded symbolic dimension binding with equality and divisibility constraints. |
 | [cudashared](cudashared/) | Package cudashared plans checked per-block shared-memory storage. |
+| [cudasotaeval](cudasotaeval/) | Package cudasotaeval exercises workload attribution, diagnosis, and replay using synthetic host fixtures. |
 | [cudaspec](cudaspec/) | Package cudaspec provides high-throughput speculative decoding algorithms, explicit branch state, tree attention masks, proposal lifecycle management, prompt-cache n-gram drafting, and batched multi-token verification. |
 | [cudasrv](cudasrv/) | Package cudasrv provides an OpenAI-compatible HTTP inference server with Server-Sent Events (SSE) streaming, Prometheus metrics, and graceful cancellation. |
 | [cudataskgraph](cudataskgraph/) | Package cudataskgraph validates finite task DAGs and tracks epoch-scoped publication and abort state. |
@@ -89,7 +103,9 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudatma](cudatma/) | Package cudatma describes checked tensor-map transfers and device-local multicast participation. |
 | [cudatmem](cudatmem/) | Package cudatmem models the checked device Tensor Memory allocation protocol for the sm_100a target family. |
 | [cudatrace](cudatrace/) | Package cudatrace records host-side CUDA submission regions and explicit timestamped GPU spans in Perfetto traces. |
+| [cudatracehost](cudatracehost/) | Package cudatracehost collects Linux CUDA host API observations through BPF user probes or tracefs. |
 | [cudatrial](cudatrial/) | Package cudatrial runs interleaved, provenance-bearing multi-arm evaluation trials across rounds. |
+| [cudaworkload](cudaworkload/) | Package cudaworkload tracks and correlates Go application operations with host submissions and device activities. |
 | [cuptiactivity](cuptiactivity/) | Package cuptiactivity collects bounded CUPTI activity records and exports complete records to Perfetto. |
 | [cuptibench](cuptibench/) | Package cuptibench collects CUPTI hardware metrics for replayable CUDA workloads. |
 | [cupticallback](cupticallback/) | Package cupticallback provides managed lifecycle ownership, thread safety, reentrancy control, and typed event dispatch for NVIDIA CUPTI callbacks. |
@@ -98,19 +114,29 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cuptipmsampling](cuptipmsampling/) | Package cuptipmsampling provides CUPTI Performance Monitor (PM) sampling for NVIDIA GPUs. |
 | [cuptirange](cuptirange/) | Package cuptirange configures, collects and evaluates CUPTI Range Profiling metrics with explicit memory and replay limits. |
 | [cuptisass](cuptisass/) | Package cuptisass provides CUPTI SASS metrics data collection for NVIDIA GPUs. |
+| [dcgmjson](dcgmjson/) | Package dcgmjson reads bounded, single-iteration dcgmi diag -j output from the pinned DCGM 4.6.1 producer. |
 | [egraph](egraph/) | Package egraph implements a lightweight, pure-Go E-Graph (equivalence graph) and equality saturation engine for term rewriting, program optimization, kernel fusion, declarative C++ Tile IR lowering, and sub-byte quantized inference. |
+| [imex](imex/) | Package imex reads finite IMEX domain JSON snapshots supplied by a caller. |
 | [moonep](moonep/) | Package moonep is a Go port of the host-side layer of MoonEP (github.com/MoonshotAI/MoonEP), an expert-parallel MoE communication library. |
 | [mxfp4](mxfp4/) | Package mxfp4 provides OCP Microscaling FP4 (E2M1) quantization, dequantization, and CUDA fused GEMV kernels. |
+| [ncclinspector](ncclinspector/) | Package ncclinspector reads bounded NCCL Inspector v4.1 JSON Lines and attributes collective stalls. |
+| [nccljoin](nccljoin/) | Package nccljoin aligns decoded NCCL Inspector collectives within an explicit caller-selected job and communicator epoch. |
+| [ncclras](ncclras/) | Package ncclras reads bounded NCCL RAS status and queries an explicit TCP address. |
 | [nccltest](nccltest/) | Package nccltest provides Go testing support for NCCL collective correctness and performance comparisons with NVIDIA/nccl-tests. |
 | [nvfatbinx](nvfatbinx/) | Package nvfatbinx packages alternative CUDA device images into a fatbinary. |
 | [nvjitlinkx](nvjitlinkx/) | Package nvjitlinkx links CUDA device-code inputs with nvJitLink. |
 | [nvlshm](nvlshm/) | Package nvlshm provides cross-process NVLink shared GPU buffers built on the CUDA virtual memory management (VMM) API, with optional NVSwitch multicast mappings. |
 | [nvrtcx](nvrtcx/) | Package nvrtcx provides runtime compilation of CUDA C++ source code into explicit compiler artifacts with content-addressed caching. |
+| [nvtelemetry](nvtelemetry/) | Package nvtelemetry collects NVIDIA telemetry through NVML, DCGM, and bounded documented exports, and records JSONL streams for replay and window summaries. |
+| [nvtelemetrybridge](nvtelemetrybridge/) | Package nvtelemetrybridge publishes bounded NVML polling snapshots in a BPF hash map for independent readers. |
 | [nvtx](nvtx/) | Package nvtx provides a pure-Go, zero-cgo implementation of NVIDIA Tools Extension (NVTX v3). |
 | [nvvmx](nvvmx/) | Package nvvmx compiles NVVM IR with owned inputs and copied output. |
 | [perfetto](perfetto/) | Package perfetto implements a streaming wire-format encoder for Perfetto trace files (.pftrace) compatible with the Chrome / Perfetto UI trace viewer. |
+| [puffernet](puffernet/) | Package puffernet runs the default PufferLib 5.0 policy network on CUDA. |
 | [safetensors](safetensors/) | Package safetensors reads and writes the Hugging Face safetensors format. |
 | [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
 | [tileiras](tileiras/) | Package tileiras provides programmatic invocation and diagnostics parsing for NVIDIA's tileiras optimizing Tile IR assembler. |
 | [tileirdisasm](tileirdisasm/) | Package tileirdisasm disassembles binary CUDA Tile IR bytecode (.tilebc) and parses textual Tile IR into an SSA abstract syntax tree (AST). |
 | [trainstat](trainstat/) | Package trainstat writes training runs in the Go benchmark format, for comparison with the trainstat command or benchstat. |
+| [xidcatalog](xidcatalog/) | Package xidcatalog looks up NVIDIA XID descriptions and resolution buckets from the pinned NVIDIA XID Catalog. |
+| [xidlog](xidlog/) | Package xidlog reads supplied NVRM XID and GPU-to-PCI observations. |
