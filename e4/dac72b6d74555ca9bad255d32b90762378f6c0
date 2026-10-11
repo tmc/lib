@@ -1,0 +1,10 @@
+commit: e4dac72b6d74555ca9bad255d32b90762378f6c0
+date: 2026-10-10T23:51:16-07:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; author/reviewer gpt-6.1-sol
+tty: none
+pid: 42029
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-wt-next/20261010-full-testing-readiness/independent-cpu-publication/GRADE.md
+review sha256: c060f97bcb1066d4508bf9710e7ce74a8628c0ba2cd27d06ca800b894ab548fd
+commit helper: manual fallback after two retained missing-API-key failures
