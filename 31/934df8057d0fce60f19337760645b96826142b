@@ -1,0 +1,11 @@
+commit: 31934df8057d0fce60f19337760645b96826142b
+date: 2026-10-11T01:04:51.487427+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 34887
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: Actual OTel0.162.0 response exposed empty-partial success misclassification; signal-specific zero-rejection regression controls and delivery race PASS; negative receipt retained endpoint-acceptance-02
+commit helper: prior two failed attempts exhausted; signed manual fallback
