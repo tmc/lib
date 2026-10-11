@@ -1,0 +1,11 @@
+commit: c2cc1c6747d0c06818d916804ac4b2fe18a14232
+date: 2026-10-11T23:33:58.897968+00:00
+agent: Codex
+model: GPT-6
+claude-code version: n/a
+tty: non-interactive tool shell
+note writer pid: 36388
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+wire src: 026363F7
+root commit helper already failed twice; prescribed signed manual fallback
+scope: synthetic host recorder test; no deterministic method-entry or NVML hardware qualification
