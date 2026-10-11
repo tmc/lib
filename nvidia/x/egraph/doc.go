@@ -62,6 +62,10 @@
 // Graph construction and rewriting run in Go. GPU candidate benchmarking
 // additionally uses the CUDA driver and runtime compiler through the CUDA wrappers.
 //
+// Extracted expressions retain their canonical e-class and introducing rewrite.
+// [EmitCUDA] produces CUDA source and line attribution; [Source.ReferenceGraph] supplies
+// a CPU reference for the emitted expression.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package egraph

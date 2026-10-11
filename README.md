@@ -12,6 +12,7 @@ its own release tags (`<dir>/vX.Y.Z`).
 | Module | Import path | Description |
 |---|---|---|
 | `nvidia` | `github.com/tmc/lib/nvidia` | Purego bindings for the CUDA driver, runtime, math libraries, NCCL, CUPTI, and Compute Sanitizer |
+| `ebpfhost` | `github.com/tmc/lib/ebpfhost` | Linux host BPF loading, probes, and metrics |
 | `rocm` | `github.com/tmc/lib/rocm` | Purego HIP runtime bindings |
 | `apple` | `github.com/tmc/lib/apple` | Purego bindings for Metal, plus Metal capture and profiling |
 | `openxla` | `github.com/tmc/lib/openxla` | Purego bindings for the PJRT C API |
@@ -27,6 +28,8 @@ its own release tags (`<dir>/vX.Y.Z`).
 Packages under a module's `x/` directory, such as `nvidia/x`, have an API that
 is still moving. They will change without a major version bump.
 `hf/hftokenizer` carries the same notice in its package documentation.
+
+For host BPF and GPU observations, see [BPF support](nvidia/x/BPF.md).
 
 ## Usage
 
