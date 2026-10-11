@@ -27,6 +27,15 @@ type ExtractedFusionPlan struct {
 	RootBoundary string
 }
 
+// FusionTensor supplies the row-major FP32 shape of an expression through
+// Expr.Data. Indexed fusion regions require it on every node, including external
+// inputs. A nil Shape explicitly describes a scalar. Permutation is used only
+// by transpose and lists each input axis in output-axis order.
+type FusionTensor struct {
+	Shape       []int
+	Permutation []int
+}
+
 // LazyFusionRewriteRules returns rewrite rules that identify adjacent fusible elementwise
 // operations and unify them into fused mega-kernel candidate nodes in the E-Graph.
 func LazyFusionRewriteRules() []*Rewrite {
@@ -47,7 +56,10 @@ func ExtractFusionRegions(expr *Expr) (*ExtractedFusionPlan, error) {
 	if expr == nil {
 		return nil, fmt.Errorf("egraph: nil expression")
 	}
-	expr = expandFusionAliases(expr)
+	if err := validateFusionExpression(expr); err != nil {
+		return nil, err
+	}
+	expr = expandFusionAliases(expr, make(map[*Expr]*Expr))
 
 	plan := &ExtractedFusionPlan{}
 	if cudafuse.IsMaterializingBoundary(strings.ToLower(expr.Op)) || cudafuse.IsCompactionBoundary(strings.ToLower(expr.Op)) {
@@ -55,12 +67,14 @@ func ExtractFusionRegions(expr *Expr) (*ExtractedFusionPlan, error) {
 	}
 	var walkErr error
 	regionID := 0
+	walked := make(map[*Expr]bool)
 
 	var walk func(e *Expr, parentBoundary string)
 	walk = func(e *Expr, parentBoundary string) {
-		if e == nil || walkErr != nil {
+		if e == nil || walkErr != nil || walked[e] {
 			return
 		}
+		walked[e] = true
 
 		op := strings.ToLower(e.Op)
 		if cudafuse.IsMaterializingBoundary(op) || cudafuse.IsCompactionBoundary(op) {
@@ -139,6 +153,11 @@ func ExtractFusionRegions(expr *Expr) (*ExtractedFusionPlan, error) {
 func compileExtractedRegion(region *ExtractedFusionRegion) (*cudafuse.FusedKernel, error) {
 	if region == nil || region.Root == nil {
 		return nil, fmt.Errorf("egraph: invalid region")
+	}
+	for _, op := range region.OpNames {
+		if op == "transpose" {
+			return compileIndexedFusionRegion(region)
+		}
 	}
 
 	g := cudair.NewGraph()
@@ -220,25 +239,51 @@ func compileExtractedRegion(region *ExtractedFusionRegion) (*cudafuse.FusedKerne
 	return &fk, nil
 }
 
-func expandFusionAliases(expr *Expr) *Expr {
+func validateFusionExpression(root *Expr) error {
+	state := make(map[*Expr]int)
+	var visit func(*Expr) error
+	visit = func(expr *Expr) error {
+		if expr == nil || state[expr] == 1 {
+			return fmt.Errorf("egraph: nil or cyclic fusion expression")
+		}
+		if state[expr] == 2 {
+			return nil
+		}
+		state[expr] = 1
+		for _, child := range expr.Children {
+			if err := visit(child); err != nil {
+				return err
+			}
+		}
+		state[expr] = 2
+		return nil
+	}
+	return visit(root)
+}
+
+func expandFusionAliases(expr *Expr, expanded map[*Expr]*Expr) *Expr {
 	if expr == nil {
 		return nil
 	}
+	if result := expanded[expr]; result != nil {
+		return result
+	}
 	children := make([]*Expr, len(expr.Children))
 	for i, child := range expr.Children {
-		children[i] = expandFusionAliases(child)
+		children[i] = expandFusionAliases(child, expanded)
 	}
 	makeExpr := func(op string, children ...*Expr) *Expr {
-		return &Expr{Op: op, Children: children}
+		return &Expr{Op: op, Data: expr.Data, Children: children}
 	}
+	var result *Expr
 	switch strings.ToLower(expr.Op) {
 	case "fused_add_mul":
 		if len(children) == 3 {
-			return makeExpr("mul", makeExpr("add", children[0], children[1]), children[2])
+			result = makeExpr("mul", makeExpr("add", children[0], children[1]), children[2])
 		}
 	case "fused_fma":
 		if len(children) == 3 {
-			return makeExpr("add", makeExpr("mul", children[0], children[1]), children[2])
+			result = makeExpr("add", makeExpr("mul", children[0], children[1]), children[2])
 		}
 	case "fused_relu_mul", "fused_silu_mul", "fused_exp_add", "fused_neg_add":
 		if len(children) == 2 {
@@ -254,10 +299,18 @@ func expandFusionAliases(expr *Expr) *Expr {
 			case "fused_neg_add":
 				unary, binary = "neg", "add"
 			}
-			return makeExpr(binary, makeExpr(unary, left), right)
+			result = makeExpr(binary, makeExpr(unary, left), right)
 		}
 	}
-	return &Expr{Op: expr.Op, Data: expr.Data, Children: children}
+	if result == nil {
+		clone := *expr
+		clone.Children = children
+		result = &clone
+	} else {
+		result.Class, result.Origin = expr.Class, expr.Origin
+	}
+	expanded[expr] = result
+	return result
 }
 
 func sanitizeIdent(s string) string {

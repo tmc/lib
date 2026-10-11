@@ -93,6 +93,18 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 		}
 
 		kernelName := fmt.Sprintf("fused_region_%d", reg.ID)
+		indexed := false
+		for _, node := range reg.Nodes {
+			indexed = indexed || node.Op == "transpose"
+		}
+		if indexed {
+			kernel, err := compileIndexedLazyRegion(reg.Inputs, reg.Outputs, kernelName)
+			if err != nil {
+				return nil, fmt.Errorf("cudafuse: compile indexed region %d: %w", reg.ID, err)
+			}
+			reg.Kernel = &kernel
+			continue
+		}
 		g := cudair.NewGraph()
 		nodeMap := make(map[*LazyNode]*cudair.Node)
 
@@ -195,14 +207,18 @@ func outputBytes(shape []int, dtype cudair.DataType) (int64, error) {
 	if dtype < cudair.Float32 || dtype > cudair.Int8 {
 		return 0, fmt.Errorf("unsupported data type %s", dtype)
 	}
-	elements := uint64(1)
+	empty := false
 	for _, dim := range shape {
 		if dim < 0 {
 			return 0, fmt.Errorf("negative output dimension %d", dim)
 		}
-		if dim == 0 {
-			return 0, nil
-		}
+		empty = empty || dim == 0
+	}
+	if empty {
+		return 0, nil
+	}
+	elements := uint64(1)
+	for _, dim := range shape {
 		if elements > math.MaxInt64/uint64(dim) {
 			return 0, fmt.Errorf("output element count overflows int64")
 		}
@@ -275,7 +291,7 @@ func partitionIntoRegions(nodes []*LazyNode) ([]*FusionRegion, error) {
 				currentRegion.Outputs = findOutputs(currentRegion.Nodes, nodes)
 			}
 			matReg := startNewRegion(false, n.Op)
-			if n.Op == "transpose" || n.Op == "gather" || n.Op == "cycle" || n.Op == "replicate" {
+			if n.Op == "gather" || n.Op == "cycle" || n.Op == "replicate" {
 				matReg.Reason = "operation is not lowered into the flat elementwise kernel"
 			}
 			matReg.Nodes = append(matReg.Nodes, n)

@@ -282,6 +282,7 @@ func TestLazyFusionBoundary_EveryFusibleOpMaterializes(t *testing.T) {
 		{name: "sqrt", build: func(x, _ *cudafuse.LazyArray) *cudafuse.LazyArray { return x.Map("sqrt") }},
 		{name: "neg", build: func(x, _ *cudafuse.LazyArray) *cudafuse.LazyArray { return x.Map("neg") }},
 		{name: "reshape", build: func(x, _ *cudafuse.LazyArray) *cudafuse.LazyArray { return x.Reshape([]int{4}) }},
+		{name: "transpose", build: func(x, _ *cudafuse.LazyArray) *cudafuse.LazyArray { return x.Transpose([]int{0}) }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -313,15 +314,13 @@ func TestLazyFusionBoundary_EveryFusibleOpMaterializes(t *testing.T) {
 		})
 	}
 
-	for _, op := range []string{"transpose", "gather", "cycle", "replicate"} {
+	for _, op := range []string{"gather", "cycle", "replicate"} {
 		t.Run(op+"_explicit_boundary", func(t *testing.T) {
 			ctx := cudafuse.NewLazyContext()
 			x := cudafuse.NewLazyArray(ctx, []int{4}, cudair.Float32)
 			y := cudafuse.NewLazyArray(ctx, []int{4}, cudair.Float32)
 			var boundary *cudafuse.LazyArray
 			switch op {
-			case "transpose":
-				boundary = x.Transpose([]int{0})
 			case "gather":
 				boundary = x.Gather(y)
 			case "cycle":

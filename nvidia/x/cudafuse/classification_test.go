@@ -7,12 +7,12 @@ import (
 )
 
 func TestClassifyOpFusionAndExplicitBoundaries(t *testing.T) {
-	for _, op := range []string{"add", "sub", "mul", "div", "relu", "silu", "exp", "sqrt", "neg", "reshape"} {
+	for _, op := range []string{"add", "sub", "mul", "div", "relu", "silu", "exp", "sqrt", "neg", "reshape", "transpose"} {
 		if got := cudafuse.ClassifyOp(op); got != cudafuse.OpFusibleElementwise {
 			t.Errorf("ClassifyOp(%q) = %v, want fusible", op, got)
 		}
 	}
-	for _, op := range []string{"transpose", "gather", "cycle", "replicate", "sum", "scan", "to_host"} {
+	for _, op := range []string{"gather", "cycle", "replicate", "sum", "scan", "to_host"} {
 		if got := cudafuse.ClassifyOp(op); got != cudafuse.OpMaterializingBoundary {
 			t.Errorf("ClassifyOp(%q) = %v, want materializing boundary", op, got)
 		}

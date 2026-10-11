@@ -76,7 +76,7 @@ type executionOps struct {
 	sync    func(context.Context) error
 }
 
-// Execute compiles and runs the supported flat FP32 region on stream. It waits
+// Execute compiles and runs the supported row-major FP32 region on stream. It waits
 // through Stream.Synchronize before exposing output. Unsupported graphs or
 // invalid bindings are refused before compilation or allocation.
 // The caller must keep stream and its device live until the execution is
@@ -224,10 +224,11 @@ func executionNodes(p *MaterializedPlan) ([]*LazyNode, int, error) {
 	if p.RootNode.Op == "input" {
 		return nil, 0, errors.New("cudafuse: execution requires a compute output")
 	}
-	if len(p.RootNode.Shape) != 1 || p.RootNode.Shape[0] < 0 || p.RootNode.Shape[0] > math.MaxInt32 {
-		return nil, 0, errors.New("cudafuse: execution requires bounded rank-one shape")
+	count, err := indexedElements(p.RootNode)
+	if err != nil {
+		return nil, 0, err
 	}
-	n := p.RootNode.Shape[0]
+	n := int(count)
 	var nodes []*LazyNode
 	state := map[*LazyNode]int{}
 	names := map[string]bool{}
@@ -245,21 +246,16 @@ func executionNodes(p *MaterializedPlan) ([]*LazyNode, int, error) {
 		if node.Err != nil {
 			return node.Err
 		}
-		if node.DType != cudair.Float32 || !slices.Equal(node.Shape, []int{n}) {
+		elements, err := indexedElements(node)
+		if err != nil || node.DType != cudair.Float32 || elements != count {
 			return errors.New("cudafuse: unsupported execution dtype or shape")
 		}
-		arity := 0
-		switch node.Op {
-		case "input":
-		case "relu":
-			arity = 1
-		case "add", "mul":
-			arity = 2
-		default:
-			return fmt.Errorf("cudafuse: unsupported execution operator %q", node.Op)
-		}
-		if len(node.Inputs) != arity || len(node.Attrs) != 0 {
-			return errors.New("cudafuse: unsupported execution node attributes or arity")
+		if node.Op == "input" {
+			if len(node.Inputs) != 0 || len(node.Attrs) != 0 {
+				return errors.New("cudafuse: unsupported execution input attributes or arity")
+			}
+		} else if err := validateIndexedOperator(node); err != nil {
+			return err
 		}
 		if names[node.Name()] {
 			return errors.New("cudafuse: duplicate node name")
@@ -306,13 +302,35 @@ func executionNodes(p *MaterializedPlan) ([]*LazyNode, int, error) {
 }
 
 func executionSource(nodes []*LazyNode, root *LazyNode, name string, eager bool) (FusedKernel, error) {
+	indexed := false
+	for _, node := range nodes {
+		indexed = indexed || node.Op == "transpose" || node.Op == "reshape"
+	}
+	if indexed {
+		var inputs []*LazyNode
+		if eager {
+			for _, input := range root.Inputs {
+				if !slices.Contains(inputs, input) {
+					inputs = append(inputs, input)
+				}
+			}
+		} else {
+			for _, node := range nodes {
+				if node.Op == "input" {
+					inputs = append(inputs, node)
+				}
+			}
+		}
+		return compileIndexedLazyRegion(inputs, []*LazyNode{root}, name)
+	}
 	g := cudair.NewGraph()
 	values := map[*LazyNode]*cudair.Node{}
 	addInput := func(node *LazyNode) *cudair.Node {
 		if v := values[node]; v != nil {
 			return v
 		}
-		v := g.AddInput(node.Name(), node.Shape, node.DType)
+		count, _ := indexedElements(node) // executionNodes already checked the domain.
+		v := g.AddInput(node.Name(), []int{int(count)}, node.DType)
 		values[node] = v
 		return v
 	}
