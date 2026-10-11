@@ -1,0 +1,11 @@
+commit: 8a6a30993
+date: 2026-10-11T01:09:15Z
+agent: antigravity
+codex version: not applicable
+claude-code version: not applicable
+model: gemini-2.5-pro
+tty: /dev/ttys062
+pid: 46101
+ITERM_SESSION_ID: w2t0p3:A01076D7-6AF7-41A0-AD07-8E9E98A00426
+scope and validation: Live authenticated httptest loopback network acceptance tests for all seven workload providers (triton, vllm, ray, mlflow, wandb, clearml, pytorch); raw provenance SHA-256 verified; race PASS
+commit helper: signed manual commit
