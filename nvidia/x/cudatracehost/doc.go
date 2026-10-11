@@ -11,7 +11,11 @@
 //
 // CUDA context lifetimes, device duration and pre-attachment history remain
 // unavailable. Scheduler capture covers the attachment thread snapshot; BPF
-// probes cover only that snapshot; new threads remain unobserved. Perf uprobe
+// probes cover only that snapshot; new threads remain unobserved. The manifest
+// retains BPF snapshot TIDs, /proc starttime generations verified before and
+// after attachment, and elapsed monotonic discovery/attachment boundaries.
+// Discovery and attachment are blind intervals, not atomic thread coverage.
+// Tracefs snapshot membership remains unavailable in that manifest. Perf uprobe
 // inheritance is refused because it can prevent unprivileged thread creation. Ring loss
 // counters and unknown tracefs loss are separate from API success.
 // Optional user stacks are bounded frame-pointer observations, not complete

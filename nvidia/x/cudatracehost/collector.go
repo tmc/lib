@@ -16,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/tmc/lib/ebpfhost"
 	"github.com/tmc/lib/nvidia/x/cudaprobe"
@@ -190,27 +191,25 @@ func Open(cfg Config) (*Collector, error) {
 	}
 	var trace *ebpfhost.Collector
 	var group *bpfprobe.Group
+	coverage := SnapshotCoverage{Status: "unavailable", FutureThreads: "unobserved", BlindInterval: "backend_snapshot_unverified"}
+	var discoveryStart time.Time
 	if backend == "tracefs" {
 		trace, err = ebpfhost.Open(ebpfhost.Config{PID: cfg.PID, TraceRoot: cfg.TraceRoot, Probes: probes, Scheduler: cfg.Scheduler, Lifecycle: true})
 	} else {
-		tids, readErr := os.ReadDir(fmt.Sprintf("/proc/%d/task", cfg.PID))
-		if readErr != nil {
-			return nil, readErr
-		}
-		if len(tids)*len(probes) > 256 {
-			return nil, fmt.Errorf("cudatracehost: attachment snapshot exceeds 256 probes")
+		coverage, discoveryStart, err = discoverCoverage(cfg.PID, len(probes))
+		if err != nil {
+			return nil, err
 		}
 		var configs []bpfprobe.Config
-		for _, tid := range tids {
-			id, e := strconv.Atoi(tid.Name())
-			if e != nil {
-				return nil, e
-			}
+		coverage.AttachmentStartNanos = time.Since(discoveryStart).Nanoseconds()
+		for _, tid := range coverage.Threads {
+			id := int(tid.TID)
 			for i, p := range probes {
 				configs = append(configs, bpfprobe.Config{Path: p.Path, Offset: p.Offset, PID: id, Tag: uint64(i), Return: p.Return, Capacity: 65536, OutputPointer: outputPointer(targets[i/2].Identity.Symbol), UserStack: cfg.UserStack, CorrelationTag: uint64(i/2 + 1), TGID: uint32(cfg.PID)})
 			}
 		}
 		group, err = bpfprobe.AttachGroup(configs)
+		coverage.AttachmentEndNanos = time.Since(discoveryStart).Nanoseconds()
 		if err == nil {
 			trace, err = ebpfhost.Open(ebpfhost.Config{PID: cfg.PID, TraceRoot: cfg.TraceRoot, Scheduler: cfg.Scheduler, Lifecycle: true})
 			if err != nil {
@@ -228,6 +227,15 @@ func Open(cfg Config) (*Collector, error) {
 		if group != nil {
 			group.Close()
 		}
+	}
+
+	if backend == "bpf" {
+		if err := verifyThreads(coverage.Threads, func(tid int) (uint64, error) { return taskGeneration(cfg.PID, tid) }); err != nil {
+			cleanup()
+			return nil, err
+		}
+		coverage.VerificationEndNanos = time.Since(discoveryStart).Nanoseconds()
+		coverage.Status = "generation_verified_attachment_snapshot"
 	}
 
 	after, err := ebpfhost.ProcessStartTime(cfg.PID)
@@ -253,7 +261,7 @@ func Open(cfg Config) (*Collector, error) {
 			calls.targets[k] = t
 		}
 	}
-	m := Manifest{Backend: backend, Clock: "linux_monotonic", Epoch: strings.TrimSpace(string(boot)), Process: cudaprobe.Process{PID: uint32(cfg.PID), Generation: generation}, Images: images, Complete: false, LossStatus: "unknown", ThreadScope: "attachment_snapshot", LibraryVersionStatus: "caller_reported"}
+	m := Manifest{ThreadCoverage: coverage, Backend: backend, Clock: "linux_monotonic", Epoch: strings.TrimSpace(string(boot)), Process: cudaprobe.Process{PID: uint32(cfg.PID), Generation: generation}, Images: images, Complete: false, LossStatus: "unknown", ThreadScope: "attachment_snapshot", LibraryVersionStatus: "caller_reported"}
 	if backend == "bpf" {
 		m.ThreadScope = "attachment_snapshot_new_threads_unknown"
 		m.KernelBTFHash = group.KernelBTFHash
@@ -380,6 +388,7 @@ func (c *Collector) Close() error {
 // Manifest records attachment provenance and explicit coverage limits. Epoch
 // is the kernel boot ID for the monotonic clock, not a sensor clock mapping.
 type Manifest struct {
+	ThreadCoverage                                SnapshotCoverage
 	TaskExecOffset, TaskExecSize                  uint32
 	KernelBTFHash                                 string
 	TaskStartOffset                               uint32
@@ -394,6 +403,7 @@ type Manifest struct {
 func (c *Collector) Manifest() Manifest {
 	m := c.manifest
 	m.Images = append([]ebpfhost.Image(nil), m.Images...)
+	m.ThreadCoverage.Threads = append([]ThreadSnapshot(nil), m.ThreadCoverage.Threads...)
 	return m
 }
 
