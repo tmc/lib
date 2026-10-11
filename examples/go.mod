@@ -8,6 +8,7 @@ require (
 	github.com/tmc/apple v0.6.18
 	github.com/tmc/go-iroh v0.2.0
 	github.com/tmc/lib/apple v0.0.0
+	github.com/tmc/lib/egraphcore v0.0.0
 	github.com/tmc/lib/hf/hfsync v0.0.0
 	github.com/tmc/lib/hf/hftokenizer v0.0.0
 	github.com/tmc/lib/lm v0.0.0
@@ -37,6 +38,8 @@ replace github.com/tmc/lib/lm => ../lm
 replace github.com/tmc/lib/nvidia => ../nvidia
 
 replace github.com/tmc/lib/apple => ../apple
+
+replace github.com/tmc/lib/egraphcore => ../egraphcore
 
 replace github.com/tmc/apple => ../../../tmc/apple
 
