@@ -20,19 +20,8 @@ func TestCUDAFloatCodec(t *testing.T) {
 	if headers == "" {
 		t.Skip("set NCCLTEST_CODEC_HEADERS to the CUDA header root to require native conversion checks")
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	root := filepath.Join(home, "tmp", "nccltest-codec")
-	if err := os.MkdirAll(root, 0755); err != nil {
-		t.Fatal(err)
-	}
-	work, err := os.MkdirTemp(root, "cuda-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("retained native fixture: %s", work)
+	work := t.TempDir()
+	t.Logf("native fixture: %s", work)
 	src, err := os.ReadFile("testdata/floatcodec.cc")
 	if err != nil {
 		t.Fatal(err)

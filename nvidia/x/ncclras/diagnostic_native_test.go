@@ -21,7 +21,6 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudalock"
-	"github.com/tmc/lib/nvidia/x/ncclinspector"
 	"github.com/tmc/lib/nvidia/x/ncclras"
 	"github.com/tmc/lib/nvidia/x/nccltest"
 )
@@ -98,7 +97,7 @@ func TestNativeMultiGPUDiagnostics(t *testing.T) {
 		"NCCL_PROFILER_PLUGIN": plugin, "NCCL_INSPECTOR_ENABLE": "1",
 		"NCCL_INSPECTOR_DUMP_DIR": inspectorDir, "NCCL_INSPECTOR_PROM_DUMP": "0",
 		"NCCL_INSPECTOR_OTEL_EXPORT": "0", "NCCL_INSPECTOR_DUMP_VERBOSE": "0",
-		"NCCL_INSPECTOR_DUMP_THREAD_ENABLE": "1", "NCCL_INSPECTOR_DUMP_THREAD_INTERVAL_MICROSECONDS": "-1",
+		"NCCL_INSPECTOR_DUMP_THREAD_ENABLE": "1", "NCCL_INSPECTOR_DUMP_THREAD_INTERVAL_MICROSECONDS": "100000",
 		"NCCL_INSPECTOR_DUMP_MIN_SIZE_BYTES": "0",
 	} {
 		t.Setenv(k, v)
@@ -127,6 +126,26 @@ func TestNativeMultiGPUDiagnostics(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	client := ncclras.Client{Address: address, Timeout: 5 * time.Second}
+	hostname, err := os.Hostname()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(inspectorDir, fmt.Sprintf("%s-pid%d.log", hostname, os.Getpid()))
+	readCapture := func() ([]byte, error) {
+		f, err := diagnosticFile(path, diagnosticCaptureBytes)
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		b, readErr := io.ReadAll(io.LimitReader(f, diagnosticCaptureBytes+1))
+		closeErr := f.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		return b, closeErr
+	}
 	queries := 0
 	commHash := ""
 	err = nccltest.RunCycles(nccltest.Case{Operation: nccltest.AllReduce, DataType: nccltest.Float32, Bytes: 65536}, nccltest.Options{Devices: devices, Checks: 1, Iterations: 1}, 2, func(result nccltest.Result) error {
@@ -153,7 +172,7 @@ func TestNativeMultiGPUDiagnostics(t *testing.T) {
 			return fmt.Errorf("RAS membership differs from actual two-device job")
 		}
 		for _, rank := range comm.Ranks {
-			if rank.PID != os.Getpid() || rank.CUDADevice != int(devices[rank.Rank]) || rank.Counts["AllReduce"] == 0 {
+			if rank.PID != os.Getpid() || rank.CUDADevice != int(devices[rank.Rank]) || rank.Counts["AllReduce"] != uint64((queries+1)*2) {
 				return fmt.Errorf("RAS rank/device/process/collective binding differs")
 			}
 		}
@@ -165,6 +184,17 @@ func TestNativeMultiGPUDiagnostics(t *testing.T) {
 			return err
 		}
 		queries++
+		if queries == 2 {
+			// Observe periodic output while the clique is alive. Finalization does
+			// not guarantee a dump in the pinned Inspector implementation.
+			captureCtx, stop := context.WithTimeout(ctx, 8*time.Second)
+			defer stop()
+			capture, err := waitDiagnosticCapture(captureCtx, readCapture, hostname, os.Getpid(), commHash, 100*time.Millisecond)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(out, "inspector-capture.jsonl"), capture, 0600)
+		}
 		return nil
 	})
 	if err != nil {
@@ -173,45 +203,14 @@ func TestNativeMultiGPUDiagnostics(t *testing.T) {
 	if queries != 2 {
 		t.Fatal("missing live RAS observations")
 	}
-	// The pinned Inspector defaults dump at communicator finalization. RunCycles
-	// returns only after its communicator/stream cleanup; do not invent a flush
-	// from an arbitrary sleep or treat missing output as success.
-	hostname, err := os.Hostname()
-	if err != nil {
+	// No additional collectives are submitted during cleanup. Validate the
+	// retained final file against the same oracle after the writer stops.
+	finalCtx, stop := context.WithTimeout(context.Background(), time.Second)
+	defer stop()
+	if _, err := waitDiagnosticCapture(finalCtx, readCapture, hostname, os.Getpid(), commHash, 100*time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(inspectorDir, fmt.Sprintf("%s-pid%d.log", hostname, os.Getpid()))
-	f, err = diagnosticFile(path, 4<<20)
-	if err != nil {
-		t.Fatal(err)
-	}
-	records, err := ncclinspector.Read(f, ncclinspector.Limits{})
-	closeErr = f.Close()
-	if err != nil || closeErr != nil {
-		t.Fatalf("Inspector output: %v close=%v", err, closeErr)
-	}
-	ranks := make(map[int]bool)
-	stats := make(map[int]bool)
-	for _, r := range records {
-		if r.Metadata.PID != os.Getpid() || r.Metadata.Hostname != hostname || r.Header.Ranks != 2 || r.Header.ID != commHash {
-			t.Fatal("Inspector process/membership differs")
-		}
-		if r.Stats != nil {
-			stats[r.Header.Rank] = true
-			if r.Stats.CollectiveDroppedTotal != 0 || r.Stats.PointToPointDroppedTotal != 0 {
-				t.Fatal("dropped Inspector operations")
-			}
-		}
-		if r.Collective != nil {
-			if r.Collective.Name != "AllReduce" || r.Collective.Bytes != 65536 {
-				t.Fatal("Inspector operation differs")
-			}
-			ranks[r.Header.Rank] = true
-		}
-	}
-	if !ranks[0] || !ranks[1] || !stats[0] || !stats[1] {
-		t.Fatal("missing two-rank Inspector operations or dump statistics")
-	}
+
 }
 
 func diagnosticFile(path string, max int64) (*os.File, error) {
@@ -221,7 +220,7 @@ func diagnosticFile(path string, max int64) (*os.File, error) {
 	}
 	f := os.NewFile(uintptr(fd), path)
 	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > max {
+	if err != nil || !info.Mode().IsRegular() || info.Size() < 0 || info.Size() > max {
 		f.Close()
 		return nil, fmt.Errorf("bounded regular diagnostic file required: %s", path)
 	}

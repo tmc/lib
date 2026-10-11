@@ -1,0 +1,11 @@
+--- a/plugins/profiler/inspector/inspector.h
++++ b/plugins/profiler/inspector/inspector.h
+@@ -160,7 +160,7 @@
+ #include "inspector_ring.h"
+ 
+ enum {
+-  NCCL_COMM_HASH_LENGTH = 17,
++  NCCL_COMM_HASH_LENGTH = 19,
+   NCCL_COMM_NAME_MAX = 256
+ };
+ 

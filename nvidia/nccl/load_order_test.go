@@ -61,19 +61,7 @@ func TestLoadOrderNative(t *testing.T) {
 	if err != nil {
 		t.Skip("requires C compiler")
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	base := filepath.Join(home, "tmp")
-	if err := os.MkdirAll(base, 0700); err != nil {
-		t.Fatal(err)
-	}
-	dir, err := os.MkdirTemp(base, "nccl-load-order-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 	src := filepath.Join(dir, "stub.c")
 	if err := os.WriteFile(src, []byte("int nccl_test_stub(void) { return 42; }\n"), 0600); err != nil {
 		t.Fatal(err)

@@ -3,6 +3,7 @@
 package nccl_test
 
 import (
+	"math"
 	"os"
 	"runtime"
 	"testing"
@@ -25,17 +26,15 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 	if os.Getenv("NCCL_SIMULATE_PHYSICAL_TEST") != "1" {
 		t.Skip("set NCCL_SIMULATE_PHYSICAL_TEST=1")
 	}
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	check := func(what string, err error) {
+	check := func(t *testing.T, what string, err error) {
 		t.Helper()
 		if err != nil {
 			t.Fatalf("%s: %v", what, err)
 		}
 	}
-	check("initialize driver", driver.Init(0))
+	check(t, "initialize driver", driver.Init(0))
 	count, err := driver.DeviceGetCount()
-	check("device count", err)
+	check(t, "device count", err)
 	t.Logf("devices present: %d", count)
 
 	// simulate enqueues one all-reduce per communicator inside a group and
@@ -57,7 +56,8 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 				return info, err
 			}
 		}
-		return info, nccl.GroupSimulateEnd(&info)
+		err := nccl.GroupSimulateEnd(&info)
+		return info, err
 	}
 
 	const elems = 4096
@@ -109,25 +109,32 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 			}
 			pin.Unpin()
 		}
+		ready := false
+		defer func() {
+			if !ready {
+				cleanup()
+			}
+		}()
 		for i, d := range devices {
 			dev := driver.Device(int(d))
 			var err error
 			ctxs[i], err = dev.PrimaryCtxRetain()
-			check("retain primary context", err)
-			check("set current context", ctxs[i].SetCurrent())
+			check(t, "retain primary context", err)
+			check(t, "set current context", ctxs[i].SetCurrent())
 			streams[i], err = driver.NewStream(0)
-			check("create stream", err)
+			check(t, "create stream", err)
 			send[i], err = driver.MemAllocBytes(elems * 4)
-			check("allocate send", err)
+			check(t, "allocate send", err)
 			recv[i], err = driver.MemAllocBytes(elems * 4)
-			check("allocate receive", err)
+			check(t, "allocate receive", err)
 			host := make([]int32, elems)
 			for k := range host {
 				host[k] = int32(10000*i + k)
 			}
-			check("upload", send[i].CopyFromHostPtr(unsafe.Pointer(&host[0]), elems*4))
+			check(t, "upload", send[i].CopyFromHostPtr(unsafe.Pointer(&host[0]), elems*4))
 		}
-		check("init communicators", nccl.CommInitAll(&comms[0], int32(n), &devices[0]))
+		check(t, "init communicators", nccl.CommInitAll(&comms[0], int32(n), &devices[0]))
+		ready = true
 		return comms, ctxs, send, recv, streams, cleanup
 	}
 
@@ -139,6 +146,8 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 		}
 		seed := nccl.NewSimInfo().EstimatedTime
 		switch {
+		case math.IsNaN(float64(info.EstimatedTime)) || math.IsInf(float64(info.EstimatedTime), 0):
+			t.Errorf("%s: estimatedTime = %v, nonfinite estimate", arm, info.EstimatedTime)
 		case info.EstimatedTime == seed:
 			t.Logf("UNQUALIFIED %s: estimatedTime is still the initializer seed %v."+
 				" The library either declined to estimate or never wrote the field;"+
@@ -151,6 +160,9 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 	}
 
 	t.Run("OneRank", func(t *testing.T) {
+		// CUDA current contexts belong to the calling OS thread.
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
 		comms, ctxs, send, recv, streams, cleanup := setup(t, []int32{0})
 		defer cleanup()
 		info, err := simulate(t, comms, ctxs, send, recv, streams, elems)
@@ -158,6 +170,9 @@ func TestPhysicalSimulateRanks(t *testing.T) {
 	})
 
 	t.Run("TwoRanks", func(t *testing.T) {
+		// CUDA current contexts belong to the calling OS thread.
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
 		if count < 2 {
 			t.Skipf("need two devices, host has %d; the comparison this test exists for cannot be made", count)
 		}

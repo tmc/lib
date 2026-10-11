@@ -26,6 +26,8 @@ type Options struct {
 	Iterations     int
 	Aggregation    int // Timed collectives per iteration; zero means one.
 	Checks         int
+	DelayRank      int           // Ordinal of rank to delay in peer delay controls; zero with PeerDelay==0 means no delay.
+	PeerDelay      time.Duration // Deliberate delay injected before collective submission.
 }
 
 // Result records correctness and CUDA-event timing for one effective case.
@@ -53,6 +55,9 @@ type Result struct {
 	GPUTime          time.Duration
 	AlgorithmGBs     float64
 	BusGBs           float64
+	DelayRank        int
+	PeerDelay        time.Duration
+	RankTimes        []time.Duration
 }
 
 type rankState struct {
@@ -385,6 +390,9 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 					break
 				}
 			}
+			if o.PeerDelay > 0 && rank == o.DelayRank {
+				time.Sleep(o.PeerDelay)
+			}
 			callErr = errors.Join(callErr, execute(c, l, rank, states, nativeCollectives))
 		}
 		if grouped {
@@ -404,7 +412,7 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 		return nil
 	}
 	cycle := func() (result Result, err error) {
-		result = Result{SyncIterations: o.SyncIterations, Offset: o.Offset, GraphLaunches: o.GraphLaunches, Register: o.Register, DefaultStream: o.DefaultStream, Timing: o.Timing, Case: c.copy(), Layout: l, Ranks: len(states), NCCLVersion: version, Iterations: o.Iterations, Warmup: o.Warmup, Checks: o.Checks, Aggregation: aggregation, TimedOperations: operations}
+		result = Result{SyncIterations: o.SyncIterations, Offset: o.Offset, GraphLaunches: o.GraphLaunches, Register: o.Register, DefaultStream: o.DefaultStream, Timing: o.Timing, Case: c.copy(), Layout: l, Ranks: len(states), NCCLVersion: version, Iterations: o.Iterations, Warmup: o.Warmup, Checks: o.Checks, Aggregation: aggregation, TimedOperations: operations, DelayRank: o.DelayRank, PeerDelay: o.PeerDelay}
 		// Reset for every correctness pass, especially for in-place reductions.
 		for check := 0; check < checkPasses; check++ {
 			if err = reset(); err != nil {
@@ -525,6 +533,10 @@ func runSweepContext(ctx context.Context, c Case, o Options, omit bool, sizes []
 			return result, err
 		}
 		result.GPUTime = time.Duration(elapsed / float64(operations) * float64(time.Millisecond))
+		result.RankTimes = make([]time.Duration, len(times))
+		for i, ms := range times {
+			result.RankTimes[i] = time.Duration(ms / float64(operations) * float64(time.Millisecond))
+		}
 		result.AlgorithmGBs, result.BusGBs, err = c.Bandwidth(len(states), result.GPUTime)
 		return result, err
 	}

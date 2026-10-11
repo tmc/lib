@@ -17,3 +17,16 @@ The reader supports format v4.1 only, preserving raw unknown fields and separate
 communicator/rank/collective/P2P sequence domains. It does not certify a complete
 session or reconcile ring-buffer statistics against these excerpts.
 NVIDIA's source license is retained in LICENSE.txt.
+
+## Full communicator hashes
+
+At the pinned NCCL revision above, `NCCL_COMM_HASH_LENGTH` is 17. A complete
+64-bit hexadecimal hash needs 19 bytes: `0x`, 16 digits, and a terminator.
+The producer can truncate the last byte; the native RAS/Inspector test rejects
+that identity mismatch.
+
+`inspector-full-comm-hash.patch` changes the producer buffer to 19 bytes. Apply
+it only to the pinned source before building Inspector. Keep the patch and
+resulting plugin SHA256 with qualification receipts; the embedded Git revision
+alone does not identify a patched plugin. The reader and diagnostic identity
+checks are unchanged.

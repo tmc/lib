@@ -42,6 +42,9 @@ func TestOfficialRecords(t *testing.T) {
 				if !bytes.Contains(r.Raw, []byte(`"event_trace_sn"`)) || !bytes.Contains(r.Raw, []byte(`"event_trace_ts"`)) || r.Collective.Name != "ReduceScatter" || r.Collective.Sequence != 1231 || r.Collective.TimingSource != "kernel_gpu" {
 					t.Fatalf("verbose source fields missing: %+v", r)
 				}
+				if r.Collective.EventTraceSN == nil || r.Collective.EventTraceTS == nil || r.Collective.EventTraceSN.CollectiveStartSN != 1 || r.Collective.EventTraceTS.CollectiveStartTS != 1752867229235059 {
+					t.Fatalf("verbose event trace fields not decoded: %+v", r.Collective)
+				}
 			}
 		})
 	}

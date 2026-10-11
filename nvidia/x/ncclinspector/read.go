@@ -33,16 +33,48 @@ type Metadata struct {
 	PID             int    `json:"pid"`
 }
 
+// KernelEventSN represents channel-specific kernel event sequence numbers.
+type KernelEventSN struct {
+	ChannelID      int    `json:"channel_id"`
+	KernelStartSN  uint64 `json:"kernel_start_sn"`
+	KernelStopSN   uint64 `json:"kernel_stop_sn"`
+	KernelRecordSN uint64 `json:"kernel_record_sn"`
+}
+
+// EventTraceSN preserves collective and kernel event sequence numbers.
+type EventTraceSN struct {
+	CollectiveStartSN uint64          `json:"coll_start_sn"`
+	CollectiveStopSN  uint64          `json:"coll_stop_sn"`
+	KernelEvents      []KernelEventSN `json:"kernel_events,omitempty"`
+}
+
+// KernelEventTS represents channel-specific kernel event timestamps in microseconds.
+type KernelEventTS struct {
+	ChannelID      int    `json:"channel_id"`
+	KernelStartTS  uint64 `json:"kernel_start_ts"`
+	KernelStopTS   uint64 `json:"kernel_stop_ts"`
+	KernelRecordTS uint64 `json:"kernel_record_ts"`
+}
+
+// EventTraceTS preserves collective and kernel event timestamps in microseconds.
+type EventTraceTS struct {
+	CollectiveStartTS uint64          `json:"coll_start_ts"`
+	CollectiveStopTS  uint64          `json:"coll_stop_ts"`
+	KernelEvents      []KernelEventTS `json:"kernel_events,omitempty"`
+}
+
 // Collective is a collective operation observation. TimingSource can be absent
 // in older examples; no timing origin is guessed when it is absent.
 type Collective struct {
-	Name               string  `json:"coll"`
-	Sequence           uint64  `json:"coll_sn"`
-	Bytes              uint64  `json:"coll_msg_size_bytes"`
-	Micros             uint64  `json:"coll_exec_time_us"`
-	TimingSource       string  `json:"coll_timing_source"`
-	AlgorithmBandwidth float64 `json:"coll_algobw_gbs"`
-	BusBandwidth       float64 `json:"coll_busbw_gbs"`
+	Name               string        `json:"coll"`
+	Sequence           uint64        `json:"coll_sn"`
+	Bytes              uint64        `json:"coll_msg_size_bytes"`
+	Micros             uint64        `json:"coll_exec_time_us"`
+	TimingSource       string        `json:"coll_timing_source"`
+	AlgorithmBandwidth float64       `json:"coll_algobw_gbs"`
+	BusBandwidth       float64       `json:"coll_busbw_gbs"`
+	EventTraceSN       *EventTraceSN `json:"event_trace_sn,omitempty"`
+	EventTraceTS       *EventTraceTS `json:"event_trace_ts,omitempty"`
 }
 
 // PointToPoint is one send/receive observation. Its sequence domain is not
