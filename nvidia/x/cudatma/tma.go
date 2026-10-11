@@ -258,14 +258,19 @@ type Multicast struct {
 	completed    map[uint32]uint64
 }
 
+// NewMulticast tracks transactions for CTA ranks 0 through 15.
+// The source and every destination must be in that range.
 func NewMulticast(source uint32, destinations []uint32, bytes uint64) (Multicast, error) {
+	if source >= 16 {
+		return Multicast{}, fmt.Errorf("source rank %d must be between 0 and 15", source)
+	}
 	if len(destinations) == 0 || bytes == 0 {
 		return Multicast{}, fmt.Errorf("multicast requires destinations and bytes")
 	}
 	m := Multicast{SourceRank: source, Destinations: append([]uint32(nil), destinations...), Bytes: bytes, completed: make(map[uint32]uint64)}
 	for _, r := range destinations {
-		if r >= 64 {
-			return Multicast{}, fmt.Errorf("destination rank %d exceeds mask", r)
+		if r >= 16 {
+			return Multicast{}, fmt.Errorf("destination rank %d must be between 0 and 15", r)
 		}
 		if m.Mask&(uint64(1)<<r) != 0 {
 			return Multicast{}, fmt.Errorf("duplicate destination rank %d", r)
