@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -72,20 +73,37 @@ func NewBundle(m Manifest) *Bundle {
 	}
 }
 
-// WriteBundle writes b to w as a standard TAR archive.
-func WriteBundle(w io.Writer, b *Bundle) error {
-	if b == nil {
+// WriteBundle writes b to w as a standard TAR archive. The same payload, entry
+// count and name limits as ReadBundle are checked before writing any bytes.
+func WriteBundle(w io.Writer, b *Bundle) (err error) {
+	if b == nil || w == nil {
 		return errors.New("cudaflightrecorder: nil bundle")
 	}
-
-	tw := tar.NewWriter(w)
-	defer tw.Close()
 
 	// 1. Serialize manifest.json
 	manifestBytes, err := json.MarshalIndent(b.Manifest, "", "  ")
 	if err != nil {
 		return fmt.Errorf("cudaflightrecorder: marshal manifest: %w", err)
 	}
+
+	if len(b.Files) >= maxBundleFiles || int64(len(manifestBytes)) > maxBundleBytes {
+		return ErrSnapshotBudgetExceeded
+	}
+	total := int64(len(manifestBytes))
+	names := make([]string, 0, len(b.Files))
+	for name, data := range b.Files {
+		if !validBundleName(name) || name == "manifest.json" {
+			return errors.New("cudaflightrecorder: invalid or reserved bundle name")
+		}
+		if int64(len(data)) > maxBundleBytes-total {
+			return ErrSnapshotBudgetExceeded
+		}
+		total += int64(len(data))
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	tw := tar.NewWriter(w)
+	defer func() { err = errors.Join(err, tw.Close()) }()
 
 	hdr := &tar.Header{
 		Name:    "manifest.json",
@@ -103,15 +121,7 @@ func WriteBundle(w io.Writer, b *Bundle) error {
 		return fmt.Errorf("cudaflightrecorder: write manifest content: %w", err)
 	}
 
-	// 2. Write all attached files sorted deterministically by name
-	names := make([]string, 0, len(b.Files))
-	for name := range b.Files {
-		if name != "manifest.json" {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-
+	// Write attached files sorted deterministically by name.
 	for _, name := range names {
 		data := b.Files[name]
 		fileHdr := &tar.Header{
@@ -131,24 +141,53 @@ func WriteBundle(w io.Writer, b *Bundle) error {
 	return nil
 }
 
-// ReadBundle reads a diagnostic TAR bundle from r.
+const maxBundleBytes int64 = 256 << 20
+const maxBundleFiles = 1024
+
+func validBundleName(name string) bool {
+	return name != "" && len(name) <= 4096 && name != "." && !strings.ContainsAny(name, "\\\x00") && !path.IsAbs(name) && path.Clean(name) == name && name != ".." && !strings.HasPrefix(name, "../")
+}
+
+// ReadBundle reads a diagnostic TAR bundle from r. It accepts at most 1024
+// regular entries and 256 MiB of payload, matching the default snapshot budget.
+// Duplicate entries, links, and unsafe names are refused; no files are extracted.
 func ReadBundle(r io.Reader) (*Bundle, error) {
-	tr := tar.NewReader(r)
+	if r == nil {
+		return nil, errors.New("cudaflightrecorder: nil bundle reader")
+	}
+	input := &io.LimitedReader{R: r, N: maxBundleBytes + (8 << 20)}
+	tr := tar.NewReader(input)
 
 	bundle := &Bundle{
 		Files: make(map[string][]byte),
 	}
 	var foundManifest bool
+	seen := make(map[string]bool)
+	var total int64
 
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
+			if input.N == 0 {
+				return nil, ErrSnapshotBudgetExceeded
+			}
 			break
 		}
 		if err != nil {
 			return nil, fmt.Errorf("cudaflightrecorder: read tar entry: %w", err)
 		}
 
+		if !validBundleName(hdr.Name) || (hdr.Typeflag != tar.TypeReg && hdr.Typeflag != tar.TypeRegA) {
+			return nil, errors.New("cudaflightrecorder: unsafe bundle entry")
+		}
+		if seen[hdr.Name] || len(seen) >= maxBundleFiles {
+			return nil, errors.New("cudaflightrecorder: duplicate or excessive bundle entries")
+		}
+		seen[hdr.Name] = true
+		if hdr.Size < 0 || hdr.Size > maxBundleBytes-total {
+			return nil, ErrSnapshotBudgetExceeded
+		}
+		total += hdr.Size
 		var buf bytes.Buffer
 		if _, err := io.Copy(&buf, tr); err != nil {
 			return nil, fmt.Errorf("cudaflightrecorder: read tar content for %q: %w", hdr.Name, err)
