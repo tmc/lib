@@ -26,7 +26,7 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		printUsage(stderr)
-		return errors.New("command required: run, verify, or claim")
+		return errors.New("command required: run, verify, claim, or ledger")
 	}
 
 	switch args[0] {
@@ -34,6 +34,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return cmdRun(args[1:], stdout, stderr)
 	case "verify":
 		return cmdVerify(args[1:], stdout, stderr)
+	case "ledger":
+		return cmdLedger(args[1:], stdout, stderr)
 	case "claim":
 		return cmdClaim(args[1:], stdout, stderr)
 	case "help", "-h", "--help":
@@ -52,6 +54,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  gpudiageval run [flags]      Execute evaluation protocol across 4 property gates")
 	fmt.Fprintln(w, "  gpudiageval verify [flags]   Validate evaluation artifacts and manifest integrity")
 	fmt.Fprintln(w, "  gpudiageval claim [flags]    Display bounded comparative claim from evaluation report")
+	fmt.Fprintln(w, "  gpudiageval ledger -file path -root dir  Check qualification receipt consistency")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Flags for 'run':")
 	fmt.Fprintln(w, "  -phase string               Evaluation phase: 'pilot' or 'qualification' (default: pilot)")
@@ -287,4 +290,34 @@ func cmdClaim(args []string, stdout, stderr io.Writer) error {
 
 	fmt.Fprint(stdout, claim.Format())
 	return nil
+}
+
+// cmdLedger checks receipt consistency; it never executes retained commands.
+func cmdLedger(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("ledger", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	file := fs.String("file", "", "Bounded qualification ledger JSON")
+	root := fs.String("root", "", "Receipt artifact root")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *file == "" || *root == "" || fs.NArg() != 0 {
+		return errors.New("ledger requires -file and -root with no positional arguments")
+	}
+	f, err := os.Open(*file)
+	if err != nil {
+		return fmt.Errorf("open ledger: %w", err)
+	}
+	defer f.Close()
+	ledger, err := cudasotaeval.ReadQualificationLedger(f)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	results, err := cudasotaeval.VerifyQualificationLedger(ctx, *root, *ledger)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(stdout).Encode(results)
 }
