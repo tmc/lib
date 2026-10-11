@@ -128,7 +128,7 @@ func TestQualificationLedgerStructure(t *testing.T) {
 func TestQualificationLedgerParsing(t *testing.T) {
 	l, _ := ledgerFixture(t)
 	b, _ := json.Marshal(l)
-	for _, data := range []string{`{"version":1,"version":1,"cells":[]}`, string(b) + ` {}`, `{"version":1,"cells":[],"invented":true}`, strings.Repeat(" ", ledgerLimit+1)} {
+	for _, data := range []string{`{"version":1,"version":1,"cells":[]}`, `{"version":1,"Version":1,"cells":[]}`, `{"Version":1,"cells":[]}`, string(b) + ` {}`, `{"version":1,"cells":[],"invented":true}`, strings.Repeat(" ", ledgerLimit+1)} {
 		if _, err := ReadQualificationLedger(strings.NewReader(data)); err == nil {
 			t.Fatal("invalid input accepted")
 		}
@@ -194,5 +194,24 @@ func TestQualificationLedgerDependencies(t *testing.T) {
 	r, err := VerifyQualificationLedger(context.Background(), root, l)
 	if err != nil || r[0].Accepted || r[0].Reason != "dependency evidence not accepted" {
 		t.Fatalf("dependency: %v %+v", err, r)
+	}
+}
+
+func TestQualificationLedgerHistoricalReference(t *testing.T) {
+	l, root := ledgerFixture(t)
+	cell := l.Cells[0]
+	cell.ID = "historical-native"
+	cell.Gate = "native"
+	cell.Status = "pending"
+	cell.Capability = "unknown"
+	cell.Attempts = nil
+	cell.References = []QualificationReference{{Path: "raw.txt", SHA256: l.Cells[0].Attempts[0].Evidence.RawSHA256, Scope: "original host control", Reason: "native source and target closure absent"}}
+	l.Cells = append(l.Cells, cell)
+	r, err := VerifyQualificationLedger(context.Background(), root, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r[0].Accepted || r[0].ReferencesVerified != 1 || r[0].Status != "pending" {
+		t.Fatalf("historical bytes promoted qualification: %+v", r[0])
 	}
 }

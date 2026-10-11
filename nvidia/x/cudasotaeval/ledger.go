@@ -13,6 +13,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 	"syscall"
 )
 
@@ -49,18 +50,19 @@ type QualificationClosure struct {
 // is not-selected, unavailable, pending, failed or qualified. Gate is host, ABI,
 // native, backend, operations, observer, diagnostic or comparison.
 type QualificationCell struct {
-	ID           string                 `json:"id"`
-	CapabilityID string                 `json:"capability_id"`
-	Capability   string                 `json:"capability"`
-	Gate         string                 `json:"gate"`
-	Status       string                 `json:"status"`
-	SourcePaths  []string               `json:"source_paths"`
-	Consumers    []string               `json:"consumers"`
-	DependsOn    []string               `json:"depends_on,omitempty"`
-	Closure      QualificationClosure   `json:"closure"`
-	Attempts     []QualificationAttempt `json:"attempts,omitempty"`
-	Owner        string                 `json:"owner"`
-	NextAction   string                 `json:"next_action"`
+	ID           string                   `json:"id"`
+	CapabilityID string                   `json:"capability_id"`
+	Capability   string                   `json:"capability"`
+	Gate         string                   `json:"gate"`
+	Status       string                   `json:"status"`
+	SourcePaths  []string                 `json:"source_paths"`
+	Consumers    []string                 `json:"consumers"`
+	DependsOn    []string                 `json:"depends_on,omitempty"`
+	Closure      QualificationClosure     `json:"closure"`
+	Attempts     []QualificationAttempt   `json:"attempts,omitempty"`
+	References   []QualificationReference `json:"references,omitempty"`
+	Owner        string                   `json:"owner"`
+	NextAction   string                   `json:"next_action"`
 }
 
 // QualificationEvidence is the immutable receipt envelope stored under an
@@ -76,6 +78,16 @@ type QualificationEvidence struct {
 	RawSHA256 string               `json:"raw_sha256"`
 	Command   []string             `json:"command"`
 	Verifier  string               `json:"verifier"`
+}
+
+// QualificationReference retains historical evidence whose execution closure
+// is absent or incompatible. Verifying its bytes never qualifies a selected cell.
+// An empty SHA256 retains a missing artifact as unknown.
+type QualificationReference struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+	Scope  string `json:"scope"`
+	Reason string `json:"reason"`
 }
 
 // QualificationAttempt preserves a previous pass, failure or withheld attempt.
@@ -97,14 +109,15 @@ type QualificationLedger struct {
 // Accepted means the retained envelope and raw output match the selected cell;
 // it does not certify physical measurements or authorize a profiling run.
 type QualificationResult struct {
-	CellID     string `json:"cell_id"`
-	Capability string `json:"capability"`
-	Status     string `json:"status"`
-	Gate       string `json:"gate"`
-	Accepted   bool   `json:"accepted"`
-	Reason     string `json:"reason,omitempty"`
-	Owner      string `json:"owner"`
-	NextAction string `json:"next_action"`
+	CellID             string `json:"cell_id"`
+	Capability         string `json:"capability"`
+	Status             string `json:"status"`
+	Gate               string `json:"gate"`
+	Accepted           bool   `json:"accepted"`
+	ReferencesVerified int    `json:"references_verified"`
+	Reason             string `json:"reason,omitempty"`
+	Owner              string `json:"owner"`
+	NextAction         string `json:"next_action"`
 }
 
 // ReadQualificationLedger reads at most 4 MiB and rejects unknown fields,
@@ -182,6 +195,15 @@ func (l QualificationLedger) Validate() error {
 		if c.Status == "qualified" && (c.Capability != "supported" || len(c.Attempts) == 0) {
 			return fmt.Errorf("ledger: qualified cell %q lacks supported evidence", c.ID)
 		}
+		for _, ref := range c.References {
+			if !fs.ValidPath(ref.Path) || ref.Scope == "" || ref.Reason == "" || (ref.SHA256 != "" && !ledgerDigest(ref.SHA256, 64)) {
+				return fmt.Errorf("ledger: invalid historical reference in %q", c.ID)
+			}
+		}
+		if len(c.References) > 64 {
+			return errors.New("ledger: reference count limit exceeded")
+		}
+		attempts += len(c.References)
 		attempts += len(c.Attempts)
 		if len(c.Attempts) > 64 || attempts > 4096 {
 			return errors.New("ledger: attempt count limit exceeded")
@@ -299,6 +321,18 @@ func VerifyQualificationLedger(ctx context.Context, root string, l Qualification
 	for _, c := range l.Cells {
 		cells[c.ID] = c
 		v := QualificationResult{CellID: c.ID, Capability: c.Capability, Status: c.Status, Gate: c.Gate, Owner: c.Owner, NextAction: c.NextAction}
+		for _, ref := range c.References {
+			if ref.SHA256 == "" {
+				continue
+			}
+			_, err := read(ref.Path, ref.SHA256)
+			if errors.Is(err, budgetErr) {
+				return nil, err
+			}
+			if err == nil {
+				v.ReferencesVerified++
+			}
+		}
 		valid := len(c.Attempts) > 0
 		for _, a := range c.Attempts {
 			b, err := read(a.Path, a.SHA256)
@@ -471,7 +505,60 @@ func ledgerDecode(b []byte, v any) error {
 	if _, err := d.Token(); err != io.EOF {
 		return errors.New("trailing JSON value")
 	}
+	if err := ledgerCanonical(b, reflect.TypeOf(v).Elem()); err != nil {
+		return err
+	}
 	d = json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
 	return d.Decode(v)
+}
+
+// Struct tags are canonical wire keys. Dynamic library map keys retain case.
+func ledgerCanonical(b json.RawMessage, typ reflect.Type) error {
+	switch typ.Kind() {
+	case reflect.Struct:
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(b, &fields); err != nil {
+			return err
+		}
+		if fields == nil {
+			return errors.New("null ledger object")
+		}
+		known := map[string]reflect.Type{}
+		for i := 0; i < typ.NumField(); i++ {
+			f := typ.Field(i)
+			name := strings.Split(f.Tag.Get("json"), ",")[0]
+			known[name] = f.Type
+		}
+		for name, value := range fields {
+			t, ok := known[name]
+			if !ok {
+				return fmt.Errorf("noncanonical ledger field %q", name)
+			}
+			if err := ledgerCanonical(value, t); err != nil {
+				return err
+			}
+		}
+	case reflect.Slice:
+		var values []json.RawMessage
+		if err := json.Unmarshal(b, &values); err != nil {
+			return err
+		}
+		for _, value := range values {
+			if err := ledgerCanonical(value, typ.Elem()); err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		var values map[string]json.RawMessage
+		if err := json.Unmarshal(b, &values); err != nil {
+			return err
+		}
+		for _, value := range values {
+			if err := ledgerCanonical(value, typ.Elem()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
