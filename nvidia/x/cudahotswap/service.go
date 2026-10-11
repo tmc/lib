@@ -235,6 +235,9 @@ func (s *Service) Register(ctx context.Context, name string, source Source, labe
 	if s == nil || s.loader == nil || name == "" {
 		return State{}, errors.New("register kernel: service and name are required")
 	}
+	if err := ctx.Err(); err != nil {
+		return State{}, err
+	}
 	s.requests.RLock()
 	defer s.requests.RUnlock()
 	if err := s.available(); err != nil {
@@ -252,6 +255,9 @@ func (s *Service) Register(ctx context.Context, name string, source Source, labe
 			err = errors.Join(err, cleanup.Close())
 			s.mutations.Unlock()
 		}
+		return State{}, err
+	}
+	if err := ctx.Err(); err != nil {
 		return State{}, err
 	}
 	if c == nil || c.Entry != source.Entry {
@@ -281,8 +287,13 @@ func (s *Service) Register(ctx context.Context, name string, source Source, labe
 	}
 	cleanup := s.retainCleanup(lease)
 	defer func() { err = errors.Join(err, cleanup.Close()); s.observeError(err) }()
+	if err := ctx.Err(); err != nil {
+		return State{}, err
+	}
 	k, err := s.loader.Load(ctx, c)
-	cleanup.adopt(k)
+	if !nilKernel(k) {
+		cleanup.adopt(k)
+	}
 	if err != nil {
 		var owner io.Closer
 		if errors.As(err, &owner) {
@@ -290,7 +301,10 @@ func (s *Service) Register(ctx context.Context, name string, source Source, labe
 		}
 		return State{}, err
 	}
-	if k == nil || k.Raw() == 0 {
+	if err := ctx.Err(); err != nil {
+		return State{}, err
+	}
+	if nilKernel(k) || k.Raw() == 0 {
 		return State{}, errors.New("register kernel: missing loaded function")
 	}
 	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(source.Code)))
@@ -439,6 +453,9 @@ func (s *Service) Launch(ctx context.Context, name string, cfg cudalaunch.Config
 	if s == nil {
 		return nil, errors.New("launch kernel: nil service")
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mutations.RLock()
 	defer s.mutations.RUnlock()
 	if err := s.available(); err != nil {
@@ -449,6 +466,9 @@ func (s *Service) Launch(ctx context.Context, name string, cfg cudalaunch.Config
 		return nil, err
 	}
 	lease, err := s.acquire(ctx, name)
+	if err == nil {
+		err = ctx.Err()
+	}
 	if err != nil {
 		// No submission occurred. Avoid GPU cleanup without a lease; future
 		// leased collection owns any retired versions.
@@ -456,6 +476,10 @@ func (s *Service) Launch(ctx context.Context, name string, cfg cudalaunch.Config
 		p.released.Store(true)
 		p.gen.pins.Add(-1)
 		s.table.mu.Unlock()
+		if lease != nil {
+			cleanup := s.retainCleanup(lease)
+			err = errors.Join(err, cleanup.Close())
+		}
 		return nil, err
 	}
 	k, ok := p.gen.owner.(Kernel)

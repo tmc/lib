@@ -1,0 +1,112 @@
+{
+    "Version": 1,
+    "Expression": {
+        "Class": 8,
+        "Origin": "input",
+        "Operator": "fused_rmsnorm_gemv",
+        "ValueType": "",
+        "Value": "",
+        "Children": [
+            {
+                "Class": 0,
+                "Origin": "input",
+                "Operator": "a",
+                "ValueType": "string",
+                "Value": "a",
+                "Children": null
+            },
+            {
+                "Class": 5,
+                "Origin": "input",
+                "Operator": "weight",
+                "ValueType": "string",
+                "Value": "weight",
+                "Children": null
+            },
+            {
+                "Class": 7,
+                "Origin": "input",
+                "Operator": "constant",
+                "ValueType": "float32",
+                "Value": "1e-05",
+                "Children": null
+            },
+            {
+                "Class": 6,
+                "Origin": "input",
+                "Operator": "matrix",
+                "ValueType": "string",
+                "Value": "matrix",
+                "Children": null
+            }
+        ]
+    },
+    "Fingerprint": "(fused_rmsnorm_gemv a{string:a} weight{string:weight} constant{float32:1e-05} matrix{string:matrix})",
+    "SourceSHA256": "5294d3babfc2568cb6a347558d5382fd1fad3a0d13499fbdb9f8566185cbaa81",
+    "Symbols": {
+        "eg_c0_a": {
+            "Class": 0,
+            "Operator": "a",
+            "Origin": "input",
+            "FirstLine": 15,
+            "LastLine": 21
+        },
+        "eg_c5_weight": {
+            "Class": 5,
+            "Operator": "weight",
+            "Origin": "input",
+            "FirstLine": 24,
+            "LastLine": 30
+        },
+        "eg_c6_matrix": {
+            "Class": 6,
+            "Operator": "matrix",
+            "Origin": "input",
+            "FirstLine": 40,
+            "LastLine": 46
+        },
+        "eg_c7_constant": {
+            "Class": 7,
+            "Operator": "constant",
+            "Origin": "input",
+            "FirstLine": 33,
+            "LastLine": 37
+        },
+        "eg_c8_fused_rmsnorm_gemv": {
+            "Class": 8,
+            "Operator": "fused_rmsnorm_gemv",
+            "Origin": "input",
+            "FirstLine": 49,
+            "LastLine": 69
+        }
+    },
+    "Parameters": [
+        {
+            "Name": "a",
+            "Shape": [
+                3
+            ]
+        },
+        {
+            "Name": "matrix",
+            "Shape": [
+                2,
+                3
+            ]
+        },
+        {
+            "Name": "weight",
+            "Shape": [
+                3
+            ]
+        }
+    ],
+    "CostModel": "AstSizeCost",
+    "Cost": 5,
+    "RuleSuites": null,
+    "Stats": {
+        "Work": 0,
+        "Nodes": 0,
+        "WorkExhausted": false
+    }
+}

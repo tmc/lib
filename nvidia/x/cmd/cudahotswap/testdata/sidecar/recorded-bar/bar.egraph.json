@@ -1,0 +1,115 @@
+{
+    "Version": 1,
+    "Expression": {
+        "Class": 4,
+        "Origin": "input",
+        "Operator": "add",
+        "ValueType": "",
+        "Value": "",
+        "Children": [
+            {
+                "Class": 2,
+                "Origin": "input",
+                "Operator": "silu",
+                "ValueType": "",
+                "Value": "",
+                "Children": [
+                    {
+                        "Class": 0,
+                        "Origin": "input",
+                        "Operator": "a",
+                        "ValueType": "string",
+                        "Value": "a",
+                        "Children": null
+                    }
+                ]
+            },
+            {
+                "Class": 3,
+                "Origin": "input",
+                "Operator": "mul",
+                "ValueType": "",
+                "Value": "",
+                "Children": [
+                    {
+                        "Class": 0,
+                        "Origin": "input",
+                        "Operator": "a",
+                        "ValueType": "string",
+                        "Value": "a",
+                        "Children": null
+                    },
+                    {
+                        "Class": 1,
+                        "Origin": "input",
+                        "Operator": "b",
+                        "ValueType": "string",
+                        "Value": "b",
+                        "Children": null
+                    }
+                ]
+            }
+        ]
+    },
+    "Fingerprint": "(add (silu a{string:a}) (mul a{string:a} b{string:b}))",
+    "SourceSHA256": "d3100c98ba2f04166735b23e5d7d8525c90e0fa5f41cf5cc3b90113c24d9580d",
+    "Symbols": {
+        "eg_c0_a": {
+            "Class": 0,
+            "Operator": "a",
+            "Origin": "input",
+            "FirstLine": 15,
+            "LastLine": 21
+        },
+        "eg_c1_b": {
+            "Class": 1,
+            "Operator": "b",
+            "Origin": "input",
+            "FirstLine": 34,
+            "LastLine": 40
+        },
+        "eg_c2_silu": {
+            "Class": 2,
+            "Operator": "silu",
+            "Origin": "input",
+            "FirstLine": 24,
+            "LastLine": 31
+        },
+        "eg_c3_mul": {
+            "Class": 3,
+            "Operator": "mul",
+            "Origin": "input",
+            "FirstLine": 43,
+            "LastLine": 51
+        },
+        "eg_c4_add": {
+            "Class": 4,
+            "Operator": "add",
+            "Origin": "input",
+            "FirstLine": 54,
+            "LastLine": 62
+        }
+    },
+    "Parameters": [
+        {
+            "Name": "a",
+            "Shape": [
+                3
+            ]
+        },
+        {
+            "Name": "b",
+            "Shape": [
+                3
+            ]
+        }
+    ],
+    "CostModel": "AstSizeCost",
+    "Cost": 6,
+    "RuleSuites": null,
+    "Stats": {
+        "Work": 0,
+        "Nodes": 0,
+        "WorkExhausted": false
+    }
+}

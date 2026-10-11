@@ -38,6 +38,8 @@ func (p *includes) Set(path string) error {
 
 type config struct {
 	path     string
+	sidecar  string
+	inputs   string
 	entry    string
 	device   int
 	elements int
@@ -86,6 +88,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, create fu
 	f.SetOutput(stderr)
 	f.StringVar(&c.path, "watch", "", "CUDA source file; candidate must implement vector addition")
 	f.StringVar(&c.entry, "entry", "replay", "kernel entry point")
+	f.StringVar(&c.sidecar, "sidecar", "", "egraph expression metadata (requires -inputs and explicit -entry)")
+	f.StringVar(&c.inputs, "inputs", "", "named FP32 input arrays as JSON (requires -sidecar)")
 	f.IntVar(&c.device, "device", 0, "CUDA device ordinal")
 	f.IntVar(&c.elements, "n", 32, "number of FP32 elements (1..4096)")
 	f.BoolVar(&c.poll, "poll", false, "poll for changes on network mounts")
@@ -95,6 +99,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, create fu
 	}
 	if ctx == nil || c.path == "" || c.entry == "" || c.device < 0 || c.elements < 1 || c.elements > 4096 || f.NArg() != 0 {
 		return errors.New("-watch, a nonempty entry, and n in [1,4096] are required")
+	}
+	entrySet, nSet := false, false
+	f.Visit(func(v *flag.Flag) { entrySet = entrySet || v.Name == "entry"; nSet = nSet || v.Name == "n" })
+	if (c.sidecar == "") != (c.inputs == "") || c.sidecar != "" && (!entrySet || nSet) {
+		return errors.New("sidecar requires -inputs and explicit -entry; -n is unsupported")
 	}
 	var err error
 	c.path, err = filepath.Abs(c.path)
@@ -223,6 +232,9 @@ func (o *sessionOwners) closeResources() error {
 }
 
 func newSession(ctx context.Context, c config) (*cudahotswap.Service, func() error, error) {
+	if c.sidecar != "" || c.inputs != "" {
+		return newSidecarSession(ctx, c)
+	}
 	return newSessionWithLoader(ctx, c, func(dev *cuda.Device, paths ...string) (cudahotswap.Loader, error) {
 		return cudahotswap.NewNVRTCLoader(dev, paths...)
 	})
