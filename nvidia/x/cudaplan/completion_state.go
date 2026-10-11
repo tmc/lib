@@ -17,6 +17,8 @@ type completionState struct {
 	destroy  func() error
 	releases []func()
 	once     sync.Once
+	outcome  func() error
+	result   error
 }
 
 func (s *completionState) complete() {
@@ -41,6 +43,9 @@ func (s *completionState) Wait(ctx context.Context) error {
 				return fmt.Errorf("cudaplan: wait: %w", err)
 			}
 		}
+		if s.outcome != nil {
+			s.result = s.outcome()
+		}
 		s.complete()
 	}
 
@@ -51,7 +56,7 @@ func (s *completionState) Wait(ctx context.Context) error {
 		s.destroy = nil
 	}
 
-	return nil
+	return s.result
 }
 
 // newEventCompletion creates a Completion backed by a CUDA stream and event.

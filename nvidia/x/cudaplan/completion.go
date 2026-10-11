@@ -40,7 +40,9 @@ func (c *Completion) Done() bool {
 //
 // Invariant: Cancellation stops only the host wait; it does NOT free in-flight
 // or queued GPU buffers or cancel GPU execution. Native wait errors similarly retain buffers.
-// Only successful completion releases borrowed buffer leases.
+// A successful native drain releases borrowed buffer leases. A counted worker
+// outcome error is then retained and returned by every Wait; it does not keep
+// storage borrowed after the GPU has stopped using it.
 func (c *Completion) Wait(ctx context.Context) error {
 	if c == nil || c.state == nil {
 		return nil

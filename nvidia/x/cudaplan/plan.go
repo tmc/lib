@@ -23,6 +23,7 @@ type planConfig struct {
 	enableGraph bool
 	registry    *KernelRegistry
 	finiteMega  bool
+	countedCTAs uint32
 	// Injected failures for testing
 	injectCompileErrorAfterResource bool
 	injectResourceCleanupHook       func()
@@ -108,6 +109,8 @@ type ExecutablePlan struct {
 	megaArtifact     *cudakernel.Artifact
 	megaNames        []string
 	megaLowering     Lowering
+	countedCTAs      uint32
+	megaStateOffset  int
 }
 
 // Compile builds an ExecutablePlan from a validated cudair.Snapshot.
@@ -177,7 +180,8 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 			}
 			target = fmt.Sprintf("sm_%d%d", major, minor)
 		}
-		plan.megaArtifact, plan.megaNames, err = finiteMegaArtifact(snap, target)
+		plan.countedCTAs = cfg.countedCTAs
+		plan.megaArtifact, plan.megaNames, err = planMegaArtifact(snap, target, cfg.countedCTAs)
 		if err != nil {
 			return nil, err
 		}
@@ -214,6 +218,13 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 				return nil, fmt.Errorf("cudaplan: invalid workspace range for %s", node.Name)
 			}
 			plan.intermediateLoc[node.Name] = offset
+		}
+	}
+
+	if cfg.countedCTAs != 0 {
+		plan.megaStateOffset, totalScratchBytes, err = countedWorkspace(totalScratchBytes, len(plan.megaNames), cfg.peakBudget)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -293,7 +304,7 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 			GraphAvailable:  cfg.dev == nil || graphAvailable(),
 			VendorAvailable: cfg.dev == nil || plan.cublasEngine != nil,
 			RequireArtifact: cfg.dev != nil, Artifact: art,
-			FiniteMegaRequested: cfg.finiteMega, FiniteMegaAdmitted: plan.megaArtifact != nil,
+			FiniteMegaRequested: cfg.finiteMega, FiniteMegaAdmitted: plan.megaArtifact != nil, MegaCTAs: cfg.countedCTAs,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("cudaplan: select backend for %s: %w", n.Name, err)
@@ -597,6 +608,9 @@ func (p *ExecutablePlan) Execute(stream *cuda.Stream, bindings *Bindings) (compl
 		return nil, err
 	}
 	completion = newHostCompletion(stream.Synchronize, nil, releases...)
+	if p.countedCTAs != 0 {
+		completion.state.outcome = p.countedOutcome
+	}
 	transferred = true
 	return completion, nil
 }
@@ -643,10 +657,27 @@ func (p *ExecutablePlan) enqueueWith(stream *cuda.Stream, nodePointers map[strin
 			}
 			args[i] = nodePointers[name]
 		}
+		if p.countedCTAs != 0 {
+			if err := p.admitCounted(kernel); err != nil {
+				return err
+			}
+			state, err := p.workspace.SliceAt(p.megaStateOffset, (len(p.megaNames)+1)*4)
+			if err != nil {
+				return err
+			}
+			if err := p.dev.WithContext(func() error { return state.MemsetD32Async(0, uint(len(p.megaNames)+1), stream.Raw()) }); err != nil {
+				return err
+			}
+			args = append(args, state)
+		}
 		if _, err := p.megaArtifact.Schema.Pack(args...); err != nil {
 			return err
 		}
-		if err := cudalaunch.OwnedKernel(kernel).Grid(1, 1, 1).Block(256, 1, 1).On(stream).Launch(args...); err != nil {
+		grid := uint32(1)
+		if p.countedCTAs != 0 {
+			grid = p.countedCTAs
+		}
+		if err := cudalaunch.OwnedKernel(kernel).Grid(grid, 1, 1).Block(256, 1, 1).On(stream).WithCooperative(p.countedCTAs != 0).Launch(args...); err != nil {
 			return err
 		}
 		if record != nil {

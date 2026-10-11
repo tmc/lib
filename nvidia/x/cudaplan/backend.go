@@ -21,8 +21,8 @@ const (
 	// BackendCuBLASLt executes dense matrix multiplication using cublasltx.
 	BackendCuBLASLt
 
-	// BackendMega executes an admitted contiguous region sequentially in one
-	// finite single-CTA worker. LowerRegion retains dependency and workspace
+	// BackendMega executes an admitted FP32 region in a single-CTA worker or
+	// a counted cooperative worker. LowerRegion retains dependency and workspace
 	// metadata; this backend does not implement a persistent task scheduler.
 	BackendMega
 )
@@ -102,12 +102,15 @@ type StepPlan struct {
 type BackendRequest struct {
 	FiniteMegaRequested bool
 	FiniteMegaAdmitted  bool
-	Kind                cudair.NodeKind
-	GraphRequested      bool
-	GraphAvailable      bool
-	VendorAvailable     bool
-	RequireArtifact     bool
-	Artifact            *cudakernel.Artifact
+	// MegaCTAs is zero for the finite single-CTA worker, or 2..1024 for
+	// counted execution. Runtime admission also requires measured residency.
+	MegaCTAs        uint32
+	Kind            cudair.NodeKind
+	GraphRequested  bool
+	GraphAvailable  bool
+	VendorAvailable bool
+	RequireArtifact bool
+	Artifact        *cudakernel.Artifact
 }
 
 // BackendDecision records a backend and its admission reason.
@@ -123,12 +126,18 @@ func SelectBackend(r BackendRequest) (BackendDecision, error) {
 	if r.Kind < cudair.KindConstant || r.Kind > cudair.KindConcat {
 		return BackendDecision{}, fmt.Errorf("%w: non-executable node kind %s", ErrUnsupportedBackend, r.Kind)
 	}
+	if r.MegaCTAs != 0 && (!r.FiniteMegaRequested || r.MegaCTAs < 2 || r.MegaCTAs > 1024) {
+		return BackendDecision{}, fmt.Errorf("%w: invalid counted worker request", ErrUnsupportedBackend)
+	}
 	if r.FiniteMegaRequested {
 		if r.GraphRequested || !r.FiniteMegaAdmitted || r.Artifact == nil || r.Kind == cudair.KindMatMul {
 			return BackendDecision{}, fmt.Errorf("%w: finite worker region not admitted", ErrUnsupportedBackend)
 		}
 		if err := r.Artifact.Validate(); err != nil {
 			return BackendDecision{}, fmt.Errorf("cudaplan: finite worker artifact: %w", err)
+		}
+		if r.MegaCTAs != 0 {
+			return BackendDecision{BackendMega, fmt.Sprintf("counted FP32 region requested for %d cooperative CTAs", r.MegaCTAs)}, nil
 		}
 		return BackendDecision{BackendMega, "finite FP32 region admitted to one CTA"}, nil
 	}

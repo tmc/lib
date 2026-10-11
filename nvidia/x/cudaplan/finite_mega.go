@@ -16,10 +16,26 @@ import (
 // task fixture. The worker has no spin loop or cross-CTA residency requirement.
 // Graph replay and finite Mega are separate execution modes.
 func WithFiniteMega(enable bool) PlanOption {
-	return func(c *planConfig) error { c.finiteMega = enable; return nil }
+	return func(c *planConfig) error {
+		if c.countedCTAs != 0 {
+			return fmt.Errorf("%w: finite and counted Mega are separate modes", ErrUnsupportedBackend)
+		}
+		c.finiteMega = enable
+		return nil
+	}
 }
 
 func finiteMegaArtifact(snap nodeSnapshot, target string) (*cudakernel.Artifact, []string, error) {
+	return planMegaArtifact(snap, target, 0)
+}
+
+func planMegaArtifact(snap nodeSnapshot, target string, ctas uint32) (*cudakernel.Artifact, []string, error) {
+	if ctas != 0 {
+		major, _, _, err := cudakernel.ParseArch(target)
+		if err != nil || !strings.HasPrefix(target, "sm_") || major < 8 || ctas < 2 || ctas > 1024 {
+			return nil, nil, fmt.Errorf("%w: counted worker target or CTA count", ErrUnsupportedBackend)
+		}
+	}
 	if snap == nil {
 		return nil, nil, ErrUnsupportedBackend
 	}
@@ -31,9 +47,13 @@ func finiteMegaArtifact(snap nodeSnapshot, target string) (*cudakernel.Artifact,
 	var names []string
 	var params []cudakernel.Param
 	var source strings.Builder
-	fmt.Fprintf(&source, ".version 9.0\n.target %s\n.address_size 64\n.visible .entry finite_plan(\n", target)
+	entry := "finite_plan"
+	if ctas != 0 {
+		entry = "counted_plan"
+	}
+	fmt.Fprintf(&source, ".version 9.0\n.target %s\n.address_size 64\n.visible .entry %s(\n", target, entry)
 	for i, n := range order {
-		if n.Type != cudair.Float32 || n.NumElements() <= 0 || uint64(n.NumElements()) > math.MaxUint32-255 || !cudashape.IsContiguousRowMajor(n.Shape, n.Strides) {
+		if n.Type != cudair.Float32 || n.NumElements() <= 0 || uint64(n.NumElements()) > math.MaxUint32-uint64(megaStride(ctas))+1 || !cudashape.IsContiguousRowMajor(n.Shape, n.Strides) {
 			return nil, nil, fmt.Errorf("%w: finite worker requires nonempty contiguous FP32 node %s", ErrUnsupportedBackend, n.Name)
 		}
 		indices[n.Name] = i
@@ -44,7 +64,14 @@ func finiteMegaArtifact(snap nodeSnapshot, target string) (*cudakernel.Artifact,
 		}
 		fmt.Fprintf(&source, ".param .u64 p%d", i)
 	}
+	if ctas != 0 {
+		params = append(params, cudakernel.Param{Name: "state", Type: "ptr", IsPointer: true})
+		source.WriteString(",\n.param .u64 state")
+	}
 	source.WriteString("\n) {\n.reg .pred pred;\n.reg .u32 i, k, base, outer, inner;\n.reg .u64 offset, a, b, out;\n.reg .f32 x, y, z;\n.reg .f64 total, widened;\n")
+	if ctas != 0 {
+		source.WriteString(countedEntry(ctas))
+	}
 	for j, n := range order {
 		if n.Kind == cudair.KindInput {
 			continue
@@ -61,7 +88,8 @@ func finiteMegaArtifact(snap nodeSnapshot, target string) (*cudakernel.Artifact,
 		if !valid {
 			return nil, nil, fmt.Errorf("%w: finite worker operation %s", ErrUnsupportedBackend, n.Op)
 		}
-		fmt.Fprintf(&source, "mov.u32 i, %%tid.x;\nstep%d:\nsetp.ge.u32 pred, i, %d;\n@pred bra done%d;\nld.param.u64 out, [p%d];\nmul.wide.u32 offset, i, 4;\nadd.u64 out, out, offset;\n", j, n.NumElements(), j, j)
+		source.WriteString(megaIndex(ctas))
+		fmt.Fprintf(&source, "step%d:\nsetp.ge.u32 pred, i, %d;\n@pred bra done%d;\nld.param.u64 out, [p%d];\nmul.wide.u32 offset, i, 4;\nadd.u64 out, out, offset;\n", j, n.NumElements(), j, j)
 		input := n.Inputs[0]
 		fmt.Fprintf(&source, "ld.param.u64 a, [p%d];\n", indices[input.Name])
 		if n.Kind == cudair.KindReduce {
@@ -90,13 +118,20 @@ func finiteMegaArtifact(snap nodeSnapshot, target string) (*cudakernel.Artifact,
 				fmt.Fprintf(&source, "%s.rn.f32 z, x, y;\n", op)
 			}
 		}
-		fmt.Fprintf(&source, "st.global.f32 [out], z;\nadd.u32 i, i, 256;\nbra step%d;\ndone%d:\nbar.sync 0;\n", j, j)
+		fmt.Fprintf(&source, "st.global.f32 [out], z;\nadd.u32 i, i, %d;\nbra step%d;\ndone%d:\nbar.sync 0;\n", megaStride(ctas), j, j)
+		if ctas != 0 {
+			source.WriteString(countedBarrier(j, ctas))
+		}
 	}
-	source.WriteString("membar.sys;\nret;\n}\n")
+	source.WriteString("membar.sys;\nret;\n")
+	if ctas != 0 {
+		source.WriteString(countedBadLaunch())
+	}
+	source.WriteString("}\n")
 	schema, err := cudakernel.NewSchema(params...)
 	if err != nil {
 		return nil, nil, err
 	}
-	artifact, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte(source.String()), "finite_plan", schema, target)
+	artifact, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte(source.String()), entry, schema, target)
 	return artifact, names, err
 }
