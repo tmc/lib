@@ -1,0 +1,1 @@
+task "produce" at CTA scope has non-CTA consumer "consume"; an mbarrier cannot publish at device scope

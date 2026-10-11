@@ -272,6 +272,8 @@ type Program struct {
 //     Both refuse; they refuse for different reasons, and the message says
 //     which, because only the second one lane 09 can lift.
 //   - [cudataskgraph.ScopeCTA] below sm_80, which has no mbarrier.
+//   - A CTA-scope producer with a non-CTA consumer. Its mbarrier publication
+//     cannot be replaced with a wider release, even in a one-CTA grid.
 //   - Either end of a dependency edge at CTA scope in a multi-CTA grid. An
 //     mbarrier in one CTA's shared memory orders that CTA only, so it can
 //     neither publish to another CTA nor observe what another CTA published.
@@ -355,12 +357,11 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 			if !ok {
 				return nil, fmt.Errorf("task %q precedes dependency %q", t.ID, d)
 			}
-			// The edge is ordered at the higher of the two scopes it
-			// joins. It needs no admissibility check of its own: the
-			// higher of two scopes is one of them, and each end is
-			// refused above if this target cannot order it. The same
-			// argument covers release[i], which is a max over this
-			// task's scope and its consumers'.
+			if byID[d].Scope == cudataskgraph.ScopeCTA && t.Scope != cudataskgraph.ScopeCTA {
+				return nil, fmt.Errorf("task %q at CTA scope has non-CTA consumer %q; an mbarrier cannot publish at %s scope", d, t.ID, scopeName(t.Scope))
+			}
+			// Admitted edges use the higher scope. CTA publication is
+			// an mbarrier protocol, so it cannot be widened by this rule.
 			e := byID[d].Scope
 			if t.Scope > e {
 				e = t.Scope
@@ -381,10 +382,7 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 		if len(deps) > 0 {
 			p.needSpin = true
 		}
-		// The mbarrier and its phase are needed by the fence sites that
-		// order at CTA scope, which is not the same set as the tasks that
-		// declare it: a CTA-scope task with a device-scope consumer releases
-		// at device scope and arrives at no mbarrier.
+		// CTA release and CTA edges use an mbarrier and its phase.
 		if release[i] == cudataskgraph.ScopeCTA {
 			p.needBarrier = true
 		}

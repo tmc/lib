@@ -63,7 +63,8 @@ func scopePair(t *testing.T, ps, cs cudataskgraph.Scope) (cudataskgraph.Graph, m
 // system-scope reader and a device-scope acquire has not ordered a
 // system-scope producer's stores. A task's release is then at the highest
 // scope any of its consumers needs, which for a task with no consumer is its
-// own.
+// own. A CTA producer cannot be widened for a non-CTA consumer; that pair
+// is refused by [TestCTAProducerWiderConsumerRefused].
 //
 // The grid is one CTA so that CTA scope is admissible on both sides; a
 // CTA-scope task with a dependency in a wider grid is refused for a different
@@ -71,6 +72,9 @@ func scopePair(t *testing.T, ps, cs cudataskgraph.Scope) (cudataskgraph.Graph, m
 func TestFenceScopeIsTheMaxOfItsEdge(t *testing.T) {
 	for _, ps := range orderableScopes {
 		for _, cs := range orderableScopes {
+			if ps == cudataskgraph.ScopeCTA && cs != cudataskgraph.ScopeCTA {
+				continue // The separate refusal test covers this pair.
+			}
 			t.Run(scopeLabel(ps)+"-"+scopeLabel(cs), func(t *testing.T) {
 				want := ps
 				if cs > want {
@@ -132,15 +136,9 @@ func TestFenceScopeIsTheMaxOfItsEdge(t *testing.T) {
 // scope pairs this package cannot order must be refused at construction, with
 // text naming the task at fault and the reason the target cannot serve it.
 //
-// The refusal is attributed to a task rather than to the edge, and that is a
-// finding rather than a shortcut. A per-edge admissibility check cannot fire:
-// the scope an edge is ordered at is the higher of its two ends, the higher of
-// two values is one of them, and each end is already checked on its own. An
-// edge refusal would be unreachable code, and a gate over unreachable code
-// passes whatever the code says. So what is asserted here is the property that
-// makes the edge check unnecessary -- every pair containing a scope this
-// target cannot order is refused, from whichever end declares it -- together
-// with the verbatim text of each distinct reason.
+// Every pair containing an unsupported scope is refused from whichever end
+// declares it. These target refusals are separate from CTA producer widening,
+// which is rejected even when both endpoint scopes are individually supported.
 func TestRefusedScopePairIsRefusedAtBothEnds(t *testing.T) {
 	reasons := map[cudamega.Target]string{
 		goldenTarget:  "cluster scope on target sm_121a needs lane 09's participation contract",
@@ -177,10 +175,13 @@ func TestRefusedScopePairIsRefusedAtBothEnds(t *testing.T) {
 			})
 		}
 	}
-	// The control: every pair drawn from the orderable scopes is accepted, so
-	// the refusals above are about cluster and not about pairs in general.
+	// The control: individually supported scopes form admitted pairs except
+	// for a CTA producer with a wider consumer, covered by its refusal test.
 	for _, ps := range orderableScopes {
 		for _, cs := range orderableScopes {
+			if ps == cudataskgraph.ScopeCTA && cs != cudataskgraph.ScopeCTA {
+				continue
+			}
 			g, ops := scopePair(t, ps, cs)
 			if _, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}, goldenTarget); err != nil {
 				t.Errorf("refused an orderable pair %s over %s: %v", scopeLabel(cs), scopeLabel(ps), err)

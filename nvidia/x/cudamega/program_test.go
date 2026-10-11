@@ -114,8 +114,15 @@ func TestCTAScopeRefusedOnBothEndsOfACrossCTAEdge(t *testing.T) {
 		"produce": {Kind: cudamega.Add, Scalar: 1},
 		"consume": {Kind: cudamega.Multiply, Scalar: 2},
 	}
-	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, goldenTarget); err != nil {
-		t.Fatalf("one CTA: a CTA-scope edge is orderable and must be accepted: %v", err)
+	local, err := cudataskgraph.New([]cudataskgraph.Task{
+		{ID: "produce", Rank: 0, Scope: cudataskgraph.ScopeCTA},
+		{ID: "consume", Deps: []string{"produce"}, Rank: 1, Scope: cudataskgraph.ScopeCTA},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cudamega.ProgramSource(local, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, goldenTarget); err != nil {
+		t.Fatalf("one CTA: a CTA-to-CTA edge must be accepted: %v", err)
 	}
 	_, err = cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32}, goldenTarget)
 	if err == nil {
