@@ -174,7 +174,9 @@ type extKey struct {
 }
 
 // Joiner coordinates evidence-preserving correlation between host submissions
-// and device activities.
+// and device activities. Explicit native, runtime and external correlations
+// may arrive in either order; all observed candidates must agree. A result
+// consumes one counterpart, so this API does not infer one-to-many fanout.
 type Joiner struct {
 	mu  sync.Mutex
 	cfg JoinConfig
@@ -187,6 +189,7 @@ type Joiner struct {
 	// Activities pending submission match
 	pendingActs []DeviceActivity
 	actByCorr   map[corrKey][]int
+	actByExt    map[extKey][]int
 
 	metrics JoinMetrics
 }
@@ -201,6 +204,7 @@ func NewJoiner(cfg JoinConfig) *Joiner {
 		subByCorr: make(map[corrKey][]int),
 		subByExt:  make(map[extKey][]int),
 		actByCorr: make(map[corrKey][]int),
+		actByExt:  make(map[extKey][]int),
 	}
 }
 
@@ -231,30 +235,30 @@ func (j *Joiner) SubmitHost(sub HostSubmission) (results []JoinResult) {
 		}
 	}()
 
-	// Try matching against pending device activities
+	// Every explicit index must identify the same pending activity. The same
+	// activity may appear in both indices without creating an ambiguity.
+	var actIndices []int
 	if sub.NativeCorrelationID != 0 {
 		k := corrKey{Process: sub.Process, Correlation: sub.NativeCorrelationID, GraphReplay: sub.GraphReplay}
-		if actIndices, ok := j.actByCorr[k]; ok && len(actIndices) > 0 {
-			if len(actIndices) > 1 {
-				res := JoinResult{Outcome: OutcomeAmbiguous, Reason: ReasonConflictingOperations, HostSubmission: &sub}
-
-				return []JoinResult{res}
-			}
-			// Found matching activity
-			actIdx := actIndices[0]
-			j.actByCorr[k] = actIndices[1:]
-			if len(j.actByCorr[k]) == 0 {
-				delete(j.actByCorr, k)
-			}
-			act := j.pendingActs[actIdx]
-			// Remove the consumed activity; keeping its timestamps would let Flush
-			// report it a second time as missing.
-			j.pendingActs = append(j.pendingActs[:actIdx], j.pendingActs[actIdx+1:]...)
-			j.rebuildActIndices()
-
-			res := j.buildExactOrAmbiguousMatch(sub, act)
-			return []JoinResult{res}
+		actIndices = append(actIndices, j.actByCorr[k]...)
+	}
+	if sub.OpID != 0 {
+		k := extKey{Process: sub.Process, ExternalID: uint64(sub.OpID)}
+		actIndices = append(actIndices, j.actByExt[k]...)
+	}
+	actIdx := -1
+	for _, index := range actIndices {
+		if actIdx != -1 && actIdx != index {
+			return []JoinResult{{Outcome: OutcomeAmbiguous, Reason: ReasonConflictingOperations, HostSubmission: &sub}}
 		}
+		actIdx = index
+	}
+	if actIdx != -1 {
+		act := j.pendingActs[actIdx]
+		// Remove the consumed activity so Flush cannot report it again.
+		j.pendingActs = append(j.pendingActs[:actIdx], j.pendingActs[actIdx+1:]...)
+		j.rebuildActIndices()
+		return []JoinResult{j.buildExactOrAmbiguousMatch(sub, act)}
 	}
 
 	// No pending activity matched; enqueue into bounded host buffer
@@ -350,8 +354,8 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) (results []JoinResult) {
 		}
 	}
 
-	// If native correlation didn't match, check external correlation if present
-	if matchedSub == nil && act.ExternalCorrelationID != 0 {
+	// External evidence must agree even when a native candidate was found.
+	if act.ExternalCorrelationID != 0 {
 		k := extKey{Process: act.Process, ExternalID: act.ExternalCorrelationID}
 		if subIndices, ok := j.subByExt[k]; ok && len(subIndices) > 0 {
 			if len(subIndices) > 1 {
@@ -364,6 +368,9 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) (results []JoinResult) {
 				}
 
 				return []JoinResult{res}
+			}
+			if candidateIdx != -1 && candidateIdx != subIndices[0] {
+				return []JoinResult{{Outcome: OutcomeAmbiguous, Reason: ReasonConflictingOperations, DeviceActivity: &act, RawIDs: rawFromActivity(act), EvidenceRef: act.EvidenceRef}}
 			}
 			matchedIdx = subIndices[0]
 			s := j.pendingSubs[matchedIdx]
@@ -499,6 +506,7 @@ func (j *Joiner) Flush() (results []JoinResult) {
 	}
 	j.pendingActs = nil
 	j.actByCorr = make(map[corrKey][]int)
+	j.actByExt = make(map[extKey][]int)
 
 	return results
 }
@@ -631,10 +639,15 @@ func (j *Joiner) indexActivity(index int, act DeviceActivity) {
 		k := corrKey{Process: act.Process, Correlation: id, GraphReplay: act.GraphReplay}
 		j.actByCorr[k] = append(j.actByCorr[k], index)
 	}
+	if act.ExternalCorrelationID != 0 {
+		k := extKey{Process: act.Process, ExternalID: act.ExternalCorrelationID}
+		j.actByExt[k] = append(j.actByExt[k], index)
+	}
 }
 
 func (j *Joiner) rebuildActIndices() {
 	j.actByCorr = make(map[corrKey][]int)
+	j.actByExt = make(map[extKey][]int)
 	for i, act := range j.pendingActs {
 		j.indexActivity(i, act)
 	}
