@@ -292,7 +292,8 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 	// Bind rows and validate shapes
 	metadata, err := cudabatch.ValidateAndBindRows(iter.AllocatedRows, a.bucket, a.blockSize)
 	if err != nil {
-		return a.finishIteration(iter, nil, nil, fmt.Errorf("cudasrv: validate row bindings: %w", err))
+		_, finishErr := a.finishIteration(iter, nil, nil, fmt.Errorf("cudasrv: validate row bindings: %w", err))
+		return finishErr
 	}
 
 	execStep := &cudabatch.ExecutionStep{
@@ -319,7 +320,8 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 		a.mu.Unlock()
 		return fmt.Errorf("cudasrv: execute forward: %w", execErr)
 	}
-	return a.finishIteration(iter, genTokens, rowErrors, execErr)
+	_, finishErr := a.finishIteration(iter, genTokens, rowErrors, execErr)
+	return finishErr
 }
 
 // Drain waits for a retained execution using ctx. It releases scheduler resources
@@ -341,10 +343,13 @@ func (a *BatchEngineAdapter) drainLocked(ctx context.Context) error {
 	}
 	waitErr := p.forward.Wait(ctx)
 	if p.forward.Done() && !p.settled {
-		p.settled = true
 		// The original execution failure stays attached to each row even
 		// when a subsequent wait successfully ends buffer ownership.
-		_ = a.finishIteration(p.iteration, nil, nil, p.cause)
+		settled, settleErr := a.finishIteration(p.iteration, nil, nil, p.cause)
+		if !settled {
+			return errors.Join(waitErr, settleErr)
+		}
+		p.settled = true
 	}
 	if waitErr != nil {
 		return fmt.Errorf("cudasrv: drain execution: %w", waitErr)
@@ -356,7 +361,7 @@ func (a *BatchEngineAdapter) drainLocked(ctx context.Context) error {
 	return nil
 }
 
-func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration, genTokens map[string]int32, rowErrors map[string]error, execErr error) error {
+func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration, genTokens map[string]int32, rowErrors map[string]error, execErr error) (bool, error) {
 	if execErr != nil {
 		if rowErrors == nil {
 			rowErrors = make(map[string]error)
@@ -369,7 +374,7 @@ func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration,
 
 	// Update scheduler
 	if err := a.scheduler.CompleteStep(iter, genTokens, rowErrors); err != nil {
-		return fmt.Errorf("cudasrv: complete scheduler step: %w", err)
+		return false, fmt.Errorf("cudasrv: complete scheduler step: %w", err)
 	}
 
 	// Dispatch tokens to listeners
@@ -430,7 +435,7 @@ func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration,
 		}
 	}
 	if execErr != nil {
-		return fmt.Errorf("cudasrv: execute forward: %w", execErr)
+		return true, fmt.Errorf("cudasrv: execute forward: %w", execErr)
 	}
-	return nil
+	return true, nil
 }
