@@ -1,0 +1,10 @@
+commit: f7e5bbd4d7a3cb7f55e731788a0dd83c3672cf29
+date: 2026-10-11T18:46:57Z
+agent: Antigravity subagent Lane-F2-Durable-Delivery
+conversation: c87141d3-6edd-4af5-b609-2656be0f67cc
+parent: 7a3ee4e6-7b88-42a5-98e8-76a06e2e6387
+model: pro
+tty: /dev/ttys099
+pid: 43476
+ITERM_SESSION_ID: w2t0p3:A01076D7-6AF7-41A0-AD07-8E9E98A00426
+commit helper: manual fallback after two retained missing-API-key failures
