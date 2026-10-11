@@ -14,7 +14,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
-func TestCandidateLoadRequiresGPULock(t *testing.T) {
+func TestCandidateLoadCorroboratesLeaseOwner(t *testing.T) {
 	// There is no mirror to refuse, so the lock is the only gate left.
 	patched := cudasass.PatchedImage{
 		Kernel:  "intmix",
