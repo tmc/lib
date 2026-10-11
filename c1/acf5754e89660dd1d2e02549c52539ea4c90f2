@@ -1,0 +1,11 @@
+commit: c1acf5754e89660dd1d2e02549c52539ea4c90f2
+date: 2026-10-11T18:32:00.491659+00:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; exact variant unrecorded
+tty: none
+pid: 67656
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-bpf/20261011-lmvet-source-review/GRADE.md
+review sha256: 9fb891553209a2958883311d4345e04f9821ab22745690449fe291e2adb0d009
+commit helper: manual fallback after two retained missing-API-key failures
+qualification: source behavior only; native and allocation/speedup unmeasured
