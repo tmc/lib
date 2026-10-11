@@ -584,6 +584,7 @@ cudaprof export -findings -o capture.pftrace capture.pprof
 
 Findings distinguish kernel records retained in the artifact from a complete
 collector capture population. Missing or contradictory counts and unknown
-loss withhold the second finding. These counts do not establish total workload
+loss withhold the second finding. Ambiguous JSON keys withhold both counts.
+These counts do not establish total workload
 launches, clock synchronization, or a causal diagnosis. Without `-findings`,
 export retains its raw trace behavior.

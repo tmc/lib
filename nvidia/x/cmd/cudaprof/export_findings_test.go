@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
 	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 )
 
@@ -269,5 +270,60 @@ func TestExportFindingsCLI(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(`{"status":{"record_loss":{}}}`), &envelope); err != nil || envelope.Status.RecordLoss == nil {
 		t.Fatal("explicit zero lost presence")
+	}
+}
+
+func TestExportFindingsAmbiguousPayload(t *testing.T) {
+	canonical := `"kind":"activity","subtype":"kernel","valid":true,"start":10,"end":20`
+	for _, tc := range []struct {
+		name, fields string
+		admitted     bool
+	}{
+		{"canonical", canonical, true},
+		{"duplicate subtype", canonical + `,"subtype":"kernel"`, false},
+		{"escaped duplicate", canonical + `,"sub\u0074ype":"kernel"`, false},
+		{"subtype alias", canonical + `,"Subtype":"kernel"`, false},
+		{"valid alias", canonical + `,"Valid":true`, false},
+		{"start alias", canonical + `,"Start":10`, false},
+		{"end alias", canonical + `,"End":20`, false},
+		{"kind unicode alias", canonical + `,"Kind":"activity"`, false},
+		{"subtype unicode alias", canonical + `,"ſubtype":"kernel"`, false},
+		{"nested duplicate", canonical + `,"opaque":{"id":1,"id":2}`, false},
+		{"array nested duplicate", canonical + `,"opaque":[{"id":1,"id":2}]`, false},
+		{"opaque case namespaces", canonical + `,"opaque":{"start":1,"Start":2,"valid":true,"Valid":false}`, true},
+		{"opaque exact integer", canonical + `,"opaque":{"bytes":9007199254740993}`, true},
+		{"opaque nesting limit", canonical + `,"opaque":` + strings.Repeat("[", 65) + `0` + strings.Repeat("]", 65), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := newJournalBuilder()
+			payload := []byte("{" + tc.fields + "}")
+			b.sequence++
+			if err := wire.Write(&b.buf, wire.Record{Kind: wire.KindActivity, Identity: wire.Identity{Session: b.session, Process: 4242, Generation: 1}, Sequence: b.sequence, Payload: payload}, wire.Limits{}); err != nil {
+				t.Fatal(err)
+			}
+			journals := map[string][]byte{"capture.journal": b.finalize()}
+			// The raw projector remains permissive; diagnostics require an unambiguous source.
+			if raw, _, _, err := decodeTraceJournals(journals, 100, 1<<20, false); err != nil || len(raw) != 1 {
+				t.Fatalf("raw behavior changed: count=%d error=%v", len(raw), err)
+			}
+			status := findingCompleteStatus()
+			status.ActivityRecords = 1
+			status.RecordLoss = &captureLoss{Offered: 1, Retained: 1}
+			got, err := exportRecordFindings(journals, findingIdentity(), status, 100, 1<<20)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, f := range got {
+				if f.Admission.Admitted != tc.admitted {
+					t.Fatalf("finding=%+v", f)
+				}
+				if !tc.admitted && f.Value != nil {
+					t.Fatal("ambiguous count reported as measured zero")
+				}
+				if !tc.admitted && f.Admission.Gates["kernel_records"].Disposition != "failed" {
+					t.Fatalf("ambiguity gate=%+v", f.Admission)
+				}
+			}
+		})
 	}
 }
