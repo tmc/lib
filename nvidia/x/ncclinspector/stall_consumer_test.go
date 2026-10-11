@@ -22,7 +22,7 @@ func TestRecordConsumerMapping(t *testing.T) {
 	record.Header.ID = "0x1234567890abcdef"
 	record.Header.Rank = 0
 	record.Header.Ranks = 2
-	clock := ClockMapping{Domain: ClockDomainHostRealtime, OffsetNS: 1000, UncertaintyNS: 50, ReferenceDomain: ClockDomainHostMonotonic, ReferenceEpoch: "synthetic-reference", EvidenceRef: "fixture-calibration"}
+	clock := ClockMapping{SourceBootEpoch: "fixture-boot", SourceProcessEpoch: "fixture-process", CalibrationKnown: true, UncertaintyKnown: true, ValidityKnown: true, ValidFromNS: 0, ValidUntilNS: 1 << 62, Domain: ClockDomainHostRealtime, OffsetNS: 1000, UncertaintyNS: 50, ReferenceDomain: ClockDomainHostMonotonic, ReferenceEpoch: "synthetic-reference", EvidenceRef: "fixture-calibration"}
 	obs, err := ObservationFromRecord(record, clock)
 	if err != nil {
 		t.Fatal(err)

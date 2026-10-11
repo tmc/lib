@@ -41,9 +41,17 @@ const (
 
 // ClockMapping defines a clock domain with measured offset and uncertainty.
 type ClockMapping struct {
-	Domain        ClockDomain
-	OffsetNS      int64
-	UncertaintyNS int64 // measured uncertainty (+/- nanoseconds, must be non-negative)
+	Domain ClockDomain
+	// Source epochs are supplied by the caller, never inferred from a PID.
+	SourceBootEpoch    string
+	SourceProcessEpoch string
+	CalibrationKnown   bool
+	UncertaintyKnown   bool
+	ValidityKnown      bool
+	ValidFromNS        int64
+	ValidUntilNS       int64
+	OffsetNS           int64
+	UncertaintyNS      int64 // measured uncertainty (+/- nanoseconds, must be non-negative)
 	// ReferenceDomain and ReferenceEpoch identify the destination clock.
 	// EvidenceRef must name the measurement used for an inter-host mapping.
 	ReferenceDomain ClockDomain
@@ -56,10 +64,21 @@ type BoundedTimestamp struct {
 	Nanoseconds   int64
 	UncertaintyNS int64
 	Domain        ClockDomain
+	Epoch         string
+	BootEpoch     string
 }
 
 // Aligned maps a bounded timestamp to the reference timeline using a clock mapping.
 func (bt BoundedTimestamp) Aligned(m ClockMapping) (BoundedTimestamp, error) {
+	if m.ReferenceDomain != "" || m.ReferenceEpoch != "" || m.EvidenceRef != "" || m.OffsetNS != 0 {
+		if !m.CalibrationKnown || !m.UncertaintyKnown || !m.ValidityKnown || m.SourceBootEpoch == "" || m.SourceProcessEpoch == "" || m.ReferenceDomain == "" || m.ReferenceEpoch == "" || m.EvidenceRef == "" || m.ValidFromNS < 0 || m.ValidUntilNS < m.ValidFromNS || bt.Epoch != m.SourceProcessEpoch || bt.BootEpoch != m.SourceBootEpoch {
+			return BoundedTimestamp{}, fmt.Errorf("%w: missing calibration validity or source epoch", ErrIncompatibleClocks)
+		}
+		if bt.UncertaintyNS < 0 || bt.Nanoseconds < m.ValidFromNS || bt.Nanoseconds > m.ValidUntilNS || bt.UncertaintyNS > bt.Nanoseconds-m.ValidFromNS || bt.UncertaintyNS > m.ValidUntilNS-bt.Nanoseconds {
+			return BoundedTimestamp{}, fmt.Errorf("%w: timestamp outside calibration validity", ErrIncompatibleClocks)
+		}
+	}
+
 	if bt.Domain != "" && m.Domain != "" && bt.Domain != m.Domain {
 		return BoundedTimestamp{}, fmt.Errorf("%w: timestamp domain %q != mapping domain %q", ErrIncompatibleClocks, bt.Domain, m.Domain)
 	}
@@ -71,28 +90,35 @@ func (bt BoundedTimestamp) Aligned(m ClockMapping) (BoundedTimestamp, error) {
 	}
 	unc := bt.UncertaintyNS + m.UncertaintyNS
 	domain := m.Domain
+	epoch, bootEpoch := bt.Epoch, bt.BootEpoch
 	if m.ReferenceDomain != "" {
 		domain = m.ReferenceDomain
+		epoch, bootEpoch = m.ReferenceEpoch, ""
 	}
 	return BoundedTimestamp{
 		Nanoseconds:   bt.Nanoseconds + m.OffsetNS,
 		UncertaintyNS: unc,
 		Domain:        domain,
+		Epoch:         epoch,
+		BootEpoch:     bootEpoch,
 	}, nil
 }
 
 // CollectiveObservation captures validated evidence for one rank's participation
 // in a collective operation.
 type CollectiveObservation struct {
-	CommunicatorHash string // Must be full 18-char hex string: 0x followed by 16 hex digits
-	Rank             int
-	TotalRanks       int
-	Sequence         uint64
-	Operation        string
-	Bytes            uint64
-	HostPID          int
-	Hostname         string
-	ProducerRevision string
+	CommunicatorHash   string // Must be full 18-char hex string: 0x followed by 16 hex digits
+	Rank               int
+	TotalRanks         int
+	Sequence           uint64
+	Operation          string
+	Bytes              uint64
+	HostPID            int
+	Hostname           string
+	ProducerRevision   string
+	SourceBootEpoch    string
+	SourceProcessEpoch string
+	mapping            *ClockMapping
 	// ClockEpoch identifies an explicitly mapped common clock epoch. A clock
 	// domain name alone does not establish synchronization across hosts.
 	ClockEpoch       string
@@ -232,15 +258,17 @@ func ObservationFromRecord(r Record, clock ClockMapping) (CollectiveObservation,
 	}
 
 	obs := CollectiveObservation{
-		CommunicatorHash: r.Header.ID,
-		Rank:             r.Header.Rank,
-		TotalRanks:       r.Header.Ranks,
-		Sequence:         r.Collective.Sequence,
-		Operation:        r.Collective.Name,
-		Bytes:            r.Collective.Bytes,
-		HostPID:          r.Metadata.PID,
-		Hostname:         r.Metadata.Hostname,
-		ProducerRevision: r.Metadata.GitRevision,
+		CommunicatorHash:   r.Header.ID,
+		Rank:               r.Header.Rank,
+		TotalRanks:         r.Header.Ranks,
+		Sequence:           r.Collective.Sequence,
+		Operation:          r.Collective.Name,
+		Bytes:              r.Collective.Bytes,
+		HostPID:            r.Metadata.PID,
+		Hostname:           r.Metadata.Hostname,
+		ProducerRevision:   r.Metadata.GitRevision,
+		SourceBootEpoch:    clock.SourceBootEpoch,
+		SourceProcessEpoch: clock.SourceProcessEpoch,
 	}
 
 	if r.Collective.EventTraceTS != nil {
@@ -296,6 +324,8 @@ func ObservationFromRecord(r Record, clock ClockMapping) (CollectiveObservation,
 			// The record has no independent timestamp uncertainty; the mapping
 			// uncertainty is added exactly once by Aligned.
 			ts.UncertaintyNS = 0
+			ts.Epoch = clock.SourceProcessEpoch
+			ts.BootEpoch = clock.SourceBootEpoch
 			mapped, err := ts.Aligned(clock)
 			if err != nil {
 				return err
@@ -324,6 +354,8 @@ func ObservationFromRecord(r Record, clock ClockMapping) (CollectiveObservation,
 				return CollectiveObservation{}, err
 			}
 		}
+		mapping := clock
+		obs.mapping = &mapping
 		obs.ClockEpoch = clock.ReferenceEpoch
 		obs.ClockEvidenceRef = clock.EvidenceRef
 	}
@@ -342,7 +374,7 @@ type TwoRankAttributor struct {
 	rankSources  map[string]map[int]rankSource
 }
 
-type rankSource struct{ hostname, revision string }
+type rankSource struct{ hostname, revision, bootEpoch, processEpoch string }
 
 // NewTwoRankAttributor creates an initialized TwoRankAttributor.
 func NewTwoRankAttributor() *TwoRankAttributor {
@@ -378,7 +410,7 @@ func (a *TwoRankAttributor) AddObservation(obs CollectiveObservation) error {
 		return ErrObservationCapacity
 	}
 	if sources := a.rankSources[obs.CommunicatorHash]; sources != nil {
-		if prior, exists := sources[obs.Rank]; exists && prior != (rankSource{obs.Hostname, obs.ProducerRevision}) {
+		if prior, exists := sources[obs.Rank]; exists && prior != (rankSource{obs.Hostname, obs.ProducerRevision, obs.SourceBootEpoch, obs.SourceProcessEpoch}) {
 			return fmt.Errorf("%w: rank host or producer changed", ErrRankRestarted)
 		}
 	}
@@ -396,7 +428,7 @@ func (a *TwoRankAttributor) AddObservation(obs CollectiveObservation) error {
 		if err := check(end); err != nil {
 			return err
 		}
-		if start.Domain != end.Domain || end.Nanoseconds < start.Nanoseconds {
+		if start.Domain != end.Domain || start.Epoch != end.Epoch || start.BootEpoch != end.BootEpoch || end.Nanoseconds < start.Nanoseconds {
 			return fmt.Errorf("%w: reversed interval or incompatible endpoints", ErrIncompatibleClocks)
 		}
 		return nil
@@ -469,7 +501,7 @@ func (a *TwoRankAttributor) AddObservation(obs CollectiveObservation) error {
 	if a.rankSources[obs.CommunicatorHash] == nil {
 		a.rankSources[obs.CommunicatorHash] = make(map[int]rankSource)
 	}
-	a.rankSources[obs.CommunicatorHash][obs.Rank] = rankSource{obs.Hostname, obs.ProducerRevision}
+	a.rankSources[obs.CommunicatorHash][obs.Rank] = rankSource{obs.Hostname, obs.ProducerRevision, obs.SourceBootEpoch, obs.SourceProcessEpoch}
 	a.count++
 	seqs[obs.Rank] = obs.Sequence
 	return nil
@@ -579,7 +611,12 @@ func (a *TwoRankAttributor) Attribute(commHash string, seq uint64) (TwoRankDelay
 		report.Reason = "no shared observed stage"
 		return report, nil
 	}
-	if r0.Hostname != r1.Hostname && (r0.Hostname == "" || r1.Hostname == "" || r0.ClockEpoch == "" || r0.ClockEpoch != r1.ClockEpoch || r0.ClockEvidenceRef == "" || r1.ClockEvidenceRef == "") {
+	if r0.Hostname == r1.Hostname && r0.SourceBootEpoch != r1.SourceBootEpoch {
+		report.Diagnosis = DiagnosisIncompatibleClocks
+		report.Reason = "same-host source boot epoch differs"
+		return report, nil
+	}
+	if r0.Hostname != r1.Hostname && (!validObservationMapping(r0) || !validObservationMapping(r1) || r0.Hostname == "" || r1.Hostname == "" || r0.ClockEpoch == "" || r0.ClockEpoch != r1.ClockEpoch || r0.ClockEvidenceRef == "" || r1.ClockEvidenceRef == "") {
 		report.Diagnosis = DiagnosisIncompatibleClocks
 		report.Reason = "cross-host clock mapping evidence missing"
 		return report, nil
@@ -716,4 +753,34 @@ func abs(n int64) int64 {
 		return -n
 	}
 	return n
+}
+
+// validObservationMapping checks the adapter's retained calibration against all
+// mapped stages. Public labels alone cannot create cross-host mapping evidence.
+func validObservationMapping(obs CollectiveObservation) bool {
+	m := obs.mapping
+	if m == nil || obs.SourceBootEpoch != m.SourceBootEpoch || obs.SourceProcessEpoch != m.SourceProcessEpoch || obs.ClockEpoch != m.ReferenceEpoch || obs.ClockEvidenceRef != m.EvidenceRef {
+		return false
+	}
+	check := func(ts BoundedTimestamp) bool {
+		if ts.Domain != m.ReferenceDomain || ts.Epoch != m.ReferenceEpoch || ts.UncertaintyNS != m.UncertaintyNS {
+			return false
+		}
+		if m.OffsetNS > 0 && ts.Nanoseconds < math.MinInt64+m.OffsetNS || m.OffsetNS < 0 && ts.Nanoseconds > math.MaxInt64+m.OffsetNS {
+			return false
+		}
+		source := BoundedTimestamp{Nanoseconds: ts.Nanoseconds - m.OffsetNS, Domain: m.Domain, Epoch: m.SourceProcessEpoch, BootEpoch: m.SourceBootEpoch}
+		_, err := source.Aligned(*m)
+		return err == nil
+	}
+	if obs.HasHostEnqueue && (!check(obs.HostEnqueueStart) || !check(obs.HostEnqueueEnd)) {
+		return false
+	}
+	if obs.HasDeviceActivity && (!check(obs.DeviceStart) || !check(obs.DeviceEnd)) {
+		return false
+	}
+	if obs.HasCompletion && !check(obs.Completion) {
+		return false
+	}
+	return true
 }

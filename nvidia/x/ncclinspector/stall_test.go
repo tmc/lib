@@ -95,6 +95,8 @@ func TestObservationFromRecord_Verbose(t *testing.T) {
 func TestAttributeTwoRankDelay_HostEnqueueSkew(t *testing.T) {
 	attr := ncclinspector.NewTwoRankAttributor()
 
+	// These synthetic ranks share one host clock; cross-host mapping is tested
+	// through ObservationFromRecord with explicit calibration.
 	// Rank 0 enqueues at t=1,000,000 ns
 	obs0 := ncclinspector.CollectiveObservation{
 		CommunicatorHash:  validCommHashA,
@@ -105,8 +107,6 @@ func TestAttributeTwoRankDelay_HostEnqueueSkew(t *testing.T) {
 		Bytes:             65536,
 		HostPID:           1001,
 		Hostname:          "node-0",
-		ClockEpoch:        "synthetic-known-clock",
-		ClockEvidenceRef:  "synthetic-mapping",
 		HostEnqueueStart:  ncclinspector.BoundedTimestamp{Nanoseconds: 1_000_000, UncertaintyNS: 500, Domain: ncclinspector.ClockDomainHostMonotonic},
 		HostEnqueueEnd:    ncclinspector.BoundedTimestamp{Nanoseconds: 1_010_000, UncertaintyNS: 500, Domain: ncclinspector.ClockDomainHostMonotonic},
 		DeviceStart:       ncclinspector.BoundedTimestamp{Nanoseconds: 1_020_000, UncertaintyNS: 500, Domain: ncclinspector.ClockDomainHostMonotonic},
@@ -124,9 +124,7 @@ func TestAttributeTwoRankDelay_HostEnqueueSkew(t *testing.T) {
 		Operation:         "AllReduce",
 		Bytes:             65536,
 		HostPID:           1002,
-		Hostname:          "node-1",
-		ClockEpoch:        "synthetic-known-clock",
-		ClockEvidenceRef:  "synthetic-mapping",
+		Hostname:          "node-0",
 		HostEnqueueStart:  ncclinspector.BoundedTimestamp{Nanoseconds: 10_000_000, UncertaintyNS: 500, Domain: ncclinspector.ClockDomainHostMonotonic},
 		HostEnqueueEnd:    ncclinspector.BoundedTimestamp{Nanoseconds: 10_010_000, UncertaintyNS: 500, Domain: ncclinspector.ClockDomainHostMonotonic},
 		DeviceStart:       ncclinspector.BoundedTimestamp{Nanoseconds: 10_020_000, UncertaintyNS: 500, Domain: ncclinspector.ClockDomainHostMonotonic},
