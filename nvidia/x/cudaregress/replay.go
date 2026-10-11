@@ -419,7 +419,7 @@ func CompareExecution(plan *ExperimentPlan, exec *ExecutionReceipt, opts ReplayO
 		}
 	}
 	for f := range candFamMap {
-		if !baseFamMap[f] && !candFamMap[f] {
+		if !baseFamMap[f] {
 			comp.MissingFamilies = append(comp.MissingFamilies, f)
 		}
 	}

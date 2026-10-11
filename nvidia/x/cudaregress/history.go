@@ -30,6 +30,16 @@ func LinkToProfileHistory(plan *ExperimentPlan, execRec *ExecutionReceipt, compR
 		return cudaprofilehistory.Record{}, errors.New("cudaregress: nil plan or receipt for history linking")
 	}
 
+	if err := ValidatePlan(plan); err != nil {
+		return cudaprofilehistory.Record{}, err
+	}
+	if execRec.ExecutionID == "" || execRec.PlanID != plan.PlanID || execRec.PlanDigest != plan.PlanDigest || compRec.PlanID != plan.PlanID || compRec.ExecutionID != execRec.ExecutionID || compRec.TimingChannel != plan.TimingScope.Channel {
+		return cudaprofilehistory.Record{}, errors.New("cudaregress: history receipt identity mismatch")
+	}
+	if opts.Artifact == nil {
+		return cudaprofilehistory.Record{}, errors.New("cudaregress: history requires the executed artifact")
+	}
+
 	execBytes, err := json.Marshal(execRec)
 	if err != nil {
 		return cudaprofilehistory.Record{}, fmt.Errorf("cudaregress: marshal execution receipt: %w", err)
@@ -47,58 +57,16 @@ func LinkToProfileHistory(plan *ExperimentPlan, execRec *ExecutionReceipt, compR
 	}
 
 	compiler := opts.Compiler
-	if compiler.TargetArch == "" {
-		compiler.TargetArch = plan.DeviceConfig.ComputeCapability
-		if compiler.TargetArch == "" {
-			compiler.TargetArch = "sm_121a"
-		}
-	}
-	if compiler.NVRTCVersion == "" {
-		compiler.NVRTCVersion = "12.8"
-	}
-	if compiler.DriverSONAME == "" {
-		compiler.DriverSONAME = "libcuda.so.1"
-	}
-
 	compilerInputKey := opts.CompilerInputKey
-	if compilerInputKey == "" {
-		compilerInputKey = opts.Entry
-		if compilerInputKey == "" {
-			compilerInputKey = "kernel_main"
-		}
+	if compilerInputKey == "" || compiler.NVRTCVersion == "" || compiler.DriverSONAME == "" || compiler.TargetArch == "" {
+		return cudaprofilehistory.Record{}, errors.New("cudaregress: history requires compiler identity")
 	}
 	compilerKey := cudacache.CompilerCacheKey(compilerInputKey, compiler)
-
 	workload := opts.Workload
-	if workload.ProgramID == "" {
-		workload.ProgramID = plan.Workload.WorkloadName
-		if workload.ProgramID == "" {
-			workload.ProgramID = "workload_repro"
-		}
-	}
-	if workload.NumericalMode == "" {
-		workload.NumericalMode = "fp32"
-	}
-	if len(workload.ShapeDims) == 0 {
-		workload.ShapeDims = []int{1024}
-	}
 	workloadKey := workload.Key()
-
 	entry := opts.Entry
-	if entry == "" {
-		entry = "kernel_main"
-	}
 	target := compiler.TargetArch
-
 	art := opts.Artifact
-	if art == nil {
-		raw := []byte(".version 8.0\n.target " + target + "\n.address_size 64\n.visible .entry " + entry + "() { ret; }\n")
-		var artErr error
-		art, artErr = cudakernel.NewArtifact(cudakernel.KindPTX, raw, entry, cudakernel.Schema{}, target)
-		if artErr != nil {
-			return cudaprofilehistory.Record{}, fmt.Errorf("cudaregress: construct artifact: %w", artErr)
-		}
-	}
 
 	identity := cudaevidence.Identity{
 		ArtifactDigest: art.Digest,
@@ -113,19 +81,11 @@ func LinkToProfileHistory(plan *ExperimentPlan, execRec *ExecutionReceipt, compR
 		Driver: execRec.EnvironmentObserved.Driver,
 		CUDA:   execRec.EnvironmentObserved.CUDA,
 		Clock:  execRec.EnvironmentObserved.Clock,
-		Domain: "runtime",
+		Domain: execRec.EnvironmentObserved.Domain,
 	}
-	if env.Device == "" {
-		env.Device = "NVIDIA GPU"
-	}
-	if env.Driver == "" {
-		env.Driver = "550.54.14"
-	}
-	if env.CUDA == "" {
-		env.CUDA = "12.8"
-	}
-	if env.Clock == "" {
-		env.Clock = "locked_1500MHz"
+
+	if env.Device == "" || env.Driver == "" || env.CUDA == "" || env.Clock == "" || env.Domain == "" {
+		return cudaprofilehistory.Record{}, errors.New("cudaregress: history requires observed environment identity")
 	}
 
 	status := "complete"
@@ -154,9 +114,17 @@ func LinkToProfileHistory(plan *ExperimentPlan, execRec *ExecutionReceipt, compR
 	var facts []cudaprofilehistory.Fact
 	// Add timing performance fact
 	durNanos := float64(compRec.CandidateDuration.Nanoseconds())
-	samples := len(execRec.ArmReceipts)
-	if samples < 1 {
-		samples = 1
+	samples := 0
+	for _, arm := range execRec.ArmReceipts {
+		if arm.Name == compRec.CandidateArm || (compRec.CandidateArm == "" && arm.Name == "candidate") {
+			if !arm.Complete || arm.Err != nil {
+				return cudaprofilehistory.Record{}, errors.New("cudaregress: incomplete candidate history observation")
+			}
+			samples++
+		}
+	}
+	if samples == 0 || execRec.Partial || !execRec.OutputsVerified {
+		return cudaprofilehistory.Record{}, errors.New("cudaregress: history requires verified candidate observations")
 	}
 
 	evRec := cudaevidence.Record{

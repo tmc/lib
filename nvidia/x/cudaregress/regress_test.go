@@ -13,6 +13,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudadiag"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/cudaprofilehistory"
 	"github.com/tmc/lib/nvidia/x/cudaregress"
@@ -567,6 +568,8 @@ func TestPreserve_ResourceVsPerformanceChanges(t *testing.T) {
 
 func TestProfileHistoryLink(t *testing.T) {
 	inc := validAdmittedIncident()
+	inc.ObservedEnvironment.Clock = "test_clock"
+	inc.ObservedEnvironment.Domain = "test_domain"
 	plan, _, err := cudaregress.NewPlanFromIncident(inc, cudaregress.PlanOptions{
 		ExecutionScope: cudaregress.TimingScope{Channel: cudatrial.TimingWallElapsed},
 	})
@@ -576,6 +579,8 @@ func TestProfileHistoryLink(t *testing.T) {
 
 	execRec := &cudaregress.ExecutionReceipt{
 		ExecutionID:         "exec-hist-test",
+		PlanID:              plan.PlanID,
+		PlanDigest:          plan.PlanDigest,
 		OutputsVerified:     true,
 		OutputDigests:       map[string]string{"candidate": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
 		EnvironmentObserved: inc.ObservedEnvironment,
@@ -593,7 +598,13 @@ func TestProfileHistoryLink(t *testing.T) {
 		Verdict:           cudaprofilehistory.Pass,
 	}
 
+	art, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte(".version 8.0\n.target sm_121a\n.address_size 64\n.visible .entry matmul() { ret; }\n"), "matmul", cudakernel.Schema{}, "sm_121a")
+	if err != nil {
+		t.Fatal(err)
+	}
 	rec, err := cudaregress.LinkToProfileHistory(plan, execRec, compRec, cudaregress.HistoryLinkOptions{
+		CompilerInputKey: "test-source",
+		Artifact:         art,
 		Compiler: cudacache.CompilerIdentity{
 			NVRTCVersion: "12.8",
 			DriverSONAME: "libcuda.so.1",
