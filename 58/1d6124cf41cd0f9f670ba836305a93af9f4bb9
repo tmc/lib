@@ -1,0 +1,11 @@
+commit: 581d6124cf41cd0f9f670ba836305a93af9f4bb9
+date: 2026-10-11T18:52:02.338134+00:00
+agent: codex-cli 0.162.1; Claude Code not used
+model: GPT-6-based Codex; exact variant unrecorded
+tty: none (tool pipe)
+pid: 1713
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-bpf/20261011-elf-version-review/r4/GRADE.md
+review sha256: 526d5f7fee9d58640ee533151827db561a12ff5d0b5ff00918a8bd103eeffa1e
+commit helper: manual fallback after two retained missing-API-key failures; no further helper retry
+qualification: source/host behavior only; no32-bit runtime or live ELF/native attachment qualification
