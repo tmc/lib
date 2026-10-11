@@ -1,0 +1,11 @@
+commit: 5714b627435510a31d904793e14ad2408ab2376c
+date: 2026-10-11T01:11:10.854189+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 52880
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: API-key/Basic header files, duplicate/control/hop-header refusal, real HTTP accepted authentication and unauthorized incomplete delivery; focused CLI race PASS
+commit helper: prior two failed attempts exhausted; signed manual fallback
