@@ -3,6 +3,7 @@ package cudaflightrecorder_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,8 +72,8 @@ func TestSnapshotClockUncertaintySource(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if manifest.OverlapSpanNs <= 0 {
-				t.Fatalf("OverlapSpanNs = %d, want > 0", manifest.OverlapSpanNs)
+			if !strings.HasPrefix(manifest.ProviderStatus["go.trace"], "unvalidated:") || manifest.GoSpanNs != 0 || manifest.OverlapSpanNs != 0 || manifest.OverlapReliable {
+				t.Fatalf("unvalidated trace admitted timing: %+v", manifest)
 			}
 			checkClockUncertainty(t, manifest, tt.uncertainty)
 		})

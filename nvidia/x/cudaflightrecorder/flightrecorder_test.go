@@ -170,7 +170,7 @@ func TestCompleteBundleStreaming(t *testing.T) {
 		return []byte("go_trace_v2_payload"), nil
 	})
 	rec.SetGPUPprofProvider(func(ctx context.Context) ([]byte, error) {
-		return []byte("\x1f\x8b\x08fake_gpu_pprof_gzip"), nil
+		return validProviderProfile(t), nil
 	})
 	rec.SetPerfettoProvider(func(ctx context.Context) ([]byte, error) {
 		return []byte("fake_pftrace_timeline_protobuf"), nil
@@ -210,7 +210,7 @@ func TestCompleteBundleStreaming(t *testing.T) {
 	if string(bundle.Files["go.trace"]) != "go_trace_v2_payload" {
 		t.Errorf("go.trace content mismatch")
 	}
-	if string(bundle.Files["gpu.pprof"]) != "\x1f\x8b\x08fake_gpu_pprof_gzip" {
+	if !bytes.Equal(bundle.Files["gpu.pprof"], validProviderProfile(t)) {
 		t.Errorf("gpu.pprof content mismatch")
 	}
 	if string(bundle.Files["timeline.pftrace"]) != "fake_pftrace_timeline_protobuf" {
@@ -460,11 +460,8 @@ func TestGoTraceFlightRecording(t *testing.T) {
 			if manifest.GPURecords != 2 {
 				t.Errorf("manifest.GPURecords = %d, want 2", manifest.GPURecords)
 			}
-			if manifest.GoSpanNs <= 0 {
-				t.Errorf("manifest.GoSpanNs = %d, want > 0", manifest.GoSpanNs)
-			}
-			if manifest.OverlapSpanNs <= 0 {
-				t.Errorf("manifest.OverlapSpanNs = %d, want > 0", manifest.OverlapSpanNs)
+			if !strings.HasPrefix(manifest.ProviderStatus["go.trace"], "unvalidated:") || manifest.GoSpanNs != 0 || manifest.OverlapSpanNs != 0 || manifest.OverlapReliable {
+				t.Errorf("unvalidated trace admitted timing: %+v", manifest)
 			}
 			checkClockUncertainty(t, manifest, tt.cfg.ClockUncertaintyNs)
 

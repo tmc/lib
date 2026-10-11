@@ -2,7 +2,9 @@ package cudaflightrecorder
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/pprof/profile"
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
@@ -37,7 +40,7 @@ type Config struct {
 	RecordGPUPprof         bool            // Whether to capture GPU pprof profile in snapshots (gpu.pprof)
 	RecordPerfetto         bool            // Whether to capture Perfetto timeline in snapshots (timeline.pftrace)
 	MaxProviderOutputBytes int64           // Max bytes allowed per provider output (default: 64 MiB)
-	MaxSnapshotBytes       int64           // Max bytes allowed for snapshot bundle (default: 256 MiB)
+	MaxSnapshotBytes       int64           // Max retained file payload bytes; manifest/TAR framing have a separate global limit (default: 256 MiB)
 	MaxQueuedJobs          int             // Max pending async snapshot jobs (default: 16)
 	MaxDiskRetentionBytes  int64           // Max total disk bytes for retained snapshots (default: 1 GiB)
 }
@@ -549,8 +552,8 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 		} else {
 			bundle.Files["go.trace"] = data
 			goTraceBytes = int64(len(data))
-			goHasData = true
-			providerStatus["go.trace"] = fmt.Sprintf("valid (%d bytes)", len(data))
+			providerStatus["go.trace"] = "unvalidated: Go execution trace decoder unavailable; raw artifact retained, timing unavailable"
+			lossReasons = append(lossReasons, "go.trace format and timing unvalidated")
 		}
 	} else if cfg.GoTraceEnabled {
 		providerStatus["go.trace"] = "unavailable: provider not configured"
@@ -568,7 +571,7 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 		} else if int64(len(data)) > maxProviderBytes {
 			providerStatus["gpu.pprof"] = fmt.Sprintf("rejected: output %d bytes exceeds budget %d bytes", len(data), maxProviderBytes)
 			lossReasons = append(lossReasons, "gpu.pprof exceeded output budget")
-		} else if err := validateGPUPprof(data); err != nil {
+		} else if err := validateGPUPprof(data, maxProviderBytes); err != nil {
 			providerStatus["gpu.pprof"] = fmt.Sprintf("rejected: %v", err)
 			lossReasons = append(lossReasons, fmt.Sprintf("gpu.pprof invalid: %v", err))
 		} else {
@@ -596,7 +599,8 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 			lossReasons = append(lossReasons, fmt.Sprintf("timeline.pftrace invalid: %v", err))
 		} else {
 			bundle.Files["timeline.pftrace"] = data
-			providerStatus["timeline.pftrace"] = fmt.Sprintf("valid (%d bytes)", len(data))
+			providerStatus["timeline.pftrace"] = "unvalidated: Perfetto decoder unavailable; raw artifact retained"
+			lossReasons = append(lossReasons, "timeline.pftrace format unvalidated")
 		}
 	} else if cfg.RecordPerfetto {
 		providerStatus["timeline.pftrace"] = "unavailable: provider not configured"
@@ -605,20 +609,15 @@ func (r *Recorder) Snapshot(ctx context.Context, w io.Writer, reason string) (*M
 
 	// 4. Attach extra user files
 	for name, data := range extraFiles {
+		if _, exists := bundle.Files[name]; exists {
+			return nil, fmt.Errorf("cudaflightrecorder: attachment replaces snapshot artifact %q", name)
+		}
 		bundle.Files[name] = data
 	}
 
 	// Check total snapshot size budget
-	var totalBytes int64
-	for _, f := range bundle.Files {
-		totalBytes += int64(len(f))
-	}
-	maxSnapBytes := cfg.MaxSnapshotBytes
-	if maxSnapBytes <= 0 {
-		maxSnapBytes = 256 << 20
-	}
-	if totalBytes > maxSnapBytes {
-		return nil, fmt.Errorf("%w: bundle size %d bytes exceeds budget %d bytes", ErrSnapshotBudgetExceeded, totalBytes, maxSnapBytes)
+	if err := checkSnapshotPayload(bundle.Files, cfg.MaxSnapshotBytes); err != nil {
+		return nil, err
 	}
 
 	// 5. Align host clock and device timestamps to compute spans
@@ -674,6 +673,8 @@ func isPlaceholderPayload(data []byte) bool {
 	return false
 }
 
+// validateGoTrace rejects placeholders and bad headers only. Successful header
+// admission does not validate trace records or establish timing coverage.
 func validateGoTrace(data []byte) error {
 	if isPlaceholderPayload(data) {
 		return fmt.Errorf("%w: go.trace contains placeholder string", ErrPlaceholderRejected)
@@ -689,7 +690,10 @@ func validateGoTrace(data []byte) error {
 	return nil
 }
 
-func validateGPUPprof(data []byte) error {
+func validateGPUPprof(data []byte, limit int64) error {
+	if limit <= 0 || limit > maxBundleBytes {
+		limit = maxBundleBytes
+	}
 	if isPlaceholderPayload(data) {
 		return fmt.Errorf("%w: gpu.pprof contains placeholder string", ErrPlaceholderRejected)
 	}
@@ -699,9 +703,31 @@ func validateGPUPprof(data []byte) error {
 	if !bytes.HasPrefix(data, []byte{0x1f, 0x8b}) {
 		return fmt.Errorf("%w: gpu.pprof missing gzip magic header", ErrArtifactInvalid)
 	}
+	// Bound decompression before handing bytes to the existing profile decoder.
+	z, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("%w: gpu.pprof gzip: %v", ErrArtifactInvalid, err)
+	}
+	defer z.Close()
+	decoded, err := io.ReadAll(io.LimitReader(z, limit+1))
+	if err != nil {
+		return fmt.Errorf("%w: gpu.pprof gzip: %v", ErrArtifactInvalid, err)
+	}
+	if int64(len(decoded)) > limit {
+		return fmt.Errorf("%w: gpu.pprof decompressed output exceeds %d bytes", ErrProviderBudgetExceeded, limit)
+	}
+	p, err := profile.ParseUncompressed(decoded)
+	if err == nil {
+		err = p.CheckValid()
+	}
+	if err != nil {
+		return fmt.Errorf("%w: gpu.pprof profile: %v", ErrArtifactInvalid, err)
+	}
 	return nil
 }
 
+// validatePerfetto rejects placeholders and short input only. Without a full
+// decoder, retained bytes remain explicitly unvalidated in ProviderStatus.
 func validatePerfetto(data []byte) error {
 	if isPlaceholderPayload(data) {
 		return fmt.Errorf("%w: timeline.pftrace contains placeholder string", ErrPlaceholderRejected)
@@ -712,9 +738,26 @@ func validatePerfetto(data []byte) error {
 	return nil
 }
 
+// checkSnapshotPayload applies the configured retained-file budget. Manifest
+// metadata and TAR framing are subject to WriteBundle's separate global limit.
+func checkSnapshotPayload(files map[string][]byte, limit int64) error {
+	if limit <= 0 {
+		limit = 256 << 20
+	}
+	var total int64
+	for _, data := range files {
+		if int64(len(data)) > limit-total {
+			return fmt.Errorf("%w: retained file payload exceeds budget %d bytes", ErrSnapshotBudgetExceeded, limit)
+		}
+		total += int64(len(data))
+	}
+	return nil
+}
+
 // FaultSnapshot writes a zero-device crash dump TAR archive to w using exclusively
 // host DRAM circular buffer records and host-side telemetry, without contacting
-// the GPU or driver. It embeds fault metadata and negative rewrite rules for egraph.
+// the GPU or driver. It preserves fault facts and candidate identity without
+// admitting broad rewrite bans from an unreproduced fault.
 func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultInfo) (*Manifest, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -740,6 +783,7 @@ func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultIn
 		}
 	}
 	dropped := r.dropped
+	maxSnapshotBytes := r.cfg.MaxSnapshotBytes
 	extraFiles := make(map[string][]byte, len(r.extraFiles))
 	for k, v := range r.extraFiles {
 		extraFiles[k] = v
@@ -770,18 +814,20 @@ func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultIn
 	}
 	bundle.Files["fault.json"] = faultBytes
 
-	// 2. Serialize negative_rules.json to feed negative rewrite constraints to egraph
-	rules := fault.FailedRuleNames
-	if len(rules) == 0 && fault.OffendingKernel != "" {
-		rules = []string{"ban_kernel:" + fault.OffendingKernel}
+	// 2. Preserve a candidate-only constraint. Failed rule names remain raw facts
+	// in fault.json; reproduction and broader policy admission are not provided.
+	digest := fault.ModuleDigest
+	decodedDigest, digestErr := hex.DecodeString(digest)
+	identityStatus := "candidate-only quarantine; no reproduced rule policy"
+	if digestErr != nil || len(decodedDigest) != 32 {
+		digest = ""
+		identityStatus = "quarantine withheld: exact SHA256 candidate identity unavailable"
 	}
 	negConstraint := NegativeRewriteConstraint{
-		CandidateDigest:  fault.ModuleDigest,
-		OffendingKernel:  fault.OffendingKernel,
-		QuarantinedRules: rules,
-		Reason:           fmt.Sprintf("gpu_fault: %s (%d): %s", fault.ErrorName, fault.ErrorCode, fault.ErrorMessage),
-		PruneSubtree:     true,
-		Timestamp:        now,
+		CandidateDigest: digest,
+		OffendingKernel: fault.OffendingKernel,
+		Reason:          fmt.Sprintf("%s; gpu_fault: %s (%d): %s", identityStatus, fault.ErrorName, fault.ErrorCode, fault.ErrorMessage),
+		Timestamp:       now,
 	}
 	negBytes, err := json.MarshalIndent(negConstraint, "", "  ")
 	if err != nil {
@@ -791,7 +837,13 @@ func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultIn
 
 	// 3. Attach static extra files
 	for name, data := range extraFiles {
+		if _, exists := bundle.Files[name]; exists {
+			return nil, fmt.Errorf("cudaflightrecorder: attachment replaces fault artifact %q", name)
+		}
 		bundle.Files[name] = data
+	}
+	if err := checkSnapshotPayload(bundle.Files, maxSnapshotBytes); err != nil {
+		return nil, err
 	}
 
 	reason := "fault:" + fault.ErrorName

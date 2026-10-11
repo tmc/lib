@@ -3,6 +3,7 @@ package cudaflightrecorder_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -293,8 +294,15 @@ func TestFaultSnapshotHostOnly(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(string(bundle.Files["negative_rules.json"]), "rule_vectorize_ld_128") {
-		t.Errorf("negative_rules.json missing quarantined rule name")
+	var constraint cudaflightrecorder.NegativeRewriteConstraint
+	if err := json.Unmarshal(bundle.Files["negative_rules.json"], &constraint); err != nil {
+		t.Fatal(err)
+	}
+	if len(constraint.QuarantinedRules) != 0 || constraint.PruneSubtree {
+		t.Errorf("unreproduced fault admitted broad policy: %+v", constraint)
+	}
+	if !strings.Contains(string(bundle.Files["fault.json"]), "rule_vectorize_ld_128") {
+		t.Errorf("fault.json missing observed failed rule name")
 	}
 	if !strings.Contains(string(bundle.Files["fault.json"]), "CUDA_ERROR_ILLEGAL_ADDRESS") {
 		t.Errorf("fault.json missing error name")
