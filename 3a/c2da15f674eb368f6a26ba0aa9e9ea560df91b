@@ -1,0 +1,11 @@
+commit: 3ac2da15f674eb368f6a26ba0aa9e9ea560df91b
+date: 2026-10-11T23:29:45.849451+00:00
+agent: Codex
+model: GPT-6
+claude-code version: n/a
+tty: non-interactive tool shell
+note writer pid: 27433
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+wire src: 026363F7
+root commit helper already failed twice; prescribed signed manual fallback
+scope: independently reviewed test-only source/host checks; no parser resource or native qualification
