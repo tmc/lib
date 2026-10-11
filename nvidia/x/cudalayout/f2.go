@@ -2,6 +2,7 @@ package cudalayout
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
 )
@@ -28,14 +29,21 @@ type XORSwizzle struct {
 // NewXORSwizzle returns Swizzle<bits,base,shift>. bits and base must be
 // non-negative, and |shift| must be at least bits so that the source and
 // destination bit ranges do not overlap, which keeps the map invertible.
+// The two bit ranges must fit below bit 62 and the host int sign bit.
 func NewXORSwizzle(bits, base, shift int) (XORSwizzle, error) {
 	if bits < 0 || base < 0 {
 		return XORSwizzle{}, fmt.Errorf("swizzle<%d,%d,%d>: negative bit count or base: %w", bits, base, shift, ErrUnsupported)
 	}
-	if abs(shift) < bits {
+	if -bits < shift && shift < bits {
 		return XORSwizzle{}, fmt.Errorf("swizzle<%d,%d,%d>: |shift| < bits overlaps source and destination: %w", bits, base, shift, ErrUnsupported)
 	}
-	if base+max(shift, 0)+bits > 62 || base-min(shift, 0)+bits > 62 {
+	// Bound each term before negation or addition, then subtract from the
+	// available width so malformed inputs cannot wrap the range check.
+	width := min(62, strconv.IntSize-1)
+	if bits > width || base > width || shift < -width || shift > width {
+		return XORSwizzle{}, fmt.Errorf("swizzle<%d,%d,%d>: %w", bits, base, shift, ErrOverflow)
+	}
+	if base > width-bits || abs(shift) > width-bits-base {
 		return XORSwizzle{}, fmt.Errorf("swizzle<%d,%d,%d>: %w", bits, base, shift, ErrOverflow)
 	}
 	return XORSwizzle{bits: bits, base: base, shift: shift}, nil
