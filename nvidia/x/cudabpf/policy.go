@@ -66,8 +66,9 @@ var ErrBudgetExceeded = errors.New("cudabpf: handler budget exceeded")
 // The zero Budget permits nothing, so a handler reached without one stops at
 // its first step instead of running unbounded.
 type Budget struct {
-	MaxSteps int
-	used     int
+	MaxSteps  int
+	used      int
+	exhausted bool
 }
 
 // NewBudget returns a budget of n steps.
@@ -77,10 +78,15 @@ func NewBudget(n int) *Budget { return &Budget{MaxSteps: n} }
 // passes the maximum. Once exceeded, every later Step also fails: a budget
 // does not refill mid-handler.
 func (b *Budget) Step(n int) error {
-	b.used += n
-	if b.used > b.MaxSteps {
+	if n < 0 {
+		b.exhausted = true
+		return fmt.Errorf("cudabpf: negative budget charge")
+	}
+	if b.exhausted || b.MaxSteps < 0 || n > b.MaxSteps-b.used {
+		b.exhausted = true
 		return fmt.Errorf("%w: used %d of %d", ErrBudgetExceeded, b.used, b.MaxSteps)
 	}
+	b.used += n
 	return nil
 }
 
@@ -88,7 +94,7 @@ func (b *Budget) Step(n int) error {
 func (b *Budget) Used() int { return b.used }
 
 // Reset returns the budget to full, for the next hook invocation.
-func (b *Budget) Reset() { b.used = 0 }
+func (b *Budget) Reset() { b.used = 0; b.exhausted = false }
 
 // A MemoryPolicy decides placement. Every method is called on a fault path,
 // must charge its work against the budget, and must not block or allocate.
@@ -117,11 +123,14 @@ type MemoryPolicy interface {
 // they are the only evidence available that a decision reached the driver at
 // all. Neither of them says the driver obeyed it.
 type Outcome struct {
-	Policy     string
-	Hook       string
-	Consulted  bool // the policy was asked
-	HadOpinion bool // the policy returned one
-	Submitted  bool // the kfunc call was made and returned no error
+	// PartiallySubmitted means an earlier scheduling actuator succeeded before
+	// a later call failed. No driver rollback is claimed.
+	PartiallySubmitted bool
+	Policy             string
+	Hook               string
+	Consulted          bool // the policy was asked
+	HadOpinion         bool // the policy returned one
+	Submitted          bool // the kfunc call was made and returned no error
 
 	DriverAttempted bool
 	DriverConflict  bool
@@ -193,6 +202,9 @@ func applyReorder(hook string, fn func(*PMMDecision, *Budget) (Reorder, bool, er
 		start = clock()
 	}
 	r, ok, err := fn(d, b)
+	if b != nil && b.exhausted {
+		err = ErrBudgetExceeded
+	}
 	if clock != nil {
 		out.HandlerTime = clock().Sub(start)
 	}

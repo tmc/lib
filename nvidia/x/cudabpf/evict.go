@@ -60,6 +60,9 @@ func (p *HolderPolicy) Decide(s PMMSnapshot, b *Budget) (Reorder, bool, error) {
 	if err != nil {
 		return Reorder{}, false, fmt.Errorf("cudabpf: block %d: %w", block, err)
 	}
+	if n < 0 {
+		return Reorder{}, false, fmt.Errorf("cudabpf: block %d: negative holder count", block)
+	}
 	if n == 0 {
 		return Reorder{Destination: DestinationUnused, Position: PositionHead}, true, nil
 	}

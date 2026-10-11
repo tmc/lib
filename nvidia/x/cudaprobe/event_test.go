@@ -52,7 +52,7 @@ func TestDecodeRefusesUnknownOrIncomplete(t *testing.T) {
 	}{
 		{"version", func(c *Capture) { c.Data[0] = 2 }, "version", false},
 		{"abi", func(c *Capture) { c.Identity.ABI = "aarch64" }, "ABI", false},
-		{"symbol", func(c *Capture) { c.Identity.Symbol = "cuMemAllocAsync" }, "symbol", false},
+		{"symbol", func(c *Capture) { c.Identity.Symbol = "cuMemAllocFromPoolAsync" }, "symbol", false},
 		{"build", func(c *Capture) { c.Identity.BuildID = "" }, "identity", false},
 		{"arguments", func(c *Capture) { c.Data[2] = 0 }, "arguments", false},
 		{"return", func(c *Capture) { c.Data[2] = 1 }, "return", false},
@@ -109,4 +109,19 @@ func FuzzDecode(f *testing.F) {
 			t.Fatal("decoded event has refusal reason")
 		}
 	})
+}
+
+func TestAAPCS64NormalizedReplay(t *testing.T) {
+	c := capture("cuLaunchKernel", 1, 99, 2, 3, 4, 5, 6, 7, 8, 9, 0xdead, 0xbeef)
+	c.Identity.ABI = "linux-arm64-aapcs64-v1"
+	e, err := Decode(c)
+	if err != nil || !e.Decoded || e.Launch == nil || e.Launch.Grid != [3]uint32{2, 3, 4} || e.Launch.Stream != 9 {
+		t.Fatalf("%+v %v", e, err)
+	}
+	// Explicit source ABI governs replay even on a different architecture.
+	c.Identity.ABI = "linux-amd64-sysv-v1"
+	old, err := Decode(c)
+	if err != nil || old.Launch == nil || *old.Launch != *e.Launch {
+		t.Fatalf("legacy replay: %+v %v", old, err)
+	}
 }

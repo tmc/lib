@@ -12,8 +12,9 @@ type PrefetchRequest struct {
 	ID      uint64
 	VASpace uint64
 	Region  Region
-	// Decision is the driver context the region is written into. The
-	// worker passes it back to the kfunc unchanged.
+	// Decision is a host-model context. It must remain valid through
+	// completion. Never retain a live kernel fault-context pointer here:
+	// kernel prefetch requires its own verified asynchronous interface.
 	Decision *PrefetchDecision
 }
 
@@ -46,8 +47,11 @@ type PrefetchWorker struct {
 	submitted map[uint64]time.Time
 	results   []PrefetchResult
 
-	wg     sync.WaitGroup
-	closed bool
+	wg      sync.WaitGroup
+	closed  bool
+	started bool
+	depth   int
+	pending map[uint64]bool
 }
 
 // NewPrefetchWorker returns a worker with a bounded queue. The bound is the
@@ -61,6 +65,8 @@ func NewPrefetchWorker(k Kfuncs, depth int, clock func() time.Time) *PrefetchWor
 		kfuncs:    k,
 		clock:     clock,
 		queue:     make(chan PrefetchRequest, depth),
+		depth:     depth,
+		pending:   make(map[uint64]bool),
 		cancelled: make(map[uint64]bool),
 		submitted: make(map[uint64]time.Time),
 	}
@@ -70,6 +76,12 @@ func NewPrefetchWorker(k Kfuncs, depth int, clock func() time.Time) *PrefetchWor
 // submissions up to its queue depth, so a handler never blocks on startup
 // order.
 func (w *PrefetchWorker) Start() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.started || w.closed {
+		return
+	}
+	w.started = true
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
@@ -84,26 +96,28 @@ func (w *PrefetchWorker) Start() {
 // range; in every one of those cases nothing was queued and the caller knows
 // it.
 func (w *PrefetchWorker) Submit(req PrefetchRequest) bool {
+	if req.Decision == nil || req.ID == 0 {
+		return false
+	}
 	if err := req.Region.Valid(); err != nil {
 		return false
 	}
 	w.mu.Lock()
-	if w.closed {
-		w.mu.Unlock()
+	defer w.mu.Unlock()
+	_, exists := w.pending[req.ID]
+	if w.closed || exists {
 		return false
 	}
 	if w.clock != nil {
 		w.submitted[req.ID] = w.clock()
 	}
-	w.mu.Unlock()
 
 	select {
 	case w.queue <- req:
+		w.pending[req.ID] = true
 		return true
 	default:
-		w.mu.Lock()
 		delete(w.submitted, req.ID)
-		w.mu.Unlock()
 		return false
 	}
 }
@@ -115,10 +129,8 @@ func (w *PrefetchWorker) Submit(req PrefetchRequest) bool {
 func (w *PrefetchWorker) Cancel(id uint64) bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	for _, r := range w.results {
-		if r.ID == id {
-			return false
-		}
+	if !w.pending[id] {
+		return false
 	}
 	w.cancelled[id] = true
 	return true
@@ -127,6 +139,8 @@ func (w *PrefetchWorker) Cancel(id uint64) bool {
 func (w *PrefetchWorker) issue(req PrefetchRequest) {
 	w.mu.Lock()
 	cancelled := w.cancelled[req.ID]
+	delete(w.cancelled, req.ID)
+	w.pending[req.ID] = false // claimed; cancellation no longer possible
 	start, timed := w.submitted[req.ID]
 	delete(w.submitted, req.ID)
 	w.mu.Unlock()
@@ -149,11 +163,16 @@ func (w *PrefetchWorker) issue(req PrefetchRequest) {
 	}
 
 	w.mu.Lock()
+	delete(w.pending, req.ID)
+	if len(w.results) == w.depth {
+		copy(w.results, w.results[1:])
+		w.results = w.results[:w.depth-1]
+	}
 	w.results = append(w.results, res)
 	w.mu.Unlock()
 }
 
-// Results returns what became of every request the worker has finished.
+// Results returns the most recent completed requests, bounded by queue depth.
 func (w *PrefetchWorker) Results() []PrefetchResult {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -165,10 +184,20 @@ func (w *PrefetchWorker) Close() {
 	w.mu.Lock()
 	if w.closed {
 		w.mu.Unlock()
+		w.wg.Wait()
 		return
 	}
 	w.closed = true
-	w.mu.Unlock()
+	if !w.started {
+		for len(w.queue) > 0 {
+			req := <-w.queue
+			w.results = append(w.results, PrefetchResult{ID: req.ID, Cancelled: true, Latency: Unmeasured})
+			delete(w.pending, req.ID)
+			delete(w.cancelled, req.ID)
+			delete(w.submitted, req.ID)
+		}
+	}
 	close(w.queue)
+	w.mu.Unlock()
 	w.wg.Wait()
 }

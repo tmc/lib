@@ -3,6 +3,7 @@ package cudabpfdev
 import (
 	"context"
 	"errors"
+	"math/bits"
 	"reflect"
 	"strconv"
 	"strings"
@@ -394,6 +395,43 @@ func TestStubCallSiteLocated(t *testing.T) {
 	if cand, r := injMissing.Candidate(); cand != nil || r != "cudabpfdev: stub function is not defined" {
 		t.Fatalf("missing listed stub fallback = (%t, %q), want exact undefined-stub rejection", cand != nil, r)
 	}
+	missingEntryPolicy := missingPolicy
+	missingEntryPolicy.Entry = true
+	injMissingEntry, err := PrepareInjection(missingSource, p, b, missingEntryPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cand, r := injMissingEntry.Candidate(); cand != nil || r != "cudabpfdev: stub function is not defined" {
+		t.Fatalf("missing listed stub with entry site = (%t, %q), want exact undefined-stub rejection", cand != nil, r)
+	}
+
+	// An absent name that is neither defined nor called is ignored.
+	noCallPTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}\n\n", "", 1)
+	noCallPTX = strings.Replace(noCallPTX, "    call.uni __bpftime_cuda__kernel_trace;\n", "", 1)
+	noCallSource, noCallArtifact := newSource(noCallPTX)
+	absentPolicy := InjectionPolicy{
+		Enabled: true, Allowlist: []KernelIdentity{{noCallArtifact.Digest, noCallArtifact.EntryPoint, noCallArtifact.Target}},
+		StubFunctions: []string{"never_defined_or_called"}, Entry: true,
+	}
+	injAbsent, err := PrepareInjection(noCallSource, p, b, absentPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cand, reason := injAbsent.Candidate(); cand == nil {
+		t.Fatalf("absent unused stub name prevented candidate: %s", reason)
+	}
+
+	// An empty-bodied definition is an admitted empty stub.
+	emptyStubPTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}", ".func __bpftime_cuda__kernel_trace\n{\n}", 1)
+	emptySource, emptyArtifact := newSource(emptyStubPTX)
+	emptyPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{emptyArtifact.Digest, emptyArtifact.EntryPoint, emptyArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
+	injEmpty, err := PrepareInjection(emptySource, p, b, emptyPolicy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cand, reason := injEmpty.Candidate(); cand == nil || !strings.Contains(string(cand.Raw), ".func __bpftime_cuda__kernel_trace\n{\n}\n") {
+		t.Fatalf("empty-bodied stub candidate = (%t, %q), want retained definition", cand != nil, reason)
+	}
 
 	// An undefined, unlisted callee must hit instruction-level admission.
 	missingCalleePTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}\n\n", "", 1)
@@ -541,6 +579,9 @@ func TestStubCallSiteLocated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if layout.registers != 3 { // %addr is b64 (2 units); %value is b32 (1).
+		t.Fatalf("independent original register count = %d, want 3 (b64 addr + b32 value)", layout.registers)
+	}
 	translation, err := Translate(p, b, multipleArtifact.Target)
 	if err != nil {
 		t.Fatal(err)
@@ -581,5 +622,43 @@ func TestStubCallSiteLocated(t *testing.T) {
 	}
 	if cand, r := injOverBudget.Candidate(); cand != nil || !strings.Contains(r, "combined register declaration budget exceeded") {
 		t.Fatalf("expected combined probe budget fallback, got candidate=%t reason=%q", cand != nil, r)
+	}
+}
+
+func TestEmitProbeLeaderSelectsLowestActiveLane(t *testing.T) {
+	body := emitProbeFunction(program(Instruction{Op: Exit}), "leader_probe")
+	sequence := []string{
+		"brev.b32 leader_probe_reverse_mask, leader_probe_mask;",
+		"bfind.u32 leader_probe_leader, leader_probe_reverse_mask;",
+		"sub.u32 leader_probe_leader, 31, leader_probe_leader;",
+		"setp.eq.u32 leader_probe_is_leader, leader_probe_lane, leader_probe_leader;",
+	}
+	last := -1
+	for _, instruction := range sequence {
+		at := strings.Index(body, instruction)
+		if at <= last {
+			t.Fatalf("leader sequence missing or out of order at %q", instruction)
+		}
+		last = at
+	}
+
+	for _, tc := range []struct {
+		name string
+		mask uint32
+		want uint32
+	}{
+		{name: "partial low 17", mask: (1 << 17) - 1, want: 0},
+		{name: "partial lanes 4 and 16", mask: (1 << 4) | (1 << 16), want: 4},
+		{name: "partial lanes 3 and 31", mask: (1 << 3) | (1 << 31), want: 3},
+		{name: "single lane 16", mask: 1 << 16, want: 16},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reversed := bits.Reverse32(tc.mask)
+			found := uint32(31 - bits.LeadingZeros32(reversed))
+			got := uint32(31) - found
+			if got != tc.want {
+				t.Fatalf("brev/bfind/sub leader for mask %#08x = %d, want %d", tc.mask, got, tc.want)
+			}
+		})
 	}
 }

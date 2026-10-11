@@ -363,6 +363,9 @@ func CheckLayouts(b BTF) (absent []string, err error) {
 		if gerr != nil {
 			return absent, fmt.Errorf("cudabpf: reading BTF for %s: %w", want.Name, gerr)
 		}
+		if got.Name != want.Name {
+			return absent, fmt.Errorf("cudabpf: BTF returned %q for type %q", got.Name, want.Name)
+		}
 		if got.Size != want.Size {
 			return absent, &LayoutMismatch{Type: want.Name, Want: want.Size, Got: got.Size, Source: "BTF"}
 		}

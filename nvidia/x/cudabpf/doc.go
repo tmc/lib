@@ -1,30 +1,32 @@
-// Package cudabpf is the NVIDIA-specific half of a driver-level BPF policy
-// bridge: the hook semantics, chunk placement, eviction ranking and
-// time-slice-group attributes of an open-source GPU kernel driver whose UVM
-// and scheduler have been patched to export typed struct_ops tables.
+// Package cudabpf validates NVIDIA experimental driver-policy capabilities,
+// owns compiled-object attachments through a consumer-supplied loader, and
+// provides host models of placement and scheduling decisions.
 //
-// The generic Linux plumbing -- bpf(2), BTF parsing, map and program objects,
-// struct_ops registration and link lifetime -- is deliberately not here. It is
-// reached through [Loader], [BTF] and [Kfuncs], which a consumer in another
-// module satisfies. Nothing in this package imports a BPF library, opens a
-// file descriptor or issues a syscall, so the whole policy layer is testable
-// on a host that cannot load BPF at all.
+// It has no Linux loader dependency. The consumer implements Loader and BTF
+// using actual target metadata. BTF type names alone do not prove registered
+// struct_ops callbacks or callable kfuncs: discovery requires registration,
+// callback prototype, context layout, and kfunc admission evidence.
 //
-// # Availability
+// # Experimental ABI
 //
-// None of the tables this package describes are mainline Linux. They are
-// registered by an out-of-tree kernel module against a patched open GPU
-// driver, so on an ordinary target every hook is absent, and absent is the
-// expected result rather than an error. [Discover] reports what a target
-// actually provides; absence is carried as [HookStatus].Available false with a
-// reason, never as a zero-valued success.
+// The inventory describes gpu_ext v0.0.1013 (a23fbf8b). These are extension
+// source interfaces, not mainline Linux or NVIDIA driver interfaces. Every
+// hook is expected to be absent on stock drivers. Discover records absence;
+// Attach refuses unsupported or mismatched hooks before loading an object.
+// No live driver with these hooks has been qualified for this package.
 //
-// # What a host test proves
+// # Host models and kernel policy
 //
-// Nothing in this package qualifies kernel behavior. Host tests cover
-// encoding, type checking, attach-request validation, decision logic and
-// fallback. A claim that a policy changed residency, eviction order or the
-// share of the GPU a tenant received requires the kernel, driver and GPU
-// identity recorded by [Capabilities], a contended workload, and an oracle
-// outside the policy path.
+// Go policies and Kfuncs model decisions in host tests. They are not compiled
+// into BPF, called by the kernel, or userspace wrappers for kernel kfuncs.
+// Attach loads caller-supplied compiled bytes; it does not connect those
+// programs to Go callbacks. Host-model DisableHook does not modify a kernel
+// attachment. Actual policy is disabled by Detach or Close. Active per-hook
+// control, process filtering, bytecode authoring, driver-default restoration,
+// and asynchronous kernel prefetch need an admitted extension implementation.
+//
+// The driver retains final authority over any submitted decision. A host
+// policy result proves neither residency change nor GPU scheduling behavior.
+// Native claims require exact kernel, driver and GPU identity, extension BTF,
+// independent correctness controls, and raw load/attach/workload receipts.
 package cudabpf

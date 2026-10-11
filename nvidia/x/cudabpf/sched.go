@@ -29,9 +29,9 @@ func (a SchedAttributes) String() string {
 }
 
 // Limits are the ranges the driver accepts. They are a property of the
-// target, not of this package: the defaults below are the values the patched
-// driver's headers document, and a target that reports different ones
-// replaces them rather than being clamped to these.
+// target. The defaults below are host-model policy limits, not a discovery
+// receipt. A consumer must supply driver and tenant limits validated on the
+// target rather than treating this example window as an admission result.
 type Limits struct {
 	MinTimesliceUS uint64
 	MaxTimesliceUS uint64
@@ -41,9 +41,8 @@ type Limits struct {
 	MaxInterleave InterleaveLevel
 }
 
-// DefaultLimits returns the documented ranges. They are documented, not
-// probed: no value here has been confirmed against a live driver, because no
-// target available to this lane registers the scheduler table.
+// DefaultLimits returns a host-model policy window. It is not a verified
+// driver range: no target with the scheduler table has been qualified.
 func DefaultLimits() Limits {
 	return Limits{MinTimesliceUS: 1, MaxTimesliceUS: 100_000, MaxInterleave: InterleaveHigh}
 }
@@ -56,6 +55,9 @@ var ErrOutOfRange = errors.New("cudabpf: scheduling attribute out of range")
 // the maximum is refused, and in particular a tenant asking for a longer
 // timeslice than it is allowed does not silently receive the maximum.
 func (a SchedAttributes) Validate(l Limits) error {
+	if l.MinTimesliceUS > l.MaxTimesliceUS || !l.MaxInterleave.Valid() {
+		return fmt.Errorf("%w: invalid target limits", ErrOutOfRange)
+	}
 	if a.SetTimeslice {
 		if a.TimesliceUS < l.MinTimesliceUS || a.TimesliceUS > l.MaxTimesliceUS {
 			return fmt.Errorf("%w: timeslice %dus outside [%d,%d]",
@@ -107,9 +109,9 @@ type BindDecision struct {
 const BindRejection = "bpf_nv_gpu_reject_bind"
 
 // applyTaskInit runs the task-init hook: consult, validate, then apply.
-// Validation happens before the first kfunc call so a partially applied
-// attribute set is not reachable -- an out-of-range interleave must not leave
-// a new timeslice already in place.
+// Validation happens before the first kfunc call. An actuator failure after
+// an earlier successful call is reported as PartiallySubmitted; this interface
+// cannot guarantee rollback or restoration of driver defaults.
 func applyTaskInit(p SchedPolicy, c *TaskInitContext, b *Budget, k Kfuncs, l Limits) (SchedAttributes, Outcome) {
 	out := Outcome{Hook: "on_task_init", Consulted: true, HandlerTime: Unmeasured}
 	if c == nil {
@@ -117,6 +119,9 @@ func applyTaskInit(p SchedPolicy, c *TaskInitContext, b *Budget, k Kfuncs, l Lim
 		return SchedAttributes{}, out
 	}
 	a, err := p.TaskInit(c, b)
+	if b != nil && b.exhausted {
+		err = ErrBudgetExceeded
+	}
 	if err != nil {
 		out.Fallback, out.Reason = true, err.Error()
 		return SchedAttributes{}, out
@@ -141,6 +146,8 @@ func applyTaskInit(p SchedPolicy, c *TaskInitContext, b *Budget, k Kfuncs, l Lim
 	}
 	if a.SetInterleave {
 		if err := k.SetInterleave(c, a.Interleave); err != nil {
+			out.PartiallySubmitted = a.SetTimeslice
+			out.Submitted = a.SetTimeslice
 			out.Fallback, out.Reason = true, err.Error()
 			return SchedAttributes{}, out
 		}
@@ -157,6 +164,9 @@ func applyBind(p SchedPolicy, c *BindContext, b *Budget, k Kfuncs) (BindDecision
 		return BindDecision{}, out
 	}
 	d, err := p.Bind(c, b)
+	if b != nil && b.exhausted {
+		err = ErrBudgetExceeded
+	}
 	if err != nil {
 		out.Fallback, out.Reason = true, err.Error()
 		return BindDecision{}, out

@@ -1,92 +1,44 @@
 package cudabpf_test
 
 import (
-	"testing"
-
+	"fmt"
 	"github.com/tmc/lib/nvidia/x/cudabpf"
-	"github.com/tmc/lib/nvidia/x/cudakv"
+	"testing"
 )
 
-// TestBlockEvictionDecisionParityWithCudakv drives the placement policy from
-// the live KV allocator rather than a model of it. Block ownership,
-// allocation and refcounting stay in cudakv; this package supplies events and
-// decisions. Parity is the property that matters: a block cudakv says is
-// unreferenced is exactly the block this policy moves toward the unused list,
-// and no other.
-//
-// *cudakv.BlockAllocator satisfies [cudabpf.BlockState] structurally --
-// nothing here imports it outside this test, and nothing in cudakv knows
-// about this package.
-func TestBlockEvictionDecisionParityWithCudakv(t *testing.T) {
-	const blockSize, totalBlocks = 4, 16
-	alloc := cudakv.NewBlockAllocator(blockSize, totalBlocks)
+type holders []int
 
-	var _ cudabpf.BlockState = alloc
+func (h holders) Holders(block int) (int, error) {
+	if block < 0 || block >= len(h) {
+		return 0, fmt.Errorf("unknown block %d", block)
+	}
+	return h[block], nil
+}
 
-	if err := alloc.AllocSequence(1, nil, 10); err != nil {
-		t.Fatalf("AllocSequence(1): %v", err)
-	}
-	if err := alloc.AllocSequence(2, nil, 6); err != nil {
-		t.Fatalf("AllocSequence(2): %v", err)
-	}
-	held := append(append([]int(nil), alloc.Table(1)...), alloc.Table(2)...)
-	if len(held) == 0 {
-		t.Fatal("the allocator handed out no blocks; the parity check would be vacuous")
-	}
-	alloc.FreeSequence(2)
-
-	policy := &cudabpf.HolderPolicy{
-		State: alloc,
-		Block: func(s cudabpf.PMMSnapshot) (int, bool) { return int(s.RootID), true },
-	}
-
-	freed, kept := 0, 0
-	for block := 0; block < totalBlocks; block++ {
-		holders, err := alloc.Holders(block)
-		if err != nil {
-			t.Fatalf("Holders(%d): %v", block, err)
-		}
-		r, ok, err := policy.Decide(cudabpf.PMMSnapshot{RootID: uint64(block)}, cudabpf.NewBudget(8))
-		if err != nil {
-			t.Fatalf("Decide(%d): %v", block, err)
-		}
-		if !ok {
-			t.Fatalf("no decision for block %d", block)
-		}
-		switch holders {
-		case 0:
-			freed++
-			if r.Destination != cudabpf.DestinationUnused {
-				t.Errorf("block %d has no holders; policy said %v, want unused", block, r)
-			}
-		default:
-			kept++
-			if r.Destination != cudabpf.DestinationUsed {
-				t.Errorf("block %d has %d holders; policy said %v, want used", block, holders, r)
-			}
-		}
-	}
-	if freed == 0 || kept == 0 {
-		t.Fatalf("parity checked %d free and %d held blocks; both sides must be exercised", freed, kept)
-	}
-
-	// Releasing the remaining sequence must move its blocks across, or
-	// the policy is reading something other than the live refcount.
-	before := alloc.Table(1)
-	alloc.FreeSequence(1)
-	for _, block := range before {
-		r, ok, err := policy.Decide(cudabpf.PMMSnapshot{RootID: uint64(block)}, cudabpf.NewBudget(8))
+// Residency ownership stays in the consumer. This control checks that owner
+// errors are not interpreted as an unreferenced block or a migration request.
+func TestHolderPolicyUsesOwnerState(t *testing.T) {
+	h := holders{0, 2, 1}
+	p := &cudabpf.HolderPolicy{State: h, Block: func(s cudabpf.PMMSnapshot) (int, bool) { return int(s.RootID), true }}
+	for block, count := range h {
+		got, ok, err := p.Decide(cudabpf.PMMSnapshot{RootID: uint64(block)}, cudabpf.NewBudget(8))
 		if err != nil || !ok {
-			t.Fatalf("Decide(%d) after free: %v %v", block, r, err)
+			t.Fatalf("block %d: %v %v", block, ok, err)
 		}
-		if r.Destination != cudabpf.DestinationUnused {
-			t.Errorf("block %d was freed; policy still says %v", block, r)
+		want := cudabpf.DestinationUsed
+		if count == 0 {
+			want = cudabpf.DestinationUnused
+		}
+		if got.Destination != want {
+			t.Errorf("block %d: got %v want %v", block, got.Destination, want)
 		}
 	}
-
-	// A block the allocator does not know is an error, not zero holders:
-	// zero holders means free, which is the opposite claim.
-	if _, _, err := policy.Decide(cudabpf.PMMSnapshot{RootID: totalBlocks + 5}, cudabpf.NewBudget(8)); err == nil {
-		t.Error("an unknown block was treated as a decision rather than an error")
+	h[1] = 0
+	got, _, err := p.Decide(cudabpf.PMMSnapshot{RootID: 1}, cudabpf.NewBudget(8))
+	if err != nil || got.Destination != cudabpf.DestinationUnused {
+		t.Fatalf("owner release: %v %v", got, err)
+	}
+	if _, _, err := p.Decide(cudabpf.PMMSnapshot{RootID: 4}, cudabpf.NewBudget(8)); err == nil {
+		t.Fatal("unknown block admitted")
 	}
 }

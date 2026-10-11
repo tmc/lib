@@ -22,6 +22,32 @@ func ExampleTargets() {
 	// libcudart.so cudaLaunchKernel
 	// libcudart.so cudaMalloc
 	// libcudart.so cudaFree
+	// libcuda.so.1 cuMemcpyHtoD_v2
+	// libcuda.so.1 cuMemcpyDtoH_v2
+	// libcuda.so.1 cuMemcpyDtoD_v2
+	// libcuda.so.1 cuMemcpyHtoDAsync_v2
+	// libcuda.so.1 cuMemcpyDtoHAsync_v2
+	// libcuda.so.1 cuMemcpyDtoDAsync_v2
+	// libcuda.so.1 cuCtxSynchronize
+	// libcuda.so.1 cuStreamSynchronize
+	// libcuda.so.1 cuGraphLaunch
+	// libcudart.so cudaMemcpy
+	// libcudart.so cudaMemcpyAsync
+	// libcudart.so cudaDeviceSynchronize
+	// libcudart.so cudaStreamSynchronize
+	// libcudart.so cudaGraphLaunch
+	// libcuda.so.1 cuMemAllocAsync
+	// libcuda.so.1 cuMemFreeAsync
+	// libcuda.so.1 cuCtxCreate_v2
+	// libcuda.so.1 cuCtxGetCurrent
+	// libcuda.so.1 cuCtxSetCurrent
+	// libcuda.so.1 cuCtxDestroy_v2
+	// libcuda.so.1 cuStreamCreate
+	// libcuda.so.1 cuStreamDestroy_v2
+	// libcudart.so cudaMallocAsync
+	// libcudart.so cudaFreeAsync
+	// libcudart.so cudaStreamCreate
+	// libcudart.so cudaStreamDestroy
 }
 
 type exampleResolver struct{}

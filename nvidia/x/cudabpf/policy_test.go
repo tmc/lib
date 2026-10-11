@@ -412,7 +412,7 @@ func TestPrefetchIssuanceNonBlocking(t *testing.T) {
 		accepted := 0
 		for i := 0; i < 8; i++ {
 			if w.Submit(cudabpf.PrefetchRequest{
-				ID: uint64(i), Region: cudabpf.Region{First: uint64(i) * 16, Outer: uint64(i)*16 + 16},
+				ID: uint64(i + 1), Decision: &cudabpf.PrefetchDecision{}, Region: cudabpf.Region{First: uint64(i) * 16, Outer: uint64(i)*16 + 16},
 			}) {
 				accepted++
 			}

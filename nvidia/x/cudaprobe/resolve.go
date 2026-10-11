@@ -11,7 +11,7 @@ type Target struct {
 	Library, Symbol, SymbolVersion string
 }
 
-// Targets lists the supported launch and synchronous allocation entry points.
+// Targets lists the supported launch, copy, synchronization and allocation entry points.
 // The library names are lookup hints; replace them with resolved absolute paths
 // before attaching probes. Runtime and driver probes have distinct provenance.
 func Targets() []Target {
@@ -22,6 +22,32 @@ func Targets() []Target {
 		{Library: "libcudart.so", Symbol: "cudaLaunchKernel"},
 		{Library: "libcudart.so", Symbol: "cudaMalloc"},
 		{Library: "libcudart.so", Symbol: "cudaFree"},
+		{Library: "libcuda.so.1", Symbol: "cuMemcpyHtoD_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuMemcpyDtoH_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuMemcpyDtoD_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuMemcpyHtoDAsync_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuMemcpyDtoHAsync_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuMemcpyDtoDAsync_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuCtxSynchronize"},
+		{Library: "libcuda.so.1", Symbol: "cuStreamSynchronize"},
+		{Library: "libcuda.so.1", Symbol: "cuGraphLaunch"},
+		{Library: "libcudart.so", Symbol: "cudaMemcpy"},
+		{Library: "libcudart.so", Symbol: "cudaMemcpyAsync"},
+		{Library: "libcudart.so", Symbol: "cudaDeviceSynchronize"},
+		{Library: "libcudart.so", Symbol: "cudaStreamSynchronize"},
+		{Library: "libcudart.so", Symbol: "cudaGraphLaunch"},
+		{Library: "libcuda.so.1", Symbol: "cuMemAllocAsync"},
+		{Library: "libcuda.so.1", Symbol: "cuMemFreeAsync"},
+		{Library: "libcuda.so.1", Symbol: "cuCtxCreate_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuCtxGetCurrent"},
+		{Library: "libcuda.so.1", Symbol: "cuCtxSetCurrent"},
+		{Library: "libcuda.so.1", Symbol: "cuCtxDestroy_v2"},
+		{Library: "libcuda.so.1", Symbol: "cuStreamCreate"},
+		{Library: "libcuda.so.1", Symbol: "cuStreamDestroy_v2"},
+		{Library: "libcudart.so", Symbol: "cudaMallocAsync"},
+		{Library: "libcudart.so", Symbol: "cudaFreeAsync"},
+		{Library: "libcudart.so", Symbol: "cudaStreamCreate"},
+		{Library: "libcudart.so", Symbol: "cudaStreamDestroy"},
 	}
 }
 

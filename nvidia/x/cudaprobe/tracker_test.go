@@ -79,3 +79,36 @@ func TestFailedFreeAndPIDReuse(t *testing.T) {
 		t.Fatal("lost tail gap")
 	}
 }
+
+func TestContextControlsDoNotInferAllocationLifetimes(t *testing.T) {
+	for _, tt := range []struct {
+		symbol, operation string
+		incomplete        bool
+	}{
+		{"cuCtxDestroy_v2", "destroy", true},
+		{"cuCtxSetCurrent", "set_current", true},
+		{"cuCtxCreate_v2", "create", true},
+		{"cuCtxGetCurrent", "get_current", false},
+	} {
+		t.Run(tt.symbol, func(t *testing.T) {
+			tracker, err := NewTracker(Process{PID: 7, Generation: 99}, 2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := allocationEvent(1, "cudaMalloc", 0x8000)
+			if err := tracker.Observe(original); err != nil {
+				t.Fatal(err)
+			}
+			e := allocationEvent(2, tt.symbol, 0x8000)
+			e.Control = &Control{Scope: "context", Operation: tt.operation, Handle: 1}
+			if err := tracker.Observe(e); err != nil {
+				t.Fatal(err)
+			}
+			allocations, incomplete := tracker.Report()
+			want := Allocation{AddressSpace: 1, Address: 0x8000, Bytes: 64, Sequence: 1}
+			if len(allocations) != 1 || allocations[0] != want || incomplete != tt.incomplete {
+				t.Fatalf("allocations=%+v incomplete=%v want=%+v incomplete=%v", allocations, incomplete, want, tt.incomplete)
+			}
+		})
+	}
+}

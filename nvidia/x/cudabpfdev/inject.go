@@ -26,7 +26,8 @@ type InjectionPolicy struct {
 	Entry, Exit        bool
 	MemoryInstructions []int
 	// StubFunctions opts into defined device functions with no parameters or
-	// returns and an empty body. Bodiless declarations are rejected.
+	// returns and an empty body. Bodiless declarations are rejected. A listed
+	// name that is absent and never called is ignored.
 	StubFunctions []string
 }
 
@@ -270,10 +271,34 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 		if !k.Body {
 			return bad("stub function has no body")
 		}
+		if definedStubs[k.Name] {
+			return bad("duplicate stub definition")
+		}
 		definedStubs[k.Name] = true
-		if len(k.Instructions) > 1 || (len(k.Instructions) == 1 && k.Instructions[0].Mnemonic != "ret") {
+		if len(k.Instructions) > 1 || (len(k.Instructions) == 1 && (k.Instructions[0].Opcode != "ret" || k.Instructions[0].Predicate != "")) {
 			return bad("stub function is not empty")
 		}
+		// An empty stub cannot carry declarations, labels or tuning directives.
+		// The PTX parser records instructions, but not every body directive.
+		lines := strings.Split(text, "\n")
+		opened := false
+		for _, raw := range lines[k.StartLine-1 : k.EndLine] {
+			line, _, _ := strings.Cut(raw, "//")
+			line = strings.TrimSpace(line)
+			if !opened {
+				if line == "{" {
+					opened = true
+				}
+				continue
+			}
+			if line != "" && line != "ret;" && line != "}" {
+				return bad("stub body outside empty-function contract")
+			}
+		}
+		if !opened || k.Tuning != (cudaptx.Tuning{}) {
+			return bad("stub body outside empty-function contract")
+		}
+
 	}
 	for name := range called {
 		if slices.Contains(policy.StubFunctions, name) && !definedStubs[name] {

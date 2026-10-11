@@ -38,8 +38,8 @@ func NewTracker(process Process, capacity int) (*Tracker, error) {
 // Observe applies one process-ordered observation. Sequence gaps, undecoded
 // calls, duplicate live addresses, unknown frees and cap exhaustion make the
 // report incomplete. Errors do not advance the sequence or alter allocations.
-// Failed API calls do not allocate or free. Async allocation APIs are not
-// decoded because API return is not their lifetime completion boundary.
+// Failed API calls do not allocate or free. Async allocation API observations are not
+// applied because API return is not their lifetime completion boundary.
 func (t *Tracker) Observe(e Event) error {
 	if t == nil || t.active == nil {
 		return fmt.Errorf("cudaprobe: uninitialized tracker")
@@ -58,6 +58,10 @@ func (t *Tracker) Observe(e Event) error {
 	}
 	t.sequence = e.Sequence
 	if !e.Decoded {
+		t.incomplete = true
+		return nil
+	}
+	if e.AsyncMemory != nil || (e.Control != nil && e.Control.Scope == "context" && e.Control.Operation != "get_current") {
 		t.incomplete = true
 		return nil
 	}

@@ -30,6 +30,11 @@ type BTF interface {
 	// registered. On a target with no GPU policy module this contains the
 	// ordinary kernel tables and neither of the two this package wants.
 	StructOpsTables() ([]string, error)
+
+	// ValidateStructOpsMember checks that the registered table contains the
+	// requested callback and its prototype matches the driver ABI. A BTF
+	// struct name alone does not establish registration or verifier support.
+	ValidateStructOpsMember(table, member string) error
 }
 
 // A KfuncSignature is a kfunc's name and parameter types as BTF reports them.
@@ -194,6 +199,16 @@ func SchedOpsMembers() []string {
 // allowed to disagree, and a validator that required agreement would reject a
 // correct scheduler object.
 func (s StructOpsSpec) Validate(obj ObjectSpec) error {
+	if s.MapName == "" {
+		return fmt.Errorf("cudabpf: empty struct_ops map name")
+	}
+	seen := make(map[string]bool)
+	for _, p := range obj.Programs {
+		if p.Name == "" || seen[p.Name] {
+			return fmt.Errorf("cudabpf: empty or duplicate program name %q", p.Name)
+		}
+		seen[p.Name] = true
+	}
 	var members []string
 	switch s.Table {
 	case MemOpsTable:
@@ -215,9 +230,11 @@ func (s StructOpsSpec) Validate(obj ObjectSpec) error {
 			return fmt.Errorf("cudabpf: %s has no member %q", s.Table, m)
 		}
 		name := s.Programs[m]
-		if _, ok := obj.program(name); !ok {
+		if p, ok := obj.program(name); !ok {
 			return fmt.Errorf("cudabpf: %s.%s names program %q, which the object does not define",
 				s.Table, m, name)
+		} else if p.Member != m {
+			return fmt.Errorf("cudabpf: program %q binds %q, not %q", name, p.Member, m)
 		}
 	}
 	return nil

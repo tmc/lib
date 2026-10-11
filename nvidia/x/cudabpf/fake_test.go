@@ -16,10 +16,12 @@ import (
 // that absence and disagreement are exercised rather than assumed.
 
 type fakeBTF struct {
-	types  map[string]cudabpf.TypeLayout
-	kfuncs map[string]cudabpf.KfuncSignature
-	tables []string
-	err    error
+	types     map[string]cudabpf.TypeLayout
+	kfuncs    map[string]cudabpf.KfuncSignature
+	tables    []string
+	err       error
+	memberErr error
+	tableErr  error
 }
 
 func (b *fakeBTF) TypeLayout(name string) (cudabpf.TypeLayout, error) {
@@ -41,7 +43,9 @@ func (b *fakeBTF) KfuncSignature(name string) (cudabpf.KfuncSignature, error) {
 	return k, nil
 }
 
-func (b *fakeBTF) StructOpsTables() ([]string, error) { return b.tables, nil }
+func (b *fakeBTF) ValidateStructOpsMember(table, member string) error { return b.memberErr }
+
+func (b *fakeBTF) StructOpsTables() ([]string, error) { return b.tables, b.tableErr }
 
 // patchedBTF returns a BTF describing a target that has the policy module:
 // every inventory type at its required layout, every kfunc annotated with the
@@ -148,7 +152,10 @@ func (o *fakeObject) AttachStructOps(ctx context.Context, spec cudabpf.StructOps
 }
 
 func (o *fakeObject) Close() error {
+	o.loader.mu.Lock()
+	defer o.loader.mu.Unlock()
 	o.closed = true
+	o.loader.closes++
 	return nil
 }
 
@@ -167,6 +174,7 @@ type fakeLoader struct {
 	attaches   int
 	detaches   int
 	loads      int
+	closes     int
 }
 
 func newFakeLoader(btf cudabpf.BTF) *fakeLoader {

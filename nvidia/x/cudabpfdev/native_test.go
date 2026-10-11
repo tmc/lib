@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -73,7 +74,9 @@ func nativeInjectionFixture(target string, block uint32) (*ArtifactSource, Progr
 }
 
 func nativeStubInjectionFixture(target string, block uint32) (*ArtifactSource, Program, Budget, InjectionPolicy, error) {
-	ptx := strings.Replace(nativeNegatePTX, "    ret;\n}", "    call.uni trace_stub;\n    ret;\n}\n\n.func trace_stub\n{\n    ret;\n}", 1)
+	ptx := strings.Replace(nativeNegatePTX, ".visible .entry", ".func trace_stub\n{\n    ret;\n}\n\n.visible .entry", 1)
+	// Place the definition before its call, so PTX needs no forward prototype.
+	ptx = strings.Replace(ptx, "    st.global.f32 [%rd1], %value;", "    st.global.f32 [%rd1], %value;\n    call.uni trace_stub;", 1)
 	schema, err := cudakernel.NewSchema(cudakernel.Param{Name: "input", Type: "u64", IsPointer: true}, cudakernel.Param{Name: "output", Type: "u64", IsPointer: true})
 	if err != nil {
 		return nil, Program{}, Budget{}, InjectionPolicy{}, err
@@ -284,7 +287,10 @@ func TestNativeInjection(t *testing.T) {
 		}
 		logNative(t, map[string]any{"kind": "workload", "block": block, "original_artifact": source.launch.Artifact,
 			"program": program, "budget": budget, "policy": policy, "input_float32_bits": inputBits, "reference_operation": "cudaref neg", "numerical_policy": "exact"})
-		in, originalOut, candidateOut := alloc(uint(n*4)), alloc(uint(n*4)), alloc(uint(n*4))
+		inGuard := newNativeGuard(t, dev, alloc, n)
+		originalGuard := newNativeGuard(t, dev, alloc, n)
+		candidateGuard := newNativeGuard(t, dev, alloc, n)
+		in, originalOut, candidateOut := inGuard.ptr(), originalGuard.ptr(), candidateGuard.ptr()
 		if err := nativeFloatTransfer(dev, in, input, false); err != nil {
 			t.Fatal(err)
 		}
@@ -397,6 +403,9 @@ func TestNativeInjection(t *testing.T) {
 				if err := dev.WithContext(func() error { var err error; elapsed, err = begin.ElapsedTime(end); return err }); err != nil {
 					t.Fatal(err)
 				}
+				inGuard.check(t, dev)
+				originalGuard.check(t, dev)
+				candidateGuard.check(t, dev)
 				outputs[mode] = make([]float32, n)
 				if err := nativeFloatTransfer(dev, out, outputs[mode], true); err != nil {
 					t.Fatal(err)
@@ -455,6 +464,9 @@ func TestNativeInjection(t *testing.T) {
 			if err := stubOwner.Launch(ctx, in, candidateOut); err != nil {
 				t.Fatal(err)
 			}
+			inGuard.check(t, dev)
+			originalGuard.check(t, dev)
+			candidateGuard.check(t, dev)
 			stubSnapshot, ok := stubOwner.Snapshot()
 			if !ok {
 				t.Fatal("stub candidate snapshot unavailable")
@@ -490,6 +502,94 @@ func TestNativeInjection(t *testing.T) {
 			}
 		}
 	}
+	// Two live private modules launch from independent Go/OS threads and streams.
+	isolationSource, _, isolationBudget, isolationPolicy, err := nativeInjectionFixture(target, 32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	isolationPolicy.Exit = false
+	isolationPolicy.MemoryInstructions = nil
+	isolationBudget.MaxSlots = 1
+	isolationInput := newNativeGuard(t, dev, alloc, 64)
+	input := make([]float32, 64)
+	for j := range input {
+		input[j] = float32(j) - 17
+	}
+	if err := nativeFloatTransfer(dev, isolationInput.ptr(), input, false); err != nil {
+		t.Fatal(err)
+	}
+	var owners [2]*LoadedInjection
+	var guards [2]nativeGuard
+	for j, increment := range []uint32{1, 7} {
+		p := Program{Version: 1, Registers: 2, Slots: 1, Code: []Instruction{
+			{Op: Const, Dst: 1, Imm: increment}, {Op: MapAdd, B: 1}, {Op: Exit},
+		}}
+		i, err := PrepareInjection(isolationSource, p, isolationBudget, isolationPolicy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		owners[j], err = i.Load(dev)
+		if owners[j] != nil {
+			loaded = append(loaded, owners[j])
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		selection, err := owners[j].Selection()
+		if err != nil || !selection.Candidate {
+			t.Fatalf("isolation candidate refused: %+v %v", selection, err)
+		}
+		guards[j] = newNativeGuard(t, dev, alloc, 64)
+	}
+	if owners[0].globals[0] == owners[1].globals[0] || owners[0].globals[1] == owners[1].globals[1] {
+		t.Fatal("concurrent modules share instrumentation globals")
+	}
+	start := make(chan struct{})
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	for j := range owners {
+		wg.Add(1)
+		go func(j int) {
+			defer wg.Done()
+			<-start
+			errs[j] = owners[j].Launch(ctx, isolationInput.ptr(), guards[j].ptr())
+		}(j)
+	}
+	close(start)
+	wg.Wait()
+	for j, want := range []uint32{2, 14} {
+		if errs[j] != nil {
+			t.Fatal(errs[j])
+		}
+		snapshot, ok := owners[j].Snapshot()
+		if !ok || len(snapshot.Values) != 1 || snapshot.Values[0] != want || snapshot.Misses != 0 {
+			t.Fatalf("private module %d snapshot=%+v", j, snapshot)
+		}
+		guards[j].check(t, dev)
+		out := make([]float32, 64)
+		if err := nativeFloatTransfer(dev, guards[j].ptr(), out, true); err != nil {
+			t.Fatal(err)
+		}
+		for k := range out {
+			if math.Float32bits(out[k]) != math.Float32bits(-input[k]) {
+				t.Fatalf("private module %d output %d", j, k)
+			}
+		}
+		logNative(t, map[string]any{"kind": "concurrent_isolation", "module_index": j, "map": snapshot, "selection": owners[j].selection, "guards": "intact"})
+	}
+	isolationInput.check(t, dev)
+	// Deliberately mutate one physical redzone; the same readback checker refuses.
+	if err := nativeFloatTransfer(dev, guards[0].base, []float32{0}, false); err != nil {
+		t.Fatal(err)
+	}
+	data := make([]float32, guards[0].n+8)
+	if err := nativeFloatTransfer(dev, guards[0].base, data, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkGuard(data, guards[0].n); err == nil {
+		t.Fatal("physical redzone corruption accepted")
+	}
+	logNative(t, map[string]any{"kind": "physical_guard_negative", "result": "rejected"})
 }
 
 func nativeFloatTransfer(dev *cuda.Device, ptr driver.DevicePtr, data []float32, read bool) error {
@@ -511,4 +611,63 @@ func logNative(t *testing.T, value any) {
 		t.Fatal(err)
 	}
 	t.Log(string(data))
+}
+
+// Four words on either side are outside every admitted kernel argument span.
+type nativeGuard struct {
+	base driver.DevicePtr
+	n    int
+}
+
+const guardBits uint32 = 0x4b012345
+
+func newNativeGuard(t *testing.T, dev *cuda.Device, alloc func(uint) driver.DevicePtr, n int) nativeGuard {
+	t.Helper()
+	g := nativeGuard{alloc(uint((n + 8) * 4)), n}
+	data := make([]float32, n+8)
+	for j := range data {
+		data[j] = math.Float32frombits(guardBits)
+	}
+	if err := nativeFloatTransfer(dev, g.base, data, false); err != nil {
+		t.Fatal(err)
+	}
+	return g
+}
+func (g nativeGuard) ptr() driver.DevicePtr { return g.base + 16 }
+func checkGuard(data []float32, n int) error {
+	if n < 0 || len(data) != n+8 {
+		return fmt.Errorf("invalid guarded buffer size")
+	}
+	for j := 0; j < 4; j++ {
+		if math.Float32bits(data[j]) != guardBits || math.Float32bits(data[n+4+j]) != guardBits {
+			return fmt.Errorf("device buffer redzone %d changed", j)
+		}
+	}
+	return nil
+}
+func (g nativeGuard) check(t *testing.T, dev *cuda.Device) {
+	t.Helper()
+	data := make([]float32, g.n+8)
+	if err := nativeFloatTransfer(dev, g.base, data, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkGuard(data, g.n); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestGuardOracle(t *testing.T) {
+	data := make([]float32, 12)
+	for j := range data {
+		data[j] = math.Float32frombits(guardBits)
+	}
+	if err := checkGuard(data, 4); err != nil {
+		t.Fatal(err)
+	}
+	for _, j := range []int{0, 3, 8, 11} {
+		data[j] = 0
+		if err := checkGuard(data, 4); err == nil {
+			t.Fatalf("corruption at %d accepted", j)
+		}
+		data[j] = math.Float32frombits(guardBits)
+	}
 }

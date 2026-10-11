@@ -202,6 +202,9 @@ func inventoryKfuncs() []KfuncSignature {
 // policy module returns a report in which every hook is absent, which is the
 // expected result and the one an unpatched kernel must produce.
 func Discover(ctx context.Context, l Loader) (*Report, error) {
+	if l == nil {
+		return nil, fmt.Errorf("cudabpf: nil loader")
+	}
 	caps, err := l.Capabilities(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("cudabpf: reading capabilities: %w", err)
@@ -225,9 +228,11 @@ func Discover(ctx context.Context, l Loader) (*Report, error) {
 	}
 	r.Capabilities.BTFAvailable = true
 
-	if tables, err := b.StructOpsTables(); err == nil {
-		r.Capabilities.StructOpsTables = tables
+	tables, err := b.StructOpsTables()
+	if err != nil {
+		return nil, fmt.Errorf("cudabpf: reading struct_ops registration: %w", err)
 	}
+	r.Capabilities.StructOpsTables = append([]string(nil), tables...)
 
 	// Types first: a table whose context types are absent or disagree
 	// cannot be attached however present the table itself is.
@@ -306,7 +311,11 @@ func Discover(ctx context.Context, l Loader) (*Report, error) {
 		case len(missingKfuncs(h.Kfuncs, haveKfunc)) > 0:
 			st.Reason = "kfuncs unavailable: " + strings.Join(missingKfuncs(h.Kfuncs, haveKfunc), ", ")
 		default:
-			st.Available = true
+			if err := b.ValidateStructOpsMember(h.Table, h.Member); err != nil {
+				st.Reason = "callback validation: " + err.Error()
+			} else {
+				st.Available = true
+			}
 		}
 		r.Hooks = append(r.Hooks, st)
 	}
@@ -368,7 +377,7 @@ func missingKfuncs(want []string, have map[string]bool) []string {
 }
 
 func sameSignature(want, got KfuncSignature) bool {
-	if want.Returns != got.Returns || len(want.Params) != len(got.Params) {
+	if want.Name != got.Name || want.Returns != got.Returns || len(want.Params) != len(got.Params) {
 		return false
 	}
 	for i := range want.Params {

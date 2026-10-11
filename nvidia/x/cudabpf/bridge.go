@@ -26,12 +26,17 @@ type Config struct {
 	Budget int
 	// Observer receives bounded records. It may be nil.
 	Observer Observer
+	// MaxOutcomes bounds retained host observations; zero uses 256.
+	MaxOutcomes int
 	// Clock measures handler time. Nil means handler time is
 	// [Unmeasured] rather than zero.
 	Clock func() time.Time
 }
 
-// A Bridge attaches policy to a target and routes hook invocations to it.
+// A Bridge owns compiled-object attachments and evaluates host policy models.
+// SetMemoryPolicy and SetSchedPolicy do not compile Go callbacks into BPF or
+// alter the supplied object. On* methods are explicit host-model invocations;
+// kernel hooks run the compiled object programs, not these Go methods.
 //
 // The bridge never takes eviction authority from the driver. Every path
 // through it ends either in a submitted request the driver may ignore, or in
@@ -42,9 +47,10 @@ type Bridge struct {
 	loader Loader
 	kfuncs Kfuncs
 
+	lifeMu   sync.Mutex // serializes attachment ownership and disable
 	mu       sync.Mutex
 	report   *Report
-	object   Object
+	objects  map[string]Object
 	links    map[string]Link // table -> link
 	disabled map[string]string
 	off      bool
@@ -53,9 +59,9 @@ type Bridge struct {
 	outcomes []Outcome
 }
 
-// NewBridge returns a bridge over a loader and a kfunc actuator. Neither is
-// used until [Bridge.Attach] is called, and a bridge with nil policies
-// attaches nothing.
+// NewBridge returns an attachment owner and host-model evaluator. Policies
+// are used only by the On* methods. Attach loads the supplied compiled object
+// regardless of which host policies are installed.
 func NewBridge(l Loader, k Kfuncs, cfg Config) *Bridge {
 	if cfg.Limits == (Limits{}) {
 		cfg.Limits = DefaultLimits()
@@ -65,6 +71,7 @@ func NewBridge(l Loader, k Kfuncs, cfg Config) *Bridge {
 		loader:   l,
 		kfuncs:   k,
 		links:    make(map[string]Link),
+		objects:  make(map[string]Object),
 		disabled: make(map[string]string),
 	}
 }
@@ -90,7 +97,7 @@ func (br *Bridge) Discover(ctx context.Context) (*Report, error) {
 		return nil, err
 	}
 	br.mu.Lock()
-	br.report = r
+	br.report = cloneReport(r)
 	br.mu.Unlock()
 	return r, nil
 }
@@ -99,7 +106,7 @@ func (br *Bridge) Discover(ctx context.Context) (*Report, error) {
 func (br *Bridge) Report() *Report {
 	br.mu.Lock()
 	defer br.mu.Unlock()
-	return br.report
+	return cloneReport(br.report)
 }
 
 // Attach loads an object and registers one struct_ops map.
@@ -109,6 +116,11 @@ func (br *Bridge) Report() *Report {
 // to attach is a different case, and one the kernel arbitrates -- the second
 // registration fails at the loader and the error is returned unwrapped.
 func (br *Bridge) Attach(ctx context.Context, obj ObjectSpec, spec StructOpsSpec) (Link, error) {
+	br.lifeMu.Lock()
+	defer br.lifeMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err := spec.Validate(obj); err != nil {
 		return nil, err
 	}
@@ -122,7 +134,11 @@ func (br *Bridge) Attach(ctx context.Context, obj ObjectSpec, spec StructOpsSpec
 		br.mu.Unlock()
 		return l, nil
 	}
-	report := br.report
+	if br.objects[spec.Table] != nil {
+		br.mu.Unlock()
+		return nil, fmt.Errorf("cudabpf: cleanup pending for %s", spec.Table)
+	}
+	report := (*Report)(nil)
 	br.mu.Unlock()
 
 	if report == nil {
@@ -151,68 +167,101 @@ func (br *Bridge) Attach(ctx context.Context, obj ObjectSpec, spec StructOpsSpec
 	if err != nil {
 		return nil, fmt.Errorf("cudabpf: loading %s: %w", obj.Name, err)
 	}
+	if o == nil {
+		return nil, fmt.Errorf("cudabpf: loader returned nil object")
+	}
 	link, err := o.AttachStructOps(ctx, spec)
 	if err != nil {
-		o.Close()
-		return nil, fmt.Errorf("cudabpf: attaching %s: %w", spec.Table, err)
+		cerr := o.Close()
+		if cerr != nil {
+			br.mu.Lock()
+			br.objects[spec.Table] = o
+			br.mu.Unlock()
+		}
+		return nil, errors.Join(fmt.Errorf("cudabpf: attaching %s: %w", spec.Table, err), cerr)
 	}
 
-	br.mu.Lock()
-	defer br.mu.Unlock()
-	if existing, ok := br.links[spec.Table]; ok {
-		// Lost a race with another Attach in this process. Keep the
-		// first and undo this one rather than leaking a registration.
-		link.Detach()
-		o.Close()
-		return existing, nil
+	if link == nil {
+		cerr := o.Close()
+		if cerr != nil {
+			br.mu.Lock()
+			br.objects[spec.Table] = o
+			br.mu.Unlock()
+		}
+		return nil, errors.Join(fmt.Errorf("cudabpf: loader returned nil link"), cerr)
 	}
+	br.mu.Lock()
 	br.links[spec.Table] = link
-	br.object = o
+	br.objects[spec.Table] = o
+	br.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, errors.Join(err, br.detach(spec.Table))
+	}
 	return link, nil
 }
 
 // Detach removes one table's attachment. Detaching what is not attached
 // succeeds: a disable switch must work whatever state it finds.
 func (br *Bridge) Detach(table string) error {
-	br.mu.Lock()
-	link, ok := br.links[table]
-	delete(br.links, table)
-	br.mu.Unlock()
-	if !ok {
-		return nil
-	}
-	return link.Detach()
+	br.lifeMu.Lock()
+	defer br.lifeMu.Unlock()
+	return br.detach(table)
 }
 
-// Close detaches everything and releases the object. It is the process-level
-// off switch, and after it the driver's default behavior is what runs.
-func (br *Bridge) Close() error {
+func (br *Bridge) detach(table string) error {
 	br.mu.Lock()
-	links := br.links
-	br.links = make(map[string]Link)
-	obj := br.object
-	br.object = nil
-	br.off = true
+	link, obj := br.links[table], br.objects[table]
 	br.mu.Unlock()
-
-	var err error
-	for _, name := range sortedLinkNames(links) {
-		if derr := links[name].Detach(); derr != nil && err == nil {
-			err = derr
+	if link != nil {
+		if err := link.Detach(); err != nil {
+			return err
 		}
+		br.mu.Lock()
+		delete(br.links, table)
+		br.mu.Unlock()
 	}
 	if obj != nil {
-		if cerr := obj.Close(); cerr != nil && err == nil {
-			err = cerr
+		if err := obj.Close(); err != nil {
+			return err
+		}
+		br.mu.Lock()
+		delete(br.objects, table)
+		br.mu.Unlock()
+	}
+	return nil
+}
+
+// Close disables the bridge and detaches all owned links. Failed detach or
+// close operations retain ownership so a later Close can retry cleanup.
+func (br *Bridge) Close() error {
+	br.lifeMu.Lock()
+	defer br.lifeMu.Unlock()
+	br.mu.Lock()
+	br.off = true
+	names := make(map[string]Link)
+	for name := range br.objects {
+		names[name] = br.links[name]
+	}
+	br.mu.Unlock()
+	var errs []error
+	for _, name := range sortedLinkNames(names) {
+		if err := br.detach(name); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return err
+	return errors.Join(errs...)
 }
 
 // Reattach re-registers a table whose link is stale because the driver
 // re-registered its tables. A generation change invalidates the link but not
 // the policy, so the old link is detached and a new one taken.
 func (br *Bridge) Reattach(ctx context.Context, obj ObjectSpec, spec StructOpsSpec, generation uint64) (Link, error) {
+	if err := spec.Validate(obj); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	br.mu.Lock()
 	link, ok := br.links[spec.Table]
 	br.mu.Unlock()
@@ -225,7 +274,14 @@ func (br *Bridge) Reattach(ctx context.Context, obj ObjectSpec, spec StructOpsSp
 	br.mu.Lock()
 	br.report = nil // the tables were re-registered; rediscover
 	br.mu.Unlock()
-	return br.Attach(ctx, obj, spec)
+	fresh, err := br.Attach(ctx, obj, spec)
+	if err != nil {
+		return nil, err
+	}
+	if fresh.Generation() != generation {
+		return nil, errors.Join(fmt.Errorf("cudabpf: driver generation is %d, want %d", fresh.Generation(), generation), br.Detach(spec.Table))
+	}
+	return fresh, nil
 }
 
 // DisableHook switches one hook off with a recorded reason. The driver's
@@ -234,6 +290,9 @@ func (br *Bridge) Reattach(ctx context.Context, obj ObjectSpec, spec StructOpsSp
 func (br *Bridge) DisableHook(member, reason string) {
 	br.mu.Lock()
 	defer br.mu.Unlock()
+	if reason == "" {
+		reason = "operator disabled hook"
+	}
 	br.disabled[member] = reason
 }
 
@@ -255,8 +314,11 @@ func (br *Bridge) HookDisabled(member string) (string, bool) {
 	return r, ok
 }
 
-// Disable switches the whole process off.
+// Disable switches host-model evaluation and new attachment requests off.
+// Existing kernel links remain attached until Detach or Close.
 func (br *Bridge) Disable() {
+	br.lifeMu.Lock()
+	defer br.lifeMu.Unlock()
 	br.mu.Lock()
 	defer br.mu.Unlock()
 	br.off = true
@@ -290,6 +352,14 @@ func (br *Bridge) budget() *Budget {
 // stop being called, not be called again and fail again.
 func (br *Bridge) record(out Outcome) Outcome {
 	br.mu.Lock()
+	limit := br.cfg.MaxOutcomes
+	if limit <= 0 {
+		limit = 256
+	}
+	if len(br.outcomes) == limit {
+		copy(br.outcomes, br.outcomes[1:])
+		br.outcomes = br.outcomes[:limit-1]
+	}
 	br.outcomes = append(br.outcomes, out)
 	if out.Fallback && errorsIsBudget(out.Reason) {
 		br.disabled[out.Hook] = out.Reason
@@ -412,4 +482,23 @@ func sortedLinkNames(m map[string]Link) []string {
 func errorsIsBudget(reason string) bool {
 	return len(reason) >= len(ErrBudgetExceeded.Error()) &&
 		reason[:len(ErrBudgetExceeded.Error())] == ErrBudgetExceeded.Error()
+}
+
+func cloneReport(r *Report) *Report {
+	if r == nil {
+		return nil
+	}
+	c := *r
+	c.Hooks = append([]HookStatus(nil), r.Hooks...)
+	c.Types = append([]TypeStatus(nil), r.Types...)
+	c.Kfuncs = append([]KfuncStatus(nil), r.Kfuncs...)
+	for i := range c.Kfuncs {
+		c.Kfuncs[i].Signature.Params = append([]string(nil), r.Kfuncs[i].Signature.Params...)
+	}
+	c.Capabilities.StructOpsTables = append([]string(nil), r.Capabilities.StructOpsTables...)
+	c.Capabilities.KernelConfig = make(map[string]string, len(r.Capabilities.KernelConfig))
+	for k, v := range r.Capabilities.KernelConfig {
+		c.Capabilities.KernelConfig[k] = v
+	}
+	return &c
 }

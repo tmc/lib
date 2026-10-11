@@ -23,7 +23,7 @@ func (e Event) Record(received time.Time) (cudaflightrecorder.Record, error) {
 		"probe.interposed": strconv.FormatBool(e.Identity.Interposed),
 		"duration_status":  "unavailable", "timestamp_source": "collector_receipt",
 		"probe.timestamp_ns": u(e.Timestamp), "probe.clock": "host_monotonic",
-		"probe.sequence": u(e.Sequence), "probe.pid": u(uint64(e.Identity.Process.PID)),
+		"probe.sequence": u(e.Sequence), "probe.tid": u(uint64(e.Identity.ThreadID)), "probe.thread_generation": u(e.Identity.ThreadGeneration), "probe.thread_generation_known": strconv.FormatBool(e.Identity.ThreadGenerationKnown), "probe.pid": u(uint64(e.Identity.Process.PID)),
 		"probe.process_generation": u(e.Identity.Process.Generation),
 		"probe.address_space":      u(e.Identity.AddressSpace),
 		"probe.library":            e.Identity.Library, "probe.build_id": e.Identity.BuildID,
@@ -48,6 +48,32 @@ func (e Event) Record(received time.Time) (cudaflightrecorder.Record, error) {
 			labels["probe.block"] = fmt.Sprint(e.Launch.Block)
 			labels["probe.shared_bytes"] = u(e.Launch.SharedBytes)
 			labels["probe.stream"] = u(e.Launch.Stream)
+		} else if e.AsyncMemory != nil {
+			labels["probe.address"] = u(e.AsyncMemory.Address)
+			labels["probe.bytes"] = u(e.AsyncMemory.Bytes)
+			labels["probe.stream"] = u(e.AsyncMemory.Stream)
+			labels["probe.memory.async"] = "true"
+			labels["probe.memory.free"] = strconv.FormatBool(e.AsyncMemory.Free)
+		} else if e.Control != nil {
+			labels["probe.control.scope"] = e.Control.Scope
+			labels["probe.control.operation"] = e.Control.Operation
+			labels["probe.control.handle"] = u(e.Control.Handle)
+			labels["probe.control.flags"] = u(uint64(e.Control.Flags))
+			labels["probe.control.device"] = strconv.FormatInt(int64(e.Control.Device), 10)
+		} else if e.Copy != nil {
+			labels["probe.copy.destination"] = u(e.Copy.Destination)
+			labels["probe.copy.source"] = u(e.Copy.Source)
+			labels["probe.bytes"] = u(e.Copy.Bytes)
+			labels["probe.stream"] = u(e.Copy.Stream)
+			labels["probe.copy.kind"] = strconv.FormatInt(int64(e.Copy.Kind), 10)
+			labels["probe.copy.direction"] = e.Copy.Direction
+			labels["probe.copy.async"] = strconv.FormatBool(e.Copy.Async)
+		} else if e.Sync != nil {
+			labels["probe.sync.scope"] = e.Sync.Scope
+			labels["probe.stream"] = u(e.Sync.Stream)
+		} else if e.Graph != nil {
+			labels["probe.graph_exec"] = u(e.Graph.Exec)
+			labels["probe.stream"] = u(e.Graph.Stream)
 		} else {
 			labels["probe.address"] = u(e.Address)
 			labels["probe.bytes"] = u(e.Bytes)

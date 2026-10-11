@@ -232,3 +232,84 @@ func TestInjectionAssembler(t *testing.T) {
 		t.Fatalf("missing CUBIN: %v", err)
 	}
 }
+
+func TestStubBodyAdmission(t *testing.T) {
+	const definition = ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}"
+	cases := []struct{ name, replacement string }{
+		{"valid", definition},
+		{"duplicate", definition + "\n" + definition},
+		{"predicated return", ".func __bpftime_cuda__kernel_trace\n{\n    @%p ret;\n}"},
+		{"hidden shared storage", ".func __bpftime_cuda__kernel_trace\n{\n    .shared .b32 hidden[1024];\n    ret;\n}"},
+		{"label", ".func __bpftime_cuda__kernel_trace\n{\nlabel:\n    ret;\n}"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s, policy, p, b := injectionFixture(t, strings.Replace(stubPTX, definition, tc.replacement, 1))
+			policy.StubFunctions = []string{"__bpftime_cuda__kernel_trace"}
+			policy.Entry, policy.Exit = false, false
+			policy.MemoryInstructions = nil
+			i, err := PrepareInjection(s, p, b, policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a, reason := i.Candidate()
+			if tc.name == "valid" {
+				if a == nil {
+					t.Fatalf("valid stub refused: %s", reason)
+				}
+			} else if a != nil || reason == "" {
+				t.Fatalf("unsafe stub admitted: %q", reason)
+			}
+		})
+	}
+}
+
+// This gate compiles both original and rewritten stubs without loading them.
+func TestStubInjectionAssembler(t *testing.T) {
+	tool, err := cudatool.LookTool("ptxas", "")
+	if err != nil {
+		t.Skipf("assembler qualification unavailable: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	version, err := cudatool.Run(ctx, tool, "", nil, "--version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("tool=%s version=%s%s", version.Path, version.Stdout, version.Stderr)
+	for _, target := range []string{"sm_100a", "sm_121a"} {
+		t.Run(target, func(t *testing.T) {
+			s, p, b, policy, err := nativeStubInjectionFixture(target, 17)
+			if err != nil {
+				t.Fatal(err)
+			}
+			i, err := PrepareInjection(s, p, b, policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate, reason := i.Candidate()
+			if candidate == nil {
+				t.Fatal(reason)
+			}
+			original, err := s.DescribeLaunch()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, a := range []*cudakernel.Artifact{original.Artifact, candidate} {
+				dir := t.TempDir()
+				src, dst := filepath.Join(dir, "stub.ptx"), filepath.Join(dir, "stub.cubin")
+				if err := os.WriteFile(src, a.Raw, 0600); err != nil {
+					t.Fatal(err)
+				}
+				r, err := cudatool.Run(ctx, tool, "", nil, "-arch="+target, "-v", src, "-o", dst)
+				t.Logf("digest=%s args=%v stdout=%s stderr=%s", a.Digest, r.Args, r.Stdout, r.Stderr)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if data, err := os.ReadFile(dst); err != nil || len(data) == 0 {
+					t.Fatalf("missing CUBIN: %v", err)
+				}
+			}
+		})
+	}
+}
