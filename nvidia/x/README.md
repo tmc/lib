@@ -54,7 +54,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudalmvet](cudalmvet/) | Package cudalmvet validates numerical accuracy and catches precision drift by comparing GPU activations against CPU reference implementations. |
 | [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
 | [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
-| [cudamega](cudamega/) | Instead of dispatching hundreds of short-lived individual CUDA kernels from the host CPU, cudamega launches a single persistent grid of thread blocks that stay resident on GPU SMs, popping dynamic work items from a ring buffer queue in device memory with atomic synchronization. |
+| [cudamega](cudamega/) | Package cudamega schedules finite task graphs and generates CUDA workers. |
 | [cudamegacpu](cudamegacpu/) | Package cudamegacpu runs a [cudamega.Program] on operating-system threads. |
 | [cudamem](cudamem/) | Package cudamem provides typed, memory-safe abstractions for GPU device allocations, host-pinned memory, streaming I/O, and stream-ordered memory pools. |
 | [cudamemtrack](cudamemtrack/) | Package cudamemtrack tracks GPU memory allocations, calculates heap fragmentation ratios, and detects memory leaks at teardown. |
