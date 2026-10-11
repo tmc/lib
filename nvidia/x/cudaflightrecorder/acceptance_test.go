@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -166,8 +164,7 @@ func TestSnapshotBudgets(t *testing.T) {
 	}
 
 	// 4. Disk retention budget
-	tempDir := filepath.Join(os.TempDir(), "test_flightrecorder_disk")
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	diskMgr, err := cudaflightrecorder.NewSnapshotDiskManager(tempDir, 1000)
 	if err != nil {

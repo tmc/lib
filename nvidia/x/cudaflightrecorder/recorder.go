@@ -156,6 +156,106 @@ func (r *Recorder) AttachFile(name string, data []byte) {
 	r.extraFiles[name] = data
 }
 
+// DetachFile removes an attached static artifact by name.
+func (r *Recorder) DetachFile(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.extraFiles, name)
+}
+
+// PreTriggerDiagnostics returns diagnostic details about the currently retained records
+// in the ring buffer relative to a trigger timestamp.
+func (r *Recorder) PreTriggerDiagnostics(triggerNs int64, window time.Duration) PreTriggerReport {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	capacity := len(r.records)
+	if capacity == 0 || r.count == 0 {
+		return PreTriggerReport{
+			Available:                 false,
+			WindowDuration:            window,
+			RecordCount:               0,
+			Truncated:                 r.dropped > 0,
+			MissingPreTriggerFamilies: allKnownPreTriggerFamilies(),
+		}
+	}
+
+	windowNs := window.Nanoseconds()
+	cutoffNs := triggerNs - windowNs
+	if windowNs <= 0 {
+		cutoffNs = 0
+	}
+
+	count := 0
+	earliest := int64(0)
+	latest := int64(0)
+	observedFamilies := make(map[string]bool)
+
+	startIdx := (r.head - r.count + capacity) % capacity
+	for i := 0; i < r.count; i++ {
+		idx := (startIdx + i) % capacity
+		rec := r.records[idx]
+		if rec.TimestampNs <= triggerNs && (cutoffNs == 0 || rec.TimestampNs >= cutoffNs) {
+			if count == 0 || rec.TimestampNs < earliest {
+				earliest = rec.TimestampNs
+			}
+			if count == 0 || rec.TimestampNs > latest {
+				latest = rec.TimestampNs
+			}
+			count++
+
+			// Detect family
+			if _, ok := rec.Labels["pm.sample_index"]; ok {
+				observedFamilies["cupti_pm_sampling"] = true
+			}
+			if _, ok := rec.Labels["activity.kind"]; ok {
+				observedFamilies["cupti_activity"] = true
+			}
+			if _, ok := rec.Labels["sass.instruction"]; ok {
+				observedFamilies["sass_pc_sampling"] = true
+			}
+			if rec.Labels["record_kind"] == "driver_policy" {
+				observedFamilies["driver_policy"] = true
+			}
+			if rec.KernelName != "" && rec.KernelName != "device.pm_sampling" && rec.Labels["record_kind"] != "driver_policy" {
+				observedFamilies["gpu_kernel_launch"] = true
+			}
+		}
+	}
+
+	if r.goTracer != nil {
+		observedFamilies["go_execution_trace"] = true
+	}
+
+	var missing []string
+	for _, fam := range allKnownPreTriggerFamilies() {
+		if !observedFamilies[fam] {
+			missing = append(missing, fam)
+		}
+	}
+
+	return PreTriggerReport{
+		Available:                 count > 0,
+		WindowDuration:            window,
+		RecordCount:               count,
+		Truncated:                 r.dropped > 0,
+		EarliestTimestampNs:       earliest,
+		LatestTimestampNs:         latest,
+		MissingPreTriggerFamilies: missing,
+	}
+}
+
+func allKnownPreTriggerFamilies() []string {
+	return []string{
+		"gpu_kernel_launch",
+		"cupti_activity",
+		"cupti_pm_sampling",
+		"sass_pc_sampling",
+		"driver_policy",
+		"go_execution_trace",
+	}
+}
+
 // Start begins continuous in-memory flight recording.
 func (r *Recorder) Start() error {
 	r.mu.Lock()

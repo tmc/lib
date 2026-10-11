@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -206,11 +207,16 @@ type NegativeRewriteConstraint struct {
 	Timestamp        time.Time `json:"timestamp"`
 }
 
-// SnapshotDiskManager manages disk retention budgets for saved flight recorder snapshots.
+// SnapshotDiskManager manages regular files in one snapshot directory. Use a
+// single manager and no external writer for that directory. It may prune only
+// snapshots created by this instance; existing and replaced files remain
+// unowned but count toward the byte budget. Ownership does not survive restart.
+// Subdirectories are outside the budget and are never removed.
 type SnapshotDiskManager struct {
 	dir      string
 	maxBytes int64
 	mu       sync.Mutex
+	owned    map[string]os.FileInfo
 }
 
 // NewSnapshotDiskManager creates a new disk retention manager for the specified directory.
@@ -227,6 +233,7 @@ func NewSnapshotDiskManager(dir string, maxBytes int64) (*SnapshotDiskManager, e
 	return &SnapshotDiskManager{
 		dir:      dir,
 		maxBytes: maxBytes,
+		owned:    make(map[string]os.FileInfo),
 	}, nil
 }
 
@@ -242,59 +249,90 @@ type diskFile struct {
 func (m *SnapshotDiskManager) SaveSnapshot(filename string, data []byte) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	dataLen := int64(len(data))
-	if dataLen > m.maxBytes {
-		return "", fmt.Errorf("%w: snapshot size %d exceeds total disk budget %d", ErrDiskBudgetExceeded, dataLen, m.maxBytes)
+	if filename == "" || filename == "." || filename == ".." || filepath.IsAbs(filename) || filepath.Base(filename) != filename || strings.ContainsAny(filename, "/\\") {
+		return "", errors.New("cudaflightrecorder: snapshot name must be a single filename")
 	}
-
+	dataLen := int64(len(data))
+	if dataLen == 0 || dataLen > m.maxBytes {
+		return "", fmt.Errorf("%w: invalid snapshot size %d for budget %d", ErrDiskBudgetExceeded, dataLen, m.maxBytes)
+	}
+	destPath := filepath.Join(m.dir, filename)
+	if _, err := os.Lstat(destPath); err == nil {
+		return "", errors.New("cudaflightrecorder: snapshot destination already exists")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("inspect snapshot destination: %w", err)
+	}
 	entries, err := os.ReadDir(m.dir)
 	if err != nil {
-		return "", fmt.Errorf("cudaflightrecorder: read snapshot dir: %w", err)
+		return "", fmt.Errorf("read snapshot directory: %w", err)
 	}
-
 	var files []diskFile
 	var currentTotal int64
+	present := make(map[string]bool)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
 		info, err := entry.Info()
 		if err != nil {
-			continue
+			return "", fmt.Errorf("inspect snapshot %q: %w", entry.Name(), err)
 		}
-		files = append(files, diskFile{
-			path:    filepath.Join(m.dir, entry.Name()),
-			size:    info.Size(),
-			modTime: info.ModTime(),
-		})
+		if !info.Mode().IsRegular() {
+			return "", fmt.Errorf("cudaflightrecorder: nonregular snapshot entry %q", entry.Name())
+		}
+		if info.Size() < 0 || info.Size() > int64(^uint64(0)>>1)-currentTotal {
+			return "", fmt.Errorf("%w: directory size overflow", ErrDiskBudgetExceeded)
+		}
 		currentTotal += info.Size()
+		if owned, ok := m.owned[entry.Name()]; ok && os.SameFile(owned, info) {
+			present[entry.Name()] = true
+			files = append(files, diskFile{path: filepath.Join(m.dir, entry.Name()), size: info.Size(), modTime: info.ModTime()})
+		}
 	}
-
-	// Sort files by modTime ascending (oldest first)
+	// Remove stale ownership, including files replaced by an external writer.
+	for name := range m.owned {
+		if !present[name] {
+			delete(m.owned, name)
+		}
+	}
 	sort.Slice(files, func(i, j int) bool {
+		if files[i].modTime.Equal(files[j].modTime) {
+			return files[i].path < files[j].path
+		}
 		return files[i].modTime.Before(files[j].modTime)
 	})
-
-	// Prune oldest files until currentTotal + dataLen <= maxBytes
+	// Capacity is bounded independently of bytes, even for very small files.
 	for _, f := range files {
-		if currentTotal+dataLen <= m.maxBytes {
+		if currentTotal <= m.maxBytes-dataLen && len(m.owned) < 1024 {
 			break
 		}
-		if err := os.Remove(f.path); err == nil {
-			currentTotal -= f.size
+		if err := os.Remove(f.path); err != nil {
+			return "", fmt.Errorf("prune owned snapshot: %w", err)
 		}
+		currentTotal -= f.size
+		delete(m.owned, filepath.Base(f.path))
 	}
-
-	if currentTotal+dataLen > m.maxBytes {
-		return "", fmt.Errorf("%w: remaining usage %d plus snapshot %d exceeds budget %d", ErrDiskBudgetExceeded, currentTotal, dataLen, m.maxBytes)
+	if currentTotal > m.maxBytes-dataLen || len(m.owned) >= 1024 {
+		return "", fmt.Errorf("%w: unowned files or retention count prevent admission", ErrDiskBudgetExceeded)
 	}
-
-	destPath := filepath.Join(m.dir, filename)
-	if err := os.WriteFile(destPath, data, 0644); err != nil {
-		return "", fmt.Errorf("cudaflightrecorder: write snapshot file: %w", err)
+	// Exclusive creation prevents overwriting an unowned file or following a symlink.
+	file, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return "", fmt.Errorf("create snapshot file: %w", err)
 	}
-
+	info, statErr := file.Stat()
+	n, writeErr := file.Write(data)
+	if n != len(data) && writeErr == nil {
+		writeErr = io.ErrShortWrite
+	}
+	closeErr := file.Close()
+	if err := errors.Join(statErr, writeErr, closeErr); err != nil {
+		if current, inspectErr := os.Lstat(destPath); inspectErr == nil && info != nil && os.SameFile(info, current) {
+			_ = os.Remove(destPath)
+		}
+		return "", fmt.Errorf("write snapshot file: %w", err)
+	}
+	m.owned[filename] = info
 	return destPath, nil
 }
 

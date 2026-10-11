@@ -177,3 +177,43 @@ func ExampleRecorder_PushPMSample() {
 	// Output:
 	// Pushed PM sample: duration=1000ns
 }
+
+func ExampleEscalationCoordinator() {
+	rec, err := cudaflightrecorder.New(cudaflightrecorder.Config{
+		Window:   5 * time.Second,
+		Capacity: 100,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := rec.Start(); err != nil {
+		log.Fatal(err)
+	}
+	defer rec.Stop()
+
+	budgets := cudaflightrecorder.QualificationBudgets()
+	budgets.HysteresisCount = 1
+
+	coord, err := cudaflightrecorder.NewEscalationCoordinator(rec, budgets, cudaflightrecorder.WithResourceSampler(&cudaflightrecorder.FakeResourceSampler{}))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := coord.Arm(); err != nil {
+		log.Fatal(err)
+	}
+	defer coord.Stop()
+
+	receipt, err := coord.Trigger(context.Background(), cudaflightrecorder.TriggerRequest{
+		TenantID:    "prod-tenant",
+		Reason:      "latency_regression",
+		MetricName:  "gpu_latency_ms",
+		MetricValue: 125.0,
+		Threshold:   100.0,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Incident outcome: %s (state: %s)\n", receipt.Outcome, receipt.State)
+	// Output:
+	// Incident outcome: captured (state: cooldown)
+}

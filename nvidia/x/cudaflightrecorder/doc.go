@@ -1,11 +1,23 @@
 // Package cudaflightrecorder coordinates continuous in-memory flight recording
-// across host Go execution traces and GPU device observations.
+// across host Go execution traces and GPU device observations, and escalates
+// anomalous incidents within declared resource budgets.
 //
 // Snapshots preserve recent observations and configured artifacts in tar bundles
 // for performance analysis, workload comparison, and debugging. Applications choose
 // when to snapshot, such as at a workload boundary, on a latency regression,
 // periodically, or while investigating a failure. The snapshot reason is a
 // caller-supplied label.
+//
+// # Budgeted Incident Escalation
+//
+// An [EscalationCoordinator] manages continuous in-memory observation with bounded
+// incident captures. Budgets separate enforceable hard limits (ring records,
+// retained bytes, capture duration, global concurrency, and per-tenant allocations)
+// from measured targets (periodic sampled CPU and RSS checks).
+//
+// The coordinator implements a cancellation-safe state machine (idle, armed, capturing,
+// cooldown, refused, stopped) with trigger hysteresis, post-incident cooldowns,
+// pre-trigger evidence retention, and non-stealing CUPTI compatibility negotiation.
 //
 // # Basic Usage
 //
