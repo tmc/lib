@@ -413,7 +413,10 @@ func (w *worker) Barrier() error {
 // sequentially-consistent atomic is the strongest ordering the language
 // offers; performing one on a shared word places this thread's prior and
 // subsequent memory operations on either side of a point in a total order
-// every other worker also observes. System scope is not distinguished from
+// every other worker also observes. This orders this thread's operations;
+// it does not wait for the other threads' stores. Publish gathers those
+// stores before releasing the completion word, and Ready acquires that word.
+// System scope is not distinguished from
 // device scope, because this backend has no second agent to be ordered
 // against: there is one address space and the host is the device.
 func (w *worker) Fence(_, _ int, s cudataskgraph.Scope, k cudamega.Fence) error {
@@ -465,9 +468,13 @@ func (w *worker) Compute(i, src int, op cudamega.Operation) error {
 	return nil
 }
 
-// Publish increments the task's completion word once per worker, as the
-// emitted worker's atomicAdd does.
+// Publish increments the task's completion word once per worker after every
+// thread of that worker has finished its stores. The workgroup barrier
+// carries those stores to thread zero; its atomic increment releases them to
+// a consumer's Ready load. The consumer's barrier then carries the acquired
+// stores to its remaining threads. Other workers do not join this barrier.
 func (w *worker) Publish(i int) error {
+	w.r.cta[w.cta].barrier.wait()
 	if w.tid == 0 {
 		w.r.completed[i].Add(1)
 	}
