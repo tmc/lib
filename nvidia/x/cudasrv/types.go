@@ -26,7 +26,8 @@ type ChatChoice struct {
 	FinishReason string      `json:"finish_reason"`
 }
 
-// UsageStats records token counts for a completion.
+// UsageStats records actual engine tokenizer counts for a completion.
+// TotalTokens must equal PromptTokens plus CompletionTokens.
 type UsageStats struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
@@ -40,7 +41,8 @@ type ChatCompletionResponse struct {
 	Created int64        `json:"created"`
 	Model   string       `json:"model"`
 	Choices []ChatChoice `json:"choices"`
-	Usage   UsageStats   `json:"usage"`
+	// Usage is nil when the engine does not report tokenizer counts.
+	Usage *UsageStats `json:"usage,omitempty"`
 }
 
 // StreamDelta represents the incremental content in an SSE chunk.
@@ -68,7 +70,7 @@ type ChatCompletionChunk struct {
 // Metrics represents runtime performance metrics.
 type Metrics struct {
 	RequestsTotal       uint64
-	TokensTotal         uint64
+	OutputChunksTotal   uint64
 	AvgTimeToFirstToken float64
 	AvgInterTokenTime   float64
 }

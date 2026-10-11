@@ -20,6 +20,31 @@ type Engine interface {
 	Generate(ctx context.Context, req ChatCompletionRequest, tokenChan chan<- string) error
 }
 
+// UsageEngine reports the engine's actual tokenizer counts for the rendered
+// prompt and completed output. The server validates arithmetic, not the engine
+// tokenizer implementation. Without it, responses omit usage; token stream
+// chunks are not tokenizer tokens. GenerateWithUsage must obey Engine's rules.
+type UsageEngine interface {
+	Engine
+	GenerateWithUsage(context.Context, ChatCompletionRequest, chan<- string) (UsageStats, error)
+}
+
+func (s *Server) generate(ctx context.Context, req ChatCompletionRequest, tokens chan<- string) (*UsageStats, error) {
+	engine, ok := s.engine.(UsageEngine)
+	if !ok {
+		return nil, s.engine.Generate(ctx, req, tokens)
+	}
+	usage, err := engine.GenerateWithUsage(ctx, req, tokens)
+	if err != nil {
+		return nil, err
+	}
+	maxInt := int(^uint(0) >> 1)
+	if usage.PromptTokens < 0 || usage.CompletionTokens < 0 || usage.PromptTokens > maxInt-usage.CompletionTokens || usage.TotalTokens != usage.PromptTokens+usage.CompletionTokens {
+		return nil, errors.New("invalid engine token usage")
+	}
+	return &usage, nil
+}
+
 // Tokenizer encodes text strings into token IDs and decodes token IDs into text.
 type Tokenizer interface {
 	Encode(text string) ([]int32, error)
@@ -32,7 +57,7 @@ type Server struct {
 	modelName      string
 	flightRecorder *cudaprof.FlightRecorder
 	requestsTotal  uint64
-	tokensTotal    uint64
+	chunksTotal    uint64
 }
 
 // New creates a new inference server wrapping engine.
@@ -140,7 +165,8 @@ func (s *Server) handleStreaming(w http.ResponseWriter, r *http.Request, req Cha
 
 	go func() {
 		defer close(tokenChan)
-		errChan <- s.engine.Generate(ctx, req, tokenChan)
+		_, err := s.generate(ctx, req, tokenChan)
+		errChan <- err
 	}()
 
 stream:
@@ -155,7 +181,7 @@ stream:
 				break stream
 			}
 		}
-		atomic.AddUint64(&s.tokensTotal, 1)
+		atomic.AddUint64(&s.chunksTotal, 1)
 		chunk := ChatCompletionChunk{
 			ID:      reqID,
 			Object:  "chat.completion.chunk",
@@ -208,26 +234,31 @@ stream:
 
 func (s *Server) handleNonStreaming(w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
 	tokenChan := make(chan string, 32)
-	errChan := make(chan error, 1)
-
+	type result struct {
+		usage *UsageStats
+		err   error
+	}
+	resultChan := make(chan result, 1)
 	go func() {
 		defer close(tokenChan)
-		errChan <- s.engine.Generate(r.Context(), req, tokenChan)
+		usage, err := s.generate(r.Context(), req, tokenChan)
+		resultChan <- result{usage, err}
 	}()
 
 	var sb strings.Builder
-	tokenCount := 0
+	chunkCount := 0
 	for tok := range tokenChan {
 		sb.WriteString(tok)
-		tokenCount++
+		chunkCount++
 	}
 
-	if err := <-errChan; err != nil {
-		http.Error(w, fmt.Sprintf("generation error: %v", err), http.StatusInternalServerError)
+	generated := <-resultChan
+	if generated.err != nil {
+		http.Error(w, fmt.Sprintf("generation error: %v", generated.err), http.StatusInternalServerError)
 		return
 	}
 
-	atomic.AddUint64(&s.tokensTotal, uint64(tokenCount))
+	atomic.AddUint64(&s.chunksTotal, uint64(chunkCount))
 
 	resp := ChatCompletionResponse{
 		ID:      fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano()),
@@ -244,11 +275,7 @@ func (s *Server) handleNonStreaming(w http.ResponseWriter, r *http.Request, req 
 				FinishReason: "stop",
 			},
 		},
-		Usage: UsageStats{
-			PromptTokens:     10,
-			CompletionTokens: tokenCount,
-			TotalTokens:      10 + tokenCount,
-		},
+		Usage: generated.usage,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -258,12 +285,12 @@ func (s *Server) handleNonStreaming(w http.ResponseWriter, r *http.Request, req 
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	reqs := atomic.LoadUint64(&s.requestsTotal)
-	toks := atomic.LoadUint64(&s.tokensTotal)
+	toks := atomic.LoadUint64(&s.chunksTotal)
 
 	_, _ = fmt.Fprintf(w, "# HELP gpu_requests_total Total number of chat completion requests received.\n")
 	_, _ = fmt.Fprintf(w, "# TYPE gpu_requests_total counter\ngpu_requests_total %d\n", reqs)
-	_, _ = fmt.Fprintf(w, "# HELP gpu_tokens_generated_total Total number of tokens generated.\n")
-	_, _ = fmt.Fprintf(w, "# TYPE gpu_tokens_generated_total counter\ngpu_tokens_generated_total %d\n", toks)
+	_, _ = fmt.Fprintf(w, "# HELP gpu_output_chunks_total Total number of output stream chunks generated.\n")
+	_, _ = fmt.Fprintf(w, "# TYPE gpu_output_chunks_total counter\ngpu_output_chunks_total %d\n", toks)
 }
 
 func (s *Server) handlePerfettoTrace(w http.ResponseWriter, r *http.Request) {
