@@ -809,7 +809,8 @@ func executeDeviceKernelCurrent(ctx context.Context, mod driver.Module, entryPoi
 		}
 	}
 
-	for _, arg := range kernelArgumentLayout(snap) {
+	argumentLayout := kernelArgumentLayout(snap)
+	for _, arg := range argumentLayout {
 		if arg.Output {
 			continue
 		}
@@ -832,18 +833,19 @@ func executeDeviceKernelCurrent(ctx context.Context, mod driver.Module, entryPoi
 	}
 
 	// The generated signature has one output buffer per declared graph output.
-	outPtrs := make([]driver.DevicePtr, len(snap.Outputs()))
+	outputs := snap.Outputs()
+	outPtrs := make([]driver.DevicePtr, len(outputs))
 	defer func() {
 		for _, ptr := range outPtrs {
 			_ = ptr.Free()
 		}
 	}()
 	outputIndex := 0
-	for _, arg := range kernelArgumentLayout(snap) {
+	for _, arg := range argumentLayout {
 		if !arg.Output {
 			continue
 		}
-		output := snap.Outputs()[outputIndex]
+		output := outputs[outputIndex]
 		outputIndex++
 		bytes := uint(output.NumElements() * 4)
 		if bytes == 0 {
