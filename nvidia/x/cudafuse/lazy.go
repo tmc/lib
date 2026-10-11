@@ -216,7 +216,7 @@ func (la *LazyArray) Transpose(perm []int) *LazyArray {
 	return &LazyArray{
 		Ctx:   la.Ctx,
 		Node:  node,
-		Shape: slices.Clone(la.Shape),
+		Shape: slices.Clone(shape),
 		DType: la.DType,
 	}
 }
