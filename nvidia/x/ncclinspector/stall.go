@@ -611,6 +611,11 @@ func (a *TwoRankAttributor) Attribute(commHash string, seq uint64) (TwoRankDelay
 		report.Reason = "no shared observed stage"
 		return report, nil
 	}
+	if r0.Hostname == "" || r1.Hostname == "" {
+		report.Diagnosis = DiagnosisIncompatibleClocks
+		report.Reason = "source host identity missing; shared clock origin unknown"
+		return report, nil
+	}
 	if r0.Hostname == r1.Hostname && r0.SourceBootEpoch != r1.SourceBootEpoch {
 		report.Diagnosis = DiagnosisIncompatibleClocks
 		report.Reason = "same-host source boot epoch differs"

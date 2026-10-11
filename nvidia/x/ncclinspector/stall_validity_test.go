@@ -109,3 +109,19 @@ func TestMappedLineageRejectsMutation(t *testing.T) {
 		}
 	}
 }
+
+func TestUnknownHostDoesNotEstablishSharedClock(t *testing.T) {
+	for _, hosts := range [][2]string{{"", ""}, {"node", ""}, {"", "node"}} {
+		a := NewTwoRankAttributor()
+		for rank, host := range hosts {
+			obs := CollectiveObservation{CommunicatorHash: "0x1234567890abcdef", TotalRanks: 2, Rank: rank, HostPID: rank + 1, Hostname: host, Operation: "AllReduce", HasHostEnqueue: true, HostEnqueueStart: BoundedTimestamp{Nanoseconds: int64(10 + rank*10), Domain: ClockDomainHostMonotonic}, HostEnqueueEnd: BoundedTimestamp{Nanoseconds: int64(15 + rank*10), Domain: ClockDomainHostMonotonic}}
+			if err := a.AddObservation(obs); err != nil {
+				t.Fatal(err)
+			}
+		}
+		result, err := a.Attribute("0x1234567890abcdef", 0)
+		if err != nil || result.Admitted || result.Diagnosis != DiagnosisIncompatibleClocks {
+			t.Fatalf("hosts %q result %+v err %v", hosts, result, err)
+		}
+	}
+}
