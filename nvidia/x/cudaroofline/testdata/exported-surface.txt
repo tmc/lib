@@ -19,6 +19,11 @@
   field DeviceRecord.Residency string
   field HardwareCalibration.LatencyNs float64
   field HardwareCalibration.Status HardwareVerificationStatus
+  field HierarchyLevel.Level cudalayout.StorageLevel
+  field HierarchyLevel.ResidentBytes uint64
+  field HierarchyLevel.Tensors map[cudalayout.TensorRole]TensorMovement
+  field HierarchyMovement.DRAM CompoundDataMovement
+  field HierarchyMovement.Levels []HierarchyLevel
   field Judgment.Axis LimitingAxis
   field Judgment.Basis FloorBasis
   field Judgment.CeilingProvenance Provenance
@@ -48,6 +53,9 @@
   field Record.Device DeviceRecord
   field Record.Triples []Triple
   field Record.Version int
+  field TensorMovement.ReadBytes uint64
+  field TensorMovement.ResidentBytes uint64
+  field TensorMovement.WriteBytes uint64
   field Triple.Axis string
   field Triple.Basis string
   field Triple.Bytes uint64
@@ -100,6 +108,7 @@ func (*Model) RenderSVG(w io.Writer, points []KernelPoint) error
 func (Record) Encode(w io.Writer) error
 func (Record) Validate() error
 func AnalyticalDataMovement(problem, tileFactors, dtypes map[string]int, bypassed map[string]bool) (CompoundDataMovement, error)
+func AnalyticalGEMMHierarchy(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int) (HierarchyMovement, error)
 func DecodeRecord(rd io.Reader) (Record, error)
 func LookupCeiling(arch string, residency Residency) (Ceiling, error)
 func NewModel(arch string, residency Residency) (*Model, error)
@@ -115,6 +124,8 @@ type FloorBasis string
 type HardwareCalibration struct
 type HardwareProbe func(target string) (available bool, err error)
 type HardwareVerificationStatus string
+type HierarchyLevel struct
+type HierarchyMovement struct
 type Judgment struct
 type KernelPoint struct
 type LimitingAxis string
@@ -124,5 +135,6 @@ type Precision string
 type Provenance string
 type Record struct
 type Residency string
+type TensorMovement struct
 type Triple struct
 type Verdict string

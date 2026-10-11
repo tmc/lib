@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
+	"github.com/tmc/lib/nvidia/x/cudalayout"
 )
 
 // Operation is a unit of work whose cost is claimed rather than observed: a
@@ -310,6 +311,291 @@ func ceilDivU64(n, d uint64) uint64 {
 		q++
 	}
 	return q
+}
+
+// TensorMovement contains a tensor's resident footprint, bytes read by lower
+// consumers, and bytes written back by those consumers. A bypassed tensor has
+// no footprint or accesses at that level.
+type TensorMovement struct {
+	ResidentBytes uint64
+	ReadBytes     uint64
+	WriteBytes    uint64
+}
+
+// HierarchyLevel contains the footprint and accesses at one mapped level.
+// ResidentBytes is the sum of its retained tensor footprints, not GPU occupancy.
+type HierarchyLevel struct {
+	Level         cudalayout.StorageLevel
+	ResidentBytes uint64
+	Tensors       map[cudalayout.TensorRole]TensorMovement
+}
+
+// HierarchyMovement contains logical temporal GEMM traffic. Levels are ordered
+// from the lowest retained storage level to DRAM. DRAM contains the total
+// transfers at the DRAM boundary and the corresponding FLOPs per byte.
+type HierarchyMovement struct {
+	Levels []HierarchyLevel
+	DRAM   CompoundDataMovement
+}
+
+// AnalyticalGEMMHierarchy computes footprints and transfers for a temporal
+// GEMM mapping with C initially zero. Levels must increase and end at DRAM;
+// orders at each level are outermost first and include every non-unit factor.
+// All four B/M/N/K extents and positive A/B/C element byte sizes are required.
+// Nonidentity spatial meshes are unsupported.
+//
+// Each retained buffer holds one projected tile until its outer-loop key
+// changes. A/B fill on each tile visit. C initializes on its first visit,
+// writes back on eviction or termination, and reloads on subsequent visits.
+// Bypassed buffers consume zero capacity; transfers use the nearest retained
+// upper level. Scalar computation accesses operands and accumulates C below
+// the lowest listed buffer. Counts are algebraic, without enumerating extents.
+//
+// These are exact logical counts for this tile-retention contract. They do not
+// model partial overlapping tiles, physical cache replacement, transactions,
+// padding, spatial sharing, measured traffic, residency or execution latency.
+func AnalyticalGEMMHierarchy(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int) (HierarchyMovement, error) {
+	factors := mapping.Factorization
+	levels := factors.Levels
+	roles := []cudalayout.TensorRole{cudalayout.TensorA, cudalayout.TensorB, cudalayout.TensorC}
+	dims := []string{"B", "M", "N", "K"}
+	unsupported := func(reason string) (HierarchyMovement, error) {
+		return HierarchyMovement{}, fmt.Errorf("GEMM hierarchy: %s: %w", reason, cudalayout.ErrUnsupported)
+	}
+	if len(mapping.Problem) != len(dims) {
+		return unsupported("expected exactly B/M/N/K problem dimensions")
+	}
+	for _, dim := range dims {
+		if mapping.Problem[dim] <= 0 {
+			return unsupported("missing or non-positive problem dimension " + dim)
+		}
+	}
+	if len(levels) == 0 || levels[len(levels)-1] != cudalayout.LevelDRAM {
+		return unsupported("storage levels must end at DRAM")
+	}
+	listed := make(map[cudalayout.StorageLevel]bool, len(levels))
+	for i, level := range levels {
+		if level < cudalayout.LevelRegister || level > cudalayout.LevelDRAM || (i > 0 && level <= levels[i-1]) {
+			return unsupported("storage levels must be known and strictly increasing")
+		}
+		listed[level] = true
+	}
+	for level := range factors.Factors {
+		if !listed[level] {
+			return unsupported("factors reference an unlisted storage level")
+		}
+	}
+	if err := factors.Validate(mapping.Problem); err != nil {
+		return HierarchyMovement{}, fmt.Errorf("GEMM hierarchy factors: %w", err)
+	}
+	for _, mesh := range []map[string]int{mapping.Spatial.CTAMesh, mapping.Spatial.WarpMesh} {
+		for dim, count := range mesh {
+			if mapping.Problem[dim] <= 0 || count != 1 {
+				return unsupported("only identity spatial meshes are modeled")
+			}
+		}
+	}
+	if len(dtypes) != len(roles) {
+		return unsupported("expected exactly A/B/C element byte sizes")
+	}
+	for _, role := range roles {
+		if dtypes[role] <= 0 {
+			return unsupported("missing or non-positive tensor byte size")
+		}
+	}
+	for level, tensors := range mapping.Bypass.Bypassed {
+		if !listed[level] {
+			return unsupported("bypass references an unlisted storage level")
+		}
+		for role, bypassed := range tensors {
+			if role < cudalayout.TensorA || role > cudalayout.TensorC || (level == cudalayout.LevelDRAM && bypassed) {
+				return unsupported("unknown tensor role or bypassed DRAM tensor")
+			}
+		}
+	}
+	type loop struct {
+		level int
+		dim   string
+		size  uint64
+	}
+	var loops []loop
+	for level := range mapping.Permutation.Orders {
+		if !listed[level] {
+			return unsupported("permutation references an unlisted storage level")
+		}
+	}
+	for i := len(levels) - 1; i >= 0; i-- {
+		level := levels[i]
+		seen := make(map[string]bool)
+		for _, dim := range mapping.Permutation.Orders[level] {
+			if mapping.Problem[dim] <= 0 || seen[dim] {
+				return unsupported("unknown or repeated permutation dimension")
+			}
+			seen[dim] = true
+			size := factors.Factors[level][dim]
+			if size > 1 {
+				loops = append(loops, loop{i, dim, uint64(size)})
+			}
+		}
+		for _, dim := range dims {
+			if factors.Factors[level][dim] > 1 && !seen[dim] {
+				return unsupported("permutation omits a non-unit factor")
+			}
+		}
+	}
+	projects := func(role cudalayout.TensorRole, dim string) bool {
+		return dim == "B" || (role == cudalayout.TensorA && dim != "N") ||
+			(role == cudalayout.TensorB && dim != "M") || (role == cudalayout.TensorC && dim != "K")
+	}
+	report := HierarchyMovement{Levels: make([]HierarchyLevel, len(levels))}
+	tile := map[string]uint64{"B": 1, "M": 1, "N": 1, "K": 1}
+	for i, level := range levels {
+		for dim, factor := range factors.Factors[level] {
+			tile[dim] *= uint64(factor) // factors.Validate checked the full int product.
+		}
+		entry := HierarchyLevel{Level: level, Tensors: make(map[cudalayout.TensorRole]TensorMovement, len(roles))}
+		for _, role := range roles {
+			var bytes uint64
+			if !mapping.Bypass.IsBypassed(level, role) {
+				bytes = uint64(dtypes[role])
+				for _, dim := range dims {
+					if projects(role, dim) {
+						var err error
+						bytes, err = checkedProduct(bytes, tile[dim])
+						if err != nil {
+							return HierarchyMovement{}, fmt.Errorf("GEMM %s %s footprint: %w", level, role, err)
+						}
+					}
+				}
+			}
+			entry.Tensors[role] = TensorMovement{ResidentBytes: bytes}
+			var err error
+			entry.ResidentBytes, err = checkedSum(entry.ResidentBytes, bytes)
+			if err != nil {
+				return HierarchyMovement{}, err
+			}
+		}
+		report.Levels[i] = entry
+	}
+	charge := func(child int, role cudalayout.TensorRole, read, write uint64) error {
+		for parent := child + 1; parent < len(levels); parent++ {
+			if mapping.Bypass.IsBypassed(levels[parent], role) {
+				continue
+			}
+			entry := report.Levels[parent].Tensors[role]
+			var err error
+			entry.ReadBytes, err = checkedSum(entry.ReadBytes, read)
+			if err != nil {
+				return err
+			}
+			entry.WriteBytes, err = checkedSum(entry.WriteBytes, write)
+			if err != nil {
+				return err
+			}
+			report.Levels[parent].Tensors[role] = entry
+			return nil
+		}
+		return fmt.Errorf("GEMM hierarchy has no retained source for %s", role)
+	}
+	for i, level := range levels[:len(levels)-1] {
+		for _, role := range roles {
+			if mapping.Bypass.IsBypassed(level, role) {
+				continue
+			}
+			last := -1
+			distinct := uint64(1)
+			for j, loop := range loops {
+				if loop.level <= i {
+					break
+				}
+				if projects(role, loop.dim) {
+					last = j
+					var err error
+					distinct, err = checkedProduct(distinct, loop.size)
+					if err != nil {
+						return HierarchyMovement{}, err
+					}
+				}
+			}
+			runs := uint64(1)
+			for j := 0; j <= last; j++ {
+				var err error
+				runs, err = checkedProduct(runs, loops[j].size)
+				if err != nil {
+					return HierarchyMovement{}, err
+				}
+			}
+			bytes := report.Levels[i].Tensors[role].ResidentBytes
+			read, err := checkedProduct(runs, bytes)
+			if err != nil {
+				return HierarchyMovement{}, err
+			}
+			var write uint64
+			if role == cudalayout.TensorC {
+				write = read
+				read, err = checkedProduct(runs-distinct, bytes)
+				if err != nil {
+					return HierarchyMovement{}, err
+				}
+			}
+			if err := charge(i, role, read, write); err != nil {
+				return HierarchyMovement{}, err
+			}
+		}
+	}
+	macs, err := checkedProduct(uint64(mapping.Problem["B"]), uint64(mapping.Problem["M"]), uint64(mapping.Problem["N"]), uint64(mapping.Problem["K"]))
+	if err != nil {
+		return HierarchyMovement{}, err
+	}
+	outputs, err := checkedProduct(uint64(mapping.Problem["B"]), uint64(mapping.Problem["M"]), uint64(mapping.Problem["N"]))
+	if err != nil {
+		return HierarchyMovement{}, err
+	}
+	for _, role := range roles {
+		read, err := checkedProduct(macs, uint64(dtypes[role]))
+		if err != nil {
+			return HierarchyMovement{}, err
+		}
+		var write uint64
+		if role == cudalayout.TensorC {
+			write = read
+			read, err = checkedProduct(macs-outputs, uint64(dtypes[role]))
+			if err != nil {
+				return HierarchyMovement{}, err
+			}
+		}
+		if err := charge(-1, role, read, write); err != nil {
+			return HierarchyMovement{}, err
+		}
+	}
+	dram := report.Levels[len(levels)-1]
+	report.DRAM.TensorTransfers = make(map[string]uint64, len(roles))
+	for i, role := range roles {
+		entry := dram.Tensors[role]
+		total, err := checkedSum(entry.ReadBytes, entry.WriteBytes)
+		if err != nil {
+			return HierarchyMovement{}, err
+		}
+		report.DRAM.TensorTransfers[[]string{"A", "B", "C"}[i]] = total
+		report.DRAM.ReadBytes, err = checkedSum(report.DRAM.ReadBytes, entry.ReadBytes)
+		if err != nil {
+			return HierarchyMovement{}, err
+		}
+		report.DRAM.WriteBytes, err = checkedSum(report.DRAM.WriteBytes, entry.WriteBytes)
+		if err != nil {
+			return HierarchyMovement{}, err
+		}
+	}
+	report.DRAM.TotalBytes, err = checkedSum(report.DRAM.ReadBytes, report.DRAM.WriteBytes)
+	if err != nil {
+		return HierarchyMovement{}, err
+	}
+	flops, err := checkedProduct(2, macs)
+	if err != nil {
+		return HierarchyMovement{}, err
+	}
+	report.DRAM.OperationalIntensity = float64(flops) / float64(report.DRAM.TotalBytes)
+	return report, nil
 }
 
 // HardwareVerificationStatus represents the result of checking whether
