@@ -1,0 +1,10 @@
+commit: 108b82b3344bd4a1e426ec7802fb286e36c89550
+date: 2026-10-11T06:43:24.326695+00:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; independent reviewer gpt-6.1-sol
+tty: none
+pid: 8148
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-wt-next/20261010-full-testing-readiness/behavior-audit-35-44/TRANSPOSE-GRADE.json
+review sha256: 430c7fb3d56c4b6043889ca5945f0513aadf82d7d8dbffe1b2cb24430c27f4a5
+commit helper: two earlier missing-API-key failures retained; manual fallback
