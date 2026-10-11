@@ -1,0 +1,11 @@
+commit: 161424e9f315e4769f48fcd4e4e073c341491dee
+date: 2026-10-11T01:12:51.830901+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 59148
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: Source-grounded endpoint/configuration/delivery docs, stale absence claims corrected, explicit production/native/BMC/provider gates; xinventory check PASS
+commit helper: prior two failed attempts exhausted; signed manual fallback
