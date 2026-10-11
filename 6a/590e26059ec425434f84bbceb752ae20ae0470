@@ -1,1 +1,3 @@
 commit=6a590e26059ec425434f84bbceb752ae20ae0470 date=2026-10-10 agent=Codex model=parent-inherited tty=none pid=8133 ITERM_SESSION_ID=w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15; signed atomic22path power landing; host race10namedPASS23.330s and Darwin/LinuxARM64compile; primary/seal/runner/foreign/admission0; no native power measurement; helper failed2x missingANTHROPIC_API_KEY thenmanual-S; receipt=/Users/tmc/tmp/ds4-min/20261010-power-control-recovery/INTEGRATION-RECEIPT.md
+
+tool=codex-cli 0.162.1; claude-code not used; model identifier unavailable in child tool context
