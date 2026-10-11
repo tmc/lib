@@ -45,34 +45,36 @@ func TestPDLEligibility(t *testing.T) {
 			wantPolicy: cudapdl.PolicyProgrammatic,
 		},
 		{
-			name:   "valid sm_100a pair via source inspection",
+			name:   "declared sm_100a source pair",
 			target: "sm_100a",
 			producer: cudapdl.KernelDesc{
-				Name:   "prod_ptx",
-				Source: `asm volatile("griddepcontrol.launch_dependents;");`,
+				Name:                "prod_ptx",
+				Source:              `asm volatile("griddepcontrol.launch_dependents;");`,
+				HasLaunchDependents: true,
 			},
 			consumer: cudapdl.KernelDesc{
-				Name:   "cons_ptx",
-				Source: `asm volatile("griddepcontrol.wait;":::"memory");`,
+				Name:    "cons_ptx",
+				Source:  `asm volatile("griddepcontrol.wait;":::"memory");`,
+				HasWait: true,
 			},
 			wantElig:   true,
 			wantPolicy: cudapdl.PolicyProgrammatic,
 		},
 		{
-			name:   "valid sm_121a pair via artifact inspection",
+			name:   "declared sm_121a artifact pair",
 			target: "sm_121a",
 			producer: cudapdl.KernelDesc{
-				Name: "prod_art",
+				Name:                "prod_art",
+				HasLaunchDependents: true,
 				Artifact: &cudakernel.Artifact{
 					Target: "sm_121a",
-					Raw:    []byte("... griddepcontrol.launch_dependents ..."),
 				},
 			},
 			consumer: cudapdl.KernelDesc{
-				Name: "cons_art",
+				Name:    "cons_art",
+				HasWait: true,
 				Artifact: &cudakernel.Artifact{
 					Target: "sm_121a",
-					Raw:    []byte("... griddepcontrol.wait ..."),
 				},
 			},
 			wantElig:   true,

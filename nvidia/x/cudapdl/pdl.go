@@ -1,7 +1,6 @@
 package cudapdl
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -44,32 +43,37 @@ type KernelDesc struct {
 	// Name identifies the kernel for diagnostics.
 	Name string
 
-	// Artifact is the optional compiled kernel artifact descriptor.
+	// Artifact is the optional compiled kernel artifact descriptor. Its target
+	// must match the selected target exactly after architecture normalization.
 	Artifact *cudakernel.Artifact
 
-	// Source is optional PTX or CUDA C++ source code text.
+	// Source is optional PTX or CUDA C++ source code text for diagnostics.
+	// Source and Artifact.Raw do not establish synchronization support.
 	Source string
 
 	// IsVendor indicates whether the kernel is an opaque vendor library kernel
 	// (e.g. cuBLASLt, cuDNN, or vendor CUBIN).
 	IsVendor bool
 
-	// HasLaunchDependents explicitly indicates whether the kernel triggers dependents.
-	// If false, Source and Artifact.Raw are inspected for "griddepcontrol.launch_dependents".
+	// HasLaunchDependents is the kernel owner's declaration that the kernel
+	// triggers dependents. CheckEligibility does not verify trigger placement
+	// or execution; those require separate qualification.
 	HasLaunchDependents bool
 
-	// HasWait explicitly indicates whether the kernel waits on dependencies.
-	// If false, Source and Artifact.Raw are inspected for "griddepcontrol.wait".
+	// HasWait is the kernel owner's declaration that the kernel waits on
+	// dependencies. CheckEligibility does not verify wait placement or execution.
 	HasWait bool
 
 	// PreambleBytes or IndependentWork indicates the presence of independent preamble work.
 	HasIndependentWork bool
 }
 
-// Eligibility reports whether a producer/consumer kernel pair on a target device
-// meets all hardware and software criteria for Programmatic Dependent Launch.
+// Eligibility reports the planning policy for a declared producer/consumer
+// pair. It checks the target floor, supplied artifact target identities,
+// vendor opacity and owner declarations. It does not establish trigger/wait
+// placement, effect/resource safety or native execution qualification.
 type Eligibility struct {
-	// Eligible is true if both kernels and the target hardware support PDL.
+	// Eligible is true if the pair passes the planning checks.
 	Eligible bool
 
 	// Policy is PolicyProgrammatic if Eligible, or PolicyStandardFallback otherwise.
@@ -82,8 +86,12 @@ type Eligibility struct {
 	TargetArch string
 }
 
-// CheckEligibility evaluates whether a target architecture and a producer/consumer pair
-// qualify for Programmatic Dependent Launch.
+// CheckEligibility evaluates the planning policy for a target and a declared
+// producer/consumer pair. An empty target is inferred from a supplied artifact
+// target. Every supplied artifact must declare that same target; this exact
+// identity policy is conservative and does not model general CUDA binary
+// compatibility. A pair without artifacts is a planning description, not a
+// qualified executable.
 func CheckEligibility(target string, producer, consumer KernelDesc) Eligibility {
 	arch := strings.ToLower(strings.TrimSpace(target))
 	if arch == "" && producer.Artifact != nil && producer.Artifact.Target != "" {
@@ -110,6 +118,18 @@ func CheckEligibility(target string, producer, consumer KernelDesc) Eligibility 
 			Policy:         PolicyStandardFallback,
 			FallbackReason: fmt.Sprintf("target architecture %s (compute capability %d.%d) does not support programmatic dependent launch: sm_90 or higher required", info.Arch, info.Major, info.Minor),
 			TargetArch:     info.Arch,
+		}
+	}
+	for _, kernel := range []struct {
+		role     string
+		artifact *cudakernel.Artifact
+	}{{"producer", producer.Artifact}, {"consumer", consumer.Artifact}} {
+		if err := checkArtifactTarget(kernel.artifact, info.Arch); err != nil {
+			return Eligibility{
+				Policy:         PolicyStandardFallback,
+				FallbackReason: fmt.Sprintf("%s artifact: %v", kernel.role, err),
+				TargetArch:     info.Arch,
+			}
 		}
 	}
 
@@ -140,7 +160,7 @@ func CheckEligibility(target string, producer, consumer KernelDesc) Eligibility 
 	}
 
 	// Producer must emit griddepcontrol.launch_dependents
-	if !hasLaunchDependents(producer) {
+	if !producer.HasLaunchDependents {
 		pName := producer.Name
 		if pName == "" {
 			pName = "producer"
@@ -154,7 +174,7 @@ func CheckEligibility(target string, producer, consumer KernelDesc) Eligibility 
 	}
 
 	// Consumer must emit griddepcontrol.wait
-	if !hasWait(consumer) {
+	if !consumer.HasWait {
 		cName := consumer.Name
 		if cName == "" {
 			cName = "consumer"
@@ -175,34 +195,25 @@ func CheckEligibility(target string, producer, consumer KernelDesc) Eligibility 
 	}
 }
 
-func hasLaunchDependents(k KernelDesc) bool {
-	if k.HasLaunchDependents {
-		return true
+func checkArtifactTarget(artifact *cudakernel.Artifact, target string) error {
+	if artifact == nil {
+		return nil
 	}
-	if strings.Contains(k.Source, PTXLaunchDependents) {
-		return true
+	arch := strings.ToLower(strings.TrimSpace(artifact.Target))
+	if arch == "" {
+		return errors.New("missing target architecture")
 	}
-	if k.Artifact != nil && len(k.Artifact.Raw) > 0 {
-		if bytes.Contains(k.Artifact.Raw, []byte(PTXLaunchDependents)) {
-			return true
-		}
+	info, err := cudakernel.TargetSM(arch)
+	if err != nil {
+		return fmt.Errorf("invalid target architecture %q: %w", artifact.Target, err)
 	}
-	return false
-}
-
-func hasWait(k KernelDesc) bool {
-	if k.HasWait {
-		return true
+	if info.Major < 9 {
+		return fmt.Errorf("target %s does not support PDL: sm_90 or higher required", info.Arch)
 	}
-	if strings.Contains(k.Source, PTXWait) {
-		return true
+	if info.Arch != target {
+		return fmt.Errorf("target %s differs from selected target %s", info.Arch, target)
 	}
-	if k.Artifact != nil && len(k.Artifact.Raw) > 0 {
-		if bytes.Contains(k.Artifact.Raw, []byte(PTXWait)) {
-			return true
-		}
-	}
-	return false
+	return nil
 }
 
 // Composition describes the applied graph dependency edge between producer and consumer nodes.
