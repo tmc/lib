@@ -1,0 +1,10 @@
+commit: d70b2a76e0a559096213d75107bae383cac08fef
+date: 2026-10-10T23:45:14-07:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; author/reviewer gpt-6.1-sol
+tty: none
+pid: 15229
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-wt-next/20261010-full-testing-readiness/independent-cupti-admission/GRADE.md
+review sha256: 6c4b90ebf93dafc4b2e359cff821ee9e90781423bd4d66b2c135016d18a3e884
+commit helper: manual fallback after two retained missing-API-key failures
