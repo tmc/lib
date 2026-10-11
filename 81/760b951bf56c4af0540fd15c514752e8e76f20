@@ -1,0 +1,11 @@
+commit: 81760b951bf56c4af0540fd15c514752e8e76f20
+date: 2026-10-11T06:17:35.203731+00:00
+agent: Codex CLI 0.162.1
+claude-code version: not used
+model: GPT-6-based Codex; runtime model name not exposed
+author/reviewer subagents: gpt-6.1-sol
+tty: none
+pid: 3105
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-wt-next/20261010-full-testing-readiness/independent-interchange-review/GRADE.md
+review_sha256: 61172d704ffd104b71d9935425cd93a8c18b7add45934de0209ab8047743da52
