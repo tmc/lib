@@ -10,6 +10,9 @@ import (
 // ErrExtractionLimit reports exhausted extraction work, output size or depth.
 var ErrExtractionLimit = errors.New("egraph: extraction limit exceeded")
 
+// ErrPendingGraphChanges reports that bounded extraction needs a clean graph.
+var ErrPendingGraphChanges = errors.New("egraph: graph has pending changes")
+
 // ExtractionLimits bounds one extraction. Every limit must be positive.
 // Work charges a node plus its child edges during cost computation, and one
 // unit per materialized expression node. CostModel calls must return promptly;
@@ -64,18 +67,32 @@ func (b *extractionBudget) node(depth int) error {
 }
 
 // ExtractBounded computes a concrete expression with bounded cost work and tree
-// allocation. Cancellation or exhaustion returns no partial expression. It uses
-// the same finite fixed-point pass limit as Extractor, not a global optimum proof.
+// allocation. The graph must be clean; call RebuildChecked before extraction.
+// Cancellation or exhaustion returns no partial expression. It uses the same
+// finite fixed-point pass limit as Extractor, not a global optimum proof.
 func ExtractBounded(ctx context.Context, g *EGraph, root Id, model CostModel, limits ExtractionLimits) (*Expr, float64, error) {
 	expr, cost, _, err := ExtractBoundedWithStats(ctx, g, root, model, limits)
 	return expr, cost, err
 }
 
 // ExtractBoundedWithStats performs bounded extraction and reports its usage.
-// WorkExhausted distinguishes work exhaustion from output size/depth limits.
+// The graph must be clean; call RebuildChecked first. WorkExhausted
+// distinguishes work exhaustion from output size/depth limits.
 func ExtractBoundedWithStats(ctx context.Context, g *EGraph, root Id, model CostModel, limits ExtractionLimits) (expr *Expr, cost float64, stats ExtractionStats, err error) {
-	if g == nil || limits.MaxWork <= 0 || limits.MaxNodes <= 0 || limits.MaxDepth <= 0 {
+	if ctx == nil || g == nil || limits.MaxWork <= 0 || limits.MaxNodes <= 0 || limits.MaxDepth <= 0 {
 		return nil, 0, stats, fmt.Errorf("egraph: invalid bounded extraction request")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, 0, stats, err
+	}
+	if g.store == nil || !g.store.Initialized() {
+		return nil, 0, stats, fmt.Errorf("egraph: graph is not initialized; use New")
+	}
+	if len(g.worklist) != 0 {
+		return nil, 0, stats, fmt.Errorf("%w; call RebuildChecked before bounded extraction", ErrPendingGraphChanges)
+	}
+	if err := g.RebuildChecked(); err != nil {
+		return nil, 0, stats, fmt.Errorf("egraph: rebuild before extraction: %w", err)
 	}
 	b := &extractionBudget{ctx: ctx, limits: limits}
 	defer func() { stats = ExtractionStats{Work: b.work, Nodes: b.nodes, WorkExhausted: b.workExhausted} }()
@@ -85,7 +102,7 @@ func ExtractBoundedWithStats(ctx context.Context, g *EGraph, root Id, model Cost
 	if model == nil {
 		model = AstSizeCost{}
 	}
-	ext := &Extractor{g: g, costModel: model, costs: make(map[Id]float64), bestNodes: make(map[Id]ENode)}
+	ext := &Extractor{g: g, costModel: model, costs: make(map[Id]float64), bestNodes: make(map[Id]ENode), revision: g.revision}
 	if err := ext.computeCostsBounded(b); err != nil {
 		return nil, 0, stats, err
 	}

@@ -8,18 +8,11 @@ func patternIsExistingClass(g *EGraph, p *Pattern, subst Subst, target Id) bool 
 		return false
 	}
 	work := 100000
+	store := g.storage()
 	find := func(id Id) (Id, bool) {
-		for {
-			if work == 0 || uint64(id) >= uint64(len(g.unionFind)) {
-				return 0, false
-			}
-			work--
-			next := g.unionFind[id]
-			if next == id {
-				return id, true
-			}
-			id = next
-		}
+		root, visits, ok := store.FindWithoutCompression(id, work)
+		work -= visits
+		return root, ok
 	}
 	target, ok := find(target)
 	if !ok {
@@ -52,11 +45,47 @@ func patternIsExistingClass(g *EGraph, p *Pattern, subst Subst, target Id) bool 
 			}
 			node = NewNode(p.Op, children...)
 		}
-		id, ok := g.memo[node.Key()]
-		if !ok {
-			return 0, false
-		}
-		return find(id)
+		var foundID Id
+		found := false
+		store.VisitMemoCandidates(node.Key(), func(candidate Id) bool {
+			if work == 0 {
+				return false
+			}
+			work--
+			id, ok := find(candidate)
+			if !ok {
+				return true
+			}
+			class := store.Class(id)
+			if class == nil {
+				return true
+			}
+			for _, existing := range class.Nodes {
+				if work == 0 {
+					return false
+				}
+				work--
+				if existing.Subsumed {
+					continue
+				}
+				canonical := existing
+				canonical.Children = append([]Id(nil), existing.Children...)
+				valid := true
+				for i, child := range canonical.Children {
+					canonical.Children[i], ok = find(child)
+					if !ok {
+						valid = false
+						break
+					}
+				}
+				if valid && canonical.Equal(node) {
+					foundID, found = id, true
+					return false
+				}
+			}
+			return true
+		})
+		return foundID, found
 	}
 	id, ok := lookup(p, 1)
 	return ok && id == target

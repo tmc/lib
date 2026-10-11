@@ -777,7 +777,9 @@ func fuseNode(node *Node) *Node {
 	}
 	rootId := addExpr(node)
 	rules := TransformerTileRules()
-	Saturate(g, rules, 15)
+	if _, err := SaturateChecked(g, rules, SaturationOptions{MaxIterations: 15}); err != nil {
+		return node
+	}
 	best, _, err := ExtractBest(g, rootId, FusedMegakernelCost{})
 	if err == nil && best != nil {
 		return best

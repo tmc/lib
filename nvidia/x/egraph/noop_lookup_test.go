@@ -48,9 +48,8 @@ func TestNoOpLookupBounds(t *testing.T) {
 	if patternIsExistingClass(g, p, nil, id) {
 		t.Fatal("cyclic pattern recognized")
 	}
-	g.unionFind[id] = id + 1
-	if patternIsExistingClass(g, &Pattern{Op: "a"}, nil, id) {
-		t.Fatal("invalid union-find accepted")
+	if patternIsExistingClass(g, &Pattern{Op: "a"}, nil, Id(g.storage().Len())) {
+		t.Fatal("invalid class ID accepted")
 	}
 }
 
@@ -59,14 +58,29 @@ func TestNoOpLookupDoesNotCompressParents(t *testing.T) {
 	a := g.Add(NewNode("a"))
 	b := g.Add(NewNode("b"))
 	c := g.Add(NewNode("c"))
-	// A valid uncompressed parent chain must remain untouched by ordering.
-	g.unionFind[a], g.unionFind[b] = b, c
-	before := append([]Id(nil), g.unionFind...)
+	// Build a valid uncompressed chain through public union operations.
+	g.Union(b, a)
+	g.Union(c, b)
+	roots := func() []Id {
+		result := make([]Id, g.storage().Len())
+		for id := range result {
+			root, _, ok := g.storage().FindWithoutCompression(Id(id), g.storage().Len())
+			if !ok {
+				t.Fatalf("invalid union-find at ID %d", id)
+			}
+			result[id] = root
+		}
+		return result
+	}
+	before := roots()
 	if !patternIsExistingClass(g, Var("?x"), Subst{"?x": a}, c) {
 		t.Fatal("missed equivalent parent chain")
 	}
-	if !reflect.DeepEqual(before, g.unionFind) {
-		t.Fatal("lookup compressed parent chain")
+	after := roots()
+	for i := range before {
+		if before[i] != after[i] {
+			t.Fatal("lookup compressed parent chain")
+		}
 	}
 }
 

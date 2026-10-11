@@ -1,22 +1,29 @@
 package egraph
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
 
+// ErrActionEnumerationLimit reports that action enumeration stopped at its
+// requested output limit, so the returned candidates may not be complete.
+var ErrActionEnumerationLimit = errors.New("egraph: action enumeration limit reached")
+
 // Action represents a single, deterministic rewrite transition applied to a specific e-class match.
 type Action struct {
-	RuleName  string // Identifier of the rewrite rule
-	ClassID   Id     // Target e-class ID matched
-	RHSNode   string // Serialized representation of RHS target instantiation
-	StepIndex int    // Monotonic step index in search derivation
-	Subst     Subst  // Exact variable-to-class bindings used by the match
-	Source    string // Fingerprint of the matched class before transition
-	RuleID    string // Full rule identity used for replay validation
+	RuleName  string                 // Identifier of the rewrite rule
+	ClassID   Id                     // Target e-class ID matched
+	RHSNode   string                 // Serialized representation of RHS target instantiation
+	StepIndex int                    // Monotonic step index in search derivation
+	Subst     Subst                  // Exact variable-to-class bindings used by the match
+	Binding   egraphcore.Binding[Id] // Complete typed binding, including primitive facts.
+	Source    string                 // Fingerprint of the matched class before transition
+	RuleID    string                 // Full rule identity used for replay validation
 }
 
 // Key returns a canonical string representation of the action for deduplication and sorting.
@@ -25,7 +32,7 @@ func (a Action) Key() string {
 }
 
 func classFingerprint(g *EGraph, id Id) string {
-	c := g.Class(id)
+	c := g.class(id)
 	if c == nil {
 		return "<missing>"
 	}
@@ -49,6 +56,9 @@ type SearchState struct {
 
 // NewSearchState initializes a fresh SearchState wrapping the given graph and root mappings.
 func NewSearchState(g *EGraph, roots map[string]Id) *SearchState {
+	if g == nil {
+		return nil
+	}
 	copiedRoots := make(map[string]Id, len(roots))
 	for k, v := range roots {
 		copiedRoots[k] = g.Find(v)
@@ -64,6 +74,9 @@ func NewSearchState(g *EGraph, roots map[string]Id) *SearchState {
 
 // Clone creates an isolated, deep copy of the search state for branching.
 func (s *SearchState) Clone() *SearchState {
+	if s == nil || s.Graph == nil {
+		return nil
+	}
 	copiedRoots := make(map[string]Id, len(s.Roots))
 	for k, v := range s.Roots {
 		copiedRoots[k] = s.Graph.Find(v)
@@ -72,6 +85,7 @@ func (s *SearchState) Clone() *SearchState {
 	for i, action := range s.Derivation {
 		copiedDerivation[i] = action
 		copiedDerivation[i].Subst = action.Subst.Clone()
+		copiedDerivation[i].Binding = cloneBinding(action.Binding)
 	}
 
 	return &SearchState{
@@ -91,8 +105,19 @@ func cloneMetadata(src map[Id]TypedMetadata) map[Id]TypedMetadata {
 	return dst
 }
 
+func cloneBinding(src egraphcore.Binding[Id]) egraphcore.Binding[Id] {
+	dst := make(egraphcore.Binding[Id], len(src))
+	for name, value := range src {
+		dst[name] = value
+	}
+	return dst
+}
+
 // SetMetadata attaches the checked semantic contract used by mandatory rules.
 func (s *SearchState) SetMetadata(id Id, meta TypedMetadata) {
+	if s == nil || s.Graph == nil {
+		return
+	}
 	if s.Metadata == nil {
 		s.Metadata = make(map[Id]TypedMetadata)
 	}
@@ -101,6 +126,9 @@ func (s *SearchState) SetMetadata(id Id, meta TypedMetadata) {
 
 // CanonicalRoot returns the current canonical ID of the named root.
 func (s *SearchState) CanonicalRoot(name string) (Id, bool) {
+	if s == nil || s.Graph == nil {
+		return 0, false
+	}
 	id, ok := s.Roots[name]
 	if !ok {
 		return 0, false
@@ -116,6 +144,9 @@ type ActionCandidate struct {
 
 // ActionKey returns a deterministic string key for ordering candidates.
 func (c ActionCandidate) ActionKey() string {
+	if c.Rule == nil {
+		return ""
+	}
 	var sb strings.Builder
 	sb.WriteString(c.Rule.Name)
 	sb.WriteString(fmt.Sprintf("@%d[", c.Match.ClassID))
@@ -130,28 +161,104 @@ func (c ActionCandidate) ActionKey() string {
 		}
 		sb.WriteString(fmt.Sprintf("%s:%d", k, c.Match.Subst[k]))
 	}
+	binding := c.Match.Binding
+	if binding == nil {
+		binding = bindingFromSubst(c.Match.Subst)
+	}
+	keys = keys[:0]
+	for k := range binding {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		sb.WriteString(fmt.Sprintf("|%s:%#v", k, binding[k]))
+	}
 	sb.WriteString("]")
 	return sb.String()
 }
 
-// EnumerateActions finds all legal applicable rewrite transitions across the rules,
-// returning them in deterministic sorted order.
+// EnumerateActions returns up to the default limit of legal rewrite actions in
+// deterministic order. Use EnumerateActionsChecked to detect errors or
+// truncation.
 func EnumerateActions(g *EGraph, rules []*Rewrite) []ActionCandidate {
 	return EnumerateActionsBounded(g, rules, 10000)
 }
 
 // EnumerateActionsBounded deterministically enumerates at most limit matches.
+// It returns nil when matching fails; use EnumerateActionsBoundedChecked to
+// distinguish errors from an empty result or a truncated result.
 func EnumerateActionsBounded(g *EGraph, rules []*Rewrite, limit int) []ActionCandidate {
-	if limit <= 0 {
+	candidates, _, err := EnumerateActionsBoundedChecked(g, rules, limit)
+	if err != nil {
 		return nil
 	}
-	var candidates []ActionCandidate
+	return candidates
+}
 
+// EnumerateActionsChecked enumerates actions with the default output limit and
+// reports errors or truncation instead of presenting an incomplete set as
+// complete.
+func EnumerateActionsChecked(g *EGraph, rules []*Rewrite) ([]ActionCandidate, error) {
+	candidates, truncated, err := EnumerateActionsBoundedChecked(g, rules, 10000)
+	if err != nil {
+		return nil, err
+	}
+	if truncated {
+		return nil, ErrActionEnumerationLimit
+	}
+	return candidates, nil
+}
+
+// EnumerateActionsBoundedChecked deterministically enumerates at most limit
+// matches. truncated is true when more matches exist than fit in the result.
+func EnumerateActionsBoundedChecked(g *EGraph, rules []*Rewrite, limit int) ([]ActionCandidate, bool, error) {
+	if limit <= 0 {
+		return nil, false, nil
+	}
+	if g == nil {
+		return nil, false, fmt.Errorf("egraph: nil graph")
+	}
+	var candidates []ActionCandidate
+	budget := egraphcore.NewWorkBudget(100000)
+	truncated := false
 	for _, rule := range rules {
-		if len(candidates) == limit {
+		if truncated {
 			break
 		}
-		matches, _ := rule.LHS.SearchBounded(g, limit-len(candidates))
+		if rule == nil {
+			continue
+		}
+		probing := len(candidates) == limit
+		remaining := 1
+		if !probing {
+			remaining = limit - len(candidates)
+		}
+		var matches []MatchMatch
+		var err error
+		if len(rule.Conditions) == 0 && len(rule.RelationConditions) == 0 {
+			var limited bool
+			matches, limited, err = rule.LHS.SearchBoundedWithBudget(g, remaining, budget)
+			if err != nil {
+				return nil, false, fmt.Errorf("egraph: enumerate rewrite %q: %w", rule.Name, err)
+			}
+			truncated = truncated || limited
+		} else {
+			matches, err = searchRewriteMatchesWithBudget(g, rule, budget)
+			if err != nil {
+				return nil, false, fmt.Errorf("egraph: enumerate rewrite %q: %w", rule.Name, err)
+			}
+			if len(matches) > remaining {
+				matches = matches[:remaining]
+				truncated = true
+			}
+		}
+		if probing {
+			if len(matches) != 0 {
+				truncated = true
+				break
+			}
+			continue
+		}
 		for _, m := range matches {
 			candidate := ActionCandidate{
 				Rule:  rule,
@@ -181,41 +288,87 @@ func EnumerateActionsBounded(g *EGraph, rules []*Rewrite, limit int) []ActionCan
 	for i := range items {
 		candidates[i] = items[i].candidate
 	}
-	return candidates
+	return candidates, truncated, nil
 }
 
 func actionIsNoOp(g *EGraph, c ActionCandidate) bool {
 	if c.Rule == nil {
 		return false
 	}
+	if len(c.Rule.RelationActions) != 0 || c.Rule.RHS == nil {
+		return false
+	}
 	return patternIsExistingClass(g, c.Rule.RHS, c.Match.Subst, c.Match.ClassID)
+}
+
+func bindingFromSubst(subst Subst) egraphcore.Binding[Id] {
+	binding := make(egraphcore.Binding[Id], len(subst))
+	for name, id := range subst {
+		binding[name] = egraphcore.Class(id)
+	}
+	return binding
+}
+
+func matchBindingsEqual(g *EGraph, left, right MatchMatch) bool {
+	a, b := left.Binding, right.Binding
+	if a == nil {
+		a = bindingFromSubst(left.Subst)
+	}
+	if b == nil {
+		b = bindingFromSubst(right.Subst)
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for name, value := range a {
+		other, ok := b[name]
+		if !ok {
+			return false
+		}
+		if value.Kind == egraphcore.ClassValue {
+			value.Class = g.Find(value.Class)
+		}
+		if other.Kind == egraphcore.ClassValue {
+			other.Class = g.Find(other.Class)
+		}
+		if value != other {
+			return false
+		}
+	}
+	return true
 }
 
 // TransitionResult details the outcome of applying an action to a search state.
 type TransitionResult struct {
-	State  *SearchState
-	Merged bool
-	Action Action
-	NoOp   bool
+	State        *SearchState
+	Merged       bool
+	FactChanges  int
+	Subsumptions int
+	Action       Action
+	NoOp         bool
 }
 
 // ApplyAction applies a single ActionCandidate to the search state, returning a new branched SearchState
 // and indicating whether a non-trivial union occurred.
 func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult, error) {
+	if s == nil || s.Graph == nil {
+		return nil, fmt.Errorf("egraph: nil search state or graph")
+	}
 	if candidate.Rule == nil {
 		return nil, fmt.Errorf("egraph: nil rewrite rule in candidate")
 	}
 	target := s.Graph.Find(candidate.Match.ClassID)
-	if s.Graph.Class(target) == nil {
+	if s.Graph.class(target) == nil {
 		return nil, fmt.Errorf("egraph: match class %d is missing", candidate.Match.ClassID)
 	}
+	transitionBudget := egraphcore.NewWorkBudget(100000)
 	valid := false
-	substs, matchErr := candidate.Rule.LHS.MatchEClassBounded(s.Graph, target, make(Subst), 100000)
+	matches, matchErr := searchRewriteMatchesWithBudget(s.Graph, candidate.Rule, transitionBudget)
 	if matchErr != nil {
 		return nil, matchErr
 	}
-	for _, subst := range substs {
-		if substEqual(subst, candidate.Match.Subst) {
+	for _, match := range matches {
+		if s.Graph.Find(match.ClassID) == target && substEqual(match.Subst, candidate.Match.Subst) && matchBindingsEqual(s.Graph, match, candidate.Match) {
 			valid = true
 			break
 		}
@@ -228,13 +381,19 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 	}
 
 	// Create branched graph
+	resolved, err := resolveFactActions(s.Graph, candidate.Rule, []MatchMatch{candidate.Match}, transitionBudget)
+	if err != nil {
+		return nil, err
+	}
 	nextState := s.Clone()
 	g := nextState.Graph
 
-	// Instantiate RHS
-	rhsID := candidate.Rule.RHS.Instantiate(g, candidate.Match.Subst)
 	canonTarget := g.Find(candidate.Match.ClassID)
-	canonRHS := g.Find(rhsID)
+	canonRHS := canonTarget
+	if candidate.Rule.RHS != nil {
+		rhsID := candidate.Rule.RHS.Instantiate(g, candidate.Match.Subst)
+		canonRHS = g.Find(rhsID)
+	}
 
 	action := Action{
 		RuleName:  candidate.Rule.Name,
@@ -242,11 +401,12 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 		RHSNode:   fmt.Sprintf("%d", canonRHS),
 		StepIndex: len(s.Derivation),
 		Subst:     candidate.Match.Subst.Clone(),
+		Binding:   cloneBinding(candidate.Match.Binding),
 		Source:    classFingerprint(s.Graph, candidate.Match.ClassID),
 		RuleID:    candidate.Rule.Identity(),
 	}
 
-	if canonTarget == canonRHS {
+	if canonTarget == canonRHS && len(resolved) == 0 && !candidate.Rule.subsumesLHS {
 		// No-op transition: already in same e-class
 		return &TransitionResult{
 			State:  nextState,
@@ -256,9 +416,28 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 		}, nil
 	}
 
-	_, merged := g.Union(canonTarget, canonRHS)
+	merged := false
+	if canonTarget != canonRHS {
+		_, merged, err = g.UnionChecked(canonTarget, canonRHS)
+		if err != nil {
+			return nil, fmt.Errorf("egraph: apply rewrite %q union: %w", candidate.Rule.Name, err)
+		}
+	}
 	if merged {
-		g.Rebuild()
+		if err := g.RebuildChecked(); err != nil {
+			return nil, fmt.Errorf("egraph: apply rewrite %q rebuild: %w", candidate.Rule.Name, err)
+		}
+	}
+	factChanges, err := g.Facts().ApplyActions(resolved, g.Find, transitionBudget)
+	if err != nil {
+		return nil, fmt.Errorf("egraph: apply relation actions: %w", err)
+	}
+	subsumptions, err := subsumeMatchedNodes(g, candidate.Rule, []MatchMatch{candidate.Match}, transitionBudget)
+	if err != nil {
+		return nil, fmt.Errorf("egraph: apply rewrite %q subsumption: %w", candidate.Rule.Name, err)
+	}
+	if !merged && factChanges == 0 && subsumptions == 0 {
+		return &TransitionResult{State: nextState, Merged: false, Action: action, NoOp: true}, nil
 	}
 
 	// Remap roots
@@ -270,10 +449,12 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 	nextState.Depth++
 
 	return &TransitionResult{
-		State:  nextState,
-		Merged: merged,
-		Action: action,
-		NoOp:   !merged,
+		State:        nextState,
+		Merged:       merged,
+		FactChanges:  factChanges,
+		Subsumptions: subsumptions,
+		Action:       action,
+		NoOp:         !merged && factChanges == 0 && subsumptions == 0,
 	}, nil
 }
 
@@ -411,11 +592,17 @@ func ReplaySearchState(initial *SearchState, rules []*Rewrite, trace []Action) (
 		if act.RuleID != "" && act.RuleID != rule.Identity() {
 			return nil, fmt.Errorf("egraph: replay step %d: rule identity mismatch", step)
 		}
-		candidates := EnumerateActions(state.Graph, []*Rewrite{rule})
+		candidates, truncated, err := EnumerateActionsBoundedChecked(state.Graph, []*Rewrite{rule}, 10000)
+		if err != nil {
+			return nil, fmt.Errorf("egraph: replay step %d: enumerate rule %q: %w", step, act.RuleName, err)
+		}
+		if truncated {
+			return nil, fmt.Errorf("egraph: replay step %d: rule %q: %w", step, act.RuleName, ErrActionEnumerationLimit)
+		}
 		var matched *ActionCandidate
 		for i := range candidates {
 			c := &candidates[i]
-			if state.Graph.Find(c.Match.ClassID) == state.Graph.Find(act.ClassID) && classFingerprint(state.Graph, c.Match.ClassID) == act.Source && substEqual(c.Match.Subst, act.Subst) {
+			if state.Graph.Find(c.Match.ClassID) == state.Graph.Find(act.ClassID) && classFingerprint(state.Graph, c.Match.ClassID) == act.Source && substEqual(c.Match.Subst, act.Subst) && (act.Binding == nil || matchBindingsEqual(state.Graph, c.Match, MatchMatch{Subst: act.Subst, Binding: act.Binding})) {
 				matched = c
 				break
 			}
@@ -435,6 +622,9 @@ func ReplaySearchState(initial *SearchState, rules []*Rewrite, trace []Action) (
 // ReplayDerivation applies a recorded sequence of actions onto an initial EGraph and root set,
 // validating that the identical end-state is reached deterministically.
 func ReplayDerivation(initial *EGraph, initialRoots map[string]Id, rules []*Rewrite, trace []Action) (*SearchState, error) {
+	if initial == nil {
+		return nil, fmt.Errorf("egraph: nil initial graph")
+	}
 	for _, act := range trace {
 		if isMandatoryRule(act.RuleName) {
 			return nil, ErrMissingTypedMetadata
@@ -442,7 +632,9 @@ func ReplayDerivation(initial *EGraph, initialRoots map[string]Id, rules []*Rewr
 	}
 	ruleMap := make(map[string]*Rewrite, len(rules))
 	for _, r := range rules {
-		ruleMap[r.Name] = r
+		if r != nil {
+			ruleMap[r.Name] = r
+		}
 	}
 
 	state := NewSearchState(initial, initialRoots)
@@ -460,11 +652,17 @@ func ReplayDerivation(initial *EGraph, initialRoots map[string]Id, rules []*Rewr
 		}
 
 		// Enumerate actions in current state and find the matching action key
-		candidates := EnumerateActions(state.Graph, []*Rewrite{rule})
+		candidates, truncated, err := EnumerateActionsBoundedChecked(state.Graph, []*Rewrite{rule}, 10000)
+		if err != nil {
+			return nil, fmt.Errorf("egraph: replay step %d: enumerate rule %q: %w", step, act.RuleName, err)
+		}
+		if truncated {
+			return nil, fmt.Errorf("egraph: replay step %d: rule %q: %w", step, act.RuleName, ErrActionEnumerationLimit)
+		}
 		var matchedCand *ActionCandidate
 		for i := range candidates {
 			c := &candidates[i]
-			if state.Graph.Find(c.Match.ClassID) == state.Graph.Find(act.ClassID) && classFingerprint(state.Graph, c.Match.ClassID) == act.Source && substEqual(c.Match.Subst, act.Subst) {
+			if state.Graph.Find(c.Match.ClassID) == state.Graph.Find(act.ClassID) && classFingerprint(state.Graph, c.Match.ClassID) == act.Source && substEqual(c.Match.Subst, act.Subst) && (act.Binding == nil || matchBindingsEqual(state.Graph, c.Match, MatchMatch{Subst: act.Subst, Binding: act.Binding})) {
 				matchedCand = c
 				break
 			}

@@ -35,11 +35,11 @@ func TestTakeoverCloneCyclicPayload(t *testing.T) {
 	g := New()
 	g.Add(ENode{Op: "cyclic", Data: payload})
 	clone := g.Clone()
-	if clone == nil || len(clone.classes) != len(g.classes) {
+	if clone == nil || len(clone.Classes()) != len(g.Classes()) {
 		t.Fatal("clone lost cyclic payload graph")
 	}
 	var got map[string]any
-	for _, class := range clone.classes {
+	for _, class := range clone.Classes() {
 		for _, node := range class.Nodes {
 			if node.Op == "cyclic" {
 				got, _ = node.Data.(map[string]any)

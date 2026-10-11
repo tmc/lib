@@ -2,8 +2,11 @@ package egraph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
+	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +31,8 @@ const (
 	BudgetThorough = AutotuneBudget(1 * time.Second)
 )
 
+var autotuneBlockSizes = [...]int{64, 128, 256, 512}
+
 // TuningCandidate represents an AST expression paired with candidate tile/launch parameters.
 type TuningCandidate struct {
 	Expr       *Expr
@@ -37,6 +42,20 @@ type TuningCandidate struct {
 	KernelName string
 	CUDASource string
 }
+
+// CandidateEvaluator measures and validates one generated CUDA candidate.
+// It may update launch metadata on candidate (for example GridDim or
+// SharedMem) to reflect the measured workload. An error rejects this candidate;
+// return context cancellation to stop the search. Implementations must honor
+// ctx and must not mutate Expr or CUDASource.
+type CandidateEvaluator func(ctx context.Context, candidate *TuningCandidate) (time.Duration, error)
+
+// ExpressionWorkloadEvaluator compiles, validates, and measures one materialized
+// graph choice using a caller-defined workload. It must return the fully formed
+// candidate that it measured and a positive duration. It must honor ctx and
+// must not mutate expr. Errors reject the candidate; return context cancellation
+// to stop the search.
+type ExpressionWorkloadEvaluator func(ctx context.Context, expr *Expr) (TuningCandidate, time.Duration, error)
 
 // Key returns a unique composite identifier for the candidate expression,
 // kernel, and launch configuration.
@@ -55,11 +74,21 @@ type AutotuneResult struct {
 	TFLOPS    float64
 }
 
+// RankedTuningResult is one successful candidate from measured choice search.
+// Results are ordered from shortest to longest measured latency. Search is
+// bounded by its deadline and attempt limit, so results cover only choices
+// actually measured; each expression contributes its best launch configuration.
+type RankedTuningResult struct {
+	Candidate TuningCandidate
+	Latency   time.Duration
+}
+
 // Tuner evaluates candidate AST expressions against real GPU hardware within a time budget.
 type Tuner struct {
 	mu         sync.RWMutex
 	dev        *cuda.Device
 	cache      map[string]TuningCandidate
+	ranked     map[string][]RankedTuningResult
 	bestScores map[string]time.Duration
 	pgo        *PGOTracker
 }
@@ -69,9 +98,129 @@ func NewTuner(dev *cuda.Device) *Tuner {
 	return &Tuner{
 		dev:        dev,
 		cache:      make(map[string]TuningCandidate),
+		ranked:     make(map[string][]RankedTuningResult),
 		bestScores: make(map[string]time.Duration),
 		pgo:        &PGOTracker{},
 	}
+}
+
+// SelectRankedWithEvaluator searches reachable e-graph alternatives and
+// returns successfully measured candidates found before the search budget or
+// attempt limit in latency order. Each distinct expression contributes its
+// fastest successful launch configuration. workloadID has the same identity
+// and cache requirements as SelectBestWithEvaluator. The returned expressions
+// have cloned expression nodes; payload data follows the graph's cloning rules
+// and must be treated as immutable.
+func (t *Tuner) SelectRankedWithEvaluator(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget, workloadID string, evaluator CandidateEvaluator) ([]RankedTuningResult, error) {
+	if evaluator == nil {
+		return nil, fmt.Errorf("egraph: nil candidate evaluator for autotuning")
+	}
+	measure := func(ctx context.Context, expr *Expr, deadline time.Time) (TuningCandidate, time.Duration, error) {
+		return measureExpressionWithEvaluator(ctx, expr, deadline, evaluator)
+	}
+	return t.selectRankedWithWorkload(ctx, g, root, budget, workloadID, "candidate", measure)
+}
+
+// SelectRankedWithExpressionEvaluator searches reachable alternatives with a
+// caller-defined evaluator and returns successfully measured choices found
+// before the search budget or attempt limit in latency order. Its workload
+// identity and cache behavior match SelectBestWithExpressionEvaluator.
+func (t *Tuner) SelectRankedWithExpressionEvaluator(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget, workloadID string, evaluator ExpressionWorkloadEvaluator) ([]RankedTuningResult, error) {
+	if evaluator == nil {
+		return nil, fmt.Errorf("egraph: nil expression workload evaluator")
+	}
+	measure := func(ctx context.Context, expr *Expr, deadline time.Time) (TuningCandidate, time.Duration, error) {
+		candidateCtx, cancel := context.WithDeadline(ctx, deadline)
+		input := cloneTuningExpr(expr)
+		before := cloneTuningExpr(input)
+		candidate, duration, err := evaluator(candidateCtx, input)
+		ctxErr := candidateCtx.Err()
+		cancel()
+		if ctxErr != nil {
+			return TuningCandidate{}, 0, ctxErr
+		}
+		if err != nil {
+			return TuningCandidate{}, 0, err
+		}
+		if !reflect.DeepEqual(input, before) {
+			return TuningCandidate{}, 0, fmt.Errorf("expression workload evaluator mutated its expression input")
+		}
+		if !reflect.DeepEqual(candidate.Expr, before) {
+			return TuningCandidate{}, 0, fmt.Errorf("expression workload evaluator returned a candidate for a different expression")
+		}
+		if duration <= 0 {
+			return TuningCandidate{}, 0, fmt.Errorf("expression workload evaluator returned non-positive duration")
+		}
+		candidate.Expr = cloneTuningExpr(before)
+		return candidate, duration, nil
+	}
+	return t.selectRankedWithWorkload(ctx, g, root, budget, workloadID, "expression", measure)
+}
+
+func (t *Tuner) selectRankedWithWorkload(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget, workloadID, evaluatorKind string, measure expressionEvaluator) ([]RankedTuningResult, error) {
+	if t == nil {
+		return nil, fmt.Errorf("egraph: nil tuner for autotuning")
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("egraph: nil context for autotuning")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if g == nil {
+		return nil, fmt.Errorf("egraph: nil E-Graph for autotuning")
+	}
+	if strings.TrimSpace(workloadID) == "" {
+		return nil, fmt.Errorf("egraph: empty workload identity for autotuning")
+	}
+	if budget == BudgetInstant {
+		return nil, fmt.Errorf("egraph: measured candidate search requires a positive budget")
+	}
+	deadline := time.Now().Add(time.Duration(budget))
+	if !time.Now().Before(deadline) {
+		return nil, fmt.Errorf("egraph: autotune budget expired before choice search")
+	}
+	if err := g.RebuildChecked(); err != nil {
+		return nil, fmt.Errorf("egraph: rebuild before measured choice search: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if !time.Now().Before(deadline) {
+		return nil, fmt.Errorf("egraph: autotune budget expired while rebuilding graph")
+	}
+	cacheKey := fmt.Sprintf("evaluator=%s:%q::graph=%p::revision=%d::root=%d::budget=%v", evaluatorKind, workloadID, g, g.revision, g.Find(root), budget)
+	t.mu.RLock()
+	cached, ok := t.ranked[cacheKey]
+	t.mu.RUnlock()
+	if ok {
+		return cloneRankedTuningResults(cached), nil
+	}
+	var results []RankedTuningResult
+	best, duration, err := t.searchChoices(ctx, g, root, deadline, workloadID, measure, &results)
+	if err != nil {
+		return nil, fmt.Errorf("egraph: rank reachable choices for workload %q: %w", workloadID, err)
+	}
+	if len(results) == 0 {
+		return nil, fmt.Errorf("egraph: measured choice search returned no ranked candidates")
+	}
+	t.mu.Lock()
+	t.ranked[cacheKey] = cloneRankedTuningResults(results)
+	t.cache[cacheKey] = cloneTuningCandidate(best)
+	t.bestScores[cacheKey] = duration
+	t.mu.Unlock()
+	return cloneRankedTuningResults(results), nil
+}
+
+func cloneRankedTuningResults(results []RankedTuningResult) []RankedTuningResult {
+	cloned := make([]RankedTuningResult, len(results))
+	for i, result := range results {
+		cloned[i] = RankedTuningResult{
+			Candidate: cloneTuningCandidate(result.Candidate),
+			Latency:   result.Latency,
+		}
+	}
+	return cloned
 }
 
 // PGO returns the tracker's live measurements. It is safe for a recorder
@@ -207,16 +356,33 @@ func benchmarkPlan(cand TuningCandidate) (launchPlan, error) {
 // returning average host wall time per iteration across launches and stream
 // synchronization. Compilation, loading and warmup precede the measured interval.
 func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time.Duration, error) {
+	return benchmarkCandidateContext(context.Background(), dev, cand, iters)
+}
+
+func benchmarkCandidateContext(ctx context.Context, dev *cuda.Device, cand TuningCandidate, iters int) (_ time.Duration, retErr error) {
+	if ctx == nil {
+		return 0, fmt.Errorf("egraph: nil context for benchmark")
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	if dev == nil {
 		return 0, fmt.Errorf("egraph: nil CUDA device for benchmark")
+	}
+	plan, err := benchmarkPlan(cand)
+	if err != nil {
+		return 0, err
 	}
 	if iters <= 0 {
 		iters = 5
 	}
 
-	mod, err := nvrtcx.Compile(cand.CUDASource, nvrtcx.WithDeviceArch(dev))
+	mod, err := nvrtcx.CompileContext(ctx, cand.CUDASource, nvrtcx.WithDeviceArch(dev))
 	if err != nil {
 		return 0, fmt.Errorf("egraph: compile candidate: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
 	}
 
 	loadedMod, err := mod.Load(dev)
@@ -224,6 +390,9 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 		return 0, fmt.Errorf("egraph: load module: %w", err)
 	}
 	defer loadedMod.Close()
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 
 	fn, err := loadedMod.Function(cand.KernelName)
 	if err != nil {
@@ -234,12 +403,7 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	if err != nil {
 		return 0, fmt.Errorf("egraph: create stream: %w", err)
 	}
-	defer stream.Close()
 
-	plan, err := benchmarkPlan(cand)
-	if err != nil {
-		return 0, err
-	}
 	bufs := make([]cudamem.Slice[float32], len(plan.buffers))
 	for i, n := range plan.buffers {
 		b, err := cudamem.Alloc[float32](dev, n)
@@ -247,15 +411,38 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 			for _, done := range bufs[:i] {
 				_ = done.Free()
 			}
+			if closeErr := stream.Close(); closeErr != nil {
+				return 0, errors.Join(fmt.Errorf("egraph: alloc benchmark buffer %d: %w", i, err), closeErr)
+			}
 			return 0, fmt.Errorf("egraph: alloc benchmark buffer %d: %w", i, err)
 		}
 		bufs[i] = b
 	}
+	// Close synchronizes any work still in flight. A cancelled Synchronize
+	// does not cancel GPU work; if Close cannot establish completion, retain
+	// the buffers rather than freeing memory that queued kernels may still use.
 	defer func() {
+		if closeErr := stream.Close(); closeErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("egraph: close benchmark stream: %w", closeErr))
+			return
+		}
 		for _, b := range bufs {
-			_ = b.Free()
+			if freeErr := b.Free(); freeErr != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("egraph: free benchmark buffer: %w", freeErr))
+			}
 		}
 	}()
+	// Kernels are measured with a reproducible all-zero input and output state.
+	// The benchmark measures launch behavior, not numerical quality; zeroed
+	// quantization scales also keep packed-weight fixtures finite and repeatable.
+	for i, b := range bufs {
+		if err := b.MemsetAsync(0, stream); err != nil {
+			return 0, fmt.Errorf("egraph: initialize benchmark buffer %d: %w", i, err)
+		}
+	}
+	if err := stream.Synchronize(ctx); err != nil {
+		return 0, fmt.Errorf("egraph: synchronize benchmark buffer initialization: %w", err)
+	}
 
 	args := make([]any, 0, len(bufs)+len(plan.scalars))
 	for _, b := range bufs {
@@ -279,10 +466,13 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	launcher := cudalaunch.Kernel(fn).Grid(grid, 1, 1).Block(block, 1, 1).SharedMem(shared).On(stream)
 
 	// 1. Warmup Execution
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	if err := launcher.Launch(args...); err != nil {
 		return 0, fmt.Errorf("egraph: warmup launch: %w", err)
 	}
-	if err := stream.Synchronize(context.Background()); err != nil {
+	if err := stream.Synchronize(ctx); err != nil {
 		return 0, fmt.Errorf("egraph: warmup sync: %w", err)
 	}
 	if cand.Expr != nil && cand.Expr.Op == "iq2_xxs_matvec" {
@@ -300,11 +490,14 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 	// 2. Host elapsed time for launches and synchronization.
 	t0 := time.Now()
 	for i := 0; i < iters; i++ {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
 		if err := launcher.Launch(args...); err != nil {
 			return 0, fmt.Errorf("egraph: benchmark launch: %w", err)
 		}
 	}
-	if err := stream.Synchronize(context.Background()); err != nil {
+	if err := stream.Synchronize(ctx); err != nil {
 		return 0, fmt.Errorf("egraph: benchmark sync: %w", err)
 	}
 	elapsed := time.Since(t0) / time.Duration(iters)
@@ -315,10 +508,36 @@ func BenchmarkCandidate(dev *cuda.Device, cand TuningCandidate, iters int) (time
 // SelectBest extracts the instant default plan and, if budget > 0, benchmarks candidate
 // tile/kernel configurations on the device to pick the fastest kernel.
 func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget) (*TuningCandidate, error) {
+	if t == nil {
+		return nil, fmt.Errorf("egraph: nil tuner for autotuning")
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("egraph: nil context for autotuning")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if g == nil {
+		return nil, fmt.Errorf("egraph: nil E-Graph for autotuning")
+	}
+	var deadline time.Time
+	tuningEnabled := budget != BudgetInstant && t.dev != nil
+	if tuningEnabled {
+		deadline = time.Now().Add(time.Duration(budget))
+		if !time.Now().Before(deadline) {
+			return nil, fmt.Errorf("egraph: autotune budget expired before default extraction")
+		}
+	}
 	// 1. Instant extraction (zero delay)
 	defaultExpr, _, err := ExtractBest(g, root, FusedMegakernelCost{})
 	if err != nil {
 		return nil, fmt.Errorf("egraph: extract default: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if tuningEnabled && !time.Now().Before(deadline) {
+		return nil, fmt.Errorf("egraph: autotune budget expired during default extraction")
 	}
 
 	defaultCand := TuningCandidate{
@@ -327,72 +546,199 @@ func (t *Tuner) SelectBest(ctx context.Context, g *EGraph, root Id, budget Autot
 		KernelName: "Kernel_Auto_Default",
 	}
 
-	if budget == BudgetInstant || t.dev == nil {
+	if !tuningEnabled {
 		return &defaultCand, nil
 	}
-
-	cacheKey := fmt.Sprintf("%s::budget=%v", defaultExpr.String(), budget)
+	cacheKey := fmt.Sprintf("graph=%p::revision=%d::root=%d::budget=%v", g, g.revision, g.Find(root), budget)
 	t.mu.RLock()
 	cached, ok := t.cache[cacheKey]
 	t.mu.RUnlock()
 	if ok {
-		return &cached, nil
+		copy := cloneTuningCandidate(cached)
+		return &copy, nil
 	}
 
-	// 2. Multi-Candidate Tile Space Exploration within Budget
-	tileSizes := []int{64, 128, 256, 512}
-	deadline := time.Now().Add(time.Duration(budget))
-
-	bestCand := defaultCand
-	bestDur := time.Duration(1<<63 - 1)
-	// Why every candidate was discarded, if every candidate was. Returning
-	// the unbenchmarked default and reporting success hid a total failure to
-	// tune behind a candidate that carried no source at all.
-	var lastErr error
-
-	for _, blockSize := range tileSizes {
-		if time.Now().After(deadline) {
-			break
-		}
-
-		cand := TuningCandidate{
-			Expr:       defaultExpr,
-			BlockDim:   blockSize,
-			KernelName: fmt.Sprintf("Kernel_Auto_Block%d", blockSize),
-		}
-
-		src, err := GenerateCUDA(defaultExpr, CodegenOptions{
-			KernelName: cand.KernelName,
-			Precision:  "float",
-		})
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		cand.CUDASource = src
-
-		// Measure real GPU execution latency on hardware
-		execDur, err := BenchmarkCandidate(t.dev, cand, 5)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		t.pgo.Record(cand.Key(), execDur)
-
-		if execDur < bestDur {
-			bestDur = execDur
-			bestCand = cand
-		}
-	}
-
-	if lastErr != nil && bestCand.CUDASource == "" {
-		return nil, fmt.Errorf("egraph: no candidate could be benchmarked for %s: %w", defaultExpr.String(), lastErr)
+	bestCand, bestDur, err := t.searchChoices(ctx, g, root, deadline, "synthetic", t.measureExpression, nil)
+	if err != nil {
+		return nil, fmt.Errorf("egraph: tune reachable graph choices for %s: %w", defaultExpr.String(), err)
 	}
 
 	t.mu.Lock()
-	t.cache[cacheKey] = bestCand
+	t.cache[cacheKey] = cloneTuningCandidate(bestCand)
 	t.bestScores[cacheKey] = bestDur
 	t.mu.Unlock()
 
+	bestCand = cloneTuningCandidate(bestCand)
 	return &bestCand, nil
+}
+
+// SelectBestWithEvaluator searches reachable e-graph alternatives using a
+// caller-supplied workload evaluator. workloadID must be a stable identity for
+// the exact shapes, inputs, correctness checks, and hard constraints measured
+// by evaluator; it participates in both the random seed and result cache key.
+// Errors from evaluator reject that candidate, while context cancellation
+// stops the search. The evaluator must honor ctx because it cannot be forcibly
+// interrupted.
+func (t *Tuner) SelectBestWithEvaluator(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget, workloadID string, evaluator CandidateEvaluator) (*TuningCandidate, error) {
+	if evaluator == nil {
+		return nil, fmt.Errorf("egraph: nil candidate evaluator for autotuning")
+	}
+	measure := func(ctx context.Context, expr *Expr, deadline time.Time) (TuningCandidate, time.Duration, error) {
+		return measureExpressionWithEvaluator(ctx, expr, deadline, evaluator)
+	}
+	return t.selectBestWithWorkload(ctx, g, root, budget, workloadID, "candidate", measure)
+}
+
+// SelectBestWithExpressionEvaluator searches reachable alternatives with a
+// caller-defined workload evaluator. The callback receives each materialized
+// expression directly, without generic CUDA generation or launch-parameter
+// sweeps. workloadID must stably identify the shapes, inputs, correctness
+// checks, and hard constraints; it participates in the deterministic search
+// seed and result cache key. The callback must honor ctx because it cannot be
+// forcibly interrupted. Callback errors reject that expression candidate.
+func (t *Tuner) SelectBestWithExpressionEvaluator(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget, workloadID string, evaluator ExpressionWorkloadEvaluator) (*TuningCandidate, error) {
+	if evaluator == nil {
+		return nil, fmt.Errorf("egraph: nil expression workload evaluator")
+	}
+	measure := func(ctx context.Context, expr *Expr, deadline time.Time) (TuningCandidate, time.Duration, error) {
+		candidateCtx, cancel := context.WithDeadline(ctx, deadline)
+		input := cloneTuningExpr(expr)
+		before := cloneTuningExpr(input)
+		candidate, duration, err := evaluator(candidateCtx, input)
+		ctxErr := candidateCtx.Err()
+		cancel()
+		if ctxErr != nil {
+			return TuningCandidate{}, 0, ctxErr
+		}
+		if err != nil {
+			return TuningCandidate{}, 0, err
+		}
+		if !reflect.DeepEqual(input, before) {
+			return TuningCandidate{}, 0, fmt.Errorf("expression workload evaluator mutated its expression input")
+		}
+		if !reflect.DeepEqual(candidate.Expr, before) {
+			return TuningCandidate{}, 0, fmt.Errorf("expression workload evaluator returned a candidate for a different expression")
+		}
+		if duration <= 0 {
+			return TuningCandidate{}, 0, fmt.Errorf("expression workload evaluator returned non-positive duration")
+		}
+		candidate.Expr = cloneTuningExpr(before)
+		return candidate, duration, nil
+	}
+	return t.selectBestWithWorkload(ctx, g, root, budget, workloadID, "expression", measure)
+}
+
+func (t *Tuner) selectBestWithWorkload(ctx context.Context, g *EGraph, root Id, budget AutotuneBudget, workloadID, evaluatorKind string, measure expressionEvaluator) (*TuningCandidate, error) {
+	if t == nil {
+		return nil, fmt.Errorf("egraph: nil tuner for autotuning")
+	}
+	if ctx == nil {
+		return nil, fmt.Errorf("egraph: nil context for autotuning")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if g == nil {
+		return nil, fmt.Errorf("egraph: nil E-Graph for autotuning")
+	}
+	if strings.TrimSpace(workloadID) == "" {
+		return nil, fmt.Errorf("egraph: empty workload identity for autotuning")
+	}
+	if budget == BudgetInstant {
+		return nil, fmt.Errorf("egraph: measured candidate search requires a positive budget")
+	}
+	deadline := time.Now().Add(time.Duration(budget))
+	if !time.Now().Before(deadline) {
+		return nil, fmt.Errorf("egraph: autotune budget expired before choice search")
+	}
+	if err := g.RebuildChecked(); err != nil {
+		return nil, fmt.Errorf("egraph: rebuild before measured choice search: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if !time.Now().Before(deadline) {
+		return nil, fmt.Errorf("egraph: autotune budget expired while rebuilding graph")
+	}
+	cacheKey := fmt.Sprintf("evaluator=%s:%q::graph=%p::revision=%d::root=%d::budget=%v", evaluatorKind, workloadID, g, g.revision, g.Find(root), budget)
+	t.mu.RLock()
+	cached, ok := t.cache[cacheKey]
+	t.mu.RUnlock()
+	if ok {
+		copy := cloneTuningCandidate(cached)
+		return &copy, nil
+	}
+	best, duration, err := t.searchChoices(ctx, g, root, deadline, workloadID, measure, nil)
+	if err != nil {
+		return nil, fmt.Errorf("egraph: evaluate reachable choices for workload %q: %w", workloadID, err)
+	}
+	t.mu.Lock()
+	t.cache[cacheKey] = cloneTuningCandidate(best)
+	t.bestScores[cacheKey] = duration
+	t.mu.Unlock()
+	best = cloneTuningCandidate(best)
+	return &best, nil
+}
+
+func measureExpressionWithEvaluator(ctx context.Context, expr *Expr, deadline time.Time, evaluator CandidateEvaluator) (TuningCandidate, time.Duration, error) {
+	var best TuningCandidate
+	var bestDuration time.Duration
+	benchmarked := false
+	var lastErr error
+	fingerprint := expr.Fingerprint()
+	for _, blockSize := range autotuneBlockSizes {
+		if err := ctx.Err(); err != nil {
+			return TuningCandidate{}, 0, err
+		}
+		if !time.Now().Before(deadline) {
+			break
+		}
+		name := fmt.Sprintf("Kernel_Auto_%s_Block%d", sanitizeName(expr.Op), blockSize)
+		source, err := GenerateCUDA(expr, CodegenOptions{KernelName: name, Precision: "float"})
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		candidate := TuningCandidate{Expr: expr, BlockDim: blockSize, KernelName: name, CUDASource: source}
+		candidateCtx, cancel := context.WithDeadline(ctx, deadline)
+		latency, evalErr := evaluator(candidateCtx, &candidate)
+		cancel()
+		if errors.Is(evalErr, context.Canceled) || errors.Is(evalErr, context.DeadlineExceeded) {
+			return TuningCandidate{}, 0, evalErr
+		}
+		if err := ctx.Err(); err != nil {
+			return TuningCandidate{}, 0, err
+		}
+		if !time.Now().Before(deadline) {
+			lastErr = fmt.Errorf("autotune budget expired during workload evaluation")
+			break
+		}
+		if evalErr != nil {
+			lastErr = evalErr
+			continue
+		}
+		if candidate.Expr != expr || candidate.CUDASource != source ||
+			candidate.KernelName != name || candidate.BlockDim != blockSize ||
+			expr.Fingerprint() != fingerprint {
+			lastErr = fmt.Errorf("candidate evaluator changed expression, source, or candidate identity")
+			continue
+		}
+		if latency <= 0 {
+			lastErr = fmt.Errorf("candidate evaluator returned non-positive latency")
+			continue
+		}
+		if !benchmarked || latency < bestDuration {
+			best, bestDuration, benchmarked = candidate, latency, true
+		}
+	}
+	if !benchmarked {
+		if err := ctx.Err(); err != nil {
+			return TuningCandidate{}, 0, err
+		}
+		if lastErr == nil {
+			lastErr = fmt.Errorf("no workload evaluation completed")
+		}
+		return TuningCandidate{}, 0, lastErr
+	}
+	return best, bestDuration, nil
 }

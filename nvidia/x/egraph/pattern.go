@@ -3,8 +3,12 @@ package egraph
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/bits"
+	"reflect"
 	"strings"
-	"unicode"
+
+	"github.com/tmc/lib/egraphcore"
 )
 
 var ErrMatchWorkLimit = errors.New("egraph: pattern match work limit exceeded")
@@ -26,6 +30,9 @@ type Pattern struct {
 	Op       string
 	IsVar    bool
 	Children []*Pattern
+	// HasData matches Data exactly. Without HasData, Data is unconstrained.
+	HasData bool
+	Data    any
 }
 
 // Var creates a variable pattern node (e.g. "?a", "?x").
@@ -50,104 +57,122 @@ func Pat(op string, children ...*Pattern) *Pattern {
 
 // ParsePattern parses an S-expression pattern string like "(+ ?a ?b)" or "(gemv (rmsnorm ?x ?w) ?wq)".
 func ParsePattern(s string) (*Pattern, error) {
-	tokens := tokenize(s)
-	if len(tokens) == 0 {
-		return nil, fmt.Errorf("egraph: empty pattern")
-	}
-	p, rem, err := parseExpr(tokens)
+	core, err := egraphcore.ParsePattern(s)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("egraph: %w", err)
 	}
-	if len(rem) > 0 {
-		return nil, fmt.Errorf("egraph: unparsed trailing tokens in pattern: %v", rem)
-	}
-	return p, nil
+	return &Pattern{Op: core.Op, IsVar: core.Variable, Children: convertCorePatternChildren(core.Children)}, nil
 }
 
-func tokenize(s string) []string {
-	var tokens []string
-	var curr strings.Builder
-
-	flush := func() {
-		if curr.Len() > 0 {
-			tokens = append(tokens, curr.String())
-			curr.Reset()
+func convertCorePatternChildren(children []*egraphcore.Pattern) []*Pattern {
+	type pair struct {
+		core  *egraphcore.Pattern
+		local *Pattern
+	}
+	converted := make([]*Pattern, len(children))
+	stack := make([]pair, 0, len(children))
+	for i, child := range children {
+		converted[i] = &Pattern{Op: child.Op, IsVar: child.Variable}
+		stack = append(stack, pair{core: child, local: converted[i]})
+	}
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		current := stack[last]
+		stack = stack[:last]
+		current.local.Children = make([]*Pattern, len(current.core.Children))
+		for i, child := range current.core.Children {
+			current.local.Children[i] = &Pattern{Op: child.Op, IsVar: child.Variable}
+			stack = append(stack, pair{core: child, local: current.local.Children[i]})
 		}
 	}
-
-	for _, r := range s {
-		switch {
-		case r == '(' || r == ')' || r == ',':
-			flush()
-			if r != ',' {
-				tokens = append(tokens, string(r))
-			}
-		case unicode.IsSpace(r):
-			flush()
-		default:
-			curr.WriteRune(r)
-		}
-	}
-	flush()
-	return tokens
-}
-
-func parseExpr(tokens []string) (*Pattern, []string, error) {
-	if len(tokens) == 0 {
-		return nil, nil, fmt.Errorf("egraph: unexpected end of tokens")
-	}
-
-	head := tokens[0]
-	tokens = tokens[1:]
-
-	if head == "(" {
-		if len(tokens) == 0 {
-			return nil, nil, fmt.Errorf("egraph: unmatched '('")
-		}
-		op := tokens[0]
-		tokens = tokens[1:]
-
-		var children []*Pattern
-		for len(tokens) > 0 && tokens[0] != ")" {
-			child, rem, err := parseExpr(tokens)
-			if err != nil {
-				return nil, nil, err
-			}
-			children = append(children, child)
-			tokens = rem
-		}
-		if len(tokens) == 0 || tokens[0] != ")" {
-			return nil, nil, fmt.Errorf("egraph: missing ')' for op %s", op)
-		}
-		return Pat(op, children...), tokens[1:], nil
-	}
-
-	if strings.HasPrefix(head, "?") {
-		return Var(head), tokens, nil
-	}
-
-	return &Pattern{Op: head}, tokens, nil
+	return converted
 }
 
 // MatchMatch represents a matched pattern instance at a specific EClass.
 type MatchMatch struct {
 	ClassID Id
 	Subst   Subst
+	Binding egraphcore.Binding[Id]
 }
 
-// Search searches for all matches of the pattern across the entire E-Graph.
+// Search rebuilds pending unions, then searches for all matches across the
+// entire E-Graph. It returns nil if matching or rebuilding fails.
 func (p *Pattern) Search(g *EGraph) []MatchMatch {
-	var matches []MatchMatch
-	for _, c := range g.Classes() {
-		substs := p.MatchEClass(g, c.ID, make(Subst))
-		for _, s := range substs {
-			matches = append(matches, MatchMatch{
-				ClassID: c.ID,
-				Subst:   s,
-			})
-		}
+	if p == nil || g == nil {
+		return nil
+	}
+	if err := validatePatternTree(p); err != nil {
+		return nil
+	}
+	if err := g.RebuildChecked(); err != nil {
+		return nil
+	}
+	classes := g.classes()
+	roots := make([]Id, len(classes))
+	for i, class := range classes {
+		roots[i] = class.ID
+	}
+	const perClassWork = 100000
+	maxInt := int(^uint(0) >> 1)
+	workLimit := maxInt
+	if len(roots) <= maxInt/perClassWork {
+		workLimit = len(roots) * perClassWork
+	}
+	matches, _, err := p.searchCore(g, roots, egraphcore.NewWorkBudget(workLimit), 0)
+	if err != nil {
+		return nil
 	}
 	return matches
+}
+
+// SearchWithBudget rebuilds pending unions, then returns every match if the
+// search completes. It charges class enumeration and match emission to budget
+// and returns no partial matches when work is exhausted.
+func (p *Pattern) SearchWithBudget(g *EGraph, budget *egraphcore.WorkBudget) ([]MatchMatch, error) {
+	if p == nil || g == nil || budget == nil {
+		return nil, egraphcore.ErrInvalidPattern
+	}
+	if err := validatePatternTree(p); err != nil {
+		return nil, fmt.Errorf("egraph: invalid pattern: %w", err)
+	}
+	if err := g.RebuildChecked(); err != nil {
+		return nil, fmt.Errorf("egraph: rebuild before search: %w", err)
+	}
+	classCount := g.storage().ClassCount()
+	sortWork := classCount
+	if classCount > 1 {
+		levels := bits.Len(uint(classCount))
+		if classCount > math.MaxInt/(2*levels) {
+			return nil, ErrMatchWorkLimit
+		}
+		sortWork = 2 * classCount * levels
+	}
+	if !budget.TrySpend(sortWork) {
+		return nil, ErrMatchWorkLimit
+	}
+	classes := g.classes()
+	roots := make([]Id, len(classes))
+	for i, class := range classes {
+		roots[i] = class.ID
+	}
+	maxMatches := 0
+	if remaining := budget.Remaining(); remaining < int(^uint(0)>>1) {
+		maxMatches = remaining + 1
+	}
+	matches, limited, err := p.searchCore(g, roots, budget, maxMatches)
+	if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
+		return nil, ErrMatchWorkLimit
+	}
+	if err != nil {
+		return nil, err
+	}
+	if limited {
+		return nil, ErrMatchWorkLimit
+	}
+	if !budget.TrySpend(len(matches)) {
+		return nil, ErrMatchWorkLimit
+	}
+	return matches, nil
 }
 
 // SearchBounded searches in class order and returns at most limit matches.
@@ -155,103 +180,178 @@ func (p *Pattern) Search(g *EGraph) []MatchMatch {
 // a small output limit does not prohibit nested patterns. The bool reports reaching either
 // allowance, so it does not imply that another match exists.
 func (p *Pattern) SearchBounded(g *EGraph, limit int) ([]MatchMatch, bool) {
-	if limit <= 0 {
+	if limit <= 0 || p == nil || g == nil {
 		return nil, false
 	}
-	var matches []MatchMatch
-	work := 0
-	const maxWork = 100000
-	for _, c := range g.Classes() {
-		for _, s := range p.matchEClassBudget(g, c.ID, make(Subst), &work, maxWork) {
-			matches = append(matches, MatchMatch{ClassID: c.ID, Subst: s})
-			if len(matches) >= limit {
-				return matches, true
-			}
-		}
-		if work > maxWork {
-			return matches, true
-		}
+	matches, truncated, err := p.SearchBoundedChecked(g, limit)
+	if err != nil {
+		return nil, true
 	}
-	return matches, false
+	return matches, truncated || len(matches) >= limit
 }
 
-// MatchEClass checks if this pattern matches against a specific e-class.
+// SearchBoundedChecked returns at most limit matches and reports whether more
+// matches were available. Unlike SearchBounded, it distinguishes work-limit
+// exhaustion and invalid patterns from an output limit.
+func (p *Pattern) SearchBoundedChecked(g *EGraph, limit int) ([]MatchMatch, bool, error) {
+	return p.SearchBoundedWithBudget(g, limit, egraphcore.NewWorkBudget(100000))
+}
+
+// SearchBoundedWithBudget rebuilds pending unions, then returns at most limit
+// matches and reports whether more matches were available. It shares budget
+// with the caller.
+func (p *Pattern) SearchBoundedWithBudget(g *EGraph, limit int, budget *egraphcore.WorkBudget) ([]MatchMatch, bool, error) {
+	if limit <= 0 {
+		return nil, false, nil
+	}
+	if p == nil || g == nil || budget == nil {
+		return nil, false, egraphcore.ErrInvalidPattern
+	}
+	if err := validatePatternTree(p); err != nil {
+		return nil, false, err
+	}
+	if err := g.RebuildChecked(); err != nil {
+		return nil, false, fmt.Errorf("egraph: rebuild before bounded search: %w", err)
+	}
+	classCount := g.storage().ClassCount()
+	sortWork := classCount
+	if classCount > 1 {
+		levels := bits.Len(uint(classCount))
+		if classCount > math.MaxInt/(2*levels) {
+			return nil, false, ErrMatchWorkLimit
+		}
+		sortWork = 2 * classCount * levels
+	}
+	if !budget.TrySpend(sortWork) {
+		return nil, false, ErrMatchWorkLimit
+	}
+	classes := g.classes()
+	roots := make([]Id, len(classes))
+	for i, class := range classes {
+		roots[i] = class.ID
+	}
+	maxMatches := limit
+	if limit < math.MaxInt {
+		maxMatches++
+	} else {
+		maxMatches = 0
+	}
+	matches, limited, err := p.searchCore(g, roots, budget, maxMatches)
+	if err != nil {
+		if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
+			return nil, false, ErrMatchWorkLimit
+		}
+		return nil, false, err
+	}
+	if !budget.TrySpend(len(matches)) {
+		return nil, false, ErrMatchWorkLimit
+	}
+	if limited {
+		return matches[:limit], true, nil
+	}
+	return matches, false, nil
+}
+
+func (p *Pattern) searchCore(g *EGraph, roots []Id, budget *egraphcore.WorkBudget, maxMatches int) ([]MatchMatch, bool, error) {
+	matches, limited, err := egraphcore.SearchWithMatcher(
+		p, roots, budget, maxMatches, matcherCallbacks(g),
+	)
+	if err != nil {
+		return nil, false, err
+	}
+	converted := make([]MatchMatch, len(matches))
+	for i, match := range matches {
+		binding := make(egraphcore.Binding[Id], len(match.Subst))
+		for name, id := range match.Subst {
+			binding[name] = egraphcore.Class(id)
+		}
+		converted[i] = MatchMatch{ClassID: match.ClassID, Subst: Subst(match.Subst), Binding: binding}
+	}
+	return converted, limited, nil
+}
+
+// MatchEClass rebuilds pending unions, then checks whether this pattern
+// matches a specific e-class. It returns nil if matching or rebuilding fails.
 func (p *Pattern) MatchEClass(g *EGraph, classID Id, current Subst) []Subst {
-	work := 0
-	return p.matchEClassBudget(g, classID, current, &work, 100000)
+	if p == nil || g == nil {
+		return nil
+	}
+	if err := validatePatternTree(p); err != nil {
+		return nil
+	}
+	if g.RebuildChecked() != nil {
+		return nil
+	}
+	result, _ := p.matchEClassBudget(g, classID, current, egraphcore.NewWorkBudget(100000))
+	return result
 }
 
-// MatchEClassBounded matches with a finite budget for recursive calls and
-// e-node visits, including nodes that do not match. Exhaustion returns no matches
-// and ErrMatchWorkLimit.
+// MatchEClassBounded rebuilds pending unions, then matches with a finite budget
+// for recursive calls and e-node visits, including nodes that do not match.
+// Exhaustion returns no matches and ErrMatchWorkLimit.
 func (p *Pattern) MatchEClassBounded(g *EGraph, classID Id, current Subst, limit int) ([]Subst, error) {
 	if limit <= 0 {
 		return nil, ErrMatchWorkLimit
 	}
-	work := 0
-	result := p.matchEClassBudget(g, classID, current, &work, limit)
-	if work > limit {
+	if p == nil || g == nil {
+		return nil, egraphcore.ErrInvalidPattern
+	}
+	if err := validatePatternTree(p); err != nil {
+		return nil, err
+	}
+	if err := g.RebuildChecked(); err != nil {
+		return nil, fmt.Errorf("egraph: rebuild before class match: %w", err)
+	}
+	result, err := p.matchEClassBudget(g, classID, current, egraphcore.NewWorkBudget(limit))
+	if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
 		return nil, ErrMatchWorkLimit
 	}
-	return result, nil
+	return result, err
 }
 
-func (p *Pattern) matchEClassBudget(g *EGraph, classID Id, current Subst, work *int, limit int) []Subst {
-	(*work)++
-	if *work > limit {
-		return nil
+func (p *Pattern) matchEClassBudget(g *EGraph, classID Id, current Subst, budget *egraphcore.WorkBudget) ([]Subst, error) {
+	if p == nil || g == nil {
+		return nil, egraphcore.ErrInvalidPattern
 	}
-	canonicalID := g.Find(classID)
+	results, err := egraphcore.MatchEClassWithMatcher(p, classID, current, budget, matcherCallbacks(g))
+	if err != nil {
+		return nil, err
+	}
+	converted := make([]Subst, len(results))
+	for i, subst := range results {
+		converted[i] = Subst(subst)
+	}
+	return converted, nil
+}
 
-	if p.IsVar {
-		if boundID, ok := current[p.Op]; ok {
-			if g.Find(boundID) == canonicalID {
-				return []Subst{current}
+func matcherCallbacks(g *EGraph) egraphcore.MatcherCallbacks[Id, ENode, *Pattern] {
+	return egraphcore.MatcherCallbacks[Id, ENode, *Pattern]{
+		Find:            g.Find,
+		ValidPattern:    func(pattern *Pattern) bool { return pattern != nil },
+		IsVariable:      func(pattern *Pattern) (string, bool) { return pattern.Op, pattern.IsVar },
+		PatternChildren: func(pattern *Pattern) []*Pattern { return pattern.Children },
+		Candidates: func(id Id, _ *Pattern) []ENode {
+			class := g.class(id)
+			if class == nil {
+				return nil
 			}
-			return nil
-		}
-		// Bind variable
-		s := current.Clone()
-		s[p.Op] = canonicalID
-		return []Subst{s}
+			return class.Nodes
+		},
+		NodeEligible: func(node ENode, pattern *Pattern) bool {
+			return !node.Subsumed && pattern.matchesNode(node)
+		},
+		NodeChildren: func(node ENode) []Id { return node.Children },
 	}
+}
 
-	eclass := g.Class(canonicalID)
-	if eclass == nil {
-		return nil
+func (p *Pattern) matchesNode(node ENode) bool {
+	if p == nil || p.IsVar || node.Op != p.Op || len(node.Children) != len(p.Children) {
+		return false
 	}
-
-	var results []Subst
-	for _, node := range eclass.Nodes {
-		(*work)++
-		if *work > limit {
-			return results
-		}
-		if node.Op != p.Op || len(node.Children) != len(p.Children) {
-			continue
-		}
-
-		// Match all child patterns recursively
-		currentSubsts := []Subst{current}
-		for i, childPat := range p.Children {
-			childClassID := node.Children[i]
-			var nextSubsts []Subst
-			for _, sub := range currentSubsts {
-				res := childPat.matchEClassBudget(g, childClassID, sub, work, limit)
-				if *work > limit {
-					return results
-				}
-				nextSubsts = append(nextSubsts, res...)
-			}
-			currentSubsts = nextSubsts
-			if len(currentSubsts) == 0 {
-				break
-			}
-		}
-		results = append(results, currentSubsts...)
+	if p.HasData {
+		return reflect.DeepEqual(p.Data, node.Data)
 	}
-
-	return results
+	return true
 }
 
 // Instantiate creates new ENodes in the E-Graph according to this pattern and the given substitution.

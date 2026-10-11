@@ -1,6 +1,7 @@
 package egraph_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -167,7 +168,7 @@ func TestAutotuner(t *testing.T) {
 	mul := eg.Add(egraph.NewNode("matmul", x, w))
 
 	tuner := egraph.NewTuner(nil) // nil dev defaults to instant extraction
-	cand, err := tuner.SelectBest(nil, eg, mul, egraph.BudgetInstant)
+	cand, err := tuner.SelectBest(context.Background(), eg, mul, egraph.BudgetInstant)
 	if err != nil {
 		t.Fatalf("SelectBest failed: %v", err)
 	}

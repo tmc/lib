@@ -3,7 +3,10 @@ package egraph
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudashape"
 )
@@ -25,9 +28,10 @@ var (
 	ErrGroupingDependenceViolation = errors.New("egraph: grouping rewrite violates dependence precondition")
 
 	// ErrUnalignedVectorAccess is returned when a vector load/store violates alignment preconditions.
-	ErrUnalignedVectorAccess = errors.New("egraph: unaligned vector memory access in rewrite")
-	ErrMissingTypedMetadata  = errors.New("egraph: mandatory rewrite requires typed metadata")
-	ErrInvalidRewriteProof   = errors.New("egraph: rewrite proof precondition not met")
+	ErrUnalignedVectorAccess       = errors.New("egraph: unaligned vector memory access in rewrite")
+	ErrIncompatibleNumericalPolicy = errors.New("egraph: incompatible numerical policies in rewrite")
+	ErrMissingTypedMetadata        = errors.New("egraph: mandatory rewrite requires typed metadata")
+	ErrInvalidRewriteProof         = errors.New("egraph: rewrite proof precondition not met")
 )
 
 // TypedMetadata holds typed contract information for an e-class or expression node.
@@ -83,33 +87,141 @@ func CheckLegality(current, proposed TypedMetadata) error {
 				ErrUnalignedVectorAccess, current.Alignment, proposed.Alignment)
 		}
 	}
+	if current.NumericalPolicy != "" && proposed.NumericalPolicy != "" && current.NumericalPolicy != proposed.NumericalPolicy {
+		return fmt.Errorf("%w: current %q, proposed %q", ErrIncompatibleNumericalPolicy, current.NumericalPolicy, proposed.NumericalPolicy)
+	}
 
 	return nil
 }
 
+// mergeMetadata combines compatible contracts while retaining facts supplied
+// by either side. A missing alignment or numerical policy is treated as
+// unknown; LoopInvariant is true only when both inputs assert it.
+func mergeMetadata(current, proposed TypedMetadata) (TypedMetadata, error) {
+	if err := CheckLegality(current, proposed); err != nil {
+		return TypedMetadata{}, err
+	}
+	merged := current.Clone()
+	if merged.Alignment == 0 {
+		merged.Alignment = proposed.Alignment
+	}
+	if merged.NumericalPolicy == "" {
+		merged.NumericalPolicy = proposed.NumericalPolicy
+	}
+	merged.LoopInvariant = current.LoopInvariant && proposed.LoopInvariant
+	return merged, nil
+}
+
 // LegalAdapter wraps an EGraph with typed metadata tracking and legality gates.
 type LegalAdapter struct {
-	g        *EGraph
-	metadata map[Id]TypedMetadata
+	g           *EGraph
+	metadataErr error
 }
 
 // NewLegalAdapter creates a LegalAdapter for the given EGraph.
 func NewLegalAdapter(g *EGraph) *LegalAdapter {
-	return &LegalAdapter{
-		g:        g,
-		metadata: make(map[Id]TypedMetadata),
+	a := &LegalAdapter{g: g}
+	if g == nil {
+		a.metadataErr = fmt.Errorf("egraph: nil graph")
+		return a
+	}
+	_, a.metadataErr = g.Facts().Register(typedMetadataSchema())
+	return a
+}
+
+func typedMetadataSchema() egraphcore.Schema {
+	return egraphcore.Schema{
+		Name: "nvidia.typed_metadata",
+		Columns: []egraphcore.Column{
+			{Kind: egraphcore.ClassValue}, {Kind: egraphcore.StringValue},
+			{Kind: egraphcore.Int64Value}, {Kind: egraphcore.Int64Value},
+			{Kind: egraphcore.Int64Value}, {Kind: egraphcore.Int64Value},
+			{Kind: egraphcore.BoolValue}, {Kind: egraphcore.StringValue},
+		},
 	}
 }
 
-// SetMetadata records typed metadata for an e-class.
-func (a *LegalAdapter) SetMetadata(id Id, meta TypedMetadata) {
-	a.metadata[a.g.Find(id)] = meta
+func (a *LegalAdapter) metadataRelation() (*egraphcore.Relation[Id], error) {
+	if a == nil || a.g == nil {
+		return nil, fmt.Errorf("egraph: nil legal adapter")
+	}
+	if a.metadataErr != nil {
+		return nil, a.metadataErr
+	}
+	relation := a.g.Facts().Get("nvidia.typed_metadata")
+	if relation == nil {
+		return nil, fmt.Errorf("egraph: typed metadata relation is not registered")
+	}
+	return relation, nil
 }
 
-// GetMetadata retrieves typed metadata for an e-class.
+// SetMetadata records typed metadata for an e-class.
+func (a *LegalAdapter) SetMetadata(id Id, meta TypedMetadata) error {
+	relation, err := a.metadataRelation()
+	if err != nil {
+		return err
+	}
+	root := a.g.Find(id)
+	staged := a.g.Facts().Clone()
+	relation = staged.Get("nvidia.typed_metadata")
+	rows, complete, err := relation.Query([]egraphcore.Filter[Id]{{Column: 0, Value: egraphcore.Class(root)}}, a.g.Find, nil)
+	if err != nil {
+		return fmt.Errorf("egraph: query typed metadata for update: %w", err)
+	}
+	if !complete {
+		return fmt.Errorf("egraph: typed metadata update query was incomplete")
+	}
+	for _, row := range rows {
+		if _, err := relation.Delete(row, a.g.Find); err != nil {
+			return fmt.Errorf("egraph: delete typed metadata: %w", err)
+		}
+	}
+	if _, err := relation.Add(metadataValues(root, meta), a.g.Find); err != nil {
+		return fmt.Errorf("egraph: add typed metadata: %w", err)
+	}
+	if err := a.g.Facts().ReplaceFrom(staged, nil); err != nil {
+		return fmt.Errorf("egraph: commit typed metadata: %w", err)
+	}
+	return nil
+}
+
+// GetMetadata retrieves typed metadata for an e-class. It returns false when
+// metadata is missing or cannot be read; use GetMetadataChecked to distinguish
+// those cases.
 func (a *LegalAdapter) GetMetadata(id Id) (TypedMetadata, bool) {
-	meta, ok := a.metadata[a.g.Find(id)]
+	meta, ok, _ := a.getMetadata(id)
 	return meta, ok
+}
+
+// GetMetadataChecked retrieves typed metadata and reports query or decoding
+// errors separately from absent metadata.
+func (a *LegalAdapter) GetMetadataChecked(id Id) (TypedMetadata, bool, error) {
+	return a.getMetadata(id)
+}
+
+func (a *LegalAdapter) getMetadata(id Id) (TypedMetadata, bool, error) {
+	relation, err := a.metadataRelation()
+	if err != nil {
+		return TypedMetadata{}, false, err
+	}
+	rows, complete, err := relation.Query([]egraphcore.Filter[Id]{{Column: 0, Value: egraphcore.Class(a.g.Find(id))}}, a.g.Find, nil)
+	if err != nil {
+		return TypedMetadata{}, false, fmt.Errorf("egraph: query typed metadata: %w", err)
+	}
+	if !complete {
+		return TypedMetadata{}, false, fmt.Errorf("egraph: typed metadata query was incomplete")
+	}
+	if len(rows) == 0 {
+		return TypedMetadata{}, false, nil
+	}
+	if len(rows) != 1 {
+		return TypedMetadata{}, false, fmt.Errorf("egraph: multiple typed metadata facts for class %d", a.g.Find(id))
+	}
+	meta, err := decodeMetadata(rows[0])
+	if err != nil {
+		return TypedMetadata{}, false, fmt.Errorf("egraph: decode typed metadata: %w", err)
+	}
+	return meta, true, nil
 }
 
 // LegalUnion merges two equivalence classes only after validating typed legality.
@@ -120,29 +232,83 @@ func (a *LegalAdapter) LegalUnion(id1, id2 Id) (Id, bool, error) {
 		return root1, false, nil
 	}
 
-	meta1, ok1 := a.metadata[root1]
-	meta2, ok2 := a.metadata[root2]
+	meta1, ok1, err := a.getMetadata(root1)
+	if err != nil {
+		return root1, false, err
+	}
+	meta2, ok2, err := a.getMetadata(root2)
+	if err != nil {
+		return root1, false, err
+	}
 
-	if ok1 && ok2 {
-		if err := CheckLegality(meta1, meta2); err != nil {
+	var mergedMetadata TypedMetadata
+	switch {
+	case ok1 && ok2:
+		mergedMetadata, err = mergeMetadata(meta1, meta2)
+		if err != nil {
 			return root1, false, err
 		}
+	case ok1:
+		mergedMetadata = meta1
+	case ok2:
+		mergedMetadata = meta2
 	}
 
-	newRoot, merged := a.g.Union(root1, root2)
+	trial := a.g.Clone()
+	newRoot, merged, err := trial.UnionChecked(root1, root2)
+	if err != nil {
+		return newRoot, merged, fmt.Errorf("egraph: union typed classes: %w", err)
+	}
 	if merged {
-		// Retain metadata on new root
-		if ok1 {
-			a.metadata[newRoot] = meta1
-		} else if ok2 {
-			a.metadata[newRoot] = meta2
+		trialAdapter := &LegalAdapter{g: trial}
+		relation, err := trialAdapter.metadataRelation()
+		if err != nil {
+			return newRoot, merged, err
 		}
-		if newRoot != root1 {
-			delete(a.metadata, root1)
+		if err := relation.Recanonicalize(trial.Find); err != nil {
+			return newRoot, merged, fmt.Errorf("egraph: recanonicalize typed metadata: %w", err)
 		}
-		if newRoot != root2 {
-			delete(a.metadata, root2)
+		if ok1 || ok2 {
+			if err := trialAdapter.SetMetadata(newRoot, mergedMetadata); err != nil {
+				return newRoot, merged, err
+			}
 		}
 	}
+	*a.g = *trial
 	return newRoot, merged, nil
+}
+
+func metadataValues(id Id, meta TypedMetadata) []egraphcore.Value[Id] {
+	return []egraphcore.Value[Id]{
+		egraphcore.Class[Id](id), egraphcore.String[Id](meta.Shape.String()),
+		egraphcore.Int64[Id](int64(meta.DType)), egraphcore.Int64[Id](int64(meta.Layout)),
+		egraphcore.Int64[Id](int64(meta.Effect)), egraphcore.Int64[Id](int64(meta.Alignment)),
+		egraphcore.Bool[Id](meta.LoopInvariant), egraphcore.String[Id](meta.NumericalPolicy),
+	}
+}
+
+func decodeMetadata(row []egraphcore.Value[Id]) (TypedMetadata, error) {
+	if len(row) != 8 {
+		return TypedMetadata{}, fmt.Errorf("egraph: invalid typed metadata row")
+	}
+	shapeText := strings.Trim(row[1].String, "[]")
+	var dims []int
+	if shapeText != "" {
+		for _, part := range strings.Split(shapeText, ",") {
+			dim, err := strconv.Atoi(strings.TrimSpace(part))
+			if err != nil {
+				return TypedMetadata{}, fmt.Errorf("egraph: invalid typed metadata shape: %w", err)
+			}
+			dims = append(dims, dim)
+		}
+	}
+	shape, err := cudashape.New(dims...)
+	if err != nil {
+		return TypedMetadata{}, fmt.Errorf("egraph: invalid typed metadata shape: %w", err)
+	}
+	return TypedMetadata{
+		Shape: shape, DType: cudair.DataType(row[2].Int64), Layout: cudashape.Layout(row[3].Int64),
+		Effect: cudair.StorageEffect(row[4].Int64), Alignment: int(row[5].Int64),
+		LoopInvariant: row[6].Bool, NumericalPolicy: row[7].String,
+	}, nil
 }

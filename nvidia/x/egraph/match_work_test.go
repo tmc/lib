@@ -3,6 +3,8 @@ package egraph
 import (
 	"errors"
 	"testing"
+
+	"github.com/tmc/lib/egraphcore"
 )
 
 func TestMatcherChargesAlternativeScans(t *testing.T) {
@@ -36,12 +38,12 @@ func TestMatcherStopsPartialExpansion(t *testing.T) {
 	x := g.Add(NewNode("x"))
 	root := g.Add(NewNode("pair", x, x))
 	p, _ := ParsePattern("(pair ?a ?b)")
-	work := 0
-	matches := p.matchEClassBudget(g, root, make(Subst), &work, 3)
-	if len(matches) != 0 || work != 4 {
-		t.Fatalf("partial match leaked or work continued: matches=%v work=%d", matches, work)
+	budget := egraphcore.NewWorkBudget(3)
+	matches, err := p.matchEClassBudget(g, root, make(Subst), budget)
+	if !errors.Is(err, egraphcore.ErrMatchWorkLimit) || len(matches) != 0 || budget.Used() != 3 {
+		t.Fatalf("partial match leaked or work continued: matches=%v work=%d err=%v", matches, budget.Used(), err)
 	}
-	matches, err := p.MatchEClassBounded(g, root, make(Subst), 4)
+	matches, err = p.MatchEClassBounded(g, root, make(Subst), 4)
 	if err != nil || len(matches) != 1 || matches[0]["?a"] != x || matches[0]["?b"] != x {
 		t.Fatalf("matches=%v err=%v", matches, err)
 	}
