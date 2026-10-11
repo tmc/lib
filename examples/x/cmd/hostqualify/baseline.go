@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -36,6 +37,9 @@ func baseline(cfg config, stdout io.Writer) error {
 		load, err := readLoad()
 		if err != nil {
 			return err
+		}
+		if !finiteNonnegative(load) {
+			return errors.New("invalid load average")
 		}
 		if i == 0 || load < min {
 			min = load

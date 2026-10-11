@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"runtime"
 	"strconv"
@@ -66,6 +68,16 @@ func main() {
 var errDegraded = errors.New("host does not qualify")
 
 func run(args []string, stdout, stderr io.Writer) error {
+	var report bytes.Buffer
+	err := runReport(args, &report, stderr)
+	n, writeErr := stdout.Write(report.Bytes())
+	if writeErr == nil && n != report.Len() {
+		writeErr = io.ErrShortWrite
+	}
+	return errors.Join(err, writeErr)
+}
+
+func runReport(args []string, stdout, stderr io.Writer) error {
 	cfg, err := parseConfig(args, stderr)
 	if err != nil {
 		return err
@@ -76,6 +88,9 @@ func run(args []string, stdout, stderr io.Writer) error {
 	load, err := loadAverage()
 	if err != nil {
 		return err
+	}
+	if !finiteNonnegative(load) {
+		return errors.New("invalid load average")
 	}
 	ok := true
 	fmt.Fprintf(stdout, "load average %.2f over %d CPUs, limit %.2f\n", load, runtime.NumCPU(), cfg.maxLoad)
@@ -135,11 +150,14 @@ func parseConfig(args []string, stderr io.Writer) (config, error) {
 	if fs.NArg() != 0 {
 		return config{}, errors.New("unexpected arguments")
 	}
-	if cfg.maxLoad <= 0 {
+	if !finiteNonnegative(cfg.maxLoad) || cfg.maxLoad == 0 {
 		return config{}, errors.New("max-load must be positive")
 	}
-	if cfg.tolerance <= 0 || cfg.tolerance > 1 {
+	if !finiteNonnegative(cfg.tolerance) || cfg.tolerance == 0 || cfg.tolerance > 1 {
 		return config{}, errors.New("tolerance must be in (0,1]")
+	}
+	if !finiteNonnegative(cfg.prefill) || !finiteNonnegative(cfg.gen) {
+		return config{}, errors.New("measured rates must be finite and non-negative")
 	}
 	if cfg.reference != "" && cfg.ctx <= 0 {
 		return config{}, errors.New("reference needs a positive ctx")
@@ -204,7 +222,14 @@ func readReference(path string, ctx int) (referenceRow, error) {
 		if row.gen, err = strconv.ParseFloat(record[column["gen_tps"]], 64); err != nil {
 			return referenceRow{}, fmt.Errorf("reference %s: gen_tps: %w", path, err)
 		}
+		if !finiteNonnegative(row.prefill) || !finiteNonnegative(row.gen) {
+			return referenceRow{}, errors.New("reference rates must be finite and non-negative")
+		}
 		return row, nil
 	}
 	return referenceRow{}, fmt.Errorf("reference %s has no row for ctx %d", path, ctx)
+}
+
+func finiteNonnegative(x float64) bool {
+	return x >= 0 && !math.IsNaN(x) && !math.IsInf(x, 0)
 }
