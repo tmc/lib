@@ -12,7 +12,7 @@ its own release tags (`<dir>/vX.Y.Z`).
 | Module | Import path | Description |
 |---|---|---|
 | `nvidia` | `github.com/tmc/lib/nvidia` | Purego bindings for the CUDA driver, runtime, math libraries, NCCL, CUPTI, and Compute Sanitizer |
-| `ebpfhost` | `github.com/tmc/lib/ebpfhost` | Linux host BPF loading, probes, and metrics |
+| `ebpfhost` | `github.com/tmc/lib/ebpfhost` | Linux tracefs uprobes and scheduler events |
 | `rocm` | `github.com/tmc/lib/rocm` | Purego HIP runtime bindings |
 | `apple` | `github.com/tmc/lib/apple` | Purego bindings for Metal, plus Metal capture and profiling |
 | `openxla` | `github.com/tmc/lib/openxla` | Purego bindings for the PJRT C API |
