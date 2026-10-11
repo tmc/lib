@@ -7,9 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"math/big"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 )
 
 // Stream errors.
@@ -63,6 +67,8 @@ type Writer struct {
 	bytesWritten int
 	recordsCount int
 	lostRecords  uint64
+	schema       int
+	familyLoss   map[string]tracecontract.Loss
 }
 
 // NewWriter creates a telemetry stream writer.
@@ -77,8 +83,11 @@ func NewWriter(w io.Writer, cfg CollectorConfig) *Writer {
 func (w *Writer) WriteManifest(m *Manifest) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if m.SchemaVersion <= 0 || m.SchemaVersion > SchemaVersionV2 {
-		return fmt.Errorf("%w: got %d (supported: 1..%d)", ErrUnsupportedSchema, m.SchemaVersion, SchemaVersionV2)
+	if m == nil || m.SchemaVersion <= 0 || m.SchemaVersion > SchemaVersionV3 {
+		return ErrUnsupportedSchema
+	}
+	if err := validateVersionedRecord(StreamRecord{Manifest: m}, m.SchemaVersion); err != nil {
+		return err
 	}
 	for _, d := range m.Devices {
 		if strings.TrimSpace(d.UUID) == "" || d.Status == DeviceStatusUnidentifiable {
@@ -86,13 +95,59 @@ func (w *Writer) WriteManifest(m *Manifest) error {
 		}
 	}
 	rec := StreamRecord{Manifest: m}
-	return w.writeRecordLocked(rec)
+	if err := w.writeRecordLocked(rec); err != nil {
+		return err
+	}
+	w.schema = m.SchemaVersion
+	return nil
 }
 
 // WriteSample writes a sample line to the stream.
-func (w *Writer) WriteSample(s *Sample) error {
+func (w *Writer) WriteSample(s *Sample) (err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if s == nil || w.w == nil {
+		return ErrMalformedStream
+	}
+	version := w.schema
+	if version == 0 {
+		version = SchemaVersionV2
+	}
+	if err := validateVersionedRecord(StreamRecord{Sample: s}, version); err != nil {
+		return err
+	}
+	before := w.lostRecords
+	defer func() {
+		if version != SchemaVersionV3 {
+			return
+		}
+		if w.familyLoss == nil {
+			w.familyLoss = make(map[string]tracecontract.Loss)
+		}
+		for _, r := range s.Readings {
+			if r.Observation == nil || r.Observation.Family == "" {
+				continue
+			}
+			family := r.Observation.Family
+			loss := w.familyLoss[family]
+			if loss.Total == math.MaxUint64 {
+				loss.Unknown = true
+			} else {
+				loss.Total++
+			}
+			if w.lostRecords > before {
+				if loss.Dropped == math.MaxUint64 {
+					loss.Unknown = true
+				} else {
+					loss.Dropped++
+				}
+			}
+			if err != nil {
+				loss.Unknown = true
+			}
+			w.familyLoss[family] = loss
+		}
+	}()
 	if w.config.MaxRecordBudget > 0 && w.recordsCount >= w.config.MaxRecordBudget {
 		if w.config.BudgetPolicy == BudgetExceededDrop || w.config.DropOnFull {
 			w.lostRecords++
@@ -101,7 +156,7 @@ func (w *Writer) WriteSample(s *Sample) error {
 		return ErrBudgetExceeded
 	}
 	rec := StreamRecord{Sample: s}
-	err := w.writeRecordLocked(rec)
+	err = w.writeRecordLocked(rec)
 	if err == nil {
 		w.recordsCount++
 	}
@@ -112,11 +167,24 @@ func (w *Writer) WriteSample(s *Sample) error {
 func (w *Writer) WritePhase(p *PhaseMarker) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if p == nil || w.w == nil {
+		return ErrMalformedStream
+	}
+	version := w.schema
+	if version == 0 {
+		version = SchemaVersionV2
+	}
 	rec := StreamRecord{Phase: p}
+	if err := validateVersionedRecord(rec, version); err != nil {
+		return err
+	}
 	return w.writeRecordLocked(rec)
 }
 
 func (w *Writer) writeRecordLocked(rec StreamRecord) error {
+	if w.w == nil {
+		return ErrMalformedStream
+	}
 	data, err := json.Marshal(rec)
 	if err != nil {
 		return fmt.Errorf("marshal stream record: %w", err)
@@ -156,6 +224,20 @@ func (w *Writer) LostRecords() uint64 {
 	return w.lostRecords
 }
 
+// FamilyLoss returns a copy of V3 attempted and dropped reading counts. A
+// Counts use canonical readings, independently of producer receipt units.
+// A missing family is unassessed, not measured zero loss. Overflow saturates
+// the affected count and marks it unknown.
+func (w *Writer) FamilyLoss() map[string]tracecontract.Loss {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	out := make(map[string]tracecontract.Loss, len(w.familyLoss))
+	for family, loss := range w.familyLoss {
+		out[family] = loss
+	}
+	return out
+}
+
 // BytesWritten returns total bytes successfully written to the stream.
 func (w *Writer) BytesWritten() int {
 	w.mu.Lock()
@@ -167,6 +249,9 @@ func (w *Writer) BytesWritten() int {
 // It strictly validates schema version, device identities, canonical units, monotonic ordering,
 // and detects truncated records.
 func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample, error) {
+	if maxBytes > 64<<20 {
+		return nil, nil, nil, ErrBudgetExceeded
+	}
 	if maxBytes <= 0 {
 		maxBytes = 64 << 20 // default 64 MiB
 	}
@@ -225,11 +310,35 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 		if fields != 1 || completed || (manifest == nil && rec.Manifest == nil) {
 			return nil, nil, nil, fmt.Errorf("%w: invalid record ordering or envelope at line %d", ErrMalformedStream, lineNum)
 		}
+		version := SchemaVersionV2
+		if manifest != nil {
+			version = manifest.SchemaVersion
+		}
+		if rec.Manifest != nil {
+			version = rec.Manifest.SchemaVersion
+		}
+		if version == SchemaVersionV3 {
+			d := json.NewDecoder(bytes.NewReader(line))
+			d.DisallowUnknownFields()
+			var strict StreamRecord
+			if err := d.Decode(&strict); err != nil {
+				return nil, nil, nil, fmt.Errorf("%w: %v", ErrMalformedStream, err)
+			}
+		}
+		if err := versionedJSONKeys(line, version); err != nil {
+			return nil, nil, nil, err
+		}
+		if err := validateVersionedRecord(rec, version); err != nil {
+			return nil, nil, nil, err
+		}
+		if len(samples) >= 65536 || len(phases) >= 65536 {
+			return nil, nil, nil, ErrBudgetExceeded
+		}
 
 		// Manifest processing
 		if rec.Manifest != nil {
-			if rec.Manifest.SchemaVersion <= 0 || rec.Manifest.SchemaVersion > SchemaVersionV2 {
-				return nil, nil, nil, fmt.Errorf("%w: got %d (supported: 1..%d)", ErrUnsupportedSchema, rec.Manifest.SchemaVersion, SchemaVersionV2)
+			if rec.Manifest.SchemaVersion <= 0 || rec.Manifest.SchemaVersion > SchemaVersionV3 {
+				return nil, nil, nil, ErrUnsupportedSchema
 			}
 			if rec.Manifest.HasClockCalibration && rec.Manifest.ClockCalibrationBoundsNanos < 0 {
 				return nil, nil, nil, fmt.Errorf("%w: negative clock calibration bounds %d", ErrMalformedStream, rec.Manifest.ClockCalibrationBoundsNanos)
@@ -252,6 +361,12 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 				}
 			} else {
 				completed = true
+				if version == SchemaVersionV3 && !reflect.DeepEqual(rec.Manifest.Receipt, manifest.Receipt) {
+					return nil, nil, nil, fmt.Errorf("%w: capture receipt changed", ErrIdentityMismatch)
+				}
+				if version == SchemaVersionV3 && !reflect.DeepEqual(rec.Manifest.Devices, manifest.Devices) {
+					return nil, nil, nil, fmt.Errorf("%w: device scope changed", ErrIdentityMismatch)
+				}
 				if rec.Manifest.EndTimeMonotonic < manifest.StartTimeMonotonic || (rec.Manifest.IsComplete && (rec.Manifest.LostRecords != 0 || rec.Manifest.IncompleteReason != "" || rec.Manifest.TotalSamples != uint64(len(samples)))) {
 					return nil, nil, nil, fmt.Errorf("%w: inconsistent completion manifest", ErrMalformedStream)
 				}
@@ -301,11 +416,18 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 					}
 				}
 
+				if version == SchemaVersionV3 {
+					if err := validateFamilyCounts(rec.Manifest.LostRecordsByFamily, samples); err != nil {
+						return nil, nil, nil, err
+					}
+				}
+
 				manifest.EndTimeMonotonic = rec.Manifest.EndTimeMonotonic
 				manifest.EndTimeUnix = rec.Manifest.EndTimeUnix
 				manifest.TotalSamples = rec.Manifest.TotalSamples
 				manifest.MissedTicks = rec.Manifest.MissedTicks
 				manifest.LostRecords = rec.Manifest.LostRecords
+				manifest.LostRecordsByFamily = rec.Manifest.LostRecordsByFamily
 				manifest.IsComplete = rec.Manifest.IsComplete
 				manifest.IncompleteReason = rec.Manifest.IncompleteReason
 				if !rec.Manifest.IsComplete && manifest.IncompleteReason == "" {
@@ -363,7 +485,21 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 				if err := ValidateReadingSource(r.Source); err != nil {
 					return nil, nil, nil, fmt.Errorf("%w: source: %v", ErrMalformedStream, err)
 				}
-				if err := validateManagedValue(r); err != nil {
+				managedReading := r
+				if manifest.SchemaVersion == SchemaVersionV3 && r.Number != nil {
+					if r.Number.Uint != nil {
+						managedReading.IsInt = true
+						managedReading.IntValue = *r.Number.Uint
+						managedReading.Value = float64(*r.Number.Uint)
+					}
+					if r.Number.Float != nil {
+						managedReading.Value = *r.Number.Float
+					}
+					if r.Number.Int != nil && r.Source != nil {
+						return nil, nil, nil, fmt.Errorf("%w: signed managed mapping unsupported", ErrMalformedStream)
+					}
+				}
+				if err := validateManagedValue(managedReading); err != nil {
 					return nil, nil, nil, fmt.Errorf("%w: source: %v", ErrMalformedStream, err)
 				}
 				if r.Source != nil {
@@ -536,4 +672,268 @@ func checkStreamJSON(d *json.Decoder, depth int, typ reflect.Type) error {
 	}
 	_, err = d.Token()
 	return err
+}
+
+// validateFamilyCounts compares only completion counts, in canonical reading
+// units. Producer receipt totals may count different records and are independent.
+func validateFamilyCounts(losses map[string]tracecontract.Loss, samples []Sample) error {
+	retained := make(map[string]uint64)
+	for _, s := range samples {
+		for _, r := range s.Readings {
+			if r.Observation != nil && r.Observation.Family != "" {
+				retained[r.Observation.Family]++
+			}
+		}
+	}
+	for family, loss := range losses {
+		if !loss.Unknown && (loss.Dropped > loss.Total || loss.Total-loss.Dropped != retained[family]) {
+			return fmt.Errorf("%w: inconsistent canonical reading counts for family %q", ErrMalformedStream, family)
+		}
+	}
+	return nil
+}
+
+func validateVersionedRecord(rec StreamRecord, version int) error {
+	if version < SchemaVersionLegacy || version > SchemaVersionV3 {
+		return ErrUnsupportedSchema
+	}
+	if version < SchemaVersionV3 {
+		if rec.Manifest != nil && (rec.Manifest.Receipt != nil || rec.Manifest.LostRecordsByFamily != nil) {
+			return fmt.Errorf("%w: V3 metadata in legacy manifest", ErrMalformedStream)
+		}
+		if rec.Sample != nil {
+			for _, r := range rec.Sample.Readings {
+				if r.Number != nil || r.Observation != nil {
+					return fmt.Errorf("%w: V3 reading in legacy sample", ErrMalformedStream)
+				}
+			}
+		}
+		return nil
+	}
+	if err := boundedV3(reflect.ValueOf(rec), 0); err != nil {
+		return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+	}
+	if m := rec.Manifest; m != nil {
+		if m.Receipt != nil {
+			if _, err := m.Receipt.JSON(); err != nil {
+				return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+			}
+		}
+		for family, loss := range m.LostRecordsByFamily {
+			if family == "" || (!loss.Unknown && loss.Dropped > loss.Total) {
+				return fmt.Errorf("%w: invalid family loss", ErrMalformedStream)
+			}
+		}
+	}
+	if rec.Sample == nil {
+		return nil
+	}
+	for _, r := range rec.Sample.Readings {
+		if r.Value != 0 || r.IntValue != 0 || r.IsInt {
+			return fmt.Errorf("%w: legacy scalar in V3 reading", ErrMalformedStream)
+		}
+		if r.Evidence == EvidenceUnavailable {
+			if r.Number != nil || r.UnavailableReason == "" || (r.Observation != nil && r.Observation.Histogram != nil) {
+				return fmt.Errorf("%w: unavailable V3 value", ErrMalformedStream)
+			}
+		} else {
+			if r.UnavailableReason != "" {
+				return fmt.Errorf("%w: available V3 value has unavailable reason", ErrMalformedStream)
+			}
+			if r.Number == nil && (r.Observation == nil || r.Observation.Histogram == nil) {
+				return fmt.Errorf("%w: missing V3 number", ErrMalformedStream)
+			}
+		}
+		if r.Number != nil {
+			if err := validNumber(r.Number); err != nil {
+				return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+			}
+		}
+		if o := r.Observation; o != nil {
+			switch o.SourceClass {
+			case "", "native", "managed", "imported", "synthetic", "modeled":
+			default:
+				return fmt.Errorf("%w: unknown source class", ErrMalformedStream)
+			}
+			switch o.Kind {
+			case "", "gauge", "counter", "histogram", "host_call", "kernel", "sched_running", "sched_runnable", "sched_blocked":
+			default:
+				return fmt.Errorf("%w: unknown observation kind", ErrMalformedStream)
+			}
+			for _, hash := range []string{o.RawSHA256, o.TransformSHA256} {
+				if hash != "" && !streamHash(hash) {
+					return fmt.Errorf("%w: invalid observation digest", ErrMalformedStream)
+				}
+			}
+			if o.UncertaintyNS != nil && *o.UncertaintyNS < 0 {
+				return fmt.Errorf("%w: negative observation uncertainty", ErrMalformedStream)
+			}
+			if o.Interval != nil && (o.Interval.Start < 0 || o.Interval.End < o.Interval.Start) {
+				return fmt.Errorf("%w: invalid observation interval", ErrMalformedStream)
+			}
+			if o.Denominator != nil {
+				if err := validNumber(o.Denominator); err != nil {
+					return fmt.Errorf("%w: denominator: %v", ErrMalformedStream, err)
+				}
+			}
+			if o.CounterReset && o.Kind != "counter" {
+				return fmt.Errorf("%w: reset on non-counter", ErrMalformedStream)
+			}
+			if o.Histogram != nil {
+				if o.Kind != "histogram" || r.Number != nil {
+					return fmt.Errorf("%w: conflicting histogram value", ErrMalformedStream)
+				}
+				if err := validHistogram(o.Histogram); err != nil {
+					return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func validNumber(n *Number) error {
+	if n == nil {
+		return errors.New("absent number")
+	}
+	count := 0
+	if n.Float != nil {
+		count++
+		if math.IsNaN(*n.Float) || math.IsInf(*n.Float, 0) {
+			return errors.New("nonfinite number")
+		}
+	}
+	if n.Int != nil {
+		count++
+	}
+	if n.Uint != nil {
+		count++
+	}
+	if count != 1 {
+		return errors.New("number requires exactly one arm")
+	}
+	return nil
+}
+
+func validHistogram(h *Histogram) error {
+	if len(h.Bounds) == 0 || len(h.Bounds) != len(h.Counts) || len(h.Bounds) > 256 {
+		return errors.New("invalid histogram size")
+	}
+	var previous *big.Rat
+	for i, bound := range h.Bounds {
+		if i > 0 && h.Counts[i] < h.Counts[i-1] {
+			return errors.New("noncumulative histogram counts")
+		}
+		if bound == "+Inf" && i == len(h.Bounds)-1 {
+			continue
+		}
+		value, ok := boundedDecimal(bound)
+		if !ok || strings.ContainsAny(bound, "/ ") || (previous != nil && value.Cmp(previous) <= 0) {
+			return errors.New("invalid histogram boundary")
+		}
+		previous = value
+	}
+	return nil
+}
+
+func streamHash(hash string) bool {
+	if len(hash) != 64 {
+		return false
+	}
+	for _, c := range hash {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func boundedV3(v reflect.Value, depth int) error {
+	if depth > 32 {
+		return errors.New("V3 metadata depth limit")
+	}
+	if v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return nil
+		}
+		return boundedV3(v.Elem(), depth+1)
+	}
+	switch v.Kind() {
+	case reflect.String:
+		if v.Len() > 4096 {
+			return errors.New("V3 string limit")
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if err := boundedV3(v.Field(i), depth+1); err != nil {
+				return err
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		if v.Len() > 4096 {
+			return errors.New("V3 collection limit")
+		}
+		for i := 0; i < v.Len(); i++ {
+			if err := boundedV3(v.Index(i), depth+1); err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		if v.Len() > 256 {
+			return errors.New("V3 map limit")
+		}
+		iter := v.MapRange()
+		for iter.Next() {
+			if err := boundedV3(iter.Key(), depth+1); err != nil {
+				return err
+			}
+			if err := boundedV3(iter.Value(), depth+1); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Presence matters even for null or zero: old-version readers must not accept
+// contract-critical V3 fields, and V3 must not carry a second legacy scalar.
+func versionedJSONKeys(raw []byte, version int) error {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return err
+	}
+	for key, data := range envelope {
+		if strings.EqualFold(key, "manifest") && version < SchemaVersionV3 {
+			var fields map[string]json.RawMessage
+			json.Unmarshal(data, &fields)
+			for key := range fields {
+				if strings.EqualFold(key, "receipt") || strings.EqualFold(key, "lost_records_by_family") {
+					return fmt.Errorf("%w: V3 field in legacy manifest", ErrMalformedStream)
+				}
+			}
+		}
+		if !strings.EqualFold(key, "sample") {
+			continue
+		}
+		var sample map[string]json.RawMessage
+		json.Unmarshal(data, &sample)
+		for key, data := range sample {
+			if !strings.EqualFold(key, "readings") {
+				continue
+			}
+			var readings []map[string]json.RawMessage
+			json.Unmarshal(data, &readings)
+			for _, fields := range readings {
+				for key := range fields {
+					if version < SchemaVersionV3 && (strings.EqualFold(key, "number") || strings.EqualFold(key, "observation")) {
+						return fmt.Errorf("%w: V3 field in legacy reading", ErrMalformedStream)
+					}
+					if version == SchemaVersionV3 && (strings.EqualFold(key, "value") || strings.EqualFold(key, "int_value") || strings.EqualFold(key, "is_int")) {
+						return fmt.Errorf("%w: legacy scalar in V3 reading", ErrMalformedStream)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }

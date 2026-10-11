@@ -3,12 +3,16 @@ package nvtelemetry
 import (
 	"context"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
+	"github.com/tmc/lib/nvidia/x/cudaworkload"
 )
 
 // Schema and version constants.
 const (
 	SchemaVersionLegacy = 1
 	SchemaVersionV2     = 2
+	SchemaVersionV3     = 3
 	SchemaVersion       = SchemaVersionV2
 	CollectorVersion    = "nvtelemetry-2.0.0"
 )
@@ -113,6 +117,10 @@ const (
 // Reading represents a single hardware telemetry measurement or recorded
 // unavailable status.
 type Reading struct {
+	// Number preserves the exact V3 scalar, including measured zero. Exactly one
+	// numeric arm is present. Legacy streams continue using Value and IntValue.
+	Number                    *Number        `json:"number,omitempty"`
+	Observation               *Observation   `json:"observation,omitempty"`
 	Source                    *ReadingSource `json:"source,omitempty"`
 	Name                      string         `json:"name"`
 	Unit                      string         `json:"unit"`
@@ -136,6 +144,69 @@ type Reading struct {
 	RefreshCadenceNanos       int64          `json:"refresh_cadence_nanos,omitempty"`
 	IntegrationIntervalNanos  int64          `json:"integration_interval_nanos,omitempty"`
 	IsWarmup                  bool           `json:"is_warmup,omitempty"`
+}
+
+// Number preserves one exact scalar. Its zero value has no value; an available
+// V3 reading requires exactly one nonnil arm. Float must be finite.
+type Number struct {
+	Float *float64 `json:"float,omitempty"`
+	Int   *int64   `json:"int,omitempty"`
+	Uint  *uint64  `json:"uint,omitempty"`
+}
+
+// Histogram preserves cumulative bucket counts and their ordered upper bounds.
+// Bounds use finite decimal strings or the final "+Inf" bound. The zero value
+// is absent; a present histogram requires equally sized Bounds and Counts.
+type Histogram struct {
+	Bounds []string `json:"bounds"`
+	Counts []uint64 `json:"counts"`
+}
+
+// Observer identifies an observation population and mode. Empty fields remain
+// unknown and cannot satisfy consumer admission. Reading JSON does not verify
+// that a physical observer ran.
+type Observer struct {
+	ID         string `json:"id"`
+	Version    string `json:"version"`
+	Mode       string `json:"mode"`
+	Pass       string `json:"pass"`
+	Population string `json:"population"`
+	Filter     string `json:"filter"`
+	Replay     string `json:"replay"`
+}
+
+// Observation links a V3 reading to existing subject, workload and trace
+// contracts. SourceClass is native, managed, imported, synthetic or modeled;
+// a label alone never establishes authenticity. Missing fields stay unknown.
+// Kind is gauge, counter, histogram, host_call, kernel or a scheduler state
+// (sched_running, sched_runnable, sched_blocked).
+type Observation struct {
+	Family          string                         `json:"family"`
+	SourceClass     string                         `json:"source_class"`
+	Producer        string                         `json:"producer"`
+	ProducerVersion string                         `json:"producer_version"`
+	ProducerSchema  string                         `json:"producer_schema"`
+	RawSHA256       string                         `json:"raw_sha256"`
+	Transform       string                         `json:"transform"`
+	TransformSHA256 string                         `json:"transform_sha256"`
+	Assignment      *EntityAssignment              `json:"assignment,omitempty"`
+	Workload        *cudaworkload.WorkloadIdentity `json:"workload,omitempty"`
+	OpID            cudaworkload.OpID              `json:"op_id,omitempty"`
+	Host            *cudaworkload.HostSubmission   `json:"host,omitempty"`
+	Device          *cudaworkload.DeviceActivity   `json:"device,omitempty"`
+	Interval        *tracecontract.Interval        `json:"interval,omitempty"`
+	ClockEpoch      string                         `json:"clock_epoch"`
+	UncertaintyNS   *int64                         `json:"uncertainty_ns,omitempty"`
+	Observer        Observer                       `json:"observer"`
+	Kind            string                         `json:"kind"`
+	CounterEpoch    string                         `json:"counter_epoch,omitempty"`
+	CounterReset    bool                           `json:"counter_reset,omitempty"`
+	Histogram       *Histogram                     `json:"histogram,omitempty"`
+	Denominator     *Number                        `json:"denominator,omitempty"`
+	DenominatorUnit string                         `json:"denominator_unit,omitempty"`
+	Scope           string                         `json:"scope,omitempty"`
+	HasReturn       bool                           `json:"has_return,omitempty"`
+	TID             uint64                         `json:"tid,omitempty"`
 }
 
 // IsAvailable reports whether the reading represents an active valid measurement.
@@ -216,44 +287,58 @@ const (
 
 // CollectorConfig configures sampling and limits.
 type CollectorConfig struct {
-	IntervalNanos      int64  `json:"interval_nanos"`
-	MaxDurationNanos   int64  `json:"max_duration_nanos"`
-	MaxRecordBudget    int    `json:"max_record_budget"`
-	MaxByteBudget      int    `json:"max_byte_budget"`
-	MaxBufferedRecords int    `json:"max_buffered_records"`
-	BudgetPolicy       string `json:"budget_policy,omitempty"`
-	DropOnFull         bool   `json:"drop_on_full"`
+	// SchemaVersion selects the stream version. Zero retains V2. V3 emits exact
+	// Number values; its Receipt preserves caller-supplied capture provenance.
+	SchemaVersion      int                    `json:"schema_version,omitempty"`
+	Receipt            *tracecontract.Receipt `json:"-"`
+	IntervalNanos      int64                  `json:"interval_nanos"`
+	MaxDurationNanos   int64                  `json:"max_duration_nanos"`
+	MaxRecordBudget    int                    `json:"max_record_budget"`
+	MaxByteBudget      int                    `json:"max_byte_budget"`
+	MaxBufferedRecords int                    `json:"max_buffered_records"`
+	BudgetPolicy       string                 `json:"budget_policy,omitempty"`
+	DropOnFull         bool                   `json:"drop_on_full"`
 }
 
 // Manifest describes a telemetry run and its summary properties.
 type Manifest struct {
-	RunID                       string           `json:"run_id"`
-	SchemaVersion               int              `json:"schema_version"`
-	CollectorVersion            string           `json:"collector_version"`
-	BuildRevision               string           `json:"build_revision,omitempty"`
-	BuildModified               bool             `json:"build_modified,omitempty"`
-	BinaryDigest                string           `json:"binary_digest,omitempty"`
-	MetricRegistryVersion       string           `json:"metric_registry_version,omitempty"`
-	ClockMonotonicDomain        string           `json:"clock_monotonic_domain,omitempty"`
-	ClockMonotonicEpochID       string           `json:"clock_monotonic_epoch_id,omitempty"`
-	ClockWallDomain             string           `json:"clock_wall_domain,omitempty"`
-	ClockProvenance             string           `json:"clock_provenance,omitempty"`
-	ClockMappingValidFrom       int64            `json:"clock_mapping_valid_from,omitempty"`
-	ClockMappingValidUntil      int64            `json:"clock_mapping_valid_until,omitempty"`
-	ClockCalibrationBoundsNanos int64            `json:"clock_calibration_bounds_nanos,omitempty"`
-	HasClockCalibration         bool             `json:"has_clock_calibration,omitempty"`
-	Devices                     []DeviceMetadata `json:"devices"`
-	Config                      CollectorConfig  `json:"config"`
-	StartTimeMonotonic          int64            `json:"start_time_monotonic"`
-	StartTimeUnix               int64            `json:"start_time_unix"`
-	EndTimeMonotonic            int64            `json:"end_time_monotonic"`
-	EndTimeUnix                 int64            `json:"end_time_unix"`
-	Phases                      []PhaseMarker    `json:"phases,omitempty"`
-	TotalSamples                uint64           `json:"total_samples"`
-	MissedTicks                 uint64           `json:"missed_ticks"`
-	LostRecords                 uint64           `json:"lost_records"`
-	IsComplete                  bool             `json:"is_complete"`
-	IncompleteReason            string           `json:"incomplete_reason,omitempty"`
+	// Receipt preserves producer-defined record and loss units independently
+	// of the canonical readings below. Absence means unassessed.
+	Receipt *tracecontract.Receipt `json:"receipt,omitempty"`
+	// In V3, LostRecordsByFamily counts canonical readings carrying each family.
+	// Total is attempted readings; Dropped is readings lost by the stream writer.
+	// At completion, known Total equals retained readings plus Dropped. Unknown
+	// or missing families cannot establish known-zero loss. An initial header
+	// or a stream without completion cannot establish final population counts.
+	// LostRecords separately counts dropped JSONL records, not readings.
+	LostRecordsByFamily         map[string]tracecontract.Loss `json:"lost_records_by_family,omitempty"`
+	RunID                       string                        `json:"run_id"`
+	SchemaVersion               int                           `json:"schema_version"`
+	CollectorVersion            string                        `json:"collector_version"`
+	BuildRevision               string                        `json:"build_revision,omitempty"`
+	BuildModified               bool                          `json:"build_modified,omitempty"`
+	BinaryDigest                string                        `json:"binary_digest,omitempty"`
+	MetricRegistryVersion       string                        `json:"metric_registry_version,omitempty"`
+	ClockMonotonicDomain        string                        `json:"clock_monotonic_domain,omitempty"`
+	ClockMonotonicEpochID       string                        `json:"clock_monotonic_epoch_id,omitempty"`
+	ClockWallDomain             string                        `json:"clock_wall_domain,omitempty"`
+	ClockProvenance             string                        `json:"clock_provenance,omitempty"`
+	ClockMappingValidFrom       int64                         `json:"clock_mapping_valid_from,omitempty"`
+	ClockMappingValidUntil      int64                         `json:"clock_mapping_valid_until,omitempty"`
+	ClockCalibrationBoundsNanos int64                         `json:"clock_calibration_bounds_nanos,omitempty"`
+	HasClockCalibration         bool                          `json:"has_clock_calibration,omitempty"`
+	Devices                     []DeviceMetadata              `json:"devices"`
+	Config                      CollectorConfig               `json:"config"`
+	StartTimeMonotonic          int64                         `json:"start_time_monotonic"`
+	StartTimeUnix               int64                         `json:"start_time_unix"`
+	EndTimeMonotonic            int64                         `json:"end_time_monotonic"`
+	EndTimeUnix                 int64                         `json:"end_time_unix"`
+	Phases                      []PhaseMarker                 `json:"phases,omitempty"`
+	TotalSamples                uint64                        `json:"total_samples"`
+	MissedTicks                 uint64                        `json:"missed_ticks"`
+	LostRecords                 uint64                        `json:"lost_records"`
+	IsComplete                  bool                          `json:"is_complete"`
+	IncompleteReason            string                        `json:"incomplete_reason,omitempty"`
 }
 
 // WindowSummary aggregates one metric over a named window.

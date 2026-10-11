@@ -434,7 +434,7 @@ func TestDeviceIdentity_MissingUUIDRefusal(t *testing.T) {
 	// Writer.WriteManifest refuses unsupported schema version
 	badSchemaManifest := &nvtelemetry.Manifest{
 		RunID:         "test-bad-schema",
-		SchemaVersion: 3,
+		SchemaVersion: nvtelemetry.SchemaVersionV3 + 1,
 		Devices: []nvtelemetry.DeviceMetadata{
 			{UUID: "GPU-001", Index: 0, Status: nvtelemetry.DeviceStatusOk},
 		},

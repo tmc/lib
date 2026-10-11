@@ -2,11 +2,14 @@ package nvtelemetry
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 )
 
 // Collector coordinates scheduled sampling from a hardware or fake Sampler.
@@ -276,6 +279,9 @@ func (c *Collector) Stop() (*Manifest, error) {
 func (c *Collector) InitStream() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.config.SchemaVersion != 0 && c.config.SchemaVersion != SchemaVersionV2 && c.config.SchemaVersion != SchemaVersionV3 {
+		return ErrUnsupportedSchema
+	}
 	if c.writer == nil {
 		return nil
 	}
@@ -296,7 +302,8 @@ func (c *Collector) InitStream() error {
 	}
 	manifest := &Manifest{
 		RunID:                       c.runID,
-		SchemaVersion:               SchemaVersion,
+		SchemaVersion:               c.streamVersion(),
+		Receipt:                     c.config.Receipt,
 		CollectorVersion:            CollectorVersion,
 		MetricRegistryVersion:       DefaultMetricRegistryVersion,
 		ClockMonotonicDomain:        monoDomain,
@@ -339,6 +346,33 @@ func (c *Collector) collectOnce(ctx context.Context) error {
 
 	readings, err := c.sampler.Sample(ctx)
 	readings = cloneReadings(readings)
+	if err == nil && c.streamVersion() == SchemaVersionV3 {
+		// Copy V3 pointer-backed evidence without changing the sampler's values.
+		var data []byte
+		data, err = json.Marshal(readings)
+		if err == nil {
+			err = json.Unmarshal(data, &readings)
+		}
+		if err == nil {
+			for i := range readings {
+				r := &readings[i]
+				if r.Number != nil && (r.IsInt || r.IntValue != 0 || r.Value != 0) {
+					err = fmt.Errorf("%w: conflicting sampler scalar representations", ErrMalformedStream)
+					break
+				}
+				if r.Number == nil && r.IsAvailable() && (r.Observation == nil || r.Observation.Histogram == nil) {
+					if r.IsInt {
+						n := r.IntValue
+						r.Number = &Number{Uint: &n}
+					} else {
+						n := r.Value
+						r.Number = &Number{Float: &n}
+					}
+				}
+				r.Value, r.IntValue, r.IsInt = 0, 0, false
+			}
+		}
+	}
 	end := c.clock.NowMonotonic()
 
 	queryDur := end - start
@@ -488,7 +522,9 @@ func (c *Collector) buildManifestLocked() *Manifest {
 	}
 	return &Manifest{
 		RunID:                       c.runID,
-		SchemaVersion:               SchemaVersion,
+		SchemaVersion:               c.streamVersion(),
+		Receipt:                     c.config.Receipt,
+		LostRecordsByFamily:         c.streamFamilyLoss(),
 		CollectorVersion:            CollectorVersion,
 		MetricRegistryVersion:       DefaultMetricRegistryVersion,
 		ClockMonotonicDomain:        monoDomain,
@@ -514,6 +550,20 @@ func (c *Collector) buildManifestLocked() *Manifest {
 		IsComplete:                  isComplete,
 		IncompleteReason:            reason,
 	}
+}
+
+func (c *Collector) streamVersion() int {
+	if c.config.SchemaVersion == 0 {
+		return SchemaVersionV2
+	}
+	return c.config.SchemaVersion
+}
+
+func (c *Collector) streamFamilyLoss() map[string]tracecontract.Loss {
+	if c.streamVersion() != SchemaVersionV3 || c.writer == nil {
+		return nil
+	}
+	return c.writer.FamilyLoss()
 }
 
 func (c *Collector) clockMeta() (string, string, string, string) {
