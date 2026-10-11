@@ -1,0 +1,11 @@
+commit: 404d70ca1edf44f37317604acf651cce5027c2b7
+date: 2026-10-11T02:14:56.446749+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 62556
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: Host-runnable LoadModule refusal example and independent SHA256 copy-ownership example; CUDA and SASS examples pass
+commit helper: prior two failed attempts exhausted; signed manual fallback
