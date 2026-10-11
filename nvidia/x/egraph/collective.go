@@ -31,7 +31,7 @@ type CollectiveIntent struct {
 	EffectToken  uint64
 }
 
-// Validate checks identity, participation, and payload invariants.
+// Validate checks identity, participation, supported dtype, and payload size.
 func (c CollectiveIntent) Validate() error {
 	if c.Communicator == "" || c.Generation == 0 {
 		return fmt.Errorf("egraph: communicator identity and generation required")
@@ -44,6 +44,13 @@ func (c CollectiveIntent) Validate() error {
 	}
 	if c.DType == "" || c.Count == 0 || c.EffectToken == 0 {
 		return fmt.Errorf("egraph: dtype, count, and effect token required")
+	}
+	dtype, ok := collectiveDataTypes[strings.ToLower(c.DType)]
+	if !ok {
+		return fmt.Errorf("egraph: unsupported dtype %q", c.DType)
+	}
+	if c.Count > uint64(^uint(0)>>1)/uint64(dtype.SizeBytes()) {
+		return fmt.Errorf("egraph: collective payload overflows runtime int")
 	}
 	return nil
 }
@@ -62,9 +69,6 @@ func (c CollectiveIntent) OperationDescriptor() (cudacollective.OperationDescrip
 	dtype, ok := collectiveDataTypes[strings.ToLower(c.DType)]
 	if !ok {
 		return cudacollective.OperationDescriptor{}, fmt.Errorf("egraph: unsupported dtype %q", c.DType)
-	}
-	if c.Count > uint64(^uint(0)>>1) {
-		return cudacollective.OperationDescriptor{}, fmt.Errorf("egraph: collective count %d overflows runtime int", c.Count)
 	}
 	return cudacollective.OperationDescriptor{
 		Kind:      kind,
