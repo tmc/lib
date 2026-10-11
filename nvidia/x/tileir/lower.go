@@ -1,12 +1,18 @@
 package tileir
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
+	"github.com/tmc/lib/nvidia/x/cudashape"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
 var (
@@ -278,7 +284,7 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 			case "mul":
 				opName = "cuda_tile.mulf"
 			case "sub":
-				opName = "cuda_tile.addf" // Tile IR represents sub as add with neg or direct
+				opName = "cuda_tile.subf"
 			case "div":
 				opName = "cuda_tile.divf"
 			}
@@ -436,7 +442,10 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 		return nil, fmt.Errorf("tileir: lowering produced shape errors: %v", shapes)
 	}
 
-	source := GeneratePinnedTileCPP(kernelName, schemaParams, tileM, tileN, tileK)
+	source, _, err := GenerateSemanticTileCPP(snap, opts)
+	if err != nil {
+		return nil, err
+	}
 
 	return &LoweringResult{
 		Module: mod,
@@ -445,8 +454,8 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 	}, nil
 }
 
-// GeneratePinnedTileCPP emits C++20 Tile C++ code following the strict pinned contract:
-// strictly #include "cuda_tile.h", __tile_global__, and standard types.
+// GeneratePinnedTileCPP returns a deliberately unbuildable declaration. Shapes
+// alone do not specify computation; use GenerateSemanticTileCPP for executable source.
 func GeneratePinnedTileCPP(kernelName string, params []cudakernel.Param, tileM, tileN, tileK int64) string {
 	var b strings.Builder
 	b.WriteString("// Pinned Tile C++ contract: requires cuda_tile.h, __tile_global__, C++20\n")
@@ -467,8 +476,8 @@ func GeneratePinnedTileCPP(kernelName string, params []cudakernel.Param, tileM, 
 		b.WriteString(fmt.Sprintf("    %s %s%s\n", cppType, p.Name, comma))
 	}
 	b.WriteString(") {\n")
+	b.WriteString("#error shape-only declaration has no semantic body; use GenerateSemanticTileCPP\n")
 	b.WriteString(fmt.Sprintf("    // Static tile parameters: TileM=%d, TileN=%d, TileK=%d\n", tileM, tileN, tileK))
-	b.WriteString("    // Device execution adheres to Tile C++ contract\n")
 	b.WriteString("}\n")
 	return b.String()
 }
@@ -573,4 +582,291 @@ func ptxTypeFromDataType(dt cudair.DataType) string {
 	default:
 		return "f32"
 	}
+}
+
+// GenerateSemanticTileCPP emits a CUDA 13.4 Tile C++ reference kernel and its
+// pointer ABI from the existing semantic snapshot. Launch one tile block per
+// output element (the largest output when there are several). The finite
+// Float32 subset includes pointwise arithmetic, scalar constants, row-major
+// matmul, and rank-one/two sum, max and mean reductions. Reductions are bounded
+// to 64 terms and preserve their sequential accumulation order.
+//
+// This path emits actual loads, arithmetic and stores. It does not use the
+// incomplete AST bytecode encoder, does not promise tensor-core execution,
+// and does not qualify NaN, infinity, signed-zero or reassociation behavior.
+func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, cudakernel.Schema, error) {
+	if snap == nil || len(snap.Nodes()) == 0 || len(snap.Nodes()) > 256 {
+		return "", cudakernel.Schema{}, errors.New("tileir: missing snapshot or node budget exceeded")
+	}
+	name := opts.KernelName
+	if name == "" {
+		name = "tile_kernel"
+	}
+	for i, c := range name {
+		if !(c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || i > 0 && c >= '0' && c <= '9') {
+			return "", cudakernel.Schema{}, errors.New("tileir: invalid kernel identifier")
+		}
+	}
+	if len(name) > 128 {
+		return "", cudakernel.Schema{}, errors.New("tileir: kernel identifier too long")
+	}
+	counts := make(map[*cudair.Node]int)
+	for _, n := range snap.Nodes() {
+		if n.Type != cudair.Float32 || n.Layout != cudashape.LayoutRowMajor || len(n.Shape) > 2 || n.Effect != cudair.EffectReadOnly {
+			return "", cudakernel.Schema{}, fmt.Errorf("%w: type, layout, rank or effect at node %d", ErrUnsupportedTileOp, n.ID)
+		}
+		count := 1
+		for _, d := range n.Shape {
+			if d <= 0 || d > (1<<20)/count {
+				return "", cudakernel.Schema{}, errors.New("tileir: shape exceeds reference source budget")
+			}
+			count *= d
+		}
+		if len(n.Strides) != 0 && !cudashape.IsContiguousRowMajor(n.Shape, n.Strides) {
+			return "", cudakernel.Schema{}, fmt.Errorf("%w: noncontiguous strides", ErrUnsupportedTileOp)
+		}
+		counts[n] = count
+	}
+	inputs, outputs := snap.Inputs(), snap.Outputs()
+	if len(outputs) == 0 {
+		return "", cudakernel.Schema{}, errors.New("tileir: missing semantic outputs")
+	}
+	params := make([]cudakernel.Param, 0, len(inputs)+len(outputs))
+	args := make(map[*cudair.Node]string)
+	var b strings.Builder
+	b.WriteString("#include \"cuda_tile.h\"\nextern \"C\" __tile_global__ void " + name + "(")
+	for i, n := range append(append([]*cudair.Node(nil), inputs...), outputs...) {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		arg := fmt.Sprintf("arg%d", i)
+		b.WriteString("float* " + arg)
+		if i < len(inputs) {
+			args[n] = arg
+		}
+		paramName := n.Name
+		if paramName == "" {
+			paramName = arg
+		}
+		params = append(params, cudakernel.Param{Name: paramName, Type: "f32", ByteWidth: 8, Alignment: 16, IsPointer: true})
+	}
+	b.WriteString(") {\n  namespace ct = ::cuda::tiles;\n  auto idx = ct::bid().x;\n")
+	schema, err := cudakernel.NewSchema(params...)
+	if err != nil {
+		return "", cudakernel.Schema{}, err
+	}
+	calls := 0
+	var expr func(*cudair.Node, string, int) (string, error)
+	expr = func(n *cudair.Node, index string, depth int) (string, error) {
+		calls++
+		if calls > 4096 || depth > 128 || len(index) > 4096 {
+			return "", errors.New("tileir: expression expansion budget exceeded")
+		}
+		if _, ok := counts[n]; !ok {
+			return "", errors.New("tileir: input outside snapshot")
+		}
+		child := func(i int, ix string) (string, error) {
+			if i >= len(n.Inputs) {
+				return "", errors.New("tileir: missing semantic operand")
+			}
+			return expr(n.Inputs[i], ix, depth+1)
+		}
+		combine := func(op, a, c string) string { return "ct::" + op + "(" + a + ", " + c + ")" }
+		switch n.Kind {
+		case cudair.KindInput:
+			arg, ok := args[n]
+			if !ok {
+				return "", errors.New("tileir: unbound semantic input")
+			}
+			return arg + "[" + index + "]", nil
+		case cudair.KindConstant:
+			if len(n.ConstValues) != 1 || counts[n] != 1 || math.IsNaN(float64(n.ConstValues[0])) || math.IsInf(float64(n.ConstValues[0]), 0) {
+				return "", fmt.Errorf("%w: nonfinite or nonscalar constant", ErrUnsupportedTileOp)
+			}
+			s := strconv.FormatFloat(float64(n.ConstValues[0]), 'g', -1, 32)
+			if !strings.ContainsAny(s, ".eE") {
+				s += ".0"
+			}
+			return s + "f", nil
+		case cudair.KindBinary, cudair.KindUnary:
+			arity := 1
+			if n.Kind == cudair.KindBinary {
+				arity = 2
+			}
+			if len(n.Inputs) != arity {
+				return "", errors.New("tileir: invalid operand count")
+			}
+			values := make([]string, arity)
+			for i, in := range n.Inputs {
+				ix := index
+				if counts[in] == 1 {
+					ix = "0"
+				} else if len(in.Shape) != len(n.Shape) || !sameTileShape(in.Shape, n.Shape) {
+					return "", fmt.Errorf("%w: nonscalar broadcasting", ErrUnsupportedTileOp)
+				}
+				v, e := child(i, ix)
+				if e != nil {
+					return "", e
+				}
+				values[i] = v
+			}
+			switch n.Op {
+			case "add", "sub", "mul", "div":
+				if arity != 2 {
+					break
+				}
+				return combine(n.Op, values[0], values[1]), nil
+			case "neg":
+				if arity == 1 {
+					return "(-(" + values[0] + "))", nil
+				}
+			case "relu":
+				if arity == 1 {
+					return combine("max", values[0], "0.0f"), nil
+				}
+			}
+		case cudair.KindReduce:
+			if len(n.Inputs) != 1 || len(n.Axes) != 1 {
+				return "", fmt.Errorf("%w: reduction arity", ErrUnsupportedTileOp)
+			}
+			in := n.Inputs[0]
+			axis := n.Axes[0]
+			if axis < 0 || axis >= len(in.Shape) || in.Shape[axis] > 64 {
+				return "", fmt.Errorf("%w: reduction axis or term budget", ErrUnsupportedTileOp)
+			}
+			wantShape := append([]int(nil), in.Shape[:axis]...)
+			wantShape = append(wantShape, in.Shape[axis+1:]...)
+			if len(wantShape) == 0 {
+				wantShape = []int{1}
+			}
+			if !sameTileShape(n.Shape, wantShape) {
+				return "", errors.New("tileir: inconsistent reduction output shape")
+			}
+			if n.Op != "sum" && n.Op != "max" && n.Op != "mean" {
+				break
+			}
+			var value string
+			for k := 0; k < in.Shape[axis]; k++ {
+				ix := strconv.Itoa(k)
+				if len(in.Shape) == 2 {
+					if axis == 1 {
+						ix = fmt.Sprintf("((%s)*%d+%d)", index, in.Shape[1], k)
+					} else {
+						ix = fmt.Sprintf("(%d+%s)", k*in.Shape[1], index)
+					}
+				}
+				v, e := child(0, ix)
+				if e != nil {
+					return "", e
+				}
+				if k == 0 {
+					value = v
+				} else {
+					op := "add"
+					if n.Op == "max" {
+						op = "max"
+					}
+					value = combine(op, value, v)
+				}
+			}
+			if n.Op == "mean" {
+				value = combine("div", value, fmt.Sprintf("%d.0f", in.Shape[axis]))
+			}
+			return value, nil
+		case cudair.KindMatMul:
+			if len(n.Inputs) != 2 || len(n.Inputs[0].Shape) != 2 || len(n.Inputs[1].Shape) != 2 {
+				return "", fmt.Errorf("%w: matmul ranks", ErrUnsupportedTileOp)
+			}
+			a, c := n.Inputs[0], n.Inputs[1]
+			terms, cols := a.Shape[1], c.Shape[1]
+			if !sameTileShape(n.Shape, []int{a.Shape[0], cols}) {
+				return "", errors.New("tileir: inconsistent matmul output shape")
+			}
+			if terms != c.Shape[0] || terms > 64 {
+				return "", fmt.Errorf("%w: matmul term budget", ErrUnsupportedTileOp)
+			}
+			value := "0.0f"
+			for k := 0; k < terms; k++ {
+				lhs, e := child(0, fmt.Sprintf("((%s)/%d*%d+%d)", index, cols, terms, k))
+				if e != nil {
+					return "", e
+				}
+				rhs, e := child(1, fmt.Sprintf("(%d+(%s)%%%d)", k*cols, index, cols))
+				if e != nil {
+					return "", e
+				}
+				value = combine("add", value, combine("mul", lhs, rhs))
+			}
+			return value, nil
+		}
+		return "", fmt.Errorf("%w: node %d op %q", ErrUnsupportedTileOp, n.ID, n.Op)
+	}
+	for i, n := range outputs {
+		value, err := expr(n, "idx", 0)
+		if err != nil {
+			return "", cudakernel.Schema{}, err
+		}
+		fmt.Fprintf(&b, "  if (idx < %d) arg%d[idx] = %s;\n", counts[n], len(inputs)+i, value)
+		if b.Len() > 1<<20 {
+			return "", cudakernel.Schema{}, errors.New("tileir: source byte budget exceeded")
+		}
+	}
+	b.WriteString("}\n")
+	return b.String(), schema, nil
+}
+
+func sameTileShape(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// CompileSemanticTile compiles the bounded semantic Tile C++ source through
+// NVRTC into an authentic Tile IR artifact. It returns the successful compiler
+// log; failed compilation diagnostics remain in the wrapped error.
+// Compilation does not create a device context or execute a
+// kernel; loading, output oracles and hardware qualification remain separate.
+// The selected NVRTC library and headers must support CUDA 13.4 Tile C++.
+func CompileSemanticTile(ctx context.Context, snap *cudair.Snapshot, opts LowerOptions, major, minor int) (*cudakernel.Artifact, string, error) {
+	if ctx == nil || major < 8 || major > 99 || minor < 0 || minor > 9 {
+		return nil, "", errors.New("tileir: missing compile context or invalid target")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+	source, schema, err := GenerateSemanticTileCPP(snap, opts)
+	if err != nil {
+		return nil, "", err
+	}
+	options := []nvrtcx.Option{nvrtcx.WithArch(major, minor), nvrtcx.WithFlag("--std=c++20"), nvrtcx.WithOutput(nvrtcx.OutputTileIR), nvrtcx.WithToolkitIncludes(), nvrtcx.WithNoCache()}
+	flags, err := nvrtcx.CompileFlags(options...)
+	if err != nil {
+		return nil, "", err
+	}
+	compiled, err := nvrtcx.CompileContext(ctx, source, options...)
+	if err != nil {
+		return nil, "", fmt.Errorf("tileir: compile semantic source: %w", err)
+	}
+	name := opts.KernelName
+	if name == "" {
+		name = "tile_kernel"
+	}
+	artifact, err := compiled.ToArtifact(name, schema, fmt.Sprintf("sm_%d%d", major, minor))
+	if err != nil {
+		return nil, compiled.Log(), err
+	}
+	compilerMajor, compilerMinor, err := nvrtc.Version()
+	if err != nil {
+		return nil, compiled.Log(), fmt.Errorf("tileir: compiler version: %w", err)
+	}
+	artifact.Toolchain = fmt.Sprintf("nvrtc %d.%d", compilerMajor, compilerMinor)
+	// WithOutput adds this flag inside Compile after CompileFlags resolves includes.
+	artifact.CompilerOpts = append(append([]string(nil), flags...), nvrtc.FlagTileOnly)
+	return artifact, compiled.Log(), nil
 }

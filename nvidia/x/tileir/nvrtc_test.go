@@ -395,21 +395,11 @@ func TestTileIRSyntaxGeneration(t *testing.T) {
 				t.Errorf("parsed %d operations, want %d", len(parsedFn.Operations), len(fn.Operations))
 			}
 
-			// Verify bytecode encoding round-trip
 			bcBytes, err := parsed.EncodeBytecode()
-			if err != nil {
-				t.Fatalf("EncodeBytecode failed: %v", err)
+			if !errors.Is(err, tileir.ErrUnsupportedASTEncoding) || bcBytes != nil {
+				t.Fatalf("incomplete AST encoding = %x, %v", bcBytes, err)
 			}
-			if !tileir.IsTileIRBytecode(bcBytes) {
-				t.Fatal("encoded bytecode failed IsTileIRBytecode check")
-			}
-			decoded, err := tileir.DecodeBytecodeBytes(bcBytes)
-			if err != nil {
-				t.Fatalf("DecodeBytecodeBytes failed: %v", err)
-			}
-			if len(decoded.Functions) != len(tt.module.Functions) {
-				t.Errorf("decoded %d functions, want %d", len(decoded.Functions), len(tt.module.Functions))
-			}
+
 		})
 	}
 }

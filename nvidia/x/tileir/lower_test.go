@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
-	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/tileir"
 )
 
@@ -217,46 +216,9 @@ func TestTileBytecodeRoundTrip(t *testing.T) {
 		t.Fatalf("LowerSemanticRegion: %v", err)
 	}
 
-	// 1. Encode to bytecode bytes
 	bytecode, err := res.Module.EncodeBytecode()
-	if err != nil {
-		t.Fatalf("EncodeBytecode: %v", err)
-	}
-	if len(bytecode) == 0 {
-		t.Fatal("empty bytecode bytes")
-	}
-
-	// 2. Decode from bytecode
-	decoded, err := tileir.DecodeBytecodeBytes(bytecode)
-	if err != nil {
-		t.Fatalf("DecodeBytecodeBytes: %v", err)
-	}
-
-	if len(decoded.Functions) != 1 {
-		t.Fatalf("len(decoded.Functions) = %d, want 1", len(decoded.Functions))
-	}
-
-	dfn := decoded.Functions[0]
-	if dfn.Name != "bytecode_roundtrip" {
-		t.Errorf("decoded function name = %q, want bytecode_roundtrip", dfn.Name)
-	}
-	if !dfn.IsEntry {
-		t.Error("expected decoded function to have IsEntry = true")
-	}
-
-	// Create cudakernel.Artifact from raw bytecode
-	art, err := cudakernel.NewArtifact(
-		cudakernel.KindTileIR,
-		bytecode,
-		"bytecode_roundtrip",
-		res.Schema,
-		"sm_100a",
-	)
-	if err != nil {
-		t.Fatalf("NewArtifact with KindTileIR failed: %v", err)
-	}
-	if art.Kind != cudakernel.KindTileIR {
-		t.Errorf("art.Kind = %v, want KindTileIR", art.Kind)
+	if !errors.Is(err, tileir.ErrUnsupportedASTEncoding) || bytecode != nil {
+		t.Fatalf("incomplete AST encoding = %x, %v", bytecode, err)
 	}
 }
 

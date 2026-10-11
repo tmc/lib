@@ -1106,115 +1106,23 @@ func registerString(pool *[]string, s string) int {
 	return idx
 }
 
-// ToBytecode converts an AST Module into a BytecodeModule.
-//
-// Operation encoding is incomplete; see [Module.EncodeBytecode].
+// ErrUnsupportedASTEncoding reports that the AST does not preserve the NVIDIA
+// operation encoding needed to assemble an executable module.
+var ErrUnsupportedASTEncoding = errors.New("tileir: AST bytecode encoding is unsupported")
+
+// ToBytecode refuses AST conversion because operation operands, attributes,
+// result types, and nested regions cannot be faithfully serialized.
+// Use compiler-produced bytecode or CompileSemanticTile instead.
 func (m *Module) ToBytecode() (*BytecodeModule, error) {
 	if m == nil {
 		return nil, errors.New("tileir: nil module")
 	}
-
-	bm := &BytecodeModule{
-		Version:  BytecodeVersion{Major: 13, Minor: 4, Tag: 0},
-		Producer: m.Producer,
-	}
-
-	var strPool []string
-	var typePool []Type
-
-	if m.Producer != "" {
-		registerString(&strPool, m.Producer)
-	}
-	if m.Name != "" {
-		registerString(&strPool, m.Name)
-	}
-
-	for _, fn := range m.Functions {
-		registerString(&strPool, fn.Name)
-
-		var inTypes []Type
-		for _, p := range fn.Params {
-			t := p.TypeVal
-			if t == nil && p.Type != "" {
-				t, _ = ParseType(p.Type)
-			}
-			if t == nil {
-				t = Float32
-			}
-			registerType(&typePool, t)
-			inTypes = append(inTypes, t)
-		}
-
-		var resTypes []Type
-		for _, r := range fn.Returns {
-			t, _ := ParseType(r)
-			if t != nil {
-				registerType(&typePool, t)
-				resTypes = append(resTypes, t)
-			}
-		}
-
-		fnSig := NewFunction(inTypes, resTypes)
-		sigIdx := registerType(&typePool, fnSig)
-
-		entryFlag := uint8(0)
-		if fn.Entry {
-			entryFlag |= FuncKindKernel
-		}
-
-		var bodyBytes []byte
-		for _, op := range fn.Operations {
-			opName := op.OpCode
-			opCodeNum, ok := OpcodeNumbers[opName]
-			if !ok {
-				opCodeNum = 0x00
-			}
-			bodyBytes = appendVarInt(bodyBytes, uint64(opCodeNum))
-			if opCodeNum == 0x10 { // constant
-				t := op.TypeVal
-				if t == nil && op.Type != "" {
-					t, _ = ParseType(op.Type)
-				}
-				if t == nil {
-					t = Float32
-				}
-				tIdx := registerType(&typePool, t)
-				bodyBytes = appendVarInt(bodyBytes, uint64(tIdx))
-				bodyBytes = appendVarInt(bodyBytes, 0)
-			}
-		}
-
-		bfn := &BytecodeFunction{
-			Name:           fn.Name,
-			SignatureIndex: sigIdx,
-			Signature:      fnSig,
-			EntryFlag:      entryFlag,
-			IsEntry:        fn.Entry,
-			BodyBytes:      bodyBytes,
-			Operations:     fn.Operations,
-		}
-		bm.Functions = append(bm.Functions, bfn)
-	}
-
-	bm.Strings = strPool
-	bm.Types = typePool
-
-	return bm, nil
+	return nil, ErrUnsupportedASTEncoding
 }
 
-// EncodeBytecode serializes the Module to this package's bytecode.
-//
-// This is the AST path, not the faithful [EncodeBytecode] serializer.
-//
-// The output is not accepted by NVIDIA's Tile IR assembler. Function bodies
-// carry one opcode varint per operation and no operands or result types, so
-// the assembler fails at the first operation whose result type it needs.
-// [DecodeBytecode] reads the output because the two agree with each other;
-// neither agrees with the format. See the package documentation.
+// EncodeBytecode refuses incomplete AST serialization. The package function
+// EncodeBytecode preserves bodies read by DecodeBytecode; it is a separate path.
 func (m *Module) EncodeBytecode() ([]byte, error) {
-	bm, err := m.ToBytecode()
-	if err != nil {
-		return nil, err
-	}
-	return EncodeBytecode(bm)
+	_, err := m.ToBytecode()
+	return nil, err
 }

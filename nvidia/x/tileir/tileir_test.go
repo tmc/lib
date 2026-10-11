@@ -2,6 +2,7 @@ package tileir_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -287,13 +288,7 @@ func TestSubByteTypeAliases(t *testing.T) {
 	}
 }
 
-// TestEncodeBytecodeRoundTrip checks that this package can read back what it
-// writes. Its oracle is its own output, so it cannot show that the bytes are
-// Tile IR, and it does not: it stays green when the AST encoder is made to
-// write every opcode as opcode+1, because parseBodyOperations returns no error
-// and names an unknown opcode op_0xNN rather than rejecting it. Treat a pass
-// as evidence about framing only. x/tileiras's TestAssembleNative is the
-// oracle this package does not contain.
+// TestEncodeBytecodeRoundTrip refuses the historical self-validating AST codec.
 func TestEncodeBytecodeRoundTrip(t *testing.T) {
 	const textSample = `cuda_tile.module @subbyte_kernels {
   cuda_tile.entry @gemm_fp4(%A: !cuda_tile.tile<ptr<f4E2M1FN>>, %B: !cuda_tile.tile<ptr<f4E2M1FN>>, %C: !cuda_tile.tile<ptr<f32>>) {
@@ -312,28 +307,8 @@ func TestEncodeBytecodeRoundTrip(t *testing.T) {
 	}
 
 	bcBytes, err := mod.EncodeBytecode()
-	if err != nil {
-		t.Fatalf("EncodeBytecode failed: %v", err)
-	}
-
-	if !tileir.IsTileIRBytecode(bcBytes) {
-		t.Fatal("encoded bytes not recognized by IsTileIRBytecode")
-	}
-
-	decoded, err := tileir.DecodeBytecodeBytes(bcBytes)
-	if err != nil {
-		t.Fatalf("DecodeBytecodeBytes failed: %v", err)
-	}
-
-	if len(decoded.Functions) != 1 {
-		t.Fatalf("decoded %d functions, want 1", len(decoded.Functions))
-	}
-	fn := decoded.Functions[0]
-	if fn.Name != "gemm_fp4" {
-		t.Errorf("fn.Name = %q, want gemm_fp4", fn.Name)
-	}
-	if !fn.IsEntry {
-		t.Errorf("fn.IsEntry = false, want true")
+	if !errors.Is(err, tileir.ErrUnsupportedASTEncoding) || bcBytes != nil {
+		t.Fatalf("incomplete AST encoding = %x, %v", bcBytes, err)
 	}
 }
 
