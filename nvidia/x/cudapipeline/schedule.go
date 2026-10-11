@@ -2,6 +2,7 @@ package cudapipeline
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Role identifies the functional responsibility of a warp or warpgroup in
@@ -44,6 +45,83 @@ type StageOwnership struct {
 	State      StageState
 	Epoch      int // 0-indexed epoch counter; stage can only advance after consumer release
 	Parity     int // Phase parity (Epoch & 1)
+}
+
+// CopySources connects a validated finite schedule to two standalone CUDA C++
+// copy fixtures. Both use one 64-thread CTA: the first warp produces, and the
+// second consumes. Input and output must contain the full scheduled iteration
+// extent, be disjoint, and have 16-byte alignment. Launch exactly one block.
+//
+// The asynchronous fixture uses SM80+ cp.async, with per-producer completion
+// waits followed by CTA publication barriers. It is not TMA/mbarrier lowering;
+// it provides a separate ordinary-copy comparison for the same stage protocol.
+// Compilation, physical output correctness and timing are separate gates.
+func (s *PipelineSchedule) CopySources(name string) (synchronous, asynchronous string, err error) {
+	if failures := s.Validate(); len(failures) > 0 {
+		return "", "", fmt.Errorf("cudapipeline: invalid copy schedule: %v", failures)
+	}
+	if name == "" || len(name) > 128 {
+		return "", "", fmt.Errorf("cudapipeline: invalid copy kernel name")
+	}
+	for i, c := range name {
+		if !(c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || i > 0 && c >= '0' && c <= '9') {
+			return "", "", fmt.Errorf("cudapipeline: invalid copy kernel identifier")
+		}
+	}
+	if s.Stages > 8 || s.PayloadBytes%16 != 0 || s.PayloadBytes*int64(s.Stages) > 48<<10 {
+		return "", "", fmt.Errorf("cudapipeline: copy fixture stage, alignment or shared byte budget exceeded")
+	}
+	maxIteration := 0
+	seen := make(map[int]bool)
+	for _, step := range s.Steps {
+		if step.Kind == StepIssueTMA {
+			iteration := step.Epoch*s.Stages + step.Stage
+			if seen[iteration] {
+				return "", "", fmt.Errorf("cudapipeline: duplicate copy iteration")
+			}
+			seen[iteration] = true
+			if iteration+1 > maxIteration {
+				maxIteration = iteration + 1
+			}
+		}
+	}
+	if maxIteration == 0 || len(seen) != maxIteration || int64(maxIteration)*s.PayloadBytes > 64<<20 {
+		return "", "", fmt.Errorf("cudapipeline: noncontiguous or oversized copy extent")
+	}
+	emit := func(async bool) string {
+		var b strings.Builder
+		fmt.Fprintf(&b, "#include <cuda_runtime.h>\nextern \"C\" __global__ void %s(const unsigned char* src, unsigned char* dst) {\n", name)
+		fmt.Fprintf(&b, "  __shared__ __align__(16) unsigned char stage[%d];\n", s.PayloadBytes*int64(s.Stages))
+		b.WriteString("  if (blockDim.x != 64 || blockDim.y != 1 || blockDim.z != 1 || gridDim.x != 1 || gridDim.y != 1 || gridDim.z != 1) return;\n  unsigned int tid = threadIdx.x;\n")
+		for _, step := range s.Steps {
+			iteration := step.Epoch*s.Stages + step.Stage
+			stageOffset := int64(step.Stage) * s.PayloadBytes
+			globalOffset := int64(iteration) * s.PayloadBytes
+			switch step.Kind {
+			case StepIssueTMA:
+				if async {
+					fmt.Fprintf(&b, "  if (tid < 32) { for (unsigned int j = tid*16; j < %d; j += 512) {\n", s.PayloadBytes)
+					fmt.Fprintf(&b, "    unsigned int address = (unsigned int)__cvta_generic_to_shared(stage+%d+j);\n", stageOffset)
+					fmt.Fprintf(&b, "    asm volatile(\"cp.async.ca.shared.global [%%0], [%%1], 16;\" :: \"r\"(address), \"l\"(src+%d+j) : \"memory\");\n", globalOffset)
+					b.WriteString("  } asm volatile(\"cp.async.commit_group;\" ::: \"memory\"); }\n")
+				} else {
+					fmt.Fprintf(&b, "  if (tid < 32) for (unsigned int j=tid; j<%d; j+=32) stage[%d+j]=src[%d+j];\n", s.PayloadBytes, stageOffset, globalOffset)
+				}
+			case StepWaitParity:
+				if async {
+					b.WriteString("  if (tid < 32) asm volatile(\"cp.async.wait_group 0;\" ::: \"memory\");\n")
+				}
+				b.WriteString("  __syncthreads();\n")
+			case StepConsumeStage:
+				fmt.Fprintf(&b, "  if (tid >= 32) for (unsigned int j=tid-32; j<%d; j+=32) dst[%d+j]=stage[%d+j];\n", s.PayloadBytes, globalOffset, stageOffset)
+			case StepReleaseStage:
+				b.WriteString("  __syncthreads();\n")
+			}
+		}
+		b.WriteString("}\n")
+		return b.String()
+	}
+	return emit(false), emit(true), nil
 }
 
 // BarrierExpectation models static mbarrier transaction and arrival counts
@@ -94,6 +172,9 @@ type PipelineSchedule struct {
 // stage count and payload byte size across numIterations iterations (epochs).
 // It models producer prefetching, consumer waiting, and epoch reuse.
 func BuildWarpSpecializedSchedule(numStages int, payloadBytes int64, numIterations int) (*PipelineSchedule, error) {
+	if numStages > 64 || payloadBytes > 1<<20 || numIterations > 4096 {
+		return nil, fmt.Errorf("cudapipeline: schedule resource budget exceeded")
+	}
 	if numStages < 2 {
 		return nil, fmt.Errorf("cudapipeline: schedule requires at least 2 stages, got %d", numStages)
 	}
@@ -190,12 +271,24 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 	if s == nil {
 		return []ValidationError{{Violation: "nil schedule", Message: "schedule is nil"}}
 	}
+	if s.Stages < 1 || s.Stages > 64 || len(s.Steps) > 65536 || s.PayloadBytes <= 0 || s.PayloadBytes > 1<<20 {
+		return []ValidationError{{Violation: "invalid_schedule_bounds", Message: "invalid stage, step or payload bounds"}}
+	}
 	var errs []ValidationError
+	if len(s.Expectations) != s.Stages || len(s.Roles) != 2 || s.Roles[0] != RoleProducer || s.Roles[1] != RoleConsumer {
+		return []ValidationError{{Violation: "invalid_schedule_contract", Message: "missing stage expectations or producer/consumer roles"}}
+	}
+	for stage, expected := range s.Expectations {
+		if expected.BarrierOffset != stage*8 || expected.ArrivalCount != 1 || expected.TransactionBytes != s.PayloadBytes || expected.PhaseParity != 0 {
+			return []ValidationError{{Violation: "invalid_schedule_contract", Message: "unsupported barrier expectation"}}
+		}
+	}
 
 	stageOwners := make([]StageOwnership, s.Stages)
 	stageInited := make([]bool, s.Stages)
 	stageExpectedBytes := make([]int64, s.Stages)
 	stageIssuedBytes := make([]int64, s.Stages)
+	stageConsumed := make([]bool, s.Stages)
 
 	for i := 0; i < s.Stages; i++ {
 		stageOwners[i] = StageOwnership{
@@ -216,9 +309,40 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 			})
 			continue
 		}
+		addError := func(message string) {
+			errs = append(errs, ValidationError{Line: step.StepIndex, Violation: "invalid_schedule_protocol", Message: message})
+		}
+		producer := false
+		switch step.Kind {
+		case StepInit, StepAcquireStage, StepArriveExpectTx, StepIssueTMA:
+			producer = true
+		case StepWaitParity, StepConsumeStage, StepReleaseStage:
+		default:
+			addError("unsupported schedule step")
+			continue
+		}
+		if producer && step.Role != RoleProducer || !producer && step.Role != RoleConsumer {
+			addError("step has wrong producer or consumer role")
+		}
+		if step.Epoch < 0 || step.Epoch > 4096 || step.Parity != step.Epoch&1 {
+			addError("invalid epoch or parity")
+		}
+		if step.Kind != StepInit && step.Kind != StepAcquireStage && step.Epoch != stageOwners[step.Stage].Epoch {
+			addError("step references a different stage epoch")
+		}
+		if step.Bytes < 0 || step.Bytes > s.PayloadBytes {
+			addError("invalid transaction or consumption bytes")
+			continue
+		}
+		if step.Kind != StepArriveExpectTx && step.Kind != StepIssueTMA && step.Kind != StepConsumeStage && step.Bytes != 0 {
+			addError("nontransaction step has payload bytes")
+		}
 
 		switch step.Kind {
 		case StepInit:
+			if step.Epoch != 0 {
+				addError("initialization has nonzero epoch")
+			}
 			if stageInited[step.Stage] {
 				errs = append(errs, ValidationError{
 					Line:      step.StepIndex,
@@ -253,14 +377,21 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 					Message:   fmt.Sprintf("stale or duplicate epoch %d on stage %d (current epoch %d)", step.Epoch, step.Stage, cur.Epoch),
 				})
 			}
+			if step.Epoch != cur.Epoch+1 {
+				addError("stage epoch did not advance by one")
+			}
 			cur.Owner = RoleProducer
 			cur.State = StageProducing
 			cur.Epoch = step.Epoch
 			cur.Parity = step.Parity
 			stageExpectedBytes[step.Stage] = 0
 			stageIssuedBytes[step.Stage] = 0
+			stageConsumed[step.Stage] = false
 
 		case StepArriveExpectTx:
+			if stageOwners[step.Stage].State != StageProducing || step.Bytes == 0 || stageExpectedBytes[step.Stage] > s.PayloadBytes-step.Bytes {
+				addError("arrival outside producing stage or byte budget")
+			}
 			if !stageInited[step.Stage] {
 				errs = append(errs, ValidationError{
 					Line:      step.StepIndex,
@@ -271,6 +402,9 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 			stageExpectedBytes[step.Stage] += step.Bytes
 
 		case StepIssueTMA:
+			if stageOwners[step.Stage].State != StageProducing || step.Bytes == 0 || stageIssuedBytes[step.Stage] > s.PayloadBytes-step.Bytes {
+				addError("transfer outside producing stage or byte budget")
+			}
 			if !stageInited[step.Stage] {
 				errs = append(errs, ValidationError{
 					Line:      step.StepIndex,
@@ -285,6 +419,9 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 			}
 
 		case StepWaitParity:
+			if stageOwners[step.Stage].State != StageReady || stageExpectedBytes[step.Stage] != s.PayloadBytes || stageIssuedBytes[step.Stage] != s.PayloadBytes {
+				addError("wait before complete stage payload")
+			}
 			if !stageInited[step.Stage] {
 				errs = append(errs, ValidationError{
 					Line:      step.StepIndex,
@@ -313,6 +450,10 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 			cur.Owner = RoleConsumer
 
 		case StepConsumeStage:
+			if stageConsumed[step.Stage] || step.Bytes != s.PayloadBytes {
+				addError("duplicate or incomplete consumption")
+			}
+			stageConsumed[step.Stage] = true
 			cur := &stageOwners[step.Stage]
 			if cur.State != StageConsuming {
 				errs = append(errs, ValidationError{
@@ -323,6 +464,9 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 			}
 
 		case StepReleaseStage:
+			if !stageConsumed[step.Stage] {
+				addError("release before consumption")
+			}
 			cur := &stageOwners[step.Stage]
 			if cur.State != StageConsuming {
 				errs = append(errs, ValidationError{
@@ -332,6 +476,11 @@ func (s *PipelineSchedule) Validate() []ValidationError {
 				})
 			}
 			cur.State = StageIdle
+		}
+	}
+	for stage, owner := range stageOwners {
+		if owner.State != StageIdle {
+			errs = append(errs, ValidationError{Violation: "undrained_stage", Message: fmt.Sprintf("stage %d was not released", stage)})
 		}
 	}
 
