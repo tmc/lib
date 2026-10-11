@@ -24,15 +24,19 @@ type ToolSpec struct {
 // PropertyMeasurement retains an observed metric separately from unavailable evidence.
 // Property is attribution, diagnosis, cost or reproducibility. Lower is better.
 type PropertyMeasurement struct {
-	Property string  `json:"property"`
-	Status   string  `json:"status"`
-	Value    float64 `json:"value"`
-	Reason   string  `json:"reason,omitempty"`
+	Unit        string   `json:"unit,omitempty"`
+	Denominator uint64   `json:"denominator,omitempty"`
+	Uncertainty *float64 `json:"uncertainty,omitempty"`
+	Property    string   `json:"property"`
+	Status      string   `json:"status"`
+	Value       float64  `json:"value"`
+	Reason      string   `json:"reason,omitempty"`
 }
 
 // ToolReceipt identifies an independently retained raw execution artifact.
 // Measurements must come from that artifact, never from simulated defaults.
 type ToolReceipt struct {
+	Task           string                `json:"task,omitempty"`
 	Tool           ToolSpec              `json:"tool"`
 	ProtocolDigest string                `json:"protocol_digest"`
 	RawDigest      string                `json:"raw_digest"`
@@ -69,6 +73,9 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 	}
 	if tool == nil || *tool != receipt.Tool {
 		return nil, errors.New("cudasotaeval: tool differs from frozen matrix")
+	}
+	if tool.Support == "measured" && !measuredVersion(tool.Version) {
+		return nil, errors.New("cudasotaeval: measured tool has placeholder version")
 	}
 	if raw == nil {
 		return nil, errors.New("cudasotaeval: missing raw artifact")
@@ -112,6 +119,9 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 		}
 		if math.IsNaN(m.Value) || math.IsInf(m.Value, 0) || m.Value < 0 {
 			return nil, errors.New("cudasotaeval: invalid measurement")
+		}
+		if m.Uncertainty != nil && (math.IsNaN(*m.Uncertainty) || math.IsInf(*m.Uncertainty, 0) || *m.Uncertainty < 0) {
+			return nil, errors.New("cudasotaeval: invalid measurement uncertainty")
 		}
 		values[m.Property] = m
 	}

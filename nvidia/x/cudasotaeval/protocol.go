@@ -144,6 +144,11 @@ func (p *Protocol) Validate() error {
 	if p.Phase != PhasePilot && p.Phase != PhaseQualification {
 		return fmt.Errorf("%w: invalid phase %q", ErrInvalidProtocol, p.Phase)
 	}
+	if p.Comparison != nil {
+		if err := p.Comparison.validate(*p); err != nil {
+			return err
+		}
+	}
 	names := make(map[string]bool)
 	for _, tool := range p.Tools {
 		if tool.Name == "" || tool.Version == "" || tool.Configuration == "" || tool.Lineage == "" || names[tool.Name] {

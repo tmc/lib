@@ -105,6 +105,7 @@ type SamplingConfig struct {
 
 // Protocol defines the preregistered evaluation plan.
 type Protocol struct {
+	Comparison        *ComparisonSpec      `json:"comparison,omitempty"`
 	Tools             []ToolSpec           `json:"tools,omitempty"`
 	PropertyLimits    map[string]float64   `json:"property_limits,omitempty"`
 	Name              string               `json:"name"`
