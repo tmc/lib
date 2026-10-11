@@ -1,0 +1,11 @@
+commit: 840b2505c88a78a586e51e064a042fb2c088fe47
+date: 2026-10-11T17:56:06.628785+00:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; exact variant unrecorded
+tty: none
+pid: 15913
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-bpf/20261011-flight-independent/GRADE.md
+review sha256: a1f536577fc344ef549a229dfbfa5c86ca336a1a27670d69d34ebfa2dc549b54
+commit helper: manual fallback after two retained missing-API-key failures
+qualification: source/host contract only; retained raw traces unvalidated; digest caller asserted
