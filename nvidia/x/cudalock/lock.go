@@ -70,6 +70,7 @@ type config struct {
 	label        string
 	pollInterval time.Duration
 	maxHold      time.Duration
+	noReclaim    bool
 }
 
 // WithDir sets the target lock directory.
@@ -99,6 +100,13 @@ func WithMaxHold(d time.Duration) Option {
 		c.maxHold = d
 	}
 }
+
+// WithNoReclaim refuses to remove or replace a contended lock, including dead,
+// malformed and ownerless locks. Acquisition waits until the caller's context
+// expires or the lock is released. The owner is published after exclusive
+// directory creation; no work should start before [Inherited] verifies it.
+// Publication failure leaves the owned directory in place for inspection.
+func WithNoReclaim() Option { return func(c *config) { c.noReclaim = true } }
 
 // A Handle represents an acquired GPU lock.
 type Handle struct {
@@ -282,75 +290,115 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 			return nil, fmt.Errorf("cudalock: %w", err)
 		}
 
-		// Attempt atomic acquisition via staging directory rename
-		staging, stagingErr := os.MkdirTemp(parent, ".gpu-lock-acquire.*")
-		if stagingErr == nil {
-			owner := Owner{
-				PID:   myPID,
-				Host:  myHost,
-				Label: cfg.label,
-				Epoch: time.Now().Unix(),
-				At:    time.Now(),
+		if cfg.noReclaim {
+			if mkdirErr := os.Mkdir(cfg.dir, 0755); mkdirErr == nil {
+				owner := Owner{PID: myPID, Host: myHost, Label: cfg.label, Epoch: time.Now().Unix(), At: time.Now()}
+				f, err := os.OpenFile(filepath.Join(cfg.dir, "owner"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+				if err != nil {
+					return nil, fmt.Errorf("cudalock: owner publication failed, directory retained: %w", err)
+				}
+				_, writeErr := f.WriteString(owner.String())
+				syncErr := f.Sync()
+				closeErr := f.Close()
+				if err := errors.Join(writeErr, syncErr, closeErr); err != nil {
+					return nil, fmt.Errorf("cudalock: owner publication failed, directory retained: %w", err)
+				}
+				if cleanDir == filepath.Clean(DefaultDir()) {
+					_ = os.Setenv("GPU_LOCK_HELD", strconv.Itoa(myPID))
+				}
+				processMu.Lock()
+				processHolds[cleanDir] = &dirHold{count: 1, holderPID: myPID, owner: owner}
+				processMu.Unlock()
+				return &Handle{dir: cfg.dir, owner: owner}, nil
+			} else if !errors.Is(mkdirErr, os.ErrExist) {
+				return nil, fmt.Errorf("cudalock: create lock directory: %w", mkdirErr)
 			}
-			ownerFile := filepath.Join(staging, "owner")
-			if writeErr := os.WriteFile(ownerFile, []byte(owner.String()), 0644); writeErr == nil {
-				if renameErr := os.Rename(staging, cfg.dir); renameErr == nil {
-					// Successfully acquired directory mutex
-					if cleanDir == filepath.Clean(DefaultDir()) {
-						_ = os.Setenv("GPU_LOCK_HELD", strconv.Itoa(myPID))
-					}
-					processMu.Lock()
-					processHolds[cleanDir] = &dirHold{
-						count:     1,
-						holderPID: myPID,
-						inherited: false,
-						owner:     owner,
-					}
-					processMu.Unlock()
-
-					return &Handle{
-						dir:   cfg.dir,
-						owner: owner,
-					}, nil
+		} else {
+			// Attempt atomic acquisition via staging directory rename
+			staging, stagingErr := os.MkdirTemp(parent, ".gpu-lock-acquire.*")
+			if stagingErr == nil {
+				owner := Owner{
+					PID:   myPID,
+					Host:  myHost,
+					Label: cfg.label,
+					Epoch: time.Now().Unix(),
+					At:    time.Now(),
 				}
+				ownerFile := filepath.Join(staging, "owner")
+				if writeErr := os.WriteFile(ownerFile, []byte(owner.String()), 0644); writeErr == nil {
+					if renameErr := os.Rename(staging, cfg.dir); renameErr == nil {
+						// Successfully acquired directory mutex
+						if cleanDir == filepath.Clean(DefaultDir()) {
+							_ = os.Setenv("GPU_LOCK_HELD", strconv.Itoa(myPID))
+						}
+						processMu.Lock()
+						processHolds[cleanDir] = &dirHold{
+							count:     1,
+							holderPID: myPID,
+							inherited: false,
+							owner:     owner,
+						}
+						processMu.Unlock()
+
+						return &Handle{
+							dir:   cfg.dir,
+							owner: owner,
+						}, nil
+					}
+				}
+				_ = os.RemoveAll(staging)
 			}
-			_ = os.RemoveAll(staging)
-		}
 
-		// Mutex directory already exists: check owner record
-		ownerFile := filepath.Join(cfg.dir, "owner")
-		data, readErr := os.ReadFile(ownerFile)
-		if readErr == nil {
-			existingOwner, parseErr := ParseOwner(data)
-			if parseErr == nil {
-				// Safety check 1: Foreign host locks are NEVER reclaimed.
-				if existingOwner.Host != "" && existingOwner.Host != myHost {
-					goto wait
-				}
+			// Mutex directory already exists: check owner record
+			ownerFile := filepath.Join(cfg.dir, "owner")
+			data, readErr := os.ReadFile(ownerFile)
+			if readErr == nil {
+				existingOwner, parseErr := ParseOwner(data)
+				if parseErr == nil {
+					// Safety check 1: Foreign host locks are NEVER reclaimed.
+					if existingOwner.Host != "" && existingOwner.Host != myHost {
+						goto wait
+					}
 
-				// Safety check 2: Process liveness check.
-				// If process is alive, never reclaim regardless of age!
-				if isAlive(existingOwner.PID) {
-					goto wait
-				}
+					// Safety check 2: Process liveness check.
+					// If process is alive, never reclaim regardless of age!
+					if isAlive(existingOwner.PID) {
+						goto wait
+					}
 
-				// Safety check 3: Process is confirmed dead on our host.
-				// Reclaim the abandoned lock directory atomically.
-				reclaimed, reclaimErr := reclaim(cfg.dir, data)
-				if reclaimErr != nil {
-					return nil, reclaimErr
+					// Safety check 3: Process is confirmed dead on our host.
+					// Reclaim the abandoned lock directory atomically.
+					reclaimed, reclaimErr := reclaim(cfg.dir, data)
+					if reclaimErr != nil {
+						return nil, reclaimErr
+					}
+					if reclaimed {
+						continue
+					}
+				} else {
+					// Owner file exists but is empty or unparsable.
+					// Treat an empty or unparsable owner file like a missing one:
+					// reclaim it once it has been older than the grace period,
+					// measured from the owner file's mtime.
+					if fi, statErr := os.Stat(ownerFile); statErr == nil {
+						if time.Since(fi.ModTime()) > emptyOwnerGrace {
+							reclaimed, reclaimErr := reclaim(cfg.dir, data)
+							if reclaimErr != nil {
+								return nil, reclaimErr
+							}
+							if reclaimed {
+								continue
+							}
+						}
+					}
 				}
-				if reclaimed {
-					continue
-				}
-			} else {
-				// Owner file exists but is empty or unparsable.
-				// Treat an empty or unparsable owner file like a missing one:
-				// reclaim it once it has been older than the grace period,
-				// measured from the owner file's mtime.
-				if fi, statErr := os.Stat(ownerFile); statErr == nil {
+			} else if errors.Is(readErr, os.ErrNotExist) {
+				// Lock directory exists but has no owner file.
+				// Could be left by a crashed older creator.
+				if fi, statErr := os.Stat(cfg.dir); statErr == nil {
 					if time.Since(fi.ModTime()) > emptyOwnerGrace {
-						reclaimed, reclaimErr := reclaim(cfg.dir, data)
+						// Directory abandoned for > grace period with no owner file: reclaim.
+						reclaimed, reclaimErr := reclaim(cfg.dir, nil)
 						if reclaimErr != nil {
 							return nil, reclaimErr
 						}
@@ -360,21 +408,7 @@ func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
 					}
 				}
 			}
-		} else if errors.Is(readErr, os.ErrNotExist) {
-			// Lock directory exists but has no owner file.
-			// Could be left by a crashed older creator.
-			if fi, statErr := os.Stat(cfg.dir); statErr == nil {
-				if time.Since(fi.ModTime()) > emptyOwnerGrace {
-					// Directory abandoned for > grace period with no owner file: reclaim.
-					reclaimed, reclaimErr := reclaim(cfg.dir, nil)
-					if reclaimErr != nil {
-						return nil, reclaimErr
-					}
-					if reclaimed {
-						continue
-					}
-				}
-			}
+
 		}
 
 	wait:
