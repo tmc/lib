@@ -45,6 +45,10 @@ var policyTrampoline struct {
 // subscriptions can be active in a process. Overlapping conditions on the same
 // handle and group are refused because DCGM unregisters by condition, not token.
 // Raw registrations must not overlap a subscription owned by this helper.
+// The caller must supply an independently owned private Session group. On a
+// native registration error, a non-nil subscription is returned with the error:
+// registration may have had side effects, so its owner must explicitly Close
+// it successfully before releasing the group or connection.
 func NewPolicyNotifications(handle Handle, group GpuGrp, condition PolicyCondition, capacity int) (*PolicyNotifications, error) {
 	if handle == 0 || condition == 0 || condition & ^policyConditions != 0 || capacity < 1 || capacity > 4096 {
 		return nil, fmt.Errorf("dcgm: invalid policy notification configuration")
@@ -61,6 +65,12 @@ func NewPolicyNotifications(handle Handle, group GpuGrp, condition PolicyConditi
 	})
 	if policyTrampoline.err != nil {
 		return nil, policyTrampoline.err
+	}
+	notificationBindings.Lock()
+	err := loadNotificationBindings()
+	notificationBindings.Unlock()
+	if err != nil {
+		return nil, err
 	}
 	s := &PolicyNotifications{handle: handle, group: group, mask: condition, queue: make(chan PolicyCallbackResponse, capacity)}
 	policyCallbacks.Lock()
@@ -79,9 +89,8 @@ func NewPolicyNotifications(handle Handle, group GpuGrp, condition PolicyConditi
 	policyCallbacks.active[s.token] = s
 	policyCallbackLookup.Store(s.token, s)
 	policyCallbacks.Unlock()
-	if err := PolicyRegisterV2(handle, group, condition, policyTrampoline.ptr, s.token); err != nil {
-		s.retire()
-		return nil, fmt.Errorf("dcgm: register policy notifications: %w", err)
+	if err := registerPolicyNotifications(handle, group, condition, policyTrampoline.ptr, s.token); err != nil {
+		return s, fmt.Errorf("dcgm: register policy notifications: %w", err)
 	}
 	return s, nil
 }
@@ -104,8 +113,13 @@ func policyNotificationCallback(response *PolicyCallbackResponse, token uint64) 
 		s.dropped.Add(1)
 		return 0
 	}
-	// Copy while DCGM owns the callback argument. Preserve unknown versions and
-	// condition payloads for the reader; no pointer into library memory escapes.
+	// Inspect only the four-byte version header before copying the known layout.
+	// Unknown or legacy layouts might be shorter; their union cannot be read.
+	if response.Version != 0x02000020 {
+		s.dropped.Add(1)
+		return 0
+	}
+	// Copy while DCGM owns the known v2 argument. No native pointer escapes.
 	select {
 	case s.queue <- *response:
 	default:
@@ -115,7 +129,7 @@ func policyNotificationCallback(response *PolicyCallbackResponse, token uint64) 
 }
 
 // Notifications returns copied callback responses. Close closes the channel;
-// queued responses remain available. Unknown response versions are retained.
+// queued responses remain available. Unknown response versions are dropped.
 func (s *PolicyNotifications) Notifications() <-chan PolicyCallbackResponse {
 	if s == nil {
 		return nil
@@ -124,7 +138,7 @@ func (s *PolicyNotifications) Notifications() <-chan PolicyCallbackResponse {
 }
 
 // Dropped reports callbacks discarded because the queue was full, a concurrent
-// callback or Close owned the queue, or the response pointer was nil. Late
+// callback or Close owned the queue, or the response was nil or unknown-layout. Late
 // callbacks for retired tokens are ignored.
 func (s *PolicyNotifications) Dropped() uint64 {
 	if s == nil {
@@ -149,7 +163,7 @@ func (s *PolicyNotifications) Close() error {
 	if closed {
 		return nil
 	}
-	if err := PolicyUnregister(s.handle, s.group, s.mask); err != nil {
+	if err := unregisterPolicyNotifications(s.handle, s.group, s.mask); err != nil {
 		return fmt.Errorf("dcgm: unregister policy notifications: %w", err)
 	}
 	s.retire()

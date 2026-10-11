@@ -157,8 +157,12 @@ func TestPolicyStubChild(t *testing.T) {
 	if err := busy.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewPolicyNotifications(99, 1, PolicyCondDbe, 1); err == nil {
-		t.Fatal("register failure lost")
+	failed, err := NewPolicyNotifications(99, 1, PolicyCondDbe, 1)
+	if err == nil || failed == nil {
+		t.Fatal("register failure lost cleanup owner")
+	}
+	if err := failed.Close(); err != nil {
+		t.Fatal(err)
 	}
 	concurrent, err := NewPolicyNotifications(3, 1, PolicyCondDbe, 1)
 	if err != nil {
@@ -270,14 +274,14 @@ func TestPolicyTrampolineTokenIsolation(t *testing.T) {
 	s := &PolicyNotifications{queue: make(chan PolicyCallbackResponse, 1), token: 1 << 63}
 	policyCallbackLookup.Store(s.token, s)
 	defer policyCallbackLookup.Delete(s.token)
-	r := PolicyCallbackResponse{Version: 123, GpuId: 7}
+	r := PolicyCallbackResponse{Version: PolicyCallbackResponseVersion2, GpuId: 7}
 	policyNotificationCallback(&r, s.token+1)
 	if len(s.queue) != 0 {
 		t.Fatal("unknown token admitted")
 	}
 	policyNotificationCallback(&r, s.token)
 	r.GpuId = 9
-	if got := <-s.queue; got.GpuId != 7 || got.Version != 123 {
+	if got := <-s.queue; got.GpuId != 7 || got.Version != PolicyCallbackResponseVersion2 {
 		t.Fatal("callback payload not copied exactly")
 	}
 	s.mu.Lock()
