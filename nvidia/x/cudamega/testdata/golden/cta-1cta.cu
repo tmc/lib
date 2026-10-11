@@ -1,6 +1,7 @@
 #include <cuda_runtime.h>
 constexpr unsigned task_count = 2;
 constexpr unsigned grid_ctas = 1;
+constexpr unsigned grid_threads = 128;
 constexpr unsigned long long spin_limit = 16777216ull;
 constexpr unsigned producers_0 = 1u; // task "add3" is performed by CTAs [0,1)
 static_assert(task_count >= 1, "the generated worker has at least one task");
@@ -23,7 +24,7 @@ default: return 0; }}
 extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
     unsigned *completed, unsigned long long *start_order, volatile unsigned *abort_code,
     unsigned n, unsigned long long epoch) {
-  if (gridDim.x != grid_ctas || gridDim.y != 1 || gridDim.z != 1 || blockDim.y != 1 || blockDim.z != 1) {
+  if (gridDim.x != grid_ctas || gridDim.y != 1 || gridDim.z != 1 || blockDim.x != grid_threads || blockDim.y != 1 || blockDim.z != 1) {
     if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 2u);
     return;
   }
@@ -75,6 +76,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         task_ready = 1u;
         asm volatile("ld.acquire.cta.u32 %0, [%1];" : "=r"(published) : "l"(completed) : "memory"); // task 0
         if (published < producers_0) task_ready = 0u;
+        if (published > producers_0) { task_ready = 0u; atomicCAS((unsigned *)abort_code, 0u, 5u); }
       }
       __syncthreads();
       const unsigned take_1 = task_ready;

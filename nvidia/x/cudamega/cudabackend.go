@@ -51,6 +51,7 @@ func (c *cudaSource) Begin(p *Program) error {
 	}
 	fmt.Fprintf(&c.defs, "constexpr unsigned task_count = %d;\n", len(p.steps))
 	fmt.Fprintf(&c.defs, "constexpr unsigned grid_ctas = %d;\n", p.grid.CTAs)
+	fmt.Fprintf(&c.defs, "constexpr unsigned grid_threads = %d;\n", p.grid.ThreadsPerCTA)
 	// Only a dependency wait polls, so only a graph with a dependency edge
 	// declares the bound. Declaring it unconditionally leaves an unreferenced
 	// constant in every dependency-free worker, which nvcc reports.
@@ -183,6 +184,7 @@ func (c *cudaSource) Ready(i, dep int, s cudataskgraph.Scope) error {
 	}
 	fmt.Fprintf(b, "        asm volatile(\"ld.acquire.%s.u32 %%0, [%s];\" : \"=r\"(published) : \"l\"(completed) : \"memory\"); // task %d\n", scope, addr, dep)
 	fmt.Fprintf(b, "        if (published < producers_%d) task_ready = 0u;\n", dep)
+	fmt.Fprintf(b, "        if (published > producers_%d) { task_ready = 0u; atomicCAS((unsigned *)abort_code, 0u, %du); }\n", dep, AbortBadCompletion)
 	return nil
 }
 
@@ -322,7 +324,7 @@ func (c *cudaSource) End() error {
 // source returns the whole translation unit.
 func (c *cudaSource) source() string {
 	return programPrologue + c.defs.String() +
-		workerPrologue(c.p.needBarrier, c.p.needPhase) + c.body.String() +
+		workerPrologue(c.p.needBarrier, c.p.needPhase, c.p.grid.MaxElements) + c.body.String() +
 		workerEpilogue + ordinaryKernel
 }
 

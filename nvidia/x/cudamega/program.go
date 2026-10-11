@@ -33,7 +33,7 @@ const (
 	AbortNone        = 0
 	AbortHostRequest = 1 // the host wrote a nonzero code before or during the launch
 	AbortBadLaunch   = 2 // the launch geometry is not the one the source was generated for
-	AbortBadExtent   = 3 // n or epoch is zero
+	AbortBadExtent   = 3 // n or epoch is zero, or n exceeds the declared bound
 	// AbortSpinExhausted means a CTA polled a dependency's completion word
 	// more times than the compiled-in bound allows and gave up.
 	//
@@ -43,6 +43,10 @@ const (
 	// so that a run which hit the bound is never read as a run that
 	// completed.
 	AbortSpinExhausted = 4
+
+	// AbortBadCompletion means a dependency reports more completed CTAs
+	// than its ownership permits. Such a count cannot publish valid output.
+	AbortBadCompletion = 5
 )
 
 // DefaultSpinLimit is the poll-iteration bound a dependency wait uses when
@@ -182,9 +186,12 @@ var ordinaryKernel string
 // refusals of contract 6, then the shared mbarrier. The barrier and its phase
 // are declared only when some task needs them, so that a graph with no CTA
 // synchronization does not carry a barrier nothing arrives at.
-func workerPrologue(barrier, phase bool) string {
+func workerPrologue(barrier, phase bool, maxElements uint32) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, workerEntry, AbortBadLaunch, AbortBadExtent)
+	if maxElements != 0 {
+		fmt.Fprintf(&b, "  if (n > %du) {\n    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, %du);\n    return;\n  }\n", maxElements, AbortBadExtent)
+	}
 	if barrier {
 		b.WriteString(ctaBarrierInit)
 	}

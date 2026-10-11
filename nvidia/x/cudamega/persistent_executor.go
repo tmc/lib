@@ -18,6 +18,11 @@ type Grid struct {
 	CTAs          uint32
 	ThreadsPerCTA uint32
 
+	// MaxElements bounds the generated CUDA scalar worker extent. Zero leaves the
+	// extent unbounded by the caller. It is not a buffer size: callers must
+	// still retain input and scratch storage for every admitted element.
+	MaxElements uint32
+
 	// Policy is how the grid's CTAs are dealt to the graph's tasks. The zero
 	// value is [WavePolicy], under which every CTA performs every task, which
 	// is what this package emitted before per-task ownership existed.
