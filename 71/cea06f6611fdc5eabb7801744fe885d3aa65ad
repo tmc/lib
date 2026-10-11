@@ -1,0 +1,10 @@
+commit: 71cea06f6611fdc5eabb7801744fe885d3aa65ad
+date: 2026-10-11T10:04:03.116400-07:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; peer reviewer exact model unrecorded
+tty: none
+pid: 25325
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-bpf/20261011-workload-alias-review/GRADE.md
+review sha256: 0866695906f8063a3344e53b3ff719104f625e8e74a644970d435498f288f547
+commit helper: manual fallback after two retained missing-API-key failures
