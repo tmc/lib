@@ -1,0 +1,12 @@
+commit=a8cdec879ebd49ee929ef493acab686bbd1bbf2e
+date_utc=2026-10-11T06:55:04Z
+agent=Codex
+claude_code_version=not applicable
+model=not exposed by session
+tty=not a tty
+unavailable
+note_shell_pid=62668
+ITERM_SESSION_ID=w5t2p0:CC24097B-751A-4B17-9AD8-68B720E6AA15
+qualification=CPU support host baseline/race/eight intended mutations and four Linux compile-only outputs; no native/model/parity claim
+receipt=/Users/tmc/tmp/ds4-min/20261010-cpu-support-integration-b5/host-cycle.sj844M
+helper=one attempt; configured Anthropic API key missing; signed manual fallback
