@@ -19,6 +19,11 @@ type GraphvizOptions struct {
 	ShowHardwareTarget bool
 }
 
+type visualNodeID struct {
+	class Id
+	index int
+}
+
 // ToDOT returns g as Graphviz DOT. The result is deterministic for an
 // unchanged E-Graph.
 func (g *EGraph) ToDOT(opts GraphvizOptions) string {
@@ -27,28 +32,33 @@ func (g *EGraph) ToDOT(opts GraphvizOptions) string {
 	b.WriteString("\trankdir=LR;\n")
 	b.WriteString("\tnode [shape=box];\n")
 
-	costs, extracted := g.visualCosts()
-	for _, class := range g.Classes() {
+	classes := g.Classes()
+	costs, extracted := g.visualCosts(classes)
+	for _, class := range classes {
 		fmt.Fprintf(&b, "\tsubgraph cluster_eclass_%d {\n", class.ID)
 		fmt.Fprintf(&b, "\t\tlabel=\"e-class %d\";\n", class.ID)
 		fmt.Fprintf(&b, "\t\teclass_%d [shape=ellipse, label=\"e-class %d\"];\n", class.ID, class.ID)
 		for i, node := range visualNodes(class.Nodes) {
 			name := visualNodeName(class.ID, i)
-			cost, known := costs[visualNodeKey(class.ID, node)]
+			id := visualNodeID{class: class.ID, index: i}
+			cost, known := costs[id]
 			label := visualLabel(node, cost, opts.ShowCost && known)
 			attrs := []string{fmt.Sprintf("label=\"%s\"", dotEscape(label))}
 			if opts.ShowHardwareTarget {
 				attrs = append(attrs, "style=filled", "fillcolor=\""+dotColor(visualTarget(node.Op))+"\"")
 			}
-			if opts.HighlightExtraction && extracted[visualNodeKey(class.ID, node)] {
+			if opts.HighlightExtraction && extracted[id] {
 				attrs = append(attrs, "color=\"#3fb950\"", "penwidth=3")
+			}
+			if node.Subsumed {
+				attrs = append(attrs, "color=\"#8b949e\"", "style=dashed")
 			}
 			fmt.Fprintf(&b, "\t\t%s [%s];\n", name, strings.Join(attrs, ", "))
 		}
 		b.WriteString("\t}\n")
 	}
 
-	for _, class := range g.Classes() {
+	for _, class := range classes {
 		for i, node := range visualNodes(class.Nodes) {
 			for _, child := range node.Children {
 				fmt.Fprintf(&b, "\t%s -> eclass_%d;\n", visualNodeName(class.ID, i), g.Find(child))
@@ -70,26 +80,31 @@ func (g *EGraph) ToMermaid(opts GraphvizOptions) string {
 		b.WriteString("    classDef host_cpu fill:#8b949e,stroke:#8b949e,color:#fff\n")
 	}
 
-	costs, extracted := g.visualCosts()
-	for _, class := range g.Classes() {
+	classes := g.Classes()
+	costs, extracted := g.visualCosts(classes)
+	for _, class := range classes {
 		fmt.Fprintf(&b, "    subgraph cluster_eclass_%d[\"e-class %d\"]\n", class.ID, class.ID)
 		fmt.Fprintf(&b, "        eclass_%d((\"e-class %d\"))\n", class.ID, class.ID)
 		for i, node := range visualNodes(class.Nodes) {
 			name := visualNodeName(class.ID, i)
-			cost, known := costs[visualNodeKey(class.ID, node)]
+			id := visualNodeID{class: class.ID, index: i}
+			cost, known := costs[id]
 			label := mermaidEscape(visualLabel(node, cost, opts.ShowCost && known))
 			fmt.Fprintf(&b, "        %s[\"%s\"]\n", name, label)
 			if opts.ShowHardwareTarget {
 				fmt.Fprintf(&b, "        class %s %s\n", name, visualTarget(node.Op))
 			}
-			if opts.HighlightExtraction && extracted[visualNodeKey(class.ID, node)] {
+			if opts.HighlightExtraction && extracted[id] {
 				fmt.Fprintf(&b, "        style %s stroke:#3fb950,stroke-width:3px\n", name)
+			}
+			if node.Subsumed {
+				fmt.Fprintf(&b, "        style %s stroke:#8b949e,stroke-dasharray:5 5\n", name)
 			}
 		}
 		b.WriteString("    end\n")
 	}
 
-	for _, class := range g.Classes() {
+	for _, class := range classes {
 		for i, node := range visualNodes(class.Nodes) {
 			for _, child := range node.Children {
 				fmt.Fprintf(&b, "    %s --> eclass_%d\n", visualNodeName(class.ID, i), g.Find(child))
@@ -99,15 +114,18 @@ func (g *EGraph) ToMermaid(opts GraphvizOptions) string {
 	return b.String()
 }
 
-func (g *EGraph) visualCosts() (map[string]float64, map[string]bool) {
+func (g *EGraph) visualCosts(classes []*EClass) (map[visualNodeID]float64, map[visualNodeID]bool) {
 	ext := NewExtractor(g, FusedMegakernelCost{})
-	costs := make(map[string]float64)
-	extracted := make(map[string]bool)
-	for _, class := range g.Classes() {
+	costs := make(map[visualNodeID]float64)
+	extracted := make(map[visualNodeID]bool)
+	for _, class := range classes {
 		classID := g.Find(class.ID)
 		best, hasBest := ext.bestNodes[classID]
-		for _, node := range class.Nodes {
-			key := visualNodeKey(class.ID, node)
+		for i, node := range visualNodes(class.Nodes) {
+			id := visualNodeID{class: class.ID, index: i}
+			if node.Subsumed {
+				continue
+			}
 			childCosts := make([]float64, len(node.Children))
 			known := true
 			for i, child := range node.Children {
@@ -119,10 +137,10 @@ func (g *EGraph) visualCosts() (map[string]float64, map[string]bool) {
 				childCosts[i] = cost
 			}
 			if known {
-				costs[key] = ext.costModel.NodeCost(node, childCosts)
+				costs[id] = evaluateCostModel(ext.costModel, node, childCosts)
 			}
-			if hasBest && node.Key() == best.Key() {
-				extracted[key] = true
+			if hasBest && node.Equal(best) {
+				extracted[id] = true
 			}
 		}
 	}
@@ -141,12 +159,14 @@ func visualNodeName(classID Id, index int) string {
 	return fmt.Sprintf("eclass_%d_node_%d", classID, index)
 }
 
-func visualNodeKey(classID Id, node ENode) string {
-	return fmt.Sprintf("%d:%s", classID, node.Key())
-}
-
 func visualLabel(node ENode, cost float64, showCost bool) string {
 	label := node.Op
+	if node.Sort != "" {
+		label = node.Sort + ":" + label
+	}
+	if node.Subsumed {
+		label += "\nsubsumed"
+	}
 	if showCost {
 		label += fmt.Sprintf("\nheuristic cost: %.3g", cost)
 	}
@@ -155,7 +175,7 @@ func visualLabel(node ENode, cost float64, showCost bool) string {
 
 func visualTarget(op string) TargetDevice {
 	switch op {
-	case "fused_swiglu_gemv", "fused_rmsnorm_gemv":
+	case "fused_swiglu_gemv", "fused_rmsnorm_gemv", "fused_rmsnorm_qkv", "fused_swiglu_down":
 		return TargetANE
 	case "causal_flash_attention", "rope", "add":
 		return TargetGPU
@@ -178,12 +198,17 @@ func dotColor(target TargetDevice) string {
 func dotEscape(s string) string {
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "\"", "\\\"")
-	return strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	return strings.ReplaceAll(s, "\t", "\\t")
 }
 
 func mermaidEscape(s string) string {
 	s = html.EscapeString(s)
 	s = strings.ReplaceAll(s, "[", "&#91;")
 	s = strings.ReplaceAll(s, "]", "&#93;")
-	return strings.ReplaceAll(s, "\n", "&lt;br/&gt;")
+	s = strings.ReplaceAll(s, "\r\n", "&lt;br/&gt;")
+	s = strings.ReplaceAll(s, "\r", "&lt;br/&gt;")
+	s = strings.ReplaceAll(s, "\n", "&lt;br/&gt;")
+	return strings.ReplaceAll(s, "\t", "&#9;")
 }

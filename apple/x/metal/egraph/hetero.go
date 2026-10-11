@@ -22,26 +22,31 @@ type PartitionedGraph struct {
 // 2. Causal Self-Attention, Dynamic KV Cache, and RoPE rotations -> Apple Metal GPU
 func HeterogeneousPartition(root *Expr) *PartitionedGraph {
 	pg := &PartitionedGraph{}
-	partitionNode(root, pg)
-	return pg
-}
+	seen := make(map[*Expr]bool)
+	stack := []*Expr{root}
+	for len(stack) > 0 {
+		e := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if e == nil || seen[e] {
+			continue
+		}
+		seen[e] = true
 
-func partitionNode(e *Expr, pg *PartitionedGraph) {
-	if e == nil {
-		return
-	}
-
-	switch e.Op {
-	case "fused_swiglu_gemv", "fused_rmsnorm_gemv":
-		pg.ANEExprs = append(pg.ANEExprs, e)
-	case "causal_flash_attention", "rope":
-		pg.GPUExprs = append(pg.GPUExprs, e)
-	default:
-		if e.Op == "add" {
+		switch e.Op {
+		case "fused_swiglu_gemv", "fused_rmsnorm_gemv", "fused_rmsnorm_qkv", "fused_swiglu_down":
+			pg.ANEExprs = append(pg.ANEExprs, e)
+			continue
+		case "causal_flash_attention", "rope":
 			pg.GPUExprs = append(pg.GPUExprs, e)
+			continue
+		default:
+			if e.Op == "add" {
+				pg.GPUExprs = append(pg.GPUExprs, e)
+			}
 		}
-		for _, child := range e.Children {
-			partitionNode(child, pg)
+		for i := len(e.Children) - 1; i >= 0; i-- {
+			stack = append(stack, e.Children[i])
 		}
 	}
+	return pg
 }

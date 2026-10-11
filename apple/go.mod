@@ -5,7 +5,10 @@ go 1.27.0
 require (
 	github.com/google/pprof v0.0.0-20260906184651-6331bc6350fe
 	github.com/tmc/apple v0.6.18
+	github.com/tmc/lib/egraphcore v0.0.0
 )
+
+replace github.com/tmc/lib/egraphcore => ../egraphcore
 
 require (
 	github.com/ebitengine/purego v0.11.0 // indirect
