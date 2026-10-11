@@ -33,7 +33,8 @@ type ProbeCoverage struct {
 }
 
 // Loss records dropped and total records for a record family. Unknown indicates
-// unquantified loss where dropped records cannot be bounded.
+// unquantified loss where dropped records or their total cannot be bounded.
+// When Unknown is false, Total includes dropped records, including measured zero.
 type Loss struct {
 	Dropped uint64 `json:"dropped"`
 	Total   uint64 `json:"total"`
@@ -135,7 +136,7 @@ func (r Receipt) JSON() ([]byte, error) {
 		}
 	}
 	for family, loss := range r.LostRecords {
-		if family == "" || (!loss.Unknown && loss.Total > 0 && loss.Dropped > loss.Total) {
+		if family == "" || (!loss.Unknown && loss.Dropped > loss.Total) {
 			return nil, fmt.Errorf("trace receipt: invalid loss record for family %q", family)
 		}
 	}
