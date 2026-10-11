@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"hash"
 	"math"
 	"os/exec"
 	"path/filepath"
@@ -70,9 +71,30 @@ func CheckNumericalCorrectness(reference, candidate []float64, tolerance float64
 	return nil
 }
 
+const maxCommandOutputBytes = 16 << 20
+const commandTimeout = 30 * time.Second
+
+type commandDigestWriter struct {
+	hash          hash.Hash
+	bytes         int
+	cancel        context.CancelFunc
+	limitExceeded bool
+}
+
+func (w *commandDigestWriter) Write(p []byte) (int, error) {
+	if len(p) > maxCommandOutputBytes-w.bytes {
+		w.limitExceeded = true
+		w.cancel()
+		return 0, errors.New("cudaregress: command output limit exceeded")
+	}
+	w.bytes += len(p)
+	return w.hash.Write(p)
+}
+
 // SafeCommandArm constructs a verified trial arm that directly executes a declared binary.
 // It verifies that binaryPath corresponds to a declared and digest-verified binary artifact,
-// and executes directly without shell interpolation.
+// and executes directly without shell interpolation. Each invocation is limited
+// to 30 seconds and 16 MiB of combined output, hashed without retaining it.
 func SafeCommandArm(plan *ExperimentPlan, name, binaryPath string, args ...string) (cudatrial.Arm, error) {
 	if plan == nil {
 		return cudatrial.Arm{}, errors.New("cudaregress: nil plan")
@@ -108,10 +130,23 @@ func SafeCommandArm(plan *ExperimentPlan, name, binaryPath string, args ...strin
 				return cudatrial.Receipt{}, err
 			}
 
-			cmd := exec.CommandContext(ctx, cleanBinary, args...)
+			if ctx == nil {
+				return cudatrial.Receipt{}, errors.New("cudaregress: nil command context")
+			}
+			commandCtx, cancel := context.WithTimeout(ctx, commandTimeout)
+			defer cancel()
+			out := &commandDigestWriter{hash: sha256.New(), cancel: cancel}
+			cmd := exec.CommandContext(commandCtx, cleanBinary, args...)
+			cmd.Stdout, cmd.Stderr = out, out
+			cmd.WaitDelay = time.Second
 			start := time.Now()
-			out, err := cmd.CombinedOutput()
+			err := cmd.Run()
 			finish := time.Now()
+			if out.limitExceeded {
+				err = errors.New("cudaregress: command output limit exceeded")
+			} else if commandCtx.Err() != nil {
+				err = commandCtx.Err()
+			}
 			if err != nil {
 				return cudatrial.Receipt{Complete: false, Err: err}, err
 			}
@@ -119,7 +154,7 @@ func SafeCommandArm(plan *ExperimentPlan, name, binaryPath string, args ...strin
 			r := cudatrial.Receipt{
 				Name:        name,
 				Complete:    true,
-				Digest:      fmt.Sprintf("%x", sha256.Sum256(out)),
+				Digest:      fmt.Sprintf("%x", out.hash.Sum(nil)),
 				Started:     start,
 				Finished:    finish,
 				WallElapsed: wall,
