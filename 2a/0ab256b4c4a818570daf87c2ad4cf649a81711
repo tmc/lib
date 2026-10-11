@@ -1,0 +1,11 @@
+Commit: 2a0ab256b4c4a818570daf87c2ad4cf649a81711
+Date: 2026-10-11T21:59:30.879802+00:00
+Agent: Codex CLI 0.162.1
+Model: GPT-6 Codex (exact runtime variant not exposed)
+Claude Code version: not applicable
+TTY: no tool PTY
+Receipt process PID: 90366
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+Wire identity: 026363F7
+Review: /Users/tmc/tmp/lib-bpf/20261011-channel-layout-independent-review/GRADE.md
+Scope: host bounds and channel state only; no target/native or full-lane claim
