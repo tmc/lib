@@ -177,7 +177,21 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 		return fmt.Errorf("cudasrv: submit to batch scheduler: %w", err)
 	}
 
-	// Forward tokens until finished or context canceled
+	forward := func(token string) error {
+		// Empty tokenizer pieces carry no text, but remain counted by the
+		// scheduler's token-ID usage.
+		if token == "" {
+			return nil
+		}
+		select {
+		case tokenChan <- token:
+			return nil
+		case <-ctx.Done():
+			_ = a.scheduler.Cancel(reqID)
+			return ctx.Err()
+		}
+	}
+	// Forward tokens until finished or context canceled.
 	for {
 		select {
 		case <-ctx.Done():
@@ -190,16 +204,30 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 				tokListener = nil
 				continue
 			}
-			if tok != "" {
-				select {
-				case tokenChan <- tok:
-				case <-ctx.Done():
-					_ = a.scheduler.Cancel(reqID)
-					return ctx.Err()
-				}
+			if err := forward(tok); err != nil {
+				return err
 			}
 		case err := <-doneChan:
-			if err == nil && usage != nil {
+			if err != nil {
+				return err
+			}
+			// StepIteration queues every piece before completion. Selecting
+			// completion first must not drop the pieces already in the queue.
+		drain:
+			for {
+				select {
+				case token, ok := <-tokListener:
+					if !ok {
+						break drain
+					}
+					if err := forward(token); err != nil {
+						return err
+					}
+				default:
+					break drain
+				}
+			}
+			if usage != nil {
 				request, ok := a.scheduler.Request(reqID)
 				if !ok {
 					return fmt.Errorf("cudasrv: completed request missing token usage")
@@ -224,6 +252,9 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 // StepIteration advances the continuous batch scheduler by one forward iteration.
 // Can be run in a loop or driven deterministically by tests.
 func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
+	if ctx == nil || a.scheduler == nil || a.execEngine == nil || a.tokenizer == nil {
+		return fmt.Errorf("cudasrv: adapter requires context, scheduler, engine, and tokenizer")
+	}
 	iter, err := a.scheduler.Schedule()
 	if err != nil {
 		return fmt.Errorf("cudasrv: scheduler error: %w", err)
@@ -246,7 +277,13 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 
 	genTokens, rowErrors, execErr := a.execEngine.ExecuteForward(ctx, execStep)
 	if execErr != nil {
-		return fmt.Errorf("cudasrv: execute forward: %w", execErr)
+		if rowErrors == nil {
+			rowErrors = make(map[string]error)
+		}
+		for _, row := range iter.AllocatedRows {
+			rowErrors[row.SeqID] = execErr
+		}
+		genTokens = nil
 	}
 
 	// Update scheduler
@@ -256,20 +293,42 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 
 	// Dispatch tokens to listeners
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	var canceled []string
+	defer func() {
+		a.mu.Unlock()
+		for _, id := range canceled {
+			_ = a.scheduler.Cancel(id)
+		}
+	}()
 
 	for seqID, tokID := range genTokens {
+		if rowErrors[seqID] != nil {
+			continue
+		}
 		if listener, ok := a.listeners[seqID]; ok {
-			text := ""
-			if a.tokenizer != nil {
-				text, _ = a.tokenizer.Decode([]int32{tokID})
-			}
-			if text == "" {
-				text = fmt.Sprintf(" tok_%d", tokID)
+			text, decodeErr := a.tokenizer.Decode([]int32{tokID})
+			if decodeErr != nil {
+				canceled = append(canceled, seqID)
+				if done := a.doneChans[seqID]; done != nil {
+					select {
+					case done <- fmt.Errorf("cudasrv: decode token: %w", decodeErr):
+					default:
+					}
+				}
+				continue
 			}
 			select {
 			case listener <- text:
 			default:
+				// A bounded queue may refuse a slow consumer; it must not
+				// silently discard text and later report success.
+				canceled = append(canceled, seqID)
+				if done := a.doneChans[seqID]; done != nil {
+					select {
+					case done <- fmt.Errorf("cudasrv: output consumer too slow"):
+					default:
+					}
+				}
 			}
 		}
 	}
@@ -278,7 +337,7 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 	for _, row := range iter.AllocatedRows {
 		if r, ok := a.scheduler.Request(row.SeqID); ok && r.IsFinished() {
 			if done, ok := a.doneChans[row.SeqID]; ok {
-				var err error
+				err := rowErrors[row.SeqID]
 				if r.State == cudabatch.StateCanceled {
 					err = context.Canceled
 				}
@@ -289,6 +348,8 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 			}
 		}
 	}
-
+	if execErr != nil {
+		return fmt.Errorf("cudasrv: execute forward: %w", execErr)
+	}
 	return nil
 }
