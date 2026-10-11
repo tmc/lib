@@ -13,11 +13,10 @@ import (
 // The intermediate remains available to secondary consumers after both launches.
 // Both entries use the fused seven-parameter ABI. The quantizer ignores weight,
 // eps and weighted; its in argument is the normalization output.
+// Header and builtin requirements match RMSNormQ8_1Source.
 func RMSNormQ8_1UnfusedSource() string {
 	return `#include <cuda_fp16.h>
-#include <stdint.h>
-#include <math.h>
-struct Q8_1 { __half d, s; int8_t q[32]; };
+struct Q8_1 { __half d, s; signed char q[32]; };
 static_assert(sizeof(Q8_1) == 36, "q8_1 layout");
 extern "C" __global__ void rms_f32(const float* in, const float* weight,
     float* out, unsigned rows, unsigned cols, float eps, unsigned weighted) {
@@ -48,7 +47,7 @@ extern "C" __global__ void quant_q8_1(const float* in, const float* weight,
       float v=in[(size_t)r*cols+b*32+i];
       int q=d == 0 ? 0 : (int)roundf(v/d);
       q=q>127 ? 127 : (q < -127 ? -127 : q);
-      dst->q[i]=(int8_t)q; sum+=q;
+      dst->q[i]=(signed char)q; sum+=q;
     }
     dst->s=__float2half_rn((float)sum*d);
   }

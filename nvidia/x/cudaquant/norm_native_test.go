@@ -3,7 +3,6 @@ package cudaquant
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -17,13 +16,30 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
+func normNativeCapability(target string) (major, minor int, ok bool) {
+	switch target {
+	case "sm_90", "sm_90a":
+		return 9, 0, true
+	case "sm_100a":
+		return 10, 0, true
+	case "sm_121a":
+		return 12, 1, true
+	}
+	return 0, 0, false
+}
+
+func normNativeDeviceMatches(target string, major, minor int) bool {
+	wantMajor, wantMinor, ok := normNativeCapability(target)
+	return ok && major == wantMajor && minor == wantMinor
+}
+
 func TestNativeNormQuantReference(t *testing.T) {
 	if os.Getenv("CUDAQUANT_NATIVE") != "1" {
 		t.Skip("CUDAQUANT_NATIVE=1 requires scoped hardware authorization")
 	}
 	target := os.Getenv("CUDAQUANT_TARGET")
-	if target != "sm_100a" && target != "sm_121a" {
-		t.Fatal("CUDAQUANT_TARGET must name sm_100a or sm_121a")
+	if _, _, ok := normNativeCapability(target); !ok {
+		t.Fatal("CUDAQUANT_TARGET must name sm_90, sm_90a, sm_100a or sm_121a")
 	}
 	ordinal, err := strconv.Atoi(os.Getenv("CUDAQUANT_DEVICE"))
 	if err != nil || ordinal < 0 {
@@ -106,7 +122,7 @@ func TestNativeNormQuantReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprintf("sm_%d%da", major, minor) != target {
+	if !normNativeDeviceMatches(target, major, minor) {
 		t.Fatalf("device SM%d%d differs from %s", major, minor, target)
 	}
 	artifact, err := RMSNormQ8_1Artifact(target)

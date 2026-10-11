@@ -33,8 +33,23 @@ func TestPrefillW256Layouts(t *testing.T) {
 	if err != nil || schema.TotalParamBytes != 32 || len(schema.Params) != 5 {
 		t.Fatalf("schema=%+v err=%v", schema, err)
 	}
-	if _, err := PrefillW256Artifact("sm_90"); err == nil {
-		t.Fatal("accepted unqualified target")
+}
+
+func TestPrefillArtifactsRefuseTargets(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		compile func(string) (*cudakernel.Artifact, error)
+	}{
+		{"scalar", PrefillW256ScalarArtifact},
+		{"wmma", PrefillW256Artifact},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, target := range []string{"", "sm_90", "sm_90a", "sm_100", "sm_121", "compute_100a"} {
+				if _, err := tc.compile(target); err == nil || !strings.Contains(err.Error(), "unsupported prefill target") {
+					t.Fatalf("compile %q = %v, want unsupported prefill target", target, err)
+				}
+			}
+		})
 	}
 }
 
@@ -104,18 +119,28 @@ func TestPrefillW256Compile(t *testing.T) {
 	if os.Getenv("CUDAMOE_COMPILE") != "1" {
 		t.Skip("set CUDAMOE_COMPILE=1 and CUDAMOE_TARGET for CUDA compilation")
 	}
-	a, err := PrefillW256Artifact(os.Getenv("CUDAMOE_TARGET"))
-	if err != nil {
-		t.Fatal(err)
+	for _, tc := range []struct {
+		name    string
+		compile func(string) (*cudakernel.Artifact, error)
+	}{
+		{"scalar", PrefillW256ScalarArtifact},
+		{"wmma", PrefillW256Artifact},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a, err := tc.compile(os.Getenv("CUDAMOE_TARGET"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			info, err := cudakernel.ParseCUBIN(a.Raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(info.Symbols, a.EntryPoint) {
+				t.Fatal("missing compiled entry")
+			}
+			t.Logf("target=%s entry=%s digest=%s resources=%+v options=%v", a.Target, a.EntryPoint, a.Digest, a.Resources, a.CompilerOpts)
+		})
 	}
-	info, err := cudakernel.ParseCUBIN(a.Raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Contains(info.Symbols, a.EntryPoint) {
-		t.Fatal("missing compiled entry")
-	}
-	t.Logf("target=%s digest=%s resources=%+v options=%v", a.Target, a.Digest, a.Resources, a.CompilerOpts)
 }
 
 const prefillHostWMMA = `

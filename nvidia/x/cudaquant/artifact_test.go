@@ -21,55 +21,59 @@ func (f normArtifactFunc) ToArtifact(entry string, schema cudakernel.Schema, tar
 
 func TestNormQuantArtifactCompilation(t *testing.T) {
 	normQuantHeaderFixture(t)
-	var compiledFlags []string
-	var result *cudakernel.Artifact
-	a, err := normQuantArtifact("sm_121a", func(src string, opts ...nvrtcx.Option) (normQuantModule, error) {
-		if src != RMSNormQ8_1Source() {
-			t.Fatal("compiler received different source")
-		}
-		var err error
-		compiledFlags, err = nvrtcx.CompileFlags(opts...)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, flag := range []string{"--gpu-architecture=sm_121a", "-std=c++17"} {
-			if !slices.Contains(compiledFlags, flag) {
-				t.Fatalf("missing %s in %v", flag, compiledFlags)
-			}
-		}
-		if slices.Contains(compiledFlags, "--use_fast_math") {
-			t.Fatal("unqualified numerical mode")
-		}
-		return normArtifactFunc(func(entry string, schema cudakernel.Schema, target string) (*cudakernel.Artifact, error) {
-			if entry != "rms_quant_q8_1" || target != "sm_121a" || schema.TotalParamBytes != 40 {
-				t.Fatalf("wrong kernel contract: %s %s %+v", entry, target, schema)
-			}
-			wantNames := []string{"in", "weight", "out", "rows", "cols", "eps", "weighted"}
-			wantTypes := []string{"ptr", "ptr", "ptr", "u32", "u32", "f32", "u32"}
-			if len(schema.Params) != len(wantNames) {
-				t.Fatal("wrong parameter count")
-			}
-			for i, p := range schema.Params {
-				if p.Name != wantNames[i] || p.Type != wantTypes[i] || p.IsPointer != (i < 3) {
-					t.Fatalf("parameter %d: %+v", i, p)
+	for _, wantTarget := range []string{"sm_90", "sm_100a", "sm_121a"} {
+		t.Run(wantTarget, func(t *testing.T) {
+			var compiledFlags []string
+			var result *cudakernel.Artifact
+			a, err := normQuantArtifact(wantTarget, func(src string, opts ...nvrtcx.Option) (normQuantModule, error) {
+				if src != RMSNormQ8_1Source() {
+					t.Fatal("compiler received different source")
 				}
+				var err error
+				compiledFlags, err = nvrtcx.CompileFlags(opts...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, flag := range []string{"--gpu-architecture=" + wantTarget, "-std=c++17"} {
+					if !slices.Contains(compiledFlags, flag) {
+						t.Fatalf("missing %s in %v", flag, compiledFlags)
+					}
+				}
+				if slices.Contains(compiledFlags, "--use_fast_math") {
+					t.Fatal("unqualified numerical mode")
+				}
+				return normArtifactFunc(func(entry string, schema cudakernel.Schema, target string) (*cudakernel.Artifact, error) {
+					if entry != "rms_quant_q8_1" || target != wantTarget || schema.TotalParamBytes != 40 {
+						t.Fatalf("wrong kernel contract: %s %s %+v", entry, target, schema)
+					}
+					wantNames := []string{"in", "weight", "out", "rows", "cols", "eps", "weighted"}
+					wantTypes := []string{"ptr", "ptr", "ptr", "u32", "u32", "f32", "u32"}
+					if len(schema.Params) != len(wantNames) {
+						t.Fatal("wrong parameter count")
+					}
+					for i, p := range schema.Params {
+						if p.Name != wantNames[i] || p.Type != wantTypes[i] || p.IsPointer != (i < 3) {
+							t.Fatalf("parameter %d: %+v", i, p)
+						}
+					}
+					// Synthetic compiler output tests transport only, not valid device code.
+					result = &cudakernel.Artifact{
+						Kind: cudakernel.KindCUBIN, Raw: []byte("compiled output fixture"),
+						EntryPoint: entry, Schema: schema, Target: target,
+						Resources: cudakernel.ResourceRequirements{AllocatedRegisters: 24},
+						Toolchain: "compiler fixture",
+					}
+					return result, nil
+				}), nil
+			})
+			if err != nil {
+				t.Fatal(err)
 			}
-			// Synthetic compiler output tests transport only, not valid device code.
-			result = &cudakernel.Artifact{
-				Kind: cudakernel.KindCUBIN, Raw: []byte("compiled output fixture"),
-				EntryPoint: entry, Schema: schema, Target: target,
-				Resources: cudakernel.ResourceRequirements{AllocatedRegisters: 24},
-				Toolchain: "compiler fixture",
+			if a != result || a.Kind != cudakernel.KindCUBIN || a.Resources.AllocatedRegisters != 24 ||
+				a.Toolchain != "compiler fixture" || !reflect.DeepEqual(a.CompilerOpts, compiledFlags) || bytes.Equal(a.Raw, []byte(RMSNormQ8_1Source())) {
+				t.Fatalf("lost compiled artifact metadata: %+v", a)
 			}
-			return result, nil
-		}), nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if a != result || a.Kind != cudakernel.KindCUBIN || a.Resources.AllocatedRegisters != 24 ||
-		a.Toolchain != "compiler fixture" || !reflect.DeepEqual(a.CompilerOpts, compiledFlags) || bytes.Equal(a.Raw, []byte(RMSNormQ8_1Source())) {
-		t.Fatalf("lost compiled artifact metadata: %+v", a)
+		})
 	}
 }
 

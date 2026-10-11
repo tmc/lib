@@ -111,7 +111,9 @@ func TestNormEmittedNumerics(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
+			// The host shim supplies declarations NVRTC provides implicitly.
 			header := `#include <stddef.h>
+#include <math.h>
 #define __global__
 using __half = _Float16;
 static_assert(sizeof(__half)==2,"half size");

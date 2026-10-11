@@ -118,11 +118,10 @@ func RMSNormQ8_1(input, weight []float32, rows, cols int, epsilon float32, weigh
 }
 
 // RMSNormQ8_1Source emits the fused CUDA kernel for the declared fixture.
+// It includes cuda_fp16.h; NVRTC supplies size_t and the math functions.
 func RMSNormQ8_1Source() string {
 	return `#include <cuda_fp16.h>
-#include <stdint.h>
-#include <math.h>
-struct Q8_1 { __half d, s; int8_t q[32]; };
+struct Q8_1 { __half d, s; signed char q[32]; };
 static_assert(sizeof(Q8_1) == 36, "q8_1 layout");
 // Bounded correctness implementation: one serial thread per row. Input and
 // weights must be finite, cols positive and divisible by 32, epsilon nonnegative.
@@ -148,7 +147,7 @@ extern "C" __global__ void rms_quant_q8_1(const float* in, const float* weight,
     for (unsigned i=0; i<32; ++i) {
       int q=d == 0 ? 0 : (int)roundf(values[i]/d);
       q=q>127 ? 127 : (q < -127 ? -127 : q);
-      dst->q[i]=(int8_t)q; sum+=q;
+      dst->q[i]=(signed char)q; sum+=q;
     }
     dst->s=__float2half_rn((float)sum*d);
   }

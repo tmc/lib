@@ -100,6 +100,7 @@ extern "C" __global__ void moe_gather(const float* experts, float* out,
 // K and N must be positive multiples of 16, pointers 32-byte aligned, and
 // buffers nonoverlapping. Launch grid (N/16,4,1) with block (128,1,1).
 // The caller must group independent tokens for one expert before launch.
+// It includes cuda_fp16.h and mma.h and uses NVRTC's predefined size_t.
 func PrefillW256Source() (string, error) {
 	return prefillW256Source, nil
 }

@@ -71,7 +71,6 @@ func compilePrefill(target, source, entry string) (*cudakernel.Artifact, error) 
 }
 
 const prefillW256ScalarSource = `#include <cuda_fp16.h>
-#include <stddef.h>
 extern "C" __global__ void moe_prefill_scalar(const half* a, const half* b,
     float* c, unsigned k, unsigned n) {
   if (!a || !b || !c || !k || !n || k%16 || n%16) return;
@@ -96,7 +95,6 @@ func prefillW256Schema() (cudakernel.Schema, error) {
 
 const prefillW256Source = `#include <cuda_fp16.h>
 #include <mma.h>
-#include <stddef.h>
 extern "C" __global__ void moe_prefill_w256(const half* a, const half* b,
     float* c, unsigned k, unsigned n) {
   if (blockDim.x != 128 || blockDim.y != 1 || blockDim.z != 1 ||
