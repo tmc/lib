@@ -1,0 +1,10 @@
+commit: d134e368ea5cf88f4396d2a38ff7639ff83a8aef
+date: 2026-10-10T23:49:23-07:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; author/reviewer gpt-6.1-sol
+tty: none
+pid: 32940
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-wt-next/20261010-full-testing-readiness/independent-interpose-reentry/GRADE.md
+review sha256: d4917bf7ca6f4fc027eef6ac2f4e60c3d54e40ca9758fca0230980cd5f957268
+commit helper: manual fallback after two retained missing-API-key failures
