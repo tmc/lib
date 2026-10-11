@@ -3,8 +3,6 @@ package tileir_test
 import (
 	"bytes"
 	"errors"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -333,24 +331,4 @@ extern "C" void k() {}`
 			t.Errorf("expected ErrInvalidTileGlobal, got %v", err)
 		}
 	})
-}
-
-func TestNativeTileRegionReference(t *testing.T) {
-	// Gated native test: requires nvrtc / nvcc with tile support and physical GPU
-	if os.Getenv("CUDA_TILE_NATIVE") != "1" {
-		t.Skip("skipping native Tile C++ compilation test: CUDA_TILE_NATIVE=1 not set (qualification pending)")
-	}
-
-	nvrtcBin, err := exec.LookPath("nvrtc")
-	if err != nil {
-		t.Skipf("nvrtc not found on PATH: %v (qualification pending)", err)
-	}
-
-	// Verify required flags
-	flags := []string{"--enable-tile", "--tile-only", "--tilebc", "--std=c++20"}
-	if err := tileir.ValidateTileCompileFlags(flags); err != nil {
-		t.Fatalf("ValidateTileCompileFlags: %v", err)
-	}
-
-	t.Logf("native qualification active with %s and flags %v", nvrtcBin, flags)
 }

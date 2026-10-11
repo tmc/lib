@@ -317,10 +317,8 @@ func TestUnsupportedDeviceCollective(t *testing.T) {
 	}
 }
 
-// TestNativeCollectiveReference verifies native collective reference execution policy.
-// In the absence of an authorized hardware test gate, it ensures explicit ErrExecutionUnavailable
-// rather than silent fabricated host success.
-func TestNativeCollectiveReference(t *testing.T) {
+// TestUninitializedNCCLTransportRefusesExecution checks host-side admission.
+func TestUninitializedNCCLTransportRefusesExecution(t *testing.T) {
 	ranks := []cudacollective.Rank{
 		{ID: 0, HostID: "hostA", DeviceID: 0},
 		{ID: 1, HostID: "hostA", DeviceID: 1},

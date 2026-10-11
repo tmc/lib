@@ -1,7 +1,6 @@
 package cudapipeline_test
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -304,11 +303,8 @@ func TestAuditAndRejectInvalidBulkTMEMPTX(t *testing.T) {
 	}
 }
 
-// 9. TestNativePipelineReference: gated by CUDA_PIPELINE_NATIVE=1
-func TestNativePipelineReference(t *testing.T) {
-	if os.Getenv("CUDA_PIPELINE_NATIVE") != "1" {
-		t.Skip("skipping native pipeline reference test; set CUDA_PIPELINE_NATIVE=1 with authorized hardware")
-	}
+// TestHostPipelineCopyReference checks the CPU staged-copy oracle.
+func TestHostPipelineCopyReference(t *testing.T) {
 
 	// Reference host CPU oracle for double buffered copy
 	stages := 2

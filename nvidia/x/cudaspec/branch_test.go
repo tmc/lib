@@ -344,8 +344,8 @@ func TestSpeculationCacheIdentity(t *testing.T) {
 	}
 }
 
-// 7. TestNativeSpeculativeCycle: End-to-end propose, verify, commit-or-rollback cycle.
-func TestNativeSpeculativeCycle(t *testing.T) {
+// TestHostSpeculativeCycleReference uses a CPU oracle and mock block release.
+func TestHostSpeculativeCycleReference(t *testing.T) {
 	cfg := cudaspec.CycleConfig{
 		NumHeads:      2,
 		HeadDim:       4,
