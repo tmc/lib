@@ -92,9 +92,13 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 // Search runs pruned search over the mapspace. Orders must include each
 // non-unit factor at the specified level; unit-factor loops may be omitted.
 // Scoring uses order-independent data movement floors, not schedule latency.
+// It rejects a candidate count that cannot be represented by its int statistics.
 func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, error) {
 	stats := MapSpaceSearchStats{}
-	downstreamPerFact := len(s.Permutations) * len(s.Bypasses)
+	downstreamPerFact, err := mapspaceDownstreamCount(len(s.Factorizations), len(s.Permutations), len(s.Bypasses))
+	if err != nil {
+		return stats, err
+	}
 
 	// Convert dtypes to string map for cudaroofline
 	dtypesStr := map[string]int{
@@ -166,6 +170,27 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 	}
 
 	return stats, nil
+}
+
+// mapspaceDownstreamCount checks both the per-factorization product and the
+// total count. Every skipped or evaluated candidate belongs to that total, so
+// subsequent statistics additions cannot overflow.
+func mapspaceDownstreamCount(factorizations, permutations, bypasses int) (int, error) {
+	if factorizations < 0 || permutations < 0 || bypasses < 0 {
+		return 0, fmt.Errorf("mapspace candidate count is negative")
+	}
+	if factorizations == 0 {
+		return 0, nil
+	}
+	maxInt := int(^uint(0) >> 1)
+	if bypasses != 0 && permutations > maxInt/bypasses {
+		return 0, fmt.Errorf("mapspace downstream count overflows int")
+	}
+	downstream := permutations * bypasses
+	if downstream != 0 && factorizations > maxInt/downstream {
+		return 0, fmt.Errorf("mapspace candidate count overflows int")
+	}
+	return downstream, nil
 }
 
 func validMapSpacePermutation(fact cudalayout.IndexFactorization, perm cudalayout.LoopPermutation, problem map[string]int) bool {
