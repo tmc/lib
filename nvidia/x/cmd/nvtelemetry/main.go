@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -411,7 +412,8 @@ func runReplay(args []string, stdout, stderr io.Writer) error {
 
 	fmt.Fprintf(stdout, "Replayed run %s (collector: %s, devices: %d, complete: %v)\n",
 		manifest.RunID, manifest.CollectorVersion, len(manifest.Devices), manifest.IsComplete)
-	for phaseName, wSummaries := range windowSummaries {
+	for _, phaseName := range sortedPhaseNames(windowSummaries) {
+		wSummaries := windowSummaries[phaseName]
 		fmt.Fprintf(stdout, "  Phase: %s (%d metrics, %d energy summaries)\n",
 			phaseName, len(wSummaries), len(energySummaries[phaseName]))
 	}
@@ -551,4 +553,13 @@ func newMockSampler() *nvtelemetry.FakeSampler {
 	s := nvtelemetry.NewFakeSampler(meta)
 	s.Enqueue(readings...)
 	return s
+}
+
+func sortedPhaseNames(summaries map[string][]nvtelemetry.WindowSummary) []string {
+	phaseNames := make([]string, 0, len(summaries))
+	for phaseName := range summaries {
+		phaseNames = append(phaseNames, phaseName)
+	}
+	sort.Strings(phaseNames)
+	return phaseNames
 }
