@@ -12,6 +12,7 @@ import (
 type Generation uint64
 
 // Communicator is the coordinated control plane interface for a rank.
+// Its zero value is not usable; create one with NewCommunicator.
 type Communicator struct {
 	mu         sync.RWMutex
 	rank       int

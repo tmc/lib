@@ -3,6 +3,7 @@ package cudacollective
 import (
 	"context"
 	"fmt"
+
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 	"github.com/tmc/lib/nvidia/x/cuda"
