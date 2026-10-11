@@ -107,7 +107,9 @@ func (c CollectiveIntent) SameEpoch(other CollectiveIntent) bool {
 	return c.Communicator == other.Communicator && c.Generation == other.Generation && c.WorldSize == other.WorldSize && c.Operation == other.Operation && c.DType == other.DType && c.Count == other.Count && c.EffectToken == other.EffectToken
 }
 
-// CanRewrite reports whether reordering preserves the communication effect.
+// CanRewrite reports whether reordering preserves the communication effect,
+// including the participating rank, stream, and in-place buffer contract.
 func CanRewrite(before, after CollectiveIntent) bool {
-	return before.Validate() == nil && after.Validate() == nil && before.SameEpoch(after) && before.Rank == after.Rank
+	return before.Validate() == nil && after.Validate() == nil && before.SameEpoch(after) &&
+		before.Rank == after.Rank && before.Stream == after.Stream && before.InPlace == after.InPlace
 }
