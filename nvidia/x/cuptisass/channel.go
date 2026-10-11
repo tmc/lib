@@ -121,7 +121,7 @@ const (
 // fn, or with ctx.Err() if ctx is done first.
 func (c *Channel) Receive(ctx context.Context, layout RecordLayout, fn func(record []byte) error) (ChannelStats, error) {
 	var st ChannelStats
-	if layout.Size <= 0 || layout.Size > len(c.buf) || layout.CTAXOffset < 0 || layout.CTAXOffset+4 > layout.Size {
+	if layout.Size < 4 || layout.Size > len(c.buf) || layout.CTAXOffset < 0 || layout.CTAXOffset > layout.Size-4 {
 		return st, fmt.Errorf("cuptisass: channel: invalid record layout %+v for a %d-byte buffer", layout, len(c.buf))
 	}
 	batch := make([]byte, len(c.buf))
