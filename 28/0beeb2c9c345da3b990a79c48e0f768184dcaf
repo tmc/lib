@@ -1,0 +1,11 @@
+commit: 280beeb2c9c345da3b990a79c48e0f768184dcaf
+date: 2026-10-11T18:17:49.107417+00:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; exact variant unrecorded
+tty: none
+pid: 45097
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-bpf/20261011-join-independent/GRADE.md
+review sha256: c6971521ec4fef41501ade02b3f71cd5dd89d992a584bcbf47d2bac159715fb0
+commit helper: manual fallback after two retained missing-API-key failures
+qualification: bounded source/host join correction; general fanout/future-conflict/native open
