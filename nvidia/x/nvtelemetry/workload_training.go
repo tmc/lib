@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -37,7 +38,7 @@ func decodeWorkloadJSON(raw []byte, dst any) error {
 	// contradictory producer identities, timestamps or metric values.
 	check := json.NewDecoder(bytes.NewReader(raw))
 	check.UseNumber()
-	if err := checkWorkloadJSON(check, 0); err != nil {
+	if err := checkStreamJSON(check, 0, reflect.TypeOf(dst)); err != nil {
 		return err
 	}
 	if _, err := check.Token(); err != io.EOF {
@@ -53,48 +54,6 @@ func decodeWorkloadJSON(raw []byte, dst any) error {
 		return errors.New("trailing workload JSON")
 	}
 	return nil
-}
-
-func checkWorkloadJSON(d *json.Decoder, depth int) error {
-	if depth > 128 {
-		return errors.New("workload JSON nesting limit exceeded")
-	}
-	t, err := d.Token()
-	if err != nil {
-		return err
-	}
-	delim, ok := t.(json.Delim)
-	if !ok {
-		return nil
-	}
-	switch delim {
-	case '{':
-		seen := map[string]bool{}
-		for d.More() {
-			k, err := d.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := k.(string)
-			if !ok || seen[key] {
-				return errors.New("duplicate workload JSON key")
-			}
-			seen[key] = true
-			if err := checkWorkloadJSON(d, depth+1); err != nil {
-				return err
-			}
-		}
-	case '[':
-		for d.More() {
-			if err := checkWorkloadJSON(d, depth+1); err != nil {
-				return err
-			}
-		}
-	default:
-		return errors.New("invalid workload JSON delimiter")
-	}
-	_, err = d.Token()
-	return err
 }
 
 func trainingMetric(e WorkloadExport, name, value, timestamp string, timeScale int64, step *int64, labels map[string]string, l WorkloadLimits) (WorkloadMetric, error) {
