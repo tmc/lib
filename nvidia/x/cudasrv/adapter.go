@@ -2,6 +2,7 @@ package cudasrv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -20,9 +21,27 @@ type BatchEngineAdapter struct {
 	stepTicker  time.Duration
 	contTracker *cudabatch.ContinuationTracker
 
+	iterationMu sync.Mutex
+	pending     *pendingIteration
+
 	mu        sync.Mutex
 	listeners map[string]chan string
 	doneChans map[string]chan error
+}
+
+// pendingForward preserves native buffer ownership after a failed wait.
+// Done must include completion and release of the execution's buffer leases.
+type pendingForward interface {
+	error
+	Wait(context.Context) error
+	Done() bool
+}
+
+type pendingIteration struct {
+	iteration *cudabatch.ScheduledIteration
+	forward   pendingForward
+	cause     error
+	settled   bool
 }
 
 // AdapterOption configures BatchEngineAdapter.
@@ -252,8 +271,15 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 // StepIteration advances the continuous batch scheduler by one forward iteration.
 // Can be run in a loop or driven deterministically by tests.
 func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
+	a.iterationMu.Lock()
+	defer a.iterationMu.Unlock()
 	if ctx == nil || a.scheduler == nil || a.execEngine == nil || a.tokenizer == nil {
 		return fmt.Errorf("cudasrv: adapter requires context, scheduler, engine, and tokenizer")
+	}
+	if a.pending != nil {
+		if err := a.drainLocked(ctx); err != nil {
+			return err
+		}
 	}
 	iter, err := a.scheduler.Schedule()
 	if err != nil {
@@ -266,7 +292,7 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 	// Bind rows and validate shapes
 	metadata, err := cudabatch.ValidateAndBindRows(iter.AllocatedRows, a.bucket, a.blockSize)
 	if err != nil {
-		return fmt.Errorf("cudasrv: validate row bindings: %w", err)
+		return a.finishIteration(iter, nil, nil, fmt.Errorf("cudasrv: validate row bindings: %w", err))
 	}
 
 	execStep := &cudabatch.ExecutionStep{
@@ -276,6 +302,61 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 	}
 
 	genTokens, rowErrors, execErr := a.execEngine.ExecuteForward(ctx, execStep)
+	var pending pendingForward
+	if execErr != nil && errors.As(execErr, &pending) {
+		a.pending = &pendingIteration{iteration: iter, forward: pending, cause: execErr}
+		// Report the failed wait promptly without releasing the scheduler's
+		// KV buffers. Drain owns settlement after the device is quiescent.
+		a.mu.Lock()
+		for _, row := range iter.AllocatedRows {
+			if done := a.doneChans[row.SeqID]; done != nil {
+				select {
+				case done <- execErr:
+				default:
+				}
+			}
+		}
+		a.mu.Unlock()
+		return fmt.Errorf("cudasrv: execute forward: %w", execErr)
+	}
+	return a.finishIteration(iter, genTokens, rowErrors, execErr)
+}
+
+// Drain waits for a retained execution using ctx. It releases scheduler resources
+// only after the execution reports Done. A failed wait can be retried; no
+// background goroutine assumes ownership of native buffers.
+func (a *BatchEngineAdapter) Drain(ctx context.Context) error {
+	if ctx == nil {
+		return fmt.Errorf("cudasrv: drain requires context")
+	}
+	a.iterationMu.Lock()
+	defer a.iterationMu.Unlock()
+	return a.drainLocked(ctx)
+}
+
+func (a *BatchEngineAdapter) drainLocked(ctx context.Context) error {
+	p := a.pending
+	if p == nil {
+		return nil
+	}
+	waitErr := p.forward.Wait(ctx)
+	if p.forward.Done() && !p.settled {
+		p.settled = true
+		// The original execution failure stays attached to each row even
+		// when a subsequent wait successfully ends buffer ownership.
+		_ = a.finishIteration(p.iteration, nil, nil, p.cause)
+	}
+	if waitErr != nil {
+		return fmt.Errorf("cudasrv: drain execution: %w", waitErr)
+	}
+	if !p.forward.Done() {
+		return fmt.Errorf("cudasrv: execution wait returned before completion")
+	}
+	a.pending = nil
+	return nil
+}
+
+func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration, genTokens map[string]int32, rowErrors map[string]error, execErr error) error {
 	if execErr != nil {
 		if rowErrors == nil {
 			rowErrors = make(map[string]error)
