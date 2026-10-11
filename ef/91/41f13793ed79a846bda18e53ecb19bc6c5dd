@@ -1,0 +1,9 @@
+commit: ef9141f13793ed79a846bda18e53ecb19bc6c5dd
+date: 2026-10-11T05:17:29.188346+00:00
+agent: Codex
+version: codex-cli 0.162.1
+model: not exposed
+tty: none (exec)
+pid: 23277
+ITERM_SESSION_ID: 4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+source: signed atomic takeover cherry-pick; original author and message retained
