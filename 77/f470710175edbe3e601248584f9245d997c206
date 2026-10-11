@@ -1,0 +1,10 @@
+commit: 77f470710175edbe3e601248584f9245d997c206
+date: 2026-10-11T10:01:33.793531-07:00
+agent: Codex CLI 0.162.1; Claude Code not used
+model: GPT-6-based Codex; original author gpt-6.1-sol; peer reviewer exact model unrecorded
+tty: none
+pid: 19896
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+review: /Users/tmc/tmp/lib-bpf/20261011-capture-reader-review/GRADE.md
+review sha256: 0fd21c764b0a4ad2ae5f953f38a9799ca066084fce6ba5ea3d81afa21a3ffcb3
+commit helper: manual fallback after two retained missing-API-key failures
