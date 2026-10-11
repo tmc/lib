@@ -197,3 +197,49 @@ func TestBranchKVRejectsDuplicatedPrefix(t *testing.T) {
 		t.Fatal("refusal allocated blocks")
 	}
 }
+
+func TestBatchCycleSeparatesCompletionAndTerminalError(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		waitErr error
+		done    bool
+		free    int
+	}{{"completed-failed", errors.New("failed completed step"), true, 7}, {"inflight-failed", errors.New("still pending"), false, 6}, {"false-success", nil, false, 6}} {
+		t.Run(tt.name, func(t *testing.T) {
+			a, r := batchFixture(t)
+			e := &batchTokenEngine{tokens: []int32{2}}
+			v := verifier(e)
+			v.Wait = func(*cudabatch.ExecutionStep) error { return tt.waitErr }
+			v.Done = func(s *cudabatch.ExecutionStep) bool {
+				if s.StepID != 1 {
+					t.Fatal("wrong step completion")
+				}
+				return tt.done
+			}
+			result, err := ExecuteBatchCycle(context.Background(), a, r, v)
+			if err == nil || result == nil {
+				t.Fatal("missing failed cycle")
+			}
+			if a.NumFreeBlocks() != tt.free {
+				t.Fatalf("free blocks %d want %d", a.NumFreeBlocks(), tt.free)
+			}
+			if err := result.KV.Close(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestBatchCycleCancellationAfterCompletedForward(t *testing.T) {
+	a, r := batchFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	e := &batchTokenEngine{tokens: []int32{2}, inspect: func(*cudabatch.ExecutionStep) { cancel() }}
+	v := verifier(e)
+	waited := false
+	v.Wait = func(*cudabatch.ExecutionStep) error { waited = true; return nil }
+	result, err := ExecuteBatchCycle(ctx, a, r, v)
+	if !errors.Is(err, context.Canceled) || !waited || result == nil || a.NumFreeBlocks() != 7 {
+		t.Fatalf("cancel/drain result=%v err=%v waited=%v free=%d", result, err, waited, a.NumFreeBlocks())
+	}
+}

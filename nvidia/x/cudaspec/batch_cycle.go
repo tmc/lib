@@ -31,7 +31,7 @@ type BatchCycleRequest struct {
 // Wait must establish that all work for the step is quiescent, including when
 // ExecuteForward returns cancellation or failure. Wait receives no canceled
 // context: cancellation alone cannot authorize releasing borrowed device KV.
-// It must have its own bounded native drain policy. A failed Wait retains KV
+// It must have its own bounded native drain policy. A failed Wait without independent Done proof retains KV
 // in the returned result for explicit owner recovery, rather than guessing.
 type BatchVerifier struct {
 	// ReadOnlyPrefix requires verification that never writes borrowed prefix KV.
@@ -40,11 +40,15 @@ type BatchVerifier struct {
 	ReadOnlyPrefix bool
 	Engine         cudabatch.ExecutionEngine
 	Wait           func(*cudabatch.ExecutionStep) error
+	// Done optionally proves exact-step quiescence independently of a terminal
+	// execution error from Wait. A false result retains the KV lease.
+	Done func(*cudabatch.ExecutionStep) bool
 }
 
 // BatchCycleResult contains workload results and the branch's KV lease.
 // A fully accepted branch stays live until the caller closes KV after use.
-// Rejected branches are closed. On a drain error KV remains live even though
+// Rejected branches are closed. Without independent Done proof, a drain error
+// leaves KV live even though
 // the cycle failed; the owner must establish quiescence before closing it.
 type BatchCycleResult struct {
 	Outcome  CycleOutcome
@@ -150,8 +154,15 @@ func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchC
 		step := &cudabatch.ExecutionStep{StepID: int64(i + 1), Metadata: metadata}
 		tokens, rowErrors, runErr := v.Engine.ExecuteForward(ctx, step)
 		if err := v.Wait(step); err != nil {
-			release = false
+			release = v.Done != nil && v.Done(step)
 			return result, fmt.Errorf("cudaspec: verification drain: %w", err)
+		}
+		if v.Done != nil && !v.Done(step) {
+			release = false
+			return result, errors.New("cudaspec: verification completion not established")
+		}
+		if err := ctx.Err(); err != nil {
+			return result, err
 		}
 		if runErr != nil {
 			return result, runErr
