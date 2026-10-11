@@ -1,0 +1,11 @@
+commit: 505aa8a5ba17ea2a0dcf1077e5d4277b1ca92f99
+date: 2026-10-11T01:12:12.440498+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 56772
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: rsc.io/script process controls cover serving lifecycle, budget/native/remote/configuration refusal and delivery signal validation; CLI script tests PASS
+commit helper: prior two failed attempts exhausted; signed manual fallback
