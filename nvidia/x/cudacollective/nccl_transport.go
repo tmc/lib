@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 	"github.com/tmc/lib/nvidia/x/cudair"
-	"sync"
 )
 
 // NCCLTransport executes on caller-owned rank-ordered communicators and streams.

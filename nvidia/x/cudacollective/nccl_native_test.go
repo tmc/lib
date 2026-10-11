@@ -2,15 +2,17 @@ package cudacollective
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"reflect"
+	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nccl"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudair"
-	"os"
-	"reflect"
-	"testing"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
 // This explicit opt-in executes a one-rank native collective. It establishes
@@ -20,6 +22,9 @@ func TestNCCLNativeOneRank(t *testing.T) {
 	uuid := os.Getenv("LIB_NCCL_NATIVE_UUID")
 	if uuid == "" {
 		t.Skip("requires an explicitly leased LIB_NCCL_NATIVE_UUID")
+	}
+	if err := nativeNCCLAdmission(os.Getenv); err != nil {
+		t.Fatal(err)
 	}
 	if err := cuda.Init(); err != nil {
 		t.Fatal(err)
@@ -134,5 +139,33 @@ func TestNCCLNativeOneRank(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Admission is checked before CUDA initialization or context acquisition.
+func nativeNCCLAdmission(env func(string) string) error {
+	if env == nil || env("LIB_NCCL_NATIVE_UUID") == "" {
+		return errors.New("cudacollective: native GPU UUID is required")
+	}
+	_, err := cudalock.Inherited(env)
+	return err
+}
+
+func TestNCCLNativeAdmissionRefusesMissingLease(t *testing.T) {
+	dir := t.TempDir()
+	env := func(key string) string {
+		switch key {
+		case "LIB_NCCL_NATIVE_UUID":
+			return "GPU-explicit-control"
+		case "GPU_LOCKDIR":
+			return dir
+		}
+		return ""
+	}
+	if err := nativeNCCLAdmission(env); !errors.Is(err, cudalock.ErrNotInherited) {
+		t.Fatalf("unleased native admission: %v", err)
+	}
+	if err := nativeNCCLAdmission(nil); err == nil {
+		t.Fatal("nil admission accepted")
 	}
 }
