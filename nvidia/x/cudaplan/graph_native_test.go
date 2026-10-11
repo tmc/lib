@@ -199,6 +199,11 @@ func TestNativeFiniteMegaReference(t *testing.T) {
 }
 
 func runNativePlanReference(t *testing.T, kind string, mega bool) {
+	runNativePlanReferenceChecked(t, kind, mega, nil)
+}
+
+// inspect runs only after stream completion and numerical reference agreement.
+func runNativePlanReferenceChecked(t *testing.T, kind string, mega bool, inspect func(*cudaplan.ExecutablePlan, *cudaplan.Completion, *cuda.Device, map[string][]float32, bool)) {
 	t.Helper()
 	gate := "CUDAPLAN_GRAPH_NATIVE"
 	if kind == "matmul" {
@@ -460,6 +465,9 @@ func runNativePlanReference(t *testing.T, kind string, mega bool) {
 			}
 			if kind == "intermediate" && !sameReplayOutput(got, intermediateReductionReference(data["x"])) {
 				t.Fatal("intermediate reduction differs from independent row sums")
+			}
+			if inspect != nil {
+				inspect(p, c, dev, data, replay)
 			}
 			t.Logf("raw_output=%v reference=%v", got, want[output])
 			got[0]++

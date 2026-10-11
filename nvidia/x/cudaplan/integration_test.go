@@ -53,11 +53,11 @@ func makeIntegrationTestState() (*egraph.SearchState, []*egraph.Rewrite) {
 	return state, rules
 }
 
-// TestCompilerAffineEndToEnd validates end-to-end compilation of an affine
+// TestAffineCompileReference validates compilation contracts of an affine
 // transformation graph (MatMul -> Add -> ReLU -> GELU) through cudaplan,
 // comparing topological step generation, input/output requirements, workspace
-// sizing, and CPU reference evaluation. Native execution is tested via gated path.
-func TestCompilerAffineEndToEnd(t *testing.T) {
+// sizing, and CPU reference evaluation. Native execution is covered by the separate guarded graph reference harness.
+func TestAffineCompileReference(t *testing.T) {
 	snap := buildAffineGraph(t)
 	art := buildAffineArtifact(t)
 
@@ -124,24 +124,12 @@ func TestCompilerAffineEndToEnd(t *testing.T) {
 		t.Fatalf("expected ErrExecutionUnavailable, got comp=%v err=%v", comp, err)
 	}
 
-	// Native execution gate
-	if os.Getenv("CUDA_COMPILER_TEST") != "1" {
-		t.Log("native execution skipped (CUDA_COMPILER_TEST!=1)")
-		return
-	}
-	dev := requireNativePlanDevice(t)
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatalf("NewStream: %v", err)
-	}
-	defer stream.Close()
-	t.Log("native execution qualified on device")
 }
 
-// TestTransformerBlockEndToEnd builds a complete hybrid transformer block
-// (Self-Attention with Q/K/V projections + Residual + RMSNorm + MLP + Autograd),
-// compiles the plan, tests backward pass differentiation, and verifies gradient propagation.
-func TestTransformerBlockEndToEnd(t *testing.T) {
+// TestProjectionResidualAutogradCompile builds Q/K/V projections followed by
+// additions, an MLP and scalar loss. It checks forward/backward compilation,
+// not attention, RMSNorm, logits or native execution.
+func TestProjectionResidualAutogradCompile(t *testing.T) {
 	g := cudair.NewGraph()
 	// Dimensions: Sequence/Tokens=8, Hidden=8
 	x := g.AddInput("input", []int{8, 8}, cudair.Float32)
@@ -211,12 +199,10 @@ func TestTransformerBlockEndToEnd(t *testing.T) {
 	}
 }
 
-// TestPrefillParityLogitSHA checks numerical parity between online attention
-// recurrence (egraph.OnlineAttentionRow) and the materialized reference oracle
-// (egraph.MaterializedAttentionReference / cudaattn.TreeAttentionReference),
-// asserting exact output digest matching across multi-tile sequences.
-// Includes mutant controls for wrong normalizer and inverse rescaling.
-func TestPrefillParityLogitSHA(t *testing.T) {
+// TestAttentionReferenceToleranceAndMasking compares CPU attention references
+// within tolerance and checks fully masked rows. It records output digests,
+// without asserting bitwise equality or execution of an attention kernel.
+func TestAttentionReferenceToleranceAndMasking(t *testing.T) {
 	seqLen := 128
 	headDim := 32
 	tileSize := 16
@@ -270,7 +256,7 @@ func TestPrefillParityLogitSHA(t *testing.T) {
 	onlineDigest := hashBytes(onlineOut)
 	t.Logf("Prefill attention digest: %s", onlineDigest)
 
-	// Mutant control 1: inverse rescaling (omits exponential alpha rescaling)
+	// Corrupted-output control: perturb one output component.
 	mutantInverse := make([]float32, headDim)
 	copy(mutantInverse, onlineOut)
 	mutantInverse[0] *= 0.5 // Perturbation
@@ -469,10 +455,9 @@ func TestSearchCacheEndToEnd(t *testing.T) {
 	}
 }
 
-// TestBackendAgreement evaluates multiple compilation backends (Tile IR,
-// CPU interpreter cudaref, and cudaplan execution plan metadata) on the same
-// semantic region to verify structural and topological agreement.
-func TestBackendAgreement(t *testing.T) {
+// TestTileLoweringAndReferenceContracts checks Tile IR source, plan metadata
+// and a CPU reference separately. It does not compare executed backends.
+func TestTileLoweringAndReferenceContracts(t *testing.T) {
 	g := cudair.NewGraph()
 	x := g.AddInput("x", []int{16, 16}, cudair.Float32)
 	w := g.AddInput("w", []int{16, 16}, cudair.Float32)
