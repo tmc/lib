@@ -2,10 +2,11 @@ package cudashape_test
 
 import (
 	"fmt"
+
 	"github.com/tmc/lib/nvidia/x/cudashape"
 )
 
-func ExampleInferGrid() {
+func ExampleInferGrid_tiled() {
 	tensor, _ := cudashape.New(1000, 96)
 	tile, _ := cudashape.New(128, 32)
 	grid, err := cudashape.InferGrid(tensor, tile)

@@ -99,7 +99,7 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 		b.Fatalf("load cubin: %v", err)
 	}
 	b.Cleanup(func() {
-		if err := dev.WithContext(module.Unload); err != nil {
+		if err := dev.WithContext(module.Close); err != nil {
 			b.Errorf("unload module: %v", err)
 		}
 	})
@@ -116,7 +116,7 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 		b.Fatalf("stream: %v", err)
 	}
 	b.Cleanup(func() {
-		if err := stream.Destroy(); err != nil {
+		if err := stream.Close(); err != nil {
 			b.Errorf("destroy stream: %v", err)
 		}
 	})
@@ -138,7 +138,7 @@ func BenchmarkComposeFromDevice(b *testing.B) {
 		Prepare:     func() error { return out.CopyFromHost(zero) },
 		Run: func(s *cuptibench.Scope) error {
 			return s.Region("compute", func() error {
-				return cudalaunch.Kernel(kernels.Compute).Grid(n/128).Block(128).On(stream).Launch(out, int32(n))
+				return cudalaunch.Kernel(kernels.Compute).Grid(n/128, 1, 1).Block(128, 1, 1).On(stream).Launch(out, int32(n))
 			})
 		},
 	}
