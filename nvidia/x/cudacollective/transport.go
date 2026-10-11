@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
-	"github.com/tmc/lib/nvidia/nccl"
 	"github.com/tmc/lib/nvidia/x/nvlshm"
 )
 
@@ -170,42 +169,6 @@ func (t *MoonEPTransport) Execute(ctx context.Context, comm *Communicator, op Op
 }
 
 func (t *MoonEPTransport) Close() error { return nil }
-
-// NCCLTransport implements Transport backed by nvidia/nccl / x/nccltest.
-type NCCLTransport struct {
-	Comms []nccl.Comm
-}
-
-func (t *NCCLTransport) Type() TransportType { return TransportTypeNCCLTest }
-
-func (t *NCCLTransport) Available(m Membership) bool {
-	// NCCL requires shared library and CUDA devices
-	v, err := nccl.GetVersion()
-	return err == nil && v > 0
-}
-
-func (t *NCCLTransport) Execute(ctx context.Context, comm *Communicator, op OperationDescriptor, sendBuf, recvBuf driver.DevicePtr) error {
-	if comm == nil {
-		return ErrCommunicatorClosed
-	}
-	if err := comm.CheckAlive(); err != nil {
-		return err
-	}
-	if !t.Available(comm.Membership()) {
-		return fmt.Errorf("%w: NCCL shared library or device unavailable", ErrExecutionUnavailable)
-	}
-	return fmt.Errorf("%w: native nccl collective execution pending hardware qualification", ErrExecutionUnavailable)
-}
-
-func (t *NCCLTransport) Close() error {
-	for _, c := range t.Comms {
-		if c != 0 {
-			_ = c.Destroy()
-		}
-	}
-	t.Comms = nil
-	return nil
-}
 
 // TCPSocketTransport implements fallback TCP socket transport.
 type TCPSocketTransport struct {

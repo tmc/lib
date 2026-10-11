@@ -22,6 +22,7 @@ type PipelineManager struct {
 	buf          DoubleBuffer
 	activeSlot   int // 0 or 1
 	inFlight     [2]*InFlightTransfer
+	completed    [2]bool
 	maxQueueSize int
 	pending      int32
 }
@@ -87,6 +88,7 @@ func (p *PipelineManager) SubmitStage(ctx context.Context, op OperationDescripto
 	}
 
 	p.inFlight[slot] = tr
+	p.completed[slot] = false
 	atomic.AddInt32(&p.pending, 1)
 
 	// Advance ping-pong slot
@@ -100,6 +102,12 @@ func (p *PipelineManager) CompleteStage(tr *InFlightTransfer, err error) {
 	if tr == nil {
 		return
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if tr.Slot < 0 || tr.Slot >= len(p.inFlight) || p.inFlight[tr.Slot] != tr || p.completed[tr.Slot] {
+		return
+	}
+	p.completed[tr.Slot] = true
 	p.comm.ReleaseTransferBuffer(tr, err)
 	atomic.AddInt32(&p.pending, -1)
 }

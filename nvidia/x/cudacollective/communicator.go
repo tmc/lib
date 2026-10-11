@@ -19,6 +19,8 @@ type Communicator struct {
 	generation Generation
 	transport  Transport
 	closed     bool
+	closeDone  chan struct{}
+	closeErr   error
 	failed     bool
 	failErr    error
 
@@ -69,6 +71,7 @@ func NewCommunicator(cfg CommunicatorConfig) (*Communicator, error) {
 
 	return &Communicator{
 		rank:               cfg.Rank,
+		closeDone:          make(chan struct{}),
 		membership:         cfg.Membership,
 		generation:         cfg.Generation,
 		transport:          cfg.Transport,
@@ -136,8 +139,16 @@ func (c *Communicator) CheckAlive() error {
 // AcquireTransferBuffer marks a buffer address as actively transferring in a double-buffered slot.
 // If the buffer is already registered in flight, it returns ErrBufferInUse.
 func (c *Communicator) AcquireTransferBuffer(addr uintptr, bytes int, slot int) (*InFlightTransfer, error) {
-	if err := c.CheckAlive(); err != nil {
-		return nil, err
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.closed {
+		return nil, ErrCommunicatorClosed
+	}
+	if c.failed {
+		return nil, fmt.Errorf("%w: %w", ErrCommunicatorGeneration, c.failErr)
+	}
+	if len(c.activeParticipants) < c.membership.WorldSize() {
+		return nil, ErrLostParticipant
 	}
 	if addr == 0 {
 		return nil, ErrNilBuffer
@@ -176,21 +187,36 @@ func (c *Communicator) ReleaseTransferBuffer(tr *InFlightTransfer, err error) {
 	c.inFlightMu.Lock()
 	defer c.inFlightMu.Unlock()
 
+	if c.inFlight[tr.BufferAddr] != tr {
+		return
+	}
+	select {
+	case <-tr.Done:
+		return
+	default:
+	}
 	tr.Err = err
 	close(tr.Done)
 	delete(c.inFlight, tr.BufferAddr)
 }
 
-// Close gracefully shuts down the communicator.
+// Close stops admission and waits for the transport to finish accepted work.
+// For native transports this wait is only bounded when native work completes.
 func (c *Communicator) Close() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.closed {
-		return nil
+		done := c.closeDone
+		c.mu.Unlock()
+		<-done
+		c.mu.RLock()
+		defer c.mu.RUnlock()
+		return c.closeErr
 	}
 	c.closed = true
-
-	// Fail any in-flight transfers
+	c.mu.Unlock()
+	// Do not hold c.mu while waiting: completion and failure reporting can
+	// still need the communicator while accepted native work drains.
+	err := c.transport.Close()
 	c.inFlightMu.Lock()
 	for _, tr := range c.inFlight {
 		select {
@@ -202,6 +228,9 @@ func (c *Communicator) Close() error {
 	}
 	c.inFlight = nil
 	c.inFlightMu.Unlock()
-
-	return c.transport.Close()
+	c.mu.Lock()
+	c.closeErr = err
+	close(c.closeDone)
+	c.mu.Unlock()
+	return err
 }
