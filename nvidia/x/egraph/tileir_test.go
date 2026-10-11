@@ -5,11 +5,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/tileir"
-	"github.com/tmc/lib/nvidia/x/tileiras"
 )
 
 // TestGenerateTileIR_RMSNormGEMVSwiGLU verifies lowering of a complete fused transformer block:
@@ -97,49 +95,11 @@ func TestGenerateTileIR_RMSNormGEMVSwiGLU(t *testing.T) {
 		t.Errorf("len(Params) = %d, want 7 (%%X, %%W_norm, %%W_proj, %%W_gate, %%W_up, %%W_down, %%Out)", len(fn.Params))
 	}
 
-	// 7. Verify Tile IR bytecode serialization and magic header
-	bc, err := parsedMod.EncodeBytecode()
-	if err != nil {
-		t.Fatalf("EncodeBytecode failed: %v", err)
+	if bc, err := parsedMod.EncodeBytecode(); bc != nil || !errors.Is(err, tileir.ErrUnsupportedASTEncoding) {
+		t.Fatalf("incomplete AST encoding = %x, %v", bc, err)
 	}
-	if !tileiras.IsBytecode(bc) {
-		t.Fatalf("EncodeBytecode produced invalid bytecode (missing magic header)")
-	}
-
-	// 8. Verify bytecode decoding round-trip
-	decoded, err := tileir.DecodeBytecodeBytes(bc)
-	if err != nil {
-		t.Fatalf("DecodeBytecodeBytes failed: %v", err)
-	}
-	if len(decoded.Functions) != 1 {
-		t.Fatalf("decoded %d functions, want 1", len(decoded.Functions))
-	}
-
-	// 9. Assemble the bytecode on sm_121 architecture via tileiras.
-	// tileiras accepts Tile IR bytecode only, so bc is the input here.
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	res, err := tileiras.Assemble(ctx, bc,
-		tileiras.WithGPUName("sm_121"),
-		tileiras.WithOptLevel(3),
-		tileiras.WithRemarks("all"),
-	)
-	if err != nil {
-		if errors.Is(err, tileiras.ErrNotFound) || strings.Contains(err.Error(), "executable not found") || strings.Contains(err.Error(), "input does not correspond to Tile IR bytecode") || strings.Contains(err.Error(), "tileiras assembly failed") {
-			t.Skipf("skipping tileiras assembly (bytecode format mismatch or tooling absent): %v", err)
-		}
-		t.Fatalf("tileiras assembly on sm_121 failed: %v\n%s", err, textIR)
-	}
-
-	if len(res.CUBIN) == 0 {
-		t.Errorf("tileiras produced empty CUBIN on sm_121")
-	}
-	if len(res.TMAFailures()) > 0 {
-		t.Errorf("unexpected TMA failures in remarks: %v", res.TMAFailures())
-	}
-	if len(res.TensorCoreFailures()) > 0 {
-		t.Errorf("unexpected Tensor Core failures in remarks: %v", res.TensorCoreFailures())
+	if cubin, err := egraph.AssembleTileIR(context.Background(), best, opts); cubin != nil || !errors.Is(err, tileir.ErrUnsupportedASTEncoding) {
+		t.Fatalf("incomplete AST assembly = %x, %v", cubin, err)
 	}
 }
 
@@ -244,9 +204,6 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			node := &egraph.Node{Op: tt.op}
@@ -282,26 +239,11 @@ func TestGenerateTileIR_AllPatterns(t *testing.T) {
 				t.Errorf("parsed %d functions for %s, want 1", len(parsed.Functions), tt.op)
 			}
 
-			// Verify bytecode encoding
-			bc, err := mod.EncodeBytecode()
-			if err != nil {
-				t.Fatalf("EncodeBytecode failed for %s: %v", tt.op, err)
+			if bc, err := mod.EncodeBytecode(); bc != nil || !errors.Is(err, tileir.ErrUnsupportedASTEncoding) {
+				t.Fatalf("incomplete AST encoding = %x, %v", bc, err)
 			}
-			if !tileiras.IsBytecode(bc) {
-				t.Errorf("output does not have valid Tile IR bytecode magic for %s", tt.op)
-			}
-
-			// Test assembly with tileiras on sm_121. tileiras accepts Tile IR
-			// bytecode only; textIR is reported for diagnostics on failure.
-			res, err := tileiras.Assemble(ctx, bc, tileiras.WithGPUName("sm_121"))
-			if err != nil {
-				if errors.Is(err, tileiras.ErrNotFound) || strings.Contains(err.Error(), "executable not found") || strings.Contains(err.Error(), "input does not correspond to Tile IR bytecode") || strings.Contains(err.Error(), "tileiras assembly failed") {
-					t.Skipf("skipping tileiras assembly (bytecode format mismatch or tooling absent): %v", err)
-				}
-				t.Fatalf("tileiras assembly failed for %s: %v\n%s", tt.op, err, textIR)
-			}
-			if len(res.CUBIN) == 0 {
-				t.Errorf("tileiras produced empty CUBIN for %s", tt.op)
+			if cubin, err := egraph.AssembleTileIR(context.Background(), node, opts); cubin != nil || !errors.Is(err, tileir.ErrUnsupportedASTEncoding) {
+				t.Fatalf("incomplete AST assembly = %x, %v", cubin, err)
 			}
 		})
 	}

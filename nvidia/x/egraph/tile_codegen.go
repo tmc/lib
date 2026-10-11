@@ -400,24 +400,17 @@ func GenerateTileIR(node *Node, opts ...CodegenOptions) (string, error) {
 
 // ToTileIR lowers an extracted AST Expr into an intermediate Tile IR Module (tileir.Module).
 //
-// The resulting Module can be rendered into canonical Tile IR MLIR text (mod.String())
-// or serialized to Tile IR binary bytecode (mod.EncodeBytecode()).
+// The resulting Module can be rendered as Tile IR text with Module.String.
+// AST bytecode encoding is unsupported because this representation lacks the
+// complete vendor operand, result type, and region encoding.
 func ToTileIR(expr *Expr, opts CodegenOptions) (*tileir.Module, error) {
 	return NewLowerer(opts).Lower(expr)
 }
 
-// AssembleTileIR lowers expr to Tile IR bytecode and assembles it into a device
-// CUBIN with the external tileiras assembler. The asm options are passed through
-// to tileiras; use tileiras.WithGPUName to select the target architecture.
-//
-// The returned bytes are always a CUBIN. If the assembler is not installed,
-// AssembleTileIR returns an error wrapping [tileiras.ErrNotFound]; callers that
-// want the unassembled bytecode in that case must ask for it explicitly with
-// [ToTileIR] and Module.EncodeBytecode.
-//
-// This does not presently succeed against a real assembler: tileir's bytecode
-// encoder omits result types and operands, and the assembler rejects the body.
-// See that package's documentation.
+// AssembleTileIR attempts to encode and assemble expr as a device CUBIN.
+// Currently it returns an error wrapping [tileir.ErrUnsupportedASTEncoding]
+// before invoking the assembler. Textual lowering remains available through
+// [ToTileIR]; it does not establish executable bytecode or numerical parity.
 func AssembleTileIR(ctx context.Context, expr *Expr, opts CodegenOptions, asm ...tileiras.Option) ([]byte, error) {
 	mod, err := ToTileIR(expr, opts)
 	if err != nil {
