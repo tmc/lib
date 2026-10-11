@@ -1,6 +1,7 @@
 package cudasotaeval
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 // ArtifactManifest records all generated artifacts and their cryptographically verified digests.
@@ -22,6 +24,9 @@ type ArtifactManifest struct {
 // WriteReportArtifacts persists the evaluation report, claim, protocol, and receipts to outDir,
 // producing an ArtifactManifest with SHA256 digests.
 func WriteReportArtifacts(outDir string, report *EvaluationReport) (*ArtifactManifest, error) {
+	if report == nil {
+		return nil, fmt.Errorf("artifacts: nil report")
+	}
 	if outDir == "" {
 		outDir = "."
 	}
@@ -62,7 +67,10 @@ func WriteReportArtifacts(outDir string, report *EvaluationReport) (*ArtifactMan
 		}
 		files["claim.txt"] = hashBytes([]byte(claimTxt))
 
-		claimJSON, _ := report.Claim.JSON()
+		claimJSON, err := report.Claim.JSON()
+		if err != nil {
+			return nil, fmt.Errorf("artifacts: marshal claim: %w", err)
+		}
 		jsonPath := filepath.Join(outDir, "claim.json")
 		if err := os.WriteFile(jsonPath, claimJSON, 0644); err != nil {
 			return nil, fmt.Errorf("artifacts: write claim.json: %w", err)
@@ -102,32 +110,131 @@ func WriteReportArtifacts(outDir string, report *EvaluationReport) (*ArtifactMan
 	return manifest, nil
 }
 
-// VerifyManifest checks that every file declared in manifest.json exists in dir
-// and matches its declared SHA256 digest.
+const (
+	maxManifestBytes      = 1 << 20
+	maxArtifactBytes      = 64 << 20
+	maxArtifactTotalBytes = 256 << 20
+	maxArtifactFiles      = 1024
+)
+
+// VerifyManifest verifies a version 1 manifest and its declared regular files.
+// It refuses symlinks, non-local paths, more than 1024 files, manifests over
+// 1 MiB, files over 64 MiB, and total artifact contents over 256 MiB.
 func VerifyManifest(dir string) (*ArtifactManifest, error) {
-	manPath := filepath.Join(dir, "manifest.json")
-	data, err := os.ReadFile(manPath)
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("verify manifest: open directory: %w", err)
+	}
+	defer root.Close()
+	f, err := openArtifact(root, "manifest.json")
+	if err != nil {
+		return nil, fmt.Errorf("verify manifest: open: %w", err)
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxManifestBytes+1))
+	f.Close()
 	if err != nil {
 		return nil, fmt.Errorf("verify manifest: read: %w", err)
 	}
-
+	if len(data) > maxManifestBytes {
+		return nil, fmt.Errorf("verify manifest: manifest exceeds size limit")
+	}
+	if err := checkArtifactJSON(json.NewDecoder(bytes.NewReader(data))); err != nil {
+		return nil, fmt.Errorf("verify manifest: decode: %w", err)
+	}
 	var man ArtifactManifest
 	if err := json.Unmarshal(data, &man); err != nil {
-		return nil, fmt.Errorf("verify manifest: unmarshal: %w", err)
+		return nil, fmt.Errorf("verify manifest: decode: %w", err)
 	}
-
-	for relPath, expectedHash := range man.Files {
-		fullPath := filepath.Join(dir, relPath)
-		actualHash, err := hashFile(fullPath)
+	if man.Version != 1 {
+		return nil, fmt.Errorf("verify manifest: unsupported version %d", man.Version)
+	}
+	if len(man.Files) == 0 || len(man.Files) > maxArtifactFiles {
+		return nil, fmt.Errorf("verify manifest: invalid file count")
+	}
+	keys := make([]string, 0, len(man.Files))
+	for name, digest := range man.Files {
+		if !filepath.IsLocal(name) || filepath.Clean(name) != name || strings.ContainsAny(name, "\\:\n\r") || name == "manifest.json" {
+			return nil, fmt.Errorf("verify manifest: invalid artifact path %q", name)
+		}
+		decoded, err := hex.DecodeString(digest)
+		if err != nil || len(decoded) != sha256.Size || strings.ToLower(digest) != digest {
+			return nil, fmt.Errorf("verify manifest: invalid digest for %q", name)
+		}
+		keys = append(keys, name)
+	}
+	sort.Strings(keys)
+	h := sha256.New()
+	for _, name := range keys {
+		fmt.Fprintf(h, "%s:%s\n", name, man.Files[name])
+	}
+	if hex.EncodeToString(h.Sum(nil)) != man.ManifestSHA256 {
+		return nil, fmt.Errorf("verify manifest: manifest digest mismatch")
+	}
+	var total int64
+	for _, name := range keys {
+		f, err := openArtifact(root, name)
 		if err != nil {
-			return nil, fmt.Errorf("verify file %s: %w", relPath, err)
+			return nil, fmt.Errorf("verify artifact %q: %w", name, err)
 		}
-		if actualHash != expectedHash {
-			return nil, fmt.Errorf("digest mismatch on %s: expected %s, got %s", relPath, expectedHash, actualHash)
+		info, err := f.Stat()
+		if err != nil {
+			f.Close()
+			return nil, fmt.Errorf("verify artifact %q: %w", name, err)
+		}
+		if info.Size() > maxArtifactBytes || info.Size() > maxArtifactTotalBytes-total {
+			f.Close()
+			return nil, fmt.Errorf("verify artifact %q: contents exceed size limit", name)
+		}
+		h := sha256.New()
+		limit := int64(maxArtifactBytes)
+		if remaining := int64(maxArtifactTotalBytes) - total; remaining < limit {
+			limit = remaining
+		}
+		n, err := io.Copy(h, io.LimitReader(f, limit+1))
+		f.Close()
+		if err != nil {
+			return nil, fmt.Errorf("verify artifact %q: %w", name, err)
+		}
+		total += n
+		if n > maxArtifactBytes || total > maxArtifactTotalBytes {
+			return nil, fmt.Errorf("verify artifact %q: contents exceed size limit", name)
+		}
+		if hex.EncodeToString(h.Sum(nil)) != man.Files[name] {
+			return nil, fmt.Errorf("verify artifact %q: digest mismatch", name)
 		}
 	}
-
 	return &man, nil
+}
+
+// Root bounds path resolution even if directory entries change during verification.
+func openArtifact(root *os.Root, name string) (*os.File, error) {
+	parts := strings.Split(name, string(filepath.Separator))
+	for i := range parts {
+		info, err := root.Lstat(filepath.Join(parts[:i+1]...))
+		if err != nil {
+			return nil, err
+		}
+		if i == len(parts)-1 && !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("artifact is not a regular file")
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil, fmt.Errorf("symlink is not an artifact")
+		}
+	}
+	f, err := root.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		f.Close()
+		return nil, fmt.Errorf("artifact is not a regular file")
+	}
+	return f, nil
 }
 
 func hashBytes(b []byte) string {
@@ -135,16 +242,45 @@ func hashBytes(b []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
-func hashFile(path string) (string, error) {
-	f, err := os.Open(path)
+// checkArtifactJSON rejects duplicate keys before decoding into maps and structs.
+func checkArtifactJSON(d *json.Decoder) error {
+	token, err := d.Token()
 	if err != nil {
-		return "", err
+		return err
 	}
-	defer f.Close()
-
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
+	delim, ok := token.(json.Delim)
+	if !ok {
+		return nil
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	switch delim {
+	case '{':
+		seen := make(map[string]bool)
+		for d.More() {
+			key, err := d.Token()
+			if err != nil {
+				return err
+			}
+			name, ok := key.(string)
+			if !ok {
+				return fmt.Errorf("invalid object key")
+			}
+			if seen[name] {
+				return fmt.Errorf("duplicate object key %q", name)
+			}
+			seen[name] = true
+			if err := checkArtifactJSON(d); err != nil {
+				return err
+			}
+		}
+	case '[':
+		for d.More() {
+			if err := checkArtifactJSON(d); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("invalid JSON delimiter")
+	}
+	_, err = d.Token()
+	return err
 }
