@@ -1,0 +1,11 @@
+commit: f330c8bf2
+date: 2026-10-11T01:14:20Z
+agent: antigravity
+codex version: not applicable
+claude-code version: not applicable
+model: gemini-2.5-pro
+tty: /dev/ttys062
+pid: 46101
+ITERM_SESSION_ID: w2t0p3:A01076D7-6AF7-41A0-AD07-8E9E98A00426
+scope and validation: Bound aggregate raw events, returned != len(events) check, total consistency across pages, unmet total terminal refusal, >2^53 integer preservation, string event_type, fractional total rejection, reader error redaction, initial scroll_id restriction; race PASS
+commit helper: signed manual commit
