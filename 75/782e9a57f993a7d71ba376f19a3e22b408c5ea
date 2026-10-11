@@ -1,0 +1,11 @@
+commit: 75782e9a57f993a7d71ba376f19a3e22b408c5ea
+date: 2026-10-11T01:05:40.091315+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 36542
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: Bounded nonblocking paired admission survives collector cancellation; explicit shutdown delivery stats; recurring paired-drain race count3 PASS
+commit helper: prior two failed attempts exhausted; signed manual fallback
