@@ -9,7 +9,7 @@ import (
 // smiFields are the nvidia-smi query fields, in the order the CSV returns
 // them. Keep queryArgs and smiFields in step.
 var smiFields = []string{
-	"name", "driver_version", "pci.bus_id",
+	"name", "driver_version", "pci.bus_id", "uuid",
 	"pcie.link.gen.current", "pcie.link.gen.max",
 	"pcie.link.width.current", "pcie.link.width.max",
 	"ecc.mode.current", "ecc.errors.uncorrected.volatile.total",

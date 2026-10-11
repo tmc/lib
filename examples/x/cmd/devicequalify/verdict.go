@@ -22,6 +22,7 @@ type observation struct {
 // cudaProbe is the functional half: what the driver itself answered.
 // Listing a GPU is not health, so this is the gate.
 type cudaProbe struct {
+	UUID        string `json:"uuid,omitempty"`
 	InitOK      bool   `json:"init_ok"`
 	InitError   string `json:"init_error,omitempty"`
 	DeviceCount int    `json:"device_count"`
@@ -38,8 +39,9 @@ type cudaProbe struct {
 // not established as the path the weights travel. A threshold nobody
 // measured is a guess, and a guess that fails a run is worse than no gate.
 type expectation struct {
-	LinkWidth int `json:"link_width,omitempty"`
-	LinkGen   int `json:"link_gen,omitempty"`
+	UUID      string `json:"device_uuid,omitempty"`
+	LinkWidth int    `json:"link_width,omitempty"`
+	LinkGen   int    `json:"link_gen,omitempty"`
 }
 
 // judge decides from the observations alone, so the decision is testable
@@ -47,6 +49,14 @@ type expectation struct {
 // an empty slice means the device qualifies.
 func judge(gpus []map[string]string, probe cudaProbe, smiExit int, smiErr string, expect expectation) []string {
 	var refusals []string
+	if expect.UUID != "" {
+		if probe.UUID != expect.UUID {
+			refusals = append(refusals, "cuda: device UUID does not match requested identity")
+		}
+		if len(gpus) != 1 || gpus[0]["uuid"] != expect.UUID {
+			refusals = append(refusals, "nvidia-smi: device UUID does not match requested identity")
+		}
+	}
 	if smiErr != "" || smiExit != 0 {
 		refusals = append(refusals, fmt.Sprintf("nvidia-smi failed: exit %d %s", smiExit, smiErr))
 	}

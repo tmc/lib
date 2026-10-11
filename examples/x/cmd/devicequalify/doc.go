@@ -11,8 +11,8 @@
 //
 // Run it before and after a measurement, retaining both:
 //
-//	devicequalify -o before.json
-//	devicequalify -o after.json
+//	devicequalify -device-uuid GPU-UUID -o before.json
+//	devicequalify -device-uuid GPU-UUID -o after.json
 //
 // The gate is a functional probe, not a topology assertion: the CUDA
 // driver must initialize, report at least one device, and answer for that
@@ -28,7 +28,7 @@
 // read at all. Gate on the link only with an explicitly supplied
 // expectation, when a healthy baseline for that machine is in hand:
 //
-//	devicequalify -expect-link-width 16 -expect-link-gen 5
+//	devicequalify -device-uuid GPU-UUID -expect-link-width 16 -expect-link-gen 5
 //
 // It exits non-zero when the device does not qualify, so a measurement
 // script can gate on it, and writes its observations as JSON so a receipt

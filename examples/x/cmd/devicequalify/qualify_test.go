@@ -2,10 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // healthy is a synthetic row shaped after the retained post-reboot GB10
@@ -196,7 +200,7 @@ func TestEccErrors(t *testing.T) {
 }
 
 func TestParseSMI(t *testing.T) {
-	row := "NVIDIA GB10, 580.173.02, 000f:01:00.0, 1, 1, 1, 16, [N/A], [N/A]"
+	row := "NVIDIA GB10, 580.173.02, 000f:01:00.0, GPU-test, 1, 1, 1, 16, [N/A], [N/A]"
 	gpus, err := parseSMI(row + "\n")
 	if err != nil {
 		t.Fatal(err)
@@ -267,5 +271,67 @@ func TestWriteAll(t *testing.T) {
 	var buf bytes.Buffer
 	if err := writeAll(&buf, []byte("xy")); err != nil || buf.String() != "xy" {
 		t.Fatalf("good write: %v %q", err, buf.String())
+	}
+}
+
+func TestRequestedIdentity(t *testing.T) {
+	row := healthy()
+	row["uuid"] = "GPU-target"
+	probe := goodProbe()
+	probe.UUID = "GPU-target"
+	expect := expectation{UUID: "GPU-target"}
+	if got := judge([]map[string]string{row}, probe, 0, "", expect); len(got) != 0 {
+		t.Fatal(got)
+	}
+	probe.UUID = "GPU-other"
+	if got := judge([]map[string]string{row}, probe, 0, "", expect); !contains(got, "cuda: device UUID") {
+		t.Fatal(got)
+	}
+	probe.UUID = "GPU-target"
+	row["uuid"] = "GPU-other"
+	if got := judge([]map[string]string{row}, probe, 0, "", expect); !contains(got, "nvidia-smi: device UUID") {
+		t.Fatal(got)
+	}
+	if got := judge(nil, probe, 0, "", expect); !contains(got, "nvidia-smi: device UUID") {
+		t.Fatal(got)
+	}
+}
+
+func TestSMIDeadline(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nvidia-smi")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nexec sleep 30\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	start := time.Now()
+	_, exit, text := runSMI(50*time.Millisecond, "GPU-target")
+	if exit != -1 || text != context.DeadlineExceeded.Error() {
+		t.Fatalf("exit=%d error=%q", exit, text)
+	}
+	if time.Since(start) > 2*time.Second {
+		t.Fatal("nvidia-smi exceeded deadline")
+	}
+}
+
+func TestSMISelectsUUID(t *testing.T) {
+	dir := t.TempDir()
+	args := filepath.Join(dir, "args")
+	t.Setenv("SMI_ARGS", args)
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$SMI_ARGS\"\nprintf '%s\\n' 'NVIDIA GB10, 580.173.02, 000f:01:00.0, GPU-target, 1, 1, 1, 16, [N/A], [N/A]'\n"
+	if err := os.WriteFile(filepath.Join(dir, "nvidia-smi"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	rows, exit, text := runSMI(time.Second, "GPU-target")
+	if exit != 0 || text != "" || len(rows) != 1 || rows[0]["uuid"] != "GPU-target" {
+		t.Fatalf("rows=%v exit=%d error=%q", rows, exit, text)
+	}
+	data, err := os.ReadFile(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "\n--id=GPU-target\n") {
+		t.Fatalf("arguments: %s", data)
 	}
 }
