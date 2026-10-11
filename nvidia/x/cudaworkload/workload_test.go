@@ -448,12 +448,14 @@ func TestJoin_ZeroFalseExactJoins(t *testing.T) {
 
 func TestJoin_MetricsCalculation(t *testing.T) {
 	m := JoinMetrics{
-		TotalActivities: 10,
-		ExactJoins:      6,
-		AssociatedJoins: 2,
-		AmbiguousJoins:  1,
-		MissingJoins:    1,
-		FalseExactJoins: 0,
+		TotalActivities:     10,
+		MissingActivities:   1,
+		AmbiguousActivities: 1,
+		ExactJoins:          6,
+		AssociatedJoins:     2,
+		AmbiguousJoins:      1,
+		MissingJoins:        1,
+		FalseExactJoins:     0,
 	}
 
 	if p := m.Precision(); p != 1.0 {

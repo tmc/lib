@@ -110,15 +110,19 @@ type JoinConfig struct {
 	LateAttachCutoffNs uint64
 }
 
-// JoinMetrics reports aggregate join metrics and fractions.
+// JoinMetrics reports observed submissions, activities, and emitted results.
+// MissingJoins and AmbiguousJoins include host-only results; the activity
+// counters include only results carrying a device activity.
 type JoinMetrics struct {
-	TotalSubmissions uint64 `json:"total_submissions"`
-	TotalActivities  uint64 `json:"total_activities"`
-	ExactJoins       uint64 `json:"exact_joins"`
-	AssociatedJoins  uint64 `json:"associated_joins"`
-	AmbiguousJoins   uint64 `json:"ambiguous_joins"`
-	MissingJoins     uint64 `json:"missing_joins"`
-	FalseExactJoins  uint64 `json:"false_exact_joins"`
+	TotalSubmissions    uint64 `json:"total_submissions"`
+	TotalActivities     uint64 `json:"total_activities"`
+	ExactJoins          uint64 `json:"exact_joins"`
+	AssociatedJoins     uint64 `json:"associated_joins"`
+	AmbiguousJoins      uint64 `json:"ambiguous_joins"`
+	MissingJoins        uint64 `json:"missing_joins"`
+	MissingActivities   uint64 `json:"missing_activities"`
+	AmbiguousActivities uint64 `json:"ambiguous_activities"`
+	FalseExactJoins     uint64 `json:"false_exact_joins"`
 }
 
 // Precision reports the fraction of exact joins that were true positives.
@@ -141,20 +145,21 @@ func (m JoinMetrics) Recall() float64 {
 	return float64(m.ExactJoins) / float64(m.TotalActivities)
 }
 
-// MissingFraction reports the fraction of total device activities that are missing.
+// MissingFraction reports the fraction of observed device activities emitted as missing.
+// Pending activities are not counted until they produce a result.
 func (m JoinMetrics) MissingFraction() float64 {
 	if m.TotalActivities == 0 {
 		return 0.0
 	}
-	return float64(m.MissingJoins) / float64(m.TotalActivities)
+	return float64(m.MissingActivities) / float64(m.TotalActivities)
 }
 
-// AmbiguousFraction reports the fraction of total device activities that are ambiguous.
+// AmbiguousFraction reports the fraction of observed device activities emitted as ambiguous.
 func (m JoinMetrics) AmbiguousFraction() float64 {
 	if m.TotalActivities == 0 {
 		return 0.0
 	}
-	return float64(m.AmbiguousJoins) / float64(m.TotalActivities)
+	return float64(m.AmbiguousActivities) / float64(m.TotalActivities)
 }
 
 type corrKey struct {
@@ -215,12 +220,16 @@ func (j *Joiner) RecordFalseExact() {
 
 // SubmitHost enqueues a host submission, joining it against pending activities
 // or queuing it in the bounded FIFO buffer.
-func (j *Joiner) SubmitHost(sub HostSubmission) []JoinResult {
+func (j *Joiner) SubmitHost(sub HostSubmission) (results []JoinResult) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
 	j.metrics.TotalSubmissions++
-	var results []JoinResult
+	defer func() {
+		for _, result := range results {
+			j.updateMetrics(result)
+		}
+	}()
 
 	// Try matching against pending device activities
 	if sub.NativeCorrelationID != 0 {
@@ -228,7 +237,7 @@ func (j *Joiner) SubmitHost(sub HostSubmission) []JoinResult {
 		if actIndices, ok := j.actByCorr[k]; ok && len(actIndices) > 0 {
 			if len(actIndices) > 1 {
 				res := JoinResult{Outcome: OutcomeAmbiguous, Reason: ReasonConflictingOperations, HostSubmission: &sub}
-				j.metrics.AmbiguousJoins++
+
 				return []JoinResult{res}
 			}
 			// Found matching activity
@@ -244,7 +253,6 @@ func (j *Joiner) SubmitHost(sub HostSubmission) []JoinResult {
 			j.rebuildActIndices()
 
 			res := j.buildExactOrAmbiguousMatch(sub, act)
-			j.updateMetrics(res.Outcome)
 			return []JoinResult{res}
 		}
 	}
@@ -273,7 +281,7 @@ func (j *Joiner) SubmitHost(sub HostSubmission) []JoinResult {
 			},
 			EvidenceRef: evicted.EvidenceRef,
 		}
-		j.metrics.MissingJoins++
+
 		results = append(results, evictRes)
 	}
 
@@ -293,12 +301,16 @@ func (j *Joiner) SubmitHost(sub HostSubmission) []JoinResult {
 
 // SubmitDevice enqueues a device activity, attempting to join it against pending
 // host submissions or queuing it in the bounded FIFO buffer.
-func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
+func (j *Joiner) SubmitDevice(act DeviceActivity) (results []JoinResult) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
 	j.metrics.TotalActivities++
-	var results []JoinResult
+	defer func() {
+		for _, result := range results {
+			j.updateMetrics(result)
+		}
+	}()
 
 	// Check late attach: if activity start timestamp is before late attach cutoff
 	// and no host submission is immediately found
@@ -306,10 +318,7 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 	var matchedIdx = -1
 
 	// Check native correlation IDs (including memcpy runtime correlation)
-	corrs := []uint32{act.NativeCorrelationID}
-	if act.RuntimeCorrelationID != 0 {
-		corrs = append(corrs, act.RuntimeCorrelationID)
-	}
+	corrs := activityCorrelations(act)
 
 	var candidateIdx = -1
 	for _, c := range corrs {
@@ -327,11 +336,11 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 					RawIDs:         rawFromActivity(act),
 					EvidenceRef:    act.EvidenceRef,
 				}
-				j.metrics.AmbiguousJoins++
+
 				return []JoinResult{res}
 			}
 			if candidateIdx != -1 && candidateIdx != subIndices[0] {
-				j.metrics.AmbiguousJoins++
+
 				return []JoinResult{{Outcome: OutcomeAmbiguous, Reason: ReasonConflictingOperations, DeviceActivity: &act, RawIDs: rawFromActivity(act)}}
 			}
 			candidateIdx = subIndices[0]
@@ -353,7 +362,7 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 					RawIDs:         rawFromActivity(act),
 					EvidenceRef:    act.EvidenceRef,
 				}
-				j.metrics.AmbiguousJoins++
+
 				return []JoinResult{res}
 			}
 			matchedIdx = subIndices[0]
@@ -366,7 +375,6 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 		// Remove matched host submission from pending
 		j.removePendingSub(matchedIdx)
 		res := j.buildExactOrAmbiguousMatch(*matchedSub, act)
-		j.updateMetrics(res.Outcome)
 		return []JoinResult{res}
 	}
 
@@ -379,7 +387,7 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 			RawIDs:         rawFromActivity(act),
 			EvidenceRef:    act.EvidenceRef,
 		}
-		j.metrics.MissingJoins++
+
 		return []JoinResult{res}
 	}
 
@@ -406,7 +414,7 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 			RawIDs:         rawFromActivityAndSub(act, matched),
 			EvidenceRef:    act.EvidenceRef,
 		}
-		j.metrics.AssociatedJoins++
+
 		return []JoinResult{res}
 	} else if len(streamMatches) > 1 {
 		res := JoinResult{
@@ -416,7 +424,7 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 			RawIDs:         rawFromActivity(act),
 			EvidenceRef:    act.EvidenceRef,
 		}
-		j.metrics.AmbiguousJoins++
+
 		return []JoinResult{res}
 	}
 
@@ -434,26 +442,27 @@ func (j *Joiner) SubmitDevice(act DeviceActivity) []JoinResult {
 			RawIDs:         rawFromActivity(evicted),
 			EvidenceRef:    evicted.EvidenceRef,
 		}
-		j.metrics.MissingJoins++
+
 		results = append(results, evictRes)
 	}
 
 	actIdx := len(j.pendingActs)
 	j.pendingActs = append(j.pendingActs, act)
-	if act.NativeCorrelationID != 0 {
-		k := corrKey{Process: act.Process, Correlation: act.NativeCorrelationID, GraphReplay: act.GraphReplay}
-		j.actByCorr[k] = append(j.actByCorr[k], actIdx)
-	}
+	j.indexActivity(actIdx, act)
 
 	return results
 }
 
 // Flush emits all remaining unmatched pending submissions and activities as Missing.
-func (j *Joiner) Flush() []JoinResult {
+func (j *Joiner) Flush() (results []JoinResult) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	var results []JoinResult
+	defer func() {
+		for _, result := range results {
+			j.updateMetrics(result)
+		}
+	}()
 	for _, sub := range j.pendingSubs {
 		results = append(results, JoinResult{
 			Outcome:        OutcomeMissing,
@@ -472,16 +481,13 @@ func (j *Joiner) Flush() []JoinResult {
 			},
 			EvidenceRef: sub.EvidenceRef,
 		})
-		j.metrics.MissingJoins++
+
 	}
 	j.pendingSubs = nil
 	j.subByCorr = make(map[corrKey][]int)
 	j.subByExt = make(map[extKey][]int)
 
 	for _, act := range j.pendingActs {
-		if act.NativeCorrelationID == 0 && act.StartNs == 0 {
-			continue
-		}
 		results = append(results, JoinResult{
 			Outcome:        OutcomeMissing,
 			Reason:         ReasonNoHostSubmission,
@@ -489,7 +495,7 @@ func (j *Joiner) Flush() []JoinResult {
 			RawIDs:         rawFromActivity(act),
 			EvidenceRef:    act.EvidenceRef,
 		})
-		j.metrics.MissingJoins++
+
 	}
 	j.pendingActs = nil
 	j.actByCorr = make(map[corrKey][]int)
@@ -569,16 +575,22 @@ func (j *Joiner) buildExactOrAmbiguousMatch(sub HostSubmission, act DeviceActivi
 	}
 }
 
-func (j *Joiner) updateMetrics(o Outcome) {
-	switch o {
+func (j *Joiner) updateMetrics(result JoinResult) {
+	switch result.Outcome {
 	case OutcomeExact:
 		j.metrics.ExactJoins++
 	case OutcomeAssociated:
 		j.metrics.AssociatedJoins++
 	case OutcomeAmbiguous:
 		j.metrics.AmbiguousJoins++
+		if result.DeviceActivity != nil {
+			j.metrics.AmbiguousActivities++
+		}
 	case OutcomeMissing:
 		j.metrics.MissingJoins++
+		if result.DeviceActivity != nil {
+			j.metrics.MissingActivities++
+		}
 	}
 }
 
@@ -602,13 +614,29 @@ func (j *Joiner) rebuildSubIndices() {
 	}
 }
 
+// activityCorrelations returns distinct, nonzero native and runtime aliases.
+func activityCorrelations(act DeviceActivity) []uint32 {
+	var ids []uint32
+	if act.NativeCorrelationID != 0 {
+		ids = append(ids, act.NativeCorrelationID)
+	}
+	if act.RuntimeCorrelationID != 0 && act.RuntimeCorrelationID != act.NativeCorrelationID {
+		ids = append(ids, act.RuntimeCorrelationID)
+	}
+	return ids
+}
+
+func (j *Joiner) indexActivity(index int, act DeviceActivity) {
+	for _, id := range activityCorrelations(act) {
+		k := corrKey{Process: act.Process, Correlation: id, GraphReplay: act.GraphReplay}
+		j.actByCorr[k] = append(j.actByCorr[k], index)
+	}
+}
+
 func (j *Joiner) rebuildActIndices() {
 	j.actByCorr = make(map[corrKey][]int)
-	for i, a := range j.pendingActs {
-		if a.NativeCorrelationID != 0 {
-			k := corrKey{Process: a.Process, Correlation: a.NativeCorrelationID, GraphReplay: a.GraphReplay}
-			j.actByCorr[k] = append(j.actByCorr[k], i)
-		}
+	for i, act := range j.pendingActs {
+		j.indexActivity(i, act)
 	}
 }
 
