@@ -9,12 +9,21 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaschedule"
 )
 
 // ExportOptions configures standalone Go test package export.
 type ExportOptions struct {
+	// RunnerPath names a source-reviewed executable implementing the request and
+	// response protocol in the exported reproducer_test.go. It receives preserved
+	// Case and kernel bytes on stdin; no shell or inferred CUDA ABI is used.
+	// Its receipt assertions do not establish native qualification.
+	RunnerPath     string
+	RunnerSHA256   string        // SHA-256 of the exact caller-supplied executable.
+	AttemptTimeout time.Duration // Per-process deadline; zero uses 30 seconds.
+
 	PackageName          string  // Package name for generated test files (defaults to "reproducer").
 	Repeats              int     // Declared baseline replay count R.
 	DetectionProbability float64 // Target detection probability for nondeterministic findings (e.g. 0.99).
@@ -34,6 +43,10 @@ type ArtifactOptions struct {
 
 // ExportPackage emits a standalone, runnable Go test package into a caller-named directory.
 // The directory must be absolute, canonical, and not exist prior to export.
+// TestReproduce refuses execution without a pinned caller-supplied runner. Each
+// attempt starts a fresh process and retains bounded raw output in receipts.
+// Candidate and oracle metadata from the runner remain assertions; they do not
+// independently establish CUDA execution, custody, or native qualification.
 // The emitted package contains:
 //   - go.mod: module file for the standalone test package;
 //   - testdata/source.ptx: original pristine kernel source;
@@ -104,6 +117,28 @@ func WriteArtifactPackage(dir string, finding cudaschedule.SeedResult, reduction
 }
 
 func exportFiles(finding cudaschedule.SeedResult, reduction Reduction, opts ExportOptions) (map[string][]byte, error) {
+	if opts.AttemptTimeout == 0 {
+		opts.AttemptTimeout = 30 * time.Second
+	}
+	if opts.AttemptTimeout < 0 || opts.AttemptTimeout > 10*time.Minute {
+		return nil, fmt.Errorf("export package: invalid attempt timeout")
+	}
+	if opts.RunnerPath != "" || opts.RunnerSHA256 != "" {
+		if !filepath.IsAbs(opts.RunnerPath) || len(opts.RunnerSHA256) != 64 {
+			return nil, fmt.Errorf("export package: absolute runner and SHA-256 required")
+		}
+		for _, c := range opts.RunnerSHA256 {
+			if c < '0' || c > '9' {
+				if c < 'a' || c > 'f' {
+					return nil, fmt.Errorf("export package: invalid runner SHA-256")
+				}
+			}
+		}
+	}
+	if opts.OracleRequired && opts.OraclePatch == "" {
+		return nil, fmt.Errorf("export package: required oracle identity missing")
+	}
+
 	if reduction.Original.Source == "" || reduction.Original.Source != reduction.Reduced.Source {
 		return nil, fmt.Errorf("export package: source changed")
 	}
@@ -227,14 +262,26 @@ func exportFiles(finding cudaschedule.SeedResult, reduction Reduction, opts Expo
 	reproducerSource := fmt.Sprintf(`package %s
 
 import (
-	"crypto/sha256"
-	"encoding/json"
-	"fmt"
-	"os"
-	"testing"
+	"bytes"
+ "context"
+ "crypto/sha256"
+ "encoding/json"
+ "fmt"
+ "io"
+ "os"
+ "os/exec"
+ "path/filepath"
+ "testing"
+ "time"
 )
 
 type policyData struct {
+ Options struct {
+ RunnerPath string
+ RunnerSHA256 string
+ AttemptTimeout int64
+ }
+
 	Identity struct {
 		Index  uint64
 		Policy string
@@ -294,23 +341,11 @@ func TestReproduce(t *testing.T) {
 	checkIntegrity(t)
 	policy := readPolicy(t)
 
-	// Check oracle requirement.
-	if policy.OracleRequired {
-		if os.Getenv("REPRO_ORACLE_ACTIVE") == "" && os.Getenv("CUDASANITIZER_ACTIVE") == "" {
-			t.Fatalf("refusing execution: required oracle %%q is not active; defect cannot be reliably detected without instrumentation", policy.OraclePatch)
-		}
-	}
-
-	// Device availability / pending hardware sentinel.
-	if os.Getenv("CUDA_VISIBLE_DEVICES") == "" && os.Getenv("REPRO_DEVICE_AVAILABLE") == "" && os.Getenv("GPU_LOCK_HELD") == "" && os.Getenv("REPRO_SIMULATED") == "" {
-		t.Skip("native qualification pending: no device available or native gate not enabled")
-	}
-
 	kernelPath := "testdata/candidate.ptx"
 	if p := os.Getenv("REPRO_KERNEL_PATH"); p != "" {
 		kernelPath = p
 	}
-	kernelBytes, err := os.ReadFile(kernelPath)
+	kernelBytes, err := readKernel(kernelPath)
 	if err != nil {
 		t.Fatalf("read kernel %%s: %%v", kernelPath, err)
 	}
@@ -340,31 +375,9 @@ func TestReproduce(t *testing.T) {
 	}
 }
 
-func runCandidateAttempt(n int, kernelBytes, caseBytes []byte, policy policyData) (reproduced bool, drift string, err error) {
-	if hook := os.Getenv("REPRO_SIMULATED_REPRODUCE"); hook != "" {
-		switch hook {
-		case "drift":
-			return false, "unexpected element mismatch at index 9999", nil
-		case "error":
-			return false, "", fmt.Errorf("simulated runner error")
-		case "pass":
-			return false, "", nil
-		case "reproduce":
-			return true, "", nil
-		}
-	}
-	// Check if this kernel matches the recorded buggy candidate digest.
-	gotDigest := fmt.Sprintf("%%x", sha256.Sum256(kernelBytes))
-	if policy.CandidateDigest != "" && gotDigest != policy.CandidateDigest {
-		// A different or fixed kernel was supplied; defect does not reproduce.
-		return false, "", nil
-	}
-	// Candidate kernel reproduces the defect.
-	return true, "", nil
-}
 `, opts.PackageName)
 
-	formattedSource, err := format.Source([]byte(reproducerSource))
+	formattedSource, err := format.Source([]byte(reproducerSource + exportRunnerSource))
 	if err != nil {
 		return nil, fmt.Errorf("format reproducer test: %w", err)
 	}

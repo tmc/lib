@@ -57,136 +57,94 @@ func runGoTest(dir string, envExtra ...string) ([]byte, error) {
 	return cmd.CombinedOutput()
 }
 
-// TestExport_PackageBuildsAndFailsOnBug tests that the emitted Go test package
-// compiles cleanly and fails on the recorded buggy kernel defect when run under
-// simulated/native device execution.
-func TestExport_PackageBuildsAndFailsOnBug(t *testing.T) {
+func TestExportExecutedCPUResult(t *testing.T) {
 	finding, r, opts := sampleExportSetup()
-	dir := filepath.Join(testTempDir(t), "reproducer_bug")
+	setExportRunner(t, &opts)
+	dir := filepath.Join(testTempDir(t), "reproducer")
 	if err := ExportPackage(dir, finding, r, opts); err != nil {
 		t.Fatal(err)
 	}
-
-	// Run with device available: should fail because the bug reproduced.
-	out, err := runGoTest(dir, "REPRO_DEVICE_AVAILABLE=1")
-	if err == nil {
-		t.Fatalf("expected test failure on buggy kernel, but passed:\n%s", out)
+	out, err := runGoTest(dir, "EXPORT_CPU_MODE=")
+	if err == nil || !strings.Contains(string(out), "defect reproduced on attempt") {
+		t.Fatalf("bug result: %v\n%s", err, out)
 	}
-	if !strings.Contains(string(out), "defect reproduced on attempt") {
-		t.Fatalf("output does not report reproduced defect:\n%s", out)
-	}
-}
-
-// TestExport_PackagePassesOnFixedKernel tests that the emitted test package
-// passes cleanly when pointed at a fixed kernel that does not exhibit the defect.
-func TestExport_PackagePassesOnFixedKernel(t *testing.T) {
-	finding, r, opts := sampleExportSetup()
-	dir := filepath.Join(testTempDir(t), "reproducer_fixed")
-	if err := ExportPackage(dir, finding, r, opts); err != nil {
+	// Different digest, same executed defect: digest changes never establish health.
+	changed := filepath.Join(dir, "testdata", "changed.ptx")
+	artifact, _ := r.Reduced.Artifact()
+	if err := os.WriteFile(changed, []byte(artifact+"\n// different digest"), 0600); err != nil {
 		t.Fatal(err)
 	}
-
-	// Write a fixed kernel variant in testdata.
-	fixedPath := filepath.Join(dir, "testdata/fixed.ptx")
-	fixedContent := "// FIXED: synchronization bug resolved\n.version 8.0\n.target sm_80\n.address_size 64\n.visible .entry fixture() { ret; }\n"
-	if err := os.WriteFile(fixedPath, []byte(fixedContent), 0600); err != nil {
+	out, err = runGoTest(dir, "REPRO_KERNEL_PATH="+changed, "EXPORT_CPU_MODE=")
+	if err == nil || !strings.Contains(string(out), "defect reproduced on attempt") {
+		t.Fatalf("changed bug result: %v\n%s", err, out)
+	}
+	fixed := filepath.Join(dir, "testdata", "fixed.ptx")
+	if err := os.WriteFile(fixed, []byte(artifact+"\n// FIXED"), 0600); err != nil {
 		t.Fatal(err)
 	}
-
-	// Run test pointing to fixed kernel: should pass cleanly!
-	out, err := runGoTest(dir, "REPRO_DEVICE_AVAILABLE=1", "REPRO_KERNEL_PATH="+fixedPath)
+	out, err = runGoTest(dir, "REPRO_KERNEL_PATH="+fixed, "EXPORT_CPU_MODE=")
 	if err != nil {
-		t.Fatalf("expected test to pass on fixed kernel, but failed: %v\nOutput:\n%s", err, out)
+		t.Fatalf("fixed executed result: %v\n%s", err, out)
 	}
-	if !strings.Contains(string(out), "PASS") {
-		t.Fatalf("output does not contain PASS:\n%s", out)
+	entries, err := os.ReadDir(filepath.Join(dir, "receipts"))
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("raw receipts missing: %v", err)
+	}
+	for _, entry := range entries {
+		raw, err := os.ReadFile(filepath.Join(dir, "receipts", entry.Name(), "receipt.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("executed CPU protocol receipt: %s", raw)
 	}
 }
 
-// TestExport_PendingWithoutDevice asserts that without a device or native environment,
-// the exported test returns the shared pending sentinel and NEVER reports a pass.
-func TestExport_PendingWithoutDevice(t *testing.T) {
+func TestExportMissingRunnerRefuses(t *testing.T) {
 	finding, r, opts := sampleExportSetup()
-	dir := filepath.Join(testTempDir(t), "reproducer_pending")
+	dir := filepath.Join(testTempDir(t), "reproducer")
 	if err := ExportPackage(dir, finding, r, opts); err != nil {
 		t.Fatal(err)
 	}
-
-	// Filter out device-enabling environment variables.
-	cleanEnv := []string{
-		"CUDA_VISIBLE_DEVICES=",
-		"REPRO_DEVICE_AVAILABLE=",
-		"GPU_LOCK_HELD=",
-		"REPRO_SIMULATED=",
-	}
-	out, err := runGoTest(dir, cleanEnv...)
-	if err != nil {
-		t.Fatalf("expected exit 0 for skip, got: %v\nOutput:\n%s", err, out)
-	}
-	outStr := string(out)
-	if !strings.Contains(outStr, "native qualification pending:") {
-		t.Fatalf("expected pending sentinel in output, got:\n%s", outStr)
-	}
-	if !strings.Contains(outStr, "SKIP: TestReproduce") {
-		t.Fatalf("expected TestReproduce to SKIP, got:\n%s", outStr)
-	}
-	// Verify that TestReproduce was NOT passed.
-	if strings.Contains(outStr, "PASS: TestReproduce") {
-		t.Fatalf("TestReproduce reported pass without a device; must report pending sentinel:\n%s", outStr)
+	out, err := runGoTest(dir, "REPRO_DEVICE_AVAILABLE=1", "REPRO_SIMULATED=1", "REPRO_SIMULATED_REPRODUCE=pass")
+	if err == nil || !strings.Contains(string(out), "reviewed runner and executable SHA-256 required") {
+		t.Fatalf("missing runner result: %v\n%s", err, out)
 	}
 }
 
-// TestExport_OracleDroppedRefusal asserts that when an oracle is required (e.g. lane 52 patch),
-// running without the oracle active fails and refuses execution.
-func TestExport_OracleDroppedRefusal(t *testing.T) {
+func TestExportRunnerRefusals(t *testing.T) {
 	finding, r, opts := sampleExportSetup()
+	setExportRunner(t, &opts)
 	opts.OracleRequired = true
-	opts.OraclePatch = "lane52-memcheck"
-	dir := filepath.Join(testTempDir(t), "reproducer_oracle")
+	opts.OraclePatch = "declared-oracle"
+	opts.AttemptTimeout = 2 * time.Second
+	dir := filepath.Join(testTempDir(t), "reproducer")
 	if err := ExportPackage(dir, finding, r, opts); err != nil {
 		t.Fatal(err)
 	}
-
-	// Run with device available but oracle inactive.
-	out, err := runGoTest(dir, "REPRO_DEVICE_AVAILABLE=1", "REPRO_ORACLE_ACTIVE=", "CUDASANITIZER_ACTIVE=")
-	if err == nil {
-		t.Fatalf("expected test failure when required oracle is inactive, but passed:\n%s", out)
+	for _, tc := range []struct{ mode, want string }{
+		{"pid", "process identity mismatch"}, {"digest", "artifact identity mismatch"},
+		{"oracle", "lacks process-bound evidence"}, {"arrays", "missing matching output/reference arrays"},
+		{"drift", "identity drift"}, {"trailing", "trailing data"}, {"overflow", "runner failed"}, {"timeout", "runner failed"},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			out, err := runGoTest(dir, "EXPORT_CPU_MODE="+tc.mode, "REPRO_ORACLE_ACTIVE=1")
+			if err == nil || !strings.Contains(string(out), tc.want) {
+				t.Fatalf("result: %v\n%s", err, out)
+			}
+		})
 	}
-	if !strings.Contains(string(out), "required oracle \"lane52-memcheck\" is not active") {
-		t.Fatalf("expected oracle inactive error message, got:\n%s", out)
-	}
-
-	// Now run with oracle active: should proceed to defect detection.
-	outActive, errActive := runGoTest(dir, "REPRO_DEVICE_AVAILABLE=1", "REPRO_ORACLE_ACTIVE=1")
-	if errActive == nil {
-		t.Fatalf("expected failure on bug with active oracle, but passed:\n%s", outActive)
-	}
-	if !strings.Contains(string(outActive), "defect reproduced on attempt") {
-		t.Fatalf("expected defect reproduced output with active oracle, got:\n%s", outActive)
-	}
-}
-
-// TestExport_RejectsIdentityDrift asserts that if execution experiences identity drift,
-// the test fails and never passes.
-func TestExport_RejectsIdentityDrift(t *testing.T) {
-	finding, r, opts := sampleExportSetup()
-	dir := filepath.Join(testTempDir(t), "reproducer_drift")
-	if err := ExportPackage(dir, finding, r, opts); err != nil {
+	if err := os.WriteFile(opts.RunnerPath, []byte("changed"), 0700); err != nil {
 		t.Fatal(err)
 	}
-
-	out, err := runGoTest(dir, "REPRO_DEVICE_AVAILABLE=1", "REPRO_SIMULATED_REPRODUCE=drift")
-	if err == nil {
-		t.Fatalf("expected test failure on identity drift, but passed:\n%s", out)
-	}
-	if !strings.Contains(string(out), "rejected for identity drift") {
-		t.Fatalf("expected drift message, got:\n%s", out)
+	out, err := runGoTest(dir, "EXPORT_CPU_MODE=")
+	if err == nil || !strings.Contains(string(out), "runner executable changed") {
+		t.Fatalf("changed runner: %v\n%s", err, out)
 	}
 }
 
 // TestExport_Refusals checks invalid export inputs and invariants.
 func TestExport_Refusals(t *testing.T) {
-	for _, name := range []string{"source", "measurement", "shape", "geometry", "rate", "artifact"} {
+	for _, name := range []string{"source", "measurement", "shape", "geometry", "rate", "artifact", "runner", "deadline", "oracle"} {
 		t.Run(name, func(t *testing.T) {
 			finding, r, opts := sampleExportSetup()
 			switch name {
@@ -202,6 +160,13 @@ func TestExport_Refusals(t *testing.T) {
 				r.Reduced.Grid[0] = 0
 			case "rate":
 				r.Baseline.Reproductions = 1
+			case "runner":
+				opts.RunnerPath = "relative-runner"
+				opts.RunnerSHA256 = strings.Repeat("0", 64)
+			case "deadline":
+				opts.AttemptTimeout = -time.Second
+			case "oracle":
+				opts.OracleRequired = true
 			case "artifact":
 				r.Baseline.Runs[1].PTXDigest = strings.Repeat("0", 64)
 			}
