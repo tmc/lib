@@ -53,8 +53,14 @@ type CorrelationJoin struct {
 }
 
 type externalStackKey struct {
-	kind uint32
-	id   uint64
+	process uint64
+	kind    uint32
+	id      uint64
+}
+
+type externalCorrelationKey struct {
+	process uint64
+	id      uint64
 }
 
 // AmbiguousCorrelation records an ambiguous join where a correlation ID maps to multiple
@@ -72,13 +78,18 @@ type AmbiguousCorrelation struct {
 // It correlates external correlation IDs from Do/Correlate with CUDA runtime/driver
 // correlation IDs and GPU device activities by exact ID match, never by timestamp.
 // Host call stacks are attached at the Do call site granularity (not per-launch).
+// Imported stacks and activity links must have the same explicit process ID.
+// Process zero and the processless RecordExternal methods use an unknown scope;
+// they never join a known process. RuntimeLaunch has no process identifier, so
+// reused CUDA IDs with multiple runtime or activity records remain ambiguous.
 type CorrelationTracker struct {
-	mu                  sync.Mutex
-	runtimes            map[uint64][]RuntimeLaunch
-	activities          map[uint64][]ActivityRecord
-	externalStacks      map[externalStackKey][][]string // (kind, externalID) -> distinct stacks
-	cudaToExternal      map[uint64][]externalStackKey   // cudaCorrID -> external IDs
-	externalStackLosses uint64
+	mu                            sync.Mutex
+	runtimes                      map[uint64][]RuntimeLaunch
+	activities                    map[uint64][]ActivityRecord
+	externalStacks                map[externalStackKey][][]string // (kind, externalID) -> distinct stacks
+	cudaToExternal                map[externalCorrelationKey][]externalStackKey
+	externalStackLosses           uint64
+	externalStackLossesLowerBound bool
 }
 
 // ExternalStacksName is the capture member containing the cudaprof stack sidecar.
@@ -109,7 +120,7 @@ func NewCorrelationTracker() *CorrelationTracker {
 		runtimes:       make(map[uint64][]RuntimeLaunch),
 		activities:     make(map[uint64][]ActivityRecord),
 		externalStacks: make(map[externalStackKey][][]string),
-		cudaToExternal: make(map[uint64][]externalStackKey),
+		cudaToExternal: make(map[externalCorrelationKey][]externalStackKey),
 	}
 }
 
@@ -137,6 +148,10 @@ func (ct *CorrelationTracker) RecordExternalStack(externalID uint64, stack []str
 // RecordExternalCorrelationKind records an association between an external correlation ID
 // (pushed by Do or Correlate) and a CUDA runtime/driver correlation ID.
 func (ct *CorrelationTracker) RecordExternalCorrelationKind(kind uint32, externalID uint64, correlationID uint64) error {
+	return ct.recordExternalCorrelation(0, kind, externalID, correlationID)
+}
+
+func (ct *CorrelationTracker) recordExternalCorrelation(process uint64, kind uint32, externalID, correlationID uint64) error {
 	if externalID == 0 {
 		return errors.New("cudacapture: invalid zero external correlation ID")
 	}
@@ -146,10 +161,11 @@ func (ct *CorrelationTracker) RecordExternalCorrelationKind(kind uint32, externa
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 	if ct.cudaToExternal == nil {
-		ct.cudaToExternal = make(map[uint64][]externalStackKey)
+		ct.cudaToExternal = make(map[externalCorrelationKey][]externalStackKey)
 	}
-	key := externalStackKey{kind: kind, id: externalID}
-	ct.cudaToExternal[correlationID] = appendUniqueExternal(ct.cudaToExternal[correlationID], key)
+	key := externalStackKey{process: process, kind: kind, id: externalID}
+	cuda := externalCorrelationKey{process: process, id: correlationID}
+	ct.cudaToExternal[cuda] = appendUniqueExternal(ct.cudaToExternal[cuda], key)
 	return nil
 }
 
@@ -164,17 +180,20 @@ func (ct *CorrelationTracker) RecordExternalStackKind(kind uint32, externalID ui
 	if ct.externalStacks == nil {
 		ct.externalStacks = make(map[externalStackKey][][]string)
 	}
-	key := externalStackKey{kind: kind, id: externalID}
+	ct.recordExternalStackLocked(externalStackKey{kind: kind, id: externalID}, stack)
+	return nil
+}
+
+func (ct *CorrelationTracker) recordExternalStackLocked(key externalStackKey, stack []string) {
 	existing := ct.externalStacks[key]
 	for _, s := range existing {
 		if stringSlicesEqual(s, stack) {
-			return nil
+			return
 		}
 	}
 	st := make([]string, len(stack))
 	copy(st, stack)
 	ct.externalStacks[key] = append(ct.externalStacks[key], st)
-	return nil
 }
 
 // RecordActivity records a GPU device activity event. If rec is an external_correlation record
@@ -192,7 +211,7 @@ func (ct *CorrelationTracker) RecordActivity(rec ActivityRecord) error {
 		if rec.ExternalID == 0 {
 			return errors.New("cudacapture: external correlation has zero external ID")
 		}
-		return ct.RecordExternalCorrelationKind(rec.ExternalKind, rec.ExternalID, corrID)
+		return ct.recordExternalCorrelation(rec.Process, rec.ExternalKind, rec.ExternalID, corrID)
 	}
 
 	corrID := uint64(rec.Correlation)
@@ -213,9 +232,12 @@ func (ct *CorrelationTracker) ReadExternalStackTable(r io.Reader) error {
 	if r == nil {
 		return errors.New("cudacapture: nil external stack table reader")
 	}
-	data, err := io.ReadAll(r)
+	data, err := io.ReadAll(io.LimitReader(r, maxExternalStackBytes+1))
 	if err != nil {
 		return fmt.Errorf("cudacapture: read external stack table: %w", err)
+	}
+	if len(data) > maxExternalStackBytes {
+		return errors.New("cudacapture: external stack table exceeds byte budget")
 	}
 	table, err := decodeExternalStackTable(data)
 	if err != nil {
@@ -225,73 +247,226 @@ func (ct *CorrelationTracker) ReadExternalStackTable(r io.Reader) error {
 		return fmt.Errorf("cudacapture: unsupported external stack table version %d", table.Version)
 	}
 	ct.mu.Lock()
-	ct.externalStackLosses += table.Losses
-	ct.mu.Unlock()
+	defer ct.mu.Unlock()
+	if ^uint64(0)-ct.externalStackLosses < table.Losses {
+		ct.externalStackLosses = ^uint64(0)
+		ct.externalStackLossesLowerBound = true
+	} else {
+		ct.externalStackLosses += table.Losses
+	}
+	ct.externalStackLossesLowerBound = ct.externalStackLossesLowerBound || table.LossesLowerBound
+	if ct.externalStacks == nil {
+		ct.externalStacks = make(map[externalStackKey][][]string)
+	}
 	for _, record := range table.Stacks {
-		if err := ct.RecordExternalStackKind(record.ExternalKind, record.ExternalID, record.Frames); err != nil {
-			return err
-		}
+		ct.recordExternalStackLocked(externalStackKey{process: record.Process, kind: record.ExternalKind, id: record.ExternalID}, record.Frames)
 	}
 	return nil
 }
 
+const (
+	maxExternalStackBytes    = 16 << 20
+	maxExternalStackRows     = 16384
+	maxExternalStackRowBytes = 64 << 10
+)
+
+// decodeExternalStackTable validates the entire import before any tracker mutation.
+// Legacy process zero is an unknown scope; it is never promoted to a known PID.
 func decodeExternalStackTable(data []byte) (cudaprof.ExternalStackTable, error) {
 	var table cudaprof.ExternalStackTable
-	if err := json.Unmarshal(data, &table); err == nil {
-		return table, nil
-	}
-	lines := bytes.Split(data, []byte{'\n'})
-	if len(lines) < 2 {
-		return table, errors.New("invalid sidecar records")
-	}
-	var header struct {
-		Version    int             `json:"version"`
-		Kind       string          `json:"kind"`
-		Losses     json.RawMessage `json:"losses"`
-		LowerBound bool            `json:"losses_lower_bound"`
-	}
-	if err := json.Unmarshal(lines[0], &header); err != nil {
-		return table, err
-	}
-	if header.Kind != "header" {
-		return table, errors.New("missing sidecar header")
-	}
-	table.Version = header.Version
-	table.LossesLowerBound = header.LowerBound
-	if len(header.Losses) != 0 {
-		var text string
-		if header.Losses[0] == '"' {
-			if err := json.Unmarshal(header.Losses, &text); err != nil {
+	var object map[string]json.RawMessage
+	if json.Unmarshal(data, &object) == nil {
+		if _, journal := object["kind"]; !journal {
+			fields, err := externalStackObject(data, "version", "losses", "losses_lower_bound", "discarded_records", "discarded_records_lower_bound", "stacks")
+			if err != nil {
 				return table, err
 			}
-		} else {
-			text = string(header.Losses)
+			if err := json.Unmarshal(data, &table); err != nil {
+				return table, err
+			}
+			var rows []json.RawMessage
+			if err := json.Unmarshal(fields["stacks"], &rows); err != nil {
+				return table, err
+			}
+			if len(rows) > maxExternalStackRows {
+				return table, errors.New("too many stack records")
+			}
+			for _, row := range rows {
+				if _, err := externalStackObject(row, "process", "external_kind", "external_id", "frames"); err != nil {
+					return table, err
+				}
+			}
+			return validateExternalStackTable(table)
 		}
-		losses, err := strconv.ParseUint(text, 10, 64)
-		if err != nil {
-			return table, fmt.Errorf("invalid loss count: %w", err)
-		}
-		table.Losses = losses
 	}
-	for _, line := range lines[1:] {
-		if len(bytes.TrimSpace(line)) == 0 {
-			continue
+	if len(data) == 0 || data[len(data)-1] != '\n' {
+		return table, errors.New("incomplete sidecar journal")
+	}
+	lines := bytes.Split(data[:len(data)-1], []byte{'\n'})
+	type sidecarRow struct {
+		Version      int             `json:"version"`
+		Kind         string          `json:"kind"`
+		Losses       json.RawMessage `json:"losses"`
+		LowerBound   bool            `json:"losses_lower_bound"`
+		Process      uint64          `json:"process"`
+		Epoch        string          `json:"epoch"`
+		ExternalKind uint32          `json:"external_kind"`
+		ExternalID   uint64          `json:"external_id"`
+		Frames       []string        `json:"frames"`
+	}
+	var header sidecarRow
+	for n, line := range lines {
+		if len(line) > maxExternalStackRowBytes {
+			return table, errors.New("sidecar row exceeds byte budget")
 		}
-		var record struct {
-			Version      int      `json:"version"`
-			Kind         string   `json:"kind"`
-			Process      uint64   `json:"process"`
-			ExternalKind uint32   `json:"external_kind"`
-			ExternalID   uint64   `json:"external_id"`
-			Frames       []string `json:"frames"`
-		}
-		if err := json.Unmarshal(line, &record); err != nil {
+		fields, err := externalStackObject(line, "version", "kind", "losses", "losses_lower_bound", "process", "epoch", "external_kind", "external_id", "frames")
+		if err != nil {
 			return table, err
 		}
-		if record.Kind != "stack" || record.Version != 1 {
-			return table, fmt.Errorf("invalid sidecar record kind/version %q/%d", record.Kind, record.Version)
+		var row sidecarRow
+		if err := json.Unmarshal(line, &row); err != nil {
+			return table, err
 		}
-		table.Stacks = append(table.Stacks, cudaprof.ExternalStackRecord{Process: record.Process, ExternalKind: record.ExternalKind, ExternalID: record.ExternalID, Frames: record.Frames})
+		if row.Version != 1 {
+			return table, fmt.Errorf("unsupported external stack table version %d", row.Version)
+		}
+		if len(row.Epoch) > 128 {
+			return table, errors.New("sidecar epoch exceeds byte budget")
+		}
+		if n == 0 {
+			if row.Kind != "header" {
+				return table, errors.New("missing sidecar header")
+			}
+			header = row
+			table.Version = 1
+		} else if row.Kind == "header" || row.Process != header.Process || row.Epoch != header.Epoch {
+			return table, errors.New("sidecar record differs from header scope")
+		}
+		switch row.Kind {
+		case "header", "losses":
+			if _, ok := fields["frames"]; ok {
+				return table, errors.New("count record contains frames")
+			}
+			if _, ok := fields["external_id"]; ok {
+				return table, errors.New("count record contains external ID")
+			}
+			if _, ok := fields["external_kind"]; ok {
+				return table, errors.New("count record contains external kind")
+			}
+			if n == 0 && len(row.Losses) == 0 {
+				row.Losses = json.RawMessage("0")
+			}
+			losses, err := externalStackCount(row.Losses)
+			if err != nil {
+				return table, err
+			}
+			if losses < table.Losses {
+				return table, errors.New("decreasing sidecar loss count")
+			}
+			table.Losses = losses
+			table.LossesLowerBound = table.LossesLowerBound || row.LowerBound
+		case "stack":
+			if _, ok := fields["losses"]; ok {
+				return table, errors.New("stack record contains loss count")
+			}
+			if row.LowerBound {
+				return table, errors.New("stack record contains loss qualification")
+			}
+			if len(table.Stacks) >= maxExternalStackRows {
+				return table, errors.New("too many stack records")
+			}
+			table.Stacks = append(table.Stacks, cudaprof.ExternalStackRecord{Process: row.Process, ExternalKind: row.ExternalKind, ExternalID: row.ExternalID, Frames: row.Frames})
+		default:
+			return table, fmt.Errorf("invalid sidecar record kind %q", row.Kind)
+		}
+	}
+	return validateExternalStackTable(table)
+}
+
+func externalStackCount(raw json.RawMessage) (uint64, error) {
+	text := string(raw)
+	if len(raw) > 0 && raw[0] == '"' {
+		if err := json.Unmarshal(raw, &text); err != nil {
+			return 0, err
+		}
+	}
+	if len(text) == 0 || len(text) > 20 {
+		return 0, errors.New("invalid sidecar loss count")
+	}
+	for _, c := range text {
+		if c < '0' || c > '9' {
+			return 0, errors.New("invalid sidecar loss count")
+		}
+	}
+	count, err := strconv.ParseUint(text, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid sidecar loss count: %w", err)
+	}
+	return count, nil
+}
+
+func externalStackObject(data []byte, allowed ...string) (map[string]json.RawMessage, error) {
+	d := json.NewDecoder(bytes.NewReader(data))
+	token, err := d.Token()
+	if err != nil || token != json.Delim('{') {
+		return nil, errors.New("invalid sidecar object")
+	}
+	fields := make(map[string]json.RawMessage)
+	for d.More() {
+		token, err := d.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return nil, errors.New("invalid sidecar key")
+		}
+		if _, seen := fields[key]; seen {
+			return nil, errors.New("duplicate sidecar key")
+		}
+		valid := false
+		for _, name := range allowed {
+			valid = valid || key == name
+		}
+		if !valid {
+			return nil, fmt.Errorf("unknown sidecar key %q", key)
+		}
+		var value json.RawMessage
+		if err := d.Decode(&value); err != nil {
+			return nil, err
+		}
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return nil, fmt.Errorf("null sidecar field %q", key)
+		}
+		fields[key] = value
+	}
+	if _, err := d.Token(); err != nil {
+		return nil, err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return nil, errors.New("trailing sidecar object data")
+	}
+	return fields, nil
+}
+
+func validateExternalStackTable(table cudaprof.ExternalStackTable) (cudaprof.ExternalStackTable, error) {
+	if table.Version != 1 {
+		return table, fmt.Errorf("unsupported external stack table version %d", table.Version)
+	}
+	if len(table.Stacks) > maxExternalStackRows {
+		return table, errors.New("too many stack records")
+	}
+	for _, row := range table.Stacks {
+		if row.ExternalID == 0 || len(row.Frames) == 0 || len(row.Frames) > 65 {
+			return table, errors.New("invalid stack record")
+		}
+		total := 0
+		for _, frame := range row.Frames {
+			total += len(frame)
+			if len(frame) == 0 || len(frame) > 4096 || total > 8192 {
+				return table, errors.New("stack frames exceed byte budget")
+			}
+		}
 	}
 	return table, nil
 }
@@ -313,6 +488,14 @@ func (ct *CorrelationTracker) ExternalStackLosses() uint64 {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 	return ct.externalStackLosses
+}
+
+// ExternalStackLossesLowerBound reports whether the loss count is a lower bound.
+// Producer journal checkpoints and a saturated total are lower bounds.
+func (ct *CorrelationTracker) ExternalStackLossesLowerBound() bool {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	return ct.externalStackLossesLowerBound
 }
 
 // Join correlates runtime launches with device activities by exact ID matching.
@@ -355,7 +538,7 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 
 			// CUPTI can report more than one framework namespace for a
 			// correlation. Use the lowest kind, matching MatchExternal.
-			extIDs := ct.cudaToExternal[id]
+			extIDs := ct.cudaToExternal[externalCorrelationKey{process: a.Process, id: id}]
 			var selected []externalStackKey
 			for _, key := range extIDs {
 				if len(selected) == 0 || key.kind < selected[0].kind {
