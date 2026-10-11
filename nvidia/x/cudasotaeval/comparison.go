@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"strings"
 )
 
 // ToolSpec freezes a tool's identity, configuration and support status.
@@ -88,6 +89,9 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 	if n > 16<<20 || fmt.Sprintf("%x", sha256.Sum256(data)) != receipt.RawDigest {
 		return nil, errors.New("cudasotaeval: raw artifact size or digest mismatch")
 	}
+	if err := comparisonJSON(json.NewDecoder(bytes.NewReader(data)), 0); err != nil {
+		return nil, fmt.Errorf("decode artifact: %w", err)
+	}
 	var observed ToolReceipt
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
@@ -147,4 +151,45 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 // WriteComparison writes machine-readable gates without omitting unknown cells.
 func WriteComparison(w io.Writer, gates []ComparisonGate) error {
 	return json.NewEncoder(w).Encode(gates)
+}
+
+// comparisonJSON checks struct field names before decoding can merge duplicate
+// or case-aliased fields. ToolReceipt has no maps with caller-defined keys.
+func comparisonJSON(d *json.Decoder, depth int) error {
+	if depth > 32 {
+		return errors.New("cudasotaeval: artifact nesting limit exceeded")
+	}
+	token, err := d.Token()
+	if err != nil {
+		return err
+	}
+	delim, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	if delim != '{' && delim != '[' {
+		return errors.New("cudasotaeval: invalid artifact delimiter")
+	}
+	seen := make(map[string]bool)
+	for d.More() {
+		if delim == '{' {
+			token, err := d.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := token.(string)
+			if !ok {
+				return errors.New("cudasotaeval: invalid artifact key")
+			}
+			if key != strings.ToLower(key) || seen[key] {
+				return errors.New("cudasotaeval: duplicate or case-aliased artifact field")
+			}
+			seen[key] = true
+		}
+		if err := comparisonJSON(d, depth+1); err != nil {
+			return err
+		}
+	}
+	_, err = d.Token()
+	return err
 }

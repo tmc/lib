@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 )
 
 // ArtifactManifest records all generated artifacts and their cryptographically verified digests.
@@ -221,7 +222,7 @@ func openArtifact(root *os.Root, name string) (*os.File, error) {
 			return nil, fmt.Errorf("symlink is not an artifact")
 		}
 	}
-	f, err := root.Open(name)
+	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
 	}

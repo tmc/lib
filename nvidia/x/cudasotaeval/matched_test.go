@@ -116,3 +116,16 @@ func ExampleCompareTools() {
 	fmt.Println(err != nil)
 	// Output: true
 }
+
+func TestComparisonDuplicateRawFields(t *testing.T) {
+	for _, field := range []string{`"task":"same-task",`, `"Task":"same-task",`} {
+		p := matchProtocol(t)
+		c, b := matchReceipt(p, 0), matchReceipt(p, 1)
+		cr, br := matchRaw(t, &c), matchRaw(t, &b)
+		br = "{" + field + br[1:]
+		b.RawDigest = fmt.Sprintf("%x", sha256.Sum256([]byte(br)))
+		if _, err := cudasotaeval.CompareTools(p, c, b, strings.NewReader(cr), strings.NewReader(br)); err == nil {
+			t.Fatalf("admitted %s", field)
+		}
+	}
+}
