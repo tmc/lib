@@ -8,9 +8,9 @@ no Go SQLite driver or module changes are needed.
 From `examples/`:
 
 ```sh
-GOWORK=off go run ./cmd/profile2trace -nsys capture.sqlite > capture.pftrace
-GOWORK=off go run ./cmd/profile2trace -spans go.spans.jsonl > host.pftrace
-GOWORK=off go run ./cmd/profile2trace -metal regions.json > metal.pftrace
+GOWORK=off go run ./x/cmd/profile2trace -nsys capture.sqlite > capture.pftrace
+GOWORK=off go run ./x/cmd/profile2trace -spans go.spans.jsonl > host.pftrace
+GOWORK=off go run ./x/cmd/profile2trace -metal regions.json > metal.pftrace
 ```
 
 Open the output with **Open trace file** at <https://ui.perfetto.dev>.
@@ -56,7 +56,7 @@ a capture without duplicating or dropping a row. Either side may be empty.
 A windowed run reports on stderr how many rows it kept and how many it omitted.
 
 ```sh
-GOWORK=off go run ./cmd/profile2trace \
+GOWORK=off go run ./x/cmd/profile2trace \
   -nsys capture.sqlite -nsys-window 160300000000: > tail.pftrace
 ```
 
@@ -81,11 +81,11 @@ reference when present; otherwise host spans are the reference. A single
 source needs no offset. Multiple sources require explicit offsets:
 
 ```sh
-GOWORK=off go run ./cmd/profile2trace \
+GOWORK=off go run ./x/cmd/profile2trace \
   -nsys capture.sqlite -spans go.spans.jsonl \
   -spans-offset-ns "$HOST_TO_NSYS_NS" > combined.pftrace
 
-GOWORK=off go run ./cmd/profile2trace \
+GOWORK=off go run ./x/cmd/profile2trace \
   -spans go.spans.jsonl -metal regions.json \
   -metal-offset-ns "$METAL_TO_HOST_NS" > combined.pftrace
 ```
@@ -113,7 +113,7 @@ ordering are held in memory; this is intended for bounded profiling captures.
 ## CPU checks
 
 ```sh
-GOWORK=off TMPDIR="$HOME/tmp" go test ./cmd/profile2trace -count=1
+GOWORK=off go test ./x/cmd/profile2trace -count=1
 ```
 
 Tests build synthetic SQLite databases, check both NVTX name forms and missing
