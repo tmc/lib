@@ -1,0 +1,11 @@
+commit: 8ce51d907c5c9b0523b802afbabbb1b09ab41777
+date: 2026-10-11T02:12:52.417311+00:00
+agent: codex
+codex version: 0.162.1
+claude-code version: not applicable
+model: GPT-6 (exact serving variant unavailable)
+tty: non-interactive
+pid: 57419
+ITERM_SESSION_ID: w2t0p5:4534BB1D-C5AC-42D2-9355-B2DD03F3A078
+scope and validation: Selected next hostqualify, relocated x/cmd; finite configuration/reference/observation refusal and retained-output error controls added; race tests pass
+commit helper: prior two failed attempts exhausted; signed manual fallback
