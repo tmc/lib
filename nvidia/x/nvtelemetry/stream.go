@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"sync"
 )
@@ -204,7 +205,7 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 		}
 
 		var rec StreamRecord
-		if err := json.Unmarshal(line, &rec); err != nil {
+		if err := decodeStreamJSON(line, &rec); err != nil {
 			if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || strings.Contains(err.Error(), "unexpected end of JSON input") {
 				return nil, nil, nil, fmt.Errorf("%w at line %d: %v", ErrTruncatedRecord, lineNum, err)
 			}
@@ -442,4 +443,97 @@ func ReadStreamStrict(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []
 		return manifest, phases, samples, fmt.Errorf("%w (%s)", ErrIncompleteStream, manifest.IncompleteReason)
 	}
 	return manifest, phases, samples, nil
+}
+
+// decodeStreamJSON checks keys before decoding into concrete integer fields.
+// Map keys remain case sensitive; struct aliases follow encoding/json matching.
+func decodeStreamJSON(raw []byte, rec *StreamRecord) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	if err := checkStreamJSON(d, 0, reflect.TypeOf(*rec)); err != nil {
+		return err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return errors.New("trailing stream json")
+	}
+	return json.Unmarshal(raw, rec)
+}
+
+func checkStreamJSON(d *json.Decoder, depth int, typ reflect.Type) error {
+	if depth > 128 {
+		return errors.New("stream json nesting limit exceeded")
+	}
+	t, err := d.Token()
+	if err != nil {
+		return err
+	}
+	delim, ok := t.(json.Delim)
+	if !ok {
+		return nil
+	}
+	for typ != nil && typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	switch delim {
+	case '{':
+		seen := make(map[string]bool)
+		for d.More() {
+			t, err := d.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := t.(string)
+			if !ok {
+				return errors.New("invalid stream json key")
+			}
+			name := key
+			var next reflect.Type
+			if typ != nil && typ.Kind() == reflect.Struct {
+				// Prefer an exact tag match, as encoding/json does.
+				for i := 0; i < typ.NumField(); i++ {
+					f := typ.Field(i)
+					if f.PkgPath != "" {
+						continue
+					}
+					tag := strings.Split(f.Tag.Get("json"), ",")[0]
+					if tag == "-" {
+						continue
+					}
+					if tag == "" {
+						tag = f.Name
+					}
+					if tag == key {
+						name, next = tag, f.Type
+						break
+					}
+					if next == nil && strings.EqualFold(tag, key) {
+						name, next = tag, f.Type
+					}
+				}
+			} else if typ != nil && typ.Kind() == reflect.Map {
+				next = typ.Elem()
+			}
+			if seen[name] {
+				return fmt.Errorf("duplicate stream json key %q", key)
+			}
+			seen[name] = true
+			if err := checkStreamJSON(d, depth+1, next); err != nil {
+				return err
+			}
+		}
+	case '[':
+		var next reflect.Type
+		if typ != nil && (typ.Kind() == reflect.Slice || typ.Kind() == reflect.Array) {
+			next = typ.Elem()
+		}
+		for d.More() {
+			if err := checkStreamJSON(d, depth+1, next); err != nil {
+				return err
+			}
+		}
+	default:
+		return errors.New("invalid stream json delimiter")
+	}
+	_, err = d.Token()
+	return err
 }
