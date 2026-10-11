@@ -380,8 +380,8 @@ func TestPerProcessSidecarLossesAreSummed(t *testing.T) {
 
 func TestCaptureTargetStacksEndToEnd(t *testing.T) {
 	if os.Getenv("CUDAPROF_TEST_END_TO_END_STACKS") == "target" {
-		cudaprof.RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 71, []string{"main", "targetStackA"})
-		cudaprof.RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 72, []string{"main", "targetStackB"})
+		cudaprof.RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, 71, []string{"main", "targetStackA"})
+		cudaprof.RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, 72, []string{"main", "targetStackB"})
 		os.Exit(0)
 	}
 	result, err := runCapture(context.Background(), captureOptions{command: []string{os.Args[0], "-test.run=^TestCaptureTargetStacksEndToEnd$"}, Env: []string{"CUDAPROF_TEST_END_TO_END_STACKS=target"}, NoInject: true})

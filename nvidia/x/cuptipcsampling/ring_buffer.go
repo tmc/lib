@@ -32,7 +32,7 @@ type RingBufferStats struct {
 	Ready         int    // Number of filled buffers waiting for consumption
 	HighWaterMark int    // Maximum number of concurrently in-flight buffers observed
 	Overflows     uint64 // Count of acquire attempts that failed due to a full ring
-	Drops         uint64 // Cumulative count of dropped records or samples
+	Drops         uint64 // Explicit counts passed to RecordDrops; PC session paths report hardware samples
 }
 
 // RingBufferConfig configures a circular [RingBuffer].
@@ -407,7 +407,9 @@ func (r *RingBuffer) Abandon(slot *RingSlot) {
 	}
 }
 
-// RecordDrops atomically records sample drops (e.g. from CUPTI hardware exhaustion).
+// RecordDrops adds an observed loss count. Keep one unit per ring: PC sampling
+// sessions record hardware samples here, never failed acquire attempts. Those
+// attempts are counted separately by Overflows.
 func (r *RingBuffer) RecordDrops(n uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -133,7 +133,7 @@ extern "C" __global__ void graph_second(unsigned* out){unsigned i=blockIdx.x*blo
 	prepares, runs := 0, 0
 	err = context.Run(func() error {
 		var err error
-		store, err = newCounterStore(driver.Context(context.Raw()), metrics, 8, 16, 16<<20, counterAPI{cupti.RangeProfilerEnable, cupti.RangeProfilerDisable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
+		store, err = newCounterStore(driver.Context(context.Raw()), metrics, 8, 16, 16<<20, counterAPI{cupti.ProfilerInitialize, cupti.RangeProfilerEnable, cupti.RangeProfilerDisable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
 		if err != nil {
 			return err
 		}

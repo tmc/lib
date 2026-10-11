@@ -130,3 +130,73 @@ func ExampleBindings_Verify() {
 	fmt.Println(bindings.Verify(members))
 	// Output: <nil>
 }
+
+func ExampleProbeCoverage() {
+	coverage := ProbeCoverage{Present: true, Ratio: 1.0}
+	fmt.Println(coverage.Present, coverage.Ratio)
+	// Output: true 1
+}
+
+func ExampleLoss() {
+	loss := Loss{Dropped: 0, Total: 100, Unknown: false}
+	fmt.Println(loss.Dropped, loss.Total, loss.Unknown)
+	// Output: 0 100 false
+}
+
+func ExampleCaptureBounds() {
+	bounds := CaptureBounds{Start: 1000, End: 5000, Clock: "monotonic"}
+	fmt.Println(bounds.Start, bounds.End, bounds.Clock)
+	// Output: 1000 5000 monotonic
+}
+
+func ExampleRequirement() {
+	req := Requirement{Name: "complete_activity", Family: "activity", MaxLoss: 0}
+	fmt.Println(req.Name, req.Family, req.MaxLoss)
+	// Output: complete_activity activity 0
+}
+
+func ExampleAdmission() {
+	admission := Admission{Admitted: true, Status: "admitted", ReasonCode: ReasonAdmitted}
+	fmt.Println(admission.Admitted, admission.Status, admission.ReasonCode)
+	// Output: true admitted admitted
+}
+
+func ExampleFinding() {
+	finding := Finding{
+		ID:    "finding-001",
+		Rule:  "launch_count",
+		Class: FindingObserved,
+		Admission: Admission{
+			Admitted:   true,
+			Status:     "admitted",
+			ReasonCode: ReasonAdmitted,
+		},
+	}
+	fmt.Println(finding.ID, finding.Rule, finding.Class, finding.Admission.Admitted)
+	// Output: finding-001 launch_count observed true
+}
+
+func ExampleAdmit() {
+	receipt := receiptFixture()
+	receipt.LostRecords = map[string]Loss{"activity": {Dropped: 0, Total: 10}}
+	ev := EvidenceContext{Receipt: receipt}
+	reqs := []Requirement{{Name: "activity_loss", Family: "activity", MaxLoss: 0}}
+	val := 10.0
+	finding := Admit("f1", "launch_count", FindingObserved, "observed 10 launches", &val, "launches", reqs, ev)
+	fmt.Println(finding.Class, finding.Admission.Admitted, *finding.Value)
+	// Output: observed true 10
+}
+
+func ExampleWriteFindings() {
+	var buf bytes.Buffer
+	writer := perfetto.NewWriter(&buf)
+	findings := []Finding{{
+		ID:        "f1",
+		Rule:      "launch_count",
+		Class:     FindingObserved,
+		Admission: Admission{Admitted: true, Status: "admitted", ReasonCode: ReasonAdmitted},
+	}}
+	err := WriteFindings(writer, 1, 0, findings)
+	fmt.Println(err, buf.Len() > 0)
+	// Output: <nil> true
+}

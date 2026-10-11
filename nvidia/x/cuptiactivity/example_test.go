@@ -1,12 +1,24 @@
 package cuptiactivity_test
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/cuptipmsampling"
 )
+
+func ExampleLayoutError() {
+	err := fmt.Errorf("collect: %w", &cuptiactivity.LayoutError{
+		Kind: cupti.ActivityKindMemcpy, NativeSize: 112, GoSize: 96,
+	})
+	var layout *cuptiactivity.LayoutError
+	if errors.As(err, &layout) {
+		fmt.Println(layout.Kind, layout.NativeSize, layout.GoSize)
+	}
+	// Output: ActivityKindMemcpy 112 96
+}
 
 func ExampleRecord() {
 	r := cuptiactivity.Record{Start: 10, End: 25, Complete: true}

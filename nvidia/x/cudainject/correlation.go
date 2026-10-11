@@ -93,7 +93,7 @@ func JoinCorrelations(records []Record) (Correlations, error) {
 			if err := correlationPayload(record.Payload, &external, "external_kind", "external_id", "correlation"); err != nil {
 				return result, fmt.Errorf("cudainject: external correlation payload: %w", err)
 			}
-			if err := tracker.RecordExternalCorrelation(external.Kind, external.ID, external.Correlation); err != nil {
+			if err := tracker.RecordExternalCorrelationKind(external.Kind, external.ID, external.Correlation); err != nil {
 				return result, err
 			}
 		}

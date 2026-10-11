@@ -196,7 +196,7 @@ func (p *Plan) captureReplay(dev *cuda.Device, limits Limits, options CaptureOpt
 	defer func() { err = result.finishCollection(err) }()
 	err = ctx.Run(func() error {
 		store, err := newCounterStore(driver.Context(ctx.Raw()), metrics, limits.MaxRanges, limits.MaxRangeTreeNodes, limits.MaxCounterBytes,
-			counterAPI{cupti.RangeProfilerEnable, cupti.RangeProfilerDisable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
+			counterAPI{cupti.ProfilerInitialize, cupti.RangeProfilerEnable, cupti.RangeProfilerDisable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
 		result.store = store
 		if err != nil {
 			return err

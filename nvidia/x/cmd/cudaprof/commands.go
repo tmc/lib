@@ -131,6 +131,11 @@ To read immutable profiling history or plan an observation-driven bisect:
   cudaprof history compare [flags] before.json after.json
   cudaprof bisect request.json
 
+To derive an experiment plan from an admitted incident or verify reproducibility:
+  cudaprof regress plan -incident incident.json [-o plan.json]
+  cudaprof regress check -plan plan.json
+  cudaprof regress export -plan plan.json -o dir
+
 To print the usage of a command:
   cudaprof help [command]
 `
@@ -171,6 +176,7 @@ func commands() []command {
 		{name: "import-ncu", usage: importNCUUsage, run: func(args []string) error { return runImportNCUCommand(args[1:], os.Stdout) }},
 		{name: "history", usage: historyUsage, run: func(args []string) error { return runHistoryCommand(args[1:], os.Stdout) }},
 		{name: "bisect", usage: bisectUsage, run: func(args []string) error { return runBisectCommand(args[1:], os.Stdout) }},
+		{name: "regress", usage: regressUsage, run: func(args []string) error { return runRegressCommand(args[1:], os.Stdout) }},
 		{name: "inspect", usage: inspectUsage, run: func(args []string) error { return runInspectCommand(args[1:]) }},
 		{name: "export-compare", run: func(args []string) error { return runTraceAlias("compare", args) }},
 		{name: "export", run: func(args []string) error { return runTraceAlias("export", args) }},

@@ -73,9 +73,21 @@ type physicalPipeline struct {
 
 func physicalCheck(tb testing.TB, err error) {
 	tb.Helper()
+	if errors.Is(err, errors.ErrUnsupported) {
+		tb.Skipf("unsupported by the installed CUDA: %v", err)
+	}
 	if err != nil {
 		tb.Fatal(err)
 	}
+}
+
+// requireCounters skips tb where the installed CUPTI has no qualified layout.
+// A test whose subtests or child process profile checks here, so the skip is
+// its own rather than an empty result it then rejects.
+func requireCounters(tb testing.TB, dev *cuda.Device) {
+	tb.Helper()
+	_, err := cuptirange.CounterAvailability(dev, 16<<20)
+	physicalCheck(tb, err)
 }
 
 func physicalClose(tb testing.TB, close func() error) {
@@ -504,6 +516,12 @@ func TestPhysicalCuptibenchProfile(t *testing.T) {
 	if os.Getenv("CUPTIBENCH_PHYSICAL_TEST") != "1" {
 		t.Skip("unqualified: CUPTIBENCH_PHYSICAL_TEST=1 required")
 	}
+	// The child skips its benchmark where CUPTI is unqualified and then records
+	// nothing, so check qualification here, where a skip can say so.
+	dev, err := cuda.NewDevice(0)
+	physicalCheck(t, err)
+	physicalClose(t, dev.Close)
+	requireCounters(t, dev)
 	// Run the real benchmark adapter and process Finish in a fresh test process;
 	// unit-created pprof samples cannot establish physical counter provenance.
 	home, err := os.UserHomeDir()
@@ -627,6 +645,7 @@ extern "C" __global__ void traffic_read(const unsigned *data, unsigned *out, uns
 // to relabel a measured value as bytes.
 func TestPhysicalFilteredL2Traffic(t *testing.T) {
 	p := newPhysicalPipeline(t, 4)
+	requireCounters(t, p.dev)
 	var l2 int32
 	physicalCheck(t, p.dev.WithContext(func() error { var err error; l2, err = p.dev.Raw().Attribute(driver.DevAttrL2CacheSize); return err }))
 	if l2 < 256<<10 {
@@ -892,6 +911,7 @@ func TestPhysicalReplayPassCounts(t *testing.T) {
 // the requested native replay regime occurred.
 func TestPhysicalReplayNestingPassCounts(t *testing.T) {
 	p := newPhysicalPipeline(t, 4)
+	requireCounters(t, p.dev)
 	counts := make(map[uint16]float64)
 	for _, depth := range []uint16{1, 2, 4} {
 		t.Run(fmt.Sprintf("depth%d", depth), func(t *testing.T) {

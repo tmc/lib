@@ -7,29 +7,26 @@
 // failed cleanup retains ownership for retry. Inspect Session.Result for losses,
 // pending buffers, incomplete records and errors before using a trace.
 //
-// Record decoding accepts CUPTI 13.x versions when the loaded library reports
-// matching native record sizes. Other major versions return an error, not
-// guessed layouts.
+// Record decoding requires CUPTI 13.x and a callable cuptiActivityGetStructSize.
+// A missing API returns an error wrapping cupti.SymbolError before collection
+// starts. The package does not infer layouts from the version number.
 //
-// In practice that window is narrower than 13.x, because the Go layouts are the
-// ones cupti was generated against (cupti.ApiVersion, 130200). Measured on an
-// sbsa host against each toolkit installed there:
+// Each decodable kind is checked against the loaded library's current emitted
+// record size. Known appended layouts are admitted as follows, in bytes:
 //
-//	13.0 (2025.3.1), 13.1 (2025.4.1)	 no cuptiActivityGetStructSize symbol
-//	13.2 (2026.1.2)			 collects
-//	13.3 (2026.2.1), 13.4 (2026.3.0)	 ActivityKindConcurrentKernel is 232
-//					 bytes against a 224-byte Go layout
+//	Kind              CUPTI 13.x       Additional sizes for CUPTI >= 13.4
+//	ConcurrentKernel  216, 224         232, 248
+//	Memcpy            96               112
+//	Memset            88               104
 //
-// Both ends fail closed, which is the intended behavior and not a bug to route
-// around: a mismatched layout decodes fields at the wrong offsets. The narrowing
-// is this package's own, not a property of CUPTI: it compares whole runtime
-// records against Go layouts fixed at 13.2, where records grow append-only and a
-// consumer reading only the compiled prefix spans the band. Widening it means
-// decoding a prefix, not pinning CUPTI.
-//
-// Note that this pins CUPTI independently of the compiler, so a host whose
-// nvrtc and ptxas are pinned to 13.0 still needs 13.2 on the loader path for
-// collection.
+// Other kinds require the exact Go layout size. Unknown sizes, newer major
+// versions, and newer layouts reported by earlier versions return LayoutError
+// or a version error. A 13.3 runtime reporting a 232-byte kernel record remains
+// refused. The known 13.4 tails preserve the decoded prefix; size checks and
+// CPU decoder tests qualify that layout contract, not collection from every
+// toolkit or GPU. Native acceptance requires records from the actual loaded
+// CUPTI, driver and device. The CUPTI loader path is independent of the NVRTC
+// and ptxas versions used to compile a workload.
 //
 // WriteRecord produces a standalone CUPTI-relative timeline; it does not align
 // CUPTI timestamps with host clocks. This package does not collect hardware

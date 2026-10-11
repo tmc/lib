@@ -1,7 +1,7 @@
 # Existing Gemma4 capture demonstration
 
-This CPU-only check uses existing captures from
-`~/tmp/mlx-go-gemma4-deltas-20260930/pipeline/`. No new GPU work was collected.
+This CPU-only check uses existing machine-local Gemma4 captures from
+2026-09-30. No new GPU work was collected.
 The preexisting `plan.json` specifies the fixed-token workload's independent
 arg_reduce expectations and explains their engine-specific arithmetic.
 These expectations were not chosen from the observed capture counts.
@@ -44,8 +44,7 @@ migration and page-fault evidence unsupported by the current collector.
 Device/backend support remains unprobed. Retained memcpy and allocation-call
 records are separate evidence and do not change those dispositions.
 
-Local output artifacts for this check are under
-`~/tmp/cudaprof-improvements/`: `gemma4-shapes.json`, `gemma4-memory.json`,
+Local output artifacts for this check are `gemma4-shapes.json`, `gemma4-memory.json`,
 `go-correlations.json`, `python-correlations.json`, `go-gate.json`, and
 `python-gate.json`. These files and the source captures are machine-local,
 are not committed, and are not portable fixtures. The focused synthetic tests

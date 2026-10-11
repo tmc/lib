@@ -164,16 +164,16 @@ func TestCallstackJoinedByExternalID(t *testing.T) {
 		cudaprof.ResetExternalStacks()
 	})
 
-	pushedExternalID := cudaprof.Do(context.Background(), cudaprof.Labels("phase", "test_join"), func(context.Context) {})
+	pushedExternalID := cudaprof.DoID(context.Background(), cudaprof.Labels("phase", "test_join"), func(context.Context) {})
 
 	if pushedExternalID == 0 {
 		t.Skip("CUPTI external correlation push is unavailable on this host")
 	}
 
 	kind := cupti.ExternalCorrelationKindCustom0
-	stack, ok := cudaprof.ExternalStack(kind, pushedExternalID)
+	stack, ok := cudaprof.ExternalStackKind(kind, pushedExternalID)
 	if !ok || len(stack) == 0 {
-		t.Fatalf("ExternalStack(%d) = %v, ok=%v", pushedExternalID, stack, ok)
+		t.Fatalf("ExternalStackKind(%d) = %v, ok=%v", pushedExternalID, stack, ok)
 	}
 
 	// Verify stack contains this test function at the Do call site
@@ -192,7 +192,7 @@ func TestCallstackJoinedByExternalID(t *testing.T) {
 
 	// 1. Exact ID join: agent external_correlation -> CUDA correlation ID -> kernel activity
 	cudaCorrID := uint64(101)
-	if err := tracker.RecordExternalStack(uint32(kind), pushedExternalID, stack); err != nil {
+	if err := tracker.RecordExternalStackKind(uint32(kind), pushedExternalID, stack); err != nil {
 		t.Fatal(err)
 	}
 	// Agent records external_correlation record (external_id -> cudaCorrID)
@@ -262,10 +262,10 @@ func TestConflictingStacksAmbiguous(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				_ = tracker.RecordExternalStack(0, 999, []string{"pkg.FuncA"})
-				_ = tracker.RecordExternalStack(0, 999, []string{"pkg.FuncB"})
+				_ = tracker.RecordExternalStackKind(0, 999, []string{"pkg.FuncA"})
+				_ = tracker.RecordExternalStackKind(0, 999, []string{"pkg.FuncB"})
 			}
-			if err := tracker.RecordExternalCorrelation(0, 999, 202); err != nil {
+			if err := tracker.RecordExternalCorrelationKind(0, 999, 202); err != nil {
 				t.Fatal(err)
 			}
 			if err := tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 202, KernelName: "scrambled_kernel"}); err != nil {
@@ -347,11 +347,11 @@ func TestCallstackNotJoinedByTimestamp(t *testing.T) {
 	// Simulate a Do region running on host from t = 10_000 to t = 50_000 with external ID 77
 	extID := uint64(77)
 	doStack := []string{"main.Workflow", "cudaprof.Do"}
-	if err := tracker.RecordExternalStack(0, extID, doStack); err != nil {
+	if err := tracker.RecordExternalStackKind(0, extID, doStack); err != nil {
 		t.Fatal(err)
 	}
 	// External ID 77 was associated with a DIFFERENT CUDA correlation ID 999
-	if err := tracker.RecordExternalCorrelation(0, extID, 999); err != nil {
+	if err := tracker.RecordExternalCorrelationKind(0, extID, 999); err != nil {
 		t.Fatal(err)
 	}
 
@@ -459,19 +459,19 @@ func TestCallstackEndToEnd(t *testing.T) {
 	const kind = cupti.ExternalCorrelationKindCustom0
 	const correlationID = uint64(701)
 	cudaprof.Correlate(kind)
-	externalID := cudaprof.Do(context.Background(), cudaprof.Labels("phase", "end-to-end"), func(context.Context) {})
+	externalID := cudaprof.DoID(context.Background(), cudaprof.Labels("phase", "end-to-end"), func(context.Context) {})
 	cudaprof.Correlate(cupti.ExternalCorrelationKindInvalid)
 	stack := []string{"main.run", "main.call"}
 	if externalID == 0 {
 		// Host-only test double: model the sidecar produced after a successful
 		// CUPTI push, while the cudaprof package test exercises that push path.
 		externalID = 71
-		if !cudaprof.RecordExternalStack(kind, externalID, stack) {
+		if !cudaprof.RecordExternalStackKind(kind, externalID, stack) {
 			t.Fatal("RecordExternalStack did not retain test stack")
 		}
 	} else {
 		var ok bool
-		stack, ok = cudaprof.ExternalStack(kind, externalID)
+		stack, ok = cudaprof.ExternalStackKind(kind, externalID)
 		if !ok {
 			t.Fatalf("Do returned external ID %d without stack", externalID)
 		}
@@ -508,7 +508,7 @@ func TestCallstackEndToEnd(t *testing.T) {
 
 func TestCallstackKindIsolated(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
-	_ = tracker.RecordExternalStack(uint32(cupti.ExternalCorrelationKindCustom0), 5, []string{"wrong"})
+	_ = tracker.RecordExternalStackKind(uint32(cupti.ExternalCorrelationKindCustom0), 5, []string{"wrong"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Subtype: "external_correlation", ExternalKind: uint32(cupti.ExternalCorrelationKindCustom1), ExternalID: 5, Correlation: 10})
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
@@ -520,7 +520,7 @@ func TestCallstackKindIsolated(t *testing.T) {
 
 func TestCallstackNestedFrameworkKinds(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
-	_ = tracker.RecordExternalStack(uint32(cupti.ExternalCorrelationKindCustom0), 1, []string{"custom0"})
+	_ = tracker.RecordExternalStackKind(uint32(cupti.ExternalCorrelationKindCustom0), 1, []string{"custom0"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Subtype: "external_correlation", ExternalKind: uint32(cupti.ExternalCorrelationKindCustom0), ExternalID: 1, Correlation: 10})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Subtype: "external_correlation", ExternalKind: uint32(cupti.ExternalCorrelationKindCustom1), ExternalID: 99, Correlation: 10})
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
@@ -533,8 +533,8 @@ func TestCallstackNestedFrameworkKinds(t *testing.T) {
 
 func TestJoinCallstackIsCopy(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
-	_ = tracker.RecordExternalStack(0, 1, []string{"original"})
-	_ = tracker.RecordExternalCorrelation(0, 1, 10)
+	_ = tracker.RecordExternalStackKind(0, 1, []string{"original"})
+	_ = tracker.RecordExternalCorrelationKind(0, 1, 10)
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
 	first, _, _, _ := tracker.Join()
@@ -547,8 +547,8 @@ func TestJoinCallstackIsCopy(t *testing.T) {
 
 func TestRuntimeCallstackRuleIsLocal(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
-	_ = tracker.RecordExternalStack(0, 1, []string{"external"})
-	_ = tracker.RecordExternalCorrelation(0, 1, 10)
+	_ = tracker.RecordExternalStackKind(0, 1, []string{"external"})
+	_ = tracker.RecordExternalCorrelationKind(0, 1, 10)
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "external-kernel"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "external-kernel", Start: 1, End: 2})
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 20, KernelName: "runtime-kernel", Callstack: []string{"runtime"}})
@@ -561,7 +561,7 @@ func TestRuntimeCallstackRuleIsLocal(t *testing.T) {
 
 func TestCallstackMissingForExternalID(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
-	_ = tracker.RecordExternalCorrelation(0, 9, 10)
+	_ = tracker.RecordExternalCorrelationKind(0, 9, 10)
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
 	matched, _, _, _ := tracker.Join()
@@ -572,8 +572,8 @@ func TestCallstackMissingForExternalID(t *testing.T) {
 
 func TestAmbiguousExternalIDs(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
-	_ = tracker.RecordExternalCorrelation(0, 9, 10)
-	_ = tracker.RecordExternalCorrelation(0, 11, 10)
+	_ = tracker.RecordExternalCorrelationKind(0, 9, 10)
+	_ = tracker.RecordExternalCorrelationKind(0, 11, 10)
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
 	matched, ambiguous, _, _ := tracker.Join()
@@ -584,9 +584,9 @@ func TestAmbiguousExternalIDs(t *testing.T) {
 
 func TestSameStackTwiceNotAmbiguous(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
-	_ = tracker.RecordExternalStack(0, 9, []string{"same"})
-	_ = tracker.RecordExternalStack(0, 9, []string{"same"})
-	_ = tracker.RecordExternalCorrelation(0, 9, 10)
+	_ = tracker.RecordExternalStackKind(0, 9, []string{"same"})
+	_ = tracker.RecordExternalStackKind(0, 9, []string{"same"})
+	_ = tracker.RecordExternalCorrelationKind(0, 9, 10)
 	_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: 10, KernelName: "K"})
 	_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: 10, Name: "K", Start: 1, End: 2})
 	matched, ambiguous, _, _ := tracker.Join()
@@ -598,11 +598,11 @@ func TestSameStackTwiceNotAmbiguous(t *testing.T) {
 func TestScrambledExternalIDsMoveStacks(t *testing.T) {
 	tracker := cudacapture.NewCorrelationTracker()
 	for id, stack := range map[uint64]string{1: "SA", 2: "SB"} {
-		_ = tracker.RecordExternalStack(0, id, []string{stack})
+		_ = tracker.RecordExternalStackKind(0, id, []string{stack})
 	}
-	_ = tracker.RecordExternalCorrelation(0, 2, 10)
-	_ = tracker.RecordExternalCorrelation(0, 1, 20)
-	_ = tracker.RecordExternalCorrelation(0, 99, 30)
+	_ = tracker.RecordExternalCorrelationKind(0, 2, 10)
+	_ = tracker.RecordExternalCorrelationKind(0, 1, 20)
+	_ = tracker.RecordExternalCorrelationKind(0, 99, 30)
 	for id, name := range map[uint64]string{10: "A", 20: "B", 30: "C"} {
 		_ = tracker.RecordRuntime(cudacapture.RuntimeLaunch{CorrelationID: id, KernelName: name})
 		_ = tracker.RecordActivity(cudacapture.ActivityRecord{Correlation: uint32(id), Name: name, Start: id, End: id + 1})

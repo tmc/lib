@@ -11,7 +11,14 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 )
 
+// counterAPI is the CUPTI calls a counter store makes, in call order.
+//
+// profiler initializes the CUPTI profiler before a range profiler object is
+// enabled, the order NVIDIA's range_profiling sample uses; initialization
+// also loads the profiler's nvperf libraries. It is process-wide and, as
+// with CounterAvailability, never undone here.
 type counterAPI struct {
+	profiler   func(*cupti.ProfilerInitializeParams) error
 	enable     func(*cupti.RangeProfilerEnableParams) error
 	disable    func(*cupti.RangeProfilerDisableParams) error
 	size       func(*cupti.RangeProfilerGetCounterDataSizeParams) error
@@ -36,6 +43,14 @@ type counterStore struct {
 func newCounterStore(context driver.Context, metrics []string, maxRanges uint, maxNodes uint32, maxBytes int, api counterAPI) (store *counterStore, err error) {
 	if context == 0 || maxRanges == 0 || uint64(maxNodes) < uint64(maxRanges) || maxBytes <= 0 {
 		return nil, errors.New("cuptirange: invalid counter limits or context")
+	}
+	if api.profiler == nil {
+		return nil, errors.New("cuptirange: no profiler initializer")
+	}
+	profiler := cupti.ProfilerInitializeParams{}
+	profiler.StructSize = uint(unsafe.Offsetof(profiler.PPriv) + unsafe.Sizeof(profiler.PPriv))
+	if err := api.profiler(&profiler); err != nil {
+		return nil, fmt.Errorf("cuptirange: initialize profiler: %w", err)
 	}
 	names, err := newMetricNames(metrics)
 	if err != nil {

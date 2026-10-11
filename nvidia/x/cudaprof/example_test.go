@@ -89,11 +89,26 @@ func ExampleExportFoldedStacks() {
 func ExampleWriteExternalStackTable() {
 	cudaprof.ResetExternalStacks()
 	defer cudaprof.ResetExternalStacks()
-	cudaprof.RecordExternalStack(3, 7, []string{"main", "run"})
+	cudaprof.RecordExternalStackKind(3, 7, []string{"main", "run"})
 	var buf bytes.Buffer
 	_ = cudaprof.WriteExternalStackTable(&buf)
 	fmt.Print(buf.String())
 
 	// Output:
 	// {"version":1,"losses":0,"stacks":[{"external_kind":3,"external_id":7,"frames":["main","run"]}]}
+}
+
+func ExampleExternalStackKind() {
+	cudaprof.ResetExternalStacks()
+	cudaprof.RecordExternalStackKind(3, 42, []string{"main", "launch"})
+	stack, ok := cudaprof.ExternalStackKind(3, 42)
+	fmt.Println(stack, ok)
+	// Output: [main launch] true
+}
+
+func ExampleDoID() {
+	cudaprof.Correlate(0)
+	id := cudaprof.DoID(context.Background(), cudaprof.Labels(), func(context.Context) {})
+	fmt.Println(id)
+	// Output: 0
 }

@@ -8,9 +8,10 @@ Contamination takes precedence over observer errors and unknown completion.
 Sampling may miss brief activity. Resident memory does not quantify timing bias.
 
 `cudaprof capture --observe-isolation ...` adapts the established GPU-window
-observer policy without acquiring a lock. Run the entire capture through
-`~/ml-explore/bin/gpu-lock`. The observer verifies the live local owner and
-ancestry, reads physical UUIDs and compute-process residency using bounded
+observer policy without acquiring a lock. Run the entire capture under the
+host's GPU lock wrapper. The observer reads the lock directory from
+`GPU_LOCKDIR`, defaulting to the one `x/cudalock` uses; it verifies the
+live local owner and ancestry, reads physical UUIDs and compute-process residency using bounded
 `nvidia-smi` subprocesses, and retains monotonic query boundaries. It records
 process generations as Linux boot ID plus `/proc/PID/stat` starttime. Unknown
 ancestry, containers without supported attribution, query errors and vanished

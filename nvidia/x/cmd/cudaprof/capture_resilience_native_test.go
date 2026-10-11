@@ -57,7 +57,7 @@ func resilienceRealDeviceWork() error {
 	}()
 	var value float32
 	var workErr error
-	id := cudaprof.Do(context.Background(), pprof.Labels("resilience", "actual-device"), func(context.Context) {
+	id := cudaprof.DoID(context.Background(), pprof.Labels("resilience", "actual-device"), func(context.Context) {
 		workErr = dev.WithContext(func() error {
 			module, err := driver.ModuleLoadData([]byte(resiliencePTX + "\x00"))
 			if err != nil {

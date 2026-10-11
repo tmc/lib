@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"slices"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/driver"
@@ -346,7 +347,8 @@ func (s *Session) Stop() error {
 
 // Close disables sampling and copies final output before freeing owned storage.
 // The caller must first reach its workload boundary and finish all consumers
-// sharing native names. A failed disable retains ownership for explicit retry.
+// sharing native names, including queued ring batches. A failed disable retains
+// ownership for explicit retry.
 // Prior failures/loss remain errors even after successful cleanup. Close does
 // not destroy the CUDA context. Final remains available after storage release.
 func (s *Session) Close() error {
@@ -383,6 +385,8 @@ func (s *Session) RingBuffer() *RingBuffer {
 // completed sampling buffers from the session's ring buffer and calls consumer with
 // each decoded Batch. It requires the session to be configured with BufferCount >= 2.
 // It returns a stop function that requests consumer shutdown and waits for it to finish.
+// The stop function is idempotent. Close refuses while the consumer is active;
+// after it stops, any delivery error remains a Close error even after storage release.
 func (s *Session) DrainConcurrent(consumer func(Batch) error) (stop func() error, err error) {
 	if s == nil || s.core == nil || s.core.ring == nil {
 		return nil, errors.New("cuptipcsampling: concurrent draining requires a ring buffer session")
@@ -390,11 +394,25 @@ func (s *Session) DrainConcurrent(consumer func(Batch) error) (stop func() error
 	if consumer == nil {
 		return nil, errors.New("cuptipcsampling: nil batch consumer")
 	}
-	doneCh := make(chan error, 1)
+	c := s.core
+	c.consumerMu.Lock()
+	if c.closed || c.consumers != 0 {
+		c.consumerMu.Unlock()
+		return nil, errors.New("cuptipcsampling: concurrent drain already active or session closed")
+	}
+	c.consumers++
+	c.consumerMu.Unlock()
+	done := make(chan struct{})
+	var firstErr error
 
 	go func() {
-		var firstErr error
-		defer func() { doneCh <- firstErr }()
+		defer func() {
+			c.consumerMu.Lock()
+			c.consumerErr = errors.Join(c.consumerErr, firstErr)
+			c.consumers--
+			c.consumerMu.Unlock()
+			close(done)
+		}()
 		for {
 			slot, err := s.core.ring.Consume()
 			if err != nil {
@@ -407,10 +425,11 @@ func (s *Session) DrainConcurrent(consumer func(Batch) error) (stop func() error
 
 			if snapErr != nil && firstErr == nil {
 				firstErr = snapErr
-				s.core.control.failed = true
 			}
 			if batch.dropped != 0 || batch.hardwareFull != 0 {
-				s.core.lossObserved = true
+				c.consumerMu.Lock()
+				c.consumerLoss = true
+				c.consumerMu.Unlock()
 			}
 			if bErr := consumer(s.batch(batch)); bErr != nil && firstErr == nil {
 				firstErr = bErr
@@ -418,9 +437,11 @@ func (s *Session) DrainConcurrent(consumer func(Batch) error) (stop func() error
 		}
 	}()
 
+	var once sync.Once
 	return func() error {
-		s.core.ring.Close()
-		return <-doneCh
+		once.Do(func() { _ = c.ring.Close() })
+		<-done
+		return firstErr
 	}, nil
 }
 
@@ -432,6 +453,11 @@ func (s *Session) Handoff() error {
 		return errors.New("cuptipcsampling: handoff requires a ring buffer session")
 	}
 	c := s.core
+	_, consumerErr, _ := c.consumerState()
+	if consumerErr != nil {
+		c.control.failed = true
+		return consumerErr
+	}
 	if c.closed || c.control == nil || !c.control.enabled || c.control.failed {
 		return errors.New("cuptipcsampling: sampling session cannot read")
 	}
@@ -450,7 +476,7 @@ func (s *Session) Handoff() error {
 	slot, err := c.ring.Acquire()
 	if err != nil {
 		c.lossObserved = true
-		c.ring.RecordDrops(1)
+		c.control.failed = true
 		return err
 	}
 	out, err := slot.Fetch(c.control.ctx, c.control.version, c.query)
@@ -480,7 +506,8 @@ func (s *Session) Info() Info {
 	if s.core.ring != nil {
 		ringStats = s.core.ring.Stats()
 	}
-	return Info{CUPTIVersion: inventory.CUPTIVersion, Context: c.ctx, Config: config, Inventory: inventory, Effective: slices.Clone(c.config.effective), Verified: c.config.verified, Failed: c.failed, Closed: s.core.closed, Reads: s.core.reads, Starts: c.starts, Stops: c.stops, RingStats: ringStats}
+	_, consumerErr, _ := s.core.consumerState()
+	return Info{CUPTIVersion: inventory.CUPTIVersion, Context: c.ctx, Config: config, Inventory: inventory, Effective: slices.Clone(c.config.effective), Verified: c.config.verified, Failed: c.failed || consumerErr != nil, Closed: s.core.closed, Reads: s.core.reads, Starts: c.starts, Stops: c.stops, RingStats: ringStats}
 }
 
 func (s *Session) batch(b samplingBatch) Batch {

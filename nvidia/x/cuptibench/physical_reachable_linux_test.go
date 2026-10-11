@@ -32,6 +32,7 @@ func TestReachableCoversDefaultSet(t *testing.T) {
 		}
 	}()
 	all, err := cuptibench.Reachable(dev)
+	physicalCheck(t, err)
 	if err != nil {
 		t.Fatalf("reachable: %v", err)
 	}

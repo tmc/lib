@@ -19,6 +19,10 @@ type samplingSession struct {
 	ring            *RingBuffer
 	names           *samplingNames
 	nameMu          sync.Mutex
+	consumerMu      sync.Mutex
+	consumers       uint
+	consumerErr     error
+	consumerLoss    bool
 	query           func(*cupti.PCSamplingGetDataParams) error
 	maxReads, reads uint
 	closed          bool
@@ -58,6 +62,11 @@ func (s *samplingSession) reserveRead() error {
 }
 
 func (s *samplingSession) read() (samplingBatch, error) {
+	_, consumerErr, _ := s.consumerState()
+	if consumerErr != nil {
+		s.control.failed = true
+		return samplingBatch{}, consumerErr
+	}
 	if s.closed || s.control == nil || !s.control.enabled || s.control.failed {
 		return samplingBatch{}, errors.New("cuptipcsampling: sampling session cannot read")
 	}
@@ -81,7 +90,6 @@ func (s *samplingSession) read() (samplingBatch, error) {
 		slot, aErr := s.ring.Acquire()
 		if aErr != nil {
 			s.lossObserved = true
-			s.ring.RecordDrops(1)
 			s.control.failed = true
 			return samplingBatch{}, aErr
 		}
@@ -113,7 +121,8 @@ func (s *samplingSession) finish(sharingComplete bool) (samplingBatch, error) {
 	if s.closed {
 		return s.final, s.finalErr
 	}
-	if !sharingComplete || s.control == nil || s.control.config == nil || s.drain == nil || s.names == nil {
+	consumers, consumerErr, consumerLoss := s.consumerState()
+	if !sharingComplete || consumers != 0 || (s.ring != nil && s.ring.Stats().Ready != 0) || s.control == nil || s.control.config == nil || s.drain == nil || s.names == nil {
 		return samplingBatch{}, errors.New("cuptipcsampling: sampling consumers have not completed")
 	}
 	stopErr := s.control.shutdown()
@@ -124,10 +133,10 @@ func (s *samplingSession) finish(sharingComplete bool) (samplingBatch, error) {
 	batch, copyErr := s.control.config.output.snapshotOwned(s.names)
 	s.nameMu.Unlock()
 	var lossErr error
-	if s.lossObserved || batch.remaining != 0 || batch.dropped != 0 || batch.hardwareFull != 0 {
+	if s.lossObserved || consumerLoss || batch.remaining != 0 || batch.dropped != 0 || batch.hardwareFull != 0 {
 		lossErr = errors.New("cuptipcsampling: final sampling output has loss or remaining PCs")
 	}
-	s.final, s.finalErr = batch, errors.Join(stopErr, copyErr, lossErr)
+	s.final, s.finalErr = batch, errors.Join(stopErr, copyErr, lossErr, consumerErr)
 	if s.control.failed && s.finalErr == nil {
 		s.finalErr = errors.New("cuptipcsampling: sampling session previously failed")
 	}
@@ -147,4 +156,10 @@ func (s *samplingSession) finish(sharingComplete bool) (samplingBatch, error) {
 	s.closed = true
 	s.releaseOwnership()
 	return s.final, s.finalErr
+}
+
+func (s *samplingSession) consumerState() (uint, error, bool) {
+	s.consumerMu.Lock()
+	defer s.consumerMu.Unlock()
+	return s.consumers, s.consumerErr, s.consumerLoss
 }

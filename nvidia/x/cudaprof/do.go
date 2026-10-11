@@ -121,10 +121,19 @@ func init() {
 // goroutine with [runtime.LockOSThread] for the duration of f whenever it has
 // pushed something thread-local, in the same way [x/cuda.Context.Run] does. A
 // Do with neither bracket active does not pin and costs nothing beyond
-// [pprof.Do]. Do returns the external ID when the CUPTI push succeeds, or zero
-// when correlation is off or the push fails.
-func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) uint64 {
-	leave := enterStack("scope_entry", 3)
+// [pprof.Do].
+func Do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) {
+	do(ctx, labels, f)
+}
+
+// DoID calls Do and returns the external ID when the CUPTI push succeeds.
+// It returns zero when correlation is off or the push fails.
+func DoID(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) uint64 {
+	return do(ctx, labels, f)
+}
+
+func do(ctx context.Context, labels pprof.LabelSet, f func(ctx context.Context)) uint64 {
+	leave := enterStack("scope_entry", 4)
 	defer leave()
 	var externalID uint64
 	pprof.Do(ctx, labels, func(labeledCtx context.Context) {
@@ -172,10 +181,20 @@ type externalStackKey struct {
 	id   uint64
 }
 
-// ExternalStack returns the captured Go call stack for the given external kind and ID,
+// ExternalStack returns the captured stack in the custom0 correlation namespace.
+func ExternalStack(id uint64) ([]string, bool) {
+	return ExternalStackKind(cupti.ExternalCorrelationKindCustom0, id)
+}
+
+// RecordExternalStack records a stack in the custom0 correlation namespace.
+func RecordExternalStack(id uint64, stack []string) {
+	RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, id, stack)
+}
+
+// ExternalStackKind returns the captured Go call stack for the given external kind and ID,
 // or false if no stack was recorded.
 // Granularity: the stack is the stack of the Do call site (not per-launch).
-func ExternalStack(kind cupti.ExternalCorrelationKind, id uint64) ([]string, bool) {
+func ExternalStackKind(kind cupti.ExternalCorrelationKind, id uint64) ([]string, bool) {
 	externalStacksMu.RLock()
 	defer externalStacksMu.RUnlock()
 	stacks := externalStacks[externalStackKey{kind: kind, id: id}]
@@ -188,9 +207,9 @@ func ExternalStack(kind cupti.ExternalCorrelationKind, id uint64) ([]string, boo
 	return res, true
 }
 
-// RecordExternalStack records a call stack for the given external correlation ID.
+// RecordExternalStackKind records a call stack for the given external correlation ID.
 // Granularity: the stack is the stack of the Do call site (not per-launch).
-func RecordExternalStack(kind cupti.ExternalCorrelationKind, id uint64, stack []string) bool {
+func RecordExternalStackKind(kind cupti.ExternalCorrelationKind, id uint64, stack []string) bool {
 	if id == 0 || stack == nil {
 		return false
 	}
@@ -344,7 +363,7 @@ func captureCallerStack(kind cupti.ExternalCorrelationKind, id uint64) {
 	if n == 0 {
 		return
 	}
-	RecordExternalStack(kind, id, formatCallstack(rpc[:n]))
+	RecordExternalStackKind(kind, id, formatCallstack(rpc[:n]))
 }
 
 func formatCallstack(pcs []uintptr) []string {
@@ -366,6 +385,7 @@ func formatCallstack(pcs []uintptr) []string {
 	var filtered []string
 	for _, fn := range leafToRoot {
 		if strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.Do") ||
+			strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.do") ||
 			strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.pushCorrelation") ||
 			strings.HasPrefix(fn, "github.com/tmc/lib/nvidia/x/cudaprof.captureCallerStack") ||
 			strings.HasPrefix(fn, "runtime/pprof.Do") {

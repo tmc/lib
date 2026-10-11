@@ -54,7 +54,7 @@ func newCatalog(chip string, availability []byte, version uint32, api hostAPI) (
 
 func (p *Plan) initializeHost(version uint32) error {
 	if unsafe.Sizeof(uintptr(0)) != 8 || !qualifiedLayout(version) {
-		return fmt.Errorf("cuptirange: unqualified host initialization layout for CUPTI %d", version)
+		return fmt.Errorf("cuptirange: host initialization layout for CUPTI %d: %w", version, errors.ErrUnsupported)
 	}
 	p.pin.Pin(&p.chip[0])
 	v := cupti.ProfilerHostInitializeParams{ProfilerType: cupti.ProfilerTypeRangeProfiler, PChipName: uintptr(unsafe.Pointer(&p.chip[0]))}

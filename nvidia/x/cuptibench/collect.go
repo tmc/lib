@@ -124,7 +124,10 @@ func (p *Plan) collectMode(w Workload, mode Mode) (result *Result, err error) {
 			if len(values) != len(p.config.Metrics) {
 				return errors.New("cuptibench: metric count mismatch")
 			}
-			out := Range{ID: r.ID, ParentID: r.ParentID, Name: r.Name, NativeName: r.NativeName, Kind: r.Kind, Inclusive: r.Inclusive}
+			out := Range{
+				ID: r.ID, ParentID: r.ParentID, Name: r.Name, NativeName: r.NativeName, Kind: r.Kind, Inclusive: r.Inclusive,
+				Grid: r.Grid, Block: r.Block, SharedMemory: r.SharedMemory, GeometryAvailable: r.GeometryAvailable,
+			}
 			for i, v := range values {
 				if math.IsNaN(v) || math.IsInf(v, 0) {
 					return errors.New("cuptibench: nonfinite metric")

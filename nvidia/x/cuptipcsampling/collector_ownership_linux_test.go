@@ -3,6 +3,7 @@
 package cuptipcsampling_test
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -79,6 +80,9 @@ func TestNativeCollectorExclusion(t *testing.T) {
 		t.Logf("native exclusion and release passed: CUPTI %d, %d stall reasons", inventory.CUPTIVersion, len(inventory.Reasons))
 		return nil
 	})
+	if errors.Is(err, errors.ErrUnsupported) {
+		t.Skipf("installed CUPTI has no qualified stall reason layout: %v", err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

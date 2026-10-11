@@ -11,8 +11,9 @@ func TestCounterStoreCleanup(t *testing.T) {
 	failure := errors.New("native failure")
 	closed := 0
 	api := counterAPI{
-		enable: func(p *cupti.RangeProfilerEnableParams) error { p.PRangeProfilerObject = 7; return nil },
-		size:   func(p *cupti.RangeProfilerGetCounterDataSizeParams) error { p.CounterDataSize = 32; return nil },
+		profiler: func(*cupti.ProfilerInitializeParams) error { return nil },
+		enable:   func(p *cupti.RangeProfilerEnableParams) error { p.PRangeProfilerObject = 7; return nil },
+		size:     func(p *cupti.RangeProfilerGetCounterDataSizeParams) error { p.CounterDataSize = 32; return nil },
 		initialize: func(p *cupti.RangeProfilerCounterDataImageInitializeParams) error {
 			if p.CounterDataSize != 32 || p.PCounterData == 0 {
 				t.Error("missing counter storage")
@@ -60,6 +61,7 @@ func TestCounterStoreEnableFailureOwnership(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			closed := 0
 			api := counterAPI{
+				profiler: func(*cupti.ProfilerInitializeParams) error { return nil },
 				enable: func(p *cupti.RangeProfilerEnableParams) error {
 					p.PRangeProfilerObject = tt.handle
 					return enableFailure

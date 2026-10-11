@@ -231,7 +231,7 @@ func TestExternalStackSidecarConcurrentChildren(t *testing.T) {
 	if os.Getenv("CUDAPROF_TEST_STACK_CHILD") == "concurrent" {
 		externalStackBudget = 4
 		for i := 0; i < 4; i++ {
-			RecordExternalStack(cupti.ExternalCorrelationKindCustom0, uint64(i+1), []string{"concurrent-child", fmt.Sprint(i)})
+			RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, uint64(i+1), []string{"concurrent-child", fmt.Sprint(i)})
 		}
 		os.Exit(0)
 	}
@@ -305,7 +305,7 @@ func sidecarTestEnvironmentMode(path, mode string) []string {
 
 //go:noinline
 func sidecarTargetCallSite() uint64 {
-	return Do(context.Background(), Labels(), func(context.Context) {})
+	return DoID(context.Background(), Labels(), func(context.Context) {})
 }
 
 // resetCorrelation restores the package default and undoes it after the test.
@@ -348,7 +348,7 @@ func TestExternalStackBudget(t *testing.T) {
 	externalStackBudget = 2
 	t.Cleanup(func() { externalStackBudget = 4096 })
 	for id := uint64(1); id <= 5; id++ {
-		Do(context.Background(), Labels(), func(context.Context) {})
+		DoID(context.Background(), Labels(), func(context.Context) {})
 	}
 	var buf bytes.Buffer
 	if err := WriteExternalStackTable(&buf); err != nil {
@@ -378,10 +378,10 @@ func TestExternalStackSidecarByteCap(t *testing.T) {
 			_ = os.Unsetenv(ExternalStacksEnv)
 		}
 	})
-	if RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 1, []string{strings.Repeat("frame", maxExternalStackSidecarBytes/len("frame")+1)}) {
+	if RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, 1, []string{strings.Repeat("frame", maxExternalStackSidecarBytes/len("frame")+1)}) {
 		t.Fatal("oversized sidecar record was retained")
 	}
-	if _, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, 1); ok {
+	if _, ok := ExternalStackKind(cupti.ExternalCorrelationKindCustom0, 1); ok {
 		t.Fatal("failed sidecar write remained in memory")
 	}
 	if ExternalStackLosses() != 1 {
@@ -407,10 +407,10 @@ func TestExternalStackFailedWriteIsLoss(t *testing.T) {
 			_ = os.Unsetenv(ExternalStacksEnv)
 		}
 	})
-	if RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 2, []string{"failed write"}) {
+	if RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, 2, []string{"failed write"}) {
 		t.Fatal("failed write was reported retained")
 	}
-	if _, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, 2); ok {
+	if _, ok := ExternalStackKind(cupti.ExternalCorrelationKindCustom0, 2); ok {
 		t.Fatal("failed write remained in memory")
 	}
 	if ExternalStackLosses() != 1 {
@@ -422,9 +422,9 @@ func TestExternalStackVariantsAreRetained(t *testing.T) {
 	ResetExternalStacks()
 	t.Cleanup(ResetExternalStacks)
 	kind := cupti.ExternalCorrelationKindCustom0
-	RecordExternalStack(kind, 7, []string{"b"})
-	RecordExternalStack(kind, 7, []string{"a"})
-	RecordExternalStack(kind, 7, []string{"a"})
+	RecordExternalStackKind(kind, 7, []string{"b"})
+	RecordExternalStackKind(kind, 7, []string{"a"})
+	RecordExternalStackKind(kind, 7, []string{"a"})
 	var buf bytes.Buffer
 	if err := WriteExternalStackTable(&buf); err != nil {
 		t.Fatal(err)
@@ -440,7 +440,7 @@ func TestExternalStackVariantsAreRetained(t *testing.T) {
 
 func TestNoStackWhenPushFails(t *testing.T) {
 	withFakeCorrelation(t, func(cupti.ExternalCorrelationKind, uint64) error { return errors.New("push failed") })
-	if id := Do(context.Background(), Labels(), func(context.Context) {}); id != 0 {
+	if id := DoID(context.Background(), Labels(), func(context.Context) {}); id != 0 {
 		t.Fatalf("Do ID = %d after failed push, want 0", id)
 	}
 	if got := ExternalStackLosses(); got != 0 {
@@ -462,7 +462,7 @@ func TestNoStackWhenPushFails(t *testing.T) {
 func TestDoStackRootFirst(t *testing.T) {
 	withFakeCorrelation(t, func(cupti.ExternalCorrelationKind, uint64) error { return nil })
 	id := callstackTestCaller()
-	stack, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, id)
+	stack, ok := ExternalStackKind(cupti.ExternalCorrelationKindCustom0, id)
 	if !ok || len(stack) < 2 {
 		t.Fatalf("ExternalStack = %v, ok=%v", stack, ok)
 	}
@@ -481,7 +481,7 @@ func TestDoStackRootFirst(t *testing.T) {
 
 //go:noinline
 func callstackTestCaller() uint64 {
-	return Do(context.Background(), Labels(), func(context.Context) {})
+	return DoID(context.Background(), Labels(), func(context.Context) {})
 }
 
 func TestDoStackTruncationMarked(t *testing.T) {
@@ -489,12 +489,12 @@ func TestDoStackTruncationMarked(t *testing.T) {
 	var descend func(int) uint64
 	descend = func(n int) uint64 {
 		if n == 0 {
-			return Do(context.Background(), Labels(), func(context.Context) {})
+			return DoID(context.Background(), Labels(), func(context.Context) {})
 		}
 		return descend(n - 1)
 	}
 	id := descend(100)
-	stack, ok := ExternalStack(cupti.ExternalCorrelationKindCustom0, id)
+	stack, ok := ExternalStackKind(cupti.ExternalCorrelationKindCustom0, id)
 	if !ok || len(stack) == 0 || stack[0] != "[truncated]" {
 		t.Fatalf("stack root = %v, ok=%v; want truncation marker", stack, ok)
 	}
@@ -542,7 +542,7 @@ func TestExternalStackSidecarKeepsOpenAndDoesNotSync(t *testing.T) {
 	}
 	t.Cleanup(func() { ResetExternalStacks(); openExternalStackSidecarFile = oldOpen })
 	for i := uint64(1); i <= 8; i++ {
-		if !RecordExternalStack(cupti.ExternalCorrelationKindCustom0, i, []string{"frame"}) {
+		if !RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, i, []string{"frame"}) {
 			t.Fatal("record was rejected")
 		}
 	}
@@ -568,7 +568,7 @@ func TestDoPushesNothingUntilCorrelateIsCalled(t *testing.T) {
 		t.Skip("libcupti already loaded in this process; this test can only prove the negative from a clean start")
 	}
 	var ran bool
-	Do(context.Background(), Labels("phase", "off"), func(context.Context) { ran = true })
+	DoID(context.Background(), Labels("phase", "off"), func(context.Context) { ran = true })
 	if !ran {
 		t.Fatal("Do did not call f")
 	}
@@ -595,7 +595,7 @@ func TestCorrelateReportsWhatActuallyHappened(t *testing.T) {
 	if got := CorrelationDisposition(); got != CorrelationPushing {
 		t.Fatalf("disposition after Correlate = %q, want %q", got, CorrelationPushing)
 	}
-	Do(context.Background(), Labels("phase", "on"), func(context.Context) {})
+	DoID(context.Background(), Labels("phase", "on"), func(context.Context) {})
 
 	got := CorrelationDisposition()
 	if cupti.Loaded() {
@@ -688,7 +688,7 @@ func TestDoAssignsOneCorrelationIDPerRegion(t *testing.T) {
 				if n == 0 {
 					return
 				}
-				Do(ctx, Labels("depth", "x"), func(ctx context.Context) { nest(ctx, n-1) })
+				DoID(ctx, Labels("depth", "x"), func(ctx context.Context) { nest(ctx, n-1) })
 			}
 			nest(context.Background(), depth)
 		}()
@@ -708,7 +708,7 @@ func TestDoAssignsOneCorrelationIDPerRegion(t *testing.T) {
 // taken inside the region is attributed to it.
 func TestDoKeepsLabelsReachableInsideTheRegion(t *testing.T) {
 	resetCorrelation(t)
-	Do(context.Background(), Labels("phase", "prefill", "model", "ds4"), func(ctx context.Context) {
+	DoID(context.Background(), Labels("phase", "prefill", "model", "ds4"), func(ctx context.Context) {
 		got := map[string]string{}
 		pprof.ForLabels(ctx, func(k, v string) bool {
 			got[k] = v
@@ -739,7 +739,7 @@ func TestDoRetainsEnteredNamespace(t *testing.T) {
 		return pushed, nil
 	}
 	Correlate(cupti.ExternalCorrelationKindCustom0)
-	Do(context.Background(), Labels(), func(context.Context) {
+	DoID(context.Background(), Labels(), func(context.Context) {
 		Correlate(cupti.ExternalCorrelationKindCustom1)
 	})
 }

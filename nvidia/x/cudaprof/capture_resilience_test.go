@@ -35,7 +35,7 @@ func TestCaptureResilience_PartialWritePoisonsWriter(t *testing.T) {
 	}
 	t.Cleanup(func() { ResetExternalStacks(); openExternalStackSidecarFile = old })
 	for id := uint64(1); id <= 3; id++ {
-		if RecordExternalStack(cupti.ExternalCorrelationKindCustom0, id, []string{"frame"}) {
+		if RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, id, []string{"frame"}) {
 			t.Fatal("short write retained")
 		}
 	}
@@ -51,7 +51,7 @@ func TestCaptureResilience_Complete64FramesAcrossFile(t *testing.T) {
 		for i := range pcs {
 			pcs[i] = pc
 		}
-		if !RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 1, formatCallstack(pcs)) {
+		if !RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, 1, formatCallstack(pcs)) {
 			os.Exit(2)
 		}
 		os.Exit(0)
@@ -97,7 +97,7 @@ func resilienceCallerPC() uintptr {
 func TestCaptureResilience_FrameBudgetBeforeMarshal(t *testing.T) {
 	ResetExternalStacks()
 	t.Cleanup(ResetExternalStacks)
-	if RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 1, []string{strings.Repeat("x", 8193)}) {
+	if RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, 1, []string{strings.Repeat("x", 8193)}) {
 		t.Fatal("oversized frame retained")
 	}
 	if ExternalStackLosses() != 1 {

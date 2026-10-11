@@ -39,7 +39,10 @@ var nativeSessions struct {
 //
 // All Config bounds must be positive; BufferBytes must be a multiple of eight.
 // A nonnil Session returned with an error retains cleanup ownership: call Close
-// again. The loaded CUPTI version and record layouts must pass validation.
+// again. The loaded CUPTI must provide cuptiActivityGetStructSize, and its
+// version and record layouts must pass validation before callbacks are
+// registered or collection is enabled. A missing layout API wraps
+// [cupti.SymbolError]; no legacy record layout is assumed.
 func Start(config Config) (*Session, error) {
 	if config.MaxRecords <= 0 {
 		return nil, errors.New("cuptiactivity: record limit must be positive")

@@ -3,6 +3,7 @@ package cuptipcsampling
 import (
 	"context"
 	"errors"
+	"math"
 	"runtime/pprof"
 	"slices"
 	"strconv"
@@ -116,6 +117,9 @@ func (b *ProfileBridge) RecordBatch(ctx context.Context, batch Batch) error {
 	}
 	if !batch.Valid {
 		return errors.New("cuptipcsampling: invalid sampling batch")
+	}
+	if err := b.checkBatchCounts(batch); err != nil {
+		return err
 	}
 	if ^uint64(0)-b.DroppedSamples < batch.DroppedSamples {
 		return errors.New("cuptipcsampling: dropped sample count overflow")
@@ -643,4 +647,66 @@ func classifyStall(reasonName string, count int64, vals *cudaprof.SampleValues) 
 	default:
 		return false
 	}
+}
+
+// checkBatchCounts checks the complete batch before recording any profile samples.
+// Profile values are signed, even though native counters are unsigned.
+func (b *ProfileBridge) checkBatchCounts(batch Batch) error {
+	total, other := b.TotalSamples, b.StallOther
+	dropped, unattributed := b.DroppedSamples, b.UnattributedSamples
+	if total < 0 || other < 0 || other > total {
+		return errors.New("cuptipcsampling: invalid accumulated sample counts")
+	}
+	if math.MaxUint64-dropped < batch.DroppedSamples {
+		return errors.New("cuptipcsampling: dropped sample count overflow")
+	}
+	dropped += batch.DroppedSamples
+	reasons := make(map[string]int64)
+	unmapped := make(map[string]int64)
+	for _, pc := range batch.PCs {
+		for _, r := range pc.Reasons {
+			name := b.Inventory.Lookup(r.Index)
+			count := int64(r.Samples)
+			if pc.Name == "" {
+				if !isCompanion(name) {
+					if math.MaxUint64-unattributed < uint64(count) {
+						return errors.New("cuptipcsampling: unattributed sample count overflow")
+					}
+					unattributed += uint64(count)
+				}
+				continue
+			}
+			if count == 0 {
+				continue
+			}
+			if b.ReasonSamples[name] < 0 || math.MaxInt64-b.ReasonSamples[name] < reasons[name] || math.MaxInt64-b.ReasonSamples[name]-reasons[name] < count {
+				return errors.New("cuptipcsampling: reason sample count overflow")
+			}
+			reasons[name] += count
+			if !isCompanion(name) {
+				if math.MaxInt64-total < count {
+					return errors.New("cuptipcsampling: total sample count overflow")
+				}
+				total += count
+			}
+			var values cudaprof.SampleValues
+			if !isSelected(strings.TrimSuffix(strings.ToLower(name), "_not_issued")) && !classifyStall(name, count, &values) {
+				if b.UnmappedStalls[name] < 0 || math.MaxInt64-b.UnmappedStalls[name] < unmapped[name] || math.MaxInt64-b.UnmappedStalls[name]-unmapped[name] < count {
+					return errors.New("cuptipcsampling: unmapped sample count overflow")
+				}
+				unmapped[name] += count
+				if !isCompanion(name) {
+					if math.MaxInt64-other < count {
+						return errors.New("cuptipcsampling: other sample count overflow")
+					}
+					other += count
+				}
+			}
+		}
+	}
+	denominator := uint64(total)
+	if math.MaxUint64-denominator < dropped || math.MaxUint64-denominator-dropped < unattributed {
+		return errors.New("cuptipcsampling: coverage sample count overflow")
+	}
+	return nil
 }

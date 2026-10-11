@@ -8,15 +8,12 @@ import (
 	"github.com/tmc/lib/nvidia/cupti"
 )
 
-// A LayoutError reports that the CUPTI on the loader path emits an activity
-// record whose size differs from the Go struct this build decodes it with.
+// A LayoutError reports an activity record size that this build has not
+// qualified for the loaded CUPTI version.
 //
 // The check spans every kind this package can decode, not only the kinds a
-// session named in Config.Kinds. An activity buffer is walked by advancing a
-// pointer by each record's own size, so one understated size mis-strides the
-// walk and corrupts every record after it, whatever kind those are. A session
-// collecting nothing but kernels is therefore still refused over a Memcpy
-// record: the refusal is about the walk, not about what was requested.
+// session named in Config.Kinds. CUPTI's iterator supplies record boundaries;
+// the checked sizes bound the Go decoder's reads within the valid buffer.
 //
 // Callers that want to tell "a kind I asked for" from "a kind I did not" should
 // compare Kind against their own Config.Kinds. The package does not guess which
@@ -28,10 +25,7 @@ type LayoutError struct {
 }
 
 func (e *LayoutError) Error() string {
-	return fmt.Sprintf("cuptiactivity: %s record size %d differs from Go layout %d "+
-		"(every decodable kind is checked, not only the requested ones, because a wrong "+
-		"size mis-strides the whole buffer walk; the likely cause is a CUPTI newer than "+
-		"these bindings)", e.Kind, e.NativeSize, e.GoSize)
+	return fmt.Sprintf("cuptiactivity: unqualified %s record size %d (Go base layout %d; every decodable kind is checked)", e.Kind, e.NativeSize, e.GoSize)
 }
 
 // recordLayouts admits CUPTI 13.x and verifies the record sizes emitted by the
@@ -55,14 +49,16 @@ func recordLayouts(version uint32, size func(cupti.ActivityKind, uint32) (uint, 
 	for kind, want := range layouts {
 		got, err := size(kind, 0) // Ask about records actually emitted by this library.
 		if err != nil {
-			return nil, fmt.Errorf("cuptiactivity: query %s layout: %w", kind, err)
+			var symbol *cupti.SymbolError
+			if errors.As(err, &symbol) && symbol.Symbol == "cuptiActivityGetStructSize" && symbol.Err == nil {
+				return nil, fmt.Errorf("cuptiactivity: CUPTI version %d cannot verify activity layouts: required cuptiActivityGetStructSize is absent: %w", version, err)
+			}
+			return nil, fmt.Errorf("cuptiactivity: CUPTI version %d query %s layout: %w", version, kind, err)
 		}
 		// Kinds whose record gained a field in a 13.x minor release are admitted
-		// at any size this build knows, and the native size is recorded so the
-		// buffer walk strides by what CUPTI actually emitted rather than by what
-		// Go would have laid out. Every kind not listed here is pinned to an
-		// exact size: a version that grew a record this package still decodes at
-		// the old width is precisely the mis-stride the check exists to catch.
+		// at known sizes for qualified versions. Record the native size to bound
+		// decoding; CUPTI's iterator supplies the next record. Every kind not
+		// listed here requires an exact size.
 		var ok bool
 		switch kind {
 		case cupti.ActivityKindConcurrentKernel:

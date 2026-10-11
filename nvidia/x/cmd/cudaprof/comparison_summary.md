@@ -53,6 +53,6 @@ escaping. A fresh GPU workload demonstration remains separate validation.
 On existing Python/Go Gemma EOS captures, CPU-only summary generation retained
 passed collector and expected-marker gates alongside failed stationarity and
 shape qualification. It emitted zero equivalent numerical operation rows,
-with 11,388 Python and 11,908 Go kernels unmatched, and time scale 1. Exact
-local validation artifacts are in `~/tmp/cudaprof-summary-validation/`;
+with 11,388 Python and 11,908 Go kernels unmatched, and time scale 1. The
+exact local validation artifacts are machine-local and not committed;
 this diagnostic result does not qualify an operation slowdown.

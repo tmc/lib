@@ -1,7 +1,9 @@
 package cuptibench
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cuptirange"
@@ -80,6 +82,50 @@ func TestCollectReplayAccounting(t *testing.T) {
 			}
 			if !reflect.DeepEqual(log, want) {
 				t.Fatalf("sequence %v, want %v", log, want)
+			}
+		})
+	}
+}
+
+func TestCollectPreservesKernelGeometry(t *testing.T) {
+	type geometry struct {
+		Grid, Block       [3]uint32
+		SharedMemory      uint32
+		GeometryAvailable bool
+	}
+	for _, available := range []bool{false, true} {
+		t.Run(fmt.Sprint(available), func(t *testing.T) {
+			p, c, w := testPlan(1)
+			p.config.Mode = Kernels
+			want := geometry{GeometryAvailable: available}
+			if available {
+				want.Grid = [3]uint32{2, 3, 4}
+				want.Block = [3]uint32{32, 2, 1}
+				want.SharedMemory = 1024
+			}
+			c.mutate = func(c *cuptirange.Capture) {
+				c.RangeInfo[0] = cuptirange.RangeInfo{
+					ID: "kernel#1", Name: "kernel", NativeName: "0", Kind: "kernel",
+					Grid: want.Grid, Block: want.Block, SharedMemory: want.SharedMemory,
+					GeometryAvailable: available,
+				}
+			}
+			result, err := p.Collect(w)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Decode the public JSON shape so this regression also runs against
+			// the version that discarded the existing RangeInfo geometry.
+			data, err := json.Marshal(result.Ranges[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got geometry
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatal(err)
+			}
+			if got != want {
+				t.Fatalf("geometry=%+v, want %+v", got, want)
 			}
 		})
 	}

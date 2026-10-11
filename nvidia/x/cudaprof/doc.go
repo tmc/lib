@@ -5,7 +5,7 @@
 // responsible for measuring GPU work and passing those observations to a
 // Session or FlightRecorder. Do attaches Go pprof labels and, when available,
 // brackets its callback with an NVTX range. When Correlate enables CUPTI
-// external correlation, Do returns the ID it pushed and retains a bounded,
+// external correlation, DoID returns the ID it pushed and Do retains a bounded,
 // kind-keyed stack table for capture attachment.
 //
 // This package is outside the compatibility promise of

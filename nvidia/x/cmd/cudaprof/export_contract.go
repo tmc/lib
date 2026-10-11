@@ -84,6 +84,23 @@ func exportReceipt(command string, identity traceExportIdentity, records []trace
 	if status.Protocol > 0 {
 		r.ProducerVersion = strconv.Itoa(status.Protocol)
 	}
+	r.ClockDomain = "monotonic"
+	r.ClockProvenance = "cupti"
+	r.ProbeCoverage = map[string]tracecontract.ProbeCoverage{
+		"activity": {Present: true, Ratio: 1.0},
+	}
+	if status.RecordLoss != nil {
+		dropped := status.RecordLoss.Offered - status.RecordLoss.Retained
+		if status.RecordLoss.Offered < status.RecordLoss.Retained {
+			dropped = 0
+		}
+		r.LostRecords = map[string]tracecontract.Loss{
+			"activity": {
+				Dropped: dropped,
+				Total:   status.RecordLoss.Offered,
+			},
+		}
+	}
 	if status.Protocol == captureProtocolVersion && status.RunCompleteness != "" {
 		count := status.ActivityRecords
 		r.CollectorActivityRecords = &count
@@ -116,4 +133,22 @@ func writeExportReceipt(writer *perfetto.Writer, receipt tracecontract.Receipt, 
 		return err
 	}
 	return receipt.Write(writer, id, timestamp)
+}
+
+func writeExportFindings(writer *perfetto.Writer, findings []tracecontract.Finding, id, timestamp uint64) error {
+	if len(findings) == 0 {
+		return nil
+	}
+	track := tracecontract.Track{
+		UUID:        id,
+		Name:        "diagnostic findings",
+		Role:        "findings",
+		Clock:       "monotonic",
+		Provenance:  "admitted diagnostic rules",
+		Aggregation: "none",
+	}
+	if err := track.Write(writer, timestamp); err != nil {
+		return err
+	}
+	return tracecontract.WriteFindings(writer, id, timestamp, findings)
 }

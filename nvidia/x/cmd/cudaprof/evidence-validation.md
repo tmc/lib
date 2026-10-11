@@ -70,10 +70,8 @@ numerical rows; unmatched work stays visible. The token overview has no
 observed application tokens or delivered events. Its optional arg_reduce
 intervals are explicitly inferred and keep crossing and unmatched work.
 
-Local evidence is under `~/tmp/cudaprof-outstanding/` and
-`~/tmp/cudaprof-summary-validation/`. Captures, JSON receipts, standalone HTML,
-Perfetto traces, import queries and failed runs are machine-local artifacts,
-not portable committed fixtures. The CPU fixtures and examples exercise
+Captures, JSON receipts, standalone HTML, Perfetto traces, import queries
+and failed runs are machine-local artifacts, not portable committed fixtures. The CPU fixtures and examples exercise
 qualified and refused cases without a GPU.
 
 Perfetto v58.2 imported the controlled raw-plus-summary trace with ten

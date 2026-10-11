@@ -50,6 +50,9 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	})
 	check := func(err error) {
 		t.Helper()
+		if errors.Is(err, errors.ErrUnsupported) {
+			t.Skipf("installed CUPTI has no qualified layout: %v", err)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -156,7 +159,7 @@ func TestPhysicalDisableRetry(t *testing.T) {
 	injection := &disableInjection{call: cupti.RangeProfilerDisable}
 	var originalObject uintptr
 	err = ctx.Run(func() error {
-		store, err := newCounterStore(driver.Context(ctx.Raw()), []string{"sm__ctas_launched.sum"}, limits.MaxRanges, limits.MaxRangeTreeNodes, limits.MaxCounterBytes, counterAPI{cupti.RangeProfilerEnable, injection.disable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
+		store, err := newCounterStore(driver.Context(ctx.Raw()), []string{"sm__ctas_launched.sum"}, limits.MaxRanges, limits.MaxRangeTreeNodes, limits.MaxCounterBytes, counterAPI{cupti.ProfilerInitialize, cupti.RangeProfilerEnable, injection.disable, cupti.RangeProfilerGetCounterDataSize, cupti.RangeProfilerCounterDataImageInitialize})
 		c.store = store
 		if err != nil {
 			return err

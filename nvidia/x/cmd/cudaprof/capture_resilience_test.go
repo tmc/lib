@@ -60,7 +60,7 @@ func TestCaptureResilience_Target(t *testing.T) {
 		fmt.Printf("failed_process=%d cause=%q\n", children[0].Process.Pid, badErr)
 		return
 	}
-	if !cudaprof.RecordExternalStack(cupti.ExternalCorrelationKindCustom0, 71, []string{"main", mode}) {
+	if !cudaprof.RecordExternalStackKind(cupti.ExternalCorrelationKindCustom0, 71, []string{"main", mode}) {
 		t.Fatal("target stack not retained")
 	}
 	if os.Getenv("CUDAPROF_RESILIENCE_GPU") == "1" {

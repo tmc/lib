@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 )
 
@@ -123,9 +124,19 @@ func (ct *CorrelationTracker) RecordRuntime(launch RuntimeLaunch) error {
 	return nil
 }
 
-// RecordExternalCorrelation records an association between an external correlation ID
+// RecordExternalCorrelation associates an ID in the custom0 namespace with a CUDA ID.
+func (ct *CorrelationTracker) RecordExternalCorrelation(externalID, correlationID uint64) error {
+	return ct.RecordExternalCorrelationKind(uint32(cupti.ExternalCorrelationKindCustom0), externalID, correlationID)
+}
+
+// RecordExternalStack records a host stack in the custom0 correlation namespace.
+func (ct *CorrelationTracker) RecordExternalStack(externalID uint64, stack []string) error {
+	return ct.RecordExternalStackKind(uint32(cupti.ExternalCorrelationKindCustom0), externalID, stack)
+}
+
+// RecordExternalCorrelationKind records an association between an external correlation ID
 // (pushed by Do or Correlate) and a CUDA runtime/driver correlation ID.
-func (ct *CorrelationTracker) RecordExternalCorrelation(kind uint32, externalID uint64, correlationID uint64) error {
+func (ct *CorrelationTracker) RecordExternalCorrelationKind(kind uint32, externalID uint64, correlationID uint64) error {
 	if externalID == 0 {
 		return errors.New("cudacapture: invalid zero external correlation ID")
 	}
@@ -142,9 +153,9 @@ func (ct *CorrelationTracker) RecordExternalCorrelation(kind uint32, externalID 
 	return nil
 }
 
-// RecordExternalStack records a host call stack associated with an external correlation ID.
+// RecordExternalStackKind records a host call stack associated with an external correlation ID.
 // Granularity: the stack is the stack of the Do call site (not per-launch).
-func (ct *CorrelationTracker) RecordExternalStack(kind uint32, externalID uint64, stack []string) error {
+func (ct *CorrelationTracker) RecordExternalStackKind(kind uint32, externalID uint64, stack []string) error {
 	if externalID == 0 {
 		return errors.New("cudacapture: invalid zero external correlation ID")
 	}
@@ -181,7 +192,7 @@ func (ct *CorrelationTracker) RecordActivity(rec ActivityRecord) error {
 		if rec.ExternalID == 0 {
 			return errors.New("cudacapture: external correlation has zero external ID")
 		}
-		return ct.RecordExternalCorrelation(rec.ExternalKind, rec.ExternalID, corrID)
+		return ct.RecordExternalCorrelationKind(rec.ExternalKind, rec.ExternalID, corrID)
 	}
 
 	corrID := uint64(rec.Correlation)
@@ -217,7 +228,7 @@ func (ct *CorrelationTracker) ReadExternalStackTable(r io.Reader) error {
 	ct.externalStackLosses += table.Losses
 	ct.mu.Unlock()
 	for _, record := range table.Stacks {
-		if err := ct.RecordExternalStack(record.ExternalKind, record.ExternalID, record.Frames); err != nil {
+		if err := ct.RecordExternalStackKind(record.ExternalKind, record.ExternalID, record.Frames); err != nil {
 			return err
 		}
 	}

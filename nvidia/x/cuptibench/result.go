@@ -18,9 +18,15 @@ type Metric struct {
 // Range identifies a collected operation, region, or kernel. Inclusive parents
 // must not be added to their descendants. Metrics follow configuration order.
 type Range struct {
-	ID       string
-	ParentID string
-	Name     string
+	// GeometryAvailable reports native direct-launch geometry. Grid, Block
+	// and SharedMemory are meaningful only when it is true. Graph expansion
+	// and launch APIs without a decoded parameter layout remain unavailable.
+	Grid, Block       [3]uint32
+	SharedMemory      uint32
+	GeometryAvailable bool
+	ID                string
+	ParentID          string
+	Name              string
 	// NativeName retains CUPTI's range name, which may be a launch ordinal.
 	NativeName string
 	Kind       string

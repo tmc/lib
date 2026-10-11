@@ -64,3 +64,44 @@ archive bytes parsed. `Bindings.Verify` rejects changed, missing and unbound
 members. These hashes establish internal integrity, not signed authenticity.
 Historical archives without bindings remain usable diagnostics with integrity
 qualification unavailable; absence must not be silently treated as passed.
+
+## Extended trace receipts and backward reading
+
+`Receipt` optionally carries granular evidence fields:
+- `probe_coverage`: map of probe name to `{present, ratio}`
+- `lost_records_by_family`: map of family name to `{dropped, total, unknown}`
+- `capture_bounds`: `{start_ns, end_ns, clock}`
+- `correlation_outcome`: `{matched, unmatched, ambiguous, missing, status}`
+- `clock_domain`, `clock_provenance`, `clock_uncertainty_ns`, `uncertainty`
+
+### Backward reading behavior
+In older version 1 receipts where these fields were omitted:
+- Nil `lost_records_by_family` indicates record loss was unassessed, not zero loss.
+- Nil `probe_coverage` indicates probe presence was unassessed.
+- Nil `capture_bounds` indicates bounds were unmeasured.
+- Unspecified clock fields indicate clock domain was unstated.
+- Global `partial: true` indicates incomplete collection overall, but does NOT universally invalidate independent findings whose specific evidence requirements are fully satisfied.
+
+## Diagnostic finding admission v1
+
+`Finding.Write` emits `cudaprof.finding.v1` on a dedicated findings track:
+
+| Wire annotation | Meaning |
+| --- | --- |
+| cudaprof_schema, cudaprof_schema_version | `cudaprof.finding.v1`, version 1 |
+| cudaprof_finding_id | Unique identifier for the finding |
+| cudaprof_finding_rule | Diagnostic rule name producing the finding |
+| cudaprof_finding_class | `observed`, `associated`, `experimentally_confirmed`, or `unavailable` |
+| cudaprof_finding_admitted | Boolean admission status |
+| cudaprof_finding_reason_code | Stable reason code (e.g. `admitted`, `missing_return`, `unknown_loss`) |
+| cudaprof_finding_json | Complete deterministic JSON payload |
+
+### Admission semantics
+Admission is computed strictly from the evidence each finding actually requires:
+- A missing call return blocks call duration (`missing_return`), but an independent launch count remains admissible.
+- Lost stack records withhold stack-sampling profiles, but do not invalidate an independently complete launch count.
+- Clock domain mismatches block cross-domain correlation (`clock_domain_mismatch`), leaving intra-domain findings intact.
+- Unquantified record loss in a required family blocks conclusions with `unknown_loss`.
+- Out-of-bounds intervals are withheld with `capture_bounds_exceeded`.
+- `experimentally_confirmed` findings additionally require an explicit, verified intervention and control receipt.
+- Downstream prose/LLM summaries cannot upgrade a finding's evidence class.

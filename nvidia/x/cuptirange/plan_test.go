@@ -195,6 +195,9 @@ func TestPlanRuntimeHostLayout(t *testing.T) {
 			if tt.queryErr != nil && !errors.Is(err, stop) {
 				t.Fatal("lost version error")
 			}
+			if unqualified := tt.wantSize == 0 && tt.queryErr == nil; errors.Is(err, errors.ErrUnsupported) != unqualified {
+				t.Fatalf("err=%v, want errors.ErrUnsupported only for an unqualified layout", err)
+			}
 		})
 	}
 }

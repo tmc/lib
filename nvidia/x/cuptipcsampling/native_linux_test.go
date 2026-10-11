@@ -4,6 +4,7 @@ package cuptipcsampling_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -46,6 +47,9 @@ func TestNativeStallReasons(t *testing.T) {
 		t.Logf("native reason inventory (version %d, %d reasons): %s", inventory.CUPTIVersion, len(inventory.Reasons), data)
 		return nil
 	})
+	if errors.Is(err, errors.ErrUnsupported) {
+		t.Skipf("installed CUPTI has no qualified stall reason layout: %v", err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
