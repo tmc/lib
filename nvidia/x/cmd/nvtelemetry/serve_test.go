@@ -84,10 +84,10 @@ func TestServeEndpointLifecycle(t *testing.T) {
 	deadline := time.Now().Add(time.Second)
 	for {
 		code, body, _ = request("GET", addr, "application/openmetrics-text;version=1.0.0", token)
-		if code == 200 {
+		if code == 200 && strings.Contains(body, "GPU-mock") {
 			break
 		}
-		if code != 503 || time.Now().After(deadline) {
+		if time.Now().After(deadline) {
 			t.Fatal("snapshot startup", code, body)
 		}
 		time.Sleep(time.Millisecond)

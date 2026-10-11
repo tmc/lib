@@ -1,0 +1,56 @@
+[Unit]
+Description=NVIDIA GPU Telemetry Node Agent (nvtelemetry)
+Documentation=https://github.com/tmc/lib/tree/main/nvidia/x/cmd/nvtelemetry
+After=network.target local-fs.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=nvtelemetry
+Group=nvtelemetry
+
+# Main daemon execution using validated JSON configuration
+ExecStart=/usr/local/bin/nvtelemetry serve -config /etc/nvtelemetry/config.json
+
+# Dynamic reload via SIGHUP: reloads configuration without stopping the server;
+# invalid configs are rejected and leave running state intact.
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Graceful termination: allows the collector and delivery workers to flush buffers
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=15s
+Restart=on-failure
+RestartSec=5s
+
+# Security and Least-Privilege Sandboxing
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=false
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Capabilities: optional CAP_PERFMON allows hardware performance counter access on Linux 5.8+.
+# Neither CAP_PERFMON nor CAP_SYS_ADMIN is proven or required for mock or standard NVML operation;
+# native hardware capability qualification remains pending.
+AmbientCapabilities=CAP_PERFMON
+CapabilityBoundingSet=CAP_PERFMON
+
+# Device access for NVIDIA accelerator character devices
+DeviceAllow=/dev/nvidiactl rw
+DeviceAllow=/dev/nvidia-uvm rw
+DeviceAllow=/dev/nvidia-uvm-tools rw
+DeviceAllow=/dev/nvidia-modeset rw
+DeviceAllow=char-nvidia* rw
+
+# Standard process resource limits
+LimitNOFILE=65536
+LimitMEMLOCK=67108864
+
+[Install]
+WantedBy=multi-user.target
