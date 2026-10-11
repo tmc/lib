@@ -89,7 +89,7 @@ func traceDeviceCopy(tracer *cudatrace.Tracer) error {
 	if err != nil {
 		return err
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	events := make([]*cuda.Event, 3)
 	for i := range events {
@@ -97,7 +97,7 @@ func traceDeviceCopy(tracer *cudatrace.Tracer) error {
 		if err != nil {
 			return err
 		}
-		defer e.Destroy()
+		defer e.Close()
 		events[i] = e
 	}
 	anchor, start, end := events[0], events[1], events[2]

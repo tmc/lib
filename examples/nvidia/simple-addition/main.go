@@ -63,7 +63,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("cuModuleLoadData: %w", err)
 	}
-	defer mod.Unload()
+	defer mod.Close()
 	fn, err := mod.Function("VectorAdd")
 	if err != nil {
 		return fmt.Errorf("cuModuleGetFunction: %w", err)
@@ -81,7 +81,7 @@ func run() error {
 	size := uint(vectorLen * unsafe.Sizeof(float32(0)))
 	var ptrs [3]driver.DevicePtr
 	for i := range ptrs {
-		p, err := driver.MemAlloc(size)
+		p, err := driver.MemAlloc[float32](vectorLen)
 		if err != nil {
 			return fmt.Errorf("cuMemAlloc: %w", err)
 		}
@@ -138,14 +138,14 @@ func compile(dev driver.Device) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cuDeviceGetAttribute minor: %w", err)
 	}
-	prog, err := nvrtc.CreateProgram(kernelSource, "vectoradd.cu", nil, nil)
+	prog, err := nvrtc.CreateProgram(kernelSource, "vectoradd.cu")
 	if err != nil {
 		return nil, fmt.Errorf("nvrtcCreateProgram: %w", err)
 	}
 	defer prog.Destroy()
 
 	arch := fmt.Sprintf("--gpu-architecture=compute_%d%d", major, minor)
-	if err := prog.Compile([]string{arch}); err != nil {
+	if err := prog.Compile(arch); err != nil {
 		if logText, logErr := prog.Log(); logErr == nil && logText != "" {
 			return nil, fmt.Errorf("nvrtcCompileProgram: %w\n%s", err, logText)
 		}

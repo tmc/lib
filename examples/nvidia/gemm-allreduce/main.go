@@ -51,12 +51,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer blas.Destroy()
+	defer blas.Close()
 	alpha, beta := float32(1), float32(0)
 	if err := blas.SgemmEx(cublas.OpN, cublas.OpN, 2, 2, 2, &alpha,
-		uintptr(ptrs[0]), cublas.R32F, 2,
-		uintptr(ptrs[1]), cublas.R32F, 2, &beta,
-		uintptr(ptrs[2]), cublas.R32F, 2); err != nil {
+		ptrs[0], cublas.R32F, 2,
+		ptrs[1], cublas.R32F, 2, &beta,
+		ptrs[2], cublas.R32F, 2); err != nil {
 		return err
 	}
 	runtime.KeepAlive(ptrs)
@@ -68,7 +68,7 @@ func run() error {
 	}
 	comm := comms[0]
 	defer comm.Destroy()
-	if err := comm.AllReduce(nccl.Buffer(ptrs[2]), nccl.Buffer(ptrs[2]), uint(len(c)), nccl.Float32, nccl.Sum, 0); err != nil {
+	if err := comm.AllReduce(ptrs[2], ptrs[2], uint(len(c)), nccl.Float32, nccl.Sum, 0); err != nil {
 		return err
 	}
 	if err := ptrs[2].CopyToHostPtr(unsafe.Pointer(&c[0]), uint(len(c))*4); err != nil {
@@ -87,7 +87,7 @@ func run() error {
 func copyToDevice(values ...[]float32) ([]driver.DevicePtr, error) {
 	ptrs := make([]driver.DevicePtr, len(values))
 	for i, value := range values {
-		p, err := driver.MemAlloc(uint(len(value)) * 4)
+		p, err := driver.MemAlloc[float32](len(value))
 		if err != nil {
 			free(ptrs[:i])
 			return nil, err

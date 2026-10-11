@@ -41,7 +41,7 @@ func run() error {
 	c := make([]float32, 4)
 	ptrs := make([]driver.DevicePtr, 3)
 	for i, values := range [][]float32{a, b, c} {
-		p, err := driver.MemAlloc(uint(len(values)) * 4)
+		p, err := driver.MemAlloc[float32](len(values))
 		if err != nil {
 			return err
 		}
@@ -56,12 +56,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer h.Destroy()
+	defer h.Close()
 	alpha, beta := float32(1), float32(0)
 	if err := h.SgemmEx(cublas.OpN, cublas.OpN, 2, 2, 2, &alpha,
-		uintptr(ptrs[0]), cublas.R32F, 2,
-		uintptr(ptrs[1]), cublas.R32F, 2, &beta,
-		uintptr(ptrs[2]), cublas.R32F, 2); err != nil {
+		ptrs[0], cublas.R32F, 2,
+		ptrs[1], cublas.R32F, 2, &beta,
+		ptrs[2], cublas.R32F, 2); err != nil {
 		return err
 	}
 	runtime.KeepAlive(ptrs)

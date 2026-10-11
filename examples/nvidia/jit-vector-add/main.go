@@ -50,7 +50,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		defer mod.Unload()
+		defer mod.Close()
 		fn, err := mod.Function("add")
 		if err != nil {
 			return err
@@ -76,7 +76,7 @@ func run() error {
 		if err := db.CopyFromHost(b); err != nil {
 			return err
 		}
-		if err := cudalaunch.Kernel(fn).Grid((n+255)/256).Block(256).Launch(da, db, dc, int32(n)); err != nil {
+		if err := cudalaunch.Kernel(fn).Grid((n+255)/256, 1, 1).Block(256, 1, 1).Launch(da, db, dc, int32(n)); err != nil {
 			return err
 		}
 		if err := driver.CtxSynchronize(); err != nil {

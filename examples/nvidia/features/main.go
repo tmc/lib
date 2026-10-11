@@ -107,12 +107,12 @@ func nvrtcFeature() error {
 	if err != nil {
 		return err
 	}
-	p, err := nvrtc.CreateProgram(`extern "C" __global__ void noop() {}`, "noop.cu", nil, nil)
+	p, err := nvrtc.CreateProgram(`extern "C" __global__ void noop() {}`, "noop.cu")
 	if err != nil {
 		return err
 	}
 	defer p.Destroy()
-	if err := p.Compile(nil); err != nil {
+	if err := p.Compile(); err != nil {
 		return err
 	}
 	ptx, err := p.PTX()
@@ -155,7 +155,7 @@ func cublasFeature() error {
 	if err != nil {
 		return err
 	}
-	defer h.Destroy()
+	defer h.Close()
 	version, err := h.Version()
 	if err != nil {
 		return err
@@ -173,9 +173,9 @@ func cublasFeature() error {
 	defer freeDevicePtrs(ptrs)
 	alpha, beta := float32(1), float32(0)
 	if err := h.SgemmEx(cublas.OpN, cublas.OpN, 2, 2, 2, &alpha,
-		uintptr(ptrs[0]), cublas.R32F, 2,
-		uintptr(ptrs[1]), cublas.R32F, 2, &beta,
-		uintptr(ptrs[2]), cublas.R32F, 2); err != nil {
+		ptrs[0], cublas.R32F, 2,
+		ptrs[1], cublas.R32F, 2, &beta,
+		ptrs[2], cublas.R32F, 2); err != nil {
 		return err
 	}
 	runtime.KeepAlive(ptrs)
@@ -197,12 +197,12 @@ func cublasltFeature() error {
 	if err != nil {
 		return err
 	}
-	defer h.Destroy()
+	defer h.Close()
 	layout, err := cublaslt.NewMatrixLayout(cublaslt.R32F, 2, 2, 2)
 	if err != nil {
 		return err
 	}
-	defer layout.Destroy()
+	defer layout.Close()
 	fmt.Println("created a 2x2 FP32 matrix layout")
 	return nil
 }
@@ -212,7 +212,7 @@ func cudnnFeature() error {
 	if err != nil {
 		return err
 	}
-	defer h.Destroy()
+	defer h.Close()
 	desc, err := cudnn.CreateTensorDescriptor()
 	if err != nil {
 		return err
@@ -250,12 +250,12 @@ func curandFeature() error {
 	if err != nil {
 		return err
 	}
-	defer g.Destroy()
+	defer g.Close()
 	if err := g.SetPseudoRandomGeneratorSeed(1); err != nil {
 		return err
 	}
 	values := make([]float32, 4)
-	if err := g.GenerateUniform(&values[0], uint(len(values))); err != nil {
+	if err := g.GenerateUniformHost(values); err != nil {
 		return err
 	}
 	fmt.Printf("host random values %v\n", values)
@@ -267,7 +267,7 @@ func cusolverFeature() error {
 	if err != nil {
 		return err
 	}
-	defer h.Destroy()
+	defer h.Close()
 	version, err := cusolver.GetVersion()
 	if err != nil {
 		return err
@@ -281,7 +281,7 @@ func cusparseFeature() error {
 	if err != nil {
 		return err
 	}
-	defer h.Destroy()
+	defer h.Close()
 	version, err := h.Version()
 	if err != nil {
 		return err
@@ -313,7 +313,7 @@ func ncclFeature() error {
 	comm := comms[0]
 	defer comm.Destroy()
 	values := []float32{3, 5, 7, 11}
-	p, err := driver.MemAlloc(uint(len(values)) * 4)
+	p, err := driver.MemAlloc[float32](len(values))
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func ncclFeature() error {
 	if err := p.CopyFromHostPtr(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
 		return err
 	}
-	if err := comm.AllReduce(nccl.Buffer(p), nccl.Buffer(p), uint(len(values)), nccl.Float32, nccl.Sum, 0); err != nil {
+	if err := comm.AllReduce(p, p, uint(len(values)), nccl.Float32, nccl.Sum, 0); err != nil {
 		return err
 	}
 	if err := p.CopyToHostPtr(unsafe.Pointer(&values[0]), uint(len(values))*4); err != nil {
@@ -334,7 +334,7 @@ func ncclFeature() error {
 func deviceFloat32s(values ...[]float32) ([]driver.DevicePtr, error) {
 	ptrs := make([]driver.DevicePtr, len(values))
 	for i, value := range values {
-		p, err := driver.MemAlloc(uint(len(value)) * 4)
+		p, err := driver.MemAlloc[float32](len(value))
 		if err != nil {
 			freeDevicePtrs(ptrs[:i])
 			return nil, err
