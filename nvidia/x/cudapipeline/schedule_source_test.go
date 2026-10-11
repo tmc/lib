@@ -119,6 +119,7 @@ return 0;}
 			if out, err := exec.CommandContext(ctx, compiler, "-std=c++20", "-pthread", "-I", dir, input, "-o", bin).CombinedOutput(); err != nil {
 				t.Fatalf("host source compile: %v %s", err, out)
 			}
+
 			if out, err := exec.CommandContext(ctx, bin).CombinedOutput(); err != nil {
 				t.Fatalf("independent byte/guard oracle: %v %s", err, out)
 			}
@@ -137,14 +138,16 @@ func TestCopySourcesNativeReference(t *testing.T) {
 	if os.Getenv("CUDA_PIPELINE_COPY_NATIVE") != "1" {
 		t.Skip("native copy fixture disabled")
 	}
-	if os.Getenv("GPU_LOCK_HELD") != "1" {
-		t.Fatal("native copy fixture requires GPU_LOCK_HELD=1")
+	admission, err := pipelineNativeAdmission(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
 	}
+	t.Logf("inherited_host_lease=%srequested_uuid=%s", admission.Owner.String(), admission.UUID)
 	compiler := os.Getenv("NVCC")
 	if compiler == "" {
 		compiler = "nvcc"
 	}
-	compiler, err := exec.LookPath(compiler)
+	compiler, err = exec.LookPath(compiler)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,9 +157,12 @@ func TestCopySourcesNativeReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	syncSource = strings.Replace(syncSource, "void copy_async(", "void copy_sync(", 1)
-	main := `#include <cstdio>
+	main := pipelineDeviceAdmissionSource + `
+#include <cstdio>
 #define CHECK(call) do{cudaError_t e=(call);if(e!=cudaSuccess){fprintf(stderr,"%s\n",cudaGetErrorString(e));return 10;}}while(0)
-int main(){
+int main(int argc, char **argv){
+int ordinal = -1; if(argc != 2 || admittedDevice(argv[1], &ordinal) != 0) return 40;
+CHECK(cudaSetDevice(ordinal));
 unsigned char input[1152],output[1184];for(int i=0;i<1152;i++)input[i]=(i*17+31)%251;
 unsigned char *dinput,*doutput;CHECK(cudaMalloc(&dinput,1152));CHECK(cudaMalloc(&doutput,1184));CHECK(cudaMemcpy(dinput,input,1152,cudaMemcpyHostToDevice));
 for(int mode=0;mode<2;mode++){
@@ -174,10 +180,13 @@ for(int i=1152;i<1184;i++)if(output[i]!=219)return 30+mode;
 	bin := filepath.Join(dir, "copy-fixture")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	if out, err := exec.CommandContext(ctx, compiler, "-std=c++20", "-arch=sm_80", path, "-o", bin).CombinedOutput(); err != nil {
+	if out, err := exec.CommandContext(ctx, compiler, "-std=c++20", "-arch=sm_80", path, "-o", bin, "-lcuda").CombinedOutput(); err != nil {
 		t.Fatalf("CUDA compile: %v %s", err, out)
 	}
-	if out, err := exec.CommandContext(ctx, bin).CombinedOutput(); err != nil {
+	if current, err := pipelineNativeAdmission(os.Getenv); err != nil || current != admission {
+		t.Fatalf("native admission changed before launch: %v", err)
+	}
+	if out, err := exec.CommandContext(ctx, bin, admission.UUID).CombinedOutput(); err != nil {
 		t.Fatalf("native byte/guard oracle: %v %s", err, out)
 	}
 }
