@@ -2,13 +2,16 @@ package cudatma
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
@@ -33,14 +36,11 @@ func TestCompileTMAFixture(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	h, _ := os.UserHomeDir()
-	d, e := os.MkdirTemp(filepath.Join(h, "tmp"), "cudatma-compile-")
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer os.RemoveAll(d)
+	d := t.TempDir()
 	f := filepath.Join(d, "f.cu")
-	os.WriteFile(f, []byte(s), 0600)
+	if err := os.WriteFile(f, []byte(s), 0600); err != nil {
+		t.Fatal(err)
+	}
 	if o, e := exec.Command(nvcc, "-arch="+target, "-c", f, "-o", filepath.Join(d, "f.o")).CombinedOutput(); e != nil {
 		t.Fatalf("compile: %v\n%s", e, o)
 	}
@@ -53,20 +53,20 @@ func TestNativeTMAReference(t *testing.T) {
 	if os.Getenv("GPU_LOCK_HELD") == "" {
 		t.Fatal("CUDA_TMA_NATIVE=1 requires running under the GPU lock")
 	}
-	nvcc, _ := cudatest.NVCC(t)
 	target := tmaTarget()
+	s, err := FixtureSource(target, 32)
+	if err != nil {
+		t.Fatalf("emit fixture for %s: %v", target, err)
+	}
+	nvcc, _ := cudatest.NVCC(t)
 	cudatest.SkipUnlessTarget(t, nvcc, target)
-	s, _ := FixtureSource(target, 32)
 	s += `#include <cuda_runtime.h>
 int main(){float h[32],o[32];for(int i=0;i<32;i++)h[i]=i;float*d=0,*q=0;if(cudaMalloc(&d,sizeof h)||cudaMalloc(&q,sizeof o))return 2;if(cudaMemcpy(d,h,sizeof h,cudaMemcpyHostToDevice))return 3;tma_fixture<<<1,32,sizeof h>>>(d,q);if(cudaDeviceSynchronize())return 4;if(cudaMemcpy(o,q,sizeof o,cudaMemcpyDeviceToHost))return 5;for(int i=0;i<32;i++)if(o[i]!=h[i])return 6;return 0;}`
-	h, _ := os.UserHomeDir()
-	d, e := os.MkdirTemp(filepath.Join(h, "tmp"), "cudatma-native-")
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer os.RemoveAll(d)
+	d := t.TempDir()
 	f := filepath.Join(d, "f.cu")
-	os.WriteFile(f, []byte(s), 0600)
+	if err := os.WriteFile(f, []byte(s), 0600); err != nil {
+		t.Fatal(err)
+	}
 	x := filepath.Join(d, "f")
 	if o, e := exec.Command(nvcc, "-arch="+target, f, "-o", x).CombinedOutput(); e != nil {
 		t.Fatalf("compile: %v\n%s", e, o)
@@ -75,6 +75,35 @@ int main(){float h[32],o[32];for(int i=0;i<32;i++)h[i]=i;float*d=0,*q=0;if(cudaM
 	defer c()
 	if o, e := exec.CommandContext(ctx, x).CombinedOutput(); e != nil {
 		t.Fatalf("native: %v\n%s", e, o)
+	}
+}
+
+// TestFixtureEmissionErrorBeforeCompilation checks the actual native harness
+// on a target the emitter refuses. The child exits before any compiler or
+// device call; the CPU-only parent supplies a real inherited lock identity.
+func TestFixtureEmissionErrorBeforeCompilation(t *testing.T) {
+	t.Setenv("GPU_LOCK_HELD", os.Getenv("GPU_LOCK_HELD"))
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	h, err := cudalock.Acquire(ctx, cudalock.WithDir(filepath.Join(t.TempDir(), "lock")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Release()
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestNativeTMAReference$", "-test.v")
+	cmd.Env = append(os.Environ(),
+		"CUDA_TMA_NATIVE=1",
+		"CUDA_TMA_NATIVE_ARCH=invalid_fixture_target",
+		"GPU_LOCK_HELD="+strconv.Itoa(h.Owner().PID),
+		"GPU_LOCKDIR="+h.Dir(),
+	)
+	out, err := cmd.CombinedOutput()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("refused fixture exit = %v, want 1\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "emit fixture for invalid_fixture_target: unsupported target") {
+		t.Fatalf("fixture error was not reported before compilation:\n%s", out)
 	}
 }
 
@@ -96,12 +125,7 @@ func nvccOrSkip(t *testing.T) string {
 // the given extra arguments, failing the test if it does not compile.
 func compileFixture(t *testing.T, nvcc, target, src string, args ...string) string {
 	t.Helper()
-	home, _ := os.UserHomeDir()
-	dir, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cudatma-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(dir) })
+	dir := t.TempDir()
 	file := filepath.Join(dir, "tma.cu")
 	if err := os.WriteFile(file, []byte(src), 0600); err != nil {
 		t.Fatal(err)

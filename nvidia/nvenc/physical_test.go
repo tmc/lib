@@ -23,7 +23,11 @@ import (
 // TestPhysicalEncode compares lossless H.264 output with an independent CPU decode.
 // Selecting nvenc_physical requires a compatible GPU, driver, and FFmpeg.
 func TestPhysicalEncode(t *testing.T) {
-	if err := physicalEncode(t); err != nil {
+	err := physicalEncode(t)
+	if ve := (*nvenc.VersionError)(nil); errors.As(err, &ve) {
+		t.Skipf("installed driver's NVENC is older than these bindings: %v", err)
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 }

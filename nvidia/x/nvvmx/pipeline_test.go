@@ -26,7 +26,19 @@ func TestCompilerPipeline(t *testing.T) {
 	if arch == "" || libdevicePath == "" {
 		t.Fatal("CUDA_COMPILER_ARCH (for example 100) and CUDA_LIBDEVICE required")
 	}
-	ir, err := os.ReadFile("../../nvvm/testdata/sin.ll")
+	// NVVM parses typed pointers below LLVM 17, which covers every CUDA 12
+	// target and pre-Blackwell CUDA 13 targets, and opaque pointers above.
+	irFile := "../../nvvm/testdata/sin-typed.ll"
+	if nvvm.Has("nvvmLLVMVersion") {
+		llvm, err := nvvm.LLVMVersion("compute_" + arch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if llvm >= 17 {
+			irFile = "../../nvvm/testdata/sin.ll"
+		}
+	}
+	ir, err := os.ReadFile(irFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +50,7 @@ func TestCompilerPipeline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("NVVM %d.%d path=%s arch=%s IR SHA256=%x libdevice=%s SHA256=%x", major, minor, nvvm.Path(), arch, sha256.Sum256(ir), libdevicePath, sha256.Sum256(libdevice))
+	t.Logf("NVVM %d.%d path=%s arch=%s IR=%s SHA256=%x libdevice=%s SHA256=%x", major, minor, nvvm.Path(), arch, irFile, sha256.Sum256(ir), libdevicePath, sha256.Sum256(libdevice))
 	inputs := []nvvmx.Input{{Name: "sin.ll", Data: ir}, {Name: "libdevice", Data: libdevice, Lazy: true}}
 	for _, lto := range []bool{false, true} {
 		name := "ptx"

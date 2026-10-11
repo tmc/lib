@@ -436,9 +436,12 @@ func TestSASS_DOTExport_GraphvizStructure(t *testing.T) {
 	}
 	t.Run("committed", func(t *testing.T) { compare(t, string(committed)) })
 	t.Run("nvdisasm", func(t *testing.T) {
-		if _, err := exec.LookPath(cudasass.ToolName); err != nil {
+		tool, err := exec.LookPath(cudasass.ToolName)
+		if err != nil {
 			t.Skipf("%s not found in PATH; the live comparison with DisassembleCFG did not run", cudasass.ToolName)
 		}
+		// The fixture is an SM121a CUBIN.
+		skipUnlessBinaryArch(t, tool, fixtureArch)
 		nv, err := cudasass.DisassembleCFG(readRoundTripCubin(t), true)
 		if err != nil {
 			t.Fatal(err)

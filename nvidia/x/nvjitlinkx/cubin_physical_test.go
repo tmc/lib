@@ -9,7 +9,9 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/nvfatbin"
 	"github.com/tmc/lib/nvidia/nvjitlink"
+	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/nvfatbinx"
 	"github.com/tmc/lib/nvidia/x/nvjitlinkx"
@@ -34,6 +36,15 @@ func runCUBINPipeline(t *testing.T, fatbin bool) {
 	t.Helper()
 	if os.Getenv("CUDA_LINK_EXEC_TEST") != "1" {
 		t.Skip("CUDA_LINK_EXEC_TEST=1 requires a GPU and matching compiler/linker")
+	}
+	if fatbin {
+		if err := nvfatbin.Load(""); err != nil {
+			major, minor, verr := nvrtc.Version()
+			if verr == nil && (major < 12 || major == 12 && minor < 4) {
+				t.Skipf("toolkit %d.%d predates nvFatbin (CUDA 12.4): %v", major, minor, err)
+			}
+			t.Fatal(err)
+		}
 	}
 	check := func(err error) {
 		t.Helper()

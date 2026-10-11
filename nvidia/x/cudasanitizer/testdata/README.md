@@ -12,7 +12,11 @@ These patterns follow NVIDIA's [Compute Sanitizer manual](https://docs.nvidia.co
 particularly initcheck and synccheck's invalid-arguments classification. No native
 result is established by checking in this source or compiling the Go tests.
 
-The command below was validated with CUDA 13.0 on GB10. From the `nvidia`
+The command below was validated with CUDA 13.0 on GB10, and with `-G` on an
+L4 (sm_89) under CUDA 12.2 and 13.4. Build with `-G`, as NVIDIA's own
+illegal_syncwarp sample is: built with only `-lineinfo` for sm_89, the bad
+`__syncwarp` mask is optimized out of what synccheck sees and it reports no
+errors. From the `nvidia`
 module, on an authorized CUDA GPU host:
 
 ```sh
@@ -20,7 +24,7 @@ export CHECKER_OUT="$HOME/tmp/cudasanitizer-checkers"
 mkdir -p "$CHECKER_OUT"
 # Set to the actual GPU target supported by the installed nvcc.
 export CUDA_ARCH=sm_121
-nvcc -lineinfo -arch="$CUDA_ARCH" -o "$CHECKER_OUT/checkers" \
+nvcc -G -arch="$CUDA_ARCH" -o "$CHECKER_OUT/checkers" \
   x/cudasanitizer/testdata/checkers.cu
 LIB_CUDA_HARDWARE_TEST=1 \
 CUDASANITIZER_TEST_CHECKERS_PROG="$CHECKER_OUT/checkers" \
@@ -38,6 +42,6 @@ of invalid GPU work. The runner applies a 45-second deadline per invocation;
 the outer deadline bounds the complete four-case test.
 
 Without `LIB_CUDA_HARDWARE_TEST`, tests explicitly skip. With it enabled, missing
-tooling or the fixture path fails. Retain nvcc/tool versions, GPU/driver identity,
+tooling fails and a test whose program variable is empty skips, naming it. Retain nvcc/tool versions, GPU/driver identity,
 source and executable hashes, command/logs, outcomes and skipped cases. Keep the
 binary outside Git. These are checker acceptance fixtures, not application code.

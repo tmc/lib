@@ -27,6 +27,10 @@ func (e *Exec) KernelOrder() (driver.GraphExec, []string, error) {
 }
 
 func snapshotKernelOrder(g driver.Graph) ([]string, error) {
+	// Kernel symbols are named through cuFuncGetName, which arrived in CUDA 12.3.
+	if !driver.Has("cuFuncGetName") {
+		return nil, fmt.Errorf("cudagraph: kernel order needs cuFuncGetName: %w", errors.ErrUnsupported)
+	}
 	const limit = 65536
 	nodes, err := g.NodesBounded(limit)
 	if err != nil {
@@ -54,6 +58,13 @@ func snapshotKernelOrder(g driver.Graph) ([]string, error) {
 			return nil, errors.New("cudagraph: graph edge count changed")
 		}
 	}
+	// Device-updatable kernel nodes arrived in CUDA 12.4. An older driver has
+	// none and rejects the attribute query with CUDA_ERROR_INVALID_VALUE.
+	version, err := driver.DriverGetVersion()
+	if err != nil {
+		return nil, err
+	}
+	updatable := version >= deviceUpdatableVersion
 	symbols := make(map[driver.GraphNode]string, len(nodes))
 	for _, node := range nodes {
 		kind, err := node.Type()
@@ -69,12 +80,14 @@ func snapshotKernelOrder(g driver.Graph) ([]string, error) {
 			// A profiler must still reconcile its native range count; this topology
 			// does not prove how the driver implements allocation or other actions.
 		case driver.GraphNodeTypeKernel:
-			attr, err := driver.KernelNode{GraphNode: node}.Attribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
-			if err != nil {
-				return nil, err
-			}
-			if attr[0]&0xffffffff != 0 {
-				return nil, errors.New("cudagraph: kernel order does not support device-updatable nodes")
+			if updatable {
+				attr, err := driver.KernelNode{GraphNode: node}.Attribute(int32(driver.LaunchAttributeDeviceUpdatableKernelNode))
+				if err != nil {
+					return nil, err
+				}
+				if attr[0]&0xffffffff != 0 {
+					return nil, errors.New("cudagraph: kernel order does not support device-updatable nodes")
+				}
 			}
 			params, err := driver.KernelNode{GraphNode: node}.Params()
 			if err != nil {

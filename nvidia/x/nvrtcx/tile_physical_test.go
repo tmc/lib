@@ -12,9 +12,7 @@ import (
 )
 
 func TestTileIRExecution(t *testing.T) {
-	if os.Getenv("CUDA_TILE_TEST") != "1" {
-		t.Skip("CUDA_TILE_TEST=1 requires NVRTC 13.3 and a TileIR-capable driver")
-	}
+	requireTile(t)
 	check := func(err error) {
 		t.Helper()
 		if err != nil {

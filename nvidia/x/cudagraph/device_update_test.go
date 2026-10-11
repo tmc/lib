@@ -438,6 +438,11 @@ func TestDeviceUpdateErrorHandling(t *testing.T) {
 
 func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 	dev := cudatest.Require(t)
+	if v, err := driver.DriverGetVersion(); err != nil {
+		t.Fatal(err)
+	} else if v < 12040 {
+		t.Skipf("device-updatable kernel nodes require a CUDA 12.4 driver; this driver is %d", v)
+	}
 
 	compiled, err := nvrtcx.Compile(updateKernelSource, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
 	if err != nil {

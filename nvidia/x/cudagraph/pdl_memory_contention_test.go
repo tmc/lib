@@ -460,6 +460,13 @@ func TestPDLMemoryContentionCompilationAndPTX(t *testing.T) {
 	if err := nvrtc.Load(""); err != nil {
 		t.Skipf("NVRTC unavailable: %v", err)
 	}
+	// The PTX is checked, not run, so the target need not be this GPU, but
+	// NVRTC must know it: compute_121 first appears in NVRTC 12.9.
+	if major, minor, err := nvrtc.Version(); err != nil {
+		t.Fatal(err)
+	} else if major < 12 || major == 12 && minor < 9 {
+		t.Skipf("compute_121 requires NVRTC 12.9; NVRTC is %d.%d", major, minor)
+	}
 	compiled, err := nvrtcx.Compile(memoryContentionKernelSource, nvrtcx.WithArch(12, 1), nvrtcx.WithNoCache())
 	if err != nil {
 		t.Fatalf("nvrtcx.Compile failed: %v", err)

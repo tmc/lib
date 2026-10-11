@@ -13,16 +13,12 @@ import (
 
 // Native tests are opt-in. Once enabled, missing prerequisites fail.
 
-// TestBatchedLZ4RoundTrip compresses a batch, decompresses it and compares the
-// bytes, then undersizes an output buffer and checks that the failure shows up
-// in the per-chunk statuses.
-//
-// The second half is the part worth having. A status array that the library
-// never wrote reads as all zeros, and zero is nvcompSuccess, so a test that
-// only ever compresses data that works cannot tell a batch that succeeded from
-// a batch whose statuses were never filled in. Undersizing one output and
-// requiring a non-success status for exactly that chunk is what distinguishes
-// them.
+// TestBatchedLZ4RoundTrip reports a round_trip result for exact decompression
+// and a declared_capacity result for the documented insufficient-capacity error.
+// A failed round trip prevents the dependent capacity trial. Both trials fill
+// output, size and status arrays with sentinels before launching.
+// The capacity trial retains the full allocation: it does not intentionally
+// overrun device memory.
 //
 // Prerequisites, all of them:
 //   - libnvcomp.so.5 on the loader path, or NVCOMP_LIB_PATH pointing at it.
@@ -107,25 +103,6 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	writeUints(t, inBytes, repeat(chunkBytes, numChunks))
 	writeUintptrs(t, outPtrs, chunkAddrs(outData, numChunks, maxOut))
 
-	check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
-	check(outBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
-	check(nvcomp.CompressAsync(
-		nvcomp.DevicePointerArray(inPtrs), nvcomp.DeviceSizeArray(inBytes),
-		chunkBytes, numChunks,
-		nvcomp.DeviceBuffer(temp), tempBytes,
-		nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
-		opts, nvcomp.DeviceStatusArray(statuses), stream,
-	))
-	check(ctx.SynchronizeV2())
-	check(nvcomp.CheckStatuses(readStatuses(t, statuses, numChunks)))
-
-	compressedBytes := readUints(t, outBytes, numChunks)
-	for i, n := range compressedBytes {
-		if n == 0 || n > maxOut {
-			t.Fatalf("chunk %d compressed to %d bytes, want 1..%d", i, n, maxOut)
-		}
-	}
-
 	// Decompress into fresh buffers and compare.
 	decompressOpts := nvcomp.DecompressOpts{Backend: nvcomp.DecompressBackendCuda}
 	dAlign, err := nvcomp.DecompressGetRequiredAlignments(decompressOpts)
@@ -145,99 +122,159 @@ func TestBatchedLZ4RoundTrip(t *testing.T) {
 	writeUintptrs(t, roundTripPtrs, chunkAddrs(roundTrip, numChunks, chunkBytes))
 	writeUints(t, bufferBytes, repeat(chunkBytes, numChunks))
 
-	// The uncompressed sizes are not recorded anywhere in the compressed data
-	// the batched API produces; this call is how a reader that did not keep
-	// them recovers them.
-	check(nvcomp.GetDecompressSizeAsync(
-		nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
-		nvcomp.DeviceSizeArray(sizeQuery), numChunks, stream,
-	))
-	check(ctx.SynchronizeV2())
-	for i, n := range readUints(t, sizeQuery, numChunks) {
-		if n != chunkBytes {
-			t.Errorf("GetDecompressSizeAsync reported %d bytes for chunk %d, want %d", n, i, chunkBytes)
+	// Each subtest runs in a new goroutine. Keep its CUDA context current
+	// on a locked thread; shared allocations remain owned by the parent.
+	run := func(name string, f func(*testing.T)) bool {
+		return t.Run(name, func(t *testing.T) {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			if err := ctx.PushCurrent(); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				popped, err := driver.CtxPopCurrent()
+				if err != nil {
+					t.Error(err)
+				} else if popped != ctx {
+					t.Errorf("popped context %v, want %v", popped, ctx)
+				}
+			}()
+			f(t)
+		})
+	}
+
+	roundTripCompleted := false
+	if !run("round_trip", func(t *testing.T) {
+		check := func(err error) {
+			t.Helper()
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
-	}
 
-	check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
-	check(actualBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
-	check(roundTrip.MemsetD8(0xa5, uint(len(uncompressed))))
-	check(nvcomp.DecompressAsync(
-		nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
-		nvcomp.DeviceSizeArray(bufferBytes), nvcomp.DeviceSizeArray(actualBytes),
-		numChunks, nvcomp.DeviceBuffer(dTemp), dTempBytes,
-		nvcomp.DevicePointerArray(roundTripPtrs), decompressOpts,
-		nvcomp.DeviceStatusArray(statuses), stream,
-	))
-	check(ctx.SynchronizeV2())
-	check(nvcomp.CheckStatuses(readStatuses(t, statuses, numChunks)))
+		check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
+		check(outBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
+		check(nvcomp.CompressAsync(
+			nvcomp.DevicePointerArray(inPtrs), nvcomp.DeviceSizeArray(inBytes),
+			chunkBytes, numChunks,
+			nvcomp.DeviceBuffer(temp), tempBytes,
+			nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
+			opts, nvcomp.DeviceStatusArray(statuses), stream,
+		))
+		check(ctx.SynchronizeV2())
+		check(nvcomp.CheckStatuses(readStatuses(t, statuses, numChunks)))
 
-	for i, n := range readUints(t, actualBytes, numChunks) {
-		if n != chunkBytes {
-			t.Errorf("chunk %d actual size = %d, want %d", i, n, chunkBytes)
+		compressedBytes := readUints(t, outBytes, numChunks)
+		for i, n := range compressedBytes {
+			if n == 0 || n > maxOut {
+				t.Fatalf("chunk %d compressed to %d bytes, want 1..%d", i, n, maxOut)
+			}
 		}
-	}
 
-	got := make([]byte, len(uncompressed))
-	check(roundTrip.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))))
-	if !bytes.Equal(got, uncompressed) {
-		t.Fatal("round trip did not reproduce the input")
-	}
-
-	t.Logf("round trip matched %d bytes across %d chunks", len(got), numChunks)
-
-	// The header guarantees CannotDecompress for an undersized output buffer.
-	// Arbitrary changed LZ4 bytes can still describe a valid stream, so they
-	// are not a reliable status-writing control.
-	capacities := repeat(chunkBytes, numChunks)
-	capacities[0] = 1
-	writeUints(t, bufferBytes, capacities)
-	check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
-	check(actualBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
-	check(roundTrip.MemsetD8(0xa5, uint(len(uncompressed))))
-
-	err = nvcomp.DecompressAsync(
-		nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
-		nvcomp.DeviceSizeArray(bufferBytes), nvcomp.DeviceSizeArray(actualBytes),
-		numChunks, nvcomp.DeviceBuffer(dTemp), dTempBytes,
-		nvcomp.DevicePointerArray(roundTripPtrs), decompressOpts,
-		nvcomp.DeviceStatusArray(statuses), stream,
-	)
-	check(err)
-	check(ctx.SynchronizeV2())
-	corrupt := readStatuses(t, statuses, numChunks)
-	t.Logf("undersized output statuses: %v", corrupt)
-	actual := readUints(t, actualBytes, numChunks)
-	check(roundTrip.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))))
-	changed := 0
-	for _, b := range got[1:chunkBytes] {
-		if b != 0xa5 {
-			changed++
+		// The uncompressed sizes are not recorded anywhere in the compressed data
+		// the batched API produces; this call is how a reader that did not keep
+		// them recovers them.
+		check(nvcomp.GetDecompressSizeAsync(
+			nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
+			nvcomp.DeviceSizeArray(sizeQuery), numChunks, stream,
+		))
+		check(ctx.SynchronizeV2())
+		for i, n := range readUints(t, sizeQuery, numChunks) {
+			if n != chunkBytes {
+				t.Errorf("GetDecompressSizeAsync reported %d bytes for chunk %d, want %d", n, i, chunkBytes)
+			}
 		}
-	}
-	t.Logf("undersized output actual sizes: %v; %d bytes changed beyond declared capacity within full allocation", actual, changed)
-	for i := 1; i < numChunks; i++ {
-		if actual[i] != chunkBytes || !bytes.Equal(got[i*chunkBytes:(i+1)*chunkBytes], uncompressed[i*chunkBytes:(i+1)*chunkBytes]) {
-			t.Errorf("valid chunk %d did not decompress correctly after undersized chunk", i)
+
+		check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
+		check(actualBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
+		check(roundTrip.MemsetD8(0xa5, uint(len(uncompressed))))
+		check(nvcomp.DecompressAsync(
+			nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
+			nvcomp.DeviceSizeArray(bufferBytes), nvcomp.DeviceSizeArray(actualBytes),
+			numChunks, nvcomp.DeviceBuffer(dTemp), dTempBytes,
+			nvcomp.DevicePointerArray(roundTripPtrs), decompressOpts,
+			nvcomp.DeviceStatusArray(statuses), stream,
+		))
+		check(ctx.SynchronizeV2())
+		check(nvcomp.CheckStatuses(readStatuses(t, statuses, numChunks)))
+
+		for i, n := range readUints(t, actualBytes, numChunks) {
+			if n != chunkBytes {
+				t.Errorf("chunk %d actual size = %d, want %d", i, n, chunkBytes)
+			}
 		}
-	}
-	// Observed failing against libnvcomp 5.3.0.16 (cuda12) on an L4, driver
-	// 580.173.02: chunk 0 reports Success and 4095 bytes are written past the
-	// declared capacity of 1. This is not a binding defect. The statuses array
-	// is memset to 0x7f7f7f7f above and reads back as Success, so the library
-	// did write it; the parameter order also matches nvcompBatchedLZ4-
-	// DecompressAsync in nvcomp/lz4.h exactly. It is libnvcomp that is not
-	// honouring the contract its own header states for
-	// device_uncompressed_buffer_bytes. The assertion stays as written: an
-	// out-of-bounds write reported as success is worth failing on.
-	if corrupt[0] != nvcomp.ErrCannotDecompress {
-		t.Errorf("undersized output status = %v, want %v", corrupt[0], nvcomp.ErrCannotDecompress)
-	}
-	for i, s := range corrupt[1:] {
-		if s != nvcomp.Success {
-			t.Errorf("chunk %d reported %v, but only chunk 0 had insufficient capacity", i+1, s)
+
+		got := make([]byte, len(uncompressed))
+		check(roundTrip.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))))
+		if !bytes.Equal(got, uncompressed) {
+			t.Fatal("round trip did not reproduce the input")
 		}
+
+		t.Logf("round trip matched %d bytes across %d chunks", len(got), numChunks)
+		roundTripCompleted = true
+	}) {
+		return
 	}
+	if !roundTripCompleted {
+		t.Skip("round_trip prerequisite was not selected")
+	}
+
+	run("declared_capacity", func(t *testing.T) {
+		check := func(err error) {
+			t.Helper()
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		// Reduce only chunk 0's declared capacity; its allocation stays 4096
+		// bytes. The header promises CannotDecompress for insufficient capacity.
+		// Arbitrary changed LZ4 bytes can still describe a valid stream, so they
+		// are not a reliable status-writing control.
+		capacities := repeat(chunkBytes, numChunks)
+		capacities[0] = 1
+		writeUints(t, bufferBytes, capacities)
+		check(statuses.MemsetD32(0x7f7f7f7f, numChunks))
+		check(actualBytes.MemsetD8(0xff, numChunks*nvcomp.SizeofDeviceSize))
+		check(roundTrip.MemsetD8(0xa5, uint(len(uncompressed))))
+
+		err := nvcomp.DecompressAsync(
+			nvcomp.DevicePointerArray(outPtrs), nvcomp.DeviceSizeArray(outBytes),
+			nvcomp.DeviceSizeArray(bufferBytes), nvcomp.DeviceSizeArray(actualBytes),
+			numChunks, nvcomp.DeviceBuffer(dTemp), dTempBytes,
+			nvcomp.DevicePointerArray(roundTripPtrs), decompressOpts,
+			nvcomp.DeviceStatusArray(statuses), stream,
+		)
+		check(err)
+		check(ctx.SynchronizeV2())
+		gotStatuses := readStatuses(t, statuses, numChunks)
+		t.Logf("declared capacity statuses: %v", gotStatuses)
+		actual := readUints(t, actualBytes, numChunks)
+		got := make([]byte, len(uncompressed))
+		check(roundTrip.CopyToHostPtr(unsafe.Pointer(&got[0]), uint(len(got))))
+		changed := 0
+		for _, b := range got[1:chunkBytes] {
+			if b != 0xa5 {
+				changed++
+			}
+		}
+		t.Logf("declared capacity actual sizes: %v; %d bytes changed beyond declared capacity within full allocation", actual, changed)
+		for i := 1; i < numChunks; i++ {
+			if actual[i] != chunkBytes || !bytes.Equal(got[i*chunkBytes:(i+1)*chunkBytes], uncompressed[i*chunkBytes:(i+1)*chunkBytes]) {
+				t.Errorf("valid chunk %d did not decompress correctly after insufficient declared capacity", i)
+			}
+		}
+		// Retain the exact status promised for device_uncompressed_buffer_bytes
+		// in nvcomp/lz4.h, even when the full allocation contains the write.
+		if gotStatuses[0] != nvcomp.ErrCannotDecompress {
+			t.Errorf("declared capacity status = %v, want %v", gotStatuses[0], nvcomp.ErrCannotDecompress)
+		}
+		for i, s := range gotStatuses[1:] {
+			if s != nvcomp.Success {
+				t.Errorf("chunk %d reported %v, but only chunk 0 had insufficient capacity", i+1, s)
+			}
+		}
+	})
 }
 
 // TestPropertiesMatchHeaders reports whether the installed library is the

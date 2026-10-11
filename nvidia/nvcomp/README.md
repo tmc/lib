@@ -66,9 +66,11 @@ What is checked, and runs anywhere:
 Runtime tests and remaining limits:
 
 - `TestBatchedLZ4RoundTrip` in `pipeline_test.go` reproduces the round trip and
-  undersized-output check above. It requires `NVCOMP_PHYSICAL_TEST=1`,
-  `libnvcomp.so.5`, `libcuda.so.1`, and a visible GPU. A passing round trip
-  does not make the whole test pass.
+  declared-capacity check above as `round_trip` and `declared_capacity`
+  subtests. A failed or unselected round trip prevents the dependent capacity
+  trial. Select the whole parent test to run both. It requires
+  `NVCOMP_PHYSICAL_TEST=1`, `libnvcomp.so.5`, `libcuda.so.1`, and a visible GPU.
+  A passing round trip does not make the whole test pass.
 - `TestPropertiesMatchHeaders` requires `NVCOMP_LIBRARY_TEST=1` and
   `libnvcomp`; it checks the loaded version without requiring a GPU.
 - Native evidence above covers the tested arm64 CUDA backend. It does not
@@ -90,11 +92,13 @@ capacity contract fails. Compile against the pinned 5.3 headers and run with the
 selected runtime's library directory:
 
 ```sh
+probe_dir="$HOME/tmp/lib/$(date +%Y%m%d)-nvcomp-capacity"
+mkdir -p "$probe_dir"
 c++ -std=c++17 -Wall -Wextra -Werror \
   -I "$nvcomp_dir/include" -I "$cuda_dir/include" \
   testdata/capacity.cpp -L "$nvcomp_dir/lib" -lnvcomp \
-  -L "$cuda_dir/lib64" -lcudart -o "$HOME/tmp/nvcomp-capacity"
-LD_LIBRARY_PATH="$nvcomp_dir/lib:$cuda_dir/lib64" "$HOME/tmp/nvcomp-capacity"
+  -L "$cuda_dir/lib64" -lcudart -o "$probe_dir/nvcomp-capacity"
+LD_LIBRARY_PATH="$nvcomp_dir/lib:$cuda_dir/lib64" "$probe_dir/nvcomp-capacity"
 ```
 
 Set `nvcomp_dir` and `cuda_dir` to the extracted SDK and CUDA toolkit directories;

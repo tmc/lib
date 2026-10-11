@@ -219,6 +219,10 @@ func (n *Node) SetGrid(grid driver.Dim3) error {
 	return n.SetParams(&params)
 }
 
+// deviceUpdatableVersion is the first driver version, as
+// [driver.DriverGetVersion] reports it, with device-updatable kernel nodes.
+const deviceUpdatableVersion = 12040
+
 // SetDeviceUpdatable marks the kernel node as device-updatable.
 // Once enabled, CUDA does not allow opting out, and device-updatable nodes
 // cannot be destroyed individually via DestroyNode.

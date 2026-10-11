@@ -1,6 +1,9 @@
 package cudasass
 
-import "fmt"
+import (
+	"crypto/sha256"
+	"fmt"
+)
 
 func ExampleCubinImage_Symbols() {
 	// This constructed ELF is a host example, not a measured compiler image.
@@ -11,7 +14,11 @@ func ExampleCubinImage_Symbols() {
 }
 
 func ExampleCubinImage_SHA256() {
-	image, _ := OpenCubin(symbolImage(0x21, 0, 0))
-	fmt.Println(image.SHA256() == image.SHA256())
+	raw := symbolImage(0x21, 0, 0)
+	original := sha256.Sum256(raw)
+	image, _ := OpenCubin(raw)
+	// Mutating the caller's input does not change the copied image identity.
+	raw[len(raw)-1] ^= 1
+	fmt.Println(image.SHA256() == original)
 	// Output: true
 }

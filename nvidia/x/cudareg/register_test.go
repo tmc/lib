@@ -78,6 +78,46 @@ func TestAllocatedVsLiveRegisters(t *testing.T) {
 		t.Fatal("accepted live peak over cap")
 	}
 }
+func registerNativeSource(dynamic string) string {
+	return `#include <cuda_runtime.h>
+#include <cstdio>
+` + dynamic + "\n" + FixedBudgetSource() + `
+static int runFixture(unsigned *&in, unsigned *&out1, unsigned *&out2) {
+	unsigned h[256], a[256], b[256];
+	for (int i = 0; i < 256; i++) h[i] = (unsigned)i;
+  if (cudaMalloc(&in, sizeof h) || cudaMalloc(&out1, sizeof a) || cudaMalloc(&out2, sizeof b)) return 2;
+  if (cudaMemcpy(in, h, sizeof h, cudaMemcpyHostToDevice)) return 3;
+  cudaFuncAttributes attrs{};
+  if (cudaFuncGetAttributes(&attrs, cudareg_fixture) != cudaSuccess) return 7;
+  if (attrs.numRegs != 64) return 8;
+  cudareg_fixture<<<1,256>>>(in, out1);
+	cudareg_fixed<<<1,256>>>(in, out2);
+  if (cudaDeviceSynchronize()) return 4;
+  if (cudaMemcpy(a, out1, sizeof a, cudaMemcpyDeviceToHost) || cudaMemcpy(b, out2, sizeof b, cudaMemcpyDeviceToHost)) return 5;
+	for (int i = 0; i < 256; i++) if (a[i] != b[i]) return 6;
+  return 0;
+}
+` + registerFixtureMain
+}
+
+const registerFixtureMain = `
+int main() {
+  unsigned *in = nullptr, *out1 = nullptr, *out2 = nullptr;
+  int status = runFixture(in, out1, out2);
+  unsigned *buffers[] = {out2, out1, in};
+  const char *names[] = {"out2", "out1", "in"};
+  for (int i = 0; i < 3; i++) {
+    if (!buffers[i]) continue;
+    cudaError_t err = cudaFree(buffers[i]);
+    if (err != cudaSuccess) {
+      std::fprintf(stderr, "cudaFree(%s): %d\n", names[i], (int)err);
+      if (status == 0) status = 9;
+    }
+  }
+  return status;
+}
+`
+
 func TestNativeRegisterTransitionReference(t *testing.T) {
 	if os.Getenv("CUDA_REGISTER_NATIVE") != "1" {
 		t.Skip("native qualification opt-in: set CUDA_REGISTER_NATIVE=1")
@@ -94,41 +134,15 @@ func TestNativeRegisterTransitionReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	src := `#include <cuda_runtime.h>
-#include <cstdio>
-` + dynamic + "\n" + FixedBudgetSource() + `
-int main() {
-	unsigned h[256], a[256], b[256];
-	for (int i = 0; i < 256; i++) h[i] = (unsigned)i;
-  unsigned *in, *out1, *out2;
-  if (cudaMalloc(&in, sizeof h) || cudaMalloc(&out1, sizeof a) || cudaMalloc(&out2, sizeof b)) return 2;
-  if (cudaMemcpy(in, h, sizeof h, cudaMemcpyHostToDevice)) return 3;
-  cudaFuncAttributes attrs{};
-  if (cudaFuncGetAttributes(&attrs, cudareg_fixture) != cudaSuccess) return 7;
-  if (attrs.numRegs != 64) return 8;
-  cudareg_fixture<<<1,256>>>(in, out1);
-	cudareg_fixed<<<1,256>>>(in, out2);
-  if (cudaDeviceSynchronize()) return 4;
-  if (cudaMemcpy(a, out1, sizeof a, cudaMemcpyDeviceToHost) || cudaMemcpy(b, out2, sizeof b, cudaMemcpyDeviceToHost)) return 5;
-	for (int i = 0; i < 256; i++) if (a[i] != b[i]) return 6;
-  cudaFree(in); cudaFree(out1); cudaFree(out2);
-  return 0;
-}`
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cudareg-native-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(dir) })
+	src := registerNativeSource(dynamic)
+	dir := t.TempDir()
 	cu := filepath.Join(dir, "fixture.cu")
 	exe := filepath.Join(dir, "fixture")
 	if err := os.WriteFile(cu, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(nvcc, "-arch=sm_90a", "-maxrregcount=64", cu, "-o", exe)
+	// The -arch shorthand also emits compute_90, which lacks setmaxnreg.
+	cmd := exec.Command(nvcc, "-gencode=arch=compute_90a,code=sm_90a", "-maxrregcount=64", cu, "-o", exe)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("nvcc compile: %v\n%s", err, out)
 	}
@@ -148,20 +162,12 @@ func TestCompileRegisterFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cudareg-compile-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 	cu := filepath.Join(dir, "fixture.cu")
 	if err := os.WriteFile(cu, []byte(dynamic), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(nvcc, "-arch=sm_90a", "-maxrregcount=64", "-c", cu, "-o", filepath.Join(dir, "fixture.o")).CombinedOutput(); err != nil {
+	if out, err := exec.Command(nvcc, "-gencode=arch=compute_90a,code=sm_90a", "-maxrregcount=64", "-c", cu, "-o", filepath.Join(dir, "fixture.o")).CombinedOutput(); err != nil {
 		t.Fatalf("nvcc compile: %v\n%s", err, out)
 	}
 }

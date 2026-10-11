@@ -34,7 +34,7 @@ Two consequences follow:
 
 - The Go version says how the Go API moved. The manifest says which
   NVIDIA release each package was generated from. They are independent.
-- `x/` (hand-written; 457 of 755 nvidia commits at `fd350702` touch only
+- `x/` (hand-written; 457 of 755 nvidia commits as of 2026-09-14 touch only
   files under `nvidia/x/`) lives in the same tag line, while "Release
   line" below exempts it from the compatibility promise. Those two
   facts do not sit together: a consumer reading `nvidia/v0.1.3` cannot
@@ -68,8 +68,8 @@ Two consequences follow:
    archive produced which directory. The checked-out tree is still a
    mix (cudart 13.3.29 beside cupti 13.3.75 beside cccl 13.2.86).
 2. `nvidia/upstream.json` still declares itself `partial-provenance`,
-   but the coverage gap it was written about is closed. Measured at
-   `fd350702`: all 35 packages carry a recorded generation argv,
+   but the coverage gap it was written about is closed. Measured on
+   2026-09-14: all 35 packages carry a recorded generation argv,
    `coverage.missing_argv` is empty, and none carries
    `generation-unrecorded`. 31 are `generation-reproduced`; 4 are
    `generation-partially-reproduced` -- cupti, driver, nvjitlink and
@@ -170,8 +170,7 @@ Using the wrong tool invents phantom API changes. A Makefile target
    layout and loader tests: these are host checks and Darwin evidence.
    Target-platform ABI and runtime checks are separate and are not
    implied by them.
-3. `go test ./...` on the dgx box for the runtime tests. See the
-   gpu-test-targets note: dgx is the CUDA machine. Report skips
+3. `go test ./...` on a CUDA host for the runtime tests. Report skips
    explicitly; an exit-zero run whose GPU tests skipped does not
    establish the target cell.
 4. Rewrites `upstream.json`.
@@ -318,7 +317,7 @@ policy alone.
 
 That replaced a strict `cuptiGetVersion() == CUPTI_API_VERSION`
 equality, which was our policy rather than a CUPTI requirement and was
-stricter than the layouts require. Measured 2026-09-13 on dgx: an agent
+stricter than the layouts require. Measured 2026-09-13 on a GB10 (linux/arm64): an agent
 built against each of the 13.0, 13.1, 13.2, 13.3 and 13.4 header sets,
 run against each of the five runtimes, all 25 cells collected kernel and
 memcpy records with no drops, including a four-minor skew. The reason is
@@ -361,7 +360,7 @@ requires investigation of older-record support and native delivery.
   unchecked deferred cleanup and do not demonstrate leak-free repeated
   in-process reuse.
 - The executed examples are not evidence of anything native. Measured
-  2026-09-14 on dgx (linux/arm64): `go test ./... -run '^Example'`
+  2026-09-14 on a GB10 (linux/arm64): `go test ./... -run '^Example'`
   produced the same 196 passing examples, with no skips and no
   failures, against every toolkit tried. Examples carrying an `Output:`
   directive print Go values and error strings and do not reach a CUDA
@@ -386,7 +385,7 @@ requires investigation of older-record support and native delivery.
 
 - The version-sensitive population is the hardware tier behind the
   `*_physical` tags, and it does discriminate. Measured 2026-09-14 on
-  dgx with `cublas`, `cublaslt`, `cufft`, `curand`, `nvjitlink`,
+  a GB10 with `cublas`, `cublaslt`, `cufft`, `curand`, `nvjitlink`,
   `nvfatbin`, `nvvm`, `cupti` and `nvml` `_physical` tags, `go test
   ./... -count=1 -p 1`, one cell per toolkit:
 
@@ -415,7 +414,10 @@ and its future existence is not approval to widen sonames.
 
 ## Release line
 
-The first tag is `nvidia/v0.1.0`. Every later release stays on the
+The first tag is `nvidia/v0.1.0`. Like any v0 module, it makes no
+compatibility promise across minor versions: `v0.2.0` may rename or
+remove API, while `frozennames.txt` and apidiff gate the patch releases
+within a minor line (decided 2026-10-05). Ceiling moves stay on the
 `v0.1.x` line. The version encodes no NVIDIA number (see "Mixing"
 below); `upstream.json` records which releases each package spans.
 
@@ -427,7 +429,15 @@ promises to load against:
 |---|---|---|
 | `driver`, `nvml` | CUDA 12.2 (driver r535) | 2026-09-30 |
 | other libraries shipped in the CUDA toolkit | CUDA 12.2, or the first toolkit release that shipped the library | 2026-09-30 |
-| libraries versioned separately (cuDNN, NCCL, DCGM, NVSHMEM, cuTENSOR, cuDSS, the cuQuantum libraries, nvCOMP, gdrcopy, …) | the version generated for `v0.1.0`; history accumulates from that tag | 2026-10-04 |
+| libraries versioned separately (cuDNN, NCCL, DCGM, NVSHMEM, cuTENSOR, cuDSS, the cuQuantum libraries, nvCOMP, gdrcopy, …) | the version generated for `v0.1.0` | 2026-10-04 |
+
+History and floor are separate. The generator also reads pinned headers
+of releases older than the floor, so the API changelog and the
+`since=` labels say when each declaration appeared. For separately versioned
+libraries that history is backfilled from past releases (decided
+2026-10-04; scheduled for v0.1.1, so v0.1.0 labels them since the floor). It changes labels only: plain names keep their meaning at
+the floor, and the loader never admits a release below the floor, so a
+`since=` older than the floor is informational.
 
 The loader tries soname majors newest first, admits a library only when
 its reported version is at or above the floor, and gates on the
@@ -585,7 +595,7 @@ The three inputs:
 | Signal | Result |
 |---|---|
 | apidiff compatible, `frozennames.txt` lines only added | patch bump on `v0.1.x` |
-| apidiff incompatible, or a `frozennames.txt` line removed or changed | fail: needs `-allow-api-removal` and a release decision |
+| apidiff incompatible, or a `frozennames.txt` line removed or changed | fail on a patch: needs `-allow-api-removal` and a new minor version |
 
 apidiff is run as `apidiff -m -incompatible` against export data of the
 last tag written with `apidiff -m -w` from the module cache. The
@@ -598,16 +608,14 @@ respelled two `CUpti_ActivityAttribute` enumerators between 13.2 and
 13.3 and kept their values (20:
 `..._ENABLE_MULTI_SUBSCRIBER_GRAPH_LEVEL_TRACE` became
 `..._ENABLE_MULTI_SUBSCRIBER_GRAPH_TRACE`; 23: `..._CIG_MODE` became
-`..._ENABLE_CIG_MODE`; measured 2026-09-14 on dgx). A constant-drift
+`..._ENABLE_CIG_MODE`; measured 2026-09-14 on a GB10). A constant-drift
 check passes before and after. Under the release line the old Go name
 cannot be dropped, since `CheckAPIRemoval` refuses it, so libgen keeps
 it as a deprecated alias of the new one.
 
 Nothing is published yet. `git ls-remote --tags origin` lists no
 `nvidia/` tag, and `proxy.golang.org` has no versions of this module.
-The private `dgx` remote still carries the stale `nvidia/v0.1.0` at
-`5176fd8bc` (2026-08-31). It must be deleted there before the real
-`v0.1.0` is tagged, since the two would collide. Until the first push to
+Until the first push to
 a public remote, the API can still change without cost to anyone.
 
 Rules that keep regenerations additive:
@@ -835,9 +843,8 @@ Time budget per ceiling move, once the tooling exists: under an hour.
 
 Rev 2 planned this release as `v0.2.0`; it was renamed `v0.1.0` on
 2026-09-29 when the `rel/v0.2.0` branch was retired. No `nvidia/` tag
-exists on origin or locally; the stale one at `5176fd8bc` remains on the
-private `dgx` remote and is deleted there first. The release is tagged from a candidate commit that 05A0 signs
-and restamps, and only when all of these hold for that exact commit:
+exists on any remote. The release is tagged from a signed, restamped
+candidate commit, and only when all of these hold for that exact commit:
 
 1. Every generated package reproduces its committed bytes from the argv
    recorded in `upstream.json`, and the provenance includes every header
@@ -853,21 +860,58 @@ and restamps, and only when all of these hold for that exact commit:
 5. The physical tests pass on L4 at the r535 floor and on an r610+
    ceiling host, and x/ is green on all three hosts as defined above.
 6. Every importable x/ package states the exemption in its doc comment.
+7. Each package commits `api.gen.txt`, and `CUDA-API.md`, the per-release
+   API changelog, is generated from them with its checks passing, with
+   toolkit history from the 12.2 floor (decided 2026-10-04). The
+   backfill for separately versioned libraries, complete `since=`
+   labels for them, and data-driven NVRTC option checks wait for v0.1.1:
+   landing them later changes neither `frozennames.txt` nor apidiff,
+   which is the test for deferring anything. Names present at the floor
+   and removed before the ceiling stay bound, with a `Deprecated:` paragraph saying when NVIDIA
+   deprecated and removed them; their `Has` predicate reports false where
+   the symbol is absent.
+
+When every gate holds, the release report gives the exact tmc/ffi,
+libgen and lib hashes and the tag, and work stops there. Nothing is tagged or pushed without
+tmc's go (decided 2026-10-04).
 
 Earlier decisions that still hold: host buffers are never `uintptr`;
 every commit builds the whole repository; separately versioned
 libraries refresh in their own commits; the compatibility policy moves
 into the `nvidia` package doc, and this file stays a working note.
 
+The review of the first candidate (2026-10-05) found API-shape
+problems. v0.1.0 fixes only correctness: nvdec folds the decoder status
+into `error`, since today a failed decode can return a nil error. The
+rest is planned for `v0.2.0`:
+
+- Generated enum types get Go names, not C typedef spellings
+  (`CublasoperationT`); a package that reuses another package's enum
+  aliases it (`type Operation = cublas.Operation`).
+- Device memory is `driver.DevicePtr` in every package, and host
+  memory is never `uintptr`.
+- Getters return their value: `cublaslt.GetProperty` returns
+  `(int32, error)`.
+- A type with one handle-only release function gets `Close() error`
+  and no `Destroy`, including when the C function takes a pointer to
+  the handle, and the `Deprecated: use Close` shims go.
+- The package-level library teardown becomes `UnloadLibrary()`.
+- Methods drop `Get` consistently: `driver.Array.Descriptor3D()`.
+- Initialisms keep their C casing (`FieldId`, `GpuId`). A rename
+  touches about 1,210 names and every caller; it is revisited for
+  `v0.2.0`.
+
 ## What to do first
 
-1. Land the naming rule, `Has` predicates for every version and
-   `frozennames.txt` for every package (Task 7), and the deprecation-doc
-   rule.
-2. Fix transitive header capture in `internal/nvidiaprovenance`.
+1. Bring the candidate up to date with main. Fix the plain names that
+   bind `_v2` where the floor declares v1 (`nvml` memory info, fan
+   speed, retired pages, power limit and CUDA driver version; `driver`
+   `MemAdvise`, `MemPrefetchAsync` and `DeviceGetUuid`) and nvdec's
+   status, in the generators.
+2. Meet gates 1, 3, 6 and 7: transitive header capture, `Note:` on
+   announced deprecations, the x/ exemption in every importable x/
+   package, and `api.gen.txt` with `CUDA-API.md`.
 3. Regenerate every package with its recorded recipe, restamp, and run
-   the reproduce gate.
-4. Run the hardware gates on the signed candidate.
-5. Tag `nvidia/v0.1.0` and publish in the order under "Publishing"
-   (tmc/ffi before lib).
-6. `cmd/nvidia-changelog` and the header constants, when time allows.
+   the reproduce gate and the hardware gates on the signed candidate.
+4. Tag `nvidia/v0.1.0` and publish in the order under "Publishing"
+   (tmc/ffi before lib), on tmc's go.
