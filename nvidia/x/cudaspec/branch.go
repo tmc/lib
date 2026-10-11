@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 )
 
@@ -203,7 +204,10 @@ func (bt *BranchTree) GetBranch(id BranchID) (*Branch, error) {
 	return b, nil
 }
 
-// KVBlockReleaser abstracts KV block release and retain methods from cudakv.PagedCache or cudakv.BlockAllocator.
+// KVBlockReleaser releases branch-owned private blocks. PagedCache and
+// BlockAllocator in cudakv implement this interface. Release must wait for
+// any outstanding GPU use before freeing blocks. On error it must leave
+// ownership unchanged so the branch operation can be retried.
 type KVBlockReleaser interface {
 	Release(blocks []int) error
 }
@@ -235,58 +239,79 @@ func (bt *BranchTree) CommitBranch(acceptedID BranchID, expectedTokens []int32, 
 		}
 	}
 
-	b.State = ProposalCommitted
-	bt.activeBranch = acceptedID
-
-	// Roll back competing sibling branches under the same parent
-	for id, other := range bt.branches {
-		if id != acceptedID && other.ParentBranch == b.ParentBranch && other.State == ProposalProposed {
-			other.State = ProposalRolledBack
-			if releaser != nil && len(other.KVBlocks) > 0 {
-				if err := releaser.Release(other.KVBlocks); err != nil {
-					return fmt.Errorf("cudaspec: release rejected branch %d KV: %w", id, err)
-				}
-				other.KVBlocks = nil
+	// Release rejected subtrees before publishing acceptance. Already released
+	// branches remain rolled back if a later release fails; retries skip them.
+	for _, id := range bt.childrenLocked(b.ParentBranch) {
+		if id != acceptedID && bt.branches[id].State == ProposalProposed {
+			if err := bt.rollbackLocked(id, releaser); err != nil {
+				return err
 			}
 		}
 	}
-
+	b.State = ProposalCommitted
+	bt.activeBranch = acceptedID
 	return nil
 }
 
-// RollbackBranch rolls back a branch and releases its private KV blocks.
+// RollbackBranch rolls back a branch and its proposed descendants, releasing
+// descendant private blocks before ancestor blocks. Release errors preserve
+// the failing branch's state and blocks for retry; completed releases are not
+// repeated. A committed descendant prevents rollback of its ancestor.
 func (bt *BranchTree) RollbackBranch(id BranchID, releaser KVBlockReleaser) error {
 	bt.mu.Lock()
 	defer bt.mu.Unlock()
-
-	b, ok := bt.branches[id]
-	if !ok {
+	if _, ok := bt.branches[id]; !ok {
 		return fmt.Errorf("%w: %d", ErrBranchNotFound, id)
 	}
-	if b.State == ProposalRolledBack {
-		return nil // idempotent
-	}
+	return bt.rollbackLocked(id, releaser)
+}
 
-	b.State = ProposalRolledBack
+func (bt *BranchTree) rollbackLocked(id BranchID, releaser KVBlockReleaser) error {
+	b := bt.branches[id]
+	if b.State == ProposalRolledBack {
+		return nil
+	}
+	children := bt.childrenLocked(id)
+	// Refuse before releasing any subtree when a committed descendant still
+	// relies on this branch's private blocks as its shared prefix.
+	if bt.hasCommittedDescendantLocked(id) {
+		return fmt.Errorf("%w: branch %d has a committed descendant", ErrBranchNotActive, id)
+	}
+	for _, child := range children {
+		if bt.branches[child].State == ProposalProposed {
+			if err := bt.rollbackLocked(child, releaser); err != nil {
+				return err
+			}
+		}
+	}
 	if releaser != nil && len(b.KVBlocks) > 0 {
 		if err := releaser.Release(b.KVBlocks); err != nil {
 			return fmt.Errorf("cudaspec: rollback release branch %d KV: %w", id, err)
 		}
 		b.KVBlocks = nil
 	}
+	b.State = ProposalRolledBack
+	return nil
+}
 
-	// Also recursively roll back any child branches
-	for _, other := range bt.branches {
-		if other.ParentBranch == id && other.State == ProposalProposed {
-			other.State = ProposalRolledBack
-			if releaser != nil && len(other.KVBlocks) > 0 {
-				_ = releaser.Release(other.KVBlocks)
-				other.KVBlocks = nil
-			}
+func (bt *BranchTree) childrenLocked(parent BranchID) []BranchID {
+	var ids []BranchID
+	for id, b := range bt.branches {
+		if b.ParentBranch == parent {
+			ids = append(ids, id)
 		}
 	}
+	slices.Sort(ids)
+	return ids
+}
 
-	return nil
+func (bt *BranchTree) hasCommittedDescendantLocked(id BranchID) bool {
+	for _, child := range bt.childrenLocked(id) {
+		if bt.branches[child].State == ProposalCommitted || bt.hasCommittedDescendantLocked(child) {
+			return true
+		}
+	}
+	return false
 }
 
 // DenseReferenceMask computes the dense reference mask for prefix/tree/glue operations.
