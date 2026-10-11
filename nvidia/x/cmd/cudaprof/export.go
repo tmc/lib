@@ -21,6 +21,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaprof/overview"
 	languagestack "github.com/tmc/lib/nvidia/x/cudaprof/stack"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
@@ -46,6 +47,7 @@ type exportOptions struct {
 	demangle             bool
 	summary              bool
 	telemetry            bool
+	findings             bool
 	submissionLinks      bool
 	graphLifecycle       bool
 	memory               bool
@@ -127,11 +129,22 @@ func runExportCommand(args []string) error {
 		report := detailOverview(overview.Analyze(decoded, opts.summaryDomain, opts.summaryMarker), opts.detail)
 		summary = &report
 	}
-	if err := requireProjectionTracks(projectionTrackBound(records, summary, &decoded, len(telemetry), opts.submissionLinks, opts.graphLifecycle, opts.memory, false), opts.maxTracks); err != nil {
+	trackBound := projectionTrackBound(records, summary, &decoded, len(telemetry), opts.submissionLinks, opts.graphLifecycle, opts.memory, false)
+	if opts.findings {
+		trackBound++
+	}
+	if err := requireProjectionTracks(trackBound, opts.maxTracks); err != nil {
 		return err
 	}
 	if err := requireSummaryReferences(summaryReferenceBound(summary), opts.maxSummaryReferences); err != nil {
 		return err
+	}
+	var findings []tracecontract.Finding
+	if opts.findings {
+		findings, err = exportRecordFindings(journals, traceExportIdentity{sha256: sha, path: path}, captureExportStatus(cap), maxRecords, journalBytes)
+		if err != nil {
+			return err
+		}
 	}
 	var n int
 	err = atomicExport(opts.outPath, []string{path}, opts.outputBytes, func(f io.Writer) error {
@@ -166,6 +179,9 @@ func runExportCommand(args []string) error {
 			if err == nil {
 				err = writeIsolationTrace(f, captureIsolation(cap), identity, 7<<48, 0)
 			}
+		}
+		if err == nil && opts.findings {
+			err = writeRecordFindings(f, findings, identity, 8<<48)
 		}
 		return err
 	})
@@ -263,6 +279,8 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 			opts.graphLifecycle = true
 		case arg == "-memory":
 			opts.memory = true
+		case arg == "-findings" || arg == "--findings":
+			opts.findings = true
 		case arg == "-telemetry" || arg == "--telemetry":
 			opts.telemetry = true
 		case arg == "-summary" || arg == "--summary":
@@ -346,6 +364,7 @@ Options:
   -memory           append observed memory service and policy evidence
   -submission-links  append exact API/activity identity flows (not dependencies)
   -graph-lifecycle   append observed lifecycle events and coverage
+  -findings         append admitted and withheld raw-record count findings
   -telemetry        append bounded NVML query intervals, without interpolation
   -summary          append observed hierarchy and token overview tracks
   -summary-domain driver|runtime  API domain for explicit context (default driver)

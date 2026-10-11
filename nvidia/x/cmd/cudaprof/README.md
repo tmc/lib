@@ -575,3 +575,15 @@ These facilities preserve missing observations and separate collector
 completeness, workload invariants, stationarity, and shape qualification.
 Counter collection and managed-memory observation need separate controlled
 experiments; no causal interpretation follows from matched timing alone.
+
+Append raw-record diagnostic findings to an export:
+
+```sh
+cudaprof export -findings -o capture.pftrace capture.pprof
+```
+
+Findings distinguish kernel records retained in the artifact from a complete
+collector capture population. Missing or contradictory counts and unknown
+loss withhold the second finding. These counts do not establish total workload
+launches, clock synchronization, or a causal diagnosis. Without `-findings`,
+export retains its raw trace behavior.
