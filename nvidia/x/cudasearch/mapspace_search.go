@@ -3,6 +3,7 @@ package cudasearch
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/tmc/lib/nvidia/x/cudalayout"
 	"github.com/tmc/lib/nvidia/x/cudaroofline"
@@ -88,7 +89,9 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 	return result, nil
 }
 
-// Search runs pruned search over the mapspace.
+// Search runs pruned search over the mapspace. Orders must include each
+// non-unit factor at the specified level; unit-factor loops may be omitted.
+// Scoring uses order-independent data movement floors, not schedule latency.
 func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, error) {
 	stats := MapSpaceSearchStats{}
 	downstreamPerFact := len(s.Permutations) * len(s.Bypasses)
@@ -129,7 +132,10 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 		sharedTile := fact.TileShape(cudalayout.LevelShared)
 
 		for _, perm := range s.Permutations {
-			_ = perm // Permutation determines nest ordering for schedule generation
+			if !validMapSpacePermutation(fact, perm, s.Problem) {
+				stats.DownstreamSkipped += len(s.Bypasses)
+				continue
+			}
 			for _, bypass := range s.Bypasses {
 				if err := ctx.Err(); err != nil {
 					return stats, err
@@ -160,4 +166,28 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 	}
 
 	return stats, nil
+}
+
+func validMapSpacePermutation(fact cudalayout.IndexFactorization, perm cudalayout.LoopPermutation, problem map[string]int) bool {
+	for level, order := range perm.Orders {
+		if level < cudalayout.LevelRegister || level > cudalayout.LevelDRAM || !slices.Contains(fact.Levels, level) {
+			return false
+		}
+		var dimensions []string
+		for dimension, factor := range fact.Factors[level] {
+			if factor > 1 {
+				dimensions = append(dimensions, dimension)
+			}
+		}
+		for _, dimension := range order {
+			if _, ok := problem[dimension]; ok && !slices.Contains(dimensions, dimension) {
+				dimensions = append(dimensions, dimension)
+			}
+		}
+		one := cudalayout.LoopPermutation{Orders: map[cudalayout.StorageLevel][]string{level: order}}
+		if err := one.Validate(dimensions); err != nil {
+			return false
+		}
+	}
+	return true
 }
