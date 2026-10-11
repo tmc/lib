@@ -24,6 +24,8 @@ static void resolve_symbol(void) {
 int cuLaunchKernel(void* f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
                    unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
                    unsigned int sharedMemBytes, void* hStream, void** kernelParams, void** extra) {
+    /* pthread_once cannot be reentered while this thread resolves the symbol. */
+    if (resolving) return 3; /* CUDA_ERROR_NOT_INITIALIZED: fail closed. */
     pthread_once(&resolve_once, resolve_symbol);
     if (!real_cuLaunchKernel) return 3; /* CUDA_ERROR_NOT_INITIALIZED: fail closed. */
     return real_cuLaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams, extra);
