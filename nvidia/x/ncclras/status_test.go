@@ -19,6 +19,40 @@ func statusFixture(t testing.TB) []byte {
 	return b
 }
 
+// TestStatus2323 reads a constructed 2.32.3 response rendered from the pinned
+// emitter source (testdata/README.md). It is not a captured observation.
+func TestStatus2323(t *testing.T) {
+	b, err := os.ReadFile("testdata/status-2.32.3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := Read(bytes.NewReader(b), Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Version != "2.32.3" || s.CommunicatorsCount != 2 || len(s.Communicators) != 2 || !bytes.Equal(s.Raw, b) {
+		t.Fatalf("constructed 2.32.3 population: %+v", s)
+	}
+	full, partial := s.Communicators[0], s.Communicators[1]
+	if full.Size != 2 || len(full.Ranks) != 2 || len(full.MissingRanks) != 0 || full.Ranks[1].Counts["AllReduce"] != 4 {
+		t.Fatalf("complete communicator: %+v", full)
+	}
+	if partial.Size != 2 || len(partial.Ranks) != 1 || len(partial.MissingRanks) != 1 || !partial.MissingRanks[0].Status.Unresponsive || partial.Ranks[0].Counts["AllGather"] != 2 {
+		t.Fatalf("partial communicator: %+v", partial)
+	}
+	if s.Collection.Seconds != 0.012 || s.Collection.Timeouts != 0 {
+		t.Fatalf("collection: %+v", s.Collection)
+	}
+	// Only the exact pinned release is admitted.
+	for _, v := range []string{"2.32.2", "2.32.4", "2.32.3-1"} {
+		c := bytes.Replace(b, []byte(`"2.32.3"`), []byte(`"`+v+`"`), 1)
+		var u *UnsupportedError
+		if _, err := Read(bytes.NewReader(c), Limits{}); !errors.As(err, &u) || u.Version != v {
+			t.Fatalf("version %s: %v", v, err)
+		}
+	}
+}
+
 func TestOfficialStatus(t *testing.T) {
 	b := statusFixture(t)
 	s, err := Read(bytes.NewReader(b), Limits{})

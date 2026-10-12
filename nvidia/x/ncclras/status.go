@@ -145,6 +145,7 @@ func Read(r io.Reader, limits Limits) (*Status, error) {
 	if err := json.Unmarshal(b, &s); err != nil {
 		return nil, fmt.Errorf("ras status: %w", err)
 	}
+	// 2.32.3 is admitted from its emitter source (testdata/README.md).
 	if s.Version != "2.29.1" && s.Version != "2.32.3" {
 		return nil, &UnsupportedError{Format: "json", Version: s.Version}
 	}

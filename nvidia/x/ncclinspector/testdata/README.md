@@ -25,8 +25,31 @@ At the pinned NCCL revision above, `NCCL_COMM_HASH_LENGTH` is 17. A complete
 The producer can truncate the last byte; the native RAS/Inspector test rejects
 that identity mismatch.
 
-`inspector-full-comm-hash.patch` changes the producer buffer to 19 bytes. Apply
-it only to the pinned source before building Inspector. Keep the patch and
-resulting plugin SHA256 with qualification receipts; the embedded Git revision
-alone does not identify a patched plugin. The reader and diagnostic identity
-checks are unchanged.
+`inspector-full-comm-hash.patch` is byte-identical to the independently
+reviewed producer repair. It changes the buffer to 19 bytes, formats the hash
+with `PRIx64`, returns `inspectorBadHash` when `snprintf` fails or would
+truncate, and propagates that result from `inspectorFillCommInfo` with
+`INS_CHK`. Apply it only to the pinned source before building Inspector.
+Keep the patch and resulting plugin SHA256 with qualification receipts; the
+embedded Git revision alone does not identify a patched plugin. The reader and
+diagnostic identity checks are unchanged. `TestProducerPatchPin` checks the
+patch against the line below.
+
+Patch SHA256: `c825c908d737876e370fbdbc0edef6ee6270370388ec34b6dc0aa3016233563e`
+
+Review of the patch accepted source and CPU behavior only (a formatter
+extracted from the patched and unpatched sources; no plugin build):
+`~/tmp/lib-wt-next/20261010-full-testing-readiness/independent-nccl-producer-review/GRADE.md`
+(SHA256 `d29e8164965d9c08f7c9fb3dfd91f6ccbbf2e6eb9587085515aa72705e9b23b7`).
+
+One plugin has been built from this patch and pinned commit, on a Linux
+aarch64 host (GB10), with CUDA 13.4 and `make -j2` in
+`plugins/profiler/inspector`. It is 232232 bytes with SHA256
+`e41cb2f3749b0d60b0fd39ec94bcf03fbc7893492de5403b62748794bea4ac3a`: an AArch64
+ELF shared object exporting `ncclProfiler_v5`, needing `libcudart.so.13` and
+`GLIBC_2.38`. Review accepted that compile and link only:
+`~/tmp/lib-wt-next/20261010-full-testing-readiness/independent-nccl-target-build/GRADE.md`
+(SHA256 `1e5dd5659cc149077077d638e82a55f2ba8df6b78b8fcc1da3526695da0aa30f`).
+Plugin loading, dependency resolution and native RAS/Inspector identity parity
+have not been observed. No x86_64 plugin has been built or reviewed; an x86_64
+host needs its own build, pins and review.

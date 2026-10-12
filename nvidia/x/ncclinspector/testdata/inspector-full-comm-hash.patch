@@ -1,11 +1,45 @@
+diff --git a/plugins/profiler/inspector/inspector.cc b/plugins/profiler/inspector/inspector.cc
+index 78778ef..04fdb67 100644
+--- a/plugins/profiler/inspector/inspector.cc
++++ b/plugins/profiler/inspector/inspector.cc
+@@ -15,6 +15,7 @@
+ #include "inspector_event_pool.h"
+ 
+ #include <assert.h>
++#include <inttypes.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <strings.h>
+@@ -1200,8 +1201,8 @@ const char* inspectorErrorString(inspectorResult_t result) {
+  */
+ inspectorResult_t inspectorCommGetHashStr(uint64_t commHash,
+                                           char hashStr[NCCL_COMM_HASH_LENGTH]) {
+-  snprintf(hashStr, NCCL_COMM_HASH_LENGTH, "0x%lx",
+-           commHash);
++  int length = snprintf(hashStr, NCCL_COMM_HASH_LENGTH, "0x%" PRIx64, commHash);
++  if (length < 0 || length >= NCCL_COMM_HASH_LENGTH) return inspectorBadHash;
+   return inspectorSuccess;
+ }
+ 
+@@ -1265,7 +1266,7 @@ static inspectorResult_t inspectorFillCommInfo(struct inspectorCommInfo* commInf
+   }
+   commInfo->commName = commInfo->commNameStr;
+   commInfo->commHash = commHash;
+-  inspectorCommGetHashStr(commHash, commInfo->commHashStr);
++  INS_CHK(inspectorCommGetHashStr(commHash, commInfo->commHashStr));
+   commInfo->rank = rank;
+   commInfo->nranks = nranks;
+   commInfo->nnodes = nnodes;
+diff --git a/plugins/profiler/inspector/inspector.h b/plugins/profiler/inspector/inspector.h
+index cef54a6..3cbc8c1 100644
 --- a/plugins/profiler/inspector/inspector.h
 +++ b/plugins/profiler/inspector/inspector.h
-@@ -160,7 +160,7 @@
+@@ -160,7 +160,7 @@ struct inspectorCompletedOpInfo {
  #include "inspector_ring.h"
  
  enum {
 -  NCCL_COMM_HASH_LENGTH = 17,
-+  NCCL_COMM_HASH_LENGTH = 19,
++  NCCL_COMM_HASH_LENGTH = 19, // 0x, 16 hex digits, and the terminating NUL
    NCCL_COMM_NAME_MAX = 256
  };
  

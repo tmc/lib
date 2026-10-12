@@ -245,7 +245,8 @@ func Join(captures []Capture, opts Options) (*Result, error) {
 				return nil, errors.New("nccljoin: conflicting collective identity")
 			}
 			rk := rankKey{k, r.Header.Rank}
-			if old, ok := first[rk]; ok && (old.Collective != c || old.Metadata.Hostname != r.Metadata.Hostname || old.Metadata.PID != r.Metadata.PID || old.Metadata.Version != r.Metadata.Version || old.Metadata.GitRevision != r.Metadata.GitRevision || old.Metadata.Mechanism != r.Metadata.Mechanism) {
+			// Collective holds event-trace pointers, so compare content, not identity.
+			if old, ok := first[rk]; ok && (!reflect.DeepEqual(old.Collective, c) || old.Metadata.Hostname != r.Metadata.Hostname || old.Metadata.PID != r.Metadata.PID || old.Metadata.Version != r.Metadata.Version || old.Metadata.GitRevision != r.Metadata.GitRevision || old.Metadata.Mechanism != r.Metadata.Mechanism) {
 				return nil, errors.New("nccljoin: conflicting duplicate observation")
 			}
 			first[rk] = Observation{capture.ID, clean.Header, clean.Metadata, c, nil}
