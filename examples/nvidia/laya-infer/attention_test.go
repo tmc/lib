@@ -102,7 +102,7 @@ func attnRun(t *testing.T, dev *cuda.Device, k *kernels, c attnCase, q, kk, v []
 		if err != nil {
 			return err
 		}
-		defer stream.Destroy()
+		defer stream.Close()
 
 		var free []func() error
 		defer func() {
@@ -153,7 +153,7 @@ func attnRun(t *testing.T, dev *cuda.Device, k *kernels, c attnCase, q, kk, v []
 		}
 		if err := cudalaunch.Kernel(fn).
 			Grid(uint32((c.T+flashTile-1)/flashTile), uint32(c.nh), uint32(c.B)).
-			Block(128).On(stream).
+			Block(128, 1, 1).On(stream).
 			Launch(dq, dk, dv, dl, do,
 				int32(c.B), int32(c.T), int32(c.nh), int32(c.win),
 				float32(1/math.Sqrt(float64(hd)))); err != nil {

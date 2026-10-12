@@ -35,10 +35,8 @@ const (
 // through attention a few sequences at a time.
 const scoreBudget = 64 << 20
 
-// blasScalars holds the alpha and beta values for the batched attention GEMMs.
-// cublasGemmStridedBatchedEx takes them as untyped host pointers rather than
-// *float32, so they live in one heap allocation whose address stays valid for
-// the life of the model instead of on a stack that may move.
+// blasScalars holds the coefficient values for the attention GEMMs.
+// Float32Scalar copies each host value into the call's scalar argument.
 type blasScalars struct{ scale, one, zero float32 }
 
 // precision selects how the matrix products are computed. It is the only
@@ -128,7 +126,7 @@ func openModel(dir string, prec precision, compile func(*cuda.Device) (*kernels,
 		if m.blas, err = cublas.Create(); err != nil {
 			return err
 		}
-		if err := m.blas.SetStream(cublas.Stream(m.stream.Raw())); err != nil {
+		if err := m.blas.SetStream(m.stream.Raw()); err != nil {
 			return err
 		}
 		// Weight loading is not what anyone profiles. Opening the range here
@@ -151,11 +149,13 @@ func (m *model) Close() error {
 		if err := driver.ProfilerStop(); err != nil {
 			return err
 		}
-		m.blas.Destroy()
+		if err := m.blas.Close(); err != nil {
+			return err
+		}
 		if err := m.scratch.Free(); err != nil {
 			return err
 		}
-		if err := m.stream.Destroy(); err != nil {
+		if err := m.stream.Close(); err != nil {
 			return err
 		}
 		return m.k.Close()
@@ -361,19 +361,19 @@ func (m *model) gemmAcc(c, a, w tensor, M, N, K int) error {
 	return m.gemmBeta(c, a, w, M, N, K, &m.scalar.one)
 }
 
-// gemmBeta is gemm with a caller-chosen beta. cuBLAS takes alpha and beta by
-// address, so they come from m.scalar, whose lifetime matches the model.
+// gemmBeta is gemm with a caller-chosen beta. Alpha and beta are copied into
+// host scalar arguments before the call.
 //
 // This is GemmEx rather than SgemmEx so that the operand precision arrives the
 // same way it does for the batched attention products, as the compute type in
 // computeType, rather than as a math mode set once on the handle.
 func (m *model) gemmBeta(c, a, w tensor, M, N, K int, beta *float32) error {
 	return m.blas.GemmEx(cublas.OpT, cublas.OpN, int32(N), int32(M), int32(K),
-		uintptr(unsafe.Pointer(&m.scalar.one)),
-		uintptr(w.Ptr()), w.dtype(), int32(K),
-		uintptr(a.Ptr()), a.dtype(), int32(K),
-		uintptr(unsafe.Pointer(beta)),
-		uintptr(c.Ptr()), c.dtype(), int32(N),
+		cublas.Float32Scalar(m.scalar.one),
+		w.Ptr(), w.dtype(), int32(K),
+		a.Ptr(), a.dtype(), int32(K),
+		cublas.Float32Scalar(*beta),
+		c.Ptr(), c.dtype(), int32(N),
 		m.computeType(), cublas.GemmDefault)
 }
 
@@ -385,11 +385,11 @@ func (m *model) attnScores(sc, q, k cudamem.Slice[float32], nbh, T, hd int) erro
 	m.scalar.scale = float32(1 / math.Sqrt(float64(hd)))
 	return m.blas.GemmStridedBatchedEx(cublas.OpT, cublas.OpN,
 		int32(T), int32(T), int32(hd),
-		uintptr(unsafe.Pointer(&m.scalar.scale)),
-		uintptr(k.Ptr()), cublas.R32F, int32(hd), int64(T*hd),
-		uintptr(q.Ptr()), cublas.R32F, int32(hd), int64(T*hd),
-		uintptr(unsafe.Pointer(&m.scalar.zero)),
-		uintptr(sc.Ptr()), cublas.R32F, int32(T), int64(T*T),
+		cublas.Float32Scalar(m.scalar.scale),
+		k.Ptr(), cublas.R32F, int32(hd), int64(T*hd),
+		q.Ptr(), cublas.R32F, int32(hd), int64(T*hd),
+		cublas.Float32Scalar(m.scalar.zero),
+		sc.Ptr(), cublas.R32F, int32(T), int64(T*T),
 		int32(nbh), m.computeType(), cublas.GemmDefault)
 }
 
@@ -400,11 +400,11 @@ func (m *model) attnScores(sc, q, k cudamem.Slice[float32], nbh, T, hd int) erro
 func (m *model) attnContext(out, v, sc cudamem.Slice[float32], heads, T, hd, d int) error {
 	return m.blas.GemmStridedBatchedEx(cublas.OpN, cublas.OpN,
 		int32(hd), int32(T), int32(T),
-		uintptr(unsafe.Pointer(&m.scalar.one)),
-		uintptr(v.Ptr()), cublas.R32F, int32(hd), int64(T*hd),
-		uintptr(sc.Ptr()), cublas.R32F, int32(T), int64(T*T),
-		uintptr(unsafe.Pointer(&m.scalar.zero)),
-		uintptr(out.Ptr()), cublas.R32F, int32(d), int64(hd),
+		cublas.Float32Scalar(m.scalar.one),
+		v.Ptr(), cublas.R32F, int32(hd), int64(T*hd),
+		sc.Ptr(), cublas.R32F, int32(T), int64(T*T),
+		cublas.Float32Scalar(m.scalar.zero),
+		out.Ptr(), cublas.R32F, int32(d), int64(hd),
 		int32(heads), m.computeType(), cublas.GemmDefault)
 }
 
@@ -508,7 +508,7 @@ func (m *model) launch(p *pass, region func(string, func() error) error) error {
 		return region(name, run)
 	}
 	run := func(fn driver.Function, gx, gy, gz, bx uint32, args ...any) error {
-		return cudalaunch.Kernel(fn).Grid(gx, gy, gz).Block(bx).On(m.stream).Launch(args...)
+		return cudalaunch.Kernel(fn).Grid(gx, gy, gz).Block(bx, 1, 1).On(m.stream).Launch(args...)
 	}
 	norm := func(dst tensor, src, w, bias cudamem.Slice[float32], n int, eps float32) error {
 		fn := m.k.layerNorm

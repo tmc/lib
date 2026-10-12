@@ -137,7 +137,7 @@ func loadKernels(mod *nvrtcx.CompiledModule, dev *cuda.Device) (*kernels, error)
 // Close unloads the compiled module.
 func (k *kernels) Close() error {
 	if k.mod != 0 {
-		return k.mod.Unload()
+		return k.mod.Close()
 	}
 	return nil
 }

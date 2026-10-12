@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
-	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalineinfo"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
@@ -83,7 +84,7 @@ func predictLines(dir, input string, prec precision, period uint32, pprof string
 		return err
 	}
 	var res []byte
-	report, err := samplePCs(cupti.Context(cuCtx.Raw()), period, cuCtx.Synchronize, func() error {
+	report, err := samplePCs(cuCtx.Raw(), period, cuCtx.Synchronize, func() error {
 		res, err = m.Predict(req)
 		return err
 	})
@@ -108,8 +109,9 @@ func predictLines(dir, input string, prec precision, period uint32, pprof string
 		// Remaining is a count of PC records, not samples, summed over the
 		// reads that reported it, so the same records may be counted twice.
 		// A limited drain leaves records it cannot count.
-		fmt.Fprintf(os.Stderr, "  lost: %d samples dropped, %d PC records reported remaining (summed over reads), drain limited %t; raise the period above 2^%d\n",
-			report.DroppedSamples, report.RemainingPCs, report.DrainLimited, period)
+		if err := writeSampleLoss(os.Stderr, report, period); err != nil {
+			return err
+		}
 	}
 	if pprof != "" {
 		if err := writePprof(pprof, a, report); err != nil {
@@ -151,7 +153,7 @@ type sampleReport struct {
 // drains on a timer while the workload runs and once more after sync; what
 // the drain did not keep up with comes back in the report rather than
 // silently shortening the profile.
-func samplePCs(cuCtx cupti.Context, period uint32, sync func() error, workload func() error) (sampleReport, error) {
+func samplePCs(cuCtx driver.Context, period uint32, sync func() error, workload func() error) (sampleReport, error) {
 	var r sampleReport
 	inv, err := stallReasons(cuCtx)
 	if err != nil {
@@ -181,7 +183,7 @@ func samplePCs(cuCtx cupti.Context, period uint32, sync func() error, workload f
 
 // stallReasons reads the native reason inventory, which is only readable
 // while sampling is enabled on the context.
-func stallReasons(cuCtx cupti.Context) (inv cuptipcsampling.ReasonInventory, err error) {
+func stallReasons(cuCtx driver.Context) (inv cuptipcsampling.ReasonInventory, err error) {
 	disable, err := cuptipcsampling.Enable(cuCtx)
 	if disable != nil {
 		defer func() { err = errors.Join(err, disable()) }()
@@ -220,4 +222,10 @@ func samplingConfig(reasons int, period uint32) cuptipcsampling.Config {
 		MaxNameBytes:      256,
 		MaxTotalNameBytes: 1 << 16 * 256,
 	}
+}
+
+func writeSampleLoss(w io.Writer, report sampleReport, period uint32) error {
+	_, err := fmt.Fprintf(w, "  lost: %d samples dropped, %d PC records reported remaining (summed over reads), drain limited %t; raise the period above 2^%d\n",
+		report.DroppedSamples, report.RemainingPCs, report.DrainLimited, period)
+	return err
 }
