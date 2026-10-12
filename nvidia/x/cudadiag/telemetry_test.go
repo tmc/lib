@@ -214,6 +214,233 @@ func TestTelemetryV4ObserverCoverageSemanticAdmission(t *testing.T) {
 	}
 }
 
+func TestTelemetryV4CoverageAtPublicDiagnosisBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		coverage func(nvtelemetry.Reading) *nvtelemetry.SamplingCoverage
+		check    func(*testing.T, *nvtelemetry.SamplingCoverage, nvtelemetry.Reading)
+	}{
+		{
+			name: "measured-zero-time",
+			coverage: func(reading nvtelemetry.Reading) *nvtelemetry.SamplingCoverage {
+				span := uint64(reading.Observation.Interval.End - reading.Observation.Interval.Start)
+				zero := uint64(0)
+				return &nvtelemetry.SamplingCoverage{
+					Status: "measured", Basis: "time", Scope: "activity-union/eligible-window-v1",
+					Numerator: &nvtelemetry.Number{Uint: &zero}, Denominator: &nvtelemetry.Number{Uint: &span}, Unit: "ns",
+				}
+			},
+			check: func(t *testing.T, got *nvtelemetry.SamplingCoverage, reading nvtelemetry.Reading) {
+				t.Helper()
+				span := uint64(reading.Observation.Interval.End - reading.Observation.Interval.Start)
+				if got.Status != "measured" || got.Numerator == nil || got.Numerator.Uint == nil || *got.Numerator.Uint != 0 || got.Denominator == nil || got.Denominator.Uint == nil || *got.Denominator.Uint != span || got.Unit != "ns" {
+					t.Fatalf("measured-zero coverage changed: %+v", got)
+				}
+			},
+		},
+		{
+			name: "explicit-unknown",
+			coverage: func(nvtelemetry.Reading) *nvtelemetry.SamplingCoverage {
+				return &nvtelemetry.SamplingCoverage{Status: "unknown", Basis: "time", Scope: "activity-union/eligible-window-v1"}
+			},
+			check: func(t *testing.T, got *nvtelemetry.SamplingCoverage, _ nvtelemetry.Reading) {
+				t.Helper()
+				if got.Status != "unknown" || got.Numerator != nil || got.Denominator != nil || got.Unit != "" {
+					t.Fatalf("explicit unknown coverage acquired a ratio: %+v", got)
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			readings, opt := mixedProtocol()
+			coverage := tc.coverage(readings[0])
+			setProtocolSamplingCoverage(readings, &opt, coverage)
+			// A single retained host record keeps the observer interval and exact
+			// time denominator aligned. The diagnosis remains withheld because this
+			// input does not establish the complete host/device correlation.
+			raw := collectMixedVersion(t, readings[:1], opt, nvtelemetry.SchemaVersionV4)
+			manifest, _, samples, err := nvtelemetry.ReadStreamStrict(bytes.NewReader(raw), 0)
+			if err != nil {
+				t.Fatalf("strict V4 reader: %v", err)
+			}
+			if manifest.SchemaVersion != nvtelemetry.SchemaVersionV4 || len(samples) != 1 || len(samples[0].Readings) != 1 {
+				t.Fatalf("strict V4 stream shape: schema=%d samples=%d", manifest.SchemaVersion, len(samples))
+			}
+			strictReading := samples[0].Readings[0]
+			strictCoverage := strictReading.Observation.Observer.SamplingCoverage
+			tc.check(t, strictCoverage, strictReading)
+
+			got, err := cudadiag.DiagnoseTelemetry(context.Background(), bytes.NewReader(raw), opt)
+			if err != nil {
+				t.Fatalf("public diagnosis: %v", err)
+			}
+			if len(got.Observations) != 1 || got.Observations[0].Finding.Admission.Status != "admitted" {
+				t.Fatalf("valid retained reading was not individually admitted: %+v", got.Observations)
+			}
+			if !reflect.DeepEqual(got.Observations[0].Reading.Observation.Observer.SamplingCoverage, strictCoverage) {
+				t.Fatal("diagnosis did not retain strict-reader sampling coverage")
+			}
+			if got.Diagnosis.Admitted || got.Diagnosis.Mechanism != cudadiag.MechanismWithheld {
+				t.Fatalf("one retained reading established a whole diagnosis: %+v", got.Diagnosis)
+			}
+		})
+	}
+}
+
+func TestTelemetryV4ExactReadingAndCoverageOperandsAtPublicDiagnosisBoundary(t *testing.T) {
+	readings, opt := mixedProtocol()
+	large := uint64(1<<53) + 12345
+	denominator := large + 987
+	coverage := &nvtelemetry.SamplingCoverage{
+		Status: "measured", Basis: "event", Scope: "eligible-activity-events-v1", Unit: "events",
+		Numerator: &nvtelemetry.Number{Uint: &large}, Denominator: &nvtelemetry.Number{Uint: &denominator},
+	}
+	setProtocolSamplingCoverage(readings, &opt, coverage)
+	readings[0].Number = &nvtelemetry.Number{Uint: &large}
+	raw := collectMixedVersion(t, readings[:1], opt, nvtelemetry.SchemaVersionV4)
+	_, _, samples, err := nvtelemetry.ReadStreamStrict(bytes.NewReader(raw), 0)
+	if err != nil {
+		t.Fatalf("strict V4 reader: %v", err)
+	}
+	strictReading := samples[0].Readings[0]
+	strictCoverage := strictReading.Observation.Observer.SamplingCoverage
+	if strictReading.Number.Uint == nil || *strictReading.Number.Uint != large || strictReading.Number.Float != nil {
+		t.Fatalf("strict reader rounded the exact point value: %+v", strictReading.Number)
+	}
+	if strictCoverage.Numerator.Uint == nil || *strictCoverage.Numerator.Uint != large || strictCoverage.Denominator.Uint == nil || *strictCoverage.Denominator.Uint != denominator {
+		t.Fatalf("strict reader rounded exact coverage operands: %+v", strictCoverage)
+	}
+	got, err := cudadiag.DiagnoseTelemetry(context.Background(), bytes.NewReader(raw), opt)
+	if err != nil {
+		t.Fatalf("public diagnosis: %v", err)
+	}
+	if len(got.Observations) != 1 {
+		t.Fatalf("retained observations = %d, want 1", len(got.Observations))
+	}
+	retained := got.Observations[0]
+	if retained.Reading.Number.Uint == nil || *retained.Reading.Number.Uint != large || retained.Finding.Value != nil {
+		t.Fatalf("diagnosis lost exact integer or converted it to float: %+v", retained)
+	}
+	retainedCoverage := retained.Reading.Observation.Observer.SamplingCoverage
+	if retainedCoverage.Numerator.Uint == nil || *retainedCoverage.Numerator.Uint != large || retainedCoverage.Denominator.Uint == nil || *retainedCoverage.Denominator.Uint != denominator {
+		t.Fatalf("diagnosis lost exact coverage operands: %+v", retainedCoverage)
+	}
+	if retained.Finding.Admission.Status != "admitted" || got.Diagnosis.Admitted {
+		t.Fatalf("retained-value admission was conflated with whole-diagnosis admission: finding=%+v diagnosis=%+v", retained.Finding.Admission, got.Diagnosis)
+	}
+}
+
+func TestTelemetryV4RequiredActivityLossWithholdsDependentDiagnosis(t *testing.T) {
+	readings, opt := mixedProtocol()
+	setProtocolSamplingCoverage(readings, &opt, &nvtelemetry.SamplingCoverage{Status: "unknown", Basis: "time", Scope: "activity-union/eligible-window-v1"})
+	raw := collectMixedVersion(t, readings, opt, nvtelemetry.SchemaVersionV4)
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(map[string]tracecontract.Loss)
+		want   string
+	}{
+		{
+			name: "missing-activity-loss",
+			mutate: func(loss map[string]tracecontract.Loss) {
+				delete(loss, "activity")
+			},
+			want: "unassessed",
+		},
+		{
+			name: "unknown-activity-loss",
+			mutate: func(loss map[string]tracecontract.Loss) {
+				item := loss["activity"]
+				item.Unknown = true
+				loss["activity"] = item
+			},
+			want: "unassessed",
+		},
+		{
+			name: "dropped-activity-record",
+			mutate: func(loss map[string]tracecontract.Loss) {
+				item := loss["activity"]
+				item.Total++
+				item.Dropped++
+				loss["activity"] = item
+			},
+			want: "required family records lost",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mutated := rewriteV4CompletionLoss(t, raw, tc.mutate)
+			manifest, _, _, err := nvtelemetry.ReadStreamStrict(bytes.NewReader(mutated), 0)
+			if err != nil {
+				t.Fatalf("strict V4 reader: %v", err)
+			}
+			if _, ok := manifest.LostRecordsByFamily["activity"]; tc.name == "missing-activity-loss" && ok {
+				t.Fatal("activity loss mutation was not applied")
+			}
+			got, err := cudadiag.DiagnoseTelemetry(context.Background(), bytes.NewReader(mutated), opt)
+			if err != nil {
+				t.Fatalf("public diagnosis: %v", err)
+			}
+			if got.Diagnosis.Admitted || got.Diagnosis.Mechanism != cudadiag.MechanismWithheld {
+				t.Fatalf("required activity loss admitted diagnosis: %+v", got.Diagnosis)
+			}
+			if len(got.Observations) != len(readings) {
+				t.Fatalf("withheld records disappeared: got %d observations, want %d", len(got.Observations), len(readings))
+			}
+			var sawActivity bool
+			for _, observation := range got.Observations {
+				admission := observation.Finding.Admission
+				if observation.Reading.Observation.Family == "activity" {
+					sawActivity = true
+					if admission.Status != "withheld" || !strings.Contains(admission.Reason, tc.want) {
+						t.Fatalf("activity dependency not withheld with %q: %+v", tc.want, admission)
+					}
+					if observation.Reading.Observation.Observer.SamplingCoverage == nil {
+						t.Fatal("withheld activity record lost its sampling descriptor")
+					}
+				} else if admission.Status != "admitted" {
+					t.Fatalf("unrelated retained reading was withheld: family=%s admission=%+v", observation.Reading.Observation.Family, admission)
+				}
+			}
+			if !sawActivity {
+				t.Fatal("stream contained no retained activity dependency")
+			}
+		})
+	}
+}
+
+func setProtocolSamplingCoverage(readings []nvtelemetry.Reading, opt *cudadiag.TelemetryOptions, coverage *nvtelemetry.SamplingCoverage) {
+	opt.Observer.SamplingCoverage = coverage
+	for i := range readings {
+		readings[i].Observation.Observer.SamplingCoverage = coverage
+	}
+	for key, expected := range opt.ExpectedSources {
+		expected.Observer.SamplingCoverage = coverage
+		opt.ExpectedSources[key] = expected
+	}
+}
+
+func rewriteV4CompletionLoss(t *testing.T, raw []byte, mutate func(map[string]tracecontract.Loss)) []byte {
+	t.Helper()
+	lines := bytes.Split(bytes.TrimSpace(raw), []byte("\n"))
+	var out bytes.Buffer
+	for i, line := range lines {
+		var record nvtelemetry.StreamRecord
+		if err := json.Unmarshal(line, &record); err != nil {
+			t.Fatal(err)
+		}
+		if i == len(lines)-1 {
+			if record.Manifest == nil {
+				t.Fatal("final stream record is not the completion manifest")
+			}
+			mutate(record.Manifest.LostRecordsByFamily)
+		}
+		if err := json.NewEncoder(&out).Encode(record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return out.Bytes()
+}
+
 func TestTelemetryPublicCollectorDiagnosis(t *testing.T) {
 	r, opt := mixedProtocol()
 	raw := collectMixed(t, r, opt)
