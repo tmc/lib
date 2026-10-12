@@ -2,6 +2,7 @@ package nvtelemetry
 
 import (
 	"math"
+	"math/bits"
 	"sort"
 	"time"
 )
@@ -33,7 +34,7 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 		metricName string
 	}
 
-	grouped := make(map[deviceMetricKey][]SamplePoint)
+	grouped := make(map[deviceMetricKey][]windowPoint)
 
 	for _, s := range samples {
 		t := s.QueryStartNanos
@@ -42,18 +43,7 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 		}
 		for _, r := range s.Readings {
 			key := deviceMetricKey{deviceUUID: r.DeviceUUID, metricName: r.Name}
-			val := r.Value
-			if r.IsInt && val == 0 && r.IntValue > 0 {
-				val = float64(r.IntValue)
-			}
-			grouped[key] = append(grouped[key], SamplePoint{
-				Timestamp: t,
-				Value:     val,
-				IntValue:  r.IntValue,
-				IsInt:     r.IsInt,
-				Available: r.IsAvailable(),
-				Unit:      r.Unit,
-			})
+			grouped[key] = append(grouped[key], readingPoint(r, t))
 		}
 	}
 
@@ -73,8 +63,8 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 	})
 
 	for _, k := range keys {
-		points := grouped[k]
-		if len(points) == 0 {
+		wpoints := grouped[k]
+		if len(wpoints) == 0 {
 			continue
 		}
 
@@ -86,9 +76,14 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 		}
 
 		// Sort points chronologically
-		sort.Slice(points, func(i, j int) bool {
-			return points[i].Timestamp < points[j].Timestamp
+		sort.Slice(wpoints, func(i, j int) bool {
+			return wpoints[i].Timestamp < wpoints[j].Timestamp
 		})
+		points := make([]SamplePoint, len(wpoints))
+		meta := make([]counterMeta, len(wpoints))
+		for i, p := range wpoints {
+			points[i], meta[i] = p.SamplePoint, p.meta
+		}
 
 		unit := points[0].Unit
 
@@ -98,11 +93,15 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 		minVal := math.MaxFloat64
 		maxVal := -math.MaxFloat64
 		var firstValid, lastValid *SamplePoint
+		sampleValuesExact := true
 
 		for i := range points {
 			p := &points[i]
 			if p.Available {
 				validCount++
+				if wpoints[i].inexactInteger {
+					sampleValuesExact = false
+				}
 				arithSum += p.Value
 				if p.Value < minVal {
 					minVal = p.Value
@@ -196,11 +195,19 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 			MaxGapNanos:          maxGap,
 			SampleCount:          validCount,
 		}
+		if !sampleValuesExact {
+			summary.Min = 0
+			summary.Max = 0
+			summary.StartValue = 0
+			summary.EndValue = 0
+			summary.SampleValuesStatus = WindowSampleValuesUnavailable
+			summary.SampleValuesReason = ReasonIntegerPrecision
+		}
 		summaries = append(summaries, summary)
 
 		// Energy calculation for cumulative energy counters
 		if k.metricName == MetricTotalEnergyMJ {
-			eSummary := computeCumulativeEnergy(windowName, k.deviceUUID, points, startMono, endMono, opts)
+			eSummary := cumulativeEnergy(windowName, k.deviceUUID, points, meta, startMono, endMono, opts)
 			energySummaries = append(energySummaries, eSummary)
 		}
 	}
@@ -208,7 +215,97 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 	return summaries, energySummaries
 }
 
+// windowPoint is a SamplePoint with its counter metadata.
+type windowPoint struct {
+	SamplePoint
+	meta           counterMeta
+	inexactInteger bool
+}
+
+// counterMeta holds the V3 metadata that decides whether a reading can serve
+// as a cumulative energy reading. It is zero for legacy readings.
+type counterMeta struct {
+	v3    bool   // value came from the V3 Number arm
+	kind  string // observation kind
+	epoch string // counter epoch
+	reset bool   // counter reset at this reading
+}
+
+// readingPoint converts r, observed at t, to a window point. Legacy readings
+// use Value and IntValue. V3 readings use the Number arm: Uint and nonnegative
+// Int keep their exact integer, and a reading with no Number (unavailable or
+// histogram-only) is unavailable rather than zero. A negative energy counter
+// is unavailable.
+func readingPoint(r Reading, t int64) windowPoint {
+	p := windowPoint{SamplePoint: SamplePoint{Timestamp: t, Available: r.IsAvailable(), Unit: r.Unit}}
+	if r.Number == nil && r.Observation == nil {
+		p.Value = r.Value
+		p.inexactInteger = r.IsInt && !uint64ExactlyRepresentableInFloat64(r.IntValue)
+		if r.IsInt && p.Value == 0 && r.IntValue > 0 {
+			p.Value = float64(r.IntValue)
+		}
+		p.IntValue = r.IntValue
+		p.IsInt = r.IsInt
+		return p
+	}
+	p.meta.v3 = true
+	if o := r.Observation; o != nil {
+		p.meta.kind = o.Kind
+		p.meta.epoch = o.CounterEpoch
+		p.meta.reset = o.CounterReset
+	}
+	n := r.Number
+	switch {
+	case n == nil:
+		p.Available = false
+	case n.Uint != nil:
+		p.IsInt = true
+		p.IntValue = *n.Uint
+		p.inexactInteger = !uint64ExactlyRepresentableInFloat64(*n.Uint)
+		p.Value = float64(*n.Uint)
+	case n.Int != nil:
+		p.inexactInteger = !int64ExactlyRepresentableInFloat64(*n.Int)
+		p.Value = float64(*n.Int)
+		if *n.Int >= 0 {
+			p.IsInt = true
+			p.IntValue = uint64(*n.Int)
+		} else if r.Name == MetricTotalEnergyMJ {
+			p.Available = false
+		}
+	case n.Float != nil:
+		p.Value = *n.Float
+	default:
+		p.Available = false
+	}
+	return p
+}
+
+func uint64ExactlyRepresentableInFloat64(value uint64) bool {
+	length := bits.Len64(value)
+	return length <= 53 || bits.TrailingZeros64(value) >= length-53
+}
+
+func int64ExactlyRepresentableInFloat64(value int64) bool {
+	if value >= 0 {
+		return uint64ExactlyRepresentableInFloat64(uint64(value))
+	}
+	magnitude := uint64(-(value + 1)) + 1
+	return uint64ExactlyRepresentableInFloat64(magnitude)
+}
+
+// computeCumulativeEnergy derives energy from legacy cumulative counter points.
 func computeCumulativeEnergy(windowName, deviceUUID string, points []SamplePoint, startMono, endMono int64, opts WindowOptions) EnergySummary {
+	return cumulativeEnergy(windowName, deviceUUID, points, nil, startMono, endMono, opts)
+}
+
+// cumulativeEnergy derives energy from a cumulative counter. Meta, if non-nil,
+// parallels points. A V3 reading counts only when its observation kind is
+// counter with a nonempty counter epoch; a V3 counter reset or epoch change
+// is reported as a reset, never subtracted across.
+func cumulativeEnergy(windowName, deviceUUID string, points []SamplePoint, meta []counterMeta, startMono, endMono int64, opts WindowOptions) EnergySummary {
+	if meta == nil {
+		meta = make([]counterMeta, len(points))
+	}
 	windowDuration := endMono - startMono
 	if len(points) < 2 {
 		return EnergySummary{
@@ -222,9 +319,23 @@ func computeCumulativeEnergy(windowName, deviceUUID string, points []SamplePoint
 		}
 	}
 
-	for _, p := range points {
-		if p.Available && !p.IsInt {
+	for i, p := range points {
+		if p.Available && (!p.IsInt || meta[i].v3 && meta[i].kind != "counter") {
 			return EnergySummary{WindowName: windowName, DeviceUUID: deviceUUID, Method: "cumulative_counter", Reason: "invalid_counter_type"}
+		}
+	}
+	// Without a counter epoch, readings cannot be shown to share one counter.
+	for i, p := range points {
+		if p.Available && meta[i].v3 && meta[i].epoch == "" {
+			return EnergySummary{
+				StartMonoNanos: startMono, EndMonoNanos: endMono,
+				DeviceUUID:         deviceUUID,
+				WindowName:         windowName,
+				Method:             "cumulative_counter",
+				TotalDurationNanos: windowDuration,
+				Valid:              false,
+				Reason:             "missing_counter_epoch",
+			}
 		}
 	}
 
@@ -250,9 +361,13 @@ func computeCumulativeEnergy(windowName, deviceUUID string, points []SamplePoint
 	}
 
 	// Check for gaps and resets across the sequence
-	var resetDetected bool
+	// A V3 stream compares each available reading with the previous
+	// available one, so an unavailable reading is never read as zero.
+	v3 := meta[0].v3
+	resetDetected := v3 && meta[0].reset
 	var gapExceeded bool
-	for i := 0; i < len(points)-1; i++ {
+	prev := start
+	for i := 0; i < len(points)-1 && !resetDetected; i++ {
 		p1 := points[i]
 		p2 := points[i+1]
 		if !p1.Available || !p2.Available {
@@ -262,10 +377,19 @@ func computeCumulativeEnergy(windowName, deviceUUID string, points []SamplePoint
 		if opts.MaxAllowedGapNanos > 0 && dt > opts.MaxAllowedGapNanos {
 			gapExceeded = true
 		}
-		if p2.IntValue < p1.IntValue {
-			resetDetected = true
-			break
+		if !v3 {
+			if !p1.Available || !p2.Available {
+				continue
+			}
+			resetDetected = p2.IntValue < p1.IntValue
+			continue
 		}
+		if !p2.Available {
+			continue
+		}
+		m := meta[i+1]
+		resetDetected = p2.IntValue < prev.IntValue || m.reset || m.epoch != meta[0].epoch
+		prev = p2
 	}
 
 	if resetDetected {

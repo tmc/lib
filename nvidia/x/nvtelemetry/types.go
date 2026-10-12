@@ -75,7 +75,11 @@ const (
 	ReasonCounterReset     = "counter_reset"
 	ReasonZeroTokens       = "zero_tokens"
 	ReasonMisalignedClock  = "misaligned_clock"
+	ReasonIntegerPrecision = "integer_not_exactly_representable_as_float64"
 )
+
+// WindowSampleValuesUnavailable marks withheld integer extrema and endpoints.
+const WindowSampleValuesUnavailable = "unavailable"
 
 // MIG scope constants.
 const (
@@ -360,16 +364,26 @@ type Manifest struct {
 
 // WindowSummary aggregates one metric over a named window.
 type WindowSummary struct {
-	WindowName           string  `json:"window_name"`
-	DeviceUUID           string  `json:"device_uuid"`
-	MetricName           string  `json:"metric_name"`
-	Unit                 string  `json:"unit"`
-	TimeWeightedMean     float64 `json:"time_weighted_mean"`
-	ArithmeticMean       float64 `json:"arithmetic_mean"`
-	Min                  float64 `json:"min"`
-	Max                  float64 `json:"max"`
-	StartValue           float64 `json:"start_value"`
-	EndValue             float64 `json:"end_value"`
+	WindowName string `json:"window_name"`
+	DeviceUUID string `json:"device_uuid"`
+	MetricName string `json:"metric_name"`
+	Unit       string `json:"unit"`
+	// TimeWeightedMean is a float64 approximation computed by integrating
+	// floating-point sample values over covered intervals.
+	TimeWeightedMean float64 `json:"time_weighted_mean"`
+	// ArithmeticMean is a float64 approximation computed from valid sample
+	// values. It is not an exact average of large integer inputs.
+	ArithmeticMean float64 `json:"arithmetic_mean"`
+	Min            float64 `json:"min"`
+	Max            float64 `json:"max"`
+	StartValue     float64 `json:"start_value"`
+	EndValue       float64 `json:"end_value"`
+	// SampleValuesStatus and SampleValuesReason cover Min, Max, StartValue and
+	// EndValue only. They are set when those fields are withheld for precision.
+	// An empty status is compatible with older summaries and does not assert
+	// either metric unavailability or exact sample values.
+	SampleValuesStatus   string  `json:"sample_values_status,omitempty"`
+	SampleValuesReason   string  `json:"sample_values_reason,omitempty"`
 	CoveredDurationNanos int64   `json:"covered_duration_nanos"`
 	TotalDurationNanos   int64   `json:"total_duration_nanos"`
 	CoverageRatio        float64 `json:"coverage_ratio"`

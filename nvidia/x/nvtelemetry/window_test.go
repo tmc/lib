@@ -1,6 +1,7 @@
 package nvtelemetry_test
 
 import (
+	"bytes"
 	"math"
 	"testing"
 
@@ -70,6 +71,77 @@ func TestTimeWeightedMeanDiffersFromArithmeticMean(t *testing.T) {
 
 	if s.ArithmeticMean == s.TimeWeightedMean {
 		t.Errorf("expected ArithmeticMean (%f) != TimeWeightedMean (%f)", s.ArithmeticMean, s.TimeWeightedMean)
+	}
+}
+
+func TestV2UnavailableEnergyDoesNotBecomeReset(t *testing.T) {
+	type point struct {
+		value     uint64
+		available bool
+	}
+	tests := []struct {
+		name   string
+		values []point
+		valid  bool
+		reset  bool
+		reason string
+	}{
+		{"increasing", []point{{10, true}, {20, true}}, true, false, ""},
+		{"unavailable gap", []point{{10, true}, {0, false}, {20, true}}, false, false, nvtelemetry.ReasonGapExceeded},
+		{"actual reset", []point{{20, true}, {10, true}}, false, true, nvtelemetry.ReasonCounterReset},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stream bytes.Buffer
+			writer := nvtelemetry.NewWriter(&stream, nvtelemetry.CollectorConfig{})
+			manifest := nvtelemetry.Manifest{
+				RunID: "v2-unavailable-gap", SchemaVersion: nvtelemetry.SchemaVersionV2,
+				Devices: []nvtelemetry.DeviceMetadata{{UUID: "GPU-v2-gap"}}, StartTimeMonotonic: 10,
+			}
+			if err := writer.WriteManifest(&manifest); err != nil {
+				t.Fatalf("write V2 manifest: %v", err)
+			}
+			for i, point := range tt.values {
+				reading := nvtelemetry.Reading{
+					Name: nvtelemetry.MetricTotalEnergyMJ, Unit: nvtelemetry.UnitMillijoules,
+					DeviceUUID: "GPU-v2-gap", Evidence: nvtelemetry.EvidenceUnavailable,
+					UnavailableReason: nvtelemetry.ReasonUnsupported, IsInt: true,
+				}
+				if point.available {
+					reading.Evidence = nvtelemetry.EvidenceMeasured
+					reading.UnavailableReason = ""
+					reading.IntValue = point.value
+				}
+				sample := nvtelemetry.Sample{
+					Seq: uint64(i + 1), QueryStartNanos: int64(10 + i*10), QueryEndNanos: int64(10 + i*10),
+					Readings: []nvtelemetry.Reading{reading},
+				}
+				if err := writer.WriteSample(&sample); err != nil {
+					t.Fatalf("write V2 sample %d: %v", i, err)
+				}
+			}
+			manifest.TotalSamples = uint64(len(tt.values))
+			manifest.EndTimeMonotonic = int64(10 + len(tt.values)*10)
+			manifest.IsComplete = true
+			if err := writer.WriteManifest(&manifest); err != nil {
+				t.Fatalf("write V2 completion: %v", err)
+			}
+
+			_, _, energies, err := nvtelemetry.Replay(bytes.NewReader(stream.Bytes()), 0, nvtelemetry.WindowOptions{})
+			if err != nil {
+				t.Fatalf("replay V2 stream: %v", err)
+			}
+			if len(energies["full_run"]) != 1 {
+				t.Fatalf("got %d V2 energy summaries, want 1", len(energies["full_run"]))
+			}
+			got := energies["full_run"][0]
+			if got.Valid != tt.valid || got.ResetDetected != tt.reset || got.Reason != tt.reason {
+				t.Fatalf("energy = %+v; want valid=%v reset=%v reason=%q", got, tt.valid, tt.reset, tt.reason)
+			}
+			if tt.name == "unavailable gap" && (got.StartEnergyMJ != 10 || got.EndEnergyMJ != 20) {
+				t.Fatalf("gap lost exact endpoints: %+v", got)
+			}
+		})
 	}
 }
 
