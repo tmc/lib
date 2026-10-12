@@ -87,6 +87,7 @@ func FiniteDifferenceGrad(
 
 // CheckGradients compares analytic gradients computed by BackwardResult against finite difference gradients.
 // Returns nil if maximum relative difference is within tolerance, or a descriptive error detailing mismatch.
+// eps must be finite; finite values less than or equal to zero use [FiniteDifferenceGrad]'s 1e-3 default.
 func CheckGradients(
 	fwdGraph *cudair.Graph,
 	lossNode *cudair.Node,
