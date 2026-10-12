@@ -18,6 +18,8 @@ work from a metric's name.
 | Triton | `25.06` | `ReadServingExposition` | Requests, failed requests, uncached inference items, uncached batch executions, response-cache lookups, cumulative durations, pending requests, first-response histogram | Source-derived protocol controls pass; pinned server capture pending |
 | vLLM | `0.8.5` | `ReadServingExposition` | Legacy `engine/metrics.py` prefill/generation counters, finish-reason labels, scheduler gauges, KV-cache fractions and latency/token histograms | Source-derived protocol controls pass; pinned engine capture pending; V1-specific and later-version mappings pending |
 | Ray | `2.44.0` | `ReadServingExposition` | Logical resource assignment, tasks/actors by state and selected reporter node-GPU gauges | Source-derived protocol controls pass; pinned cluster capture pending |
+| SGLang | `0.5.21` | `ReadServingExposition` | Aggregate request/token counters, scheduler and KV-cache gauges, request/queue/token histograms, disaggregated queue and KV transfer, plus documented host-cache capacity/eviction families; source labels retained | Pinned source-derived constructed controls pass; authentic producer capture pending; no per-request identity or independent outcomes |
+| Dynamo | `1.5.1` | `ReadServingExposition` | Runtime worker and frontend request, cancellation/rejection, token, latency, routing/backpressure, KV-cache event, and per-worker aggregate families; runtime labels retained | Pinned source-derived constructed controls pass; authentic scrape and exact image/build identity pending; not an authenticated SGLang 0.5.21 image pairing |
 | MLflow | `2.22.0` | `ReadMLflowHistory` | Native metric-history response, user-defined scalar values, Unix milliseconds, explicit steps and pagination | Native offline file-store SDK/serializer capture and public reader-to-step-report replay pass; endpoint capture pending |
 | W&B | `0.19.11` | `ReadWandBHistory` | Native history JSONL numeric scalars, `_timestamp` seconds and `_step`; media/nested values remain raw | Source-derived protocol controls pass; pinned native history export pending |
 | ClearML | `1.18.0/api-2.9` | `ReadClearMLScalars` | `events.get_task_events` response data or successful HTTP envelope; `training_stats_scalar`, variant, iteration, task, Unix milliseconds and scroll token | Source-derived protocol controls pass; pinned task export pending; scalar-histogram endpoint intentionally unsupported because its schema is opaque |
@@ -59,6 +61,54 @@ cache hits, successful requests, uncached inference items and uncached batch
 executions remain separate denominators. KV-cache fractions are not total device
 memory. Ray logical GPU assignment is not GPU activity. No goodput or
 tokens-per-joule policy is inferred by these readers.
+
+SGLang `num_requests_total` counts requests processed; it is not a successful
+request count. Its abort, retraction, retry, transfer-failure, queue, cache and
+KV-transfer families remain distinct. The source does not give every usage or
+ratio gauge a common numeric scale, so unspecified units stay `unknown`.
+Pinned SGLang and Dynamo source dimensions are checked on the resolved family for every
+`_bucket`, `_sum`, and `_count` sample while each output point retains the
+producer's original sample name and raw scrape bytes. SGLang streaming
+request/token counters and TTFT/E2E histograms require `is_streaming=true|false`;
+per-stage latency requires `stage`; realtime and effective-token counters
+require their source-defined `mode` values; graph-memory gauges require a
+`phase` label. Dynamo migration metrics require `migration_type` and duration
+histograms also require `outcome`; router overlap metrics require
+`worker_type=prefill`; tokenizer cached/uncached token counters require `model`.
+
+Dynamo v1.5.1's three engine gauges are sourced from
+`components/src/dynamo/common/utils/prometheus.py` at commit
+`2093662a4d4e5fd318732935213dde08dc7be818` (retained snapshot SHA256
+`44965a5ff37346c2e6456f87c7f3a454ef0148e1777fbf44fb38f4afb530851c`) and
+`lib/runtime/src/metrics/prometheus_names.rs` at that commit (snapshot SHA256
+`f1ffbad29088e6512add04208364db766b67dee0635747795c9450e2f3fefdef`). The
+cache-usage and total-block gauges require the hierarchy labels
+`dynamo_namespace`, `dynamo_component`, and `dynamo_endpoint`, plus `model` and
+`dp_rank`; model-load time requires the hierarchy labels and `model`. The
+Python source's `component` label is the same `dynamo_component` hierarchy
+label, not a separate `component` dimension. Cache usage remains a fraction
+from 0 through 1.
+
+Dynamo worker cancellation counts cancellation signals received, not proven
+engine aborts. `dynamo_component_gpu_cache_usage_percent` is documented on a
+0.0–1.0 scale and is kept as a fraction (`1`); it is not multiplied by 100.
+Worker `dynamo_component_*` metrics require runtime hierarchy labels; frontend
+worker gauges use `worker_id`, `dp_rank`, and `worker_type` without those
+hierarchy labels. Request-populated time series may be absent until a matching
+request is observed; absence remains distinct from a measured zero. The SGLang
+v0.5.21 and Dynamo v1.5.1 pins are independent source contracts. The Dynamo
+v1.5.1 image template takes a runtime image/tag as input and does not pin the
+SGLang engine version. NIXL is a separate telemetry source; these metrics do
+not establish transfer-event completeness or silent-buffer-loss detection.
+Aggregates do not expand into the request/attempt records accepted by
+`ServingContext`.
+Neither pinned source exposes a universal request/attempt/batch join key in
+these aggregate families. SGLang exposes request counters and sequence/token
+aggregates but no general batch identity; Dynamo's route and worker metrics are
+labelled aggregate populations. `ServingContext` can carry independently
+supplied attempts and outcomes, but those records must come from the consumer's
+own event log. This reader does not synthesize them, infer a successful output
+from `requests_total`, or allocate shared GPU work to requests.
 
 `InspectTrainingSteps` reports observed steps, gaps per rank and missing expected
 ranks per observed step. Unknown rank remains unknown. Concurrent runs and

@@ -55,8 +55,11 @@ var rayWorkloadMappings = map[string]workloadMapping{
 	"ray_node_gram_available":   {"node_gpu_memory_available", "bytes", "gauge"},
 }
 
-// ReadServingExposition reads pinned Triton 25.06, vLLM 0.8.5 or Ray 2.44.0
-// Prometheus text 0.0.4 snapshots through the shared bounded exposition parser.
+// ReadServingExposition reads pinned Triton 25.06, vLLM 0.8.5, Ray 2.44.0,
+// SGLang 0.5.21 or Dynamo 1.5.1 Prometheus text 0.0.4 snapshots through the
+// shared bounded exposition parser. The SGLang and Dynamo versions are
+// separate source contracts, not a claim that a Dynamo image bundles that
+// SGLang version.
 // Optional native timestamps are retained. A timestamp absent from the export
 // stays absent; use StampWorkloadSnapshot for a separately recorded scrape time.
 // Unmapped fields remain in Raw, listed in UnmappedNames.
@@ -75,6 +78,10 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 		mappings = vllmWorkloadMappings
 	case s.Provider == "ray" && s.Version == "2.44.0":
 		mappings = rayWorkloadMappings
+	case s.Provider == "sglang" && s.Version == "0.5.21":
+		mappings = sglangWorkloadMappings
+	case s.Provider == "dynamo" && s.Version == "1.5.1":
+		mappings = dynamoWorkloadMappings
 	default:
 		return WorkloadExport{}, errors.New("unsupported serving metrics provider or version")
 	}
@@ -121,6 +128,16 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 		if s.Provider == "vllm" && v.Labels["model_name"] == "" {
 			return e, errors.New("missing vLLM model_name label")
 		}
+		if s.Provider == "sglang" {
+			if err := validateSGLangWorkloadLabels(base, v.Labels); err != nil {
+				return e, err
+			}
+		}
+		if s.Provider == "dynamo" {
+			if err := validateDynamoWorkloadLabels(base, v.Labels); err != nil {
+				return e, err
+			}
+		}
 		if v.Name == "ray_resources" && (v.Labels["Name"] == "" || v.Labels["State"] == "") {
 			return e, errors.New("missing Ray resource identity or state")
 		}
@@ -131,8 +148,11 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 		if n.Sign() < 0 {
 			return e, errors.New("negative serving metric")
 		}
-		if m.kind == "counter" && (m.unit == "requests" || m.unit == "tokens" || m.unit == "inferences" || m.unit == "executions" || m.unit == "lookups") && !n.IsInt() {
+		if m.kind == "counter" && isWorkloadCountUnit(m.unit) && !n.IsInt() {
 			return e, errors.New("fractional workload count")
+		}
+		if m.semantic == "worker_total_kv_blocks" && !n.IsInt() {
+			return e, errors.New("fractional Dynamo total blocks")
 		}
 		p := WorkloadMetric{Source: e.Source, Name: v.Name, Semantic: m.semantic, Unit: m.unit, Kind: m.kind, Temporality: "instantaneous", Labels: v.Labels, RawValue: v.RawValue, TimeNanos: v.TimestampUnix, HasTime: v.HasTimestamp}
 		if v.HasTimestamp {
@@ -152,10 +172,13 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 				p.Unit = "observations"
 			}
 		}
-		if m.semantic == "gpu_kv_cache_fraction" || m.semantic == "cpu_kv_cache_fraction" {
+		if m.semantic == "gpu_kv_cache_fraction" || m.semantic == "cpu_kv_cache_fraction" || m.semantic == "worker_gpu_cache_usage_fraction" {
 			if n.Cmp(big.NewRat(1, 1)) > 0 {
 				return e, errors.New("KV cache fraction out of range")
 			}
+		}
+		if m.semantic == "frontend_model_ready" && (!n.IsInt() || n.Sign() < 0 || n.Cmp(big.NewRat(1, 1)) > 0) {
+			return e, errors.New("Dynamo model readiness outside boolean range")
 		}
 		e.Metrics = append(e.Metrics, p)
 	}
@@ -167,6 +190,20 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 		return e, err
 	}
 	return e, nil
+}
+
+func isWorkloadCountUnit(unit string) bool {
+	switch unit {
+	case "requests", "tokens", "inferences", "executions", "lookups", "operations", "calls", "bytes", "blocks", "clients", "errors", "events":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasWorkloadLabel(labels map[string]string, name string) bool {
+	_, ok := labels[name]
+	return ok
 }
 
 type workloadContextReader struct {

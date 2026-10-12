@@ -1,0 +1,34 @@
+# CONSTRUCTED CONTROL: names/types/labels follow SGLang v0.5.21 source. Values are test data.
+# TYPE sglang:prompt_tokens_total counter
+sglang:prompt_tokens_total{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",is_streaming="true"} 9007199254740993
+# TYPE sglang:generation_tokens_total counter
+sglang:generation_tokens_total{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",is_streaming="true"} 42
+# TYPE sglang:num_requests_total counter
+sglang:num_requests_total{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",is_streaming="true"} 3
+# TYPE sglang:num_aborted_requests_total counter
+sglang:num_aborted_requests_total{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 1
+# TYPE sglang:cached_tokens_total counter
+sglang:cached_tokens_total{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",cache_source="device"} 11
+# TYPE sglang:num_running_reqs gauge
+sglang:num_running_reqs{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 2
+# TYPE sglang:num_queue_reqs gauge
+sglang:num_queue_reqs{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 4
+# TYPE sglang:kv_used_tokens gauge
+sglang:kv_used_tokens{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 512
+# TYPE sglang:cache_hit_rate gauge
+sglang:cache_hit_rate{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 0.25
+# TYPE sglang:kv_transfer_speed_gb_s histogram
+sglang:kv_transfer_speed_gb_s_bucket{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",le="1"} 1
+sglang:kv_transfer_speed_gb_s_bucket{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",le="+Inf"} 2
+sglang:kv_transfer_speed_gb_s_sum{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 2.5
+sglang:kv_transfer_speed_gb_s_count{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 2
+# TYPE sglang:time_to_first_token_seconds histogram
+sglang:time_to_first_token_seconds_bucket{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",is_streaming="true",le="0.1"} 1
+sglang:time_to_first_token_seconds_bucket{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",is_streaming="true",le="+Inf"} 3
+sglang:time_to_first_token_seconds_sum{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",is_streaming="true"} 0.6
+sglang:time_to_first_token_seconds_count{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",is_streaming="true"} 3
+# TYPE sglang:kv_transfer_latency_ms histogram
+sglang:kv_transfer_latency_ms_bucket{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",le="10"} 1
+sglang:kv_transfer_latency_ms_bucket{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0",le="+Inf"} 2
+sglang:kv_transfer_latency_ms_sum{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 14
+sglang:kv_transfer_latency_ms_count{model_name="control-model",engine_type="decode",tp_rank="0",pp_rank="0",moe_ep_rank="0",dp_rank="0"} 2

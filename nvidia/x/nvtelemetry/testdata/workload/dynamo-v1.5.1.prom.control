@@ -1,0 +1,44 @@
+# CONSTRUCTED CONTROL: families/labels follow Dynamo v1.5.1 catalog and pinned runtime implementation. Values are test data.
+# TYPE dynamo_component_requests_total counter
+dynamo_component_requests_total{dynamo_namespace="control",dynamo_component="prefill",dynamo_endpoint="generate",worker_id="worker-a"} 7
+dynamo_component_requests_total{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",worker_id="worker-b"} 6
+# TYPE dynamo_component_cancellation_total counter
+dynamo_component_cancellation_total{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",worker_id="worker-b"} 1
+# TYPE dynamo_component_gpu_cache_usage_percent gauge
+dynamo_component_gpu_cache_usage_percent{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",model="control-model",dp_rank="0",worker_id="worker-b"} 0.75
+# TYPE dynamo_component_total_blocks gauge
+dynamo_component_total_blocks{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",model="control-model",dp_rank="0",worker_id="worker-b"} 128
+# TYPE dynamo_component_model_load_time_seconds gauge
+dynamo_component_model_load_time_seconds{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",model="control-model",worker_id="worker-b"} 2.5
+# TYPE dynamo_component_inflight_requests gauge
+dynamo_component_inflight_requests{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",worker_id="worker-b"} 2
+# TYPE dynamo_component_request_duration_seconds histogram
+dynamo_component_request_duration_seconds_bucket{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",worker_id="worker-b",le="1"} 3
+dynamo_component_request_duration_seconds_bucket{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",worker_id="worker-b",le="+Inf"} 4
+dynamo_component_request_duration_seconds_sum{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",worker_id="worker-b"} 2.5
+dynamo_component_request_duration_seconds_count{dynamo_namespace="control",dynamo_component="backend",dynamo_endpoint="generate",worker_id="worker-b"} 4
+# TYPE dynamo_rejection_request_total counter
+dynamo_rejection_request_total 1
+# TYPE dynamo_component_router_requests_started_total counter
+dynamo_component_router_requests_started_total{dynamo_namespace="control",dynamo_component="router",dynamo_endpoint="route"} 8
+# TYPE dynamo_frontend_router_queue_pending_requests gauge
+dynamo_frontend_router_queue_pending_requests{model="control-model",worker_type="prefill",policy_class="default"} 2
+# TYPE dynamo_component_kv_cache_events_applied counter
+dynamo_component_kv_cache_events_applied{dynamo_namespace="control",dynamo_component="router",dynamo_endpoint="kv_indexer",status="ok",event_type="stored"} 5
+# TYPE dynamo_frontend_requests_total counter
+dynamo_frontend_requests_total{model="control-model"} 8
+# TYPE dynamo_frontend_model_cancellation_total counter
+dynamo_frontend_model_cancellation_total{model="control-model",endpoint="chat_completions",request_type="stream"} 1
+# TYPE dynamo_frontend_model_rejection_total counter
+dynamo_frontend_model_rejection_total{model="control-model",endpoint="chat_completions"} 2
+# TYPE dynamo_frontend_output_tokens_total counter
+dynamo_frontend_output_tokens_total{model="control-model"} 96
+# TYPE dynamo_frontend_worker_active_decode_blocks gauge
+dynamo_frontend_worker_active_decode_blocks{worker_id="worker-b",dp_rank="0",worker_type="decode"} 3
+# TYPE dynamo_frontend_worker_active_prefill_tokens gauge
+dynamo_frontend_worker_active_prefill_tokens{worker_id="worker-a",dp_rank="1",worker_type="prefill"} 64
+# TYPE dynamo_frontend_time_to_first_token_seconds histogram
+dynamo_frontend_time_to_first_token_seconds_bucket{model="control-model",le="0.5"} 2
+dynamo_frontend_time_to_first_token_seconds_bucket{model="control-model",le="+Inf"} 3
+dynamo_frontend_time_to_first_token_seconds_sum{model="control-model"} 1.2
+dynamo_frontend_time_to_first_token_seconds_count{model="control-model"} 3

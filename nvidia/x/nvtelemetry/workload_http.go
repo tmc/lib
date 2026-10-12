@@ -65,6 +65,10 @@ func supportedWorkloadHTTP(s WorkloadSource) bool {
 		return s.Version == "0.8.5"
 	case "ray":
 		return s.Version == "2.44.0"
+	case "sglang":
+		return s.Version == "0.5.21"
+	case "dynamo":
+		return s.Version == "1.5.1"
 	case "mlflow":
 		return s.Version == "2.22.0"
 	case "wandb":
@@ -79,7 +83,7 @@ func supportedWorkloadHTTP(s WorkloadSource) bool {
 
 func parseWorkloadResponse(ctx context.Context, r io.Reader, s WorkloadSource, l WorkloadLimits) (result WorkloadHTTPResult, err error) {
 	switch s.Provider {
-	case "triton", "vllm", "ray":
+	case "triton", "vllm", "ray", "sglang", "dynamo":
 		result.Export, err = ReadServingExposition(ctx, r, s, l)
 	case "mlflow":
 		result.Export, err = ReadMLflowHistory(r, s, l)
