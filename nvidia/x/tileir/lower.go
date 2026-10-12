@@ -43,6 +43,9 @@ type LoweringResult struct {
 	Module *Module
 	Schema cudakernel.Schema
 	Source string
+	// Grid is the standalone launch grid for an ordered reduction region.
+	// Other lowerings leave it zero because their launch policy is external.
+	Grid [3]uint32
 }
 
 // LowerSemanticRegion lowers a validated semantic region (cudair.Snapshot) to a typed Tile IR Module.
@@ -52,6 +55,11 @@ type LoweringResult struct {
 func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringResult, error) {
 	if snap == nil {
 		return nil, errors.New("tileir: nil snapshot")
+	}
+	for _, n := range snap.Nodes() {
+		if n.Kind == cudair.KindReduce {
+			return lowerReductionRegion(snap, opts)
+		}
 	}
 
 	kernelName := opts.KernelName
@@ -840,7 +848,7 @@ func CompileSemanticTile(ctx context.Context, snap *cudair.Snapshot, opts LowerO
 	if err := ctx.Err(); err != nil {
 		return nil, "", err
 	}
-	source, schema, err := GenerateSemanticTileCPP(snap, opts)
+	source, schema, err := compileTileSource(snap, opts)
 	if err != nil {
 		return nil, "", err
 	}

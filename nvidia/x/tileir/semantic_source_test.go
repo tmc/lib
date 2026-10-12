@@ -264,3 +264,23 @@ func ExampleCompileSemanticTile() {
 	fmt.Println(err)
 	// Output: context canceled
 }
+
+// This public-API control also runs unchanged on the causal predecessor.
+func TestOrderedReductionPredecessor(t *testing.T) {
+	g := cudair.NewGraph()
+	a := g.AddInput("a", []int{5, 3}, cudair.Float32)
+	g.AddReduce("sum", a, 1)
+	snap, err := g.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := tileir.LowerSemanticRegion(snap, tileir.LowerOptions{TileM: 4})
+	if err != nil {
+		t.Fatalf("ordered vector reduction: %v", err)
+	}
+	for _, call := range []string{"ct::load_masked(", "ct::store_masked(", "ct::element_cast<double>", "ct::element_cast<float>", "ct::tile<double, ct::shape<4>>"} {
+		if !strings.Contains(result.Source, call) {
+			t.Fatalf("missing ordered vector reduction call %q", call)
+		}
+	}
+}

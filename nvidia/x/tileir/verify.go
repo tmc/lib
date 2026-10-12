@@ -308,6 +308,9 @@ func (f *Function) VerifyTokens() []TokenHazard {
 
 // VerifyShapes validates that tile shapes and dimensions are mathematically compatible.
 func (f *Function) VerifyShapes() []ShapeError {
+	if f != nil && f.OptHints == "ordered_reduction" {
+		return f.verifyReductionSSA()
+	}
 	if f == nil || len(f.Operations) == 0 {
 		return nil
 	}

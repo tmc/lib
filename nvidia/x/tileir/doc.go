@@ -9,6 +9,16 @@
 // modeling multidimensional tiles, asynchronous TMA memory transfers, token-ordered
 // synchronization, and scaled matrix multiplications.
 //
+// # Ordered Reduction Lowering
+//
+// [LowerSemanticRegion] lowers direct-input rank-one/two FP32 sum and max
+// reductions to vectors of independent outputs. Sum visits positions in order
+// using FP64 accumulators and one final FP32 cast. Max retains the first equal
+// value, including signed zero, and propagates NaNs. Empty sum is positive zero;
+// empty max is negative infinity. The result includes the masked launch grid.
+// [GenerateSemanticTileCPP] retains the separate scalar reference route.
+// Source emission and host models do not qualify vendor compilation or devices.
+//
 // # Bytecode Decoding
 //
 // Binary Tile IR bytecode starts with the 8-byte magic "\x7fTileIR\x00" and
