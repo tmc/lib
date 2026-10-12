@@ -1,0 +1,6 @@
+commit: 82974350b8876cfeb4fdd514cc1997d09dd7ebe6
+date: 2026-10-12T04:17:53.594647+00:00
+agent: Codex; claude-code version: not used; model: GPT-6 (exact runtime variant unavailable)
+tty: non-PTY exec; pid: 48314; ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+manual signed fallback: two helper attempts already exhausted with explicit task-local offline cgpt refusal; no further retries
+real multicast source emission, admitted physical subset only; no CUDA compiler/tool lookup/native/device execution
