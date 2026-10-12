@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -35,8 +36,9 @@ import (
 // buffer, which is the buffer the record names. Execute does not wait for
 // those copies.
 //
-// The worker is launched as an ordinary grid no wider than the residency the
-// driver reports for it; a run whose grid exceeds that residency is declined
+// A worker with more than one CTA uses a cooperative launch. Its grid is no
+// wider than the residency the driver reports for the compiled worker; a run
+// whose device lacks cooperative launch or whose grid exceeds residency is declined
 // rather than launched, because a persistent grid with a CTA that is not
 // resident deadlocks.
 //
@@ -172,6 +174,23 @@ func (e *MegaExecutor) Execute(stream *cuda.Stream, plan *Plan, bufs map[string]
 // the whole run before anything is launched; an error means a launch was
 // attempted and did not complete as the program says it must.
 func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map[string]Buffer) ([]StepRecord, string, error) {
+	grid := e.Grid
+	admission, reason, err := prepareMegaLaunch(grid, uint64(len(u.steps)), u.words, e.Device, stream.Device(), e.Modules.dev, megaLaunchQueries{
+		current: func() (driver.Device, driver.Context, error) { return megaCurrent(e.Device) },
+		cooperative: func() (int, error) {
+			var value int
+			err := e.Device.WithContext(func() error {
+				var err error
+				value, err = e.Device.Attribute(driver.DevAttrCooperativeLaunch)
+				return err
+			})
+			return value, err
+		},
+		launchEx: driver.HasLaunchKernelEx,
+	})
+	if err != nil || reason != "" {
+		return nil, reason, err
+	}
 	prog, err := e.program(plan, u)
 	if err != nil {
 		return nil, err.Error(), nil
@@ -180,11 +199,31 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	if err != nil {
 		return nil, "", err
 	}
+	// The compiler is supplied by the caller. Check ownership again before
+	// loading its image, as well as before allocation and launch.
+	if e.Modules == nil || e.Device != admission.device || e.Modules.dev != admission.device || stream.Device() != admission.device {
+		return nil, "", errors.New("cudaagreement: worker ownership changed during compilation")
+	}
+	if err := admission.checkContext(func() (driver.Device, driver.Context, error) { return megaCurrent(e.Device) }); err != nil {
+		return nil, "", err
+	}
 	fn, err := e.Modules.Function(art)
 	if err != nil {
 		return nil, "", err
 	}
-	if reason, err := e.resident(fn); err != nil || reason != "" {
+	if reason, err := admission.resident(grid, e.Device, stream.Device(), e.Modules.dev, fn.Device(), func() (driver.Device, driver.Context, error) { return megaCurrent(e.Device) }, func() (int32, int, error) {
+		var perSM int32
+		var sms int
+		err := e.Device.WithContext(func() error {
+			var err error
+			perSM, err = fn.Raw().MaxActiveBlocksPerMultiprocessor(int32(grid.ThreadsPerCTA), 0)
+			if err == nil {
+				sms, err = e.Device.MultiprocessorCount()
+			}
+			return err
+		})
+		return perSM, sms, err
+	}); err != nil || reason != "" {
 		return nil, reason, err
 	}
 
@@ -199,7 +238,7 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	}
 	nt := len(steps)
 	n := u.words
-	scratch, err := e.buffer("scratch", nt*n)
+	scratch, err := e.buffer("scratch", admission.scratchWords)
 	if err != nil {
 		return nil, "", err
 	}
@@ -211,14 +250,11 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	if err != nil {
 		return nil, "", err
 	}
-	orderWords, err := cudamega.StartOrderWords(uint64(nt), uint64(e.Grid.CTAs))
-	if err != nil {
-		return nil, "", fmt.Errorf("cudaagreement: start-order buffer: %w", err)
-	}
-	if err := e.orderBuffer(int(orderWords)); err != nil {
+	orderWords := admission.orderWords
+	if err := e.orderBuffer(orderWords); err != nil {
 		return nil, "", err
 	}
-	order := e.order.Slice(0, int(orderWords))
+	order := e.order.Slice(0, orderWords)
 	for _, s := range []cudamem.Slice[uint32]{completed, abort} {
 		if err := s.MemsetAsync(0, stream); err != nil {
 			return nil, "", fmt.Errorf("cudaagreement: clear worker state: %w", err)
@@ -234,7 +270,10 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	if _, err := art.Schema.Pack(args...); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: persistent worker arguments: %w", err)
 	}
-	if err := cudalaunch.OwnedKernel(fn).Grid(e.Grid.CTAs, 1, 1).Block(e.Grid.ThreadsPerCTA, 1, 1).On(stream).Launch(args...); err != nil {
+	if err := e.Device.WithContext(func() error {
+		l := megaLauncher(grid, cudalaunch.OwnedKernel(fn).On(stream))
+		return admission.launch(l, e.Device, stream.Device(), e.Modules.dev, fn.Device(), megaCurrentBound, func(l *cudalaunch.Launcher) error { return l.Launch(args...) })
+	}); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: launch persistent worker: %w", err)
 	}
 	timeout := e.Timeout
@@ -257,7 +296,7 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	if err := order.CopyToHost(ord); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: read start order: %w", err)
 	}
-	if err := checkStartOrder(steps, e.Grid.CTAs, ord); err != nil {
+	if err := checkStartOrder(steps, grid.CTAs, ord); err != nil {
 		return nil, "", err
 	}
 
@@ -271,7 +310,7 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 		r := recordFor(s, cudaplan.BackendMega, cudaplan.BackendMega, "", out)
 		r.Program = art.Digest
 		r.EntryPoint = art.EntryPoint
-		r.Grid, r.Block = e.Grid.CTAs, e.Grid.ThreadsPerCTA
+		r.Grid, r.Block = grid.CTAs, grid.ThreadsPerCTA
 		recs = append(recs, r)
 	}
 	return recs, "", nil
@@ -380,26 +419,137 @@ func workerSchema() (cudakernel.Schema, error) {
 	return s, nil
 }
 
-// resident declines a grid wider than the residency the driver reports for
-// the compiled worker.
-func (e *MegaExecutor) resident(fn *cuda.Kernel) (string, error) {
-	var perSM int32
-	err := e.Device.WithContext(func() error {
+// megaLaunchQueries contains only the pre-compilation driver queries.
+type megaLaunchQueries struct {
+	current     func() (driver.Device, driver.Context, error)
+	cooperative func() (int, error)
+	launchEx    func() bool
+}
+
+type megaAdmission struct {
+	device                   *cuda.Device
+	context                  driver.Context
+	scratchWords, orderWords int
+}
+
+func prepareMegaLaunch(grid cudamega.Grid, tasks uint64, words int, dev, streamDev, modulesDev *cuda.Device, q megaLaunchQueries) (megaAdmission, string, error) {
+	a := megaAdmission{device: dev}
+	if words <= 0 || uint64(words) > math.MaxUint32 || grid.MaxElements != 0 && uint64(words) > uint64(grid.MaxElements) {
+		return a, "persistent worker extent exceeds declared maximum or uint32 range", nil
+	}
+	var err error
+	a.scratchWords, a.orderWords, err = megaBufferSizes(tasks, uint64(words), uint64(grid.CTAs), uint64(^uint(0)>>1))
+	if err != nil {
+		return a, err.Error(), nil
+	}
+	if dev == nil || streamDev != dev || modulesDev != dev {
+		return a, "", errors.New("cudaagreement: worker device, stream and modules differ")
+	}
+	raw, ctx, err := q.current()
+	if err != nil {
+		return a, "", fmt.Errorf("cudaagreement: worker context: %w", err)
+	}
+	if raw != dev.Raw() || ctx == 0 {
+		return a, "", errors.New("cudaagreement: worker context has wrong device or is absent")
+	}
+	a.context = ctx
+	if grid.CTAs > 1 {
+		capability, err := q.cooperative()
+		if err != nil {
+			return a, "", fmt.Errorf("cudaagreement: cooperative launch capability: %w", err)
+		}
+		if capability != 1 {
+			return a, "device does not support cooperative launch", nil
+		}
+		if !q.launchEx() {
+			return a, "driver does not provide cooperative launch via cuLaunchKernelEx", nil
+		}
+	}
+	return a, "", nil
+}
+
+func megaBufferSizes(tasks, words, ctas, maxInt uint64) (int, int, error) {
+	scratch, err := cudamega.ProgramScratchBytes(tasks, words)
+	if err != nil {
+		return 0, 0, err
+	}
+	order, err := cudamega.StartOrderWords(tasks, ctas)
+	if err != nil {
+		return 0, 0, err
+	}
+	// Alloc uses int byte counts, not only int element counts.
+	if scratch > maxInt || order > maxInt/8 {
+		return 0, 0, errors.New("persistent worker buffer size exceeds int range")
+	}
+	return int(scratch / 4), int(order), nil
+}
+
+func megaCurrentBound() (driver.Device, driver.Context, error) {
+	dev, err := driver.CtxGetDevice()
+	if err != nil {
+		return 0, 0, err
+	}
+	ctx, err := driver.CtxGetCurrent()
+	return dev, ctx, err
+}
+
+func megaCurrent(dev *cuda.Device) (raw driver.Device, ctx driver.Context, err error) {
+	err = dev.WithContext(func() error {
 		var err error
-		perSM, err = fn.Raw().MaxActiveBlocksPerMultiprocessor(int32(e.Grid.ThreadsPerCTA), 0)
+		raw, ctx, err = megaCurrentBound()
 		return err
 	})
+	return
+}
+
+func (a megaAdmission) checkContext(current func() (driver.Device, driver.Context, error)) error {
+	raw, ctx, err := current()
+	if err != nil {
+		return fmt.Errorf("cudaagreement: worker context: %w", err)
+	}
+	if raw != a.device.Raw() || ctx != a.context {
+		return errors.New("cudaagreement: worker device or context changed after admission")
+	}
+	return nil
+}
+
+func (a megaAdmission) resident(grid cudamega.Grid, dev, streamDev, modulesDev, kernelDev *cuda.Device, current func() (driver.Device, driver.Context, error), occupancy func() (int32, int, error)) (string, error) {
+	if dev != a.device || streamDev != a.device || modulesDev != a.device || kernelDev != a.device {
+		return "", errors.New("cudaagreement: worker ownership changed before occupancy")
+	}
+	if err := a.checkContext(current); err != nil {
+		return "", err
+	}
+	perSM, sms, err := occupancy()
 	if err != nil {
 		return "", fmt.Errorf("cudaagreement: persistent worker occupancy: %w", err)
 	}
-	sms, err := e.Device.MultiprocessorCount()
-	if err != nil {
-		return "", fmt.Errorf("cudaagreement: multiprocessor count: %w", err)
+	if perSM <= 0 || sms <= 0 || uint64(sms) > math.MaxInt64/uint64(perSM) {
+		return "", errors.New("cudaagreement: invalid persistent worker residency")
 	}
-	if resident := int64(perSM) * int64(sms); resident < int64(e.Grid.CTAs) {
-		return fmt.Sprintf("grid of %d CTAs exceeds residency %d (%d per SM x %d SMs)", e.Grid.CTAs, resident, perSM, sms), nil
+	resident := uint64(perSM) * uint64(sms)
+	if resident < uint64(grid.CTAs) {
+		return fmt.Sprintf("grid of %d CTAs exceeds residency %d (%d per SM x %d SMs)", grid.CTAs, resident, perSM, sms), nil
 	}
 	return "", nil
+}
+
+func megaLauncher(grid cudamega.Grid, l *cudalaunch.Launcher) *cudalaunch.Launcher {
+	l.Grid(grid.CTAs, 1, 1).Block(grid.ThreadsPerCTA, 1, 1)
+	if grid.CTAs > 1 {
+		l.WithCooperative(true)
+	}
+	return l
+}
+
+func (a megaAdmission) launch(l *cudalaunch.Launcher, dev, streamDev, modulesDev, kernelDev *cuda.Device, current func() (driver.Device, driver.Context, error), submit func(*cudalaunch.Launcher) error) error {
+	if dev != a.device || modulesDev != a.device || streamDev != a.device || kernelDev != a.device {
+		return errors.New("cudaagreement: worker launch ownership changed after admission")
+	}
+	if err := a.checkContext(current); err != nil {
+		return err
+	}
+	return submit(l)
 }
 
 // buffer returns executor-owned scratch of at least words elements.
