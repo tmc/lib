@@ -1,0 +1,12 @@
+{
+  "ITERM_SESSION_ID": "w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF",
+  "CODEX_THREAD_ID": "01a12e1c-d90b-7ae3-bf56-7aa299cd3801",
+  "CODEX_SESSION_ID": "01a0e209-f57f-7300-91cd-4a82fcd77ef4",
+  "commit": "ea7af8a24ec366d58621b8561e11629ec7948e58",
+  "date_utc": "2026-10-12T04:28:07.842252+00:00",
+  "tool": "Codex via API",
+  "claude_code_version": "not used",
+  "model": "GPT-6 (exact serving variant not exposed)",
+  "tty": "non-interactive tool process",
+  "pid": 83518
+}
