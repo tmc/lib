@@ -15,6 +15,10 @@ import (
 // nvtelemetry.*, not the developmental OpenTelemetry hardware conventions.
 // CounterStartUnixNanos must be explicitly known for cumulative OTLP counters.
 type ExportOptions struct {
+	UnixTimeMapping       *UnixTimeMapping
+	HistogramBindings     []HistogramBinding
+	MaxMetrics            int
+	MaxExplicitBounds     int
 	MaxReadings, MaxBytes int
 	OpenMetrics           bool
 	CounterStartUnixNanos int64
@@ -263,6 +267,19 @@ func WriteExposition(w io.Writer, readings []Reading, o ExportOptions) error {
 // have the nvtelemetry. prefix followed by the exposition label name, except
 // device_uuid, which uses nvtelemetry.device.uuid.
 func WriteOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) error {
+	histogram := len(o.HistogramBindings) > 0 || o.MaxMetrics != 0 || o.MaxExplicitBounds != 0 || o.UnixTimeMapping != nil
+	for _, r := range readings {
+		if r.Observation != nil && (r.Observation.Histogram != nil || r.Observation.OTLPScopeName != nil || r.Observation.OTLPClock != nil || r.Observation.OTLPSourceTime != nil) {
+			histogram = true
+		}
+	}
+	if histogram {
+		return writeHistogramMetrics(w, readings, o)
+	}
+	return writeScalarOTLPMetrics(w, readings, o)
+}
+
+func writeScalarOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) error {
 	n, b, e := exportLimits(o)
 	if e != nil {
 		return e

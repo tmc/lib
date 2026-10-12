@@ -111,7 +111,7 @@ func TestV3StrictMigration(t *testing.T) {
 		{"legacy-loss-extension", `{"manifest":{"schema_version":2,"devices":[{"uuid":"GPU-v3"}],"lost_records_by_family":{"activity":{"dropped":0,"total":0}}}}`, nvtelemetry.ErrMalformedStream},
 		{"legacy-null-loss", `{"manifest":{"schema_version":2,"devices":[{"uuid":"GPU-v3"}],"lost_records_by_family":null}}`, nvtelemetry.ErrMalformedStream},
 		{"V3-legacy-zero", `{"manifest":{"schema_version":3,"devices":[{"uuid":"GPU-v3"}]}}` + "\n" + `{"sample":{"seq":1,"readings":[{"device_uuid":"GPU-v3","evidence":"measured","value":0,"number":{"float":0}}]}}`, nvtelemetry.ErrMalformedStream},
-		{"future", `{"manifest":{"schema_version":5}}`, nvtelemetry.ErrUnsupportedSchema},
+		{"future", `{"manifest":{"schema_version":6}}`, nvtelemetry.ErrUnsupportedSchema},
 		{"duplicate", `{"manifest":{"schema_version":3,"schema_version":3}}`, nvtelemetry.ErrMalformedStream},
 		{"overflow", `{"manifest":{"schema_version":3,"devices":[{"uuid":"GPU-v3"}]}}` + "\n" + `{"sample":{"seq":1,"readings":[{"device_uuid":"GPU-v3","evidence":"measured","number":{"int":9223372036854775808}}]}}`, nvtelemetry.ErrMalformedStream},
 	}

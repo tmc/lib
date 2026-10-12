@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -83,7 +84,7 @@ func NewWriter(w io.Writer, cfg CollectorConfig) *Writer {
 func (w *Writer) WriteManifest(m *Manifest) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if m == nil || m.SchemaVersion <= 0 || m.SchemaVersion > SchemaVersionV4 {
+	if m == nil || m.SchemaVersion <= 0 || m.SchemaVersion > SchemaVersionV5 {
 		return ErrUnsupportedSchema
 	}
 	if err := validateVersionedRecord(StreamRecord{Manifest: m}, m.SchemaVersion); err != nil {
@@ -318,7 +319,7 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 			version = rec.Manifest.SchemaVersion
 		}
 		if version >= SchemaVersionV3 {
-			if version == SchemaVersionV4 {
+			if version >= SchemaVersionV4 {
 				if err := rejectDuplicateJSONKeys(line); err != nil {
 					return nil, nil, nil, fmt.Errorf("%w: %v", ErrMalformedStream, err)
 				}
@@ -342,7 +343,7 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 
 		// Manifest processing
 		if rec.Manifest != nil {
-			if rec.Manifest.SchemaVersion <= 0 || rec.Manifest.SchemaVersion > SchemaVersionV4 {
+			if rec.Manifest.SchemaVersion <= 0 || rec.Manifest.SchemaVersion > SchemaVersionV5 {
 				return nil, nil, nil, ErrUnsupportedSchema
 			}
 			if rec.Manifest.HasClockCalibration && rec.Manifest.ClockCalibrationBoundsNanos < 0 {
@@ -699,8 +700,18 @@ func validateFamilyCounts(losses map[string]tracecontract.Loss, samples []Sample
 }
 
 func validateVersionedRecord(rec StreamRecord, version int) error {
-	if version < SchemaVersionLegacy || version > SchemaVersionV4 {
+	if version < SchemaVersionLegacy || version > SchemaVersionV5 {
 		return ErrUnsupportedSchema
+	}
+	if version < SchemaVersionV5 && rec.Sample != nil {
+		for _, r := range rec.Sample.Readings {
+			if o := r.Observation; o != nil {
+				h := o.Histogram
+				if o.OTLPScopeName != nil || o.OTLPClock != nil || o.OTLPSourceTime != nil || h != nil && (h.Count != nil || h.Sum != nil || h.Min != nil || h.Max != nil || h.Temporality != "" || h.Flags != 0) {
+					return fmt.Errorf("%w: V5 field in older reading", ErrMalformedStream)
+				}
+			}
+		}
 	}
 	if version < SchemaVersionV3 {
 		if rec.Manifest != nil && (rec.Manifest.Receipt != nil || rec.Manifest.LostRecordsByFamily != nil) {
@@ -715,7 +726,7 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 		}
 		return nil
 	}
-	if err := boundedV3(reflect.ValueOf(rec), 0); err != nil {
+	if err := boundedMetadata(reflect.ValueOf(rec), 0, version == SchemaVersionV5); err != nil {
 		return fmt.Errorf("%w: %v", ErrMalformedStream, err)
 	}
 	if m := rec.Manifest; m != nil {
@@ -734,6 +745,13 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 		return nil
 	}
 	for _, r := range rec.Sample.Readings {
+		if version == SchemaVersionV5 {
+			switch r.Evidence {
+			case EvidenceMeasured, EvidenceDerived, EvidenceUnavailable:
+			default:
+				return fmt.Errorf("%w: invalid V5 evidence", ErrMalformedStream)
+			}
+		}
 		if version < SchemaVersionV4 && r.Observation != nil && r.Observation.Observer.SamplingCoverage != nil {
 			return fmt.Errorf("%w: V4 field in older observer", ErrMalformedStream)
 		}
@@ -741,7 +759,7 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 			return fmt.Errorf("%w: legacy scalar in V3 reading", ErrMalformedStream)
 		}
 		if r.Evidence == EvidenceUnavailable {
-			if r.Number != nil || r.UnavailableReason == "" || (r.Observation != nil && r.Observation.Histogram != nil) {
+			if r.Number != nil || r.UnavailableReason == "" || (r.Observation != nil && r.Observation.Histogram != nil && !(version == SchemaVersionV5 && noRecordedHistogram(r))) {
 				return fmt.Errorf("%w: unavailable V3 value", ErrMalformedStream)
 			}
 		} else {
@@ -791,11 +809,22 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 				if o.Kind != "histogram" || r.Number != nil {
 					return fmt.Errorf("%w: conflicting histogram value", ErrMalformedStream)
 				}
-				if err := validHistogram(o.Histogram); err != nil {
+				var err error
+				if version == SchemaVersionV5 {
+					err = validHistogramV5(o.Histogram)
+				} else {
+					err = validHistogram(o.Histogram)
+				}
+				if err != nil {
 					return fmt.Errorf("%w: %v", ErrMalformedStream, err)
 				}
 			}
-			if version == SchemaVersionV4 {
+			if version == SchemaVersionV5 {
+				if err := validOTLPObservation(r); err != nil {
+					return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+				}
+			}
+			if version >= SchemaVersionV4 {
 				if o.Observer.SamplingCoverage == nil {
 					return fmt.Errorf("%w: missing V4 observer sampling coverage state", ErrMalformedStream)
 				}
@@ -931,7 +960,9 @@ func streamHash(hash string) bool {
 	return true
 }
 
-func boundedV3(v reflect.Value, depth int) error {
+func boundedV3(v reflect.Value, depth int) error { return boundedMetadata(v, depth, false) }
+
+func boundedMetadata(v reflect.Value, depth int, v5 bool) error {
 	if depth > 32 {
 		return errors.New("V3 metadata depth limit")
 	}
@@ -939,7 +970,7 @@ func boundedV3(v reflect.Value, depth int) error {
 		if v.IsNil() {
 			return nil
 		}
-		return boundedV3(v.Elem(), depth+1)
+		return boundedMetadata(v.Elem(), depth+1, v5)
 	}
 	switch v.Kind() {
 	case reflect.String:
@@ -947,8 +978,20 @@ func boundedV3(v reflect.Value, depth int) error {
 			return errors.New("V3 string limit")
 		}
 	case reflect.Struct:
+		if v5 && v.Type() == reflect.TypeOf(Histogram{}) {
+			h := v.Interface().(Histogram)
+			if len(h.Bounds) > 4097 || len(h.Counts) > 4097 {
+				return errors.New("V5 histogram collection limit")
+			}
+			for _, b := range h.Bounds {
+				if len(b) > 4096 {
+					return errors.New("V5 bound string limit")
+				}
+			}
+			return nil
+		}
 		for i := 0; i < v.NumField(); i++ {
-			if err := boundedV3(v.Field(i), depth+1); err != nil {
+			if err := boundedMetadata(v.Field(i), depth+1, v5); err != nil {
 				return err
 			}
 		}
@@ -957,7 +1000,7 @@ func boundedV3(v reflect.Value, depth int) error {
 			return errors.New("V3 collection limit")
 		}
 		for i := 0; i < v.Len(); i++ {
-			if err := boundedV3(v.Index(i), depth+1); err != nil {
+			if err := boundedMetadata(v.Index(i), depth+1, v5); err != nil {
 				return err
 			}
 		}
@@ -967,10 +1010,10 @@ func boundedV3(v reflect.Value, depth int) error {
 		}
 		iter := v.MapRange()
 		for iter.Next() {
-			if err := boundedV3(iter.Key(), depth+1); err != nil {
+			if err := boundedMetadata(iter.Key(), depth+1, v5); err != nil {
 				return err
 			}
-			if err := boundedV3(iter.Value(), depth+1); err != nil {
+			if err := boundedMetadata(iter.Value(), depth+1, v5); err != nil {
 				return err
 			}
 		}
@@ -1018,6 +1061,50 @@ func versionedJSONKeys(raw []byte, version int) error {
 						var observation map[string]json.RawMessage
 						if err := json.Unmarshal(readingData, &observation); err == nil {
 							for observationKey, observerData := range observation {
+								switch strings.ToLower(observationKey) {
+								case "otlp_scope_name", "otlp_clock_metadata", "otlp_source_time":
+									if version < SchemaVersionV5 {
+										return fmt.Errorf("%w: V5 key in older observation", ErrMalformedStream)
+									}
+									if observationKey != strings.ToLower(observationKey) {
+										return fmt.Errorf("%w: noncanonical V5 key", ErrMalformedStream)
+									}
+									if bytes.Equal(bytes.TrimSpace(observerData), []byte("null")) {
+										return fmt.Errorf("%w: null V5 metadata", ErrMalformedStream)
+									}
+									var typ reflect.Type
+									if observationKey == "otlp_clock_metadata" {
+										typ = reflect.TypeOf(OTLPClockMetadata{})
+									}
+									if observationKey == "otlp_source_time" {
+										typ = reflect.TypeOf(OTLPSourceTime{})
+									}
+									if typ != nil {
+										if err := requiredJSONFields(observerData, typ); err != nil {
+											return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+										}
+									}
+
+								case "histogram":
+									var histogram map[string]json.RawMessage
+									if json.Unmarshal(observerData, &histogram) == nil {
+										for k := range histogram {
+											switch strings.ToLower(k) {
+											case "count", "sum", "min", "max", "temporality", "flags":
+												if version < SchemaVersionV5 {
+													return fmt.Errorf("%w: V5 key in older histogram", ErrMalformedStream)
+												}
+												if k != strings.ToLower(k) {
+													return fmt.Errorf("%w: noncanonical V5 histogram key", ErrMalformedStream)
+												}
+												if bytes.Equal(bytes.TrimSpace(histogram[k]), []byte("null")) {
+													return fmt.Errorf("%w: null V5 histogram field", ErrMalformedStream)
+												}
+											}
+										}
+									}
+								}
+
 								if !strings.EqualFold(observationKey, "observer") {
 									continue
 								}
@@ -1112,4 +1199,169 @@ func consumeJSONValue(d *json.Decoder) error {
 	default:
 		return fmt.Errorf("unexpected JSON delimiter %q", delim)
 	}
+}
+
+func noRecordedHistogram(r Reading) bool {
+	h := r.Observation.Histogram
+	return r.Evidence == EvidenceUnavailable && r.UnavailableReason == "no_recorded_value" && h.Flags == 1
+}
+
+func validHistogramV5(h *Histogram) error {
+	if h.Count == nil || len(h.Bounds) != len(h.Counts) || len(h.Bounds) > 4097 || h.Temporality != "delta" && h.Temporality != "cumulative" || h.Flags > 1 {
+		return errors.New("invalid V5 histogram shape")
+	}
+	for _, x := range []*float64{h.Sum, h.Min, h.Max} {
+		if x != nil && (math.IsNaN(*x) || math.IsInf(*x, 0)) {
+			return errors.New("nonfinite histogram summary")
+		}
+	}
+	if h.Min != nil && h.Max != nil && *h.Min > *h.Max || *h.Count == 0 && (h.Sum != nil && *h.Sum != 0 || h.Min != nil || h.Max != nil) {
+		return errors.New("invalid histogram summary")
+	}
+	if h.Flags == 1 && (*h.Count != 0 || len(h.Bounds) != 0 || h.Sum != nil || h.Min != nil || h.Max != nil) {
+		return errors.New("invalid no-recorded histogram")
+	}
+	if len(h.Bounds) == 0 {
+		return nil
+	}
+	if h.Bounds[len(h.Bounds)-1] != "+Inf" || h.Counts[len(h.Counts)-1] != *h.Count {
+		return errors.New("missing histogram terminal count")
+	}
+	var previous float64
+	for i, b := range h.Bounds {
+		if i > 0 && h.Counts[i] < h.Counts[i-1] {
+			return errors.New("noncumulative histogram counts")
+		}
+		if i == len(h.Bounds)-1 {
+			break
+		}
+		v, err := histogramBound(b)
+		if err != nil || i > 0 && v <= previous || b != strconv.FormatFloat(v, 'g', -1, 64) {
+			return errors.New("noncanonical histogram bound")
+		}
+		previous = v
+	}
+	return nil
+}
+
+func histogramBound(s string) (float64, error) {
+	if len(s) == 0 || len(s) > 4096 {
+		return 0, errors.New("invalid histogram bound")
+	}
+	// A JSON number grammar excludes rational strings and nonfinite spellings.
+	if !json.Valid([]byte(s)) || s[0] == '"' || s[0] == '[' || s[0] == '{' || s == "null" || s == "true" || s == "false" {
+		return 0, errors.New("invalid histogram bound")
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0, errors.New("nonfinite histogram bound")
+	}
+	if v == 0 {
+		mantissa := strings.SplitN(strings.ToLower(s), "e", 2)[0]
+		if strings.ContainsAny(mantissa, "123456789") {
+			return 0, errors.New("histogram bound underflow")
+		}
+		return 0, nil
+	}
+	return v, nil
+}
+
+const otlpScopeName = "github.com/tmc/lib/nvidia/x/nvtelemetry"
+
+func validOTLPClock(c OTLPClockMetadata) bool {
+	return exportText(c.ClockDomain) && c.ClockCalibrationBoundsNanos >= 0 && (!c.HasClockCalibration || c.ClockDomain != "") && (c.HasClockCalibration || c.ClockCalibrationBoundsNanos == 0)
+}
+
+func validOTLPObservation(r Reading) error {
+	o := r.Observation
+	if o.OTLPScopeName != nil || o.OTLPClock != nil || o.OTLPSourceTime != nil {
+		if o.Kind != "histogram" || o.Histogram == nil {
+			return errors.New("OTLP metadata on non-histogram")
+		}
+	}
+	if o.Histogram != nil {
+		if o.Histogram.Flags == 1 && !noRecordedHistogram(r) || o.Histogram.Flags == 0 && r.Evidence == EvidenceUnavailable {
+			return errors.New("histogram flags/evidence mismatch")
+		}
+		if o.SourceClass == "imported" {
+			if o.OTLPClock == nil || o.OTLPScopeName == nil || r.TimestampMonotonic != 0 || r.TimestampUnix <= 0 || o.ClockEpoch != "unix" {
+				return errors.New("missing imported OTLP provenance")
+			}
+			if o.Interval != nil && (o.Interval.Clock != "unix" || o.Interval.Start <= 0 || o.Interval.End != r.TimestampUnix) {
+				return errors.New("invalid imported interval")
+			}
+		}
+	}
+	if o.OTLPScopeName != nil && (o.SourceClass != "imported" || *o.OTLPScopeName != "" && *o.OTLPScopeName != otlpScopeName) {
+		return errors.New("invalid OTLP scope provenance")
+	}
+	if o.OTLPClock != nil && !validOTLPClock(*o.OTLPClock) {
+		return errors.New("invalid OTLP clock provenance")
+	}
+	if o.OTLPSourceTime != nil {
+		if o.SourceClass != "imported" {
+			return errors.New("source time on unprojected reading")
+		}
+		if err := validOTLPSourceTime(r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkedUnixTime(v, offset int64) (int64, error) {
+	if offset > 0 && v > math.MaxInt64-offset || offset < 0 && v < math.MinInt64-offset {
+		return 0, errors.New("Unix mapping overflow")
+	}
+	t := v + offset
+	if t <= 0 {
+		return 0, errors.New("nonpositive mapped Unix time")
+	}
+	return t, nil
+}
+
+func validOTLPSourceTime(r Reading) error {
+	s := r.Observation.OTLPSourceTime
+	for _, v := range []string{s.SourceClass, s.SourceClockEpoch, s.MappingDomain, s.MappingEpoch, s.MappingProvenance} {
+		if v == "" || !exportText(v) {
+			return errors.New("incomplete source-time assertion")
+		}
+	}
+	if s.SourceClass != "native" && s.SourceClass != "managed" && s.SourceClass != "synthetic" && s.SourceClass != "modeled" || s.SourceMonotonicEndNanos == 0 || s.SourceClockEpoch != s.MappingEpoch || s.MappingValidFromNanos > s.MappingValidUntilNanos || s.SourceMonotonicEndNanos < s.MappingValidFromNanos || s.SourceMonotonicEndNanos > s.MappingValidUntilNanos {
+		return errors.New("invalid source-time assertion")
+	}
+	end, err := checkedUnixTime(s.SourceMonotonicEndNanos, s.MappingUnixOffsetNanos)
+	if err != nil || end != r.TimestampUnix {
+		return errors.New("source-time end mismatch")
+	}
+	if !s.SourceIntervalPresent {
+		if s.SourceIntervalClock != "" || s.SourceIntervalStartNanos != 0 || s.SourceIntervalEndNanos != 0 || r.Observation.Interval != nil {
+			return errors.New("source-time interval presence mismatch")
+		}
+	} else {
+		start, err := checkedUnixTime(s.SourceIntervalStartNanos, s.MappingUnixOffsetNanos)
+		i := r.Observation.Interval
+		if err != nil || i == nil || s.SourceIntervalClock != s.MappingDomain || s.SourceIntervalStartNanos <= 0 || s.SourceIntervalEndNanos != s.SourceMonotonicEndNanos || s.SourceIntervalStartNanos < s.MappingValidFromNanos || s.SourceIntervalStartNanos > s.MappingValidUntilNanos || start != i.Start || i.End != end || start > end {
+			return errors.New("source-time interval mismatch")
+		}
+	}
+	return nil
+}
+
+func requiredJSONFields(raw []byte, typ reflect.Type) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return err
+	}
+	if len(fields) != typ.NumField() {
+		return errors.New("incomplete V5 metadata object")
+	}
+	for i := 0; i < typ.NumField(); i++ {
+		key := typ.Field(i).Tag.Get("json")
+		value, ok := fields[key]
+		if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return errors.New("missing or null V5 metadata field")
+		}
+	}
+	return nil
 }

@@ -11,6 +11,18 @@ func cloneReadings(readings []Reading) []Reading {
 		}
 		if out[i].Observation != nil {
 			o := *out[i].Observation
+			if o.OTLPScopeName != nil {
+				v := *o.OTLPScopeName
+				o.OTLPScopeName = &v
+			}
+			if o.OTLPClock != nil {
+				v := *o.OTLPClock
+				o.OTLPClock = &v
+			}
+			if o.OTLPSourceTime != nil {
+				v := *o.OTLPSourceTime
+				o.OTLPSourceTime = &v
+			}
 			if o.Interval != nil {
 				interval := *o.Interval
 				o.Interval = &interval
@@ -20,6 +32,22 @@ func cloneReadings(readings []Reading) []Reading {
 			}
 			if o.Histogram != nil {
 				h := *o.Histogram
+				if h.Count != nil {
+					v := *h.Count
+					h.Count = &v
+				}
+				if h.Sum != nil {
+					v := *h.Sum
+					h.Sum = &v
+				}
+				if h.Min != nil {
+					v := *h.Min
+					h.Min = &v
+				}
+				if h.Max != nil {
+					v := *h.Max
+					h.Max = &v
+				}
 				h.Bounds = append([]string(nil), h.Bounds...)
 				h.Counts = append([]uint64(nil), h.Counts...)
 				o.Histogram = &h

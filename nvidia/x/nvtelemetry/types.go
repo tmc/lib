@@ -14,6 +14,7 @@ const (
 	SchemaVersionV2     = 2
 	SchemaVersionV3     = 3
 	SchemaVersionV4     = 4
+	SchemaVersionV5     = 5
 	SchemaVersion       = SchemaVersionV2
 	CollectorVersion    = "nvtelemetry-2.0.0"
 )
@@ -54,6 +55,7 @@ const (
 	UnitMHz         = "mhz"
 	UnitBitmask     = "bitmask"
 	UnitJoules      = "joules"
+	UnitSeconds     = "seconds"
 )
 
 // Evidence classes.
@@ -165,6 +167,13 @@ type Number struct {
 type Histogram struct {
 	Bounds []string `json:"bounds"`
 	Counts []uint64 `json:"counts"`
+	// V5 fields preserve count and optional summary presence.
+	Count       *uint64  `json:"count,omitempty"`
+	Sum         *float64 `json:"sum,omitempty"`
+	Min         *float64 `json:"min,omitempty"`
+	Max         *float64 `json:"max,omitempty"`
+	Temporality string   `json:"temporality,omitempty"`
+	Flags       uint32   `json:"flags,omitempty"`
 }
 
 // Observer identifies an observation population and mode. Empty fields remain
@@ -202,6 +211,10 @@ type SamplingCoverage struct {
 // Kind is gauge, counter, histogram, host_call, kernel or a scheduler state
 // (sched_running, sched_runnable, sched_blocked).
 type Observation struct {
+	// OTLP fields are V5-only assertions, not verified source facts.
+	OTLPScopeName   *string                        `json:"otlp_scope_name,omitempty"`
+	OTLPClock       *OTLPClockMetadata             `json:"otlp_clock_metadata,omitempty"`
+	OTLPSourceTime  *OTLPSourceTime                `json:"otlp_source_time,omitempty"`
 	Family          string                         `json:"family"`
 	SourceClass     string                         `json:"source_class"`
 	Producer        string                         `json:"producer"`
@@ -436,4 +449,29 @@ type BenchmarkCorrelation struct {
 	EnergyAvailable      bool    `json:"energy_available"`
 	ClockAligned         bool    `json:"clock_aligned"`
 	RefusalReason        string  `json:"refusal_reason,omitempty"`
+}
+
+// OTLPClockMetadata preserves declared clock facts, including known zero bounds.
+type OTLPClockMetadata struct {
+	ClockDomain                 string `json:"clock_domain"`
+	HasClockCalibration         bool   `json:"has_clock_calibration"`
+	ClockCalibrationBoundsNanos int64  `json:"clock_calibration_bounds_nanos"`
+}
+
+// OTLPSourceTime preserves the complete caller-asserted source-to-Unix transform.
+// It establishes internal consistency, not calibration or source authenticity.
+type OTLPSourceTime struct {
+	SourceClass              string `json:"source_class"`
+	SourceClockEpoch         string `json:"source_clock_epoch"`
+	SourceMonotonicEndNanos  int64  `json:"source_monotonic_end_nanos"`
+	SourceIntervalPresent    bool   `json:"source_interval_present"`
+	SourceIntervalClock      string `json:"source_interval_clock"`
+	SourceIntervalStartNanos int64  `json:"source_interval_start_nanos"`
+	SourceIntervalEndNanos   int64  `json:"source_interval_end_nanos"`
+	MappingDomain            string `json:"mapping_domain"`
+	MappingEpoch             string `json:"mapping_epoch"`
+	MappingValidFromNanos    int64  `json:"mapping_valid_from_nanos"`
+	MappingValidUntilNanos   int64  `json:"mapping_valid_until_nanos"`
+	MappingUnixOffsetNanos   int64  `json:"mapping_unix_offset_nanos"`
+	MappingProvenance        string `json:"mapping_provenance"`
 }

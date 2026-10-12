@@ -279,7 +279,7 @@ func (c *Collector) Stop() (*Manifest, error) {
 func (c *Collector) InitStream() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.config.SchemaVersion != 0 && c.config.SchemaVersion != SchemaVersionV2 && c.config.SchemaVersion != SchemaVersionV3 && c.config.SchemaVersion != SchemaVersionV4 {
+	if c.config.SchemaVersion != 0 && c.config.SchemaVersion != SchemaVersionV2 && c.config.SchemaVersion != SchemaVersionV3 && c.config.SchemaVersion != SchemaVersionV4 && c.config.SchemaVersion != SchemaVersionV5 {
 		return ErrUnsupportedSchema
 	}
 	if c.writer == nil {

@@ -126,3 +126,45 @@ Local byte fixtures and HTTP wire tests qualify their protocol behavior only.
 Provider SDKs, credentials, native watch ownership and production deployment
 stay with callers. `FetchManaged` performs bounded caller-configured HTTP
 acquisition; no dependencies or duplicate collector are added.
+
+## Explicit V5 histograms
+
+V5 preserves a required uint64 count, optional finite summaries, delta/cumulative
+temporality, and exact no-recorded-value flags independently from known zero.
+The default stream remains V2. V1–V4 refuse all V5-only fields by presence; their
+existing histogram representation and validation remain unchanged. V5 inherits
+V4 coverage/loss checks and owns numeric, scope, clock and source-time pointers.
+OTLP assertions do not establish source authenticity or physical measurement.
+
+The restricted reader `ReadOTLPHistogramMetrics` and histogram branch of
+`WriteOTLPMetrics` bind caller-declared private names and unscaled units. They
+accept one resource/scope and only the field-complete reversible attribute map.
+All present nulls, unknown fields, nonempty exemplars, unsupported source/observer
+metadata and partial mappings refuse the complete call. Imported scope omission
+stays explicit; imported clock metadata is mandatory even when unknown.
+
+The V5 `flags=1` no_recorded_value arm is an explicit OTLP metrics exception to
+general unavailable-reading refusal. Other unavailable reasons still require
+diagnostic streams. Known zero and absent optional summaries remain distinct.
+Reader limits independently bound bytes, metrics, points and explicit bounds;
+export keeps its existing public byte cap. A 4096-bound distribution needs 4097
+internal cumulative entries only in V5. Canonical stream chunking is explicit.
+TransportSHA256 hashes accepted entity bytes, including whitespace, separately
+from a supplied RawSHA256 producer assertion. Neither authenticates a source.
+Schema source: opentelemetry-proto v1.11.0, commit 790608c4d51e6ffc12210b541e8514cbed9e91a4.
+
+Local histogram time needs an explicit `UnixTimeMapping`: a caller-asserted
+1:1 nanosecond offset, source domain/epoch, inclusive validity range and
+provenance. Endpoints and interval starts are checked before conversion. Thirteen
+source-time attributes preserve the original class, epoch, endpoints and mapping;
+absent intervals retain explicit false/empty/zero fields. Re-export of imported
+readings refuses a mapping option and never applies the offset again. Scope
+omission and clock unknown/known-zero/known-positive states remain distinct.
+
+Default limits are 1 MiB, 4096 input metrics, 4096 readings and 256 explicit bounds;
+maxima are 64 MiB, 65536 metrics/readings and 4096 bounds. These are independent
+caps. Every input metric counts, including an empty histogram group. Nonempty
+writer groups at the upper metric limit can exceed the byte cap before reaching
+the metric cap; a byte refusal does not demonstrate that metric guard. Public
+controls exercise the reachable metric guard separately. The reversible attribute
+map has a 32-attribute cap: excess metadata is refused, never removed to fit.
