@@ -14,55 +14,53 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: nvtelemetry
+      annotations:
+        # HOLD: replace only after an authenticated, image-supported probe is
+        # supplied and reviewed for the chosen listener and TLS configuration.
+        nvidia.com/nvtelemetry-probe-strategy: REQUIRED_AUTHENTICATED_PROBE
     spec:
-      # Run as non-root user: NVML reads telemetry via /dev/nvidia* character devices
+      # This template requires a cluster-registered NVIDIA runtime class that
+      # injects the host NVML library and all visible NVIDIA device nodes.
+      # Clusters without that runtime/device injection are unsupported here.
+      runtimeClassName: nvidia
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: nvtelemetry
-          image: ghcr.io/tmc/nvtelemetry:latest
+          # Replace with an immutable image reference pinned by digest before use.
+          image: "REQUIRED_IMAGE_DIGEST"
           imagePullPolicy: IfNotPresent
           command:
             - /usr/local/bin/nvtelemetry
             - serve
             - -config
             - /etc/nvtelemetry/config.json
+          env:
+            # This controls runtime visibility only. config.json device_uuids
+            # separately selects the GPUs that the agent actually samples.
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: utility
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-              # Optional CAP_PERFMON for restricted host counter policies (Linux 5.8+).
-              # Neither CAP_PERFMON nor elevated privileges are proven or required for mock/NVML;
-              # native hardware capability qualification remains pending.
-              add:
-                - CAP_PERFMON
           ports:
             - name: metrics
               containerPort: 9464
               protocol: TCP
-          # Liveness probe: verifies agent process and lifecycle loop are alive
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 9464
-            initialDelaySeconds: 2
-            periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 3
-          # Readiness probe: verifies fresh unexpired GPU telemetry snapshot is available
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: 9464
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 2
+          # Generic HTTP probes are intentionally absent. The application
+          # authenticates health routes and defaults to a loopback listener;
+          # see README.md before supplying an operator-specific probe.
           resources:
             requests:
               cpu: 50m
@@ -74,15 +72,17 @@ spec:
             - name: config-volume
               mountPath: /etc/nvtelemetry
               readOnly: true
-            - name: dev-nvidia
-              mountPath: /dev
+            - name: serving-credentials
+              mountPath: /run/nvtelemetry/credentials
+              readOnly: true
       volumes:
         - name: config-volume
           configMap:
             name: nvtelemetry-config
-        - name: dev-nvidia
-          hostPath:
-            path: /dev
+        - name: serving-credentials
+          secret:
+            secretName: nvtelemetry-serving-credentials
+            defaultMode: 0440
       tolerations:
         - key: nvidia.com/gpu
           operator: Exists
