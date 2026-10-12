@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "provenance": "constructed_host_control",
+  "authentic_capture": false,
+  "communicator_hash": "0x1234567890abcdef",
+  "operation": "AllReduce",
+  "sequence": 7,
+  "bytes": 4096,
+  "scope": {
+    "capture": "constructed-capture-100",
+    "job": "constructed-job-100",
+    "epoch": "constructed-communicator-epoch-17"
+  },
+  "expected_ranks": [0, 1],
+  "rank_files": {
+    "normal": ["rank0.normal.jsonl", "rank1.normal.jsonl"],
+    "delayed": ["rank0.delayed.jsonl", "rank1.delayed.jsonl"]
+  },
+  "clock_control": {
+    "fact_class": "constructed_independent_control_fact",
+    "source_domain": "host_realtime",
+    "reference_domain": "host_monotonic",
+    "reference_epoch": "constructed-reference-epoch-17",
+    "evidence_ref": "constructed-calibration-control-17",
+    "source_boot_epochs": ["constructed-boot-r0", "constructed-boot-r1"],
+    "source_process_epochs": ["constructed-process-r0", "constructed-process-r1"],
+    "offset_ns": [0, 0],
+    "uncertainty_ns": [50, 50],
+    "valid_from_ns": 0,
+    "valid_until_ns": 1000000000
+  },
+  "completion_control": {
+    "fact_class": "constructed_independent_control_fact",
+    "facts": [
+      {"scenario": "normal", "rank": 0, "epoch": "constructed-communicator-epoch-17", "completion_ns": 1350000},
+      {"scenario": "normal", "rank": 1, "epoch": "constructed-communicator-epoch-17", "completion_ns": 1350000},
+      {"scenario": "delayed", "rank": 0, "epoch": "constructed-communicator-epoch-17", "completion_ns": 1350000},
+      {"scenario": "delayed", "rank": 1, "epoch": "constructed-communicator-epoch-17", "completion_ns": 2350000},
+      {"scenario": "normal", "rank": 0, "epoch": "constructed-communicator-epoch-18", "completion_ns": 1350000},
+      {"scenario": "normal", "rank": 1, "epoch": "constructed-communicator-epoch-18", "completion_ns": 1350000},
+      {"scenario": "delayed", "rank": 0, "epoch": "constructed-communicator-epoch-18", "completion_ns": 1350000},
+      {"scenario": "delayed", "rank": 1, "epoch": "constructed-communicator-epoch-18", "completion_ns": 2350000}
+    ]
+  },
+  "expected_reports": {
+    "normal": {"diagnosis": "normal", "admitted": true, "delayed_rank": -1},
+    "delayed": {"diagnosis": "host_enqueue_skew", "admitted": true, "delayed_rank": 1},
+    "missing_completion": {"diagnosis": "partial_rank", "admitted": false, "delayed_rank": -1},
+    "excessive_clock_uncertainty": {"diagnosis": "order_indeterminate", "admitted": false, "delayed_rank": -1}
+  },
+  "sha256": {
+    "rank0.normal.jsonl": "1f3f831963e82249ad411569533f62ee60aa046745fe7e71fccd9a2b3f8e6874",
+    "rank1.normal.jsonl": "6dfdaa9d468b06d572a1ccafa444a6e145b1e30d029e447df0d0f24f6c778f2c",
+    "rank0.delayed.jsonl": "1f3f831963e82249ad411569533f62ee60aa046745fe7e71fccd9a2b3f8e6874",
+    "rank1.delayed.jsonl": "40bc2b04b5050bfbae30e646f32dd11af1e29e938169ef8c40273c21d89dcbe6"
+  }
+}
