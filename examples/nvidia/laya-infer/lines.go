@@ -105,8 +105,11 @@ func predictLines(dir, input string, prec precision, period uint32, pprof string
 		fmt.Fprintf(os.Stderr, "  %d samples fell in forward.cu's kernels at offsets they do not have\n", p.Unresolved)
 	}
 	if report.Loss() {
-		fmt.Fprintf(os.Stderr, "  lost: %d samples dropped, %d left in hardware; raise the period above 2^%d\n",
-			report.DroppedSamples, report.RemainingSamples, period)
+		// Remaining is a count of PC records, not samples, summed over the
+		// reads that reported it, so the same records may be counted twice.
+		// A limited drain leaves records it cannot count.
+		fmt.Fprintf(os.Stderr, "  lost: %d samples dropped, %d PC records reported remaining (summed over reads), drain limited %t; raise the period above 2^%d\n",
+			report.DroppedSamples, report.RemainingPCs, report.DrainLimited, period)
 	}
 	if pprof != "" {
 		if err := writePprof(pprof, a, report); err != nil {

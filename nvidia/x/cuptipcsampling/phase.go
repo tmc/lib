@@ -37,25 +37,34 @@ type PhaseConfig struct {
 }
 
 // PhaseReport details the outcome of a bounded phase capture, separately reporting
-// samples, dropped samples, remaining uncollected samples, consumer failure,
+// samples, dropped samples, remaining PC records, consumer failure,
 // and cancellation status.
+//
+// Native output counts what it left behind in PC records, not samples, so
+// the report has no count of remaining samples. RemainingPCs adds the count
+// reported by a read after Stop to the count reported by the final batch;
+// the two may describe the same records, so it is not a count of distinct
+// records left behind.
 type PhaseReport struct {
-	Info             Info    // Diagnostic and session metadata
-	Batches          []Batch // Captured batches (populated when Consumer is nil)
-	TotalSamples     uint64  // Sum of all valid PC total samples observed
-	DroppedSamples   uint64  // Sum of dropped samples reported by hardware or buffers
-	RemainingSamples uint64  // Samples in hardware/driver uncollected due to limits
-	RemainingPCs     uint64  // PC records remaining in hardware/driver uncollected due to limits
-	BatchesDrained   uint    // Total batches successfully drained
-	ConsumerErr      error   // Consumer failure reported separately
-	WorkloadErr      error   // Error returned by the workload execution function
-	Canceled         bool    // True if the phase context was canceled
-	HardwareFull     bool    // True if hardware buffer overflow was reported
+	Info           Info    // Diagnostic and session metadata
+	Batches        []Batch // Captured batches (populated when Consumer is nil)
+	TotalSamples   uint64  // Sum of all valid PC total samples observed
+	DroppedSamples uint64  // Sum of dropped samples reported by hardware or buffers
+	RemainingPCs   uint64  // Sum of PC record counts reported remaining after Stop and by the final batch
+	BatchesDrained uint    // Total batches successfully drained
+	FinalDrained   bool    // A read after Stop reported no remaining PC records
+	DrainLimited   bool    // MaxBatches stopped the final drain; records may remain, count unknown
+	FinalBatch     bool    // Batches ends with the session's post-disable final batch
+	ConsumerErr    error   // Consumer failure reported separately
+	WorkloadErr    error   // Error returned by the workload execution function
+	Canceled       bool    // True if the phase context was canceled
+	HardwareFull   bool    // True if hardware buffer overflow was reported
 }
 
-// Loss reports whether any samples were dropped or hardware buffer overflow occurred.
+// Loss reports whether samples were dropped, hardware buffer overflow
+// occurred, or PC records remained or may remain uncollected.
 func (r PhaseReport) Loss() bool {
-	return r.DroppedSamples > 0 || r.RemainingSamples > 0 || r.RemainingPCs > 0 || r.HardwareFull
+	return r.DroppedSamples > 0 || r.RemainingPCs > 0 || r.HardwareFull || r.DrainLimited
 }
 
 // phaseController coordinates the phase capture lifecycle with separate dependency tracking.
@@ -136,8 +145,8 @@ func (c *phaseController) recordBatch(b Batch) error {
 // Resources are strictly preserved while native collection or drain consumers
 // are active; cleanup retries if disable fails.
 //
-// Remaining samples, dropped samples, consumer failure, and cancellation are
-// reported separately in the returned [PhaseReport].
+// Remaining PC records, dropped samples, consumer failure, and cancellation
+// are reported separately in the returned [PhaseReport].
 func CapturePhase(ctx context.Context, cuCtx driver.Context, cfg PhaseConfig, syncWorkload func() error, workload func(context.Context) error) (PhaseReport, error) {
 	return capturePhase(ctx, cuCtx, cfg, Start, syncWorkload, workload)
 }
@@ -275,8 +284,11 @@ func capturePhase(
 	// When concurrent draining with a ring buffer was used, stopDrain has already
 	// closed the ring buffer and consumed queued batches. For non-concurrent draining,
 	// drain any remaining batches from the session until the limit or EOF is reached.
+	// The concurrent path reads no remaining count after Stop, so it never
+	// sets FinalDrained.
 	var finalDrainErr error
 	if stopDrain == nil {
+		var remainingAfterStop uint64 // zero until a read after Stop
 		for {
 			pc.mu.Lock()
 			drained := pc.report.BatchesDrained
@@ -284,12 +296,12 @@ func capturePhase(
 			pc.mu.Unlock()
 
 			if drained >= maxB {
-				// Limit reached. Query diagnostic read to count remaining samples if possible.
-				b, err := session.Read()
-				if err == nil {
-					pc.report.RemainingPCs = b.RemainingPCs
-					pc.report.RemainingSamples = b.TotalSamples
-				}
+				// Limit reached. A further Read would move records out of the
+				// native buffer only to discard them. Records may remain, and
+				// a remaining count from a read before Stop says nothing about
+				// them, so only a count read after Stop is reported.
+				pc.report.DrainLimited = true
+				pc.report.RemainingPCs = remainingAfterStop
 				break
 			}
 			b, err := session.Read()
@@ -310,7 +322,9 @@ func capturePhase(
 			if err := pc.recordBatch(b); err != nil {
 				break
 			}
+			remainingAfterStop = b.RemainingPCs
 			if b.RemainingPCs == 0 {
+				pc.report.FinalDrained = true
 				break
 			}
 		}
@@ -342,6 +356,7 @@ func capturePhase(
 				pc.batches = append(pc.batches, finalBatch)
 			}
 			pc.report.BatchesDrained++
+			pc.report.FinalBatch = true
 		}
 	}
 

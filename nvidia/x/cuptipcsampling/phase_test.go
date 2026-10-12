@@ -3,6 +3,7 @@ package cuptipcsampling
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -196,7 +197,7 @@ func TestPhaseCaptureLifecycle(t *testing.T) {
 		t.Fatal("expected non-zero total samples")
 	}
 	if report.Loss() {
-		t.Fatalf("expected no loss, got dropped=%d remaining=%d", report.DroppedSamples, report.RemainingSamples)
+		t.Fatalf("expected no loss, got %d dropped samples, %d remaining PC records", report.DroppedSamples, report.RemainingPCs)
 	}
 }
 
@@ -322,9 +323,11 @@ func TestPhaseCaptureLossReporting(t *testing.T) {
 	}
 }
 
-// TestPhaseCaptureRemainingSamples verifies that when MaxBatches limits drainage,
-// remaining PCs / samples are reported separately.
-func TestPhaseCaptureRemainingSamples(t *testing.T) {
+// TestPhaseCaptureRemainingPCs verifies that when MaxBatches limits drainage,
+// the PC records the native read reports remaining are reported in
+// RemainingPCs. They count records, not samples, and are not added to the
+// dropped sample count.
+func TestPhaseCaptureRemainingPCs(t *testing.T) {
 	mockStarter := func(ctx driver.Context, cfg Config) (*Session, error) {
 		queryRemaining := func(p *cupti.PCSamplingGetDataParams) error {
 			d := (*cupti.PCSamplingData)(nativePointer(p.PcSamplingData))
@@ -351,10 +354,98 @@ func TestPhaseCaptureRemainingSamples(t *testing.T) {
 	}
 
 	if report.RemainingPCs != 120 {
-		t.Fatalf("expected RemainingPCs = 120, got %d", report.RemainingPCs)
+		t.Fatalf("RemainingPCs = %d PC records, want 120", report.RemainingPCs)
+	}
+	if report.DroppedSamples != 0 {
+		t.Fatalf("DroppedSamples = %d, want 0: remaining PC records are not dropped samples", report.DroppedSamples)
 	}
 	if !report.Loss() {
-		t.Fatal("expected Loss() = true due to remaining PCs")
+		t.Fatal("expected Loss() = true due to remaining PC records")
+	}
+}
+
+// TestPhaseReportCountsNoRemainingSamples verifies that the report carries
+// no remaining sample count. Native output reports remaining PC records, not
+// samples, so such a field could only ever be zero.
+func TestPhaseReportCountsNoRemainingSamples(t *testing.T) {
+	if f, ok := reflect.TypeFor[PhaseReport]().FieldByName("RemainingSamples"); ok {
+		t.Fatalf("PhaseReport has field %s %v; native output counts remaining PC records, not samples", f.Name, f.Type)
+	}
+}
+
+// remainingSumStarter starts a session whose reads each report one PC
+// record remaining and whose post-disable final batch reports final.
+func remainingSumStarter(final uint64) func(driver.Context, Config) (*Session, error) {
+	return func(ctx driver.Context, cfg Config) (*Session, error) {
+		api := testPublicControlAPI()
+		set := api.set
+		var output uintptr
+		api.set = func(p *cupti.PCSamplingConfigurationInfoParams) error {
+			for _, a := range unsafe.Slice((*cupti.PCSamplingConfigurationInfo)(nativePointer(p.PPCSamplingConfigurationInfo)), int(p.NumAttributes)) {
+				if a.AttributeType == cupti.PcSamplingConfigurationAttrTypeSamplingDataBuffer {
+					output = uintptr(a.AttributeData[0])
+				}
+			}
+			return set(p)
+		}
+		api.disable = func(*cupti.PCSamplingDisableParams) error {
+			if output == 0 {
+				return errors.New("no output buffer configured")
+			}
+			p := cupti.PCSamplingGetDataParams{PcSamplingData: output}
+			if err := testPublicOnePC(&p); err != nil {
+				return err
+			}
+			d := (*cupti.PCSamplingData)(nativePointer(output))
+			d.TotalSamples, d.RemainingNumPcs = 20, uint(final)
+			return nil
+		}
+		query := func(p *cupti.PCSamplingGetDataParams) error {
+			if err := testPublicOnePC(p); err != nil {
+				return err
+			}
+			d := (*cupti.PCSamplingData)(nativePointer(p.PcSamplingData))
+			d.TotalSamples, d.RemainingNumPcs = 10, 1
+			return nil
+		}
+		return startSession(ctx, cfg, api, testPublicInventory, testPublicNames, query)
+	}
+}
+
+// TestPhaseCaptureRemainingPCsSum verifies that RemainingPCs adds the count a
+// read after Stop reported to the count the final batch reported. The two
+// counts may describe the same records, so the sum can exceed the number of
+// distinct records left behind; it is never smaller than either count.
+func TestPhaseCaptureRemainingPCsSum(t *testing.T) {
+	tests := []struct {
+		name  string
+		final uint64 // PC records the final batch reports remaining
+		want  uint64 // after Stop read (1) plus final
+	}{
+		{"final batch empty", 0, 1},
+		{"final batch reports one", 1, 2},
+		{"final batch reports more", 5, 6},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := testPhaseConfig()
+			cfg.Limits.MaxBatches, cfg.Config.MaxReads = 1, 2
+			// Close reports remaining records in the final batch as an
+			// error; this test checks the report, not that error.
+			r, _ := capturePhase(context.Background(), 5, cfg, remainingSumStarter(tt.final), func() error { return nil }, func(context.Context) error { return nil })
+			if !r.DrainLimited {
+				t.Fatal("DrainLimited = false, want true")
+			}
+			if !r.FinalBatch {
+				t.Fatal("FinalBatch = false, want true")
+			}
+			if r.RemainingPCs != tt.want {
+				t.Fatalf("RemainingPCs = %d PC records, want %d", r.RemainingPCs, tt.want)
+			}
+			if r.DroppedSamples != 0 {
+				t.Fatalf("DroppedSamples = %d, want 0", r.DroppedSamples)
+			}
+		})
 	}
 }
 

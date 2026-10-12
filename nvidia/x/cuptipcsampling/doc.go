@@ -18,7 +18,7 @@
 //
 // CapturePhase composes the PC sampling lifecycle into a bounded phase operation
 // with explicit limits, workload completion and device synchronization, final
-// draining, and cleanup, reporting loss, remaining samples, consumer failure,
+// draining, and cleanup, reporting loss, remaining PC records, consumer failure,
 // and cancellation separately.
 // ProfileBridge exposes named-PC, dropped, and unattributed sample counts.
 // Its stall coverage uses all three counts in the denominator, so CUPTI loss
