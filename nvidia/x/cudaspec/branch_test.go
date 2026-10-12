@@ -5,6 +5,7 @@ package cudaspec_test
 import (
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudaattn"
@@ -482,18 +483,79 @@ func TestNegativeControl_ReuseCacheAfterPrefixOrWeightChange(t *testing.T) {
 		t.Fatalf("Get(keyA) = %v, %v; want bonus 42", entry, ok)
 	}
 
-	// 1. After prefix change: querying with prefixB must not return entry
-	keyPrefixChanged := cudaspec.ComputeSpeculationKey(modelA, prefixB, 1, 0, 3, "FP32", 1)
-	keyPrefixChanged.DraftDigest = draft
-	if entry, ok := cache.Get(keyPrefixChanged); ok {
-		t.Fatalf("negative control failed: cache returned entry %v after prefix change", entry)
+	key := func(model []byte, prefix []int32, mode string, generation uint64) cudaspec.SpeculationCacheKey {
+		k := cudaspec.ComputeSpeculationKey(model, prefix, 1, 0, 3, mode, generation)
+		k.DraftDigest = draft
+		return k
 	}
+	changedDraft := keyA
+	changedDraft.DraftDigest = [32]byte{8}
+	for _, tt := range []struct {
+		name string
+		key  cudaspec.SpeculationCacheKey
+	}{
+		{"prefix", key(modelA, prefixB, "FP32", 1)},
+		{"weight", key(modelB, prefixA, "FP32", 1)},
+		{"generation", key(modelA, prefixA, "FP32", 2)},
+		{"numerical mode", key(modelA, prefixA, "FP16", 1)},
+		{"draft", changedDraft},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if entry, ok := cache.Get(tt.key); ok {
+				t.Fatalf("reused entry %+v after %s change", entry, tt.name)
+			}
+			if entry, ok := cache.Get(keyA); !ok || entry.BonusToken != 42 {
+				t.Fatalf("original entry = %+v, %v; want bonus 42", entry, ok)
+			}
+		})
+	}
+}
 
-	// 2. After weight change: querying with modelB must not return entry
-	keyWeightChanged := cudaspec.ComputeSpeculationKey(modelB, prefixA, 1, 0, 3, "FP32", 1)
-	keyWeightChanged.DraftDigest = draft
-	if entry, ok := cache.Get(keyWeightChanged); ok {
-		t.Fatalf("negative control failed: cache returned entry %v after weight change", entry)
+func TestGenerationFixtures_ProgressionAndInvalidation(t *testing.T) {
+	cache := cudaspec.NewSpeculationCache(10)
+	entries := make([]cudaspec.SpeculationCacheEntry, 4)
+	for i := range entries {
+		gen := uint64(i + 1)
+		prefix := make([]int32, 4*int(gen))
+		for j := range prefix {
+			prefix[j] = int32(j + 1)
+		}
+		key := cudaspec.ComputeSpeculationKey([]byte("model_gen_v1"), prefix, 1, 0, len(prefix), "FP32", gen)
+		key.DraftDigest = [32]byte{31: 1}
+		entries[i] = cudaspec.SpeculationCacheEntry{Key: key, DraftPath: []int32{int32(gen * 10), int32(gen*10 + 1)}, BonusToken: int32(gen * 100)}
+		if err := cache.Put(&entries[i]); err != nil {
+			t.Fatalf("Put generation %d: %v", gen, err)
+		}
+		// Earlier generations remain reusable as the prefix grows.
+		for _, want := range entries[:i+1] {
+			got, ok := cache.Get(want.Key)
+			if !ok || got.Key != want.Key || !slices.Equal(got.DraftPath, want.DraftPath) || got.BonusToken != want.BonusToken {
+				t.Fatalf("Get generation %d = %+v, %v; want %+v", want.Key.Generation, got, ok, want)
+			}
+		}
+	}
+	if n := cache.InvalidateGeneration(0); n != 0 {
+		t.Fatalf("InvalidateGeneration(0) = %d, want 0", n)
+	}
+	for _, want := range entries {
+		if got, ok := cache.Get(want.Key); !ok || got.BonusToken != want.BonusToken || !slices.Equal(got.DraftPath, want.DraftPath) {
+			t.Fatalf("generation %d changed at zero boundary: %+v, %v", want.Key.Generation, got, ok)
+		}
+	}
+	if n := cache.InvalidateGeneration(2); n != 2 {
+		t.Fatalf("InvalidateGeneration(2) = %d, want 2", n)
+	}
+	for _, want := range entries {
+		got, ok := cache.Get(want.Key)
+		if want.Key.Generation <= 2 {
+			if ok {
+				t.Fatalf("generation %d survived: %+v", want.Key.Generation, got)
+			}
+			continue
+		}
+		if !ok || got.Key != want.Key || got.BonusToken != want.BonusToken || !slices.Equal(got.DraftPath, want.DraftPath) {
+			t.Fatalf("generation %d lost or changed: %+v, %v", want.Key.Generation, got, ok)
+		}
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudabatch"
@@ -277,9 +278,25 @@ func TestSpeculationCacheZeroDraftDigestReuse(t *testing.T) {
 		t.Fatal("fixture request keys differ; scenario needs equal zero-digest keys")
 	}
 	c := cudaspec.NewSpeculationCache(4)
-	c.Put(&cudaspec.SpeculationCacheEntry{Key: r1.Key, DraftPath: res1.Outcome.DraftTokens})
+	if err := c.Put(&cudaspec.SpeculationCacheEntry{Key: r1.Key, DraftPath: res1.Outcome.DraftTokens}); !errors.Is(err, cudaspec.ErrDraftDigestRequired) {
+		t.Fatalf("Put without draft digest = %v, want ErrDraftDigestRequired", err)
+	}
 	if e, ok := c.Get(r2.Key); ok {
 		t.Fatalf("reused drafted entry %+v across draft weights", e)
+	}
+}
+
+func TestSpeculationKey_NonAllZeroWithZeroLeadingByte(t *testing.T) {
+	key := cudaspec.ComputeSpeculationKey([]byte("model"), []int32{1, 2}, 1, 0, 2, "fp32", 1)
+	key.DraftDigest = [32]byte{31: 1}
+	want := &cudaspec.SpeculationCacheEntry{Key: key, DraftPath: []int32{10, 20}, BonusToken: 99}
+	c := cudaspec.NewSpeculationCache(4)
+	if err := c.Put(want); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := c.Get(key)
+	if !ok || got.Key != key || !slices.Equal(got.DraftPath, want.DraftPath) || got.BonusToken != want.BonusToken {
+		t.Fatalf("Get = %+v, %v; want %+v", got, ok, want)
 	}
 }
 
@@ -392,7 +409,9 @@ func TestSpeculationCacheZeroDraftDigestBonusReuse(t *testing.T) {
 		t.Fatalf("fixture: keys equal %v, bonus %d and %d", r1.Key == r2.Key, res1.Outcome.BonusToken, res2.Outcome.BonusToken)
 	}
 	c := cudaspec.NewSpeculationCache(4)
-	c.Put(&cudaspec.SpeculationCacheEntry{Key: r1.Key, BonusToken: res1.Outcome.BonusToken})
+	if err := c.Put(&cudaspec.SpeculationCacheEntry{Key: r1.Key, BonusToken: res1.Outcome.BonusToken}); !errors.Is(err, cudaspec.ErrDraftDigestRequired) {
+		t.Fatalf("Put without draft digest = %v, want ErrDraftDigestRequired", err)
+	}
 	if e, ok := c.Get(r2.Key); ok {
 		t.Fatalf("reused bonus %d across draft weights; cycle drafted under them emitted %d", e.BonusToken, res2.Outcome.BonusToken)
 	}
