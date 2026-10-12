@@ -1,0 +1,105 @@
+{
+  "mode": "field-policy-v3",
+  "package_version": "1:4.7.0-2",
+  "target": "x86_64-unknown-linux-gnu",
+  "oracle": "clang C++ record-layout dump and constant value probe",
+  "struct": "dcgm_policy_violation_t",
+  "size": 568,
+  "align": 8,
+  "fields": [
+    {
+      "name": "policyId",
+      "c_type": "uint64_t",
+      "offset": 0
+    },
+    {
+      "name": "policyName",
+      "c_type": "char[256]",
+      "offset": 8
+    },
+    {
+      "name": "fieldName",
+      "c_type": "char[256]",
+      "offset": 264
+    },
+    {
+      "name": "fieldId",
+      "c_type": "unsigned short",
+      "offset": 520
+    },
+    {
+      "name": "entity",
+      "c_type": "dcgmGroupEntityPair_t",
+      "offset": 524
+    },
+    {
+      "name": "currentValue",
+      "c_type": "double",
+      "offset": 536
+    },
+    {
+      "name": "thresholdValue",
+      "c_type": "double",
+      "offset": 544
+    },
+    {
+      "name": "policyOperator",
+      "c_type": "dcgmPolicyOperator_t",
+      "offset": 552
+    },
+    {
+      "name": "channelMask",
+      "c_type": "unsigned int",
+      "offset": 556
+    },
+    {
+      "name": "timestamp",
+      "c_type": "int64_t",
+      "offset": 560
+    }
+  ],
+  "enum": "dcgmPolicyOperator_t",
+  "enum_values": [
+    {
+      "name": "DCGM_POLICY_OP_GT",
+      "value": 0
+    },
+    {
+      "name": "DCGM_POLICY_OP_GE",
+      "value": 1
+    },
+    {
+      "name": "DCGM_POLICY_OP_LT",
+      "value": 2
+    },
+    {
+      "name": "DCGM_POLICY_OP_LE",
+      "value": 3
+    },
+    {
+      "name": "DCGM_POLICY_OP_EQ",
+      "value": 4
+    },
+    {
+      "name": "DCGM_POLICY_OP_NE",
+      "value": 5
+    },
+    {
+      "name": "DCGM_POLICY_OP_CHANGED",
+      "value": 6
+    },
+    {
+      "name": "DCGM_POLICY_OP_COUNT",
+      "value": 7
+    }
+  ],
+  "inputs": {
+    "LICENSE.txt": "966df7a5de3855eb06ba92026867f14d048f6d77411cf5105e950ea76806582d",
+    "README.md": "8c04eec8416544de87ab5dc69950cfdfc3f2be6530db7e617773dd27d02c5b9f",
+    "dcgm_agent.h": "0a50783e3f87ac7ecfd5f9b0b6690ff74e7eff9b12ea6c3c192c6af8bea58484",
+    "dcgm_api_export.h": "e462c500ef01d5dddfceaf3a52ead9c32ab5453fba57739e73f2e925d084ff0c",
+    "dcgm_errors.h": "07df866aba09e66b0940bca5b42acde2632bd02c4f44b3eb6126d961d6e1f48c",
+    "dcgm_fields.h": "a94a6d914a483e7a6bbf8d612651a3e04b26928b05e2a233a98a53e39c751f05",
+    "dcgm_structs.h": "b990e2707e57cbe0ad1480cb7cfa5ce9b3505a20867a79bdf5446de5b6c7b7ec"
+  }
+}
