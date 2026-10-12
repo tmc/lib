@@ -24,10 +24,12 @@
 // Its stall coverage uses all three counts in the denominator, so CUPTI loss
 // and empty kernel names lower coverage rather than disappearing from it.
 //
-// Collection is restricted to Linux amd64/arm64 and CUPTI 13.x layouts. A 13.x
-// release newer than the newest qualified one uses that release's layout.
-// This layout restriction is not native hardware qualification. Native reason
-// counts are not legacy stall enums or inferred instruction metrics.
+// Collection is restricted to Linux amd64/arm64. Sampling admits the recorded
+// CUPTI runtimes 130001, 130101, 130200, 130202, 130301 and 130400. Runtime
+// 130401 retains its historical source admission with layout 130400; this alias
+// is not fresh physical qualification. Unlisted and future runtimes are refused.
+// Layout admission is not native hardware qualification. Native reason counts
+// are not legacy stall enums or inferred instruction metrics.
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
