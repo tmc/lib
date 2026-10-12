@@ -5,6 +5,7 @@ package cudacluster
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,8 +21,10 @@ import (
 // retain the actual C++ commands/output and verify every launch and sync.
 // Compilation is offline: this gate requires source-bound prebuilt fixtures.
 func TestClusterQualification_RankAndLocalWindowControl(t *testing.T) {
-	if os.Getenv("CUDA_CLUSTER_NATIVE") != "1" {
-		t.Skip("native DSM qualification requires CUDA_CLUSTER_NATIVE=1")
+	// This file builds only with the native tag, so a closed gate here is a
+	// vacuous native run. It fails wrapping ErrHardwarePending; it never skips.
+	if err := requireNativeLock(os.Getenv); errors.Is(err, errNativeGateClosed) {
+		reportNativeGate(t, true, err)
 	}
 	if err := requireNativeLock(os.Getenv); err != nil {
 		t.Fatal(err)

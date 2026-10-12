@@ -6,9 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/build/constraint"
+	"go/parser"
+	"go/printer"
+	"go/token"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -27,20 +33,37 @@ func clusterTarget() string {
 	return "sm_121a"
 }
 
-// runReduction compiles and runs the fixture and returns the total it produced.
-// A non-zero exit from the fixture is returned as an error naming the stage
-// that failed, so that a compile failure and a wrong answer are never confused.
+// runReduction returns the total the reduction fixture produced on a device,
+// gated by the process environment.
 func runReduction(t *testing.T, clusterSize int, mut Mutant) (uint32, error) {
 	t.Helper()
-	if os.Getenv("CUDA_CLUSTER_NATIVE") != "1" {
-		t.Skip("native qualification pending: CUDA_CLUSTER_NATIVE=1 required")
-	}
-	if err := requireNativeLock(os.Getenv); err != nil {
-		t.Fatalf("native gate enabled without inherited GPU lock: %v", err)
+	return runReductionEnv(t, os.Getenv, clusterSize, mut)
+}
+
+// runReductionEnv is runReduction gated by getenv. A closed native gate skips
+// t with an error wrapping [ErrHardwarePending]; it never yields a total.
+// Every other failure, including an open gate without an inherited GPU lock,
+// is returned for the caller to fail on.
+func runReductionEnv(t *testing.T, getenv func(string) string, clusterSize int, mut Mutant) (uint32, error) {
+	t.Helper()
+	got, err := reduceOnDevice(t, getenv, clusterSize, mut)
+	skipClosedGate(t, err)
+	return got, err
+}
+
+// reduceOnDevice compiles and runs the fixture and returns the total it
+// produced. The native gate is checked before any tool lookup, and a closed
+// gate returns (0, errNativeGateClosed). A non-zero exit from the fixture is
+// returned as an error naming the stage that failed, so that a compile failure
+// and a wrong answer are never confused.
+func reduceOnDevice(t *testing.T, getenv func(string) string, clusterSize int, mut Mutant) (uint32, error) {
+	t.Helper()
+	if err := requireNativeLock(getenv); err != nil {
+		return 0, err
 	}
 	target := clusterTarget()
 	if err := Check(target); err != nil {
-		t.Fatalf("Check(%q): %v", target, err)
+		return 0, fmt.Errorf("check %s: %w", target, err)
 	}
 	var nvcc string
 	if os.Getenv("CUDA_CLUSTER_PREBUILT_DIR") == "" {
@@ -49,7 +72,7 @@ func runReduction(t *testing.T, clusterSize int, mut Mutant) (uint32, error) {
 
 	src, err := ReductionFixture(target, clusterSize, mut)
 	if err != nil {
-		t.Fatal(err)
+		return 0, err
 	}
 	src += reductionMain(clusterSize)
 
@@ -97,12 +120,351 @@ int main() {
 `, clusterSize, fixtureLaunchFailureCode)
 }
 
+// errNativeGateClosed reports that CUDA_CLUSTER_NATIVE=1 is unset, so no
+// native fixture ran. It is pending, not a refusal: nothing examined a device.
+var errNativeGateClosed error = nativeGateClosedError{}
+
+// nativeGateClosedError matches [ErrHardwarePending] without repeating its
+// text, which describes a target that was checked. A closed gate checked none.
+type nativeGateClosedError struct{}
+
+func (nativeGateClosedError) Error() string {
+	return "cudacluster: native gate is closed: CUDA_CLUSTER_NATIVE=1 unset, no device examined"
+}
+
+func (nativeGateClosedError) Unwrap() error { return ErrHardwarePending }
+
+// gateReporter is the part of [testing.T] that reports a native gate. Each
+// method ends the test when called through a *testing.T.
+type gateReporter interface {
+	Helper()
+	Skip(args ...any)
+	Fatal(args ...any)
+	Log(args ...any)
+}
+
+// skipClosedGate skips r when err is the closed native gate, and only then.
+// Any other error, including another ErrHardwarePending such as a target with
+// no recorded capability, is left for the caller to fail on.
+func skipClosedGate(r gateReporter, err error) {
+	r.Helper()
+	if errors.Is(err, errNativeGateClosed) {
+		r.Skip(err)
+	}
+}
+
+// reportNativeGate reports the native gate for a run: a pass when the gate
+// is open under an inherited lock, a pending skip when it is closed in an
+// untagged build, and a failure otherwise.
+func reportNativeGate(r gateReporter, native bool, gateErr error) {
+	r.Helper()
+	err := nativeRunError(native, gateErr)
+	switch {
+	case err == nil:
+		r.Log("native gate open under an inherited GPU lock")
+	case errors.Is(err, errVacuousNativeRun):
+		r.Fatal(err)
+	case errors.Is(err, errNativeGateClosed):
+		r.Skip(err)
+	default:
+		r.Fatal(err)
+	}
+}
+
+// recordedGate records how a gate was reported. Unlike *testing.T, its
+// methods return, so the reporting functions must not fall through.
+type recordedGate struct {
+	calls []string
+	text  string
+}
+
+func (r *recordedGate) Helper() {}
+
+func (r *recordedGate) record(call string, args []any) {
+	r.calls = append(r.calls, call)
+	r.text = fmt.Sprint(args...)
+}
+
+func (r *recordedGate) Skip(args ...any)  { r.record("skip", args) }
+func (r *recordedGate) Fatal(args ...any) { r.record("fatal", args) }
+func (r *recordedGate) Log(args ...any)   { r.record("log", args) }
+
+func TestSkipClosedGate(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want []string
+	}{
+		{"closed gate", errNativeGateClosed, []string{"skip"}},
+		{"wrapped closed gate", fmt.Errorf("run: %w", errNativeGateClosed), []string{"skip"}},
+		{"target pending", fmt.Errorf("check sm_86: %w", ErrHardwarePending), nil},
+		{"no lock", fmt.Errorf("lock: %w", cudalock.ErrNotInherited), nil},
+		{"fixture failed", errors.New("fixture exited 1"), nil},
+		{"no error", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var r recordedGate
+			skipClosedGate(&r, tc.err)
+			if !slices.Equal(r.calls, tc.want) {
+				t.Fatalf("skipClosedGate(%v) calls = %q, want %q", tc.err, r.calls, tc.want)
+			}
+		})
+	}
+}
+
+func TestReportNativeGate(t *testing.T) {
+	lockErr := fmt.Errorf("lock: %w", cudalock.ErrNotInherited)
+	for _, tc := range []struct {
+		name    string
+		native  bool
+		gateErr error
+		want    string
+	}{
+		{"untagged closed", false, errNativeGateClosed, "skip"},
+		{"native closed", true, errNativeGateClosed, "fatal"},
+		{"untagged open", false, nil, "log"},
+		{"native open", true, nil, "log"},
+		{"untagged without lock", false, lockErr, "fatal"},
+		{"native without lock", true, lockErr, "fatal"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var r recordedGate
+			reportNativeGate(&r, tc.native, tc.gateErr)
+			if !slices.Equal(r.calls, []string{tc.want}) {
+				t.Fatalf("reportNativeGate(%t, %v) calls = %q, want [%s]", tc.native, tc.gateErr, r.calls, tc.want)
+			}
+		})
+	}
+}
+
+// TestClosedGateSkipText requires the skip to say the native gate is closed
+// and not to claim, through the sentinel's text, that a target was checked.
+func TestClosedGateSkipText(t *testing.T) {
+	var r recordedGate
+	skipClosedGate(&r, errNativeGateClosed)
+	if !strings.Contains(r.text, "native gate is closed") {
+		t.Errorf("closed gate skip = %q, want it to say the native gate is closed", r.text)
+	}
+	if strings.Contains(r.text, ErrHardwarePending.Error()) {
+		t.Errorf("closed gate skip = %q repeats %q", r.text, ErrHardwarePending)
+	}
+	if !errors.Is(errNativeGateClosed, ErrHardwarePending) {
+		t.Error("closed gate does not match ErrHardwarePending")
+	}
+}
+
+// requireNativeLock returns errNativeGateClosed when the native gate is
+// closed, and a non-pending error when it is open without an inherited GPU
+// lock.
 func requireNativeLock(getenv func(string) string) error {
 	if getenv("CUDA_CLUSTER_NATIVE") != "1" {
-		return fmt.Errorf("cudacluster: native gate is closed")
+		return errNativeGateClosed
 	}
-	_, err := cudalock.Inherited(getenv)
-	return err
+	if _, err := cudalock.Inherited(getenv); err != nil {
+		return fmt.Errorf("cudacluster: native gate open without inherited gpu lock: %w", err)
+	}
+	return nil
+}
+
+// errVacuousNativeRun reports a build tagged native whose native gate is
+// closed. Every native test in it would skip, and the run would pass having
+// measured nothing.
+var errVacuousNativeRun = errors.New("cudacluster: built with -tags=native but every native test would skip")
+
+// nativeRunError classifies the native gate for a run. In a build tagged
+// native a closed gate is errVacuousNativeRun rather than pending, so that
+// the native acceptance command cannot pass without opening the gate.
+func nativeRunError(native bool, gateErr error) error {
+	if native && errors.Is(gateErr, errNativeGateClosed) {
+		return fmt.Errorf("%w: %w", errVacuousNativeRun, gateErr)
+	}
+	return gateErr
+}
+
+// TestNativeGateState reports the state of the native gate as its own result:
+// skipped as pending when the gate is closed in an untagged build, failed when
+// a build tagged native has a closed gate or when the gate is open without an
+// inherited GPU lock, and passed only with the gate open under such a lock. It
+// does not open the gate or run anything on a device.
+func TestNativeGateState(t *testing.T) {
+	reportNativeGate(t, nativeBuild, requireNativeLock(os.Getenv))
+}
+
+func TestNativeRunError(t *testing.T) {
+	lockErr := errors.New("no lock")
+	for _, tc := range []struct {
+		name        string
+		native      bool
+		gateErr     error
+		wantNil     bool
+		wantVacuous bool
+		wantPending bool
+	}{
+		{name: "untagged closed", gateErr: errNativeGateClosed, wantPending: true},
+		{name: "native closed", native: true, gateErr: errNativeGateClosed, wantVacuous: true, wantPending: true},
+		{name: "untagged open", wantNil: true},
+		{name: "native open", native: true, wantNil: true},
+		{name: "native open without lock", native: true, gateErr: lockErr},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := nativeRunError(tc.native, tc.gateErr)
+			if (err == nil) != tc.wantNil || errors.Is(err, errVacuousNativeRun) != tc.wantVacuous || errors.Is(err, ErrHardwarePending) != tc.wantPending {
+				t.Fatalf("nativeRunError(%t, %v) = %v, want nil=%t vacuous=%t pending=%t", tc.native, tc.gateErr, err, tc.wantNil, tc.wantVacuous, tc.wantPending)
+			}
+			if tc.gateErr != nil && !errors.Is(err, tc.gateErr) {
+				t.Fatalf("nativeRunError dropped the gate error: %v", err)
+			}
+		})
+	}
+}
+
+// nativeMarkers maps each file declaring nativeBuild to the build constraint
+// that selects it and the value it must declare.
+var nativeMarkers = []struct {
+	file       string
+	constraint string
+	value      bool
+}{
+	{"native_tag_enabled_test.go", "native", true},
+	{"native_tag_disabled_test.go", "!native", false},
+}
+
+// parseTestFile parses name, a file in this package, with its comments.
+func parseTestFile(t *testing.T, name string) (*token.FileSet, *ast.File) {
+	t.Helper()
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, name, nil, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fset, file
+}
+
+// fileBuildConstraint returns the //go:build constraint of file, or nil if it
+// has none.
+func fileBuildConstraint(t *testing.T, file *ast.File) constraint.Expr {
+	t.Helper()
+	for _, g := range file.Comments {
+		if g.Pos() >= file.Package {
+			break
+		}
+		for _, c := range g.List {
+			if constraint.IsGoBuild(c.Text) {
+				expr, err := constraint.Parse(c.Text)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return expr
+			}
+		}
+	}
+	return nil
+}
+
+// declaredNativeBuild returns the value file gives the constant nativeBuild.
+func declaredNativeBuild(file *ast.File) (value string, ok bool) {
+	for _, d := range file.Decls {
+		g, isGen := d.(*ast.GenDecl)
+		if !isGen || g.Tok != token.CONST {
+			continue
+		}
+		for _, s := range g.Specs {
+			v := s.(*ast.ValueSpec)
+			for i, name := range v.Names {
+				if name.Name == "nativeBuild" && i < len(v.Values) {
+					if id, isIdent := v.Values[i].(*ast.Ident); isIdent {
+						return id.Name, true
+					}
+					return "", true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// TestNativeBuildMarker checks that the compiler, not build metadata, decides
+// whether the binary is a native build. The two marker files must have
+// complementary constraints, so that for either state of the native tag
+// exactly one of them is compiled, and each must declare the value matching
+// the state that selects it. Omitting either file, or dropping or widening
+// either constraint, also stops one of the two builds from compiling.
+func TestNativeBuildMarker(t *testing.T) {
+	values := make(map[string]string)
+	exprs := make(map[string]constraint.Expr)
+	for _, m := range nativeMarkers {
+		_, file := parseTestFile(t, m.file)
+		expr := fileBuildConstraint(t, file)
+		if expr == nil || expr.String() != m.constraint {
+			t.Errorf("%s build constraint = %v, want %q", m.file, expr, m.constraint)
+			continue
+		}
+		exprs[m.file] = expr
+		got, ok := declaredNativeBuild(file)
+		if want := strconv.FormatBool(m.value); !ok || got != want {
+			t.Errorf("%s declares nativeBuild = %q (found %t), want %s", m.file, got, ok, want)
+		}
+		values[m.file] = got
+	}
+	for _, native := range []bool{false, true} {
+		var selected []string
+		for _, m := range nativeMarkers {
+			if expr := exprs[m.file]; expr != nil && expr.Eval(func(tag string) bool { return native && tag == "native" }) {
+				selected = append(selected, m.file)
+			}
+		}
+		if len(selected) != 1 {
+			t.Errorf("native tag %t selects marker files %q, want exactly one", native, selected)
+			continue
+		}
+		if got, want := values[selected[0]], strconv.FormatBool(native); got != want {
+			t.Errorf("native tag %t selects %s, which declares nativeBuild = %s", native, selected[0], got)
+		}
+	}
+}
+
+// TestNativeGateStateUsesTheMarker requires TestNativeGateState to classify
+// the run by nativeBuild alone, and no file in this package to read the
+// binary's build metadata, which a binary may lack. With it absent, an
+// earlier detector took a native build for an untagged one and skipped.
+func TestNativeGateStateUsesTheMarker(t *testing.T) {
+	fset, file := parseTestFile(t, "native_test.go")
+	var fn *ast.FuncDecl
+	for _, d := range file.Decls {
+		if f, ok := d.(*ast.FuncDecl); ok && f.Name.Name == "TestNativeGateState" {
+			fn = f
+		}
+	}
+	if fn == nil {
+		t.Fatal("TestNativeGateState not found")
+	}
+	var b strings.Builder
+	if err := printer.Fprint(&b, fset, fn.Body); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.Join(strings.Fields(b.String()), " "), "{ reportNativeGate(t, nativeBuild, requireNativeLock(os.Getenv)) }"; got != want {
+		t.Errorf("TestNativeGateState body = %s, want %s", got, want)
+	}
+
+	names, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) == 0 {
+		t.Fatal("no Go files in the package directory")
+	}
+	for _, name := range names {
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, name, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, imp := range file.Imports {
+			if imp.Path.Value == `"runtime/debug"` {
+				t.Errorf("%s imports runtime/debug; native builds are recognized by nativeBuild", fset.Position(imp.Pos()))
+			}
+		}
+	}
 }
 
 func compileRunTotal(t *testing.T, nvcc, target, dir, name, src string) (uint32, error) {
@@ -606,12 +968,37 @@ func TestFixtureTimedOut(t *testing.T) {
 }
 
 // TestControl_NoSimulationWithoutHardware asserts that with the native gate
-// closed no code path in this package produces a reduction total. The package
-// has no simulation path; this test exists so that adding one fails.
+// closed no code path in the native harness produces a reduction total or a
+// geometry verdict. Each returns ErrHardwarePending, and the runner skips
+// rather than returning. The harness has no simulation path; this test exists
+// so that adding one fails. It reads no process environment.
 func TestControl_NoSimulationWithoutHardware(t *testing.T) {
-	if os.Getenv("CUDA_CLUSTER_NATIVE") == "1" {
-		t.Skip("native gate open; this control covers the closed case")
+	closed := func(string) string { return "" }
+	for _, size := range []int{2, 4} {
+		for _, mut := range []Mutant{MutantNone, MutantLocalWindow, MutantNoSync} {
+			name := fmt.Sprintf("healthy/%d", size)
+			if mut != MutantNone {
+				name = fmt.Sprintf("%s/%d", mut, size)
+			}
+			total, err := reduceOnDevice(t, closed, size, mut)
+			if total != 0 || !errors.Is(err, ErrHardwarePending) {
+				t.Errorf("reduceOnDevice(%s) with closed gate = (%d, %v), want (0, ErrHardwarePending)", name, total, err)
+			}
+			var sub *testing.T
+			t.Run("runner/"+name, func(t *testing.T) {
+				sub = t
+				total, err := runReductionEnv(t, closed, size, mut)
+				t.Errorf("runReductionEnv with closed gate returned (%d, %v), want a pending skip", total, err)
+			})
+			if sub != nil && !sub.Skipped() {
+				t.Errorf("runReductionEnv(%s) with closed gate did not skip", name)
+			}
+		}
 	}
+	if err := runRankGeometryEnv(t, closed, 4); !errors.Is(err, ErrHardwarePending) {
+		t.Errorf("runRankGeometryEnv with closed gate = %v, want ErrHardwarePending", err)
+	}
+
 	src, err := ReductionFixture(clusterTarget(), 4, MutantNone)
 	if err != nil {
 		t.Fatal(err)
@@ -629,13 +1016,9 @@ func TestControl_NoSimulationWithoutHardware(t *testing.T) {
 // TestCluster_RankGeometry verifies that BlockRank and ClusterSize agree with
 // launched cluster dimensions.
 func TestCluster_RankGeometry(t *testing.T) {
-	if os.Getenv("CUDA_CLUSTER_NATIVE") != "1" {
-		t.Skip("native qualification pending: CUDA_CLUSTER_NATIVE=1 required")
-	}
-	if _, err := cudalock.Inherited(os.Getenv); err != nil {
-		t.Fatalf("native gate enabled without inherited GPU lock: %v", err)
-	}
-	if err := runRankGeometry(t, 4); err != nil {
+	err := runRankGeometry(t, 4)
+	skipClosedGate(t, err)
+	if err != nil {
 		t.Fatalf("cluster size 4: %v", err)
 	}
 }
@@ -765,12 +1148,23 @@ int main() {
 `
 
 // runRankGeometry compiles and runs a fixture verifying that BlockRank and
-// ClusterSize agree with the launched cluster dimensions.
+// ClusterSize agree with the launched cluster dimensions, gated by the process
+// environment.
 func runRankGeometry(t *testing.T, clusterSize int) error {
 	t.Helper()
+	return runRankGeometryEnv(t, os.Getenv, clusterSize)
+}
+
+// runRankGeometryEnv is runRankGeometry gated by getenv. The native gate is
+// checked first, and a closed gate returns errNativeGateClosed.
+func runRankGeometryEnv(t *testing.T, getenv func(string) string, clusterSize int) error {
+	t.Helper()
+	if err := requireNativeLock(getenv); err != nil {
+		return err
+	}
 	target := clusterTarget()
 	if err := Check(target); err != nil {
-		t.Fatalf("Check(%q): %v", target, err)
+		return fmt.Errorf("check %s: %w", target, err)
 	}
 	var nvcc string
 	if os.Getenv("CUDA_CLUSTER_PREBUILT_DIR") == "" {
@@ -821,15 +1215,80 @@ func rankGeometrySource(clusterSize int) string {
 	return src
 }
 
+// TestRankGeometrySourceUsesEmitters pins each accessor in the geometry
+// fixture to the emitter for its own register and axis, so that reading y from
+// the x register, or swapping two accessors, fails on the host.
 func TestRankGeometrySourceUsesEmitters(t *testing.T) {
 	src := rankGeometrySource(4)
-	cta, _ := EmitClusterCTAID("%0", DimX)
-	nctaX, _ := EmitClusterNCTAID("%0", DimX)
-	nctaY, _ := EmitClusterNCTAID("%0", DimY)
-	for _, emitted := range []string{strings.ReplaceAll(EmitBlockRank("%0"), "%cluster", "%%cluster"), strings.ReplaceAll(EmitClusterSize("%0"), "%cluster", "%%cluster"), strings.ReplaceAll(cta, "%cluster", "%%cluster"), strings.ReplaceAll(nctaX, "%cluster", "%%cluster"), strings.ReplaceAll(nctaY, "%cluster", "%%cluster")} {
-		if !strings.Contains(src, emitted) {
-			t.Errorf("rank geometry source lacks emitter output %q", emitted)
+	escape := func(ptx string, err error) string {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
 		}
+		return strings.ReplaceAll(ptx, "%cluster", "%%cluster")
+	}
+	for _, tc := range []struct {
+		accessor string
+		emitted  string
+	}{
+		{"ptx_block_rank", escape(EmitBlockRank("%0"), nil)},
+		{"ptx_cluster_size", escape(EmitClusterSize("%0"), nil)},
+		{"ptx_cluster_ctaid_x", escape(EmitClusterCTAID("%0", DimX))},
+		{"ptx_cluster_ctaid_y", escape(EmitClusterCTAID("%0", DimY))},
+		{"ptx_cluster_nctaid_x", escape(EmitClusterNCTAID("%0", DimX))},
+		{"ptx_cluster_nctaid_y", escape(EmitClusterNCTAID("%0", DimY))},
+	} {
+		_, body, ok := strings.Cut(src, "unsigned "+tc.accessor+"() {")
+		if !ok {
+			t.Errorf("rank geometry source has no accessor %s", tc.accessor)
+			continue
+		}
+		body, _, _ = strings.Cut(body, "\n}")
+		if !strings.Contains(body, `asm("`+tc.emitted+`"`) {
+			t.Errorf("%s body %q does not read %q", tc.accessor, body, tc.emitted)
+		}
+	}
+	if strings.Contains(src, "{{") || strings.Contains(src, "}}") {
+		t.Error("rank geometry source has an unfilled placeholder")
+	}
+}
+
+// TestNativeGateClosedIsPending requires a closed native gate to report
+// ErrHardwarePending: nothing has examined a device, which is not the same as
+// a refusal or a configuration error.
+func TestNativeGateClosedIsPending(t *testing.T) {
+	closed := func(string) string { return "" }
+	if err := requireNativeLock(closed); !errors.Is(err, ErrHardwarePending) {
+		t.Fatalf("requireNativeLock with closed gate = %v, want ErrHardwarePending", err)
+	}
+}
+
+// TestNativeHarnessEvaluatesTheGate is the positive control for the pending
+// skip: with the gate open and no inherited lock, the harness must reach the
+// lock check and fail, not report pending or skip.
+func TestNativeHarnessEvaluatesTheGate(t *testing.T) {
+	open := func(key string) string {
+		if key == "CUDA_CLUSTER_NATIVE" {
+			return "1"
+		}
+		return ""
+	}
+	total, err := reduceOnDevice(t, open, 4, MutantNone)
+	if total != 0 || err == nil || errors.Is(err, ErrHardwarePending) || !errors.Is(err, cudalock.ErrNotInherited) {
+		t.Errorf("reduceOnDevice with open gate and no lock = (%d, %v), want (0, cudalock.ErrNotInherited)", total, err)
+	}
+	if err := runRankGeometryEnv(t, open, 4); err == nil || errors.Is(err, ErrHardwarePending) || !errors.Is(err, cudalock.ErrNotInherited) {
+		t.Errorf("runRankGeometryEnv with open gate and no lock = %v, want cudalock.ErrNotInherited", err)
+	}
+	var sub *testing.T
+	t.Run("runner", func(t *testing.T) {
+		sub = t
+		if _, err := runReductionEnv(t, open, 4, MutantNone); !errors.Is(err, cudalock.ErrNotInherited) {
+			t.Errorf("runReductionEnv with open gate and no lock = %v, want cudalock.ErrNotInherited", err)
+		}
+	})
+	if sub != nil && sub.Skipped() {
+		t.Error("runReductionEnv skipped with the gate open")
 	}
 }
 
