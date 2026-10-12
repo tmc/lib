@@ -122,6 +122,10 @@ func CheckGradients(
 		return fmt.Errorf("%w: loss node is not a scalar in differentiated graph", ErrActivationsMismatch)
 	}
 
+	if err := checkNodeMetadata("loss", lossNode, frozenLoss); err != nil {
+		return err
+	}
+
 	bwdSnap, err := bwdRes.BackwardGraph.Snapshot()
 	if err != nil {
 		return fmt.Errorf("%w: backward graph is invalid: %w", ErrActivationsMismatch, err)
@@ -129,6 +133,12 @@ func CheckGradients(
 	seed := bwdSnap.NodeByID(bwdRes.LossGradInput.ID)
 	if seed == nil || seed.Kind != cudair.KindInput || seed.Name != bwdRes.LossGradInput.Name || !bwdSnap.Contains(bwdRes.LossGradInput) {
 		return fmt.Errorf("%w: invalid loss-gradient seed", ErrActivationsMismatch)
+	}
+	if err := checkNodeMetadata("seed", bwdRes.LossGradInput, seed); err != nil {
+		return err
+	}
+	if seed.NumElements() != 1 || !slices.Equal(seed.Shape, frozenLoss.Shape) {
+		return fmt.Errorf("%w: loss-gradient seed is not scalar", ErrActivationsMismatch)
 	}
 	if len(bwdRes.Gradients) == 0 {
 		return errors.New("cudaautograd: backward result has no target gradients")
@@ -142,6 +152,61 @@ func CheckGradients(
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
+	// Validate all public node descriptions before checking payloads or
+	// evaluating either graph. Snapshot membership alone also admits detached
+	// copies, so their mutable metadata must agree with the frozen node.
+	for _, id := range ids {
+		grad := bwdRes.Gradients[id]
+		if grad == nil || !bwdSnap.Contains(grad) {
+			return fmt.Errorf("%w: missing or foreign backward gradient for node id %d", ErrActivationsMismatch, id)
+		}
+		if err := checkNodeMetadata("gradient", grad, bwdSnap.NodeByID(grad.ID)); err != nil {
+			return err
+		}
+		fwd := bwdRes.forward.NodeByID(id)
+		mapped := bwdRes.ForwardNodes[id]
+		if fwd == nil || mapped == nil || !bwdRes.forward.Contains(mapped) || mapped.ID != id || mapped.Name != fwd.Name || bwdRes.TargetNames[id] != fwd.Name {
+			return fmt.Errorf("%w: missing forward node mapping for id %d", ErrActivationsMismatch, id)
+		}
+		if err := checkNodeMetadata("target", mapped, fwd); err != nil {
+			return err
+		}
+		if !slices.Equal(grad.Shape, fwd.Shape) {
+			return fmt.Errorf("%w: gradient shape for forward node id %d", ErrActivationsMismatch, id)
+		}
+	}
+	if len(bwdRes.SavedActivations) != len(bwdSnap.Inputs())-1 {
+		return fmt.Errorf("%w: saved activation input coverage differs", ErrActivationsMismatch)
+	}
+	savedIDs := make([]int, 0, len(bwdRes.SavedActivations))
+	for id := range bwdRes.SavedActivations {
+		savedIDs = append(savedIDs, id)
+	}
+	slices.Sort(savedIDs)
+	for _, id := range savedIDs {
+		fwd := bwdRes.forward.NodeByID(id)
+		mapped := bwdRes.ForwardNodes[id]
+		if fwd == nil {
+			return fmt.Errorf("%w: missing saved forward node id %d", ErrActivationsMismatch, id)
+		}
+		if mapped != nil && !bwdRes.forward.Contains(mapped) {
+			return fmt.Errorf("%w: foreign saved forward node id %d", ErrActivationsMismatch, id)
+		}
+		if err := checkNodeMetadata("saved forward", mapped, fwd); err != nil {
+			return err
+		}
+		in := bwdRes.SavedActivations[id]
+		if in == nil {
+			return fmt.Errorf("%w: nil saved input for forward node id %d", ErrActivationsMismatch, id)
+		}
+		canonical := bwdSnap.NodeByID(in.ID)
+		if err := checkNodeMetadata("saved input", in, canonical); err != nil {
+			return err
+		}
+		if !bwdSnap.Contains(in) || canonical.Kind != cudair.KindInput || canonical.Name != "saved_"+fwd.Name || !slices.Equal(canonical.Shape, fwd.Shape) {
+			return fmt.Errorf("%w: saved input role for forward node id %d", ErrActivationsMismatch, id)
+		}
+	}
 	type target struct {
 		id   int
 		node *cudair.Node
@@ -232,6 +297,21 @@ func CheckGradients(
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// checkNodeMetadata admits original nodes and detached snapshot copies with
+// the same public identity, shape, role and Float32 type.
+func checkNodeMetadata(role string, node, canonical *cudair.Node) error {
+	if canonical == nil {
+		return fmt.Errorf("%w: missing %s snapshot node", ErrActivationsMismatch, role)
+	}
+	if node == nil {
+		return fmt.Errorf("%w: missing %s node id %d", ErrActivationsMismatch, role, canonical.ID)
+	}
+	if node.ID != canonical.ID || node.Name != canonical.Name || node.Kind != canonical.Kind || node.Type != canonical.Type || node.Type != cudair.Float32 || !slices.Equal(node.Shape, canonical.Shape) {
+		return fmt.Errorf("%w: changed %s metadata for node id %d", ErrActivationsMismatch, role, canonical.ID)
 	}
 	return nil
 }
