@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudaref"
@@ -47,34 +48,38 @@ func FiniteDifferenceGrad(
 
 	for i := 0; i < len(buf); i++ {
 		orig := targetBuf[i]
+		value, err := func() (float32, error) {
+			defer func() { targetBuf[i] = orig }()
 
-		// f(x + eps)
-		targetBuf[i] = orig + eps
-		outPlus, err := cudaref.Evaluate(fwdGraph, clonedInputs)
+			// f(x + eps)
+			targetBuf[i] = orig + eps
+			outPlus, err := cudaref.Evaluate(fwdGraph, clonedInputs)
+			if err != nil {
+				return 0, fmt.Errorf("finite diff f(x+eps) evaluation failed: %w", err)
+			}
+			lossPlus := outPlus[lossNode.Name]
+			if len(lossPlus) != 1 {
+				return 0, fmt.Errorf("loss node %s output length %d != 1", lossNode.Name, len(lossPlus))
+			}
+
+			// f(x - eps)
+			targetBuf[i] = orig - eps
+			outMinus, err := cudaref.Evaluate(fwdGraph, clonedInputs)
+			if err != nil {
+				return 0, fmt.Errorf("finite diff f(x-eps) evaluation failed: %w", err)
+			}
+			lossMinus := outMinus[lossNode.Name]
+			if len(lossMinus) != 1 {
+				return 0, fmt.Errorf("loss node %s output length %d != 1", lossNode.Name, len(lossMinus))
+			}
+
+			// Central difference: (f(x+eps) - f(x-eps)) / (2 * eps)
+			return (lossPlus[0] - lossMinus[0]) / (2.0 * eps), nil
+		}()
 		if err != nil {
-			return nil, fmt.Errorf("finite diff f(x+eps) evaluation failed: %w", err)
+			return nil, err
 		}
-		lossPlus := outPlus[lossNode.Name]
-		if len(lossPlus) != 1 {
-			return nil, fmt.Errorf("loss node %s output length %d != 1", lossNode.Name, len(lossPlus))
-		}
-
-		// f(x - eps)
-		targetBuf[i] = orig - eps
-		outMinus, err := cudaref.Evaluate(fwdGraph, clonedInputs)
-		if err != nil {
-			return nil, fmt.Errorf("finite diff f(x-eps) evaluation failed: %w", err)
-		}
-		lossMinus := outMinus[lossNode.Name]
-		if len(lossMinus) != 1 {
-			return nil, fmt.Errorf("loss node %s output length %d != 1", lossNode.Name, len(lossMinus))
-		}
-
-		// Central difference: (f(x+eps) - f(x-eps)) / (2 * eps)
-		grad[i] = (lossPlus[0] - lossMinus[0]) / (2.0 * eps)
-
-		// Restore original value
-		targetBuf[i] = orig
+		grad[i] = value
 	}
 
 	return grad, nil
@@ -90,76 +95,142 @@ func CheckGradients(
 	eps float32,
 	tolerance float32,
 ) error {
-	// First evaluate forward graph with saved activations
-	fwdOutputs, err := EvaluateForward(fwdGraph, inputs)
-	if err != nil {
-		return fmt.Errorf("cudaautograd: forward evaluation failed: %w", err)
+	if fwdGraph == nil {
+		return errors.New("cudaautograd: nil forward graph")
+	}
+	if lossNode == nil {
+		return errors.New("cudaautograd: nil loss node")
+	}
+	if bwdRes == nil || bwdRes.forward == nil {
+		return fmt.Errorf("%w: missing backward result", ErrActivationsMismatch)
+	}
+	if bwdRes.BackwardGraph == nil || bwdRes.LossGradInput == nil {
+		return fmt.Errorf("%w: incomplete backward result", ErrActivationsMismatch)
+	}
+	if math.IsNaN(float64(eps)) || math.IsInf(float64(eps), 0) {
+		return errors.New("cudaautograd: finite-difference step must be finite")
+	}
+	if math.IsNaN(float64(tolerance)) || math.IsInf(float64(tolerance), 0) || tolerance < 0 {
+		return errors.New("cudaautograd: gradient tolerance must be finite and non-negative")
+	}
+	if !bwdRes.forward.Contains(lossNode) {
+		return fmt.Errorf("%w: loss node does not belong to differentiated graph", ErrActivationsMismatch)
+	}
+	frozenLoss := bwdRes.forward.NodeByID(lossNode.ID)
+	if frozenLoss == nil || frozenLoss.NumElements() != 1 {
+		return fmt.Errorf("%w: loss node is not a scalar in differentiated graph", ErrActivationsMismatch)
 	}
 
-	// Prepare inputs for backward graph
-	bwdInputs := make(map[string][]float32)
-	// Seed gradient dLoss/dLoss = 1.0
-	bwdInputs[bwdRes.LossGradInput.Name] = []float32{1.0}
+	bwdSnap, err := bwdRes.BackwardGraph.Snapshot()
+	if err != nil {
+		return fmt.Errorf("%w: backward graph is invalid: %w", ErrActivationsMismatch, err)
+	}
+	seed := bwdSnap.NodeByID(bwdRes.LossGradInput.ID)
+	if seed == nil || seed.Kind != cudair.KindInput || seed.Name != bwdRes.LossGradInput.Name || !bwdSnap.Contains(bwdRes.LossGradInput) {
+		return fmt.Errorf("%w: invalid loss-gradient seed", ErrActivationsMismatch)
+	}
+	if len(bwdRes.Gradients) == 0 {
+		return errors.New("cudaautograd: backward result has no target gradients")
+	}
+	if len(bwdRes.Gradients) != len(bwdRes.TargetNames) {
+		return fmt.Errorf("%w: target gradient and name coverage differ", ErrActivationsMismatch)
+	}
 
-	// Supply saved activations
-	for id, bwdInp := range bwdRes.SavedActivations {
-		fwdNode := bwdRes.ForwardNodes[id]
-		if fwdNode == nil {
-			return fmt.Errorf("missing forward node for id %d", id)
+	ids := make([]int, 0, len(bwdRes.Gradients))
+	for id := range bwdRes.Gradients {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	type target struct {
+		id   int
+		node *cudair.Node
+	}
+	var targets []target
+	for _, id := range ids {
+		grad := bwdRes.Gradients[id]
+		if grad == nil || !bwdSnap.Contains(grad) {
+			return fmt.Errorf("%w: missing or foreign backward gradient for node id %d", ErrActivationsMismatch, id)
 		}
-		var actData []float32
-		if fwdNode.Kind == cudair.KindInput {
-			actData = inputs[fwdNode.Name]
-		} else if val, ok := fwdOutputs[fwdNode.Name]; ok {
-			actData = val
-		} else {
-			// Intermediate activation: evaluate up to this node
-			subGraphOutputs, err := cudaref.Evaluate(fwdGraph, inputs)
-			if err != nil {
-				return err
+		gradFrozen := bwdSnap.NodeByID(grad.ID)
+		if gradFrozen == nil || gradFrozen.Name != grad.Name {
+			return fmt.Errorf("%w: changed backward gradient node for forward id %d", ErrActivationsMismatch, id)
+		}
+		isOutput := false
+		for _, out := range bwdSnap.Outputs() {
+			if out.ID == grad.ID {
+				isOutput = true
+				break
 			}
-			actData = subGraphOutputs[fwdNode.Name]
 		}
-		bwdInputs[bwdInp.Name] = actData
-	}
-
-	// Evaluate backward graph
-	bwdOutputs, err := cudaref.Evaluate(bwdRes.BackwardGraph, bwdInputs)
-	if err != nil {
-		return fmt.Errorf("cudaautograd: backward evaluation failed: %w", err)
-	}
-
-	// For each target input, compare against finite differences
-	for id, gradNode := range bwdRes.Gradients {
-		fwdTarget := bwdRes.ForwardNodes[id]
-		if fwdTarget.Kind != cudair.KindInput {
-			// Finite differences check operates on input variables
+		if !isOutput {
+			return fmt.Errorf("%w: backward gradient for node id %d is not an output", ErrActivationsMismatch, id)
+		}
+		fwdNode := bwdRes.forward.NodeByID(id)
+		mappedNode := bwdRes.ForwardNodes[id]
+		if fwdNode == nil || mappedNode == nil || mappedNode.ID != id || mappedNode.Name != fwdNode.Name || bwdRes.TargetNames[id] != fwdNode.Name {
+			return fmt.Errorf("%w: missing forward node mapping for id %d", ErrActivationsMismatch, id)
+		}
+		if fwdNode.Kind != cudair.KindInput {
 			continue
 		}
+		buf, ok := inputs[fwdNode.Name]
+		if !ok {
+			return fmt.Errorf("cudaautograd: missing input buffer for target %q", fwdNode.Name)
+		}
+		if len(buf) != fwdNode.NumElements() {
+			return fmt.Errorf("cudaautograd: target input %q length %d != expected %d", fwdNode.Name, len(buf), fwdNode.NumElements())
+		}
+		targets = append(targets, target{id: id, node: fwdNode})
+	}
+	if len(targets) == 0 {
+		return errors.New("cudaautograd: no input targets to compare")
+	}
+	isLossOutput := false
+	for _, out := range bwdRes.forward.Outputs() {
+		if out.ID == frozenLoss.ID {
+			isLossOutput = true
+			break
+		}
+	}
+	if !isLossOutput {
+		return errors.New("cudaautograd: loss node is not a forward graph output")
+	}
 
-		analyticGrad := bwdOutputs[gradNode.Name]
-		numericGrad, err := FiniteDifferenceGrad(fwdGraph, lossNode, fwdTarget.Name, inputs, eps)
+	if _, acts, err := Forward(bwdRes, fwdGraph, inputs); err != nil {
+		return fmt.Errorf("cudaautograd: forward evaluation failed: %w", err)
+	} else {
+		analytic, err := Backward(bwdRes, acts)
 		if err != nil {
-			return fmt.Errorf("numeric grad for %s failed: %w", fwdTarget.Name, err)
+			return fmt.Errorf("cudaautograd: backward evaluation failed: %w", err)
 		}
-
-		if len(analyticGrad) != len(numericGrad) {
-			return fmt.Errorf("target %s grad len mismatch: analytic %d vs numeric %d",
-				fwdTarget.Name, len(analyticGrad), len(numericGrad))
-		}
-
-		for i := range analyticGrad {
-			a := analyticGrad[i]
-			n := numericGrad[i]
-			diff := float32(math.Abs(float64(a - n)))
-			denom := float32(math.Max(math.Max(math.Abs(float64(a)), math.Abs(float64(n))), 1.0))
-			relDiff := diff / denom
-			if relDiff > tolerance {
-				return fmt.Errorf("target %s at index %d: analytic=%g numeric=%g (rel diff %g > tol %g)",
-					fwdTarget.Name, i, a, n, relDiff, tolerance)
+		for _, target := range targets {
+			analyticGrad, ok := analytic[target.id]
+			if !ok {
+				return fmt.Errorf("cudaautograd: missing analytic gradient for %s", target.node.Name)
+			}
+			numericGrad, err := FiniteDifferenceGrad(fwdGraph, frozenLoss, target.node.Name, inputs, eps)
+			if err != nil {
+				return fmt.Errorf("numeric grad for %s failed: %w", target.node.Name, err)
+			}
+			if len(analyticGrad) != len(numericGrad) {
+				return fmt.Errorf("target %s grad len mismatch: analytic %d vs numeric %d",
+					target.node.Name, len(analyticGrad), len(numericGrad))
+			}
+			for i := range analyticGrad {
+				a := analyticGrad[i]
+				n := numericGrad[i]
+				if math.IsNaN(float64(a)) || math.IsInf(float64(a), 0) || math.IsNaN(float64(n)) || math.IsInf(float64(n), 0) {
+					return fmt.Errorf("target %s at index %d: non-finite gradient analytic=%g numeric=%g", target.node.Name, i, a, n)
+				}
+				diff := float32(math.Abs(float64(a - n)))
+				denom := float32(math.Max(math.Max(math.Abs(float64(a)), math.Abs(float64(n))), 1.0))
+				relDiff := diff / denom
+				if relDiff > tolerance {
+					return fmt.Errorf("target %s at index %d: analytic=%g numeric=%g (rel diff %g > tol %g)",
+						target.node.Name, i, a, n, relDiff, tolerance)
+				}
 			}
 		}
 	}
-
 	return nil
 }

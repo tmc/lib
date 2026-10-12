@@ -1,6 +1,7 @@
 package cudaautograd_test
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -38,14 +39,14 @@ func ExampleDifferentiate() {
 		"X": {1.0, 2.0, 3.0, 4.0},
 		"W": {0.5, 0.5, 0.5, 0.5},
 	}
-	fwdOutputs, err := cudaautograd.EvaluateForward(g, inputs)
+	fwdOutputs, acts, err := cudaautograd.Forward(bwdRes, g, inputs)
 	if err != nil {
-		log.Fatalf("EvaluateForward: %v", err)
+		log.Fatalf("Forward: %v", err)
 	}
 
-	grads, err := cudaautograd.EvaluateBackward(bwdRes, inputs, fwdOutputs)
+	grads, err := cudaautograd.Backward(bwdRes, acts)
 	if err != nil {
-		log.Fatalf("EvaluateBackward: %v", err)
+		log.Fatalf("Backward: %v", err)
 	}
 
 	// For loss = sum(X x W), dLoss/dW = X^T x ones = [[4, 4], [6, 6]]
@@ -55,6 +56,46 @@ func ExampleDifferentiate() {
 
 	// Output:
 	// Loss: 10.0, dLoss/dW: [4.0, 4.0, 6.0, 6.0]
+}
+
+// ExampleBackward shows that activations recorded by Forward are consumed
+// once and refused if a saved buffer is written before Backward.
+func ExampleBackward() {
+	g := cudair.NewGraph()
+	x := g.AddInput("X", []int{2}, cudair.Float32)
+	loss := g.AddReduce("sum", g.AddBinary("mul", x, x), 0)
+	_ = g.SetOutputs(loss)
+	snap, err := g.Snapshot()
+	if err != nil {
+		log.Fatalf("Snapshot: %v", err)
+	}
+	res, err := cudaautograd.Differentiate(snap, loss, []*cudair.Node{x})
+	if err != nil {
+		log.Fatalf("Differentiate: %v", err)
+	}
+
+	inputs := map[string][]float32{"X": {1, 2}}
+	_, acts, err := cudaautograd.Forward(res, g, inputs)
+	if err != nil {
+		log.Fatalf("Forward: %v", err)
+	}
+	grads, err := cudaautograd.Backward(res, acts)
+	fmt.Println(grads[x.ID], err)
+	_, err = cudaautograd.Backward(res, acts)
+	fmt.Println(errors.Is(err, cudaautograd.ErrSavedActivationStale))
+
+	_, acts, err = cudaautograd.Forward(res, g, inputs)
+	if err != nil {
+		log.Fatalf("Forward: %v", err)
+	}
+	inputs["X"][0] = 5 // overwrite a saved activation
+	_, err = cudaautograd.Backward(res, acts)
+	fmt.Println(errors.Is(err, cudaautograd.ErrSavedActivationStale))
+
+	// Output:
+	// [2 4] <nil>
+	// true
+	// true
 }
 
 // ExampleTrainingStep demonstrates running an offline training step with SGDOptimizer.

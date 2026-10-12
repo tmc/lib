@@ -136,6 +136,42 @@ func TestNumericalEdgeCases(t *testing.T) {
 	}
 }
 
+func TestExactActivationDerivatives(t *testing.T) {
+	inputs := []float32{-20, -2, -1e-7, 0, 1e-7, 2, 20}
+	relu, err := cudaref.ElementwiseUnary(inputs, "relu_grad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRelu := []float32{0, 0, 0, 0, 1, 1, 1}
+	for i := range wantRelu {
+		if relu[i] != wantRelu[i] {
+			t.Errorf("relu_grad(%g) = %g, want %g", inputs[i], relu[i], wantRelu[i])
+		}
+	}
+
+	gelu, err := cudaref.ElementwiseUnary(inputs, "gelu_grad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, v := range inputs {
+		x := float64(v)
+		cdf := 0.5 * (1 + math.Erf(x/math.Sqrt2))
+		pdf := math.Exp(-0.5*x*x) / math.Sqrt(2*math.Pi)
+		want := float32(cdf + x*pdf)
+		if math.Abs(float64(gelu[i]-want)) > 1e-7 {
+			t.Errorf("gelu_grad(%g) = %.9g, want %.9g", v, gelu[i], want)
+		}
+	}
+
+	nan := float32(math.NaN())
+	for _, op := range []string{"relu_grad", "gelu_grad"} {
+		got, err := cudaref.ElementwiseUnary([]float32{nan}, op)
+		if err != nil || len(got) != 1 || !math.IsNaN(float64(got[0])) {
+			t.Errorf("ElementwiseUnary(%s, NaN) = %v, %v; want NaN", op, got, err)
+		}
+	}
+}
+
 func TestReferenceAffine(t *testing.T) {
 	// Acceptance test: TestReferenceAffine
 	// Affine computation: Y = MatMul(X, W) + B -> Relu -> Gelu

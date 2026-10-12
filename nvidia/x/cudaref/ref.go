@@ -78,6 +78,8 @@ func Softmax(src []float32) []float32 {
 }
 
 // ElementwiseUnary evaluates unary operations on CPU with explicit IEEE-754 adherence.
+// relu_grad chooses the zero subgradient at x == 0; all unary operations,
+// including relu_grad and gelu_grad, propagate NaN.
 func ElementwiseUnary(src []float32, op string) ([]float32, error) {
 	dst := make([]float32, len(src))
 	for i, v := range src {
@@ -92,10 +94,22 @@ func ElementwiseUnary(src []float32, op string) ([]float32, error) {
 			} else {
 				dst[i] = 0.0
 			}
+		case "relu_grad":
+			if v > 0 {
+				dst[i] = 1
+			} else {
+				dst[i] = 0
+			}
 		case "gelu":
 			// Exact erf formulation: 0.5 * x * (1 + erf(x / sqrt(2)))
 			x := float64(v)
 			dst[i] = float32(0.5 * x * (1.0 + math.Erf(x/math.Sqrt2)))
+		case "gelu_grad":
+			// Exact derivative: Phi(x) + x*phi(x).
+			x := float64(v)
+			cdf := 0.5 * (1.0 + math.Erf(x/math.Sqrt2))
+			pdf := math.Exp(-0.5*x*x) / math.Sqrt(2*math.Pi)
+			dst[i] = float32(cdf + x*pdf)
 		case "silu":
 			x := float64(v)
 			dst[i] = float32(x / (1.0 + math.Exp(-x)))

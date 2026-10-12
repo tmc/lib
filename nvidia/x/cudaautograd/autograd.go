@@ -21,8 +21,14 @@ var (
 	// ErrLossNotScalar indicates the specified loss node is not a 1-element scalar.
 	ErrLossNotScalar = errors.New("cudaautograd: loss must be a scalar with element count 1")
 
-	// ErrSavedActivationStale indicates a saved activation was modified or invalidated before backward execution.
+	// ErrSavedActivationStale indicates that a saved activation changed
+	// length or contents between forward and backward evaluation, or that
+	// the activations were already consumed.
 	ErrSavedActivationStale = errors.New("cudaautograd: saved activation was invalidated or overwritten")
+
+	// ErrActivationsMismatch indicates activations or a forward graph that do
+	// not belong to the backward result they are used with.
+	ErrActivationsMismatch = errors.New("cudaautograd: activations do not belong to backward result")
 )
 
 // BackwardResult holds the constructed backward graph and metadata mapping targets to their gradient outputs.
@@ -44,6 +50,9 @@ type BackwardResult struct {
 
 	// ForwardNodes retains references to original forward nodes for lifetime and identity checks.
 	ForwardNodes map[int]*cudair.Node
+
+	forward       *cudair.Snapshot // snapshot the result was derived from
+	forwardDigest [32]byte         // semantic identity of forward
 }
 
 // SavedActivationDescriptor details an activation tensor needed by the backward pass.
@@ -135,6 +144,9 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 			return nil, fmt.Errorf("%w: target %q (id %d)", ErrTargetNotFound, t.Name, t.ID)
 		}
 		t = fwdNodeMap[t.ID]
+		if err := checkDataType("target", t); err != nil {
+			return nil, err
+		}
 		targets[i] = t
 		targetSet[t.ID] = true
 		targetNames[t.ID] = t.Name
@@ -173,6 +185,10 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 		if len(inAdjoints) == 0 {
 			// No gradient flowed to this node
 			continue
+		}
+		// The loss is the first node visited, so this also checks it.
+		if err := checkDataType("node", n); err != nil {
+			return nil, err
 		}
 
 		// Accumulate adjoints if multiple consumers contributed
@@ -222,7 +238,22 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 		Gradients:        targetGradients,
 		TargetNames:      targetNames,
 		ForwardNodes:     fwdNodeMap,
+		forward:          fwdSnap,
+		forwardDigest:    digestSnapshot(fwdSnap),
 	}, nil
+}
+
+// checkDataType enforces the differentiation data type policy.
+// Only [cudair.Float32] is admitted: seeds, saved activations, and
+// gradients take the type of their forward node, and float32 is the only
+// type with a defined gradient and accumulation type. Integer types have
+// no derivative. [cudair.Float16] and [cudair.BFloat16] are refused until
+// a mixed-precision accumulation policy exists.
+func checkDataType(role string, n *cudair.Node) error {
+	if n.Type != cudair.Float32 {
+		return fmt.Errorf("%w: %s %s has data type %v, want %v", ErrUnsupportedDerivative, role, n.Name, n.Type, cudair.Float32)
+	}
+	return nil
 }
 
 type diffContext struct {
@@ -313,34 +344,16 @@ func (ctx *diffContext) propagateUnary(n *cudair.Node, gradN *cudair.Node) error
 		return nil
 
 	case "relu":
-		// y = relu(x). Derivative is 1 if x > 0 else 0 (subgradient at 0 is 0).
-		// We can express step(y) = y / (y + eps).
-		savedY := ctx.saveActivation(n)
-		epsConst := ctx.bwd.AddConstant(fmt.Sprintf("relu_eps_%s", n.Name), n.Shape, n.Type, constFilled(n.NumElements(), 1e-6))
-		denom := ctx.bwd.AddBinary("add", savedY, epsConst)
-		mask := ctx.bwd.AddBinary("div", savedY, denom)
+		// relu_grad uses the declared zero subgradient at x == 0.
+		savedX := ctx.saveActivation(x)
+		mask := ctx.bwd.AddUnary("relu_grad", savedX)
 		dx := ctx.bwd.AddBinary("mul", gradN, mask)
 		ctx.addAdjoint(x, dx)
 		return nil
 
 	case "gelu":
-		// Gelu: y = 0.5 * x * (1 + erf(x / sqrt(2)))
-		// Using standard sigmoid approximation:
-		// gelu(x) = x * sigmoid(1.702 * x)
-		// gelu'(x) = sigmoid(1.702 * x) + 1.702 * x * sigmoid(1.702 * x) * (1 - sigmoid(1.702 * x))
 		savedX := ctx.saveActivation(x)
-		c1702 := ctx.bwd.AddConstant(fmt.Sprintf("gelu_c_%s", n.Name), x.Shape, x.Type, constFilled(x.NumElements(), -1.702))
-		negCX := ctx.bwd.AddBinary("mul", savedX, c1702)
-		expNegCX := ctx.bwd.AddUnary("exp", negCX)
-		oneConst := ctx.bwd.AddConstant(fmt.Sprintf("one_%s", n.Name), x.Shape, x.Type, constFilled(x.NumElements(), 1.0))
-		onePlusExp := ctx.bwd.AddBinary("add", expNegCX, oneConst)
-		sig := ctx.bwd.AddBinary("div", oneConst, onePlusExp)
-		oneMinusSig := ctx.bwd.AddBinary("sub", oneConst, sig)
-		sigDeriv := ctx.bwd.AddBinary("mul", sig, oneMinusSig)
-		kConst := ctx.bwd.AddConstant(fmt.Sprintf("gelu_k_%s", n.Name), x.Shape, x.Type, constFilled(x.NumElements(), 1.702))
-		xSigDeriv := ctx.bwd.AddBinary("mul", savedX, sigDeriv)
-		term2 := ctx.bwd.AddBinary("mul", xSigDeriv, kConst)
-		dGelu := ctx.bwd.AddBinary("add", sig, term2)
+		dGelu := ctx.bwd.AddUnary("gelu_grad", savedX)
 		dx := ctx.bwd.AddBinary("mul", gradN, dGelu)
 		ctx.addAdjoint(x, dx)
 		return nil

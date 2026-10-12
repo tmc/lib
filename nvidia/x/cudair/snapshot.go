@@ -244,6 +244,9 @@ func (g *Graph) Snapshot() (*Snapshot, error) {
 }
 
 func validateNodeSemantics(n *Node) error {
+	if !validDataType(n.Type) {
+		return fmt.Errorf("%w: node %s has unknown data type %d", ErrTypeMismatch, n.Name, n.Type)
+	}
 	switch n.Effect {
 	case EffectReadOnly:
 		if n.StorageAlias != nil {
@@ -272,7 +275,7 @@ func validateNodeSemantics(n *Node) error {
 		}
 	case KindUnary:
 		switch n.Op {
-		case "relu", "gelu", "exp", "log", "sqrt", "neg", "silu":
+		case "relu", "relu_grad", "gelu", "gelu_grad", "exp", "log", "sqrt", "neg", "silu":
 			// Authoritative unary ops
 		default:
 			if !strings.HasPrefix(n.Op, "rmsnorm") {
@@ -281,6 +284,9 @@ func validateNodeSemantics(n *Node) error {
 		}
 		if len(n.Inputs) != 1 {
 			return fmt.Errorf("unary op %s expects 1 input, got %d", n.Op, len(n.Inputs))
+		}
+		if n.Type != n.Inputs[0].Type {
+			return fmt.Errorf("%w: unary op %s output type %s differs from input type %s", ErrTypeMismatch, n.Op, n.Type, n.Inputs[0].Type)
 		}
 	case KindBinary:
 		switch n.Op {
@@ -318,6 +324,9 @@ func validateNodeSemantics(n *Node) error {
 		if a.Shape[1] != b.Shape[0] {
 			return fmt.Errorf("%w: matmul inner dimension mismatch (%v x %v)", ErrShapeMismatch, a.Shape, b.Shape)
 		}
+		if a.Type != b.Type || n.Type != a.Type {
+			return fmt.Errorf("%w: matmul input/output types %s, %s, %s", ErrTypeMismatch, a.Type, b.Type, n.Type)
+		}
 	case KindReduce:
 		if n.Op != "sum" && n.Op != "max" && n.Op != "mean" {
 			return fmt.Errorf("%w: unsupported reduction op %q", ErrUnknownOperator, n.Op)
@@ -334,6 +343,9 @@ func validateNodeSemantics(n *Node) error {
 					ErrInvalidAxis, ax, n.Inputs[0].Shape)
 			}
 		}
+		if n.Type != n.Inputs[0].Type {
+			return fmt.Errorf("%w: reduction output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
+		}
 	case KindReshape:
 		if len(n.Inputs) != 1 {
 			return fmt.Errorf("reshape expects 1 input, got %d", len(n.Inputs))
@@ -341,6 +353,9 @@ func validateNodeSemantics(n *Node) error {
 		if n.NumElements() != n.Inputs[0].NumElements() {
 			return fmt.Errorf("%w: reshape element count mismatch (%d vs %d)",
 				ErrShapeMismatch, n.NumElements(), n.Inputs[0].NumElements())
+		}
+		if n.Type != n.Inputs[0].Type {
+			return fmt.Errorf("%w: reshape output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
 		}
 	case KindTranspose:
 		if len(n.Inputs) != 1 {
@@ -350,19 +365,39 @@ func validateNodeSemantics(n *Node) error {
 		if len(n.Perm) != rank {
 			return fmt.Errorf("%w: transpose perm len %d != rank %d", ErrInvalidAxis, len(n.Perm), rank)
 		}
+		if n.Type != n.Inputs[0].Type {
+			return fmt.Errorf("%w: transpose output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
+		}
 	case KindSlice:
 		if len(n.Inputs) != 1 {
 			return fmt.Errorf("slice expects 1 input, got %d", len(n.Inputs))
 		}
+		if n.Type != n.Inputs[0].Type {
+			return fmt.Errorf("%w: slice output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
+		}
 	case KindConcat:
 		if len(n.Inputs) == 0 {
 			return fmt.Errorf("concat expects at least 1 input, got 0")
+		}
+		for _, in := range n.Inputs {
+			if n.Type != in.Type {
+				return fmt.Errorf("%w: concat output type %s differs from input %s type %s", ErrTypeMismatch, n.Type, in.Name, in.Type)
+			}
 		}
 	default:
 		return fmt.Errorf("%w: unknown node kind %v", ErrUnknownOperator, n.Kind)
 	}
 
 	return nil
+}
+
+func validDataType(dt DataType) bool {
+	switch dt {
+	case Float32, Float16, BFloat16, Int32, Int64, Uint8, Int8:
+		return true
+	default:
+		return false
+	}
 }
 
 // clone returns a fully detached graph view. IDs, not pointer addresses,

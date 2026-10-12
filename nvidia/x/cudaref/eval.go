@@ -22,6 +22,23 @@ func Evaluate(g *cudair.Graph, inputs map[string][]float32) (map[string][]float3
 
 // EvaluateSnapshot executes a validated immutable snapshot on the CPU.
 func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[string][]float32, error) {
+	values, err := EvaluateSnapshotAll(snap, inputs)
+	if err != nil {
+		return nil, err
+	}
+	outputs := make(map[string][]float32, len(snap.Outputs()))
+	for _, outNode := range snap.Outputs() {
+		outputs[outNode.Name] = values[outNode.ID]
+	}
+	return outputs, nil
+}
+
+// EvaluateSnapshotAll executes a validated immutable snapshot on the CPU and
+// returns the value of every node, keyed by node ID. Input values are copied.
+func EvaluateSnapshotAll(snap *cudair.Snapshot, inputs map[string][]float32) (map[int][]float32, error) {
+	if snap == nil {
+		return nil, errors.New("cudaref: nil snapshot")
+	}
 	values := make(map[int][]float32)
 
 	// Validate and load inputs
@@ -136,11 +153,7 @@ func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[s
 		}
 	}
 
-	outputs := make(map[string][]float32, len(snap.Outputs()))
-	for _, outNode := range snap.Outputs() {
-		outputs[outNode.Name] = values[outNode.ID]
-	}
-	return outputs, nil
+	return values, nil
 }
 
 func evalReduce(in []float32, inShape []int, axis int, op string) ([]float32, error) {

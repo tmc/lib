@@ -110,7 +110,7 @@ func TrainingStep(
 	}
 
 	// 1. Forward pass
-	fwdOutputs, err := EvaluateForward(fwdGraph, fullInputs)
+	fwdOutputs, acts, err := Forward(bwdRes, fwdGraph, fullInputs)
 	if err != nil {
 		return 0, nil, fmt.Errorf("forward pass failed: %w", err)
 	}
@@ -122,7 +122,7 @@ func TrainingStep(
 	currentLoss := lossVal[0]
 
 	// 2. Backward pass
-	grads, err := EvaluateBackward(bwdRes, fullInputs, fwdOutputs)
+	grads, err := Backward(bwdRes, acts)
 	if err != nil {
 		return 0, nil, fmt.Errorf("backward pass failed: %w", err)
 	}
