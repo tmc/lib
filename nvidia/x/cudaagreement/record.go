@@ -13,9 +13,12 @@ import (
 // Buffer identifies one device buffer by address and extent. Two arms that
 // name the same address wrote the same memory, which is why the record carries
 // it: outputs read from different buffers are not evidence of agreement.
+// Raw bindings require caller-managed lifetime in ordinary executors. Use
+// BufferFromSlice for persistent execution with retained allocation ownership.
 type Buffer struct {
 	Ptr   driver.DevicePtr
 	Bytes int
+	owner *bufferOwner
 }
 
 func (b Buffer) String() string { return fmt.Sprintf("0x%x+%d", uint64(b.Ptr), b.Bytes) }

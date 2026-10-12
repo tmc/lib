@@ -36,7 +36,7 @@ func newMegaRig(t *testing.T, h *harness) *megaRig {
 			}
 		})
 		r.slices[name] = s
-		r.bufs[name] = cudaagreement.Buffer{Ptr: s.Ptr(), Bytes: int(s.SizeBytes())}
+		r.bufs[name] = cudaagreement.BufferFromSlice(s)
 	}
 	return r
 }
@@ -63,6 +63,11 @@ func (r *megaRig) run(t *testing.T, e cudaagreement.Executor, x []uint32) (cudaa
 		t.Fatal(err)
 	}
 	synchronize(t, r.h.stream)
+	if mega, ok := e.(*cudaagreement.MegaExecutor); ok {
+		if err := mega.Drain(nil); err != nil {
+			t.Fatal(err)
+		}
+	}
 	launches := cudalaunch.TotalLaunches() - before
 	got := make([]uint32, megaElements)
 	if err := r.slices["y"].CopyToHost(got); err != nil {

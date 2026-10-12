@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -34,7 +35,9 @@ import (
 // dealt the task took it. The worker writes into scratch the executor owns;
 // each step's slice is then copied device to device into the step's output
 // buffer, which is the buffer the record names. Execute does not wait for
-// those copies.
+// those copies. Drain joins them and releases the retained allocation borrows.
+// Another Execute is refused until Drain succeeds. Persistent bindings must
+// come from BufferFromSlice; ordinary fallback retains its raw-pointer contract.
 //
 // A worker with more than one CTA uses a cooperative launch. Its grid is no
 // wider than the residency the driver reports for the compiled worker; a run
@@ -43,7 +46,9 @@ import (
 // resident deadlocks.
 //
 // The zero value is not usable: Device, Modules, Target, Grid and Compile are
-// required.
+// required. Do not copy an executor after first use. Keep caller streams,
+// devices and modules live through Drain or Close. Exclude caller buffer
+// mutation until then, including after a timeout or submission error.
 type MegaExecutor struct {
 	Device  *cuda.Device
 	Modules *Modules
@@ -71,6 +76,8 @@ type MegaExecutor struct {
 	scratch  map[string]cudamem.Slice[uint32]
 	order    cudamem.Slice[uint64]
 	epoch    uint64
+	mu       sync.Mutex
+	pending  *megaInvocation
 }
 
 // Requested reports [cudaplan.BackendMega].
@@ -134,6 +141,11 @@ func (e *MegaExecutor) admit(s Step, bufs map[string]Buffer) (int, string) {
 // Execute submits plan on stream, running each admissible run in one
 // persistent launch and synchronizing after it.
 func (e *MegaExecutor) Execute(stream *cuda.Stream, plan *Plan, bufs map[string]Buffer) (*Record, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.pending != nil {
+		return nil, cudamem.ErrInUse
+	}
 	if err := plan.Validate(); err != nil {
 		return nil, err
 	}
@@ -147,6 +159,11 @@ func (e *MegaExecutor) Execute(stream *cuda.Stream, plan *Plan, bufs map[string]
 	}
 	rec := &Record{Arm: plan.Name + "/mega", Requested: cudaplan.BackendMega}
 	for _, u := range e.megaUnits(plan, bufs) {
+		// A preceding run may still have final copies pending. Join before
+		// the next unit can reuse scratch or access its produced buffers.
+		if err := e.drain(nil); err != nil {
+			return rec, err
+		}
 		if u.declined == "" {
 			steps, reason, err := e.run(stream, plan, u, bufs)
 			if err != nil {
@@ -171,9 +188,32 @@ func (e *MegaExecutor) Execute(stream *cuda.Stream, plan *Plan, bufs map[string]
 }
 
 // run performs one run in the persistent worker. A nonempty reason declines
-// the whole run before anything is launched; an error means a launch was
-// attempted and did not complete as the program says it must.
+// the whole run before anything is launched. Once any enqueue is attempted,
+// an error retains storage until a successful Drain.
 func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map[string]Buffer) ([]StepRecord, string, error) {
+	if e.pending != nil {
+		return nil, "", cudamem.ErrInUse
+	}
+	// Keep arithmetic refusal before buffer, compiler and driver access.
+	if u.words <= 0 || uint64(u.words) > math.MaxUint32 || e.Grid.MaxElements != 0 && uint64(u.words) > uint64(e.Grid.MaxElements) {
+		return nil, "persistent worker extent exceeds declared maximum or uint32 range", nil
+	}
+	if _, _, err := megaBufferSizes(uint64(len(u.steps)), uint64(u.words), uint64(e.Grid.CTAs), uint64(^uint(0)>>1)); err != nil {
+		return nil, err.Error(), nil
+	}
+	e.pending = &megaInvocation{stream: stream, join: stream.Synchronize}
+	defer e.rollbackSubmission()
+	// Retain every input and output before compilation or any enqueue.
+	// Repeated names may borrow an owner more than once; each is released.
+	for _, i := range u.steps {
+		s := plan.Steps[i]
+		for _, name := range append(append([]string(nil), s.Inputs...), s.Output) {
+			b := bufs[name]
+			if err := e.pending.borrow(func() (func(), error) { return b.borrow(e.Device) }); err != nil {
+				return nil, "", fmt.Errorf("cudaagreement: retain %s: %w", name, err)
+			}
+		}
+	}
 	grid := e.Grid
 	admission, reason, err := prepareMegaLaunch(grid, uint64(len(u.steps)), u.words, e.Device, stream.Device(), e.Modules.dev, megaLaunchQueries{
 		current: func() (driver.Device, driver.Context, error) { return megaCurrent(e.Device) },
@@ -255,24 +295,34 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 		return nil, "", err
 	}
 	order := e.order.Slice(0, orderWords)
-	for _, s := range []cudamem.Slice[uint32]{completed, abort} {
-		if err := s.MemsetAsync(0, stream); err != nil {
-			return nil, "", fmt.Errorf("cudaagreement: clear worker state: %w", err)
+	for _, s := range []cudamem.Slice[uint32]{scratch, completed, abort} {
+		if err := e.pending.borrow(func() (func(), error) { return s.Borrow(e.Device) }); err != nil {
+			return nil, "", fmt.Errorf("cudaagreement: retain worker storage: %w", err)
 		}
 	}
-	if err := order.MemsetAsync(0, stream); err != nil {
-		return nil, "", fmt.Errorf("cudaagreement: clear start order: %w", err)
+	if err := e.pending.borrow(func() (func(), error) { return order.Borrow(e.Device) }); err != nil {
+		return nil, "", fmt.Errorf("cudaagreement: retain start order: %w", err)
 	}
-
 	input := bufs[plan.Steps[u.steps[0]].Inputs[0]]
 	e.epoch++
 	args := []any{input.Ptr, scratch.Ptr(), completed.Ptr(), order.Ptr(), abort.Ptr(), uint32(n), e.epoch}
 	if _, err := art.Schema.Pack(args...); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: persistent worker arguments: %w", err)
 	}
-	if err := e.Device.WithContext(func() error {
-		l := megaLauncher(grid, cudalaunch.OwnedKernel(fn).On(stream))
-		return admission.launch(l, e.Device, stream.Device(), e.Modules.dev, fn.Device(), megaCurrentBound, func(l *cudalaunch.Launcher) error { return l.Launch(args...) })
+	for _, s := range []cudamem.Slice[uint32]{completed, abort} {
+		if err := e.pending.enqueue(func() error { return s.MemsetAsync(0, stream) }); err != nil {
+			return nil, "", fmt.Errorf("cudaagreement: clear worker state: %w", err)
+		}
+	}
+	if err := e.pending.enqueue(func() error { return order.MemsetAsync(0, stream) }); err != nil {
+		return nil, "", fmt.Errorf("cudaagreement: clear start order: %w", err)
+	}
+
+	if err := e.pending.enqueue(func() error {
+		return e.Device.WithContext(func() error {
+			l := megaLauncher(grid, cudalaunch.OwnedKernel(fn).On(stream))
+			return admission.launch(l, e.Device, stream.Device(), e.Modules.dev, fn.Device(), megaCurrentBound, func(l *cudalaunch.Launcher) error { return l.Launch(args...) })
+		})
 	}); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: launch persistent worker: %w", err)
 	}
@@ -304,7 +354,7 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	for k, i := range u.steps {
 		s := plan.Steps[i]
 		out := bufs[s.Output]
-		if err := copyAsync(e.Device, stream, out.Ptr, scratch.Ptr()+driver.DevicePtr(4*k*n), 4*n); err != nil {
+		if err := e.pending.enqueue(func() error { return copyAsync(e.Device, stream, out.Ptr, scratch.Ptr()+driver.DevicePtr(4*k*n), 4*n) }); err != nil {
 			return nil, "", fmt.Errorf("cudaagreement: copy %s from worker scratch: %w", s.Name, err)
 		}
 		r := recordFor(s, cudaplan.BackendMega, cudaplan.BackendMega, "", out)
@@ -554,6 +604,9 @@ func (a megaAdmission) launch(l *cudalaunch.Launcher, dev, streamDev, modulesDev
 
 // buffer returns executor-owned scratch of at least words elements.
 func (e *MegaExecutor) buffer(name string, words int) (cudamem.Slice[uint32], error) {
+	if err := e.idle(); err != nil {
+		return cudamem.Slice[uint32]{}, err
+	}
 	if s, ok := e.scratch[name]; ok && s.Len() >= words {
 		return s.Slice(0, words), nil
 	}
@@ -575,6 +628,9 @@ func (e *MegaExecutor) buffer(name string, words int) (cudamem.Slice[uint32], er
 }
 
 func (e *MegaExecutor) orderBuffer(words int) error {
+	if err := e.idle(); err != nil {
+		return err
+	}
 	if e.order.Len() >= words {
 		return nil
 	}
@@ -600,9 +656,15 @@ func copyAsync(dev *cuda.Device, stream *cuda.Stream, dst, src driver.DevicePtr,
 	})
 }
 
-// Close frees the scratch the executor allocated. The caller must drain the
-// stream first.
+// Close drains pending work before freeing executor-owned storage. A drain
+// failure retains borrows and allocations for retry. It never closes caller
+// streams, devices or modules.
 func (e *MegaExecutor) Close() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.drain(nil); err != nil {
+		return err
+	}
 	for name, s := range e.scratch {
 		if err := s.Free(); err != nil {
 			return fmt.Errorf("cudaagreement: free %s: %w", name, err)
