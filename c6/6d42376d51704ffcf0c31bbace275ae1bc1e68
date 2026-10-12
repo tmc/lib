@@ -1,0 +1,13 @@
+{
+  "head": "c66d42376d51704ffcf0c31bbace275ae1bc1e68",
+  "date_utc": "2026-10-12T05:33:21.789905+00:00",
+  "tool": "Codex via API",
+  "claude_code_version": "not used",
+  "model": "GPT-6 (exact serving variant not exposed)",
+  "tty": "non-interactive tool process",
+  "pid": 21375,
+  "pid_scope": "registration tool process",
+  "ITERM_SESSION_ID": "w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF",
+  "CODEX_THREAD_ID": "01a12e1c-d90b-7ae3-bf56-7aa299cd3801",
+  "helper": "two offline-stub exits78, authorized signed manual fallback"
+}
