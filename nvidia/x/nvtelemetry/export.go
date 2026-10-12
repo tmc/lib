@@ -266,6 +266,8 @@ func WriteExposition(w io.Writer, readings []Reading, o ExportOptions) error {
 // remains the collector wall timestamp, not a sensor timestamp. Attribute names
 // have the nvtelemetry. prefix followed by the exposition label name, except
 // device_uuid, which uses nvtelemetry.device.uuid.
+// Mapped V5 histograms allow 32 ordinary attributes plus the exact 13
+// source-time attributes; this does not extend the closed attribute profile.
 func WriteOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) error {
 	histogram := len(o.HistogramBindings) > 0 || o.MaxMetrics != 0 || o.MaxExplicitBounds != 0 || o.UnixTimeMapping != nil
 	for _, r := range readings {

@@ -283,6 +283,8 @@ func readOTLPEntity(ctx context.Context, r io.Reader, limit int64) ([]byte, erro
 // ReadOTLPHistogramMetrics reads one bounded, strict OTLP/HTTP JSON histogram
 // request with exactly one resource and instrumentation scope. It accepts only
 // the reversible private attribute mapping; no vendor or native origin is inferred.
+// Mapped V5 points allow at most 32 ordinary attributes and the exact 13
+// source-time attributes. Other profiles retain the total limit of 32.
 // The reader must unblock cooperatively when ctx is canceled.
 func ReadOTLPHistogramMetrics(ctx context.Context, r io.Reader, o OTLPReadOptions) (OTLPHistogramReadResult, error) {
 	fail := func(e error) (OTLPHistogramReadResult, error) { return OTLPHistogramReadResult{}, e }
@@ -638,7 +640,7 @@ func readHistogramAttributes(p otlpObject) (map[string]histogramAttribute, error
 	if err != nil {
 		return nil, err
 	}
-	if len(list) > 32 {
+	if len(list) > 45 {
 		return nil, errors.New("otlp histogram: attribute limit")
 	}
 	attrs := map[string]histogramAttribute{}
@@ -687,6 +689,9 @@ func readHistogramAttributes(p otlpObject) (map[string]histogramAttribute, error
 			}
 			attrs[key] = histogramAttribute{arm, v}
 		}
+	}
+	if err := histogramAttributeBudget(attrs); err != nil {
+		return nil, err
 	}
 	return attrs, nil
 }
@@ -876,10 +881,34 @@ func histogramAttributes(r Reading) (map[string]histogramAttribute, error) {
 			}
 		}
 	}
-	if len(attrs) > 32 {
-		return nil, errors.New("otlp histogram: attribute limit")
+	if err := histogramAttributeBudget(attrs); err != nil {
+		return nil, err
 	}
 	return attrs, nil
+}
+
+// histogramAttributeBudget counts only the exact V5 source-time keys separately.
+// Complete family and closed profile validation are still required by the codec.
+func histogramAttributeBudget(attrs map[string]histogramAttribute) error {
+	ordinary, reserved := 0, 0
+	for key := range attrs {
+		switch key {
+		case "nvtelemetry.source_time.source_class", "nvtelemetry.source_time.source_clock_epoch",
+			"nvtelemetry.source_time.source_monotonic_end_nanos", "nvtelemetry.source_time.source_interval_present",
+			"nvtelemetry.source_time.source_interval_clock", "nvtelemetry.source_time.source_interval_start_nanos",
+			"nvtelemetry.source_time.source_interval_end_nanos", "nvtelemetry.source_time.mapping_domain",
+			"nvtelemetry.source_time.mapping_epoch", "nvtelemetry.source_time.mapping_valid_from_nanos",
+			"nvtelemetry.source_time.mapping_valid_until_nanos", "nvtelemetry.source_time.mapping_unix_offset_nanos",
+			"nvtelemetry.source_time.mapping_provenance":
+			reserved++
+		default:
+			ordinary++
+		}
+	}
+	if ordinary > 32 || reserved > 13 || len(attrs) > 45 {
+		return errors.New("otlp histogram: attribute limit")
+	}
+	return nil
 }
 
 func validHistogramReading(r Reading) error {
