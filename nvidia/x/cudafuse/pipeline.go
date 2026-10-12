@@ -62,7 +62,10 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 		ctx = NewLazyContext()
 	}
 
-	ordered := topologicalOrder(root)
+	ordered, err := checkedTopologicalOrder(root)
+	if err != nil {
+		return nil, err
+	}
 	for _, n := range ordered {
 		if n.Err != nil {
 			return nil, fmt.Errorf("cudafuse: node %s: %w", n.Name(), n.Err)
@@ -231,24 +234,31 @@ func outputBytes(shape []int, dtype cudair.DataType) (int64, error) {
 	return int64(elements * bytes), nil
 }
 
-func topologicalOrder(root *LazyNode) []*LazyNode {
+func checkedTopologicalOrder(root *LazyNode) ([]*LazyNode, error) {
 	var ordered []*LazyNode
-	visited := make(map[*LazyNode]bool)
-
-	var visit func(n *LazyNode)
-	visit = func(n *LazyNode) {
-		if n == nil || visited[n] {
-			return
+	state := make(map[*LazyNode]int)
+	var visit func(*LazyNode) error
+	visit = func(n *LazyNode) error {
+		if n == nil || state[n] == 1 {
+			return fmt.Errorf("cudafuse: nil or cyclic deferred node")
 		}
-		visited[n] = true
+		if state[n] == 2 {
+			return nil
+		}
+		state[n] = 1
 		for _, in := range n.Inputs {
-			visit(in)
+			if err := visit(in); err != nil {
+				return err
+			}
 		}
+		state[n] = 2
 		ordered = append(ordered, n)
+		return nil
 	}
-
-	visit(root)
-	return ordered
+	if err := visit(root); err != nil {
+		return nil, err
+	}
+	return ordered, nil
 }
 
 func partitionIntoRegions(nodes []*LazyNode) ([]*FusionRegion, error) {
@@ -278,7 +288,7 @@ func partitionIntoRegions(nodes []*LazyNode) ([]*FusionRegion, error) {
 			// Compaction gets its own isolated boundary region
 			compReg := startNewRegion(true, n.Op)
 			compReg.Nodes = append(compReg.Nodes, n)
-			compReg.Inputs = append(compReg.Inputs, n.Inputs...)
+			compReg.Inputs = uniqueExecutionNodes(n.Inputs)
 			compReg.Outputs = []*LazyNode{n}
 
 			// Start clean new downstream region
@@ -295,13 +305,29 @@ func partitionIntoRegions(nodes []*LazyNode) ([]*FusionRegion, error) {
 				matReg.Reason = "operation is not lowered into the flat elementwise kernel"
 			}
 			matReg.Nodes = append(matReg.Nodes, n)
-			matReg.Inputs = append(matReg.Inputs, n.Inputs...)
+			matReg.Inputs = uniqueExecutionNodes(n.Inputs)
 			matReg.Outputs = []*LazyNode{n}
 
 			currentRegion = startNewRegion(false, "")
 			continue
 		}
 
+		// Separate iteration domains even when their DFS positions are adjacent.
+		// Reshape and transpose preserve element count within an indexed region.
+		if len(currentRegion.Nodes) != 0 {
+			previous, err := shapeElements(currentRegion.Nodes[0].Shape)
+			if err != nil {
+				return nil, err
+			}
+			count, err := shapeElements(n.Shape)
+			if err != nil {
+				return nil, err
+			}
+			if count != previous {
+				currentRegion.Outputs = findOutputs(currentRegion.Nodes, nodes)
+				currentRegion = startNewRegion(false, "")
+			}
+		}
 		// Fusible elementwise or input node
 		currentRegion.Nodes = append(currentRegion.Nodes, n)
 		for _, in := range n.Inputs {

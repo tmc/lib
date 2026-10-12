@@ -56,11 +56,13 @@ type Execution struct {
 	receipts                    []KernelReceipt
 	attempted, complete, closed bool
 	n                           int
+	shape                       []int
 	failure                     error
 }
 
 type executionBuffer struct {
 	ptr   driver.DevicePtr
+	check func() error
 	read  func([]float32) error
 	free  func() error
 	freed func() bool
@@ -76,9 +78,14 @@ type executionOps struct {
 	sync    func(context.Context) error
 }
 
-// Execute compiles and runs the supported row-major FP32 region on stream. It waits
+// Execute compiles and runs row-major FP32 pointwise regions and rank-one
+// axis-zero sums on stream. Sum accumulates FP32 values sequentially in FP64
+// and converts once to FP32. Empty sums write +0 to output shape [1]. It waits
 // through Stream.Synchronize before exposing output. Unsupported graphs or
 // invalid bindings are refused before compilation or allocation.
+// The caller must not change the plan, graph, or binding metadata during this
+// call. Execution snapshots graph metadata and owns each materialized result;
+// it borrows caller input allocations until Close successfully drains cleanup.
 // The caller must keep stream and its device live until the execution is
 // closed, and must not mutate borrowed input storage while work is pending.
 // Runtime-owned outputs include two guard elements in their allocation;
@@ -87,7 +94,7 @@ func (p *MaterializedPlan) Execute(ctx context.Context, stream *cuda.Stream, bin
 	return p.execute(ctx, stream, bindings, false)
 }
 
-// ExecuteEager executes one kernel and allocates one result for each primitive
+// ExecuteEager executes one kernel and allocates one result for each nonempty primitive
 // in the same supported graph. It provides a concrete baseline for Execute.
 // It has the same stream, device and input-lifetime requirements as Execute.
 func (p *MaterializedPlan) ExecuteEager(ctx context.Context, stream *cuda.Stream, bindings map[string]ExecutionBinding) (*Execution, error) {
@@ -95,10 +102,12 @@ func (p *MaterializedPlan) ExecuteEager(ctx context.Context, stream *cuda.Stream
 }
 
 func (p *MaterializedPlan) execute(ctx context.Context, stream *cuda.Stream, bindings map[string]ExecutionBinding, eager bool) (*Execution, error) {
-	nodes, n, err := executionNodes(p)
+	plan, err := snapshotExecution(p, eager)
 	if err != nil {
 		return nil, err
 	}
+	nodes := plan.nodes
+	n := int(mustExecutionElements(plan.root))
 	if n != 0 && (stream == nil || stream.Device() == nil) {
 		return nil, errors.New("cudafuse: nil execution stream or device")
 	}
@@ -128,11 +137,11 @@ func (p *MaterializedPlan) execute(ctx context.Context, stream *cuda.Stream, bin
 		}
 		count++
 		b, ok := bindings[node.Name()]
-		if !ok || b.DType != cudair.Float32 || !slices.Equal(b.Shape, node.Shape) || b.Buffer.Len() != n {
+		if !ok || b.DType != cudair.Float32 || !slices.Equal(b.Shape, node.Shape) || b.Buffer.Len() != int(mustExecutionElements(node)) {
 			rollback()
 			return nil, fmt.Errorf("cudafuse: invalid binding %s", node.Name())
 		}
-		if n == 0 {
+		if mustExecutionElements(node) == 0 {
 			continue
 		}
 		release, e := b.Buffer.Borrow(dev)
@@ -165,9 +174,9 @@ func (p *MaterializedPlan) execute(ctx context.Context, stream *cuda.Stream, bin
 		return nil, ctx.Err()
 	}
 	if n == 0 {
-		return &Execution{n: 0, complete: true}, nil
+		return &Execution{n: 0, shape: slices.Clone(plan.root.Shape), complete: true}, nil
 	}
-	e, err := runExecution(ctx, nodes, n, inputs, eager, nativeExecutionOps(dev, stream), releases)
+	e, err := runExecutionPlan(ctx, plan, inputs, nativeExecutionOps(dev, stream), releases)
 	return e, err
 }
 
@@ -179,7 +188,7 @@ type executionBindingDescription struct {
 	device     *cuda.Device
 }
 
-func validateExecutionBindings(nodes []*LazyNode, n int, device *cuda.Device, bindings map[string]executionBindingDescription) error {
+func validateExecutionBindings(nodes []*LazyNode, _ int, device *cuda.Device, bindings map[string]executionBindingDescription) error {
 	count := 0
 	var ranges [][2]uint64
 	for _, node := range nodes {
@@ -187,6 +196,11 @@ func validateExecutionBindings(nodes []*LazyNode, n int, device *cuda.Device, bi
 			continue
 		}
 		count++
+		elements, err := indexedElements(node)
+		if err != nil {
+			return err
+		}
+		n := int(elements)
 		b, ok := bindings[node.Name()]
 		if !ok || b.dtype != cudair.Float32 || !slices.Equal(b.shape, node.Shape) || b.length != n {
 			return fmt.Errorf("cudafuse: invalid binding %s", node.Name())
@@ -214,91 +228,20 @@ func validateExecutionBindings(nodes []*LazyNode, n int, device *cuda.Device, bi
 }
 
 func executionNodes(p *MaterializedPlan) ([]*LazyNode, int, error) {
-	if p == nil || p.RootNode == nil || len(p.Regions) != 1 {
-		return nil, 0, errors.New("cudafuse: execution requires one elementwise region")
+	if _, err := snapshotExecution(p, false); err != nil {
+		return nil, 0, err
 	}
-	r := p.Regions[0]
-	if r == nil || r.Compaction || IsMaterializingBoundary(r.Boundary) || len(r.Outputs) != 1 || r.Outputs[0] != p.RootNode {
-		return nil, 0, errors.New("cudafuse: unsupported execution boundary")
-	}
-	if p.RootNode.Op == "input" {
-		return nil, 0, errors.New("cudafuse: execution requires a compute output")
-	}
-	count, err := indexedElements(p.RootNode)
+	nodes, err := checkedTopologicalOrder(p.RootNode)
 	if err != nil {
 		return nil, 0, err
 	}
-	n := int(count)
-	var nodes []*LazyNode
-	state := map[*LazyNode]int{}
-	names := map[string]bool{}
-	var visit func(*LazyNode) error
-	visit = func(node *LazyNode) error {
-		if node == nil {
-			return errors.New("cudafuse: nil input node")
-		}
-		if state[node] == 1 {
-			return errors.New("cudafuse: cyclic execution graph")
-		}
-		if state[node] == 2 {
-			return nil
-		}
-		if node.Err != nil {
-			return node.Err
-		}
-		elements, err := indexedElements(node)
-		if err != nil || node.DType != cudair.Float32 || elements != count {
-			return errors.New("cudafuse: unsupported execution dtype or shape")
-		}
-		if node.Op == "input" {
-			if len(node.Inputs) != 0 || len(node.Attrs) != 0 {
-				return errors.New("cudafuse: unsupported execution input attributes or arity")
-			}
-		} else if err := validateIndexedOperator(node); err != nil {
-			return err
-		}
-		if names[node.Name()] {
-			return errors.New("cudafuse: duplicate node name")
-		}
-		names[node.Name()] = true
-		state[node] = 1
-		for _, in := range node.Inputs {
-			if err := visit(in); err != nil {
-				return err
-			}
-		}
-		state[node] = 2
-		nodes = append(nodes, node)
-		return nil
-	}
-	if err := visit(p.RootNode); err != nil {
-		return nil, 0, err
-	}
-	// The region must actually describe this graph, not an unrelated cached kernel.
+	count, _ := indexedElements(p.RootNode)
+	return nodes, int(count), nil
+}
 
-	if len(r.Nodes) != len(nodes) {
-		return nil, 0, errors.New("cudafuse: incomplete execution region")
-	}
-	seen := map[*LazyNode]bool{}
-	for _, node := range r.Nodes {
-		if state[node] != 2 || seen[node] {
-			return nil, 0, errors.New("cudafuse: stale execution region")
-		}
-		seen[node] = true
-	}
-	seen = map[*LazyNode]bool{}
-	for _, in := range r.Inputs {
-		if in == nil || state[in] != 2 || in.Op != "input" || seen[in] {
-			return nil, 0, errors.New("cudafuse: stale execution region inputs")
-		}
-		seen[in] = true
-	}
-	for _, node := range nodes {
-		if node.Op == "input" && !seen[node] {
-			return nil, 0, errors.New("cudafuse: incomplete execution region inputs")
-		}
-	}
-	return nodes, n, nil
+func mustExecutionElements(n *LazyNode) uint64 {
+	count, _ := indexedElements(n) // The execution snapshot already validated it.
+	return count
 }
 
 func executionSource(nodes []*LazyNode, root *LazyNode, name string, eager bool) (FusedKernel, error) {
@@ -365,10 +308,32 @@ func executionSource(nodes []*LazyNode, root *LazyNode, name string, eager bool)
 }
 
 func runExecution(ctx context.Context, nodes []*LazyNode, n int, inputs map[*LazyNode]driver.DevicePtr, eager bool, ops executionOps, releases []func()) (*Execution, error) {
-	e := &Execution{n: n, ops: ops, releases: releases}
-	values := map[string]driver.DevicePtr{}
+	if len(nodes) == 0 {
+		return nil, errors.New("cudafuse: empty execution graph")
+	}
+	regions, err := partitionIntoRegions(nodes)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := snapshotExecution(&MaterializedPlan{Regions: regions, RootNode: nodes[len(nodes)-1]}, eager)
+	if err != nil {
+		return nil, err
+	}
+	if int(mustExecutionElements(plan.root)) != n {
+		return nil, errors.New("cudafuse: execution root extent differs")
+	}
+	bound := make(map[*LazyNode]driver.DevicePtr)
+	for original, ptr := range inputs {
+		bound[plan.originals[original]] = ptr
+	}
+	return runExecutionPlan(ctx, plan, bound, ops, releases)
+}
+
+func runExecutionPlan(ctx context.Context, plan *executionPlan, inputs map[*LazyNode]driver.DevicePtr, ops executionOps, releases []func()) (*Execution, error) {
+	e := &Execution{n: int(mustExecutionElements(plan.root)), shape: slices.Clone(plan.root.Shape), ops: ops, releases: releases}
+	values := make(map[*LazyNode]driver.DevicePtr)
 	for node, ptr := range inputs {
-		values[node.Name()] = ptr
+		values[node] = ptr
 	}
 	fail := func(err error) (*Execution, error) {
 		e.failure = err
@@ -377,15 +342,14 @@ func runExecution(ctx context.Context, nodes []*LazyNode, n int, inputs map[*Laz
 		}
 		return e, err
 	}
-	root := nodes[len(nodes)-1]
-	for _, node := range nodes {
-		if node.Op == "input" || !eager && node != root {
+	for i, step := range plan.steps {
+		if step.count == 0 {
 			continue
 		}
 		if ctx != nil && ctx.Err() != nil {
 			return fail(ctx.Err())
 		}
-		source, err := executionSource(nodes, node, fmt.Sprintf("lazy_execution_%d", node.ID), eager)
+		source, err := step.source(fmt.Sprintf("lazy_execution_%d", i))
 		if err != nil {
 			return fail(err)
 		}
@@ -400,45 +364,80 @@ func runExecution(ctx context.Context, nodes []*LazyNode, n int, inputs map[*Laz
 			}
 			return fail(fmt.Errorf("cudafuse: compile/load: %w", err))
 		}
+		if kernel == nil || kernel.launch == nil {
+			return fail(errors.New("cudafuse: missing execution kernel"))
+		}
 		e.receipts = append(e.receipts, kernel.receipt)
-		if ctx != nil && ctx.Err() != nil {
-			return fail(ctx.Err())
+		pointers := make([]driver.DevicePtr, 0, len(step.inputs)+len(step.outputs))
+		byName := make(map[string]*LazyNode, len(step.inputs))
+		for _, in := range step.inputs {
+			byName[in.Name()] = in
 		}
-		buffer, err := ops.alloc(n)
-		if buffer != nil {
-			e.resources = append(e.resources, buffer)
-			e.stats.Allocations++
-		}
-		if err != nil {
-			return fail(fmt.Errorf("cudafuse: allocate: %w", err))
-		}
-		if ctx != nil && ctx.Err() != nil {
-			return fail(ctx.Err())
-		}
-		pointers := make([]driver.DevicePtr, 0, len(source.Inputs)+1)
 		for _, name := range source.Inputs {
-			ptr := values[name]
-			if ptr == 0 {
+			in := byName[name]
+			if in == nil {
+				return fail(errors.New("cudafuse: unknown source operand"))
+			}
+			ptr := values[in]
+			if ptr == 0 && mustExecutionElements(in) != 0 {
 				return fail(errors.New("cudafuse: missing native operand"))
 			}
 			pointers = append(pointers, ptr)
 		}
-		pointers = append(pointers, buffer.ptr)
-		e.attempted = true
-		if err := kernel.launch(pointers, n); err != nil {
+		for _, out := range step.outputs {
+			if ctx != nil && ctx.Err() != nil {
+				return fail(ctx.Err())
+			}
+			buffer, err := ops.alloc(int(mustExecutionElements(out)))
+			if buffer != nil {
+				e.resources = append(e.resources, buffer)
+				e.stats.Allocations++
+			}
+			if err != nil {
+				return fail(fmt.Errorf("cudafuse: allocate: %w", err))
+			}
+			if buffer == nil || buffer.ptr == 0 {
+				return fail(errors.New("cudafuse: missing execution buffer"))
+			}
+			pointers = append(pointers, buffer.ptr)
+			values[out] = buffer.ptr
+			if out == plan.root {
+				e.output = buffer
+			}
+		}
+		if ctx != nil && ctx.Err() != nil {
+			return fail(ctx.Err())
+		}
+		// Mark every attempt before the native call: failed submission may still
+		// have touched the stream. Later stages cannot inherit a completed epoch.
+		e.attempted, e.complete = true, false
+		if err := kernel.launch(pointers, step.count); err != nil {
 			return fail(fmt.Errorf("cudafuse: launch: %w", err))
 		}
 		e.stats.Launches++
-		values[node.Name()] = buffer.ptr
-		e.output = buffer
 	}
 	if !e.attempted {
-		return fail(errors.New("cudafuse: no compute operation"))
+		if e.n != 0 {
+			return fail(errors.New("cudafuse: no compute operation"))
+		}
+		e.complete = true
+		return e, nil
 	}
 	if err := e.Wait(ctx); err != nil {
 		return e, err
 	}
 	return e, nil
+}
+
+// Shape returns a copy of the execution's validated output shape. Sum has
+// shape [1], including an empty-input sum; rank-zero pointwise results have [].
+func (e *Execution) Shape() []int {
+	if e == nil {
+		return nil
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.shape)
 }
 
 // Wait establishes actual device completion. A canceled or failed wait leaves
@@ -462,6 +461,19 @@ func (e *Execution) Wait(ctx context.Context) error {
 		return fmt.Errorf("cudafuse: synchronize: %w", err)
 	}
 	e.complete = true
+	// A failed submission has no admissible output. Preserve its original
+	// error instead of replacing it with a poison check on unwritten storage.
+	if e.failure != nil {
+		return nil
+	}
+	for _, b := range e.resources {
+		if b != nil && b.check != nil {
+			if err := b.check(); err != nil {
+				e.failure = fmt.Errorf("cudafuse: check completed output: %w", err)
+				return e.failure
+			}
+		}
+	}
 	return nil
 }
 
@@ -580,6 +592,13 @@ func nativeExecutionOps(dev *cuda.Device, stream *cuda.Stream) executionOps {
 			}
 			view := storage.Slice(1, n+1)
 			b := &executionBuffer{ptr: view.Ptr(), free: storage.Free, freed: func() bool { return storage.Ptr() == 0 }}
+			b.check = func() error {
+				all := make([]float32, n+2)
+				if err := storage.CopyToHost(all); err != nil {
+					return err
+				}
+				return checkExecutionOutput(all, n)
+			}
 			b.read = func(out []float32) error {
 				all := make([]float32, n+2)
 				if err := storage.CopyToHost(all); err != nil {

@@ -121,63 +121,9 @@ func compileIndexedLazyRegion(inputs, outputs []*LazyNode, name string) (FusedKe
 	if count != 0 {
 		fmt.Fprintln(&source, "#pragma unroll 1")
 		fmt.Fprintln(&source, "    for (unsigned long long idx = (unsigned long long)blockDim.x * blockIdx.x + threadIdx.x; idx < (unsigned int)n; idx += (unsigned long long)blockDim.x * gridDim.x) {")
-		type valueKey struct {
-			node  *LazyNode
-			index string
-		}
-		values := make(map[valueKey]string)
-		next := 0
-		var emit func(*LazyNode, string) string
-		emit = func(node *LazyNode, index string) string {
-			key := valueKey{node, index}
-			if value := values[key]; value != "" {
-				return value
-			}
-			var expression string
-			switch {
-			case external[node]:
-				expression = fmt.Sprintf("%s[%s]", node.Name(), index)
-			case node.Op == "transpose":
-				perm := node.Attrs["permutation"].([]int)
-				outStride, inStride := rowMajorStrides(node.Shape), rowMajorStrides(node.Inputs[0].Shape)
-				var terms []string
-				for axis, inputAxis := range perm {
-					terms = append(terms, fmt.Sprintf("((%s / %dULL) %% %dULL) * %dULL", index, outStride[axis], node.Shape[axis], inStride[inputAxis]))
-				}
-				mapped := "0ULL"
-				if len(terms) != 0 {
-					mapped = strings.Join(terms, " + ")
-				}
-				next++
-				indexName := fmt.Sprintf("index_%d", next)
-				fmt.Fprintf(&source, "        unsigned long long %s = %s;\n", indexName, mapped)
-				expression = emit(node.Inputs[0], indexName)
-			case node.Op == "reshape":
-				expression = emit(node.Inputs[0], index)
-			default:
-				a := emit(node.Inputs[0], index)
-				switch node.Op {
-				case "relu":
-					expression = fmt.Sprintf("(%s > 0.0f ? %s : 0.0f)", a, a)
-				case "silu":
-					expression = fmt.Sprintf("%s / (1.0f + expf(-%s))", a, a)
-				case "exp", "sqrt":
-					expression = fmt.Sprintf("%sf(%s)", node.Op, a)
-				case "neg":
-					expression = "-" + a
-				default:
-					operator := map[string]string{"add": "+", "sub": "-", "mul": "*", "div": "/"}[node.Op]
-					expression = a + " " + operator + " " + emit(node.Inputs[1], index)
-				}
-			}
-			next++
-			value := fmt.Sprintf("v_%s_at_%d", node.Name(), next)
-			fmt.Fprintf(&source, "        float %s = %s;\n", value, expression)
-			values[key] = value
-			return value
-		}
+		emitter := newIndexedExpression(&source, external)
 		for _, output := range outputs {
-			value := emit(output, "idx")
+			value := emitter.emit(output, "idx")
 			fmt.Fprintf(&source, "        out_%s[idx] = %s;\n", output.Name(), value)
 		}
 		fmt.Fprintln(&source, "    }")
@@ -264,4 +210,69 @@ func rowMajorStrides(shape []int) []uint64 {
 		stride *= uint64(shape[axis])
 	}
 	return strides
+}
+
+type indexedValueKey struct {
+	node  *LazyNode
+	index string
+}
+
+type indexedExpression struct {
+	source   *strings.Builder
+	external map[*LazyNode]bool
+	values   map[indexedValueKey]string
+	next     int
+}
+
+func newIndexedExpression(source *strings.Builder, external map[*LazyNode]bool) *indexedExpression {
+	return &indexedExpression{source: source, external: external, values: make(map[indexedValueKey]string)}
+}
+
+func (e *indexedExpression) emit(node *LazyNode, index string) string {
+	key := indexedValueKey{node, index}
+	if value := e.values[key]; value != "" {
+		return value
+	}
+	var expression string
+	switch {
+	case e.external[node]:
+		expression = fmt.Sprintf("%s[%s]", node.Name(), index)
+	case node.Op == "transpose":
+		perm := node.Attrs["permutation"].([]int)
+		outStride, inStride := rowMajorStrides(node.Shape), rowMajorStrides(node.Inputs[0].Shape)
+		var terms []string
+		for axis, inputAxis := range perm {
+			terms = append(terms, fmt.Sprintf("((%s / %dULL) %% %dULL) * %dULL", index, outStride[axis], node.Shape[axis], inStride[inputAxis]))
+		}
+		mapped := "0ULL"
+		if len(terms) != 0 {
+			mapped = strings.Join(terms, " + ")
+		}
+		e.next++
+		indexName := fmt.Sprintf("index_%d", e.next)
+		fmt.Fprintf(e.source, "        unsigned long long %s = %s;\n", indexName, mapped)
+		expression = e.emit(node.Inputs[0], indexName)
+	case node.Op == "reshape":
+		expression = e.emit(node.Inputs[0], index)
+	default:
+		a := e.emit(node.Inputs[0], index)
+		switch node.Op {
+		case "relu":
+			expression = fmt.Sprintf("(%s > 0.0f ? %s : 0.0f)", a, a)
+		case "silu":
+			expression = fmt.Sprintf("%s / (1.0f + expf(-%s))", a, a)
+		case "exp", "sqrt":
+			expression = fmt.Sprintf("%sf(%s)", node.Op, a)
+		case "neg":
+			expression = "-" + a
+		default:
+			operator := map[string]string{"add": "+", "sub": "-", "mul": "*", "div": "/"}[node.Op]
+			expression = a + " " + operator + " " + e.emit(node.Inputs[1], index)
+		}
+	}
+	e.next++
+	value := fmt.Sprintf("v_%s_at_%d", node.Name(), e.next)
+	fmt.Fprintf(e.source, "        float %s = %s;\n", value, expression)
+	e.values[key] = value
+	return value
 }

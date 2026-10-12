@@ -573,3 +573,27 @@ func TestLazyExecution_ActualOperandDataflow(t *testing.T) {
 		t.Fatal("missing bounded output store", source.Source)
 	}
 }
+
+func TestLazyExecution_BindingsUseLeafExtentAcrossSum(t *testing.T) {
+	ctx := NewLazyContext()
+	x := NewLazyArray(ctx, []int{1003}, cudair.Float32)
+	p, err := x.Sum()
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := snapshotExecution(p, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dev := &cuda.Device{}
+	b := map[string]executionBindingDescription{x.Node.Name(): {shape: []int{1003}, dtype: cudair.Float32, length: 1003, ptr: 8192, bytes: 4012, device: dev}}
+	if err := validateExecutionBindings(plan.nodes, 1, dev, b); err != nil {
+		t.Fatal("vector leaf checked against scalar output extent", err)
+	}
+	v := b[x.Node.Name()]
+	v.length, v.bytes = 1, 4
+	b[x.Node.Name()] = v
+	if err := validateExecutionBindings(plan.nodes, 1, dev, b); err == nil {
+		t.Fatal("scalar output extent admitted as vector input storage")
+	}
+}
