@@ -42,3 +42,21 @@ On Linux, it verifies the producer's native session, process generation, and
 unified monotonic clock before drawing CPU samples on separate host tracks.
 Other versions or missing clock evidence remain unavailable. The host-stack
 query retains timestamp quantization, clock snapshots, and observed read skew.
+
+## Open question: native kernel-launch stacks
+
+Go stacks are taken in the target by `runtime.Callers` and joined to device
+work by external correlation ID. Whether the injected CUPTI agent should also
+unwind native stacks at kernel launch is unresolved.
+
+The agent's host sampler avoids signal-context unwinding because glibc's
+`backtrace` takes the loader lock through `dl_iterate_phdr`, and CUDA calls
+`dlopen` lazily during a run (`internal/cudainject/native/cupti_agent.c:136-137`).
+The agent now unwinds on one path: with `CUDAPROF_GEMMS` set, a driver
+launch callback on a thread with a pending cuBLASLt call walks frame records
+and falls back to `_Unwind_Backtrace` (`cupti_agent.c:1536`). Library discovery
+calls `dl_iterate_phdr` (`cupti_agent.c:1392`). These run in CUPTI callback
+context, not signal context, and answer only whether a return address lies in
+libcublasLt. No test or receipt in this module measures their cost or their
+interaction with a concurrent `dlopen`, so that path does not establish that a
+full native stack per kernel launch is safe.

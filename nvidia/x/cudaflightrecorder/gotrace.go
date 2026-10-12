@@ -15,8 +15,10 @@ type GoTraceRecorder interface {
 	// Start begins recording Go runtime execution events.
 	Start() error
 
-	// Stop halts recording Go runtime execution events.
-	Stop()
+	// Stop halts recording Go runtime execution events. It halts recording
+	// even when it returns an error, such as a failure to retain the final
+	// window.
+	Stop() error
 
 	// Snapshot returns a copy of the recorded Go execution trace.
 	Snapshot(ctx context.Context) ([]byte, error)
@@ -69,23 +71,28 @@ func (f *flightRecorder) Start() error {
 	return nil
 }
 
-func (f *flightRecorder) Stop() {
+func (f *flightRecorder) Stop() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	if !f.running {
-		return
+		return nil
 	}
 
 	// Capture a snapshot before stopping so post-stop snapshots can still retrieve
-	// the final recorded window.
+	// the final recorded window. On failure the previous snapshot is kept.
 	var buf bytes.Buffer
-	if _, err := f.fr.WriteTo(&buf); err == nil && buf.Len() > 0 {
+	_, err := f.fr.WriteTo(&buf)
+	if err == nil && buf.Len() > 0 {
 		f.snapshot = buf.Bytes()
 	}
 
 	f.fr.Stop()
 	f.running = false
+	if err != nil {
+		return fmt.Errorf("cudaflightrecorder: write final flight recorder window: %w", err)
+	}
+	return nil
 }
 
 func (f *flightRecorder) Snapshot(ctx context.Context) ([]byte, error) {
@@ -189,12 +196,12 @@ func (s *standardTraceRecorder) Start() error {
 	return nil
 }
 
-func (s *standardTraceRecorder) Stop() {
+func (s *standardTraceRecorder) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if !s.running {
-		return
+		return nil
 	}
 
 	trace.Stop()
@@ -202,6 +209,7 @@ func (s *standardTraceRecorder) Stop() {
 	if s.buf != nil {
 		s.snapshot = s.buf.Bytes()
 	}
+	return nil
 }
 
 func (s *standardTraceRecorder) Snapshot(ctx context.Context) ([]byte, error) {
@@ -280,13 +288,14 @@ func (a *adaptiveTraceRecorder) Start() error {
 	return nil
 }
 
-func (a *adaptiveTraceRecorder) Stop() {
+func (a *adaptiveTraceRecorder) Stop() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.active != nil {
-		a.active.Stop()
+	if a.active == nil {
+		return nil
 	}
+	return a.active.Stop()
 }
 
 func (a *adaptiveTraceRecorder) Snapshot(ctx context.Context) ([]byte, error) {

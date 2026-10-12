@@ -315,12 +315,15 @@ func clockUncertainty(calibrated bool, bracketNs int64, sinceCalibration time.Du
 
 // Stop halts flight recording permanently. Later starts fail and pushes are
 // counted as dropped. Repeated stops are harmless; snapshots remain available.
+// A Go tracer stop failure is kept as the cleanup error reported by Close.
 func (r *Recorder) Stop() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.goTracer != nil {
-		r.goTracer.Stop()
+		if err := r.goTracer.Stop(); err != nil && r.cleanupErr == nil {
+			r.cleanupErr = fmt.Errorf("cudaflightrecorder: stop go trace: %w", err)
+		}
 	}
 
 	r.running = false
