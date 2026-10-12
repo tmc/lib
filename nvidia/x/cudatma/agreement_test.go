@@ -127,3 +127,33 @@ func TestAgreesWithTileElementWidth(t *testing.T) {
 		t.Fatalf("AgreesWithTile() = %v, want nil", err)
 	}
 }
+
+func TestAgreesWithTileRankOne(t *testing.T) {
+	d, tile := agreeingPair(t)
+	d.Rank = 1
+	d.Strides = [MaxRank]uint64{}
+	d.Box[1] = 0
+	d.Dims[1] = 0
+	tile, err := cudalayout.NewSwizzledTile(1, 64, 2, cudalayout.TMASwizzle128B)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.AgreesWithTile(tile); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAgreesWithTileOuterPlanes(t *testing.T) {
+	d, tile := agreeingPair(t)
+	d.Rank = 3
+	d.Dims[2] = 2
+	d.Box[2] = 2
+	d.Strides[1] = 2048
+	if err := d.AgreesWithTile(tile); err == nil {
+		t.Fatal("two axes admitted outer planes")
+	}
+	d.Interleave = 1
+	if err := d.AgreesWithTile(tile); err == nil {
+		t.Fatal("two axes admitted interleaved physical agreement")
+	}
+}

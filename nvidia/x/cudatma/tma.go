@@ -153,8 +153,8 @@ func (d Descriptor) Validate() error {
 	if d.Target != TargetSM100a && d.Target != TargetSM121a {
 		return fmt.Errorf("unsupported target %q", d.Target)
 	}
-	if d.Rank < 2 || d.Rank > MaxRank {
-		return fmt.Errorf("rank must be between 2 and %d", MaxRank)
+	if d.Rank < 1 || d.Rank > MaxRank {
+		return fmt.Errorf("rank must be between 1 and %d", MaxRank)
 	}
 	if d.Base%16 != 0 {
 		return fmt.Errorf("base 0x%x is not 16-byte aligned", d.Base)
@@ -166,11 +166,14 @@ func (d Descriptor) Validate() error {
 		if d.Dims[i] == 0 || d.Box[i] == 0 || uint64(d.Box[i]) > d.Dims[i] {
 			return fmt.Errorf("dimension %d is zero", i)
 		}
+		if d.Dims[i] > 1<<32 || d.Box[i] > 256 {
+			return fmt.Errorf("dimension %d exceeds tensor-map limits", i)
+		}
 	}
 	// The driver reads Rank-1 global strides; the innermost dimension is
 	// implicitly contiguous and carries no stride.
 	for i := 0; i < d.Rank-1; i++ {
-		if d.Strides[i] == 0 || d.Strides[i]%16 != 0 {
+		if d.Strides[i] == 0 || d.Strides[i]%16 != 0 || d.Strides[i] >= 1<<40 {
 			return fmt.Errorf("stride %d must be a nonzero 16-byte multiple", i)
 		}
 	}
@@ -212,6 +215,19 @@ func (d Descriptor) Validate() error {
 		}
 	default:
 		return fmt.Errorf("unsupported interleave %d", d.Interleave)
+	}
+	if d.Interleave == driver.TensorMapInterleave32B {
+		if d.Base%32 != 0 || d.Swizzle != 32 {
+			return fmt.Errorf("32-byte interleave requires 32-byte base alignment and swizzle")
+		}
+		for i := 0; i < d.Rank-1; i++ {
+			if d.Strides[i]%32 != 0 {
+				return fmt.Errorf("stride %d is not 32-byte aligned", i)
+			}
+		}
+	}
+	if d.Interleave == driver.TensorMapInterleaveNone && d.Swizzle != 0 && width > uint64(d.Swizzle) {
+		return fmt.Errorf("box width %d exceeds swizzle %d", width, d.Swizzle)
 	}
 	switch d.L2Promotion {
 	case driver.TensorMapL2PromotionNone, driver.TensorMapL2PromotionL264B,
@@ -435,9 +451,24 @@ extern "C" __global__ void tma_fixture(__grid_constant__ const CUtensorMap map) 
 `, target), nil
 }
 
-// MulticastSource is intentionally unsupported until the exact PTX multicast
-// qualifier, cluster mask, and completion protocol are qualified together.
-// shared::cluster addressing alone is not multicast.
+// MulticastSource emits a real two-CTA, two-dimensional FP32 fixture. Both
+// CTAs receive a 128-byte tile. Launch one 2x1x1 cluster with 136 shared bytes,
+// encode the returned fixture's equivalent tensor map, and pass coordinates
+// (0, 0). Compiler and native qualification are separate from emission.
 func MulticastSource(target string) (string, error) {
-	return "", fmt.Errorf("multicast source unsupported for %s: target-specific PTX protocol is unqualified", target)
+	d := Descriptor{Target: target, Rank: 2, Base: 0x1000,
+		Dims: [MaxRank]uint64{32, 1}, Strides: [MaxRank]uint64{128},
+		Box: [MaxRank]uint32{32, 1}, ElementBytes: 4, ElementType: ElementTypeFloat32}
+	c := MulticastConfig{Descriptor: d, Cluster: [3]uint32{2, 1, 1},
+		Destinations: []uint32{0, 1}, AvailableSharedBytes: 136,
+		SharedLimitProvenance: "fixture requested allocation, not queried device capability"}
+	for rank := uint32(0); rank < 2; rank++ {
+		c.Windows = append(c.Windows, SharedWindow{Rank: rank, Descriptor: d,
+			BarrierOffset: 128, ReservedBytes: 136})
+	}
+	p, err := NewMulticastPlan(c)
+	if err != nil {
+		return "", err
+	}
+	return p.Source()
 }

@@ -26,6 +26,9 @@ func (d Descriptor) AgreesWithTile(t cudalayout.SwizzledTile) error {
 	if err := d.Validate(); err != nil {
 		return fmt.Errorf("descriptor does not describe a tensor map: %w", err)
 	}
+	if d.Rank > 2 || d.Interleave != 0 {
+		return fmt.Errorf("two-dimensional tile cannot establish outer-plane or interleaved agreement")
+	}
 	if uint32(t.ElementBytes()) != d.ElementBytes {
 		return fmt.Errorf("tile element size %d does not match descriptor element size %d",
 			t.ElementBytes(), d.ElementBytes)
@@ -37,15 +40,17 @@ func (d Descriptor) AgreesWithTile(t cudalayout.SwizzledTile) error {
 	if err := t.AgreesWith(sw); err != nil {
 		return err
 	}
-	// Box[0] is the contiguous extent and the tile's columns; Box[1] is the
-	// next dimension and the tile's rows. A descriptor of rank above 2 tiles
-	// a larger tensor, but the two innermost extents are still the shared
-	// tile a transfer lands in.
+	// A rank-one box has one row. Higher ranks need a separate contract for
+	// their outer planes; comparing two axes would ignore their storage.
 	if uint32(t.Cols()) != d.Box[0] {
 		return fmt.Errorf("tile has %d columns, descriptor box extent 0 is %d", t.Cols(), d.Box[0])
 	}
-	if uint32(t.Rows()) != d.Box[1] {
-		return fmt.Errorf("tile has %d rows, descriptor box extent 1 is %d", t.Rows(), d.Box[1])
+	rows := uint32(1)
+	if d.Rank == 2 {
+		rows = d.Box[1]
+	}
+	if uint32(t.Rows()) != rows {
+		return fmt.Errorf("tile has %d rows, descriptor requires %d", t.Rows(), rows)
 	}
 	return nil
 }

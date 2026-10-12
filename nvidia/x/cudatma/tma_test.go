@@ -124,9 +124,13 @@ func TestGeneratedTMAProtocol(t *testing.T) {
 	}
 }
 
-func TestMulticastSourceUnsupported(t *testing.T) {
-	if _, err := MulticastSource(TargetSM100a); err == nil {
-		t.Fatal("accepted unqualified multicast source")
+func TestMulticastSourceSupported(t *testing.T) {
+	s, err := MulticastSource(TargetSM100a)
+	if err != nil || !strings.Contains(s, ".multicast::cluster") {
+		t.Fatalf("source: %v", err)
+	}
+	if _, err := MulticastSource(TargetSM121a); err == nil {
+		t.Fatal("accepted unsupported SM121 multicast")
 	}
 }
 
@@ -180,7 +184,7 @@ func TestValidateRank(t *testing.T) {
 		rank int
 		ok   bool
 	}{
-		{1, false},
+		{1, true},
 		{2, true},
 		{3, true},
 		{4, true},
