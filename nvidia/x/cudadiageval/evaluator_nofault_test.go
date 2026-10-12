@@ -219,12 +219,16 @@ func TestNoFaultClaimAdmission(t *testing.T) {
 			r := noFaultClaimReport()
 			r.Diagnostic = DiagnosticReceipt{NoFaultPassed: tc.passed, NoFaultWithheld: tc.withheld, NoFaultMissing: tc.missing, NoFaultTotal: tc.total}
 			r.Protocol.Budgets.MinNoFaultRejectionPct = tc.min
-			c, err := FormulateClaim(r)
+			err := validateNoFaultClaimReceipt(r)
 			if (err == nil) != tc.want {
-				t.Fatalf("claim=%+v error=%v, want accepted=%t", c, err, tc.want)
+				t.Fatalf("no-fault error=%v, want accepted=%t", err, tc.want)
 			}
-			if err == nil && (!strings.Contains(c.Evidence, "admitted correctness") || !strings.Contains(c.Evidence, "admitted coverage") || !strings.Contains(c.Evidence, "false alarms") || !strings.Contains(c.Evidence, "diagnoses withheld") || !strings.Contains(c.Evidence, "inputs missing")) {
-				t.Errorf("incomplete claim evidence: %s", c.Evidence)
+			c, claimErr := FormulateClaim(r)
+			if claimErr == nil || c != nil {
+				t.Fatalf("report-only comparative claim accepted: %+v", c)
+			}
+			if tc.want && !strings.Contains(claimErr.Error(), "paired candidate and comparator evidence required") {
+				t.Fatalf("complete no-fault receipt has wrong comparative refusal: %v", claimErr)
 			}
 		})
 	}
