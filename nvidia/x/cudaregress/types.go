@@ -143,26 +143,38 @@ type PlanOptions struct {
 }
 
 // ExperimentPlan is a bounded, fully specified, replayable experiment.
+//
+// A root plan, made by [NewPlanFromIncident], has empty ParentPlanDigest and
+// DerivationRationale. A plan made by [DerivePlan] has both set. Both fields
+// are covered by PlanDigest; they are omitted from the digest input when
+// empty, so the digest of a root plan is unchanged by their presence.
+//
+// [ValidatePlan] checks only the shape of the lineage fields: both or
+// neither set, and a well-formed parent digest. It cannot tell whether the
+// named parent exists or whether this plan was derived from it; only
+// [VerifyDerivation], given the parent, authenticates the lineage.
 type ExperimentPlan struct {
-	Version           int                           `json:"version"`
-	PlanID            string                        `json:"plan_id"`
-	PlanDigest        string                        `json:"plan_digest"`
-	IncidentID        string                        `json:"incident_id"`
-	IncidentDigest    string                        `json:"incident_digest"`
-	Workload          cudaworkload.WorkloadIdentity `json:"workload"`
-	SourceArtifacts   []ArtifactRef                 `json:"source_artifacts"`
-	BinaryArtifacts   []ArtifactRef                 `json:"binary_artifacts"`
-	LibraryClosure    []LibraryRef                  `json:"library_closure"`
-	Inputs            []InputRef                    `json:"inputs"`
-	CorrectnessOracle CorrectnessOracle             `json:"correctness_oracle"`
-	TimingScope       TimingScope                   `json:"timing_scope"`
-	DeviceConfig      DeviceConfig                  `json:"device_config"`
-	CaptureConfig     CaptureConfig                 `json:"capture_config"`
-	ExecutionOrder    string                        `json:"execution_order"` // "ABBA"
-	WarmupRuns        int                           `json:"warmup_runs"`
-	Rounds            int                           `json:"rounds"`
-	NullControls      NullControlConfig             `json:"null_controls"`
-	StoppingRules     StoppingRules                 `json:"stopping_rules"`
+	Version             int                           `json:"version"`
+	PlanID              string                        `json:"plan_id"`
+	PlanDigest          string                        `json:"plan_digest"`
+	ParentPlanDigest    string                        `json:"parent_plan_digest,omitempty"`
+	DerivationRationale string                        `json:"derivation_rationale,omitempty"`
+	IncidentID          string                        `json:"incident_id"`
+	IncidentDigest      string                        `json:"incident_digest"`
+	Workload            cudaworkload.WorkloadIdentity `json:"workload"`
+	SourceArtifacts     []ArtifactRef                 `json:"source_artifacts"`
+	BinaryArtifacts     []ArtifactRef                 `json:"binary_artifacts"`
+	LibraryClosure      []LibraryRef                  `json:"library_closure"`
+	Inputs              []InputRef                    `json:"inputs"`
+	CorrectnessOracle   CorrectnessOracle             `json:"correctness_oracle"`
+	TimingScope         TimingScope                   `json:"timing_scope"`
+	DeviceConfig        DeviceConfig                  `json:"device_config"`
+	CaptureConfig       CaptureConfig                 `json:"capture_config"`
+	ExecutionOrder      string                        `json:"execution_order"` // "ABBA"
+	WarmupRuns          int                           `json:"warmup_runs"`
+	Rounds              int                           `json:"rounds"`
+	NullControls        NullControlConfig             `json:"null_controls"`
+	StoppingRules       StoppingRules                 `json:"stopping_rules"`
 }
 
 // PlanReceipt certifies the generation and validation of an ExperimentPlan.
@@ -177,10 +189,16 @@ type PlanReceipt struct {
 }
 
 // ExecutionReceipt certifies the execution of an ExperimentPlan across rounds.
+//
+// ParentPlanDigest is copied from the executed plan as claimed. It is
+// authenticated when [Replay] derives the plan itself on environment drift,
+// but not when the caller supplies an already derived plan; use
+// [VerifyDerivation] to check such a plan against its parent.
 type ExecutionReceipt struct {
 	ExecutionID         string              `json:"execution_id"`
 	PlanID              string              `json:"plan_id"`
 	PlanDigest          string              `json:"plan_digest"`
+	ParentPlanDigest    string              `json:"parent_plan_digest,omitempty"`
 	StartedAt           time.Time           `json:"started_at"`
 	FinishedAt          time.Time           `json:"finished_at"`
 	EnvironmentObserved Environment         `json:"environment_observed"`

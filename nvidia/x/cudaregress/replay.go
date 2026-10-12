@@ -216,6 +216,7 @@ func Replay(ctx context.Context, plan *ExperimentPlan, runner ReplayRunner, opts
 		ExecutionID:         fmt.Sprintf("exec-%s-%d", effectivePlan.PlanID, time.Now().UnixNano()),
 		PlanID:              effectivePlan.PlanID,
 		PlanDigest:          effectivePlan.PlanDigest,
+		ParentPlanDigest:    effectivePlan.ParentPlanDigest,
 		StartedAt:           time.Now(),
 		EnvironmentObserved: opts.CurrentEnvironment,
 		OutputDigests:       make(map[string]string),

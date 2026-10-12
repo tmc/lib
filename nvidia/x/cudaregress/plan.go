@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudatrial"
@@ -200,6 +202,10 @@ func ComputePlanDigest(plan *ExperimentPlan) (string, error) {
 }
 
 // ValidatePlan verifies structural completeness and authenticates all declared artifacts on disk.
+//
+// For a derived plan, ValidatePlan checks only the shape of the lineage
+// fields; the lineage itself is a claim that only [VerifyDerivation]
+// authenticates against the parent plan.
 func ValidatePlan(plan *ExperimentPlan) error {
 	if plan == nil {
 		return errors.New("cudaregress: nil experiment plan")
@@ -218,6 +224,10 @@ func ValidatePlan(plan *ExperimentPlan) error {
 	}
 	if plan.WarmupRuns < 0 {
 		return fmt.Errorf("cudaregress: warmup runs cannot be negative: %d", plan.WarmupRuns)
+	}
+
+	if err := validateLineage(plan); err != nil {
+		return err
 	}
 
 	switch plan.ExecutionOrder {
@@ -342,18 +352,58 @@ func ValidateEnvironment(plan *ExperimentPlan, env Environment) error {
 	return nil
 }
 
-// DerivePlan creates a new explicitly identified experiment plan branching from an existing
-// plan to accommodate intentional environment changes (e.g. evaluating on a different GPU model).
+// validateLineage checks that a plan is either a root plan, with no parent
+// digest and no rationale, or a derived plan with both.
+func validateLineage(plan *ExperimentPlan) error {
+	if plan.ParentPlanDigest == "" && plan.DerivationRationale == "" {
+		return nil
+	}
+	if !isSHA256Hex(plan.ParentPlanDigest) {
+		return fmt.Errorf("cudaregress: derived plan requires sha256 parent plan digest, have %q", plan.ParentPlanDigest)
+	}
+	if strings.TrimSpace(plan.DerivationRationale) == "" {
+		return errors.New("cudaregress: derived plan requires derivation rationale")
+	}
+	return nil
+}
+
+func isSHA256Hex(s string) bool {
+	if len(s) != 2*sha256.Size {
+		return false
+	}
+	for _, c := range []byte(s) {
+		if !('0' <= c && c <= '9' || 'a' <= c && c <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// DerivePlan returns a new plan that differs from parent only in the device
+// fields taken from newEnv and in its lineage: the derived plan records
+// parent's PlanDigest as ParentPlanDigest and rationale as DerivationRationale.
+// It is used to rerun an experiment under an intentional environment change,
+// such as a different GPU model.
+//
+// DerivePlan refuses a parent that fails [ValidatePlan] and an empty rationale.
+// The derived plan shares no memory with parent. Its PlanID is computed from
+// parent's PlanID and PlanDigest, the rationale, and the new device fields, so
+// deriving twice from the same inputs yields the same plan.
 func DerivePlan(parent *ExperimentPlan, newEnv Environment, rationale string) (*ExperimentPlan, error) {
 	if parent == nil {
 		return nil, errors.New("cudaregress: nil parent plan")
 	}
-	if rationale == "" {
-		return nil, errors.New("cudaregress: rationale required to fork drifted experiment plan")
+	if strings.TrimSpace(rationale) == "" {
+		return nil, errors.New("cudaregress: rationale required to derive experiment plan")
+	}
+	if err := ValidatePlan(parent); err != nil {
+		return nil, fmt.Errorf("cudaregress: invalid parent plan: %w", err)
 	}
 
-	derived := *parent
-	derived.PlanID = fmt.Sprintf("%s-fork-%d", parent.PlanID, time.Now().UnixNano())
+	derived := clonePlan(parent)
+	derived.PlanDigest = ""
+	derived.ParentPlanDigest = parent.PlanDigest
+	derived.DerivationRationale = rationale
 	derived.DeviceConfig.Model = newEnv.Model
 	derived.DeviceConfig.ComputeCapability = newEnv.ComputeCapability
 	derived.DeviceConfig.DriverVersion = newEnv.Driver
@@ -361,10 +411,77 @@ func DerivePlan(parent *ExperimentPlan, newEnv Environment, rationale string) (*
 	derived.DeviceConfig.DeviceIndex = newEnv.DeviceIndex
 	derived.DeviceConfig.DeviceUUID = newEnv.DeviceUUID
 
-	dDigest, err := ComputePlanDigest(&derived)
+	id, err := json.Marshal(struct {
+		ParentPlanID     string       `json:"parent_plan_id"`
+		ParentPlanDigest string       `json:"parent_plan_digest"`
+		Rationale        string       `json:"rationale"`
+		DeviceConfig     DeviceConfig `json:"device_config"`
+	}{parent.PlanID, parent.PlanDigest, rationale, derived.DeviceConfig})
+	if err != nil {
+		return nil, fmt.Errorf("cudaregress: marshal derivation identity: %w", err)
+	}
+	h := sha256.Sum256(id)
+	derived.PlanID = parent.PlanID + "-derived-" + hex.EncodeToString(h[:8])
+
+	digest, err := ComputePlanDigest(derived)
 	if err != nil {
 		return nil, err
 	}
-	derived.PlanDigest = dDigest
-	return &derived, nil
+	derived.PlanDigest = digest
+	if err := ValidatePlan(derived); err != nil {
+		return nil, fmt.Errorf("cudaregress: invalid derived plan: %w", err)
+	}
+	return derived, nil
+}
+
+// VerifyDerivation checks that derived is exactly the plan that
+// [DerivePlan] produces from parent with derived's device fields and
+// rationale. It returns an error if either plan fails [ValidatePlan],
+// if derived is a root plan, if derived names a different parent, or if
+// derived differs from parent in anything other than its device fields
+// and lineage.
+func VerifyDerivation(parent, derived *ExperimentPlan) error {
+	if parent == nil || derived == nil {
+		return errors.New("cudaregress: nil experiment plan")
+	}
+	if err := ValidatePlan(derived); err != nil {
+		return fmt.Errorf("cudaregress: invalid derived plan: %w", err)
+	}
+	if derived.ParentPlanDigest == "" {
+		return errors.New("cudaregress: plan is not derived")
+	}
+	if derived.ParentPlanDigest != parent.PlanDigest {
+		return fmt.Errorf("cudaregress: derived plan names parent %s, not %s", derived.ParentPlanDigest, parent.PlanDigest)
+	}
+	dc := derived.DeviceConfig
+	want, err := DerivePlan(parent, Environment{
+		DeviceIndex:       dc.DeviceIndex,
+		DeviceUUID:        dc.DeviceUUID,
+		Model:             dc.Model,
+		ComputeCapability: dc.ComputeCapability,
+		Driver:            dc.DriverVersion,
+		CUDA:              dc.CUDAVersion,
+	}, derived.DerivationRationale)
+	if err != nil {
+		return err
+	}
+	if want.PlanDigest != derived.PlanDigest {
+		return fmt.Errorf("cudaregress: derived plan differs from derivation of parent (digest %s, want %s)", derived.PlanDigest, want.PlanDigest)
+	}
+	return nil
+}
+
+// clonePlan returns a copy of p that shares no slices or maps with p.
+func clonePlan(p *ExperimentPlan) *ExperimentPlan {
+	c := *p
+	c.Workload = p.Workload.Clone()
+	c.SourceArtifacts = slices.Clone(p.SourceArtifacts)
+	c.BinaryArtifacts = slices.Clone(p.BinaryArtifacts)
+	c.LibraryClosure = slices.Clone(p.LibraryClosure)
+	c.Inputs = slices.Clone(p.Inputs)
+	for i := range c.Inputs {
+		c.Inputs[i].ShapeDims = slices.Clone(c.Inputs[i].ShapeDims)
+	}
+	c.TimingScope.Phases = slices.Clone(p.TimingScope.Phases)
+	return &c
 }
