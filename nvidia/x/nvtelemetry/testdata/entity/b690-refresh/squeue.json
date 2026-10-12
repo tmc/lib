@@ -1,0 +1,1 @@
+{"jobs":[{"job_id":42,"name":"worker","job_state":["RUNNING"],"nodes":"node-1","tres_alloc_str":"cpu=4,gres/gpu=1"},{"job_id":43,"name":"done","job_state":["COMPLETED"],"nodes":"node-1","tres_alloc_str":"cpu=4,gres/gpu=1"}],"errors":[]}

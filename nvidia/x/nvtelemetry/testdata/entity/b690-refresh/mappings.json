@@ -1,0 +1,1 @@
+{"version":1,"mappings":[{"job_id":"42","step_id":"0","device":{"uuid":"GPU-11111111-2222-3333-4444-555555555555","index":0},"sharing":"exclusive","allocation_id":"alloc-42","attempt":"attempt-1","authoritative":true,"clock_domain":"synthetic_unix_utc","clock_epoch":"fixture-epoch-1","start_nanos":100,"end_nanos":1000000000000}]}

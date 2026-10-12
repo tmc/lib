@@ -1,0 +1,80 @@
+# Bounded refresh of synthetic Slurm attribution fixtures; no live scheduler,
+# procfs or GPU is read.
+exec nvtelemetry help
+stdout 'refresh'
+
+exec nvtelemetry refresh -config refresh.json -count 2
+stdout '"cycle":1,"source":"attribution","ready":true'
+stdout '"cycle":2,"source":"attribution","ready":true'
+stdout '"records":1'
+stdout '"withheld":0'
+! stdout '"cycle":3'
+
+exec nvtelemetry refresh -config withheld.json -count 1
+stdout '"ready":true'
+stdout '"records":1'
+stdout '"withheld":1'
+
+exec nvtelemetry refresh -config refresh.json -duration 30ms
+stdout '"cycle":1,'
+
+# A failed read is reported per cycle and never becomes ready.
+exec nvtelemetry refresh -config missing.json -count 1
+stdout '"ready":false'
+stdout '"error":"attribution refresh: slurm attribution: open squeue-missing.json'
+
+# Refusals happen before any cycle.
+! exec nvtelemetry refresh -config refresh.json
+stderr 'requires -count or -duration'
+! exec nvtelemetry refresh -config unpinned.json -count 1
+stderr 'unpinned snapshot'
+! stdout .
+! exec nvtelemetry refresh -config unknown.json -count 1
+stderr 'invalid refresh configuration fields'
+! exec nvtelemetry refresh -config managed.json -count 1
+stderr 'refresh does not accept managed endpoints'
+
+-- refresh.json --
+{"interval_nanos":5000000,"timeout_nanos":1000000000,"max_age_nanos":60000000000,
+ "attribution":{"root":"fixtures","squeue":"squeue.json","mappings":"mappings.json","executions":"executions.json",
+  "proc_dir":"proc","pids":[1234],"boot_id":"boot-1","node_id":"node-1","pid_namespace":"pid:[4026531836]",
+  "snapshot":{"source_revision":"fixture-squeue-1","authoritative":true,"node_id":"node-1","clock_domain":"unix_utc","clock_epoch":"fixture-epoch-1","start_nanos":1,"end_nanos":9000000000000000000},
+  "table_capacity":16,"table_ttl_nanos":3600000000000}}
+-- withheld.json --
+{"interval_nanos":5000000,"timeout_nanos":1000000000,"max_age_nanos":60000000000,
+ "attribution":{"root":"fixtures","squeue":"squeue.json","mappings":"mappings.json","executions":"executions.json",
+  "proc_dir":"proc","pids":[1234,5678],"boot_id":"boot-1","node_id":"node-1","pid_namespace":"pid:[4026531836]",
+  "snapshot":{"source_revision":"fixture-squeue-1","authoritative":true,"node_id":"node-1","clock_domain":"unix_utc","clock_epoch":"fixture-epoch-1","start_nanos":1,"end_nanos":9000000000000000000},
+  "table_capacity":16,"table_ttl_nanos":3600000000000}}
+-- missing.json --
+{"interval_nanos":5000000,"timeout_nanos":1000000000,"max_age_nanos":60000000000,
+ "attribution":{"root":"fixtures","squeue":"squeue-missing.json","mappings":"mappings.json","executions":"executions.json",
+  "proc_dir":"proc","pids":[1234],"boot_id":"boot-1","node_id":"node-1","pid_namespace":"pid:[4026531836]",
+  "snapshot":{"source_revision":"fixture-squeue-1","authoritative":true,"node_id":"node-1","clock_domain":"unix_utc","clock_epoch":"fixture-epoch-1","start_nanos":1,"end_nanos":9000000000000000000},
+  "table_capacity":16,"table_ttl_nanos":3600000000000}}
+-- unpinned.json --
+{"interval_nanos":5000000,"timeout_nanos":1000000000,"max_age_nanos":60000000000,
+ "attribution":{"root":"fixtures","squeue":"squeue.json","mappings":"mappings.json","executions":"executions.json",
+  "proc_dir":"proc","pids":[1234],"boot_id":"boot-1","node_id":"node-1","pid_namespace":"pid:[4026531836]",
+  "snapshot":{"node_id":"node-1","clock_domain":"unix_utc","clock_epoch":"fixture-epoch-1","start_nanos":1,"end_nanos":9000000000000000000},
+  "table_capacity":16,"table_ttl_nanos":3600000000000}}
+-- unknown.json --
+{"interval_nanos":5000000,"timeout_nanos":1000000000,"max_age_nanos":60000000000,"environ":true,"workloads":["managed-endpoint.json"]}
+-- managed.json --
+{"interval_nanos":5000000,"timeout_nanos":1000000000,"max_age_nanos":60000000000,"workloads":["managed-endpoint.json"]}
+-- managed-endpoint.json --
+{"url":"http://127.0.0.1:9/metrics","timeout_nanos":1000000000,"max_bytes":4096,
+ "managed":{"SourceID":"configured","Producer":"dcgm-exporter","ProducerVersion":"4.6.1","NativeOrigin":"dcgm"}}
+-- fixtures/squeue.json --
+{"jobs":[{"job_id":42,"job_state":["RUNNING"],"nodes":"node-1","tres_alloc_str":"cpu=4,gres/gpu=1"}],"errors":[]}
+-- fixtures/mappings.json --
+{"version":1,"mappings":[{"job_id":"42","step_id":"0","device":{"uuid":"GPU-11111111-2222-3333-4444-555555555555","index":0},"sharing":"exclusive","allocation_id":"alloc-42","attempt":"attempt-1","authoritative":true,"clock_domain":"unix_utc","clock_epoch":"fixture-epoch-1","start_nanos":1,"end_nanos":9000000000000000000}]}
+-- fixtures/executions.json --
+{"version":1,"assignments":[{"process":{"process":{"pid":1234,"generation":1000},"boot_id":"boot-1","node_id":"node-1","pid_namespace":"pid:[4026531836]","exec_generation":1,"has_exec_generation":true},"device":{"uuid":"GPU-11111111-2222-3333-4444-555555555555","index":0},"owner":{"job_id":"42","allocation_id":"alloc-42","attempt":"attempt-1"},"source":"fixture_execution_proof","source_revision":"fixture-1","authoritative":true,"state":"assigned","clock_domain":"unix_utc","clock_epoch":"fixture-epoch-1","start_nanos":1,"end_nanos":9000000000000000000,"sharing":"exclusive"}]}
+-- fixtures/proc/1234/stat --
+1234 (python) S 1 1234 1234 0 -1 4194560 100 0 0 0 1 1 0 0 20 0 1 0 1000 1000000 100
+-- fixtures/proc/1234/status --
+Name:	python
+NSpid:	1234
+-- fixtures/proc/1234/cgroup --
+0::/system.slice/slurmstepd.scope/job_42/step_0/task_0

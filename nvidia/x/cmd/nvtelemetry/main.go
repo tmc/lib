@@ -46,6 +46,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runProbe(args[1:], stdout, stderr)
 	case "record":
 		return runRecord(args[1:], stdout, stderr)
+	case "refresh":
+		return runRefresh(args[1:], stdout, stderr)
 	case "replay":
 		return runReplay(args[1:], stdout, stderr)
 	case "summary":
@@ -71,6 +73,7 @@ Commands:
   serve    Serve bounded cached Prometheus/OpenMetrics snapshots
   probe    Check an authenticated local health or readiness endpoint
   record   Record continuous GPU telemetry to a JSONL stream
+  refresh  Refresh configured attribution and workload sources for bounded cycles
   replay   Replay or validate a recorded JSONL telemetry stream
   summary  Compute time-weighted and energy summaries for a phase window
   help     Show this help message
