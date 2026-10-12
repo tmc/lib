@@ -79,8 +79,12 @@ type executionOps struct {
 }
 
 // Execute compiles and runs row-major FP32 pointwise regions and rank-one
-// axis-zero sums on stream. Sum accumulates FP32 values sequentially in FP64
-// and converts once to FP32. Empty sums write +0 to output shape [1]. It waits
+// axis-zero sums and inclusive rank-one sum scans on stream. Sum accumulates FP32 values sequentially in FP64
+// and converts once to FP32. Empty sums write +0 to output shape [1]. Scan
+// seeds with the first FP32 value, preserving its signed zero, and visits later
+// positions in order using FP32 nearest-even addition. Empty scans return [0]
+// without device work. The reserved unwritten NaN payload remains unsupported.
+// It waits
 // through Stream.Synchronize before exposing output. Unsupported graphs or
 // invalid bindings are refused before compilation or allocation.
 // The caller must not change the plan, graph, or binding metadata during this

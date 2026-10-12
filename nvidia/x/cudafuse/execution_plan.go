@@ -21,6 +21,7 @@ type executionStep struct {
 	inputs, outputs []*LazyNode
 	count           int
 	sum             bool
+	scan            bool
 	expression      *LazyNode
 }
 
@@ -81,6 +82,11 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 			if !ok || axis != 0 || len(clone.Attrs) != 1 || len(clone.Inputs) != 1 || len(clone.Inputs[0].Shape) != 1 || !slices.Equal(clone.Shape, []int{1}) {
 				return nil, fmt.Errorf("cudafuse: sum requires rank-one input, axis zero and output [1]")
 			}
+		} else if n.Op == "scan" {
+			op, ok := clone.Attrs["scan_op"].(string)
+			if !ok || op != "sum" || len(clone.Attrs) != 1 || len(clone.Inputs) != 1 || len(clone.Inputs[0].Shape) != 1 || !slices.Equal(clone.Shape, clone.Inputs[0].Shape) {
+				return nil, fmt.Errorf("cudafuse: scan requires rank-one sum and matching output shape")
+			}
 		} else if err := validateIndexedOperator(&clone); err != nil {
 			return nil, err
 		}
@@ -126,6 +132,9 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 			if n.Op == "sum" {
 				step.sum, step.expression = true, n.Inputs[0]
 			}
+			if n.Op == "scan" {
+				step.scan, step.expression = true, n.Inputs[0]
+			}
 			plan.steps = append(plan.steps, step)
 		}
 		return plan, nil
@@ -141,8 +150,20 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 		if len(outputs) == 0 {
 			continue
 		}
+		if r.Boundary == "scan" {
+			count, _ := indexedElements(outputs[0])
+			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: outputs, count: int(count), scan: true, expression: outputs[0].Inputs[0]})
+			continue
+		}
 		if r.Boundary == "sum" {
 			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: outputs, count: 1, sum: true, expression: outputs[0].Inputs[0]})
+			continue
+		}
+		if len(outputs) == 1 && i+1 < len(regions) && regions[i+1].Boundary == "scan" && regions[i+1].Outputs[0].Inputs[0] == outputs[0] && otherUsersCount(outputs[0], plan.nodes) == 1 {
+			scan := regions[i+1].Outputs[0]
+			count, _ := indexedElements(scan)
+			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: []*LazyNode{scan}, count: int(count), scan: true, expression: outputs[0]})
+			i++
 			continue
 		}
 		// Only pull an entire region into its sole sum consumer. Other
@@ -182,6 +203,9 @@ func sameExecutionNodes(got, want []*LazyNode) bool {
 }
 
 func (s executionStep) source(name string) (FusedKernel, error) {
+	if s.scan {
+		return compileScanKernel(s.inputs, s.expression, s.outputs[0], name)
+	}
 	if s.sum {
 		return compileSumKernel(s.inputs, s.expression, s.outputs[0], name)
 	}

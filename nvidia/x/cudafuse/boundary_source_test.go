@@ -21,6 +21,9 @@ func sumNode(ctx *LazyContext, input *LazyNode) *LazyNode {
 // sourceModel interprets a deliberately small scalar subset of the emitted
 // source. It is host evidence for emitted dataflow, not a CUDA execution model.
 func sourceModel(f FusedKernel, inputs [][]float32, count int) ([][]float32, error) {
+	if strings.Contains(f.Source, "scan_value") {
+		return scanSourceModel(f, inputs, count)
+	}
 	if len(inputs) != len(f.Inputs) {
 		return nil, fmt.Errorf("model input ABI")
 	}
