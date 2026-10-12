@@ -19,10 +19,10 @@ func TestMatchKey(t *testing.T) {
 		{"_Z13shuffleReducePfPKfi", "shuffleReduce"},
 
 		// The same SASS after cu++filt, as the section parser hands it over:
-		// the demangled signature contains spaces, so only its first word
-		// survives. The name is still ahead of the parenthesis.
-		{"atomicDrop(float", "atomicDrop"},
-		{"fmaChain(double", "fmaChain"},
+		// the whole signature survives, including spaces and commas. The
+		// name is still ahead of the parenthesis.
+		{"atomicDrop(float *, const float *, int)", "atomicDrop"},
+		{"fmaChain(double *, const double *, const double *, int)", "fmaChain"},
 		{"shuffleReduce(float *, const float *, int)", "shuffleReduce"},
 
 		// Namespaces and templates.
@@ -30,6 +30,7 @@ func TestMatchKey(t *testing.T) {
 		{"cudnn::kernel::matmul(float*, float*)", "cudnn::kernel::matmul"},
 		{"_Z3fooIiEvPT_", "foo"},
 		{"foo<int>(int*)", "foo"},
+		{"void foo<int>(int*)", "void foo"},
 
 		// extern "C" and hand-written PTX carry no encoding, and are left alone.
 		{"compute", "compute"},
@@ -68,19 +69,19 @@ func TestMatchKey(t *testing.T) {
 // TestMatchKeyUnifiesSpellings checks the invariant the package rests on: the
 // mangled symbol nvcc writes and the demangled text cu++filt writes for the
 // same function reduce to one key. The demangled spellings are as the SASS
-// section parser hands them over, which keeps only the first word.
+// section parser hands them over, with complete parameter lists.
 func TestMatchKeyUnifiesSpellings(t *testing.T) {
 	pairs := []struct{ mangled, demangled string }{
-		{"_Z10atomicDropPfPKfi", "atomicDrop(float"},
-		{"_ZN5cudnn6kernel6matmulEPfS1_", "cudnn::kernel::matmul(float*,"},
+		{"_Z10atomicDropPfPKfi", "atomicDrop(float *, const float *, int)"},
+		{"_ZN5cudnn6kernel6matmulEPfS1_", "cudnn::kernel::matmul(float*, float*)"},
 		{"_ZNK3foo3barEv", "foo::bar()"},
-		{"_ZL10staticFuncPf", "staticFunc(float"},
+		{"_ZL10staticFuncPf", "staticFunc(float*)"},
 		{"_ZN3fooC1Ev", "foo::foo()"},
 		{"_ZN3fooD1Ev", "foo::~foo()"},
-		{"_ZN3fooplERKS_", "foo::operator+(foo"},
+		{"_ZN3fooplERKS_", "foo::operator+(foo const&)"},
 		{"_Z3fooB5cxx11v", "foo[abi:cxx11]()"},
 		{"_ZN3mlx4core2cu9binary_vvINS1_3AddE13__nv_bfloat16S4_jLi8EEEvPKT0_S7_PT1_T2_",
-			"mlx::core::cu::binary_vv<mlx::core::cu::Add,"},
+			"mlx::core::cu::binary_vv<mlx::core::cu::Add, __nv_bfloat16, __nv_bfloat16, unsigned int>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, unsigned int)"},
 	}
 	for _, p := range pairs {
 		mk, dk := MatchKey(p.mangled), MatchKey(p.demangled)
@@ -130,7 +131,7 @@ func TestMatchUnrelated(t *testing.T) {
 
 // TestMatchAmbiguous checks that two kernels sharing a match key are left
 // unmatched rather than paired by guess. Overloads mangle to different symbols
-// and demangle to the same first word, which is exactly when this arises.
+// and their demangled signatures reduce to the same match key.
 func TestMatchAmbiguous(t *testing.T) {
 	m := &cudaptx.Module{Kernels: []*cudaptx.Kernel{
 		{Name: "_Z6narrowPf", Entry: true, Body: true},
@@ -138,15 +139,15 @@ func TestMatchAmbiguous(t *testing.T) {
 		{Name: "_Z4wardPf", Entry: true, Body: true},
 	}}
 	d := &cudasass.Disassembly{Functions: []*cudasass.Function{
-		{Name: "narrow(float"},
-		{Name: "narrow(double"},
-		{Name: "ward(float"},
+		{Name: "narrow(float*)"},
+		{Name: "narrow(double*)"},
+		{Name: "ward(float*)"},
 	}}
 	match := Match(m, d)
 	if len(match.Pairs) != 1 {
 		t.Fatalf("got %d pairs, want only the unambiguous one:\n%+v", len(match.Pairs), match.Pairs)
 	}
-	if match.Pairs[0].PTX.Name != "_Z4wardPf" || match.Pairs[0].SASS.Name != "ward(float" {
+	if match.Pairs[0].PTX.Name != "_Z4wardPf" || match.Pairs[0].SASS.Name != "ward(float*)" {
 		t.Errorf("paired %q with %q, want the ward kernels",
 			match.Pairs[0].PTX.Name, match.Pairs[0].SASS.Name)
 	}

@@ -748,11 +748,17 @@ func TextSectionName(kernel string) string { return ".text." + kernel }
 
 // Mirrors returns the sections that carry a second copy of the kernel's text.
 //
-// CUDA 13.4's ptxas emits, beside every `.text.<kernel>`, a compressed
-// `.nv.capmerc.text.<kernel>` holding the same instruction stream in an
-// undocumented form. Patching the text section alone leaves that copy stale.
-// Which copy a given driver loads is not decided here and cannot be decided by
-// a load, so the presence of a mirror is reported and the load gate refuses.
+// CUDA 13.4's ptxas emits, beside every `.text.<kernel>`, a
+// `.nv.capmerc.text.<kernel>` in an undocumented form (0x102 bytes beside
+// addk's 0x200 bytes of text in testdata/roundtrip). What it encodes has not
+// been measured, and patching the text section alone leaves it unchanged.
+// Which bytes execute was measured once, on the GB10 host, by flipping one
+// byte at stride 16, reloading, launching and comparing the result: 40 of 53
+// flips in `.text.<kernel>` failed the launch and 0 of 25 in the capmerc
+// section did, so under that driver and launch configuration the executed
+// bytes come from `.text`. That says nothing about what the capmerc section
+// is for, and nothing here repeats the measurement, so the presence of a
+// mirror is reported and the load gate refuses.
 func (im *CubinImage) Mirrors(kernel string) []string {
 	want := TextSectionName(kernel)
 	var out []string

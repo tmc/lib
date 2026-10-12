@@ -153,8 +153,8 @@ func uniqueKeys(n int, at func(int) (string, bool)) map[string]int {
 // Template arguments are dropped, so MatchKey("_Z3fooIiEvPT_") and
 // MatchKey("foo<int>(int*)") are both "foo". A demangled template kernel is
 // still the one case MatchKey cannot rescue on its own: cu++filt writes the
-// return type ahead of the name, and the SASS section parser keeps only the
-// first word of it.
+// return type ahead of the name. The SASS section parser preserves the whole
+// signature, but MatchKey does not remove that return type.
 func MatchKey(name string) string {
 	name = strings.TrimSpace(name)
 	if key, ok := mangledKey(name); ok {

@@ -20,6 +20,9 @@ import (
 // takes a lock: the doorbell is the only word both sides write, and each side
 // writes it only when the other is waiting for it.
 //
+// No producer for a Channel exists in this module; every record a Channel has
+// received was synthesized by a test. See the package documentation.
+//
 // A Channel has one receiver; it is not safe for concurrent use.
 type Channel struct {
 	doorbell *int32

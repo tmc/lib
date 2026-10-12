@@ -1,7 +1,9 @@
 # Round-trip fixtures for lane 34 step 4
 
-Provenance of every file here, and of every encoding fact asserted in
-`../../dependency.go` and `../../roundtrip.go`.
+Provenance of every file here, and of the encoding facts asserted in
+`../../dependency.go` and `../../roundtrip.go`. The GPU launch measurement
+recorded in `roundtrip.go` is not among them; see the mirrored text section
+below.
 
 ## Identity record (step 1)
 
@@ -26,7 +28,13 @@ and nothing here qualifies any claim about GPU behaviour or performance.
 
 - `kernel.cu` -- the fixture source. Written for this lane, owned here, so the
   built artifacts are redistributable. No vendor CUBIN is committed.
-- `sm121a-roundtrip.sass` -- disassembly with encodings.
+
+The other three files are toolchain output captured by the commands below and
+not edited since; nothing in them is constructed.
+
+- `sm121a-roundtrip.sass` -- disassembly with encodings. Printed with `-c`, it
+  holds only the code sections `.text.intmix` and `.text.addk`; neither
+  capmerc section below appears in it.
 - `sm121a-roundtrip.bbcfg.dot` -- nvdisasm's own basic-block control-flow
   graph, used as the authority in `TestBasicBlockReconstructionAgainstNvdisasm`.
 - `sm121a-roundtrip.cubin.hex` -- the CUBIN the two text artifacts were
@@ -52,20 +60,32 @@ section below are all properties of the file, not of the disassembly.
 ## The mirrored text section (step 5)
 
 CUDA 13.4's `ptxas` emits, beside every `.text.<kernel>`, a second section
-`.nv.capmerc.text.<kernel>` carrying the same instruction stream in a
-compressed, undocumented form -- 0x102 bytes for `intmix`'s 0x180 bytes of
-text, with 31 distinct byte values and no raw encoding of any instruction
-present in it. It is emitted by `ptxas` itself, not by `nvcc`: building through
-`nvcc -cubin` and building `ptxas -arch=sm_121a` straight from PTX produce the
+`.nv.capmerc.text.<kernel>` in an undocumented form. What it encodes has not
+been measured. In the committed CUBIN:
+
+| kernel | `.text.<kernel>` | `.nv.capmerc.text.<kernel>` | distinct byte values in capmerc |
+|---|---|---|---|
+| `intmix` | 0x180 bytes, 24 instructions | 0xaa bytes | 32 |
+| `addk` | 0x200 bytes, 32 instructions | 0x102 bytes | 31 |
+
+Neither capmerc section contains any 16-byte instruction of its kernel's text,
+nor either 8-byte half of one. When the fixture was built, the pair was
+observed to come from `ptxas` itself, not from `nvcc`: building through
+`nvcc -cubin` and building `ptxas -arch=sm_121a` straight from PTX produced the
 same pair, and `--compress-mode`/`-no-compress` govern fatbinaries rather than
-this.
+this. That observation has not been repeated.
 
 The patch path cannot update that copy, so it reports it and the load gate
-refuses. Which copy a driver executes is not decided here and cannot be decided
-by a load: a load that succeeds is consistent with either copy being the one
-that runs.
+refuses. Nothing in this directory decides which copy a driver executes, and a
+load that succeeds is consistent with either. The comment on
+`CubinImage.Mirrors` in `../../roundtrip.go` records a separate measurement on
+the GB10 host: one byte flipped at stride 16, the image reloaded and launched,
+40 of 53 flips in `.text.<kernel>` failed the launch and 0 of 25 in the capmerc
+section did. Under that driver and launch configuration the executed bytes
+come from `.text`. No command or output of that measurement is kept here, and
+nothing here repeats it.
 
-What is established is narrower and worth stating: both `nvdisasm -c -hex` and
+What this directory establishes is narrower: both `nvdisasm -c -hex` and
 `cuobjdump -sass` read the patched `.text.<kernel>` and print the mutated
 instruction, so the patch is coherent to the toolchain that produced the file.
 

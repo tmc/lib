@@ -36,6 +36,13 @@ type Function struct {
 	// and their instructions are in Instructions like any other.
 	Symbols []Symbol
 
+	// ELFSection is the ELF section the instructions were read from, as
+	// the listing names it: ".text.<Name>" when a header spelled it, and ""
+	// when every header was a spelling that names no section, such as
+	// cuobjdump's "Function : <Name>". [Parse] refuses a listing that
+	// opens any other code section, so no other value occurs.
+	ELFSection string
+
 	// Labels maps each code label in the function, such as ".L_x_0", to the
 	// address of the instruction that follows it. A label with no instruction
 	// after it in the function, such as the one nvdisasm uses to size it, is
@@ -212,6 +219,10 @@ func Parse(r io.Reader) (*Disassembly, error) {
 	targetUnknown := false
 	curSecHasAddr := false
 	curSecLastAddr := uint64(0)
+	// curNonText names the code section other than .text.<kernel> that the
+	// listing has open, or is empty. Data may follow its header; an
+	// instruction may not.
+	curNonText := ""
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -236,6 +247,15 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			}
 		}
 
+		if name, nonText, opens := openedSection(trimmed); opens {
+			curNonText = ""
+			if nonText {
+				curNonText = name
+			}
+		} else if name, ok := nonTextLabel(trimmed); ok {
+			curNonText = name
+		}
+
 		// Section accounting runs before the blank-line skip below so that a
 		// section's Text is the listing region byte for byte, blank lines and
 		// all, rather than a filtered rendering of it.
@@ -252,7 +272,7 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			// second would open a second region for a kernel the listing
 			// contains once -- and leave the first region holding only the
 			// kernel's header lines, with none of its instructions.
-			d.sections = append(d.sections, Section{Name: name})
+			d.sections = append(d.sections, Section{Name: name, ELFSection: headerELFSection(trimmed)})
 			curSection = len(d.sections) - 1
 			curSecHasAddr, curSecLastAddr = false, 0
 			if pendingBanner != "" {
@@ -260,6 +280,8 @@ func Parse(r io.Reader) (*Disassembly, error) {
 				d.sections[curSection].Text = append(d.sections[curSection].Text, '\n')
 			}
 			pendingBanner = ""
+		} else if curSection >= 0 && d.sections[curSection].ELFSection == "" {
+			d.sections[curSection].ELFSection = headerELFSection(trimmed)
 		}
 		if curSection >= 0 {
 			d.sections[curSection].Text = append(d.sections[curSection].Text, line...)
@@ -324,6 +346,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 				d.Functions = append(d.Functions, curFn)
 				d.funcMap[fnName] = curFn
 			}
+			if curFn.ELFSection == "" {
+				curFn.ELFSection = headerELFSection(trimmed)
+			}
 			continue
 		}
 
@@ -334,6 +359,9 @@ func Parse(r io.Reader) (*Disassembly, error) {
 
 		// Parse instruction line
 		if inst, sawEncoding, ok := parseInstructionLine(line); ok {
+			if curNonText != "" {
+				return nil, fmt.Errorf("cudasass: section %s: instruction at 0x%04x: %w", curNonText, inst.Address, ErrNotTextSection)
+			}
 			if curSection < 0 {
 				return nil, fmt.Errorf("cudasass: instruction at 0x%04x outside section", inst.Address)
 			}
@@ -411,12 +439,28 @@ func DisassembleCFG(cubin []byte, basicBlocks bool) (string, error) {
 	return string(r.Stdout), nil
 }
 
+// extractFunctionName returns the kernel a header line names, or "" if line
+// is not a kernel header. The name is the header's whole text between its
+// prefix and its terminator, so a demangled name such as
+// "scale(float *, int)" keeps its spaces, commas and colons: a
+// ".section .text.NAME" directive ends at its quoted flags, or at the end
+// of the line when no flags are present, and a
+// ".text.NAME:" label at the first colon followed only by blanks and
+// comments, such as the live-register table nvdisasm appends in
+// --life-range-mode count. A ".text." line without such a colon still names
+// a kernel, by its text before any "//" comment, so that the kernel it begins
+// is never merged into the one before it.
 func extractFunctionName(line string) string {
-	if strings.HasPrefix(line, ".section") {
-		fields := strings.Fields(line)
-		if len(fields) >= 2 && strings.HasPrefix(fields[1], ".text.") {
-			return strings.TrimSuffix(strings.SplitN(strings.TrimPrefix(fields[1], ".text."), ",", 2)[0], ":")
+	if isSectionDirective(line) {
+		rest := strings.TrimSpace(strings.TrimPrefix(line, ".section"))
+		if m := sectionFlags.FindStringIndex(rest); m != nil {
+			rest = strings.TrimSpace(rest[:m[0]])
 		}
+		name, ok := strings.CutPrefix(rest, ".text.")
+		if !ok {
+			return ""
+		}
+		return strings.TrimSuffix(name, ":")
 	}
 	if strings.HasPrefix(line, "Function : ") {
 		return strings.TrimSpace(strings.TrimPrefix(line, "Function : "))
@@ -424,12 +468,30 @@ func extractFunctionName(line string) string {
 	if strings.HasPrefix(line, "--- Kernel: ") && strings.HasSuffix(line, " ---") {
 		return strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "--- Kernel: "), " ---"))
 	}
-	if strings.HasPrefix(line, ".text.") {
-		name := strings.TrimPrefix(line, ".text.")
-		if idx := strings.IndexAny(name, ":\t "); idx != -1 {
-			name = name[:idx]
+	if rest, ok := strings.CutPrefix(line, ".text."); ok {
+		// A demangled name's own colons, as in "ns::scale", are followed
+		// by more of the name; the label's colon is followed by nothing
+		// but blanks, "/* */" comments and a final "//" comment.
+		for i := 0; i < len(rest); i++ {
+			if rest[i] != ':' {
+				continue
+			}
+			tail := strings.TrimSpace(rest[i+1:])
+			for strings.HasPrefix(tail, "/*") {
+				end := strings.Index(tail[2:], "*/")
+				if end < 0 {
+					break
+				}
+				tail = strings.TrimSpace(tail[2+end+2:])
+			}
+			if tail == "" || strings.HasPrefix(tail, "//") {
+				return strings.TrimSpace(rest[:i])
+			}
 		}
-		return strings.TrimSpace(name)
+		if i := strings.Index(rest, "//"); i >= 0 {
+			rest = rest[:i]
+		}
+		return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), ":"))
 	}
 	return ""
 }
@@ -446,15 +508,33 @@ func codeLabel(line string) (string, bool) {
 
 // functionSymbol parses a ".type NAME,@function" directive.
 func functionSymbol(line string) (string, bool) {
-	if !strings.HasPrefix(line, ".type") {
+	rest, ok := strings.CutPrefix(line, ".type")
+	if !ok || rest == "" || (rest[0] != ' ' && rest[0] != '\t') {
 		return "", false
 	}
-	fields := strings.Fields(line)
-	if len(fields) < 2 {
+	rest = strings.TrimSpace(rest)
+	// A trailing comment cannot supply the type attribute. A quoted name
+	// can contain a literal //, so find the comment outside its quotes.
+	quoted := false
+	for i := 0; i < len(rest); i++ {
+		switch {
+		case quoted && rest[i] == '\\':
+			i++
+		case rest[i] == '"':
+			quoted = !quoted
+		case !quoted && strings.HasPrefix(rest[i:], "//"):
+			rest = strings.TrimSpace(rest[:i])
+		}
+	}
+	name, ok := strings.CutSuffix(rest, ",@function")
+	if !ok {
 		return "", false
 	}
-	name, typ, ok := strings.Cut(fields[len(fields)-1], ",")
-	if !ok || typ != "@function" || name == "" {
+	name = strings.TrimSpace(name)
+	if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") && len(name) >= 2 {
+		name = name[1 : len(name)-1]
+	}
+	if name == "" {
 		return "", false
 	}
 	return name, true

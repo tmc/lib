@@ -47,6 +47,19 @@
 // that handles only this spelling has not been exercised against real tool
 // output.
 //
+// [Function.ELFSection] and [Section.ELFSection] record the ELF section a
+// kernel's instructions were read from, ".text.NAME", when a header names it,
+// and are empty for "Function : NAME" and "--- Kernel: NAME ---". ptxas also
+// emits a ".nv.capmerc.text.NAME" section beside each kernel's text; it is not
+// the code that was measured to execute (see [CubinImage.Mirrors]). Parse
+// refuses a listing with an instruction under that section, or under any
+// other code section not named ".text.NAME", whether the section was opened
+// by a ".section" directive, a banner or its label, with an error wrapping
+// [ErrNotTextSection], rather than merge the instruction into the kernel. Only
+// the next ".section" directive or banner ends such a section; a label or a
+// kernel header under it does not. Such a section holding only data is
+// accepted, as are data sections such as ".nv.constant0.NAME".
+//
 // # Instruction layout and alignment
 //
 // SASS instruction addresses must be aligned to hardware instruction boundaries.

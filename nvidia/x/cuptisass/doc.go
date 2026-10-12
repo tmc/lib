@@ -32,4 +32,20 @@
 // buffer the device writes, and [Channel.Receive] stops at the sentinel record
 // NVBit's record_reg_vals flush kernel pushes. No device channel has been
 // qualified by a native run yet; [CheckDeviceChannel] reports that as pending.
+//
+// No producer exists for a Channel. Outside its tests, nothing in this module
+// pushes records into one: NVBit's producer is device code it injects into the
+// instrumented kernel, and this module neither links nor injects NVBit. The
+// protocol is modelled from NVBit's core/utils/channel.hpp and
+// record_reg_vals' tool_func/flush_channel.cu, and every test drives a
+// Channel with input the test synthesizes. The device kernels in the Linux
+// native test are a test-authored copy of NVBit's ChannelDev that has not
+// run; a passing run would qualify transport through that copy, not any
+// instrumentation producer. No test can detect the missing producer:
+// [CheckDeviceChannel] stands for an unqualified device, not for an absent
+// producer.
+//
+// A Channel is unrelated to [NewSession]. SASS metrics are collected by
+// CUPTI's own instrumentation and are read through [Session], never through a
+// Channel, and no record a Channel has received measures a kernel.
 package cuptisass
