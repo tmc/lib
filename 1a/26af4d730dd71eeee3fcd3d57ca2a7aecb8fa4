@@ -1,0 +1,12 @@
+Atomic commit provenance
+commit: 1a26af4d730dd71eeee3fcd3d57ca2a7aecb8fa4
+commit date: 2026-10-11T17:31:19-07:00
+agent: Codex, GPT-6
+Claude Code version: not applicable
+terminal: not a tty
+pid: 20607
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+worktree: /Users/tmc/tmp/lib-wt-next/20261011-observer-v4/wt
+base: 0b9ac6f6ceb577a45e226895ef900ad0770bb704
+source freeze: /Users/tmc/tmp/lib-wt-next/20261011-observer-v4/SOURCE-FREEZE-r6.json sha256 d2dcbaac5043a05259a8e2598dd4b417fe5fa6c925822c2147f9165d36843fd4
+gates: frozen r6 host, race, vet, format, and targeted V4 receipts passed; see task-local receipt files
