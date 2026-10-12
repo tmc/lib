@@ -17,6 +17,7 @@ Subcommands:
   plan    create an experiment plan from an admitted incident
   check   verify plan artifact closure and environment reconstruction
   export  export a minimal reproducer bundle
+  replay  execute a declared replay spec with an observed environment
 
 Run 'cudaprof regress <subcommand> -h' for subcommand details.`
 
@@ -32,6 +33,8 @@ func runRegressCommand(args []string, stdout io.Writer) error {
 		return runRegressCheckCommand(args[1:], stdout)
 	case "export":
 		return runRegressExportCommand(args[1:], stdout)
+	case "replay":
+		return runRegressReplayCommand(args[1:], stdout)
 	case "-h", "--help", "help":
 		fmt.Fprintln(stdout, regressUsage)
 		return nil

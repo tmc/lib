@@ -129,9 +129,9 @@ func ExportMinimalReproducer(plan *ExperimentPlan, targetDir string) error {
 		"Target Architecture: `%s`\n"+
 		"Timing Channel: `%s`\n\n"+
 		"## Execution Instructions\n\n"+
-		"To replay this regression trial deterministically:\n\n"+
+		"To replay this regression trial, supply a declared execution spec and a separately observed environment:\n\n"+
 		"```sh\n"+
-		"cudaprof regress run -plan plan.json\n"+
+		"cudaprof regress replay -plan plan.json -spec execution-spec.json -environment observed-environment.json -o receipts\n"+
 		"```\n\n"+
 		"Reference immutable artifacts are declared in `manifest.json`.\n",
 		plan.PlanID, plan.IncidentID, plan.PlanDigest,
