@@ -32,6 +32,9 @@ var (
 )
 
 // BackwardResult holds the constructed backward graph and metadata mapping targets to their gradient outputs.
+// Forward and Backward check these descriptions against the contract captured
+// by Differentiate. Detached snapshot copies with matching metadata are valid;
+// changing graph semantics, node roles or target coverage invalidates the result.
 type BackwardResult struct {
 	// BackwardGraph is the synthesized backward DAG.
 	BackwardGraph *cudair.Graph
@@ -53,6 +56,7 @@ type BackwardResult struct {
 
 	forward       *cudair.Snapshot // snapshot the result was derived from
 	forwardDigest [32]byte         // semantic identity of forward
+	record        *resultRecord    // immutable metadata and backward semantics
 }
 
 // SavedActivationDescriptor details an activation tensor needed by the backward pass.
@@ -64,11 +68,15 @@ type SavedActivationDescriptor struct {
 	SizeBytes int
 }
 
-// SavedDescriptors returns descriptors of all activations required by the backward pass.
+// SavedDescriptors returns the activation descriptors captured by Differentiate.
+// Edits to the public metadata do not change these authoritative descriptors.
 func (br *BackwardResult) SavedDescriptors() []SavedActivationDescriptor {
-	descs := make([]SavedActivationDescriptor, 0, len(br.SavedActivations))
-	for id := range br.SavedActivations {
-		fwd := br.ForwardNodes[id]
+	if br == nil || br.record == nil {
+		return nil
+	}
+	descs := make([]SavedActivationDescriptor, 0, len(br.record.saved))
+	for id := range br.record.saved {
+		fwd := br.forward.NodeByID(id)
 		if fwd != nil {
 			descs = append(descs, SavedActivationDescriptor{
 				NodeID:    fwd.ID,
@@ -231,6 +239,25 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 		}
 	}
 
+	backward, err := bwd.Snapshot()
+	if err != nil {
+		return nil, fmt.Errorf("cudaautograd: backward snapshot: %w", err)
+	}
+	record := &resultRecord{
+		backward:  backward,
+		digest:    digestSnapshot(backward),
+		seed:      seedInput.ID,
+		saved:     make(map[int]int, len(ctx.savedActivations)),
+		gradients: make(map[int]int, len(targetGradients)),
+		names:     make(map[int]string, len(targetNames)),
+	}
+	for id, in := range ctx.savedActivations {
+		record.saved[id] = in.ID
+	}
+	for id, gradient := range targetGradients {
+		record.gradients[id] = gradient.ID
+		record.names[id] = targetNames[id]
+	}
 	return &BackwardResult{
 		BackwardGraph:    bwd,
 		LossGradInput:    seedInput,
@@ -240,6 +267,7 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 		ForwardNodes:     fwdNodeMap,
 		forward:          fwdSnap,
 		forwardDigest:    digestSnapshot(fwdSnap),
+		record:           record,
 	}, nil
 }
 
