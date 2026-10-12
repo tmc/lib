@@ -103,6 +103,21 @@ func TestCompetingPartition(t *testing.T) {
 		{"host delay", func(_ *testing.T, res *FixtureRunResult) {
 			res.DiagnosticInputs["d0"] = res.DiagnosticInputs["h0"]
 		}, 1, 0, 0, 1, "failed"},
+		{"ambiguous simultaneous", func(t *testing.T, res *FixtureRunResult) {
+			f := cudadiag.BuildSyntheticFixture(cudadiag.InjectionAmbiguousSimultaneous)
+			d := cudadiag.Diagnose(f.Workload, f.OpID, f.Input)
+			if !d.Admitted || d.Mechanism != cudadiag.MechanismAmbiguousSimultaneous {
+				t.Fatalf("ambiguous control is not admitted: %+v", d)
+			}
+			for i := range res.GroundTruth {
+				if res.GroundTruth[i].RequestID == "d0" {
+					res.GroundTruth[i].ProcessGen = f.Workload.Process
+					res.GroundTruth[i].WorkloadName = f.Workload.WorkloadName
+					res.GroundTruth[i].CorrelationID = uint32(f.OpID)
+				}
+			}
+			res.DiagnosticInputs["d0"] = f.Input
+		}, 1, 0, 0, 1, "failed"},
 		{"withheld and missing", func(t *testing.T, res *FixtureRunResult) {
 			withhold(t, res, "d0")
 			delete(res.DiagnosticInputs, "d1")
@@ -135,6 +150,14 @@ func TestCompetingWithheldJSON(t *testing.T) {
 	}
 	if !strings.Contains(string(b), `"competing_withheld":1`) {
 		t.Errorf("receipt %s lacks competing_withheld", b)
+	}
+
+	b, err = json.Marshal(DiagnosticReceipt{CompetingTotal: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"competing_withheld":0`) {
+		t.Errorf("zero receipt %s lacks competing_withheld", b)
 	}
 }
 
