@@ -413,9 +413,9 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 // otherwise run against the wrong data or the wrong number of elements and
 // report success.
 //
-// A graph whose tasks all declare the same extent is accepted, and that
-// extent is not checked against the number of elements a launch supplies:
-// the worker runs over the launch's element count whatever the tasks declare.
+// A graph whose tasks all declare the same extent is accepted. CPU execution
+// checks that positive extent against actual elements through [Program.Invocation].
+// Generated CUDA does not yet enforce this exact-extent contract.
 //
 // Refusal is a partial repair. Executing multi-input and mixed-extent graphs
 // needs a wider operation binding and a per-task scratch stride, which this

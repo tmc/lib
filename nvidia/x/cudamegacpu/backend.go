@@ -74,14 +74,17 @@ type Result struct {
 // abort lets the caller start a run already aborted, which is what the
 // emitted worker's host-request path does. epoch must be nonzero, for the
 // reason [cudamega.ProgramSource] documents.
+// Extents and storage sizes are checked through [cudamega.Program.Invocation]
+// before allocating scratch or starting workers.
 func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort uint32) (Result, error) {
 	if p == nil {
 		return Result{}, fmt.Errorf("cudamegacpu: nil program")
 	}
-	steps := p.Steps()
-	if len(input) == 0 {
-		return Result{}, fmt.Errorf("cudamegacpu: empty input")
+	inv, err := p.Invocation(uint64(len(input)))
+	if err != nil {
+		return Result{}, fmt.Errorf("cudamegacpu: invocation: %w", err)
 	}
+	steps := p.Steps()
 	r := &run{
 		p:     p,
 		steps: steps,
@@ -94,12 +97,21 @@ func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort 
 		ctas:    e.admission.ResidentCTAs,
 		threads: e.admission.WorkerThreads,
 		input:   input,
-		scratch: make([]uint32, len(steps)*len(input)),
 		epoch:   epoch,
 		exec:    e,
 	}
+	// Check backend admission before allocating. A wider configured executor
+	// still must match the emitted geometry exactly, as Begin also checks.
+	if _, err := cudamega.NewRunner(p, &worker{r: r}); err != nil {
+		return Result{}, fmt.Errorf("cudamegacpu: %w", err)
+	}
+	grid := p.Grid()
+	if r.ctas != grid.CTAs || r.threads != grid.ThreadsPerCTA {
+		return Result{}, fmt.Errorf("cudamegacpu: launched %dx%d, generated for %dx%d: abort code %d", r.ctas, r.threads, grid.CTAs, grid.ThreadsPerCTA, cudamega.AbortBadLaunch)
+	}
+	r.scratch = make([]uint32, inv.ScratchWords)
 	r.completed = make([]atomic.Uint32, len(steps))
-	r.startOrder = make([]uint64, 1+len(steps)*int(r.ctas))
+	r.startOrder = make([]uint64, inv.StartOrderWords)
 	r.abort.Store(abort)
 	r.cta = make([]ctaState, r.ctas)
 	for i := range r.cta {
@@ -108,7 +120,7 @@ func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort 
 
 	// Bind before starting anything. A backend that may not run this program
 	// must be refused at construction, not discovered by a worker that spins.
-	runners := make([]*cudamega.Runner, 0, int(r.ctas)*int(r.threads))
+	runners := make([]*cudamega.Runner, 0)
 	for cta := uint32(0); cta < r.ctas; cta++ {
 		for tid := uint32(0); tid < r.threads; tid++ {
 			var b cudamega.Backend = &worker{r: r, cta: cta, tid: tid}

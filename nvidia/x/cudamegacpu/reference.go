@@ -20,13 +20,19 @@ import (
 // Agreement between this and the CPU backend is evidence about the CPU
 // backend. It is not evidence about the emitted CUDA: see the package
 // comment.
+// Extents and storage sizes use [cudamega.Program.Invocation] before allocation;
+// operation evaluation remains independent of the worker.
 func Reference(p *cudamega.Program, input []uint32) ([]uint32, error) {
 	if p == nil {
 		return nil, fmt.Errorf("cudamegacpu: nil program")
 	}
+	inv, err := p.Invocation(uint64(len(input)))
+	if err != nil {
+		return nil, fmt.Errorf("cudamegacpu: invocation: %w", err)
+	}
 	steps := p.Steps()
 	n := len(input)
-	out := make([]uint32, len(steps)*n)
+	out := make([]uint32, inv.ScratchWords)
 	for i, s := range steps {
 		from := input
 		if len(s.Deps) > 0 {

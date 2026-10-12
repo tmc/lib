@@ -221,7 +221,9 @@ func StartOrderWords(tasks, ctas uint64) (uint64, error) {
 	return 1 + tasks*ctas, nil
 }
 
-// ProgramScratchBytes checks the finite worker's scratch extent.
+// ProgramScratchBytes checks the finite worker's scratch extent and returns
+// its size in bytes. It does not check a program's declared bounds; use
+// [Program.Invocation] before allocating storage for a scalar invocation.
 func ProgramScratchBytes(tasks, elements uint64) (uint64, error) {
 	if tasks == 0 || tasks > 1024 || elements == 0 || elements > math.MaxUint32 || elements > math.MaxUint64/4/tasks {
 		return 0, fmt.Errorf("invalid finite program extent")
