@@ -279,13 +279,33 @@ func TestSpeculationCacheIdentity(t *testing.T) {
 	prefix1 := []int32{10, 20, 30}
 	prefix2 := []int32{10, 20, 31} // differs by 1 token
 
-	key1 := cudaspec.ComputeSpeculationKey(model1[:], prefix1, 1, 0, 3, "FP32", 1)
+	draftA := [32]byte{7}
+	draftB := [32]byte{8}
+	// draftKey returns a key for a result drafted with draftA.
+	draftKey := func(model []byte, prefix []int32, branch cudaspec.BranchID, start int, mode string) cudaspec.SpeculationCacheKey {
+		k := cudaspec.ComputeSpeculationKey(model, prefix, branch, start, 3, mode, 1)
+		k.DraftDigest = draftA
+		return k
+	}
+
+	// A drafted entry without a draft digest cannot be cached or reused.
+	undrafted := cudaspec.ComputeSpeculationKey(model1[:], prefix1, 1, 0, 3, "FP32", 1)
+	if err := cache.Put(&cudaspec.SpeculationCacheEntry{Key: undrafted, DraftPath: []int32{40, 50}}); err != cudaspec.ErrDraftDigestRequired {
+		t.Errorf("Put drafted entry without draft digest: err = %v, want %v", err, cudaspec.ErrDraftDigestRequired)
+	}
+	if _, ok := cache.Get(undrafted); ok {
+		t.Errorf("expected miss for drafted entry without draft digest")
+	}
+
+	key1 := draftKey(model1[:], prefix1, 1, 0, "FP32")
 	entry1 := &cudaspec.SpeculationCacheEntry{
 		Key:        key1,
 		DraftPath:  []int32{40, 50},
 		BonusToken: 60,
 	}
-	cache.Put(entry1)
+	if err := cache.Put(entry1); err != nil {
+		t.Fatal(err)
+	}
 
 	// Hit
 	hit, ok := cache.Get(key1)
@@ -293,26 +313,33 @@ func TestSpeculationCacheIdentity(t *testing.T) {
 		t.Errorf("expected hit for key1")
 	}
 
+	// Key with different draft weights -> Miss
+	keyDiffDraft := key1
+	keyDiffDraft.DraftDigest = draftB
+	if _, ok := cache.Get(keyDiffDraft); ok {
+		t.Errorf("expected miss for key with different draft digest")
+	}
+
 	// Key with different prefix -> Miss
-	keyDiffPrefix := cudaspec.ComputeSpeculationKey(model1[:], prefix2, 1, 0, 3, "FP32", 1)
+	keyDiffPrefix := draftKey(model1[:], prefix2, 1, 0, "FP32")
 	if _, ok := cache.Get(keyDiffPrefix); ok {
 		t.Errorf("expected miss for key with different prefix")
 	}
 
 	// Key with different numerical mode -> Miss
-	keyDiffMode := cudaspec.ComputeSpeculationKey(model1[:], prefix1, 1, 0, 3, "FP16", 1)
+	keyDiffMode := draftKey(model1[:], prefix1, 1, 0, "FP16")
 	if _, ok := cache.Get(keyDiffMode); ok {
 		t.Errorf("expected miss for key with different numerical mode")
 	}
 
 	// Key with different branch ID -> Miss
-	keyDiffBranch := cudaspec.ComputeSpeculationKey(model1[:], prefix1, 2, 0, 3, "FP32", 1)
+	keyDiffBranch := draftKey(model1[:], prefix1, 2, 0, "FP32")
 	if _, ok := cache.Get(keyDiffBranch); ok {
 		t.Errorf("expected miss for key with different branch ID")
 	}
 
 	// Key with different start pos -> Miss
-	keyDiffPos := cudaspec.ComputeSpeculationKey(model1[:], prefix1, 1, 1, 3, "FP32", 1)
+	keyDiffPos := draftKey(model1[:], prefix1, 1, 1, "FP32")
 	if _, ok := cache.Get(keyDiffPos); ok {
 		t.Errorf("expected miss for key with different start pos")
 	}
@@ -328,9 +355,17 @@ func TestSpeculationCacheIdentity(t *testing.T) {
 
 	// Generation invalidation
 	keyGen1 := cudaspec.ComputeSpeculationKey(model1[:], prefix1, 1, 0, 3, "FP32", 1)
+	keyGen1.DraftDigest = draftA
 	keyGen2 := cudaspec.ComputeSpeculationKey(model1[:], prefix1, 1, 0, 3, "FP32", 2)
-	cache.Put(&cudaspec.SpeculationCacheEntry{Key: keyGen1})
-	cache.Put(&cudaspec.SpeculationCacheEntry{Key: keyGen2})
+	keyGen2.DraftDigest = draftA
+	for _, k := range []cudaspec.SpeculationCacheKey{keyGen1, keyGen2} {
+		if err := cache.Put(&cudaspec.SpeculationCacheEntry{Key: k}); err != nil {
+			t.Fatalf("Put generation %d: %v", k.Generation, err)
+		}
+		if _, ok := cache.Get(k); !ok {
+			t.Fatalf("missing generation %d entry before invalidation", k.Generation)
+		}
+	}
 
 	purgedGen := cache.InvalidateGeneration(1)
 	if purgedGen != 1 {
@@ -436,17 +471,27 @@ func TestNegativeControl_ReuseCacheAfterPrefixOrWeightChange(t *testing.T) {
 	prefixA := []int32{1, 2, 3}
 	prefixB := []int32{1, 2, 4}
 
+	draft := [32]byte{7}
+
 	keyA := cudaspec.ComputeSpeculationKey(modelA, prefixA, 1, 0, 3, "FP32", 1)
-	cache.Put(&cudaspec.SpeculationCacheEntry{Key: keyA, BonusToken: 42})
+	keyA.DraftDigest = draft
+	if err := cache.Put(&cudaspec.SpeculationCacheEntry{Key: keyA, BonusToken: 42}); err != nil {
+		t.Fatal(err)
+	}
+	if entry, ok := cache.Get(keyA); !ok || entry.BonusToken != 42 {
+		t.Fatalf("Get(keyA) = %v, %v; want bonus 42", entry, ok)
+	}
 
 	// 1. After prefix change: querying with prefixB must not return entry
 	keyPrefixChanged := cudaspec.ComputeSpeculationKey(modelA, prefixB, 1, 0, 3, "FP32", 1)
+	keyPrefixChanged.DraftDigest = draft
 	if entry, ok := cache.Get(keyPrefixChanged); ok {
 		t.Fatalf("negative control failed: cache returned entry %v after prefix change", entry)
 	}
 
 	// 2. After weight change: querying with modelB must not return entry
 	keyWeightChanged := cudaspec.ComputeSpeculationKey(modelB, prefixA, 1, 0, 3, "FP32", 1)
+	keyWeightChanged.DraftDigest = draft
 	if entry, ok := cache.Get(keyWeightChanged); ok {
 		t.Fatalf("negative control failed: cache returned entry %v after weight change", entry)
 	}

@@ -16,7 +16,8 @@ import (
 // BatchCycleRequest describes one bounded deterministic MTP speculation cycle.
 // Key and ExpectedKey bind the admitted model, prefix, branch, position,
 // numerical mode, and process/model generation. These are caller declarations,
-// not independently measured model or device identity.
+// not independently measured model or device identity. Key and ExpectedKey
+// must be equal; their DraftDigest is either zero or equal to DraftDigest.
 type BatchCycleRequest struct {
 	// DraftDigest pins exact draft projection and head weights, including shape.
 	DraftDigest                       [32]byte
@@ -51,6 +52,9 @@ type BatchVerifier struct {
 // leaves KV live even though
 // the cycle failed; the owner must establish quiescence before closing it.
 type BatchCycleResult struct {
+	// Key identifies the cycle's outcome for caching. Its DraftDigest is
+	// the verified digest of the request's draft weights.
+	Key      SpeculationCacheKey
 	Outcome  CycleOutcome
 	BranchID BranchID
 	KV       *BranchKV
@@ -60,6 +64,8 @@ type BatchCycleResult struct {
 // validated decode rows. It is a synchronous, single-branch integration slice;
 // it does not claim native MTP execution, sampled verification, or asynchronous
 // separate-device speculation. Allocator and inputs must not change during it.
+// Callers that cache the outcome must key it by result.Key, which carries the
+// verified draft weight digest; req.Key may not.
 func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchCycleRequest, v BatchVerifier) (result *BatchCycleResult, retErr error) {
 	if ctx == nil || a == nil || v.Engine == nil || v.Wait == nil || !v.ReadOnlyPrefix {
 		return nil, errors.New("cudaspec: missing batch cycle dependency")
@@ -75,6 +81,9 @@ func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchC
 		return nil, errors.New("cudaspec: MTP weight budget exceeded")
 	}
 	expected := ComputeSpeculationKey(req.Key.ModelDigest[:], req.Prefix, 1, len(req.Prefix), c.NumDraftHeads, req.Key.NumericalMode, req.Key.Generation)
+	if req.Key.DraftDigest != ([32]byte{}) {
+		expected.DraftDigest = req.DraftDigest
+	}
 	if req.Key != expected || req.ExpectedKey != expected {
 		return nil, ErrCacheKeyMismatch
 	}
@@ -122,7 +131,9 @@ func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchC
 	if err != nil {
 		return nil, err
 	}
-	result = &BatchCycleResult{KV: kv}
+	key := expected
+	key.DraftDigest = digest
+	result = &BatchCycleResult{Key: key, KV: kv}
 	release := true
 	defer func() {
 		if release {

@@ -21,6 +21,7 @@ var (
 	ErrCacheKeyMismatch     = errors.New("cudaspec: cache key mismatch or invalidated")
 	ErrKVHoldersConflict    = errors.New("cudaspec: KV block retains holders conflict")
 	ErrNilKVAllocator       = errors.New("cudaspec: nil KV block allocator")
+	ErrDraftDigestRequired  = errors.New("cudaspec: cache key without draft digest")
 )
 
 // BranchID uniquely identifies a speculative branch in a proposal tree.
@@ -374,10 +375,15 @@ func DenseReferenceMask(numPrefixTokens int, tree *DraftTree, fullyMaskedNodes [
 	return mask
 }
 
-// SpeculationCacheKey binds weight digest, prefix tokens, sequence positions,
-// numerical mode, and generation number to prevent stale or cross-branch reuse.
+// SpeculationCacheKey binds model and draft weight digests, prefix tokens,
+// sequence positions, numerical mode, and generation number.
+// A zero DraftDigest means the key does not identify draft weights, so
+// SpeculationCache refuses it. BatchCycleResult.Key always sets it.
+// DraftDigest is declared by the caller; the cache does not check it
+// against any weights.
 type SpeculationCacheKey struct {
 	ModelDigest   [32]byte
+	DraftDigest   [32]byte
 	PrefixHash    [32]byte
 	BranchID      BranchID
 	StartPosition int
@@ -386,17 +392,30 @@ type SpeculationCacheKey struct {
 	Generation    uint64
 }
 
-// ComputeSpeculationKey constructs an authenticated SpeculationCacheKey.
+// ComputeSpeculationKey constructs a SpeculationCacheKey with a zero
+// DraftDigest, which callers must set before using the key with
+// SpeculationCache. A modelDigest of exactly 32 bytes is used as the model digest
+// unchanged; any other length is an identity, such as "org/model@rev",
+// that is hashed in full with SHA-256.
 func ComputeSpeculationKey(modelDigest []byte, prefixTokens []int32, branchID BranchID, startPos, numTokens int, numMode string, generation uint64) SpeculationCacheKey {
 	var mDigest [32]byte
-	if len(modelDigest) >= 32 {
-		copy(mDigest[:], modelDigest[:32])
+	if len(modelDigest) == len(mDigest) {
+		copy(mDigest[:], modelDigest)
 	} else {
-		h := sha256.Sum256(modelDigest)
-		copy(mDigest[:], h[:])
+		h := sha256.New()
+		var n [8]byte
+		binary.LittleEndian.PutUint64(n[:], uint64(len(modelDigest)))
+		h.Write([]byte("cudaspec model identity\x00"))
+		h.Write(n[:])
+		h.Write(modelDigest)
+		copy(mDigest[:], h.Sum(nil))
 	}
 
 	h := sha256.New()
+	var n [8]byte
+	binary.LittleEndian.PutUint64(n[:], uint64(len(prefixTokens)))
+	h.Write([]byte("cudaspec prefix tokens\x00"))
+	h.Write(n[:])
 	for _, tok := range prefixTokens {
 		var buf [4]byte
 		binary.LittleEndian.PutUint32(buf[:], uint32(tok))
@@ -424,6 +443,19 @@ type SpeculationCacheEntry struct {
 	BonusToken int32
 }
 
+// clone returns a deep copy of e.
+func (e *SpeculationCacheEntry) clone() *SpeculationCacheEntry {
+	c := *e
+	c.DraftPath = append([]int32(nil), e.DraftPath...)
+	if e.Logits != nil {
+		c.Logits = make([][]float32, len(e.Logits))
+		for i, row := range e.Logits {
+			c.Logits[i] = append([]float32(nil), row...)
+		}
+	}
+	return &c
+}
+
 // SpeculationCache is a bounded cache for speculation outputs keyed by SpeculationCacheKey.
 type SpeculationCache struct {
 	mu       sync.RWMutex
@@ -444,20 +476,32 @@ func NewSpeculationCache(capacity int) *SpeculationCache {
 	}
 }
 
-// Get retrieves an entry from the cache matching the exact key.
+// Get returns a copy of the entry matching the exact key.
+// Changing the returned entry does not change the cache.
 func (c *SpeculationCache) Get(key SpeculationCacheKey) (*SpeculationCacheEntry, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	entry, ok := c.entries[key]
-	return entry, ok
+	if !ok {
+		return nil, false
+	}
+	return entry.clone(), true
 }
 
-// Put adds or replaces an entry in the cache. Evicts oldest when capacity is reached.
-func (c *SpeculationCache) Put(entry *SpeculationCacheEntry) {
+// Put stores a copy of entry, replacing any entry with the same key.
+// It evicts the oldest entry when the cache is full. If entry's key has a
+// zero DraftDigest, Put returns ErrDraftDigestRequired and leaves the cache
+// unchanged; any cached result, including a bonus token alone, depends on
+// the draft weights.
+func (c *SpeculationCache) Put(entry *SpeculationCacheEntry) error {
 	if entry == nil {
-		return
+		return errors.New("cudaspec: nil cache entry")
 	}
+	if entry.Key.DraftDigest == ([32]byte{}) {
+		return ErrDraftDigestRequired
+	}
+	entry = entry.clone()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -472,6 +516,7 @@ func (c *SpeculationCache) Put(entry *SpeculationCacheEntry) {
 		c.order = append(c.order, key)
 	}
 	c.entries[key] = entry
+	return nil
 }
 
 // InvalidateGeneration purges entries matching a specific generation or earlier.
