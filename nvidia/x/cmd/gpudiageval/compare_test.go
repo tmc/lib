@@ -9,16 +9,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/lib/nvidia/x/cudasotaeval"
+	"github.com/tmc/lib/nvidia/x/cudadiageval"
 )
 
-func compareCommandFixture(t *testing.T) ([]string, string, cudasotaeval.Protocol) {
+func compareCommandFixture(t *testing.T) ([]string, string, cudadiageval.Protocol) {
 	t.Helper()
 	root := t.TempDir()
-	p := cudasotaeval.DefaultProtocol(cudasotaeval.PhaseQualification)
-	p.Tools = []cudasotaeval.ToolSpec{{Name: "candidate", Version: "1.0.0", Configuration: "fixed", Lineage: "candidate", Support: "measured"}, {Name: "comparator", Version: "2.0.0", Configuration: "fixed", Lineage: "comparator", Support: "measured"}}
+	p := cudadiageval.DefaultProtocol(cudadiageval.PhaseQualification)
+	p.Tools = []cudadiageval.ToolSpec{{Name: "candidate", Version: "1.0.0", Configuration: "fixed", Lineage: "candidate", Support: "measured"}, {Name: "comparator", Version: "2.0.0", Configuration: "fixed", Lineage: "comparator", Support: "measured"}}
 	p.PropertyLimits = map[string]float64{"cost": 100}
-	p.Comparison = &cudasotaeval.ComparisonSpec{Task: "same-workload", Candidate: "candidate", Comparator: "comparator", Properties: map[string]cudasotaeval.MeasurementScope{"cost": {Unit: "ms", Denominator: 10}}}
+	p.Comparison = &cudadiageval.ComparisonSpec{Task: "same-workload", Candidate: "candidate", Comparator: "comparator", Properties: map[string]cudadiageval.MeasurementScope{"cost": {Unit: "ms", Denominator: 10}}}
 	if err := p.Freeze(); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func compareCommandFixture(t *testing.T) ([]string, string, cudasotaeval.Protoco
 	write("protocol.json", p)
 	uncertainty := 1.0
 	for i, name := range []string{"candidate", "comparator"} {
-		receipt := cudasotaeval.ToolReceipt{Tool: p.Tools[i], Task: p.Comparison.Task, ProtocolDigest: p.FrozenDigest, Measurements: []cudasotaeval.PropertyMeasurement{{Property: "cost", Status: "measured", Value: float64(10 + 10*i), Unit: "ms", Denominator: 10, Uncertainty: &uncertainty}}}
+		receipt := cudadiageval.ToolReceipt{Tool: p.Tools[i], Task: p.Comparison.Task, ProtocolDigest: p.FrozenDigest, Measurements: []cudadiageval.PropertyMeasurement{{Property: "cost", Status: "measured", Value: float64(10 + 10*i), Unit: "ms", Denominator: 10, Uncertainty: &uncertainty}}}
 		write(name+".json", receipt)
 	}
 	return []string{"compare", "-protocol", filepath.Join(root, "protocol.json"), "-candidate", filepath.Join(root, "candidate.json"), "-comparator", filepath.Join(root, "comparator.json")}, root, p
@@ -52,7 +52,7 @@ func TestCompareCommandMatchedAndWithheld(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var receipt cudasotaeval.ToolReceipt
+	var receipt cudadiageval.ToolReceipt
 	if err := json.Unmarshal(b, &receipt); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestCompareCommandRefusals(t *testing.T) {
 			case "unit", "external digest":
 				path = filepath.Join(root, "comparator.json")
 				b, _ = os.ReadFile(path)
-				var r cudasotaeval.ToolReceipt
+				var r cudadiageval.ToolReceipt
 				if err := json.Unmarshal(b, &r); err != nil {
 					t.Fatal(err)
 				}

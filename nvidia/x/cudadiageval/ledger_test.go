@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ func ledgerFixture(t *testing.T) (QualificationLedger, string) {
 	if err := os.WriteFile(filepath.Join(root, "raw.txt"), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	evidence := QualificationEvidence{CellID: "host-bpf", Gate: "host", Status: "passed", Closure: closure, RawPath: "raw.txt", RawSHA256: rawDigest, Command: []string{"go", "test", "./x/cudasotaeval"}, Verifier: "independent-test-control"}
+	evidence := QualificationEvidence{CellID: "host-bpf", Gate: "host", Status: "passed", Closure: closure, RawPath: "raw.txt", RawSHA256: rawDigest, Command: []string{"go", "test", "./x/cudadiageval"}, Verifier: "independent-test-control"}
 	b, err := json.Marshal(evidence)
 	if err != nil {
 		t.Fatal(err)

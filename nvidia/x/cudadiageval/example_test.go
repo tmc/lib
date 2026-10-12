@@ -1,18 +1,18 @@
-package cudasotaeval_test
+package cudadiageval_test
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/tmc/lib/nvidia/x/cudasotaeval"
+	"github.com/tmc/lib/nvidia/x/cudadiageval"
 )
 
 func Example() {
-	proto := cudasotaeval.DefaultProtocol(cudasotaeval.PhasePilot)
-	cfg := cudasotaeval.DefaultEvalConfig()
+	proto := cudadiageval.DefaultProtocol(cudadiageval.PhasePilot)
+	cfg := cudadiageval.DefaultEvalConfig()
 	cfg.ExerciseStress = false
 
-	report, err := cudasotaeval.RunEvaluation(context.Background(), proto, cfg)
+	report, err := cudadiageval.RunEvaluation(context.Background(), proto, cfg)
 	if err != nil {
 		fmt.Printf("evaluation error: %v\n", err)
 		return
@@ -28,7 +28,7 @@ func Example() {
 }
 
 func ExampleDefaultProtocol() {
-	proto := cudasotaeval.DefaultProtocol(cudasotaeval.PhaseQualification)
+	proto := cudadiageval.DefaultProtocol(cudadiageval.PhaseQualification)
 	fmt.Printf("Name: %s\n", proto.Name)
 	fmt.Printf("Phase: %s\n", proto.Phase)
 	fmt.Printf("Max incorrect joins: %d\n", proto.Budgets.MaxIncorrectJoins)
@@ -39,17 +39,17 @@ func ExampleDefaultProtocol() {
 }
 
 func ExampleFormulateClaim() {
-	proto := cudasotaeval.DefaultProtocol(cudasotaeval.PhasePilot)
-	cfg := cudasotaeval.DefaultEvalConfig()
+	proto := cudadiageval.DefaultProtocol(cudadiageval.PhasePilot)
+	cfg := cudadiageval.DefaultEvalConfig()
 	cfg.ExerciseStress = false
 
-	report, err := cudasotaeval.RunEvaluation(context.Background(), proto, cfg)
+	report, err := cudadiageval.RunEvaluation(context.Background(), proto, cfg)
 	if err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
 
-	claim, err := cudasotaeval.FormulateClaim(report)
+	claim, err := cudadiageval.FormulateClaim(report)
 	if err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
@@ -59,5 +59,5 @@ func ExampleFormulateClaim() {
 	fmt.Printf("Has Alternatives: %t\n", len(claim.ComparedWith) > 0)
 	fmt.Printf("Has Limits: %t\n", len(claim.Limits) > 0)
 	// Output:
-	// err: cudasotaeval: qualification evidence incomplete
+	// err: cudadiageval: qualification evidence incomplete
 }

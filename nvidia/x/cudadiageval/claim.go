@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 
 var (
 	// ErrIncompleteClaim indicates required claim fields are missing.
-	ErrIncompleteClaim = errors.New("cudasotaeval: claim missing required bounded fields")
+	ErrIncompleteClaim = errors.New("cudadiageval: claim missing required bounded fields")
 )
 
 // FormulateClaim derives a strictly bounded comparative claim from an EvaluationReport.
@@ -17,19 +17,25 @@ var (
 // hardware closure, receipts, and explicit operational limits.
 func FormulateClaim(report *EvaluationReport) (*Claim, error) {
 	if report == nil {
-		return nil, errors.New("cudasotaeval: nil evaluation report")
+		return nil, errors.New("cudadiageval: nil evaluation report")
 	}
 
 	if report.Synthetic || !report.Passed || report.Protocol.Phase != PhaseQualification || !report.Protocol.Frozen {
-		return nil, errors.New("cudasotaeval: qualification evidence incomplete")
+		return nil, errors.New("cudadiageval: qualification evidence incomplete")
 	}
 	for _, gate := range report.Gates {
 		if gate.Disposition != "passed" {
-			return nil, errors.New("cudasotaeval: qualification gate not passed")
+			return nil, errors.New("cudadiageval: qualification gate not passed")
 		}
 	}
+	// Imported summary flags cannot admit an incomplete no-fault receipt.
+	d := report.Diagnostic
+	noFaultDisp, noFaultReason := noFaultGate(d.NoFaultPassed, d.NoFaultWithheld, d.NoFaultMissing, d.NoFaultTotal, report.Protocol.Budgets.MinNoFaultRejectionPct)
+	if noFaultDisp != "passed" {
+		return nil, fmt.Errorf("cudadiageval: no-fault qualification incomplete: %s", noFaultReason)
+	}
 	if len(report.Reproducibility.ArtifactManifestSHA256) != 64 {
-		return nil, errors.New("cudasotaeval: missing artifact manifest digest")
+		return nil, errors.New("cudadiageval: missing artifact manifest digest")
 	}
 
 	task := fmt.Sprintf("Continuous Go GPU workload submission delay diagnosis under concurrency (%s)",
@@ -54,15 +60,10 @@ func FormulateClaim(report *EvaluationReport) (*Claim, error) {
 		report.Protocol.Hardware.HostOS,
 		report.Protocol.Hardware.HostArch)
 
-	noFaultPct := 0.0
-	if report.Diagnostic.NoFaultTotal > 0 {
-		noFaultPct = float64(report.Diagnostic.NoFaultPassed) / float64(report.Diagnostic.NoFaultTotal) * 100.0
-	}
-
-	evidence := fmt.Sprintf("attribution precision=%.2f%% (zero incorrect joins); held-out diagnosis accuracy=%.1f%% (no-fault rejection=%.1f%%); collector throughput degradation=%.2f%% (RSS=%.1fMB); replay match=%t (manifest=%s)",
+	evidence := fmt.Sprintf("attribution precision=%.2f%% (zero incorrect joins); held-out diagnosis accuracy=%.1f%%; %s; collector throughput degradation=%.2f%% (RSS=%.1fMB); replay match=%t (manifest=%s)",
 		report.Attribution.JoinPrecision*100,
 		report.Diagnostic.AccuracyPct,
-		noFaultPct,
+		noFaultReason,
 		report.Cost.ThroughputDegradationPct,
 		report.Cost.MemoryGrowthMB,
 		report.Reproducibility.ReplayMatches,

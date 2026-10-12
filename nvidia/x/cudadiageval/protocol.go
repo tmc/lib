@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"crypto/sha256"
@@ -12,16 +12,16 @@ import (
 
 var (
 	// ErrProtocolFrozen indicates an attempt to modify an already frozen protocol.
-	ErrProtocolFrozen = errors.New("cudasotaeval: protocol is frozen and cannot be modified")
+	ErrProtocolFrozen = errors.New("cudadiageval: protocol is frozen and cannot be modified")
 
 	// ErrProtocolNotFrozen indicates qualification attempted on an unfrozen protocol.
-	ErrProtocolNotFrozen = errors.New("cudasotaeval: qualification requires a frozen protocol")
+	ErrProtocolNotFrozen = errors.New("cudadiageval: qualification requires a frozen protocol")
 
 	// ErrInvalidProtocol indicates invalid or incomplete protocol parameters.
-	ErrInvalidProtocol = errors.New("cudasotaeval: invalid protocol specification")
+	ErrInvalidProtocol = errors.New("cudadiageval: invalid protocol specification")
 
 	// ErrGateFailed indicates an evaluation acceptance gate failed.
-	ErrGateFailed = errors.New("cudasotaeval: acceptance gate failed")
+	ErrGateFailed = errors.New("cudadiageval: acceptance gate failed")
 )
 
 // DefaultBudgets returns conservative, preregistered qualification thresholds.

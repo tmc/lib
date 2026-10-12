@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"context"
@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/big"
+	"slices"
 	"sort"
 	"time"
 
@@ -317,18 +320,44 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 
 	noFaultTotal := 0
 	noFaultPassed := 0
+	noFaultWithheld := 0
 
 	competingTotal := 0
 	competingDiverted := 0
+	competingWithheld := 0
 
 	resilienceTotal := 0
 	resiliencePassed := 0
+	resilienceWithheld := 0
+
+	// A case whose diagnostic input is missing stays in its denominator and
+	// never passes, so withholding inputs cannot raise a rate. Resilience is
+	// requested when any ground-truth case has a non-normal resilience mode;
+	// those cases are counted from ground truth, not from the inputs.
+	heldOutMissing := 0
+	noFaultMissing := 0
+	competingMissing := 0
+	resilienceMissing := 0
 
 	var lastDiag cudadiag.DiagnosisResult
 
 	for _, gt := range res.GroundTruth {
 		diagInput, ok := res.DiagnosticInputs[gt.RequestID]
 		if !ok {
+			switch {
+			case gt.Resilience != ResilienceNormal:
+				resilienceTotal++
+				resilienceMissing++
+			case gt.Fault == FaultNone:
+				noFaultTotal++
+				noFaultMissing++
+			case gt.Fault == FaultHostSubmissionDelay:
+				heldOutTotal++
+				heldOutMissing++
+			case gt.Fault == FaultDeviceBottleneck:
+				competingTotal++
+				competingMissing++
+			}
 			continue
 		}
 
@@ -341,17 +370,22 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 		diagResult := cudadiag.Diagnose(targetWorkload, opID, diagInput)
 		lastDiag = diagResult
 		cm[string(diagResult.Mechanism)]++
+		withheld := diagResult.Mechanism == cudadiag.MechanismWithheld || !diagResult.Admitted
 
-		// Stress/resilience handling
+		// An overflow case dropped its activity record, so the
+		// diagnosis must be withheld; admitting one is incorrect. Any
+		// other mode passes only with an admitted diagnosis: withheld
+		// diagnoses are counted apart and never pass.
 		if gt.Resilience != ResilienceNormal {
 			resilienceTotal++
-			if gt.Resilience == ResilienceOverflow {
-				// Must withhold diagnosis when evidence is lost/corrupt
-				if diagResult.Mechanism == cudadiag.MechanismWithheld || !diagResult.Admitted {
+			switch {
+			case gt.Resilience == ResilienceOverflow:
+				if withheld {
 					resiliencePassed++
 				}
-			} else {
-				// Process restart or late attach gracefully handled
+			case withheld:
+				resilienceWithheld++
+			default:
 				resiliencePassed++
 			}
 			continue
@@ -360,7 +394,10 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 		switch gt.Fault {
 		case FaultNone:
 			noFaultTotal++
-			if diagResult.Mechanism == cudadiag.MechanismNoFault || !diagResult.Admitted {
+			switch {
+			case withheld:
+				noFaultWithheld++
+			case diagResult.Mechanism == cudadiag.MechanismNoFault:
 				noFaultPassed++
 			}
 		case FaultHostSubmissionDelay:
@@ -373,11 +410,15 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 				heldOutIncorrect++
 			}
 		case FaultDeviceBottleneck:
+			// Only the exact competing mechanism is correct. A
+			// withheld diagnosis is not a distinction, and any other
+			// admitted mechanism is a misclassification.
 			competingTotal++
-			if diagResult.Mechanism == cudadiag.MechanismDeviceBottleneck {
+			switch {
+			case withheld:
+				competingWithheld++
+			case diagResult.Mechanism == cudadiag.MechanismDeviceBottleneck:
 				competingDiverted++
-			} else if diagResult.Mechanism != cudadiag.MechanismHostSubmissionDelay {
-				competingDiverted++ // Did not misclassify as host delay
 			}
 		}
 	}
@@ -392,77 +433,164 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 		noFaultPct = float64(noFaultPassed) / float64(noFaultTotal) * 100
 	}
 
-	diagDisp := "passed"
-	diagReason := "held-out diagnostic gates satisfied"
-	if acc < budgets.MinHeldOutDiagnosisPct {
-		diagDisp = "failed"
-		diagReason = fmt.Sprintf("held-out accuracy %.1f%% below minimum %.1f%%", acc, budgets.MinHeldOutDiagnosisPct)
+	heldOutDisp, heldOutReason := rateGate("held-out accuracy", heldOutCorrect, heldOutMissing, heldOutTotal, budgets.MinHeldOutDiagnosisPct)
+	noFaultDisp, noFaultReason := noFaultGate(noFaultPassed, noFaultWithheld, noFaultMissing, noFaultTotal, budgets.MinNoFaultRejectionPct)
+	competingDisp, competingReason := rateGate("competing mechanism distinction", competingDiverted, competingMissing, competingTotal, 100)
+	if competingWithheld > 0 {
+		competingReason += fmt.Sprintf("; %d diagnoses withheld", competingWithheld)
 	}
-	if noFaultPct < budgets.MinNoFaultRejectionPct {
+	resilienceDisp, resilienceReason := rateGate("resilience control", resiliencePassed, resilienceMissing, resilienceTotal, 100)
+	if resilienceWithheld > 0 {
+		resilienceReason += fmt.Sprintf("; %d diagnoses withheld", resilienceWithheld)
+	}
+	resilienceRequested := resilienceTotal > 0
+
+	// The receipt reports the worst of its reported gates.
+	dispositions := []string{heldOutDisp, noFaultDisp, competingDisp}
+	if resilienceRequested {
+		dispositions = append(dispositions, resilienceDisp)
+	}
+	diagDisp := "passed"
+	switch {
+	case slices.Contains(dispositions, "failed"):
 		diagDisp = "failed"
-		diagReason = fmt.Sprintf("no-fault rejection %.1f%% below minimum %.1f%%", noFaultPct, budgets.MinNoFaultRejectionPct)
+	case slices.ContainsFunc(dispositions, func(d string) bool { return d != "passed" }):
+		diagDisp = "withheld"
 	}
 
 	receipt := DiagnosticReceipt{
-		HeldOutTotal:      heldOutTotal,
-		HeldOutCorrect:    heldOutCorrect,
-		HeldOutWithheld:   heldOutWithheld,
-		HeldOutIncorrect:  heldOutIncorrect,
-		NoFaultTotal:      noFaultTotal,
-		NoFaultPassed:     noFaultPassed,
-		CompetingTotal:    competingTotal,
-		CompetingDiverted: competingDiverted,
-		ResilienceTotal:   resilienceTotal,
-		ResiliencePassed:  resiliencePassed,
-		AccuracyPct:       acc,
-		ConfusionMatrix:   cm,
-		GateDisposition:   diagDisp,
-		SampleDiagnosis:   lastDiag,
+		HeldOutTotal:       heldOutTotal,
+		HeldOutCorrect:     heldOutCorrect,
+		HeldOutWithheld:    heldOutWithheld,
+		HeldOutIncorrect:   heldOutIncorrect,
+		HeldOutMissing:     heldOutMissing,
+		NoFaultTotal:       noFaultTotal,
+		NoFaultPassed:      noFaultPassed,
+		NoFaultWithheld:    noFaultWithheld,
+		NoFaultMissing:     noFaultMissing,
+		CompetingTotal:     competingTotal,
+		CompetingDiverted:  competingDiverted,
+		CompetingWithheld:  competingWithheld,
+		CompetingMissing:   competingMissing,
+		ResilienceTotal:    resilienceTotal,
+		ResiliencePassed:   resiliencePassed,
+		ResilienceWithheld: resilienceWithheld,
+		ResilienceMissing:  resilienceMissing,
+		AccuracyPct:        acc,
+		ConfusionMatrix:    cm,
+		GateDisposition:    diagDisp,
+		SampleDiagnosis:    lastDiag,
 	}
 
 	gates := []PropertyGate{
 		{
 			Property:      "diagnostic_usefulness",
 			GateName:      "held_out_fault_accuracy",
-			Disposition:   diagDisp,
+			Disposition:   heldOutDisp,
 			MeasuredValue: fmt.Sprintf("%.1f%%", acc),
 			Threshold:     fmt.Sprintf(">= %.1f%%", budgets.MinHeldOutDiagnosisPct),
-			Reason:        diagReason,
+			Reason:        heldOutReason,
 			Provenance:    "cudadiag.Diagnose",
 		},
 		{
 			Property:      "diagnostic_usefulness",
 			GateName:      "no_fault_rejection",
-			Disposition:   gateDisposition(noFaultTotal > 0 && noFaultPct >= budgets.MinNoFaultRejectionPct),
+			Disposition:   noFaultDisp,
 			MeasuredValue: fmt.Sprintf("%.1f%%", noFaultPct),
 			Threshold:     fmt.Sprintf(">= %.1f%%", budgets.MinNoFaultRejectionPct),
-			Reason:        "zero false alarms on nominal control runs",
+			Reason:        noFaultReason,
 			Provenance:    "cudadiag.MechanismNoFault",
 		},
 		{
 			Property:      "diagnostic_usefulness",
 			GateName:      "competing_mechanism_distinction",
-			Disposition:   gateDisposition(competingTotal > 0 && competingDiverted == competingTotal),
+			Disposition:   competingDisp,
 			MeasuredValue: fmt.Sprintf("%d/%d", competingDiverted, competingTotal),
 			Threshold:     "100%",
-			Reason:        "device bottleneck distinctly separated from host submission delay",
+			Reason:        competingReason,
 			Provenance:    "cudadiag.MechanismDeviceBottleneck",
 		},
 	}
 
-	if resilienceTotal > 0 {
+	if resilienceRequested {
 		gates = append(gates, PropertyGate{
 			Property:      "diagnostic_usefulness",
 			GateName:      "system_resilience_controls",
-			Disposition:   gateDisposition(resiliencePassed == resilienceTotal),
+			Disposition:   resilienceDisp,
 			MeasuredValue: fmt.Sprintf("%d/%d", resiliencePassed, resilienceTotal),
 			Threshold:     "100%",
-			Reason:        "buffer overflow, process restart, and late attach handled with evidence admission",
+			Reason:        resilienceReason,
 			Provenance:    "cudasotaeval.ResilienceMode",
 		})
 	}
 
 	return receipt, gates
+}
+
+// noFaultCounts validates the disjoint no-fault counts before deriving
+// admitted answers and false alarms. Subtracting bounded counts avoids
+// overflow even when imported receipts use the largest possible int.
+func noFaultCounts(passed, withheld, missing, total int) (admitted, alarms int, err error) {
+	if total == 0 {
+		return 0, 0, fmt.Errorf("no-fault has no cases")
+	}
+	if total < 0 {
+		return 0, 0, fmt.Errorf("invalid no-fault total: %d", total)
+	}
+	remaining := total
+	for _, count := range []int{passed, withheld, missing} {
+		if count < 0 || count > remaining {
+			return 0, 0, fmt.Errorf("invalid no-fault partition: passed=%d withheld=%d missing=%d total=%d", passed, withheld, missing, total)
+		}
+		remaining -= count
+	}
+	return total - withheld - missing, remaining, nil
+}
+
+// noFaultMeetsThreshold compares exact counts to the registered floating
+// point threshold without overflowing an int product or rounding a nearly
+// complete population to 100%. Its caller validates counts and threshold.
+func noFaultMeetsThreshold(passed, total int, min float64) bool {
+	if min == 100 {
+		return passed == total
+	}
+	rate := new(big.Rat).SetFrac64(int64(passed), int64(total))
+	rate.Mul(rate, big.NewRat(100, 1))
+	return rate.Cmp(new(big.Rat).SetFloat64(min)) >= 0
+}
+
+// noFaultSummary keeps the declared and admitted denominators distinct.
+// Percentages are display values; acceptance uses exact count comparisons.
+func noFaultSummary(passed, withheld, missing, total, admitted, alarms int) string {
+	specificity := "specificity undefined (no admitted answers); false alarms 0/0 (undefined)"
+	if admitted > 0 {
+		specificity = fmt.Sprintf("admitted specificity %d/%d (%.1f%%); false alarms %d/%d (%.1f%%)", passed, admitted, float64(passed)/float64(admitted)*100, alarms, admitted, float64(alarms)/float64(admitted)*100)
+	}
+	return fmt.Sprintf("no-fault admitted correctness %d/%d (%.1f%%); admitted coverage %d/%d; %s; %d diagnoses withheld; %d inputs missing", passed, total, float64(passed)/float64(total)*100, admitted, total, specificity, withheld, missing)
+}
+
+// noFaultGate requires admitted correctness over the declared population
+// and complete diagnostic coverage. Unanswered cases can only withhold;
+// known false alarms fail when even the optimistic bound misses min.
+func noFaultGate(passed, withheld, missing, total int, min float64) (disposition, reason string) {
+	admitted, alarms, err := noFaultCounts(passed, withheld, missing, total)
+	if err != nil {
+		return "failed", err.Error()
+	}
+	if math.IsNaN(min) || math.IsInf(min, 0) || min <= 0 || min > 100 {
+		return "failed", "invalid minimum no-fault rejection percentage"
+	}
+	reason = noFaultSummary(passed, withheld, missing, total, admitted, alarms)
+	if !noFaultMeetsThreshold(total-alarms, total, min) {
+		return "failed", reason + fmt.Sprintf("; optimistic correctness below minimum %.1f%%", min)
+	}
+	if withheld > 0 || missing > 0 {
+		return "withheld", reason + "; diagnostic coverage incomplete"
+	}
+	if !noFaultMeetsThreshold(passed, total, min) {
+		return "failed", reason + fmt.Sprintf("; admitted correctness below minimum %.1f%%", min)
+	}
+	return "passed", reason + fmt.Sprintf("; meets minimum %.1f%% with complete coverage", min)
 }
 
 func evaluateCollectorCost(ctx context.Context, fixture *GroundTruthFixture, budgets PreregisteredBudgets, cfg EvalConfig) (CostReceipt, []PropertyGate) {
@@ -574,6 +702,29 @@ func hashProtocol(proto Protocol) string {
 	b, _ := json.Marshal(proto)
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
+}
+
+// rateGate decides a gate on passed/total against a minimum percentage.
+// Missing cases count in total and never pass. A gate that would fail even if
+// every missing case passed is failed; otherwise missing cases withhold it.
+// An empty population fails. Comparisons scale the minimum rather than divide
+// the counts, so an exact boundary such as 29/100 against 29% passes.
+func rateGate(name string, passed, missing, total int, min float64) (disposition, reason string) {
+	pct := func(n int) float64 { return float64(n) / float64(total) * 100 }
+	below := func(n int) bool { return float64(n)*100 < min*float64(total) }
+	switch {
+	case total == 0:
+		return "failed", fmt.Sprintf("%s has no cases", name)
+	case below(passed + missing):
+		reason = fmt.Sprintf("%s %d/%d (%.1f%%) below minimum %.1f%%", name, passed, total, pct(passed), min)
+		if missing > 0 {
+			reason += fmt.Sprintf(" with %d inputs missing", missing)
+		}
+		return "failed", reason
+	case missing > 0:
+		return "withheld", fmt.Sprintf("%s %d/%d with %d inputs missing", name, passed, total, missing)
+	}
+	return "passed", fmt.Sprintf("%s %d/%d meets minimum %.1f%%", name, passed, total, min)
 }
 
 func gateDisposition(passed bool) string {

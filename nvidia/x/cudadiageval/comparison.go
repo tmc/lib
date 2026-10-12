@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"bytes"
@@ -63,7 +63,7 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 		return nil, ErrProtocolNotFrozen
 	}
 	if receipt.ProtocolDigest != p.FrozenDigest {
-		return nil, errors.New("cudasotaeval: receipt protocol mismatch")
+		return nil, errors.New("cudadiageval: receipt protocol mismatch")
 	}
 	var tool *ToolSpec
 	for i := range p.Tools {
@@ -73,13 +73,13 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 		}
 	}
 	if tool == nil || *tool != receipt.Tool {
-		return nil, errors.New("cudasotaeval: tool differs from frozen matrix")
+		return nil, errors.New("cudadiageval: tool differs from frozen matrix")
 	}
 	if tool.Support == "measured" && !measuredVersion(tool.Version) {
-		return nil, errors.New("cudasotaeval: measured tool has placeholder version")
+		return nil, errors.New("cudadiageval: measured tool has placeholder version")
 	}
 	if raw == nil {
-		return nil, errors.New("cudasotaeval: missing raw artifact")
+		return nil, errors.New("cudadiageval: missing raw artifact")
 	}
 	data, err := io.ReadAll(io.LimitReader(raw, 16<<20+1))
 	n := len(data)
@@ -87,7 +87,7 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 		return nil, fmt.Errorf("read artifact: %w", err)
 	}
 	if n > 16<<20 || fmt.Sprintf("%x", sha256.Sum256(data)) != receipt.RawDigest {
-		return nil, errors.New("cudasotaeval: raw artifact size or digest mismatch")
+		return nil, errors.New("cudadiageval: raw artifact size or digest mismatch")
 	}
 	if err := comparisonJSON(json.NewDecoder(bytes.NewReader(data)), 0); err != nil {
 		return nil, fmt.Errorf("decode artifact: %w", err)
@@ -99,33 +99,33 @@ func CompareTool(p Protocol, receipt ToolReceipt, raw io.Reader) ([]ComparisonGa
 		return nil, fmt.Errorf("decode artifact: %w", err)
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
-		return nil, errors.New("cudasotaeval: trailing artifact data")
+		return nil, errors.New("cudadiageval: trailing artifact data")
 	}
 	// The digest is external to the raw artifact, avoiding a recursive hash.
 	if observed.RawDigest != "" {
-		return nil, errors.New("cudasotaeval: raw artifact embeds digest")
+		return nil, errors.New("cudadiageval: raw artifact embeds digest")
 	}
 	expected := receipt
 	expected.RawDigest = ""
 	if !reflect.DeepEqual(observed, expected) {
-		return nil, errors.New("cudasotaeval: measurements differ from raw artifact")
+		return nil, errors.New("cudadiageval: measurements differ from raw artifact")
 	}
 	values := make(map[string]PropertyMeasurement)
 	for _, m := range receipt.Measurements {
 		if _, exists := values[m.Property]; exists {
-			return nil, errors.New("cudasotaeval: duplicate property")
+			return nil, errors.New("cudadiageval: duplicate property")
 		}
 		if _, exists := p.PropertyLimits[m.Property]; !exists {
-			return nil, errors.New("cudasotaeval: undeclared property")
+			return nil, errors.New("cudadiageval: undeclared property")
 		}
 		if m.Status != "measured" && m.Status != "unknown" && m.Status != "unavailable" && m.Status != "failed" {
-			return nil, errors.New("cudasotaeval: invalid measurement status")
+			return nil, errors.New("cudadiageval: invalid measurement status")
 		}
 		if math.IsNaN(m.Value) || math.IsInf(m.Value, 0) || m.Value < 0 {
-			return nil, errors.New("cudasotaeval: invalid measurement")
+			return nil, errors.New("cudadiageval: invalid measurement")
 		}
 		if m.Uncertainty != nil && (math.IsNaN(*m.Uncertainty) || math.IsInf(*m.Uncertainty, 0) || *m.Uncertainty < 0) {
-			return nil, errors.New("cudasotaeval: invalid measurement uncertainty")
+			return nil, errors.New("cudadiageval: invalid measurement uncertainty")
 		}
 		values[m.Property] = m
 	}
@@ -157,7 +157,7 @@ func WriteComparison(w io.Writer, gates []ComparisonGate) error {
 // or case-aliased fields. ToolReceipt has no maps with caller-defined keys.
 func comparisonJSON(d *json.Decoder, depth int) error {
 	if depth > 32 {
-		return errors.New("cudasotaeval: artifact nesting limit exceeded")
+		return errors.New("cudadiageval: artifact nesting limit exceeded")
 	}
 	token, err := d.Token()
 	if err != nil {
@@ -168,7 +168,7 @@ func comparisonJSON(d *json.Decoder, depth int) error {
 		return nil
 	}
 	if delim != '{' && delim != '[' {
-		return errors.New("cudasotaeval: invalid artifact delimiter")
+		return errors.New("cudadiageval: invalid artifact delimiter")
 	}
 	seen := make(map[string]bool)
 	for d.More() {
@@ -179,10 +179,10 @@ func comparisonJSON(d *json.Decoder, depth int) error {
 			}
 			key, ok := token.(string)
 			if !ok {
-				return errors.New("cudasotaeval: invalid artifact key")
+				return errors.New("cudadiageval: invalid artifact key")
 			}
 			if key != strings.ToLower(key) || seen[key] {
-				return errors.New("cudasotaeval: duplicate or case-aliased artifact field")
+				return errors.New("cudadiageval: duplicate or case-aliased artifact field")
 			}
 			seen[key] = true
 		}

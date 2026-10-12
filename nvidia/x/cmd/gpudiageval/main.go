@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"text/tabwriter"
 
-	"github.com/tmc/lib/nvidia/x/cudasotaeval"
+	"github.com/tmc/lib/nvidia/x/cudadiageval"
 )
 
 func main() {
@@ -94,10 +94,10 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	phase := cudasotaeval.Phase(phaseStr)
-	proto := cudasotaeval.DefaultProtocol(phase)
+	phase := cudadiageval.Phase(phaseStr)
+	proto := cudadiageval.DefaultProtocol(phase)
 
-	if phase == cudasotaeval.PhaseQualification {
+	if phase == cudadiageval.PhaseQualification {
 		if err := proto.Freeze(); err != nil {
 			return fmt.Errorf("freeze protocol: %w", err)
 		}
@@ -106,16 +106,16 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	cfg := cudasotaeval.DefaultEvalConfig()
+	cfg := cudadiageval.DefaultEvalConfig()
 	cfg.ExerciseStress = stress
 
-	report, err := cudasotaeval.RunEvaluation(ctx, proto, cfg)
+	report, err := cudadiageval.RunEvaluation(ctx, proto, cfg)
 	if err != nil {
 		return fmt.Errorf("run evaluation: %w", err)
 	}
 
 	if outDir != "" {
-		if _, err := cudasotaeval.WriteReportArtifacts(outDir, report); err != nil {
+		if _, err := cudadiageval.WriteReportArtifacts(outDir, report); err != nil {
 			return fmt.Errorf("write artifacts: %w", err)
 		}
 	}
@@ -130,7 +130,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-func printReportSummary(w io.Writer, report *cudasotaeval.EvaluationReport, outDir string) {
+func printReportSummary(w io.Writer, report *cudadiageval.EvaluationReport, outDir string) {
 	fmt.Fprintln(w, "================================================================================")
 	fmt.Fprintln(w, "               CUDA SOTA EVALUATION REPORT & CLAIM QUALIFICATION                ")
 	fmt.Fprintln(w, "================================================================================")
@@ -199,7 +199,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer) error {
 		return errors.New("missing required -dir flag")
 	}
 
-	manifest, err := cudasotaeval.VerifyManifest(dir)
+	manifest, err := cudadiageval.VerifyManifest(dir)
 	if err != nil {
 		return fmt.Errorf("verification failed: %w", err)
 	}
@@ -211,7 +211,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("read evaluation report: %w", err)
 	}
 
-	var report cudasotaeval.EvaluationReport
+	var report cudadiageval.EvaluationReport
 	if err := json.Unmarshal(repData, &report); err != nil {
 		return fmt.Errorf("parse evaluation report: %w", err)
 	}
@@ -221,7 +221,7 @@ func cmdVerify(args []string, stdout, stderr io.Writer) error {
 		ManifestDigest string                      `json:"manifest_digest"`
 		FilesChecked   int                         `json:"files_checked"`
 		ReportPassed   bool                        `json:"report_passed"`
-		Gates          []cudasotaeval.PropertyGate `json:"gates"`
+		Gates          []cudadiageval.PropertyGate `json:"gates"`
 	}{
 		Verified:       true,
 		ManifestDigest: manifest.ManifestSHA256,
@@ -275,12 +275,12 @@ func cmdClaim(args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("read report: %w", err)
 	}
 
-	var report cudasotaeval.EvaluationReport
+	var report cudadiageval.EvaluationReport
 	if err := json.Unmarshal(data, &report); err != nil {
 		return fmt.Errorf("unmarshal report: %w", err)
 	}
 
-	claim, err := cudasotaeval.FormulateClaim(&report)
+	claim, err := cudadiageval.FormulateClaim(&report)
 	if err != nil {
 		return fmt.Errorf("formulate claim: %w", err)
 	}
@@ -312,13 +312,13 @@ func cmdLedger(args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("open ledger: %w", err)
 	}
 	defer f.Close()
-	ledger, err := cudasotaeval.ReadQualificationLedger(f)
+	ledger, err := cudadiageval.ReadQualificationLedger(f)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	results, err := cudasotaeval.VerifyQualificationLedger(ctx, *root, *ledger)
+	results, err := cudadiageval.VerifyQualificationLedger(ctx, *root, *ledger)
 	if err != nil {
 		return err
 	}

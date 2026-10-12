@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 
 var (
 	// ErrRelatedBaseline indicates an attempt to count related projects as independent baselines.
-	ErrRelatedBaseline = errors.New("cudasotaeval: related engine cannot be classified as independent baseline")
+	ErrRelatedBaseline = errors.New("cudadiageval: related engine cannot be classified as independent baseline")
 )
 
 // DefaultBaselines returns candidate alternatives, without asserting versions or

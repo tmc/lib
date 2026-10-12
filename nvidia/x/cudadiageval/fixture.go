@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"context"
@@ -28,6 +28,13 @@ type GroundTruthRequest struct {
 }
 
 // FixtureRunResult holds ground truth and emitted telemetry from an evaluation run.
+//
+// DroppedRecords counts the device activity records dropped over the whole
+// run and TotalSubmissions the requests executed. Each diagnostic input's
+// receipt instead reports the loss of its own case: its "activity" and
+// "sched" LostRecords have Total 1, and the activity Dropped is 1 only if
+// that case's activity record was dropped. The per-case activity drops sum
+// to DroppedRecords.
 type FixtureRunResult struct {
 	GroundTruth      []GroundTruthRecord
 	HostSubmissions  []cudaworkload.HostSubmission
@@ -176,13 +183,15 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 		}
 
 		// Handle Resilience Modes
+		activityLost := false
 		switch req.Resilience {
 		case ResilienceOverflow:
-			// Simulate drop of device activity in ring buffer
+			// Simulate drop of device activity in ring buffer. The case
+			// still produces a diagnostic input recording the loss, so
+			// the evaluator sees it reach diagnosis and withhold.
 			res.DroppedRecords++
 			res.HostSubmissions = append(res.HostSubmissions, hostSub)
-			// Device activity intentionally dropped to simulate overflow
-			continue
+			activityLost = true
 
 		case ResilienceRestart:
 			// Simulate process generation recycle
@@ -221,14 +230,16 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 			},
 		}
 
-		kernels := []cudadiag.KernelEvent{
-			{
+		// A dropped device activity leaves no kernel evidence.
+		var kernels []cudadiag.KernelEvent
+		if !activityLost {
+			kernels = []cudadiag.KernelEvent{{
 				Span:      tracecontract.Interval{Start: apiEndNS, End: kernelEndNS, Clock: "monotonic"},
 				Name:      "kernel_eval_transform",
 				StreamID:  uint64(req.StreamID),
 				ContextID: 1,
 				DeviceID:  0,
-			},
+			}}
 		}
 
 		sched := cudadiag.SchedEvidence{
@@ -245,6 +256,11 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 		}
 		if req.Fault == FaultHostSubmissionDelay {
 			sched.Intervals[0].State = cudadiag.SchedRunnable
+		}
+
+		var caseDropped uint64
+		if activityLost {
+			caseDropped = 1
 		}
 
 		thresh := cudadiag.DefaultThresholds()
@@ -279,9 +295,12 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 				"cupti_activity": {Present: true, Ratio: 1.0},
 				"sched":          {Present: true, Ratio: 1.0},
 			},
+			// Loss is scoped to this case: one activity record and
+			// one scheduler record. An earlier overflow in the run
+			// must not withhold an unrelated later case.
 			LostRecords: map[string]tracecontract.Loss{
-				"activity": {Dropped: res.DroppedRecords, Total: res.TotalSubmissions, Unknown: false},
-				"sched":    {Dropped: 0, Total: res.TotalSubmissions, Unknown: false},
+				"activity": {Dropped: caseDropped, Total: 1},
+				"sched":    {Dropped: 0, Total: 1},
 			},
 		}
 

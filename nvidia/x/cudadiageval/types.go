@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"time"
@@ -176,21 +176,61 @@ type AttributionReceipt struct {
 }
 
 // DiagnosticReceipt summarizes causal mechanism inference on held-out faults.
+// Counts are ground-truth cases. A Missing count is the number of cases in
+// the matching Total that had no diagnostic input; such cases never pass.
+// Zero means no input was missing. A Withheld count is the number of cases
+// in the matching Total whose input was present but whose diagnosis
+// cudadiag withheld or did not admit.
+//
+// HeldOutCorrect, HeldOutWithheld, HeldOutIncorrect and HeldOutMissing
+// partition HeldOutTotal.
+//
+// NoFaultTotal counts no-fault cases with normal resilience. NoFaultPassed
+// counts admitted diagnoses of exactly [cudadiag.MechanismNoFault].
+// NoFaultPassed, NoFaultWithheld and NoFaultMissing are disjoint; the rest
+// of NoFaultTotal is admitted false alarms. Withheld diagnoses never pass.
+// NoFaultPassed/NoFaultTotal is correctness over all declared cases;
+// (NoFaultTotal-NoFaultWithheld-NoFaultMissing)/NoFaultTotal is diagnostic
+// coverage. Specificity among admitted answers uses that admitted count
+// as its denominator and is undefined when no answers were admitted.
+//
+// CompetingDiverted counts competing device bottleneck cases diagnosed as
+// exactly [cudadiag.MechanismDeviceBottleneck] and admitted; only these
+// pass. CompetingDiverted, CompetingWithheld and CompetingMissing are
+// disjoint, and the rest of CompetingTotal is the competing cases
+// misclassified as another admitted mechanism.
+//
+// ResilienceTotal counts cases with a resilience mode other than
+// [ResilienceNormal]. A buffer overflow case passes only if its diagnosis
+// was withheld, since its activity record was dropped. Any other mode
+// passes only with an admitted diagnosis; ResilienceWithheld counts those
+// non-overflow cases whose diagnosis was withheld instead. An overflow
+// case's withheld diagnosis is counted in ResiliencePassed, never in
+// ResilienceWithheld. ResiliencePassed, ResilienceWithheld and
+// ResilienceMissing are disjoint, and the rest of ResilienceTotal is
+// overflow cases whose diagnosis was admitted despite the loss.
 type DiagnosticReceipt struct {
-	HeldOutTotal      int                      `json:"held_out_total"`
-	HeldOutCorrect    int                      `json:"held_out_correct"`
-	HeldOutWithheld   int                      `json:"held_out_withheld"`
-	HeldOutIncorrect  int                      `json:"held_out_incorrect"`
-	NoFaultTotal      int                      `json:"no_fault_total"`
-	NoFaultPassed     int                      `json:"no_fault_passed"`
-	CompetingTotal    int                      `json:"competing_total"`
-	CompetingDiverted int                      `json:"competing_diverted"`
-	ResilienceTotal   int                      `json:"resilience_total"`
-	ResiliencePassed  int                      `json:"resilience_passed"`
-	AccuracyPct       float64                  `json:"accuracy_pct"`
-	ConfusionMatrix   map[string]int           `json:"confusion_matrix"`
-	GateDisposition   string                   `json:"gate_disposition"`
-	SampleDiagnosis   cudadiag.DiagnosisResult `json:"sample_diagnosis,omitempty"`
+	HeldOutTotal       int                      `json:"held_out_total"`
+	HeldOutCorrect     int                      `json:"held_out_correct"`
+	HeldOutWithheld    int                      `json:"held_out_withheld"`
+	HeldOutIncorrect   int                      `json:"held_out_incorrect"`
+	HeldOutMissing     int                      `json:"held_out_missing"`
+	NoFaultTotal       int                      `json:"no_fault_total"`
+	NoFaultPassed      int                      `json:"no_fault_passed"`
+	NoFaultWithheld    int                      `json:"no_fault_withheld"`
+	NoFaultMissing     int                      `json:"no_fault_missing"`
+	CompetingTotal     int                      `json:"competing_total"`
+	CompetingDiverted  int                      `json:"competing_diverted"`
+	CompetingWithheld  int                      `json:"competing_withheld"`
+	CompetingMissing   int                      `json:"competing_missing"`
+	ResilienceTotal    int                      `json:"resilience_total"`
+	ResiliencePassed   int                      `json:"resilience_passed"`
+	ResilienceWithheld int                      `json:"resilience_withheld"`
+	ResilienceMissing  int                      `json:"resilience_missing"`
+	AccuracyPct        float64                  `json:"accuracy_pct"`
+	ConfusionMatrix    map[string]int           `json:"confusion_matrix"`
+	GateDisposition    string                   `json:"gate_disposition"`
+	SampleDiagnosis    cudadiag.DiagnosisResult `json:"sample_diagnosis,omitempty"`
 }
 
 // CostReceipt records collection-off versus collection-on paired trial overheads.

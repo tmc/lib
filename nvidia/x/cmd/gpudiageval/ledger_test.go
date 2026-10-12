@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"github.com/tmc/lib/nvidia/x/cudasotaeval"
+	"github.com/tmc/lib/nvidia/x/cudadiageval"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,12 +12,12 @@ import (
 func TestLedgerCommandPendingRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "ledger.json")
-	cell := cudasotaeval.QualificationCell{ID: "h100-native", CapabilityID: "nvml", Capability: "unknown", Gate: "native", Status: "pending", SourcePaths: []string{"nvidia/x/nvtelemetry/nvml_sampler.go"}, Consumers: []string{"nvidia/x/cmd/nvtelemetry/main.go"}, Owner: "native-owner", NextAction: "admit exact binary and target", Closure: cudasotaeval.QualificationClosure{Candidate: strings.Repeat("1", 40), Tree: strings.Repeat("2", 40)}}
+	cell := cudadiageval.QualificationCell{ID: "h100-native", CapabilityID: "nvml", Capability: "unknown", Gate: "native", Status: "pending", SourcePaths: []string{"nvidia/x/nvtelemetry/nvml_sampler.go"}, Consumers: []string{"nvidia/x/cmd/nvtelemetry/main.go"}, Owner: "native-owner", NextAction: "admit exact binary and target", Closure: cudadiageval.QualificationClosure{Candidate: strings.Repeat("1", 40), Tree: strings.Repeat("2", 40)}}
 	f, err := os.Create(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := cudasotaeval.WriteQualificationLedger(f, cudasotaeval.QualificationLedger{Version: 1, Cells: []cudasotaeval.QualificationCell{cell}}); err != nil {
+	if err := cudadiageval.WriteQualificationLedger(f, cudadiageval.QualificationLedger{Version: 1, Cells: []cudadiageval.QualificationCell{cell}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.Close(); err != nil {

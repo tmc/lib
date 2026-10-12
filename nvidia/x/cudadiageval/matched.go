@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"errors"
@@ -74,7 +74,7 @@ type MatchedResult struct {
 // responsible for authentic acquisition and the stated uncertainty method.
 func CompareTools(p Protocol, candidate, comparator ToolReceipt, candidateRaw, comparatorRaw io.Reader) ([]MatchedResult, error) {
 	if p.Comparison == nil {
-		return nil, errors.New("cudasotaeval: comparison is not registered")
+		return nil, errors.New("cudadiageval: comparison is not registered")
 	}
 	if _, err := CompareTool(p, candidate, candidateRaw); err != nil {
 		return nil, fmt.Errorf("candidate: %w", err)
@@ -84,7 +84,7 @@ func CompareTools(p Protocol, candidate, comparator ToolReceipt, candidateRaw, c
 	}
 	spec := p.Comparison
 	if candidate.Synthetic || comparator.Synthetic || candidate.Tool.Name != spec.Candidate || comparator.Tool.Name != spec.Comparator || candidate.Task != spec.Task || comparator.Task != spec.Task {
-		return nil, errors.New("cudasotaeval: comparison arm or task mismatch")
+		return nil, errors.New("cudadiageval: comparison arm or task mismatch")
 	}
 	measurements := func(receipt ToolReceipt) map[string]PropertyMeasurement {
 		values := make(map[string]PropertyMeasurement)
@@ -108,14 +108,14 @@ func CompareTools(p Protocol, candidate, comparator ToolReceipt, candidateRaw, c
 			continue
 		}
 		if c.Unit != scope.Unit || b.Unit != scope.Unit || c.Denominator != scope.Denominator || b.Denominator != scope.Denominator {
-			return nil, errors.New("cudasotaeval: comparison measurement scope mismatch")
+			return nil, errors.New("cudadiageval: comparison measurement scope mismatch")
 		}
 		if c.Uncertainty == nil || b.Uncertainty == nil {
-			return nil, errors.New("cudasotaeval: comparison uncertainty is missing")
+			return nil, errors.New("cudadiageval: comparison uncertainty is missing")
 		}
 		result.Effect, result.Uncertainty = b.Value-c.Value, *b.Uncertainty+*c.Uncertainty
 		if math.IsInf(result.Effect, 0) || math.IsInf(result.Uncertainty, 0) {
-			return nil, errors.New("cudasotaeval: comparison arithmetic overflow")
+			return nil, errors.New("cudadiageval: comparison arithmetic overflow")
 		}
 		result.Status, result.Reason = "overlap", "absolute bounds overlap"
 		if result.Effect > result.Uncertainty {

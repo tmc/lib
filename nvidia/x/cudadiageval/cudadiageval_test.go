@@ -1,4 +1,4 @@
-package cudasotaeval
+package cudadiageval
 
 import (
 	"context"
@@ -342,7 +342,7 @@ func TestClaimRefusesSyntheticEvaluation(t *testing.T) {
 }
 
 func TestArtifacts_WriteAndVerify(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "cudasotaeval-test-*")
+	tempDir, err := os.MkdirTemp("", "cudadiageval-test-*")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

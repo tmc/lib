@@ -30,6 +30,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |
 | [cudadiag](cudadiag/) | Package cudadiag provides evidence-admitted diagnostic mechanisms for CUDA workloads. |
 | [cudadiagdemo](cudadiagdemo/) | Package cudadiagdemo exercises GPU diagnosis and regression APIs with a synthetic concurrent Go service fixture. |
+| [cudadiageval](cudadiageval/) | Package cudadiageval exercises workload attribution, diagnosis, and replay using synthetic host fixtures. |
 | [cudaerrors](cudaerrors/) | Package cudaerrors holds the sentinels that more than one package must agree on. |
 | [cudaevidence](cudaevidence/) | Package cudaevidence classifies CUDA observations and the conclusions drawn from them. |
 | [cudaflightrecorder](cudaflightrecorder/) | Package cudaflightrecorder coordinates continuous in-memory flight recording across host Go execution traces and GPU device observations, and escalates anomalous incidents within declared resource budgets. |
@@ -93,7 +94,6 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudashadow](cudashadow/) | Package cudashadow provides an observation-only evaluation and deterministic replay framework for GPU driver and runtime policies. |
 | [cudashape](cudashape/) | Package cudashape provides checked multi-dimensional tensor shapes, overflow-checked byte size calculation, stride and layout analysis, and bounded symbolic dimension binding with equality and divisibility constraints. |
 | [cudashared](cudashared/) | Package cudashared plans checked per-block shared-memory storage. |
-| [cudasotaeval](cudasotaeval/) | Package cudasotaeval exercises workload attribution, diagnosis, and replay using synthetic host fixtures. |
 | [cudaspec](cudaspec/) | Package cudaspec provides high-throughput speculative decoding algorithms, explicit branch state, tree attention masks, proposal lifecycle management, prompt-cache n-gram drafting, and batched multi-token verification. |
 | [cudasrv](cudasrv/) | Package cudasrv provides an OpenAI-compatible HTTP inference server with Server-Sent Events (SSE) streaming, Prometheus metrics, and graceful cancellation. |
 | [cudataskgraph](cudataskgraph/) | Package cudataskgraph validates finite task DAGs and tracks epoch-scoped publication and abort state. |

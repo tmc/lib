@@ -13,7 +13,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/tmc/lib/nvidia/x/cudasotaeval"
+	"github.com/tmc/lib/nvidia/x/cudadiageval"
 )
 
 func cmdCompare(args []string, stdout, stderr io.Writer) error {
@@ -32,7 +32,7 @@ func cmdCompare(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var p cudasotaeval.Protocol
+	var p cudadiageval.Protocol
 	if err := decodeComparison(pbytes, &p); err != nil {
 		return fmt.Errorf("decode protocol: %w", err)
 	}
@@ -44,7 +44,7 @@ func cmdCompare(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	var c, b cudasotaeval.ToolReceipt
+	var c, b cudadiageval.ToolReceipt
 	if err := decodeComparison(cbytes, &c); err != nil {
 		return fmt.Errorf("decode candidate: %w", err)
 	}
@@ -56,7 +56,7 @@ func cmdCompare(args []string, stdout, stderr io.Writer) error {
 	}
 	c.RawDigest = fmt.Sprintf("%x", sha256.Sum256(cbytes))
 	b.RawDigest = fmt.Sprintf("%x", sha256.Sum256(bbytes))
-	results, err := cudasotaeval.CompareTools(p, c, b, bytes.NewReader(cbytes), bytes.NewReader(bbytes))
+	results, err := cudadiageval.CompareTools(p, c, b, bytes.NewReader(cbytes), bytes.NewReader(bbytes))
 	if err != nil {
 		return err
 	}
