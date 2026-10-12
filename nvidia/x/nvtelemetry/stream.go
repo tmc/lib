@@ -83,7 +83,7 @@ func NewWriter(w io.Writer, cfg CollectorConfig) *Writer {
 func (w *Writer) WriteManifest(m *Manifest) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if m == nil || m.SchemaVersion <= 0 || m.SchemaVersion > SchemaVersionV3 {
+	if m == nil || m.SchemaVersion <= 0 || m.SchemaVersion > SchemaVersionV4 {
 		return ErrUnsupportedSchema
 	}
 	if err := validateVersionedRecord(StreamRecord{Manifest: m}, m.SchemaVersion); err != nil {
@@ -118,7 +118,7 @@ func (w *Writer) WriteSample(s *Sample) (err error) {
 	}
 	before := w.lostRecords
 	defer func() {
-		if version != SchemaVersionV3 {
+		if version < SchemaVersionV3 {
 			return
 		}
 		if w.familyLoss == nil {
@@ -317,7 +317,12 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 		if rec.Manifest != nil {
 			version = rec.Manifest.SchemaVersion
 		}
-		if version == SchemaVersionV3 {
+		if version >= SchemaVersionV3 {
+			if version == SchemaVersionV4 {
+				if err := rejectDuplicateJSONKeys(line); err != nil {
+					return nil, nil, nil, fmt.Errorf("%w: %v", ErrMalformedStream, err)
+				}
+			}
 			d := json.NewDecoder(bytes.NewReader(line))
 			d.DisallowUnknownFields()
 			var strict StreamRecord
@@ -337,7 +342,7 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 
 		// Manifest processing
 		if rec.Manifest != nil {
-			if rec.Manifest.SchemaVersion <= 0 || rec.Manifest.SchemaVersion > SchemaVersionV3 {
+			if rec.Manifest.SchemaVersion <= 0 || rec.Manifest.SchemaVersion > SchemaVersionV4 {
 				return nil, nil, nil, ErrUnsupportedSchema
 			}
 			if rec.Manifest.HasClockCalibration && rec.Manifest.ClockCalibrationBoundsNanos < 0 {
@@ -361,10 +366,10 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 				}
 			} else {
 				completed = true
-				if version == SchemaVersionV3 && !reflect.DeepEqual(rec.Manifest.Receipt, manifest.Receipt) {
+				if version >= SchemaVersionV3 && !reflect.DeepEqual(rec.Manifest.Receipt, manifest.Receipt) {
 					return nil, nil, nil, fmt.Errorf("%w: capture receipt changed", ErrIdentityMismatch)
 				}
-				if version == SchemaVersionV3 && !reflect.DeepEqual(rec.Manifest.Devices, manifest.Devices) {
+				if version >= SchemaVersionV3 && !reflect.DeepEqual(rec.Manifest.Devices, manifest.Devices) {
 					return nil, nil, nil, fmt.Errorf("%w: device scope changed", ErrIdentityMismatch)
 				}
 				if rec.Manifest.EndTimeMonotonic < manifest.StartTimeMonotonic || (rec.Manifest.IsComplete && (rec.Manifest.LostRecords != 0 || rec.Manifest.IncompleteReason != "" || rec.Manifest.TotalSamples != uint64(len(samples)))) {
@@ -416,7 +421,7 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 					}
 				}
 
-				if version == SchemaVersionV3 {
+				if version >= SchemaVersionV3 {
 					if err := validateFamilyCounts(rec.Manifest.LostRecordsByFamily, samples); err != nil {
 						return nil, nil, nil, err
 					}
@@ -486,7 +491,7 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 					return nil, nil, nil, fmt.Errorf("%w: source: %v", ErrMalformedStream, err)
 				}
 				managedReading := r
-				if manifest.SchemaVersion == SchemaVersionV3 && r.Number != nil {
+				if manifest.SchemaVersion >= SchemaVersionV3 && r.Number != nil {
 					if r.Number.Uint != nil {
 						managedReading.IsInt = true
 						managedReading.IntValue = *r.Number.Uint
@@ -694,7 +699,7 @@ func validateFamilyCounts(losses map[string]tracecontract.Loss, samples []Sample
 }
 
 func validateVersionedRecord(rec StreamRecord, version int) error {
-	if version < SchemaVersionLegacy || version > SchemaVersionV3 {
+	if version < SchemaVersionLegacy || version > SchemaVersionV4 {
 		return ErrUnsupportedSchema
 	}
 	if version < SchemaVersionV3 {
@@ -729,6 +734,9 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 		return nil
 	}
 	for _, r := range rec.Sample.Readings {
+		if version < SchemaVersionV4 && r.Observation != nil && r.Observation.Observer.SamplingCoverage != nil {
+			return fmt.Errorf("%w: V4 field in older observer", ErrMalformedStream)
+		}
 		if r.Value != 0 || r.IntValue != 0 || r.IsInt {
 			return fmt.Errorf("%w: legacy scalar in V3 reading", ErrMalformedStream)
 		}
@@ -787,9 +795,84 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 					return fmt.Errorf("%w: %v", ErrMalformedStream, err)
 				}
 			}
+			if version == SchemaVersionV4 {
+				if o.Observer.SamplingCoverage == nil {
+					return fmt.Errorf("%w: missing V4 observer sampling coverage state", ErrMalformedStream)
+				}
+				if err := validSamplingCoverage(o.Observer, o.Interval); err != nil {
+					return fmt.Errorf("%w: observer sampling coverage: %v", ErrMalformedStream, err)
+				}
+			}
 		}
 	}
 	return nil
+}
+
+func validSamplingCoverage(observer Observer, interval *tracecontract.Interval) error {
+	coverage := observer.SamplingCoverage
+	if coverage == nil {
+		return errors.New("absent descriptor")
+	}
+	validBasis := func(basis string) bool {
+		switch basis {
+		case "", "time", "event", "pc_sample", "range":
+			return true
+		default:
+			return false
+		}
+	}
+	if !validBasis(coverage.Basis) {
+		return errors.New("unknown basis")
+	}
+	switch coverage.Status {
+	case "measured":
+		if observer.ID == "" || observer.Version == "" || observer.Mode == "" || observer.Pass == "" || observer.Population == "" {
+			return errors.New("measured coverage requires observer identity")
+		}
+		if coverage.Basis == "" || coverage.Scope == "" || coverage.Unit == "" || coverage.Numerator == nil || coverage.Denominator == nil {
+			return errors.New("measured coverage requires basis, scope, unit and operands")
+		}
+		numerator, ok := coverageInteger(coverage.Numerator)
+		if !ok {
+			return errors.New("numerator must be a nonnegative integer")
+		}
+		denominator, ok := coverageInteger(coverage.Denominator)
+		if !ok || denominator == 0 || numerator > denominator {
+			return errors.New("denominator must be positive and at least numerator")
+		}
+		if coverage.Basis == "time" {
+			if interval == nil || interval.Start < 0 || interval.End <= interval.Start || coverage.Unit != "ns" {
+				return errors.New("time coverage requires a positive nanosecond interval")
+			}
+			span := uint64(interval.End - interval.Start)
+			if denominator != span {
+				return errors.New("time denominator must equal observation interval")
+			}
+		}
+	case "unknown", "unavailable", "not_applicable":
+		if coverage.Numerator != nil || coverage.Denominator != nil || coverage.Unit != "" {
+			return errors.New("non-measured coverage cannot have operands or unit")
+		}
+		if coverage.Status == "unavailable" && coverage.Reason == "" {
+			return errors.New("unavailable coverage requires reason")
+		}
+	default:
+		return errors.New("unknown status")
+	}
+	return nil
+}
+
+func coverageInteger(number *Number) (uint64, bool) {
+	if number == nil {
+		return 0, false
+	}
+	if number.Uint != nil && number.Float == nil && number.Int == nil {
+		return *number.Uint, true
+	}
+	if number.Int != nil && number.Float == nil && number.Uint == nil && *number.Int >= 0 {
+		return uint64(*number.Int), true
+	}
+	return 0, false
 }
 
 func validNumber(n *Number) error {
@@ -924,16 +1007,109 @@ func versionedJSONKeys(raw []byte, version int) error {
 			var readings []map[string]json.RawMessage
 			json.Unmarshal(data, &readings)
 			for _, fields := range readings {
-				for key := range fields {
+				for key, readingData := range fields {
 					if version < SchemaVersionV3 && (strings.EqualFold(key, "number") || strings.EqualFold(key, "observation")) {
 						return fmt.Errorf("%w: V3 field in legacy reading", ErrMalformedStream)
 					}
-					if version == SchemaVersionV3 && (strings.EqualFold(key, "value") || strings.EqualFold(key, "int_value") || strings.EqualFold(key, "is_int")) {
+					if version >= SchemaVersionV3 && (strings.EqualFold(key, "value") || strings.EqualFold(key, "int_value") || strings.EqualFold(key, "is_int")) {
 						return fmt.Errorf("%w: legacy scalar in V3 reading", ErrMalformedStream)
+					}
+					if strings.EqualFold(key, "observation") {
+						var observation map[string]json.RawMessage
+						if err := json.Unmarshal(readingData, &observation); err == nil {
+							for observationKey, observerData := range observation {
+								if !strings.EqualFold(observationKey, "observer") {
+									continue
+								}
+								var observer map[string]json.RawMessage
+								if err := json.Unmarshal(observerData, &observer); err == nil {
+									for observerKey, coverageData := range observer {
+										if !strings.EqualFold(observerKey, "sampling_coverage") {
+											continue
+										}
+										if version < SchemaVersionV4 {
+											return fmt.Errorf("%w: V4 field in older observer", ErrMalformedStream)
+										}
+										if observerKey != "sampling_coverage" {
+											return fmt.Errorf("%w: noncanonical sampling coverage key", ErrMalformedStream)
+										}
+										var fields map[string]json.RawMessage
+										if err := json.Unmarshal(coverageData, &fields); err == nil {
+											for field := range fields {
+												switch field {
+												case "status", "basis", "scope", "numerator", "denominator", "unit", "reason":
+												default:
+													return fmt.Errorf("%w: noncanonical sampling coverage field", ErrMalformedStream)
+												}
+											}
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func rejectDuplicateJSONKeys(raw []byte) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	if err := consumeJSONValue(d); err != nil {
+		return err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		if err == nil {
+			return errors.New("multiple JSON values")
+		}
+		return err
+	}
+	return nil
+}
+
+func consumeJSONValue(d *json.Decoder) error {
+	token, err := d.Token()
+	if err != nil {
+		return err
+	}
+	delim, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delim {
+	case '{':
+		seen := make(map[string]bool)
+		for d.More() {
+			keyToken, err := d.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return errors.New("object key is not a string")
+			}
+			folded := strings.ToLower(key)
+			if seen[folded] {
+				return errors.New("duplicate or case-folded JSON key")
+			}
+			seen[folded] = true
+			if err := consumeJSONValue(d); err != nil {
+				return err
+			}
+		}
+		_, err = d.Token()
+		return err
+	case '[':
+		for d.More() {
+			if err := consumeJSONValue(d); err != nil {
+				return err
+			}
+		}
+		_, err = d.Token()
+		return err
+	default:
+		return fmt.Errorf("unexpected JSON delimiter %q", delim)
+	}
 }

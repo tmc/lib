@@ -13,6 +13,7 @@ const (
 	SchemaVersionLegacy = 1
 	SchemaVersionV2     = 2
 	SchemaVersionV3     = 3
+	SchemaVersionV4     = 4
 	SchemaVersion       = SchemaVersionV2
 	CollectorVersion    = "nvtelemetry-2.0.0"
 )
@@ -166,13 +167,29 @@ type Histogram struct {
 // unknown and cannot satisfy consumer admission. Reading JSON does not verify
 // that a physical observer ran.
 type Observer struct {
-	ID         string `json:"id"`
-	Version    string `json:"version"`
-	Mode       string `json:"mode"`
-	Pass       string `json:"pass"`
-	Population string `json:"population"`
-	Filter     string `json:"filter"`
-	Replay     string `json:"replay"`
+	ID               string            `json:"id"`
+	Version          string            `json:"version"`
+	Mode             string            `json:"mode"`
+	Pass             string            `json:"pass"`
+	Population       string            `json:"population"`
+	Filter           string            `json:"filter"`
+	Replay           string            `json:"replay"`
+	SamplingCoverage *SamplingCoverage `json:"sampling_coverage,omitempty"`
+}
+
+// SamplingCoverage records exact observed and eligible units for one observer
+// population. A measured time basis is activity-union duration within the
+// containing observation interval; other bases describe bounded populations,
+// not elapsed-time duty. Nil means absent, while a present unknown status is
+// explicit evidence that the measure is unknown.
+type SamplingCoverage struct {
+	Status      string  `json:"status"`
+	Basis       string  `json:"basis,omitempty"`
+	Scope       string  `json:"scope,omitempty"`
+	Numerator   *Number `json:"numerator,omitempty"`
+	Denominator *Number `json:"denominator,omitempty"`
+	Unit        string  `json:"unit,omitempty"`
+	Reason      string  `json:"reason,omitempty"`
 }
 
 // Observation links a V3 reading to existing subject, workload and trace

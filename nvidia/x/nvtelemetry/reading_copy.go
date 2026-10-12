@@ -6,6 +6,36 @@ func cloneReadings(readings []Reading) []Reading {
 	}
 	out := append([]Reading(nil), readings...)
 	for i := range out {
+		if out[i].Number != nil {
+			out[i].Number = cloneNumber(out[i].Number)
+		}
+		if out[i].Observation != nil {
+			o := *out[i].Observation
+			if o.Interval != nil {
+				interval := *o.Interval
+				o.Interval = &interval
+			}
+			if o.Denominator != nil {
+				o.Denominator = cloneNumber(o.Denominator)
+			}
+			if o.Histogram != nil {
+				h := *o.Histogram
+				h.Bounds = append([]string(nil), h.Bounds...)
+				h.Counts = append([]uint64(nil), h.Counts...)
+				o.Histogram = &h
+			}
+			if o.Observer.SamplingCoverage != nil {
+				coverage := *o.Observer.SamplingCoverage
+				if coverage.Numerator != nil {
+					coverage.Numerator = cloneNumber(coverage.Numerator)
+				}
+				if coverage.Denominator != nil {
+					coverage.Denominator = cloneNumber(coverage.Denominator)
+				}
+				o.Observer.SamplingCoverage = &coverage
+			}
+			out[i].Observation = &o
+		}
 		if out[i].Source != nil {
 			s := *out[i].Source
 			if s.Native != nil {
@@ -22,4 +52,24 @@ func cloneReadings(readings []Reading) []Reading {
 		}
 	}
 	return out
+}
+
+func cloneNumber(number *Number) *Number {
+	if number == nil {
+		return nil
+	}
+	copyNumber := *number
+	if number.Float != nil {
+		value := *number.Float
+		copyNumber.Float = &value
+	}
+	if number.Int != nil {
+		value := *number.Int
+		copyNumber.Int = &value
+	}
+	if number.Uint != nil {
+		value := *number.Uint
+		copyNumber.Uint = &value
+	}
+	return &copyNumber
 }

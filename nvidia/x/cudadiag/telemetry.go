@@ -203,8 +203,12 @@ func sameWorkload(a, b cudaworkload.WorkloadIdentity) bool {
 	return reflect.DeepEqual(a, b) && a.Process.PID != 0 && a.Process.Generation != 0 && a.RunID != "" && a.WorkloadName != ""
 }
 
+func sameObserver(a, b nvtelemetry.Observer) bool {
+	return a.ID == b.ID && a.Version == b.Version && a.Mode == b.Mode && a.Pass == b.Pass && a.Population == b.Population && a.Filter == b.Filter && a.Replay == b.Replay && reflect.DeepEqual(a.SamplingCoverage, b.SamplingCoverage)
+}
+
 func telemetryAdmission(m *nvtelemetry.Manifest, s nvtelemetry.Sample, r nvtelemetry.Reading, opt TelemetryOptions) string {
-	if m.SchemaVersion != nvtelemetry.SchemaVersionV3 {
+	if m.SchemaVersion < nvtelemetry.SchemaVersionV3 || m.SchemaVersion > nvtelemetry.SchemaVersionV4 {
 		return "legacy stream lacks V3 evidence links"
 	}
 	if r.Observation == nil {
@@ -269,13 +273,13 @@ func telemetryAdmission(m *nvtelemetry.Manifest, s nvtelemetry.Sample, r nvtelem
 		return "missing or corrupt trace artifact"
 	}
 	expect, ok := opt.ExpectedSources[o.RawSHA256]
-	if o.Observer != opt.Observer || o.Observer.ID == "" || o.Observer.Version == "" || o.Observer.Mode == "" || o.Observer.Pass == "" || o.Observer.Population == "" {
+	if !sameObserver(o.Observer, opt.Observer) || o.Observer.ID == "" || o.Observer.Version == "" || o.Observer.Mode == "" || o.Observer.Pass == "" || o.Observer.Population == "" {
 		return "observer mode or pass mismatch"
 	}
 	if (o.Kind == "host_call" || o.Kind == "kernel" || o.Kind == "sched_running" || o.Kind == "sched_runnable" || o.Kind == "sched_blocked") && o.Observer.Mode != "activity" {
 		return "observer mode cannot establish complete activity timing"
 	}
-	if !ok || o.SourceClass == "" || o.Producer == "" || o.ProducerVersion == "" || o.ProducerSchema == "" || o.Transform == "" || o.TransformSHA256 == "" || expect.SourceClass != o.SourceClass || expect.Producer != o.Producer || expect.ProducerVersion != o.ProducerVersion || expect.ProducerSchema != o.ProducerSchema || expect.Transform != o.Transform || expect.TransformSHA256 != o.TransformSHA256 || expect.Observer != o.Observer {
+	if !ok || o.SourceClass == "" || o.Producer == "" || o.ProducerVersion == "" || o.ProducerSchema == "" || o.Transform == "" || o.TransformSHA256 == "" || expect.SourceClass != o.SourceClass || expect.Producer != o.Producer || expect.ProducerVersion != o.ProducerVersion || expect.ProducerSchema != o.ProducerSchema || expect.Transform != o.Transform || expect.TransformSHA256 != o.TransformSHA256 || !sameObserver(expect.Observer, o.Observer) {
 		return "missing or mismatched independent source provenance"
 	}
 	transform, ok := opt.RawArtifacts[o.TransformSHA256]

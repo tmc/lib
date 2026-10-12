@@ -76,11 +76,15 @@ func mixedProtocol() ([]nvtelemetry.Reading, cudadiag.TelemetryOptions) {
 }
 
 func collectMixed(t *testing.T, readings []nvtelemetry.Reading, opt cudadiag.TelemetryOptions) []byte {
+	return collectMixedVersion(t, readings, opt, nvtelemetry.SchemaVersionV3)
+}
+
+func collectMixedVersion(t *testing.T, readings []nvtelemetry.Reading, opt cudadiag.TelemetryOptions, version int) []byte {
 	t.Helper()
 	var b bytes.Buffer
 	clock := &interchangeClock{now: 1000}
 	sampler := &interchangeSampler{readings: readings, clock: clock, device: opt.Assignment.Device}
-	cfg := nvtelemetry.CollectorConfig{SchemaVersion: nvtelemetry.SchemaVersionV3, Receipt: opt.Receipt}
+	cfg := nvtelemetry.CollectorConfig{SchemaVersion: version, Receipt: opt.Receipt}
 	c := nvtelemetry.NewCollector(opt.Workload.RunID, sampler, clock, cfg, nvtelemetry.NewWriter(&b, cfg))
 	if err := c.InitStream(); err != nil {
 		t.Fatal(err)
@@ -92,6 +96,122 @@ func collectMixed(t *testing.T, readings []nvtelemetry.Reading, opt cudadiag.Tel
 		t.Fatal(err)
 	}
 	return b.Bytes()
+}
+
+func TestTelemetryV4ObserverCoverageSemanticAdmission(t *testing.T) {
+	readings, opt := mixedProtocol()
+	opt.Observer.SamplingCoverage = &nvtelemetry.SamplingCoverage{Status: "unknown", Basis: "time", Scope: "activity-window-v1"}
+	for i := range readings {
+		coverage := *opt.Observer.SamplingCoverage
+		readings[i].Observation.Observer.SamplingCoverage = &coverage
+	}
+	// The expected source is a separately allocated, semantically equal value.
+	expected := opt.ExpectedSources[readings[0].Observation.RawSHA256]
+	coverage := *opt.Observer.SamplingCoverage
+	expected.Observer.SamplingCoverage = &coverage
+	opt.ExpectedSources[readings[0].Observation.RawSHA256] = expected
+	raw := collectMixedVersion(t, readings, opt, nvtelemetry.SchemaVersionV4)
+	got, err := cudadiag.DiagnoseTelemetry(context.Background(), bytes.NewReader(raw), opt)
+	if err != nil || !got.Diagnosis.Admitted {
+		t.Fatalf("explicit unknown erased point evidence: %+v, %v", got.Diagnosis, err)
+	}
+	if !reflect.DeepEqual(got.Observations[0].Reading.Observation.Observer.SamplingCoverage, opt.Observer.SamplingCoverage) {
+		t.Fatal("V4 coverage descriptor was not retained")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := cudadiag.DiagnoseTelemetry(ctx, bytes.NewReader(raw), opt); !errors.Is(err, context.Canceled) {
+		t.Fatalf("V4 cancellation ignored: %v", err)
+	}
+	bounded := opt
+	bounded.MaxBytes = int64(len(raw) - 1)
+	if _, err := cudadiag.DiagnoseTelemetry(context.Background(), bytes.NewReader(raw), bounded); !errors.Is(err, nvtelemetry.ErrBudgetExceeded) {
+		t.Fatalf("V4 byte limit ignored: %v", err)
+	}
+
+	for _, lossCase := range []struct {
+		name   string
+		mutate func(map[string]tracecontract.Loss)
+		cause  string
+	}{
+		{"loss-absent", func(loss map[string]tracecontract.Loss) { delete(loss, "nccl") }, "unassessed"},
+		{"loss-dropped", func(loss map[string]tracecontract.Loss) {
+			item := loss["nccl"]
+			item.Total++
+			item.Dropped++
+			loss["nccl"] = item
+		}, "records lost"},
+		{"loss-unknown", func(loss map[string]tracecontract.Loss) {
+			item := loss["nccl"]
+			item.Unknown = true
+			loss["nccl"] = item
+		}, "unassessed"},
+	} {
+		t.Run(lossCase.name, func(t *testing.T) {
+			var records []nvtelemetry.StreamRecord
+			for _, line := range bytes.Split(bytes.TrimSpace(raw), []byte("\n")) {
+				var record nvtelemetry.StreamRecord
+				if err := json.Unmarshal(line, &record); err != nil {
+					t.Fatal(err)
+				}
+				records = append(records, record)
+			}
+			lossCase.mutate(records[len(records)-1].Manifest.LostRecordsByFamily)
+			var mutated bytes.Buffer
+			for _, record := range records {
+				if err := json.NewEncoder(&mutated).Encode(record); err != nil {
+					t.Fatal(err)
+				}
+			}
+			result, err := cudadiag.DiagnoseTelemetry(context.Background(), &mutated, opt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.Diagnosis.Admitted {
+				t.Fatalf("loss in one family erased unrelated diagnosis: %+v", result.Diagnosis)
+			}
+			for _, observation := range result.Observations {
+				if observation.Reading.Observation.Family == "nccl" {
+					if observation.Finding.Admission.Status != "withheld" || !strings.Contains(observation.Finding.Admission.Reason, lossCase.cause) {
+						t.Fatalf("NCCL loss cause not preserved: %+v", observation.Finding.Admission)
+					}
+				} else if observation.Finding.Admission.Status != "admitted" {
+					t.Fatalf("unrelated family withheld: %+v", observation.Finding.Admission)
+				}
+			}
+		})
+	}
+
+	mutants := []struct {
+		name string
+		edit func(*cudadiag.TelemetryOptions)
+	}{
+		{"expected-source-scope", func(o *cudadiag.TelemetryOptions) {
+			expect := o.ExpectedSources[readings[0].Observation.RawSHA256]
+			bad := *expect.Observer.SamplingCoverage
+			bad.Scope = "other-window"
+			expect.Observer.SamplingCoverage = &bad
+			o.ExpectedSources[readings[0].Observation.RawSHA256] = expect
+		}},
+		{"nil-versus-explicit-unknown", func(o *cudadiag.TelemetryOptions) { o.Observer.SamplingCoverage = nil }},
+	}
+	for _, tc := range mutants {
+		t.Run(tc.name, func(t *testing.T) {
+			mutated := opt
+			mutated.ExpectedSources = make(map[string]nvtelemetry.Observation, len(opt.ExpectedSources))
+			for key, value := range opt.ExpectedSources {
+				mutated.ExpectedSources[key] = value
+			}
+			tc.edit(&mutated)
+			result, err := cudadiag.DiagnoseTelemetry(context.Background(), bytes.NewReader(raw), mutated)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Observations[0].Finding.Admission.Status != "withheld" {
+				t.Fatalf("observer mismatch admitted: %+v", result.Observations[0].Finding.Admission)
+			}
+		})
+	}
 }
 
 func TestTelemetryPublicCollectorDiagnosis(t *testing.T) {

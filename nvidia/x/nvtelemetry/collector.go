@@ -279,7 +279,7 @@ func (c *Collector) Stop() (*Manifest, error) {
 func (c *Collector) InitStream() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.config.SchemaVersion != 0 && c.config.SchemaVersion != SchemaVersionV2 && c.config.SchemaVersion != SchemaVersionV3 {
+	if c.config.SchemaVersion != 0 && c.config.SchemaVersion != SchemaVersionV2 && c.config.SchemaVersion != SchemaVersionV3 && c.config.SchemaVersion != SchemaVersionV4 {
 		return ErrUnsupportedSchema
 	}
 	if c.writer == nil {
@@ -346,8 +346,8 @@ func (c *Collector) collectOnce(ctx context.Context) error {
 
 	readings, err := c.sampler.Sample(ctx)
 	readings = cloneReadings(readings)
-	if err == nil && c.streamVersion() == SchemaVersionV3 {
-		// Copy V3 pointer-backed evidence without changing the sampler's values.
+	if err == nil && c.streamVersion() >= SchemaVersionV3 {
+		// Copy versioned pointer-backed evidence without changing the sampler's values.
 		var data []byte
 		data, err = json.Marshal(readings)
 		if err == nil {
@@ -560,7 +560,7 @@ func (c *Collector) streamVersion() int {
 }
 
 func (c *Collector) streamFamilyLoss() map[string]tracecontract.Loss {
-	if c.streamVersion() != SchemaVersionV3 || c.writer == nil {
+	if c.streamVersion() < SchemaVersionV3 || c.writer == nil {
 		return nil
 	}
 	return c.writer.FamilyLoss()
