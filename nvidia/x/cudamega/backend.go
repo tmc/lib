@@ -1,6 +1,7 @@
 package cudamega
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/x/cudataskgraph"
@@ -280,6 +281,8 @@ type Program struct {
 //     The producer's end is refused as well as the consumer's: a CTA-scope
 //     release publishes a completion word that a CTA in another block will
 //     read, and that is the same defect seen from the other side.
+//   - A task whose data inputs or extent the worker cannot execute. See
+//     [ErrUnsupportedInputs].
 func NewProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Grid, target Target) (*Program, error) {
 	return newProgram(g, operations, grid, target, false)
 }
@@ -288,6 +291,9 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	tasks := g.Tasks()
 	if len(tasks) == 0 || len(tasks) > 1024 || len(operations) != len(tasks) {
 		return nil, fmt.Errorf("finite program requires 1..1024 operations matching its tasks")
+	}
+	if err := checkBinding(tasks); err != nil {
+		return nil, err
 	}
 	if err := grid.Validate(); err != nil {
 		return nil, err
@@ -395,6 +401,48 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	return p, nil
 }
 
+// ErrUnsupportedInputs reports a task whose declared data inputs or extent
+// the worker cannot execute.
+//
+// The worker binds one data input and one extent. A task reads its first
+// dependency, or the program input when it has none, and every task runs over
+// the single extent the launch supplies, which is also the scratch stride.
+// So [NewProgram] refuses a task that names more than one input, a task whose
+// one input is not its first dependency, and a graph whose tasks declare
+// different extents, or declare one for some tasks and not others. Each would
+// otherwise run against the wrong data or the wrong number of elements and
+// report success.
+//
+// A graph whose tasks all declare the same extent is accepted, and that
+// extent is not checked against the number of elements a launch supplies:
+// the worker runs over the launch's element count whatever the tasks declare.
+//
+// Refusal is a partial repair. Executing multi-input and mixed-extent graphs
+// needs a wider operation binding and a per-task scratch stride, which this
+// package does not yet have.
+var ErrUnsupportedInputs = errors.New("unsupported task inputs")
+
+// checkBinding refuses the input semantics the worker cannot execute. See
+// [ErrUnsupportedInputs].
+func checkBinding(tasks []cudataskgraph.Task) error {
+	for _, t := range tasks {
+		switch {
+		case len(t.Inputs) > 1:
+			return fmt.Errorf("task %q reads %d inputs and the worker reads one: %w", t.ID, len(t.Inputs), ErrUnsupportedInputs)
+		case len(t.Inputs) == 1 && t.Inputs[0] != t.Deps[0]:
+			return fmt.Errorf("task %q reads input %q and the worker reads its first dependency %q: %w", t.ID, t.Inputs[0], t.Deps[0], ErrUnsupportedInputs)
+		}
+	}
+	first := tasks[0]
+	for _, t := range tasks[1:] {
+		if t.Extent != first.Extent {
+			return fmt.Errorf("task %q declares extent %d and task %q extent %d (zero is undeclared), and the worker runs one extent: %w",
+				first.ID, first.Extent, t.ID, t.Extent, ErrUnsupportedInputs)
+		}
+	}
+	return nil
+}
+
 // supportsScope reports whether target can order a scope, and why not when it
 // cannot.
 func supportsScope(target Target, s cudataskgraph.Scope) error {
@@ -432,6 +480,7 @@ func (p *Program) Steps() []Step {
 			s.Operation.moe = &value
 		}
 		s.Task.Deps = append([]string(nil), s.Task.Deps...)
+		s.Task.Inputs = append([]string(nil), s.Task.Inputs...)
 		s.Deps = append([]int(nil), s.Deps...)
 		s.EdgeScope = append([]cudataskgraph.Scope(nil), s.EdgeScope...)
 		out[i] = s

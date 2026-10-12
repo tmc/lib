@@ -2,7 +2,10 @@ package cudataskgraph
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
+	"hash"
+	"slices"
 	"sort"
 	"sync"
 )
@@ -19,6 +22,15 @@ const (
 type Task struct {
 	ID   string
 	Deps []string
+
+	// Inputs names the dependencies whose outputs the task reads, in operand
+	// order. Each must also appear in Deps, at most once; a dependency not
+	// named here orders the task without supplying it data.
+	//
+	// An empty Inputs declares nothing. Consumers that predate this field
+	// read such a task's first dependency, if any, as its only data input.
+	Inputs []string
+
 	Rank int
 
 	// Bytes is the task's dynamic shared-memory claim, in bytes. It is not
@@ -30,6 +42,12 @@ type Task struct {
 	Bytes uint64
 
 	Scope Scope
+
+	// Extent is the number of elements the task produces. Zero means the
+	// extent is undeclared, not that the task is empty. New records Extent
+	// in the identity but checks it against nothing; whoever runs the task
+	// decides whether the elements it is given match.
+	Extent uint64
 }
 type Graph struct {
 	tasks map[string]Task
@@ -46,6 +64,7 @@ func New(tasks []Task) (Graph, error) {
 			return Graph{}, fmt.Errorf("duplicate task %q", t.ID)
 		}
 		t.Deps = append([]string(nil), t.Deps...)
+		t.Inputs = append([]string(nil), t.Inputs...)
 		g.tasks[t.ID] = t
 	}
 	for _, t := range tasks {
@@ -55,6 +74,14 @@ func New(tasks []Task) (Graph, error) {
 			}
 			if g.tasks[d].Rank >= t.Rank {
 				return Graph{}, fmt.Errorf("dependency rank does not precede task %q", t.ID)
+			}
+		}
+		for i, in := range t.Inputs {
+			if !slices.Contains(t.Deps, in) {
+				return Graph{}, fmt.Errorf("task %q has input %q that is not a dependency", t.ID, in)
+			}
+			if slices.Contains(t.Inputs[:i], in) {
+				return Graph{}, fmt.Errorf("task %q names input %q twice", t.ID, in)
 			}
 		}
 	}
@@ -97,6 +124,7 @@ func (g Graph) Clone() Graph {
 	r := Graph{tasks: make(map[string]Task, len(g.tasks)), order: append([]string(nil), g.order...)}
 	for id, task := range g.tasks {
 		task.Deps = append([]string(nil), task.Deps...)
+		task.Inputs = append([]string(nil), task.Inputs...)
 		r.tasks[id] = task
 	}
 	return r
@@ -107,21 +135,48 @@ func (g Graph) Tasks() []Task {
 	for _, id := range g.order {
 		t := g.tasks[id]
 		t.Deps = append([]string(nil), t.Deps...)
+		t.Inputs = append([]string(nil), t.Inputs...)
 		r = append(r, t)
 	}
 	return r
 }
 
-// Identity returns a stable identity for the validated graph topology.
+// Identity returns a stable identity for the validated graph: every task's
+// ID, rank, shared-memory bytes, scope, extent, dependencies and data inputs,
+// in task order.
+//
+// Each string and list is written with its length before it, so no
+// arrangement of bytes inside an ID can be read as a field of another task.
 func (g Graph) Identity() string {
 	h := sha256.New()
-	for _, t := range g.Tasks() {
-		fmt.Fprintf(h, "%s\x00%d\x00%d\x00%d\x00", t.ID, t.Rank, t.Bytes, t.Scope)
-		for _, d := range t.Deps {
-			fmt.Fprintf(h, "%s\x00", d)
-		}
+	tasks := g.Tasks()
+	writeUint(h, uint64(len(tasks)))
+	for _, t := range tasks {
+		writeString(h, t.ID)
+		writeUint(h, uint64(t.Rank))
+		writeUint(h, t.Bytes)
+		writeUint(h, uint64(t.Scope))
+		writeUint(h, t.Extent)
+		writeStrings(h, t.Deps)
+		writeStrings(h, t.Inputs)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func writeUint(h hash.Hash, v uint64) {
+	h.Write(binary.BigEndian.AppendUint64(nil, v))
+}
+
+func writeString(h hash.Hash, s string) {
+	writeUint(h, uint64(len(s)))
+	h.Write([]byte(s))
+}
+
+func writeStrings(h hash.Hash, ss []string) {
+	writeUint(h, uint64(len(ss)))
+	for _, s := range ss {
+		writeString(h, s)
+	}
 }
 
 type Epoch struct {
