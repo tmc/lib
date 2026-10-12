@@ -1,0 +1,5 @@
+commit: 7563a2bc3e38e4c5d0d41fa639f3f1faf75048f8
+date: 2026-10-12T01:02:03.239364+00:00
+agent: Codex API; model inherited; claude-code version: not applicable
+tty: non-PTY; pid: 14073; ITERM_SESSION_ID: 092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+qualification: source/localTLS/template only; no deployment/native evidence
