@@ -449,6 +449,39 @@ func TestPhaseCaptureRemainingPCsSum(t *testing.T) {
 	}
 }
 
+// TestPhaseCaptureReadErrorRemainingPCs verifies that when the only read
+// after Stop fails, the PC records it reported remaining are still reported
+// in RemainingPCs and count as loss. The failure is the drain error, not the
+// batch limit, so DrainLimited and FinalDrained stay false.
+func TestPhaseCaptureReadErrorRemainingPCs(t *testing.T) {
+	for _, n := range []uint64{1, 3, 120} {
+		starter := func(ctx driver.Context, cfg Config) (*Session, error) {
+			query := func(p *cupti.PCSamplingGetDataParams) error {
+				d := (*cupti.PCSamplingData)(nativePointer(p.PcSamplingData))
+				d.RemainingNumPcs = uint(n)
+				return errors.New("injected drain failure")
+			}
+			return startSession(ctx, cfg, testPublicControlAPI(), testPublicInventory, testPublicNames, query)
+		}
+		r, err := capturePhase(context.Background(), 5, testPhaseConfig(), starter, func() error { return nil }, func(context.Context) error { return nil })
+		if err == nil || !strings.Contains(err.Error(), "injected drain failure") {
+			t.Fatalf("remaining %d: capturePhase error = %v, want the drain failure", n, err)
+		}
+		if r.RemainingPCs != n {
+			t.Errorf("remaining %d: RemainingPCs = %d PC records, want %d", n, r.RemainingPCs, n)
+		}
+		if !r.Loss() {
+			t.Errorf("remaining %d: Loss() = false, want true", n)
+		}
+		if r.DrainLimited || r.FinalDrained {
+			t.Errorf("remaining %d: DrainLimited = %v, FinalDrained = %v, want false, false", n, r.DrainLimited, r.FinalDrained)
+		}
+		if r.DroppedSamples != 0 {
+			t.Errorf("remaining %d: DroppedSamples = %d, want 0", n, r.DroppedSamples)
+		}
+	}
+}
+
 // TestPhaseCaptureConcurrentDrainConsumer verifies the full concurrent ring buffer drain path.
 func TestPhaseCaptureConcurrentDrainConsumer(t *testing.T) {
 	var queryCalls int32
