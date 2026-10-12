@@ -1,0 +1,9 @@
+commit: afad49ea3ced490f35ec2a64445c04d1f0d07ad7
+commit date: 2026-10-11T20:31:37-07:00
+agent: Codex; codex-cli 0.162.1; claude-code version: not used
+model: GPT-6 (Codex)
+tty: not a tty
+receipt shell pid: 93122
+ITERM_SESSION_ID: w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+agent task: /root/mega_cooperative_adapter_author
+helper attempts: 2; task-local cgpt offline refusal; signed manual fallback
