@@ -1,10 +1,13 @@
 package cudatma
 
 import (
+	"errors"
 	"fmt"
-	"github.com/tmc/lib/nvidia/driver"
 	"math"
 	"sort"
+	"sync"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 const (
@@ -249,13 +252,44 @@ func (t Transfer) Validate() error {
 	return nil
 }
 
-// Multicast tracks one transaction per destination CTA rank.
+// ErrDuplicateCompletion reports a second completion from a multicast
+// destination rank that has already completed.
+var ErrDuplicateCompletion = errors.New("duplicate completion")
+
+// Multicast is a handle for one host-side multicast transaction. Copying a
+// Multicast copies the handle, not the transaction: both values share one
+// completion state. Call NewMulticast to create a separate transaction.
+//
+// The exported fields are descriptive snapshots from construction. Changing
+// them does not reconfigure the transaction. The zero value is not usable:
+// Complete reports an error, and CompleteAll and Participating report false.
+// Methods synchronize shared completion state across copied handles. Direct
+// concurrent access to the exported fields requires caller synchronization.
 type Multicast struct {
-	SourceRank   uint32
+	// SourceRank is the source CTA rank recorded at construction. It is a
+	// descriptive snapshot; methods use the private transaction state.
+	SourceRank uint32
+	// Destinations is a sorted copy of the constructor's destination ranks.
+	// Mutating this slice does not change the transaction.
 	Destinations []uint32
-	Mask         uint64
-	Bytes        uint64
-	completed    map[uint32]uint64
+	// Mask is the destination bit mask recorded at construction. It is a
+	// descriptive snapshot; methods use the private transaction state.
+	Mask uint64
+	// Bytes is the byte count recorded at construction. It is a descriptive
+	// snapshot; methods use the private transaction state.
+	Bytes uint64
+	state *multicastState
+}
+
+// multicastState is shared by copied handles. Its constructor fields never
+// change; completed is protected by mu.
+type multicastState struct {
+	mu              sync.Mutex
+	sourceRank      uint32
+	destinations    []uint32
+	destinationMask uint64
+	bytes           uint64
+	completedMask   uint64
 }
 
 // NewMulticast tracks transactions for CTA ranks 0 through 15.
@@ -267,39 +301,78 @@ func NewMulticast(source uint32, destinations []uint32, bytes uint64) (Multicast
 	if len(destinations) == 0 || bytes == 0 {
 		return Multicast{}, fmt.Errorf("multicast requires destinations and bytes")
 	}
-	m := Multicast{SourceRank: source, Destinations: append([]uint32(nil), destinations...), Bytes: bytes, completed: make(map[uint32]uint64)}
-	for _, r := range destinations {
+	canonical := append([]uint32(nil), destinations...)
+	var mask uint64
+	for _, r := range canonical {
 		if r >= 16 {
 			return Multicast{}, fmt.Errorf("destination rank %d must be between 0 and 15", r)
 		}
-		if m.Mask&(uint64(1)<<r) != 0 {
+		if mask&(uint64(1)<<r) != 0 {
 			return Multicast{}, fmt.Errorf("duplicate destination rank %d", r)
 		}
-		m.Mask |= uint64(1) << r
+		mask |= uint64(1) << r
 	}
-	sort.Slice(m.Destinations, func(i, j int) bool { return m.Destinations[i] < m.Destinations[j] })
-	return m, nil
+	sort.Slice(canonical, func(i, j int) bool { return canonical[i] < canonical[j] })
+	state := &multicastState{
+		sourceRank:      source,
+		destinations:    append([]uint32(nil), canonical...),
+		destinationMask: mask,
+		bytes:           bytes,
+	}
+	return Multicast{
+		SourceRank:   source,
+		Destinations: append([]uint32(nil), canonical...),
+		Mask:         mask,
+		Bytes:        bytes,
+		state:        state,
+	}, nil
 }
+
+// Complete records the transaction for one destination rank. Each rank
+// completes exactly once across all copied handles; concurrent attempts are
+// serialized, and a second completion returns an error wrapping
+// [ErrDuplicateCompletion] without changing the recorded state.
 func (m *Multicast) Complete(rank uint32, bytes uint64) error {
 	if m == nil {
 		return fmt.Errorf("nil multicast")
 	}
-	if m.completed == nil {
+	if m.state == nil {
 		return fmt.Errorf("uninitialized multicast")
 	}
-	if rank >= 16 || m.Mask&(uint64(1)<<rank) == 0 {
+	s := m.state
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rank >= 16 || s.destinationMask&(uint64(1)<<rank) == 0 {
 		return fmt.Errorf("rank %d is not a destination", rank)
 	}
-	if bytes != m.Bytes {
-		return fmt.Errorf("rank %d completed %d bytes, want %d", rank, bytes, m.Bytes)
+	bit := uint64(1) << rank
+	if s.completedMask&bit != 0 {
+		return fmt.Errorf("rank %d: %w", rank, ErrDuplicateCompletion)
 	}
-	m.completed[rank] = bytes
+	if bytes != s.bytes {
+		return fmt.Errorf("rank %d completed %d bytes, want %d", rank, bytes, s.bytes)
+	}
+	s.completedMask |= bit
 	return nil
 }
+
+// CompleteAll reports whether every constructor destination completed.
+// Completion reads are synchronized across copied handles.
 func (m Multicast) CompleteAll() bool {
-	return len(m.Destinations) > 0 && len(m.completed) == len(m.Destinations)
+	if m.state == nil {
+		return false
+	}
+	s := m.state
+	s.mu.Lock()
+	done := s.destinationMask != 0 && s.completedMask == s.destinationMask
+	s.mu.Unlock()
+	return done
 }
-func (m Multicast) Participating(rank uint32) bool { return rank < 16 && m.Mask&(uint64(1)<<rank) != 0 }
+
+// Participating reports whether rank was a destination at construction.
+func (m Multicast) Participating(rank uint32) bool {
+	return m.state != nil && rank < 16 && m.state.destinationMask&(uint64(1)<<rank) != 0
+}
 
 // FixtureSource emits an ordinary synchronous global-to-shared fixture.
 func FixtureSource(target string, elements int) (string, error) {

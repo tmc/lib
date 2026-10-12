@@ -1,6 +1,7 @@
 package cudatma
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -20,10 +21,41 @@ func TestTensorMapLayout(t *testing.T) {
 		t.Fatal("accepted unaligned base")
 	}
 }
+
+// TestTensorMapLifetime checks that a descriptor owned by a DescriptorSlot
+// cannot be replaced while a transfer issued from it is in flight, and that
+// the transfer's handle is retired by the generation it was issued under.
 func TestTensorMapLifetime(t *testing.T) {
 	d := descriptor()
-	if err := (Transfer{Descriptor: d, Direction: GlobalToShared, Bytes: 64}).Validate(); err != nil {
+	tr := Transfer{Descriptor: d, Direction: GlobalToShared, Bytes: 64}
+	if err := tr.Validate(); err != nil {
 		t.Fatal(err)
+	}
+	s, err := NewDescriptorSlot(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, gen := s.Current()
+	h, err := s.Issue(gen, tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := d
+	moved.Base = 0x2000
+	if err := s.Update(moved); !errors.Is(err, ErrInFlight) {
+		t.Fatalf("Update of an in-flight descriptor = %v, want ErrInFlight", err)
+	}
+	if s.Descriptor() != d {
+		t.Fatal("refused Update replaced the in-flight descriptor")
+	}
+	if err := s.Complete(h); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Update(moved); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Complete(h); !errors.Is(err, ErrStaleGeneration) {
+		t.Fatalf("Complete after Update = %v, want ErrStaleGeneration", err)
 	}
 }
 func TestTransferTargetSupport(t *testing.T) {
@@ -223,5 +255,72 @@ func TestValidateInterleaveNeedsRank(t *testing.T) {
 	d.Interleave = driver.TensorMapInterleave32B
 	if err := d.Validate(); err == nil {
 		t.Error("interleave at rank 2: Validate() = nil, want an error")
+	}
+}
+
+// TestMulticastDuplicateCompletion checks that a destination rank completes
+// at most once. A second completion from the same rank is a protocol error,
+// not an update: accepting it would let one rank's barrier stand in for two.
+func TestMulticastDuplicateCompletion(t *testing.T) {
+	m, err := NewMulticast(0, []uint32{1, 3}, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Complete(1, 64); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Complete(1, 64); err == nil {
+		t.Fatal("Complete(1) twice = nil, want an error")
+	} else if !errors.Is(err, ErrDuplicateCompletion) {
+		t.Fatalf("Complete(1) twice = %v, want ErrDuplicateCompletion", err)
+	}
+	if m.CompleteAll() {
+		t.Fatal("CompleteAll() = true with rank 3 pending")
+	}
+	if err := m.Complete(3, 64); err != nil || !m.CompleteAll() {
+		t.Fatalf("Complete(3) = %v, CompleteAll() = %v", err, m.CompleteAll())
+	}
+}
+
+// TestTransferHandleNotReissued forges a handle by editing the generation of
+// a retired one. Sequence numbers continue across generations, so the forged
+// handle names no transfer in flight and cannot retire the transfer issued
+// after the update.
+func TestTransferHandleNotReissued(t *testing.T) {
+	d := descriptor()
+	tr := Transfer{Descriptor: d, Direction: GlobalToShared, Bytes: 64}
+	s, err := NewDescriptorSlot(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, gen := s.Current()
+	old, err := s.Issue(gen, tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Complete(old); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Update(d); err != nil {
+		t.Fatal(err)
+	}
+	_, gen = s.Current()
+	cur, err := s.Issue(gen, tr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cur.seq == old.seq {
+		t.Fatalf("handle sequence %d reissued after Update", cur.seq)
+	}
+	forged := old
+	forged.gen = s.Generation()
+	if err := s.Complete(forged); !errors.Is(err, ErrNotInFlight) {
+		t.Fatalf("Complete(retired handle with current generation) = %v, want ErrNotInFlight", err)
+	}
+	if n := s.InFlight(); n != 1 {
+		t.Fatalf("InFlight() = %d after refused forged Complete, want 1", n)
+	}
+	if err := s.Complete(cur); err != nil {
+		t.Fatal(err)
 	}
 }
