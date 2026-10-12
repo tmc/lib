@@ -1,0 +1,6 @@
+commit 8ac107b3bbf632feaccaeedd70b6b68ac68cc2f5
+date 2026-10-11T22:27:01-07:00
+agent Codex; codex-cli 0.162.1; model GPT-6; claude-code version not used
+tty non-tty; receipt pid 10134; ITERM_SESSION_ID w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF
+compile-only port; no test/init/vendor/device/network execution
+helper attempts 1 and 2 failed in env before helper launch because unquoted PATH contained spaces; signed manual fallback
