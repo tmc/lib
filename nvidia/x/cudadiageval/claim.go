@@ -47,8 +47,7 @@ func validateNoFaultClaimReceipt(report *EvaluationReport) error {
 	return nil
 }
 
-// Validate verifies that the claim conforms to the bounded five-part format
-// required by sota-evaluation.md.
+// Validate verifies that the diagnostic claim contains its required bounded fields.
 func (c *Claim) Validate() error {
 	if c.Task == "" {
 		return fmt.Errorf("%w: missing task", ErrIncompleteClaim)
@@ -71,7 +70,7 @@ func (c *Claim) Validate() error {
 	return nil
 }
 
-// Format renders the claim in the exact 5-part format specified in sota-evaluation.md.
+// Format renders the diagnostic claim with comparisons, hardware, evidence and limits.
 func (c *Claim) Format() string {
 	var sb strings.Builder
 

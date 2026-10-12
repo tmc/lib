@@ -132,7 +132,7 @@ func cmdRun(args []string, stdout, stderr io.Writer) error {
 
 func printReportSummary(w io.Writer, report *cudadiageval.EvaluationReport, outDir string) {
 	fmt.Fprintln(w, "================================================================================")
-	fmt.Fprintln(w, "               CUDA SOTA EVALUATION REPORT & CLAIM QUALIFICATION                ")
+	fmt.Fprintln(w, "            CUDA DIAGNOSTIC EVALUATION REPORT & CLAIM QUALIFICATION             ")
 	fmt.Fprintln(w, "================================================================================")
 	fmt.Fprintf(w, "Protocol:      %s (Phase: %s)\n", report.Protocol.Name, report.Protocol.Phase)
 	fmt.Fprintf(w, "Hardware:      %s (%s), Driver: %s, CUDA: %s\n",

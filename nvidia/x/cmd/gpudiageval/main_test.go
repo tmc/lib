@@ -24,7 +24,7 @@ func TestCMD_GPUDiagEval_RunVerifyClaim(t *testing.T) {
 	}
 
 	outStr := outBuf.String()
-	if !strings.Contains(outStr, "CUDA SOTA EVALUATION REPORT") {
+	if !strings.Contains(outStr, "CUDA DIAGNOSTIC EVALUATION REPORT") {
 		t.Errorf("expected summary header, got:\n%s", outStr)
 	}
 	if !strings.Contains(outStr, "zero_incorrect_exact_joins") {
