@@ -1,11 +1,10 @@
 # `nvtelemetry` Kubernetes DaemonSet template
 
 This is a source template, not a deployable or qualified DaemonSet. It contains
-two fail-closed placeholders: an immutable image reference and an
-authenticated-probe strategy. The latter must be resolved for the selected
-listener/configuration and pinned image before an operator may render and
-apply the manifest. No cluster, image digest, runtime, or deployment is
-selected here.
+fail-closed placeholders for an immutable image reference and the TLS server
+name used by its authenticated exec probes. The image must contain this
+repository's `nvtelemetry probe` command. No cluster, image digest, runtime,
+certificate, or deployment is selected here.
 
 ## Image digest and render guard
 
@@ -13,9 +12,9 @@ The image must use a registry and repository path followed by a lowercase
 SHA-256 digest, for example
 `registry.example/team/nvtelemetry@sha256:<64 lowercase hex digits>`. The
 example is not a real image reference. Render a private copy only after
-choosing a real digest and supplying a reviewed authenticated-probe
-implementation. The `grep` checks refuse to proceed while either marker or a
-floating `latest` tag remains:
+choosing a real digest and the DNS name present in the probe certificate SAN.
+The checks refuse to proceed while either marker or a floating `latest` tag
+remains:
 
 ```sh
 set -eu
@@ -24,11 +23,21 @@ printf '%s\n' "$image_ref" | grep -Eq '^[a-z0-9]+([.-][a-z0-9]+)*(:[0-9]+)?(/[a-
   echo 'image_ref must be a repository reference pinned by a lowercase sha256 digest' >&2
   exit 1
 }
+tls_server_name='REPLACE_WITH_CERTIFICATE_DNS_NAME'
+test "${#tls_server_name}" -le 253 || {
+  echo 'tls_server_name must be at most 253 characters' >&2
+  exit 1
+}
+printf '%s\n' "$tls_server_name" | grep -Eq '^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)(\.([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?))*$' || {
+  echo 'tls_server_name must be a DNS name present in the serving certificate SAN' >&2
+  exit 1
+}
 
 rendered='daemonset.rendered.yaml'
-sed "s|image: \"REQUIRED_IMAGE_DIGEST\"|image: \"$image_ref\"|" daemonset.yaml > "$rendered"
-if grep -Eq 'REQUIRED_IMAGE_DIGEST|REQUIRED_AUTHENTICATED_PROBE|:latest([[:space:]]|$)' "$rendered"; then
-  echo 'HOLD: resolve image and authenticated probe placeholders before apply' >&2
+sed -e "s|image: \"REQUIRED_IMAGE_DIGEST\"|image: \"$image_ref\"|" \
+    -e "s|REQUIRED_TLS_SERVER_NAME|$tls_server_name|g" daemonset.yaml > "$rendered"
+if grep -Eq 'REQUIRED_IMAGE_DIGEST|REQUIRED_TLS_SERVER_NAME|REPLACE_WITH_CERTIFICATE_DNS_NAME|:latest([[:space:]]|$)' "$rendered"; then
+  echo 'HOLD: resolve image and probe TLS server name before apply' >&2
   exit 1
 fi
 
@@ -37,12 +46,14 @@ fi
 kubectl apply -f "$rendered"
 ```
 
-The example digest deliberately fails validation. The manifest's annotation
-`nvidia.com/nvtelemetry-probe-strategy: REQUIRED_AUTHENTICATED_PROBE` is also a
-HOLD marker; replacing it alone is insufficient. Add a probe that can reach
-the configured listener and authenticate without embedding bearer credentials
-in the Pod spec, then replace the marker with the reviewed strategy identity.
-The generic template intentionally has no HTTP liveness or readiness probes.
+The example digest and TLS name deliberately fail validation. The probes run
+the same `nvtelemetry` binary as the server. They read the bearer token only
+from `auth_token_file` in the mounted config, require the explicitly mounted CA
+file and certificate name, and connect to the configured numeric listener using
+loopback for wildcard binds. They use verified HTTPS, do not follow redirects,
+and have fixed request and dial deadlines. The bearer token never appears in
+the Pod spec or command arguments. Liveness checks `/healthz`; readiness checks
+the existing `/readyz` snapshot-freshness predicate.
 
 ## ConfigMap, UUID selection, and node mapping
 
@@ -68,8 +79,10 @@ target node and admitted allocation:
 ```
 
 The sample UUID is invalid and must not be used. The named Kubernetes Secret
-`nvtelemetry-serving-credentials` must supply `tls.crt`, `tls.key`, and
-`bearer-token`; the manifest mounts it read-only at the referenced path. The
+`nvtelemetry-serving-credentials` must supply `tls.crt`, `tls.key`,
+`bearer-token`, and `ca.crt`; `ca.crt` must contain the trust root that issued
+the serving certificate. The manifest mounts it read-only at the referenced
+path. The configured TLS server name must match a certificate DNS SAN. The
 listener's non-loopback mode requires all three of `allow_remote`, TLS cert/key,
 and bearer authentication. Health, readiness, and metrics routes use the same
 bearer authentication. Do not weaken that policy to make a kubelet probe pass.
@@ -103,13 +116,14 @@ namespaces, or request `CAP_PERFMON`, `CAP_SYS_ADMIN`, `CAP_BPF`, or
 library; BPF and CUPTI modes are unsupported by this template and require
 separate admission and privilege review.
 
-There are no generic probes because the service defaults to loopback and its
-routes require bearer authentication; remote serving additionally requires TLS
-and `allow_remote`. A kubelet HTTP probe to the Pod address would not match the
-default listener, and an unauthenticated probe would be rejected. The probe
-placeholder keeps this template in HOLD until an image-supported, authenticated
-strategy is selected and independently reviewed. Do not copy the bearer token
-into a probe header.
+The exec probes do not change the listener's production authentication. The
+operator must render the DNS SAN name and provide the CA and bearer token in the
+named Secret; the ConfigMap must point `auth_token_file` at that mounted token.
+Keep the explicit nonempty `device_uuids` list and the external node→allocation→
+UUID mapping described above. Rendering these values is not evidence that the
+selected image contains this CLI, the Secret and ConfigMap match, the
+certificate is valid, or the runtime injects usable NVML devices. Do not copy
+the bearer token into a probe argument.
 
 The separate systemd template in this directory still contains
 `CAP_PERFMON`; it was not changed by this Kubernetes-only correction and is not
@@ -120,6 +134,6 @@ qualified here for NVML-only operation.
 Host YAML parsing and structural tests do not qualify RuntimeClass behavior,
 device injection, node selection, UUID mapping, permissions, probes, Kubernetes
 admission/RBAC, NVML/native ABI, physical GPUs, production soak, or deployment.
-Retain each as a separate gate. Until the image, authenticated probe, ConfigMap,
+Retain each as a separate gate. Until the image, probe TLS name, ConfigMap,
 Secret, and node-target mapping are rendered and reviewed, deployment status is
 HOLD.

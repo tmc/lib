@@ -42,6 +42,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runFetchEndpoint(args[1:], stdout, stderr)
 	case "serve":
 		return runServe(args[1:], stdout, stderr)
+	case "probe":
+		return runProbe(args[1:], stdout, stderr)
 	case "record":
 		return runRecord(args[1:], stdout, stderr)
 	case "replay":
@@ -67,6 +69,7 @@ Commands:
   deliver  Deliver an encoded OTLP metrics or logs request with bounded retries
   fetch-endpoint Fetch one explicitly configured provider or managed endpoint
   serve    Serve bounded cached Prometheus/OpenMetrics snapshots
+  probe    Check an authenticated local health or readiness endpoint
   record   Record continuous GPU telemetry to a JSONL stream
   replay   Replay or validate a recorded JSONL telemetry stream
   summary  Compute time-weighted and energy summaries for a phase window

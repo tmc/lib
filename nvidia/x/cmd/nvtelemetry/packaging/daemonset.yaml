@@ -15,9 +15,7 @@ spec:
       labels:
         app.kubernetes.io/name: nvtelemetry
       annotations:
-        # HOLD: replace only after an authenticated, image-supported probe is
-        # supplied and reviewed for the chosen listener and TLS configuration.
-        nvidia.com/nvtelemetry-probe-strategy: REQUIRED_AUTHENTICATED_PROBE
+        nvidia.com/nvtelemetry-probe-strategy: nvtelemetry-authenticated-exec-v1
     spec:
       # This template requires a cluster-registered NVIDIA runtime class that
       # injects the host NVML library and all visible NVIDIA device nodes.
@@ -58,9 +56,30 @@ spec:
             - name: metrics
               containerPort: 9464
               protocol: TCP
-          # Generic HTTP probes are intentionally absent. The application
-          # authenticates health routes and defaults to a loopback listener;
-          # see README.md before supplying an operator-specific probe.
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/nvtelemetry
+                - probe
+                - -kind=liveness
+                - -config=/etc/nvtelemetry/config.json
+                - -ca-file=/run/nvtelemetry/credentials/ca.crt
+                - -server-name=REQUIRED_TLS_SERVER_NAME
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/nvtelemetry
+                - probe
+                - -kind=readiness
+                - -config=/etc/nvtelemetry/config.json
+                - -ca-file=/run/nvtelemetry/credentials/ca.crt
+                - -server-name=REQUIRED_TLS_SERVER_NAME
+            timeoutSeconds: 3
+            periodSeconds: 5
+            failureThreshold: 1
           resources:
             requests:
               cpu: 50m
