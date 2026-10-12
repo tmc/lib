@@ -1,0 +1,13 @@
+{
+  "commit": "369afefb43416f85522231d26700a9561d2b1def",
+  "date_utc": "2026-10-12T04:46:06.590094+00:00",
+  "tool": "Codex via API",
+  "claude_code_version": "not used",
+  "model": "GPT-6 (exact serving variant not exposed)",
+  "tty": "non-interactive tool process",
+  "pid": 91064,
+  "pid_scope": "registration tool process",
+  "ITERM_SESSION_ID": "w2t0p1:092CB8A5-4BDF-4B57-ABCC-476BFBC599CF",
+  "CODEX_THREAD_ID": "01a12e1c-d90b-7ae3-bf56-7aa299cd3801",
+  "helper": "two attempts exhausted at predecessor; authorized signed manual successor"
+}
