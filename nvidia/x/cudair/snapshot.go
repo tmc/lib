@@ -162,6 +162,11 @@ func (g *Graph) Snapshot() (*Snapshot, error) {
 			return nil, err
 		}
 	}
+	for _, n := range nodes {
+		if err := validateNodeLayout(n); err != nil {
+			return nil, err
+		}
+	}
 
 	// 3. Build dependency graph and detect cycles via Kahn's algorithm
 	inDegree := make(map[*Node]int, len(nodes))
@@ -259,9 +264,16 @@ func validateNodeSemantics(n *Node) error {
 	default:
 		return fmt.Errorf("%w: node %s effect %s", ErrUnsupportedEffect, n.Name, n.Effect)
 	}
-	// Extent validation
-	if _, err := cudashape.New(n.Shape...); err != nil {
+	shape, err := cudashape.New(n.Shape...)
+	if err != nil {
 		return fmt.Errorf("node %s shape %v: %w", n.Name, n.Shape, err)
+	}
+	bytes, err := shape.SizeBytes(n.Type.SizeBytes())
+	if err != nil {
+		return fmt.Errorf("node %s size: %w", n.Name, err)
+	}
+	if bytes > uint64(^uint(0)>>1) {
+		return fmt.Errorf("%w: node %s size exceeds int", ErrArenaOverflow, n.Name)
 	}
 
 	switch n.Kind {
@@ -269,9 +281,20 @@ func validateNodeSemantics(n *Node) error {
 		if n.Op != "input" {
 			return fmt.Errorf("%w: unexpected op %q for KindInput", ErrUnknownOperator, n.Op)
 		}
+		if len(n.Inputs) != 0 {
+			return fmt.Errorf("input node %s expects no inputs", n.Name)
+		}
 	case KindConstant:
 		if n.Op != "constant" {
 			return fmt.Errorf("%w: unexpected op %q for KindConstant", ErrUnknownOperator, n.Op)
+		}
+		if len(n.Inputs) != 0 {
+			return fmt.Errorf("constant node %s expects no inputs", n.Name)
+		}
+		elements, _ := shape.NumElementsSafe()
+		// No values denotes a zero-filled tensor, including a scalar.
+		if len(n.ConstValues) != 0 && uint64(len(n.ConstValues)) != elements {
+			return fmt.Errorf("%w: constant %s has %d values, want %d", ErrShapeMismatch, n.Name, len(n.ConstValues), elements)
 		}
 	case KindUnary:
 		switch n.Op {
@@ -287,6 +310,9 @@ func validateNodeSemantics(n *Node) error {
 		}
 		if n.Type != n.Inputs[0].Type {
 			return fmt.Errorf("%w: unary op %s output type %s differs from input type %s", ErrTypeMismatch, n.Op, n.Type, n.Inputs[0].Type)
+		}
+		if !equalShape(n.Shape, n.Inputs[0].Shape) {
+			return fmt.Errorf("%w: unary output shape %v, want %v", ErrShapeMismatch, n.Shape, n.Inputs[0].Shape)
 		}
 	case KindBinary:
 		switch n.Op {
@@ -327,6 +353,9 @@ func validateNodeSemantics(n *Node) error {
 		if a.Type != b.Type || n.Type != a.Type {
 			return fmt.Errorf("%w: matmul input/output types %s, %s, %s", ErrTypeMismatch, a.Type, b.Type, n.Type)
 		}
+		if !equalShape(n.Shape, []int{a.Shape[0], b.Shape[1]}) {
+			return fmt.Errorf("%w: matmul output shape %v, want [%d %d]", ErrShapeMismatch, n.Shape, a.Shape[0], b.Shape[1])
+		}
 	case KindReduce:
 		if n.Op != "sum" && n.Op != "max" && n.Op != "mean" {
 			return fmt.Errorf("%w: unsupported reduction op %q", ErrUnknownOperator, n.Op)
@@ -334,8 +363,8 @@ func validateNodeSemantics(n *Node) error {
 		if len(n.Inputs) != 1 {
 			return fmt.Errorf("reduction expects 1 input, got %d", len(n.Inputs))
 		}
-		if len(n.Axes) == 0 {
-			return fmt.Errorf("%w: reduction missing axis", ErrInvalidAxis)
+		if len(n.Axes) != 1 {
+			return fmt.Errorf("%w: reduction requires exactly one axis", ErrInvalidAxis)
 		}
 		for _, ax := range n.Axes {
 			if ax < 0 || ax >= len(n.Inputs[0].Shape) {
@@ -346,18 +375,37 @@ func validateNodeSemantics(n *Node) error {
 		if n.Type != n.Inputs[0].Type {
 			return fmt.Errorf("%w: reduction output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
 		}
+		want := append([]int(nil), n.Inputs[0].Shape[:n.Axes[0]]...)
+		want = append(want, n.Inputs[0].Shape[n.Axes[0]+1:]...)
+		if len(want) == 0 {
+			want = []int{1}
+		}
+		if !equalShape(n.Shape, want) {
+			return fmt.Errorf("%w: reduction output shape %v, want %v", ErrShapeMismatch, n.Shape, want)
+		}
 	case KindReshape:
+		if n.Op != "reshape" {
+			return fmt.Errorf("%w: unexpected reshape op %q", ErrUnknownOperator, n.Op)
+		}
 		if len(n.Inputs) != 1 {
 			return fmt.Errorf("reshape expects 1 input, got %d", len(n.Inputs))
 		}
-		if n.NumElements() != n.Inputs[0].NumElements() {
-			return fmt.Errorf("%w: reshape element count mismatch (%d vs %d)",
-				ErrShapeMismatch, n.NumElements(), n.Inputs[0].NumElements())
+		inShape, err := cudashape.New(n.Inputs[0].Shape...)
+		if err != nil {
+			return fmt.Errorf("reshape input shape: %w", err)
+		}
+		outElements, _ := shape.NumElementsSafe()
+		inElements, _ := inShape.NumElementsSafe()
+		if outElements != inElements {
+			return fmt.Errorf("%w: reshape element count mismatch (%d vs %d)", ErrShapeMismatch, outElements, inElements)
 		}
 		if n.Type != n.Inputs[0].Type {
 			return fmt.Errorf("%w: reshape output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
 		}
 	case KindTranspose:
+		if n.Op != "transpose" {
+			return fmt.Errorf("%w: unexpected transpose op %q", ErrUnknownOperator, n.Op)
+		}
 		if len(n.Inputs) != 1 {
 			return fmt.Errorf("transpose expects 1 input, got %d", len(n.Inputs))
 		}
@@ -365,29 +413,107 @@ func validateNodeSemantics(n *Node) error {
 		if len(n.Perm) != rank {
 			return fmt.Errorf("%w: transpose perm len %d != rank %d", ErrInvalidAxis, len(n.Perm), rank)
 		}
+		seen := make([]bool, rank)
+		want := make([]int, rank)
+		for i, axis := range n.Perm {
+			if axis < 0 || axis >= rank || seen[axis] {
+				return fmt.Errorf("%w: invalid transpose axis %d", ErrInvalidAxis, axis)
+			}
+			seen[axis] = true
+			want[i] = n.Inputs[0].Shape[axis]
+		}
+		if !equalShape(n.Shape, want) {
+			return fmt.Errorf("%w: transpose output shape %v, want %v", ErrShapeMismatch, n.Shape, want)
+		}
 		if n.Type != n.Inputs[0].Type {
 			return fmt.Errorf("%w: transpose output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
 		}
 	case KindSlice:
+		if n.Op != "slice" {
+			return fmt.Errorf("%w: unexpected slice op %q", ErrUnknownOperator, n.Op)
+		}
 		if len(n.Inputs) != 1 {
 			return fmt.Errorf("slice expects 1 input, got %d", len(n.Inputs))
+		}
+		rank := len(n.Inputs[0].Shape)
+		if len(n.SliceStarts) != rank || len(n.SliceEnds) != rank || len(n.SliceSteps) != rank {
+			return fmt.Errorf("%w: slice parameter ranks differ from input rank %d", ErrInvalidAxis, rank)
+		}
+		want := make([]int, rank)
+		for i, extent := range n.Inputs[0].Shape {
+			start, end, step := n.SliceStarts[i], n.SliceEnds[i], n.SliceSteps[i]
+			if step <= 0 || start < 0 || end < start || end > extent {
+				return fmt.Errorf("%w: invalid slice range [%d, %d] step %d at axis %d", ErrInvalidAxis, start, end, step, i)
+			}
+			// The evaluator uses the rounded-up numerator; check it before admission.
+			distance := end - start
+			if distance > int(^uint(0)>>1)-(step-1) {
+				return fmt.Errorf("%w: slice extent arithmetic", cudashape.ErrShapeOverflow)
+			}
+			want[i] = (distance + (step - 1)) / step
+		}
+		if !equalShape(n.Shape, want) {
+			return fmt.Errorf("%w: slice output shape %v, want %v", ErrShapeMismatch, n.Shape, want)
 		}
 		if n.Type != n.Inputs[0].Type {
 			return fmt.Errorf("%w: slice output type %s differs from input type %s", ErrTypeMismatch, n.Type, n.Inputs[0].Type)
 		}
 	case KindConcat:
+		if n.Op != "concat" {
+			return fmt.Errorf("%w: unexpected concat op %q", ErrUnknownOperator, n.Op)
+		}
 		if len(n.Inputs) == 0 {
 			return fmt.Errorf("concat expects at least 1 input, got 0")
 		}
+		first := n.Inputs[0].Shape
+		if n.Axis < 0 || n.Axis >= len(first) {
+			return fmt.Errorf("%w: concat axis %d for rank %d", ErrInvalidAxis, n.Axis, len(first))
+		}
+		want := append([]int(nil), first...)
+		want[n.Axis] = 0
 		for _, in := range n.Inputs {
 			if n.Type != in.Type {
 				return fmt.Errorf("%w: concat output type %s differs from input %s type %s", ErrTypeMismatch, n.Type, in.Name, in.Type)
 			}
+			if len(in.Shape) != len(first) {
+				return fmt.Errorf("%w: concat input ranks differ", ErrShapeMismatch)
+			}
+			for axis, extent := range in.Shape {
+				if axis != n.Axis && extent != first[axis] {
+					return fmt.Errorf("%w: concat input extents differ at axis %d", ErrShapeMismatch, axis)
+				}
+			}
+			extent := in.Shape[n.Axis]
+			if extent < 0 || extent > int(^uint(0)>>1)-want[n.Axis] {
+				return fmt.Errorf("%w: concat extent arithmetic", cudashape.ErrShapeOverflow)
+			}
+			want[n.Axis] += extent
+		}
+		if !equalShape(n.Shape, want) {
+			return fmt.Errorf("%w: concat output shape %v, want %v", ErrShapeMismatch, n.Shape, want)
 		}
 	default:
 		return fmt.Errorf("%w: unknown node kind %v", ErrUnknownOperator, n.Kind)
 	}
 
+	return nil
+}
+
+func validateNodeLayout(n *Node) error {
+	// Admitted operations consume and produce contiguous row-major tensors.
+	// General strides and column-major coordinate semantics are not implemented.
+	if n.Layout != cudashape.LayoutRowMajor {
+		return fmt.Errorf("node %s: unsupported layout %s (%d); requires row-major", n.Name, n.Layout, n.Layout)
+	}
+	if err := cudashape.ValidateStrides(n.Shape, n.Strides); err != nil {
+		return fmt.Errorf("node %s strides: %w", n.Name, err)
+	}
+	if _, err := cudashape.ByteStrides(n.Type.SizeBytes(), n.Strides); err != nil {
+		return fmt.Errorf("node %s strides: %w", n.Name, err)
+	}
+	if !cudashape.IsContiguousRowMajor(n.Shape, n.Strides) {
+		return fmt.Errorf("%w: node %s requires contiguous row-major strides", cudashape.ErrInvalidStride, n.Name)
+	}
 	return nil
 }
 
