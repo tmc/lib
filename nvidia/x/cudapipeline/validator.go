@@ -116,9 +116,7 @@ func (p *Pipeline) Validate() *Report {
 // ValidatePipeline performs comprehensive static verification of a pipeline,
 // checking transaction counts, phase parity, latency hiding, alignment, and hardware constraints.
 func ValidatePipeline(p *Pipeline) *Report {
-	r := &Report{
-		ActualStages: len(p.Stages),
-	}
+	r := &Report{}
 
 	if p == nil {
 		r.Issues = append(r.Issues, Issue{
@@ -129,6 +127,8 @@ func ValidatePipeline(p *Pipeline) *Report {
 		})
 		return r
 	}
+
+	r.ActualStages = len(p.Stages)
 
 	if len(p.Stages) < 2 {
 		r.Issues = append(r.Issues, Issue{
