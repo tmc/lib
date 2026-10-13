@@ -98,6 +98,20 @@ type alignmentArm struct {
 	Isolation        isolation.Result `json:"isolation"`
 	showMemory       bool
 	detail           string
+
+	// GoTraceUnavailable lists, within a report budget of 64 entries and
+	// 256 KiB of encoded JSON, the language groups recorded as unavailable
+	// while reading this arm. Empty or absent, with no omitted count, means
+	// no unavailable observation was recorded, not that a decoder
+	// succeeded. Neither field enters any capture, alignment or
+	// completeness verdict.
+	GoTraceUnavailable []goTraceUnavailable `json:"go_trace_unavailable,omitempty"`
+	// GoTraceUnavailableOmitted counts unavailable groups left out of
+	// GoTraceUnavailable by its report budget: diagnostic entries omitted
+	// from this report, not lost profile records, completed decoding,
+	// missing evidence or a health verdict. Absent or zero means none
+	// were omitted.
+	GoTraceUnavailableOmitted int `json:"go_trace_unavailable_omitted,omitempty"`
 }
 
 type alignmentReceipt struct {
@@ -256,6 +270,12 @@ func runExportCompare(ctx context.Context, args []string) error {
 	fmt.Printf("wrote %s: %d aligned intervals per arm, all records retained\n", opts.out, receipt.Arms[0].Iterations)
 	for _, arm := range receipt.Arms {
 		fmt.Printf("%s: collector complete; marker invariant %s; selected stationarity %t; full gate %t\n", arm.Label, arm.MarkerVerdict, arm.Stationarity.Pass, arm.FullGate.Pass)
+		for _, u := range arm.GoTraceUnavailable {
+			fmt.Printf("%s: %s\n", arm.Label, u.line())
+		}
+		if arm.GoTraceUnavailableOmitted > 0 {
+			fmt.Printf("%s: %s\n", arm.Label, goTraceOmittedLine(arm.GoTraceUnavailableOmitted))
+		}
 	}
 	return nil
 }
@@ -308,7 +328,12 @@ func loadAlignmentArm(ctx context.Context, opts exportCompareOptions, i int) (al
 	if err := attachLanguageStacks(cap, arm.records); err != nil {
 		return arm, err
 	}
-	arm.records, err = appendLanguageSamples(ctx, cap, arm.records, opts.goTrace)
+	groups, err := readLanguageSamples(ctx, cap, opts.goTrace)
+	if err != nil {
+		return arm, err
+	}
+	arm.GoTraceUnavailable, arm.GoTraceUnavailableOmitted = unavailableLanguageGroups(groups)
+	arm.records, err = appendLanguageGroups(arm.records, groups)
 	if err != nil {
 		return arm, err
 	}

@@ -109,7 +109,14 @@ func runExport(ctx context.Context, args []string) error {
 	if err := attachLanguageStacks(cap, records); err != nil {
 		return err
 	}
-	records, err = appendLanguageSamples(ctx, cap, records, opts.goTrace)
+	groups, err := readLanguageSamples(ctx, cap, opts.goTrace)
+	if err != nil {
+		return err
+	}
+	// Detach the report so the groups' samples are not retained through
+	// decode and encode.
+	unavailable, omitted := unavailableLanguageGroups(groups)
+	records, err = appendLanguageGroups(records, groups)
 	if err != nil {
 		return err
 	}
@@ -210,6 +217,12 @@ func runExport(ctx context.Context, args []string) error {
 	}
 	for _, line := range externalSummaryLines(ext) {
 		fmt.Println(line)
+	}
+	for _, u := range unavailable {
+		fmt.Println(u.line())
+	}
+	if omitted > 0 {
+		fmt.Println(goTraceOmittedLine(omitted))
 	}
 	return nil
 }

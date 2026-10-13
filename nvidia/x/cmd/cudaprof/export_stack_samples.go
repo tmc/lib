@@ -12,7 +12,9 @@ import (
 	"math"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
@@ -237,6 +239,12 @@ func appendLanguageSamples(ctx context.Context, cap *cudacapture.Capture, record
 	if err != nil {
 		return nil, err
 	}
+	return appendLanguageGroups(records, groups)
+}
+
+// appendLanguageGroups appends the samples of groups read by
+// readLanguageSamples to records.
+func appendLanguageGroups(records []traceRecord, groups []languageSamples) ([]traceRecord, error) {
 	clocks := nativeStackClocks(records)
 	var count int
 	for _, group := range groups {
@@ -268,6 +276,120 @@ func appendLanguageSamples(ctx context.Context, cap *cudacapture.Capture, record
 		}
 	}
 	return records, nil
+}
+
+// goTraceUnavailable records one language group left unavailable, detached
+// from the group read. Journal and Receipt are bounded to 256 bytes and
+// Detail to 1024 bytes, each plus a truncation marker; Detail is the
+// recorded text with line breaks and other unprintable characters escaped.
+type goTraceUnavailable struct {
+	Journal       string `json:"journal"`
+	SHA256        string `json:"sha256"`
+	Receipt       string `json:"receipt,omitempty"`
+	ReceiptSHA256 string `json:"receipt_sha256,omitempty"`
+	Detail        string `json:"detail"`
+}
+
+const (
+	maxGoTraceJournalText = 256
+	maxGoTraceDetailText  = 1024
+
+	// An unavailable report lists at most maxGoTraceUnavailableEntries
+	// entries whose encoding (see goTraceUnavailableJSON) is at most
+	// maxGoTraceUnavailableBytes, whichever binds first.
+	maxGoTraceUnavailableEntries = 64
+	maxGoTraceUnavailableBytes   = 256 << 10
+)
+
+// unavailableLanguageGroups returns an entry for each group with recorded
+// unavailable text, in order, until the report budget binds. Only Go
+// groups record such text. omitted counts the unavailable groups left out
+// after that: diagnostic entries omitted from this report, not lost profile
+// records, completed decoding, missing evidence or a health verdict.
+func unavailableLanguageGroups(groups []languageSamples) (entries []goTraceUnavailable, omitted int) {
+	for _, g := range groups {
+		if g.Unavailable == "" {
+			continue
+		}
+		if omitted > 0 || len(entries) >= maxGoTraceUnavailableEntries {
+			omitted++
+			continue
+		}
+		e := goTraceUnavailable{
+			Journal:       boundGoTraceText(g.Journal, maxGoTraceJournalText),
+			SHA256:        g.SHA256,
+			Receipt:       boundGoTraceText(g.Receipt, maxGoTraceJournalText),
+			ReceiptSHA256: g.ReceiptSHA256,
+			Detail:        flattenGoTraceDetail(g.Unavailable, maxGoTraceDetailText),
+		}
+		entries = append(entries, e)
+		if data, err := goTraceUnavailableJSON(entries); err != nil || len(data) > maxGoTraceUnavailableBytes {
+			entries = entries[:len(entries)-1]
+			omitted++
+		}
+	}
+	return entries, omitted
+}
+
+// goTraceUnavailableJSON returns entries encoded as they appear in an
+// alignment receipt, which json.MarshalIndent writes with HTML escaping and
+// a two-space indent, three levels deep in arms[i].go_trace_unavailable.
+func goTraceUnavailableJSON(entries []goTraceUnavailable) ([]byte, error) {
+	return json.MarshalIndent(entries, "      ", "  ")
+}
+
+// goTraceOmittedLine renders the count of omitted unavailable groups as one status
+// line.
+func goTraceOmittedLine(omitted int) string {
+	return fmt.Sprintf("go trace: %d unavailable group(s) omitted from this report", omitted)
+}
+
+// line renders u as one status line.
+func (u goTraceUnavailable) line() string {
+	return "go trace " + strconv.Quote(u.Journal) + ": unavailable: " + u.Detail
+}
+
+// boundGoTraceText returns s, or a prefix of s cut on a rune boundary with
+// a truncation marker if s exceeds limit bytes.
+func boundGoTraceText(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	n := limit
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return fmt.Sprintf("%s...[%d bytes truncated]", s[:n], len(s)-n)
+}
+
+// flattenGoTraceDetail renders s on one line: each newline, as between the
+// errors of errors.Join, becomes "; " and every other unprintable character
+// or invalid byte is escaped. The result is bounded by limit bytes plus a
+// truncation marker.
+func flattenGoTraceDetail(s string, limit int) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		var piece string
+		switch {
+		case r == '\n':
+			piece = "; "
+		case r == utf8.RuneError && size == 1:
+			piece = fmt.Sprintf(`\x%02x`, s[i])
+		case !strconv.IsPrint(r):
+			q := strconv.QuoteRune(r)
+			piece = q[1 : len(q)-1]
+		default:
+			piece = s[i : i+size]
+		}
+		if b.Len()+len(piece) > limit {
+			fmt.Fprintf(&b, "...[%d bytes truncated]", len(s)-i)
+			break
+		}
+		b.WriteString(piece)
+		i += size
+	}
+	return b.String()
 }
 
 func analyzeRetainedGoTrace(ctx context.Context, dec *languagestack.GoTraceDecoder, data []byte, producer languagestack.GoProducer, identity languagestack.Record) (*languagestack.GoTrace, error) {
