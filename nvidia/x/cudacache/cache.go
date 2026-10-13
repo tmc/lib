@@ -93,8 +93,17 @@ func New(cfg Config) (*Cache, error) {
 	if cfg.MaxArtifactBytes < 0 || cfg.MaxRemoteDownloadBytes < 0 || cfg.MaxArtifactBytes == math.MaxInt64 || cfg.MaxRemoteDownloadBytes == math.MaxInt64 {
 		return nil, errors.New("cudacache: invalid byte limit")
 	}
-	if cfg.Remote != nil && (cfg.Trust.RequireSigned || len(cfg.Trust.AllowedOrigins) != 0) {
-		return nil, fmt.Errorf("%w: remote authentication is not implemented", ErrUntrustedSource)
+	trust, err := copyTrust(cfg.Trust)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Remote != nil && trust.authenticated() {
+		if len(trust.Signers) == 0 {
+			return nil, fmt.Errorf("%w: pinned signer keys required", ErrUntrustedSource)
+		}
+		if _, ok := cfg.Remote.(RemoteProofSource); !ok {
+			return nil, fmt.Errorf("%w: proof transport unavailable", ErrUntrustedSource)
+		}
 	}
 	if cfg.RootDir == "" {
 		return nil, errors.New("cudacache: root directory cannot be empty")
@@ -117,7 +126,7 @@ func New(cfg Config) (*Cache, error) {
 		maxArtifactBytes: maxArt,
 		maxRemoteBytes:   maxRemote,
 		remote:           cfg.Remote,
-		trust:            cfg.Trust,
+		trust:            trust,
 		flight:           make(map[string]*flightCall),
 		memArtifacts:     make(map[string]*cudakernel.Artifact),
 		memReceipts:      make(map[string]*SearchReceipt),
@@ -286,6 +295,9 @@ func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artif
 		return nil, fmt.Errorf("%w: downloaded %d bytes, exceeds limit %d", ErrDownloadLimitExceeded, len(remoteData), c.maxRemoteBytes)
 	}
 
+	if err := c.verifyRemote(ctx, RemoteArtifact, key, remoteData); err != nil {
+		return nil, err
+	}
 	art, err := c.validateAndDecodeArtifact(key, remoteData, "")
 	if err != nil {
 		return nil, err
@@ -422,6 +434,9 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 		if err == nil {
 			if int64(len(rData)) > c.maxRemoteBytes || int64(len(rData)) > c.maxArtifactBytes {
 				return nil, ErrDownloadLimitExceeded
+			}
+			if err := c.verifyRemote(ctx, RemoteReceipt, key, rData); err != nil {
+				return nil, err
 			}
 			var receipt SearchReceipt
 			if err := json.Unmarshal(rData, &receipt); err != nil {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync"
 )
 
@@ -237,4 +238,26 @@ func NewTestServer(reg *MemoryRegistry) *httptest.Server {
 	})
 
 	return httptest.NewServer(mux)
+}
+
+// FetchProof retrieves canonical proof bytes from /proofs/{kind}/{key}.
+// The cache bounds and verifies the reader; no content-type or format guessing
+// is performed. HTTPS peer authentication is separate from producer identity.
+func (h *HTTPRemoteSource) FetchProof(ctx context.Context, kind, key string) (io.ReadCloser, error) {
+	if (kind != RemoteArtifact && kind != RemoteReceipt) || validateKey(key) != nil {
+		return nil, ErrUntrustedSource
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/proofs/%s/%s", h.baseURL, kind, url.PathEscape(key)), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK || resp.ContentLength > MaxRemoteProofBytes {
+		resp.Body.Close()
+		return nil, ErrUntrustedSource
+	}
+	return resp.Body, nil
 }

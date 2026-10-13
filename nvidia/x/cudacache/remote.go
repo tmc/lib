@@ -2,6 +2,7 @@ package cudacache
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"io"
 )
@@ -37,13 +38,20 @@ type RemoteSource interface {
 	PublishReceipt(ctx context.Context, key string, data []byte) error
 }
 
-// TrustPolicy defines validation criteria for remote artifacts.
+// TrustPolicy authenticates remote payloads using caller-pinned signer keys.
+// AllowedOrigins names signer-attested producers, not network peers or physical
+// hosts. Local entries remain trusted to the owner of Config.RootDir; a stored
+// receipt does not establish current qualification. New copies the configuration.
 type TrustPolicy struct {
 	AllowedOrigins []string `json:"allowed_origins,omitempty"`
 	RequireSigned  bool     `json:"require_signed"`
+	// Signers maps signer key IDs to pinned Ed25519 public keys. Any configured
+	// signer, origin restriction or RequireSigned requires a verified proof.
+	Signers map[string]ed25519.PublicKey `json:"signers,omitempty"`
 }
 
-// Validate checks whether an origin is permitted by the policy.
+// Validate checks only origin allowlist membership. It does not authenticate
+// the supplied string; Cache verifies its signed proof before calling Validate.
 func (tp TrustPolicy) Validate(origin string) error {
 	if len(tp.AllowedOrigins) == 0 {
 		// If no origins specified, allow all by default.

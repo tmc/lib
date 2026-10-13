@@ -17,19 +17,7 @@ import (
 
 func takeoverDir(t *testing.T) string {
 	t.Helper()
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(home, "tmp"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	dir, err := os.MkdirTemp(filepath.Join(home, "tmp"), "cudacache-takeover-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(dir) })
-	return dir
+	return t.TempDir()
 }
 
 func TestTakeoverKeyConfinement(t *testing.T) {
