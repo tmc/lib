@@ -3,6 +3,7 @@ package cudaautograd
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
@@ -19,11 +20,12 @@ type SGDOptimizer struct {
 }
 
 // NewSGDOptimizer creates a new SGD optimizer with the given learning rate and momentum.
+// The learning rate must be finite and positive; momentum must be finite and in [0, 1).
 func NewSGDOptimizer(learningRate, momentum float32) (*SGDOptimizer, error) {
-	if learningRate <= 0 {
+	if math.IsNaN(float64(learningRate)) || math.IsInf(float64(learningRate), 0) || learningRate <= 0 {
 		return nil, fmt.Errorf("cudaautograd: invalid learning rate: %g", learningRate)
 	}
-	if momentum < 0 || momentum >= 1.0 {
+	if math.IsNaN(float64(momentum)) || math.IsInf(float64(momentum), 0) || momentum < 0 || momentum >= 1.0 {
 		return nil, fmt.Errorf("cudaautograd: invalid momentum (must be in [0, 1)): %g", momentum)
 	}
 	return &SGDOptimizer{
