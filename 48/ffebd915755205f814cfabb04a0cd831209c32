@@ -1,0 +1,8 @@
+Commit: 48ffebd915755205f814cfabb04a0cd831209c32
+Date: 2026-10-12T20:57:12-07:00
+Agent: Claude Code 2.1.284 (Claude Code)
+Model: claude-opus-5-5
+TTY: not a tty PID: 48490 ITERM_SESSION_ID: w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76
+Session: d6401e4c-228d-4c97-8539-dc3db96bf467
+Slice: G1 (78b7fd7b5) cherry-picked -x onto signed G2 6cdcc8898; merged cleanly
+Gate: run.sh g12 on f04f6c771 race rc=0 (165/165 selected PASS) vet rc=0; logs /Users/tmc/tmp/lib-wt-next/20261013-direct-cpu/g12/, selector /Users/tmc/tmp/lib-wt-next/20261013-g12-chain/receipts/g12.sel
