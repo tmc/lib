@@ -1,4 +1,4 @@
-package cudancuimport
+package nsightcompute
 
 import (
 	"bytes"

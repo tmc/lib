@@ -20,8 +20,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
-	"github.com/tmc/lib/nvidia/x/cudancuimport"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
+	"github.com/tmc/lib/nvidia/x/nsightcompute"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 	"rsc.io/script"
 	"rsc.io/script/scripttest"
@@ -35,17 +35,17 @@ func ncuWriteFixture(t *testing.T, name string, b []byte) string {
 	}
 	return p
 }
-func ncuEnvelopeFixture(t *testing.T) cudancuimport.Envelope {
+func ncuEnvelopeFixture(t *testing.T) nsightcompute.Envelope {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("..", "..", "cudancuimport", "testdata", "transpose-details.csv"))
+	b, err := os.ReadFile(filepath.Join("..", "..", "nsightcompute", "testdata", "transpose-details.csv"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return cudancuimport.Envelope{SchemaVersion: 1, ToolVersion: cudancuimport.ToolVersion, Format: cudancuimport.Format, SourcePath: "NVIDIA bundled sharedBankConflicts/transposeNoBankConflicts.ncu-rep", ReportDigest: "544b42110730bd2adf2325eeea44a69be6455767443fe1d7a1572bbd7183bb29", CSVDigest: ncuDigest(b), CSV: string(b)}
+	return nsightcompute.Envelope{SchemaVersion: 1, ToolVersion: nsightcompute.ToolVersion, Format: nsightcompute.Format, SourcePath: "NVIDIA bundled sharedBankConflicts/transposeNoBankConflicts.ncu-rep", ReportDigest: "544b42110730bd2adf2325eeea44a69be6455767443fe1d7a1572bbd7183bb29", CSVDigest: ncuDigest(b), CSV: string(b)}
 }
 func ncuDigest(b []byte) string { return fmtHex(sha256.Sum256(b)) }
 func fmtHex(h [32]byte) string  { return hex.EncodeToString(h[:]) }
-func ncuEnvelopeFile(t *testing.T, e cudancuimport.Envelope) string {
+func ncuEnvelopeFile(t *testing.T, e nsightcompute.Envelope) string {
 	t.Helper()
 	b, err := json.Marshal(e)
 	if err != nil {
@@ -81,7 +81,7 @@ func TestImportNCUCommandKnownOffline(t *testing.T) {
 	}
 }
 
-func ncuJoinCommandFixture(t *testing.T) (cudancuimport.Envelope, string, string) {
+func ncuJoinCommandFixture(t *testing.T) (nsightcompute.Envelope, string, string) {
 	t.Helper()
 	read := func(name string) []byte {
 		t.Helper()
@@ -142,7 +142,7 @@ func ncuJoinCommandFixture(t *testing.T) (cudancuimport.Envelope, string, string
 	}
 	e.CSV = csvOut.String()
 	e.CSVDigest = ncuDigest(csvOut.Bytes())
-	e.Bindings = []cudancuimport.Binding{{Launch: cudancuimport.LaunchKey{ID: "0", Process: "1", Context: "1", Stream: "7"}, Identity: id}}
+	e.Bindings = []nsightcompute.Binding{{Launch: nsightcompute.LaunchKey{ID: "0", Process: "1", Context: "1", Stream: "7"}, Identity: id}}
 	return e, ncuWriteFixture(t, "capture.pprof", packet.Bytes()), ncuWriteFixture(t, "receipt.json", b)
 }
 func TestImportNCUCommandExactJoin(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
-	"github.com/tmc/lib/nvidia/x/cudancuimport"
+	"github.com/tmc/lib/nvidia/x/nsightcompute"
 )
 
 const importNCUUsage = "usage: cudaprof import-ncu [-json] [-limit N] [-max-bytes N] [-capture capture.pprof -join-receipt receipt.json] envelope.json"
@@ -41,7 +41,7 @@ type ncuSummary struct {
 	Unread        int                 `json:"unread"`
 	Rules         int                 `json:"unsupported_rules"`
 	Truncated     bool                `json:"truncated"`
-	Rows          []cudancuimport.Row `json:"rows"`
+	Rows          []nsightcompute.Row `json:"rows"`
 }
 
 func runImportNCUCommand(args []string, stdout io.Writer) error {
@@ -49,7 +49,7 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 	fs.SetOutput(io.Discard)
 	jsonOutput := fs.Bool("json", false, "write a bounded JSON summary")
 	limit := fs.Int("limit", 16, "maximum rows in summary (1..1024)")
-	maxBytes := fs.Int("max-bytes", cudancuimport.MaxBytes, "maximum bytes per input and output")
+	maxBytes := fs.Int("max-bytes", nsightcompute.MaxBytes, "maximum bytes per input and output")
 	capturePath := fs.String("capture", "", "retained capture for an explicit identity join")
 	receiptPath := fs.String("join-receipt", "", "actual artifact/workload/compiler producer receipt")
 	if err := fs.Parse(args); err != nil {
@@ -62,7 +62,7 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 	if fs.NArg() != 1 {
 		return errors.New(importNCUUsage)
 	}
-	if *limit < 1 || *limit > 1024 || *maxBytes <= 0 || *maxBytes > cudancuimport.MaxBytes {
+	if *limit < 1 || *limit > 1024 || *maxBytes <= 0 || *maxBytes > nsightcompute.MaxBytes {
 		return fmt.Errorf("import-ncu: invalid summary or byte budget")
 	}
 	if (*capturePath == "") != (*receiptPath == "") {
@@ -72,11 +72,11 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	envelope, err := cudancuimport.Read(bytes.NewReader(data), *maxBytes)
+	envelope, err := nsightcompute.Read(bytes.NewReader(data), *maxBytes)
 	if err != nil {
 		return err
 	}
-	var candidates []cudancuimport.Candidate
+	var candidates []nsightcompute.Candidate
 	if *capturePath != "" {
 		b, err := readNCUFile(*receiptPath, *maxBytes)
 		if err != nil {
@@ -119,9 +119,9 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("import-ncu: capture: %w", err)
 		}
-		candidates = []cudancuimport.Candidate{{Capture: c, Artifact: &a, Workload: receipt.Workload, CompilerKey: receipt.CompilerKey}}
+		candidates = []nsightcompute.Candidate{{Capture: c, Artifact: &a, Workload: receipt.Workload, CompilerKey: receipt.CompilerKey}}
 	}
-	report, err := cudancuimport.Import(envelope, candidates)
+	report, err := nsightcompute.Import(envelope, candidates)
 	if err != nil {
 		return err
 	}

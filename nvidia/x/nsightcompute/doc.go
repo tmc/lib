@@ -1,4 +1,4 @@
-// Package cudancuimport reads a bounded project envelope around an offline
+// Package nsightcompute reads a bounded project envelope around an offline
 // NVIDIA Nsight Compute details CSV export. It never invokes Nsight Compute.
 //
 // The supported profile is the exact details header exported by version
@@ -12,4 +12,4 @@
 // and a unique compatible capture backed by retained module bytes. It is
 // classified as external:ncu, never as a local CUPTI observation. Joins verify
 // producer records against retained bytes; they are not driver attestations.
-package cudancuimport
+package nsightcompute
