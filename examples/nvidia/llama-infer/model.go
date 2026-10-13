@@ -111,6 +111,21 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		return nil, nil, fmt.Errorf("parse config.json: %w", err)
 	}
 	cfg := raw
+	// tie_word_embeddings defaults to true when absent, as in Hugging Face
+	// configs; the ModelConfig field cannot tell absent from false.
+	var tie struct {
+		Tie  *bool `json:"tie_word_embeddings"`
+		Text *struct {
+			Tie *bool `json:"tie_word_embeddings"`
+		} `json:"text_config"`
+	}
+	if err := json.Unmarshal(cfgBytes, &tie); err != nil {
+		return nil, nil, fmt.Errorf("parse config.json: %w", err)
+	}
+	tied := tie.Tie == nil || *tie.Tie
+	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 && tie.Text != nil && tie.Text.Tie != nil {
+		tied = *tie.Text.Tie
+	}
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 {
 		cfg = *raw.TextConfig
 	}
@@ -134,61 +149,82 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	}
 	defer sw.Close()
 
-	getTensor := func(name string) ([]float32, error) {
+	headDim := cfg.HeadDim()
+	qDim := cfg.NumAttentionHeads * headDim
+	kvDim := cfg.NumKeyValueHeads * headDim
+	hidden, inter, vocab := cfg.HiddenSize, cfg.IntermediateSize, cfg.VocabSize
+
+	// tensor reads the named tensor and checks its element count. A tensor
+	// absent from the checkpoint is an error unless optional is set, in which
+	// case it is reported as nil.
+	tensor := func(name string, n int, optional bool) ([]float32, error) {
+		if _, ok := sw.Info(name); !ok {
+			if optional {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("missing tensor %s", name)
+		}
 		t, err := sw.Tensor(name)
 		if err != nil {
 			return nil, err
 		}
-		return decodeTensorToFloat32(t.Data, string(t.Dtype)), nil
+		v, err := decodeTensorToFloat32(t.Data, string(t.Dtype))
+		if err != nil {
+			return nil, fmt.Errorf("decode %s: %w", name, err)
+		}
+		if len(v) != n {
+			return nil, fmt.Errorf("tensor %s has %d elements, want %d", name, len(v), n)
+		}
+		return v, nil
 	}
 
-	embed, err := getTensor("model.embed_tokens.weight")
+	embed, err := tensor("model.embed_tokens.weight", vocab*hidden, false)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load embed_tokens: %w", err)
+		return nil, nil, err
 	}
-
-	norm, err := getTensor("model.norm.weight")
+	norm, err := tensor("model.norm.weight", hidden, false)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load model.norm: %w", err)
+		return nil, nil, err
 	}
-
-	lmHead, err := getTensor("lm_head.weight")
+	// An absent lm_head is tied to embed_tokens.
+	lmHead, err := tensor("lm_head.weight", vocab*hidden, true)
 	if err != nil {
-		// LM head might be tied to embed_tokens
+		return nil, nil, err
+	}
+	if lmHead == nil {
+		if !tied {
+			return nil, nil, fmt.Errorf("missing tensor lm_head.weight and tie_word_embeddings is false")
+		}
 		lmHead = embed
 	}
 
 	layers := make([]LayerWeights, cfg.NumHiddenLayers)
-	for i := 0; i < cfg.NumHiddenLayers; i++ {
+	for i := range layers {
 		prefix := fmt.Sprintf("model.layers.%d.", i)
-		inNorm, _ := getTensor(prefix + "input_layernorm.weight")
-		postNorm, _ := getTensor(prefix + "post_attention_layernorm.weight")
-		wq, _ := getTensor(prefix + "self_attn.q_proj.weight")
-		wk, _ := getTensor(prefix + "self_attn.k_proj.weight")
-		wv, _ := getTensor(prefix + "self_attn.v_proj.weight")
-		qbias, _ := getTensor(prefix + "self_attn.q_proj.bias")
-		kbias, _ := getTensor(prefix + "self_attn.k_proj.bias")
-		vbias, _ := getTensor(prefix + "self_attn.v_proj.bias")
-		wo, _ := getTensor(prefix + "self_attn.o_proj.weight")
-		wgate, _ := getTensor(prefix + "mlp.gate_proj.weight")
-		wup, _ := getTensor(prefix + "mlp.up_proj.weight")
-		wdown, _ := getTensor(prefix + "mlp.down_proj.weight")
-
-		layers[i] = LayerWeights{
-			InputNorm: inNorm,
-			PostNorm:  postNorm,
-			WQ:        wq,
-			WK:        wk,
-			WV:        wv,
-			QBias:     qbias,
-			KBias:     kbias,
-			VBias:     vbias,
-			WO:        wo,
-			WGate:     wgate,
-			WUp:       wup,
-			WDown:     wdown,
+		l := &layers[i]
+		for _, t := range []struct {
+			dst      *[]float32
+			name     string
+			n        int
+			optional bool
+		}{
+			{&l.InputNorm, "input_layernorm.weight", hidden, false},
+			{&l.PostNorm, "post_attention_layernorm.weight", hidden, false},
+			{&l.WQ, "self_attn.q_proj.weight", qDim * hidden, false},
+			{&l.WK, "self_attn.k_proj.weight", kvDim * hidden, false},
+			{&l.WV, "self_attn.v_proj.weight", kvDim * hidden, false},
+			{&l.QBias, "self_attn.q_proj.bias", qDim, true},
+			{&l.KBias, "self_attn.k_proj.bias", kvDim, true},
+			{&l.VBias, "self_attn.v_proj.bias", kvDim, true},
+			{&l.WO, "self_attn.o_proj.weight", hidden * qDim, false},
+			{&l.WGate, "mlp.gate_proj.weight", inter * hidden, false},
+			{&l.WUp, "mlp.up_proj.weight", inter * hidden, false},
+			{&l.WDown, "mlp.down_proj.weight", hidden * inter, false},
+		} {
+			if *t.dst, err = tensor(prefix+t.name, t.n, t.optional); err != nil {
+				return nil, nil, err
+			}
 		}
-
 	}
 
 	return &ModelWeights{
@@ -417,7 +453,17 @@ func matmulVec(x []float32, w []float32, inDim, outDim int) []float32 {
 	return out
 }
 
-func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
+// decodeTensorToFloat32 widens BF16, F16 or F32 tensor bytes to float32.
+// Other dtypes and byte counts that are not a whole number of elements are
+// errors.
+func decodeTensorToFloat32(raw []byte, dtype string) ([]float32, error) {
+	size := map[string]int{"BF16": 2, "bfloat16": 2, "F16": 2, "float16": 2, "F32": 4, "float32": 4}[dtype]
+	if size == 0 {
+		return nil, fmt.Errorf("unsupported dtype %q", dtype)
+	}
+	if len(raw)%size != 0 {
+		return nil, fmt.Errorf("%d bytes is not a whole number of %s elements", len(raw), dtype)
+	}
 	switch dtype {
 	case "BF16", "bfloat16":
 		n := len(raw) / 2
@@ -426,7 +472,7 @@ func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
 			bits := uint32(raw[i*2]) | uint32(raw[i*2+1])<<8
 			floats[i] = math.Float32frombits(bits << 16)
 		}
-		return floats
+		return floats, nil
 	case "F16", "float16":
 		n := len(raw) / 2
 		floats := make([]float32, n)
@@ -455,16 +501,14 @@ func decodeTensorToFloat32(raw []byte, dtype string) []float32 {
 			}
 			floats[i] = math.Float32frombits(fBits)
 		}
-		return floats
-	case "F32", "float32":
-		fallthrough
-	default:
+		return floats, nil
+	default: // F32
 		n := len(raw) / 4
 		floats := make([]float32, n)
 		for i := 0; i < n; i++ {
 			bits := uint32(raw[i*4]) | uint32(raw[i*4+1])<<8 | uint32(raw[i*4+2])<<16 | uint32(raw[i*4+3])<<24
 			floats[i] = math.Float32frombits(bits)
 		}
-		return floats
+		return floats, nil
 	}
 }

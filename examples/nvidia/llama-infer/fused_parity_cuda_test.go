@@ -24,20 +24,32 @@ type parityDevice struct {
 func newParityDevice(t *testing.T) *parityDevice {
 	dev := cudatest.RequireDevice(t)
 	gm, err := CompileGPUModules(dev)
+	if gm != nil {
+		t.Cleanup(func() {
+			if err := gm.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { gm.Close() })
 	return &parityDevice{t: t, dev: dev, gm: gm}
 }
 
 func (d *parityDevice) upload(host []float32) cudamem.Slice[float32] {
 	d.t.Helper()
+	// A nonzero slice returned with an error is ours; a zero one frees as
+	// a no-op.
 	s, err := cudamem.Alloc[float32](d.dev, len(host))
+	d.t.Cleanup(func() {
+		if err := s.Free(); err != nil {
+			d.t.Error(err)
+		}
+	})
 	if err != nil {
 		d.t.Fatal(err)
 	}
-	d.t.Cleanup(func() { s.Free() })
 	if err := s.CopyFromHost(host); err != nil {
 		d.t.Fatal(err)
 	}
@@ -159,10 +171,14 @@ func TestOddRowCopies(t *testing.T) {
 	table := parityValues(hidden*vocab, 1)
 	dTable, dOut := d.upload(table), d.upload(make([]float32, hidden))
 	dTok, err := cudamem.Alloc[int32](d.dev, 1)
+	t.Cleanup(func() {
+		if err := dTok.Free(); err != nil {
+			t.Error(err)
+		}
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { dTok.Free() })
 	if err := dTok.CopyFromHost([]int32{token}); err != nil {
 		t.Fatal(err)
 	}
@@ -211,11 +227,11 @@ func TestGPUForwardParity(t *testing.T) {
 	}
 	attnCompiled, err := cudaattn.Compile(major, minor)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(releaseErrorOwner(err))
 	}
 	attnMod, err := attnCompiled.Load(d.dev)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(releaseErrorOwner(err))
 	}
 	t.Cleanup(func() { attnMod.Close() })
 	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
@@ -224,11 +240,11 @@ func TestGPUForwardParity(t *testing.T) {
 	}
 	sampleCompiled, err := cudasample.Compile(major, minor)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(releaseErrorOwner(err))
 	}
 	sampleMod, err := sampleCompiled.Load(d.dev)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(releaseErrorOwner(err))
 	}
 	t.Cleanup(func() { sampleMod.Close() })
 	sampleFn, err := sampleMod.Function("ArgmaxLogits")
@@ -260,19 +276,38 @@ func TestGPUForwardParity(t *testing.T) {
 			cfg := tt.cfg
 			w := GenerateDeterministicWeights(&cfg)
 			gw, err := UploadModelToGPU(d.dev, w, &cfg)
+			if gw != nil {
+				t.Cleanup(func() {
+					if err := gw.Free(); err != nil {
+						t.Error(err)
+					}
+				})
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
 			kv, err := cudakv.New(d.dev, cfg.NumHiddenLayers, cfg.NumKeyValueHeads, cfg.HeadDim(), cfg.MaxSeqLen)
+			if kv != nil {
+				t.Cleanup(func() {
+					if err := kv.Close(); err != nil {
+						t.Error(err)
+					}
+				})
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Cleanup(func() { kv.Close() })
 			sp, err := NewGPUScratchpad(d.dev, &cfg)
+			if sp != nil {
+				t.Cleanup(func() {
+					if err := sp.Free(); err != nil {
+						t.Error(err)
+					}
+				})
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Cleanup(sp.Free)
 			hostKV := NewKVCacheState(cfg.NumHiddenLayers, cfg.MaxSeqLen, cfg.NumKeyValueHeads*cfg.HeadDim())
 
 			tok := int32(7)

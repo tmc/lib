@@ -2,9 +2,9 @@
 
 // Gen regenerates forward.sass, the disassembly this example prints.
 //
-// It compiles forward.cu the same way the program does, with NVRTC for a
-// named physical architecture, and disassembles the resulting cubin with
-// nvdisasm. Taking the listing from the compiler rather than writing it by
+// It compiles forward.cu and forward_bf16.cu the same way the program does,
+// with NVRTC for a named physical architecture, and disassembles the resulting
+// cubin with nvdisasm. Taking the listing from the compiler rather than writing it by
 // hand is what makes the printed instructions, addresses and kernel headers
 // the ones the hardware was actually given.
 //
@@ -26,8 +26,10 @@ package main
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -37,6 +39,9 @@ import (
 
 //go:embed forward.cu
 var source string
+
+//go:embed forward_bf16.cu
+var bf16Source string
 
 func main() {
 	log.SetFlags(0)
@@ -51,11 +56,20 @@ func main() {
 }
 
 func run(ctx context.Context, arch, out string) error {
-	mod, err := nvrtcx.Compile(source,
+	mod, err := nvrtcx.Compile(source+"\n"+bf16Source,
 		nvrtcx.WithName("llama_forward.cu"),
 		nvrtcx.WithPhysicalArchTarget(arch),
 	)
 	if err != nil {
+		// When NVRTC cannot destroy the program, the error holds it and
+		// implements io.Closer to retry. gen.go builds alone, so this does
+		// what the program's releaseErrorOwner does.
+		var c io.Closer
+		if errors.As(err, &c) {
+			if cerr := c.Close(); cerr != nil {
+				err = errors.Join(err, fmt.Errorf("release resources held by failed call: %w", cerr))
+			}
+		}
 		return fmt.Errorf("compile for %s: %w", arch, err)
 	}
 	sass, err := cudasass.Disassembler{}.Disassemble(ctx, mod.CUBIN(), cudasass.Options{PrintCode: true})

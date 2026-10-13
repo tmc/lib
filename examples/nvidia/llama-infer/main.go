@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,18 +30,19 @@ import (
 )
 
 var (
-	modelPath      = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
-	promptFlag     = flag.String("prompt", "The capital of France is", "text prompt for model generation")
-	stepsFlag      = flag.Int("steps", 10, "number of autoregressive tokens to generate")
-	tempFlag       = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
-	tracePath      = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
-	profilePath    = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
-	disasmFlag     = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
-	disasmModeFlag = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
-	fuseEGraphFlag = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
-	specDraftFlag  = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
-	benchFlag      = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
-	benchCountFlag = flag.Int("bench-count", 10, "number of benchmark iterations to run")
+	modelPath       = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
+	promptFlag      = flag.String("prompt", "The capital of France is", "text prompt for model generation")
+	stepsFlag       = flag.Int("steps", 10, "number of autoregressive tokens to generate")
+	tempFlag        = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
+	tracePath       = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
+	profilePath     = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
+	disasmFlag      = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
+	disasmModeFlag  = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
+	fuseEGraphFlag  = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
+	specDraftFlag   = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
+	benchFlag       = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
+	benchCountFlag  = flag.Int("bench-count", 10, "number of benchmark iterations to run")
+	weightDTypeFlag = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
 )
 
 func main() {
@@ -98,34 +100,27 @@ func run() error {
 		tokType = "Byte-Level BPE Fallback"
 	}
 
-	// 2. Load or generate Model Weights
-	var weights *ModelWeights
-	var cfg *ModelConfig
-
-	if effectivePath != "" {
-		w, c, err := LoadModel(effectivePath)
-		if err != nil {
-			fmt.Printf("[Model Notice] Failed loading weights from %s (%v). Using initialized model.\n", effectivePath, err)
-		} else {
-			weights = w
-			cfg = c
-			fmt.Printf("[Model Loader] Loaded real weights from %s (layers: %d, hidden: %d)\n",
-				effectivePath, cfg.NumHiddenLayers, cfg.HiddenSize)
-		}
+	dtype, err := parseWeightDType(*weightDTypeFlag)
+	if err != nil {
+		return err
 	}
 
-	if weights == nil {
-		defaultCfg := DefaultModelConfig()
-		cfg = &defaultCfg
-		weights = GenerateDeterministicWeights(cfg)
-		fmt.Printf("[Model Loader] Initialized testing LLaMA model (layers: %d, hidden: %d, heads: %d, kv_heads: %d)\n",
+	// 2. Load or generate Model Weights
+	weights, cfg, err := loadWeights(effectivePath)
+	if err != nil {
+		return err
+	}
+	if effectivePath != "" {
+		fmt.Printf("[Model Loader] Loaded real weights from %s (layers: %d, hidden: %d)\n",
+			effectivePath, cfg.NumHiddenLayers, cfg.HiddenSize)
+	} else {
+		fmt.Printf("[Model Loader] No model path given; initialized testing LLaMA model (layers: %d, hidden: %d, heads: %d, kv_heads: %d)\n",
 			cfg.NumHiddenLayers, cfg.HiddenSize, cfg.NumAttentionHeads, cfg.NumKeyValueHeads)
 	}
 
 	// 3. Tokenize Prompt
 	var promptTokens []int32
 
-	var err error
 	if tracer != nil {
 		_ = tracer.Span(nil, "Tokenize Prompt", "tokenizer", func() {
 			promptTokens, err = tokenizer.Encode(*promptFlag)
@@ -136,8 +131,8 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("tokenize prompt: %w", err)
 	}
-	if len(promptTokens) == 0 {
-		promptTokens = []int32{1}
+	if promptTokens, err = effectivePrompt(promptTokens, cfg.VocabSize); err != nil {
+		return err
 	}
 
 	fmt.Printf("\n=== Tensor LLM Inference Engine ===\n")
@@ -159,6 +154,9 @@ func run() error {
 		})
 	}
 
+	if dtype != weightF32 {
+		return fmt.Errorf("-weight-dtype %s needs a CUDA device (%v); the CPU reference runs float32 only", dtype, err)
+	}
 	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", err)
 	return runCPUInference(weights, cfg, tokenizer, promptTokens, tracer, profSession)
 }
@@ -175,52 +173,90 @@ func runGPUInference(
 ) error {
 	// Compile GPU kernel modules
 	gm, err := CompileGPUModules(dev)
+	if gm != nil {
+		defer func() {
+			if cerr := gm.Close(); cerr != nil {
+				fmt.Fprintf(os.Stderr, "close gpu modules: %v\n", cerr)
+			}
+		}()
+	}
 	if err != nil {
 		return fmt.Errorf("compile gpu modules: %w", err)
 	}
-	defer gm.Close()
 
 	attnModCompiled, err := cudaattn.Compile(major, minor)
 	if err != nil {
-		return fmt.Errorf("compile attn: %w", err)
+		return fmt.Errorf("compile attn: %w", releaseErrorOwner(err))
 	}
 	attnMod, err := attnModCompiled.Load(dev)
 	if err != nil {
-		return err
+		return releaseErrorOwner(err)
 	}
 	defer attnMod.Close()
-	attnFn, _ := attnMod.Function("CausalFlashAttentionDecode")
+	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
+	if err != nil {
+		return fmt.Errorf("lookup kernel CausalFlashAttentionDecode: %w", err)
+	}
 
 	sampleModCompiled, err := cudasample.Compile(major, minor)
 	if err != nil {
-		return fmt.Errorf("compile sampler: %w", err)
+		return fmt.Errorf("compile sampler: %w", releaseErrorOwner(err))
 	}
 	sampleMod, err := sampleModCompiled.Load(dev)
 	if err != nil {
-		return err
+		return releaseErrorOwner(err)
 	}
 	defer sampleMod.Close()
-	sampleFn, _ := sampleMod.Function("ArgmaxLogits")
+	sampleFn, err := sampleMod.Function("ArgmaxLogits")
+	if err != nil {
+		return fmt.Errorf("lookup kernel ArgmaxLogits: %w", err)
+	}
 
 	// Upload weights directly into GPU VRAM
-	gpuWeights, err := UploadModelToGPU(dev, w, cfg)
+	dtype, err := parseWeightDType(*weightDTypeFlag)
+	if err != nil {
+		return err
+	}
+	// uploadModel can return the weights it could not free along with its
+	// error; release them on every path.
+	gpuWeights, err := uploadModel(dev, w, cfg, dtype)
+	if gpuWeights != nil {
+		defer func() {
+			if ferr := gpuWeights.Free(); ferr != nil {
+				fmt.Fprintf(os.Stderr, "free gpu weights: %v\n", ferr)
+			}
+		}()
+	}
 	if err != nil {
 		return fmt.Errorf("upload weights to gpu: %w", err)
 	}
 
 	// Allocate GPU KV Cache & Scratchpad
 	headDim := cfg.HeadDim()
+	// cudakv.New can return a cache to close along with its error.
 	kvCache, err := cudakv.New(dev, cfg.NumHiddenLayers, cfg.NumKeyValueHeads, headDim, cfg.MaxSeqLen)
+	if kvCache != nil {
+		defer func() {
+			if cerr := kvCache.Close(); cerr != nil {
+				fmt.Fprintf(os.Stderr, "close kv cache: %v\n", cerr)
+			}
+		}()
+	}
 	if err != nil {
 		return fmt.Errorf("alloc kv cache: %w", err)
 	}
-	defer kvCache.Close()
 
 	scratch, err := NewGPUScratchpad(dev, cfg)
+	if scratch != nil {
+		defer func() {
+			if ferr := scratch.Free(); ferr != nil {
+				fmt.Fprintf(os.Stderr, "free scratchpad: %v\n", ferr)
+			}
+		}()
+	}
 	if err != nil {
 		return fmt.Errorf("alloc scratchpad: %w", err)
 	}
-	defer scratch.Free()
 
 	forwardCU := findForwardCUPath()
 
@@ -234,10 +270,12 @@ func runGPUInference(
 	}
 
 	if *benchFlag {
-		prefix := "BenchmarkLlama32_1B/backend=cuda/gen_tokens=16/prompt=neural_network/search_graphs=100"
+		prefix := "BenchmarkLlama32_1B/backend=cuda/weights=" + string(dtype) + "/gen_tokens=16/prompt=neural_network/search_graphs=100"
 		// Warmup
 		for pos, tokID := range promptTokens {
-			_, _ = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+			if _, err := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos); err != nil {
+				return fmt.Errorf("warmup step %d: %w", pos, err)
+			}
 		}
 
 		for iter := 0; iter < *benchCountFlag; iter++ {
@@ -246,14 +284,18 @@ func runGPUInference(
 			t0 := time.Now()
 			var currTok int32
 			for pos, tokID := range promptTokens {
-				currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos)
+				if currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos); err != nil {
+					return fmt.Errorf("prefill step %d: %w", pos, err)
+				}
 			}
 			ttftDur := time.Since(t0)
 
 			tDec0 := time.Now()
 			pos := len(promptTokens)
 			for step := 0; step < *stepsFlag; step++ {
-				currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, currTok, pos+step)
+				if currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, currTok, pos+step); err != nil {
+					return fmt.Errorf("decode step %d: %w", pos+step, err)
+				}
 			}
 			decDur := time.Since(tDec0)
 
@@ -317,39 +359,34 @@ func runGPUInference(
 		}
 
 		if drafter != nil && *specDraftFlag > 0 {
-			draftCandidates := drafter.Draft(allContextTokens, *specDraftFlag)
-			if len(draftCandidates) > 0 {
-				targetSeq := make([]int32, 0, len(draftCandidates)+1)
-				for _, dTok := range append([]int32{nextTokID}, draftCandidates...) {
-					tok, fErr := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, dTok, curPos)
-					if fErr != nil {
-						break
-					}
-					targetSeq = append(targetSeq, tok)
-					curPos++
+			// Drafts follow the pending token, which is fed first.
+			drafts := drafter.Draft(append(slices.Clip(allContextTokens), nextTokID), *specDraftFlag)
+			if len(drafts) > 0 {
+				forward := func(tok int32, pos int) (int32, error) {
+					return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 				}
-				res := speculative.VerifyGreedy(targetSeq, draftCandidates)
-				for _, aTok := range res.AcceptedTokens {
-					generatedTokens = append(generatedTokens, aTok)
-					allContextTokens = append(allContextTokens, aTok)
-					chunk, _ := tokenizer.Decode([]int32{aTok})
+				emit, next, pos, err := speculativeStep(forward, nextTokID, drafts, curPos, cfg.MaxSeqLen, *stepsFlag-step)
+				if err != nil {
+					return fmt.Errorf("speculative step at position %d: %w", curPos, err)
+				}
+				for _, tok := range emit {
+					generatedTokens = append(generatedTokens, tok)
+					allContextTokens = append(allContextTokens, tok)
+					drafter.Feed([]int32{tok})
+					chunk, _ := tokenizer.Decode([]int32{tok})
 					fmt.Print(chunk)
 					step++
 				}
-				if res.BonusToken != -1 && step < *stepsFlag {
-					generatedTokens = append(generatedTokens, res.BonusToken)
-					allContextTokens = append(allContextTokens, res.BonusToken)
-					chunk, _ := tokenizer.Decode([]int32{res.BonusToken})
-					fmt.Print(chunk)
-					nextTokID = res.BonusToken
-					step++
-				}
+				nextTokID, curPos = next, pos
 				continue
 			}
 		}
 
 		generatedTokens = append(generatedTokens, nextTokID)
 		allContextTokens = append(allContextTokens, nextTokID)
+		if drafter != nil {
+			drafter.Feed([]int32{nextTokID})
+		}
 		chunk, _ := tokenizer.Decode([]int32{nextTokID})
 		fmt.Print(chunk)
 
@@ -373,9 +410,6 @@ func runGPUInference(
 			return fmt.Errorf("gpu decode step %d: %w", step, err)
 		}
 		nextTokID = tok
-		if drafter != nil {
-			drafter.Feed([]int32{tok})
-		}
 
 		curPos++
 		step++
@@ -541,7 +575,7 @@ func printKernelDisassembly(targetKernel, mode string) error {
 	}
 	mod, err := nvrtcx.Compile(ForwardKernelsCUDA, opts...)
 	if err != nil {
-		return fmt.Errorf("compile for disasm: %w", err)
+		return fmt.Errorf("compile for disasm: %w", releaseErrorOwner(err))
 	}
 
 	ptx := mod.PTX()
@@ -614,6 +648,36 @@ func printSASSDisassembly(targetKernel string) {
 	} else {
 		fmt.Printf("[SASS Notice] %q is not among the kernels in forward.sass; run go run gen.go to regenerate it.\n", targetKernel)
 	}
+}
+
+// effectivePrompt returns the tokens to run: tokens, or token 1 when tokens
+// is empty. Every token it returns, including that default, must be in a
+// vocabulary of vocab tokens.
+func effectivePrompt(tokens []int32, vocab int) ([]int32, error) {
+	if len(tokens) == 0 {
+		tokens = []int32{1}
+	}
+	for i, tok := range tokens {
+		if err := checkToken(tok, vocab); err != nil {
+			return nil, fmt.Errorf("prompt token %d: %w", i, err)
+		}
+	}
+	return tokens, nil
+}
+
+// loadWeights loads the checkpoint in dir. With no dir it returns the
+// deterministic testing model. A checkpoint that fails to load is an error:
+// it never falls back to the testing model.
+func loadWeights(dir string) (*ModelWeights, *ModelConfig, error) {
+	if dir == "" {
+		cfg := DefaultModelConfig()
+		return GenerateDeterministicWeights(&cfg), &cfg, nil
+	}
+	w, cfg, err := LoadModel(dir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load model %s: %w", dir, err)
+	}
+	return w, cfg, nil
 }
 
 func findDefaultModelPath() string {

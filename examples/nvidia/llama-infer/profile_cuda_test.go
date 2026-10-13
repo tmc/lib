@@ -35,15 +35,23 @@ func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
 	src, err := cudamem.Alloc[byte](dev, 1<<20)
+	defer func() {
+		if err := src.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer src.Free()
 	dst, err := cudamem.Alloc[byte](dev, 1<<20)
+	defer func() {
+		if err := dst.Free(); err != nil {
+			t.Error(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dst.Free()
 	timer, err := newStepTimer(dev, nil, nil, "probe")
 	if err != nil {
 		t.Fatal(err)

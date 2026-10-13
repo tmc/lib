@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -13,27 +14,30 @@ import (
 )
 
 // GPULayerWeights holds GPU-resident parameter slices for one transformer layer.
+// Matrices are stored as the model's weight dtype; norms and biases are float32.
 type GPULayerWeights struct {
 	InputNorm cudamem.Slice[float32]
 	PostNorm  cudamem.Slice[float32]
-	WQ        cudamem.Slice[float32]
-	WK        cudamem.Slice[float32]
-	WV        cudamem.Slice[float32]
+	WQ        deviceWeight
+	WK        deviceWeight
+	WV        deviceWeight
 	QBias     cudamem.Slice[float32]
 	KBias     cudamem.Slice[float32]
 	VBias     cudamem.Slice[float32]
-	WO        cudamem.Slice[float32]
-	WGate     cudamem.Slice[float32]
-	WUp       cudamem.Slice[float32]
-	WDown     cudamem.Slice[float32]
+	WO        deviceWeight
+	WGate     deviceWeight
+	WUp       deviceWeight
+	WDown     deviceWeight
 }
 
-// GPUModelWeights holds all model parameters in device GPU memory.
+// GPUModelWeights holds all model parameters in device GPU memory. A tied
+// LMHead borrows EmbedTokens' memory.
 type GPUModelWeights struct {
-	EmbedTokens cudamem.Slice[float32]
+	DType       weightDType
+	EmbedTokens deviceWeight
 	Layers      []GPULayerWeights
 	Norm        cudamem.Slice[float32]
-	LMHead      cudamem.Slice[float32]
+	LMHead      deviceWeight
 }
 
 // GPUScratchpad holds intermediate GPU-resident activation and logit buffers.
@@ -56,136 +60,191 @@ type GPUScratchpad struct {
 }
 
 // NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
-func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (*GPUScratchpad, error) {
+// On error it frees whatever it allocated. If that free fails too, it returns
+// the scratchpad holding the buffers it could not free, with both errors.
+func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (res *GPUScratchpad, err error) {
 	headDim := cfg.HeadDim()
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
 
-	alloc := func(n int) (cudamem.Slice[float32], error) {
-		return cudamem.Alloc[float32](dev, n)
-	}
-
-	x, err := alloc(cfg.HiddenSize)
-	if err != nil {
-		return nil, err
-	}
-	normX, _ := alloc(cfg.HiddenSize)
-	q, _ := alloc(qDim)
-	k, _ := alloc(kvDim)
-	v, _ := alloc(kvDim)
-	attnOut, _ := alloc(qDim)
-	gate, _ := alloc(cfg.IntermediateSize)
-	up, _ := alloc(cfg.IntermediateSize)
-	ffnAct, _ := alloc(cfg.IntermediateSize)
-	ffnOut, _ := alloc(cfg.HiddenSize)
-	logits, _ := alloc(cfg.VocabSize)
-	tokenIn, _ := cudamem.Alloc[int32](dev, 1)
-	tokenOut, _ := cudamem.Alloc[int32](dev, 1)
-
-	return &GPUScratchpad{
-		X:            x,
-		NormX:        normX,
-		Q:            q,
-		K:            k,
-		V:            v,
-		AttnOut:      attnOut,
-		Gate:         gate,
-		Up:           up,
-		FFNAct:       ffnAct,
-		FFNOut:       ffnOut,
-		Logits:       logits,
-		TokenIn:      tokenIn,
-		TokenOut:     tokenOut,
+	sp := &GPUScratchpad{
 		HostTokenIn:  make([]int32, 1),
 		HostTokenOut: make([]int32, 1),
-	}, nil
-}
-
-// Free deallocates all GPU scratchpad memory.
-func (sp *GPUScratchpad) Free() {
-	_ = sp.X.Free()
-	_ = sp.NormX.Free()
-	_ = sp.Q.Free()
-	_ = sp.K.Free()
-	_ = sp.V.Free()
-	_ = sp.AttnOut.Free()
-	_ = sp.Gate.Free()
-	_ = sp.Up.Free()
-	_ = sp.FFNAct.Free()
-	_ = sp.FFNOut.Free()
-	_ = sp.Logits.Free()
-	_ = sp.TokenIn.Free()
-	_ = sp.TokenOut.Free()
-}
-
-// UploadModelToGPU transfers all host model weights directly into GPU VRAM.
-func UploadModelToGPU(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig) (*GPUModelWeights, error) {
-	upload := func(host []float32) (cudamem.Slice[float32], error) {
-		if len(host) == 0 {
-			return cudamem.Slice[float32]{}, nil
-		}
-		s, err := cudamem.Alloc[float32](dev, len(host))
+	}
+	defer func() {
 		if err != nil {
-			return cudamem.Slice[float32]{}, err
+			if ferr := sp.Free(); ferr != nil {
+				err = errors.Join(err, ferr)
+				res = sp
+			}
 		}
-		if err := s.CopyFromHost(host); err != nil {
-			_ = s.Free()
-			return cudamem.Slice[float32]{}, err
-		}
-		return s, nil
-	}
-
-	embed, err := upload(w.EmbedTokens)
-	if err != nil {
-		return nil, fmt.Errorf("upload embed: %w", err)
-	}
-	norm, err := upload(w.Norm)
-	if err != nil {
-		return nil, fmt.Errorf("upload norm: %w", err)
-	}
-	lmHead, err := upload(w.LMHead)
-	if err != nil {
-		return nil, fmt.Errorf("upload lm_head: %w", err)
-	}
-
-	layers := make([]GPULayerWeights, cfg.NumHiddenLayers)
-	for i := 0; i < cfg.NumHiddenLayers; i++ {
-		hw := &w.Layers[i]
-		inNorm, _ := upload(hw.InputNorm)
-		postNorm, _ := upload(hw.PostNorm)
-		wq, _ := upload(hw.WQ)
-		wk, _ := upload(hw.WK)
-		wv, _ := upload(hw.WV)
-		qbias, _ := upload(hw.QBias)
-		kbias, _ := upload(hw.KBias)
-		vbias, _ := upload(hw.VBias)
-		wo, _ := upload(hw.WO)
-		wgate, _ := upload(hw.WGate)
-		wup, _ := upload(hw.WUp)
-		wdown, _ := upload(hw.WDown)
-
-		layers[i] = GPULayerWeights{
-			InputNorm: inNorm,
-			PostNorm:  postNorm,
-			WQ:        wq,
-			WK:        wk,
-			WV:        wv,
-			QBias:     qbias,
-			KBias:     kbias,
-			VBias:     vbias,
-			WO:        wo,
-			WGate:     wgate,
-			WUp:       wup,
-			WDown:     wdown,
+	}()
+	for _, b := range []struct {
+		dst *cudamem.Slice[float32]
+		n   int
+	}{
+		{&sp.X, cfg.HiddenSize},
+		{&sp.NormX, cfg.HiddenSize},
+		{&sp.Q, qDim},
+		{&sp.K, kvDim},
+		{&sp.V, kvDim},
+		{&sp.AttnOut, qDim},
+		{&sp.Gate, cfg.IntermediateSize},
+		{&sp.Up, cfg.IntermediateSize},
+		{&sp.FFNAct, cfg.IntermediateSize},
+		{&sp.FFNOut, cfg.HiddenSize},
+		{&sp.Logits, cfg.VocabSize},
+	} {
+		if *b.dst, err = cudamem.Alloc[float32](dev, b.n); err != nil {
+			return nil, fmt.Errorf("alloc scratch: %w", err)
 		}
 	}
+	if sp.TokenIn, err = cudamem.Alloc[int32](dev, 1); err != nil {
+		return nil, fmt.Errorf("alloc token in: %w", err)
+	}
+	if sp.TokenOut, err = cudamem.Alloc[int32](dev, 1); err != nil {
+		return nil, fmt.Errorf("alloc token out: %w", err)
+	}
+	return sp, nil
+}
 
-	return &GPUModelWeights{
-		EmbedTokens: embed,
-		Layers:      layers,
-		Norm:        norm,
-		LMHead:      lmHead,
-	}, nil
+// freeOwned frees *s and then zeroes it. If the free fails, *s is kept
+// unchanged, so that the caller still owns it and can retry, and the error
+// is returned as is. A zero cudamem.Slice frees as a no-op.
+func freeOwned[S interface{ Free() error }](s *S) error {
+	if err := (*s).Free(); err != nil {
+		return err
+	}
+	var zero S
+	*s = zero
+	return nil
+}
+
+// Free releases all GPU scratchpad memory, each buffer once. A buffer
+// whose free fails is kept, so that Free can be called again; the errors are
+// joined and keep their identity for errors.Is. After a successful Free,
+// calling it again does nothing.
+func (sp *GPUScratchpad) Free() error {
+	return sp.release(freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])
+}
+
+// release frees every scratchpad buffer with the given functions, which
+// must zero a buffer only when its free succeeds, as freeOwned does.
+func (sp *GPUScratchpad) release(f32 func(*cudamem.Slice[float32]) error, i32 func(*cudamem.Slice[int32]) error) error {
+	var errs []error
+	for _, s := range []*cudamem.Slice[float32]{
+		&sp.X, &sp.NormX, &sp.Q, &sp.K, &sp.V, &sp.AttnOut,
+		&sp.Gate, &sp.Up, &sp.FFNAct, &sp.FFNOut, &sp.Logits,
+	} {
+		errs = append(errs, f32(s))
+	}
+	errs = append(errs, i32(&sp.TokenIn), i32(&sp.TokenOut))
+	return errors.Join(errs...)
+}
+
+// matrices returns pointers to every matrix weight in w, in upload order.
+func (w *GPUModelWeights) matrices() []*deviceWeight {
+	m := []*deviceWeight{&w.EmbedTokens, &w.LMHead}
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		m = append(m, &l.WQ, &l.WK, &l.WV, &l.WO, &l.WGate, &l.WUp, &l.WDown)
+	}
+	return m
+}
+
+// vectors returns pointers to every norm and bias in w, in upload order.
+func (w *GPUModelWeights) vectors() []*cudamem.Slice[float32] {
+	v := []*cudamem.Slice[float32]{&w.Norm}
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		v = append(v, &l.InputNorm, &l.PostNorm, &l.QBias, &l.KBias, &l.VBias)
+	}
+	return v
+}
+
+// Free releases all GPU weight memory, each allocation once: a tied LMHead
+// is a borrowed view and never frees the embedding table. A weight whose
+// free fails is kept, so that Free can be called again; the errors are
+// joined and keep their identity for errors.Is. After a successful Free,
+// calling it again does nothing.
+func (w *GPUModelWeights) Free() error {
+	var errs []error
+	for _, m := range w.matrices() {
+		errs = append(errs, m.release())
+	}
+	for _, v := range w.vectors() {
+		errs = append(errs, freeOwned(v))
+	}
+	return errors.Join(errs...)
+}
+
+// UploadModelToGPU transfers all host model weights into GPU memory with
+// float32 matrices.
+func UploadModelToGPU(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig) (*GPUModelWeights, error) {
+	return uploadModel(dev, w, cfg, weightF32)
+}
+
+// tiedHead reports whether w's lm_head is the embedding table itself, as
+// LoadModel makes it when the checkpoint has no lm_head.
+func tiedHead(w *ModelWeights) bool {
+	return len(w.LMHead) > 0 && len(w.LMHead) == len(w.EmbedTokens) && &w.LMHead[0] == &w.EmbedTokens[0]
+}
+
+// uploadModel transfers all host model weights into GPU memory, storing the
+// matrices as dtype. A tied lm_head is uploaded once and borrowed. On error
+// it frees whatever it uploaded. If that free fails too, it returns the
+// weights it could not free, with both errors, so the caller can retry Free.
+func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weightDType) (res *GPUModelWeights, err error) {
+	if len(w.Layers) != cfg.NumHiddenLayers {
+		return nil, fmt.Errorf("model has %d layers, config says %d", len(w.Layers), cfg.NumHiddenLayers)
+	}
+	gw := &GPUModelWeights{DType: dtype, Layers: make([]GPULayerWeights, cfg.NumHiddenLayers)}
+	defer func() {
+		if err != nil {
+			if ferr := gw.Free(); ferr != nil {
+				err = errors.Join(err, ferr)
+				res = gw
+			}
+		}
+	}()
+
+	mats := gw.matrices()
+	msrc := [][]float32{w.EmbedTokens, w.LMHead}
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		msrc = append(msrc, l.WQ, l.WK, l.WV, l.WO, l.WGate, l.WUp, l.WDown)
+	}
+	for i, host := range msrc {
+		if i == 1 && tiedHead(w) {
+			gw.LMHead = gw.EmbedTokens.borrow()
+			continue
+		}
+		if len(host) == 0 {
+			return nil, fmt.Errorf("upload matrix weight %d: empty", i)
+		}
+		if *mats[i], err = uploadWeight(dev, host, dtype); err != nil {
+			return nil, fmt.Errorf("upload matrix weight %d: %w", i, err)
+		}
+	}
+
+	vecs := gw.vectors()
+	vsrc := [][]float32{w.Norm}
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		vsrc = append(vsrc, l.InputNorm, l.PostNorm, l.QBias, l.KBias, l.VBias)
+	}
+	for i, host := range vsrc {
+		if len(host) == 0 {
+			continue // absent optional tensor, such as a bias
+		}
+		if *vecs[i], err = cudamem.Alloc[float32](dev, len(host)); err != nil {
+			return nil, fmt.Errorf("upload vector weight %d: %w", i, err)
+		}
+		if err = vecs[i].CopyFromHost(host); err != nil {
+			return nil, fmt.Errorf("upload vector weight %d: %w", i, err)
+		}
+	}
+	return gw, nil
 }
 
 // fusedKernelsQualified reports whether FusedRMSNormQKV and FusedSwiGLUDown
@@ -241,6 +300,24 @@ func GPUForwardPassStream(
 	return sp.HostTokenOut[0], nil
 }
 
+// checkToken reports a token id outside a vocabulary of vocab tokens. The
+// embedding kernels index the table with it unchecked.
+func checkToken(id int32, vocab int) error {
+	if id < 0 || int64(id) >= int64(vocab) {
+		return fmt.Errorf("token %d outside vocabulary of %d", id, vocab)
+	}
+	return nil
+}
+
+// checkPos reports a position outside a KV cache of maxSeq positions.
+// Attention reads positions [0, pos], so pos must index the cache.
+func checkPos(pos, maxSeq int) error {
+	if pos < 0 || pos >= maxSeq {
+		return fmt.Errorf("position %d outside the kv cache of %d", pos, maxSeq)
+	}
+	return nil
+}
+
 // enqueueGPUForwardPass leaves stream work pending when stream is non-nil.
 // The caller must drain it before reading HostTokenOut or releasing buffers.
 // With a nil stream it performs the synchronous default-stream operation.
@@ -259,6 +336,22 @@ func enqueueGPUForwardPass(
 
 	if *fuseEGraphFlag && !fusedKernelsQualified {
 		return 0, fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
+	}
+	if err := gpuW.checkDTypes(); err != nil {
+		return 0, err
+	}
+	if err := checkToken(tokenID, cfg.VocabSize); err != nil {
+		return 0, err
+	}
+	if err := checkPos(pos, cfg.MaxSeqLen); err != nil {
+		return 0, err
+	}
+	gemv, embed := gm.gemvFn, gm.embedFn
+	if gpuW.DType == weightBF16 {
+		if *fuseEGraphFlag {
+			return 0, fmt.Errorf("-fuse-egraph: fused kernels take float32 weights, not %s", gpuW.DType)
+		}
+		gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn
 	}
 	headDim := cfg.HeadDim()
 	qHeads := cfg.NumAttentionHeads
@@ -301,7 +394,7 @@ func enqueueGPUForwardPass(
 	}
 
 	// 1. Embedding lookup
-	if err := launcher(gm.embedFn).Grid(1, 1, 1).Block(256, 1, 1).
+	if err := launcher(embed).Grid(1, 1, 1).Block(256, 1, 1).
 		Launch(gpuW.EmbedTokens, sp.TokenIn, sp.X, int32(hiddenSize)); err != nil {
 		return 0, err
 	}
@@ -337,15 +430,15 @@ func enqueueGPUForwardPass(
 				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1).
+			if err := launcher(gemv).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
+			if err := launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
+			if err := launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 				return 0, err
 			}
@@ -371,7 +464,7 @@ func enqueueGPUForwardPass(
 		}
 
 		// Step 2f: Output GEMV
-		if err := launcher(gm.gemvFn).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
+		if err := launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
 			Launch(sp.AttnOut, layerW.WO, nullPtr, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
 			return 0, err
 		}
@@ -389,11 +482,11 @@ func enqueueGPUForwardPass(
 		}
 
 		// Step 2i: Gate & Up GEMVs
-		if err := launcher(gm.gemvFn).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
+		if err := launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
 			Launch(sp.NormX, layerW.WGate, nullPtr, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
 			return 0, err
 		}
-		if err := launcher(gm.gemvFn).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
+		if err := launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
 			Launch(sp.NormX, layerW.WUp, nullPtr, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
 			return 0, err
 		}
@@ -413,7 +506,7 @@ func enqueueGPUForwardPass(
 			}
 
 			// Step 2k: Down GEMV
-			if err := launcher(gm.gemvFn).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
+			if err := launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
 				Launch(sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
 				return 0, err
 			}
@@ -433,7 +526,7 @@ func enqueueGPUForwardPass(
 	}
 
 	// 4. LM Head Logits GEMV
-	if err := launcher(gm.gemvFn).Grid(uint32(vocabSize), 1, 1).Block(128, 1, 1).
+	if err := launcher(gemv).Grid(uint32(vocabSize), 1, 1).Block(128, 1, 1).
 		Launch(sp.NormX, gpuW.LMHead, nullPtr, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
 		return 0, err
 	}
