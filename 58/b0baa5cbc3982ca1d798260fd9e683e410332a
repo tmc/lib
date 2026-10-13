@@ -1,0 +1,9 @@
+Commit: 58b0baa5cbc3982ca1d798260fd9e683e410332a
+Date: 2026-10-12T20:58:40-07:00
+Agent: Claude Code 2.1.284 (Claude Code)
+Model: claude-opus-5-5
+TTY: not a tty PID: 48490 ITERM_SESSION_ID: w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76
+Session: d6401e4c-228d-4c97-8539-dc3db96bf467
+Slice: G2 review F1 under G1 lease (pressure.go, pressure_validate_test.go)
+Mutation: malformedSectionDirective call removed -> TestLifeRangeCountDirectivesAgreeWithParse fails (44 refused listings accepted); log /Users/tmc/tmp/lib-wt-next/20261013-g12-chain/probe/mutant1.log; restored sha e8485fc8 match
+Gate: run.sh g12 on f04f6c771 race rc=0 (165/165 selected PASS) vet rc=0; logs /Users/tmc/tmp/lib-wt-next/20261013-direct-cpu/g12/, selector /Users/tmc/tmp/lib-wt-next/20261013-g12-chain/receipts/g12.sel
