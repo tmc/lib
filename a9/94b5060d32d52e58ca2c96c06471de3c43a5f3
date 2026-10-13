@@ -1,0 +1,6 @@
+Commit: a994b5060d32d52e58ca2c96c06471de3c43a5f3
+Date: 2026-10-12T22:16:42-07:00
+Lane: G4 report budget successor (64 entries / 256 KiB encoded) over f683c0e82
+Agent: Claude Code teammate (Agent SDK), model claude-opus-5-5, pid 43195, ITERM_SESSION_ID w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76, tty none
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+Gate: run.sh g4next3 race rc=0 (15 tests, 45 incl. subtests), vet rc=0; mutants in /Users/tmc/tmp/lib-wt-next/20261013-g4-on-next/MUTANTS.md
