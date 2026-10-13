@@ -8,13 +8,17 @@ import (
 )
 
 // ArenaPlan represents the planned memory layout for tensor scratchpads.
+// Offsets contains arena-backed nodes, including their storage aliases.
+// External inputs and aliases backed by external inputs have no offset.
+// Snapshot accessors return detached keys; compare their stable node IDs.
 type ArenaPlan struct {
 	TotalBytes int
 	Offsets    map[*Node]int
 }
 
-// PlanMemory computes an optimal memory arena layout reusing intermediate buffers
-// based on tensor lifetime analysis along the topological sequential schedule.
+// PlanMemory plans a memory arena reusing intermediate buffers after their last
+// consumer completes. Graph outputs remain live through graph completion.
+// It returns an empty plan on error; use Graph.Snapshot for checked planning.
 func PlanMemory(g *Graph) *ArenaPlan {
 	nodes := g.Nodes()
 	if len(nodes) == 0 {
@@ -34,7 +38,7 @@ func PlanMemory(g *Graph) *ArenaPlan {
 
 	plan, err := planMemorySafe(nodes, consumers)
 	if err != nil {
-		// Fallback to non-overlapping baseline on error
+		// Preserve the legacy unchecked API's empty result on planning errors.
 		return &ArenaPlan{
 			TotalBytes: 0,
 			Offsets:    make(map[*Node]int),
@@ -68,7 +72,24 @@ func planMemorySafe(order []*Node, consumers map[*Node][]*Node) (*ArenaPlan, err
 		}
 	}
 
+	// Outputs outlive every graph step. Propagate alias lifetimes before any
+	// block is assigned so an output view keeps its whole storage chain live.
+	if graph := order[0].graph; graph != nil {
+		for _, out := range graph.Outputs() {
+			if _, ok := stepMap[out]; ok {
+				lastUse[out] = len(order)
+			}
+		}
+	}
+	for i := len(order) - 1; i >= 0; i-- {
+		n := order[i]
+		if n.StorageAlias != nil && lastUse[n] > lastUse[n.StorageAlias] {
+			lastUse[n.StorageAlias] = lastUse[n]
+		}
+	}
+
 	offsets := make(map[*Node]int, len(order))
+	external := make(map[*Node]bool)
 	var totalBytes uint64
 
 	type block struct {
@@ -80,24 +101,21 @@ func planMemorySafe(order []*Node, consumers map[*Node][]*Node) (*ArenaPlan, err
 
 	for i, n := range order {
 		if n.Kind == KindInput {
-			continue // External inputs are backed by caller memory
+			external[n] = true
+			continue // External inputs are backed by caller memory.
 		}
 
-		// Check for storage alias reuse (e.g. Reshape or in-place operation)
 		if n.StorageAlias != nil {
-			if aliasOffset, ok := offsets[n.StorageAlias]; ok {
-				offsets[n] = aliasOffset
-				// Extend lifetime of the underlying allocated block
-				for bIdx := range allocated {
-					if allocated[bIdx].offset == aliasOffset {
-						if lastUse[n] > allocated[bIdx].freeStep {
-							allocated[bIdx].freeStep = lastUse[n]
-						}
-						break
-					}
-				}
+			if external[n.StorageAlias] {
+				external[n] = true
 				continue
 			}
+			aliasOffset, ok := offsets[n.StorageAlias]
+			if !ok {
+				return nil, fmt.Errorf("%w: storage alias for node %s has no arena allocation", ErrUnsupportedEffect, n.Name)
+			}
+			offsets[n] = aliasOffset
+			continue
 		}
 
 		size := n.SizeBytes()
@@ -107,12 +125,15 @@ func planMemorySafe(order []*Node, consumers map[*Node][]*Node) (*ArenaPlan, err
 
 		// 256-byte alignment for fast GPU vectorized loads
 		align := 256
+		if size > math.MaxInt-(align-1) {
+			return nil, fmt.Errorf("%w: aligned size for node %s exceeds address limit", ErrArenaOverflow, n.Name)
+		}
 		alignedSize := (size + align - 1) &^ (align - 1)
 
 		// Search for reusable free block
 		found := -1
 		for bIdx, b := range allocated {
-			if b.freeStep <= i && b.size >= alignedSize {
+			if b.freeStep < i && b.size >= alignedSize {
 				found = bIdx
 				break
 			}

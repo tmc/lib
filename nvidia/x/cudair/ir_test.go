@@ -156,10 +156,24 @@ func TestAliasEffects(t *testing.T) {
 	}
 
 	plan := snap.ArenaPlan()
-	// r must share the same offset or not allocate fresh buffer
-	if plan.Offsets[r] != plan.Offsets[r.StorageAlias] {
-		t.Errorf("expected alias offset to match input offset: r=%d, alias=%d",
-			plan.Offsets[r], plan.Offsets[r.StorageAlias])
+	// Snapshot plan keys are detached. External storage, including an alias
+	// of an input, must be absent rather than mistaken for arena offset zero.
+	offsets := make(map[int]int, len(plan.Offsets))
+	for n, offset := range plan.Offsets {
+		offsets[n.ID] = offset
+	}
+	if _, ok := offsets[x.ID]; ok {
+		t.Error("external input has an arena offset")
+	}
+	if _, ok := offsets[r.ID]; ok {
+		t.Error("external input alias has an arena offset")
+	}
+	if _, ok := offsets[y.ID]; !ok {
+		t.Error("allocated output is missing from arena plan")
+	}
+	detached := snap.NodeByID(r.ID)
+	if detached == nil || detached.StorageAlias == nil || detached.StorageAlias.ID != x.ID {
+		t.Error("snapshot did not retain the external storage alias")
 	}
 
 	// Mutant control: reordered stateful/mutating operation
