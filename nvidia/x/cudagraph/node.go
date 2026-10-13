@@ -103,6 +103,9 @@ func (g *Graph) AddKernelNode(params *driver.KernelNodeParams, dependencies ...*
 	err := g.withContext(func() error {
 		kernel, err := g.raw.AddKernelNode(depPtr, uint(len(dependencies)), params)
 		rawNode = kernel.GraphNode
+		if err == nil {
+			g.recordKernelNode(rawNode, *params, nil)
+		}
 		return err
 	})
 	if err != nil {

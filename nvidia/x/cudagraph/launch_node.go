@@ -2,11 +2,13 @@ package cudagraph
 
 import (
 	"fmt"
+	"reflect"
 	"runtime"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudalayout"
 )
 
 // launchArgs owns the storage a kernel node's parameters point into.
@@ -18,8 +20,10 @@ import (
 // set to the resulting Exec, so the storage outlives both the caller's locals
 // and the graph itself.
 type launchArgs struct {
-	params []unsafe.Pointer
-	desc   cudalaunch.Description
+	params  []unsafe.Pointer
+	desc    cudalaunch.Description
+	sizes   []uintptr
+	buffers [][]byte
 }
 
 // AddLauncher adds a kernel node running what l is configured to launch. It is
@@ -71,7 +75,7 @@ func (g *Graph) AddLaunch(desc cudalaunch.Description, args []any, dependencies 
 	if err != nil {
 		return nil, fmt.Errorf("cudagraph: pack args: %w", err)
 	}
-	owner := &launchArgs{params: params, desc: desc}
+	owner := &launchArgs{params: params, desc: desc, sizes: argumentSizes(args, len(params))}
 
 	node := driver.KernelNodeParams{
 		Func:           desc.Function,
@@ -94,6 +98,7 @@ func (g *Graph) AddLaunch(desc cudalaunch.Description, args []any, dependencies 
 		return nil, err
 	}
 	added.retained = owner
+	g.recordKernelNode(added.raw, node, owner)
 	return added, nil
 }
 
@@ -116,6 +121,11 @@ func (g *Graph) retain(a *launchArgs) {
 func (g *Graph) release(a *launchArgs) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	for _, state := range g.kernelNodes {
+		if state.args == a {
+			return
+		}
+	}
 	for i, held := range g.retained {
 		if held == a {
 			g.retained = append(g.retained[:i], g.retained[i+1:]...)
@@ -133,5 +143,78 @@ func (g *Graph) launchStorage() []*launchArgs {
 	}
 	out := make([]*launchArgs, len(g.retained))
 	copy(out, g.retained)
+	return out
+}
+
+// argumentSizes describes PackArgs storage without guessing expanded or raw
+// layouts. Native parameter offsets and sizes are checked before byte updates.
+func argumentSizes(args []any, count int) []uintptr {
+	if len(args) != count || count > 128 {
+		return nil
+	}
+	sizes := make([]uintptr, count)
+	var total uintptr
+	for i, arg := range args {
+		switch arg.(type) {
+		case cudalayout.Partition, cudalayout.PartitionMut:
+			return nil
+		}
+		if _, ok := arg.(cudalaunch.DevicePtrProvider); ok {
+			sizes[i] = 8
+		} else {
+			t := reflect.TypeOf(arg)
+			if t == nil {
+				return nil
+			}
+			if t.Kind() == reflect.Pointer {
+				t = t.Elem()
+			}
+			switch t.Kind() {
+			case reflect.Int, reflect.Uint:
+				sizes[i] = 8
+			case reflect.Bool:
+				sizes[i] = 1
+			default:
+				sizes[i] = t.Size()
+			}
+		}
+		if sizes[i] == 0 || sizes[i] > 65536-total {
+			return nil
+		}
+		total += sizes[i]
+	}
+	return sizes
+}
+
+// kernelNodeState is an executable snapshot, not the mutable original hNode.
+type kernelNodeState struct {
+	params driver.KernelNodeParams
+	args   *launchArgs
+}
+
+func (g *Graph) recordKernelNode(node driver.GraphNode, params driver.KernelNodeParams, args *launchArgs) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.kernelNodes == nil {
+		g.kernelNodes = make(map[driver.GraphNode]kernelNodeState)
+	}
+	if args == nil && params.KernelParams != 0 && params.Extra == 0 {
+		for _, held := range g.retained {
+			if len(held.params) != 0 && uintptr(unsafe.Pointer(&held.params[0])) == params.KernelParams {
+				args = held
+				break
+			}
+		}
+	}
+	g.kernelNodes[node] = kernelNodeState{params, args}
+}
+
+func (g *Graph) kernelStorage() map[driver.GraphNode]kernelNodeState {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	out := make(map[driver.GraphNode]kernelNodeState, len(g.kernelNodes))
+	for node, state := range g.kernelNodes {
+		out[node] = state
+	}
 	return out
 }

@@ -16,11 +16,12 @@ type Graph struct {
 	raw    driver.Graph
 	device *cuda.Device
 
-	// mu guards retained, which owns the kernel argument storage and module
+	// mu guards retained and kernelNodes, which own the kernel argument storage and module
 	// references that graph nodes reach only through an untraced uintptr.
 	// See AddLaunch.
-	mu       sync.Mutex
-	retained []*launchArgs
+	mu          sync.Mutex
+	retained    []*launchArgs
+	kernelNodes map[driver.GraphNode]kernelNodeState
 }
 
 // New creates an empty CUDA graph.
@@ -179,7 +180,7 @@ func (g *Graph) instantiate(order []string, run func(func() error) error, create
 	})
 	var exec *Exec
 	if rawExec != 0 {
-		exec = &Exec{raw: rawExec, device: g.device, kernelOrder: order, retained: g.launchStorage()}
+		exec = &Exec{raw: rawExec, device: g.device, kernelOrder: order, retained: g.launchStorage(), kernelNodes: g.kernelStorage(), kernelOrigins: kernelOrigins(g.kernelStorage())}
 	}
 	if err != nil {
 		return exec, fmt.Errorf("cudagraph: instantiate graph: %w", err)
@@ -234,7 +235,9 @@ type Exec struct {
 	// operation that makes an Exec execute nodes from another graph, such as a
 	// wrapper for cuGraphAddChildGraphNode or cuGraphClone, takes on the same
 	// obligation. Neither is wrapped here today.
-	retained []*launchArgs
+	retained      []*launchArgs
+	kernelNodes   map[driver.GraphNode]kernelNodeState
+	kernelOrigins map[driver.GraphNode]struct{}
 }
 
 // Launch enqueues execution of the instantiated graph on stream.
@@ -265,10 +268,18 @@ func (e *Exec) Launch(s *cuda.Stream) error {
 //
 // A successful update transfers argument ownership: the Exec then holds g's
 // argument storage and modules and releases the previous graph's, so g may be
-// destroyed while this Exec remains valid. A failed update changes nothing,
-// including ownership. As CUDA requires, the Exec must not be updated while a
-// launch of it is still in flight; the storage it released may be reused.
+// destroyed while this Exec remains valid. A driver-rejected update changes nothing,
+// including ownership. A context restoration error after native success still
+// commits ownership. Per-node convenience updates are invalidated because this
+// wrapper cannot establish CUDA's topological matching; SetKernelNodeParams
+// still accepts complete parameters for a node of the original graph.
+// Callers must ensure no launch is in flight before updating: this wrapper
+// releases previous argument and module owners after a successful update.
 func (e *Exec) Update(g *Graph) error {
+	return e.updateGraph(g, e.withContext, func(result *driver.GraphExecUpdateResultInfo) error { return e.raw.Update(g.raw, result) })
+}
+
+func (e *Exec) updateGraph(g *Graph, run func(func() error) error, update func(*driver.GraphExecUpdateResultInfo) error) error {
 	if e == nil || e.raw == 0 {
 		return errors.New("cudagraph: executable graph is closed")
 	}
@@ -278,12 +289,17 @@ func (e *Exec) Update(g *Graph) error {
 	if g.raw == 0 {
 		return errors.New("cudagraph: graph is closed")
 	}
-	e.kernelOrder = nil
 	var result driver.GraphExecUpdateResultInfo
-	if err := e.withContext(func() error { return e.raw.Update(g.raw, &result) }); err != nil {
+	if err := run(func() error {
+		if err := update(&result); err != nil {
+			return err
+		}
+		e.adoptStorage(g)
+		e.kernelOrder = nil
+		return nil
+	}); err != nil {
 		return fmt.Errorf("cudagraph: update graph (result=%v%s): %w", result.Result, updateErrorNodes(result), err)
 	}
-	e.adoptStorage(g)
 	return nil
 }
 
@@ -294,6 +310,14 @@ func (e *Exec) Update(g *Graph) error {
 // the Exec execute g's nodes has succeeded.
 func (e *Exec) adoptStorage(g *Graph) {
 	e.retained = g.launchStorage()
+	// Exec setters continue to identify nodes from the original instantiated
+	// graph. Topological matching performed by CUDA supplies no wrapper mapping
+	// from replacement handles to those identities, so partial helpers must
+	// refuse until a caller supplies complete parameters for an original node.
+	if e.kernelOrigins == nil {
+		e.kernelOrigins = kernelOrigins(e.kernelNodes)
+	}
+	e.kernelNodes = nil
 }
 
 // updateErrorNodes formats the nodes a failed update blamed, for appending to
@@ -332,6 +356,9 @@ func (e *Exec) destroy(run func(func() error) error, destroy func() error) error
 		}
 		e.raw = 0
 		e.kernelOrder = nil
+		e.retained = nil
+		e.kernelNodes = nil
+		e.kernelOrigins = nil
 		return nil
 	}); err != nil {
 		return fmt.Errorf("cudagraph: destroy exec graph: %w", err)
@@ -527,4 +554,15 @@ func (bm *BucketManager) Close() error {
 	close(bm.close)
 	bm.mu.Unlock()
 	return err
+}
+
+func kernelOrigins(nodes map[driver.GraphNode]kernelNodeState) map[driver.GraphNode]struct{} {
+	if len(nodes) == 0 {
+		return nil
+	}
+	out := make(map[driver.GraphNode]struct{}, len(nodes))
+	for node := range nodes {
+		out[node] = struct{}{}
+	}
+	return out
 }
