@@ -1,0 +1,8 @@
+Commit: 856d87e9ba966397af9f8dc14b4a7693984ff6fe
+Date: 2026-10-12T21:37:29-07:00
+Lane: G4 (unavailable Go trace reporting on composed D1 b8f2958fe)
+Agent: Claude Code teammate (Agent SDK), model claude-opus-5-5
+tty: not a tty
+none pid: 31840 ITERM_SESSION_ID: w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+Gate: run.sh g4d1 race rc=0 (12 tests, 39 incl. subtests), vet rc=0; mutants in /Users/tmc/tmp/lib-wt-next/20261013-g4-on-d1/MUTANTS.md
