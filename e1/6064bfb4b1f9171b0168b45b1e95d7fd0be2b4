@@ -1,0 +1,1 @@
+commit e16064bfb4b1f9171b0168b45b1e95d7fd0be2b4 date 2026-10-13T04:32:32Z agent=claude-code model=claude-opus-5-5 tty=not a tty pid=12606 iterm=w1t0p10:B61EB754-39B0-4CD0-927E-85D713CE374E session=92ccdea6-7e63-44cd-860c-503002fbbee6 driver-free TestParityControlsDiscriminate PASS; salt-1 mutant FAIL; package vet + test -c compile-only via private go.work (composed closure)
