@@ -1,1 +1,3 @@
 commit 61dfa02b835465600031840ce617c31e9eeb7bff date 2026-10-13T05:25:46Z agent=claude-code model=claude-opus-5-5 pid=64636 iterm=w1t0p10:B61EB754-39B0-4CD0-927E-85D713CE374E session=92ccdea6-7e63-44cd-860c-503002fbbee6 LLAMA-SPEC-STATE-GRANT; CPU: gofmt, vet, race, 35 tests PASS via private go.work (composed); source mutants detected; device SKIP, not verified
+
+ERRATUM 2026-10-13T05:30:24Z: 'The KV cache keeps no length' is literally false: cudakv.Cache has a pos field with Pos/Advance/Reset (kv.go:26). The conclusion holds: llama-infer only calls Reset and the forward pass never reads it; attention reads t <= cur_pos (cudaattn/attn.go:103) after StoreKV on the same stream (REVIEW-SPEC-STATE).
