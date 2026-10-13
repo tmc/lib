@@ -31,6 +31,9 @@ var (
 	// ErrMissingBinding is returned when a required input or output binding is absent.
 	ErrMissingBinding = errors.New("cudaplan: missing required buffer binding")
 
+	// ErrUnexpectedBinding indicates a binding whose name is not required for its input or output role.
+	ErrUnexpectedBinding = errors.New("cudaplan: unexpected buffer binding")
+
 	// ErrWorkspaceBudgetExceeded is returned when required scratchpad memory exceeds configured peak budget.
 	ErrWorkspaceBudgetExceeded = errors.New("cudaplan: workspace budget exceeded")
 
@@ -236,9 +239,26 @@ func (b *Bindings) borrow() ([]func(), error) {
 
 // Validate verifies all input and output bindings against the plan's requirements,
 // checking device affinity, size bounds, alignment, and lack of overlapping memory ranges.
+// Bindings must name only required inputs and outputs, and those roles must be disjoint.
+// Distinct inputs may share storage; outputs must not overlap inputs or other outputs.
 func (b *Bindings) Validate(planDev *cuda.Device, requiredInputs, requiredOutputs map[string]int) error {
 	if b == nil {
 		return errors.New("cudaplan: nil bindings")
+	}
+	for name := range requiredInputs {
+		if _, ok := requiredOutputs[name]; ok {
+			return fmt.Errorf("cudaplan: input and output requirements share name %q", name)
+		}
+	}
+	for name := range b.inputs {
+		if _, ok := requiredInputs[name]; !ok {
+			return fmt.Errorf("%w: input %q", ErrUnexpectedBinding, name)
+		}
+	}
+	for name := range b.outputs {
+		if _, ok := requiredOutputs[name]; !ok {
+			return fmt.Errorf("%w: output %q", ErrUnexpectedBinding, name)
+		}
 	}
 	// Check inputs
 	for name, reqBytes := range requiredInputs {
