@@ -1,4 +1,4 @@
-package cudasrv_test
+package cudaserver_test
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tmc/lib/nvidia/x/cudasrv"
+	"github.com/tmc/lib/nvidia/x/cudaserver"
 )
 
-type engineFunc func(context.Context, cudasrv.ChatCompletionRequest, chan<- string) error
+type engineFunc func(context.Context, cudaserver.ChatCompletionRequest, chan<- string) error
 
-func (f engineFunc) Generate(ctx context.Context, req cudasrv.ChatCompletionRequest, tokens chan<- string) error {
+func (f engineFunc) Generate(ctx context.Context, req cudaserver.ChatCompletionRequest, tokens chan<- string) error {
 	return f(ctx, req, tokens)
 }
 
@@ -31,9 +31,9 @@ func TestRequestLimits(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			calls := 0
-			engine := engineFunc(func(context.Context, cudasrv.ChatCompletionRequest, chan<- string) error { calls++; return nil })
+			engine := engineFunc(func(context.Context, cudaserver.ChatCompletionRequest, chan<- string) error { calls++; return nil })
 			w := httptest.NewRecorder()
-			cudasrv.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(tt.body)))
+			cudaserver.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(tt.body)))
 			if w.Code != tt.want {
 				t.Fatalf("status=%d want=%d: %s", w.Code, tt.want, w.Body.String())
 			}
@@ -46,18 +46,18 @@ func TestRequestLimits(t *testing.T) {
 
 func TestNilEngineRefused(t *testing.T) {
 	w := httptest.NewRecorder()
-	cudasrv.New(nil, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{}`)))
+	cudaserver.New(nil, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{}`)))
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status=%d", w.Code)
 	}
 }
 
 func TestStreamGenerationFailure(t *testing.T) {
-	engine := engineFunc(func(context.Context, cudasrv.ChatCompletionRequest, chan<- string) error {
+	engine := engineFunc(func(context.Context, cudaserver.ChatCompletionRequest, chan<- string) error {
 		return errors.New("private upstream credentials")
 	})
 	w := httptest.NewRecorder()
-	cudasrv.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"stream":true}`)))
+	cudaserver.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"stream":true}`)))
 	body := w.Body.String()
 	if !strings.Contains(body, "event: error") || strings.Contains(body, "[DONE]") || strings.Contains(body, "private") || strings.Contains(body, `"finish_reason":"stop"`) {
 		t.Fatalf("false successful or leaking stream: %s", body)
@@ -73,7 +73,7 @@ func (*failedWriter) Flush()                    {}
 
 func TestStreamWriteFailureCancelsEngine(t *testing.T) {
 	stopped := make(chan struct{})
-	engine := engineFunc(func(ctx context.Context, _ cudasrv.ChatCompletionRequest, tokens chan<- string) error {
+	engine := engineFunc(func(ctx context.Context, _ cudaserver.ChatCompletionRequest, tokens chan<- string) error {
 		defer close(stopped)
 		select {
 		case tokens <- "first":
@@ -84,7 +84,7 @@ func TestStreamWriteFailureCancelsEngine(t *testing.T) {
 		return ctx.Err()
 	})
 	w := &failedWriter{header: make(http.Header)}
-	cudasrv.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"stream":true}`)))
+	cudaserver.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"stream":true}`)))
 	select {
 	case <-stopped:
 	case <-time.After(time.Second):
@@ -99,7 +99,7 @@ func (*failedFlusher) FlushError() error           { return errors.New("flush di
 
 func TestStreamFlushFailureCancelsEngine(t *testing.T) {
 	stopped := make(chan struct{})
-	engine := engineFunc(func(ctx context.Context, _ cudasrv.ChatCompletionRequest, tokens chan<- string) error {
+	engine := engineFunc(func(ctx context.Context, _ cudaserver.ChatCompletionRequest, tokens chan<- string) error {
 		defer close(stopped)
 		select {
 		case tokens <- "first":
@@ -110,7 +110,7 @@ func TestStreamFlushFailureCancelsEngine(t *testing.T) {
 		return ctx.Err()
 	})
 	w := &failedFlusher{failedWriter{header: make(http.Header)}}
-	cudasrv.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"stream":true}`)))
+	cudaserver.New(engine, "test").Handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"stream":true}`)))
 	select {
 	case <-stopped:
 	case <-time.After(time.Second):

@@ -1,4 +1,4 @@
-package cudasrv_test
+package cudaserver_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudabatch"
 	"github.com/tmc/lib/nvidia/x/cudakv"
-	"github.com/tmc/lib/nvidia/x/cudasrv"
+	"github.com/tmc/lib/nvidia/x/cudaserver"
 )
 
 type simpleWordTokenizer struct{}
@@ -54,9 +54,9 @@ func TestBatchEngineAdapterIntegration(t *testing.T) {
 	engine := cudabatch.NewHostDeterministicEngine(0, []int32{101, 102})
 	tok := &simpleWordTokenizer{}
 
-	adapter := cudasrv.NewBatchEngineAdapter(sched, engine, tok)
+	adapter := cudaserver.NewBatchEngineAdapter(sched, engine, tok)
 
-	server := cudasrv.New(adapter, "test-model")
+	server := cudaserver.New(adapter, "test-model")
 
 	// Drive the adapter step loop in background
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,7 +84,7 @@ func TestBatchEngineAdapterIntegration(t *testing.T) {
 		t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp cudasrv.ChatCompletionResponse
+	var resp cudaserver.ChatCompletionResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal response: %v", err)
 	}
@@ -109,8 +109,8 @@ func TestProtocolContinuationTracking(t *testing.T) {
 	engine := cudabatch.NewHostDeterministicEngine(0, []int32{201, 202})
 	tok := &simpleWordTokenizer{}
 
-	adapter := cudasrv.NewBatchEngineAdapter(sched, engine, tok)
-	server := cudasrv.New(adapter, "test-model")
+	adapter := cudaserver.NewBatchEngineAdapter(sched, engine, tok)
+	server := cudaserver.New(adapter, "test-model")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

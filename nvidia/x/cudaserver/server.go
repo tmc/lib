@@ -1,4 +1,4 @@
-package cudasrv
+package cudaserver
 
 import (
 	"context"

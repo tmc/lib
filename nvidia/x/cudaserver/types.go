@@ -1,4 +1,4 @@
-package cudasrv
+package cudaserver
 
 // ChatMessage represents a single turn in a chat conversation.
 type ChatMessage struct {

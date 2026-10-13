@@ -1,4 +1,4 @@
-package cudasrv_test
+package cudaserver_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudabatch"
 	"github.com/tmc/lib/nvidia/x/cudakv"
-	"github.com/tmc/lib/nvidia/x/cudasrv"
+	"github.com/tmc/lib/nvidia/x/cudaserver"
 )
 
 type emptyTokenizer struct{}
@@ -19,8 +19,8 @@ func (emptyTokenizer) Encode(string) ([]int32, error) { return nil, nil }
 func (emptyTokenizer) Decode([]int32) (string, error) { return "", nil }
 
 func TestAdapterEmptyTokenizationRefused(t *testing.T) {
-	adapter := cudasrv.NewBatchEngineAdapter(cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{}, nil), cudabatch.NewHostDeterministicEngine(0, nil), emptyTokenizer{})
-	_, err := adapter.GenerateWithUsage(context.Background(), cudasrv.ChatCompletionRequest{}, make(chan string))
+	adapter := cudaserver.NewBatchEngineAdapter(cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{}, nil), cudabatch.NewHostDeterministicEngine(0, nil), emptyTokenizer{})
+	_, err := adapter.GenerateWithUsage(context.Background(), cudaserver.ChatCompletionRequest{}, make(chan string))
 	if err == nil || !strings.Contains(err.Error(), "empty prompt") {
 		t.Fatalf("empty tokenization error=%v", err)
 	}
@@ -28,18 +28,18 @@ func TestAdapterEmptyTokenizationRefused(t *testing.T) {
 
 func TestAdapterTokenizerUsage(t *testing.T) {
 	scheduler := cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{MaxBatchSize: 4, MaxBudgetTokens: 64, ChunkSize: 16}, cudabatch.NewMemoryBudgetTracker(cudakv.NewBlockAllocator(16, 20)))
-	adapter := cudasrv.NewBatchEngineAdapter(scheduler, cudabatch.NewHostDeterministicEngine(0, []int32{101, 102}), &simpleWordTokenizer{})
+	adapter := cudaserver.NewBatchEngineAdapter(scheduler, cudabatch.NewHostDeterministicEngine(0, []int32{101, 102}), &simpleWordTokenizer{})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	tokens := make(chan string, 16)
 	done := make(chan struct {
-		usage cudasrv.UsageStats
+		usage cudaserver.UsageStats
 		err   error
 	}, 1)
 	go func() {
-		usage, err := adapter.GenerateWithUsage(ctx, cudasrv.ChatCompletionRequest{Messages: []cudasrv.ChatMessage{{Role: "user", Content: "hello world"}}, MaxTokens: 2}, tokens)
+		usage, err := adapter.GenerateWithUsage(ctx, cudaserver.ChatCompletionRequest{Messages: []cudaserver.ChatMessage{{Role: "user", Content: "hello world"}}, MaxTokens: 2}, tokens)
 		done <- struct {
-			usage cudasrv.UsageStats
+			usage cudaserver.UsageStats
 			err   error
 		}{usage, err}
 	}()
@@ -49,7 +49,7 @@ func TestAdapterTokenizerUsage(t *testing.T) {
 			if result.err != nil {
 				t.Fatal(result.err)
 			}
-			want := cudasrv.UsageStats{PromptTokens: 4, CompletionTokens: 2, TotalTokens: 6}
+			want := cudaserver.UsageStats{PromptTokens: 4, CompletionTokens: 2, TotalTokens: 6}
 			if result.usage != want {
 				t.Fatalf("usage=%+v want=%+v", result.usage, want)
 			}
@@ -67,12 +67,12 @@ func TestAdapterTokenizerUsage(t *testing.T) {
 
 func TestAdapterCanceledBlockedOutput(t *testing.T) {
 	scheduler := cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{MaxBatchSize: 4, MaxBudgetTokens: 64, ChunkSize: 16}, cudabatch.NewMemoryBudgetTracker(cudakv.NewBlockAllocator(16, 20)))
-	adapter := cudasrv.NewBatchEngineAdapter(scheduler, cudabatch.NewHostDeterministicEngine(0, []int32{101, 102}), &simpleWordTokenizer{})
+	adapter := cudaserver.NewBatchEngineAdapter(scheduler, cudabatch.NewHostDeterministicEngine(0, []int32{101, 102}), &simpleWordTokenizer{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		done <- adapter.Generate(ctx, cudasrv.ChatCompletionRequest{Messages: []cudasrv.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 16}, make(chan string))
+		done <- adapter.Generate(ctx, cudaserver.ChatCompletionRequest{Messages: []cudaserver.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 16}, make(chan string))
 	}()
 	for range 10 {
 		if err := adapter.StepIteration(ctx); err != nil {
@@ -106,12 +106,12 @@ func TestAdapterDrainsQueuedCompletion(t *testing.T) {
 	for range 20 {
 		scheduler := cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{MaxBatchSize: 4, MaxBudgetTokens: 64, ChunkSize: 16}, cudabatch.NewMemoryBudgetTracker(cudakv.NewBlockAllocator(16, 20)))
 		engine := &countedEngine{engine: cudabatch.NewHostDeterministicEngine(0, []int32{101, 102, 103, 104, 105, 106, 107, 108})}
-		adapter := cudasrv.NewBatchEngineAdapter(scheduler, engine, &simpleWordTokenizer{})
+		adapter := cudaserver.NewBatchEngineAdapter(scheduler, engine, &simpleWordTokenizer{})
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		tokens := make(chan string)
 		done := make(chan error, 1)
 		go func() {
-			err := adapter.Generate(ctx, cudasrv.ChatCompletionRequest{Messages: []cudasrv.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 8}, tokens)
+			err := adapter.Generate(ctx, cudaserver.ChatCompletionRequest{Messages: []cudaserver.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 8}, tokens)
 			close(tokens)
 			done <- err
 		}()
@@ -146,13 +146,13 @@ func TestAdapterDrainsQueuedCompletion(t *testing.T) {
 func TestAdapterQueueOverflowRefusesSuccess(t *testing.T) {
 	scheduler := cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{MaxBatchSize: 4, MaxBudgetTokens: 64, ChunkSize: 16}, cudabatch.NewMemoryBudgetTracker(cudakv.NewBlockAllocator(16, 20)))
 	engine := &countedEngine{engine: cudabatch.NewHostDeterministicEngine(0, []int32{101})}
-	adapter := cudasrv.NewBatchEngineAdapter(scheduler, engine, &simpleWordTokenizer{})
+	adapter := cudaserver.NewBatchEngineAdapter(scheduler, engine, &simpleWordTokenizer{})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	tokens := make(chan string)
 	done := make(chan error, 1)
 	go func() {
-		err := adapter.Generate(ctx, cudasrv.ChatCompletionRequest{Messages: []cudasrv.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 64}, tokens)
+		err := adapter.Generate(ctx, cudaserver.ChatCompletionRequest{Messages: []cudaserver.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 64}, tokens)
 		close(tokens)
 		done <- err
 	}()
@@ -191,7 +191,7 @@ func TestAdapterGenerationErrors(t *testing.T) {
 	for _, tt := range []struct {
 		name      string
 		engine    cudabatch.ExecutionEngine
-		tokenizer cudasrv.Tokenizer
+		tokenizer cudaserver.Tokenizer
 		want      string
 	}{
 		{"global", executionFunc(func(context.Context, *cudabatch.ExecutionStep) (map[string]int32, map[string]error, error) {
@@ -205,13 +205,13 @@ func TestAdapterGenerationErrors(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			scheduler := cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{MaxBatchSize: 4, MaxBudgetTokens: 64, ChunkSize: 16}, cudabatch.NewMemoryBudgetTracker(cudakv.NewBlockAllocator(16, 20)))
-			adapter := cudasrv.NewBatchEngineAdapter(scheduler, tt.engine, tt.tokenizer)
+			adapter := cudaserver.NewBatchEngineAdapter(scheduler, tt.engine, tt.tokenizer)
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			tokens := make(chan string, 16)
 			done := make(chan error, 1)
 			go func() {
-				done <- adapter.Generate(ctx, cudasrv.ChatCompletionRequest{Messages: []cudasrv.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 1}, tokens)
+				done <- adapter.Generate(ctx, cudaserver.ChatCompletionRequest{Messages: []cudaserver.ChatMessage{{Role: "user", Content: "hello"}}, MaxTokens: 1}, tokens)
 			}()
 			for {
 				select {

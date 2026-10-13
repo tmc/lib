@@ -1,4 +1,4 @@
-package cudasrv
+package cudaserver
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 )
 
 // BatchEngineAdapter wraps cudabatch.BatchScheduler and an ExecutionEngine
-// into cudasrv.Engine, enabling live continuous batching for HTTP requests.
+// into cudaserver.Engine, enabling live continuous batching for HTTP requests.
 type BatchEngineAdapter struct {
 	scheduler   *cudabatch.BatchScheduler
 	execEngine  cudabatch.ExecutionEngine
@@ -69,7 +69,7 @@ func WithContinuationTracker(ct *cudabatch.ContinuationTracker) AdapterOption {
 	}
 }
 
-// NewBatchEngineAdapter creates an adapter bridging cudabatch and cudasrv.
+// NewBatchEngineAdapter creates an adapter bridging cudabatch and cudaserver.
 func NewBatchEngineAdapter(
 	scheduler *cudabatch.BatchScheduler,
 	execEngine cudabatch.ExecutionEngine,
@@ -100,7 +100,7 @@ func (a *BatchEngineAdapter) ContinuationTracker() *cudabatch.ContinuationTracke
 	return a.contTracker
 }
 
-// Generate implements the cudasrv.Engine interface.
+// Generate implements the cudaserver.Engine interface.
 func (a *BatchEngineAdapter) Generate(ctx context.Context, req ChatCompletionRequest, tokenChan chan<- string) error {
 	return a.generate(ctx, req, tokenChan, nil)
 }

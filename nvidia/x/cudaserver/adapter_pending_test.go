@@ -1,4 +1,4 @@
-package cudasrv_test
+package cudaserver_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/tmc/lib/nvidia/x/cudabatch"
 	"github.com/tmc/lib/nvidia/x/cudakv"
-	"github.com/tmc/lib/nvidia/x/cudasrv"
+	"github.com/tmc/lib/nvidia/x/cudaserver"
 	"testing"
 )
 
@@ -31,7 +31,7 @@ func TestAdapterRetainsPendingExecution(t *testing.T) {
 		calls++
 		return nil, nil, pending
 	})
-	adapter := cudasrv.NewBatchEngineAdapter(scheduler, engine, &simpleWordTokenizer{})
+	adapter := cudaserver.NewBatchEngineAdapter(scheduler, engine, &simpleWordTokenizer{})
 	if err := adapter.StepIteration(context.Background()); err == nil {
 		t.Fatal("pending execution succeeded")
 	}
@@ -71,7 +71,7 @@ func TestAdapterBindingFailureSettlesStep(t *testing.T) {
 	}
 	releases := 0
 	scheduler.RegisterResourceRelease("invalid", func() { releases++ })
-	adapter := cudasrv.NewBatchEngineAdapter(scheduler, cudabatch.NewHostDeterministicEngine(0, nil), &simpleWordTokenizer{}, cudasrv.WithShapeBucket(cudabatch.ShapeBucket{BatchSize: 1, MaxSeqLen: 1, MaxTokens: 1}))
+	adapter := cudaserver.NewBatchEngineAdapter(scheduler, cudabatch.NewHostDeterministicEngine(0, nil), &simpleWordTokenizer{}, cudaserver.WithShapeBucket(cudabatch.ShapeBucket{BatchSize: 1, MaxSeqLen: 1, MaxTokens: 1}))
 	if err := adapter.StepIteration(context.Background()); err == nil {
 		t.Fatal("invalid binding admitted")
 	}
@@ -82,7 +82,7 @@ func TestAdapterBindingFailureSettlesStep(t *testing.T) {
 }
 
 func ExampleBatchEngineAdapter_Drain() {
-	adapter := cudasrv.NewBatchEngineAdapter(nil, nil, nil)
+	adapter := cudaserver.NewBatchEngineAdapter(nil, nil, nil)
 	fmt.Println(adapter.Drain(context.Background()))
 	// Output: <nil>
 }

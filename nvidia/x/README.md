@@ -91,11 +91,11 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudasass](cudasass/) | Package cudasass parses and inspects NVIDIA Streaming Multiprocessor (SASS) machine assembly. |
 | [cudaschedule](cudaschedule/) | Package cudaschedule implements deterministic schedule-perturbation campaigns for PTX assembly. |
 | [cudasearch](cudasearch/) | Package cudasearch provides workload-bound search strategies (Beam and MCTS) over e-graph program rewrite transitions for CUDA execution plans. |
+| [cudaserver](cudaserver/) | Package cudaserver provides an OpenAI-compatible HTTP inference server with Server-Sent Events (SSE) streaming, Prometheus metrics, and graceful cancellation. |
 | [cudashadow](cudashadow/) | Package cudashadow provides an observation-only evaluation and deterministic replay framework for GPU driver and runtime policies. |
 | [cudashape](cudashape/) | Package cudashape provides checked multi-dimensional tensor shapes, overflow-checked byte size calculation, stride and layout analysis, and bounded symbolic dimension binding with equality and divisibility constraints. |
 | [cudashared](cudashared/) | Package cudashared plans checked per-block shared-memory storage. |
 | [cudaspec](cudaspec/) | Package cudaspec provides high-throughput speculative decoding algorithms, explicit branch state, tree attention masks, proposal lifecycle management, prompt-cache n-gram drafting, and batched multi-token verification. |
-| [cudasrv](cudasrv/) | Package cudasrv provides an OpenAI-compatible HTTP inference server with Server-Sent Events (SSE) streaming, Prometheus metrics, and graceful cancellation. |
 | [cudataskgraph](cudataskgraph/) | Package cudataskgraph validates finite task DAGs and tracks epoch-scoped publication and abort state. |
 | [cudatemplate](cudatemplate/) | Package cudatemplate formats multi-turn chat messages into model-specific prompt strings. |
 | [cudatensor](cudatensor/) | Package cudatensor provides a fluent, checked tensor frontend for constructing computation graphs with deferred symbolic execution, shape verification, and frontend error propagation. |

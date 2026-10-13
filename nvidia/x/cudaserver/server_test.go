@@ -1,4 +1,4 @@
-package cudasrv_test
+package cudaserver_test
 
 import (
 	"bytes"
@@ -10,12 +10,12 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof"
-	"github.com/tmc/lib/nvidia/x/cudasrv"
+	"github.com/tmc/lib/nvidia/x/cudaserver"
 )
 
 type mockEngine struct{}
 
-func (m *mockEngine) Generate(ctx context.Context, req cudasrv.ChatCompletionRequest, tokenChan chan<- string) error {
+func (m *mockEngine) Generate(ctx context.Context, req cudaserver.ChatCompletionRequest, tokenChan chan<- string) error {
 	tokenChan <- "Hello"
 	tokenChan <- " world"
 	tokenChan <- "!"
@@ -23,7 +23,7 @@ func (m *mockEngine) Generate(ctx context.Context, req cudasrv.ChatCompletionReq
 }
 
 func TestServerModels(t *testing.T) {
-	srv := cudasrv.New(&mockEngine{}, "llama-3.2-1b")
+	srv := cudaserver.New(&mockEngine{}, "llama-3.2-1b")
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	w := httptest.NewRecorder()
 
@@ -40,7 +40,7 @@ func TestServerModels(t *testing.T) {
 }
 
 func TestServerNonStreaming(t *testing.T) {
-	srv := cudasrv.New(&mockEngine{}, "llama-3.2-1b")
+	srv := cudaserver.New(&mockEngine{}, "llama-3.2-1b")
 	payload := `{"model":"llama-3.2-1b","messages":[{"role":"user","content":"Hi"}],"stream":false}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewBufferString(payload))
 	w := httptest.NewRecorder()
@@ -51,7 +51,7 @@ func TestServerNonStreaming(t *testing.T) {
 		t.Fatalf("expected 200 OK, got %d (body: %s)", w.Code, w.Body.String())
 	}
 
-	var resp cudasrv.ChatCompletionResponse
+	var resp cudaserver.ChatCompletionResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal completion resp: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestServerNonStreaming(t *testing.T) {
 }
 
 func TestServerStreamingSSE(t *testing.T) {
-	srv := cudasrv.New(&mockEngine{}, "llama-3.2-1b")
+	srv := cudaserver.New(&mockEngine{}, "llama-3.2-1b")
 	payload := `{"model":"llama-3.2-1b","messages":[{"role":"user","content":"Hi"}],"stream":true}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewBufferString(payload))
 	w := httptest.NewRecorder()
@@ -80,7 +80,7 @@ func TestServerStreamingSSE(t *testing.T) {
 }
 
 func TestServerMetrics(t *testing.T) {
-	srv := cudasrv.New(&mockEngine{}, "llama-3.2-1b")
+	srv := cudaserver.New(&mockEngine{}, "llama-3.2-1b")
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	w := httptest.NewRecorder()
 
@@ -96,7 +96,7 @@ func TestServerMetrics(t *testing.T) {
 }
 
 func TestServerPerfettoTrace(t *testing.T) {
-	srv := cudasrv.New(&mockEngine{}, "llama-3.2-1b")
+	srv := cudaserver.New(&mockEngine{}, "llama-3.2-1b")
 	fr := cudaprof.NewFlightRecorder(cudaprof.WithWindowSize(10))
 	_ = fr.Start()
 	fr.Record(cudaprof.SampleRecord{

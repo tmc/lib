@@ -1,4 +1,4 @@
-package cudasrv_test
+package cudaserver_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudabatch"
 	"github.com/tmc/lib/nvidia/x/cudakv"
-	"github.com/tmc/lib/nvidia/x/cudasrv"
+	"github.com/tmc/lib/nvidia/x/cudaserver"
 )
 
 func TestAdapterRecomputesSessionPrompt(t *testing.T) {
@@ -30,8 +30,8 @@ func TestAdapterRecomputesSessionPrompt(t *testing.T) {
 			}
 			return result, nil, nil
 		})
-		adapter := cudasrv.NewBatchEngineAdapter(scheduler, engine, tokenizer, cudasrv.WithContinuationTracker(history))
-		request := cudasrv.ChatCompletionRequest{SessionID: "session", MaxTokens: 1, Messages: []cudasrv.ChatMessage{{Role: "user", Content: "first"}, {Role: "assistant", Content: "answer"}, {Role: "user", Content: "second"}}}
+		adapter := cudaserver.NewBatchEngineAdapter(scheduler, engine, tokenizer, cudaserver.WithContinuationTracker(history))
+		request := cudaserver.ChatCompletionRequest{SessionID: "session", MaxTokens: 1, Messages: []cudaserver.ChatMessage{{Role: "user", Content: "first"}, {Role: "assistant", Content: "answer"}, {Role: "user", Content: "second"}}}
 		expected, err := tokenizer.Encode("user: first\nassistant: answer\nuser: second\nassistant: ")
 		if err != nil {
 			t.Fatal(err)
