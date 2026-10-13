@@ -26,6 +26,11 @@ type RegisterPressure struct {
 //	/*0000*/ LDC R1, c[0x0][0x37c] ; // |   1   |        |        |         |
 //
 // Column order is GPR, PRED, UGPR, UPRED. A blank cell represents zero.
+//
+// ParseLifeRangeCount keys kernels by the names Parse reads. It returns an
+// error for a ".text." label or a ".section" directive Parse refuses as
+// malformed, as it does for other input it cannot read, rather than keying
+// the instructions that follow under a guessed name.
 func ParseLifeRangeCount(r io.Reader) (map[string]map[uint64]RegisterPressure, error) {
 	scanner := bufio.NewScanner(r)
 	res := make(map[string]map[uint64]RegisterPressure)
@@ -38,6 +43,12 @@ func ParseLifeRangeCount(r io.Reader) (map[string]map[uint64]RegisterPressure, e
 			continue
 		}
 
+		if malformedTextLabel(trimmed) {
+			return nil, fmt.Errorf("cudasass: malformed label %q", trimmed)
+		}
+		if malformedSectionDirective(trimmed) {
+			return nil, fmt.Errorf("cudasass: malformed section directive %q", trimmed)
+		}
 		if fnName := extractFunctionName(trimmed); fnName != "" {
 			curKernel = fnName
 			if res[curKernel] == nil {

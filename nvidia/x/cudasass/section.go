@@ -2,7 +2,6 @@ package cudasass
 
 import (
 	"errors"
-	"regexp"
 	"strings"
 )
 
@@ -101,15 +100,10 @@ func openedSection(trimmed string) (name string, nonText, opens bool) {
 	case strings.HasPrefix(trimmed, "//--"):
 		name = strings.TrimSpace(strings.Trim(strings.TrimPrefix(trimmed, "//"), "-"))
 	case isSectionDirective(trimmed):
-		// A demangled name holds commas and spaces, so the flags are found
-		// by their quotes: .section NAME,"FLAGS",@TYPE, with optional space
-		// before the quote.
 		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, ".section"))
-		if m := sectionFlags.FindStringSubmatchIndex(rest); m != nil {
-			name = strings.TrimSpace(rest[:m[0]])
-			flags = rest[m[2]:m[3]]
-		} else {
-			name = rest
+		name = rest
+		if i, f := sectionFlags(rest); i >= 0 {
+			name, flags = strings.TrimSpace(rest[:i]), f
 		}
 	default:
 		return "", false, false
@@ -117,8 +111,148 @@ func openedSection(trimmed string) (name string, nonText, opens bool) {
 	return name, isNonTextCode(name, flags), true
 }
 
-// sectionFlags matches the flags field of a .section directive.
-var sectionFlags = regexp.MustCompile(`,[ \t]*"([^"]*)"`)
+// sectionFlags returns the index in rest of the comma that begins the flags
+// field of a .section directive, and the bytes between the field's quotes,
+// where rest is the directive with ".section" and the blanks after it
+// removed. It returns -1 and "" if rest has no flags field, and then all of
+// rest is the section's name.
+//
+// LLVM spells the directive
+//
+//	.section NAME,"FLAGS",@TYPE,EXTRA
+//
+// where each field after NAME is optional. nvdisasm prints NAME unquoted, and
+// a demangled NAME holds commas, blanks and string or character literals of
+// its own, so the flags field is not simply the first comma before a quote.
+// It is the first comma outside every literal (a literal read as literalEnd
+// reads one) that is followed by optional spaces or tabs, a terminated
+// double-quoted literal holding only bytes of sectionFlagBytes, and a
+// metadata tail as sectionTail defines it. A comma and a quoted literal
+// followed by more of a name, as in
+// `decltype(fp, "<char const [5]>") s1<int>(int)`, or holding a byte no
+// flags field holds, as in `k, "lit"`, belong to the name.
+//
+// A name that itself ends, outside every literal, in a comma and a quoted
+// literal of flag bytes, such as `k, "a"`, cannot be told from a shorter
+// name and its flags. sectionFlags reads it as the shorter name, and
+// malformedSectionDirective refuses the directive when a second comma after
+// the first also begins a flags field, as in `k, "a","ax",@progbits`.
+func sectionFlags(rest string) (comma int, flags string) {
+	for i := 0; i < len(rest); i++ {
+		switch rest[i] {
+		case '"', '\'':
+			if end := literalEnd(rest, i); end >= 0 {
+				i = end
+			}
+		case ',':
+			j := i + 1
+			for j < len(rest) && (rest[j] == ' ' || rest[j] == '\t') {
+				j++
+			}
+			if j == len(rest) || rest[j] != '"' {
+				continue
+			}
+			end := literalEnd(rest, j)
+			if end >= 0 && isSectionFlags(rest[j+1:end]) && sectionTail(rest[end+1:]) {
+				return i, rest[j+1 : end]
+			}
+		}
+	}
+	return -1, ""
+}
+
+// sectionFlagBytes are the bytes LLVM's ELF assembler reads in a .section
+// directive's flags field: a, e, o, w, x, M, S, T, G, R and ? on every
+// target, and c, d, l, s and y on some.
+const sectionFlagBytes = "aeowxMSTGR?cdlsy"
+
+// isSectionFlags reports whether flags, the bytes between a flags field's
+// quotes, holds only bytes of sectionFlagBytes. The empty flags field ""
+// does.
+func isSectionFlags(flags string) bool {
+	return strings.Trim(flags, sectionFlagBytes) == ""
+}
+
+// malformedSectionDirective reports whether trimmed is a ".section"
+// directive Parse refuses: its name, the text before the flags field
+// sectionFlags finds or all of it with none, holds a quote that opens no
+// terminated literal, read as lineComment reads one; or a second comma after
+// that flags field also begins one, so that the field's own literal could
+// equally be the end of the name. Reading such a name would open a section
+// named by a guess.
+func malformedSectionDirective(trimmed string) bool {
+	if !isSectionDirective(trimmed) {
+		return false
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, ".section"))
+	name := rest
+	if i, _ := sectionFlags(rest); i >= 0 {
+		if j, _ := sectionFlags(rest[i+1:]); j >= 0 {
+			return true
+		}
+		name = rest[:i]
+	}
+	return openLiteral(name)
+}
+
+// openLiteral reports whether s holds a quote that opens no terminated
+// literal, reading s from left to right as lineComment does: a quote that
+// opens a terminated literal is skipped through its closing quote.
+func openLiteral(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '"' || s[i] == '\'' {
+			end := literalEnd(s, i)
+			if end < 0 {
+				return true
+			}
+			i = end
+		}
+	}
+	return false
+}
+
+// sectionTail reports whether s, the text after the closing quote of a
+// .section directive's flags, is the rest of the directive's metadata:
+// optional spaces or tabs, and then the end of s, a "//" comment, or a comma,
+// optional spaces or tabs and a type. A type is '@' or '%' followed by one
+// or more identifier bytes or by a terminated double-quoted literal, or such
+// a literal alone, as in @progbits, @"SHT_CUDA_INFO" and "progbits". After
+// the type come optional spaces or tabs and then the end of s, a "//"
+// comment, or a comma and further fields such as an entry size or a group,
+// which sectionTail does not read.
+func sectionTail(s string) bool {
+	s = strings.TrimLeft(s, " \t")
+	if s == "" || strings.HasPrefix(s, "//") {
+		return true
+	}
+	s, ok := strings.CutPrefix(s, ",")
+	if !ok {
+		return false
+	}
+	s = strings.TrimLeft(s, " \t")
+	n := 0 // the length of the type, or 0 if s does not begin with one
+	switch {
+	case strings.HasPrefix(s, "\""):
+		n = literalEnd(s, 0) + 1
+	case strings.HasPrefix(s, "@"), strings.HasPrefix(s, "%"):
+		if strings.HasPrefix(s[1:], "\"") {
+			n = literalEnd(s, 1) + 1
+			break
+		}
+		n = 1
+		for n < len(s) && isIdentByte(s[n]) {
+			n++
+		}
+		if n == 1 {
+			n = 0
+		}
+	}
+	if n == 0 {
+		return false
+	}
+	s = strings.TrimLeft(s[n:], " \t")
+	return s == "" || strings.HasPrefix(s, "//") || strings.HasPrefix(s, ",")
+}
 
 // nonTextLabel reports whether trimmed is the label of a code section other
 // than .text.<kernel>, such as ".nv.capmerc.text.k:", and its name. Such a
@@ -131,6 +265,195 @@ func nonTextLabel(trimmed string) (string, bool) {
 		return "", false
 	}
 	return label, true
+}
+
+// malformedTextLabel reports whether trimmed is a ".text." line whose name
+// Parse refuses. The name is the text before the colon labelColon finds or,
+// with no such colon, before the "//" lineComment finds. Reading a malformed name, such
+// as the "k:junk" of ".text.k:junk" or the "k /* c */" of ".text.k /* c */:",
+// as a kernel's name would open a kernel named by a guess and move the
+// instructions after it out of the kernel the listing declared.
+func malformedTextLabel(trimmed string) bool {
+	rest, ok := strings.CutPrefix(trimmed, ".text.")
+	if !ok {
+		return false
+	}
+	name := rest
+	if i := labelColon(rest); i >= 0 {
+		name = rest[:i]
+	} else if i := lineComment(rest); i >= 0 {
+		name = rest[:i]
+	}
+	return malformedName(name)
+}
+
+// malformedName reports whether name, a label's name, breaks the lexical
+// rule Parse documents. malformedName reads name from left to right:
+//
+//  1. A double or single quote begins a literal that ends at the next
+//     unescaped copy of the same quote; a backslash escapes the byte after
+//     it. Nothing inside a literal counts below. An unterminated literal is
+//     malformed.
+//  2. Only '(', '[' and '{' open a bracket, and only ')', ']' and '}' close
+//     one; '<' and '>' are ignored. A closing bracket that does not match
+//     the innermost open bracket, or a bracket left open, is malformed.
+//  3. Every "::" is well formed. A run of three or more colons is malformed.
+//  4. A single colon is well formed only
+//     (a) in "[abi:" followed by one or more identifier bytes (letters,
+//     digits, '_' or '$') and then ']';
+//     (b) in "auto:N", where "auto" begins name or follows a byte other
+//     than an identifier byte, and N is one or more digits followed by a
+//     byte other than an identifier byte;
+//     (c) as a conditional's colon, paired with the latest '?' at the same
+//     (), [] or {} depth that no colon has paired, with text other than
+//     white space between them.
+//     Every other single colon is malformed.
+//  5. "/*", "*/" and "//" are malformed.
+//
+// The rule is lexical, not a C++ grammar, so some constructed names that are
+// no C++ name are well formed: in "k ? f<a : b>" the colon pairs with the
+// '?' before the '<', "f<1 >> 2, b ? 1 : 2>()" reads the same whether or
+// not its ">>" closes the template arguments, and "k:: junk", "k ::junk",
+// "f(a::)", "k ? junk : junk" and "k [abi:cxx11]" are well formed.
+func malformedName(name string) bool {
+	stack := []bracketDepth{{}} // stack[0] is the depth outside every bracket
+	for i := 0; i < len(name); i++ {
+		top := &stack[len(stack)-1]
+		switch c := name[i]; c {
+		case '"', '\'':
+			end := literalEnd(name, i)
+			if end < 0 {
+				return true
+			}
+			i = end
+		case '/':
+			if i+1 < len(name) && (name[i+1] == '*' || name[i+1] == '/') {
+				return true
+			}
+		case '*':
+			if i+1 < len(name) && name[i+1] == '/' {
+				return true
+			}
+		case '(', '[', '{':
+			stack = append(stack, bracketDepth{open: c})
+		case ')', ']', '}':
+			if top.open != opens[c] {
+				return true
+			}
+			stack = stack[:len(stack)-1]
+		case '?':
+			top.questions = append(top.questions, i)
+		case ':':
+			j := i + 1
+			for j < len(name) && name[j] == ':' {
+				j++
+			}
+			switch {
+			case j-i == 2:
+			case j-i > 2:
+				return true
+			case abiTag(name, i), autoPlaceholder(name, i), pairConditional(name, i, top):
+			default:
+				return true
+			}
+			i = j - 1
+		}
+	}
+	return len(stack) > 1
+}
+
+// A bracketDepth is one bracket depth of a name malformedName is reading.
+type bracketDepth struct {
+	open      byte  // the opening bracket, or 0 outside every bracket
+	questions []int // the indexes of the '?' at this depth no colon has paired
+}
+
+// opens maps a closing bracket to the bracket it closes.
+var opens = map[byte]byte{')': '(', ']': '[', '}': '{'}
+
+// literalEnd returns the index of the quote that ends the literal beginning
+// with the quote at name[i], or -1 if the literal is unterminated. A
+// backslash escapes the byte after it.
+func literalEnd(name string, i int) int {
+	for j := i + 1; j < len(name); j++ {
+		switch name[j] {
+		case '\\':
+			j++
+		case name[i]:
+			return j
+		}
+	}
+	return -1
+}
+
+// lineComment returns the index of the first "//" in s outside a string or
+// character literal, read as literalEnd reads one, or -1 if there is none.
+// A quote that opens no terminated literal is an ordinary byte, so the
+// "//" after it is found and the name before it, holding the open quote,
+// is malformed.
+func lineComment(s string) int {
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '"', '\'':
+			if end := literalEnd(s, i); end >= 0 {
+				i = end
+			}
+		case '/':
+			if i+1 < len(s) && s[i+1] == '/' {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// pairConditional pairs the colon at name[i] with the latest unpaired '?' at
+// depth d, if some text other than white space lies between them, and
+// reports whether it did.
+func pairConditional(name string, i int, d *bracketDepth) bool {
+	q := d.questions
+	if len(q) == 0 || strings.TrimSpace(name[q[len(q)-1]+1:i]) == "" {
+		return false
+	}
+	d.questions = q[:len(q)-1]
+	return true
+}
+
+// abiTag reports whether the colon at name[i] is an ABI tag's: name[:i] ends
+// in "[abi", and the colon is followed by one or more identifier bytes and
+// then ']'.
+func abiTag(name string, i int) bool {
+	if !strings.HasSuffix(name[:i], "[abi") {
+		return false
+	}
+	j := i + 1
+	for j < len(name) && isIdentByte(name[j]) {
+		j++
+	}
+	return j > i+1 && j < len(name) && name[j] == ']'
+}
+
+// autoPlaceholder reports whether the colon at name[i] is a generic lambda
+// placeholder's "auto:N": name[:i] ends in "auto", which begins name or
+// follows a byte that cannot continue an identifier, and the colon is
+// followed by one or more digits and then a byte that cannot continue an
+// identifier.
+func autoPlaceholder(name string, i int) bool {
+	head, ok := strings.CutSuffix(name[:i], "auto")
+	if !ok || head != "" && isIdentByte(head[len(head)-1]) {
+		return false
+	}
+	j := i + 1
+	for j < len(name) && '0' <= name[j] && name[j] <= '9' {
+		j++
+	}
+	return j > i+1 && j < len(name) && !isIdentByte(name[j])
+}
+
+// isIdentByte reports whether c can continue an identifier: a letter, digit,
+// '_' or '$'.
+func isIdentByte(c byte) bool {
+	return c == '_' || c == '$' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
 }
 
 // isSectionDirective reports whether trimmed is a ".section" directive, and

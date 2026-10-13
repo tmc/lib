@@ -187,6 +187,103 @@ func targetAlignment(target string) uint64 {
 }
 
 // Parse reads SASS disassembly text from r and returns a Disassembly.
+//
+// A ".text.NAME:" label names the kernel NAME. Parse reads the label from
+// left to right, skipping each terminated string or character literal as
+// rule 1 below reads one; the first "//" outside a literal begins a comment
+// that is not part of the label. The label's terminal colon is the first
+// colon outside a literal and before that comment that is followed by
+// nothing but blanks, "/* */" comments and a final "//" comment, where a
+// blank is any Unicode white space. A ".text." line with no such colon names
+// the kernel by its text before that comment. So these labels name k, k and
+// f<S{": //"}>() in turn:
+//
+//	.text.k // note:
+//	.text.k: // a: b
+//	.text.f<S{": //"}>():
+//
+// A ".section .text.NAME" directive names the kernel NAME. Its flags field,
+// if it has one, is the first comma outside a literal that is followed by
+// optional spaces or tabs, a terminated double-quoted literal holding only
+// LLVM's section flag bytes (a, e, o, w, x, M, S, T, G, R, ?, c, d, l, s
+// and y, or none), and then the end of the line, a "//" comment, or a
+// comma, optional spaces or tabs and a section type: '@' or '%' followed by
+// identifier bytes or a quoted literal, or a quoted literal alone. Anything
+// after the comma that follows the type is not read. A directive with no
+// flags field names the kernel by its whole text. So a comma or quote inside
+// a literal, a comma and quoted literal that more of the name follows, and a
+// comma and quoted literal holding any other byte belong to the name. The
+// first three of these directives name the kernel
+// decltype(fp, "<char const [5]>") s1<int>(int), and the last names the
+// kernel k, "lit":
+//
+//	.section .text.decltype(fp, "<char const [5]>") s1<int>(int),"ax",@progbits
+//	.section .text.decltype(fp, "<char const [5]>") s1<int>(int), "ax", @progbits
+//	.section .text.decltype(fp, "<char const [5]>") s1<int>(int)
+//	.section .text.k, "lit"
+//
+// Parse returns an error, rather than guess where the section's name ends,
+// for a ".section" directive whose name, the text before its flags field,
+// holds a literal left open as rule 1 below reads one, or whose flags field
+// is followed by a second comma that would itself begin a flags field, as in
+//
+//	.section .text.k"x
+//	.section .text.k, "a","ax",@progbits
+//
+// A name that itself ends, outside every literal, in a comma and a quoted
+// literal of flag bytes, with no second such field after it, is read as a
+// shorter name and its flags: the directive
+//
+//	.section .text.k, "a"
+//
+// names the kernel k, never k, "a". No such name is supported.
+//
+// Parse returns an error, rather than guess where the kernel's name ends,
+// for a ".text." line whose name, read from left to right, breaks this
+// lexical rule:
+//
+//  1. A double or single quote begins a literal that ends at the next
+//     unescaped copy of the same quote; a backslash escapes the byte after
+//     it. Nothing inside a literal counts below. An unterminated literal is
+//     refused.
+//  2. Only '(', '[' and '{' open a bracket, and only ')', ']' and '}' close
+//     one; '<' and '>' are ignored. A closing bracket that does not match
+//     the innermost open bracket, or a bracket left open, is refused.
+//  3. Every "::" is accepted. A run of three or more colons is refused.
+//  4. A single colon is accepted only
+//     (a) in "[abi:" followed by one or more letters, digits, '_' or '$'
+//     and then ']', as in "h[abi:cxx11](int)";
+//     (b) in "auto:N", where "auto" begins the name or follows a byte other
+//     than a letter, digit, '_' or '$', and N is one or more digits
+//     followed by a byte other than those, as in "{lambda(auto:1)#1}";
+//     (c) as a conditional's colon, paired with the latest '?' at the same
+//     (), [] or {} depth that no colon has paired, with text other than
+//     white space between them, as in "decltype(fp ? 1 : 2) f<int>(int)".
+//     Every other single colon is refused.
+//  5. "/*", "*/" and "//" are refused.
+//
+// So ".text.k:junk", ".text.k: junk", ".text.k:\u00a0junk",
+// ".text.k /* c */:" and ".text.k(a ? b) : c" are refused. Because '<' and
+// '>' are not brackets, every "::" is accepted, a conditional pairs at any
+// depth and "[abi:" and "auto:N" carry no condition on what precedes or
+// encloses them, some constructed lines that are no C++ name are accepted
+// and name a kernel by their whole name: ".text.k ? f<a : b>",
+// ".text.f<1 >> 2, b ? 1 : 2>()", ".text.k ? junk : junk", ".text.k:: junk",
+// ".text.k ::junk", ".text.f(a::)" and ".text.k [abi:cxx11]" among them.
+//
+// A colon, comma, quote or "//" inside a terminated literal, as in
+// SL8<L8{"a//b"}> or S<5>{": //"}, belongs to the name and ends neither a
+// label nor a directive's name. These rules are lexical; Parse is not a C++
+// parser. It still refuses, or does not support:
+//
+//   - a label holding a literal left open, refused whatever follows the
+//     open quote, since rule 1 cannot tell where the literal would end;
+//   - a directive whose name itself ends, outside every literal, in a comma
+//     and a quoted literal of flag bytes, which is read as a shorter name
+//     followed by flags;
+//   - a directive name breaking rules 2 through 5: a ".section" directive's
+//     name is checked only for a literal left open, so it is otherwise read
+//     as its text before the flags field and is not refused.
 func Parse(r io.Reader) (*Disassembly, error) {
 	scanner := bufio.NewScanner(r)
 	d := &Disassembly{
@@ -238,6 +335,13 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			} else {
 				d.Target = target
 			}
+		}
+
+		if malformedTextLabel(trimmed) {
+			return nil, fmt.Errorf("cudasass: malformed label %q", trimmed)
+		}
+		if malformedSectionDirective(trimmed) {
+			return nil, fmt.Errorf("cudasass: malformed section directive %q", trimmed)
 		}
 
 		if strings.HasPrefix(trimmed, ".target") {
@@ -442,19 +546,21 @@ func DisassembleCFG(cubin []byte, basicBlocks bool) (string, error) {
 // extractFunctionName returns the kernel a header line names, or "" if line
 // is not a kernel header. The name is the header's whole text between its
 // prefix and its terminator, so a demangled name such as
-// "scale(float *, int)" keeps its spaces, commas and colons: a
-// ".section .text.NAME" directive ends at its quoted flags, or at the end
-// of the line when no flags are present, and a
-// ".text.NAME:" label at the first colon followed only by blanks and
-// comments, such as the live-register table nvdisasm appends in
-// --life-range-mode count. A ".text." line without such a colon still names
-// a kernel, by its text before any "//" comment, so that the kernel it begins
-// is never merged into the one before it.
+// "scale(float *, int)" keeps its spaces, commas and colons. A
+// ".section .text.NAME" directive's name ends at the comma before its flags
+// field, as sectionFlags finds it, or at the end of the line when it has no
+// flags field. A ".text.NAME:" label ends at the colon labelColon finds,
+// which is followed only by blanks and comments, such as the live-register
+// table nvdisasm appends in --life-range-mode count. A ".text." line without
+// such a colon still names a kernel, by its text before any "//" comment
+// outside a literal (see lineComment), so that the kernel it begins is never
+// merged into the one before it. Parse refuses the label lines whose name
+// malformedTextLabel rejects before extractFunctionName reads them.
 func extractFunctionName(line string) string {
 	if isSectionDirective(line) {
 		rest := strings.TrimSpace(strings.TrimPrefix(line, ".section"))
-		if m := sectionFlags.FindStringIndex(rest); m != nil {
-			rest = strings.TrimSpace(rest[:m[0]])
+		if i, _ := sectionFlags(rest); i >= 0 {
+			rest = strings.TrimSpace(rest[:i])
 		}
 		name, ok := strings.CutPrefix(rest, ".text.")
 		if !ok {
@@ -469,31 +575,58 @@ func extractFunctionName(line string) string {
 		return strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "--- Kernel: "), " ---"))
 	}
 	if rest, ok := strings.CutPrefix(line, ".text."); ok {
-		// A demangled name's own colons, as in "ns::scale", are followed
-		// by more of the name; the label's colon is followed by nothing
-		// but blanks, "/* */" comments and a final "//" comment.
-		for i := 0; i < len(rest); i++ {
-			if rest[i] != ':' {
-				continue
-			}
-			tail := strings.TrimSpace(rest[i+1:])
-			for strings.HasPrefix(tail, "/*") {
-				end := strings.Index(tail[2:], "*/")
-				if end < 0 {
-					break
-				}
-				tail = strings.TrimSpace(tail[2+end+2:])
-			}
-			if tail == "" || strings.HasPrefix(tail, "//") {
-				return strings.TrimSpace(rest[:i])
-			}
+		if i := labelColon(rest); i >= 0 {
+			return strings.TrimSpace(rest[:i])
 		}
-		if i := strings.Index(rest, "//"); i >= 0 {
+		if i := lineComment(rest); i >= 0 {
 			rest = rest[:i]
 		}
 		return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), ":"))
 	}
 	return ""
+}
+
+// labelColon returns the index in rest, a ".text." label with its prefix
+// removed, of the colon that ends the label, or -1 if none does. It reads
+// rest as lineComment does: a quote that opens a terminated literal is
+// skipped through the literal's closing quote, and the first "//" outside a
+// literal begins a comment, after which no colon ends the label. A demangled
+// name's own colons, as in "ns::scale", are followed by more of the name; the
+// label's colon is the first one outside a literal and before any comment
+// that labelTail accepts what follows.
+func labelColon(rest string) int {
+	for i := 0; i < len(rest); i++ {
+		switch rest[i] {
+		case '"', '\'':
+			if end := literalEnd(rest, i); end >= 0 {
+				i = end
+			}
+		case '/':
+			if i+1 < len(rest) && rest[i+1] == '/' {
+				return -1
+			}
+		case ':':
+			if labelTail(rest[i+1:]) {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// labelTail reports whether tail, the text after a colon in a ".text."
+// label, is nothing but blanks, "/* */" comments and a final "//" comment,
+// so that the colon ends the label.
+func labelTail(tail string) bool {
+	tail = strings.TrimSpace(tail)
+	for strings.HasPrefix(tail, "/*") {
+		end := strings.Index(tail[2:], "*/")
+		if end < 0 {
+			break
+		}
+		tail = strings.TrimSpace(tail[2+end+2:])
+	}
+	return tail == "" || strings.HasPrefix(tail, "//")
 }
 
 // codeLabel parses a label line such as ".L_x_0:". Function headers are
