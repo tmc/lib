@@ -1,0 +1,9 @@
+Commit: f04f6c77125b54eba99d7a807dbffce6aa320c96
+Date: 2026-10-12T21:00:30-07:00
+Agent: Claude Code 2.1.284 (Claude Code)
+Model: claude-opus-5-5
+TTY: not a tty PID: 48490 ITERM_SESSION_ID: w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76
+Session: d6401e4c-228d-4c97-8539-dc3db96bf467
+Slice: G2 review F2 under G2 lease (section_source_test.go)
+Mutation: each of 16 flag bytes dropped from sectionFlagBytes in turn -> 16/16 fail TestParseSectionFlagBytes (own 2 rows + combined row); adding b fails the b rows; summary /Users/tmc/tmp/lib-wt-next/20261013-g12-chain/probe/mutant2.summary; restored sha a28c8019 match
+Gate: run.sh g12 on f04f6c771 race rc=0 (165/165 selected PASS) vet rc=0; logs /Users/tmc/tmp/lib-wt-next/20261013-direct-cpu/g12/, selector /Users/tmc/tmp/lib-wt-next/20261013-g12-chain/receipts/g12.sel
