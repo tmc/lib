@@ -23,7 +23,8 @@ type FusedKernel struct {
 }
 
 // Fuse generates a fused CUDA C++ kernel for contiguous row-major float32
-// elementwise graphs with identical tensor shapes. The caller must supply
+// elementwise graphs with equal operand shapes or one-element scalar operands.
+// Outputs must share one declared shape. The caller must supply
 // distinct input and output buffers and an element count within their extents.
 // Launches must use one-dimensional blocks and grids; other launch shapes and
 // nonpositive element counts return without accessing buffers.
@@ -69,6 +70,11 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 	outputs := snapshot.Outputs()
 	if len(outputs) == 0 {
 		return fk, fmt.Errorf("cudafuse: graph has no outputs")
+	}
+	for _, out := range outputs[1:] {
+		if !slices.Equal(out.Shape, outputs[0].Shape) {
+			return fk, fmt.Errorf("cudafuse: outputs require one declared iteration domain")
+		}
 	}
 	seen := make(map[*cudair.Node]bool)
 	for _, out := range outputs {
@@ -130,7 +136,11 @@ func FuseWithSourceMap(g *cudair.Graph, kernelName string) (FusedKernel, error) 
 
 	// Load inputs into local variables
 	for _, in := range inputs {
-		addLine(fmt.Sprintf("        float v_%s = %s[idx];", in.Name, in.Name), &in.SourceLoc)
+		index := "idx"
+		if count, _ := shapeElements(in.Shape); count == 1 {
+			index = "0"
+		}
+		addLine(fmt.Sprintf("        float v_%s = %s[%s];", in.Name, in.Name, index), &in.SourceLoc)
 	}
 
 	// Compute intermediate expressions
@@ -213,19 +223,26 @@ func validateNodes(nodes []*cudair.Node) error {
 				return fmt.Errorf("cudafuse: node %q has nil input", n.Name)
 			}
 		}
+		if kind == cudair.KindUnary && !slices.Equal(n.Shape, n.Inputs[0].Shape) {
+			return fmt.Errorf("%w: unary node %q changes shape", cudair.ErrShapeMismatch, n.Name)
+		}
+		if kind == cudair.KindBinary {
+			shape, err := binaryShape(n.Inputs[0].Shape, n.Inputs[1].Shape)
+			if err != nil {
+				return err
+			}
+			if !slices.Equal(n.Shape, shape) {
+				return fmt.Errorf("%w: binary node %q output", cudair.ErrShapeMismatch, n.Name)
+			}
+		}
 		if n.Type != cudair.Float32 {
-			return fmt.Errorf("cudafuse: node %q requires float32, got %s", n.Name, n.Type)
+			return fmt.Errorf("cudafuse: node %q requires float32, got %s: %w", n.Name, n.Type, cudair.ErrTypeMismatch)
 		}
 		if n.Layout != cudashape.LayoutRowMajor || !cudashape.IsContiguousRowMajor(n.Shape, n.Strides) {
 			return fmt.Errorf("cudafuse: node %q requires contiguous row-major layout", n.Name)
 		}
 		if n.Effect != cudair.EffectReadOnly || n.StorageAlias != nil {
 			return fmt.Errorf("cudafuse: node %q has unsupported storage effects", n.Name)
-		}
-	}
-	for _, n := range nodes[1:] {
-		if !slices.Equal(n.Shape, nodes[0].Shape) {
-			return fmt.Errorf("cudafuse: node %q shape %v differs from %v", n.Name, n.Shape, nodes[0].Shape)
 		}
 	}
 	return nil

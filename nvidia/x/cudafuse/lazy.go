@@ -110,12 +110,17 @@ func NewLazyArray(ctx *LazyContext, shape []int, dtype cudair.DataType) *LazyArr
 	if ctx == nil {
 		ctx = NewLazyContext()
 	}
+	_, shapeErr := elementCount(shape)
+	if dtype < cudair.Float32 || dtype > cudair.Int8 {
+		shapeErr = cudair.ErrTypeMismatch
+	}
 	node := &LazyNode{
 		ID:    ctx.newID(),
 		Op:    "input",
 		Shape: slices.Clone(shape),
 		DType: dtype,
 		Attrs: make(map[string]any),
+		Err:   shapeErr,
 	}
 	return &LazyArray{
 		Ctx:   ctx,
@@ -154,6 +159,9 @@ func (la *LazyArray) Map(op string) *LazyArray {
 	if !isUnaryOperator(op) {
 		return failedArray(la.Ctx, op, fmt.Errorf("unknown unary operator %q", op))
 	}
+	if err := arrayError(op, la); err != nil {
+		return failedArray(la.Ctx, op, err)
+	}
 	node := &LazyNode{
 		ID:     la.Ctx.newID(),
 		Op:     op,
@@ -181,6 +189,9 @@ func (la *LazyArray) Reshape(newShape []int) *LazyArray {
 		return failedArray(nil, "reshape", fmt.Errorf("invalid receiver"))
 	}
 	err := validateReshape(la.Shape, newShape)
+	if inputErr := arrayError("reshape", la); inputErr != nil {
+		err = inputErr
+	}
 	node := &LazyNode{
 		ID:     la.Ctx.newID(),
 		Op:     "reshape",
@@ -204,6 +215,9 @@ func (la *LazyArray) Transpose(perm []int) *LazyArray {
 		return failedArray(nil, "transpose", fmt.Errorf("invalid receiver"))
 	}
 	shape, err := transposeShape(la.Shape, perm)
+	if inputErr := arrayError("transpose", la); inputErr != nil {
+		err = inputErr
+	}
 	node := &LazyNode{
 		ID:     la.Ctx.newID(),
 		Op:     "transpose",
@@ -221,38 +235,28 @@ func (la *LazyArray) Transpose(perm []int) *LazyArray {
 	}
 }
 
-// Gather records a lazy gather operation using index offsets.
+// Gather records a rank-one result with one element per integer index.
+// An empty input permits only empty indices. Index values are not checked here.
 func (la *LazyArray) Gather(indices *LazyArray) *LazyArray {
-	if la == nil || la.Node == nil || la.Ctx == nil {
-		return failedArray(nil, "gather", fmt.Errorf("invalid receiver"))
+	if err := arrayError("gather", la, indices); err != nil {
+		return failedArray(contextOf(la), "gather", err)
 	}
-	inputs := []*LazyNode{la.Node}
-	if indices != nil {
-		inputs = append(inputs, indices.Node)
+	if !isIndexType(indices.DType) {
+		return failedArray(la.Ctx, "gather", cudair.ErrTypeMismatch)
 	}
-	var nodeErr error
-	if indices == nil || indices.Node == nil {
-		nodeErr = fmt.Errorf("gather requires indices")
+	size, _ := elementCount(la.Shape)
+	count, _ := elementCount(indices.Shape)
+	if size == 0 && count != 0 {
+		return failedArray(la.Ctx, "gather", fmt.Errorf("gather from empty input"))
 	}
-	node := &LazyNode{
-		ID:     la.Ctx.newID(),
-		Op:     "gather",
-		Inputs: inputs,
-		Shape:  slices.Clone(la.Shape),
-		DType:  la.DType,
-		Attrs:  make(map[string]any),
-		Err:    nodeErr,
-	}
-	return &LazyArray{
-		Ctx:   la.Ctx,
-		Node:  node,
-		Shape: slices.Clone(la.Shape),
-		DType: la.DType,
-	}
+	node := &LazyNode{ID: la.Ctx.newID(), Op: "gather", Inputs: []*LazyNode{la.Node, indices.Node}, Shape: []int{count}, DType: la.DType, Attrs: make(map[string]any)}
+	return &LazyArray{Ctx: la.Ctx, Node: node, Shape: []int{count}, DType: la.DType}
 }
 
-// Cycle records a lazy periodic repeating operation.
-func (la *LazyArray) Cycle(count int) *LazyArray {
+// Cycle repeats the receiver's row-major elements to fill shape, truncating
+// when the target is smaller. The target must be ranked and nonempty, and the
+// receiver must have at least one element. This records a materializing boundary.
+func (la *LazyArray) Cycle(shape []int) *LazyArray {
 	if la == nil || la.Node == nil || la.Ctx == nil {
 		return failedArray(nil, "cycle", fmt.Errorf("invalid receiver"))
 	}
@@ -260,37 +264,38 @@ func (la *LazyArray) Cycle(count int) *LazyArray {
 		ID:     la.Ctx.newID(),
 		Op:     "cycle",
 		Inputs: []*LazyNode{la.Node},
-		Shape:  slices.Clone(la.Shape),
+		Shape:  slices.Clone(shape),
 		DType:  la.DType,
-		Attrs:  map[string]any{"count": count},
+		Attrs:  map[string]any{"target_shape": slices.Clone(shape)},
+	}
+	node.Err = arrayError("cycle", la)
+	if node.Err == nil {
+		node.Err = validateLazyShape(node)
 	}
 	return &LazyArray{
 		Ctx:   la.Ctx,
 		Node:  node,
-		Shape: slices.Clone(la.Shape),
+		Shape: slices.Clone(shape),
 		DType: la.DType,
 	}
 }
 
-// Replicate records a lazy tensor replication operation.
+// Replicate records a rank-one view repeating each input element count times.
+// Count must be positive. Device lowering of this boundary is unsupported.
 func (la *LazyArray) Replicate(count int) *LazyArray {
-	if la == nil || la.Node == nil || la.Ctx == nil {
-		return failedArray(nil, "replicate", fmt.Errorf("invalid receiver"))
+	if err := arrayError("replicate", la); err != nil {
+		return failedArray(contextOf(la), "replicate", err)
 	}
-	node := &LazyNode{
-		ID:     la.Ctx.newID(),
-		Op:     "replicate",
-		Inputs: []*LazyNode{la.Node},
-		Shape:  slices.Clone(la.Shape),
-		DType:  la.DType,
-		Attrs:  map[string]any{"count": count},
+	if count <= 0 {
+		return failedArray(la.Ctx, "replicate", fmt.Errorf("replicate count must be positive"))
 	}
-	return &LazyArray{
-		Ctx:   la.Ctx,
-		Node:  node,
-		Shape: slices.Clone(la.Shape),
-		DType: la.DType,
+	size, _ := elementCount(la.Shape)
+	if size > int(^uint(0)>>1)/count {
+		return failedArray(la.Ctx, "replicate", fmt.Errorf("replicate count overflows"))
 	}
+	shape := []int{size * count}
+	node := &LazyNode{ID: la.Ctx.newID(), Op: "replicate", Inputs: []*LazyNode{la.Node}, Shape: slices.Clone(shape), DType: la.DType, Attrs: map[string]any{"count": count}}
+	return &LazyArray{Ctx: la.Ctx, Node: node, Shape: shape, DType: la.DType}
 }
 
 // Where records a conditionally fused compaction node using a boolean predicate mask.
@@ -306,6 +311,7 @@ func (la *LazyArray) Where(pred, other *LazyArray) *LazyArray {
 		inputs = append(inputs, other.Node)
 	}
 	var nodeErr error
+	nodeErr = arrayError("where", la, pred, other)
 	if pred == nil || pred.Node == nil || other == nil || other.Node == nil {
 		nodeErr = fmt.Errorf("where requires predicate and alternate inputs")
 	}
@@ -336,6 +342,7 @@ func (la *LazyArray) Filter(pred *LazyArray) *LazyArray {
 		inputs = append(inputs, pred.Node)
 	}
 	var nodeErr error
+	nodeErr = arrayError("filter", la, pred)
 	if pred == nil || pred.Node == nil {
 		nodeErr = fmt.Errorf("filter requires a predicate")
 	}
@@ -366,6 +373,7 @@ func (la *LazyArray) Keep(pred *LazyArray) *LazyArray {
 		inputs = append(inputs, pred.Node)
 	}
 	var nodeErr error
+	nodeErr = arrayError("keep", la, pred)
 	if pred == nil || pred.Node == nil {
 		nodeErr = fmt.Errorf("keep requires a predicate")
 	}
@@ -393,6 +401,9 @@ func (la *LazyArray) Sum() (*MaterializedPlan, error) {
 
 // Reduce appends a reduction boundary node and compiles the pending fusion graph.
 func (la *LazyArray) Reduce(op string, axis int) (*MaterializedPlan, error) {
+	if err := arrayError("reduce", la); err != nil {
+		return nil, err
+	}
 	node := &LazyNode{
 		ID:     la.Ctx.newID(),
 		Op:     op,
@@ -412,6 +423,9 @@ func (la *LazyArray) Reduce(op string, axis int) (*MaterializedPlan, error) {
 
 // Scan triggers materialization of an associative prefix scan.
 func (la *LazyArray) Scan(op string) (*MaterializedPlan, error) {
+	if err := arrayError("scan", la); err != nil {
+		return nil, err
+	}
 	node := &LazyNode{
 		ID:     la.Ctx.newID(),
 		Op:     "scan",
@@ -431,6 +445,9 @@ func (la *LazyArray) Scan(op string) (*MaterializedPlan, error) {
 
 // Sort triggers materialization of a key-value or array sort.
 func (la *LazyArray) Sort() (*MaterializedPlan, error) {
+	if err := arrayError("sort", la); err != nil {
+		return nil, err
+	}
 	node := &LazyNode{
 		ID:     la.Ctx.newID(),
 		Op:     "sort",
@@ -456,6 +473,9 @@ func (la *LazyArray) ToHost() (*MaterializedPlan, error) {
 // Materialize compiles the deferred DAG into fusion regions and records host-side
 // bookkeeping for the output allocation. It does not allocate device memory.
 func (la *LazyArray) Materialize() (*MaterializedPlan, error) {
+	if err := arrayError("materialize", la); err != nil {
+		return nil, err
+	}
 	if la == nil || la.Node == nil {
 		return nil, fmt.Errorf("cudafuse: invalid lazy array")
 	}
@@ -478,11 +498,24 @@ func (la *LazyArray) binaryOp(op string, other *LazyArray) *LazyArray {
 	if other == nil || other.Node == nil {
 		nodeErr = fmt.Errorf("%s requires a non-nil operand", op)
 	}
+	shape := slices.Clone(la.Shape)
+	if nodeErr == nil {
+		nodeErr = arrayError(op, la, other)
+	}
+	if nodeErr == nil && la.DType != other.DType {
+		nodeErr = cudair.ErrTypeMismatch
+	}
+	if nodeErr == nil {
+		shape, nodeErr = binaryShape(la.Shape, other.Shape)
+	}
+	if nodeErr != nil {
+		shape = nil
+	}
 	node := &LazyNode{
 		ID:     la.Ctx.newID(),
 		Op:     op,
 		Inputs: inputs,
-		Shape:  slices.Clone(la.Shape),
+		Shape:  slices.Clone(shape),
 		DType:  la.DType,
 		Attrs:  make(map[string]any),
 		Err:    nodeErr,
@@ -490,7 +523,7 @@ func (la *LazyArray) binaryOp(op string, other *LazyArray) *LazyArray {
 	return &LazyArray{
 		Ctx:   la.Ctx,
 		Node:  node,
-		Shape: slices.Clone(la.Shape),
+		Shape: slices.Clone(shape),
 		DType: la.DType,
 	}
 }
@@ -534,23 +567,6 @@ func validateReshape(oldShape, newShape []int) error {
 		return fmt.Errorf("reshape changes element count from %d to %d", oldCount, newCount)
 	}
 	return nil
-}
-
-func shapeElements(shape []int) (uint64, error) {
-	count := uint64(1)
-	for _, dim := range shape {
-		if dim < 0 {
-			return 0, fmt.Errorf("negative shape dimension %d", dim)
-		}
-		if dim == 0 {
-			return 0, nil
-		}
-		if count > ^uint64(0)/uint64(dim) {
-			return 0, fmt.Errorf("shape element count overflows")
-		}
-		count *= uint64(dim)
-	}
-	return count, nil
 }
 
 func transposeShape(shape, perm []int) ([]int, error) {

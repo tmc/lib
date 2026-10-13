@@ -89,9 +89,6 @@ func compileIndexedFusionRegion(region *ExtractedFusionRegion) (*cudafuse.FusedK
 			if err != nil {
 				return nil, err
 			}
-			if !slices.Equal(a.Shape, b.Shape) {
-				return nil, fmt.Errorf("egraph: indexed binary operand shapes differ")
-			}
 			result = a.Map2(op, b)
 		default:
 			result = a.Map(op)

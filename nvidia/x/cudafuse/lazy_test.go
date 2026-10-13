@@ -27,7 +27,7 @@ func TestLazyFusionBoundary_ElementwiseChaining(t *testing.T) {
 	a4 := a3.Map("exp")
 	a5 := a4.Reshape([]int{65536})
 	a6 := a5.Transpose([]int{0})
-	a7 := a6.Cycle(2)
+	a7 := a6.Cycle([]int{131072})
 	a8 := a7.Replicate(1)
 
 	// Ensure zero intermediate allocations were made during chaining
@@ -322,13 +322,17 @@ func TestLazyFusionBoundary_EveryFusibleOpMaterializes(t *testing.T) {
 			var boundary *cudafuse.LazyArray
 			switch op {
 			case "gather":
-				boundary = x.Gather(y)
+				boundary = x.Gather(cudafuse.NewLazyArray(ctx, []int{4}, cudair.Int32))
 			case "cycle":
-				boundary = x.Cycle(2)
+				boundary = x.Cycle([]int{4})
 			case "replicate":
 				boundary = x.Replicate(2)
 			}
-			plan, err := boundary.Add(y).Materialize()
+			partner := y
+			if op == "replicate" {
+				partner = cudafuse.NewLazyArray(ctx, []int{8}, cudair.Float32)
+			}
+			plan, err := boundary.Add(partner).Materialize()
 			if err != nil {
 				t.Fatalf("Materialize: %v", err)
 			}

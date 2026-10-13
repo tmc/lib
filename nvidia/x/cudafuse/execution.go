@@ -106,6 +106,27 @@ func (p *MaterializedPlan) ExecuteEager(ctx context.Context, stream *cuda.Stream
 }
 
 func (p *MaterializedPlan) execute(ctx context.Context, stream *cuda.Stream, bindings map[string]ExecutionBinding, eager bool) (*Execution, error) {
+	inputs := make(map[string]executionInput, len(bindings))
+	for name, b := range bindings {
+		inputs[name] = executionInput{
+			description: executionBindingDescription{shape: b.Shape, dtype: b.DType, length: b.Buffer.Len(), ptr: uint64(b.Buffer.Ptr()), bytes: uint64(b.Buffer.SizeBytes()), device: b.Buffer.Device()},
+			borrow: func(device *cuda.Device) (driver.DevicePtr, func(), error) {
+				release, err := b.Buffer.Borrow(device)
+				return b.Buffer.Ptr(), release, err
+			},
+		}
+	}
+	return p.executeInputs(ctx, stream, inputs, eager)
+}
+
+// executionInput keeps description checks and borrowing on the same path for
+// native bindings and host ownership tests. It is not a public device backend.
+type executionInput struct {
+	description executionBindingDescription
+	borrow      func(*cuda.Device) (driver.DevicePtr, func(), error)
+}
+
+func (p *MaterializedPlan) executeInputs(ctx context.Context, stream *cuda.Stream, bindings map[string]executionInput, eager bool) (*Execution, error) {
 	plan, err := snapshotExecution(p, eager)
 	if err != nil {
 		return nil, err
@@ -121,10 +142,18 @@ func (p *MaterializedPlan) execute(ctx context.Context, stream *cuda.Stream, bin
 	}
 	descriptions := map[string]executionBindingDescription{}
 	for name, b := range bindings {
-		descriptions[name] = executionBindingDescription{shape: b.Shape, dtype: b.DType, length: b.Buffer.Len(), ptr: uint64(b.Buffer.Ptr()), bytes: uint64(b.Buffer.SizeBytes()), device: b.Buffer.Device()}
+		descriptions[name] = b.description
 	}
 	if err := validateExecutionBindings(nodes, n, dev, descriptions); err != nil {
 		return nil, err
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	// Empty results consume no storage, including nonempty scalar operands.
+	// Validate them first, but do not borrow a leaf whose value cannot be read.
+	if n == 0 {
+		return &Execution{n: 0, shape: slices.Clone(plan.root.Shape), complete: true}, nil
 	}
 	inputs := make(map[*LazyNode]driver.DevicePtr)
 	var releases []func()
@@ -141,21 +170,21 @@ func (p *MaterializedPlan) execute(ctx context.Context, stream *cuda.Stream, bin
 		}
 		count++
 		b, ok := bindings[node.Name()]
-		if !ok || b.DType != cudair.Float32 || !slices.Equal(b.Shape, node.Shape) || b.Buffer.Len() != int(mustExecutionElements(node)) {
+		if !ok || b.description.dtype != cudair.Float32 || !slices.Equal(b.description.shape, node.Shape) || b.description.length != int(mustExecutionElements(node)) {
 			rollback()
 			return nil, fmt.Errorf("cudafuse: invalid binding %s", node.Name())
 		}
 		if mustExecutionElements(node) == 0 {
 			continue
 		}
-		release, e := b.Buffer.Borrow(dev)
+		pointer, release, e := b.borrow(dev)
 		if e != nil {
 			rollback()
 			return nil, fmt.Errorf("cudafuse: binding %s: %w", node.Name(), e)
 		}
 		releases = append(releases, release)
-		ptr := uint64(b.Buffer.Ptr())
-		size := uint64(b.Buffer.SizeBytes())
+		ptr := uint64(pointer)
+		size := b.description.bytes
 		if ptr == 0 || size > math.MaxUint64-ptr {
 			rollback()
 			return nil, errors.New("cudafuse: invalid input extent")
@@ -176,9 +205,6 @@ func (p *MaterializedPlan) execute(ctx context.Context, stream *cuda.Stream, bin
 	if ctx != nil && ctx.Err() != nil {
 		rollback()
 		return nil, ctx.Err()
-	}
-	if n == 0 {
-		return &Execution{n: 0, shape: slices.Clone(plan.root.Shape), complete: true}, nil
 	}
 	e, err := runExecutionPlan(ctx, plan, inputs, nativeExecutionOps(dev, stream), releases)
 	return e, err
@@ -251,7 +277,7 @@ func mustExecutionElements(n *LazyNode) uint64 {
 func executionSource(nodes []*LazyNode, root *LazyNode, name string, eager bool) (FusedKernel, error) {
 	indexed := false
 	for _, node := range nodes {
-		indexed = indexed || node.Op == "transpose" || node.Op == "reshape"
+		indexed = indexed || node.Op == "transpose" || node.Op == "reshape" || node.Op == "cycle"
 	}
 	if indexed {
 		var inputs []*LazyNode
@@ -276,8 +302,7 @@ func executionSource(nodes []*LazyNode, root *LazyNode, name string, eager bool)
 		if v := values[node]; v != nil {
 			return v
 		}
-		count, _ := indexedElements(node) // executionNodes already checked the domain.
-		v := g.AddInput(node.Name(), []int{int(count)}, node.DType)
+		v := g.AddInput(node.Name(), node.Shape, node.DType)
 		values[node] = v
 		return v
 	}

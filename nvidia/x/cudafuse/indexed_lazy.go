@@ -11,8 +11,10 @@ import (
 
 // FuseLazy generates a row-major FP32 kernel for a lazy region. Inputs identify
 // external tensors; traversal stops at those nodes. Outputs must have the same
-// element count, bounded by int32. Unary and binary operations, reshapes, and
-// transposes are evaluated without intermediate buffers.
+// element count, bounded by int32. Equal-shape or scalar binary operations,
+// unary operations, reshapes, transposes, and periodic Cycle views are evaluated
+// by their own checked index mappings. A Cycle execution boundary retains its
+// owned output buffer when this source is used by the deferred executor.
 //
 // The caller must use distinct input and output buffers, a one-dimensional
 // launch, and the exact compiled element count. LazyNode has no source location,
@@ -49,12 +51,12 @@ func compileIndexedLazyRegion(inputs, outputs []*LazyNode, name string) (FusedKe
 		if state[node] == 2 {
 			return nil
 		}
-		n, err := indexedElements(node)
+		_, err := indexedElements(node)
 		if err != nil {
 			return err
 		}
-		if n != count || node.DType != cudair.Float32 {
-			return fmt.Errorf("cudafuse: indexed node %s requires float32 and %d elements", node.Name(), count)
+		if node.DType != cudair.Float32 {
+			return fmt.Errorf("cudafuse: indexed node %s requires float32: %w", node.Name(), cudair.ErrTypeMismatch)
 		}
 		if !external[node] {
 			if err := validateIndexedOperator(node); err != nil {
@@ -77,6 +79,10 @@ func compileIndexedLazyRegion(inputs, outputs []*LazyNode, name string) (FusedKe
 			return kernel, fmt.Errorf("cudafuse: duplicate indexed output")
 		}
 		seenOutput[output] = true
+		n, err := indexedElements(output)
+		if err != nil || n != count {
+			return kernel, fmt.Errorf("cudafuse: indexed outputs require the same iteration extent")
+		}
 		if err := visit(output); err != nil {
 			return kernel, err
 		}
@@ -140,27 +146,23 @@ func indexedElements(node *LazyNode) (uint64, error) {
 	if node.Err != nil {
 		return 0, fmt.Errorf("cudafuse: indexed node %s: %w", node.Name(), node.Err)
 	}
-	empty := false
-	for _, dimension := range node.Shape {
-		if dimension < 0 {
-			return 0, fmt.Errorf("cudafuse: negative indexed dimension")
-		}
-		empty = empty || dimension == 0
-	}
-	if empty {
-		return 0, nil
-	}
 	count, err := shapeElements(node.Shape)
-	if err != nil || count > math.MaxInt32 {
+	if err != nil {
+		return 0, fmt.Errorf("cudafuse: indexed shape: %w", err)
+	}
+	if count > math.MaxInt32 {
 		return 0, fmt.Errorf("cudafuse: indexed extent exceeds int32")
 	}
 	return count, nil
 }
 
 func validateIndexedOperator(node *LazyNode) error {
+	if err := validateLazyShape(node); err != nil {
+		return fmt.Errorf("cudafuse: indexed operator %s: %w", node.Op, err)
+	}
 	arity := 1
 	switch node.Op {
-	case "relu", "silu", "exp", "sqrt", "neg", "reshape", "transpose":
+	case "relu", "silu", "exp", "sqrt", "neg", "reshape", "transpose", "cycle":
 	case "add", "sub", "mul", "div":
 		arity = 2
 	default:
@@ -184,7 +186,7 @@ func validateIndexedOperator(node *LazyNode) error {
 		if err != nil || !slices.Equal(shape, node.Shape) {
 			return fmt.Errorf("cudafuse: indexed transpose shape or permutation mismatch")
 		}
-	case "reshape":
+	case "reshape", "cycle":
 		shape, ok := node.Attrs["target_shape"].([]int)
 		if !ok || len(node.Attrs) != 1 || !slices.Equal(shape, node.Shape) {
 			return fmt.Errorf("cudafuse: indexed reshape requires target shape")
@@ -192,11 +194,6 @@ func validateIndexedOperator(node *LazyNode) error {
 	default:
 		if len(node.Attrs) != 0 {
 			return fmt.Errorf("cudafuse: unexpected indexed operator attributes")
-		}
-		for _, input := range node.Inputs {
-			if !slices.Equal(input.Shape, node.Shape) {
-				return fmt.Errorf("cudafuse: indexed operator %s requires matching shapes", node.Op)
-			}
 		}
 	}
 	return nil
@@ -229,6 +226,11 @@ func newIndexedExpression(source *strings.Builder, external map[*LazyNode]bool) 
 }
 
 func (e *indexedExpression) emit(node *LazyNode, index string) string {
+	// Normalize a whole scalar expression, including its views and operands.
+	// Non-scalar transpose and Cycle expressions retain their own index domain.
+	if count, _ := indexedElements(node); count == 1 {
+		index = "0ULL"
+	}
 	key := indexedValueKey{node, index}
 	if value := e.values[key]; value != "" {
 		return value
@@ -236,6 +238,11 @@ func (e *indexedExpression) emit(node *LazyNode, index string) string {
 	var expression string
 	switch {
 	case e.external[node]:
+		if index == "0ULL" {
+			e.next++
+			index = fmt.Sprintf("index_%d", e.next)
+			fmt.Fprintf(e.source, "        unsigned long long %s = 0ULL;\n", index)
+		}
 		expression = fmt.Sprintf("%s[%s]", node.Name(), index)
 	case node.Op == "transpose":
 		perm := node.Attrs["permutation"].([]int)
@@ -254,6 +261,9 @@ func (e *indexedExpression) emit(node *LazyNode, index string) string {
 		expression = e.emit(node.Inputs[0], indexName)
 	case node.Op == "reshape":
 		expression = e.emit(node.Inputs[0], index)
+	case node.Op == "cycle":
+		count, _ := indexedElements(node.Inputs[0])
+		expression = e.emit(node.Inputs[0], fmt.Sprintf("(%s %% %dULL)", index, count))
 	default:
 		a := e.emit(node.Inputs[0], index)
 		switch node.Op {

@@ -75,7 +75,7 @@ func (p *sumExecutionProbe) ops() executionOps {
 				for _, ptr := range ptrs[:len(f.Inputs)] {
 					inputs = append(inputs, p.storage[ptr])
 				}
-				out, err := sourceModel(f, inputs, count)
+				out, err := shapeSourceModel(f, inputs, count)
 				if err != nil {
 					return err
 				}

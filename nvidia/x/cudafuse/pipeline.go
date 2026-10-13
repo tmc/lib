@@ -70,6 +70,9 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 		if n.Err != nil {
 			return nil, fmt.Errorf("cudafuse: node %s: %w", n.Name(), n.Err)
 		}
+		if err := validateLazyShape(n); err != nil {
+			return nil, fmt.Errorf("cudafuse: node %s: %w", n.Name(), err)
+		}
 	}
 	regions, err := partitionIntoRegions(ordered)
 	if err != nil {
@@ -78,6 +81,14 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 
 	// For regions of fusible elementwise nodes, compile them via FuseWithSourceMap.
 	for _, reg := range regions {
+		if reg.Boundary == "cycle" {
+			kernel, err := compileIndexedLazyRegion(reg.Inputs, reg.Outputs, fmt.Sprintf("cycle_region_%d", reg.ID))
+			if err != nil {
+				return nil, err
+			}
+			reg.Kernel = &kernel
+			continue
+		}
 		if reg.Compaction || IsMaterializingBoundary(reg.Boundary) {
 			continue
 		}
@@ -98,7 +109,8 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 		kernelName := fmt.Sprintf("fused_region_%d", reg.ID)
 		indexed := false
 		for _, node := range reg.Nodes {
-			indexed = indexed || node.Op == "transpose"
+			count, _ := shapeElements(node.Shape)
+			indexed = indexed || node.Op == "transpose" || node.Op == "reshape" || count == 0
 		}
 		if indexed {
 			kernel, err := compileIndexedLazyRegion(reg.Inputs, reg.Outputs, kernelName)
@@ -117,7 +129,11 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 				if shapeErr != nil || elements > math.MaxInt {
 					return nil, fmt.Errorf("cudafuse: input %s has invalid shape %v", in.Name(), in.Shape)
 				}
-				nodeMap[in] = g.AddInput(in.Name(), []int{int(elements)}, in.DType)
+				value, err := g.AddInputChecked(in.Name(), in.Shape, in.DType)
+				if err != nil {
+					return nil, err
+				}
+				nodeMap[in] = value
 			}
 		}
 
@@ -135,7 +151,11 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 				if in1 == nil || in2 == nil {
 					return nil, fmt.Errorf("cudafuse: missing input for %s", n.Op)
 				}
-				nodeMap[n] = g.AddBinary(n.Op, in1, in2)
+				value, err := g.AddBinaryChecked(n.Op, in1, in2)
+				if err != nil {
+					return nil, err
+				}
+				nodeMap[n] = value
 			case "relu", "silu", "exp", "sqrt", "neg":
 				if len(n.Inputs) != 1 {
 					return nil, fmt.Errorf("cudafuse: %s requires one input", n.Op)

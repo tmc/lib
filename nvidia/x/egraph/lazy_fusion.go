@@ -154,6 +154,28 @@ func compileExtractedRegion(region *ExtractedFusionRegion) (*cudafuse.FusedKerne
 	if region == nil || region.Root == nil {
 		return nil, fmt.Errorf("egraph: invalid region")
 	}
+	// Any tensor metadata selects the typed route for the entire region.
+	// Partial metadata must be refused there, not replaced by demo extents.
+	seen := make(map[*Expr]bool)
+	var typed func(*Expr) bool
+	typed = func(e *Expr) bool {
+		if e == nil || seen[e] {
+			return false
+		}
+		seen[e] = true
+		if _, ok := e.Data.(FusionTensor); ok {
+			return true
+		}
+		for _, child := range e.Children {
+			if typed(child) {
+				return true
+			}
+		}
+		return false
+	}
+	if typed(region.Root) {
+		return compileIndexedFusionRegion(region)
+	}
 	for _, op := range region.OpNames {
 		if op == "transpose" {
 			return compileIndexedFusionRegion(region)

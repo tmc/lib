@@ -53,7 +53,7 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 			return nil, fmt.Errorf("cudafuse: guarded execution extent overflows int")
 		}
 		if n.DType != cudair.Float32 {
-			return nil, fmt.Errorf("cudafuse: execution requires float32")
+			return nil, fmt.Errorf("cudafuse: execution requires float32: %w", cudair.ErrTypeMismatch)
 		}
 		clone := *n
 		clone.Shape = slices.Clone(n.Shape)
