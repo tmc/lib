@@ -1,0 +1,1 @@
+commit ece4511873ad8429e2f7a66db758cb4362b0f492 date 2026-10-13T05:18:20Z agent=claude-code model=claude-opus-5-5 pid=44927 iterm=w1t0p10:B61EB754-39B0-4CD0-927E-85D713CE374E session=92ccdea6-7e63-44cd-860c-503002fbbee6 fixes REVIEW-CLEANUP-BATCH F2; CPU PASS via private go.work (composed); R4 wrap control detected
