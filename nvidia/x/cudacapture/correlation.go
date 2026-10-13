@@ -664,6 +664,13 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 
 // ExportFoldedStacks exports joined correlation records as folded stacks in flamegraph.pl format,
 // weighted by device busy time from interval unions.
+//
+// It is a thin adapter over [cudaprof.ExportFoldedStacks]. Each join's KernelName,
+// Callstack, DeviceStart, DeviceEnd, and Device become the KernelName, Callstack,
+// StartNs, EndNs, and Device of a [cudaprof.KernelExecution]; no other join field
+// is used. Weighting, validation, and output order are those of
+// [cudaprof.ExportFoldedStacks]. The adapter does not qualify folded or stack
+// output from a live capture; that qualification is separate.
 func ExportFoldedStacks(w io.Writer, joins []CorrelationJoin) error {
 	executions := make([]cudaprof.KernelExecution, len(joins))
 	for i, j := range joins {
