@@ -19,6 +19,10 @@ func TestUncertaintyAfter(t *testing.T) {
 			if got := uncertaintyAfter(5, tt.elapsed); got != tt.want {
 				t.Fatalf("uncertainty = %d, want %d", got, tt.want)
 			}
+			// Everything beyond the measured bracket is the assumed drift model.
+			if got := driftAllowance(tt.elapsed); got != tt.want-5 {
+				t.Fatalf("drift allowance = %d, want %d", got, tt.want-5)
+			}
 		})
 	}
 }
@@ -61,9 +65,7 @@ func TestCalibrateWithPropagatesWarmUpError(t *testing.T) {
 }
 
 // TestClockUncertaintyPrecedence exercises every branch of the source
-// precedence directly. The end-to-end tests cannot: Start calibrates against
-// CUPTI whenever a device is present, so on a GPU host a snapshot always
-// reports "measured" and the other two branches never run.
+// precedence directly, without a recorder or a clock read.
 func TestClockUncertaintyPrecedence(t *testing.T) {
 	for _, tt := range []struct {
 		name             string
@@ -77,9 +79,9 @@ func TestClockUncertaintyPrecedence(t *testing.T) {
 		{"unavailable", false, 0, 0, 0, -1, "unavailable"},
 		{"negative configured is not a value", false, 0, 0, -1, -1, "unavailable"},
 		{"configured", false, 0, 0, 1000, 1000, "configured"},
-		{"measured", true, 5000, 0, 0, 5000, "measured"},
-		{"measured widens with drift", true, 5000, 10 * time.Second, 0, 5000 + 110000, "measured"},
-		{"measurement supersedes configured", true, 5000, 0, 25000, 5000, "measured"},
+		{"measured bracket only", true, 5000, 0, 0, 5000, "estimated"},
+		{"measured bracket plus assumed drift", true, 5000, 10 * time.Second, 0, 5000 + 110000, "estimated"},
+		{"calibration supersedes configured", true, 5000, 0, 25000, 5000, "estimated"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			gotNs, gotSource := clockUncertainty(tt.calibrated, tt.bracketNs, tt.sinceCalibration, tt.configuredNs)

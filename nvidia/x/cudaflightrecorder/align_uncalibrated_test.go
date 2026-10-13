@@ -14,13 +14,14 @@ import (
 // and against the configured estimate, where configuredNs is the recorder's
 // Config.ClockUncertaintyNs.
 //
-// It deliberately does not assert WHICH source won. Start calibrates against
-// CUPTI whenever a device is present, and a measurement supersedes a configured
-// estimate, so the source is a property of the host the test runs on. Asserting
-// a literal makes the test pass only where the capability is absent. The
-// precedence rule itself is covered by TestClockUncertaintyPrecedence and the
-// reliability rule by TestAlignSpansUncertaintyInputs; what is left to check
-// here is that Snapshot wires them together consistently.
+// Start never calibrates the clock and these tests never call CalibrateClock,
+// so the source depends only on the configuration, and
+// TestSnapshotClockUncertaintySource asserts it exactly. The "estimated" case
+// is reached only after a successful CalibrateClock, which
+// TestCalibrateClockEnablesMapping covers with a fake clock. The precedence
+// rule itself is covered by TestClockUncertaintyPrecedence and the reliability
+// rule by TestAlignSpansUncertaintyInputs; what is left to check here is that
+// Snapshot wires them together consistently.
 func checkClockUncertainty(t *testing.T, m *cudaflightrecorder.Manifest, configuredNs int64) {
 	t.Helper()
 	switch m.ClockUncertaintySource {
@@ -38,12 +39,12 @@ func checkClockUncertainty(t *testing.T, m *cudaflightrecorder.Manifest, configu
 		if m.ClockUncertaintyNs != configuredNs {
 			t.Errorf("configured uncertainty = %d, want %d", m.ClockUncertaintyNs, configuredNs)
 		}
-	case "measured":
+	case "estimated":
 		if m.ClockUncertaintyNs <= 0 {
-			t.Errorf("measured uncertainty = %d, want > 0", m.ClockUncertaintyNs)
+			t.Errorf("estimated uncertainty = %d, want > 0", m.ClockUncertaintyNs)
 		}
 	default:
-		t.Errorf("source = %q, want measured, configured or unavailable", m.ClockUncertaintySource)
+		t.Errorf("source = %q, want estimated, configured or unavailable", m.ClockUncertaintySource)
 	}
 }
 
@@ -51,9 +52,10 @@ func TestSnapshotClockUncertaintySource(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
 		uncertainty int64
+		wantSource  string
 	}{
-		{"unconfigured", 0},
-		{"configured", 1000},
+		{"unconfigured", 0, "unavailable"},
+		{"configured", 1000, "configured"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			r, err := cudaflightrecorder.New(cudaflightrecorder.Config{GoTraceEnabled: true, ClockUncertaintyNs: tt.uncertainty})
@@ -74,6 +76,9 @@ func TestSnapshotClockUncertaintySource(t *testing.T) {
 			}
 			if !strings.HasPrefix(manifest.ProviderStatus["go.trace"], "unvalidated:") || manifest.GoSpanNs != 0 || manifest.OverlapSpanNs != 0 || manifest.OverlapReliable {
 				t.Fatalf("unvalidated trace admitted timing: %+v", manifest)
+			}
+			if manifest.ClockUncertaintySource != tt.wantSource {
+				t.Errorf("source = %q without calibration, want %q", manifest.ClockUncertaintySource, tt.wantSource)
 			}
 			checkClockUncertainty(t, manifest, tt.uncertainty)
 		})

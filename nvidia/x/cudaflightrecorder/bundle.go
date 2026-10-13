@@ -31,7 +31,13 @@ type Manifest struct {
 	GoTraceBytes     int64 `json:"go_trace_bytes"`
 	// ClockUncertaintyNs is the alignment uncertainty in nanoseconds; -1 means unavailable.
 	ClockUncertaintyNs int64 `json:"clock_uncertainty_ns"`
-	// ClockUncertaintySource is measured, configured, or unavailable.
+	// ClockUncertaintySource says where ClockUncertaintyNs came from.
+	// "estimated" follows a successful Recorder.CalibrateClock: half the
+	// host-clock bracket measured around a CUPTI clock read, plus drift
+	// since the read at an assumed 11 ppm. It is not a qualified bound on
+	// the physical alignment error; the true drift is not measured.
+	// "configured" is Config.ClockUncertaintyNs. "unavailable" means neither,
+	// and "host_only" marks a fault snapshot; both report -1.
 	ClockUncertaintySource string            `json:"clock_uncertainty_source"`
 	OverlapReliable        bool              `json:"overlap_reliable"`
 	ProviderStatus         map[string]string `json:"provider_status,omitempty"`

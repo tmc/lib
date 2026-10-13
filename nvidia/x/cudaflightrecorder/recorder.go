@@ -42,7 +42,6 @@ type Config struct {
 	MaxProviderOutputBytes int64           // Max bytes allowed per provider output (default: 64 MiB)
 	MaxSnapshotBytes       int64           // Max retained file payload bytes; manifest/TAR framing have a separate global limit (default: 256 MiB)
 	MaxQueuedJobs          int             // Max pending async snapshot jobs (default: 16)
-	MaxDiskRetentionBytes  int64           // Max total disk bytes for retained snapshots (default: 1 GiB)
 }
 
 // Record represents a single timestamped GPU execution observation in the ring buffer.
@@ -59,6 +58,7 @@ type Record struct {
 type Recorder struct {
 	cfg        Config
 	mu         sync.Mutex
+	calMu      sync.Mutex // serializes CalibrateClock
 	running    bool
 	closed     bool
 	cleanupErr error
@@ -81,6 +81,10 @@ type Recorder struct {
 	activityUncertaintyNs int64
 	activityCalibratedAt  time.Time
 	activityCalibrated    bool
+
+	// calibrate reads the host-to-device clock correspondence for
+	// CalibrateClock. New sets it to calibrateCUPTITimestamp; tests replace it.
+	calibrate func() (hostNs, deviceNs, uncertaintyNs int64, err error)
 }
 
 // New creates a new flight recorder with the supplied configuration.
@@ -103,14 +107,12 @@ func New(cfg Config) (*Recorder, error) {
 	if cfg.MaxQueuedJobs <= 0 {
 		cfg.MaxQueuedJobs = 16
 	}
-	if cfg.MaxDiskRetentionBytes <= 0 {
-		cfg.MaxDiskRetentionBytes = 1 << 30
-	}
 
 	r := &Recorder{
 		cfg:        cfg,
 		records:    make([]Record, cfg.Capacity),
 		extraFiles: make(map[string][]byte),
+		calibrate:  calibrateCUPTITimestamp,
 	}
 
 	if cfg.GoTraceEnabled {
@@ -260,6 +262,11 @@ func allKnownPreTriggerFamilies() []string {
 }
 
 // Start begins continuous in-memory flight recording.
+//
+// Start does not load or call CUPTI. Until CalibrateClock succeeds, activity
+// records pushed with PushActivityRecord carry timestamp 0 and the
+// activity.uncalibrated label, and snapshots report the configured clock
+// uncertainty, or -1 when none is configured.
 func (r *Recorder) Start() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -278,35 +285,99 @@ func (r *Recorder) Start() error {
 	}
 
 	r.startTime = time.Now()
-	if hostNs, deviceNs, uncertaintyNs, err := calibrateCUPTITimestamp(); err == nil {
-		r.activityHostNs, r.activityDeviceNs = hostNs, deviceNs
-		r.activityUncertaintyNs, r.activityCalibrated = uncertaintyNs, true
-		r.activityCalibratedAt = time.Now()
-	}
 	r.running = true
 	return nil
 }
 
-// clockDriftPPM is the measured host-to-device oscillator drift, in parts per million.
-const clockDriftPPM = 11
+// CalibrateClock measures the correspondence between the host clock and the
+// CUPTI device timestamp clock. After it succeeds, PushActivityRecord maps
+// device timestamps onto the host clock, and snapshots report clock
+// uncertainty source "estimated": half the host-clock bracket measured around
+// the device clock read, plus an allowance for drift since the read at an
+// assumed 11 ppm. Only the bracket is measured. The estimate is not a
+// qualified bound on the physical alignment error: the true drift rate of
+// the clocks is not measured.
+//
+// CalibrateClock is vendor library access: it loads libcupti if it is not
+// already loaded and calls cuptiGetTimestamp. It does not enable activity
+// collection.
+//
+// CalibrateClock returns an error and changes nothing if the recorder is not
+// running, if the clock read fails, or if the recorder is stopped before the
+// read completes. A later successful call replaces an earlier calibration.
+// Concurrent calls are serialized.
+func (r *Recorder) CalibrateClock() error {
+	r.calMu.Lock()
+	defer r.calMu.Unlock()
 
-func uncertaintyAfter(bracketNs int64, elapsed time.Duration) int64 {
+	r.mu.Lock()
+	err := r.checkRunningLocked()
+	r.mu.Unlock()
+	if err != nil {
+		return err
+	}
+
+	hostNs, deviceNs, uncertaintyNs, err := r.calibrate()
+	if err != nil {
+		return fmt.Errorf("cudaflightrecorder: calibrate clock: %w", err)
+	}
+	at := time.Now()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// Stop may have run during the read; its result must not outlive it.
+	if err := r.checkRunningLocked(); err != nil {
+		return err
+	}
+	r.activityHostNs, r.activityDeviceNs = hostNs, deviceNs
+	r.activityUncertaintyNs, r.activityCalibratedAt = uncertaintyNs, at
+	r.activityCalibrated = true
+	return nil
+}
+
+func (r *Recorder) checkRunningLocked() error {
+	if r.closed {
+		return errors.New("cudaflightrecorder: recorder is closed")
+	}
+	if !r.running {
+		return errors.New("cudaflightrecorder: recorder not running")
+	}
+	return nil
+}
+
+// assumedClockDriftPPM is the host-to-device oscillator drift rate, in parts
+// per million, assumed to accrue after a calibration. It is a model parameter,
+// not a measurement of any host or device.
+const assumedClockDriftPPM = 11
+
+// driftAllowance returns the uncertainty that the assumed drift rate adds
+// over elapsed.
+func driftAllowance(elapsed time.Duration) int64 {
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	return bracketNs + int64(elapsed)*clockDriftPPM/1e6
+	return int64(elapsed) * assumedClockDriftPPM / 1e6
+}
+
+// uncertaintyAfter extrapolates a measured bracket half-width by the assumed
+// drift over elapsed. The result is an estimate, not a measured accuracy.
+func uncertaintyAfter(bracketNs int64, elapsed time.Duration) int64 {
+	return bracketNs + driftAllowance(elapsed)
 }
 
 // clockUncertainty reports the host-to-device clock alignment error to record
-// with a snapshot, and where that number came from. A bracket measured at Start
-// takes precedence over a configured estimate, widened for the drift accrued
-// since it was taken. With neither, the uncertainty is unknown and is reported
-// as -1 rather than 0, so that a caller cannot mistake "not measured" for
-// "perfectly aligned".
+// with a snapshot, and where that number came from. A calibration takes
+// precedence over a configured estimate. Its source is "estimated": the
+// half-width of the bracket CalibrateClock measured plus driftAllowance for the
+// time since, which is extrapolated from the assumed drift rate. Neither part
+// measures the drift, so the value is not a qualified error bound. With
+// neither a calibration nor a configured estimate, the uncertainty is unknown
+// and is reported as -1 rather than 0, so that a caller cannot mistake
+// "unknown" for "perfectly aligned".
 func clockUncertainty(calibrated bool, bracketNs int64, sinceCalibration time.Duration, configuredNs int64) (int64, string) {
 	switch {
 	case calibrated:
-		return uncertaintyAfter(bracketNs, sinceCalibration), "measured"
+		return uncertaintyAfter(bracketNs, sinceCalibration), "estimated"
 	case configuredNs > 0:
 		return configuredNs, "configured"
 	}
@@ -401,7 +472,9 @@ func (r *Recorder) PushPMSample(sample cuptipmsampling.Sample) {
 }
 
 // PushActivityRecord records a CUPTI activity using the host clock as its timestamp.
-// Device timestamps are not comparable with the host timestamps used by Go traces.
+// Device timestamps are not comparable with the host timestamps used by Go traces,
+// so the activity start is mapped through the calibration made by CalibrateClock.
+// Without one, the record has timestamp 0 and the activity.uncalibrated label.
 func (r *Recorder) PushActivityRecord(activity cuptiactivity.Record) {
 	var duration uint64
 	if activity.Complete {
@@ -432,9 +505,15 @@ func mapCUPTITimestamp(hostNs, deviceNs int64, activityNs uint64) int64 {
 	return hostNs + int64(activityNs-uint64(deviceNs))
 }
 
+// Errors from the clock reads. CalibrateClock adds the package prefix.
+var (
+	errCUPTITimestampUnavailable = errors.New("CUPTI timestamp unavailable")
+	errHostClockBackwards        = errors.New("host clock went backwards")
+)
+
 func calibrateCUPTITimestamp() (hostNs, deviceNs, uncertaintyNs int64, err error) {
 	if !cupti.HasGetTimestamp() {
-		return 0, 0, 0, errors.New("cudaflightrecorder: CUPTI timestamp unavailable")
+		return 0, 0, 0, errCUPTITimestampUnavailable
 	}
 	return calibrateWith(cupti.GetTimestamp)
 }
@@ -457,7 +536,7 @@ func calibrateWith(read func() (uint64, error)) (hostNs, deviceNs, uncertaintyNs
 	}
 	after := time.Now().UnixNano()
 	if after < before {
-		return 0, 0, 0, errors.New("cudaflightrecorder: host clock went backwards")
+		return 0, 0, 0, errHostClockBackwards
 	}
 	return before + (after-before)/2, int64(device), (after - before) / 2, nil
 }

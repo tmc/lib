@@ -100,10 +100,11 @@ func ExampleRecorder_Snapshot_withGoTrace() {
 	//		// compare the Go and GPU spans
 	//	}
 	//
-	// The example neither prints nor checks its value. That value depends on
-	// whether the host could calibrate against CUPTI, so any assertion on it
-	// here would be live on one kind of host and dead on the other. The rules
-	// behind it are tested directly and host-independently, by
+	// The example neither prints nor checks its value. Start never
+	// calibrates the clock and this recorder neither configures
+	// ClockUncertaintyNs nor calls CalibrateClock, so the uncertainty is
+	// unavailable and the value here is always false; printing it would show
+	// only that one case. The rules behind it are tested directly, by
 	// TestAlignSpansUncertaintyInputs and TestClockUncertaintyPrecedence.
 	//
 	// What does hold on every host is that the manifest Snapshot returns and
