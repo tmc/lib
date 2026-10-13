@@ -79,6 +79,9 @@ type BytecodeModule struct {
 	Constants [][]byte
 	Functions []*BytecodeFunction
 	Globals   []*BytecodeGlobal
+	// ASTDecodeError records unsupported module metadata. Such a module cannot
+	// be converted to an AST or re-encoded by this bounded codec.
+	ASTDecodeError error
 }
 
 // BytecodeFunction represents a decoded function record from the function table.
@@ -93,6 +96,9 @@ type BytecodeFunction struct {
 	LocIndex       int
 	BodyBytes      []byte
 	Operations     []*Operation
+	// BodyDecodeError is nonnil when the body is preserved as opaque bytes.
+	// Operations is then nil; no partial or guessed AST is published.
+	BodyDecodeError error
 }
 
 // BytecodeGlobal represents a decoded global variable declaration.
@@ -140,6 +146,7 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 
 	// Read sections
 	offset := 12
+	ended := false
 	payloads := make(map[uint8][]byte)
 
 	for offset < len(data) {
@@ -149,6 +156,10 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 		hasAlign := (idAndAlign & sectionAlignFlag) != 0
 
 		if secID == SectionEndOfBytecode {
+			if hasAlign || offset != len(data) {
+				return nil, errors.New("invalid bytecode terminator")
+			}
+			ended = true
 			break
 		}
 
@@ -164,20 +175,40 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 				return nil, errors.New("failed to read section alignment")
 			}
 			offset += an
+			if align == 0 || align > uint64(len(data)) || align&(align-1) != 0 {
+				return nil, errors.New("invalid section alignment")
+			}
 
 			if align > 1 {
 				rem := offset % int(align)
 				pad := (int(align) - rem) % int(align)
+				if pad > len(data)-offset {
+					return nil, errors.New("section padding exceeds buffer")
+				}
+				for _, b := range data[offset : offset+pad] {
+					if b != alignByte {
+						return nil, errors.New("invalid section padding")
+					}
+				}
 				offset += pad
 			}
 		}
 
-		if offset+int(length) > len(data) {
+		if offset > len(data) || length > uint64(len(data)-offset) {
 			return nil, fmt.Errorf("section %d length %d exceeds remaining buffer", secID, length)
 		}
 
+		if _, exists := payloads[secID]; exists {
+			return nil, errors.New("duplicate bytecode section")
+		}
+		if secID == SectionDebug || secID == SectionGlobal || secID > SectionProducer {
+			bm.ASTDecodeError = astUnsupported("module section %d", secID)
+		}
 		payloads[secID] = data[offset : offset+int(length)]
 		offset += int(length)
+	}
+	if !ended {
+		return nil, errors.New("missing bytecode terminator")
 	}
 
 	// 1. String Table
@@ -191,10 +222,11 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 
 	// 2. Producer Section (optional)
 	if prodPayload, ok := payloads[SectionProducer]; ok {
-		idx, _ := readVarInt(prodPayload)
-		if int(idx) < len(bm.Strings) {
-			bm.Producer = bm.Strings[idx]
+		idx, n := readVarInt(prodPayload)
+		if n <= 0 || n != len(prodPayload) || idx >= uint64(len(bm.Strings)) {
+			return nil, errors.New("invalid producer string index")
 		}
+		bm.Producer = bm.Strings[idx]
 	}
 
 	// 3. Constant Section
@@ -217,7 +249,7 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 
 	// 5. Function Table Section
 	if funcPayload, ok := payloads[SectionFunc]; ok {
-		fns, err := parseFunctionSection(funcPayload, bm.Strings, bm.Types)
+		fns, err := parseFunctionSection(funcPayload, bm.Strings, bm.Types, bm.Constants, bm.Version)
 		if err != nil {
 			return nil, fmt.Errorf("parsing function section: %w", err)
 		}
@@ -227,9 +259,11 @@ func DecodeBytecodeBytes(data []byte) (*BytecodeModule, error) {
 	return bm, nil
 }
 
-// ToModule converts the decoded BytecodeModule into an AST Module.
+// ToModule converts a fully decoded supported body subset into an AST Module.
+// It returns nil if any function has BodyDecodeError; raw bodies remain
+// available for byte-preserving inspection and re-encoding.
 func (bm *BytecodeModule) ToModule() *Module {
-	if bm == nil {
+	if bm == nil || bm.ASTDecodeError != nil {
 		return nil
 	}
 	mod := &Module{
@@ -239,6 +273,9 @@ func (bm *BytecodeModule) ToModule() *Module {
 	}
 
 	for _, bfn := range bm.Functions {
+		if bfn == nil || bfn.BodyDecodeError != nil {
+			return nil
+		}
 		fn := &Function{
 			Name:       bfn.Name,
 			Entry:      bfn.IsEntry,
@@ -287,7 +324,7 @@ func parseStringSection(payload []byte) ([]string, error) {
 	pad := (4 - rem) % 4
 	off += pad
 
-	if off+int(numStrings)*4 > len(payload) {
+	if off > len(payload) || numStrings > uint64((len(payload)-off)/4) {
 		return nil, errors.New("string offset array exceeds payload")
 	}
 
@@ -305,9 +342,10 @@ func parseStringSection(payload []byte) ([]string, error) {
 		if i+1 < len(offsets) {
 			end = int(offsets[i+1])
 		}
-		if start <= len(strData) && end <= len(strData) && start <= end {
-			strs[i] = string(strData[start:end])
+		if start < 0 || start > len(strData) || end < start || end > len(strData) {
+			return nil, errors.New("invalid string table offset")
 		}
+		strs[i] = string(strData[start:end])
 	}
 	return strs, nil
 }
@@ -326,7 +364,7 @@ func parseConstantSection(payload []byte) ([][]byte, error) {
 	pad := (8 - rem) % 8
 	off += pad
 
-	if off+int(numConstants)*8 > len(payload) {
+	if off > len(payload) || numConstants > uint64((len(payload)-off)/8) {
 		return nil, errors.New("constant offset array exceeds payload")
 	}
 
@@ -344,9 +382,10 @@ func parseConstantSection(payload []byte) ([][]byte, error) {
 		if i+1 < len(offsets) {
 			end = int(offsets[i+1])
 		}
-		if start <= len(data) && end <= len(data) && start <= end {
-			constants[i] = data[start:end]
+		if start < 0 || start > len(data) || end < start || end > len(data) {
+			return nil, errors.New("invalid constant table offset")
 		}
+		constants[i] = data[start:end]
 	}
 	return constants, nil
 }
@@ -365,7 +404,7 @@ func parseTypeSection(payload []byte, ver BytecodeVersion) ([]Type, error) {
 	pad := (4 - rem) % 4
 	off += pad
 
-	if off+int(numTypes)*4 > len(payload) {
+	if off > len(payload) || numTypes > uint64((len(payload)-off)/4) {
 		return nil, errors.New("type offset array exceeds payload")
 	}
 
@@ -385,15 +424,22 @@ func parseTypeSection(payload []byte, ver BytecodeVersion) ([]Type, error) {
 		if i+1 < len(offsets) {
 			end = int(offsets[i+1])
 		}
-		if start >= len(typeData) || end > len(typeData) || start > end {
-			continue
+		if start < 0 || start >= len(typeData) || end > len(typeData) || start >= end {
+			return nil, errors.New("invalid type table offset")
 		}
 		raw := typeData[start:end]
 		if len(raw) == 0 {
 			continue
 		}
 		tag, tn := readVarInt(raw)
-		types[i] = decodeType(tag, raw[tn:], types, ver)
+		if tn <= 0 || tag > 255 {
+			return nil, errors.New("invalid type tag")
+		}
+		var err error
+		types[i], err = decodeASTPoolType(tag, raw[tn:], types, ver)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return types, nil
@@ -534,136 +580,77 @@ func decodeType(tag uint64, payload []byte, typePool []Type, ver BytecodeVersion
 	return PrimitiveType{kind: TypeKind(tag), name: TypeKind(tag).String()}
 }
 
-func parseFunctionSection(payload []byte, strTable []string, typeTable []Type) ([]*BytecodeFunction, error) {
-	if len(payload) == 0 {
-		return nil, nil
+func parseFunctionSection(payload []byte, strTable []string, typeTable []Type, constants [][]byte, version BytecodeVersion) ([]*BytecodeFunction, error) {
+	c := astCursor{data: payload}
+	count, err := c.uint()
+	if err != nil || count > uint64(len(payload)) {
+		return nil, errors.New("invalid function count")
 	}
-	numFunctions, n := readVarInt(payload)
-	if n <= 0 {
-		return nil, errors.New("failed to read function count")
-	}
-	off := n
-
 	var fns []*BytecodeFunction
-	for i := uint64(0); i < numFunctions; i++ {
-		if off >= len(payload) {
-			break
+	for i := uint64(0); i < count; i++ {
+		nameIndex, err := c.uint()
+		if err != nil || nameIndex >= uint64(len(strTable)) {
+			return nil, errors.New("invalid function name index")
 		}
-		nameIdx, nn := readVarInt(payload[off:])
-		off += nn
-
-		sigIdx, sn := readVarInt(payload[off:])
-		off += sn
-
-		if off >= len(payload) {
-			return nil, errors.New("truncated function entry flag")
+		signatureIndex, err := c.uint()
+		if err != nil || signatureIndex >= uint64(len(typeTable)) {
+			return nil, errors.New("invalid function signature index")
 		}
-		entryFlag := payload[off]
-		off++
-
-		locIdx, ln := readVarInt(payload[off:])
-		off += ln
-
-		isKernel := (entryFlag & FuncKindKernel) != 0
-		hasOptHints := (entryFlag & FuncHasOptHints) != 0
-		if isKernel && hasOptHints {
-			// Skip optimization hints attribute
-			if off < len(payload) {
-				_, hn := readVarInt(payload[off:])
-				off += hn
-			}
+		sig, ok := typeTable[signatureIndex].(*FunctionType)
+		if !ok || sig == nil {
+			return nil, errors.New("function signature is not a function type")
 		}
-
-		bodyLen, bn := readVarInt(payload[off:])
-		off += bn
-
-		if off+int(bodyLen) > len(payload) {
-			return nil, errors.New("function body exceeds section payload")
+		if c.off >= len(payload) {
+			return nil, errors.New("truncated function flags")
 		}
-		bodyBytes := payload[off : off+int(bodyLen)]
-		off += int(bodyLen)
-
-		fnName := fmt.Sprintf("func_%d", i)
-		if int(nameIdx) < len(strTable) {
-			fnName = strTable[nameIdx]
+		flags := payload[c.off]
+		c.off++
+		if flags & ^uint8(FuncVisibilityPrivate|FuncKindKernel|FuncHasOptHints) != 0 {
+			return nil, errors.New("invalid function flags")
 		}
-
-		var sig Type = NewFunction(nil, nil)
-		if int(sigIdx) < len(typeTable) && typeTable[sigIdx] != nil {
-			sig = typeTable[sigIdx]
+		if flags&FuncKindKernel != 0 && len(sig.Results) != 0 {
+			return nil, errors.New("kernel function signature cannot return values")
 		}
-
+		location, err := c.uint()
+		if err != nil || location > uint64(int(^uint(0)>>1)) {
+			return nil, errors.New("invalid function location index")
+		}
+		if flags&FuncHasOptHints != 0 {
+			return nil, astUnsupported("function optimization hints")
+		}
+		length, err := c.uint()
+		if err != nil || length > uint64(len(payload)-c.off) {
+			return nil, errors.New("function body exceeds section")
+		}
+		body := payload[c.off : c.off+int(length)]
+		c.off += int(length)
 		bfn := &BytecodeFunction{
-			Name:           fnName,
-			SignatureIndex: int(sigIdx),
-			Signature:      sig,
-			EntryFlag:      entryFlag,
-			IsEntry:        isKernel,
-			IsPrivate:      (entryFlag & FuncVisibilityPrivate) != 0,
-			HasOptHints:    hasOptHints,
-			LocIndex:       int(locIdx),
-			BodyBytes:      bodyBytes,
-			Operations:     parseBodyOperations(bodyBytes, typeTable),
+			Name: strTable[nameIndex], SignatureIndex: int(signatureIndex), Signature: sig,
+			EntryFlag: flags, IsEntry: flags&FuncKindKernel != 0,
+			IsPrivate: flags&FuncVisibilityPrivate != 0,
+			LocIndex:  int(location), BodyBytes: body,
+		}
+		if version.Major != 13 || version.Minor != 4 || version.Tag != 0 {
+			bfn.BodyDecodeError = astUnsupported("body version %s", version)
+		} else if bfn.IsPrivate || location != 0 {
+			bfn.BodyDecodeError = astUnsupported("private function or debug location")
+		} else {
+			bfn.Operations, bfn.BodyDecodeError = decodeASTBody(body, typeTable, constants, sig)
+			if bfn.BodyDecodeError != nil && !errors.Is(bfn.BodyDecodeError, ErrUnsupportedASTEncoding) {
+				return nil, bfn.BodyDecodeError
+			}
 		}
 		fns = append(fns, bfn)
 	}
-
-	return fns, nil
-}
-
-// parseBodyOperations decodes a function body. It returns no error and cannot
-// fail: an opcode it does not know becomes an operation named op_0xNN. That
-// makes it unusable as a check on anything that writes a body, which is why a
-// round trip through this package is not evidence about the format.
-func parseBodyOperations(body []byte, typeTable []Type) []*Operation {
-	var ops []*Operation
-	off := 0
-	valCounter := 0
-
-	for off < len(body) {
-		opCodeNum, on := readVarInt(body[off:])
-		off += on
-
-		opName := fmt.Sprintf("op_0x%x", opCodeNum)
-		if name, ok := OpcodeNames[uint32(opCodeNum)]; ok {
-			opName = name
-		}
-
-		op := &Operation{
-			OpCode: opName,
-		}
-
-		// Synthesize result SSA values for non-terminator operations
-		if opName != "cuda_tile.return" && opName != "cuda_tile.break" && opName != "cuda_tile.continue" {
-			res := fmt.Sprintf("%%%d", valCounter)
-			op.Results = append(op.Results, res)
-			valCounter++
-		}
-
-		// Advance past operation operands / attributes in stream
-		// Each remaining byte is safely consumed until end of body or next recognized opcode
-		if opCodeNum == 0x10 { // ConstantOp
-			if off < len(body) {
-				typeIdx, tn := readVarInt(body[off:])
-				off += tn
-				if int(typeIdx) < len(typeTable) && typeTable[typeIdx] != nil {
-					op.Type = typeTable[typeIdx].String()
-					op.TypeVal = typeTable[typeIdx]
-				}
-				// Skip constant payload index/flags
-				if off < len(body) {
-					_, cn := readVarInt(body[off:])
-					off += cn
-				}
-			}
-		} else if opCodeNum == 0x5c { // ReturnOp
-			// Return has no operands or type
-		}
-
-		ops = append(ops, op)
+	if len(payload)-c.off > 7 {
+		return nil, errors.New("excess function section padding")
 	}
-
-	return ops
+	for _, b := range payload[c.off:] {
+		if b != alignByte {
+			return nil, errors.New("invalid function section padding")
+		}
+	}
+	return fns, nil
 }
 
 func readVarInt(b []byte) (uint64, int) {
@@ -694,6 +681,9 @@ func appendVarInt(b []byte, v uint64) []byte {
 func EncodeBytecode(bm *BytecodeModule) ([]byte, error) {
 	if bm == nil {
 		return nil, errors.New("tileir: nil bytecode module")
+	}
+	if bm.ASTDecodeError != nil || len(bm.Globals) != 0 {
+		return nil, astUnsupported("module metadata cannot be preserved")
 	}
 
 	var buf bytes.Buffer
@@ -739,7 +729,10 @@ func EncodeBytecode(bm *BytecodeModule) ([]byte, error) {
 
 	// 3. Function section (SectionFunc = 0x02)
 	if len(bm.Functions) > 0 {
-		funcPayload := encodeFunctionSection(bm.Functions, bm.Strings, bm.Types)
+		funcPayload, err := encodeFunctionSection(bm.Functions, bm.Strings, bm.Types)
+		if err != nil {
+			return nil, err
+		}
 		writeSection(SectionFunc, funcPayload)
 	}
 
@@ -1019,15 +1012,31 @@ func typeEqual(a, b Type) bool {
 	return a.String() == b.String()
 }
 
-func encodeFunctionSection(fns []*BytecodeFunction, strTable []string, typeTable []Type) []byte {
+func encodeFunctionSection(fns []*BytecodeFunction, strTable []string, typeTable []Type) ([]byte, error) {
 	payload := appendVarInt(nil, uint64(len(fns)))
 	for _, fn := range fns {
-		nameIdx := 0
+		if fn == nil {
+			return nil, fmt.Errorf("tileir: nil bytecode function")
+		}
+		nameIdx := -1
 		for i, s := range strTable {
 			if s == fn.Name {
 				nameIdx = i
 				break
 			}
+		}
+		if nameIdx < 0 || fn.SignatureIndex < 0 || fn.SignatureIndex >= len(typeTable) {
+			return nil, fmt.Errorf("tileir: invalid name or signature reference for %s", fn.Name)
+		}
+		signature, ok := typeTable[fn.SignatureIndex].(*FunctionType)
+		if !ok || signature == nil {
+			return nil, fmt.Errorf("tileir: non-function signature for %s", fn.Name)
+		}
+		if fn.EntryFlag&FuncKindKernel != 0 && len(signature.Results) != 0 {
+			return nil, fmt.Errorf("tileir: kernel function %s cannot return values", fn.Name)
+		}
+		if fn.EntryFlag&^byte(3) != 0 || fn.LocIndex != 0 {
+			return nil, astUnsupported("function flags or location for %s", fn.Name)
 		}
 		payload = appendVarInt(payload, uint64(nameIdx))
 		payload = appendVarInt(payload, uint64(fn.SignatureIndex))
@@ -1035,23 +1044,8 @@ func encodeFunctionSection(fns []*BytecodeFunction, strTable []string, typeTable
 		payload = appendVarInt(payload, uint64(fn.LocIndex))
 
 		bodyBytes := fn.BodyBytes
-		if len(bodyBytes) == 0 && len(fn.Operations) > 0 {
-			for _, op := range fn.Operations {
-				opName := op.OpCode
-				opCodeNum, ok := OpcodeNumbers[opName]
-				if !ok {
-					opCodeNum = 0x00
-				}
-				bodyBytes = appendVarInt(bodyBytes, uint64(opCodeNum))
-				if opCodeNum == 0x10 { // constant
-					tIdx := 0
-					if op.TypeVal != nil {
-						tIdx = findTypeIndex(typeTable, op.TypeVal)
-					}
-					bodyBytes = appendVarInt(bodyBytes, uint64(tIdx))
-					bodyBytes = appendVarInt(bodyBytes, 0)
-				}
-			}
+		if len(bodyBytes) == 0 {
+			return nil, astUnsupported("missing encoded body for %s; use Module.ToBytecode", fn.Name)
 		}
 
 		payload = appendVarInt(payload, uint64(len(bodyBytes)))
@@ -1061,7 +1055,7 @@ func encodeFunctionSection(fns []*BytecodeFunction, strTable []string, typeTable
 	for pad := (8 - len(payload)%8) % 8; pad > 0; pad-- {
 		payload = append(payload, alignByte)
 	}
-	return payload
+	return payload, nil
 }
 
 func registerType(pool *[]Type, t Type) int {
@@ -1110,19 +1104,21 @@ func registerString(pool *[]string, s string) int {
 // operation encoding needed to assemble an executable module.
 var ErrUnsupportedASTEncoding = errors.New("tileir: AST bytecode encoding is unsupported")
 
-// ToBytecode refuses AST conversion because operation operands, attributes,
-// result types, and nested regions cannot be faithfully serialized.
-// Use compiler-produced bytecode or CompileSemanticTile instead.
+// ToBytecode serializes the supported straight-line numeric and token subset
+// at bytecode version 13.4. It preserves typed SSA operands, constant bits,
+// numerical attributes, and function return types. It refuses memory operand
+// segments, nested regions, attention, globals, debug locations, and unknown
+// attributes. Module names, comments and SSA spelling are not wire identities.
 func (m *Module) ToBytecode() (*BytecodeModule, error) {
-	if m == nil {
-		return nil, errors.New("tileir: nil module")
-	}
-	return nil, ErrUnsupportedASTEncoding
+	return astModule(m)
 }
 
-// EncodeBytecode refuses incomplete AST serialization. The package function
-// EncodeBytecode preserves bodies read by DecodeBytecode; it is a separate path.
+// EncodeBytecode encodes the complete supported AST subset, or returns no bytes
+// and an error. The package function separately preserves decoded raw bodies.
 func (m *Module) EncodeBytecode() ([]byte, error) {
-	_, err := m.ToBytecode()
-	return nil, err
+	bm, err := m.ToBytecode()
+	if err != nil {
+		return nil, err
+	}
+	return EncodeBytecode(bm)
 }
