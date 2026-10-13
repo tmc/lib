@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -38,60 +39,84 @@ type Schema struct {
 	TotalParamBytes int     `json:"total_param_bytes"`
 }
 
-// NewSchema creates a Schema by computing natural alignment offsets for the given parameters.
+// NewSchema computes aligned offsets and an eight-byte-minimum bank alignment.
+// Zero widths and alignments select defaults; negative values are invalid.
+// Known PTX types use their fixed widths. Other types require an explicit width
+// for opaque ABI metadata, which does not imply that Pack supports the type.
 func NewSchema(params ...Param) (Schema, error) {
 	if len(params) == 0 {
 		return Schema{}, nil
 	}
-
-	offset := 0
-	maxAlign := 1
+	offset, maxAlign := 0, 8
 	computed := make([]Param, len(params))
-
 	for i, p := range params {
-		if p.Name == "" {
-			return Schema{}, fmt.Errorf("cudakernel: param %d has empty name", i)
-		}
-		if p.ByteWidth <= 0 {
+		if p.ByteWidth == 0 {
 			p.ByteWidth = defaultByteWidth(p.Type, p.IsPointer)
 		}
-		if p.ByteWidth <= 0 {
-			return Schema{}, fmt.Errorf("cudakernel: param %q has invalid byte width %d", p.Name, p.ByteWidth)
-		}
-		if p.Alignment <= 0 {
+		if p.Alignment == 0 {
 			p.Alignment = p.ByteWidth
 		}
-		if p.Alignment > 16 || !isPowerOfTwo(p.Alignment) {
-			return Schema{}, fmt.Errorf("cudakernel: param %q has invalid alignment %d", p.Name, p.Alignment)
+		if err := validateParam(p); err != nil {
+			return Schema{}, fmt.Errorf("cudakernel: param %d: %w", i, err)
 		}
 		if p.Alignment > maxAlign {
 			maxAlign = p.Alignment
 		}
-
-		// Pad current offset to parameter alignment.
-		rem := offset % p.Alignment
-		if rem != 0 {
-			offset += p.Alignment - rem
+		var err error
+		offset, err = alignedOffset(offset, p.Alignment)
+		if err != nil {
+			return Schema{}, fmt.Errorf("cudakernel: param %q: %w", p.Name, err)
 		}
-
 		p.Offset = offset
+		if p.ByteWidth > math.MaxInt-offset {
+			return Schema{}, fmt.Errorf("cudakernel: param %q layout overflows int", p.Name)
+		}
 		offset += p.ByteWidth
 		computed[i] = p
 	}
-
-	// Pad total struct size to max alignment (minimum 8 bytes for GPU parameter bank).
-	if maxAlign < 8 {
-		maxAlign = 8
+	total, err := alignedOffset(offset, maxAlign)
+	if err != nil {
+		return Schema{}, fmt.Errorf("cudakernel: total parameter layout: %w", err)
 	}
-	rem := offset % maxAlign
-	if rem != 0 {
-		offset += maxAlign - rem
+	schema := Schema{Params: computed, TotalParamBytes: total}
+	if err := schema.Validate(); err != nil {
+		return Schema{}, err
 	}
+	return schema, nil
+}
 
-	return Schema{
-		Params:          computed,
-		TotalParamBytes: offset,
-	}, nil
+// alignedOffset checks padding before adding it to a nonnegative offset.
+func alignedOffset(offset, alignment int) (int, error) {
+	padding := (alignment - offset%alignment) % alignment
+	if padding > math.MaxInt-offset {
+		return 0, fmt.Errorf("alignment padding overflows int")
+	}
+	return offset + padding, nil
+}
+
+func validateParam(p Param) error {
+	if p.Name == "" || strings.ContainsRune(p.Name, 0) {
+		return fmt.Errorf("invalid parameter name %q", p.Name)
+	}
+	if p.Type == "" && !p.IsPointer || strings.ContainsRune(p.Type, 0) {
+		return fmt.Errorf("param %q has invalid type %q", p.Name, p.Type)
+	}
+	if p.ByteWidth <= 0 {
+		return fmt.Errorf("param %q has invalid byte width %d", p.Name, p.ByteWidth)
+	}
+	if width := defaultByteWidth(p.Type, p.IsPointer); width != 0 && p.ByteWidth != width {
+		return fmt.Errorf("param %q type %q requires byte width %d, got %d", p.Name, p.Type, width, p.ByteWidth)
+	}
+	if p.Type == "ptr" && !p.IsPointer {
+		return fmt.Errorf("param %q type ptr requires IsPointer", p.Name)
+	}
+	if p.Alignment > 16 || !isPowerOfTwo(p.Alignment) {
+		return fmt.Errorf("param %q has invalid alignment %d", p.Name, p.Alignment)
+	}
+	if p.Offset < 0 {
+		return fmt.Errorf("param %q has negative offset %d", p.Name, p.Offset)
+	}
+	return nil
 }
 
 func defaultByteWidth(t string, isPtr bool) int {
@@ -118,34 +143,70 @@ func isPowerOfTwo(n int) bool {
 	return n > 0 && (n&(n-1)) == 0
 }
 
-// Validate checks internal consistency of the Schema offsets and widths.
+// Validate checks ABI metadata, widths, names and aligned nonoverlapping ranges.
+// Opaque types and unsupported scalar kinds may describe valid metadata without
+// being supported by Pack.
 func (s Schema) Validate() error {
-	offset := 0
+	if s.TotalParamBytes < 0 {
+		return fmt.Errorf("cudakernel: negative total parameter bytes %d", s.TotalParamBytes)
+	}
+	offset, maxAlign := 0, 8
+	names := make(map[string]bool, len(s.Params))
 	for i, p := range s.Params {
-		if p.ByteWidth <= 0 {
-			return fmt.Errorf("param %d (%s) has non-positive byte width %d", i, p.Name, p.ByteWidth)
+		if err := validateParam(p); err != nil {
+			return fmt.Errorf("cudakernel: param %d: %w", i, err)
 		}
-		if p.Alignment <= 0 || !isPowerOfTwo(p.Alignment) {
-			return fmt.Errorf("param %d (%s) has invalid alignment %d", i, p.Name, p.Alignment)
+		if names[p.Name] {
+			return fmt.Errorf("cudakernel: duplicate parameter name %q", p.Name)
+		}
+		names[p.Name] = true
+		if p.Alignment > maxAlign {
+			maxAlign = p.Alignment
 		}
 		if p.Offset < offset {
-			return fmt.Errorf("param %d (%s) offset %d overlaps prior offset %d", i, p.Name, p.Offset, offset)
+			return fmt.Errorf("cudakernel: param %q offset %d overlaps prior end %d", p.Name, p.Offset, offset)
 		}
 		if p.Offset%p.Alignment != 0 {
-			return fmt.Errorf("param %d (%s) offset %d not aligned to %d", i, p.Name, p.Offset, p.Alignment)
+			return fmt.Errorf("cudakernel: param %q offset %d not aligned to %d", p.Name, p.Offset, p.Alignment)
+		}
+		if p.ByteWidth > math.MaxInt-p.Offset {
+			return fmt.Errorf("cudakernel: param %q layout overflows int", p.Name)
 		}
 		offset = p.Offset + p.ByteWidth
 	}
-	if offset > s.TotalParamBytes {
-		return fmt.Errorf("total param bytes %d smaller than required offset %d", s.TotalParamBytes, offset)
+	required, err := alignedOffset(offset, maxAlign)
+	if err != nil {
+		return fmt.Errorf("cudakernel: total parameter layout: %w", err)
+	}
+	if s.TotalParamBytes < required || s.TotalParamBytes%maxAlign != 0 {
+		return fmt.Errorf("cudakernel: total parameter bytes %d require at least %d and alignment %d", s.TotalParamBytes, required, maxAlign)
 	}
 	return nil
 }
 
+func packableScalar(t string) bool {
+	switch t {
+	case "bool", "u8", "b8", "s8", "u16", "b16", "s16", "u32", "b32", "s32", "u64", "b64", "s64", "f32", "f64":
+		return true
+	}
+	return false
+}
+
 // Pack marshals Go arguments into a contiguous little-endian parameter byte buffer.
 // It verifies argument count, enforces scalar widths and overflow constraints,
-// rejects unresolved or Go heap pointers, and checks device pointer alignment.
+// rejects unresolved or Go heap pointers, and validates the parameter bank layout.
+// Numeric device addresses are serialized unchanged. Pointer slot alignment does
+// not specify pointee alignment, extent or allocation validity; the caller and
+// typed operation own those checks.
 func (s Schema) Pack(args ...any) ([]byte, error) {
+	if err := s.Validate(); err != nil {
+		return nil, fmt.Errorf("cudakernel: invalid schema: %w", err)
+	}
+	for _, p := range s.Params {
+		if !p.IsPointer && !packableScalar(p.Type) {
+			return nil, fmt.Errorf("cudakernel: unsupported parameter type %q", p.Type)
+		}
+	}
 	if len(args) != len(s.Params) {
 		return nil, fmt.Errorf("cudakernel: argument count mismatch: schema expects %d arguments, got %d",
 			len(s.Params), len(args))
@@ -179,10 +240,6 @@ func (s Schema) Pack(args ...any) ([]byte, error) {
 				devPtr = uint64(v)
 			default:
 				return nil, fmt.Errorf("cudakernel: argument %d (%s): unsupported device pointer type %T", i, p.Name, arg)
-			}
-
-			if devPtr%8 != 0 {
-				return nil, fmt.Errorf("cudakernel: argument %d (%s): device pointer 0x%x is not 8-byte aligned", i, p.Name, devPtr)
 			}
 
 			if p.Offset+8 > len(buf) {

@@ -180,19 +180,20 @@ func TestABIWidthsAndAlignment(t *testing.T) {
 		t.Fatalf("expected heap pointer rejection error, got: %v", err)
 	}
 
-	// Negative control 5: Unaligned device pointer rejected (odd address)
-	_, err = schema.Pack(
+	// Numeric device addresses are preserved; this schema does not type the pointee.
+	packed, err = schema.Pack(
 		uint8(42),
 		uint32(100000),
 		uint16(500),
-		driver.DevicePtr(0x8003), // not 8-byte aligned!
+		driver.DevicePtr(0x8003), // An unknown byte pointee may have an odd address.
 		float32(3.14),
 		float64(2.718281828),
 	)
-	if err == nil {
-		t.Fatal("negative control failed: accepted unaligned device pointer")
-	} else if !strings.Contains(err.Error(), "not 8-byte aligned") {
-		t.Fatalf("expected alignment error, got: %v", err)
+	if err != nil {
+		t.Fatalf("numeric device address rejected: %v", err)
+	}
+	if got := binary.LittleEndian.Uint64(packed[16:24]); got != 0x8003 {
+		t.Fatalf("numeric device address = 0x%x, want 0x8003", got)
 	}
 
 	// Unsafe pointer host heap rejected
