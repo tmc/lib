@@ -383,3 +383,24 @@ func TestEnergySummaryRetainsWindowIdentity(t *testing.T) {
 		t.Fatalf("missing power window identity: %+v", p)
 	}
 }
+
+func TestWindowHistogramBoundaryPreservesScalarZero(t *testing.T) {
+	scalar := func(v float64) nvtelemetry.Reading {
+		return nvtelemetry.Reading{Name: "window_latency", DeviceUUID: "GPU-hw", Unit: nvtelemetry.UnitSeconds, Backend: "fixture", Evidence: nvtelemetry.EvidenceMeasured, Number: &nvtelemetry.Number{Float: &v}}
+	}
+	readings := []nvtelemetry.Reading{scalar(0), hwReading(10, 30, []uint64{1, 2}, "delta"), scalar(4)}
+	samples := hwSamples(readings...)
+	for i := range samples {
+		samples[i].QueryStartNanos = int64(10 + i*10)
+		samples[i].QueryEndNanos = samples[i].QueryStartNanos + 1
+	}
+	m, decoded := hwCanonical(t, samples, nvtelemetry.SchemaVersionV5)
+	summaries, energy := nvtelemetry.AggregateWindow("window", 10, 30, decoded, nvtelemetry.WindowOptions{})
+	if len(summaries) != 1 || len(energy) != 0 || summaries[0].SampleCount != 2 || summaries[0].ArithmeticMean != 2 || summaries[0].Min != 0 || summaries[0].HistogramBoundaryCount != 1 || summaries[0].HistogramBoundaryReason != nvtelemetry.HistogramWindowReasonMixedValueKinds || summaries[0].CoveredDurationNanos != 0 {
+		t.Fatal(summaries, energy)
+	}
+	distributions, e := nvtelemetry.AggregateHistogramWindow("window", 10, 30, decoded, hwOptions(m, nvtelemetry.HistogramWindowDelta))
+	if e != nil || len(distributions) != 1 || distributions[0].Reason != nvtelemetry.HistogramWindowReasonMixedValueKinds {
+		t.Fatal(distributions, e)
+	}
+}

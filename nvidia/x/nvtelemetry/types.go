@@ -377,10 +377,12 @@ type Manifest struct {
 
 // WindowSummary aggregates one metric over a named window.
 type WindowSummary struct {
-	WindowName string `json:"window_name"`
-	DeviceUUID string `json:"device_uuid"`
-	MetricName string `json:"metric_name"`
-	Unit       string `json:"unit"`
+	HistogramBoundaryCount  int                   `json:"histogram_boundary_count,omitempty"`
+	HistogramBoundaryReason HistogramWindowReason `json:"histogram_boundary_reason,omitempty"`
+	WindowName              string                `json:"window_name"`
+	DeviceUUID              string                `json:"device_uuid"`
+	MetricName              string                `json:"metric_name"`
+	Unit                    string                `json:"unit"`
 	// TimeWeightedMean is a float64 approximation computed by integrating
 	// floating-point sample values over covered intervals.
 	TimeWeightedMean float64 `json:"time_weighted_mean"`

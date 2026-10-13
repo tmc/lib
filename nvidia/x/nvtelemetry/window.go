@@ -203,6 +203,15 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 			summary.SampleValuesStatus = WindowSampleValuesUnavailable
 			summary.SampleValuesReason = ReasonIntegerPrecision
 		}
+		for _, point := range wpoints {
+			if point.histogramBoundary {
+				summary.HistogramBoundaryCount++
+				summary.HistogramBoundaryReason = HistogramWindowReasonMixedValueKinds
+				if _, found := LookupMetricKind(k.metricName); found {
+					summary.HistogramBoundaryReason = HistogramWindowReasonScalarNameCollision
+				}
+			}
+		}
 		summaries = append(summaries, summary)
 
 		// Energy calculation for cumulative energy counters
@@ -218,8 +227,9 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 // windowPoint is a SamplePoint with its counter metadata.
 type windowPoint struct {
 	SamplePoint
-	meta           counterMeta
-	inexactInteger bool
+	meta              counterMeta
+	inexactInteger    bool
+	histogramBoundary bool
 }
 
 // counterMeta holds the V3 metadata that decides whether a reading can serve
@@ -248,6 +258,7 @@ func readingPoint(r Reading, t int64) windowPoint {
 		p.IsInt = r.IsInt
 		return p
 	}
+	p.histogramBoundary = r.Observation != nil && (r.Observation.Kind == "histogram" || r.Observation.Histogram != nil)
 	p.meta.v3 = true
 	if o := r.Observation; o != nil {
 		p.meta.kind = o.Kind

@@ -337,7 +337,7 @@ func ReadStream(r io.Reader, maxBytes int64) (*Manifest, []PhaseMarker, []Sample
 		if err := validateVersionedRecord(rec, version); err != nil {
 			return nil, nil, nil, err
 		}
-		if len(samples) >= 65536 || len(phases) >= 65536 {
+		if rec.Sample != nil && len(samples) >= 65536 || rec.Phase != nil && len(phases) >= 65536 {
 			return nil, nil, nil, ErrBudgetExceeded
 		}
 
