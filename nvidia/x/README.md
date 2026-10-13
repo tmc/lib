@@ -24,6 +24,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
 | [cudacensus](cudacensus/) | Package cudacensus turns a GPU trace capture into a per-kernel census and, where the caller can supply a cost model, into roofline points. |
+| [cudacheck](cudacheck/) | Package cudacheck validates numerical accuracy and catches precision drift by comparing GPU activations against CPU reference implementations. |
 | [cudacluster](cudacluster/) | Package cudacluster expresses thread-block-cluster distributed shared memory. |
 | [cudacmp](cudacmp/) | Package cudacmp implements pure-Go differential CUDA performance analysis. |
 | [cudacollective](cudacollective/) | Package cudacollective defines collective communication plans, rank membership, communicator generations, multi-transport fallback resolution, and double-buffered pipelined transfers for distributed CUDA execution. |
@@ -43,6 +44,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
 | [cudahotswap](cudahotswap/) | Package cudahotswap checks and replaces CUDA kernels in a retained service. |
 | [cudainject](cudainject/) | Package cudainject builds the CUPTI injection agent and reads its artifacts. |
+| [cudainspect](cudainspect/) | Package cudainspect inspects supplied CUDA artifacts and emits bounded, schema-versioned reports. |
 | [cudair](cudair/) | Package cudair provides a typed Intermediate Representation (IR) graph, immutable validated snapshots, and waterfall memory arena planning for GPU tensor graphs. |
 | [cudakernel](cudakernel/) | Package cudakernel provides immutable kernel artifact descriptors, ABI parameter schemas, fixed-width argument packing, and hardware resource contracts for CUDA execution. |
 | [cudakv](cudakv/) | Package cudakv provides static and paged key-value caches for autoregressive transformer decoding, plus host-side residency and prefix bookkeeping. |
@@ -52,7 +54,6 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudalayout](cudalayout/) | Package cudalayout describes checked physical tile layouts. |
 | [cudalineinfo](cudalineinfo/) | Package cudalineinfo attributes device code to the source it was generated from. |
 | [cudaliveness](cudaliveness/) | Package cudaliveness asserts that an instrumentation probe was live for a run. |
-| [cudalmvet](cudalmvet/) | Package cudalmvet validates numerical accuracy and catches precision drift by comparing GPU activations against CPU reference implementations. |
 | [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
 | [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
 | [cudamega](cudamega/) | Package cudamega schedules finite task graphs and generates CUDA workers. |
@@ -61,8 +62,6 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudamemtrack](cudamemtrack/) | Package cudamemtrack tracks GPU memory allocations, calculates heap fragmentation ratios, and detects memory leaks at teardown. |
 | [cudamoe](cudamoe/) | Package cudamoe provides Mixture of Experts routing and expert cache offloading for CUDA. |
 | [cudamtp](cudamtp/) | Package cudamtp implements Multi-Token Prediction (MTP) and speculative tree decoding optimized via fused CUDA C++ megakernels on NVIDIA GPUs. |
-| [cudancuimport](cudancuimport/) | Package cudancuimport reads a bounded project envelope around an offline NVIDIA Nsight Compute details CSV export. |
-| [cudansysimport](cudansysimport/) | Package cudansysimport imports a bounded subset of documented Nsight Systems SQLite exports through a small read-only database boundary. |
 | [cudaobjdump](cudaobjdump/) | Package cudaobjdump inspects CUDA code embedded in host binaries and cubins using the installed cuobjdump executable. |
 | [cudaoccupancy](cudaoccupancy/) | Package cudaoccupancy models GPU hardware resource limits and calculates theoretical warp occupancy directly from compiled CUDA binary (CUBIN) images. |
 | [cudaoptim](cudaoptim/) | Package cudaoptim implements optimizer steps for training with hand-written CUDA kernels: AdamW with decoupled weight decay, global gradient-norm clipping, and non-finite gradient detection. |
@@ -78,7 +77,6 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaprofilehistory](cudaprofilehistory/) | Package cudaprofilehistory retains bounded, immutable observations of CUDA artifacts and profiling receipts. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
-| [cudarecipe](cudarecipe/) | Package cudarecipe inspects supplied CUDA artifacts and emits bounded, schema-versioned reports. |
 | [cudareduce](cudareduce/) | Package cudareduce provides deterministic column reductions for backward passes: bias gradients, per-group embedding gradients, and the LayerNorm weight and bias gradients. |
 | [cudaref](cudaref/) | Package cudaref provides an independent CPU reference implementation and numerical oracle for validating GPU kernel operations and semantic IR execution graphs. |
 | [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
@@ -123,6 +121,8 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nccljoin](nccljoin/) | Package nccljoin aligns decoded NCCL Inspector collectives within an explicit caller-selected job and communicator epoch. |
 | [ncclras](ncclras/) | Package ncclras reads bounded NCCL RAS status and queries an explicit TCP address. |
 | [nccltest](nccltest/) | Package nccltest provides Go testing support for NCCL collective correctness and performance comparisons with NVIDIA/nccl-tests. |
+| [nsightcompute](nsightcompute/) | Package nsightcompute reads a bounded project envelope around an offline NVIDIA Nsight Compute details CSV export. |
+| [nsightsystems](nsightsystems/) | Package nsightsystems imports a bounded subset of documented Nsight Systems SQLite exports through a small read-only database boundary. |
 | [nvfatbinx](nvfatbinx/) | Package nvfatbinx packages alternative CUDA device images into a fatbinary. |
 | [nvjitlinkx](nvjitlinkx/) | Package nvjitlinkx links CUDA device-code inputs with nvJitLink. |
 | [nvlshm](nvlshm/) | Package nvlshm provides cross-process NVLink shared GPU buffers built on the CUDA virtual memory management (VMM) API, with optional NVSwitch multicast mappings. |
