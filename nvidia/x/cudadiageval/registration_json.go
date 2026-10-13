@@ -237,10 +237,17 @@ func registrationKeys(b json.RawMessage, t reflect.Type) error {
 // hashes bounded bytes, and gives the unchanged ledger verifier private copies.
 // Neither snapshot paths nor caller timestamps are acquisition authority.
 func registrationSnapshot(ctx context.Context, r Registration, l QualificationLedger, root string) (result string, resultCleanup func() error, outcomes []RegistrationArtifactResult, resultErr error) {
+	remaining := int64(64 << 20)
+	return registrationSnapshotBudget(ctx, r, l, root, nil, &remaining)
+}
+
+// Paired admission supplies its one operation budget and mandatory extra inputs.
+func registrationSnapshotBudget(ctx context.Context, r Registration, l QualificationLedger, root string, extra []RegistrationArtifact, remaining *int64) (result string, resultCleanup func() error, outcomes []RegistrationArtifactResult, resultErr error) {
 	refs, err := r.artifacts()
 	if err != nil {
 		return "", nil, nil, err
 	}
+	refs = append(refs, extra...)
 	mandatory := map[string]bool{}
 	for _, a := range refs {
 		mandatory[a.Path] = true
@@ -314,7 +321,6 @@ func registrationSnapshot(ctx context.Context, r Registration, l QualificationLe
 	fail := func(err error) (string, func() error, []RegistrationArtifactResult, error) {
 		return "", nil, outcomes, errors.Join(err, cleanup())
 	}
-	remaining := int64(64 << 20)
 	names := make([]string, 0, len(paths))
 	for name := range paths {
 		names = append(names, name)
@@ -328,7 +334,11 @@ func registrationSnapshot(ctx context.Context, r Registration, l QualificationLe
 		f, err := original.open(ctx, name)
 		var data []byte
 		if err == nil {
-			data, err = registrationReadArtifact(ctx, f, &remaining)
+			if extra == nil {
+				data, err = registrationReadArtifact(ctx, f, remaining)
+			} else {
+				data, err = pairedReadArtifact(ctx, f, remaining)
+			}
 			closeErr := f.Close()
 			if closeErr != nil {
 				return fail(errors.Join(err, closeErr))

@@ -1240,3 +1240,32 @@ func TestRegistrationNullValues(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistrationSharedSnapshotHelper(t *testing.T) {
+	r, l, root := registrationFixture(t)
+	r.SelectedCells = r.SelectedCells[:1]
+	var err error
+	r, err = r.Freeze(time.Date(2026, 10, 11, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	standalone, err := VerifyRegistration(context.Background(), r, l, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remaining := int64(64 << 20)
+	snapshot, cleanup, artifacts, err := registrationSnapshotBudget(context.Background(), r, l, root, nil, &remaining)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked, err := verifyRegistrationSnapshot(context.Background(), r, l, func() (string, func() error, []RegistrationArtifactResult, error) {
+		return snapshot, func() error { return nil }, artifacts, nil
+	})
+	closeErr := cleanup()
+	if err != nil || closeErr != nil || !reflect.DeepEqual(standalone, checked) {
+		t.Fatal("standalone semantics changed", err, closeErr, standalone, checked)
+	}
+	if remaining >= 64<<20 {
+		t.Fatal("original acquisition uncharged")
+	}
+}

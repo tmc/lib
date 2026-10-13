@@ -553,6 +553,14 @@ func CheckRegistrationSuccessor(previous, next Registration) error {
 // declared. Verification uses a private checked-byte snapshot, removed on return.
 // It executes no recorded command or policy method.
 func VerifyRegistration(ctx context.Context, r Registration, l QualificationLedger, root string) (RegistrationReport, error) {
+	return verifyRegistrationSnapshot(ctx, r, l, func() (string, func() error, []RegistrationArtifactResult, error) {
+		return registrationSnapshot(ctx, r, l, root)
+	})
+}
+
+// The acquisition callback is private and supplies only checked snapshot bytes.
+// Standalone verification and paired admission share the unchanged ledger verifier.
+func verifyRegistrationSnapshot(ctx context.Context, r Registration, l QualificationLedger, acquire func() (string, func() error, []RegistrationArtifactResult, error)) (RegistrationReport, error) {
 	var out RegistrationReport
 	if ctx == nil {
 		return out, errors.New("verify registration: nil context")
@@ -624,7 +632,7 @@ func VerifyRegistration(ctx context.Context, r Registration, l QualificationLedg
 			return out, err
 		}
 	}
-	snapshot, cleanup, artifacts, err := registrationSnapshot(ctx, r, l, root)
+	snapshot, cleanup, artifacts, err := acquire()
 	if err != nil {
 		return out, err
 	}
