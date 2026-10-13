@@ -11,6 +11,28 @@ __device__ __forceinline__ float warp_sum(float val) {
     return val;
 }
 
+// Row-major matrices are read with float4 loads only when the row length is a
+// multiple of 4: then every row base is 16-byte aligned (allocations are). For
+// other lengths, odd rows start misaligned, so the whole row is read as
+// scalars. A scalar tail alone is not enough.
+__device__ __forceinline__ bool rows_vectorizable(int row_len) {
+    return (row_len & 3) == 0;
+}
+
+// block_reduce_sum returns the sum of val over the block in thread 0. blockDim.x must
+// be a multiple of WARP_SIZE. scratch holds 32 floats owned by this call; the
+// caller must not reuse it before a following __syncthreads.
+__device__ __forceinline__ float block_reduce_sum(float val, float* scratch) {
+    int lane = threadIdx.x % WARP_SIZE;
+    int wid = threadIdx.x / WARP_SIZE;
+    val = warp_sum(val);
+    if (lane == 0) scratch[wid] = val;
+    __syncthreads();
+    val = (threadIdx.x < blockDim.x / WARP_SIZE) ? scratch[lane] : 0.0f;
+    if (wid == 0) val = warp_sum(val);
+    return val;
+}
+
 // 1. Embedding lookup on GPU
 extern "C" __global__ void EmbeddingLookup(
     const float* __restrict__ embed_table,
@@ -19,15 +41,16 @@ extern "C" __global__ void EmbeddingLookup(
     int hidden_dim
 ) {
     int tok = *token_id;
-    const float4* src4 = reinterpret_cast<const float4*>(embed_table + tok * hidden_dim);
+    const float* src = embed_table + tok * hidden_dim;
+    const float4* src4 = reinterpret_cast<const float4*>(src);
     float4* out4 = reinterpret_cast<float4*>(out);
-    int dim4 = hidden_dim / 4;
+    int dim4 = rows_vectorizable(hidden_dim) ? hidden_dim / 4 : 0;
 
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
         out4[i] = src4[i];
     }
     for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < hidden_dim; i += blockDim.x * gridDim.x) {
-        out[i] = (embed_table + tok * hidden_dim)[i];
+        out[i] = src[i];
     }
 }
 
@@ -110,9 +133,10 @@ extern "C" __global__ void LinearGEMV(
     int wid = tid / WARP_SIZE;
     __shared__ float s_sum[32];
 
-    const float4* w_row4 = reinterpret_cast<const float4*>(w + row * in_dim);
+    const float* w_row = w + row * in_dim;
+    const float4* w_row4 = reinterpret_cast<const float4*>(w_row);
     const float4* x4 = reinterpret_cast<const float4*>(x);
-    int in_dim4 = in_dim / 4;
+    int in_dim4 = rows_vectorizable(in_dim) ? in_dim / 4 : 0;
 
     float sum = 0.0f;
     for (int i = tid; i < in_dim4; i += blockDim.x) {
@@ -121,7 +145,7 @@ extern "C" __global__ void LinearGEMV(
         sum += xv.x * wv.x + xv.y * wv.y + xv.z * wv.z + xv.w * wv.w;
     }
     for (int i = in_dim4 * 4 + tid; i < in_dim; i += blockDim.x) {
-        sum += x[i] * (w + row * in_dim)[i];
+        sum += x[i] * w_row[i];
     }
     sum = warp_sum(sum);
 
@@ -188,19 +212,21 @@ extern "C" __global__ void StoreKVCache(
     int head_dim
 ) {
     int kv_dim = num_kv_heads * head_dim;
-    float4* k_dest4 = reinterpret_cast<float4*>(k_cache + pos * kv_dim);
-    float4* v_dest4 = reinterpret_cast<float4*>(v_cache + pos * kv_dim);
+    float* k_dest = k_cache + pos * kv_dim;
+    float* v_dest = v_cache + pos * kv_dim;
+    float4* k_dest4 = reinterpret_cast<float4*>(k_dest);
+    float4* v_dest4 = reinterpret_cast<float4*>(v_dest);
     const float4* k4 = reinterpret_cast<const float4*>(k);
     const float4* v4 = reinterpret_cast<const float4*>(v);
-    int dim4 = kv_dim / 4;
+    int dim4 = rows_vectorizable(kv_dim) ? kv_dim / 4 : 0;
 
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < dim4; i += blockDim.x * gridDim.x) {
         k_dest4[i] = k4[i];
         v_dest4[i] = v4[i];
     }
     for (int i = dim4 * 4 + blockIdx.x * blockDim.x + threadIdx.x; i < kv_dim; i += blockDim.x * gridDim.x) {
-        (k_cache + pos * kv_dim)[i] = k[i];
-        (v_cache + pos * kv_dim)[i] = v[i];
+        k_dest[i] = k[i];
+        v_dest[i] = v[i];
     }
 }
 
@@ -253,82 +279,80 @@ extern "C" __global__ void AddResidual(
     }
 }
 
-// 8. E-Graph Extracted Fused Megakernels with float4 vectorization
+// 8. Fused kernels. These are not qualified on a device; gpu_model.go
+// refuses -fuse-egraph until fused_parity_cuda_test.go passes on one.
 
+// FusedRMSNormQKV computes one row of [Q; K; V] = W · RMSNorm(x) + bias per
+// block, with grid = q_dim + 2*kv_dim: rows [0, q_dim) are Q, the next kv_dim
+// are K, the last kv_dim are V. Each block recomputes the RMSNorm scale over x
+// (in_dim floats) and applies it after the dot product, which reassociates the
+// unfused RMSNorm then LinearGEMV sequence. weight and bias pointers may be
+// null. blockDim.x must be a multiple of WARP_SIZE.
 extern "C" __global__ void FusedRMSNormQKV(
     const float* __restrict__ x,
     const float* __restrict__ weight,
     const float* __restrict__ W_q,
     const float* __restrict__ W_k,
     const float* __restrict__ W_v,
+    const float* __restrict__ b_q,
+    const float* __restrict__ b_k,
+    const float* __restrict__ b_v,
     float* __restrict__ out_q,
     float* __restrict__ out_k,
     float* __restrict__ out_v,
     int in_dim, int q_dim, int kv_dim, float eps
 ) {
     int row = blockIdx.x;
-    int tid = threadIdx.x;
-    int lane = tid % WARP_SIZE;
-    int wid = tid / WARP_SIZE;
-    __shared__ float s_sum[32];
-
-    const float4* x4 = reinterpret_cast<const float4*>(x);
-    const float4* w4 = weight ? reinterpret_cast<const float4*>(weight) : nullptr;
-    int in_dim4 = in_dim / 4;
-
+    const float* W;
+    const float* bias;
+    float* out;
     if (row < q_dim) {
-        const float4* w_row4 = reinterpret_cast<const float4*>(W_q + row * in_dim);
-        float sum = 0.0f;
-        for (int i = tid; i < in_dim4; i += blockDim.x) {
-            float4 xv = x4[i];
-            float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
-            float4 norm_xv = make_float4(xv.x * wv.x, xv.y * wv.y, xv.z * wv.z, xv.w * wv.w);
-            float4 wrv = w_row4[i];
-            sum += norm_xv.x * wrv.x + norm_xv.y * wrv.y + norm_xv.z * wrv.z + norm_xv.w * wrv.w;
-        }
-        sum = warp_sum(sum);
-        if (lane == 0) s_sum[wid] = sum;
-        __syncthreads();
-
-        float block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
-        if (wid == 0) block_sum = warp_sum(block_sum);
-        if (tid == 0) out_q[row] = block_sum;
+        W = W_q; bias = b_q; out = out_q;
+    } else if (row < q_dim + kv_dim) {
+        row -= q_dim;
+        W = W_k; bias = b_k; out = out_k;
+    } else if (row < q_dim + 2 * kv_dim) {
+        row -= q_dim + kv_dim;
+        W = W_v; bias = b_v; out = out_v;
+    } else {
+        return;
     }
-    if (row < kv_dim) {
-        const float4* wk_row4 = reinterpret_cast<const float4*>(W_k + row * in_dim);
-        const float4* wv_row4 = reinterpret_cast<const float4*>(W_v + row * in_dim);
-        float sumK = 0.0f;
-        float sumV = 0.0f;
-        for (int i = tid; i < in_dim4; i += blockDim.x) {
-            float4 xv = x4[i];
-            float4 wv = w4 ? w4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
-            float4 norm_xv = make_float4(xv.x * wv.x, xv.y * wv.y, xv.z * wv.z, xv.w * wv.w);
-            float4 wkv = wk_row4[i];
-            float4 wvv = wv_row4[i];
-            sumK += norm_xv.x * wkv.x + norm_xv.y * wkv.y + norm_xv.z * wkv.z + norm_xv.w * wkv.w;
-            sumV += norm_xv.x * wvv.x + norm_xv.y * wvv.y + norm_xv.z * wkv.w * wvv.w;
-        }
-        sumK = warp_sum(sumK);
-        sumV = warp_sum(sumV);
-        if (lane == 0) {
-            s_sum[wid] = sumK;
-            s_sum[wid + 16] = sumV;
-        }
-        __syncthreads();
+    int tid = threadIdx.x;
+    __shared__ float s_sq[32];
+    __shared__ float s_dot[32];
 
-        float bk = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
-        float bv = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane + 16] : 0.0f;
-        if (wid == 0) {
-            bk = warp_sum(bk);
-            bv = warp_sum(bv);
-        }
-        if (tid == 0) {
-            out_k[row] = bk;
-            out_v[row] = bv;
-        }
+    const float* w_row = W + row * in_dim;
+    int in_dim4 = rows_vectorizable(in_dim) ? in_dim / 4 : 0;
+    const float4* x4 = reinterpret_cast<const float4*>(x);
+    const float4* g4 = reinterpret_cast<const float4*>(weight);
+    const float4* w_row4 = reinterpret_cast<const float4*>(w_row);
+
+    float sq = 0.0f;
+    float dot = 0.0f;
+    for (int i = tid; i < in_dim4; i += blockDim.x) {
+        float4 xv = x4[i];
+        float4 gv = weight ? g4[i] : make_float4(1.0f, 1.0f, 1.0f, 1.0f);
+        float4 wv = w_row4[i];
+        sq += xv.x * xv.x + xv.y * xv.y + xv.z * xv.z + xv.w * xv.w;
+        dot += xv.x * gv.x * wv.x + xv.y * gv.y * wv.y + xv.z * gv.z * wv.z + xv.w * gv.w * wv.w;
+    }
+    for (int i = in_dim4 * 4 + tid; i < in_dim; i += blockDim.x) {
+        float xv = x[i];
+        float gv = weight ? weight[i] : 1.0f;
+        sq += xv * xv;
+        dot += xv * gv * w_row[i];
+    }
+    // Both sums are complete only in thread 0.
+    sq = block_reduce_sum(sq, s_sq);
+    dot = block_reduce_sum(dot, s_dot);
+    if (tid == 0) {
+        out[row] = dot * rsqrtf(sq / float(in_dim) + eps) + (bias ? bias[row] : 0.0f);
     }
 }
 
+// FusedSwiGLUDown computes out[row] = W_down[row] · (silu(gate) * up) per
+// block, with grid = hidden_dim. Each block recomputes the activation.
+// blockDim.x must be a multiple of WARP_SIZE.
 extern "C" __global__ void FusedSwiGLUDown(
     const float* __restrict__ gate,
     const float* __restrict__ up,
@@ -340,14 +364,13 @@ extern "C" __global__ void FusedSwiGLUDown(
     if (row >= hidden_dim) return;
 
     int tid = threadIdx.x;
-    int lane = tid % WARP_SIZE;
-    int wid = tid / WARP_SIZE;
     __shared__ float s_sum[32];
 
+    const float* w_row = W_down + row * intermediate_dim;
     const float4* g4 = reinterpret_cast<const float4*>(gate);
     const float4* u4 = reinterpret_cast<const float4*>(up);
-    const float4* w_row4 = reinterpret_cast<const float4*>(W_down + row * intermediate_dim);
-    int inter_dim4 = intermediate_dim / 4;
+    const float4* w_row4 = reinterpret_cast<const float4*>(w_row);
+    int inter_dim4 = rows_vectorizable(intermediate_dim) ? intermediate_dim / 4 : 0;
 
     float sum = 0.0f;
     for (int i = tid; i < inter_dim4; i += blockDim.x) {
@@ -362,13 +385,10 @@ extern "C" __global__ void FusedSwiGLUDown(
         float4 wv = w_row4[i];
         sum += act.x * wv.x + act.y * wv.y + act.z * wv.z + act.w * wv.w;
     }
-    sum = warp_sum(sum);
-
-    if (lane == 0) s_sum[wid] = sum;
-    __syncthreads();
-
-    float block_sum = (tid < (blockDim.x / WARP_SIZE)) ? s_sum[lane] : 0.0f;
-    if (wid == 0) block_sum = warp_sum(block_sum);
-
-    if (tid == 0) out[row] = block_sum;
+    for (int i = inter_dim4 * 4 + tid; i < intermediate_dim; i += blockDim.x) {
+        float g = gate[i];
+        sum += (g / (1.0f + expf(-g))) * up[i] * w_row[i];
+    }
+    sum = block_reduce_sum(sum, s_sum);
+    if (tid == 0) out[row] = sum;
 }

@@ -73,7 +73,7 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (*GPUScratchpad, error
 	q, _ := alloc(qDim)
 	k, _ := alloc(kvDim)
 	v, _ := alloc(kvDim)
-	attnOut, _ := alloc(cfg.HiddenSize)
+	attnOut, _ := alloc(qDim)
 	gate, _ := alloc(cfg.IntermediateSize)
 	up, _ := alloc(cfg.IntermediateSize)
 	ffnAct, _ := alloc(cfg.IntermediateSize)
@@ -188,6 +188,16 @@ func UploadModelToGPU(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig) (*GPU
 	}, nil
 }
 
+// fusedKernelsQualified reports whether FusedRMSNormQKV and FusedSwiGLUDown
+// have passed fused_parity_cuda_test.go on a device. Until then -fuse-egraph
+// is refused rather than silently running unqualified kernels.
+var fusedKernelsQualified = false
+
+// attnThreads is the decode attention block width. CausalFlashAttentionDecode
+// accepts any width from 1 to 1024; shared memory follows from it through
+// cudaattn.DecodeSharedMemoryBytes.
+const attnThreads = 128
+
 // GPUForwardPass executes the complete transformer forward pass 100% on device GPU memory.
 func GPUForwardPass(
 	gpuW *GPUModelWeights,
@@ -247,6 +257,9 @@ func enqueueGPUForwardPass(
 	stream *cuda.Stream,
 ) (int32, error) {
 
+	if *fuseEGraphFlag && !fusedKernelsQualified {
+		return 0, fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
+	}
 	headDim := cfg.HeadDim()
 	qHeads := cfg.NumAttentionHeads
 	kvHeads := cfg.NumKeyValueHeads
@@ -254,6 +267,10 @@ func enqueueGPUForwardPass(
 	interSize := cfg.IntermediateSize
 	vocabSize := cfg.VocabSize
 	seqLen := pos + 1
+	attnShared, err := cudaattn.DecodeSharedMemoryBytes(seqLen, attnThreads)
+	if err != nil {
+		return 0, fmt.Errorf("attention shared memory for %d tokens: %w", seqLen, err)
+	}
 
 	// Copy input token ID (4 bytes) to device
 	sp.HostTokenIn[0] = tokenID
@@ -289,6 +306,13 @@ func enqueueGPUForwardPass(
 		return 0, err
 	}
 
+	// The attention kernel's dynamic shared memory grows with the position.
+	// Check it against the device limit and raise the kernel attribute once per
+	// step; an oversized request fails here instead of at launch.
+	if err := launcher(attnFn).SharedMem(uint32(attnShared)).PrepareSharedMem(sp.X.Device()); err != nil {
+		return 0, fmt.Errorf("attention launch at position %d: %w", pos, err)
+	}
+
 	// 2. Transformer Decoder Layers
 	for i := 0; i < cfg.NumHiddenLayers; i++ {
 		layerW := &gpuW.Layers[i]
@@ -298,10 +322,11 @@ func enqueueGPUForwardPass(
 		}
 
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
-		if *fuseEGraphFlag && gm.fusedQKVFn != 0 && layerW.QBias.Len() == 0 {
-			// Fused RMSNorm + QKV Projection (Single kernel launch, zero intermediate DRAM writes)
-			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1).
+		if *fuseEGraphFlag && gm.fusedQKVFn != 0 {
+			// Fused RMSNorm + QKV projection: one block per Q, K and V row.
+			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads*headDim+2*kvHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
+					ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
 					sp.Q, sp.K, sp.V,
 					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
 				return 0, err
@@ -340,7 +365,7 @@ func enqueueGPUForwardPass(
 
 		// Step 2e: Causal FlashAttention Decode
 		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-		if err := launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(1, 1, 1).SharedMem(uint32(seqLen*4)).
+		if err := launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(attnThreads, 1, 1).SharedMem(uint32(attnShared)).
 			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
 			return 0, err
 		}
