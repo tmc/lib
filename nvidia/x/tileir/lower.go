@@ -49,6 +49,8 @@ type LoweringResult struct {
 	// Memory binds a singleton pointer-memory module to its source/ABI map.
 	// It is nil for legacy analysis and C++ lowerings.
 	Memory *SemanticMemoryBinding
+	// Vector describes the logical extent and launch of a vector memory route.
+	Vector *SemanticVectorLayout
 }
 
 // LowerSemanticRegion lowers a validated semantic region (cudair.Snapshot) to a typed Tile IR Module.
@@ -61,6 +63,9 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 	}
 	if singletonMemoryCandidate(snap) && singletonMemoryOptions(opts) {
 		return LowerSemanticMemory(snap, opts)
+	}
+	if vectorMemoryCandidate(snap) && snap.Inputs()[0].Shape[0] != 1 && vectorMemoryOptions(opts) {
+		return LowerSemanticVector(snap, opts)
 	}
 	for _, n := range snap.Nodes() {
 		if n.Kind == cudair.KindReduce {

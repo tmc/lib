@@ -29,8 +29,8 @@ func astOpSpec(name string) (opSpec, bool) {
 
 func checkMemoryPointer(t *TileType) error {
 	p, ok := t.ElementType.(*PointerType)
-	if !ok || p == nil || len(t.Shape) != 0 || p.Attr != "" {
-		return astUnsupported("memory pointer must be scalar tile<ptr<f32>> without pointer classification")
+	if !ok || p == nil || (len(t.Shape) != 0 && !vectorWidth(t.Shape)) || p.Attr != "" {
+		return astUnsupported("memory pointer must be scalar or bounded rank-one tile<ptr<f32>> without classification")
 	}
 	if pointee, ok := p.Pointee.(PrimitiveType); !ok || pointee != Float32 {
 		return astUnsupported("memory pointer pointee must be canonical f32")
@@ -117,8 +117,8 @@ func memoryFlags(name string, operands []Type) (uint64, error) {
 	if err := checkMemoryPointer(pointer); err != nil {
 		return 0, err
 	}
-	if required == 2 && !scalarMemoryType(operands[1], KindFloat32) {
-		return 0, astUnsupported("store value must be scalar tile<f32>")
+	if required == 2 && !matchingMemoryType(operands[1], pointer, KindFloat32) {
+		return 0, astUnsupported("store value shape/type mismatch")
 	}
 	var flags uint64
 	next := 0
@@ -127,7 +127,7 @@ func memoryFlags(name string, operands []Type) (uint64, error) {
 		for next < len(groups) {
 			group := next
 			next++
-			matches := scalarMemoryType(operand, groups[group])
+			matches := matchingMemoryType(operand, pointer, groups[group])
 			if groups[group] == KindToken {
 				matches = astTokenType(operand)
 			}
@@ -207,10 +207,15 @@ func checkMemoryOperands(name string, result Type, operands []Type) error {
 		return nil
 	}
 	tuple, ok := result.(*FunctionType)
-	if !ok || tuple == nil || len(tuple.Results) != 2 || !scalarMemoryType(tuple.Results[0], KindFloat32) || !astTokenType(tuple.Results[1]) {
-		return astUnsupported("load results must be scalar tile<f32>, token")
+	if !ok || tuple == nil || len(tuple.Results) != 2 || !matchingMemoryType(tuple.Results[0], operands[0].(*TileType), KindFloat32) || !astTokenType(tuple.Results[1]) {
+		return astUnsupported("load results must be same-shape tile<f32>, token")
 	}
 	return nil
+}
+
+func matchingMemoryType(t Type, pointer *TileType, kind TypeKind) bool {
+	tile, ok := t.(*TileType)
+	return ok && tile != nil && tile.ElementType != nil && tile.ElementType.Kind() == kind && sameASTShape(tile, pointer)
 }
 
 // Memory entries admit a single complete token chain. Optional wire groups

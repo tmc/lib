@@ -65,7 +65,8 @@ func memoryContract(r *LoweringResult, refs []MemorySource) string {
 		Schema     cudakernel.Schema
 		Grid       [3]uint32
 		References []MemorySource
-	}{r.Module, r.Schema, r.Grid, refs})
+		Vector     *SemanticVectorLayout `json:",omitempty"`
+	}{r.Module, r.Schema, r.Grid, refs, r.Vector})
 	return memoryDigest(data)
 }
 

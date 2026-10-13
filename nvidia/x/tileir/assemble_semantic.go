@@ -19,7 +19,7 @@ type SemanticMemoryArtifact struct {
 	Log            string
 }
 
-// AssembleSemanticMemory serializes a bound singleton lowering and invokes
+// AssembleSemanticMemory serializes a bound pointer-memory lowering and invokes
 // tileiras.Assemble for an unsuffixed target. A successful artifact still
 // requires separately qualified compiler/device execution and caller buffers.
 func AssembleSemanticMemory(ctx context.Context, r *LoweringResult, target string) (*SemanticMemoryArtifact, error) {

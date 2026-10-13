@@ -23,6 +23,8 @@ var astBodyOps = map[string]bool{
 	"andi": true, "ori": true, "xori": true,
 	"cmpf": true, "cmpi": true, "select": true, "mmaf": true,
 	"load_ptr_tko": true, "store_ptr_tko": true,
+	"get_tile_block_id": true, "iota": true, "reshape": true,
+	"broadcast": true, "exti": true, "offset": true,
 }
 
 // Values and ordering come from NVIDIA/cuda-tile AttrDefs.td at 7e8e2e68.
@@ -310,6 +312,9 @@ func astModule(m *Module) (*BytecodeModule, error) {
 }
 
 func checkASTOperands(name string, result Type, operands, returns []Type) error {
+	if handled, err := checkVectorOperands(name, result, operands); handled {
+		return err
+	}
 	if name == "load_ptr_tko" || name == "store_ptr_tko" {
 		return checkMemoryOperands(name, result, operands)
 	}
