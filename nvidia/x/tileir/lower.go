@@ -46,6 +46,9 @@ type LoweringResult struct {
 	// Grid is the standalone launch grid for an ordered reduction region.
 	// Other lowerings leave it zero because their launch policy is external.
 	Grid [3]uint32
+	// Memory binds a singleton pointer-memory module to its source/ABI map.
+	// It is nil for legacy analysis and C++ lowerings.
+	Memory *SemanticMemoryBinding
 }
 
 // LowerSemanticRegion lowers a validated semantic region (cudair.Snapshot) to a typed Tile IR Module.
@@ -55,6 +58,9 @@ type LoweringResult struct {
 func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringResult, error) {
 	if snap == nil {
 		return nil, errors.New("tileir: nil snapshot")
+	}
+	if singletonMemoryCandidate(snap) && singletonMemoryOptions(opts) {
+		return LowerSemanticMemory(snap, opts)
 	}
 	for _, n := range snap.Nodes() {
 		if n.Kind == cudair.KindReduce {

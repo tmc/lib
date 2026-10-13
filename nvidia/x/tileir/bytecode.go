@@ -636,6 +636,9 @@ func parseFunctionSection(payload []byte, strTable []string, typeTable []Type, c
 			bfn.BodyDecodeError = astUnsupported("private function or debug location")
 		} else {
 			bfn.Operations, bfn.BodyDecodeError = decodeASTBody(body, typeTable, constants, sig)
+			if bfn.BodyDecodeError == nil && hasMemoryOps(bfn.Operations) && !bfn.IsEntry {
+				return nil, astUnsupported("memory route requires kernel entry")
+			}
 			if bfn.BodyDecodeError != nil && !errors.Is(bfn.BodyDecodeError, ErrUnsupportedASTEncoding) {
 				return nil, bfn.BodyDecodeError
 			}

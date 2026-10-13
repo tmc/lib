@@ -11,8 +11,9 @@ import (
 )
 
 // astBodyOps is the straight-line subset whose complete wire representation
-// is supported here. In particular it excludes memory operand segments and
-// all nested regions. An opcode being in opSpecs is not an encoding promise.
+// is supported here. Scalar pointer memory frames use the separately pinned
+// spec in ast_memory.go. All nested regions remain unsupported. An opcode
+// being in opSpecs is not an encoding promise.
 var astBodyOps = map[string]bool{
 	"constant": true, "make_token": true, "join_tokens": true, "return": true,
 	"absf": true, "absi": true, "negf": true, "negi": true,
@@ -21,16 +22,18 @@ var astBodyOps = map[string]bool{
 	"maxf": true, "minf": true, "maxi": true, "mini": true,
 	"andi": true, "ori": true, "xori": true,
 	"cmpf": true, "cmpi": true, "select": true, "mmaf": true,
+	"load_ptr_tko": true, "store_ptr_tko": true,
 }
 
 // Values and ordering come from NVIDIA/cuda-tile AttrDefs.td at 7e8e2e68.
 // Unit attributes have no payload: their presence is the flags bit itself.
 var astEnums = map[string][]string{
-	"rounding_mode":        {"nearest_even", "zero", "negative_inf", "positive_inf", "approx", "full", "nearest_int_to_zero", "nearest_away"},
-	"overflow":             {"none", "no_signed_wrap", "no_unsigned_wrap", "no_wrap"},
-	"signedness":           {"unsigned", "signed"},
-	"comparison_predicate": {"equal", "not_equal", "less_than", "less_than_or_equal", "greater_than", "greater_than_or_equal"},
-	"comparison_ordering":  {"unordered", "ordered"},
+	"rounding_mode":             {"nearest_even", "zero", "negative_inf", "positive_inf", "approx", "full", "nearest_int_to_zero", "nearest_away"},
+	"overflow":                  {"none", "no_signed_wrap", "no_unsigned_wrap", "no_wrap"},
+	"signedness":                {"unsigned", "signed"},
+	"comparison_predicate":      {"equal", "not_equal", "less_than", "less_than_or_equal", "greater_than", "greater_than_or_equal"},
+	"comparison_ordering":       {"unordered", "ordered"},
+	"memory_ordering_semantics": {"weak", "relaxed", "acquire", "release", "acq_rel"},
 }
 
 func astUnsupported(format string, args ...any) error {
@@ -104,6 +107,9 @@ func checkASTType(t Type) error {
 	case *TileType:
 		if t == nil {
 			return astUnsupported("nil tile type")
+		}
+		if _, ok := t.ElementType.(*PointerType); ok {
+			return checkMemoryPointer(t)
 		}
 		if _, ok := t.ElementType.(PrimitiveType); !ok {
 			return astUnsupported("tile element type must be a number")
@@ -219,8 +225,8 @@ func astModule(m *Module) (*BytecodeModule, error) {
 			if !astBodyOps[name] || op.OpCode != "cuda_tile."+name {
 				return nil, astUnsupported("operation %q", op.OpCode)
 			}
-			spec, ok := lookupOpSpec(op.OpCode)
-			if !ok || spec.NumRegions != 0 || spec.AttrSegments || spec.NumResults > 1 {
+			spec, ok := astOpSpec(op.OpCode)
+			if !ok || spec.NumRegions != 0 || (spec.AttrSegments && !memoryOp(op.OpCode)) {
 				return nil, astUnsupported("encoding shape for %q", op.OpCode)
 			}
 			if len(op.Results) != spec.NumResults || (name == "return") != (i == len(fn.Operations)-1) {
@@ -234,24 +240,32 @@ func astModule(m *Module) (*BytecodeModule, error) {
 				return nil, err
 			}
 			var result Type
+			var results []Type
 			bfn.BodyBytes = appendVarInt(bfn.BodyBytes, uint64(spec.Opcode))
 			if astResultCountField(spec) {
 				bfn.BodyBytes = appendVarInt(bfn.BodyBytes, uint64(spec.NumResults))
 			}
 			if spec.NumResults != 0 {
-				result, err = astResultType(op)
+				results, err = astResultTypes(op, spec.NumResults)
 				if err != nil {
 					return nil, err
 				}
-				bfn.BodyBytes = appendVarInt(bfn.BodyBytes, uint64(registerType(&bm.Types, result)))
+				result = resultTuple(results)
+				for _, t := range results {
+					bfn.BodyBytes = appendVarInt(bfn.BodyBytes, uint64(registerType(&bm.Types, t)))
+				}
 			}
-			bfn.BodyBytes, err = encodeASTAttrs(bfn.BodyBytes, spec, attrs, result, bm)
+			if memoryOp(op.OpCode) {
+				bfn.BodyBytes, err = encodeMemoryAttrs(bfn.BodyBytes, op, attrs, values, valueTypes)
+			} else {
+				bfn.BodyBytes, err = encodeASTAttrs(bfn.BodyBytes, spec, attrs, result, bm)
+			}
 			if err != nil {
 				return nil, fmt.Errorf("function %s op %d: %w", fn.Name, i, err)
 			}
 			if spec.EncodeOperandCount {
 				bfn.BodyBytes = appendVarInt(bfn.BodyBytes, uint64(len(op.Operands)))
-			} else if len(op.Operands) != len(spec.Operands) {
+			} else if !memoryOp(op.OpCode) && len(op.Operands) != len(spec.Operands) {
 				return nil, astUnsupported("operand arity in %s", op.OpCode)
 			}
 			var operandTypes []Type
@@ -269,20 +283,23 @@ func astModule(m *Module) (*BytecodeModule, error) {
 			if err := checkASTOperands(name, result, operandTypes, returns); err != nil {
 				return nil, err
 			}
-			for _, res := range op.Results {
+			for j, res := range op.Results {
 				if _, exists := values[res]; exists || !strings.HasPrefix(res, "%") {
 					return nil, astUnsupported("duplicate or unnamed result %s", res)
 				}
 				values[res] = len(valueTypes)
-				valueTypes = append(valueTypes, result)
+				valueTypes = append(valueTypes, results[j])
 			}
 		}
+		terminal, err := checkMemoryChain(fn.Operations, inputs, returns, fn.Entry)
+		if err != nil {
+			return nil, err
+		}
 		for name, index := range values {
-			if astTokenType(valueTypes[index]) && tokenUses[name] != 1 {
+			if astTokenType(valueTypes[index]) && tokenUses[name] != 1 && !(name == terminal && tokenUses[name] == 0) {
 				return nil, astUnsupported("token %s must have exactly one consumer", name)
 			}
 		}
-		var err error
 		bfn.Operations, err = decodeASTBody(bfn.BodyBytes, bm.Types, bm.Constants, sig)
 		if err != nil {
 			return nil, err
@@ -293,6 +310,9 @@ func astModule(m *Module) (*BytecodeModule, error) {
 }
 
 func checkASTOperands(name string, result Type, operands, returns []Type) error {
+	if name == "load_ptr_tko" || name == "store_ptr_tko" {
+		return checkMemoryOperands(name, result, operands)
+	}
 	if name == "return" {
 		if len(operands) != len(returns) {
 			return astUnsupported("return arity differs from function signature")
@@ -318,6 +338,9 @@ func checkASTOperands(name string, result Type, operands, returns []Type) error 
 	tile, ok := result.(*TileType)
 	if !ok {
 		return astUnsupported("numeric operation needs tile result")
+	}
+	if !tile.ElementType.IsNumber() {
+		return astUnsupported("numeric operation has pointer element type")
 	}
 	if name == "constant" {
 		return nil
@@ -596,6 +619,9 @@ type astCursor struct {
 // supported AST subset. Other structural types retain the existing inspection
 // decoder; checkASTType forbids them at the AST admission boundary.
 func decodeASTPoolType(tag uint64, payload []byte, pool []Type, version BytecodeVersion) (Type, error) {
+	if TypeKind(tag) == KindPointer {
+		return decodeMemoryPointer(payload, pool, version)
+	}
 	if TypeKind(tag) != KindTile && TypeKind(tag) != KindFunction {
 		t := decodeType(tag, payload, pool, version)
 		if _, primitive := t.(PrimitiveType); primitive || tag == uint64(KindToken) {
@@ -689,7 +715,7 @@ func decodeASTBody(body []byte, types []Type, constants [][]byte, signature Type
 		if code > math.MaxUint32 || !known || !astBodyOps[short] {
 			return nil, astUnsupported("body opcode 0x%x at offset %d", code, c.off)
 		}
-		spec, _ := lookupOpSpec(name)
+		spec, _ := astOpSpec(name)
 		if astResultCountField(spec) {
 			count, err := c.uint()
 			if err != nil || count != uint64(spec.NumResults) {
@@ -698,17 +724,22 @@ func decodeASTBody(body []byte, types []Type, constants [][]byte, signature Type
 		}
 		op := &Operation{OpCode: name}
 		var result Type
-		if spec.NumResults == 1 {
+		var results []Type
+		for j := 0; j < spec.NumResults; j++ {
 			index, err := c.uint()
 			if err != nil || index >= uint64(len(types)) || types[index] == nil {
 				return nil, fmt.Errorf("tileir: invalid result type index")
 			}
-			result = types[index]
-			if err := checkASTType(result); err != nil {
+			t := types[index]
+			if err := checkASTType(t); err != nil {
 				return nil, err
 			}
+			results = append(results, t)
+			op.Results = append(op.Results, fmt.Sprintf("%%%d", len(values)-len(sig.Inputs)+j))
+		}
+		if len(results) != 0 {
+			result = resultTuple(results)
 			op.TypeVal, op.Type = result, result.String()
-			op.Results = []string{fmt.Sprintf("%%%d", len(values)-len(sig.Inputs))}
 		}
 		var flags uint64
 		if spec.HasFlags() {
@@ -717,8 +748,14 @@ func decodeASTBody(body []byte, types []Type, constants [][]byte, signature Type
 				return nil, fmt.Errorf("tileir: invalid operation flags")
 			}
 		}
+		if memoryOp(name) && flags&3 != 0 {
+			return nil, astUnsupported("memory scope or optimization hints")
+		}
 		var attrs []string
 		for i, a := range spec.Attributes {
+			if a.Optional && !a.Unit && memoryOp(name) {
+				continue
+			}
 			if a.Unit {
 				for bit, f := range spec.Flags {
 					if f.Index == i && flags&(1<<bit) != 0 {
@@ -759,12 +796,18 @@ func decodeASTBody(body []byte, types []Type, constants [][]byte, signature Type
 					return nil, fmt.Errorf("tileir: invalid %s enum", a.Name)
 				}
 				attrs = append(attrs, a.Name+" = "+choices[index])
+				if memoryOp(name) && !memoryOrderingAllowed(name, index) {
+					return nil, fmt.Errorf("tileir: invalid memory ordering for %s", name)
+				}
 			}
 		}
 		if len(attrs) != 0 {
 			op.Attributes = "{" + strings.Join(attrs, ", ") + "}"
 		}
 		count := uint64(len(spec.Operands))
+		if memoryOp(name) {
+			count = memoryOperandCount(name, flags)
+		}
 		if spec.EncodeOperandCount {
 			count, err = c.uint()
 			if err != nil {
@@ -789,20 +832,30 @@ func decodeASTBody(body []byte, types []Type, constants [][]byte, signature Type
 		if err := checkASTOperands(short, result, operands, sig.Results); err != nil {
 			return nil, err
 		}
+		if memoryOp(name) {
+			expected, err := memoryFlags(name, operands)
+			if err != nil || expected != flags {
+				return nil, fmt.Errorf("tileir: memory operand groups disagree with flags")
+			}
+		}
 		if short == "return" && c.off != len(body) {
 			return nil, fmt.Errorf("tileir: operations after return")
 		}
 		if result != nil {
-			values = append(values, result)
-			names = append(names, op.Results[0])
+			values = append(values, results...)
+			names = append(names, op.Results...)
 		}
 		ops = append(ops, op)
 	}
 	if len(ops) == 0 || ops[len(ops)-1].OpCode != "cuda_tile.return" {
 		return nil, fmt.Errorf("tileir: body has no return")
 	}
+	terminal, err := checkMemoryChain(ops, sig.Inputs, sig.Results, true)
+	if err != nil {
+		return nil, err
+	}
 	for i, t := range values {
-		if astTokenType(t) && tokenUses[uint64(i)] != 1 {
+		if astTokenType(t) && tokenUses[uint64(i)] != 1 && !(names[i] == terminal && tokenUses[uint64(i)] == 0) {
 			return nil, astUnsupported("token value %d must have exactly one consumer", i)
 		}
 	}
