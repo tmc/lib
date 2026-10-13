@@ -10,7 +10,7 @@ names = ["StringIds", "META_DATA_EXPORT", "TARGET_INFO_SESSION_START_TIME",
 versions = [("2024.2", "3.11.0"), ("2025.3", "3.20.2")]
 lines = ["// Code generated from pinned official schema SQL by generate_schema.py; DO NOT EDIT.",
          "//go:generate python3 testdata/generate_schema.py",
-         "package cudansysimport",
+         "package nsightsystems",
          "var tableNames = []string{" + ",".join('"' + n + '"' for n in names) + "}",
          "var schemas = map[string]map[string][]Column{"]
 hashes = {}

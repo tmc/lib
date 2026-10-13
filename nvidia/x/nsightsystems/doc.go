@@ -1,4 +1,4 @@
-// Package cudansysimport imports a bounded subset of documented Nsight Systems
+// Package nsightsystems imports a bounded subset of documented Nsight Systems
 // SQLite exports through a small read-only database boundary.
 //
 // It supports release 2024.2/schema 3.11.0 and release 2025.3/schema 3.20.2.
@@ -13,4 +13,4 @@
 // certify capture completeness, align different reports or create local CUPTI
 // evidence. NCCL annotations remain NVTX rows: undocumented payload semantics
 // are not inferred from a range name.
-package cudansysimport
+package nsightsystems

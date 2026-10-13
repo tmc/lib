@@ -1,4 +1,4 @@
-package cudansysimport
+package nsightsystems
 
 import (
 	"bytes"

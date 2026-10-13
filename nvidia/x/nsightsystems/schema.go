@@ -1,7 +1,7 @@
 // Code generated from pinned official schema SQL by generate_schema.py; DO NOT EDIT.
 //
 //go:generate python3 testdata/generate_schema.py
-package cudansysimport
+package nsightsystems
 
 var tableNames = []string{"StringIds", "META_DATA_EXPORT", "TARGET_INFO_SESSION_START_TIME", "CUPTI_ACTIVITY_KIND_KERNEL", "CUPTI_ACTIVITY_KIND_MEMCPY", "CUPTI_ACTIVITY_KIND_MEMSET", "CUPTI_ACTIVITY_KIND_RUNTIME", "NVTX_EVENTS", "OSRT_API"}
 var schemas = map[string]map[string][]Column{
