@@ -1,6 +1,6 @@
 //go:build native
 
-package cudarecipe
+package cudainspect
 
 import (
 	"bytes"

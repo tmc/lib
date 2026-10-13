@@ -1,5 +1,5 @@
-// Package cudarecipe implements Stage A CUBIN inspection and JSON Schema v1 reports.
-package cudarecipe
+// Package cudainspect implements Stage A CUBIN inspection and JSON Schema v1 reports.
+package cudainspect
 
 import (
 	"bytes"

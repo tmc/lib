@@ -7,10 +7,10 @@ import (
 	"io"
 )
 
-// RecipeSchemaVersion defines the schema version for cudarecipe reports.
+// RecipeSchemaVersion defines the schema version for cudainspect reports.
 const RecipeSchemaVersion = 1
 
-// Feature observation states according to cudarecipe schema v1.
+// Feature observation states according to cudainspect schema v1.
 const (
 	StateObserved    = "observed"
 	StateInferred    = "inferred"
@@ -19,7 +19,7 @@ const (
 	StateError       = "error"
 )
 
-// RecipeReport represents a CUBIN inspection report conforming to the cudarecipe JSON schema v1.
+// RecipeReport represents a CUBIN inspection report conforming to the cudainspect JSON schema v1.
 type RecipeReport struct {
 	SchemaVersion int                 `json:"schema_version"`
 	Artifact      RecipeArtifact      `json:"artifact"`
