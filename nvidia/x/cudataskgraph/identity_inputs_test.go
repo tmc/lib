@@ -1,6 +1,7 @@
 package cudataskgraph_test
 
 import (
+	"encoding/binary"
 	"fmt"
 	"slices"
 	"strings"
@@ -122,6 +123,87 @@ func TestIdentityLengthPrefixes(t *testing.T) {
 			t.Errorf("%s: deps %q inputs %q and deps %q inputs %q share identity %s",
 				tt.name, tt.xDeps, tt.xIn, tt.yDeps, tt.yIn, x.Identity())
 		}
+	}
+}
+
+// TestIdentityDepLengthAfterFirst moves a string boundary between the
+// second and third dependencies of one task, after a first dependency that
+// is the same in both graphs: deps [d ab c] and [d a bc]. Only a length
+// before the second or third dependency tells them apart; a length before
+// the first alone does not.
+func TestIdentityDepLengthAfterFirst(t *testing.T) {
+	dev := cudataskgraph.ScopeDevice
+	sources := []cudataskgraph.Task{
+		{ID: "a", Scope: dev},
+		{ID: "ab", Scope: dev},
+		{ID: "bc", Scope: dev},
+		{ID: "c", Scope: dev},
+		{ID: "d", Scope: dev},
+	}
+	build := func(deps []string) cudataskgraph.Graph {
+		t.Helper()
+		g, err := cudataskgraph.New(append(slices.Clone(sources),
+			cudataskgraph.Task{ID: "z", Deps: deps, Rank: 1, Scope: dev}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	xDeps, yDeps := []string{"d", "ab", "c"}, []string{"d", "a", "bc"}
+	x, y := build(xDeps), build(yDeps)
+	if x.Identity() == y.Identity() {
+		t.Errorf("deps %q and %q share identity %s", xDeps, yDeps, x.Identity())
+	}
+}
+
+// be returns v as the eight big-endian bytes Identity writes for a length
+// or a number.
+func be(v uint64) string {
+	return string(binary.BigEndian.AppendUint64(nil, v))
+}
+
+// TestIdentityIDLengthAtIndex3 builds two graphs that differ in the ID of
+// the task at index 3 in task order, "k" in one and "k" followed by be(1)
+// in the other. Written without that one ID's length, the two graphs are
+// the same bytes: the first k task's rank, bytes, scope, extent and
+// dependency count line up with the second's ID suffix, rank, bytes, scope
+// and extent, and the two dependency lists cover the rest.
+//
+// The three tasks before it are the same in both graphs, so the pair is
+// also the same bytes when the IDs at index 1 and 3 both lose their
+// lengths. The pair says nothing about an ID at any other index.
+func TestIdentityIDLengthAtIndex3(t *testing.T) {
+	dev := cudataskgraph.ScopeDevice
+	b8, b112 := be(8), be(112)
+	d2 := strings.Repeat(b8+b112, 7)
+	sources := []cudataskgraph.Task{
+		{ID: b8, Scope: dev},
+		{ID: d2, Scope: dev},
+		{ID: b112, Scope: dev},
+	}
+	build := func(k cudataskgraph.Task) cudataskgraph.Graph {
+		t.Helper()
+		g, err := cudataskgraph.New(append(slices.Clone(sources), k))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	x := build(cudataskgraph.Task{ID: "k", Deps: []string{b8, d2},
+		Rank: 1, Bytes: 1, Scope: dev, Extent: uint64(dev)})
+	y := build(cudataskgraph.Task{ID: "k" + be(1), Deps: slices.Repeat([]string{b112}, 8),
+		Rank: 1, Bytes: uint64(dev), Scope: dev, Extent: 2})
+	for _, g := range []cudataskgraph.Graph{x, y} {
+		var order []string
+		for _, task := range g.Tasks() {
+			order = append(order, task.ID)
+		}
+		if len(order) != 4 || order[0] != b8 || order[1] != d2 || order[2] != b112 || order[3][0] != 'k' {
+			t.Fatalf("task order %q, want sources %q %q %q then the k task", order, b8, d2, b112)
+		}
+	}
+	if x.Identity() == y.Identity() {
+		t.Errorf("k tasks %q and %q at index 3 share identity %s", x.Tasks()[3].ID, y.Tasks()[3].ID, x.Identity())
 	}
 }
 
