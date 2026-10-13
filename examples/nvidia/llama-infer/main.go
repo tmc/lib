@@ -188,7 +188,7 @@ func runGPUInference(
 	if err != nil {
 		return err
 	}
-	defer attnMod.Unload()
+	defer attnMod.Close()
 	attnFn, _ := attnMod.Function("CausalFlashAttentionDecode")
 
 	sampleModCompiled, err := cudasample.Compile(major, minor)
@@ -199,7 +199,7 @@ func runGPUInference(
 	if err != nil {
 		return err
 	}
-	defer sampleMod.Unload()
+	defer sampleMod.Close()
 	sampleFn, _ := sampleMod.Function("ArgmaxLogits")
 
 	// Upload weights directly into GPU VRAM

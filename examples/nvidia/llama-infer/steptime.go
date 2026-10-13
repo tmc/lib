@@ -67,11 +67,11 @@ func (st *stepTimer) close() {
 	}
 	for _, e := range []*cuda.Event{st.anchor, st.start, st.end} {
 		if e != nil {
-			_ = e.Destroy()
+			_ = e.Close()
 		}
 	}
 	if st.stream != nil {
-		_ = st.stream.Destroy()
+		_ = st.stream.Close()
 	}
 }
 

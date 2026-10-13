@@ -78,7 +78,7 @@ func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
 // Close unloads the compiled CUDA module.
 func (gm *GPUModules) Close() error {
 	if gm.mod != 0 {
-		return gm.mod.Unload()
+		return gm.mod.Close()
 	}
 	return nil
 }

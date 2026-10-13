@@ -284,7 +284,7 @@ func enqueueGPUForwardPass(
 	}
 
 	// 1. Embedding lookup
-	if err := launcher(gm.embedFn).Grid(1).Block(256).
+	if err := launcher(gm.embedFn).Grid(1, 1, 1).Block(256, 1, 1).
 		Launch(gpuW.EmbedTokens, sp.TokenIn, sp.X, int32(hiddenSize)); err != nil {
 		return 0, err
 	}
@@ -300,7 +300,7 @@ func enqueueGPUForwardPass(
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
 		if *fuseEGraphFlag && gm.fusedQKVFn != 0 && layerW.QBias.Len() == 0 {
 			// Fused RMSNorm + QKV Projection (Single kernel launch, zero intermediate DRAM writes)
-			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads*headDim)).Block(128).
+			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
 					sp.Q, sp.K, sp.V,
 					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
@@ -308,67 +308,67 @@ func enqueueGPUForwardPass(
 			}
 		} else {
 			// Unfused fallback path
-			if err := launcher(gm.normFn).Grid(1).Block(256).
+			if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
 				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(qHeads*headDim)).Block(128).
+			if err := launcher(gm.gemvFn).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim)).Block(128).
+			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 				return 0, err
 			}
-			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim)).Block(128).
+			if err := launcher(gm.gemvFn).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
 				return 0, err
 			}
 		}
 
 		// Step 2c: RoPE
-		if err := launcher(gm.ropeFn).Grid(uint32(qHeads)).Block(uint32(headDim/2)).
+		if err := launcher(gm.ropeFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1).
 			Launch(sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
 			return 0, err
 		}
 
 		// Step 2d: Store K and V in KV Cache
-		if err := launcher(gm.storeKVFn).Grid(1).Block(128).
+		if err := launcher(gm.storeKVFn).Grid(1, 1, 1).Block(128, 1, 1).
 			Launch(sp.K, sp.V, layerKV.K, layerKV.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
 			return 0, err
 		}
 
 		// Step 2e: Causal FlashAttention Decode
 		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-		if err := launcher(attnFn).Grid(uint32(qHeads)).Block(1).SharedMem(uint32(seqLen*4)).
+		if err := launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(1, 1, 1).SharedMem(uint32(seqLen*4)).
 			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
 			return 0, err
 		}
 
 		// Step 2f: Output GEMV
-		if err := launcher(gm.gemvFn).Grid(uint32(hiddenSize)).Block(128).
+		if err := launcher(gm.gemvFn).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
 			Launch(sp.AttnOut, layerW.WO, nullPtr, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
 			return 0, err
 		}
 
 		// Step 2g: Residual 1
-		if err := launcher(gm.addResFn).Grid(1).Block(256).
+		if err := launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1).
 			Launch(sp.X, sp.NormX, int32(hiddenSize)); err != nil {
 			return 0, err
 		}
 
 		// Step 2h: FFN Pre-RMSNorm
-		if err := launcher(gm.normFn).Grid(1).Block(256).
+		if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
 			Launch(sp.X, layerW.PostNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
 			return 0, err
 		}
 
 		// Step 2i: Gate & Up GEMVs
-		if err := launcher(gm.gemvFn).Grid(uint32(interSize)).Block(128).
+		if err := launcher(gm.gemvFn).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
 			Launch(sp.NormX, layerW.WGate, nullPtr, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
 			return 0, err
 		}
-		if err := launcher(gm.gemvFn).Grid(uint32(interSize)).Block(128).
+		if err := launcher(gm.gemvFn).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
 			Launch(sp.NormX, layerW.WUp, nullPtr, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
 			return 0, err
 		}
@@ -376,45 +376,45 @@ func enqueueGPUForwardPass(
 		// Step 2j & 2k: Fused SwiGLU + Down GEMV
 		if *fuseEGraphFlag && gm.fusedSwiGLUFn != 0 {
 			// Fused SwiGLU Down Projection (Single kernel launch)
-			if err := launcher(gm.fusedSwiGLUFn).Grid(uint32(hiddenSize)).Block(128).
+			if err := launcher(gm.fusedSwiGLUFn).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
 				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
 				return 0, err
 			}
 		} else {
 			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
-			if err := launcher(gm.swigluFn).Grid(1).Block(256).
+			if err := launcher(gm.swigluFn).Grid(1, 1, 1).Block(256, 1, 1).
 				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
 				return 0, err
 			}
 
 			// Step 2k: Down GEMV
-			if err := launcher(gm.gemvFn).Grid(uint32(hiddenSize)).Block(128).
+			if err := launcher(gm.gemvFn).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
 				Launch(sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
 				return 0, err
 			}
 		}
 
 		// Step 2l: Residual 2
-		if err := launcher(gm.addResFn).Grid(1).Block(256).
+		if err := launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1).
 			Launch(sp.X, sp.FFNOut, int32(hiddenSize)); err != nil {
 			return 0, err
 		}
 	}
 
 	// 3. Final RMSNorm
-	if err := launcher(gm.normFn).Grid(1).Block(256).
+	if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
 		Launch(sp.X, gpuW.Norm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
 		return 0, err
 	}
 
 	// 4. LM Head Logits GEMV
-	if err := launcher(gm.gemvFn).Grid(uint32(vocabSize)).Block(128).
+	if err := launcher(gm.gemvFn).Grid(uint32(vocabSize), 1, 1).Block(128, 1, 1).
 		Launch(sp.NormX, gpuW.LMHead, nullPtr, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
 		return 0, err
 	}
 
 	// 5. In-GPU Argmax Sampling
-	if err := launcher(sampleFn).Grid(1).Block(256).
+	if err := launcher(sampleFn).Grid(1, 1, 1).Block(256, 1, 1).
 		Launch(sp.Logits, sp.TokenOut, int32(vocabSize)); err != nil {
 		return 0, err
 	}
