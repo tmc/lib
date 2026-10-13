@@ -1,6 +1,6 @@
 //go:build native
 
-package cudalmvet
+package cudacheck
 
 import (
 	"context"

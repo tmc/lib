@@ -1,7 +1,7 @@
-// Package cudalmvet validates numerical accuracy and catches precision drift
+// Package cudacheck validates numerical accuracy and catches precision drift
 // by comparing GPU activations against CPU reference implementations.
 //
-// In addition to tensor-level tolerance checks, cudalmvet provides a single-scalar
+// In addition to tensor-level tolerance checks, cudacheck provides a single-scalar
 // trace-hash differential oracle and a schedule-perturbation driver.
 //
 // # Trace Hash Accumulator Contract
@@ -83,4 +83,4 @@
 // apart, and -min_denormal to +min_denormal as three. Other tools may use a
 // different convention. ULP distance is unknown when either value is an
 // infinity or NaN.
-package cudalmvet
+package cudacheck

@@ -1,15 +1,15 @@
-package cudalmvet_test
+package cudacheck_test
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/x/cudacheck"
 	"github.com/tmc/lib/nvidia/x/cudair"
-	"github.com/tmc/lib/nvidia/x/cudalmvet"
 )
 
 func Example() {
-	acc := cudalmvet.NewAccumulator()
+	acc := cudacheck.NewAccumulator()
 	acc.FoldFloat32s([]float32{1.0, 2.0, 3.0})
 	fmt.Printf("Trace hash: 0x%016x\n", acc.Hash())
 	// Output:
@@ -17,7 +17,7 @@ func Example() {
 }
 
 func ExampleAccumulator() {
-	acc := cudalmvet.NewAccumulator(cudalmvet.WithPolicy(cudalmvet.PolicyRawBits))
+	acc := cudacheck.NewAccumulator(cudacheck.WithPolicy(cudacheck.PolicyRawBits))
 	acc.FoldFloat32(42.0)
 	fmt.Printf("Count: %d\n", acc.Count())
 	// Output:
@@ -25,13 +25,13 @@ func ExampleAccumulator() {
 }
 
 func ExampleTriage() {
-	accA := cudalmvet.NewAccumulator(cudalmvet.WithRecording(true))
-	accB := cudalmvet.NewAccumulator(cudalmvet.WithRecording(true))
+	accA := cudacheck.NewAccumulator(cudacheck.WithRecording(true))
+	accB := cudacheck.NewAccumulator(cudacheck.WithRecording(true))
 
 	accA.FoldFloat32s([]float32{1.0, 2.0, 3.0})
 	accB.FoldFloat32s([]float32{1.0, 2.5, 3.0})
 
-	diff := cudalmvet.Triage(accA, accB)
+	diff := cudacheck.Triage(accA, accB)
 	fmt.Printf("Diverged at fold #%d\n", diff.DiffIndex)
 	// Output:
 	// Diverged at fold #1
@@ -46,7 +46,7 @@ func ExampleCompare() {
 
 	inputs := map[string][]float32{"X": {1.0}}
 
-	res, err := cudalmvet.Compare(context.Background(), g, cudalmvet.WithInputs(inputs))
+	res, err := cudacheck.Compare(context.Background(), g, cudacheck.WithInputs(inputs))
 	if err != nil {
 		fmt.Println("Error:", err)
 		return
