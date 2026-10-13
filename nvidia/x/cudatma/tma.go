@@ -285,8 +285,12 @@ type Multicast struct {
 	// SourceRank is the source CTA rank recorded at construction. It is a
 	// descriptive snapshot; methods use the private transaction state.
 	SourceRank uint32
-	// Destinations is a sorted copy of the constructor's destination ranks.
-	// Mutating this slice does not change the transaction.
+	// Destinations is a sorted copy of the ranks passed to NewMulticast;
+	// later changes to the caller's slice do not reach it. Value copies of
+	// a Multicast share this slice's backing array, so an element written
+	// through one copy is visible through the others. The transaction's
+	// destinations, byte count and completion state are private,
+	// synchronized state that this slice never reconfigures.
 	Destinations []uint32
 	// Mask is the destination bit mask recorded at construction. It is a
 	// descriptive snapshot; methods use the private transaction state.
