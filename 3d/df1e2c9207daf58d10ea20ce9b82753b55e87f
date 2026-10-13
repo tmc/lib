@@ -1,1 +1,3 @@
 commit 3ddf1e2c9207daf58d10ea20ce9b82753b55e87f date 2026-10-13T05:14:29Z agent=claude-code model=claude-opus-5-5 pid=31739 iterm=w1t0p10:B61EB754-39B0-4CD0-927E-85D713CE374E session=92ccdea6-7e63-44cd-860c-503002fbbee6 LLAMA-FIXTURE-SPEC-CLEANUP-GRANT; CPU: gofmt, vet, 30 tests PASS via private go.work (composed); mutants detected; device SKIP, not verified
+
+ERRATUM 2026-10-13T05:18:20Z: the body discloses only that GPUScratchpad.Free is untested with a failing free. GPUModelWeights.Free's vector loop is likewise untested: fakeModel leaves every vector zero, so a loop that dropped its error or stopped zeroing would pass (REVIEW-CLEANUP-BATCH F1).
