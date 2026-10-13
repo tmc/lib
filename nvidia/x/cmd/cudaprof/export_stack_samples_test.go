@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestLanguageSampleClock(t *testing.T) {
 			data = append(data, '\n')
 			cap := &cudacapture.Capture{Files: map[string][]byte{"stacks-python-wall-test.jsonl": data}}
 			records := []traceRecord{{session: tt.session, process: 12, generation: tt.generation, clocksUnified: tt.unified}}
-			got, err := appendLanguageSamples(cap, records)
+			got, err := appendLanguageSamples(context.Background(), cap, records, goTraceOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}

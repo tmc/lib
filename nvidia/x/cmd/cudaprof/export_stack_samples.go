@@ -6,8 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
 	"math"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -19,16 +22,133 @@ import (
 )
 
 type languageSamples struct {
-	Journal       string                 `json:"journal"`
-	SHA256        string                 `json:"sha256"`
-	Receipt       string                 `json:"receipt,omitempty"`
-	ReceiptSHA256 string                 `json:"receipt_sha256,omitempty"`
-	Samples       []languagestack.Sample `json:"samples"`
-	GoTrace       *languagestack.GoTrace `json:"go_trace,omitempty"`
-	Unavailable   string                 `json:"unavailable,omitempty"`
+	Journal       string                    `json:"journal"`
+	SHA256        string                    `json:"sha256"`
+	Receipt       string                    `json:"receipt,omitempty"`
+	ReceiptSHA256 string                    `json:"receipt_sha256,omitempty"`
+	Producer      *languagestack.GoProducer `json:"producer,omitempty"`
+	Samples       []languagestack.Sample    `json:"samples"`
+	GoTrace       *languagestack.GoTrace    `json:"go_trace,omitempty"`
+	Unavailable   string                    `json:"unavailable,omitempty"`
 }
 
-func readLanguageSamples(cap *cudacapture.Capture) ([]languageSamples, error) {
+// goTraceOptions selects an admitted prebuilt cmd/trace and a caller-owned
+// private scratch directory. Both or neither are set; values are absolute
+// and clean. Parsing makes no file system call.
+type goTraceOptions struct {
+	decoder, scratch string
+}
+
+// decoderFor returns the selected decoder, or nil when none is selected.
+func (o goTraceOptions) decoderFor() *languagestack.GoTraceDecoder {
+	if o.decoder == "" {
+		return nil
+	}
+	return &languagestack.GoTraceDecoder{Tool: o.decoder, Scratch: o.scratch}
+}
+
+// set records one option value. Repeats and non-absolute or unclean values
+// are refused.
+func (o *goTraceOptions) set(name, value string) error {
+	p := &o.decoder
+	if name == "go-trace-scratch" {
+		p = &o.scratch
+	}
+	if *p != "" {
+		return fmt.Errorf("repeated -%s", name)
+	}
+	if !filepath.IsAbs(value) || filepath.Clean(value) != value {
+		return fmt.Errorf("-%s must be an absolute, clean path", name)
+	}
+	*p = value
+	return nil
+}
+
+// check enforces the pairing after all options are parsed.
+func (o goTraceOptions) check() error {
+	if (o.decoder == "") != (o.scratch == "") {
+		return errors.New("go trace decoder and scratch must be selected together")
+	}
+	return nil
+}
+
+// register adds both options to fs as set-once values.
+func (o *goTraceOptions) register(fs *flag.FlagSet) {
+	for _, name := range []string{"go-trace-decoder", "go-trace-scratch"} {
+		fs.Func(name, "admitted prebuilt cmd/trace (decoder) or existing private 0700 directory (scratch); both or neither", func(v string) error { return o.set(name, v) })
+	}
+}
+
+const goTraceOptionsHelp = "-go-trace-decoder PATH, -go-trace-scratch DIR  admitted prebuilt cmd/trace and an existing caller-owned private directory (absolute, clean, mode 0700 or stricter; never created); both or neither; unselected Go traces stay unavailable"
+
+// goHostReceiptKeys are the exact keys cudaprof's host profile writes.
+var goHostReceiptKeys = map[string]bool{
+	"version": true, "pid": true, "process": true, "session": true, "generation": true,
+	"start_wall_utc": true, "end_wall_utc": true, "gpu_clock_alignment": true,
+	"cpu_sample_timestamps": true, "goos": true, "goarch": true, "go_version": true,
+}
+
+type goHostReceipt struct {
+	Version    int    `json:"version"`
+	PID        int    `json:"pid"`
+	Process    string `json:"process"`
+	Session    string `json:"session"`
+	Generation uint64 `json:"generation"`
+	GOOS       string `json:"goos"`
+	GOARCH     string `json:"goarch"`
+	GoVersion  string `json:"go_version"`
+}
+
+// readGoHostReceipt reads a host receipt strictly. A syntax error is
+// returned as err. A duplicate, case-variant or unknown key, or a missing
+// producer field, is returned as unavailable text.
+func readGoHostReceipt(data []byte) (r goHostReceipt, unavailable string, err error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return r, "", err
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return r, "", errors.New("host receipt is not a JSON object")
+	}
+	seen := make(map[string]bool)
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return r, "", err
+		}
+		key, _ := tok.(string)
+		if !goHostReceiptKeys[key] || seen[key] {
+			return r, "ambiguous host receipt: " + key, nil
+		}
+		seen[key] = true
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			return r, "", err
+		}
+	}
+	if err := json.Unmarshal(data, &r); err != nil {
+		return r, "", err
+	}
+	switch {
+	case r.Version != 1:
+		return r, "producer receipt incomplete: version", nil
+	case r.GoVersion == "":
+		return r, "producer receipt incomplete: go_version", nil
+	case r.GOOS == "":
+		return r, "producer receipt incomplete: goos", nil
+	case r.GOARCH == "":
+		return r, "producer receipt incomplete: goarch", nil
+	}
+	return r, "", nil
+}
+
+// readLanguageSamples reads retained language samples. A Go trace is decoded
+// only with the selected decoder; its producer comes from the paired host
+// receipt. Pairing is attachment naming plus recorded hashes. File-name
+// suffixes and pairing establish no clock, population, process or session
+// authenticity.
+func readLanguageSamples(ctx context.Context, cap *cudacapture.Capture, goTrace goTraceOptions) ([]languageSamples, error) {
 	var names []string
 	for name := range cap.Files {
 		if strings.HasPrefix(name, "stacks-python-wall-") && strings.HasSuffix(name, ".jsonl") || strings.HasPrefix(name, "stacks-go-") && strings.HasSuffix(name, "-host.json") {
@@ -53,17 +173,17 @@ func readLanguageSamples(cap *cudacapture.Capture) ([]languageSamples, error) {
 			}
 			group.Samples = samples
 		} else {
-			var identity struct {
-				PID        int    `json:"pid"`
-				Process    string `json:"process"`
-				Session    string `json:"session"`
-				Generation uint64 `json:"generation"`
-				GOOS       string `json:"goos"`
-				GoVersion  string `json:"go_version"`
-			}
-			if err := json.Unmarshal(data, &identity); err != nil {
+			identity, unavailable, err := readGoHostReceipt(data)
+			if err != nil {
 				return nil, fmt.Errorf("read host receipt %s: %w", name, err)
 			}
+			if unavailable != "" {
+				group.Unavailable = unavailable
+				out = append(out, group)
+				continue
+			}
+			producer := languagestack.GoProducer{GoVersion: identity.GoVersion, GOOS: identity.GOOS, GOARCH: identity.GOARCH}
+			group.Producer = &producer
 			traceName := strings.TrimSuffix(name, "-host.json") + ".trace"
 			trace, ok := cap.Files[traceName]
 			if !ok {
@@ -79,16 +199,22 @@ func readLanguageSamples(cap *cudacapture.Capture) ([]languageSamples, error) {
 			if total > 32<<20 {
 				return nil, fmt.Errorf("host stack samples exceed total byte limit")
 			}
-			goTrace, err := analyzeRetainedGoTrace(trace, languagestack.Record{PID: identity.PID, Process: identity.Process, Session: identity.Session, Generation: identity.Generation})
+			dec := goTrace.decoderFor()
+			if dec == nil {
+				group.Unavailable = languagestack.ErrGoTraceDecoderUnselected.Error()
+				out = append(out, group)
+				continue
+			}
+			decoded, err := analyzeRetainedGoTrace(ctx, dec, trace, producer, languagestack.Record{PID: identity.PID, Process: identity.Process, Session: identity.Session, Generation: identity.Generation})
 			if err != nil {
 				group.Unavailable = err.Error()
 			} else {
-				group.GoTrace = goTrace
-				if err := languagestack.QualifyGoMonotonic(goTrace, identity.GOOS, identity.GoVersion); err != nil {
+				group.GoTrace = decoded
+				if err := languagestack.QualifyGoMonotonic(decoded, identity.GOOS, identity.GoVersion); err != nil {
 					group.Unavailable = err.Error()
 				}
-				group.Samples = goTrace.Samples
-				metadata := *goTrace
+				group.Samples = decoded.Samples
+				metadata := *decoded
 				metadata.Samples = nil
 				group.GoTrace = &metadata
 			}
@@ -106,8 +232,8 @@ func nativeStackClocks(records []traceRecord) map[stackReference]bool {
 	return clocks
 }
 
-func appendLanguageSamples(cap *cudacapture.Capture, records []traceRecord) ([]traceRecord, error) {
-	groups, err := readLanguageSamples(cap)
+func appendLanguageSamples(ctx context.Context, cap *cudacapture.Capture, records []traceRecord, goTrace goTraceOptions) ([]traceRecord, error) {
+	groups, err := readLanguageSamples(ctx, cap, goTrace)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +270,6 @@ func appendLanguageSamples(cap *cudacapture.Capture, records []traceRecord) ([]t
 	return records, nil
 }
 
-func analyzeRetainedGoTrace(data []byte, identity languagestack.Record) (*languagestack.GoTrace, error) {
-	return languagestack.AnalyzeGoTraceBytes(context.Background(), "go", data, identity, languagestack.Limits{})
+func analyzeRetainedGoTrace(ctx context.Context, dec *languagestack.GoTraceDecoder, data []byte, producer languagestack.GoProducer, identity languagestack.Record) (*languagestack.GoTrace, error) {
+	return dec.Analyze(ctx, data, producer, identity, languagestack.Limits{})
 }

@@ -1,16 +1,8 @@
 package stack
 
 import (
-	"context"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"runtime/pprof"
-	"runtime/trace"
 	"strings"
 	"testing"
-	"time"
 )
 
 const goDebugFixture = `M=-1 P=-1 G=-1 Sync Time=90 N=1 Trace=100 Mono=110 Wall=now
@@ -60,48 +52,5 @@ func TestGoTraceDebug(t *testing.T) {
 	}
 	if got.ClockStatus != "unavailable" || got.Samples[0].Clock != "go_trace" {
 		t.Fatal("invented constant offset")
-	}
-}
-func TestAnalyzeGoTrace(t *testing.T) {
-	if runtime.Version() != "go1.27.1" {
-		t.Skip("backend pinned to Go 1.27.1")
-	}
-	tool, err := exec.LookPath("go")
-	if err != nil {
-		t.Skip("no local Go tool")
-	}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "runtime.trace")
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cpu, err := os.Create(filepath.Join(dir, "cpu.pprof"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := trace.Start(f); err != nil {
-		t.Fatal(err)
-	}
-	if err := pprof.StartCPUProfile(cpu); err != nil {
-		trace.Stop()
-		t.Fatal(err)
-	}
-	deadline := time.Now().Add(100 * time.Millisecond)
-	for time.Now().Before(deadline) {
-	}
-	pprof.StopCPUProfile()
-	trace.Stop()
-	f.Close()
-	cpu.Close()
-	got, err := AnalyzeGoTrace(context.Background(), tool, path, Record{Process: "test", PID: os.Getpid()}, Limits{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Samples) == 0 {
-		t.Fatal("missing CPU samples")
-	}
-	if len(got.ClockSnapshots) == 0 {
-		t.Fatal("missing trace calibration evidence")
 	}
 }

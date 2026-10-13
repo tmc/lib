@@ -1,18 +1,27 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/traceanalysis"
 )
 
 func runTraceQueryCommand(args []string) error { return runTraceQuery(args, os.Stdout) }
 func runTraceQuery(args []string, out io.Writer) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return runTraceQueryContext(ctx, args, out)
+}
+
+func runTraceQueryContext(ctx context.Context, args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("trace query", flag.ContinueOnError)
 	fs.SetOutput(out)
 	resourceLimits := registerTraceViewLimits(fs)
@@ -20,8 +29,11 @@ func runTraceQuery(args []string, out io.Writer) error {
 	jsonOutput := fs.Bool("json", false, "write versioned JSON")
 	processor := fs.String("perfetto", "", "optional local Trace Processor v58.2 executable for exported trace queries")
 	domain := fs.String("domain", "driver", "submission API domain: driver or runtime")
+	var goTrace goTraceOptions
+	goTrace.register(fs)
 	fs.Usage = func() {
 		fmt.Fprintln(out, "Usage: cudaprof trace query -list [-json]\n       cudaprof trace query [-json] [-domain driver|runtime] NAME INPUT")
+		fmt.Fprintln(out, goTraceOptionsHelp)
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -29,6 +41,9 @@ func runTraceQuery(args []string, out io.Writer) error {
 			return nil
 		}
 		return err
+	}
+	if err := goTrace.check(); err != nil {
+		return fmt.Errorf("trace query: %w", err)
 	}
 	if err := resourceLimits.validate(); err != nil {
 		return err
@@ -58,7 +73,7 @@ func runTraceQuery(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	result := traceViewResult{Consumer: currentBuild(), Options: map[string]any{"resource_limits": resourceLimits.receipt(), "api_domain": *domain, "query": definition.Name}, Version: definition.Version, Schema: definition.Schema, Input: input.Path, SHA256: input.SHA256, Kind: input.Kind, Backend: "native", View: definition.Name, State: "observed", Limits: []string{definition.Aggregation, definition.Required}}
+	result := traceViewResult{Consumer: currentBuild(), Options: map[string]any{"resource_limits": resourceLimits.receipt(), "api_domain": *domain, "query": definition.Name, "go_trace_decoder": goTrace.decoder, "go_trace_scratch": goTrace.scratch}, Version: definition.Version, Schema: definition.Schema, Input: input.Path, SHA256: input.SHA256, Kind: input.Kind, Backend: "native", View: definition.Name, State: "observed", Limits: []string{definition.Aggregation, definition.Required}}
 	var failure error
 	var backendFailure error
 	if input.Capture == nil {
@@ -118,7 +133,7 @@ func runTraceQuery(args []string, out io.Writer) error {
 		}
 		result.Qualifications = session.Summary().Gates
 		if definition.Name == "language-stacks" || definition.Name == "host-stacks" {
-			result.Evidence, err = nativeLanguageStackView(input.Capture, definition.Name)
+			result.Evidence, err = nativeLanguageStackView(ctx, input.Capture, definition.Name, goTrace)
 		} else {
 			result.Evidence, err = session.Query(definition.Name)
 		}

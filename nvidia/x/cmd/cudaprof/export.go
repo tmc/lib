@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -8,11 +9,13 @@ import (
 	"io"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/tmc/lib/nvidia/cupti"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
@@ -58,11 +61,18 @@ type exportOptions struct {
 	maxRecords           int64
 	journalBytes         int64
 	limits               cudacapture.Limits
+	goTrace              goTraceOptions
 }
 
 var errExportHelp = errors.New("export: help requested")
 
 func runExportCommand(args []string) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return runExport(ctx, args)
+}
+
+func runExport(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		printExportHelp()
 		return nil
@@ -99,7 +109,7 @@ func runExportCommand(args []string) error {
 	if err := attachLanguageStacks(cap, records); err != nil {
 		return err
 	}
-	records, err = appendLanguageSamples(cap, records)
+	records, err = appendLanguageSamples(ctx, cap, records, opts.goTrace)
 	if err != nil {
 		return err
 	}
@@ -307,6 +317,16 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 				return exportOptions{}, fmt.Errorf("invalid journal bytes: %s", arg)
 			}
 			opts.journalBytes = v
+		case (arg == "-go-trace-decoder" || arg == "-go-trace-scratch") && i+1 < len(args):
+			i++
+			if err := opts.goTrace.set(arg[1:], args[i]); err != nil {
+				return exportOptions{}, err
+			}
+		case strings.HasPrefix(arg, "-go-trace-decoder="), strings.HasPrefix(arg, "-go-trace-scratch="):
+			name, value, _ := strings.Cut(arg[1:], "=")
+			if err := opts.goTrace.set(name, value); err != nil {
+				return exportOptions{}, err
+			}
 		case strings.HasPrefix(arg, "-"):
 			return exportOptions{}, fmt.Errorf("unknown flag: %s", arg)
 		case opts.capturePath == "":
@@ -314,6 +334,9 @@ func parseExportArgs(rawArgs []string) (exportOptions, error) {
 		default:
 			return exportOptions{}, fmt.Errorf("unexpected argument: %s", arg)
 		}
+	}
+	if err := opts.goTrace.check(); err != nil {
+		return exportOptions{}, err
 	}
 	if opts.summaryDomain != "driver" && opts.summaryDomain != "runtime" {
 		return exportOptions{}, fmt.Errorf("invalid summary API domain %q", opts.summaryDomain)
@@ -370,6 +393,7 @@ Options:
   -summary-domain driver|runtime  API domain for explicit context (default driver)
   -summary-marker RE  append separately labeled inferred kernel intervals
   -demangle         display demangled kernel names; retain raw_symbol args
+  `+goTraceOptionsHelp+`
   -o <path>          output file (default: the capture path with .pftrace)
   --max-records=N    maximum journal records to decode (default: the larger of
                      1048576 and what the capture records)

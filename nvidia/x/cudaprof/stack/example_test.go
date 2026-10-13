@@ -46,10 +46,10 @@ func ExampleReadGoTraceDebug() {
 	// Output: 100
 }
 
-func ExampleAnalyzeGoTrace() {
-	_, err := stack.AnalyzeGoTrace(context.Background(), "", "", stack.Record{}, stack.Limits{})
+func ExampleGoTraceDecoder_Validate() {
+	_, err := new(stack.GoTraceDecoder).Validate(context.Background(), nil, stack.GoProducer{})
 	fmt.Println(err)
-	// Output: go trace backend unavailable
+	// Output: go trace decoder not selected
 }
 
 func ExampleQualifyGoMonotonic() {
@@ -66,8 +66,8 @@ func ExampleWriteCoverage() {
 	// Output: true
 }
 
-func ExampleAnalyzeGoTraceBytes() {
-	_, err := stack.AnalyzeGoTraceBytes(context.Background(), "", nil, stack.Record{}, stack.Limits{})
+func ExampleGoTraceDecoder_Analyze() {
+	_, err := new(stack.GoTraceDecoder).Analyze(context.Background(), nil, stack.GoProducer{}, stack.Record{}, stack.Limits{})
 	fmt.Println(err)
-	// Output: go trace backend unavailable
+	// Output: go trace decoder not selected
 }

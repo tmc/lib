@@ -37,10 +37,10 @@ it is not a timestamped copy of CPU pprof. The sidecar receipt records wall-cloc
 bounds and reports its GPU clock alignment as unavailable. Retaining these
 files alone does not justify positioning CPU samples on a GPU timeline.
 
-Export decodes retained Go 1.27.1 traces using a matching local Go tool.
-On Linux, it verifies the producer's native session, process generation, and
-unified monotonic clock before drawing CPU samples on separate host tracks.
-Other versions or missing clock evidence remain unavailable. The host-stack
+Export decodes a retained Go trace only with a selected prebuilt cmd/trace whose
+digest, build identity, header and producer receipt match a reviewed admission
+record; none is admitted yet. Decoding is format evidence; clock placement still
+requires Linux go1.27.1 and native clock verification. The host-stack
 query retains timestamp quantization, clock snapshots, and observed read skew.
 
 ## Open question: native kernel-launch stacks

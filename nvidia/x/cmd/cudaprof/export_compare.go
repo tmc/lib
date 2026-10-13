@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,8 +13,10 @@ import (
 	"io"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
+	"syscall"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaprof/isolation"
@@ -38,6 +41,7 @@ and clock domain as the raw records; missing application context stays unknown.
 -summary-domain selects driver (default) or runtime submission identity,
 without fallback between domains. -summary-marker adds separately labeled
 inferred kernel intervals; the alignment marker is not used implicitly.
+` + goTraceOptionsHelp + `
 `
 
 type exportCompareOptions struct {
@@ -62,6 +66,7 @@ type exportCompareOptions struct {
 	expects                  [2]int
 	out                      string
 	maxRecords, journalBytes int64
+	goTrace                  goTraceOptions
 }
 
 type alignmentArm struct {
@@ -105,6 +110,7 @@ type alignmentReceipt struct {
 	GraphLifecycle       bool            `json:"graph_lifecycle_requested,omitempty"`
 	SummaryMarker        string          `json:"summary_inferred_marker,omitempty"`
 	SummaryDomain        string          `json:"summary_api_domain,omitempty"`
+	GoTraceDecoder       string          `json:"go_trace_decoder,omitempty"`
 	Version              int             `json:"version"`
 	Mode                 string          `json:"mode"`
 	Marker               string          `json:"marker"`
@@ -148,8 +154,12 @@ func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions,
 	fs.IntVar(&opts.expects[1], "target-expect-markers", 0, "independent workload invariant for target, 0 means unchecked")
 	fs.Int64Var(&opts.maxRecords, "max-records", 0, "maximum decoded journal records; 0 uses capture budget")
 	fs.Int64Var(&opts.journalBytes, "journal-bytes", 0, "maximum decompressed journal bytes; 0 uses capture budget")
+	opts.goTrace.register(fs)
 	if err := fs.Parse(args); err != nil {
 		return opts, err
+	}
+	if err := opts.goTrace.check(); err != nil {
+		return opts, fmt.Errorf("export-compare: %w", err)
 	}
 	if *summaryMarker != "" {
 		marker, err := regexp.Compile(*summaryMarker)
@@ -204,6 +214,12 @@ func parseExportCompareArgs(args []string, out io.Writer) (exportCompareOptions,
 }
 
 func runExportCompareCommand(args []string) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return runExportCompare(ctx, args)
+}
+
+func runExportCompare(ctx context.Context, args []string) error {
 	opts, err := parseExportCompareArgs(args, os.Stdout)
 	if errors.Is(err, flag.ErrHelp) {
 		return nil
@@ -213,7 +229,7 @@ func runExportCompareCommand(args []string) error {
 	}
 	restore := exportMemoryBudget(opts.memoryBytes)
 	defer restore()
-	receipt := alignmentReceipt{maxTracks: opts.maxTracks, maxSummaryReferences: opts.maxSummaryReferences, Detail: opts.detail, Memory: opts.memory, Version: 1, Mode: "independent runs aligned by selected start marker; no clock synchronization claimed", Marker: opts.window.marker.String(), TimeScale: 1, Telemetry: opts.telemetry, SubmissionLinks: opts.submissionLinks, GraphLifecycle: opts.graphLifecycle}
+	receipt := alignmentReceipt{maxTracks: opts.maxTracks, maxSummaryReferences: opts.maxSummaryReferences, Detail: opts.detail, Memory: opts.memory, Version: 1, Mode: "independent runs aligned by selected start marker; no clock synchronization claimed", Marker: opts.window.marker.String(), TimeScale: 1, Telemetry: opts.telemetry, SubmissionLinks: opts.submissionLinks, GraphLifecycle: opts.graphLifecycle, GoTraceDecoder: opts.goTrace.decoder}
 	if opts.summary || opts.submissionLinks {
 		receipt.SummaryDomain = opts.summaryDomain
 		if opts.summaryMarker != nil {
@@ -221,7 +237,7 @@ func runExportCompareCommand(args []string) error {
 		}
 	}
 	for i := range 2 {
-		arm, err := loadAlignmentArm(opts, i)
+		arm, err := loadAlignmentArm(ctx, opts, i)
 		if err != nil {
 			return fmt.Errorf("export-compare %s: %w", opts.labels[i], err)
 		}
@@ -244,7 +260,7 @@ func runExportCompareCommand(args []string) error {
 	return nil
 }
 
-func loadAlignmentArm(opts exportCompareOptions, i int) (alignmentArm, error) {
+func loadAlignmentArm(ctx context.Context, opts exportCompareOptions, i int) (alignmentArm, error) {
 	arm := alignmentArm{Path: opts.paths[i], Label: opts.labels[i], Trace: fmt.Sprintf("arm-%d.pftrace", i), Skip: opts.skips[i], Expected: opts.expects[i], MarkerVerdict: "unchecked"}
 	cap, digest, err := readAlignmentCapture(arm.Path, opts.limits)
 	if err != nil {
@@ -292,7 +308,7 @@ func loadAlignmentArm(opts exportCompareOptions, i int) (alignmentArm, error) {
 	if err := attachLanguageStacks(cap, arm.records); err != nil {
 		return arm, err
 	}
-	arm.records, err = appendLanguageSamples(cap, arm.records)
+	arm.records, err = appendLanguageSamples(ctx, cap, arm.records, opts.goTrace)
 	if err != nil {
 		return arm, err
 	}

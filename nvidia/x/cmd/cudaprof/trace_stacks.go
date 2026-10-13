@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	languagestack "github.com/tmc/lib/nvidia/x/cudaprof/stack"
 )
@@ -21,7 +23,7 @@ type languageStackView struct {
 	Limits   string                 `json:"limits"`
 }
 
-func nativeLanguageStackView(cap *cudacapture.Capture, name string) (any, error) {
+func nativeLanguageStackView(ctx context.Context, cap *cudacapture.Capture, name string, goTrace goTraceOptions) (any, error) {
 	journals, err := requireJournals(cap)
 	if err != nil {
 		return nil, err
@@ -32,7 +34,7 @@ func nativeLanguageStackView(cap *cudacapture.Capture, name string) (any, error)
 		return nil, err
 	}
 	if name == "host-stacks" {
-		groups, err := readLanguageSamples(cap)
+		groups, err := readLanguageSamples(ctx, cap, goTrace)
 		if err != nil {
 			return nil, err
 		}
