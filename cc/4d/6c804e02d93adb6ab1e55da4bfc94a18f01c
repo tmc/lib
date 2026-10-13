@@ -1,0 +1,1 @@
+commit cc4d6c804e02d93adb6ab1e55da4bfc94a18f01c date 2026-10-13T05:30:24Z agent=claude-code model=claude-opus-5-5 pid=80733 iterm=w1t0p10:B61EB754-39B0-4CD0-927E-85D713CE374E session=92ccdea6-7e63-44cd-860c-503002fbbee6 fixes REVIEW-SPEC-STATE M1 isolation; stale-blind fake makes the new check fail (verified); CPU PASS incl race
