@@ -1,1 +1,3 @@
 commit 21ba16b1bb3d26e278821870c7173e6578ae7949 date 2026-10-13T05:04:55Z agent=claude-code model=claude-opus-5-5 pid=9926 iterm=w1t0p10:B61EB754-39B0-4CD0-927E-85D713CE374E session=92ccdea6-7e63-44cd-860c-503002fbbee6 LLAMA-TOKEN-SCRATCH-FOLLOWUP-GRANT; CPU: gofmt, vet, package tests PASS via private go.work (composed closure); mutants detected; device tests SKIP on darwin, not verified
+
+ERRATUM 2026-10-13T05:10:45Z: the commit message says CPU Forward panicked on an out-of-range token. That is wrong: model.go:284-287 silently used a zero embedding. The fix (refusing the token before use) is unchanged; only the stated reason was wrong. Found by nonauthor review REVIEW-TOKEN-SCRATCH.md.
