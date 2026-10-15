@@ -2,6 +2,7 @@ package cudasearch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -17,8 +18,9 @@ type MapSpaceSearchStats struct {
 	DownstreamSkipped    int
 	EvaluatedCandidates  int
 	// UnsupportedCandidates is a subset of DownstreamSkipped: geometrically
-	// valid, capacity-fitting candidates whose nonidentity spatial traffic is
-	// not modeled. These never contribute to EvaluatedCandidates or Best.
+	// valid, capacity-fitting candidates whose spatial traffic is
+	// not modeled by the selected profile (including absent profile). These
+	// never contribute to EvaluatedCandidates or Best.
 	UnsupportedCandidates int
 	// BestIntensity is the greatest logical DRAM FLOPs/byte. Equal intensities
 	// retain the first candidate. This is not a latency or occupancy estimate.
@@ -26,11 +28,13 @@ type MapSpaceSearchStats struct {
 	Best          *MapSpaceSearchResult
 }
 
-// MapSpaceSearchResult retains a detached mapping and its logical temporal
+// MapSpaceSearchResult retains a detached mapping and its logical
 // traffic. Mutating it does not change the search inputs.
 type MapSpaceSearchResult struct {
-	Mapping  cudalayout.MapSpace
-	Movement cudaroofline.HierarchyMovement
+	Mapping         cudalayout.MapSpace
+	Movement        cudaroofline.HierarchyMovement
+	SpatialProfile  *cudaroofline.GEMMSpatialProfile
+	SpatialMovement *cudaroofline.SpatialHierarchyMovement
 }
 
 // LinearPrunedSearch performs ordered iteration over a factored mapspace,
@@ -42,6 +46,9 @@ type LinearPrunedSearch struct {
 	// SpatialTilings supplies the spatial axis. An empty slice selects one
 	// identity mesh. Explicit warp meshes require a positive thread limit.
 	SpatialTilings []cudalayout.SpatialTiling
+	// SpatialProfile opts into the declared logical owner-major model. Nil
+	// preserves unsupported nonidentity accounting. LaneMesh is borrowed input.
+	SpatialProfile *cudaroofline.GEMMSpatialProfile
 	Bypasses       []cudalayout.DatatypeBypass
 	Constraints    cudalayout.HardwareConstraints
 	DTypes         map[cudalayout.TensorRole]int
@@ -103,6 +110,7 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 			Factorizations: append([]cudalayout.IndexFactorization(nil), partFacts...),
 			Permutations:   append([]cudalayout.LoopPermutation(nil), s.Permutations...),
 			SpatialTilings: append([]cudalayout.SpatialTiling(nil), s.SpatialTilings...),
+			SpatialProfile: s.SpatialProfile,
 			Bypasses:       append([]cudalayout.DatatypeBypass(nil), s.Bypasses...),
 			Constraints:    s.Constraints,
 			DTypes:         s.DTypes,
@@ -118,9 +126,10 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 // non-unit factor at the specified level; unit-factor loops may be omitted.
 // Scoring uses AnalyticalGEMMHierarchy's full temporal retention contract and
 // maximizes logical DRAM operational intensity, retaining the first tie.
-// Nonidentity spatial candidates that pass geometry and capacity checks are
-// counted as unsupported and skipped. No spatial sharing, effective device
-// occupancy, physical cache behavior or schedule latency is modeled.
+// With SpatialProfile, supported owner-major spatial traffic is included.
+// Without it, nonidentity spatial candidates remain unsupported skips.
+// Spatial K reductions remain explicitly unmodeled. No physical cache behavior,
+// device residency, synchronization or schedule latency is modeled.
 // It rejects a candidate count that cannot be represented by its int statistics.
 func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, error) {
 	stats := MapSpaceSearchStats{}
@@ -147,6 +156,15 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 		return stats, err
 	}
 
+	if s.SpatialProfile != nil {
+		lanes := 1
+		for dim, n := range s.SpatialProfile.LaneMesh {
+			if s.Problem[dim] <= 0 || n <= 0 || n > 32/lanes {
+				return stats, fmt.Errorf("invalid spatial lane mesh: %w", cudalayout.ErrUnsupported)
+			}
+			lanes *= n
+		}
+	}
 	for _, fact := range s.Factorizations {
 		if err := ctx.Err(); err != nil {
 			return stats, err
@@ -218,19 +236,43 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 						continue
 					}
 
-					if !identityMapSpaceSpatial(spatial) {
+					if s.SpatialProfile == nil && !identityMapSpaceSpatial(spatial) {
 						stats.UnsupportedCandidates++
 						stats.DownstreamSkipped++
 						continue
 					}
 					mapping := cudalayout.MapSpace{Problem: s.Problem, Factorization: fact, Permutation: perm, Spatial: spatial, Bypass: bypass}
-					movement, err := cudaroofline.AnalyticalGEMMHierarchy(mapping, s.DTypes)
-					if err != nil {
-						return stats, fmt.Errorf("mapspace data movement: %w", err)
+					var movement cudaroofline.HierarchyMovement
+					var spatialMovement *cudaroofline.SpatialHierarchyMovement
+					if s.SpatialProfile != nil {
+						report, err := cudaroofline.AnalyticalGEMMSpatial(mapping, s.DTypes, *s.SpatialProfile)
+						if errors.Is(err, cudalayout.ErrUnmodeled) {
+							stats.UnsupportedCandidates++
+							stats.DownstreamSkipped++
+							continue
+						}
+						if errors.Is(err, cudalayout.ErrUnsupported) {
+							stats.DownstreamSkipped++
+							continue
+						}
+						if err != nil {
+							return stats, fmt.Errorf("mapspace spatial data movement: %w", err)
+						}
+						spatialMovement = &report
+						movement = report.Movement
+					} else {
+						var err error
+						movement, err = cudaroofline.AnalyticalGEMMHierarchy(mapping, s.DTypes)
+						if err != nil {
+							return stats, fmt.Errorf("mapspace data movement: %w", err)
+						}
 					}
 					if stats.Best == nil || movement.DRAM.OperationalIntensity > stats.BestIntensity {
 						stats.BestIntensity = movement.DRAM.OperationalIntensity
-						stats.Best = &MapSpaceSearchResult{Mapping: cloneMapSpace(mapping), Movement: movement}
+						stats.Best = &MapSpaceSearchResult{Mapping: cloneMapSpace(mapping), Movement: movement, SpatialMovement: spatialMovement}
+						if s.SpatialProfile != nil {
+							stats.Best.SpatialProfile = &cudaroofline.GEMMSpatialProfile{LaneMesh: maps.Clone(s.SpatialProfile.LaneMesh)}
+						}
 					}
 					stats.EvaluatedCandidates++
 				}
@@ -251,6 +293,15 @@ func (s *LinearPrunedSearch) validSpatial(fact cudalayout.IndexFactorization, sp
 		// measured residency or launch fact.
 		warps := spatial.TotalWarps()
 		if warps <= 0 || s.Constraints.MaxThreadsPerBlock <= 0 || warps > s.Constraints.MaxThreadsPerBlock/32 {
+			return false
+		}
+	}
+	if s.SpatialProfile != nil {
+		lanes := 1
+		for _, n := range s.SpatialProfile.LaneMesh {
+			lanes *= n
+		} // validated before iteration
+		if lanes > 1 && (s.Constraints.MaxThreadsPerBlock <= 0 || spatial.TotalWarps() > s.Constraints.MaxThreadsPerBlock/lanes) {
 			return false
 		}
 	}

@@ -330,9 +330,11 @@ type HierarchyLevel struct {
 	Tensors       map[cudalayout.TensorRole]TensorMovement
 }
 
-// HierarchyMovement contains logical temporal GEMM traffic. Levels are ordered
+// HierarchyMovement contains logical GEMM traffic. Levels are ordered
 // from the lowest retained storage level to DRAM. DRAM contains the total
 // transfers at the DRAM boundary and the corresponding FLOPs per byte.
+// AnalyticalGEMMSpatial uses aggregate traffic and replicated resident bytes;
+// its separate Levels report contains the per-instance and union quantities.
 type HierarchyMovement struct {
 	Levels []HierarchyLevel
 	DRAM   CompoundDataMovement
@@ -355,127 +357,17 @@ type HierarchyMovement struct {
 // model partial overlapping tiles, physical cache replacement, transactions,
 // padding, spatial sharing, measured traffic, residency or execution latency.
 func AnalyticalGEMMHierarchy(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int) (HierarchyMovement, error) {
+	loops, err := validateGEMMHierarchy(mapping, dtypes, false)
+	if err != nil {
+		return HierarchyMovement{}, err
+	}
 	factors := mapping.Factorization
 	levels := factors.Levels
 	roles := []cudalayout.TensorRole{cudalayout.TensorA, cudalayout.TensorB, cudalayout.TensorC}
-	dims := []string{"B", "M", "N", "K"}
-	unsupported := func(reason string) (HierarchyMovement, error) {
-		return HierarchyMovement{}, fmt.Errorf("GEMM hierarchy: %s: %w", reason, cudalayout.ErrUnsupported)
-	}
-	if len(mapping.Problem) != len(dims) {
-		return unsupported("expected exactly B/M/N/K problem dimensions")
-	}
-	for _, dim := range dims {
-		if mapping.Problem[dim] <= 0 {
-			return unsupported("missing or non-positive problem dimension " + dim)
-		}
-	}
-	if len(levels) == 0 || levels[len(levels)-1] != cudalayout.LevelDRAM {
-		return unsupported("storage levels must end at DRAM")
-	}
-	listed := make(map[cudalayout.StorageLevel]bool, len(levels))
-	for i, level := range levels {
-		if level < cudalayout.LevelRegister || level > cudalayout.LevelDRAM || (i > 0 && level <= levels[i-1]) {
-			return unsupported("storage levels must be known and strictly increasing")
-		}
-		listed[level] = true
-	}
-	for level := range factors.Factors {
-		if !listed[level] {
-			return unsupported("factors reference an unlisted storage level")
-		}
-	}
-	if err := factors.Validate(mapping.Problem); err != nil {
-		return HierarchyMovement{}, fmt.Errorf("GEMM hierarchy factors: %w", err)
-	}
-	for _, mesh := range []map[string]int{mapping.Spatial.CTAMesh, mapping.Spatial.WarpMesh} {
-		for dim, count := range mesh {
-			if mapping.Problem[dim] <= 0 || count != 1 {
-				return unsupported("only identity spatial meshes are modeled")
-			}
-		}
-	}
-	if len(dtypes) != len(roles) {
-		return unsupported("expected exactly A/B/C element byte sizes")
-	}
-	for _, role := range roles {
-		if dtypes[role] <= 0 {
-			return unsupported("missing or non-positive tensor byte size")
-		}
-	}
-	for level, tensors := range mapping.Bypass.Bypassed {
-		if !listed[level] {
-			return unsupported("bypass references an unlisted storage level")
-		}
-		for role, bypassed := range tensors {
-			if role < cudalayout.TensorA || role > cudalayout.TensorC || (level == cudalayout.LevelDRAM && bypassed) {
-				return unsupported("unknown tensor role or bypassed DRAM tensor")
-			}
-		}
-	}
-	type loop struct {
-		level int
-		dim   string
-		size  uint64
-	}
-	var loops []loop
-	for level := range mapping.Permutation.Orders {
-		if !listed[level] {
-			return unsupported("permutation references an unlisted storage level")
-		}
-	}
-	for i := len(levels) - 1; i >= 0; i-- {
-		level := levels[i]
-		seen := make(map[string]bool)
-		for _, dim := range mapping.Permutation.Orders[level] {
-			if mapping.Problem[dim] <= 0 || seen[dim] {
-				return unsupported("unknown or repeated permutation dimension")
-			}
-			seen[dim] = true
-			size := factors.Factors[level][dim]
-			if size > 1 {
-				loops = append(loops, loop{i, dim, uint64(size)})
-			}
-		}
-		for _, dim := range dims {
-			if factors.Factors[level][dim] > 1 && !seen[dim] {
-				return unsupported("permutation omits a non-unit factor")
-			}
-		}
-	}
-	projects := func(role cudalayout.TensorRole, dim string) bool {
-		return dim == "B" || (role == cudalayout.TensorA && dim != "N") ||
-			(role == cudalayout.TensorB && dim != "M") || (role == cudalayout.TensorC && dim != "K")
-	}
-	report := HierarchyMovement{Levels: make([]HierarchyLevel, len(levels))}
-	tile := map[string]uint64{"B": 1, "M": 1, "N": 1, "K": 1}
-	for i, level := range levels {
-		for dim, factor := range factors.Factors[level] {
-			tile[dim] *= uint64(factor) // factors.Validate checked the full int product.
-		}
-		entry := HierarchyLevel{Level: level, Tensors: make(map[cudalayout.TensorRole]TensorMovement, len(roles))}
-		for _, role := range roles {
-			var bytes uint64
-			if !mapping.Bypass.IsBypassed(level, role) {
-				bytes = uint64(dtypes[role])
-				for _, dim := range dims {
-					if projects(role, dim) {
-						var err error
-						bytes, err = checkedProduct(bytes, tile[dim])
-						if err != nil {
-							return HierarchyMovement{}, fmt.Errorf("GEMM %s %s footprint: %w", level, role, err)
-						}
-					}
-				}
-			}
-			entry.Tensors[role] = TensorMovement{ResidentBytes: bytes}
-			var err error
-			entry.ResidentBytes, err = checkedSum(entry.ResidentBytes, bytes)
-			if err != nil {
-				return HierarchyMovement{}, err
-			}
-		}
-		report.Levels[i] = entry
+	projects := gemmProjects
+	report, err := gemmFootprints(mapping, dtypes)
+	if err != nil {
+		return HierarchyMovement{}, err
 	}
 	charge := func(child int, role cudalayout.TensorRole, read, write uint64) error {
 		for parent := child + 1; parent < len(levels); parent++ {
@@ -640,4 +532,140 @@ func VerifyHardwareExecution(target string, probe HardwareProbe) (HardwareCalibr
 		Status:    VerificationPending,
 		LatencyNs: FloorUnavailable,
 	}, fmt.Errorf("device is available on %s but no calibration measurement exists: %w", target, cudaerrors.ErrHardwarePending)
+}
+
+type gemmLoop struct {
+	level int
+	dim   string
+	size  uint64
+}
+
+func validateGEMMHierarchy(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int, spatial bool) ([]gemmLoop, error) {
+	factors := mapping.Factorization
+	levels := factors.Levels
+	roles := []cudalayout.TensorRole{cudalayout.TensorA, cudalayout.TensorB, cudalayout.TensorC}
+	dims := []string{"B", "M", "N", "K"}
+	unsupported := func(reason string) ([]gemmLoop, error) {
+		return nil, fmt.Errorf("GEMM hierarchy: %s: %w", reason, cudalayout.ErrUnsupported)
+	}
+	if len(mapping.Problem) != len(dims) {
+		return unsupported("expected exactly B/M/N/K problem dimensions")
+	}
+	for _, dim := range dims {
+		if mapping.Problem[dim] <= 0 {
+			return unsupported("missing or non-positive problem dimension " + dim)
+		}
+	}
+	if len(levels) == 0 || levels[len(levels)-1] != cudalayout.LevelDRAM {
+		return unsupported("storage levels must end at DRAM")
+	}
+	listed := make(map[cudalayout.StorageLevel]bool, len(levels))
+	for i, level := range levels {
+		if level < cudalayout.LevelRegister || level > cudalayout.LevelDRAM || (i > 0 && level <= levels[i-1]) {
+			return unsupported("storage levels must be known and strictly increasing")
+		}
+		listed[level] = true
+	}
+	for level := range factors.Factors {
+		if !listed[level] {
+			return unsupported("factors reference an unlisted storage level")
+		}
+	}
+	if err := factors.Validate(mapping.Problem); err != nil {
+		return nil, fmt.Errorf("GEMM hierarchy factors: %w", err)
+	}
+	for _, mesh := range []map[string]int{mapping.Spatial.CTAMesh, mapping.Spatial.WarpMesh} {
+		for dim, count := range mesh {
+			if mapping.Problem[dim] <= 0 || (!spatial && count != 1) {
+				return unsupported("only identity spatial meshes are modeled")
+			}
+		}
+	}
+	if len(dtypes) != len(roles) {
+		return unsupported("expected exactly A/B/C element byte sizes")
+	}
+	for _, role := range roles {
+		if dtypes[role] <= 0 {
+			return unsupported("missing or non-positive tensor byte size")
+		}
+	}
+	for level, tensors := range mapping.Bypass.Bypassed {
+		if !listed[level] {
+			return unsupported("bypass references an unlisted storage level")
+		}
+		for role, bypassed := range tensors {
+			if role < cudalayout.TensorA || role > cudalayout.TensorC || (level == cudalayout.LevelDRAM && bypassed) {
+				return unsupported("unknown tensor role or bypassed DRAM tensor")
+			}
+		}
+	}
+	var loops []gemmLoop
+	for level := range mapping.Permutation.Orders {
+		if !listed[level] {
+			return unsupported("permutation references an unlisted storage level")
+		}
+	}
+	for i := len(levels) - 1; i >= 0; i-- {
+		level := levels[i]
+		seen := make(map[string]bool)
+		for _, dim := range mapping.Permutation.Orders[level] {
+			if mapping.Problem[dim] <= 0 || seen[dim] {
+				return unsupported("unknown or repeated permutation dimension")
+			}
+			seen[dim] = true
+			size := factors.Factors[level][dim]
+			if size > 1 {
+				loops = append(loops, gemmLoop{i, dim, uint64(size)})
+			}
+		}
+		for _, dim := range dims {
+			if factors.Factors[level][dim] > 1 && !seen[dim] {
+				return unsupported("permutation omits a non-unit factor")
+			}
+		}
+	}
+	return loops, nil
+}
+
+func gemmProjects(role cudalayout.TensorRole, dim string) bool {
+	return dim == "B" || (role == cudalayout.TensorA && dim != "N") ||
+		(role == cudalayout.TensorB && dim != "M") || (role == cudalayout.TensorC && dim != "K")
+}
+func gemmFootprints(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int) (HierarchyMovement, error) {
+	factors := mapping.Factorization
+	levels := factors.Levels
+	roles := []cudalayout.TensorRole{cudalayout.TensorA, cudalayout.TensorB, cudalayout.TensorC}
+	dims := []string{"B", "M", "N", "K"}
+	projects := gemmProjects
+	report := HierarchyMovement{Levels: make([]HierarchyLevel, len(levels))}
+	tile := map[string]uint64{"B": 1, "M": 1, "N": 1, "K": 1}
+	for i, level := range levels {
+		for dim, factor := range factors.Factors[level] {
+			tile[dim] *= uint64(factor) // factors.Validate checked the full int product.
+		}
+		entry := HierarchyLevel{Level: level, Tensors: make(map[cudalayout.TensorRole]TensorMovement, len(roles))}
+		for _, role := range roles {
+			var bytes uint64
+			if !mapping.Bypass.IsBypassed(level, role) {
+				bytes = uint64(dtypes[role])
+				for _, dim := range dims {
+					if projects(role, dim) {
+						var err error
+						bytes, err = checkedProduct(bytes, tile[dim])
+						if err != nil {
+							return HierarchyMovement{}, fmt.Errorf("GEMM %s %s footprint: %w", level, role, err)
+						}
+					}
+				}
+			}
+			entry.Tensors[role] = TensorMovement{ResidentBytes: bytes}
+			var err error
+			entry.ResidentBytes, err = checkedSum(entry.ResidentBytes, bytes)
+			if err != nil {
+				return HierarchyMovement{}, err
+			}
+		}
+		report.Levels[i] = entry
+	}
+	return report, nil
 }
