@@ -219,10 +219,11 @@ func refName(e ast.Expr, imports map[string]string) string {
 //     itself an ownerReturning constructor, whose callers are checked;
 //   - "allocator for f": "func(...) (...) { return ctor(...) }" passed
 //     to f, which then owns what the literal returns;
-//   - "owner field": "if x, err = ctor(...); err != nil" in an
-//     ownerReturning constructor, where x lies in an owner that a defer
-//     registered earlier in the constructor's body releases when err, its
-//     named error result, is not nil (see storesIntoReleased);
+//   - "owner field": "if x, err = ctor(...); err != nil { return ..., e }"
+//     in an ownerReturning constructor, where e is err or wraps it, and x
+//     lies in an owner that a defer registered earlier in the
+//     constructor's body releases first when err, its named error result,
+//     is not nil (see storesIntoReleased);
 //   - "value": the constructor used other than as the function of a call;
 //   - "call": any other call.
 type ownerSite struct{ file, fn, ctor, form string }
@@ -246,7 +247,8 @@ var ownerSites = []struct {
 		"uploadModelWith stores what alloc returns in the weights its deferred free releases on error; " +
 			"its fakes return only zero slices, so a nonzero slice returned with an error is not exercised"},
 	{ownerSite{"gpu_model.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "owner field"}, 3, "",
-		"stored in the scratchpad the deferred Free releases on error, which ownerRefs checks in the source; " +
+		"stored in the scratchpad that the deferred Free releases when the allocation error is returned, " +
+			"which storesIntoReleased checks in the source; " +
 			"no CPU test runs it, since NewGPUScratchpad calls cudamem.Alloc with no seam for a fake"},
 	{ownerSite{"weights_bf16.go", "uploadWeight", libX + "cudamem.Alloc", "allocator for uploadWeightWith"}, 2, "TestUploadWeightWith",
 		"uploadWeightWith passes it to uploadAs, which returns a nonzero slice with its allocation error " +
@@ -444,10 +446,15 @@ func classifyOwnerRef(file, ctor string, ref ast.Expr, stack []ast.Node, imports
 
 // storesIntoReleased reports whether as, the initializer of is, which lies
 // in fd, whose ancestors are stack, is "x, err = ctor(...)" with is's
-// condition "err != nil", where err is fd's named error result, a defer
-// statement earlier in fd's body calls a function literal whose body is
-// "if err != nil { ... }" releasing an owner, and x lies in that owner
-// (see ownerRoot).
+// condition "err != nil" and is's body starting with a return of err
+// (see returnsErr), where err is fd's named error result; a defer
+// statement earlier in fd's body calls, with no arguments, a function
+// literal with no parameters whose body is "if err != nil { ... }" with a
+// release of an owner first in its body (see releaseOwner); and x lies in
+// that owner (see ownerRoot).
+//
+// It does not check that err is not shadowed in a block enclosing as;
+// the return of err sets the named result whichever err it returns.
 func storesIntoReleased(fd *ast.FuncDecl, as *ast.AssignStmt, is *ast.IfStmt, stack []ast.Node) bool {
 	if as.Tok != token.ASSIGN || len(as.Lhs) != 2 {
 		return false
@@ -462,6 +469,9 @@ func storesIntoReleased(fd *ast.FuncDecl, as *ast.AssignStmt, is *ast.IfStmt, st
 	}
 	last := res.List[len(res.List)-1]
 	if len(last.Names) == 0 || last.Names[len(last.Names)-1].Name != errv.Name {
+		return false
+	}
+	if !returnsErr(is.Body, errv.Name, res.NumFields()) {
 		return false
 	}
 	// top is the statement of fd's body that contains as.
@@ -484,29 +494,83 @@ func storesIntoReleased(fd *ast.FuncDecl, as *ast.AssignStmt, is *ast.IfStmt, st
 			continue
 		}
 		lit, ok := d.Call.Fun.(*ast.FuncLit)
-		if !ok || len(lit.Body.List) != 1 {
+		if !ok || len(d.Call.Args) != 0 || lit.Type.Params.NumFields() != 0 || len(lit.Body.List) != 1 {
 			continue
 		}
 		cond, ok := lit.Body.List[0].(*ast.IfStmt)
-		if !ok || cond.Init != nil || cond.Else != nil || !isNotNil(cond.Cond, errv.Name) {
+		if !ok || cond.Init != nil || cond.Else != nil || !isNotNil(cond.Cond, errv.Name) || len(cond.Body.List) == 0 {
 			continue
 		}
-		ast.Inspect(cond.Body, func(n ast.Node) bool {
-			c, ok := n.(*ast.CallExpr)
-			if !ok {
-				return owner == ""
-			}
-			sel, ok := c.Fun.(*ast.SelectorExpr)
-			if !ok {
-				return owner == ""
-			}
-			if id, ok := sel.X.(*ast.Ident); ok && isRelease(c, id.Name) {
-				owner = id.Name
-			}
-			return owner == ""
-		})
+		if o := releaseOwner(cond.Body.List[0]); o != "" {
+			owner = o
+		}
 	}
 	return owner != "" && ownerRoot(as.Lhs[0], stack) == owner
+}
+
+// returnsErr reports whether body starts with a return of n results whose
+// last is the variable named errName, or a call of fmt.Errorf or
+// errors.Join with that variable among its arguments, so that the return
+// sets a function's named error result to a non-nil error whenever that
+// variable is not nil.
+func returnsErr(body *ast.BlockStmt, errName string, n int) bool {
+	if len(body.List) == 0 {
+		return false
+	}
+	ret, ok := body.List[0].(*ast.ReturnStmt)
+	if !ok || len(ret.Results) != n || n == 0 {
+		return false
+	}
+	isErr := func(e ast.Expr) bool {
+		id, ok := e.(*ast.Ident)
+		return ok && id.Name == errName
+	}
+	switch e := ret.Results[n-1].(type) {
+	case *ast.Ident:
+		return isErr(e)
+	case *ast.CallExpr:
+		sel, ok := e.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return false
+		}
+		pkg, ok := sel.X.(*ast.Ident)
+		if ok && (pkg.Name == "fmt" && sel.Sel.Name == "Errorf" || pkg.Name == "errors" && sel.Sel.Name == "Join") {
+			return slices.ContainsFunc(e.Args, isErr)
+		}
+	}
+	return false
+}
+
+// releaseOwner returns v if stmt calls v.Free or v.Close, as defined by
+// isRelease, whenever it runs: as an expression statement, as the value
+// of an assignment, or in the initializer of an if statement. It returns
+// "" for any other statement.
+func releaseOwner(stmt ast.Stmt) string {
+	var e ast.Expr
+	switch s := stmt.(type) {
+	case *ast.ExprStmt:
+		e = s.X
+	case *ast.AssignStmt:
+		if len(s.Rhs) == 1 {
+			e = s.Rhs[0]
+		}
+	case *ast.IfStmt:
+		if init, ok := s.Init.(*ast.AssignStmt); ok && len(init.Rhs) == 1 {
+			e = init.Rhs[0]
+		}
+	}
+	c, ok := e.(*ast.CallExpr)
+	if !ok {
+		return ""
+	}
+	sel, ok := c.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return ""
+	}
+	if id, ok := sel.X.(*ast.Ident); ok && isRelease(c, id.Name) {
+		return id.Name
+	}
+	return ""
 }
 
 // isNotNil reports whether cond is "name != nil".
@@ -938,6 +1002,8 @@ func TestCallersReleaseReturnedOwners(t *testing.T) {
 		{"scratch buffer stored outside the scratchpad", "gpu_model.go", "{&sp.Logits, cfg.VocabSize},", "{&sp2.Logits, cfg.VocabSize},"},
 		{"token buffer stored outside the scratchpad", "gpu_model.go", "if sp.TokenOut, err = cudamem.Alloc", "if sp2.TokenOut, err = cudamem.Alloc"},
 		{"scratchpad released only on success", "gpu_model.go", "\t\tif err != nil {\n\t\t\tif ferr := sp.Free()", "\t\tif err == nil {\n\t\t\tif ferr := sp.Free()"},
+		{"scratchpad release reads a parameter, not the result", "gpu_model.go", "\tdefer func() {\n\t\tif err != nil {\n\t\t\tif ferr := sp.Free()", "\tdefer func(err error) {\n\t\tif err != nil {\n\t\t\tif ferr := sp.Free()"},
+		{"token buffer error swallowed", "gpu_model.go", "return nil, fmt.Errorf(\"alloc token out: %w\", err)", "return nil, nil"},
 		{"delegation moved out of the constructor", "gpu_kernels.go", "return compileGPUModules(dev, ", "return compileGPUModulesAgain(dev, "},
 		{"allocator handed to another function", "weights_bf16.go", "return uploadWeightWith(host, dtype,", "return uploadWeightWith2(host, dtype,"},
 	} {
@@ -1157,6 +1223,18 @@ func TestOwnerSiteForms(t *testing.T) {
 	call := func(fn string, n int) map[ownerSite]int {
 		return map[ownerSite]int{{"control.go", fn, libX + "cudamem.Alloc", "call"}: n}
 	}
+	// oneField is scratch's sites with the token buffer's call not
+	// accepted as an owner field.
+	oneField := map[ownerSite]int{
+		{"control.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "owner field"}: 1,
+		{"control.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "call"}:        1,
+	}
+	// wrapFree puts the deferred release inside the block opened by open.
+	wrapFree := func(open string) string {
+		const free = "\t\t\tif ferr := sp.Free(); ferr != nil {\n\t\t\t\terr = errors.Join(err, ferr)\n\t\t\t\tres = sp\n\t\t\t}\n"
+		return strings.Replace(scratch, free, "\t\t\t"+open+" {\n"+free+"\t\t\t}\n", 1)
+	}
+	tokenReturn := "dev, 1); err != nil {\n\t\treturn nil, err\n"
 	for _, tt := range []struct {
 		name, src string
 		want      map[ownerSite]int
@@ -1183,6 +1261,14 @@ func TestOwnerSiteForms(t *testing.T) {
 			{"control.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "owner field"}: 1,
 			{"control.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "call"}:        1,
 		}},
+		{"positive control: wrapped error returned", strings.Replace(scratch, tokenReturn, "dev, 1); err != nil {\n\t\treturn nil, fmt.Errorf(\"alloc: %w\", err)\n", 1), field("NewGPUScratchpad")},
+		{"error swallowed", strings.Replace(scratch, tokenReturn, "dev, 1); err != nil {\n\t\treturn nil, nil\n", 1), oneField},
+		{"error cleared before the return", strings.Replace(scratch, tokenReturn, "dev, 1); err != nil {\n\t\terr = nil\n\t\treturn nil, err\n", 1), oneField},
+		{"error passed through another function", strings.Replace(scratch, tokenReturn, "dev, 1); err != nil {\n\t\treturn nil, ignore(err)\n", 1), oneField},
+		{"defer literal shadows err", strings.Replace(strings.Replace(scratch, "\tdefer func() {", "\tdefer func(err error) {", 1), "\t}()\n", "\t}(nil)\n", 1), call("NewGPUScratchpad", 2)},
+		{"release under if false", wrapFree("if false"), call("NewGPUScratchpad", 2)},
+		{"release in an uncalled closure", wrapFree("_ = func()"), call("NewGPUScratchpad", 2)},
+		{"release after a return", strings.Replace(scratch, "\t\tif err != nil {\n\t\t\tif ferr", "\t\tif err != nil {\n\t\t\treturn\n\t\t\tif ferr", 1), call("NewGPUScratchpad", 2)},
 		{"positive control: returned by a constructor", "func UploadModelToGPU() (*GPUModelWeights, error) {\nreturn uploadModel(dev, w, cfg, weightF32)\n}",
 			map[ownerSite]int{{"control.go", "UploadModelToGPU", "uploadModel", "return"}: 1}},
 		{"returned by another function", "func upload() (*GPUModelWeights, error) {\nreturn uploadModel(dev, w, cfg, weightF32)\n}",
@@ -1198,6 +1284,9 @@ func TestOwnerSiteForms(t *testing.T) {
 		{"function value", "func g() {\ntake(cudamem.Alloc[float32])\n}",
 			map[ownerSite]int{{"control.go", "g", libX + "cudamem.Alloc", "value"}: 1}},
 	} {
+		if tt.src == scratch && tt.name != "positive control: owner fields" {
+			t.Fatalf("%s: control does not apply", tt.name)
+		}
 		_, sites, _, err := ownerRefs("control.go", "package p\n"+controlImports+tt.src+"\n")
 		if err != nil || !maps.Equal(sites, tt.want) {
 			t.Errorf("%s: %v, %v; want %v", tt.name, sites, err, tt.want)
