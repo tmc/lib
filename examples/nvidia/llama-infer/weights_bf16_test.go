@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"math"
 	"os"
 	"slices"
@@ -430,45 +431,92 @@ func TestScratchpadFree(t *testing.T) {
 	}
 }
 
-// scratchReleaseFailures returns how release, given free functions that fail
-// for two buffers, departs from attempting every buffer once and reporting
-// both failures with their identity.
-func scratchReleaseFailures(release func(*GPUScratchpad, func(*cudamem.Slice[float32]) error, func(*cudamem.Slice[int32]) error) error) []string {
-	var sp GPUScratchpad
-	calls := make(map[any]int)
-	f32 := func(s *cudamem.Slice[float32]) error {
-		calls[s]++
-		switch s {
-		case &sp.Q:
-			return cudamem.ErrInUse
-		case &sp.Logits:
-			return errFakeFree
-		}
-		return nil
+// fakeSlots frees device slices as freeOwned would, without a device: a
+// slot in fails fails its first free with that error and stays owned; a
+// successful free leaves the slot zero, so freeing it again does nothing.
+type fakeSlots[T any] struct {
+	fails    map[*cudamem.Slice[T]]error
+	attempts map[*cudamem.Slice[T]]int
+	frees    map[*cudamem.Slice[T]]int
+}
+
+func newFakeSlots[T any](fails map[*cudamem.Slice[T]]error) *fakeSlots[T] {
+	return &fakeSlots[T]{fails: fails, attempts: make(map[*cudamem.Slice[T]]int), frees: make(map[*cudamem.Slice[T]]int)}
+}
+
+func (f *fakeSlots[T]) free(s *cudamem.Slice[T]) error {
+	f.attempts[s]++
+	if err, ok := f.fails[s]; ok {
+		delete(f.fails, s)
+		return err
 	}
-	i32 := func(s *cudamem.Slice[int32]) error {
-		calls[s]++
-		return nil
+	if f.frees[s] == 0 {
+		f.frees[s]++
 	}
-	err := release(&sp, f32, i32)
+	return nil
+}
+
+// check reports each slot not attempted exactly attempts times, or not
+// freed once unless it is in failed.
+func (f *fakeSlots[T]) check(round string, slots []*cudamem.Slice[T], attempts int, failed ...*cudamem.Slice[T]) []string {
 	var bad []string
-	for _, e := range []error{cudamem.ErrInUse, errFakeFree} {
-		if !errors.Is(err, e) {
-			bad = append(bad, fmt.Sprintf("error %v does not wrap %v", err, e))
+	for i, s := range slots {
+		if f.attempts[s] != attempts {
+			bad = append(bad, fmt.Sprintf("%s: slot %d attempted %d times, want %d", round, i, f.attempts[s], attempts))
 		}
-	}
-	for _, p := range []any{&sp.X, &sp.NormX, &sp.Q, &sp.K, &sp.V, &sp.AttnOut, &sp.Gate, &sp.Up,
-		&sp.FFNAct, &sp.FFNOut, &sp.Logits, &sp.TokenIn, &sp.TokenOut} {
-		if calls[p] != 1 {
-			bad = append(bad, fmt.Sprintf("buffer %p freed %d times, want 1", p, calls[p]))
+		want := 1
+		if slices.Contains(failed, s) {
+			want = 0
+		}
+		if f.frees[s] != want {
+			bad = append(bad, fmt.Sprintf("%s: slot %d freed %d times, want %d", round, i, f.frees[s], want))
 		}
 	}
 	return bad
 }
 
-// TestScratchpadRelease checks every buffer is released once and failures
-// keep their identity. Keeping a failed buffer is freeOwned's job, checked
-// by TestFreeOwned.
+// wantJoined reports each of want that err does not wrap.
+func wantJoined(round string, err error, want ...error) []string {
+	var bad []string
+	for _, e := range want {
+		if !errors.Is(err, e) {
+			bad = append(bad, fmt.Sprintf("%s: error %v does not wrap %v", round, err, e))
+		}
+	}
+	return bad
+}
+
+var errFakeVec = errors.New("fake vector free failed")
+
+// scratchReleaseFailures returns how release departs from: with three
+// buffers failing, every buffer attempted once and the three errors
+// joined with their identity; a retry that frees the three and reports
+// nothing; and a repeat that frees nothing.
+func scratchReleaseFailures(release func(*GPUScratchpad, func(*cudamem.Slice[float32]) error, func(*cudamem.Slice[int32]) error) error) []string {
+	var sp GPUScratchpad
+	f32s := []*cudamem.Slice[float32]{&sp.X, &sp.NormX, &sp.Q, &sp.K, &sp.V, &sp.AttnOut, &sp.Gate, &sp.Up,
+		&sp.FFNAct, &sp.FFNOut, &sp.Logits}
+	i32s := []*cudamem.Slice[int32]{&sp.TokenIn, &sp.TokenOut}
+	f32 := newFakeSlots(map[*cudamem.Slice[float32]]error{&sp.Q: cudamem.ErrInUse, &sp.Logits: errFakeFree})
+	i32 := newFakeSlots(map[*cudamem.Slice[int32]]error{&sp.TokenOut: errFakeVec})
+
+	err := release(&sp, f32.free, i32.free)
+	bad := wantJoined("failed free", err, cudamem.ErrInUse, errFakeFree, errFakeVec)
+	bad = append(bad, f32.check("failed free", f32s, 1, &sp.Q, &sp.Logits)...)
+	bad = append(bad, i32.check("failed free", i32s, 1, &sp.TokenOut)...)
+	for i, round := range []string{"retry", "repeat"} {
+		if err := release(&sp, f32.free, i32.free); err != nil {
+			bad = append(bad, round+": "+err.Error())
+		}
+		bad = append(bad, f32.check(round, f32s, i+2)...)
+		bad = append(bad, i32.check(round, i32s, i+2)...)
+	}
+	return bad
+}
+
+// TestScratchpadRelease checks release with failing fakes. That the real
+// Free passes freeOwned, which keeps a failed buffer and zeroes a freed
+// one, is checked by TestFreeDelegates and TestFreeOwned.
 func TestScratchpadRelease(t *testing.T) {
 	for _, f := range scratchReleaseFailures((*GPUScratchpad).release) {
 		t.Error(f)
@@ -491,8 +539,234 @@ func TestScratchpadRelease(t *testing.T) {
 			}
 			return nil
 		}},
+		{"S3 error dropped", func(sp *GPUScratchpad, f32 func(*cudamem.Slice[float32]) error, i32 func(*cudamem.Slice[int32]) error) error {
+			sp.release(f32, i32)
+			return nil
+		}},
+		{"S4 free functions bypassed", func(sp *GPUScratchpad, f32 func(*cudamem.Slice[float32]) error, i32 func(*cudamem.Slice[int32]) error) error {
+			return sp.Free()
+		}},
 	} {
 		if len(scratchReleaseFailures(m.release)) == 0 {
+			t.Errorf("must-fail control %s: not detected", m.name)
+		}
+	}
+}
+
+type weightsFreeFunc func(*GPUModelWeights, func(*cudamem.Slice[float32]) error) error
+
+// weightsFreeFailures returns how free departs from: with the embedding
+// table and two vectors failing, every matrix and vector attempted once,
+// the failed embedding table kept, the other matrices zeroed, and the
+// three errors joined with their identity; a retry that frees the three
+// and reports nothing; and a repeat that frees nothing.
+func weightsFreeFailures(free weightsFreeFunc) []string {
+	var log []string
+	w := fakeModel(&log, true, 1)
+	l := &w.Layers[0]
+	vecs := []*cudamem.Slice[float32]{&w.Norm, &l.InputNorm, &l.PostNorm, &l.QBias, &l.KBias, &l.VBias}
+	vec := newFakeSlots(map[*cudamem.Slice[float32]]error{&w.Norm: cudamem.ErrInUse, &l.VBias: errFakeVec})
+	frees := func(round string, want []string) []string {
+		if !slices.Equal(log, want) {
+			return []string{fmt.Sprintf("%s: matrix frees %q, want %q", round, log, want)}
+		}
+		return nil
+	}
+
+	err := free(w, vec.free)
+	bad := wantJoined("failed free", err, errFakeFree, cudamem.ErrInUse, errFakeVec)
+	bad = append(bad, frees("failed free", fakeLayerFrees)...)
+	if w.EmbedTokens.buf == nil {
+		bad = append(bad, "failed free: embedding table dropped, cannot retry")
+	}
+	for _, m := range []*deviceWeight{&l.WQ, &l.WK, &l.WV, &l.WO, &l.WGate, &l.WUp, &l.WDown} {
+		if m.buf != nil {
+			bad = append(bad, "failed free: freed layer matrix not zeroed")
+			break
+		}
+	}
+	bad = append(bad, vec.check("failed free", vecs, 1, &w.Norm, &l.VBias)...)
+	want := append(slices.Clone(fakeLayerFrees), "embed")
+	for i, round := range []string{"retry", "repeat"} {
+		if err := free(w, vec.free); err != nil {
+			bad = append(bad, round+": "+err.Error())
+		}
+		bad = append(bad, frees(round, want)...)
+		bad = append(bad, vec.check(round, vecs, i+2)...)
+	}
+	if w.EmbedTokens.buf != nil || w.LMHead.buf != nil {
+		bad = append(bad, "retry: weights not zeroed after free")
+	}
+	return bad
+}
+
+// TestGPUModelWeightsFreeVectors checks free with failing fakes. That the
+// real Free passes freeOwned is checked by TestFreeDelegates.
+func TestGPUModelWeightsFreeVectors(t *testing.T) {
+	for _, f := range weightsFreeFailures((*GPUModelWeights).free) {
+		t.Error(f)
+	}
+	for _, m := range []struct {
+		name string
+		free weightsFreeFunc
+	}{
+		{"W1 error dropped", func(w *GPUModelWeights, vec func(*cudamem.Slice[float32]) error) error {
+			w.free(vec)
+			return nil
+		}},
+		{"W2 error replaced", func(w *GPUModelWeights, vec func(*cudamem.Slice[float32]) error) error {
+			if err := w.free(vec); err != nil {
+				return errors.New("free weights failed")
+			}
+			return nil
+		}},
+		{"W3 stops at the first vector failure", func(w *GPUModelWeights, vec func(*cudamem.Slice[float32]) error) error {
+			var errs []error
+			for _, m := range w.matrices() {
+				errs = append(errs, m.release())
+			}
+			for _, v := range w.vectors() {
+				if err := vec(v); err != nil {
+					return errors.Join(append(errs, err)...)
+				}
+			}
+			return errors.Join(errs...)
+		}},
+		{"W4 vectors skipped", func(w *GPUModelWeights, vec func(*cudamem.Slice[float32]) error) error {
+			var errs []error
+			for _, m := range w.matrices() {
+				errs = append(errs, m.release())
+			}
+			return errors.Join(errs...)
+		}},
+		{"W5 vector free bypassed", func(w *GPUModelWeights, vec func(*cudamem.Slice[float32]) error) error {
+			return w.Free()
+		}},
+	} {
+		if len(weightsFreeFailures(m.free)) == 0 {
+			t.Errorf("must-fail control %s: not detected", m.name)
+		}
+	}
+}
+
+// freeDelegations lists each public Free whose behaviour is tested through
+// a private method with fake free functions. Free must do nothing but
+// return that method's result for the real functions.
+var freeDelegations = []struct {
+	recv, method string
+	args         []string
+}{
+	{"GPUScratchpad", "release", []string{"freeOwned[cudamem.Slice[float32]]", "freeOwned[cudamem.Slice[int32]]"}},
+	{"GPUModelWeights", "free", []string{"freeOwned[cudamem.Slice[float32]]"}},
+}
+
+// findMethod returns the declaration of the method (*recv).name in f, or nil.
+func findMethod(f *ast.File, recv, name string) *ast.FuncDecl {
+	for _, decl := range f.Decls {
+		fd, ok := decl.(*ast.FuncDecl)
+		if !ok || fd.Name.Name != name || fd.Recv == nil || len(fd.Recv.List) != 1 {
+			continue
+		}
+		if star, ok := fd.Recv.List[0].Type.(*ast.StarExpr); ok && types.ExprString(star.X) == recv {
+			return fd
+		}
+	}
+	return nil
+}
+
+// freeDelegationFailures reports each Free in freeDelegations that src does
+// not declare with the body "return r.method(args...)", r being its
+// receiver, and each private method that assigns to anything but errs.
+// Zeroing a buffer is the job of the free function the method is passed,
+// which keeps a buffer whose free fails; the fakes cannot see a zero
+// cudamem.Slice zeroed again.
+func freeDelegationFailures(src string) ([]string, error) {
+	f, err := parser.ParseFile(token.NewFileSet(), "gpu_model.go", src, 0)
+	if err != nil {
+		return nil, err
+	}
+	var bad []string
+	for _, d := range freeDelegations {
+		fn := findMethod(f, d.recv, "Free")
+		if fn == nil || len(fn.Recv.List[0].Names) != 1 {
+			bad = append(bad, fmt.Sprintf("(*%s).Free: not declared with a named receiver", d.recv))
+			continue
+		}
+		want := fmt.Sprintf("%s.%s(%s)", fn.Recv.List[0].Names[0].Name, d.method, strings.Join(d.args, ", "))
+		got := ""
+		if body := fn.Body; body != nil && len(body.List) == 1 {
+			if ret, ok := body.List[0].(*ast.ReturnStmt); ok && len(ret.Results) == 1 {
+				got = types.ExprString(ret.Results[0])
+			}
+		}
+		if got != want {
+			bad = append(bad, fmt.Sprintf("(*%s).Free: body is not \"return %s\"", d.recv, want))
+		}
+
+		priv := findMethod(f, d.recv, d.method)
+		if priv == nil || priv.Body == nil {
+			bad = append(bad, fmt.Sprintf("(*%s).%s: not declared", d.recv, d.method))
+			continue
+		}
+		ast.Inspect(priv.Body, func(n ast.Node) bool {
+			var lhs []ast.Expr
+			switch n := n.(type) {
+			case *ast.AssignStmt:
+				lhs = n.Lhs
+			case *ast.IncDecStmt:
+				lhs = []ast.Expr{n.X}
+			}
+			for _, x := range lhs {
+				if id, ok := x.(*ast.Ident); !ok || id.Name != "errs" {
+					bad = append(bad, fmt.Sprintf("(*%s).%s: assigns to %s", d.recv, d.method, types.ExprString(x)))
+				}
+			}
+			return true
+		})
+	}
+	return bad, nil
+}
+
+// TestFreeDelegates checks that each public Free is only a call of the
+// private method tested with fakes, passing the real free functions and
+// returning its error, and that the private method leaves the buffers to
+// those functions. Must-fail controls edit the real source.
+func TestFreeDelegates(t *testing.T) {
+	b, err := os.ReadFile("gpu_model.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	bad, err := freeDelegationFailures(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range bad {
+		t.Error(f)
+	}
+	const (
+		sp  = "return sp.release(freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])"
+		w   = "return w.free(freeOwned[cudamem.Slice[float32]])"
+		vec = "errs = append(errs, vec(v))"
+	)
+	for _, m := range []struct{ name, old, new string }{
+		{"D1 scratchpad error dropped", sp, "_ = sp.release(freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])\n\treturn nil"},
+		{"D2 weights error dropped", w, "w.free(freeOwned[cudamem.Slice[float32]])\n\treturn nil"},
+		{"D3 weights error wrapped", w, `return fmt.Errorf("free weights: %w", w.free(freeOwned[cudamem.Slice[float32]]))`},
+		{"D4 vectors not zeroed", w, "return w.free(func(s *cudamem.Slice[float32]) error { return s.Free() })"},
+		{"D5 scratchpad functions swapped", sp, "return sp.release(freeOwned[cudamem.Slice[float32]], func(s *cudamem.Slice[int32]) error { return s.Free() })"},
+		{"D6 Free renamed", "func (w *GPUModelWeights) Free()", "func (w *GPUModelWeights) FreeAll()"},
+		{"D7 failed vector zeroed", vec, vec + "\n\t\t*v = cudamem.Slice[float32]{}"},
+		{"D8 private method renamed", "func (w *GPUModelWeights) free(", "func (w *GPUModelWeights) freeAll("},
+	} {
+		if !strings.Contains(src, m.old) {
+			t.Fatalf("must-fail control %s: %q not in gpu_model.go", m.name, m.old)
+		}
+		bad, err := freeDelegationFailures(strings.Replace(src, m.old, m.new, 1))
+		if err != nil {
+			t.Fatalf("must-fail control %s: %v", m.name, err)
+		}
+		if len(bad) == 0 {
 			t.Errorf("must-fail control %s: not detected", m.name)
 		}
 	}

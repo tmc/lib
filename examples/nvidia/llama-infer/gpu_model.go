@@ -168,12 +168,18 @@ func (w *GPUModelWeights) vectors() []*cudamem.Slice[float32] {
 // joined and keep their identity for errors.Is. After a successful Free,
 // calling it again does nothing.
 func (w *GPUModelWeights) Free() error {
+	return w.free(freeOwned[cudamem.Slice[float32]])
+}
+
+// free releases every matrix and frees every vector with vec, which must
+// zero a vector only when its free succeeds, as freeOwned does.
+func (w *GPUModelWeights) free(vec func(*cudamem.Slice[float32]) error) error {
 	var errs []error
 	for _, m := range w.matrices() {
 		errs = append(errs, m.release())
 	}
 	for _, v := range w.vectors() {
-		errs = append(errs, freeOwned(v))
+		errs = append(errs, vec(v))
 	}
 	return errors.Join(errs...)
 }
