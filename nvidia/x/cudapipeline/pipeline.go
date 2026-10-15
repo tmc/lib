@@ -65,7 +65,7 @@ func (t *BarrierTracker) ValidateKernel(k *cudaptx.Kernel) ([]ValidationError, e
 	// Report those protocols as unsupported rather than trusting label spelling.
 	hasBarrierOps := false
 	for _, inst := range k.Instructions {
-		if strings.HasPrefix(inst.Opcode, "mbarrier.") || strings.HasPrefix(inst.Opcode, "cp.async.bulk") {
+		if protocolOpcode(inst.Opcode) {
 			hasBarrierOps = true
 			break
 		}
@@ -99,7 +99,44 @@ func (t *BarrierTracker) ValidateKernel(k *cudaptx.Kernel) ([]ValidationError, e
 	return violations, nil
 }
 
+func protocolOpcode(op string) bool {
+	return op == "mbarrier" || strings.HasPrefix(op, "mbarrier.") || strings.HasPrefix(op, "cp.async.bulk")
+}
+
+// modeledProtocolOpcode lists the exact instruction forms understood by the
+// handlers below. It is an analysis subset, not an assembler capability table.
+// In particular, the legacy TMEM forms still require their explicit opt-in.
+func modeledProtocolOpcode(op string) bool {
+	switch op {
+	case "mbarrier.init.shared::cta.b64",
+		"mbarrier.inval.shared::cta.b64",
+		"mbarrier.arrive.expect_tx.shared::cta.b64",
+		"mbarrier.expect_tx.shared::cta.b64",
+		"mbarrier.arrive.shared::cta.b64",
+		"mbarrier.complete_tx.shared::cta.b64",
+		"mbarrier.try_wait.parity.shared::cta.b64",
+		"mbarrier.test_wait.parity.shared::cta.b64",
+		"mbarrier.try_wait.shared::cta.b64",
+		"mbarrier.test_wait.shared::cta.b64",
+		"cp.async.bulk.tensor.2d.shared::cta.global.mbarrier::complete_tx::bytes",
+		"cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes",
+		"cp.async.bulk.shared::cta.global.mbarrier::complete_tx::bytes",
+		"cp.async.bulk.tensor.2d.tmem.global.mbarrier::complete_tx::bytes",
+		"cp.async.bulk.tmem.global.mbarrier::complete_tx::bytes":
+		return true
+	}
+	return false
+}
+
 func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []ValidationError {
+	if protocolOpcode(inst.Opcode) && (!modeledProtocolOpcode(inst.Opcode) || inst.Predicate != "") {
+		return []ValidationError{{
+			Line:      inst.Line,
+			Opcode:    inst.Opcode,
+			Violation: "unsupported pipeline instruction",
+			Message:   "instruction form or predicate is outside the modeled barrier protocol",
+		}}
+	}
 	var violations []ValidationError
 	operands := cudaptx.SplitOperands(inst.Operands)
 
