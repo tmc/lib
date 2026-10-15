@@ -598,3 +598,205 @@ func reconstructTestTreeDigest(t *testing.T, dir string) string {
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
+
+func TestRegressReconstructOutputContainment(t *testing.T) {
+	const inside = "output directory resolves inside the input inventory"
+	for _, test := range []struct {
+		name string
+		// output returns the -o path and, for accepted outputs, where the
+		// directory is expected to be created.
+		output          func(t *testing.T, base, input string) (output, created string)
+		caseInsensitive bool
+		refused         bool
+	}{
+		{
+			name:    "input root",
+			output:  func(t *testing.T, base, input string) (string, string) { return input, "" },
+			refused: true,
+		},
+		{
+			name: "child",
+			output: func(t *testing.T, base, input string) (string, string) {
+				return filepath.Join(input, "new-output"), ""
+			},
+			refused: true,
+		},
+		{
+			name: "child named with leading dots",
+			output: func(t *testing.T, base, input string) (string, string) {
+				return filepath.Join(input, "..new-output"), ""
+			},
+			refused: true,
+		},
+		{
+			name: "nested child",
+			output: func(t *testing.T, base, input string) (string, string) {
+				return filepath.Join(input, "sub", "new-output"), ""
+			},
+			refused: true,
+		},
+		{
+			name: "child through lexical dot dot",
+			output: func(t *testing.T, base, input string) (string, string) {
+				return input + "/sub/../new-output", ""
+			},
+			refused: true,
+		},
+		{
+			name: "symlink chain to input parent",
+			output: func(t *testing.T, base, input string) (string, string) {
+				first, second := filepath.Join(base, "alias-1"), filepath.Join(base, "alias-2")
+				if err := os.Symlink(filepath.Dir(input), second); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				if err := os.Symlink(second, first); err != nil {
+					t.Fatal(err)
+				}
+				return filepath.Join(first, filepath.Base(input), "new-output"), ""
+			},
+			refused: true,
+		},
+		{
+			name: "case variant of input",
+			output: func(t *testing.T, base, input string) (string, string) {
+				return filepath.Join(filepath.Dir(input), strings.ToUpper(filepath.Base(input)), "new-output"), ""
+			},
+			caseInsensitive: true,
+			refused:         true,
+		},
+		{
+			name: "case variant of input ancestor",
+			output: func(t *testing.T, base, input string) (string, string) {
+				parent := filepath.Dir(input)
+				return filepath.Join(filepath.Dir(parent), strings.ToUpper(filepath.Base(parent)), filepath.Base(input), "new-output"), ""
+			},
+			caseInsensitive: true,
+			refused:         true,
+		},
+		{
+			name: "sibling sharing input name prefix",
+			output: func(t *testing.T, base, input string) (string, string) {
+				return input + "new-output", input + "new-output"
+			},
+		},
+		{
+			name: "sibling named with leading dots",
+			output: func(t *testing.T, base, input string) (string, string) {
+				out := filepath.Join(filepath.Dir(input), "..new-output")
+				return out, out
+			},
+		},
+		{
+			// The output path is cleaned before symlinks are resolved, so
+			// alias/../x names x next to alias, not next to the alias target.
+			name: "symlink then dot dot is cleaned lexically",
+			output: func(t *testing.T, base, input string) (string, string) {
+				alias := filepath.Join(base, "sub-alias")
+				if err := os.Symlink(filepath.Join(input, "sub"), alias); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				return alias + "/../new-output", filepath.Join(base, "new-output")
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			base, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			input := filepath.Join(base, "Parent", "Input")
+			if err := os.MkdirAll(filepath.Join(input, "sub"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(input, "inventory.json"), []byte("{}"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if test.caseInsensitive && !reconstructTestCaseInsensitive(t, base) {
+				t.Skipf("%s is on a case-sensitive volume; a case variant names a different directory", base)
+			}
+			output, created := test.output(t, base, input)
+			before := reconstructTestTreeNames(t, input)
+			snapshot := &reconstructSnapshot{
+				root:          input,
+				files:         map[string][]byte{"member.bin": []byte("member")},
+				manifestBytes: []byte("{}"),
+			}
+			dir, _, cleanup, err := beginReconstructOutput(output, snapshot)
+			if after := reconstructTestTreeNames(t, input); test.refused && after != before {
+				t.Errorf("input tree changed:\nbefore:\n%s\nafter:\n%s", before, after)
+			}
+			if test.refused {
+				if err == nil || !strings.Contains(err.Error(), inside) {
+					t.Fatalf("beginReconstructOutput(%q) = %q, %v; want %q", output, dir, err, inside)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("beginReconstructOutput(%q): %v", output, err)
+			}
+			if dir != created {
+				t.Errorf("output directory = %q, want %q", dir, created)
+			}
+			if _, err := os.Stat(filepath.Join(created, "snapshot", "member.bin")); err != nil {
+				t.Errorf("snapshot member not written: %v", err)
+			}
+			cleanup()
+			if _, err := os.Lstat(created); !os.IsNotExist(err) {
+				t.Errorf("cleanup left %s: %v", created, err)
+			}
+		})
+	}
+}
+
+func TestRegressReconstructRefusesCaseVariantOutput(t *testing.T) {
+	f := newReconstructFixture(t)
+	parent := filepath.Dir(f.dir)
+	if !reconstructTestCaseInsensitive(t, parent) {
+		t.Skipf("%s is on a case-sensitive volume; a case variant names a different directory", parent)
+	}
+	upper := filepath.Join(filepath.Dir(parent), strings.ToUpper(filepath.Base(parent)), filepath.Base(f.dir))
+	before := reconstructTestTreeDigest(t, f.dir)
+	err := runRegressReconstructCommand(reconstructArgs(f, filepath.Join(upper, "new-output")), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "output directory resolves inside the input inventory") {
+		t.Fatalf("case-variant output was not refused: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(f.dir, "new-output")); !os.IsNotExist(err) {
+		t.Fatalf("case-variant output created inside input: %v", err)
+	}
+	if after := reconstructTestTreeDigest(t, f.dir); after != before {
+		t.Fatalf("input inventory changed: before=%s after=%s", before, after)
+	}
+}
+
+// reconstructTestCaseInsensitive reports whether dir is on a volume where
+// names differing only in case refer to the same file.
+func reconstructTestCaseInsensitive(t *testing.T, dir string) bool {
+	t.Helper()
+	probe, err := os.MkdirTemp(dir, "CaseProbe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(probe)
+	a, err := os.Stat(probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.Stat(filepath.Join(dir, strings.ToLower(filepath.Base(probe))))
+	return err == nil && os.SameFile(a, b)
+}
+
+func reconstructTestTreeNames(t *testing.T, dir string) string {
+	t.Helper()
+	var names []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		names = append(names, path)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Join(names, "\n")
+}

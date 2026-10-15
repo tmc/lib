@@ -200,7 +200,7 @@ func runRegressReconstructCommand(args []string, stdout io.Writer) error {
 func readReconstructSnapshot(inventoryPath, wantDigest string) (*reconstructSnapshot, error) {
 	absolute, err := filepath.Abs(inventoryPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reconstruct: resolve inventory path: %w", err)
 	}
 	root := filepath.Dir(absolute)
 	manifestName := filepath.Base(absolute)
@@ -534,26 +534,43 @@ func reconstructDigest(data []byte) string {
 	return hex.EncodeToString(digest[:])
 }
 
+// beginReconstructOutput creates the new output directory and copies the
+// snapshot into it. It refuses an output directory that is, or lies below,
+// the input inventory directory.
+//
+// Containment is decided by inode identity, not by comparing path strings:
+// the resolved output parent and each of its ancestors up to the root are
+// compared with the input directory using os.SameFile. A spelling that names
+// the input directory without being equal to it as a string, such as a case
+// variant on a case-insensitive volume, is therefore refused.
+//
+// The output path is cleaned lexically before symlinks are resolved, as
+// filepath.Abs does, so "alias/../x" means "x" next to alias even when alias
+// is a symlink to another directory. Only the parent is resolved; the final
+// element must not exist.
+//
+// After creating the directory, beginReconstructOutput checks again that it
+// is a directory outside the input and removes it by name if not. This
+// narrows, but does not close, the window in which a concurrent rename or
+// symlink swap of an ancestor redirects the output: later writes go through
+// the path, not a directory descriptor. The cleanup function removes the
+// directory only if the path still names the directory that was created.
 func beginReconstructOutput(output string, snapshot *reconstructSnapshot) (string, string, func(), error) {
 	absolute, err := filepath.Abs(output)
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, fmt.Errorf("reconstruct: resolve output directory: %w", err)
 	}
-	inputRoot, err := filepath.EvalSymlinks(snapshot.root)
+	input, err := os.Stat(snapshot.root)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("reconstruct: resolve input directory: %w", err)
+		return "", "", nil, fmt.Errorf("reconstruct: stat input directory: %w", err)
 	}
 	outputParent, err := filepath.EvalSymlinks(filepath.Dir(absolute))
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reconstruct: resolve output parent: %w", err)
 	}
 	absolute = filepath.Join(outputParent, filepath.Base(absolute))
-	rel, err := filepath.Rel(inputRoot, absolute)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("reconstruct: compare resolved output path: %w", err)
-	}
-	if rel == "." || rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", "", nil, errors.New("reconstruct: output directory resolves inside the input inventory")
+	if err := refuseReconstructOutputInside(absolute, input); err != nil {
+		return "", "", nil, err
 	}
 	if _, err := os.Lstat(absolute); err == nil {
 		return "", "", nil, errors.New("reconstruct: output directory already exists")
@@ -563,7 +580,22 @@ func beginReconstructOutput(output string, snapshot *reconstructSnapshot) (strin
 	if err := os.Mkdir(absolute, 0700); err != nil {
 		return "", "", nil, err
 	}
-	cleanup := func() { _ = os.RemoveAll(absolute) }
+	created, err := os.Lstat(absolute)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("reconstruct: stat created output directory: %w", err)
+	}
+	if !created.IsDir() {
+		return "", "", nil, errors.New("reconstruct: output directory replaced after creation")
+	}
+	if err := refuseReconstructOutputInside(absolute, input); err != nil {
+		_ = os.Remove(absolute)
+		return "", "", nil, err
+	}
+	cleanup := func() {
+		if fi, err := os.Lstat(absolute); err == nil && os.SameFile(fi, created) {
+			_ = os.RemoveAll(absolute)
+		}
+	}
 	snapshotDir := filepath.Join(absolute, "snapshot")
 	if err := os.Mkdir(snapshotDir, 0700); err != nil {
 		cleanup()
@@ -580,6 +612,25 @@ func beginReconstructOutput(output string, snapshot *reconstructSnapshot) (strin
 		}
 	}
 	return absolute, snapshotDir, cleanup, nil
+}
+
+// refuseReconstructOutputInside reports an error if path, or any of its
+// ancestors up to the root, is the input directory. Elements of path that
+// do not exist are skipped.
+func refuseReconstructOutputInside(path string, input os.FileInfo) error {
+	for {
+		fi, err := os.Stat(path)
+		if err == nil && os.SameFile(fi, input) {
+			return errors.New("reconstruct: output directory resolves inside the input inventory")
+		} else if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("reconstruct: stat output ancestor: %w", err)
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return nil
+		}
+		path = parent
+	}
 }
 
 func writeReconstructResult(output string, result reconstructResult) error {
