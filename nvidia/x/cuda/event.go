@@ -123,21 +123,27 @@ func (e *Event) Synchronize(ctx context.Context) error {
 	}
 }
 
+// eventPairMu serializes acquisition of two event read locks. It is never held
+// while calling into a device context or the driver.
+var eventPairMu sync.Mutex
+
 // ElapsedSince computes the elapsed duration between the start event and this ending event.
 // Both events must have completed before ElapsedSince is called.
 func (e *Event) ElapsedSince(start *Event) (time.Duration, error) {
 	if start == nil {
 		return 0, errors.New("cuda: nil start event passed to ElapsedSince")
 	}
-	first, second := e, start
-	if first.raw > second.raw {
-		first, second = second, first
+	// Serialize pair acquisition so a pending writer cannot leave opposite
+	// pairs holding one read lock each. No handle is read before both locks.
+	eventPairMu.Lock()
+	e.mu.RLock()
+	if start != e {
+		start.mu.RLock()
 	}
-	first.mu.RLock()
-	defer first.mu.RUnlock()
-	if second != first {
-		second.mu.RLock()
-		defer second.mu.RUnlock()
+	eventPairMu.Unlock()
+	defer e.mu.RUnlock()
+	if start != e {
+		defer start.mu.RUnlock()
 	}
 	if e.destroyed || start.destroyed {
 		return 0, errors.New("cuda: event is destroyed")

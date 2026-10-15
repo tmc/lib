@@ -31,8 +31,12 @@ func (s *Stream) Raw() driver.Stream {
 // WithHandle calls fn with the live driver handle while excluding Close.
 // It protects only the host-side call: resources referenced by asynchronous
 // work must remain live until the stream completes. The callback must not call
-// methods on s.
+// methods on s. A nil or zero-value Stream is invalid; the default stream
+// returned by [Device.DefaultStream] may have handle zero.
 func (s *Stream) WithHandle(fn func(driver.Stream) error) error {
+	if s == nil {
+		return errors.New("cuda: nil stream")
+	}
 	if fn == nil {
 		return errors.New("cuda: nil stream handle function")
 	}
@@ -40,6 +44,9 @@ func (s *Stream) WithHandle(fn func(driver.Stream) error) error {
 	defer s.lifeMu.RUnlock()
 	if s.destroyed {
 		return errors.New("cuda: stream is destroyed")
+	}
+	if s.raw == 0 && !s.isDefault {
+		return errors.New("cuda: invalid stream handle")
 	}
 	return fn(s.raw)
 }
