@@ -30,7 +30,7 @@ type AttentionCandidateTile struct {
 	UnnormalizedOutput []float64
 }
 
-// AttentionCandidateDerivation describes a dense-row candidate derived from
+// AttentionCandidateDerivation describes a row candidate derived from
 // one checked graph. It does not assert an equality or authorize graph mutation.
 type AttentionCandidateDerivation struct {
 	Rule                       string
@@ -39,6 +39,12 @@ type AttentionCandidateDerivation struct {
 	TileSize                   int
 	Policy                     AttentionCandidatePolicy
 	Tiles                      []AttentionCandidateTile
+	// Mask is nil for the dense constructor. Otherwise it records the
+	// predicate proved by the retained score input, without changing it.
+	Mask *AttentionRowMask
+	// FullyMaskedPolicy is "canonical-nan-exact-fp32" for masked candidates.
+	// NaN output bits must match the unchanged graph on this host.
+	FullyMaskedPolicy string
 }
 
 // OnlineAttentionCandidate owns one checked, input-bound CPU candidate.
@@ -71,6 +77,10 @@ type OnlineAttentionCandidate struct {
 // the default exact policy refuses differing outputs. This function never
 // inserts a rewrite, unions e-classes or replaces the original graph.
 func NewCheckedOnlineAttentionCandidate(snapshot *cudair.Snapshot, inputs map[string][]float32, tileSize int, policy AttentionCandidatePolicy) (*OnlineAttentionCandidate, error) {
+	return newCheckedOnlineAttentionCandidate(snapshot, inputs, tileSize, policy, nil)
+}
+
+func newCheckedOnlineAttentionCandidate(snapshot *cudair.Snapshot, inputs map[string][]float32, tileSize int, policy AttentionCandidatePolicy, mask *AttentionRowMask) (*OnlineAttentionCandidate, error) {
 	if policy.Absolute < 0 || policy.Relative < 0 || !finite64(policy.Absolute) || !finite64(policy.Relative) {
 		return nil, errors.New("egraph: invalid attention candidate tolerance")
 	}
@@ -79,6 +89,13 @@ func NewCheckedOnlineAttentionCandidate(snapshot *cudair.Snapshot, inputs map[st
 		return nil, err
 	}
 	n, d := scores.Shape[0], values.Shape[1]
+	var excluded []bool
+	if mask != nil {
+		if len(mask.excluded) != n || mask.kind == "" {
+			return nil, errors.New("egraph: invalid attention candidate mask")
+		}
+		excluded = mask.excluded
+	}
 	if tileSize < 1 || tileSize > n {
 		return nil, errors.New("egraph: invalid attention candidate tile size")
 	}
@@ -91,7 +108,13 @@ func NewCheckedOnlineAttentionCandidate(snapshot *cudair.Snapshot, inputs map[st
 		if !ok || len(data) != node.NumElements() {
 			return nil, fmt.Errorf("egraph: invalid attention candidate input %q", node.Name)
 		}
-		for _, value := range data {
+		for i, value := range data {
+			if node.ID == scores.ID && excluded != nil && excluded[i] {
+				if !math.IsInf(float64(value), -1) {
+					return nil, fmt.Errorf("egraph: excluded attention score %d must already be negative infinity", i)
+				}
+				continue
+			}
 			if !finite64(float64(value)) {
 				return nil, fmt.Errorf("egraph: nonfinite attention candidate input %q", node.Name)
 			}
@@ -103,14 +126,25 @@ func NewCheckedOnlineAttentionCandidate(snapshot *cudair.Snapshot, inputs map[st
 		return nil, fmt.Errorf("egraph: attention candidate reference: %w", err)
 	}
 	reference := refs[output.Name]
+	fullyMasked := excluded != nil && !slices.Contains(excluded, false)
 	state := NewOnlineAttentionState(d)
 	derivation := AttentionCandidateDerivation{
 		Rule: "provided-stable-online-row-v1", ScoreID: scores.ID, ValueID: values.ID,
 		OutputID: output.ID, NodeIDs: ids, TileSize: tileSize, Policy: policy,
 	}
+	if mask != nil {
+		owned := mask.clone()
+		derivation.Mask = &owned
+		derivation.Rule = "provided-input-masked-stable-online-row-v1"
+		derivation.FullyMaskedPolicy = "canonical-nan-exact-fp32"
+	}
 	for start := 0; start < n; start += tileSize {
 		end := min(start+tileSize, n)
-		if err := state.StepTile(bound[scores.Name][start:end], bound[values.Name][start*d:end*d], nil, d); err != nil {
+		var tileMask []bool
+		if excluded != nil {
+			tileMask = excluded[start:end]
+		}
+		if err := state.StepTile(bound[scores.Name][start:end], bound[values.Name][start*d:end*d], tileMask, d); err != nil {
 			return nil, fmt.Errorf("egraph: attention candidate tile: %w", err)
 		}
 		derivation.Tiles = append(derivation.Tiles, AttentionCandidateTile{
@@ -119,11 +153,25 @@ func NewCheckedOnlineAttentionCandidate(snapshot *cudair.Snapshot, inputs map[st
 		})
 	}
 	candidate := state.Finalize()
+	if fullyMasked {
+		// This graph's all-excluded softmax has no finite denominator.
+		// Emit our declared NaN independently of the reference. Admission
+		// below requires bit agreement, including the NaN sign/payload.
+		for i := range candidate {
+			candidate[i] = math.Float32frombits(0x7fc00000)
+		}
+	}
 	if len(reference) != d || len(candidate) != d {
 		return nil, errors.New("egraph: attention candidate output extent mismatch")
 	}
 	for i, got := range candidate {
 		want := reference[i]
+		if fullyMasked {
+			if math.Float32bits(got) != math.Float32bits(want) {
+				return nil, fmt.Errorf("egraph: fully masked attention nan bits differ from source at %d", i)
+			}
+			continue
+		}
 		if !finite64(float64(got)) || !finite64(float64(want)) {
 			return nil, errors.New("egraph: nonfinite attention candidate output")
 		}
@@ -242,6 +290,10 @@ func (c *OnlineAttentionCandidate) Inputs() map[string][]float32 {
 // Derivation returns detached semantic IDs and explicit finite tile states.
 func (c *OnlineAttentionCandidate) Derivation() AttentionCandidateDerivation {
 	out := c.derivation
+	if out.Mask != nil {
+		mask := out.Mask.clone()
+		out.Mask = &mask
+	}
 	out.NodeIDs = slices.Clone(out.NodeIDs)
 	out.Tiles = slices.Clone(out.Tiles)
 	for i := range out.Tiles {
@@ -259,6 +311,24 @@ func attentionCandidateIdentity(c *OnlineAttentionCandidate, scores, values *cud
 	put(uint64(c.derivation.TileSize))
 	put(math.Float64bits(c.derivation.Policy.Absolute))
 	put(math.Float64bits(c.derivation.Policy.Relative))
+	if mask := c.derivation.Mask; mask != nil {
+		text(c.derivation.FullyMaskedPolicy)
+		text(mask.kind)
+		put(uint64(mask.query))
+		put(uint64(mask.prefix))
+		put(uint64(len(mask.parents)))
+		for _, parent := range mask.parents {
+			put(uint64(parent))
+		}
+		put(uint64(len(mask.excluded)))
+		for _, excluded := range mask.excluded {
+			if excluded {
+				put(1)
+			} else {
+				put(0)
+			}
+		}
+	}
 	for _, node := range c.snapshot.Nodes() {
 		put(uint64(node.ID))
 		text(node.Name)
