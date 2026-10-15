@@ -15,11 +15,16 @@ import (
 // Evaluator abstracts candidate code generation, compilation, execution, and timing.
 type Evaluator interface {
 	// Evaluate extracts and evaluates a candidate from the given search state root.
+	// Search borrows its input. With a memory limit, even the initial evaluation
+	// uses an owned copy. Branch states and their derivation maps remain owned
+	// by the returned SearchResult until Close; callbacks must not use retained
+	// branch aliases after that owner closes.
 	Evaluate(ctx context.Context, state *egraph.SearchState, root egraph.Id) (*CandidatePlan, error)
 }
 
 // SearchResult records the outcome of a search exploration run.
 type SearchResult struct {
+	clones          *stateClone
 	PolicyID        cudacache.SearchPolicyID
 	PolicyComplete  bool  // False when policy inputs cannot be identified completely.
 	Seed            int64 // Effective per-search RNG seed, or zero for a deterministic strategy.
@@ -42,8 +47,9 @@ type SearchResult struct {
 	WorkAccounted    bool // False means evaluator extraction/compile counts are unknown.
 	ActionsAttempted int  // Includes unsuccessful and no-op transitions.
 	// AccountedBytes is the peak of conservative storage reservations during
-	// Search. State reservations remain charged through the search, including
-	// pruned states, so it can exceed the actual live storage. See SearchBudget.
+	// Search. Clones, including pruned states, remain owned until Close because
+	// candidate/rejection paths can alias their maps. Scratch stays charged too.
+	// This can exceed live storage; transition growth remains partial. See SearchBudget.
 	AccountedBytes int64
 	Duration       time.Duration
 }

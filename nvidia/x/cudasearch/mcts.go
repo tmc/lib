@@ -125,6 +125,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	if err != nil {
 		return nil, err
 	}
+	defer func() { closeStateClones(work.memory.takeClones()) }()
 	policy, policyComplete, err := makeSearchPolicy("mcts", m.cfg.RootName, budget, map[string]string{"iterations": fmt.Sprint(m.cfg.Iterations), "rollout_depth": fmt.Sprint(m.cfg.RolloutDepth), "exploration": fmt.Sprint(m.cfg.ExplorationC)}, m.cfg.Seed, rules, eval, work, profile, m.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
@@ -138,15 +139,22 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSearchCancelled, err)
 	}
-	rootID, ok := initial.CanonicalRoot(m.cfg.RootName)
-	if !ok {
-		return nil, fmt.Errorf("cudasearch: missing search root %q", m.cfg.RootName)
+	borrowedInitial := initial
+	if work.memory.limit > 0 {
+		initial, err = cloneSearchState(ctx, initial)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := admitGraphBudget(initial, budget); err != nil {
 		return nil, err
 	}
-	if err := retainSearchValue(ctx, initial); err != nil {
+	if err := retainSearchValue(ctx, borrowedInitial); err != nil {
 		return nil, err
+	}
+	rootID, ok := initial.CanonicalRoot(m.cfg.RootName)
+	if !ok {
+		return nil, fmt.Errorf("cudasearch: missing search root %q", m.cfg.RootName)
 	}
 
 	// Evaluate initial state to establish baseline cost
@@ -164,7 +172,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		} else {
 			failure = errors.Join(failure, memoryErr)
 		}
-		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "mcts", Seed: m.cfg.Seed,
+		return &SearchResult{clones: work.memory.takeClones(), PolicyID: policy, PolicyComplete: policyComplete, Strategy: "mcts", Seed: m.cfg.Seed,
 			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
 			Rejected: initialRejections, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
@@ -202,14 +210,16 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
+		return &SearchResult{clones: work.memory.takeClones(), MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
 	}
 
-	cloned, err := cloneSearchState(ctx, initial)
-	if err != nil {
-		return finish(err)
+	if work.memory.limit == 0 {
+		cloned, err := cloneSearchState(ctx, initial)
+		if err != nil {
+			return finish(err)
+		}
+		rootNode.state = cloned
 	}
-	rootNode.state = cloned
 	initialOwned, err := enumerateSearchActions(ctx, rootNode.state, rules, budget.MaxActions)
 	if err != nil {
 		return finish(err)
@@ -254,9 +264,12 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 
 			actionCount++
 			stateCount++
-			res, applyErr := applySearchAction(ctx, node.state, act)
+			res, cloneOwner, applyErr := applySearchAction(ctx, node.state, act)
 			if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
 				return finish(applyErr)
+			}
+			if applyErr != nil || res.NoOp {
+				cloneOwner.close()
 			}
 			if applyErr == nil && !res.NoOp {
 				if err := admitGraphBudget(res.State, budget); err != nil {
@@ -345,7 +358,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				actions = append(actions[:idx], actions[idx+1:]...)
 				actionCount++
 				stateCount++
-				res, err := applySearchAction(ctx, currState, act)
+				res, cloneOwner, err := applySearchAction(ctx, currState, act)
 				if errors.Is(err, ErrMemoryBudgetExceeded) || errors.Is(err, ErrMemoryAccountingUnavailable) {
 					return finish(err)
 				}
@@ -353,6 +366,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 					next = res.State
 					break
 				}
+				cloneOwner.close()
 			}
 			if next == nil {
 				if currState == node.state && len(node.children) == 0 {

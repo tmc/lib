@@ -121,9 +121,10 @@ func TestMemoryOpaqueCallbackContract(t *testing.T) {
 						t.Fatalf("calls=%d err=%v", calls, err)
 					}
 				default:
-					if err != nil || calls != 1 || result.Winner == nil || result.AccountedBytes < estimateStateMemory(state)*2 {
+					if err != nil || calls != 1 || result.Winner == nil || result.AccountedBytes <= 0 {
 						t.Fatalf("calls=%d result=%+v err=%v", calls, result, err)
 					}
+					result.Close()
 				}
 			})
 		}
@@ -132,8 +133,7 @@ func TestMemoryOpaqueCallbackContract(t *testing.T) {
 
 func TestMemoryCloneAndNoOpReservation(t *testing.T) {
 	state, _ := beamContractState()
-	bytes := estimateStateMemory(state)
-	b := &memoryBudget{limit: bytes - 1}
+	b := &memoryBudget{limit: 1}
 	ctx := context.WithValue(context.Background(), memoryBudgetKey{}, b)
 	if cloned, err := cloneSearchState(ctx, state); cloned != nil || !errors.Is(err, ErrMemoryBudgetExceeded) {
 		t.Fatalf("clone=%v err=%v", cloned, err)
@@ -142,12 +142,20 @@ func TestMemoryCloneAndNoOpReservation(t *testing.T) {
 	if len(actions) != 1 {
 		t.Fatal(actions)
 	}
-	bytes = estimateStateMemory(state)
-	b.limit = 2 * bytes
+	b.limit = 64 << 10
+	var peak int64
 	for i := 0; i < 3; i++ {
-		result, err := applySearchAction(ctx, state, actions[0])
-		if err != nil || !result.NoOp || b.live != 0 || b.accountedBytes() != 2*bytes {
+		result, owner, err := applySearchAction(ctx, state, actions[0])
+		if err != nil || !result.NoOp || b.live <= 0 || owner == nil {
 			t.Fatalf("result=%+v live=%d peak=%d err=%v", result, b.live, b.accountedBytes(), err)
+		}
+		owner.close()
+		owner.close()
+		if i == 0 {
+			peak = b.accountedBytes()
+		}
+		if b.live != 0 || b.accountedBytes() != peak {
+			t.Fatalf("live=%d peak=%d want=%d", b.live, b.accountedBytes(), peak)
 		}
 	}
 }

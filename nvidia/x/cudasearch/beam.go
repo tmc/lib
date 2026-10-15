@@ -28,8 +28,9 @@ type SearchBudget struct {
 	// buffers reserved by built-in compilers. Zero is unlimited. Accounting uses
 	// Go value sizes, slice capacities, strings and live map entries; it excludes
 	// allocator/map bucket overhead, runtime/driver/compiler internals and caller
-	// captures. Matching/extraction scratch and transition growth are not yet
-	// reserved before allocation, so this is not a complete owned-allocation cap.
+	// captures. Built-in matching, extraction and clone copies reserve their
+	// supported storage before allocation. Transition staging/growth and other
+	// retained bookkeeping remain partial, so this is not a complete owned cap.
 	MaxMemoryBytes int64
 	// CallbackMemoryBytes declares the maximum simultaneously owned storage of
 	// opaque evaluator/compiler callbacks, including opaque executable workspace.
@@ -142,6 +143,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	if err != nil {
 		return nil, err
 	}
+	defer func() { closeStateClones(work.memory.takeClones()) }()
 	policy, policyComplete, err := makeSearchPolicy("beam", b.cfg.RootName, budget, map[string]string{"beam_width": fmt.Sprint(b.cfg.BeamWidth), "tie_order": "full-replay-path-v1"}, 0, rules, eval, work, profile, b.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
@@ -159,15 +161,22 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		return nil, fmt.Errorf("%w: %w", ErrSearchCancelled, err)
 	}
 
-	rootID, ok := initial.CanonicalRoot(b.cfg.RootName)
-	if !ok {
-		return nil, fmt.Errorf("cudasearch: missing search root %q", b.cfg.RootName)
+	borrowedInitial := initial
+	if work.memory.limit > 0 {
+		initial, err = cloneSearchState(ctx, initial)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := admitGraphBudget(initial, budget); err != nil {
 		return nil, err
 	}
-	if err := retainSearchValue(ctx, initial); err != nil {
+	if err := retainSearchValue(ctx, borrowedInitial); err != nil {
 		return nil, err
+	}
+	rootID, ok := initial.CanonicalRoot(b.cfg.RootName)
+	if !ok {
+		return nil, fmt.Errorf("cudasearch: missing search root %q", b.cfg.RootName)
 	}
 
 	// Evaluate initial state candidate
@@ -186,7 +195,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		} else {
 			failure = errors.Join(failure, memoryErr)
 		}
-		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "beam",
+		return &SearchResult{clones: work.memory.takeClones(), PolicyID: policy, PolicyComplete: policyComplete, Strategy: "beam",
 			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
 			Rejected: initialRejections, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
@@ -217,14 +226,16 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
+		return &SearchResult{clones: work.memory.takeClones(), MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
 	}
 
-	cloned, err := cloneSearchState(ctx, initial)
-	if err != nil {
-		return finish(err)
+	if work.memory.limit == 0 {
+		cloned, err := cloneSearchState(ctx, initial)
+		if err != nil {
+			return finish(err)
+		}
+		currentBeam[0].state = cloned
 	}
-	currentBeam[0].state = cloned
 	seenStates := make(map[string]bool)
 	seenStates[stateFingerprint(initial)] = true
 
@@ -284,11 +295,12 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 				stateCount++
 
 				actionCount++
-				res, applyErr := applySearchAction(ctx, item.state, act)
+				res, cloneOwner, applyErr := applySearchAction(ctx, item.state, act)
 				if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
 					return finish(applyErr)
 				}
 				if applyErr != nil || res.NoOp {
+					cloneOwner.close()
 					continue
 				}
 				if err := admitGraphBudget(res.State, budget); err != nil {

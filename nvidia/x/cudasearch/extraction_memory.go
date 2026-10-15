@@ -46,6 +46,9 @@ func (m *declaredCostModel) NodeCostWithMemory(node egraph.ENode, costs []float6
 // idempotent extraction owner and release its reservations once. All owned
 // expressions become invalid, including aliases held outside r. Borrowed
 // candidate expressions and external resources are left unchanged.
+// Close also releases owned branch copies and invalidates their derivation
+// maps and other aliases, including retained loser/rejection paths. It never
+// closes the caller's initial state or an unrelated workspace reservation.
 // Close must not race with use or another Close.
 func (r *SearchResult) Close() {
 	if r == nil {
@@ -57,4 +60,6 @@ func (r *SearchResult) Close() {
 			candidate.Close()
 		}
 	}
+	closeStateClones(r.clones)
+	r.clones = nil
 }

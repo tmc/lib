@@ -49,26 +49,19 @@ func TestAllocationPublicSearchMatchingLimit(t *testing.T) {
 		t.Run(strategy, func(t *testing.T) {
 			state, _ := beamContractState()
 			rules := []*egraph.Rewrite{{Name: "wide", LHS: egraph.Var("x"), RHS: egraph.Pat("replacement")}}
-			// The evaluator fills the remaining allowance after admitting the
-			// initial graph. Clone storage has a separate known envelope; leave
-			// exactly that envelope, so the next matching owner must refuse.
+			// The evaluator fills the remaining allowance after the initial
+			// guarded clone is admitted. Leave only the returned candidate's
+			// measured storage, so the next matching owner must refuse.
 			calls := 0
 			eval := beamEvaluatorFunc(func(ctx context.Context, current *egraph.SearchState, _ egraph.Id) (*CandidatePlan, error) {
 				calls++
 				ledger := searchMemoryBudget(ctx)
-				bytes, err := storageBytes(current)
-				if err != nil {
-					return nil, err
-				}
 				candidate := &CandidatePlan{Cost: 1, Validated: true}
 				candidateBytes, err := storageBytes(candidate)
 				if err != nil {
 					return nil, err
 				}
-				// Leave the clone its two-source envelope and the returned
-				// candidate its measured storage. Matching must fit the spare
-				// capacity released when that clone envelope is trimmed.
-				_, err = ledger.reserve(ledger.limit - ledger.live - 2*bytes - candidateBytes)
+				_, err = ledger.reserve(ledger.limit - ledger.live - candidateBytes)
 				return candidate, err
 			})
 			budget := SearchBudget{MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: 1, MaxStates: 3, MaxDepth: 1, MaxActions: 10, MaxEvaluations: 2}

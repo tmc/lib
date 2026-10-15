@@ -434,6 +434,12 @@ type TransitionResult struct {
 // ApplyAction applies a single ActionCandidate to the search state, returning a new branched SearchState
 // and indicating whether a non-trivial union occurred.
 func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult, error) {
+	return s.applyAction(candidate, nil, nil)
+}
+
+// A supplied nextState is already detached and is also the receiver during
+// clone-budgeted transitions. Ordinary ApplyAction clones after validation.
+func (s *SearchState) applyAction(candidate ActionCandidate, nextState *SearchState, cloneBudget *egraphcore.WorkBudget) (*TransitionResult, error) {
 	if s == nil || s.Graph == nil {
 		return nil, fmt.Errorf("egraph: nil search state or graph")
 	}
@@ -468,8 +474,17 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 	if err != nil {
 		return nil, err
 	}
-	nextState := s.Clone()
+	if nextState == nil {
+		nextState = s.Clone()
+	}
 	g := nextState.Graph
+	// The in-place executor must freeze the pre-transition fingerprint before
+	// RHS instantiation changes its working graph. Ordinary execution retains
+	// the original timing and source graph of this computation.
+	source := ""
+	if nextState == s {
+		source = classFingerprint(s.Graph, candidate.Match.ClassID)
+	}
 
 	canonTarget := g.Find(candidate.Match.ClassID)
 	canonRHS := canonTarget
@@ -478,6 +493,9 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 		canonRHS = g.Find(rhsID)
 	}
 
+	if nextState != s {
+		source = classFingerprint(s.Graph, candidate.Match.ClassID)
+	}
 	action := Action{
 		RuleName:  candidate.Rule.Name,
 		ClassID:   canonTarget,
@@ -485,18 +503,18 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 		StepIndex: len(s.Derivation),
 		Subst:     candidate.Match.Subst.Clone(),
 		Binding:   cloneBinding(candidate.Match.Binding),
-		Source:    classFingerprint(s.Graph, candidate.Match.ClassID),
+		Source:    source,
 		RuleID:    candidate.Rule.Identity(),
 	}
 
 	if canonTarget == canonRHS && len(resolved) == 0 && !candidate.Rule.subsumesLHS {
 		// No-op transition: already in same e-class
-		return &TransitionResult{
+		return transitionWithBudget(TransitionResult{
 			State:  nextState,
 			Merged: false,
 			Action: action,
 			NoOp:   true,
-		}, nil
+		}, cloneBudget)
 	}
 
 	merged := false
@@ -520,7 +538,7 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 		return nil, fmt.Errorf("egraph: apply rewrite %q subsumption: %w", candidate.Rule.Name, err)
 	}
 	if !merged && factChanges == 0 && subsumptions == 0 {
-		return &TransitionResult{State: nextState, Merged: false, Action: action, NoOp: true}, nil
+		return transitionWithBudget(TransitionResult{State: nextState, Merged: false, Action: action, NoOp: true}, cloneBudget)
 	}
 
 	// Remap roots
@@ -531,14 +549,14 @@ func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult,
 	nextState.Derivation = append(nextState.Derivation, action)
 	nextState.Depth++
 
-	return &TransitionResult{
+	return transitionWithBudget(TransitionResult{
 		State:        nextState,
 		Merged:       merged,
 		FactChanges:  factChanges,
 		Subsumptions: subsumptions,
 		Action:       action,
 		NoOp:         !merged && factChanges == 0 && subsumptions == 0,
-	}, nil
+	}, cloneBudget)
 }
 
 func checkMandatoryTransition(s *SearchState, rule *Rewrite, target Id, subst Subst) error {

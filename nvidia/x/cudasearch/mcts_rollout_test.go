@@ -24,38 +24,8 @@ func TestMCTSEvaluatesRollout(t *testing.T) {
 			case "depth":
 				budget.MaxDepth = 1
 			case "memory":
-				// Materialize the exact supported states outside search to declare
-				// storage, including relation lineage added by Clone. Reservations
-				// retain their pre-enumeration size even if rebuilding later shrinks it.
-				// Matching now also owns its reserved temporary and output storage.
-				_ = egraph.EnumerateActionsBounded(s.Graph, rules, 10)
-				owned := s.Clone()
-				ownedBytes := estimateStateMemory(owned)
-				initialMemory := new(memoryBudget)
-				initialOwner, err := egraph.EnumerateActionsWithMemory(owned.Graph, rules, 10, initialMemory)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer initialOwner.Close()
-				actions := initialOwner.Actions
-				next, err := owned.ApplyAction(actions[0])
-				if err != nil {
-					t.Fatal(err)
-				}
-				nextBytes := estimateStateMemory(next.State)
-				nextMemory := new(memoryBudget)
-				nextOwner, err := egraph.EnumerateActionsWithMemory(next.State.Graph, rules, 10, nextMemory)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer nextOwner.Close()
-				initialActionBytes, nextActionBytes := initialMemory.live, nextMemory.live
-				if initialActionBytes <= 0 || nextActionBytes <= 0 {
-					t.Fatal("matching storage is not reserved")
-				}
-				candidateBytes, _ := storageBytes(&CandidatePlan{Cost: 10, Validated: true})
-				budget.MaxMemoryBytes = estimateStateMemory(s) + ownedBytes + nextBytes + initialActionBytes + nextActionBytes + 2*candidateBytes + budget.CallbackMemoryBytes
-				t.Logf("matching reservations initial=%d next=%d memory budget=%d", initialActionBytes, nextActionBytes, budget.MaxMemoryBytes)
+				budget.CallbackMemoryBytes = cloneCallbackBytes()
+				budget.MaxMemoryBytes = cloneRolloutRefusalBytes(t, s, rules, budget.MaxActions)
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

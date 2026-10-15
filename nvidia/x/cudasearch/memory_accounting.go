@@ -8,12 +8,14 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
-// memoryBudget records storage reservations for one search. A reservation is
-// made before allocation and remains live until the corresponding owner is
-// released. Its peak includes simultaneous retained and temporary storage.
+// memoryBudget records storage reservations for one search. Guarded operations
+// reserve before allocation and keep a result owner. Some legacy bookkeeping
+// still measures retained values after allocation. Its peak includes the
+// simultaneous retained and temporary reservations, not all process storage.
 // This is separate from the search-memory catalog of exploration priors.
 type memoryBudget struct {
 	mu        sync.Mutex
@@ -21,6 +23,7 @@ type memoryBudget struct {
 	live      int64
 	peak      int64
 	exhausted bool
+	clones    *stateClone
 }
 
 type memoryBudgetKey struct{}
@@ -238,77 +241,145 @@ func retainSearchValue(ctx context.Context, value any) error {
 	return err
 }
 
-// A graph clone can add relation lineage records. Two source-storage units
-// cover that bounded clone overhead; payload aliases are already charged per
-// occurrence by storageBytes. Trim the reservation after measuring the clone.
-func reserveStateClone(ctx context.Context, state *egraph.SearchState) (*memoryReservation, error) {
-	b := searchMemoryBudget(ctx)
-	bytes, err := storageBytes(state)
-	if err != nil && b != nil && b.limit > 0 {
-		return nil, err
-	}
-	if bytes > math.MaxInt64/2 {
-		return nil, ErrMemoryBudgetExceeded
-	}
-	return b.reserve(2 * bytes)
+// stateClone owns an admitted branch and all its copy scratch on the existing
+// ledger. The intrusive link needs no separately growing slice or map. Pruned
+// states remain owned because candidate/rejection derivations can alias them.
+type stateClone struct {
+	state  *egraph.SearchState
+	memory *egraphcore.MemoryScope
+	work   *egraphcore.WorkBudget
+	next   *stateClone
+	closed bool
 }
 
-func (r *memoryReservation) trim(bytes int64) {
-	if r == nil || r.budget == nil {
+func (c *stateClone) close() {
+	if c == nil || c.closed {
 		return
 	}
-	r.budget.mu.Lock()
-	defer r.budget.mu.Unlock()
-	if bytes >= 0 && bytes < r.bytes {
-		r.budget.live -= r.bytes - bytes
-		r.bytes = bytes
+	c.closed = true
+	c.state = nil
+	c.memory.Close()
+}
+
+func closeStateClones(head *stateClone) {
+	for c := head; c != nil; c = c.next {
+		c.close()
 	}
 }
 
-func finishStateClone(ctx context.Context, r *memoryReservation, state *egraph.SearchState) error {
+func (b *memoryBudget) takeClones() *stateClone {
+	if b == nil {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	head := b.clones
+	b.clones = nil
+	return head
+}
+
+func (b *memoryBudget) retainClone(c *stateClone) {
+	b.mu.Lock()
+	c.next = b.clones
+	b.clones = c
+	b.mu.Unlock()
+}
+
+func newStateClone(ctx context.Context) (*stateClone, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	b := searchMemoryBudget(ctx)
-	actual, err := storageBytes(state)
-	if err != nil && b != nil && b.limit > 0 {
-		r.release()
-		return err
+	scope, err := egraphcore.NewMemoryScope(b)
+	if err != nil {
+		return nil, err
 	}
-	if actual > r.bytes {
-		if _, err := b.reserve(actual - r.bytes); err != nil {
-			r.release()
-			return err
-		}
-	} else {
-		r.trim(actual)
+	if err := scope.Reserve(int64(reflect.TypeFor[stateClone]().Size())); err != nil {
+		scope.Close()
+		return nil, err
 	}
-	return nil
+	c := &stateClone{memory: scope}
+	c.work, err = egraphcore.NewWorkBudgetWithMemory(0, scope)
+	if err != nil {
+		c.close()
+		return nil, err
+	}
+	return c, nil
 }
 
 func cloneSearchState(ctx context.Context, state *egraph.SearchState) (*egraph.SearchState, error) {
-	r, err := reserveStateClone(ctx, state)
+	b := searchMemoryBudget(ctx)
+	if b == nil {
+		return state.Clone(), nil
+	}
+	c, err := newStateClone(ctx)
 	if err != nil {
 		return nil, err
 	}
-	cloned := state.Clone()
-	if err := finishStateClone(ctx, r, cloned); err != nil {
-		return nil, err
+	if b.limit == 0 {
+		// Unlimited APIs keep their ordinary payload/cycle semantics. This
+		// snapshot is bookkeeping only and is not allocation-site admission.
+		c.state = state.Clone()
+		bytes, _ := storageBytes(c.state)
+		err = c.memory.Reserve(bytes)
+	} else {
+		c.state, err = state.CloneWithBudget(ctx, c.work)
 	}
-	return cloned, nil
+	if err != nil {
+		c.close()
+		return nil, cloneMemoryError(err)
+	}
+	b.retainClone(c)
+	return c.state, nil
 }
 
-func applySearchAction(ctx context.Context, state *egraph.SearchState, action egraph.ActionCandidate) (*egraph.TransitionResult, error) {
-	r, err := reserveStateClone(ctx, state)
+func cloneMemoryError(err error) error {
+	if errors.Is(err, egraph.ErrMemoryOperation) {
+		return fmt.Errorf("%w: %w", ErrMemoryAccountingUnavailable, err)
+	}
+	return err
+}
+
+// A no-op owner is returned for the caller to close after inspecting the
+// result. Productive owners transfer to the search/result list. Errors close
+// immediately. This avoids returning a usable clone after releasing its charge.
+func applySearchAction(ctx context.Context, state *egraph.SearchState, action egraph.ActionCandidate) (*egraph.TransitionResult, *stateClone, error) {
+	b := searchMemoryBudget(ctx)
+	if b == nil {
+		result, err := state.ApplyAction(action)
+		return result, nil, err
+	}
+	c, err := newStateClone(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	result, err := state.ApplyAction(action)
-	if err != nil || result.NoOp {
-		r.release()
-		return result, err
+	var result *egraph.TransitionResult
+	if b.limit == 0 {
+		result, err = state.ApplyAction(action)
+	} else {
+		result, err = state.ApplyActionWithCloneBudget(ctx, action, c.work)
 	}
-	if err := finishStateClone(ctx, r, result.State); err != nil {
-		return nil, err
+	if err != nil {
+		c.close()
+		return nil, nil, cloneMemoryError(err)
 	}
-	return result, nil
+	c.state = result.State
+	// Transition matching/staging/growth still has no preallocation contract.
+	// Keep its existing reachable-storage measurement as a conservative extra
+	// charge, now joined to the actual owner. This never qualifies its peak.
+	bytes, measureErr := storageBytes(result.State)
+	if measureErr != nil && b.limit > 0 {
+		c.close()
+		return nil, nil, measureErr
+	}
+	if err := c.memory.Reserve(bytes); err != nil {
+		c.close()
+		return nil, nil, err
+	}
+	if !result.NoOp {
+		b.retainClone(c)
+	}
+	return result, c, nil
 }
 
 func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchState, root egraph.Id) (*CandidatePlan, error) {
