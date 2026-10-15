@@ -7,3 +7,5 @@ none; pid 33731; ITERM_SESSION_ID=w5t2p1:2DFCEE41-F8CC-48A0-BEEF-821ED8C38766
 session=92385c74-9d24-496f-8b25-f083f27c346b
 
 Deviation: landed before the independent raw-receipt audit (assigned to v41_tensor_descriptors) returned KEEP. Root chose to leave it local pending that audit: no push, no audit-pass claim, a corrective commit (not a reset) if it HOLDs. See v41-verified-source-prefix-v2/DEVIATION-landed-before-audit.txt.
+
+Audit: the independent raw-receipt audit (AUDIT-INDEPENDENT.md) returned KEEP; root accepts fde8b54aa at host scope only (retained-source API and optional bias). No full-asset, native or public-admission claim. The Engram protected hash was checked BEFORE each arm; unchanged tracked status protects the post state only indirectly (no explicit post-arm hash). The premature-landing deviation stands.
