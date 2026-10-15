@@ -44,7 +44,7 @@ func TestRetentionPublicRecoveryAndBounds(t *testing.T) {
 	if _, err := OpenRetention(path, small); err == nil {
 		t.Fatal("invalid reload deleted state")
 	}
-	if err := os.Mkdir(filepath.Join(path, "lease"), 0700); err != nil {
+	if err := os.Link(filepath.Join(path, "owner.json"), filepath.Join(path, "lease")); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(path, "pending.jsonl"), []byte("crash partial"), 0600); err != nil {
@@ -54,6 +54,15 @@ func TestRetentionPublicRecoveryAndBounds(t *testing.T) {
 		t.Fatal("foreign takeover")
 	}
 	if err := RecoverRetention(path, cfg.Owner); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenRetention(path, cfg); err == nil {
+		t.Fatal("unpublished artifact silently discarded")
+	}
+	if pending, err := os.ReadFile(filepath.Join(path, "pending.jsonl")); err != nil || string(pending) != "crash partial" {
+		t.Fatalf("pending artifact changed: %q %v", pending, err)
+	}
+	if err := os.Rename(filepath.Join(path, "pending.jsonl"), filepath.Join(t.TempDir(), "preserved.jsonl")); err != nil {
 		t.Fatal(err)
 	}
 	r, err = OpenRetention(path, cfg)

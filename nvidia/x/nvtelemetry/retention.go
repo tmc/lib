@@ -3,6 +3,7 @@ package nvtelemetry
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -40,11 +41,19 @@ type retentionMarker struct {
 }
 
 // Retention stores strictly validated complete streams. Its methods serialize
-// access; a directory lease refuses duplicate writers across processes. There
-// is no automatic takeover of a crashed writer. Close releases only the lease.
+// access. An operating-system file lock refuses live writers and recoverers.
+// A crashed writer requires explicit recovery. The owner marker is never removed;
+// its inode is the lock identity, and the active lease is a hard link to it.
+// Version 1 directories require manual migration
+// after all old writers have stopped. The zero value is closed.
 type Retention struct {
 	mu            sync.Mutex
 	root          *os.Root
+	lockFile      *os.File
+	path          string
+	rootInfo      os.FileInfo
+	markerInfo    os.FileInfo
+	leaseInfo     os.FileInfo
 	cfg           RetentionConfig
 	stores        uint64
 	storeFailures uint64
@@ -56,12 +65,78 @@ type Retention struct {
 // OpenRetention opens or initializes a private task directory. It rejects foreign
 // files, symbolic links, corrupt streams and another writer's lease. Changing
 // budgets is checked before deleting any retained data (configuration rollback).
+// The operating system must support the package's nonblocking file locks.
 func OpenRetention(path string, cfg RetentionConfig) (*Retention, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	if err := os.Mkdir(path, 0700); err != nil && !os.IsExist(err) {
+	r, err := retentionAdmission(path, cfg.Owner, true)
+	if err != nil {
 		return nil, err
+	}
+	ok := false
+	defer func() {
+		if !ok {
+			r.release()
+		}
+	}()
+	r.cfg = cfg
+	if _, _, err := r.scan(); err != nil {
+		return nil, err
+	}
+	if _, err := r.root.Lstat("pending.jsonl"); err == nil {
+		return nil, fmt.Errorf("retention unpublished pending stream requires explicit disposition")
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	if err := r.root.Link("owner.json", "lease"); err != nil {
+		return nil, fmt.Errorf("retention writer lease: %w", err)
+	}
+	r.leaseInfo = r.markerInfo
+	ok = true
+	return r, nil
+}
+
+// RecoverRetention releases a stale lease only while holding the owner marker's
+// exclusive file lock. Live writers and other recoverers refuse without changing
+// files. Streams and unpublished pending files are preserved. A pending file must
+// be explicitly archived or removed by its owner before reopening. Version 1 or
+// corrupt state refuses unchanged; no process-death inference or migration occurs.
+func RecoverRetention(path, owner string) error {
+	r, err := retentionAdmission(path, owner, false)
+	if err != nil {
+		return err
+	}
+	defer r.release()
+	r.cfg = RetentionConfig{Owner: owner, MaxFiles: 1024, MaxBytes: 1 << 30, MaxStreamBytes: 64 << 20}
+	if _, _, err := r.scan(); err != nil {
+		return err
+	}
+	info, err := r.root.Lstat("lease")
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	r.leaseInfo = info
+	if err := r.checkIdentity(); err != nil {
+		return err
+	}
+	return r.root.Remove("lease")
+}
+
+// retentionAdmission holds the permanent marker inode across every subsequent
+// validation and mutation. No cooperating Open, Recover or Close unlinks it.
+func retentionAdmission(path, owner string, create bool) (*Retention, error) {
+	cfg := RetentionConfig{Owner: owner, MaxFiles: 1, MaxBytes: 1, MaxStreamBytes: 1}
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	if create {
+		if err := os.Mkdir(path, 0700); err != nil && !os.IsExist(err) {
+			return nil, err
+		}
 	}
 	info, err := os.Lstat(path)
 	if err != nil {
@@ -74,81 +149,115 @@ func OpenRetention(path string, cfg RetentionConfig) (*Retention, error) {
 	if err != nil {
 		return nil, err
 	}
+	r := &Retention{root: root, path: path, rootInfo: info, cfg: cfg}
 	ok := false
 	defer func() {
 		if !ok {
-			root.Close()
+			r.release()
 		}
 	}()
 	entries, err := retentionEntries(root)
 	if err != nil {
 		return nil, err
 	}
-	marker, err := retentionMarkerBytes(root)
-	if os.IsNotExist(err) {
-		if len(entries) != 0 {
-			return nil, fmt.Errorf("retention directory contains foreign files")
+	marker, err := root.Lstat("owner.json")
+	fresh := os.IsNotExist(err)
+	if fresh {
+		if !create || len(entries) != 0 {
+			return nil, fmt.Errorf("retention directory has no owner marker")
 		}
-		marker, _ = json.Marshal(retentionMarker{1, cfg.Owner})
-		if err := retentionWrite(root, "owner.json", marker); err != nil {
+		r.lockFile, err = root.OpenFile("owner.json", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	} else if err == nil {
+		if !marker.Mode().IsRegular() || marker.Mode()&0077 != 0 {
+			return nil, fmt.Errorf("retention owner marker must be private and regular")
+		}
+		r.lockFile, err = root.OpenFile("owner.json", os.O_RDWR, 0)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := lockFileExclusive(r.lockFile); err != nil {
+		return nil, fmt.Errorf("retention owner lease: %w", err)
+	}
+	r.markerInfo, err = r.lockFile.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if fresh {
+		linked, err := root.Lstat("owner.json")
+		current, pathErr := os.Lstat(path)
+		opened, rootErr := root.Stat(".")
+		if err != nil || pathErr != nil || rootErr != nil || !linked.Mode().IsRegular() || linked.Mode()&0077 != 0 || !current.IsDir() || current.Mode()&0077 != 0 || !os.SameFile(linked, r.markerInfo) || !os.SameFile(current, info) || !os.SameFile(opened, info) {
+			return nil, fmt.Errorf("retention initialization identity changed")
+		}
+		data, _ := json.Marshal(retentionMarker{2, owner})
+		if _, err := r.lockFile.Write(data); err != nil {
 			return nil, err
 		}
-	} else if err != nil {
+		if err := r.lockFile.Sync(); err != nil {
+			return nil, err
+		}
+	}
+	if err := r.checkIdentity(); err != nil {
 		return nil, err
 	}
-	var m retentionMarker
-	if err := decodeOperationsJSON(marker, &m); err != nil || m.Version != 1 || m.Owner != cfg.Owner {
-		return nil, fmt.Errorf("retention owner mismatch or corrupt marker")
-	}
-	if err := root.Mkdir("lease", 0700); err != nil {
-		return nil, fmt.Errorf("retention writer lease: %w", err)
-	}
-	r := &Retention{root: root, cfg: cfg}
-	if _, _, err := r.scan(); err != nil {
-		root.Remove("lease")
-		return nil, err
-	}
-	// A pending file can exist only after an interrupted, explicitly recovered
-	// writer. It was never published and is not considered retained evidence.
-	if err := root.Remove("pending.jsonl"); err != nil && !os.IsNotExist(err) {
-		root.Remove("lease")
+	if _, err := retentionEntries(root); err != nil {
 		return nil, err
 	}
 	ok = true
 	return r, nil
 }
 
-// RecoverRetention releases a stale directory lease after validating ownership.
-// The caller must first establish that the previous writer has stopped. This
-// function does not infer process death, stop a process or remove retained data.
-func RecoverRetention(path, owner string) error {
-	info, err := os.Lstat(path)
+func (r *Retention) checkIdentity() error {
+	held, err := r.lockFile.Stat()
+	if err != nil || !os.SameFile(held, r.markerInfo) {
+		return fmt.Errorf("retention owner lease is unavailable")
+	}
+	info, err := os.Lstat(r.path)
+	if err != nil || !info.IsDir() || info.Mode()&0077 != 0 || !os.SameFile(info, r.rootInfo) {
+		return fmt.Errorf("retention directory identity changed")
+	}
+	opened, err := r.root.Stat(".")
+	if err != nil || !os.SameFile(opened, info) {
+		return fmt.Errorf("retention directory identity changed")
+	}
+	info, err = r.root.Lstat("owner.json")
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&0077 != 0 || !os.SameFile(info, r.markerInfo) {
+		return fmt.Errorf("retention owner marker identity changed")
+	}
+	data, err := retentionMarkerBytes(r.root)
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() || info.Mode()&0077 != 0 {
-		return fmt.Errorf("retention directory must be private")
+	var marker retentionMarker
+	if err := decodeOperationsJSON(data, &marker); err != nil || marker.Version != 2 || marker.Owner != r.cfg.Owner {
+		return fmt.Errorf("retention owner mismatch, unsupported version or corrupt marker")
 	}
-	root, err := os.OpenRoot(path)
-	if err != nil {
-		return err
+	info, err = r.root.Lstat("lease")
+	if err == nil {
+		if !info.Mode().IsRegular() || !os.SameFile(info, r.markerInfo) || (r.leaseInfo != nil && !os.SameFile(info, r.leaseInfo)) {
+			return fmt.Errorf("retention writer lease identity changed")
+		}
+	} else if !os.IsNotExist(err) || r.leaseInfo != nil {
+		return fmt.Errorf("retention writer lease identity changed")
 	}
-	defer root.Close()
-	if _, err := retentionEntries(root); err != nil {
-		return err
+
+	return nil
+}
+
+// release closes the root before releasing the lock, including failed admission.
+// The permanent lock inode is never removed, even after an error.
+func (r *Retention) release() error {
+	var err error
+	if r.root != nil {
+		err = r.root.Close()
+		r.root = nil
 	}
-	b, err := retentionMarkerBytes(root)
-	if err != nil {
-		return err
+	if r.lockFile != nil {
+		err = errors.Join(err, r.lockFile.Close())
+		r.lockFile = nil
 	}
-	var m retentionMarker
-	if err := decodeOperationsJSON(b, &m); err != nil || m.Version != 1 || m.Owner != owner {
-		return fmt.Errorf("retention owner mismatch or corrupt marker")
-	}
-	if _, err := retentionEntries(root); err != nil {
-		return err
-	}
-	return root.Remove("lease")
+	return err
 }
 
 func retentionEntries(root *os.Root) ([]os.DirEntry, error) {
@@ -168,7 +277,7 @@ func retentionEntries(root *os.Root) ([]os.DirEntry, error) {
 		if e.Type()&os.ModeSymlink != 0 {
 			return nil, fmt.Errorf("retention symbolic link refused")
 		}
-		if e.Name() == "lease" && e.IsDir() {
+		if e.Name() == "lease" && e.Type().IsRegular() {
 			continue
 		}
 		if !e.Type().IsRegular() || (e.Name() != "owner.json" && e.Name() != "pending.jsonl" && !retentionName(e.Name())) {
@@ -285,6 +394,9 @@ func (r *Retention) Store(id uint64, input io.Reader) (err error) {
 	if r.root == nil {
 		return fmt.Errorf("retention is closed")
 	}
+	if err := r.checkIdentity(); err != nil {
+		return err
+	}
 	if id > 9999999999999 || input == nil {
 		return fmt.Errorf("invalid retained stream")
 	}
@@ -305,6 +417,9 @@ func (r *Retention) Store(id uint64, input io.Reader) (err error) {
 	name := fmt.Sprintf("stream-%013d.jsonl", id)
 	if len(files) > 0 && name <= files[len(files)-1].name {
 		return fmt.Errorf("retained stream identifier is not increasing")
+	}
+	if err := r.checkIdentity(); err != nil {
+		return err
 	}
 	if err := retentionWrite(r.root, "pending.jsonl", b); err != nil {
 		return err
@@ -327,24 +442,28 @@ func (r *Retention) Store(id uint64, input io.Reader) (err error) {
 	return nil
 }
 
-// Close releases this writer's lease. It does not delete streams or the owner marker.
+// Close removes this writer's lease link, then closes the root before
+// releasing its file lock. A cleanup failure retains admission for a retry; it
+// never removes a substituted lease or owner marker. Streams are preserved.
 func (r *Retention) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.root == nil {
 		return nil
 	}
-	err := r.root.Remove("lease")
-	closeErr := r.root.Close()
-	r.root = nil
-	if err != nil {
+	if err := r.checkIdentity(); err != nil {
 		r.lastError = "close_failed"
 		return err
 	}
-	if closeErr != nil {
+	if err := r.root.Remove("lease"); err != nil {
+		r.lastError = "close_failed"
+		return err
+	}
+	err := r.release()
+	if err != nil {
 		r.lastError = "close_failed"
 	}
-	return closeErr
+	return err
 }
 
 // RetentionStatus describes the managed streams and observations since open.
@@ -383,7 +502,12 @@ func (r *Retention) Status() RetentionStatus {
 	if s.Closed {
 		return s
 	}
-	files, total, err := r.scan()
+	err := r.checkIdentity()
+	var files []retainedFile
+	var total int64
+	if err == nil {
+		files, total, err = r.scan()
+	}
 	s.QueryDuration = time.Since(start)
 	if err != nil {
 		s.StateError = "state_unavailable"
