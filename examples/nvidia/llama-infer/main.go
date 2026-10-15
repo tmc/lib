@@ -62,7 +62,11 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("create trace file: %w", err)
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "close trace file: %v\n", err)
+			}
+		}()
 		tracer = cudatrace.New(f)
 		fmt.Printf("[Observability] Timeline trace enabled -> %s\n", *tracePath)
 	}
@@ -73,9 +77,17 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("create profile file: %w", err)
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "close profile file: %v\n", err)
+			}
+		}()
 		profSession = cudaprof.NewSession(f)
-		defer profSession.Close()
+		defer func() {
+			if err := profSession.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "close profile session: %v\n", err)
+			}
+		}()
 
 		binPath := strings.TrimSuffix(*profilePath, filepath.Ext(*profilePath)) + ".so"
 		profSession.SetBinaryPath(binPath)
@@ -143,7 +155,11 @@ func run() error {
 	// Check if CUDA device is available for 100% GPU-resident execution
 	dev, err := cuda.NewDevice(0)
 	if err == nil {
-		defer dev.Close()
+		defer func() {
+			if err := dev.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "close device: %v\n", err)
+			}
+		}()
 		name, _ := dev.Name()
 		major, minor, _ := dev.ComputeCapability()
 		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
@@ -191,7 +207,11 @@ func runGPUInference(
 	if err != nil {
 		return releaseErrorOwner(err)
 	}
-	defer attnMod.Close()
+	defer func() {
+		if err := attnMod.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "close attention module: %v\n", err)
+		}
+	}()
 	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
 	if err != nil {
 		return fmt.Errorf("lookup kernel CausalFlashAttentionDecode: %w", err)
@@ -205,7 +225,11 @@ func runGPUInference(
 	if err != nil {
 		return releaseErrorOwner(err)
 	}
-	defer sampleMod.Close()
+	defer func() {
+		if err := sampleMod.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "close sampler module: %v\n", err)
+		}
+	}()
 	sampleFn, err := sampleMod.Function("ArgmaxLogits")
 	if err != nil {
 		return fmt.Errorf("lookup kernel ArgmaxLogits: %w", err)
@@ -265,7 +289,11 @@ func runGPUInference(
 		if err != nil {
 			return fmt.Errorf("start step timer: %w", err)
 		}
-		defer timer.close()
+		defer func() {
+			if err := timer.close(); err != nil {
+				fmt.Fprintf(os.Stderr, "close step timer: %v\n", err)
+			}
+		}()
 	}
 
 	if *benchFlag {
@@ -553,7 +581,11 @@ func sampleTemperature(logits []float32, temp float32) int32 {
 func printKernelDisassembly(targetKernel, mode string) error {
 	archMajor, archMinor := 8, 0
 	if dev, err := cuda.NewDevice(0); err == nil {
-		defer dev.Close()
+		defer func() {
+			if err := dev.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "close device: %v\n", err)
+			}
+		}()
 		archMajor, archMinor, _ = dev.ComputeCapability()
 	}
 

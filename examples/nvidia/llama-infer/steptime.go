@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -36,43 +37,60 @@ func newStepTimer(dev *cuda.Device, prof *cudaprof.Session, tracer *cudatrace.Tr
 		return nil, fmt.Errorf("new stream: %w", err)
 	}
 	st := &stepTimer{stream: stream, prof: prof, tracer: tracer, source: source}
+	// fail releases what was built and reports err, with any release error
+	// joined after it.
+	fail := func(err error) (*stepTimer, error) {
+		if cerr := st.close(); cerr != nil {
+			err = errors.Join(err, fmt.Errorf("close step timer: %w", cerr))
+		}
+		return nil, err
+	}
 	for _, p := range []**cuda.Event{&st.anchor, &st.start, &st.end} {
 		e, err := dev.NewEvent()
 		if err != nil {
-			st.close()
-			return nil, fmt.Errorf("new event: %w", err)
+			return fail(fmt.Errorf("new event: %w", err))
 		}
 		*p = e
 	}
 	st.clock, err = cudatrace.Calibrate(context.Background(), stream, st.anchor)
 	if err != nil {
-		st.close()
-		return nil, err
+		return fail(err)
 	}
 	if tracer != nil {
 		st.track, err = tracer.RegisterStream(stream, "GPU forward pass")
 		if err != nil {
-			st.close()
-			return nil, err
+			return fail(err)
 		}
 	}
 	return st, nil
 }
 
-func (st *stepTimer) close() {
+// close waits for the timer's stream to drain, then closes its events and
+// the stream. It attempts every step even after one fails and returns the
+// failures joined, in that order. Callers must call it before freeing any
+// buffer that work enqueued through measure may still use.
+func (st *stepTimer) close() error {
+	var errs []error
 	if st.stream != nil {
 		// Cancellation stops observation, not device work. Keep events and
 		// caller-owned buffers alive until the pending stream has drained.
-		_ = st.stream.Synchronize(context.Background())
+		if err := st.stream.Synchronize(context.Background()); err != nil {
+			errs = append(errs, fmt.Errorf("synchronize stream: %w", err))
+		}
 	}
 	for _, e := range []*cuda.Event{st.anchor, st.start, st.end} {
 		if e != nil {
-			_ = e.Close()
+			if err := e.Close(); err != nil {
+				errs = append(errs, fmt.Errorf("close event: %w", err))
+			}
 		}
 	}
 	if st.stream != nil {
-		_ = st.stream.Close()
+		if err := st.stream.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close stream: %w", err))
+		}
 	}
+	return errors.Join(errs...)
 }
 
 // measure runs fn on the timer's stream between two CUDA events and records the

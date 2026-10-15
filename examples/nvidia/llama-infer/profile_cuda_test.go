@@ -33,7 +33,11 @@ func (c *delayedWait) Done() <-chan struct{} {
 
 func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	dev := cudatest.Require(t)
-	defer dev.Close()
+	defer func() {
+		if err := dev.Close(); err != nil {
+			t.Errorf("close device: %v", err)
+		}
+	}()
 	src, err := cudamem.Alloc[byte](dev, 1<<20)
 	defer func() {
 		if err := src.Free(); err != nil {
@@ -56,7 +60,11 @@ func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer timer.close()
+	defer func() {
+		if err := timer.close(); err != nil {
+			t.Errorf("close step timer: %v", err)
+		}
+	}()
 	ctx := &delayedWait{Context: context.Background()}
 	if err := timer.measure(ctx, "copy", nil, func(s *cuda.Stream) error {
 		return dst.CopyDeviceToDeviceAsync(src, s)
@@ -115,7 +123,9 @@ func TestPinnedProfileTokenParity(t *testing.T) {
 		}
 		h := sha256.New()
 		_, err = io.Copy(h, f)
-		f.Close()
+		if cerr := f.Close(); cerr != nil {
+			t.Errorf("close %s: %v", name, cerr)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,7 +134,11 @@ func TestPinnedProfileTokenParity(t *testing.T) {
 		}
 	}
 	dev := cudatest.Require(t)
-	defer dev.Close()
+	defer func() {
+		if err := dev.Close(); err != nil {
+			t.Errorf("close device: %v", err)
+		}
+	}()
 	w, cfg, err := LoadModel(dir)
 	if err != nil {
 		t.Fatal(err)

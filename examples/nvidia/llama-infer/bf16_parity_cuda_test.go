@@ -384,7 +384,11 @@ func newForwardKit(t *testing.T) *forwardKit {
 	if err != nil {
 		t.Fatal(releaseErrorOwner(err))
 	}
-	t.Cleanup(func() { attnMod.Close() })
+	t.Cleanup(func() {
+		if err := attnMod.Close(); err != nil {
+			t.Errorf("close attention module: %v", err)
+		}
+	})
 	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
 	if err != nil {
 		t.Fatal(err)
@@ -397,7 +401,11 @@ func newForwardKit(t *testing.T) *forwardKit {
 	if err != nil {
 		t.Fatal(releaseErrorOwner(err))
 	}
-	t.Cleanup(func() { sampleMod.Close() })
+	t.Cleanup(func() {
+		if err := sampleMod.Close(); err != nil {
+			t.Errorf("close sampler module: %v", err)
+		}
+	})
 	sampleFn, err := sampleMod.Function("ArgmaxLogits")
 	if err != nil {
 		t.Fatal(err)

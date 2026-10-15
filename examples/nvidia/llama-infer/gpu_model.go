@@ -296,9 +296,10 @@ func GPUForwardPassStream(
 		return token, err
 	}
 	// Even an enqueue error may leave work using the scratch buffers. Drain
-	// before returning ownership to the caller.
-	if waitErr := stream.Synchronize(context.Background()); err == nil {
-		err = waitErr
+	// before returning ownership to the caller, and report a failed drain
+	// after any enqueue error.
+	if waitErr := stream.Synchronize(context.Background()); waitErr != nil {
+		err = errors.Join(err, waitErr)
 	}
 	if err != nil {
 		return 0, err

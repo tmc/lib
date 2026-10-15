@@ -147,7 +147,11 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
-	defer sw.Close()
+	defer func() {
+		if err := sw.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "close safetensors: %v\n", err)
+		}
+	}()
 
 	headDim := cfg.HeadDim()
 	qDim := cfg.NumAttentionHeads * headDim
