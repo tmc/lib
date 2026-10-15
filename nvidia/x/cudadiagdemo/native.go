@@ -155,21 +155,26 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 	}
 	leaseCtx, cancelLease := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelLease()
-	lease, err := cudalock.Acquire(leaseCtx, options...)
-	if err != nil {
-		return result, fmt.Errorf("native lease: %w", err)
-	}
-	result.LeaseDir, result.LeaseOwner = lease.Dir(), lease.Owner()
 	result.cleanup = &nativeCleanup{}
-	result.cleanup.add("lease", lease.Release)
 	skipCleanup := false
 	defer func() {
 		if skipCleanup {
 			result.CleanupPending = true
 			return
 		}
-		retErr = errors.Join(retErr, result.Close())
+		retErr = joinNativeCleanup(result, retErr)
 	}()
+	lease, err := constructNativeOwner(result.cleanup, "lease", func() (*cudalock.Handle, error) {
+		return cudalock.Acquire(leaseCtx, options...)
+	}, func(owner *cudalock.Handle) bool {
+		return owner != nil
+	}, func(owner **cudalock.Handle) error {
+		return (*owner).Release()
+	})
+	if err != nil {
+		return result, fmt.Errorf("native lease: %w", err)
+	}
+	result.LeaseDir, result.LeaseOwner = lease.Dir(), lease.Owner()
 	ownerBytes, err := os.ReadFile(filepath.Join(lease.Dir(), "owner"))
 	if err != nil {
 		return result, fmt.Errorf("native lease owner: %w", err)
@@ -181,11 +186,16 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	dev, err := cuda.NewDevice(cfg.Device)
+	dev, err := constructNativeOwner(result.cleanup, "device", func() (*cuda.Device, error) {
+		return cuda.NewDevice(cfg.Device)
+	}, func(owner *cuda.Device) bool {
+		return owner != nil
+	}, func(owner **cuda.Device) error {
+		return (*owner).Close()
+	})
 	if err != nil {
 		return result, fmt.Errorf("native device: %w", err)
 	}
-	result.cleanup.add("device", dev.Close)
 	result.Model, err = dev.Name()
 	if err != nil {
 		return result, err
@@ -204,11 +214,16 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 	if err != nil {
 		return result, err
 	}
-	program, err := nvrtc.CreateProgram(nativeSource, "transform.cu")
+	program, err := constructNativeOwner(result.cleanup, "program", func() (nvrtc.Program, error) {
+		return nvrtc.CreateProgram(nativeSource, "transform.cu")
+	}, func(owner nvrtc.Program) bool {
+		return owner != 0
+	}, func(owner *nvrtc.Program) error {
+		return owner.Destroy()
+	})
 	if err != nil {
 		return result, err
 	}
-	result.cleanup.add("program", program.Destroy)
 	if err := program.Compile("--gpu-architecture="+result.Architecture, "--fmad=false"); err != nil {
 		log, _ := program.Log()
 		return result, fmt.Errorf("native compile: %w: %s", err, log)
@@ -218,40 +233,70 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 		return result, err
 	}
 	result.CUBINSHA256 = digestBytes(cubin)
-	var raw driver.Module
-	if err := dev.WithContext(func() error { var err error; raw, err = driver.ModuleLoadData(cubin); return err }); err != nil {
+	raw, err := constructNativeOwner(result.cleanup, "module", func() (driver.Module, error) {
+		var loaded driver.Module
+		err := dev.WithContext(func() error {
+			var loadErr error
+			loaded, loadErr = driver.ModuleLoadData(cubin)
+			return loadErr
+		})
+		return loaded, err
+	}, func(owner driver.Module) bool {
+		return owner != 0
+	}, func(owner *driver.Module) error {
+		return closeNativeModule(dev.WithContext, owner, (*driver.Module).Close)
+	})
+	if err != nil {
 		return result, err
 	}
-	result.cleanup.add("module", func() error { return dev.WithContext(raw.Close) })
+	if raw == 0 {
+		return result, errors.New("native module load returned zero module")
+	}
+	moduleCleanup := len(result.cleanup.actions) - 1
 	module, err := cuda.OwnModule(dev, raw)
 	if err != nil {
 		return result, err
 	}
-	result.cleanup.actions[len(result.cleanup.actions)-1].close = module.Close
+	result.cleanup.actions[moduleCleanup].close = module.Close
 	kernel, err := module.Function("transform")
 	if err != nil {
 		return result, err
 	}
-	input, err := cudamem.Alloc[float32](dev, cfg.Elements)
+	input, err := constructNativeOwner(result.cleanup, "input allocation", func() (cudamem.Slice[float32], error) {
+		return cudamem.Alloc[float32](dev, cfg.Elements)
+	}, func(owner cudamem.Slice[float32]) bool {
+		return owner.Ptr() != 0
+	}, func(owner *cudamem.Slice[float32]) error {
+		return owner.Free()
+	})
 	if err != nil {
 		return result, err
 	}
-	result.cleanup.add("input allocation", input.Free)
-	output, err := cudamem.Alloc[float32](dev, cfg.Elements)
+	output, err := constructNativeOwner(result.cleanup, "output allocation", func() (cudamem.Slice[float32], error) {
+		return cudamem.Alloc[float32](dev, cfg.Elements)
+	}, func(owner cudamem.Slice[float32]) bool {
+		return owner.Ptr() != 0
+	}, func(owner *cudamem.Slice[float32]) error {
+		return owner.Free()
+	})
 	if err != nil {
 		return result, err
 	}
-	result.cleanup.add("output allocation", output.Free)
 	host := make([]float32, cfg.Elements)
 	got := make([]float32, cfg.Elements)
 	for i := range host {
 		host[i] = float32(i % 1024)
 	}
 	result.InputSHA256 = digestFloats(host)
-	session, captureErr := cuptiactivity.Start(cuptiactivity.Config{Kinds: []cupti.ActivityKind{cupti.ActivityKindDriver, cupti.ActivityKindConcurrentKernel, cupti.ActivityKindMemcpy, cupti.ActivityKindExternalCorrelation}, BufferBytes: 1 << 20, MaxBuffers: 16, MaxRecords: 100000})
+	session, captureErr := constructNativeOwner(result.cleanup, "activity session", func() (*cuptiactivity.Session, error) {
+		return cuptiactivity.Start(cuptiactivity.Config{Kinds: []cupti.ActivityKind{cupti.ActivityKindDriver, cupti.ActivityKindConcurrentKernel, cupti.ActivityKindMemcpy, cupti.ActivityKindExternalCorrelation}, BufferBytes: 1 << 20, MaxBuffers: 16, MaxRecords: 100000})
+	}, func(owner *cuptiactivity.Session) bool {
+		return owner != nil
+	}, func(owner **cuptiactivity.Session) error {
+		return (*owner).Close()
+	})
 	if session != nil {
 		result.cleanup.session = session
-		result.cleanup.add("activity session", session.Close)
 	}
 	result.cleanup.add("synchronize", func() error { return dev.WithContext(driver.CtxSynchronize) })
 	if captureErr != nil {
@@ -465,8 +510,27 @@ type nativeCleanup struct {
 	session *cuptiactivity.Session
 }
 
+func constructNativeOwner[T any](cleanup *nativeCleanup, name string, construct func() (T, error), owns func(T) bool, close func(*T) error) (T, error) {
+	owner, err := construct()
+	if owns(owner) {
+		cleanup.add(name, func() error { return close(&owner) })
+	}
+	return owner, err
+}
+
+func closeNativeModule(withContext func(func() error) error, module *driver.Module, unload func(*driver.Module) error) error {
+	if module == nil || *module == 0 {
+		return nil
+	}
+	return withContext(func() error { return unload(module) })
+}
+
 func (c *nativeCleanup) add(name string, close func() error) {
 	c.actions = append(c.actions, nativeCleanupAction{name, close})
+}
+
+func joinNativeCleanup(result *NativeResult, primary error) error {
+	return errors.Join(primary, result.Close())
 }
 
 // Close explicitly retries pending native cleanup. RunNative attempts cleanup
