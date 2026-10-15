@@ -726,6 +726,13 @@ func TestRegressReconstructOutputContainment(t *testing.T) {
 				t.Skipf("%s is on a case-sensitive volume; a case variant names a different directory", base)
 			}
 			output, created := test.output(t, base, input)
+			// A refused output must be refused before anything is
+			// created; the check after creation is only a backstop.
+			setReconstructOutputCreated(t, func(path string) {
+				if test.refused {
+					t.Errorf("created %s before refusing it", path)
+				}
+			})
 			before := reconstructTestTreeNames(t, input)
 			snapshot := &reconstructSnapshot{
 				root:          input,
