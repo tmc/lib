@@ -101,15 +101,18 @@ func (r *Request) TotalTokens() int {
 	return len(r.PromptTokens) + len(r.GeneratedTokens)
 }
 
-// ContextTokens returns the current context length active in the KV cache.
+// ContextTokens returns the number of input tokens consumed by successful steps.
+// The newest generated token is pending input for the next decode; it is not
+// included. Reserved KV capacity and failed or incomplete steps do not count.
 func (r *Request) ContextTokens() int {
 	if r.State == StateWaiting {
 		return 0
 	}
-	if r.State == StatePrefilling {
-		return r.PrefilledTokens
+	n := r.PrefilledTokens
+	if len(r.GeneratedTokens) > 0 {
+		n += len(r.GeneratedTokens) - 1
 	}
-	return len(r.PromptTokens) + len(r.GeneratedTokens)
+	return n
 }
 
 // TotalTokensSlice returns a newly allocated slice containing all prompt and generated tokens.

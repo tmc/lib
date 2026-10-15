@@ -90,7 +90,9 @@ func TestBatchFairness(t *testing.T) {
 	if len(iter1.PrefillChunks) != 2 {
 		t.Fatalf("expected 2 prefill chunks, got %d", len(iter1.PrefillChunks))
 	}
-	_ = sched.CompleteStep(iter1, nil, nil)
+	if err := sched.CompleteStep(iter1, map[string]int32{"short-prefill": 42}, nil); err != nil {
+		t.Fatal(err)
+	}
 
 	rShort, _ := sched.Request("short-prefill")
 	if rShort.State != cudabatch.StateDecoding {
@@ -235,7 +237,9 @@ func TestMixedPrefillDecode(t *testing.T) {
 	// Submit decode request (1-token prompt to enter decode immediately)
 	_ = sched.Submit(&cudabatch.Request{ID: "dec-1", PromptTokens: []int32{10}, MaxTokens: 5})
 	iter1, _ := sched.Schedule()
-	_ = sched.CompleteStep(iter1, nil, nil) // prefill finished -> state Decoding
+	if err := sched.CompleteStep(iter1, map[string]int32{"dec-1": 11}, nil); err != nil {
+		t.Fatal(err)
+	} // final prefill supplied the first generated token
 
 	// Submit long prefill request
 	_ = sched.Submit(&cudabatch.Request{ID: "pref-1", PromptTokens: make([]int32, 40), MaxTokens: 5})
@@ -363,15 +367,11 @@ func TestServingEngineIntegration(t *testing.T) {
 	})
 	_ = sched.CompleteStep(iter2, gen2, rowErr2)
 
-	// Step 3: Decode iteration 2 (reaches max_tokens=2)
-	iter3, _ := sched.Schedule()
-	meta3, _ := cudabatch.ValidateAndBindRows(iter3.AllocatedRows, bucket, 16)
-	gen3, rowErr3, _ := engine.ExecuteForward(ctx, &cudabatch.ExecutionStep{
-		StepID:    iter3.StepID,
-		Iteration: iter3,
-		Metadata:  meta3,
-	})
-	_ = sched.CompleteStep(iter3, gen3, rowErr3)
+	// Final prefill and one decode already supplied max_tokens=2.
+	iter3, err := sched.Schedule()
+	if err != nil || len(iter3.AllocatedRows) != 0 {
+		t.Fatalf("completed requests rescheduled: %+v, %v", iter3, err)
+	}
 
 	r1, _ := sched.Request("client-1")
 	r2, _ := sched.Request("client-2")
@@ -411,6 +411,10 @@ func TestNegativeControl_ExhaustKVBlocks(t *testing.T) {
 	}
 	if alloc.NumFreeBlocks() != 0 {
 		t.Fatalf("expected 0 free blocks, got %d", alloc.NumFreeBlocks())
+	}
+
+	if err := sched.CompleteStep(iter1, nil, nil); err != nil {
+		t.Fatal(err)
 	}
 
 	// Request 2 requires 1 block -> cannot be admitted, must stay in waiting queue
@@ -516,7 +520,13 @@ func TestNegativeControl_StarveQueuedLongPrefillUnderSteadyDecode(t *testing.T) 
 	}
 	// Run first schedule to admit and transition all to decode
 	iter1, _ := sched.Schedule()
-	_ = sched.CompleteStep(iter1, nil, nil)
+	firstTokens := make(map[string]int32)
+	for _, row := range iter1.AllocatedRows {
+		firstTokens[row.SeqID] = 42
+	}
+	if err := sched.CompleteStep(iter1, firstTokens, nil); err != nil {
+		t.Fatal(err)
+	}
 
 	// Now submit long prefill (100 tokens)
 	_ = sched.Submit(&cudabatch.Request{ID: "long-prefill", PromptTokens: make([]int32, 100), MaxTokens: 10})

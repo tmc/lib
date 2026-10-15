@@ -21,8 +21,9 @@ import (
 // physical KV allocation mapping are supplied by the caller.
 type PlanBindingFunc func(context.Context, *ExecutionStep) (*cudaplan.Bindings, func(), error)
 
-// PlanSampleFunc reads completed outputs. Each decode row must have one token or
-// row error. Prefill rows may have errors but must not have generated tokens.
+// PlanSampleFunc reads completed outputs. Each decode or IsLastPrefill row must
+// have one token or row error. Intermediate prefill rows may have errors but
+// must not have generated tokens.
 // Sampling must not release the storage retained by PlanBindingFunc.
 type PlanSampleFunc func(context.Context, *ExecutionStep) (map[string]int32, map[string]error, error)
 
@@ -377,7 +378,7 @@ func validatePlanResults(m *BatchMetadata, tokens map[string]int32, rowErrors ma
 	}
 	for id := range tokens {
 		r, ok := rows[id]
-		if !ok || r.IsPrefill {
+		if !ok || !rowNeedsSample(r) {
 			return fmt.Errorf("cudabatch: unexpected token row %q", id)
 		}
 		if rowErrors[id] != nil {
@@ -390,7 +391,7 @@ func validatePlanResults(m *BatchMetadata, tokens map[string]int32, rowErrors ma
 		}
 	}
 	for _, r := range m.RowBindings {
-		if !r.IsPrefill {
+		if rowNeedsSample(r) {
 			if _, ok := tokens[r.SeqID]; !ok && rowErrors[r.SeqID] == nil {
 				return fmt.Errorf("cudabatch: missing output row %q", r.SeqID)
 			}

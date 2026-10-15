@@ -288,7 +288,7 @@ func TestCompilePlanEngineHostRefusal(t *testing.T) {
 func TestPlanEngineSchedulerChunks(t *testing.T) {
 	allocator := cudakv.NewBlockAllocator(2, 16)
 	scheduler := NewBatchScheduler(SchedulerConfig{MaxBatchSize: 1, MaxBudgetTokens: 2, ChunkSize: 2}, NewMemoryBudgetTracker(allocator))
-	if err := scheduler.Submit(&Request{ID: "a", PromptTokens: []int32{10, 11, 12, 13, 14}, MaxTokens: 1}); err != nil {
+	if err := scheduler.Submit(&Request{ID: "a", PromptTokens: []int32{10, 11, 12, 13, 14}, MaxTokens: 2}); err != nil {
 		t.Fatal(err)
 	}
 	var events []string
@@ -303,7 +303,7 @@ func TestPlanEngineSchedulerChunks(t *testing.T) {
 		return cudaplan.NewBindings(), func() { events = append(events, "release") }, nil
 	}
 	engine.sample = func(_ context.Context, step *ExecutionStep) (map[string]int32, map[string]error, error) {
-		if step.Metadata.RowBindings[0].IsPrefill {
+		if row := step.Metadata.RowBindings[0]; row.IsPrefill && !row.IsLastPrefill {
 			return nil, nil, nil
 		}
 		return map[string]int32{"a": 42}, nil, nil
@@ -333,7 +333,7 @@ func TestPlanEngineSchedulerChunks(t *testing.T) {
 		t.Fatalf("extents=%v", extents)
 	}
 	request, _ := scheduler.Request("a")
-	if request.State != StateCompleted || !reflect.DeepEqual(request.GeneratedTokens, []int32{42}) {
+	if request.State != StateCompleted || !reflect.DeepEqual(request.GeneratedTokens, []int32{42, 42}) {
 		t.Fatalf("request=%+v", request)
 	}
 	if allocator.NumFreeBlocks() != 16 {
@@ -376,5 +376,42 @@ func TestPlanEngineReuseCallerStep(t *testing.T) {
 		if !engine.StepDone(i) {
 			t.Fatal("caller changed completion identity")
 		}
+	}
+}
+
+func TestPlanEngineSamplingEligibility(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		prefill   bool
+		last      bool
+		tokens    map[string]int32
+		wantError bool
+	}{
+		{name: "intermediate", prefill: true},
+		{name: "intermediate-token", prefill: true, tokens: map[string]int32{"a": 7}, wantError: true},
+		{name: "final", prefill: true, last: true, tokens: map[string]int32{"a": 0}},
+		{name: "missing-final", prefill: true, last: true, wantError: true},
+		{name: "decode", tokens: map[string]int32{"a": 7}},
+		{name: "missing-decode", wantError: true},
+		{name: "invalid-marker", last: true, tokens: map[string]int32{"a": 7}, wantError: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var events []string
+			engine := planTestEngine(&controlledPlanCompletion{done: true}, nil, &events)
+			step := planTestStep(t, 1)
+			step.Metadata.RowBindings[0].IsPrefill = tt.prefill
+			step.Metadata.RowBindings[0].IsLastPrefill = tt.last
+			engine.sample = func(context.Context, *ExecutionStep) (map[string]int32, map[string]error, error) {
+				events = append(events, "sample")
+				return tt.tokens, nil, nil
+			}
+			tokens, _, err := engine.ExecuteForward(context.Background(), step)
+			if (err != nil) != tt.wantError {
+				t.Fatalf("sampling eligibility: tokens=%v err=%v", tokens, err)
+			}
+			if !tt.wantError && (!reflect.DeepEqual(tokens, tt.tokens) || !reflect.DeepEqual(events, []string{"bind", "submit", "sample", "release"})) {
+				t.Fatalf("final logits/completion contract: tokens=%v events=%v", tokens, events)
+			}
+		})
 	}
 }

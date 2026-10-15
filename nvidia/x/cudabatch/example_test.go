@@ -28,8 +28,8 @@ func ExampleBatchScheduler() {
 	}
 	fmt.Printf("Scheduled %d prefill chunks, %d total tokens\n", len(iter.PrefillChunks), iter.TotalTokens)
 
-	// Complete prefill step
-	_ = sched.CompleteStep(iter, nil, nil)
+	// Complete prefill with the first token sampled from its final logits.
+	_ = sched.CompleteStep(iter, map[string]int32{"req-1": 41}, nil)
 	r, _ := sched.Request("req-1")
 	fmt.Printf("Request state after prefill: %v\n", r.State)
 

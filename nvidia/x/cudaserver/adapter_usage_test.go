@@ -136,7 +136,7 @@ func TestAdapterDrainsQueuedCompletion(t *testing.T) {
 			t.Fatal(err)
 		}
 		cancel()
-		const want = "word102word103word104word105word106word107word108word101"
+		const want = "word101word102word103word104word105word106word107word108"
 		if output.String() != want {
 			t.Fatalf("queued output=%q want=%q", output.String(), want)
 		}

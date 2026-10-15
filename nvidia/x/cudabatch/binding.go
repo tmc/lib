@@ -13,6 +13,7 @@ type BatchRowBinding struct {
 	RowIndex        int
 	SeqID           string
 	IsPrefill       bool
+	IsLastPrefill   bool    // Final prompt chunk: its logits supply the first generated token
 	Tokens          []int32 // Input tokens for this iteration (chunk tokens for prefill, 1 token for decode)
 	StartPos        int     // Offset within full sequence
 	SequenceLength  int     // Total active length (StartPos + len(Tokens))
@@ -106,6 +107,10 @@ func ValidateAndBindRows(rows []BatchRowBinding, bucket ShapeBucket, blockSize i
 			return nil, fmt.Errorf("%w: row %d (seq %s) invalid startPos %d with seqLen %d", ErrRowBoundsViolation, i, row.SeqID, row.StartPos, row.SequenceLength)
 		}
 
+		if row.IsLastPrefill && !row.IsPrefill {
+			return nil, fmt.Errorf("%w: row %d marks decode as last prefill", ErrRowBoundsViolation, i)
+		}
+
 		neededBlocks := (row.SequenceLength-1)/blockSize + 1
 		if len(row.BlockTable) < neededBlocks {
 			return nil, fmt.Errorf("%w: row %d has %d blocks, needs %d for length %d", ErrCorruptBlockTable, i, len(row.BlockTable), neededBlocks, row.SequenceLength)
@@ -181,4 +186,9 @@ func bindingStorage(a, b, elementBytes int) (int, error) {
 		return 0, fmt.Errorf("%w: metadata byte extent exceeds addressable storage", ErrRowBoundsViolation)
 	}
 	return elements, nil
+}
+
+// rowNeedsSample reports which completed rows supply a generated token.
+func rowNeedsSample(row BatchRowBinding) bool {
+	return !row.IsPrefill || row.IsLastPrefill
 }

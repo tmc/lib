@@ -383,6 +383,9 @@ func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration,
 		if rowErrors[seqID] != nil {
 			continue
 		}
+		if req, ok := a.scheduler.Request(seqID); !ok || req.State == cudabatch.StateCanceled {
+			continue
+		}
 		if listener, ok := a.listeners[seqID]; ok {
 			text, decodeErr := a.tokenizer.Decode([]int32{tokID})
 			if decodeErr != nil {

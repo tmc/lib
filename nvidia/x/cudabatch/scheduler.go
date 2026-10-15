@@ -49,6 +49,7 @@ type BatchScheduler struct {
 	waitingQueue []*Request
 	seqIDCounter int64
 	stepCounter  int64
+	inFlight     *ScheduledIteration
 
 	// Completion and retained resources
 	pendingReleases map[string][]func() // Request ID -> retained release callbacks
@@ -126,15 +127,20 @@ func (s *BatchScheduler) Cancel(id string) error {
 }
 
 // Schedule selects requests for the next forward pass iteration according to token budgets,
-// memory availability, and fairness policies.
+// memory availability, and fairness policies. It returns ErrExecutionInFlight
+// until the previous nonempty iteration has been completed.
 func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if s.inFlight != nil {
+		return nil, ErrExecutionInFlight
+	}
+
 	// Check before admission or KV growth: Submit currently retains requests,
 	// so a caller may have erased the token needed by an active decode.
 	for _, req := range s.requests {
-		if req.State == StateDecoding && len(req.GeneratedTokens) == 0 && len(req.PromptTokens) == 0 {
+		if req.State == StateDecoding && len(req.GeneratedTokens) == 0 {
 			return nil, fmt.Errorf("%w: decode request %q has no retained token", ErrInvalidRequest, req.ID)
 		}
 	}
@@ -208,9 +214,6 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 			break
 		}
 		decodeTokens := req.GeneratedTokens
-		if len(decodeTokens) == 0 {
-			decodeTokens = req.PromptTokens
-		}
 		// Decode requires 1 token room in KV cache
 		if s.kvTracker != nil {
 			// Ensure token can be appended
@@ -257,7 +260,7 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 			continue
 		}
 
-		chunkTokens := req.PromptTokens[req.PrefilledTokens : req.PrefilledTokens+chunkSize]
+		chunkTokens := append([]int32(nil), req.PromptTokens[req.PrefilledTokens:req.PrefilledTokens+chunkSize]...)
 		isLast := (req.PrefilledTokens + chunkSize) >= len(req.PromptTokens)
 
 		iter.PrefillChunks = append(iter.PrefillChunks, cudakv.PrefillChunk{
@@ -271,6 +274,7 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 			RowIndex:        len(iter.AllocatedRows),
 			SeqID:           req.ID,
 			IsPrefill:       true,
+			IsLastPrefill:   isLast,
 			Tokens:          chunkTokens,
 			StartPos:        req.PrefilledTokens,
 			SequenceLength:  req.PrefilledTokens + chunkSize,
@@ -283,12 +287,23 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 		req.activeExecution = true
 	}
 
+	if len(iter.AllocatedRows) > 0 {
+		// Keep completion progress independent of caller-owned row slices.
+		rows := append([]BatchRowBinding(nil), iter.AllocatedRows...)
+		for i := range rows {
+			rows[i].Tokens = append([]int32(nil), rows[i].Tokens...)
+		}
+		s.inFlight = &ScheduledIteration{StepID: iter.StepID, AllocatedRows: rows}
+	}
 	return iter, nil
 }
 
 // CompleteStep updates request states after iteration execution completes.
 // It applies newly generated tokens, transitions completed prefills to decodes,
 // processes cancellations, and releases retained KV memory only after invocation is finished.
+// The caller must wait for execution to finish before calling CompleteStep. Final
+// prefill and decode rows need a token or row error; intermediate prefills need
+// no token. Invalid results leave the step outstanding for corrected completion.
 func (s *BatchScheduler) CompleteStep(iter *ScheduledIteration, generatedTokens map[string]int32, rowErrors map[string]error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -297,49 +312,73 @@ func (s *BatchScheduler) CompleteStep(iter *ScheduledIteration, generatedTokens 
 		return nil
 	}
 
-	// Process each row in the completed iteration
-	for _, row := range iter.AllocatedRows {
-		req, exists := s.requests[row.SeqID]
-		if !exists {
+	if s.inFlight == nil || iter.StepID != s.inFlight.StepID {
+		return fmt.Errorf("%w: no outstanding step %d", ErrInvalidRequest, iter.StepID)
+	}
+	rows := s.inFlight.AllocatedRows
+	byID := make(map[string]BatchRowBinding, len(rows))
+	for _, row := range rows {
+		byID[row.SeqID] = row
+	}
+	// Validate the entire result before committing any row. A missing or
+	// malformed result can be corrected without advancing request history.
+	for id := range generatedTokens {
+		row, ok := byID[id]
+		if !ok {
+			return fmt.Errorf("%w: unexpected token row %q", ErrInvalidRequest, id)
+		}
+		if !s.requests[id].cancelRequested && !rowNeedsSample(row) {
+			return fmt.Errorf("%w: intermediate prefill token for %q", ErrInvalidRequest, id)
+		}
+	}
+	for id, err := range rowErrors {
+		if _, ok := byID[id]; !ok || err == nil {
+			return fmt.Errorf("%w: invalid error row %q", ErrInvalidRequest, id)
+		}
+	}
+	for _, row := range rows {
+		req := s.requests[row.SeqID]
+		if req.cancelRequested || rowErrors[row.SeqID] != nil {
 			continue
 		}
-		req.activeExecution = false
+		if _, ok := generatedTokens[row.SeqID]; rowNeedsSample(row) && !ok {
+			return fmt.Errorf("%w: missing output row %q", ErrInvalidRequest, row.SeqID)
+		}
+	}
 
-		if rowErr, hasErr := rowErrors[row.SeqID]; hasErr && rowErr != nil {
+	for _, row := range rows {
+		req := s.requests[row.SeqID]
+		req.activeExecution = false
+		// Execution errors take precedence over cancellation, as before.
+		if rowErr := rowErrors[row.SeqID]; rowErr != nil {
 			req.err = rowErr
 			req.State = StateCompleted
 			req.completedAt = time.Now()
 			s.cleanupRequestResourcesLocked(req)
 			continue
 		}
-
-		// Handle cancellation that arrived while activeExecution was true
 		if req.cancelRequested {
 			req.State = StateCanceled
 			req.completedAt = time.Now()
 			s.cleanupRequestResourcesLocked(req)
 			continue
 		}
-
 		if row.IsPrefill {
-			// Advance prefill progress
 			req.PrefilledTokens += len(row.Tokens)
-			if req.PrefilledTokens >= len(req.PromptTokens) {
+			if row.IsLastPrefill {
 				req.State = StateDecoding
 			}
-		} else {
-			// Decode step
-			if tok, ok := generatedTokens[row.SeqID]; ok {
-				req.GeneratedTokens = append(req.GeneratedTokens, tok)
-				if req.MaxTokens > 0 && len(req.GeneratedTokens) >= req.MaxTokens {
-					req.State = StateCompleted
-					req.completedAt = time.Now()
-					s.cleanupRequestResourcesLocked(req)
-				}
+		}
+		if rowNeedsSample(row) {
+			req.GeneratedTokens = append(req.GeneratedTokens, generatedTokens[row.SeqID])
+			if req.MaxTokens > 0 && len(req.GeneratedTokens) >= req.MaxTokens {
+				req.State = StateCompleted
+				req.completedAt = time.Now()
+				s.cleanupRequestResourcesLocked(req)
 			}
 		}
 	}
-
+	s.inFlight = nil
 	return nil
 }
 

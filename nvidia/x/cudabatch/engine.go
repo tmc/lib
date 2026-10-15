@@ -19,7 +19,10 @@ type ExecutionStep struct {
 // ExecutionEngine models the low-level model forward execution (host test double or device plan).
 type ExecutionEngine interface {
 	// ExecuteForward executes a forward pass on the scheduled batch.
-	// It returns the newly sampled/generated token per row (for decode rows) and any row errors.
+	// On success execution is complete, with one sampled token or row error
+	// for each decode or IsLastPrefill row. Intermediate prefill rows
+	// must not produce tokens. An error retaining execution ownership must
+	// be settled before the caller completes the scheduler step.
 	ExecuteForward(ctx context.Context, step *ExecutionStep) (generatedTokens map[string]int32, rowErrors map[string]error, err error)
 }
 
@@ -43,6 +46,12 @@ func NewHostDeterministicEngine(delay time.Duration, outputSequence []int32) *Ho
 
 // ExecuteForward simulates executing a continuous batch iteration on host.
 func (e *HostDeterministicEngine) ExecuteForward(ctx context.Context, step *ExecutionStep) (map[string]int32, map[string]error, error) {
+	if ctx == nil {
+		return nil, nil, fmt.Errorf("cudabatch: nil context")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
 	if step == nil || step.Metadata == nil {
 		return nil, nil, fmt.Errorf("cudabatch: nil execution step or metadata")
 	}
@@ -61,6 +70,9 @@ func (e *HostDeterministicEngine) ExecuteForward(ctx context.Context, step *Exec
 		case <-time.After(e.delayPerStep):
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
 
 	e.mu.Lock()
 	e.stepCount++
@@ -71,7 +83,7 @@ func (e *HostDeterministicEngine) ExecuteForward(ctx context.Context, step *Exec
 	rowErrors := make(map[string]error)
 
 	for _, row := range step.Metadata.RowBindings {
-		if !row.IsPrefill {
+		if rowNeedsSample(row) {
 			// Generate deterministic next token
 			var tok int32 = int32(1000 + stepNum)
 			if len(e.outputSequence) > 0 {

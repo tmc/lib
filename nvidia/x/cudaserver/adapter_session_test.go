@@ -24,7 +24,8 @@ func TestAdapterRecomputesSessionPrompt(t *testing.T) {
 			for _, row := range step.Iteration.AllocatedRows {
 				if row.IsPrefill {
 					prefills = append(prefills, row.Tokens...)
-				} else {
+				}
+				if !row.IsPrefill || row.IsLastPrefill {
 					result[row.SeqID] = 201
 				}
 			}

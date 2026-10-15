@@ -123,7 +123,7 @@ func TestBindingAdmissionRows(t *testing.T) {
 func TestBindingAdmissionDecodeProducer(t *testing.T) {
 	allocator := cudakv.NewBlockAllocator(4, 8)
 	scheduler := cudabatch.NewBatchScheduler(cudabatch.SchedulerConfig{MaxBatchSize: 1, MaxBudgetTokens: 2, ChunkSize: 2}, cudabatch.NewMemoryBudgetTracker(allocator))
-	req := &cudabatch.Request{ID: "decode", PromptTokens: []int32{10, 11}, MaxTokens: 3}
+	req := &cudabatch.Request{ID: "decode", PromptTokens: []int32{10, 11}, MaxTokens: 4}
 	if err := scheduler.Submit(req); err != nil {
 		t.Fatal(err)
 	}
@@ -131,10 +131,10 @@ func TestBindingAdmissionDecodeProducer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := scheduler.CompleteStep(prefill, nil, nil); err != nil {
+	if err := scheduler.CompleteStep(prefill, map[string]int32{"decode": 41}, nil); err != nil {
 		t.Fatal(err)
 	}
-	for i, want := range []int32{11, 42} {
+	for i, want := range []int32{41, 42} {
 		iteration, err := scheduler.Schedule()
 		if err != nil {
 			t.Fatal(err)
@@ -149,7 +149,7 @@ func TestBindingAdmissionDecodeProducer(t *testing.T) {
 		}
 		// A detached row token must not overwrite either retained source slice.
 		row.Tokens[0] = 99
-		if req.PromptTokens[1] != 11 || i > 0 && req.GeneratedTokens[0] != 42 {
+		if req.PromptTokens[1] != 11 || i > 0 && req.GeneratedTokens[0] != 41 {
 			t.Fatal("decode row aliases retained tokens")
 		}
 		if err := scheduler.CompleteStep(iteration, map[string]int32{"decode": 42}, nil); err != nil {
