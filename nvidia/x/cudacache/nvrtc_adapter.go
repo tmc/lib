@@ -139,7 +139,7 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 			return nil, false, err
 		}
 		if heal {
-			if err := c.evictEntry(key, m.ArtifactKey); err != nil {
+			if err := c.evictEntry(key, data, m.ArtifactKey); err != nil {
 				return nil, false, fmt.Errorf("cudacache: %w", err)
 			}
 		}

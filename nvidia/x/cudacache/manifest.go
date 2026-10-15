@@ -1,6 +1,7 @@
 package cudacache
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -67,6 +68,8 @@ func (c *Cache) writeManifest(m Manifest) error {
 		return fmt.Errorf("write manifest: %w", err)
 	}
 	path := c.manifestPath(m.Key)
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("write manifest: %w", err)
 	}
@@ -105,9 +108,15 @@ func checkManifest(key string, data []byte) (Manifest, error) {
 	return m, nil
 }
 
-// quarantineEntry moves the manifest for key, and the artifact it names if
-// artifactKey is valid, to quarantine and drops the artifact from memory.
+// quarantineEntry moves the inspected manifest and its artifact to quarantine,
+// unless a newer manifest has been published since the inspection.
 func (c *Cache) quarantineEntry(key string, manifest []byte, artifactKey string) {
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
+	current, err := readFileBounded(c.manifestPath(key), c.maxArtifactBytes)
+	if err != nil || !bytes.Equal(current, manifest) {
+		return
+	}
 	c.quarantine(key, manifest, c.manifestPath(key))
 	if validateKey(artifactKey) != nil {
 		return
@@ -118,8 +127,21 @@ func (c *Cache) quarantineEntry(key string, manifest []byte, artifactKey string)
 	c.quarantine(artifactKey, data, path)
 }
 
-// evictEntry removes the manifest for key and the artifact it names.
-func (c *Cache) evictEntry(key, artifactKey string) error {
+// evictEntry removes the inspected manifest and the artifact it names,
+// unless a newer manifest has been published since the inspection.
+func (c *Cache) evictEntry(key string, manifest []byte, artifactKey string) error {
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
+	current, err := readFileBounded(c.manifestPath(key), c.maxArtifactBytes)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read manifest before eviction: %w", err)
+	}
+	if !bytes.Equal(current, manifest) {
+		return nil
+	}
 	c.evictMemory(artifactKey)
 	if err := os.Remove(c.manifestPath(key)); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("evict manifest: %w", err)
