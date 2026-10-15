@@ -332,18 +332,78 @@ func PackMXFP4(src []float32, rows, cols int, groupSize int) (*PrepackedTensor, 
 	}, nil
 }
 
-// DequantizeMXFP4 unpacks pre-packed MXFP4 tiles and scales into dst.
-func DequantizeMXFP4(p *PrepackedTensor, groupSize int, dst []float32) error {
-	if p.Type != TypeMXFP4 {
-		return fmt.Errorf("cudaprepack: tensor type is %s, want MXFP4", p.Type)
+type quantizedLayout struct {
+	rows, cols, stride int
+}
+
+// decoderLayout validates the row-major host layout used by these decoders.
+// Transfer box dimensions, device addresses and target architecture do not
+// change the host byte layout and are not tensor-map validation here.
+func decoderLayout(p *PrepackedTensor, types ...DataType) (quantizedLayout, error) {
+	if p == nil {
+		return quantizedLayout{}, fmt.Errorf("cudaprepack: nil quantized tensor")
 	}
-	cols := int(p.BoxDesc.GlobalDims[0])
-	rows := int(p.BoxDesc.GlobalDims[1])
-	paddedRowStride := int(p.BoxDesc.GlobalStrides[0])
+	validType := false
+	for _, dt := range types {
+		validType = validType || p.Type == dt
+	}
+	b := p.BoxDesc
+	if !validType || b.DataType != p.Type || b.Rank != 2 || b.GlobalDims[2] != 1 {
+		return quantizedLayout{}, fmt.Errorf("cudaprepack: invalid quantized tensor dimensions or type")
+	}
+	if b.Swizzle != SwizzleNone || b.Interleave != InterleaveNone || b.ElementStrides != [3]uint32{1, 1, 1} || b.GlobalStrides[1] != 0 || b.GlobalStrides[2] != 0 || len(p.Metadata) != 0 {
+		return quantizedLayout{}, fmt.Errorf("cudaprepack: unsupported quantized host layout")
+	}
+	if b.GlobalDims[0] == 0 || b.GlobalDims[1] == 0 || b.GlobalDims[0] > uint64(math.MaxInt) || b.GlobalDims[1] > uint64(math.MaxInt) || b.GlobalStrides[0] <= 0 || uint64(b.GlobalStrides[0]) > uint64(math.MaxInt) {
+		return quantizedLayout{}, fmt.Errorf("cudaprepack: quantized extent cannot be represented")
+	}
+	l := quantizedLayout{rows: int(b.GlobalDims[1]), cols: int(b.GlobalDims[0]), stride: int(b.GlobalStrides[0])}
+	if l.stride%MinAddressAlignment != 0 {
+		return quantizedLayout{}, fmt.Errorf("cudaprepack: quantized row stride is not aligned")
+	}
+	return l, nil
+}
+
+func (l quantizedLayout) checkData(p *PrepackedTensor, rowBytes, scaleBytes int) error {
+	if l.stride < rowBytes {
+		return fmt.Errorf("cudaprepack: quantized row stride is too small")
+	}
+	payloadBytes, ok := checkedMul(l.rows, l.stride)
+	if !ok {
+		return fmt.Errorf("cudaprepack: quantized payload extent overflows")
+	}
+	if len(p.Payload) < payloadBytes || len(p.Scales) < scaleBytes {
+		return fmt.Errorf("cudaprepack: quantized payload or scales are truncated")
+	}
+	return nil
+}
+
+// DequantizeMXFP4 unpacks row-major MXFP4 payload and contiguous scales into dst.
+// groupSize must match the encoding and be a positive multiple of 32. Swizzled,
+// interleaved and sparse host layouts are unsupported. Invalid input leaves dst unchanged.
+func DequantizeMXFP4(p *PrepackedTensor, groupSize int, dst []float32) error {
+	l, err := decoderLayout(p, TypeMXFP4)
+	if err != nil {
+		return err
+	}
+	cols, rows, paddedRowStride := l.cols, l.rows, l.stride
+	if groupSize <= 0 || groupSize%32 != 0 || cols%groupSize != 0 {
+		return fmt.Errorf("cudaprepack: MXFP4 columns must be divisible by a positive group size multiple of 32")
+	}
 	numGroupsPerRow := cols / groupSize
 	bytesPerGroup := groupSize / 2
-
-	if len(dst) < rows*cols {
+	elements, ok := checkedMul(rows, cols)
+	if !ok || elements > math.MaxInt/4 {
+		return fmt.Errorf("cudaprepack: MXFP4 output extent overflows")
+	}
+	scaleBytes, ok := checkedMul(rows, numGroupsPerRow, 2)
+	if !ok {
+		return fmt.Errorf("cudaprepack: MXFP4 scale extent overflows")
+	}
+	if err := l.checkData(p, cols/2, scaleBytes); err != nil {
+		return err
+	}
+	if len(dst) < elements {
 		return fmt.Errorf("cudaprepack: destination slice too short")
 	}
 
@@ -534,18 +594,31 @@ func RepackIQ2_XXS(rawBlocks []byte, rows, cols int) (*PrepackedTensor, error) {
 	}, nil
 }
 
-// UnpackIQ2_XXS unpacks pre-packed IQ2_XXS back to standard 66-byte blocks.
+// UnpackIQ2_XXS unpacks row-major IQ2_XXS payload and contiguous scales back to
+// standard 66-byte blocks. Swizzled, interleaved and sparse host layouts are unsupported.
 func UnpackIQ2_XXS(p *PrepackedTensor) ([]byte, error) {
-	if p.Type != TypeIQ2_XXS {
-		return nil, fmt.Errorf("cudaprepack: tensor type is %s, want IQ2_XXS", p.Type)
+	l, err := decoderLayout(p, TypeIQ2_XXS)
+	if err != nil {
+		return nil, err
 	}
-	cols := int(p.BoxDesc.GlobalDims[0])
-	rows := int(p.BoxDesc.GlobalDims[1])
-	paddedRowStride := int(p.BoxDesc.GlobalStrides[0])
+	cols, rows, paddedRowStride := l.cols, l.rows, l.stride
+	if cols%256 != 0 {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS columns must be divisible by 256")
+	}
 	numBlocksPerRow := cols / 256
-	totalBlocks := rows * numBlocksPerRow
-
-	out := make([]byte, totalBlocks*66)
+	totalBlocks, ok := checkedMul(rows, numBlocksPerRow)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS block count overflows")
+	}
+	rawBytes, ok := checkedMul(totalBlocks, 66)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS output extent overflows")
+	}
+	// The scale extent is smaller than the checked 66-byte block extent.
+	if err := l.checkData(p, cols/4, totalBlocks*2); err != nil {
+		return nil, err
+	}
+	out := make([]byte, rawBytes)
 	for r := 0; r < rows; r++ {
 		for b := 0; b < numBlocksPerRow; b++ {
 			blkIdx := r*numBlocksPerRow + b
@@ -633,16 +706,22 @@ func QuantizeFP8(src []float32, rows, cols int, dt DataType) (*PrepackedTensor, 
 	}, nil
 }
 
-// DequantizeFP8 converts prepacked FP8 matrix back to float32.
+// DequantizeFP8 converts a row-major FP8 matrix back to float32. Swizzled,
+// interleaved and sparse host layouts are unsupported. Invalid input leaves dst unchanged.
 func DequantizeFP8(p *PrepackedTensor, dst []float32) error {
-	if p.Type != TypeFP8_E4M3 && p.Type != TypeFP8_E5M2 {
-		return fmt.Errorf("cudaprepack: tensor type is %s, want FP8", p.Type)
+	l, err := decoderLayout(p, TypeFP8_E4M3, TypeFP8_E5M2)
+	if err != nil {
+		return err
 	}
-	cols := int(p.BoxDesc.GlobalDims[0])
-	rows := int(p.BoxDesc.GlobalDims[1])
-	paddedRowStride := int(p.BoxDesc.GlobalStrides[0])
-
-	if len(dst) < rows*cols {
+	cols, rows, paddedRowStride := l.cols, l.rows, l.stride
+	elements, ok := checkedMul(rows, cols)
+	if !ok || elements > math.MaxInt/4 {
+		return fmt.Errorf("cudaprepack: FP8 output extent overflows")
+	}
+	if err := l.checkData(p, cols, 0); err != nil {
+		return err
+	}
+	if len(dst) < elements {
 		return fmt.Errorf("cudaprepack: destination slice too short")
 	}
 
