@@ -1,0 +1,6 @@
+Commit: e38ed5fc3341898cc69ce558ecfa140002366d90
+Date: 2026-10-15T02:50:13-07:00
+session=92385c74-9d24-496f-8b25-f083f27c346b model=claude-opus-5-5
+Gate pool-v3 (L4): 6 partitions x2 exact, repeat identical; carry-zero/tail-current rc1 :111; err-valid/drain-keep rc1 at :207/:213 Fatals; error/drain/Reset control passed. Verifier and parent review accepted. Receipt: /Users/tmc/tmp/ds4-min/20261011-claude-takeover/v41-cuda-pool-v3.
+Landing checks (/Users/tmc/tmp/ds4-min/20261011-claude-takeover/v41-cuda-land): vet linux+darwin rc0, TestOracleGate* rc0, gofmt clean at this commit.
+Scope: synthetic SM89 scalar basis on L4 ds4-min-l4-qual-20261014; full-graph/model/optimized-C/GB10 parity open.
