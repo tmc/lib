@@ -7,7 +7,9 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
+	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -131,11 +133,14 @@ func TestModulesCloseRetains(t *testing.T) {
 }
 
 // ownerReturning names the constructors this package calls that can
-// return an owner, to release, together with an error.
+// return an owner, to release, together with an error. The value reports
+// whether the owner is a pointer, nil when nothing is held: Free on a nil
+// *GPUScratchpad or *GPUModelWeights and Close on a nil *GPUModules
+// panic, so its release must be guarded by "if owner != nil".
 var ownerReturning = map[string]bool{
 	"uploadModel": true, "UploadModelToGPU": true, "NewGPUScratchpad": true,
 	"CompileGPUModules": true, "compileGPUModules": true,
-	"cudakv.New": true, "cudamem.Alloc": true,
+	"cudakv.New": true, "cudamem.Alloc": false,
 }
 
 // calleeName returns the name of the function call calls, as pkg.Name for
@@ -156,10 +161,13 @@ func calleeName(call *ast.CallExpr) string {
 	return ""
 }
 
-// releasesFirst checks every call in src to an ownerReturning constructor:
-// a statement releasing the owner (calling its Free or Close, directly or
-// in a deferred or registered function) must come after the call and
-// before the first statement that examines the error.
+// releasesFirst counts the calls in src to an ownerReturning constructor,
+// in any form, and checks each "owner, err := ctor(...)" or "owner, err =
+// ctor(...)" statement: owner and err must be named, and the next
+// statement must register a release of owner (see registersRelease), so
+// that an owner returned with an error is released before anything else
+// runs. Calls in other forms, such as "return ctor(...)", are counted but
+// not checked.
 func releasesFirst(name, src string) (calls int, bad []string, err error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, 0)
@@ -167,6 +175,11 @@ func releasesFirst(name, src string) (calls int, bad []string, err error) {
 		return 0, nil, err
 	}
 	ast.Inspect(f, func(n ast.Node) bool {
+		if call, ok := n.(*ast.CallExpr); ok {
+			if _, ok := ownerReturning[calleeName(call)]; ok {
+				calls++
+			}
+		}
 		block, ok := n.(*ast.BlockStmt)
 		if !ok {
 			return true
@@ -177,30 +190,27 @@ func releasesFirst(name, src string) (calls int, bad []string, err error) {
 				continue
 			}
 			call, ok := as.Rhs[0].(*ast.CallExpr)
-			if !ok || !ownerReturning[calleeName(call)] {
+			if !ok {
 				continue
 			}
-			calls++
+			ctor := calleeName(call)
+			nilable, ok := ownerReturning[ctor]
+			if !ok {
+				continue
+			}
+			pos := fset.Position(as.Pos())
 			owner, _ := as.Lhs[0].(*ast.Ident)
 			errv, _ := as.Lhs[1].(*ast.Ident)
-			if owner == nil || owner.Name == "_" || errv == nil {
-				bad = append(bad, fmt.Sprintf("%v: %s owner or error discarded", fset.Position(as.Pos()), calleeName(call)))
+			if owner == nil || owner.Name == "_" || errv == nil || errv.Name == "_" {
+				bad = append(bad, fmt.Sprintf("%v: %s owner or error discarded", pos, ctor))
 				continue
 			}
-			released := false
-			for _, next := range block.List[i+1:] {
-				// A registered release may mention a shadowing err of its
-				// own, so it is recognized before the error check is.
-				if registersRelease(next, owner.Name) {
-					released = true
-					break
+			if i+1 >= len(block.List) || !registersRelease(block.List[i+1], owner.Name, nilable) {
+				guard := ""
+				if nilable {
+					guard = fmt.Sprintf(" under \"if %s != nil\"", owner.Name)
 				}
-				if mentions(next, errv.Name) {
-					break
-				}
-			}
-			if !released {
-				bad = append(bad, fmt.Sprintf("%v: %s owner %s not released before %s is examined", fset.Position(as.Pos()), calleeName(call), owner.Name, errv.Name))
+				bad = append(bad, fmt.Sprintf("%v: %s owner %s not released%s in the next statement", pos, ctor, owner.Name, guard))
 			}
 		}
 		return true
@@ -210,8 +220,25 @@ func releasesFirst(name, src string) (calls int, bad []string, err error) {
 
 // registersRelease reports whether stmt arranges for owner to be released
 // on every path out of the function: a defer or t.Cleanup whose call
-// releases it, or "if owner != nil" whose body is such a statement.
-func registersRelease(stmt ast.Stmt, owner string) bool {
+// releases it, or, if nilable, only "if owner != nil" whose body is
+// such a statement.
+func registersRelease(stmt ast.Stmt, owner string, nilable bool) bool {
+	if nilable {
+		s, ok := stmt.(*ast.IfStmt)
+		if !ok || s.Init != nil || s.Else != nil || len(s.Body.List) != 1 {
+			return false
+		}
+		cond, ok := s.Cond.(*ast.BinaryExpr)
+		if !ok || cond.Op != token.NEQ {
+			return false
+		}
+		x, xok := cond.X.(*ast.Ident)
+		y, yok := cond.Y.(*ast.Ident)
+		if !xok || !yok || x.Name != owner || y.Name != "nil" {
+			return false
+		}
+		stmt = s.Body.List[0]
+	}
 	switch s := stmt.(type) {
 	case *ast.DeferStmt:
 		return callReleases(s.Call, owner)
@@ -226,17 +253,6 @@ func registersRelease(stmt ast.Stmt, owner string) bool {
 		}
 		lit, ok := call.Args[0].(*ast.FuncLit)
 		return ok && bodyReleases(lit.Body, owner)
-	case *ast.IfStmt:
-		if s.Init != nil || s.Else != nil || len(s.Body.List) != 1 {
-			return false
-		}
-		cond, ok := s.Cond.(*ast.BinaryExpr)
-		if !ok || cond.Op != token.NEQ {
-			return false
-		}
-		x, xok := cond.X.(*ast.Ident)
-		y, yok := cond.Y.(*ast.Ident)
-		return xok && yok && x.Name == owner && y.Name == "nil" && registersRelease(s.Body.List[0], owner)
 	}
 	return false
 }
@@ -296,45 +312,165 @@ func mentions(n ast.Node, name string) bool {
 	return found
 }
 
-// TestCallersReleaseReturnedOwners checks every call to a constructor that
-// can return an owner with an error in main.go and the three CUDA test files,
-// which hold all such calls in this package.
-func TestCallersReleaseReturnedOwners(t *testing.T) {
-	for _, tt := range []struct {
-		file  string
-		calls int
-	}{
-		{"main.go", 4},
-		{"fused_parity_cuda_test.go", 6},
-		{"bf16_parity_cuda_test.go", 6},
-		{"profile_cuda_test.go", 2},
-	} {
-		src, err := os.ReadFile(tt.file)
+// scanDir runs check on every .go file in dir except those named in skip,
+// whatever their build constraints, and returns the count check reports
+// for each file, omitting zeros, and the problems it reports.
+func scanDir(dir string, check func(name, src string) (int, []string, error), skip ...string) (map[string]int, []string, error) {
+	paths, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		return nil, nil, err
+	}
+	counts := make(map[string]int)
+	var bad []string
+	for _, p := range paths {
+		name := filepath.Base(p)
+		if slices.Contains(skip, name) {
+			continue
+		}
+		src, err := os.ReadFile(p)
 		if err != nil {
-			t.Fatal(err)
+			return nil, nil, err
 		}
-		calls, bad, err := releasesFirst(tt.file, string(src))
+		n, b, err := check(name, string(src))
 		if err != nil {
-			t.Fatal(err)
+			return nil, nil, err
 		}
-		if calls != tt.calls {
-			t.Errorf("%s: %d constructor calls, want %d", tt.file, calls, tt.calls)
+		if n > 0 {
+			counts[name] = n
 		}
-		for _, b := range bad {
-			t.Error(b)
+		bad = append(bad, b...)
+	}
+	return counts, bad, nil
+}
+
+// countDiffs returns, sorted by file, each file whose count in got
+// differs from its count in want, a missing file counting zero.
+func countDiffs(got, want map[string]int) []string {
+	names := slices.Concat(slices.Collect(maps.Keys(got)), slices.Collect(maps.Keys(want)))
+	slices.Sort(names)
+	var diffs []string
+	for _, name := range slices.Compact(names) {
+		if got[name] != want[name] {
+			diffs = append(diffs, fmt.Sprintf("%s: %d calls, want %d", name, got[name], want[name]))
 		}
 	}
+	return diffs
+}
+
+// packageWith returns a temporary directory holding a copy of every .go
+// file in the package and a file name with contents src.
+func packageWith(t *testing.T, name, src string) string {
+	t.Helper()
+	dir := t.TempDir()
+	paths, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range paths {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, p), b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// isExtra reports whether a problem is in the file packageWith adds.
+func isExtra(problem string) bool { return strings.HasPrefix(problem, "extra.go:") }
+
+// ownerCalls counts, by file, the calls to an ownerReturning constructor
+// in the package. A call added in any file, in any form, changes a count,
+// and must be reviewed before the count is updated here.
+var ownerCalls = map[string]int{
+	"main.go":                   4,
+	"fused_parity_cuda_test.go": 6,
+	"bf16_parity_cuda_test.go":  6,
+	"profile_cuda_test.go":      2,
+	// The constructors themselves: "return ctor(...)", and allocations
+	// assigned straight into the owner they return, which this check
+	// counts but does not inspect.
+	"gpu_kernels.go":  1,
+	"gpu_model.go":    5,
+	"weights_bf16.go": 2,
+}
+
+// TestCallersReleaseReturnedOwners checks every call to a constructor that
+// can return an owner with an error, in every .go file of the package.
+func TestCallersReleaseReturnedOwners(t *testing.T) {
+	got, bad, err := scanDir(".", releasesFirst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range countDiffs(got, ownerCalls) {
+		t.Error(d)
+	}
+	for _, b := range bad {
+		t.Error(b)
+	}
+
+	// Must-fail controls: a call in a file the count does not list is
+	// caught, by its count if it releases its owner and by the check too
+	// if it does not.
 	for _, tt := range []struct {
 		name, body string
 		bad        bool
 	}{
-		{"positive control: release registered first", `
+		{"released", "kv, err := cudakv.New(dev, 1, 1, 1, 1)\nif kv != nil {\ndefer kv.Close()\n}\nreturn err", false},
+		{"error first", "kv, err := cudakv.New(dev, 1, 1, 1, 1)\nif err != nil {\nreturn err\n}\nreturn kv.Close()", true},
+		{"returned", "return NewGPUScratchpad(dev, cfg)", false},
+	} {
+		dir := packageWith(t, "extra.go", "package main\nfunc f() error {\n"+tt.body+"\n}\n")
+		got, bad, err := scanDir(dir, releasesFirst)
+		if err != nil {
+			t.Fatalf("unlisted file, %s: %v", tt.name, err)
+		}
+		if d := countDiffs(got, ownerCalls); !slices.Contains(d, "extra.go: 1 calls, want 0") {
+			t.Errorf("unlisted file, %s: count differences %q, want extra.go's", tt.name, d)
+		}
+		if flagged := slices.ContainsFunc(bad, isExtra); flagged != tt.bad {
+			t.Errorf("unlisted file, %s: %q, want extra.go flagged %v", tt.name, bad, tt.bad)
+		}
+	}
+
+	for _, tt := range []struct {
+		name, body string
+		bad        bool
+	}{
+		{"positive control: release registered first, any error name", `
 		kv, e := cudakv.New(dev, 1, 1, 1, 1)
 		if kv != nil {
 			defer kv.Close()
 		}
 		if e != nil {
 			return e
+		}`, false},
+		{"positive control: deferred literal reporting the error", `
+		sp, err := NewGPUScratchpad(dev, cfg)
+		if sp != nil {
+			defer func() {
+				if err := sp.Free(); err != nil {
+					log(err)
+				}
+			}()
+		}
+		if err != nil {
+			return err
+		}`, false},
+		{"positive control: t.Cleanup reporting the error", `
+		s, err := cudamem.Alloc[int32](dev, 1)
+		t.Cleanup(func() {
+			if err := s.Free(); err != nil {
+				t.Error(err)
+			}
+		})
+		if err != nil {
+			t.Fatal(err)
 		}`, false},
 		{"error examined first", `
 		kv, err := cudakv.New(dev, 1, 1, 1, 1)
@@ -354,9 +490,46 @@ func TestCallersReleaseReturnedOwners(t *testing.T) {
 		if err != nil {
 			return err
 		}`, true},
+		{"guard releases another owner", `
+		sp, err := NewGPUScratchpad(dev, cfg)
+		if sp != nil {
+			defer gw.Free()
+		}`, true},
+		{"guard without a release", `
+		sp, err := NewGPUScratchpad(dev, cfg)
+		if sp != nil {
+			_ = sp
+		}`, true},
 		{"owner discarded", `
 		_, err := NewGPUScratchpad(dev, cfg)
 		return err`, true},
+		{"error discarded", `
+		sp, _ := NewGPUScratchpad(dev, cfg)
+		if sp != nil {
+			defer sp.Free()
+		}`, true},
+		{"assignment, not declaration", `
+		gw, err = uploadModel(dev, w, cfg, dtype)
+		return err`, true},
+		{"nilable owner released unguarded", `
+		sp, err := NewGPUScratchpad(dev, cfg)
+		defer func() { _ = sp.Free() }()
+		if err != nil {
+			return err
+		}`, true},
+		{"statement before the release", `
+		kv, err := cudakv.New(dev, 1, 1, 1, 1)
+		if done {
+			return nil
+		}
+		if kv != nil {
+			defer kv.Close()
+		}`, true},
+		{"guarded release not deferred", `
+		sp, err := NewGPUScratchpad(dev, cfg)
+		if sp != nil {
+			sp.Free()
+		}`, true},
 		{"release only in the else branch", `
 		kv, err := cudakv.New(dev, 1, 1, 1, 1)
 		if err != nil {
@@ -377,29 +550,17 @@ func TestCallersReleaseReturnedOwners(t *testing.T) {
 		}
 		release()`, true},
 		{"method value, not a call", `
-		kv, err := cudakv.New(dev, 1, 1, 1, 1)
-		_ = kv.Close
-		if err != nil {
-			return err
+		sp, err := NewGPUScratchpad(dev, cfg)
+		if sp != nil {
+			defer func() { _ = sp.Free }()
 		}`, true},
 		{"release under if false", `
 		kv, err := cudakv.New(dev, 1, 1, 1, 1)
-		if false {
-			defer kv.Close()
-		}
-		if err != nil {
-			return err
-		}`, true},
-		{"positive control: t.Cleanup reporting the error", `
-		s, err := cudamem.Alloc[int32](dev, 1)
-		t.Cleanup(func() {
-			if err := s.Free(); err != nil {
-				t.Error(err)
+		if kv != nil {
+			if false {
+				defer kv.Close()
 			}
-		})
-		if err != nil {
-			t.Fatal(err)
-		}`, false},
+		}`, true},
 	} {
 		src := "package p\nfunc f() error {\n" + tt.body + "\nreturn nil\n}\n"
 		calls, bad, err := releasesFirst("control.go", src)
@@ -496,34 +657,57 @@ func TestReleaseErrorOwner(t *testing.T) {
 	}
 }
 
-// TestCallErrorsReleased checks that every module compile and load in
-// the program passes its error through releaseErrorOwner. gen.go, which
-// builds alone, is checked by TestGenReleasesCompileError.
+// loadCalls counts, by file, the module compiles and loads in the
+// package, except gen.go's, which TestGenReleasesCompileError checks: gen.go
+// builds alone and cannot call releaseErrorOwner.
+var loadCalls = map[string]int{
+	"main.go":                   5,
+	"fused_parity_cuda_test.go": 4,
+	"bf16_parity_cuda_test.go":  4,
+	"gpu_kernels.go":            2,
+}
+
+// TestCallErrorsReleased checks that every module compile and load in the
+// package passes its error through releaseErrorOwner.
 func TestCallErrorsReleased(t *testing.T) {
+	got, bad, err := scanDir(".", callErrorsReleased, "gen.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range countDiffs(got, loadCalls) {
+		t.Error(d)
+	}
+	for _, b := range bad {
+		t.Error(b)
+	}
+
+	// Must-fail controls: gen.go is skipped by name only, and a load in a
+	// file the count does not list is caught, by its count whatever its
+	// form and by the check too if it returns the error unreleased.
+	if _, bad, err := scanDir(".", callErrorsReleased); err != nil || len(bad) == 0 {
+		t.Errorf("gen.go not skipped: %q, %v; want its compile flagged", bad, err)
+	}
 	for _, tt := range []struct {
-		file  string
-		loads int
+		name, body string
+		bad        bool
 	}{
-		{"main.go", 5},
-		{"fused_parity_cuda_test.go", 4},
-		{"bf16_parity_cuda_test.go", 4},
-		{"gpu_kernels.go", 2},
+		{"released", "m, err := c.Load(dev)\nif err != nil {\nreturn releaseErrorOwner(err)\n}\n_ = m\nreturn nil", false},
+		{"error returned unreleased", "m, err := c.Load(dev)\nif err != nil {\nreturn err\n}\n_ = m\nreturn nil", true},
+		{"returned", "return c.Load(dev)", false},
 	} {
-		src, err := os.ReadFile(tt.file)
+		dir := packageWith(t, "extra.go", "package main\nfunc f() error {\n"+tt.body+"\n}\n")
+		got, bad, err := scanDir(dir, callErrorsReleased, "gen.go")
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("unlisted file, %s: %v", tt.name, err)
 		}
-		loads, bad, err := callErrorsReleased(tt.file, string(src))
-		if err != nil {
-			t.Fatal(err)
+		if d := countDiffs(got, loadCalls); !slices.Contains(d, "extra.go: 1 calls, want 0") {
+			t.Errorf("unlisted file, %s: count differences %q, want extra.go's", tt.name, d)
 		}
-		if loads != tt.loads {
-			t.Errorf("%s: %d loads, want %d", tt.file, loads, tt.loads)
-		}
-		for _, b := range bad {
-			t.Error(b)
+		if flagged := slices.ContainsFunc(bad, isExtra); flagged != tt.bad {
+			t.Errorf("unlisted file, %s: %q, want extra.go flagged %v", tt.name, bad, tt.bad)
 		}
 	}
+
 	for _, tt := range []struct {
 		name, body string
 		bad        bool
@@ -541,8 +725,16 @@ func TestCallErrorsReleased(t *testing.T) {
 	}
 }
 
-// callErrorsReleased checks each "x, err := y.Load(...)" in src: the next
-// statement must be "if err != nil" whose body calls releaseErrorOwner(err).
+// isLoad reports whether call is a method or qualified call named Load or
+// Compile.
+func isLoad(call *ast.CallExpr) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	return ok && (sel.Sel.Name == "Load" || sel.Sel.Name == "Compile")
+}
+
+// callErrorsReleased counts the Load and Compile calls in src, in any form,
+// and checks each "x, err := y.Load(...)": the next statement must be
+// "if err != nil" whose body calls releaseErrorOwner(err).
 func callErrorsReleased(name, src string) (loads int, bad []string, err error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, 0)
@@ -550,6 +742,9 @@ func callErrorsReleased(name, src string) (loads int, bad []string, err error) {
 		return 0, nil, err
 	}
 	ast.Inspect(f, func(n ast.Node) bool {
+		if call, ok := n.(*ast.CallExpr); ok && isLoad(call) {
+			loads++
+		}
 		block, ok := n.(*ast.BlockStmt)
 		if !ok {
 			return true
@@ -563,10 +758,9 @@ func callErrorsReleased(name, src string) (loads int, bad []string, err error) {
 			if !ok {
 				continue
 			}
-			if sel, ok := call.Fun.(*ast.SelectorExpr); !ok || (sel.Sel.Name != "Load" && sel.Sel.Name != "Compile") {
+			if !isLoad(call) {
 				continue
 			}
-			loads++
 			errv, _ := as.Lhs[1].(*ast.Ident)
 			ok = errv != nil && i+1 < len(block.List) && releasesCallError(block.List[i+1], errv.Name)
 			if !ok {
