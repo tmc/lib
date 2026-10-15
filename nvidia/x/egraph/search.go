@@ -8,6 +8,7 @@ import (
 
 	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudair"
+	"github.com/tmc/lib/nvidia/x/cudashape"
 )
 
 // ErrActionEnumerationLimit reports that action enumeration stopped at its
@@ -471,7 +472,7 @@ func checkMandatoryTransition(s *SearchState, rule *Rewrite, target Id, subst Su
 		return ErrEffectBoundaryViolation
 	}
 	if strings.Contains(name, "vectorize_moe") {
-		if meta.Alignment < 16 {
+		if meta.Alignment < 16 || meta.Alignment%16 != 0 {
 			return ErrUnalignedVectorAccess
 		}
 		tokens, err := operandMetadata(s, subst, "?tokens")
@@ -487,6 +488,30 @@ func checkMandatoryTransition(s *SearchState, rule *Rewrite, target Id, subst Su
 		}
 		if !integerType(indices.DType) {
 			return fmt.Errorf("%w: gather indices must be integer", ErrIncompatibleDType)
+		}
+		// An aligned result does not establish alignment of vector loads from
+		// the token rows. Require both the base and every row stride to preserve
+		// the 16-byte source alignment; other layouts need a separate proof.
+		if tokens.Alignment < 16 || tokens.Alignment%16 != 0 {
+			return ErrUnalignedVectorAccess
+		}
+		if tokens.Shape.Rank() != 2 || tokens.Layout != cudashape.LayoutRowMajor {
+			return ErrInvalidRewriteProof
+		}
+		if tokens.DType < cudair.Float32 || tokens.DType > cudair.Int8 {
+			return ErrIncompatibleDType
+		}
+		if tokens.DType != meta.DType {
+			return ErrIncompatibleDType
+		}
+		if indices.Shape.Rank() != 1 || indices.Layout != cudashape.LayoutRowMajor ||
+			meta.Shape.Rank() != 2 || meta.Layout != cudashape.LayoutRowMajor ||
+			meta.Shape.Dim(0) != indices.Shape.Dim(0) || meta.Shape.Dim(1) != tokens.Shape.Dim(1) {
+			return ErrInvalidRewriteProof
+		}
+		width := tokens.Shape.Dim(1)
+		if width < 1 || width%(16/tokens.DType.SizeBytes()) != 0 {
+			return ErrUnalignedVectorAccess
 		}
 		return nil
 	}

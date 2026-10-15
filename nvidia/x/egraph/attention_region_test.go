@@ -1,9 +1,11 @@
 package egraph
 
 import (
+	"errors"
 	"math"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
@@ -52,18 +54,17 @@ func TestCheckedOnlineAttentionCandidateShapes(t *testing.T) {
 	}{
 		{"scores", map[string][]int{"scores": {2, 1}}, false},
 		{"values", map[string][]int{"values": {1, 2}}, false},
-		{"maximum", map[string][]int{"max": {2}}, true},
-		{"maximum_rank_zero", map[string][]int{"max": {}}, true},
+		{"maximum", map[string][]int{"max": {2}}, false},
+		{"maximum_rank_zero", map[string][]int{"max": {}}, false},
 		{"shifted", map[string][]int{"sub": {1, 2}}, false},
 		{"exponential", map[string][]int{"exp": {1, 2}}, false},
-		{"denominator", map[string][]int{"sum": {2}}, true},
-		{"denominator_rank_zero", map[string][]int{"sum": {}}, true},
+		{"denominator", map[string][]int{"sum": {2}}, false},
+		{"denominator_rank_zero", map[string][]int{"sum": {}}, false},
 		{"probabilities", map[string][]int{"div": {1, 2}}, false},
 		{"reshape", map[string][]int{"reshape": {2, 1}}, false},
-		{"output", map[string][]int{"out": {2, 1}}, true},
-		// Unary semantics do not check shape. The division uses that shape,
-		// so changing both reaches the constructor with a valid snapshot.
-		{"exponential_and_probabilities", map[string][]int{"exp": {1, 2}, "div": {1, 2}}, true},
+		{"output", map[string][]int{"out": {2, 1}}, false},
+		// The current semantic authority checks unary shapes as well.
+		{"exponential_and_probabilities", map[string][]int{"exp": {1, 2}, "div": {1, 2}}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			g, roles := attentionRegionGraph(2, 2)
@@ -75,7 +76,11 @@ func TestCheckedOnlineAttentionCandidateShapes(t *testing.T) {
 				t.Fatalf("snapshot admission = %v, want %v: %v", err == nil, test.snapshotValid, err)
 			}
 			if err != nil {
-				// The original graph authority refuses this malformed shape.
+				// The current graph authority refuses malformed shapes before
+				// an immutable snapshot can reach the candidate constructor.
+				if !errors.Is(err, cudair.ErrShapeMismatch) {
+					t.Fatalf("unexpected shape refusal: %v", err)
+				}
 				return
 			}
 			inputs := map[string][]float32{"scores": {0, 0}, "values": {3, 5, -1, -3}}
@@ -101,7 +106,13 @@ func TestCheckedOnlineAttentionCandidateRoleMetadata(t *testing.T) {
 		t.Run(role, func(t *testing.T) {
 			g, roles := attentionRegionGraph(2, 1)
 			roles[role].Layout = cudashape.LayoutColumnMajor
-			snapshot := attentionRegionSnapshot(t, g)
+			snapshot, err := g.Snapshot()
+			if err != nil {
+				if !strings.Contains(err.Error(), "unsupported layout column-major") {
+					t.Fatalf("unexpected layout refusal: %v", err)
+				}
+				return
+			}
 			if _, err := NewCheckedOnlineAttentionCandidate(snapshot, map[string][]float32{"scores": {0, 0}, "values": {3, -1}}, 1, AttentionCandidatePolicy{}); err == nil {
 				t.Fatal("unsupported matched layout admitted")
 			}
@@ -110,14 +121,21 @@ func TestCheckedOnlineAttentionCandidateRoleMetadata(t *testing.T) {
 }
 
 // Retain both independent reproducers with their original exact inputs. The
-// malformed reduction snapshots must reach the public candidate constructor.
+// current semantic validator may refuse malformed reductions before snapshot
+// construction. Retain that explicit refusal without bypassing its authority.
 func TestCheckedOnlineAttentionCandidateIndependentReductionShapeRefusal(t *testing.T) {
 	for _, role := range []string{"max", "sum"} {
 		t.Run(role, func(t *testing.T) {
 			g, roles := attentionRegionGraph(2, 1)
 			roles[role].Shape = []int{2}
 			roles[role].Strides = []int{1}
-			snapshot := attentionRegionSnapshot(t, g)
+			snapshot, err := g.Snapshot()
+			if err != nil {
+				if !errors.Is(err, cudair.ErrShapeMismatch) {
+					t.Fatalf("unexpected reduction refusal: %v", err)
+				}
+				return
+			}
 			candidate, err := NewCheckedOnlineAttentionCandidate(snapshot, map[string][]float32{"scores": {0, 0}, "values": {3, -1}}, 1, AttentionCandidatePolicy{})
 			if err == nil {
 				t.Fatalf("malformed reduction admitted: output=%v reference=%v", candidate.Output(), candidate.Reference())

@@ -81,33 +81,24 @@ func CheckLegality(current, proposed TypedMetadata) error {
 	// 5. Alignment is part of the representation contract. Rewrites may not
 	// silently change it; callers that need a different vector width must first
 	// insert an explicitly checked conversion.
-	if proposed.Alignment > 0 && current.Alignment > 0 {
-		if current.Alignment != proposed.Alignment {
-			return fmt.Errorf("%w: current alignment %d bytes does not satisfy required %d bytes",
-				ErrUnalignedVectorAccess, current.Alignment, proposed.Alignment)
-		}
+	if current.Alignment != proposed.Alignment {
+		return fmt.Errorf("%w: current alignment %d bytes does not satisfy required %d bytes",
+			ErrUnalignedVectorAccess, current.Alignment, proposed.Alignment)
 	}
-	if current.NumericalPolicy != "" && proposed.NumericalPolicy != "" && current.NumericalPolicy != proposed.NumericalPolicy {
+	if current.NumericalPolicy != proposed.NumericalPolicy {
 		return fmt.Errorf("%w: current %q, proposed %q", ErrIncompatibleNumericalPolicy, current.NumericalPolicy, proposed.NumericalPolicy)
 	}
 
 	return nil
 }
 
-// mergeMetadata combines compatible contracts while retaining facts supplied
-// by either side. A missing alignment or numerical policy is treated as
-// unknown; LoopInvariant is true only when both inputs assert it.
+// mergeMetadata combines matching contracts without upgrading unknown facts.
+// LoopInvariant is true only when both inputs assert it.
 func mergeMetadata(current, proposed TypedMetadata) (TypedMetadata, error) {
 	if err := CheckLegality(current, proposed); err != nil {
 		return TypedMetadata{}, err
 	}
 	merged := current.Clone()
-	if merged.Alignment == 0 {
-		merged.Alignment = proposed.Alignment
-	}
-	if merged.NumericalPolicy == "" {
-		merged.NumericalPolicy = proposed.NumericalPolicy
-	}
 	merged.LoopInvariant = current.LoopInvariant && proposed.LoopInvariant
 	return merged, nil
 }
@@ -224,8 +215,15 @@ func (a *LegalAdapter) getMetadata(id Id) (TypedMetadata, bool, error) {
 	return meta, true, nil
 }
 
-// LegalUnion merges two equivalence classes only after validating typed legality.
+// LegalUnion merges two readonly equivalence classes with matching metadata.
+// Both classes must have metadata. Unknown alignment or numerical policy may
+// match unknown facts, but cannot acquire a known fact from the other class.
+// Alias and mutation effects require storage identity and ordering proofs not
+// represented by TypedMetadata, so distinct effectful classes are refused.
 func (a *LegalAdapter) LegalUnion(id1, id2 Id) (Id, bool, error) {
+	if _, err := a.metadataRelation(); err != nil {
+		return 0, false, err
+	}
 	root1 := a.g.Find(id1)
 	root2 := a.g.Find(id2)
 	if root1 == root2 {
@@ -241,17 +239,15 @@ func (a *LegalAdapter) LegalUnion(id1, id2 Id) (Id, bool, error) {
 		return root1, false, err
 	}
 
-	var mergedMetadata TypedMetadata
-	switch {
-	case ok1 && ok2:
-		mergedMetadata, err = mergeMetadata(meta1, meta2)
-		if err != nil {
-			return root1, false, err
-		}
-	case ok1:
-		mergedMetadata = meta1
-	case ok2:
-		mergedMetadata = meta2
+	if !ok1 || !ok2 {
+		return root1, false, ErrMissingTypedMetadata
+	}
+	if meta1.Effect != cudair.EffectReadOnly || meta2.Effect != cudair.EffectReadOnly {
+		return root1, false, ErrEffectBoundaryViolation
+	}
+	mergedMetadata, err := mergeMetadata(meta1, meta2)
+	if err != nil {
+		return root1, false, err
 	}
 
 	trial := a.g.Clone()
