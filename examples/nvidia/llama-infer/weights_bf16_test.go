@@ -1013,46 +1013,62 @@ func TestFreeOwned(t *testing.T) {
 }
 
 // fakeAlloc is an allocation for uploadAs: ptr 0 is a zero slice. It
-// records copies in a shared log.
-type fakeAlloc struct {
+// records copies, with their element type and values, in a shared log.
+type fakeAlloc[T any] struct {
 	ptr     driver.DevicePtr
 	copyErr error
 	log     *[]string
 }
 
-func (a fakeAlloc) Ptr() driver.DevicePtr { return a.ptr }
-func (a fakeAlloc) Free() error           { return nil }
+func (a fakeAlloc[T]) Ptr() driver.DevicePtr { return a.ptr }
+func (a fakeAlloc[T]) Free() error           { return nil }
 
-func (a fakeAlloc) CopyFromHost(src []float32) error {
-	*a.log = append(*a.log, fmt.Sprintf("copy %d", len(src)))
+func (a fakeAlloc[T]) CopyFromHost(src []T) error {
+	*a.log = append(*a.log, fmt.Sprintf("copy %T %v", src, src))
 	return a.copyErr
 }
 
-var errFakeAlloc = errors.New("fake alloc failed")
+// fakeAllocator returns an allocator that logs its name and the length
+// asked for, then returns a and err.
+func fakeAllocator[T any](name string, a fakeAlloc[T], err error) func(int) (fakeAlloc[T], error) {
+	return func(n int) (fakeAlloc[T], error) {
+		*a.log = append(*a.log, fmt.Sprintf("%s %d", name, n))
+		return a, err
+	}
+}
 
-type uploadFunc func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc, error)) (deviceWeight, error)
+var (
+	errFakeAlloc = errors.New("fake alloc failed")
+	errFakeCopy  = errors.New("fake copy failed")
+)
 
-// uploadFailures returns how upload departs from: keeping any nonzero
-// allocation with the allocation or copy error, a zero weight for a zero
-// allocation, no copy after a failed allocation, and errors kept as is.
+type uploadFunc func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc[float32], error)) (deviceWeight, error)
+
+// uploadFailures returns how upload departs from: allocating len(host),
+// keeping any nonzero allocation with the allocation or copy error, a zero
+// weight for a zero allocation, no copy after a failed allocation, and
+// errors kept as is.
 func uploadFailures(upload uploadFunc) []string {
 	var bad []string
+	host := []float32{1, 2}
+	allocated := []string{"alloc 2"}
+	copied := []string{"alloc 2", "copy []float32 [1 2]"}
 	for _, tt := range []struct {
 		name     string
 		ptr      driver.DevicePtr
 		allocErr error
 		copyErr  error
 		owned    bool
-		copies   int
+		log      []string
 	}{
-		{"success", 7, nil, nil, true, 1},
-		{"copy fails", 7, nil, errFakeFree, true, 1},
-		{"alloc fails, nonzero slice", 7, errFakeAlloc, nil, true, 0},
-		{"alloc fails, zero slice", 0, errFakeAlloc, nil, false, 0},
+		{"success", 7, nil, nil, true, copied},
+		{"copy fails", 7, nil, errFakeCopy, true, copied},
+		{"alloc fails, nonzero slice", 7, errFakeAlloc, nil, true, allocated},
+		{"alloc fails, zero slice", 0, errFakeAlloc, nil, false, allocated},
 	} {
 		var log []string
-		a := fakeAlloc{ptr: tt.ptr, copyErr: tt.copyErr, log: &log}
-		w, err := upload(weightBF16, []float32{1, 2}, func(n int) (fakeAlloc, error) { return a, tt.allocErr })
+		a := fakeAlloc[float32]{ptr: tt.ptr, copyErr: tt.copyErr, log: &log}
+		w, err := upload(weightBF16, host, fakeAllocator("alloc", a, tt.allocErr))
 		want := tt.allocErr
 		if want == nil {
 			want = tt.copyErr
@@ -1066,44 +1082,149 @@ func uploadFailures(upload uploadFunc) []string {
 		if tt.owned && (w.Ptr() != tt.ptr || w.dtype != weightBF16) {
 			bad = append(bad, fmt.Sprintf("%s: weight %v, want the allocation as bf16", tt.name, w))
 		}
-		if len(log) != tt.copies {
-			bad = append(bad, fmt.Sprintf("%s: %d copies, want %d", tt.name, len(log), tt.copies))
+		if !slices.Equal(log, tt.log) {
+			bad = append(bad, fmt.Sprintf("%s: log %q, want %q", tt.name, log, tt.log))
 		}
 	}
 	return bad
 }
 
 func TestUploadAs(t *testing.T) {
-	for _, f := range uploadFailures(uploadAs[float32, fakeAlloc]) {
+	for _, f := range uploadFailures(uploadAs[float32, fakeAlloc[float32]]) {
 		t.Error(f)
 	}
 	for _, m := range []struct {
 		name   string
 		upload uploadFunc
 	}{
-		{"A1 allocation dropped with its error", func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc, error)) (deviceWeight, error) {
+		{"A1 allocation dropped with its error", func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc[float32], error)) (deviceWeight, error) {
 			s, err := alloc(len(host))
 			if err != nil {
 				return deviceWeight{}, err
 			}
 			return deviceWeight{buf: s, dtype: dtype}, s.CopyFromHost(host)
 		}},
-		{"A2 zero allocation kept", func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc, error)) (deviceWeight, error) {
+		{"A2 zero allocation kept", func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc[float32], error)) (deviceWeight, error) {
 			s, err := alloc(len(host))
 			if err != nil {
 				return deviceWeight{buf: s, dtype: dtype}, err
 			}
 			return deviceWeight{buf: s, dtype: dtype}, s.CopyFromHost(host)
 		}},
-		{"A3 allocation error wrapped", func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc, error)) (deviceWeight, error) {
+		{"A3 allocation error wrapped", func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc[float32], error)) (deviceWeight, error) {
 			w, err := uploadAs(dtype, host, alloc)
 			if err != nil {
 				err = fmt.Errorf("upload: %w", err)
 			}
 			return w, err
 		}},
+		{"A4 wrong length allocated", func(dtype weightDType, host []float32, alloc func(int) (fakeAlloc[float32], error)) (deviceWeight, error) {
+			return uploadAs(dtype, host, func(n int) (fakeAlloc[float32], error) { return alloc(n + 1) })
+		}},
 	} {
 		if len(uploadFailures(m.upload)) == 0 {
+			t.Errorf("must-fail control %s: not detected", m.name)
+		}
+	}
+}
+
+type uploadWeightFunc func(host []float32, dtype weightDType, alloc32 func(int) (fakeAlloc[float32], error), alloc16 func(int) (fakeAlloc[uint16], error)) (deviceWeight, error)
+
+// uploadWeightFailures returns how upload departs from uploadWeight: for
+// each dtype, calling that dtype's allocator, and only it, with len(host),
+// copying f32 values as they are and bf16 values rounded by roundBF16,
+// labelling the weight with the dtype, keeping a nonzero allocation with its
+// allocation or copy error, and refusing an unknown dtype without
+// allocating.
+func uploadWeightFailures(upload uploadWeightFunc) []string {
+	var bad []string
+	var host []float32
+	for _, b := range []uint32{0x3f800000, 0x3f818000, 0x3f808001, 0x3f807fff} {
+		host = append(host, math.Float32frombits(b))
+	}
+	// Truncation would give 0x3f80 0x3f81 0x3f80 0x3f80.
+	bf16 := []uint16{0x3f80, 0x3f82, 0x3f81, 0x3f80}
+	for _, tt := range []struct {
+		name     string
+		dtype    weightDType
+		ptr      driver.DevicePtr
+		allocErr error
+		copyErr  error
+		owned    bool
+		log      []string
+	}{
+		{"f32", weightF32, 7, nil, nil, true, []string{"alloc32 4", fmt.Sprintf("copy []float32 %v", host)}},
+		{"f32 copy fails", weightF32, 7, nil, errFakeCopy, true, []string{"alloc32 4", fmt.Sprintf("copy []float32 %v", host)}},
+		{"f32 alloc fails, nonzero slice", weightF32, 7, errFakeAlloc, nil, true, []string{"alloc32 4"}},
+		{"f32 alloc fails, zero slice", weightF32, 0, errFakeAlloc, nil, false, []string{"alloc32 4"}},
+		{"bf16", weightBF16, 7, nil, nil, true, []string{"alloc16 4", fmt.Sprintf("copy []uint16 %v", bf16)}},
+		{"bf16 copy fails", weightBF16, 7, nil, errFakeCopy, true, []string{"alloc16 4", fmt.Sprintf("copy []uint16 %v", bf16)}},
+		{"bf16 alloc fails, nonzero slice", weightBF16, 7, errFakeAlloc, nil, true, []string{"alloc16 4"}},
+		{"bf16 alloc fails, zero slice", weightBF16, 0, errFakeAlloc, nil, false, []string{"alloc16 4"}},
+		{"unknown dtype", "f16", 7, nil, nil, false, nil},
+	} {
+		var log []string
+		a32 := fakeAlloc[float32]{ptr: tt.ptr, copyErr: tt.copyErr, log: &log}
+		a16 := fakeAlloc[uint16]{ptr: tt.ptr, copyErr: tt.copyErr, log: &log}
+		w, err := upload(host, tt.dtype, fakeAllocator("alloc32", a32, tt.allocErr), fakeAllocator("alloc16", a16, tt.allocErr))
+		want := tt.allocErr
+		if want == nil {
+			want = tt.copyErr
+		}
+		switch {
+		case tt.dtype != weightF32 && tt.dtype != weightBF16:
+			if err == nil {
+				bad = append(bad, fmt.Sprintf("%s: no error", tt.name))
+			}
+		case err != want:
+			bad = append(bad, fmt.Sprintf("%s: error %v, want %v", tt.name, err, want))
+		}
+		if owned := w.buf != nil; owned != tt.owned {
+			bad = append(bad, fmt.Sprintf("%s: owns %v, want %v", tt.name, owned, tt.owned))
+		}
+		if tt.owned && (w.Ptr() != tt.ptr || w.dtype != tt.dtype || w.borrowed) {
+			bad = append(bad, fmt.Sprintf("%s: weight %+v, want the allocation as %s", tt.name, w, tt.dtype))
+		}
+		if !slices.Equal(log, tt.log) {
+			bad = append(bad, fmt.Sprintf("%s: log %q, want %q", tt.name, log, tt.log))
+		}
+	}
+	return bad
+}
+
+func TestUploadWeightWith(t *testing.T) {
+	for _, f := range uploadWeightFailures(uploadWeightWith[fakeAlloc[float32], fakeAlloc[uint16]]) {
+		t.Error(f)
+	}
+	for _, m := range []struct {
+		name   string
+		upload uploadWeightFunc
+	}{
+		{"W1 bf16 allocation dropped with its error", func(host []float32, dtype weightDType, alloc32 func(int) (fakeAlloc[float32], error), alloc16 func(int) (fakeAlloc[uint16], error)) (deviceWeight, error) {
+			w, err := uploadWeightWith(host, dtype, alloc32, alloc16)
+			if err != nil && dtype == weightBF16 {
+				return deviceWeight{}, err
+			}
+			return w, err
+		}},
+		{"W2 bf16 truncated, not rounded", func(host []float32, dtype weightDType, alloc32 func(int) (fakeAlloc[float32], error), alloc16 func(int) (fakeAlloc[uint16], error)) (deviceWeight, error) {
+			if dtype != weightBF16 {
+				return uploadWeightWith(host, dtype, alloc32, alloc16)
+			}
+			b := make([]uint16, len(host))
+			for i, f := range host {
+				b[i] = uint16(math.Float32bits(f) >> 16)
+			}
+			return uploadAs(dtype, b, alloc16)
+		}},
+		{"W3 f32 labelled bf16", func(host []float32, dtype weightDType, alloc32 func(int) (fakeAlloc[float32], error), alloc16 func(int) (fakeAlloc[uint16], error)) (deviceWeight, error) {
+			if dtype == weightF32 {
+				return uploadAs(weightBF16, host, alloc32)
+			}
+			return uploadWeightWith(host, dtype, alloc32, alloc16)
+		}},
+	} {
+		if len(uploadWeightFailures(m.upload)) == 0 {
 			t.Errorf("must-fail control %s: not detected", m.name)
 		}
 	}
