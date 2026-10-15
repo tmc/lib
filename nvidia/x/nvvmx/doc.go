@@ -33,8 +33,17 @@
 // pointer may only be used as a load or store pointer operand, or stored into
 // another proven-shared slot; dependent slots narrow or remain generic together.
 // Typed-pointer slots are limited to simple scalar pointer types. Volatile,
-// atomic, metadata-bearing, indirect, malformed, or otherwise unlisted uses
-// keep the slot generic. Memory instructions accept no metadata after align N.
+// atomic, unsupported metadata-bearing, indirect, malformed, or otherwise unlisted uses
+// keep the slot generic. Other trailing memory metadata remains unsupported.
+// A sole validated direct !dbg attachment may accompany a supported alloca or
+// memory operation. The bounded location reader resolves DILocation through a
+// direct DISubprogram and DIFile; missing references, unknown fields, inlining,
+// unsupported scope chains and escaped names are unavailable. Other metadata is
+// never stripped to enable inference. Attachments are preserved in the output.
+// [InferenceReport.Provenance] returns owned declaration-independent terminal
+// use origins from the same checked def-use graph, with original/prepared IR
+// digests. Missing or shared debug locations do not become physical IR lines.
+// Dependent slots and slots with no terminal use remain attribution-unavailable.
 // The parser checks complete LLVM identifiers and all
 // uses in a function before rewriting; unknown instruction forms fail closed.
 // After rewriting, the function is parsed again and each narrowed slot access
@@ -66,4 +75,10 @@
 // in addrspace(1) or addrspace(3) is never overridden. Cluster-mapped pointers
 // (addrspace 7) are distinct from CTA-local shared memory and are never inferred
 // to addrspace(3).
+//
+// [CompileWithOptions] retains successful inferred input provenance and binds it
+// to the copied PTX digest. [Result.AddressSpaceProvenance] rejects modified PTX,
+// failed compilation, disabled inference, LTOIR and a zero Result. Accessors
+// return owned copies; source provenance does not qualify a compiler, debug
+// metadata version, native lowering, numerical behavior or GPU execution.
 package nvvmx

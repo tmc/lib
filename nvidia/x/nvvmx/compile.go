@@ -1,6 +1,7 @@
 package nvvmx
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"runtime"
@@ -27,6 +28,7 @@ type Result struct {
 	PTX, LTOIR []byte
 	Log        string
 	resources  *resources
+	inference  *CompilationProvenance
 }
 
 type resources struct {
@@ -76,13 +78,7 @@ func (p *nativeProgram) close() error { return p.Program.Destroy() }
 // unsupported IR and options are diagnosed by the loaded library. No library
 // installation, implicit libdevice lookup, or caching is performed.
 func Compile(inputs []Input, options ...string) (*Result, error) {
-	return compile(inputs, options, func() (program, error) {
-		p, err := nvvm.CreateProgram()
-		if err != nil {
-			return nil, err
-		}
-		return &nativeProgram{p}, nil
-	})
+	return compile(inputs, options, newProgram)
 }
 
 func compile(inputs []Input, options []string, create func() (program, error)) (result *Result, err error) {
@@ -165,4 +161,40 @@ func compile(inputs []Input, options []string, create func() (program, error)) (
 		result.PTX = data
 	}
 	return result, nil
+}
+
+func newProgram() (program, error) {
+	p, err := nvvm.CreateProgram()
+	if err != nil {
+		return nil, err
+	}
+	return &nativeProgram{p}, nil
+}
+
+// InferredInput binds one named compiler input to its original and prepared IR.
+type InferredInput struct {
+	Name       string
+	Provenance SlotProvenance
+}
+
+// CompilationProvenance contains inference from a successful PTX compilation.
+// It does not attest native execution or the correctness of supplied debug info.
+type CompilationProvenance struct {
+	PTXSHA256 string
+	Inputs    []InferredInput
+}
+
+// AddressSpaceProvenance returns owned inference metadata bound to the current
+// copied PTX output. Failed compilation, LTOIR, disabled inference, modified PTX,
+// and the zero Result have no usable PTX provenance.
+func (r *Result) AddressSpaceProvenance() (*CompilationProvenance, error) {
+	if r == nil || r.inference == nil || len(r.PTX) == 0 || len(r.LTOIR) != 0 || fmt.Sprintf("%x", sha256.Sum256(r.PTX)) != r.inference.PTXSHA256 {
+		return nil, errors.New("nvvmx: PTX inference provenance unavailable")
+	}
+	out := *r.inference
+	out.Inputs = append([]InferredInput(nil), out.Inputs...)
+	for i := range out.Inputs {
+		out.Inputs[i].Provenance.Slots = cloneOrigins(out.Inputs[i].Provenance.Slots)
+	}
+	return &out, nil
 }

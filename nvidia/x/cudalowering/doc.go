@@ -19,10 +19,26 @@
 //   - [MissingSASS], [MissingPTX]: a kernel that exists at one level only. These
 //     are reported rather than skipped, so that a comparison run against the
 //     wrong pair of artifacts fails instead of finding nothing.
-//   - [SharedConversion]: a cvta.shared conversion in PTX or a recognized
-//     CVTA.SHARED instruction in SASS when direct shared access was expected.
-//     [VerifyNoSharedConversions] requires at least one inferred slot label and
-//     checks its matched kernel; labels appear in the report for traceability.
+//   - [SharedConversion]: a shared conversion in PTX or the bounded observed
+//     SM121 SASS reaching-value mechanism. [VerifyNoSharedConversions] checks
+//     matched kernels in aggregate; its caller labels are not slot attribution.
+//
+// [VerifyInferredSharedConversions] derives per-slot textual attribution from
+// actual nvvmx inference provenance, physical PTX lines and direct compiler
+// source locations. It validates original IR identity; texts remain caller-paired
+// observations, not proof that a compiler emitted them. The production
+// [VerifyCompiledSharedConversions] path consumes one actual compiled input's
+// retained origins and verifies its copied PTX digest. Neither verifies native
+// artifact association or debug-metadata correctness on a device.
+//
+// A clean slot requires a supported direct shared witness for every terminal
+// use, unique source origins and no attributed conversion. Missing/ambiguous
+// locations, unsupported mechanisms, dependent slots or eliminated uses return
+// an error and partial report. They are never counted as conversion absence.
+// The checker reuses the existing scanner and parsers, supports exact sm_121
+// textual observations only, and does not infer register/source/name mappings.
+// Inference remains opt-in; native LLVM/PTX/SASS A/B, tool/version identities,
+// debug-location preservation and bit-identical output qualification stay open.
 //
 // The mapping from PTX opcodes to the SASS opcodes they lower to is
 // [DefaultLowerings], which callers replace or extend through

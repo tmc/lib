@@ -21,8 +21,9 @@ func (c sharedConversionChain) String() string {
 }
 
 type sharedConversionScan struct {
-	chains   []sharedConversionChain
-	refusals []string
+	chains         []sharedConversionChain
+	sharedAccesses []uint64
+	refusals       []string
 }
 type sharedRegisterValue struct {
 	identity                 int
@@ -169,6 +170,7 @@ func scanSharedConversions(fn *cudasass.Function) sharedConversionScan {
 				refuse(inst.Address, "unsupported shared address")
 				continue
 			}
+			result.sharedAccesses = append(result.sharedAccesses, inst.Address)
 			v, known := values[reg]
 			if ok && known && !v.isWindow {
 				shared[v.identity] = append(shared[v.identity], inst.Address)

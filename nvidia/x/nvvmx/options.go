@@ -1,6 +1,7 @@
 package nvvmx
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -18,6 +19,10 @@ type compileOptions struct {
 // CompileWithOptions compiles inputs using validated NVVM options.
 // Compile remains available for callers that pass native option strings.
 func CompileWithOptions(inputs []Input, opts ...Option) (*Result, error) {
+	return compileWithOptions(inputs, newProgram, opts...)
+}
+
+func compileWithOptions(inputs []Input, create func() (program, error), opts ...Option) (*Result, error) {
 	var o compileOptions
 	for _, opt := range opts {
 		if opt == nil {
@@ -27,29 +32,52 @@ func CompileWithOptions(inputs []Input, opts ...Option) (*Result, error) {
 			return nil, err
 		}
 	}
-	prepared, err := prepareInputs(inputs, o.inferAddrSpace)
+	prepared, reports, err := prepareInferenceInputs(inputs, o.inferAddrSpace)
 	if err != nil {
 		return nil, err
 	}
-	return Compile(prepared, o.flags...)
+	result, err := compile(prepared, o.flags, create)
+	if err != nil || result == nil || !o.inferAddrSpace || len(result.PTX) == 0 {
+		return result, err
+	}
+	provenance := &CompilationProvenance{PTXSHA256: fmt.Sprintf("%x", sha256.Sum256(result.PTX))}
+	for i, report := range reports {
+		if report == nil {
+			continue
+		}
+		snapshot, e := report.Provenance()
+		if e != nil {
+			return result, e
+		}
+		provenance.Inputs = append(provenance.Inputs, InferredInput{Name: prepared[i].Name, Provenance: *snapshot})
+	}
+	result.inference = provenance
+	return result, nil
 }
 
 func prepareInputs(inputs []Input, inferAddrSpace bool) ([]Input, error) {
+	prepared, _, err := prepareInferenceInputs(inputs, inferAddrSpace)
+	return prepared, err
+}
+
+func prepareInferenceInputs(inputs []Input, inferAddrSpace bool) ([]Input, []*InferenceReport, error) {
 	prepared := append([]Input(nil), inputs...)
+	reports := make([]*InferenceReport, len(inputs))
 	if !inferAddrSpace {
-		return prepared, nil
+		return prepared, reports, nil
 	}
 	for i, input := range inputs {
 		if input.Lazy || len(input.Data) == 0 {
 			continue
 		}
-		rewritten, _, err := InferAddressSpaces(input.Data)
+		rewritten, report, err := InferAddressSpaces(input.Data)
 		if err != nil {
-			return nil, fmt.Errorf("nvvmx: infer address spaces for %q: %w", input.Name, err)
+			return nil, nil, fmt.Errorf("nvvmx: infer address spaces for %q: %w", input.Name, err)
 		}
 		prepared[i].Data = rewritten
+		reports[i] = report
 	}
-	return prepared, nil
+	return prepared, reports, nil
 }
 
 // WithAddressSpaceInference enables the address-space inference pass on input IR.

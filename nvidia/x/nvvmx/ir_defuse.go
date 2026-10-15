@@ -899,6 +899,43 @@ func inferFunctionAndRewrite(lines []string, globals map[string]AddrSpace) (stri
 		report.RewrittenSlots = nil
 		return strings.Join(lines, ""), report, nil
 	}
+	// Capture origins from this same checked def-use graph, never a reparse in
+	// a downstream verifier. Walk the existing edges and instructions once.
+	dependent := make(map[string]bool)
+	for dst, sources := range depStores {
+		for _, src := range sources {
+			dependent[dst] = true
+			dependent[src] = true
+		}
+	}
+	var origins []SlotOrigin
+	originIndex := make(map[string]int)
+	for _, name := range slotOrder {
+		if !toRewrite[name] {
+			continue
+		}
+		origin := SlotOrigin{Slot: name, DeclarationLine: slots[name].lineIdx + 1}
+		if dependent[name] {
+			origin.Reason = "dependent slot"
+		}
+		originIndex[name] = len(origins)
+		origins = append(origins, origin)
+	}
+	for _, p := range f.lines {
+		if !p.hasMem {
+			continue
+		}
+		name := loadedFrom[p.mem.ptrID]
+		if index, ok := originIndex[name]; ok {
+			origins[index].Uses = append(origins[index].Uses, SlotUse{IRLine: p.index + 1, Value: p.mem.ptrID, Operation: p.mem.kind})
+		}
+	}
+	for _, origin := range origins {
+		if len(origin.Uses) == 0 {
+			origin.Reason = "no terminal memory use"
+		}
+		report.origins = append(report.origins, origin)
+	}
 	return rewritten, report, nil
 }
 
@@ -1125,4 +1162,177 @@ func rewriteSharedInlineStoreCast(line string) string {
 
 func analyzeAndRewriteFunc(lines []string, globals map[string]AddrSpace) (string, *InferenceReport, error) {
 	return inferFunctionAndRewrite(lines, globals)
+}
+
+// Debug metadata is a separate bounded location grammar, not an LLVM backend.
+// Only direct DILocation -> DISubprogram -> DIFile chains are resolved. Unknown
+// attachments remain in the semantic input and therefore keep uses generic.
+type debugAttachment struct {
+	suffix   string
+	location SourceLocation
+	clean    string
+}
+
+func prepareDebugLocations(lines []string) map[int]debugAttachment {
+	type node struct {
+		kind   string
+		fields map[string]string
+	}
+	nodes := make(map[string]node)
+	bad := make(map[string]bool)
+	for _, line := range lines {
+		t := strings.TrimSpace(line)
+		if !strings.HasPrefix(t, "!") {
+			continue
+		}
+		if len(t) > 4096 || len(nodes)+len(bad) >= 4096 {
+			return nil
+		}
+		parts := strings.SplitN(t, " = ", 2)
+		if len(parts) != 2 || !metadataID(parts[0]) {
+			continue
+		}
+		id := parts[0]
+		if _, exists := nodes[id]; exists {
+			bad[id] = true
+			delete(nodes, id)
+			continue
+		}
+		if bad[id] {
+			continue
+		}
+		rhs := strings.TrimPrefix(parts[1], "distinct ")
+		open := strings.IndexByte(rhs, '(')
+		if open < 0 || !strings.HasSuffix(rhs, ")") {
+			bad[id] = true
+			continue
+		}
+		kind := rhs[:open]
+		allowed := map[string]string{
+			"!DIFile":       "filename directory",
+			"!DISubprogram": "name linkageName scope file line type scopeLine spFlags unit flags isLocal isDefinition isOptimized retainedNodes",
+			"!DILocation":   "line column scope",
+		}[kind]
+		if allowed == "" {
+			bad[id] = true
+			continue
+		}
+		fields := make(map[string]string)
+		valid := true
+		for _, field := range splitLLVMTopLevel(rhs[open+1 : len(rhs)-1]) {
+			kv := strings.SplitN(field, ":", 2)
+			if len(kv) != 2 {
+				valid = false
+				break
+			}
+			key, value := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+			if fields[key] != "" || !strings.Contains(" "+allowed+" ", " "+key+" ") || value == "" {
+				valid = false
+				break
+			}
+			fields[key] = value
+		}
+		if !valid {
+			bad[id] = true
+			continue
+		}
+		nodes[id] = node{kind, fields}
+	}
+	locations := make(map[string]SourceLocation)
+	for id, n := range nodes {
+		if n.kind != "!DILocation" {
+			continue
+		}
+		line, e1 := strconv.Atoi(n.fields["line"])
+		column, e2 := strconv.Atoi(n.fields["column"])
+		scope, ok := nodes[n.fields["scope"]]
+		if !ok || scope.kind != "!DISubprogram" {
+			continue
+		}
+		file, ok := nodes[scope.fields["file"]]
+		if !ok || file.kind != "!DIFile" {
+			continue
+		}
+		name, nameOK := debugString(scope.fields["name"])
+		if linkage, exists := scope.fields["linkageName"]; exists {
+			name, nameOK = debugString(linkage)
+		}
+		filename, fileOK := debugString(file.fields["filename"])
+		dir, dirOK := debugString(file.fields["directory"])
+		if !nameOK || !fileOK || !dirOK || e1 != nil || e2 != nil || !digits(n.fields["line"]) || !digits(n.fields["column"]) || line < 1 || column < 1 || name == "" || filename == "" {
+			continue
+		}
+		if scope.fields["scope"] != scope.fields["file"] {
+			continue
+		}
+		if dir != "" && !strings.HasPrefix(filename, "/") {
+			filename = strings.TrimRight(dir, "/") + "/" + filename
+		}
+		locations[id] = SourceLocation{Function: name, File: filename, Line: line, Column: column}
+	}
+	attachments := make(map[int]debugAttachment)
+	counts := make(map[SourceLocation]int)
+	function := ""
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "define ") {
+			function = functionName(line)
+		}
+		if strings.TrimSpace(line) == "}" {
+			function = ""
+		}
+		if function == "" {
+			continue
+		}
+		code := stripLLVMComment(line)
+		end := len(strings.TrimRight(code, " \t\r\n"))
+		at := strings.LastIndex(code[:end], ", !dbg ")
+		if at < 0 {
+			continue
+		}
+		id := code[at+7 : end]
+		loc, ok := locations[id]
+		if !ok || function != "@"+loc.Function {
+			continue
+		}
+		counts[loc]++
+		start := at
+		for start > 0 && (code[start-1] == ' ' || code[start-1] == '\t') {
+			start--
+		}
+		clean := code[:start] + code[end:] + line[len(code):]
+		_, _, alloca := parseAlloca(strings.TrimSpace(clean))
+		_, memory := parseMemory(strings.TrimSpace(clean))
+		if !alloca && !memory {
+			continue
+		}
+		if len(attachments) >= 65536 {
+			return nil
+		}
+		attachments[i] = debugAttachment{suffix: code[start:end], location: loc, clean: clean}
+	}
+	for i, attachment := range attachments {
+		if counts[attachment.location] != 1 {
+			attachment.location = SourceLocation{}
+			attachments[i] = attachment
+		}
+		lines[i] = attachment.clean
+	}
+	return attachments
+}
+
+func metadataID(s string) bool { return strings.HasPrefix(s, "!") && digits(s[1:]) }
+func debugString(s string) (string, bool) {
+	if len(s) < 2 || s[0] != '"' || s[len(s)-1] != '"' {
+		return "", false
+	}
+	s = s[1 : len(s)-1]
+	if strings.ContainsAny(s, "\\\"\r\n") || len(s) > 1024 {
+		return "", false
+	}
+	return s, true
+}
+func restoreDebugLocation(line, suffix string) string {
+	code := stripLLVMComment(line)
+	end := len(strings.TrimRight(code, " \t\r\n"))
+	return code[:end] + suffix + code[end:] + line[len(code):]
 }

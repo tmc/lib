@@ -1,12 +1,16 @@
 package cudalowering
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/nvvmx"
 )
 
 // A Kind classifies a divergence between what the PTX asked for and what the
@@ -60,18 +64,24 @@ func (k Kind) String() string {
 
 // A Divergence is one place where the SASS differs from what the PTX asked for.
 type Divergence struct {
-	Kind       Kind
-	Kernel     string // kernel name, as the level that has the kernel spells it
-	PTXOpcode  string // PTX opcode prefix involved, if any
-	SASSOpcode string // SASS opcode prefix involved, if any
-	PTXCount   int    // matching PTX instructions
-	SASSCount  int    // matching SASS instructions
-	Detail     string // supporting measurement, such as peak live register count
+	Kind        Kind
+	Slot        string // exact producer slot ID, empty for aggregate findings
+	IRLine      int    // terminal IR use, zero for aggregate findings
+	SASSAddress uint64 // conversion generic-access PC, when attributed
+	Kernel      string // kernel name, as the level that has the kernel spells it
+	PTXOpcode   string // PTX opcode prefix involved, if any
+	SASSOpcode  string // SASS opcode prefix involved, if any
+	PTXCount    int    // matching PTX instructions
+	SASSCount   int    // matching SASS instructions
+	Detail      string // supporting measurement, such as peak live register count
 }
 
 func (d Divergence) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s: %s: ", d.Kernel, d.Kind)
+	if d.Slot != "" {
+		fmt.Fprintf(&b, "%s IR line %d: ", d.Slot, d.IRLine)
+	}
 	switch d.Kind {
 	case Erased:
 		fmt.Fprintf(&b, "%d %s, no %s", d.PTXCount, d.PTXOpcode, d.SASSOpcode)
@@ -143,6 +153,7 @@ const DefaultMaxNOPFraction = 0.10
 // A Report is the result of comparing a PTX module with its SASS.
 type Report struct {
 	Stats       []Stats
+	Slots       []SlotEvidence // checked per-slot coverage; nil for aggregate comparisons
 	Divergences []Divergence
 }
 
@@ -387,4 +398,259 @@ func countExact(s *cudasass.OpcodeSummary, opcodes []string) int {
 		}
 	}
 	return total
+}
+
+// SlotUseEvidence records observed text locations for an actual producer use.
+type SlotUseEvidence struct {
+	IRLine                   int
+	Value                    string
+	PTXLines                 []int
+	SharedPCs, ConversionPCs []uint64
+}
+
+// SlotEvidence describes bounded textual coverage, not compiler or GPU attestation.
+// Verified requires every use to have a direct shared witness and no conversion.
+type SlotEvidence struct {
+	Slot, OriginalSHA256, PreparedSHA256, PTXSHA256, SASSSHA256 string
+	Verified                                                    bool
+	Reason                                                      string
+	Uses                                                        []SlotUseEvidence
+}
+
+// VerifyInferredSharedConversions derives slot attribution from actual inference
+// origins and observed compiler locations in caller-paired PTX/SASS text. It
+// validates original IR identity but does not attest that a compiler emitted the
+// supplied texts. Missing, ambiguous, elided or unsupported coverage returns an
+// error and a partial report. The legacy verifier remains kernel-aggregate.
+func VerifyInferredSharedConversions(ir []byte, inference *nvvmx.InferenceReport, ptx, sass []byte) (*Report, error) {
+	provenance, err := inference.Provenance()
+	if err != nil {
+		return nil, err
+	}
+	if provenance.OriginalSHA256 != fmt.Sprintf("%x", sha256.Sum256(ir)) {
+		return nil, errors.New("cudalowering: original IR identity differs")
+	}
+	return verifySlotOrigins(*provenance, ptx, sass)
+}
+
+// VerifyCompiledSharedConversions uses the actual CompileWithOptions-retained
+// input origins and checks its copied PTX digest. The first supported contract
+// requires exactly one inferred input. SASS remains caller-paired text; native
+// artifact association and debug-location qualification require a real receipt.
+func VerifyCompiledSharedConversions(result *nvvmx.Result, sass []byte) (*Report, error) {
+	provenance, err := result.AddressSpaceProvenance()
+	if err != nil {
+		return nil, err
+	}
+	if len(provenance.Inputs) != 1 {
+		return nil, errors.New("cudalowering: slot attribution requires one inferred input")
+	}
+	return verifySlotOrigins(provenance.Inputs[0].Provenance, result.PTX, sass)
+}
+
+func verifySlotOrigins(provenance nvvmx.SlotProvenance, ptx, sass []byte) (*Report, error) {
+	report := &Report{}
+	if len(provenance.Slots) > 65536 || len(ptx) == 0 || len(sass) == 0 || len(ptx) > 4<<20 || len(sass) > 4<<20 || len(provenance.Slots) == 0 {
+		return report, errors.New("cudalowering: missing or oversized slot evidence")
+	}
+	m, err := cudaptx.Parse(bytes.NewReader(ptx))
+	if err != nil {
+		return report, err
+	}
+	d, err := cudasass.Parse(bytes.NewReader(sass))
+	if err != nil {
+		return report, err
+	}
+	if m.Target != "sm_121" || len(m.TargetDeclarations) != 1 || d.Target != "sm_121" {
+		return report, errors.New("cudalowering: slot attribution requires both exact sm_121")
+	}
+	pairs := make(map[string]Pair)
+	for _, pair := range Match(m, d).Pairs {
+		pairs[pair.PTX.Name] = pair
+	}
+	type useRef struct{ slot, use int }
+	locations := make(map[nvvmx.SourceLocation][]useRef)
+	functions := make(map[string]bool)
+	ptxSHA, sassSHA := fmt.Sprintf("%x", sha256.Sum256(ptx)), fmt.Sprintf("%x", sha256.Sum256(sass))
+	var unavailable []error
+	fail := func(slot int, reason string) {
+		report.Slots[slot].Reason = reason
+		unavailable = append(unavailable, fmt.Errorf("cudalowering: %s: %s", report.Slots[slot].Slot, reason))
+	}
+	seenSlots := make(map[string]bool)
+	for i, origin := range provenance.Slots {
+		if seenSlots[origin.Slot] {
+			return report, errors.New("cudalowering: duplicate producer slot identity")
+		}
+		seenSlots[origin.Slot] = true
+		evidence := SlotEvidence{Slot: origin.Slot, OriginalSHA256: provenance.OriginalSHA256, PreparedSHA256: provenance.PreparedSHA256, PTXSHA256: ptxSHA, SASSSHA256: sassSHA}
+		for _, use := range origin.Uses {
+			evidence.Uses = append(evidence.Uses, SlotUseEvidence{IRLine: use.IRLine, Value: use.Value})
+		}
+		report.Slots = append(report.Slots, evidence)
+		function, _, ok := strings.Cut(origin.Slot, "/")
+		if !ok || !strings.HasPrefix(function, "@") || origin.Reason != "" || len(origin.Uses) == 0 {
+			fail(i, "unsupported origin: "+origin.Reason)
+			continue
+		}
+		function = strings.TrimPrefix(function, "@")
+		functions[function] = true
+		for j, use := range origin.Uses {
+			loc := use.Location
+			if loc.Function != function || loc.File == "" || loc.Line < 1 || loc.Column < 1 {
+				fail(i, "terminal use lacks a direct resolved location")
+				continue
+			}
+			locations[loc] = append(locations[loc], useRef{i, j})
+		}
+	}
+	names := make([]string, 0, len(functions))
+	for name := range functions {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		pair, ok := pairs[name]
+		if !ok {
+			for i, origin := range provenance.Slots {
+				if strings.HasPrefix(origin.Slot, "@"+name+"/") {
+					fail(i, "no unique matched executable kernel")
+				}
+			}
+			continue
+		}
+		nops, interior := countNOPs(pair.SASS)
+		report.Stats = append(report.Stats, Stats{Kernel: name, PTXInstructions: len(pair.PTX.Instructions), SASSInstructions: len(pair.SASS.Instructions), NOPs: nops, InteriorNOPs: interior, PeakGPR: peakGPR(pair.SASS)})
+		scan := scanSharedConversions(pair.SASS)
+		if len(scan.refusals) != 0 {
+			unavailable = append(unavailable, fmt.Errorf("cudalowering: %s: %s", name, strings.Join(scan.refusals, "; ")))
+		}
+		if len(pair.PTX.Instructions) > 65536 {
+			return report, errors.New("cudalowering: PTX instruction budget exceeded")
+		}
+		lines := make(map[int][]cudaptx.Instruction)
+		for _, inst := range pair.PTX.Instructions {
+			lines[inst.Line] = append(lines[inst.Line], inst)
+		}
+		pcs := make(map[uint64]cudasass.Instruction)
+		for _, inst := range pair.SASS.Instructions {
+			pcs[inst.Address] = inst
+		}
+		locate := func(pc uint64) (useRef, bool, error) {
+			inst := pcs[pc]
+			candidates := lines[inst.PTXLine]
+			if inst.PTXLine < 1 || len(candidates) != 1 {
+				return useRef{}, false, fmt.Errorf("0x%x lacks a unique physical PTX line", pc)
+			}
+			source := candidates[0]
+			loc, direct := slotSourceLocation(name, source)
+			if !direct || inst.InlinedFile != "" || inst.InlinedLine != 0 {
+				return useRef{}, false, fmt.Errorf("0x%x lacks a direct PTX source location", pc)
+			}
+			if (inst.SourceFile != "" || inst.SourceLine != 0) && (inst.SourceFile != source.Loc.File || inst.SourceLine != source.Loc.Line) {
+				return useRef{}, false, fmt.Errorf("0x%x conflicting source and PTX location", pc)
+			}
+			refs := locations[loc]
+			if len(refs) == 0 {
+				return useRef{}, false, nil
+			}
+			if len(refs) != 1 {
+				return useRef{}, false, fmt.Errorf("0x%x ambiguous slot origin", pc)
+			}
+			ref := refs[0]
+			use := provenance.Slots[ref.slot].Uses[ref.use]
+			want := "ld"
+			if use.Operation == "store" {
+				want = "st"
+			}
+			if source.Mnemonic != want {
+				return useRef{}, false, fmt.Errorf("0x%x memory operation conflicts with IR use", pc)
+			}
+			op := strings.ToUpper(inst.Opcode)
+			if (want == "ld" && op != "LDS" && op != "LD.E") || (want == "st" && op != "STS" && op != "ST.E") {
+				return useRef{}, false, fmt.Errorf("0x%x SASS memory operation conflicts with IR use", pc)
+			}
+			return ref, true, nil
+		}
+		for _, pc := range scan.sharedAccesses {
+			ref, found, e := locate(pc)
+			if e != nil {
+				unavailable = append(unavailable, e)
+				continue
+			}
+			if !found {
+				continue
+			}
+			inst := lines[pcs[pc].PTXLine][0]
+			if !strings.HasPrefix(inst.Opcode, inst.Mnemonic+".shared.") {
+				fail(ref.slot, "direct SASS access lacks direct shared PTX")
+				continue
+			}
+			use := &report.Slots[ref.slot].Uses[ref.use]
+			use.SharedPCs = append(use.SharedPCs, pc)
+			use.PTXLines = append(use.PTXLines, inst.Line)
+		}
+		for _, chain := range scan.chains {
+			ref, found, e := locate(chain.genericAccess)
+			if e != nil || !found {
+				unavailable = append(unavailable, fmt.Errorf("cudalowering: unattributed conversion at 0x%x: %v", chain.genericAccess, e))
+				continue
+			}
+			use := &report.Slots[ref.slot].Uses[ref.use]
+			use.ConversionPCs = append(use.ConversionPCs, chain.genericAccess)
+			use.PTXLines = append(use.PTXLines, pcs[chain.genericAccess].PTXLine)
+			report.Divergences = append(report.Divergences, Divergence{Kind: SharedConversion, Kernel: name, Slot: report.Slots[ref.slot].Slot, IRLine: use.IRLine, SASSAddress: chain.genericAccess, SASSOpcode: "conversion", SASSCount: 1, Detail: chain.String()})
+		}
+		// PTX-only conversions also need a unique actual origin. Counts never stand
+		// in for the SASS reaching-value witnesses or complete use coverage.
+		for _, inst := range pair.PTX.Instructions {
+			if !strings.HasPrefix(inst.Opcode, "cvta.shared.") && !strings.HasPrefix(inst.Opcode, "cvta.to.shared.") {
+				continue
+			}
+			loc, direct := slotSourceLocation(name, inst)
+			if !direct {
+				unavailable = append(unavailable, fmt.Errorf("cudalowering: PTX conversion line %d lacks a direct source location", inst.Line))
+				continue
+			}
+			refs := locations[loc]
+			if len(refs) != 1 {
+				unavailable = append(unavailable, fmt.Errorf("cudalowering: PTX conversion line %d has no unique slot", inst.Line))
+				continue
+			}
+			ref := refs[0]
+			use := &report.Slots[ref.slot].Uses[ref.use]
+			report.Divergences = append(report.Divergences, Divergence{Kind: SharedConversion, Kernel: name, Slot: report.Slots[ref.slot].Slot, IRLine: use.IRLine, PTXOpcode: inst.Opcode, PTXCount: 1})
+		}
+	}
+	for i := range report.Slots {
+		evidence := &report.Slots[i]
+		converted := false
+		for _, use := range evidence.Uses {
+			if len(use.SharedPCs) == 0 && len(use.ConversionPCs) == 0 {
+				fail(i, "terminal use missing or elided in observed SASS")
+			}
+			converted = converted || len(use.ConversionPCs) > 0
+		}
+		for _, finding := range report.Divergences {
+			if finding.Slot == evidence.Slot {
+				converted = true
+			}
+		}
+		evidence.Verified = evidence.Reason == "" && !converted && len(unavailable) == 0
+	}
+	if len(unavailable) != 0 {
+		for i := range report.Slots {
+			report.Slots[i].Verified = false
+		}
+	}
+	return report, errors.Join(unavailable...)
+}
+
+// slotSourceLocation excludes unsupported inline and unresolved source forms for
+// every instruction that participates in a slot attribution.
+func slotSourceLocation(function string, inst cudaptx.Instruction) (nvvmx.SourceLocation, bool) {
+	if len(inst.InlinedAt) != 0 || inst.Loc.FunctionName != "" || inst.Loc.File == "" || inst.Loc.Line < 1 || inst.Loc.Column < 1 {
+		return nvvmx.SourceLocation{}, false
+	}
+	return nvvmx.SourceLocation{Function: function, File: inst.Loc.File, Line: inst.Loc.Line, Column: inst.Loc.Column}, true
 }

@@ -2,7 +2,9 @@ package nvvmx
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -86,9 +88,14 @@ type SlotInfo struct {
 
 // InferenceReport summarizes the findings of the address-space inference pass.
 type InferenceReport struct {
-	Slots          map[string]SlotInfo
-	Iterations     int
-	RewrittenSlots []string
+	Slots            map[string]SlotInfo
+	Iterations       int
+	RewrittenSlots   []string
+	origins          []SlotOrigin
+	provenance       *SlotProvenance
+	sealedSlots      map[string]SlotInfo
+	sealedRewritten  []string
+	sealedIterations int
 }
 
 // InferAddressSpaces pre-scans an NVVM IR module, determines for each local
@@ -106,6 +113,7 @@ func InferAddressSpaces(ir []byte) ([]byte, *InferenceReport, error) {
 	}
 
 	lines := splitLines(ir)
+	attachments := prepareDebugLocations(lines)
 	globals := parseGlobalAddrSpaces(lines)
 
 	report := &InferenceReport{
@@ -140,6 +148,15 @@ func InferAddressSpaces(ir []byte) ([]byte, *InferenceReport, error) {
 				if funcReport.Iterations > report.Iterations {
 					report.Iterations = funcReport.Iterations
 				}
+				for _, origin := range funcReport.origins {
+					origin.Slot = funcName + "/" + origin.Slot
+					origin.DeclarationLine += funcStart
+					for j := range origin.Uses {
+						origin.Uses[j].IRLine += funcStart
+						origin.Uses[j].Location = attachments[origin.Uses[j].IRLine-1].location
+					}
+					report.origins = append(report.origins, origin)
+				}
 				for _, name := range funcReport.RewrittenSlots {
 					report.RewrittenSlots = append(report.RewrittenSlots, funcName+"/"+name)
 				}
@@ -154,7 +171,19 @@ func InferAddressSpaces(ir []byte) ([]byte, *InferenceReport, error) {
 		return nil, nil, fmt.Errorf("nvvmx: unterminated function at line %d", funcStart+1)
 	}
 
-	return []byte(output.String()), report, nil
+	rewrittenLines := splitLines([]byte(output.String()))
+	for line, attachment := range attachments {
+		rewrittenLines[line] = restoreDebugLocation(rewrittenLines[line], attachment.suffix)
+	}
+	rewritten := []byte(strings.Join(rewrittenLines, ""))
+	report.provenance = &SlotProvenance{OriginalSHA256: fmt.Sprintf("%x", sha256.Sum256(ir)), PreparedSHA256: fmt.Sprintf("%x", sha256.Sum256(rewritten)), Slots: cloneOrigins(report.origins)}
+	report.sealedSlots = make(map[string]SlotInfo, len(report.Slots))
+	for k, v := range report.Slots {
+		report.sealedSlots[k] = v
+	}
+	report.sealedRewritten = append([]string(nil), report.RewrittenSlots...)
+	report.sealedIterations = report.Iterations
+	return rewritten, report, nil
 }
 
 func splitLines(data []byte) []string {
@@ -316,4 +345,53 @@ func rewriteSlotPointerOperand(line string, decl *slotDecl) string {
 func rewriteSlotLoad(line string, decl *slotDecl) string {
 	oldType, newType := inferredPointerType(decl.allocType)
 	return strings.Replace(line, "load "+oldType+",", "load "+newType+",", 1)
+}
+
+// SourceLocation is a direct compiler debug location resolved in the input IR.
+// A zero location is unavailable; it is never the physical IR line number.
+type SourceLocation struct {
+	Function, File string
+	Line, Column   int
+}
+
+// SlotUse is a terminal memory use of a pointer loaded from a slot.
+type SlotUse struct {
+	IRLine           int
+	Value, Operation string
+	Location         SourceLocation
+}
+
+// SlotOrigin retains the actual inference pass's use sites. Reason is nonempty
+// when attribution is unavailable, including dependent or unused slots.
+type SlotOrigin struct {
+	Slot            string
+	DeclarationLine int
+	Uses            []SlotUse
+	Reason          string
+}
+
+// SlotProvenance identifies original/prepared IR and its inferred slot origins.
+// It describes source analysis, not successful compilation or native execution.
+type SlotProvenance struct {
+	OriginalSHA256, PreparedSHA256 string
+	Slots                          []SlotOrigin
+}
+
+func cloneOrigins(in []SlotOrigin) []SlotOrigin {
+	out := append([]SlotOrigin(nil), in...)
+	for i := range out {
+		out[i].Uses = append([]SlotUse(nil), in[i].Uses...)
+	}
+	return out
+}
+
+// Provenance returns an owned snapshot from the actual inference pass. The zero
+// or a modified report is invalid; caller-built slot labels are not provenance.
+func (r *InferenceReport) Provenance() (*SlotProvenance, error) {
+	if r == nil || r.provenance == nil || !reflect.DeepEqual(r.Slots, r.sealedSlots) || !reflect.DeepEqual(r.RewrittenSlots, r.sealedRewritten) || r.Iterations != r.sealedIterations {
+		return nil, fmt.Errorf("nvvmx: missing or modified inference provenance")
+	}
+	p := *r.provenance
+	p.Slots = cloneOrigins(p.Slots)
+	return &p, nil
 }
