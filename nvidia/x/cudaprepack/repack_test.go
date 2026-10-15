@@ -48,18 +48,18 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 			wantErr: "not 16-byte aligned",
 		},
 		{
-			name: "box width exceeds sm_121a 128-byte limit",
+			name: "host box width is not a hardware limit",
 			desc: BoxDescriptor{
 				Rank:           2,
 				DataType:       TypeFloat32,
 				GlobalAddress:  0x2000,
 				GlobalDims:     [3]uint64{64, 64, 1},
 				GlobalStrides:  [3]int64{256, 0, 0},
-				BoxDims:        [3]uint32{64, 32, 1}, // 64 * 4 bytes = 256 bytes > 128 bytes
+				BoxDims:        [3]uint32{64, 32, 1}, // 256 host bytes, no hardware claim
 				ElementStrides: [3]uint32{1, 1, 1},
 			},
 			arch:    ArchSM121a,
-			wantErr: "exceeds sm_121a limit 128 bytes",
+			wantErr: "",
 		},
 		{
 			name: "box width 256 bytes permitted on sm_100a unswizzled",
@@ -77,7 +77,7 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name: "sm_121a rejects tcgen05 atom swizzle",
+			name: "known host swizzle metadata on sm_121a",
 			desc: BoxDescriptor{
 				Rank:           2,
 				DataType:       TypeFloat16,
@@ -89,10 +89,10 @@ func TestBoxDescriptorAlignment(t *testing.T) {
 				Swizzle:        Swizzle128BAtom32B,
 			},
 			arch:    ArchSM121a,
-			wantErr: "rejects tcgen05 swizzle mode",
+			wantErr: "",
 		},
 		{
-			name: "sm_100a accepts tcgen05 atom swizzle",
+			name: "known host swizzle metadata on sm_100a",
 			desc: BoxDescriptor{
 				Rank:           2,
 				DataType:       TypeFloat16,

@@ -80,7 +80,7 @@ func NewLayoutTransformer(arch string, dt DataType, opts ...Option) (*LayoutTran
 	}
 
 	if arch == ArchSM121a && lt.swizzle == Swizzle128BAtom32B {
-		return nil, fmt.Errorf("cudaprepack: sm_121a rejects tcgen05 swizzle mode %s", lt.swizzle)
+		return nil, fmt.Errorf("cudaprepack: host layout transformer does not support swizzle %s on %s", lt.swizzle, arch)
 	}
 	if lt.baseAddress%MinAddressAlignment != 0 {
 		return nil, fmt.Errorf("cudaprepack: base address 0x%x not 16-byte aligned", lt.baseAddress)

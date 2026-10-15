@@ -4,21 +4,23 @@ package cudaprepack
 
 import (
 	"fmt"
+	"math"
 )
 
-// Supported NVIDIA target architectures.
+// Target names accepted by the host layout transformers.
 const (
-	ArchSM121a = "sm_121a" // Blackwell GB10 (TMA, mbarrier, multimem; rejects tcgen05, wgmma)
-	ArchSM100a = "sm_100a" // Blackwell GB200 / B100 (tcgen05, microscaling swizzle, 2:4 sparsity)
+	ArchSM121a = "sm_121a"
+	ArchSM100a = "sm_100a"
 )
 
-// Hardware alignment and box constraints.
+// Alignment and default box sizes used by the host layout transformers.
+// The box-size defaults are not general tensor-map hardware limits.
 const (
-	MinAddressAlignment    = 16  // TMA requires 16-byte base address alignment
-	MinBoxWidthBytes       = 16  // TMA box width must be at least 16 bytes
-	MaxBoxWidthBytesSM121a = 128 // sm_121a max box width in bytes
-	MaxBoxWidthBytesSM100a = 128 // sm_100a swizzled max box width in bytes
-	BoxBoundaryBytesSM121a = 128 // sm_121a box boundary constraint
+	MinAddressAlignment    = 16
+	MinBoxWidthBytes       = 16
+	MaxBoxWidthBytesSM121a = 128
+	MaxBoxWidthBytesSM100a = 128
+	BoxBoundaryBytesSM121a = 128
 )
 
 // DataType identifies tensor element precision and packing format.
@@ -57,7 +59,7 @@ func (d DataType) SubByte() bool {
 	return d == TypeIQ2_XXS || d == TypeMXFP4
 }
 
-// SwizzleMode describes TMA shared memory bank swizzling patterns.
+// SwizzleMode names a descriptor's requested swizzle, not a bank-conflict result.
 type SwizzleMode uint32
 
 const (
@@ -65,7 +67,7 @@ const (
 	Swizzle32B         SwizzleMode = 1
 	Swizzle64B         SwizzleMode = 2
 	Swizzle128B        SwizzleMode = 3
-	Swizzle128BAtom32B SwizzleMode = 4 // sm_100a tcgen05 atom swizzle
+	Swizzle128BAtom32B SwizzleMode = 4
 )
 
 // String returns the human-readable swizzle mode name.
@@ -95,7 +97,10 @@ const (
 	Interleave32B  InterleaveMode = 2
 )
 
-// BoxDescriptor describes a hardware-aligned 2D or 3D TMA tensor box.
+// BoxDescriptor describes host tensor storage and a traversal box.
+// A valid host descriptor is not necessarily a CUDA tensor-map descriptor.
+// Unused dimension, box and element-stride entries may be zero or one;
+// unused global-stride entries must be zero.
 type BoxDescriptor struct {
 	Rank           int            // 2 or 3
 	DataType       DataType       // Element data type
@@ -103,94 +108,184 @@ type BoxDescriptor struct {
 	GlobalDims     [3]uint64      // [dim0, dim1, dim2] in elements
 	GlobalStrides  [3]int64       // Stride in bytes along dim1 and dim2 (multiples of 16)
 	BoxDims        [3]uint32      // [box0, box1, box2] tile shape in elements
-	ElementStrides [3]uint32      // Must be 1 for dim0
+	ElementStrides [3]uint32      // Positive traversal strides
 	Swizzle        SwizzleMode    // Shared memory bank swizzle
 	Interleave     InterleaveMode // Byte interleaving layout
 }
 
-// Validate checks the descriptor against architectural constraints.
+// Validate checks the host storage contract for a named transformer target.
+// It checks shape, known formats and modes, aligned nonoverlapping strides,
+// representable storage and address extents. It does not verify payload bytes,
+// encode a tensor map, or establish eligibility for a device operation.
 func (b *BoxDescriptor) Validate(arch string) error {
+	if arch != ArchSM121a && arch != ArchSM100a {
+		return fmt.Errorf("cudaprepack: unsupported target architecture %q", arch)
+	}
+	_, _, err := b.storageBytes()
+	return err
+}
+
+func (b *BoxDescriptor) storageBytes() (int, int64, error) {
+	if b == nil {
+		return 0, 0, fmt.Errorf("cudaprepack: nil box descriptor")
+	}
 	if b.Rank != 2 && b.Rank != 3 {
-		return fmt.Errorf("cudaprepack: invalid rank %d, must be 2 or 3", b.Rank)
+		return 0, 0, fmt.Errorf("cudaprepack: invalid rank %d, must be 2 or 3", b.Rank)
 	}
 	if b.GlobalAddress%MinAddressAlignment != 0 {
-		return fmt.Errorf("cudaprepack: global address 0x%x not %d-byte aligned", b.GlobalAddress, MinAddressAlignment)
+		return 0, 0, fmt.Errorf("cudaprepack: global address 0x%x not %d-byte aligned", b.GlobalAddress, MinAddressAlignment)
 	}
-	if b.GlobalDims[0] == 0 || b.GlobalDims[1] == 0 {
-		return fmt.Errorf("cudaprepack: global dimensions must be non-zero")
+	bits := uint64(b.DataType.BitsPerElement())
+	if bits == 0 {
+		return 0, 0, fmt.Errorf("cudaprepack: unknown data type %q", b.DataType)
 	}
-	if b.Rank == 3 && b.GlobalDims[2] == 0 {
-		return fmt.Errorf("cudaprepack: 3D global dim2 must be non-zero")
+	if b.Swizzle > Swizzle128BAtom32B || b.Interleave > Interleave32B {
+		return 0, 0, fmt.Errorf("cudaprepack: unknown swizzle or interleave mode")
 	}
-	if b.BoxDims[0] == 0 || b.BoxDims[1] == 0 {
-		return fmt.Errorf("cudaprepack: box dimensions must be non-zero")
+	for i := 0; i < b.Rank; i++ {
+		if b.GlobalDims[i] == 0 || b.BoxDims[i] == 0 || b.ElementStrides[i] == 0 {
+			return 0, 0, fmt.Errorf("cudaprepack: dimension %d must have positive size, box and element stride", i)
+		}
 	}
-	if b.Rank == 3 && b.BoxDims[2] == 0 {
-		return fmt.Errorf("cudaprepack: 3D box dim2 must be non-zero")
+	for i := b.Rank; i < len(b.GlobalDims); i++ {
+		if b.GlobalDims[i] > 1 || b.BoxDims[i] > 1 || b.ElementStrides[i] > 1 {
+			return 0, 0, fmt.Errorf("cudaprepack: dimension %d is unused at rank %d", i, b.Rank)
+		}
 	}
-	if b.ElementStrides[0] != 1 {
-		return fmt.Errorf("cudaprepack: element stride 0 must be 1, got %d", b.ElementStrides[0])
+	for i := b.Rank - 1; i < len(b.GlobalStrides); i++ {
+		if b.GlobalStrides[i] != 0 {
+			return 0, 0, fmt.Errorf("cudaprepack: global stride %d is unused at rank %d", i, b.Rank)
+		}
 	}
+	if b.GlobalDims[0] > (math.MaxUint64-7)/bits {
+		return 0, 0, fmt.Errorf("cudaprepack: row extent overflows")
+	}
+	extent := (b.GlobalDims[0]*bits + 7) / 8
+	for i := 0; i < b.Rank-1; i++ {
+		stride := b.GlobalStrides[i]
+		if stride <= 0 {
+			return 0, 0, fmt.Errorf("cudaprepack: global stride %d must be positive", i)
+		}
+		if stride%MinAddressAlignment != 0 {
+			if i == 0 {
+				return 0, 0, fmt.Errorf("cudaprepack: row stride %d must be multiple of 16 bytes", stride)
+			}
+			return 0, 0, fmt.Errorf("cudaprepack: plane stride %d must be multiple of 16 bytes", stride)
+		}
+		if uint64(stride) < extent {
+			return 0, 0, fmt.Errorf("cudaprepack: global stride %d overlaps the preceding extent", i)
+		}
+		if b.GlobalDims[i+1] > uint64(math.MaxInt64)/uint64(stride) {
+			return 0, 0, fmt.Errorf("cudaprepack: storage extent overflows")
+		}
+		extent = uint64(stride) * b.GlobalDims[i+1]
+	}
+	if b.GlobalAddress > math.MaxUint64-extent {
+		return 0, 0, fmt.Errorf("cudaprepack: storage address extent overflows")
+	}
+	box := (uint64(b.BoxDims[0])*bits + 7) / 8
+	for i := 1; i < b.Rank; i++ {
+		if box > uint64(math.MaxInt)/uint64(b.BoxDims[i]) {
+			return 0, 0, fmt.Errorf("cudaprepack: box extent overflows")
+		}
+		box *= uint64(b.BoxDims[i])
+	}
+	return int(box), int64(extent), nil
+}
 
-	// Compute box width in bytes
-	bitsPerElem := b.DataType.BitsPerElement()
-	boxWidthBytes := (int(b.BoxDims[0])*bitsPerElem + 7) / 8
-	if boxWidthBytes < MinBoxWidthBytes {
-		return fmt.Errorf("cudaprepack: box width (%d bytes) less than minimum %d bytes", boxWidthBytes, MinBoxWidthBytes)
-	}
-	if boxWidthBytes%MinBoxWidthBytes != 0 {
-		return fmt.Errorf("cudaprepack: box width (%d bytes) must be a multiple of %d bytes", boxWidthBytes, MinBoxWidthBytes)
-	}
+// TensorMapOperation names the bounded tiled copy operations checked here.
+type TensorMapOperation string
 
-	// Row stride must be a multiple of 16 bytes
-	if b.GlobalStrides[0]%MinAddressAlignment != 0 {
-		return fmt.Errorf("cudaprepack: row stride %d must be multiple of %d bytes", b.GlobalStrides[0], MinAddressAlignment)
-	}
-	if b.Rank == 3 && b.GlobalStrides[1]%MinAddressAlignment != 0 {
-		return fmt.Errorf("cudaprepack: plane stride %d must be multiple of %d bytes", b.GlobalStrides[1], MinAddressAlignment)
-	}
+const (
+	TensorMapTiledLoad  TensorMapOperation = "tiled-load"
+	TensorMapTiledStore TensorMapOperation = "tiled-store"
+)
 
-	// Architecture-specific rules
-	switch arch {
-	case ArchSM121a:
-		if boxWidthBytes > MaxBoxWidthBytesSM121a {
-			return fmt.Errorf("cudaprepack: box width (%d bytes) exceeds sm_121a limit %d bytes", boxWidthBytes, MaxBoxWidthBytesSM121a)
+// ValidateTensorMap checks descriptor fields for a tiled load or store under
+// CUDA Driver API 13.4 cuTensorMapEncodeTiled and PTX ISA 9.4 tensor-copy rules.
+// It supports Float16 and Float32, rank 2 or 3, the three interleave modes,
+// and no swizzle or the standard 32-, 64- and 128-byte swizzles on the two named
+// targets. Other packed formats and atom swizzles are explicitly unsupported.
+// Stores are restricted to boxes contained in the logical tensor at the origin.
+//
+// Success does not encode an opaque tensor map or validate payload contents,
+// allocation, transfer coordinates, shared addresses or completion protocols.
+// Descriptor construction through the driver and native execution remain separate.
+// See https://docs.nvidia.com/cuda/cuda-driver-api/cuda_driver_api/group__CUDA__TENSOR__MEMORY.html.
+func (b *BoxDescriptor) ValidateTensorMap(arch string, operation TensorMapOperation) error {
+	if operation != TensorMapTiledLoad && operation != TensorMapTiledStore {
+		return fmt.Errorf("cudaprepack: unsupported tensor-map operation %q", operation)
+	}
+	if err := b.Validate(arch); err != nil {
+		return err
+	}
+	if b.DataType != TypeFloat16 && b.DataType != TypeFloat32 {
+		return fmt.Errorf("cudaprepack: %s has no supported scalar tensor-map dtype", b.DataType)
+	}
+	for i := 0; i < b.Rank; i++ {
+		if b.GlobalDims[i] > 1<<32 || b.BoxDims[i] > 256 || b.ElementStrides[i] > 8 {
+			return fmt.Errorf("cudaprepack: dimension %d exceeds tiled tensor-map bounds", i)
 		}
-		if b.Swizzle == Swizzle128BAtom32B {
-			return fmt.Errorf("cudaprepack: target sm_121a rejects tcgen05 swizzle mode %s", b.Swizzle)
+		if operation == TensorMapTiledStore && uint64(b.BoxDims[i]) > b.GlobalDims[i] {
+			return fmt.Errorf("cudaprepack: tiled store box dimension %d exceeds logical extent", i)
 		}
-	case ArchSM100a:
-		if boxWidthBytes > 256 {
-			return fmt.Errorf("cudaprepack: box width (%d bytes) exceeds sm_100a limit 256 bytes", boxWidthBytes)
+	}
+	for i := 0; i < b.Rank-1; i++ {
+		if b.GlobalStrides[i] >= 1<<40 {
+			return fmt.Errorf("cudaprepack: global stride %d exceeds tiled tensor-map bounds", i)
 		}
-		if b.Swizzle != SwizzleNone && boxWidthBytes > MaxBoxWidthBytesSM100a {
-			return fmt.Errorf("cudaprepack: swizzled box width (%d bytes) exceeds sm_100a limit %d bytes", boxWidthBytes, MaxBoxWidthBytesSM100a)
-		}
+	}
+	width := uint64(b.BoxDims[0]) * uint64(b.DataType.BitsPerElement()/8)
+	var span uint64
+	switch b.Swizzle {
+	case SwizzleNone:
+	case Swizzle32B:
+		span = 32
+	case Swizzle64B:
+		span = 64
+	case Swizzle128B:
+		span = 128
 	default:
-		return fmt.Errorf("cudaprepack: unsupported target architecture %q (supported: %q, %q)", arch, ArchSM121a, ArchSM100a)
+		return fmt.Errorf("cudaprepack: tensor-map swizzle %s is unsupported for %s", b.Swizzle, operation)
 	}
-
+	if b.Interleave == InterleaveNone {
+		if width%16 != 0 || span != 0 && width > span {
+			return fmt.Errorf("cudaprepack: tensor-map inner box width violates alignment or swizzle span")
+		}
+	} else if b.Rank < 3 {
+		return fmt.Errorf("cudaprepack: tensor-map interleave requires rank 3")
+	}
+	if b.Interleave == Interleave32B {
+		if b.GlobalAddress%32 != 0 || b.Swizzle != Swizzle32B {
+			return fmt.Errorf("cudaprepack: 32-byte interleave requires aligned address and 32-byte swizzle")
+		}
+		for i := 0; i < b.Rank-1; i++ {
+			if b.GlobalStrides[i]%32 != 0 {
+				return fmt.Errorf("cudaprepack: 32-byte interleave requires aligned global strides")
+			}
+		}
+	}
 	return nil
 }
 
-// BoxSizeBytes returns the byte size of one 2D or 3D box tile.
+// BoxSizeBytes returns the host box size, or zero for malformed or
+// unrepresentable storage. Validate returns the corresponding error.
 func (b *BoxDescriptor) BoxSizeBytes() int {
-	bitsPerElem := b.DataType.BitsPerElement()
-	wBytes := (int(b.BoxDims[0])*bitsPerElem + 7) / 8
-	h := int(b.BoxDims[1])
-	d := 1
-	if b.Rank == 3 && b.BoxDims[2] > 0 {
-		d = int(b.BoxDims[2])
+	box, _, err := b.storageBytes()
+	if err != nil {
+		return 0
 	}
-	return wBytes * h * d
+	return box
 }
 
-// TotalSizeBytes returns the total memory footprint in bytes represented by the descriptor.
+// TotalSizeBytes returns the padded host storage size, or zero for malformed or
+// unrepresentable storage. Validate returns the corresponding error.
 func (b *BoxDescriptor) TotalSizeBytes() int64 {
-	if b.Rank == 2 {
-		return b.GlobalStrides[0] * int64(b.GlobalDims[1])
+	_, total, err := b.storageBytes()
+	if err != nil {
+		return 0
 	}
-	return b.GlobalStrides[1] * int64(b.GlobalDims[2])
+	return total
 }
 
 // EncodeTensorMap returns an error because tensor maps require opaque
@@ -199,13 +294,13 @@ func (b *BoxDescriptor) EncodeTensorMap() ([16]uint64, error) {
 	return [16]uint64{}, fmt.Errorf("cudaprepack: tensor-map encoding requires the CUDA Driver API")
 }
 
-// PrepackedTensor contains the pre-packed weights, optional scale factors,
-// optional sparsity metadata, and the associated TMA BoxDescriptor.
+// PrepackedTensor contains host payload bytes, optional scales and sparsity
+// metadata, and their layout description. It does not own device allocations.
 type PrepackedTensor struct {
 	Arch     string
 	Type     DataType
 	BoxDesc  BoxDescriptor
-	Payload  []byte // Hardware-aligned tile weights
+	Payload  []byte // Host tensor storage
 	Scales   []byte // Contiguous or swizzled scale factors
 	Metadata []byte // 2:4 structured sparsity metadata (if sparse)
 	zeroCopy bool
