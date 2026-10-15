@@ -35,6 +35,8 @@ func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[s
 
 // EvaluateSnapshotAll executes a validated immutable snapshot on the CPU and
 // returns the value of every node, keyed by node ID. Input values are copied.
+// Empty mean reductions produce NaN for each output cell; if there are no
+// output cells, the result is empty.
 func EvaluateSnapshotAll(snap *cudair.Snapshot, inputs map[string][]float32) (map[int][]float32, error) {
 	if snap == nil {
 		return nil, errors.New("cudaref: nil snapshot")
@@ -185,6 +187,12 @@ func evalReduce(in []float32, inShape []int, axis int, op string) ([]float32, er
 				out[i] = float32(math.Inf(-1))
 			}
 			return out, nil
+		case "mean":
+			// An empty mean has no finite arithmetic identity.
+			for i := range out {
+				out[i] = float32(math.NaN())
+			}
+			return out, nil
 		default:
 			return nil, fmt.Errorf("unsupported empty reduction op %q", op)
 		}
@@ -201,6 +209,13 @@ func evalReduce(in []float32, inShape []int, axis int, op string) ([]float32, er
 					acc += float64(in[inIdx])
 				}
 				out[outIdx] = float32(acc)
+			case "mean":
+				var acc float64
+				for r := 0; r < reduceSize; r++ {
+					inIdx := outer*(reduceSize*innerSize) + r*innerSize + inner
+					acc += float64(in[inIdx])
+				}
+				out[outIdx] = float32(acc / float64(reduceSize))
 			case "max":
 				firstIdx := outer*(reduceSize*innerSize) + inner
 				maxVal := in[firstIdx]

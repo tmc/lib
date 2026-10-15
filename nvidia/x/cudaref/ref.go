@@ -81,6 +81,12 @@ func Softmax(src []float32) []float32 {
 // relu_grad chooses the zero subgradient at x == 0; all unary operations,
 // including relu_grad and gelu_grad, propagate NaN.
 func ElementwiseUnary(src []float32, op string) ([]float32, error) {
+	switch op {
+	case "relu", "relu_grad", "gelu", "gelu_grad", "silu", "exp", "log", "sqrt", "neg":
+	default:
+		return nil, fmt.Errorf("cudaref: unknown unary op %s", op)
+	}
+
 	dst := make([]float32, len(src))
 	for i, v := range src {
 		if math.IsNaN(float64(v)) {
@@ -121,8 +127,6 @@ func ElementwiseUnary(src []float32, op string) ([]float32, error) {
 			dst[i] = float32(math.Sqrt(float64(v)))
 		case "neg":
 			dst[i] = -v
-		default:
-			return nil, fmt.Errorf("cudaref: unknown unary op %s", op)
 		}
 	}
 	return dst, nil
@@ -133,6 +137,12 @@ func ElementwiseBinary(a, b []float32, op string) ([]float32, error) {
 	if len(a) != len(b) {
 		return nil, fmt.Errorf("cudaref: length mismatch (%d vs %d)", len(a), len(b))
 	}
+	switch op {
+	case "add", "sub", "mul", "multiply", "div":
+	default:
+		return nil, fmt.Errorf("cudaref: unknown binary op %s", op)
+	}
+
 	dst := make([]float32, len(a))
 	for i := range a {
 		switch op {
@@ -144,8 +154,6 @@ func ElementwiseBinary(a, b []float32, op string) ([]float32, error) {
 			dst[i] = a[i] * b[i]
 		case "div":
 			dst[i] = a[i] / b[i]
-		default:
-			return nil, fmt.Errorf("cudaref: unknown binary op %s", op)
 		}
 	}
 	return dst, nil
