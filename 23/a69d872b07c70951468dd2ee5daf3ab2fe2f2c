@@ -1,0 +1,4 @@
+commit 23a69d872b07c70951468dd2ee5daf3ab2fe2f2c date 2026-10-15T18:11:13Z
+B690 integration r6 (user-authorized, Codex root out of usage); cherry-pick -S of reviewed c6f9a9278 (GRADE 20261015-wf6-review-t1-mxfp4 1484b3b5)
+gates: mxfp4 46 race+norace; vet/build/gofmt clean
+agent claude-code model claude-opus-5-5 session=d6401e4c-228d-4c97-8539-dc3db96bf467
