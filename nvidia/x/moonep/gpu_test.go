@@ -75,7 +75,7 @@ func TestBufferGPU(t *testing.T) {
 	}
 }
 
-func bufferChildMain() int {
+func bufferChildMain() (code int) {
 	rank, _ := strconv.Atoi(os.Getenv("MOONEP_TEST_RANK"))
 	world, _ := strconv.Atoi(os.Getenv("MOONEP_TEST_WORLD"))
 	addr := os.Getenv("MOONEP_TEST_ADDR")
@@ -191,6 +191,13 @@ func bufferChildMain() int {
 
 	// Plan allocation round-trips.
 	p, err := AllocatePlan(buf.Layout)
+	if p != nil {
+		defer func() {
+			if err := p.Close(); err != nil {
+				code = fail("plan close: %v", err)
+			}
+		}()
+	}
 	if err != nil {
 		return fail("AllocatePlan: %v", err)
 	}

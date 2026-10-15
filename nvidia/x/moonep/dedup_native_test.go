@@ -122,14 +122,16 @@ func TestDedupOfflinePreparation(t *testing.T) {
 func dedupPopulatePlan(t *testing.T, dev *cuda.Device, s DedupSpec) *CommPlan {
 	t.Helper()
 	p, e := devPlan(dev, s)
+	if p != nil {
+		t.Cleanup(func() {
+			if e := dev.WithContext(p.Close); e != nil {
+				t.Error(e)
+			}
+		})
+	}
 	if e != nil {
 		t.Fatal(e)
 	}
-	t.Cleanup(func() {
-		if e := dev.WithContext(p.Close); e != nil {
-			t.Error(e)
-		}
-	})
 	m, e := dedupAdmit(s)
 	if e != nil {
 		t.Fatal(e)

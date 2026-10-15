@@ -38,7 +38,13 @@ type CommPlan struct {
 
 // AllocatePlan allocates a plan's device tensors for l. Contents are
 // uninitialized: fresh planning fills them on device.
+// If an allocation and its cleanup both fail, AllocatePlan returns the plan
+// retaining the failed frees. Close every nonnil result, including on error.
 func AllocatePlan(l *Layout) (*CommPlan, error) {
+	return allocatePlan(l, driver.MemAllocBytes, driver.DevicePtr.Free)
+}
+
+func allocatePlan(l *Layout, alloc func(uint) (driver.DevicePtr, error), free func(driver.DevicePtr) error) (*CommPlan, error) {
 	p := &CommPlan{N: l.N, R: l.R, E: l.E, B: l.B, NvS: l.NvS, K: l.K}
 	allocs := []struct {
 		dst   *driver.DevicePtr
@@ -54,12 +60,15 @@ func AllocatePlan(l *Layout) (*CommPlan, error) {
 		{&p.DupCounts, 2},
 	}
 	for _, a := range allocs {
-		ptr, err := driver.MemAllocBytes(uint(alignUp(a.elems, 4) * int32Bytes))
-		if err != nil {
-			p.Close()
-			return nil, fmt.Errorf("moonep: allocate plan (%d elems): %w", a.elems, err)
-		}
+		ptr, err := alloc(uint(alignUp(a.elems, 4) * int32Bytes))
 		*a.dst = ptr
+		if err != nil {
+			err = fmt.Errorf("moonep: allocate plan (%d elems): %w", a.elems, err)
+			if cleanupErr := p.close(free); cleanupErr != nil {
+				return p, errors.Join(err, cleanupErr)
+			}
+			return nil, err
+		}
 	}
 	return p, nil
 }

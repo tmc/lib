@@ -53,8 +53,11 @@ buf, err := moonep.NewBuffer(b, dev, moonep.Config{
 if err != nil { ... }
 defer buf.Close() // collective
 
-plan, _ := moonep.AllocatePlan(buf.Layout)
-defer plan.Close()
+plan, err := moonep.AllocatePlan(buf.Layout)
+if plan != nil {
+    defer plan.Close() // also retains cleanup duty on an allocation error
+}
+if err != nil { ... }
 
 // buf.Hidden, buf.Meta, buf.MetaMc(), buf.HiddenLocal(), plan.Dst, ...
 // are the pointers the (separately loaded) kernels take as parameters.
