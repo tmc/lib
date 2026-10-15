@@ -13,6 +13,8 @@ import (
 // [Unit.SourceWithLineDirectives] writes it, back into a Unit named name.
 // The directives are removed from Source and their coordinates recorded in
 // LineMap; a directive naming the generated file itself ends the mapping.
+// The largest representable positive line is recorded once, then mapping
+// ends until the next valid directive rather than overflowing the coordinate.
 // Only the file and line survive the round trip. The function and callers
 // of each site are not in the source, so a parsed unit rolls up no further
 // than its sites.
@@ -38,7 +40,11 @@ func ParseUnit(name, annotated string) Unit {
 		b.WriteByte('\n')
 		if file != "" {
 			u.LineMap[n] = cudair.SourceLocation{File: file, Line: line}
-			line++
+			if line == int(^uint(0)>>1) {
+				file = ""
+			} else {
+				line++
+			}
 		}
 	}
 	u.Source = strings.TrimSuffix(b.String(), "\n")

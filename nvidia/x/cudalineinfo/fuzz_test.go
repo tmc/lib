@@ -45,6 +45,7 @@ func FuzzLineInfoParseUnitRoundTrips(f *testing.F) {
 	for _, p := range cudatest.SortedPaths(seeds) {
 		f.Add(unitName(p), seeds[p])
 	}
+	f.Add("coordinate-limit", []byte(fmt.Sprintf("#line %d \"a.go\"\nx\ny", int(^uint(0)>>1))))
 	f.Fuzz(func(t *testing.T, name string, annotated []byte) {
 		unitDecoder(name).Check(t, annotated)
 	})
