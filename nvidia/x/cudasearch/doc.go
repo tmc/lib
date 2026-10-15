@@ -16,8 +16,12 @@
 // constraints before permutation, spatial and bypass evaluation. Supplied
 // spatial meshes must divide the factored tile counts. Whole-warp meshes must
 // also fit the caller's thread bound; those checks are not device launch or
-// residency qualification. The analytical traffic floor remains independent
-// of permutation and spatial placement.
+// residency qualification. The selected logical retention recipe accounts for
+// permutation, spatial ownership and bypass. With SpatialProfile and SplitK,
+// search includes tagged partial-C scratch and the declared direct-DRAM binary
+// reduction tree. MapSpaceSearchResult.TotalDRAM includes both phases; Movement
+// is the GEMM phase. These are exact selected-recipe traffic/capacity quantities,
+// not universal minimum traffic, native or theoretical hardware evidence.
 //
 // [SearchMemory] freezes a canonical bottleneck category, target-specific
 // strategy catalog and compatible trajectory rewards once per Search. Priors

@@ -61,12 +61,18 @@ type spatialLoop struct {
 // Spatial K reductions are explicitly unmodeled; refusing them does not supply
 // a partial-C reduction protocol. Counts imply no physical execution or timing.
 func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int, profile GEMMSpatialProfile) (SpatialHierarchyMovement, error) {
+	return analyticalGEMMSpatial(mapping, dtypes, profile, false)
+}
+
+// splitK tags C tiles by their spatial K owner. Only AnalyticalGEMMSplitK
+// enables it; its caller must also account for the declared merge phase.
+func analyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int, profile GEMMSpatialProfile, splitK bool) (SpatialHierarchyMovement, error) {
 	var result SpatialHierarchyMovement
 	temporal, err := validateGEMMHierarchy(mapping, dtypes, true)
 	if err != nil {
 		return result, err
 	}
-	loops, counts, err := spatialGEMMLoops(mapping, temporal, profile)
+	loops, counts, err := spatialGEMMLoops(mapping, temporal, profile, splitK)
 	if err != nil {
 		return result, err
 	}
@@ -77,6 +83,20 @@ func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.Te
 	result.Movement, err = gemmFootprints(mapping, dtypes)
 	if err != nil {
 		return SpatialHierarchyMovement{}, err
+	}
+	partials := uint64(1)
+	if splitK {
+		partials, err = spatialKParts(mapping, profile)
+		if err != nil {
+			return SpatialHierarchyMovement{}, err
+		}
+		last := len(result.Movement.Levels) - 1
+		entry := result.Movement.Levels[last].Tensors[cudalayout.TensorC]
+		entry.ResidentBytes, err = checkedProduct(entry.ResidentBytes, partials)
+		if err != nil {
+			return SpatialHierarchyMovement{}, err
+		}
+		result.Movement.Levels[last].Tensors[cudalayout.TensorC] = entry
 	}
 	levels := mapping.Factorization.Levels
 	roles := []cudalayout.TensorRole{cudalayout.TensorA, cudalayout.TensorB, cudalayout.TensorC}
@@ -92,6 +112,10 @@ func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.Te
 	owned := func(level cudalayout.StorageLevel, owner int) bool {
 		return owner != 0 && (level == cudalayout.LevelRegister || (level == cudalayout.LevelShared && owner == 1))
 	}
+	keyDepends := func(loop spatialLoop, i int, role cudalayout.TensorRole) bool {
+		return (loop.level > i && gemmProjects(role, loop.dim)) ||
+			(splitK && role == cudalayout.TensorC && loop.owner != 0 && loop.dim == "K")
+	}
 	for i, level := range levels {
 		for _, role := range roles {
 			result.Levels[i].Tensors[role] = SpatialTensorMovement{}
@@ -104,7 +128,7 @@ func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.Te
 			// projected free digits above this buffer.
 			distinct, temporalKeys := uint64(1), uint64(1)
 			for _, loop := range loops {
-				if loop.level <= i || !gemmProjects(role, loop.dim) {
+				if !keyDepends(loop, i, role) {
 					continue
 				}
 				if owned(level, loop.owner) {
@@ -167,7 +191,7 @@ func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.Te
 			}
 			distinct, runs, last := uint64(1), uint64(1), -1
 			for j, loop := range loops {
-				if !owned(level, loop.owner) && loop.level > i && gemmProjects(role, loop.dim) {
+				if !owned(level, loop.owner) && keyDepends(loop, i, role) {
 					distinct, err = checkedProduct(distinct, loop.size)
 					if err != nil {
 						return SpatialHierarchyMovement{}, err
@@ -205,6 +229,10 @@ func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.Te
 		return SpatialHierarchyMovement{}, err
 	}
 	outputs, err := checkedProduct(uint64(mapping.Problem["B"]), uint64(mapping.Problem["M"]), uint64(mapping.Problem["N"]))
+	if err != nil {
+		return SpatialHierarchyMovement{}, err
+	}
+	outputs, err = checkedProduct(outputs, partials)
 	if err != nil {
 		return SpatialHierarchyMovement{}, err
 	}
@@ -279,7 +307,7 @@ func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.Te
 	return result, nil
 }
 
-func spatialGEMMLoops(mapping cudalayout.MapSpace, temporal []gemmLoop, profile GEMMSpatialProfile) ([]spatialLoop, [3]uint64, error) {
+func spatialGEMMLoops(mapping cudalayout.MapSpace, temporal []gemmLoop, profile GEMMSpatialProfile, splitK bool) ([]spatialLoop, [3]uint64, error) {
 	dims := []string{"B", "M", "N", "K"}
 	meshes := []map[string]int{mapping.Spatial.CTAMesh, mapping.Spatial.WarpMesh, profile.LaneMesh}
 	counts := [3]uint64{1, 1, 1}
@@ -318,7 +346,7 @@ func spatialGEMMLoops(mapping cudalayout.MapSpace, temporal []gemmLoop, profile 
 		}
 	}
 	for _, mesh := range meshes {
-		if value(mesh, "K") != 1 {
+		if !splitK && value(mesh, "K") != 1 {
 			return nil, counts, fmt.Errorf("spatial K reduction: %w", cudalayout.ErrUnmodeled)
 		}
 	}

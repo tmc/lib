@@ -31,10 +31,25 @@ type MapSpaceSearchStats struct {
 // MapSpaceSearchResult retains a detached mapping and its logical
 // traffic. Mutating it does not change the search inputs.
 type MapSpaceSearchResult struct {
-	Mapping         cudalayout.MapSpace
+	Mapping cudalayout.MapSpace
+	// Movement and SpatialMovement describe the GEMM phase. With SplitK,
+	// their C cells are tagged partials; TotalDRAM includes the merge phase.
 	Movement        cudaroofline.HierarchyMovement
 	SpatialProfile  *cudaroofline.GEMMSpatialProfile
 	SpatialMovement *cudaroofline.SpatialHierarchyMovement
+	SplitK          *cudaroofline.GEMMSplitKMovement
+}
+
+// TotalDRAM returns the whole selected recipe's logical DRAM traffic. With a
+// split-K report it includes scratch, tree reads/writes and final C. Otherwise
+// it is Movement.DRAM. Intensity uses useful 2*MACs, excluding merge overhead.
+// This is selected-recipe traffic, not universal minimum traffic, native or
+// theoretical hardware evidence. Returned report maps belong to the caller.
+func (r MapSpaceSearchResult) TotalDRAM() cudaroofline.CompoundDataMovement {
+	if r.SplitK != nil {
+		return r.SplitK.DRAM
+	}
+	return r.Movement.DRAM
 }
 
 // LinearPrunedSearch performs ordered iteration over a factored mapspace,
@@ -49,11 +64,16 @@ type LinearPrunedSearch struct {
 	// SpatialProfile opts into the declared logical owner-major model. Nil
 	// preserves unsupported nonidentity accounting. LaneMesh is borrowed input.
 	SpatialProfile *cudaroofline.GEMMSpatialProfile
-	Bypasses       []cudalayout.DatatypeBypass
-	Constraints    cudalayout.HardwareConstraints
-	DTypes         map[cudalayout.TensorRole]int
-	Problem        map[string]int
-	defaultOrder   bool
+	// SplitK opts into tagged partial-C scratch and the fixed direct-DRAM
+	// binary tree. It requires SpatialProfile. False preserves unsupported K
+	// accounting. The merge separately needs two C-width registers per thread,
+	// scaled by configured MaxThreadsPerBlock, not logical active lane count.
+	SplitK       bool
+	Bypasses     []cudalayout.DatatypeBypass
+	Constraints  cudalayout.HardwareConstraints
+	DTypes       map[cudalayout.TensorRole]int
+	Problem      map[string]int
+	defaultOrder bool
 }
 
 // NewLinearPrunedSearch constructs a LinearPrunedSearch instance. With no
@@ -111,6 +131,7 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 			Permutations:   append([]cudalayout.LoopPermutation(nil), s.Permutations...),
 			SpatialTilings: append([]cudalayout.SpatialTiling(nil), s.SpatialTilings...),
 			SpatialProfile: s.SpatialProfile,
+			SplitK:         s.SplitK,
 			Bypasses:       append([]cudalayout.DatatypeBypass(nil), s.Bypasses...),
 			Constraints:    s.Constraints,
 			DTypes:         s.DTypes,
@@ -128,7 +149,8 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 // maximizes logical DRAM operational intensity, retaining the first tie.
 // With SpatialProfile, supported owner-major spatial traffic is included.
 // Without it, nonidentity spatial candidates remain unsupported skips.
-// Spatial K reductions remain explicitly unmodeled. No physical cache behavior,
+// SplitK also opts into the declared two-phase reduction recipe. Scoring uses
+// TotalDRAM's useful FLOPs/byte across both phases. No physical cache behavior,
 // device residency, synchronization or schedule latency is modeled.
 // It rejects a candidate count that cannot be represented by its int statistics.
 func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, error) {
@@ -186,6 +208,9 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 			if !s.validSpatial(fact, spatial) {
 				continue
 			}
+			if s.usesSplitK(spatial) && s.validateSplitKCapacity() != nil {
+				continue
+			}
 			for _, bypass := range s.Bypasses {
 				if err := ctx.Err(); err != nil {
 					return stats, err
@@ -235,6 +260,10 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 						stats.DownstreamSkipped++
 						continue
 					}
+					if s.usesSplitK(spatial) && s.validateSplitKCapacity() != nil {
+						stats.DownstreamSkipped++
+						continue
+					}
 
 					if s.SpatialProfile == nil && !identityMapSpaceSpatial(spatial) {
 						stats.UnsupportedCandidates++
@@ -244,8 +273,18 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 					mapping := cudalayout.MapSpace{Problem: s.Problem, Factorization: fact, Permutation: perm, Spatial: spatial, Bypass: bypass}
 					var movement cudaroofline.HierarchyMovement
 					var spatialMovement *cudaroofline.SpatialHierarchyMovement
+					var splitKMovement *cudaroofline.GEMMSplitKMovement
 					if s.SpatialProfile != nil {
-						report, err := cudaroofline.AnalyticalGEMMSpatial(mapping, s.DTypes, *s.SpatialProfile)
+						var report cudaroofline.SpatialHierarchyMovement
+						var err error
+						if s.usesSplitK(spatial) {
+							var split cudaroofline.GEMMSplitKMovement
+							split, err = cudaroofline.AnalyticalGEMMSplitK(mapping, s.DTypes, *s.SpatialProfile)
+							report = split.GEMM
+							splitKMovement = &split
+						} else {
+							report, err = cudaroofline.AnalyticalGEMMSpatial(mapping, s.DTypes, *s.SpatialProfile)
+						}
 						if errors.Is(err, cudalayout.ErrUnmodeled) {
 							stats.UnsupportedCandidates++
 							stats.DownstreamSkipped++
@@ -267,9 +306,11 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 							return stats, fmt.Errorf("mapspace data movement: %w", err)
 						}
 					}
-					if stats.Best == nil || movement.DRAM.OperationalIntensity > stats.BestIntensity {
-						stats.BestIntensity = movement.DRAM.OperationalIntensity
-						stats.Best = &MapSpaceSearchResult{Mapping: cloneMapSpace(mapping), Movement: movement, SpatialMovement: spatialMovement}
+					candidate := MapSpaceSearchResult{Movement: movement, SpatialMovement: spatialMovement, SplitK: splitKMovement}
+					if stats.Best == nil || candidate.TotalDRAM().OperationalIntensity > stats.BestIntensity {
+						stats.BestIntensity = candidate.TotalDRAM().OperationalIntensity
+						candidate.Mapping = cloneMapSpace(mapping)
+						stats.Best = &candidate
 						if s.SpatialProfile != nil {
 							stats.Best.SpatialProfile = &cudaroofline.GEMMSpatialProfile{LaneMesh: maps.Clone(s.SpatialProfile.LaneMesh)}
 						}
@@ -281,6 +322,37 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 	}
 
 	return stats, nil
+}
+
+func (s *LinearPrunedSearch) usesSplitK(spatial cudalayout.SpatialTiling) bool {
+	return s.SplitK && s.SpatialProfile != nil && (spatial.CTAMesh["K"] > 1 ||
+		spatial.WarpMesh["K"] > 1 || s.SpatialProfile.LaneMesh["K"] > 1)
+}
+
+func (s *LinearPrunedSearch) validateSplitKCapacity() error {
+	// This allocation-only descriptor holds two C-width temporary slots.
+	// It is never scored as a GEMM or exposed as another workload/schema.
+	levels := []cudalayout.StorageLevel{cudalayout.LevelRegister, cudalayout.LevelShared, cudalayout.LevelDRAM}
+	factors := make(map[cudalayout.StorageLevel]map[string]int)
+	bypass := cudalayout.NewDatatypeBypass()
+	for _, level := range levels {
+		factors[level] = map[string]int{"B": 1, "M": 1, "N": 1, "K": 1}
+		if level != cudalayout.LevelDRAM {
+			bypass.SetBypass(level, cudalayout.TensorA, true)
+			bypass.SetBypass(level, cudalayout.TensorB, true)
+		}
+	}
+	factors[cudalayout.LevelRegister]["M"] = 2
+	bypass.SetBypass(cudalayout.LevelShared, cudalayout.TensorC, true)
+	allocation := cudalayout.NewIndexFactorization(levels, factors)
+	// Check machine-fit arithmetic even when no register limit is configured.
+	if _, err := cudalayout.FootprintBytes(allocation, bypass, s.DTypes, cudalayout.LevelRegister); err != nil {
+		return fmt.Errorf("split-K merge capacity: %w", err)
+	}
+	if err := cudalayout.ValidateCapacity(allocation, bypass, s.DTypes, s.Constraints); err != nil {
+		return fmt.Errorf("split-K merge capacity: %w", err)
+	}
+	return nil
 }
 
 func (s *LinearPrunedSearch) validSpatial(fact cudalayout.IndexFactorization, spatial cudalayout.SpatialTiling) bool {
