@@ -1,0 +1,7 @@
+Commit: 6541308a63cbca1955040eb5b13b31c0238032c6
+Date: 2026-10-15T02:45:55-07:00
+session=92385c74-9d24-496f-8b25-f083f27c346b model=claude-opus-5-5
+Series: native support persistence (stack fa94de77f/654839e8c/502f42c84/72af297c8 + successor cec81411; 03-05 squashed so no intermediate commit has an unbuildable fixture; gofmt follow-up). Inventory rows DS4_SUPPORT_CODEC_NATIVE/DS4_SUPPORT_METHOD_RECEIPTS folded in.
+Gate run-2 (Mac canonical gpu-lock, /Users/tmc/tmp/ds4-min/20261011-claude-takeover/wave4/native-persistence-successor/run-2): baseline rc0 31 parser + 9 caller subtests; 8/8 caller mutants rc1 at intended assertions with REVIEW collateral; verify.py PASS; adversarial verifier accepted.
+Landing checks (/Users/tmc/tmp/ds4-min/20261011-claude-takeover/wave4/native-persistence-successor/landing/percommit): every commit vet linux+darwin rc0 and TestOracleGate* rc0; final tree gofmt-clean; final callers rerun rc0, verify.py PASS. Pre-gofmt tree byte-identical to the gated successor worktree.
+Scope: host-only actual-caller qualification on darwin; not native transfer/device behaviour.
