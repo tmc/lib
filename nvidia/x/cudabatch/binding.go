@@ -2,6 +2,7 @@ package cudabatch
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/tmc/lib/nvidia/x/cudashape"
 )
@@ -34,6 +35,9 @@ func SelectBucket(batchSize, maxSeqLen int, buckets []ShapeBucket) (ShapeBucket,
 	var best ShapeBucket
 	found := false
 	for _, b := range buckets {
+		if _, err := bindingBucketSize(b); err != nil {
+			return ShapeBucket{}, err
+		}
 		if b.BatchSize >= batchSize && b.MaxSeqLen >= maxSeqLen {
 			if !found || (b.BatchSize <= best.BatchSize && b.MaxSeqLen <= best.MaxSeqLen) {
 				best = b
@@ -55,70 +59,93 @@ type BatchMetadata struct {
 	BlockSize      int
 	RowBindings    []BatchRowBinding
 	SequenceLens   []int
-	AttentionMask  []float32 // Flattened [BatchSize, MaxSeqLen] causal/prefix mask
+	AttentionMask  []float32 // Flattened [BatchSize, MaxSeqLen] prefix-validity mask, not per-query causal masking
 	BlockTableFlat []int32   // Flattened [BatchSize, MaxBlocksPerRow]
 }
 
-// ValidateAndBindRows validates bounds, block table integrity, and attention mask layout
-// for the given rows against bucket constraints and blockSize.
+// ValidateAndBindRows validates a nonempty batch before allocating its metadata.
+// Rows must have distinct nonempty sequence IDs, consecutive row indices, and
+// exactly SequenceLength-StartPos tokens (one token for decode). Returned token
+// and block-table slices are detached from the caller.
+//
+// AttentionMask marks each row's valid prefix; the consumer must separately
+// enforce per-query causal attention. Block indices must fit int32. This
+// function has no KV pool ownership or capacity information and cannot prove
+// that a positive block index belongs to a sequence or a physical allocation.
 func ValidateAndBindRows(rows []BatchRowBinding, bucket ShapeBucket, blockSize int) (*BatchMetadata, error) {
+	maskElements, err := bindingBucketSize(bucket)
+	if err != nil {
+		return nil, err
+	}
 	if blockSize <= 0 {
 		return nil, fmt.Errorf("%w: non-positive blockSize %d", ErrRowBoundsViolation, blockSize)
 	}
-	if len(rows) > bucket.BatchSize {
-		return nil, fmt.Errorf("%w: rows %d exceeds bucket batch size %d", ErrRowBoundsViolation, len(rows), bucket.BatchSize)
+	if len(rows) == 0 || len(rows) > bucket.BatchSize {
+		return nil, fmt.Errorf("%w: row count %d must be in [1, %d]", ErrRowBoundsViolation, len(rows), bucket.BatchSize)
+	}
+	maxBlocksPerRow := (bucket.MaxSeqLen-1)/blockSize + 1
+	blockElements, err := bindingStorage(bucket.BatchSize, maxBlocksPerRow, 4)
+	if err != nil {
+		return nil, err
 	}
 
 	totalTokens := 0
-	seqLens := make([]int, bucket.BatchSize)
-	maxBlocksPerRow := (bucket.MaxSeqLen + blockSize - 1) / blockSize
-
-	mask := make([]float32, bucket.BatchSize*bucket.MaxSeqLen)
-	blockTableFlat := make([]int32, bucket.BatchSize*maxBlocksPerRow)
-
 	for i, row := range rows {
-		if row.SequenceLength < 0 || row.SequenceLength > bucket.MaxSeqLen {
+		if row.RowIndex != i || row.SeqID == "" {
+			return nil, fmt.Errorf("%w: row %d has invalid identity", ErrRowBoundsViolation, i)
+		}
+		for j := 0; j < i; j++ {
+			if rows[j].SeqID == row.SeqID {
+				return nil, fmt.Errorf("%w: duplicate sequence %q", ErrRowBoundsViolation, row.SeqID)
+			}
+		}
+		if row.SequenceLength <= 0 || row.SequenceLength > bucket.MaxSeqLen {
 			return nil, fmt.Errorf("%w: row %d (seq %s) length %d exceeds bucket max %d", ErrRowBoundsViolation, i, row.SeqID, row.SequenceLength, bucket.MaxSeqLen)
 		}
-		if row.StartPos < 0 || row.StartPos > row.SequenceLength {
+		if row.StartPos < 0 || row.StartPos >= row.SequenceLength {
 			return nil, fmt.Errorf("%w: row %d (seq %s) invalid startPos %d with seqLen %d", ErrRowBoundsViolation, i, row.SeqID, row.StartPos, row.SequenceLength)
 		}
 
-		// Verify block table covers the entire sequence length
-		neededBlocks := (row.SequenceLength + blockSize - 1) / blockSize
+		neededBlocks := (row.SequenceLength-1)/blockSize + 1
 		if len(row.BlockTable) < neededBlocks {
 			return nil, fmt.Errorf("%w: row %d has %d blocks, needs %d for length %d", ErrCorruptBlockTable, i, len(row.BlockTable), neededBlocks, row.SequenceLength)
 		}
 
-		// Validate block table indices are non-negative and not corrupted
-		for bi, b := range row.BlockTable[:neededBlocks] {
-			if b < 0 {
-				return nil, fmt.Errorf("%w: row %d (seq %s) has negative block index %d at position %d", ErrCorruptBlockTable, i, row.SeqID, b, bi)
+		for bi, b := range row.BlockTable {
+			if b < 0 || uint64(b) > 1<<31-1 {
+				return nil, fmt.Errorf("%w: row %d (seq %s) has invalid int32 block index %d at position %d", ErrCorruptBlockTable, i, row.SeqID, b, bi)
 			}
-			blockTableFlat[i*maxBlocksPerRow+bi] = int32(b)
 		}
-
 		numRowTokens := len(row.Tokens)
-		if !row.IsPrefill {
-			numRowTokens = 1
+		if numRowTokens == 0 || numRowTokens != row.SequenceLength-row.StartPos || !row.IsPrefill && numRowTokens != 1 {
+			return nil, fmt.Errorf("%w: row %d has inconsistent token extent", ErrRowBoundsViolation, i)
+		}
+		if numRowTokens > bucket.MaxTokens-totalTokens {
+			return nil, fmt.Errorf("%w: row %d exceeds bucket token budget %d", ErrCapacityExhausted, i, bucket.MaxTokens)
 		}
 		totalTokens += numRowTokens
-		seqLens[i] = row.SequenceLength
-
-		// Construct causal attention mask for this row: 1.0 for valid attended positions, 0.0 for future/padding
-		rowOffset := i * bucket.MaxSeqLen
-		for pos := 0; pos < bucket.MaxSeqLen; pos++ {
-			if pos < row.SequenceLength {
-				mask[rowOffset+pos] = 1.0
-			} else {
-				mask[rowOffset+pos] = 0.0
-			}
-		}
 	}
 
 	shape, err := cudashape.New(bucket.BatchSize, bucket.MaxSeqLen)
 	if err != nil {
 		return nil, fmt.Errorf("cudabatch: construct shape: %w", err)
+	}
+	seqLens := make([]int, bucket.BatchSize)
+	mask := make([]float32, maskElements)
+	blockTableFlat := make([]int32, blockElements)
+	boundRows := make([]BatchRowBinding, len(rows))
+	for i, row := range rows {
+		boundRows[i] = row
+		boundRows[i].Tokens = append([]int32(nil), row.Tokens...)
+		boundRows[i].BlockTable = append([]int(nil), row.BlockTable...)
+		seqLens[i] = row.SequenceLength
+		for pos := 0; pos < row.SequenceLength; pos++ {
+			mask[i*bucket.MaxSeqLen+pos] = 1
+		}
+		neededBlocks := (row.SequenceLength-1)/blockSize + 1
+		for bi, block := range row.BlockTable[:neededBlocks] {
+			blockTableFlat[i*maxBlocksPerRow+bi] = int32(block)
+		}
 	}
 
 	return &BatchMetadata{
@@ -126,9 +153,32 @@ func ValidateAndBindRows(rows []BatchRowBinding, bucket ShapeBucket, blockSize i
 		TotalTokens:    totalTokens,
 		MaxTokens:      bucket.MaxTokens,
 		BlockSize:      blockSize,
-		RowBindings:    append([]BatchRowBinding(nil), rows...),
+		RowBindings:    boundRows,
 		SequenceLens:   seqLens,
 		AttentionMask:  mask,
 		BlockTableFlat: blockTableFlat,
 	}, nil
+}
+
+func bindingBucketSize(bucket ShapeBucket) (int, error) {
+	if bucket.BatchSize <= 0 || bucket.MaxSeqLen <= 0 || bucket.MaxTokens <= 0 {
+		return 0, fmt.Errorf("%w: bucket dimensions and token budget must be positive", ErrRowBoundsViolation)
+	}
+	if _, err := bindingStorage(bucket.BatchSize, 1, strconv.IntSize/8); err != nil {
+		return 0, err
+	}
+	return bindingStorage(bucket.BatchSize, bucket.MaxSeqLen, 4)
+}
+
+// bindingStorage checks element and byte extents before forming a slice length.
+func bindingStorage(a, b, elementBytes int) (int, error) {
+	maxInt := int(^uint(0) >> 1)
+	if a <= 0 || b <= 0 || elementBytes <= 0 || a > maxInt/b {
+		return 0, fmt.Errorf("%w: metadata element extent overflows int", ErrRowBoundsViolation)
+	}
+	elements := a * b
+	if elements > maxInt/elementBytes || uint64(elements) > cudashape.MaxByteLimit/uint64(elementBytes) {
+		return 0, fmt.Errorf("%w: metadata byte extent exceeds addressable storage", ErrRowBoundsViolation)
+	}
+	return elements, nil
 }

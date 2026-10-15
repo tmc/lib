@@ -36,7 +36,7 @@ func (c *controlledPlanCompletion) set(done bool, err error) {
 }
 func planTestStep(t *testing.T, id int64) *ExecutionStep {
 	t.Helper()
-	m, err := ValidateAndBindRows([]BatchRowBinding{{RowIndex: 0, SeqID: "a", StartPos: 0, SequenceLength: 1, BlockTable: []int{0}}}, ShapeBucket{1, 1, 1}, 1)
+	m, err := ValidateAndBindRows([]BatchRowBinding{{RowIndex: 0, SeqID: "a", Tokens: []int32{1}, StartPos: 0, SequenceLength: 1, BlockTable: []int{0}}}, ShapeBucket{1, 1, 1}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

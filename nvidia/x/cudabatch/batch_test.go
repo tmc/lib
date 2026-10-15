@@ -288,7 +288,7 @@ func TestShapeBucketBinding(t *testing.T) {
 			RowIndex:       1,
 			SeqID:          "row-1",
 			IsPrefill:      false,
-			Tokens:         nil,
+			Tokens:         []int32{10},
 			StartPos:       10,
 			SequenceLength: 11,
 			BlockTable:     []int{1},

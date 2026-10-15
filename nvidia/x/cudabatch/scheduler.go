@@ -131,6 +131,14 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Check before admission or KV growth: Submit currently retains requests,
+	// so a caller may have erased the token needed by an active decode.
+	for _, req := range s.requests {
+		if req.State == StateDecoding && len(req.GeneratedTokens) == 0 && len(req.PromptTokens) == 0 {
+			return nil, fmt.Errorf("%w: decode request %q has no retained token", ErrInvalidRequest, req.ID)
+		}
+	}
+
 	s.stepCounter++
 	iter := &ScheduledIteration{
 		StepID:        s.stepCounter,
@@ -199,6 +207,10 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 		if len(iter.AllocatedRows) >= maxDecodeRows || (tokenBudget-reservedForPrefill) <= 0 {
 			break
 		}
+		decodeTokens := req.GeneratedTokens
+		if len(decodeTokens) == 0 {
+			decodeTokens = req.PromptTokens
+		}
 		// Decode requires 1 token room in KV cache
 		if s.kvTracker != nil {
 			// Ensure token can be appended
@@ -216,7 +228,7 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 			RowIndex:        len(iter.AllocatedRows),
 			SeqID:           req.ID,
 			IsPrefill:       false,
-			Tokens:          nil, // Decode takes token from generation step
+			Tokens:          []int32{decodeTokens[len(decodeTokens)-1]},
 			StartPos:        req.ContextTokens(),
 			SequenceLength:  req.ContextTokens() + 1,
 			BlockTable:      append([]int(nil), req.BlockTable...),

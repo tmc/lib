@@ -37,3 +37,21 @@ func ExampleBatchScheduler() {
 	// Scheduled 1 prefill chunks, 4 total tokens
 	// Request state after prefill: decoding
 }
+
+func ExampleValidateAndBindRows() {
+	rows := []cudabatch.BatchRowBinding{
+		{RowIndex: 0, SeqID: "prefill", IsPrefill: true, Tokens: []int32{7, 8}, SequenceLength: 2, BlockTable: []int{1}},
+		{RowIndex: 1, SeqID: "decode", Tokens: []int32{9}, StartPos: 2, SequenceLength: 3, BlockTable: []int{2, 3}},
+	}
+	metadata, err := cudabatch.ValidateAndBindRows(rows, cudabatch.ShapeBucket{BatchSize: 3, MaxSeqLen: 5, MaxTokens: 3}, 2)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(metadata.TotalTokens, metadata.SequenceLens)
+	// This is one prefix-validity mask per row, not a per-query causal mask.
+	fmt.Println(metadata.AttentionMask)
+	// Output:
+	// 3 [2 3 0]
+	// [1 1 0 0 0 1 1 1 0 0 0 0 0 0 0]
+}
