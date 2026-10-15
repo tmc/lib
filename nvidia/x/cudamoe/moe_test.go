@@ -42,10 +42,16 @@ func TestGroupedTopKRouter(t *testing.T) {
 		TopK:             2,
 		NumSharedExperts: 1,
 	}
-	router := NewGroupedTopKRouter(cfg)
+	router, err := NewGroupedTopKRouter(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	logits := []float32{0.1, 2.5, 0.3, 0.4, 5.0, 1.2, 0.8, 0.2}
-	decision := router.Route(logits)
+	decision, err := router.Route(logits)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(decision.SelectedExperts) != 2 {
 		t.Fatalf("selected experts len = %d, want 2", len(decision.SelectedExperts))

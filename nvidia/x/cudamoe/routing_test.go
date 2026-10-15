@@ -11,7 +11,7 @@ import (
 // without a tiebreak, equal scores route to an arbitrary subset of the tied
 // experts that shifts with the input arrangement and the sort implementation.
 func TestRouteTiesAreBrokenByIndex(t *testing.T) {
-	router := NewGroupedTopKRouter(MoEConfig{NumRoutedExperts: 16, TopK: 4})
+	router := newRouter(t, MoEConfig{NumRoutedExperts: 16, TopK: 4})
 
 	// Experts 8..15 tie for the lead, so the top 4 must be the four
 	// lowest-indexed of them. The losing half ascends, which forces the sort
@@ -24,7 +24,7 @@ func TestRouteTiesAreBrokenByIndex(t *testing.T) {
 		logits[i] = 100
 	}
 
-	got := router.Route(logits)
+	got := route(t, router, logits)
 	if want := []int{8, 9, 10, 11}; !equalInts(got.SelectedExperts, want) {
 		t.Errorf("SelectedExperts = %v, want %v", got.SelectedExperts, want)
 	}
@@ -40,10 +40,10 @@ func TestRouteTiesAreBrokenByIndex(t *testing.T) {
 // expert receives is the softmax of its unbiased logit. Folding the bias into
 // the weight would silently rescale every expert's contribution.
 func TestRouteBiasSelectsWithoutReweighting(t *testing.T) {
-	router := NewGroupedTopKRouter(MoEConfig{NumRoutedExperts: 4, TopK: 2})
+	router := newRouter(t, MoEConfig{NumRoutedExperts: 4, TopK: 2})
 	logits := []float32{1.0, 0.9, 0.2, 0.1}
 
-	unbiased := router.Route(logits)
+	unbiased := route(t, router, logits)
 	if want := []int{0, 1}; !equalInts(unbiased.SelectedExperts, want) {
 		t.Fatalf("SelectedExperts = %v, want %v", unbiased.SelectedExperts, want)
 	}
@@ -52,7 +52,7 @@ func TestRouteBiasSelectsWithoutReweighting(t *testing.T) {
 	if err := router.SetBiases([]float32{0, 0, 5, 0}); err != nil {
 		t.Fatalf("SetBiases: %v", err)
 	}
-	biased := router.Route(logits)
+	biased := route(t, router, logits)
 	if want := []int{2, 0}; !equalInts(biased.SelectedExperts, want) {
 		t.Fatalf("biased SelectedExperts = %v, want %v", biased.SelectedExperts, want)
 	}
@@ -76,7 +76,7 @@ func TestRouteBiasSelectsWithoutReweighting(t *testing.T) {
 // slice nor hands out its own, so a balancing scheme holding a scratch buffer
 // cannot change routing behind Route's back.
 func TestSetBiasesCopies(t *testing.T) {
-	router := NewGroupedTopKRouter(MoEConfig{NumRoutedExperts: 4, TopK: 2})
+	router := newRouter(t, MoEConfig{NumRoutedExperts: 4, TopK: 2})
 
 	in := []float32{0, 0, 5, 0}
 	if err := router.SetBiases(in); err != nil {
@@ -96,6 +96,24 @@ func TestSetBiasesCopies(t *testing.T) {
 	if err := router.SetBiases([]float32{0, 0}); err == nil {
 		t.Error("SetBiases accepted 2 biases for 4 experts, want an error")
 	}
+}
+
+func newRouter(t *testing.T, cfg MoEConfig) *GroupedTopKRouter {
+	t.Helper()
+	r, err := NewGroupedTopKRouter(cfg)
+	if err != nil {
+		t.Fatalf("NewGroupedTopKRouter(%+v): %v", cfg, err)
+	}
+	return r
+}
+
+func route(t *testing.T, r *GroupedTopKRouter, logits []float32) RoutingDecision {
+	t.Helper()
+	d, err := r.Route(logits)
+	if err != nil {
+		t.Fatalf("Route(%v): %v", logits, err)
+	}
+	return d
 }
 
 func equalInts(a, b []int) bool {

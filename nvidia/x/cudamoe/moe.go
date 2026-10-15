@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"unsafe"
 )
 
 // MoEConfig defines dimensional configuration for DeepSeek-V3 and Qwen MoE architectures.
@@ -115,12 +116,26 @@ type GroupedTopKRouter struct {
 	biases []float32
 }
 
-// NewGroupedTopKRouter creates a new MoE router.
-func NewGroupedTopKRouter(cfg MoEConfig) *GroupedTopKRouter {
+// NewGroupedTopKRouter creates a new MoE router. It requires at least one
+// routed expert, 0 < TopK <= NumRoutedExperts, and NumSharedExperts >= 0,
+// and it rejects sizes whose routing slices would exceed 1<<31 - 1 bytes.
+func NewGroupedTopKRouter(cfg MoEConfig) (*GroupedTopKRouter, error) {
+	if cfg.NumRoutedExperts <= 0 {
+		return nil, fmt.Errorf("cudamoe: %d routed experts, want at least 1", cfg.NumRoutedExperts)
+	}
+	if cfg.TopK <= 0 || cfg.TopK > cfg.NumRoutedExperts {
+		return nil, fmt.Errorf("cudamoe: top-k %d outside [1, %d]", cfg.TopK, cfg.NumRoutedExperts)
+	}
+	if cfg.NumSharedExperts < 0 {
+		return nil, fmt.Errorf("cudamoe: %d shared experts, want at least 0", cfg.NumSharedExperts)
+	}
+	if err := checkRouterAlloc(cfg.NumRoutedExperts, cfg.TopK); err != nil {
+		return nil, err
+	}
 	return &GroupedTopKRouter{
 		cfg:    cfg,
 		biases: make([]float32, cfg.NumRoutedExperts),
-	}
+	}, nil
 }
 
 // SetBiases replaces the per-expert routing biases. Balancing schemes nudge
@@ -145,16 +160,58 @@ type expertScore struct {
 	logit float32 // unbiased gate logit, used for the weight
 }
 
+// maxRouterAlloc bounds the bytes in any one slice the router allocates.
+// It is the smallest runtime allocation limit of any Go port (maxAlloc in
+// runtime/malloc.go is 1<<31 - 1 on mips and mipsle, 1<<32 - 1 on other
+// 32-bit ports and wasm, 1<<40 on ios/arm64, and 1<<47 or more elsewhere),
+// so a slice within it never makes make panic with "len out of range".
+const maxRouterAlloc = math.MaxInt32
+
+// checkRouterAlloc reports an error if any slice a router with n routed
+// experts and top-k k allocates, in NewGroupedTopKRouter or Route, would
+// exceed maxRouterAlloc bytes.
+func checkRouterAlloc(n, k int) error {
+	allocs := []struct {
+		what  string
+		count int
+		size  uintptr
+	}{
+		{"routing biases", n, unsafe.Sizeof(float32(0))},
+		{"expert scores", n, unsafe.Sizeof(expertScore{})},
+		{"selected experts", k, unsafe.Sizeof(int(0))},
+		{"routing weights", k, unsafe.Sizeof(float32(0))},
+	}
+	for _, a := range allocs {
+		if uint64(a.count) > maxRouterAlloc/uint64(a.size) {
+			return fmt.Errorf("cudamoe: %d %s of %d bytes exceed the %d-byte allocation limit", a.count, a.what, a.size, maxRouterAlloc)
+		}
+	}
+	return nil
+}
+
 // Route computes top-K expert selection with softmax weights. Experts with
 // equal scores are ordered by index, so routing is reproducible across runs.
-func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
+// len(gateLogits) must equal NumRoutedExperts, and every logit and bias must
+// be finite. The router must come from NewGroupedTopKRouter; Route on the zero
+// value returns an error.
+func (r *GroupedTopKRouter) Route(gateLogits []float32) (RoutingDecision, error) {
 	n := r.cfg.NumRoutedExperts
-	if len(gateLogits) < n {
-		n = len(gateLogits)
+	if n <= 0 || r.cfg.TopK <= 0 {
+		return RoutingDecision{}, fmt.Errorf("cudamoe: router has %d routed experts and top-k %d; use NewGroupedTopKRouter", n, r.cfg.TopK)
+	}
+	if len(gateLogits) != n {
+		return RoutingDecision{}, fmt.Errorf("cudamoe: %d gate logits for %d routed experts", len(gateLogits), n)
 	}
 
+	// NewGroupedTopKRouter bounded n and k with checkRouterAlloc.
 	scores := make([]expertScore, n)
 	for i := 0; i < n; i++ {
+		if !finite(gateLogits[i]) {
+			return RoutingDecision{}, fmt.Errorf("cudamoe: gate logit %d is %v", i, gateLogits[i])
+		}
+		if !finite(r.biases[i]) {
+			return RoutingDecision{}, fmt.Errorf("cudamoe: routing bias %d is %v", i, r.biases[i])
+		}
 		scores[i] = expertScore{
 			index: i,
 			score: gateLogits[i] + r.biases[i],
@@ -172,13 +229,8 @@ func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
 	})
 
 	k := r.cfg.TopK
-	if k > len(scores) {
-		k = len(scores)
-	}
-
 	selected := make([]int, k)
-	var maxLogit float32 = -1e20
-
+	maxLogit := scores[0].logit
 	for i := 0; i < k; i++ {
 		selected[i] = scores[i].index
 		if scores[i].logit > maxLogit {
@@ -186,7 +238,8 @@ func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
 		}
 	}
 
-	// Softmax over the selected experts' unbiased logits.
+	// Softmax over the selected experts' unbiased logits. The largest term
+	// is exp(0) = 1, so sumExp >= 1 for any finite logits.
 	var sumExp float32
 	weights := make([]float32, k)
 	for i := 0; i < k; i++ {
@@ -194,17 +247,19 @@ func (r *GroupedTopKRouter) Route(gateLogits []float32) RoutingDecision {
 		weights[i] = e
 		sumExp += e
 	}
-	if sumExp > 0 {
-		for i := 0; i < k; i++ {
-			weights[i] /= sumExp
-		}
+	for i := 0; i < k; i++ {
+		weights[i] /= sumExp
 	}
 
 	return RoutingDecision{
 		SelectedExperts: selected,
 		Weights:         weights,
 		HasShared:       r.cfg.NumSharedExperts > 0,
-	}
+	}, nil
+}
+
+func finite(f float32) bool {
+	return !math.IsNaN(float64(f)) && !math.IsInf(float64(f), 0)
 }
 
 // ExpertCacheManager manages hot in-memory experts and spills cold experts to NVMe SSD.
