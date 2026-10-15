@@ -764,15 +764,13 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		}
 
 		defer func() {
-			result, resultErr = finishProgram(result, resultErr, func() error { return prog.Destroy() })
-			if err := verifyLoadedCompilerIdentity(nvrtc.Path(), toolIdentity); err != nil {
-				result, resultErr = nil, err
+			var cache func(*CompiledModule) error
+			if cfg.useCache {
+				cache = func(result *CompiledModule) error { return storeCache(key, result) }
 			}
-			if resultErr == nil && cfg.useCache {
-				if err := storeCache(key, result); err != nil {
-					result, resultErr = nil, err
-				}
-			}
+			result, resultErr = finishCompilation(result, resultErr,
+				func() error { return prog.Destroy() },
+				func() error { return verifyLoadedCompilerIdentity(nvrtc.Path(), toolIdentity) }, cache)
 		}()
 
 		if err := compilerDiagnostic(compileErr, logErr, log); err != nil {

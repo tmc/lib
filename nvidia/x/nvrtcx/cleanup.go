@@ -40,6 +40,21 @@ func finishProgram(result *CompiledModule, compileErr error, destroy func() erro
 	return result, compileErr
 }
 
+// finishCompilation preserves cleanup ownership when the final identity check fails.
+// Only a successful compilation, destruction, and identity check may enter the cache.
+func finishCompilation(result *CompiledModule, compileErr error, destroy, verify func() error, cache func(*CompiledModule) error) (*CompiledModule, error) {
+	result, err := finishProgram(result, compileErr, destroy)
+	if identityErr := verify(); identityErr != nil {
+		result, err = nil, errors.Join(err, identityErr)
+	}
+	if err == nil && cache != nil {
+		if cacheErr := cache(result); cacheErr != nil {
+			return nil, cacheErr
+		}
+	}
+	return result, err
+}
+
 // moduleCleanupError owns a module whose unload must be retried.
 type moduleCleanupError struct {
 	mu     sync.Mutex
