@@ -32,12 +32,40 @@ func WouldCreateCycleWithVisit[ID comparable, Node any](
 	children func(Node) []ID,
 	visit CycleVisit[ID],
 ) (bool, error) {
+	return WouldCreateCycleWithBudget(owner, childIDs, canonicalize, selected, children, visit, nil)
+}
+
+// WouldCreateCycleWithBudget is WouldCreateCycleWithVisit with allocation
+// reservations through budget. Traversal storage remains owned by the
+// budget's scope until it closes. Callbacks return borrowed data or reserve
+// their own allocations. A nil budget preserves unlimited allocation.
+func WouldCreateCycleWithBudget[ID comparable, Node any](
+	owner ID,
+	childIDs []ID,
+	canonicalize func(ID) ID,
+	selected func(ID) (Node, bool),
+	children func(Node) []ID,
+	visit CycleVisit[ID],
+	budget *WorkBudget,
+) (cycle bool, err error) {
+	defer func() {
+		if memoryErr := budget.MemoryError(); memoryErr != nil {
+			cycle, err = false, memoryErr
+		}
+	}()
 	if canonicalize == nil || selected == nil || children == nil {
 		return true, nil
 	}
 	owner = canonicalize(owner)
-	seen := make(map[ID]struct{})
-	stack := append([]ID(nil), childIDs...)
+	seen, ok := memoryMap[ID, struct{}](budget, 0)
+	if !ok {
+		return false, budget.MemoryError()
+	}
+	stack, ok := memorySlice[ID](budget, len(childIDs), len(childIDs))
+	if !ok {
+		return false, budget.MemoryError()
+	}
+	copy(stack, childIDs)
 	for len(stack) != 0 {
 		last := len(stack) - 1
 		id := canonicalize(stack[last])
@@ -48,7 +76,9 @@ func WouldCreateCycleWithVisit[ID comparable, Node any](
 		if _, ok := seen[id]; ok {
 			continue
 		}
-		seen[id] = struct{}{}
+		if !memoryPut(budget, seen, id, struct{}{}) {
+			return false, budget.MemoryError()
+		}
 		node, ok := selected(id)
 		work := 1
 		var childIDs []ID
@@ -61,7 +91,10 @@ func WouldCreateCycleWithVisit[ID comparable, Node any](
 				return false, err
 			}
 		}
-		stack = append(stack, childIDs...)
+		stack, ok = memoryAppend(budget, stack, childIDs...)
+		if !ok {
+			return false, budget.MemoryError()
+		}
 	}
 	return false, nil
 }

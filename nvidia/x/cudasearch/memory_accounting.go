@@ -320,7 +320,7 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 	if m, ok := eval.(*MockEvaluator); ok {
 		builtin := m.CostModel == nil
 		switch m.CostModel.(type) {
-		case egraph.AstSizeCost, egraph.FusedMegakernelCost:
+		case egraph.AstSizeCost, egraph.FusedMegakernelCost, egraph.MemoryCostModel:
 			builtin = true
 		}
 		known = builtin && m.FailCandidate == nil && m.Workload.ResetState == nil
@@ -339,11 +339,23 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 			r.release()
 		}
 	}()
+	ctx = context.WithValue(ctx, callbackReservationKey{}, r)
 	candidate, err := eval.Evaluate(ctx, state, root)
 	if err != nil {
+		candidate.Close()
 		return nil, err
 	}
-	if err := retainSearchValue(ctx, candidate); err != nil {
+	value := candidate
+	if candidate != nil && candidate.extraction != nil {
+		copy := *candidate
+		copy.extraction, copy.extractionLedger = nil, nil
+		if w.memory.limit > 0 && candidate.extractionLedger == w.memory {
+			copy.Expr = nil
+		}
+		value = &copy
+	}
+	if err := retainSearchValue(ctx, value); err != nil {
+		candidate.Close()
 		return nil, err
 	}
 	return candidate, nil

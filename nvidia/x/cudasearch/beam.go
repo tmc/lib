@@ -178,6 +178,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	}
 	if err != nil {
 		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		initCand.Close()
 		rejectedInitial, memoryErr := retainSearchRejection(ctx, initial, eval, err)
 		var initialRejections []CandidateRejection
 		if memoryErr == nil {
@@ -321,6 +322,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 					evalErr = admitComparableCandidate(cand, initCand)
 				}
 				if evalErr != nil {
+					cand.Close()
 					r, memoryErr := retainSearchRejection(ctx, res.State, eval, evalErr)
 					if memoryErr != nil {
 						return finish(memoryErr)

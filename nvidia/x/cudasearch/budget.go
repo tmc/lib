@@ -3,6 +3,9 @@ package cudasearch
 import (
 	"context"
 	"fmt"
+	"reflect"
+
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
@@ -68,7 +71,7 @@ func searchWorkBudget(ctx context.Context, b SearchBudget, eval Evaluator) (cont
 	return context.WithValue(ctx, workBudgetKey{}, w), w, nil
 }
 
-func extractSearch(ctx context.Context, s *egraph.SearchState, root egraph.Id, model egraph.CostModel) (*egraph.Expr, float64, error) {
+func extractSearch(ctx context.Context, s *egraph.SearchState, root egraph.Id, model egraph.CostModel) (*egraph.Extraction, error) {
 	limits := egraph.DefaultExtractionLimits()
 	w, _ := ctx.Value(workBudgetKey{}).(*workBudget)
 	globalLimit := false
@@ -76,22 +79,61 @@ func extractSearch(ctx context.Context, s *egraph.SearchState, root egraph.Id, m
 		remaining := w.maxExtractionWork - w.extractionWork
 		if remaining <= 0 {
 			w.exhausted = true
-			return nil, 0, ErrBudgetExhausted
+			return nil, ErrBudgetExhausted
 		}
 		if remaining <= limits.MaxWork {
 			limits.MaxWork = remaining
 			globalLimit = true
 		}
 	}
-	expr, cost, stats, err := egraph.ExtractBoundedWithStats(ctx, s.Graph, root, model, limits)
+	var memory *memoryBudget
+	if w != nil && w.memory.limit > 0 {
+		memory = w.memory
+	}
+	if memory != nil {
+		switch model.(type) {
+		case nil, egraph.AstSizeCost, egraph.FusedMegakernelCost, egraph.MemoryCostModel:
+		default:
+			envelope, _ := ctx.Value(callbackReservationKey{}).(*memoryReservation)
+			if envelope == nil || envelope.budget != memory || envelope.bytes <= 0 {
+				return nil, ErrMemoryAccountingUnavailable
+			}
+			adapter, err := egraphcore.NewMemoryScope(memory)
+			if err != nil {
+				return nil, err
+			}
+			if err := adapter.Reserve(int64(reflect.TypeFor[declaredCostModel]().Size())); err != nil {
+				adapter.Close()
+				return nil, err
+			}
+			defer adapter.Close()
+			model = &declaredCostModel{CostModel: model, envelope: envelope}
+		}
+	}
+	var owner *egraph.Extraction
+	var err error
+	if memory == nil {
+		owner, err = egraph.ExtractBoundedWithMemory(ctx, s.Graph, root, model, limits, nil)
+	} else {
+		owner, err = egraph.ExtractBoundedWithMemory(ctx, s.Graph, root, model, limits, memory)
+	}
+	var stats egraph.ExtractionStats
+	if owner != nil {
+		stats = owner.Stats
+	}
 	if w != nil {
 		w.extractionWork += stats.Work
 		if globalLimit && stats.WorkExhausted {
 			w.exhausted = true
-			return nil, 0, fmt.Errorf("%w: %w", ErrBudgetExhausted, err)
+			owner.Close()
+			return nil, fmt.Errorf("%w: %w", ErrBudgetExhausted, err)
 		}
 	}
-	return expr, cost, err
+	if err != nil {
+		owner.Close()
+		return nil, err
+	}
+	return owner, nil
 }
 
 func chargeWork(ctx context.Context, compile bool) error {

@@ -2,7 +2,7 @@ package egraphcore
 
 import (
 	"errors"
-	"sort"
+	"slices"
 )
 
 // BestCostNode is the selected node and accumulated cost for an e-class.
@@ -73,22 +73,62 @@ func RelaxBestCostsWorklist[ID ~uint32, Node, Rank any](
 	accept RankedCostAcceptance[ID, Node, Rank],
 	maxVisits int,
 ) (map[ID]RankedBestCostNode[Node, Rank], int, error) {
+	return RelaxBestCostsWorklistWithBudget(classes, nodes, canonicalClass, children, canonicalChild, dependencyVisit, visit, evaluate, better, accept, maxVisits, nil)
+}
+
+// RelaxBestCostsWorklistWithBudget is RelaxBestCostsWorklist with storage
+// reservations through budget. The caller keeps its MemoryScope open through
+// the last use of the returned table. Callbacks return borrowed data or reserve
+// their own storage. Allocation refusal returns no partial table; other errors
+// retain the original partial-table behavior. maxVisits and visit callbacks
+// govern work independently of the allocation scope. A nil budget is unlimited.
+func RelaxBestCostsWorklistWithBudget[ID ~uint32, Node, Rank any](
+	classes []ID,
+	nodes func(ID) []Node,
+	canonicalClass func(ID) ID,
+	children func(Node) []ID,
+	canonicalChild func(ID) ID,
+	dependencyVisit CostVisit[Node],
+	visit CostVisit[Node],
+	evaluate RankedCostEvaluation[Node, Rank],
+	better func(candidate, current RankedBestCostNode[Node, Rank]) bool,
+	accept RankedCostAcceptance[ID, Node, Rank],
+	maxVisits int,
+	budget *WorkBudget,
+) (output map[ID]RankedBestCostNode[Node, Rank], visits int, err error) {
+	defer func() {
+		if memoryErr := budget.MemoryError(); memoryErr != nil {
+			output, err = nil, memoryErr
+		}
+	}()
 	if nodes == nil || canonicalClass == nil || children == nil || canonicalChild == nil || evaluate == nil || better == nil || maxVisits <= 0 {
 		return nil, 0, ErrInvalidCostRelaxation
 	}
-	classSet := make(map[ID]struct{}, len(classes))
-	classIDs := make([]ID, 0, len(classes))
+	visits = 0
+	classSet, ok := memoryMap[ID, struct{}](budget, len(classes))
+	if !ok {
+		return nil, visits, budget.MemoryError()
+	}
+	classIDs, ok := memorySlice[ID](budget, 0, len(classes))
+	if !ok {
+		return nil, visits, budget.MemoryError()
+	}
 	for _, id := range classes {
 		id = canonicalClass(id)
 		if _, ok := classSet[id]; ok {
 			continue
 		}
-		classSet[id] = struct{}{}
+		if !memoryPut(budget, classSet, id, struct{}{}) {
+			return nil, visits, budget.MemoryError()
+		}
 		classIDs = append(classIDs, id)
 	}
-	sort.Slice(classIDs, func(i, j int) bool { return classIDs[i] < classIDs[j] })
+	slices.Sort(classIDs)
 
-	parents := make(map[ID]map[ID]struct{})
+	parents, ok := memoryMap[ID, map[ID]struct{}](budget, 0)
+	if !ok {
+		return nil, visits, budget.MemoryError()
+	}
 	for _, parent := range classIDs {
 		for _, node := range nodes(parent) {
 			childIDs := children(node)
@@ -100,24 +140,43 @@ func RelaxBestCostsWorklist[ID ~uint32, Node, Rank any](
 			for _, child := range childIDs {
 				child = canonicalChild(child)
 				if parents[child] == nil {
-					parents[child] = make(map[ID]struct{})
+					set, ok := memoryMap[ID, struct{}](budget, 0)
+					if !ok {
+						return nil, visits, budget.MemoryError()
+					}
+					if !memoryPut(budget, parents, child, set) {
+						return nil, visits, budget.MemoryError()
+					}
 				}
-				parents[child][parent] = struct{}{}
+				if !memoryPut(budget, parents[child], parent, struct{}{}) {
+					return nil, visits, budget.MemoryError()
+				}
 			}
 		}
 	}
 
-	best := make(map[ID]RankedBestCostNode[Node, Rank])
+	best, ok := memoryMap[ID, RankedBestCostNode[Node, Rank]](budget, 0)
+	if !ok {
+		return nil, visits, budget.MemoryError()
+	}
 	lookup := func(id ID) (RankedBestCostNode[Node, Rank], bool) {
 		state, ok := best[canonicalClass(id)]
 		return state, ok
 	}
-	queue := append([]ID(nil), classIDs...)
-	queued := make(map[ID]bool, len(classIDs))
-	for _, id := range queue {
-		queued[id] = true
+	queue, ok := memorySlice[ID](budget, len(classIDs), len(classIDs))
+	if !ok {
+		return nil, visits, budget.MemoryError()
 	}
-	visits := 0
+	copy(queue, classIDs)
+	queued, ok := memoryMap[ID, bool](budget, len(classIDs))
+	if !ok {
+		return nil, visits, budget.MemoryError()
+	}
+	for _, id := range queue {
+		if !memoryPut(budget, queued, id, true) {
+			return nil, visits, budget.MemoryError()
+		}
+	}
 	for head := 0; head < len(queue); head++ {
 		id := queue[head]
 		queued[id] = false
@@ -132,8 +191,16 @@ func RelaxBestCostsWorklist[ID ~uint32, Node, Rank any](
 					return best, visits, err
 				}
 			}
-			childIDs := append([]ID(nil), children(node)...)
-			childStates := make([]RankedBestCostNode[Node, Rank], len(childIDs))
+			sourceChildren := children(node)
+			childIDs, ok := memorySlice[ID](budget, len(sourceChildren), len(sourceChildren))
+			if !ok {
+				return nil, visits, budget.MemoryError()
+			}
+			copy(childIDs, sourceChildren)
+			childStates, ok := memorySlice[RankedBestCostNode[Node, Rank]](budget, len(childIDs), len(childIDs))
+			if !ok {
+				return nil, visits, budget.MemoryError()
+			}
 			allKnown := true
 			for i, child := range childIDs {
 				state, ok := lookup(canonicalChild(child))
@@ -164,21 +231,31 @@ func RelaxBestCostsWorklist[ID ~uint32, Node, Rank any](
 					continue
 				}
 			}
-			best[id] = candidate
+			if !memoryPut(budget, best, id, candidate) {
+				return nil, visits, budget.MemoryError()
+			}
 			changed = true
 		}
 		if !changed {
 			continue
 		}
-		dependents := make([]ID, 0, len(parents[id]))
+		dependents, ok := memorySlice[ID](budget, 0, len(parents[id]))
+		if !ok {
+			return nil, visits, budget.MemoryError()
+		}
 		for parent := range parents[id] {
 			dependents = append(dependents, parent)
 		}
-		sort.Slice(dependents, func(i, j int) bool { return dependents[i] < dependents[j] })
+		slices.Sort(dependents)
 		for _, parent := range dependents {
 			if !queued[parent] {
-				queue = append(queue, parent)
-				queued[parent] = true
+				queue, ok = memoryAppend(budget, queue, parent)
+				if !ok {
+					return nil, visits, budget.MemoryError()
+				}
+				if !memoryPut(budget, queued, parent, true) {
+					return nil, visits, budget.MemoryError()
+				}
 			}
 		}
 	}

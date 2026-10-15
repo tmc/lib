@@ -156,6 +156,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	}
 	if err != nil {
 		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		initCand.Close()
 		rejectedInitial, memoryErr := retainSearchRejection(ctx, initial, eval, err)
 		var initialRejections []CandidateRejection
 		if memoryErr == nil {
@@ -291,6 +292,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 							bestGlobal = cand
 						}
 					} else {
+						cand.Close()
 						r, memoryErr := retainSearchRejection(ctx, res.State, eval, evalErr)
 						if memoryErr != nil {
 							return finish(memoryErr)
@@ -376,6 +378,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				err = admitComparableCandidate(cand, initCand)
 			}
 			if err != nil {
+				cand.Close()
 				r, memoryErr := retainSearchRejection(ctx, currState, eval, err)
 				if memoryErr != nil {
 					return finish(memoryErr)

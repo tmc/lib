@@ -71,7 +71,7 @@ type MockEvaluator struct {
 }
 
 // Evaluate extracts the best AST from root and scores it.
-func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState, root egraph.Id) (*CandidatePlan, error) {
+func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState, root egraph.Id) (candidate *CandidatePlan, err error) {
 	scoring := mockScoring(ctx, m)
 	if state == nil || state.Graph == nil {
 		return nil, fmt.Errorf("cudasearch: nil state in evaluate")
@@ -88,10 +88,16 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 	if err := chargeWork(ctx, false); err != nil {
 		return nil, err
 	}
-	expr, astCost, err := extractSearch(ctx, state, root, m.CostModel)
+	owner, err := extractSearch(ctx, state, root, m.CostModel)
 	if err != nil {
 		return nil, fmt.Errorf("cudasearch: extraction failed: %w", err)
 	}
+	defer func() {
+		if candidate == nil || err != nil {
+			owner.Close()
+		}
+	}()
+	expr, astCost := owner.Expr, owner.Cost
 
 	if m.FailCandidate != nil && m.FailCandidate(expr) {
 		return nil, fmt.Errorf("cudasearch: candidate failed correctness validation")
@@ -124,16 +130,18 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 	}
 
 	cand := &CandidatePlan{
-		ID:           fmt.Sprintf("cand-%s-%d", expr.Op, len(state.Derivation)),
-		Expr:         expr,
-		Derivation:   append([]egraph.Action(nil), state.Derivation...),
-		Cost:         totalCost,
-		CostSource:   CostEstimated,
-		Receipt:      r,
-		Generation:   1,
-		ScoringEpoch: scoring.model.Epoch,
-		Validated:    true,
-		Digest:       digest,
+		ID:               fmt.Sprintf("cand-%s-%d", expr.Op, len(state.Derivation)),
+		Expr:             expr,
+		Derivation:       append([]egraph.Action(nil), state.Derivation...),
+		Cost:             totalCost,
+		CostSource:       CostEstimated,
+		Receipt:          r,
+		Generation:       1,
+		ScoringEpoch:     scoring.model.Epoch,
+		Validated:        true,
+		Digest:           digest,
+		extraction:       owner,
+		extractionLedger: searchMemoryBudget(ctx),
 	}
 	if evidence := scoring.evidence[expr.Fingerprint()]; scoring.model.acceptsEvidence(evidence) {
 		copy := *evidence
