@@ -208,27 +208,46 @@ func targetAlignment(target string) uint64 {
 // LLVM's section flag bytes (a, e, o, w, x, M, S, T, G, R, ?, c, d, l, s
 // and y, or none), and then the end of the line, a "//" comment, or a
 // comma, optional spaces or tabs and a section type: '@' or '%' followed by
-// identifier bytes or a quoted literal, or a quoted literal alone. Anything
-// after the comma that follows the type is not read. A directive with no
-// flags field names the kernel by its whole text. So a comma or quote inside
-// a literal, a comma and quoted literal that more of the name follows, and a
-// comma and quoted literal holding any other byte belong to the name. The
-// first three of these directives name the kernel
-// decltype(fp, "<char const [5]>") s1<int>(int), and the last names the
-// kernel k, "lit":
+// identifier bytes or a quoted literal, or a quoted literal alone. The
+// fields after the comma that follows the type, such as an entry size or a
+// group, are not read, even a quoted group made only of flag bytes. A
+// directive with no flags field names the kernel by its whole text. So a
+// comma or quote inside a literal, a comma and quoted literal that more of
+// the name follows, and a comma and quoted literal holding any other byte
+// that no type follows belong to the name. The first three of these
+// directives name the kernel decltype(fp, "<char const [5]>") s1<int>(int),
+// the fourth names the kernel k, "lit", and the last two name the kernel k:
 //
 //	.section .text.decltype(fp, "<char const [5]>") s1<int>(int),"ax",@progbits
 //	.section .text.decltype(fp, "<char const [5]>") s1<int>(int), "ax", @progbits
 //	.section .text.decltype(fp, "<char const [5]>") s1<int>(int)
 //	.section .text.k, "lit"
+//	.section .text.k,"axG",@progbits,"x"
+//	.section .text.k,"ax",@progbits, "a"
 //
 // Parse returns an error, rather than guess where the section's name ends,
 // for a ".section" directive whose name, the text before its flags field,
-// holds a literal left open as rule 1 below reads one, or whose flags field
-// is followed by a second comma that would itself begin a flags field, as in
+// holds a literal left open as rule 1 below reads one; or ends, split at its
+// commas outside every literal, in a quoted literal, a type and only
+// metadata fields (each a quoted literal or text with no blank, quote or
+// bracket), which is a flags field holding a byte LLVM does not read; or
+// whose flags field is followed by a later comma that would itself begin a
+// flags field where the text before that comma is a name Parse accepts. So
+// Parse refuses
 //
 //	.section .text.k"x
+//	.section .text.k,"axq",@progbits
+//	.section .text.k,"axq",@progbits,"grp",comdat
 //	.section .text.k, "a","ax",@progbits
+//
+// A demangled name's string literals are arguments that a bracket outside
+// every literal closes after them, so they are never read as such a flags
+// field: the directive
+//
+//	.section .text.decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int),"ax",@progbits
+//
+// names the kernel decltype(g(fp, "<char const [2]>", "<char const [3]>",
+// 0)) s1<int>(int).
 //
 // A name that itself ends, outside every literal, in a comma and a quoted
 // literal of flag bytes, with no second such field after it, is read as a
@@ -280,7 +299,8 @@ func targetAlignment(target string) uint64 {
 //     open quote, since rule 1 cannot tell where the literal would end;
 //   - a directive whose name itself ends, outside every literal, in a comma
 //     and a quoted literal of flag bytes, which is read as a shorter name
-//     followed by flags;
+//     followed by flags, or in a comma, a quoted literal, a type and
+//     metadata fields, which is refused;
 //   - a directive name breaking rules 2 through 5: a ".section" directive's
 //     name is checked only for a literal left open, so it is otherwise read
 //     as its text before the flags field and is not refused.
@@ -595,10 +615,11 @@ func extractFunctionName(line string) string {
 // label's colon is the first one outside a literal and before any comment
 // that labelTail accepts what follows.
 func labelColon(rest string) int {
+	lits := readLiterals(rest)
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case '"', '\'':
-			if end := literalEnd(rest, i); end >= 0 {
+			if end := lits.end(i); end >= 0 {
 				i = end
 			}
 		case '/':

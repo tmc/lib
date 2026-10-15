@@ -2,6 +2,7 @@ package cudasass
 
 import (
 	"errors"
+	"iter"
 	"strings"
 )
 
@@ -125,40 +126,51 @@ func openedSection(trimmed string) (name string, nonText, opens bool) {
 // a demangled NAME holds commas, blanks and string or character literals of
 // its own, so the flags field is not simply the first comma before a quote.
 // It is the first comma outside every literal (a literal read as literalEnd
-// reads one) that is followed by optional spaces or tabs, a terminated
-// double-quoted literal holding only bytes of sectionFlagBytes, and a
-// metadata tail as sectionTail defines it. A comma and a quoted literal
-// followed by more of a name, as in
+// reads one) that begins a flags field as flagsField defines it. A comma and
+// a quoted literal followed by more of a name, as in
 // `decltype(fp, "<char const [5]>") s1<int>(int)`, or holding a byte no
 // flags field holds, as in `k, "lit"`, belong to the name.
 //
 // A name that itself ends, outside every literal, in a comma and a quoted
 // literal of flag bytes, such as `k, "a"`, cannot be told from a shorter
 // name and its flags. sectionFlags reads it as the shorter name, and
-// malformedSectionDirective refuses the directive when a second comma after
-// the first also begins a flags field, as in `k, "a","ax",@progbits`.
+// malformedSectionDirective refuses the directive when a later comma also
+// begins a flags field and the text before that comma is a name it accepts,
+// as in `k, "a","ax",@progbits`.
 func sectionFlags(rest string) (comma int, flags string) {
+	lits := readLiterals(rest)
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case '"', '\'':
-			if end := literalEnd(rest, i); end >= 0 {
+			if end := lits.end(i); end >= 0 {
 				i = end
 			}
 		case ',':
-			j := i + 1
-			for j < len(rest) && (rest[j] == ' ' || rest[j] == '\t') {
-				j++
-			}
-			if j == len(rest) || rest[j] != '"' {
-				continue
-			}
-			end := literalEnd(rest, j)
-			if end >= 0 && isSectionFlags(rest[j+1:end]) && sectionTail(rest[end+1:]) {
-				return i, rest[j+1 : end]
+			if f, ok := flagsField(rest, i); ok {
+				return i, f
 			}
 		}
 	}
 	return -1, ""
+}
+
+// flagsField reports whether the comma at rest[i] begins a flags field, and
+// returns the bytes between the field's quotes. A flags field is the comma,
+// optional spaces or tabs, a terminated double-quoted literal holding only
+// bytes of sectionFlagBytes, and a metadata tail as sectionTail defines it.
+func flagsField(rest string, i int) (flags string, ok bool) {
+	j := i + 1
+	for j < len(rest) && (rest[j] == ' ' || rest[j] == '\t') {
+		j++
+	}
+	if j == len(rest) || rest[j] != '"' {
+		return "", false
+	}
+	end := literalEnd(rest, j)
+	if end < 0 || !isSectionFlags(rest[j+1:end]) || !sectionTail(rest[end+1:]) {
+		return "", false
+	}
+	return rest[j+1 : end], true
 }
 
 // sectionFlagBytes are the bytes LLVM's ELF assembler reads in a .section
@@ -175,51 +187,146 @@ func isSectionFlags(flags string) bool {
 
 // malformedSectionDirective reports whether trimmed is a ".section"
 // directive Parse refuses: its name, the text before the flags field
-// sectionFlags finds or all of it with none, holds a quote that opens no
-// terminated literal, read as lineComment reads one; or a second comma after
-// that flags field also begins one, so that the field's own literal could
-// equally be the end of the name. Reading such a name would open a section
-// named by a guess.
+// sectionFlags finds or all of it with none, is a malformed section name as
+// sectionNameRefusals defines one; or a later comma also begins a flags
+// field and the text before that comma is a well-formed name, so that the
+// first field's literal could equally be the end of the name. Reading such
+// a name would open a section named by a guess.
+//
+// A later comma after the type, such as the one before the group "x" in
+// `k,"axG",@progbits,"x"`, does not make a directive malformed: the text
+// before it ends in a comma, a quoted literal and a type, a malformed name.
+// Every later comma is checked, since the text before a later one can be a
+// well-formed name where the text before an earlier one is not: in
+// `k,"ax",@progbits,"a",@b,x(y),"ax",@progbits`, the text before the comma
+// of "a" ends in a type, but the text before the last "ax" does not, since
+// x(y) is no metadata field.
+//
+// malformedSectionDirective reads trimmed once, so its cost is linear in
+// the length of the line.
 func malformedSectionDirective(trimmed string) bool {
 	if !isSectionDirective(trimmed) {
 		return false
 	}
 	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, ".section"))
-	name := rest
-	if i, _ := sectionFlags(rest); i >= 0 {
-		if j, _ := sectionFlags(rest[i+1:]); j >= 0 {
-			return true
-		}
-		name = rest[:i]
-	}
-	return openLiteral(name)
-}
-
-// openLiteral reports whether s holds a quote that opens no terminated
-// literal, reading s from left to right as lineComment does: a quote that
-// opens a terminated literal is skipped through its closing quote.
-func openLiteral(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '"' || s[i] == '\'' {
-			end := literalEnd(s, i)
-			if end < 0 {
+	flags, _ := sectionFlags(rest)
+	for i, refused := range sectionNameRefusals(rest) {
+		switch {
+		case i == flags || flags < 0 && i == len(rest):
+			if refused {
 				return true
 			}
-			i = end
+		case flags >= 0 && i > flags && i < len(rest) && !refused:
+			if _, ok := flagsField(rest, i); ok {
+				return true
+			}
 		}
 	}
 	return false
 }
 
+// sectionNameRefusals returns an iterator over the indexes of the commas
+// of s outside every literal, in order, and then len(s). With each index i
+// it yields whether s[:i] is a malformed section name, one Parse refuses as
+// the name of a ".section" directive. It reads s once, skipping its
+// literals as a literals skips them, so iterating it costs time linear in
+// the length of s.
+//
+// A name is malformed if it holds a quote that opens no terminated literal,
+// read as lineComment reads one; or if, split at its commas outside every
+// literal, it ends in a field holding a terminated double-quoted literal, a
+// field holding a type as sectionType defines it, and then only metadata
+// fields. A "//" comment outside every literal ends the fields, so the
+// text after it decides nothing. Blanks around a field's text are ignored.
+// A metadata field is a terminated double-quoted literal, or text holding
+// no blank, quote or bracket, such as an entry size, a group or "comdat".
+// The first literal is then a flags field holding a byte LLVM does not
+// read, such as the q of `k,"axq",@progbits` or
+// `k,"axq",@progbits,"grp",comdat`, and the text after it is the
+// directive's type and metadata, not more of a kernel's name.
+//
+// A demangled name's string literals are arguments inside brackets, as in
+// `decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int)`,
+// and the bracket closing them lies outside every literal in a later field,
+// which is no metadata field. So no such name is malformed for this reason.
+func sectionNameRefusals(s string) iter.Seq2[int, bool] {
+	return func(yield func(int, bool) bool) {
+		var (
+			open     bool // s[:i] holds a quote that opens no terminated literal
+			typed    bool // s[:i] ends in a literal field, a type and metadata
+			afterLit bool // the last field, after a comma, was a quoted literal
+			comment  bool // a "//" comment began, so no field follows
+		)
+		var (
+			start = 0  // the start of the current field
+			slash = -1 // the index of the field's first "//", or -1
+		)
+		lits := readLiterals(s)
+		for i := 0; i <= len(s); i++ {
+			if i < len(s) {
+				switch s[i] {
+				case '"', '\'':
+					if end := lits.end(i); end >= 0 {
+						i = end
+					} else {
+						open = true
+					}
+					continue
+				case '/':
+					if slash < 0 && i+1 < len(s) && s[i+1] == '/' {
+						slash = i
+					}
+					continue
+				case ',':
+				default:
+					continue
+				}
+			}
+			if !comment {
+				text := s[start:i]
+				if slash >= 0 {
+					text = s[start:slash]
+				}
+				text = strings.Trim(text, " \t")
+				typed = typed && metadataField(text) || afterLit && isSectionType(text)
+				afterLit = start > 0 && quotedField(text)
+				comment = slash >= 0
+			}
+			if !yield(i, open || typed) {
+				return
+			}
+			start, slash = i+1, -1
+		}
+	}
+}
+
+// quotedField reports whether s is a terminated double-quoted literal and
+// nothing else.
+func quotedField(s string) bool {
+	return strings.HasPrefix(s, "\"") && literalEnd(s, 0) == len(s)-1
+}
+
+// metadataField reports whether s, a field after a .section directive's
+// type with its blanks removed, is a metadata field: a terminated
+// double-quoted literal, or text holding no blank, quote or bracket.
+func metadataField(s string) bool {
+	return quotedField(s) || s != "" && !strings.ContainsAny(s, " \t\"'()<>[]{}")
+}
+
+// isSectionType reports whether s is a section type and nothing else.
+func isSectionType(s string) bool {
+	n := sectionType(s)
+	return n > 0 && n == len(s)
+}
+
 // sectionTail reports whether s, the text after the closing quote of a
 // .section directive's flags, is the rest of the directive's metadata:
 // optional spaces or tabs, and then the end of s, a "//" comment, or a comma,
-// optional spaces or tabs and a type. A type is '@' or '%' followed by one
-// or more identifier bytes or by a terminated double-quoted literal, or such
-// a literal alone, as in @progbits, @"SHT_CUDA_INFO" and "progbits". After
-// the type come optional spaces or tabs and then the end of s, a "//"
-// comment, or a comma and further fields such as an entry size or a group,
-// which sectionTail does not read.
+// optional spaces or tabs and a type as sectionType defines it. After the
+// type come optional spaces or tabs and then the end of s, a "//" comment,
+// or a comma and further fields such as an entry size or a group, which
+// sectionTail does not read; a quoted group made only of flag bytes, as in
+// `,@progbits,"x"`, is one of them.
 func sectionTail(s string) bool {
 	s = strings.TrimLeft(s, " \t")
 	if s == "" || strings.HasPrefix(s, "//") {
@@ -230,28 +337,36 @@ func sectionTail(s string) bool {
 		return false
 	}
 	s = strings.TrimLeft(s, " \t")
-	n := 0 // the length of the type, or 0 if s does not begin with one
-	switch {
-	case strings.HasPrefix(s, "\""):
-		n = literalEnd(s, 0) + 1
-	case strings.HasPrefix(s, "@"), strings.HasPrefix(s, "%"):
-		if strings.HasPrefix(s[1:], "\"") {
-			n = literalEnd(s, 1) + 1
-			break
-		}
-		n = 1
-		for n < len(s) && isIdentByte(s[n]) {
-			n++
-		}
-		if n == 1 {
-			n = 0
-		}
-	}
+	n := sectionType(s)
 	if n == 0 {
 		return false
 	}
 	s = strings.TrimLeft(s[n:], " \t")
 	return s == "" || strings.HasPrefix(s, "//") || strings.HasPrefix(s, ",")
+}
+
+// sectionType returns the length of the section type that begins s, or 0 if
+// s begins with none. A type is '@' or '%' followed by one or more
+// identifier bytes or by a terminated double-quoted literal, or such a
+// literal alone, as in @progbits, @"SHT_CUDA_INFO" and "progbits".
+func sectionType(s string) int {
+	switch {
+	case strings.HasPrefix(s, "\""):
+		return literalEnd(s, 0) + 1
+	case strings.HasPrefix(s, "@"), strings.HasPrefix(s, "%"):
+		if strings.HasPrefix(s[1:], "\"") {
+			return literalEnd(s, 1) + 1
+		}
+		n := 1
+		for n < len(s) && isIdentByte(s[n]) {
+			n++
+		}
+		if n == 1 {
+			return 0
+		}
+		return n
+	}
+	return 0
 }
 
 // nonTextLabel reports whether trimmed is the label of a code section other
@@ -386,16 +501,57 @@ func literalEnd(name string, i int) int {
 	return -1
 }
 
+// literals reads the literals of one string, s, as literalEnd reads them,
+// where a reader may skip each terminated literal and steps over the quote
+// of an unterminated one.
+//
+// Once a literal of s is unterminated, so is every later literal opened by
+// the same quote byte: literalEnd's scan from the first reads each later
+// copy of that quote as an escaped byte, so it next reads the byte after
+// that copy, where a scan from the copy begins, and from there both scans
+// read the same bytes. So literals scans at most one unterminated literal
+// for each quote byte, and a reader that skips each terminated literal
+// reads all of s in time linear in its length, where calling literalEnd
+// at each quote could take time quadratic in it.
+type literals struct {
+	s string
+	// open holds, for '"' and then '\'', the least index known to begin
+	// an unterminated literal opened by that quote, or len(s).
+	open [2]int
+}
+
+// readLiterals returns a literals reading s.
+func readLiterals(s string) *literals {
+	return &literals{s: s, open: [2]int{len(s), len(s)}}
+}
+
+// end returns literalEnd(l.s, i) for the quote at l.s[i].
+func (l *literals) end(i int) int {
+	k := 0
+	if l.s[i] == '\'' {
+		k = 1
+	}
+	if i >= l.open[k] {
+		return -1
+	}
+	end := literalEnd(l.s, i)
+	if end < 0 {
+		l.open[k] = i
+	}
+	return end
+}
+
 // lineComment returns the index of the first "//" in s outside a string or
 // character literal, read as literalEnd reads one, or -1 if there is none.
 // A quote that opens no terminated literal is an ordinary byte, so the
 // "//" after it is found and the name before it, holding the open quote,
 // is malformed.
 func lineComment(s string) int {
+	lits := readLiterals(s)
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
 		case '"', '\'':
-			if end := literalEnd(s, i); end >= 0 {
+			if end := lits.end(i); end >= 0 {
 				i = end
 			}
 		case '/':

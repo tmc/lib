@@ -162,6 +162,10 @@ func TestParseAcceptsDataSections(t *testing.T) {
 	.section	.text.k,"ax",@progbits
         /*0000*/                   EXIT ;
 `},
+		{"quoted name and type", `	.section	".nv.x",@progbits
+	.section	.text.k,"ax",@progbits
+        /*0000*/                   EXIT ;
+`},
 		{"section flags and info", `	.section	.text.k,"ax",@progbits
 	.sectionflags	@"SHF_BARRIERS=1"
 	.sectioninfo	@"SHI_REGISTERS=24"
@@ -3056,11 +3060,54 @@ var directiveNames = []struct{ directive, want string }{
 	// A flags field left open is no flags field, and opens a literal.
 	{`.text.k,"ax`, ""},
 	{`.text.k, "ax`, ""},
-	// Two commas that each begin a flags field.
+	// Two commas that each begin a flags field, where the name before the
+	// second could equally be the kernel's.
 	{`.text.k, "a","ax",@progbits`, ""},
 	{`.text.k, "", "ax", @progbits`, ""},
-	{`.text.k,"ax",@progbits,"a"`, ""},
 	{`.text.k, "x", "a"`, ""},
+	// A quoted literal of flag bytes after the type is a group or other
+	// field, not a second flags field: the name before it holds a type.
+	{`.text.k,"ax",@progbits,"a"`, "k"},
+	{`.text.k,"axG",@progbits,"x"`, "k"},
+	{`.text.k,"axG",@progbits,"ax"`, "k"},
+	{`.text.k,"ax",@progbits, "a"`, "k"},
+	// A quoted literal holding a byte outside the flag bytes, followed by a
+	// type, is a malformed flags field.
+	{`.text.k,"axq",@progbits`, ""},
+	{`.text.k, "lit", @progbits`, ""},
+	{`.text.k,"b",@progbits`, ""},
+	{`.text.k,"axq","progbits"`, ""},
+	{`.text.k,"axq",@progbits,"grp",comdat`, ""},
+	{`.text.k,"axq",@progbits,"ax",@progbits`, ""},
+	{`.text.k,"axq",@progbits // c`, ""},
+	{`.text.k,"axq",@progbits,"grp" // c`, ""},
+	{`.text.k,"axq",@progbits // c, x(y)`, ""},
+	// A later flags field whose name, before it, is well-formed although
+	// the name before an earlier one is not.
+	{`.text.k,"ax",@progbits,"a",@b,x(y),"ax",@progbits`, ""},
+	// A field after the type that holds a bracket is no metadata field, so
+	// the literal is no flags field: a demangled name's literal arguments
+	// are followed by the bracket that closes them. clang++ -std=c++17
+	// demangles _Z2s1IiEDTcl1gfp_LA2_KcELA3_S0_ELi0EEET_ to the first.
+	{`.text.decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int),"ax",@progbits`, `decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int)`},
+	{`.text.decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int), "ax", @progbits`, `decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int)`},
+	{`.text.decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int)`, `decltype(g(fp, "<char const [2]>", "<char const [3]>", 0)) s1<int>(int)`},
+	{`.text.decltype(g(fp, "<char const [2]>", "<char const [3]>", fp)) s1<int>(int),"ax",@progbits`, `decltype(g(fp, "<char const [2]>", "<char const [3]>", fp)) s1<int>(int)`},
+	{`.text.decltype(g(fp, "<char const [2]>", "<char const [3]>", "<char const [4]>")) s1<int>(int),"ax",@progbits`, `decltype(g(fp, "<char const [2]>", "<char const [3]>", "<char const [4]>")) s1<int>(int)`},
+	{`.text.f<decltype(h("<char const [2]>", "<char const [3]>", 1))>(int),"ax",@progbits`, `f<decltype(h("<char const [2]>", "<char const [3]>", 1))>(int)`},
+	{`.text.k,"axq",@progbits,f(x)`, `k,"axq",@progbits,f(x)`},
+	// Nor is a field holding a blank, a single quote or a brace, and a
+	// single-quoted literal is no flags field.
+	{`.text.k,"axq",@progbits,1 2`, `k,"axq",@progbits,1 2`},
+	{".text.k,\"axq\",@progbits,1\t2", "k,\"axq\",@progbits,1\t2"},
+	{`.text.k,"axq",@progbits,'a'`, `k,"axq",@progbits,'a'`},
+	{`.text.k,"axq",@progbits,x{y}`, `k,"axq",@progbits,x{y}`},
+	{`.text.k,"axq",@progbits,{y}`, `k,"axq",@progbits,{y}`},
+	{`.text.k, 'q', @p`, `k, 'q', @p`},
+	{`.text.k,'a',@progbits`, `k,'a',@progbits`},
+	// A comma, literal and type inside a literal belong to the name.
+	{`.text.k '?,"q",@p,',"ax",@progbits`, `k '?,"q",@p,'`},
+	{`.text.k '?,"q",@p,"x'\"","ax",@progbits`, `k '?,"q",@p,"x'\""`},
 	// Terminated literals, escapes and a backslash outside every literal.
 	{`.text.f<"a\"b">(),"ax",@progbits`, `f<"a\"b">()`},
 	{`.text.f<"a\\">(),"ax",@progbits`, `f<"a\\">()`},
@@ -3076,7 +3123,6 @@ var directiveNames = []struct{ directive, want string }{
 	{`.text.k, "lit"`, `k, "lit"`},
 	{`.text.k, "lit","ax",@progbits`, `k, "lit"`},
 	{`.text.k, "lit", "ax", @progbits`, `k, "lit"`},
-	{`.text.k, "lit", @progbits`, `k, "lit", @progbits`},
 	{`.text.k,"axG",@progbits,"grp",comdat`, "k"},
 	{`.text.k,"ax","progbits"`, "k"},
 }
@@ -3120,7 +3166,8 @@ var llvmSectionFlagBytes = []string{
 // TestParseSectionFlagBytes checks that each byte of llvmSectionFlagBytes,
 // and all 16 together, is a flags field that ends the kernel's name, with
 // and without a type after it, while a byte outside them, "b", belongs to
-// the name.
+// the name when no type follows it. (With a type, as in `k,"b",@progbits`,
+// the directive is refused; see directiveNames.)
 func TestParseSectionFlagBytes(t *testing.T) {
 	if len(llvmSectionFlagBytes) != 16 {
 		t.Fatalf("len(llvmSectionFlagBytes) = %d, want 16", len(llvmSectionFlagBytes))
@@ -3137,7 +3184,6 @@ func TestParseSectionFlagBytes(t *testing.T) {
 		}
 	}
 	for _, tt := range []struct{ directive, want string }{
-		{`k,"b",@progbits`, `k,"b",@progbits`},
 		{`k, "b"`, `k, "b"`},
 	} {
 		t.Run(fmt.Sprintf("%q", tt.directive), func(t *testing.T) {
