@@ -22,8 +22,9 @@ type MapSpaceSearchStats struct {
 	// not modeled by the selected profile (including absent profile). These
 	// never contribute to EvaluatedCandidates or Best.
 	UnsupportedCandidates int
-	// BestIntensity is the greatest logical DRAM FLOPs/byte. Equal intensities
-	// retain the first candidate. This is not a latency or occupancy estimate.
+	// BestIntensity reports the greatest logical DRAM FLOPs/byte as float64.
+	// Ranking uses exact DRAM byte counts; exact ties retain the first candidate.
+	// This is not a latency or occupancy estimate.
 	BestIntensity float64
 	Best          *MapSpaceSearchResult
 }
@@ -146,7 +147,8 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 // Search runs pruned search over the mapspace. Orders must include each
 // non-unit factor at the specified level; unit-factor loops may be omitted.
 // Scoring uses AnalyticalGEMMHierarchy's full temporal retention contract and
-// maximizes logical DRAM operational intensity, retaining the first tie.
+// maximizes logical DRAM operational intensity using exact byte counts,
+// retaining the first exact tie.
 // With SpatialProfile, supported owner-major spatial traffic is included.
 // Without it, nonidentity spatial candidates remain unsupported skips.
 // SplitK also opts into the declared two-phase reduction recipe. Scoring uses
@@ -307,8 +309,10 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 						}
 					}
 					candidate := MapSpaceSearchResult{Movement: movement, SpatialMovement: spatialMovement, SplitK: splitKMovement}
-					if stats.Best == nil || candidate.TotalDRAM().OperationalIntensity > stats.BestIntensity {
-						stats.BestIntensity = candidate.TotalDRAM().OperationalIntensity
+					// Useful work is fixed across candidates, so fewer bytes is better.
+					dram := candidate.TotalDRAM()
+					if stats.Best == nil || dram.TotalBytes < stats.Best.TotalDRAM().TotalBytes {
+						stats.BestIntensity = dram.OperationalIntensity
 						candidate.Mapping = cloneMapSpace(mapping)
 						stats.Best = &candidate
 						if s.SpatialProfile != nil {
