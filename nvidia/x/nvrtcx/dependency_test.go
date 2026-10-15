@@ -17,7 +17,7 @@ func TestResolveExternalDependenciesWalksIncludeClosure(t *testing.T) {
 	write("top.cuh", "#include \"deep.cuh\"\n")
 	write("deep.cuh", "__device__ float deep(float v) { return v; }\n")
 
-	const src = "#include \"top.cuh\"\n"
+	const src = "#include <top.cuh>\n"
 	flags := []string{"-I" + dir}
 
 	deps, allTracked := resolveExternalDependencies(src, flags, nil)
@@ -49,7 +49,7 @@ func TestResolveExternalDependenciesWalksInMemoryHeaders(t *testing.T) {
 	}
 	// An in-memory header is hashed by the caller, but what it includes is not.
 	headers := map[string]string{"mem.cuh": "#include \"deep.cuh\"\n"}
-	deps, allTracked := resolveExternalDependencies("#include \"mem.cuh\"\n", []string{"-I" + dir}, headers)
+	deps, allTracked := resolveExternalDependencies("#include <mem.cuh>\n", []string{"-I" + dir}, headers)
 	if !allTracked {
 		t.Fatalf("allTracked = false, deps = %+v", deps)
 	}

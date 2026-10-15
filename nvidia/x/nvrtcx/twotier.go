@@ -92,99 +92,229 @@ func StripOfflineFlags(flags []string) ([]string, cudakernel.JITOptions) {
 // caller must not cache.
 func resolveExternalDependencies(src string, flags []string, inMemoryHeaders map[string]string) (deps []cudakernel.Dependency, allTracked bool) {
 	allTracked = true
+	untracked := func(path, reason string) {
+		deps = append(deps, cudakernel.Dependency{Path: path, ErrorMsg: reason})
+		allTracked = false
+	}
 	var searchPaths []string
+	addSearchPath := func(path string) {
+		if parentTraversal(path) {
+			untracked(path, "parent traversal in include search paths is not tracked")
+			return
+		}
+		searchPaths = append(searchPaths, path)
+	}
 	for _, f := range flags {
+		name, _, _ := strings.Cut(f, "=")
+		switch name {
+		case "--pre-include", "-include", "--pch", "-pch", "--use-pch", "-use-pch", "--create-pch", "-create-pch":
+			untracked(f, "header injection or precompiled headers are not tracked")
+		}
 		if strings.HasPrefix(f, "--include-path=") {
-			searchPaths = append(searchPaths, strings.TrimPrefix(f, "--include-path="))
-		} else if strings.HasPrefix(f, "-I") {
-			searchPaths = append(searchPaths, strings.TrimPrefix(f, "-I"))
+			addSearchPath(strings.TrimPrefix(f, "--include-path="))
+		} else if strings.HasPrefix(f, "-I=") {
+			addSearchPath(strings.TrimPrefix(f, "-I="))
+		} else if strings.HasPrefix(f, "-I") && len(f) > 2 {
+			addSearchPath(strings.TrimPrefix(f, "-I"))
+		} else if name == "--include-path" || f == "-I" {
+			untracked(f, "separate include path arguments are not tracked")
 		}
 	}
 
 	// Breadth-first over include names so deps stays in a deterministic order:
 	// computeDependencyKey hashes the sequence, not a set.
-	queue := []string{src}
+	type source struct {
+		text, path, dir string
+	}
+	queue := []source{{text: src, path: "<source>"}}
 	seen := make(map[string]bool)
 
 	for len(queue) > 0 {
-		text := queue[0]
+		current := queue[0]
 		queue = queue[1:]
 
-		for _, headerName := range scanIncludes(text) {
-			if seen[headerName] {
+		includes, complete := dependencyIncludes(current.text)
+		if !complete {
+			untracked(current.path, "include preprocessing is outside the tracked literal subset")
+		}
+		for _, inc := range includes {
+			headerName := inc.name
+			if inc.quoted && current.dir == "" {
+				untracked(current.path, "quoted include source origin is not available")
+			}
+			if filepath.IsAbs(headerName) {
+				untracked(headerName, "absolute include paths are not tracked")
 				continue
 			}
-			seen[headerName] = true
+			// Cleaning a/.. before following a can select the wrong file when
+			// a is a symlink. Refuse this spelling before any path joining.
+			if parentTraversal(headerName) {
+				untracked(headerName, "parent traversal in include names is not tracked")
+				continue
+			}
+			if inc.quoted && current.dir != "" {
+				if relative := filepath.Join(current.dir, headerName); relative != headerName {
+					if _, ok := inMemoryHeaders[relative]; ok {
+						untracked(headerName, "relative in-memory header search is not tracked")
+					}
+				}
+			}
+			paths := searchPaths
+			if inc.quoted && current.dir != "" {
+				paths = append([]string{current.dir}, searchPaths...)
+			}
 
 			// In-memory headers are hashed already as part of cfg.headers, but
 			// what they include is not, so they still have to be walked.
 			if content, ok := inMemoryHeaders[headerName]; ok {
-				queue = append(queue, content)
+				for _, dir := range paths {
+					if _, err := os.Stat(filepath.Join(dir, headerName)); err == nil {
+						untracked(headerName, "in-memory and filesystem header search overlap")
+						break
+					}
+				}
+				key := "memory:" + headerName
+				if !seen[key] {
+					seen[key] = true
+					queue = append(queue, source{text: content, path: key, dir: filepath.Dir(headerName)})
+				}
 				continue
 			}
 
-			var foundPath string
-			for _, sp := range searchPaths {
+			var foundPath, physicalPath string
+			for _, sp := range paths {
 				candidate := filepath.Join(sp, headerName)
-				if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
-					foundPath = candidate
+				fi, err := os.Lstat(candidate)
+				if os.IsNotExist(err) {
+					continue
+				}
+				if err != nil {
+					untracked(candidate, "unable to inspect include path")
 					break
 				}
+				if !fi.Mode().IsRegular() {
+					// In particular, a symlink to a file leaves the compiler's
+					// quoted-include origin ambiguous. Directory aliases are
+					// allowed, and deduplicated by the physical file below.
+					untracked(candidate, "include is not a regular file or is a file symlink")
+					break
+				}
+				resolved, err := filepath.EvalSymlinks(candidate)
+				if err == nil {
+					resolved, err = filepath.Abs(resolved)
+				}
+				if err != nil {
+					untracked(candidate, "unable to resolve physical include path")
+					break
+				}
+				foundPath, physicalPath = candidate, resolved
+				break
 			}
 
 			if foundPath != "" {
-				if data, err := os.ReadFile(foundPath); err == nil {
+				key := "file:" + physicalPath
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				if data, err := os.ReadFile(physicalPath); err == nil {
 					h := sha256.Sum256(data)
 					deps = append(deps, cudakernel.Dependency{
 						Path:    foundPath,
 						Digest:  hex.EncodeToString(h[:]),
 						Tracked: true,
 					})
-					queue = append(queue, string(data))
+					queue = append(queue, source{text: string(data), path: foundPath, dir: filepath.Dir(foundPath)})
 					continue
 				}
 			}
 
 			// Unresolved external header: record explicit inability to validate.
-			deps = append(deps, cudakernel.Dependency{
-				Path:     headerName,
-				Tracked:  false,
-				ErrorMsg: "unable to validate external header",
-			})
-			allTracked = false
+			untracked(headerName, "unable to validate external header")
 		}
 	}
 
 	return deps, allTracked
 }
 
-// scanIncludes returns the header names named by #include directives in src, in
-// order of appearance. It is a line scan, not a preprocessor: it does not
-// evaluate conditionals, so a header behind a false #if is still reported.
-// Over-reporting costs a cache miss; under-reporting would cost a stale hit.
-func scanIncludes(src string) []string {
-	var names []string
+func parentTraversal(path string) bool {
+	for _, elem := range strings.Split(filepath.ToSlash(path), "/") {
+		if elem == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+type dependencyInclude struct {
+	name   string
+	quoted bool
+}
+
+// dependencyIncludes recognizes literal includes without evaluating macros or
+// conditional compilation. Unsupported preprocessing makes complete false, even
+// if some literal includes were found. In particular, comments and line splicing
+// can change directive boundaries, so their presence must not hide a dependency.
+func dependencyIncludes(src string) (includes []dependencyInclude, complete bool) {
+	complete = !strings.ContainsAny(src, "\\") && !strings.Contains(src, "/*") &&
+		!strings.Contains(src, "%:") && !strings.Contains(src, "??")
 	for line := range strings.Lines(src) {
 		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "#include") {
+		if !strings.HasPrefix(line, "#") {
 			continue
 		}
-		rest := strings.TrimSpace(strings.TrimPrefix(line, "#include"))
-		if len(rest) < 3 {
-			continue
+		line = strings.TrimSpace(line[1:])
+		end := 0
+		for end < len(line) && (line[end] >= 'a' && line[end] <= 'z' || line[end] == '_') {
+			end++
 		}
-		var closer byte
-		switch rest[0] {
-		case '"':
-			closer = '"'
-		case '<':
-			closer = '>'
+		directive, rest := line[:end], strings.TrimSpace(line[end:])
+		switch directive {
+		case "define", "undef", "if", "ifdef", "ifndef", "elif", "else", "endif", "error", "warning":
+			continue
+		case "":
+			if rest != "" && !strings.HasPrefix(rest, "//") {
+				complete = false
+			}
+			continue
+		case "include":
 		default:
+			complete = false
 			continue
 		}
-		if end := strings.IndexByte(rest[1:], closer); end > 0 {
-			names = append(names, rest[1:end+1])
+		if len(rest) < 3 {
+			complete = false
+			continue
 		}
+		closer := byte('"')
+		quoted := rest[0] == '"'
+		if rest[0] == '<' {
+			closer = '>'
+		} else if !quoted {
+			complete = false
+			continue
+		}
+		end = strings.IndexByte(rest[1:], closer)
+		if end <= 0 {
+			complete = false
+			continue
+		}
+		includes = append(includes, dependencyInclude{name: rest[1 : end+1], quoted: quoted})
+		tail := strings.TrimSpace(rest[end+2:])
+		if tail != "" && !strings.HasPrefix(tail, "//") {
+			complete = false
+		}
+	}
+	return includes, complete
+}
+
+// scanIncludes returns recognized literal header names, including duplicates.
+// Dependency admission uses dependencyIncludes's completeness result as well.
+func scanIncludes(src string) []string {
+	var names []string
+	includes, _ := dependencyIncludes(src)
+	for _, inc := range includes {
+		names = append(names, inc.name)
 	}
 	return names
 }

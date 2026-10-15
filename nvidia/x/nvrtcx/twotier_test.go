@@ -143,7 +143,7 @@ func TestExternalInputIdentity(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	src := `#include "ext_header.h"
+	src := `#include <ext_header.h>
 extern "C" __global__ void test_k(int* out) {
     *out = VALUE;
 }
