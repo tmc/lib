@@ -8,10 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudapdl"
 	"github.com/tmc/lib/nvidia/x/cudatest"
@@ -393,14 +396,131 @@ extern "C" __global__ void pdl_consumer(const float *in, float *out, float bias,
 }
 `
 
-// TestNativePDLReference executes an end-to-end programmatic dependent launch
-// on native hardware when authorized, comparing PDL against standard dependencies.
+const (
+	nativePDLN     = 256
+	nativePDLBlock = 128
+	nativePDLBias  = float32(3)
+)
+
+type pdlReferenceFixture struct {
+	target             string
+	producer, consumer cudapdl.KernelDesc
+	arms               [2]pdlReferenceArm
+}
+
+type pdlReferenceArm struct {
+	name         string
+	programmatic bool
+	wantPolicy   cudapdl.LaunchPolicy
+}
+
+func newPDLReferenceFixture(target string) pdlReferenceFixture {
+	return pdlReferenceFixture{
+		target: target,
+		producer: cudapdl.KernelDesc{
+			Name: "pdl_producer", Source: nativePDLProducerSource, HasLaunchDependents: true,
+		},
+		consumer: cudapdl.KernelDesc{
+			Name: "pdl_consumer", Source: nativePDLConsumerSource, HasWait: true, HasIndependentWork: true,
+		},
+		arms: [2]pdlReferenceArm{
+			{"ordinary", false, cudapdl.PolicyStandardFallback},
+			{"programmatic", true, cudapdl.PolicyProgrammatic},
+		},
+	}
+}
+
+func (f pdlReferenceFixture) eligibility(programmatic bool) cudapdl.Eligibility {
+	if programmatic {
+		return cudapdl.CheckEligibility(f.target, f.producer, f.consumer)
+	}
+	return cudapdl.Eligibility{
+		Policy: cudapdl.PolicyStandardFallback, TargetArch: f.target, FallbackReason: "ordinary reference arm",
+	}
+}
+
+type pdlReferenceLaunch struct {
+	desc cudalaunch.Description
+	args []any
+}
+
+// launches is shared by the native fixture and its CPU contract control.
+// Graph PDL uses a typed edge; stream-only launch attributes are absent.
+func (f pdlReferenceFixture) launches(producer, consumer *cudalaunch.Launcher, input, intermediate, output any) ([2]pdlReferenceLaunch, error) {
+	var launches [2]pdlReferenceLaunch
+	for i, launcher := range []*cudalaunch.Launcher{producer, consumer} {
+		if launcher == nil {
+			return launches, fmt.Errorf("fixture kernel %d has no launcher", i)
+		}
+		desc, err := launcher.Grid(nativePDLN/nativePDLBlock, 1, 1).Block(nativePDLBlock, 1, 1).Describe()
+		if err != nil {
+			return launches, err
+		}
+		launches[i].desc = desc
+	}
+	launches[0].args = []any{input, intermediate, int32(nativePDLN), int64(1000)}
+	launches[1].args = []any{intermediate, output, nativePDLBias, int32(nativePDLN), int64(1000)}
+	return launches, nil
+}
+
+func pdlReferenceInputs() (input, want []float32) {
+	input = make([]float32, nativePDLN)
+	want = make([]float32, nativePDLN)
+	for i := range input {
+		input[i] = float32(i-128) / 4
+		// Closed form from the input index, shared by both graph arms.
+		want[i] = float32(i-128)/2 + 3
+	}
+	return input, want
+}
+
+// These conservative fixture predicates are checked after native authorization
+// and before compilation. They do not certify the pair's device behavior.
+func pdlReferenceUnsupported(major, minor, driverVersion int, typedEdges bool, compilerMajor, compilerMinor int32, archs []int32) string {
+	if major < 9 {
+		return "device requires SM90 or higher"
+	}
+	if driverVersion < 12030 || !typedEdges {
+		return "driver requires CUDA 12.3 or higher and cuGraphAddDependencies_v2"
+	}
+	if compilerMajor < 12 || compilerMajor == 12 && compilerMinor < 3 {
+		return "fixture requires NVRTC 12.3 or higher"
+	}
+	for _, arch := range archs {
+		if int(arch) == major*10+minor {
+			return ""
+		}
+	}
+	return "NVRTC does not list the device's physical architecture"
+}
+
+// TestNativePDLReference compares ordinary and typed programmatic graph edges
+// against one independent reference. It does not require or measure overlap.
 func TestNativePDLReference(t *testing.T) {
 	if os.Getenv("CUDA_COMPILER_TEST") != "1" && os.Getenv("CUDAGRAPH_PDL_ABLATION") != "1" {
 		t.Skip("native qualification pending: CUDA_COMPILER_TEST=1 or CUDAGRAPH_PDL_ABLATION=1 required for hardware execution")
 	}
 
+	if unresolvedPDLFixtures.unresolved() {
+		t.Fatal("previous native fixture ownership remains unresolved; refusing another submission")
+	}
+	lockCtx, cancelLock := context.WithTimeout(context.Background(), 30*time.Second)
+	lock, err := cudalock.Acquire(lockCtx, cudalock.WithLabel(t.Name()), cudalock.WithNoReclaim())
+	cancelLock()
+	if err != nil {
+		t.Fatalf("fixture GPU lock: %v", err)
+	}
+	custody := new(pdlFixtureCustody)
+	custody.own("GPU lock", lock.Release)
+	var stream *cuda.Stream
+	defer func() {
+		if err := custody.release(0, func() error { return stream.Synchronize(context.Background()) }); err != nil {
+			unresolvedPDLFixtures.keep(custody)
+			t.Errorf("native fixture ownership retained until process exit: %v", err)
+		}
+	}()
 	dev := cudatest.Require(t)
+	custody.own("device", dev.Close)
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		t.Fatal(err)
@@ -408,153 +528,181 @@ func TestNativePDLReference(t *testing.T) {
 	if major < 9 {
 		t.Skipf("device SM %d.%d does not support programmatic dependent launch (requires SM 90+)", major, minor)
 	}
+	driverVersion, err := driver.DriverGetVersion()
+	if err != nil {
+		t.Fatalf("driver version: %v", err)
+	}
+	if driverVersion < 12030 || !driver.HasGraphAddDependenciesV2() {
+		t.Skipf("typed graph PDL requires CUDA 12.3+ and cuGraphAddDependencies_v2; driver=%d", driverVersion)
+	}
+	if err := nvrtc.Load(""); err != nil {
+		t.Fatalf("load NVRTC: %v", err)
+	}
+	compilerMajor, compilerMinor, err := nvrtc.Version()
+	if err != nil {
+		t.Fatalf("NVRTC version: %v", err)
+	}
+	narch, err := nvrtc.GetNumSupportedArchs()
+	if err != nil || narch <= 0 {
+		t.Fatalf("NVRTC architecture count: count=%d err=%v", narch, err)
+	}
+	archs := make([]int32, narch)
+	if err := nvrtc.GetSupportedArchs(&archs[0]); err != nil {
+		t.Fatalf("NVRTC architectures: %v", err)
+	}
+	if reason := pdlReferenceUnsupported(major, minor, driverVersion, driver.HasGraphAddDependenciesV2(), compilerMajor, compilerMinor, archs); reason != "" {
+		t.Skipf("native qualification pending: %s (device=sm_%d%d driver=%d NVRTC=%d.%d)", reason, major, minor, driverVersion, compilerMajor, compilerMinor)
+	}
+	fixture := newPDLReferenceFixture(fmt.Sprintf("sm_%d%d", major, minor))
+	t.Logf("fixture target=%s driver=%d NVRTC=%d.%d driverPath=%q compilerPath=%q", fixture.target, driverVersion, compilerMajor, compilerMinor, driver.Path(), nvrtc.Path())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	stream, err := dev.NewStream()
+	stream, err = dev.NewStream()
+	if stream != nil {
+		custody.own("stream", stream.Close)
+	}
 	if err != nil {
+		if stream == nil {
+			// NewStream can lose a created handle when context restoration fails.
+			// Keep its device/context and lock; do not claim that handle was closed.
+			custody.unresolved = fmt.Errorf("stream constructor ownership unresolved: %w", err)
+		}
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := stream.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
 
 	// Compile producer and consumer kernels
-	prodComp, err := nvrtcx.Compile(nativePDLProducerSource, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
+	prodComp, err := nvrtcx.Compile(fixture.producer.Source, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
+	custody.ownError("producer compiler", err)
 	if err != nil {
 		t.Fatalf("compile producer: %v", err)
 	}
-	prodRaw, err := prodComp.Load(dev)
+	prodMod, _, err := prodComp.LoadOwnedOutput(dev, nvrtcx.OutputCUBIN)
+	if prodMod != nil {
+		custody.own("producer module", prodMod.Close)
+	}
+	custody.ownError("producer module load", err)
 	if err != nil {
 		t.Fatalf("load producer module: %v", err)
 	}
-	prodMod, err := cuda.OwnModule(dev, prodRaw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer prodMod.Close()
-	prodKern, err := prodMod.Function("pdl_producer")
+	prodKern, err := prodMod.Function(fixture.producer.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	consComp, err := nvrtcx.Compile(nativePDLConsumerSource, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
+	consComp, err := nvrtcx.Compile(fixture.consumer.Source, nvrtcx.WithDeviceArch(dev), nvrtcx.WithNoCache())
+	custody.ownError("consumer compiler", err)
 	if err != nil {
 		t.Fatalf("compile consumer: %v", err)
 	}
-	consRaw, err := consComp.Load(dev)
+	consMod, _, err := consComp.LoadOwnedOutput(dev, nvrtcx.OutputCUBIN)
+	if consMod != nil {
+		custody.own("consumer module", consMod.Close)
+	}
+	custody.ownError("consumer module load", err)
 	if err != nil {
 		t.Fatalf("load consumer module: %v", err)
 	}
-	consMod, err := cuda.OwnModule(dev, consRaw)
+	consKern, err := consMod.Function(fixture.consumer.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer consMod.Close()
-	consKern, err := consMod.Function("pdl_consumer")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	const (
-		n     = 256
-		block = 128
-		grid  = n / block
-	)
 
 	// Allocate input, intermediate, and output device buffers
-	inBuf, err := cudamem.Alloc[float32](dev, n)
+	inBuf, err := cudamem.Alloc[float32](dev, nativePDLN)
+	custody.own("input buffer", inBuf.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(inBuf.Free)
 
-	interBuf, err := cudamem.Alloc[float32](dev, n)
+	interBuf, err := cudamem.Alloc[float32](dev, nativePDLN)
+	custody.own("intermediate buffer", interBuf.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(interBuf.Free)
 
-	outBuf, err := cudamem.Alloc[float32](dev, n)
+	outBuf, err := cudamem.Alloc[float32](dev, nativePDLN)
+	custody.own("output buffer", outBuf.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.WithContext(outBuf.Free)
 
-	hostIn := make([]float32, n)
-	for i := range hostIn {
-		hostIn[i] = float32(i + 1)
+	hostIn, want := pdlReferenceInputs()
+	poison := make([]float32, nativePDLN)
+	for i := range poison {
+		poison[i] = -12345
 	}
-	if err := inBuf.CopyFromHost(hostIn); err != nil {
-		t.Fatal(err)
-	}
-
-	// 1. Build Graph with Programmatic Dependent Launch edge
-	g, err := cudagraph.New(dev)
+	launches, err := fixture.launches(cudalaunch.OwnedKernel(prodKern), cudalaunch.OwnedKernel(consKern), inBuf, interBuf, outBuf)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer g.Destroy()
-
-	trailingCycles := int64(1000)
-	prodLauncher := cudalaunch.OwnedKernel(prodKern).
-		Grid(uint32(grid), 1, 1).
-		Block(uint32(block), 1, 1).
-		WithProgrammaticStreamSerialization(true)
-
-	prodNode, err := g.AddLauncher(prodLauncher, []any{inBuf, interBuf, int32(n), trailingCycles})
-	if err != nil {
-		t.Fatalf("AddLauncher producer: %v", err)
-	}
-
-	biasVal := float32(3.0)
-	computeCycles := int64(1000)
-	consLauncher := cudalaunch.OwnedKernel(consKern).
-		Grid(uint32(grid), 1, 1).
-		Block(uint32(block), 1, 1)
-
-	consNode, err := g.AddLauncher(consLauncher, []any{interBuf, outBuf, biasVal, int32(n), computeCycles})
-	if err != nil {
-		t.Fatalf("AddLauncher consumer: %v", err)
-	}
-
-	archStr := fmt.Sprintf("sm_%d%d", major, minor)
-	producerDesc := cudapdl.KernelDesc{Name: "pdl_producer", HasLaunchDependents: true}
-	consumerDesc := cudapdl.KernelDesc{Name: "pdl_consumer", HasWait: true}
-
-	comp, err := cudapdl.Compose(g, prodNode, consNode, cudapdl.CheckEligibility(archStr, producerDesc, consumerDesc))
-	if err != nil {
-		t.Fatalf("cudapdl.Compose: %v", err)
-	}
-	if comp.Policy != cudapdl.PolicyProgrammatic {
-		t.Fatalf("comp.Policy = %v, want PolicyProgrammatic", comp.Policy)
-	}
-
-	exec, err := g.Instantiate()
-	if err != nil {
-		t.Fatalf("Instantiate: %v", err)
-	}
-	defer exec.Destroy()
-
-	if err := exec.Launch(stream); err != nil {
-		t.Fatalf("Launch: %v", err)
-	}
-	if err := stream.Synchronize(ctx); err != nil {
-		t.Fatalf("Synchronize: %v", err)
-	}
-
-	hostOut := make([]float32, n)
-	if err := outBuf.CopyToHost(hostOut); err != nil {
-		t.Fatal(err)
-	}
-
-	for i := range hostOut {
-		want := hostIn[i]*2.0 + biasVal
-		if hostOut[i] != want {
-			t.Fatalf("out[%d] = %f, want %f", i, hostOut[i], want)
+	for _, arm := range fixture.arms {
+		if !t.Run(arm.name, func(t *testing.T) {
+			mark := len(custody.owners)
+			defer func() {
+				if err := custody.release(mark, func() error { return stream.Synchronize(context.Background()) }); err != nil {
+					t.Error(err)
+				}
+			}()
+			// Reset both outputs so the second arm cannot inherit a correct
+			// result from the first. Both use the same modules and buffers.
+			for _, copy := range []struct {
+				buffer cudamem.Slice[float32]
+				data   []float32
+			}{{inBuf, hostIn}, {interBuf, poison}, {outBuf, poison}} {
+				if err := copy.buffer.CopyFromHost(copy.data); err != nil {
+					t.Fatal(err)
+				}
+			}
+			g, err := cudagraph.New(dev)
+			if g != nil {
+				custody.own("graph", g.Destroy)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			prodNode, err := g.AddLaunch(launches[0].desc, launches[0].args)
+			if err != nil {
+				t.Fatalf("AddLaunch producer: %v", err)
+			}
+			consNode, err := g.AddLaunch(launches[1].desc, launches[1].args)
+			if err != nil {
+				t.Fatalf("AddLaunch consumer: %v", err)
+			}
+			comp, err := cudapdl.Compose(g, prodNode, consNode, fixture.eligibility(arm.programmatic))
+			if err != nil {
+				t.Fatalf("Compose: %v", err)
+			}
+			t.Logf("policy=%s fallback=%q; overlap unmeasured", comp.Policy, comp.FallbackReason)
+			if comp.Policy != arm.wantPolicy {
+				t.Fatalf("policy=%s, want %s (fallback=%q)", comp.Policy, arm.wantPolicy, comp.FallbackReason)
+			}
+			exec, err := g.Instantiate()
+			if exec != nil {
+				custody.own("graph executable", exec.Destroy)
+			}
+			if err != nil {
+				t.Fatalf("Instantiate: %v", err)
+			}
+			if err := custody.launch(func() error { return exec.Launch(stream) }); err != nil {
+				t.Fatalf("Launch: %v", err)
+			}
+			if err := custody.observe(func() error { return stream.Synchronize(ctx) }); err != nil {
+				t.Fatalf("Synchronize: %v", err)
+			}
+			got := make([]float32, nativePDLN)
+			if err := outBuf.CopyToHost(got); err != nil {
+				t.Fatal(err)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("out[%d]=%g, want %g", i, got[i], want[i])
+				}
+			}
+		}) {
+			// Do not submit the other arm after a failed launch or drain.
+			return
 		}
 	}
 }
