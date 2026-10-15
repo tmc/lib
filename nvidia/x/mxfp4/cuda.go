@@ -3,6 +3,7 @@ package mxfp4
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -106,11 +107,14 @@ type Engine struct {
 	mu          sync.Mutex
 	dev         *cuda.Device
 	mod         driver.Module
+	loadOwner   io.Closer
 	dequantFn   driver.Function
 	fusedGEMVFn driver.Function
 }
 
-// NewEngine compiles and loads MXFP4 GPU kernels on dev.
+// NewEngine compiles and loads MXFP4 GPU kernels on dev. If it returns both a
+// non-nil engine and an error, call Close before closing dev to release any
+// module retained during partial initialization.
 func NewEngine(dev *cuda.Device) (*Engine, error) {
 	if dev == nil {
 		return nil, errors.New("mxfp4: nil device")
@@ -125,26 +129,48 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 		return nil, fmt.Errorf("mxfp4: compile kernels: %w", err)
 	}
 
-	loaded, err := compiled.Load(dev)
-	if err != nil {
-		return nil, fmt.Errorf("mxfp4: load module: %w", err)
-	}
+	return newEngineWith(dev, func() (driver.Module, error) { return compiled.Load(dev) }, dev.WithContext, func(mod driver.Module, name string) (driver.Function, error) {
+		return mod.Function(name)
+	})
+}
 
+func newEngineWith(
+	dev *cuda.Device,
+	load func() (driver.Module, error),
+	withContext func(func() error) error,
+	function func(driver.Module, string) (driver.Function, error),
+) (*Engine, error) {
+	loaded, err := load()
 	e := &Engine{dev: dev, mod: loaded}
-	err = dev.WithContext(func() error {
+	if err != nil {
+		if loaded == 0 {
+			var owner io.Closer
+			if errors.As(err, &owner) {
+				e.loadOwner = owner
+			}
+		}
+		if loaded == 0 && e.loadOwner == nil {
+			return nil, fmt.Errorf("mxfp4: load module: %w", err)
+		}
+		return e, fmt.Errorf("mxfp4: load module: %w", err)
+	}
+	if loaded == 0 {
+		return nil, errors.New("mxfp4: load returned nil module")
+	}
+	err = withContext(func() error {
 		var err error
-		e.dequantFn, err = loaded.Function("MXFP4Dequantize")
+		e.dequantFn, err = function(loaded, "MXFP4Dequantize")
 		if err != nil {
 			return fmt.Errorf("mxfp4: load dequantize kernel: %w", err)
 		}
-		e.fusedGEMVFn, err = loaded.Function("MXFP4LinearGEMV")
+		e.fusedGEMVFn, err = function(loaded, "MXFP4LinearGEMV")
 		if err != nil {
 			return fmt.Errorf("mxfp4: load linear kernel: %w", err)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Join(err, e.Close())
+		return e, err
 	}
 	return e, nil
 }
@@ -215,14 +241,34 @@ func (e *Engine) Close() error {
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.mod == 0 {
-		return nil
+	return e.closeWith(e.dev.WithContext, func(mod driver.Module) error { return mod.Close() })
+}
+
+func (e *Engine) closeWith(withContext func(func() error) error, unload func(driver.Module) error) error {
+	var errs []error
+	if e.loadOwner != nil {
+		if err := e.loadOwner.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("mxfp4: retry module cleanup: %w", err))
+		} else {
+			e.loadOwner = nil
+		}
 	}
-	if err := e.dev.WithContext(e.mod.Close); err != nil {
-		return err
+	if e.mod != 0 {
+		called := false
+		var unloadErr error
+		contextErr := withContext(func() error {
+			called = true
+			unloadErr = unload(e.mod)
+			return unloadErr
+		})
+		if called && unloadErr == nil {
+			e.mod = 0
+		}
+		if contextErr != nil {
+			errs = append(errs, fmt.Errorf("mxfp4: unload module: %w", contextErr))
+		}
 	}
-	e.mod = 0
-	return nil
+	return errors.Join(errs...)
 }
 
 func (e *Engine) run(fn func() error) error {
