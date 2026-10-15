@@ -1,0 +1,6 @@
+commit 4cd335a5cb13bfb0d27e5cd4ecf7b21ca1b7bdec
+date 2026-10-14T23:48:57-07:00
+lane lane12: continuous batching / KV state
+agent Claude Code (workflow subagent), model claude-opus-5-5
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+gate /Users/tmc/tmp/lib-wt-next/20261014-wf-lane12/gate.log; mutants /Users/tmc/tmp/lib-wt-next/20261014-wf-lane12/MUTANTS.md (4/4 killed)
