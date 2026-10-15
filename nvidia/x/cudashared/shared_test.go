@@ -110,22 +110,26 @@ func TestAlignedFootprintLimit(t *testing.T) {
 }
 
 func TestStageFixtureUsesPlanOffsetAndBytes(t *testing.T) {
-	p, err := NewPlan(Limits{StaticMax: 128, DynamicMax: 256, TotalMax: 512, Source: "test"})
+	limits, err := LimitsFromDevice("sm_121a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.Add(Request{Name: "static", Size: 32, Alignment: 16, FirstStage: 0, LastStage: 0}); err != nil {
+	p, err := NewPlan(limits)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Add(Request{Name: "prefix", Size: 17, Alignment: 16, FirstStage: 1, LastStage: 1, Dynamic: true}); err != nil {
 		t.Fatal(err)
 	}
 	region, err := p.Add(Request{Name: "stage0", Size: 64, Alignment: 16, FirstStage: 1, LastStage: 1, Dynamic: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	src, bytes, err := StagedCopyFixture(p, "sm_100a", 8)
+	src, bytes, err := StagedCopyFixture(p, "sm_121a", 8)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes != p.DynamicBytes() || !strings.Contains(src, fmt.Sprintf("shared_offset=%d", region.Offset)) || !strings.Contains(src, fmt.Sprintf("shared_bytes=%d", p.DynamicBytes())) {
+	if region.Offset == 0 || bytes != p.DynamicBytes() || !strings.Contains(src, fmt.Sprintf("shared_offset=%d", region.Offset)) || !strings.Contains(src, fmt.Sprintf("shared_bytes=%d", p.DynamicBytes())) {
 		t.Fatalf("fixture does not carry plan allocation: bytes=%d src=%q", bytes, src)
 	}
 }
