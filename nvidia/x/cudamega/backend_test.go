@@ -91,7 +91,8 @@ func TestTargetConditionalScopeRefusal(t *testing.T) {
 		{name: "cta below sm_80", graph: cta, target: "sm_70",
 			want: "needs mbarrier, which target sm_70 predates"},
 		{name: "cta at sm_80", graph: cta, target: cudamega.SM80},
-		{name: "device below sm_80", graph: device, target: "sm_70"},
+		{name: "device below sm_80", graph: device, target: "sm_70",
+			want: "target sm_70 predates emitter floor sm_80"},
 		{name: "unparseable target", graph: device, target: "turing",
 			want: "not spelled sm_"},
 	} {

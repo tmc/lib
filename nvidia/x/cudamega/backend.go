@@ -266,6 +266,9 @@ type Program struct {
 //
 // Unsupported, reported rather than approximated:
 //
+//   - Every target below the emitter floor, sm_80. Device and system
+//     ordering primitives predate this floor, but the emitted worker is only
+//     supported from sm_80 onward.
 //   - [cudataskgraph.ScopeCluster]. Below sm_90 the target has no
 //     barrier.cluster to order one with. At sm_90 and above it needs the
 //     distributed shared memory and participation contract lane 09 owns, and
@@ -466,6 +469,13 @@ func supportsScope(target Target, s cudataskgraph.Scope) error {
 		}
 		return fmt.Errorf("cluster scope on target %s needs lane 09's participation contract", target)
 	case cudataskgraph.ScopeDevice, cudataskgraph.ScopeSystem:
+		ok, err := target.atLeast(8, 0)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("target %s predates emitter floor %s", target, SM80)
+		}
 		return nil
 	}
 	return fmt.Errorf("no synchronization is defined for scope %s", scopeName(s))
