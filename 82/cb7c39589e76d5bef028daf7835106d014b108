@@ -1,0 +1,14 @@
+Commit: 82cb7c39589e76d5bef028daf7835106d014b108
+Date: 2026-10-15T06:37:44-07:00
+Landed by: coordinator 2DFCEE41, on root CC24097B's authorization /Users/tmc/tmp/agent-collab/ds4-min/20261015-CC24097B-raw-seven-file-land-go.md
+Tool: Claude Code 2.1.284 (Claude Code); model claude-opus-5-5; tty ttys163; pid 37041; ITERM_SESSION_ID=w5t2p1:2DFCEE41-F8CC-48A0-BEEF-821ED8C38766
+session=92385c74-9d24-496f-8b25-f083f27c346b
+Candidate: 8f7d32eb75a398b14d4883fe6bcf1679e35e2d5f1c172dbe53b1752bdbe96f99 (seven-file drainProbe), applied on b90f9d443; staged diff byte-identical to the candidate.
+Commit message helper failed twice (missing ANTHROPIC_API_KEY); signed manual fallback used.
+Post-commit checks under the Mac gpu-lock: gofmt, vet linux/amd64 and darwin/arm64, go test -c linux/darwin, TestOracleGate*: rc 0 (/Users/tmc/tmp/ds4-min/20261011-claude-takeover/raw-v6-land/check.log).
+
+Evidence and dispositions (preserved as stated by root):
+- Original preparation campaign: protocol-refused at the wrong-cwd vet STOP. The repaired restart is a recorded deviation, not retroactive authorization and not an uninterrupted no-waiver pass. Raw audit: /Users/tmc/tmp/ds4-min/20261015-raw-v6-independent/REPORT.md; disposition: /Users/tmc/tmp/agent-collab/ds4-min/20261015-CC24097B-raw-audit-disposition.md.
+- Current-tree integration: /Users/tmc/tmp/ds4-min/20261011-claude-takeover/v41-cuda-raw-v6-integration/RECEIPT.txt (c922220a). It FAILED preregistered rule 5 (lock_pre=absent) on i0-helpers, which was queued behind another lane. No retrospective waiver. The helper, root, native and drain positives otherwise met every criterion (independent verify: VERIFY-INDEPENDENT.md).
+- Corrected helper cycle (root option b): /Users/tmc/tmp/ds4-min/20261011-claude-takeover/v41-cuda-raw-v6-i0-helpers/RECEIPT.txt (938cfe7f), on the same binary da1281cf with an in-lease owner snapshot: PASS. Independent verify ACCEPT; final audit KEEP (REVIEW-INDEPENDENT.md).
+Scope: SM89 synthetic raw-attention arithmetic and ownership, with a host-injected uncertain receipt after actual device work. Not physical-GPU recovery, actual-model, default-C, SM121, GB10 or performance. Public qualification unchanged.
