@@ -248,10 +248,7 @@ func runRecord(args []string, stdout, stderr io.Writer) error {
 				flightRec.Push(record)
 			}
 			if r, matched, ok := nvtelemetry.EvaluateSample(s, []nvtelemetry.TriggerPolicy{policy}); ok {
-				val := r.Value
-				if r.IsInt {
-					val = float64(r.IntValue)
-				}
+				val := triggerMetricValue(r)
 				receipt, triggerErr := coord.Trigger(escalationCtx, cudaflightrecorder.TriggerRequest{
 					TenantID:    *tenantID,
 					Reason:      matched.Reason,
@@ -356,6 +353,25 @@ func runRecord(args []string, stdout, stderr io.Writer) error {
 }
 
 var deviceUUIDPattern = regexp.MustCompile(`^(GPU-|MIG-)[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$|^MIG-GPU-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/[0-9]+/[0-9]+$`)
+
+// triggerMetricValue converts an admitted trigger scalar to the receipt's
+// float64 representation, using the same integer rounding as TriggerPolicy.
+func triggerMetricValue(r nvtelemetry.Reading) float64 {
+	if n := r.Number; n != nil {
+		switch {
+		case n.Float != nil:
+			return *n.Float
+		case n.Int != nil:
+			return float64(*n.Int)
+		case n.Uint != nil:
+			return float64(*n.Uint)
+		}
+	}
+	if r.IsInt {
+		return float64(r.IntValue)
+	}
+	return r.Value
+}
 
 func parseDeviceUUIDs(input string) ([]string, error) {
 	if input == "" {
