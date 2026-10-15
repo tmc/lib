@@ -342,10 +342,11 @@ func draftsDiffer(a, b *speculative.NgramDrafter, maxDraft int) (ngram, da, db [
 }
 
 // TestDecodeStateNgram drives decodeState with the n-gram drafter main uses
-// and checks that the output is plain greedy decoding, that the drafter has
-// been fed exactly the emitted context, and, for a model the drafter can
-// predict, that drafts were taken from the context and then the pending
-// token, so none of them is rejected.
+// and checks that the output is plain greedy decoding, that the drafter
+// drafts as one fed exactly the emitted context does, and, for a model the
+// drafter can predict, that it drafted at every step from the context and
+// then the pending token, so every token was speculated and no draft was
+// rejected.
 func TestDecodeStateNgram(t *testing.T) {
 	cycle := []int32{0, 1, 2, 3, 4, 0, 1}
 	for _, tt := range []struct {
@@ -354,7 +355,7 @@ func TestDecodeStateNgram(t *testing.T) {
 		prompt        []int32
 		maxSeq, steps int
 		draftN        int
-		exact         bool // every draft must be accepted
+		exact         bool // every token must be emitted by a speculative step with no draft rejected
 	}{
 		{"plain", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 7) }, cycle, 32, 16, 0, false},
 		{"cycle", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 16, 3, true},
@@ -388,8 +389,10 @@ func TestDecodeStateNgram(t *testing.T) {
 				}
 			}
 			if tt.exact {
-				if speculated == 0 {
-					t.Errorf("no speculative steps")
+				// A drafter missing part of the context drafts nothing at
+				// some step, which then emits one token without speculating.
+				if speculated != len(want) {
+					t.Errorf("%d of %d tokens speculated: the drafter had nothing to draft", speculated, len(want))
 				}
 				if forwards != len(want) {
 					t.Errorf("%d forward calls for %d tokens: drafts were rejected", forwards, len(want))
