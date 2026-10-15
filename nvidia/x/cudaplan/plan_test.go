@@ -459,9 +459,19 @@ func TestNegativeControlsAndMutants(t *testing.T) {
 		_ = bindings.SetOutput("out1", driver.DevicePtr(0x4000), 32, nil)
 		_ = bindings.SetOutput("out2", driver.DevicePtr(0x4010), 32, nil) // Overlaps out1 [0x4000, 0x4020)
 
-		err := bindings.Validate(nil, nil, map[string]int{"out1": 32, "out2": 32})
+		requiredInputs := map[string]int{"X": 24, "W": 24, "B": 16}
+		requiredOutputs := map[string]int{"out1": 32, "out2": 32}
+		err := bindings.Validate(nil, requiredInputs, requiredOutputs)
 		if !errors.Is(err, cudaplan.ErrOverlappingOutputs) {
 			t.Fatalf("expected ErrOverlappingOutputs, got %v", err)
+		}
+
+		// Adjacent half-open output ranges are disjoint.
+		if err := bindings.SetOutput("out2", driver.DevicePtr(0x4020), 32, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := bindings.Validate(nil, requiredInputs, requiredOutputs); err != nil {
+			t.Fatalf("boundary-disjoint outputs: %v", err)
 		}
 	})
 
