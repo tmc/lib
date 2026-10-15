@@ -166,21 +166,21 @@ func calleeName(call *ast.CallExpr) string {
 // ctor(...)" statement: owner and err must be named, and the next
 // statement must register a release of owner (see registersRelease), so
 // that an owner returned with an error is released before anything else
-// runs. Calls in other forms, such as "return ctor(...)", are counted but
-// not checked.
-func releasesFirst(name, src string) (calls int, bad []string, err error) {
+// runs. Calls in other forms, such as "return ctor(...)" or "var owner, err
+// = ctor(...)", are counted but not checked.
+func releasesFirst(name, src string) (n callCount, bad []string, err error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, 0)
 	if err != nil {
-		return 0, nil, err
+		return callCount{}, nil, err
 	}
-	ast.Inspect(f, func(n ast.Node) bool {
-		if call, ok := n.(*ast.CallExpr); ok {
+	ast.Inspect(f, func(node ast.Node) bool {
+		if call, ok := node.(*ast.CallExpr); ok {
 			if _, ok := ownerReturning[calleeName(call)]; ok {
-				calls++
+				n.calls++
 			}
 		}
-		block, ok := n.(*ast.BlockStmt)
+		block, ok := node.(*ast.BlockStmt)
 		if !ok {
 			return true
 		}
@@ -198,6 +198,7 @@ func releasesFirst(name, src string) (calls int, bad []string, err error) {
 			if !ok {
 				continue
 			}
+			n.checked++
 			pos := fset.Position(as.Pos())
 			owner, _ := as.Lhs[0].(*ast.Ident)
 			errv, _ := as.Lhs[1].(*ast.Ident)
@@ -215,7 +216,7 @@ func releasesFirst(name, src string) (calls int, bad []string, err error) {
 		}
 		return true
 	})
-	return calls, bad, nil
+	return n, bad, nil
 }
 
 // registersRelease reports whether stmt arranges for owner to be released
@@ -312,15 +313,20 @@ func mentions(n ast.Node, name string) bool {
 	return found
 }
 
+// A callCount counts the calls a source check watches in one file: all of
+// them, in any form, and those in the one form it inspects. Rewriting an
+// inspected call into another form changes checked, not calls.
+type callCount struct{ calls, checked int }
+
 // scanDir runs check on every .go file in dir except those named in skip,
 // whatever their build constraints, and returns the count check reports
-// for each file, omitting zeros, and the problems it reports.
-func scanDir(dir string, check func(name, src string) (int, []string, error), skip ...string) (map[string]int, []string, error) {
+// for each file, omitting files with no calls, and the problems it reports.
+func scanDir(dir string, check func(name, src string) (callCount, []string, error), skip ...string) (map[string]callCount, []string, error) {
 	paths, err := filepath.Glob(filepath.Join(dir, "*.go"))
 	if err != nil {
 		return nil, nil, err
 	}
-	counts := make(map[string]int)
+	counts := make(map[string]callCount)
 	var bad []string
 	for _, p := range paths {
 		name := filepath.Base(p)
@@ -335,7 +341,7 @@ func scanDir(dir string, check func(name, src string) (int, []string, error), sk
 		if err != nil {
 			return nil, nil, err
 		}
-		if n > 0 {
+		if n.calls > 0 {
 			counts[name] = n
 		}
 		bad = append(bad, b...)
@@ -343,15 +349,16 @@ func scanDir(dir string, check func(name, src string) (int, []string, error), sk
 	return counts, bad, nil
 }
 
-// countDiffs returns, sorted by file, each file whose count in got
-// differs from its count in want, a missing file counting zero.
-func countDiffs(got, want map[string]int) []string {
+// countDiffs returns, sorted by file, each file whose counts in got differ
+// from its counts in want, a missing file counting zero.
+func countDiffs(got, want map[string]callCount) []string {
 	names := slices.Concat(slices.Collect(maps.Keys(got)), slices.Collect(maps.Keys(want)))
 	slices.Sort(names)
 	var diffs []string
 	for _, name := range slices.Compact(names) {
 		if got[name] != want[name] {
-			diffs = append(diffs, fmt.Sprintf("%s: %d calls, want %d", name, got[name], want[name]))
+			g, w := got[name], want[name]
+			diffs = append(diffs, fmt.Sprintf("%s: %d calls, %d checked; want %d, %d", name, g.calls, g.checked, w.calls, w.checked))
 		}
 	}
 	return diffs
@@ -384,20 +391,41 @@ func packageWith(t *testing.T, name, src string) string {
 // isExtra reports whether a problem is in the file packageWith adds.
 func isExtra(problem string) bool { return strings.HasPrefix(problem, "extra.go:") }
 
+// rewriteDiffs returns the count differences from want that scanDir with
+// check reports for a copy of the package in which the first from in file
+// is replaced by to.
+func rewriteDiffs(t *testing.T, check func(name, src string) (callCount, []string, error), want map[string]callCount, file, from, to string, skip ...string) []string {
+	t.Helper()
+	b, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := strings.Replace(string(b), from, to, 1)
+	if src == string(b) {
+		t.Fatalf("control does not apply: %s has no %q", file, from)
+	}
+	got, _, err := scanDir(packageWith(t, file, src), check, skip...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return countDiffs(got, want)
+}
+
 // ownerCalls counts, by file, the calls to an ownerReturning constructor
-// in the package. A call added in any file, in any form, changes a count,
-// and must be reviewed before the count is updated here.
-var ownerCalls = map[string]int{
-	"main.go":                   4,
-	"fused_parity_cuda_test.go": 6,
-	"bf16_parity_cuda_test.go":  6,
-	"profile_cuda_test.go":      2,
+// in the package, and those releasesFirst inspects. A call added in any
+// file, in any form, or rewritten out of the inspected form, changes a
+// count, and must be reviewed before the count is updated here.
+var ownerCalls = map[string]callCount{
+	"main.go":                   {4, 4},
+	"fused_parity_cuda_test.go": {6, 6},
+	"bf16_parity_cuda_test.go":  {6, 6},
+	"profile_cuda_test.go":      {2, 2},
 	// The constructors themselves: "return ctor(...)", and allocations
 	// assigned straight into the owner they return, which this check
 	// counts but does not inspect.
-	"gpu_kernels.go":  1,
-	"gpu_model.go":    5,
-	"weights_bf16.go": 2,
+	"gpu_kernels.go":  {1, 0},
+	"gpu_model.go":    {5, 0},
+	"weights_bf16.go": {2, 0},
 }
 
 // TestCallersReleaseReturnedOwners checks every call to a constructor that
@@ -416,7 +444,8 @@ func TestCallersReleaseReturnedOwners(t *testing.T) {
 
 	// Must-fail controls: a call in a file the count does not list is
 	// caught, by its count if it releases its owner and by the check too
-	// if it does not.
+	// if it does not; and a checked call in a listed file rewritten into a
+	// form the check does not inspect is caught by its file's count.
 	for _, tt := range []struct {
 		name, body string
 		bad        bool
@@ -430,12 +459,16 @@ func TestCallersReleaseReturnedOwners(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unlisted file, %s: %v", tt.name, err)
 		}
-		if d := countDiffs(got, ownerCalls); !slices.Contains(d, "extra.go: 1 calls, want 0") {
+		if d := countDiffs(got, ownerCalls); !slices.ContainsFunc(d, isExtra) {
 			t.Errorf("unlisted file, %s: count differences %q, want extra.go's", tt.name, d)
 		}
 		if flagged := slices.ContainsFunc(bad, isExtra); flagged != tt.bad {
 			t.Errorf("unlisted file, %s: %q, want extra.go flagged %v", tt.name, bad, tt.bad)
 		}
+	}
+	d := rewriteDiffs(t, releasesFirst, ownerCalls, "main.go", "scratch, err := NewGPUScratchpad(", "var scratch, err = NewGPUScratchpad(")
+	if !slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "main.go:") }) {
+		t.Errorf("checked call rewritten as a var declaration: count differences %q, want main.go's", d)
 	}
 
 	for _, tt := range []struct {
@@ -563,9 +596,20 @@ func TestCallersReleaseReturnedOwners(t *testing.T) {
 		}`, true},
 	} {
 		src := "package p\nfunc f() error {\n" + tt.body + "\nreturn nil\n}\n"
-		calls, bad, err := releasesFirst("control.go", src)
-		if err != nil || calls != 1 || (len(bad) > 0) != tt.bad {
-			t.Errorf("%s: %d calls, %q, %v; want flagged %v", tt.name, calls, bad, err, tt.bad)
+		n, bad, err := releasesFirst("control.go", src)
+		if err != nil || n != (callCount{1, 1}) || (len(bad) > 0) != tt.bad {
+			t.Errorf("%s: %+v calls, %q, %v; want 1 checked, flagged %v", tt.name, n, bad, err, tt.bad)
+		}
+	}
+	// Forms the check does not inspect count as calls but not as checked.
+	for _, body := range []string{
+		"var sp, err = NewGPUScratchpad(dev, cfg)",
+		"if sp, err = NewGPUScratchpad(dev, cfg); err != nil {\nreturn err\n}",
+		"return NewGPUScratchpad(dev, cfg)",
+	} {
+		src := "package p\nfunc f() error {\n" + body + "\nreturn nil\n}\n"
+		if n, _, err := releasesFirst("control.go", src); err != nil || n != (callCount{1, 0}) {
+			t.Errorf("%q: %+v calls, %v; want 1 call, 0 checked", body, n, err)
 		}
 	}
 }
@@ -658,13 +702,14 @@ func TestReleaseErrorOwner(t *testing.T) {
 }
 
 // loadCalls counts, by file, the module compiles and loads in the
-// package, except gen.go's, which TestGenReleasesCompileError checks: gen.go
-// builds alone and cannot call releaseErrorOwner.
-var loadCalls = map[string]int{
-	"main.go":                   5,
-	"fused_parity_cuda_test.go": 4,
-	"bf16_parity_cuda_test.go":  4,
-	"gpu_kernels.go":            2,
+// package, and those callErrorsReleased inspects, except gen.go's, which
+// TestGenReleasesCompileError counts and checks: gen.go builds alone and
+// cannot call releaseErrorOwner.
+var loadCalls = map[string]callCount{
+	"main.go":                   {5, 5},
+	"fused_parity_cuda_test.go": {4, 4},
+	"bf16_parity_cuda_test.go":  {4, 4},
+	"gpu_kernels.go":            {2, 2},
 }
 
 // TestCallErrorsReleased checks that every module compile and load in the
@@ -681,9 +726,11 @@ func TestCallErrorsReleased(t *testing.T) {
 		t.Error(b)
 	}
 
-	// Must-fail controls: gen.go is skipped by name only, and a load in a
-	// file the count does not list is caught, by its count whatever its
-	// form and by the check too if it returns the error unreleased.
+	// Must-fail controls: gen.go is skipped by name only; a load in a file
+	// the count does not list is caught, by its count whatever its form and
+	// by the check too if it returns the error unreleased; and a checked
+	// load in a listed file rewritten into a form the check does not
+	// inspect is caught by its file's count.
 	if _, bad, err := scanDir(".", callErrorsReleased); err != nil || len(bad) == 0 {
 		t.Errorf("gen.go not skipped: %q, %v; want its compile flagged", bad, err)
 	}
@@ -700,12 +747,16 @@ func TestCallErrorsReleased(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unlisted file, %s: %v", tt.name, err)
 		}
-		if d := countDiffs(got, loadCalls); !slices.Contains(d, "extra.go: 1 calls, want 0") {
+		if d := countDiffs(got, loadCalls); !slices.ContainsFunc(d, isExtra) {
 			t.Errorf("unlisted file, %s: count differences %q, want extra.go's", tt.name, d)
 		}
 		if flagged := slices.ContainsFunc(bad, isExtra); flagged != tt.bad {
 			t.Errorf("unlisted file, %s: %q, want extra.go flagged %v", tt.name, bad, tt.bad)
 		}
+	}
+	d := rewriteDiffs(t, callErrorsReleased, loadCalls, "main.go", "attnMod, err := attnModCompiled.Load(", "var attnMod, err = attnModCompiled.Load(", "gen.go")
+	if !slices.ContainsFunc(d, func(s string) bool { return strings.HasPrefix(s, "main.go:") }) {
+		t.Errorf("checked load rewritten as a var declaration: count differences %q, want main.go's", d)
 	}
 
 	for _, tt := range []struct {
@@ -718,9 +769,20 @@ func TestCallErrorsReleased(t *testing.T) {
 		{"helper only on success", "if err == nil {\nreleaseErrorOwner(err)\n}", true},
 	} {
 		src := "package p\nfunc f() error {\nm, err := c.Load(dev)\n" + tt.body + "\nreturn nil\n}\n"
-		loads, bad, err := callErrorsReleased("control.go", src)
-		if err != nil || loads != 1 || (len(bad) > 0) != tt.bad {
-			t.Errorf("%s: %d loads, %q, %v; want flagged %v", tt.name, loads, bad, err, tt.bad)
+		n, bad, err := callErrorsReleased("control.go", src)
+		if err != nil || n != (callCount{1, 1}) || (len(bad) > 0) != tt.bad {
+			t.Errorf("%s: %+v loads, %q, %v; want 1 checked, flagged %v", tt.name, n, bad, err, tt.bad)
+		}
+	}
+	// Forms the check does not inspect count as calls but not as checked.
+	for _, body := range []string{
+		"var m, err = c.Load(dev)",
+		"if m, err = c.Load(dev); err != nil {\nreturn err\n}",
+		"return c.Load(dev)",
+	} {
+		src := "package p\nfunc f() error {\n" + body + "\nreturn nil\n}\n"
+		if n, _, err := callErrorsReleased("control.go", src); err != nil || n != (callCount{1, 0}) {
+			t.Errorf("%q: %+v loads, %v; want 1 call, 0 checked", body, n, err)
 		}
 	}
 }
@@ -733,19 +795,20 @@ func isLoad(call *ast.CallExpr) bool {
 }
 
 // callErrorsReleased counts the Load and Compile calls in src, in any form,
-// and checks each "x, err := y.Load(...)": the next statement must be
-// "if err != nil" whose body calls releaseErrorOwner(err).
-func callErrorsReleased(name, src string) (loads int, bad []string, err error) {
+// and checks each "x, err := y.Load(...)" or "x, err = y.Load(...)": the
+// next statement must be "if err != nil" whose body calls
+// releaseErrorOwner(err). Calls in other forms are counted but not checked.
+func callErrorsReleased(name, src string) (n callCount, bad []string, err error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, 0)
 	if err != nil {
-		return 0, nil, err
+		return callCount{}, nil, err
 	}
-	ast.Inspect(f, func(n ast.Node) bool {
-		if call, ok := n.(*ast.CallExpr); ok && isLoad(call) {
-			loads++
+	ast.Inspect(f, func(node ast.Node) bool {
+		if call, ok := node.(*ast.CallExpr); ok && isLoad(call) {
+			n.calls++
 		}
-		block, ok := n.(*ast.BlockStmt)
+		block, ok := node.(*ast.BlockStmt)
 		if !ok {
 			return true
 		}
@@ -761,6 +824,7 @@ func callErrorsReleased(name, src string) (loads int, bad []string, err error) {
 			if !isLoad(call) {
 				continue
 			}
+			n.checked++
 			errv, _ := as.Lhs[1].(*ast.Ident)
 			ok = errv != nil && i+1 < len(block.List) && releasesCallError(block.List[i+1], errv.Name)
 			if !ok {
@@ -769,7 +833,7 @@ func callErrorsReleased(name, src string) (loads int, bad []string, err error) {
 		}
 		return true
 	})
-	return loads, bad, nil
+	return n, bad, nil
 }
 
 // releasesCallError reports whether stmt is "if errv != nil { ... }" whose
@@ -835,6 +899,9 @@ func TestGenReleasesCompileError(t *testing.T) {
 		{"As on another error", strings.Replace(ok, "errors.As(err, &c)", "errors.As(other, &c)", 1), true},
 		{"retry error dropped", strings.Replace(ok, "err = errors.Join(err, cerr)", "_ = cerr", 1), true},
 		{"calls the program's helper", "if err != nil {\nreturn releaseErrorOwner(err)\n}", true},
+		{"second compile, if initializer", ok + "\nif _, err := nvrtcx.Compile(src); err != nil {\nreturn err\n}", true},
+		{"compile returned", ok + "\nreturn nvrtcx.Compile(src)", true},
+		{"load, var declaration", ok + "\nvar m, lerr = mod.Load(dev)", true},
 	} {
 		src := "package p\nfunc f() error {\nmod, err := nvrtcx.Compile(src)\n" + tt.branch + "\n_ = mod\nreturn nil\n}\n"
 		bad, err := genReleaseFailures(src)
@@ -845,9 +912,10 @@ func TestGenReleasesCompileError(t *testing.T) {
 }
 
 // genReleaseFailures returns how src departs from: no use of
-// releaseErrorOwner, and exactly one nvrtcx.Compile, followed by
-// "if err != nil" whose body passes err to errors.As with &c, calls
-// c.Close(), and joins the Close error into err.
+// releaseErrorOwner, and exactly one Load or Compile call in any form,
+// which is "x, err := nvrtcx.Compile(...)" followed by "if err != nil"
+// whose body passes err to errors.As with &c, calls c.Close(), and joins
+// the Close error into err.
 func genReleaseFailures(src string) ([]string, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "gen.go", src, 0)
@@ -858,8 +926,11 @@ func genReleaseFailures(src string) ([]string, error) {
 	if mentions(f, "releaseErrorOwner") {
 		bad = append(bad, "calls releaseErrorOwner, which its standalone build cannot see")
 	}
-	compiles, released := 0, 0
+	calls, compiles, released := 0, 0, 0
 	ast.Inspect(f, func(n ast.Node) bool {
+		if call, ok := n.(*ast.CallExpr); ok && isLoad(call) {
+			calls++
+		}
 		block, ok := n.(*ast.BlockStmt)
 		if !ok {
 			return true
@@ -881,8 +952,8 @@ func genReleaseFailures(src string) ([]string, error) {
 		}
 		return true
 	})
-	if compiles != 1 || released != 1 {
-		bad = append(bad, fmt.Sprintf("%d compiles, %d release their error; want 1 and 1", compiles, released))
+	if calls != 1 || compiles != 1 || released != 1 {
+		bad = append(bad, fmt.Sprintf("%d loads and compiles, %d checked compiles, %d release their error; want 1, 1 and 1", calls, compiles, released))
 	}
 	return bad, nil
 }
