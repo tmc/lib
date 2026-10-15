@@ -379,34 +379,13 @@ func runGPUInference(
 		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 	}
 
-	tGen0 := time.Now()
-
-	for step := 0; step < *stepsFlag; {
-		if curPos >= cfg.MaxSeqLen {
-			break
-		}
-
-		if drafter != nil {
-			emitted, next, pos, err := st.speculate(forward, nextTokID, *specDraftFlag, curPos, cfg.MaxSeqLen, *stepsFlag-step)
-			if err != nil {
-				return fmt.Errorf("speculative step at position %d: %w", curPos, err)
-			}
-			if len(emitted) > 0 {
-				for _, tok := range emitted {
-					chunk, _ := tokenizer.Decode([]int32{tok})
-					fmt.Print(chunk)
-					step++
-				}
-				nextTokID, curPos = next, pos
-				continue
-			}
-		}
-
-		st.emit(nextTokID)
-		chunk, _ := tokenizer.Decode([]int32{nextTokID})
+	show := func(tok int32) {
+		chunk, _ := tokenizer.Decode([]int32{tok})
 		fmt.Print(chunk)
-
+	}
+	plain := func(step int, nextTokID int32, curPos int) (int32, error) {
 		var tok int32
+		var err error
 		labels := cudaprof.Labels("phase", "decode", "step", fmt.Sprintf("%d", step+1), "pos", fmt.Sprintf("%d", curPos), "token_id", fmt.Sprintf("%d", nextTokID))
 		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
 			if timer == nil {
@@ -423,12 +402,14 @@ func runGPUInference(
 			}
 		})
 		if err != nil {
-			return fmt.Errorf("gpu decode step %d: %w", step, err)
+			return 0, fmt.Errorf("gpu decode step %d: %w", step, err)
 		}
-		nextTokID = tok
+		return tok, nil
+	}
 
-		curPos++
-		step++
+	tGen0 := time.Now()
+	if _, _, err := decode(st, forward, plain, show, nextTokID, curPos, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag); err != nil {
+		return err
 	}
 
 	genDuration := time.Since(tGen0)

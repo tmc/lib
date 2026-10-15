@@ -263,8 +263,42 @@ func cycleModel(maxSeq, breakEvery int) func(int32, int) (int32, error) {
 }
 
 // plainGreedy prefills prompt and then decodes greedily without
-// decodeState until steps tokens are emitted or the cache is full.
-func plainGreedy(forward func(int32, int) (int32, error), prompt []int32, maxSeq, steps int) ([]int32, error) {
+// decodeState until steps tokens are emitted or the cache is full. It
+// returns the emitted tokens and the final pending token and position.
+func plainGreedy(forward func(int32, int) (int32, error), prompt []int32, maxSeq, steps int) ([]int32, int32, int, error) {
+	var next int32
+	var err error
+	for pos, tok := range prompt {
+		if next, err = forward(tok, pos); err != nil {
+			return nil, 0, 0, err
+		}
+	}
+	var out []int32
+	pos := len(prompt)
+	for ; len(out) < steps && pos < maxSeq; pos++ {
+		out = append(out, next)
+		if next, err = forward(next, pos); err != nil {
+			return out, next, pos, err
+		}
+	}
+	return out, next, pos, nil
+}
+
+// decodeRun is the result of mainDecode.
+type decodeRun struct {
+	st         *decodeState
+	next       int32    // final pending token
+	pos        int      // final position
+	forwards   int      // forward and plain calls after the prefill
+	speculated int      // tokens emitted by speculative steps
+	shown      []int32  // tokens passed to show
+	badPlain   []string // plain calls whose step or token disagree with st
+}
+
+// mainDecode prefills prompt as runGPUInference does and then runs decode
+// with forward as both the speculative forward and the plain step, drafting
+// up to draftN tokens per step with an n-gram drafter if draftN > 0.
+func mainDecode(forward func(int32, int) (int32, error), prompt []int32, maxSeq, steps, draftN int) (*decodeRun, error) {
 	var next int32
 	var err error
 	for pos, tok := range prompt {
@@ -272,59 +306,26 @@ func plainGreedy(forward func(int32, int) (int32, error), prompt []int32, maxSeq
 			return nil, err
 		}
 	}
-	var out []int32
-	for pos := len(prompt); len(out) < steps && pos < maxSeq; pos++ {
-		out = append(out, next)
-		if next, err = forward(next, pos); err != nil {
-			return out, err
-		}
-	}
-	return out, nil
-}
-
-// mainDecode decodes as runGPUInference's decode loop does: it prefills
-// prompt and then decodes with a decodeState, drafting up to draftN tokens
-// per step with an n-gram drafter if draftN > 0. It returns the state, the
-// number of forward calls after the prefill, and the number of tokens
-// emitted by speculative steps.
-func mainDecode(forward func(int32, int) (int32, error), prompt []int32, maxSeq, steps, draftN int) (st *decodeState, forwards, speculated int, err error) {
-	var next int32
-	for pos, tok := range prompt {
-		if next, err = forward(tok, pos); err != nil {
-			return nil, 0, 0, err
-		}
-	}
-	forward = counted(forward, &forwards)
 	var drafter *speculative.NgramDrafter
 	if draftN > 0 {
 		drafter = speculative.NewNgramDrafter(3)
 	}
-	st = newDecodeState(prompt, steps, drafter)
-	pos := len(prompt)
-	for step := 0; step < steps; {
-		if pos >= maxSeq {
-			break
+	r := &decodeRun{st: newDecodeState(prompt, steps, drafter)}
+	plainCalls := 0
+	plain := func(step int, tok int32, pos int) (int32, error) {
+		plainCalls++
+		// decode emits tok before calling plain, and step counts the
+		// tokens emitted before it, as runGPUInference's labels need.
+		if g := r.st.generated; step != len(g)-1 || tok != g[len(g)-1] {
+			r.badPlain = append(r.badPlain, fmt.Sprintf("plain(step %d, tok %d, pos %d) after emitting %v", step, tok, pos, g))
 		}
-		if drafter != nil {
-			emitted, n, p, err := st.speculate(forward, next, draftN, pos, maxSeq, steps-step)
-			if err != nil {
-				return st, forwards, speculated, err
-			}
-			if len(emitted) > 0 {
-				step += len(emitted)
-				speculated += len(emitted)
-				next, pos = n, p
-				continue
-			}
-		}
-		st.emit(next)
-		if next, err = forward(next, pos); err != nil {
-			return st, forwards, speculated, err
-		}
-		pos++
-		step++
+		return forward(tok, pos)
 	}
-	return st, forwards, speculated, nil
+	show := func(tok int32) { r.shown = append(r.shown, tok) }
+	r.next, r.pos, err = decode(r.st, counted(forward, &r.forwards), plain, show, next, len(prompt), maxSeq, steps, draftN)
+	r.forwards += plainCalls
+	r.speculated = len(r.st.generated) - plainCalls
+	return r, err
 }
 
 // draftsDiffer reports the first n-gram over the token values below
@@ -341,14 +342,17 @@ func draftsDiffer(a, b *speculative.NgramDrafter, maxDraft int) (ngram, da, db [
 	return nil, nil, nil, false
 }
 
-// TestDecodeStateNgram drives decodeState with the n-gram drafter main uses
-// and checks that the output is plain greedy decoding, that the drafter
-// drafts as one fed exactly the emitted context does, and, for a model the
-// drafter can predict, that it drafted at every step from the context and
-// then the pending token, so every token was speculated and no draft was
-// rejected.
+// TestDecodeStateNgram runs decode, the decode loop of runGPUInference,
+// with the n-gram drafter main uses and checks that the output is plain
+// greedy decoding ending at the same pending token and position, that every
+// emitted token was shown in order, that plain was called with the step and
+// token main labels it with, that the drafter drafts as one fed exactly the
+// emitted context does, and, for a model the drafter can predict, that it
+// drafted at every step from the context and then the pending token, so
+// every token was speculated and no draft was rejected.
 func TestDecodeStateNgram(t *testing.T) {
 	cycle := []int32{0, 1, 2, 3, 4, 0, 1}
+	kvHash := func(m int) func(int32, int) (int32, error) { return (&fakeKV{kv: make([]int32, m)}).forward }
 	for _, tt := range []struct {
 		name          string
 		model         func(maxSeq int) func(int32, int) (int32, error)
@@ -358,24 +362,36 @@ func TestDecodeStateNgram(t *testing.T) {
 		exact         bool // every token must be emitted by a speculative step with no draft rejected
 	}{
 		{"plain", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 7) }, cycle, 32, 16, 0, false},
+		{"plain kv hash", kvHash, []int32{1, 2, 3}, 24, 16, 0, false},
+		{"plain cache end", kvHash, []int32{1, 2, 3}, 12, 20, 0, false},
 		{"cycle", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 16, 3, true},
 		{"cycle long drafts", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 20, 8, true},
 		{"cycle cache end", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 12, 20, 4, true},
 		{"cycle budget 2", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 2, 4, true},
 		{"cycle with breaks", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 7) }, cycle, 40, 30, 3, false},
-		{"kv hash", func(m int) func(int32, int) (int32, error) { return (&fakeKV{kv: make([]int32, m)}).forward }, []int32{1, 2, 3, 1, 2, 3, 1, 2}, 24, 16, 3, false},
+		{"kv hash", kvHash, []int32{1, 2, 3, 1, 2, 3, 1, 2}, 24, 16, 3, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			want, err := plainGreedy(tt.model(tt.maxSeq), tt.prompt, tt.maxSeq, tt.steps)
+			want, wantNext, wantPos, err := plainGreedy(tt.model(tt.maxSeq), tt.prompt, tt.maxSeq, tt.steps)
 			if err != nil {
 				t.Fatal(err)
 			}
-			st, forwards, speculated, err := mainDecode(tt.model(tt.maxSeq), tt.prompt, tt.maxSeq, tt.steps, tt.draftN)
+			r, err := mainDecode(tt.model(tt.maxSeq), tt.prompt, tt.maxSeq, tt.steps, tt.draftN)
 			if err != nil {
 				t.Fatal(err)
 			}
+			st, forwards, speculated := r.st, r.forwards, r.speculated
 			if !slices.Equal(st.generated, want) {
 				t.Errorf("generated %v, want %v", st.generated, want)
+			}
+			if r.next != wantNext || r.pos != wantPos {
+				t.Errorf("decode ended with pending token %d at position %d, want %d at %d", r.next, r.pos, wantNext, wantPos)
+			}
+			if !slices.Equal(r.shown, want) {
+				t.Errorf("shown %v, want %v", r.shown, want)
+			}
+			for _, b := range r.badPlain {
+				t.Error(b)
 			}
 			wantContext := slices.Concat(tt.prompt, want)
 			if !slices.Equal(st.context, wantContext) {
@@ -399,6 +415,54 @@ func TestDecodeStateNgram(t *testing.T) {
 				}
 			}
 			t.Logf("%d tokens, %d speculated, %d forward calls", len(want), speculated, forwards)
+		})
+	}
+}
+
+// TestDecodeErrors checks that decode returns an error from plain unchanged
+// and wraps one from a speculative step with its position, and that both
+// leave the pending token and position as they were before the failed step.
+func TestDecodeErrors(t *testing.T) {
+	errFail := errors.New("forward failed")
+	model := cycleModel(32, 0)
+	failAt9 := func(tok int32, pos int) (int32, error) {
+		if pos == 9 {
+			return 0, errFail
+		}
+		return model(tok, pos)
+	}
+	// After the prompt the pending token is 2 at position 7.
+	prompt := []int32{0, 1, 2, 3, 4, 0, 1}
+	for _, tt := range []struct {
+		name          string
+		draftN        int
+		wantErr       string
+		wantGenerated []int32
+		wantNext      int32
+		wantPos       int
+	}{
+		// Plain steps feed 2 and 3, then fail feeding 4 at position 9.
+		{"plain", 0, "forward failed", []int32{2, 3, 4}, 4, 9},
+		// The first speculative step feeds 2, 3, 4, 0 from position 7.
+		{"speculative", 3, "speculative step at position 7: position 9: forward failed", nil, 2, 7},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var drafter *speculative.NgramDrafter
+			if tt.draftN > 0 {
+				drafter = speculative.NewNgramDrafter(3)
+			}
+			st := newDecodeState(prompt, 16, drafter)
+			plain := func(step int, tok int32, pos int) (int32, error) { return failAt9(tok, pos) }
+			next, pos, err := decode(st, failAt9, plain, func(int32) {}, 2, len(prompt), 32, 16, tt.draftN)
+			if !errors.Is(err, errFail) || err.Error() != tt.wantErr {
+				t.Errorf("err = %v, want %q wrapping %v", err, tt.wantErr, errFail)
+			}
+			if next != tt.wantNext || pos != tt.wantPos {
+				t.Errorf("returned pending token %d at position %d, want %d at %d", next, pos, tt.wantNext, tt.wantPos)
+			}
+			if !slices.Equal(st.generated, tt.wantGenerated) {
+				t.Errorf("generated %v, want %v", st.generated, tt.wantGenerated)
+			}
 		})
 	}
 }
