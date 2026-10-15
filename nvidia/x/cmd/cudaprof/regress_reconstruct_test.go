@@ -657,6 +657,17 @@ func TestRegressReconstructOutputContainment(t *testing.T) {
 			refused: true,
 		},
 		{
+			name: "symlink to input subdirectory",
+			output: func(t *testing.T, base, input string) (string, string) {
+				alias := filepath.Join(base, "sub-link")
+				if err := os.Symlink(filepath.Join(input, "sub"), alias); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				return filepath.Join(alias, "new-output"), ""
+			},
+			refused: true,
+		},
+		{
 			name: "case variant of input",
 			output: func(t *testing.T, base, input string) (string, string) {
 				return filepath.Join(filepath.Dir(input), strings.ToUpper(filepath.Base(input)), "new-output"), ""
@@ -721,30 +732,169 @@ func TestRegressReconstructOutputContainment(t *testing.T) {
 				files:         map[string][]byte{"member.bin": []byte("member")},
 				manifestBytes: []byte("{}"),
 			}
-			dir, _, cleanup, err := beginReconstructOutput(output, snapshot)
+			out, err := beginReconstructOutput(output, snapshot)
 			if after := reconstructTestTreeNames(t, input); test.refused && after != before {
 				t.Errorf("input tree changed:\nbefore:\n%s\nafter:\n%s", before, after)
 			}
 			if test.refused {
 				if err == nil || !strings.Contains(err.Error(), inside) {
-					t.Fatalf("beginReconstructOutput(%q) = %q, %v; want %q", output, dir, err, inside)
+					t.Fatalf("beginReconstructOutput(%q) = %v; want %q", output, err, inside)
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("beginReconstructOutput(%q): %v", output, err)
 			}
-			if dir != created {
-				t.Errorf("output directory = %q, want %q", dir, created)
+			if out.path != created {
+				t.Errorf("output directory = %q, want %q", out.path, created)
 			}
 			if _, err := os.Stat(filepath.Join(created, "snapshot", "member.bin")); err != nil {
 				t.Errorf("snapshot member not written: %v", err)
 			}
-			cleanup()
+			out.remove()
 			if _, err := os.Lstat(created); !os.IsNotExist(err) {
 				t.Errorf("cleanup left %s: %v", created, err)
 			}
 		})
+	}
+}
+
+// The command refuses an inventory directory that is itself a symlink before
+// it reaches beginReconstructOutput, so this calls it directly: the input
+// directory must be compared by what the symlink names, not by the link.
+func TestRegressReconstructOutputInputRootSymlink(t *testing.T) {
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := filepath.Join(base, "input")
+	if err := os.Mkdir(input, 0700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "input-link")
+	if err := os.Symlink(input, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	snapshot := &reconstructSnapshot{root: link, files: map[string][]byte{"member.bin": []byte("member")}, manifestBytes: []byte("{}")}
+	out, err := beginReconstructOutput(filepath.Join(input, "new-output"), snapshot)
+	if err == nil {
+		out.remove()
+	}
+	if err == nil || !strings.Contains(err.Error(), "output directory resolves inside the input inventory") {
+		t.Fatalf("output inside input named through symlink was not refused: %v", err)
+	}
+	if names := reconstructTestTreeNames(t, input); names != input {
+		t.Fatalf("input tree changed:\n%s", names)
+	}
+}
+
+// setReconstructOutputCreated installs fn as the hook run between creating
+// the output directory and checking it again.
+func setReconstructOutputCreated(t *testing.T, fn func(path string)) {
+	t.Helper()
+	reconstructOutputCreated = fn
+	t.Cleanup(func() { reconstructOutputCreated = nil })
+}
+
+// An ancestor of the output path is swapped, after the first check, for a
+// symlink to a subdirectory of the input, moving the created directory into
+// the input. None of the ancestors of the path as first resolved is the
+// input, so only a check of the path resolved again sees it.
+func TestRegressReconstructRecheckResolvesSwappedAncestor(t *testing.T) {
+	f := newReconstructFixture(t)
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ancestor := filepath.Join(base, "a")
+	if err := os.Mkdir(ancestor, 0700); err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(f.dir, "moved")
+	setReconstructOutputCreated(t, func(string) {
+		if err := os.Rename(ancestor, moved); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(moved, ancestor); err != nil {
+			t.Fatal(err)
+		}
+	})
+	err = runRegressReconstructCommand(reconstructArgs(f, filepath.Join(ancestor, "new-output")), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "output directory resolves inside the input inventory") {
+		t.Fatalf("output moved into input was not refused: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(moved, "new-output")); !os.IsNotExist(err) {
+		t.Fatalf("output directory left inside input: %v", err)
+	}
+}
+
+func TestRegressReconstructRefusesReplacedOutput(t *testing.T) {
+	f := newReconstructFixture(t)
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(base, "new-output")
+	setReconstructOutputCreated(t, func(path string) {
+		if err := os.Rename(path, path+".created"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	})
+	err = runRegressReconstructCommand(reconstructArgs(f, output), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "output directory replaced after creation") {
+		t.Fatalf("replaced output directory was not refused: %v", err)
+	}
+	if names := reconstructTestTreeNames(t, output); names != output {
+		t.Fatalf("wrote into replacement directory:\n%s", names)
+	}
+}
+
+// After the output is checked, its parent is swapped for a symlink to a
+// decoy directory holding a directory of the same name. Writes and cleanup
+// must act on the checked directory, and cleanup must not remove the decoy.
+func TestRegressReconstructOutputActsOnCheckedDirectory(t *testing.T) {
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := filepath.Join(base, "input")
+	parent := filepath.Join(base, "a")
+	decoy := filepath.Join(base, "decoy", "new-output")
+	for _, dir := range []string{input, parent, decoy} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := &reconstructSnapshot{root: input, files: map[string][]byte{"member.bin": []byte("member")}, manifestBytes: []byte("{}")}
+	out, err := beginReconstructOutput(filepath.Join(parent, "new-output"), snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked := filepath.Join(base, "a-moved", "new-output")
+	if err := os.Rename(parent, filepath.Dir(checked)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Dir(decoy), parent); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeReconstructResult(out, reconstructResult{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(checked, "reconstruction.json")); err != nil {
+		t.Errorf("result not written to checked directory: %v", err)
+	}
+	if names := reconstructTestTreeNames(t, decoy); names != decoy {
+		t.Errorf("wrote into decoy:\n%s", names)
+	}
+	out.remove()
+	if names := reconstructTestTreeNames(t, checked); names != checked {
+		t.Errorf("cleanup left files in checked directory:\n%s", names)
+	}
+	if _, err := os.Stat(decoy); err != nil {
+		t.Errorf("cleanup removed decoy: %v", err)
 	}
 }
 

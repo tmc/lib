@@ -144,16 +144,19 @@ func runRegressReconstructCommand(args []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("reconstruct: diagnose verified telemetry: %w", err)
 	}
-	output, snapshotDir, cleanupOutput, err := beginReconstructOutput(*outputDir, snapshot)
+	output, err := beginReconstructOutput(*outputDir, snapshot)
 	if err != nil {
 		return err
 	}
 	completed := false
 	defer func() {
-		if !completed {
-			cleanupOutput()
+		if completed {
+			output.close()
+		} else {
+			output.remove()
 		}
 	}()
+	snapshotDir := output.snapshotDir
 
 	incident := cudaregress.Incident{
 		ID:             "reconstructed-" + (*inventoryDigest)[:16],
@@ -534,6 +537,22 @@ func reconstructDigest(data []byte) string {
 	return hex.EncodeToString(digest[:])
 }
 
+// reconstructOutput is a newly created output directory that was checked
+// to lie outside the input inventory. All writes go through root, a handle
+// on the checked directory, so renaming or swapping a path element after
+// the check cannot redirect them.
+type reconstructOutput struct {
+	path        string // resolved path of the directory when it was checked
+	snapshotDir string // path of the snapshot copy, for references in the plan
+	root        *os.Root
+	created     os.FileInfo
+}
+
+// reconstructOutputCreated, if non-nil, is called after the output directory
+// is created and before it is checked again. Tests use it to change the file
+// system at that point.
+var reconstructOutputCreated func(path string)
+
 // beginReconstructOutput creates the new output directory and copies the
 // snapshot into it. It refuses an output directory that is, or lies below,
 // the input inventory directory.
@@ -549,74 +568,132 @@ func reconstructDigest(data []byte) string {
 // is a symlink to another directory. Only the parent is resolved; the final
 // element must not exist.
 //
-// After creating the directory, beginReconstructOutput checks again that it
-// is a directory outside the input and removes it by name if not. This
-// narrows, but does not close, the window in which a concurrent rename or
-// symlink swap of an ancestor redirects the output: later writes go through
-// the path, not a directory descriptor. The cleanup function removes the
-// directory only if the path still names the directory that was created.
-func beginReconstructOutput(output string, snapshot *reconstructSnapshot) (string, string, func(), error) {
+// After creating the directory, beginReconstructOutput resolves its path
+// again, opens it as an os.Root, confirms that the opened directory is the
+// one it created, and repeats the containment check on the newly resolved
+// path. A rename or symlink swap of an ancestor between the first check and
+// the second therefore cannot leave the directory inside the input
+// unnoticed. Writes after the second check go through the root, so a later
+// swap cannot redirect them. Moving the checked directory itself into the
+// input after the second check is not detected; that is no different from
+// moving it there after the command exits.
+//
+// The caller must call close or remove on the result.
+func beginReconstructOutput(output string, snapshot *reconstructSnapshot) (*reconstructOutput, error) {
 	absolute, err := filepath.Abs(output)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("reconstruct: resolve output directory: %w", err)
+		return nil, fmt.Errorf("reconstruct: resolve output directory: %w", err)
 	}
 	input, err := os.Stat(snapshot.root)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("reconstruct: stat input directory: %w", err)
+		return nil, fmt.Errorf("reconstruct: stat input directory: %w", err)
 	}
 	outputParent, err := filepath.EvalSymlinks(filepath.Dir(absolute))
 	if err != nil {
-		return "", "", nil, fmt.Errorf("reconstruct: resolve output parent: %w", err)
+		return nil, fmt.Errorf("reconstruct: resolve output parent: %w", err)
 	}
 	absolute = filepath.Join(outputParent, filepath.Base(absolute))
 	if err := refuseReconstructOutputInside(absolute, input); err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	if _, err := os.Lstat(absolute); err == nil {
-		return "", "", nil, errors.New("reconstruct: output directory already exists")
+		return nil, errors.New("reconstruct: output directory already exists")
 	} else if !os.IsNotExist(err) {
-		return "", "", nil, err
+		return nil, err
 	}
 	if err := os.Mkdir(absolute, 0700); err != nil {
-		return "", "", nil, err
+		return nil, err
 	}
 	created, err := os.Lstat(absolute)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("reconstruct: stat created output directory: %w", err)
+		return nil, fmt.Errorf("reconstruct: stat created output directory: %w", err)
 	}
 	if !created.IsDir() {
-		return "", "", nil, errors.New("reconstruct: output directory replaced after creation")
+		return nil, errors.New("reconstruct: output directory replaced after creation")
 	}
-	if err := refuseReconstructOutputInside(absolute, input); err != nil {
-		_ = os.Remove(absolute)
-		return "", "", nil, err
+	if reconstructOutputCreated != nil {
+		reconstructOutputCreated(absolute)
 	}
-	cleanup := func() {
-		if fi, err := os.Lstat(absolute); err == nil && os.SameFile(fi, created) {
-			_ = os.RemoveAll(absolute)
-		}
+	out, err := checkReconstructOutput(absolute, created, input)
+	if err != nil {
+		return nil, err
 	}
-	snapshotDir := filepath.Join(absolute, "snapshot")
-	if err := os.Mkdir(snapshotDir, 0700); err != nil {
-		cleanup()
-		return "", "", nil, err
+	if err := out.root.Mkdir("snapshot", 0700); err != nil {
+		out.remove()
+		return nil, err
 	}
-	if err := writeNewFile(filepath.Join(snapshotDir, "inventory.json"), snapshot.manifestBytes); err != nil {
-		cleanup()
-		return "", "", nil, err
+	if err := writeNewFile(out.root, filepath.Join("snapshot", "inventory.json"), snapshot.manifestBytes); err != nil {
+		out.remove()
+		return nil, err
 	}
 	for name, data := range snapshot.files {
-		if err := writeNewFile(filepath.Join(snapshotDir, name), data); err != nil {
-			cleanup()
-			return "", "", nil, err
+		if err := writeNewFile(out.root, filepath.Join("snapshot", name), data); err != nil {
+			out.remove()
+			return nil, err
 		}
 	}
-	return absolute, snapshotDir, cleanup, nil
+	return out, nil
+}
+
+// checkReconstructOutput resolves path, which named the directory created
+// when it was stat'ed, opens the resolved directory and checks that it is
+// still that directory and that it lies outside input. If the directory
+// lies inside input it is removed.
+func checkReconstructOutput(path string, created, input os.FileInfo) (*reconstructOutput, error) {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil, fmt.Errorf("reconstruct: resolve created output directory: %w", err)
+	}
+	root, err := os.OpenRoot(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("reconstruct: open created output directory: %w", err)
+	}
+	opened, err := root.Stat(".")
+	if err != nil || !os.SameFile(opened, created) {
+		_ = root.Close()
+		return nil, errors.New("reconstruct: output directory replaced after creation")
+	}
+	if err := refuseReconstructOutputInside(resolved, input); err != nil {
+		_ = root.Close()
+		if fi, statErr := os.Lstat(resolved); statErr == nil && os.SameFile(fi, created) {
+			_ = os.Remove(resolved)
+		}
+		return nil, err
+	}
+	return &reconstructOutput{
+		path:        resolved,
+		snapshotDir: filepath.Join(resolved, "snapshot"),
+		root:        root,
+		created:     created,
+	}, nil
+}
+
+// close releases the directory handle, keeping what was written.
+func (o *reconstructOutput) close() {
+	_ = o.root.Close()
+}
+
+// remove deletes what was written through the root, closes it, and then
+// removes the directory by path if the path still names the directory that
+// was created.
+func (o *reconstructOutput) remove() {
+	if dir, err := o.root.Open("."); err == nil {
+		names, _ := dir.Readdirnames(-1)
+		_ = dir.Close()
+		for _, name := range names {
+			_ = o.root.RemoveAll(name)
+		}
+	}
+	o.close()
+	if fi, err := os.Lstat(o.path); err == nil && os.SameFile(fi, o.created) {
+		_ = os.Remove(o.path)
+	}
 }
 
 // refuseReconstructOutputInside reports an error if path, or any of its
 // ancestors up to the root, is the input directory. Elements of path that
-// do not exist are skipped.
+// do not exist are skipped. The ancestors are those of path as written, so
+// path must already be resolved.
 func refuseReconstructOutputInside(path string, input os.FileInfo) error {
 	for {
 		fi, err := os.Stat(path)
@@ -633,12 +710,12 @@ func refuseReconstructOutputInside(path string, input os.FileInfo) error {
 	}
 }
 
-func writeReconstructResult(output string, result reconstructResult) error {
+func writeReconstructResult(out *reconstructOutput, result reconstructResult) error {
 	receiptBytes, err := json.MarshalIndent(result.Receipt, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := writeNewFile(filepath.Join(output, "reconstruction.json"), append(receiptBytes, '\n')); err != nil {
+	if err := writeNewFile(out.root, "reconstruction.json", append(receiptBytes, '\n')); err != nil {
 		return err
 	}
 	if result.Plan != nil {
@@ -649,15 +726,16 @@ func writeReconstructResult(output string, result reconstructResult) error {
 		if err != nil {
 			return err
 		}
-		if err := writeNewFile(filepath.Join(output, "plan.json"), append(planBytes, '\n')); err != nil {
+		if err := writeNewFile(out.root, "plan.json", append(planBytes, '\n')); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeNewFile(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+// writeNewFile creates name in root, which must not exist, and writes data.
+func writeNewFile(root *os.Root, name string, data []byte) error {
+	f, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err
 	}
