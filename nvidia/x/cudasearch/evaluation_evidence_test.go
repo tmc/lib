@@ -16,7 +16,7 @@ func ExampleEvaluationEvidence() {
 	baseline := &testExecutable{id: "baseline", value: 1, order: &order}
 	candidate := &testExecutable{id: "wrong-output", value: 2, order: &order}
 	eval := &ExecutableEvaluator{
-		Workload: WorkloadBindings{Name: "host-fixture", InputNames: []string{"x"}, NumericalPolicy: NumericalPolicyExact},
+		Workload: WorkloadBindings{Name: "host-fixture", InputNames: []string{"x"}, InputIdentities: map[string]string{"x": "synthetic-fixture-x"}, NumericalPolicy: NumericalPolicyExact},
 		Baseline: baseline, References: map[string][]float32{"out": {1}},
 		Rounds: 2, TimingKind: cudatrial.TimingSummedKernel,
 		Compile:             func(context.Context, *egraph.Expr, WorkloadBindings) (Executable, error) { return candidate, nil },

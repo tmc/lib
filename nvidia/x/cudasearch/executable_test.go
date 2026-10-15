@@ -49,7 +49,7 @@ func executableFixture(t *testing.T) (*ExecutableEvaluator, *testExecutable, *te
 	base := &testExecutable{id: "base", value: 1, kind: cudatrial.TimingSummedKernel, duration: 10 * time.Microsecond, order: &order}
 	compiled := &testExecutable{id: "image-and-launch", value: 1, kind: cudatrial.TimingSummedKernel, duration: 5 * time.Microsecond, order: &order}
 	e := &ExecutableEvaluator{
-		Workload: WorkloadBindings{Name: "fixture", InputNames: []string{"x"}, NumericalPolicy: NumericalPolicyFP32, ResetState: func() error { order = append(order, "reset"); return nil }},
+		Workload: WorkloadBindings{Name: "fixture", InputNames: []string{"x"}, InputIdentities: map[string]string{"x": "synthetic-fixture-x"}, NumericalPolicy: NumericalPolicyFP32, ResetState: func() error { order = append(order, "reset"); return nil }},
 		Compile: func(context.Context, *egraph.Expr, WorkloadBindings) (Executable, error) {
 			order = append(order, "compile")
 			return compiled, nil

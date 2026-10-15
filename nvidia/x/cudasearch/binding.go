@@ -62,7 +62,7 @@ type WorkloadBindings struct {
 	Shape            cudashape.Shape   // Concrete activation/input shape
 	DType            cudair.DataType   // Activation tensor primitive data type
 	Layout           string            // Memory layout ("row_major", "col_major", "strided")
-	InputNames       []string          // Expected input identities
+	InputNames       []string          // Required input/weight names, each covered by a nonempty identity below
 	InputIdentities  map[string]string // Input content digests or immutable versions
 	WeightIdentities map[string]string // Mapping of weight name to content digest/version
 	NumericalPolicy  NumericalPolicy   // Precision/numerical requirements
@@ -80,7 +80,33 @@ func (b WorkloadBindings) Validate() error {
 		return fmt.Errorf("%w: shape dimensions or input names required", ErrMissingBinding)
 	}
 	if b.NumericalPolicy == "" {
-		return fmt.Errorf("%w: numerical policy must not be specified", ErrMissingBinding)
+		return fmt.Errorf("%w: numerical policy must be specified", ErrMissingBinding)
+	}
+	for _, identities := range []map[string]string{b.InputIdentities, b.WeightIdentities} {
+		keys := make([]string, 0, len(identities))
+		for name := range identities {
+			keys = append(keys, name)
+		}
+		sort.Strings(keys)
+		for _, name := range keys {
+			if name == "" || identities[name] == "" {
+				return fmt.Errorf("%w: empty input or weight identity for %q", ErrMissingBinding, name)
+			}
+		}
+	}
+	seen := make(map[string]bool, len(b.InputNames))
+	for _, name := range b.InputNames {
+		if name == "" || seen[name] {
+			return fmt.Errorf("%w: empty or duplicate required input name %q", ErrMissingBinding, name)
+		}
+		seen[name] = true
+		input, weight := b.InputIdentities[name], b.WeightIdentities[name]
+		if input == "" && weight == "" {
+			return fmt.Errorf("%w: no identity for required input %q", ErrMissingBinding, name)
+		}
+		if input != "" && weight != "" && input != weight {
+			return fmt.Errorf("%w: conflicting identities for required input %q", ErrMissingBinding, name)
+		}
 	}
 	return nil
 }
