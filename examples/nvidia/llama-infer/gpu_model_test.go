@@ -56,6 +56,22 @@ func hostModel(layers int, tied bool) (*ModelWeights, *ModelConfig) {
 	return w, &ModelConfig{NumHiddenLayers: layers}
 }
 
+// clearTensors empties the tensors of w whose id, as hostModel numbers
+// them, is in ids.
+func clearTensors(w *ModelWeights, ids []float32) {
+	ts := []*[]float32{&w.EmbedTokens, &w.LMHead, &w.Norm}
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		ts = append(ts, &l.WQ, &l.WK, &l.WV, &l.WO, &l.WGate, &l.WUp, &l.WDown,
+			&l.InputNorm, &l.PostNorm, &l.QBias, &l.KBias, &l.VBias)
+	}
+	for _, t := range ts {
+		if len(*t) > 0 && slices.Contains(ids, (*t)[0]) {
+			*t = nil
+		}
+	}
+}
+
 // fakeDevice provides the device operations uploadModelWith takes. Its
 // upload returns fake buffers named "m" and the matrix id, which log their
 // frees in log; the embedding table's buffer fails its first embedFails
@@ -83,6 +99,10 @@ func (d *fakeDevice) upload(host []float32, dtype weightDType) (deviceWeight, er
 	if dtype != d.dtype {
 		d.bad = append(d.bad, fmt.Sprintf("upload as %s, want %s", dtype, d.dtype))
 	}
+	if len(host) == 0 {
+		d.bad = append(d.bad, "uploaded an empty matrix")
+		return deviceWeight{}, nil
+	}
 	d.uploads = append(d.uploads, host[0])
 	buf := &fakeBuffer{name: fmt.Sprintf("m%v", host[0]), log: &d.log}
 	if host[0] == 1 {
@@ -108,8 +128,12 @@ func (d *fakeDevice) alloc(n int) (cudamem.Slice[float32], error) {
 }
 
 func (d *fakeDevice) fill(dst *cudamem.Slice[float32], host []float32) error {
-	d.fills = append(d.fills, host[0])
 	d.filled = append(d.filled, dst)
+	if len(host) == 0 {
+		d.bad = append(d.bad, "filled an empty vector")
+		return nil
+	}
+	d.fills = append(d.fills, host[0])
 	if len(d.fills) == d.fillFail {
 		return errFakeCopy
 	}
@@ -140,7 +164,9 @@ type uploadModelFunc func(w *ModelWeights, cfg *ModelConfig, dtype weightDType,
 // is passed to free once; and if a free fails, the weights are returned
 // with both errors, holding a matrix that could not be freed, and freeing
 // them again frees the rest. A successful upload borrows a tied lm_head
-// and frees nothing.
+// and frees nothing. Absent biases are neither allocated nor filled, but
+// their slots are still passed to free; an empty matrix is refused, with
+// its index, before anything is uploaded for it.
 //
 // It cannot see a vector allocation stored in the wrong slot, or a nonzero
 // vector returned with an allocation error, since the fake vectors are all
@@ -154,7 +180,9 @@ func uploadModelFailures(up uploadModelFunc) []string {
 		uploadFail, allocFail, fillFail int
 		ownedOnFail                     bool
 		embedFails, vecFails            int
+		absent                          []float32 // ids of tensors left empty
 		want                            []error
+		wantErr                         string // the whole error, if no sentinel names it
 	}{
 		{name: "success, tied", tied: true},
 		{name: "success, untied"},
@@ -167,20 +195,32 @@ func uploadModelFailures(up uploadModelFunc) []string {
 		{name: "fill fails, embedding free fails", tied: true, fillFail: 2, embedFails: 1, want: []error{errFakeCopy, errFakeFree}},
 		{name: "upload fails, embedding free fails", uploadFail: 5, embedFails: 1, want: []error{errFakeUpload, errFakeFree}},
 		{name: "alloc fails, vector free fails", allocFail: 3, vecFails: 1, want: []error{errFakeAlloc, errFakeVec}},
+		// Untied, the vectors are 17 to 27; each layer's biases are its
+		// third to fifth. Tied, every id from 3 on is one lower.
+		{name: "success, no biases", absent: []float32{20, 21, 22, 25, 26, 27}},
+		{name: "fill fails after absent biases", tied: true, fillFail: 4, absent: []float32{19, 20, 21, 24, 25, 26}, want: []error{errFakeCopy}},
+		{name: "empty matrix", absent: []float32{4}, wantErr: "upload matrix weight 3: empty"},
+		{name: "empty matrix after tied head", tied: true, absent: []float32{3}, wantErr: "upload matrix weight 3: empty"},
 	} {
 		w, cfg := hostModel(layers, tt.tied)
+		clearTensors(w, tt.absent)
 		d := &fakeDevice{dtype: weightBF16, uploadFail: tt.uploadFail, allocFail: tt.allocFail, fillFail: tt.fillFail,
 			ownedOnFail: tt.ownedOnFail, embedFails: tt.embedFails, vecFails: tt.vecFails,
 			attempts: make(map[*cudamem.Slice[float32]]int)}
 		res, err := up(w, cfg, weightBF16, d.upload, d.alloc, d.fill, d.free)
 		bad = append(bad, d.bad...)
 		bad = append(bad, wantJoined(tt.name, err, tt.want...)...)
-		if len(tt.want) == 0 && err != nil {
+		if tt.wantErr != "" && (err == nil || err.Error() != tt.wantErr) {
+			bad = append(bad, fmt.Sprintf("%s: error %v, want %q", tt.name, err, tt.wantErr))
+		}
+		failing := len(tt.want) > 0 || tt.wantErr != ""
+		if !failing && err != nil {
 			bad = append(bad, fmt.Sprintf("%s: %v", tt.name, err))
 		}
 
 		// What the calls should have been, up to the failure. A tied
-		// lm_head takes no id.
+		// lm_head takes no id, an absent vector is skipped, and an empty
+		// matrix stops the upload before it.
 		nmat, nvec := 2+7*layers, 1+5*layers
 		if tt.tied {
 			nmat--
@@ -191,9 +231,17 @@ func uploadModelFailures(up uploadModelFunc) []string {
 		}
 		var vecs, lens []int
 		for k := range nvec {
-			vecs, lens = append(vecs, nmat+k+1), append(lens, k+1)
+			if id := nmat + k + 1; !slices.Contains(tt.absent, float32(id)) {
+				vecs, lens = append(vecs, id), append(lens, k+1)
+			}
 		}
 		wantFills := vecs
+		for i, id := range mats {
+			if slices.Contains(tt.absent, id) {
+				mats, lens, wantFills = mats[:i], nil, nil
+				break
+			}
+		}
 		switch {
 		case tt.uploadFail > 0:
 			mats, lens, wantFills = mats[:tt.uploadFail], nil, nil
@@ -216,7 +264,7 @@ func uploadModelFailures(up uploadModelFunc) []string {
 			bad = append(bad, fmt.Sprintf("%s: filled %v, want %v", tt.name, d.fills, fills))
 		}
 
-		if len(tt.want) == 0 {
+		if !failing {
 			if res == nil {
 				bad = append(bad, tt.name+": no weights")
 				continue
@@ -259,7 +307,7 @@ func uploadModelFailures(up uploadModelFunc) []string {
 		check("first free")
 
 		failed := tt.embedFails > 0 || tt.vecFails > 0
-		if len(tt.want) > 0 {
+		if failing {
 			if got := res != nil; got != failed {
 				bad = append(bad, fmt.Sprintf("%s: weights returned %v, want %v", tt.name, got, failed))
 			}
