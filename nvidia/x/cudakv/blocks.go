@@ -2,11 +2,20 @@
 
 package cudakv
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"strconv"
+)
+
+// ErrBlockAllocatorUninitialized is returned when an allocation method is
+// called on a BlockAllocator that was not created with NewBlockAllocator.
+var ErrBlockAllocatorUninitialized = errors.New("cudakv: block allocator must be created with NewBlockAllocator")
 
 // BlockAllocator hands out the physical slots of a block pool and counts the
 // holders of each. It owns no device storage, so PagedCache's bookkeeping can
-// be tested without a device.
+// be tested without a device. Create a BlockAllocator with NewBlockAllocator;
+// its zero value is not usable.
 //
 // A block is free when nothing holds it. A sequence holds every block in its
 // table; a prefix cache that keeps a block alive after the sequence that wrote
@@ -21,18 +30,18 @@ type BlockAllocator struct {
 	holders     []int // per block; 0 means free
 	tables      map[int64][]int
 	lens        map[int64]int
-	err         error // non-nil when the constructor arguments were invalid
+	err         error // non-nil when the constructor arguments or extent were invalid
 }
 
 // blockAllocator is an alias for BlockAllocator preserving package-internal compatibility.
 type blockAllocator = BlockAllocator
 
 // NewBlockAllocator creates a new allocator with totalBlocks physical slots of
-// blockSize tokens. If blockSize is not positive or totalBlocks is negative,
-// the allocator has no slots and AllocSequence and AppendToken report the
-// invalid arguments.
+// blockSize tokens. If blockSize is not positive, totalBlocks is negative, or
+// the block storage size is not representable, the allocator has no slots and
+// AllocSequence and AppendToken report the invalid arguments.
 func NewBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
-	if blockSize <= 0 || totalBlocks < 0 {
+	if blockSize <= 0 || totalBlocks < 0 || totalBlocks > maxBlockSliceLen() {
 		return &BlockAllocator{
 			blockSize: blockSize,
 			tables:    make(map[int64][]int),
@@ -54,6 +63,20 @@ func NewBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
 	}
 }
 
+func maxBlockSliceLen() int {
+	return int(^uint(0)>>1) / (strconv.IntSize / 8)
+}
+
+func (a *BlockAllocator) admissionError() error {
+	if a.err != nil {
+		return a.err
+	}
+	if a.blockSize <= 0 || a.totalBlocks < 0 || len(a.holders) != a.totalBlocks || a.tables == nil || a.lens == nil {
+		return ErrBlockAllocatorUninitialized
+	}
+	return nil
+}
+
 func newBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
 	return NewBlockAllocator(blockSize, totalBlocks)
 }
@@ -63,14 +86,24 @@ func newBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
 // counted as full; the rest come from the free list. Each shared block may
 // appear at most once.
 func (a *BlockAllocator) AllocSequence(seqID int64, shared []int, tokens int) error {
-	if a.err != nil {
-		return a.err
+	if err := a.admissionError(); err != nil {
+		return err
 	}
 	if _, exists := a.tables[seqID]; exists {
 		return fmt.Errorf("%s: sequence %d already allocated", pkgName, seqID)
 	}
-	if tokens < len(shared)*a.blockSize {
+	if tokens < 0 {
+		return fmt.Errorf("%s: token count %d is negative", pkgName, tokens)
+	}
+	if len(shared) > tokens/a.blockSize {
 		return fmt.Errorf("%s: %d tokens do not cover %d shared blocks of %d", pkgName, tokens, len(shared), a.blockSize)
+	}
+	blocks := tokens / a.blockSize
+	if tokens%a.blockSize != 0 {
+		blocks++
+	}
+	if blocks > maxBlockSliceLen() {
+		return fmt.Errorf("%s: token count %d requires an unrepresentable block table", pkgName, tokens)
 	}
 	seen := make(map[int]bool, len(shared))
 	for _, b := range shared {
@@ -82,11 +115,11 @@ func (a *BlockAllocator) AllocSequence(seqID int64, shared []int, tokens int) er
 		}
 		seen[b] = true
 	}
-	needed := (tokens+a.blockSize-1)/a.blockSize - len(shared)
+	needed := blocks - len(shared)
 	if len(a.free) < needed {
 		return fmt.Errorf("%s: out of physical KV blocks (needed %d, available %d)", pkgName, needed, len(a.free))
 	}
-	table := make([]int, 0, len(shared)+needed)
+	table := make([]int, 0, blocks)
 	for _, b := range shared {
 		a.holders[b]++
 		table = append(table, b)
@@ -106,12 +139,15 @@ func (a *BlockAllocator) allocSequence(seqID int64, shared []int, tokens int) er
 // AppendToken reserves room for one more token in seqID, taking a fresh block
 // at each block boundary.
 func (a *BlockAllocator) AppendToken(seqID int64) error {
-	if a.err != nil {
-		return a.err
+	if err := a.admissionError(); err != nil {
+		return err
 	}
 	table, exists := a.tables[seqID]
 	if !exists {
 		return fmt.Errorf("%s: sequence %d not found", pkgName, seqID)
+	}
+	if a.lens[seqID] == int(^uint(0)>>1) {
+		return fmt.Errorf("%s: sequence %d token count would overflow", pkgName, seqID)
 	}
 	if a.lens[seqID]%a.blockSize == 0 {
 		if len(a.free) == 0 {
