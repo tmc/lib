@@ -458,88 +458,165 @@ func TestOfflineTrainingStep(t *testing.T) {
 // using cudaplan. When GPU execution is unauthorized, it verifies closed failure with
 // ErrExecutionUnavailable; when authorized (CUDA_COMPILER_TEST=1), it executes native kernels.
 func TestNativeBackwardReference(t *testing.T) {
-	// Simple backward graph: MatMul backward da = dy x b^T
-	g := cudair.NewGraph()
-	dy := g.AddInput("dY", []int{2, 2}, cudair.Float32)
-	b := g.AddInput("B", []int{2, 2}, cudair.Float32)
-	bT := g.AddTranspose(b, []int{1, 0})
-	da := g.AddMatMul(dy, bT)
-
-	if err := g.SetOutputs(da); err != nil {
-		t.Fatalf("SetOutputs failed: %v", err)
-	}
-
-	snap, err := g.Snapshot()
+	f := newNativeBackwardFixture(t)
+	plan, err := cudaplan.Compile(f.snapshot, cudaplan.WithPeakWorkspaceBudget(16<<20))
 	if err != nil {
-		t.Fatalf("Snapshot failed: %v", err)
+		t.Fatal(err)
 	}
-
-	// Compile plan
-	plan, err := cudaplan.Compile(snap, cudaplan.WithPeakWorkspaceBudget(16*1024*1024))
-	if err != nil {
-		t.Fatalf("cudaplan.Compile failed: %v", err)
+	if err := f.checkRequirements(plan); err != nil {
+		t.Fatal(err)
 	}
-	defer plan.Close()
-
 	bindings := cudaplan.NewBindings()
-	_ = bindings.SetInput("dY", driver.DevicePtr(0x1000), 2*2*4, nil)
-	_ = bindings.SetInput("B", driver.DevicePtr(0x2000), 2*2*4, nil)
-	_ = bindings.SetOutput("matmul_3", driver.DevicePtr(0x3000), 2*2*4, nil)
-
-	// Headless verification: native execution fails closed without device/stream
-	comp, err := plan.Execute(nil, bindings)
-	if !errors.Is(err, cudaplan.ErrExecutionUnavailable) || comp != nil {
-		t.Fatalf("expected ErrExecutionUnavailable, got comp=%v err=%v", comp, err)
+	ptr := driver.DevicePtr(0x1000)
+	for name, data := range f.inputs {
+		if err := bindings.SetInput(name, ptr, 4*len(data), nil); err != nil {
+			t.Fatal(err)
+		}
+		ptr += 0x1000
 	}
-
-	// Hardware qualification gate
+	for name, data := range f.want {
+		if err := bindings.SetOutput(name, ptr, 4*len(data), nil); err != nil {
+			t.Fatal(err)
+		}
+		ptr += 0x1000
+	}
+	if completion, err := plan.Execute(nil, bindings); completion != nil || !errors.Is(err, cudaplan.ErrExecutionUnavailable) {
+		t.Fatalf("headless execute = %v, %v", completion, err)
+	}
+	if err := plan.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if os.Getenv("CUDA_COMPILER_TEST") != "1" {
 		t.Skip("native qualification pending: CUDA_COMPILER_TEST=1 required for hardware execution")
 	}
-	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("enabled native plan test requires running under the GPU lock")
-	}
-
-	dev, err := cuda.NewDevice(0)
+	ordinal, target := nativeBackwardDevice(t)
+	dev, err := cuda.NewDevice(ordinal)
 	if err != nil {
-		t.Skipf("no CUDA device available: %v", err)
+		t.Fatal(err)
 	}
-	defer dev.Close()
-	stream, err := dev.NewStream()
+	var stream *cuda.Stream
+	var nativePlan *cudaplan.ExecutablePlan
+	var completion *cudaplan.Completion
+	var buffers []cudamem.Slice[float32]
+	defer func() {
+		// A failed drain is not completion. Retain the entire native owner
+		// chain until process exit instead of freeing buffers or destroying
+		// their device beneath work that may still be in flight.
+		if completion != nil && !completion.Done() {
+			t.Error("native drain not established; retaining device, stream, plan and buffers")
+			return
+		}
+		if nativePlan != nil {
+			if err := nativePlan.Close(); err != nil {
+				t.Errorf("close native plan: %v", err)
+				return
+			}
+		}
+		for _, buffer := range buffers {
+			if err := buffer.Free(); err != nil {
+				t.Errorf("free native buffer: %v", err)
+				return
+			}
+		}
+		if stream != nil {
+			if err := stream.Close(); err != nil {
+				t.Errorf("close native stream: %v", err)
+				return
+			}
+		}
+		if err := dev.Close(); err != nil {
+			t.Errorf("close native device: %v", err)
+		}
+	}()
+	major, minor, err := dev.ComputeCapability()
 	if err != nil {
-		t.Fatalf("NewStream failed: %v", err)
+		t.Fatal(err)
 	}
-	defer stream.Close()
-
-	nativePlan, err := cudaplan.Compile(snap, cudaplan.WithDevice(dev))
+	if got := fmt.Sprintf("sm_%d%da", major, minor); got != target {
+		t.Fatalf("device reports %s, want %s", got, target)
+	}
+	stream, err = dev.NewStream()
 	if err != nil {
-		t.Fatalf("native compile failed: %v", err)
+		t.Fatal(err)
 	}
-	defer nativePlan.Close()
-
-	dyBuf, _ := cudamem.Alloc[float32](dev, 4)
-	defer dyBuf.Free()
-	bBuf, _ := cudamem.Alloc[float32](dev, 4)
-	defer bBuf.Free()
-	daBuf, _ := cudamem.Alloc[float32](dev, 4)
-	defer daBuf.Free()
-
-	_ = dyBuf.CopyFromHost([]float32{1.0, 2.0, 3.0, 4.0})
-	_ = bBuf.CopyFromHost([]float32{0.5, 1.5, -0.5, 2.0})
-
+	registry, err := compileBackwardFixture(context.Background(), f.snapshot, target)
+	if err != nil {
+		retainBackwardCompilerError(t, err)
+		t.Fatal(err)
+	}
+	nativePlan, err = cudaplan.Compile(f.snapshot, cudaplan.WithDevice(dev), cudaplan.WithPeakWorkspaceBudget(16<<20), cudaplan.WithKernelRegistry(registry))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.checkRequirements(nativePlan); err != nil {
+		t.Fatal(err)
+	}
 	nativeBindings := cudaplan.NewBindings()
-	_ = cudaplan.SetInputSlice(nativeBindings, "dY", dyBuf, dev)
-	_ = cudaplan.SetInputSlice(nativeBindings, "B", bBuf, dev)
-	_ = cudaplan.SetOutputSlice(nativeBindings, "matmul_3", daBuf, dev)
-
-	nativeComp, err := nativePlan.Execute(stream, nativeBindings)
+	for name, data := range f.inputs {
+		buffer, err := cudamem.Alloc[float32](dev, len(data))
+		if buffer.Ptr() != 0 {
+			buffers = append(buffers, buffer)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := buffer.CopyFromHost(data); err != nil {
+			t.Fatal(err)
+		}
+		if err := cudaplan.SetInputSlice(nativeBindings, name, buffer, dev); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outputs := make(map[string]cudamem.Slice[float32], len(f.want))
+	for name, want := range f.want {
+		buffer, err := cudamem.Alloc[float32](dev, len(want))
+		if buffer.Ptr() != 0 {
+			buffers = append(buffers, buffer)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		poison := make([]float32, len(want))
+		for i := range poison {
+			poison[i] = float32(math.NaN())
+		}
+		if err := buffer.CopyFromHost(poison); err != nil {
+			t.Fatal(err)
+		}
+		if err := cudaplan.SetOutputSlice(nativeBindings, name, buffer, dev); err != nil {
+			t.Fatal(err)
+		}
+		outputs[name] = buffer
+	}
+	completion, err = nativePlan.Execute(stream, nativeBindings)
 	if err != nil {
-		t.Fatalf("Execute native: %v", err)
+		if completion != nil {
+			if drainErr := completion.Wait(context.Background()); drainErr != nil {
+				t.Errorf("drain failed invocation: %v", drainErr)
+			}
+		}
+		t.Fatalf("execute native: %v", err)
 	}
-	if err := nativeComp.Wait(context.Background()); err != nil {
-		t.Fatalf("Wait native: %v", err)
+	if completion == nil {
+		t.Fatal("native execution returned no completion")
 	}
+	if err := completion.Wait(context.Background()); err != nil {
+		t.Fatalf("wait native: %v", err)
+	}
+	if !completion.Done() {
+		t.Fatal("native completion not observed")
+	}
+	got := make(map[string][]float32, len(outputs))
+	for name, buffer := range outputs {
+		got[name] = make([]float32, buffer.Len())
+		if err := buffer.CopyToHost(got[name]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.checkOutputs(got); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("target=%s device=%d executed=%+v gradients=%v reference=%v", target, ordinal, completion.ExecutedSteps(), got, f.want)
 }
 
 // Negative Controls:
