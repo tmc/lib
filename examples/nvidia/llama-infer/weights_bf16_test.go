@@ -1030,11 +1030,12 @@ type uploadWeightFunc func(host []float32, dtype weightDType, alloc32 func(int) 
 func uploadWeightFailures(upload uploadWeightFunc) []string {
 	var bad []string
 	var host []float32
-	for _, b := range []uint32{0x3f800000, 0x3f818000, 0x3f808001, 0x3f807fff} {
+	for _, b := range []uint32{0x3f800000, 0x3f818000, 0x3f808000, 0x3f808001, 0x3f807fff, 0x7fffffff} {
 		host = append(host, math.Float32frombits(b))
 	}
-	// Truncation would give 0x3f80 0x3f81 0x3f80 0x3f80.
-	bf16 := []uint16{0x3f80, 0x3f82, 0x3f81, 0x3f80}
+	// Truncation would give 0x3f80 0x3f81 0x3f80 0x3f80 0x3f80 0x7fff;
+	// rounding half up, 0x3f80 0x3f82 0x3f81 0x3f81 0x3f80 0x8000.
+	bf16 := []uint16{0x3f80, 0x3f82, 0x3f80, 0x3f81, 0x3f80, 0x7fff}
 	for _, tt := range []struct {
 		name     string
 		dtype    weightDType
@@ -1044,14 +1045,14 @@ func uploadWeightFailures(upload uploadWeightFunc) []string {
 		owned    bool
 		log      []string
 	}{
-		{"f32", weightF32, 7, nil, nil, true, []string{"alloc32 4", fmt.Sprintf("copy []float32 %v", host)}},
-		{"f32 copy fails", weightF32, 7, nil, errFakeCopy, true, []string{"alloc32 4", fmt.Sprintf("copy []float32 %v", host)}},
-		{"f32 alloc fails, nonzero slice", weightF32, 7, errFakeAlloc, nil, true, []string{"alloc32 4"}},
-		{"f32 alloc fails, zero slice", weightF32, 0, errFakeAlloc, nil, false, []string{"alloc32 4"}},
-		{"bf16", weightBF16, 7, nil, nil, true, []string{"alloc16 4", fmt.Sprintf("copy []uint16 %v", bf16)}},
-		{"bf16 copy fails", weightBF16, 7, nil, errFakeCopy, true, []string{"alloc16 4", fmt.Sprintf("copy []uint16 %v", bf16)}},
-		{"bf16 alloc fails, nonzero slice", weightBF16, 7, errFakeAlloc, nil, true, []string{"alloc16 4"}},
-		{"bf16 alloc fails, zero slice", weightBF16, 0, errFakeAlloc, nil, false, []string{"alloc16 4"}},
+		{"f32", weightF32, 7, nil, nil, true, []string{"alloc32 6", fmt.Sprintf("copy []float32 %v", host)}},
+		{"f32 copy fails", weightF32, 7, nil, errFakeCopy, true, []string{"alloc32 6", fmt.Sprintf("copy []float32 %v", host)}},
+		{"f32 alloc fails, nonzero slice", weightF32, 7, errFakeAlloc, nil, true, []string{"alloc32 6"}},
+		{"f32 alloc fails, zero slice", weightF32, 0, errFakeAlloc, nil, false, []string{"alloc32 6"}},
+		{"bf16", weightBF16, 7, nil, nil, true, []string{"alloc16 6", fmt.Sprintf("copy []uint16 %v", bf16)}},
+		{"bf16 copy fails", weightBF16, 7, nil, errFakeCopy, true, []string{"alloc16 6", fmt.Sprintf("copy []uint16 %v", bf16)}},
+		{"bf16 alloc fails, nonzero slice", weightBF16, 7, errFakeAlloc, nil, true, []string{"alloc16 6"}},
+		{"bf16 alloc fails, zero slice", weightBF16, 0, errFakeAlloc, nil, false, []string{"alloc16 6"}},
 		{"unknown dtype", "f16", 7, nil, nil, false, nil},
 	} {
 		var log []string
@@ -1113,6 +1114,16 @@ func TestUploadWeightWith(t *testing.T) {
 				return uploadAs(weightBF16, host, alloc32)
 			}
 			return uploadWeightWith(host, dtype, alloc32, alloc16)
+		}},
+		{"W4 bf16 rounded half up", func(host []float32, dtype weightDType, alloc32 func(int) (fakeAlloc[float32], error), alloc16 func(int) (fakeAlloc[uint16], error)) (deviceWeight, error) {
+			if dtype != weightBF16 {
+				return uploadWeightWith(host, dtype, alloc32, alloc16)
+			}
+			b := make([]uint16, len(host))
+			for i, f := range host {
+				b[i] = uint16((math.Float32bits(f) + 0x8000) >> 16)
+			}
+			return uploadAs(dtype, b, alloc16)
 		}},
 	} {
 		if len(uploadWeightFailures(m.upload)) == 0 {
