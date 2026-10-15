@@ -153,40 +153,49 @@ func (c *Cache) PutArtifact(ctx context.Context, key string, art *cudakernel.Art
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if art == nil {
-		return errors.New("cudacache: nil artifact")
-	}
-	if err := validateKey(key); err != nil {
+	art, data, err := c.prepareArtifact(key, art)
+	if err != nil {
 		return err
 	}
-	if err := art.Validate(); err != nil {
-		return fmt.Errorf("cudacache: invalid artifact: %w", err)
-	}
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
+	return c.publishArtifact(key, art, data)
+}
 
+// prepareArtifact validates and detaches an artifact before publication.
+func (c *Cache) prepareArtifact(key string, art *cudakernel.Artifact) (*cudakernel.Artifact, []byte, error) {
+	if art == nil {
+		return nil, nil, errors.New("cudacache: nil artifact")
+	}
+	if err := validateKey(key); err != nil {
+		return nil, nil, err
+	}
+	if err := art.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("cudacache: invalid artifact: %w", err)
+	}
 	data, err := json.Marshal(art)
 	if err != nil {
-		return fmt.Errorf("cudacache: marshal artifact: %w", err)
+		return nil, nil, fmt.Errorf("cudacache: marshal artifact: %w", err)
 	}
-
 	if int64(len(data)) > c.maxArtifactBytes {
-		return fmt.Errorf("cudacache: artifact size (%d bytes) exceeds limit (%d bytes)", len(data), c.maxArtifactBytes)
+		return nil, nil, fmt.Errorf("cudacache: artifact size (%d bytes) exceeds limit (%d bytes)", len(data), c.maxArtifactBytes)
 	}
 	art, err = c.validateAndDecodeArtifact(key, data, "")
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+	return art, data, nil
+}
 
-	destPath := c.artifactPath(key)
-	c.publicationMu.Lock()
-	defer c.publicationMu.Unlock()
-	if err := c.atomicWrite(destPath, data); err != nil {
+// publishArtifact writes prepared bytes and their detached memory value.
+// The caller must hold publicationMu.
+func (c *Cache) publishArtifact(key string, art *cudakernel.Artifact, data []byte) error {
+	if err := c.atomicWrite(c.artifactPath(key), data); err != nil {
 		return fmt.Errorf("cudacache: write artifact: %w", err)
 	}
-
 	c.memMu.Lock()
 	c.memArtifacts[key] = art
 	c.memMu.Unlock()
-
 	return nil
 }
 

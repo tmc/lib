@@ -187,8 +187,8 @@ func TestManifestEvictionSnapshot(t *testing.T) {
 			if current := readManifest(t, f.manifestPath()); current.Nonce == inspected.Nonce || current.Recorded.Fingerprint() != f.id.Provenance.Fingerprint() {
 				t.Fatal("replacement did not publish a new manifest with current provenance")
 			}
-			if _, err := os.Stat(f.markerPath()); err != nil {
-				t.Fatalf("stale lookup did not retain ordinary mismatch marker behavior: %v", err)
+			if _, err := os.Stat(f.markerPath()); !os.IsNotExist(err) {
+				t.Fatalf("stale lookup changed replacement marker state: %v", err)
 			}
 			fresh, err := cudacache.New(cudacache.Config{RootDir: root})
 			if err != nil {

@@ -1,6 +1,7 @@
 package cudacache
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -36,6 +37,39 @@ func markerPair(active, recorded ToolProvenance) string {
 	return fmt.Sprintf("active toolchain:\n%s\n\nrecorded toolchain:\n%s\n", active.Fingerprint(), recorded.Fingerprint())
 }
 
+// finishCompilerLookup revalidates the inspected manifest before changing a
+// marker or retiring an entry. A superseded lookup is a miss.
+func (c *Cache) finishCompilerLookup(key string, inspected []byte, m Manifest, active ToolProvenance) (bool, error) {
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
+	current, err := readFileBounded(c.manifestPath(key), c.maxArtifactBytes)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("cudacache: revalidate manifest: %w", err)
+	}
+	if !bytes.Equal(current, inspected) {
+		return false, nil
+	}
+	if len(active.Tools) > 0 && m.Recorded.Fingerprint() != active.Fingerprint() {
+		heal, err := c.healToolchain(key, active, m.Recorded, m.Nonce)
+		if err != nil {
+			return false, err
+		}
+		if heal {
+			if err := c.evictEntry(key, m.ArtifactKey); err != nil {
+				return false, fmt.Errorf("cudacache: %w", err)
+			}
+		}
+		return false, nil
+	}
+	if err := c.clearToolchainMarker(key); err != nil {
+		return false, fmt.Errorf("cudacache: %w", err)
+	}
+	return true, nil
+}
+
 // healToolchain decides what to do with an entry, sealed with nonce, that
 // was recorded under a different toolchain than the active one. The first
 // time a pair is seen it writes a marker naming the pair and the manifest,
@@ -43,6 +77,7 @@ func markerPair(active, recorded ToolProvenance) string {
 // different manifest means a rebuild reproduced the mismatch, and it returns
 // a *ToolchainMismatchError instead. The same pair on the same manifest is a
 // lookup that raced the eviction of that manifest, and heals again.
+// The caller must hold publicationMu and have revalidated the manifest.
 func (c *Cache) healToolchain(key string, active, recorded ToolProvenance, nonce string) (heal bool, err error) {
 	path := c.markerPath(key)
 	pair := markerPair(active, recorded)
@@ -63,7 +98,8 @@ func (c *Cache) healToolchain(key string, active, recorded ToolProvenance, nonce
 }
 
 // clearToolchainMarker removes the marker for key after a lookup found the
-// recorded and active toolchains in agreement.
+// recorded and active toolchains in agreement. The caller must hold
+// publicationMu and have revalidated the manifest.
 func (c *Cache) clearToolchainMarker(key string) error {
 	if err := os.Remove(c.markerPath(key)); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("clear toolchain marker: %w", err)

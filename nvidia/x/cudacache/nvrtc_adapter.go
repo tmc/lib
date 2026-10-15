@@ -133,20 +133,9 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 		c.quarantineEntry(key, data, m.ArtifactKey)
 		return nil, false, fmt.Errorf("%w: %v", ErrCorruptArtifact, err)
 	}
-	if len(id.Provenance.Tools) > 0 && m.Recorded.Fingerprint() != id.Provenance.Fingerprint() {
-		heal, err := c.healToolchain(key, id.Provenance, m.Recorded, m.Nonce)
-		if err != nil {
-			return nil, false, err
-		}
-		if heal {
-			if err := c.evictEntry(key, data, m.ArtifactKey); err != nil {
-				return nil, false, fmt.Errorf("cudacache: %w", err)
-			}
-		}
-		return nil, false, nil
-	}
-	if err := c.clearToolchainMarker(key); err != nil {
-		return nil, false, fmt.Errorf("cudacache: %w", err)
+	hit, err := c.finishCompilerLookup(key, data, m, id.Provenance)
+	if err != nil || !hit {
+		return nil, false, err
 	}
 	return art, true, nil
 }
@@ -154,8 +143,9 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 // Store caches an artifact under the input key and environment identity.
 //
 // The manifest records id.Provenance as the toolchain that produced art.
-// The artifact is written first and the manifest last, each atomically, so
-// a concurrent Lookup sees either no entry or a complete one.
+// Within one Cache, artifact and manifest publication share a transaction
+// with entry retirement and toolchain marker updates. Each file is replaced
+// atomically; this does not provide a filesystem transaction across processes.
 func (a *NVRTCAdapter) Store(ctx context.Context, inputKey string, id CompilerIdentity, art *cudakernel.Artifact) error {
 	return a.store(ctx, inputKey, id, id.Provenance, art)
 }
@@ -169,7 +159,12 @@ func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerId
 	}
 	key := CompilerCacheKey(inputKey, id)
 	artKey := key + "-" + art.Digest
-	if err := a.cache.PutArtifact(ctx, artKey, art); err != nil {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	c := a.cache
+	art, artifactData, err := c.prepareArtifact(artKey, art)
+	if err != nil {
 		return err
 	}
 	m := Manifest{
@@ -181,7 +176,16 @@ func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerId
 		ArtifactKey:   artKey,
 		PayloadSHA256: art.Digest,
 	}
-	if err := a.cache.writeManifest(m); err != nil {
+	manifestData, err := prepareManifest(m)
+	if err != nil {
+		return fmt.Errorf("cudacache: %w", err)
+	}
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
+	if err := c.publishArtifact(artKey, art, artifactData); err != nil {
+		return err
+	}
+	if err := c.writeManifest(key, manifestData); err != nil {
 		return fmt.Errorf("cudacache: %w", err)
 	}
 	return nil
