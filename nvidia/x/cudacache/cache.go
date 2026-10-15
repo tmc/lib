@@ -71,6 +71,7 @@ type Cache struct {
 	remote           RemoteSource
 	trust            TrustPolicy
 	trajectoryMu     sync.Mutex // Serializes trajectory publication and quarantine.
+	publicationMu    sync.Mutex // Keeps artifact and receipt disk and memory publication together.
 
 	// flightMu guards concurrent writes/downloads for identical keys.
 	flightMu sync.Mutex
@@ -176,6 +177,8 @@ func (c *Cache) PutArtifact(ctx context.Context, key string, art *cudakernel.Art
 	}
 
 	destPath := c.artifactPath(key)
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
 	if err := c.atomicWrite(destPath, data); err != nil {
 		return fmt.Errorf("cudacache: write artifact: %w", err)
 	}
@@ -247,21 +250,14 @@ func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artif
 	destPath := c.artifactPath(key)
 
 	// 2. Local disk check
-	data, err := readFileBounded(destPath, c.maxArtifactBytes)
-	if err == nil {
-		art, err := c.validateAndDecodeArtifact(key, data, destPath)
-		if err != nil {
-			return nil, err
-		}
-		c.memMu.Lock()
-		c.memArtifacts[key] = art
-		c.memMu.Unlock()
-		return art, nil
-	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("cudacache: read artifact file: %w", err)
+	c.publicationMu.Lock()
+	art, err := c.loadLocalArtifact(key, destPath)
+	c.publicationMu.Unlock()
+	if !errors.Is(err, ErrNotFound) {
+		return art, err
 	}
 
-	// 3. Remote source lookup
+	// 3. Remote source lookup. Callbacks run outside the publication lock.
 	if c.remote == nil {
 		return nil, ErrNotFound
 	}
@@ -298,21 +294,52 @@ func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artif
 	if err := c.verifyRemote(ctx, RemoteArtifact, key, remoteData); err != nil {
 		return nil, err
 	}
-	art, err := c.validateAndDecodeArtifact(key, remoteData, "")
+	art, err = c.validateAndDecodeArtifact(key, remoteData, "")
 	if err != nil {
 		return nil, err
 	}
 
-	// Write verified artifact to local CAS
-	if err := c.atomicWrite(destPath, remoteData); err != nil {
-		// Non-fatal write error: still return artifact
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
+	// A local publication completed while the callback ran takes precedence.
+	c.memMu.RLock()
+	current, ok := c.memArtifacts[key]
+	c.memMu.RUnlock()
+	if ok {
+		return current, nil
 	}
 
+	// Non-fatal write error: still return the validated artifact.
+	_ = c.atomicWrite(destPath, remoteData)
 	c.memMu.Lock()
 	c.memArtifacts[key] = art
 	c.memMu.Unlock()
-
 	return art, nil
+}
+
+// loadLocalArtifact runs under publicationMu, including validation and quarantine.
+func (c *Cache) loadLocalArtifact(key, destPath string) (*cudakernel.Artifact, error) {
+	c.memMu.RLock()
+	art, ok := c.memArtifacts[key]
+	c.memMu.RUnlock()
+	if ok {
+		return art, nil
+	}
+	data, err := readFileBounded(destPath, c.maxArtifactBytes)
+	if err == nil {
+		art, err := c.validateAndDecodeArtifact(key, data, destPath)
+		if err != nil {
+			return nil, err
+		}
+		c.memMu.Lock()
+		c.memArtifacts[key] = art
+		c.memMu.Unlock()
+		return art, nil
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cudacache: read artifact file: %w", err)
+	}
+
+	return nil, ErrNotFound
 }
 
 func (c *Cache) validateAndDecodeArtifact(key string, data []byte, localFilePath string) (*cudakernel.Artifact, error) {
@@ -380,6 +407,8 @@ func (c *Cache) PutReceipt(ctx context.Context, receipt *SearchReceipt) error {
 	}
 
 	destPath := c.receiptPath(key)
+	c.publicationMu.Lock()
+	defer c.publicationMu.Unlock()
 	if err := c.atomicWrite(destPath, data); err != nil {
 		return fmt.Errorf("cudacache: write receipt: %w", err)
 	}
@@ -408,27 +437,17 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 
 	// Disk check
 	destPath := c.receiptPath(key)
-	data, err := readFileBounded(destPath, c.maxArtifactBytes)
-	if err == nil {
-		var receipt SearchReceipt
-		if err := json.Unmarshal(data, &receipt); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+	c.publicationMu.Lock()
+	r, err := c.loadLocalReceipt(key, destPath)
+	c.publicationMu.Unlock()
+	if !errors.Is(err, ErrNotFound) {
+		if err != nil {
+			return nil, err
 		}
-		if err := receipt.Validate(); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
-		}
-		if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
-			return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
-		}
-		c.memMu.Lock()
-		c.memReceipts[key] = &receipt
-		c.memMu.Unlock()
-		return cloneReceipt(&receipt)
-	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("cudacache: read receipt file: %w", err)
+		return cloneReceipt(r)
 	}
 
-	// Remote check
+	// Remote check. Callbacks run outside the publication lock.
 	if c.remote != nil {
 		rData, err := c.remote.FetchReceipt(ctx, key)
 		if err == nil {
@@ -448,6 +467,16 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 			if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
 				return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
 			}
+
+			c.publicationMu.Lock()
+			defer c.publicationMu.Unlock()
+			// Preserve any publication completed while the callback ran.
+			c.memMu.RLock()
+			current, ok := c.memReceipts[key]
+			c.memMu.RUnlock()
+			if ok {
+				return cloneReceipt(current)
+			}
 			_ = c.atomicWrite(destPath, rData)
 			c.memMu.Lock()
 			c.memReceipts[key] = &receipt
@@ -460,6 +489,37 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 		if !errors.Is(err, ErrRemoteNotFound) {
 			return nil, fmt.Errorf("cudacache: fetch receipt: %w", err)
 		}
+	}
+
+	return nil, ErrNotFound
+}
+
+// loadLocalReceipt runs under publicationMu so it cannot cache an older disk read.
+func (c *Cache) loadLocalReceipt(key, destPath string) (*SearchReceipt, error) {
+	c.memMu.RLock()
+	r, ok := c.memReceipts[key]
+	c.memMu.RUnlock()
+	if ok {
+		return r, nil
+	}
+	data, err := readFileBounded(destPath, c.maxArtifactBytes)
+	if err == nil {
+		var receipt SearchReceipt
+		if err := json.Unmarshal(data, &receipt); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+		}
+		if err := receipt.Validate(); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+		}
+		if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
+			return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
+		}
+		c.memMu.Lock()
+		c.memReceipts[key] = &receipt
+		c.memMu.Unlock()
+		return &receipt, nil
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cudacache: read receipt file: %w", err)
 	}
 
 	return nil, ErrNotFound
