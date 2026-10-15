@@ -19,6 +19,7 @@ func TestMCTSReuseReplaysSeed(t *testing.T) {
 				rules = append(rules, egraph.MustRewrite(name, "base", name))
 			}
 			budget := DefaultBudget()
+			budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 			// Leave room for no-op attempts while testing five evaluations.
 			budget.MaxStates = 16
 			budget.MaxEvaluations = 5

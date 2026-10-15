@@ -36,6 +36,7 @@ func TestSearchRejectsIncomparableCosts(t *testing.T) {
 					return &candidate, nil
 				})
 				budget := DefaultBudget()
+				budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 				budget.MaxStates, budget.MaxEvaluations = 2, 2
 				var result *SearchResult
 				var err error

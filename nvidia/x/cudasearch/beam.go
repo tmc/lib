@@ -2,6 +2,7 @@ package cudasearch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -16,18 +17,33 @@ import (
 // rejected by Search. Zero state, depth, action and evaluation limits select
 // defaults; zero memory, extraction, compilation and timeout limits are unlimited.
 type SearchBudget struct {
-	MaxStates          int           // Initial state plus attempted transitions, including failures/no-ops.
-	MaxNodesPerState   int           // Maximum admitted e-nodes per state; zero is unlimited.
-	MaxClassesPerState int           // Maximum admitted e-classes per state; zero is unlimited.
-	MaxDepth           int           // Maximum transition depth from root
-	MaxActions         int           // Maximum candidate actions evaluated per state
-	MaxTotalActions    int           // Maximum attempted transitions across the search (default 1000)
-	MaxMemoryBytes     int64         // Maximum accounted search state memory (or 0 for unlimited)
-	MaxEvaluations     int           // Maximum number of compiler/evaluator calls
-	MaxExtractions     int           // Built-in evaluator extraction attempts; zero is unlimited.
-	MaxExtractionWork  int           // Total built-in extraction work units; zero is unlimited.
-	MaxCompilations    int           // Built-in evaluator compile attempts; zero is unlimited.
-	Timeout            time.Duration // Maximum wall time for search
+	MaxStates          int // Initial state plus attempted transitions, including failures/no-ops.
+	MaxNodesPerState   int // Maximum admitted e-nodes per state; zero is unlimited.
+	MaxClassesPerState int // Maximum admitted e-classes per state; zero is unlimited.
+	MaxDepth           int // Maximum transition depth from root
+	MaxActions         int // Maximum candidate actions evaluated per state
+	MaxTotalActions    int // Maximum attempted transitions across the search (default 1000)
+	// MaxMemoryBytes limits accounted storage: reachable state and payload
+	// storage, retained candidate data, declared callback workspace, and device
+	// buffers reserved by built-in compilers. Zero is unlimited. Accounting uses
+	// Go value sizes, slice capacities, strings and live map entries; it excludes
+	// allocator/map bucket overhead, runtime/driver/compiler internals and caller
+	// captures. Matching/extraction scratch and transition growth are not yet
+	// reserved before allocation, so this is not a complete owned-allocation cap.
+	MaxMemoryBytes int64
+	// CallbackMemoryBytes declares the maximum simultaneously owned storage of
+	// opaque evaluator/compiler callbacks, including opaque executable workspace.
+	// With a memory limit, zero refuses callbacks lacking built-in accounting.
+	// The caller must uphold this declaration; it is not a sandbox or measured
+	// peak. A zero-allocation callback still needs a conservative positive
+	// declaration because zero means undeclared. Built-in compiler device buffers
+	// are reserved separately.
+	CallbackMemoryBytes int64
+	MaxEvaluations      int           // Maximum number of compiler/evaluator calls
+	MaxExtractions      int           // Built-in evaluator extraction attempts; zero is unlimited.
+	MaxExtractionWork   int           // Total built-in extraction work units; zero is unlimited.
+	MaxCompilations     int           // Built-in evaluator compile attempts; zero is unlimited.
+	Timeout             time.Duration // Maximum wall time for search
 }
 
 // DefaultBudget provides sensible conservative limits.
@@ -139,7 +155,6 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	stateCount := 0
 	evalCount := 0
 	actionCount := 0
-	var accountedMemory int64
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrSearchCancelled, err)
 	}
@@ -151,30 +166,36 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	if err := admitGraphBudget(initial, budget); err != nil {
 		return nil, err
 	}
-	accountedMemory = estimateStateMemory(initial)
-	if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-		return nil, ErrMemoryBudgetExceeded
+	if err := retainSearchValue(ctx, initial); err != nil {
+		return nil, err
 	}
 
 	// Evaluate initial state candidate
-	initCand, err := eval.Evaluate(ctx, initial, rootID)
+	initCand, err := evaluateSearch(ctx, eval, initial, rootID)
 	evalCount++
 	if err == nil {
 		err = admitSearchCandidate(initCand)
 	}
 	if err != nil {
 		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		rejectedInitial, memoryErr := retainSearchRejection(ctx, initial, eval, err)
+		var initialRejections []CandidateRejection
+		if memoryErr == nil {
+			initialRejections = []CandidateRejection{rejectedInitial}
+		} else {
+			failure = errors.Join(failure, memoryErr)
+		}
 		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "beam",
 			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
-			Rejected: []CandidateRejection{rejection(initial, eval, err)}, StopReason: failure,
+			Rejected: initialRejections, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
-			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory,
+			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(),
 			Duration: time.Since(startTime)}, failure
 	}
 
 	initCost := initCand.Cost
 	initialItem := beamItem{
-		state:      initial.Clone(),
+		state:      initial,
 		cost:       initCost,
 		derivation: initial.Derivation,
 		candidate:  initCand,
@@ -195,9 +216,14 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
+		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
 	}
 
+	cloned, err := cloneSearchState(ctx, initial)
+	if err != nil {
+		return finish(err)
+	}
+	currentBeam[0].state = cloned
 	seenStates := make(map[string]bool)
 	seenStates[stateFingerprint(initial)] = true
 
@@ -230,7 +256,10 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 			if actionLimit <= 0 {
 				actionLimit = 50
 			}
-			actions := egraph.EnumerateActionsBounded(item.state.Graph, rules, actionLimit)
+			actions, err := enumerateSearchActions(ctx, item.state, rules, actionLimit)
+			if err != nil {
+				return finish(err)
+			}
 			profile.order(actions)
 
 			for _, act := range actions {
@@ -252,7 +281,10 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 				stateCount++
 
 				actionCount++
-				res, applyErr := item.state.ApplyAction(act)
+				res, applyErr := applySearchAction(ctx, item.state, act)
+				if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
+					return finish(applyErr)
+				}
 				if applyErr != nil || res.NoOp {
 					continue
 				}
@@ -265,13 +297,10 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 				if seenStates[fp] {
 					continue
 				}
-				seenStates[fp] = true
-
-				mem := estimateStateMemory(res.State)
-				accountedMemory += mem
-				if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-					return finish(ErrMemoryBudgetExceeded)
+				if err := retainSearchValue(ctx, fp); err != nil {
+					return finish(err)
 				}
+				seenStates[fp] = true
 
 				// Extract and evaluate candidate from this state
 				candRoot, found := res.State.CanonicalRoot(b.cfg.RootName)
@@ -284,13 +313,20 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 					break
 				}
 
-				cand, evalErr := eval.Evaluate(ctx, res.State, candRoot)
+				cand, evalErr := evaluateSearch(ctx, eval, res.State, candRoot)
 				evalCount++
 				if evalErr == nil {
 					evalErr = admitComparableCandidate(cand, initCand)
 				}
 				if evalErr != nil {
-					rejected = append(rejected, rejection(res.State, eval, evalErr))
+					r, memoryErr := retainSearchRejection(ctx, res.State, eval, evalErr)
+					if memoryErr != nil {
+						return finish(memoryErr)
+					}
+					rejected = append(rejected, r)
+					if errors.Is(evalErr, ErrMemoryBudgetExceeded) || errors.Is(evalErr, ErrMemoryAccountingUnavailable) {
+						return finish(evalErr)
+					}
 					if work.exhausted {
 						return finish(nil)
 					}
@@ -427,10 +463,9 @@ func stateFingerprint(s *egraph.SearchState) string {
 }
 
 func estimateStateMemory(s *egraph.SearchState) int64 {
-	if s == nil || s.Graph == nil {
-		return 0
+	bytes, err := storageBytes(s)
+	if err != nil {
+		return math.MaxInt64
 	}
-	// Conservative estimate: ~512 bytes per class + ~128 bytes per derivation step + 2048 base
-	classes := len(s.Graph.Classes())
-	return int64(2048 + (classes * 512) + (len(s.Derivation) * 128))
+	return bytes
 }

@@ -140,7 +140,7 @@ func TestPrefillSearchEnumeration(t *testing.T) {
 	g := egraph.New()
 	root := g.Add(egraph.ENode{Op: "prefill_scalar"})
 	s := egraph.NewSearchState(g, map[string]egraph.Id{"root": root})
-	beam := NewBeamSearch(BeamConfig{BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20}})
+	beam := NewBeamSearch(BeamConfig{BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: fixtureEvaluatorMemoryBytes(e)}})
 	r, err := beam.Search(context.Background(), s, []*egraph.Rewrite{egraph.MustRewrite("bound-prefill-wmma", "prefill_scalar", "prefill_wmma")}, e)
 	if err != nil {
 		t.Fatal(err)
@@ -233,7 +233,7 @@ func TestNativePrefillSearch(t *testing.T) {
 	root := g.Add(egraph.ENode{Op: "prefill_scalar"})
 	s := egraph.NewSearchState(g, map[string]egraph.Id{"root": root})
 	rule := egraph.MustRewrite("bound-prefill-wmma", "prefill_scalar", "prefill_wmma")
-	beam := NewBeamSearch(BeamConfig{BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20}})
+	beam := NewBeamSearch(BeamConfig{BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: fixtureEvaluatorMemoryBytes(e)}})
 	result, err := beam.Search(ctx, s, []*egraph.Rewrite{rule}, recording)
 	if err != nil {
 		t.Fatal(err)

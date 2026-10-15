@@ -2,6 +2,7 @@ package cudasearch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -144,23 +145,29 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	if err := admitGraphBudget(initial, budget); err != nil {
 		return nil, err
 	}
-	accountedMemory := estimateStateMemory(initial)
-	if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-		return nil, ErrMemoryBudgetExceeded
+	if err := retainSearchValue(ctx, initial); err != nil {
+		return nil, err
 	}
 
 	// Evaluate initial state to establish baseline cost
-	initCand, err := eval.Evaluate(ctx, initial, rootID)
+	initCand, err := evaluateSearch(ctx, eval, initial, rootID)
 	if err == nil {
 		err = admitSearchCandidate(initCand)
 	}
 	if err != nil {
 		failure := fmt.Errorf("cudasearch: failed evaluating initial state: %w", err)
+		rejectedInitial, memoryErr := retainSearchRejection(ctx, initial, eval, err)
+		var initialRejections []CandidateRejection
+		if memoryErr == nil {
+			initialRejections = []CandidateRejection{rejectedInitial}
+		} else {
+			failure = errors.Join(failure, memoryErr)
+		}
 		return &SearchResult{PolicyID: policy, PolicyComplete: policyComplete, Strategy: "mcts", Seed: m.cfg.Seed,
 			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
-			Rejected: []CandidateRejection{rejection(initial, eval, err)}, StopReason: failure,
+			Rejected: initialRejections, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
-			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory,
+			Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(),
 			Duration: time.Since(startTime)}, failure
 	}
 
@@ -169,10 +176,10 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		baselineCost = 1.0
 	}
 
-	initialActions := egraph.EnumerateActionsBounded(initial.Graph, rules, budget.MaxActions)
+	var initialActions []egraph.ActionCandidate
 
 	rootNode := &mctsNode{
-		state:          initial.Clone(),
+		state:          initial,
 		untriedActions: initialActions,
 		bestCandidate:  initCand,
 		isTerminal:     len(initialActions) == 0,
@@ -194,8 +201,20 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: accountedMemory, Duration: time.Since(startTime)}, err
+		return &SearchResult{MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
 	}
+
+	cloned, err := cloneSearchState(ctx, initial)
+	if err != nil {
+		return finish(err)
+	}
+	rootNode.state = cloned
+	initialActions, err = enumerateSearchActions(ctx, rootNode.state, rules, budget.MaxActions)
+	if err != nil {
+		return finish(err)
+	}
+	rootNode.untriedActions = initialActions
+	rootNode.isTerminal = len(initialActions) == 0
 
 	for iter := 0; iter < m.cfg.Iterations; iter++ {
 		if err := ctx.Err(); err != nil {
@@ -232,19 +251,20 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 
 			actionCount++
 			stateCount++
-			res, applyErr := node.state.ApplyAction(act)
+			res, applyErr := applySearchAction(ctx, node.state, act)
+			if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
+				return finish(applyErr)
+			}
 			if applyErr == nil && !res.NoOp {
 				if err := admitGraphBudget(res.State, budget); err != nil {
 					stopReason = err
 					return finish(nil)
 				}
-				mem := estimateStateMemory(res.State)
-				accountedMemory += mem
-				if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-					return finish(ErrMemoryBudgetExceeded)
-				}
 
-				nextActions := egraph.EnumerateActionsBounded(res.State.Graph, rules, budget.MaxActions)
+				nextActions, err := enumerateSearchActions(ctx, res.State, rules, budget.MaxActions)
+				if err != nil {
+					return finish(err)
+				}
 				childNode := &mctsNode{
 					state:          res.State,
 					parent:         node,
@@ -255,7 +275,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 
 				candRoot, found := res.State.CanonicalRoot(m.cfg.RootName)
 				if found && evalCount < budget.MaxEvaluations {
-					cand, evalErr := eval.Evaluate(ctx, res.State, candRoot)
+					cand, evalErr := evaluateSearch(ctx, eval, res.State, candRoot)
 					evalCount++
 					if evalErr == nil {
 						evalErr = admitComparableCandidate(cand, initCand)
@@ -267,7 +287,14 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 							bestGlobal = cand
 						}
 					} else {
-						rejected = append(rejected, rejection(res.State, eval, evalErr))
+						r, memoryErr := retainSearchRejection(ctx, res.State, eval, evalErr)
+						if memoryErr != nil {
+							return finish(memoryErr)
+						}
+						rejected = append(rejected, r)
+						if errors.Is(evalErr, ErrMemoryBudgetExceeded) || errors.Is(evalErr, ErrMemoryAccountingUnavailable) {
+							return finish(evalErr)
+						}
 						if work.exhausted {
 							return finish(nil)
 						}
@@ -292,7 +319,10 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				stopReason = ErrBudgetExhausted
 				break
 			}
-			actions := egraph.EnumerateActionsBounded(currState.Graph, rules, budget.MaxActions)
+			actions, err := enumerateSearchActions(ctx, currState, rules, budget.MaxActions)
+			if err != nil {
+				return finish(err)
+			}
 			var next *egraph.SearchState
 			for len(actions) > 0 {
 				if err := ctx.Err(); err != nil {
@@ -307,7 +337,10 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				actions = append(actions[:idx], actions[idx+1:]...)
 				actionCount++
 				stateCount++
-				res, err := currState.ApplyAction(act)
+				res, err := applySearchAction(ctx, currState, act)
+				if errors.Is(err, ErrMemoryBudgetExceeded) || errors.Is(err, ErrMemoryAccountingUnavailable) {
+					return finish(err)
+				}
 				if err == nil && !res.NoOp {
 					next = res.State
 					break
@@ -324,23 +357,24 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				stopReason = err
 				return finish(nil)
 			}
-			accountedMemory += estimateStateMemory(next)
-			if budget.MaxMemoryBytes > 0 && accountedMemory > budget.MaxMemoryBytes {
-				return finish(ErrMemoryBudgetExceeded)
-			}
+
 			currState = next
 			id, ok := currState.CanonicalRoot(m.cfg.RootName)
 			if !ok {
 				rollCandidate = nil
 				break
 			}
-			cand, err := eval.Evaluate(ctx, currState, id)
+			cand, err := evaluateSearch(ctx, eval, currState, id)
 			evalCount++
 			if err == nil {
 				err = admitComparableCandidate(cand, initCand)
 			}
 			if err != nil {
-				rejected = append(rejected, rejection(currState, eval, err))
+				r, memoryErr := retainSearchRejection(ctx, currState, eval, err)
+				if memoryErr != nil {
+					return finish(memoryErr)
+				}
+				rejected = append(rejected, r)
 				if work.exhausted {
 					return finish(nil)
 				}

@@ -14,6 +14,9 @@ func TestSearchWorkBudget(t *testing.T) {
 			t.Run(strategy+"/"+phase, func(t *testing.T) {
 				s, rules := beamContractState()
 				budget := DefaultBudget()
+				// The synthetic compiler returns borrowed fixtures; output/receipt maps
+				// are bounded by four ABBA calls over one float32 output.
+				budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 				e, _, compiled, _ := executableFixture(t)
 				var eval Evaluator = e
 				if phase == "compile" {

@@ -14,6 +14,7 @@ func TestMCTSEvaluatesRollout(t *testing.T) {
 			s, rules := beamContractState()
 			rules = append(rules, egraph.MustRewrite("deeper", "alternative", "deeper"))
 			budget := DefaultBudget()
+			budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 			budget.MaxDepth = 2
 			switch limit {
 			case "states":
@@ -23,12 +24,23 @@ func TestMCTSEvaluatesRollout(t *testing.T) {
 			case "depth":
 				budget.MaxDepth = 1
 			case "memory":
-				actions := egraph.EnumerateActionsBounded(s.Graph, rules, 10)
-				next, err := s.ApplyAction(actions[0])
+				// Materialize the exact supported states outside search to declare
+				// storage, including relation lineage added by Clone. Reservations
+				// retain their pre-enumeration size even if rebuilding later shrinks it.
+				_ = egraph.EnumerateActionsBounded(s.Graph, rules, 10)
+				owned := s.Clone()
+				ownedBytes := estimateStateMemory(owned)
+				actions := egraph.EnumerateActionsBounded(owned.Graph, rules, 10)
+				next, err := owned.ApplyAction(actions[0])
 				if err != nil {
 					t.Fatal(err)
 				}
-				budget.MaxMemoryBytes = estimateStateMemory(s) + estimateStateMemory(next.State)
+				nextBytes := estimateStateMemory(next.State)
+				nextActions := egraph.EnumerateActionsBounded(next.State.Graph, rules, 10)
+				initialActionBytes, _ := storageBytes(actions)
+				nextActionBytes, _ := storageBytes(nextActions)
+				candidateBytes, _ := storageBytes(&CandidatePlan{Cost: 10, Validated: true})
+				budget.MaxMemoryBytes = estimateStateMemory(s) + ownedBytes + nextBytes + initialActionBytes + nextActionBytes + 2*candidateBytes + budget.CallbackMemoryBytes
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

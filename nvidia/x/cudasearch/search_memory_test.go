@@ -27,6 +27,7 @@ func memorySearch(t *testing.T, strategy string, m *SearchMemory, mutate func())
 	s, _ := beamContractState()
 	rules := []*egraph.Rewrite{egraph.MustRewrite("a", "base", "first"), egraph.MustRewrite("z", "base", "preferred")}
 	b := DefaultBudget()
+	b.CallbackMemoryBytes = fixtureCallbackMemoryBytes(b.MaxDepth)
 	b.MaxStates = 2
 	b.MaxEvaluations = 2
 	eval := beamEvaluatorFunc(func(_ context.Context, s *egraph.SearchState, _ egraph.Id) (*CandidatePlan, error) {

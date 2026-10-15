@@ -120,7 +120,7 @@ func TestNormQuantSearchEnumeration(t *testing.T) {
 	g := egraph.New()
 	root := g.Add(egraph.ENode{Op: "norm_quant_unfused"})
 	s := egraph.NewSearchState(g, map[string]egraph.Id{"root": root})
-	beam := NewBeamSearch(BeamConfig{BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20}})
+	beam := NewBeamSearch(BeamConfig{BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: fixtureEvaluatorMemoryBytes(e)}})
 	result, err := beam.Search(context.Background(), s, []*egraph.Rewrite{egraph.MustRewrite("bound-norm-quant", "norm_quant_unfused", "norm_quant_fused")}, e)
 	if err != nil {
 		t.Fatal(err)
@@ -215,7 +215,7 @@ func TestNativeNormQuantSearch(t *testing.T) {
 	g := egraph.New()
 	root := g.Add(egraph.ENode{Op: "norm_quant_unfused"})
 	s := egraph.NewSearchState(g, map[string]egraph.Id{"root": root})
-	beam := NewBeamSearch(BeamConfig{EvaluatorID: "norm-quant-native-v1", BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20}})
+	beam := NewBeamSearch(BeamConfig{EvaluatorID: "norm-quant-native-v1", BeamWidth: 1, Budget: SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 1, MaxEvaluations: 2, MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: fixtureEvaluatorMemoryBytes(e)}})
 	result, err := beam.Search(ctx, s, []*egraph.Rewrite{egraph.MustRewrite("bound-norm-quant", "norm_quant_unfused", "norm_quant_fused")}, e)
 	if err != nil {
 		t.Fatal(err)

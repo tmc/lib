@@ -103,7 +103,7 @@ func gatherSearch(ctx context.Context, eval Evaluator) (*SearchResult, error) {
 	g := egraph.New()
 	root := g.Add(egraph.ENode{Op: "gather_scalar"})
 	s := egraph.NewSearchState(g, map[string]egraph.Id{"root": root})
-	beam := NewBeamSearch(BeamConfig{BeamWidth: 2, Budget: SearchBudget{MaxStates: 3, MaxDepth: 1, MaxActions: 2, MaxEvaluations: 3, MaxMemoryBytes: 1 << 20}})
+	beam := NewBeamSearch(BeamConfig{BeamWidth: 2, Budget: SearchBudget{MaxStates: 3, MaxDepth: 1, MaxActions: 2, MaxEvaluations: 3, MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: fixtureEvaluatorMemoryBytes(eval)}})
 	return beam.Search(ctx, s, []*egraph.Rewrite{egraph.MustRewrite("bound-gather16", "gather_scalar", "gather16"), egraph.MustRewrite("bound-gather32", "gather_scalar", "gather32")}, eval)
 }
 

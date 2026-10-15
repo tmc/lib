@@ -70,6 +70,9 @@ func comparePolicy(ctx context.Context, units int, profile *cudasearch.ProfileAc
 	budget.MaxDepth, budget.MaxActions = 1, len(rules)
 	budget.MaxStates, budget.MaxEvaluations = units-profileUnits, units-profileUnits
 	budget.Timeout = 0
+	// One candidate, an append-grown depth-one path and the four-entry
+	// local objective table; path names and capture storage are borrowed.
+	budget.CallbackMemoryBytes = int64(reflect.TypeOf(cudasearch.CandidatePlan{}).Size()) + 2*int64(budget.MaxDepth)*int64(reflect.TypeOf(egraph.Action{}).Size()) + int64(reflect.TypeOf(map[string]float64{}).Size()) + 4*int64(reflect.TypeOf("").Size()+reflect.TypeOf(float64(0)).Size())
 	eval := &comparisonEvaluator{tie: tie}
 	result, err := cudasearch.NewBeamSearch(cudasearch.BeamConfig{Budget: budget, Profile: profile, EvaluatorID: "deterministic-host-objective-v1"}).Search(ctx, state, rules, eval)
 	return result, eval, profileUnits + len(eval.paths), err

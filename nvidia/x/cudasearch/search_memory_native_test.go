@@ -493,7 +493,12 @@ func TestNativeSearchMemoryProducerConsumer(t *testing.T) {
 				id := g.Add(egraph.ENode{Op: "scalar"})
 				return egraph.NewSearchState(g, map[string]egraph.Id{"root": id})
 			}
-			budget := SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 2, MaxTotalActions: 2, MaxNodesPerState: 16, MaxClassesPerState: 16, MaxMemoryBytes: 1 << 20, MaxEvaluations: 2, MaxCompilations: 2, MaxExtractions: 2, MaxExtractionWork: 1000, Timeout: 20 * time.Second}
+			// This opaque executable owns baseline/candidate x/y buffers,
+			// reference/readback arrays and readback/encoding copies. Eleven FP32
+			// extents conservatively cover those simultaneous owners. Its buffers
+			// do not use the concrete sequence/prefill reservation hooks.
+			callbackMemoryBytes := int64(count) * 4 * 11
+			budget := SearchBudget{MaxStates: 2, MaxDepth: 1, MaxActions: 2, MaxTotalActions: 2, MaxNodesPerState: 16, MaxClassesPerState: 16, MaxMemoryBytes: (1 << 20) + callbackMemoryBytes, CallbackMemoryBytes: callbackMemoryBytes, MaxEvaluations: 2, MaxCompilations: 2, MaxExtractions: 2, MaxExtractionWork: 1000, Timeout: 20 * time.Second}
 			rules := []*egraph.Rewrite{egraph.MustRewrite("a-null", "scalar", "scalar_copy"), egraph.MustRewrite("vectorize", "scalar", "vector")}
 			if task > 0 && previous != nil {
 				if previous.WorkloadKey == binding.Key() {

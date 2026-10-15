@@ -159,7 +159,7 @@ func (c *GatherCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Workl
 	if !c.checkLease() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
-	x := &sequenceExecutable{dev: c.dev, checkLease: c.checkLease, closed: true, identity: c.bindings.Key() + "/" + candidate.Name,
+	x := &sequenceExecutable{memory: searchMemoryBudget(ctx), dev: c.dev, checkLease: c.checkLease, closed: true, identity: c.bindings.Key() + "/" + candidate.Name,
 		buffers: make(map[string]cudamem.Slice[byte]), poison: []string{"output"}, outputs: []sequenceOutput{{buffer: "output", name: "gather_bytes", bytes: true}}, launches: []sequenceLaunch{{grid: candidate.Grid, block: candidate.Block}}}
 	x.preparation = c.Preparation()
 	if err := x.load([]*cudakernel.Artifact{artifact}); err != nil {

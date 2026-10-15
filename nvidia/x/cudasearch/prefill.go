@@ -127,7 +127,7 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 	if !c.checkLease() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
-	x := &prefillExecutable{dev: c.dev, checkLease: c.checkLease, closed: true, k: c.k, n: c.n, grid: grid, block: block}
+	x := &prefillExecutable{memory: searchMemoryBudget(ctx), dev: c.dev, checkLease: c.checkLease, closed: true, k: c.k, n: c.n, grid: grid, block: block}
 	x.preparation = c.Preparation()
 	x.identity = fmt.Sprintf("%s/%s/%v/%v/%s", artifact.Digest, artifact.EntryPoint, grid, block, c.bindings.Key())
 	x.raw, err = artifact.Load(c.dev)
@@ -160,6 +160,12 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 	if err != nil {
 		return x, err
 	}
+	release, err := ReserveSearchMemory(ctx, int64(len(c.a))*2+int64(len(c.b))*2+int64(256*c.n)*4)
+	if err != nil {
+		return x, err
+	}
+	x.releaseMemory = release
+	x.deviceBytes = int64(len(c.a))*2 + int64(len(c.b))*2 + int64(256*c.n)*4
 	x.a, err = cudamem.Alloc[uint16](c.dev, len(c.a))
 	if err != nil {
 		return x, err
@@ -200,22 +206,25 @@ func (c *PrefillCompiler) admit(expr *egraph.Expr, b WorkloadBindings) error {
 }
 
 type prefillExecutable struct {
-	preparation []PreparationPhase
-	mu          sync.Mutex
-	dev         *cuda.Device
-	checkLease  func() bool
-	closed      bool
-	identity    string
-	k, n        int
-	grid, block [3]uint32
-	raw         driver.Module
-	module      *cuda.Module
-	kernel      *cuda.Kernel
-	stream      *cuda.Stream
-	events      [2]driver.Event
-	a, b        cudamem.Slice[uint16]
-	out         cudamem.Slice[float32]
-	args        []any
+	memory        *memoryBudget
+	releaseMemory func()
+	deviceBytes   int64
+	preparation   []PreparationPhase
+	mu            sync.Mutex
+	dev           *cuda.Device
+	checkLease    func() bool
+	closed        bool
+	identity      string
+	k, n          int
+	grid, block   [3]uint32
+	raw           driver.Module
+	module        *cuda.Module
+	kernel        *cuda.Kernel
+	stream        *cuda.Stream
+	events        [2]driver.Event
+	a, b          cudamem.Slice[uint16]
+	out           cudamem.Slice[float32]
+	args          []any
 }
 
 func (x *prefillExecutable) Identity() string { return x.identity }
@@ -225,6 +234,11 @@ func (x *prefillExecutable) Outputs(ctx context.Context) (map[string][]float32, 
 	if _, err := x.run(ctx, false); err != nil {
 		return nil, err
 	}
+	reservation, err := reserveSearchMemory(ctx, int64(x.out.Len())*4)
+	if err != nil {
+		return nil, err
+	}
+	defer reservation.release()
 	data := make([]float32, x.out.Len())
 	if err := x.out.CopyToHost(data); err != nil {
 		x.closed = true
@@ -240,6 +254,11 @@ func (x *prefillExecutable) Run(ctx context.Context) (cudatrial.Receipt, error) 
 func (x *prefillExecutable) run(ctx context.Context, measure bool) (r cudatrial.Receipt, err error) {
 	return x.runWith(ctx, measure, prefillRunOps{
 		poison: func() error {
+			reservation, err := reserveSearchMemory(ctx, int64(x.out.Len())*4)
+			if err != nil {
+				return err
+			}
+			defer reservation.release()
 			data := make([]float32, x.out.Len())
 			for i := range data {
 				data[i] = float32(math.NaN())
@@ -370,6 +389,11 @@ func (x *prefillExecutable) Close() error {
 		if err := free(); err != nil {
 			return err
 		}
+	}
+	if x.releaseMemory != nil {
+		x.releaseMemory()
+		x.releaseMemory = nil
+		x.deviceBytes = 0
 	}
 	return nil
 }

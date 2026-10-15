@@ -32,9 +32,12 @@ func makeTestState() (*egraph.SearchState, []*egraph.Rewrite) {
 // TestBadCandidateRejected verifies that a candidate failing numerical verification or execution is rejected.
 func TestBadCandidateRejected(t *testing.T) {
 	state, rules := makeTestState()
+	budget := cudasearch.DefaultBudget()
+	// FailCandidate only compares an operator string; it allocates no owned storage.
+	budget.CallbackMemoryBytes = 1
 	beam := cudasearch.NewBeamSearch(cudasearch.BeamConfig{
 		BeamWidth: 2,
-		Budget:    cudasearch.DefaultBudget(),
+		Budget:    budget,
 	})
 
 	eval := &cudasearch.MockEvaluator{
@@ -392,6 +395,8 @@ func TestUCTRewardDirection(t *testing.T) {
 func TestFailedRolloutNotWinner(t *testing.T) {
 	state, rules := makeTestState()
 	cfg := cudasearch.DefaultMCTSConfig()
+	// FailCandidate only compares the operator string and allocates no owned storage.
+	cfg.Budget.CallbackMemoryBytes = 1
 	cfg.Iterations = 15
 
 	eval := &cudasearch.MockEvaluator{

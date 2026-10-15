@@ -16,7 +16,7 @@ func validateSearchBudget(b SearchBudget) error {
 		{"states", int64(b.MaxStates)}, {"depth", int64(b.MaxDepth)},
 		{"nodes per state", int64(b.MaxNodesPerState)}, {"classes per state", int64(b.MaxClassesPerState)},
 		{"actions", int64(b.MaxActions)}, {"total actions", int64(b.MaxTotalActions)},
-		{"memory", b.MaxMemoryBytes}, {"evaluations", int64(b.MaxEvaluations)},
+		{"memory", b.MaxMemoryBytes}, {"callback memory", b.CallbackMemoryBytes}, {"evaluations", int64(b.MaxEvaluations)},
 		{"extractions", int64(b.MaxExtractions)}, {"compilations", int64(b.MaxCompilations)},
 		{"extraction work", int64(b.MaxExtractionWork)},
 		{"timeout", int64(b.Timeout)},
@@ -41,6 +41,8 @@ func admitGraphBudget(s *egraph.SearchState, b SearchBudget) error {
 
 // workBudget belongs to one sequential Search call, including its rollouts.
 type workBudget struct {
+	memory                            *memoryBudget
+	callbackMemory                    int64
 	extractionWork, maxExtractionWork int
 	extractions, compilations         int
 	maxExtractions, maxCompilations   int
@@ -50,7 +52,7 @@ type workBudget struct {
 }
 
 func searchWorkBudget(ctx context.Context, b SearchBudget, eval Evaluator) (context.Context, *workBudget, error) {
-	w := &workBudget{maxExtractions: b.MaxExtractions, maxCompilations: b.MaxCompilations}
+	w := &workBudget{memory: &memoryBudget{limit: b.MaxMemoryBytes}, callbackMemory: b.CallbackMemoryBytes, maxExtractions: b.MaxExtractions, maxCompilations: b.MaxCompilations}
 	w.maxExtractionWork = b.MaxExtractionWork
 	switch e := eval.(type) {
 	case *ExecutableEvaluator:
@@ -62,6 +64,7 @@ func searchWorkBudget(ctx context.Context, b SearchBudget, eval Evaluator) (cont
 	if (b.MaxExtractions > 0 || b.MaxCompilations > 0 || b.MaxExtractionWork > 0) && !w.known {
 		return ctx, nil, fmt.Errorf("cudasearch: evaluator does not support extraction and compilation budgets")
 	}
+	ctx = context.WithValue(ctx, memoryBudgetKey{}, w.memory)
 	return context.WithValue(ctx, workBudgetKey{}, w), w, nil
 }
 

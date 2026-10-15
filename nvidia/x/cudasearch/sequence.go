@@ -89,6 +89,10 @@ func (x *sequenceExecutable) addBuffer(name string, layout cudalayout.Tile) erro
 }
 
 func (x *sequenceExecutable) allocateBuffer(name string, layout cudalayout.Tile) error {
+	return x.allocateBufferWith(name, layout, func(size int) (cudamem.Slice[byte], error) { return cudamem.Alloc[byte](x.dev, size) })
+}
+
+func (x *sequenceExecutable) allocateBufferWith(name string, layout cudalayout.Tile, allocate func(int) (cudamem.Slice[byte], error)) error {
 	if _, ok := x.buffers[name]; ok {
 		return fmt.Errorf("cudasearch: duplicate sequence buffer %q", name)
 	}
@@ -96,7 +100,15 @@ func (x *sequenceExecutable) allocateBuffer(name string, layout cudalayout.Tile)
 	if err != nil {
 		return err
 	}
-	b, err := cudamem.Alloc[byte](x.dev, size)
+	r, err := x.memory.reserve(int64(size))
+	if err != nil {
+		return err
+	}
+	if x.memoryReservations == nil {
+		x.memoryReservations = make(map[string]*memoryReservation)
+	}
+	x.memoryReservations[name] = r
+	b, err := allocate(size)
 	x.buffers[name] = b
 	x.bufferOrder = append(x.bufferOrder, name)
 	if err != nil {
@@ -109,20 +121,22 @@ func (x *sequenceExecutable) allocateBuffer(name string, layout cudalayout.Tile)
 }
 
 type sequenceExecutable struct {
-	preparation []PreparationPhase
-	mu          sync.Mutex
-	dev         *cuda.Device
-	checkLease  func() bool
-	closed      bool
-	identity    string
-	launches    []sequenceLaunch
-	outputs     []sequenceOutput
-	poison      []string
-	bufferOrder []string
-	stages      []sequenceStage
-	stream      *cuda.Stream
-	events      [2]driver.Event
-	buffers     map[string]cudamem.Slice[byte]
+	memory             *memoryBudget
+	memoryReservations map[string]*memoryReservation
+	preparation        []PreparationPhase
+	mu                 sync.Mutex
+	dev                *cuda.Device
+	checkLease         func() bool
+	closed             bool
+	identity           string
+	launches           []sequenceLaunch
+	outputs            []sequenceOutput
+	poison             []string
+	bufferOrder        []string
+	stages             []sequenceStage
+	stream             *cuda.Stream
+	events             [2]driver.Event
+	buffers            map[string]cudamem.Slice[byte]
 }
 
 func (x *sequenceExecutable) Identity() string                { return x.identity }
@@ -143,6 +157,26 @@ func (x *sequenceExecutable) Outputs(ctx context.Context) (map[string][]float32,
 	if _, err := x.run(ctx, false); err != nil {
 		return nil, err
 	}
+	var hostBytes int64
+	for _, output := range x.outputs {
+		scale := int64(2)
+		if output.bytes {
+			scale = 5
+		}
+		bytes, err := memoryProduct(x.buffers[output.buffer].Len(), scale)
+		if err != nil {
+			return nil, err
+		}
+		if bytes < 0 || bytes > math.MaxInt64-hostBytes {
+			return nil, ErrMemoryBudgetExceeded
+		}
+		hostBytes += bytes
+	}
+	host, err := reserveSearchMemory(ctx, hostBytes)
+	if err != nil {
+		return nil, err
+	}
+	defer host.release()
 	out := make(map[string][]float32)
 	for _, output := range x.outputs {
 		buffer := x.buffers[output.buffer]
@@ -187,6 +221,11 @@ func (x *sequenceExecutable) run(ctx context.Context, measure bool) (r cudatrial
 				if !ok {
 					continue
 				}
+				reservation, err := reserveSearchMemory(ctx, int64(b.Len()))
+				if err != nil {
+					return err
+				}
+				defer reservation.release()
 				data := make([]byte, b.Len())
 				for i := range data {
 					data[i] = 0xa5
@@ -325,11 +364,20 @@ func (x *sequenceExecutable) Close() error {
 	for i := len(x.bufferOrder) - 1; i >= 0; i-- {
 		name := x.bufferOrder[i]
 		if b, ok := x.buffers[name]; ok {
-			if err := b.Free(); err != nil {
+			if err := x.freeBuffer(name, b.Free); err != nil {
 				return err
 			}
-			delete(x.buffers, name)
 		}
 	}
+	return nil
+}
+
+func (x *sequenceExecutable) freeBuffer(name string, free func() error) error {
+	if err := free(); err != nil {
+		return err
+	}
+	delete(x.buffers, name)
+	x.memoryReservations[name].release()
+	delete(x.memoryReservations, name)
 	return nil
 }

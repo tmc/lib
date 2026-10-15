@@ -41,8 +41,11 @@ type SearchResult struct {
 	Compilations     int
 	WorkAccounted    bool // False means evaluator extraction/compile counts are unknown.
 	ActionsAttempted int  // Includes unsuccessful and no-op transitions.
-	AccountedBytes   int64
-	Duration         time.Duration
+	// AccountedBytes is the peak of conservative storage reservations during
+	// Search. State reservations remain charged through the search, including
+	// pruned states, so it can exceed the actual live storage. See SearchBudget.
+	AccountedBytes int64
+	Duration       time.Duration
 }
 
 // CandidateRejection retains a failed evaluation and its exact transition path.

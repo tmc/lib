@@ -219,7 +219,7 @@ func (c *NormQuantCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Wo
 	if !c.checkLease() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
-	x := &sequenceExecutable{dev: c.dev, checkLease: c.checkLease, closed: true, buffers: make(map[string]cudamem.Slice[byte]), poison: []string{"norm", "output"}, outputs: []sequenceOutput{{buffer: "output", name: "q8_bytes", bytes: true}}}
+	x := &sequenceExecutable{memory: searchMemoryBudget(ctx), dev: c.dev, checkLease: c.checkLease, closed: true, buffers: make(map[string]cudamem.Slice[byte]), poison: []string{"norm", "output"}, outputs: []sequenceOutput{{buffer: "output", name: "q8_bytes", bytes: true}}}
 	x.preparation = c.Preparation()
 	if c.w.MaterializeNorm {
 		x.outputs = append(x.outputs, sequenceOutput{buffer: "norm", name: "norm"})

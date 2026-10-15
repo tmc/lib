@@ -14,6 +14,7 @@ func TestGraphBudgetBeforeEvaluation(t *testing.T) {
 			t.Run(strategy+"/"+kind, func(t *testing.T) {
 				s, rules := beamContractState()
 				budget := DefaultBudget()
+				budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 				wantCalls := 1
 				switch kind {
 				case "initial_nodes":

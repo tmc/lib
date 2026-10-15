@@ -62,12 +62,13 @@ type ExecutableEvaluator struct {
 	// HardwareLockChecker must verify a live lease, not only an environment flag.
 	HardwareLockChecker func() bool
 	// Receipts and Comparison retain the last attempt, including failures.
-	Receipts        []cudatrial.Receipt
-	Comparison      map[string]OutputComparison
-	Preparation     map[string][]PreparationPhase
-	pending         []Executable
-	attemptIdentity string
-	comparisonArm   string
+	Receipts           []cudatrial.Receipt
+	Comparison         map[string]OutputComparison
+	Preparation        map[string][]PreparationPhase
+	pending            []Executable
+	memoryReservations []*memoryReservation
+	attemptIdentity    string
+	comparisonArm      string
 }
 
 // Close retries destruction of candidates retained after cleanup failure.
@@ -79,6 +80,10 @@ func (e *ExecutableEvaluator) Close() error {
 		}
 		e.pending = e.pending[1:]
 	}
+	for _, reservation := range e.memoryReservations {
+		reservation.release()
+	}
+	e.memoryReservations = nil
 	return nil
 }
 
@@ -130,6 +135,11 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if e.HardwareLockChecker == nil || !e.HardwareLockChecker() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
+	baselineMemory, memoryErr := reserveBorrowedExecutable(ctx, e.Baseline)
+	if memoryErr != nil {
+		return nil, memoryErr
+	}
+	defer baselineMemory.release()
 	model := e.CostModel
 	if model == nil {
 		model = egraph.AstSizeCost{}
@@ -144,7 +154,20 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 		if err != nil {
 			return nil, err
 		}
-		derivation = s.Clone().Derivation
+		derivationBytes, memoryErr := storageBytes(s.Derivation)
+		if memoryErr != nil && searchMemoryBudget(ctx) != nil && searchMemoryBudget(ctx).limit > 0 {
+			return nil, memoryErr
+		}
+		pathMemory, memoryErr := reserveSearchMemory(ctx, derivationBytes)
+		if memoryErr != nil {
+			return nil, memoryErr
+		}
+		defer pathMemory.release()
+		derivation = append([]egraph.Action(nil), s.Derivation...)
+		for i := range derivation {
+			derivation[i].Subst = maps.Clone(derivation[i].Subst)
+			derivation[i].Binding = maps.Clone(derivation[i].Binding)
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err

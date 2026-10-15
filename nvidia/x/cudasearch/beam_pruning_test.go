@@ -35,6 +35,7 @@ func TestBeamTemporaryCostIncrease(t *testing.T) {
 			return &CandidatePlan{Validated: true, Cost: cost, CostSource: CostEstimated, Derivation: append([]egraph.Action(nil), state.Derivation...)}, nil
 		})
 		budget := DefaultBudget()
+		budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 		budget.MaxDepth = 2
 		result, err := NewBeamSearch(BeamConfig{BeamWidth: tc.width, Budget: budget}).Search(context.Background(), s, rules, eval)
 		if err != nil {

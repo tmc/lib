@@ -59,7 +59,9 @@ func TestBeamRetainsBestAfterStop(t *testing.T) {
 			cfg := BeamConfig{Budget: SearchBudget{MaxStates: 10, MaxDepth: 2, MaxEvaluations: 10}}
 			switch kind {
 			case "memory":
-				cfg.Budget.MaxMemoryBytes = estimateStateMemory(s)
+				cfg.Budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(cfg.Budget.MaxDepth)
+				candidateBytes, _ := storageBytes(&CandidatePlan{ID: "baseline", Cost: 10, Validated: true})
+				cfg.Budget.MaxMemoryBytes = estimateStateMemory(s) + candidateBytes + cfg.Budget.CallbackMemoryBytes
 			case "states":
 				cfg.Budget.MaxStates = 1
 			case "evaluations":

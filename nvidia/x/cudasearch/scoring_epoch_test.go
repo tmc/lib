@@ -25,6 +25,8 @@ func TestSearchFreezesScoring(t *testing.T) {
 				return nil
 			}
 			budget := DefaultBudget()
+			// Reset mutates caller-owned captures and returns nil.
+			budget.CallbackMemoryBytes = 1
 			budget.MaxStates, budget.MaxEvaluations = 2, 2
 			search := func() (*SearchResult, error) {
 				if strategy == "beam" {

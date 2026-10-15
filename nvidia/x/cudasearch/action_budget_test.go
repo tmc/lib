@@ -19,6 +19,7 @@ func TestSearchTotalActionBudget(t *testing.T) {
 					rules = append(rules, egraph.MustRewrite("deeper", "alternative", "deeper"))
 				}
 				budget := DefaultBudget()
+				budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 				budget.MaxTotalActions = 1
 				calls := 0
 				eval := beamEvaluatorFunc(func(context.Context, *egraph.SearchState, egraph.Id) (*CandidatePlan, error) {

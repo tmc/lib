@@ -24,6 +24,7 @@ func TestProfileActionsReachBothStrategies(t *testing.T) {
 			rules := []*egraph.Rewrite{egraph.MustRewrite("a", "base", "first"), egraph.MustRewrite("z", "base", "preferred")}
 			profile := actionProfile()
 			budget := DefaultBudget()
+			budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 			budget.MaxStates = 2
 			budget.MaxEvaluations = 2
 			eval := beamEvaluatorFunc(func(_ context.Context, s *egraph.SearchState, _ egraph.Id) (*CandidatePlan, error) {
@@ -78,6 +79,7 @@ func TestProfileActionsFallback(t *testing.T) {
 			}
 			s, rules := beamContractState()
 			budget := DefaultBudget()
+			budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 			budget.MaxStates, budget.MaxEvaluations = 2, 2
 			result, err := NewBeamSearch(BeamConfig{Budget: budget, Profile: p}).Search(context.Background(), s, rules, &MockEvaluator{})
 			if err != nil || result.ProfileFallback == "" || result.ProfileGuidance != nil || result.Evaluations != 2 {
@@ -94,6 +96,7 @@ func ExampleProfileActions() {
 	state, rules := beamContractState()
 	profile.Priors[0].Rule = "alternative"
 	budget := DefaultBudget()
+	budget.CallbackMemoryBytes = fixtureCallbackMemoryBytes(budget.MaxDepth)
 	budget.MaxStates, budget.MaxEvaluations = 2, 2
 	result, err := NewBeamSearch(BeamConfig{Budget: budget, Profile: profile}).Search(context.Background(), state, rules, &MockEvaluator{})
 	if err != nil {
