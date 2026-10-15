@@ -14,10 +14,11 @@ import (
 // releaseNames are the methods whose error a cleanup path must report:
 // the exported ones and the private release methods behind them
 // (stepTimer.close, GPUModules.close, GPUScratchpad.release,
-// deviceWeight.release, GPUModelWeights.free, and the unload functions
-// GPUModules.close takes). The check matches names, not types, so a
-// method by one of these names that returns no error is matched too and
-// must be allowed below.
+// deviceWeight.release, GPUModelWeights.free, and an unload method). The
+// check matches names, not types, so a method by one of these names that
+// returns no error is matched too and must be allowed below. The release
+// functions those private methods take as arguments are called as
+// function values, which errorFuncCalls finds instead.
 var releaseNames = map[string]bool{
 	"Close": true, "Free": true, "Synchronize": true, "CtxSynchronize": true,
 	"Reset": true, "close": true, "release": true, "free": true, "unload": true,
@@ -46,29 +47,138 @@ type discard struct {
 }
 
 // isReleaseCall reports whether e, ignoring parentheses, calls a method
-// named in releaseNames.
-func isReleaseCall(e ast.Expr) bool {
+// named in releaseNames or is one of the function value calls in byValue.
+func isReleaseCall(e ast.Expr, byValue map[*ast.CallExpr]bool) bool {
 	call, ok := ast.Unparen(e).(*ast.CallExpr)
 	if !ok {
 		return false
+	}
+	if byValue[call] {
+		return true
 	}
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	return ok && releaseNames[sel.Sel.Name]
 }
 
-// discardedReleases parses src and returns the number of release calls in
-// it and the statements that drop a release error: a deferred or go
-// statement calling it, an expression statement calling it, an assignment
-// of its result to blanks only, an if statement whose initializer assigns
-// its error to a variable the condition does not test, and an assignment
-// of its error to a variable that a later statement in the same list
-// assigns again before anything reads it (see overwrites).
-func discardedReleases(name string, src []byte) (calls int, bad []discard, err error) {
+// returnsError reports whether typ is a function type whose last result
+// is error, or names such a type in funcTypes.
+func returnsError(typ ast.Expr, funcTypes map[string]bool) bool {
+	if id, ok := typ.(*ast.Ident); ok {
+		return funcTypes[id.Name]
+	}
+	ft, ok := typ.(*ast.FuncType)
+	if !ok || ft.Results == nil || len(ft.Results.List) == 0 {
+		return false
+	}
+	id, ok := ft.Results.List[len(ft.Results.List)-1].Type.(*ast.Ident)
+	return ok && id.Name == "error"
+}
+
+// errorFuncCalls returns the calls in f whose callee is a bare identifier
+// naming a function value that returns an error: a parameter of an
+// enclosing function or function literal, or a variable the enclosing
+// function declares with such a type or initializes with such a literal.
+// The release functions passed to GPUScratchpad.release,
+// GPUModelWeights.free, GPUModules.close and stepTimer.build are called
+// this way. Types are read from the syntax, not type-checked: a named
+// function type counts only if f declares it at top level, and a local
+// counts throughout the function that declares it, so the result errs
+// toward including a call.
+func errorFuncCalls(f *ast.File) map[*ast.CallExpr]bool {
+	funcTypes := make(map[string]bool)
+	for _, d := range f.Decls {
+		if gd, ok := d.(*ast.GenDecl); ok && gd.Tok == token.TYPE {
+			for _, s := range gd.Specs {
+				if ts := s.(*ast.TypeSpec); returnsError(ts.Type, nil) {
+					funcTypes[ts.Name.Name] = true
+				}
+			}
+		}
+	}
+	calls := make(map[*ast.CallExpr]bool)
+	var walk func(n ast.Node, names map[string]bool)
+	walk = func(n ast.Node, names map[string]bool) {
+		ast.Inspect(n, func(n ast.Node) bool {
+			var typ *ast.FuncType
+			var body *ast.BlockStmt
+			switch n := n.(type) {
+			case *ast.CallExpr:
+				if id, ok := n.Fun.(*ast.Ident); ok && names[id.Name] {
+					calls[n] = true
+				}
+				return true
+			case *ast.FuncDecl:
+				typ, body = n.Type, n.Body
+			case *ast.FuncLit:
+				typ, body = n.Type, n.Body
+			default:
+				return true
+			}
+			if body == nil {
+				return false
+			}
+			inner := make(map[string]bool)
+			for k, v := range names {
+				inner[k] = v
+			}
+			for _, p := range typ.Params.List {
+				for _, id := range p.Names {
+					inner[id.Name] = returnsError(p.Type, funcTypes)
+				}
+			}
+			ast.Inspect(body, func(n ast.Node) bool {
+				switch s := n.(type) {
+				case *ast.FuncLit:
+					return false
+				case *ast.AssignStmt:
+					if s.Tok != token.DEFINE || len(s.Lhs) != len(s.Rhs) {
+						break
+					}
+					for i, l := range s.Lhs {
+						id, ok := l.(*ast.Ident)
+						lit, isLit := s.Rhs[i].(*ast.FuncLit)
+						if ok && isLit && returnsError(lit.Type, funcTypes) {
+							inner[id.Name] = true
+						}
+					}
+				case *ast.ValueSpec:
+					for i, id := range s.Names {
+						if s.Type != nil && returnsError(s.Type, funcTypes) {
+							inner[id.Name] = true
+						} else if i < len(s.Values) {
+							if lit, ok := s.Values[i].(*ast.FuncLit); ok && returnsError(lit.Type, funcTypes) {
+								inner[id.Name] = true
+							}
+						}
+					}
+				}
+				return true
+			})
+			walk(body, inner)
+			return false
+		})
+	}
+	walk(f, nil)
+	return calls
+}
+
+// discardedReleases parses src and returns the number of calls to a
+// method named in releaseNames, the number of calls of an error-returning
+// function value (see errorFuncCalls), and the statements that drop the
+// error of either: a deferred or go statement calling it, an expression
+// statement calling it, an assignment of its result to blanks only, an if
+// statement whose initializer assigns its error to a variable the
+// condition does not test, and an assignment of its error to a variable
+// that a later statement in the same list assigns again before anything
+// reads it (see overwrites).
+func discardedReleases(name string, src []byte) (calls, valueCalls int, bad []discard, err error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, 0)
 	if err != nil {
-		return 0, nil, err
+		return 0, 0, nil, err
 	}
+	byValue := errorFuncCalls(f)
+	isRelease := func(e ast.Expr) bool { return isReleaseCall(e, byValue) }
 	flag := func(s ast.Stmt) {
 		text := string(src[fset.Position(s.Pos()).Offset:fset.Position(s.End()).Offset])
 		bad = append(bad, discard{key: name + ": " + text, pos: fset.Position(s.Pos()).String()})
@@ -76,7 +186,7 @@ func discardedReleases(name string, src []byte) (calls int, bad []discard, err e
 	flagOverwritten := func(list []ast.Stmt) {
 		for i, s := range list {
 			as, ok := s.(*ast.AssignStmt)
-			if !ok || len(as.Rhs) != 1 || !isReleaseCall(as.Rhs[0]) {
+			if !ok || len(as.Rhs) != 1 || !isRelease(as.Rhs[0]) {
 				continue
 			}
 			if v, ok := as.Lhs[len(as.Lhs)-1].(*ast.Ident); ok && v.Name != "_" && overwrites(list[i+1:], v.Name) {
@@ -87,26 +197,28 @@ func discardedReleases(name string, src []byte) (calls int, bad []discard, err e
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch s := n.(type) {
 		case *ast.CallExpr:
-			if isReleaseCall(s) {
+			if byValue[s] {
+				valueCalls++
+			} else if isRelease(s) {
 				calls++
 			}
 		case *ast.DeferStmt:
-			if isReleaseCall(s.Call) {
+			if isRelease(s.Call) {
 				flag(s)
 			}
 		case *ast.GoStmt:
-			if isReleaseCall(s.Call) {
+			if isRelease(s.Call) {
 				flag(s)
 			}
 		case *ast.ExprStmt:
-			if isReleaseCall(s.X) {
+			if isRelease(s.X) {
 				flag(s)
 			}
 		case *ast.AssignStmt:
 			if !slices.ContainsFunc(s.Lhs, func(e ast.Expr) bool {
 				id, ok := e.(*ast.Ident)
 				return !ok || id.Name != "_"
-			}) && slices.ContainsFunc(s.Rhs, isReleaseCall) {
+			}) && slices.ContainsFunc(s.Rhs, isRelease) {
 				flag(s)
 			}
 		case *ast.BlockStmt:
@@ -117,7 +229,7 @@ func discardedReleases(name string, src []byte) (calls int, bad []discard, err e
 			flagOverwritten(s.Body)
 		case *ast.IfStmt:
 			init, ok := s.Init.(*ast.AssignStmt)
-			if !ok || len(init.Rhs) != 1 || !isReleaseCall(init.Rhs[0]) {
+			if !ok || len(init.Rhs) != 1 || !isRelease(init.Rhs[0]) {
 				break
 			}
 			if v, ok := init.Lhs[len(init.Lhs)-1].(*ast.Ident); ok && v.Name != "_" && !mentions(s.Cond, v.Name) {
@@ -126,7 +238,7 @@ func discardedReleases(name string, src []byte) (calls int, bad []discard, err e
 		}
 		return true
 	})
-	return calls, bad, nil
+	return calls, valueCalls, bad, nil
 }
 
 // overwrites reports whether the first statement in list that mentions
@@ -175,7 +287,8 @@ func unallowed(discards []discard, allowed map[string]int) (bad, stale []string)
 
 // TestReleaseErrorsReported checks every .go file in the package, whatever
 // its build constraints, for a statement that drops the error of a call to
-// a method named in releaseNames.
+// a method named in releaseNames or of an error-returning function value.
+// It is a source-shape check, not a behaviour test.
 func TestReleaseErrorsReported(t *testing.T) {
 	entries, err := os.ReadDir(".")
 	if err != nil {
@@ -183,6 +296,7 @@ func TestReleaseErrorsReported(t *testing.T) {
 	}
 	var discards []discard
 	perFile := make(map[string]int)
+	perFileValue := make(map[string]int)
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") {
 			continue
@@ -191,11 +305,12 @@ func TestReleaseErrorsReported(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		calls, bad, err := discardedReleases(e.Name(), src)
+		calls, valueCalls, bad, err := discardedReleases(e.Name(), src)
 		if err != nil {
 			t.Fatal(err)
 		}
 		perFile[e.Name()] = calls
+		perFileValue[e.Name()] = valueCalls
 		discards = append(discards, bad...)
 	}
 	// The files holding the cleanup paths must have been read and must
@@ -206,6 +321,14 @@ func TestReleaseErrorsReported(t *testing.T) {
 	} {
 		if perFile[name] == 0 {
 			t.Errorf("%s: no release calls found", name)
+		}
+	}
+	// The release functions that GPUScratchpad.release,
+	// GPUModelWeights.free, GPUModules.close and stepTimer.build take
+	// must have been seen as function value calls.
+	for _, name := range []string{"gpu_model.go", "gpu_kernels.go", "steptime.go"} {
+		if perFileValue[name] == 0 {
+			t.Errorf("%s: no function value calls found", name)
 		}
 	}
 	bad, stale := unallowed(discards, discardAllowed)
@@ -325,12 +448,92 @@ func TestDiscardedReleasesControls(t *testing.T) {
 		}`, 1, true},
 	} {
 		src := "package p\nfunc f() error {\n" + tt.body + "\nreturn nil\n}\n"
-		calls, bad, err := discardedReleases("control.go", []byte(src))
+		calls, valueCalls, bad, err := discardedReleases("control.go", []byte(src))
 		if err != nil {
 			t.Fatalf("%s: %v", tt.name, err)
 		}
-		if calls != tt.calls {
-			t.Errorf("%s: %d release calls found, want %d", tt.name, calls, tt.calls)
+		if calls != tt.calls || valueCalls != 0 {
+			t.Errorf("%s: %d release calls and %d function value calls found, want %d and 0", tt.name, calls, valueCalls, tt.calls)
+		}
+		if got := len(bad) > 0; got != tt.bad {
+			t.Errorf("%s: flagged %v, want %v (%v)", tt.name, got, tt.bad, bad)
+		}
+	}
+}
+
+// TestDiscardedFuncValuesControls checks discardedReleases on calls of
+// function values, inside a function whose parameters include
+// error-returning release functions: forms that report the error or call
+// a function value that returns none, and must-fail forms that each drop
+// an error.
+func TestDiscardedFuncValuesControls(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		body   string
+		values int
+		bad    bool
+	}{
+		{"positive control: appended", `
+		errs = append(errs, f32(s))`, 1, false},
+		{"positive control: tested", `
+		if err := release(); err != nil {
+			return err
+		}`, 1, false},
+		{"positive control: joined", `
+		return errors.Join(vec(v), closer())`, 2, false},
+		{"positive control: no error result", `
+		count()`, 0, false},
+		{"positive control: named type with no error result", `
+		n()`, 0, false},
+		{"positive control: local literal with no error result", `
+		fn := func() int { return 0 }
+		fn()`, 0, false},
+		{"positive control: shadowed by a literal parameter", `
+		use(func(f32 func()) { f32() })`, 0, false},
+		{"positive control: package function", `
+		g()`, 0, false},
+		{"expression statement", `
+		f32(&sp.Q)`, 1, true},
+		{"blank assignment", `
+		_ = vec(v)`, 1, true},
+		{"bare defer", `
+		defer release()`, 1, true},
+		{"go statement", `
+		go setup()`, 1, true},
+		{"two results blanked", `
+		_, _ = next(1)`, 1, true},
+		{"two results dropped", `
+		next(1)`, 1, true},
+		{"named type", `
+		closer()`, 1, true},
+		{"in a deferred literal", `
+		defer func() { setup() }()`, 1, true},
+		{"local literal", `
+		undo := func() error { return nil }
+		undo()`, 1, true},
+		{"local variable", `
+		var undo func() error
+		undo()`, 1, true},
+		{"literal parameter", `
+		use(func(free func() error) { free() })`, 1, true},
+		{"if initializer not tested", `
+		if ferr := f32(s); err == nil {
+			err = ferr
+		}`, 1, true},
+		{"assigned, then overwritten", `
+		err = vec(v)
+		err = g()
+		return err`, 1, true},
+	} {
+		src := "package p\ntype releaseFunc func() error\ntype countFunc func() int\n" +
+			"func f(f32, vec func(*S) error, release, setup func() error, next func(int32) (int32, error), count func() int, closer releaseFunc, n countFunc) error {\n" +
+			tt.body + "\nreturn nil\n}\n"
+		calls, values, bad, err := discardedReleases("control.go", []byte(src))
+		if err != nil {
+			t.Fatalf("%s: %v", tt.name, err)
+		}
+		if calls != 0 || values != tt.values {
+			t.Errorf("%s: %d release calls and %d function value calls found, want 0 and %d", tt.name, calls, values, tt.values)
 		}
 		if got := len(bad) > 0; got != tt.bad {
 			t.Errorf("%s: flagged %v, want %v (%v)", tt.name, got, tt.bad, bad)

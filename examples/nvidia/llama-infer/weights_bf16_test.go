@@ -180,8 +180,11 @@ func ownershipFailures(free func(*GPUModelWeights) error) []string {
 
 	log = nil
 	w = fakeModel(&log, false, 0)
-	free(w)
-	free(w)
+	for _, round := range []string{"untied", "untied, repeated"} {
+		if err := free(w); err != nil {
+			bad = append(bad, round+": "+err.Error())
+		}
+	}
 	check("untied, freed twice", log, layer(map[string]int{"embed": 1, "head": 1}))
 
 	log = nil
@@ -197,7 +200,9 @@ func ownershipFailures(free func(*GPUModelWeights) error) []string {
 	if err := free(w); err != nil {
 		bad = append(bad, "retry: "+err.Error())
 	}
-	free(w)
+	if err := free(w); err != nil {
+		bad = append(bad, "repeat after retry: "+err.Error())
+	}
 	check("after retry and repeat", log, layer(map[string]int{"embed": 1, "head": 0}))
 	return bad
 }
