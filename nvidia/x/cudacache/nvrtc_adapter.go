@@ -131,7 +131,7 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 	}
 	if err := checkCompilerArtifact(id, art); err != nil {
 		c.quarantineEntry(key, data, m.ArtifactKey)
-		return nil, false, fmt.Errorf("%w: %v", ErrCorruptArtifact, err)
+		return nil, false, fmt.Errorf("%w: %w", ErrCorruptArtifact, err)
 	}
 	hit, err := c.finishCompilerLookup(key, data, m, id.Provenance)
 	if err != nil || !hit {
@@ -198,7 +198,7 @@ func checkCompilerArtifact(id CompilerIdentity, art *cudakernel.Artifact) error 
 		return fmt.Errorf("cudacache: artifact: %w", err)
 	}
 	if id.TargetArch == "" || id.TargetArch != art.Target {
-		return errors.New("cudacache: artifact target differs from compiler identity")
+		return fmt.Errorf("%w: artifact target %q differs from compiler target %q", ErrIncompatibleTarget, art.Target, id.TargetArch)
 	}
 	valid := false
 	switch id.OutputKind {

@@ -271,33 +271,29 @@ func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artif
 		return nil, ErrNotFound
 	}
 
-	rc, size, err := c.remote.FetchArtifact(ctx, key)
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
+	rc, size, remoteErr := c.remote.FetchArtifact(ctx, key)
+	var remoteData []byte
+	if rc != nil {
+		if remoteErr == nil {
+			if size > c.maxRemoteBytes {
+				remoteErr = fmt.Errorf("%w: remote size %d exceeds limit %d", ErrDownloadLimitExceeded, size, c.maxRemoteBytes)
+			} else {
+				remoteData, remoteErr = io.ReadAll(io.LimitReader(rc, c.maxRemoteBytes+1))
+				if remoteErr != nil {
+					remoteErr = fmt.Errorf("read remote artifact: %w", remoteErr)
+				} else if int64(len(remoteData)) > c.maxRemoteBytes {
+					remoteErr = fmt.Errorf("%w: downloaded %d bytes, exceeds limit %d", ErrDownloadLimitExceeded, len(remoteData), c.maxRemoteBytes)
+				}
+			}
 		}
-		if errors.Is(err, ErrRemoteNotFound) {
-			return nil, ErrNotFound
+		if closeErr := rc.Close(); closeErr != nil {
+			remoteErr = errors.Join(remoteErr, fmt.Errorf("close remote artifact: %w", closeErr))
 		}
-		return nil, fmt.Errorf("%w: %v", ErrRemoteUnavailable, err)
+	} else if remoteErr == nil {
+		remoteErr = errors.New("nil artifact stream")
 	}
-	if rc == nil {
-		return nil, fmt.Errorf("%w: nil artifact stream", ErrRemoteUnavailable)
-	}
-	defer rc.Close()
-
-	if size > c.maxRemoteBytes {
-		return nil, fmt.Errorf("%w: remote size %d exceeds limit %d", ErrDownloadLimitExceeded, size, c.maxRemoteBytes)
-	}
-
-	// Bounded reading to guard against malicious/unbounded streams
-	limitReader := io.LimitReader(rc, c.maxRemoteBytes+1)
-	remoteData, err := io.ReadAll(limitReader)
-	if err != nil {
-		return nil, fmt.Errorf("cudacache: read remote stream: %w", err)
-	}
-	if int64(len(remoteData)) > c.maxRemoteBytes {
-		return nil, fmt.Errorf("%w: downloaded %d bytes, exceeds limit %d", ErrDownloadLimitExceeded, len(remoteData), c.maxRemoteBytes)
+	if err := remoteError(ctx, remoteErr); err != nil {
+		return nil, fmt.Errorf("cudacache: remote artifact: %w", err)
 	}
 
 	if err := c.verifyRemote(ctx, RemoteArtifact, key, remoteData); err != nil {
@@ -324,6 +320,29 @@ func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artif
 	c.memArtifacts[key] = art
 	c.memMu.Unlock()
 	return art, nil
+}
+
+// remoteError preserves provider errors and classifies only transport failures
+// as outages. Cancellation and declared cache outcomes retain their identities.
+func remoteError(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return errors.Join(ctx.Err(), err)
+	}
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	if errors.Is(err, ErrRemoteNotFound) {
+		return fmt.Errorf("%w: %w", ErrNotFound, err)
+	}
+	for _, outcome := range []error{
+		ErrNotFound, ErrDownloadLimitExceeded, ErrCorruptArtifact, ErrCorruptReceipt,
+		ErrUntrustedSource, ErrIncompatibleTarget, ErrUnqualifiedOutcome, ErrRemoteUnavailable,
+	} {
+		if errors.Is(err, outcome) {
+			return err
+		}
+	}
+	return fmt.Errorf("%w: %w", ErrRemoteUnavailable, err)
 }
 
 // loadLocalArtifact runs under publicationMu, including validation and quarantine.
@@ -459,6 +478,9 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 	// Remote check. Callbacks run outside the publication lock.
 	if c.remote != nil {
 		rData, err := c.remote.FetchReceipt(ctx, key)
+		if err == nil && ctx.Err() != nil {
+			err = ctx.Err()
+		}
 		if err == nil {
 			if int64(len(rData)) > c.maxRemoteBytes || int64(len(rData)) > c.maxArtifactBytes {
 				return nil, ErrDownloadLimitExceeded
@@ -492,12 +514,7 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 			c.memMu.Unlock()
 			return cloneReceipt(&receipt)
 		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		if !errors.Is(err, ErrRemoteNotFound) {
-			return nil, fmt.Errorf("cudacache: fetch receipt: %w", err)
-		}
+		return nil, fmt.Errorf("cudacache: fetch receipt: %w", remoteError(ctx, err))
 	}
 
 	return nil, ErrNotFound
