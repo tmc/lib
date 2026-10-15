@@ -62,7 +62,23 @@ type GPUScratchpad struct {
 // NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
 // On error it frees whatever it allocated. If that free fails too, it returns
 // the scratchpad holding the buffers it could not free, with both errors.
-func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (res *GPUScratchpad, err error) {
+func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (*GPUScratchpad, error) {
+	return newGPUScratchpadWith(cfg,
+		func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) },
+		func(n int) (cudamem.Slice[int32], error) { return cudamem.Alloc[int32](dev, n) },
+		freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])
+}
+
+// newGPUScratchpadWith is NewGPUScratchpad with its device operations as
+// arguments: allocF32 and allocI32 allocate n elements, and freeF32 and
+// freeI32 free a buffer, which they must zero only when the free
+// succeeds, as freeOwned does. A buffer an allocation returns with its
+// error is kept, and freed with the rest.
+func newGPUScratchpadWith(cfg *ModelConfig,
+	allocF32 func(n int) (cudamem.Slice[float32], error),
+	allocI32 func(n int) (cudamem.Slice[int32], error),
+	freeF32 func(*cudamem.Slice[float32]) error,
+	freeI32 func(*cudamem.Slice[int32]) error) (res *GPUScratchpad, err error) {
 	headDim := cfg.HeadDim()
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
@@ -73,7 +89,7 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (res *GPUScratchpad, e
 	}
 	defer func() {
 		if err != nil {
-			if ferr := sp.Free(); ferr != nil {
+			if ferr := sp.release(freeF32, freeI32); ferr != nil {
 				err = errors.Join(err, ferr)
 				res = sp
 			}
@@ -95,14 +111,14 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (res *GPUScratchpad, e
 		{&sp.FFNOut, cfg.HiddenSize},
 		{&sp.Logits, cfg.VocabSize},
 	} {
-		if *b.dst, err = cudamem.Alloc[float32](dev, b.n); err != nil {
+		if *b.dst, err = allocF32(b.n); err != nil {
 			return nil, fmt.Errorf("alloc scratch: %w", err)
 		}
 	}
-	if sp.TokenIn, err = cudamem.Alloc[int32](dev, 1); err != nil {
+	if sp.TokenIn, err = allocI32(1); err != nil {
 		return nil, fmt.Errorf("alloc token in: %w", err)
 	}
-	if sp.TokenOut, err = cudamem.Alloc[int32](dev, 1); err != nil {
+	if sp.TokenOut, err = allocI32(1); err != nil {
 		return nil, fmt.Errorf("alloc token out: %w", err)
 	}
 	return sp, nil

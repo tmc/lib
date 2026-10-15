@@ -7,11 +7,15 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"maps"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
+	"unsafe"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -417,6 +421,273 @@ func TestUploadModelWith(t *testing.T) {
 	}
 }
 
+// fakeDeviceSlice returns a cudamem.Slice[T] with device pointer p and
+// nothing allocated behind it, for fakes that never hand it to cudamem.
+// cudamem makes a nonzero Slice only by allocating on a device, so this
+// sets the unexported pointer field; it reports false if there is no such
+// field or Ptr does not then return p.
+func fakeDeviceSlice[T any](p driver.DevicePtr) (cudamem.Slice[T], bool) {
+	var s cudamem.Slice[T]
+	f := reflect.ValueOf(&s).Elem().FieldByName("ptr")
+	if !f.IsValid() || f.Type() != reflect.TypeFor[driver.DevicePtr]() {
+		return s, false
+	}
+	reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem().SetUint(uint64(p))
+	return s, s.Ptr() == p
+}
+
+// fakeScratchDevice provides the device operations newGPUScratchpadWith
+// takes. Allocations of either type are numbered from 1 in call order, and
+// each returns a buffer whose device pointer is its number. The
+// allocFail'th fails, returning its buffer with the error if ownedOnFail is
+// set and a zero buffer otherwise. The first free of the buffer numbered
+// freeFail fails. A free zeroes a buffer only when it succeeds, as
+// freeOwned does.
+type fakeScratchDevice struct {
+	allocFail   int
+	ownedOnFail bool
+	freeFail    driver.DevicePtr
+
+	allocs []string           // "f32 n" or "i32 n" for each allocation of n elements
+	freed  []driver.DevicePtr // buffers freed, in order
+	bad    []string
+}
+
+func fakeScratchAlloc[T any](d *fakeScratchDevice, kind string) func(int) (cudamem.Slice[T], error) {
+	return func(n int) (cudamem.Slice[T], error) {
+		d.allocs = append(d.allocs, fmt.Sprintf("%s %d", kind, n))
+		s, ok := fakeDeviceSlice[T](driver.DevicePtr(len(d.allocs)))
+		if !ok {
+			d.bad = append(d.bad, "cannot make a fake cudamem.Slice")
+		}
+		if len(d.allocs) == d.allocFail {
+			if !d.ownedOnFail {
+				return cudamem.Slice[T]{}, errFakeAlloc
+			}
+			return s, errFakeAlloc
+		}
+		return s, nil
+	}
+}
+
+func fakeScratchFree[T any](d *fakeScratchDevice) func(*cudamem.Slice[T]) error {
+	return func(s *cudamem.Slice[T]) error {
+		p := s.Ptr()
+		if p == 0 {
+			return nil
+		}
+		if p == d.freeFail {
+			d.freeFail = 0
+			return errFakeFree
+		}
+		d.freed = append(d.freed, p)
+		*s = cudamem.Slice[T]{}
+		return nil
+	}
+}
+
+// scratchBuffers returns the device pointer of each of sp's device
+// buffers, by field name.
+func scratchBuffers(sp *GPUScratchpad) map[string]driver.DevicePtr {
+	return map[string]driver.DevicePtr{
+		"X": sp.X.Ptr(), "NormX": sp.NormX.Ptr(), "Q": sp.Q.Ptr(), "K": sp.K.Ptr(), "V": sp.V.Ptr(),
+		"AttnOut": sp.AttnOut.Ptr(), "Gate": sp.Gate.Ptr(), "Up": sp.Up.Ptr(), "FFNAct": sp.FFNAct.Ptr(),
+		"FFNOut": sp.FFNOut.Ptr(), "Logits": sp.Logits.Ptr(),
+		"TokenIn": sp.TokenIn.Ptr(), "TokenOut": sp.TokenOut.Ptr(),
+	}
+}
+
+type scratchpadFunc func(cfg *ModelConfig,
+	allocF32 func(int) (cudamem.Slice[float32], error),
+	allocI32 func(int) (cudamem.Slice[int32], error),
+	freeF32 func(*cudamem.Slice[float32]) error,
+	freeI32 func(*cudamem.Slice[int32]) error) (*GPUScratchpad, error)
+
+// scratchpadFailures returns how newSP departs from newGPUScratchpadWith:
+// each buffer allocated once, with the type and length its role takes
+// under the config, and the host token buffers of length 1; when the kth
+// allocation fails, for every k, nothing allocated after it, the
+// allocation error returned, and every buffer allocated before it freed
+// once, together with a buffer the failed allocation returned; and when a
+// free fails too, both errors and the scratchpad returned, holding only
+// the buffer that could not be freed, which a retry then frees.
+func scratchpadFailures(newSP scratchpadFunc) []string {
+	var bad []string
+	run := func(cfg *ModelConfig, d *fakeScratchDevice) (*GPUScratchpad, error) {
+		sp, err := newSP(cfg, fakeScratchAlloc[float32](d, "f32"), fakeScratchAlloc[int32](d, "i32"),
+			fakeScratchFree[float32](d), fakeScratchFree[int32](d))
+		bad = append(bad, d.bad...)
+		return sp, err
+	}
+	for _, c := range []struct {
+		name                        string
+		cfg                         ModelConfig
+		hidden, q, kv, inter, vocab int
+	}{
+		{"explicit head dim", ModelConfig{HiddenSize: 10, NumAttentionHeads: 4, NumKeyValueHeads: 2, ExplicitHeadDim: 3, IntermediateSize: 14, VocabSize: 17},
+			10, 4 * 3, 2 * 3, 14, 17},
+		{"derived head dim", ModelConfig{HiddenSize: 16, NumAttentionHeads: 4, NumKeyValueHeads: 1, IntermediateSize: 9, VocabSize: 11},
+			16, 4 * 4, 1 * 4, 9, 11},
+	} {
+		f32 := func(n int) string { return fmt.Sprintf("f32 %d", n) }
+		want := map[string]string{
+			"X": f32(c.hidden), "NormX": f32(c.hidden), "Q": f32(c.q), "K": f32(c.kv), "V": f32(c.kv),
+			"AttnOut": f32(c.q), "Gate": f32(c.inter), "Up": f32(c.inter), "FFNAct": f32(c.inter),
+			"FFNOut": f32(c.hidden), "Logits": f32(c.vocab),
+			"TokenIn": "i32 1", "TokenOut": "i32 1",
+		}
+
+		d := &fakeScratchDevice{}
+		sp, err := run(&c.cfg, d)
+		if err != nil || sp == nil {
+			bad = append(bad, fmt.Sprintf("%s: %v, %v", c.name, sp, err))
+			continue
+		}
+		if len(d.allocs) != len(want) || len(d.freed) != 0 {
+			bad = append(bad, fmt.Sprintf("%s: allocated %q and freed %v, want %d allocations and no frees", c.name, d.allocs, d.freed, len(want)))
+		}
+		for name, p := range scratchBuffers(sp) {
+			got := "nothing"
+			if p > 0 && int(p) <= len(d.allocs) {
+				got = d.allocs[p-1]
+			}
+			if got != want[name] {
+				bad = append(bad, fmt.Sprintf("%s: %s holds %s, want %s", c.name, name, got, want[name]))
+			}
+		}
+		if len(sp.HostTokenIn) != 1 || len(sp.HostTokenOut) != 1 {
+			bad = append(bad, fmt.Sprintf("%s: host token buffers of length %d and %d, want 1", c.name, len(sp.HostTokenIn), len(sp.HostTokenOut)))
+		}
+		allocs := d.allocs
+
+		for k := 1; k <= len(allocs); k++ {
+			for _, owned := range []bool{false, true} {
+				name := fmt.Sprintf("%s, allocation %d fails, buffer returned %v", c.name, k, owned)
+				d := &fakeScratchDevice{allocFail: k, ownedOnFail: owned}
+				sp, err := run(&c.cfg, d)
+				if sp != nil || !errors.Is(err, errFakeAlloc) {
+					bad = append(bad, fmt.Sprintf("%s: %v, %v; want no scratchpad and the allocation error", name, sp, err))
+				}
+				if !slices.Equal(d.allocs, allocs[:k]) {
+					bad = append(bad, fmt.Sprintf("%s: allocated %q, want %q", name, d.allocs, allocs[:k]))
+				}
+				freed := upTo(k - 1)
+				if owned {
+					freed = upTo(k)
+				}
+				if got := slices.Sorted(slices.Values(d.freed)); !slices.Equal(got, freed) {
+					bad = append(bad, fmt.Sprintf("%s: freed %v, want %v once each", name, got, freed))
+				}
+			}
+		}
+
+		for _, tt := range []struct {
+			allocFail int
+			owned     bool
+			freeFail  driver.DevicePtr
+		}{
+			{5, false, 2},
+			{len(allocs), false, driver.DevicePtr(len(allocs) - 1)},
+			{len(allocs), true, driver.DevicePtr(len(allocs))},
+			{1, true, 1},
+		} {
+			name := fmt.Sprintf("%s, allocation %d fails, buffer returned %v, free of %d fails", c.name, tt.allocFail, tt.owned, tt.freeFail)
+			d := &fakeScratchDevice{allocFail: tt.allocFail, ownedOnFail: tt.owned, freeFail: tt.freeFail}
+			sp, err := run(&c.cfg, d)
+			bad = append(bad, wantJoined(name, err, errFakeAlloc, errFakeFree)...)
+			if sp == nil {
+				bad = append(bad, name+": no scratchpad, cannot retry")
+				continue
+			}
+			for field, p := range scratchBuffers(sp) {
+				if p != 0 && p != tt.freeFail {
+					bad = append(bad, fmt.Sprintf("%s: %s still holds buffer %d", name, field, p))
+				}
+			}
+			if !slices.Contains(slices.Collect(maps.Values(scratchBuffers(sp))), tt.freeFail) {
+				bad = append(bad, fmt.Sprintf("%s: buffer %d not kept", name, tt.freeFail))
+			}
+			if err := sp.release(fakeScratchFree[float32](d), fakeScratchFree[int32](d)); err != nil {
+				bad = append(bad, fmt.Sprintf("%s: retry: %v", name, err))
+			}
+			freed := upTo(tt.allocFail - 1)
+			if tt.owned {
+				freed = upTo(tt.allocFail)
+			}
+			if got := slices.Sorted(slices.Values(d.freed)); !slices.Equal(got, freed) {
+				bad = append(bad, fmt.Sprintf("%s: freed %v after the retry, want %v once each", name, got, freed))
+			}
+		}
+	}
+	return bad
+}
+
+// upTo returns the device pointers 1 to n.
+func upTo(n int) []driver.DevicePtr {
+	var ps []driver.DevicePtr
+	for p := range n {
+		ps = append(ps, driver.DevicePtr(p+1))
+	}
+	return ps
+}
+
+// TestNewGPUScratchpadWith checks newGPUScratchpadWith with fake device
+// operations. That NewGPUScratchpad passes the real ones is checked by
+// TestDeviceClosures.
+func TestNewGPUScratchpadWith(t *testing.T) {
+	for _, f := range scratchpadFailures(newGPUScratchpadWith) {
+		t.Error(f)
+	}
+	type (
+		allocF32 = func(int) (cudamem.Slice[float32], error)
+		allocI32 = func(int) (cudamem.Slice[int32], error)
+		freeF32  = func(*cudamem.Slice[float32]) error
+		freeI32  = func(*cudamem.Slice[int32]) error
+	)
+	for _, m := range []struct {
+		name string
+		wrap func(scratchpadFunc) scratchpadFunc
+	}{
+		{"N1 scratchpad not freed dropped", func(newSP scratchpadFunc) scratchpadFunc {
+			return func(cfg *ModelConfig, a32 allocF32, a1 allocI32, f32 freeF32, f1 freeI32) (*GPUScratchpad, error) {
+				sp, err := newSP(cfg, a32, a1, f32, f1)
+				if err != nil {
+					return nil, err
+				}
+				return sp, nil
+			}
+		}},
+		{"N2 buffer returned with its error dropped", func(newSP scratchpadFunc) scratchpadFunc {
+			return func(cfg *ModelConfig, a32 allocF32, a1 allocI32, f32 freeF32, f1 freeI32) (*GPUScratchpad, error) {
+				return newSP(cfg, func(n int) (cudamem.Slice[float32], error) {
+					s, err := a32(n)
+					if err != nil {
+						return cudamem.Slice[float32]{}, err
+					}
+					return s, nil
+				}, a1, f32, f1)
+			}
+		}},
+		{"N3 token buffers not freed", func(newSP scratchpadFunc) scratchpadFunc {
+			return func(cfg *ModelConfig, a32 allocF32, a1 allocI32, f32 freeF32, f1 freeI32) (*GPUScratchpad, error) {
+				return newSP(cfg, a32, a1, f32, func(*cudamem.Slice[int32]) error { return nil })
+			}
+		}},
+		{"N4 token buffer of length 2", func(newSP scratchpadFunc) scratchpadFunc {
+			return func(cfg *ModelConfig, a32 allocF32, a1 allocI32, f32 freeF32, f1 freeI32) (*GPUScratchpad, error) {
+				return newSP(cfg, a32, func(n int) (cudamem.Slice[int32], error) { return a1(2 * n) }, f32, f1)
+			}
+		}},
+	} {
+		if len(scratchpadFailures(m.wrap(newGPUScratchpadWith))) == 0 {
+			t.Errorf("must-fail control %s: not detected", m.name)
+		}
+	}
+	if s, ok := fakeDeviceSlice[float32](7); !ok || s.Ptr() != 7 || s.Len() != 0 {
+		t.Errorf("fakeDeviceSlice(7) = %v, %v; want a zero-length slice at 7", s, ok)
+	}
+}
+
 // deviceClosures lists the functions that pass real device operations to a
 // function tested with fakes. Each must be a single return of call, whose
 // string form, as types.ExprString writes it, is call; and each function
@@ -437,6 +708,11 @@ var deviceClosures = []struct {
 		"gpu_model.go", "uploadModel",
 		"uploadModelWith(w, cfg, dtype, (func(host []float32, dtype weightDType) (deviceWeight, error) literal), (func(n int) (cudamem.Slice[float32], error) literal), (*cudamem.Slice[float32]).CopyFromHost, freeOwned[cudamem.Slice[float32]])",
 		[]string{"uploadWeight(dev, %[1]s, %[2]s)", "cudamem.Alloc[float32](dev, %[1]s)"},
+	},
+	{
+		"gpu_model.go", "NewGPUScratchpad",
+		"newGPUScratchpadWith(cfg, (func(n int) (cudamem.Slice[float32], error) literal), (func(n int) (cudamem.Slice[int32], error) literal), freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])",
+		[]string{"cudamem.Alloc[float32](dev, %[1]s)", "cudamem.Alloc[int32](dev, %[1]s)"},
 	},
 }
 
@@ -513,10 +789,11 @@ func singleReturn(body *ast.BlockStmt) ast.Expr {
 	return ret.Results[0]
 }
 
-// TestDeviceClosures checks that uploadWeight and uploadModel pass the
-// real device operations, which no CPU test runs, to the functions tested
-// with fakes: in particular that each allocation closure allocates exactly
-// the length it is asked for. Must-fail controls edit the real source.
+// TestDeviceClosures checks that uploadWeight, uploadModel and
+// NewGPUScratchpad pass the real device operations, which no CPU test
+// runs, to the functions tested with fakes: in particular that each
+// allocation closure allocates exactly the length it is asked for.
+// Must-fail controls edit the real source.
 func TestDeviceClosures(t *testing.T) {
 	srcs := make(map[string]string)
 	for _, d := range deviceClosures {
@@ -535,16 +812,23 @@ func TestDeviceClosures(t *testing.T) {
 			t.Error(f)
 		}
 	}
+	// vec is uploadModel's vector allocator, which NewGPUScratchpad's
+	// float32 allocator repeats word for word.
+	const vec = "return uploadWeight(dev, host, dtype) },\n\t\tfunc(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) }"
 	for _, m := range []struct{ name, file, old, new string }{
 		{"C1 f32 allocates n+1", "weights_bf16.go", "return cudamem.Alloc[float32](dev, n) }", "return cudamem.Alloc[float32](dev, n+1) }"},
 		{"C2 bf16 allocates n+1", "weights_bf16.go", "return cudamem.Alloc[uint16](dev, n) }", "return cudamem.Alloc[uint16](dev, n+1) }"},
 		{"C3 parameter renamed, length fixed", "weights_bf16.go", "func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) }", "func(m int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, len(host)) }"},
-		{"C4 vector allocates n+1", "gpu_model.go", "return cudamem.Alloc[float32](dev, n) }", "return cudamem.Alloc[float32](dev, n+1) }"},
+		{"C4 vector allocates n+1", "gpu_model.go", vec, strings.Replace(vec, "(dev, n) }", "(dev, n+1) }", 1)},
 		{"C5 matrices uploaded as f32", "gpu_model.go", "return uploadWeight(dev, host, dtype) }", "return uploadWeight(dev, host, weightF32) }"},
 		{"C6 vector fill skipped", "gpu_model.go", "(*cudamem.Slice[float32]).CopyFromHost,", "func(*cudamem.Slice[float32], []float32) error { return nil },"},
 		{"C7 vector free does not zero", "gpu_model.go", "\t\tfreeOwned[cudamem.Slice[float32]])\n}", "\t\tfunc(s *cudamem.Slice[float32]) error { return s.Free() })\n}"},
-		{"C8 statement before the return", "gpu_model.go", "{ return cudamem.Alloc[float32](dev, n) }", "{ n++; return cudamem.Alloc[float32](dev, n) }"},
+		{"C8 statement before the return", "gpu_model.go", vec, strings.Replace(vec, "{ return cudamem.Alloc", "{ n++; return cudamem.Alloc", 1)},
 		{"C9 f32 closure size doubled", "weights_bf16.go", "func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) }", "func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, 2*n) }"},
+		{"C10 scratch f32 allocates n+1", "gpu_model.go", "\treturn newGPUScratchpadWith(cfg,\n\t\tfunc(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) }", "\treturn newGPUScratchpadWith(cfg,\n\t\tfunc(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n+1) }"},
+		{"C11 token allocates 2*n", "gpu_model.go", "return cudamem.Alloc[int32](dev, n) }", "return cudamem.Alloc[int32](dev, 2*n) }"},
+		{"C12 token free does not zero", "gpu_model.go", "freeOwned[cudamem.Slice[int32]])\n}", "func(s *cudamem.Slice[int32]) error { return s.Free() })\n}"},
+		{"C13 scratchpad frees dropped", "gpu_model.go", "freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])\n}", "func(*cudamem.Slice[float32]) error { return nil }, freeOwned[cudamem.Slice[int32]])\n}"},
 	} {
 		src := srcs[m.file]
 		if !strings.Contains(src, m.old) {

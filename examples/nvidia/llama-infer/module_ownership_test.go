@@ -144,7 +144,8 @@ const libX = "github.com/tmc/lib/nvidia/x/"
 // and Close on a nil *GPUModules panic, so its release must be guarded by
 // "if owner != nil".
 var ownerReturning = map[string]bool{
-	"uploadModel": true, "uploadModelWith": true, "UploadModelToGPU": true, "NewGPUScratchpad": true,
+	"uploadModel": true, "uploadModelWith": true, "UploadModelToGPU": true,
+	"NewGPUScratchpad": true, "newGPUScratchpadWith": true,
 	"CompileGPUModules": true, "compileGPUModules": true,
 	libX + "cudakv.New": true, libX + "cudamem.Alloc": false,
 }
@@ -246,14 +247,17 @@ var ownerSites = []struct {
 	{ownerSite{"gpu_model.go", "uploadModel", libX + "cudamem.Alloc", "allocator for uploadModelWith"}, 1, "TestUploadModelWith",
 		"uploadModelWith stores what alloc returns in the weights its deferred free releases on error; " +
 			"its fakes return only zero slices, so a nonzero slice returned with an error is not exercised"},
-	{ownerSite{"gpu_model.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "owner field"}, 3, "",
-		"stored in the scratchpad that the deferred Free releases when the allocation error is returned, " +
-			"which storesIntoReleased checks in the source; " +
-			"no CPU test runs it, since NewGPUScratchpad calls cudamem.Alloc with no seam for a fake"},
+	{ownerSite{"gpu_model.go", "NewGPUScratchpad", "newGPUScratchpadWith", "return"}, 1, "",
+		"hands the owner and error to the callers of NewGPUScratchpad, whose calls are checked"},
+	{ownerSite{"gpu_model.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "allocator for newGPUScratchpadWith"}, 2, "TestNewGPUScratchpadWith",
+		"newGPUScratchpadWith stores what each allocator returns, with its error too, in the scratchpad " +
+			"its deferred release frees on error"},
 	{ownerSite{"weights_bf16.go", "uploadWeight", libX + "cudamem.Alloc", "allocator for uploadWeightWith"}, 2, "TestUploadWeightWith",
 		"uploadWeightWith passes it to uploadAs, which returns a nonzero slice with its allocation error " +
 			"(control W1 here, A1 in TestUploadAs)"},
 	{ownerSite{"gpu_model_test.go", "TestUploadModelWith", "uploadModelWith", "value"}, 2, "TestUploadModelWith",
+		"called with fake device operations, so nothing is allocated on a device"},
+	{ownerSite{"gpu_model_test.go", "TestNewGPUScratchpadWith", "newGPUScratchpadWith", "value"}, 2, "TestNewGPUScratchpadWith",
 		"called with fake device operations, so nothing is allocated on a device"},
 }
 
@@ -907,7 +911,7 @@ var ownerCalls = map[string]callCount{
 	"gpu_kernels.go":            {1, 0},
 	"gpu_model.go":              {6, 0},
 	"weights_bf16.go":           {2, 0},
-	"gpu_model_test.go":         {2, 0},
+	"gpu_model_test.go":         {4, 0},
 }
 
 // testFuncs returns the names of the functions declared in the package's
@@ -999,11 +1003,7 @@ func TestCallersReleaseReturnedOwners(t *testing.T) {
 	// moves a reference out of its listed site, or empties one, and is
 	// caught in its file.
 	for _, tt := range []struct{ name, file, from, to string }{
-		{"scratch buffer stored outside the scratchpad", "gpu_model.go", "{&sp.Logits, cfg.VocabSize},", "{&sp2.Logits, cfg.VocabSize},"},
-		{"token buffer stored outside the scratchpad", "gpu_model.go", "if sp.TokenOut, err = cudamem.Alloc", "if sp2.TokenOut, err = cudamem.Alloc"},
-		{"scratchpad released only on success", "gpu_model.go", "\t\tif err != nil {\n\t\t\tif ferr := sp.Free()", "\t\tif err == nil {\n\t\t\tif ferr := sp.Free()"},
-		{"scratchpad release reads a parameter, not the result", "gpu_model.go", "\tdefer func() {\n\t\tif err != nil {\n\t\t\tif ferr := sp.Free()", "\tdefer func(err error) {\n\t\tif err != nil {\n\t\t\tif ferr := sp.Free()"},
-		{"token buffer error swallowed", "gpu_model.go", "return nil, fmt.Errorf(\"alloc token out: %w\", err)", "return nil, nil"},
+		{"scratch allocators handed to another function", "gpu_model.go", "return newGPUScratchpadWith(cfg,", "return newGPUScratchpadWith2(cfg,"},
 		{"delegation moved out of the constructor", "gpu_kernels.go", "return compileGPUModules(dev, ", "return compileGPUModulesAgain(dev, "},
 		{"allocator handed to another function", "weights_bf16.go", "return uploadWeightWith(host, dtype,", "return uploadWeightWith2(host, dtype,"},
 	} {
