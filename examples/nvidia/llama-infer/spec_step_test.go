@@ -6,6 +6,8 @@ import (
 	"hash/fnv"
 	"slices"
 	"testing"
+
+	"github.com/tmc/lib/lm/speculative"
 )
 
 const specVocab = 7
@@ -233,5 +235,167 @@ func TestSpeculativeStepRefuses(t *testing.T) {
 	_, _, _, err = speculativeStep(func(int32, int) (int32, error) { return 0, errFakeFree }, 5, nil, 0, 4, 1)
 	if !errors.Is(err, errFakeFree) {
 		t.Errorf("forward error: got %v", err)
+	}
+}
+
+// counted wraps forward to count its calls in *n.
+func counted(forward func(int32, int) (int32, error), n *int) func(int32, int) (int32, error) {
+	return func(tok int32, pos int) (int32, error) {
+		*n++
+		return forward(tok, pos)
+	}
+}
+
+// cycleModel predicts the token after tok in the cycle 0, 1, 2, 3, 4,
+// except that at positions breakEvery-1 mod breakEvery (if breakEvery > 0)
+// it skips two tokens ahead. It ignores the cache, so its predictions depend
+// only on tok and pos.
+func cycleModel(maxSeq, breakEvery int) func(int32, int) (int32, error) {
+	return func(tok int32, pos int) (int32, error) {
+		if pos < 0 || pos >= maxSeq {
+			return 0, errOutsideCache
+		}
+		if breakEvery > 0 && pos%breakEvery == breakEvery-1 {
+			return (tok + 3) % 5, nil
+		}
+		return (tok + 1) % 5, nil
+	}
+}
+
+// plainGreedy prefills prompt and then decodes greedily without
+// decodeState until steps tokens are emitted or the cache is full.
+func plainGreedy(forward func(int32, int) (int32, error), prompt []int32, maxSeq, steps int) ([]int32, error) {
+	var next int32
+	var err error
+	for pos, tok := range prompt {
+		if next, err = forward(tok, pos); err != nil {
+			return nil, err
+		}
+	}
+	var out []int32
+	for pos := len(prompt); len(out) < steps && pos < maxSeq; pos++ {
+		out = append(out, next)
+		if next, err = forward(next, pos); err != nil {
+			return out, err
+		}
+	}
+	return out, nil
+}
+
+// mainDecode decodes as runGPUInference's decode loop does: it prefills
+// prompt and then decodes with a decodeState, drafting up to draftN tokens
+// per step with an n-gram drafter if draftN > 0. It returns the state, the
+// number of forward calls after the prefill, and the number of tokens
+// emitted by speculative steps.
+func mainDecode(forward func(int32, int) (int32, error), prompt []int32, maxSeq, steps, draftN int) (st *decodeState, forwards, speculated int, err error) {
+	var next int32
+	for pos, tok := range prompt {
+		if next, err = forward(tok, pos); err != nil {
+			return nil, 0, 0, err
+		}
+	}
+	forward = counted(forward, &forwards)
+	var drafter *speculative.NgramDrafter
+	if draftN > 0 {
+		drafter = speculative.NewNgramDrafter(3)
+	}
+	st = newDecodeState(prompt, steps, drafter)
+	pos := len(prompt)
+	for step := 0; step < steps; {
+		if pos >= maxSeq {
+			break
+		}
+		if drafter != nil {
+			emitted, n, p, err := st.speculate(forward, next, draftN, pos, maxSeq, steps-step)
+			if err != nil {
+				return st, forwards, speculated, err
+			}
+			if len(emitted) > 0 {
+				step += len(emitted)
+				speculated += len(emitted)
+				next, pos = n, p
+				continue
+			}
+		}
+		st.emit(next)
+		if next, err = forward(next, pos); err != nil {
+			return st, forwards, speculated, err
+		}
+		pos++
+		step++
+	}
+	return st, forwards, speculated, nil
+}
+
+// draftsDiffer reports the first n-gram over the token values below
+// specVocab from which a and b draft differently, as a witness that their
+// histories differ.
+func draftsDiffer(a, b *speculative.NgramDrafter, maxDraft int) (ngram, da, db []int32, differ bool) {
+	for i := range specVocab * specVocab * specVocab {
+		g := []int32{int32(i / (specVocab * specVocab)), int32(i / specVocab % specVocab), int32(i % specVocab)}
+		da, db = a.Draft(g, maxDraft), b.Draft(g, maxDraft)
+		if !slices.Equal(da, db) {
+			return g, da, db, true
+		}
+	}
+	return nil, nil, nil, false
+}
+
+// TestDecodeStateNgram drives decodeState with the n-gram drafter main uses
+// and checks that the output is plain greedy decoding, that the drafter has
+// been fed exactly the emitted context, and, for a model the drafter can
+// predict, that drafts were taken from the context and then the pending
+// token, so none of them is rejected.
+func TestDecodeStateNgram(t *testing.T) {
+	cycle := []int32{0, 1, 2, 3, 4, 0, 1}
+	for _, tt := range []struct {
+		name          string
+		model         func(maxSeq int) func(int32, int) (int32, error)
+		prompt        []int32
+		maxSeq, steps int
+		draftN        int
+		exact         bool // every draft must be accepted
+	}{
+		{"plain", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 7) }, cycle, 32, 16, 0, false},
+		{"cycle", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 16, 3, true},
+		{"cycle long drafts", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 20, 8, true},
+		{"cycle cache end", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 12, 20, 4, true},
+		{"cycle budget 2", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 2, 4, true},
+		{"cycle with breaks", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 7) }, cycle, 40, 30, 3, false},
+		{"kv hash", func(m int) func(int32, int) (int32, error) { return (&fakeKV{kv: make([]int32, m)}).forward }, []int32{1, 2, 3, 1, 2, 3, 1, 2}, 24, 16, 3, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			want, err := plainGreedy(tt.model(tt.maxSeq), tt.prompt, tt.maxSeq, tt.steps)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st, forwards, speculated, err := mainDecode(tt.model(tt.maxSeq), tt.prompt, tt.maxSeq, tt.steps, tt.draftN)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(st.generated, want) {
+				t.Errorf("generated %v, want %v", st.generated, want)
+			}
+			wantContext := slices.Concat(tt.prompt, want)
+			if !slices.Equal(st.context, wantContext) {
+				t.Errorf("context %v, want %v", st.context, wantContext)
+			}
+			if st.drafter != nil {
+				ref := speculative.NewNgramDrafter(3)
+				ref.Feed(wantContext)
+				if g, got, w, differ := draftsDiffer(st.drafter, ref, tt.maxSeq); differ {
+					t.Errorf("drafter history is not the emitted context: from %v it drafts %v, want %v", g, got, w)
+				}
+			}
+			if tt.exact {
+				if speculated == 0 {
+					t.Errorf("no speculative steps")
+				}
+				if forwards != len(want) {
+					t.Errorf("%d forward calls for %d tokens: drafts were rejected", forwards, len(want))
+				}
+			}
+			t.Logf("%d tokens, %d speculated, %d forward calls", len(want), speculated, forwards)
+		})
 	}
 }

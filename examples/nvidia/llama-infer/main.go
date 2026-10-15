@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -340,17 +339,18 @@ func runGPUInference(
 
 	// Decode Phase
 	curPos := len(promptTokens)
-	generatedTokens := make([]int32, 0, *stepsFlag)
 
 	// Speculative decoding initialization
 	var drafter *speculative.NgramDrafter
 	if *specDraftFlag > 0 {
 		drafter = speculative.NewNgramDrafter(3)
-		drafter.Feed(promptTokens)
 		fmt.Printf("[Speculative Decoding] N-gram drafter active (budget: %d tokens/step)\n", *specDraftFlag)
 	}
+	st := newDecodeState(promptTokens, *stepsFlag, drafter)
+	forward := func(tok int32, pos int) (int32, error) {
+		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
+	}
 
-	allContextTokens := append([]int32(nil), promptTokens...)
 	tGen0 := time.Now()
 
 	for step := 0; step < *stepsFlag; {
@@ -358,21 +358,13 @@ func runGPUInference(
 			break
 		}
 
-		if drafter != nil && *specDraftFlag > 0 {
-			// Drafts follow the pending token, which is fed first.
-			drafts := drafter.Draft(append(slices.Clip(allContextTokens), nextTokID), *specDraftFlag)
-			if len(drafts) > 0 {
-				forward := func(tok int32, pos int) (int32, error) {
-					return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
-				}
-				emit, next, pos, err := speculativeStep(forward, nextTokID, drafts, curPos, cfg.MaxSeqLen, *stepsFlag-step)
-				if err != nil {
-					return fmt.Errorf("speculative step at position %d: %w", curPos, err)
-				}
-				for _, tok := range emit {
-					generatedTokens = append(generatedTokens, tok)
-					allContextTokens = append(allContextTokens, tok)
-					drafter.Feed([]int32{tok})
+		if drafter != nil {
+			emitted, next, pos, err := st.speculate(forward, nextTokID, *specDraftFlag, curPos, cfg.MaxSeqLen, *stepsFlag-step)
+			if err != nil {
+				return fmt.Errorf("speculative step at position %d: %w", curPos, err)
+			}
+			if len(emitted) > 0 {
+				for _, tok := range emitted {
 					chunk, _ := tokenizer.Decode([]int32{tok})
 					fmt.Print(chunk)
 					step++
@@ -382,11 +374,7 @@ func runGPUInference(
 			}
 		}
 
-		generatedTokens = append(generatedTokens, nextTokID)
-		allContextTokens = append(allContextTokens, nextTokID)
-		if drafter != nil {
-			drafter.Feed([]int32{nextTokID})
-		}
+		st.emit(nextTokID)
 		chunk, _ := tokenizer.Decode([]int32{nextTokID})
 		fmt.Print(chunk)
 
@@ -417,10 +405,10 @@ func runGPUInference(
 
 	genDuration := time.Since(tGen0)
 
-	tokensPerSec := float64(len(generatedTokens)) / genDuration.Seconds()
+	tokensPerSec := float64(len(st.generated)) / genDuration.Seconds()
 	fmt.Printf("\n\n--- GPU Performance Metrics ---\n")
 	fmt.Printf("Prefill Time : %v (%d prompt tokens)\n", prefillDuration, len(promptTokens))
-	fmt.Printf("Decode Time  : %v (%d generated tokens)\n", genDuration, len(generatedTokens))
+	fmt.Printf("Decode Time  : %v (%d generated tokens)\n", genDuration, len(st.generated))
 	fmt.Printf("Throughput   : %.2f tokens/sec\n", tokensPerSec)
 
 	return nil
