@@ -559,17 +559,17 @@ func TestTraceHash_Mutant_CacheHitArtifactMismatch(t *testing.T) {
 	}
 }
 
-func TestValidatePerturbationArtifactRejectsOptLevelZeroAndOutOfRange(t *testing.T) {
-	for _, level := range []int{0, 5, 7} {
+func TestValidatePerturbationArtifactRejectsOutOfRange(t *testing.T) {
+	for _, level := range []int{-1, 5, 7} {
 		pert := Perturbation{Name: "invalid", JITOptLevel: level}
 		art := &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(level)}}
 		if err := ValidatePerturbationArtifact(pert, art); err == nil {
 			t.Errorf("ValidatePerturbationArtifact(%d) succeeded", level)
 		}
 	}
-	for _, level := range []int{1, 4} {
+	for _, level := range []int{0, 1, 4} {
 		pert := Perturbation{Name: "valid", JITOptLevel: level}
-		art := &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(level)}}
+		art := &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(level), OptLevelSet: true}}
 		if err := ValidatePerturbationArtifact(pert, art); err != nil {
 			t.Errorf("ValidatePerturbationArtifact(%d) = %v", level, err)
 		}

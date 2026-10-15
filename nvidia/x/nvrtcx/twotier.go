@@ -68,6 +68,7 @@ func SeparateFlags(flags []string) (sourceFlags []string, offlineFlags []string,
 				}
 			} else if strings.HasPrefix(f, "-O") && len(f) == 3 && f[2] >= '0' && f[2] <= '4' {
 				jit.OptLevel = uint32(f[2] - '0')
+				jit.OptLevelSet = true
 			}
 		} else {
 			sourceFlags = append(sourceFlags, f)

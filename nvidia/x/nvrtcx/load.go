@@ -28,6 +28,9 @@ func (cm *CompiledModule) LoadOutputWithLog(dev *cuda.Device, kind OutputKind) (
 	if cm == nil {
 		return 0, log, fmt.Errorf("nvrtcx: nil compiled module")
 	}
+	if err := cm.jitOptions.Validate(); err != nil {
+		return 0, log, err
+	}
 	var image []byte
 	switch kind {
 	case OutputPTX:

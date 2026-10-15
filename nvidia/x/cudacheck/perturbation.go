@@ -20,13 +20,12 @@ var ErrPerturbationArtifactMismatch = errors.New("cudalmvet: compiled artifact d
 type Perturbation struct {
 	Name                 string
 	ExtraDeviceVectorize bool
-	JITOptLevel          int // 1 to 4; zero means unset in cudakernel.JITOptions.
+	JITOptLevel          int // explicit level 0 through 4
 }
 
 // DefaultPerturbations returns the bounded set of scheduling-affecting perturbation configurations:
 //   - --extra-device-vectorization on / off at NVRTC phase
-//   - CU_JIT_OPT_LEVEL 1 through 4 at driver JIT phase; zero is unsupported because
-//     cudakernel uses zero to mean unset.
+//   - CU_JIT_OPT_LEVEL 0 through 4 at driver JIT phase.
 func DefaultPerturbations() []Perturbation {
 	return []Perturbation{
 		{
@@ -38,6 +37,10 @@ func DefaultPerturbations() []Perturbation {
 			Name:                 "vectorize_on",
 			ExtraDeviceVectorize: true,
 			JITOptLevel:          4,
+		},
+		{
+			Name:        "jit_opt0",
+			JITOptLevel: 0,
 		},
 		{
 			Name:                 "jit_opt1",
@@ -65,11 +68,14 @@ func DefaultPerturbations() []Perturbation {
 // ValidatePerturbationArtifact verifies that a compiled artifact faithfully embodies
 // the requested perturbation options, preventing silent cache reuse of unperturbed artifacts.
 func ValidatePerturbationArtifact(pert Perturbation, art *cudakernel.Artifact) error {
-	if pert.JITOptLevel < 1 || pert.JITOptLevel > 4 {
-		return fmt.Errorf("cudalmvet: unsupported JIT optimization level %d (want 1 through 4)", pert.JITOptLevel)
+	if pert.JITOptLevel < 0 || pert.JITOptLevel > 4 {
+		return fmt.Errorf("cudalmvet: unsupported JIT optimization level %d (want 0 through 4)", pert.JITOptLevel)
 	}
 	if art == nil {
 		return fmt.Errorf("%w: nil artifact", ErrPerturbationArtifactMismatch)
+	}
+	if err := art.JITOptions.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", ErrPerturbationArtifactMismatch, err)
 	}
 
 	hasVec := false
@@ -87,7 +93,7 @@ func ValidatePerturbationArtifact(pert Perturbation, art *cudakernel.Artifact) e
 		return fmt.Errorf("%w: unexpected --extra-device-vectorization in compiler options", ErrPerturbationArtifactMismatch)
 	}
 
-	if art.JITOptions.OptLevel != uint32(pert.JITOptLevel) {
+	if art.JITOptions.OptLevel != uint32(pert.JITOptLevel) || pert.JITOptLevel == 0 && !art.JITOptions.OptLevelSet {
 		return fmt.Errorf("%w: JIT OptLevel mismatch (got %d, want %d)",
 			ErrPerturbationArtifactMismatch, art.JITOptions.OptLevel, pert.JITOptLevel)
 	}
@@ -232,17 +238,18 @@ func RunPerturbations(ctx context.Context, g *cudair.Graph, perts []Perturbation
 		// Configure compiler options for this perturbation
 		var compilerOpts []nvrtcx.Option
 		compilerOpts = append(compilerOpts, cfg.CompilerOpts...)
-		if p.ExtraDeviceVectorize {
+		if p.ExtraDeviceVectorize && cfg.artifactCache == nil {
 			compilerOpts = append(compilerOpts, nvrtcx.WithExtraDeviceVectorization())
 		}
 
-		if err := ValidatePerturbationArtifact(p, &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(p.JITOptLevel)}, CompilerOpts: perturbationCompilerFlags(p)}); err != nil {
+		if err := ValidatePerturbationArtifact(p, &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(p.JITOptLevel), OptLevelSet: true}, CompilerOpts: perturbationCompilerFlags(p)}); err != nil {
 			res.CompileErr = err
 			report.Results = append(report.Results, res)
 			continue
 		}
 		jitOpts := cfg.JITOptions
 		jitOpts.OptLevel = uint32(p.JITOptLevel)
+		jitOpts.OptLevelSet = true
 
 		pertCompareOpts := append([]CompareOption{}, opts...)
 		pertCompareOpts = append(pertCompareOpts,

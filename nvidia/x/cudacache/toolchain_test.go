@@ -249,7 +249,7 @@ func TestCompilerCacheKey_ToolDSOMismatchInvalidatesKey(t *testing.T) {
 	}
 }
 
-func TestCompilerCacheKeyV2Pinned(t *testing.T) {
+func TestCompilerCacheKeyV3Pinned(t *testing.T) {
 	// The ExampleCompilerCacheKey identity, with a zero Provenance.
 	id := cudacache.CompilerIdentity{
 		NVRTCVersion: "12.8",
@@ -260,8 +260,8 @@ func TestCompilerCacheKeyV2Pinned(t *testing.T) {
 	}
 	// Computed outside Go from the recipe in the CompilerCacheKey source
 	// (8-byte little-endian length before each field, domain
-	// "cudacache-compiler-key-v2", provenance fingerprint last).
-	const want = "c62664b4bc74d941c5fd20fd2d27d1a730ec766c531062cbe9d32ccff42699b1"
+	// "cudacache-compiler-key-v3", provenance followed by JIT option count).
+	const want = "1a171154b60a360be90264412debf44447b7d5fa566473a8fedc2dc7373659ba"
 	if got := cudacache.CompilerCacheKey("kernel_source_hash_1234", id); got != want {
 		t.Fatalf("CompilerCacheKey = %s, want %s; a key format change must bump the domain", got, want)
 	}

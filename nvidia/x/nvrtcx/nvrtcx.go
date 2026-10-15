@@ -69,6 +69,9 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 	if cm == nil {
 		return 0, fmt.Errorf("nvrtcx: nil compiled module")
 	}
+	if err := cm.jitOptions.Validate(); err != nil {
+		return 0, err
+	}
 	if cm.output == OutputOptiXIR || len(cm.optixir) > 0 {
 		return 0, fmt.Errorf("nvrtcx: OptiX IR must be passed to optixModuleCreate")
 	}
@@ -468,7 +471,7 @@ func (cm *CompiledModule) LoadOutput(dev *cuda.Device, kind OutputKind) (driver.
 	if cm == nil {
 		return 0, fmt.Errorf("nvrtcx: nil compiled module")
 	}
-	selected := &CompiledModule{output: kind}
+	selected := &CompiledModule{output: kind, jitOptions: cm.jitOptions}
 	switch kind {
 	case OutputPTX:
 		selected.ptx = cm.ptx
@@ -650,11 +653,9 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	if cfg.strictNVRTC && len(offlineFlags) > 0 {
 		return nil, fmt.Errorf("nvrtcx: strict NVRTC rejected offline flags: %s", strings.Join(offlineFlags, ", "))
 	}
-	if cfg.jitOptions.MaxRegisters == 0 && extractedJIT.MaxRegisters > 0 {
-		cfg.jitOptions.MaxRegisters = extractedJIT.MaxRegisters
-	}
-	if cfg.jitOptions.OptLevel == 0 && extractedJIT.OptLevel > 0 {
-		cfg.jitOptions.OptLevel = extractedJIT.OptLevel
+	cfg.jitOptions = resolveJITOptions(cfg.jitOptions, extractedJIT)
+	if err := cfg.jitOptions.Validate(); err != nil {
+		return nil, err
 	}
 
 	// External dependency tracking:
@@ -685,6 +686,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	}
 	identity := fmt.Sprintf("nvrtc %d.%d %s %s output=%d cache=%q", major, minor, nvrtc.Path(), toolIdentity, cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
+	inputKey = jitCacheKey(inputKey, cfg.jitOptions)
 	inputKey = computeCacheKey(inputKey, "name-expressions-v1", cfg.expressions, nil)
 	if len(deps) > 0 && allTracked {
 		depKey := computeDependencyKey(deps)
@@ -841,6 +843,17 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 
 		return res, nil
 	})
+}
+
+func resolveJITOptions(explicit, extracted cudakernel.JITOptions) cudakernel.JITOptions {
+	if explicit.MaxRegisters == 0 {
+		explicit.MaxRegisters = extracted.MaxRegisters
+	}
+	if !explicit.OptLevelSet && explicit.OptLevel == 0 {
+		explicit.OptLevel = extracted.OptLevel
+		explicit.OptLevelSet = extracted.OptLevelSet
+	}
+	return explicit
 }
 
 func compilerDiagnostic(compileErr, logErr error, log string) error {

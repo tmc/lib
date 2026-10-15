@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvrtc"
@@ -95,6 +96,9 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
+	if err := id.JITOptions.Validate(); err != nil {
+		return nil, false, err
+	}
 	for _, d := range id.Provenance.Tools {
 		if err := VerifyTool(d); err != nil {
 			return nil, false, fmt.Errorf("cudacache: lookup: %w", err)
@@ -151,6 +155,9 @@ func (a *NVRTCAdapter) Store(ctx context.Context, inputKey string, id CompilerId
 }
 
 func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerIdentity, recorded ToolProvenance, art *cudakernel.Artifact) error {
+	if err := id.JITOptions.Validate(); err != nil {
+		return err
+	}
 	if art == nil {
 		return errors.New("cudacache: nil artifact")
 	}
@@ -196,6 +203,11 @@ func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerId
 func checkCompilerArtifact(id CompilerIdentity, art *cudakernel.Artifact) error {
 	if err := art.Validate(); err != nil {
 		return fmt.Errorf("cudacache: artifact: %w", err)
+	}
+	opts, vals := id.JITOptions.DriverOptions()
+	actual, values := art.JITOptions.DriverOptions()
+	if !slices.Equal(opts, actual) || !slices.Equal(vals, values) {
+		return errors.New("cudacache: artifact JIT options differ from compiler identity")
 	}
 	if id.TargetArch == "" || id.TargetArch != art.Target {
 		return fmt.Errorf("%w: artifact target %q differs from compiler target %q", ErrIncompatibleTarget, art.Target, id.TargetArch)

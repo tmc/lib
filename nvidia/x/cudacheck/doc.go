@@ -64,10 +64,15 @@
 // The schedule-perturbation driver recompiles kernels under a bounded set of
 // scheduling-affecting compiler options:
 //   - NVRTC phase: --extra-device-vectorization (enabled / disabled).
-//   - Driver JIT phase: CU_JIT_OPT_LEVEL 1 through 4. Level 0 is unsupported
-//     because the JIT option type uses zero to mean unset.
+//   - Driver JIT phase: CU_JIT_OPT_LEVEL 0 through 4, including explicit zero.
 //
-// Each perturbation is compiled into an independent artifact with its own cache identity.
+// Each perturbation has a separate effective source/JIT identity. By default,
+// compilation bypasses caches. WithArtifactCache enables the fixed generated
+// graph PTX recipe through cudacache, with explicit target and observed tool
+// identities. It refuses caller compiler options, custom source and incomplete
+// mapped-tool provenance. Stored manifests detect corruption and bind declared
+// metadata; they do not authenticate an editable cache or establish device
+// correctness. Compiler and device qualification require separate native gates.
 // A perturbation whose trace hash moves records a difference; it does not identify
 // the cause. For a localized float32 mismatch, the report includes both values,
 // their ULP distance, and whether the distance is admissible under the bit-exact

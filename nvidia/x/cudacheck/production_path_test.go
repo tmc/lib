@@ -214,7 +214,7 @@ func TestRunPerturbationsRefusesUnsupportedJITLevelsBeforeCompile(t *testing.T) 
 	g, inputs := buildTestGraph()
 	compileCalls, loadCalls := 0, 0
 	report, err := RunPerturbations(context.Background(), g, []Perturbation{
-		{Name: "below-range", JITOptLevel: 0},
+		{Name: "below-range", JITOptLevel: -1},
 		{Name: "above-range", JITOptLevel: 5},
 	}, WithInputs(inputs),
 		withCompileKernel(func(string, []nvrtcx.Option, cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {

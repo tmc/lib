@@ -84,6 +84,17 @@ func compilerCacheKey(input, compiler string) string {
 	return computeCacheKey(input, "nvrtcx-compiler-cache-v1", nil, map[string]string{"compiler": compiler})
 }
 
+// Bind effective driver options, including explicit zero. DriverOptions also
+// canonicalizes the two accepted spellings of a positive optimization level.
+func jitCacheKey(input string, jit cudakernel.JITOptions) string {
+	opts, vals := jit.DriverOptions()
+	flags := make([]string, len(opts))
+	for i, opt := range opts {
+		flags[i] = fmt.Sprintf("%d=%d", opt, vals[i])
+	}
+	return computeCacheKey(input, "nvrtcx-jit-cache-v1", flags, nil)
+}
+
 func getCacheDir() (string, error) {
 	if cacheDirOverride != "" {
 		return cacheDirOverride, nil
@@ -105,7 +116,7 @@ func lookupCache(key string) (*CompiledModule, bool) {
 	memCacheMu.RUnlock()
 	if ok {
 		if cm.compilerOptionsKnown {
-			return cm, true
+			return copyCompiledModule(cm), true
 		}
 		// Old cache metadata cannot attest which compiler options produced the
 		// artifact. Treat it as a miss so this request recompiles with provenance.
@@ -132,7 +143,7 @@ func lookupCache(key string) (*CompiledModule, bool) {
 	memCache[key] = mod
 	memCacheMu.Unlock()
 
-	return mod, true
+	return copyCompiledModule(mod), true
 }
 
 func storeCache(key string, cm *CompiledModule) error {
@@ -149,12 +160,17 @@ func storeCache(key string, cm *CompiledModule) error {
 		return err
 	}
 	memCacheMu.Lock()
-	memCache[key] = cm
+	memCache[key] = copyCompiledModule(cm)
 	memCacheMu.Unlock()
 	return nil
 }
 
 func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
+	if cm != nil {
+		if err := cm.jitOptions.Validate(); err != nil {
+			return nil, err
+		}
+	}
 	if !cm.validArtifact() {
 		return nil, fmt.Errorf("nvrtcx: module contains no compiler artifact")
 	}
@@ -273,6 +289,9 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 	if !cm.validArtifact() {
 		return nil, fmt.Errorf("nvrtcx: cached output kind does not match artifact")
 	}
+	if err := cm.jitOptions.Validate(); err != nil {
+		return nil, err
+	}
 	return cm, nil
 }
 
@@ -318,7 +337,7 @@ func singleFlightCompile(key string, fn func() (*CompiledModule, error)) (*Compi
 	if c, ok := flightCalls[key]; ok {
 		flightMu.Unlock()
 		c.wg.Wait()
-		return c.val, c.err
+		return copyCompiledModule(c.val), c.err
 	}
 
 	c := &flightCall{}
@@ -333,7 +352,18 @@ func singleFlightCompile(key string, fn func() (*CompiledModule, error)) (*Compi
 	delete(flightCalls, key)
 	flightMu.Unlock()
 
-	return c.val, c.err
+	return copyCompiledModule(c.val), c.err
+}
+
+// Image/name/options storage is private and read-only through public getters.
+// Copy the descriptor so SetJITOptions cannot mutate another caller's result
+// or the module retained by the cache/singleflight owner.
+func copyCompiledModule(cm *CompiledModule) *CompiledModule {
+	if cm == nil {
+		return nil
+	}
+	copy := *cm
+	return &copy
 }
 
 // ClearCache removes all in-memory and disk-cached JIT compilation units.

@@ -5,13 +5,14 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"sort"
 
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
 const (
-	compilerKeyDomain   = "cudacache-compiler-key-v2"
+	compilerKeyDomain   = "cudacache-compiler-key-v3"
 	searchPolicyDomain  = "cudacache-search-policy-v1"
 	searchReceiptDomain = "cudacache-search-receipt-v1"
 )
@@ -24,18 +25,22 @@ const (
 // Provenance hashes as a recipe with no tools, so two toolchains with the
 // same version strings share keys; see ProbeToolchain.
 type CompilerIdentity struct {
-	NVRTCVersion string            // e.g. "12.8" or "13.0"
-	DriverSONAME string            // e.g. "libcuda.so.1" or loaded driver path
-	TargetArch   string            // e.g. "sm_121a", "sm_100a"
-	Flags        []string          // Exact compilation options
-	OutputKind   nvrtcx.OutputKind // Output kind magic
-	Provenance   ToolProvenance    // exact tool bytes, driver version and recipe
+	NVRTCVersion string                // e.g. "12.8" or "13.0"
+	DriverSONAME string                // e.g. "libcuda.so.1" or loaded driver path
+	TargetArch   string                // e.g. "sm_121a", "sm_100a"
+	Flags        []string              // Exact compilation options
+	OutputKind   nvrtcx.OutputKind     // Output kind magic
+	Provenance   ToolProvenance        // exact tool bytes, driver version and recipe
+	JITOptions   cudakernel.JITOptions // effective driver options, including explicit zero
 }
 
 // CompilerCacheKey computes a deterministic SHA-256 digest string hashing inputKey
 // and the full compiler/environment identity: nvrtc.Version, driver SONAME,
 // sm_121a/sm_100a target architecture, exact compilation flags, and output kind magic bytes.
-// Any shift in driver, toolchain, flags, target, or output kind produces an immediate cache miss.
+// Driver JIT option presence and values are also bound; explicit level zero is
+// distinct from unset, and positive levels have one identity regardless of
+// OptLevelSet. Any shift in driver, toolchain, flags, target, output kind or
+// effective JIT options produces a cache miss.
 //
 // The key also hashes id.Provenance.Fingerprint, so a tool library whose
 // bytes change under an unchanged version string yields a different key.
@@ -77,6 +82,13 @@ func CompilerCacheKey(inputKey string, id CompilerIdentity) string {
 
 	writeField("provenance")
 	writeField(id.Provenance.Fingerprint())
+	opts, vals := id.JITOptions.DriverOptions()
+	writeField("jit_options")
+	writeField(fmt.Sprint(len(opts)))
+	for i, opt := range opts {
+		writeField(fmt.Sprint(int32(opt)))
+		writeField(fmt.Sprint(vals[i]))
+	}
 
 	return hex.EncodeToString(h.Sum(nil))
 }

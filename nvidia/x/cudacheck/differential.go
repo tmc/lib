@@ -11,6 +11,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudaref"
@@ -128,6 +129,9 @@ type CompareConfig struct {
 	perturbation     *Perturbation
 	compileKernel    func(string, []nvrtcx.Option, cudakernel.JITOptions) (*nvrtcx.CompiledModule, error)
 	loadTraceModule  func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error)
+	artifactCache    *perturbationCacheConfig
+	cacheEnvironment traceCacheEnvironment
+	loadArtifact     func(*cudakernel.Artifact, *cuda.Device) (traceModule, error)
 }
 
 // CompareOption configures a Compare execution.
@@ -208,6 +212,7 @@ type traceModule interface {
 type loadedTraceModule struct {
 	device *cuda.Device
 	module driver.Module
+	owner  *cuda.Module
 }
 
 func (m *loadedTraceModule) CheckReset() error {
@@ -219,7 +224,19 @@ func (m *loadedTraceModule) Execute(ctx context.Context, entryPoint string, cfg 
 }
 
 func (m *loadedTraceModule) Close() error {
-	return m.device.WithContext(func() error { return m.module.Close() })
+	if m.owner != nil {
+		return m.owner.Close()
+	}
+	if m.module == 0 {
+		return nil
+	}
+	return m.device.WithContext(func() error {
+		if err := m.module.Close(); err != nil {
+			return err
+		}
+		m.module = 0
+		return nil
+	})
 }
 
 func withTraceModuleLoader(fn func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error)) CompareOption {
@@ -364,7 +381,7 @@ func localizeDeviceMismatch(events []TraceEvent, runPrefix func(int) (deviceTrac
 // Compare evaluates the CPU reference and GPU device executions for a computation
 // graph, reporting agreement, disagreement with triage, or Unmeasured if device
 // execution is unavailable.
-func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*ComparisonResult, error) {
+func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (result *ComparisonResult, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("cudalmvet.Compare: %w", err)
 	}
@@ -388,7 +405,7 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 	}
 
 	// 2. Check Device Availability
-	if cfg.Device == nil && cfg.loadTraceModule == nil {
+	if cfg.Device == nil && cfg.loadTraceModule == nil && cfg.loadArtifact == nil {
 		return &ComparisonResult{
 			Status:  StatusUnmeasured,
 			CPUHash: cpuHash,
@@ -401,6 +418,9 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 			CPUHash: cpuHash,
 			Err:     fmt.Errorf("cudalmvet: device trace hashing supports only PolicyRawBits, got policy %d", cfg.Policy),
 		}, nil
+	}
+	if err := cfg.JITOptions.Validate(); err != nil {
+		return &ComparisonResult{Status: StatusUnmeasured, Stage: StageCompile, CPUHash: cpuHash, Err: err}, nil
 	}
 
 	// 3. Generate or use device kernel
@@ -436,40 +456,61 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 		}
 	}
 
-	// 4. Compile with nvrtcx
-	compileOpts := append([]nvrtcx.Option{
-		nvrtcx.WithStandard("c++17"),
-		nvrtcx.WithJITOptions(cfg.JITOptions),
-		nvrtcx.WithNoCache(),
-	}, cfg.CompilerOpts...)
-	compileFlags, err := nvrtcx.CompileFlags(compileOpts...)
-	if err != nil {
-		return &ComparisonResult{Status: StatusUnmeasured, Stage: StageCompile, CPUHash: cpuHash, Err: err}, nil
-	}
-
+	// 4. Compile with nvrtcx or retrieve a bound artifact.
 	var cmod *nvrtcx.CompiledModule
-	if cfg.compileKernel != nil {
-		cmod, err = cfg.compileKernel(kernelSrc, compileOpts, cfg.JITOptions)
+	var artifact *cudakernel.Artifact
+	if cfg.artifactCache != nil {
+		artifact, err = compileCachedTrace(ctx, cfg, kernelSrc, entryPoint, executionSnapshot, generatedKernel)
 	} else {
-		cmod, err = nvrtcx.Compile(kernelSrc, compileOpts...)
+		compileOpts := append([]nvrtcx.Option{
+			nvrtcx.WithStandard("c++17"),
+			nvrtcx.WithJITOptions(cfg.JITOptions),
+			nvrtcx.WithNoCache(),
+		}, cfg.CompilerOpts...)
+		compileFlags, err := nvrtcx.CompileFlags(compileOpts...)
+		if err != nil {
+			return &ComparisonResult{Status: StatusUnmeasured, Stage: StageCompile, CPUHash: cpuHash, Err: err}, nil
+		}
+
+		if cfg.compileKernel != nil {
+			cmod, err = cfg.compileKernel(kernelSrc, compileOpts, cfg.JITOptions)
+		} else {
+			cmod, err = nvrtcx.Compile(kernelSrc, compileOpts...)
+		}
+		if err != nil {
+			return &ComparisonResult{
+				Status:  StatusUnmeasured,
+				Stage:   StageCompile,
+				CPUHash: cpuHash,
+				Err:     fmt.Errorf("nvrtcx compile: %w", err),
+			}, nil
+		}
+		if cfg.perturbation != nil {
+			if err := validateCompiledPerturbation(*cfg.perturbation, compileFlags, cmod); err != nil {
+				return &ComparisonResult{Status: StatusUnmeasured, Stage: StageArtifactValidation, CPUHash: cpuHash, Err: err}, nil
+			}
+		}
 	}
 	if err != nil {
-		return &ComparisonResult{
-			Status:  StatusUnmeasured,
-			Stage:   StageCompile,
-			CPUHash: cpuHash,
-			Err:     fmt.Errorf("nvrtcx compile: %w", err),
-		}, nil
-	}
-	if cfg.perturbation != nil {
-		if err := validateCompiledPerturbation(*cfg.perturbation, compileFlags, cmod); err != nil {
-			return &ComparisonResult{Status: StatusUnmeasured, Stage: StageArtifactValidation, CPUHash: cpuHash, Err: err}, nil
+		stage := StageCompile
+		if errors.Is(err, ErrPerturbationArtifactMismatch) || errors.Is(err, cudacache.ErrCorruptArtifact) {
+			stage = StageArtifactValidation
 		}
+		return &ComparisonResult{Status: StatusUnmeasured, Stage: stage, CPUHash: cpuHash, Err: err}, nil
 	}
 
 	// 5. Load and execute on device
+	if err := ctx.Err(); err != nil {
+		return &ComparisonResult{Status: StatusUnmeasured, Stage: StageLoad, CPUHash: cpuHash, Err: err}, nil
+	}
 	var loaded traceModule
-	if cfg.loadTraceModule != nil {
+	if artifact != nil {
+		if cfg.loadArtifact != nil {
+			loaded, err = cfg.loadArtifact(artifact, cfg.Device)
+		} else {
+			loaded, err = loadCachedTrace(artifact, cfg.Device)
+		}
+	} else if cfg.loadTraceModule != nil {
 		loaded, err = cfg.loadTraceModule(cmod, cfg.Device)
 	} else {
 		var devMod driver.Module
@@ -479,6 +520,11 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 		}
 	}
 	if err != nil {
+		if loaded != nil {
+			if closeErr := loaded.Close(); closeErr != nil {
+				err = &traceCleanupError{err: errors.Join(err, closeErr), module: loaded}
+			}
+		}
 		return &ComparisonResult{
 			Status:  StatusUnmeasured,
 			Stage:   StageLoad,
@@ -489,7 +535,20 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 	if loaded == nil {
 		return &ComparisonResult{Status: StatusUnmeasured, Stage: StageLoad, CPUHash: cpuHash, Err: errors.New("cudalmvet: trace module loader returned nil module")}, nil
 	}
-	defer loaded.Close()
+	defer func() {
+		if closeErr := loaded.Close(); closeErr != nil {
+			cleanup := &traceCleanupError{err: fmt.Errorf("cudacheck: close trace module: %w", closeErr), module: loaded}
+			if result == nil {
+				err = errors.Join(err, cleanup)
+			} else {
+				if result.Err == nil {
+					result.Stage = StageLoad
+				}
+				result.Status = StatusUnmeasured
+				result.Err = errors.Join(result.Err, cleanup)
+			}
+		}
+	}()
 
 	// Optional check for clean reset
 	if cfg.VerifyCleanReset {
@@ -503,6 +562,9 @@ func Compare(ctx context.Context, g *cudair.Graph, opts ...CompareOption) (*Comp
 	}
 
 	trace, err := loaded.Execute(ctx, entryPoint, cfg, executionSnapshot, ^uint32(0), false, generatedKernel)
+	if err == nil {
+		err = ctx.Err()
+	}
 	if err != nil {
 		return &ComparisonResult{
 			Status:  StatusUnmeasured,

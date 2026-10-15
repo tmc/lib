@@ -56,11 +56,24 @@ func (k Kind) RequiresLink() bool {
 type JITOptions struct {
 	MaxRegisters    uint32 `json:"max_registers,omitempty"`
 	ThreadsPerBlock uint32 `json:"threads_per_block,omitempty"`
-	OptLevel        uint32 `json:"opt_level,omitempty"` // 0 to 4 (default 4 if set)
+	OptLevel        uint32 `json:"opt_level,omitempty"` // 0 through 4
+	// OptLevelSet distinguishes explicit level zero from the driver default.
+	// A positive OptLevel is explicit whether or not OptLevelSet is true.
+	OptLevelSet bool `json:"opt_level_set,omitempty"`
+}
+
+// Validate checks the supported driver optimization level. Unset options use
+// the driver default; explicit zero requires OptLevelSet.
+func (o JITOptions) Validate() error {
+	if o.OptLevel > 4 {
+		return fmt.Errorf("cudakernel: invalid JIT optimization level %d", o.OptLevel)
+	}
+	return nil
 }
 
 // DriverOptions translates JITOptions into driver.JITOption flags and values
-// suitable for cuModuleLoadDataEx.
+// suitable for cuModuleLoadDataEx. Call Validate before passing them to a
+// driver. Explicit zero emits an option; unset leaves the driver default.
 func (o JITOptions) DriverOptions() ([]driver.JITOption, []uintptr) {
 	var opts []driver.JITOption
 	var vals []uintptr
@@ -73,7 +86,7 @@ func (o JITOptions) DriverOptions() ([]driver.JITOption, []uintptr) {
 		opts = append(opts, driver.JITThreadsPerBlock)
 		vals = append(vals, uintptr(o.ThreadsPerBlock))
 	}
-	if o.OptLevel > 0 {
+	if o.OptLevelSet || o.OptLevel > 0 {
 		opts = append(opts, driver.JITOptimizationLevel)
 		vals = append(vals, uintptr(o.OptLevel))
 	}
@@ -215,6 +228,9 @@ func (a *Artifact) Validate() error {
 	if a == nil {
 		return errors.New("cudakernel: nil artifact")
 	}
+	if err := a.JITOptions.Validate(); err != nil {
+		return err
+	}
 	if len(a.Raw) == 0 {
 		return errors.New("cudakernel: empty raw bytes")
 	}
@@ -303,6 +319,9 @@ func (a *Artifact) ValidateTarget(deviceArch string) error {
 func (a *Artifact) Load(dev *cuda.Device) (driver.Module, error) {
 	if a == nil {
 		return 0, errors.New("cudakernel: nil artifact")
+	}
+	if err := a.JITOptions.Validate(); err != nil {
+		return 0, err
 	}
 	if a.RequiresLink() {
 		return 0, fmt.Errorf("cudakernel: artifact kind %s requires linking before loading", a.Kind)
