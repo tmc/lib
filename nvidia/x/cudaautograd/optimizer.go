@@ -46,30 +46,39 @@ func (opt *SGDOptimizer) Momentum() float32 {
 }
 
 // Step updates parameters in-place using their corresponding gradients.
+// Parameters without a gradient are left unchanged. Step validates every
+// gradient before updating anything, so on error neither the parameters
+// nor the optimizer's velocity have changed.
 func (opt *SGDOptimizer) Step(params map[string][]float32, grads map[string][]float32) error {
+	if opt == nil {
+		return errors.New("cudaautograd: nil optimizer")
+	}
 	if params == nil {
 		return errors.New("cudaautograd: nil params map")
 	}
 	if grads == nil {
 		return errors.New("cudaautograd: nil grads map")
 	}
+	for name, paramSlice := range params {
+		gradSlice, ok := grads[name]
+		if ok && len(paramSlice) != len(gradSlice) {
+			return fmt.Errorf("cudaautograd: param %q len %d != grad len %d", name, len(paramSlice), len(gradSlice))
+		}
+	}
 
+	if opt.velocity == nil {
+		opt.velocity = make(map[string][]float32)
+	}
 	for name, paramSlice := range params {
 		gradSlice, ok := grads[name]
 		if !ok {
-			// No gradient computed for this parameter
 			continue
 		}
-		if len(paramSlice) != len(gradSlice) {
-			return fmt.Errorf("cudaautograd: param %q len %d != grad len %d", name, len(paramSlice), len(gradSlice))
-		}
-
 		vel, hasVel := opt.velocity[name]
 		if !hasVel || len(vel) != len(paramSlice) {
 			vel = make([]float32, len(paramSlice))
 			opt.velocity[name] = vel
 		}
-
 		for i := range paramSlice {
 			if opt.momentum > 0 {
 				vel[i] = opt.momentum*vel[i] + opt.lr*gradSlice[i]
@@ -101,6 +110,9 @@ func TrainingStep(
 	if bwdRes == nil {
 		return 0, nil, errors.New("cudaautograd: nil backward result")
 	}
+	if lossNode == nil {
+		return 0, nil, errors.New("cudaautograd: nil loss node")
+	}
 
 	// Merge params into inputs for forward evaluation
 	fullInputs := make(map[string][]float32, len(inputs)+len(params))
@@ -114,19 +126,19 @@ func TrainingStep(
 	// 1. Forward pass
 	fwdOutputs, acts, err := Forward(bwdRes, fwdGraph, fullInputs)
 	if err != nil {
-		return 0, nil, fmt.Errorf("forward pass failed: %w", err)
+		return 0, nil, fmt.Errorf("cudaautograd: forward pass: %w", err)
 	}
 
 	lossVal, ok := fwdOutputs[lossNode.Name]
 	if !ok || len(lossVal) != 1 {
-		return 0, nil, fmt.Errorf("missing or invalid scalar loss %q", lossNode.Name)
+		return 0, nil, fmt.Errorf("cudaautograd: missing or invalid scalar loss %q", lossNode.Name)
 	}
 	currentLoss := lossVal[0]
 
 	// 2. Backward pass
 	grads, err := Backward(bwdRes, acts)
 	if err != nil {
-		return 0, nil, fmt.Errorf("backward pass failed: %w", err)
+		return 0, nil, fmt.Errorf("cudaautograd: backward pass: %w", err)
 	}
 
 	// Map backward gradient outputs to parameter names
@@ -140,7 +152,7 @@ func TrainingStep(
 
 	// 3. Optimizer update
 	if err := opt.Step(params, paramGrads); err != nil {
-		return 0, nil, fmt.Errorf("optimizer step failed: %w", err)
+		return 0, nil, fmt.Errorf("cudaautograd: optimizer step: %w", err)
 	}
 
 	return currentLoss, params, nil
