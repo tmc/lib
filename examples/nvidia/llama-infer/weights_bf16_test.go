@@ -94,23 +94,48 @@ var errFakeFree = errors.New("fake free failed")
 // tied set, LMHead borrows EmbedTokens. embedFails sets how many times the
 // embedding table's free fails before it succeeds.
 func fakeModel(log *[]string, tied bool, embedFails int) *GPUModelWeights {
-	buf := func(name string) deviceWeight {
-		return deviceWeight{buf: &fakeBuffer{name: name, log: log}, dtype: weightBF16}
-	}
-	w := &GPUModelWeights{DType: weightBF16, Layers: make([]GPULayerWeights, 1)}
+	w := &GPUModelWeights{DType: weightBF16, Layers: []GPULayerWeights{fakeLayer(log, "")}}
 	w.EmbedTokens = deviceWeight{buf: &fakeBuffer{name: "embed", fails: embedFails, err: errFakeFree, log: log}, dtype: weightBF16}
 	if tied {
 		w.LMHead = w.EmbedTokens.borrow()
 	} else {
-		w.LMHead = buf("head")
+		w.LMHead = deviceWeight{buf: &fakeBuffer{name: "head", log: log}, dtype: weightBF16}
 	}
-	l := &w.Layers[0]
-	l.WQ, l.WK, l.WV, l.WO = buf("wq"), buf("wk"), buf("wv"), buf("wo")
-	l.WGate, l.WUp, l.WDown = buf("gate"), buf("up"), buf("down")
 	return w
 }
 
-var fakeLayerFrees = []string{"wq", "wk", "wv", "wo", "gate", "up", "down"}
+// fakeLayer returns a layer whose matrices are fake buffers named
+// fakeLayerFrees(suffix).
+func fakeLayer(log *[]string, suffix string) GPULayerWeights {
+	var l GPULayerWeights
+	names := fakeLayerFrees(suffix)
+	for i, m := range layerMatrices(&l) {
+		*m = deviceWeight{buf: &fakeBuffer{name: names[i], log: log}, dtype: weightBF16}
+	}
+	return l
+}
+
+// fakeLayerFrees returns the names of a fake layer's matrices in the order
+// free releases them.
+func fakeLayerFrees(suffix string) []string {
+	var names []string
+	for _, s := range []string{"wq", "wk", "wv", "wo", "gate", "up", "down"} {
+		names = append(names, s+suffix)
+	}
+	return names
+}
+
+// layerMatrices returns pointers to l's matrices in the order free
+// releases them.
+func layerMatrices(l *GPULayerWeights) []*deviceWeight {
+	return []*deviceWeight{&l.WQ, &l.WK, &l.WV, &l.WO, &l.WGate, &l.WUp, &l.WDown}
+}
+
+// layerVectors returns pointers to l's norms and biases in the order free
+// frees them.
+func layerVectors(l *GPULayerWeights) []*cudamem.Slice[float32] {
+	return []*cudamem.Slice[float32]{&l.InputNorm, &l.PostNorm, &l.QBias, &l.KBias, &l.VBias}
+}
 
 // ownershipFailures returns how free departs from releasing each allocation
 // exactly once: across a tied and an untied model, a repeated free, and a
@@ -134,7 +159,7 @@ func ownershipFailures(free func(*GPUModelWeights) error) []string {
 		}
 	}
 	layer := func(m map[string]int) map[string]int {
-		for _, s := range fakeLayerFrees {
+		for _, s := range fakeLayerFrees("") {
 			m[s] = 1
 		}
 		return m
@@ -555,16 +580,23 @@ func TestScratchpadRelease(t *testing.T) {
 
 type weightsFreeFunc func(*GPUModelWeights, func(*cudamem.Slice[float32]) error) error
 
-// weightsFreeFailures returns how free departs from: with the embedding
-// table and two vectors failing, every matrix and vector attempted once,
-// the failed embedding table kept, the other matrices zeroed, and the
-// three errors joined with their identity; a retry that frees the three
-// and reports nothing; and a repeat that frees nothing.
+// weightsFreeFailures returns how free departs from, for a two-layer
+// model: with the embedding table and two vectors failing, every matrix
+// and vector attempted once, the failed embedding table kept, the other
+// matrices zeroed, and the three errors joined with their identity; a
+// retry that frees the three and reports nothing; and a repeat that frees
+// nothing.
 func weightsFreeFailures(free weightsFreeFunc) []string {
 	var log []string
 	w := fakeModel(&log, true, 1)
-	l := &w.Layers[0]
-	vecs := []*cudamem.Slice[float32]{&w.Norm, &l.InputNorm, &l.PostNorm, &l.QBias, &l.KBias, &l.VBias}
+	w.Layers = append(w.Layers, fakeLayer(&log, "1"))
+	vecs := []*cudamem.Slice[float32]{&w.Norm}
+	var mats []*deviceWeight
+	for i := range w.Layers {
+		vecs = append(vecs, layerVectors(&w.Layers[i])...)
+		mats = append(mats, layerMatrices(&w.Layers[i])...)
+	}
+	l := &w.Layers[1]
 	vec := newFakeSlots(map[*cudamem.Slice[float32]]error{&w.Norm: cudamem.ErrInUse, &l.VBias: errFakeVec})
 	frees := func(round string, want []string) []string {
 		if !slices.Equal(log, want) {
@@ -575,18 +607,19 @@ func weightsFreeFailures(free weightsFreeFunc) []string {
 
 	err := free(w, vec.free)
 	bad := wantJoined("failed free", err, errFakeFree, cudamem.ErrInUse, errFakeVec)
-	bad = append(bad, frees("failed free", fakeLayerFrees)...)
+	want := append(fakeLayerFrees(""), fakeLayerFrees("1")...)
+	bad = append(bad, frees("failed free", want)...)
 	if w.EmbedTokens.buf == nil {
 		bad = append(bad, "failed free: embedding table dropped, cannot retry")
 	}
-	for _, m := range []*deviceWeight{&l.WQ, &l.WK, &l.WV, &l.WO, &l.WGate, &l.WUp, &l.WDown} {
+	for _, m := range mats {
 		if m.buf != nil {
 			bad = append(bad, "failed free: freed layer matrix not zeroed")
 			break
 		}
 	}
 	bad = append(bad, vec.check("failed free", vecs, 1, &w.Norm, &l.VBias)...)
-	want := append(slices.Clone(fakeLayerFrees), "embed")
+	want = append(want, "embed")
 	for i, round := range []string{"retry", "repeat"} {
 		if err := free(w, vec.free); err != nil {
 			bad = append(bad, round+": "+err.Error())
@@ -641,6 +674,21 @@ func TestGPUModelWeightsFreeVectors(t *testing.T) {
 		}},
 		{"W5 vector free bypassed", func(w *GPUModelWeights, vec func(*cudamem.Slice[float32]) error) error {
 			return w.Free()
+		}},
+		{"W6 first layer for every layer", func(w *GPUModelWeights, vec func(*cudamem.Slice[float32]) error) error {
+			errs := []error{w.EmbedTokens.release(), w.LMHead.release()}
+			for range w.Layers {
+				for _, m := range layerMatrices(&w.Layers[0]) {
+					errs = append(errs, m.release())
+				}
+			}
+			errs = append(errs, vec(&w.Norm))
+			for range w.Layers {
+				for _, v := range layerVectors(&w.Layers[0]) {
+					errs = append(errs, vec(v))
+				}
+			}
+			return errors.Join(errs...)
 		}},
 	} {
 		if len(weightsFreeFailures(m.free)) == 0 {
