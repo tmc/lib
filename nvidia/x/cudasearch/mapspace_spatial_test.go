@@ -17,7 +17,10 @@ func spatialAxisSearch() *LinearPrunedSearch {
 			cudalayout.LevelDRAM:     {"B": 1, "M": 2, "N": 2, "K": 2},
 		})
 	return NewLinearPrunedSearch([]cudalayout.IndexFactorization{fact},
-		[]cudalayout.LoopPermutation{{}, {}},
+		[]cudalayout.LoopPermutation{
+			{Orders: map[cudalayout.StorageLevel][]string{cudalayout.LevelShared: {"M", "N", "K"}, cudalayout.LevelDRAM: {"M", "N", "K"}}},
+			{Orders: map[cudalayout.StorageLevel][]string{cudalayout.LevelShared: {"K", "N", "M"}, cudalayout.LevelDRAM: {"K", "N", "M"}}},
+		},
 		[]cudalayout.DatatypeBypass{{}, {}},
 		cudalayout.HardwareConstraints{MaxThreadsPerBlock: 128, MaxRegistersPerBlock: 1024, MaxSharedMemoryPerBlock: 1024},
 		map[cudalayout.TensorRole]int{cudalayout.TensorA: 4, cudalayout.TensorB: 4, cudalayout.TensorC: 4},
@@ -27,6 +30,7 @@ func spatialAxisSearch() *LinearPrunedSearch {
 func TestMapspaceSpatialAxis(t *testing.T) {
 	s := spatialAxisSearch()
 	s.SpatialTilings = []cudalayout.SpatialTiling{
+		{},
 		cudalayout.NewSpatialTiling(map[string]int{"M": 2}, map[string]int{"M": 2}),
 		cudalayout.NewSpatialTiling(map[string]int{"N": 2}, map[string]int{"N": 4}),
 		cudalayout.NewSpatialTiling(map[string]int{"M": 3}, nil),
@@ -36,8 +40,8 @@ func TestMapspaceSpatialAxis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.FactorizationsPruned != 0 || stats.EvaluatedCandidates != 8 || stats.DownstreamSkipped != 8 {
-		t.Fatalf("stats=%+v, want 8 valid candidates and 8 skipped", stats)
+	if stats.FactorizationsPruned != 0 || stats.EvaluatedCandidates != 4 || stats.DownstreamSkipped != 16 || stats.UnsupportedCandidates != 8 {
+		t.Fatalf("stats=%+v, want four temporal evaluations, eight unsupported spatial candidates and eight invalid geometries skipped", stats)
 	}
 	parts, err := s.Split(1)
 	if err != nil {
@@ -47,7 +51,7 @@ func TestMapspaceSpatialAxis(t *testing.T) {
 		t.Fatal("Split lost spatial candidates")
 	}
 	pstats, err := parts[0].Search(context.Background())
-	if err != nil || pstats != stats {
+	if err != nil || !reflect.DeepEqual(pstats, stats) {
 		t.Fatalf("split stats=%+v, error=%v, want %+v", pstats, err, stats)
 	}
 }
@@ -78,8 +82,8 @@ func TestMapspaceSpatialNeedsThreadBound(t *testing.T) {
 		if threads >= 64 {
 			want = 4
 		}
-		if stats.EvaluatedCandidates != want {
-			t.Fatalf("threads=%d stats=%+v, want %d evaluations", threads, stats, want)
+		if stats.EvaluatedCandidates != 0 || stats.UnsupportedCandidates != want || stats.DownstreamSkipped != 4 {
+			t.Fatalf("threads=%d stats=%+v, want %d unsupported spatial candidates and no evaluations", threads, stats, want)
 		}
 	}
 }

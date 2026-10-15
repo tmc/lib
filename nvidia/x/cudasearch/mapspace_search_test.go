@@ -43,13 +43,13 @@ func TestLinearPrunedSearchSkipOnFailure(t *testing.T) {
 
 	perms := []cudalayout.LoopPermutation{
 		cudalayout.NewLoopPermutation(map[cudalayout.StorageLevel][]string{
-			cudalayout.LevelShared: {"M", "N", "K"},
+			cudalayout.LevelRegister: {"M", "N"}, cudalayout.LevelDRAM: {"M", "N", "K"}, cudalayout.LevelShared: {"M", "N", "K"},
 		}),
 		cudalayout.NewLoopPermutation(map[cudalayout.StorageLevel][]string{
-			cudalayout.LevelShared: {"K", "M", "N"},
+			cudalayout.LevelRegister: {"M", "N"}, cudalayout.LevelDRAM: {"M", "N", "K"}, cudalayout.LevelShared: {"K", "M", "N"},
 		}),
 		cudalayout.NewLoopPermutation(map[cudalayout.StorageLevel][]string{
-			cudalayout.LevelShared: {"N", "K", "M"},
+			cudalayout.LevelRegister: {"M", "N"}, cudalayout.LevelDRAM: {"M", "N", "K"}, cudalayout.LevelShared: {"N", "K", "M"},
 		}),
 	}
 

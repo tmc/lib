@@ -35,7 +35,9 @@ func TestLinearPrunedSearchPermutationOrders(t *testing.T) {
 			search.Problem["B"] = tt.batch
 			search.Factorizations[0].Factors[cudalayout.LevelShared]["B"] = tt.batch
 			search.Constraints.MaxSharedMemoryPerBlock = 128 << 10
-			search.Permutations = []cudalayout.LoopPermutation{{Orders: map[cudalayout.StorageLevel][]string{tt.level: tt.order}}}
+			orders := map[cudalayout.StorageLevel][]string{cudalayout.LevelShared: {"B", "M", "N", "K"}}
+			orders[tt.level] = tt.order
+			search.Permutations = []cudalayout.LoopPermutation{{Orders: orders}}
 			stats, err := search.Search(context.Background())
 			if err != nil {
 				t.Fatal(err)

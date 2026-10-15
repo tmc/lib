@@ -3,6 +3,7 @@ package cudasearch
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/tmc/lib/nvidia/x/cudalayout"
@@ -15,7 +16,21 @@ type MapSpaceSearchStats struct {
 	FactorizationsPruned int
 	DownstreamSkipped    int
 	EvaluatedCandidates  int
-	BestIntensity        float64
+	// UnsupportedCandidates is a subset of DownstreamSkipped: geometrically
+	// valid, capacity-fitting candidates whose nonidentity spatial traffic is
+	// not modeled. These never contribute to EvaluatedCandidates or Best.
+	UnsupportedCandidates int
+	// BestIntensity is the greatest logical DRAM FLOPs/byte. Equal intensities
+	// retain the first candidate. This is not a latency or occupancy estimate.
+	BestIntensity float64
+	Best          *MapSpaceSearchResult
+}
+
+// MapSpaceSearchResult retains a detached mapping and its logical temporal
+// traffic. Mutating it does not change the search inputs.
+type MapSpaceSearchResult struct {
+	Mapping  cudalayout.MapSpace
+	Movement cudaroofline.HierarchyMovement
 }
 
 // LinearPrunedSearch performs ordered iteration over a factored mapspace,
@@ -31,9 +46,12 @@ type LinearPrunedSearch struct {
 	Constraints    cudalayout.HardwareConstraints
 	DTypes         map[cudalayout.TensorRole]int
 	Problem        map[string]int
+	defaultOrder   bool
 }
 
-// NewLinearPrunedSearch constructs a LinearPrunedSearch instance.
+// NewLinearPrunedSearch constructs a LinearPrunedSearch instance. With no
+// permutations, it selects B/M/N/K (outermost first) at each listed level.
+// Supplied permutations are used as written; absent non-unit orders are invalid.
 func NewLinearPrunedSearch(
 	facts []cudalayout.IndexFactorization,
 	perms []cudalayout.LoopPermutation,
@@ -42,7 +60,8 @@ func NewLinearPrunedSearch(
 	dtypes map[cudalayout.TensorRole]int,
 	problem map[string]int,
 ) *LinearPrunedSearch {
-	if len(perms) == 0 {
+	defaultOrder := len(perms) == 0
+	if defaultOrder {
 		perms = []cudalayout.LoopPermutation{cudalayout.NewLoopPermutation(nil)}
 	}
 	if len(bypasses) == 0 {
@@ -55,6 +74,7 @@ func NewLinearPrunedSearch(
 		Constraints:    constraints,
 		DTypes:         dtypes,
 		Problem:        problem,
+		defaultOrder:   defaultOrder,
 	}
 }
 
@@ -87,6 +107,7 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 			Constraints:    s.Constraints,
 			DTypes:         s.DTypes,
 			Problem:        s.Problem,
+			defaultOrder:   s.defaultOrder,
 		})
 		start += count
 	}
@@ -95,9 +116,11 @@ func (s *LinearPrunedSearch) Split(n int) ([]*LinearPrunedSearch, error) {
 
 // Search runs pruned search over the mapspace. Orders must include each
 // non-unit factor at the specified level; unit-factor loops may be omitted.
-// Scoring uses order- and spatial-independent data movement floors, not
-// schedule latency. Spatial meshes describe whole-warp logical subdivisions;
-// they do not generate launches or supply reduction synchronization.
+// Scoring uses AnalyticalGEMMHierarchy's full temporal retention contract and
+// maximizes logical DRAM operational intensity, retaining the first tie.
+// Nonidentity spatial candidates that pass geometry and capacity checks are
+// counted as unsupported and skipped. No spatial sharing, effective device
+// occupancy, physical cache behavior or schedule latency is modeled.
 // It rejects a candidate count that cannot be represented by its int statistics.
 func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, error) {
 	stats := MapSpaceSearchStats{}
@@ -117,11 +140,11 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 		return stats, err
 	}
 
-	// Convert dtypes to string map for cudaroofline
-	dtypesStr := map[string]int{
-		"A": s.DTypes[cudalayout.TensorA],
-		"B": s.DTypes[cudalayout.TensorB],
-		"C": s.DTypes[cudalayout.TensorC],
+	if err := ctx.Err(); err != nil {
+		return stats, err
+	}
+	if err := validateMapSpaceInputs(s.Problem, s.DTypes); err != nil {
+		return stats, err
 	}
 
 	for _, fact := range s.Factorizations {
@@ -129,7 +152,7 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 			return stats, err
 		}
 		stats.FactorizationsTested++
-		if err := fact.Validate(s.Problem); err != nil {
+		if !validMapSpaceFactorization(fact, s.Problem) {
 			stats.FactorizationsPruned++
 			stats.DownstreamSkipped += downstreamPerFact
 			continue
@@ -149,7 +172,7 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 				if err := ctx.Err(); err != nil {
 					return stats, err
 				}
-				if err := cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints); err == nil {
+				if validMapSpaceBypass(fact, bypass) && cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints) == nil {
 					fits = true
 					break
 				}
@@ -161,9 +184,14 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 			continue // Skip downstream permutation and bypass evaluations
 		}
 
-		sharedTile := fact.TileShape(cudalayout.LevelShared)
-
 		for _, perm := range s.Permutations {
+			if s.defaultOrder && len(perm.Orders) == 0 {
+				orders := make(map[cudalayout.StorageLevel][]string, len(fact.Levels))
+				for _, level := range fact.Levels {
+					orders[level] = []string{"B", "M", "N", "K"}
+				}
+				perm = cudalayout.NewLoopPermutation(orders)
+			}
 			if err := ctx.Err(); err != nil {
 				return stats, err
 			}
@@ -185,23 +213,24 @@ func (s *LinearPrunedSearch) Search(ctx context.Context) (MapSpaceSearchStats, e
 					}
 
 					// Check bypass-specific capacity
-					if err := cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints); err != nil {
+					if !validMapSpaceBypass(fact, bypass) || cudalayout.ValidateCapacity(fact, bypass, s.DTypes, s.Constraints) != nil {
 						stats.DownstreamSkipped++
 						continue
 					}
 
-					bypassedMap := map[string]bool{
-						"A": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorA) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorA),
-						"B": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorB) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorB),
-						"C": bypass.IsBypassed(cudalayout.LevelShared, cudalayout.TensorC) || bypass.IsBypassed(cudalayout.LevelL2, cudalayout.TensorC),
+					if !identityMapSpaceSpatial(spatial) {
+						stats.UnsupportedCandidates++
+						stats.DownstreamSkipped++
+						continue
 					}
-
-					dm, err := cudaroofline.AnalyticalDataMovement(s.Problem, sharedTile, dtypesStr, bypassedMap)
+					mapping := cudalayout.MapSpace{Problem: s.Problem, Factorization: fact, Permutation: perm, Spatial: spatial, Bypass: bypass}
+					movement, err := cudaroofline.AnalyticalGEMMHierarchy(mapping, s.DTypes)
 					if err != nil {
 						return stats, fmt.Errorf("mapspace data movement: %w", err)
 					}
-					if dm.OperationalIntensity > stats.BestIntensity {
-						stats.BestIntensity = dm.OperationalIntensity
+					if stats.Best == nil || movement.DRAM.OperationalIntensity > stats.BestIntensity {
+						stats.BestIntensity = movement.DRAM.OperationalIntensity
+						stats.Best = &MapSpaceSearchResult{Mapping: cloneMapSpace(mapping), Movement: movement}
 					}
 					stats.EvaluatedCandidates++
 				}
@@ -250,6 +279,13 @@ func mapspaceDownstreamCount(factorizations, permutations, bypasses int) (int, e
 }
 
 func validMapSpacePermutation(fact cudalayout.IndexFactorization, perm cudalayout.LoopPermutation, problem map[string]int) bool {
+	for _, level := range fact.Levels {
+		for dim, factor := range fact.Factors[level] {
+			if factor > 1 && !slices.Contains(perm.Orders[level], dim) {
+				return false
+			}
+		}
+	}
 	for level, order := range perm.Orders {
 		if level < cudalayout.LevelRegister || level > cudalayout.LevelDRAM || !slices.Contains(fact.Levels, level) {
 			return false
@@ -271,4 +307,79 @@ func validMapSpacePermutation(fact cudalayout.IndexFactorization, perm cudalayou
 		}
 	}
 	return true
+}
+
+func validateMapSpaceInputs(problem map[string]int, dtypes map[cudalayout.TensorRole]int) error {
+	if len(problem) != 4 {
+		return fmt.Errorf("mapspace requires exactly B/M/N/K: %w", cudalayout.ErrUnsupported)
+	}
+	for _, dim := range []string{"B", "M", "N", "K"} {
+		if problem[dim] <= 0 {
+			return fmt.Errorf("mapspace requires positive %s: %w", dim, cudalayout.ErrUnsupported)
+		}
+	}
+	if len(dtypes) != 3 {
+		return fmt.Errorf("mapspace requires exactly A/B/C byte sizes: %w", cudalayout.ErrUnsupported)
+	}
+	for _, role := range []cudalayout.TensorRole{cudalayout.TensorA, cudalayout.TensorB, cudalayout.TensorC} {
+		if dtypes[role] <= 0 {
+			return fmt.Errorf("mapspace requires positive %s byte size: %w", role, cudalayout.ErrUnsupported)
+		}
+	}
+	return nil
+}
+
+func validMapSpaceFactorization(fact cudalayout.IndexFactorization, problem map[string]int) bool {
+	if len(fact.Levels) == 0 || fact.Levels[len(fact.Levels)-1] != cudalayout.LevelDRAM {
+		return false
+	}
+	for i, level := range fact.Levels {
+		if level < cudalayout.LevelRegister || level > cudalayout.LevelDRAM || (i > 0 && level <= fact.Levels[i-1]) {
+			return false
+		}
+	}
+	for level := range fact.Factors {
+		if !slices.Contains(fact.Levels, level) {
+			return false
+		}
+	}
+	return fact.Validate(problem) == nil
+}
+
+func validMapSpaceBypass(fact cudalayout.IndexFactorization, bypass cudalayout.DatatypeBypass) bool {
+	for level, roles := range bypass.Bypassed {
+		if !slices.Contains(fact.Levels, level) {
+			return false
+		}
+		for role, bypassed := range roles {
+			if role < cudalayout.TensorA || role > cudalayout.TensorC || (level == cudalayout.LevelDRAM && bypassed) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func identityMapSpaceSpatial(spatial cudalayout.SpatialTiling) bool {
+	for _, mesh := range []map[string]int{spatial.CTAMesh, spatial.WarpMesh} {
+		for _, count := range mesh {
+			if count != 1 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func cloneMapSpace(mapping cudalayout.MapSpace) cudalayout.MapSpace {
+	mapping.Problem = maps.Clone(mapping.Problem)
+	mapping.Factorization = cudalayout.NewIndexFactorization(mapping.Factorization.Levels, mapping.Factorization.Factors)
+	mapping.Permutation = cudalayout.NewLoopPermutation(mapping.Permutation.Orders)
+	mapping.Spatial = cudalayout.NewSpatialTiling(mapping.Spatial.CTAMesh, mapping.Spatial.WarpMesh)
+	tensors := make(map[cudalayout.StorageLevel]map[cudalayout.TensorRole]bool, len(mapping.Bypass.Bypassed))
+	for level, roles := range mapping.Bypass.Bypassed {
+		tensors[level] = maps.Clone(roles)
+	}
+	mapping.Bypass = cudalayout.DatatypeBypass{Bypassed: tensors}
+	return mapping
 }
