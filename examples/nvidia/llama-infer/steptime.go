@@ -70,7 +70,13 @@ func newStepTimer(dev *cuda.Device, prof *cudaprof.Session, tracer *cudatrace.Tr
 // failures joined, in that order. Callers must call it before freeing any
 // buffer that work enqueued through measure may still use.
 func (st *stepTimer) close() error {
-	return closeStepTimer(st.stream, []*cuda.Event{st.anchor, st.start, st.end})
+	return st.closeWith(closeStepTimer[*cuda.Stream, *cuda.Event])
+}
+
+// closeWith passes the timer's stream and its events, in the order they
+// are built, to closer and returns closer's error.
+func (st *stepTimer) closeWith(closer func(*cuda.Stream, []*cuda.Event) error) error {
+	return closer(st.stream, []*cuda.Event{st.anchor, st.start, st.end})
 }
 
 // timerStream is what closeStepTimer needs of a stream.

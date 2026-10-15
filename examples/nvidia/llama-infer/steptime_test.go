@@ -3,8 +3,15 @@ package main
 import (
 	"context"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"go/types"
+	"os"
 	"slices"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cuda"
 )
 
 // closeLog records the calls closeStepTimer makes, in order, and returns
@@ -164,5 +171,57 @@ func TestCloseStepTimer(t *testing.T) {
 func TestStepTimerCloseZero(t *testing.T) {
 	if err := (&stepTimer{}).close(); err != nil {
 		t.Fatalf("close: %v", err)
+	}
+}
+
+// TestStepTimerCloseWith checks that closeWith passes closer the timer's
+// own stream and its anchor, start and end events, in that order, and
+// returns closer's error. The cuda values are only compared, never used.
+func TestStepTimerCloseWith(t *testing.T) {
+	st := &stepTimer{stream: new(cuda.Stream), anchor: new(cuda.Event), start: new(cuda.Event), end: new(cuda.Event)}
+	errCloser := errors.New("closer failed")
+	var gotStream *cuda.Stream
+	var gotEvents []*cuda.Event
+	err := st.closeWith(func(s *cuda.Stream, events []*cuda.Event) error {
+		gotStream, gotEvents = s, events
+		return errCloser
+	})
+	if err != errCloser {
+		t.Errorf("err = %v, want %v", err, errCloser)
+	}
+	if gotStream != st.stream {
+		t.Errorf("closer got stream %p, want the timer's %p", gotStream, st.stream)
+	}
+	if want := []*cuda.Event{st.anchor, st.start, st.end}; !slices.Equal(gotEvents, want) {
+		t.Errorf("closer got events %v, want anchor, start, end %v", gotEvents, want)
+	}
+}
+
+// TestStepTimerCloseSource checks that stepTimer.close is a single return
+// of closeWith with closeStepTimer, which TestCloseStepTimer and
+// TestStepTimerCloseWith test; no CPU test can call close on a built timer.
+func TestStepTimerCloseSource(t *testing.T) {
+	const want = "st.closeWith(closeStepTimer[*cuda.Stream, *cuda.Event])"
+	src, err := os.ReadFile("steptime.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := parser.ParseFile(token.NewFileSet(), "steptime.go", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := "no stepTimer.close"
+	for _, decl := range f.Decls {
+		fd, ok := decl.(*ast.FuncDecl)
+		if !ok || fd.Recv == nil || fd.Name.Name != "close" || types.ExprString(fd.Recv.List[0].Type) != "*stepTimer" {
+			continue
+		}
+		got = "not a single return"
+		if e := singleReturn(fd.Body); e != nil {
+			got = types.ExprString(e)
+		}
+	}
+	if got != want {
+		t.Errorf("stepTimer.close returns %s, want %s", got, want)
 	}
 }
