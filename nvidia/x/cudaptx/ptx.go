@@ -103,15 +103,26 @@ type Kernel struct {
 	Labels       []Label       // labels in source order, scoped to this function
 }
 
+// TargetDeclaration records a .target directive recognized by Parse.
+// Recognition does not validate its architecture, options or placement.
+type TargetDeclaration struct {
+	Line   int    // 1-based source line of the directive
+	Target string // argument text, including any comma-separated options
+}
+
 // Module represents a fully parsed PTX source module.
 // Authority: docs/ptx/11-directives.md:15-402
 type Module struct {
-	Version     string         // e.g. "8.8" or "8.0"
-	Target      string         // e.g. "sm_90"
-	AddressSize int            // 32 or 64
-	Files       map[int]string // .file index -> filename map
-	Kernels     []*Kernel      // list of kernel and function definitions/declarations
-	kernelMap   map[string]*Kernel
+	Version string // e.g. "8.8" or "8.0"
+	Target  string // e.g. "sm_90"
+	// TargetDeclarations retains recognized .target directives in source order.
+	// Comments, quoted text and skipped intermediate source do not declare targets.
+	// Target remains the argument text of the last recognized declaration.
+	TargetDeclarations []TargetDeclaration
+	AddressSize        int            // 32 or 64
+	Files              map[int]string // .file index -> filename map
+	Kernels            []*Kernel      // list of kernel and function definitions/declarations
+	kernelMap          map[string]*Kernel
 }
 
 // Kernel returns the kernel or function by name, preferring definitions over

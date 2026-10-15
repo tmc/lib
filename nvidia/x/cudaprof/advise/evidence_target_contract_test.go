@@ -52,9 +52,6 @@ func TestAnalyzeEvidenceAllRetainedTargets(t *testing.T) {
 		{"duplicate-ptx-b", func(c *cudacapture.Capture) {
 			c.Files["secondary.ptx"] = append([]byte(".target sm_70\n"), targetPTX("sm_90")...)
 		}},
-		{"comment-target-limit", func(c *cudacapture.Capture) {
-			c.Files["secondary.ptx"] = append([]byte("// previous .target is intentionally unqualified\n"), targetPTX("sm_70")...)
-		}},
 		{"module-role", func(c *cudacapture.Capture) {
 			c.Modules = []cudacapture.Module{{ID: "m", Code: cudacapture.CodeFiles{PTX: "opaque"}}}
 			c.Files["opaque"] = targetPTX("sm_90")

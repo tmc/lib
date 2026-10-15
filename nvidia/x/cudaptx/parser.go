@@ -75,6 +75,7 @@ func Parse(r io.Reader) (*Module, error) {
 		depth              int
 		operandDepth       int
 		inString           bool
+		newlineDirective   string
 		curLoc             Location
 		curIntermediateLoc Location
 		curInlinedAt       []Location
@@ -94,6 +95,26 @@ func Parse(r io.Reader) (*Module, error) {
 		curLoc = Location{}
 		curIntermediateLoc = Location{}
 		curInlinedAt = nil
+	}
+
+	processDirective := func(s, directive string, line int) {
+		switch directive {
+		case ".version":
+			m.Version = directiveArg(s, directive)
+		case ".target":
+			m.Target = directiveArg(s, directive)
+			m.TargetDeclarations = append(m.TargetDeclarations, TargetDeclaration{Line: line, Target: m.Target})
+		case ".address_size":
+			m.AddressSize, _ = strconv.Atoi(directiveArg(s, directive))
+		case ".file":
+			parseFileDirective(s, m)
+		case ".loc_intermediate":
+			curIntermediateLoc, _ = parseLocDirective(s)
+		case ".loc":
+			loc, inlinedAt := parseLocDirective(s)
+			curLoc, curInlinedAt = linkInlineChain(curLoc, curInlinedAt, loc, inlinedAt)
+			curIntermediateLoc = Location{}
+		}
 	}
 
 	flush := func() string {
@@ -245,30 +266,12 @@ func Parse(r io.Reader) (*Module, error) {
 			continue
 		}
 
-		// Newline-terminated directives, recognized only at a statement
-		// boundary so that they cannot be confused with operand text.
+		// Newline-terminated directives use the same quote scanner as ordinary
+		// statements. A continued .file literal may contain directive-looking
+		// text; it is still part of the filename, not a new declaration.
 		if !inString && len(stmt) == 0 {
-			if _, ok := hasAnyPrefix(trimmed, newlineTerminated); ok {
-				switch {
-				case strings.HasPrefix(trimmed, ".version"):
-					m.Version = directiveArg(trimmed, ".version")
-				case strings.HasPrefix(trimmed, ".target"):
-					m.Target = directiveArg(trimmed, ".target")
-				case strings.HasPrefix(trimmed, ".address_size"):
-					m.AddressSize, _ = strconv.Atoi(directiveArg(trimmed, ".address_size"))
-				case strings.HasPrefix(trimmed, ".file"):
-					parseFileDirective(trimmed, m)
-				case strings.HasPrefix(trimmed, ".loc_intermediate"):
-					curIntermediateLoc, _ = parseLocDirective(trimmed)
-				case strings.HasPrefix(trimmed, ".loc"):
-					loc, inlinedAt := parseLocDirective(trimmed)
-					curLoc, curInlinedAt = linkInlineChain(curLoc, curInlinedAt, loc, inlinedAt)
-					// A new source position starts here; an intermediate
-					// location that never reached an instruction does not
-					// carry across it.
-					curIntermediateLoc = Location{}
-				}
-				continue
+			if directive, ok := hasAnyPrefix(trimmed, newlineTerminated); ok {
+				newlineDirective = directive
 			}
 		}
 
@@ -292,6 +295,9 @@ func Parse(r io.Reader) (*Module, error) {
 			}
 			if trimmed[i] == '"' {
 				inString = true
+				continue
+			}
+			if newlineDirective != "" {
 				continue
 			}
 			switch trimmed[i] {
@@ -364,6 +370,10 @@ func Parse(r io.Reader) (*Module, error) {
 			}
 		}
 		add(trimmed[seg:])
+		if newlineDirective != "" && !inString {
+			processDirective(flush(), newlineDirective, stmtLine)
+			newlineDirective = ""
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("cudaptx: read: %w", err)

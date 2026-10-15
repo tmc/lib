@@ -412,18 +412,16 @@ func profileShareTargets(cap *cudacapture.Capture, supplied string) string {
 			return "retained target listing unavailable"
 		}
 		if roles[name]["ptx"] {
-			// The parser exposes one Module.Target and overwrites repeated declarations.
-			// Require one possible spelling rather than silently selecting the last.
-			// This deliberately also refuses extra .target mentions in comments or
-			// embedded text; disambiguating those needs a richer parser contract.
-			if bytes.Count(data, []byte(".target")) != 1 {
-				return "retained PTX target declarations ambiguous or unavailable"
-			}
 			mod, err := cudaptx.ParseBytes(data)
-			if err != nil || mod == nil || mod.Target == "" {
+			if err != nil || mod == nil {
 				return "retained PTX target unavailable"
 			}
-			target, _, _ := strings.Cut(mod.Target, ",")
+			// Require one actual declaration; the legacy Target field selects the
+			// last declaration and cannot establish uniqueness.
+			if len(mod.TargetDeclarations) != 1 {
+				return "retained PTX target declarations ambiguous or unavailable"
+			}
+			target, _, _ := strings.Cut(mod.TargetDeclarations[0].Target, ",")
 			if reason := check(target, false); reason != "" {
 				return reason
 			}
