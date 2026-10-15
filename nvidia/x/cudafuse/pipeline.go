@@ -23,6 +23,8 @@ type FusionRegion struct {
 }
 
 // MaterializedPlan contains the compiled fusion regions and allocation receipts.
+// AllocatedBytes is -1 for an unresolved Filter result; no guessed allocation is
+// recorded in its tracker. Execution.Shape and Stats describe the actual result.
 type MaterializedPlan struct {
 	Regions        []*FusionRegion
 	AllocatedBytes int64
@@ -81,6 +83,14 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 
 	// For regions of fusible elementwise nodes, compile them via FuseWithSourceMap.
 	for _, reg := range regions {
+		unresolved := false
+		for _, n := range append(append([]*LazyNode(nil), reg.Nodes...), reg.Inputs...) {
+			unresolved = unresolved || unresolvedShape(n.Shape)
+		}
+		if unresolved {
+			reg.Reason = "Filter count must complete before source specialization"
+			continue
+		}
 		if reg.Boundary == "cycle" {
 			kernel, err := compileIndexedLazyRegion(reg.Inputs, reg.Outputs, fmt.Sprintf("cycle_region_%d", reg.ID))
 			if err != nil {
@@ -194,13 +204,14 @@ func CompileDeferredGraph(ctx *LazyContext, root *LazyNode) (*MaterializedPlan, 
 	}
 
 	// Calculate output allocation size for the materialized result
-	allocBytes, err := outputBytes(root.Shape, root.DType)
-	if err != nil {
-		return nil, fmt.Errorf("cudafuse: output allocation size: %w", err)
+	allocBytes := int64(-1) // An unresolved Filter output has no known byte extent.
+	if !unresolvedShape(root.Shape) {
+		allocBytes, err = outputBytes(root.Shape, root.DType)
+		if err != nil {
+			return nil, fmt.Errorf("cudafuse: output allocation size: %w", err)
+		}
+		ctx.Tracker.RecordAlloc(allocBytes)
 	}
-
-	// Record the single output buffer allocation
-	ctx.Tracker.RecordAlloc(allocBytes)
 
 	// Mark nodes as evaluated
 	for _, n := range ordered {
@@ -335,15 +346,22 @@ func partitionIntoRegions(nodes []*LazyNode) ([]*FusionRegion, error) {
 		// Separate iteration domains even when their DFS positions are adjacent.
 		// Reshape and transpose preserve element count within an indexed region.
 		if len(currentRegion.Nodes) != 0 {
-			previous, err := shapeElements(currentRegion.Nodes[0].Shape)
+			previousShape := currentRegion.Nodes[0].Shape
+			previous, err := shapeElements(previousShape)
+			if unresolvedShape(previousShape) {
+				previous, err = 0, nil
+			}
 			if err != nil {
 				return nil, err
 			}
 			count, err := shapeElements(n.Shape)
+			if unresolvedShape(n.Shape) {
+				count, err = 0, nil
+			}
 			if err != nil {
 				return nil, err
 			}
-			if count != previous {
+			if count != previous || unresolvedShape(previousShape) != unresolvedShape(n.Shape) {
 				currentRegion.Outputs = findOutputs(currentRegion.Nodes, nodes)
 				currentRegion = startNewRegion(false, "")
 			}

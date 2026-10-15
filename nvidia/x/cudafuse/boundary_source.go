@@ -81,12 +81,16 @@ func compileScanKernel(inputs []*LazyNode, expression, output *LazyNode, name st
 			external[in] = true
 		}
 		value := newIndexedExpression(&source, external).emit(expression, "idx")
-		fmt.Fprintf(&source, "        if (idx == 0) scan_value = %s;\n", value)
-		fmt.Fprintf(&source, "        else scan_value = __fadd_rn(scan_value, %s);\n", value)
+		emitScanUpdate(&source, value)
 		fmt.Fprintf(&source, "        out_%s[idx] = scan_value;\n", output.Name())
 		fmt.Fprintln(&source, "    }")
 	}
 	fmt.Fprintln(&source, "}")
 	kernel.Source = source.String()
 	return kernel, nil
+}
+
+func emitScanUpdate(source *strings.Builder, value string) {
+	fmt.Fprintf(source, "        if (idx == 0) scan_value = %s;\n", value)
+	fmt.Fprintf(source, "        else scan_value = __fadd_rn(scan_value, %s);\n", value)
 }

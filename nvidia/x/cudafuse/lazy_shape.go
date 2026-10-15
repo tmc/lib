@@ -45,6 +45,14 @@ func elementCount(shape []int) (int, error) {
 
 // binaryShape follows cudair's ordered equal-shape-or-one-element rule.
 func binaryShape(a, b []int) ([]int, error) {
+	if unresolvedShape(a) || unresolvedShape(b) {
+		an, ae := elementCount(a)
+		bn, be := elementCount(b)
+		if unresolvedShape(a) && unresolvedShape(b) || unresolvedShape(a) && be == nil && bn == 1 || unresolvedShape(b) && ae == nil && an == 1 {
+			return []int{-1}, nil
+		}
+		return nil, fmt.Errorf("%w: unresolved Filter requires a scalar operand", cudair.ErrShapeMismatch)
+	}
 	as, err := cudashape.New(a...)
 	if err != nil {
 		return nil, err
@@ -81,7 +89,7 @@ func arrayError(op string, arrays ...*LazyArray) error {
 		if !slices.Equal(a.Shape, a.Node.Shape) || a.DType != a.Node.DType {
 			return fmt.Errorf("%s: array metadata differs from node", op)
 		}
-		if _, err := elementCount(a.Shape); err != nil {
+		if _, err := elementCount(a.Shape); err != nil && !unresolvedShape(a.Shape) {
 			return fmt.Errorf("%s input: %w", op, err)
 		}
 	}
@@ -101,8 +109,15 @@ func validateLazyShape(n *LazyNode) error {
 		return n.Err
 	}
 	count, err := elementCount(n.Shape)
-	if err != nil {
+	if err != nil && !unresolvedShape(n.Shape) {
 		return err
+	}
+	if unresolvedShape(n.Shape) {
+		switch n.Op {
+		case "filter", "scan", "add", "sub", "mul", "div", "relu", "silu", "exp", "sqrt", "neg":
+		default:
+			return fmt.Errorf("%s cannot have an unresolved Filter extent", n.Op)
+		}
 	}
 	for _, in := range n.Inputs {
 		if in == nil {
@@ -113,6 +128,10 @@ func validateLazyShape(n *LazyNode) error {
 		}
 	}
 	switch n.Op {
+	case "filter":
+		if err := validateFilterShape(n); err != nil {
+			return err
+		}
 	case "input":
 		if len(n.Inputs) != 0 || len(n.Attrs) != 0 {
 			return fmt.Errorf("invalid input attributes")

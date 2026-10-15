@@ -131,8 +131,10 @@ func (p *MaterializedPlan) executeInputs(ctx context.Context, stream *cuda.Strea
 	if err != nil {
 		return nil, err
 	}
-	nodes := plan.nodes
-	n := int(mustExecutionElements(plan.root))
+	if err := resolveEmptyFilter(plan); err != nil {
+		return nil, err
+	}
+	n := executionCount(plan.root)
 	if n != 0 && (stream == nil || stream.Device() == nil) {
 		return nil, errors.New("cudafuse: nil execution stream or device")
 	}
@@ -140,6 +142,17 @@ func (p *MaterializedPlan) executeInputs(ctx context.Context, stream *cuda.Strea
 	if stream != nil {
 		dev = stream.Device()
 	}
+	return executePlanInputs(ctx, plan, dev, bindings, nativeExecutionOps(dev, stream))
+}
+
+// executePlanInputs is the checked binding/borrow route used by public Execute.
+// Per-call operations let host controls exercise custody without a public backend.
+func executePlanInputs(ctx context.Context, plan *executionPlan, dev *cuda.Device, bindings map[string]executionInput, ops executionOps) (*Execution, error) {
+	if err := resolveEmptyFilter(plan); err != nil {
+		return nil, err
+	}
+	nodes := plan.nodes
+	n := executionCount(plan.root)
 	descriptions := map[string]executionBindingDescription{}
 	for name, b := range bindings {
 		descriptions[name] = b.description
@@ -206,7 +219,7 @@ func (p *MaterializedPlan) executeInputs(ctx context.Context, stream *cuda.Strea
 		rollback()
 		return nil, ctx.Err()
 	}
-	e, err := runExecutionPlan(ctx, plan, inputs, nativeExecutionOps(dev, stream), releases)
+	e, err := runExecutionPlan(ctx, plan, inputs, ops, releases)
 	return e, err
 }
 
@@ -359,7 +372,7 @@ func runExecution(ctx context.Context, nodes []*LazyNode, n int, inputs map[*Laz
 }
 
 func runExecutionPlan(ctx context.Context, plan *executionPlan, inputs map[*LazyNode]driver.DevicePtr, ops executionOps, releases []func()) (*Execution, error) {
-	e := &Execution{n: int(mustExecutionElements(plan.root)), shape: slices.Clone(plan.root.Shape), ops: ops, releases: releases}
+	e := &Execution{n: executionCount(plan.root), shape: slices.Clone(plan.root.Shape), ops: ops, releases: releases}
 	values := make(map[*LazyNode]driver.DevicePtr)
 	for node, ptr := range inputs {
 		values[node] = ptr
@@ -372,6 +385,15 @@ func runExecutionPlan(ctx context.Context, plan *executionPlan, inputs map[*Lazy
 		return e, err
 	}
 	for i, step := range plan.steps {
+		if step.filter {
+			if ctx != nil && ctx.Err() != nil {
+				return fail(ctx.Err())
+			}
+			if err := e.filter(ctx, plan, step, values, i); err != nil {
+				return fail(err)
+			}
+			continue
+		}
 		if step.count == 0 {
 			continue
 		}
@@ -458,14 +480,18 @@ func runExecutionPlan(ctx context.Context, plan *executionPlan, inputs map[*Lazy
 	return e, nil
 }
 
-// Shape returns a copy of the execution's validated output shape. Sum has
-// shape [1], including an empty-input sum; rank-zero pointwise results have [].
+// Shape returns a copy of the execution's validated output shape. It returns
+// nil while a Filter result's count is unresolved. Sum has shape [1], including
+// an empty-input sum; rank-zero pointwise results have [].
 func (e *Execution) Shape() []int {
 	if e == nil {
 		return nil
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.n < 0 {
+		return nil
+	}
 	return slices.Clone(e.shape)
 }
 

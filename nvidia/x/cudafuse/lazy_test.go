@@ -128,7 +128,11 @@ func TestLazyFusionBoundary_ConditionallyFusedFilterBoundary(t *testing.T) {
 			case "keep":
 				compact = upstream.Keep(mask)
 			}
-			plan, err := compact.Add(y).Materialize()
+			operand := y
+			if boundary == "filter" {
+				operand = cudafuse.NewLazyArray(ctx, []int{1}, cudair.Float32)
+			}
+			plan, err := compact.Add(operand).Materialize()
 			if err != nil {
 				t.Fatalf("Materialize: %v", err)
 			}

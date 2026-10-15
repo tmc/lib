@@ -298,7 +298,8 @@ func (la *LazyArray) Replicate(count int) *LazyArray {
 	return &LazyArray{Ctx: la.Ctx, Node: node, Shape: shape, DType: la.DType}
 }
 
-// Where records a conditionally fused compaction node using a boolean predicate mask.
+// Where selects between this array and other using a predicate mask. It preserves
+// the element count; it is distinct from Filter's stable compaction.
 func (la *LazyArray) Where(pred, other *LazyArray) *LazyArray {
 	if la == nil || la.Node == nil || la.Ctx == nil {
 		return failedArray(nil, "where", fmt.Errorf("invalid receiver"))
@@ -332,7 +333,12 @@ func (la *LazyArray) Where(pred, other *LazyArray) *LazyArray {
 	}
 }
 
-// Filter records a predicate-based compaction boundary that alters dynamic output size.
+// Filter stably selects rank-one FP32 values whose FP32 predicate is exactly one.
+// Predicates must be zero or one; both signs of zero are false. Invalid or
+// nonfinite predicates are refused during execution. Shape [-1] marks an
+// unresolved planning extent, never an allocation size. Execution.Shape returns
+// the selected extent after completed count validation. This initial execution
+// supports one Filter with unary/scalar pointwise, Sum and sum Scan consumers.
 func (la *LazyArray) Filter(pred *LazyArray) *LazyArray {
 	if la == nil || la.Node == nil || la.Ctx == nil {
 		return failedArray(nil, "filter", fmt.Errorf("invalid receiver"))
@@ -350,15 +356,18 @@ func (la *LazyArray) Filter(pred *LazyArray) *LazyArray {
 		ID:     la.Ctx.newID(),
 		Op:     "filter",
 		Inputs: inputs,
-		Shape:  slices.Clone(la.Shape),
+		Shape:  []int{-1},
 		DType:  la.DType,
 		Attrs:  make(map[string]any),
 		Err:    nodeErr,
 	}
+	if node.Err == nil {
+		node.Err = validateFilterShape(node)
+	}
 	return &LazyArray{
 		Ctx:   la.Ctx,
 		Node:  node,
-		Shape: slices.Clone(la.Shape),
+		Shape: []int{-1},
 		DType: la.DType,
 	}
 }

@@ -22,7 +22,9 @@ type executionStep struct {
 	count           int
 	sum             bool
 	scan            bool
+	filter          bool
 	expression      *LazyNode
+	predicate       *LazyNode
 }
 
 func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) {
@@ -33,6 +35,7 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 	state := make(map[*LazyNode]int)
 	names := make(map[string]bool)
 	var originalOrder []*LazyNode
+	filters := 0
 	var visit func(*LazyNode) (*LazyNode, error)
 	visit = func(n *LazyNode) (*LazyNode, error) {
 		if n == nil || state[n] == 1 {
@@ -46,7 +49,7 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 		}
 		names[n.Name()] = true
 		count, err := indexedElements(n)
-		if err != nil {
+		if err != nil && !unresolvedShape(n.Shape) {
 			return nil, err
 		}
 		if count > uint64(math.MaxInt-2) {
@@ -74,8 +77,16 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 			clone.Inputs = append(clone.Inputs, v)
 		}
 		if n.Op == "input" {
-			if len(n.Inputs) != 0 || len(n.Attrs) != 0 {
+			if len(n.Inputs) != 0 || len(n.Attrs) != 0 || unresolvedShape(n.Shape) {
 				return nil, fmt.Errorf("cudafuse: invalid execution input")
+			}
+		} else if n.Op == "filter" {
+			filters++
+			if filters > 1 {
+				return nil, fmt.Errorf("cudafuse: execution supports one Filter")
+			}
+			if err := validateFilterShape(&clone); err != nil {
+				return nil, err
 			}
 		} else if n.Op == "sum" {
 			axis, ok := clone.Attrs["axis"].(int)
@@ -127,8 +138,10 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 			if n.Op == "input" {
 				continue
 			}
-			count, _ := indexedElements(n)
-			step := executionStep{inputs: uniqueExecutionNodes(n.Inputs), outputs: []*LazyNode{n}, count: int(count)}
+			step := executionStep{inputs: uniqueExecutionNodes(n.Inputs), outputs: []*LazyNode{n}, count: executionCount(n)}
+			if n.Op == "filter" {
+				step.filter, step.expression, step.predicate = true, n.Inputs[0], n.Inputs[1]
+			}
 			if n.Op == "sum" {
 				step.sum, step.expression = true, n.Inputs[0]
 			}
@@ -150,9 +163,19 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 		if len(outputs) == 0 {
 			continue
 		}
+		if r.Boundary == "filter" {
+			n := outputs[0]
+			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: outputs, count: executionCount(n.Inputs[0]), filter: true, expression: n.Inputs[0], predicate: n.Inputs[1]})
+			continue
+		}
+		if r.Boundary == "" && !r.Compaction && i+1 < len(regions) && regions[i+1].Boundary == "filter" && filterCanFuse(outputs, regions[i+1].Outputs[0], plan.nodes) {
+			n := regions[i+1].Outputs[0]
+			plan.steps = append(plan.steps, executionStep{inputs: filterRegionInputs(n, r.Nodes), outputs: []*LazyNode{n}, count: executionCount(n.Inputs[0]), filter: true, expression: n.Inputs[0], predicate: n.Inputs[1]})
+			i++
+			continue
+		}
 		if r.Boundary == "scan" {
-			count, _ := indexedElements(outputs[0])
-			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: outputs, count: int(count), scan: true, expression: outputs[0].Inputs[0]})
+			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: outputs, count: executionCount(outputs[0]), scan: true, expression: outputs[0].Inputs[0]})
 			continue
 		}
 		if r.Boundary == "sum" {
@@ -161,8 +184,7 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 		}
 		if len(outputs) == 1 && i+1 < len(regions) && regions[i+1].Boundary == "scan" && regions[i+1].Outputs[0].Inputs[0] == outputs[0] && otherUsersCount(outputs[0], plan.nodes) == 1 {
 			scan := regions[i+1].Outputs[0]
-			count, _ := indexedElements(scan)
-			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: []*LazyNode{scan}, count: int(count), scan: true, expression: outputs[0]})
+			plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: []*LazyNode{scan}, count: executionCount(scan), scan: true, expression: outputs[0]})
 			i++
 			continue
 		}
@@ -174,10 +196,44 @@ func snapshotExecution(p *MaterializedPlan, eager bool) (*executionPlan, error) 
 			i++
 			continue
 		}
-		count, _ := indexedElements(outputs[0])
-		plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: outputs, count: int(count)})
+		plan.steps = append(plan.steps, executionStep{inputs: uniqueExecutionNodes(r.Inputs), outputs: outputs, count: executionCount(outputs[0])})
 	}
 	return plan, nil
+}
+
+func filterCanFuse(outputs []*LazyNode, filter *LazyNode, nodes []*LazyNode) bool {
+	for _, out := range outputs {
+		uses := 0
+		for _, in := range filter.Inputs {
+			if in == out {
+				uses++
+			}
+		}
+		if uses == 0 || otherUsersCount(out, nodes) != uses {
+			return false
+		}
+	}
+	return true
+}
+
+func filterRegionInputs(filter *LazyNode, fused []*LazyNode) []*LazyNode {
+	var inputs []*LazyNode
+	var visit func(*LazyNode)
+	visit = func(n *LazyNode) {
+		if n.Op == "input" || !slices.Contains(fused, n) {
+			if !slices.Contains(inputs, n) {
+				inputs = append(inputs, n)
+			}
+			return
+		}
+		for _, in := range n.Inputs {
+			visit(in)
+		}
+	}
+	for _, in := range filter.Inputs {
+		visit(in)
+	}
+	return inputs
 }
 
 func uniqueExecutionNodes(nodes []*LazyNode) []*LazyNode {
