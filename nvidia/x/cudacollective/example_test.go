@@ -21,10 +21,8 @@ func Example() {
 		return
 	}
 
-	// The transport chain is given explicitly. NewResolver with no arguments
-	// picks the best transport the host can offer, which makes the example's
-	// output depend on whether libnccl is installed.
-	resolver := cudacollective.NewResolver(&cudacollective.TCPSocketTransport{})
+	// This explicit control-plane transport checks metadata without moving data.
+	resolver := cudacollective.NewResolver(cudacollective.NewDeterministicTestTransport(2))
 	transport, err := resolver.Resolve(membership, cudacollective.TopologyAny)
 	if err != nil {
 		fmt.Printf("resolve error: %v\n", err)
@@ -54,7 +52,7 @@ func Example() {
 		comm.Rank(), comm.Membership().WorldSize(), comm.Transport().Type(), op.Kind)
 
 	// Output:
-	// Rank: 0, WorldSize: 2, Transport: tcpsocket, Op: AllReduce
+	// Rank: 0, WorldSize: 2, Transport: controlplanetest, Op: AllReduce
 }
 
 func ExampleNewMembership() {

@@ -45,8 +45,7 @@ type Transport interface {
 	Close() error
 }
 
-// Resolver manages transport resolution hierarchy:
-// nvlshm -> moonep -> nccltest / TCP socket fallback.
+// Resolver selects the first available transport in priority order.
 type Resolver struct {
 	mu         sync.Mutex
 	transports []Transport
@@ -170,7 +169,8 @@ func (t *MoonEPTransport) Execute(ctx context.Context, comm *Communicator, op Op
 
 func (t *MoonEPTransport) Close() error { return nil }
 
-// TCPSocketTransport implements fallback TCP socket transport.
+// TCPSocketTransport describes a TCP collective transport that is not
+// implemented. It is never available and refuses execution.
 type TCPSocketTransport struct {
 	HubAddr string
 }
@@ -178,7 +178,7 @@ type TCPSocketTransport struct {
 func (t *TCPSocketTransport) Type() TransportType { return TransportTypeTCPSocket }
 
 func (t *TCPSocketTransport) Available(m Membership) bool {
-	return true
+	return false
 }
 
 func (t *TCPSocketTransport) Execute(ctx context.Context, comm *Communicator, op OperationDescriptor, sendBuf, recvBuf driver.DevicePtr) error {
@@ -191,13 +191,13 @@ func (t *TCPSocketTransport) Execute(ctx context.Context, comm *Communicator, op
 	if sendBuf == 0 || recvBuf == 0 {
 		return ErrNilBuffer
 	}
-	// Fallback executes control host transfer
-	return nil
+	return fmt.Errorf("%w: tcp collective transport is not implemented", ErrExecutionUnavailable)
 }
 
 func (t *TCPSocketTransport) Close() error { return nil }
 
-// DeterministicTestTransport provides a host-simulated transport for test environments.
+// DeterministicTestTransport validates control-plane metadata for host tests.
+// It does not read or write device buffers.
 type DeterministicTestTransport struct {
 	mu           sync.Mutex
 	worldSize    int
@@ -205,7 +205,8 @@ type DeterministicTestTransport struct {
 	closed       bool
 }
 
-// NewDeterministicTestTransport returns an in-memory transport simulating collective data transfer.
+// NewDeterministicTestTransport returns a control-plane test transport for
+// worldSize ranks. It does not perform collective data transfer.
 func NewDeterministicTestTransport(worldSize int) *DeterministicTestTransport {
 	chans := make([]chan []byte, worldSize)
 	for i := range chans {
