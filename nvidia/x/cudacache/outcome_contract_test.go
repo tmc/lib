@@ -224,8 +224,14 @@ func TestOutcomeRemoteArtifact(t *testing.T) {
 				t.Fatal("failed remote fetch returned an artifact")
 			}
 			checkOutcome(t, err, tc.want, tc.outage)
+			// A real deadline can expire before GetArtifact acquires a reader.
+			// In that case no reader is owned, and no Close is due.
+			fetched := calls
+			if fetched != 1 && !(tc.deadline && fetched == 0 && errors.Is(ctx.Err(), context.DeadlineExceeded)) {
+				t.Fatalf("FetchArtifact calls=%d, want one fetch or deadline before acquisition", fetched)
+			}
 			wantClose := 1
-			if tc.nilReader {
+			if tc.nilReader || fetched == 0 {
 				wantClose = 0
 			}
 			if r.closes != wantClose {
@@ -240,7 +246,7 @@ func TestOutcomeRemoteArtifact(t *testing.T) {
 				calls++
 				return nil, 0, cudacache.ErrRemoteNotFound
 			}
-			if got, err := c.GetArtifact(context.Background(), "artifact"); got != nil || !errors.Is(err, cudacache.ErrNotFound) || calls != 2 {
+			if got, err := c.GetArtifact(context.Background(), "artifact"); got != nil || !errors.Is(err, cudacache.ErrNotFound) || calls != fetched+1 {
 				t.Fatalf("failed fetch was cached: got=%v err=%v calls=%d", got, err, calls)
 			}
 			fresh, err := cudacache.New(cudacache.Config{RootDir: cfg.RootDir})
