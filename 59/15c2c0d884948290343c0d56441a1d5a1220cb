@@ -1,0 +1,4 @@
+commit 5915c2c0d884948290343c0d56441a1d5a1220cb date 2026-10-15T18:37:00Z
+B690 integration r7 (user-authorized, Codex root out of usage); cherry-pick -S of T6 chain c1b7eaaeb,3234d3ffc,db2dad04f,a2cc6beb9 (GRADE 20261015-wf7-review-t6-cudaprof 57ed037c)
+gates: cudaprof reconstruct 39 + affected regress 58, race+norace; vet/build/gofmt clean
+agent claude-code model claude-opus-5-5 session=d6401e4c-228d-4c97-8539-dc3db96bf467
