@@ -1,0 +1,7 @@
+commit b90ce8b28b2debb562369a76ed6d20f58eb0dc31
+date 2026-10-15T00:04:17-07:00
+agent Claude Code subagent (workflow lane06-quant)
+model claude-opus-5-5
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+lane lane06-quant: cudaprepack checked repack allocation sizes
+gate /Users/tmc/tmp/lib-wt-next/20261015-wf-lane06-quant/gate.log; mutants /Users/tmc/tmp/lib-wt-next/20261015-wf-lane06-quant/MUTANTS.md
