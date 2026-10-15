@@ -80,10 +80,7 @@ func run() (rerr error) {
 		// Registered after the file's, so the session flushes into the
 		// file before the file closes.
 		defer closeInto(&rerr, profSession, "close profile session")
-
-		binPath := strings.TrimSuffix(*profilePath, filepath.Ext(*profilePath)) + ".so"
-		profSession.SetBinaryPath(binPath)
-		fmt.Printf("[Profiling] GPU pprof SASS profiler enabled -> %s (sidecar: %s)\n", *profilePath, binPath)
+		fmt.Printf("[Profiling] GPU pprof SASS profiler enabled -> %s\n", *profilePath)
 	}
 
 	// 1. Load or initialize Tokenizer
