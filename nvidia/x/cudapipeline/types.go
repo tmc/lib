@@ -284,6 +284,8 @@ const (
 	ErrInvalidatedBarrier      = "barrier invalidated"
 	ErrMissingArrive           = "missing barrier arrive"
 	ErrMismatchedTxBytes       = "mismatched transaction byte count"
+	ErrUnverifiedTxBytes       = "unverified transaction byte count"
+	ErrInvalidTxBytes          = "invalid transaction byte count"
 	ErrUnexpectedTx            = "unexpected transaction without expect_tx"
 	ErrPhaseParity             = "phase parity mismatch"
 	ErrInvalidParity           = "invalid parity value"
@@ -349,13 +351,14 @@ const (
 
 // BarrierEvent records an operation applied to an mbarrier during static analysis.
 type BarrierEvent struct {
-	Line   int       // instruction line number
-	Opcode string    // instruction opcode
-	Kind   EventKind // event kind
-	Phase  int       // barrier phase at time of event
-	Bytes  int64     // bytes expected or completed, if applicable
-	Count  int       // thread arrival count, if applicable
-	Parity int       // parity value, if applicable
+	Line         int       // instruction line number
+	Opcode       string    // instruction opcode
+	Kind         EventKind // event kind
+	Phase        int       // barrier phase at time of event
+	Bytes        int64     // bytes expected or completed, if applicable
+	BytesUnknown bool      // byte size could not be resolved; Bytes is not a known zero
+	Count        int       // thread arrival count, if applicable
+	Parity       int       // parity value, if applicable
 }
 
 // Option configures a BarrierTracker.

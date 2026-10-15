@@ -2,19 +2,22 @@ package cudapipeline
 
 // BarrierState tracks the lifecycle and transaction state of an individual mbarrier object.
 type BarrierState struct {
-	Name             string         // symbol or register operand representing the barrier
-	Initialized      bool           // true if mbarrier.init was executed
-	Invalidated      bool           // true if mbarrier.inval was executed
-	InitLine         int            // line number where initialized
-	ExpectedArrivals int            // expected arrival tokens per phase
-	PendingArrivals  int            // remaining arrival tokens needed for current phase
-	Phase            int            // current primary phase index (0, 1, 2, ...)
-	ExpectedTxBytes  int64          // transaction bytes expected in current phase
-	CompletedTxBytes int64          // transaction bytes signaled as complete in current phase
-	HasExpectedTx    bool           // true if an expect_tx operation was executed in current phase
-	Arrived          bool           // true if at least one arrive operation was executed in current phase
-	CopyCount        int            // number of async copy operations targeting this barrier in current phase
-	Events           []BarrierEvent // chronological history of operations on this barrier
+	Name             string // symbol or register operand representing the barrier
+	Initialized      bool   // true if mbarrier.init was executed
+	Invalidated      bool   // true if mbarrier.inval was executed
+	InitLine         int    // line number where initialized
+	ExpectedArrivals int    // expected arrival tokens per phase
+	PendingArrivals  int    // remaining arrival tokens needed for current phase
+	Phase            int    // current primary phase index (0, 1, 2, ...)
+	ExpectedTxBytes  int64  // known valid expected byte subtotal in current phase
+	CompletedTxBytes int64  // known valid completed byte subtotal in current phase
+	// A total is unverified after an unresolved, negative or overflowing size.
+	ExpectedTxBytesUnknown  bool
+	CompletedTxBytesUnknown bool
+	HasExpectedTx           bool           // true if an expect_tx operation was executed in current phase
+	Arrived                 bool           // true if at least one arrive operation was executed in current phase
+	CopyCount               int            // number of async copy operations targeting this barrier in current phase
+	Events                  []BarrierEvent // chronological history of operations on this barrier
 }
 
 // Parity returns the current expected phase parity (0 or 1).
@@ -22,9 +25,21 @@ func (s *BarrierState) Parity() int {
 	return s.Phase % 2
 }
 
-// TxPending returns the count of expected transaction bytes still uncompleted.
+// TxPending subtracts the known completed subtotal from the expected subtotal.
+// It is an exact pending count only when both transaction-byte unknown flags
+// are false. Unknown totals must not be interpreted as a balanced phase.
 func (s *BarrierState) TxPending() int64 {
 	return s.ExpectedTxBytes - s.CompletedTxBytes
+}
+
+func (s *BarrierState) resetTransactions() {
+	s.ExpectedTxBytes = 0
+	s.CompletedTxBytes = 0
+	s.ExpectedTxBytesUnknown = false
+	s.CompletedTxBytesUnknown = false
+	s.HasExpectedTx = false
+	s.Arrived = false
+	s.CopyCount = 0
 }
 
 // BarrierTracker tracks mbarrier states, arrival tokens, transaction byte counts,

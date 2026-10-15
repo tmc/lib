@@ -2,6 +2,7 @@ package cudapipeline
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -140,9 +141,29 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 	var violations []ValidationError
 	operands := cudaptx.SplitOperands(inst.Operands)
 
-	// Register tracking
+	// Forget each possible destination before the value handlers below.
+	// Compound destinations do not have modeled scalar value semantics.
+	dst := ""
+	if len(operands) > 0 {
+		destinations := strings.FieldsFunc(operands[0], func(r rune) bool {
+			return strings.ContainsRune("{}()|, \t", r)
+		})
+		for _, destination := range destinations {
+			if strings.HasPrefix(destination, "%") {
+				delete(t.regs, destination)
+				delete(t.regSyms, destination)
+			}
+		}
+		if len(destinations) == 1 && destinations[0] == operands[0] && strings.HasPrefix(operands[0], "%") {
+			dst = operands[0]
+		}
+	}
+
+	// Track values only for unconditional scalar destinations.
 	if strings.HasPrefix(inst.Opcode, "mov.") && len(operands) >= 2 {
-		dst := operands[0]
+		if dst == "" || inst.Predicate != "" {
+			return nil
+		}
 		src := cleanAddress(operands[1])
 		if val, err := strconv.ParseInt(src, 0, 64); err == nil {
 			t.regs[dst] = val
@@ -153,9 +174,10 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 	}
 
 	if strings.HasPrefix(inst.Opcode, "ld.param.") && len(operands) >= 2 {
-		dst := operands[0]
-		src := cleanAddress(operands[1])
-		t.regSyms[dst] = src
+		if dst == "" || inst.Predicate != "" {
+			return nil
+		}
+		t.regSyms[dst] = cleanAddress(operands[1])
 		return nil
 	}
 
@@ -251,11 +273,7 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		b.ExpectedArrivals = int(count)
 		b.PendingArrivals = int(count)
 		b.Phase = 0
-		b.ExpectedTxBytes = 0
-		b.CompletedTxBytes = 0
-		b.HasExpectedTx = false
-		b.Arrived = false
-		b.CopyCount = 0
+		b.resetTransactions()
 		b.Events = append(b.Events, BarrierEvent{
 			Line:   inst.Line,
 			Opcode: inst.Opcode,
@@ -322,20 +340,23 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 			return violations
 		}
 
-		txBytes, _ := t.resolveInt(operands[2])
-		b.ExpectedTxBytes += txBytes
+		txBytes, known := t.resolveInt(operands[2])
+		if err := addTransactionBytes(&b.ExpectedTxBytes, &b.ExpectedTxBytesUnknown, txBytes, known); err != nil {
+			violations = append(violations, invalidTransactionBytes(inst, b, err))
+		}
 		b.HasExpectedTx = true
 		b.Arrived = true
 		if b.PendingArrivals > 0 {
 			b.PendingArrivals--
 		}
 		b.Events = append(b.Events, BarrierEvent{
-			Line:   inst.Line,
-			Opcode: inst.Opcode,
-			Kind:   EventExpectTx,
-			Phase:  b.Phase,
-			Bytes:  txBytes,
-			Count:  1,
+			Line:         inst.Line,
+			Opcode:       inst.Opcode,
+			Kind:         EventExpectTx,
+			Phase:        b.Phase,
+			Bytes:        txBytes,
+			BytesUnknown: !known,
+			Count:        1,
 		})
 		return violations
 	}
@@ -369,15 +390,18 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 			return violations
 		}
 
-		txBytes, _ := t.resolveInt(operands[1])
-		b.ExpectedTxBytes += txBytes
+		txBytes, known := t.resolveInt(operands[1])
+		if err := addTransactionBytes(&b.ExpectedTxBytes, &b.ExpectedTxBytesUnknown, txBytes, known); err != nil {
+			violations = append(violations, invalidTransactionBytes(inst, b, err))
+		}
 		b.HasExpectedTx = true
 		b.Events = append(b.Events, BarrierEvent{
-			Line:   inst.Line,
-			Opcode: inst.Opcode,
-			Kind:   EventExpectTx,
-			Phase:  b.Phase,
-			Bytes:  txBytes,
+			Line:         inst.Line,
+			Opcode:       inst.Opcode,
+			Kind:         EventExpectTx,
+			Phase:        b.Phase,
+			Bytes:        txBytes,
+			BytesUnknown: !known,
 		})
 		return violations
 	}
@@ -461,14 +485,17 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 			return violations
 		}
 
-		txBytes, _ := t.resolveInt(operands[1])
-		b.CompletedTxBytes += txBytes
+		txBytes, known := t.resolveInt(operands[1])
+		if err := addTransactionBytes(&b.CompletedTxBytes, &b.CompletedTxBytesUnknown, txBytes, known); err != nil {
+			violations = append(violations, invalidTransactionBytes(inst, b, err))
+		}
 		b.Events = append(b.Events, BarrierEvent{
-			Line:   inst.Line,
-			Opcode: inst.Opcode,
-			Kind:   EventCopy,
-			Phase:  b.Phase,
-			Bytes:  txBytes,
+			Line:         inst.Line,
+			Opcode:       inst.Opcode,
+			Kind:         EventCopy,
+			Phase:        b.Phase,
+			Bytes:        txBytes,
+			BytesUnknown: !known,
 		})
 		return violations
 	}
@@ -524,16 +551,17 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 
 		tmap := extractTensorMap(operands[1])
 		size, hasSize := t.getTensorSize(tmap)
-		if hasSize {
-			b.CompletedTxBytes += size
+		if err := addTransactionBytes(&b.CompletedTxBytes, &b.CompletedTxBytesUnknown, size, hasSize); err != nil {
+			violations = append(violations, invalidTransactionBytes(inst, b, err))
 		}
 		b.CopyCount++
 		b.Events = append(b.Events, BarrierEvent{
-			Line:   inst.Line,
-			Opcode: inst.Opcode,
-			Kind:   EventCopy,
-			Phase:  b.Phase,
-			Bytes:  size,
+			Line:         inst.Line,
+			Opcode:       inst.Opcode,
+			Kind:         EventCopy,
+			Phase:        b.Phase,
+			Bytes:        size,
+			BytesUnknown: !hasSize,
 		})
 		return violations
 	}
@@ -587,15 +615,18 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 			})
 		}
 
-		size, _ := t.resolveInt(operands[2])
-		b.CompletedTxBytes += size
+		size, known := t.resolveInt(operands[2])
+		if err := addTransactionBytes(&b.CompletedTxBytes, &b.CompletedTxBytesUnknown, size, known); err != nil {
+			violations = append(violations, invalidTransactionBytes(inst, b, err))
+		}
 		b.CopyCount++
 		b.Events = append(b.Events, BarrierEvent{
-			Line:   inst.Line,
-			Opcode: inst.Opcode,
-			Kind:   EventCopy,
-			Phase:  b.Phase,
-			Bytes:  size,
+			Line:         inst.Line,
+			Opcode:       inst.Opcode,
+			Kind:         EventCopy,
+			Phase:        b.Phase,
+			Bytes:        size,
+			BytesUnknown: !known,
 		})
 		return violations
 	}
@@ -671,31 +702,7 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 			})
 		}
 
-		if b.HasExpectedTx {
-			if b.CopyCount == 0 && b.ExpectedTxBytes > 0 {
-				violations = append(violations, ValidationError{
-					Line:      inst.Line,
-					Opcode:    inst.Opcode,
-					Violation: ErrMismatchedTxBytes,
-					Barrier:   addr,
-					Phase:     b.Phase,
-					Expected:  b.ExpectedTxBytes,
-					Actual:    0,
-					Message:   fmt.Sprintf("transaction byte count mismatch on %q: expected %d bytes, 0 copy operations issued", addr, b.ExpectedTxBytes),
-				})
-			} else if b.CompletedTxBytes > 0 && b.ExpectedTxBytes != b.CompletedTxBytes {
-				violations = append(violations, ValidationError{
-					Line:      inst.Line,
-					Opcode:    inst.Opcode,
-					Violation: ErrMismatchedTxBytes,
-					Barrier:   addr,
-					Phase:     b.Phase,
-					Expected:  b.ExpectedTxBytes,
-					Actual:    b.CompletedTxBytes,
-					Message:   fmt.Sprintf("transaction byte count mismatch on %q: expected %d bytes, completed %d bytes", addr, b.ExpectedTxBytes, b.CompletedTxBytes),
-				})
-			}
-		}
+		violations = append(violations, transactionBalance(inst, b)...)
 
 		b.Events = append(b.Events, BarrierEvent{
 			Line:   inst.Line,
@@ -706,11 +713,7 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		})
 		b.Phase++
 		b.PendingArrivals = b.ExpectedArrivals
-		b.ExpectedTxBytes = 0
-		b.CompletedTxBytes = 0
-		b.HasExpectedTx = false
-		b.Arrived = false
-		b.CopyCount = 0
+		b.resetTransactions()
 		return violations
 	}
 
@@ -756,31 +759,7 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 			})
 		}
 
-		if b.HasExpectedTx {
-			if b.CopyCount == 0 && b.ExpectedTxBytes > 0 {
-				violations = append(violations, ValidationError{
-					Line:      inst.Line,
-					Opcode:    inst.Opcode,
-					Violation: ErrMismatchedTxBytes,
-					Barrier:   addr,
-					Phase:     b.Phase,
-					Expected:  b.ExpectedTxBytes,
-					Actual:    0,
-					Message:   fmt.Sprintf("transaction byte count mismatch on %q: expected %d bytes, 0 copy operations issued", addr, b.ExpectedTxBytes),
-				})
-			} else if b.CompletedTxBytes > 0 && b.ExpectedTxBytes != b.CompletedTxBytes {
-				violations = append(violations, ValidationError{
-					Line:      inst.Line,
-					Opcode:    inst.Opcode,
-					Violation: ErrMismatchedTxBytes,
-					Barrier:   addr,
-					Phase:     b.Phase,
-					Expected:  b.ExpectedTxBytes,
-					Actual:    b.CompletedTxBytes,
-					Message:   fmt.Sprintf("transaction byte count mismatch on %q: expected %d bytes, completed %d bytes", addr, b.ExpectedTxBytes, b.CompletedTxBytes),
-				})
-			}
-		}
+		violations = append(violations, transactionBalance(inst, b)...)
 
 		b.Events = append(b.Events, BarrierEvent{
 			Line:   inst.Line,
@@ -790,15 +769,59 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		})
 		b.Phase++
 		b.PendingArrivals = b.ExpectedArrivals
-		b.ExpectedTxBytes = 0
-		b.CompletedTxBytes = 0
-		b.HasExpectedTx = false
-		b.Arrived = false
-		b.CopyCount = 0
+		b.resetTransactions()
 		return violations
 	}
 
 	return nil
+}
+
+// addTransactionBytes retains the sum of resolved valid sizes, but never
+// treats an unresolved or unrepresentable contribution as a known zero.
+func addTransactionBytes(total *int64, unknown *bool, bytes int64, known bool) error {
+	if !known {
+		*unknown = true
+		return nil
+	}
+	if bytes < 0 {
+		*unknown = true
+		return fmt.Errorf("negative transaction byte size %d", bytes)
+	}
+	if bytes > math.MaxInt64-*total {
+		*unknown = true
+		return fmt.Errorf("transaction byte total overflows int64")
+	}
+	*total += bytes
+	return nil
+}
+
+func invalidTransactionBytes(inst cudaptx.Instruction, b *BarrierState, err error) ValidationError {
+	return ValidationError{
+		Line: inst.Line, Opcode: inst.Opcode, Barrier: b.Name, Phase: b.Phase,
+		Violation: ErrInvalidTxBytes, Message: err.Error(),
+	}
+}
+
+func transactionBalance(inst cudaptx.Instruction, b *BarrierState) []ValidationError {
+	if b.ExpectedTxBytesUnknown || b.CompletedTxBytesUnknown {
+		return []ValidationError{{
+			Line: inst.Line, Opcode: inst.Opcode, Barrier: b.Name, Phase: b.Phase,
+			Violation: ErrUnverifiedTxBytes,
+			Message: fmt.Sprintf("transaction byte balance cannot be verified: expected total unknown=%t, completed total unknown=%t; known subtotals %d and %d",
+				b.ExpectedTxBytesUnknown, b.CompletedTxBytesUnknown, b.ExpectedTxBytes, b.CompletedTxBytes),
+		}}
+	}
+	if !b.HasExpectedTx || b.ExpectedTxBytes == b.CompletedTxBytes {
+		return nil
+	}
+	message := fmt.Sprintf("transaction byte count mismatch on %q: expected %d bytes, completed %d bytes", b.Name, b.ExpectedTxBytes, b.CompletedTxBytes)
+	if b.CopyCount == 0 && b.CompletedTxBytes == 0 {
+		message = fmt.Sprintf("transaction byte count mismatch on %q: expected %d bytes, 0 copy operations issued", b.Name, b.ExpectedTxBytes)
+	}
+	return []ValidationError{{
+		Line: inst.Line, Opcode: inst.Opcode, Barrier: b.Name, Phase: b.Phase,
+		Violation: ErrMismatchedTxBytes, Expected: b.ExpectedTxBytes, Actual: b.CompletedTxBytes, Message: message,
+	}}
 }
 
 func (t *BarrierTracker) resolveInt(valStr string) (int64, bool) {
