@@ -18,6 +18,35 @@ var built, _ = cudakernel.NewSchema(
 	cudakernel.Param{Name: "out", Type: "ptr", IsPointer: true},
 )
 
+// The first raw parameter can omit zero; later parameters need their offsets.
+var pointers = cudakernel.Schema{
+	Params: []cudakernel.Param{
+		{Name: "first", Type: "ptr", IsPointer: true},
+		{Name: "second", Type: "ptr", IsPointer: true, Offset: 8},
+		{Name: "third", Type: "ptr", IsPointer: true, Offset: 16},
+	},
+	TotalParamBytes: 24,
+}
+
+var builtPointers, _ = cudakernel.NewSchema([]cudakernel.Param{
+	{Name: "first", Type: "ptr", IsPointer: true},
+	{Name: "second", Type: "ptr", IsPointer: true},
+	{Name: "third", Type: "ptr", IsPointer: true},
+}...)
+
+// Names alone do not make a local type a cudakernel.Schema declaration.
+type Param struct {
+	Name string
+	Type string
+}
+
+type Schema struct {
+	Params          []Param
+	TotalParamBytes int
+}
+
+var local = Schema{Params: []Param{{Name: "n", Type: "u32"}, {Name: "p", Type: "ptr"}}, TotalParamBytes: 16}
+
 // Args is laid out the same way by the Go compiler and by the authority.
 //
 //cuda:kernelparams

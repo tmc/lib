@@ -147,13 +147,20 @@ func checkSchemaLit(pass *analysis.Pass, lit *ast.CompositeLit) {
 		reportUncheckable(pass, lit.Pos(), "parameters are not written as constant literals")
 		return
 	}
+	// A raw Schema stores an omitted Offset as zero. Unlike NewSchema,
+	// it never computes that field, so check it at the parameter literal.
+	for i, off := range offsets {
+		if off == nil {
+			offsets[i] = paramsLit.Elts[i]
+		}
+	}
 	checkLayout(pass, lit.Pos(), params, offsets, totalExpr, total)
 }
 
 // checkLayout reports where a written layout disagrees with the authority.
-// offsets holds the expression each parameter's Offset was written as, or nil
-// where the parameter left it out; totalExpr is the written TotalParamBytes,
-// or nil.
+// offsets holds the expression each parameter's Offset was written as, the
+// parameter literal for an implicit zero in a raw Schema, or nil for an
+// offset NewSchema computes. totalExpr is the written TotalParamBytes, or nil.
 func checkLayout(pass *analysis.Pass, pos token.Pos, params []cudakernel.Param, offsets []ast.Expr, totalExpr ast.Expr, total int) {
 	computed, err := newSchema(params...)
 	if err != nil {
