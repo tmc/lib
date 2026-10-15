@@ -21,13 +21,25 @@ type BlockAllocator struct {
 	holders     []int // per block; 0 means free
 	tables      map[int64][]int
 	lens        map[int64]int
+	err         error // non-nil when the constructor arguments were invalid
 }
 
 // blockAllocator is an alias for BlockAllocator preserving package-internal compatibility.
 type blockAllocator = BlockAllocator
 
-// NewBlockAllocator creates a new allocator with totalBlocks physical slots of blockSize tokens.
+// NewBlockAllocator creates a new allocator with totalBlocks physical slots of
+// blockSize tokens. If blockSize is not positive or totalBlocks is negative,
+// the allocator has no slots and AllocSequence and AppendToken report the
+// invalid arguments.
 func NewBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
+	if blockSize <= 0 || totalBlocks < 0 {
+		return &BlockAllocator{
+			blockSize: blockSize,
+			tables:    make(map[int64][]int),
+			lens:      make(map[int64]int),
+			err:       fmt.Errorf("%s: invalid block allocator: block size %d, total blocks %d", pkgName, blockSize, totalBlocks),
+		}
+	}
 	free := make([]int, totalBlocks)
 	for i := range free {
 		free[i] = i
@@ -48,18 +60,27 @@ func newBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
 
 // AllocSequence gives seqID a block table covering tokens. The first
 // len(shared) blocks are shared with whoever already holds them and are
-// counted as full; the rest come from the free list.
+// counted as full; the rest come from the free list. Each shared block may
+// appear at most once.
 func (a *BlockAllocator) AllocSequence(seqID int64, shared []int, tokens int) error {
+	if a.err != nil {
+		return a.err
+	}
 	if _, exists := a.tables[seqID]; exists {
 		return fmt.Errorf("%s: sequence %d already allocated", pkgName, seqID)
 	}
 	if tokens < len(shared)*a.blockSize {
 		return fmt.Errorf("%s: %d tokens do not cover %d shared blocks of %d", pkgName, tokens, len(shared), a.blockSize)
 	}
+	seen := make(map[int]bool, len(shared))
 	for _, b := range shared {
 		if err := a.held(b); err != nil {
 			return fmt.Errorf("%s: sharing: %w", pkgName, err)
 		}
+		if seen[b] {
+			return fmt.Errorf("%s: sharing: block %d appears more than once", pkgName, b)
+		}
+		seen[b] = true
 	}
 	needed := (tokens+a.blockSize-1)/a.blockSize - len(shared)
 	if len(a.free) < needed {
@@ -85,6 +106,9 @@ func (a *BlockAllocator) allocSequence(seqID int64, shared []int, tokens int) er
 // AppendToken reserves room for one more token in seqID, taking a fresh block
 // at each block boundary.
 func (a *BlockAllocator) AppendToken(seqID int64) error {
+	if a.err != nil {
+		return a.err
+	}
 	table, exists := a.tables[seqID]
 	if !exists {
 		return fmt.Errorf("%s: sequence %d not found", pkgName, seqID)
