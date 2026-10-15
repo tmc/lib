@@ -17,6 +17,27 @@ func ExportArtifacts(dir string, result *DemonstrationResult, reqs []Request, lo
 	}
 
 	paths := make(map[string]string)
+	for name, capture := range result.CaptureBundles {
+		if name == "" || len(name) > 64 || filepath.Base(name) != name || name == "." || name == ".." || timingDigest(capture) != result.CaptureSHA256[name] {
+			return nil, fmt.Errorf("cudadiagdemo: invalid capture binding")
+		}
+		path := filepath.Join(dir, name+"-capture.tar")
+		if err := os.WriteFile(path, capture, 0644); err != nil {
+			return nil, err
+		}
+		paths[name+"_capture"] = path
+	}
+	for name, value := range map[string]any{"diagnostic_inputs": result.DiagnosticInputs, "replay_timings": result.ReplayTimings} {
+		data, err := json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		path := filepath.Join(dir, name+".json")
+		if err := os.WriteFile(path, data, 0644); err != nil {
+			return nil, err
+		}
+		paths[name] = path
+	}
 
 	// 1. inputs.json
 	inputsPath := filepath.Join(dir, "inputs.json")

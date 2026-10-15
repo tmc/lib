@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
+	"github.com/tmc/lib/nvidia/x/cudaworkload"
 )
 
 // HostCallEvent represents a host runtime or driver API invocation.
@@ -12,6 +13,18 @@ type HostCallEvent struct {
 	Span      tracecontract.Interval `json:"span"`
 	Name      string                 `json:"name"`
 	HasReturn bool                   `json:"has_return"`
+}
+
+// PreEntryEvent measures application submission-ready to API entry, separately
+// from the API call. Submission identifies the operation at API entry; its TID
+// does not identify an earlier unpinned application interval. SourceClass is
+// native, synthetic, imported or managed. These declarations do not authenticate
+// a producer; the caller must retain and validate the source receipt and bytes.
+type PreEntryEvent struct {
+	Span        tracecontract.Interval      `json:"span"`
+	Submission  cudaworkload.HostSubmission `json:"submission"`
+	Complete    bool                        `json:"complete"`
+	SourceClass string                      `json:"source_class"`
 }
 
 // KernelEvent represents a GPU device kernel execution.
@@ -29,9 +42,11 @@ type TimeAccounting struct {
 	SummedKernelDuration time.Duration          `json:"summed_kernel_duration"`
 	BusyDuration         time.Duration          `json:"busy_duration"`
 	HostAPIDuration      time.Duration          `json:"host_api_duration"`
-	RunnableDuration     time.Duration          `json:"runnable_duration"`
-	ScheduledDuration    time.Duration          `json:"scheduled_duration"`
-	WaitDuration         time.Duration          `json:"wait_duration"`
+	// PreEntryDuration is nil when application timing is absent, not zero.
+	PreEntryDuration  *time.Duration `json:"pre_entry_duration,omitempty"`
+	RunnableDuration  time.Duration  `json:"runnable_duration"`
+	ScheduledDuration time.Duration  `json:"scheduled_duration"`
+	WaitDuration      time.Duration  `json:"wait_duration"`
 }
 
 // SumDuration computes the arithmetic sum of durations across all provided intervals.

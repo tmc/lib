@@ -147,8 +147,29 @@ func EvaluateIntervention(
 	var ctrlMetric, invMetric float64
 	switch plan.HypothesisID {
 	case string(MechanismHostSubmissionDelay):
-		ctrlMetric = float64(control.TimeAccounting.HostAPIDuration.Nanoseconds())
-		invMetric = float64(intervention.TimeAccounting.HostAPIDuration.Nanoseconds())
+		if control.HostTimingBasis != intervention.HostTimingBasis {
+			return receipt, errors.New("intervention: host timing phase mismatch")
+		}
+		switch control.HostTimingBasis {
+		case "pre_entry":
+			if control.PrimaryFinding.Rule != "host_pre_entry_delay" {
+				return receipt, errors.New("intervention: control is not an admitted pre-entry delay")
+			}
+			if control.TimeAccounting.PreEntryDuration == nil || intervention.TimeAccounting.PreEntryDuration == nil {
+				return receipt, errors.New("intervention: missing pre-entry metric")
+			}
+			receipt.TestedRule = "host_pre_entry_delay"
+			ctrlMetric = float64(*control.TimeAccounting.PreEntryDuration)
+			invMetric = float64(*intervention.TimeAccounting.PreEntryDuration)
+		case "":
+			if control.TimeAccounting.PreEntryDuration != nil || intervention.TimeAccounting.PreEntryDuration != nil || control.PrimaryFinding.Rule == "host_pre_entry_delay" || intervention.PrimaryFinding.Rule == "host_pre_entry_delay" {
+				return receipt, errors.New("intervention: missing pre-entry timing phase")
+			}
+			ctrlMetric = float64(control.TimeAccounting.HostAPIDuration.Nanoseconds())
+			invMetric = float64(intervention.TimeAccounting.HostAPIDuration.Nanoseconds())
+		default:
+			return receipt, errors.New("intervention: unknown host timing phase")
+		}
 	case string(MechanismDeviceBottleneck):
 		ctrlMetric = float64(control.TimeAccounting.BusyDuration.Nanoseconds())
 		invMetric = float64(intervention.TimeAccounting.BusyDuration.Nanoseconds())
@@ -211,6 +232,9 @@ func validInterventionAccounting(t TimeAccounting) error {
 		return errors.New("negative duration")
 	}
 	span := time.Duration(wall.Duration())
+	if t.PreEntryDuration != nil && (*t.PreEntryDuration < 0 || *t.PreEntryDuration > span) {
+		return errors.New("pre-entry duration exceeds interval")
+	}
 	if t.BusyDuration > span || t.SummedKernelDuration < t.BusyDuration || t.RunnableDuration > span || t.ScheduledDuration > span || t.WaitDuration > span {
 		return errors.New("duration exceeds interval or accounting bounds")
 	}

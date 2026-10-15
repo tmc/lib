@@ -17,6 +17,7 @@ func newTestFixture(t *testing.T) *ServiceFixture {
 	proc := cudaworkload.ProcessGenID{PID: 10001, Generation: 1}
 	mockHook := NewCorrelationHookMock()
 	annotator := cudaworkload.NewAnnotator(proc, "test-workload",
+		cudaworkload.WithRunID("test-run"),
 		cudaworkload.WithCorrelationHook(mockHook),
 	)
 
@@ -55,6 +56,13 @@ func TestServiceFixture_NumericalCorrectness(t *testing.T) {
 	// Analytical oracle: y = 2*x + 1
 	expected := []float64{3.0, 6.0, -5.0, 9.5, 1.0}
 	actual := ComputeReferenceOutput(input, weight, bias)
+	response, err := newTestFixture(t).Process(context.Background(), Request{ID: "oracle", Data: input, Mode: ModeBaseline})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckNumericalCorrectness(expected, response.Output, 1e-6); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := CheckNumericalCorrectness(expected, actual, 1e-6); err != nil {
 		t.Fatalf("numerical correctness failed: %v", err)
@@ -103,8 +111,9 @@ func TestServiceFixture_HostDelayIsolation(t *testing.T) {
 	}
 
 	gt := resp.GroundTruth
-	if gt.HostPrepDelay < injectedDelay {
-		t.Fatalf("ground truth prep delay %v < %v", gt.HostPrepDelay, injectedDelay)
+	observation := resp.Observation
+	if gt.HostPrepDelay != time.Duration(observation.PreEntry.Duration()) || gt.HostAPIDuration != time.Duration(observation.API.Span.Duration()) || observation.PreEntry.End != observation.API.Span.Start || observation.Service.End < observation.API.Span.End {
+		t.Fatal("observed phases not retained separately")
 	}
 	// Wall durations include scheduler pauses; do not use host-load-dependent
 	// upper bounds as a numerical or isolation oracle.

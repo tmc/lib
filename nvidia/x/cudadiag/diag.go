@@ -37,13 +37,14 @@ type PowerClockEvidence struct {
 
 // Thresholds defines baseline timings and classification ratios.
 type Thresholds struct {
-	BaselineKernelDuration  time.Duration
-	BaselineHostAPIDuration time.Duration
-	HostDelayRatio          float64
-	DeviceBottleneckRatio   float64
-	MaxUncertaintyNS        int64
-	MaxLoss                 uint64
-	TargetTID               uint64
+	BaselineKernelDuration   time.Duration
+	BaselineHostAPIDuration  time.Duration
+	BaselinePreEntryDuration time.Duration
+	HostDelayRatio           float64
+	DeviceBottleneckRatio    float64
+	MaxUncertaintyNS         int64
+	MaxLoss                  uint64
+	TargetTID                uint64
 }
 
 // DefaultThresholds returns sensible default diagnostic thresholds.
@@ -62,6 +63,9 @@ func DefaultThresholds() Thresholds {
 type DiagnosticInput struct {
 	WallInterval tracecontract.Interval
 	HostCalls    []HostCallEvent
+	// PreEntries opts into application pre-entry timing. The bounded contract
+	// admits one complete operation and API pair; no scheduler state is inferred.
+	PreEntries   []PreEntryEvent
 	Kernels      []KernelEvent
 	Sched        SchedEvidence
 	PowerClock   PowerClockEvidence
@@ -76,10 +80,13 @@ type DiagnosisResult struct {
 	OpID           cudaworkload.OpID             `json:"op_id"`
 	Mechanism      MechanismType                 `json:"mechanism"`
 	TimeAccounting TimeAccounting                `json:"time_accounting"`
-	PrimaryFinding tracecontract.Finding         `json:"primary_finding"`
-	Findings       []tracecontract.Finding       `json:"findings"`
-	Admitted       bool                          `json:"admitted"`
-	WithheldReason string                        `json:"withheld_reason,omitempty"`
+	// HostTimingBasis is pre_entry for application timing, otherwise empty for
+	// the legacy API/scheduler rule. It binds intervention verification.
+	HostTimingBasis string                  `json:"host_timing_basis,omitempty"`
+	PrimaryFinding  tracecontract.Finding   `json:"primary_finding"`
+	Findings        []tracecontract.Finding `json:"findings"`
+	Admitted        bool                    `json:"admitted"`
+	WithheldReason  string                  `json:"withheld_reason,omitempty"`
 }
 
 // Diagnose evaluates diagnostic rules deterministically against provided evidence.
@@ -97,7 +104,13 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 		return withheldDiagnosis(res, in, "invalid source receipt: "+err.Error())
 	}
 	thresh := in.Thresholds
-	if thresh.BaselineHostAPIDuration < 0 || thresh.BaselineKernelDuration < 0 || thresh.HostDelayRatio < 0 || thresh.DeviceBottleneckRatio < 0 || math.IsNaN(thresh.HostDelayRatio) || math.IsNaN(thresh.DeviceBottleneckRatio) || math.IsInf(thresh.HostDelayRatio, 0) || math.IsInf(thresh.DeviceBottleneckRatio, 0) || thresh.MaxUncertaintyNS < 0 {
+	if len(in.PreEntries) != 0 {
+		if err := validatePreEntry(target, opID, in); err != nil {
+			return withheldDiagnosis(res, in, err.Error())
+		}
+		res.HostTimingBasis = "pre_entry"
+	}
+	if thresh.BaselinePreEntryDuration < 0 || thresh.BaselineHostAPIDuration < 0 || thresh.BaselineKernelDuration < 0 || thresh.HostDelayRatio < 0 || thresh.DeviceBottleneckRatio < 0 || math.IsNaN(thresh.HostDelayRatio) || math.IsNaN(thresh.DeviceBottleneckRatio) || math.IsInf(thresh.HostDelayRatio, 0) || math.IsInf(thresh.DeviceBottleneckRatio, 0) || thresh.MaxUncertaintyNS < 0 {
 		return withheldDiagnosis(res, in, "invalid diagnostic thresholds")
 	}
 	if thresh.HostDelayRatio <= 0 {
@@ -109,7 +122,7 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 	if thresh.MaxUncertaintyNS <= 0 {
 		thresh.MaxUncertaintyNS = 50
 	}
-	if float64(thresh.BaselineHostAPIDuration)*thresh.HostDelayRatio >= float64(math.MaxInt64) || float64(thresh.BaselineKernelDuration)*thresh.DeviceBottleneckRatio >= float64(math.MaxInt64) {
+	if float64(thresh.BaselinePreEntryDuration)*thresh.HostDelayRatio >= float64(math.MaxInt64) || float64(thresh.BaselineHostAPIDuration)*thresh.HostDelayRatio >= float64(math.MaxInt64) || float64(thresh.BaselineKernelDuration)*thresh.DeviceBottleneckRatio >= float64(math.MaxInt64) {
 		return withheldDiagnosis(res, in, "diagnostic threshold overflow")
 	}
 
@@ -152,6 +165,17 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 			MinProbeCoverage: 1.0,
 		},
 	}
+	if len(in.PreEntries) != 0 {
+		// Application timing does not require or invent scheduler coverage.
+		reqs = reqs[:len(reqs)-1]
+		reqs = append(reqs, tracecontract.Requirement{Name: "pre_entry_loss", Family: "pre_entry", MaxLoss: thresh.MaxLoss})
+		reqs = append(reqs, tracecontract.Requirement{Name: "application_timing_probe", Probe: "application_timing", MinProbeCoverage: 1})
+		probe := "cupti_activity"
+		if in.PreEntries[0].SourceClass != "native" {
+			probe = "synthetic_activity"
+		}
+		reqs = append(reqs, tracecontract.Requirement{Name: "timed_activity_probe", Probe: probe, MinProbeCoverage: 1})
+	}
 	if in.Intervention != nil && in.Intervention.Verified {
 		reqs = append(reqs, tracecontract.Requirement{
 			Name:           "intervention_control_verified",
@@ -166,9 +190,14 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 		HasReturn:    allReturnsPresent,
 		ClockDomain:  in.Receipt.ClockDomain,
 		Intervention: in.Intervention,
+		Artifacts:    []string{in.Receipt.InputSHA256},
 	}
 
 	ta := ComputeTimeAccounting(in.WallInterval, in.HostCalls, in.Kernels, in.Sched)
+	if len(in.PreEntries) != 0 {
+		d := time.Duration(in.PreEntries[0].Span.Duration())
+		ta.PreEntryDuration = &d
+	}
 	res.TimeAccounting = ta
 	if err := validInterventionAccounting(ta); err != nil {
 		return withheldDiagnosis(res, in, "invalid time accounting: "+err.Error())
@@ -179,8 +208,11 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 	if targetTID == 0 && in.Sched.TID != 0 {
 		targetTID = in.Sched.TID
 	}
+	if len(in.PreEntries) != 0 && in.Sched.ProbePresent {
+		targetTID = in.PreEntries[0].Submission.TID
+	}
 
-	if err := in.Sched.Validate(target.Process, targetTID); err != nil {
+	if err := in.Sched.Validate(target.Process, targetTID); err != nil && (len(in.PreEntries) == 0 || in.Sched.ProbePresent) {
 		reason := tracecontract.ReasonIdentityMismatch
 		if !in.Sched.ProbePresent {
 			reason = tracecontract.ReasonProbeMissing
@@ -271,6 +303,21 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 	hasHostDelay := ta.HostAPIDuration >= hostDelayThreshold ||
 		ta.RunnableDuration >= hostDelayThreshold ||
 		ta.WaitDuration >= hostDelayThreshold
+	hostRule := "host_submission_delay"
+	hostValue := ta.HostAPIDuration
+	hostMessage := fmt.Sprintf("host submission delay observed: API duration %v, runnable: %v, wait: %v", ta.HostAPIDuration, ta.RunnableDuration, ta.WaitDuration)
+	if ta.PreEntryDuration != nil {
+		threshold := time.Duration(float64(thresh.BaselinePreEntryDuration) * thresh.HostDelayRatio)
+		if threshold <= 0 {
+			return withheldDiagnosis(res, in, "missing positive pre-entry baseline")
+		}
+		hasHostDelay = *ta.PreEntryDuration >= threshold
+		hostRule, hostValue = "host_pre_entry_delay", *ta.PreEntryDuration
+		hostMessage = fmt.Sprintf("application pre-entry duration %v exceeds baseline %v; API duration %v is separate; scheduling cause unavailable without thread evidence", hostValue, thresh.BaselinePreEntryDuration, ta.HostAPIDuration)
+		if !in.Sched.ProbePresent {
+			res.Findings = append(res.Findings, tracecontract.Finding{ID: "pre-entry-scheduler", Rule: "scheduler_cause", Class: tracecontract.FindingUnavailable, Admission: tracecontract.Admission{Status: "withheld", ReasonCode: tracecontract.ReasonProbeMissing, Reason: "no affected-thread scheduler capture; application elapsed time is not scheduler state"}})
+		}
+	}
 
 	hasDeviceBottleneck := ta.BusyDuration >= deviceBottleneckThreshold
 
@@ -279,7 +326,7 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 		res.Mechanism = MechanismAmbiguousSimultaneous
 		val := float64(ta.BusyDuration.Nanoseconds())
 		msg := fmt.Sprintf("simultaneous timing excess: host delay (%v) and device duration (%v); cause not established",
-			ta.HostAPIDuration, ta.BusyDuration)
+			hostValue, ta.BusyDuration)
 		res.PrimaryFinding = tracecontract.Admit(
 			fmt.Sprintf("diag-%s", opID.String()),
 			"ambiguous_simultaneous_fault",
@@ -293,16 +340,15 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 
 	case hasHostDelay:
 		res.Mechanism = MechanismHostSubmissionDelay
-		val := float64(ta.HostAPIDuration.Nanoseconds())
-		schedDetail := fmt.Sprintf("runnable (CPU starvation): %v, wait: %v", ta.RunnableDuration, ta.WaitDuration)
-		msg := fmt.Sprintf("host submission delay observed: API duration %v, %s", ta.HostAPIDuration, schedDetail)
+		val := float64(hostValue.Nanoseconds())
+		msg := hostMessage
 		targetClass := tracecontract.FindingObserved
-		if confirms(in.Intervention, res.Mechanism, target, opID) {
+		if confirms(in.Intervention, MechanismType(hostRule), target, opID) {
 			targetClass = tracecontract.FindingExperimentallyConfirmed
 		}
 		res.PrimaryFinding = tracecontract.Admit(
 			fmt.Sprintf("diag-%s", opID.String()),
-			"host_submission_delay",
+			hostRule,
 			targetClass,
 			msg,
 			&val,
@@ -336,6 +382,9 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 		val := float64(ta.BusyDuration.Nanoseconds())
 		msg := fmt.Sprintf("no fault observed: host API (%v) and device execution (%v) within baseline",
 			ta.HostAPIDuration, ta.BusyDuration)
+		if ta.PreEntryDuration != nil {
+			msg = fmt.Sprintf("no pre-entry or device timing excess in scoped application rule: pre-entry %v, device %v; API %v retained separately", *ta.PreEntryDuration, ta.BusyDuration, ta.HostAPIDuration)
+		}
 		res.PrimaryFinding = tracecontract.Admit(
 			fmt.Sprintf("diag-%s", opID.String()),
 			"no_fault",
@@ -348,6 +397,14 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 		)
 	}
 
+	if len(in.PreEntries) != 0 && in.PreEntries[0].SourceClass != "native" {
+		res.PrimaryFinding.Class = tracecontract.FindingAssociated
+		for i := range res.Findings {
+			if res.Findings[i].Admission.Admitted {
+				res.Findings[i].Class = tracecontract.FindingAssociated
+			}
+		}
+	}
 	res.Findings = append(res.Findings, res.PrimaryFinding)
 	return res
 }
@@ -355,6 +412,9 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 // diagnosticIntervals keeps every interval subject to clock and capture bounds.
 func diagnosticIntervals(in DiagnosticInput) []tracecontract.Interval {
 	out := []tracecontract.Interval{in.WallInterval}
+	for _, p := range in.PreEntries {
+		out = append(out, p.Span)
+	}
 	for _, h := range in.HostCalls {
 		out = append(out, h.Span)
 	}
@@ -367,7 +427,32 @@ func diagnosticIntervals(in DiagnosticInput) []tracecontract.Interval {
 	return out
 }
 
+func validatePreEntry(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in DiagnosticInput) error {
+	if len(in.PreEntries) != 1 || len(in.HostCalls) != 1 || len(in.Kernels) != 1 {
+		return fmt.Errorf("pre-entry timing requires one operation and API pair")
+	}
+	p, call := in.PreEntries[0], in.HostCalls[0]
+	if !in.Sched.ProbePresent && len(in.Sched.Intervals) != 0 {
+		return fmt.Errorf("scheduler intervals lack an active observer")
+	}
+	s := p.Submission
+	if !p.Complete || !call.HasReturn || p.Span.Clock == "" || p.Span.Clock != call.Span.Clock || p.Span.Start < in.WallInterval.Start || p.Span.End < p.Span.Start || p.Span.End != call.Span.Start || call.Span.End < call.Span.Start || call.Span.End > in.WallInterval.End {
+		return fmt.Errorf("incomplete or inconsistent pre-entry endpoints")
+	}
+	if s.Process != target.Process || s.OpID != opID || workloadDigest(s.Workload) != workloadDigest(target) || s.TimestampClock != p.Span.Clock || s.TimestampEpoch == "" || s.TimestampNs != uint64(call.Span.Start) || s.Symbol != call.Name || s.EvidenceRef != in.Receipt.InputSHA256 {
+		return fmt.Errorf("pre-entry operation, API or clock identity mismatch")
+	}
+	if in.Thresholds.TargetTID != 0 && in.Thresholds.TargetTID != s.TID {
+		return fmt.Errorf("pre-entry API thread identity mismatch")
+	}
+	if p.SourceClass != "native" && p.SourceClass != "synthetic" && p.SourceClass != "imported" && p.SourceClass != "managed" {
+		return fmt.Errorf("unknown pre-entry source class")
+	}
+	return nil
+}
+
 func withheldDiagnosis(res DiagnosisResult, in DiagnosticInput, reason string) DiagnosisResult {
+	res.Admitted = false
 	res.Mechanism = MechanismWithheld
 	res.WithheldReason = tracecontract.ReasonEvidenceUnavailable
 	res.PrimaryFinding = tracecontract.Finding{ID: "mechanism-diagnosis", Rule: "mechanism_diagnosis", Class: tracecontract.FindingUnavailable, Admission: tracecontract.Admission{Status: "withheld", ReasonCode: tracecontract.ReasonEvidenceUnavailable, Reason: reason}}

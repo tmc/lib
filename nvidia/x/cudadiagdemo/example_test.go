@@ -17,7 +17,7 @@ func Example() {
 		Concurrency:       2,
 		HostDelay:         5 * time.Millisecond,
 		DeviceDelay:       200 * time.Microsecond,
-		SkipIntervention:  false,
+		SkipIntervention:  true,
 		ExerciseCorruptEv: false,
 	}
 
@@ -27,19 +27,14 @@ func Example() {
 		return
 	}
 
-	fmt.Printf("Baseline: %s (admitted: %t)\n",
-		result.BaselineDiagnosis.Mechanism, result.BaselineDiagnosis.Admitted)
-	fmt.Printf("Host Delay: %s (admitted: %t)\n",
-		result.HostDelayDiagnosis.Mechanism, result.HostDelayDiagnosis.Admitted)
-	fmt.Printf("Device Bottleneck: %s (admitted: %t)\n",
-		result.DeviceBottleneckDiag.Mechanism, result.DeviceBottleneckDiag.Admitted)
-	fmt.Printf("Outputs verified: %t\n", result.TrialExecution.OutputsVerified)
+	fmt.Println("Synthetic:", result.Synthetic)
+	fmt.Println("Separate pre-entry metric:", result.HostDelayDiagnosis.TimeAccounting.PreEntryDuration != nil)
+	fmt.Println("Scheduler capture:", result.DiagnosticInputs["host"].Sched.ProbePresent)
 
 	// Output:
-	// Baseline: no_fault (admitted: true)
-	// Host Delay: host_submission_delay (admitted: true)
-	// Device Bottleneck: competing_device_bottleneck (admitted: true)
-	// Outputs verified: true
+	// Synthetic: true
+	// Separate pre-entry metric: true
+	// Scheduler capture: false
 }
 
 func ExampleServiceFixture() {

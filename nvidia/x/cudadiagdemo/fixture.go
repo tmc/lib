@@ -16,7 +16,9 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/x/cudadiag"
 	"github.com/tmc/lib/nvidia/x/cudaflightrecorder"
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/cudaworkload"
 )
 
@@ -28,7 +30,8 @@ const (
 	ModeBaseline Mode = "baseline"
 	// ModeHostSubmissionDelay injects controlled delay before native API entry.
 	ModeHostSubmissionDelay Mode = "host_submission_delay"
-	// ModeDeviceBottleneck injects device execution contention while host submission remains nominal.
+	// ModeDeviceBottleneck models a long synthetic device interval while keeping
+	// host API work unchanged. It does not execute physical competing work.
 	ModeDeviceBottleneck Mode = "device_bottleneck"
 )
 
@@ -43,19 +46,21 @@ type Request struct {
 	TID           uint64        `json:"tid,omitempty"`
 }
 
-// GroundTruthLog records the independent, verified ground truth of an execution.
+// GroundTruthLog records request identity and controls separately from diagnostic
+// input. Its timing copies are for audit, not the source of a finding.
 type GroundTruthLog struct {
-	RequestID       string                    `json:"request_id"`
-	WorkloadName    string                    `json:"workload_name"`
-	OpID            cudaworkload.OpID         `json:"op_id"`
-	ProcessGen      cudaworkload.ProcessGenID `json:"process_gen"`
-	TID             uint64                    `json:"tid"`
-	Mode            Mode                      `json:"mode"`
-	HostPrepDelay   time.Duration             `json:"host_prep_delay"`
-	HostAPIDuration time.Duration             `json:"host_api_duration"`
-	KernelDuration  time.Duration             `json:"kernel_duration"`
-	TotalDuration   time.Duration             `json:"total_duration"`
-	OutputChecksum  string                    `json:"output_checksum"`
+	RequestID       string                        `json:"request_id"`
+	WorkloadName    string                        `json:"workload_name"`
+	OpID            cudaworkload.OpID             `json:"op_id"`
+	ProcessGen      cudaworkload.ProcessGenID     `json:"process_gen"`
+	Workload        cudaworkload.WorkloadIdentity `json:"workload"`
+	TID             uint64                        `json:"tid"`
+	Mode            Mode                          `json:"mode"`
+	HostPrepDelay   time.Duration                 `json:"host_prep_delay"`
+	HostAPIDuration time.Duration                 `json:"host_api_duration"`
+	KernelDuration  time.Duration                 `json:"kernel_duration"`
+	TotalDuration   time.Duration                 `json:"total_duration"`
+	OutputChecksum  string                        `json:"output_checksum"`
 }
 
 // Response records the output and performance characteristics of a completed request.
@@ -66,11 +71,12 @@ type Response struct {
 	Output       []float64         `json:"output"`
 	Duration     time.Duration     `json:"duration"`
 	GroundTruth  GroundTruthLog    `json:"ground_truth"`
+	Observation  SubmissionTiming  `json:"observation"`
 	Error        error             `json:"error,omitempty"`
 }
 
-// ServiceFixture represents a concurrent GPU service supporting telemetry collection,
-// request correlation, and controlled bottleneck injection.
+// ServiceFixture is a portable concurrent service with synthetic device activity,
+// actual application timing and separate request ground truth.
 type ServiceFixture struct {
 	annotator   *cudaworkload.Annotator
 	recorder    *cudaflightrecorder.Recorder
@@ -81,8 +87,13 @@ type ServiceFixture struct {
 	weight float64
 	bias   float64
 
-	mu   sync.Mutex
-	logs []GroundTruthLog
+	mu            sync.Mutex
+	logs          []GroundTruthLog
+	timings       []SubmissionTiming
+	timingDropped uint64
+	timingLimit   int
+	epoch         time.Time
+	source        TimingSource
 
 	nextTID  atomic.Uint64
 	nextCorr atomic.Uint32
@@ -144,6 +155,9 @@ func NewServiceFixture(
 	}
 	sf.nextTID.Store(1000)
 	sf.nextCorr.Store(1)
+	sf.epoch = time.Now()
+	sf.timingLimit = maxTimingRecords
+	sf.source = portableTimingSource(fmt.Sprintf("process-%d-%d", pid, sf.epoch.UnixNano()))
 
 	for _, opt := range opts {
 		opt(sf)
@@ -188,170 +202,120 @@ func CheckNumericalCorrectness(reference, candidate []float64, tolerance float64
 }
 
 // Process executes a single request through the service pipeline.
-func (sf *ServiceFixture) Process(ctx context.Context, req Request) (Response, error) {
-	if len(req.Data) == 0 {
-		return Response{}, errors.New("cudadiagdemo: empty request data")
+func (sf *ServiceFixture) Process(ctx context.Context, req Request) (resp Response, retErr error) {
+	if ctx == nil || req.ID == "" || len(req.ID) > 256 || len(req.WorkloadName) > 256 || len(req.Data) == 0 || len(req.Data) > 1<<20 || req.Delay < 0 || req.Delay > time.Second || (req.Mode != "" && req.Mode != ModeBaseline && req.Mode != ModeHostSubmissionDelay && req.Mode != ModeDeviceBottleneck) {
+		return Response{}, errors.New("cudadiagdemo: invalid request bounds")
 	}
 	start := time.Now()
-
-	// 1. Begin scoped workload operation
 	workloadName := req.WorkloadName
 	if workloadName == "" {
 		workloadName = "inference"
 	}
 	scopedCtx, scope := sf.annotator.Begin(ctx, workloadName)
 	defer scope.End()
-
-	tid := req.TID
-	if tid == 0 {
-		tid = sf.nextTID.Add(1)
-	}
-
 	corrID := req.CorrelationID
 	if corrID == 0 {
 		corrID = sf.nextCorr.Add(1)
 	}
-
-	var hostPrepDelay time.Duration
-	var hostAPIDuration time.Duration
-	var kernelDuration time.Duration
-
-	// 2. Controlled host-submission-delay: injected before API entry
+	timing := SubmissionTiming{RequestID: req.ID, Service: tracecontract.Interval{Start: start.Sub(sf.epoch).Nanoseconds(), Clock: portableClock}}
+	defer func() {
+		timing.Service.End = time.Since(sf.epoch).Nanoseconds()
+		resp.RequestID, resp.WorkloadName, resp.OpID = req.ID, workloadName, scope.ID()
+		resp.Duration = time.Since(start)
+		resp.Error = retErr
+		resp.Observation = timing
+		sf.retainTiming(timing)
+	}()
+	ready := time.Since(sf.epoch).Nanoseconds()
 	if req.Mode == ModeHostSubmissionDelay {
 		delay := req.Delay
-		if delay <= 0 {
+		if delay == 0 {
 			delay = 20 * time.Millisecond
 		}
-		hostPrepDelay = delay
-		// In portable test harness, sleep or simulate delay
+		timer := time.NewTimer(delay)
 		select {
 		case <-scopedCtx.Done():
-			return Response{RequestID: req.ID, Error: scopedCtx.Err()}, scopedCtx.Err()
-		case <-time.After(delay):
+			timer.Stop()
+			return resp, scopedCtx.Err()
+		case <-timer.C:
 		}
-	} else {
-		hostPrepDelay = 10 * time.Microsecond
 	}
-
-	// 3. Native submission call with thread pinning via runtime.LockOSThread in Scope.NativeCall
-	apiStart := time.Now()
-	var sub cudaworkload.HostSubmission
-	err := scope.NativeCall(func() error {
-		// Simulate native driver launch API call duration
+	if err := scopedCtx.Err(); err != nil {
+		return resp, err
+	}
+	// NativeCall pins only this callback. Its TID is not attributed to ready's
+	// earlier unpinned interval. The portable launch and device are synthetic.
+	if err := scope.NativeCall(func() error {
+		entry := time.Since(sf.epoch).Nanoseconds()
+		timing.Host = scope.NewSubmission(corrID, cudaworkload.ContextStreamID{Context: 1, Stream: 1}, cudaworkload.GraphReplayGeneration{}, "portable_launch", "")
+		timing.Host.Provenance = cudaworkload.ProvenanceSynthetic
+		timing.Host.TimestampNs = uint64(entry)
+		timing.Host.TimestampClock, timing.Host.TimestampEpoch = portableClock, sf.source.ClockEpoch
+		if req.TID != 0 && req.TID != timing.Host.TID {
+			return errors.New("cudadiagdemo: requested TID contradicts observed API thread")
+		}
+		timing.PreEntry = tracecontract.Interval{Start: ready, End: entry, Clock: portableClock}
+		apiStart := time.Since(sf.epoch).Nanoseconds()
+		// Keep the annotation outside the simulated API entry/return bracket.
+		timing.Host.TimestampNs = uint64(apiStart)
+		timing.PreEntry.End = apiStart
 		time.Sleep(15 * time.Microsecond)
-		hostAPIDuration = time.Since(apiStart)
-
-		sub = cudaworkload.HostSubmission{
-			Process:             sf.process,
-			OpID:                scope.ID(),
-			Workload:            scope.Workload(),
-			NativeCorrelationID: corrID,
-			Provenance:          cudaworkload.ProvenanceCUPTI,
-			TID:                 tid,
-			TimestampNs:         uint64(time.Now().UnixNano()),
-			Symbol:              "gemm_kernel",
-		}
+		timing.API = cudadiag.HostCallEvent{Name: timing.Host.Symbol, HasReturn: true, Span: tracecontract.Interval{Start: apiStart, End: time.Since(sf.epoch).Nanoseconds(), Clock: portableClock}}
 		return nil
-	})
-	if err != nil {
-		return Response{RequestID: req.ID, Error: err}, err
+	}); err != nil {
+		return resp, err
 	}
-
-	// Submit host submission to joiner and push to continuous recorder
-	sf.joiner.SubmitHost(sub)
-	sf.recorder.Push(cudaflightrecorder.Record{
-		TimestampNs:   int64(sub.TimestampNs),
-		KernelName:    sub.Symbol,
-		CorrelationID: uint64(sub.NativeCorrelationID),
-		DurationNs:    uint64(hostAPIDuration.Nanoseconds()),
-		Labels: map[string]string{
-			"op_id": fmt.Sprintf("%d", scope.ID()),
-			"tid":   fmt.Sprintf("%d", tid),
-		},
-	})
-
-	// 4. Device activity simulation
+	kernelDuration := 50 * time.Microsecond
 	if req.Mode == ModeDeviceBottleneck {
-		delay := req.Delay
-		if delay <= 0 {
-			delay = 250 * time.Microsecond
+		kernelDuration = req.Delay
+		if kernelDuration == 0 {
+			kernelDuration = 250 * time.Microsecond
 		}
-		kernelDuration = delay
-	} else {
-		kernelDuration = 50 * time.Microsecond
 	}
-
-	actStartNs := uint64(time.Now().UnixNano())
-	actEndNs := actStartNs + uint64(kernelDuration.Nanoseconds())
-	act := cudaworkload.DeviceActivity{
-		Process:               sf.process,
-		NativeCorrelationID:   corrID,
-		ExternalCorrelationID: uint64(scope.ID()),
-		Kind:                  "kernel",
-		Name:                  "gemm_kernel",
-		StartNs:               actStartNs,
-		EndNs:                 actEndNs,
-		DeviceID:              0,
+	deviceStart := time.Since(sf.epoch).Nanoseconds()
+	// This wait bounds a portable simulated activity inside service time. It is
+	// host work, not a kernel timer or evidence that a GPU executed.
+	timer := time.NewTimer(kernelDuration)
+	select {
+	case <-scopedCtx.Done():
+		timer.Stop()
+		return resp, scopedCtx.Err()
+	case <-timer.C:
 	}
-
-	sf.joiner.SubmitDevice(act)
-	sf.recorder.Push(cudaflightrecorder.Record{
-		TimestampNs:   int64(act.StartNs),
-		KernelName:    act.Name,
-		CorrelationID: uint64(act.NativeCorrelationID),
-		DurationNs:    uint64(kernelDuration.Nanoseconds()),
-		Labels: map[string]string{
-			"activity.kind": "kernel",
-			"op_id":         fmt.Sprintf("%d", scope.ID()),
-		},
-	})
-
-	// 5. Numerical computation: $y_i = w \cdot x_i + b$
-	output := ComputeReferenceOutput(req.Data, sf.weight, sf.bias)
-
-	// Checksum of output
+	timing.Device = cudaworkload.DeviceActivity{Process: sf.process, NativeCorrelationID: corrID, ExternalCorrelationID: uint64(scope.ID()), Kind: "kernel", Name: "portable_transform", Context: timing.Host.Context, StartNs: uint64(deviceStart), EndNs: uint64(deviceStart) + uint64(kernelDuration), DeviceID: 0}
+	sf.joiner.SubmitHost(timing.Host)
+	sf.joiner.SubmitDevice(timing.Device)
+	// The actual portable transform is separate from the reference helper.
+	output := make([]float64, len(req.Data))
+	for i, value := range req.Data {
+		output[i] = value*sf.weight + sf.bias
+	}
 	h := sha256.New()
-	for _, v := range output {
-		bits := math.Float64bits(v)
-		h.Write([]byte{
-			byte(bits), byte(bits >> 8), byte(bits >> 16), byte(bits >> 24),
-			byte(bits >> 32), byte(bits >> 40), byte(bits >> 48), byte(bits >> 56),
-		})
+	for _, value := range output {
+		bits := math.Float64bits(value)
+		for shift := uint(0); shift < 64; shift += 8 {
+			h.Write([]byte{byte(bits >> shift)})
+		}
 	}
-	checksum := hex.EncodeToString(h.Sum(nil))
-
-	totalDuration := time.Since(start)
-
-	logEntry := GroundTruthLog{
-		RequestID:       req.ID,
-		WorkloadName:    workloadName,
-		OpID:            scope.ID(),
-		ProcessGen:      sf.process,
-		TID:             tid,
-		Mode:            req.Mode,
-		HostPrepDelay:   hostPrepDelay,
-		HostAPIDuration: hostAPIDuration,
-		KernelDuration:  kernelDuration,
-		TotalDuration:   totalDuration,
-		OutputChecksum:  checksum,
-	}
-
+	timing.Complete = true
+	sf.recorder.Push(cudaflightrecorder.Record{TimestampNs: time.Now().UnixNano(), KernelName: timing.Device.Name, CorrelationID: uint64(corrID), DurationNs: uint64(kernelDuration), Labels: map[string]string{"activity.kind": "synthetic_kernel", "source_class": "synthetic", "op_id": scope.ID().String()}})
+	logEntry := GroundTruthLog{RequestID: req.ID, WorkloadName: workloadName, OpID: scope.ID(), ProcessGen: sf.process, Workload: scope.Workload(), TID: timing.Host.TID, Mode: req.Mode, HostPrepDelay: time.Duration(timing.PreEntry.Duration()), HostAPIDuration: time.Duration(timing.API.Span.Duration()), KernelDuration: kernelDuration, TotalDuration: time.Since(start), OutputChecksum: hex.EncodeToString(h.Sum(nil))}
 	sf.mu.Lock()
-	sf.logs = append(sf.logs, logEntry)
+	if len(sf.logs) < maxTimingRecords {
+		saved := logEntry
+		saved.Workload = logEntry.Workload.Clone()
+		sf.logs = append(sf.logs, saved)
+	}
 	sf.mu.Unlock()
-
-	return Response{
-		RequestID:    req.ID,
-		WorkloadName: workloadName,
-		OpID:         scope.ID(),
-		Output:       output,
-		Duration:     totalDuration,
-		GroundTruth:  logEntry,
-	}, nil
+	resp.Output, resp.GroundTruth = output, logEntry
+	return resp, nil
 }
 
 // BatchProcess executes requests concurrently across a worker pool.
 func (sf *ServiceFixture) BatchProcess(ctx context.Context, reqs []Request, concurrency int) ([]Response, error) {
+	if ctx == nil || len(reqs) > maxTimingRecords || concurrency > 64 {
+		return nil, errors.New("cudadiagdemo: batch bounds exceeded")
+	}
 	if concurrency <= 0 {
 		concurrency = 4
 	}
@@ -402,6 +366,9 @@ func (sf *ServiceFixture) GroundTruthLogs() []GroundTruthLog {
 	defer sf.mu.Unlock()
 	cp := make([]GroundTruthLog, len(sf.logs))
 	copy(cp, sf.logs)
+	for i := range cp {
+		cp[i].Workload = cp[i].Workload.Clone()
+	}
 	return cp
 }
 

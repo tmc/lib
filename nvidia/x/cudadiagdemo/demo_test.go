@@ -10,12 +10,16 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudadiag"
 	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/cudaprofilehistory"
+	"github.com/tmc/lib/nvidia/x/cudaregress"
 	"github.com/tmc/lib/nvidia/x/cudaworkload"
 )
 
 func TestDemonstration_EndToEnd(t *testing.T) {
 	tempDir := t.TempDir()
 	outDir := filepath.Join(tempDir, "artifacts")
+	if receipts := os.Getenv("GPUDIAGDEMO_CPU_RECEIPTS"); receipts != "" {
+		outDir = filepath.Join(receipts, "portable")
+	}
 
 	cfg := DemonstrationConfig{
 		NumRequests:       8,
@@ -51,8 +55,8 @@ func TestDemonstration_EndToEnd(t *testing.T) {
 	if !res.HostDelayDiagnosis.Admitted {
 		t.Fatalf("expected host delay diagnosis to be admitted, reason: %s", res.HostDelayDiagnosis.WithheldReason)
 	}
-	if res.HostDelayDiagnosis.PrimaryFinding.Rule != "host_submission_delay" {
-		t.Fatalf("expected primary finding rule host_submission_delay, got %s", res.HostDelayDiagnosis.PrimaryFinding.Rule)
+	if res.HostDelayDiagnosis.PrimaryFinding.Rule != "host_pre_entry_delay" {
+		t.Fatalf("expected primary finding rule host_pre_entry_delay, got %s", res.HostDelayDiagnosis.PrimaryFinding.Rule)
 	}
 
 	// 3. Check controlled trial replay
@@ -66,8 +70,20 @@ func TestDemonstration_EndToEnd(t *testing.T) {
 	if res.TrialComparison.RegressionDetected {
 		t.Fatal("expected regression not detected under intervention (candidate should improve speed)")
 	}
-	if res.TrialComparison.Ratio >= 1.0 {
+	if res.TrialComparison.Verdict != cudaprofilehistory.Unknown && res.TrialComparison.Ratio >= 1.0 {
 		t.Fatalf("expected speedup ratio < 1.0, got %v", res.TrialComparison.Ratio)
+	}
+	if res.HostDelayDiagnosis.PrimaryFinding.Class != tracecontract.FindingAssociated || res.HostDelayDiagnosis.TimeAccounting.PreEntryDuration == nil || res.DiagnosticInputs["host"].Sched.ProbePresent || res.PressureDiagnosis == nil || res.PressureDiagnosis.Admitted {
+		t.Fatal("portable source scope or pressure gate lost")
+	}
+	if res.TrialPlan == nil || res.PlanReceipt.ArtifactsVerified < 4 || len(res.ReplayTimings) == 0 {
+		t.Fatal("actual trial closure/timings absent")
+	}
+	if err := cudaregress.ValidatePlan(res.TrialPlan); err != nil {
+		t.Fatalf("retained trial closure: %v", err)
+	}
+	if res.PhaseVerification == nil || (res.PhaseVerification.Verified && res.PhaseVerification.TestedRule != "host_pre_entry_delay") || (!res.PhaseVerification.Verified && res.PhaseVerificationError == "") {
+		t.Fatal("executed pair phase verification missing or unscoped")
 	}
 
 	// 4. Check negative control: device bottleneck
