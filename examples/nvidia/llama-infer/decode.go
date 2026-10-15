@@ -1,6 +1,35 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
+
+// generate runs runGPUInference's prefill and then its decode loop. It
+// feeds each token of prompt to prefill at its position, in order, and then
+// calls decode with st, forward, plain, show, maxSeq, steps and draftN from
+// position len(prompt), with the token prefill predicted for the last
+// prompt token as the pending token. It returns how long each phase took.
+//
+// generate stops at the first error. It wraps an error from prefill with
+// its position and runs no decode after it; it returns an error from decode
+// unchanged.
+func generate(st *decodeState, prompt []int32, prefill, forward func(tok int32, pos int) (int32, error), plain func(step int, tok int32, pos int) (int32, error), show func(tok int32) error, maxSeq, steps, draftN int) (prefillTime, decodeTime time.Duration, err error) {
+	var next int32
+	t0 := time.Now()
+	for pos, tok := range prompt {
+		if next, err = prefill(tok, pos); err != nil {
+			return 0, 0, fmt.Errorf("gpu prefill step %d: %w", pos, err)
+		}
+	}
+	prefillTime = time.Since(t0)
+
+	t0 = time.Now()
+	if _, _, err := decode(st, forward, plain, show, next, len(prompt), maxSeq, steps, draftN); err != nil {
+		return prefillTime, 0, err
+	}
+	return prefillTime, time.Since(t0), nil
+}
 
 // decode runs runGPUInference's decode loop from the pending token next at
 // position pos until steps tokens are emitted or the KV cache of maxSeq

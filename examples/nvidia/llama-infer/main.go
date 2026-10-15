@@ -372,11 +372,18 @@ func runGPUInference(
 	}
 
 	fmt.Print("Streaming : ", *promptFlag)
-	var nextTokID int32
 
-	tPrefill0 := time.Now()
-	for pos, tokID := range promptTokens {
+	// Speculative decoding initialization
+	var drafter *speculative.NgramDrafter
+	if *specDraftFlag > 0 {
+		drafter = speculative.NewNgramDrafter(3)
+		fmt.Printf("[Speculative Decoding] N-gram drafter active (budget: %d tokens/step)\n", *specDraftFlag)
+	}
+	st := newDecodeState(promptTokens, *stepsFlag, drafter)
+
+	prefill := func(tokID int32, pos int) (int32, error) {
 		var tok int32
+		var err error
 		labels := cudaprof.Labels("phase", "prefill", "pos", fmt.Sprintf("%d", pos), "token_id", fmt.Sprintf("%d", tokID))
 		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
 			if timer == nil {
@@ -392,23 +399,8 @@ func runGPUInference(
 				tok = scratch.HostTokenOut[0]
 			}
 		})
-		if err != nil {
-			return fmt.Errorf("gpu prefill step %d: %w", pos, err)
-		}
-		nextTokID = tok
+		return tok, err
 	}
-	prefillDuration := time.Since(tPrefill0)
-
-	// Decode Phase
-	curPos := len(promptTokens)
-
-	// Speculative decoding initialization
-	var drafter *speculative.NgramDrafter
-	if *specDraftFlag > 0 {
-		drafter = speculative.NewNgramDrafter(3)
-		fmt.Printf("[Speculative Decoding] N-gram drafter active (budget: %d tokens/step)\n", *specDraftFlag)
-	}
-	st := newDecodeState(promptTokens, *stepsFlag, drafter)
 	forward := func(tok int32, pos int) (int32, error) {
 		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 	}
@@ -440,12 +432,10 @@ func runGPUInference(
 		return tok, nil
 	}
 
-	tGen0 := time.Now()
-	if _, _, err := decode(st, forward, plain, show, nextTokID, curPos, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag); err != nil {
+	prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
+	if err != nil {
 		return err
 	}
-
-	genDuration := time.Since(tGen0)
 
 	tokensPerSec := float64(len(st.generated)) / genDuration.Seconds()
 	fmt.Printf("\n\n--- GPU Performance Metrics ---\n")
