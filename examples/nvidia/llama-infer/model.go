@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -100,6 +101,28 @@ func NewKVCacheState(numLayers, maxSeqLen, kvDim int) *KVCacheState {
 
 // LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
 func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
+	return loadModel(dir, openSharded)
+}
+
+// A tensorFile is the part of *safetensors.Sharded that loadModel uses.
+type tensorFile interface {
+	Info(name string) (safetensors.TensorInfo, bool)
+	Tensor(name string) (safetensors.Tensor, error)
+	Close() error
+}
+
+func openSharded(dir string) (tensorFile, error) {
+	sw, err := safetensors.OpenSharded(dir)
+	if err != nil {
+		return nil, err
+	}
+	return sw, nil
+}
+
+// loadModel is LoadModel with the checkpoint in dir opened by open. An
+// error closing the checkpoint is returned, joined with any load error, and
+// no weights are returned with it.
+func loadModel(dir string, open func(dir string) (tensorFile, error)) (mw *ModelWeights, mc *ModelConfig, err error) {
 	configPath := filepath.Join(dir, "config.json")
 	cfgBytes, err := os.ReadFile(configPath)
 	if err != nil {
@@ -143,13 +166,13 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		cfg.MaxSeqLen = 2048
 	}
 
-	sw, err := safetensors.OpenSharded(dir)
+	sw, err := open(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
 	defer func() {
-		if err := sw.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "close safetensors: %v\n", err)
+		if cerr := sw.Close(); cerr != nil {
+			mw, mc, err = nil, nil, errors.Join(err, fmt.Errorf("close safetensors: %w", cerr))
 		}
 	}()
 

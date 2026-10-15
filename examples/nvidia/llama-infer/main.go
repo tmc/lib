@@ -130,15 +130,7 @@ func run() error {
 	}
 
 	// 3. Tokenize Prompt
-	var promptTokens []int32
-
-	if tracer != nil {
-		_ = tracer.Span(nil, "Tokenize Prompt", "tokenizer", func() {
-			promptTokens, err = tokenizer.Encode(*promptFlag)
-		})
-	} else {
-		promptTokens, err = tokenizer.Encode(*promptFlag)
-	}
+	promptTokens, err := encodePrompt(tracer, tokenizer, *promptFlag)
 	if err != nil {
 		return fmt.Errorf("tokenize prompt: %w", err)
 	}
@@ -160,8 +152,14 @@ func run() error {
 				fmt.Fprintf(os.Stderr, "close device: %v\n", err)
 			}
 		}()
-		name, _ := dev.Name()
-		major, minor, _ := dev.ComputeCapability()
+		name, err := dev.Name()
+		if err != nil {
+			return fmt.Errorf("device name: %w", err)
+		}
+		major, minor, err := dev.ComputeCapability()
+		if err != nil {
+			return fmt.Errorf("device compute capability: %w", err)
+		}
 		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
 
 		return dev.WithContext(func() error {
@@ -379,9 +377,8 @@ func runGPUInference(
 		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 	}
 
-	show := func(tok int32) {
-		chunk, _ := tokenizer.Decode([]int32{tok})
-		fmt.Print(chunk)
+	show := func(tok int32) error {
+		return printToken(tokenizer, tok)
 	}
 	plain := func(step int, nextTokID int32, curPos int) (int32, error) {
 		var tok int32
@@ -462,17 +459,21 @@ func runCPUInference(
 		}
 
 		generatedTokens = append(generatedTokens, nextTokID)
-		chunk, _ := tokenizer.Decode([]int32{nextTokID})
-		fmt.Print(chunk)
+		if err := printToken(tokenizer, nextTokID); err != nil {
+			return err
+		}
 
 		if tracer != nil {
-			_ = tracer.SpanSource(nil, fmt.Sprintf("Decode Token %d", step+1), "forward_pass", "examples/nvidia/llama-infer/model.go", 100, "", map[string]any{
+			err := tracer.SpanSource(nil, fmt.Sprintf("Decode Token %d", step+1), "forward_pass", "examples/nvidia/llama-infer/model.go", 100, "", map[string]any{
 				"phase": "cpu_decode",
 				"step":  step + 1,
 				"pos":   curPos,
 			}, func() {
 				lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
 			})
+			if err != nil {
+				return fmt.Errorf("trace decode token %d: %w", step+1, err)
+			}
 		} else {
 			lastLogits = Forward(weights, cfg, kvCache, nextTokID, curPos)
 		}
@@ -489,6 +490,44 @@ func runCPUInference(
 	fmt.Printf("Throughput   : %.2f tokens/sec\n", tokensPerSec)
 
 	return nil
+}
+
+// encodePrompt encodes prompt with tok. If tracer is not nil, it records
+// the encoding as a span and returns an error if the span cannot be
+// written; the encoding may not have run.
+func encodePrompt(tracer *cudatrace.Tracer, tok Tokenizer, prompt string) ([]int32, error) {
+	if tracer == nil {
+		return tok.Encode(prompt)
+	}
+	var tokens []int32
+	var err error
+	if terr := tracer.Span(nil, "Tokenize Prompt", "tokenizer", func() {
+		tokens, err = tok.Encode(prompt)
+	}); terr != nil {
+		return nil, fmt.Errorf("trace: %w", terr)
+	}
+	return tokens, err
+}
+
+// printToken decodes the token id with tok and prints its text to
+// standard output.
+func printToken(tok Tokenizer, id int32) error {
+	s, err := tok.Decode([]int32{id})
+	if err != nil {
+		return fmt.Errorf("decode token %d: %w", id, err)
+	}
+	fmt.Print(s)
+	return nil
+}
+
+// archOr returns the compute capability cc reports. If cc fails, it
+// returns major and minor with cc's error.
+func archOr(cc func() (int, int, error), major, minor int) (int, int, error) {
+	m, n, err := cc()
+	if err != nil {
+		return major, minor, err
+	}
+	return m, n, nil
 }
 
 func findForwardCUPath() string {
@@ -567,7 +606,9 @@ func printKernelDisassembly(targetKernel, mode string) error {
 				fmt.Fprintf(os.Stderr, "close device: %v\n", err)
 			}
 		}()
-		archMajor, archMinor, _ = dev.ComputeCapability()
+		if archMajor, archMinor, err = archOr(dev.ComputeCapability, archMajor, archMinor); err != nil {
+			fmt.Fprintf(os.Stderr, "compute capability: %v; compiling for sm_%d%d\n", err, archMajor, archMinor)
+		}
 	}
 
 	opts := []nvrtcx.Option{

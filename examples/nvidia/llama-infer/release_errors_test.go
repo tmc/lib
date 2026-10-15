@@ -11,10 +11,16 @@ import (
 	"testing"
 )
 
-// releaseNames are the methods whose error a cleanup path must report.
-// close is stepTimer's.
+// releaseNames are the methods whose error a cleanup path must report:
+// the exported ones and the private release methods behind them
+// (stepTimer.close, GPUModules.close, GPUScratchpad.release,
+// deviceWeight.release, GPUModelWeights.free, and the unload functions
+// GPUModules.close takes). The check matches names, not types, so a
+// method by one of these names that returns no error is matched too and
+// must be allowed below.
 var releaseNames = map[string]bool{
-	"Close": true, "Free": true, "Synchronize": true, "CtxSynchronize": true, "close": true,
+	"Close": true, "Free": true, "Synchronize": true, "CtxSynchronize": true,
+	"Reset": true, "close": true, "release": true, "free": true, "unload": true,
 }
 
 // discardAllowed counts, by file and statement text, the statements that
@@ -23,6 +29,14 @@ var discardAllowed = map[string]int{
 	// The L3 must-fail control in TestReleaseErrorOwner stands for a
 	// caller that drops the close error; dropping it is what it tests.
 	"module_ownership_test.go: c.Close()": 1,
+	// cudakv.Cache.Reset returns no error; it only rewinds the cache
+	// length. It is matched by name only.
+	"main.go: kvCache.Reset()": 1,
+	// The S3 and W1 must-fail controls in TestScratchpadRelease and
+	// TestGPUModelWeightsFreeVectors stand for a Free that drops the
+	// error of its private release; dropping it is what they test.
+	"weights_bf16_test.go: sp.release(f32, i32)": 1,
+	"weights_bf16_test.go: w.free(vec)":          1,
 }
 
 // discard is a statement that drops the error of a release call.
@@ -45,8 +59,10 @@ func isReleaseCall(e ast.Expr) bool {
 // discardedReleases parses src and returns the number of release calls in
 // it and the statements that drop a release error: a deferred or go
 // statement calling it, an expression statement calling it, an assignment
-// of its result to blanks only, and an if statement whose initializer
-// assigns its error to a variable the condition does not test.
+// of its result to blanks only, an if statement whose initializer assigns
+// its error to a variable the condition does not test, and an assignment
+// of its error to a variable that a later statement in the same list
+// assigns again before anything reads it (see overwrites).
 func discardedReleases(name string, src []byte) (calls int, bad []discard, err error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, name, src, 0)
@@ -56,6 +72,17 @@ func discardedReleases(name string, src []byte) (calls int, bad []discard, err e
 	flag := func(s ast.Stmt) {
 		text := string(src[fset.Position(s.Pos()).Offset:fset.Position(s.End()).Offset])
 		bad = append(bad, discard{key: name + ": " + text, pos: fset.Position(s.Pos()).String()})
+	}
+	flagOverwritten := func(list []ast.Stmt) {
+		for i, s := range list {
+			as, ok := s.(*ast.AssignStmt)
+			if !ok || len(as.Rhs) != 1 || !isReleaseCall(as.Rhs[0]) {
+				continue
+			}
+			if v, ok := as.Lhs[len(as.Lhs)-1].(*ast.Ident); ok && v.Name != "_" && overwrites(list[i+1:], v.Name) {
+				flag(s)
+			}
+		}
 	}
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch s := n.(type) {
@@ -82,6 +109,12 @@ func discardedReleases(name string, src []byte) (calls int, bad []discard, err e
 			}) && slices.ContainsFunc(s.Rhs, isReleaseCall) {
 				flag(s)
 			}
+		case *ast.BlockStmt:
+			flagOverwritten(s.List)
+		case *ast.CaseClause:
+			flagOverwritten(s.Body)
+		case *ast.CommClause:
+			flagOverwritten(s.Body)
 		case *ast.IfStmt:
 			init, ok := s.Init.(*ast.AssignStmt)
 			if !ok || len(init.Rhs) != 1 || !isReleaseCall(init.Rhs[0]) {
@@ -94,6 +127,27 @@ func discardedReleases(name string, src []byte) (calls int, bad []discard, err e
 		return true
 	})
 	return calls, bad, nil
+}
+
+// overwrites reports whether the first statement in list that mentions
+// name assigns to it without reading it. A statement that mentions name in
+// any other way, including a nested block that assigns it on only some
+// paths, counts as a read, so overwrites errs toward false.
+func overwrites(list []ast.Stmt, name string) bool {
+	for _, s := range list {
+		if !mentions(s, name) {
+			continue
+		}
+		as, ok := s.(*ast.AssignStmt)
+		if !ok || slices.ContainsFunc(as.Rhs, func(e ast.Expr) bool { return mentions(e, name) }) {
+			return false
+		}
+		return slices.ContainsFunc(as.Lhs, func(e ast.Expr) bool {
+			id, ok := e.(*ast.Ident)
+			return ok && id.Name == name
+		})
+	}
+	return false
 }
 
 // unallowed returns the discards allowed does not account for, and the
@@ -120,8 +174,8 @@ func unallowed(discards []discard, allowed map[string]int) (bad, stale []string)
 }
 
 // TestReleaseErrorsReported checks every .go file in the package, whatever
-// its build constraints, for a statement that drops the error of a Close,
-// Free or Synchronize call.
+// its build constraints, for a statement that drops the error of a call to
+// a method named in releaseNames.
 func TestReleaseErrorsReported(t *testing.T) {
 	entries, err := os.ReadDir(".")
 	if err != nil {
@@ -196,6 +250,27 @@ func TestDiscardedReleasesControls(t *testing.T) {
 		close(ch)`, 0, false},
 		{"positive control: other method", `
 		defer f.Sync()`, 0, false},
+		{"positive control: assigned, then joined", `
+		err = s.Free()
+		err = errors.Join(err, m.Close())`, 2, false},
+		{"positive control: assigned, tested, then reassigned", `
+		err := s.Free()
+		if err != nil {
+			return err
+		}
+		err = m.Close()
+		return err`, 2, false},
+		{"positive control: assigned, read in a nested block, then reassigned", `
+		err := s.Free()
+		if x {
+			log(err)
+		}
+		err = g()
+		return err`, 1, false},
+		{"positive control: assigned to another variable", `
+		cerr := s.Free()
+		err = g()
+		return errors.Join(err, cerr)`, 1, false},
 		{"bare defer", `
 		defer m.Close()`, 1, true},
 		{"expression statement", `
@@ -214,6 +289,36 @@ func TestDiscardedReleasesControls(t *testing.T) {
 		driver.CtxSynchronize()`, 1, true},
 		{"go statement", `
 		go s.Free()`, 1, true},
+		{"deferred private release", `
+		defer sp.release(f32, i32)`, 1, true},
+		{"private free dropped", `
+		w.free(vec)`, 1, true},
+		{"unload dropped", `
+		f.unload(&m)`, 1, true},
+		{"Reset dropped", `
+		kv.Reset()`, 1, true},
+		{"assigned, then overwritten", `
+		err = s.Free()
+		err = g()
+		return err`, 1, true},
+		{"declared, then overwritten after other statements", `
+		err := sp.release(f32, i32)
+		n := 1
+		use(n)
+		n, err = g()
+		return err`, 1, true},
+		{"overwritten in a case clause", `
+		switch {
+		case x:
+			err = s.Free()
+			err = g()
+		}`, 1, true},
+		{"overwritten in a select clause", `
+		select {
+		case <-ch:
+			err = timer.close()
+			err = g()
+		}`, 1, true},
 		{"if initializer not tested", `
 		if waitErr := stream.Synchronize(ctx); err == nil {
 			err = waitErr

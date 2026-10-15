@@ -19,11 +19,13 @@ import "fmt"
 // them through plain would change what the timer and profiler record, so
 // decode keeps the two paths separate.
 //
-// decode returns an error from plain unchanged and wraps an error from a
-// speculative step with its position. On error, the returned pending token
-// and position are those from before the failed step; if plain failed, st
-// has already recorded that pending token and show has been called with it.
-func decode(st *decodeState, forward func(tok int32, pos int) (int32, error), plain func(step int, tok int32, pos int) (int32, error), show func(tok int32), next int32, pos, maxSeq, steps, draftN int) (int32, int, error) {
+// decode returns an error from plain or show unchanged and wraps an error
+// from a speculative step with its position. It stops at the first error:
+// no token is shown and no forward runs after it. On error, the returned
+// pending token and position are those from before the failed step; st has
+// already recorded the tokens of that step that were emitted, and if plain
+// failed, show has been called with its pending token.
+func decode(st *decodeState, forward func(tok int32, pos int) (int32, error), plain func(step int, tok int32, pos int) (int32, error), show func(tok int32) error, next int32, pos, maxSeq, steps, draftN int) (int32, int, error) {
 	for step := 0; step < steps; {
 		if pos >= maxSeq {
 			break
@@ -36,7 +38,9 @@ func decode(st *decodeState, forward func(tok int32, pos int) (int32, error), pl
 			}
 			if len(emitted) > 0 {
 				for _, tok := range emitted {
-					show(tok)
+					if err := show(tok); err != nil {
+						return next, pos, err
+					}
 					step++
 				}
 				next, pos = n, p
@@ -45,7 +49,9 @@ func decode(st *decodeState, forward func(tok int32, pos int) (int32, error), pl
 		}
 
 		st.emit(next)
-		show(next)
+		if err := show(next); err != nil {
+			return next, pos, err
+		}
 		tok, err := plain(step, next, pos)
 		if err != nil {
 			return next, pos, err

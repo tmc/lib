@@ -321,7 +321,10 @@ func mainDecode(forward func(int32, int) (int32, error), prompt []int32, maxSeq,
 		}
 		return forward(tok, pos)
 	}
-	show := func(tok int32) { r.shown = append(r.shown, tok) }
+	show := func(tok int32) error {
+		r.shown = append(r.shown, tok)
+		return nil
+	}
 	r.next, r.pos, err = decode(r.st, counted(forward, &r.forwards), plain, show, next, len(prompt), maxSeq, steps, draftN)
 	r.forwards += plainCalls
 	r.speculated = len(r.st.generated) - plainCalls
@@ -453,7 +456,7 @@ func TestDecodeErrors(t *testing.T) {
 			}
 			st := newDecodeState(prompt, 16, drafter)
 			plain := func(step int, tok int32, pos int) (int32, error) { return failAt9(tok, pos) }
-			next, pos, err := decode(st, failAt9, plain, func(int32) {}, 2, len(prompt), 32, 16, tt.draftN)
+			next, pos, err := decode(st, failAt9, plain, func(int32) error { return nil }, 2, len(prompt), 32, 16, tt.draftN)
 			if !errors.Is(err, errFail) || err.Error() != tt.wantErr {
 				t.Errorf("err = %v, want %q wrapping %v", err, tt.wantErr, errFail)
 			}
@@ -462,6 +465,59 @@ func TestDecodeErrors(t *testing.T) {
 			}
 			if !slices.Equal(st.generated, tt.wantGenerated) {
 				t.Errorf("generated %v, want %v", st.generated, tt.wantGenerated)
+			}
+		})
+	}
+}
+
+// TestDecodeShowError checks that decode returns an error from show
+// unchanged, shows nothing and runs no forward after it, and leaves the
+// pending token and position as they were before the failed step.
+func TestDecodeShowError(t *testing.T) {
+	errShow := errors.New("show failed")
+	// After the prompt the pending token is 2 at position 7.
+	prompt := []int32{0, 1, 2, 3, 4, 0, 1}
+	for _, tt := range []struct {
+		name     string
+		draftN   int
+		wantNext int32
+		wantPos  int
+	}{
+		// The first plain step shows 2 and feeds it; the second shows 3
+		// and fails before feeding it.
+		{"plain", 0, 3, 8},
+		// The first speculative step emits 2, 3, 4, 0; showing 3 fails.
+		{"speculative", 3, 2, 7},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var drafter *speculative.NgramDrafter
+			if tt.draftN > 0 {
+				drafter = speculative.NewNgramDrafter(3)
+			}
+			st := newDecodeState(prompt, 16, drafter)
+			forwards, atFailure := 0, -1
+			forward := counted(cycleModel(32, 0), &forwards)
+			plain := func(step int, tok int32, pos int) (int32, error) { return forward(tok, pos) }
+			shown := 0
+			show := func(int32) error {
+				if shown++; shown == 2 {
+					atFailure = forwards
+					return errShow
+				}
+				return nil
+			}
+			next, pos, err := decode(st, forward, plain, show, 2, len(prompt), 32, 16, tt.draftN)
+			if !errors.Is(err, errShow) || err.Error() != errShow.Error() {
+				t.Errorf("err = %v, want %v unchanged", err, errShow)
+			}
+			if shown != 2 {
+				t.Errorf("show called %d times, want 2", shown)
+			}
+			if forwards != atFailure {
+				t.Errorf("%d forwards after show failed, want 0", forwards-atFailure)
+			}
+			if next != tt.wantNext || pos != tt.wantPos {
+				t.Errorf("returned pending token %d at position %d, want %d at %d", next, pos, tt.wantNext, tt.wantPos)
 			}
 		})
 	}
