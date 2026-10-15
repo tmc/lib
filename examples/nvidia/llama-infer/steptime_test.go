@@ -155,7 +155,8 @@ func TestCloseStepTimer(t *testing.T) {
 			for i := range events {
 				slots[i] = &events[i]
 			}
-			err := closeStepTimer(&stream, slots)
+			var drained bool
+			err := closeStepTimer(&stream, &drained, slots)
 			if !slices.Equal(log.calls, tt.wantCalls) {
 				t.Errorf("calls = %q, want %q", log.calls, tt.wantCalls)
 			}
@@ -163,25 +164,26 @@ func TestCloseStepTimer(t *testing.T) {
 				t.Errorf("held after close = %q, want %q", got, tt.wantHeld)
 			}
 			checkErr(t, err, tt.wantErr, tt.wantIs)
+			if want := !tt.noStream && tt.fail["sync"] == nil; drained != want {
+				t.Errorf("drained = %v, want %v", drained, want)
+			}
 			if tt.wantErr != "" && strings.HasPrefix(tt.wantErr, "close ") && errors.Is(err, errUndrained) {
 				t.Errorf("errors.Is(err, errUndrained) = true after the stream drained")
 			}
 
-			// A second close retries only what is still held. With every
+			// A second close retries only what is still held, waiting on
+			// the stream again only if it has not drained. With every
 			// failure cleared it must release all of it.
+			wasDrained, streamHeld := drained, stream != nil
 			log.calls, log.fail = nil, nil
-			if err := closeStepTimer(&stream, slots); err != nil {
+			if err := closeStepTimer(&stream, &drained, slots); err != nil {
 				t.Fatalf("retry: %v", err)
 			}
 			var want []string
-			if len(tt.wantHeld) > 0 && tt.wantHeld[len(tt.wantHeld)-1] == "stream" {
-				want = append(append([]string{"sync"}, tt.wantHeld[:len(tt.wantHeld)-1]...), "stream")
-			} else if len(tt.wantHeld) > 0 {
-				want = tt.wantHeld
-				if stream != nil {
-					want = append(append([]string{"sync"}, want...), "stream")
-				}
+			if !wasDrained && streamHeld {
+				want = []string{"sync"}
 			}
+			want = append(want, tt.wantHeld...)
 			if !slices.Equal(log.calls, want) {
 				t.Errorf("retry calls = %q, want %q", log.calls, want)
 			}
@@ -189,6 +191,104 @@ func TestCloseStepTimer(t *testing.T) {
 				t.Errorf("held after retry = %q, want nothing", got)
 			}
 		})
+	}
+}
+
+// destroyingStream is a stream whose first Close destroys it and then
+// fails, as cuda.Stream.Close does when the stream is destroyed but
+// restoring the previous context fails. Once destroyed, Synchronize fails
+// and Close succeeds without doing anything.
+type destroyingStream struct {
+	log       *closeLog
+	destroyed bool
+}
+
+var errDestroyed = errors.New("stream is destroyed")
+
+func (s *destroyingStream) Synchronize(context.Context) error {
+	s.log.calls = append(s.log.calls, "sync")
+	if s.destroyed {
+		return errDestroyed
+	}
+	return nil
+}
+
+func (s *destroyingStream) Close() error {
+	s.log.calls = append(s.log.calls, "stream")
+	if s.destroyed {
+		return nil
+	}
+	s.destroyed = true
+	return errors.New("restore context failed")
+}
+
+// TestCloseStepTimerRetryAfterDestroy checks that a close retried after
+// the stream's Close destroyed it but failed does not wait on the destroyed
+// stream again, so it is not reported as undrained, and that it still
+// closes an event whose first close failed. The control shows that waiting
+// again, as close would if it did not record the drain, reports
+// errUndrained and never retries the event.
+func TestCloseStepTimerRetryAfterDestroy(t *testing.T) {
+	for _, control := range []bool{false, true} {
+		log := &closeLog{fail: map[string]error{"start": errors.New("start failed")}}
+		stream := &destroyingStream{log: log}
+		events := []*fakeEvent{{"anchor", log}, {"start", log}, {"end", log}}
+		slots := []**fakeEvent{&events[0], &events[1], &events[2]}
+		var drained bool
+		if err := closeStepTimer(&stream, &drained, slots); err == nil {
+			t.Fatalf("control=%v: first close: err = nil, want the event and stream failures", control)
+		}
+		if got, want := heldNames2(stream, events), []string{"start", "stream"}; !slices.Equal(got, want) {
+			t.Fatalf("control=%v: held after first close = %q, want %q", control, got, want)
+		}
+		if control {
+			drained = false
+		}
+		log.calls, log.fail = nil, nil
+		err := closeStepTimer(&stream, &drained, slots)
+		if control {
+			if !errors.Is(err, errUndrained) || !slices.Equal(log.calls, []string{"sync"}) || events[1] == nil {
+				t.Errorf("control: retry err = %v, calls %q, start held = %v; want errUndrained after one sync with start held", err, log.calls, events[1] != nil)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("retry: %v", err)
+		}
+		if want := []string{"start", "stream"}; !slices.Equal(log.calls, want) {
+			t.Errorf("retry calls = %q, want %q", log.calls, want)
+		}
+		if got := heldNames2(stream, events); got != nil {
+			t.Errorf("held after retry = %q, want nothing", got)
+		}
+	}
+}
+
+// heldNames2 is heldNames for a destroyingStream.
+func heldNames2(stream *destroyingStream, events []*fakeEvent) []string {
+	var held []string
+	for _, e := range events {
+		if e != nil {
+			held = append(held, e.name)
+		}
+	}
+	if stream != nil {
+		held = append(held, "stream")
+	}
+	return held
+}
+
+// TestMeasureAfterClose checks that measure enqueues nothing once close
+// has drained the timer's stream.
+func TestMeasureAfterClose(t *testing.T) {
+	st := &stepTimer{drained: true}
+	called := false
+	err := st.measure(context.Background(), "step", nil, func(*cuda.Stream) error {
+		called = true
+		return nil
+	})
+	if !errors.Is(err, errTimerClosed) || called {
+		t.Errorf("measure after close: err = %v, fn called = %v; want errTimerClosed, not called", err, called)
 	}
 }
 
@@ -445,7 +545,7 @@ func TestStepTimerSource(t *testing.T) {
 	f := parseFile(t, "steptime.go")
 	for _, tt := range []struct{ recv, name, want string }{
 		{"", "newStepTimer", "st.build(dev.NewStream, dev.NewEvent, st.setup, st.close)"},
-		{"*stepTimer", "close", "closeStepTimer(&st.stream, []**cuda.Event{&st.anchor, &st.start, &st.end})"},
+		{"*stepTimer", "close", "closeStepTimer(&st.stream, &st.drained, []**cuda.Event{&st.anchor, &st.start, &st.end})"},
 	} {
 		got := "not found"
 		for _, decl := range f.Decls {

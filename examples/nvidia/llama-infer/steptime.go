@@ -22,17 +22,25 @@ type stepTimer struct {
 	anchor *cuda.Event
 	start  *cuda.Event
 	end    *cuda.Event
-	clock  *cudatrace.Clock
-	track  uint64
-	prof   *cudaprof.Session
-	tracer *cudatrace.Tracer
-	source string
+	// drained records that close has established that the stream finished
+	// its work. A retried close does not probe the stream again, since a
+	// close that failed may already have destroyed it.
+	drained bool
+	clock   *cudatrace.Clock
+	track   uint64
+	prof    *cudaprof.Session
+	tracer  *cudatrace.Tracer
+	source  string
 }
 
 // errUndrained marks a release that could not establish that the timer's
 // stream has finished its work. Buffers, modules and the device context
 // that the work may use must not be released after it.
 var errUndrained = errors.New("stream not drained")
+
+// errTimerClosed is returned by measure once close has drained the timer's
+// stream.
+var errTimerClosed = errors.New("step timer closed")
 
 // newStepTimer builds a timer on its own stream and calibrates its event clock
 // against the host clock. source names the file reported for the recorded frame.
@@ -93,13 +101,15 @@ func (st *stepTimer) setup() error {
 // close waits for the timer's stream to drain, then closes its events and
 // the stream, forgetting each one it closes. If the stream does not drain,
 // close releases nothing and returns an error matching errUndrained.
-// Otherwise it attempts every close even after one fails and returns the
-// failures joined; calling close again retries only what is still held.
-// Callers must call it before freeing any buffer that work enqueued through
-// measure may still use, and must not free those buffers if it reports
-// errUndrained.
+// Otherwise it records that the stream drained, attempts every close even
+// after one fails, and returns the failures joined; calling close again
+// retries only what is still held, without waiting on the stream again.
+// Once close has established the drain, measure refuses to enqueue more
+// work. Callers must call close before freeing any buffer that work
+// enqueued through measure may still use, and must not free those buffers
+// if it reports errUndrained.
 func (st *stepTimer) close() error {
-	return closeStepTimer(&st.stream, []**cuda.Event{&st.anchor, &st.start, &st.end})
+	return closeStepTimer(&st.stream, &st.drained, []**cuda.Event{&st.anchor, &st.start, &st.end})
 }
 
 // timerStream is what closeStepTimer needs of a stream.
@@ -117,16 +127,19 @@ type timerEvent interface {
 
 // closeStepTimer implements stepTimer.close on the stream and events that
 // stream and events point to, setting each one it closes to its zero
-// value. A zero stream or event, such as a nil pointer, is skipped.
-func closeStepTimer[S timerStream, E timerEvent](stream *S, events []*E) error {
+// value. A zero stream or event, such as a nil pointer, is skipped. It
+// waits on the stream only while *drained is false and sets *drained once
+// the wait succeeds.
+func closeStepTimer[S timerStream, E timerEvent](stream *S, drained *bool, events []*E) error {
 	var noStream S
 	var noEvent E
-	if *stream != noStream {
+	if *stream != noStream && !*drained {
 		// Cancellation stops observation, not device work. Keep events and
 		// caller-owned buffers alive until the pending stream has drained.
 		if err := (*stream).Synchronize(context.Background()); err != nil {
 			return fmt.Errorf("synchronize stream: %w: %w", errUndrained, err)
 		}
+		*drained = true
 	}
 	var errs []error
 	for _, e := range events {
@@ -191,6 +204,9 @@ func (td *teardown) err() error {
 // The interval includes device idle time between host submissions, not only
 // active kernel execution. On error, close must drain before buffers are freed.
 func (st *stepTimer) measure(ctx context.Context, name string, annotations []perfetto.DebugAnnotation, fn func(*cuda.Stream) error) error {
+	if st.drained {
+		return errTimerClosed
+	}
 	if err := st.start.Record(st.stream); err != nil {
 		return err
 	}
