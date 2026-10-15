@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"unicode/utf8"
@@ -114,23 +115,20 @@ func (c *Cache) verifyRemote(ctx context.Context, kind, key string, data []byte)
 	r, err := transport.FetchProof(ctx, kind, key)
 	if err != nil {
 		if r != nil {
-			r.Close()
+			err = errors.Join(err, r.Close())
 		}
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		return fmt.Errorf("%w: fetch proof: %v", ErrUntrustedSource, err)
+		return remoteProofError(ctx, "fetch proof", err)
 	}
 	if r == nil {
-		return fmt.Errorf("%w: nil proof stream", ErrUntrustedSource)
+		return remoteProofError(ctx, "nil proof stream", ErrUntrustedSource)
 	}
 	raw, readErr := io.ReadAll(io.LimitReader(r, MaxRemoteProofBytes+1))
 	closeErr := r.Close()
-	if err := ctx.Err(); err != nil {
-		return err
+	if err := errors.Join(readErr, closeErr, ctx.Err()); err != nil {
+		return remoteProofError(ctx, "read proof", err)
 	}
-	if readErr != nil || closeErr != nil || len(raw) > MaxRemoteProofBytes {
-		return fmt.Errorf("%w: unreadable or oversized proof", ErrUntrustedSource)
+	if len(raw) > MaxRemoteProofBytes {
+		return fmt.Errorf("%w: oversized proof", ErrUntrustedSource)
 	}
 	var proof remoteProof
 	d := json.NewDecoder(bytes.NewReader(raw))
@@ -153,4 +151,14 @@ func (c *Cache) verifyRemote(ctx context.Context, kind, key string, data []byte)
 		return fmt.Errorf("%w: invalid proof signature", ErrUntrustedSource)
 	}
 	return nil
+}
+
+// A required proof that cannot be fetched or read remains untrusted. Preserve
+// provider and cleanup causes; cancellation is a separate outcome.
+func remoteProofError(ctx context.Context, action string, err error) error {
+	err = errors.Join(ctx.Err(), err)
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%s: %w", action, err)
+	}
+	return fmt.Errorf("%w: %s: %w", ErrUntrustedSource, action, err)
 }

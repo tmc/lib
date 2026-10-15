@@ -3,6 +3,7 @@ package cudacache
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -39,18 +40,19 @@ func (h *HTTPRemoteSource) FetchArtifact(ctx context.Context, key string) (io.Re
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.Join(err, ctx.Err())
 	}
 
 	if resp.StatusCode == http.StatusNotFound {
-		resp.Body.Close()
-		return nil, 0, ErrRemoteNotFound
+		return nil, 0, closeHTTPResponse(ctx, resp, ErrRemoteNotFound)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return nil, 0, fmt.Errorf("remote returned HTTP %d", resp.StatusCode)
+		return nil, 0, closeHTTPResponse(ctx, resp, fmt.Errorf("remote returned HTTP %d", resp.StatusCode))
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, 0, closeHTTPResponse(ctx, resp, err)
+	}
 	return resp.Body, resp.ContentLength, nil
 }
 
@@ -63,26 +65,24 @@ func (h *HTTPRemoteSource) FetchReceipt(ctx context.Context, key string) ([]byte
 
 	resp, err := h.client.Do(req)
 	if err != nil {
+		return nil, errors.Join(err, ctx.Err())
+	}
+	var data []byte
+	switch {
+	case resp.StatusCode == http.StatusNotFound:
+		err = ErrRemoteNotFound
+	case resp.StatusCode != http.StatusOK:
+		err = fmt.Errorf("remote returned HTTP %d", resp.StatusCode)
+	case h.maxDownloadBytes > 0 && resp.ContentLength > h.maxDownloadBytes:
+		err = ErrDownloadLimitExceeded
+	default:
+		data, err = io.ReadAll(io.LimitReader(resp.Body, h.maxDownloadBytes+1))
+		if h.maxDownloadBytes > 0 && int64(len(data)) > h.maxDownloadBytes {
+			err = errors.Join(ErrDownloadLimitExceeded, err)
+		}
+	}
+	if err := closeHTTPResponse(ctx, resp, err); err != nil {
 		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrRemoteNotFound
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("remote returned HTTP %d", resp.StatusCode)
-	}
-
-	if h.maxDownloadBytes > 0 && resp.ContentLength > h.maxDownloadBytes {
-		return nil, ErrDownloadLimitExceeded
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, h.maxDownloadBytes+1))
-	if err != nil {
-		return nil, err
-	}
-	if h.maxDownloadBytes > 0 && int64(len(data)) > h.maxDownloadBytes {
-		return nil, ErrDownloadLimitExceeded
 	}
 	return data, nil
 }
@@ -96,14 +96,12 @@ func (h *HTTPRemoteSource) PublishArtifact(ctx context.Context, key string, data
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return err
+		return errors.Join(err, ctx.Err())
 	}
-	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("remote put returned HTTP %d", resp.StatusCode)
+		err = fmt.Errorf("remote put returned HTTP %d", resp.StatusCode)
 	}
-	return nil
+	return closeHTTPResponse(ctx, resp, err)
 }
 
 // PublishReceipt uploads a search receipt to the remote server.
@@ -115,14 +113,12 @@ func (h *HTTPRemoteSource) PublishReceipt(ctx context.Context, key string, data 
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return err
+		return errors.Join(err, ctx.Err())
 	}
-	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("remote put returned HTTP %d", resp.StatusCode)
+		err = fmt.Errorf("remote put returned HTTP %d", resp.StatusCode)
 	}
-	return nil
+	return closeHTTPResponse(ctx, resp, err)
 }
 
 // MemoryRegistry is an in-memory RemoteSource implementation useful for testing and mocking.
@@ -253,11 +249,20 @@ func (h *HTTPRemoteSource) FetchProof(ctx context.Context, kind, key string) (io
 	}
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, ctx.Err())
 	}
 	if resp.StatusCode != http.StatusOK || resp.ContentLength > MaxRemoteProofBytes {
-		resp.Body.Close()
-		return nil, ErrUntrustedSource
+		return nil, closeHTTPResponse(ctx, resp, ErrUntrustedSource)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, closeHTTPResponse(ctx, resp, err)
 	}
 	return resp.Body, nil
+}
+
+// closeHTTPResponse retires an owned response before accepting its result.
+// Client.Do error responses are already closed by the client (redirect refusal).
+func closeHTTPResponse(ctx context.Context, resp *http.Response, err error) error {
+	closeErr := resp.Body.Close()
+	return errors.Join(err, closeErr, ctx.Err())
 }
