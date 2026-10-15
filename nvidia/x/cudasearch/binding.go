@@ -47,7 +47,9 @@ const (
 	NumericalPolicySwiGLUQ8  NumericalPolicy = "swiglu-q8_1"
 )
 
-// Objective defines the optimization goal for candidate ranking.
+// Objective defines an evaluator's optimization goal. ExecutableEvaluator
+// supports ObjectiveMinLatency and treats an empty objective as minimum latency.
+// Other evaluators may support additional objectives.
 type Objective string
 
 const (
@@ -66,7 +68,7 @@ type WorkloadBindings struct {
 	InputIdentities  map[string]string // Input content digests or immutable versions
 	WeightIdentities map[string]string // Mapping of weight name to content digest/version
 	NumericalPolicy  NumericalPolicy   // Precision/numerical requirements
-	Objective        Objective         // Target optimization objective
+	Objective        Objective         // Optimization goal interpreted by the evaluator
 	ResetState       func() error      // Callback to reset mutable state (KV cache, scratch buffers) between runs
 }
 

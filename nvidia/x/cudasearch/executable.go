@@ -124,6 +124,9 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if e.Workload.NumericalPolicy == NumericalPolicyExact && (e.Policy.Absolute != 0 || e.Policy.Relative != 0) {
 		return nil, fmt.Errorf("cudasearch: nonzero tolerance conflicts with exact workload policy")
 	}
+	if objective := e.Workload.Objective; objective != "" && objective != ObjectiveMinLatency {
+		return nil, fmt.Errorf("%w: unsupported executable objective %q", ErrMissingBinding, objective)
+	}
 	if e.HardwareLockChecker == nil || !e.HardwareLockChecker() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
