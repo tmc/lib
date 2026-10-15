@@ -199,11 +199,18 @@ func (a *BlockAllocator) retain(blocks []int) error {
 	return a.Retain(blocks)
 }
 
-// Release removes one holder from each block, freeing those left with none.
+// Release removes one holder for each occurrence of a block, freeing those
+// left with none. If any block has fewer holders than requested, Release
+// returns an error without changing any block.
 func (a *BlockAllocator) Release(blocks []int) error {
+	releases := make(map[int]int)
 	for _, b := range blocks {
 		if err := a.held(b); err != nil {
 			return fmt.Errorf("%s: release: %w", pkgName, err)
+		}
+		releases[b]++
+		if releases[b] > a.holders[b] {
+			return fmt.Errorf("%s: release: block %d has %d holders, cannot release %d", pkgName, b, a.holders[b], releases[b])
 		}
 	}
 	for _, b := range blocks {
