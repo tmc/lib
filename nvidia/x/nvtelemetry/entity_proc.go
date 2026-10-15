@@ -2,6 +2,7 @@ package nvtelemetry
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -9,6 +10,10 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudaworkload"
 )
+
+// ErrProcEntityNotLive means the supplied proc stat snapshot identifies a
+// zombie or dead process. No process identity is returned for that snapshot.
+var ErrProcEntityNotLive = errors.New("proc entity: process is not live")
 
 // ProcEntityFacts preserves Linux proc observations. Cgroups are raw membership
 // paths, not proof of container or pod UID. StartTimeTicks is proc stat field 22
@@ -23,6 +28,8 @@ type ProcEntityFacts struct {
 // bootID, nodeID and pidNamespace must be supplied from the same host snapshot.
 // It performs no filesystem access and cannot prove these reads were atomic.
 // The returned process generation is the boot-scoped start time tick count.
+// A zombie or dead process returns [ErrProcEntityNotLive]. Other states describe
+// only the supplied snapshot, not whether the process remains alive.
 func ReadProcEntity(stat, status, cgroup io.Reader, bootID, nodeID, pidNamespace string) (ProcEntityFacts, error) {
 	var f ProcEntityFacts
 	if bootID == "" || nodeID == "" {
@@ -51,6 +58,12 @@ func ReadProcEntity(stat, status, cgroup io.Reader, bootID, nodeID, pidNamespace
 	start, err := strconv.ParseUint(fields[19], 10, 64)
 	if err != nil || start == 0 {
 		return f, fmt.Errorf("proc entity: invalid start time")
+	}
+	if len(fields[0]) != 1 {
+		return f, fmt.Errorf("proc entity: invalid process state")
+	}
+	if fields[0] == "Z" || fields[0] == "X" || fields[0] == "x" {
+		return f, fmt.Errorf("%w: pid %d state %s", ErrProcEntityNotLive, pid, fields[0])
 	}
 	f.Process = EntityProcess{Process: cudaworkload.ProcessGenID{PID: uint32(pid), Generation: start}, BootID: bootID, NodeID: nodeID, PIDNamespace: pidNamespace}
 	f.StartTimeTicks = start

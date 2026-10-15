@@ -228,8 +228,9 @@ func (s SlurmAttributionSource) validate() error {
 
 // ReadSlurmAttributionSnapshot reads the configured files from fsys into a
 // JobAttributionSnapshot. The source is validated before any file is opened.
-// A configured process whose stat, status or cgroup file does not exist is
-// withheld; any other read or parse error fails the whole read.
+// A configured process is withheld if its stat, status or cgroup file is absent
+// or inaccessible, or stat identifies a zombie or dead process. Other read or
+// parse errors, including errors in the shared source files, fail the whole read.
 func ReadSlurmAttributionSnapshot(fsys fs.FS, src SlurmAttributionSource) (AttributionRead, error) {
 	var out AttributionRead
 	if fsys == nil {
@@ -262,7 +263,7 @@ func ReadSlurmAttributionSnapshot(fsys fs.FS, src SlurmAttributionSource) (Attri
 	}
 	for _, pid := range src.PIDs {
 		p, err := readProcFiles(fsys, src, pid)
-		if errors.Is(err, fs.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, fs.ErrPermission) || errors.Is(err, ErrProcEntityNotLive) {
 			out.Withheld = append(out.Withheld, pid)
 			continue
 		}
