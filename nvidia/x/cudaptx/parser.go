@@ -28,7 +28,7 @@ import (
 // statement may end anywhere in a line -- ".visible .entry k() { ret; }" holds
 // three of them -- and nothing in the grammar puts at most one on a line. The
 // only ambiguity a scan introduces is "{": it delimits a block, but it also
-// delimits a vector operand list, and operandBrace resolves which.
+// delimits an operand group. The statement prefix distinguishes them.
 
 // newlineTerminated lists the directives written without a terminator that may
 // appear at module scope or inside a function body.
@@ -59,6 +59,13 @@ func hasAnyPrefix(s string, prefixes []string) (string, bool) {
 }
 
 // Parse reads PTX assembly and returns the module it describes.
+//
+// Labels are unique within a kernel or device function. Direct bra and bra.uni
+// instructions, including predicated instructions, must name a label preceding
+// an instruction in the same function. Targets not declared as same-function
+// labels, including register operands and external symbols, are errors. Other branch forms, including brx.idx, are
+// preserved without resolving their targets. Outside this label and direct
+// branch contract, Parse remains permissive; it is not a PTX validator.
 func Parse(r io.Reader) (*Module, error) {
 	m := &Module{Files: make(map[int]string)}
 
@@ -66,6 +73,8 @@ func Parse(r io.Reader) (*Module, error) {
 		curKernel          *Kernel
 		pendingTuning      Tuning
 		depth              int
+		operandDepth       int
+		inString           bool
 		curLoc             Location
 		curIntermediateLoc Location
 		curInlinedAt       []Location
@@ -115,14 +124,20 @@ func Parse(r io.Reader) (*Module, error) {
 			return
 		}
 
-		// Any other directive is not an instruction. Without this guard
-		// ".reg .f32 %f<4>;" parses as an instruction with opcode ".reg".
-		if strings.HasPrefix(s, ".") {
+		// Labels: an identifier followed by ":" (docs/ptx/04-syntax.md:39-40).
+		if strings.HasSuffix(s, ":") && !strings.ContainsAny(s, " \t") {
+			if curKernel != nil {
+				curKernel.Labels = append(curKernel.Labels, Label{
+					Name: strings.TrimSuffix(s, ":"), Line: line,
+					Instruction: len(curKernel.Instructions),
+				})
+			}
 			return
 		}
 
-		// Labels: an identifier followed by ":" (docs/ptx/04-syntax.md:39-40).
-		if strings.HasSuffix(s, ":") && !strings.ContainsAny(s, " \t") {
+		// Any other directive is not an instruction. Without this guard
+		// ".reg .f32 %f<4>;" parses as an instruction with opcode ".reg".
+		if strings.HasPrefix(s, ".") {
 			return
 		}
 
@@ -197,7 +212,7 @@ func Parse(r io.Reader) (*Module, error) {
 			}
 			continue
 		}
-		if len(stmt) == 0 && strings.HasPrefix(strings.TrimSpace(scanner.Text()), ".nv_intermediate_source_section") {
+		if !inString && !inBlockComment && len(stmt) == 0 && strings.HasPrefix(strings.TrimSpace(scanner.Text()), ".nv_intermediate_source_section") {
 			inSection = true
 			sectionDepth = strings.Count(scanner.Text(), "{") - strings.Count(scanner.Text(), "}")
 			// The "{" may sit on the next line; until it is seen, a depth of
@@ -206,7 +221,7 @@ func Parse(r io.Reader) (*Module, error) {
 			continue
 		}
 
-		line, stillInComment := stripComments(scanner.Text(), inBlockComment)
+		line, stillInComment := stripComments(scanner.Text(), inBlockComment, inString)
 		inBlockComment = stillInComment
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
@@ -214,14 +229,14 @@ func Parse(r io.Reader) (*Module, error) {
 		}
 
 		// cpp output: docs/ptx/04-syntax.md:15-18.
-		if len(stmt) == 0 && strings.HasPrefix(trimmed, "#") {
+		if !inString && len(stmt) == 0 && strings.HasPrefix(trimmed, "#") {
 			continue
 		}
 
 		// Tuning directives are intercepted before accumulation: they sit
 		// between a header's ")" and its "{", so appending them would make
 		// them part of the header statement.
-		if _, ok := hasAnyPrefix(trimmed, tuningDirectives); ok {
+		if _, ok := hasAnyPrefix(trimmed, tuningDirectives); !inString && ok {
 			target := &pendingTuning
 			if curKernel != nil && len(stmt) == 0 {
 				target = &curKernel.Tuning
@@ -232,7 +247,7 @@ func Parse(r io.Reader) (*Module, error) {
 
 		// Newline-terminated directives, recognized only at a statement
 		// boundary so that they cannot be confused with operand text.
-		if len(stmt) == 0 {
+		if !inString && len(stmt) == 0 {
 			if _, ok := hasAnyPrefix(trimmed, newlineTerminated); ok {
 				switch {
 				case strings.HasPrefix(trimmed, ".version"):
@@ -259,19 +274,42 @@ func Parse(r io.Reader) (*Module, error) {
 
 		// Scan for statement boundaries. seg marks the start of the text not
 		// yet handed to add; operandDepth counts the brace groups that belong
-		// to an operand list rather than to the block structure. A group and
-		// its statement always close on one line (see operandBrace), so the
-		// count never has to survive to the next one.
-		seg, operandDepth := 0, 0
+		// to an operand list rather than to the block structure. Quotes and
+		// operand groups may continue on the next line; their contents cannot
+		// declare labels or terminate the enclosing statement.
+		seg := 0
 		for i := 0; i < len(trimmed); i++ {
+			if inString {
+				switch trimmed[i] {
+				case '\\':
+					if i+1 < len(trimmed) {
+						i++
+					}
+				case '"':
+					inString = false
+				}
+				continue
+			}
+			if trimmed[i] == '"' {
+				inString = true
+				continue
+			}
 			switch trimmed[i] {
 			case ';':
+				if operandDepth > 0 {
+					continue
+				}
 				add(trimmed[seg : i+1])
 				seg = i + 1
 				process(flush(), stmtLine)
 
 			case '{':
-				if operandDepth > 0 || operandBrace(trimmed, i) {
+				if operandDepth > 0 {
+					operandDepth++
+					continue
+				}
+				prefix := strings.Join(stmt, " ") + " " + trimmed[seg:i]
+				if operandBrace(prefix) {
 					operandDepth++
 					continue
 				}
@@ -299,6 +337,9 @@ func Parse(r io.Reader) (*Module, error) {
 				}
 
 			case ':':
+				if operandDepth > 0 {
+					continue
+				}
 				// A label is a lone identifier at the start of a
 				// statement (docs/ptx/04-syntax.md:39-40); a ":" anywhere
 				// else belongs to an operand or double-colon qualifier (e.g. .cta_group::1).
@@ -309,13 +350,17 @@ func Parse(r io.Reader) (*Module, error) {
 				if i > 0 && trimmed[i-1] == ':' {
 					continue
 				}
-				tok := strings.TrimSpace(trimmed[seg:i])
-				if len(stmt) > 0 || tok == "" || strings.ContainsAny(tok, " \t.") {
+				tok := strings.TrimSpace(strings.Join(stmt, " ") + " " + trimmed[seg:i])
+				if strings.ContainsAny(tok, " \t") {
 					continue
 				}
-				add(trimmed[seg : i+1])
+				labelLine := lineNum
+				if len(stmt) > 0 {
+					labelLine = stmtLine
+				}
+				stmt = stmt[:0]
 				seg = i + 1
-				process(flush(), stmtLine)
+				process(tok+":", labelLine)
 			}
 		}
 		add(trimmed[seg:])
@@ -323,12 +368,60 @@ func Parse(r io.Reader) (*Module, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("cudaptx: read: %w", err)
 	}
+	for _, k := range m.Kernels {
+		if err := validateBranches(k); err != nil {
+			return nil, err
+		}
+	}
 
 	// .file directives may follow every .loc that references them: nvcc emits
 	// the file table at the end of the module (testdata/lexer.sm90.ptx:240), so
 	// filenames can only be resolved once the whole module has been read.
 	m.resolveFiles()
 	return m, nil
+}
+
+func validateBranches(k *Kernel) error {
+	labels := make(map[string]Label, len(k.Labels))
+	for _, label := range k.Labels {
+		if !labelIdentifier(label.Name) {
+			return fmt.Errorf("cudaptx: %s line %d: invalid label %q", k.Name, label.Line, label.Name)
+		}
+		if prev, ok := labels[label.Name]; ok {
+			return fmt.Errorf("cudaptx: %s line %d: duplicate label %q (first at line %d)", k.Name, label.Line, label.Name, prev.Line)
+		}
+		labels[label.Name] = label
+	}
+	for _, inst := range k.Instructions {
+		if inst.Opcode != "bra" && inst.Opcode != "bra.uni" {
+			continue
+		}
+		if !labelIdentifier(inst.Operands) {
+			return fmt.Errorf("cudaptx: %s line %d: %s requires one direct label target, got %q", k.Name, inst.Line, inst.Opcode, inst.Operands)
+		}
+		label, ok := labels[inst.Operands]
+		if !ok {
+			return fmt.Errorf("cudaptx: %s line %d: unresolved branch target %q", k.Name, inst.Line, inst.Operands)
+		}
+		if label.Instruction == len(k.Instructions) {
+			return fmt.Errorf("cudaptx: %s line %d: branch target %q has no instruction", k.Name, inst.Line, inst.Operands)
+		}
+	}
+	return nil
+}
+
+func labelIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c == '_' || c == '$' || i == 0 && c == '%' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || i > 0 && '0' <= c && c <= '9' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // ParseString parses PTX assembly held in a string.
@@ -363,9 +456,8 @@ func (m *Module) resolveFiles() {
 // whitespace (docs/ptx/04-syntax.md:28-35). It reports whether a block comment
 // is still open at end of line. A comment marker inside a string literal, as
 // in .file 1 "/a//b.cu", is part of the string.
-func stripComments(line string, inBlock bool) (string, bool) {
+func stripComments(line string, inBlock, inString bool) (string, bool) {
 	var b strings.Builder
-	inString := false
 	for i := 0; i < len(line); {
 		if inBlock {
 			if j := strings.Index(line[i:], "*/"); j >= 0 {
@@ -407,26 +499,11 @@ func stripComments(line string, inBlock bool) (string, bool) {
 	return b.String(), inBlock
 }
 
-// operandBrace reports whether the "{" at s[i] opens a vector operand list
-// rather than a block. An operand group closes on the same line and its
-// statement is terminated after it -- "ld.global.v4.f32 {%f1, %f2, %f3, %f4},
-// [%rd5];" (testdata/vector.sm90.ptx:45) -- whereas a block-opening "{" is the
-// last thing in its own statement, with no ";" following it.
-func operandBrace(s string, i int) bool {
-	depth := 0
-	for ; i < len(s); i++ {
-		switch s[i] {
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				j := strings.IndexAny(s[i+1:], ";{")
-				return j >= 0 && s[i+1+j] == ';'
-			}
-		}
-	}
-	return false
+// operandBrace reports whether a brace follows an instruction or declaration
+// prefix. A brace at a statement boundary, or after a function header, opens
+// a block. Later statements after its closing brace do not change that role.
+func operandBrace(prefix string) bool {
+	return strings.TrimSpace(prefix) != "" && !isFunctionHeader(prefix)
 }
 
 func directiveArg(stmt, directive string) string {
@@ -567,10 +644,14 @@ func parseTuple3(s string) [3]int {
 }
 
 func isFunctionHeader(stmt string) bool {
-	for _, kw := range []string{".entry", ".func"} {
-		if stmt == kw || strings.HasPrefix(stmt, kw+" ") || strings.HasPrefix(stmt, kw+"\t") ||
-			strings.Contains(stmt, " "+kw+" ") || strings.HasSuffix(stmt, " "+kw) {
+	for _, field := range strings.Fields(stmt) {
+		switch field {
+		case ".visible", ".extern", ".weak", ".common":
+			continue
+		case ".entry", ".func":
 			return true
+		default:
+			return false
 		}
 	}
 	return false

@@ -79,6 +79,14 @@ func (inst Instruction) Category() Category {
 	return InstructionCategory(inst.Mnemonic)
 }
 
+// Label is a branch label within one kernel or device function.
+// Its name is scoped to that function, including labels in nested blocks.
+type Label struct {
+	Name        string // identifier without the colon
+	Line        int    // 1-based source line
+	Instruction int    // index of the next instruction; len(Instructions) at the end
+}
+
 // Kernel represents a parsed .entry kernel or .func device function in PTX.
 // Authority: docs/ptx/11-directives.md:403-715
 type Kernel struct {
@@ -92,6 +100,7 @@ type Kernel struct {
 	StartLine    int           // 1-based start line of function header
 	EndLine      int           // 1-based end line of function body
 	Instructions []Instruction // instruction sequence in execution order
+	Labels       []Label       // labels in source order, scoped to this function
 }
 
 // Module represents a fully parsed PTX source module.

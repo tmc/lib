@@ -25,7 +25,34 @@ var ptxSeeds = []string{"testdata/*.ptx"}
 var ptxDecoder = cudatest.Decoder[*cudaptx.Module]{
 	Decode:     cudaptx.ParseBytes,
 	Equal:      moduleEqual,
-	Invariants: []func(*cudaptx.Module) error{opcodesAreOpcodes, fileNamesAreUnquoted},
+	Invariants: []func(*cudaptx.Module) error{opcodesAreOpcodes, fileNamesAreUnquoted, branchesResolve},
+}
+
+// branchesResolve checks the direct-branch contract of Parse. Other branch
+// forms are not modelled; in particular this says nothing about brx.idx tables.
+func branchesResolve(m *cudaptx.Module) error {
+	for _, k := range m.Kernels {
+		labels := make(map[string]int, len(k.Labels))
+		for _, label := range k.Labels {
+			if _, ok := labels[label.Name]; ok {
+				return fmt.Errorf("%s: duplicate label %q", k.Name, label.Name)
+			}
+			if label.Instruction < 0 || label.Instruction > len(k.Instructions) {
+				return fmt.Errorf("%s: label %q has invalid instruction index %d", k.Name, label.Name, label.Instruction)
+			}
+			labels[label.Name] = label.Instruction
+		}
+		for _, inst := range k.Instructions {
+			if inst.Opcode != "bra" && inst.Opcode != "bra.uni" {
+				continue
+			}
+			i, ok := labels[inst.Operands]
+			if !ok || i == len(k.Instructions) {
+				return fmt.Errorf("%s line %d: %s target %q does not resolve to an instruction", k.Name, inst.Line, inst.Opcode, inst.Operands)
+			}
+		}
+	}
+	return nil
 }
 
 // moduleEqual compares the exported contents of two modules; the lookup map

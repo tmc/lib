@@ -413,6 +413,7 @@ func TestHandWrittenEdgeCases(t *testing.T) {
 		ptx: `.version 8.0
 .visible .entry k() {
 	@!%p2 bra $L1;
+$L1:
 	ret;
 }`,
 		check: func(t *testing.T, m *cudaptx.Module) {
