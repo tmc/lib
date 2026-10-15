@@ -114,7 +114,7 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 			Name:      inp.Name,
 			Type:      ptxType,
 			ByteWidth: 8, // Device pointer
-			Alignment: 16,
+			Alignment: 8,
 			IsPointer: true,
 		})
 
@@ -141,7 +141,7 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 			Name:      outParamName,
 			Type:      ptxType,
 			ByteWidth: 8,
-			Alignment: 16,
+			Alignment: 8,
 			IsPointer: true,
 		})
 
@@ -667,7 +667,7 @@ func GenerateSemanticTileCPP(snap *cudair.Snapshot, opts LowerOptions) (string, 
 		if paramName == "" {
 			paramName = arg
 		}
-		params = append(params, cudakernel.Param{Name: paramName, Type: "f32", ByteWidth: 8, Alignment: 16, IsPointer: true})
+		params = append(params, cudakernel.Param{Name: paramName, Type: "f32", ByteWidth: 8, Alignment: 8, IsPointer: true})
 	}
 	b.WriteString(") {\n  namespace ct = ::cuda::tiles;\n  auto idx = ct::bid().x;\n")
 	schema, err := cudakernel.NewSchema(params...)
