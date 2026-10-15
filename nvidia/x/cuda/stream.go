@@ -201,14 +201,24 @@ func (s *Stream) WaitEvent(e *Event) error {
 // registered cleanups and destroying the stream handle. Closing the stream
 // returned by [Device.DefaultStream] drains its cleanups but keeps the handle,
 // which belongs to the driver rather than to the caller. Repeated calls are safe.
+// If destruction succeeds but context restoration fails, Close returns the
+// error after marking the stream destroyed and draining its cleanups.
 func (s *Stream) Close() error {
+	return s.closeWith(s.device.WithContext,
+		func() error { return s.raw.Synchronize() },
+		func() error { return s.raw.Close() })
+}
+
+// closeWith keeps operation results separate from context restoration errors.
+// Callbacks are per-call so lifecycle tests need no driver or global hooks.
+func (s *Stream) closeWith(run func(func() error) error, synchronize, destroy func() error) error {
 	s.lifeMu.Lock()
 	if s.destroyed {
 		s.lifeMu.Unlock()
 		return nil
 	}
 	// Do not release host pinners unless completion was established.
-	if err := s.device.WithContext(s.raw.Synchronize); err != nil {
+	if err := run(synchronize); err != nil {
 		s.lifeMu.Unlock()
 		return fmt.Errorf("cuda: stream synchronize before destroy: %w", err)
 	}
@@ -220,15 +230,24 @@ func (s *Stream) Close() error {
 		}
 		return nil
 	}
-	if err := s.device.WithContext(s.raw.Close); err != nil {
+	err := run(func() error {
+		if err := destroy(); err != nil {
+			return err
+		}
+		s.destroyed = true
+		return nil
+	})
+	if err != nil && !s.destroyed {
 		s.lifeMu.Unlock()
 		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}
 	cleanups := s.takeCleanups()
-	s.destroyed = true
 	s.lifeMu.Unlock()
 	for _, fn := range cleanups {
 		fn()
+	}
+	if err != nil {
+		return fmt.Errorf("cuda: stream destroy: %w", err)
 	}
 	return nil
 }

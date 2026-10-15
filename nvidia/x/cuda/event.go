@@ -185,16 +185,28 @@ func (e *Event) Done() <-chan struct{} {
 	return ch
 }
 
-// Close destroys the event. Repeated calls are safe.
+// Close destroys the event. Repeated calls are safe. If destruction succeeds
+// but context restoration fails, Close returns the error and the event remains
+// destroyed.
 func (e *Event) Close() error {
+	return e.closeWith(e.device.WithContext, func() error { return e.raw.Close() })
+}
+
+// closeWith records successful destruction before context restoration can fail.
+func (e *Event) closeWith(run func(func() error) error, destroy func() error) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.destroyed {
 		return nil
 	}
-	if err := e.device.WithContext(e.raw.Close); err != nil {
+	if err := run(func() error {
+		if err := destroy(); err != nil {
+			return err
+		}
+		e.destroyed = true
+		return nil
+	}); err != nil {
 		return fmt.Errorf("cuda: destroy event: %w", err)
 	}
-	e.destroyed = true
 	return nil
 }
