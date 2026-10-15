@@ -2,6 +2,7 @@ package cudacollective
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -28,10 +29,18 @@ type Plan struct {
 	closed   bool
 }
 
+// ErrPipelineCommunicator reports a PipelineManager created for a different
+// Communicator than the Plan it is given to.
+var ErrPipelineCommunicator = errors.New("cudacollective: pipeline bound to a different communicator")
+
 // NewPlan creates a distributed execution plan bound to a Communicator and PipelineManager.
+// A non-nil pipeline must have been created for comm.
 func NewPlan(comm *Communicator, pipeline *PipelineManager) (*Plan, error) {
 	if comm == nil {
 		return nil, ErrCommunicatorClosed
+	}
+	if pipeline != nil && pipeline.comm != comm {
+		return nil, ErrPipelineCommunicator
 	}
 	return &Plan{
 		comm:     comm,
@@ -105,7 +114,8 @@ func (p *Plan) ExecuteSteps(ctx context.Context) error {
 	return nil
 }
 
-// Close closes the plan and associated pipeline resources.
+// Close closes the plan. The caller owns the PipelineManager and Communicator
+// passed to NewPlan; Close does not close or drain them.
 func (p *Plan) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()

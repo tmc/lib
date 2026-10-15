@@ -28,6 +28,8 @@ type PipelineManager struct {
 }
 
 // NewPipelineManager creates a PipelineManager for comm with double buffering on buf.
+// The slot ranges [Slots[i], Slots[i]+Bytes) must not wrap the address space
+// and must not intersect; adjacent ranges are allowed.
 func NewPipelineManager(comm *Communicator, buf DoubleBuffer, maxQueueSize int) (*PipelineManager, error) {
 	if comm == nil {
 		return nil, ErrCommunicatorClosed
@@ -35,11 +37,16 @@ func NewPipelineManager(comm *Communicator, buf DoubleBuffer, maxQueueSize int) 
 	if buf.Slots[0] == 0 || buf.Slots[1] == 0 {
 		return nil, ErrNilBuffer
 	}
-	if buf.Slots[0] == buf.Slots[1] {
-		return nil, ErrBufferOverlap
-	}
 	if buf.Bytes <= 0 {
 		return nil, ErrBufferLengthMismatch
+	}
+	n := uint64(buf.Bytes)
+	s0, s1 := uint64(buf.Slots[0]), uint64(buf.Slots[1])
+	if s0 > ^uint64(0)-n || s1 > ^uint64(0)-n {
+		return nil, fmt.Errorf("%w: slot range of %d bytes wraps the address space", ErrBufferLengthMismatch, buf.Bytes)
+	}
+	if s0 < s1+n && s1 < s0+n {
+		return nil, fmt.Errorf("%w: slots [%#x, %#x) and [%#x, %#x) intersect", ErrBufferOverlap, s0, s0+n, s1, s1+n)
 	}
 	if maxQueueSize <= 0 {
 		maxQueueSize = 2 // Default double-buffer queue limit
