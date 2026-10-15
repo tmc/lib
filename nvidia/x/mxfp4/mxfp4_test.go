@@ -48,20 +48,27 @@ func TestQuantizeDequantizeRoundtrip(t *testing.T) {
 }
 
 func TestCUDAMXFP4LinearGEMV(t *testing.T) {
+	requireMXFP4Native(t)
+	owners := &fixtureOwnerSet{}
+	registerFixtureCleanup(t, owners)
+
 	if err := driver.Init(0); err != nil {
-		t.Skipf("skipping: CUDA driver not available: %v", err)
+		t.Fatalf("CUDA driver initialization: %v", err)
 	}
 	dev, err := cuda.NewDevice(0)
+	owners.setDevice(dev)
 	if err != nil {
-		t.Skipf("skipping: CUDA device acquisition: %v", err)
+		t.Fatalf("CUDA device acquisition: %v", err)
 	}
-	defer dev.Close()
+	owners.setSynchronization(func() error {
+		return dev.WithContext(driver.CtxSynchronize)
+	})
 
 	engine, err := NewEngine(dev)
+	owners.setEngine(engine, err)
 	if err != nil {
 		t.Fatalf("NewEngine failed: %v", err)
 	}
-	defer engine.Close()
 
 	inDim := 64
 	outDim := 32
@@ -82,37 +89,37 @@ func TestCUDAMXFP4LinearGEMV(t *testing.T) {
 	}
 
 	xDev, err := cudamem.Alloc[float32](dev, inDim)
+	retainFixtureAllocation(owners, xDev)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer xDev.Free()
 	if err := xDev.CopyFromHost(xHost); err != nil {
 		t.Fatal(err)
 	}
 
 	packedDev, err := cudamem.Alloc[uint8](dev, len(qm.Packed))
+	retainFixtureAllocation(owners, packedDev)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer packedDev.Free()
 	if err := packedDev.CopyFromHost(qm.Packed); err != nil {
 		t.Fatal(err)
 	}
 
 	scalesDev, err := cudamem.Alloc[float32](dev, len(qm.Scales))
+	retainFixtureAllocation(owners, scalesDev)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer scalesDev.Free()
 	if err := scalesDev.CopyFromHost(qm.Scales); err != nil {
 		t.Fatal(err)
 	}
 
 	outDev, err := cudamem.Alloc[float32](dev, outDim)
+	retainFixtureAllocation(owners, outDev)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer outDev.Free()
 
 	if err := engine.LinearGEMV(xDev, packedDev, scalesDev, outDev, inDim, outDim, groupSize); err != nil {
 		t.Fatalf("LinearGEMV failed: %v", err)
@@ -122,10 +129,10 @@ func TestCUDAMXFP4LinearGEMV(t *testing.T) {
 	}
 
 	dequantDev, err := cudamem.Alloc[float32](dev, len(wHost))
+	retainFixtureAllocation(owners, dequantDev)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dequantDev.Free()
 	if err := engine.Dequantize(packedDev, scalesDev, dequantDev, len(wHost), groupSize); err != nil {
 		t.Fatalf("Dequantize failed: %v", err)
 	}
@@ -169,48 +176,76 @@ func TestCUDAMXFP4LinearGEMV(t *testing.T) {
 }
 
 func BenchmarkMXFP4GEMV_Qwen38_Layer(b *testing.B) {
+	requireMXFP4Native(b)
+	owners := &fixtureOwnerSet{}
+	registerFixtureCleanup(b, owners)
+	var stream *cuda.Stream
+
 	if err := driver.Init(0); err != nil {
-		b.Skipf("skipping: CUDA driver not available: %v", err)
+		b.Fatalf("CUDA driver initialization: %v", err)
 	}
 	dev, err := cuda.NewDevice(0)
+	owners.setDevice(dev)
 	if err != nil {
-		b.Skipf("skipping: CUDA device: %v", err)
+		b.Fatalf("CUDA device acquisition: %v", err)
 	}
-	defer dev.Close()
+	owners.setSynchronization(func() error {
+		if stream == nil {
+			return dev.WithContext(driver.CtxSynchronize)
+		}
+		return stream.Synchronize(context.Background())
+	})
 
 	engine, err := NewEngine(dev)
+	owners.setEngine(engine, err)
 	if err != nil {
 		b.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	// Qwen3.8 FFN Intermediate Dimension
 	inDim := 5120
 	outDim := 17408
 	groupSize := 32
 
-	xDev, _ := cudamem.Alloc[float32](dev, inDim)
-	defer xDev.Free()
+	xDev, err := cudamem.Alloc[float32](dev, inDim)
+	retainFixtureAllocation(owners, xDev)
+	if err != nil {
+		b.Fatalf("allocate input: %v", err)
+	}
 
-	packedDev, _ := cudamem.Alloc[uint8](dev, outDim*(inDim/2))
-	defer packedDev.Free()
+	packedDev, err := cudamem.Alloc[uint8](dev, outDim*(inDim/2))
+	retainFixtureAllocation(owners, packedDev)
+	if err != nil {
+		b.Fatalf("allocate packed weights: %v", err)
+	}
 
-	scalesDev, _ := cudamem.Alloc[float32](dev, outDim*(inDim/groupSize))
-	defer scalesDev.Free()
+	scalesDev, err := cudamem.Alloc[float32](dev, outDim*(inDim/groupSize))
+	retainFixtureAllocation(owners, scalesDev)
+	if err != nil {
+		b.Fatalf("allocate scales: %v", err)
+	}
 
-	outDev, _ := cudamem.Alloc[float32](dev, outDim)
-	defer outDev.Free()
+	outDev, err := cudamem.Alloc[float32](dev, outDim)
+	retainFixtureAllocation(owners, outDev)
+	if err != nil {
+		b.Fatalf("allocate output: %v", err)
+	}
 
-	stream, _ := dev.NewStream()
-	defer stream.Close()
+	stream, err = dev.NewStream()
+	owners.setStream(stream)
+	if err != nil {
+		b.Fatalf("create stream: %v", err)
+	}
 
 	b.SetBytes(int64(outDim * (inDim / 2))) // 4-bit weight bytes transferred per step
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if err := engine.LinearGEMV(xDev, packedDev, scalesDev, outDev, inDim, outDim, groupSize); err != nil {
+		if err := engine.LinearGEMVOn(stream, xDev, packedDev, scalesDev, outDev, inDim, outDim, groupSize); err != nil {
 			b.Fatalf("LinearGEMV: %v", err)
 		}
 	}
-	_ = stream.Synchronize(context.Background())
+	if err := stream.Synchronize(context.Background()); err != nil {
+		b.Fatalf("synchronize benchmark stream: %v", err)
+	}
 }
