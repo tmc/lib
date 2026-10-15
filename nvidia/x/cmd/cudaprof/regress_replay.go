@@ -105,12 +105,9 @@ func runRegressReplayCommand(args []string, stdout io.Writer) error {
 		return errors.New("history-template, history-binding, and history-out must be supplied together")
 	}
 
-	var plan cudaregress.ExperimentPlan
-	if err := readStrictFile(*planPath, &plan); err != nil {
+	plan, err := readRegressPlanFile(*planPath)
+	if err != nil {
 		return fmt.Errorf("read plan: %w", err)
-	}
-	if err := cudaregress.ValidatePlan(&plan); err != nil {
-		return fmt.Errorf("validate plan: %w", err)
 	}
 	specFile, err := os.Open(*specPath)
 	if err != nil {
@@ -406,18 +403,30 @@ func appendReplayHistory(plan *cudaregress.ExperimentPlan, execRec *cudaregress.
 }
 
 func readStrictFile(path string, out any) error {
-	f, err := os.Open(path)
+	b, err := readBoundedJSONFile(path)
 	if err != nil {
 		return err
+	}
+	return decodeStrictJSON(b, out)
+}
+
+func readBoundedJSONFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
 	defer f.Close()
 	b, err := io.ReadAll(io.LimitReader(f, maxReplayInputBytes+1))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(b) > maxReplayInputBytes {
-		return errors.New("input byte limit exceeded")
+		return nil, errors.New("input byte limit exceeded")
 	}
+	return b, nil
+}
+
+func decodeStrictJSON(b []byte, out any) error {
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.UseNumber()
 	if err := scanStrictValue(d, reflect.TypeOf(out).Elem(), 0); err != nil {

@@ -276,7 +276,7 @@ func ValidatePlan(plan *ExperimentPlan) error {
 		}
 	}
 	for _, in := range plan.Inputs {
-		if in.Path != "" {
+		if in.Path != "" || in.Digest != "" {
 			a := ArtifactRef{Name: in.Name, Path: in.Path, Digest: in.Digest}
 			if err := verifyArtifact(a); err != nil {
 				return err
@@ -293,7 +293,7 @@ func ValidatePlan(plan *ExperimentPlan) error {
 		return errors.New("cudaregress: hardware execution requires complete artifact closure")
 	}
 
-	if plan.CorrectnessOracle.ReferencePath != "" {
+	if plan.CorrectnessOracle.ReferencePath != "" || plan.CorrectnessOracle.ReferenceDigest != "" {
 		a := ArtifactRef{
 			Name:   "oracle_reference",
 			Path:   plan.CorrectnessOracle.ReferencePath,

@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,15 +92,27 @@ func TestRegressCLI_PlanAndCheckAndExport(t *testing.T) {
 	if res.Plan.PlanID == "" {
 		t.Errorf("plan ID is empty")
 	}
+	envPath := filepath.Join(dir, "observed-environment.json")
+	writeJSONFile(t, envPath, observedEnvironmentFile{
+		Version: 1, Environment: inc.ObservedEnvironment, Provenance: "supplied CLI fixture observation",
+	})
 
 	// 2. Run 'regress check'
 	var checkOut bytes.Buffer
-	err = runRegressCheckCommand([]string{"-plan", planPath}, &checkOut)
+	err = runRegressCheckCommand([]string{"-plan", planPath, "-environment", envPath}, &checkOut)
 	if err != nil {
 		t.Fatalf("regress check failed: %v", err)
 	}
-	if !strings.Contains(checkOut.String(), "reconstructable") {
-		t.Errorf("expected reconstructable in check output: %s", checkOut.String())
+	wantCheck := fmt.Sprintf("Plan %s: reconstructable (validated artifacts; caller-supplied environment, provenance %q)\n", res.Plan.PlanID, "supplied CLI fixture observation")
+	if checkOut.String() != wantCheck {
+		t.Errorf("check output = %q, want %q", checkOut.String(), wantCheck)
+	}
+	// Replay must read that same producer file before attempting the spec. The
+	// missing spec prevents runner creation or any command/device execution.
+	var replayOut bytes.Buffer
+	err = runRegressReplayCommand([]string{"-plan", planPath, "-environment", envPath, "-spec", filepath.Join(dir, "missing-spec.json"), "-o", filepath.Join(dir, "unused-replay-output")}, &replayOut)
+	if !errors.Is(err, os.ErrNotExist) || !strings.Contains(err.Error(), "open execution spec") || replayOut.Len() != 0 {
+		t.Fatalf("replay did not accept actual producer plan before spec boundary: %v, %q", err, replayOut.String())
 	}
 
 	// 3. Run 'regress export'
@@ -113,5 +127,9 @@ func TestRegressCLI_PlanAndCheckAndExport(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(exportDir, fname)); err != nil {
 			t.Errorf("missing exported file %s: %v", fname, err)
 		}
+	}
+	exported, err := readRegressPlanFile(filepath.Join(exportDir, "plan.json"))
+	if err != nil || exported.PlanID != res.Plan.PlanID || exported.PlanDigest != res.Plan.PlanDigest {
+		t.Fatalf("export lost validated producer plan: plan=%+v error=%v", exported, err)
 	}
 }

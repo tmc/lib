@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudaregress"
 )
@@ -95,35 +96,37 @@ func runRegressPlanCommand(args []string, stdout io.Writer) error {
 func runRegressCheckCommand(args []string, stdout io.Writer) error {
 	fs := flag.NewFlagSet("regress check", flag.ContinueOnError)
 	planPath := fs.String("plan", "", "path to experiment plan JSON")
+	envPath := fs.String("environment", "", "path to separately observed environment JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
-	if *planPath == "" {
-		return errors.New("usage: cudaprof regress check -plan plan.json")
+	if *planPath == "" || *envPath == "" {
+		return errors.New("usage: cudaprof regress check -plan plan.json -environment observed-environment.json")
 	}
 
-	data, err := os.ReadFile(*planPath)
+	plan, err := readRegressPlanFile(*planPath)
 	if err != nil {
 		return fmt.Errorf("read plan: %w", err)
 	}
-
-	var plan cudaregress.ExperimentPlan
-	if err := json.Unmarshal(data, &plan); err != nil {
-		return fmt.Errorf("parse plan JSON: %w", err)
+	var observed observedEnvironmentFile
+	if err := readStrictFile(*envPath, &observed); err != nil {
+		return fmt.Errorf("read observed environment: %w", err)
+	}
+	if observed.Version != 1 || strings.TrimSpace(observed.Provenance) == "" {
+		return errors.New("observed environment requires version 1 and provenance")
+	}
+	if observed.Environment == (cudaregress.Environment{}) {
+		return errors.New("observed environment is unavailable")
+	}
+	if err := cudaregress.ValidateEnvironment(&plan, observed.Environment); err != nil {
+		return err
 	}
 
-	env := cudaregress.Environment{
-		Model:             plan.DeviceConfig.Model,
-		ComputeCapability: plan.DeviceConfig.ComputeCapability,
-		Driver:            plan.DeviceConfig.DriverVersion,
-		CUDA:              plan.DeviceConfig.CUDAVersion,
-	}
-
-	reconstructable, blockers := cudaregress.CheckReconstruction(&plan, env)
+	reconstructable, blockers := cudaregress.CheckReconstruction(&plan, observed.Environment)
 	if reconstructable {
-		fmt.Fprintf(stdout, "Plan %s: reconstructable (all declared artifacts present)\n", plan.PlanID)
-		return nil
+		_, err := fmt.Fprintf(stdout, "Plan %s: reconstructable (validated artifacts; caller-supplied environment, provenance %q)\n", plan.PlanID, observed.Provenance)
+		return err
 	}
 
 	fmt.Fprintf(stdout, "Plan %s: NOT reconstructable (%d blockers):\n", plan.PlanID, len(blockers))
@@ -145,14 +148,9 @@ func runRegressExportCommand(args []string, stdout io.Writer) error {
 		return errors.New("usage: cudaprof regress export -plan plan.json -o dir")
 	}
 
-	data, err := os.ReadFile(*planPath)
+	plan, err := readRegressPlanFile(*planPath)
 	if err != nil {
 		return fmt.Errorf("read plan: %w", err)
-	}
-
-	var plan cudaregress.ExperimentPlan
-	if err := json.Unmarshal(data, &plan); err != nil {
-		return fmt.Errorf("parse plan JSON: %w", err)
 	}
 
 	if err := cudaregress.ExportMinimalReproducer(&plan, *outputDir); err != nil {
@@ -161,4 +159,36 @@ func runRegressExportCommand(args []string, stdout io.Writer) error {
 
 	fmt.Fprintf(stdout, "Exported minimal reproducer for plan %s to %s\n", plan.PlanID, *outputDir)
 	return nil
+}
+
+// readRegressPlanFile accepts the plan command's bundle and standalone plans.
+// Both schema attempts read the same bounded snapshot. A parsed plan must pass
+// ValidatePlan; receipt linkage never substitutes for artifact authentication.
+func readRegressPlanFile(path string) (cudaregress.ExperimentPlan, error) {
+	var plan cudaregress.ExperimentPlan
+	data, err := readBoundedJSONFile(path)
+	if err != nil {
+		return plan, err
+	}
+	if err := decodeStrictJSON(data, &plan); err == nil {
+		return plan, cudaregress.ValidatePlan(&plan)
+	}
+	var bundle struct {
+		Plan    *cudaregress.ExperimentPlan `json:"plan"`
+		Receipt *cudaregress.PlanReceipt    `json:"receipt"`
+	}
+	if err := decodeStrictJSON(data, &bundle); err != nil {
+		return plan, fmt.Errorf("decode plan or plan/receipt bundle: %w", err)
+	}
+	if bundle.Plan == nil || bundle.Receipt == nil {
+		return plan, errors.New("plan bundle requires plan and receipt")
+	}
+	plan = *bundle.Plan
+	if err := cudaregress.ValidatePlan(&plan); err != nil {
+		return plan, err
+	}
+	if bundle.Receipt.PlanID != plan.PlanID || bundle.Receipt.PlanDigest != plan.PlanDigest || bundle.Receipt.IncidentID != plan.IncidentID {
+		return plan, errors.New("plan bundle receipt identity does not match plan")
+	}
+	return plan, nil
 }

@@ -133,7 +133,7 @@ To read immutable profiling history or plan an observation-driven bisect:
 
 To derive an experiment plan from an admitted incident or verify reproducibility:
   cudaprof regress plan -incident incident.json [-o plan.json]
-  cudaprof regress check -plan plan.json
+  cudaprof regress check -plan plan.json -environment observed-environment.json
   cudaprof regress export -plan plan.json -o dir
 
 To print the usage of a command:
