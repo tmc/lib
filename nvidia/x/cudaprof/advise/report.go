@@ -148,8 +148,9 @@ func (l Location) kernelKey() string {
 // Item represents a single diagnosis or performance recommendation.
 type Item struct {
 	// ClassifiedShare preserves the evidence class and denominator basis when
-	// WithShareEvidence admits a source-bound profile share. Nil means the
-	// legacy producer has not supplied classified evidence.
+	// WithShareEvidence admits a source-bound profile share. Analyze supplies
+	// explicit Unread when identity or population evidence is missing. Nil
+	// remains possible for Items constructed directly by callers.
 	ClassifiedShare          *cudaevidence.Value `json:"classified_share,omitempty"`
 	Severity                 Severity            `json:"severity"`
 	Category                 Category            `json:"category"`

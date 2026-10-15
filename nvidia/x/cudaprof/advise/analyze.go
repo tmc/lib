@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaevidence"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
@@ -15,6 +16,40 @@ import (
 // Analyze synthesizes diagnostics across compiler remarks, register pressure curves,
 // and PTX architecture audits.
 func Analyze(cap *cudacapture.Capture) (*Report, error) {
+	return analyze(cap, nil)
+}
+
+// AnalyzeWithEvidence analyzes cap with caller-supplied artifact, compiler and
+// workload provenance. source must describe the exact kernel entry. Its locator
+// identifies the caller's retained association, not a hardware attestation.
+//
+// Numeric shares require a complete, loss-free journal agreeing with the
+// profile's kernel-time population. Missing or contradictory capture facts
+// leave the share Unread. The capture can check recorded image, target and
+// workload facts, but cannot authenticate the supplied compiler key or prove
+// that supplied records came from a physical device. Shares are never Measured.
+// The caller must not mutate cap or its profile during either analysis call.
+func AnalyzeWithEvidence(cap *cudacapture.Capture, source cudaevidence.Source) (*Report, error) {
+	if err := source.Identity.Validate(); err != nil {
+		return nil, fmt.Errorf("analyze evidence: %w", err)
+	}
+	if strings.TrimSpace(source.Producer) == "" || strings.TrimSpace(source.Locator) == "" {
+		return nil, errors.New("analyze evidence: missing producer or locator")
+	}
+	if cap != nil && cap.Profile != nil {
+		if err := cap.Profile.CheckValid(); err != nil {
+			return nil, fmt.Errorf("analyze evidence profile: %w", err)
+		}
+		for _, t := range cap.Profile.SampleType {
+			if t == nil {
+				return nil, errors.New("analyze evidence profile: nil sample type")
+			}
+		}
+	}
+	return analyze(cap, &source)
+}
+
+func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, error) {
 	if cap == nil {
 		return nil, errors.New("nil capture")
 	}
@@ -442,6 +477,7 @@ func Analyze(cap *cudacapture.Capture) (*Report, error) {
 	// Finalize device times and rank findings by device time
 	report.SampleOnly = !hasTiming
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
+	classifyProfileShares(cap, report, source)
 	for _, item := range report.Items {
 		if item.EvidenceLevel == EvidenceSuspected || item.EvidenceLevel == EvidenceUnmeasured {
 			report.EvidenceGuidance = "Suspected findings are heuristics. Capture with --pcsampling for per-PC evidence; bandwidth and occupancy claims require hardware counters through the CUPTI Profiling API with replay (for example, x/cuptirange)."
