@@ -351,23 +351,23 @@ func DequantizeMXFP4(p *PrepackedTensor, groupSize int, dst []float32) error {
 	return nil
 }
 
-// RepackQ8_0 repacks standard 34-byte Q8_0 blocks (2B scale + 32B int8) into contiguous
-// 128-byte hardware tiles and an aligned scale buffer for sm_121a TMA bulk streaming.
+// RepackQ8_0 separates standard 34-byte Q8_0 blocks into row-major quantization
+// bytes and two-byte scale entries. Device alignment and tensor-map construction
+// are caller responsibilities.
 func RepackQ8_0(rawBlocks []byte, rows, cols int) (*PrepackedTensor, error) {
-	if cols%32 != 0 {
-		return nil, fmt.Errorf("cudaprepack: cols (%d) must be a multiple of 32", cols)
+	storage, err := q8Storage(rows, cols, cols)
+	if err != nil {
+		return nil, err
 	}
 	numBlocksPerRow := cols / 32
-	totalBlocks := rows * numBlocksPerRow
-	if len(rawBlocks) < totalBlocks*34 {
-		return nil, fmt.Errorf("cudaprepack: rawBlocks buffer too short (got %d, want %d)", len(rawBlocks), totalBlocks*34)
+	if len(rawBlocks) < storage.RawBytes {
+		return nil, fmt.Errorf("cudaprepack: rawBlocks buffer too short (got %d, want %d)", len(rawBlocks), storage.RawBytes)
 	}
 
-	rawRowBytes := numBlocksPerRow * 32
-	paddedRowStride := ((rawRowBytes + MinAddressAlignment - 1) / MinAddressAlignment) * MinAddressAlignment
+	paddedRowStride := storage.RowStride
 
-	payload := make([]byte, rows*paddedRowStride)
-	scales := make([]byte, totalBlocks*2)
+	payload := make([]byte, storage.PayloadBytes)
+	scales := make([]byte, storage.ScaleBytes)
 
 	for r := 0; r < rows; r++ {
 		for b := 0; b < numBlocksPerRow; b++ {
@@ -389,10 +389,7 @@ func RepackQ8_0(rawBlocks []byte, rows, cols int) (*PrepackedTensor, error) {
 		boxWidthBytes = paddedRowStride
 	}
 	box0 := uint32(boxWidthBytes) // 1 byte per element
-	box1 := uint32(32)
-	if box1 > uint32(rows) {
-		box1 = uint32(rows)
-	}
+	box1 := uint32(min(32, rows))
 
 	desc := BoxDescriptor{
 		Rank:           2,
@@ -416,16 +413,14 @@ func RepackQ8_0(rawBlocks []byte, rows, cols int) (*PrepackedTensor, error) {
 
 // UnpackQ8_0 converts pre-packed Q8_0 tiles back into standard 34-byte interleaved Q8_0 blocks.
 func UnpackQ8_0(p *PrepackedTensor) ([]byte, error) {
-	if p.Type != TypeQ8_0 {
-		return nil, fmt.Errorf("cudaprepack: tensor type is %s, want Q8_0", p.Type)
+	storage, err := DescribeQ8(p)
+	if err != nil {
+		return nil, err
 	}
-	cols := int(p.BoxDesc.GlobalDims[0])
-	rows := int(p.BoxDesc.GlobalDims[1])
-	paddedRowStride := int(p.BoxDesc.GlobalStrides[0])
+	cols, rows, paddedRowStride := storage.Cols, storage.Rows, storage.RowStride
 	numBlocksPerRow := cols / 32
-	totalBlocks := rows * numBlocksPerRow
 
-	out := make([]byte, totalBlocks*34)
+	out := make([]byte, storage.RawBytes)
 	for r := 0; r < rows; r++ {
 		for b := 0; b < numBlocksPerRow; b++ {
 			blkIdx := r*numBlocksPerRow + b

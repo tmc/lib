@@ -123,7 +123,7 @@ func (p *Plan) Add(r Request) (Region, error) {
 		}
 		end := off + r.Size
 		conflict := false
-		next := end
+		next := off
 		for _, old := range p.regions {
 			live := old.Dynamic == r.Dynamic && old.LastStage >= r.FirstStage && r.LastStage >= old.FirstStage
 			if live && off < old.Offset+old.Size && old.Offset < end {
