@@ -1,6 +1,7 @@
 package cudasass
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -147,16 +148,37 @@ func (c ControlCode) String() string {
 	return b.String()
 }
 
+// A ControlDecodeError reports a refused static control-code decode. It does
+// not report a measured hardware capability.
+type ControlDecodeError struct {
+	Arch Arch // requested architecture
+
+	// MissingEncoding is true when arch is calibrated but no encoding was captured.
+	MissingEncoding bool
+}
+
+func (e *ControlDecodeError) Error() string {
+	if e.MissingEncoding {
+		return fmt.Sprintf("no encoding captured for control-code decode on %s", e.Arch)
+	}
+	return fmt.Sprintf("control-code decode is calibrated for %s only, not %q", SM121a, e.Arch)
+}
+
 // DecodeControl returns the control code carried by e on arch.
 //
-// It reports false for any architecture other than [SM121a], and for an
-// encoding that was never captured. The field offsets were calibrated on
-// sm_121a only, and an encoding fact is not generalized across SM versions:
+// It returns a [ControlDecodeError] for any architecture other than [SM121a],
+// checked before a missing encoding. A present encoding can carry an all-zero
+// ControlCode; nil error distinguishes this known value from refusal.
+// The field offsets were calibrated on sm_121a only, and an encoding fact
+// is not generalized across SM versions:
 // decoding sm_90 bits at sm_121a offsets yields a barrier index that is
 // structurally well formed and meaningless.
-func DecodeControl(e Encoding, arch Arch) (ControlCode, bool) {
-	if arch != SM121a || !e.Present() {
-		return ControlCode{}, false
+func DecodeControl(e Encoding, arch Arch) (ControlCode, error) {
+	if arch != SM121a {
+		return ControlCode{}, &ControlDecodeError{Arch: arch}
+	}
+	if !e.Present() {
+		return ControlCode{}, &ControlDecodeError{Arch: arch, MissingEncoding: true}
 	}
 	return ControlCode{
 		Stall:        uint8(e.Hi >> ctrlShift & (1<<stallWidth - 1)),
@@ -165,7 +187,7 @@ func DecodeControl(e Encoding, arch Arch) (ControlCode, bool) {
 		ReadBarrier:  uint8(e.Hi >> readBarShift & (1<<barWidth - 1)),
 		WaitMask:     uint8(e.Hi >> waitShift & (1<<waitWidth - 1)),
 		Reuse:        uint8(e.Hi >> reuseShift & (1<<reuseWidth - 1)),
-	}, true
+	}, nil
 }
 
 // EncodeControl returns e with its control field replaced by c. It reports an
@@ -529,7 +551,7 @@ type Edge struct {
 // a swap is safe.
 func Dependencies(b BasicBlock, arch Arch) ([]Edge, error) {
 	if arch != SM121a {
-		return nil, fmt.Errorf("dependency model is calibrated for %s only, not %s", SM121a, arch)
+		return nil, fmt.Errorf("dependency model: %w", &ControlDecodeError{Arch: arch})
 	}
 	type rw struct{ defs, uses []Register }
 	info := make([]rw, len(b.Instructions))
@@ -573,9 +595,9 @@ func Dependencies(b BasicBlock, arch Arch) ([]Edge, error) {
 				edges = append(edges, Edge{earlier, later, Memory, Register{}})
 			}
 			// A barrier the earlier instruction sets and the later waits on.
-			eCtl, ok1 := DecodeControl(b.Instructions[earlier].Encoding, arch)
-			lCtl, ok2 := DecodeControl(b.Instructions[later].Encoding, arch)
-			if ok1 && ok2 {
+			eCtl, err1 := DecodeControl(b.Instructions[earlier].Encoding, arch)
+			lCtl, err2 := DecodeControl(b.Instructions[later].Encoding, arch)
+			if err1 == nil && err2 == nil {
 				for _, set := range []uint8{eCtl.WriteBarrier, eCtl.ReadBarrier} {
 					if set != NoBarrier && lCtl.Waits(int(set)) {
 						edges = append(edges, Edge{earlier, later, Barrier, Register{}})
@@ -694,10 +716,10 @@ func CanSwap(b BasicBlock, i, j int, arch Arch, policy NumericalPolicy) Legality
 // here. A swap of two instructions whose stall counts differ is therefore
 // refused rather than approximated.
 func RecomputeControl(a, c Instruction, arch Arch) (aAfter, cAfter ControlCode, err error) {
-	ca, ok1 := DecodeControl(a.Encoding, arch)
-	cc, ok2 := DecodeControl(c.Encoding, arch)
-	if !ok1 || !ok2 {
-		return ControlCode{}, ControlCode{}, fmt.Errorf("no control code captured for both instructions on %s", arch)
+	ca, err1 := DecodeControl(a.Encoding, arch)
+	cc, err2 := DecodeControl(c.Encoding, arch)
+	if err1 != nil || err2 != nil {
+		return ControlCode{}, ControlCode{}, fmt.Errorf("decode controls for both instructions on %s: %w", arch, errors.Join(err1, err2))
 	}
 	if ca.Stall != cc.Stall {
 		return ControlCode{}, ControlCode{}, fmt.Errorf("stall counts differ (%d and %d) and no sm_121a latency table is available to recompute them", ca.Stall, cc.Stall)

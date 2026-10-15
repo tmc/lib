@@ -272,11 +272,11 @@ func Covered(inst Instruction) (string, bool) {
 // trip vacuous.
 func ReEncode(inst Instruction, arch Arch) (Encoding, error) {
 	if arch != SM121a {
-		return Encoding{}, fmt.Errorf("re-encoding is calibrated for %s only, not %s", SM121a, arch)
+		return Encoding{}, fmt.Errorf("re-encoding: %w", &ControlDecodeError{Arch: arch})
 	}
-	c, ok := DecodeControl(inst.Encoding, arch)
-	if !ok {
-		return Encoding{}, fmt.Errorf("no control code captured for %s at %#x", inst.Opcode, inst.Address)
+	c, err := DecodeControl(inst.Encoding, arch)
+	if err != nil {
+		return Encoding{}, fmt.Errorf("decode control for %s at %#x: %w", inst.Opcode, inst.Address, err)
 	}
 	for _, f := range forms {
 		if f.match(inst) {
@@ -493,7 +493,7 @@ type MutationPlan struct {
 //     the case this check and not the edge comparison catches.
 func CheckMutation(fn *Function, arch Arch, m Mutation, liveOut LiveSet) (MutationPlan, error) {
 	if arch != SM121a {
-		return MutationPlan{}, fmt.Errorf("the patch path is calibrated for %s only, not %s", SM121a, arch)
+		return MutationPlan{}, fmt.Errorf("patch path: %w", &ControlDecodeError{Arch: arch})
 	}
 	if fn == nil {
 		return MutationPlan{}, fmt.Errorf("no function")
@@ -503,7 +503,7 @@ func CheckMutation(fn *Function, arch Arch, m Mutation, liveOut LiveSet) (Mutati
 	}
 	orig := fn.Instructions[m.Index]
 	if !orig.Encoding.Present() {
-		return MutationPlan{}, fmt.Errorf("instruction %d at %#x has no captured encoding", m.Index, orig.Address)
+		return MutationPlan{}, fmt.Errorf("instruction %d at %#x: %w", m.Index, orig.Address, &ControlDecodeError{Arch: arch, MissingEncoding: true})
 	}
 	fromForm, ok := Covered(orig)
 	if !ok {
@@ -524,16 +524,19 @@ func CheckMutation(fn *Function, arch Arch, m Mutation, liveOut LiveSet) (Mutati
 		return MutationPlan{}, fmt.Errorf("instruction %d at %#x does not round-trip byte-identically (%v vs %v); its bits are not understood well enough to patch",
 			m.Index, orig.Address, again, orig.Encoding)
 	}
-	control, ok := DecodeControl(orig.Encoding, arch)
-	if !ok {
-		return MutationPlan{}, fmt.Errorf("no control code decoded at %#x", orig.Address)
+	control, err := DecodeControl(orig.Encoding, arch)
+	if err != nil {
+		return MutationPlan{}, fmt.Errorf("decode control at %#x: %w", orig.Address, err)
 	}
 	after, err := ReEncode(rep, arch)
 	if err != nil {
 		return MutationPlan{}, fmt.Errorf("re-encoding the replacement: %w", err)
 	}
-	gotControl, ok := DecodeControl(after, arch)
-	if !ok || gotControl != control {
+	gotControl, err := DecodeControl(after, arch)
+	if err != nil {
+		return MutationPlan{}, fmt.Errorf("decode replacement control: %w", err)
+	}
+	if gotControl != control {
 		return MutationPlan{}, fmt.Errorf("the replacement's control code is %v, want the original's %v", gotControl, control)
 	}
 

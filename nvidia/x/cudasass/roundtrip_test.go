@@ -106,7 +106,7 @@ func TestEncodingNotGeneralizedAcrossSMVersions(t *testing.T) {
 	fn := roundTripFunction(t)
 	inst := fn.Instructions[0]
 	for _, arch := range []cudasass.Arch{"sm_90", "sm_100a", "sm_121", ""} {
-		if _, ok := cudasass.DecodeControl(inst.Encoding, arch); ok {
+		if _, err := cudasass.DecodeControl(inst.Encoding, arch); err == nil {
 			t.Errorf("DecodeControl accepted %q", arch)
 		}
 		if _, err := cudasass.ReEncode(inst, arch); err == nil {
@@ -122,7 +122,7 @@ func TestEncodingNotGeneralizedAcrossSMVersions(t *testing.T) {
 	// sm_121 is the family and sm_121a is the architecture-specific target.
 	// They are not interchangeable and the model is calibrated only on the
 	// latter.
-	if _, ok := cudasass.DecodeControl(inst.Encoding, "sm_121"); ok {
+	if _, err := cudasass.DecodeControl(inst.Encoding, "sm_121"); err == nil {
 		t.Error("sm_121 was accepted for an sm_121a model")
 	}
 }
@@ -160,9 +160,9 @@ func TestControlCodeFieldsDecodedForNamedArch(t *testing.T) {
 	// IADD R0, R7.reuse, UR6 ; /* 0x0000000607007c35 */
 	//                          /* 0x041fe2000f8e0000 */
 	e := cudasass.Encoding{Lo: 0x0000000607007c35, Hi: 0x041fe2000f8e0000}
-	c, ok := cudasass.DecodeControl(e, cudasass.SM121a)
-	if !ok {
-		t.Fatal("DecodeControl reported no control code")
+	c, err := cudasass.DecodeControl(e, cudasass.SM121a)
+	if err != nil {
+		t.Fatal(err)
 	}
 	want := cudasass.ControlCode{Stall: 1, Yield: true, WriteBarrier: 7, ReadBarrier: 7, WaitMask: 0x01, Reuse: 0x1}
 	if c != want {
@@ -213,7 +213,10 @@ func TestStallRangeIsPerFormNotPerArchitecture(t *testing.T) {
 	// A stall value legal for NOP must still encode, even though it is
 	// rejected by the hardware on IADD: the check belongs to the form.
 	e := cudasass.Encoding{Lo: 0x0000000000007918, Hi: 0x000fc00000000000}
-	c, _ := cudasass.DecodeControl(e, cudasass.SM121a)
+	c, err := cudasass.DecodeControl(e, cudasass.SM121a)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if c.Stall != 0 {
 		t.Fatalf("fixture NOP stall = %d, want 0", c.Stall)
 	}
@@ -348,8 +351,14 @@ func TestSchedulingPerturbingMutationRejectedAtPatchTime(t *testing.T) {
 	if plan.Before == plan.After {
 		t.Fatalf("mutation produced the original encoding %v; the test would pass without mutating anything", plan.Before)
 	}
-	origControl, _ := cudasass.DecodeControl(plan.Before, cudasass.SM121a)
-	newControl, _ := cudasass.DecodeControl(plan.After, cudasass.SM121a)
+	origControl, err := cudasass.DecodeControl(plan.Before, cudasass.SM121a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newControl, err := cudasass.DecodeControl(plan.After, cudasass.SM121a)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if newControl != origControl {
 		t.Errorf("control code changed: %v -> %v; it must be carried unchanged", origControl, newControl)
 	}

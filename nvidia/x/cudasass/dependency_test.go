@@ -204,8 +204,14 @@ func TestControlCodeRecomputationFailureRejects(t *testing.T) {
         /*0010*/  IADD R8, R9, UR7 ;   `+stall2+`
 `)
 	a, c := b.Instructions[0], b.Instructions[1]
-	ca, _ := cudasass.DecodeControl(a.Encoding, cudasass.SM121a)
-	cc, _ := cudasass.DecodeControl(c.Encoding, cudasass.SM121a)
+	ca, err := cudasass.DecodeControl(a.Encoding, cudasass.SM121a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cc, err := cudasass.DecodeControl(c.Encoding, cudasass.SM121a)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if ca.Stall == cc.Stall {
 		t.Fatalf("fixture stalls are equal (%d); the test does not exercise the refusal", ca.Stall)
 	}

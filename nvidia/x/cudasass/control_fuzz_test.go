@@ -1,12 +1,15 @@
 package cudasass
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 // FuzzSASSDecodeControlIsTotalOverEncodingDomain checks DecodeControl and
 // EncodeControl on every encoding and architecture spelling: a decode is
-// reported exactly for a captured sm_121a encoding, a refused decode is the
-// zero ControlCode, a reported one is Valid and re-encodes to the encoding it
-// came from, and an encode touches only the control field.
+// reported exactly for a captured sm_121a encoding, a refused decode returns a
+// typed error and zero ControlCode, a reported one is Valid and re-encodes to
+// the encoding it came from, and an encode touches only the control field.
 func FuzzSASSDecodeControlIsTotalOverEncodingDomain(f *testing.F) {
 	f.Add(uint64(0x0000df00ff017b82), uint64(0x000fe20000000800), string(SM121a), uint8(0), false, uint8(0), uint8(0), uint8(0), uint8(0))
 	f.Add(uint64(0x000000000000094d), uint64(0x000fea0003800000), string(SM121a), uint8(15), true, uint8(7), uint8(0), uint8(0x3f), uint8(0xf))
@@ -15,11 +18,15 @@ func FuzzSASSDecodeControlIsTotalOverEncodingDomain(f *testing.F) {
 	f.Fuzz(func(t *testing.T, lo, hi uint64, arch string, stall uint8, yield bool, wr, rd, wait, reuse uint8) {
 		e := Encoding{Lo: lo, Hi: hi}
 		a := Arch(arch)
-		c, ok := DecodeControl(e, a)
-		if want := a == SM121a && e.Present(); ok != want {
-			t.Fatalf("DecodeControl(%v, %q) ok = %v, want %v", e, a, ok, want)
+		c, decodeErr := DecodeControl(e, a)
+		if want := a == SM121a && e.Present(); (decodeErr == nil) != want {
+			t.Fatalf("DecodeControl(%v, %q) error = %v, want success %v", e, a, decodeErr, want)
 		}
-		if !ok {
+		if decodeErr != nil {
+			var refusal *ControlDecodeError
+			if !errors.As(decodeErr, &refusal) || refusal.Arch != a || refusal.MissingEncoding != (a == SM121a) {
+				t.Fatalf("DecodeControl(%v, %q) error = %v, want typed refusal", e, a, decodeErr)
+			}
 			if c != (ControlCode{}) {
 				t.Fatalf("DecodeControl(%v, %q) refused but returned %v", e, a, c)
 			}
@@ -48,15 +55,15 @@ func FuzzSASSDecodeControlIsTotalOverEncodingDomain(f *testing.F) {
 			if got.Lo != e.Lo || got.Hi&^observed != e.Hi&^observed {
 				t.Fatalf("EncodeControl(%v, %v) = %v: changed bits outside the observed control field", e, want, got)
 			}
-			back, ok := DecodeControl(got, a)
+			back, err := DecodeControl(got, a)
 			if !got.Present() {
-				if ok {
+				if err == nil {
 					t.Fatalf("DecodeControl of the zero encoding reported %v", back)
 				}
 				return
 			}
-			if !ok || back != want {
-				t.Fatalf("DecodeControl(EncodeControl(%v, %v)) = %v, %v", e, want, back, ok)
+			if err != nil || back != want {
+				t.Fatalf("DecodeControl(EncodeControl(%v, %v)) = %v, %v", e, want, back, err)
 			}
 		}
 	})
@@ -82,9 +89,9 @@ func TestDecodeControlExhaustiveControlField(t *testing.T) {
 	for v := uint64(0); v < 1<<observedBits; v++ {
 		above := v % (1 << (64 - ctrlShift - observedBits))
 		e := Encoding{Lo: 1, Hi: above<<(ctrlShift+observedBits) | v<<ctrlShift | otherHi}
-		c, ok := DecodeControl(e, SM121a)
-		if !ok {
-			t.Fatalf("DecodeControl(%v) refused a present encoding", e)
+		c, err := DecodeControl(e, SM121a)
+		if err != nil {
+			t.Fatalf("DecodeControl(%v) refused a present encoding: %v", e, err)
 		}
 		if err := c.Valid(); err != nil {
 			t.Fatalf("DecodeControl(%v) = %v: %v", e, c, err)
@@ -124,14 +131,14 @@ func b2u(b bool) uint64 {
 func TestDecodeControlRefusesUnsupportedArch(t *testing.T) {
 	e := Encoding{Lo: 0x0000df00ff017b82, Hi: 0x000fe20000000800}
 	for _, a := range []Arch{"", "sm_90", "sm_121", "sm_120a", "SM_121A", "sm_121a ", "sm_121a\x00"} {
-		if c, ok := DecodeControl(e, a); ok || c != (ControlCode{}) {
-			t.Errorf("DecodeControl(%q) = %v, %v; want absence", a, c, ok)
+		if c, err := DecodeControl(e, a); err == nil || c != (ControlCode{}) {
+			t.Errorf("DecodeControl(%q) = %v, %v; want absence", a, c, err)
 		}
 		if got, err := EncodeControl(e, ControlCode{}, a); err == nil || got != (Encoding{}) {
 			t.Errorf("EncodeControl(%q) = %v, %v; want absence and an error", a, got, err)
 		}
 	}
-	if c, ok := DecodeControl(Encoding{}, SM121a); ok || c != (ControlCode{}) {
-		t.Errorf("DecodeControl(no encoding) = %v, %v; want absence", c, ok)
+	if c, err := DecodeControl(Encoding{}, SM121a); err == nil || c != (ControlCode{}) {
+		t.Errorf("DecodeControl(no encoding) = %v, %v; want absence", c, err)
 	}
 }
