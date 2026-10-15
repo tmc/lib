@@ -49,6 +49,10 @@ func (m *declaredCostModel) NodeCostWithMemory(node egraph.ENode, costs []float6
 // Close also releases owned branch copies and invalidates their derivation
 // maps and other aliases, including retained loser/rejection paths. It never
 // closes the caller's initial state or an unrelated workspace reservation.
+// Returned policy collections and rejection copies release their declared
+// storage here; temporary frontier/tree/fingerprint storage closes on Search
+// return. Returned collection aliases become invalid. All result aliases share
+// the same idempotent owners.
 // Close must not race with use or another Close.
 func (r *SearchResult) Close() {
 	if r == nil {
@@ -62,4 +66,8 @@ func (r *SearchResult) Close() {
 	}
 	closeStateClones(r.clones)
 	r.clones = nil
+	r.bookkeeping.Close()
+	r.bookkeeping = nil
+	r.AllCandidates = nil
+	r.Rejected = nil
 }

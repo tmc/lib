@@ -112,7 +112,6 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	}
 
 	startTime := time.Now()
-	rng := rand.New(rand.NewSource(m.cfg.Seed))
 	budget := m.cfg.Budget
 	profile := freezeProfileActions(m.cfg.Profile)
 	if err := validateMemoryEvaluator(m.cfg.Memory, eval); err != nil {
@@ -126,6 +125,17 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		return nil, err
 	}
 	defer func() { closeStateClones(work.memory.takeClones()) }()
+	book, err := newSearchBookkeeping(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer book.close()
+	if err := bookkeepingSlots[rand.Rand](book.temporary(), 1); err != nil {
+		return nil, err
+	}
+	// The standard library source's private implementation storage is outside
+	// our declared value/collection units, like runtime map buckets.
+	rng := rand.New(rand.NewSource(m.cfg.Seed))
 	policy, policyComplete, err := makeSearchPolicy("mcts", m.cfg.RootName, budget, map[string]string{"iterations": fmt.Sprint(m.cfg.Iterations), "rollout_depth": fmt.Sprint(m.cfg.RolloutDepth), "exploration": fmt.Sprint(m.cfg.ExplorationC)}, m.cfg.Seed, rules, eval, work, profile, m.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
@@ -168,11 +178,12 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		rejectedInitial, memoryErr := retainSearchRejection(ctx, initial, eval, err)
 		var initialRejections []CandidateRejection
 		if memoryErr == nil {
-			initialRejections = []CandidateRejection{rejectedInitial}
-		} else {
+			initialRejections, memoryErr = bookkeepingAppend(book.retained(), initialRejections, rejectedInitial)
+		}
+		if memoryErr != nil {
 			failure = errors.Join(failure, memoryErr)
 		}
-		return &SearchResult{clones: work.memory.takeClones(), PolicyID: policy, PolicyComplete: policyComplete, Strategy: "mcts", Seed: m.cfg.Seed,
+		return &SearchResult{bookkeeping: book.takeResult(), clones: work.memory.takeClones(), PolicyID: policy, PolicyComplete: policyComplete, Strategy: "mcts", Seed: m.cfg.Seed,
 			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
 			Rejected: initialRejections, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
@@ -187,16 +198,10 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 
 	var initialActions []egraph.ActionCandidate
 
-	rootNode := &mctsNode{
-		state:          initial,
-		untriedActions: initialActions,
-		bestCandidate:  initCand,
-		isTerminal:     len(initialActions) == 0,
-	}
+	var rootNode *mctsNode
 
 	var bestGlobal *CandidatePlan = initCand
 	var allEvaluated []*CandidatePlan
-	allEvaluated = append(allEvaluated, initCand)
 
 	stateCount := 1
 	evalCount := 1
@@ -210,8 +215,16 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{clones: work.memory.takeClones(), MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
+		return &SearchResult{bookkeeping: book.takeResult(), clones: work.memory.takeClones(), MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, Seed: m.cfg.Seed, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "mcts", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
 	}
+	allEvaluated, err = bookkeepingAppend(book.retained(), allEvaluated, initCand)
+	if err != nil {
+		return finish(err)
+	}
+	if err := bookkeepingSlots[mctsNode](book.temporary(), 1); err != nil {
+		return finish(err)
+	}
+	rootNode = &mctsNode{state: initial, bestCandidate: initCand}
 
 	if work.memory.limit == 0 {
 		cloned, err := cloneSearchState(ctx, initial)
@@ -257,7 +270,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		// 2. Expansion
 		if len(node.untriedActions) > 0 && depth < budget.MaxDepth && stateCount < budget.MaxStates {
 			// Pop an untried action deterministically (or seeded random)
-			idx := profile.choose(node.untriedActions, rng)
+			idx := chooseSearchAction(profile, node.untriedActions, rng)
 			act := node.untriedActions[idx]
 			// Remove from untried
 			node.untriedActions = append(node.untriedActions[:idx], node.untriedActions[idx+1:]...)
@@ -283,6 +296,12 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				}
 				defer nextOwned.Close()
 				nextActions := nextOwned.Actions
+				if err := bookkeepingSlots[mctsNode](book.temporary(), 1); err != nil {
+					return finish(err)
+				}
+				if err := bookkeepingSlots[egraph.ActionCandidate](book.temporary(), 1); err != nil {
+					return finish(err)
+				}
 				childNode := &mctsNode{
 					state:          res.State,
 					parent:         node,
@@ -300,9 +319,15 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 					}
 					if evalErr == nil {
 						childNode.bestCandidate = cand
-						allEvaluated = append(allEvaluated, cand)
 						if cand.Cost < bestGlobal.Cost {
 							bestGlobal = cand
+						}
+						allEvaluated, err = bookkeepingAppend(book.retained(), allEvaluated, cand)
+						if err != nil {
+							if cand != bestGlobal {
+								cand.Close()
+							}
+							return finish(err)
 						}
 					} else {
 						cand.Close()
@@ -310,7 +335,10 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 						if memoryErr != nil {
 							return finish(memoryErr)
 						}
-						rejected = append(rejected, r)
+						rejected, memoryErr = bookkeepingAppend(book.retained(), rejected, r)
+						if memoryErr != nil {
+							return finish(memoryErr)
+						}
 						if errors.Is(evalErr, ErrMemoryBudgetExceeded) || errors.Is(evalErr, ErrMemoryAccountingUnavailable) {
 							return finish(evalErr)
 						}
@@ -320,7 +348,10 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 					}
 				}
 
-				node.children = append(node.children, childNode)
+				node.children, err = bookkeepingAppend(book.temporary(), node.children, childNode)
+				if err != nil {
+					return finish(err)
+				}
 				node = childNode
 				depth++
 			}
@@ -353,7 +384,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 					stopReason = ErrBudgetExhausted
 					return finish(nil)
 				}
-				idx := profile.choose(actions, rng)
+				idx := chooseSearchAction(profile, actions, rng)
 				act := actions[idx]
 				actions = append(actions[:idx], actions[idx+1:]...)
 				actionCount++
@@ -397,16 +428,25 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				if memoryErr != nil {
 					return finish(memoryErr)
 				}
-				rejected = append(rejected, r)
+				rejected, memoryErr = bookkeepingAppend(book.retained(), rejected, r)
+				if memoryErr != nil {
+					return finish(memoryErr)
+				}
 				if work.exhausted {
 					return finish(nil)
 				}
 				rollCandidate = nil
 			} else {
 				rollCandidate = cand
-				allEvaluated = append(allEvaluated, cand)
 				if cand.Cost < bestGlobal.Cost {
 					bestGlobal = cand
+				}
+				allEvaluated, err = bookkeepingAppend(book.retained(), allEvaluated, cand)
+				if err != nil {
+					if cand != bestGlobal {
+						cand.Close()
+					}
+					return finish(err)
 				}
 			}
 		}

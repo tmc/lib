@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"sync"
 
@@ -24,6 +25,153 @@ type memoryBudget struct {
 	peak      int64
 	exhausted bool
 	clones    *stateClone
+	book      *searchBookkeeping
+}
+
+// Policy bookkeeping uses the same declared units as graph memory: value
+// sizes, requested slice capacities, string bytes and a header plus one key/
+// value slot per map insertion. Map buckets, allocator rounding and runtime
+// implementation storage are not observable and are outside these units.
+// Old slice backing remains charged until its scope closes, conservatively
+// covering growth copies. Scratch closes on Search return; result storage
+// transfers to SearchResult.Close. Neither scope owns caller data.
+type searchBookkeeping struct {
+	scratch, result *egraphcore.MemoryScope
+	ledger          *memoryBudget
+	transferred     bool
+}
+
+func newSearchBookkeeping(ctx context.Context) (*searchBookkeeping, error) {
+	b := searchMemoryBudget(ctx)
+	if b == nil || b.limit == 0 {
+		return nil, nil
+	}
+	scratch, err := egraphcore.NewMemoryScope(b)
+	if err != nil {
+		return nil, err
+	}
+	if err := scratch.Reserve(int64(reflect.TypeFor[searchBookkeeping]().Size())); err != nil {
+		scratch.Close()
+		return nil, err
+	}
+	result, err := egraphcore.NewMemoryScope(b)
+	if err != nil {
+		scratch.Close()
+		return nil, err
+	}
+	if err := result.Reserve(int64(reflect.TypeFor[SearchResult]().Size())); err != nil {
+		scratch.Close()
+		result.Close()
+		return nil, err
+	}
+	book := &searchBookkeeping{scratch: scratch, result: result, ledger: b}
+	b.book = book
+	return book, nil
+}
+
+func (b *searchBookkeeping) close() {
+	if b == nil {
+		return
+	}
+	b.scratch.Close()
+	b.ledger.book = nil
+	if !b.transferred {
+		b.result.Close()
+	}
+}
+
+func (b *searchBookkeeping) takeResult() *egraphcore.MemoryScope {
+	if b == nil {
+		return nil
+	}
+	b.transferred = true
+	return b.result
+}
+
+func (b *searchBookkeeping) temporary() *egraphcore.MemoryScope {
+	if b == nil {
+		return nil
+	}
+	return b.scratch
+}
+
+func (b *searchBookkeeping) retained() *egraphcore.MemoryScope {
+	if b == nil {
+		return nil
+	}
+	return b.result
+}
+
+func bookkeepingSlots[T any](scope *egraphcore.MemoryScope, count int) error {
+	bytes, err := memoryProduct(count, int64(reflect.TypeFor[T]().Size()))
+	if err != nil {
+		return err
+	}
+	return scope.Reserve(bytes)
+}
+
+func bookkeepingAppend[T any](scope *egraphcore.MemoryScope, values []T, value T) ([]T, error) {
+	if len(values) == cap(values) {
+		if cap(values) > math.MaxInt/2 {
+			return values, ErrMemoryBudgetExceeded
+		}
+		capacity := max(1, 2*cap(values))
+		if err := bookkeepingSlots[T](scope, capacity); err != nil {
+			return values, err
+		}
+		grown := make([]T, len(values), capacity)
+		copy(grown, values)
+		values = grown
+	}
+	return append(values, value), nil
+}
+
+func bookkeepingMap[K comparable, V any](scope *egraphcore.MemoryScope) (map[K]V, error) {
+	if err := bookkeepingSlots[map[K]V](scope, 1); err != nil {
+		return nil, err
+	}
+	return make(map[K]V), nil
+}
+
+func bookkeepingPut[K comparable, V any](scope *egraphcore.MemoryScope, values map[K]V, key K, value V) error {
+	if _, exists := values[key]; !exists {
+		if err := bookkeepingSlots[struct {
+			key   K
+			value V
+		}](scope, 1); err != nil {
+			return err
+		}
+	}
+	values[key] = value
+	return nil
+}
+
+// Count ties before drawing once, preserving choose's seeded order without
+// allocating a temporary choices slice for every expansion and rollout.
+func chooseSearchAction(profile profileActions, actions []egraph.ActionCandidate, rng *rand.Rand) int {
+	if len(profile.ranks) == 0 && len(profile.weights) == 0 {
+		return rng.Intn(len(actions))
+	}
+	best, weight, count := len(profile.ranks), math.Inf(-1), 0
+	for _, action := range actions {
+		r, w := profile.rank(action), profile.memoryWeight(action.Rule.Name)
+		if w > weight || w == weight && r < best {
+			best, weight, count = r, w, 0
+		}
+		if w == weight && r == best {
+			count++
+		}
+	}
+	selected := rng.Intn(count)
+	for i, action := range actions {
+		if profile.rank(action) == best && profile.memoryWeight(action.Rule.Name) == weight {
+			if selected == 0 {
+				return i
+			}
+			selected--
+		}
+	}
+	return 0
 }
 
 type memoryBudgetKey struct{}
@@ -129,9 +277,20 @@ type storageVisit struct {
 // Aliases are counted independently, except back edges of cyclic payloads.
 // This conservatively covers cloning payloads independently at separate nodes.
 func storageBytes(value any) (int64, error) {
+	return storageBytesWithMemory(value, nil)
+}
+
+// The guarded rejection path uses the existing walker with its visited-map
+// storage admitted too. Keeping that scratch in the result scope is
+// conservative. Reflection never invokes Error, String or arbitrary callbacks;
+// unsupported opaque fields still refuse instead of becoming free storage.
+func storageBytesWithMemory(value any, scope *egraphcore.MemoryScope) (int64, error) {
 	var total int64
 	visits := 0
-	active := make(map[storageVisit]bool)
+	active, err := bookkeepingMap[storageVisit, bool](scope)
+	if err != nil {
+		return 0, err
+	}
 	add := func(n uint64) error {
 		if n > uint64(math.MaxInt64-total) {
 			return ErrMemoryBudgetExceeded
@@ -164,7 +323,9 @@ func storageBytes(value any) (int64, error) {
 			if active[key] {
 				return nil
 			}
-			active[key] = true
+			if err := bookkeepingPut(scope, active, key, true); err != nil {
+				return err
+			}
 			defer delete(active, key)
 		}
 		switch v.Kind() {
@@ -221,7 +382,7 @@ func storageBytes(value any) (int64, error) {
 		}
 		return nil
 	}
-	err := walk(reflect.ValueOf(value), true, 0)
+	err = walk(reflect.ValueOf(value), true, 0)
 	return total, err
 }
 
@@ -457,8 +618,12 @@ func enumerateSearchActions(ctx context.Context, state *egraph.SearchState, rule
 }
 
 func retainSearchRejection(ctx context.Context, state *egraph.SearchState, eval Evaluator, failure error) (CandidateRejection, error) {
-	r := rejection(state, eval, failure)
-	return r, retainSearchValue(ctx, r)
+	b := searchMemoryBudget(ctx)
+	var scope *egraphcore.MemoryScope
+	if b != nil {
+		scope = b.book.retained()
+	}
+	return rejectionWithMemory(scope, state, eval, failure)
 }
 
 func reserveBorrowedExecutable(ctx context.Context, x Executable) (*memoryReservation, error) {

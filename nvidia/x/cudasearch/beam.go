@@ -1,14 +1,18 @@
 package cudasearch
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
@@ -30,7 +34,10 @@ type SearchBudget struct {
 	// allocator/map bucket overhead, runtime/driver/compiler internals and caller
 	// captures. Built-in matching, extraction and clone copies reserve their
 	// supported storage before allocation. Transition staging/growth and other
-	// retained bookkeeping remain partial, so this is not a complete owned cap.
+	// evaluator/policy-setup bookkeeping remain partial, so this is not a complete
+	// owned cap. Frontier/tree containers, fingerprints and retained rejection
+	// copies reserve their declared storage before allocation. Their map units
+	// are a header and key/value slots, not a bound on runtime bucket storage.
 	MaxMemoryBytes int64
 	// CallbackMemoryBytes declares the maximum simultaneously owned storage of
 	// opaque evaluator/compiler callbacks, including opaque executable workspace.
@@ -144,6 +151,11 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		return nil, err
 	}
 	defer func() { closeStateClones(work.memory.takeClones()) }()
+	book, err := newSearchBookkeeping(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer book.close()
 	policy, policyComplete, err := makeSearchPolicy("beam", b.cfg.RootName, budget, map[string]string{"beam_width": fmt.Sprint(b.cfg.BeamWidth), "tie_order": "full-replay-path-v1"}, 0, rules, eval, work, profile, b.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
@@ -191,11 +203,12 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		rejectedInitial, memoryErr := retainSearchRejection(ctx, initial, eval, err)
 		var initialRejections []CandidateRejection
 		if memoryErr == nil {
-			initialRejections = []CandidateRejection{rejectedInitial}
-		} else {
+			initialRejections, memoryErr = bookkeepingAppend(book.retained(), initialRejections, rejectedInitial)
+		}
+		if memoryErr != nil {
 			failure = errors.Join(failure, memoryErr)
 		}
-		return &SearchResult{clones: work.memory.takeClones(), PolicyID: policy, PolicyComplete: policyComplete, Strategy: "beam",
+		return &SearchResult{bookkeeping: book.takeResult(), clones: work.memory.takeClones(), PolicyID: policy, PolicyComplete: policyComplete, Strategy: "beam",
 			MemoryDecision: profile.memory, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback,
 			Rejected: initialRejections, StopReason: failure,
 			StatesVisited: 1, Evaluations: 1, Extractions: work.extractions, ExtractionWork: work.extractionWork,
@@ -212,11 +225,10 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	}
 
 	stateCount = 1
-	currentBeam := []beamItem{initialItem}
+	var currentBeam []beamItem
 	var bestGlobal *CandidatePlan = initCand
 	bestPath := initial.Derivation
 	var allEvaluated []*CandidatePlan
-	allEvaluated = append(allEvaluated, initCand)
 	var rejected []CandidateRejection
 	var stopReason error
 	finish := func(err error) (*SearchResult, error) {
@@ -226,7 +238,15 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		if err != nil {
 			stopReason = err
 		}
-		return &SearchResult{clones: work.memory.takeClones(), MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
+		return &SearchResult{bookkeeping: book.takeResult(), clones: work.memory.takeClones(), MemoryDecision: profile.memory, PolicyID: policy, PolicyComplete: policyComplete, ProfileDecision: profile.decision, ProfileGuidance: profile.guidance, ProfileFallback: profile.fallback, Strategy: "beam", Winner: bestGlobal, AllCandidates: allEvaluated, Rejected: rejected, StopReason: stopReason, StatesVisited: stateCount, ActionsAttempted: actionCount, Evaluations: evalCount, Extractions: work.extractions, ExtractionWork: work.extractionWork, Compilations: work.compilations, WorkAccounted: work.known, AccountedBytes: work.memory.accountedBytes(), Duration: time.Since(startTime)}, err
+	}
+	allEvaluated, err = bookkeepingAppend(book.retained(), allEvaluated, initCand)
+	if err != nil {
+		return finish(err)
+	}
+	currentBeam, err = bookkeepingAppend(book.temporary(), currentBeam, initialItem)
+	if err != nil {
+		return finish(err)
 	}
 
 	if work.memory.limit == 0 {
@@ -236,8 +256,17 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		}
 		currentBeam[0].state = cloned
 	}
-	seenStates := make(map[string]bool)
-	seenStates[stateFingerprint(initial)] = true
+	seenStates, err := bookkeepingMap[string, bool](book.temporary())
+	if err != nil {
+		return finish(err)
+	}
+	fp, err := stateFingerprintWithMemory(initial, book.temporary())
+	if err != nil {
+		return finish(err)
+	}
+	if err := bookkeepingPut(book.temporary(), seenStates, fp, true); err != nil {
+		return finish(err)
+	}
 
 	for depth := 1; depth <= budget.MaxDepth; depth++ {
 		if err := ctx.Err(); err != nil {
@@ -308,14 +337,16 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 					return finish(nil)
 				}
 
-				fp := stateFingerprint(res.State)
+				fp, err := stateFingerprintWithMemory(res.State, book.temporary())
+				if err != nil {
+					return finish(err)
+				}
 				if seenStates[fp] {
 					continue
 				}
-				if err := retainSearchValue(ctx, fp); err != nil {
+				if err := bookkeepingPut(book.temporary(), seenStates, fp, true); err != nil {
 					return finish(err)
 				}
-				seenStates[fp] = true
 
 				// Extract and evaluate candidate from this state
 				candRoot, found := res.State.CanonicalRoot(b.cfg.RootName)
@@ -339,7 +370,10 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 					if memoryErr != nil {
 						return finish(memoryErr)
 					}
-					rejected = append(rejected, r)
+					rejected, memoryErr = bookkeepingAppend(book.retained(), rejected, r)
+					if memoryErr != nil {
+						return finish(memoryErr)
+					}
 					if errors.Is(evalErr, ErrMemoryBudgetExceeded) || errors.Is(evalErr, ErrMemoryAccountingUnavailable) {
 						return finish(evalErr)
 					}
@@ -349,19 +383,27 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 					continue
 				}
 
-				allEvaluated = append(allEvaluated, cand)
+				// Keep a newly admitted best even if the candidate pool cannot grow.
+				if cand.Cost < bestGlobal.Cost || (cand.Cost == bestGlobal.Cost && compareSearchDerivations(res.State.Derivation, bestPath) < 0) {
+					bestGlobal = cand
+					bestPath = res.State.Derivation
+				}
+				allEvaluated, err = bookkeepingAppend(book.retained(), allEvaluated, cand)
+				if err != nil {
+					if cand != bestGlobal {
+						cand.Close()
+					}
+					return finish(err)
+				}
 
-				nextFrontier = append(nextFrontier, beamItem{
+				nextFrontier, err = bookkeepingAppend(book.temporary(), nextFrontier, beamItem{
 					state:      res.State,
 					cost:       cand.Cost,
 					derivation: res.State.Derivation,
 					candidate:  cand,
 				})
-
-				// Update best global independently of beam pruning
-				if cand.Cost < bestGlobal.Cost || (cand.Cost == bestGlobal.Cost && compareDerivations(res.State.Derivation, bestPath) < 0) {
-					bestGlobal = cand
-					bestPath = res.State.Derivation
+				if err != nil {
+					return finish(err)
 				}
 			}
 		}
@@ -374,11 +416,14 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		// Sort nextFrontier with stable tie-breaking:
 		// Primary: Cost (ascending, lower is better)
 		// Secondary: full replay-path lexicographical order
-		sort.SliceStable(nextFrontier, func(i, j int) bool {
-			if nextFrontier[i].cost != nextFrontier[j].cost {
-				return nextFrontier[i].cost < nextFrontier[j].cost
+		slices.SortStableFunc(nextFrontier, func(a, b beamItem) int {
+			if a.cost < b.cost {
+				return -1
 			}
-			return compareDerivations(nextFrontier[i].derivation, nextFrontier[j].derivation) < 0
+			if a.cost > b.cost {
+				return 1
+			}
+			return compareSearchDerivations(a.derivation, b.derivation)
 		})
 
 		// Retain up to BeamWidth items
@@ -439,43 +484,144 @@ func admitComparableCandidate(c, baseline *CandidatePlan) error {
 // search's initial graph. Different derivations remain distinct even when they
 // extract the same program; this is not a semantic graph-equivalence test.
 func stateFingerprint(s *egraph.SearchState) string {
+	key, _ := stateFingerprintWithMemory(s, nil)
+	return key
+}
+
+// Count the exact encoded bytes first. Sorting uses one admitted key buffer;
+// the builder then requests its complete capacity before writing any bytes.
+func stateFingerprintWithMemory(s *egraph.SearchState, memory *egraphcore.MemoryScope) (string, error) {
 	if s == nil || s.Graph == nil {
-		return "<nil>"
+		return "<nil>", nil
 	}
-	var sb strings.Builder
-	writeString := func(value string) {
-		fmt.Fprintf(&sb, "%d:", len(value))
-		sb.WriteString(value)
+	keyCount := len(s.Roots)
+	for _, action := range s.Derivation {
+		keyCount = max(keyCount, len(action.Subst))
 	}
-	keys := make([]string, 0, len(s.Roots))
-	for key := range s.Roots {
-		keys = append(keys, key)
+	if err := bookkeepingSlots[string](memory, keyCount); err != nil {
+		return "", err
 	}
-	sort.Strings(keys)
-	fmt.Fprintf(&sb, "%d;", len(keys))
-	for _, key := range keys {
-		writeString(key)
-		fmt.Fprintf(&sb, "%d;", s.Graph.Find(s.Roots[key]))
-	}
-	fmt.Fprintf(&sb, "%d;", len(s.Derivation))
-	for _, a := range s.Derivation {
-		writeString(a.RuleName)
-		writeString(a.RuleID)
-		writeString(a.Source)
-		writeString(a.RHSNode)
-		fmt.Fprintf(&sb, "%d;%d;", a.ClassID, a.StepIndex)
+	keys := make([]string, 0, keyCount)
+	write := func(w *stateKeyWriter) {
 		keys = keys[:0]
-		for key := range a.Subst {
+		for key := range s.Roots {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		fmt.Fprintf(&sb, "%d;", len(keys))
+		w.number(int64(len(keys)), ';')
 		for _, key := range keys {
-			writeString(key)
-			fmt.Fprintf(&sb, "%d;", a.Subst[key])
+			w.text(key)
+			w.number(int64(s.Graph.Find(s.Roots[key])), ';')
+		}
+		w.number(int64(len(s.Derivation)), ';')
+		for _, a := range s.Derivation {
+			w.text(a.RuleName)
+			w.text(a.RuleID)
+			w.text(a.Source)
+			w.text(a.RHSNode)
+			w.number(int64(a.ClassID), ';')
+			w.number(int64(a.StepIndex), ';')
+			keys = keys[:0]
+			for key := range a.Subst {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			w.number(int64(len(keys)), ';')
+			for _, key := range keys {
+				w.text(key)
+				w.number(int64(a.Subst[key]), ';')
+			}
 		}
 	}
-	return sb.String()
+	w := stateKeyWriter{counting: true}
+	write(&w)
+	if w.overflow || w.bytes > math.MaxInt {
+		return "", ErrMemoryBudgetExceeded
+	}
+	if err := bookkeepingSlots[byte](memory, int(w.bytes)); err != nil {
+		return "", err
+	}
+	w.counting = false
+	w.builder.Grow(int(w.bytes))
+	write(&w)
+	return w.builder.String(), nil
+}
+
+type stateKeyWriter struct {
+	builder            strings.Builder
+	bytes              int64
+	counting, overflow bool
+}
+
+func (w *stateKeyWriter) add(n int) {
+	if int64(n) > math.MaxInt64-w.bytes {
+		w.overflow = true
+	} else {
+		w.bytes += int64(n)
+	}
+}
+
+func (w *stateKeyWriter) number(n int64, suffix byte) {
+	var buf [21]byte
+	value := strconv.AppendInt(buf[:0], n, 10)
+	value = append(value, suffix)
+	if w.counting {
+		w.add(len(value))
+	} else {
+		w.builder.Write(value)
+	}
+}
+
+func (w *stateKeyWriter) text(value string) {
+	w.number(int64(len(value)), ':')
+	if w.counting {
+		w.add(len(value))
+	} else {
+		w.builder.WriteString(value)
+	}
+}
+
+// Search's sort comparator must not allocate substitution-key slices. Scan
+// the next lexical key instead; this preserves the existing replay ordering.
+func compareSearchDerivations(a, b []egraph.Action) int {
+	for i := 0; i < min(len(a), len(b)); i++ {
+		x, y := a[i], b[i]
+		for _, pair := range [][2]string{{x.RuleName, y.RuleName}, {x.RuleID, y.RuleID}, {x.Source, y.Source}, {x.RHSNode, y.RHSNode}} {
+			if n := cmp.Compare(pair[0], pair[1]); n != 0 {
+				return n
+			}
+		}
+		if n := cmp.Compare(x.ClassID, y.ClassID); n != 0 {
+			return n
+		}
+		if n := cmp.Compare(x.StepIndex, y.StepIndex); n != 0 {
+			return n
+		}
+		previous := ""
+		for j := 0; j < min(len(x.Subst), len(y.Subst)); j++ {
+			next := func(values egraph.Subst) string {
+				key, found := "", false
+				for k := range values {
+					if (j == 0 || k > previous) && (!found || k < key) {
+						key, found = k, true
+					}
+				}
+				return key
+			}
+			xk, yk := next(x.Subst), next(y.Subst)
+			if n := cmp.Compare(xk, yk); n != 0 {
+				return n
+			}
+			if n := cmp.Compare(x.Subst[xk], y.Subst[yk]); n != 0 {
+				return n
+			}
+			previous = xk
+		}
+		if n := cmp.Compare(len(x.Subst), len(y.Subst)); n != 0 {
+			return n
+		}
+	}
+	return cmp.Compare(len(a), len(b))
 }
 
 func estimateStateMemory(s *egraph.SearchState) int64 {

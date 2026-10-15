@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
@@ -25,6 +26,7 @@ type Evaluator interface {
 // SearchResult records the outcome of a search exploration run.
 type SearchResult struct {
 	clones          *stateClone
+	bookkeeping     *egraphcore.MemoryScope
 	PolicyID        cudacache.SearchPolicyID
 	PolicyComplete  bool  // False when policy inputs cannot be identified completely.
 	Seed            int64 // Effective per-search RNG seed, or zero for a deterministic strategy.
@@ -48,13 +50,17 @@ type SearchResult struct {
 	ActionsAttempted int  // Includes unsuccessful and no-op transitions.
 	// AccountedBytes is the peak of conservative storage reservations during
 	// Search. Clones, including pruned states, remain owned until Close because
-	// candidate/rejection paths can alias their maps. Scratch stays charged too.
+	// candidate/rejection paths can alias their maps. Clone scratch stays charged
+	// too; policy container/fingerprint scratch releases on Search return.
 	// This can exceed live storage; transition growth remains partial. See SearchBudget.
 	AccountedBytes int64
 	Duration       time.Duration
 }
 
 // CandidateRejection retains a failed evaluation and its exact transition path.
+// Err retains the evaluator's original error identity. With a memory limit its
+// reachable storage is accounted without calling Error; unsupported opaque
+// storage refuses retention.
 type CandidateRejection struct {
 	Derivation []egraph.Action
 	Err        error

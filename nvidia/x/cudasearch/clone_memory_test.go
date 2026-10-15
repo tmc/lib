@@ -228,11 +228,12 @@ func TestCloneMemoryPublicSearchOwners(t *testing.T) {
 					ownedBytes += owner.memory.Bytes()
 				}
 				available := cloneAvailable(callbackCtx, limit)
+				bookkeepingBytes := result.bookkeeping.Bytes()
 				alias := *result
 				result.Close()
 				after := cloneAvailable(callbackCtx, limit)
-				if ownedBytes <= 0 || after-available != ownedBytes {
-					t.Fatalf("clone charges not released: before=%d after=%d owned=%d", available, after, ownedBytes)
+				if ownedBytes <= 0 || bookkeepingBytes <= 0 || after-available != ownedBytes+bookkeepingBytes {
+					t.Fatalf("owned charges not released: before=%d after=%d clones=%d bookkeeping=%d", available, after, ownedBytes, bookkeepingBytes)
 				}
 				if ending == "noop" {
 					candidateBytes, err := storageBytes(&CandidatePlan{Cost: 9, Validated: true, Derivation: borrowed[0].Derivation})
@@ -367,8 +368,9 @@ func TestCloneMemoryBeamPrunedOwners(t *testing.T) {
 		t.Fatal("no retained pruned candidate", losers)
 	}
 	before := cloneAvailable(callbackCtx, limit)
+	bookkeepingBytes := result.bookkeeping.Bytes()
 	result.Close()
-	if cloneAvailable(callbackCtx, limit)-before != bytes {
+	if bytes <= 0 || bookkeepingBytes <= 0 || cloneAvailable(callbackCtx, limit)-before != bytes+bookkeepingBytes {
 		t.Fatal("pruned owner charge not released")
 	}
 }
