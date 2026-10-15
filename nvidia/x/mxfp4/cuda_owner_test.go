@@ -3,6 +3,7 @@ package mxfp4
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -38,6 +39,7 @@ func TestNewEngineWithReturnsNilWithoutLoadOwner(t *testing.T) {
 		func() (driver.Module, error) { return 0, loadErr },
 		func(fn func() error) error { return fn() },
 		func(driver.Module, string) (driver.Function, error) { return 0, nil },
+		noUnload(t),
 	)
 	if e != nil || !errors.Is(err, loadErr) {
 		t.Fatalf("newEngineWith() = (%v, %v), want nil engine and load error", e, err)
@@ -51,6 +53,7 @@ func TestNewEngineWithRetainsModuleReturnedWithLoadError(t *testing.T) {
 		func() (driver.Module, error) { return 1, loadErr },
 		func(fn func() error) error { return fn() },
 		func(driver.Module, string) (driver.Function, error) { lookups++; return 0, nil },
+		noUnload(t),
 	)
 	if !errors.Is(err, loadErr) || e == nil || e.mod != 1 {
 		t.Fatalf("newEngineWith() = (%v, %v), want a partial engine owning module 1 and load error", e, err)
@@ -84,6 +87,7 @@ func TestNewEngineWithRetainsRetryableLoadOwner(t *testing.T) {
 		func() (driver.Module, error) { return 0, loadCleanup },
 		func(fn func() error) error { return fn() },
 		func(driver.Module, string) (driver.Function, error) { return 0, nil },
+		noUnload(t),
 	)
 	if e == nil || !errors.Is(err, loadErr) || !errors.Is(err, initialCleanupErr) {
 		t.Fatalf("newEngineWith() = (%v, %v), want partial owner and both load cleanup causes", e, err)
@@ -108,20 +112,96 @@ func TestNewEngineWithRetainsRetryableLoadOwner(t *testing.T) {
 	}
 }
 
-func TestNewEngineWithReturnsPartialEngineAfterFunctionLookupError(t *testing.T) {
-	lookupErr := errors.New("function lookup failed")
-	lookup := func(_ driver.Module, name string) (driver.Function, error) {
+func noUnload(t *testing.T) func(driver.Module) error {
+	return func(mod driver.Module) error {
+		t.Errorf("newEngineWith unloaded module %d", mod)
+		return nil
+	}
+}
+
+func TestNewEngineWithRejectsNilModule(t *testing.T) {
+	var lookups int
+	e, err := newEngineWith(nil,
+		func() (driver.Module, error) { return 0, nil },
+		func(fn func() error) error { return fn() },
+		func(driver.Module, string) (driver.Function, error) { lookups++; return 2, nil },
+		noUnload(t),
+	)
+	if e != nil || err == nil || !strings.Contains(err.Error(), "nil module") {
+		t.Fatalf("newEngineWith() = (%v, %v), want nil engine and nil module error", e, err)
+	}
+	if lookups != 0 {
+		t.Fatalf("function lookups = %d, want 0 for a nil module", lookups)
+	}
+}
+
+func failLinearLookup(lookupErr error) func(driver.Module, string) (driver.Function, error) {
+	return func(_ driver.Module, name string) (driver.Function, error) {
 		if name == "MXFP4LinearGEMV" {
 			return 0, lookupErr
 		}
 		return 2, nil
 	}
+}
+
+func TestNewEngineWithUnloadsModuleAfterFunctionLookupError(t *testing.T) {
+	lookupErr := errors.New("function lookup failed")
+	var unloaded []driver.Module
 	e, err := newEngineWith(nil,
 		func() (driver.Module, error) { return 1, nil },
-		func(fn func() error) error { return fn() }, lookup,
+		func(fn func() error) error { return fn() },
+		failLinearLookup(lookupErr),
+		func(mod driver.Module) error { unloaded = append(unloaded, mod); return nil },
 	)
-	if e == nil || e.mod != 1 || !errors.Is(err, lookupErr) {
-		t.Fatalf("newEngineWith() = (%v, %v), want partial engine retaining module 1 and lookup error", e, err)
+	if e != nil || !errors.Is(err, lookupErr) {
+		t.Fatalf("newEngineWith() = (%v, %v), want nil engine and lookup error", e, err)
+	}
+	if len(unloaded) != 1 || unloaded[0] != 1 {
+		t.Fatalf("unloaded modules = %v, want [1]", unloaded)
+	}
+}
+
+func TestNewEngineWithReturnsPartialEngineWhenLookupCleanupFails(t *testing.T) {
+	lookupErr := errors.New("function lookup failed")
+	unloadErr := errors.New("module unload failed")
+	var unloaded []driver.Module
+	unload := func(mod driver.Module) error {
+		unloaded = append(unloaded, mod)
+		if len(unloaded) == 1 {
+			return unloadErr
+		}
+		return nil
+	}
+	e, err := newEngineWith(nil,
+		func() (driver.Module, error) { return 1, nil },
+		func(fn func() error) error { return fn() },
+		failLinearLookup(lookupErr), unload,
+	)
+	if e == nil || e.mod != 1 || !errors.Is(err, lookupErr) || !errors.Is(err, unloadErr) {
+		t.Fatalf("newEngineWith() = (%v, %v), want partial engine retaining module 1, lookup and unload errors", e, err)
+	}
+	if err := e.run(func() error {
+		t.Fatal("partial engine ran a launch")
+		return nil
+	}); err == nil || !strings.Contains(err.Error(), "partially initialized") {
+		t.Fatalf("run on partial engine = %v, want partially initialized error", err)
+	}
+	if err := e.closeWith(func(fn func() error) error { return fn() }, unload); err != nil {
+		t.Fatal(err)
+	}
+	if e.mod != 0 || len(unloaded) != 2 || unloaded[1] != 1 {
+		t.Fatalf("after Close: mod = %d, unloaded = %v, want 0 and [1 1]", e.mod, unloaded)
+	}
+}
+
+func TestEngineRunRejectsClosedEngine(t *testing.T) {
+	e := &Engine{dequantFn: 2, fusedGEMVFn: 3}
+	err := e.run(func() error {
+		t.Fatal("closed engine ran a launch")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "closed engine") {
+		t.Fatalf("run on closed engine = %v, want closed engine error", err)
 	}
 }
 

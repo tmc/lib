@@ -112,9 +112,14 @@ type Engine struct {
 	fusedGEMVFn driver.Function
 }
 
-// NewEngine compiles and loads MXFP4 GPU kernels on dev. If it returns both a
-// non-nil engine and an error, call Close before closing dev to release any
-// module retained during partial initialization.
+// NewEngine compiles and loads MXFP4 GPU kernels on dev.
+//
+// On error NewEngine usually returns a nil engine. It returns a non-nil,
+// partially initialized engine with the error only when it still owns a
+// module it could not release: Load reported an error after loading the
+// module or attached a cleanup [io.Closer] to its error, or a kernel lookup
+// failed and unloading the module also failed. The partial engine refuses
+// launches; call Close, before closing dev, to release what it holds.
 func NewEngine(dev *cuda.Device) (*Engine, error) {
 	if dev == nil {
 		return nil, errors.New("mxfp4: nil device")
@@ -129,16 +134,24 @@ func NewEngine(dev *cuda.Device) (*Engine, error) {
 		return nil, fmt.Errorf("mxfp4: compile kernels: %w", err)
 	}
 
-	return newEngineWith(dev, func() (driver.Module, error) { return compiled.Load(dev) }, dev.WithContext, func(mod driver.Module, name string) (driver.Function, error) {
-		return mod.Function(name)
-	})
+	return newEngineWith(dev,
+		func() (driver.Module, error) { return compiled.Load(dev) },
+		dev.WithContext,
+		func(mod driver.Module, name string) (driver.Function, error) { return mod.Function(name) },
+		func(mod driver.Module) error { return mod.Close() },
+	)
 }
 
+// newEngineWith is NewEngine after compilation, with the driver calls
+// injected. On a kernel lookup failure it unloads the module with unload
+// and returns a nil engine; it returns the partial engine only when that
+// cleanup fails, so the caller keeps the handle needed to retry Close.
 func newEngineWith(
 	dev *cuda.Device,
 	load func() (driver.Module, error),
 	withContext func(func() error) error,
 	function func(driver.Module, string) (driver.Function, error),
+	unload func(driver.Module) error,
 ) (*Engine, error) {
 	loaded, err := load()
 	e := &Engine{dev: dev, mod: loaded}
@@ -170,7 +183,10 @@ func newEngineWith(
 		return nil
 	})
 	if err != nil {
-		return e, err
+		if cerr := e.closeWith(withContext, unload); cerr != nil {
+			return e, errors.Join(err, cerr)
+		}
+		return nil, err
 	}
 	return e, nil
 }
@@ -274,6 +290,9 @@ func (e *Engine) closeWith(withContext func(func() error) error, unload func(dri
 func (e *Engine) run(fn func() error) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.dequantFn == 0 || e.fusedGEMVFn == 0 {
+		return errors.New("mxfp4: partially initialized engine has no kernels")
+	}
 	if e.mod == 0 {
 		return errors.New("mxfp4: closed engine")
 	}
