@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -51,7 +52,7 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (rerr error) {
 	if *disasmFlag != "" {
 		return printKernelDisassembly(*disasmFlag, *disasmModeFlag)
 	}
@@ -148,8 +149,12 @@ func run() error {
 	dev, err := cuda.NewDevice(0)
 	if err == nil {
 		defer func() {
-			if err := dev.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "close device: %v\n", err)
+			// Work on an undrained stream may still use the context.
+			if errors.Is(rerr, errReleasesHeld) {
+				return
+			}
+			if cerr := dev.Close(); cerr != nil {
+				rerr = errors.Join(rerr, fmt.Errorf("close device: %w", cerr))
 			}
 		}()
 		name, err := dev.Name()
@@ -183,13 +188,25 @@ func runGPUInference(
 	major, minor int,
 	tracer *cudatrace.Tracer,
 	prof *cudaprof.Session,
-) error {
+) (rerr error) {
+	// The deferred releases below record their errors in td, which is
+	// joined into the result last. Once the step timer reports that its
+	// stream did not drain, the releases that run after it keep their
+	// resources, which the undrained work may still use.
+	td := new(teardown)
+	defer func() {
+		rerr = errors.Join(rerr, td.err())
+	}()
+
 	// Compile GPU kernel modules
 	gm, err := CompileGPUModules(dev)
 	if gm != nil {
 		defer func() {
+			if td.held() {
+				return
+			}
 			if cerr := gm.Close(); cerr != nil {
-				fmt.Fprintf(os.Stderr, "close gpu modules: %v\n", cerr)
+				td.add(fmt.Errorf("close gpu modules: %w", cerr))
 			}
 		}()
 	}
@@ -206,8 +223,11 @@ func runGPUInference(
 		return releaseErrorOwner(err)
 	}
 	defer func() {
-		if err := attnMod.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "close attention module: %v\n", err)
+		if td.held() {
+			return
+		}
+		if cerr := attnMod.Close(); cerr != nil {
+			td.add(fmt.Errorf("close attention module: %w", cerr))
 		}
 	}()
 	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
@@ -224,8 +244,11 @@ func runGPUInference(
 		return releaseErrorOwner(err)
 	}
 	defer func() {
-		if err := sampleMod.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "close sampler module: %v\n", err)
+		if td.held() {
+			return
+		}
+		if cerr := sampleMod.Close(); cerr != nil {
+			td.add(fmt.Errorf("close sampler module: %w", cerr))
 		}
 	}()
 	sampleFn, err := sampleMod.Function("ArgmaxLogits")
@@ -243,8 +266,11 @@ func runGPUInference(
 	gpuWeights, err := uploadModel(dev, w, cfg, dtype)
 	if gpuWeights != nil {
 		defer func() {
+			if td.held() {
+				return
+			}
 			if ferr := gpuWeights.Free(); ferr != nil {
-				fmt.Fprintf(os.Stderr, "free gpu weights: %v\n", ferr)
+				td.add(fmt.Errorf("free gpu weights: %w", ferr))
 			}
 		}()
 	}
@@ -258,8 +284,11 @@ func runGPUInference(
 	kvCache, err := cudakv.New(dev, cfg.NumHiddenLayers, cfg.NumKeyValueHeads, headDim, cfg.MaxSeqLen)
 	if kvCache != nil {
 		defer func() {
+			if td.held() {
+				return
+			}
 			if cerr := kvCache.Close(); cerr != nil {
-				fmt.Fprintf(os.Stderr, "close kv cache: %v\n", cerr)
+				td.add(fmt.Errorf("close kv cache: %w", cerr))
 			}
 		}()
 	}
@@ -270,8 +299,11 @@ func runGPUInference(
 	scratch, err := NewGPUScratchpad(dev, cfg)
 	if scratch != nil {
 		defer func() {
+			if td.held() {
+				return
+			}
 			if ferr := scratch.Free(); ferr != nil {
-				fmt.Fprintf(os.Stderr, "free scratchpad: %v\n", ferr)
+				td.add(fmt.Errorf("free scratchpad: %w", ferr))
 			}
 		}()
 	}
@@ -283,15 +315,19 @@ func runGPUInference(
 
 	var timer *stepTimer
 	if prof != nil || tracer != nil {
+		// newStepTimer can return a timer it could not release along with
+		// its error; close it on every path.
 		timer, err = newStepTimer(dev, prof, tracer, forwardCU)
+		if timer != nil {
+			defer func() {
+				if cerr := timer.close(); cerr != nil {
+					td.add(fmt.Errorf("close step timer: %w", cerr))
+				}
+			}()
+		}
 		if err != nil {
 			return fmt.Errorf("start step timer: %w", err)
 		}
-		defer func() {
-			if err := timer.close(); err != nil {
-				fmt.Fprintf(os.Stderr, "close step timer: %v\n", err)
-			}
-		}()
 	}
 
 	if *benchFlag {

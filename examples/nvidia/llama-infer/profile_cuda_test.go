@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -33,13 +34,22 @@ func (c *delayedWait) Done() <-chan struct{} {
 
 func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	dev := cudatest.Require(t)
+	// undrained is set when the timer's stream does not drain; the
+	// buffers and device below are then kept, since its work may use them.
+	var undrained bool
 	defer func() {
+		if undrained {
+			return
+		}
 		if err := dev.Close(); err != nil {
 			t.Errorf("close device: %v", err)
 		}
 	}()
 	src, err := cudamem.Alloc[byte](dev, 1<<20)
 	defer func() {
+		if undrained {
+			return
+		}
 		if err := src.Free(); err != nil {
 			t.Error(err)
 		}
@@ -49,6 +59,9 @@ func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	}
 	dst, err := cudamem.Alloc[byte](dev, 1<<20)
 	defer func() {
+		if undrained {
+			return
+		}
 		if err := dst.Free(); err != nil {
 			t.Error(err)
 		}
@@ -56,15 +69,20 @@ func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// newStepTimer can return a timer it could not release along with its
+	// error; close it on every path.
 	timer, err := newStepTimer(dev, nil, nil, "probe")
+	if timer != nil {
+		defer func() {
+			if err := timer.close(); err != nil {
+				t.Errorf("close step timer: %v", err)
+				undrained = errors.Is(err, errUndrained)
+			}
+		}()
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := timer.close(); err != nil {
-			t.Errorf("close step timer: %v", err)
-		}
-	}()
 	ctx := &delayedWait{Context: context.Background()}
 	if err := timer.measure(ctx, "copy", nil, func(s *cuda.Stream) error {
 		return dst.CopyDeviceToDeviceAsync(src, s)
