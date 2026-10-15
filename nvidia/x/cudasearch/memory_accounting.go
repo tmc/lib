@@ -32,24 +32,41 @@ type memoryReservation struct {
 }
 
 func (b *memoryBudget) reserve(bytes int64) (*memoryReservation, error) {
-	if bytes < 0 {
-		return nil, fmt.Errorf("cudasearch: negative memory reservation")
+	if err := b.Reserve(bytes); err != nil {
+		return nil, err
 	}
-	r := &memoryReservation{budget: b, bytes: bytes}
+	return &memoryReservation{budget: b, bytes: bytes}, nil
+}
+
+// Reserve and Release implement the shared matching allocation capability
+// without allocating a separate ledger entry for every collection growth.
+func (b *memoryBudget) Reserve(bytes int64) error {
+	if bytes < 0 {
+		return fmt.Errorf("cudasearch: negative memory reservation")
+	}
 	if b == nil {
-		return r, nil
+		return nil
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if bytes > math.MaxInt64-b.live || b.limit > 0 && bytes > b.limit-b.live {
 		b.exhausted = true
-		return nil, ErrMemoryBudgetExceeded
+		return ErrMemoryBudgetExceeded
 	}
 	b.live += bytes
 	if b.live > b.peak {
 		b.peak = b.live
 	}
-	return r, nil
+	return nil
+}
+
+func (b *memoryBudget) Release(bytes int64) {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	b.live -= bytes
+	b.mu.Unlock()
 }
 
 func (r *memoryReservation) release() {
@@ -57,9 +74,7 @@ func (r *memoryReservation) release() {
 		return
 	}
 	r.once.Do(func() {
-		r.budget.mu.Lock()
-		r.budget.live -= r.bytes
-		r.budget.mu.Unlock()
+		r.budget.Release(r.bytes)
 	})
 }
 
@@ -350,12 +365,12 @@ func storageHasReferences(t reflect.Type) bool {
 	return false
 }
 
-func enumerateSearchActions(ctx context.Context, state *egraph.SearchState, rules []*egraph.Rewrite, limit int) ([]egraph.ActionCandidate, error) {
-	actions := egraph.EnumerateActionsBounded(state.Graph, rules, limit)
-	if err := retainSearchValue(ctx, actions); err != nil {
-		return nil, err
+func enumerateSearchActions(ctx context.Context, state *egraph.SearchState, rules []*egraph.Rewrite, limit int) (*egraph.ActionSet, error) {
+	b := searchMemoryBudget(ctx)
+	if b == nil || b.limit == 0 {
+		return &egraph.ActionSet{Actions: egraph.EnumerateActionsBounded(state.Graph, rules, limit)}, nil
 	}
-	return actions, nil
+	return egraph.EnumerateActionsWithMemory(state.Graph, rules, limit, b)
 }
 
 func retainSearchRejection(ctx context.Context, state *egraph.SearchState, eval Evaluator, failure error) (CandidateRejection, error) {

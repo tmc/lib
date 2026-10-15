@@ -1,9 +1,10 @@
 package egraphcore
 
 import (
+	"cmp"
 	"math"
 	"math/bits"
-	"sort"
+	"slices"
 )
 
 // JoinMatchesWithBindings joins structural matches with a precomputed set of
@@ -23,7 +24,12 @@ func JoinMatchesWithBindings[ID ~uint32](
 	relationBindings []Binding[ID],
 	canonicalize func(ID) ID,
 	budget *WorkBudget,
-) ([]RuleMatch[ID], error) {
+) (output []RuleMatch[ID], err error) {
+	defer func() {
+		if memoryErr := budget.MemoryError(); memoryErr != nil {
+			output, err = nil, memoryErr
+		}
+	}()
 	if budget == nil || canonicalize == nil {
 		return nil, ErrInvalidJoin
 	}
@@ -42,8 +48,14 @@ func JoinMatchesWithBindings[ID ~uint32](
 		bindings  []Binding[ID]
 		variables []string
 	}
-	sets := make([]bindingSet, 0, len(structuralConditions)+1)
-	plan := make([]JoinOrderCondition, 0, len(structuralConditions)+1)
+	sets, ok := memorySlice[bindingSet](budget, 0, len(structuralConditions)+1)
+	if !ok {
+		return nil, matchMemoryError(budget)
+	}
+	plan, ok := memorySlice[JoinOrderCondition](budget, 0, len(structuralConditions)+1)
+	if !ok {
+		return nil, matchMemoryError(budget)
+	}
 	for _, alternatives := range structuralConditions {
 		if len(alternatives) == 0 {
 			return nil, nil
@@ -53,7 +65,11 @@ func JoinMatchesWithBindings[ID ~uint32](
 		} else if !valid {
 			return nil, ErrInvalidJoin
 		}
-		set := bindingSet{bindings: make([]Binding[ID], len(alternatives))}
+		storage, ok := memorySlice[Binding[ID]](budget, len(alternatives), len(alternatives))
+		if !ok {
+			return nil, matchMemoryError(budget)
+		}
+		set := bindingSet{bindings: storage}
 		for i, match := range alternatives {
 			var ok bool
 			set.bindings[i], ok = matchBinding(match.Subst, canonicalize, budget)
@@ -62,7 +78,10 @@ func JoinMatchesWithBindings[ID ~uint32](
 			}
 		}
 		for name := range alternatives[0].Subst {
-			set.variables = append(set.variables, name)
+			set.variables, ok = memoryAppend(budget, set.variables, name)
+			if !ok {
+				return nil, matchMemoryError(budget)
+			}
 		}
 		sets = append(sets, set)
 		plan = append(plan, JoinOrderCondition{Variables: set.variables, Cardinality: len(set.bindings)})
@@ -74,11 +93,17 @@ func JoinMatchesWithBindings[ID ~uint32](
 	}
 	set := bindingSet{bindings: relationBindings}
 	for name := range relationBindings[0] {
-		set.variables = append(set.variables, name)
+		set.variables, ok = memoryAppend(budget, set.variables, name)
+		if !ok {
+			return nil, matchMemoryError(budget)
+		}
 	}
 	sets = append(sets, set)
 	plan = append(plan, JoinOrderCondition{Variables: set.variables, Cardinality: len(set.bindings)})
-	bound := make([]string, 0, len(anchors[0].Subst))
+	bound, ok := memorySlice[string](budget, 0, len(anchors[0].Subst))
+	if !ok {
+		return nil, matchMemoryError(budget)
+	}
 	for name := range anchors[0].Subst {
 		bound = append(bound, name)
 	}
@@ -86,8 +111,11 @@ func JoinMatchesWithBindings[ID ~uint32](
 	if err != nil {
 		return nil, err
 	}
-	results := make([]RuleMatch[ID], 0)
-	seen := make(map[string]struct{})
+	var results []RuleMatch[ID]
+	seen, ok := memoryMap[string, struct{}](budget, 0)
+	if !ok {
+		return nil, matchMemoryError(budget)
+	}
 	for _, anchor := range anchors {
 		if !spend(budget, 1) {
 			return nil, ErrMatchWorkLimit
@@ -97,7 +125,11 @@ func JoinMatchesWithBindings[ID ~uint32](
 		if !ok {
 			return nil, ErrMatchWorkLimit
 		}
-		bindings := []Binding[ID]{current}
+		bindings, ok := memorySlice[Binding[ID]](budget, 1, 1)
+		if !ok {
+			return nil, matchMemoryError(budget)
+		}
+		bindings[0] = current
 		for _, conditionIndex := range order {
 			right := sets[conditionIndex].bindings
 			keys, ok := sharedNames(bindings, right, budget)
@@ -134,15 +166,25 @@ func JoinMatchesWithBindings[ID ~uint32](
 			if !spend(budget, 1) {
 				return nil, ErrMatchWorkLimit
 			}
-			seen[key] = struct{}{}
-			copy := make(Binding[ID], len(binding))
+			if !memoryPut(budget, seen, key, struct{}{}) {
+				return nil, matchMemoryError(budget)
+			}
+			copied, ok := memoryMap[string, Value[ID]](budget, len(binding))
+			if !ok {
+				return nil, matchMemoryError(budget)
+			}
 			for name, value := range binding {
 				if !spend(budget, 1) {
 					return nil, ErrMatchWorkLimit
 				}
-				copy[name] = value
+				if !memoryPut(budget, copied, name, value) {
+					return nil, matchMemoryError(budget)
+				}
 			}
-			results = append(results, RuleMatch[ID]{ClassID: anchorID, Binding: copy})
+			results, ok = memoryAppend(budget, results, RuleMatch[ID]{ClassID: anchorID, Binding: copied})
+			if !ok {
+				return nil, matchMemoryError(budget)
+			}
 		}
 	}
 	if len(results) > 1 {
@@ -151,7 +193,10 @@ func JoinMatchesWithBindings[ID ~uint32](
 			return nil, ErrMatchWorkLimit
 		}
 	}
-	keys := make([]string, len(results))
+	keys, ok := memorySlice[string](budget, len(results), len(results))
+	if !ok {
+		return nil, matchMemoryError(budget)
+	}
 	for i, result := range results {
 		key, ok := anchoredBindingKey(result.ClassID, result.Binding, budget)
 		if !ok {
@@ -159,12 +204,18 @@ func JoinMatchesWithBindings[ID ~uint32](
 		}
 		keys[i] = key
 	}
-	resultOrder := make([]int, len(results))
+	resultOrder, ok := memorySlice[int](budget, len(results), len(results))
+	if !ok {
+		return nil, matchMemoryError(budget)
+	}
 	for i := range resultOrder {
 		resultOrder[i] = i
 	}
-	sort.Slice(resultOrder, func(i, j int) bool { return keys[resultOrder[i]] < keys[resultOrder[j]] })
-	sorted := make([]RuleMatch[ID], len(results))
+	slices.SortFunc(resultOrder, func(i, j int) int { return cmp.Compare(keys[i], keys[j]) })
+	sorted, ok := memorySlice[RuleMatch[ID]](budget, len(results), len(results))
+	if !ok {
+		return nil, matchMemoryError(budget)
+	}
 	for i, index := range resultOrder {
 		sorted[i] = results[index]
 	}
@@ -176,7 +227,10 @@ func uniformMatchSubst[ID ~uint32](matches []Match[ID], budget *WorkBudget) (val
 		return true, true
 	}
 	return uniformNameSchema(len(matches), func(i int) []string {
-		names := make([]string, 0, len(matches[i].Subst))
+		names, ok := memorySlice[string](budget, 0, len(matches[i].Subst))
+		if !ok {
+			return nil
+		}
 		for name := range matches[i].Subst {
 			names = append(names, name)
 		}
@@ -186,7 +240,10 @@ func uniformMatchSubst[ID ~uint32](matches []Match[ID], budget *WorkBudget) (val
 
 func uniformBindingSchema[ID ~uint32](bindings []Binding[ID], budget *WorkBudget) (valid, complete bool) {
 	return uniformNameSchema(len(bindings), func(i int) []string {
-		names := make([]string, 0, len(bindings[i]))
+		names, ok := memorySlice[string](budget, 0, len(bindings[i]))
+		if !ok {
+			return nil
+		}
 		for name := range bindings[i] {
 			names = append(names, name)
 		}
@@ -207,9 +264,14 @@ func uniformNameSchema(n int, namesAt func(int) []string, budget *WorkBudget) (v
 		if len(names) != len(first) {
 			return false, true
 		}
-		set := make(map[string]struct{}, len(names))
+		set, ok := memoryMap[string, struct{}](budget, len(names))
+		if !ok {
+			return false, false
+		}
 		for _, name := range names {
-			set[name] = struct{}{}
+			if !memoryPut(budget, set, name, struct{}{}) {
+				return false, false
+			}
 		}
 		for _, name := range first {
 			if _, ok := set[name]; !ok {

@@ -159,6 +159,7 @@ type EGraph struct {
 	origins            map[string]string
 	insertionOrigin    string
 	insertionOriginSet bool
+	memoryWork         *egraphcore.WorkBudget
 }
 
 // New creates an empty E-Graph.

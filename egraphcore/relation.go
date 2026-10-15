@@ -184,6 +184,11 @@ func (r *Relation[ID]) AddedSince(cursor RelationCursor) ([][]Value[ID], error) 
 // work. complete is false when budget runs out; no partial rows are returned.
 // A nil budget means unlimited work.
 func (r *Relation[ID]) AddedSinceWithBudget(cursor RelationCursor, budget *WorkBudget) (rows [][]Value[ID], complete bool, err error) {
+	defer func() {
+		if memoryErr := budget.MemoryError(); memoryErr != nil {
+			rows, complete, err = nil, false, memoryErr
+		}
+	}()
 	if _, ok := r.cursorVersion(cursor); !ok {
 		return nil, false, ErrRelationReset
 	}
@@ -207,7 +212,15 @@ func (r *Relation[ID]) AddedSinceWithBudget(cursor RelationCursor, budget *WorkB
 		if !spend(budget, len(addition.row)+1) {
 			return nil, false, nil
 		}
-		out = append(out, append([]Value[ID](nil), addition.row...))
+		copied, ok := memorySlice[Value[ID]](budget, len(addition.row), len(addition.row))
+		if !ok {
+			return nil, false, budget.MemoryError()
+		}
+		copy(copied, addition.row)
+		out, ok = memoryAppend(budget, out, copied)
+		if !ok {
+			return nil, false, budget.MemoryError()
+		}
 	}
 	return out, true, nil
 }
@@ -254,6 +267,20 @@ func (r *Relation[ID]) Schema() Schema {
 		return Schema{}
 	}
 	return Schema{Name: r.schema.Name, Columns: append([]Column(nil), r.schema.Columns...)}
+}
+
+// SchemaWithBudget returns a defensive schema copy after reserving its column
+// backing storage. The budget's scope remains open through the copy's last use.
+func (r *Relation[ID]) SchemaWithBudget(budget *WorkBudget) (Schema, error) {
+	if r == nil {
+		return Schema{}, nil
+	}
+	columns, ok := memorySlice[Column](budget, len(r.schema.Columns), len(r.schema.Columns))
+	if !ok {
+		return Schema{}, budget.MemoryError()
+	}
+	copy(columns, r.schema.Columns)
+	return Schema{Name: r.schema.Name, Columns: columns}, nil
 }
 
 // Clone returns an independent copy of r, including its indexes, delta
@@ -358,6 +385,11 @@ func (r *Relation[ID]) resetAdditions() {
 // candidate examined spends one unit; on exhaustion it returns no partial
 // result and complete=false.
 func (r *Relation[ID]) Query(filters []Filter[ID], canonicalize func(ID) ID, budget *WorkBudget) (rows [][]Value[ID], complete bool, err error) {
+	defer func() {
+		if memoryErr := budget.MemoryError(); memoryErr != nil {
+			rows, complete, err = nil, false, memoryErr
+		}
+	}()
 	if r == nil {
 		return nil, false, errInvalidSchema
 	}
@@ -376,7 +408,11 @@ func (r *Relation[ID]) Query(filters []Filter[ID], canonicalize func(ID) ID, bud
 		if r.schema.Columns[f.Column].Kind != v.Kind {
 			return nil, false, errInvalidSchema
 		}
-		normalized = append(normalized, v)
+		var ok bool
+		normalized, ok = memoryAppend(budget, normalized, v)
+		if !ok {
+			return nil, false, budget.MemoryError()
+		}
 	}
 	var candidateColumn = -1
 	var candidateValue Value[ID]
@@ -391,30 +427,38 @@ func (r *Relation[ID]) Query(filters []Filter[ID], canonicalize func(ID) ID, bud
 			candidateColumn, candidateValue, candidateCount = f.Column, v, count
 		}
 	}
-	keys := make([]string, 0)
+	var keys []string
 	if candidateColumn < 0 {
 		for k := range r.rows {
 			if budget != nil && !budget.TrySpend(1) {
 				return nil, false, nil
 			}
-			keys = append(keys, k)
+			var ok bool
+			keys, ok = memoryAppend(budget, keys, k)
+			if !ok {
+				return nil, false, budget.MemoryError()
+			}
 		}
 	} else {
 		complete := r.index.Range(candidateColumn, candidateValue, func(k string) bool {
 			if budget != nil && !budget.TrySpend(1) {
 				return false
 			}
-			keys = append(keys, k)
-			return true
+			var ok bool
+			keys, ok = memoryAppend(budget, keys, k)
+			return ok
 		})
 		if !complete {
-			return nil, false, nil
+			return nil, false, budget.MemoryError()
 		}
 	}
 	if !sortKeys(keys, budget) {
 		return nil, false, nil
 	}
-	out := make([][]Value[ID], 0, len(keys))
+	out, ok := memorySlice[[]Value[ID]](budget, 0, len(keys))
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	for _, key := range keys {
 		if budget != nil && !budget.TrySpend(1) {
 			return nil, false, nil
@@ -434,7 +478,15 @@ func (r *Relation[ID]) Query(filters []Filter[ID], canonicalize func(ID) ID, bud
 			}
 		}
 		if match {
-			out = append(out, append([]Value[ID](nil), row...))
+			copied, ok := memorySlice[Value[ID]](budget, len(row), len(row))
+			if !ok {
+				return nil, false, budget.MemoryError()
+			}
+			copy(copied, row)
+			out, ok = memoryAppend(budget, out, copied)
+			if !ok {
+				return nil, false, budget.MemoryError()
+			}
 		}
 	}
 	return out, true, nil
@@ -486,6 +538,71 @@ func (r *Relation[ID]) Recanonicalize(canonicalize func(ID) ID) error {
 	// Treat the rebuilt relation as a new baseline for incremental consumers.
 	r.resetAdditions()
 	return nil
+}
+
+func (r *Relation[ID]) canonicalCopyWithBudget(canonicalize func(ID) ID, budget *WorkBudget) (*Relation[ID], error) {
+	if r == nil {
+		return nil, errInvalidSchema
+	}
+	if !spend(budget, len(r.schema.Columns)) || !spend(budget, len(r.rows)) {
+		return nil, ErrMatchWorkLimit
+	}
+	columns, ok := memorySlice[Column](budget, len(r.schema.Columns), len(r.schema.Columns))
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	copy(columns, r.schema.Columns)
+	rows, ok := memoryMap[string, []Value[ID]](budget, len(r.rows))
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	subsumed, ok := memoryMap[string, struct{}](budget, len(r.subsumed))
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	index, ok := newValueIndexWithBudget[ID](len(columns), budget)
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	epoch, ok := memoryObject(budget, relationEpoch{})
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	result, ok := memoryObject(budget, Relation[ID]{schema: Schema{Name: r.schema.Name, Columns: columns}, rows: rows, subsumed: subsumed, index: index, epoch: epoch})
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	for oldKey, source := range r.rows {
+		if !spend(budget, len(source)) {
+			return nil, ErrMatchWorkLimit
+		}
+		row, ok := memorySlice[Value[ID]](budget, len(source), len(source))
+		if !ok {
+			return nil, budget.MemoryError()
+		}
+		for i, value := range source {
+			value, err := r.normalize(value, canonicalize)
+			if err != nil {
+				return nil, err
+			}
+			row[i] = value
+		}
+		key, ok := tupleKeyWithBudget(row, budget)
+		if !ok {
+			return nil, budget.MemoryError()
+		}
+		if _, exists := rows[key]; !exists {
+			if !memoryPut(budget, rows, key, row) || !index.addWithBudget(row, key, budget) {
+				return nil, budget.MemoryError()
+			}
+		}
+		if _, hidden := r.subsumed[oldKey]; hidden {
+			if !memoryPut(budget, subsumed, key, struct{}{}) {
+				return nil, budget.MemoryError()
+			}
+		}
+	}
+	return result, nil
 }
 
 func (r *Relation[ID]) prepare(values []Value[ID], canonicalize func(ID) ID) ([]Value[ID], string, error) {
@@ -544,7 +661,10 @@ func sortKeys(keys []string, budget *WorkBudget) bool {
 	if n < 2 {
 		return true
 	}
-	tmp := make([]string, n)
+	tmp, ok := memorySlice[string](budget, n, n)
+	if !ok {
+		return false
+	}
 	for width := 1; width < n; width *= 2 {
 		for lo := 0; lo < n; lo += 2 * width {
 			mid, hi := lo+width, lo+2*width
@@ -632,4 +752,61 @@ func tupleKey[ID ~uint32](row []Value[ID]) string {
 		}
 	}
 	return string(b)
+}
+
+// tupleKeyWithBudget computes the exact encoded size before creating either
+// the byte backing or the returned string. Values and their strings are borrowed.
+func tupleKeyWithBudget[ID ~uint32](row []Value[ID], budget *WorkBudget) (string, bool) {
+	size := 0
+	for _, value := range row {
+		cell := 1
+		switch value.Kind {
+		case ClassValue, Int64Value, Float64Value:
+			cell += 8
+		case BoolValue:
+			cell++
+		case StringValue, BigIntValue, BigRatValue:
+			if len(value.String) > math.MaxInt-9 {
+				return "", false
+			}
+			cell += 8 + len(value.String)
+		}
+		if cell > math.MaxInt-size {
+			return "", false
+		}
+		size += cell
+	}
+	data, ok := memorySlice[byte](budget, size, size)
+	if !ok {
+		return "", false
+	}
+	offset := 0
+	for _, value := range row {
+		data[offset] = byte(value.Kind)
+		offset++
+		switch value.Kind {
+		case ClassValue:
+			binary.LittleEndian.PutUint64(data[offset:], uint64(value.Class))
+			offset += 8
+		case Int64Value:
+			binary.LittleEndian.PutUint64(data[offset:], uint64(value.Int64))
+			offset += 8
+		case Float64Value:
+			binary.LittleEndian.PutUint64(data[offset:], value.Float)
+			offset += 8
+		case BoolValue:
+			if value.Bool {
+				data[offset] = 1
+			}
+			offset++
+		case StringValue, BigIntValue, BigRatValue:
+			binary.LittleEndian.PutUint64(data[offset:], uint64(len(value.String)))
+			offset += 8
+			offset += copy(data[offset:], value.String)
+		}
+	}
+	if !budget.ReserveMemory(int64(size)) {
+		return "", false
+	}
+	return string(data), true
 }

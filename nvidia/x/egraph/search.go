@@ -1,8 +1,10 @@
 package egraph
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -143,6 +145,53 @@ type ActionCandidate struct {
 	Match MatchMatch
 }
 
+// ActionSet owns the storage created while enumerating its Actions. Truncated
+// reports that more matches exist. Close follows the last use of the actions;
+// their rules and graph nodes remain borrowed from the caller.
+type ActionSet struct {
+	Actions   []ActionCandidate
+	Truncated bool
+	memory    *egraphcore.MemoryScope
+}
+
+// Close releases the action set's reservations once. It does not close or
+// mutate the borrowed source graph or rules.
+func (s *ActionSet) Close() {
+	if s == nil {
+		return
+	}
+	s.Actions = nil
+	s.memory.Close()
+}
+
+// EnumerateActionsWithMemory reserves supported owned matching storage before
+// allocation. The caller provides a clean graph and keeps the returned owner
+// open while using its actions. Memory units and callback obligations follow
+// egraphcore.MemoryScope; this is not a process or compiler memory limit.
+func EnumerateActionsWithMemory(g *EGraph, rules []*Rewrite, limit int, memory egraphcore.Memory) (*ActionSet, error) {
+	scope, err := egraphcore.NewMemoryScope(memory)
+	if err != nil {
+		return nil, err
+	}
+	budget, err := egraphcore.NewWorkBudgetWithMemory(100000, scope)
+	if err != nil {
+		scope.Close()
+		return nil, err
+	}
+	if err := graphSlots[ActionSet](budget, 1); err != nil {
+		scope.Close()
+		return nil, err
+	}
+	result := &ActionSet{memory: scope}
+	actions, truncated, err := enumerateActionsWithBudget(g, rules, limit, budget)
+	if err != nil {
+		result.Close()
+		return nil, err
+	}
+	result.Actions, result.Truncated = actions, truncated
+	return result, nil
+}
+
 // ActionKey returns a deterministic string key for ordering candidates.
 func (c ActionCandidate) ActionKey() string {
 	if c.Rule == nil {
@@ -213,6 +262,10 @@ func EnumerateActionsChecked(g *EGraph, rules []*Rewrite) ([]ActionCandidate, er
 // EnumerateActionsBoundedChecked deterministically enumerates at most limit
 // matches. truncated is true when more matches exist than fit in the result.
 func EnumerateActionsBoundedChecked(g *EGraph, rules []*Rewrite, limit int) ([]ActionCandidate, bool, error) {
+	return enumerateActionsWithBudget(g, rules, limit, egraphcore.NewWorkBudget(100000))
+}
+
+func enumerateActionsWithBudget(g *EGraph, rules []*Rewrite, limit int, budget *egraphcore.WorkBudget) ([]ActionCandidate, bool, error) {
 	if limit <= 0 {
 		return nil, false, nil
 	}
@@ -220,7 +273,13 @@ func EnumerateActionsBoundedChecked(g *EGraph, rules []*Rewrite, limit int) ([]A
 		return nil, false, fmt.Errorf("egraph: nil graph")
 	}
 	var candidates []ActionCandidate
-	budget := egraphcore.NewWorkBudget(100000)
+	if budget.MemoryScope() != nil {
+		view, err := matchingView(g, budget)
+		if err != nil {
+			return nil, false, err
+		}
+		g = view
+	}
 	truncated := false
 	for _, rule := range rules {
 		if truncated {
@@ -265,7 +324,11 @@ func EnumerateActionsBoundedChecked(g *EGraph, rules []*Rewrite, limit int) ([]A
 				Rule:  rule,
 				Match: m,
 			}
-			candidates = append(candidates, candidate)
+			var err error
+			candidates, err = graphAppend(budget, candidates, candidate)
+			if err != nil {
+				return nil, false, err
+			}
 		}
 	}
 
@@ -274,17 +337,32 @@ func EnumerateActionsBoundedChecked(g *EGraph, rules []*Rewrite, limit int) ([]A
 	type ordered struct {
 		candidate ActionCandidate
 		noop      bool
+		key       string
 	}
-	items := make([]ordered, len(candidates))
+	items, err := graphSlice[ordered](budget, len(candidates), len(candidates))
+	if err != nil {
+		return nil, false, err
+	}
 	for i, candidate := range candidates {
-		items[i] = ordered{candidate, actionIsNoOp(g, candidate)}
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		ni, nj := items[i].noop, items[j].noop
-		if ni != nj {
-			return !ni
+		noop := actionIsNoOpWithBudget(g, candidate, budget)
+		if err := budget.MemoryError(); err != nil {
+			return nil, false, err
 		}
-		return items[i].candidate.ActionKey() < items[j].candidate.ActionKey()
+		key, err := actionKeyWithBudget(candidate, budget)
+		if err != nil {
+			return nil, false, err
+		}
+		items[i] = ordered{candidate, noop, key}
+	}
+	slices.SortStableFunc(items, func(a, b ordered) int {
+		ni, nj := a.noop, b.noop
+		if ni != nj {
+			if ni {
+				return 1
+			}
+			return -1
+		}
+		return cmp.Compare(a.key, b.key)
 	})
 	for i := range items {
 		candidates[i] = items[i].candidate
@@ -293,13 +371,17 @@ func EnumerateActionsBoundedChecked(g *EGraph, rules []*Rewrite, limit int) ([]A
 }
 
 func actionIsNoOp(g *EGraph, c ActionCandidate) bool {
+	return actionIsNoOpWithBudget(g, c, nil)
+}
+
+func actionIsNoOpWithBudget(g *EGraph, c ActionCandidate, budget *egraphcore.WorkBudget) bool {
 	if c.Rule == nil {
 		return false
 	}
 	if len(c.Rule.RelationActions) != 0 || c.Rule.RHS == nil {
 		return false
 	}
-	return patternIsExistingClass(g, c.Rule.RHS, c.Match.Subst, c.Match.ClassID)
+	return patternIsExistingClassWithBudget(g, c.Rule.RHS, c.Match.Subst, c.Match.ClassID, budget)
 }
 
 func bindingFromSubst(subst Subst) egraphcore.Binding[Id] {

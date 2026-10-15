@@ -60,7 +60,7 @@ func MatchEClass[ID comparable, Node any](
 	}
 	return MatchEClassWithMatcher(pattern, classID, current, budget, MatcherCallbacks[ID, Node, *Pattern]{
 		Find:         find,
-		ValidPattern: validPattern,
+		ValidPattern: func(pattern *Pattern) bool { return validPatternWithBudget(pattern, budget) },
 		IsVariable: func(pattern *Pattern) (string, bool) {
 			return pattern.Op, pattern.Variable
 		},
@@ -91,7 +91,7 @@ func MatchEClassWithMatcher[ID comparable, Node, P any](
 		return nil, ErrMatchWorkLimit
 	}
 	if !callbacks.ValidPattern(pattern) {
-		return nil, ErrInvalidPattern
+		return nil, withMemoryError(ErrInvalidPattern, budget)
 	}
 	results, _, err := matchEClassWithCallbacks(pattern, classID, current, budget, 0, callbacks)
 	return results, err
@@ -116,7 +116,7 @@ func Search[ID comparable, Node any](
 	}
 	callbacks := MatcherCallbacks[ID, Node, *Pattern]{
 		Find:         find,
-		ValidPattern: validPattern,
+		ValidPattern: func(pattern *Pattern) bool { return validPatternWithBudget(pattern, budget) },
 		IsVariable: func(pattern *Pattern) (string, bool) {
 			return pattern.Op, pattern.Variable
 		},
@@ -145,7 +145,7 @@ func SearchWithMatcher[ID comparable, Node, P any](
 		return nil, false, ErrInvalidPattern
 	}
 	if !callbacks.ValidPattern(pattern) {
-		return nil, false, ErrInvalidPattern
+		return nil, false, withMemoryError(ErrInvalidPattern, budget)
 	}
 	if budget.Exhausted() {
 		return nil, false, ErrMatchWorkLimit
@@ -164,7 +164,11 @@ func SearchWithMatcher[ID comparable, Node, P any](
 			return nil, false, err
 		}
 		for _, subst := range substitutions {
-			matches = append(matches, Match[ID]{ClassID: callbacks.Find(root), Subst: subst})
+			var ok bool
+			matches, ok = memoryAppend(budget, matches, Match[ID]{ClassID: callbacks.Find(root), Subst: subst})
+			if !ok {
+				return nil, false, matchMemoryError(budget)
+			}
 			if maxMatches > 0 && len(matches) >= maxMatches {
 				return matches, true, nil
 			}
@@ -195,7 +199,11 @@ func matchEClassWithCallbacks[ID comparable, Node, P any](
 	}
 	var initial map[string]ID
 	if current != nil {
-		initial = make(map[string]ID, len(current))
+		var ok bool
+		initial, ok = memoryMap[string, ID](budget, len(current))
+		if !ok {
+			return nil, false, matchMemoryError(budget)
+		}
 	}
 	for name, id := range current {
 		if !budget.TrySpend(1) {
@@ -204,9 +212,19 @@ func matchEClassWithCallbacks[ID comparable, Node, P any](
 		if name == "" {
 			return nil, false, ErrInvalidPattern
 		}
-		initial[name] = callbacks.Find(id)
+		if !memoryPut(budget, initial, name, callbacks.Find(id)) {
+			return nil, false, matchMemoryError(budget)
+		}
 	}
-	stack := []state{{pending: &task{pattern: pattern, classID: classID}, subst: initial}}
+	first, ok := memoryObject(budget, task{pattern: pattern, classID: classID})
+	if !ok {
+		return nil, false, matchMemoryError(budget)
+	}
+	stack, ok := memorySlice[state](budget, 1, 1)
+	if !ok {
+		return nil, false, matchMemoryError(budget)
+	}
+	stack[0] = state{pending: first, subst: initial}
 	var results []map[string]ID
 	limited := false
 	for len(stack) > 0 {
@@ -214,7 +232,14 @@ func matchEClassWithCallbacks[ID comparable, Node, P any](
 		work := stack[last]
 		stack = stack[:last]
 		if work.pending == nil {
-			results = append(results, cloneSubst(work.subst))
+			subst, ok := cloneSubstWithBudget(work.subst, budget)
+			if !ok {
+				return nil, false, matchMemoryError(budget)
+			}
+			results, ok = memoryAppend(budget, results, subst)
+			if !ok {
+				return nil, false, matchMemoryError(budget)
+			}
 			if maxMatches > 0 && len(results) >= maxMatches {
 				limited = true
 				break
@@ -237,13 +262,21 @@ func matchEClassWithCallbacks[ID comparable, Node, P any](
 			}
 			if boundID, ok := work.subst[name]; ok {
 				if callbacks.Find(boundID) == canonicalID {
-					stack = append(stack, state{pending: remaining, subst: work.subst})
+					stack, ok = memoryAppend(budget, stack, state{pending: remaining, subst: work.subst})
+					if !ok {
+						return nil, false, matchMemoryError(budget)
+					}
 				}
 				continue
 			}
-			subst := cloneSubst(work.subst)
-			subst[name] = canonicalID
-			stack = append(stack, state{pending: remaining, subst: subst})
+			subst, ok := cloneSubstWithBudget(work.subst, budget)
+			if !ok || !memoryPut(budget, subst, name, canonicalID) {
+				return nil, false, matchMemoryError(budget)
+			}
+			stack, ok = memoryAppend(budget, stack, state{pending: remaining, subst: subst})
+			if !ok {
+				return nil, false, matchMemoryError(budget)
+			}
 			continue
 		}
 		children := callbacks.PatternChildren(item.pattern)
@@ -264,21 +297,40 @@ func matchEClassWithCallbacks[ID comparable, Node, P any](
 			}
 			pending := remaining
 			for child := len(children) - 1; child >= 0; child-- {
-				pending = &task{pattern: children[child], classID: childIDs[child], next: pending}
+				var ok bool
+				pending, ok = memoryObject(budget, task{pattern: children[child], classID: childIDs[child], next: pending})
+				if !ok {
+					return nil, false, matchMemoryError(budget)
+				}
 			}
-			stack = append(stack, state{pending: pending, subst: work.subst})
+			var ok bool
+			stack, ok = memoryAppend(budget, stack, state{pending: pending, subst: work.subst})
+			if !ok {
+				return nil, false, matchMemoryError(budget)
+			}
 		}
 	}
 	return results, limited, nil
 }
 
 func validPattern(pattern *Pattern) bool {
+	return validPatternWithBudget(pattern, nil)
+}
+
+func validPatternWithBudget(pattern *Pattern, budget *WorkBudget) bool {
 	type entry struct {
 		pattern *Pattern
 		exit    bool
 	}
-	stack := []entry{{pattern: pattern}}
-	state := make(map[*Pattern]uint8)
+	stack, ok := memorySlice[entry](budget, 1, 1)
+	if !ok {
+		return false
+	}
+	stack[0] = entry{pattern: pattern}
+	state, ok := memoryMap[*Pattern, uint8](budget, 0)
+	if !ok {
+		return false
+	}
 	for len(stack) > 0 {
 		last := len(stack) - 1
 		current := stack[last]
@@ -287,7 +339,9 @@ func validPattern(pattern *Pattern) bool {
 			return false
 		}
 		if current.exit {
-			state[current.pattern] = 2
+			if !memoryPut(budget, state, current.pattern, uint8(2)) {
+				return false
+			}
 			continue
 		}
 		switch state[current.pattern] {
@@ -296,17 +350,25 @@ func validPattern(pattern *Pattern) bool {
 		case 2:
 			continue
 		}
-		state[current.pattern] = 1
+		if !memoryPut(budget, state, current.pattern, uint8(1)) {
+			return false
+		}
 		if current.pattern.Variable && len(current.pattern.Children) != 0 {
 			return false
 		}
-		stack = append(stack, entry{pattern: current.pattern, exit: true})
+		stack, ok = memoryAppend(budget, stack, entry{pattern: current.pattern, exit: true})
+		if !ok {
+			return false
+		}
 		for i := len(current.pattern.Children) - 1; i >= 0; i-- {
 			child := current.pattern.Children[i]
 			if child == nil {
 				return false
 			}
-			stack = append(stack, entry{pattern: child})
+			stack, ok = memoryAppend(budget, stack, entry{pattern: child})
+			if !ok {
+				return false
+			}
 		}
 	}
 	return true
@@ -318,4 +380,28 @@ func cloneSubst[ID comparable](subst map[string]ID) map[string]ID {
 		copy[name] = id
 	}
 	return copy
+}
+
+func cloneSubstWithBudget[ID comparable](subst map[string]ID, budget *WorkBudget) (map[string]ID, bool) {
+	copy, ok := memoryMap[string, ID](budget, len(subst)+1)
+	if !ok {
+		return nil, false
+	}
+	for name, id := range subst {
+		if !memoryPut(budget, copy, name, id) {
+			return nil, false
+		}
+	}
+	return copy, true
+}
+
+func matchMemoryError(budget *WorkBudget) error {
+	return withMemoryError(ErrMatchWorkLimit, budget)
+}
+
+func withMemoryError(base error, budget *WorkBudget) error {
+	if budget.MemoryError() == nil {
+		return base
+	}
+	return errors.Join(base, budget.MemoryError())
 }

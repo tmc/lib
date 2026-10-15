@@ -1,7 +1,6 @@
 package egraphcore
 
 import (
-	"fmt"
 	"math"
 	"math/bits"
 	"sort"
@@ -48,7 +47,10 @@ func JoinMatches[ID ~uint32](
 }
 
 func matchBinding[ID ~uint32](subst map[string]ID, canonicalize func(ID) ID, budget *WorkBudget) (Binding[ID], bool) {
-	binding := make(Binding[ID], len(subst))
+	binding, ok := memoryMap[string, Value[ID]](budget, len(subst))
+	if !ok {
+		return nil, false
+	}
 	for name, id := range subst {
 		if !spend(budget, 1) {
 			return nil, false
@@ -56,7 +58,9 @@ func matchBinding[ID ~uint32](subst map[string]ID, canonicalize func(ID) ID, bud
 		if name == "" {
 			return nil, false
 		}
-		binding[name] = Class(canonicalize(id))
+		if !memoryPut(budget, binding, name, Class(canonicalize(id))) {
+			return nil, false
+		}
 	}
 	return binding, true
 }
@@ -65,16 +69,24 @@ func sharedNames[ID ~uint32](left, right []Binding[ID], budget *WorkBudget) ([]s
 	if len(left) == 0 || len(right) == 0 {
 		return []string{}, true
 	}
-	shared := make(map[string]struct{})
+	shared, ok := memoryMap[string, struct{}](budget, 0)
+	if !ok {
+		return nil, false
+	}
 	for name := range left[0] {
 		if !spend(budget, 1) {
 			return nil, false
 		}
 		if _, ok := right[0][name]; ok {
-			shared[name] = struct{}{}
+			if !memoryPut(budget, shared, name, struct{}{}) {
+				return nil, false
+			}
 		}
 	}
-	names := make([]string, 0, len(shared))
+	names, ok := memorySlice[string](budget, 0, len(shared))
+	if !ok {
+		return nil, false
+	}
 	for name := range shared {
 		if !spend(budget, 1) {
 			return nil, false
@@ -99,5 +111,22 @@ func anchoredBindingKey[ID ~uint32](anchor ID, binding Binding[ID], budget *Work
 	if !ok {
 		return "", false
 	}
-	return fmt.Sprintf("%010d|%s", uint32(anchor), key), true
+	if len(key) > math.MaxInt-11 {
+		return "", false
+	}
+	data, ok := memorySlice[byte](budget, 11+len(key), 11+len(key))
+	if !ok {
+		return "", false
+	}
+	number := uint32(anchor)
+	for i := 9; i >= 0; i-- {
+		data[i] = '0' + byte(number%10)
+		number /= 10
+	}
+	data[10] = '|'
+	copy(data[11:], key)
+	if !budget.ReserveMemory(int64(len(data))) {
+		return "", false
+	}
+	return string(data), true
 }

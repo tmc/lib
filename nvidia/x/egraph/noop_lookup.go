@@ -1,9 +1,19 @@
 package egraph
 
+import (
+	"reflect"
+
+	"github.com/tmc/lib/egraphcore"
+)
+
 // patternIsExistingClass predicts a no-op for enumeration ordering only. It
 // mirrors Instantiate's memo lookups but never creates nodes or compresses the
 // graph's union-find. Missing or excessively large patterns remain candidates.
 func patternIsExistingClass(g *EGraph, p *Pattern, subst Subst, target Id) bool {
+	return patternIsExistingClassWithBudget(g, p, subst, target, nil)
+}
+
+func patternIsExistingClassWithBudget(g *EGraph, p *Pattern, subst Subst, target Id, budget *egraphcore.WorkBudget) bool {
 	if g == nil {
 		return false
 	}
@@ -30,12 +40,15 @@ func patternIsExistingClass(g *EGraph, p *Pattern, subst Subst, target Id) bool 
 				return find(id)
 			}
 			// Preserve Instantiate's legacy unbound-variable leaf behavior.
-			node = NewLeaf(p.Op)
+			node = ENode{Op: p.Op, Data: p.Op}
 		} else {
 			if len(p.Children) > work {
 				return 0, false
 			}
-			children := make([]Id, len(p.Children))
+			children, err := graphSlice[Id](budget, len(p.Children), len(p.Children))
+			if err != nil {
+				return 0, false
+			}
 			for i, child := range p.Children {
 				id, ok := lookup(child, depth+1)
 				if !ok {
@@ -47,7 +60,11 @@ func patternIsExistingClass(g *EGraph, p *Pattern, subst Subst, target Id) bool 
 		}
 		var foundID Id
 		found := false
-		store.VisitMemoCandidates(node.Key(), func(candidate Id) bool {
+		key, err := lookupNodeKey(node, budget)
+		if err != nil {
+			return 0, false
+		}
+		store.VisitMemoCandidates(key, func(candidate Id) bool {
 			if work == 0 {
 				return false
 			}
@@ -68,17 +85,18 @@ func patternIsExistingClass(g *EGraph, p *Pattern, subst Subst, target Id) bool 
 				if existing.Subsumed {
 					continue
 				}
-				canonical := existing
-				canonical.Children = append([]Id(nil), existing.Children...)
+				if existing.Op != node.Op || len(existing.Children) != len(node.Children) || !reflect.DeepEqual(existing.Data, node.Data) {
+					continue
+				}
 				valid := true
-				for i, child := range canonical.Children {
-					canonical.Children[i], ok = find(child)
-					if !ok {
+				for i, child := range existing.Children {
+					canonical, ok := find(child)
+					if !ok || canonical != node.Children[i] {
 						valid = false
 						break
 					}
 				}
-				if valid && canonical.Equal(node) {
+				if valid {
 					foundID, found = id, true
 					return false
 				}

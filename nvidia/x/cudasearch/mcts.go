@@ -209,10 +209,12 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		return finish(err)
 	}
 	rootNode.state = cloned
-	initialActions, err = enumerateSearchActions(ctx, rootNode.state, rules, budget.MaxActions)
+	initialOwned, err := enumerateSearchActions(ctx, rootNode.state, rules, budget.MaxActions)
 	if err != nil {
 		return finish(err)
 	}
+	defer initialOwned.Close()
+	initialActions = initialOwned.Actions
 	rootNode.untriedActions = initialActions
 	rootNode.isTerminal = len(initialActions) == 0
 
@@ -261,10 +263,12 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 					return finish(nil)
 				}
 
-				nextActions, err := enumerateSearchActions(ctx, res.State, rules, budget.MaxActions)
+				nextOwned, err := enumerateSearchActions(ctx, res.State, rules, budget.MaxActions)
 				if err != nil {
 					return finish(err)
 				}
+				defer nextOwned.Close()
+				nextActions := nextOwned.Actions
 				childNode := &mctsNode{
 					state:          res.State,
 					parent:         node,
@@ -319,10 +323,12 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				stopReason = ErrBudgetExhausted
 				break
 			}
-			actions, err := enumerateSearchActions(ctx, currState, rules, budget.MaxActions)
+			ownedActions, err := enumerateSearchActions(ctx, currState, rules, budget.MaxActions)
 			if err != nil {
 				return finish(err)
 			}
+			defer ownedActions.Close()
+			actions := ownedActions.Actions
 			var next *egraph.SearchState
 			for len(actions) > 0 {
 				if err := ctx.Err(); err != nil {

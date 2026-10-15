@@ -256,10 +256,12 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 			if actionLimit <= 0 {
 				actionLimit = 50
 			}
-			actions, err := enumerateSearchActions(ctx, item.state, rules, actionLimit)
+			ownedActions, err := enumerateSearchActions(ctx, item.state, rules, actionLimit)
 			if err != nil {
 				return finish(err)
 			}
+			defer ownedActions.Close()
+			actions := ownedActions.Actions
 			profile.order(actions)
 
 			for _, act := range actions {

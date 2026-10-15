@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -481,27 +482,38 @@ func resolveFactActions(g *EGraph, r *Rewrite, matches []MatchMatch, budget *egr
 }
 
 func validateRewrite(r *Rewrite) error {
+	return validateRewriteWithBudget(r, nil)
+}
+
+func validateRewriteWithBudget(r *Rewrite, budget *egraphcore.WorkBudget) error {
 	if r == nil || r.LHS == nil || r.RHS == nil && len(r.RelationActions) == 0 {
 		return fmt.Errorf("egraph: rewrite and patterns must be non-nil")
 	}
-	if err := validatePatternTree(r.LHS); err != nil {
+	if err := validatePatternTreeWithBudget(r.LHS, budget); err != nil {
 		return fmt.Errorf("egraph: invalid lhs: %w", err)
 	}
 	if r.RHS != nil {
-		if err := validatePatternTree(r.RHS); err != nil {
+		if err := validatePatternTreeWithBudget(r.RHS, budget); err != nil {
 			return fmt.Errorf("egraph: invalid rhs: %w", err)
 		}
 	}
 	if r.subsumesLHS && (r.LHS.IsVar || r.RHS == nil) {
 		return fmt.Errorf("egraph: rewrite %q can only subsume a concrete term pattern with an rhs", r.Name)
 	}
-	bound := make(map[string]bool)
-	patternVariables(r.LHS, bound)
+	bound, err := graphMap[string, bool](budget, 0)
+	if err != nil {
+		return err
+	}
+	if err := patternVariablesWithBudget(r.LHS, bound, budget); err != nil {
+		return err
+	}
 	for i, condition := range r.Conditions {
-		if err := validatePatternTree(condition); err != nil {
+		if err := validatePatternTreeWithBudget(condition, budget); err != nil {
 			return fmt.Errorf("invalid condition %d: %w", i, err)
 		}
-		patternVariables(condition, bound)
+		if err := patternVariablesWithBudget(condition, bound, budget); err != nil {
+			return err
+		}
 	}
 	for i, condition := range r.RelationConditions {
 		if condition.Name == "" {
@@ -514,7 +526,9 @@ func validateRewrite(r *Rewrite) error {
 				if term.Name == "" {
 					return fmt.Errorf("invalid relation condition %d column %d: empty variable", i, j)
 				}
-				bound[term.Name] = true
+				if err := graphPut(budget, bound, term.Name, true); err != nil {
+					return err
+				}
 			case egraphcore.ConstantTerm:
 				if term.Value.Kind < egraphcore.ClassValue || term.Value.Kind > egraphcore.BigRatValue {
 					return fmt.Errorf("invalid relation condition %d column %d: invalid constant kind", i, j)
@@ -550,13 +564,21 @@ func validateRewrite(r *Rewrite) error {
 		}
 	}
 	var unbound []string
-	rhsVariables := make(map[string]bool)
+	rhsVariables, err := graphMap[string, bool](budget, 0)
+	if err != nil {
+		return err
+	}
 	if r.RHS != nil {
-		patternVariables(r.RHS, rhsVariables)
+		if err := patternVariablesWithBudget(r.RHS, rhsVariables, budget); err != nil {
+			return err
+		}
 	}
 	for name := range rhsVariables {
 		if !bound[name] {
-			unbound = append(unbound, name)
+			unbound, err = graphAppend(budget, unbound, name)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	if len(unbound) != 0 {
@@ -578,14 +600,22 @@ func searchRewriteMatchesWithBudget(g *EGraph, r *Rewrite, budget *egraphcore.Wo
 }
 
 func searchRewriteMatchesWithDeltaCursors(g *EGraph, r *Rewrite, budget *egraphcore.WorkBudget, cursors []egraphcore.RelationCursor, useDeltas bool) ([]MatchMatch, error) {
-	if err := validateRewrite(r); err != nil {
+	if err := validateRewriteWithBudget(r, budget); err != nil {
 		return nil, err
 	}
-	atoms, err := relationConditionAtoms(g, r)
+	view, err := matchingView(g, budget)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateRelationConditionTypes(g, r, atoms); err != nil {
+	g = view
+	if useDeltas && budget.MemoryScope() != nil {
+		return nil, ErrMemoryOperation
+	}
+	atoms, err := relationConditionAtomsWithBudget(g, r, budget)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateRelationConditionTypesWithBudget(g, r, atoms, budget); err != nil {
 		return nil, err
 	}
 	lhsMatches, err := r.LHS.SearchWithBudget(g, budget)
@@ -595,7 +625,10 @@ func searchRewriteMatchesWithDeltaCursors(g *EGraph, r *Rewrite, budget *egraphc
 	if len(r.Conditions) == 0 && len(r.RelationConditions) == 0 {
 		return lhsMatches, nil
 	}
-	conditionMatches := make([][]MatchMatch, len(r.Conditions))
+	conditionMatches, err := graphSlice[[]MatchMatch](budget, len(r.Conditions), len(r.Conditions))
+	if err != nil {
+		return nil, err
+	}
 	for i, condition := range r.Conditions {
 		conditionMatches[i], err = condition.SearchWithBudget(g, budget)
 		if err != nil {
@@ -605,26 +638,47 @@ func searchRewriteMatchesWithDeltaCursors(g *EGraph, r *Rewrite, budget *egraphc
 			return nil, nil
 		}
 	}
-	anchors := make([]egraphcore.Match[Id], len(lhsMatches))
+	anchors, err := graphSlice[egraphcore.Match[Id]](budget, len(lhsMatches), len(lhsMatches))
+	if err != nil {
+		return nil, err
+	}
 	for i, match := range lhsMatches {
-		anchors[i] = egraphcore.Match[Id]{ClassID: match.ClassID, Subst: make(map[string]Id, len(match.Subst))}
+		subst, err := graphMap[string, Id](budget, len(match.Subst))
+		if err != nil {
+			return nil, err
+		}
+		anchors[i] = egraphcore.Match[Id]{ClassID: match.ClassID, Subst: subst}
 		for name, id := range match.Subst {
 			if !budget.TrySpend(1) {
-				return nil, ErrMatchWorkLimit
+				return nil, matchingError(budget)
 			}
-			anchors[i].Subst[name] = id
+			if err := graphPut(budget, anchors[i].Subst, name, id); err != nil {
+				return nil, err
+			}
 		}
 	}
-	structural := make([][]egraphcore.Match[Id], len(conditionMatches))
+	structural, err := graphSlice[[]egraphcore.Match[Id]](budget, len(conditionMatches), len(conditionMatches))
+	if err != nil {
+		return nil, err
+	}
 	for i, matches := range conditionMatches {
-		structural[i] = make([]egraphcore.Match[Id], len(matches))
+		structural[i], err = graphSlice[egraphcore.Match[Id]](budget, len(matches), len(matches))
+		if err != nil {
+			return nil, err
+		}
 		for j, match := range matches {
-			structural[i][j] = egraphcore.Match[Id]{ClassID: match.ClassID, Subst: make(map[string]Id, len(match.Subst))}
+			subst, err := graphMap[string, Id](budget, len(match.Subst))
+			if err != nil {
+				return nil, err
+			}
+			structural[i][j] = egraphcore.Match[Id]{ClassID: match.ClassID, Subst: subst}
 			for name, id := range match.Subst {
 				if !budget.TrySpend(1) {
-					return nil, ErrMatchWorkLimit
+					return nil, matchingError(budget)
 				}
-				structural[i][j].Subst[name] = id
+				if err := graphPut(budget, structural[i][j].Subst, name, id); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -643,21 +697,34 @@ func searchRewriteMatchesWithDeltaCursors(g *EGraph, r *Rewrite, budget *egraphc
 	}
 	if err != nil {
 		if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
-			return nil, ErrMatchWorkLimit
+			return nil, matchingError(budget)
 		}
 		return nil, err
 	}
-	results := make([]MatchMatch, len(joined))
+	results, err := graphSlice[MatchMatch](budget, len(joined), len(joined))
+	if err != nil {
+		return nil, err
+	}
 	for i, match := range joined {
-		subst := make(Subst)
-		binding := make(egraphcore.Binding[Id], len(match.Binding))
+		subst, err := graphMap[string, Id](budget, len(match.Binding))
+		if err != nil {
+			return nil, err
+		}
+		binding, err := graphMap[string, egraphcore.Value[Id]](budget, len(match.Binding))
+		if err != nil {
+			return nil, err
+		}
 		for name, value := range match.Binding {
 			if !budget.TrySpend(1) {
-				return nil, ErrMatchWorkLimit
+				return nil, matchingError(budget)
 			}
-			binding[name] = value
+			if err := graphPut(budget, binding, name, value); err != nil {
+				return nil, err
+			}
 			if value.Kind == egraphcore.ClassValue {
-				subst[name] = g.Find(value.Class)
+				if err := graphPut(budget, subst, name, g.Find(value.Class)); err != nil {
+					return nil, err
+				}
 			}
 		}
 		results[i] = MatchMatch{ClassID: g.Find(match.ClassID), Subst: subst, Binding: binding}
@@ -666,38 +733,74 @@ func searchRewriteMatchesWithDeltaCursors(g *EGraph, r *Rewrite, budget *egraphc
 }
 
 func relationConditionAtoms(g *EGraph, r *Rewrite) ([]egraphcore.Atom[Id], error) {
-	atoms := make([]egraphcore.Atom[Id], len(r.RelationConditions))
+	return relationConditionAtomsWithBudget(g, r, nil)
+}
+
+func relationConditionAtomsWithBudget(g *EGraph, r *Rewrite, budget *egraphcore.WorkBudget) ([]egraphcore.Atom[Id], error) {
+	atoms, err := graphSlice[egraphcore.Atom[Id]](budget, len(r.RelationConditions), len(r.RelationConditions))
+	if err != nil {
+		return nil, err
+	}
 	for i, condition := range r.RelationConditions {
 		relation := g.Facts().Get(condition.Name)
 		if relation == nil {
 			return nil, fmt.Errorf("egraph: rewrite %q references unknown relation %q", r.Name, condition.Name)
 		}
-		atoms[i] = egraphcore.Atom[Id]{Relation: relation, Terms: append([]egraphcore.Term[Id](nil), condition.Terms...)}
+		terms, err := graphSlice[egraphcore.Term[Id]](budget, len(condition.Terms), len(condition.Terms))
+		if err != nil {
+			return nil, err
+		}
+		copy(terms, condition.Terms)
+		atoms[i] = egraphcore.Atom[Id]{Relation: relation, Terms: terms}
 	}
 	return atoms, nil
 }
 
 func validateRelationConditionTypes(g *EGraph, r *Rewrite, atoms []egraphcore.Atom[Id]) error {
-	kinds := make(map[string]egraphcore.ValueKind)
+	return validateRelationConditionTypesWithBudget(g, r, atoms, nil)
+}
+
+func validateRelationConditionTypesWithBudget(g *EGraph, r *Rewrite, atoms []egraphcore.Atom[Id], budget *egraphcore.WorkBudget) error {
+	kinds, err := graphMap[string, egraphcore.ValueKind](budget, 0)
+	if err != nil {
+		return err
+	}
 	for _, condition := range r.Conditions {
-		vars := make(map[string]bool)
-		patternVariables(condition, vars)
+		vars, err := graphMap[string, bool](budget, 0)
+		if err != nil {
+			return err
+		}
+		if err := patternVariablesWithBudget(condition, vars, budget); err != nil {
+			return err
+		}
 		for name := range vars {
 			if old, ok := kinds[name]; ok && old != egraphcore.ClassValue {
 				return fmt.Errorf("egraph: rewrite %q variable %q has conflicting condition types", r.Name, name)
 			}
-			kinds[name] = egraphcore.ClassValue
+			if err := graphPut(budget, kinds, name, egraphcore.ClassValue); err != nil {
+				return err
+			}
 		}
 	}
 	if r.LHS != nil {
-		vars := make(map[string]bool)
-		patternVariables(r.LHS, vars)
+		vars, err := graphMap[string, bool](budget, 0)
+		if err != nil {
+			return err
+		}
+		if err := patternVariablesWithBudget(r.LHS, vars, budget); err != nil {
+			return err
+		}
 		for name := range vars {
-			kinds[name] = egraphcore.ClassValue
+			if err := graphPut(budget, kinds, name, egraphcore.ClassValue); err != nil {
+				return err
+			}
 		}
 	}
 	for i, atom := range atoms {
-		schema := atom.Relation.Schema()
+		schema, err := atom.Relation.SchemaWithBudget(budget)
+		if err != nil {
+			return err
+		}
 		if len(atom.Terms) != len(schema.Columns) {
 			return fmt.Errorf("egraph: rewrite %q relation condition %d has %d terms for %d columns", r.Name, i, len(atom.Terms), len(schema.Columns))
 		}
@@ -712,7 +815,9 @@ func validateRelationConditionTypes(g *EGraph, r *Rewrite, atoms []egraphcore.At
 				if old, ok := kinds[term.Name]; ok && old != kind {
 					return fmt.Errorf("egraph: rewrite %q variable %q has conflicting condition types", r.Name, term.Name)
 				}
-				kinds[term.Name] = kind
+				if err := graphPut(budget, kinds, term.Name, kind); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -721,7 +826,10 @@ func validateRelationConditionTypes(g *EGraph, r *Rewrite, atoms []egraphcore.At
 		if relation == nil {
 			return fmt.Errorf("egraph: rewrite %q references unknown relation action target %q", r.Name, action.Relation)
 		}
-		schema := relation.Schema()
+		schema, err := relation.SchemaWithBudget(budget)
+		if err != nil {
+			return err
+		}
 		if len(action.Terms) != len(schema.Columns) {
 			return fmt.Errorf("egraph: rewrite %q relation action %d has %d terms for %d columns", r.Name, i, len(action.Terms), len(schema.Columns))
 		}
@@ -743,9 +851,14 @@ func validateRelationConditionTypes(g *EGraph, r *Rewrite, atoms []egraphcore.At
 			}
 		}
 	}
-	rhs := make(map[string]bool)
+	rhs, err := graphMap[string, bool](budget, 0)
+	if err != nil {
+		return err
+	}
 	if r.RHS != nil {
-		patternVariables(r.RHS, rhs)
+		if err := patternVariablesWithBudget(r.RHS, rhs, budget); err != nil {
+			return err
+		}
 	}
 	for name := range rhs {
 		if kinds[name] != egraphcore.ClassValue {
@@ -790,12 +903,23 @@ func sharedBindingNames(left, right []egraphcore.Binding[Id], budget *egraphcore
 }
 
 func validatePatternTree(root *Pattern) error {
+	return validatePatternTreeWithBudget(root, nil)
+}
+
+func validatePatternTreeWithBudget(root *Pattern, budget *egraphcore.WorkBudget) error {
 	type entry struct {
 		pattern *Pattern
 		exit    bool
 	}
-	state := make(map[*Pattern]uint8)
-	stack := []entry{{pattern: root}}
+	state, err := graphMap[*Pattern, uint8](budget, 0)
+	if err != nil {
+		return err
+	}
+	stack, err := graphSlice[entry](budget, 1, 1)
+	if err != nil {
+		return err
+	}
+	stack[0] = entry{pattern: root}
 	for len(stack) > 0 {
 		last := len(stack) - 1
 		current := stack[last]
@@ -803,8 +927,13 @@ func validatePatternTree(root *Pattern) error {
 		if current.pattern == nil {
 			return fmt.Errorf("nil pattern node")
 		}
+		if budget.MemoryScope() != nil && current.pattern.HasData && dataComparisonAllocates(reflect.TypeOf(current.pattern.Data)) {
+			return fmt.Errorf("%w: reference payload comparison", ErrMemoryOperation)
+		}
 		if current.exit {
-			state[current.pattern] = 2
+			if err := graphPut(budget, state, current.pattern, uint8(2)); err != nil {
+				return err
+			}
 			continue
 		}
 		switch state[current.pattern] {
@@ -813,30 +942,52 @@ func validatePatternTree(root *Pattern) error {
 		case 2:
 			continue
 		}
-		state[current.pattern] = 1
+		if err := graphPut(budget, state, current.pattern, uint8(1)); err != nil {
+			return err
+		}
 		if current.pattern.IsVar && len(current.pattern.Children) != 0 {
 			return fmt.Errorf("variable pattern %q has children", current.pattern.Op)
 		}
-		stack = append(stack, entry{pattern: current.pattern, exit: true})
+		stack, err = graphAppend(budget, stack, entry{pattern: current.pattern, exit: true})
+		if err != nil {
+			return err
+		}
 		for i := len(current.pattern.Children) - 1; i >= 0; i-- {
-			stack = append(stack, entry{pattern: current.pattern.Children[i]})
+			stack, err = graphAppend(budget, stack, entry{pattern: current.pattern.Children[i]})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func patternVariables(root *Pattern, variables map[string]bool) {
-	stack := []*Pattern{root}
+	_ = patternVariablesWithBudget(root, variables, nil)
+}
+
+func patternVariablesWithBudget(root *Pattern, variables map[string]bool, budget *egraphcore.WorkBudget) error {
+	stack, err := graphSlice[*Pattern](budget, 1, 1)
+	if err != nil {
+		return err
+	}
+	stack[0] = root
 	for len(stack) > 0 {
 		last := len(stack) - 1
 		current := stack[last]
 		stack = stack[:last]
 		if current.IsVar {
-			variables[current.Op] = true
+			if err := graphPut(budget, variables, current.Op, true); err != nil {
+				return err
+			}
 			continue
 		}
-		stack = append(stack, current.Children...)
+		stack, err = graphAppend(budget, stack, current.Children...)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func patternWork(root *Pattern) (int, error) {

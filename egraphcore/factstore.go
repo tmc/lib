@@ -14,6 +14,45 @@ func NewFactStore[ID ~uint32]() *FactStore[ID] {
 	return &FactStore[ID]{relations: make(map[string]*Relation[ID])}
 }
 
+// CanonicalCopyWithBudget creates a detached canonical fact view. All created
+// objects, indexes, rows and keys reserve storage through budget before
+// allocation. Strings remain borrowed immutable values. The caller keeps the
+// budget's MemoryScope open while using the copy. The source is unchanged;
+// the copy starts a new delta epoch, like Recanonicalize.
+func (s *FactStore[ID]) CanonicalCopyWithBudget(canonicalize func(ID) ID, budget *WorkBudget) (*FactStore[ID], error) {
+	if canonicalize == nil {
+		return nil, ErrMissingCanonicalizer
+	}
+	count := 0
+	if s != nil {
+		count = len(s.relations)
+	}
+	if !spend(budget, count) {
+		return nil, ErrMatchWorkLimit
+	}
+	relations, ok := memoryMap[string, *Relation[ID]](budget, count)
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	copy, ok := memoryObject(budget, FactStore[ID]{relations: relations})
+	if !ok {
+		return nil, budget.MemoryError()
+	}
+	if s == nil {
+		return copy, nil
+	}
+	for name, relation := range s.relations {
+		copied, err := relation.canonicalCopyWithBudget(canonicalize, budget)
+		if err != nil {
+			return nil, err
+		}
+		if !memoryPut(budget, relations, name, copied) {
+			return nil, budget.MemoryError()
+		}
+	}
+	return copy, nil
+}
+
 // Register adds schema to the store. Re-registering an identical schema is
 // idempotent and returns the existing relation; a conflicting schema fails.
 func (s *FactStore[ID]) Register(schema Schema) (*Relation[ID], error) {

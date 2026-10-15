@@ -13,7 +13,10 @@ type JoinOrderCondition struct {
 // set. Original condition index breaks ties, so plans are deterministic. The
 // input slices are not modified. A nil budget is unlimited.
 func PlanJoinOrder(boundVariables []string, conditions []JoinOrderCondition, budget *WorkBudget) ([]int, error) {
-	bound := make(map[string]struct{}, len(boundVariables))
+	bound, ok := memoryMap[string, struct{}](budget, len(boundVariables))
+	if !ok {
+		return nil, budget.MemoryError()
+	}
 	for _, name := range boundVariables {
 		if !spend(budget, 1) {
 			return nil, ErrMatchWorkLimit
@@ -21,16 +24,24 @@ func PlanJoinOrder(boundVariables []string, conditions []JoinOrderCondition, bud
 		if name == "" {
 			return nil, ErrInvalidJoin
 		}
-		bound[name] = struct{}{}
+		if !memoryPut(budget, bound, name, struct{}{}) {
+			return nil, budget.MemoryError()
+		}
 	}
-	remaining := make([]bool, len(conditions))
+	remaining, ok := memorySlice[bool](budget, len(conditions), len(conditions))
+	if !ok {
+		return nil, budget.MemoryError()
+	}
 	for i, condition := range conditions {
 		if condition.Cardinality < 0 {
 			return nil, ErrInvalidJoin
 		}
 		remaining[i] = true
 	}
-	order := make([]int, 0, len(conditions))
+	order, ok := memorySlice[int](budget, 0, len(conditions))
+	if !ok {
+		return nil, budget.MemoryError()
+	}
 	for len(order) < len(conditions) {
 		selected := -1
 		selectedShared := -1
@@ -40,7 +51,10 @@ func PlanJoinOrder(boundVariables []string, conditions []JoinOrderCondition, bud
 				continue
 			}
 			shared := 0
-			seen := make(map[string]struct{}, len(condition.Variables))
+			seen, ok := memoryMap[string, struct{}](budget, len(condition.Variables))
+			if !ok {
+				return nil, budget.MemoryError()
+			}
 			for _, name := range condition.Variables {
 				if !spend(budget, 1) {
 					return nil, ErrMatchWorkLimit
@@ -51,7 +65,9 @@ func PlanJoinOrder(boundVariables []string, conditions []JoinOrderCondition, bud
 				if _, duplicate := seen[name]; duplicate {
 					continue
 				}
-				seen[name] = struct{}{}
+				if !memoryPut(budget, seen, name, struct{}{}) {
+					return nil, budget.MemoryError()
+				}
 				if _, ok := bound[name]; ok {
 					shared++
 				}
@@ -68,7 +84,9 @@ func PlanJoinOrder(boundVariables []string, conditions []JoinOrderCondition, bud
 		remaining[selected] = false
 		order = append(order, selected)
 		for _, name := range conditions[selected].Variables {
-			bound[name] = struct{}{}
+			if !memoryPut(budget, bound, name, struct{}{}) {
+				return nil, budget.MemoryError()
+			}
 		}
 	}
 	return order, nil

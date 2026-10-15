@@ -8,6 +8,7 @@ type WorkBudget struct {
 	limit     int
 	used      int
 	exhausted bool
+	memory    *MemoryScope
 }
 
 // NewWorkBudget creates a work budget. A positive limit bounds TrySpend;

@@ -15,6 +15,41 @@ func NewValueIndex[ID ~uint32](columnCount int) *ValueIndex[ID] {
 	return &ValueIndex[ID]{columns: make([]map[Value[ID]]map[string]struct{}, columnCount)}
 }
 
+func newValueIndexWithBudget[ID ~uint32](columnCount int, budget *WorkBudget) (*ValueIndex[ID], bool) {
+	columns, ok := memorySlice[map[Value[ID]]map[string]struct{}](budget, columnCount, columnCount)
+	if !ok {
+		return nil, false
+	}
+	return memoryObject(budget, ValueIndex[ID]{columns: columns})
+}
+
+func (index *ValueIndex[ID]) addWithBudget(row []Value[ID], key string, budget *WorkBudget) bool {
+	if index == nil || len(row) != len(index.columns) {
+		return false
+	}
+	for column, value := range row {
+		if index.columns[column] == nil {
+			values, ok := memoryMap[Value[ID], map[string]struct{}](budget, 0)
+			if !ok {
+				return false
+			}
+			index.columns[column] = values
+		}
+		keys := index.columns[column][value]
+		if keys == nil {
+			var ok bool
+			keys, ok = memoryMap[string, struct{}](budget, 0)
+			if !ok || !memoryPut(budget, index.columns[column], value, keys) {
+				return false
+			}
+		}
+		if !memoryPut(budget, keys, key, struct{}{}) {
+			return false
+		}
+	}
+	return true
+}
+
 // Add records key in the index for every value in row. It returns false when
 // the row has the wrong number of columns or the index is nil.
 func (index *ValueIndex[ID]) Add(row []Value[ID], key string) bool {

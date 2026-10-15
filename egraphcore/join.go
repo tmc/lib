@@ -1,6 +1,9 @@
 package egraphcore
 
-import "errors"
+import (
+	"errors"
+	"math"
+)
 
 // ErrInvalidJoin reports an invalid atom or binding join.
 var ErrInvalidJoin = errors.New("egraphcore: invalid relation join")
@@ -55,6 +58,11 @@ type Binding[ID ~uint32] map[string]Value[ID]
 // class-valued columns. If work runs out, it returns no partial bindings and
 // complete=false. A nil budget is unlimited.
 func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBudget) (results []Binding[ID], complete bool, err error) {
+	defer func() {
+		if memoryErr := budget.MemoryError(); memoryErr != nil {
+			results, complete, err = nil, false, memoryErr
+		}
+	}()
 	if canonicalize == nil {
 		return nil, false, ErrInvalidJoin
 	}
@@ -68,10 +76,14 @@ func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBu
 			}
 		}
 	}
-	if !validJoin(atoms) {
+	if !validJoinWithBudget(atoms, budget) {
 		return nil, false, ErrInvalidJoin
 	}
-	ordered := append([]Atom[ID](nil), atoms...)
+	ordered, ok := memorySlice[Atom[ID]](budget, len(atoms), len(atoms))
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
+	copy(ordered, atoms)
 	// Use a budgeted stable insertion sort. Stable order preserves source order
 	// for equally sized relations; a dynamic selective order is chosen below.
 	for i := 1; i < len(ordered); i++ {
@@ -97,8 +109,11 @@ func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBu
 			ordered[j] = item
 		}
 	}
-	bindings := make([]Binding[ID], 0)
-	seen := make(map[string]struct{})
+	var bindings []Binding[ID]
+	seen, ok := memoryMap[string, struct{}](budget, 0)
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	var visit func([]Atom[ID], Binding[ID]) bool
 	visit = func(remaining []Atom[ID], binding Binding[ID]) bool {
 		if len(remaining) == 0 {
@@ -115,12 +130,22 @@ func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBu
 			if !spend(budget, 1) {
 				return false
 			}
-			seen[key] = struct{}{}
-			copy := make(Binding[ID], len(binding))
-			for name, value := range binding {
-				copy[name] = value
+			if !memoryPut(budget, seen, key, struct{}{}) {
+				return false
 			}
-			bindings = append(bindings, copy)
+			copied, ok := memoryMap[string, Value[ID]](budget, len(binding))
+			if !ok {
+				return false
+			}
+			for name, value := range binding {
+				if !memoryPut(budget, copied, name, value) {
+					return false
+				}
+			}
+			bindings, ok = memoryAppend(budget, bindings, Binding[ID](copied))
+			if !ok {
+				return false
+			}
 			return true
 		}
 		best := 0
@@ -145,19 +170,27 @@ func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBu
 		if !spend(budget, len(remaining)-1) {
 			return false
 		}
-		nextAtoms := make([]Atom[ID], 0, len(remaining)-1)
+		nextAtoms, ok := memorySlice[Atom[ID]](budget, 0, len(remaining)-1)
+		if !ok {
+			return false
+		}
 		nextAtoms = append(nextAtoms, remaining[:best]...)
 		nextAtoms = append(nextAtoms, remaining[best+1:]...)
 		for _, row := range rows {
 			if !spend(budget, len(row)+1) {
 				return false
 			}
-			next := make(Binding[ID], len(binding)+len(atom.Terms))
+			next, ok := memoryMap[string, Value[ID]](budget, len(binding)+len(atom.Terms))
+			if !ok {
+				return false
+			}
 			for name, value := range binding {
 				if !spend(budget, 1) {
 					return false
 				}
-				next[name] = value
+				if !memoryPut(budget, next, name, value) {
+					return false
+				}
 			}
 			match := true
 			for column, term := range atom.Terms {
@@ -170,7 +203,9 @@ func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBu
 						break
 					}
 				} else {
-					next[term.Name] = row[column]
+					if !memoryPut(budget, next, term.Name, row[column]) {
+						return false
+					}
 				}
 			}
 			if match && !visit(nextAtoms, next) {
@@ -179,7 +214,11 @@ func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBu
 		}
 		return true
 	}
-	if !visit(ordered, make(Binding[ID])) {
+	initial, ok := memoryMap[string, Value[ID]](budget, 0)
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
+	if !visit(ordered, initial) {
 		if err != nil {
 			return nil, false, err
 		}
@@ -197,6 +236,11 @@ func Join[ID ~uint32](atoms []Atom[ID], canonicalize func(ID) ID, budget *WorkBu
 // budget exhaustion it returns no partial output and complete=false. A nil
 // budget is unlimited.
 func JoinBindings[ID ~uint32](left, right []Binding[ID], rightKeys []string, canonicalize func(ID) ID, budget *WorkBudget) (results []Binding[ID], complete bool, err error) {
+	defer func() {
+		if memoryErr := budget.MemoryError(); memoryErr != nil {
+			results, complete, err = nil, false, memoryErr
+		}
+	}()
 	if canonicalize == nil {
 		return nil, false, ErrInvalidJoin
 	}
@@ -224,7 +268,10 @@ func JoinBindings[ID ~uint32](left, right []Binding[ID], rightKeys []string, can
 	if !sortBindingRows(leftRows, budget) || !sortBindingRows(rightRows, budget) {
 		return nil, false, nil
 	}
-	index := make(map[string][]bindingRow[ID])
+	index, ok := memoryMap[string, []bindingRow[ID]](budget, 0)
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	for _, row := range rightRows {
 		key, present, workOK := selectedBindingKey(row.binding, keys, budget)
 		if !workOK {
@@ -236,9 +283,15 @@ func JoinBindings[ID ~uint32](left, right []Binding[ID], rightKeys []string, can
 		if !spend(budget, 1) {
 			return nil, false, nil
 		}
-		index[key] = append(index[key], row)
+		bucket, ok := memoryAppend(budget, index[key], row)
+		if !ok || !memoryPut(budget, index, key, bucket) {
+			return nil, false, budget.MemoryError()
+		}
 	}
-	seen := make(map[string]struct{})
+	seen, ok := memoryMap[string, struct{}](budget, 0)
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	for _, lrow := range leftRows {
 		key, present, workOK := selectedBindingKey(lrow.binding, keys, budget)
 		if !workOK {
@@ -268,11 +321,19 @@ func JoinBindings[ID ~uint32](left, right []Binding[ID], rightKeys []string, can
 			if !spend(budget, 1) {
 				return nil, false, nil
 			}
-			seen[mergeKey] = struct{}{}
-			results = append(results, merged)
+			if !memoryPut(budget, seen, mergeKey, struct{}{}) {
+				return nil, false, budget.MemoryError()
+			}
+			results, ok = memoryAppend(budget, results, merged)
+			if !ok {
+				return nil, false, budget.MemoryError()
+			}
 		}
 	}
-	resultRows := make([]bindingRow[ID], len(results))
+	resultRows, ok := memorySlice[bindingRow[ID]](budget, len(results), len(results))
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	for i, binding := range results {
 		key, workOK := bindingKey(binding, budget)
 		if !workOK {
@@ -283,7 +344,10 @@ func JoinBindings[ID ~uint32](left, right []Binding[ID], rightKeys []string, can
 	if !sortBindingRows(resultRows, budget) {
 		return nil, false, nil
 	}
-	results = make([]Binding[ID], len(resultRows))
+	results, ok = memorySlice[Binding[ID]](budget, len(resultRows), len(resultRows))
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	for i, row := range resultRows {
 		if !spend(budget, 1) {
 			return nil, false, nil
@@ -299,7 +363,10 @@ type bindingRow[ID ~uint32] struct {
 }
 
 func normalizeJoinKeys(keys []string, budget *WorkBudget) ([]string, bool) {
-	out := make([]string, len(keys))
+	out, ok := memorySlice[string](budget, len(keys), len(keys))
+	if !ok {
+		return nil, false
+	}
 	copy(out, keys)
 	for _, key := range out {
 		if !spend(budget, 1) {
@@ -321,12 +388,18 @@ func normalizeJoinKeys(keys []string, budget *WorkBudget) ([]string, bool) {
 }
 
 func prepareBindings[ID ~uint32](input []Binding[ID], canonicalize func(ID) ID, budget *WorkBudget) ([]bindingRow[ID], bool, error) {
-	rows := make([]bindingRow[ID], 0, len(input))
+	rows, ok := memorySlice[bindingRow[ID]](budget, 0, len(input))
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	for _, binding := range input {
 		if !spend(budget, 1) {
 			return nil, false, nil
 		}
-		normalized := make(Binding[ID], len(binding))
+		normalized, ok := memoryMap[string, Value[ID]](budget, len(binding))
+		if !ok {
+			return nil, false, budget.MemoryError()
+		}
 		for name, value := range binding {
 			if !spend(budget, 1) {
 				return nil, false, nil
@@ -338,7 +411,9 @@ func prepareBindings[ID ~uint32](input []Binding[ID], canonicalize func(ID) ID, 
 			if !ok {
 				return nil, false, ErrInvalidJoin
 			}
-			normalized[name] = value
+			if !memoryPut(budget, normalized, name, value) {
+				return nil, false, budget.MemoryError()
+			}
 		}
 		key, ok := bindingKey(normalized, budget)
 		if !ok {
@@ -380,7 +455,10 @@ func sortBindingRows[ID ~uint32](rows []bindingRow[ID], budget *WorkBudget) bool
 	if n < 2 {
 		return true
 	}
-	tmp := make([]bindingRow[ID], n)
+	tmp, ok := memorySlice[bindingRow[ID]](budget, n, n)
+	if !ok {
+		return false
+	}
 	for width := 1; width < n; width *= 2 {
 		for lo := 0; lo < n; lo += 2 * width {
 			mid, hi := lo+width, lo+2*width
@@ -433,7 +511,13 @@ func sortBindingRows[ID ~uint32](rows []bindingRow[ID], budget *WorkBudget) bool
 }
 
 func selectedBindingKey[ID ~uint32](binding Binding[ID], keys []string, budget *WorkBudget) (string, bool, bool) {
-	values := make([]Value[ID], 0, len(keys)*2)
+	if len(keys) > math.MaxInt/2 {
+		return "", false, false
+	}
+	values, ok := memorySlice[Value[ID]](budget, 0, len(keys)*2)
+	if !ok {
+		return "", false, false
+	}
 	for _, name := range keys {
 		if !spend(budget, 1) {
 			return "", false, false
@@ -447,16 +531,22 @@ func selectedBindingKey[ID ~uint32](binding Binding[ID], keys []string, budget *
 	if !spend(budget, len(values)) {
 		return "", false, false
 	}
-	return tupleKey(values), true, true
+	key, ok := tupleKeyWithBudget(values, budget)
+	return key, true, ok
 }
 
 func mergeBindings[ID ~uint32](left, right Binding[ID], canonicalize func(ID) ID, budget *WorkBudget) (Binding[ID], bool, bool) {
-	merged := make(Binding[ID], len(left)+len(right))
+	merged, ok := memoryMap[string, Value[ID]](budget, len(left)+len(right))
+	if !ok {
+		return nil, false, false
+	}
 	for name, value := range left {
 		if !spend(budget, 1) {
 			return nil, false, false
 		}
-		merged[name] = value
+		if !memoryPut(budget, merged, name, value) {
+			return nil, false, false
+		}
 	}
 	for name, value := range right {
 		if !spend(budget, 1) {
@@ -471,18 +561,27 @@ func mergeBindings[ID ~uint32](left, right Binding[ID], canonicalize func(ID) ID
 				return nil, false, true
 			}
 		} else {
-			merged[name] = value
+			if !memoryPut(budget, merged, name, value) {
+				return nil, false, false
+			}
 		}
 	}
 	return merged, true, true
 }
 
 func validJoin[ID ~uint32](atoms []Atom[ID]) bool {
+	return validJoinWithBudget(atoms, nil)
+}
+
+func validJoinWithBudget[ID ~uint32](atoms []Atom[ID], budget *WorkBudget) bool {
 	type variableType struct {
 		kind ValueKind
 		sort string
 	}
-	variableTypes := make(map[string]variableType)
+	variableTypes, ok := memoryMap[string, variableType](budget, 0)
+	if !ok {
+		return false
+	}
 	for _, atom := range atoms {
 		if atom.Relation == nil || len(atom.Terms) != len(atom.Relation.schema.Columns) {
 			return false
@@ -505,9 +604,13 @@ func validJoin[ID ~uint32](atoms []Atom[ID]) bool {
 					if previous.sort == "" {
 						previous.sort = columnType.Sort
 					}
-					variableTypes[term.Name] = previous
+					if !memoryPut(budget, variableTypes, term.Name, previous) {
+						return false
+					}
 				} else {
-					variableTypes[term.Name] = variableType{kind: columnType.Kind, sort: columnType.Sort}
+					if !memoryPut(budget, variableTypes, term.Name, variableType{kind: columnType.Kind, sort: columnType.Sort}) {
+						return false
+					}
 				}
 			case ConstantTerm:
 				if term.Name != "" || term.Value.Kind != atom.Relation.schema.Columns[column].Kind {
@@ -522,7 +625,10 @@ func validJoin[ID ~uint32](atoms []Atom[ID]) bool {
 }
 
 func queryAtom[ID ~uint32](atom Atom[ID], binding Binding[ID], canonicalize func(ID) ID, budget *WorkBudget) ([][]Value[ID], bool, error) {
-	filters := make([]Filter[ID], 0, len(atom.Terms))
+	filters, ok := memorySlice[Filter[ID]](budget, 0, len(atom.Terms))
+	if !ok {
+		return nil, false, budget.MemoryError()
+	}
 	for column, term := range atom.Terms {
 		if !spend(budget, 1) {
 			return nil, false, nil
@@ -565,7 +671,10 @@ func queryAtom[ID ~uint32](atom Atom[ID], binding Binding[ID], canonicalize func
 }
 
 func bindingKey[ID ~uint32](binding Binding[ID], budget *WorkBudget) (string, bool) {
-	names := make([]string, 0, len(binding))
+	names, ok := memorySlice[string](budget, 0, len(binding))
+	if !ok {
+		return "", false
+	}
 	for name := range binding {
 		if !spend(budget, 1) {
 			return "", false
@@ -575,7 +684,13 @@ func bindingKey[ID ~uint32](binding Binding[ID], budget *WorkBudget) (string, bo
 	if !sortKeys(names, budget) {
 		return "", false
 	}
-	values := make([]Value[ID], 0, len(names))
+	if len(names) > math.MaxInt/2 {
+		return "", false
+	}
+	values, ok := memorySlice[Value[ID]](budget, 0, 2*len(names))
+	if !ok {
+		return "", false
+	}
 	for _, name := range names {
 		// Names are length-prefixed to avoid ambiguous concatenations.
 		if !spend(budget, 2) {
@@ -587,7 +702,7 @@ func bindingKey[ID ~uint32](binding Binding[ID], budget *WorkBudget) (string, bo
 	if !spend(budget, len(values)) {
 		return "", false
 	}
-	return tupleKey(values), true
+	return tupleKeyWithBudget(values, budget)
 }
 
 func spend(budget *WorkBudget, units int) bool {

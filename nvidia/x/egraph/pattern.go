@@ -132,28 +132,29 @@ func (p *Pattern) SearchWithBudget(g *EGraph, budget *egraphcore.WorkBudget) ([]
 	if p == nil || g == nil || budget == nil {
 		return nil, egraphcore.ErrInvalidPattern
 	}
-	if err := validatePatternTree(p); err != nil {
+	if err := validatePatternTreeWithBudget(p, budget); err != nil {
 		return nil, fmt.Errorf("egraph: invalid pattern: %w", err)
 	}
-	if err := g.RebuildChecked(); err != nil {
+	view, err := matchingView(g, budget)
+	if err != nil {
 		return nil, fmt.Errorf("egraph: rebuild before search: %w", err)
 	}
+	g = view
 	classCount := g.storage().ClassCount()
 	sortWork := classCount
 	if classCount > 1 {
 		levels := bits.Len(uint(classCount))
 		if classCount > math.MaxInt/(2*levels) {
-			return nil, ErrMatchWorkLimit
+			return nil, matchingError(budget)
 		}
 		sortWork = 2 * classCount * levels
 	}
 	if !budget.TrySpend(sortWork) {
-		return nil, ErrMatchWorkLimit
+		return nil, matchingError(budget)
 	}
-	classes := g.classes()
-	roots := make([]Id, len(classes))
-	for i, class := range classes {
-		roots[i] = class.ID
+	roots, err := matchingRoots(g, budget)
+	if err != nil {
+		return nil, err
 	}
 	maxMatches := 0
 	if remaining := budget.Remaining(); remaining < int(^uint(0)>>1) {
@@ -161,16 +162,16 @@ func (p *Pattern) SearchWithBudget(g *EGraph, budget *egraphcore.WorkBudget) ([]
 	}
 	matches, limited, err := p.searchCore(g, roots, budget, maxMatches)
 	if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
-		return nil, ErrMatchWorkLimit
+		return nil, matchingError(budget)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if limited {
-		return nil, ErrMatchWorkLimit
+		return nil, matchingError(budget)
 	}
 	if !budget.TrySpend(len(matches)) {
-		return nil, ErrMatchWorkLimit
+		return nil, matchingError(budget)
 	}
 	return matches, nil
 }
@@ -207,28 +208,29 @@ func (p *Pattern) SearchBoundedWithBudget(g *EGraph, limit int, budget *egraphco
 	if p == nil || g == nil || budget == nil {
 		return nil, false, egraphcore.ErrInvalidPattern
 	}
-	if err := validatePatternTree(p); err != nil {
+	if err := validatePatternTreeWithBudget(p, budget); err != nil {
 		return nil, false, err
 	}
-	if err := g.RebuildChecked(); err != nil {
+	view, err := matchingView(g, budget)
+	if err != nil {
 		return nil, false, fmt.Errorf("egraph: rebuild before bounded search: %w", err)
 	}
+	g = view
 	classCount := g.storage().ClassCount()
 	sortWork := classCount
 	if classCount > 1 {
 		levels := bits.Len(uint(classCount))
 		if classCount > math.MaxInt/(2*levels) {
-			return nil, false, ErrMatchWorkLimit
+			return nil, false, matchingError(budget)
 		}
 		sortWork = 2 * classCount * levels
 	}
 	if !budget.TrySpend(sortWork) {
-		return nil, false, ErrMatchWorkLimit
+		return nil, false, matchingError(budget)
 	}
-	classes := g.classes()
-	roots := make([]Id, len(classes))
-	for i, class := range classes {
-		roots[i] = class.ID
+	roots, err := matchingRoots(g, budget)
+	if err != nil {
+		return nil, false, err
 	}
 	maxMatches := limit
 	if limit < math.MaxInt {
@@ -239,12 +241,12 @@ func (p *Pattern) SearchBoundedWithBudget(g *EGraph, limit int, budget *egraphco
 	matches, limited, err := p.searchCore(g, roots, budget, maxMatches)
 	if err != nil {
 		if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
-			return nil, false, ErrMatchWorkLimit
+			return nil, false, matchingError(budget)
 		}
 		return nil, false, err
 	}
 	if !budget.TrySpend(len(matches)) {
-		return nil, false, ErrMatchWorkLimit
+		return nil, false, matchingError(budget)
 	}
 	if limited {
 		return matches[:limit], true, nil
@@ -259,11 +261,19 @@ func (p *Pattern) searchCore(g *EGraph, roots []Id, budget *egraphcore.WorkBudge
 	if err != nil {
 		return nil, false, err
 	}
-	converted := make([]MatchMatch, len(matches))
+	converted, err := graphSlice[MatchMatch](budget, len(matches), len(matches))
+	if err != nil {
+		return nil, false, err
+	}
 	for i, match := range matches {
-		binding := make(egraphcore.Binding[Id], len(match.Subst))
+		binding, err := graphMap[string, egraphcore.Value[Id]](budget, len(match.Subst))
+		if err != nil {
+			return nil, false, err
+		}
 		for name, id := range match.Subst {
-			binding[name] = egraphcore.Class(id)
+			if err := graphPut(budget, binding, name, egraphcore.Class(id)); err != nil {
+				return nil, false, err
+			}
 		}
 		converted[i] = MatchMatch{ClassID: match.ClassID, Subst: Subst(match.Subst), Binding: binding}
 	}
