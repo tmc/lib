@@ -1298,10 +1298,11 @@ func TestReleaseErrorOwner(t *testing.T) {
 // TestGenReleasesCompileError counts and checks: gen.go builds alone and
 // cannot call releaseErrorOwner.
 var loadCalls = map[string]callCount{
-	"main.go":                   {5, 5},
-	"fused_parity_cuda_test.go": {4, 4},
-	"bf16_parity_cuda_test.go":  {4, 4},
-	"gpu_kernels.go":            {2, 2},
+	"main.go":                         {5, 5},
+	"fused_parity_cuda_test.go":       {4, 4},
+	"bf16_parity_cuda_test.go":        {4, 4},
+	"context_experiment_cuda_test.go": {2, 2},
+	"gpu_kernels.go":                  {2, 2},
 }
 
 // TestCallErrorsReleased checks that every module compile and load in the
