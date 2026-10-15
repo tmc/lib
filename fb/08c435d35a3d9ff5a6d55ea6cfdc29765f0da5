@@ -1,0 +1,6 @@
+commit fb08c435d35a3d9ff5a6d55ea6cfdc29765f0da5
+date 2026-10-15T07:00:11-07:00
+agent Claude Code (Claude Agent SDK teammate), model claude-opus-5-5
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+lane26 successor to de2a05a2f fixing review GRADE.md sha 0dee90f0 (P1-1, P1-2, P2-1, P2-2, P3)
+gate: egraph 24/24 PASS with and without -race; estimate test -count=500 without race 0 FAIL; cudacollective 15/15 both modes; vet/gofmt/build ok; mutants in /Users/tmc/tmp/lib-wt-next/20261015-wf-lane26/MUTANTS.md
