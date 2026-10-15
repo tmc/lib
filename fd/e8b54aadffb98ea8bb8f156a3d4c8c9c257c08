@@ -1,0 +1,7 @@
+Commit: fde8b54aadffb98ea8bb8f156a3d4c8c9c257c08
+Date: 2026-10-15T05:19:52-07:00
+Evidence: verified-source prefix v2 RECEIPT 7a288024 (18 L4 arms, 7/7 mutants), adversarial verify accept; locked landing checks source-owner-land/check.log
+Authorized-by: root CC24097B relayed collab-msg
+Claude-Code: 2.1.284 (Claude Code); model claude-opus-5-5; tty not a tty
+none; pid 33731; ITERM_SESSION_ID=w5t2p1:2DFCEE41-F8CC-48A0-BEEF-821ED8C38766
+session=92385c74-9d24-496f-8b25-f083f27c346b
