@@ -41,7 +41,9 @@ type InstructionMix struct {
 	Counts map[cudaroofline.Precision]uint64
 }
 
-// Total returns the number of counted instructions.
+// Total returns the sum of the instruction counts modulo 2^64.
+// It cannot report overflow; use Dominant or AttributeFromMix when a validated
+// total is needed for attribution.
 func (m InstructionMix) Total() uint64 {
 	var n uint64
 	for _, c := range m.Counts {
@@ -51,11 +53,17 @@ func (m InstructionMix) Total() uint64 {
 }
 
 // Dominant returns the precision holding the largest share of the mix, and that
-// share. It reports an error for an empty mix, and for a tie, which is a real
-// outcome for a kernel that runs two formats in equal measure and must not be
-// resolved by map iteration order.
+// share in (0, 1]. It reports an error if the total overflows uint64, the mix
+// is empty, or the largest counts tie. A tie must not be resolved by map
+// iteration order.
 func (m InstructionMix) Dominant() (cudaroofline.Precision, float64, error) {
-	total := m.Total()
+	var total uint64
+	for _, c := range m.Counts {
+		if c > math.MaxUint64-total {
+			return "", 0, fmt.Errorf("cudacensus: instruction mix total overflows uint64")
+		}
+		total += c
+	}
 	if total == 0 {
 		return "", 0, fmt.Errorf("cudacensus: empty instruction mix")
 	}
