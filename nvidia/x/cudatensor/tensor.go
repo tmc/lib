@@ -214,7 +214,7 @@ func (t Tensor) withBinary(op string, other Tensor) Tensor {
 	return Tensor{
 		graph: t.graph,
 		node:  n,
-		shape: append([]int(nil), t.shape...),
+		shape: append([]int(nil), n.Shape...),
 		dtype: t.dtype,
 	}
 }
