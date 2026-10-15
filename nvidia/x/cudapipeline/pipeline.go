@@ -60,9 +60,9 @@ func (t *BarrierTracker) ValidateKernel(k *cudaptx.Kernel) ([]ValidationError, e
 	t.Reset()
 	var violations []ValidationError
 
-	// Control-flow audit: unstructured branches, loops, or backward jumps across
-	// barrier protocol sequences cannot guarantee static phase parity or transaction balance,
-	// and must be reported as unsupported/unverified control flow.
+	// The parsed instruction list does not retain labels. It cannot prove a
+	// branch target or backedge, including the loops produced by EmitWaitLoop.
+	// Report those protocols as unsupported rather than trusting label spelling.
 	hasBarrierOps := false
 	for _, inst := range k.Instructions {
 		if strings.HasPrefix(inst.Opcode, "mbarrier.") || strings.HasPrefix(inst.Opcode, "cp.async.bulk") {
@@ -72,25 +72,22 @@ func (t *BarrierTracker) ValidateKernel(k *cudaptx.Kernel) ([]ValidationError, e
 	}
 	if hasBarrierOps {
 		for idx, inst := range k.Instructions {
-			// Check for branches/jumps across barrier sequences
-			if strings.HasPrefix(inst.Opcode, "bra") || strings.HasPrefix(inst.Opcode, "call") || (strings.HasPrefix(inst.Opcode, "ret") && idx < len(k.Instructions)-1) {
-				// We permit spin-wait loops like @!p bra wait_loop, but arbitrary control flow around
-				// stages or barrier transitions is unsupported.
-				if strings.HasPrefix(inst.Opcode, "bra") {
-					operands := cudaptx.SplitOperands(inst.Operands)
-					if len(operands) > 0 {
-						target := strings.TrimSpace(operands[0])
-						if !strings.Contains(target, "wait") && !strings.Contains(target, "spin") {
-							violations = append(violations, ValidationError{
-								Line:      inst.Line,
-								Opcode:    inst.Opcode,
-								Violation: ErrUnsupportedControlFlow,
-								Message:   fmt.Sprintf("branch to %q introduces unsupported control flow across pipeline barrier protocol", target),
-							})
-						}
-					}
+			op, _, _ := strings.Cut(inst.Opcode, ".")
+			switch op {
+			case "bra", "brx", "call":
+			case "ret", "exit":
+				if idx == len(k.Instructions)-1 && inst.Predicate == "" {
+					continue
 				}
+			default:
+				continue
 			}
+			violations = append(violations, ValidationError{
+				Line:      inst.Line,
+				Opcode:    inst.Opcode,
+				Violation: ErrUnsupportedControlFlow,
+				Message:   "instruction-only analysis cannot verify control flow across the barrier protocol",
+			})
 		}
 	}
 
