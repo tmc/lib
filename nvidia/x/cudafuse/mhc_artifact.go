@@ -1,7 +1,9 @@
 package cudafuse
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -30,15 +32,28 @@ func CompileMHC(c MHCConfig, major, minor int) ([2]*cudakernel.Artifact, error) 
 		if err != nil {
 			return out, fmt.Errorf("cudafuse: compile mhc %s: %w", s.Name, err)
 		}
-		names := append(append([]string(nil), s.Inputs...), s.Outputs...)
-		schema, err := mhcSchema(names)
-		if err != nil {
-			return out, err
-		}
-		out[i], err = cm.ToArtifact(s.Name, schema, fmt.Sprintf("compute_%d%d", major, minor))
+		out[i], err = mhcModuleArtifact(cm, s, major, minor)
 		if err != nil {
 			return out, err
 		}
 	}
 	return out, nil
+}
+
+func compileMHCArtifact(ctx context.Context, s FusedKernel, major, minor int, opts ...nvrtcx.Option) (*cudakernel.Artifact, string, error) {
+	cm, err := nvrtcx.CompileContext(ctx, s.Source, opts...)
+	if err != nil {
+		return nil, "", err
+	}
+	art, err := mhcModuleArtifact(cm, s, major, minor)
+	return art, cm.Key(), err
+}
+
+func mhcModuleArtifact(cm *nvrtcx.CompiledModule, s FusedKernel, major, minor int) (*cudakernel.Artifact, error) {
+	names := append(append([]string(nil), s.Inputs...), s.Outputs...)
+	schema, err := mhcSchema(names)
+	if err != nil {
+		return nil, err
+	}
+	return cm.ToArtifact(s.Name, schema, fmt.Sprintf("compute_%d%d", major, minor))
 }
