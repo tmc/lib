@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
-
-	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
 // These waits check the controller independently of protocol progress. An
@@ -104,16 +102,30 @@ func recordedExpectOwned(ctx context.Context, conn *net.UnixConn, config recorde
 }
 
 func recordedLockOwner(config recordedConfig, holder recordedProcess) error {
+	_, err := recordedReadLockOwner(config, holder, "")
+	return err
+}
+
+func recordedReadLockOwner(config recordedConfig, holder recordedProcess, token string) (recordedLeaseOwner, error) {
 	body, err := recordedReadRegular(filepath.Join(config.LockDirectory, "owner"), 8192)
 	if err != nil {
-		return err
+		return recordedLeaseOwner{}, err
 	}
-	owner, err := cudalock.ParseOwner(body)
-	host, hostErr := os.Hostname()
-	if err != nil || hostErr != nil || owner.PID != holder.PID || owner.Host != host || !recordedAlive(holder) {
-		return fmt.Errorf("recorded helper: actual lock owner mismatch")
+	host, err := os.Hostname()
+	if err != nil {
+		return recordedLeaseOwner{}, err
 	}
-	return nil
+	owner, err := recordedScriptOwner(body, holder.PID, host, config.Label)
+	if err != nil {
+		return recordedLeaseOwner{}, err
+	}
+	if !recordedAlive(holder) {
+		return recordedLeaseOwner{}, fmt.Errorf("recorded helper: actual holder process changed")
+	}
+	if err := recordedLeaseMatches(owner, token, int64(config.Expected/time.Second), int64(config.Limits.Lease/time.Second)); err != nil {
+		return recordedLeaseOwner{}, err
+	}
+	return owner, nil
 }
 
 func recordedKeeper(ctx context.Context, config recordedConfig, path, digest string) (retErr error) {
@@ -158,6 +170,7 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 	var supervisor *net.UnixConn
 	var worker *net.UnixConn
 	var groups []int
+	var lease recordedLeaseOwner
 	// Cleanup remains independent of canceled operation contexts. The result
 	// refuses incomplete group retirement, literal status or pipe drain.
 	defer func() {
@@ -198,10 +211,7 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 		if holder != nil {
 			body, ownerErr := recordedReadRegular(filepath.Join(config.LockDirectory, "owner"), 8192)
 			if ownerErr == nil {
-				owner, parseErr := cudalock.ParseOwner(body)
-				if parseErr != nil || owner.PID == holder.identity.PID {
-					cleanupErr = errors.Join(cleanupErr, fmt.Errorf("recorded helper: owned lease not released"))
-				}
+				cleanupErr = errors.Join(cleanupErr, recordedLeaseRetired(body, holder.identity.PID, lease.token))
 			} else if !errors.Is(ownerErr, os.ErrNotExist) {
 				cleanupErr = errors.Join(cleanupErr, ownerErr)
 			}
@@ -270,7 +280,8 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 	result.Custody.Phase = "supervisor-observed"
 	result.Custody.SupervisorCreation = "observed"
 	groups = append(groups, s.Group)
-	if err := recordedLockOwner(config, holder.identity); err != nil {
+	lease, err = recordedReadLockOwner(config, holder.identity, "")
+	if err != nil {
 		return err
 	}
 	admission, admissionCancel := context.WithTimeout(budget, config.Limits.Admission)
@@ -309,7 +320,7 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 	if _, err := recordedExpectOwned(admission, worker, config, "worker-ready", holder, controller); err != nil {
 		return err
 	}
-	if err := recordedLockOwner(config, holder.identity); err != nil {
+	if _, err := recordedReadLockOwner(config, holder.identity, lease.token); err != nil {
 		return err
 	}
 	workerDigest, err := recordedStoreJSON(filepath.Join(config.Directory, "worker-ready.json"), result.Custody)
@@ -329,7 +340,7 @@ func recordedKeeper(ctx context.Context, config recordedConfig, path, digest str
 	if !recordedAlive(s) || !recordedAlive(w) {
 		return fmt.Errorf("recorded helper: worker or supervisor died before permit")
 	}
-	if err := recordedLockOwner(config, holder.identity); err != nil {
+	if _, err := recordedReadLockOwner(config, holder.identity, lease.token); err != nil {
 		return err
 	}
 	if err := recordedSend(admission, worker, recordedMessageOf(config, "permit", "")); err != nil {
@@ -400,16 +411,4 @@ func recordedHolderEnvironment(config recordedConfig) []string {
 		"GPU_LOCK_LIMIT="+recordedSeconds(config.Limits.Lease),
 		"GPU_LOCK_LABEL="+config.Label,
 		"GPU_LOCK_POLL=1", "GPU_LOCK_KILLWAIT=1")
-}
-
-// H can create a separate S group before its peer connects. Empty retained
-// H-group inventory therefore does not prove retirement of an unknown S.
-func recordedClosedCustody(c RecordedCustody, cleanupErr error) bool {
-	if cleanupErr != nil {
-		return false
-	}
-	if c.Holder.PID <= 1 {
-		return c.Phase == "keeper-ready" && c.SupervisorCreation == "not-started" && c.Supervisor.PID == 0
-	}
-	return c.SupervisorCreation == "observed" && c.Supervisor.PID > 1 && c.Supervisor.Group > 1
 }

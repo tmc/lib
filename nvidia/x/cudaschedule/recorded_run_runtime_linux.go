@@ -14,8 +14,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
 const recordedConfigEnv = "CUDASCHEDULE_RECORDED_CONFIG"
@@ -164,7 +162,9 @@ func runRecordedWorkerReady(ctx context.Context) error {
 	if !recordedAlive(config.Controller) {
 		return fmt.Errorf("recorded helper: controller not alive")
 	}
-	owner, err := cudalock.Inherited(os.Getenv)
+	bounded, cancel := context.WithTimeout(ctx, config.Limits.Admission)
+	defer cancel()
+	owner, err := recordedInherited(bounded, os.Getenv)
 	if err != nil {
 		return fmt.Errorf("recorded helper: worker lease: %w", err)
 	}
@@ -172,8 +172,6 @@ func runRecordedWorkerReady(ctx context.Context) error {
 	if err != nil || parent.Parent != owner.PID || parent.Group != parent.PID {
 		return fmt.Errorf("recorded helper: worker supervisor ancestry mismatch")
 	}
-	bounded, cancel := context.WithTimeout(ctx, config.Limits.Admission)
-	defer cancel()
 	conn, err := recordedDial(bounded, config)
 	if err != nil {
 		return err
@@ -190,7 +188,11 @@ func runRecordedWorkerReady(ctx context.Context) error {
 }
 
 func recordedSupervisor(ctx context.Context, config recordedConfig, path, digest string) error {
-	owner, err := cudalock.Inherited(os.Getenv)
+	budget, cancel := context.WithTimeout(ctx, config.Limits.Admission+config.Limits.Runtime+config.Limits.Cleanup)
+	defer cancel()
+	leaseCtx, cancelLease := context.WithTimeout(budget, config.Limits.Admission)
+	owner, err := recordedInherited(leaseCtx, os.Getenv)
+	cancelLease()
 	if err != nil {
 		return fmt.Errorf("recorded helper: supervisor lease: %w", err)
 	}
@@ -201,8 +203,6 @@ func recordedSupervisor(ctx context.Context, config recordedConfig, path, digest
 	if self.Parent != owner.PID || self.Group != self.PID || self.Executable != config.HelperDigest {
 		return fmt.Errorf("recorded helper: supervisor ancestry or image mismatch")
 	}
-	budget, cancel := context.WithTimeout(ctx, config.Limits.Admission+config.Limits.Runtime+config.Limits.Cleanup)
-	defer cancel()
 	conn, err := recordedDial(budget, config)
 	if err != nil {
 		return err

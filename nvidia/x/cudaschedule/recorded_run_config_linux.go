@@ -11,10 +11,6 @@ import (
 	"time"
 )
 
-// Changes to this script require a fresh source-contract review, not just a
-// caller assertion that another executable implements the same lease.
-const recordedLockDigest = "37e06f6b22d97458ca50ff8e3f2175da00e71e5838f42dd7f6bb9e0322633c67"
-
 type recordedConfig struct {
 	Version       int             `json:"version"`
 	Nonce         string          `json:"nonce"`
