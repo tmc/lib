@@ -1,0 +1,9 @@
+Commit: b90f9d4439cea1cf5058de5fe2f0649efdac3b6c
+Date: 2026-10-15T05:37:48-07:00
+Evidence: q4-caller-v2 RECEIPT e7fc5a91 (10 L4 arms, 7 named mutant kills, 16 vectors identical across baseline/repeat/restored); adversarial verify accept; independent raw audit (v41_aligned_shared_artifact) bounded KEEP. Patch 705d3c91, result 7a7b276e.
+Landing checks (Mac lock): linux vet, test -c linux+darwin, TestOracleGate*, gofmt of the changed file, all rc0. q4-caller-v2-land/check.log.
+Scope: dispatcher/collector regression coverage backed by bounded synthetic L4 observations. NOT C parity, mixed-asset admission, the layer 36/37 transition, full FFN, continuation, full model or performance. The raw run hashed packet/binary/NVRTC/driver/lock before use, not again after; the build used ambient Go, not a sealed toolchain. The v1 HOLD is preserved.
+Commit helper: git-auto-commit-message failed (missing ANTHROPIC_API_KEY, a configuration error); used the signed manual fallback.
+Authorized-by: root CC24097B decisions file 20261015-CC24097B-landing-decisions.md
+Claude-Code: 2.1.284 (Claude Code); model claude-opus-5-5; pid 3019; ITERM_SESSION_ID=w5t2p1:2DFCEE41-F8CC-48A0-BEEF-821ED8C38766
+session=92385c74-9d24-496f-8b25-f083f27c346b
