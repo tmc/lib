@@ -578,18 +578,34 @@ func TestValidatePerturbationArtifactRejectsOptLevelZeroAndOutOfRange(t *testing
 
 func TestCompiledPerturbationMetadataMustMatch(t *testing.T) {
 	p := Perturbation{Name: "vectorized", ExtraDeviceVectorize: true, JITOptLevel: 2}
-	module := new(nvrtcx.CompiledModule)
-	module.SetJITOptions(cudakernel.JITOptions{OptLevel: 2})
+	module := optionSourceFixture{opts: []string{"--extra-device-vectorization"}, known: true, jit: cudakernel.JITOptions{OptLevel: 2}}
 	if err := validateCompiledPerturbation(p, []string{"--extra-device-vectorization"}, module); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateCompiledPerturbation(p, nil, module); !errors.Is(err, ErrPerturbationArtifactMismatch) {
-		t.Fatalf("missing compiler flag error = %v", err)
+	wrongVectorization := optionSourceFixture{known: true, jit: cudakernel.JITOptions{OptLevel: 2}}
+	if err := validateCompiledPerturbation(p, []string{"--extra-device-vectorization"}, wrongVectorization); !errors.Is(err, ErrPerturbationArtifactMismatch) {
+		t.Fatalf("returned module with wrong vectorization error = %v", err)
 	}
-	module.SetJITOptions(cudakernel.JITOptions{OptLevel: 3})
-	if err := validateCompiledPerturbation(p, []string{"--extra-device-vectorization"}, module); !errors.Is(err, ErrPerturbationArtifactMismatch) {
+	unknown := new(nvrtcx.CompiledModule)
+	unknown.SetJITOptions(cudakernel.JITOptions{OptLevel: 2})
+	if err := validateCompiledPerturbation(p, []string{"--extra-device-vectorization"}, unknown); !errors.Is(err, ErrPerturbationArtifactMismatch) {
+		t.Fatalf("unknown compiler options error = %v", err)
+	}
+	wrongJIT := optionSourceFixture{opts: []string{"--extra-device-vectorization"}, known: true, jit: cudakernel.JITOptions{OptLevel: 3}}
+	if err := validateCompiledPerturbation(p, nil, wrongJIT); !errors.Is(err, ErrPerturbationArtifactMismatch) {
 		t.Fatalf("wrong JIT option error = %v", err)
 	}
+}
+
+type optionSourceFixture struct {
+	opts  []string
+	known bool
+	jit   cudakernel.JITOptions
+}
+
+func (m optionSourceFixture) JITOptions() cudakernel.JITOptions { return m.jit }
+func (m optionSourceFixture) CompilerOptions() ([]string, bool) {
+	return append([]string(nil), m.opts...), m.known
 }
 
 func TestRunPerturbationsWithoutDeviceIsUnmeasured(t *testing.T) {

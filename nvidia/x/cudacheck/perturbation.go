@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
@@ -295,10 +296,20 @@ func perturbationCompilerFlags(p Perturbation) []string {
 	return nil
 }
 
-func validateCompiledPerturbation(p Perturbation, compilerOpts []string, module *nvrtcx.CompiledModule) error {
-	if module == nil {
+type compiledOptionSource interface {
+	JITOptions() cudakernel.JITOptions
+	CompilerOptions() ([]string, bool)
+}
+
+func validateCompiledPerturbation(p Perturbation, _ []string, module compiledOptionSource) error {
+	value := reflect.ValueOf(module)
+	if module == nil || (value.Kind() == reflect.Ptr && value.IsNil()) {
 		return fmt.Errorf("%w: compiler returned nil module", ErrPerturbationArtifactMismatch)
 	}
-	artifact := &cudakernel.Artifact{CompilerOpts: append([]string(nil), compilerOpts...), JITOptions: module.JITOptions()}
+	compilerOpts, known := module.CompilerOptions()
+	if !known {
+		return fmt.Errorf("%w: compiler options were not observed", ErrPerturbationArtifactMismatch)
+	}
+	artifact := &cudakernel.Artifact{CompilerOpts: compilerOpts, JITOptions: module.JITOptions()}
 	return ValidatePerturbationArtifact(p, artifact)
 }

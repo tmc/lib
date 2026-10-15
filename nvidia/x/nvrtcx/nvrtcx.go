@@ -21,17 +21,19 @@ import (
 
 // CompiledModule represents the compiled output of an NVRTC JIT compilation.
 type CompiledModule struct {
-	lowered      map[string]string
-	output       OutputKind
-	ltoir        []byte
-	tileir       []byte
-	optixir      []byte
-	ptx          string
-	cubin        []byte
-	log          string
-	key          string
-	jitOptions   cudakernel.JITOptions
-	dependencies []cudakernel.Dependency
+	lowered              map[string]string
+	output               OutputKind
+	ltoir                []byte
+	tileir               []byte
+	optixir              []byte
+	ptx                  string
+	cubin                []byte
+	log                  string
+	key                  string
+	jitOptions           cudakernel.JITOptions
+	compilerOptions      []string
+	compilerOptionsKnown bool
+	dependencies         []cudakernel.Dependency
 }
 
 // PTX returns the compiled PTX assembly text.
@@ -140,6 +142,16 @@ func (cm *CompiledModule) JITOptions() cudakernel.JITOptions {
 	return cm.jitOptions
 }
 
+// CompilerOptions returns the NVRTC options observed at the compile call.
+// The boolean is false when the module came from a cache entry that predates
+// option provenance or from a caller-created module without that metadata.
+func (cm *CompiledModule) CompilerOptions() ([]string, bool) {
+	if cm == nil || !cm.compilerOptionsKnown {
+		return nil, false
+	}
+	return append([]string(nil), cm.compilerOptions...), true
+}
+
 // SetJITOptions updates the driver JIT compiler options attached to the module.
 func (cm *CompiledModule) SetJITOptions(opts cudakernel.JITOptions) {
 	if cm != nil {
@@ -160,6 +172,9 @@ func (cm *CompiledModule) Dependencies() []cudakernel.Dependency {
 func (cm *CompiledModule) ToArtifact(entryPoint string, schema cudakernel.Schema, target string) (*cudakernel.Artifact, error) {
 	if cm == nil {
 		return nil, fmt.Errorf("nvrtcx: nil compiled module")
+	}
+	if !cm.compilerOptionsKnown {
+		return nil, fmt.Errorf("nvrtcx: compiler option provenance unavailable")
 	}
 
 	var kind cudakernel.Kind
@@ -223,6 +238,7 @@ func (cm *CompiledModule) ToArtifact(entryPoint string, schema cudakernel.Schema
 		cudakernel.WithResources(res),
 		cudakernel.WithJIT(cm.jitOptions),
 		cudakernel.WithToolchain("nvrtc"),
+		cudakernel.WithCompilerOptions(cm.compilerOptions),
 		cudakernel.WithDependencies(cm.dependencies),
 	)
 }
@@ -817,6 +833,8 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			res.lowered[expression] = string(copied)
 		}
 		res.jitOptions = cfg.jitOptions
+		res.compilerOptions = append([]string(nil), sourceFlags...)
+		res.compilerOptionsKnown = true
 		res.dependencies = deps
 		res.log = log
 		res.key = key

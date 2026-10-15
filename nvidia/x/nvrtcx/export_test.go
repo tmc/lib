@@ -14,7 +14,7 @@ func ExportComputeDependencyKey(deps []cudakernel.Dependency) string {
 
 // ExportNewCompiledModule creates a mock CompiledModule for adapter testing.
 func ExportNewCompiledModule(kind OutputKind, ptxText string, bytesData []byte) *CompiledModule {
-	cm := &CompiledModule{output: kind}
+	cm := &CompiledModule{output: kind, compilerOptionsKnown: true}
 	switch kind {
 	case OutputPTX:
 		cm.ptx = ptxText

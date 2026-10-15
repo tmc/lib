@@ -18,13 +18,16 @@ import (
 )
 
 const (
-	cacheMagic       = "nvrtcx\x00\x08"
+	cacheMagic       = "nvrtcx\x00\x08" // Retained in cache-key identity.
+	cacheEntryMagic  = "nvrtcx\x00\x09"
 	legacyCacheMagic = "nvrtcx\x00\x07"
 )
 
 type cacheMeta struct {
-	JIT  cudakernel.JITOptions   `json:"jit,omitempty"`
-	Deps []cudakernel.Dependency `json:"deps,omitempty"`
+	JIT                  cudakernel.JITOptions   `json:"jit,omitempty"`
+	Deps                 []cudakernel.Dependency `json:"deps,omitempty"`
+	CompilerOptions      []string                `json:"compiler_options,omitempty"`
+	CompilerOptionsKnown bool                    `json:"compiler_options_known,omitempty"`
 }
 
 var (
@@ -101,20 +104,27 @@ func lookupCache(key string) (*CompiledModule, bool) {
 	cm, ok := memCache[key]
 	memCacheMu.RUnlock()
 	if ok {
-		return cm, true
+		if cm.compilerOptionsKnown {
+			return cm, true
+		}
+		// Old cache metadata cannot attest which compiler options produced the
+		// artifact. Treat it as a miss so this request recompiles with provenance.
+		return nil, false
 	}
 
 	dir, err := getCacheDir()
 	if err != nil {
 		return nil, false
 	}
-
 	data, err := os.ReadFile(filepath.Join(dir, key+".cache"))
 	if err != nil {
 		return nil, false
 	}
 	mod, err := decodeCacheEntry(key, data)
 	if err != nil {
+		return nil, false
+	}
+	if !mod.compilerOptionsKnown {
 		return nil, false
 	}
 
@@ -148,16 +158,24 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 	if !cm.validArtifact() {
 		return nil, fmt.Errorf("nvrtcx: module contains no compiler artifact")
 	}
+	if !cm.compilerOptionsKnown && len(cm.compilerOptions) != 0 {
+		return nil, fmt.Errorf("nvrtcx: invalid compiler option provenance")
+	}
 	names, err := json.Marshal(cm.lowered)
 	if err != nil {
 		return nil, err
 	}
-	metaBytes, err := json.Marshal(cacheMeta{JIT: cm.jitOptions, Deps: cm.dependencies})
+	metaBytes, err := json.Marshal(cacheMeta{
+		JIT:                  cm.jitOptions,
+		Deps:                 cm.dependencies,
+		CompilerOptions:      cm.compilerOptions,
+		CompilerOptionsKnown: cm.compilerOptionsKnown,
+	})
 	if err != nil {
 		return nil, err
 	}
 	var b bytes.Buffer
-	b.WriteString(cacheMagic)
+	b.WriteString(cacheEntryMagic)
 	b.WriteByte(byte(cm.output))
 	fields := [][]byte{[]byte(cm.ptx), cm.cubin, cm.ltoir, cm.tileir, cm.optixir, []byte(cm.log), names, metaBytes}
 	for _, field := range fields {
@@ -174,14 +192,18 @@ func encodeCacheEntry(cm *CompiledModule) ([]byte, error) {
 }
 
 func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
+	isV9 := len(data) >= len(cacheEntryMagic) && string(data[:len(cacheEntryMagic)]) == cacheEntryMagic
 	isV8 := len(data) >= len(cacheMagic) && string(data[:len(cacheMagic)]) == cacheMagic
 	isV7 := len(data) >= len(legacyCacheMagic) && string(data[:len(legacyCacheMagic)]) == legacyCacheMagic
-	if !isV8 && !isV7 {
+	if !isV9 && !isV8 && !isV7 {
 		return nil, fmt.Errorf("nvrtcx: invalid cache entry")
 	}
 	numFields := 7
 	magicLen := len(legacyCacheMagic)
-	if isV8 {
+	if isV9 {
+		numFields = 8
+		magicLen = len(cacheEntryMagic)
+	} else if isV8 {
 		numFields = 8
 		magicLen = len(cacheMagic)
 	}
@@ -230,11 +252,22 @@ func decodeCacheEntry(key string, data []byte) (*CompiledModule, error) {
 			return nil, fmt.Errorf("nvrtcx: invalid cached lowered name")
 		}
 	}
-	if isV8 && len(fields) > 7 && len(fields[7]) > 0 {
+	if (isV9 || isV8) && len(fields) > 7 && len(fields[7]) > 0 {
 		var meta cacheMeta
-		if err := json.Unmarshal(fields[7], &meta); err == nil {
+		if err := json.Unmarshal(fields[7], &meta); err != nil {
+			if isV9 {
+				return nil, fmt.Errorf("nvrtcx: cached metadata: %w", err)
+			}
+		} else {
 			cm.jitOptions = meta.JIT
 			cm.dependencies = meta.Deps
+			if isV9 {
+				if !meta.CompilerOptionsKnown && len(meta.CompilerOptions) != 0 {
+					return nil, fmt.Errorf("nvrtcx: invalid cached compiler option provenance")
+				}
+				cm.compilerOptions = append([]string(nil), meta.CompilerOptions...)
+				cm.compilerOptionsKnown = meta.CompilerOptionsKnown
+			}
 		}
 	}
 	if !cm.validArtifact() {

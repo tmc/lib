@@ -62,6 +62,35 @@ func newFakeCompiled(jit cudakernel.JITOptions) *nvrtcx.CompiledModule {
 	return mod
 }
 
+// newKnownFakeCompiled installs synthetic metadata only in this test's concrete
+// module fixture. The imported package has no public metadata setter. Reflection
+// is confined to the two checked fields so no fake-compiler API reaches production.
+// This does not observe or authenticate an actual compiler invocation.
+func newKnownFakeCompiled(t *testing.T, jit cudakernel.JITOptions, options []string) *nvrtcx.CompiledModule {
+	t.Helper()
+	mod := newFakeCompiled(jit)
+	values := []struct {
+		name  string
+		value any
+	}{
+		{"compilerOptions", append([]string(nil), options...)},
+		{"compilerOptionsKnown", true},
+	}
+	for _, entry := range values {
+		field := reflect.ValueOf(mod).Elem().FieldByName(entry.name)
+		value := reflect.ValueOf(entry.value)
+		if !field.IsValid() || !field.CanAddr() || field.Type() != value.Type() {
+			t.Fatalf("CompiledModule fixture field %q changed", entry.name)
+		}
+		reflect.NewAt(field.Type(), field.Addr().UnsafePointer()).Elem().Set(value)
+	}
+	got, known := mod.CompilerOptions()
+	if !known || !reflect.DeepEqual(got, options) {
+		t.Fatalf("synthetic compiler options = %q, %t, want %q, true", got, known, options)
+	}
+	return mod
+}
+
 func TestCompareRejectsNonRawDeviceFloatPolicy(t *testing.T) {
 	g, inputs := fakeGraphWithLength(1)
 	inputs["X"][0] = 0
@@ -342,7 +371,7 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 		if !containsString(flags, "--no-cache") {
 			return nil, errors.New("perturbed compile did not disable cache")
 		}
-		return newFakeCompiled(jit), nil
+		return newKnownFakeCompiled(t, jit, flags), nil
 	}
 	loadCalls := 0
 	load := func(mod *nvrtcx.CompiledModule, _ *cuda.Device) (traceModule, error) {
@@ -373,6 +402,9 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 		withCompileKernel(compileWithMismatch), withTraceModuleLoader(load))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if loadCalls != 3 {
+		t.Fatalf("loader calls = %d, want 3 (success, load failure, disagreement)", loadCalls)
 	}
 	if len(flagsByCall) != 4 || len(jitByCall) != 4 {
 		t.Fatalf("compile calls = %d, JIT observations = %d, want 4 each", len(flagsByCall), len(jitByCall))
@@ -412,6 +444,72 @@ func TestRunPerturbationsProductionPathOptionsAndOutcomes(t *testing.T) {
 	mismatch := report.Results[3]
 	if mismatch.Status != StatusDisagreed || mismatch.Triage == nil || mismatch.Stage != StageNone {
 		t.Errorf("localized disagreement row lost status, triage, or stage: %#v", mismatch)
+	}
+}
+
+func TestRunPerturbationsProductionPathUnknownOptionsRefused(t *testing.T) {
+	g, inputs := buildTestGraph()
+	perts := []Perturbation{
+		{Name: "vectorized-opt3", ExtraDeviceVectorize: true, JITOptLevel: 3},
+		{Name: "bad-artifact-opt3", ExtraDeviceVectorize: true, JITOptLevel: 3},
+		{Name: "load-failure-opt2", JITOptLevel: 2},
+		{Name: "mismatch-opt1", JITOptLevel: 1},
+	}
+	var flagsByCall [][]string
+	var jitByCall []cudakernel.JITOptions
+	compile := func(_ string, opts []nvrtcx.Option, jit cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+		flags, err := nvrtcx.CompileFlags(opts...)
+		if err != nil {
+			return nil, err
+		}
+		flagsByCall = append(flagsByCall, flags)
+		jitByCall = append(jitByCall, jit)
+		if !containsString(flags, "--no-cache") {
+			return nil, errors.New("perturbed compile did not disable cache")
+		}
+		return newFakeCompiled(jit), nil
+	}
+	loadCalls := 0
+	load := func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error) {
+		loadCalls++
+		return &fakeTraceModule{hash: 1, stateHash: FNVOffsetBasis}, nil
+	}
+	report, err := RunPerturbations(context.Background(), g, perts, WithInputs(inputs),
+		withCompileKernel(compile), withTraceModuleLoader(load))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(flagsByCall) != 4 || len(jitByCall) != 4 {
+		t.Fatalf("compile calls = %d, JIT observations = %d, want 4 each", len(flagsByCall), len(jitByCall))
+	}
+	if loadCalls != 0 {
+		t.Fatalf("unobserved compiler options reached the module loader %d times", loadCalls)
+	}
+	for i, want := range []uint32{3, 3, 2, 1} {
+		if jitByCall[i].OptLevel != want {
+			t.Errorf("compile %d JIT opt level = %d, want %d", i, jitByCall[i].OptLevel, want)
+		}
+		if !containsString(flagsByCall[i], "--no-cache") {
+			t.Errorf("compile %d flags omit --no-cache: %v", i, flagsByCall[i])
+		}
+	}
+	for i := 0; i < 2; i++ {
+		if !containsString(flagsByCall[i], "--extra-device-vectorization") {
+			t.Errorf("compile %d flags omit vectorization: %v", i, flagsByCall[i])
+		}
+	}
+	for _, i := range []int{2, 3} {
+		if containsString(flagsByCall[i], "--extra-device-vectorization") {
+			t.Errorf("compile %d unexpectedly has vectorization flag: %v", i, flagsByCall[i])
+		}
+	}
+	for i, result := range report.Results {
+		if result.Status != StatusUnmeasured || result.Stage != StageArtifactValidation || !errors.Is(result.ArtifactErr, ErrPerturbationArtifactMismatch) || result.CompileErr != nil || result.RunErr != nil {
+			t.Errorf("row %d did not refuse unobserved compiler options: %#v", i, result)
+		}
+	}
+	if got := report.String(); !strings.Contains(got, "compiler options were not observed") {
+		t.Errorf("report omits provenance refusal:\n%s", got)
 	}
 }
 
@@ -553,9 +651,13 @@ func TestRunPerturbationsSelectsNamedBaselineForMovedRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			hashes := tt.hashes
 			compileIndex, loadIndex := 0, 0
-			compile := func(_ string, _ []nvrtcx.Option, jit cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+			compile := func(_ string, opts []nvrtcx.Option, jit cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+				flags, err := nvrtcx.CompileFlags(opts...)
+				if err != nil {
+					return nil, err
+				}
 				compileIndex++
-				return newFakeCompiled(jit), nil
+				return newKnownFakeCompiled(t, jit, flags), nil
 			}
 			load := func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error) {
 				hash := hashes[loadIndex]
@@ -597,4 +699,43 @@ func containsString(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func TestRunPerturbationsRejectsWrongReturnedModuleOptions(t *testing.T) {
+	g, inputs := buildTestGraph()
+	ref, err := EvaluateCPUGraph(g, inputs, PolicyRawBits, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compileCalls, loadCalls := 0, 0
+	report, err := RunPerturbations(t.Context(), g,
+		[]Perturbation{{Name: "vectorized", ExtraDeviceVectorize: true, JITOptLevel: 3}},
+		WithInputs(inputs),
+		withCompileKernel(func(_ string, opts []nvrtcx.Option, jit cudakernel.JITOptions) (*nvrtcx.CompiledModule, error) {
+			compileCalls++
+			requested, err := nvrtcx.CompileFlags(opts...)
+			if err != nil {
+				return nil, err
+			}
+			if !containsString(requested, "--extra-device-vectorization") {
+				t.Fatal("fixture request did not enable vectorization")
+			}
+			// The request asks for vectorization; the returned known module deliberately
+			// records a different source-option set. Admission must trust this module.
+			return newKnownFakeCompiled(t, jit, []string{"--generate-line-info"}), nil
+		}),
+		withTraceModuleLoader(func(*nvrtcx.CompiledModule, *cuda.Device) (traceModule, error) {
+			loadCalls++
+			return &fakeTraceModule{hash: ref.Hash(), stateHash: FNVOffsetBasis}, nil
+		}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compileCalls != 1 || loadCalls != 0 || len(report.Results) != 1 {
+		t.Fatalf("wrong-module calls/rows = %d/%d/%d", compileCalls, loadCalls, len(report.Results))
+	}
+	row := report.Results[0]
+	if row.Status != StatusUnmeasured || row.Stage != StageArtifactValidation || !errors.Is(row.ArtifactErr, ErrPerturbationArtifactMismatch) || row.CompileErr != nil || row.RunErr != nil {
+		t.Fatalf("wrong returned module was not refused before load: %#v", row)
+	}
 }
