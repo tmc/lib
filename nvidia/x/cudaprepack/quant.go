@@ -235,23 +235,40 @@ func PackMXFP4(src []float32, rows, cols int, groupSize int) (*PrepackedTensor, 
 	if groupSize <= 0 || groupSize%32 != 0 {
 		return nil, fmt.Errorf("cudaprepack: groupSize must be a multiple of 32, got %d", groupSize)
 	}
-	if cols%groupSize != 0 {
-		return nil, fmt.Errorf("cudaprepack: cols (%d) must be a multiple of groupSize (%d)", cols, groupSize)
+	if rows <= 0 {
+		return nil, fmt.Errorf("cudaprepack: MXFP4 rows must be positive, got %d", rows)
 	}
-	if len(src) < rows*cols {
-		return nil, fmt.Errorf("cudaprepack: source buffer too short")
+	if cols <= 0 || cols%groupSize != 0 {
+		return nil, fmt.Errorf("cudaprepack: MXFP4 cols must be a positive multiple of groupSize %d, got %d", groupSize, cols)
+	}
+	elems, ok := checkedMul(rows, cols)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: MXFP4 element count overflows (%d x %d)", rows, cols)
+	}
+	if len(src) < elems {
+		return nil, fmt.Errorf("cudaprepack: source buffer too short (got %d, want %d)", len(src), elems)
 	}
 
 	numGroupsPerRow := cols / groupSize
-	totalGroups := rows * numGroupsPerRow
+	totalGroups := rows * numGroupsPerRow // at most elems
 
 	// 32 elements = 16 bytes payload
 	bytesPerGroup := groupSize / 2
-	rawRowBytes := numGroupsPerRow * bytesPerGroup
-	paddedRowStride := ((rawRowBytes + MinAddressAlignment - 1) / MinAddressAlignment) * MinAddressAlignment
+	paddedRowStride, ok := roundUpInt(numGroupsPerRow*bytesPerGroup, MinAddressAlignment)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: MXFP4 row stride overflows")
+	}
+	payloadBytes, ok := checkedMul(rows, paddedRowStride)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: MXFP4 payload extent overflows")
+	}
+	scaleBytes, ok := checkedMul(totalGroups, 2)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: MXFP4 scale extent overflows")
+	}
 
-	payload := make([]byte, rows*paddedRowStride)
-	scales := make([]byte, totalGroups*2) // Float16 scale per group
+	payload := make([]byte, payloadBytes)
+	scales := make([]byte, scaleBytes) // Float16 scale per group
 
 	for r := 0; r < rows; r++ {
 		for g := 0; g < numGroupsPerRow; g++ {
@@ -441,20 +458,36 @@ func UnpackQ8_0(p *PrepackedTensor) ([]byte, error) {
 // RepackIQ2_XXS repacks standard 66-byte IQ2_XXS super-blocks (2B scale + 64B grid payload)
 // into contiguous 128-byte hardware tiles for sm_121a TMA bulk streaming.
 func RepackIQ2_XXS(rawBlocks []byte, rows, cols int) (*PrepackedTensor, error) {
-	if cols%256 != 0 {
-		return nil, fmt.Errorf("cudaprepack: cols (%d) must be a multiple of 256 for IQ2_XXS", cols)
+	if rows <= 0 {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS rows must be positive, got %d", rows)
+	}
+	if cols <= 0 || cols%256 != 0 {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS cols must be a positive multiple of 256, got %d", cols)
 	}
 	numBlocksPerRow := cols / 256
-	totalBlocks := rows * numBlocksPerRow
-	if len(rawBlocks) < totalBlocks*66 {
-		return nil, fmt.Errorf("cudaprepack: rawBlocks too short (got %d, want %d)", len(rawBlocks), totalBlocks*66)
+	totalBlocks, ok := checkedMul(rows, numBlocksPerRow)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS block count overflows")
+	}
+	rawBytes, ok := checkedMul(totalBlocks, 66)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS source extent overflows")
+	}
+	if len(rawBlocks) < rawBytes {
+		return nil, fmt.Errorf("cudaprepack: rawBlocks too short (got %d, want %d)", len(rawBlocks), rawBytes)
 	}
 
-	rawRowBytes := numBlocksPerRow * 64
-	paddedRowStride := ((rawRowBytes + MinAddressAlignment - 1) / MinAddressAlignment) * MinAddressAlignment
+	paddedRowStride, ok := roundUpInt(numBlocksPerRow*64, MinAddressAlignment)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS row stride overflows")
+	}
+	payloadBytes, ok := checkedMul(rows, paddedRowStride)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: IQ2_XXS payload extent overflows")
+	}
 
-	payload := make([]byte, rows*paddedRowStride)
-	scales := make([]byte, totalBlocks*2)
+	payload := make([]byte, payloadBytes)
+	scales := make([]byte, totalBlocks*2) // at most rawBytes
 
 	for r := 0; r < rows; r++ {
 		for b := 0; b < numBlocksPerRow; b++ {
@@ -535,13 +568,29 @@ func QuantizeFP8(src []float32, rows, cols int, dt DataType) (*PrepackedTensor, 
 	if dt != TypeFP8_E4M3 && dt != TypeFP8_E5M2 {
 		return nil, fmt.Errorf("cudaprepack: unsupported FP8 type %s", dt)
 	}
-	if len(src) < rows*cols {
-		return nil, fmt.Errorf("cudaprepack: source buffer too short")
+	if rows <= 0 {
+		return nil, fmt.Errorf("cudaprepack: FP8 rows must be positive, got %d", rows)
+	}
+	if cols <= 0 {
+		return nil, fmt.Errorf("cudaprepack: FP8 cols must be positive, got %d", cols)
+	}
+	elems, ok := checkedMul(rows, cols)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: FP8 element count overflows (%d x %d)", rows, cols)
+	}
+	if len(src) < elems {
+		return nil, fmt.Errorf("cudaprepack: source buffer too short (got %d, want %d)", len(src), elems)
 	}
 
-	rawRowBytes := cols // 1 byte per element
-	paddedRowStride := ((rawRowBytes + MinAddressAlignment - 1) / MinAddressAlignment) * MinAddressAlignment
-	payload := make([]byte, rows*paddedRowStride)
+	paddedRowStride, ok := roundUpInt(cols, MinAddressAlignment) // 1 byte per element
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: FP8 row stride overflows")
+	}
+	payloadBytes, ok := checkedMul(rows, paddedRowStride)
+	if !ok {
+		return nil, fmt.Errorf("cudaprepack: FP8 payload extent overflows")
+	}
+	payload := make([]byte, payloadBytes)
 
 	for r := 0; r < rows; r++ {
 		dstOffset := r * paddedRowStride

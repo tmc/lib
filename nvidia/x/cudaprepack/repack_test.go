@@ -4,6 +4,8 @@ package cudaprepack
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -544,5 +546,96 @@ func TestEncodeTensorMap(t *testing.T) {
 
 	if _, err := desc.EncodeTensorMap(); err == nil {
 		t.Fatal("EncodeTensorMap unexpectedly accepted a hand-packed descriptor")
+	}
+}
+
+func TestQuantRejectsInvalidShapes(t *testing.T) {
+	big := math.MaxInt/16 + 1
+	f32 := make([]float32, 64)
+	raw := make([]byte, 66)
+	tests := []struct {
+		name string
+		pack func() (*PrepackedTensor, error)
+		want string // substring of the error
+	}{
+		{"MXFP4/negative-rows", func() (*PrepackedTensor, error) { return PackMXFP4(f32, -1, 32, 32) }, "rows must be positive, got -1"},
+		{"MXFP4/negative-cols", func() (*PrepackedTensor, error) { return PackMXFP4(f32, 1, -32, 32) }, "cols must be a positive multiple of groupSize 32, got -32"},
+		{"MXFP4/zero-rows", func() (*PrepackedTensor, error) { return PackMXFP4(f32, 0, 32, 32) }, "rows must be positive, got 0"},
+		{"MXFP4/zero-cols", func() (*PrepackedTensor, error) { return PackMXFP4(f32, 1, 0, 32) }, "cols must be a positive multiple of groupSize 32, got 0"},
+		{"MXFP4/overflow", func() (*PrepackedTensor, error) { return PackMXFP4(f32, big, 32, 32) }, "element count overflows"},
+		{"MXFP4/overflow-wraps-small", func() (*PrepackedTensor, error) { return PackMXFP4(f32, 1<<59, 32, 32) }, "element count overflows"},
+		// rows*cols overflows while rows*16 payload bytes still fit.
+		{"MXFP4/overflow-source-only", func() (*PrepackedTensor, error) { return PackMXFP4(f32, 3<<57, 32, 32) }, "element count overflows"},
+		{"MXFP4/short-source", func() (*PrepackedTensor, error) { return PackMXFP4(f32, 3, 32, 32) }, "source buffer too short (got 64, want 96)"},
+		{"IQ2_XXS/negative-rows", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, -1, 256) }, "rows must be positive, got -1"},
+		{"IQ2_XXS/negative-cols", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, 1, -256) }, "cols must be a positive multiple of 256, got -256"},
+		{"IQ2_XXS/zero-rows", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, 0, 256) }, "rows must be positive, got 0"},
+		{"IQ2_XXS/zero-cols", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, 1, 0) }, "cols must be a positive multiple of 256, got 0"},
+		{"IQ2_XXS/overflow", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, big, 256) }, "source extent overflows"},
+		{"IQ2_XXS/overflow-wraps-small", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, 1<<62, 1024) }, "block count overflows"},
+		// blocks*66 overflows while rows*64 payload bytes still fit.
+		{"IQ2_XXS/overflow-source-only", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, 1<<57-1, 256) }, "source extent overflows"},
+		{"FP8/negative-rows", func() (*PrepackedTensor, error) { return QuantizeFP8(f32, -1, 16, TypeFP8_E4M3) }, "rows must be positive, got -1"},
+		{"FP8/negative-cols", func() (*PrepackedTensor, error) { return QuantizeFP8(f32, 1, -16, TypeFP8_E5M2) }, "cols must be positive, got -16"},
+		{"FP8/zero-rows", func() (*PrepackedTensor, error) { return QuantizeFP8(f32, 0, 16, TypeFP8_E4M3) }, "rows must be positive, got 0"},
+		{"FP8/zero-cols", func() (*PrepackedTensor, error) { return QuantizeFP8(f32, 1, 0, TypeFP8_E5M2) }, "cols must be positive, got 0"},
+		{"FP8/overflow", func() (*PrepackedTensor, error) { return QuantizeFP8(f32, big, 16, TypeFP8_E4M3) }, "element count overflows"},
+		{"FP8/overflow-wraps-small", func() (*PrepackedTensor, error) { return QuantizeFP8(f32, 1<<60, 16, TypeFP8_E4M3) }, "element count overflows"},
+		{"FP8/max-cols", func() (*PrepackedTensor, error) { return QuantizeFP8(f32, 1, math.MaxInt, TypeFP8_E4M3) }, "source buffer too short"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("panic: %v", r)
+				}
+			}()
+			p, err := tt.pack()
+			if err == nil {
+				t.Fatalf("got tensor with %d payload bytes, want error containing %q", len(p.Payload), tt.want)
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %q, want it to contain %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestQuantOutputsUnchanged(t *testing.T) {
+	src := make([]float32, 3*96)
+	for i := range src {
+		src[i] = float32(i%23-11) * 0.37
+	}
+	raw := make([]byte, 3*2*66)
+	for i := range raw {
+		raw[i] = byte(i*31 + 7)
+	}
+	digest := func(p *PrepackedTensor) string {
+		b, err := p.MarshalBinary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fmt.Sprintf("%x", sha256.Sum256(b))
+	}
+	tests := []struct {
+		name string
+		pack func() (*PrepackedTensor, error)
+		want string
+	}{
+		{"MXFP4", func() (*PrepackedTensor, error) { return PackMXFP4(src, 3, 96, 32) }, "a9cb91c8e2d843f7d0f55572d3bc623c81ca97cd8079b74fdf9a48df8c05d990"},
+		{"IQ2_XXS", func() (*PrepackedTensor, error) { return RepackIQ2_XXS(raw, 3, 512) }, "aca3500def33a5ec5bd889616db3c2066243820b68eb4de22edb303bbbe1a19e"},
+		{"FP8_E4M3", func() (*PrepackedTensor, error) { return QuantizeFP8(src, 3, 96, TypeFP8_E4M3) }, "47b35eed9e195d93fcbe2af5afe01ead58b84f91e8b0def4aff7b0bd81783bd5"},
+		{"FP8_E5M2", func() (*PrepackedTensor, error) { return QuantizeFP8(src, 4, 72, TypeFP8_E5M2) }, "4386b8bca5dc51bc45f5c06711116d57c08be9a115ac4c6c3d938a486b23c6b1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := tt.pack()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := digest(p); got != tt.want {
+				t.Errorf("digest = %s, want %s", got, tt.want)
+			}
+		})
 	}
 }
