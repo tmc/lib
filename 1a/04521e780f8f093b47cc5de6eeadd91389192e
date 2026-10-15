@@ -1,1 +1,3 @@
 commit 1a04521e780f8f093b47cc5de6eeadd91389192e date 2026-10-15T08:19:51Z agent=claude-code model=claude-opus-5-5 session=92ccdea6-7e63-44cd-860c-503002fbbee6 workflow=llama-open-items-r2; CPU gates; mutants: M1-M9,M11-M22 detected (22 total, M8/M13/M15 re-run after compile fixes), M10 GPU show drops printToken error NOT detected; device SKIP, not verified
+
+ERRATUM 2026-10-15T09:13:04Z (round-2 critic): the _ = form of a dropped error is caught by TestNoBlankErrors; only the bare-call form survives.
