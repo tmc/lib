@@ -701,8 +701,8 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		}
 		sort.Slice(headers, func(i, j int) bool { return headers[i].Name < headers[j].Name })
 
-		// compileOnce creates and compiles a program. A non-nil err means
-		// no program is left to destroy.
+		// compileOnce creates and compiles a program. On error, a failed
+		// destruction is retained by the error for the caller to retry.
 		compileOnce := func() (prog nvrtc.Program, log string, compileErr, logErr, err error) {
 			prog, err = nvrtc.CreateProgram(src, cfg.name, headers...)
 			if err != nil {
@@ -713,16 +713,18 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 				err := prog.AddNameExpression(&name[0])
 				runtime.KeepAlive(name)
 				if err != nil {
-					_ = prog.Destroy()
-					return 0, "", nil, nil, fmt.Errorf("nvrtcx: register %q: %w", expression, err)
+					pending := prog
+					_, err = finishProgram(nil, fmt.Errorf("nvrtcx: register %q: %w", expression, err), pending.Destroy)
+					return 0, "", nil, nil, err
 				}
 			}
 			if cfg.ctx != nil && nvrtc.HasSetFlowCallback() {
 				token, unregister := registerFlowContext(cfg.ctx)
 				defer unregister()
 				if err := prog.SetFlowCallback(getFlowCallback(), token); err != nil {
-					_ = prog.Destroy()
-					return 0, "", nil, nil, fmt.Errorf("nvrtcx: set flow callback: %w", err)
+					pending := prog
+					_, err = finishProgram(nil, fmt.Errorf("nvrtcx: set flow callback: %w", err), pending.Destroy)
+					return 0, "", nil, nil, err
 				}
 			}
 			compileErr = prog.Compile(sourceFlags...)
@@ -735,8 +737,8 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			return nil, err
 		}
 		if compileErr != nil && cfg.ctx != nil && cfg.ctx.Err() != nil {
-			_ = prog.Destroy()
-			return nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err())
+			pending := prog
+			return finishProgram(nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err()), pending.Destroy)
 		}
 
 		// Handle PCH heap exhaustion retry
@@ -750,14 +752,17 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 			reqSize, reqErr := prog.PCHHeapSizeRequired()
 			if reqErr == nil && reqSize > 0 {
 				if setErr := nvrtc.SetPCHHeapSize(reqSize); setErr == nil {
-					_ = prog.Destroy()
+					pending := prog
+					if _, err := finishProgram(nil, nil, pending.Destroy); err != nil {
+						return nil, errors.Join(compilerDiagnostic(compileErr, logErr, log), err)
+					}
 					prog, log, compileErr, logErr, err = compileOnce()
 					if err != nil {
 						return nil, err
 					}
 					if compileErr != nil && cfg.ctx != nil && cfg.ctx.Err() != nil {
-						_ = prog.Destroy()
-						return nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err())
+						pending := prog
+						return finishProgram(nil, fmt.Errorf("nvrtcx: compile: %w", cfg.ctx.Err()), pending.Destroy)
 					}
 				}
 			}
