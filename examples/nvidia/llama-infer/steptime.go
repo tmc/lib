@@ -70,23 +70,44 @@ func newStepTimer(dev *cuda.Device, prof *cudaprof.Session, tracer *cudatrace.Tr
 // failures joined, in that order. Callers must call it before freeing any
 // buffer that work enqueued through measure may still use.
 func (st *stepTimer) close() error {
+	return closeStepTimer(st.stream, []*cuda.Event{st.anchor, st.start, st.end})
+}
+
+// timerStream is what closeStepTimer needs of a stream.
+type timerStream interface {
+	comparable
+	Synchronize(context.Context) error
+	Close() error
+}
+
+// timerEvent is what closeStepTimer needs of an event.
+type timerEvent interface {
+	comparable
+	Close() error
+}
+
+// closeStepTimer implements stepTimer.close. A zero stream or event, such
+// as a nil pointer, is skipped.
+func closeStepTimer[S timerStream, E timerEvent](stream S, events []E) error {
+	var noStream S
+	var noEvent E
 	var errs []error
-	if st.stream != nil {
+	if stream != noStream {
 		// Cancellation stops observation, not device work. Keep events and
 		// caller-owned buffers alive until the pending stream has drained.
-		if err := st.stream.Synchronize(context.Background()); err != nil {
+		if err := stream.Synchronize(context.Background()); err != nil {
 			errs = append(errs, fmt.Errorf("synchronize stream: %w", err))
 		}
 	}
-	for _, e := range []*cuda.Event{st.anchor, st.start, st.end} {
-		if e != nil {
+	for _, e := range events {
+		if e != noEvent {
 			if err := e.Close(); err != nil {
 				errs = append(errs, fmt.Errorf("close event: %w", err))
 			}
 		}
 	}
-	if st.stream != nil {
-		if err := st.stream.Close(); err != nil {
+	if stream != noStream {
+		if err := stream.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close stream: %w", err))
 		}
 	}
