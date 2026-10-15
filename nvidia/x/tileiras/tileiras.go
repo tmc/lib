@@ -311,9 +311,11 @@ func Assemble(ctx context.Context, input []byte, opts ...Option) (*Result, error
 	// Parse remarks YAML if produced
 	if wantRemarks {
 		if remarkData, err := os.ReadFile(remarksPath); err == nil && len(remarkData) > 0 {
-			if remarks, err := ParseRemarksYAML(remarkData); err == nil {
-				res.Remarks = remarks
+			remarks, err := ParseRemarksYAML(remarkData)
+			if err != nil {
+				return nil, fmt.Errorf("tileiras: parsing compiler remarks: %w\ncompiler output:\n%s\nremarks:\n%s", err, logOutput, remarkData)
 			}
+			res.Remarks = remarks
 		}
 	}
 
