@@ -138,7 +138,7 @@ func TestModulesCloseRetains(t *testing.T) {
 // *GPUScratchpad or *GPUModelWeights and Close on a nil *GPUModules
 // panic, so its release must be guarded by "if owner != nil".
 var ownerReturning = map[string]bool{
-	"uploadModel": true, "UploadModelToGPU": true, "NewGPUScratchpad": true,
+	"uploadModel": true, "uploadModelWith": true, "UploadModelToGPU": true, "NewGPUScratchpad": true,
 	"CompileGPUModules": true, "compileGPUModules": true,
 	"cudakv.New": true, "cudamem.Alloc": false,
 }
@@ -424,7 +424,7 @@ var ownerCalls = map[string]callCount{
 	// assigned straight into the owner they return, which this check
 	// counts but does not inspect.
 	"gpu_kernels.go":  {1, 0},
-	"gpu_model.go":    {5, 0},
+	"gpu_model.go":    {6, 0},
 	"weights_bf16.go": {2, 0},
 }
 

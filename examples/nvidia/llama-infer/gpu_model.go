@@ -200,14 +200,30 @@ func tiedHead(w *ModelWeights) bool {
 // matrices as dtype. A tied lm_head is uploaded once and borrowed. On error
 // it frees whatever it uploaded. If that free fails too, it returns the
 // weights it could not free, with both errors, so the caller can retry Free.
-func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weightDType) (res *GPUModelWeights, err error) {
+func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weightDType) (*GPUModelWeights, error) {
+	return uploadModelWith(w, cfg, dtype,
+		func(host []float32, dtype weightDType) (deviceWeight, error) { return uploadWeight(dev, host, dtype) },
+		func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) },
+		(*cudamem.Slice[float32]).CopyFromHost,
+		freeOwned[cudamem.Slice[float32]])
+}
+
+// uploadModelWith is uploadModel with its device operations as arguments:
+// upload uploads a matrix as dtype, alloc allocates a vector of n elements,
+// fill copies host values into a vector, and free frees a vector, which it
+// must zero only when the free succeeds, as freeOwned does.
+func uploadModelWith(w *ModelWeights, cfg *ModelConfig, dtype weightDType,
+	upload func(host []float32, dtype weightDType) (deviceWeight, error),
+	alloc func(n int) (cudamem.Slice[float32], error),
+	fill func(dst *cudamem.Slice[float32], host []float32) error,
+	free func(*cudamem.Slice[float32]) error) (res *GPUModelWeights, err error) {
 	if len(w.Layers) != cfg.NumHiddenLayers {
 		return nil, fmt.Errorf("model has %d layers, config says %d", len(w.Layers), cfg.NumHiddenLayers)
 	}
 	gw := &GPUModelWeights{DType: dtype, Layers: make([]GPULayerWeights, cfg.NumHiddenLayers)}
 	defer func() {
 		if err != nil {
-			if ferr := gw.Free(); ferr != nil {
+			if ferr := gw.free(free); ferr != nil {
 				err = errors.Join(err, ferr)
 				res = gw
 			}
@@ -228,7 +244,7 @@ func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weig
 		if len(host) == 0 {
 			return nil, fmt.Errorf("upload matrix weight %d: empty", i)
 		}
-		if *mats[i], err = uploadWeight(dev, host, dtype); err != nil {
+		if *mats[i], err = upload(host, dtype); err != nil {
 			return nil, fmt.Errorf("upload matrix weight %d: %w", i, err)
 		}
 	}
@@ -243,10 +259,10 @@ func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weig
 		if len(host) == 0 {
 			continue // absent optional tensor, such as a bias
 		}
-		if *vecs[i], err = cudamem.Alloc[float32](dev, len(host)); err != nil {
+		if *vecs[i], err = alloc(len(host)); err != nil {
 			return nil, fmt.Errorf("upload vector weight %d: %w", i, err)
 		}
-		if err = vecs[i].CopyFromHost(host); err != nil {
+		if err = fill(vecs[i], host); err != nil {
 			return nil, fmt.Errorf("upload vector weight %d: %w", i, err)
 		}
 	}
