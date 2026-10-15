@@ -1,0 +1,6 @@
+Commit: 4702f829747f85e4ae94be8d78c2a8a81ac3d505
+Date: 2026-10-15T00:38:45-07:00
+session=92385c74-9d24-496f-8b25-f083f27c346b model=claude-opus-5-5 pid=85177
+Lane: wave3 parent-repair G3 (parent candidate /Users/tmc/tmp/ds4-min/20261014-closed-adapter-fixture-repair/REVIEW.md, sha 40625a04)
+Gate: candidate rc0; old test rc1 at :53 (power undefined); child commands 1 baseline / 3 mutants rc1 at named assertions (parent counted 1/3).
+Receipt: /Users/tmc/tmp/ds4-min/20261011-claude-takeover/wave3/parent-repair-batch.
