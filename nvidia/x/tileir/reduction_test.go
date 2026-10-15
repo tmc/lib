@@ -1,8 +1,12 @@
 package tileir_test
 
 import (
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -49,7 +53,9 @@ func modelReduction(fn *tileir.Function, buffers map[string][]float32, blocks in
 			n := 1
 			elem := typ
 			if tt, ok := typ.(*tileir.TileType); ok {
-				n = int(tt.Shape[0])
+				if len(tt.Shape) == 1 {
+					n = int(tt.Shape[0])
+				}
 				elem = tt.ElementType
 			}
 			get := func(i, lane int) float64 {
@@ -63,22 +69,16 @@ func modelReduction(fn *tileir.Function, buffers map[string][]float32, blocks in
 			for lane := 0; lane < n; lane++ {
 				switch code {
 				case "constant":
-					literal := strings.TrimPrefix(op.Attributes, "value = ")
-					literal = strings.Split(literal, " semantic_id")[0]
-					switch literal {
-					case "-std::numeric_limits<float>::infinity()":
-						v.lanes[lane] = math.Inf(-1)
-					case "std::numeric_limits<float>::quiet_NaN()":
-						v.lanes[lane] = math.NaN()
-					default:
-						number, err := strconv.ParseFloat(strings.TrimRight(literal, "fu"), 64)
-						if err != nil {
-							return err
-						}
-						v.lanes[lane] = number
+					number, err := modelConstant(op.Attributes, elem)
+					if err != nil {
+						return err
 					}
+					v.lanes[lane] = number
 				case "get_tile_block_id":
 					v.lanes[lane] = float64(block)
+				case "exti", "reshape", "broadcast":
+					v.buffer = args[0].buffer
+					v.lanes[lane] = get(0, lane)
 				case "iota":
 					v.lanes[lane] = float64(lane)
 				case "addi":
@@ -152,6 +152,23 @@ func modelReduction(fn *tileir.Function, buffers map[string][]float32, blocks in
 	return nil
 }
 
+// modelConstant reads one splat constant attribute of the emitted subset.
+func modelConstant(attrs string, elem tileir.Type) (float64, error) {
+	literal, ok := strings.CutPrefix(attrs, "{value = ")
+	literal, ok2 := strings.CutSuffix(literal, "}")
+	if !ok || !ok2 {
+		return 0, fmt.Errorf("constant attributes %q", attrs)
+	}
+	if bits, ok := strings.CutPrefix(literal, `dense<"0x`); ok {
+		raw, err := hex.DecodeString(strings.TrimSuffix(bits, `">`))
+		if err != nil || elem.Kind() != tileir.KindFloat32 || len(raw) != 4 {
+			return 0, fmt.Errorf("dense constant %q", literal)
+		}
+		return float64(math.Float32frombits(binary.LittleEndian.Uint32(raw))), nil
+	}
+	return strconv.ParseFloat(literal, 64)
+}
+
 func reductionGraph(t *testing.T, op string, shape []int, axis int) *cudair.Snapshot {
 	t.Helper()
 	g := cudair.NewGraph()
@@ -219,16 +236,28 @@ func TestOrderedReductionModel(t *testing.T) {
 			if out[len(want)] != 999 || out[len(want)+1] != 999 {
 				t.Fatal("output guard changed")
 			}
-			hazards, shapes := result.Module.Verify()
-			if len(hazards)+len(shapes) != 0 {
-				t.Fatalf("verification: %v %v", hazards, shapes)
+			if _, err := result.Module.EncodeBytecode(); err != nil {
+				t.Fatalf("typed bytecode: %v", err)
 			}
-			if len(result.Module.Locations) != 1 {
-				t.Fatal("missing semantic source location")
+			if err := result.Memory.Verify(result); err != nil {
+				t.Fatal(err)
 			}
-			calls := []string{"ct::iota<ct::tile<unsigned int, ct::shape<4>>>"}
+			if len(result.Module.Locations) != 0 {
+				t.Fatal("source locations entered the bytecode module")
+			}
+			located := 0
+			for _, ref := range result.Memory.References() {
+				if ref.NodeID == snap.Outputs()[0].ID && ref.Location.File == "reduction.go" && ref.Location.Line == 37 {
+					located++
+				}
+			}
+			if located != 2 {
+				t.Fatalf("output source identity recorded %d times, want arithmetic and output roles", located)
+			}
+			// A kernel without outputs has no device work and no body.
+			var calls []string
 			if len(want) > 0 {
-				calls = append(calls, "ct::store_masked(", "ct::select(")
+				calls = []string{"ct::iota<ct::tile<unsigned int, ct::shape<4>>>", "ct::store_masked(", "ct::select("}
 			}
 			for _, call := range calls {
 				if !strings.Contains(result.Source, call) {
@@ -282,34 +311,41 @@ func TestOrderedReductionCausalControls(t *testing.T) {
 	snap := reductionGraph(t, "sum", []int{3}, 0)
 	for _, tc := range []struct {
 		name   string
-		mutate func(*tileir.Operation) bool
+		mutate func(fn *tileir.Function, op *tileir.Operation) bool
 	}{
-		{"undefined accumulator", func(op *tileir.Operation) bool {
+		{"undefined accumulator", func(_ *tileir.Function, op *tileir.Operation) bool {
 			if op.OpCode != "cuda_tile.addf" {
 				return false
 			}
 			op.Operands[0] = "%missing"
 			return true
 		}},
-		{"narrow accumulator", func(op *tileir.Operation) bool {
+		{"narrow accumulator", func(_ *tileir.Function, op *tileir.Operation) bool {
 			if op.OpCode != "cuda_tile.addf" {
 				return false
 			}
 			op.TypeVal = tileir.NewTile([]int64{4}, tileir.Float32)
 			return true
 		}},
-		{"token predecessor", func(op *tileir.Operation) bool {
+		{"token predecessor", func(fn *tileir.Function, op *tileir.Operation) bool {
 			if op.OpCode != "cuda_tile.store_ptr_tko" {
 				return false
 			}
-			op.Operands[3] = "%tok0"
+			op.Operands[3] = fn.Operations[0].Results[0]
 			return true
 		}},
-		{"mask omitted", func(op *tileir.Operation) bool {
+		{"token omitted", func(_ *tileir.Function, op *tileir.Operation) bool {
 			if op.OpCode != "cuda_tile.load_ptr_tko" {
 				return false
 			}
 			op.Operands = op.Operands[:3]
+			return true
+		}},
+		{"directed conversion", func(_ *tileir.Function, op *tileir.Operation) bool {
+			if op.OpCode != "cuda_tile.ftof" {
+				return false
+			}
+			op.Attributes = "{rounding_mode = zero}"
 			return true
 		}},
 	} {
@@ -318,14 +354,19 @@ func TestOrderedReductionCausalControls(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, op := range r.Module.Functions[0].Operations {
-				if tc.mutate(op) {
+			fn := r.Module.Functions[0]
+			mutated := false
+			for _, op := range fn.Operations {
+				if tc.mutate(fn, op) {
+					mutated = true
 					break
 				}
 			}
-			_, shapes := r.Module.Verify()
-			if len(shapes) == 0 {
-				t.Fatal("omission control escaped SSA verification")
+			if !mutated {
+				t.Fatal("mutation did not apply")
+			}
+			if data, err := r.Module.EncodeBytecode(); data != nil || !errors.Is(err, tileir.ErrUnsupportedASTEncoding) {
+				t.Fatalf("omission control escaped typed bytecode: %x %v", data, err)
 			}
 		})
 	}
@@ -333,19 +374,28 @@ func TestOrderedReductionCausalControls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A plausible wrong address remains well typed; the numeric model must reject it.
+	// A plausible wrong address remains well typed; the numeric model must
+	// reject it. The last splat 1 is the second reduction position; the
+	// first is the output extent.
+	var position *tileir.Operation
 	for _, op := range r.Module.Functions[0].Operations {
-		if strings.HasPrefix(op.Attributes, "value = 1u semantic_id") {
-			op.Attributes = strings.Replace(op.Attributes, "value = 1u", "value = 0u", 1)
-			break
+		if op.OpCode == "cuda_tile.constant" && op.Attributes == "{value = 1}" {
+			position = op
 		}
+	}
+	if position == nil {
+		t.Fatal("reduction position constant not found")
+	}
+	position.Attributes = "{value = 0}"
+	if _, err := r.Module.EncodeBytecode(); err != nil {
+		t.Fatalf("wrong address control is not well typed: %v", err)
 	}
 	out := []float32{999, 999, 999}
 	if err := modelReduction(r.Module.Functions[0], map[string][]float32{"%arg0": {1, 2, 4}, "%arg1": out}, 1); err != nil {
 		t.Fatal(err)
 	}
-	if out[0] == 7 {
-		t.Fatal("wrong reduction address escaped numeric control")
+	if out[0] != 6 {
+		t.Fatalf("wrong reduction address produced %v, want 1+1+4", out[0])
 	}
 }
 
@@ -445,17 +495,24 @@ func TestOrderedReductionEmptyPointerSafety(t *testing.T) {
 				}
 			}
 			for _, op := range result.Module.Functions[0].Operations {
-				if op.OpCode == "cuda_tile.load_ptr_tko" || op.OpCode == "cuda_tile.offset" && op.Operands[0] == "%arg0" {
+				if op.OpCode == "cuda_tile.load_ptr_tko" || slices.Contains(op.Operands, "%arg0") {
 					t.Fatal("empty input has pointer formation or load")
 				}
-				for id := range zeroOutputIDs {
-					if strings.HasSuffix(op.Attributes, fmt.Sprintf("semantic_id = %d", id)) && (op.OpCode == "cuda_tile.offset" || op.OpCode == "cuda_tile.store_ptr_tko") {
-						t.Fatal("zero output has pointer formation or store")
-					}
-				}
 			}
-			if len(result.Module.Locations) != 0 {
-				t.Fatal("graph without source locations acquired locations")
+			if _, err := result.Module.EncodeBytecode(); err != nil {
+				t.Fatalf("typed bytecode: %v", err)
+			}
+			refs := result.Memory.References()
+			if len(refs) != 1+2*len(snap.Outputs()) {
+				t.Fatalf("%d semantic records", len(refs))
+			}
+			for _, ref := range refs {
+				if zeroOutputIDs[ref.NodeID] && len(ref.Operations) != 0 {
+					t.Fatalf("zero output %d role %s has operations %v", ref.NodeID, ref.Role, ref.Operations)
+				}
+				if ref.Location.File != "" {
+					t.Fatal("graph without source locations acquired locations")
+				}
 			}
 			if err := modelReduction(result.Module.Functions[0], buffers, int(result.Grid[0])+1); err != nil {
 				t.Fatal(err)
@@ -490,8 +547,15 @@ func TestOrderedReductionCompleteOffsetControl(t *testing.T) {
 			definitions[name] = op
 		}
 	}
+	// Follow the base pointer through its reshape and broadcast.
+	param := func(name string) string {
+		for definitions[name] != nil {
+			name = definitions[name].Operands[0]
+		}
+		return name
+	}
 	for _, op := range fn.Operations {
-		if op.OpCode == "cuda_tile.offset" && op.Operands[0] == "%arg0" {
+		if op.OpCode == "cuda_tile.offset" && param(op.Operands[0]) == "%arg0" {
 			choice := definitions[op.Operands[1]]
 			if choice.OpCode != "cuda_tile.select" {
 				t.Fatal("complete offset is not sanitized")
@@ -506,7 +570,7 @@ func TestOrderedReductionCompleteOffsetControl(t *testing.T) {
 			continue
 		}
 		tile, ok := choice.TypeVal.(*tileir.TileType)
-		if !ok || tile.ElementType.Kind() != tileir.KindInt32 {
+		if !ok || tile.ElementType.Kind() != tileir.KindInt64 {
 			continue
 		}
 		for _, op := range fn.Operations {

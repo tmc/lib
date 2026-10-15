@@ -55,6 +55,9 @@ func assembleSemanticMemory(ctx context.Context, r *LoweringResult, target strin
 	if err := r.Memory.Verify(r); err != nil {
 		return nil, err
 	}
+	if err := checkEntryABI(r); err != nil {
+		return nil, err
+	}
 	data, err := r.Module.EncodeBytecode()
 	if err != nil {
 		return nil, err
@@ -103,4 +106,26 @@ func assembleSemanticMemory(ctx context.Context, r *LoweringResult, target strin
 		remarks[i].Args = args
 	}
 	return &SemanticMemoryArtifact{Artifact: artifact, BytecodeDigest: r.Memory.BytecodeDigest(), Remarks: remarks, Log: result.Log}, nil
+}
+
+// checkEntryABI checks that the artifact schema describes the parameters
+// of the entry function that the CUBIN will contain. A binding digests both,
+// so it does not imply that they agree: an ordered reduction whose outputs are
+// all empty has a parameterless entry and a pointer schema for its C++ source.
+func checkEntryABI(r *LoweringResult) error {
+	if len(r.Module.Functions) != 1 || r.Module.Functions[0] == nil {
+		return fmt.Errorf("tileir: semantic memory module must have one entry function")
+	}
+	params := r.Module.Functions[0].Params
+	if len(params) != len(r.Schema.Params) {
+		return fmt.Errorf("tileir: entry has %d parameters but schema has %d", len(params), len(r.Schema.Params))
+	}
+	for i, p := range params {
+		tile, ok := p.TypeVal.(*TileType)
+		pointer := ok && tile != nil && tile.ElementType != nil && tile.ElementType.Kind() == KindPointer
+		if pointer != r.Schema.Params[i].IsPointer {
+			return fmt.Errorf("tileir: entry parameter %d pointer kind differs from schema", i)
+		}
+	}
+	return nil
 }

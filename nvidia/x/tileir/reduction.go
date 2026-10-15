@@ -2,7 +2,6 @@ package tileir
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudair"
@@ -58,8 +57,9 @@ func checkedReductionRegion(snap *cudair.Snapshot, opts LowerOptions) (reduction
 	if r.width == 0 {
 		r.width = 16
 	}
-	if r.width <= 0 || r.width > 1<<20 || r.width&(r.width-1) != 0 {
-		return r, fmt.Errorf("%w: reduction tile width must be a power of two within the source budget", ErrUnsupportedTileOp)
+	// Typed pointer tiles admit the bounded vector widths of ast_vector.go.
+	if !vectorWidth([]int64{r.width}) {
+		return r, fmt.Errorf("%w: reduction tile width must be a power of two from 1 to 1024", ErrUnsupportedTileOp)
 	}
 	r.inputs, r.outputs = snap.Inputs(), snap.Outputs()
 	for _, n := range snap.Nodes() {
@@ -98,69 +98,75 @@ func checkedReductionRegion(snap *cudair.Snapshot, opts LowerOptions) (reduction
 	return r, nil
 }
 
-// reductionBuilder emits one typed SSA chain and its corresponding Tile C++.
-// The AST is an analysis representation; vendor bytecode encoding stays gated.
+// reductionBuilder emits one typed bytecode SSA chain and the corresponding
+// Tile C++ reference source. Semantic identity is recorded in MemorySource
+// sidecars rather than in bytecode attributes or debug locations.
 type reductionBuilder struct {
-	module *Module
 	fn     *Function
 	source strings.Builder
-	node   *cudair.Node
+	cpp    map[string]string // SSA value to C++ variable
 	serial int
 	token  string
+	ref    *MemorySource // record receiving emitted operations
 }
 
-func (b *reductionBuilder) emit(code string, typ Type, operands []string, attrs, expression string) string {
+func (b *reductionBuilder) name() string {
 	b.serial++
-	name := fmt.Sprintf("v%d", b.serial)
-	op := &Operation{Line: len(b.fn.Operations) + 1, OpCode: "cuda_tile." + code, Results: []string{"%" + name}, Operands: operands, Type: typ.String(), TypeVal: typ, Attributes: attrs}
-	if b.node != nil {
-		op.Attributes += fmt.Sprintf(" semantic_id = %d", b.node.ID)
-		loc := b.node.SourceLoc
-		if loc.File != "" && loc.Line > 0 {
-			key := fmt.Sprintf("node%d", b.node.ID)
-			b.module.Locations[key] = Location{File: loc.File, Line: loc.Line, Column: 1, Scope: loc.Function}
-			op.LocRef, op.Loc = "#"+key, b.module.Locations[key]
-		}
-	}
-	b.fn.Operations = append(b.fn.Operations, op)
-	fmt.Fprintf(&b.source, "  auto %s = %s;\n", name, expression)
-	return "%" + name
+	return fmt.Sprintf("%%v%d", b.serial)
 }
 
-func cppName(ssa string) string { return strings.TrimPrefix(ssa, "%") }
-
-func (b *reductionBuilder) constant(t Type, value string) string {
-	cppType := "float"
-	element := t
-	if tile, ok := t.(*TileType); ok {
-		element = tile.ElementType
+func (b *reductionBuilder) emit(code string, typ Type, results, operands []string, attrs string) {
+	if b.ref != nil {
+		b.ref.Operations = append(b.ref.Operations, len(b.fn.Operations))
+		b.ref.Values = append(b.ref.Values, results...)
 	}
-	if element.Kind() == KindInt32 {
-		cppType = "unsigned int"
-	} else if element.Kind() == KindFloat64 {
-		cppType = "double"
-	}
-	if tile, ok := t.(*TileType); ok {
-		if tile.ElementType.Kind() == KindFloat64 {
-			cppType = "double"
-		}
-		return b.emit("constant", t, nil, "value = "+value, fmt.Sprintf("ct::full<ct::tile<%s, ct::shape<%d>>>(%s)", cppType, tile.Shape[0], value))
-	}
-	return b.emit("constant", t, nil, "value = "+value, value)
+	b.fn.Operations = append(b.fn.Operations, &Operation{OpCode: "cuda_tile." + code, Results: results, Operands: operands, TypeVal: typ, Attributes: attrs})
 }
 
-func (b *reductionBuilder) load(ptr, valid, padding string, typ Type) string {
-	value := b.emit("load_ptr_tko", typ, []string{ptr, valid, padding, b.token}, "memory_ordering_semantics = weak", fmt.Sprintf("ct::load_masked(%s, %s, %s)", cppName(ptr), cppName(valid), cppName(padding)))
-	b.serial++
-	next := fmt.Sprintf("%%tok%d", b.serial)
-	op := b.fn.Operations[len(b.fn.Operations)-1]
-	op.Results = append(op.Results, next)
-	op.TypeVal = &FunctionType{Results: []Type{typ, Token}}
-	op.Type = op.TypeVal.String()
-	b.token = next
-	return value
+// op emits a single-result operation whose C++ counterpart is expr.
+// An empty expr aliases the first operand: extension, reshape and broadcast
+// are explicit in bytecode but implicit in the C++ reference source.
+func (b *reductionBuilder) op(code string, typ Type, operands []string, attrs, expr string) string {
+	v := b.name()
+	b.emit(code, typ, []string{v}, operands, attrs)
+	if expr == "" {
+		b.cpp[v] = b.cpp[operands[0]]
+		return v
+	}
+	b.cpp[v] = strings.TrimPrefix(v, "%")
+	fmt.Fprintf(&b.source, "  auto %s = %s;\n", b.cpp[v], expr)
+	return v
 }
 
+func (b *reductionBuilder) c(v string) string { return b.cpp[v] }
+
+// pointers forms the rank-one base pointer tile of a scalar pointer parameter.
+func (b *reductionBuilder) pointers(arg string, typ *TileType) string {
+	one := b.op("reshape", NewTile([]int64{1}, typ.ElementType), []string{arg}, "", "")
+	return b.op("broadcast", typ, []string{one}, "", "")
+}
+
+const (
+	reductionWeak       = "{memory_ordering_semantics = weak}"
+	reductionNoWrap     = "{overflow = no_signed_wrap}"
+	reductionNearest    = "{rounding_mode = nearest_even}"
+	reductionBound      = "{comparison_predicate = less_than, signedness = unsigned}"
+	reductionUnsigned   = "{signedness = unsigned}"
+	reductionGreater    = "{comparison_predicate = greater_than, comparison_ordering = ordered}"
+	reductionNaN        = "{comparison_predicate = not_equal, comparison_ordering = unordered}"
+	reductionQuietNaN32 = `{value = dense<"0x0000c07f">}` // 0x7fc00000
+)
+
+// lowerReductionRegion lowers direct-input FP32 sum and max reductions to a
+// void kernel in the typed bytecode subset, and to equivalent Tile C++.
+// Sums accumulate in FP64 with nearest-even rounding and no flush; max
+// propagates NaN and keeps the first of equal values. Every lane forms only
+// sanitized in-bounds addresses and accesses memory under its output mask.
+// Result.Memory holds the source locations and semantic node IDs.
+// When every output is empty, Grid is zero, the caller must not launch,
+// and the Module has no pointer parameters or memory operations; Schema
+// still describes the C++ reference kernel's ABI, so AssembleSemanticMemory
+// refuses the result.
 func lowerReductionRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringResult, error) {
 	r, err := checkedReductionRegion(snap, opts)
 	if err != nil {
@@ -178,254 +184,252 @@ func lowerReductionRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRe
 			return nil, fmt.Errorf("tileir: invalid kernel identifier")
 		}
 	}
-	b := &reductionBuilder{module: &Module{Name: name + "_mod", Producer: "lib/nvidia/x/tileir", Locations: make(map[string]Location)}, fn: &Function{Name: name, Entry: true, OptHints: "ordered_reduction"}, token: "%tok0"}
-	b.module.Functions = []*Function{b.fn}
-	b.fn.Operations = []*Operation{{OpCode: "cuda_tile.make_token", Results: []string{b.token}, Type: Token.String(), TypeVal: Token}}
+	w := r.width
+	work := r.maxOutputs > 0
+	b := &reductionBuilder{fn: &Function{Name: name, Entry: true}, cpp: make(map[string]string)}
+	module := &Module{Name: name + "_mod", Producer: "lib/nvidia/x/tileir", Functions: []*Function{b.fn}}
 	b.source.WriteString("#include \"cuda_tile.h\"\n#include <limits>\nextern \"C\" __tile_global__ void " + name + "(")
 	var params []cudakernel.Param
-	inputArgs := make(map[int]string)
+	var refs []*MemorySource
+	inputRefs := make(map[int]*MemorySource)
+	ptr := NewTile(nil, NewPointer(Float32))
 	for i, n := range append(append([]*cudair.Node(nil), r.inputs...), r.outputs...) {
 		if i > 0 {
 			b.source.WriteString(", ")
 		}
 		arg := fmt.Sprintf("arg%d", i)
 		b.source.WriteString("float* " + arg)
-		b.fn.Params = append(b.fn.Params, &Param{Name: "%" + arg, Type: NewPointer(Float32).String(), TypeVal: NewPointer(Float32)})
+		b.cpp["%"+arg] = arg
+		if work {
+			b.fn.Params = append(b.fn.Params, &Param{Name: "%" + arg, TypeVal: ptr})
+		}
 		paramName := n.Name
 		if paramName == "" {
 			paramName = arg
 		}
-		params = append(params, cudakernel.Param{Name: paramName, Type: "f32", ByteWidth: 8, Alignment: 16, IsPointer: true})
+		params = append(params, cudakernel.Param{Name: paramName, Type: "f32", ByteWidth: 8, Alignment: 8, IsPointer: true})
 		if i < len(r.inputs) {
-			inputArgs[n.ID] = "%" + arg
+			ref := &MemorySource{NodeID: n.ID, Role: "input", ABIIndex: i, Location: n.SourceLoc}
+			refs = append(refs, ref)
+			inputRefs[n.ID] = ref
 		}
 	}
 	b.source.WriteString(") {\n  namespace ct = ::cuda::tiles;\n")
-	u := NewTile([]int64{r.width}, Int32)
-	f := NewTile([]int64{r.width}, Float32)
-	d := NewTile([]int64{r.width}, Float64)
-	maskType := NewTile([]int64{r.width}, Int1)
-	ptrType := NewTile([]int64{r.width}, NewPointer(Float32))
-	block := b.emit("get_tile_block_id", Int32, nil, "axis = 0", "ct::bid().x")
-	width := b.constant(Int32, strconv.FormatInt(r.width, 10)+"u")
-	base := b.emit("muli", Int32, []string{block, width}, "overflow = wrap", cppName(block)+" * "+cppName(width))
-	lanes := b.emit("iota", u, nil, "", fmt.Sprintf("ct::iota<ct::tile<unsigned int, ct::shape<%d>>>()", r.width))
-	rows := b.emit("addi", u, []string{base, lanes}, "overflow = wrap", cppName(base)+" + "+cppName(lanes))
-	zero := b.constant(u, "0u")
-	for j, out := range r.outputs {
-		b.node = out
-		in, axis := out.Inputs[0], out.Axes[0]
-		terms, count := in.Shape[axis], out.Shape[0]
-		// Source identity does not depend on whether this output needs memory.
-		if loc := out.SourceLoc; loc.File != "" && loc.Line > 0 {
-			b.module.Locations[fmt.Sprintf("node%d", out.ID)] = Location{File: loc.File, Line: loc.Line, Column: 1, Scope: loc.Function}
-		}
-		// A different output can require a launch even when this one is empty.
-		// Empty ABI objects may have null bindings: emit no pointer operations.
-		if count == 0 {
-			continue
-		}
-		limit := b.constant(Int32, fmt.Sprintf("%du", count))
-		valid := b.emit("cmpi", maskType, []string{rows, limit}, "comparison_predicate = lt signedness = unsigned", cppName(rows)+" < "+cppName(limit))
-		safeRows := b.emit("select", u, []string{valid, rows, zero}, "", fmt.Sprintf("ct::select(%s, %s, %s)", cppName(valid), cppName(rows), cppName(zero)))
-		padding := b.constant(f, "0.0f")
-		acc := b.constant(d, "0.0")
-		if out.Op == "max" {
-			acc = b.constant(f, "-std::numeric_limits<float>::infinity()")
-		}
-		for k := 0; k < terms; k++ {
-			offset := safeRows
-			if len(in.Shape) == 2 && axis == 1 {
-				stride := b.constant(Int32, fmt.Sprintf("%du", terms))
-				offset = b.emit("muli", u, []string{safeRows, stride}, "overflow = wrap", cppName(safeRows)+" * "+cppName(stride))
+	if work {
+		i32, i64 := NewTile(nil, Int32), NewTile(nil, Int64)
+		vi64, vf32, vf64 := NewTile([]int64{w}, Int64), NewTile([]int64{w}, Float32), NewTile([]int64{w}, Float64)
+		mask, vptr := NewTile([]int64{w}, Int1), NewTile([]int64{w}, NewPointer(Float32))
+		b.token = b.name()
+		b.emit("make_token", Token, []string{b.token}, nil, "")
+		bx, by, bz := b.name(), b.name(), b.name()
+		b.emit("get_tile_block_id", NewFunction(nil, []Type{i32, i32, i32}), []string{bx, by, bz}, nil, "")
+		b.cpp[bx] = strings.TrimPrefix(bx, "%")
+		fmt.Fprintf(&b.source, "  auto %s = ct::bid().x;\n", b.cpp[bx])
+		// Block IDs are below 2^24 (Ops.td:2386) and w <= 1024, so the
+		// unmasked row index and every sanitized offset fit i64 unwrapped.
+		block := b.op("exti", i64, []string{bx}, reductionUnsigned, "")
+		width := b.op("constant", i64, nil, fmt.Sprintf("{value = %d}", w), fmt.Sprintf("%du", w))
+		start := b.op("muli", i64, []string{block, width}, reductionNoWrap, b.c(block)+" * "+b.c(width))
+		start1 := b.op("reshape", NewTile([]int64{1}, Int64), []string{start}, "", "")
+		starts := b.op("broadcast", vi64, []string{start1}, "", "")
+		lanes := b.op("iota", vi64, nil, "", fmt.Sprintf("ct::iota<ct::tile<unsigned int, ct::shape<%d>>>()", w))
+		rows := b.op("addi", vi64, []string{starts, lanes}, reductionNoWrap, b.c(starts)+" + "+b.c(lanes))
+		zero := b.op("constant", vi64, nil, "{value = 0}", fmt.Sprintf("ct::full<ct::tile<unsigned int, ct::shape<%d>>>(0u)", w))
+		bases := make(map[string]string)
+		for j, out := range r.outputs {
+			in, axis := out.Inputs[0], out.Axes[0]
+			terms, count := in.Shape[axis], out.Shape[0]
+			opRef := &MemorySource{NodeID: out.ID, Role: out.Op, ABIIndex: -1, Location: out.SourceLoc}
+			outRef := &MemorySource{NodeID: out.ID, Role: "output", ABIIndex: len(r.inputs) + j, Location: out.SourceLoc}
+			refs = append(refs, opRef, outRef)
+			// Empty ABI objects may have null bindings: emit no pointer operations.
+			if count == 0 {
+				continue
 			}
-			step := k
-			if len(in.Shape) == 2 && axis == 0 {
-				step *= in.Shape[1]
-			}
-			ix := b.constant(Int32, fmt.Sprintf("%du", step))
-			offset = b.emit("addi", u, []string{offset, ix}, "overflow = wrap", cppName(offset)+" + "+cppName(ix))
-			// Masks suppress accesses, not C++ pointer formation. Sanitize the
-			// complete offset, including the reduction position, before adding.
-			offset = b.emit("select", u, []string{valid, offset, zero}, "", fmt.Sprintf("ct::select(%s, %s, %s)", cppName(valid), cppName(offset), cppName(zero)))
-			ptr := b.emit("offset", ptrType, []string{inputArgs[in.ID], offset}, "", cppName(inputArgs[in.ID])+" + "+cppName(offset))
-			value := b.load(ptr, valid, padding, f)
+			b.ref = opRef
+			limit := b.op("constant", vi64, nil, fmt.Sprintf("{value = %d}", count), fmt.Sprintf("%du", count))
+			valid := b.op("cmpi", mask, []string{rows, limit}, reductionBound, b.c(rows)+" < "+b.c(limit))
+			safe := b.op("select", vi64, []string{valid, rows, zero}, "", fmt.Sprintf("ct::select(%s, %s, %s)", b.c(valid), b.c(rows), b.c(zero)))
+			padding := b.op("constant", vf32, nil, "{value = 0.0}", fmt.Sprintf("ct::full<ct::tile<float, ct::shape<%d>>>(0.0f)", w))
+			var acc string
 			if out.Op == "sum" {
-				wide := b.emit("ftof", d, []string{value}, "rounding_mode = nearest_even", "ct::element_cast<double>("+cppName(value)+")")
-				acc = b.emit("addf", d, []string{acc, wide}, "rounding_mode = nearest_even subnormals = preserve", fmt.Sprintf("ct::add(%s, %s, ct::round_ties_to_even_t{}, ct::preserve_subnormals_t{})", cppName(acc), cppName(wide)))
-			} else if k == 0 {
-				acc = value
+				acc = b.op("constant", vf64, nil, "{value = 0.0}", fmt.Sprintf("ct::full<ct::tile<double, ct::shape<%d>>>(0.0)", w))
 			} else {
-				greater := b.emit("cmpf", maskType, []string{value, acc}, "comparison_predicate = gt comparison_ordering = ordered", cppName(value)+" > "+cppName(acc))
-				next := b.emit("select", f, []string{greater, value, acc}, "", fmt.Sprintf("ct::select(%s, %s, %s)", cppName(greater), cppName(value), cppName(acc)))
-				nan := b.emit("cmpf", maskType, []string{value, value}, "comparison_predicate = ne comparison_ordering = unordered", "ct::isnan("+cppName(value)+")")
-				quiet := b.constant(f, "std::numeric_limits<float>::quiet_NaN()")
-				acc = b.emit("select", f, []string{nan, quiet, next}, "", fmt.Sprintf("ct::select(%s, %s, %s)", cppName(nan), cppName(quiet), cppName(next)))
+				acc = b.op("constant", vf32, nil, "{value = -inf}", fmt.Sprintf("ct::full<ct::tile<float, ct::shape<%d>>>(-std::numeric_limits<float>::infinity())", w))
 			}
+			arg := fmt.Sprintf("%%arg%d", indexOf(r.inputs, in))
+			for k := 0; k < terms; k++ {
+				// The row base is recomputed per term, as in the C++ reference
+				// source this route has emitted since it was introduced.
+				rowBase := safe
+				if len(in.Shape) == 2 && axis == 1 {
+					stride := b.op("constant", vi64, nil, fmt.Sprintf("{value = %d}", terms), fmt.Sprintf("%du", terms))
+					rowBase = b.op("muli", vi64, []string{safe, stride}, reductionNoWrap, b.c(safe)+" * "+b.c(stride))
+				}
+				step := k
+				if len(in.Shape) == 2 && axis == 0 {
+					step *= in.Shape[1]
+				}
+				ix := b.op("constant", vi64, nil, fmt.Sprintf("{value = %d}", step), fmt.Sprintf("%du", step))
+				offset := b.op("addi", vi64, []string{rowBase, ix}, reductionNoWrap, b.c(rowBase)+" + "+b.c(ix))
+				// Masks suppress accesses, not pointer formation. Sanitize the
+				// complete offset, including the reduction position, before adding.
+				offset = b.op("select", vi64, []string{valid, offset, zero}, "", fmt.Sprintf("ct::select(%s, %s, %s)", b.c(valid), b.c(offset), b.c(zero)))
+				b.ref = inputRefs[in.ID]
+				if bases[arg] == "" {
+					bases[arg] = b.pointers(arg, vptr)
+				}
+				p := b.op("offset", vptr, []string{bases[arg], offset}, "", b.c(bases[arg])+" + "+b.c(offset))
+				value, token := b.name(), b.name()
+				b.emit("load_ptr_tko", NewFunction(nil, []Type{vf32, Token}), []string{value, token}, []string{p, valid, padding, b.token}, reductionWeak)
+				b.cpp[value] = strings.TrimPrefix(value, "%")
+				fmt.Fprintf(&b.source, "  auto %s = ct::load_masked(%s, %s, %s);\n", b.c(value), b.c(p), b.c(valid), b.c(padding))
+				b.token = token
+				b.ref = opRef
+				switch {
+				case out.Op == "sum":
+					wide := b.op("ftof", vf64, []string{value}, reductionNearest, "ct::element_cast<double>("+b.c(value)+")")
+					acc = b.op("addf", vf64, []string{acc, wide}, reductionNearest, fmt.Sprintf("ct::add(%s, %s, ct::round_ties_to_even_t{}, ct::preserve_subnormals_t{})", b.c(acc), b.c(wide)))
+				case k == 0:
+					acc = value
+				default:
+					greater := b.op("cmpf", mask, []string{value, acc}, reductionGreater, b.c(value)+" > "+b.c(acc))
+					next := b.op("select", vf32, []string{greater, value, acc}, "", fmt.Sprintf("ct::select(%s, %s, %s)", b.c(greater), b.c(value), b.c(acc)))
+					nan := b.op("cmpf", mask, []string{value, value}, reductionNaN, "ct::isnan("+b.c(value)+")")
+					quiet := b.op("constant", vf32, nil, reductionQuietNaN32, fmt.Sprintf("ct::full<ct::tile<float, ct::shape<%d>>>(std::numeric_limits<float>::quiet_NaN())", w))
+					acc = b.op("select", vf32, []string{nan, quiet, next}, "", fmt.Sprintf("ct::select(%s, %s, %s)", b.c(nan), b.c(quiet), b.c(next)))
+				}
+			}
+			if out.Op == "sum" {
+				acc = b.op("ftof", vf32, []string{acc}, reductionNearest, "ct::element_cast<float>("+b.c(acc)+")")
+			}
+			b.ref = outRef
+			base := b.pointers(fmt.Sprintf("%%arg%d", len(r.inputs)+j), vptr)
+			dst := b.op("offset", vptr, []string{base, safe}, "", b.c(base)+" + "+b.c(safe))
+			stored := b.name()
+			b.emit("store_ptr_tko", Token, []string{stored}, []string{dst, acc, valid, b.token}, reductionWeak)
+			fmt.Fprintf(&b.source, "  ct::store_masked(%s, %s, %s);\n", b.c(dst), b.c(acc), b.c(valid))
+			b.token = stored
+			b.ref = nil
 		}
-		if out.Op == "sum" {
-			acc = b.emit("ftof", f, []string{acc}, "rounding_mode = nearest_even", "ct::element_cast<float>("+cppName(acc)+")")
+	} else {
+		for j, out := range r.outputs {
+			refs = append(refs, &MemorySource{NodeID: out.ID, Role: out.Op, ABIIndex: -1, Location: out.SourceLoc},
+				&MemorySource{NodeID: out.ID, Role: "output", ABIIndex: len(r.inputs) + j, Location: out.SourceLoc})
 		}
-		arg := fmt.Sprintf("%%arg%d", len(r.inputs)+j)
-		ptr := b.emit("offset", ptrType, []string{arg, safeRows}, "", cppName(arg)+" + "+cppName(safeRows))
-		b.serial++
-		nextToken := fmt.Sprintf("%%tok%d", b.serial)
-		b.fn.Operations = append(b.fn.Operations, &Operation{Line: len(b.fn.Operations) + 1, OpCode: "cuda_tile.store_ptr_tko", Results: []string{nextToken}, Operands: []string{ptr, acc, valid, b.token}, Type: Token.String(), TypeVal: Token, Attributes: fmt.Sprintf("memory_ordering_semantics = weak semantic_id = %d", out.ID)})
-		fmt.Fprintf(&b.source, "  ct::store_masked(%s, %s, %s);\n", cppName(ptr), cppName(acc), cppName(valid))
-		store := b.fn.Operations[len(b.fn.Operations)-1]
-		if out.SourceLoc.File != "" && out.SourceLoc.Line > 0 {
-			key := fmt.Sprintf("node%d", out.ID)
-			store.LocRef, store.Loc = "#"+key, b.module.Locations[key]
-		}
-		b.token = nextToken
 	}
-	b.fn.Operations = append(b.fn.Operations, &Operation{Line: len(b.fn.Operations) + 1, OpCode: "cuda_tile.return", Operands: []string{b.token}})
+	b.emit("return", nil, nil, nil, "")
 	b.source.WriteString("}\n")
 	if b.source.Len() > 1<<20 {
 		return nil, fmt.Errorf("tileir: reduction source byte budget exceeded")
-	}
-	hazards, shapes := b.fn.Verify()
-	if len(hazards) != 0 || len(shapes) != 0 {
-		return nil, fmt.Errorf("tileir: ordered reduction verification: %v %v", hazards, shapes)
 	}
 	schema, err := cudakernel.NewSchema(params...)
 	if err != nil {
 		return nil, err
 	}
-	grid := [3]uint32{uint32((int64(r.maxOutputs) + r.width - 1) / r.width), 1, 1}
-	return &LoweringResult{Module: b.module, Schema: schema, Source: b.source.String(), Grid: grid}, nil
+	grid := [3]uint32{uint32((int64(r.maxOutputs) + w - 1) / w), 1, 1}
+	result := &LoweringResult{Module: module, Schema: schema, Source: b.source.String(), Grid: grid}
+	data, err := module.EncodeBytecode()
+	if err != nil {
+		return nil, fmt.Errorf("tileir: ordered reduction bytecode: %w", err)
+	}
+	if errs := b.fn.verifyReductionSSA(); len(errs) != 0 {
+		return nil, fmt.Errorf("tileir: ordered reduction policy: %v", errs)
+	}
+	sources := make([]MemorySource, len(refs))
+	for i, ref := range refs {
+		sources[i] = *ref
+	}
+	result.Memory = &SemanticMemoryBinding{byteDigest: memoryDigest(data), references: sources}
+	result.Memory.contractDigest = memoryContract(result, sources)
+	return result, nil
 }
 
-// verifyReductionSSA checks the emitted subset. Imported vendor functions and
-// the older lowering retain their existing verification rules.
+func indexOf(nodes []*cudair.Node, n *cudair.Node) int {
+	for i, m := range nodes {
+		if m.ID == n.ID {
+			return i
+		}
+	}
+	return -1
+}
+
+// verifyReductionSSA checks the ordered reduction policy that well-typed
+// bytecode does not imply: FP64 nearest-even accumulation without flush,
+// nearest-even conversions, unsigned bounds, nonwrapping index arithmetic,
+// and masked weak accesses on one token chain. EncodeBytecode checks types.
 func (f *Function) verifyReductionSSA() []ShapeError {
 	var errors []ShapeError
-	values := make(map[string]Type)
-	for _, p := range f.Params {
-		values[p.Name] = p.TypeVal
-	}
 	fail := func(op *Operation, reason string) {
-		errors = append(errors, ShapeError{Op: op, Reason: reason, Expected: "ordered reduction SSA contract", Actual: op.OpCode})
+		errors = append(errors, ShapeError{Op: op, Reason: reason, Expected: "ordered reduction policy", Actual: op.OpCode + " " + op.Attributes})
 	}
-	kind := func(t Type) TypeKind {
-		if v, ok := t.(*TileType); ok {
-			t = v.ElementType
-		}
-		if t == nil {
-			return TypeKind(255)
-		}
-		return t.Kind()
+	types := make(map[string]Type)
+	for _, p := range f.Params {
+		types[p.Name] = p.TypeVal
 	}
-	arities := map[string]int{"make_token": 0, "constant": 0, "get_tile_block_id": 0, "iota": 0, "addi": 2, "muli": 2, "cmpi": 2, "cmpf": 2, "offset": 2, "ftof": 1, "addf": 2, "select": 3, "load_ptr_tko": 4, "store_ptr_tko": 4, "return": 1}
-	var token string
-	var width int64
+	element := func(t Type) TypeKind {
+		if tile, ok := t.(*TileType); ok && tile != nil && tile.ElementType != nil {
+			return tile.ElementType.Kind()
+		}
+		return TypeKind(255)
+	}
+	fixed := map[string]string{
+		"addf": reductionNearest, "ftof": reductionNearest,
+		"addi": reductionNoWrap, "muli": reductionNoWrap,
+		"cmpi": reductionBound, "exti": reductionUnsigned,
+		"load_ptr_tko": reductionWeak, "store_ptr_tko": reductionWeak,
+		"make_token": "", "get_tile_block_id": "", "reshape": "", "broadcast": "",
+		"iota": "", "select": "", "offset": "", "return": "",
+	}
+	token := ""
 	for _, op := range f.Operations {
-		code := strings.TrimPrefix(op.OpCode, "cuda_tile.")
-		arity, known := arities[code]
-		if !known || len(op.Operands) != arity {
-			fail(op, "unknown operation or operand count")
+		if op == nil {
 			continue
 		}
-		args := make([]Type, len(op.Operands))
-		for i, operand := range op.Operands {
-			args[i] = values[operand]
-			if args[i] == nil {
-				fail(op, "operand is not defined before use")
+		code := strings.TrimPrefix(op.OpCode, "cuda_tile.")
+		want, known := fixed[code]
+		switch {
+		case code == "constant":
+			if !strings.HasPrefix(op.Attributes, "{value = ") {
+				fail(op, "constant value")
+			}
+		case code == "cmpf":
+			if op.Attributes != reductionGreater && op.Attributes != reductionNaN {
+				fail(op, "max comparison policy")
+			}
+		case !known:
+			fail(op, "operation outside the ordered reduction set")
+		case op.Attributes != want:
+			fail(op, "attribute policy")
+		}
+		switch code {
+		case "addf":
+			if element(op.TypeVal) != KindFloat64 {
+				fail(op, "sum must accumulate in FP64")
+			}
+		case "make_token":
+			token = op.Results[0]
+		case "load_ptr_tko", "store_ptr_tko":
+			mask := 1
+			if code == "store_ptr_tko" {
+				mask = 2
+			}
+			n := len(op.Operands)
+			if n != 4 || element(types[op.Operands[mask]]) != KindInt1 || token == "" || op.Operands[n-1] != token {
+				fail(op, "access must be masked and follow the ordered token chain")
+			}
+			if len(op.Results) > 0 {
+				token = op.Results[len(op.Results)-1]
 			}
 		}
 		results := []Type{op.TypeVal}
-		if ft, ok := op.TypeVal.(*FunctionType); ok {
-			results = ft.Results
-		}
-		if code == "return" {
-			results = nil
-		}
-		expectedResults := 1
-		if code == "load_ptr_tko" {
-			expectedResults = 2
-		}
-		if code == "return" {
-			expectedResults = 0
-		}
-		if len(results) != len(op.Results) || len(results) != expectedResults {
-			fail(op, "result type count")
-			continue
-		}
-		for _, t := range append(append([]Type(nil), args...), results...) {
-			if tile, ok := t.(*TileType); ok {
-				if len(tile.Shape) != 1 || tile.Shape[0] <= 0 || tile.Shape[0]&(tile.Shape[0]-1) != 0 {
-					fail(op, "vector must have a power of two width")
-					continue
-				}
-				if width == 0 {
-					width = tile.Shape[0]
-				} else if width != tile.Shape[0] {
-					fail(op, "vector widths differ")
-				}
-			}
-		}
-		if len(results) > 0 && results[0] == nil {
-			fail(op, "missing result type")
-			continue
-		}
-		switch code {
-		case "make_token":
-			if token != "" || len(results) != 1 || kind(results[0]) != KindToken {
-				fail(op, "initial token")
-			}
-			token = op.Results[0]
-		case "load_ptr_tko", "store_ptr_tko":
-			mask, value := 1, 2
-			if code == "store_ptr_tko" {
-				mask, value = 2, 1
-			}
-			if kind(args[0]) != KindPointer || kind(args[value]) != KindFloat32 || kind(args[mask]) != KindInt1 || kind(args[3]) != KindToken || op.Operands[3] != token {
-				fail(op, "memory types or ordered token predecessor")
-			}
-			if code == "load_ptr_tko" && (len(results) != 2 || kind(results[0]) != KindFloat32 || kind(results[len(results)-1]) != KindToken) || code == "store_ptr_tko" && (len(results) != 1 || kind(results[0]) != KindToken) {
-				fail(op, "memory result types")
-			}
-			token = op.Results[len(op.Results)-1]
-		case "return":
-			if op.Operands[0] != token || kind(args[0]) != KindToken {
-				fail(op, "return must consume final token")
-			}
-		case "addf":
-			if _, ok := results[0].(*TileType); !ok {
-				fail(op, "sum result must be a vector")
-			}
-			if kind(args[0]) != KindFloat64 || kind(args[1]) != KindFloat64 || kind(results[0]) != KindFloat64 || !strings.Contains(op.Attributes, "rounding_mode = nearest_even") || !strings.Contains(op.Attributes, "subnormals = preserve") {
-				fail(op, "ordered FP64 sum with nearest even rounding")
-			}
-		case "ftof":
-			if !(kind(args[0]) == KindFloat32 && kind(results[0]) == KindFloat64 || kind(args[0]) == KindFloat64 && kind(results[0]) == KindFloat32) || !strings.Contains(op.Attributes, "rounding_mode = nearest_even") {
-				fail(op, "explicit FP32/FP64 conversion")
-			}
-		case "select":
-			if kind(args[0]) != KindInt1 || args[1] == nil || args[2] == nil || args[1].String() != args[2].String() || args[1].String() != results[0].String() {
-				fail(op, "select alternatives must have the same type")
-			}
-		case "addi", "muli", "cmpi":
-			if kind(args[0]) != KindInt32 || kind(args[1]) != KindInt32 || code != "cmpi" && kind(results[0]) != KindInt32 || code == "cmpi" && kind(results[0]) != KindInt1 {
-				fail(op, "integer address or mask operation types")
-			}
-		case "cmpf":
-			if !(strings.Contains(op.Attributes, "comparison_predicate = gt comparison_ordering = ordered") || strings.Contains(op.Attributes, "comparison_predicate = ne comparison_ordering = unordered")) {
-				fail(op, "max comparison policy")
-			}
-			if kind(args[0]) != KindFloat32 || kind(args[1]) != KindFloat32 || kind(results[0]) != KindInt1 {
-				fail(op, "FP32 max comparison types")
-			}
-		case "offset":
-			if kind(args[0]) != KindPointer || kind(args[1]) != KindInt32 || kind(results[0]) != KindPointer {
-				fail(op, "pointer offset types")
-			}
+		if tuple, ok := op.TypeVal.(*FunctionType); ok {
+			results = tuple.Results
 		}
 		for i, name := range op.Results {
-			if values[name] != nil {
-				fail(op, "duplicate SSA definition")
+			if i < len(results) {
+				types[name] = results[i]
 			}
-			values[name] = results[i]
 		}
 	}
 	return errors

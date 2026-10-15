@@ -24,7 +24,7 @@ var astBodyOps = map[string]bool{
 	"cmpf": true, "cmpi": true, "select": true, "mmaf": true,
 	"load_ptr_tko": true, "store_ptr_tko": true,
 	"get_tile_block_id": true, "iota": true, "reshape": true,
-	"broadcast": true, "exti": true, "offset": true,
+	"broadcast": true, "exti": true, "offset": true, "ftof": true,
 }
 
 // Values and ordering come from NVIDIA/cuda-tile AttrDefs.td at 7e8e2e68.
@@ -318,6 +318,9 @@ func checkASTOperands(name string, result Type, operands, returns []Type) error 
 	if name == "load_ptr_tko" || name == "store_ptr_tko" {
 		return checkMemoryOperands(name, result, operands)
 	}
+	if name == "ftof" {
+		return checkFloatConversion(result, operands)
+	}
 	if name == "return" {
 		if len(operands) != len(returns) {
 			return astUnsupported("return arity differs from function signature")
@@ -415,6 +418,26 @@ func checkASTOperands(name string, result Type, operands, returns []Type) error 
 		if !source.ElementType.IsInt() {
 			return astUnsupported("integer operation has floating type")
 		}
+	}
+	return nil
+}
+
+// checkFloatConversion admits only same-shape FP32 to FP64 and FP64 to FP32
+// conversions. Ops.td:2198-2240 and CudaTile.cpp:2952-3010 also permit
+// other float types and rounding modes; this subset pins nearest_even,
+// valid for both directions there (strict widening and the f64 to f32 row).
+func checkFloatConversion(result Type, operands []Type) error {
+	to, ok := result.(*TileType)
+	if !ok || to == nil || len(operands) != 1 {
+		return astUnsupported("ftof needs one tile operand")
+	}
+	from, ok := operands[0].(*TileType)
+	if !ok || from == nil || !sameASTShape(from, to) {
+		return astUnsupported("ftof changes shape")
+	}
+	a, b := from.ElementType.Kind(), to.ElementType.Kind()
+	if !(a == KindFloat32 && b == KindFloat64 || a == KindFloat64 && b == KindFloat32) {
+		return astUnsupported("ftof supports only f32 and f64 conversion")
 	}
 	return nil
 }
@@ -808,6 +831,11 @@ func decodeASTBody(body []byte, types []Type, constants [][]byte, signature Type
 		}
 		if len(attrs) != 0 {
 			op.Attributes = "{" + strings.Join(attrs, ", ") + "}"
+		}
+		// astModule decodes every body it encodes, so this is the single
+		// rounding check for both directions.
+		if short == "ftof" && op.Attributes != "{rounding_mode = nearest_even}" {
+			return nil, astUnsupported("ftof requires rounding_mode = nearest_even")
 		}
 		count := uint64(len(spec.Operands))
 		if memoryOp(name) {
