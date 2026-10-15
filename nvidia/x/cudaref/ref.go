@@ -26,11 +26,50 @@ func BlockReduceSum(vals []float32) float32 {
 // MatMul computes standard row-major matrix multiplication C = A x B on CPU.
 // A has shape (M x K), B has shape (K x N), returning C of shape (M x N).
 func MatMul(a, b []float32, M, N, K int) ([]float32, error) {
-	if len(a) != M*K || len(b) != K*N {
+	if M < 0 || N < 0 || K < 0 {
+		return nil, fmt.Errorf("cudaref: negative MatMul dimension (%d x %d, %d x %d)", M, K, K, N)
+	}
+
+	maxInt := int(^uint(0) >> 1)
+	product := func(name string, x, y int) (int, error) {
+		if x != 0 && y > maxInt/x {
+			return 0, fmt.Errorf("cudaref: %s element count overflows int", name)
+		}
+		return x * y, nil
+	}
+	inputElements, err := product("MatMul A", M, K)
+	if err != nil {
+		return nil, err
+	}
+	rightElements, err := product("MatMul B", K, N)
+	if err != nil {
+		return nil, err
+	}
+	outputElements, err := product("MatMul output", M, N)
+	if err != nil {
+		return nil, err
+	}
+	for _, buffer := range []struct {
+		name     string
+		elements int
+	}{
+		{"MatMul A", inputElements},
+		{"MatMul B", rightElements},
+		{"MatMul output", outputElements},
+	} {
+		if buffer.elements > maxInt/4 {
+			return nil, fmt.Errorf("cudaref: %s float32 byte size overflows int", buffer.name)
+		}
+	}
+
+	if len(a) != inputElements || len(b) != rightElements {
 		return nil, fmt.Errorf("cudaref: dimension mismatch in MatMul (%dx%d, %dx%d)", M, K, K, N)
 	}
 
-	c := make([]float32, M*N)
+	c := make([]float32, outputElements)
+	if outputElements == 0 {
+		return c, nil
+	}
 	for i := 0; i < M; i++ {
 		for j := 0; j < N; j++ {
 			var acc float64
