@@ -3,13 +3,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"math"
 	"os"
+	"os/signal"
 	"sort"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/perfetto"
 )
@@ -28,9 +31,24 @@ func main() {
 }
 
 func run(args []string, out, log io.Writer) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	return runContext(ctx, args, out, log, sqliteCommand)
+}
+
+func runContext(ctx context.Context, args []string, out, log io.Writer, process sqliteProcess) error {
 	fs := flag.NewFlagSet("profile2trace", flag.ContinueOnError)
 	fs.SetOutput(log)
 	nsys := fs.String("nsys", "", "Nsight Systems SQLite export (requires sqlite3)")
+	release := fs.String("nsys-release", "", "declared exporter release: 2024.2 or 2025.3")
+	build := fs.String("nsys-build", "", "declared exporter build (not inferred from schema)")
+	clock := fs.String("nsys-clock", "", "declared report-relative, unix-epoch, or unestablished clock")
+	shift := fs.Int64("nsys-ts-shift-ns", 0, "exporter --ts-shift provenance; not applied again")
+	expected := fs.String("nsys-sha256", "", "optional expected SHA256 of the original SQLite export")
+	timeout := fs.Duration("nsys-timeout", 30*time.Second, "bound snapshot and SQLite import duration (maximum 5m)")
+	inputBytes := fs.Int64("nsys-input-bytes", 1<<30, "maximum original SQLite bytes (maximum 64 GiB)")
+	bytesLimit := fs.Int("nsys-bytes", 16<<20, "maximum cumulative SQLite stdout and imported row bytes (maximum 64 MiB)")
+	rowsLimit := fs.Int("nsys-rows", 65536, "maximum cumulative imported rows including diagnostics (maximum 262144)")
 	spans := fs.String("spans", "", "gputrace.host-event/v1 JSONL")
 	metal := fs.String("metal", "", "Metal region receipt JSON")
 	hostOffset := fs.Int64("spans-offset-ns", 0, "add to host timestamps to align with the reference clock")
@@ -71,7 +89,11 @@ func run(args []string, out, log io.Writer) error {
 	}
 	var all []slice
 	if *nsys != "" {
-		rows, err := readNSYS(*nsys, nsysWindow, *maxSlices, log)
+		if count > 1 && *clock == "unestablished" {
+			return errors.New("merging Nsight requires an established declared reference clock")
+		}
+		options := nsysOptions{release: *release, build: *build, clock: *clock, shift: *shift, expectedSHA: *expected, timeout: *timeout, inputBytes: *inputBytes, bytes: *bytesLimit, rows: *rowsLimit}
+		rows, err := readNSYS(ctx, *nsys, nsysWindow, *maxSlices, options, process, log)
 		if err != nil {
 			return err
 		}

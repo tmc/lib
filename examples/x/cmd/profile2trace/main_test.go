@@ -2,50 +2,72 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"io"
 	"math"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 const fixtureSQL = `
-CREATE TABLE StringIds(id INTEGER, value TEXT);
-INSERT INTO StringIds VALUES(1,'gemm'),(2,'decode');
-CREATE TABLE CUPTI_ACTIVITY_KIND_KERNEL(start INTEGER,end INTEGER,deviceId INTEGER,contextId INTEGER,streamId INTEGER,globalPid INTEGER,correlationId INTEGER,demangledName INTEGER);
-INSERT INTO CUPTI_ACTIVITY_KIND_KERNEL VALUES(1000000,2000000,0,1,7,123,1,1),(3000000,4000000,0,2,7,123,2,999);
-CREATE TABLE NVTX_EVENTS(start INTEGER,end INTEGER,globalTid INTEGER,endGlobalTid INTEGER,text TEXT,textId INTEGER);
-INSERT INTO NVTX_EVENTS VALUES(900000,4100000,1234,NULL,'prefill',NULL),(3000000,4000000,1234,1234,NULL,2),(4200000,NULL,1234,NULL,'mark',NULL);
+INSERT INTO META_DATA_EXPORT(name,value) VALUES('EXPORT_SCHEMA_VERSION','3.11.0');
+INSERT INTO StringIds(id,value) VALUES(1,'gemm'),(2,'decode'),(3,'decode_kernel');
+INSERT INTO CUPTI_ACTIVITY_KIND_KERNEL(start,end,deviceId,contextId,streamId,globalPid,correlationId,demangledName,shortName,registersPerThread,gridX,gridY,gridZ,blockX,blockY,blockZ,staticSharedMemory,dynamicSharedMemory,localMemoryPerThread,localMemoryTotal,gridId)
+VALUES(1000000,2000000,0,1,7,123,1,1,1,0,1,1,1,32,1,1,0,0,0,0,1),(3000000,4000000,0,2,7,123,2,3,3,0,1,1,1,32,1,1,0,0,0,0,2);
+INSERT INTO NVTX_EVENTS(start,end,eventType,globalTid,endGlobalTid,text,textId)
+VALUES(900000,4100000,0,1234,NULL,'prefill',NULL),(3000000,4000000,0,1234,1234,NULL,2),(4200000,NULL,0,1234,NULL,'mark',NULL);
 `
 
 func database(t *testing.T, sql string) string {
 	t.Helper()
-	if _, err := exec.LookPath("sqlite3"); err != nil {
+	schema, err := os.ReadFile("../../../../nvidia/x/nsightsystems/testdata/schema-2024.2.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return databaseSchema(t, string(schema)+sql)
+}
+
+func databaseSchema(t *testing.T, sql string) string {
+	t.Helper()
+	tool, err := exec.LookPath("sqlite3")
+	if err != nil {
 		t.Fatal("sqlite3 is required for reader tests")
 	}
 	path := filepath.Join(t.TempDir(), "capture.sqlite")
-	if out, err := exec.Command("sqlite3", path, sql).CombinedOutput(); err != nil {
-		t.Fatalf("sqlite fixture: %s: %v", out, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	stdout := &boundedOutput{left: 1 << 20, cancel: cancel}
+	stderr := &boundedOutput{left: 64 << 10, cancel: cancel}
+	// Only authored fixture SQL is used to create this task-owned database.
+	if err := sqliteCommand(ctx, tool, []string{"-batch", "-init", "/dev/null", "--", path, sql}, stdout, stderr); err != nil {
+		t.Fatalf("sqlite fixture: %s: %v", stderr, err)
+	}
+	if stdout.exceeded || stderr.exceeded {
+		t.Fatal("sqlite fixture output limit")
 	}
 	return path
 }
 
 func TestNSYS(t *testing.T) {
 	path := database(t, fixtureSQL)
-	rows, err := readNSYS(path, wholeCapture(), 500000, io.Discard)
+	rows, err := readNSYS(context.Background(), path, wholeCapture(), 500000, testNSYSOptions(), sqliteCommand, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 4 || rows[0].name != "gemm" || rows[1].name != "kernel name unavailable" || rows[2].name != "prefill" || rows[3].name != "decode" {
+	if len(rows) != 4 || rows[0].name != "gemm" || rows[1].name != "decode_kernel" || rows[2].name != "prefill" || rows[3].name != "decode" {
 		t.Fatalf("rows: %+v", rows)
 	}
 	if rows[0].thread == rows[1].thread {
 		t.Fatal("distinct contexts collapsed")
 	}
 	var out bytes.Buffer
-	if err := run([]string{"-nsys", path}, &out, io.Discard); err != nil {
+	if err := run(append(testNSYSArgs(), "-nsys", path), &out, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	slices := decodeSlices(t, out.Bytes())
@@ -54,11 +76,12 @@ func TestNSYS(t *testing.T) {
 	}
 	for _, mutation := range []string{
 		"DROP TABLE CUPTI_ACTIVITY_KIND_KERNEL;", "DELETE FROM CUPTI_ACTIVITY_KIND_KERNEL;",
-		"UPDATE CUPTI_ACTIVITY_KIND_KERNEL SET end=start-1;", "UPDATE CUPTI_ACTIVITY_KIND_KERNEL SET start=NULL;",
+		"UPDATE CUPTI_ACTIVITY_KIND_KERNEL SET end=start-1;", "UPDATE CUPTI_ACTIVITY_KIND_KERNEL SET start='bad';",
+		"UPDATE CUPTI_ACTIVITY_KIND_KERNEL SET shortName=999;",
 		"UPDATE NVTX_EVENTS SET end=start-1 WHERE end IS NOT NULL;",
 	} {
 		t.Run(mutation, func(t *testing.T) {
-			if _, err := readNSYS(database(t, fixtureSQL+mutation), wholeCapture(), 500000, io.Discard); err == nil {
+			if _, err := readNSYS(context.Background(), database(t, fixtureSQL+mutation), wholeCapture(), 500000, testNSYSOptions(), sqliteCommand, io.Discard); err == nil {
 				t.Fatal("accepted invalid capture")
 			}
 		})
@@ -84,7 +107,7 @@ INSERT INTO ENUM_DIAGNOSTIC_SEVERITY_LEVEL VALUES(1,'Info','Info'),(2,'Warning',
 		t.Run(tt.name, func(t *testing.T) {
 			var want, got, log bytes.Buffer
 			// The warning is outside this window, but concerns the whole capture.
-			args := []string{"-nsys", database(t, fixtureSQL), "-nsys-window", "0:2500000"}
+			args := append([]string{"-nsys", database(t, fixtureSQL), "-nsys-window", "0:2500000"}, testNSYSArgs()...)
 			if err := run(args, &want, io.Discard); err != nil {
 				t.Fatal(err)
 			}
@@ -92,7 +115,7 @@ INSERT INTO ENUM_DIAGNOSTIC_SEVERITY_LEVEL VALUES(1,'Info','Info'),(2,'Warning',
 			if err := run(args, &got, &log); err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Equal(got.Bytes(), want.Bytes()) {
+			if !reflect.DeepEqual(decodeSlices(t, got.Bytes()), decodeSlices(t, want.Bytes())) {
 				t.Fatal("diagnostics changed the trace")
 			}
 			for _, text := range []string{tt.warning, "capture failed", "unknown diagnostic"} {
@@ -287,7 +310,7 @@ func TestNSYSWindow(t *testing.T) {
 	if err := w.Set("2000000:"); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := readNSYS(path, w, 500000, io.Discard)
+	rows, err := readNSYS(context.Background(), path, w, 500000, testNSYSOptions(), sqliteCommand, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,14 +319,14 @@ func TestNSYSWindow(t *testing.T) {
 	if len(rows) != 2 || rows[0].category != "cuda_kernel" || rows[0].start != 3000000 || rows[1].name != "decode" {
 		t.Fatalf("rows: %+v", rows)
 	}
-	if _, err := readNSYS(path, wholeCapture(), 1, io.Discard); err == nil {
+	if _, err := readNSYS(context.Background(), path, wholeCapture(), 1, testNSYSOptions(), sqliteCommand, io.Discard); err == nil {
 		t.Fatal("accepted a window over the slice limit")
 	}
 	var empty window
 	if err := empty.Set("5000000:6000000"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readNSYS(path, empty, 500000, io.Discard); err == nil {
+	if _, err := readNSYS(context.Background(), path, empty, 500000, testNSYSOptions(), sqliteCommand, io.Discard); err == nil {
 		t.Fatal("accepted a window selecting no kernels")
 	}
 }
