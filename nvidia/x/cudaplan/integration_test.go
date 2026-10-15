@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -591,20 +592,48 @@ func TestServingCancellationEndToEnd(t *testing.T) {
 	}
 }
 
-// TestPromotionGenerationEndToEnd verifies candidate promotion proposals through
-// cudasearch, ensuring stale scoring generation epochs are rejected.
-func TestPromotionGenerationEndToEnd(t *testing.T) {
-	proposal := cudasearch.PromotionProposal{
-		CandidateID: "cand-epoch-1",
-		Generation:  1,
-	}
-
-	currentGen := 2
-	if proposal.Generation < currentGen {
-		err := cudasearch.ErrStaleGeneration
-		if !errors.Is(err, cudasearch.ErrStaleGeneration) {
-			t.Fatalf("expected ErrStaleGeneration, got %v", err)
+// TestPromotionGenerationAdmission checks the public proposal generation contract.
+// The execution owner's synchronized boundary switch is not exercised here.
+func TestPromotionGenerationAdmission(t *testing.T) {
+	newProposal := func(generation int) *cudasearch.PromotionProposal {
+		return &cudasearch.PromotionProposal{
+			CandidateID:     "candidate",
+			Generation:      generation,
+			PolicyID:        cudacache.SearchPolicyID{Options: map[string]string{"fixture": "original"}},
+			ScreeningTrials: []cudatrial.Receipt{{Name: "screen", Provenance: map[string]string{"input": "original"}}},
+			Comparison:      map[string]cudasearch.OutputComparison{"out": {MaxAbsolute: 1}},
 		}
+	}
+	tests := []struct {
+		name                string
+		generation, current int
+		nilProposal         bool
+		want                error
+	}{
+		{name: "matching", generation: 3, current: 3},
+		{name: "stale", generation: 2, current: 3, want: cudasearch.ErrStaleGeneration},
+		{name: "future", generation: 4, current: 3, want: cudasearch.ErrStaleGeneration},
+		{name: "zero_proposal", generation: 0, current: 3, want: cudasearch.ErrStaleGeneration},
+		{name: "negative_proposal", generation: -1, current: 3, want: cudasearch.ErrStaleGeneration},
+		{name: "zero_current", generation: 0, current: 0, want: cudasearch.ErrStaleGeneration},
+		{name: "negative_current", generation: -1, current: -1, want: cudasearch.ErrStaleGeneration},
+		{name: "nil_proposal", current: 3, nilProposal: true, want: cudasearch.ErrStaleGeneration},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proposal := newProposal(tt.generation)
+			before := newProposal(tt.generation)
+			if tt.nilProposal {
+				proposal, before = nil, nil
+			}
+			err := proposal.ValidateGeneration(tt.current)
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("ValidateGeneration(%d) = %v, want %v", tt.current, err, tt.want)
+			}
+			if !reflect.DeepEqual(proposal, before) {
+				t.Fatalf("ValidateGeneration changed proposal: got %+v, want %+v", proposal, before)
+			}
+		})
 	}
 }
 
