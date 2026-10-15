@@ -1,6 +1,9 @@
 package cudalayout
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // TMASwizzle is a CUDA tensor-map swizzle mode. Its values correspond to
 // CU_TENSOR_MAP_SWIZZLE_NONE, _32B, _64B and _128B, and a tile built with one
@@ -97,6 +100,10 @@ type SwizzledTile struct {
 //
 // The row byte width must be a multiple of the swizzle span, because a span
 // that a row only partly fills would place a row's tail in the next group.
+// With a swizzle, each element must fit within the 16-byte atom that the
+// permutation moves; larger elements cannot be described by one byte offset.
+// The complete byte footprint must fit in an int; otherwise it returns
+// [ErrOverflow]. No storage is allocated.
 func NewSwizzledTile(rows, cols, elementBytes int, swizzle TMASwizzle) (SwizzledTile, error) {
 	if rows <= 0 || cols <= 0 {
 		return SwizzledTile{}, fmt.Errorf("tile %dx%d is empty: %w", rows, cols, ErrUnsupported)
@@ -109,10 +116,19 @@ func NewSwizzledTile(rows, cols, elementBytes int, swizzle TMASwizzle) (Swizzled
 		return SwizzledTile{}, fmt.Errorf("unknown swizzle %d: %w", uint8(swizzle), ErrUnsupported)
 	}
 	if span != 0 {
-		if elementBytes > span {
-			return SwizzledTile{}, fmt.Errorf("element size %d exceeds the %s span: %w", elementBytes, swizzle, ErrUnsupported)
+		if elementBytes > swizzleChunk {
+			return SwizzledTile{}, fmt.Errorf("element size %d exceeds the %d-byte swizzle atom: %w", elementBytes, swizzleChunk, ErrUnsupported)
 		}
-		if rowBytes := cols * elementBytes; rowBytes%span != 0 {
+	}
+	if cols > math.MaxInt/elementBytes {
+		return SwizzledTile{}, ErrOverflow
+	}
+	rowBytes := cols * elementBytes
+	if rows > math.MaxInt/rowBytes {
+		return SwizzledTile{}, ErrOverflow
+	}
+	if span != 0 {
+		if rowBytes%span != 0 {
 			return SwizzledTile{}, fmt.Errorf("row width %d bytes is not a multiple of the %s span: %w", rowBytes, swizzle, ErrUnsupported)
 		}
 	}
