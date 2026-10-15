@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"math/rand"
@@ -63,11 +64,7 @@ func run() (rerr error) {
 		if err != nil {
 			return fmt.Errorf("create trace file: %w", err)
 		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "close trace file: %v\n", err)
-			}
-		}()
+		defer closeInto(&rerr, f, "close trace file")
 		tracer = cudatrace.New(f)
 		fmt.Printf("[Observability] Timeline trace enabled -> %s\n", *tracePath)
 	}
@@ -78,17 +75,11 @@ func run() (rerr error) {
 		if err != nil {
 			return fmt.Errorf("create profile file: %w", err)
 		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "close profile file: %v\n", err)
-			}
-		}()
+		defer closeInto(&rerr, f, "close profile file")
 		profSession = cudaprof.NewSession(f)
-		defer func() {
-			if err := profSession.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "close profile session: %v\n", err)
-			}
-		}()
+		// Registered after the file's, so the session flushes into the
+		// file before the file closes.
+		defer closeInto(&rerr, profSession, "close profile session")
 
 		binPath := strings.TrimSuffix(*profilePath, filepath.Ext(*profilePath)) + ".so"
 		profSession.SetBinaryPath(binPath)
@@ -544,6 +535,14 @@ func printToken(tok Tokenizer, id int32) error {
 	}
 	fmt.Print(s)
 	return nil
+}
+
+// closeInto closes c and joins its error, if any, wrapped with what, into
+// *errp.
+func closeInto(errp *error, c io.Closer, what string) {
+	if err := c.Close(); err != nil {
+		*errp = errors.Join(*errp, fmt.Errorf("%s: %w", what, err))
+	}
 }
 
 // archOr returns the compute capability cc reports. If cc fails, it
