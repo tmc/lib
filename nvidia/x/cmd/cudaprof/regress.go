@@ -16,6 +16,7 @@ const regressUsage = `usage: cudaprof regress <subcommand> [flags]
 
 Subcommands:
   plan    create an experiment plan from an admitted incident
+  reconstruct verify sealed telemetry and derive a plan without executing it
   check   verify plan artifact closure and environment reconstruction
   export  export a minimal reproducer bundle
   replay  execute a declared replay spec with an observed environment
@@ -28,6 +29,8 @@ func runRegressCommand(args []string, stdout io.Writer) error {
 	}
 
 	switch args[0] {
+	case "reconstruct":
+		return runRegressReconstructCommand(args[1:], stdout)
 	case "plan":
 		return runRegressPlanCommand(args[1:], stdout)
 	case "check":
