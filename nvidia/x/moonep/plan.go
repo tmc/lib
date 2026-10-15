@@ -32,7 +32,7 @@ type CommPlan struct {
 	N, R, E, B, NvS, K int
 
 	mu     sync.Mutex
-	closed bool
+	closed bool // Cleanup has started; new local work is refused.
 	active int
 }
 
@@ -66,13 +66,15 @@ func AllocatePlan(l *Layout) (*CommPlan, error) {
 
 // Close frees the plan's device memory. The plan must not be referenced by
 // any in-flight raw transport kernel. Tracked local dedup work prevents Close
-// until completion. Close is idempotent.
+// until completion. Once cleanup starts, new local work is refused. Failed
+// frees retain their pointers for a later Close; successful frees are not repeated.
 func (p *CommPlan) Close() error {
+	return p.close(driver.DevicePtr.Free)
+}
+
+func (p *CommPlan) close(free func(driver.DevicePtr) error) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.closed {
-		return nil
-	}
 	if p.active != 0 {
 		return errors.New("moonep: plan has incomplete local work")
 	}
@@ -83,8 +85,11 @@ func (p *CommPlan) Close() error {
 		&p.RemoteStats, &p.DupGroups, &p.DupLoffs, &p.DupCounts,
 	} {
 		if *d != 0 {
-			errs = append(errs, (*d).Free())
-			*d = 0
+			if err := free(*d); err != nil {
+				errs = append(errs, err)
+			} else {
+				*d = 0
+			}
 		}
 	}
 	return errors.Join(errs...)
