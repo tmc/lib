@@ -369,7 +369,9 @@ func TestDecodeStateNgram(t *testing.T) {
 		{"plain cache end", kvHash, []int32{1, 2, 3}, 12, 20, 0, false},
 		{"cycle", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 16, 3, true},
 		{"cycle long drafts", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 20, 8, true},
-		{"cycle cache end", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 12, 20, 4, true},
+		// From position 7 the 4 drafts would reach position 11, past the
+		// cache of 11, so the speculative step must clip them to 3.
+		{"cycle cache end", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 11, 20, 4, true},
 		{"cycle budget 2", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 0) }, cycle, 32, 2, 4, true},
 		{"cycle with breaks", func(m int) func(int32, int) (int32, error) { return cycleModel(m, 7) }, cycle, 40, 30, 3, false},
 		{"kv hash", kvHash, []int32{1, 2, 3, 1, 2, 3, 1, 2}, 24, 16, 3, false},
@@ -423,8 +425,10 @@ func TestDecodeStateNgram(t *testing.T) {
 }
 
 // TestDecodeErrors checks that decode returns an error from plain unchanged
-// and wraps one from a speculative step with its position, and that both
-// leave the pending token and position as they were before the failed step.
+// and wraps one from a speculative step with its position, that both leave
+// the pending token and position as they were before the failed step, and
+// that a plain step shows its pending token before plain feeds it, so the
+// token of a failed plain step has been shown.
 func TestDecodeErrors(t *testing.T) {
 	errFail := errors.New("forward failed")
 	model := cycleModel(32, 0)
@@ -441,13 +445,14 @@ func TestDecodeErrors(t *testing.T) {
 		draftN        int
 		wantErr       string
 		wantGenerated []int32
+		wantShown     []int32
 		wantNext      int32
 		wantPos       int
 	}{
 		// Plain steps feed 2 and 3, then fail feeding 4 at position 9.
-		{"plain", 0, "forward failed", []int32{2, 3, 4}, 4, 9},
+		{"plain", 0, "forward failed", []int32{2, 3, 4}, []int32{2, 3, 4}, 4, 9},
 		// The first speculative step feeds 2, 3, 4, 0 from position 7.
-		{"speculative", 3, "speculative step at position 7: position 9: forward failed", nil, 2, 7},
+		{"speculative", 3, "speculative step at position 7: position 9: forward failed", nil, nil, 2, 7},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var drafter *speculative.NgramDrafter
@@ -456,7 +461,12 @@ func TestDecodeErrors(t *testing.T) {
 			}
 			st := newDecodeState(prompt, 16, drafter)
 			plain := func(step int, tok int32, pos int) (int32, error) { return failAt9(tok, pos) }
-			next, pos, err := decode(st, failAt9, plain, func(int32) error { return nil }, 2, len(prompt), 32, 16, tt.draftN)
+			var shown []int32
+			show := func(tok int32) error {
+				shown = append(shown, tok)
+				return nil
+			}
+			next, pos, err := decode(st, failAt9, plain, show, 2, len(prompt), 32, 16, tt.draftN)
 			if !errors.Is(err, errFail) || err.Error() != tt.wantErr {
 				t.Errorf("err = %v, want %q wrapping %v", err, tt.wantErr, errFail)
 			}
@@ -465,6 +475,9 @@ func TestDecodeErrors(t *testing.T) {
 			}
 			if !slices.Equal(st.generated, tt.wantGenerated) {
 				t.Errorf("generated %v, want %v", st.generated, tt.wantGenerated)
+			}
+			if !slices.Equal(shown, tt.wantShown) {
+				t.Errorf("shown %v, want %v", shown, tt.wantShown)
 			}
 		})
 	}
