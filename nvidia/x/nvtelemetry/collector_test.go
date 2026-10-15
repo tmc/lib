@@ -383,8 +383,9 @@ func TestCollectorCancellationCapturesFinishError(t *testing.T) {
 		},
 	}
 
-	// Allows 2 writes (initial manifest, 1 sample), fails on finish manifest
-	fw := &failAfterNWriter{n: 2}
+	// A pre-canceled Run admits no sample. Allow the initial manifest,
+	// then fail the final manifest.
+	fw := &failAfterNWriter{n: 1}
 	w := nvtelemetry.NewWriter(fw, nvtelemetry.CollectorConfig{})
 	c := nvtelemetry.NewCollector("run-finish-err", sampler, clock, nvtelemetry.CollectorConfig{IntervalNanos: int64(time.Second)}, w)
 

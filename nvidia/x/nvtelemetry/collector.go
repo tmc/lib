@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 )
@@ -15,6 +18,8 @@ import (
 // Collector coordinates scheduled sampling from a hardware or fake Sampler.
 type Collector struct {
 	mu              sync.Mutex
+	sampling        bool
+	phaseBytes      int
 	sampler         Sampler
 	clock           Clock
 	config          CollectorConfig
@@ -61,31 +66,122 @@ func NewCollector(runID string, sampler Sampler, clock Clock, cfg CollectorConfi
 }
 
 // SetPhase transitions the collector into a new named phase.
+// Completed and active phases share MaxBufferedRecords with retained samples.
+// MaxRecordBudget also caps phases, including the active phase, independently
+// of the Writer's existing sample counter. MaxByteBudget additionally caps the
+// encoded retained phase history and active marker, even without a Writer.
+// Zero limits remain unlimited. A refused or failed transition retains the old
+// active phase and does not append history. Phase refusals are never dropped.
 func (c *Collector) SetPhase(name string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	if c.finished {
 		return errors.New("collector already finished")
 	}
 	now := c.clock.NowMonotonic()
+	var marker *PhaseMarker
 	if c.currentPhase != "" {
-		marker := PhaseMarker{
-			Name:                c.currentPhase,
-			StartMonotonicNanos: c.phaseStart,
-			EndMonotonicNanos:   now,
-		}
-		c.phases = append(c.phases, marker)
+		marker = &PhaseMarker{Name: c.currentPhase, StartMonotonicNanos: c.phaseStart, EndMonotonicNanos: now}
+	}
+	size, err := c.admitPhaseLocked(marker, name, now)
+	if err != nil {
+		return err
+	}
+	if marker != nil {
 		if c.writer != nil {
-			if err := c.writer.WritePhase(&marker); err != nil {
+			if err := c.writer.WritePhase(marker); err != nil {
 				return fmt.Errorf("write phase marker: %w", err)
 			}
 		}
+		c.phases = append(c.phases, *marker)
+		c.phaseBytes += size
 	}
-
-	c.currentPhase = name
-	c.phaseStart = now
+	c.currentPhase, c.phaseStart = strings.Clone(name), now
 	return nil
+}
+
+// admitPhaseLocked checks a completed marker and its replacement active phase
+// before the Writer marshals or the Collector retains either. Its result is
+// the completed marker's exact JSONL byte count, excluding the active marker.
+func (c *Collector) admitPhaseLocked(marker *PhaseMarker, next string, now int64) (int, error) {
+	count := len(c.phases)
+	if marker != nil {
+		count++
+	}
+	if next != "" {
+		count++
+	}
+	if c.config.MaxRecordBudget > 0 && count > c.config.MaxRecordBudget {
+		return 0, ErrBudgetExceeded
+	}
+	if c.config.MaxBufferedRecords > 0 && (count > c.config.MaxBufferedRecords || len(c.samples) > c.config.MaxBufferedRecords-count) {
+		return 0, ErrBudgetExceeded
+	}
+	limit := int(^uint(0) >> 1)
+	if c.config.MaxByteBudget > 0 {
+		limit = c.config.MaxByteBudget
+	}
+	if c.phaseBytes > limit {
+		return 0, ErrBudgetExceeded
+	}
+	remaining := limit - c.phaseBytes
+	size := 0
+	var err error
+	if marker != nil {
+		size, err = phaseRecordSize(*marker, remaining)
+		if err != nil {
+			return 0, err
+		}
+		remaining -= size
+	}
+	if next != "" {
+		if _, err := phaseRecordSize(PhaseMarker{Name: next, StartMonotonicNanos: now, EndMonotonicNanos: now}, remaining); err != nil {
+			return 0, err
+		}
+	}
+	return size, nil
+}
+
+// phaseRecordSize counts encoding/json's default escaped JSONL representation
+// without allocating in proportion to Name. Stop may need more timestamp digits
+// than the active marker admission, so finalization repeats this check.
+func phaseRecordSize(p PhaseMarker, limit int) (int, error) {
+	size := len(`{"phase":{"name":`) + 2 + len(`,"start_monotonic_nanos":`) + len(strconv.FormatInt(p.StartMonotonicNanos, 10)) + len(`,"end_monotonic_nanos":`) + len(strconv.FormatInt(p.EndMonotonicNanos, 10)) + len("}}\n")
+	if size > limit || len(p.Name) > limit-size {
+		return 0, ErrBudgetExceeded
+	}
+	invalidWidth := 0
+	for i := 0; i < len(p.Name); {
+		n, step := 1, 1
+		b := p.Name[i]
+		switch {
+		case b == '"' || b == '\\' || b == '\b' || b == '\f' || b == '\n' || b == '\r' || b == '\t':
+			n = 2
+		case b < 0x20 || b == '<' || b == '>' || b == '&':
+			n = 6
+		case b >= utf8.RuneSelf:
+			ch, width := utf8.DecodeRuneInString(p.Name[i:])
+			step = width
+			n = width
+			if ch == utf8.RuneError && width == 1 {
+				// Ask the active encoder how it represents an invalid byte.
+				// This constant-size marshal never includes the input Name.
+				if invalidWidth == 0 {
+					replacement, _ := json.Marshal("\xff")
+					invalidWidth = len(replacement) - 2
+				}
+				n = invalidWidth
+			} else if ch == '\u2028' || ch == '\u2029' {
+				n = 6
+			}
+		}
+		if n > limit-size {
+			return 0, ErrBudgetExceeded
+		}
+		size += n
+		i += step
+	}
+	return size, nil
 }
 
 // SetSampleHook configures an optional callback invoked for each collected sample.
@@ -216,13 +312,17 @@ func (c *Collector) finishLocked() (*Manifest, error) {
 			StartMonotonicNanos: c.phaseStart,
 			EndMonotonicNanos:   c.endTime,
 		}
-		c.phases = append(c.phases, marker)
-		if c.writer != nil {
-			if err := c.writer.WritePhase(&marker); err != nil {
-				phaseErr = fmt.Errorf("write final phase: %w", err)
-			}
+		size, err := c.admitPhaseLocked(&marker, "", c.endTime)
+		if err == nil && c.writer != nil {
+			err = c.writer.WritePhase(&marker)
 		}
-		c.currentPhase = ""
+		if err != nil {
+			phaseErr = fmt.Errorf("write final phase: %w", err)
+		} else {
+			c.phases = append(c.phases, marker)
+			c.phaseBytes += size
+			c.currentPhase = ""
+		}
 	}
 
 	c.finishErr = phaseErr
@@ -325,17 +425,37 @@ func (c *Collector) InitStream() error {
 }
 
 // Step performs a single collection pass without ticker scheduling (for fake clocks).
+// It refuses overlapping collection rather than queueing behind a slow sampler.
+// Admission is released before sample hooks, which may call Step or SetPhase.
 func (c *Collector) Step(ctx context.Context) error {
 	return c.collectOnce(ctx)
 }
 
 func (c *Collector) collectOnce(ctx context.Context) error {
+	sample, err := c.collectSample(ctx)
+	if err != nil {
+		return err
+	}
+	c.notifySample(*sample)
+	return nil
+}
+
+func (c *Collector) collectSample(ctx context.Context) (*Sample, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	c.mu.Lock()
 	if c.finished {
 		c.mu.Unlock()
-		return errors.New("collector already finished")
+		return nil, errors.New("collector already finished")
 	}
+	if c.sampling {
+		c.mu.Unlock()
+		return nil, errors.New("collector sample already in progress")
+	}
+	c.sampling = true
 	c.mu.Unlock()
+	defer func() { c.mu.Lock(); c.sampling = false; c.mu.Unlock() }()
 	start := c.clock.NowMonotonic()
 	c.mu.Lock()
 	if c.startTime == 0 {
@@ -389,13 +509,13 @@ func (c *Collector) collectOnce(ctx context.Context) error {
 			c.terminalErr = err
 		}
 		c.mu.Unlock()
-		return err
+		return nil, err
 	}
 
 	c.mu.Lock()
 	if c.finished {
 		c.mu.Unlock()
-		return errors.New("collector already finished")
+		return nil, errors.New("collector already finished")
 	}
 	c.seq++
 	var discontinuity bool
@@ -429,7 +549,11 @@ func (c *Collector) collectOnce(ctx context.Context) error {
 	}
 
 	// In-memory buffer budget enforcement: do not append unbounded samples
-	if c.config.MaxBufferedRecords > 0 && len(c.samples) >= c.config.MaxBufferedRecords {
+	retained := len(c.samples) + len(c.phases)
+	if c.currentPhase != "" {
+		retained++
+	}
+	if c.config.MaxBufferedRecords > 0 && retained >= c.config.MaxBufferedRecords {
 		if c.config.BudgetPolicy == BudgetExceededDrop || c.config.DropOnFull {
 			c.lostSamples++
 			c.mu.Unlock()
@@ -440,15 +564,14 @@ func (c *Collector) collectOnce(ctx context.Context) error {
 						c.terminalErr = err
 					}
 					c.mu.Unlock()
-					return err
+					return nil, err
 				}
 			}
-			c.notifySample(sample)
-			return nil
+			return &sample, nil
 		}
 		c.terminalErr = ErrBudgetExceeded
 		c.mu.Unlock()
-		return ErrBudgetExceeded
+		return nil, ErrBudgetExceeded
 	}
 
 	c.samples = append(c.samples, sample)
@@ -461,12 +584,11 @@ func (c *Collector) collectOnce(ctx context.Context) error {
 				c.terminalErr = err
 			}
 			c.mu.Unlock()
-			return err
+			return nil, err
 		}
 	}
 
-	c.notifySample(sample)
-	return nil
+	return &sample, nil
 }
 
 func (c *Collector) notifySample(sample Sample) {
