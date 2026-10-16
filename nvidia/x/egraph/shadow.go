@@ -457,9 +457,32 @@ type GraphNodeUpdater interface {
 	ApplyKernelNodeUpdate(node *cudagraph.Node, update cudagraph.KernelNodeUpdate) error
 }
 
-// HotSwapNode updates an instantiated graph kernel node in-place to use candidate launch
-// configuration (grid dimension, block dimension, and kernel arguments) without
-// graph re-instantiation or topology validation overhead.
+// BlockDimError reports a candidate whose block dimension differs from the
+// kernel node's. In-place updates change the grid and arguments only.
+type BlockDimError struct {
+	Node      driver.Dim3 // block dimension of the kernel node
+	Candidate driver.Dim3 // block dimension requested by the candidate
+}
+
+func (e *BlockDimError) Error() string {
+	return fmt.Sprintf("egraph: candidate block %dx%dx%d differs from node block %dx%dx%d; in-place update cannot change it",
+		e.Candidate.X, e.Candidate.Y, e.Candidate.Z, e.Node.X, e.Node.Y, e.Node.Z)
+}
+
+// kernelNodeBlocker reports the block dimension of a kernel node.
+// HotSwapNode uses it when exec implements it and otherwise reads the
+// node's parameters.
+type kernelNodeBlocker interface {
+	KernelNodeBlock(node *cudagraph.Node) (driver.Dim3, error)
+}
+
+// HotSwapNode updates an instantiated graph kernel node in-place to use the
+// candidate grid dimension and, when args are given, kernel arguments, without
+// graph re-instantiation. A zero GridDim leaves the grid unchanged.
+//
+// HotSwapNode does not change the block dimension. If cand.BlockDim is nonzero
+// and differs from the block dimension recorded on node, HotSwapNode makes no
+// update and returns a *[BlockDimError].
 func HotSwapNode(exec GraphNodeUpdater, node *cudagraph.Node, cand TuningCandidate, args ...any) error {
 	if exec == nil {
 		return errors.New("egraph: nil graph updater")
@@ -467,13 +490,30 @@ func HotSwapNode(exec GraphNodeUpdater, node *cudagraph.Node, cand TuningCandida
 	if node == nil {
 		return errors.New("egraph: nil graph node")
 	}
-	grid := driver.Dim3{
-		X: uint32(cand.GridDim),
-		Y: 1,
-		Z: 1,
+	if cand.BlockDim < 0 || cand.GridDim < 0 {
+		return fmt.Errorf("egraph: negative launch dimension: block %d grid %d", cand.BlockDim, cand.GridDim)
 	}
-	if grid.X == 0 && cand.BlockDim > 0 {
-		grid.X = 1
+	if cand.BlockDim > 0 {
+		var block driver.Dim3
+		var err error
+		if b, ok := exec.(kernelNodeBlocker); ok {
+			block, err = b.KernelNodeBlock(node)
+		} else {
+			var p driver.KernelNodeParams
+			p, err = node.Params()
+			block = p.BlockDim
+		}
+		if err != nil {
+			return fmt.Errorf("egraph: read node block dimension: %w", err)
+		}
+		want := driver.Dim3{X: uint32(cand.BlockDim), Y: 1, Z: 1}
+		if block != want {
+			return &BlockDimError{Node: block, Candidate: want}
+		}
+	}
+	var grid driver.Dim3
+	if cand.GridDim > 0 {
+		grid = driver.Dim3{X: uint32(cand.GridDim), Y: 1, Z: 1}
 	}
 	if len(args) > 0 {
 		return exec.UpdateKernelNode(node, grid, args...)
