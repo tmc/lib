@@ -38,17 +38,18 @@ extern "C" __tile_global__ void tile_matmul(float* A, float* B, float* C) {
 }
 `
 
-// TestNVRTCCompileTileIR verifies that NVRTC 13.4 compiles declarative Tile IR
-// sources into device CUBINs when CUDA 13.4 is available.
+// TestNVRTCCompileTileIR verifies that NVRTC compiles declarative Tile IR
+// sources into device CUBINs when CUDA 13.3 or later is available.
 func TestNVRTCCompileTileIR(t *testing.T) {
-	// Step 1: Check if CUDA Toolkit 13.4 / NVRTC with --enable-tile is available.
+	// Step 1: Check if NVRTC with --enable-tile is available, using the same
+	// version boundary as CompileSemanticTile.
 	// If not, skip cleanly with an informative message.
 	major, minor, err := nvrtc.Version()
 	if err != nil {
-		t.Skipf("cuda_tile.h is CUDA 13.4+ only (NVRTC unavailable: %v)", err)
+		t.Skipf("cuda_tile.h needs CUDA 13.3 or later (NVRTC unavailable: %v)", err)
 	}
-	if major < 13 || (major == 13 && minor < 4) {
-		t.Skipf("cuda_tile.h is CUDA 13.4+ only (found NVRTC %d.%d)", major, minor)
+	if err := tileir.CheckTileCompiler(int(major), int(minor)); err != nil {
+		t.Skipf("cuda_tile.h needs CUDA 13.3 or later: %v", err)
 	}
 
 	// Determine compilation target architecture.
@@ -81,7 +82,7 @@ func TestNVRTCCompileTileIR(t *testing.T) {
 		if strings.Contains(errStr, "cuda_tile.h") ||
 			strings.Contains(errStr, "--enable-tile") ||
 			strings.Contains(errStr, "cannot open source file") {
-			t.Skipf("cuda_tile.h is CUDA 13.4+ only: %v", err)
+			t.Skipf("cuda_tile.h unavailable: %v", err)
 		}
 		t.Fatalf("nvrtcx.Compile with --enable-tile failed: %v", err)
 	}

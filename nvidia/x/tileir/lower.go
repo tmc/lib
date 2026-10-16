@@ -864,7 +864,7 @@ func sameTileShape(a, b []int) bool {
 // log; failed compilation diagnostics remain in the wrapped error.
 // Compilation does not create a device context or execute a
 // kernel; loading, output oracles and hardware qualification remain separate.
-// The selected NVRTC library and headers must support CUDA 13.4 Tile C++.
+// The selected NVRTC library and headers must support CUDA 13.3 Tile C++.
 // An NVRTC older than 13.3 is refused with ErrTileCompilerUnsupported
 // before compilation; NVRTC_LIB_PATH selects the library.
 func CompileSemanticTile(ctx context.Context, snap *cudair.Snapshot, opts LowerOptions, major, minor int) (*cudakernel.Artifact, string, error) {
