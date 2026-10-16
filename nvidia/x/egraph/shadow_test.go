@@ -3,11 +3,9 @@ package egraph
 import (
 	"context"
 	"errors"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -816,8 +814,14 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 		t.Errorf("PGO Score = %v, %v, want > 0, true", score, ok)
 	}
 
-	// Test in-place graph update on real CUDA GraphExec
+	// Test in-place graph update on real CUDA GraphExec.
 	const n = 1024
+	a := make([]float32, n)
+	b := make([]float32, n)
+	for i := range a {
+		a[i] = float32(i)
+		b[i] = float32(2 * i)
+	}
 	bufA, err := cudamem.Alloc[float32](dev, n)
 	if err != nil {
 		t.Fatal(err)
@@ -836,30 +840,34 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 	}
 	defer dev.WithContext(bufC.Free)
 
-	// Create and instantiate CUDA graph
+	if err := dev.WithContext(func() error {
+		if err := bufA.CopyFromHost(a); err != nil {
+			return err
+		}
+		if err := bufB.CopyFromHost(b); err != nil {
+			return err
+		}
+		return bufC.CopyFromHost(make([]float32, n))
+	}); err != nil {
+		t.Fatal(err)
+	}
+
 	g, err := cudagraph.New(dev)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer g.Destroy()
 
-	count := int32(n)
-	kernelArgs := []any{bufA, bufB, bufC, count}
-	packed, err := cudalaunch.PackArgs(kernelArgs...)
-	if err != nil {
-		t.Fatal(err)
+	// AddLaunch gives the graph, and every Exec instantiated from it, owned
+	// argument storage; HotSwapNode's grid update depends on it. The initial
+	// grid covers only half of the vector, so the full result below is
+	// produced only if the hot-swapped grid reached the executable graph.
+	desc := cudalaunch.Description{
+		Function: fn,
+		Grid:     driver.Dims(n/256, 1, 1),
+		Block:    driver.Dims(128, 1, 1),
 	}
-	defer runtime.KeepAlive(packed)
-
-	var kp driver.KernelNodeParams
-	kp.Func = fn
-	kp.GridDim = driver.Dim3{X: n / 128, Y: 1, Z: 1}
-	kp.BlockDim = driver.Dim3{X: 128, Y: 1, Z: 1}
-	if len(packed) > 0 {
-		kp.KernelParams = uintptr(unsafe.Pointer(&packed[0]))
-	}
-
-	node, err := g.AddKernelNode(&kp)
+	node, err := g.AddLaunch(desc, []any{bufA, bufB, bufC, int32(n)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -870,12 +878,27 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 	}
 	defer exec.Destroy()
 
-	// Hot-swap grid dimension in-place
 	candNew := TuningCandidate{
-		BlockDim: 256,
-		GridDim:  n / 256,
+		BlockDim: 128,
+		GridDim:  n / 128,
 	}
 	if err := HotSwapNode(exec, node, candNew); err != nil {
 		t.Fatalf("HotSwapNode on real GraphExec: %v", err)
+	}
+
+	if err := exec.Launch(stream); err != nil {
+		t.Fatalf("launch hot-swapped graph: %v", err)
+	}
+	if err := stream.Synchronize(ctx); err != nil {
+		t.Fatalf("synchronize: %v", err)
+	}
+	got := make([]float32, n)
+	if err := dev.WithContext(func() error { return bufC.CopyToHost(got) }); err != nil {
+		t.Fatal(err)
+	}
+	for i := range got {
+		if want := a[i] + b[i]; got[i] != want {
+			t.Fatalf("c[%d] = %v after hot swap, want %v", i, got[i], want)
+		}
 	}
 }
