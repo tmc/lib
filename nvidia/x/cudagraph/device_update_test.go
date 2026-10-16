@@ -618,9 +618,30 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 		}
 		defer exec.Destroy()
 
-		// Test SetKernelNodeGrid
-		if err := exec.SetKernelNodeGrid(nodes[0], driver.Dims(n/block, 1, 1)); err != nil {
-			t.Fatalf("SetKernelNodeGrid: %v", err)
+		// Capture leaves the node's arguments with CUDA, so the Exec holds
+		// no parameters a grid-only update could preserve.
+		if err := exec.SetKernelNodeGrid(nodes[0], driver.Dims(n/block, 1, 1)); err == nil || !strings.Contains(err.Error(), "not retained") {
+			t.Fatalf("SetKernelNodeGrid on captured node = %v, want not retained error", err)
+		}
+
+		// Supply complete parameters instead: half the grid, a new offset.
+		dptr := buf.Ptr()
+		count := int32(n)
+		offsetVal := uint32(30)
+		kernelArgs := []unsafe.Pointer{
+			unsafe.Pointer(&dptr),
+			unsafe.Pointer(&count),
+			unsafe.Pointer(&offsetVal),
+		}
+		defer runtime.KeepAlive(kernelArgs)
+		kp := driver.KernelNodeParams{
+			Func:         fn,
+			GridDim:      driver.Dim3{X: n / block / 2, Y: 1, Z: 1},
+			BlockDim:     driver.Dim3{X: block, Y: 1, Z: 1},
+			KernelParams: uintptr(unsafe.Pointer(&kernelArgs[0])),
+		}
+		if err := exec.SetKernelNodeParams(nodes[0], &kp); err != nil {
+			t.Fatalf("SetKernelNodeParams: %v", err)
 		}
 
 		zeros := make([]uint32, n)
@@ -640,8 +661,12 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 			t.Fatal(err)
 		}
 		for i, v := range got {
-			if v != 10 {
-				t.Fatalf("captured node launch: buf[%d] = %d, want 10", i, v)
+			want := uint32(30)
+			if i >= n/2 {
+				want = 0
+			}
+			if v != want {
+				t.Fatalf("captured node launch: buf[%d] = %d, want %d", i, v, want)
 			}
 		}
 	})

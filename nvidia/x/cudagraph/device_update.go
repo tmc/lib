@@ -367,8 +367,9 @@ func (e *Exec) kernelState(node *Node) (kernelNodeState, error) {
 }
 
 // SetKernelNodeGrid preserves the Exec's current function and arguments.
-// Raw argument arrays require SetKernelNodeParams with a fresh complete set;
-// their uintptr snapshots do not own the underlying argument storage.
+// Nodes built from raw argument arrays or by stream capture require
+// SetKernelNodeParams with a fresh complete set: the Exec does not own their
+// argument storage.
 func (e *Exec) SetKernelNodeGrid(node *Node, grid driver.Dim3) error {
 	state, err := e.kernelState(node)
 	if err != nil {
@@ -390,7 +391,7 @@ func (e *Exec) SetKernelNodeGrid(node *Node, grid driver.Dim3) error {
 // and ensure no launches or device-side updates are in flight.
 func (e *Exec) UpdateKernelNode(node *Node, grid driver.Dim3, args ...any) error {
 	return e.updateKernelNode(node, 0, grid, args, e.withContext,
-		func(fn driver.Function) (uint, error) { return fn.ParamCount() },
+		paramCount,
 		func(fn driver.Function, index uint) (uint, uint, error) { return fn.ParamInfo(index) },
 		func(p *driver.KernelNodeParams) error {
 			return e.raw.KernelNodeSetParams(node.kernel(), p)
@@ -408,7 +409,7 @@ func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid driver.Dim3, arg
 		return errors.New("cudagraph: nil kernel function")
 	}
 	return e.updateKernelNode(node, fn, grid, args, e.withContext,
-		func(fn driver.Function) (uint, error) { return fn.ParamCount() },
+		paramCount,
 		func(fn driver.Function, index uint) (uint, uint, error) { return fn.ParamInfo(index) },
 		func(p *driver.KernelNodeParams) error {
 			return e.raw.KernelNodeSetParams(node.kernel(), p)
@@ -488,7 +489,7 @@ func (e *Exec) ApplyKernelNodeUpdate(node *Node, update KernelNodeUpdate) error 
 		return e.SetKernelNodeGrid(node, update.GridDim)
 	case KernelNodeFieldParam:
 		return e.applyKernelParam(node, update, e.withContext,
-			func(fn driver.Function) (uint, error) { return fn.ParamCount() },
+			paramCount,
 			func(fn driver.Function, index uint) (uint, uint, error) { return fn.ParamInfo(index) },
 			func(p *driver.KernelNodeParams) error { return e.raw.KernelNodeSetParams(node.kernel(), p) })
 	default:
@@ -605,4 +606,30 @@ func checkKernelArguments(params driver.KernelNodeParams, owner *launchArgs, cou
 		end = start + length
 	}
 	return nil
+}
+
+// paramCount returns fn's parameter count. A driver that predates
+// cuFuncGetParamCount (the CUDA 13.0 r580 series) still exports
+// cuFuncGetParamInfo, which rejects an index at or past the parameter count
+// with ErrInvalidValue, so the count is the first index it rejects.
+func paramCount(fn driver.Function) (uint, error) {
+	return countParams(fn, driver.Function.ParamCount, driver.Function.ParamInfo)
+}
+
+func countParams(fn driver.Function, count func(driver.Function) (uint, error), info func(driver.Function, uint) (uint, uint, error)) (uint, error) {
+	n, err := count(fn)
+	var missing *driver.SymbolError
+	if !errors.As(err, &missing) || missing.Err != nil {
+		return n, err
+	}
+	for i := uint(0); i <= 128; i++ {
+		_, _, err := info(fn, i)
+		if errors.Is(err, driver.ErrInvalidValue) {
+			return i, nil
+		}
+		if err != nil {
+			return 0, fmt.Errorf("count parameters without %s: %w", missing.Symbol, err)
+		}
+	}
+	return 0, errors.New("kernel parameter count exceeds 128")
 }
