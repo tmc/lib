@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -13,8 +16,60 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaregress"
 )
 
+// regressCheckChildEnv marks a test process started by inDriverFreeProcess.
+const regressCheckChildEnv = "CUDAPROF_TEST_REGRESS_CHECK_CHILD"
+
+// inDriverFreeProcess reports whether t runs in a test process of its own,
+// started without the CUDA driver loaded. Otherwise it reruns t in such a
+// process, reports the result through t, and returns false; the caller must
+// then return.
+//
+// A process loads the driver at most once and never unloads it, and other
+// tests in this package load it (advise queries device 0 when a capture
+// names no device), so in a shared process driver.Loaded says nothing about
+// the check command. In the child, a lazy driver load opens an inert system
+// library rather than libcuda: driver.Loaded still reports the load, but no
+// GPU is initialized.
+func inDriverFreeProcess(t *testing.T) bool {
+	t.Helper()
+	if os.Getenv(regressCheckChildEnv) == "1" {
+		return true
+	}
+	var library string
+	switch runtime.GOOS {
+	case "linux":
+		library = "libc.so.6"
+	case "darwin":
+		library = "/usr/lib/libSystem.B.dylib"
+	default:
+		t.Skip("no inert system library fixture")
+	}
+	command := exec.Command(os.Args[0], "-test.run=^"+regexp.QuoteMeta(t.Name())+"$", "-test.count=1", "-test.v")
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "CUDA_LIB_PATH=") && !strings.HasPrefix(entry, "CODEGEN_SKIP_BINDINGS=") && !strings.HasPrefix(entry, regressCheckChildEnv+"=") {
+			command.Env = append(command.Env, entry)
+		}
+	}
+	command.Env = append(command.Env, regressCheckChildEnv+"=1", "CUDA_LIB_PATH="+library)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("fresh process: %v\n%s", err, output)
+	}
+	// A run pattern that matches no test also exits 0.
+	if !bytes.Contains(output, []byte("--- PASS: "+t.Name()+" (")) {
+		t.Fatalf("fresh process did not pass %s:\n%s", t.Name(), output)
+	}
+	if testing.Verbose() {
+		t.Logf("fresh process:\n%s", output)
+	}
+	return false
+}
+
 func regressCheckFixture(t *testing.T) (string, string, *cudaregress.ExperimentPlan, observedEnvironmentFile) {
 	t.Helper()
+	if os.Getenv(regressCheckChildEnv) != "1" {
+		t.Fatal("check fixture outside a fresh process; call inDriverFreeProcess first")
+	}
 	if driver.Loaded() {
 		t.Fatal("check fixture unexpectedly loaded driver")
 	}
@@ -58,6 +113,9 @@ func regressCheckFixture(t *testing.T) (string, string, *cudaregress.ExperimentP
 }
 
 func TestRegressCheckEnvironmentPositive(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	planPath, envPath, plan, observed := regressCheckFixture(t)
 	var output bytes.Buffer
 	if err := runRegressCommand([]string{"check", "-plan", planPath, "-environment", envPath}, &output); err != nil {
@@ -69,6 +127,9 @@ func TestRegressCheckEnvironmentPositive(t *testing.T) {
 }
 
 func TestRegressCheckEnvironmentRequired(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	planPath, _, plan, _ := regressCheckFixture(t)
 	// The old CLI fabricated exactly these requirements as its observation.
 	plan.DeviceConfig.DeviceIndex, plan.DeviceConfig.DeviceUUID = 0, ""
@@ -86,6 +147,9 @@ func TestRegressCheckEnvironmentRequired(t *testing.T) {
 }
 
 func TestRegressCheckEnvironmentInputRefusals(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	for _, test := range []struct{ name, raw string }{
 		{"malformed", "{"},
 		{"null", "null"},
@@ -126,6 +190,9 @@ func TestRegressCheckEnvironmentInputRefusals(t *testing.T) {
 }
 
 func TestRegressCheckEnvironmentDrift(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	for _, test := range []struct {
 		name   string
 		mutate func(*cudaregress.Environment)
@@ -150,6 +217,9 @@ func TestRegressCheckEnvironmentDrift(t *testing.T) {
 }
 
 func TestRegressCheckEnvironmentUnavailableAndHostOnly(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	planPath, envPath, plan, observed := regressCheckFixture(t)
 	plan.DeviceConfig = cudaregress.DeviceConfig{}
 	var err error
@@ -172,6 +242,9 @@ func TestRegressCheckEnvironmentUnavailableAndHostOnly(t *testing.T) {
 }
 
 func TestRegressCheckEnvironmentAuthenticatesClosure(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	for _, role := range []string{"source", "binary", "input", "library", "reference", "missing", "plan digest", "schema"} {
 		t.Run(role, func(t *testing.T) {
 			planPath, envPath, plan, _ := regressCheckFixture(t)
@@ -208,6 +281,9 @@ func TestRegressCheckEnvironmentAuthenticatesClosure(t *testing.T) {
 }
 
 func TestRegressPlanFileBundleRefusals(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	for _, name := range []string{"missing plan", "missing receipt", "null plan", "null receipt", "plan id", "plan digest", "incident id", "plan content", "plan schema", "unknown", "ambiguous", "case alias", "duplicate", "receipt unknown"} {
 		t.Run(name, func(t *testing.T) {
 			planPath, envPath, plan, _ := regressCheckFixture(t)
@@ -273,6 +349,9 @@ func TestRegressPlanFileBundleRefusals(t *testing.T) {
 }
 
 func TestRegressPlanFileStandaloneConsumers(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	planPath, envPath, plan, _ := regressCheckFixture(t)
 	dir := t.TempDir()
 	var output bytes.Buffer
@@ -294,6 +373,9 @@ func TestRegressPlanFileStandaloneConsumers(t *testing.T) {
 }
 
 func TestRegressCheckEnvironmentFileBounds(t *testing.T) {
+	if !inDriverFreeProcess(t) {
+		return
+	}
 	planPath, envPath, _, _ := regressCheckFixture(t)
 	large := filepath.Join(t.TempDir(), "oversized.json")
 	f, err := os.Create(large)
