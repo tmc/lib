@@ -1,0 +1,4 @@
+commit b831d4771a584218b3a63ae2457f03725b2669d8 date 2026-10-16T05:17:33Z
+B690 integration r8 (user-authorized); native-defect fixes from wf_c0de7fd9-201 (GRADEs 20261016-wf8-review-*), autotune range squashed per review
+gates: Mac race+norace tileir 379, egraph 694, cudaprof 1696, cudagraph 164; DGX native (gpu-lock, NVRTC 13.4) tileir 382/0/0, egraph 743/0/4, cudaprof 1698/0/11, cudamoe/mxfp4/cudagroup/cudacollective clean; cudagraph 3 fails pre-existing
+agent claude-code model claude-opus-5-5 session=d6401e4c-228d-4c97-8539-dc3db96bf467
