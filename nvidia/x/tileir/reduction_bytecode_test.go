@@ -393,12 +393,19 @@ func TestReductionEntryPointerKind(t *testing.T) {
 func TestReductionReferenceQuietNaN(t *testing.T) {
 	for _, width := range []int64{1, 4} {
 		_, r := reductionLowering(t, "max", []int{3, 2}, 0, width)
-		want := fmt.Sprintf("ct::full<ct::tile<float, ct::shape<%d>>>(std::numeric_limits<float>::quiet_NaN())", width)
+		want := fmt.Sprintf("ct::element_bitcast<float>(ct::full<ct::tile<unsigned int, ct::shape<%d>>>(0x7fc00000u))", width)
 		if n := strings.Count(r.Source, want); n != 2 {
 			t.Fatalf("width %d: %d quiet NaN tiles, want 2:\n%s", width, n, r.Source)
 		}
-		if n := strings.Count(r.Source, "quiet_NaN()"); n != 2 {
+		if n := strings.Count(r.Source, "0x7fc00000u"); n != 2 {
 			t.Fatalf("width %d: %d quiet NaN operands, want 2", width, n)
+		}
+		if n := strings.Count(r.Source, "0xff800000u"); n != 1 {
+			t.Fatalf("width %d: %d negative infinity operands, want 1", width, n)
+		}
+		// NVRTC has no <limits>; nvcc rejects numeric_limits in Tile code.
+		if strings.Contains(r.Source, "limits") {
+			t.Fatalf("width %d: reference source depends on <limits>:\n%s", width, r.Source)
 		}
 	}
 }

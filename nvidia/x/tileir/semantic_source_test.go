@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/tileir"
@@ -188,33 +189,44 @@ func TestSemanticSourceCUDACompile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := cudair.NewGraph()
-	a := g.AddInput("a", []int{2, 3}, cudair.Float32)
-	g.AddReduce("sum", a, 1)
-	snap, err := g.Snapshot()
+	snapshot := func(op string) *cudair.Snapshot {
+		g := cudair.NewGraph()
+		a := g.AddInput("a", []int{2, 3}, cudair.Float32)
+		g.AddReduce(op, a, 1)
+		snap, err := g.Snapshot()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snap
+	}
+	semantic, _, err := tileir.GenerateSemanticTileCPP(snapshot("sum"), tileir.LowerOptions{KernelName: "sum_rows"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	source, _, err := tileir.GenerateSemanticTileCPP(snap, tileir.LowerOptions{KernelName: "sum_rows"})
+	// The ordered max reduction emits negative infinity and quiet NaN constants.
+	ordered, err := tileir.LowerSemanticRegion(snapshot("max"), tileir.LowerOptions{KernelName: "max_rows"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := t.TempDir()
-	input := filepath.Join(dir, "source.cu")
-	if err := os.WriteFile(input, []byte(source), 0600); err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	// Compilation creates a host object containing Tile device code. It does
-	// not load a CUDA context or launch a device kernel.
-	output := filepath.Join(dir, "source.o")
-	if out, err := exec.CommandContext(ctx, path, "--enable-tile", "--tile-only", "-std=c++20", "-arch=sm_90", "-c", input, "-o", output).CombinedOutput(); err != nil {
-		t.Fatalf("actual CUDA source compile: %v\n%s", err, out)
-	}
-	info, err := os.Stat(output)
-	if err != nil || info.Size() == 0 {
-		t.Fatalf("missing compiled object: %v", err)
+	for name, source := range map[string]string{"semantic sum": semantic, "ordered max": ordered.Source} {
+		dir := t.TempDir()
+		input := filepath.Join(dir, "source.cu")
+		if err := os.WriteFile(input, []byte(source), 0600); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		// Compilation creates a host object containing Tile device code. It does
+		// not load a CUDA context or launch a device kernel.
+		output := filepath.Join(dir, "source.o")
+		out, err := exec.CommandContext(ctx, path, "--enable-tile", "--tile-only", "-std=c++20", "-arch=sm_90", "-c", input, "-o", output).CombinedOutput()
+		cancel()
+		if err != nil {
+			t.Fatalf("%s: actual CUDA source compile: %v\n%s", name, err, out)
+		}
+		info, err := os.Stat(output)
+		if err != nil || info.Size() == 0 {
+			t.Fatalf("%s: missing compiled object: %v", name, err)
+		}
 	}
 }
 
@@ -235,26 +247,31 @@ func TestSemanticTileNVRTCCompile(t *testing.T) {
 	if os.Getenv("CUDA_TILE_NVRTC_TEST") != "1" {
 		t.Skip("actual NVRTC semantic artifact gate disabled")
 	}
-	g := cudair.NewGraph()
-	a := g.AddInput("a", []int{2, 3}, cudair.Float32)
-	g.AddReduce("sum", a, 1)
-	snap, err := g.Snapshot()
-	if err != nil {
-		t.Fatal(err)
+	// max emits the negative infinity and quiet NaN constants; sum emits neither.
+	for _, op := range []string{"sum", "max"} {
+		for _, target := range [][2]int{{9, 0}, {12, 1}} {
+			g := cudair.NewGraph()
+			a := g.AddInput("a", []int{2, 3}, cudair.Float32)
+			g.AddReduce(op, a, 1)
+			snap, err := g.Snapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			artifact, log, err := tileir.CompileSemanticTile(ctx, snap, tileir.LowerOptions{KernelName: op + "_rows"}, target[0], target[1])
+			cancel()
+			if err != nil {
+				t.Fatalf("%s sm_%d%d: %v", op, target[0], target[1], err)
+			}
+			if artifact.Kind != cudakernel.KindTileIR || len(artifact.Raw) == 0 || len(artifact.Schema.Params) != 2 || len(artifact.CompilerOpts) == 0 {
+				t.Fatalf("%s sm_%d%d: missing authentic artifact, ABI or compile identity", op, target[0], target[1])
+			}
+			if err := artifact.Validate(); err != nil {
+				t.Fatalf("%s sm_%d%d: %v", op, target[0], target[1], err)
+			}
+			t.Logf("op=%s artifact=%s bytes=%d target=%s compiler=%s (%s) flags=%q log=%q", op, artifact.Digest, len(artifact.Raw), artifact.Target, artifact.Toolchain, nvrtc.Path(), artifact.CompilerOpts, log)
+		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	artifact, log, err := tileir.CompileSemanticTile(ctx, snap, tileir.LowerOptions{KernelName: "sum_rows"}, 9, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if artifact.Kind != cudakernel.KindTileIR || len(artifact.Raw) == 0 || len(artifact.Schema.Params) != 2 || len(artifact.CompilerOpts) == 0 {
-		t.Fatal("missing authentic artifact, ABI or compile identity")
-	}
-	if err := artifact.Validate(); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("artifact=%s bytes=%d target=%s compiler=%s flags=%q log=%q", artifact.Digest, len(artifact.Raw), artifact.Target, artifact.Toolchain, artifact.CompilerOpts, log)
 }
 
 func ExampleCompileSemanticTile() {

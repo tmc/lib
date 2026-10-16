@@ -28,6 +28,11 @@ var (
 
 	// ErrInvalidCompileFlags is returned when required NVRTC flags are missing or illegal.
 	ErrInvalidCompileFlags = errors.New("tileir: invalid tile compilation flags")
+
+	// ErrTileCompilerUnsupported is returned by CompileSemanticTile when the
+	// loaded NVRTC predates tile-only compilation. NVRTC 13.0 through 13.2
+	// reject the --tile-only option.
+	ErrTileCompilerUnsupported = errors.New("tileir: NVRTC does not support tile-only compilation")
 )
 
 // LowerOptions configures the translation from a validated cudair.Snapshot to tileir.Module.
@@ -563,6 +568,14 @@ func ValidateTileCompileFlags(flags []string) error {
 	return nil
 }
 
+// checkTileCompiler reports whether NVRTC major.minor accepts --tile-only.
+func checkTileCompiler(major, minor int) error {
+	if major < 13 || major == 13 && minor < 3 {
+		return fmt.Errorf("%w: NVRTC %d.%d, need 13.3 or later", ErrTileCompilerUnsupported, major, minor)
+	}
+	return nil
+}
+
 func primitiveTypeFromDataType(dt cudair.DataType) Type {
 	switch dt {
 	case cudair.Float16:
@@ -852,6 +865,8 @@ func sameTileShape(a, b []int) bool {
 // Compilation does not create a device context or execute a
 // kernel; loading, output oracles and hardware qualification remain separate.
 // The selected NVRTC library and headers must support CUDA 13.4 Tile C++.
+// An NVRTC older than 13.3 is refused with ErrTileCompilerUnsupported
+// before compilation; NVRTC_LIB_PATH selects the library.
 func CompileSemanticTile(ctx context.Context, snap *cudair.Snapshot, opts LowerOptions, major, minor int) (*cudakernel.Artifact, string, error) {
 	if ctx == nil || major < 8 || major > 99 || minor < 0 || minor > 9 {
 		return nil, "", errors.New("tileir: missing compile context or invalid target")
@@ -862,6 +877,13 @@ func CompileSemanticTile(ctx context.Context, snap *cudair.Snapshot, opts LowerO
 	source, schema, err := compileTileSource(snap, opts)
 	if err != nil {
 		return nil, "", err
+	}
+	compilerMajor, compilerMinor, err := nvrtc.Version()
+	if err != nil {
+		return nil, "", fmt.Errorf("tileir: compiler version: %w", err)
+	}
+	if err := checkTileCompiler(int(compilerMajor), int(compilerMinor)); err != nil {
+		return nil, "", fmt.Errorf("%w (%s)", err, nvrtc.Path())
 	}
 	options := []nvrtcx.Option{nvrtcx.WithArch(major, minor), nvrtcx.WithFlag("--std=c++20"), nvrtcx.WithOutput(nvrtcx.OutputTileIR), nvrtcx.WithToolkitIncludes(), nvrtcx.WithNoCache()}
 	flags, err := nvrtcx.CompileFlags(options...)
@@ -879,10 +901,6 @@ func CompileSemanticTile(ctx context.Context, snap *cudair.Snapshot, opts LowerO
 	artifact, err := compiled.ToArtifact(name, schema, fmt.Sprintf("sm_%d%d", major, minor))
 	if err != nil {
 		return nil, compiled.Log(), err
-	}
-	compilerMajor, compilerMinor, err := nvrtc.Version()
-	if err != nil {
-		return nil, compiled.Log(), fmt.Errorf("tileir: compiler version: %w", err)
 	}
 	artifact.Toolchain = fmt.Sprintf("nvrtc %d.%d", compilerMajor, compilerMinor)
 	// WithOutput adds this flag inside Compile after CompileFlags resolves includes.

@@ -155,7 +155,18 @@ const (
 	reductionGreater    = "{comparison_predicate = greater_than, comparison_ordering = ordered}"
 	reductionNaN        = "{comparison_predicate = not_equal, comparison_ordering = unordered}"
 	reductionQuietNaN32 = `{value = dense<"0x0000c07f">}` // 0x7fc00000
+
+	reductionNegInfBits   = 0xff800000
+	reductionQuietNaNBits = 0x7fc00000
 )
+
+// floatTile returns a C++ expression for a width-w FP32 tile whose elements
+// have the given bit pattern. The reference source cannot use
+// std::numeric_limits: NVRTC has no <limits>, and nvcc rejects calls to its
+// constexpr host functions from a __tile_global__ function.
+func floatTile(w int64, bits uint32) string {
+	return fmt.Sprintf("ct::element_bitcast<float>(ct::full<ct::tile<unsigned int, ct::shape<%d>>>(0x%08xu))", w, bits)
+}
 
 // lowerReductionRegion lowers direct-input FP32 sum and max reductions to a
 // void kernel in the typed bytecode subset, and to equivalent Tile C++.
@@ -188,7 +199,7 @@ func lowerReductionRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRe
 	work := r.maxOutputs > 0
 	b := &reductionBuilder{fn: &Function{Name: name, Entry: true}, cpp: make(map[string]string)}
 	module := &Module{Name: name + "_mod", Producer: "lib/nvidia/x/tileir", Functions: []*Function{b.fn}}
-	b.source.WriteString("#include \"cuda_tile.h\"\n#include <limits>\nextern \"C\" __tile_global__ void " + name + "(")
+	b.source.WriteString("#include \"cuda_tile.h\"\nextern \"C\" __tile_global__ void " + name + "(")
 	var params []cudakernel.Param
 	var refs []*MemorySource
 	inputRefs := make(map[int]*MemorySource)
@@ -255,7 +266,7 @@ func lowerReductionRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRe
 			if out.Op == "sum" {
 				acc = b.op("constant", vf64, nil, "{value = 0.0}", fmt.Sprintf("ct::full<ct::tile<double, ct::shape<%d>>>(0.0)", w))
 			} else {
-				acc = b.op("constant", vf32, nil, "{value = -inf}", fmt.Sprintf("ct::full<ct::tile<float, ct::shape<%d>>>(-std::numeric_limits<float>::infinity())", w))
+				acc = b.op("constant", vf32, nil, "{value = -inf}", floatTile(w, reductionNegInfBits))
 			}
 			arg := fmt.Sprintf("%%arg%d", indexOf(r.inputs, in))
 			for k := 0; k < terms; k++ {
@@ -296,7 +307,7 @@ func lowerReductionRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRe
 					greater := b.op("cmpf", mask, []string{value, acc}, reductionGreater, b.c(value)+" > "+b.c(acc))
 					next := b.op("select", vf32, []string{greater, value, acc}, "", fmt.Sprintf("ct::select(%s, %s, %s)", b.c(greater), b.c(value), b.c(acc)))
 					nan := b.op("cmpf", mask, []string{value, value}, reductionNaN, "ct::isnan("+b.c(value)+")")
-					quiet := b.op("constant", vf32, nil, reductionQuietNaN32, fmt.Sprintf("ct::full<ct::tile<float, ct::shape<%d>>>(std::numeric_limits<float>::quiet_NaN())", w))
+					quiet := b.op("constant", vf32, nil, reductionQuietNaN32, floatTile(w, reductionQuietNaNBits))
 					acc = b.op("select", vf32, []string{nan, quiet, next}, "", fmt.Sprintf("ct::select(%s, %s, %s)", b.c(nan), b.c(quiet), b.c(next)))
 				}
 			}
