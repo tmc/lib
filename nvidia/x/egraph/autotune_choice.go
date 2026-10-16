@@ -385,9 +385,11 @@ func (t *Tuner) measureExpression(ctx context.Context, expr *Expr, deadline time
 			lastErr = err
 			continue
 		}
-		candidateCtx, cancel := context.WithDeadline(ctx, deadline)
-		latency, err := benchmarkCandidateContext(candidateCtx, t.dev, cand, 5)
-		cancel()
+		// The budget is checked between candidates, not imposed on one.
+		// An NVRTC compile alone takes 100-150ms on GB10, longer than
+		// BudgetQuick, so bounding it by the search deadline would cancel
+		// every compile and leave nothing measured. Only ctx stops it.
+		latency, err := benchmarkCandidateContext(ctx, t.dev, cand, 5)
 		if err != nil {
 			lastErr = err
 			if ctx.Err() != nil {

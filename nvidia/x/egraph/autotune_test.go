@@ -29,16 +29,13 @@ func TestAutotunerInstant(t *testing.T) {
 	}
 }
 
-// TestAutotunerWithHardware tunes an operator that GenerateCUDA can lower and
-// checks that the returned candidate was actually compiled and launched.
-// TestAutotunerWithHardware tunes an operator this package can actually
-// generate, and checks the returned candidate was benchmarked.
+// TestAutotunerWithHardware tunes an operator this package can generate and
+// checks that the returned candidate was compiled and launched rather than
+// returned as the unbenchmarked default.
 //
-// It used to tune "matmul", for which there is no kernel, and assert only that
-// the result was non-nil. Every candidate was discarded and SelectBest returned
-// the unbenchmarked default, so the test passed over an autotuner that had
-// tuned nothing -- and would have passed just as well if the benchmark path
-// were removed entirely.
+// It runs with BudgetQuick, which is shorter than one NVRTC compile on GB10
+// (100-150ms): the budget stops the search between candidates and must not
+// cancel the compile already in progress.
 func TestAutotunerWithHardware(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
@@ -50,15 +47,15 @@ func TestAutotunerWithHardware(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cand == nil || cand.CUDASource == "" || !strings.Contains(cand.KernelName, "Kernel_Auto_Block") {
+	const prefix = "Kernel_Auto_fused_rmsnorm_gemv_Block"
+	if cand == nil || cand.CUDASource == "" || cand.GridDim == 0 || !strings.HasPrefix(cand.KernelName, prefix) {
 		t.Fatalf("unbenchmarked candidate: %+v", cand)
 	}
 }
 
-// TestAutotunerRejectsUngeneratableOperator prevents a failed benchmark sweep
-// from being reported as a successful, sourceless default candidate.
 // TestAutotunerRejectsUngeneratableOperator checks that an operator with no
-// kernel is refused rather than returned as an unbenchmarked default.
+// benchmark launch plan is refused rather than returned as a sourceless,
+// unbenchmarked default.
 func TestAutotunerRejectsUngeneratableOperator(t *testing.T) {
 	dev := cudatest.Require(t)
 	defer dev.Close()
@@ -67,7 +64,7 @@ func TestAutotunerRejectsUngeneratableOperator(t *testing.T) {
 	w := eg.Add(egraph.NewLeaf("w"))
 	root := eg.Add(egraph.NewNode("matmul", x, w))
 	cand, err := egraph.NewTuner(dev).SelectBest(context.Background(), eg, root, egraph.BudgetQuick)
-	if err == nil || cand != nil || !strings.Contains(err.Error(), "no candidate could be benchmarked") {
+	if err == nil || cand != nil || !strings.Contains(err.Error(), `no benchmark launch plan for operator "matmul"`) {
 		t.Fatalf("candidate=%+v err=%v", cand, err)
 	}
 }
