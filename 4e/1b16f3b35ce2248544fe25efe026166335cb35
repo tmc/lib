@@ -1,0 +1,5 @@
+commit 4e1b16f3b35ce2248544fe25efe026166335cb35 date 2026-10-15T22:19:46-07:00
+wf9 egraph-hotswap-blockdim on base 9367f5f78; root cause: HotSwapNode never applied cand.BlockDim (shadow.go:460-485); now refuses block change with *BlockDimError
+gates: Mac race+norace x/egraph 705 pass/28 skip, vet, gofmt, build ./...; DGX native (gpu-lock, NVRTC unset, CUDA 13.4) x/egraph 754/0/4 twice (baseline 743/0/4, same 4 skips); base probe reproduces c[512]=0
+mutants: 5 physical killed (M1,M4 native) MUTANTS.md in /Users/tmc/tmp/lib-wt-next/20261016-wf9-egraph-hotswap-blockdim
+agent claude-code model claude-opus-5-5 pid 32330 tty not a tty ITERM_SESSION_ID=w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76 session=d6401e4c-228d-4c97-8539-dc3db96bf467
