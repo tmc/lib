@@ -541,12 +541,6 @@ func TestAdvice_UnderSubscribedWithoutSMCount(t *testing.T) {
 		},
 	}
 
-	// A CUDA host answers determineSMCount from the live device; this case only
-	// exists where nothing can.
-	if _, _, hasSMCount := determineSMCount(cap); hasSMCount {
-		t.Skip("local CUDA device supplies an SM count; degraded path not reachable here")
-	}
-
 	report := &Report{}
 	auditUnderSubscribedLaunches(cap, report)
 
@@ -589,57 +583,22 @@ func TestAdvice_MissingDeviceProvenanceInfoFinding(t *testing.T) {
 	report := &Report{}
 	auditLaunchGeometry(cap, report)
 
-	// If no live device is available (e.g. non-CUDA host), an Info finding must be emitted.
-	_, _, _, hasLimits := determineDeviceLimits(cap)
-	_, _, hasSMCount := determineSMCount(cap)
-	if !hasLimits && !hasSMCount {
-		var found bool
-		for _, item := range report.Items {
-			if item.Severity == SeverityContext && strings.Contains(item.Finding, "Device architecture and SM count metadata are not recorded") {
-				found = true
-				break
+	// Advise never asks the local device, so the capture's silence is the
+	// answer on every host and the skipped audits are disclosed.
+	var found bool
+	for _, item := range report.Items {
+		if item.Severity == SeverityContext && strings.Contains(item.Finding, "Device architecture and SM count metadata are not recorded") {
+			found = true
+			if !strings.Contains(item.Finding, "does not query the local host's device") {
+				t.Errorf("finding = %q, want it to state that the local device is not queried", item.Finding)
 			}
 		}
-		if !found {
-			t.Fatalf("expected Info finding for missing device provenance, got items: %+v", report.Items)
+		if strings.Contains(item.Finding, "SMs)") || strings.Contains(item.Finding, "theoretical occupancy") {
+			t.Errorf("SM-dependent finding emitted without capture device identity: %q", item.Finding)
 		}
 	}
-}
-
-func TestAdvice_DeviceProvenanceDisclosure(t *testing.T) {
-	// When SM count or hardware limits are inferred from local device, finding text must disclose it.
-	launches := []launchRecord{
-		{Kernel: "starved_kernel", GridBlocks: 16, BlockThreads: 256},
-		{Kernel: "single_warp_kernel", GridBlocks: 100, BlockThreads: 32},
-	}
-
-	// Emulate live device source
-	smCount := 48
-	smSrc := sourceLiveDevice
-	maxWarpsPerSM := 48
-	maxBlocksPerSM := 24
-	limitSrc := sourceLiveDevice
-
-	// Single warp check
-	provSuffixLimit := ""
-	if limitSrc == sourceLiveDevice {
-		provSuffixLimit = " (hardware limits inferred from local host device, not recorded in capture)"
-	}
-	f1 := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches 50%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM%s",
-		launches[1].Kernel, launches[1].BlockThreads, maxBlocksPerSM*1, maxWarpsPerSM, maxBlocksPerSM, provSuffixLimit)
-	if !strings.Contains(f1, "(hardware limits inferred from local host device, not recorded in capture)") {
-		t.Errorf("f1 missing live device disclosure: %s", f1)
-	}
-
-	// Starvation check
-	provSuffixSM := ""
-	if smSrc == sourceLiveDevice {
-		provSuffixSM = " (SM count inferred from local host device, not recorded in capture)"
-	}
-	f2 := fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%d SMs)%s: %s (%d blocks, 66%% idle)",
-		1, smCount, provSuffixSM, launches[0].Kernel, launches[0].GridBlocks)
-	if !strings.Contains(f2, "(SM count inferred from local host device, not recorded in capture)") {
-		t.Errorf("f2 missing live device disclosure: %s", f2)
+	if !found {
+		t.Fatalf("expected Info finding for missing device provenance, got items: %+v", report.Items)
 	}
 }
 

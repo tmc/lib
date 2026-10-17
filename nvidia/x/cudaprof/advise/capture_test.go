@@ -17,9 +17,9 @@ func TestAdvice_DetermineSMCountPrecedence(t *testing.T) {
 			"kernels.ptx":             []byte(".version 8.0\n.target sm_90\n"),
 		},
 	}
-	count, src, ok := determineSMCount(capExplicit)
-	if !ok || count != 48 || src != sourceCapture {
-		t.Fatalf("determineSMCount(capExplicit) = (%d, %v, %v), want (48, sourceCapture, true)", count, src, ok)
+	count, ok := determineSMCount(capExplicit)
+	if !ok || count != 48 {
+		t.Fatalf("determineSMCount(capExplicit) = (%d, %v), want (48, true)", count, ok)
 	}
 
 	// 2. SM count derived from target arch takes precedence over missing explicit count.
@@ -28,9 +28,20 @@ func TestAdvice_DetermineSMCountPrecedence(t *testing.T) {
 			"kernels.ptx": []byte(".version 8.0\n.target sm_90\n"),
 		},
 	}
-	count, src, ok = determineSMCount(capArchOnly)
-	if !ok || count != 132 || src != sourceCapture {
-		t.Fatalf("determineSMCount(capArchOnly) = (%d, %v, %v), want (132, sourceCapture, true)", count, src, ok)
+	count, ok = determineSMCount(capArchOnly)
+	if !ok || count != 132 {
+		t.Fatalf("determineSMCount(capArchOnly) = (%d, %v), want (132, true)", count, ok)
+	}
+
+	// 3. A capture with no device identity is unknown, on every host.
+	if count, ok := determineSMCount(&cudacapture.Capture{}); ok {
+		t.Fatalf("determineSMCount(no identity) = (%d, true), want unknown", count)
+	}
+	if count, ok := determineSMCount(nil); ok {
+		t.Fatalf("determineSMCount(nil) = (%d, true), want unknown", count)
+	}
+	if w, b, ok := determineDeviceLimits(&cudacapture.Capture{}); ok {
+		t.Fatalf("determineDeviceLimits(no identity) = (%d, %d, true), want unknown", w, b)
 	}
 }
 

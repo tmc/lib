@@ -27,16 +27,16 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 		return
 	}
 
-	smCount, smSrc, hasSMCount := determineSMCount(cap)
-	maxWarpsPerSM, maxBlocksPerSM, limitSrc, hasLimits := determineDeviceLimits(cap)
+	smCount, hasSMCount := determineSMCount(cap)
+	maxWarpsPerSM, maxBlocksPerSM, hasLimits := determineDeviceLimits(cap)
 
 	if !hasLimits && !hasSMCount && cap.Profile != nil && len(launches) > 0 {
 		report.Items = append(report.Items, Item{
 			Severity:                 SeverityContext,
 			Category:                 CategoryArchitecture,
 			EvidenceLevel:            EvidenceUnmeasured,
-			Finding:                  "Device architecture and SM count metadata are not recorded in this capture, and no local CUDA device is available; theoretical SM occupancy and SM grid starvation audits were skipped.",
-			ActionableRecommendation: "Record device provenance in the capture (e.g. capture-provenance.json) or run advise on a host equipped with the target GPU architecture.",
+			Finding:                  "Device architecture and SM count metadata are not recorded in this capture; advise does not query the local host's device, so theoretical SM occupancy and SM grid starvation audits were skipped.",
+			ActionableRecommendation: "Record device provenance in the capture (e.g. capture-provenance.json with compute capability and SM count) and re-run advise.",
 			NextMeasurement:          "capture-provenance.json with device compute capability and SM count",
 		})
 	}
@@ -73,12 +73,8 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 				}
 				seenSingleWarp[launch.Kernel] = true
 
-				provSuffix := ""
-				if limitSrc == sourceLiveDevice {
-					provSuffix = " (hardware limits inferred from local host device, not recorded in capture)"
-				}
-				finding := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM%s",
-					launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM, provSuffix)
+				finding := fmt.Sprintf("Single-warp thread blocks limit theoretical SM occupancy: kernel %q launched with %d block threads (<= 32) reaches %d%% theoretical occupancy with %d/%d resident warps/SM across %d blocks/SM",
+					launch.Kernel, launch.BlockThreads, occupancyPct, residentWarpsPerSM, maxWarpsPerSM, blocksPerSM)
 
 				report.Items = append(report.Items, Item{
 					rule:                     "single-warp",
@@ -169,10 +165,6 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 				}
 				parts = append(parts, fmt.Sprintf("%s (%d blocks, %d%% idle)", st.kernel, st.blocks, st.idlePct))
 			}
-			provSuffix := ""
-			if smSrc == sourceLiveDevice {
-				provSuffix = " (SM count inferred from local host device, not recorded in capture)"
-			}
 			loc := Location{}
 			if len(list) == 1 {
 				loc = Location{Kernel: list[0].kernel}
@@ -182,8 +174,8 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 				Category:      CategoryArchitecture,
 				EvidenceLevel: EvidenceObserved,
 				Location:      loc,
-				Finding: fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%d SMs)%s: %s. Whether that is a shortfall depends on how much work there is; this capture does not record how the grids were chosen.",
-					len(list), smCount, provSuffix, strings.Join(parts, ", ")),
+				Finding: fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%d SMs): %s. Whether that is a shortfall depends on how much work there is; this capture does not record how the grids were chosen.",
+					len(list), smCount, strings.Join(parts, ", ")),
 				ActionableRecommendation: "Compare achieved occupancy against these grids before changing any of them. A grid smaller than the SM count is a fact about the launch, not a defect: it is a problem only where there is more work available than the grid exposes.",
 				NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active per kernel, against the grid sizes above",
 			})
@@ -253,8 +245,7 @@ func worstKernel(stats map[string]*underSubscribedStat) (string, uint64) {
 // auditUnderSubscribedLaunches reports launches whose total thread count cannot
 // occupy the device: single-threaded launches, and launches that cannot supply
 // one warp per SM. The per-SM rule needs the device SM count; when the capture
-// does not record it and no local device answers, only the single-thread rule
-// runs and the finding says so.
+// does not record it, only the single-thread rule runs and the finding says so.
 func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *Report) {
 	if cap == nil {
 		return
@@ -264,7 +255,7 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *Report) {
 		return
 	}
 
-	smCount, smSrc, hasSMCount := determineSMCount(cap)
+	smCount, hasSMCount := determineSMCount(cap)
 	warpPerSMThreads := 0
 	if hasSMCount {
 		warpPerSMThreads = smCount * warpSize
@@ -319,7 +310,7 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *Report) {
 		finding := fmt.Sprintf("Single-threaded kernel launches leave the device idle: %d of %d captured launches (%.1f%%) ran one thread (grid 1 x block 1), consuming %.2f ms of device time; worst offenders: %s",
 			singleCount, geometryLaunches, float64(singleCount)*100.0/float64(geometryLaunches), float64(singleNs)/1e6, formatUnderSubscribed(single))
 		if !hasSMCount {
-			finding += " (device SM count is not recorded in this capture and no local CUDA device answered, so the one-warp-per-SM rule was skipped)"
+			finding += " (device SM count is not recorded in this capture and advise does not query the local device, so the one-warp-per-SM rule was skipped)"
 		}
 		kernel, _ := worstKernel(single)
 		report.Items = append(report.Items, Item{
@@ -337,10 +328,6 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *Report) {
 	}
 
 	if subWarpCount > 0 {
-		provSuffix := ""
-		if smSrc == sourceLiveDevice {
-			provSuffix = " (SM count inferred from local host device, not recorded in capture)"
-		}
 		kernel, _ := worstKernel(subWarp)
 		report.Items = append(report.Items, Item{
 			Severity:        SeverityCost,
@@ -350,8 +337,8 @@ func auditUnderSubscribedLaunches(cap *cudacapture.Capture, report *Report) {
 			Location: Location{
 				Kernel: kernel,
 			},
-			Finding: fmt.Sprintf("Launch geometry cannot fill one warp per SM: %d of %d captured launches (%.1f%%) ran fewer than %d total threads (%d SMs x %d threads per warp), consuming %.2f ms of device time; worst offenders: %s%s",
-				subWarpCount, geometryLaunches, float64(subWarpCount)*100.0/float64(geometryLaunches), warpPerSMThreads, smCount, warpSize, float64(subWarpNs)/1e6, formatUnderSubscribed(subWarp), provSuffix),
+			Finding: fmt.Sprintf("Launch geometry cannot fill one warp per SM: %d of %d captured launches (%.1f%%) ran fewer than %d total threads (%d SMs x %d threads per warp), consuming %.2f ms of device time; worst offenders: %s",
+				subWarpCount, geometryLaunches, float64(subWarpCount)*100.0/float64(geometryLaunches), warpPerSMThreads, smCount, warpSize, float64(subWarpNs)/1e6, formatUnderSubscribed(subWarp)),
 			ActionableRecommendation: fmt.Sprintf("Grow the grid so at least one warp is resident per SM (>= %d total threads), or batch the independent launches of this kernel into a single dispatch.", warpPerSMThreads),
 			NextMeasurement:          "A/B wall-clock timing with increased grid size",
 		})

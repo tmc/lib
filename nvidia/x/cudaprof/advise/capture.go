@@ -2,12 +2,10 @@ package advise
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/google/pprof/profile"
-	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 	"github.com/tmc/lib/nvidia/x/cudaprof/timeline"
@@ -42,100 +40,45 @@ func parseSM(s string) int {
 	return num
 }
 
-// queryLiveDeviceSMCount attempts to query the physical SM count from a live CUDA device.
-func queryLiveDeviceSMCount() int {
-	defer func() {
-		_ = recover()
-	}()
-	dev, err := cuda.NewDevice(0)
-	if err != nil || dev == nil {
-		return 0
+// The device facts below come from the capture alone. Advise is an offline
+// analysis: it never opens a local device to fill in what the capture did not
+// record, because the analyzing host is not the host that ran the workload.
+// A rule that needs a missing fact is skipped and says so.
+
+// determineDeviceLimits looks up the physical max warps per SM and max blocks
+// per SM for the capture's architecture via x/cudaoccupancy. It returns
+// ok=false when the capture does not record a known architecture.
+func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks int, ok bool) {
+	if cap == nil {
+		return 0, 0, false
 	}
-	defer dev.Close()
-	count, err := dev.MultiprocessorCount()
-	if err != nil || count <= 0 {
-		return 0
+	arch := parseArchFromCapture(cap)
+	if arch == "" {
+		return 0, 0, false
 	}
-	return count
+	dev, err := cudaoccupancy.LookupDevice(arch)
+	if err != nil || dev.MaxWarpsPerSM <= 0 {
+		return 0, 0, false
+	}
+	return dev.MaxWarpsPerSM, dev.MaxBlocksPerSM, true
 }
 
-// queryLiveDeviceArch attempts to query the compute capability from a live CUDA device.
-func queryLiveDeviceArch() string {
-	defer func() {
-		_ = recover()
-	}()
-	dev, err := cuda.NewDevice(0)
-	if err != nil || dev == nil {
-		return ""
+// determineSMCount returns the device SM count recorded in the capture's
+// metadata, or else implied by the capture's target architecture.
+// It returns ok=false when the capture determines neither.
+func determineSMCount(cap *cudacapture.Capture) (int, bool) {
+	if cap == nil {
+		return 0, false
 	}
-	defer dev.Close()
-	major, minor, err := dev.ComputeCapability()
-	if err != nil || major <= 0 {
-		return ""
+	if count := parseSMCountFromCapture(cap); count > 0 {
+		return count, true
 	}
-	return fmt.Sprintf("sm_%d%d", major, minor)
-}
-
-type deviceSource int
-
-const (
-	sourceUnknown deviceSource = iota
-	sourceCapture
-	sourceLiveDevice
-)
-
-// determineArchWithSource determines the GPU architecture/compute capability by inspecting
-// capture metadata/PTX/provenance, querying a live device if available, or returning empty string if unknown.
-func determineArchWithSource(cap *cudacapture.Capture) (string, deviceSource) {
-	if cap != nil {
-		if arch := parseArchFromCapture(cap); arch != "" {
-			return arch, sourceCapture
+	if arch := parseArchFromCapture(cap); arch != "" {
+		if count := smCountForArch(arch); count > 0 {
+			return count, true
 		}
 	}
-	if arch := queryLiveDeviceArch(); arch != "" {
-		return arch, sourceLiveDevice
-	}
-	return "", sourceUnknown
-}
-
-// determineDeviceLimits looks up the physical max warps per SM and max blocks per SM
-// keyed by compute capability via x/cudaoccupancy. Returns ok=false if architecture is unknown.
-func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks int, src deviceSource, ok bool) {
-	arch, src := determineArchWithSource(cap)
-	if arch != "" {
-		if dev, err := cudaoccupancy.LookupDevice(arch); err == nil && dev.MaxWarpsPerSM > 0 {
-			return dev.MaxWarpsPerSM, dev.MaxBlocksPerSM, src, true
-		}
-	}
-	return 0, 0, sourceUnknown, false
-}
-
-// determineSMCount determines the device SM count by inspecting capture metadata,
-// looking up the capture's target architecture, or querying a live device as fallback.
-// It returns ok=false when the hardware SM count cannot be determined.
-func determineSMCount(cap *cudacapture.Capture) (int, deviceSource, bool) {
-	// 1. Explicit SM count from capture metadata/provenance.
-	if cap != nil {
-		if count := parseSMCountFromCapture(cap); count > 0 {
-			return count, sourceCapture, true
-		}
-	}
-
-	// 2. SM count derived from the capture's own target architecture / PTX.
-	if cap != nil {
-		if arch := parseArchFromCapture(cap); arch != "" {
-			if count := smCountForArch(arch); count > 0 {
-				return count, sourceCapture, true
-			}
-		}
-	}
-
-	// 3. Fall back to live CUDA device hardware only when capture has no device identity.
-	if count := queryLiveDeviceSMCount(); count > 0 {
-		return count, sourceLiveDevice, true
-	}
-
-	return 0, sourceUnknown, false
+	return 0, false
 }
 
 func parseSMCountFromCapture(cap *cudacapture.Capture) int {
