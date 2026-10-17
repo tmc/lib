@@ -564,6 +564,10 @@ func TestAdvice_UnderSubscribedWithoutSMCount(t *testing.T) {
 // TestAdvice_SkippedGeometryAuditsAreDisclosed checks that each geometry
 // audit needing a device fact the capture lacks is disclosed on its own, and
 // that an architecture outside the occupancy table is not reported as absent.
+//
+// The gb10 and gb200 rows name architectures that are in the occupancy table
+// but that smCountForArch does not map to an SM count: the occupancy audit
+// runs, and only the starvation audit is skipped unless sm_count is recorded.
 func TestAdvice_SkippedGeometryAuditsAreDisclosed(t *testing.T) {
 	const (
 		archAbsent  = "Device architecture is not recorded in this capture"
@@ -576,12 +580,17 @@ func TestAdvice_SkippedGeometryAuditsAreDisclosed(t *testing.T) {
 		name     string
 		metadata string
 		want     [][]string // substrings of each wanted skip finding
+		ran      []string   // audits that must produce their finding
 	}{
-		{"neither recorded", ``, [][]string{{archAbsent, occupancy}, {smAbsent, starvation}}},
-		{"sm_count only", `{"sm_count":48}`, [][]string{{archAbsent, occupancy}}},
-		{"arch unsupported", `{"arch":"sm_61"}`, [][]string{{archUnknown, occupancy}, {smAbsent, starvation}}},
-		{"arch unsupported with sm_count", `{"arch":"sm_61","sm_count":28}`, [][]string{{archUnknown, occupancy}}},
-		{"both supported", `{"arch":"sm_121a","sm_count":48}`, nil},
+		{"neither recorded", ``, [][]string{{archAbsent, occupancy}, {smAbsent, starvation}}, nil},
+		{"sm_count only", `{"sm_count":48}`, [][]string{{archAbsent, occupancy}}, []string{starvation}},
+		{"arch unsupported", `{"arch":"sm_61"}`, [][]string{{archUnknown, occupancy}, {smAbsent, starvation}}, nil},
+		{"arch unsupported with sm_count", `{"arch":"sm_61","sm_count":28}`, [][]string{{archUnknown, occupancy}}, []string{starvation}},
+		{"both supported", `{"arch":"sm_121a","sm_count":48}`, nil, []string{occupancy, starvation}},
+		{"gb10 in table, sm_count not derivable", `{"arch":"gb10"}`, [][]string{{smAbsent, starvation}}, []string{occupancy}},
+		{"gb10 in table with sm_count", `{"arch":"gb10","sm_count":48}`, nil, []string{occupancy, starvation}},
+		{"gb200 in table, sm_count not derivable", `{"arch":"gb200"}`, [][]string{{smAbsent, starvation}}, []string{occupancy}},
+		{"gb200 in table with sm_count", `{"arch":"gb200","sm_count":132}`, nil, []string{occupancy, starvation}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -620,6 +629,11 @@ func TestAdvice_SkippedGeometryAuditsAreDisclosed(t *testing.T) {
 			for _, subs := range tt.want {
 				if ran[subs[1]] {
 					t.Errorf("audit disclosed as skipped also ran: %q", subs[1])
+				}
+			}
+			for _, audit := range tt.ran {
+				if !ran[audit] {
+					t.Errorf("audit %q did not produce its finding", audit)
 				}
 			}
 			if len(got) != len(tt.want) {
