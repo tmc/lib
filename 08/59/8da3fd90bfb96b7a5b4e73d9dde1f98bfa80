@@ -1,0 +1,11 @@
+commit: 08598da3fd90bfb96b7a5b4e73d9dde1f98bfa80
+date: 2026-10-16T21:09:11-07:00
+agent: Claude Code 2.1.284 (Claude Code)
+model: claude-opus-5-5
+tty: not a tty
+pid: 44398
+iterm_session_id: w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+workflow: wf12 setter-public-args on b4b2e42d4
+gate: env -i go1.27.2 from nvidia/: test/-race/vet ok for ./x/cudagraph/ ./x/egraph/ ./x/cudahotswap/... (6 pkgs), vet -tags=native cudagraph ok, gofmt -l empty, go build ./... ok
+mutants: M1 (SetKernelNodeLaunch passes nil args) KILLED by TestPublicSetKernelNodeLaunchArgs and ...ArgsRefused; M4 (store before native set) KILLED by ...ArgsRefused; restored, sha256 OK
