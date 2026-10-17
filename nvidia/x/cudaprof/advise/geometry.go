@@ -30,15 +30,19 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 	smCount, hasSMCount := determineSMCount(cap)
 	maxWarpsPerSM, maxBlocksPerSM, hasLimits := determineDeviceLimits(cap)
 
-	if !hasLimits && !hasSMCount && cap.Profile != nil && len(launches) > 0 {
-		report.Items = append(report.Items, Item{
-			Severity:                 SeverityContext,
-			Category:                 CategoryArchitecture,
-			EvidenceLevel:            EvidenceUnmeasured,
-			Finding:                  "Device architecture and SM count metadata are not recorded in this capture; advise does not query the local host's device, so theoretical SM occupancy and SM grid starvation audits were skipped.",
-			ActionableRecommendation: "Record device provenance in the capture (e.g. capture-provenance.json with compute capability and SM count) and re-run advise.",
-			NextMeasurement:          "capture-provenance.json with device compute capability and SM count",
-		})
+	if cap.Profile != nil && len(launches) > 0 {
+		if !hasLimits {
+			report.Items = append(report.Items, skippedAuditItem(
+				unknownArchReason(parseArchFromCapture(cap))+"; advise does not query the local host's device, so the single-warp theoretical SM occupancy audit was skipped.",
+				"device compute capability supported by x/cudaoccupancy",
+			))
+		}
+		if !hasSMCount {
+			report.Items = append(report.Items, skippedAuditItem(
+				"Device SM count is not recorded in this capture and not implied by its architecture; advise does not query the local host's device, so the SM grid starvation audit was skipped.",
+				"device SM count",
+			))
+		}
 	}
 
 	// 1. Underpopulated Thread Block / Single-Warp Warning (<= 32 threads)
@@ -180,6 +184,29 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 				NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active per kernel, against the grid sizes above",
 			})
 		}
+	}
+}
+
+// unknownArchReason says why the capture's architecture gives no occupancy
+// limits: either the capture records none, or it records one that
+// x/cudaoccupancy does not describe.
+func unknownArchReason(arch string) string {
+	if arch == "" {
+		return "Device architecture is not recorded in this capture"
+	}
+	return fmt.Sprintf("Device architecture %q is recorded in this capture but is not in the occupancy table", arch)
+}
+
+// skippedAuditItem discloses a geometry audit that could not run because the
+// capture lacks the device fact it needs.
+func skippedAuditItem(finding, fact string) Item {
+	return Item{
+		Severity:                 SeverityContext,
+		Category:                 CategoryArchitecture,
+		EvidenceLevel:            EvidenceUnmeasured,
+		Finding:                  finding,
+		ActionableRecommendation: "Record device provenance in the capture (e.g. capture-provenance.json with compute capability and SM count) and re-run advise.",
+		NextMeasurement:          "capture-provenance.json with " + fact,
 	}
 }
 

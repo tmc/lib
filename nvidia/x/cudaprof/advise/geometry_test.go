@@ -561,44 +561,82 @@ func TestAdvice_UnderSubscribedWithoutSMCount(t *testing.T) {
 	}
 }
 
-func TestAdvice_MissingDeviceProvenanceInfoFinding(t *testing.T) {
-	// Profile has launches with grid and block dimensions, but no device identity or target arch.
-	cap := &cudacapture.Capture{
-		Profile: &profile.Profile{
-			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
-			Sample: []*profile.Sample{
-				{
-					Value: []int64{100000},
-					Label: map[string][]string{
-						"name":    {"my_kernel"},
-						"subtype": {"kernel"},
-						"grid":    {"16,1,1"},
-						"block":   {"32,1,1"},
-					},
+// TestAdvice_SkippedGeometryAuditsAreDisclosed checks that each geometry
+// audit needing a device fact the capture lacks is disclosed on its own, and
+// that an architecture outside the occupancy table is not reported as absent.
+func TestAdvice_SkippedGeometryAuditsAreDisclosed(t *testing.T) {
+	const (
+		archAbsent  = "Device architecture is not recorded in this capture"
+		archUnknown = `Device architecture "sm_61" is recorded in this capture but is not in the occupancy table`
+		occupancy   = "single-warp theoretical SM occupancy audit was skipped"
+		smAbsent    = "Device SM count is not recorded in this capture"
+		starvation  = "SM grid starvation audit was skipped"
+	)
+	tests := []struct {
+		name     string
+		metadata string
+		want     [][]string // substrings of each wanted skip finding
+	}{
+		{"neither recorded", ``, [][]string{{archAbsent, occupancy}, {smAbsent, starvation}}},
+		{"sm_count only", `{"sm_count":48}`, [][]string{{archAbsent, occupancy}}},
+		{"arch unsupported", `{"arch":"sm_61"}`, [][]string{{archUnknown, occupancy}, {smAbsent, starvation}}},
+		{"arch unsupported with sm_count", `{"arch":"sm_61","sm_count":28}`, [][]string{{archUnknown, occupancy}}},
+		{"both supported", `{"arch":"sm_121a","sm_count":48}`, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cap := &cudacapture.Capture{
+				Profile: &profile.Profile{
+					SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+					Sample: []*profile.Sample{{
+						Value: []int64{100000},
+						Label: map[string][]string{
+							"name":    {"my_kernel"},
+							"subtype": {"kernel"},
+							"grid":    {"16,1,1"},
+							"block":   {"32,1,1"},
+						},
+					}},
 				},
-			},
-		},
-	}
-
-	report := &Report{}
-	auditLaunchGeometry(cap, report)
-
-	// Advise never asks the local device, so the capture's silence is the
-	// answer on every host and the skipped audits are disclosed.
-	var found bool
-	for _, item := range report.Items {
-		if item.Severity == SeverityContext && strings.Contains(item.Finding, "Device architecture and SM count metadata are not recorded") {
-			found = true
-			if !strings.Contains(item.Finding, "does not query the local host's device") {
-				t.Errorf("finding = %q, want it to state that the local device is not queried", item.Finding)
 			}
-		}
-		if strings.Contains(item.Finding, "SMs)") || strings.Contains(item.Finding, "theoretical occupancy") {
-			t.Errorf("SM-dependent finding emitted without capture device identity: %q", item.Finding)
-		}
-	}
-	if !found {
-		t.Fatalf("expected Info finding for missing device provenance, got items: %+v", report.Items)
+			if tt.metadata != "" {
+				cap.Metadata = []byte(tt.metadata)
+			}
+			report := &Report{}
+			auditLaunchGeometry(cap, report)
+
+			var got []Item
+			ran := map[string]bool{}
+			for _, item := range report.Items {
+				switch {
+				case strings.Contains(item.Finding, "was skipped"):
+					got = append(got, item)
+				case strings.Contains(item.Finding, "theoretical occupancy"):
+					ran[occupancy] = true
+				case strings.Contains(item.Finding, "SMs)"):
+					ran[starvation] = true
+				}
+			}
+			for _, subs := range tt.want {
+				if ran[subs[1]] {
+					t.Errorf("audit disclosed as skipped also ran: %q", subs[1])
+				}
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d skip disclosures, want %d: %+v", len(got), len(tt.want), got)
+			}
+			for i, subs := range tt.want {
+				item := got[i]
+				if item.Severity != SeverityContext {
+					t.Errorf("disclosure %d severity = %v, want %v", i, item.Severity, SeverityContext)
+				}
+				for _, sub := range append(subs, "does not query the local host's device") {
+					if !strings.Contains(item.Finding, sub) {
+						t.Errorf("disclosure %d = %q, want it to contain %q", i, item.Finding, sub)
+					}
+				}
+			}
+		})
 	}
 }
 
