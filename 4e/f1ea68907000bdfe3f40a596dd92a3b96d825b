@@ -1,0 +1,11 @@
+commit: 4ef1ea68907000bdfe3f40a596dd92a3b96d825b
+date: 2026-10-16T22:06:56-07:00
+parent: 28714b88e173c45d12b20577a4a90e9258d5bfbc (frozen lane24 head)
+agent: Claude Code 2.1.284 (workflow subagent, lane24 successor wf14)
+model: claude-opus-5-5
+tty: not a tty
+pid: 88144
+ITERM_SESSION_ID: w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+gate: host go1.27.2 scoped env; test, test -race, vet on ./x/cudainspect/... ./x/cmd/cudainspect/..., gofmt -l, go build ./... = GATE_OK (log /Users/tmc/tmp/lib-wt-next/20261016-wf14-lane24/logs/gate.log)
+mutants: M2c M3 M7 (review survivors) and N1-N14 all KILLED; log /Users/tmc/tmp/lib-wt-next/20261016-wf14-lane24/logs/mutants.log
