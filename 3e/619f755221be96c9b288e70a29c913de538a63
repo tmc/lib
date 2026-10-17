@@ -1,0 +1,8 @@
+Commit: 3e619f755221be96c9b288e70a29c913de538a63
+Date: 2026-10-16T21:09:39-07:00
+Agent: Claude Code 2.1.284 (Claude Code), model claude-opus-5-5
+tty: not a tty pid: 44760 ITERM_SESSION_ID: w1t0p2:B6901F93-CF24-4BC6-923B-4DDC0D95BE76
+session=d6401e4c-228d-4c97-8539-dc3db96bf467
+Parent: 9e8218f6e3f3dada27b84bfd37b5fb6b5b99673b (wf12 advise-gb10-gb200)
+Gate: go1.27.2 host build/vet/gofmt/test/race ok for ./x/cudaprof/advise ./x/cmd/cudaprof
+Mutant A3 (!hasLimits && !hasSMCount at geometry.go:40): KILLED (gb10, gb200 rows); geometry.go sha1 e3b9c21c7667 restored
