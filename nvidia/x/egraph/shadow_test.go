@@ -3,6 +3,7 @@ package egraph
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -37,33 +38,63 @@ func (m *mockShadowExecutor) ExecuteShadow(ctx context.Context, s *cuda.Stream, 
 }
 
 type mockGraphUpdater struct {
-	mu           sync.Mutex
-	block        driver.Dim3 // block dimension reported for every node
-	blockErr     error
-	blockReads   int
-	gridUpdates  []driver.Dim3
-	paramUpdates []driver.KernelNodeParams
-	argUpdates   [][]any
-	nodeUpdates  []cudagraph.KernelNodeUpdate
-}
-
-func (m *mockGraphUpdater) KernelNodeBlock(node *cudagraph.Node) (driver.Dim3, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.blockReads++
-	return m.block, m.blockErr
+	mu            sync.Mutex
+	launchErr     error // returned by SetKernelNodeLaunch
+	argErr        error // returned by UpdateKernelNode
+	calls         []string
+	gridUpdates   []driver.Dim3
+	launchUpdates [][2]driver.Dim3 // grid, block
+	paramUpdates  []driver.KernelNodeParams
+	argUpdates    [][]any
+	nodeUpdates   []cudagraph.KernelNodeUpdate
+	node          mockNode // committed state
 }
 
 func (m *mockGraphUpdater) updates() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return len(m.gridUpdates) + len(m.paramUpdates) + len(m.argUpdates) + len(m.nodeUpdates)
+	return len(m.gridUpdates) + len(m.launchUpdates) + len(m.paramUpdates) + len(m.argUpdates) + len(m.nodeUpdates)
+}
+
+// mockNode is the launch state a mockGraphUpdater commits, all or nothing.
+type mockNode struct {
+	grid, block driver.Dim3
+	args        []any
+}
+
+func (m *mockGraphUpdater) commit(grid, block driver.Dim3, args []any) {
+	if grid != (driver.Dim3{}) {
+		m.node.grid = grid
+	}
+	if block != (driver.Dim3{}) {
+		m.node.block = block
+	}
+	if len(args) > 0 {
+		m.node.args = args
+	}
+}
+
+func (m *mockGraphUpdater) SetKernelNodeLaunch(node *cudagraph.Node, grid, block driver.Dim3, args ...any) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.calls = append(m.calls, "launch")
+	if m.launchErr != nil {
+		return m.launchErr
+	}
+	m.launchUpdates = append(m.launchUpdates, [2]driver.Dim3{grid, block})
+	if len(args) > 0 {
+		m.argUpdates = append(m.argUpdates, args)
+	}
+	m.commit(grid, block, args)
+	return nil
 }
 
 func (m *mockGraphUpdater) SetKernelNodeGrid(node *cudagraph.Node, grid driver.Dim3) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.calls = append(m.calls, "grid")
 	m.gridUpdates = append(m.gridUpdates, grid)
+	m.commit(grid, driver.Dim3{}, nil)
 	return nil
 }
 
@@ -79,8 +110,13 @@ func (m *mockGraphUpdater) SetKernelNodeParams(node *cudagraph.Node, params *dri
 func (m *mockGraphUpdater) UpdateKernelNode(node *cudagraph.Node, grid driver.Dim3, args ...any) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.calls = append(m.calls, "args")
+	if m.argErr != nil {
+		return m.argErr
+	}
 	m.gridUpdates = append(m.gridUpdates, grid)
 	m.argUpdates = append(m.argUpdates, args)
+	m.commit(grid, driver.Dim3{}, args)
 	return nil
 }
 
@@ -578,95 +614,99 @@ func TestPGOTrackerPlanPromotion(t *testing.T) {
 }
 
 func TestHotSwapNodeBlockDim(t *testing.T) {
-	errRead := errors.New("read failed")
+	errLaunch := errors.New("launch rejected")
+	errArgs := errors.New("args rejected")
+	type launch = [2]driver.Dim3
 	tests := []struct {
-		name       string
-		block      driver.Dim3
-		blockErr   error
-		cand       TuningCandidate
-		args       []any
-		wantErr    error // matched with errors.Is; nil means success
-		wantBlock  bool  // want *BlockDimError
-		wantReads  int
-		wantGrids  []driver.Dim3
-		wantArgSet int
+		name        string
+		launchErr   error
+		argErr      error
+		cand        TuningCandidate
+		args        []any
+		wantErr     error // matched with errors.Is; nil means success
+		wantGeom    bool  // want *cudagraph.LaunchGeometryError
+		wantCalls   []string
+		wantGrids   []driver.Dim3
+		wantLaunch  []launch
+		wantArgSets int
 	}{
 		{
-			name:      "same block updates grid",
-			block:     driver.Dims(128, 1, 1),
-			cand:      TuningCandidate{BlockDim: 128, GridDim: 8},
-			wantReads: 1,
+			name:       "block and grid in one update",
+			cand:       TuningCandidate{BlockDim: 256, GridDim: 4},
+			wantCalls:  []string{"launch"},
+			wantLaunch: []launch{{driver.Dims(4, 1, 1), driver.Dims(256, 1, 1)}},
+		},
+		{
+			name:       "block with zero grid keeps grid",
+			cand:       TuningCandidate{BlockDim: 128},
+			wantCalls:  []string{"launch"},
+			wantLaunch: []launch{{{}, driver.Dims(128, 1, 1)}},
+		},
+		{
+			name:      "zero block updates grid only",
+			cand:      TuningCandidate{GridDim: 8},
+			wantCalls: []string{"grid"},
 			wantGrids: []driver.Dim3{driver.Dims(8, 1, 1)},
 		},
 		{
-			name:      "larger block refused",
-			block:     driver.Dims(128, 1, 1),
-			cand:      TuningCandidate{BlockDim: 256, GridDim: 4},
-			wantBlock: true,
-			wantReads: 1,
+			name: "zero block and grid makes no update",
 		},
 		{
-			name:      "smaller block refused with args",
-			block:     driver.Dims(256, 1, 1),
+			name:        "args with block in one update",
+			cand:        TuningCandidate{BlockDim: 128, GridDim: 8},
+			args:        []any{int32(1)},
+			wantCalls:   []string{"launch"},
+			wantLaunch:  []launch{{driver.Dims(8, 1, 1), driver.Dims(128, 1, 1)}},
+			wantArgSets: 1,
+		},
+		{
+			name:        "args with zero block and grid",
+			args:        []any{int32(1)},
+			wantCalls:   []string{"args"},
+			wantGrids:   []driver.Dim3{{}},
+			wantArgSets: 1,
+		},
+		{
+			name:      "args rejection",
+			argErr:    errArgs,
+			cand:      TuningCandidate{GridDim: 8},
+			args:      []any{int32(1)},
+			wantErr:   errArgs,
+			wantCalls: []string{"args"},
+		},
+		{
+			name:      "block rejection with args",
+			launchErr: errLaunch,
 			cand:      TuningCandidate{BlockDim: 128, GridDim: 8},
 			args:      []any{int32(1)},
-			wantBlock: true,
-			wantReads: 1,
+			wantErr:   errLaunch,
+			wantCalls: []string{"launch"},
 		},
 		{
-			name:      "multidimensional node block refused",
-			block:     driver.Dims(128, 2, 1),
-			cand:      TuningCandidate{BlockDim: 128, GridDim: 8},
-			wantBlock: true,
-			wantReads: 1,
+			name:      "block rejection",
+			launchErr: errLaunch,
+			cand:      TuningCandidate{BlockDim: 512, GridDim: 2},
+			wantErr:   errLaunch,
+			wantCalls: []string{"launch"},
 		},
-		{
-			name:      "zero block skips block check",
-			block:     driver.Dims(128, 1, 1),
-			cand:      TuningCandidate{GridDim: 8},
-			wantGrids: []driver.Dim3{driver.Dims(8, 1, 1)},
-		},
-		{
-			name:      "zero grid without args makes no update",
-			block:     driver.Dims(128, 1, 1),
-			cand:      TuningCandidate{BlockDim: 128},
-			wantReads: 1,
-		},
-		{
-			name:       "zero grid with args keeps grid",
-			block:      driver.Dims(128, 1, 1),
-			cand:       TuningCandidate{BlockDim: 128},
-			args:       []any{int32(1)},
-			wantReads:  1,
-			wantGrids:  []driver.Dim3{{}},
-			wantArgSet: 1,
-		},
-		{
-			name:      "block read error",
-			blockErr:  errRead,
-			cand:      TuningCandidate{BlockDim: 128, GridDim: 8},
-			wantErr:   errRead,
-			wantReads: 1,
-		},
-		{
-			name:    "negative block",
-			cand:    TuningCandidate{BlockDim: -1, GridDim: 8},
-			wantErr: errAny,
-		},
+		{name: "block over 1024 threads", cand: TuningCandidate{BlockDim: 1025, GridDim: 8}, wantGeom: true},
+		{name: "block over 1024 threads with args", cand: TuningCandidate{BlockDim: 2048}, args: []any{int32(1)}, wantGeom: true},
+		{name: "block overflows uint32", cand: TuningCandidate{BlockDim: 1<<32 + 128}, wantGeom: true},
+		{name: "grid over limit", cand: TuningCandidate{BlockDim: 128, GridDim: 1 << 31}, wantGeom: true},
+		{name: "grid overflows uint32", cand: TuningCandidate{GridDim: 1<<32 + 8}, wantGeom: true},
+		{name: "negative block", cand: TuningCandidate{BlockDim: -1, GridDim: 8}, wantErr: errAny},
+		{name: "negative grid", cand: TuningCandidate{BlockDim: 128, GridDim: -1}, wantErr: errAny},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &mockGraphUpdater{block: tt.block, blockErr: tt.blockErr}
+			prior := mockNode{grid: driver.Dims(2, 1, 1), block: driver.Dims(16, 16, 1), args: []any{int32(0)}}
+			u := &mockGraphUpdater{launchErr: tt.launchErr, argErr: tt.argErr, node: prior}
 			err := HotSwapNode(u, &cudagraph.Node{}, tt.cand, tt.args...)
-			var be *BlockDimError
+			var ge *cudagraph.LaunchGeometryError
 			switch {
-			case tt.wantBlock:
-				if !errors.As(err, &be) {
-					t.Fatalf("HotSwapNode error = %v, want *BlockDimError", err)
-				}
-				want := driver.Dims(uint32(tt.cand.BlockDim), 1, 1)
-				if be.Node != tt.block || be.Candidate != want {
-					t.Errorf("BlockDimError = %+v, want Node %v Candidate %v", *be, tt.block, want)
+			case tt.wantGeom:
+				if !errors.As(err, &ge) {
+					t.Fatalf("HotSwapNode error = %v, want *cudagraph.LaunchGeometryError", err)
 				}
 			case tt.wantErr == errAny:
 				if err == nil {
@@ -681,25 +721,23 @@ func TestHotSwapNodeBlockDim(t *testing.T) {
 					t.Fatalf("HotSwapNode: %v", err)
 				}
 			}
-			if err != nil && errors.As(err, &be) != tt.wantBlock {
-				t.Errorf("HotSwapNode error = %v is BlockDimError = %v, want %v", err, !tt.wantBlock, tt.wantBlock)
+			if !slices.Equal(u.calls, tt.wantCalls) {
+				t.Errorf("calls = %v, want %v", u.calls, tt.wantCalls)
 			}
-			if u.blockReads != tt.wantReads {
-				t.Errorf("block reads = %d, want %d", u.blockReads, tt.wantReads)
+			if !slices.Equal(u.gridUpdates, tt.wantGrids) {
+				t.Errorf("grid updates = %v, want %v", u.gridUpdates, tt.wantGrids)
 			}
-			if len(u.gridUpdates) != len(tt.wantGrids) {
-				t.Fatalf("grid updates = %v, want %v", u.gridUpdates, tt.wantGrids)
+			if !slices.Equal(u.launchUpdates, tt.wantLaunch) {
+				t.Errorf("launch updates = %v, want %v", u.launchUpdates, tt.wantLaunch)
 			}
-			for i := range u.gridUpdates {
-				if u.gridUpdates[i] != tt.wantGrids[i] {
-					t.Errorf("grid update %d = %v, want %v", i, u.gridUpdates[i], tt.wantGrids[i])
-				}
-			}
-			if len(u.argUpdates) != tt.wantArgSet {
-				t.Errorf("arg updates = %d, want %d", len(u.argUpdates), tt.wantArgSet)
+			if len(u.argUpdates) != tt.wantArgSets {
+				t.Errorf("arg updates = %d, want %d", len(u.argUpdates), tt.wantArgSets)
 			}
 			if len(u.paramUpdates)+len(u.nodeUpdates) != 0 {
 				t.Errorf("unexpected param or node updates: %v %v", u.paramUpdates, u.nodeUpdates)
+			}
+			if err != nil && (u.node.grid != prior.grid || u.node.block != prior.block || !slices.Equal(u.node.args, prior.args)) {
+				t.Errorf("failed update changed node: %+v, was %+v", u.node, prior)
 			}
 		})
 	}
@@ -711,8 +749,8 @@ var errAny = errors.New("any error")
 func TestInPlaceGraphNodeUpdate(t *testing.T) {
 	node := &cudagraph.Node{}
 
-	t.Run("HotSwapNode grid update", func(t *testing.T) {
-		updater := &mockGraphUpdater{block: driver.Dims(256, 1, 1)}
+	t.Run("HotSwapNode launch update", func(t *testing.T) {
+		updater := &mockGraphUpdater{}
 		cand := TuningCandidate{
 			BlockDim: 256,
 			GridDim:  8,
@@ -721,16 +759,16 @@ func TestInPlaceGraphNodeUpdate(t *testing.T) {
 		if err := HotSwapNode(updater, node, cand); err != nil {
 			t.Fatalf("HotSwapNode: %v", err)
 		}
-		if len(updater.gridUpdates) != 1 {
-			t.Fatalf("len(gridUpdates) = %d, want 1", len(updater.gridUpdates))
+		if len(updater.launchUpdates) != 1 {
+			t.Fatalf("len(launchUpdates) = %d, want 1", len(updater.launchUpdates))
 		}
-		if updater.gridUpdates[0].X != 8 {
-			t.Errorf("grid.X = %d, want 8", updater.gridUpdates[0].X)
+		if got := updater.launchUpdates[0]; got[0].X != 8 || got[1].X != 256 {
+			t.Errorf("launch = grid %v block %v, want grid 8 block 256", got[0], got[1])
 		}
 	})
 
 	t.Run("HotSwapNode with args", func(t *testing.T) {
-		updater := &mockGraphUpdater{block: driver.Dims(128, 1, 1)}
+		updater := &mockGraphUpdater{}
 		cand := TuningCandidate{
 			BlockDim: 128,
 			GridDim:  4,
@@ -769,7 +807,7 @@ func TestInPlaceGraphNodeUpdate(t *testing.T) {
 	})
 
 	t.Run("PromoteAndApply promoted", func(t *testing.T) {
-		updater := &mockGraphUpdater{block: driver.Dims(256, 1, 1)}
+		updater := &mockGraphUpdater{}
 		tracker := &PGOTracker{}
 		current := TuningCandidate{BlockDim: 128, GridDim: 8, KernelName: "K_Slow"}
 		candidate := TuningCandidate{BlockDim: 256, GridDim: 4, KernelName: "K_Fast"}
@@ -790,16 +828,17 @@ func TestInPlaceGraphNodeUpdate(t *testing.T) {
 		if !promoted {
 			t.Fatal("PromoteAndApply returned false, want true")
 		}
-		if len(updater.gridUpdates) != 1 || updater.gridUpdates[0].X != 4 {
-			t.Errorf("gridUpdates = %v, want [{X:4 Y:1 Z:1}]", updater.gridUpdates)
+		want := [][2]driver.Dim3{{driver.Dims(4, 1, 1), driver.Dims(256, 1, 1)}}
+		if !slices.Equal(updater.launchUpdates, want) {
+			t.Errorf("launchUpdates = %v, want %v", updater.launchUpdates, want)
 		}
 	})
 
-	t.Run("PromoteAndApply refuses block change", func(t *testing.T) {
-		updater := &mockGraphUpdater{block: driver.Dims(128, 1, 1)}
+	t.Run("PromoteAndApply refuses invalid geometry", func(t *testing.T) {
+		updater := &mockGraphUpdater{}
 		tracker := &PGOTracker{}
 		current := TuningCandidate{BlockDim: 128, GridDim: 8, KernelName: "K_Slow"}
-		candidate := TuningCandidate{BlockDim: 256, GridDim: 4, KernelName: "K_Fast"}
+		candidate := TuningCandidate{BlockDim: 2048, GridDim: 4, KernelName: "K_Fast"}
 		tracker.Record(current.Key(), 100*time.Microsecond)
 		tracker.Record(candidate.Key(), 60*time.Microsecond)
 
@@ -810,9 +849,9 @@ func TestInPlaceGraphNodeUpdate(t *testing.T) {
 		defer tuner.Close()
 
 		promoted, err := tuner.PromoteAndApply(updater, node, current, candidate, PromotionPolicy{MinObservations: 1})
-		var be *BlockDimError
-		if !errors.As(err, &be) {
-			t.Fatalf("PromoteAndApply error = %v, want *BlockDimError", err)
+		var ge *cudagraph.LaunchGeometryError
+		if !errors.As(err, &ge) {
+			t.Fatalf("PromoteAndApply error = %v, want *cudagraph.LaunchGeometryError", err)
 		}
 		if promoted {
 			t.Error("PromoteAndApply returned true, want false")
@@ -1033,9 +1072,9 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 	defer g.Destroy()
 
 	// AddLaunch gives the graph, and every Exec instantiated from it, owned
-	// argument storage; HotSwapNode's grid update depends on it. The initial
+	// argument storage; HotSwapNode's launch updates depend on it. The initial
 	// grid covers only half of the vector, so the full result below is
-	// produced only if the hot-swapped grid reached the executable graph.
+	// produced only if a hot-swapped launch reached the executable graph.
 	desc := cudalaunch.Description{
 		Function: fn,
 		Grid:     driver.Dims(n/256, 1, 1),
@@ -1064,55 +1103,66 @@ extern "C" __global__ void vectorAdd(float *a, float *b, float *c, int n) {
 		return got
 	}
 
-	// *cudagraph.Exec reports no block itself, so HotSwapNode must read
-	// the block from the node's parameters.
-	if _, ok := any(exec).(kernelNodeBlocker); ok {
-		t.Fatal("*cudagraph.Exec implements kernelNodeBlocker; node.Params path is untested")
+	clearC := func() {
+		t.Helper()
+		if err := dev.WithContext(func() error { return bufC.CopyFromHost(make([]float32, n)) }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkC := func(when string, covered int) {
+		t.Helper()
+		got := readC()
+		for i := range got {
+			want := a[i] + b[i]
+			if i >= covered {
+				want = 0
+			}
+			if got[i] != want {
+				t.Fatalf("c[%d] = %v %s, want %v", i, got[i], when, want)
+			}
+		}
 	}
 
-	// A candidate with a different block dimension cannot be applied in
-	// place. It must be refused without changing the grid: the Exec still
-	// computes only the first half of the vector.
-	candBlock := TuningCandidate{
-		BlockDim: 256,
-		GridDim:  n / 256,
-	}
-	err = HotSwapNode(exec, node, candBlock)
-	var be *BlockDimError
-	if !errors.As(err, &be) {
-		t.Fatalf("HotSwapNode with block 256 = %v, want *BlockDimError", err)
-	}
-	if want := driver.Dims(128, 1, 1); be.Node != want {
-		t.Errorf("BlockDimError.Node = %v, want %v", be.Node, want)
+	// A candidate no device can launch is refused without changing the
+	// node: the Exec still computes only the first half of the vector.
+	err = HotSwapNode(exec, node, TuningCandidate{BlockDim: 2048, GridDim: n / 128})
+	var ge *cudagraph.LaunchGeometryError
+	if !errors.As(err, &ge) {
+		t.Fatalf("HotSwapNode with block 2048 = %v, want *cudagraph.LaunchGeometryError", err)
 	}
 	if err := exec.Launch(stream); err != nil {
 		t.Fatalf("launch after refused hot swap: %v", err)
 	}
-	got := readC()
-	for i := range got {
-		want := a[i] + b[i]
-		if i >= n/2 {
-			want = 0
-		}
-		if got[i] != want {
-			t.Fatalf("c[%d] = %v after refused hot swap, want %v", i, got[i], want)
-		}
-	}
+	checkC("after refused hot swap", n/2)
 
-	candNew := TuningCandidate{
-		BlockDim: 128,
-		GridDim:  n / 128,
+	// Doubling the block at the same grid covers the whole vector only if
+	// the new block reached the executable graph.
+	clearC()
+	if err := HotSwapNode(exec, node, TuningCandidate{BlockDim: 256}); err != nil {
+		t.Fatalf("HotSwapNode block 256 on real GraphExec: %v", err)
 	}
-	if err := HotSwapNode(exec, node, candNew); err != nil {
+	if err := exec.Launch(stream); err != nil {
+		t.Fatalf("launch after block hot swap: %v", err)
+	}
+	checkC("after block hot swap", n)
+
+	// The block update kept the owned arguments: a grid-only update that
+	// halves the grid at block 256 still launches and covers half.
+	clearC()
+	if err := HotSwapNode(exec, node, TuningCandidate{GridDim: n / 512}); err != nil {
+		t.Fatalf("HotSwapNode grid after block hot swap: %v", err)
+	}
+	if err := exec.Launch(stream); err != nil {
+		t.Fatalf("launch after grid hot swap: %v", err)
+	}
+	checkC("after grid hot swap", n/2)
+
+	clearC()
+	if err := HotSwapNode(exec, node, TuningCandidate{BlockDim: 128, GridDim: n / 128}); err != nil {
 		t.Fatalf("HotSwapNode on real GraphExec: %v", err)
 	}
 	if err := exec.Launch(stream); err != nil {
 		t.Fatalf("launch hot-swapped graph: %v", err)
 	}
-	got = readC()
-	for i := range got {
-		if want := a[i] + b[i]; got[i] != want {
-			t.Fatalf("c[%d] = %v after hot swap, want %v", i, got[i], want)
-		}
-	}
+	checkC("after hot swap", n)
 }

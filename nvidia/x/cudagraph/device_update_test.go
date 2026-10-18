@@ -2,6 +2,7 @@ package cudagraph_test
 
 import (
 	"encoding/binary"
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -377,6 +378,20 @@ func TestDeviceUpdateErrorHandling(t *testing.T) {
 			},
 		},
 		{
+			name: "nil exec SetKernelNodeLaunch",
+			fn: func() error {
+				var e *cudagraph.Exec
+				return e.SetKernelNodeLaunch(&cudagraph.Node{}, driver.Dims(1, 1, 1), driver.Dims(32, 1, 1))
+			},
+		},
+		{
+			name: "closed exec SetKernelNodeLaunch",
+			fn: func() error {
+				e := &cudagraph.Exec{}
+				return e.SetKernelNodeLaunch(&cudagraph.Node{}, driver.Dims(1, 1, 1), driver.Dims(32, 1, 1))
+			},
+		},
+		{
 			name: "nil exec UpdateKernelNode",
 			fn: func() error {
 				var e *cudagraph.Exec
@@ -579,6 +594,34 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 				t.Fatalf("after UpdateKernelNode: buf[%d] = %d, want 25", i, v)
 			}
 		}
+
+		// Change the block in place. Half the old grid at a quarter of the
+		// block covers only the first eighth, so only those elements gain
+		// the offset if the new block reached the executable graph.
+		if err := exec.SetKernelNodeLaunch(node, driver.Dims(n/block/2, 1, 1), driver.Dims(block/4, 1, 1)); err != nil {
+			t.Fatalf("SetKernelNodeLaunch: %v", err)
+		}
+		if err := exec.Launch(stream); err != nil {
+			t.Fatal(err)
+		}
+		if err := stream.Synchronize(nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := buf.CopyToHost(got); err != nil {
+			t.Fatal(err)
+		}
+		for i, v := range got {
+			want := uint32(25)
+			if i < n/8 {
+				want = 45
+			}
+			if v != want {
+				t.Fatalf("after SetKernelNodeLaunch: buf[%d] = %d, want %d", i, v, want)
+			}
+		}
+		if err := exec.SetKernelNodeLaunch(node, driver.Dim3{}, driver.Dims(2048, 1, 1)); err == nil {
+			t.Fatal("SetKernelNodeLaunch with 2048 threads succeeded")
+		}
 	})
 
 	t.Run("captured node device updatable", func(t *testing.T) {
@@ -623,6 +666,9 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 		if err := exec.SetKernelNodeGrid(nodes[0], driver.Dims(n/block, 1, 1)); err == nil || !strings.Contains(err.Error(), "not retained") {
 			t.Fatalf("SetKernelNodeGrid on captured node = %v, want not retained error", err)
 		}
+		if err := exec.SetKernelNodeLaunch(nodes[0], driver.Dim3{}, driver.Dims(block/2, 1, 1)); err == nil || !strings.Contains(err.Error(), "not retained") {
+			t.Fatalf("SetKernelNodeLaunch on captured node = %v, want not retained error", err)
+		}
 
 		// Supply complete parameters instead: half the grid, a new offset.
 		dptr := buf.Ptr()
@@ -642,6 +688,9 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 		}
 		if err := exec.SetKernelNodeParams(nodes[0], &kp); err != nil {
 			t.Fatalf("SetKernelNodeParams: %v", err)
+		}
+		if err := exec.SetKernelNodeLaunch(nodes[0], driver.Dim3{}, driver.Dims(block/2, 1, 1)); err == nil || !strings.Contains(err.Error(), "not owned") {
+			t.Fatalf("SetKernelNodeLaunch on raw parameters = %v, want not owned error", err)
 		}
 
 		zeros := make([]uint32, n)
@@ -685,4 +734,12 @@ func TestDeviceUpdatableNodeIntegration(t *testing.T) {
 			}
 		}
 	})
+}
+
+func ExampleCheckLaunchGeometry() {
+	fmt.Println(cudagraph.CheckLaunchGeometry(driver.Dims(8, 1, 1), driver.Dims(256, 1, 1)))
+	fmt.Println(cudagraph.CheckLaunchGeometry(driver.Dims(8, 1, 1), driver.Dims(32, 32, 2)))
+	// Output:
+	// <nil>
+	// cudagraph: invalid launch geometry grid 8x1x1 block 32x32x2: block exceeds 1024 threads
 }

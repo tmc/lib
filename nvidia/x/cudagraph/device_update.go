@@ -314,7 +314,7 @@ func (e *Exec) SetKernelNodeParams(node *Node, params *driver.KernelNodeParams) 
 		owner = old.args
 	}
 	return e.setKernelNodeParams(node, *params, owner, e.withContext, func(p *driver.KernelNodeParams) error {
-		return e.raw.KernelNodeSetParams(node.kernel(), p)
+		return execKernelNodeSetParams(e.raw, node.kernel(), p)
 	})
 }
 
@@ -367,6 +367,8 @@ func (e *Exec) kernelState(node *Node) (kernelNodeState, error) {
 }
 
 // SetKernelNodeGrid preserves the Exec's current function and arguments.
+// A grid outside CUDA's architectural limits is refused with a
+// *[LaunchGeometryError] before any native call.
 // Nodes built from raw argument arrays or by stream capture require
 // SetKernelNodeParams with a fresh complete set: the Exec does not own their
 // argument storage.
@@ -375,7 +377,7 @@ func (e *Exec) SetKernelNodeGrid(node *Node, grid driver.Dim3) error {
 	if err != nil {
 		return err
 	}
-	if err := checkDim("grid", grid); err != nil {
+	if err := CheckLaunchGeometry(grid, state.params.BlockDim); err != nil {
 		return err
 	}
 	if state.args == nil && (state.params.KernelParams != 0 || state.params.Extra != 0) {
@@ -385,16 +387,87 @@ func (e *Exec) SetKernelNodeGrid(node *Node, grid driver.Dim3) error {
 	return e.SetKernelNodeParams(node, &state.params)
 }
 
+// SetKernelNodeLaunch sets the grid and block dimensions of node in future
+// launches and, when args are given, replaces its arguments, preserving the
+// Exec's current function and shared memory size. A zero Dim3 leaves that
+// dimension unchanged. Grid, block and arguments are committed by one native
+// call: if CUDA rejects it, for example because the block is too large for
+// the kernel's register or shared memory use, the Exec keeps its previous
+// grid, block and arguments.
+//
+// Without args the owned argument storage is kept, so the node keeps its
+// identity and later grid, argument and launch updates continue to use it.
+// Nodes built from raw argument arrays or by stream capture are refused
+// without args, as for SetKernelNodeGrid. Dimensions outside CUDA's
+// architectural limits are refused with a *[LaunchGeometryError] before any
+// native call. See UpdateKernelNode for argument handling and the
+// serialized, no-inflight update requirement.
+func (e *Exec) SetKernelNodeLaunch(node *Node, grid, block driver.Dim3, args ...any) error {
+	return e.updateKernel(node, 0, grid, block, args, e.withContext,
+		kernelParamCount,
+		kernelParamInfo,
+		func(p *driver.KernelNodeParams) error {
+			return execKernelNodeSetParams(e.raw, node.kernel(), p)
+		})
+}
+
+// Architectural launch limits shared by every CUDA device of compute
+// capability 3.0 and later.
+const (
+	maxGridX        = 1<<31 - 1
+	maxGridYZ       = 65535
+	maxBlockXY      = 1024
+	maxBlockZ       = 64
+	maxBlockThreads = 1024
+)
+
+// LaunchGeometryError reports grid or block dimensions that no CUDA device
+// can launch.
+type LaunchGeometryError struct {
+	Grid   driver.Dim3
+	Block  driver.Dim3
+	Reason string
+}
+
+func (e *LaunchGeometryError) Error() string {
+	return fmt.Sprintf("cudagraph: invalid launch geometry grid %dx%dx%d block %dx%dx%d: %s",
+		e.Grid.X, e.Grid.Y, e.Grid.Z, e.Block.X, e.Block.Y, e.Block.Z, e.Reason)
+}
+
+// CheckLaunchGeometry reports whether grid and block are within CUDA's
+// architectural limits: every extent nonzero, grid at most
+// (2³¹-1)×65535×65535, block at most 1024×1024×64 and 1024 threads in total.
+// It returns a *[LaunchGeometryError] otherwise. Limits that depend on the
+// device or the kernel are left to CUDA.
+func CheckLaunchGeometry(grid, block driver.Dim3) error {
+	var reason string
+	switch {
+	case grid.X == 0 || grid.Y == 0 || grid.Z == 0:
+		reason = "zero grid extent"
+	case block.X == 0 || block.Y == 0 || block.Z == 0:
+		reason = "zero block extent"
+	case grid.X > maxGridX || grid.Y > maxGridYZ || grid.Z > maxGridYZ:
+		reason = "grid extent exceeds limit"
+	case block.X > maxBlockXY || block.Y > maxBlockXY || block.Z > maxBlockZ:
+		reason = "block extent exceeds limit"
+	case uint64(block.X)*uint64(block.Y)*uint64(block.Z) > maxBlockThreads:
+		reason = "block exceeds 1024 threads"
+	default:
+		return nil
+	}
+	return &LaunchGeometryError{Grid: grid, Block: block, Reason: reason}
+}
+
 // UpdateKernelNode replaces arguments when provided and otherwise preserves
 // the current executable parameters. A zero grid leaves its dimensions alone.
 // Superseded argument storage is released, so callers must serialize updates
 // and ensure no launches or device-side updates are in flight.
 func (e *Exec) UpdateKernelNode(node *Node, grid driver.Dim3, args ...any) error {
 	return e.updateKernelNode(node, 0, grid, args, e.withContext,
-		paramCount,
-		func(fn driver.Function, index uint) (uint, uint, error) { return fn.ParamInfo(index) },
+		kernelParamCount,
+		kernelParamInfo,
 		func(p *driver.KernelNodeParams) error {
-			return e.raw.KernelNodeSetParams(node.kernel(), p)
+			return execKernelNodeSetParams(e.raw, node.kernel(), p)
 		})
 }
 
@@ -409,23 +482,34 @@ func (e *Exec) HotSwapNode(node *Node, fn driver.Function, grid driver.Dim3, arg
 		return errors.New("cudagraph: nil kernel function")
 	}
 	return e.updateKernelNode(node, fn, grid, args, e.withContext,
-		paramCount,
-		func(fn driver.Function, index uint) (uint, uint, error) { return fn.ParamInfo(index) },
+		kernelParamCount,
+		kernelParamInfo,
 		func(p *driver.KernelNodeParams) error {
-			return e.raw.KernelNodeSetParams(node.kernel(), p)
+			return execKernelNodeSetParams(e.raw, node.kernel(), p)
 		})
 }
 
 func (e *Exec) updateKernelNode(node *Node, fn driver.Function, grid driver.Dim3, args []any, run func(func() error) error, count func(driver.Function) (uint, error), info func(driver.Function, uint) (uint, uint, error), set func(*driver.KernelNodeParams) error) error {
+	return e.updateKernel(node, fn, grid, driver.Dim3{}, args, run, count, info, set)
+}
+
+// updateKernel applies every requested change in one native call, so a
+// rejection leaves the retained state and CUDA's executable node unchanged.
+func (e *Exec) updateKernel(node *Node, fn driver.Function, grid, block driver.Dim3, args []any, run func(func() error) error, count func(driver.Function) (uint, error), info func(driver.Function, uint) (uint, uint, error), set func(*driver.KernelNodeParams) error) error {
 	state, err := e.kernelState(node)
 	if err != nil {
 		return err
 	}
-	if grid != (driver.Dim3{}) {
-		if err := checkDim("grid", grid); err != nil {
+	if grid != (driver.Dim3{}) || block != (driver.Dim3{}) {
+		if grid != (driver.Dim3{}) {
+			state.params.GridDim = grid
+		}
+		if block != (driver.Dim3{}) {
+			state.params.BlockDim = block
+		}
+		if err := CheckLaunchGeometry(state.params.GridDim, state.params.BlockDim); err != nil {
 			return err
 		}
-		state.params.GridDim = grid
 	}
 	if fn != 0 {
 		state.params.Func = fn
@@ -489,9 +573,9 @@ func (e *Exec) ApplyKernelNodeUpdate(node *Node, update KernelNodeUpdate) error 
 		return e.SetKernelNodeGrid(node, update.GridDim)
 	case KernelNodeFieldParam:
 		return e.applyKernelParam(node, update, e.withContext,
-			paramCount,
-			func(fn driver.Function, index uint) (uint, uint, error) { return fn.ParamInfo(index) },
-			func(p *driver.KernelNodeParams) error { return e.raw.KernelNodeSetParams(node.kernel(), p) })
+			kernelParamCount,
+			kernelParamInfo,
+			func(p *driver.KernelNodeParams) error { return execKernelNodeSetParams(e.raw, node.kernel(), p) })
 	default:
 		return fmt.Errorf("cudagraph: unsupported kernel node update field %v", update.Field)
 	}
@@ -607,6 +691,14 @@ func checkKernelArguments(params driver.KernelNodeParams, owner *launchArgs, cou
 	}
 	return nil
 }
+
+// Driver entry points of the executable kernel node updates. Tests replace
+// them to observe or refuse the native call on a host without a device.
+var (
+	execKernelNodeSetParams = driver.GraphExec.KernelNodeSetParams
+	kernelParamCount        = paramCount
+	kernelParamInfo         = driver.Function.ParamInfo
+)
 
 // paramCount returns fn's parameter count. A driver that predates
 // cuFuncGetParamCount (the CUDA 13.0 r580 series) still exports
