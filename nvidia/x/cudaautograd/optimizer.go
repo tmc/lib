@@ -46,9 +46,10 @@ func (opt *SGDOptimizer) Momentum() float32 {
 }
 
 // Step updates parameters in-place using their corresponding gradients.
-// Parameters without a gradient are left unchanged. Step checks for a nil
-// optimizer or map and verifies matching parameter and gradient slice lengths
-// for present parameters before updating parameters or velocity in place.
+// Parameters without a gradient are left unchanged, and gradients for unknown
+// parameters are ignored. Step rejects a nil optimizer or map, mismatched
+// slice lengths, and nonfinite gradients for present parameters before
+// changing any parameter or velocity.
 func (opt *SGDOptimizer) Step(params map[string][]float32, grads map[string][]float32) error {
 	if opt == nil {
 		return errors.New("cudaautograd: nil optimizer")
@@ -61,8 +62,16 @@ func (opt *SGDOptimizer) Step(params map[string][]float32, grads map[string][]fl
 	}
 	for name, paramSlice := range params {
 		gradSlice, ok := grads[name]
-		if ok && len(paramSlice) != len(gradSlice) {
+		if !ok {
+			continue
+		}
+		if len(paramSlice) != len(gradSlice) {
 			return fmt.Errorf("cudaautograd: param %q len %d != grad len %d", name, len(paramSlice), len(gradSlice))
+		}
+		for i, grad := range gradSlice {
+			if math.IsNaN(float64(grad)) || math.IsInf(float64(grad), 0) {
+				return fmt.Errorf("cudaautograd: param %q gradient[%d] is nonfinite: %g", name, i, grad)
+			}
 		}
 	}
 
