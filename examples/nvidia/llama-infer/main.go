@@ -319,44 +319,10 @@ func runGPUInference(
 	}
 
 	if *benchFlag {
-		prefix := "BenchmarkLlama32_1B/backend=cuda/weights=" + string(dtype) + "/gen_tokens=16/prompt=neural_network/search_graphs=100"
-		// Warmup
-		for pos, tokID := range promptTokens {
-			if _, err := GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos); err != nil {
-				return fmt.Errorf("warmup step %d: %w", pos, err)
-			}
+		forward := func(tok int32, pos int) (int32, error) {
+			return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 		}
-
-		for iter := 0; iter < *benchCountFlag; iter++ {
-			kvCache.Reset()
-
-			t0 := time.Now()
-			var currTok int32
-			for pos, tokID := range promptTokens {
-				if currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tokID, pos); err != nil {
-					return fmt.Errorf("prefill step %d: %w", pos, err)
-				}
-			}
-			ttftDur := time.Since(t0)
-
-			tDec0 := time.Now()
-			pos := len(promptTokens)
-			for step := 0; step < *stepsFlag; step++ {
-				if currTok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, currTok, pos+step); err != nil {
-					return fmt.Errorf("decode step %d: %w", pos+step, err)
-				}
-			}
-			decDur := time.Since(tDec0)
-
-			ttftNs := ttftDur.Nanoseconds()
-			tpotNs := (decDur / time.Duration(*stepsFlag)).Nanoseconds()
-			tokPerSec := float64(*stepsFlag) / decDur.Seconds()
-
-			fmt.Printf("%s/TTFT-1 1 %d ns/op\n", prefix, ttftNs)
-			fmt.Printf("%s/TPOT-1 1 %d ns/op\n", prefix, tpotNs)
-			fmt.Printf("%s/decode-1 1 %.6f tok/s\n", prefix, tokPerSec)
-		}
-		return nil
+		return runBenchmark(os.Stdout, dtype, promptTokens, *stepsFlag, *benchCountFlag, cfg.MaxSeqLen, kvCache.Reset, forward)
 	}
 
 	fmt.Print("Streaming : ", *promptFlag)

@@ -2,8 +2,52 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"time"
 )
+
+// runBenchmark runs runGPUInference's benchmark suite: one warmup prefill
+// of prompt and then benchCount timed iterations of generate, resetting the
+// KV cache before each and writing TTFT, TPOT and decode throughput lines
+// to out. It refuses steps <= 0 before running any forward pass.
+func runBenchmark(out io.Writer, dtype weightDType, prompt []int32, steps, benchCount, maxSeq int, reset func(), forward func(tok int32, pos int) (int32, error)) error {
+	if steps <= 0 {
+		return fmt.Errorf("benchmark requires -steps > 0, got %d", steps)
+	}
+	prefix := "BenchmarkLlama32_1B/backend=cuda/weights=" + string(dtype) + "/gen_tokens=16/prompt=neural_network/search_graphs=100"
+	for pos, tokID := range prompt {
+		if _, err := forward(tokID, pos); err != nil {
+			return fmt.Errorf("warmup step %d: %w", pos, err)
+		}
+	}
+	plain := func(step int, tok int32, pos int) (int32, error) {
+		outTok, err := forward(tok, pos)
+		if err != nil {
+			return 0, fmt.Errorf("decode step %d: %w", pos, err)
+		}
+		return outTok, nil
+	}
+	noopShow := func(int32) error { return nil }
+	for iter := 0; iter < benchCount; iter++ {
+		reset()
+		st := newDecodeState(prompt, steps, nil)
+		ttftDur, decDur, err := generate(st, prompt, forward, forward, plain, noopShow, maxSeq, steps, 0)
+		if err != nil {
+			return err
+		}
+		if len(st.generated) == 0 {
+			return fmt.Errorf("benchmark generated 0 tokens (prompt len %d, maxSeq %d)", len(prompt), maxSeq)
+		}
+		ttftNs := ttftDur.Nanoseconds()
+		tpotNs := (decDur / time.Duration(len(st.generated))).Nanoseconds()
+		tokPerSec := float64(len(st.generated)) / decDur.Seconds()
+		if _, err := fmt.Fprintf(out, "%s/TTFT-1 1 %d ns/op\n%s/TPOT-1 1 %d ns/op\n%s/decode-1 1 %.6f tok/s\n",
+			prefix, ttftNs, prefix, tpotNs, prefix, tokPerSec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // generate runs runGPUInference's prefill and then its decode loop. It
 // feeds each token of prompt to prefill at its position, in order, and then

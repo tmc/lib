@@ -30,9 +30,6 @@ var discardAllowed = map[string]int{
 	// The L3 must-fail control in TestReleaseErrorOwner stands for a
 	// caller that drops the close error; dropping it is what it tests.
 	"module_ownership_test.go: c.Close()": 1,
-	// cudakv.Cache.Reset returns no error; it only rewinds the cache
-	// length. It is matched by name only.
-	"main.go: kvCache.Reset()": 1,
 	// The S3 and W1 must-fail controls in TestScratchpadRelease and
 	// TestGPUModelWeightsFreeVectors stand for a Free that drops the
 	// error of its private release; dropping it is what they test.

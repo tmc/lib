@@ -199,16 +199,19 @@ func TestGenerateErrors(t *testing.T) {
 }
 
 // TestGenerateWiring is a source-shape check, not a behaviour test: the
-// GPU path that calls generate does not run without a device. It checks
-// that runGPUInference passes generate its own prompt, closures, cache size,
-// step budget and draft budget, returns generate's error, and that its
-// prefill closure returns the token it read back.
+// GPU path that calls generate and runBenchmark does not run without a
+// device. It checks that runGPUInference passes runBenchmark its bench
+// closure and arguments and returns its error, and passes generate its own
+// prompt, closures, cache size, step budget and draft budget, returns
+// generate's error, and that its prefill closure returns the token it read
+// back.
 func TestGenerateWiring(t *testing.T) {
 	src, err := os.ReadFile("main.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
+		"\tif *benchFlag {\n\t\tforward := func(tok int32, pos int) (int32, error) {\n\t\t\treturn GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)\n\t\t}\n\t\treturn runBenchmark(os.Stdout, dtype, promptTokens, *stepsFlag, *benchCountFlag, cfg.MaxSeqLen, kvCache.Reset, forward)\n\t}\n",
 		"st := newDecodeState(promptTokens, *stepsFlag, drafter)\n",
 		"prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)\n\tif err != nil {\n\t\treturn err\n\t}\n",
 		"\t\t\tif err == nil {\n\t\t\t\ttok = scratch.HostTokenOut[0]\n\t\t\t}\n\t\t})\n\t\treturn tok, err\n\t}\n\tforward := func(",
@@ -216,5 +219,160 @@ func TestGenerateWiring(t *testing.T) {
 		if n := strings.Count(string(src), want); n != 1 {
 			t.Errorf("main.go contains %q %d times, want once", want, n)
 		}
+	}
+}
+
+// TestRunBenchmark is a CPU behaviour test of runBenchmark. It checks that
+// warmup feeds every prompt token at its position once, that each benchmark
+// iteration resets the KV cache before running generate (prefill then
+// decode from len(prompt) with the last prefill prediction), and that TTFT,
+// TPOT and decode lines are written for every iteration.
+func TestRunBenchmark(t *testing.T) {
+	const maxSeq = 16
+	prompt := []int32{1, 2, 3}
+	want, _, _, err := plainGreedy((&fakeKV{kv: make([]int32, maxSeq)}).forward, prompt, maxSeq, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(want) != 4 {
+		t.Fatalf("fixture: greedy decoding emits %d tokens, want 4", len(want))
+	}
+
+	f := &fakeKV{kv: make([]int32, maxSeq)}
+	var events []string
+	var feeds []feed
+	reset := func() {
+		clear(f.kv)
+		events = append(events, "reset")
+	}
+	forward := func(tok int32, pos int) (int32, error) {
+		out, err := f.forward(tok, pos)
+		events = append(events, fmt.Sprintf("fwd(%d@%d->%d)", tok, pos, out))
+		feeds = append(feeds, feed{"forward", tok, pos, out})
+		return out, err
+	}
+	var out strings.Builder
+	if err := runBenchmark(&out, weightBF16, prompt, 4, 2, maxSeq, reset, forward); err != nil {
+		t.Fatal(err)
+	}
+
+	// Warmup is 3 forwards; each of the 2 iterations resets and runs 3
+	// prefill + 4 decode = 7 forwards.
+	if len(feeds) != 3+2*7 {
+		t.Fatalf("%d forwards, want %d: %v", len(feeds), 3+2*7, feeds)
+	}
+	for i, p := range prompt {
+		if feeds[i].tok != p || feeds[i].pos != i {
+			t.Errorf("warmup %d: %+v, want tok %d at %d", i, feeds[i], p, i)
+		}
+	}
+	for iter := range 2 {
+		if got := events[3+iter*8]; got != "reset" {
+			t.Errorf("iter %d event before prefill = %q, want reset (events: %v)", iter, got, events)
+		}
+		base := 3 + iter*7
+		for i, p := range prompt {
+			if feeds[base+i].tok != p || feeds[base+i].pos != i {
+				t.Errorf("iter %d prefill %d: %+v, want tok %d at %d", iter, i, feeds[base+i], p, i)
+			}
+		}
+		for step := range 4 {
+			got := feeds[base+len(prompt)+step]
+			if got.tok != want[step] || got.pos != len(prompt)+step {
+				t.Errorf("iter %d decode %d: %+v, want tok %d at %d", iter, step, got, want[step], len(prompt)+step)
+			}
+		}
+	}
+
+	lines := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
+	if len(lines) != 6 {
+		t.Fatalf("got %d output lines, want 6:\n%s", len(lines), out.String())
+	}
+	wantPrefix := "BenchmarkLlama32_1B/backend=cuda/weights=bf16/gen_tokens=16/prompt=neural_network/search_graphs=100/"
+	for i, suffix := range []string{"TTFT-1 1 ", "TPOT-1 1 ", "decode-1 1 ", "TTFT-1 1 ", "TPOT-1 1 ", "decode-1 1 "} {
+		if !strings.HasPrefix(lines[i], wantPrefix+suffix) {
+			t.Errorf("line %d = %q, want prefix %q", i, lines[i], wantPrefix+suffix)
+		}
+	}
+
+	// When maxSeq caps decode before steps tokens, decode stops at maxSeq.
+	fCap := &fakeKV{kv: make([]int32, 5)}
+	var capFeeds int
+	var capOut strings.Builder
+	if err := runBenchmark(&capOut, weightF32, prompt, 10, 1, 5, func() { clear(fCap.kv) }, func(tok int32, pos int) (int32, error) {
+		capFeeds++
+		return fCap.forward(tok, pos)
+	}); err != nil {
+		t.Fatalf("capped benchmark: %v", err)
+	}
+	// 3 warmup + 3 prefill + 2 decode (positions 3 and 4) = 8 forwards.
+	if capFeeds != 8 {
+		t.Errorf("capped benchmark forwards = %d, want 8", capFeeds)
+	}
+}
+
+// TestRunBenchmarkErrors checks that runBenchmark refuses steps <= 0 before
+// any forward pass or reset, refuses a zero-token decode when prompt fills
+// maxSeq, and returns warmup, prefill, decode and output write errors.
+func TestRunBenchmarkErrors(t *testing.T) {
+	for _, steps := range []int{0, -1, -10} {
+		called := false
+		reset := func() { called = true }
+		forward := func(int32, int) (int32, error) {
+			called = true
+			return 0, nil
+		}
+		var out strings.Builder
+		err := runBenchmark(&out, weightF32, []int32{1, 2}, steps, 2, 16, reset, forward)
+		if err == nil || !strings.Contains(err.Error(), "-steps > 0") {
+			t.Errorf("steps=%d: err = %v, want -steps > 0 refusal", steps, err)
+		}
+		if called || out.Len() > 0 {
+			t.Errorf("steps=%d: called=%v, out=%q; want no work before refusal", steps, called, out.String())
+		}
+	}
+
+	// When len(prompt) >= maxSeq, decode emits 0 tokens even with steps > 0;
+	// runBenchmark must refuse rather than divide by zero.
+	var out strings.Builder
+	err := runBenchmark(&out, weightF32, []int32{1, 2, 3}, 4, 1, 3, func() {}, func(int32, int) (int32, error) { return 1, nil })
+	if err == nil || !strings.Contains(err.Error(), "generated 0 tokens") {
+		t.Errorf("full cache: err = %v, want 0-token refusal", err)
+	}
+
+	errBoom := errors.New("forward failed")
+	for _, tt := range []struct {
+		name     string
+		failCall int // 1-based forward call that fails
+		wantErr  string
+	}{
+		{"warmup", 2, "warmup step 1: forward failed"},
+		{"prefill", 4, "gpu prefill step 1: forward failed"},
+		{"decode", 6, "decode step 3: forward failed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+			forward := func(tok int32, pos int) (int32, error) {
+				calls++
+				if calls == tt.failCall {
+					return 0, errBoom
+				}
+				return 1, nil
+			}
+			var buf strings.Builder
+			err := runBenchmark(&buf, weightF32, []int32{1, 2}, 3, 2, 16, func() {}, forward)
+			if !errors.Is(err, errBoom) || err.Error() != tt.wantErr {
+				t.Errorf("err = %v, want %q wrapping %v", err, tt.wantErr, errBoom)
+			}
+			if calls != tt.failCall {
+				t.Errorf("calls = %d, want %d", calls, tt.failCall)
+			}
+		})
+	}
+
+	// Output writer error is returned.
+	err = runBenchmark(failWriter{}, weightF32, []int32{1, 2}, 2, 2, 16, func() {}, func(int32, int) (int32, error) { return 1, nil })
+	if !errors.Is(err, errFakeWrite) {
+		t.Errorf("write error: got %v, want %v", err, errFakeWrite)
 	}
 }
