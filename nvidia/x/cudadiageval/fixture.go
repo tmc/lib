@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -33,8 +34,15 @@ type GroundTruthRequest struct {
 // run and TotalSubmissions the requests executed. Each diagnostic input's
 // receipt instead reports the loss of its own case: its "activity" and
 // "sched" LostRecords have Total 1, and the activity Dropped is 1 only if
-// that case's activity record was dropped. The per-case activity drops sum
-// to DroppedRecords.
+// that case's activity record was dropped. A late attach case instead
+// reports unknown activity loss. The per-case activity drops sum to
+// DroppedRecords.
+//
+// A process restart case submits its host operation under the next process
+// generation and records that generation in its scheduler evidence; its
+// device activity keeps the original generation. A late attach case records
+// its device activity without correlation IDs and declares the attach gap
+// in its receipt.
 type FixtureRunResult struct {
 	GroundTruth      []GroundTruthRecord
 	HostSubmissions  []cudaworkload.HostSubmission
@@ -81,6 +89,9 @@ func ComputeNumericalOracle(data []float64) ([]float64, string) {
 
 // Execute processes a batch of requests, simulating concurrency, telemetry emission,
 // and held-out fault mechanisms while recording exact ground truth.
+// It refuses a request with a resilience mode other than [ResilienceNormal]
+// whose process generation or correlation ID is incomplete, and a restart
+// whose next generation would wrap.
 func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruthRequest) (*FixtureRunResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -97,6 +108,9 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 			return nil, ctx.Err()
 		}
 
+		if err := checkResilienceIdentity(req); err != nil {
+			return nil, err
+		}
 		res.TotalSubmissions++
 
 		// 1. Independent numerical correctness
@@ -184,6 +198,7 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 
 		// Handle Resilience Modes
 		activityLost := false
+		schedProcess := req.ProcessGen
 		switch req.Resilience {
 		case ResilienceOverflow:
 			// Simulate drop of device activity in ring buffer. The case
@@ -200,6 +215,7 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 				Generation: req.ProcessGen.Generation + 1,
 			}
 			hostSub.Process = restartedGen
+			schedProcess = restartedGen
 			res.HostSubmissions = append(res.HostSubmissions, hostSub)
 			res.DeviceActivities = append(res.DeviceActivities, devAct)
 
@@ -243,7 +259,7 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 		}
 
 		sched := cudadiag.SchedEvidence{
-			Process:      req.ProcessGen,
+			Process:      schedProcess,
 			TID:          req.TID,
 			ProbePresent: true,
 			Intervals: []cudadiag.SchedInterval{
@@ -258,9 +274,17 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 			sched.Intervals[0].State = cudadiag.SchedRunnable
 		}
 
-		var caseDropped uint64
+		activityLoss := tracecontract.Loss{Dropped: 0, Total: 1}
 		if activityLost {
-			caseDropped = 1
+			activityLoss.Dropped = 1
+		}
+		activityCoverage := tracecontract.ProbeCoverage{Present: true, Ratio: 1.0}
+		if req.Resilience == ResilienceLateAttach {
+			// The collector attaches as the kernel starts. It cannot
+			// bound what it missed before then, and it observed only the
+			// kernel's share of the case interval.
+			activityLoss = tracecontract.Loss{Unknown: true}
+			activityCoverage.Ratio = float64(kernelDur) / float64(totalDur)
 		}
 
 		thresh := cudadiag.DefaultThresholds()
@@ -292,14 +316,14 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 				{Name: "portable_synthetic_fixture", Version: "1"},
 			},
 			ProbeCoverage: map[string]tracecontract.ProbeCoverage{
-				"cupti_activity": {Present: true, Ratio: 1.0},
+				"cupti_activity": activityCoverage,
 				"sched":          {Present: true, Ratio: 1.0},
 			},
 			// Loss is scoped to this case: one activity record and
 			// one scheduler record. An earlier overflow in the run
 			// must not withhold an unrelated later case.
 			LostRecords: map[string]tracecontract.Loss{
-				"activity": {Dropped: caseDropped, Total: 1},
+				"activity": activityLoss,
 				"sched":    {Dropped: 0, Total: 1},
 			},
 		}
@@ -318,4 +342,19 @@ func (f *GroundTruthFixture) Execute(ctx context.Context, requests []GroundTruth
 
 	res.ElapsedDuration = time.Since(startTime)
 	return res, nil
+}
+
+// checkResilienceIdentity refuses a resilience request that lacks the
+// explicit identity its evidence is judged by.
+func checkResilienceIdentity(req GroundTruthRequest) error {
+	if req.Resilience == ResilienceNormal {
+		return nil
+	}
+	if req.ProcessGen.PID == 0 || req.ProcessGen.Generation == 0 || req.CorrelationID == 0 {
+		return fmt.Errorf("fixture: request %q: %s case needs a process generation and correlation id", req.ID, req.Resilience)
+	}
+	if req.Resilience == ResilienceRestart && req.ProcessGen.Generation == math.MaxUint64 {
+		return fmt.Errorf("fixture: request %q: restart generation %d would wrap", req.ID, req.ProcessGen.Generation)
+	}
+	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudadiag"
+	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/cudaworkload"
 )
 
@@ -340,6 +341,7 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 	resilienceMissing := 0
 
 	var lastDiag cudadiag.DiagnosisResult
+	var joins []cudaworkload.JoinResult
 
 	for _, gt := range res.GroundTruth {
 		diagInput, ok := res.DiagnosticInputs[gt.RequestID]
@@ -372,21 +374,19 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 		cm[string(diagResult.Mechanism)]++
 		withheld := diagResult.Mechanism == cudadiag.MechanismWithheld || !diagResult.Admitted
 
-		// An overflow case dropped its activity record, so the
-		// diagnosis must be withheld; admitting one is incorrect. Any
-		// other mode passes only with an admitted diagnosis: withheld
-		// diagnoses are counted apart and never pass.
+		// A resilience case passes only on the evidence its mode
+		// requires; see resilienceMet. A withheld diagnosis without that
+		// evidence is counted apart and never passes.
 		if gt.Resilience != ResilienceNormal {
+			if joins == nil {
+				joins = flushedJoins(res)
+			}
 			resilienceTotal++
 			switch {
-			case gt.Resilience == ResilienceOverflow:
-				if withheld {
-					resiliencePassed++
-				}
+			case resilienceMet(gt, diagInput, diagResult, joins):
+				resiliencePassed++
 			case withheld:
 				resilienceWithheld++
-			default:
-				resiliencePassed++
 			}
 			continue
 		}
@@ -525,6 +525,123 @@ func evaluateDiagnostics(res *FixtureRunResult, budgets PreregisteredBudgets) (D
 	}
 
 	return receipt, gates
+}
+
+// flushedJoins joins the run's host submissions and device activities and
+// flushes the joiner, so every record left unmatched is reported as
+// missing. It uses its own joiner and leaves the attribution receipt
+// unchanged.
+func flushedJoins(res *FixtureRunResult) []cudaworkload.JoinResult {
+	j := cudaworkload.NewJoiner(cudaworkload.JoinConfig{MaxPendingRecords: 4096})
+	var out []cudaworkload.JoinResult
+	for _, sub := range res.HostSubmissions {
+		out = append(out, j.SubmitHost(sub)...)
+	}
+	for _, act := range res.DeviceActivities {
+		out = append(out, j.SubmitDevice(act)...)
+	}
+	return append(out, j.Flush()...)
+}
+
+// requestKey is the explicit identity of a request: its process generation
+// and native correlation ID. Native correlation IDs repeat across
+// generations, so neither part identifies a request alone.
+type requestKey struct {
+	process     cudaworkload.ProcessGenID
+	correlation uint32
+}
+
+func (k requestKey) valid() bool {
+	return k.process.PID != 0 && k.process.Generation != 0 && k.correlation != 0
+}
+
+// names reports whether r carries k in its raw IDs, its host submission or
+// its device activity.
+func (k requestKey) names(r cudaworkload.JoinResult) bool {
+	if (requestKey{r.RawIDs.ProcessGenID, r.RawIDs.NativeCorrelationID}) == k {
+		return true
+	}
+	if s := r.HostSubmission; s != nil && (requestKey{s.Process, s.NativeCorrelationID}) == k {
+		return true
+	}
+	if a := r.DeviceActivity; a != nil && (requestKey{a.Process, a.NativeCorrelationID}) == k {
+		return true
+	}
+	return false
+}
+
+// unattributed reports whether the join results report the request k only
+// as missing or ambiguous attribution: at least one result names it, and
+// none joins it exactly or by association.
+//
+// A record that expired from the joiner's bounded queue is reported as
+// missing whether or not its counterpart was observed, so it is not
+// evidence of a missing counterpart. When any record of the run expired,
+// the joins cannot tell missing evidence from evaluation capacity loss,
+// and no request is reported unattributed.
+func unattributed(k requestKey, joins []cudaworkload.JoinResult) bool {
+	if !k.valid() {
+		return false
+	}
+	reported := false
+	for _, r := range joins {
+		if r.Reason == cudaworkload.ReasonExpiredFIFO {
+			return false
+		}
+		if !k.names(r) {
+			continue
+		}
+		switch r.Outcome {
+		case cudaworkload.OutcomeMissing, cudaworkload.OutcomeAmbiguous:
+			reported = true
+		default:
+			return false
+		}
+	}
+	return reported
+}
+
+// activityAdmissionRule is the rule of the finding cudadiag.Diagnose
+// withholds when the evidence requirements, among them activity loss, are
+// not met. Withholding for scheduler evidence uses another rule.
+const activityAdmissionRule = "mechanism_diagnosis"
+
+// resilienceMet reports whether a resilience case meets its mode's
+// predicate. Each passing case is a safe refusal: its diagnosis was
+// withheld for the loss or identity change the mode induces.
+//
+// An overflow case needs observed activity loss in its receipt. A restart
+// case needs scheduler evidence from a later generation of the same
+// process, a diagnosis withheld for identity mismatch, and join results
+// that report the request only as missing or ambiguous, with no record of
+// the run expired from the join queue. A late attach case needs a receipt
+// declaring an activity coverage gap or unknown activity loss, a diagnosis
+// withheld by the activity admission rule for unknown loss, and the same
+// join report. Withholding for scheduler evidence or for measured activity
+// loss belongs to another mode and does not count. No other mode passes.
+func resilienceMet(gt GroundTruthRecord, in cudadiag.DiagnosticInput, d cudadiag.DiagnosisResult, joins []cudaworkload.JoinResult) bool {
+	if d.Admitted || d.Mechanism != cudadiag.MechanismWithheld {
+		return false
+	}
+	key := requestKey{gt.ProcessGen, gt.CorrelationID}
+	switch gt.Resilience {
+	case ResilienceOverflow:
+		return in.Receipt.LostRecords["activity"].Dropped > 0
+	case ResilienceRestart:
+		observed := in.Sched.Process
+		return observed.PID == gt.ProcessGen.PID &&
+			observed.Generation > gt.ProcessGen.Generation &&
+			d.WithheldReason == tracecontract.ReasonIdentityMismatch &&
+			unattributed(key, joins)
+	case ResilienceLateAttach:
+		cov, ok := in.Receipt.ProbeCoverage["cupti_activity"]
+		gap := (ok && (!cov.Present || cov.Ratio < 1)) || in.Receipt.LostRecords["activity"].Unknown
+		return gap &&
+			d.PrimaryFinding.Rule == activityAdmissionRule &&
+			d.WithheldReason == tracecontract.ReasonUnknownLoss &&
+			unattributed(key, joins)
+	}
+	return false
 }
 
 // noFaultCounts validates the disjoint no-fault counts before deriving

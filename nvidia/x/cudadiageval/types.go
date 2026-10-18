@@ -180,7 +180,13 @@ type AttributionReceipt struct {
 // the matching Total that had no diagnostic input; such cases never pass.
 // Zero means no input was missing. A Withheld count is the number of cases
 // in the matching Total whose input was present but whose diagnosis
-// cudadiag withheld or did not admit.
+// cudadiag withheld or did not admit. Withholding a held-out, no-fault or
+// competing case is not success: HeldOutWithheld, NoFaultWithheld and
+// CompetingWithheld are disjoint from HeldOutCorrect, NoFaultPassed and
+// CompetingDiverted. ResilienceWithheld is narrower: it counts only
+// withheld outcomes that fail their mode's safety predicate, described
+// below. A withheld resilience outcome that its mode's evidence supports
+// is a safe refusal and is counted only in ResiliencePassed.
 //
 // HeldOutCorrect, HeldOutWithheld, HeldOutIncorrect and HeldOutMissing
 // partition HeldOutTotal.
@@ -201,14 +207,29 @@ type AttributionReceipt struct {
 // misclassified as another admitted mechanism.
 //
 // ResilienceTotal counts cases with a resilience mode other than
-// [ResilienceNormal]. A buffer overflow case passes only if its diagnosis
-// was withheld, since its activity record was dropped. Any other mode
-// passes only with an admitted diagnosis; ResilienceWithheld counts those
-// non-overflow cases whose diagnosis was withheld instead. An overflow
-// case's withheld diagnosis is counted in ResiliencePassed, never in
-// ResilienceWithheld. ResiliencePassed, ResilienceWithheld and
-// ResilienceMissing are disjoint, and the rest of ResilienceTotal is
-// overflow cases whose diagnosis was admitted despite the loss.
+// [ResilienceNormal]. A case is judged by its own diagnostic input and by
+// the join results that carry its process generation and native
+// correlation ID; no association is inferred from time, stream or thread.
+// A buffer overflow case passes only if its receipt reports dropped
+// activity records and its diagnosis was withheld. A process restart case
+// passes only if its scheduler evidence names a later generation of the
+// same process, its diagnosis was withheld for identity mismatch, and the
+// joins report the request only as missing or ambiguous. A late attach
+// case passes only if its receipt declares an activity coverage gap or
+// unknown activity loss, its diagnosis was withheld by activity admission
+// for unknown loss, and the joins report the request only as missing or
+// ambiguous; withholding for scheduler evidence or measured activity loss
+// does not count. The joins prove nothing when any record of the run
+// expired from the joiner's bounded queue, and then no restart or late
+// attach case passes. No other mode passes. A pass is a safe refusal, not
+// a successful diagnosis or a complete population, and never counts toward
+// the no-fault counts.
+// ResilienceWithheld counts the cases whose diagnosis was withheld but
+// that do not pass. ResiliencePassed, ResilienceWithheld and
+// ResilienceMissing are disjoint; the rest of ResilienceTotal fails its
+// mode's predicate. Passing on fixture output shows only that the fixture,
+// joiner and evaluator agree; it does not qualify a live collector across
+// a real restart or attach.
 type DiagnosticReceipt struct {
 	HeldOutTotal       int                      `json:"held_out_total"`
 	HeldOutCorrect     int                      `json:"held_out_correct"`

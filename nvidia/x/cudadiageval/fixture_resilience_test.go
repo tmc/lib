@@ -3,6 +3,7 @@ package cudadiageval
 import (
 	"context"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudadiag"
@@ -234,8 +235,11 @@ func TestFixtureLossIsCaseLocal(t *testing.T) {
 				id := fmt.Sprintf("c%d", i)
 				in := res.DiagnosticInputs[id]
 				want := tracecontract.Loss{Dropped: 0, Total: 1}
-				if m == ResilienceOverflow {
+				switch m {
+				case ResilienceOverflow:
 					want = tracecontract.Loss{Dropped: 1, Total: 1}
+				case ResilienceLateAttach:
+					want = tracecontract.Loss{Unknown: true}
 				}
 				if got := in.Receipt.LostRecords["activity"]; got != want {
 					t.Errorf("%s (%s) activity loss = %+v, want %+v", id, m, got, want)
@@ -246,12 +250,176 @@ func TestFixtureLossIsCaseLocal(t *testing.T) {
 				sum += in.Receipt.LostRecords["activity"].Dropped
 				d := cudadiag.Diagnose(cudaworkload.WorkloadIdentity{Process: proc, WorkloadName: "work"}, cudaworkload.OpID(700+i), in)
 				withheld := d.Mechanism == cudadiag.MechanismWithheld || !d.Admitted
-				if withheld != (m == ResilienceOverflow) {
+				if withheld != (m != ResilienceNormal) {
 					t.Errorf("%s (%s) diagnosis = %s admitted=%t", id, m, d.Mechanism, d.Admitted)
 				}
 			}
 			if sum != res.DroppedRecords {
 				t.Errorf("per-case dropped sum %d != run dropped %d", sum, res.DroppedRecords)
+			}
+		})
+	}
+}
+
+// TestRestartFixtureEvidence checks that a restart case carries the new
+// process generation where the diagnosis can observe it: in the host
+// submission and in the scheduler evidence, while the device activity keeps
+// the original generation.
+func TestRestartFixtureEvidence(t *testing.T) {
+	res := resilienceRun(t, ResilienceRestart)
+	gt := res.GroundTruth[len(res.GroundTruth)-1]
+	restarted := cudaworkload.ProcessGenID{PID: gt.ProcessGen.PID, Generation: gt.ProcessGen.Generation + 1}
+	in := res.DiagnosticInputs["r0"]
+	if in.Sched.Process != restarted {
+		t.Errorf("scheduler evidence process = %v, want restarted %v", in.Sched.Process, restarted)
+	}
+	for _, s := range res.HostSubmissions {
+		if s.NativeCorrelationID == gt.CorrelationID && s.Process != restarted {
+			t.Errorf("host submission process = %v, want %v", s.Process, restarted)
+		}
+	}
+	for _, a := range res.DeviceActivities {
+		if a.NativeCorrelationID == gt.CorrelationID && a.Process != gt.ProcessGen {
+			t.Errorf("device activity process = %v, want %v", a.Process, gt.ProcessGen)
+		}
+	}
+	if got := in.Receipt.LostRecords["activity"]; got != (tracecontract.Loss{Dropped: 0, Total: 1}) {
+		t.Errorf("restart activity loss = %+v, want 0/1", got)
+	}
+	d := cudadiag.Diagnose(cudaworkload.WorkloadIdentity{Process: gt.ProcessGen, WorkloadName: gt.WorkloadName}, cudaworkload.OpID(gt.CorrelationID), in)
+	if d.Admitted || d.Mechanism != cudadiag.MechanismWithheld || d.WithheldReason != tracecontract.ReasonIdentityMismatch {
+		t.Errorf("restart diagnosis = %s admitted=%t reason=%q, want withheld for %q", d.Mechanism, d.Admitted, d.WithheldReason, tracecontract.ReasonIdentityMismatch)
+	}
+}
+
+// TestLateAttachFixtureEvidence checks that a late attach case leaves its
+// device activity uncorrelated and that its receipt declares the attach gap
+// instead of claiming full activity coverage.
+func TestLateAttachFixtureEvidence(t *testing.T) {
+	res := resilienceRun(t, ResilienceLateAttach)
+	gt := res.GroundTruth[len(res.GroundTruth)-1]
+	in := res.DiagnosticInputs["r0"]
+	if loss := in.Receipt.LostRecords["activity"]; !loss.Unknown {
+		t.Errorf("late attach activity loss = %+v, want unknown", loss)
+	}
+	if cov := in.Receipt.ProbeCoverage["cupti_activity"]; !cov.Present || cov.Ratio <= 0 || cov.Ratio >= 1 {
+		t.Errorf("late attach activity coverage = %+v, want present with ratio in (0, 1)", cov)
+	}
+	if in.Sched.Process != gt.ProcessGen {
+		t.Errorf("late attach scheduler process = %v, want %v", in.Sched.Process, gt.ProcessGen)
+	}
+	uncorrelated := 0
+	for _, a := range res.DeviceActivities {
+		if a.NativeCorrelationID == gt.CorrelationID {
+			t.Errorf("late attach device activity keeps its correlation: %+v", a)
+		}
+		if a.NativeCorrelationID == 0 && a.ExternalCorrelationID == 0 {
+			uncorrelated++
+		}
+	}
+	if uncorrelated != 1 {
+		t.Errorf("uncorrelated device activities = %d, want 1", uncorrelated)
+	}
+	d := cudadiag.Diagnose(cudaworkload.WorkloadIdentity{Process: gt.ProcessGen, WorkloadName: gt.WorkloadName}, cudaworkload.OpID(gt.CorrelationID), in)
+	if d.Admitted || d.Mechanism != cudadiag.MechanismWithheld || d.WithheldReason != tracecontract.ReasonUnknownLoss {
+		t.Errorf("late attach diagnosis = %s admitted=%t reason=%q, want withheld for %q", d.Mechanism, d.Admitted, d.WithheldReason, tracecontract.ReasonUnknownLoss)
+	}
+}
+
+// TestFixtureRefusesInvalidResilienceIdentity checks that the fixture does
+// not fabricate resilience evidence for a request without a complete
+// explicit identity, or for a restart whose generation would wrap to zero.
+func TestFixtureRefusesInvalidResilienceIdentity(t *testing.T) {
+	proc := cudaworkload.ProcessGenID{PID: 70, Generation: 1}
+	tests := []struct {
+		name    string
+		process cudaworkload.ProcessGenID
+		corr    uint32
+		mode    ResilienceMode
+		wantErr bool
+	}{
+		{"restart", proc, 9, ResilienceRestart, false},
+		{"restart generation wraps", cudaworkload.ProcessGenID{PID: 70, Generation: math.MaxUint64}, 9, ResilienceRestart, true},
+		{"restart zero pid", cudaworkload.ProcessGenID{Generation: 1}, 9, ResilienceRestart, true},
+		{"restart zero correlation", proc, 0, ResilienceRestart, true},
+		{"late attach zero generation", cudaworkload.ProcessGenID{PID: 70}, 9, ResilienceLateAttach, true},
+		{"overflow zero correlation", proc, 0, ResilienceOverflow, true},
+		{"normal zero identity", cudaworkload.ProcessGenID{}, 0, ResilienceNormal, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := GroundTruthRequest{ID: "c", WorkloadName: "work", ProcessGen: tt.process, TID: 7, StreamID: 1, CorrelationID: tt.corr, Fault: FaultNone, Resilience: tt.mode, Data: []float64{1}}
+			res, err := NewGroundTruthFixture().Execute(context.Background(), []GroundTruthRequest{req})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Execute error = %v, want error %t", err, tt.wantErr)
+			}
+			if err != nil && res != nil {
+				t.Errorf("refused run returned %+v", res)
+			}
+		})
+	}
+}
+
+// TestResilienceJoinCapacityBoundary checks that a record expiring from
+// the evaluator's bounded join queue never earns a restart or late attach
+// pass. Each run starts with a restart case "evicted" whose host
+// submission is restored to its device generation, so complete joins
+// attribute it exactly; then an honest restart and a late attach case;
+// then normal fillers up to hosts host submissions. The queue holds 4096
+// pending submissions: at 4096 nothing expires and only the honest cases
+// pass, and at 4097 "evicted" expires first and every restart and late
+// attach case is withheld.
+func TestResilienceJoinCapacityBoundary(t *testing.T) {
+	tests := []struct {
+		hosts            int
+		expired          bool
+		passed, withheld int
+	}{
+		{4096, false, 2, 1},
+		{4097, true, 0, 3},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.hosts), func(t *testing.T) {
+			proc := cudaworkload.ProcessGenID{PID: 91, Generation: 1}
+			req := func(id string, corr int, mode ResilienceMode) GroundTruthRequest {
+				return GroundTruthRequest{ID: id, WorkloadName: "work", ProcessGen: proc, TID: 9, StreamID: 1, CorrelationID: uint32(corr), Fault: FaultNone, Resilience: mode, Data: []float64{1}}
+			}
+			reqs := []GroundTruthRequest{
+				req("evicted", 1, ResilienceRestart),
+				req("restart", 2, ResilienceRestart),
+				req("late", 3, ResilienceLateAttach),
+			}
+			for i := len(reqs); i < tt.hosts; i++ {
+				reqs = append(reqs, req(fmt.Sprintf("normal-%d", i), i+1, ResilienceNormal))
+			}
+			res, err := NewGroundTruthFixture().Execute(context.Background(), reqs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(res.HostSubmissions) != tt.hosts || res.HostSubmissions[0].NativeCorrelationID != 1 {
+				t.Fatalf("setup: %d host submissions, first %+v", len(res.HostSubmissions), res.HostSubmissions[0])
+			}
+			res.HostSubmissions[0].Process = proc
+
+			expired := false
+			for _, j := range flushedJoins(res) {
+				if j.Reason == cudaworkload.ReasonExpiredFIFO {
+					expired = true
+					if !(requestKey{proc, 1}).names(j) {
+						t.Errorf("setup: expired record does not name the first request: %+v", j)
+					}
+				}
+			}
+			if expired != tt.expired {
+				t.Fatalf("setup: join queue expired a record = %t, want %t", expired, tt.expired)
+			}
+
+			r, gates := evaluateDiagnostics(res, DefaultBudgets())
+			if r.ResilienceTotal != 3 || r.ResiliencePassed != tt.passed || r.ResilienceWithheld != tt.withheld || r.ResilienceMissing != 0 {
+				t.Errorf("resilience total=%d passed=%d withheld=%d missing=%d, want 3 %d %d 0", r.ResilienceTotal, r.ResiliencePassed, r.ResilienceWithheld, r.ResilienceMissing, tt.passed, tt.withheld)
+			}
+			if g, ok := resilienceGate(gates); !ok || g.Disposition != "failed" {
+				t.Errorf("gate = %+v reported %t, want failed", g, ok)
 			}
 		})
 	}
