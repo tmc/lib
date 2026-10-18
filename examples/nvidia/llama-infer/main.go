@@ -576,14 +576,10 @@ func sampleTemperature(logits []float32, temp float32) int32 {
 	return int32(len(logits) - 1)
 }
 
-func printKernelDisassembly(targetKernel, mode string) error {
+func printKernelDisassembly(targetKernel, mode string) (rerr error) {
 	archMajor, archMinor := 8, 0
 	if dev, err := cuda.NewDevice(0); err == nil {
-		defer func() {
-			if err := dev.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "close device: %v\n", err)
-			}
-		}()
+		defer closeInto(&rerr, dev, "close device")
 		if archMajor, archMinor, err = archOr(dev.ComputeCapability, archMajor, archMinor); err != nil {
 			fmt.Fprintf(os.Stderr, "compute capability: %v; compiling for sm_%d%d\n", err, archMajor, archMinor)
 		}
@@ -634,7 +630,7 @@ func printKernelDisassembly(targetKernel, mode string) error {
 		fmt.Printf("\n=======================================================\n")
 		fmt.Printf("=== 2. Hardware SASS Instruction Microarchitecture  ===\n")
 		fmt.Printf("=======================================================\n")
-		printSASSDisassembly(targetKernel)
+		return printSASSDisassembly(targetKernel)
 	}
 
 	return nil
@@ -643,11 +639,10 @@ func printKernelDisassembly(targetKernel, mode string) error {
 //go:embed forward.sass
 var forwardSASS string
 
-func printSASSDisassembly(targetKernel string) {
+func printSASSDisassembly(targetKernel string) error {
 	d, err := cudasass.ParseString(forwardSASS)
 	if err != nil {
-		fmt.Printf("[SASS Error] Failed parsing SASS disassembly: %v\n", err)
-		return
+		return fmt.Errorf("parse SASS disassembly: %w", err)
 	}
 
 	if targetKernel == "all" {
@@ -657,7 +652,7 @@ func printSASSDisassembly(targetKernel string) {
 				fmt.Println(inst.Raw)
 			}
 		}
-		return
+		return nil
 	}
 
 	if fn := d.Function(targetKernel); fn != nil {
@@ -668,6 +663,7 @@ func printSASSDisassembly(targetKernel string) {
 	} else {
 		fmt.Printf("[SASS Notice] %q is not among the kernels in forward.sass; run go run gen.go to regenerate it.\n", targetKernel)
 	}
+	return nil
 }
 
 // effectivePrompt returns the tokens to run: tokens, or token 1 when tokens

@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
 // fakeCloser counts its closes and returns err from each.
@@ -27,8 +29,9 @@ func (c *fakeCloser) Close() error {
 }
 
 // TestCloseInto is a behaviour test of closeInto, which run defers for its
-// trace file, profile file and profile session: it closes once and joins
-// the close error into the result without losing the error already there.
+// trace file, profile file and profile session, and printKernelDisassembly
+// defers for its device: it closes once and joins the close error into the
+// result without losing the error already there.
 func TestCloseInto(t *testing.T) {
 	errPrior := errors.New("prior failure")
 	for _, tt := range []struct {
@@ -64,6 +67,100 @@ func TestCloseInto(t *testing.T) {
 			}
 			if tt.wantText != "" && (err == nil || !strings.Contains(err.Error(), tt.wantText)) {
 				t.Errorf("error %v does not contain %q", err, tt.wantText)
+			}
+		})
+	}
+}
+
+// TestPrintSASSDisassembly is a CPU behaviour test of printSASSDisassembly:
+// it prints the requested kernel, all kernels, or a notice when the kernel
+// is not in forward.sass, and returns an error wrapping cudasass.ParseString's
+// error instead of printing it and returning nil when forwardSASS cannot be
+// parsed.
+func TestPrintSASSDisassembly(t *testing.T) {
+	origSASS := forwardSASS
+	stdout := os.Stdout
+	t.Cleanup(func() {
+		forwardSASS = origSASS
+		os.Stdout = stdout
+	})
+
+	capture := func(t *testing.T, kernel string) (string, error) {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "stdout")
+		f, err := os.Create(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		os.Stdout = f
+		callErr := printSASSDisassembly(kernel)
+		os.Stdout = stdout
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
+		out, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out), callErr
+	}
+
+	out, err := capture(t, "RMSNorm")
+	if err != nil {
+		t.Fatalf("RMSNorm: %v", err)
+	}
+	if !strings.Contains(out, "--- Kernel: RMSNorm ---") || strings.Contains(out, "--- Kernel: EmbeddingLookup ---") || strings.Contains(out, "[SASS Notice]") {
+		t.Errorf("RMSNorm output = %q, want RMSNorm kernel only", out)
+	}
+
+	out, err = capture(t, "all")
+	if err != nil {
+		t.Fatalf("all: %v", err)
+	}
+	if !strings.Contains(out, "--- Kernel: RMSNorm ---") || !strings.Contains(out, "--- Kernel: EmbeddingLookup ---") {
+		t.Errorf("all output missing expected kernels")
+	}
+
+	out, err = capture(t, "NoSuchKernel")
+	if err != nil {
+		t.Fatalf("NoSuchKernel: %v", err)
+	}
+	if !strings.Contains(out, `[SASS Notice] "NoSuchKernel" is not among the kernels in forward.sass`) {
+		t.Errorf("NoSuchKernel output = %q, want notice", out)
+	}
+
+	for _, tt := range []struct {
+		name     string
+		sass     string
+		kernel   string
+		wantIs   error
+		wantText string
+	}{
+		{
+			name:     "non-text section instruction",
+			sass:     "\t.section\t.nv.capmerc.text.k,\"\",@progbits\n /*0000*/ EXIT ;\n",
+			kernel:   "RMSNorm",
+			wantIs:   cudasass.ErrNotTextSection,
+			wantText: "parse SASS disassembly:",
+		},
+		{
+			name:     "instruction outside section",
+			sass:     " /*0000*/ NOP ;\n",
+			kernel:   "all",
+			wantText: "parse SASS disassembly: cudasass: instruction at 0x0000 outside section",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			forwardSASS = tt.sass
+			out, err := capture(t, tt.kernel)
+			if err == nil || !strings.Contains(err.Error(), tt.wantText) {
+				t.Errorf("err = %v, want error containing %q", err, tt.wantText)
+			}
+			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
+				t.Errorf("err = %v, does not wrap %v", err, tt.wantIs)
+			}
+			if out != "" {
+				t.Errorf("output = %q, want empty on parse error", out)
 			}
 		})
 	}
@@ -125,8 +222,9 @@ func statementAfter(body *ast.BlockStmt, call string) (next ast.Stmt, ok bool) {
 // dev.Name and dev.ComputeCapability; run defers closeInto into its result
 // rerr for the trace file, the profile file and then the profile session,
 // so the session flushes before its file closes; printKernelDisassembly
-// reports archOr's error; and runGPUInference's show closure returns
-// printToken's result.
+// defers closeInto into its result rerr for the device, reports archOr's
+// error and returns printSASSDisassembly's result; and runGPUInference's
+// show closure returns printToken's result.
 func runWiringProblems(src []byte) ([]string, error) {
 	f, err := parser.ParseFile(token.NewFileSet(), "main.go", src, 0)
 	if err != nil {
@@ -176,31 +274,59 @@ func runWiringProblems(src []byte) ([]string, error) {
 		bad = append(bad, fmt.Sprintf("run defers %q, want %q", deferred, wantDeferred))
 	}
 
-	// printKernelDisassembly reports archOr's error.
+	// printKernelDisassembly defers closeInto into rerr for the device,
+	// reports archOr's error, and returns printSASSDisassembly's result.
 	pkd := findFunc(f, "printKernelDisassembly")
 	if pkd == nil {
 		return append(bad, "printKernelDisassembly not found"), nil
 	}
+	if r := pkd.Type.Results; r == nil || len(r.List) != 1 || len(r.List[0].Names) != 1 || r.List[0].Names[0].Name != "rerr" {
+		bad = append(bad, "printKernelDisassembly's result is not named rerr")
+	}
+	var pkdDefers []string
+	devClosed := 0
+	sassReturns := 0
 	const archCall = "archMajor, archMinor, err = archOr(dev.ComputeCapability, archMajor, archMinor)"
 	reports := 0
 	ast.Inspect(pkd.Body, func(n ast.Node) bool {
-		is, ok := n.(*ast.IfStmt)
-		if !ok || is.Init == nil || nodeText(is.Init) != archCall {
+		switch s := n.(type) {
+		case *ast.DeferStmt:
+			pkdDefers = append(pkdDefers, nodeText(s.Call))
 			return true
-		}
-		if nodeText(is.Cond) != "err != nil" || len(is.Body.List) != 1 {
-			return true
-		}
-		es, ok := is.Body.List[0].(*ast.ExprStmt)
-		call, cok := ast.Unparen(es.X).(*ast.CallExpr)
-		if ok && cok && len(call.Args) > 1 && nodeText(call.Fun) == "fmt.Fprintf" && nodeText(call.Args[0]) == "os.Stderr" &&
-			slices.ContainsFunc(call.Args[1:], func(e ast.Expr) bool { return mentions(e, "err") }) {
-			reports++
+		case *ast.IfStmt:
+			if s.Init != nil && nodeText(s.Init) == "dev, err := cuda.NewDevice(0)" &&
+				s.Else == nil && nodeText(s.Cond) == "err == nil" &&
+				len(s.Body.List) > 0 && nodeText(s.Body.List[0]) == `defer closeInto(&rerr, dev, "close device")` {
+				devClosed++
+			}
+			if s.Init == nil && s.Else == nil && nodeText(s.Cond) == "showSASS" &&
+				len(s.Body.List) > 0 && nodeText(s.Body.List[len(s.Body.List)-1]) == "return printSASSDisassembly(targetKernel)" {
+				sassReturns++
+			}
+			if s.Init == nil || nodeText(s.Init) != archCall {
+				return true
+			}
+			if nodeText(s.Cond) != "err != nil" || len(s.Body.List) != 1 {
+				return true
+			}
+			es, ok := s.Body.List[0].(*ast.ExprStmt)
+			call, cok := ast.Unparen(es.X).(*ast.CallExpr)
+			if ok && cok && len(call.Args) > 1 && nodeText(call.Fun) == "fmt.Fprintf" && nodeText(call.Args[0]) == "os.Stderr" &&
+				slices.ContainsFunc(call.Args[1:], func(e ast.Expr) bool { return mentions(e, "err") }) {
+				reports++
+			}
 		}
 		return true
 	})
+	wantPKDDefers := []string{`closeInto(&rerr, dev, "close device")`}
+	if devClosed != 1 || !slices.Equal(pkdDefers, wantPKDDefers) {
+		bad = append(bad, fmt.Sprintf("printKernelDisassembly: %d device close branches, defers %q; want 1 and %q", devClosed, pkdDefers, wantPKDDefers))
+	}
 	if reports != 1 {
 		bad = append(bad, fmt.Sprintf("printKernelDisassembly: %d statements %q reporting err to standard error, want 1", reports, "if "+archCall+"; err != nil"))
+	}
+	if sassReturns != 1 {
+		bad = append(bad, fmt.Sprintf("printKernelDisassembly: %d showSASS branches ending with return printSASSDisassembly(targetKernel), want 1", sassReturns))
 	}
 
 	// runGPUInference's show closure returns printToken's result.
@@ -227,7 +353,8 @@ func runWiringProblems(src []byte) ([]string, error) {
 }
 
 // TestRunWiring is a source-shape check, not a behaviour test; see
-// runWiringProblems. TestCloseInto tests closeInto's behaviour.
+// runWiringProblems. TestCloseInto and TestPrintSASSDisassembly test the
+// behaviour of closeInto and printSASSDisassembly.
 func TestRunWiring(t *testing.T) {
 	src, err := os.ReadFile("main.go")
 	if err != nil {
@@ -268,12 +395,33 @@ func TestRunWiringControls(t *testing.T) {
 		{"compute capability error printed",
 			"return fmt.Errorf(\"device compute capability: %w\", err)",
 			"fmt.Fprintln(os.Stderr, err)"},
+		{"disasm result not named rerr",
+			"func printKernelDisassembly(targetKernel, mode string) (rerr error) {",
+			"func printKernelDisassembly(targetKernel, mode string) error {"},
+		{"disasm device close only printed",
+			"defer closeInto(&rerr, dev, \"close device\")",
+			"defer func() {\n\t\t\tif err := dev.Close(); err != nil {\n\t\t\t\tfmt.Fprintf(os.Stderr, \"close device: %v\\n\", err)\n\t\t\t}\n\t\t}()"},
+		{"disasm device close into another error",
+			"defer closeInto(&rerr, dev, \"close device\")",
+			"defer closeInto(&err, dev, \"close device\")"},
 		{"archOr error not reported",
 			"fmt.Fprintf(os.Stderr, \"compute capability: %v; compiling for sm_%d%d\\n\", err, archMajor, archMinor)",
 			"fmt.Fprintf(os.Stderr, \"compiling for sm_%d%d\\n\", archMajor, archMinor)"},
 		{"archOr error not tested",
 			"archMinor); err != nil {",
 			"archMinor); false {"},
+		{"disasm SASS error dropped",
+			"return printSASSDisassembly(targetKernel)",
+			"printSASSDisassembly(targetKernel)"},
+		{"disasm SASS error blanked",
+			"return printSASSDisassembly(targetKernel)",
+			"_ = printSASSDisassembly(targetKernel)"},
+		{"disasm SASS error only printed",
+			"return printSASSDisassembly(targetKernel)",
+			"if err := printSASSDisassembly(targetKernel); err != nil {\n\t\t\tfmt.Fprintln(os.Stderr, err)\n\t\t}"},
+		{"disasm SASS wrong kernel argument",
+			"return printSASSDisassembly(targetKernel)",
+			"return printSASSDisassembly(\"all\")"},
 		{"trace file close only printed",
 			"defer closeInto(&rerr, f, \"close trace file\")",
 			"defer func() {\n\t\t\tif err := f.Close(); err != nil {\n\t\t\t\tfmt.Fprintf(os.Stderr, \"close trace file: %v\\n\", err)\n\t\t\t}\n\t\t}()"},
