@@ -1,0 +1,52 @@
+# Refusals write no report and exit with status 2.
+unhex $ROUNDTRIP/sm121a-roundtrip.cubin.hex k.cubin
+
+# The symbol is required and must be exactly one code section.
+! cudainspect report $WORK/k.cubin
+! stdout .
+stderr 'symbol is not exactly one code symbol'
+! cudainspect report -symbol add $WORK/k.cubin
+! stdout .
+stderr '"add" matches 0 code sections'
+
+# An image with no .text sections has no kernel to select.
+mkelf cuda .data.kernel nocode.cubin
+! cudainspect report -symbol kernel $WORK/nocode.cubin
+! stdout .
+stderr 'image has no code symbols'
+
+# Neither text nor a non-CUDA ELF image is a CUBIN.
+! cudainspect report -symbol kernel $WORK/notelf.cubin
+! stdout .
+stderr 'not a CUDA ELF image: ELF parse failed'
+mkelf x86 .text.kernel x86.o
+! cudainspect report -symbol kernel $WORK/x86.o
+! stdout .
+stderr 'not a CUDA ELF image: machine "EM_X86_64"'
+
+# A CUDA image with an ELF version debug/elf cannot read is named as such.
+mkelf cuda-v2 .text.kernel v2.cubin
+! cudainspect report -symbol kernel $WORK/v2.cubin
+! stdout .
+stderr 'unsupported CUDA ELF version: EI_VERSION 1, e_version 2'
+
+# An image over the bound is refused while it is read, before it is parsed.
+! cudainspect report -symbol addk -max-bytes 100 $WORK/k.cubin
+! stdout .
+stderr 'input exceeds limit: .*k.cubin is over 100 bytes'
+
+# A listing of other kernels does not describe the selection.
+mkelf cuda .text.kernel kernel.cubin
+! cudainspect report -symbol kernel -sass $ROUNDTRIP/sm121a-roundtrip.sass $WORK/kernel.cubin
+! stdout .
+stderr 'no instructions for function "kernel"'
+
+# Flags are checked.
+! cudainspect report -bogus $WORK/k.cubin
+! stdout .
+stderr 'flag provided but not defined'
+! cudainspect inspect $WORK/k.cubin
+stderr 'usage: cudainspect report'
+
+-- notelf.cubin --
+not an ELF image

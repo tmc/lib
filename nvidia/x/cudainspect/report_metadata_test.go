@@ -11,7 +11,7 @@ import (
 // metadataELF is a synthetic ELF64 artifact with text and optional shared
 // memory sections. No machine instructions or resource attributes are invented.
 func metadataELF(shared bool, size uint64, machine elf.Machine) []byte {
-	names := []byte("\x00.shstrtab\x00.text.kernel\x00.nv.shared.kernel\x00")
+	names := []byte("\x00.shstrtab\x00.text.kernel\x00.nv.shared.kernel\x00.nv.info.kernel\x00")
 	count := 3
 	if shared {
 		count++

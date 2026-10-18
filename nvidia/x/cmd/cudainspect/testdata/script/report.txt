@@ -1,0 +1,25 @@
+# A recorded CUBIN with its own nvdisasm listing gives a complete report.
+# The listing's encodings equal the image's .text bytes, so the instruction
+# features are observed rather than inferred.
+unhex $ROUNDTRIP/sm121a-roundtrip.cubin.hex k.cubin
+cudainspect report -symbol addk -require target,opcode_histogram,memory_access_widths -optional feature_suffix -sass $ROUNDTRIP/sm121a-roundtrip.sass $WORK/k.cubin
+! stderr .
+stdout '"schema_version": 2'
+stdout '"result": "complete"'
+stdout '"LDG": 2'
+stdout '"architecture": "sm_121"'
+stdout 'SASS encodings equal .text.addk bytes'
+cp stdout report.json
+readreport report.json
+
+# The a suffix comes from the listing's declared target, never from the ELF
+# header's SM number.
+stdout '"supplied SASS .target sm_121a"'
+
+# Without the listing, the suffix and the instruction features are unknown
+# and null, each with a diagnostic.
+cudainspect report -symbol addk $WORK/k.cubin
+stdout '"result": "complete"'
+stdout '"name": "feature_suffix",\s+"state": "unknown",\s+"value": null'
+stdout 'numeric ELF target does not establish a or f suffix features'
+stdout '"sass": null'

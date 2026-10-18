@@ -43,12 +43,16 @@ type CompiledResourceInput struct {
 
 // CompiledResources keeps allocated, live, modeled and capped registers apart.
 // Local operations are observations, not proof that every operation is a spill.
+// Target is the declared artifact/compiler target. DecodedTarget is the numeric
+// architecture observed in the CUBIN metadata. Matching major/minor numbers do
+// not establish that the image supports the declared target's feature suffix.
 type CompiledResources struct {
 	SchemaVersion       string       `json:"schema_version"`
 	SourceDigest        string       `json:"source_digest"`
 	ImageDigest         string       `json:"image_digest"`
 	Entry               string       `json:"entry"`
 	Target              string       `json:"target"`
+	DecodedTarget       string       `json:"decoded_target"`
 	CompilerVersion     string       `json:"compiler_version"`
 	CompilerOptions     []string     `json:"compiler_options"`
 	DisassemblerVersion string       `json:"disassembler_version"`
@@ -140,7 +144,9 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	if err != nil {
 		return nil, err
 	}
-	if !base.ELFParsed || base.ELFMachine != "EM_CUDA" || base.Architecture != a.Target {
+	imageMajor, imageMinor, _, imageErr := cudakernel.ParseArch(base.Architecture)
+	targetMajor, targetMinor, _, targetErr := cudakernel.ParseArch(a.Target)
+	if !base.ELFParsed || base.ELFMachine != "EM_CUDA" || imageErr != nil || targetErr != nil || imageMajor != targetMajor || imageMinor != targetMinor {
 		return nil, fmt.Errorf("compiled resources: decoded image target mismatch")
 	}
 	found := false
@@ -156,6 +162,7 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	r := &CompiledResources{
 		SchemaVersion: "compiled-resources/v1",
 		SourceDigest:  hex.EncodeToString(h[:]), ImageDigest: a.Digest, Entry: a.EntryPoint, Target: a.Target,
+		DecodedTarget:   base.Architecture,
 		CompilerVersion: in.CompilerVersion, CompilerOptions: append([]string(nil), in.CompilerOptions...),
 		DisassemblerVersion: in.DisassemblerVersion,
 		Allocated:           ResourceFact{Category: "decoded", Reason: "allocation metadata unavailable"},

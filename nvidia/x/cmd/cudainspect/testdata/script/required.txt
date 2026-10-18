@@ -1,0 +1,22 @@
+# A required feature without a value fails the report with exit status 1.
+# The report is still written and still validates.
+unhex $ROUNDTRIP/sm121a-roundtrip.cubin.hex k.cubin
+! cudainspect report -symbol addk -require opcode_histogram $WORK/k.cubin
+stdout '"result": "failed"'
+stderr 'required feature unavailable: opcode_histogram$'
+cp stdout report.json
+readreport report.json
+
+# The same feature as optional only makes the report partial.
+cudainspect report -symbol addk -optional opcode_histogram $WORK/k.cubin
+stdout '"result": "partial"'
+! stderr .
+
+# A feature the inspector does not implement is unsupported, not dropped.
+! cudainspect report -symbol addk -require spill_bytes $WORK/k.cubin
+stdout '"name": "spill_bytes",\s+"state": "unsupported"'
+stdout 'feature not implemented'
+
+# Dynamic shared memory needs a launch configuration.
+! cudainspect report -symbol addk -require dynamic_shared_bytes $WORK/k.cubin
+stdout 'requires launch configuration'
