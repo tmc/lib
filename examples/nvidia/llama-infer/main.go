@@ -84,20 +84,10 @@ func run() (rerr error) {
 	}
 
 	// 1. Load or initialize Tokenizer
-	var tokenizer Tokenizer
-	var tokType string
-
 	effectivePath := findDefaultModelPath()
-	if effectivePath != "" {
-		tokFile := filepath.Join(effectivePath, "tokenizer.json")
-		if hfTok, err := LoadHFTokenizer(tokFile); err == nil {
-			tokenizer = hfTok
-			tokType = fmt.Sprintf("HuggingFace BPE (vocab: %d)", hfTok.VocabSize())
-		}
-	}
-	if tokenizer == nil {
-		tokenizer = NewByteTokenizer()
-		tokType = "Byte-Level BPE Fallback"
+	tokenizer, tokType, err := loadTokenizer(effectivePath)
+	if err != nil {
+		return err
 	}
 
 	dtype, err := parseWeightDType(*weightDTypeFlag)
@@ -693,6 +683,21 @@ func effectivePrompt(tokens []int32, vocab int) ([]int32, error) {
 		}
 	}
 	return tokens, nil
+}
+
+// loadTokenizer loads the tokenizer in dir. With no dir it returns the
+// byte-level fallback tokenizer. A tokenizer that fails to load is an error:
+// it never falls back to the byte tokenizer.
+func loadTokenizer(dir string) (Tokenizer, string, error) {
+	if dir == "" {
+		return NewByteTokenizer(), "Byte-Level BPE Fallback", nil
+	}
+	tokFile := filepath.Join(dir, "tokenizer.json")
+	hfTok, err := LoadHFTokenizer(tokFile)
+	if err != nil {
+		return nil, "", fmt.Errorf("load tokenizer %s: %w", tokFile, err)
+	}
+	return hfTok, fmt.Sprintf("HuggingFace BPE (vocab: %d)", hfTok.VocabSize()), nil
 }
 
 // loadWeights loads the checkpoint in dir. With no dir it returns the
