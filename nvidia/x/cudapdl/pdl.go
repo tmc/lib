@@ -64,7 +64,7 @@ type KernelDesc struct {
 	// dependencies. CheckEligibility does not verify wait placement or execution.
 	HasWait bool
 
-	// PreambleBytes or IndependentWork indicates the presence of independent preamble work.
+	// HasIndependentWork records independent preamble work; CheckEligibility checks only target SM, artifact target match, IsVendor, HasLaunchDependents, and HasWait.
 	HasIndependentWork bool
 }
 
