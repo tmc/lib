@@ -71,8 +71,10 @@ func uploadBF16(d *parityDevice, host []uint16) cudamem.Slice[uint16] {
 func runGEMV(d *parityDevice, fn driver.Function, x cudamem.Slice[float32], w any, in, out int) []float32 {
 	d.t.Helper()
 	o := d.upload(make([]float32, out))
-	if err := cudalaunch.Kernel(fn).Grid(uint32(out), 1, 1).Block(128, 1, 1).
-		Launch(x, w, nullDevicePtr, o, int32(in), int32(out)); err != nil {
+	if err := d.dev.WithContext(func() error {
+		return cudalaunch.Kernel(fn).Grid(uint32(out), 1, 1).Block(128, 1, 1).
+			Launch(x, w, nullDevicePtr, o, int32(in), int32(out))
+	}); err != nil {
 		d.t.Fatal(err)
 	}
 	return d.download(o)
@@ -162,9 +164,12 @@ func convertMismatches(d *parityDevice, gm *GPUModules) int {
 	for i := range in {
 		in[i] = uint16(i)
 	}
+	din := uploadBF16(d, in)
 	o := d.upload(make([]float32, n))
-	if err := cudalaunch.Kernel(gm.convertBF16Fn).Grid(n/256, 1, 1).Block(256, 1, 1).
-		Launch(uploadBF16(d, in), o, int32(n)); err != nil {
+	if err := d.dev.WithContext(func() error {
+		return cudalaunch.Kernel(gm.convertBF16Fn).Grid(n/256, 1, 1).Block(256, 1, 1).
+			Launch(din, o, int32(n))
+	}); err != nil {
 		d.t.Fatal(err)
 	}
 	bad := 0
@@ -210,8 +215,10 @@ func embedBF16Mismatch(d *parityDevice, gm, ref *GPUModules, vocab, hidden, tok 
 	}
 	run := func(fn driver.Function, table any) []float32 {
 		o := d.upload(make([]float32, hidden))
-		if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(256, 1, 1).
-			Launch(table, dt, o, int32(hidden)); err != nil {
+		if err := d.dev.WithContext(func() error {
+			return cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(256, 1, 1).
+				Launch(table, dt, o, int32(hidden))
+		}); err != nil {
 			d.t.Fatal(err)
 		}
 		return d.download(o)
@@ -456,8 +463,12 @@ func (k *forwardKit) decode(t *testing.T, w *ModelWeights, cfg ModelConfig, dtyp
 	var toks []int32
 	tok := int32(7)
 	for pos := 0; pos < bf16ParitySteps; pos++ {
-		next, err := GPUForwardPass(gw, &cfg, kv, sp, k.d.gm, k.attnFn, k.sampleFn, tok, pos)
-		if err != nil {
+		var next int32
+		if err := k.d.dev.WithContext(func() error {
+			var err error
+			next, err = GPUForwardPass(gw, &cfg, kv, sp, k.d.gm, k.attnFn, k.sampleFn, tok, pos)
+			return err
+		}); err != nil {
 			t.Fatal(err)
 		}
 		logits = append(logits, k.d.download(sp.Logits))
