@@ -489,7 +489,7 @@ func generateRMSQuantQ81Kernel(opts CodegenOptions) string {
     if (blockIdx.x != 0 || threadIdx.x != 0) return;
     float sq = 0.0f;
     for (int i = 0; i < cols; i++) {
-        float v = x[i] * weight[i];
+        float v = x[i];
         sq += v * v;
     }
     float norm = rsqrtf(sq / (float)cols + eps);
