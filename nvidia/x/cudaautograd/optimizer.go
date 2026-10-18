@@ -46,9 +46,9 @@ func (opt *SGDOptimizer) Momentum() float32 {
 }
 
 // Step updates parameters in-place using their corresponding gradients.
-// Parameters without a gradient are left unchanged. Step validates every
-// gradient before updating anything, so on error neither the parameters
-// nor the optimizer's velocity have changed.
+// Parameters without a gradient are left unchanged. Step checks for a nil
+// optimizer or map and verifies matching parameter and gradient slice lengths
+// for present parameters before updating parameters or velocity in place.
 func (opt *SGDOptimizer) Step(params map[string][]float32, grads map[string][]float32) error {
 	if opt == nil {
 		return errors.New("cudaautograd: nil optimizer")

@@ -45,6 +45,6 @@
 //
 // # Offline Training
 //
-// Offline parameter updates can be executed via [StepSGDMomentum] or evaluated
-// end-to-end on CPU or native execution plans.
+// Offline parameter updates can be executed via [SGDOptimizer.Step] or evaluated
+// end-to-end with [TrainingStep] on CPU graphs.
 package cudaautograd
