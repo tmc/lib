@@ -26,7 +26,7 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		printUsage(stderr)
-		return errors.New("command required: run, verify, claim, ledger, or compare")
+		return errors.New("command required: run, verify, claim, ledger, compare, or registered-pair")
 	}
 
 	switch args[0] {
@@ -34,6 +34,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return cmdRun(args[1:], stdout, stderr)
 	case "verify":
 		return cmdVerify(args[1:], stdout, stderr)
+	case "registered-pair":
+		return cmdRegisteredPair(args[1:], stdout, stderr)
 	case "compare":
 		return cmdCompare(args[1:], stdout, stderr)
 	case "ledger":
@@ -58,6 +60,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  gpudiageval claim [flags]    Display bounded comparative claim from evaluation report")
 	fmt.Fprintln(w, "  gpudiageval ledger -file path -root dir  Check qualification receipt consistency")
 	fmt.Fprintln(w, "  gpudiageval compare -protocol path -candidate path -comparator path")
+	fmt.Fprintln(w, "  gpudiageval registered-pair -registration path -ledger path -candidate path -comparator path -root dir")
+	fmt.Fprintln(w, "    Check registered pair integrity and factual results; independent acceptance is unavailable")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Flags for 'run':")
 	fmt.Fprintln(w, "  -phase string               Evaluation phase: 'pilot' or 'qualification' (default: pilot)")
