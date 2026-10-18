@@ -767,3 +767,61 @@ func ExampleMarshalReceipt() {
 	// Output:
 	// true true
 }
+
+func TestWorkloadIdentityBindingsKey(t *testing.T) {
+	base := cudacache.WorkloadIdentity{
+		ProgramID:     "prog_gemm_v1",
+		ShapeDims:     []int{1024, 1024, 1024},
+		NumericalMode: "bf16",
+		PrepackID:     "prepack_tn_v1",
+		BindingsKey:   "dtype=bf16,layout=row_major,obj=throughput,weights=sha256:aaa",
+	}
+	baseKey := base.Key()
+	if baseKey == "" {
+		t.Fatal("expected non-empty WorkloadIdentity.Key()")
+	}
+
+	// Deterministic replay control: identical identity produces identical key.
+	same := base
+	same.ShapeDims = append([]int(nil), base.ShapeDims...)
+	if got := same.Key(); got != baseKey {
+		t.Fatalf("expected deterministic key %q, got %q", baseKey, got)
+	}
+
+	// Positive differentiation controls across BindingsKey and legacy fields.
+	diffBindings := base
+	diffBindings.BindingsKey = "dtype=fp8_e4m3,layout=col_major,obj=latency,weights=sha256:bbb"
+	if got := diffBindings.Key(); got == baseKey {
+		t.Fatalf("expected changing BindingsKey to change WorkloadIdentity.Key(), both were %q", got)
+	}
+
+	emptyBindings := base
+	emptyBindings.BindingsKey = ""
+	if got := emptyBindings.Key(); got == baseKey {
+		t.Fatalf("expected clearing BindingsKey to change WorkloadIdentity.Key(), both were %q", got)
+	}
+
+	diffProg := base
+	diffProg.ProgramID = "prog_gemm_v2"
+	if got := diffProg.Key(); got == baseKey {
+		t.Fatalf("expected changing ProgramID to change WorkloadIdentity.Key(), both were %q", got)
+	}
+
+	diffShape := base
+	diffShape.ShapeDims = []int{1024, 1024, 2048}
+	if got := diffShape.Key(); got == baseKey {
+		t.Fatalf("expected changing ShapeDims to change WorkloadIdentity.Key(), both were %q", got)
+	}
+
+	diffMode := base
+	diffMode.NumericalMode = "fp16"
+	if got := diffMode.Key(); got == baseKey {
+		t.Fatalf("expected changing NumericalMode to change WorkloadIdentity.Key(), both were %q", got)
+	}
+
+	diffPrepack := base
+	diffPrepack.PrepackID = "prepack_nn_v2"
+	if got := diffPrepack.Key(); got == baseKey {
+		t.Fatalf("expected changing PrepackID to change WorkloadIdentity.Key(), both were %q", got)
+	}
+}

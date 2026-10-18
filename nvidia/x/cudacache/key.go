@@ -161,12 +161,15 @@ func SearchReceiptKey(policyID SearchPolicyID, workloadKey string) string {
 }
 
 // WorkloadIdentity describes a program/workload being compiled and evaluated.
-// It includes shape dimensions, numerical execution mode, and pre-pack identity.
+// It includes shape dimensions, numerical execution mode, pre-pack identity,
+// and optional canonical bindings identity (dtype, layout, objective, and
+// input/weight binding identity omitted from legacy fields).
 type WorkloadIdentity struct {
 	ProgramID     string `json:"program_id"`
 	ShapeDims     []int  `json:"shape_dims"`
 	NumericalMode string `json:"numerical_mode"` // e.g. "fp32", "fp16", "bf16", "fp8_e4m3", "mxfp4"
 	PrepackID     string `json:"prepack_id,omitempty"`
+	BindingsKey   string `json:"bindings_key,omitempty"` // Canonical producing workload bindings key (dtype/layout/objective/input+weight identity)
 }
 
 // Key computes a deterministic hash for a workload identity.
@@ -183,5 +186,7 @@ func (w WorkloadIdentity) Key() string {
 	writeField(w.NumericalMode)
 	writeField(w.PrepackID)
 	writeField(fmt.Sprintf("%v", w.ShapeDims))
+	writeField("bindings_key")
+	writeField(w.BindingsKey)
 	return hex.EncodeToString(h.Sum(nil))
 }
