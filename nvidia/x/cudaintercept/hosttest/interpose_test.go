@@ -49,7 +49,7 @@ func compileFixture(t *testing.T, mutant bool) string {
 		t.Fatal(err)
 	}
 	binary := filepath.Join(dir, "resolver")
-	args := []string{"-std=c11", "-pthread", path, "-o", binary}
+	args := []string{"-std=c11", "-pthread", "-I..", path, "-o", binary}
 	t.Logf("compile: %s %v", cc, args)
 	if out, err := exec.Command(cc, args...).CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v\n%s", err, out)
