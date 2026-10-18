@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -453,19 +454,67 @@ func TestMutantsAndNegativeControls(t *testing.T) {
 			t.Fatalf("New: %v", err)
 		}
 
-		rawBytes := []byte("simple raw code")
+		ctx := context.Background()
+		rawBytes := []byte(".version 8.0\n.target sm_121a\n.address_size 64\n.entry compat_kernel(.param .u64 ptr) { ret; }\n")
 		h := sha256.Sum256(rawBytes)
 		digest := hex.EncodeToString(h[:])
+		rawBase64 := base64.StdEncoding.EncodeToString(rawBytes)
 
-		// Missing target architecture and entry point
-		omittedFieldJSON := fmt.Sprintf(`{"kind": 1, "digest": %q, "raw": %q}`, digest, rawBytes)
-		key := "omitted-field-key"
-		artFile := filepath.Join(tmpDir, "artifacts", key+".artifact")
-		_ = os.WriteFile(artFile, []byte(omittedFieldJSON), 0o644)
+		schema, err := cudakernel.NewSchema(cudakernel.Param{Name: "data", Type: "ptr", IsPointer: true})
+		if err != nil {
+			t.Fatalf("NewSchema: %v", err)
+		}
 
-		_, err = c.GetArtifact(context.Background(), key)
-		if err == nil {
-			t.Fatalf("expected error when compatibility fields are omitted")
+		baseMap := func() map[string]any {
+			return map[string]any{
+				"schema_version": cudacache.ArtifactSchemaVersion,
+				"kind":           int(cudakernel.KindPTX),
+				"digest":         digest,
+				"raw":            rawBase64,
+				"entry_point":    "compat_kernel",
+				"schema":         schema,
+				"target":         "sm_121a",
+			}
+		}
+
+		// Passing twin: all required compatibility fields present with valid base64 raw.
+		twinData, err := json.Marshal(baseMap())
+		if err != nil {
+			t.Fatalf("Marshal twin: %v", err)
+		}
+		twinKey := "passing-twin-key"
+		twinFile := filepath.Join(tmpDir, "artifacts", twinKey+".artifact")
+		if err := os.WriteFile(twinFile, twinData, 0o644); err != nil {
+			t.Fatalf("WriteFile twin: %v", err)
+		}
+		got, err := c.GetArtifact(ctx, twinKey)
+		if err != nil {
+			t.Fatalf("passing twin rejected: %v", err)
+		}
+		if got.Target != "sm_121a" || got.EntryPoint != "compat_kernel" || !bytes.Equal(got.Raw, rawBytes) {
+			t.Fatalf("passing twin mismatch: got target=%q entry=%q raw=%q", got.Target, got.EntryPoint, got.Raw)
+		}
+
+		// Single-field compatibility omissions derived from the passing twin.
+		for _, omitted := range []string{"target", "entry_point"} {
+			t.Run("omit_"+omitted, func(t *testing.T) {
+				m := baseMap()
+				delete(m, omitted)
+				mutatedData, err := json.Marshal(m)
+				if err != nil {
+					t.Fatalf("Marshal mutated (%s): %v", omitted, err)
+				}
+				key := "omitted-" + omitted + "-key"
+				artFile := filepath.Join(tmpDir, "artifacts", key+".artifact")
+				if err := os.WriteFile(artFile, mutatedData, 0o644); err != nil {
+					t.Fatalf("WriteFile mutated (%s): %v", omitted, err)
+				}
+
+				_, err = c.GetArtifact(ctx, key)
+				if !errors.Is(err, cudacache.ErrCorruptArtifact) {
+					t.Fatalf("omitting %q: expected ErrCorruptArtifact, got: %v", omitted, err)
+				}
+			})
 		}
 	})
 
@@ -518,4 +567,203 @@ func TestMutantsAndNegativeControls(t *testing.T) {
 			t.Fatalf("expected ErrDownloadLimitExceeded, got: %v", err)
 		}
 	})
+}
+
+func TestEntrySchemaVersion(t *testing.T) {
+	ctx := context.Background()
+	art := newTestArtifact(t, "versioned_kernel", "sm_121a")
+	artBytes, err := cudacache.MarshalArtifact(art)
+	if err != nil {
+		t.Fatalf("MarshalArtifact: %v", err)
+	}
+	var baseArt map[string]any
+	if err := json.Unmarshal(artBytes, &baseArt); err != nil {
+		t.Fatalf("Unmarshal artifact map: %v", err)
+	}
+	if gotVer, ok := baseArt["schema_version"].(float64); !ok || int(gotVer) != cudacache.ArtifactSchemaVersion {
+		t.Fatalf("persisted artifact schema_version = %v, want %d", baseArt["schema_version"], cudacache.ArtifactSchemaVersion)
+	}
+
+	policy := cudacache.SearchPolicyID{Strategy: "beam", Seed: 7, ScoringEpoch: "epoch_v1"}
+	receipt := &cudacache.SearchReceipt{
+		PolicyID:    policy,
+		WorkloadKey: "workload_schema_v1",
+		CandidateID: "cand_v1",
+		ArtifactKey: art.Digest,
+		Complete:    true,
+		TimingKind:  cudatrial.TimingWallElapsed,
+		Timings:     map[string]int64{string(cudatrial.TimingWallElapsed): 42000},
+		RankScore:   0.91,
+		Epoch:       "epoch_v1",
+	}
+	receiptBytes, err := cudacache.MarshalReceipt(receipt)
+	if err != nil {
+		t.Fatalf("MarshalReceipt: %v", err)
+	}
+	var baseReceipt map[string]any
+	if err := json.Unmarshal(receiptBytes, &baseReceipt); err != nil {
+		t.Fatalf("Unmarshal receipt map: %v", err)
+	}
+	if gotVer, ok := baseReceipt["schema_version"].(float64); !ok || int(gotVer) != cudacache.ReceiptSchemaVersion {
+		t.Fatalf("persisted receipt schema_version = %v, want %d", baseReceipt["schema_version"], cudacache.ReceiptSchemaVersion)
+	}
+
+	intPtr := func(v int) *int { return &v }
+	cases := []struct {
+		name    string
+		version *int
+		wantOK  bool
+	}{
+		{name: "current_v1", version: intPtr(1), wantOK: true},
+		{name: "missing_version", version: nil, wantOK: false},
+		{name: "zero_version", version: intPtr(0), wantOK: false},
+		{name: "negative_version", version: intPtr(-1), wantOK: false},
+		{name: "unknown_future_v2", version: intPtr(2), wantOK: false},
+		{name: "unknown_future_v99", version: intPtr(99), wantOK: false},
+	}
+
+	mutateVersion := func(src map[string]any, v *int) []byte {
+		m := make(map[string]any, len(src))
+		for k, val := range src {
+			m[k] = val
+		}
+		if v == nil {
+			delete(m, "schema_version")
+		} else {
+			m["schema_version"] = *v
+		}
+		b, err := json.Marshal(m)
+		if err != nil {
+			t.Fatalf("Marshal mutated map: %v", err)
+		}
+		return b
+	}
+
+	for _, tc := range cases {
+		t.Run("artifact_disk/"+tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			c, err := cudacache.New(cudacache.Config{RootDir: root})
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			key := "art-" + tc.name
+			path := filepath.Join(root, "artifacts", key+".artifact")
+			if err := os.WriteFile(path, mutateVersion(baseArt, tc.version), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			got, err := c.GetArtifact(ctx, key)
+			if tc.wantOK {
+				if err != nil || got == nil || got.Digest != art.Digest {
+					t.Fatalf("expected valid v1 artifact load, got art=%v err=%v", got, err)
+				}
+				return
+			}
+			if !errors.Is(err, cudacache.ErrCorruptArtifact) {
+				t.Fatalf("expected ErrCorruptArtifact for %s, got: %v", tc.name, err)
+			}
+			qEntries, err := os.ReadDir(filepath.Join(root, "quarantine"))
+			if err != nil || len(qEntries) != 1 {
+				t.Fatalf("expected 1 quarantined file for %s, got %d (err=%v)", tc.name, len(qEntries), err)
+			}
+		})
+
+		t.Run("artifact_remote/"+tc.name, func(t *testing.T) {
+			reg := cudacache.NewMemoryRegistry()
+			key := "remote-art-" + tc.name
+			_ = reg.PublishArtifact(ctx, key, mutateVersion(baseArt, tc.version))
+			c, err := cudacache.New(cudacache.Config{RootDir: t.TempDir(), Remote: reg})
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			got, err := c.GetArtifact(ctx, key)
+			if tc.wantOK {
+				if err != nil || got == nil || got.Digest != art.Digest {
+					t.Fatalf("expected valid v1 remote artifact, got art=%v err=%v", got, err)
+				}
+				return
+			}
+			if !errors.Is(err, cudacache.ErrCorruptArtifact) {
+				t.Fatalf("expected ErrCorruptArtifact for remote %s, got: %v", tc.name, err)
+			}
+		})
+
+		t.Run("receipt_disk/"+tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			c, err := cudacache.New(cudacache.Config{RootDir: root})
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			rKey := cudacache.SearchReceiptKey(policy, receipt.WorkloadKey)
+			path := filepath.Join(root, "receipts", rKey+".receipt")
+			if err := os.WriteFile(path, mutateVersion(baseReceipt, tc.version), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			got, err := c.GetReceipt(ctx, policy, receipt.WorkloadKey)
+			if tc.wantOK {
+				if err != nil || got == nil || got.CandidateID != receipt.CandidateID {
+					t.Fatalf("expected valid v1 receipt load, got receipt=%v err=%v", got, err)
+				}
+				return
+			}
+			if !errors.Is(err, cudacache.ErrCorruptReceipt) {
+				t.Fatalf("expected ErrCorruptReceipt for %s, got: %v", tc.name, err)
+			}
+		})
+
+		t.Run("receipt_remote/"+tc.name, func(t *testing.T) {
+			reg := cudacache.NewMemoryRegistry()
+			rKey := cudacache.SearchReceiptKey(policy, receipt.WorkloadKey)
+			_ = reg.PublishReceipt(ctx, rKey, mutateVersion(baseReceipt, tc.version))
+			c, err := cudacache.New(cudacache.Config{RootDir: t.TempDir(), Remote: reg})
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			got, err := c.GetReceipt(ctx, policy, receipt.WorkloadKey)
+			if tc.wantOK {
+				if err != nil || got == nil || got.CandidateID != receipt.CandidateID {
+					t.Fatalf("expected valid v1 remote receipt, got receipt=%v err=%v", got, err)
+				}
+				return
+			}
+			if !errors.Is(err, cudacache.ErrCorruptReceipt) {
+				t.Fatalf("expected ErrCorruptReceipt for remote %s, got: %v", tc.name, err)
+			}
+		})
+	}
+}
+
+func ExampleMarshalArtifact() {
+	schema, _ := cudakernel.NewSchema(cudakernel.Param{Name: "out", Type: "ptr", IsPointer: true})
+	art, _ := cudakernel.NewArtifact(
+		cudakernel.KindPTX,
+		[]byte(".version 8.0\n.target sm_121a\n.address_size 64\n.entry k(.param .u64 p) { ret; }\n"),
+		"k",
+		schema,
+		"sm_121a",
+	)
+	data, err := cudacache.MarshalArtifact(art)
+	var envelope struct {
+		SchemaVersion int `json:"schema_version"`
+	}
+	_ = json.Unmarshal(data, &envelope)
+	fmt.Println(err == nil, envelope.SchemaVersion == cudacache.ArtifactSchemaVersion)
+	// Output:
+	// true true
+}
+
+func ExampleMarshalReceipt() {
+	receipt := &cudacache.SearchReceipt{
+		PolicyID:    cudacache.SearchPolicyID{Strategy: "beam", Seed: 1},
+		WorkloadKey: "workload_1",
+		CandidateID: "cand_1",
+		ArtifactKey: "art_1",
+	}
+	data, err := cudacache.MarshalReceipt(receipt)
+	var envelope struct {
+		SchemaVersion int `json:"schema_version"`
+	}
+	_ = json.Unmarshal(data, &envelope)
+	fmt.Println(err == nil, envelope.SchemaVersion == cudacache.ReceiptSchemaVersion)
+	// Output:
+	// true true
 }

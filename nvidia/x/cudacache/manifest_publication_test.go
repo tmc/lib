@@ -3,7 +3,6 @@ package cudacache_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -154,7 +153,7 @@ func TestManifestEvictionSnapshot(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			remoteData, err := json.Marshal(original)
+			remoteData, err := cudacache.MarshalArtifact(original)
 			if err != nil {
 				t.Fatal(err)
 			}

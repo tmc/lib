@@ -3,7 +3,6 @@ package cudacache
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -126,7 +125,7 @@ func TestCompilerEntryMarkerFreshness(t *testing.T) {
 							t.Fatal(err)
 						}
 					}
-					remote, err := json.Marshal(original)
+					remote, err := MarshalArtifact(original)
 					if err != nil {
 						t.Fatal(err)
 					}

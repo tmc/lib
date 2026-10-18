@@ -279,7 +279,7 @@ func TestProducerProofCauses(t *testing.T) {
 				}
 				var raw []byte
 				if kind == cudacache.RemoteArtifact {
-					raw, _ = json.Marshal(newTestArtifact(t, "proof_producer", "sm_90"))
+					raw, _ = cudacache.MarshalArtifact(newTestArtifact(t, "proof_producer", "sm_90"))
 				} else {
 					raw, _ = json.Marshal(&cudacache.SearchReceipt{PolicyID: policy, WorkloadKey: "work", CandidateID: "candidate", ArtifactKey: "artifact"})
 				}
@@ -408,7 +408,7 @@ func TestProducerProofCauses(t *testing.T) {
 }
 
 func TestProducerHTTPCacheTransfer(t *testing.T) {
-	raw, err := json.Marshal(newTestArtifact(t, "http_transfer", "sm_90"))
+	raw, err := cudacache.MarshalArtifact(newTestArtifact(t, "http_transfer", "sm_90"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestProducerHTTPCacheTransfer(t *testing.T) {
 
 func TestProducerProofCloseKeepsLocalPublication(t *testing.T) {
 	private := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
-	raw, err := json.Marshal(newTestArtifact(t, "remote_proof_close", "sm_90"))
+	raw, err := cudacache.MarshalArtifact(newTestArtifact(t, "remote_proof_close", "sm_90"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package cudacache
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -8,6 +9,16 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudatrial"
 )
+
+// ReceiptSchemaVersion is the persisted JSON schema version for cached search receipts.
+const ReceiptSchemaVersion = 1
+
+type receiptAlias SearchReceipt
+
+type persistedReceipt struct {
+	SchemaVersion int `json:"schema_version"`
+	receiptAlias
+}
 
 // SearchReceipt records the evaluation outcome of an arm or candidate under a specific search policy.
 // It explicitly references the binary artifact's digest and retains search provenance,
@@ -80,4 +91,12 @@ func (r *SearchReceipt) IsStale(currentEpoch string) bool {
 		return true
 	}
 	return r.Epoch != currentEpoch
+}
+
+// MarshalJSON serializes the SearchReceipt with ReceiptSchemaVersion.
+func (r SearchReceipt) MarshalJSON() ([]byte, error) {
+	return json.Marshal(persistedReceipt{
+		SchemaVersion: ReceiptSchemaVersion,
+		receiptAlias:  receiptAlias(r),
+	})
 }

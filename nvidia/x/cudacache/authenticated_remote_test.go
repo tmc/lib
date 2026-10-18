@@ -28,7 +28,7 @@ func TestAuthenticatedRemoteTLS(t *testing.T) {
 				var body []byte
 				if kind == cudacache.RemoteArtifact {
 					var err error
-					body, err = json.Marshal(newTestArtifact(t, "signed_fixture", "sm_90"))
+					body, err = cudacache.MarshalArtifact(newTestArtifact(t, "signed_fixture", "sm_90"))
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -173,7 +173,7 @@ func TestAuthenticatedRemoteProofOwnership(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			private := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
 			registry := cudacache.NewMemoryRegistry()
-			body, _ := json.Marshal(newTestArtifact(t, "proof_ownership", "sm_90"))
+			body, _ := cudacache.MarshalArtifact(newTestArtifact(t, "proof_ownership", "sm_90"))
 			registry.PublishArtifact(context.Background(), "key", body)
 			raw, _ := cudacache.SignRemoteProof(cudacache.RemoteArtifact, "key", "producer", "signer", body, private)
 			if mode == "oversize" {
@@ -246,7 +246,7 @@ func TestAuthenticatedRemoteSigningRefusals(t *testing.T) {
 }
 
 func TestAuthenticatedRemoteProofCancellation(t *testing.T) {
-	body, _ := json.Marshal(newTestArtifact(t, "cancel_proof", "sm_90"))
+	body, _ := cudacache.MarshalArtifact(newTestArtifact(t, "cancel_proof", "sm_90"))
 	started := make(chan struct{})
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/proofs/") {
@@ -325,7 +325,7 @@ func TestAuthenticatedRemoteSigningContract(t *testing.T) {
 				key := strings.Repeat("k", 200)
 				var body []byte
 				if kind == cudacache.RemoteArtifact {
-					body, _ = json.Marshal(newTestArtifact(t, "wire_boundary", "sm_90"))
+					body, _ = cudacache.MarshalArtifact(newTestArtifact(t, "wire_boundary", "sm_90"))
 				} else {
 					key = cudacache.SearchReceiptKey(policy, "workload")
 					body, _ = json.Marshal(cudacache.SearchReceipt{PolicyID: policy, WorkloadKey: "workload", CandidateID: "fixture", ArtifactKey: "artifact"})

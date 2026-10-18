@@ -82,14 +82,15 @@ func TestLocalPublicationWins(t *testing.T) {
 			art := newTestArtifact(t, "publication", "sm_121a")
 			// Keep the immutable descriptor and binary identical. Distinct JSON
 			// encodings reveal whether the older callback overwrites the local file.
-			older, err := json.MarshalIndent(art, "", "  ")
+			local, err := cudacache.MarshalArtifact(art)
 			if err != nil {
 				t.Fatal(err)
 			}
-			local, err := json.Marshal(art)
-			if err != nil {
+			var indented bytes.Buffer
+			if err := json.Indent(&indented, local, "", "  "); err != nil {
 				t.Fatal(err)
 			}
+			older := indented.Bytes()
 			entered, block, release := publicationGate(t)
 			source := publicationSource{artifact: func() (io.ReadCloser, int64, error) {
 				r := &publicationReader{Reader: bytes.NewReader(older)}

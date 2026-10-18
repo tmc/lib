@@ -116,7 +116,7 @@ func TestOutcomeCompilerTarget(t *testing.T) {
 	path := filepath.Join(root, "artifacts", key+"-"+art.Digest+".artifact")
 	copy := *art
 	copy.Target = "sm_100"
-	data, err := json.Marshal(&copy)
+	data, err := cudacache.MarshalArtifact(&copy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestOutcomeRemoteArtifact(t *testing.T) {
 				defer stop()
 			}
 			art := newTestArtifact(t, "k", "sm_90")
-			data, err := json.Marshal(art)
+			data, err := cudacache.MarshalArtifact(art)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -342,14 +342,15 @@ func TestOutcomeCloseKeepsLocalPublication(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	art := newTestArtifact(t, "k", "sm_90")
-	remoteData, err := json.MarshalIndent(art, "", " ")
+	localData, err := cudacache.MarshalArtifact(art)
 	if err != nil {
 		t.Fatal(err)
 	}
-	localData, err := json.Marshal(art)
-	if err != nil {
+	var indented bytes.Buffer
+	if err := json.Indent(&indented, localData, "", " "); err != nil {
 		t.Fatal(err)
 	}
+	remoteData := indented.Bytes()
 	closeErr := errors.New("close failed after local publication")
 	var c *cudacache.Cache
 	var publishErr error
@@ -395,13 +396,15 @@ func TestOutcomeRemoteSuccess(t *testing.T) {
 			art := newTestArtifact(t, "k", "sm_90")
 			policy := cudacache.SearchPolicyID{Strategy: "beam", ScoringEpoch: "outcome"}
 			receipt := &cudacache.SearchReceipt{PolicyID: policy, WorkloadKey: "work", CandidateID: "candidate", ArtifactKey: art.Digest}
-			var value any = art
 			key := art.Digest
+			var data []byte
+			var err error
 			if kind == cudacache.RemoteReceipt {
-				value = receipt
 				key = cudacache.SearchReceiptKey(policy, "work")
+				data, err = cudacache.MarshalReceipt(receipt)
+			} else {
+				data, err = cudacache.MarshalArtifact(art)
 			}
-			data, err := json.Marshal(value)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -40,7 +40,42 @@ const (
 
 	// DefaultMaxRemoteDownloadBytes is the default maximum size for remote downloads (64 MB).
 	DefaultMaxRemoteDownloadBytes int64 = 64 << 20
+
+	// ArtifactSchemaVersion is the persisted JSON schema version for cached artifacts.
+	ArtifactSchemaVersion = 1
 )
+
+type artifactAlias cudakernel.Artifact
+
+type persistedArtifact struct {
+	SchemaVersion int `json:"schema_version"`
+	*artifactAlias
+}
+
+// MarshalArtifact encodes art as a versioned cudacache artifact JSON entry.
+func MarshalArtifact(art *cudakernel.Artifact) ([]byte, error) {
+	if art == nil {
+		return nil, errors.New("cudacache: nil artifact")
+	}
+	if err := art.Validate(); err != nil {
+		return nil, fmt.Errorf("cudacache: invalid artifact: %w", err)
+	}
+	return json.Marshal(persistedArtifact{
+		SchemaVersion: ArtifactSchemaVersion,
+		artifactAlias: (*artifactAlias)(art),
+	})
+}
+
+// MarshalReceipt encodes receipt as a versioned cudacache search receipt JSON entry.
+func MarshalReceipt(receipt *SearchReceipt) ([]byte, error) {
+	if receipt == nil {
+		return nil, errors.New("cudacache: nil receipt")
+	}
+	if err := receipt.Validate(); err != nil {
+		return nil, fmt.Errorf("cudacache: invalid receipt: %w", err)
+	}
+	return json.Marshal(receipt)
+}
 
 // Config configures the local and optional remote cache.
 type Config struct {
@@ -170,12 +205,9 @@ func (c *Cache) prepareArtifact(key string, art *cudakernel.Artifact) (*cudakern
 	if err := validateKey(key); err != nil {
 		return nil, nil, err
 	}
-	if err := art.Validate(); err != nil {
-		return nil, nil, fmt.Errorf("cudacache: invalid artifact: %w", err)
-	}
-	data, err := json.Marshal(art)
+	data, err := MarshalArtifact(art)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cudacache: marshal artifact: %w", err)
+		return nil, nil, err
 	}
 	if int64(len(data)) > c.maxArtifactBytes {
 		return nil, nil, fmt.Errorf("cudacache: artifact size (%d bytes) exceeds limit (%d bytes)", len(data), c.maxArtifactBytes)
@@ -376,8 +408,24 @@ func (c *Cache) validateAndDecodeArtifact(key string, data []byte, localFilePath
 		return nil, fmt.Errorf("%w: artifact bytes %d exceed limit", ErrCorruptArtifact, len(data))
 	}
 
+	var header struct {
+		SchemaVersion *int `json:"schema_version"`
+	}
+	if err := json.Unmarshal(data, &header); err != nil {
+		c.quarantine(key, data, localFilePath)
+		return nil, fmt.Errorf("%w: unmarshal failed: %v", ErrCorruptArtifact, err)
+	}
+	if header.SchemaVersion == nil || *header.SchemaVersion != ArtifactSchemaVersion {
+		version := 0
+		if header.SchemaVersion != nil {
+			version = *header.SchemaVersion
+		}
+		c.quarantine(key, data, localFilePath)
+		return nil, fmt.Errorf("%w: unsupported artifact schema version %d (want %d)", ErrCorruptArtifact, version, ArtifactSchemaVersion)
+	}
+
 	var art cudakernel.Artifact
-	if err := json.Unmarshal(data, &art); err != nil {
+	if err := json.Unmarshal(data, (*artifactAlias)(&art)); err != nil {
 		c.quarantine(key, data, localFilePath)
 		return nil, fmt.Errorf("%w: unmarshal failed: %v", ErrCorruptArtifact, err)
 	}
@@ -409,6 +457,33 @@ func (c *Cache) quarantine(key string, data []byte, localFilePath string) {
 	_ = os.WriteFile(qPath, data, 0o644)
 }
 
+func decodeReceipt(key string, data []byte) (*SearchReceipt, error) {
+	var header struct {
+		SchemaVersion *int `json:"schema_version"`
+	}
+	if err := json.Unmarshal(data, &header); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+	}
+	if header.SchemaVersion == nil || *header.SchemaVersion != ReceiptSchemaVersion {
+		version := 0
+		if header.SchemaVersion != nil {
+			version = *header.SchemaVersion
+		}
+		return nil, fmt.Errorf("%w: unsupported receipt schema version %d (want %d)", ErrCorruptReceipt, version, ReceiptSchemaVersion)
+	}
+	var receipt SearchReceipt
+	if err := json.Unmarshal(data, (*receiptAlias)(&receipt)); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+	}
+	if err := receipt.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
+	}
+	if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
+		return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
+	}
+	return &receipt, nil
+}
+
 // PutReceipt writes a SearchReceipt under policyID and workloadKey.
 func (c *Cache) PutReceipt(ctx context.Context, receipt *SearchReceipt) error {
 	if err := ctx.Err(); err != nil {
@@ -422,15 +497,15 @@ func (c *Cache) PutReceipt(ctx context.Context, receipt *SearchReceipt) error {
 	}
 
 	key := SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey)
-	data, err := json.Marshal(receipt)
+	data, err := MarshalReceipt(receipt)
 	if err != nil {
 		return fmt.Errorf("cudacache: marshal receipt: %w", err)
 	}
 	if int64(len(data)) > c.maxArtifactBytes {
 		return ErrDownloadLimitExceeded
 	}
-	var snapshot SearchReceipt
-	if err := json.Unmarshal(data, &snapshot); err != nil {
+	snapshot, err := decodeReceipt(key, data)
+	if err != nil {
 		return err
 	}
 
@@ -442,7 +517,7 @@ func (c *Cache) PutReceipt(ctx context.Context, receipt *SearchReceipt) error {
 	}
 
 	c.memMu.Lock()
-	c.memReceipts[key] = &snapshot
+	c.memReceipts[key] = snapshot
 	c.memMu.Unlock()
 
 	return nil
@@ -488,15 +563,9 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 			if err := c.verifyRemote(ctx, RemoteReceipt, key, rData); err != nil {
 				return nil, err
 			}
-			var receipt SearchReceipt
-			if err := json.Unmarshal(rData, &receipt); err != nil {
-				return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
-			}
-			if err := receipt.Validate(); err != nil {
-				return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
-			}
-			if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
-				return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
+			receipt, err := decodeReceipt(key, rData)
+			if err != nil {
+				return nil, err
 			}
 
 			c.publicationMu.Lock()
@@ -510,9 +579,9 @@ func (c *Cache) GetReceipt(ctx context.Context, policyID SearchPolicyID, workloa
 			}
 			_ = c.atomicWrite(destPath, rData)
 			c.memMu.Lock()
-			c.memReceipts[key] = &receipt
+			c.memReceipts[key] = receipt
 			c.memMu.Unlock()
-			return cloneReceipt(&receipt)
+			return cloneReceipt(receipt)
 		}
 		return nil, fmt.Errorf("cudacache: fetch receipt: %w", remoteError(ctx, err))
 	}
@@ -530,20 +599,14 @@ func (c *Cache) loadLocalReceipt(key, destPath string) (*SearchReceipt, error) {
 	}
 	data, err := readFileBounded(destPath, c.maxArtifactBytes)
 	if err == nil {
-		var receipt SearchReceipt
-		if err := json.Unmarshal(data, &receipt); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
-		}
-		if err := receipt.Validate(); err != nil {
-			return nil, fmt.Errorf("%w: %v", ErrCorruptReceipt, err)
-		}
-		if SearchReceiptKey(receipt.PolicyID, receipt.WorkloadKey) != key {
-			return nil, fmt.Errorf("%w: identity mismatch", ErrCorruptReceipt)
+		receipt, err := decodeReceipt(key, data)
+		if err != nil {
+			return nil, err
 		}
 		c.memMu.Lock()
-		c.memReceipts[key] = &receipt
+		c.memReceipts[key] = receipt
 		c.memMu.Unlock()
-		return &receipt, nil
+		return receipt, nil
 	} else if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("cudacache: read receipt file: %w", err)
 	}
