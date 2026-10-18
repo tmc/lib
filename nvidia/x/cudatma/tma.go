@@ -243,8 +243,8 @@ func (d Descriptor) Validate() error {
 	return nil
 }
 
-// Transfer is a checked operation description. Staged must be true for
-// sm_121a global-to-TMEM because that target has no direct path.
+// Transfer is a checked operation description. GlobalToTMEM requires
+// TargetSM100a; Validate rejects sm_121a even when Staged is true.
 type Transfer struct {
 	Descriptor          Descriptor
 	Direction           Direction
