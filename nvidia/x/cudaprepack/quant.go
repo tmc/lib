@@ -229,8 +229,8 @@ func quantizeE2M1(v float32) byte {
 	return 15 // -6.0
 }
 
-// PackMXFP4 quantizes float32 data into OCP MXFP4 format and repacks into contiguous
-// hardware tiles conforming to sm_121a 16-byte alignment and 128-byte box width limits.
+// PackMXFP4 quantizes float32 values into 16-byte-aligned row-major MXFP4 payload
+// bytes, float16 group scales, and up to 128-byte box metadata.
 func PackMXFP4(src []float32, rows, cols int, groupSize int) (*PrepackedTensor, error) {
 	if groupSize <= 0 || groupSize%32 != 0 {
 		return nil, fmt.Errorf("cudaprepack: groupSize must be a multiple of 32, got %d", groupSize)
@@ -515,8 +515,8 @@ func UnpackQ8_0(p *PrepackedTensor) ([]byte, error) {
 	return out, nil
 }
 
-// RepackIQ2_XXS repacks standard 66-byte IQ2_XXS super-blocks (2B scale + 64B grid payload)
-// into contiguous 128-byte hardware tiles for sm_121a TMA bulk streaming.
+// RepackIQ2_XXS separates 66-byte IQ2_XXS super-blocks into 16-byte-aligned
+// row-major 64-byte payload rows, 2-byte scales, and up to 128-byte box metadata.
 func RepackIQ2_XXS(rawBlocks []byte, rows, cols int) (*PrepackedTensor, error) {
 	if rows <= 0 {
 		return nil, fmt.Errorf("cudaprepack: IQ2_XXS rows must be positive, got %d", rows)
@@ -636,7 +636,7 @@ func UnpackIQ2_XXS(p *PrepackedTensor) ([]byte, error) {
 	return out, nil
 }
 
-// QuantizeFP8 converts float32 matrix into FP8 E4M3 or E5M2 and formats into contiguous TMA tiles.
+// QuantizeFP8 converts a float32 matrix into 16-byte-aligned row-major FP8 E4M3 or E5M2 payload bytes with up to 128-byte box metadata.
 func QuantizeFP8(src []float32, rows, cols int, dt DataType) (*PrepackedTensor, error) {
 	if dt != TypeFP8_E4M3 && dt != TypeFP8_E5M2 {
 		return nil, fmt.Errorf("cudaprepack: unsupported FP8 type %s", dt)
