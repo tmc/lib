@@ -72,15 +72,16 @@ func returnsError(typ ast.Expr, funcTypes map[string]bool) bool {
 }
 
 // errorFuncCalls returns the calls in f whose callee is a bare identifier
-// naming a function value that returns an error: a parameter of an
-// enclosing function or function literal, or a variable the enclosing
-// function declares with such a type or initializes with such a literal.
-// The release functions passed to GPUScratchpad.release,
+// or struct field selector naming a function value that returns an error:
+// a parameter of an enclosing function or function literal, a struct field
+// declared in f with such a type, or a variable the enclosing function
+// declares with such a type or assigns from a literal or another such
+// function value. The release functions passed to GPUScratchpad.release,
 // GPUModelWeights.free, GPUModules.close and stepTimer.build are called
 // this way. Types are read from the syntax, not type-checked: a named
-// function type counts only if f declares it at top level, and a local
-// counts throughout the function that declares it, so the result errs
-// toward including a call.
+// function type counts only if f declares it at top level, a struct field
+// counts by its name across f, and a local counts throughout the function
+// that declares or assigns it, so the result errs toward including a call.
 func errorFuncCalls(f *ast.File) map[*ast.CallExpr]bool {
 	funcTypes := make(map[string]bool)
 	for _, d := range f.Decls {
@@ -92,6 +93,21 @@ func errorFuncCalls(f *ast.File) map[*ast.CallExpr]bool {
 			}
 		}
 	}
+	funcFields := make(map[string]bool)
+	ast.Inspect(f, func(n ast.Node) bool {
+		st, ok := n.(*ast.StructType)
+		if !ok {
+			return true
+		}
+		for _, field := range st.Fields.List {
+			if returnsError(field.Type, funcTypes) {
+				for _, id := range field.Names {
+					funcFields[id.Name] = true
+				}
+			}
+		}
+		return true
+	})
 	calls := make(map[*ast.CallExpr]bool)
 	var walk func(n ast.Node, names map[string]bool)
 	walk = func(n ast.Node, names map[string]bool) {
@@ -100,8 +116,15 @@ func errorFuncCalls(f *ast.File) map[*ast.CallExpr]bool {
 			var body *ast.BlockStmt
 			switch n := n.(type) {
 			case *ast.CallExpr:
-				if id, ok := n.Fun.(*ast.Ident); ok && names[id.Name] {
-					calls[n] = true
+				switch fn := n.Fun.(type) {
+				case *ast.Ident:
+					if names[fn.Name] {
+						calls[n] = true
+					}
+				case *ast.SelectorExpr:
+					if funcFields[fn.Sel.Name] {
+						calls[n] = true
+					}
 				}
 				return true
 			case *ast.FuncDecl:
@@ -123,29 +146,34 @@ func errorFuncCalls(f *ast.File) map[*ast.CallExpr]bool {
 					inner[id.Name] = returnsError(p.Type, funcTypes)
 				}
 			}
+			isErrorValue := func(e ast.Expr) bool {
+				switch e := e.(type) {
+				case *ast.FuncLit:
+					return returnsError(e.Type, funcTypes)
+				case *ast.Ident:
+					return inner[e.Name]
+				case *ast.SelectorExpr:
+					return funcFields[e.Sel.Name]
+				}
+				return false
+			}
 			ast.Inspect(body, func(n ast.Node) bool {
 				switch s := n.(type) {
 				case *ast.FuncLit:
 					return false
 				case *ast.AssignStmt:
-					if s.Tok != token.DEFINE || len(s.Lhs) != len(s.Rhs) {
+					if (s.Tok != token.DEFINE && s.Tok != token.ASSIGN) || len(s.Lhs) != len(s.Rhs) {
 						break
 					}
 					for i, l := range s.Lhs {
-						id, ok := l.(*ast.Ident)
-						lit, isLit := s.Rhs[i].(*ast.FuncLit)
-						if ok && isLit && returnsError(lit.Type, funcTypes) {
+						if id, ok := l.(*ast.Ident); ok && isErrorValue(s.Rhs[i]) {
 							inner[id.Name] = true
 						}
 					}
 				case *ast.ValueSpec:
 					for i, id := range s.Names {
-						if s.Type != nil && returnsError(s.Type, funcTypes) {
+						if s.Type != nil && returnsError(s.Type, funcTypes) || i < len(s.Values) && isErrorValue(s.Values[i]) {
 							inner[id.Name] = true
-						} else if i < len(s.Values) {
-							if lit, ok := s.Values[i].(*ast.FuncLit); ok && returnsError(lit.Type, funcTypes) {
-								inner[id.Name] = true
-							}
 						}
 					}
 				}
@@ -460,9 +488,9 @@ func TestDiscardedReleasesControls(t *testing.T) {
 
 // TestDiscardedFuncValuesControls checks discardedReleases on calls of
 // function values, inside a function whose parameters include
-// error-returning release functions: forms that report the error or call
-// a function value that returns none, and must-fail forms that each drop
-// an error.
+// error-returning release functions and a struct holding them: forms that
+// report the error or call a function value that returns none, and
+// must-fail forms that each drop an error.
 func TestDiscardedFuncValuesControls(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
@@ -478,6 +506,15 @@ func TestDiscardedFuncValuesControls(t *testing.T) {
 		}`, 1, false},
 		{"positive control: joined", `
 		return errors.Join(vec(v), closer())`, 2, false},
+		{"positive control: local alias tested", `
+		g := vec
+		if err := g(v); err != nil {
+			return err
+		}`, 1, false},
+		{"positive control: struct field tested", `
+		if err := h.fn(v); err != nil {
+			return err
+		}`, 1, false},
 		{"positive control: no error result", `
 		count()`, 0, false},
 		{"positive control: named type with no error result", `
@@ -485,6 +522,15 @@ func TestDiscardedFuncValuesControls(t *testing.T) {
 		{"positive control: local literal with no error result", `
 		fn := func() int { return 0 }
 		fn()`, 0, false},
+		{"positive control: local alias with no error result", `
+		g := count
+		g()`, 0, false},
+		{"positive control: struct field with no error result", `
+		h.count()
+		h.n()`, 0, false},
+		{"positive control: aliased struct field with no error result", `
+		g := h.count
+		g()`, 0, false},
 		{"positive control: shadowed by a literal parameter", `
 		use(func(f32 func()) { f32() })`, 0, false},
 		{"positive control: package function", `
@@ -511,6 +557,39 @@ func TestDiscardedFuncValuesControls(t *testing.T) {
 		{"local variable", `
 		var undo func() error
 		undo()`, 1, true},
+		{"local alias expression statement", `
+		g := vec
+		g(v)`, 1, true},
+		{"local alias blank assignment", `
+		var g = f32
+		_ = g(&sp.Q)`, 1, true},
+		{"local alias assigned after declaration", `
+		var g otherFunc
+		g = vec
+		g(v)`, 1, true},
+		{"chained local alias", `
+		g := vec
+		h2 := g
+		defer h2(v)`, 1, true},
+		{"local literal assigned after declaration", `
+		var g otherFunc
+		g = func() error { return nil }
+		g()`, 1, true},
+		{"struct field expression statement", `
+		h.fn(v)`, 1, true},
+		{"struct field with named type", `
+		_ = h.closer()`, 1, true},
+		{"struct field deferred", `
+		defer h.fn(v)`, 1, true},
+		{"inline struct field", `
+		s := struct{ vec func(*S) error }{vec}
+		s.vec(v)`, 1, true},
+		{"local alias of struct field", `
+		g := h.fn
+		g(v)`, 1, true},
+		{"var alias of struct field", `
+		var g = h.closer
+		g()`, 1, true},
 		{"literal parameter", `
 		use(func(free func() error) { free() })`, 1, true},
 		{"if initializer not tested", `
@@ -523,7 +602,8 @@ func TestDiscardedFuncValuesControls(t *testing.T) {
 		return err`, 1, true},
 	} {
 		src := "package p\ntype releaseFunc func() error\ntype countFunc func() int\n" +
-			"func f(f32, vec func(*S) error, release, setup func() error, next func(int32) (int32, error), count func() int, closer releaseFunc, n countFunc) error {\n" +
+			"type holder struct { fn func(*S) error; closer releaseFunc; count func() int; n countFunc }\n" +
+			"func f(f32, vec func(*S) error, release, setup func() error, next func(int32) (int32, error), count func() int, closer releaseFunc, n countFunc, h holder) error {\n" +
 			tt.body + "\nreturn nil\n}\n"
 		calls, values, bad, err := discardedReleases("control.go", []byte(src))
 		if err != nil {
