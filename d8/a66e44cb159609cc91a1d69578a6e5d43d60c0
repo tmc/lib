@@ -1,0 +1,10 @@
+commit: d8a66e44cb159609cc91a1d69578a6e5d43d60c0
+date: 2026-10-19T02:31:19.792161+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 41987
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-quota-tileir/candidate.patch
+source sha256: 9e456d50adb78035d5ef14af90bfc99808fb656a76a4bad1e39c39e731584090
