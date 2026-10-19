@@ -1,0 +1,10 @@
+commit: 6ae90f61e619caf7b222de332c95be595dd8b928
+date: 2026-10-19T03:52:51.490165+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 92687
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-tileir-tobytecode-doc/candidate.patch
+source sha256: 976a8c576ce2d1a688dba212ee54568ea8dbb5614db57c4e633b0efafb08c2c1
