@@ -1,0 +1,10 @@
+commit: 9a6418b72f8c6ff2dadc8282c8248c630e01c906
+date: 2026-10-19T03:16:00.212250+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 84355
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-nvlink-counters/counter-reader-r3.patch
+source sha256: 8bf33678397d2c6f153f760e040345abef66128a6283a4c0d373d4aa385a87e0
