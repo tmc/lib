@@ -1,0 +1,10 @@
+commit: e172ab8353bdb169d4f04002d6d57bd866c9ab82
+date: 2026-10-19T03:54:18.763126+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 97663
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-telemetry-v5-consumer/candidate.patch
+source sha256: 3dc19f33aa03df891823240debd804d900f06e9aee41a5f701b0a2911b88aabe
