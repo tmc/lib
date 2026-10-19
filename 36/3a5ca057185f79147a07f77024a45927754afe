@@ -1,0 +1,7 @@
+commit=363a5ca057185f79147a07f77024a45927754afe
+date=2026-10-19T03:11:33Z
+agent=agy
+model=gemini-4-argon-medium
+gates=gofmt:ok,vet:ok,test:99_pass_17_skip_0_fail,linux:ok
+mutants=M1_graph_token_in:TestDecodeGraphBuildAndSetPosition,M2_rope_pos_idx:TestDecodeGraphBuildAndSetPosition,M3_skip_prepare_attn:TestDecodeGraphBuildAndSetPosition,M4_close_order:TestDecodeGraphCloseAndSetupErrors
+restored_sha256=c6dd3067366a61b5e888decd1cf9db1245238efcabd10a8fbf19f696565d2deb
