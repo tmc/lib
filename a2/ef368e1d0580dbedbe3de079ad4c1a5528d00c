@@ -1,0 +1,10 @@
+commit: a2ef368e1d0580dbedbe3de079ad4c1a5528d00c
+date: 2026-10-19T02:35:28.696624+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 61551
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-w2c-flightrecorder-s5/candidate-combined.patch
+source sha256: 3c68462794e574432b8587f767c5ea4332374da610d3f87438e23d7c4bf740f4
