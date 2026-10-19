@@ -1,0 +1,10 @@
+commit: 58dfb70ce04460d2b5999b82674e53ee0a931f8a
+date: 2026-10-19T03:35:46.549400+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 13475
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-search-receipt-error-fix/candidate.patch
+source sha256: 8e8161ca07549b5d21a39a5da1f9da787fc25cf2b5bf18ee939d0c9fce2fa959
