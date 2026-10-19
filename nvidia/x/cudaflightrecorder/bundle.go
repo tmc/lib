@@ -3,6 +3,7 @@ package cudaflightrecorder
 import (
 	"archive/tar"
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -226,8 +227,17 @@ var (
 	ErrArtifactInvalid        = errors.New("cudaflightrecorder: invalid artifact format")
 )
 
+// FaultSchemaVersion is the current schema version for exported FaultInfo and
+// NegativeRewriteConstraint replay and quarantine records.
+const (
+	FaultSchemaVersion                     = 1
+	FaultInfoSchemaVersion                 = FaultSchemaVersion
+	NegativeRewriteConstraintSchemaVersion = FaultSchemaVersion
+)
+
 // FaultInfo describes a GPU fault or abort event for zero-device crash dump generation.
 type FaultInfo struct {
+	SchemaVersion    int               `json:"schema_version"`
 	TimestampNs      int64             `json:"timestamp_ns"`
 	ErrorCode        int               `json:"error_code"`
 	ErrorName        string            `json:"error_name"`
@@ -241,15 +251,273 @@ type FaultInfo struct {
 	Labels           map[string]string `json:"labels,omitempty"`
 }
 
+type faultInfoWire struct {
+	SchemaVersion    int               `json:"schema_version"`
+	TimestampNs      int64             `json:"timestamp_ns"`
+	ErrorCode        int               `json:"error_code"`
+	ErrorName        string            `json:"error_name"`
+	ErrorMessage     string            `json:"error_message"`
+	OffendingKernel  string            `json:"offending_kernel,omitempty"`
+	CorrelationID    uint64            `json:"correlation_id,omitempty"`
+	ModuleID         string            `json:"module_id,omitempty"`
+	ModuleDigest     string            `json:"module_digest,omitempty"`
+	ModuleGeneration uint64            `json:"module_generation,omitempty"`
+	FailedRuleNames  []string          `json:"failed_rule_names,omitempty"`
+	Labels           map[string]string `json:"labels,omitempty"`
+}
+
+// MarshalJSON encodes f with an explicit schema_version, defaulting zero
+// SchemaVersion values to FaultInfoSchemaVersion and rejecting unknown versions.
+func (f FaultInfo) MarshalJSON() ([]byte, error) {
+	version := f.SchemaVersion
+	if version == 0 {
+		version = FaultInfoSchemaVersion
+	}
+	if version != FaultInfoSchemaVersion {
+		return nil, fmt.Errorf("%w: unsupported fault schema version %d (want %d)", ErrArtifactInvalid, f.SchemaVersion, FaultInfoSchemaVersion)
+	}
+	return json.Marshal(faultInfoWire{
+		SchemaVersion:    version,
+		TimestampNs:      f.TimestampNs,
+		ErrorCode:        f.ErrorCode,
+		ErrorName:        f.ErrorName,
+		ErrorMessage:     f.ErrorMessage,
+		OffendingKernel:  f.OffendingKernel,
+		CorrelationID:    f.CorrelationID,
+		ModuleID:         f.ModuleID,
+		ModuleDigest:     f.ModuleDigest,
+		ModuleGeneration: f.ModuleGeneration,
+		FailedRuleNames:  f.FailedRuleNames,
+		Labels:           f.Labels,
+	})
+}
+
+// UnmarshalJSON decodes f and validates its wire schema_version.
+func (f *FaultInfo) UnmarshalJSON(data []byte) error {
+	if f == nil {
+		return errors.New("cudaflightrecorder: nil FaultInfo")
+	}
+	var wire faultInfoWire
+	if err := decodeStrictJSON(data, &wire); err != nil {
+		return fmt.Errorf("%w: decode fault info: %w", ErrArtifactInvalid, err)
+	}
+	if wire.SchemaVersion != FaultInfoSchemaVersion {
+		return fmt.Errorf("%w: unsupported fault schema version %d (want %d)", ErrArtifactInvalid, wire.SchemaVersion, FaultInfoSchemaVersion)
+	}
+	*f = FaultInfo(wire)
+	return nil
+}
+
+// Validate checks that f carries a supported schema version, a non-empty fault
+// error identity, and (when present) a 64-character hexadecimal SHA-256
+// ModuleDigest.
+func (f *FaultInfo) Validate() error {
+	if f == nil {
+		return fmt.Errorf("%w: nil fault info", ErrArtifactInvalid)
+	}
+	if f.SchemaVersion != FaultInfoSchemaVersion {
+		return fmt.Errorf("%w: unsupported fault schema version %d (want %d)", ErrArtifactInvalid, f.SchemaVersion, FaultInfoSchemaVersion)
+	}
+	if strings.TrimSpace(f.ErrorName) == "" && f.ErrorCode == 0 && strings.TrimSpace(f.ErrorMessage) == "" {
+		return fmt.Errorf("%w: fault info missing error identity", ErrArtifactInvalid)
+	}
+	if f.ModuleDigest != "" && !validCandidateDigest(f.ModuleDigest) {
+		return fmt.Errorf("%w: invalid fault module digest %q", ErrArtifactInvalid, f.ModuleDigest)
+	}
+	return nil
+}
+
+// DecodeFaultInfo decodes a versioned FaultInfo JSON payload and validates it
+// for offline replay or hypothesis admission.
+func DecodeFaultInfo(data []byte) (FaultInfo, error) {
+	var info FaultInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		if !errors.Is(err, ErrArtifactInvalid) {
+			return FaultInfo{}, fmt.Errorf("%w: %w", ErrArtifactInvalid, err)
+		}
+		return FaultInfo{}, err
+	}
+	if err := info.Validate(); err != nil {
+		return FaultInfo{}, err
+	}
+	return info, nil
+}
+
 // NegativeRewriteConstraint represents a negative rewrite rule exported in a crash dump
 // to feed negative constraints to egraph search.
 type NegativeRewriteConstraint struct {
+	SchemaVersion    int       `json:"schema_version"`
 	CandidateDigest  string    `json:"candidate_digest"`
 	OffendingKernel  string    `json:"offending_kernel"`
 	QuarantinedRules []string  `json:"quarantined_rules"`
 	Reason           string    `json:"reason"`
 	PruneSubtree     bool      `json:"prune_subtree"`
 	Timestamp        time.Time `json:"timestamp"`
+}
+
+type negativeRewriteConstraintWire struct {
+	SchemaVersion    int       `json:"schema_version"`
+	CandidateDigest  string    `json:"candidate_digest"`
+	OffendingKernel  string    `json:"offending_kernel"`
+	QuarantinedRules []string  `json:"quarantined_rules"`
+	Reason           string    `json:"reason"`
+	PruneSubtree     bool      `json:"prune_subtree"`
+	Timestamp        time.Time `json:"timestamp"`
+}
+
+// MarshalJSON encodes c with an explicit schema_version, defaulting zero
+// SchemaVersion values to NegativeRewriteConstraintSchemaVersion and rejecting
+// unknown schema versions or invalid candidate digests.
+func (c NegativeRewriteConstraint) MarshalJSON() ([]byte, error) {
+	version := c.SchemaVersion
+	if version == 0 {
+		version = NegativeRewriteConstraintSchemaVersion
+	}
+	if version != NegativeRewriteConstraintSchemaVersion {
+		return nil, fmt.Errorf("%w: unsupported negative rewrite constraint schema version %d (want %d)", ErrArtifactInvalid, c.SchemaVersion, NegativeRewriteConstraintSchemaVersion)
+	}
+	if c.CandidateDigest != "" && !validCandidateDigest(c.CandidateDigest) {
+		return nil, fmt.Errorf("%w: invalid candidate digest %q", ErrArtifactInvalid, c.CandidateDigest)
+	}
+	if c.CandidateDigest == "" && (c.PruneSubtree || len(c.QuarantinedRules) > 0) {
+		return nil, fmt.Errorf("%w: broad rewrite ban without exact candidate digest", ErrArtifactInvalid)
+	}
+	return json.Marshal(negativeRewriteConstraintWire{
+		SchemaVersion:    version,
+		CandidateDigest:  c.CandidateDigest,
+		OffendingKernel:  c.OffendingKernel,
+		QuarantinedRules: c.QuarantinedRules,
+		Reason:           c.Reason,
+		PruneSubtree:     c.PruneSubtree,
+		Timestamp:        c.Timestamp,
+	})
+}
+
+// UnmarshalJSON decodes c and validates its wire schema_version and candidate
+// digest format. Withheld constraints (empty CandidateDigest with no broad rule
+// or subtree ban) remain inspectable after unmarshaling; DecodeNegativeRewriteConstraint
+// and Validate enforce exact-candidate quarantine admission.
+func (c *NegativeRewriteConstraint) UnmarshalJSON(data []byte) error {
+	if c == nil {
+		return errors.New("cudaflightrecorder: nil NegativeRewriteConstraint")
+	}
+	var wire negativeRewriteConstraintWire
+	if err := decodeStrictJSON(data, &wire); err != nil {
+		return fmt.Errorf("%w: decode negative rewrite constraint: %w", ErrArtifactInvalid, err)
+	}
+	if wire.SchemaVersion != NegativeRewriteConstraintSchemaVersion {
+		return fmt.Errorf("%w: unsupported negative rewrite constraint schema version %d (want %d)", ErrArtifactInvalid, wire.SchemaVersion, NegativeRewriteConstraintSchemaVersion)
+	}
+	if wire.CandidateDigest != "" && !validCandidateDigest(wire.CandidateDigest) {
+		return fmt.Errorf("%w: invalid candidate digest %q", ErrArtifactInvalid, wire.CandidateDigest)
+	}
+	if wire.CandidateDigest == "" && (wire.PruneSubtree || len(wire.QuarantinedRules) > 0) {
+		return fmt.Errorf("%w: broad rewrite ban without exact candidate digest", ErrArtifactInvalid)
+	}
+	*c = NegativeRewriteConstraint{
+		SchemaVersion:    wire.SchemaVersion,
+		CandidateDigest:  wire.CandidateDigest,
+		OffendingKernel:  wire.OffendingKernel,
+		QuarantinedRules: wire.QuarantinedRules,
+		Reason:           wire.Reason,
+		PruneSubtree:     wire.PruneSubtree,
+		Timestamp:        wire.Timestamp,
+	}
+	return nil
+}
+
+// Validate checks that c is an admitted versioned exact-candidate quarantine
+// constraint: it must carry NegativeRewriteConstraintSchemaVersion, a valid
+// 64-character hexadecimal SHA-256 CandidateDigest, a non-empty Reason, and no
+// unreproduced broad rule bans or subtree pruning.
+func (c *NegativeRewriteConstraint) Validate() error {
+	if c == nil {
+		return fmt.Errorf("%w: nil negative rewrite constraint", ErrArtifactInvalid)
+	}
+	if c.SchemaVersion != NegativeRewriteConstraintSchemaVersion {
+		return fmt.Errorf("%w: unsupported negative rewrite constraint schema version %d (want %d)", ErrArtifactInvalid, c.SchemaVersion, NegativeRewriteConstraintSchemaVersion)
+	}
+	if !validCandidateDigest(c.CandidateDigest) {
+		return fmt.Errorf("%w: negative rewrite constraint requires exact 64-hex SHA256 candidate digest", ErrArtifactInvalid)
+	}
+	if strings.TrimSpace(c.Reason) == "" {
+		return fmt.Errorf("%w: negative rewrite constraint missing reason", ErrArtifactInvalid)
+	}
+	if c.PruneSubtree || len(c.QuarantinedRules) > 0 {
+		return fmt.Errorf("%w: broad rewrite ban or subtree prune requires reproduction", ErrArtifactInvalid)
+	}
+	return nil
+}
+
+// DecodeNegativeRewriteConstraint decodes a versioned NegativeRewriteConstraint
+// JSON payload and validates it for exact-candidate quarantine admission.
+func DecodeNegativeRewriteConstraint(data []byte) (NegativeRewriteConstraint, error) {
+	var c NegativeRewriteConstraint
+	if err := json.Unmarshal(data, &c); err != nil {
+		if !errors.Is(err, ErrArtifactInvalid) {
+			return NegativeRewriteConstraint{}, fmt.Errorf("%w: %w", ErrArtifactInvalid, err)
+		}
+		return NegativeRewriteConstraint{}, err
+	}
+	if err := c.Validate(); err != nil {
+		return NegativeRewriteConstraint{}, err
+	}
+	return c, nil
+}
+
+// DecodeFaultEvidence extracts and validates the versioned fault.json and
+// negative_rules.json replay/quarantine artifacts from b, requiring an exact
+// matching 64-hex SHA-256 candidate digest and offending kernel identity.
+func (b *Bundle) DecodeFaultEvidence() (FaultInfo, NegativeRewriteConstraint, error) {
+	if b == nil {
+		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: nil bundle", ErrArtifactInvalid)
+	}
+	faultBytes, ok := b.Files["fault.json"]
+	if !ok {
+		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: bundle missing fault.json", ErrArtifactInvalid)
+	}
+	negBytes, ok := b.Files["negative_rules.json"]
+	if !ok {
+		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: bundle missing negative_rules.json", ErrArtifactInvalid)
+	}
+	fault, err := DecodeFaultInfo(faultBytes)
+	if err != nil {
+		return FaultInfo{}, NegativeRewriteConstraint{}, err
+	}
+	constraint, err := DecodeNegativeRewriteConstraint(negBytes)
+	if err != nil {
+		return FaultInfo{}, NegativeRewriteConstraint{}, err
+	}
+	if fault.ModuleDigest != constraint.CandidateDigest {
+		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: fault module digest %q does not match constraint candidate digest %q", ErrArtifactInvalid, fault.ModuleDigest, constraint.CandidateDigest)
+	}
+	if fault.OffendingKernel != constraint.OffendingKernel {
+		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: fault offending kernel %q does not match constraint kernel %q", ErrArtifactInvalid, fault.OffendingKernel, constraint.OffendingKernel)
+	}
+	return fault, constraint, nil
+}
+
+func validCandidateDigest(digest string) bool {
+	if len(digest) != 64 {
+		return false
+	}
+	decoded, err := hex.DecodeString(digest)
+	return err == nil && len(decoded) == 32
+}
+
+func decodeStrictJSON(data []byte, dst any) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	if dec.More() {
+		return errors.New("unexpected trailing JSON data")
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return errors.New("unexpected trailing JSON token")
+	}
+	return nil
 }
 
 // SnapshotDiskManager manages regular files in one snapshot directory. Use a

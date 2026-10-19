@@ -33,8 +33,10 @@ func TestFaultPolicyCandidateOnly(t *testing.T) {
 		if err := json.Unmarshal(bundle.Files["fault.json"], &got); err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(got, fault) {
-			t.Fatalf("fault facts changed: %+v", got)
+		want := fault
+		want.SchemaVersion = cudaflightrecorder.FaultInfoSchemaVersion
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("fault facts changed: got %+v, want %+v", got, want)
 		}
 		if err := json.Unmarshal(bundle.Files["negative_rules.json"], &policy); err != nil {
 			t.Fatal(err)
