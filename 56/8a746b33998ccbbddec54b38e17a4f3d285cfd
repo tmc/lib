@@ -1,0 +1,10 @@
+commit: 568a746b33998ccbbddec54b38e17a4f3d285cfd
+date: 2026-10-19T03:39:36.606966+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 34532
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-claude-workhorse/e-f40/candidate.patch
+source sha256: ab9acf758994116e74a5d2b0230e9b4afa74727593fa3a82f7c627e854dd9a67
