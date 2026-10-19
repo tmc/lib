@@ -13,33 +13,38 @@ const (
 )
 
 // DefaultMetricRegistryVersion is the current version of the metric definitions dictionary.
-const DefaultMetricRegistryVersion = "2026.10-v2"
+const DefaultMetricRegistryVersion = "2026.10-v3"
 
 // metricKinds maps canonical metric names to their MetricKind classification.
 var metricKinds = map[string]MetricKind{
-	MetricGPUUtilization:      KindGauge,
-	MetricMemoryUtilization:   KindGauge,
-	MetricMemoryUsedBytes:     KindGauge,
-	MetricMemoryTotalBytes:    KindGauge,
-	MetricPowerUsageMW:        KindGauge,
-	MetricTotalEnergyMJ:       KindCounter,
-	MetricTemperatureC:        KindGauge,
-	MetricSMClockMHz:          KindGauge,
-	MetricMemoryClockMHz:      KindGauge,
-	MetricClocksEventReasons:  KindBitmask,
-	MetricSMActivity:          KindGauge,
-	MetricTensorActivity:      KindGauge,
-	MetricDRAMActivity:        KindGauge,
-	MetricPCIeRxBytesPerSec:   KindGauge,
-	MetricPCIeTxBytesPerSec:   KindGauge,
-	MetricNVLinkRxBytesPerSec: KindGauge,
-	MetricNVLinkTxBytesPerSec: KindGauge,
-	MetricThrottleReasons:     KindBitmask,
-	MetricPCIERxBytes:         KindCounter,
-	MetricPCIETxBytes:         KindCounter,
-	MetricXIDEvent:            KindEvent,
-	"imex_domain_status":      KindEvent,
-	"imex_daemon_status":      KindEvent,
+	"nvlink_dl_replay_errors":   KindCounter,
+	"nvlink_dl_recovery_errors": KindCounter,
+	"nvlink_dl_crc_flit_errors": KindCounter,
+	"nvlink_dl_crc_data_errors": KindCounter,
+	"nvlink_dl_ecc_data_errors": KindCounter,
+	MetricGPUUtilization:        KindGauge,
+	MetricMemoryUtilization:     KindGauge,
+	MetricMemoryUsedBytes:       KindGauge,
+	MetricMemoryTotalBytes:      KindGauge,
+	MetricPowerUsageMW:          KindGauge,
+	MetricTotalEnergyMJ:         KindCounter,
+	MetricTemperatureC:          KindGauge,
+	MetricSMClockMHz:            KindGauge,
+	MetricMemoryClockMHz:        KindGauge,
+	MetricClocksEventReasons:    KindBitmask,
+	MetricSMActivity:            KindGauge,
+	MetricTensorActivity:        KindGauge,
+	MetricDRAMActivity:          KindGauge,
+	MetricPCIeRxBytesPerSec:     KindGauge,
+	MetricPCIeTxBytesPerSec:     KindGauge,
+	MetricNVLinkRxBytesPerSec:   KindGauge,
+	MetricNVLinkTxBytesPerSec:   KindGauge,
+	MetricThrottleReasons:       KindBitmask,
+	MetricPCIERxBytes:           KindCounter,
+	MetricPCIETxBytes:           KindCounter,
+	MetricXIDEvent:              KindEvent,
+	"imex_domain_status":        KindEvent,
+	"imex_daemon_status":        KindEvent,
 }
 
 // LookupMetricKind returns the kind classification for a metric name, and whether it was found.
