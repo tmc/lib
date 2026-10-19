@@ -1,0 +1,10 @@
+commit: 2f0890b9fe792ac1da854ed245f2741fa04c289d
+date: 2026-10-19T02:35:29.740112+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 61551
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-quota-capture-reannouncement/owner-lifecycle.patch
+source sha256: 9f05c78f940188ab0f2961d7ba5e2d8f88c9a52180920383c08f7e711a5a2b33
