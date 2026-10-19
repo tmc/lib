@@ -44,15 +44,38 @@ func PlanCongruencePass[ID comparable, Node any, Key comparable](
 	if key == nil || equal == nil {
 		return CongruencePlan[ID, Node]{}, ErrInvalidCongruencePass
 	}
-	plan := CongruencePlan[ID, Node]{
-		Nodes:   make([]OwnedNode[ID, Node], 0, len(owned)),
-		ByOwner: make(map[ID][]Node),
-		Merges:  make([]OwnerPair[ID], 0),
+	return planCongruencePass(owned, func(n Node) (Key, error) { return key(n), nil }, equal, mergeEquivalent, nil)
+}
+
+func planCongruencePass[ID comparable, Node any, Key comparable](owned []OwnedNode[ID, Node], key func(Node) (Key, error), equal func(Node, Node) bool, mergeEquivalent func(Node, Node) Node, budget *WorkBudget) (CongruencePlan[ID, Node], error) {
+	nodes, ok := memorySlice[OwnedNode[ID, Node]](budget, 0, len(owned))
+	if !ok {
+		return CongruencePlan[ID, Node]{}, budget.MemoryError()
 	}
-	buckets := make(map[Key][]int)
-	mergedOwners := make(map[OwnerPair[ID]]struct{})
+	byOwner, ok := memoryMap[ID, []Node](budget, 0)
+	if !ok {
+		return CongruencePlan[ID, Node]{}, budget.MemoryError()
+	}
+	merges, ok := memorySlice[OwnerPair[ID]](budget, 0, 0)
+	if !ok {
+		return CongruencePlan[ID, Node]{}, budget.MemoryError()
+	}
+	plan := CongruencePlan[ID, Node]{
+		Nodes: nodes, ByOwner: byOwner, Merges: merges,
+	}
+	buckets, ok := memoryMap[Key, []int](budget, 0)
+	if !ok {
+		return plan, budget.MemoryError()
+	}
+	mergedOwners, ok := memoryMap[OwnerPair[ID], struct{}](budget, 0)
+	if !ok {
+		return plan, budget.MemoryError()
+	}
 	for _, candidate := range owned {
-		k := key(candidate.Node)
+		k, err := key(candidate.Node)
+		if err != nil {
+			return plan, err
+		}
 		duplicate := -1
 		for _, index := range buckets[k] {
 			if equal(plan.Nodes[index].Node, candidate.Node) {
@@ -61,7 +84,10 @@ func PlanCongruencePass[ID comparable, Node any, Key comparable](
 			}
 		}
 		if duplicate < 0 {
-			buckets[k] = append(buckets[k], len(plan.Nodes))
+			bucket, ok := memoryAppend(budget, buckets[k], len(plan.Nodes))
+			if !ok || !memoryPut(budget, buckets, k, bucket) {
+				return plan, budget.MemoryError()
+			}
 			plan.Nodes = append(plan.Nodes, candidate)
 			continue
 		}
@@ -74,12 +100,21 @@ func PlanCongruencePass[ID comparable, Node any, Key comparable](
 		}
 		pair := OwnerPair[ID]{Left: kept.Owner, Right: candidate.Owner}
 		if _, exists := mergedOwners[pair]; !exists {
-			mergedOwners[pair] = struct{}{}
-			plan.Merges = append(plan.Merges, pair)
+			if !memoryPut(budget, mergedOwners, pair, struct{}{}) {
+				return plan, budget.MemoryError()
+			}
+			var ok bool
+			plan.Merges, ok = memoryAppend(budget, plan.Merges, pair)
+			if !ok {
+				return plan, budget.MemoryError()
+			}
 		}
 	}
 	for _, node := range plan.Nodes {
-		plan.ByOwner[node.Owner] = append(plan.ByOwner[node.Owner], node.Node)
+		group, ok := memoryAppend(budget, plan.ByOwner[node.Owner], node.Node)
+		if !ok || !memoryPut(budget, plan.ByOwner, node.Owner, group) {
+			return plan, budget.MemoryError()
+		}
 	}
 	return plan, nil
 }
@@ -98,7 +133,14 @@ func ApplyCongruencePass[ID ~uint32, Node any, Key comparable](
 	if graphIsNil(graph) {
 		return CongruencePlan[ID, Node]{}, 0, ErrInvalidCongruencePass
 	}
-	plan, err := PlanCongruencePass(owned, key, equal, mergeEquivalent)
+	if key == nil || equal == nil {
+		return CongruencePlan[ID, Node]{}, 0, ErrInvalidCongruencePass
+	}
+	return applyCongruencePass(graph, owned, func(n Node) (Key, error) { return key(n), nil }, equal, mergeEquivalent, nil)
+}
+
+func applyCongruencePass[ID ~uint32, Node any, Key comparable](graph Graph[ID, Node], owned []OwnedNode[ID, Node], key func(Node) (Key, error), equal func(Node, Node) bool, mergeEquivalent func(Node, Node) Node, budget *WorkBudget) (CongruencePlan[ID, Node], int, error) {
+	plan, err := planCongruencePass(owned, key, equal, mergeEquivalent, budget)
 	if err != nil {
 		return CongruencePlan[ID, Node]{}, 0, err
 	}

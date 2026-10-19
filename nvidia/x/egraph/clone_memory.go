@@ -2,7 +2,6 @@ package egraph
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/tmc/lib/egraphcore"
 )
@@ -16,7 +15,7 @@ import (
 // its legacy cyclic-payload behavior. The source is never canonicalized.
 func (g *EGraph) CloneWithBudget(ctx context.Context, budget *egraphcore.WorkBudget) (*EGraph, error) {
 	if ctx == nil {
-		return nil, fmt.Errorf("egraph: nil clone context")
+		return nil, graphErrorf(budget, "egraph: nil clone context")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -131,7 +130,7 @@ func (g *EGraph) CloneWithBudget(ctx context.Context, budget *egraphcore.WorkBud
 // borrowed, matching TypedMetadata.Clone. A nil scope uses ordinary Clone.
 func (s *SearchState) CloneWithBudget(ctx context.Context, budget *egraphcore.WorkBudget) (*SearchState, error) {
 	if ctx == nil {
-		return nil, fmt.Errorf("egraph: nil clone context")
+		return nil, graphErrorf(budget, "egraph: nil clone context")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -203,9 +202,12 @@ func (s *SearchState) CloneWithBudget(ctx context.Context, budget *egraphcore.Wo
 
 // ApplyActionWithCloneBudget admits one detached clone before validation can
 // canonicalize or rebuild a graph, then runs the existing checked executor on
-// that clone without a second copy. Only cloning and the returned result object
-// have allocation-site admission here: matching, fact staging, RHS, union,
-// rebuild and derivation growth remain outside this guarantee. The caller owns
+// that clone without a second copy. Matching, fact staging, graph mutation and
+// retained action storage share the clone's allocation owner. Temporary and
+// replaced storage remains charged through the last use of all results.
+// This includes returned validation errors: callers inspect or retain an error
+// before closing the scope. Callback errors propagate without invoking Error.
+// Unsupported payload operations return ErrMemoryOperation. The caller owns
 // budget's MemoryScope, including on failure. A nil scope uses ApplyAction.
 func (s *SearchState) ApplyActionWithCloneBudget(ctx context.Context, candidate ActionCandidate, budget *egraphcore.WorkBudget) (*TransitionResult, error) {
 	if budget.MemoryScope() == nil {
@@ -216,9 +218,9 @@ func (s *SearchState) ApplyActionWithCloneBudget(ctx context.Context, candidate 
 		return nil, err
 	}
 	if cloned == nil {
-		return nil, fmt.Errorf("egraph: nil search state or graph")
+		return nil, graphErrorf(budget, "egraph: nil search state or graph")
 	}
-	return cloned.applyAction(candidate, cloned, budget)
+	return cloned.applyAction(ctx, candidate, cloned, budget)
 }
 
 func transitionWithBudget(result TransitionResult, budget *egraphcore.WorkBudget) (*TransitionResult, error) {

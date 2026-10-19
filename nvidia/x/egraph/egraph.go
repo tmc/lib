@@ -2,6 +2,7 @@ package egraph
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -228,18 +229,35 @@ func (g *EGraph) Add(node ENode) Id {
 }
 
 func (g *EGraph) addFrom(node ENode, origin string) Id {
+	id, _ := g.addFromWithBudget(node, origin, nil)
+	return id
+}
+
+func (g *EGraph) addFromWithBudget(node ENode, origin string, budget *egraphcore.WorkBudget) (Id, error) {
 	if g == nil {
-		return 0
+		return 0, ErrMemoryOperation
 	}
 	if len(g.worklist) != 0 {
-		if err := g.RebuildChecked(); err != nil {
-			return 0
+		if _, err := g.rebuildWithBudget(budget); err != nil {
+			return 0, err
 		}
 	}
-	node.Data = cloneData(node.Data)
-	canon := g.Canonicalize(node)
-	key := canon.Key()
-	if id, ok, err := egraphcore.FindMemoCandidateIter(
+	if budget.MemoryScope() == nil {
+		node.Data = cloneData(node.Data)
+	} else if node.Data != nil {
+		if _, ok := node.Data.(string); !ok {
+			return 0, ErrMemoryOperation
+		}
+	}
+	canon, err := g.canonicalizeWithBudget(node, budget)
+	if err != nil {
+		return 0, err
+	}
+	key, err := lookupNodeKey(canon, budget)
+	if err != nil {
+		return 0, err
+	}
+	if id, ok, err := egraphcore.FindMemoCandidateIterWithBudget(
 		func(visit func(Id) bool) { g.storage().VisitMemoCandidates(key, visit) },
 		canon,
 		g.Find,
@@ -249,39 +267,56 @@ func (g *EGraph) addFrom(node ENode, origin string) Id {
 			}
 			return nil
 		},
-		g.Canonicalize,
+		func(n ENode) (ENode, error) { return g.canonicalizeWithBudget(n, budget) },
 		func(a, b ENode) bool { return a.Equal(b) },
-	); err == nil && ok {
-		return id
+		budget,
+	); err != nil {
+		return 0, err
+	} else if ok {
+		return id, nil
 	}
 
-	newID, ok := g.storage().Insert(key, func(id Id) *EClass {
-		return &EClass{
-			ID:    id,
-			Nodes: []ENode{canon},
+	newID, err := g.storage().InsertWithBudget(key, func(id Id) (*EClass, error) {
+		nodes, err := graphSlice[ENode](budget, 1, 1)
+		if err != nil {
+			return nil, err
 		}
-	})
-	if !ok {
-		return 0
+		nodes[0] = canon
+		if err := graphSlots[EClass](budget, 1); err != nil {
+			return nil, err
+		}
+		return &EClass{ID: id, Nodes: nodes}, nil
+	}, budget)
+	if err != nil {
+		return 0, err
 	}
 
 	// Register as parent on children e-classes
 	for _, childID := range canon.Children {
 		childClass := g.storage().Class(g.Find(childID))
 		if childClass != nil {
-			childClass.parents = append(childClass.parents, parentRef{
+			parents, err := graphAppend(budget, childClass.parents, parentRef{
 				node:    canon,
 				classID: newID,
 			})
+			if err != nil {
+				return 0, err
+			}
+			childClass.parents = parents
 		}
 	}
 	if g.origins == nil {
-		g.origins = make(map[string]string)
+		g.origins, err = graphMap[string, string](budget, 0)
+		if err != nil {
+			return 0, err
+		}
 	}
-	g.origins[key] = origin
+	if err := graphPut(budget, g.origins, key, origin); err != nil {
+		return 0, err
+	}
 	g.revision++
 
-	return newID
+	return newID, nil
 }
 
 // AddChecked validates the operator, child IDs, and payload before insertion.
@@ -356,20 +391,50 @@ func (g *EGraph) Union(id1, id2 Id) (Id, bool) {
 // Relation recanonicalization is handled by the public union operation so the
 // checked and unchecked paths can share class mutation without hiding errors.
 func (g *EGraph) unionRoots(root1, root2 Id) (Id, bool) {
+	id, changed, _ := g.unionRootsWithBudget(root1, root2, nil)
+	return id, changed
+}
+
+func (g *EGraph) unionRootsWithBudget(root1, root2 Id, budget *egraphcore.WorkBudget) (Id, bool, error) {
 	// Merge smaller classes into larger classes with a deterministic ID tie-break.
 	c1 := g.storage().Class(root1)
 	c2 := g.storage().Class(root2)
 
 	winner := root1
+	worklist, err := graphAppend(budget, g.worklist, root1)
+	if err != nil {
+		return root1, false, err
+	}
 	if c1 != nil && c2 != nil {
+		// Both possible winner arrays are admitted before linking the roots.
+		// Preserve the core's winner policy; its merge callback cannot fail.
+		leftNodes, err := graphAppend(budget, c1.Nodes, c2.Nodes...)
+		if err != nil {
+			return root1, false, err
+		}
+		leftParents, err := graphAppend(budget, c1.parents, c2.parents...)
+		if err != nil {
+			return root1, false, err
+		}
+		rightNodes, err := graphAppend(budget, c2.Nodes, c1.Nodes...)
+		if err != nil {
+			return root1, false, err
+		}
+		rightParents, err := graphAppend(budget, c2.parents, c1.parents...)
+		if err != nil {
+			return root1, false, err
+		}
 		var merged bool
 		winner, merged = g.storage().MergeRootsBySize(root1, root2, func(winner, loser *EClass) *EClass {
-			winner.Nodes = append(winner.Nodes, loser.Nodes...)
-			winner.parents = append(winner.parents, loser.parents...)
+			if winner == c1 {
+				winner.Nodes, winner.parents = leftNodes, leftParents
+			} else {
+				winner.Nodes, winner.parents = rightNodes, rightParents
+			}
 			return winner
 		})
 		if !merged {
-			return root1, false
+			return root1, false, nil
 		}
 	} else {
 		var linked bool
@@ -377,37 +442,45 @@ func (g *EGraph) unionRoots(root1, root2 Id) (Id, bool) {
 		if !linked {
 			// Preserve the legacy unchecked Union behavior for partially populated
 			// stores: link valid roots even when class records are missing.
-			return root1, false
+			return root1, false, nil
 		}
 	}
-	g.worklist = append(g.worklist, winner)
+	worklist[len(worklist)-1] = winner
+	g.worklist = worklist
 	g.revision++
-	return winner, true
+	return winner, true, nil
 }
 
 // UnionChecked merges two valid classes and reports invalid IDs or missing
 // class state. Fact recanonicalization errors are returned after the union;
 // callers should rebuild before relying on graph invariants.
 func (g *EGraph) UnionChecked(id1, id2 Id) (Id, bool, error) {
+	return g.unionCheckedWithBudget(id1, id2, nil)
+}
+
+func (g *EGraph) unionCheckedWithBudget(id1, id2 Id, budget *egraphcore.WorkBudget) (Id, bool, error) {
 	if g == nil {
-		return 0, false, fmt.Errorf("egraph: nil graph")
+		return 0, false, graphErrorf(budget, "egraph: nil graph")
 	}
 	root1, root2, status := g.storage().ResolveRoots(id1, id2)
 	if status == egraphcore.RootPairInvalidID {
-		return 0, false, fmt.Errorf("egraph: invalid class ID")
+		return 0, false, graphErrorf(budget, "egraph: invalid class ID")
 	}
 	if status == egraphcore.RootPairSame {
 		return root1, false, nil
 	}
 	if status == egraphcore.RootPairMissingClass || g.storage().Class(root1) == nil || g.storage().Class(root2) == nil {
-		return 0, false, fmt.Errorf("egraph: missing class during union (%d, %d)", root1, root2)
+		return 0, false, graphErrorf(budget, "egraph: missing class during union (%d, %d)", root1, root2)
 	}
-	root, merged := g.unionRoots(root1, root2)
+	root, merged, err := g.unionRootsWithBudget(root1, root2, budget)
+	if err != nil {
+		return root, merged, err
+	}
 	if !merged {
-		return 0, false, fmt.Errorf("egraph: failed to union classes (%d, %d)", root1, root2)
+		return 0, false, graphErrorf(budget, "egraph: failed to union classes (%d, %d)", root1, root2)
 	}
 	if facts := g.Facts(); facts != nil {
-		if err := facts.Recanonicalize(g.Find); err != nil {
+		if err := facts.RecanonicalizeWithBudget(g.Find, budget); err != nil {
 			return root, true, err
 		}
 	}
@@ -421,13 +494,27 @@ func (g *EGraph) Rebuild() int {
 }
 
 func (g *EGraph) rebuildChecked() (int, error) {
+	return g.rebuildWithBudget(nil)
+}
+
+func (g *EGraph) rebuildWithBudget(budget *egraphcore.WorkBudget) (int, error) {
 	if g == nil {
-		return 0, fmt.Errorf("egraph: nil graph")
+		return 0, graphErrorf(budget, "egraph: nil graph")
 	}
-	pending := append([]Id(nil), g.worklist...)
+	pending, err := graphSlice[Id](budget, len(g.worklist), len(g.worklist))
+	if err != nil {
+		return 0, err
+	}
+	copy(pending, g.worklist)
 	restorePending := func() {
 		if len(pending) != 0 {
-			g.worklist = append(pending, g.worklist...)
+			// On scoped failure the detached graph is discarded. Keep the
+			// already admitted pending slice without allocating error scratch.
+			if budget.MemoryScope() != nil {
+				g.worklist = pending
+			} else {
+				g.worklist = append(pending, g.worklist...)
+			}
 		}
 	}
 	type scope struct {
@@ -440,12 +527,15 @@ func (g *EGraph) rebuildChecked() (int, error) {
 	if maxPasses == 0 {
 		maxPasses = 1
 	}
-	report, err := egraphcore.DriveCongruence[Id, ENode, string, scope](g, maxPasses,
+	report, err := egraphcore.DriveCongruenceWithBudget[Id, ENode, string, scope](transitionGraph{g, budget}, maxPasses,
 		func(pass, index int) (scope, []egraphcore.OwnedNode[Id, ENode], bool, error) {
 			if currentPass != pass {
 				currentPass = pass
 				todo = g.worklist
 				g.worklist = nil
+			}
+			if len(todo) > math.MaxInt/2 {
+				return scope{}, nil, false, egraphcore.ErrMemorySize
 			}
 			if index >= 2*len(todo) {
 				return scope{}, nil, false, nil
@@ -457,22 +547,38 @@ func (g *EGraph) rebuildChecked() (int, error) {
 			if eclass == nil {
 				return current, nil, true, nil
 			}
-			owned := make([]egraphcore.OwnedNode[Id, ENode], 0)
+			var owned []egraphcore.OwnedNode[Id, ENode]
 			if current.parents {
-				owned = make([]egraphcore.OwnedNode[Id, ENode], 0, len(eclass.parents))
+				owned, err = graphSlice[egraphcore.OwnedNode[Id, ENode]](budget, 0, len(eclass.parents))
+				if err != nil {
+					return current, nil, false, err
+				}
 				for _, parent := range eclass.parents {
-					canon := g.Canonicalize(parent.node)
-					g.preserveOrigin(parent.node, canon)
+					canon, err := g.canonicalizeWithBudget(parent.node, budget)
+					if err != nil {
+						return current, nil, false, err
+					}
+					if err := g.preserveOriginWithBudget(parent.node, canon, budget); err != nil {
+						return current, nil, false, err
+					}
 					owned = append(owned, egraphcore.OwnedNode[Id, ENode]{
 						Owner: g.Find(parent.classID),
 						Node:  canon,
 					})
 				}
 			} else {
-				owned = make([]egraphcore.OwnedNode[Id, ENode], 0, len(eclass.Nodes))
+				owned, err = graphSlice[egraphcore.OwnedNode[Id, ENode]](budget, 0, len(eclass.Nodes))
+				if err != nil {
+					return current, nil, false, err
+				}
 				for _, node := range eclass.Nodes {
-					canon := g.Canonicalize(node)
-					g.preserveOrigin(node, canon)
+					canon, err := g.canonicalizeWithBudget(node, budget)
+					if err != nil {
+						return current, nil, false, err
+					}
+					if err := g.preserveOriginWithBudget(node, canon, budget); err != nil {
+						return current, nil, false, err
+					}
 					owned = append(owned, egraphcore.OwnedNode[Id, ENode]{
 						Owner: classID,
 						Node:  canon,
@@ -481,7 +587,7 @@ func (g *EGraph) rebuildChecked() (int, error) {
 			}
 			return current, owned, true, nil
 		},
-		func(n ENode) string { return n.Key() },
+		func(n ENode) (string, error) { return lookupNodeKey(n, budget) },
 		func(a, b ENode) bool { return a.Equal(b) },
 		func(a, b ENode) ENode {
 			a.Subsumed = a.Subsumed || b.Subsumed
@@ -497,34 +603,49 @@ func (g *EGraph) rebuildChecked() (int, error) {
 				eclass.Nodes = byOwner[classID]
 				return false, nil
 			}
-			owners := make([]Id, 0, len(byOwner))
+			owners, err := graphSlice[Id](budget, 0, len(byOwner))
+			if err != nil {
+				return false, err
+			}
 			for owner := range byOwner {
 				owners = append(owners, owner)
 			}
 			sort.Slice(owners, func(i, j int) bool { return owners[i] < owners[j] })
 			var parentCount int
 			for _, nodes := range byOwner {
+				if len(nodes) > math.MaxInt-parentCount {
+					return false, egraphcore.ErrMemorySize
+				}
 				parentCount += len(nodes)
 			}
-			newParents := make([]parentRef, 0, parentCount)
+			newParents, err := graphSlice[parentRef](budget, 0, parentCount)
+			if err != nil {
+				return false, err
+			}
 			for _, owner := range owners {
 				for _, node := range byOwner[owner] {
-					key := node.Key()
-					g.storage().AddMemoCandidateIf(key, owner, func(candidate, proposed Id) bool {
+					key, err := lookupNodeKey(node, budget)
+					if err != nil {
+						return false, err
+					}
+					_, err = g.storage().AddMemoCandidateIfWithBudget(key, owner, func(candidate, proposed Id) bool {
 						return g.Find(candidate) == g.Find(proposed)
-					})
+					}, budget)
+					if err != nil {
+						return false, err
+					}
 					newParents = append(newParents, parentRef{node: node, classID: owner})
 				}
 			}
 			eclass.parents = newParents
 			return false, nil
-		})
+		}, budget)
 	if err != nil {
 		restorePending()
 		return report.Merges, err
 	}
 	if facts := g.Facts(); facts != nil {
-		if err := facts.Recanonicalize(g.Find); err != nil {
+		if err := facts.RecanonicalizeWithBudget(g.Find, budget); err != nil {
 			restorePending()
 			return report.Merges, err
 		}

@@ -2,6 +2,7 @@ package egraph
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -393,18 +394,22 @@ func bindingFromSubst(subst Subst) egraphcore.Binding[Id] {
 }
 
 func matchBindingsEqual(g *EGraph, left, right MatchMatch) bool {
-	a, b := left.Binding, right.Binding
-	if a == nil {
-		a = bindingFromSubst(left.Subst)
+	leftLen, rightLen := len(left.Binding), len(right.Binding)
+	if left.Binding == nil {
+		leftLen = len(left.Subst)
 	}
-	if b == nil {
-		b = bindingFromSubst(right.Subst)
+	if right.Binding == nil {
+		rightLen = len(right.Subst)
 	}
-	if len(a) != len(b) {
+	if leftLen != rightLen {
 		return false
 	}
-	for name, value := range a {
-		other, ok := b[name]
+	equal := func(name string, value egraphcore.Value[Id]) bool {
+		other, ok := right.Binding[name]
+		if right.Binding == nil {
+			id, present := right.Subst[name]
+			other, ok = egraphcore.Class(id), present
+		}
 		if !ok {
 			return false
 		}
@@ -416,6 +421,20 @@ func matchBindingsEqual(g *EGraph, left, right MatchMatch) bool {
 		}
 		if value != other {
 			return false
+		}
+		return true
+	}
+	if left.Binding == nil {
+		for name, id := range left.Subst {
+			if !equal(name, egraphcore.Class(id)) {
+				return false
+			}
+		}
+	} else {
+		for name, value := range left.Binding {
+			if !equal(name, value) {
+				return false
+			}
 		}
 	}
 	return true
@@ -434,27 +453,44 @@ type TransitionResult struct {
 // ApplyAction applies a single ActionCandidate to the search state, returning a new branched SearchState
 // and indicating whether a non-trivial union occurred.
 func (s *SearchState) ApplyAction(candidate ActionCandidate) (*TransitionResult, error) {
-	return s.applyAction(candidate, nil, nil)
+	return s.applyAction(context.Background(), candidate, nil, nil)
 }
 
 // A supplied nextState is already detached and is also the receiver during
 // clone-budgeted transitions. Ordinary ApplyAction clones after validation.
-func (s *SearchState) applyAction(candidate ActionCandidate, nextState *SearchState, cloneBudget *egraphcore.WorkBudget) (*TransitionResult, error) {
+func (s *SearchState) applyAction(ctx context.Context, candidate ActionCandidate, nextState *SearchState, cloneBudget *egraphcore.WorkBudget) (*TransitionResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if s == nil || s.Graph == nil {
-		return nil, fmt.Errorf("egraph: nil search state or graph")
+		return nil, graphErrorf(cloneBudget, "egraph: nil search state or graph")
 	}
 	if candidate.Rule == nil {
-		return nil, fmt.Errorf("egraph: nil rewrite rule in candidate")
+		return nil, graphErrorf(cloneBudget, "egraph: nil rewrite rule in candidate")
 	}
 	target := s.Graph.Find(candidate.Match.ClassID)
 	if s.Graph.class(target) == nil {
-		return nil, fmt.Errorf("egraph: match class %d is missing", candidate.Match.ClassID)
+		return nil, graphErrorf(cloneBudget, "egraph: match class %d is missing", candidate.Match.ClassID)
 	}
-	transitionBudget := egraphcore.NewWorkBudget(100000)
+	transitionBudget, err := egraphcore.NewWorkBudgetWithMemory(100000, cloneBudget.MemoryScope())
+	if err != nil {
+		return nil, err
+	}
+	if transitionBudget.MemoryScope() != nil {
+		// Ordinary revalidation rebuilds even a clean graph and resets fact
+		// cursors. Do the same on the detached graph before borrowing a
+		// read-only matching view, including when it has pending changes.
+		if _, err := s.Graph.rebuildWithBudget(transitionBudget); err != nil {
+			return nil, err
+		}
+	}
 	valid := false
 	matches, matchErr := searchRewriteMatchesWithBudget(s.Graph, candidate.Rule, transitionBudget)
 	if matchErr != nil {
 		return nil, matchErr
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	for _, match := range matches {
 		if s.Graph.Find(match.ClassID) == target && substEqual(match.Subst, candidate.Match.Subst) && matchBindingsEqual(s.Graph, match, candidate.Match) {
@@ -463,15 +499,18 @@ func (s *SearchState) applyAction(candidate ActionCandidate, nextState *SearchSt
 		}
 	}
 	if !valid {
-		return nil, fmt.Errorf("egraph: candidate match is stale or forged")
+		return nil, graphErrorf(cloneBudget, "egraph: candidate match is stale or forged")
 	}
-	if err := checkMandatoryTransition(s, candidate.Rule, target, candidate.Match.Subst); err != nil {
+	if err := checkMandatoryTransitionWithBudget(s, candidate.Rule, target, candidate.Match.Subst, transitionBudget); err != nil {
 		return nil, err
 	}
 
 	// Create branched graph
 	resolved, err := resolveFactActions(s.Graph, candidate.Rule, []MatchMatch{candidate.Match}, transitionBudget)
 	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if nextState == nil {
@@ -483,28 +522,58 @@ func (s *SearchState) applyAction(candidate ActionCandidate, nextState *SearchSt
 	// the original timing and source graph of this computation.
 	source := ""
 	if nextState == s {
-		source = classFingerprint(s.Graph, candidate.Match.ClassID)
+		source, err = classFingerprintWithBudget(s.Graph, candidate.Match.ClassID, transitionBudget)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	canonTarget := g.Find(candidate.Match.ClassID)
 	canonRHS := canonTarget
 	if candidate.Rule.RHS != nil {
-		rhsID := candidate.Rule.RHS.Instantiate(g, candidate.Match.Subst)
+		rhsBudget := transitionBudget
+		if cloneBudget.MemoryScope() == nil {
+			rhsBudget = nil
+		}
+		rhsID, err := candidate.Rule.RHS.instantiateWithBudget(g, candidate.Match.Subst, rhsBudget)
+		if err != nil {
+			return nil, err
+		}
 		canonRHS = g.Find(rhsID)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	if nextState != s {
-		source = classFingerprint(s.Graph, candidate.Match.ClassID)
+		source, err = classFingerprintWithBudget(s.Graph, candidate.Match.ClassID, transitionBudget)
+		if err != nil {
+			return nil, err
+		}
+	}
+	subst, binding, err := copyActionBindings(candidate.Match.Subst, candidate.Match.Binding, transitionBudget)
+	if err != nil {
+		return nil, err
+	}
+	identity, err := ruleIdentityWithBudget(candidate.Rule, transitionBudget)
+	if err != nil {
+		return nil, err
+	}
+	number := memoryText{budget: transitionBudget}
+	number.uint(uint64(canonRHS), 10)
+	rhsNode, err := number.finish()
+	if err != nil {
+		return nil, err
 	}
 	action := Action{
 		RuleName:  candidate.Rule.Name,
 		ClassID:   canonTarget,
-		RHSNode:   fmt.Sprintf("%d", canonRHS),
+		RHSNode:   rhsNode,
 		StepIndex: len(s.Derivation),
-		Subst:     candidate.Match.Subst.Clone(),
-		Binding:   cloneBinding(candidate.Match.Binding),
+		Subst:     subst,
+		Binding:   binding,
 		Source:    source,
-		RuleID:    candidate.Rule.Identity(),
+		RuleID:    identity,
 	}
 
 	if canonTarget == canonRHS && len(resolved) == 0 && !candidate.Rule.subsumesLHS {
@@ -519,23 +588,41 @@ func (s *SearchState) applyAction(candidate ActionCandidate, nextState *SearchSt
 
 	merged := false
 	if canonTarget != canonRHS {
-		_, merged, err = g.UnionChecked(canonTarget, canonRHS)
+		_, merged, err = g.unionCheckedWithBudget(canonTarget, canonRHS, transitionBudget)
 		if err != nil {
-			return nil, fmt.Errorf("egraph: apply rewrite %q union: %w", candidate.Rule.Name, err)
+			if transitionBudget.MemoryScope() != nil {
+				return nil, err
+			}
+			return nil, graphErrorf(cloneBudget, "egraph: apply rewrite %q union: %w", candidate.Rule.Name, err)
 		}
 	}
 	if merged {
-		if err := g.RebuildChecked(); err != nil {
-			return nil, fmt.Errorf("egraph: apply rewrite %q rebuild: %w", candidate.Rule.Name, err)
+		if _, err := g.rebuildWithBudget(transitionBudget); err != nil {
+			if transitionBudget.MemoryScope() != nil {
+				return nil, err
+			}
+			return nil, graphErrorf(cloneBudget, "egraph: apply rewrite %q rebuild: %w", candidate.Rule.Name, err)
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	factChanges, err := g.Facts().ApplyActions(resolved, g.Find, transitionBudget)
 	if err != nil {
-		return nil, fmt.Errorf("egraph: apply relation actions: %w", err)
+		if transitionBudget.MemoryScope() != nil {
+			return nil, err
+		}
+		return nil, graphErrorf(cloneBudget, "egraph: apply relation actions: %w", err)
 	}
 	subsumptions, err := subsumeMatchedNodes(g, candidate.Rule, []MatchMatch{candidate.Match}, transitionBudget)
 	if err != nil {
-		return nil, fmt.Errorf("egraph: apply rewrite %q subsumption: %w", candidate.Rule.Name, err)
+		if transitionBudget.MemoryScope() != nil {
+			return nil, err
+		}
+		return nil, graphErrorf(cloneBudget, "egraph: apply rewrite %q subsumption: %w", candidate.Rule.Name, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if !merged && factChanges == 0 && subsumptions == 0 {
 		return transitionWithBudget(TransitionResult{State: nextState, Merged: false, Action: action, NoOp: true}, cloneBudget)
@@ -546,7 +633,11 @@ func (s *SearchState) applyAction(candidate ActionCandidate, nextState *SearchSt
 		nextState.Roots[k] = g.Find(v)
 	}
 
-	nextState.Derivation = append(nextState.Derivation, action)
+	derivation, err := graphAppend(transitionBudget, nextState.Derivation, action)
+	if err != nil {
+		return nil, err
+	}
+	nextState.Derivation = derivation
 	nextState.Depth++
 
 	return transitionWithBudget(TransitionResult{
@@ -559,8 +650,12 @@ func (s *SearchState) applyAction(candidate ActionCandidate, nextState *SearchSt
 	}, cloneBudget)
 }
 
-func checkMandatoryTransition(s *SearchState, rule *Rewrite, target Id, subst Subst) error {
-	if rule == nil || !isMandatoryRewrite(rule) {
+func checkMandatoryTransitionWithBudget(s *SearchState, rule *Rewrite, target Id, subst Subst, budget *egraphcore.WorkBudget) error {
+	mandatory, err := isMandatoryRewriteWithBudget(rule, budget)
+	if err != nil {
+		return err
+	}
+	if !mandatory {
 		return nil
 	}
 	name := rule.Name
@@ -575,11 +670,11 @@ func checkMandatoryTransition(s *SearchState, rule *Rewrite, target Id, subst Su
 		if meta.Alignment < 16 || meta.Alignment%16 != 0 {
 			return ErrUnalignedVectorAccess
 		}
-		tokens, err := operandMetadata(s, subst, "?tokens")
+		tokens, err := operandMetadata(s, subst, budget, "?tokens")
 		if err != nil {
 			return err
 		}
-		indices, err := operandMetadata(s, subst, "?indices")
+		indices, err := operandMetadata(s, subst, budget, "?indices")
 		if err != nil {
 			return err
 		}
@@ -587,7 +682,7 @@ func checkMandatoryTransition(s *SearchState, rule *Rewrite, target Id, subst Su
 			return ErrEffectBoundaryViolation
 		}
 		if !integerType(indices.DType) {
-			return fmt.Errorf("%w: gather indices must be integer", ErrIncompatibleDType)
+			return graphErrorf(budget, "%w: gather indices must be integer", ErrIncompatibleDType)
 		}
 		// An aligned result does not establish alignment of vector loads from
 		// the token rows. Require both the base and every row stride to preserve
@@ -619,25 +714,25 @@ func checkMandatoryTransition(s *SearchState, rule *Rewrite, target Id, subst Su
 		if meta.Shape.Rank() == 0 || meta.Shape.Dim(meta.Shape.Rank()-1) != 256 || !meta.LoopInvariant || meta.NumericalPolicy == "" {
 			return ErrInvalidRewriteProof
 		}
-		return requireReadonlyOperands(s, subst, "?x", "?w")
+		return requireReadonlyOperands(s, subst, budget, "?x", "?w")
 	}
 	if strings.Contains(name, "hoist_") {
 		if !meta.LoopInvariant || meta.NumericalPolicy == "" {
 			return ErrInvalidRewriteProof
 		}
-		return requireReadonlyOperands(s, subst, "?w", "?scales", "?x")
+		return requireReadonlyOperands(s, subst, budget, "?w", "?scales", "?x")
 	}
 	if strings.Contains(name, "fuse_rmsnorm") {
 		if !meta.LoopInvariant || meta.NumericalPolicy != "rmsnorm-q8" {
 			return ErrInvalidRewriteProof
 		}
-		return requireFloatReadonlyOperands(s, subst, "?x", "?w_norm")
+		return requireFloatReadonlyOperands(s, subst, budget, "?x", "?w_norm")
 	}
 	if strings.Contains(name, "fuse_swiglu") {
 		if !meta.LoopInvariant || meta.NumericalPolicy != "swiglu-q8_1" {
 			return ErrInvalidRewriteProof
 		}
-		return requireFloatReadonlyOperands(s, subst, "?x", "?w_g", "?w_u")
+		return requireFloatReadonlyOperands(s, subst, budget, "?x", "?w_g", "?w_u")
 	}
 	return ErrInvalidRewriteProof
 }
@@ -647,21 +742,21 @@ func metadataFor(s *SearchState, id Id) (TypedMetadata, bool) {
 	return m, ok
 }
 
-func operandMetadata(s *SearchState, subst Subst, variable string) (TypedMetadata, error) {
+func operandMetadata(s *SearchState, subst Subst, budget *egraphcore.WorkBudget, variable string) (TypedMetadata, error) {
 	id, ok := subst[variable]
 	if !ok {
-		return TypedMetadata{}, fmt.Errorf("%w: operand %s", ErrMissingTypedMetadata, variable)
+		return TypedMetadata{}, graphErrorf(budget, "%w: operand %s", ErrMissingTypedMetadata, variable)
 	}
 	m, ok := metadataFor(s, id)
 	if !ok {
-		return TypedMetadata{}, fmt.Errorf("%w: operand %s", ErrMissingTypedMetadata, variable)
+		return TypedMetadata{}, graphErrorf(budget, "%w: operand %s", ErrMissingTypedMetadata, variable)
 	}
 	return m, nil
 }
 
-func requireReadonlyOperands(s *SearchState, subst Subst, variables ...string) error {
+func requireReadonlyOperands(s *SearchState, subst Subst, budget *egraphcore.WorkBudget, variables ...string) error {
 	for _, variable := range variables {
-		m, err := operandMetadata(s, subst, variable)
+		m, err := operandMetadata(s, subst, budget, variable)
 		if err != nil {
 			return err
 		}
@@ -672,9 +767,9 @@ func requireReadonlyOperands(s *SearchState, subst Subst, variables ...string) e
 	return nil
 }
 
-func requireFloatReadonlyOperands(s *SearchState, subst Subst, variables ...string) error {
+func requireFloatReadonlyOperands(s *SearchState, subst Subst, budget *egraphcore.WorkBudget, variables ...string) error {
 	for _, variable := range variables {
-		m, err := operandMetadata(s, subst, variable)
+		m, err := operandMetadata(s, subst, budget, variable)
 		if err != nil {
 			return err
 		}
@@ -682,7 +777,7 @@ func requireFloatReadonlyOperands(s *SearchState, subst Subst, variables ...stri
 			return ErrEffectBoundaryViolation
 		}
 		if !floatType(m.DType) {
-			return fmt.Errorf("%w: operand %s must be floating point", ErrIncompatibleDType, variable)
+			return graphErrorf(budget, "%w: operand %s must be floating point", ErrIncompatibleDType, variable)
 		}
 	}
 	return nil

@@ -34,6 +34,22 @@ func DriveCongruence[ID ~uint32, Node any, Key comparable, Scope any](
 	mergeEquivalent func(Node, Node) Node,
 	publish func(Scope, map[ID][]Node) (repeat bool, err error),
 ) (CongruenceReport, error) {
+	if key == nil {
+		return CongruenceReport{}, ErrInvalidCongruenceDriver
+	}
+	return DriveCongruenceWithBudget(graph, maxPasses, next, func(n Node) (Key, error) { return key(n), nil }, equal, mergeEquivalent, publish, nil)
+}
+
+// DriveCongruenceWithBudget is DriveCongruence with admitted planner storage.
+// Backend callbacks own admission of their storage and may return errors.
+// Keep budget's scope open through the last use of published node groups.
+func DriveCongruenceWithBudget[ID ~uint32, Node any, Key comparable, Scope any](
+	graph Graph[ID, Node], maxPasses int,
+	next func(pass, index int) (scope Scope, owned []OwnedNode[ID, Node], ok bool, err error),
+	key func(Node) (Key, error), equal func(Node, Node) bool,
+	mergeEquivalent func(Node, Node) Node,
+	publish func(Scope, map[ID][]Node) (repeat bool, err error), budget *WorkBudget,
+) (CongruenceReport, error) {
 	if graphIsNil(graph) || maxPasses <= 0 || next == nil || key == nil || equal == nil || publish == nil {
 		return CongruenceReport{}, ErrInvalidCongruenceDriver
 	}
@@ -51,7 +67,7 @@ func DriveCongruence[ID ~uint32, Node any, Key comparable, Scope any](
 				break
 			}
 			report.Scopes++
-			plan, merged, err := ApplyCongruencePass(graph, owned, key, equal, mergeEquivalent)
+			plan, merged, err := applyCongruencePass(graph, owned, key, equal, mergeEquivalent, budget)
 			report.Merges += merged
 			if err != nil {
 				return report, err
