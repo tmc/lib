@@ -59,7 +59,9 @@ func newSearchBookkeeping(ctx context.Context) (*searchBookkeeping, error) {
 		scratch.Close()
 		return nil, err
 	}
-	if err := result.Reserve(int64(reflect.TypeFor[SearchResult]().Size())); err != nil {
+	// The result scopes retain the ledger after the per-search work owner
+	// closes. Bootstrap accounting covers it before these scopes exist.
+	if err := result.Reserve(int64(reflect.TypeFor[SearchResult]().Size() + reflect.TypeFor[memoryBudget]().Size())); err != nil {
 		scratch.Close()
 		result.Close()
 		return nil, err

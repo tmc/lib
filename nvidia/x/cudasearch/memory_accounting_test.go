@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudalayout"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
@@ -213,6 +214,8 @@ func TestMemoryExecutableReservationCleanup(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer work.closeSearch()
+			setupBytes := work.memory.live
 			var owner *memoryExecutable
 			eval.Compile = func(ctx context.Context, _ *egraph.Expr, _ WorkloadBindings) (Executable, error) {
 				release, err := ReserveSearchMemory(ctx, 1024)
@@ -234,8 +237,12 @@ func TestMemoryExecutableReservationCleanup(t *testing.T) {
 				if err := eval.Close(); err != nil {
 					t.Fatal(err)
 				}
+				if work.memory.live != setupBytes {
+					t.Fatal("pending reservation leaked", work.memory.live-setupBytes)
+				}
+				work.closeSearch()
 				if work.memory.live != 0 {
-					t.Fatal("pending reservation leaked", work.memory.live)
+					t.Fatal("search setup reservation leaked", work.memory.live)
 				}
 			} else if err != nil || candidate == nil || owner.data != nil || work.memory.live == 0 || work.memory.live >= work.memory.accountedBytes() {
 				t.Fatalf("live=%d peak=%d candidate=%v err=%v", work.memory.live, work.memory.accountedBytes(), candidate, err)
@@ -300,12 +307,14 @@ func TestMemoryBorrowedBaselineBeforeCompile(t *testing.T) {
 				eval.Baseline = baseline
 				budget := SearchBudget{MaxMemoryBytes: 8192, CallbackMemoryBytes: 4096}
 				if quota {
-					budget.MaxMemoryBytes = budget.CallbackMemoryBytes + 63
+					budget.MaxMemoryBytes = budget.CallbackMemoryBytes + 63 + int64(reflect.TypeFor[workBudget]().Size()+reflect.TypeFor[memoryBudget]().Size()+reflect.TypeFor[egraphcore.MemoryScope]().Size())
 				}
 				ctx, work, err := searchWorkBudget(context.Background(), budget, eval)
 				if err != nil {
 					t.Fatal(err)
 				}
+				defer work.closeSearch()
+				setupBytes := work.memory.live
 				calls := 0
 				stopped := errors.New("compile stopped")
 				eval.Compile = func(context.Context, *egraph.Expr, WorkloadBindings) (Executable, error) {
@@ -324,8 +333,12 @@ func TestMemoryBorrowedBaselineBeforeCompile(t *testing.T) {
 				} else if calls != 1 || !errors.Is(err, stopped) {
 					t.Fatalf("calls=%d err=%v", calls, err)
 				}
+				if work.memory.live != setupBytes {
+					t.Fatal("borrowed accounting leaked", work.memory.live-setupBytes)
+				}
+				work.closeSearch()
 				if work.memory.live != 0 {
-					t.Fatal("borrowed accounting leaked", work.memory.live)
+					t.Fatal("search setup reservation leaked", work.memory.live)
 				}
 				switch x := baseline.(type) {
 				case *sequenceExecutable:

@@ -27,7 +27,8 @@ func TestTransitionAllocationPublicSearch(t *testing.T) {
 				return baseline, nil
 			})
 			budget := SearchBudget{MaxMemoryBytes: 64 << 10, CallbackMemoryBytes: cloneCallbackBytes(), MaxStates: 3, MaxDepth: 1, MaxActions: 5, MaxEvaluations: 3}
-			result, err := memoryStrategy(strategy, budget, state, []*egraph.Rewrite{rule}, eval)
+			budget, admittedEval := transitionSetupBudget(t, budget, eval)
+			result, err := memoryStrategy(strategy, budget, state, []*egraph.Rewrite{rule}, admittedEval)
 			if result != nil {
 				defer result.Close()
 			}

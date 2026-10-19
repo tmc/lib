@@ -147,7 +147,30 @@ func wideRewriteRule(op, lhs string, arity int) *egraph.Rewrite {
 	return &egraph.Rewrite{Name: op, LHS: egraph.Pat(lhs), RHS: egraph.Pat(op, children...)}
 }
 
-func runTransitionPathSearch(path string, budget SearchBudget, state *egraph.SearchState, rules []*egraph.Rewrite, eval Evaluator) (*SearchResult, error) {
+// transitionSetupBudget isolates a transition quota from the preceding setup
+// peak. The extra capacity is unavailable to transitions: the first evaluator
+// reserves it and retains the reservation through the assertions and Close.
+// This is deliberate ledger pressure, not a claim of physical allocation.
+func transitionSetupBudget(t *testing.T, budget SearchBudget, eval Evaluator) (SearchBudget, Evaluator) {
+	t.Helper()
+	const setupHeadroom = 1 << 20
+	budget.MaxMemoryBytes += setupHeadroom
+	reserved := false
+	return budget, beamEvaluatorFunc(func(ctx context.Context, state *egraph.SearchState, root egraph.Id) (*CandidatePlan, error) {
+		if !reserved {
+			release, err := ReserveSearchMemory(ctx, setupHeadroom)
+			if err != nil {
+				return nil, err
+			}
+			t.Cleanup(release)
+			reserved = true
+		}
+		return eval.Evaluate(ctx, state, root)
+	})
+}
+
+func runTransitionPathSearch(t *testing.T, path string, budget SearchBudget, state *egraph.SearchState, rules []*egraph.Rewrite, eval Evaluator) (*SearchResult, error) {
+	budget, eval = transitionSetupBudget(t, budget, eval)
 	if path == "beam-expansion" {
 		return NewBeamSearch(BeamConfig{Budget: budget}).Search(context.Background(), state, rules, eval)
 	}
@@ -265,7 +288,7 @@ func TestTransitionStopOwnerRetentionPublicSearch(t *testing.T) {
 							MaxActions:          5,
 							MaxEvaluations:      5,
 						}
-						probeResult, probeErr := runTransitionPathSearch(path, probeBudget, state, rules, probeEval)
+						probeResult, probeErr := runTransitionPathSearch(t, path, probeBudget, state, rules, probeEval)
 						nonNilClones := 0
 						if probeResult != nil {
 							for owner := probeResult.clones; owner != nil; owner = owner.next {
@@ -303,7 +326,7 @@ func TestTransitionStopOwnerRetentionPublicSearch(t *testing.T) {
 					MaxActions:          5,
 					MaxEvaluations:      5,
 				}
-				result, err := runTransitionPathSearch(path, budget, state, rules, eval)
+				result, err := runTransitionPathSearch(t, path, budget, state, rules, eval)
 				if result != nil {
 					defer result.Close()
 				}
@@ -460,7 +483,7 @@ func TestTransitionNilOwnerRefusalPublicSearch(t *testing.T) {
 					MaxActions:          5,
 					MaxEvaluations:      5,
 				}
-				probeResult, _ := runTransitionPathSearch(path, probeBudget, state, rules, probeEval)
+				probeResult, _ := runTransitionPathSearch(t, path, probeBudget, state, rules, probeEval)
 				attempts := 0
 				if probeResult != nil {
 					attempts = probeResult.ActionsAttempted
@@ -489,7 +512,7 @@ func TestTransitionNilOwnerRefusalPublicSearch(t *testing.T) {
 				MaxActions:          5,
 				MaxEvaluations:      5,
 			}
-			result, err := runTransitionPathSearch(path, budget, state, rules, eval)
+			result, err := runTransitionPathSearch(t, path, budget, state, rules, eval)
 			if result != nil {
 				defer result.Close()
 			}

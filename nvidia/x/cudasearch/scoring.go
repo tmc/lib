@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
 )
 
@@ -16,7 +17,19 @@ type scoringSnapshot struct {
 }
 
 func snapshotScoring(m *MockEvaluator) *scoringSnapshot {
-	s := &scoringSnapshot{owner: m, model: m.Scoring, evidence: make(map[string]*ProfileEvidence, len(m.Evidence))}
+	s, _ := snapshotScoringWithMemory(m, nil)
+	return s
+}
+
+func snapshotScoringWithMemory(m *MockEvaluator, scope *egraphcore.MemoryScope) (*scoringSnapshot, error) {
+	if err := bookkeepingSlots[scoringSnapshot](scope, 1); err != nil {
+		return nil, err
+	}
+	evidenceMap, err := bookkeepingMap[string, *ProfileEvidence](scope)
+	if err != nil {
+		return nil, err
+	}
+	s := &scoringSnapshot{owner: m, model: m.Scoring, evidence: evidenceMap}
 	if s.model == (ScoringModel{}) {
 		s.model = DefaultScoringModel("")
 	}
@@ -25,11 +38,19 @@ func snapshotScoring(m *MockEvaluator) *scoringSnapshot {
 	}
 	for key, evidence := range m.Evidence {
 		if evidence != nil {
+			if err := bookkeepingSlots[ProfileEvidence](scope, 1); err != nil {
+				return nil, err
+			}
+			// Keys and immutable epoch strings remain borrowed. The map entry
+			// and copied observation are owned by this frozen snapshot.
+			if err := bookkeepingPut(scope, s.evidence, key, (*ProfileEvidence)(nil)); err != nil {
+				return nil, err
+			}
 			copy := *evidence
 			s.evidence[key] = &copy
 		}
 	}
-	return s
+	return s, nil
 }
 
 func mockScoring(ctx context.Context, m *MockEvaluator) *scoringSnapshot {

@@ -35,10 +35,12 @@ type SearchBudget struct {
 	// captures. Built-in matching, extraction, clone copies and rewrite transitions
 	// reserve their supported storage before allocation; post-transition reachable
 	// state measurement remains a conservative extra charge on the branch owner.
-	// Evaluator/policy-setup bookkeeping remains partial, so this is not a complete
-	// owned cap. Frontier/tree containers, fingerprints and retained rejection
-	// copies reserve their declared storage before allocation. Their map units
-	// are a header and key/value slots, not a bound on runtime bucket storage.
+	// Ordinary scoring/policy setup also reserves its supported copies and
+	// encodings. Profile/catalog setup and evaluator metadata remain partial, so
+	// this is not a complete owned cap. Frontier/tree containers, fingerprints
+	// and retained rejection copies reserve their declared storage before
+	// allocation. Their map units are a header and key/value slots, not a bound
+	// on runtime bucket storage.
 	MaxMemoryBytes int64
 	// CallbackMemoryBytes declares the maximum simultaneously owned storage of
 	// opaque evaluator/compiler callbacks, including opaque executable workspace.
@@ -151,13 +153,13 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	if err != nil {
 		return nil, err
 	}
-	defer func() { closeStateClones(work.memory.takeClones()) }()
+	defer work.closeSearch()
 	book, err := newSearchBookkeeping(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer book.close()
-	policy, policyComplete, err := makeSearchPolicy("beam", b.cfg.RootName, budget, map[string]string{"beam_width": fmt.Sprint(b.cfg.BeamWidth), "tie_order": "full-replay-path-v1"}, 0, rules, eval, work, profile, b.cfg.EvaluatorID)
+	policy, policyComplete, err := makeSearchPolicy("beam", b.cfg.RootName, budget, searchPolicyOptions{beamWidth: b.cfg.BeamWidth}, 0, rules, eval, work, profile, b.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
 	}

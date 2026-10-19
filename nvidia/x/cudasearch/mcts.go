@@ -124,7 +124,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	if err != nil {
 		return nil, err
 	}
-	defer func() { closeStateClones(work.memory.takeClones()) }()
+	defer work.closeSearch()
 	book, err := newSearchBookkeeping(ctx)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	// The standard library source's private implementation storage is outside
 	// our declared value/collection units, like runtime map buckets.
 	rng := rand.New(rand.NewSource(m.cfg.Seed))
-	policy, policyComplete, err := makeSearchPolicy("mcts", m.cfg.RootName, budget, map[string]string{"iterations": fmt.Sprint(m.cfg.Iterations), "rollout_depth": fmt.Sprint(m.cfg.RolloutDepth), "exploration": fmt.Sprint(m.cfg.ExplorationC)}, m.cfg.Seed, rules, eval, work, profile, m.cfg.EvaluatorID)
+	policy, policyComplete, err := makeSearchPolicy("mcts", m.cfg.RootName, budget, searchPolicyOptions{iterations: m.cfg.Iterations, rolloutDepth: m.cfg.RolloutDepth, exploration: m.cfg.ExplorationC}, m.cfg.Seed, rules, eval, work, profile, m.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,21 @@ import (
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
-func makeSearchPolicy(strategy, root string, budget SearchBudget, options map[string]string, seed int64, rules []*egraph.Rewrite, eval Evaluator, work *workBudget, profile profileActions, evaluatorID string) (cudacache.SearchPolicyID, bool, error) {
+func makeSearchPolicy(strategy, root string, budget SearchBudget, config searchPolicyOptions, seed int64, rules []*egraph.Rewrite, eval Evaluator, work *workBudget, profile profileActions, evaluatorID string) (cudacache.SearchPolicyID, bool, error) {
+	scratch, retained, err := policyScopes(work)
+	if err != nil {
+		return cudacache.SearchPolicyID{}, false, err
+	}
+	defer scratch.Close()
+	if err := reserveSearchPolicy(scratch, retained, budget, rules, eval, work); err != nil {
+		return cudacache.SearchPolicyID{}, false, fmt.Errorf("cudasearch: policy setup: %w", err)
+	}
+	var options map[string]string
+	if strategy == "beam" {
+		options = map[string]string{"beam_width": fmt.Sprint(config.beamWidth), "tie_order": "full-replay-path-v1"}
+	} else {
+		options = map[string]string{"iterations": fmt.Sprint(config.iterations), "rollout_depth": fmt.Sprint(config.rolloutDepth), "exploration": fmt.Sprint(config.exploration)}
+	}
 	id := cudacache.SearchPolicyID{Strategy: strategy, Seed: seed, Options: options}
 	id.Options["contract_version"] = "1"
 	id.Options["state_budget"] = "initial-plus-transition-attempts-v1"
