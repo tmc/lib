@@ -1,0 +1,9 @@
+commit: d177a2a7cf0bd68810f17d20cf967d5fbdf80e26
+date: 2026-10-19T03:24:28.479145+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 35631
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patches: [["/Users/tmc/tmp/lib-wt-next/20261018-e2-executable-memory/attempt-result.patch", "037b5bef21cdbaa39406fb8e58136831e5f08436eb6f5c096d270b3b48694da8"], ["/Users/tmc/tmp/lib-wt-next/20261018-e2-executable-memory/fixture-preconditions.patch", "e7b53bf49ea81d96dfb25d11a2fcbfa1a3fa8b6a2b25cb61d7baff3590a1b508"]]
