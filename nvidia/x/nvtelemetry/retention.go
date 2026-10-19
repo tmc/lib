@@ -35,9 +35,85 @@ func (c RetentionConfig) validate() error {
 	return nil
 }
 
+// RetentionRecoverySchemaVersion identifies the recovery manifest schema for Retention.
+const RetentionRecoverySchemaVersion = 1
+
+// RetentionRecoveryManifest records the versioned recovery state of an owned retention directory.
+type RetentionRecoveryManifest struct {
+	SchemaVersion  int    `json:"schema_version"`
+	MarkerVersion  int    `json:"marker_version"`
+	Owner          string `json:"owner"`
+	RecoveredLease bool   `json:"recovered_lease"`
+	PendingStream  bool   `json:"pending_stream"`
+	RetainedFiles  int    `json:"retained_files"`
+	RetainedBytes  int64  `json:"retained_bytes"`
+	NextStreamID   uint64 `json:"next_stream_id"`
+}
+
+// ValidateRetentionRecoveryManifest checks schema version, marker version, owner identity, and bounds.
+func ValidateRetentionRecoveryManifest(m RetentionRecoveryManifest) error {
+	if m.SchemaVersion != RetentionRecoverySchemaVersion {
+		return fmt.Errorf("retention recovery manifest: unsupported schema version %d", m.SchemaVersion)
+	}
+	if m.MarkerVersion != 2 {
+		return fmt.Errorf("retention recovery manifest: unsupported marker version %d", m.MarkerVersion)
+	}
+	cfg := RetentionConfig{Owner: m.Owner, MaxFiles: 1, MaxBytes: 1, MaxStreamBytes: 1}
+	if err := cfg.validate(); err != nil {
+		return fmt.Errorf("retention recovery manifest: %w", err)
+	}
+	if m.RetainedFiles < 0 || m.RetainedFiles > 1024 || m.RetainedBytes < 0 || m.RetainedBytes > 1<<30 || m.NextStreamID == 0 || m.NextStreamID > 9999999999999 {
+		return fmt.Errorf("retention recovery manifest: invalid bounds")
+	}
+	return nil
+}
+
+// WriteRetentionRecoveryManifest validates and writes one JSON recovery manifest line.
+func WriteRetentionRecoveryManifest(w io.Writer, m RetentionRecoveryManifest) error {
+	if w == nil {
+		return fmt.Errorf("retention recovery manifest: nil writer")
+	}
+	if err := ValidateRetentionRecoveryManifest(m); err != nil {
+		return err
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	n, err := w.Write(b)
+	if err == nil && n != len(b) {
+		err = io.ErrShortWrite
+	}
+	return err
+}
+
+// ReadRetentionRecoveryManifest strictly decodes and validates a JSON recovery manifest.
+func ReadRetentionRecoveryManifest(r io.Reader) (RetentionRecoveryManifest, error) {
+	if r == nil {
+		return RetentionRecoveryManifest{}, fmt.Errorf("retention recovery manifest: nil reader")
+	}
+	b, err := io.ReadAll(io.LimitReader(r, 4097))
+	if err != nil {
+		return RetentionRecoveryManifest{}, err
+	}
+	if len(b) == 0 || len(b) > 4096 {
+		return RetentionRecoveryManifest{}, fmt.Errorf("retention recovery manifest: invalid byte length")
+	}
+	var m RetentionRecoveryManifest
+	if err := decodeOperationsJSON(b, &m); err != nil {
+		return RetentionRecoveryManifest{}, fmt.Errorf("retention recovery manifest: decode: %w", err)
+	}
+	if err := ValidateRetentionRecoveryManifest(m); err != nil {
+		return RetentionRecoveryManifest{}, err
+	}
+	return m, nil
+}
+
 type retentionMarker struct {
-	Version int    `json:"version"`
-	Owner   string `json:"owner"`
+	Version       int    `json:"version"`
+	SchemaVersion int    `json:"schema_version,omitempty"`
+	Owner         string `json:"owner"`
 }
 
 // Retention stores strictly validated complete streams. Its methods serialize
@@ -103,27 +179,93 @@ func OpenRetention(path string, cfg RetentionConfig) (*Retention, error) {
 // be explicitly archived or removed by its owner before reopening. Version 1 or
 // corrupt state refuses unchanged; no process-death inference or migration occurs.
 func RecoverRetention(path, owner string) error {
+	_, err := RecoverRetentionManifest(path, owner)
+	return err
+}
+
+// RecoverRetentionManifest recovers an owned retention directory under the exclusive
+// owner marker lock and returns a versioned recovery manifest describing the recovered state.
+func RecoverRetentionManifest(path, owner string) (RetentionRecoveryManifest, error) {
 	r, err := retentionAdmission(path, owner, false)
 	if err != nil {
-		return err
+		return RetentionRecoveryManifest{}, err
 	}
 	defer r.release()
 	r.cfg = RetentionConfig{Owner: owner, MaxFiles: 1024, MaxBytes: 1 << 30, MaxStreamBytes: 64 << 20}
-	if _, _, err := r.scan(); err != nil {
-		return err
-	}
-	info, err := r.root.Lstat("lease")
-	if os.IsNotExist(err) {
-		return nil
-	}
+	files, total, err := r.scan()
 	if err != nil {
-		return err
+		return RetentionRecoveryManifest{}, err
 	}
-	r.leaseInfo = info
+	nextID, err := nextRetentionIDFromFiles(files)
+	if err != nil {
+		return RetentionRecoveryManifest{}, err
+	}
+	pendingStream := false
+	if _, err := r.root.Lstat("pending.jsonl"); err == nil {
+		pendingStream = true
+	} else if !os.IsNotExist(err) {
+		return RetentionRecoveryManifest{}, err
+	}
+	recoveredLease := false
+	info, err := r.root.Lstat("lease")
+	if err == nil {
+		r.leaseInfo = info
+		if err := r.checkIdentity(); err != nil {
+			return RetentionRecoveryManifest{}, err
+		}
+		if err := r.root.Remove("lease"); err != nil {
+			return RetentionRecoveryManifest{}, err
+		}
+		recoveredLease = true
+	} else if !os.IsNotExist(err) {
+		return RetentionRecoveryManifest{}, err
+	}
+	m := RetentionRecoveryManifest{
+		SchemaVersion:  RetentionRecoverySchemaVersion,
+		MarkerVersion:  2,
+		Owner:          owner,
+		RecoveredLease: recoveredLease,
+		PendingStream:  pendingStream,
+		RetainedFiles:  len(files),
+		RetainedBytes:  total,
+		NextStreamID:   nextID,
+	}
+	if err := ValidateRetentionRecoveryManifest(m); err != nil {
+		return RetentionRecoveryManifest{}, err
+	}
+	return m, nil
+}
+
+func nextRetentionIDFromFiles(files []retainedFile) (uint64, error) {
+	if len(files) == 0 {
+		return 1, nil
+	}
+	last := files[len(files)-1].name
+	var id uint64
+	for _, c := range last[7:20] {
+		id = id*10 + uint64(c-'0')
+	}
+	if id >= 9999999999999 {
+		return 0, fmt.Errorf("retained stream identifier exhausted")
+	}
+	return id + 1, nil
+}
+
+// NextStreamID returns the next monotonically increasing stream ID for this retention directory.
+func (r *Retention) NextStreamID() (uint64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.root == nil {
+		return 0, fmt.Errorf("retention is closed")
+	}
 	if err := r.checkIdentity(); err != nil {
-		return err
+		return 0, err
 	}
-	return r.root.Remove("lease")
+	files, _, err := r.scan()
+	if err != nil {
+		return 0, err
+	}
+	return nextRetentionIDFromFiles(files)
 }
 
 // retentionAdmission holds the permanent marker inode across every subsequent
@@ -190,7 +332,7 @@ func retentionAdmission(path, owner string, create bool) (*Retention, error) {
 		if err != nil || pathErr != nil || rootErr != nil || !linked.Mode().IsRegular() || linked.Mode()&0077 != 0 || !current.IsDir() || current.Mode()&0077 != 0 || !os.SameFile(linked, r.markerInfo) || !os.SameFile(current, info) || !os.SameFile(opened, info) {
 			return nil, fmt.Errorf("retention initialization identity changed")
 		}
-		data, _ := json.Marshal(retentionMarker{2, owner})
+		data, _ := json.Marshal(retentionMarker{Version: 2, SchemaVersion: RetentionRecoverySchemaVersion, Owner: owner})
 		if _, err := r.lockFile.Write(data); err != nil {
 			return nil, err
 		}
@@ -230,7 +372,7 @@ func (r *Retention) checkIdentity() error {
 		return err
 	}
 	var marker retentionMarker
-	if err := decodeOperationsJSON(data, &marker); err != nil || marker.Version != 2 || marker.Owner != r.cfg.Owner {
+	if err := decodeOperationsJSON(data, &marker); err != nil || marker.Version != 2 || (marker.SchemaVersion != 0 && marker.SchemaVersion != RetentionRecoverySchemaVersion) || marker.Owner != r.cfg.Owner {
 		return fmt.Errorf("retention owner mismatch, unsupported version or corrupt marker")
 	}
 	info, err = r.root.Lstat("lease")
