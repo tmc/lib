@@ -1,0 +1,10 @@
+commit: a1ebc3505094533c19faabef2c05a5547a47449b
+date: 2026-10-19T03:14:27.312769+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 75527
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-native-demo-composition/candidate.patch
+source sha256: d65276ad3c23eef7658a2187825da59ca1642b3bf5cf004a204fe89479b2b8d8
