@@ -1,0 +1,10 @@
+commit: 619face35fdd16190ed9e7706442e770fb72fbac
+date: 2026-10-19T02:35:28.020026+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 61551
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-w2b-collective/candidate-combined.patch
+source sha256: 68634efa5559483e1a55a74d7709dcfbc132529b9a57c7ffd3e729b775e69aa4
