@@ -1,0 +1,10 @@
+commit: c4616562987e174e4f6f82f8c2361e01d8f84073
+date: 2026-10-19T02:57:08.931117+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 77091
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-clock-transform/r2/candidate.patch
+source sha256: 3ab9fc1c458f9ee14ba6b7f31007bd9eb2d8c435b3513a549c23ffe0ddc88941
