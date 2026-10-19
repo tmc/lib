@@ -1,0 +1,9 @@
+commit: 6abbddac7bcb1c069c984b1193e0a273225a81c7
+date: 2026-10-19T03:30:07.836353+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 76087
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source inputs: [{"path": "/Users/tmc/tmp/lib-wt-next/20261018-recovery-library-command-composition/original-serve-only.patch", "sha256": "eaf3d739deda587e50797923bb66b0627bcbbeab71e2bcd2b644a2319be8d354", "included_paths": null}, {"path": "/Users/tmc/tmp/lib-wt-next/20261018-quota-fix-recovery/corrective.patch", "sha256": "cb60c65afc58a6685b7eaa94354e65d9dc40047ec262bc0cf7cda2c61e030ca7", "included_paths": ["nvidia/x/cmd/nvtelemetry/serve.go", "nvidia/x/cmd/nvtelemetry/serve_recovery_lifecycle_test.go"]}, {"path": "/Users/tmc/tmp/lib-wt-next/20261018-recovery-cancel-fix/candidate.patch", "sha256": "38208bfeec8404dc270686d5ddaee6aafc6af5a3756a68132cac7f8cc5856661", "included_paths": null}]
