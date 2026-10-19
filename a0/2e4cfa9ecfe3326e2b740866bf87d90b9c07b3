@@ -1,0 +1,10 @@
+commit: a02e4cfa9ecfe3326e2b740866bf87d90b9c07b3
+date: 2026-10-19T02:45:36.299592+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 21828
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-workflow-owner-fix/candidate.patch
+source sha256: b2b9e565e84ca53df20b1af78ca4a002f4a6d6af2c946ca91da2f46ddebb5e37
