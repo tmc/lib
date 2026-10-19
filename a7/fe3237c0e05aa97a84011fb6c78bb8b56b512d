@@ -1,0 +1,9 @@
+commit: a7fe3237c0e05aa97a84011fb6c78bb8b56b512d
+date: 2026-10-19T03:24:29.626190+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 35631
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patches: [["/Users/tmc/tmp/lib-wt-next/20261018-search-output-ownership/candidate.patch", "df8f5aa82ec61958dbea3e4af9477b3d6c984ec1bd4e94b872820d3737faafc3"]]
