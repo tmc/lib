@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
 	"time"
+	"unsafe"
 )
 
 // TimingKind identifies the specific measurement mechanism used for a receipt duration.
@@ -240,6 +242,11 @@ func (r Receipt) Duration() time.Duration {
 
 // Options configures an interleaved trial run.
 type Options struct {
+	// ReserveMemory admits trial-owned logical storage before allocation. The
+	// caller retains all successful reservations until the receipts are retired.
+	// Producer and observer internal allocations are outside this capability.
+	ReserveMemory func(int64) error
+
 	// ContinueOnError controls whether Interleave continues evaluating subsequent
 	// arms and rounds when an arm's Run returns an error.
 	// When true, the error is recorded on the Receipt and execution proceeds.
@@ -301,7 +308,28 @@ func InterleaveWithOptions(ctx context.Context, arms []Arm, rounds int, opts Opt
 		}
 	}
 
+	if len(arms) > math.MaxInt/rounds {
+		return nil, fmt.Errorf("cudatrial: receipt count overflow")
+	}
 	total := len(arms) * rounds
+	if total > math.MaxInt/int(unsafe.Sizeof(Receipt{})) {
+		return nil, fmt.Errorf("cudatrial: receipt size overflow")
+	}
+	if opts.ReserveMemory != nil {
+		// Both products are checked independently; reserving them separately
+		// also avoids overflowing their sum before the scope sees it.
+		for _, storage := range []struct {
+			count int
+			size  uintptr
+		}{{total, unsafe.Sizeof(Receipt{})}, {len(arms) * (rounds / 2), unsafe.Sizeof(Arm{})}} {
+			if int64(storage.count) > math.MaxInt64/int64(storage.size) {
+				return nil, fmt.Errorf("cudatrial: receipt size overflow")
+			}
+			if err := opts.ReserveMemory(int64(storage.count) * int64(storage.size)); err != nil {
+				return nil, err
+			}
+		}
+	}
 	receipts := make([]Receipt, 0, total)
 
 	for round := 1; round <= rounds; round++ {
@@ -335,6 +363,12 @@ func InterleaveWithOptions(ctx context.Context, arms []Arm, rounds int, opts Opt
 			if !receipt.After.Any() && receipt.After.Observed.IsZero() {
 				receipt.After = after
 			}
+
+			receiptCopy, copyErr := receipt.CloneWithMemory(opts.ReserveMemory)
+			if copyErr != nil {
+				return receipts, errors.Join(err, copyErr)
+			}
+			receipt = receiptCopy
 
 			// Stamp standard fields if not already populated.
 			receipt.Name = arm.Name
