@@ -1,0 +1,10 @@
+commit: 67924dd733e76ed6ab7a406221ff310e52afb96d
+date: 2026-10-19T03:51:23.218273+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 87042
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-tileir-codec-doc/candidate.patch
+source sha256: 3f126ada360d4857e9ba17cd8d7a983235d816dc8bbbcb4a5184b858a279937d
