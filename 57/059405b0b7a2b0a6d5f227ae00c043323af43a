@@ -1,0 +1,9 @@
+commit: 57059405b0b7a2b0a6d5f227ae00c043323af43a
+date: 2026-10-19T03:24:26.155603+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 35631
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patches: [["/Users/tmc/tmp/lib-wt-next/20261018-e2-executable-memory/detachment.patch", "2d48f9e92b5d89156f55b0c552a52b22670c670b08f777f5b7f3318741b6eb9a"]]
