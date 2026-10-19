@@ -1,0 +1,10 @@
+commit: be0a5dc7681fa222801682fcfc60ff3288f4d82e
+date: 2026-10-19T03:30:34.350733+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 79734
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-entity-cache-persistence/candidate.patch
+source sha256: 9a4d3ff76e2f6438bcff5504ecc15f801150217fe080fe4a8ac98794158b2a6c
