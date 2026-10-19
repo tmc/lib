@@ -1,0 +1,10 @@
+commit: 18f6609700e7049c6bccfeb674e76ede079012f5
+date: 2026-10-19T02:45:37.610548+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 21828
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-nixl-inventory/candidate.patch
+source sha256: 37524dd49ec76c64012cbf88e596a7a3386eeaef1f9901ede6eb693f0bb0f94a
