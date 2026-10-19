@@ -1,0 +1,10 @@
+commit: 93bec5d1bc4ae21cd433c4a76d26c52cb689ba03
+date: 2026-10-19T03:15:59.906528+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 84355
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-nvlink-counters/metric-dictionary.patch
+source sha256: d64ee93bc44ae9fdc3affac8223eae09130ecbbf5bd3d1567a03f8ac41402ac0
