@@ -1,0 +1,9 @@
+commit: f49723559c31e1cdead0f4bc67d8ab490626be6c
+date: 2026-10-19T03:30:09.366038+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 76087
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source inputs: [{"path": "/Users/tmc/tmp/lib-wt-next/20261018-attributed-otlp/agent-schema.patch", "sha256": "9da09e555a6888d2b87304e5f5bd0c04811c19d739af9ea20e56722da8051c92", "included_paths": null}]
