@@ -24,15 +24,18 @@ var ErrBlockAllocatorUninitialized = errors.New("cudakv: block allocator must be
 // unconnected owners of the same block, one recycling it while the other still
 // reads it, is the failure this exists to rule out.
 type BlockAllocator struct {
-	blockSize      int
-	totalBlocks    int
-	free           []int
-	holders        []int // per block; 0 means free
-	tables         map[int64][]int
-	lens           map[int64]int
-	err            error // non-nil when the constructor arguments or extent were invalid
-	allocations    map[int64]uint64
-	nextAllocation uint64
+	blockSize       int
+	totalBlocks     int
+	free            []int
+	holders         []int // per block; 0 means free
+	tables          map[int64][]int
+	lens            map[int64]int
+	err             error // non-nil when the constructor arguments or extent were invalid
+	allocations     map[int64]uint64
+	nextAllocation  uint64
+	suspended       map[int64]bool
+	unavailable     map[int]bool
+	residencyOwners map[int64]uint64
 }
 
 // blockAllocator is an alias for BlockAllocator preserving package-internal compatibility.
@@ -56,13 +59,16 @@ func NewBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
 		free[i] = i
 	}
 	return &BlockAllocator{
-		blockSize:   blockSize,
-		totalBlocks: totalBlocks,
-		free:        free,
-		holders:     make([]int, totalBlocks),
-		tables:      make(map[int64][]int),
-		lens:        make(map[int64]int),
-		allocations: make(map[int64]uint64),
+		blockSize:       blockSize,
+		totalBlocks:     totalBlocks,
+		free:            free,
+		holders:         make([]int, totalBlocks),
+		tables:          make(map[int64][]int),
+		lens:            make(map[int64]int),
+		allocations:     make(map[int64]uint64),
+		suspended:       make(map[int64]bool),
+		unavailable:     make(map[int]bool),
+		residencyOwners: make(map[int64]uint64),
 	}
 }
 
@@ -113,6 +119,9 @@ func (a *BlockAllocator) AllocSequence(seqID int64, shared []int, tokens int) er
 	}
 	seen := make(map[int]bool, len(shared))
 	for _, b := range shared {
+		if a.unavailable[b] {
+			return fmt.Errorf("%s: block is in a residency transition", pkgName)
+		}
 		if err := a.held(b); err != nil {
 			return fmt.Errorf("%s: sharing: %w", pkgName, err)
 		}
@@ -191,6 +200,7 @@ func (a *BlockAllocator) FreeSequence(seqID int64) {
 	for _, b := range table {
 		a.drop(b)
 	}
+	delete(a.suspended, seqID)
 	delete(a.tables, seqID)
 	delete(a.lens, seqID)
 	delete(a.allocations, seqID)
@@ -215,6 +225,9 @@ func (a *BlockAllocator) ValidateSequence(seqID int64, generation uint64, blocks
 	}
 	if err := a.admissionError(); err != nil {
 		return err
+	}
+	if a.suspended[seqID] {
+		return fmt.Errorf("%s: sequence is not resident", pkgName)
 	}
 	if generation == 0 || a.allocations[seqID] != generation {
 		return fmt.Errorf("%s: sequence allocation changed", pkgName)
@@ -249,6 +262,9 @@ func (a *BlockAllocator) freeSequence(seqID int64) {
 // block has no contents worth keeping, so retaining one is a caller bug.
 func (a *BlockAllocator) Retain(blocks []int) error {
 	for _, b := range blocks {
+		if a.unavailable[b] {
+			return fmt.Errorf("%s: block is in a residency transition", pkgName)
+		}
 		if err := a.held(b); err != nil {
 			return fmt.Errorf("%s: retain: %w", pkgName, err)
 		}
@@ -318,6 +334,9 @@ func (a *BlockAllocator) SequenceLength(seqID int64) (int, bool) {
 
 // Table returns a copy of the block table for sequence seqID.
 func (a *BlockAllocator) Table(seqID int64) []int {
+	if a.suspended[seqID] {
+		return nil
+	}
 	return append([]int(nil), a.tables[seqID]...)
 }
 
@@ -392,6 +411,9 @@ func (a *BlockAllocator) FragmentationIndex() float64 {
 // PlanCompaction computes the optimal set of block relocations to compact all active
 // blocks into contiguous low-index slots [0..ActiveBlocks-1].
 func (a *BlockAllocator) PlanCompaction(maxMoves int) CompactionPlan {
+	if len(a.residencyOwners) != 0 {
+		return CompactionPlan{}
+	}
 	stats := a.FragmentationStats()
 	activeBlocks := stats.AllocatedBlocks
 	total := a.totalBlocks
@@ -457,8 +479,13 @@ func (a *BlockAllocator) PlanCompaction(maxMoves int) CompactionPlan {
 }
 
 // ApplyCompaction applies the relocations in plan to the allocator's internal tables,
-// holders, and free block list.
+// holders, and free block list. Active residency owners refuse the operation
+// without mutation; this void API does not report success. Cache consumers must
+// check residency ownership before issuing any corresponding physical copies.
 func (a *BlockAllocator) ApplyCompaction(plan CompactionPlan) {
+	if len(a.residencyOwners) != 0 {
+		return
+	}
 	if plan.Empty() {
 		return
 	}
@@ -492,7 +519,7 @@ func (a *BlockAllocator) ApplyCompaction(plan CompactionPlan) {
 // VirtualPageTable returns the virtual-to-physical block table for seqID.
 func (a *BlockAllocator) VirtualPageTable(seqID int64) (VirtualPageTable, bool) {
 	table, ok := a.tables[seqID]
-	if !ok {
+	if !ok || a.suspended[seqID] {
 		return VirtualPageTable{}, false
 	}
 	return VirtualPageTable{
@@ -505,6 +532,9 @@ func (a *BlockAllocator) VirtualPageTable(seqID int64) (VirtualPageTable, bool) 
 func (a *BlockAllocator) VirtualPageTables() []VirtualPageTable {
 	out := make([]VirtualPageTable, 0, len(a.tables))
 	for seqID, table := range a.tables {
+		if a.suspended[seqID] {
+			continue
+		}
 		out = append(out, VirtualPageTable{
 			SeqID:  seqID,
 			Blocks: append([]int(nil), table...),
