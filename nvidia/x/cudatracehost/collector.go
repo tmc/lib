@@ -15,7 +15,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/tmc/lib/ebpfhost"
@@ -132,8 +131,7 @@ func Open(cfg Config) (*Collector, error) {
 	if err != nil {
 		return nil, err
 	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || stat.Ino != mappedInode || !sameDevice(uint64(stat.Dev), mappedDev) {
+	if !sameMappedFile(info, mappedInode, mappedDev) {
 		return nil, fmt.Errorf("cudatracehost: mapped library inode changed")
 	}
 	imageELF, err := elf.NewFile(held)
@@ -631,6 +629,10 @@ func (c *Collector) closedError() error {
 		return c.terminalErr
 	}
 	return os.ErrClosed
+}
+
+func sameMappedIdentity(ino, dev, mappedInode uint64, mappedDev string) bool {
+	return ino == mappedInode && sameDevice(dev, mappedDev)
 }
 
 func sameDevice(dev uint64, text string) bool {
