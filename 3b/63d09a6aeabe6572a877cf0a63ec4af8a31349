@@ -1,0 +1,9 @@
+commit=3b63d09a6aeabe6572a877cf0a63ec4af8a31349
+date=2026-10-19T04:08:52Z
+agent=agy
+model=gemini-4-argon-medium
+gates=gofmt:ok,vet:ok,test:105_pass_30_skip_0_fail,linux:ok
+mutants_tested:
+1. model.go:ropeInvFreq invert smooth interpolation factor -> FAIL TestRoPEScalingConfigAndFreq (restored sha256=c29d46afc4398c6eb608681a598f2a3f1a6f0429cc3aa38498bc69dd5296c55e)
+2. main.go:parseTokenIDs omit checkToken(tok, vocabSize) -> FAIL TestParseTokenIDs/TestRunWithTokenIDs (restored sha256=4ec0052a465bf937f5f7d70b92fc88dbf5840a9107662f1fb54acf3bb8fa346a)
+3. forward_bf16.cu:bf16_pair_to_f32 corrupt u << 16 shift -> FAIL TestBF16MutationsApply (restored sha256=421e1974a565da3d00f3fbf6c72e34598205095bf28c7fc4a3e93349962c97de)
