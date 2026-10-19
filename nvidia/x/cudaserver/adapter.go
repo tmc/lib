@@ -18,7 +18,6 @@ type BatchEngineAdapter struct {
 	execEngine  cudabatch.ExecutionEngine
 	tokenizer   Tokenizer
 	bucket      cudabatch.ShapeBucket
-	blockSize   int
 	stepTicker  time.Duration
 	contTracker *cudabatch.ContinuationTracker
 
@@ -92,7 +91,6 @@ func NewBatchEngineAdapter(
 		execEngine:  execEngine,
 		tokenizer:   tokenizer,
 		bucket:      cudabatch.ShapeBucket{BatchSize: 16, MaxSeqLen: 2048, MaxTokens: 2048},
-		blockSize:   16,
 		stepTicker:  1 * time.Millisecond,
 		contTracker: cudabatch.NewContinuationTracker(),
 		listeners:   make(map[string]chan string),
@@ -311,7 +309,7 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 	}
 
 	// Bind rows and validate shapes
-	metadata, err := cudabatch.ValidateAndBindRows(iter.AllocatedRows, a.bucket, a.blockSize)
+	metadata, err := a.scheduler.BindIteration(iter, a.bucket)
 	if err != nil {
 		_, finishErr := a.finishIteration(iter, nil, nil, fmt.Errorf("cudasrv: validate row bindings: %w", err))
 		return finishErr

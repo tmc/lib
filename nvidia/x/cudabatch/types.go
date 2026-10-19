@@ -96,6 +96,7 @@ type Request struct {
 	admissionOrdinal int64
 	admittedAt       time.Time
 	retainedTerminal bool
+	kvAllocated      bool
 }
 
 // IsFinished reports whether the request has reached a terminal state.

@@ -2,6 +2,7 @@ package cudabatch
 
 import (
 	"fmt"
+	"github.com/tmc/lib/nvidia/x/cudakv"
 	"strconv"
 
 	"github.com/tmc/lib/nvidia/x/cudashape"
@@ -62,6 +63,64 @@ type BatchMetadata struct {
 	SequenceLens   []int
 	AttentionMask  []float32 // Flattened [BatchSize, MaxSeqLen] prefix-validity mask, not per-query causal masking
 	BlockTableFlat []int32   // Flattened [BatchSize, MaxBlocksPerRow]
+	allocation     *batchAllocation
+}
+
+type batchAllocation struct {
+	pool        *cudakv.BlockAllocator
+	sequenceIDs []int64
+	generations []uint64
+	rowIDs      []string
+}
+
+// BindAllocatedRows validates rows against their actual pool allocations before
+// constructing metadata. sequenceIDs maps rows to numeric allocator owners; it
+// is not inferred from block indices or user-facing sequence names. The caller
+// must serialize pool access and retain these allocations through execution.
+// This checks pool bookkeeping, not the device storage or the model's KV ABI.
+func BindAllocatedRows(rows []BatchRowBinding, bucket ShapeBucket, pool *cudakv.BlockAllocator, sequenceIDs []int64) (*BatchMetadata, error) {
+	if pool == nil || len(rows) == 0 || len(sequenceIDs) != len(rows) {
+		return nil, fmt.Errorf("%w: actual pool and row owners required", ErrCorruptBlockTable)
+	}
+	owner := &batchAllocation{pool: pool, sequenceIDs: append([]int64(nil), sequenceIDs...), generations: make([]uint64, len(rows)), rowIDs: make([]string, len(rows))}
+	for i, row := range rows {
+		owner.rowIDs[i] = row.SeqID
+		for j := 0; j < i; j++ {
+			if sequenceIDs[j] == sequenceIDs[i] {
+				return nil, fmt.Errorf("%w: duplicate row owner", ErrCorruptBlockTable)
+			}
+		}
+		generation, ok := pool.AllocationGeneration(sequenceIDs[i])
+		if !ok {
+			return nil, fmt.Errorf("%w: row %d has no allocation", ErrCorruptBlockTable, i)
+		}
+		owner.generations[i] = generation
+		if err := pool.ValidateSequence(sequenceIDs[i], generation, row.BlockTable, row.SequenceLength); err != nil {
+			return nil, fmt.Errorf("%w: row %d: %v", ErrCorruptBlockTable, i, err)
+		}
+	}
+	metadata, err := ValidateAndBindRows(rows, bucket, pool.BlockSize())
+	if err != nil {
+		return nil, err
+	}
+	metadata.allocation = owner
+	return metadata, nil
+}
+
+func (m *BatchMetadata) validateAllocation() error {
+	owner := m.allocation
+	if owner == nil || owner.pool == nil || len(owner.sequenceIDs) != len(m.RowBindings) || len(owner.generations) != len(m.RowBindings) || len(owner.rowIDs) != len(m.RowBindings) || owner.pool.BlockSize() != m.BlockSize {
+		return fmt.Errorf("%w: allocation-bound metadata required", ErrCorruptBlockTable)
+	}
+	for i, row := range m.RowBindings {
+		if row.SeqID != owner.rowIDs[i] {
+			return fmt.Errorf("%w: row owner identity changed", ErrCorruptBlockTable)
+		}
+		if err := owner.pool.ValidateSequence(owner.sequenceIDs[i], owner.generations[i], row.BlockTable, row.SequenceLength); err != nil {
+			return fmt.Errorf("%w: row %d: %v", ErrCorruptBlockTable, i, err)
+		}
+	}
+	return nil
 }
 
 // ValidateAndBindRows validates a nonempty batch before allocating its metadata.
@@ -92,6 +151,9 @@ func ValidateAndBindRows(rows []BatchRowBinding, bucket ShapeBucket, blockSize i
 
 	totalTokens := 0
 	for i, row := range rows {
+		if row.ContinuationVis < VisibilityDefault || row.ContinuationVis > VisibilityThinkingVisible {
+			return nil, fmt.Errorf("%w: invalid row visibility", ErrRowBoundsViolation)
+		}
 		if row.RowIndex != i || row.SeqID == "" {
 			return nil, fmt.Errorf("%w: row %d has invalid identity", ErrRowBoundsViolation, i)
 		}

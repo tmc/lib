@@ -3,6 +3,7 @@ package cudabatch
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -113,6 +114,12 @@ func (s *BatchScheduler) Submit(req *Request) error {
 	defer s.mu.Unlock()
 	if s.configErr != nil {
 		return s.configErr
+	}
+	if s.kvTracker != nil {
+		pool, ok := s.kvTracker.kvMgr.(*cudakv.BlockAllocator)
+		if !ok || pool == nil || pool.BlockSize() <= 0 {
+			return fmt.Errorf("%w: actual block allocator required", ErrCorruptBlockTable)
+		}
 	}
 	s.expireWaitingLocked(time.Now())
 
@@ -332,8 +339,9 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 		rows := append([]BatchRowBinding(nil), iter.AllocatedRows...)
 		for i := range rows {
 			rows[i].Tokens = append([]int32(nil), rows[i].Tokens...)
+			rows[i].BlockTable = append([]int(nil), rows[i].BlockTable...)
 		}
-		s.inFlight = &ScheduledIteration{StepID: iter.StepID, AllocatedRows: rows}
+		s.inFlight = &ScheduledIteration{StepID: iter.StepID, AllocatedRows: rows, TotalTokens: iter.TotalTokens}
 	}
 	return iter, nil
 }
@@ -457,6 +465,7 @@ func (s *BatchScheduler) admitWaitingLocked(availableSlots int) {
 				continue
 			}
 			req.BlockTable = tbl
+			req.kvAllocated = true
 		}
 
 		req.State = StatePrefilling
@@ -487,8 +496,9 @@ func (s *BatchScheduler) applyFairnessOrdering(prefills []*Request) {
 
 func (s *BatchScheduler) cleanupRequestResourcesLocked(req *Request) {
 	seqHash := hashSeqID(req.ID)
-	if s.kvTracker != nil {
+	if s.kvTracker != nil && req.kvAllocated {
 		s.kvTracker.FreeSequence(seqHash)
+		req.kvAllocated = false
 	}
 	// Execute and drain any pending resource release callbacks
 	if callbacks, ok := s.pendingReleases[req.ID]; ok {
@@ -499,6 +509,39 @@ func (s *BatchScheduler) cleanupRequestResourcesLocked(req *Request) {
 		}
 		delete(s.pendingReleases, req.ID)
 	}
+}
+
+// BindIteration validates the exact outstanding iteration against the tracker’s
+// actual block allocator. Shape-only metadata cannot authorize a PlanEngine.
+// The scheduler and tracker must exclusively own pool mutation during execution.
+func (s *BatchScheduler) BindIteration(iter *ScheduledIteration, bucket ShapeBucket) (*BatchMetadata, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if iter == nil || s.inFlight == nil || iter.StepID != s.inFlight.StepID || iter.TotalTokens != s.inFlight.TotalTokens || !reflect.DeepEqual(iter.AllocatedRows, s.inFlight.AllocatedRows) {
+		return nil, fmt.Errorf("%w: iteration does not match outstanding rows", ErrInvalidRequest)
+	}
+	if s.kvTracker == nil {
+		return nil, fmt.Errorf("%w: actual KV tracker required", ErrCorruptBlockTable)
+	}
+	t := s.kvTracker
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	pool, ok := t.kvMgr.(*cudakv.BlockAllocator)
+	if !ok || pool == nil {
+		return nil, fmt.Errorf("%w: actual block allocator required", ErrCorruptBlockTable)
+	}
+	ids := make([]int64, len(iter.AllocatedRows))
+	for i, row := range iter.AllocatedRows {
+		req := s.requests[row.SeqID]
+		if req == nil || !req.activeExecution || !req.kvAllocated {
+			return nil, ErrCorruptBlockTable
+		}
+		ids[i] = hashSeqID(req.ID)
+		if err := pool.ValidateSequence(ids[i], t.allocations[ids[i]], row.BlockTable, row.SequenceLength); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrCorruptBlockTable, err)
+		}
+	}
+	return BindAllocatedRows(iter.AllocatedRows, bucket, pool, ids)
 }
 
 // RegisterResourceRelease registers a cleanup callback (e.g. output buffer release or KV handle)

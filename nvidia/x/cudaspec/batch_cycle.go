@@ -158,7 +158,7 @@ func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchC
 			return result, err
 		}
 		row := cudabatch.BatchRowBinding{RowIndex: 0, SeqID: rowID, Tokens: []int32{contextTokens[len(contextTokens)-1]}, StartPos: len(contextTokens) - 1, SequenceLength: len(contextTokens), BlockTable: table}
-		metadata, err := cudabatch.ValidateAndBindRows([]cudabatch.BatchRowBinding{row}, cudabatch.ShapeBucket{BatchSize: 1, MaxSeqLen: len(req.Prefix) + len(drafts), MaxTokens: 1}, a.BlockSize())
+		metadata, err := cudabatch.BindAllocatedRows([]cudabatch.BatchRowBinding{row}, cudabatch.ShapeBucket{BatchSize: 1, MaxSeqLen: len(req.Prefix) + len(drafts), MaxTokens: 1}, a, []int64{req.Sequence})
 		if err != nil {
 			return result, err
 		}

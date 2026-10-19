@@ -24,13 +24,15 @@ var ErrBlockAllocatorUninitialized = errors.New("cudakv: block allocator must be
 // unconnected owners of the same block, one recycling it while the other still
 // reads it, is the failure this exists to rule out.
 type BlockAllocator struct {
-	blockSize   int
-	totalBlocks int
-	free        []int
-	holders     []int // per block; 0 means free
-	tables      map[int64][]int
-	lens        map[int64]int
-	err         error // non-nil when the constructor arguments or extent were invalid
+	blockSize      int
+	totalBlocks    int
+	free           []int
+	holders        []int // per block; 0 means free
+	tables         map[int64][]int
+	lens           map[int64]int
+	err            error // non-nil when the constructor arguments or extent were invalid
+	allocations    map[int64]uint64
+	nextAllocation uint64
 }
 
 // blockAllocator is an alias for BlockAllocator preserving package-internal compatibility.
@@ -60,6 +62,7 @@ func NewBlockAllocator(blockSize, totalBlocks int) *BlockAllocator {
 		holders:     make([]int, totalBlocks),
 		tables:      make(map[int64][]int),
 		lens:        make(map[int64]int),
+		allocations: make(map[int64]uint64),
 	}
 }
 
@@ -91,6 +94,9 @@ func (a *BlockAllocator) AllocSequence(seqID int64, shared []int, tokens int) er
 	}
 	if _, exists := a.tables[seqID]; exists {
 		return fmt.Errorf("%s: sequence %d already allocated", pkgName, seqID)
+	}
+	if a.nextAllocation == ^uint64(0) {
+		return fmt.Errorf("%s: allocation identity exhausted", pkgName)
 	}
 	if tokens < 0 {
 		return fmt.Errorf("%s: token count %d is negative", pkgName, tokens)
@@ -129,6 +135,11 @@ func (a *BlockAllocator) AllocSequence(seqID int64, shared []int, tokens int) er
 	}
 	a.tables[seqID] = table
 	a.lens[seqID] = tokens
+	if a.allocations == nil {
+		a.allocations = make(map[int64]uint64)
+	}
+	a.nextAllocation++
+	a.allocations[seqID] = a.nextAllocation
 	return nil
 }
 
@@ -145,6 +156,13 @@ func (a *BlockAllocator) AppendToken(seqID int64) error {
 	table, exists := a.tables[seqID]
 	if !exists {
 		return fmt.Errorf("%s: sequence %d not found", pkgName, seqID)
+	}
+	if a.lens[seqID] > 0 {
+		if err := a.ValidateSequence(seqID, a.allocations[seqID], table, a.lens[seqID]); err != nil {
+			return err
+		}
+	} else if len(table) != 0 {
+		return fmt.Errorf("%s: corrupt empty sequence table", pkgName)
 	}
 	if a.lens[seqID] == int(^uint(0)>>1) {
 		return fmt.Errorf("%s: sequence %d token count would overflow", pkgName, seqID)
@@ -175,6 +193,52 @@ func (a *BlockAllocator) FreeSequence(seqID int64) {
 	}
 	delete(a.tables, seqID)
 	delete(a.lens, seqID)
+	delete(a.allocations, seqID)
+}
+
+// AllocationGeneration identifies the current allocation of seqID. Freeing and
+// reallocating an ID changes its generation even if the same blocks are reused.
+// Like the allocator's other methods, calls must be externally serialized.
+func (a *BlockAllocator) AllocationGeneration(seqID int64) (uint64, bool) {
+	if a == nil {
+		return 0, false
+	}
+	g, ok := a.allocations[seqID]
+	return g, ok
+}
+
+// ValidateSequence checks a complete physical table against this pool's live
+// sequence allocation and token capacity. It changes no allocation or holder.
+func (a *BlockAllocator) ValidateSequence(seqID int64, generation uint64, blocks []int, tokens int) error {
+	if a == nil {
+		return ErrBlockAllocatorUninitialized
+	}
+	if err := a.admissionError(); err != nil {
+		return err
+	}
+	if generation == 0 || a.allocations[seqID] != generation {
+		return fmt.Errorf("%s: sequence allocation changed", pkgName)
+	}
+	owned, ok := a.tables[seqID]
+	n, exists := a.lens[seqID]
+	if !ok || !exists || tokens <= 0 || tokens > n || len(blocks) != len(owned) {
+		return fmt.Errorf("%s: sequence table or capacity mismatch", pkgName)
+	}
+	needed := n / a.blockSize
+	if n%a.blockSize != 0 {
+		needed++
+	}
+	if len(owned) != needed {
+		return fmt.Errorf("%s: corrupt sequence capacity", pkgName)
+	}
+	seen := make(map[int]bool, len(blocks))
+	for i, b := range blocks {
+		if b != owned[i] || b < 0 || b >= a.totalBlocks || a.holders[b] <= 0 || seen[b] {
+			return fmt.Errorf("%s: foreign, free or duplicate sequence block", pkgName)
+		}
+		seen[b] = true
+	}
+	return nil
 }
 
 func (a *BlockAllocator) freeSequence(seqID int64) {
