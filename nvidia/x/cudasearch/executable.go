@@ -336,14 +336,14 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			r, err := x.Run(ctx)
 			detached, copyErr := r.CloneWithMemory(e.attemptMemory.Reserve)
 			if copyErr != nil {
-				return r, errors.Join(err, copyErr)
+				return r, errors.Join(err, r.Err, copyErr)
 			}
 			r = detached
 			if err != nil {
-				return r, err
+				return r, errors.Join(err, r.Err)
 			}
 			if !r.Complete || r.Err != nil {
-				return r, fmt.Errorf("cudasearch: incomplete execution receipt")
+				return r, errors.Join(fmt.Errorf("cudasearch: incomplete execution receipt"), r.Err)
 			}
 			if r.TimingKind != e.TimingKind {
 				return r, ErrTimingKindMismatch
