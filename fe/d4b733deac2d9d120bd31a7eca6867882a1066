@@ -1,0 +1,9 @@
+commit: fed4b733deac2d9d120bd31a7eca6867882a1066
+date: 2026-10-19T03:30:08.770621+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 76087
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source inputs: [{"path": "/Users/tmc/tmp/lib-wt-next/20261018-attributed-otlp/public-export.patch", "sha256": "c7637c247fabc6be90365e1cb5bbd059e395e9e7d965b51627e20167bcfa8632", "included_paths": null}]
