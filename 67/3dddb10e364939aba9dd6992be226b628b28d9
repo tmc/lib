@@ -1,0 +1,10 @@
+commit: 673dddb10e364939aba9dd6992be226b628b28d9
+date: 2026-10-19T02:45:35.197123+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 21828
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-filter-oracle-fix/candidate.patch
+source sha256: 91f1ced8703b0fc0856201151f64e9c5281da66429d707b6084199cbd39718ab
