@@ -1,0 +1,10 @@
+commit: b5095120735c828ebd43b324937029f291abeb44
+date: 2026-10-19T02:35:30.252079+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 61551
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-quota-capture-reannouncement/phase-composition.patch
+source sha256: ca8f4b02c4b6df56ae6e4356cc076174bc7a6e962fa330d4a1aec70220e9b22d
