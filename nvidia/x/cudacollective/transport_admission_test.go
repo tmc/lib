@@ -69,7 +69,7 @@ func TestTCPSocketDirectExecutionRefuses(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer comm.Close()
-	op := cudacollective.OperationDescriptor{Kind: cudacollective.KindAllReduce, DataType: cudair.Float32, Count: 4}
+	op := cudacollective.OperationDescriptor{Kind: cudacollective.KindAllReduce, DataType: cudair.Float32, Count: 4, Reduction: cudacollective.ReductionSum}
 	if err := tr.Execute(context.Background(), comm, op, 0x1000, 0x2000); !errors.Is(err, cudacollective.ErrExecutionUnavailable) {
 		t.Fatalf("direct TCP execution: got %v, want ErrExecutionUnavailable", err)
 	}

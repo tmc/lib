@@ -203,9 +203,10 @@ func TestDistributedBackpressure(t *testing.T) {
 
 	ctx := context.Background()
 	op := cudacollective.OperationDescriptor{
-		Kind:     cudacollective.KindAllReduce,
-		DataType: cudair.Float32,
-		Count:    2048,
+		Kind:      cudacollective.KindAllReduce,
+		DataType:  cudair.Float32,
+		Count:     2048,
+		Reduction: cudacollective.ReductionSum,
 	}
 
 	// Stage 1: slot 0
@@ -331,9 +332,10 @@ func TestUninitializedNCCLTransportRefusesExecution(t *testing.T) {
 	defer cancel()
 
 	op := cudacollective.OperationDescriptor{
-		Kind:     cudacollective.KindAllReduce,
-		DataType: cudair.Float32,
-		Count:    1024,
+		Kind:      cudacollective.KindAllReduce,
+		DataType:  cudair.Float32,
+		Count:     1024,
+		Reduction: cudacollective.ReductionSum,
 	}
 
 	// Attempting native execution in unit test environment must return ErrExecutionUnavailable

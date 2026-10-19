@@ -63,10 +63,16 @@ func NewPipelineManager(comm *Communicator, buf DoubleBuffer, maxQueueSize int) 
 // If the target slot is currently in flight or maxQueueSize is exceeded,
 // it fails with ErrBackpressureExceeded or ErrBufferInUse rather than corrupting memory.
 func (p *PipelineManager) SubmitStage(ctx context.Context, op OperationDescriptor) (*InFlightTransfer, error) {
+	if p == nil || p.comm == nil {
+		return nil, ErrCommunicatorClosed
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if err := p.comm.CheckAlive(); err != nil {
+		return nil, err
+	}
+	if err := op.Validate(p.comm.Membership().WorldSize()); err != nil {
 		return nil, err
 	}
 
