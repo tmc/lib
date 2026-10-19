@@ -579,6 +579,7 @@ func TestCUDATestLaunchesInContext(t *testing.T) {
 	want := map[string]int{
 		"bf16_parity_cuda_test.go":        6,
 		"context_experiment_cuda_test.go": 0,
+		"fused_decode_cuda_test.go":       42,
 		"fused_parity_cuda_test.go":       9,
 		"graph_parity_cuda_test.go":       7,
 	}

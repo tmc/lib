@@ -396,7 +396,7 @@ func mutateBF16(d *parityDevice, old, new string) *GPUModules {
 	if n := strings.Count(forwardBF16CUDA, old); n != 1 {
 		d.t.Fatalf("mutation %q matches %d times, want 1", old, n)
 	}
-	gm, err := compileGPUModules(d.dev, ForwardKernelsCUDA+"\n"+strings.Replace(forwardBF16CUDA, old, new, 1))
+	gm, err := compileGPUModules(d.dev, ForwardKernelsCUDA+"\n"+strings.Replace(forwardBF16CUDA, old, new, 1)+"\n"+fusedDecodeCUDA)
 	if gm != nil {
 		d.t.Cleanup(func() {
 			if err := gm.Close(); err != nil {
