@@ -61,6 +61,10 @@ type ParsedConfig struct {
 
 // ParseConfigFile reads, validates, and parses a JSON configuration file.
 func ParseConfigFile(path string) (*ParsedConfig, error) {
+	return parseConfigFile(path, nil)
+}
+
+func parseConfigFile(path string, normalize func(ServeConfig) (ServeConfig, error)) (*ParsedConfig, error) {
 	if path == "" {
 		return nil, errors.New("config file path required")
 	}
@@ -79,7 +83,7 @@ func ParseConfigFile(path string) (*ParsedConfig, error) {
 		return nil, errors.New("config file exceeds maximum size of 1MB")
 	}
 	baseDir := filepath.Dir(path)
-	return parseConfigBytes(data, baseDir)
+	return parseConfigBytesWith(data, baseDir, normalize)
 }
 
 // ParseConfigJSON parses and validates JSON configuration bytes.
@@ -91,6 +95,10 @@ func ParseConfigJSON(data []byte) (*ParsedConfig, error) {
 }
 
 func parseConfigBytes(data []byte, baseDir string) (*ParsedConfig, error) {
+	return parseConfigBytesWith(data, baseDir, nil)
+}
+
+func parseConfigBytesWith(data []byte, baseDir string, normalize func(ServeConfig) (ServeConfig, error)) (*ParsedConfig, error) {
 	if len(data) > 1<<20 {
 		return nil, errors.New("config data exceeds maximum size of 1MB")
 	}
@@ -124,6 +132,13 @@ func parseConfigBytes(data []byte, baseDir string) (*ParsedConfig, error) {
 		raw.TLSKey = resolveRelative(baseDir, raw.TLSKey)
 	}
 
+	if normalize != nil {
+		var err error
+		raw, err = normalize(raw)
+		if err != nil {
+			return nil, fmt.Errorf("normalize configuration: %w", err)
+		}
+	}
 	return validateAndBuildParsedConfig(raw)
 }
 

@@ -78,6 +78,7 @@ type Agent struct {
 
 	listener       net.Listener
 	server         *http.Server
+	handlerMu      sync.RWMutex
 	metricsHandler *nvtelemetry.MetricsHandler
 
 	targetMu       sync.Mutex
@@ -97,6 +98,7 @@ type Agent struct {
 	stderr io.Writer
 
 	// Test hooks
+	ownedDelivery  *serveDeliveryOwnership
 	samplerFactory func(cfg *ParsedConfig) (nvtelemetry.Sampler, func(), error)
 }
 
@@ -137,8 +139,10 @@ func (a *Agent) SetSamplerFactory(fn func(cfg *ParsedConfig) (nvtelemetry.Sample
 }
 
 func (a *Agent) getMetricsHandler() *nvtelemetry.MetricsHandler {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	// Collection must not wait on the configuration lock: Reload holds that
+	// lock while waiting for collection to drain.
+	a.handlerMu.RLock()
+	defer a.handlerMu.RUnlock()
 	return a.metricsHandler
 }
 
@@ -152,7 +156,75 @@ func (a *Agent) computeTargetSig(cfg *ParsedConfig) string {
 		cfg.ManagedConfig, cfg.CounterStartUnixNanos, cfg.OTLPMetricsConfig, cfg.OTLPLogsConfig)
 }
 
+// serveDeliveryOwnership is immutable after startup. Config paths identify the
+// endpoint configurations acquired once by serve's durable delivery owners.
+// Changing or disabling one requires restart, before draining the live source.
+type serveDeliveryOwnership struct{ metrics, logs string }
+
+func (o *serveDeliveryOwnership) normalize(metrics, logs string) (string, string, error) {
+	if o == nil {
+		return metrics, logs, nil
+	}
+	if o.metrics != "" {
+		if metrics != o.metrics {
+			return "", "", errors.New("changing durable metrics endpoint requires restart")
+		}
+		metrics = ""
+	}
+	if o.logs != "" {
+		if logs != o.logs {
+			return "", "", errors.New("changing durable logs endpoint requires restart")
+		}
+		logs = ""
+	}
+	return metrics, logs, nil
+}
+
+func (o *serveDeliveryOwnership) normalizeRaw(raw ServeConfig) (ServeConfig, error) {
+	var err error
+	raw.OTLPMetricsConfig, raw.OTLPLogsConfig, err = o.normalize(raw.OTLPMetricsConfig, raw.OTLPLogsConfig)
+	return raw, err
+}
+
+func (a *Agent) targetConfig(cfg *ParsedConfig) (*ParsedConfig, error) {
+	if a.ownedDelivery == nil {
+		return cfg, nil
+	}
+	copy := *cfg
+	copy.DeviceUUIDs = append([]string(nil), cfg.DeviceUUIDs...)
+	var err error
+	copy.OTLPMetricsConfig, copy.OTLPLogsConfig, err = a.ownedDelivery.normalize(cfg.OTLPMetricsConfig, cfg.OTLPLogsConfig)
+	if err != nil {
+		return nil, err
+	}
+	return &copy, nil
+}
+
+func (a *Agent) readConfigFile() (*ParsedConfig, error) {
+	if a.ownedDelivery == nil {
+		return ParseConfigFile(a.configPath)
+	}
+	cfg, err := parseConfigFile(a.configPath, a.ownedDelivery.normalizeRaw)
+	if err != nil {
+		return nil, err
+	}
+	// Keep configured identity in Agent; buildTarget passes only a normalized
+	// clone to samplers/exporters. Relative names were resolved before checking.
+	if a.ownedDelivery.metrics != "" {
+		cfg.OTLPMetricsConfig = a.ownedDelivery.metrics
+	}
+	if a.ownedDelivery.logs != "" {
+		cfg.OTLPLogsConfig = a.ownedDelivery.logs
+	}
+	return cfg, nil
+}
+
 func (a *Agent) buildTarget(cfg *ParsedConfig) (*runningTarget, error) {
+	targetSig := a.computeTargetSig(cfg)
+	cfg, configErr := a.targetConfig(cfg)
+	if configErr != nil {
+		return nil, configErr
+	}
 	var sampler nvtelemetry.Sampler
 	var samplerCleanup func()
 	var err error
@@ -258,7 +330,7 @@ func (a *Agent) buildTarget(cfg *ParsedConfig) (*runningTarget, error) {
 		ctx:             targetCtx,
 		cancel:          targetCancel,
 		collectorDone:   make(chan struct{}),
-		targetSig:       a.computeTargetSig(cfg),
+		targetSig:       targetSig,
 	}
 
 	collector.SetSampleHook(func(s nvtelemetry.Sample) {
@@ -464,7 +536,7 @@ func (a *Agent) Reload(ctx context.Context) error {
 	var newCfg *ParsedConfig
 	var err error
 	if a.configPath != "" {
-		newCfg, err = ParseConfigFile(a.configPath)
+		newCfg, err = a.readConfigFile()
 	} else {
 		newCfg = a.cfg
 	}
@@ -493,6 +565,10 @@ func (a *Agent) ReloadConfig(newCfg *ParsedConfig) error {
 }
 
 func (a *Agent) applyReloadLocked(ctx context.Context, newCfg *ParsedConfig) error {
+	if _, err := a.targetConfig(newCfg); err != nil {
+		a.metrics.reloadFailures.Add(1)
+		return err
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -521,7 +597,14 @@ func (a *Agent) applyReloadLocked(ctx context.Context, newCfg *ParsedConfig) err
 	}
 
 	if newMetricsHandler != nil {
+		a.handlerMu.Lock()
 		a.metricsHandler = newMetricsHandler
+		a.handlerMu.Unlock()
+	}
+	if a.ownedDelivery != nil {
+		copy := *newCfg
+		copy.DeviceUUIDs = append([]string(nil), newCfg.DeviceUUIDs...)
+		newCfg = &copy
 	}
 	a.cfg = newCfg
 	a.metrics.reloadSuccesses.Add(1)
@@ -637,8 +720,8 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 		if a.cancel != nil {
 			a.cancel()
 		}
-		if a.metricsHandler != nil {
-			a.metricsHandler.Invalidate()
+		if handler := a.getMetricsHandler(); handler != nil {
+			handler.Invalidate()
 		}
 
 		timeout := 5 * time.Second
