@@ -1,0 +1,10 @@
+commit: 1108e770c274d0a996bd1d55dfa8d8d9e3388617
+date: 2026-10-19T02:45:33.954867+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 21828
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-dcgm-bound-fix/candidate.patch
+source sha256: 74e16ef4b1489708917f428c6c6df4a89870a4fecf2ddcc9cdba74fe4bea6c16
