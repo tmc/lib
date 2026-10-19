@@ -1,0 +1,9 @@
+commit: 2cf59e8f842dad2e83f1c2b080f77747c24f2b5f
+date: 2026-10-19T03:24:30.670864+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 35631
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patches: [["/Users/tmc/tmp/lib-wt-next/20261018-e2-e3-composition/joint-controls.patch", "51c6ae36a48a841672e05989473170172d374e4d0895b00c2f68b40a69ca4358"]]
