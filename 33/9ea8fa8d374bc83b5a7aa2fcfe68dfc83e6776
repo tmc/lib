@@ -1,0 +1,7 @@
+commit=339ea8fa8d374bc83b5a7aa2fcfe68dfc83e6776
+date=2026-10-19T02:10:37Z
+agent=agy
+model=gemini-4-argon-medium
+cherry_pick=c758470e4ea636ab221ee0fda038ce30c05035ff
+gates: gofmt=ok vet=ok test=92_pass_13_skip_0_fail linux=ok
+mutants:TestAttentionHalfPlanControls_in_tree_controls_verified
