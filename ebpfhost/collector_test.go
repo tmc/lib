@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -123,5 +124,33 @@ func TestCloseRetainsFailedCleanup(t *testing.T) {
 	data, _ = os.ReadFile(filepath.Join(root, "uprobe_events"))
 	if string(data) != "-:owned/entry\n" {
 		t.Fatal("successful probe removal repeated")
+	}
+}
+
+func TestOpenAdmission(t *testing.T) {
+	if runtime.GOOS != "linux" || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64") {
+		_, err := Open(Config{PID: 1, Scheduler: true})
+		if err == nil || !strings.Contains(err.Error(), "tracefs collector requires linux/amd64 or linux/arm64") {
+			t.Fatalf("Open on %s/%s = %v, want unsupported platform refusal", runtime.GOOS, runtime.GOARCH, err)
+		}
+		return
+	}
+	cases := []struct {
+		name string
+		cfg  Config
+		want string
+	}{
+		{name: "invalid pid", cfg: Config{PID: 0, Scheduler: true}, want: "invalid process ID"},
+		{name: "invalid buffer", cfg: Config{PID: 1, BufferKB: -1, Scheduler: true}, want: "invalid buffer size"},
+		{name: "no events", cfg: Config{PID: 1}, want: "no events requested"},
+		{name: "invalid probe", cfg: Config{PID: 1, Probes: []Probe{{Name: "bad name", Path: "/bin/sh"}}}, want: "invalid probe definition"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Open(tc.cfg)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Open(%+v) = %v, want substring %q", tc.cfg, err, tc.want)
+			}
+		})
 	}
 }
