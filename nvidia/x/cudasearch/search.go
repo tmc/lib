@@ -84,7 +84,11 @@ type MockEvaluator struct {
 
 // Evaluate extracts the best AST from root and scores it.
 func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState, root egraph.Id) (candidate *CandidatePlan, err error) {
-	scoring := mockScoring(ctx, m)
+	scoring, scoringOwner, err := mockScoringMemory(ctx, m)
+	if err != nil {
+		return nil, fmt.Errorf("cudasearch: mock scoring setup: %w", err)
+	}
+	defer scoringOwner.Close()
 	if state == nil || state.Graph == nil {
 		return nil, fmt.Errorf("cudasearch: nil state in evaluate")
 	}
@@ -115,8 +119,19 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 		return nil, fmt.Errorf("cudasearch: candidate failed correctness validation")
 	}
 
+	metadata, scratch, err := newMockMetadata(ctx, expr, state.Derivation)
+	if err != nil {
+		return nil, fmt.Errorf("cudasearch: mock metadata: %w", err)
+	}
+	defer scratch.Close()
+	defer func() {
+		if candidate == nil || err != nil {
+			metadata.Close()
+		}
+	}()
 	// This identifies the extracted plan, not its floating-point outputs.
-	h := sha256.Sum256([]byte(expr.Fingerprint()))
+	fingerprint := expr.Fingerprint()
+	h := sha256.Sum256([]byte(fingerprint))
 	digest := fmt.Sprintf("%x", h)
 
 	// Build evaluation receipt
@@ -136,7 +151,7 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 	_ = r.RecordTiming(cudatrial.TimingSummedKernel, dur)
 	_ = r.RecordTiming(cudatrial.TimingWallElapsed, dur+5*time.Microsecond)
 
-	totalCost, scoreErr := scoring.model.Score(r, scoring.evidence[expr.Fingerprint()])
+	totalCost, scoreErr := scoring.model.Score(r, scoring.evidence[fingerprint])
 	if scoreErr != nil {
 		return nil, scoreErr
 	}
@@ -144,7 +159,7 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 	cand := &CandidatePlan{
 		ID:               fmt.Sprintf("cand-%s-%d", expr.Op, len(state.Derivation)),
 		Expr:             expr,
-		Derivation:       append([]egraph.Action(nil), state.Derivation...),
+		Derivation:       make([]egraph.Action, len(state.Derivation)),
 		Cost:             totalCost,
 		CostSource:       CostEstimated,
 		Receipt:          r,
@@ -154,8 +169,13 @@ func (m *MockEvaluator) Evaluate(ctx context.Context, state *egraph.SearchState,
 		Digest:           digest,
 		extraction:       owner,
 		extractionLedger: searchMemoryBudget(ctx),
+		metadata:         metadata,
 	}
-	if evidence := scoring.evidence[expr.Fingerprint()]; scoring.model.acceptsEvidence(evidence) {
+	if metadata != nil {
+		cand.metadataLedger = searchMemoryBudget(ctx)
+	}
+	copy(cand.Derivation, state.Derivation)
+	if evidence := scoring.evidence[fingerprint]; scoring.model.acceptsEvidence(evidence) {
 		copy := *evidence
 		cand.Profile = &copy
 	}

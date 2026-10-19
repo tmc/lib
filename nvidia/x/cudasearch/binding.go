@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudashape"
@@ -218,22 +219,37 @@ type CandidatePlan struct {
 	Preparation        []PreparationPhase          // Host preparation, separate from device Cost
 	extraction         *egraph.Extraction
 	extractionLedger   *memoryBudget
+	metadata           *egraphcore.MemoryScope
+	metadataLedger     *memoryBudget
 }
 
-// Close releases this candidate's owned extraction reservations once and
-// invalidates the owned expression and its aliases. Caller-supplied expressions
+// Close releases this candidate's owned extraction and metadata reservations once and
+// invalidates the owned expression, synthetic receipt, copied metadata and their
+// aliases. Caller-supplied expressions
 // without an extraction owner are borrowed and left unchanged. Close does not
 // close an executable, evaluator or external resource. A candidate retained in
 // SearchResult remains owned until its candidate or result is closed.
 // Close must not race with use or another Close.
 func (c *CandidatePlan) Close() {
-	if c == nil || c.extraction == nil {
+	if c == nil {
 		return
 	}
-	c.extraction.Close()
-	c.extraction = nil
-	c.extractionLedger = nil
-	c.Expr = nil
+	if c.extraction != nil {
+		c.extraction.Close()
+		c.extraction = nil
+		c.extractionLedger = nil
+		c.Expr = nil
+	}
+	if c.metadata != nil {
+		c.metadata.Close()
+		c.metadata = nil
+		c.metadataLedger = nil
+		c.Derivation = nil
+		c.Receipt = nil
+		c.Profile = nil
+		c.ID = ""
+		c.Digest = ""
+	}
 }
 
 // Fingerprint returns a stable structural identifier for the candidate's AST and derivation.

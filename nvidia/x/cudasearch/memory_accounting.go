@@ -588,6 +588,11 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 		candidate.Close()
 		return nil, err
 	}
+	// MockEvaluator preflights and owns its complete supported metadata. Do
+	// not add a second post-hoc charge whose lifetime differs from that owner.
+	if candidate != nil && candidate.metadata != nil && candidate.metadataLedger == w.memory {
+		return candidate, nil
+	}
 	value := candidate
 	if candidate != nil && candidate.extraction != nil {
 		copy := *candidate

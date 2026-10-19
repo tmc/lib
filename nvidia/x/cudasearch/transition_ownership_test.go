@@ -169,6 +169,43 @@ func transitionSetupBudget(t *testing.T, budget SearchBudget, eval Evaluator) (S
 	})
 }
 
+// transitionIncumbentBudget locates the smallest branch quota that retains
+// the required incumbent after setup. The final test still requires a memory
+// refusal before another evaluation; a probe success alone cannot satisfy it.
+func transitionIncumbentBudget(t *testing.T, budget SearchBudget, callsWanted int, costWanted float64, run func(SearchBudget, Evaluator) (*SearchResult, error)) int64 {
+	t.Helper()
+	lo, hi := int64(1), int64(1<<20)
+	for lo < hi {
+		mid := lo + (hi-lo)/2
+		calls := 0
+		var eval Evaluator = beamEvaluatorFunc(func(_ context.Context, state *egraph.SearchState, _ egraph.Id) (*CandidatePlan, error) {
+			calls++
+			return &CandidatePlan{ID: "baseline", Cost: float64(10 - len(state.Derivation)), Validated: true}, nil
+		})
+		probe := budget
+		probe.MaxMemoryBytes = mid
+		probe, eval = transitionSetupBudget(t, probe, eval)
+		result, probeErr := run(probe, eval)
+		if probeErr != nil && !errors.Is(probeErr, ErrMemoryBudgetExceeded) {
+			if result != nil {
+				result.Close()
+			}
+			t.Fatalf("unexpected setup/phase probe error at quota %d: %v", mid, probeErr)
+		}
+		reached := result != nil && result.Winner != nil && result.Winner.Cost <= costWanted && calls >= callsWanted
+		if result != nil {
+			result.Close()
+		}
+		if reached {
+			hi = mid
+		} else {
+			lo = mid + 1
+		}
+	}
+	t.Logf("branch quota %d after setup: require incumbent cost <= %g after >= %d calls", lo, costWanted, callsWanted)
+	return lo
+}
+
 func runTransitionPathSearch(t *testing.T, path string, budget SearchBudget, state *egraph.SearchState, rules []*egraph.Rewrite, eval Evaluator) (*SearchResult, error) {
 	budget, eval = transitionSetupBudget(t, budget, eval)
 	if path == "beam-expansion" {

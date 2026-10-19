@@ -47,7 +47,11 @@ func TestMCTSRetainsBestAfterStop(t *testing.T) {
 			switch kind {
 			case "memory":
 				cfg.Budget.CallbackMemoryBytes = cloneCallbackBytes()
-				cfg.Budget.MaxMemoryBytes = cloneLaterRefusalBytes(t, s, rules, &CandidatePlan{ID: "baseline", Cost: 10, Validated: true})
+				cfg.Budget.MaxMemoryBytes = transitionIncumbentBudget(t, cfg.Budget, 1, 10, func(budget SearchBudget, eval Evaluator) (*SearchResult, error) {
+					probe := cfg
+					probe.Budget = budget
+					return NewMCTSSearch(probe).Search(ctx, s, rules, eval)
+				})
 			case "states":
 				cfg.Budget.MaxStates = 1
 			case "evaluations":
@@ -55,14 +59,21 @@ func TestMCTSRetainsBestAfterStop(t *testing.T) {
 			}
 			calls := 0
 			base := &CandidatePlan{ID: "baseline", Cost: 10, Validated: true}
-			res, err := NewMCTSSearch(cfg).Search(ctx, s, rules, beamEvaluatorFunc(func(context.Context, *egraph.SearchState, egraph.Id) (*CandidatePlan, error) {
+			var eval Evaluator = beamEvaluatorFunc(func(context.Context, *egraph.SearchState, egraph.Id) (*CandidatePlan, error) {
 				calls++
 				if calls == 1 {
 					return base, nil
 				}
 				cancel()
 				return nil, context.Canceled
-			}))
+			})
+			if kind == "memory" {
+				cfg.Budget, eval = transitionSetupBudget(t, cfg.Budget, eval)
+			}
+			res, err := NewMCTSSearch(cfg).Search(ctx, s, rules, eval)
+			if kind == "memory" && res != nil {
+				defer res.Close()
+			}
 			if res == nil || res.Winner != base || res.StopReason == nil {
 				t.Fatalf("lost best plan: %+v %v", res, err)
 			}
