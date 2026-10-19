@@ -1,0 +1,10 @@
+commit: 9307b3c6c12e4edce2c8369ffbaf5e22f521d7f5
+date: 2026-10-19T03:53:58.310409+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 96249
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-kv-residency/candidate.patch
+source sha256: ebf0f8a84fded3ca78f977782387664322c0d631ccf574655e8d1749730afb12
