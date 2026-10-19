@@ -59,6 +59,10 @@ type TelemetryDiagnosis struct {
 // stream returns an error; missing evidence produces retained withheld findings.
 // Reads and replay are bounded and cancellation is checked between reads and
 // records. Cancellation cannot interrupt a caller-owned blocking Reader.
+// V3 through V5 share the independent evidence gates. V5 histograms retain
+// counts and optional summaries without computing deltas. OTLP clock and
+// source-time assertions remain withheld: options do not independently admit
+// their mapping, and serialization alone cannot establish calibration.
 func DiagnoseTelemetry(ctx context.Context, r io.Reader, opt TelemetryOptions) (TelemetryDiagnosis, error) {
 	var out TelemetryDiagnosis
 	if ctx == nil || r == nil {
@@ -208,8 +212,11 @@ func sameObserver(a, b nvtelemetry.Observer) bool {
 }
 
 func telemetryAdmission(m *nvtelemetry.Manifest, s nvtelemetry.Sample, r nvtelemetry.Reading, opt TelemetryOptions) string {
-	if m.SchemaVersion < nvtelemetry.SchemaVersionV3 || m.SchemaVersion > nvtelemetry.SchemaVersionV4 {
+	if m.SchemaVersion < nvtelemetry.SchemaVersionV3 {
 		return "legacy stream lacks V3 evidence links"
+	}
+	if m.SchemaVersion > nvtelemetry.SchemaVersionV5 {
+		return "unsupported telemetry schema version"
 	}
 	if r.Observation == nil {
 		return "missing observation identity"
@@ -217,6 +224,9 @@ func telemetryAdmission(m *nvtelemetry.Manifest, s nvtelemetry.Sample, r nvtelem
 	o := r.Observation
 	if !r.IsAvailable() {
 		return "unavailable reading: " + r.UnavailableReason
+	}
+	if m.SchemaVersion == nvtelemetry.SchemaVersionV5 && (o.OTLPScopeName != nil || o.OTLPClock != nil || o.OTLPSourceTime != nil) {
+		return "OTLP clock mapping lacks independent admission"
 	}
 	if o.Workload == nil || !sameWorkload(*o.Workload, opt.Workload) || o.OpID != opt.OpID || opt.OpID == 0 {
 		return "missing or mismatched workload identity"
@@ -309,8 +319,16 @@ func telemetryAdmission(m *nvtelemetry.Manifest, s nvtelemetry.Sample, r nvtelem
 		return "missing counter epoch"
 	}
 	if o.Kind == "histogram" {
-		if o.Histogram == nil || !slices.Equal(opt.HistogramBounds[r.Name], o.Histogram.Bounds) {
+		if o.Histogram == nil || !slices.Equal(opt.HistogramBounds[r.Name], o.Histogram.Bounds) || (m.SchemaVersion == nvtelemetry.SchemaVersionV5 && len(o.Histogram.Bounds) == 0) {
 			return "histogram boundary mismatch or unknown boundaries"
+		}
+		if m.SchemaVersion == nvtelemetry.SchemaVersionV5 {
+			if o.Histogram.Temporality == "cumulative" && o.CounterEpoch == "" {
+				return "missing cumulative histogram epoch"
+			}
+			if o.Histogram.Temporality == "delta" && o.Interval.Start == o.Interval.End {
+				return "missing delta histogram interval"
+			}
 		}
 	}
 	if r.Evidence == nvtelemetry.EvidenceDerived || slices.Contains(opt.RequireDenominator, r.Name) {
