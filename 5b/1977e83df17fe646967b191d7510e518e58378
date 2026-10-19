@@ -1,0 +1,9 @@
+commit: 5b1977e83df17fe646967b191d7510e518e58378
+date: 2026-10-19T03:30:04.889320+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 76087
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source inputs: [{"path": "/Users/tmc/tmp/lib-wt-next/20261018-recovery-preflight-fix/candidate.patch", "sha256": "a54c7d7996d84aab0019fb59fe25839fb1e5071d59fc88800f22a2dd6cb2b694", "included_paths": null}]
