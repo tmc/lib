@@ -117,7 +117,7 @@ extern "C" __global__ void FusedRMSNormQKVRoPEStore(
         if (tid == 0) {
             float q0 = sum_q0 + (bq ? bq[row0] : 0.0f);
             float q1 = sum_q1 + (bq ? bq[row1] : 0.0f);
-            float freq = 1.0f / powf(rope_theta, float(2 * d) / float(head_dim));
+            float freq = rope_inv_freq(d, head_dim, rope_theta, 0.0f, 0.0f, 0.0f, 0);
             float val = float(pos) * freq;
             float cos_val = cosf(val);
             float sin_val = sinf(val);
@@ -182,7 +182,7 @@ extern "C" __global__ void FusedRMSNormQKVRoPEStore(
         float k1 = sum_k1 + (bk ? bk[row1] : 0.0f);
         float v0 = sum_v0 + (bv ? bv[row0] : 0.0f);
         float v1 = sum_v1 + (bv ? bv[row1] : 0.0f);
-        float freq = 1.0f / powf(rope_theta, float(2 * d) / float(head_dim));
+        float freq = rope_inv_freq(d, head_dim, rope_theta, 0.0f, 0.0f, 0.0f, 0);
         float val = float(pos) * freq;
         float cos_val = cosf(val);
         float sin_val = sinf(val);
@@ -295,7 +295,7 @@ extern "C" __global__ void FusedRMSNormQKVRoPEStoreBF16(
         if (tid == 0) {
             float q0 = sum_q0 + (bq ? bq[row0] : 0.0f);
             float q1 = sum_q1 + (bq ? bq[row1] : 0.0f);
-            float freq = 1.0f / powf(rope_theta, float(2 * d) / float(head_dim));
+            float freq = rope_inv_freq(d, head_dim, rope_theta, 0.0f, 0.0f, 0.0f, 0);
             float val = float(pos) * freq;
             float cos_val = cosf(val);
             float sin_val = sinf(val);
@@ -364,7 +364,7 @@ extern "C" __global__ void FusedRMSNormQKVRoPEStoreBF16(
         float k1 = sum_k1 + (bk ? bk[row1] : 0.0f);
         float v0 = sum_v0 + (bv ? bv[row0] : 0.0f);
         float v1 = sum_v1 + (bv ? bv[row1] : 0.0f);
-        float freq = 1.0f / powf(rope_theta, float(2 * d) / float(head_dim));
+        float freq = rope_inv_freq(d, head_dim, rope_theta, 0.0f, 0.0f, 0.0f, 0);
         float val = float(pos) * freq;
         float cos_val = cosf(val);
         float sin_val = sinf(val);

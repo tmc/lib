@@ -196,3 +196,93 @@ extern "C" __global__ void FusedSwiGLUDownBF16(
     sum = block_reduce_sum(sum, s_sum);
     if (tid == 0) out[row] = sum;
 }
+
+// bf16_pair_to_f32 unpacks two packed bfloat16 values from a 32-bit word
+// (low 16 bits in .x, high 16 bits in .y).
+__device__ __forceinline__ float2 bf16_pair_to_f32(unsigned int u) {
+    float lo = __uint_as_float(u << 16);
+    float hi = __uint_as_float(u & 0xffff0000u);
+    return make_float2(lo, hi);
+}
+
+// rows_vectorizable8 reports whether every row of in_dim bfloat16 elements starts
+// on a 16-byte boundary (as uint4 loads require) when row 0 does.
+__device__ __forceinline__ bool rows_vectorizable8(int in_dim) {
+    return (in_dim & 7) == 0;
+}
+
+// LinearGEMVBF16Wide computes two output rows per CTA using 16-byte (uint4 = 8
+// bfloat16 elements) weight loads when (in_dim & 7) == 0, reusing the x activation
+// loads across both rows, and falls back to scalar loads for unaligned tails or
+// when in_dim is not a multiple of 8. Launch with gridDim.x = (out_dim + 1) / 2.
+extern "C" __global__ void LinearGEMVBF16Wide(
+    const float* __restrict__ x,
+    const unsigned short* __restrict__ w,
+    const float* __restrict__ bias,
+    float* __restrict__ out,
+    int in_dim,
+    int out_dim
+) {
+    int row0 = blockIdx.x * 2;
+    if (row0 >= out_dim) return;
+    int row1 = row0 + 1;
+    bool has_row1 = (row1 < out_dim);
+
+    int tid = threadIdx.x;
+    __shared__ float s_sum0[32];
+    __shared__ float s_sum1[32];
+
+    const unsigned short* w_row0 = w + (size_t)row0 * in_dim;
+    const unsigned short* w_row1 = has_row1 ? (w + (size_t)row1 * in_dim) : w_row0;
+    const uint4* w_row0_8 = reinterpret_cast<const uint4*>(w_row0);
+    const uint4* w_row1_8 = reinterpret_cast<const uint4*>(w_row1);
+    const float4* x4 = reinterpret_cast<const float4*>(x);
+    int in_dim8 = rows_vectorizable8(in_dim) ? in_dim / 8 : 0;
+
+    float sum0 = 0.0f;
+    float sum1 = 0.0f;
+    for (int i = tid; i < in_dim8; i += blockDim.x) {
+        float4 x_lo = x4[2 * i];
+        float4 x_hi = x4[2 * i + 1];
+
+        uint4 wb0 = w_row0_8[i];
+        float2 p00 = bf16_pair_to_f32(wb0.x);
+        float2 p01 = bf16_pair_to_f32(wb0.y);
+        float2 p02 = bf16_pair_to_f32(wb0.z);
+        float2 p03 = bf16_pair_to_f32(wb0.w);
+        sum0 += x_lo.x * p00.x + x_lo.y * p00.y + x_lo.z * p01.x + x_lo.w * p01.y
+              + x_hi.x * p02.x + x_hi.y * p02.y + x_hi.z * p03.x + x_hi.w * p03.y;
+
+        if (has_row1) {
+            uint4 wb1 = w_row1_8[i];
+            float2 p10 = bf16_pair_to_f32(wb1.x);
+            float2 p11 = bf16_pair_to_f32(wb1.y);
+            float2 p12 = bf16_pair_to_f32(wb1.z);
+            float2 p13 = bf16_pair_to_f32(wb1.w);
+            sum1 += x_lo.x * p10.x + x_lo.y * p10.y + x_lo.z * p11.x + x_lo.w * p11.y
+                  + x_hi.x * p12.x + x_hi.y * p12.y + x_hi.z * p13.x + x_hi.w * p13.y;
+        }
+    }
+    for (int i = in_dim8 * 8 + tid; i < in_dim; i += blockDim.x) {
+        float xv = x[i];
+        sum0 += xv * bf16_to_f32(w_row0[i]);
+        if (has_row1) {
+            sum1 += xv * bf16_to_f32(w_row1[i]);
+        }
+    }
+
+    sum0 = block_reduce_sum(sum0, s_sum0);
+    if (has_row1) {
+        sum1 = block_reduce_sum(sum1, s_sum1);
+    }
+
+    if (tid == 0) {
+        float b0 = bias ? bias[row0] : 0.0f;
+        out[row0] = sum0 + b0;
+        if (has_row1) {
+            float b1 = bias ? bias[row1] : 0.0f;
+            out[row1] = sum1 + b1;
+        }
+    }
+}
+

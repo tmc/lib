@@ -42,6 +42,8 @@ type GPUModules struct {
 	fusedOutProjResBF16Fn   driver.Function
 	fusedGateUpSwiGLUBF16Fn driver.Function
 	fusedDownProjResBF16Fn  driver.Function
+	ropeScaledFn            driver.Function
+	gemvBF16WideFn          driver.Function
 }
 
 // PTX returns the exact JIT-compiled PTX assembly string.
@@ -118,6 +120,8 @@ func lookupModules(loaded driver.Module, lookup func(string) (driver.Function, e
 		fusedOutProjResBF16Fn:   fn("FusedOutProjResidualBF16"),
 		fusedGateUpSwiGLUBF16Fn: fn("FusedRMSNormGateUpSwiGLUBF16"),
 		fusedDownProjResBF16Fn:  fn("FusedDownProjResidualBF16"),
+		ropeScaledFn:            fn("ApplyRoPEScaled"),
+		gemvBF16WideFn:          fn("LinearGEMVBF16Wide"),
 	}
 	if err != nil {
 		if cerr := gm.close(unload); cerr != nil {

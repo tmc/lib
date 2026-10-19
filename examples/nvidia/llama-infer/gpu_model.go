@@ -538,9 +538,18 @@ func emitForwardStep(
 		}
 
 		// Step 2c: RoPE
-		if err := emit(launcher(gm.ropeFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1),
-			sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
-			return err
+		if cfg.RoPEScaling.hasLlama3Params() && gm.ropeScaledFn != 0 {
+			rs := cfg.RoPEScaling
+			if err := emit(cudalaunch.Kernel(gm.ropeScaledFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1),
+				sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim),
+				cfg.RopeTheta, rs.Factor, rs.LowFreqFactor, rs.HighFreqFactor, int32(rs.OriginalMaxPositionEmbeddings)); err != nil {
+				return err
+			}
+		} else {
+			if err := emit(launcher(gm.ropeFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1),
+				sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
+				return err
+			}
 		}
 
 		// Step 2d: Store K and V in KV Cache

@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -577,10 +578,10 @@ func TestCUDATestLaunchesInContext(t *testing.T) {
 		bad = append(bad, b...)
 	}
 	want := map[string]int{
-		"bf16_parity_cuda_test.go":        6,
+		"bf16_parity_cuda_test.go":        7,
 		"context_experiment_cuda_test.go": 0,
 		"fused_decode_cuda_test.go":       42,
-		"fused_parity_cuda_test.go":       9,
+		"fused_parity_cuda_test.go":       10,
 		"graph_parity_cuda_test.go":       7,
 	}
 	for file, w := range want {
@@ -590,6 +591,74 @@ func TestCUDATestLaunchesInContext(t *testing.T) {
 	}
 	for _, b := range bad {
 		t.Error(b)
+	}
+}
+
+// TestApplyRoPEScaledParity verifies that ApplyRoPEScaled on the device matches
+// applyRoPEScaled on the CPU within 1e-5 across all three Llama-3 frequency
+// bands, and that unscaled RoPE on the same inputs differs by > 1e-3 at both
+// the intermediate smooth band (d=16) and the low-frequency band (d=30).
+func TestApplyRoPEScaledParity(t *testing.T) {
+	d := newParityDevice(t)
+	const (
+		qHeads  = 2
+		kvHeads = 1
+		headDim = 64
+		pos     = 32
+		theta   = float32(500000.0)
+	)
+	scaling := &RoPEScalingConfig{
+		RoPEType:                      "llama3",
+		Factor:                        32.0,
+		LowFreqFactor:                 1.0,
+		HighFreqFactor:                4.0,
+		OriginalMaxPositionEmbeddings: 8192,
+	}
+	qInit := make([]float32, qHeads*headDim)
+	for i := range qInit {
+		qInit[i] = 0.2 + 0.03*float32(i)
+	}
+	// Ensure the low-frequency pair d=30 (where unscaled freq ~ 4.5e-6) has
+	// sufficient partner magnitude at headDim/2 + 30 so that scaled vs unscaled
+	// at pos=32 differs by > 2e-3 while keeping 1-ULP GPU error < 1e-11.
+	qInit[30+headDim/2] = 15.0
+	kInit := make([]float32, kvHeads*headDim)
+	for i := range kInit {
+		kInit[i] = -0.15 + 0.04*float32(i)
+	}
+
+	wantQ, wantK := slices.Clone(qInit), slices.Clone(kInit)
+	applyRoPEScaled(wantQ, pos, qHeads, headDim, theta, scaling)
+	applyRoPEScaled(wantK, pos, kvHeads, headDim, theta, scaling)
+
+	unscaledQ, unscaledK := slices.Clone(qInit), slices.Clone(kInit)
+	applyRoPE(unscaledQ, pos, qHeads, headDim, theta)
+	applyRoPE(unscaledK, pos, kvHeads, headDim, theta)
+	if parityMismatch(wantQ, unscaledQ, 1e-4) < 0 || parityMismatch(wantK, unscaledK, 1e-4) < 0 {
+		t.Fatal("must-fail control: scaled vs unscaled RoPE Q/K did not exceed 1e-4")
+	}
+	for _, bandDim := range []int{16, 30} {
+		if diff := math.Abs(float64(wantQ[bandDim] - unscaledQ[bandDim])); diff <= 1e-3 {
+			t.Fatalf("must-fail control at d=%d: |wantQ[%d] - unscaledQ[%d]| = %g, want > 1e-3", bandDim, bandDim, bandDim, diff)
+		}
+	}
+
+	dq := d.upload(qInit)
+	dk := d.upload(kInit)
+	if err := d.dev.WithContext(func() error {
+		return cudalaunch.Kernel(d.gm.ropeScaledFn).Grid(qHeads, 1, 1).Block(headDim/2, 1, 1).
+			Launch(dq, dk, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim),
+				theta, scaling.Factor, scaling.LowFreqFactor, scaling.HighFreqFactor, int32(scaling.OriginalMaxPositionEmbeddings))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	gotQ := d.download(dq)
+	gotK := d.download(dk)
+	if i := parityMismatch(gotQ, wantQ, 1e-5); i >= 0 {
+		t.Errorf("ApplyRoPEScaled Q[%d] = %g, want %g", i, gotQ[i], wantQ[i])
+	}
+	if i := parityMismatch(gotK, wantK, 1e-5); i >= 0 {
+		t.Errorf("ApplyRoPEScaled K[%d] = %g, want %g", i, gotK[i], wantK[i])
 	}
 }
 

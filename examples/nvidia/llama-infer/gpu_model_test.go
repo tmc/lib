@@ -1428,4 +1428,43 @@ func TestEmitForwardStep(t *testing.T) {
 	if !errors.Is(err, errKV) || calls != 1+15 {
 		t.Errorf("layer 1 KV error: err = %v, calls = %d; want %v after 16 calls", err, calls, errKV)
 	}
+
+	// Verify that when cfg.RoPEScaling has Llama-3 parameters, emitForwardStep
+	// dispatches gm.ropeScaledFn and passes int32(OriginalMaxPositionEmbeddings)
+	// as its 11th argument (index 10).
+	rsCfg := f.cfg
+	rsCfg.RoPEScaling = &RoPEScalingConfig{
+		RoPEType:                      "llama3",
+		Factor:                        32.0,
+		LowFreqFactor:                 1.0,
+		HighFreqFactor:                4.0,
+		OriginalMaxPositionEmbeddings: 8192,
+	}
+	f.gm.ropeScaledFn = 23
+	ropeScaledCount := 0
+	if err := emitForwardStep(f.gpuW, &rsCfg, f.layerKV, f.sp, f.gm, f.attnFn, f.sampleFn, f.sp.TokenIn, 5, 1024, func(l *cudalaunch.Launcher, args ...any) error {
+		desc, err := l.Describe()
+		if err != nil {
+			return err
+		}
+		if desc.Function == f.gm.ropeScaledFn {
+			ropeScaledCount++
+			if len(args) != 11 {
+				t.Fatalf("ropeScaledFn args len = %d, want 11", len(args))
+			}
+			origMax, ok := args[10].(int32)
+			if !ok || origMax != int32(rsCfg.RoPEScaling.OriginalMaxPositionEmbeddings) {
+				t.Fatalf("ropeScaledFn args[10] = %T(%v), want int32(%d)", args[10], args[10], rsCfg.RoPEScaling.OriginalMaxPositionEmbeddings)
+			}
+		}
+		if desc.Function == f.gm.ropeFn {
+			t.Fatalf("emitForwardStep with RoPEScaling emitted unscaled ropeFn")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("emitForwardStep with RoPEScaling: %v", err)
+	}
+	if ropeScaledCount != rsCfg.NumHiddenLayers {
+		t.Errorf("ropeScaledFn emitted %d times, want %d", ropeScaledCount, rsCfg.NumHiddenLayers)
+	}
 }

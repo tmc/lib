@@ -370,6 +370,8 @@ const (
 	bf16SwiGLULanesSwapped = "bf16_to_f32(wd.y), bf16_to_f32(wd.x)"
 	bf16WidenSource        = "((unsigned int)b) << 16"
 	bf16EmbedRow           = "(size_t)(*token_id) * hidden_dim"
+	bf16WideUnpackLoSource = "__uint_as_float(u << 16)"
+	bf16WideUnpackHiSource = "__uint_as_float(u & 0xffff0000u)"
 )
 
 // TestBF16MutationsApply checks without a device that every fragment the
@@ -381,6 +383,8 @@ func TestBF16MutationsApply(t *testing.T) {
 		bf16SwiGLULanesSource,
 		bf16WidenSource,
 		bf16EmbedRow,
+		bf16WideUnpackLoSource,
+		bf16WideUnpackHiSource,
 	} {
 		if n := strings.Count(forwardBF16CUDA, old); n != 1 {
 			t.Errorf("%q occurs %d times in forward_bf16.cu, want 1", old, n)
@@ -777,5 +781,70 @@ func TestBF16ModelControls(t *testing.T) {
 	pb, pbToks := k.decode(t, &bumped, cfg, weightBF16)
 	if firstDifference(tb, pb, tbToks, pbToks) < 0 {
 		t.Error("MC2 lm_head one step from the tied table: not detected")
+	}
+}
+
+func runGEMVWide(d *parityDevice, fn driver.Function, x cudamem.Slice[float32], w any, in, out int) []float32 {
+	d.t.Helper()
+	o := d.upload(make([]float32, out))
+	grid := uint32((out + 1) / 2)
+	if grid == 0 {
+		grid = 1
+	}
+	if err := d.dev.WithContext(func() error {
+		return cudalaunch.Kernel(fn).Grid(grid, 1, 1).Block(128, 1, 1).
+			Launch(x, w, nullDevicePtr, o, int32(in), int32(out))
+	}); err != nil {
+		d.t.Fatal(err)
+	}
+	return d.download(o)
+}
+
+func gemvBF16WideMismatch(d *parityDevice, gm, ref *GPUModules, in, out int) (int, []float32, []float32) {
+	d.t.Helper()
+	r := rand.New(rand.NewPCG(uint64(in), uint64(out)))
+	x, w16 := bf16Activations(r, in), bf16Weights(r, in*out)
+	w32 := make([]float32, len(w16))
+	for i, b := range w16 {
+		w32[i] = bf16Widen(b)
+	}
+	dx := d.upload(x)
+	got := runGEMVWide(d, gm.gemvBF16WideFn, dx, uploadBF16(d, w16), in, out)
+	want := runGEMV(d, ref.gemvFn, dx, d.upload(w32), in, out)
+	return parityMismatch(got, want, logitTolerance), got, want
+}
+
+// TestLinearGEMVBF16WideParity checks that LinearGEMVBF16Wide (16-byte uint4
+// 8-element BF16 loads with 2 output rows per CTA) agrees with LinearGEMV on
+// widened weights within logitTolerance across aligned and unaligned shapes.
+func TestLinearGEMVBF16WideParity(t *testing.T) {
+	d := newParityDevice(t)
+	for _, s := range gemvBF16Shapes {
+		in, out := s[0], s[1]
+		t.Run(fmt.Sprintf("in %d out %d", in, out), func(t *testing.T) {
+			d := &parityDevice{t: t, dev: d.dev, gm: d.gm}
+			if i, got, want := gemvBF16WideMismatch(d, d.gm, d.gm, in, out); i >= 0 {
+				t.Errorf("out[%d]: wide bf16 %g, widened f32 %g", i, got[i], want[i])
+			}
+		})
+	}
+}
+
+// TestLinearGEMVBF16WideControls checks that corrupting the uint4 unpack shift
+// or dropping the high 16-bit half in LinearGEMVBF16Wide exceeds logitTolerance.
+func TestLinearGEMVBF16WideControls(t *testing.T) {
+	d := newParityDevice(t)
+	for _, m := range []struct {
+		name, old, new string
+	}{
+		{"corrupt uint4 lo unpack shift", bf16WideUnpackLoSource, "__uint_as_float(u << 8)"},
+		{"drop uint4 hi 16-bit lane", bf16WideUnpackHiSource, "__uint_as_float(0u)"},
+	} {
+		gm := mutateBF16(d, m.old, m.new)
+		for _, s := range [][2]int{{8, 3}, {64, 3}, {2048, 64}} {
+			if i, _, _ := gemvBF16WideMismatch(d, gm, d.gm, s[0], s[1]); i < 0 {
+				t.Errorf("%s: in %d out %d did not exceed tolerance", m.name, s[0], s[1])
+			}
+		}
 	}
 }

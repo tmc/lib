@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 var (
 	modelPath       = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
 	promptFlag      = flag.String("prompt", "The capital of France is", "text prompt for model generation")
+	tokenIDsFlag    = flag.String("token-ids", "", "comma-separated int32 prompt token IDs (overrides -prompt tokenization when non-empty)")
 	stepsFlag       = flag.Int("steps", 10, "number of autoregressive tokens to generate")
 	tempFlag        = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
 	tracePath       = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
@@ -112,13 +114,21 @@ func run() (rerr error) {
 			cfg.NumHiddenLayers, cfg.HiddenSize, cfg.NumAttentionHeads, cfg.NumKeyValueHeads)
 	}
 
-	// 3. Tokenize Prompt
-	promptTokens, err := encodePrompt(tracer, tokenizer, *promptFlag)
-	if err != nil {
-		return fmt.Errorf("tokenize prompt: %w", err)
-	}
-	if promptTokens, err = effectivePrompt(promptTokens, cfg.VocabSize); err != nil {
-		return err
+	// 3. Tokenize Prompt (or parse explicit -token-ids)
+	var promptTokens []int32
+	if *tokenIDsFlag != "" {
+		promptTokens, err = parseTokenIDs(*tokenIDsFlag, cfg.VocabSize)
+		if err != nil {
+			return fmt.Errorf("parse -token-ids: %w", err)
+		}
+	} else {
+		promptTokens, err = encodePrompt(tracer, tokenizer, *promptFlag)
+		if err != nil {
+			return fmt.Errorf("tokenize prompt: %w", err)
+		}
+		if promptTokens, err = effectivePrompt(promptTokens, cfg.VocabSize); err != nil {
+			return err
+		}
 	}
 
 	fmt.Printf("\n=== Tensor LLM Inference Engine ===\n")
@@ -693,6 +703,33 @@ func printSASSDisassembly(targetKernel string) error {
 		fmt.Printf("[SASS Notice] %q is not among the kernels in forward.sass; run go run gen.go to regenerate it.\n", targetKernel)
 	}
 	return nil
+}
+
+// parseTokenIDs parses a comma-separated list of int32 token IDs and checks
+// that each ID is within [0, vocabSize).
+func parseTokenIDs(spec string, vocabSize int) ([]int32, error) {
+	trimmed := strings.TrimSpace(spec)
+	if trimmed == "" {
+		return nil, errors.New("empty token ID list")
+	}
+	parts := strings.Split(trimmed, ",")
+	tokens := make([]int32, 0, len(parts))
+	for i, part := range parts {
+		field := strings.TrimSpace(part)
+		if field == "" {
+			return nil, fmt.Errorf("token %d: empty token ID", i)
+		}
+		v, err := strconv.ParseInt(field, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("token %d (%q): %w", i, field, err)
+		}
+		tok := int32(v)
+		if err := checkToken(tok, vocabSize); err != nil {
+			return nil, fmt.Errorf("token %d: %w", i, err)
+		}
+		tokens = append(tokens, tok)
+	}
+	return tokens, nil
 }
 
 // effectivePrompt returns the tokens to run: tokens, or token 1 when tokens

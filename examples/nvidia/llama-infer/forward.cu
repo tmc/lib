@@ -165,6 +165,39 @@ extern "C" __global__ void LinearGEMV(
     }
 }
 
+// rope_inv_freq computes the rotary inverse frequency for dimension pair d in
+// [0, head_dim/2). When factor > 0, low_freq_factor > 0,
+// high_freq_factor > low_freq_factor, and orig_max_pos > 0, it applies Llama-3
+// smooth wavelength scaling; otherwise it returns the unscaled inverse
+// frequency 1 / theta^(2d/head_dim).
+__device__ __forceinline__ float rope_inv_freq(
+    int d,
+    int head_dim,
+    float theta,
+    float factor,
+    float low_freq_factor,
+    float high_freq_factor,
+    int orig_max_pos
+) {
+    float freq = 1.0f / powf(theta, (2.0f * d) / float(head_dim));
+    if (factor <= 0.0f || low_freq_factor <= 0.0f || high_freq_factor <= low_freq_factor || orig_max_pos <= 0) {
+        return freq;
+    }
+    const float two_pi = 6.28318530717958647692f;
+    float wavelen = two_pi / freq;
+    float orig = float(orig_max_pos);
+    float low_wavelen = orig / low_freq_factor;
+    float high_wavelen = orig / high_freq_factor;
+    if (wavelen < high_wavelen) {
+        return freq;
+    }
+    if (wavelen > low_wavelen) {
+        return freq / factor;
+    }
+    float smooth = (orig / wavelen - low_freq_factor) / (high_freq_factor - low_freq_factor);
+    return (1.0f - smooth) * (freq / factor) + smooth * freq;
+}
+
 // 4. Rotary Position Embedding (RoPE)
 extern "C" __global__ void ApplyRoPE(
     float* __restrict__ q,
@@ -179,7 +212,47 @@ extern "C" __global__ void ApplyRoPE(
     int i = threadIdx.x; // index in 0..head_dim/2
     if (i >= head_dim / 2) return;
 
-    float freq = 1.0f / powf(theta, (2.0f * i) / float(head_dim));
+    float freq = rope_inv_freq(i, head_dim, theta, 0.0f, 0.0f, 0.0f, 0);
+    float val = float(pos) * freq;
+    float cos_val = cosf(val);
+    float sin_val = sinf(val);
+
+    if (h < q_heads) {
+        float* head_q = q + h * head_dim;
+        float v0 = head_q[i];
+        float v1 = head_q[i + head_dim / 2];
+        head_q[i] = v0 * cos_val - v1 * sin_val;
+        head_q[i + head_dim / 2] = v0 * sin_val + v1 * cos_val;
+    }
+
+    if (h < kv_heads) {
+        float* head_k = k + h * head_dim;
+        float v0 = head_k[i];
+        float v1 = head_k[i + head_dim / 2];
+        head_k[i] = v0 * cos_val - v1 * sin_val;
+        head_k[i + head_dim / 2] = v0 * sin_val + v1 * cos_val;
+    }
+}
+
+// ApplyRoPEScaled is ApplyRoPE with Llama-3 smooth wavelength inverse-frequency scaling.
+extern "C" __global__ void ApplyRoPEScaled(
+    float* __restrict__ q,
+    float* __restrict__ k,
+    int pos,
+    int q_heads,
+    int kv_heads,
+    int head_dim,
+    float theta,
+    float factor,
+    float low_freq_factor,
+    float high_freq_factor,
+    int orig_max_pos
+) {
+    int h = blockIdx.x; // head index
+    int i = threadIdx.x; // index in 0..head_dim/2
+    if (i >= head_dim / 2) return;
+
+    float freq = rope_inv_freq(i, head_dim, theta, factor, low_freq_factor, high_freq_factor, orig_max_pos);
     float val = float(pos) * freq;
     float cos_val = cosf(val);
     float sin_val = sinf(val);

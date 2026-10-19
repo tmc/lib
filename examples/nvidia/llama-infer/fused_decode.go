@@ -47,6 +47,7 @@ const (
 type FusedDecodeLayerPlan struct {
 	hidden, inter, qHeads, kvHeads, headDim, maxSeq int
 	epsilon, theta                                  float32
+	ropeScaling                                     *RoPEScalingConfig
 	qDim, kvDim                                     int
 	qPairs, kvPairs                                 int
 	attn                                            attnPlan
@@ -89,6 +90,21 @@ func NewFusedDecodeLayerPlan(hidden, inter, qHeads, kvHeads, headDim, maxSeq int
 		attn:    ap,
 		ffn:     fp,
 	}, nil
+}
+
+// WithRoPEScaling returns a copy of p configured with validated Llama-3 RoPE
+// scaling parameters.
+func (p FusedDecodeLayerPlan) WithRoPEScaling(s *RoPEScalingConfig) (FusedDecodeLayerPlan, error) {
+	if err := s.Validate(); err != nil {
+		return FusedDecodeLayerPlan{}, err
+	}
+	if s != nil && s.hasLlama3Params() {
+		cp := *s
+		p.ropeScaling = &cp
+	} else {
+		p.ropeScaling = nil
+	}
+	return p, nil
 }
 
 // KernelsPerLayer returns the number of kernel launches per decoder layer (5).
@@ -178,6 +194,21 @@ func fusedRMSNormQKVRoPEStoreCPU(
 	inDim, qHeads, kvHeads, headDim, pos int,
 	eps, ropeTheta float32,
 ) {
+	fusedRMSNormQKVRoPEStoreScaledCPU(
+		x, rmsAttW, wq, wk, wv, bq, bk, bv,
+		qOut, kCache, vCache,
+		inDim, qHeads, kvHeads, headDim, pos,
+		eps, ropeTheta, nil,
+	)
+}
+
+func fusedRMSNormQKVRoPEStoreScaledCPU(
+	x, rmsAttW, wq, wk, wv, bq, bk, bv []float32,
+	qOut, kCache, vCache []float32,
+	inDim, qHeads, kvHeads, headDim, pos int,
+	eps, ropeTheta float32,
+	scaling *RoPEScalingConfig,
+) {
 	var sumSq float32
 	for i := 0; i < inDim; i++ {
 		v := x[i]
@@ -189,6 +220,13 @@ func fusedRMSNormQKVRoPEStoreCPU(
 	qPairs := qHeads * half
 	kvPairs := kvHeads * half
 	kvDim := kvHeads * headDim
+	scaled := scaling.hasLlama3Params()
+	invFreq := func(d int) float64 {
+		if scaled {
+			return float64(ropeInvFreq(d, headDim, ropeTheta, scaling))
+		}
+		return 1.0 / math.Pow(float64(ropeTheta), float64(2*d)/float64(headDim))
+	}
 
 	for pairIdx := 0; pairIdx < qPairs; pairIdx++ {
 		h := pairIdx / half
@@ -211,7 +249,7 @@ func fusedRMSNormQKVRoPEStoreCPU(
 			sumQ0 += bq[row0]
 			sumQ1 += bq[row1]
 		}
-		freq := 1.0 / math.Pow(float64(ropeTheta), float64(2*d)/float64(headDim))
+		freq := invFreq(d)
 		angle := float64(pos) * freq
 		cosVal := float32(math.Cos(angle))
 		sinVal := float32(math.Sin(angle))
@@ -249,7 +287,7 @@ func fusedRMSNormQKVRoPEStoreCPU(
 			sumV0 += bv[row0]
 			sumV1 += bv[row1]
 		}
-		freq := 1.0 / math.Pow(float64(ropeTheta), float64(2*d)/float64(headDim))
+		freq := invFreq(d)
 		angle := float64(pos) * freq
 		cosVal := float32(math.Cos(angle))
 		sinVal := float32(math.Sin(angle))
@@ -315,6 +353,12 @@ func (p FusedDecodeLayerPlan) validate(b fusedDecodeLayerBuffers, c attnCache, p
 	if err != nil {
 		return err
 	}
+	if p.ropeScaling != nil {
+		if err := p.ropeScaling.Validate(); err != nil {
+			return err
+		}
+		checked.ropeScaling = p.ropeScaling
+	}
 	if checked != p {
 		return fmt.Errorf("fused decode plan storage counts are inconsistent")
 	}
@@ -351,10 +395,10 @@ func executeFusedDecodeLayerCPU(p FusedDecodeLayerPlan, b fusedDecodeLayerBuffer
 		return fusedDecodeLayerOutputs{}, err
 	}
 	q := make([]float32, p.qDim)
-	fusedRMSNormQKVRoPEStoreCPU(
+	fusedRMSNormQKVRoPEStoreScaledCPU(
 		b.x, b.attnNorm, b.wq, b.wk, b.wv, b.qBias, b.kBias, b.vBias,
 		q, cache.k, cache.v,
-		p.hidden, p.qHeads, p.kvHeads, p.headDim, pos, p.epsilon, p.theta,
+		p.hidden, p.qHeads, p.kvHeads, p.headDim, pos, p.epsilon, p.theta, p.ropeScaling,
 	)
 
 	attnOut := make([]float32, p.qDim)

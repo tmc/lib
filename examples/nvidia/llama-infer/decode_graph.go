@@ -167,6 +167,13 @@ func newDecodeGraphWith(
 			layer = ropeLayer
 			ropeLayer++
 			kind = "rope"
+		case gm.ropeScaledFn:
+			if gm.ropeScaledFn != 0 {
+				posIdx = 2
+				layer = ropeLayer
+				ropeLayer++
+				kind = "rope"
+			}
 		case gm.storeKVFn:
 			posIdx = 4
 			layer = storeLayer

@@ -89,6 +89,8 @@ func moduleFailures(lookup lookupFunc) []string {
 		"FusedOutProjResidualBF16",
 		"FusedRMSNormGateUpSwiGLUBF16",
 		"FusedDownProjResidualBF16",
+		"ApplyRoPEScaled",
+		"LinearGEMVBF16Wide",
 	}
 	wantGM := &GPUModules{
 		mod:                     loaded,
@@ -114,6 +116,8 @@ func moduleFailures(lookup lookupFunc) []string {
 		fusedOutProjResBF16Fn:   20,
 		fusedGateUpSwiGLUBF16Fn: 21,
 		fusedDownProjResBF16Fn:  22,
+		ropeScaledFn:            23,
+		gemvBF16WideFn:          24,
 	}
 	if err != nil || gm == nil || *gm != *wantGM || !slices.Equal(f.names, wantNames) || f.unloads != 0 {
 		bad = append(bad, fmt.Sprintf("success: %+v, %v, names=%v, %d unloads", gm, err, f.names, f.unloads))
