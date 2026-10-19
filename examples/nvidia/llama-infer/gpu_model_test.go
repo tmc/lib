@@ -1468,3 +1468,146 @@ func TestEmitForwardStep(t *testing.T) {
 		t.Errorf("ropeScaledFn emitted %d times, want %d", ropeScaledCount, rsCfg.NumHiddenLayers)
 	}
 }
+
+// TestStreamedBytesPerToken checks StreamedBytesPerToken on GPUModelWeights for
+// both weightF32 and weightBF16, with tied and untied LMHead and with and
+// without optional QKV biases. It verifies that weightBF16 halves the streamed
+// matrix weight bytes compared to weightF32 while keeping norm and bias vector
+// bytes at 4 bytes per element, and that EmbedTokens is excluded while LMHead
+// is included even when borrowed.
+func TestStreamedBytesPerToken(t *testing.T) {
+	var nilWeights *GPUModelWeights
+	if got := nilWeights.StreamedBytesPerToken(); got != 0 {
+		t.Errorf("nil GPUModelWeights.StreamedBytesPerToken() = %d, want 0", got)
+	}
+	var zeroWeight deviceWeight
+	if got := zeroWeight.Bytes(); got != 0 {
+		t.Errorf("zero deviceWeight.Bytes() = %d, want 0", got)
+	}
+
+	cfg := ModelConfig{
+		HiddenSize:        16,
+		IntermediateSize:  32,
+		NumHiddenLayers:   2,
+		NumAttentionHeads: 4,
+		NumKeyValueHeads:  2,
+		ExplicitHeadDim:   4,
+		VocabSize:         20,
+	}
+	qDim := cfg.NumAttentionHeads * cfg.HeadDim()
+	kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
+
+	nextPtr := driver.DevicePtr(500)
+	makeMat := func(dtype weightDType, elems int) deviceWeight {
+		nextPtr++
+		switch dtype {
+		case weightF32:
+			s, ok := fakeDeviceSliceLen[float32](nextPtr, elems)
+			if !ok {
+				t.Fatal("fakeDeviceSliceLen[float32] failed")
+			}
+			return deviceWeight{buf: s, dtype: weightF32}
+		case weightBF16:
+			s, ok := fakeDeviceSliceLen[uint16](nextPtr, elems)
+			if !ok {
+				t.Fatal("fakeDeviceSliceLen[uint16] failed")
+			}
+			return deviceWeight{buf: s, dtype: weightBF16}
+		default:
+			t.Fatalf("unexpected dtype %q", dtype)
+			return deviceWeight{}
+		}
+	}
+	makeVec := func(elems int) cudamem.Slice[float32] {
+		nextPtr++
+		s, ok := fakeDeviceSliceLen[float32](nextPtr, elems)
+		if !ok {
+			t.Fatal("fakeDeviceSliceLen[float32] failed")
+		}
+		return s
+	}
+
+	buildWeights := func(dtype weightDType, tied, withBiases bool) (*GPUModelWeights, int64, int64) {
+		embedElems := cfg.VocabSize * cfg.HiddenSize
+		lmHeadElems := cfg.VocabSize * cfg.HiddenSize
+		layerMatElems := qDim*cfg.HiddenSize +
+			2*(kvDim*cfg.HiddenSize) +
+			cfg.HiddenSize*qDim +
+			2*(cfg.IntermediateSize*cfg.HiddenSize) +
+			cfg.HiddenSize*cfg.IntermediateSize
+		streamedMatElems := int64(lmHeadElems + cfg.NumHiddenLayers*layerMatElems)
+
+		vecElems := int64(cfg.HiddenSize + cfg.NumHiddenLayers*(2*cfg.HiddenSize))
+		if withBiases {
+			vecElems += int64(cfg.NumHiddenLayers * (qDim + 2*kvDim))
+		}
+
+		w := &GPUModelWeights{
+			DType:       dtype,
+			EmbedTokens: makeMat(dtype, embedElems),
+			Norm:        makeVec(cfg.HiddenSize),
+			Layers:      make([]GPULayerWeights, cfg.NumHiddenLayers),
+		}
+		if tied {
+			w.LMHead = w.EmbedTokens.borrow()
+		} else {
+			w.LMHead = makeMat(dtype, lmHeadElems)
+		}
+		for i := range w.Layers {
+			l := &w.Layers[i]
+			l.InputNorm = makeVec(cfg.HiddenSize)
+			l.PostNorm = makeVec(cfg.HiddenSize)
+			l.WQ = makeMat(dtype, qDim*cfg.HiddenSize)
+			l.WK = makeMat(dtype, kvDim*cfg.HiddenSize)
+			l.WV = makeMat(dtype, kvDim*cfg.HiddenSize)
+			l.WO = makeMat(dtype, cfg.HiddenSize*qDim)
+			l.WGate = makeMat(dtype, cfg.IntermediateSize*cfg.HiddenSize)
+			l.WUp = makeMat(dtype, cfg.IntermediateSize*cfg.HiddenSize)
+			l.WDown = makeMat(dtype, cfg.HiddenSize*cfg.IntermediateSize)
+			if withBiases {
+				l.QBias = makeVec(qDim)
+				l.KBias = makeVec(kvDim)
+				l.VBias = makeVec(kvDim)
+			}
+		}
+		return w, streamedMatElems, vecElems
+	}
+
+	for _, tied := range []bool{true, false} {
+		for _, withBiases := range []bool{false, true} {
+			name := fmt.Sprintf("tied=%v/biases=%v", tied, withBiases)
+			t.Run(name, func(t *testing.T) {
+				wF32, matElems, vecElems := buildWeights(weightF32, tied, withBiases)
+				wBF16, _, _ := buildWeights(weightBF16, tied, withBiases)
+
+				wantVecBytes := vecElems * 4
+				wantF32MatBytes := matElems * 4
+				wantBF16MatBytes := matElems * 2
+
+				gotF32 := wF32.StreamedBytesPerToken()
+				gotBF16 := wBF16.StreamedBytesPerToken()
+				if gotF32 != wantF32MatBytes+wantVecBytes {
+					t.Errorf("F32 StreamedBytesPerToken() = %d, want %d (mat %d + vec %d)", gotF32, wantF32MatBytes+wantVecBytes, wantF32MatBytes, wantVecBytes)
+				}
+				if gotBF16 != wantBF16MatBytes+wantVecBytes {
+					t.Errorf("BF16 StreamedBytesPerToken() = %d, want %d (mat %d + vec %d)", gotBF16, wantBF16MatBytes+wantVecBytes, wantBF16MatBytes, wantVecBytes)
+				}
+
+				// Confirm BF16 halves the streamed matrix weight bytes while keeping norm/bias bytes at 4 B/elem.
+				gotF32MatBytes := gotF32 - wantVecBytes
+				gotBF16MatBytes := gotBF16 - wantVecBytes
+				if gotBF16MatBytes*2 != gotF32MatBytes {
+					t.Errorf("BF16 matrix bytes (%d) * 2 != F32 matrix bytes (%d)", gotBF16MatBytes, gotF32MatBytes)
+				}
+
+				// Confirm tied LMHead has the same streamed bytes as untied LMHead, and EmbedTokens is not double-counted.
+				if wF32.LMHead.Bytes() != int64(cfg.VocabSize*cfg.HiddenSize)*4 {
+					t.Errorf("F32 LMHead.Bytes() = %d, want %d", wF32.LMHead.Bytes(), int64(cfg.VocabSize*cfg.HiddenSize)*4)
+				}
+				if wBF16.LMHead.Bytes() != int64(cfg.VocabSize*cfg.HiddenSize)*2 {
+					t.Errorf("BF16 LMHead.Bytes() = %d, want %d", wBF16.LMHead.Bytes(), int64(cfg.VocabSize*cfg.HiddenSize)*2)
+				}
+			})
+		}
+	}
+}

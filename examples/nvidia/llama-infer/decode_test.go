@@ -3,10 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/lm/speculative"
 )
@@ -215,6 +217,7 @@ func TestGenerateWiring(t *testing.T) {
 		"st := newDecodeState(promptTokens, *stepsFlag, drafter)\n",
 		"prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)\n\tif err != nil {\n\t\treturn err\n\t}\n",
 		"\t\t\tif err == nil {\n\t\t\t\ttok = scratch.HostTokenOut[0]\n\t\t\t}\n\t\t})\n\t\treturn tok, err\n\t}\n\tforward := func(",
+		"\tif len(st.generated) > 0 {\n\t\ttpot := genDuration / time.Duration(len(st.generated))\n\t\tif bw := formatBenchmarkBandwidth(gpuWeights.StreamedBytesPerToken(), tpot); bw != \"\" {\n\t\t\tfmt.Printf(\"Bandwidth    : %s\\n\", bw)\n\t\t}\n\t}\n",
 	} {
 		if n := strings.Count(string(src), want); n != 1 {
 			t.Errorf("main.go contains %q %d times, want once", want, n)
@@ -374,5 +377,79 @@ func TestRunBenchmarkErrors(t *testing.T) {
 	err = runBenchmark(failWriter{}, weightF32, []int32{1, 2}, 2, 2, 16, func() {}, func(int32, int) (int32, error) { return 1, nil })
 	if !errors.Is(err, errFakeWrite) {
 		t.Errorf("write error: got %v, want %v", err, errFakeWrite)
+	}
+}
+
+// TestFormatBenchmarkBandwidth tests achievedBandwidthGBps and
+// formatBenchmarkBandwidth across valid streamed byte sizes and TPOT
+// durations as well as zero and negative guards.
+func TestFormatBenchmarkBandwidth(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		streamedBytes int64
+		tpot          time.Duration
+		wantGBps      float64
+		wantText      string
+	}{
+		{
+			name:          "1B BF16 2.47 GB in 10ms",
+			streamedBytes: 2_470_000_000,
+			tpot:          10 * time.Millisecond,
+			wantGBps:      247.0,
+			wantText:      "2470000000 bytes/tok (247.00 GB/s)",
+		},
+		{
+			name:          "1B F32 4.94 GB in 20ms",
+			streamedBytes: 4_940_000_000,
+			tpot:          20 * time.Millisecond,
+			wantGBps:      247.0,
+			wantText:      "4940000000 bytes/tok (247.00 GB/s)",
+		},
+		{
+			name:          "8B BF16 15.0 GB in 60ms",
+			streamedBytes: 15_000_000_000,
+			tpot:          60 * time.Millisecond,
+			wantGBps:      250.0,
+			wantText:      "15000000000 bytes/tok (250.00 GB/s)",
+		},
+		{
+			name:          "zero bytes guard",
+			streamedBytes: 0,
+			tpot:          10 * time.Millisecond,
+			wantGBps:      0,
+			wantText:      "",
+		},
+		{
+			name:          "negative bytes guard",
+			streamedBytes: -1024,
+			tpot:          10 * time.Millisecond,
+			wantGBps:      0,
+			wantText:      "",
+		},
+		{
+			name:          "zero duration guard",
+			streamedBytes: 2_470_000_000,
+			tpot:          0,
+			wantGBps:      0,
+			wantText:      "",
+		},
+		{
+			name:          "negative duration guard",
+			streamedBytes: 2_470_000_000,
+			tpot:          -5 * time.Millisecond,
+			wantGBps:      0,
+			wantText:      "",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gotGBps := achievedBandwidthGBps(tt.streamedBytes, tt.tpot)
+			if math.Abs(gotGBps-tt.wantGBps) > 1e-9 {
+				t.Errorf("achievedBandwidthGBps(%d, %v) = %g, want %g", tt.streamedBytes, tt.tpot, gotGBps, tt.wantGBps)
+			}
+			gotText := formatBenchmarkBandwidth(tt.streamedBytes, tt.tpot)
+			if gotText != tt.wantText {
+				t.Errorf("formatBenchmarkBandwidth(%d, %v) = %q, want %q", tt.streamedBytes, tt.tpot, gotText, tt.wantText)
+			}
+		})
 	}
 }

@@ -425,6 +425,12 @@ func runGPUInference(
 	fmt.Printf("Prefill Time : %v (%d prompt tokens)\n", prefillDuration, len(promptTokens))
 	fmt.Printf("Decode Time  : %v (%d generated tokens)\n", genDuration, len(st.generated))
 	fmt.Printf("Throughput   : %.2f tokens/sec\n", tokensPerSec)
+	if len(st.generated) > 0 {
+		tpot := genDuration / time.Duration(len(st.generated))
+		if bw := formatBenchmarkBandwidth(gpuWeights.StreamedBytesPerToken(), tpot); bw != "" {
+			fmt.Printf("Bandwidth    : %s\n", bw)
+		}
+	}
 
 	return nil
 }

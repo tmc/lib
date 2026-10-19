@@ -178,6 +178,48 @@ func (w *GPUModelWeights) vectors() []*cudamem.Slice[float32] {
 	return v
 }
 
+// Bytes returns the size in bytes of the device buffer w refers to, or 0 for
+// no weight. A borrowed weight reports the full size of the buffer it views.
+func (w deviceWeight) Bytes() int64 {
+	if w.buf == nil {
+		return 0
+	}
+	switch b := w.buf.(type) {
+	case cudamem.Slice[float32]:
+		return int64(b.Len()) * 4
+	case cudamem.Slice[uint16]:
+		return int64(b.Len()) * 2
+	case interface{ Bytes() int64 }:
+		return b.Bytes()
+	case interface{ Len() int }:
+		switch w.dtype {
+		case weightF32:
+			return int64(b.Len()) * 4
+		case weightBF16:
+			return int64(b.Len()) * 2
+		}
+	}
+	return 0
+}
+
+// StreamedBytesPerToken returns the total bytes of model weights and norm/bias
+// vectors streamed across one single-token decode step. EmbedTokens is a
+// single-row lookup and is excluded, whereas LMHead is streamed across the
+// full vocabulary matrix even when tied to EmbedTokens.
+func (w *GPUModelWeights) StreamedBytesPerToken() int64 {
+	if w == nil {
+		return 0
+	}
+	total := w.LMHead.Bytes() + int64(w.Norm.Len())*4
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		total += l.WQ.Bytes() + l.WK.Bytes() + l.WV.Bytes() + l.WO.Bytes() +
+			l.WGate.Bytes() + l.WUp.Bytes() + l.WDown.Bytes()
+		total += int64(l.InputNorm.Len()+l.PostNorm.Len()+l.QBias.Len()+l.KBias.Len()+l.VBias.Len()) * 4
+	}
+	return total
+}
+
 // Free releases all GPU weight memory, each allocation once: a tied LMHead
 // is a borrowed view and never frees the embedding table. A weight whose
 // free fails is kept, so that Free can be called again; the errors are

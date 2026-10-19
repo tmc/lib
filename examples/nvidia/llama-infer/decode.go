@@ -49,6 +49,32 @@ func runBenchmark(out io.Writer, dtype weightDType, prompt []int32, steps, bench
 	return nil
 }
 
+// achievedBandwidthGBps returns the achieved weight-streaming bandwidth in
+// GB/s (1e9 bytes/s) for a decode step that streams streamedBytes in tpot.
+// Since 1 byte/ns == 1e9 bytes/s == 1 GB/s, this is streamedBytes / tpot.Nanoseconds().
+// It returns 0 when streamedBytes <= 0 or tpot <= 0.
+func achievedBandwidthGBps(streamedBytes int64, tpot time.Duration) float64 {
+	if streamedBytes <= 0 || tpot <= 0 {
+		return 0
+	}
+	ns := tpot.Nanoseconds()
+	if ns <= 0 {
+		return 0
+	}
+	return float64(streamedBytes) / float64(ns)
+}
+
+// formatBenchmarkBandwidth formats the streamed weight bytes per token and
+// achieved streaming bandwidth in GB/s for a decode TPOT duration. It returns
+// an empty string when streamedBytes <= 0 or tpot <= 0.
+func formatBenchmarkBandwidth(streamedBytes int64, tpot time.Duration) string {
+	bw := achievedBandwidthGBps(streamedBytes, tpot)
+	if bw <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d bytes/tok (%.2f GB/s)", streamedBytes, bw)
+}
+
 // generate runs runGPUInference's prefill and then its decode loop. It
 // feeds each token of prompt to prefill at its position, in order, and then
 // calls decode with st, forward, plain, show, maxSeq, steps and draftN from
