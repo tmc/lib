@@ -1,0 +1,10 @@
+commit: fe561357f4c917125f05da373a89c8df45edadcc
+date: 2026-10-19T02:18:06.348363+00:00
+agent: Codex
+model: inherited model, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 92666
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source atom: 851fe4185ba796f361e042e1d700099acc648ca2
+root host evidence: 20261018-batch-integration/race-RESULTS.json and static-RESULTS.json
