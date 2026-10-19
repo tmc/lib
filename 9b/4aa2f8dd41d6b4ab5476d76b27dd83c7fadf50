@@ -1,0 +1,10 @@
+commit: 9b4aa2f8dd41d6b4ab5476d76b27dd83c7fadf50
+date: 2026-10-19T02:31:18.719396+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 41987
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-184d-windows-fix/root-reviewed-36e091ffd275.patch
+source sha256: 36e091ffd2756b1da0f40c0283b4e0db28e16f3f9c6408b4fc948270769f8f65
