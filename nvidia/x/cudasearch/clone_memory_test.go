@@ -302,8 +302,13 @@ func TestCloneMemoryOwnerAdmission(t *testing.T) {
 			}
 			result, owner, err := applySearchAction(ctx, state, action)
 			if kind == "invalid" {
-				if err == nil || result != nil || owner != nil || b.live != 0 {
+				if err == nil || err.Error() != "egraph: nil rewrite rule in candidate" || result != nil || owner == nil || owner.closed || owner.state != nil || b.live <= 0 || owner.memory.Bytes() != b.live || b.clones != nil {
 					t.Fatal(result, owner, err, b.live)
+				}
+				owner.close()
+				owner.close()
+				if b.live != 0 {
+					t.Fatal("leaked", b.live)
 				}
 				return
 			}

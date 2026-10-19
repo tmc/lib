@@ -32,9 +32,10 @@ type SearchBudget struct {
 	// buffers reserved by built-in compilers. Zero is unlimited. Accounting uses
 	// Go value sizes, slice capacities, strings and live map entries; it excludes
 	// allocator/map bucket overhead, runtime/driver/compiler internals and caller
-	// captures. Built-in matching, extraction and clone copies reserve their
-	// supported storage before allocation. Transition staging/growth and other
-	// evaluator/policy-setup bookkeeping remain partial, so this is not a complete
+	// captures. Built-in matching, extraction, clone copies and rewrite transitions
+	// reserve their supported storage before allocation; post-transition reachable
+	// state measurement remains a conservative extra charge on the branch owner.
+	// Evaluator/policy-setup bookkeeping remains partial, so this is not a complete
 	// owned cap. Frontier/tree containers, fingerprints and retained rejection
 	// copies reserve their declared storage before allocation. Their map units
 	// are a header and key/value slots, not a bound on runtime bucket storage.
@@ -326,6 +327,9 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 				actionCount++
 				res, cloneOwner, applyErr := applySearchAction(ctx, item.state, act)
 				if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
+					if cloneOwner != nil {
+						work.memory.retainClone(cloneOwner)
+					}
 					return finish(applyErr)
 				}
 				if applyErr != nil || res.NoOp {

@@ -501,9 +501,10 @@ func cloneMemoryError(err error) error {
 	return err
 }
 
-// A no-op owner is returned for the caller to close after inspecting the
-// result. Productive owners transfer to the search/result list. Errors close
-// immediately. This avoids returning a usable clone after releasing its charge.
+// A failed transition or no-op owner is returned unlinked so the caller can
+// finish inspecting the error or result: terminal stop/error owners transfer
+// into the search/result list, while ordinary rejected or no-op owners close
+// after inspection. Productive owners transfer to the search/result list.
 func applySearchAction(ctx context.Context, state *egraph.SearchState, action egraph.ActionCandidate) (*egraph.TransitionResult, *stateClone, error) {
 	b := searchMemoryBudget(ctx)
 	if b == nil {
@@ -521,22 +522,20 @@ func applySearchAction(ctx context.Context, state *egraph.SearchState, action eg
 		result, err = state.ApplyActionWithCloneBudget(ctx, action, c.work)
 	}
 	if err != nil {
-		c.close()
-		return nil, nil, cloneMemoryError(err)
+		// The caller inspects the error before releasing or retaining its owner.
+		return nil, c, cloneMemoryError(err)
 	}
-	c.state = result.State
-	// Transition matching/staging/growth still has no preallocation contract.
-	// Keep its existing reachable-storage measurement as a conservative extra
-	// charge, now joined to the actual owner. This never qualifies its peak.
+	// Built-in transition matching, staging and growth reserve into the clone
+	// scope before allocation. Keep reachable-storage measurement as a
+	// conservative extra charge joined to the actual owner.
 	bytes, measureErr := storageBytes(result.State)
 	if measureErr != nil && b.limit > 0 {
-		c.close()
-		return nil, nil, measureErr
+		return nil, c, measureErr
 	}
 	if err := c.memory.Reserve(bytes); err != nil {
-		c.close()
-		return nil, nil, err
+		return nil, c, err
 	}
+	c.state = result.State
 	if !result.NoOp {
 		b.retainClone(c)
 	}

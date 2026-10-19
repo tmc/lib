@@ -279,6 +279,9 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 			stateCount++
 			res, cloneOwner, applyErr := applySearchAction(ctx, node.state, act)
 			if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
+				if cloneOwner != nil {
+					work.memory.retainClone(cloneOwner)
+				}
 				return finish(applyErr)
 			}
 			if applyErr != nil || res.NoOp {
@@ -391,6 +394,9 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				stateCount++
 				res, cloneOwner, err := applySearchAction(ctx, currState, act)
 				if errors.Is(err, ErrMemoryBudgetExceeded) || errors.Is(err, ErrMemoryAccountingUnavailable) {
+					if cloneOwner != nil {
+						work.memory.retainClone(cloneOwner)
+					}
 					return finish(err)
 				}
 				if err == nil && !res.NoOp {
