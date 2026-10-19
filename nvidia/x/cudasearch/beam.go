@@ -186,7 +186,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	if err := admitGraphBudget(initial, budget); err != nil {
 		return nil, err
 	}
-	if err := retainSearchValue(ctx, borrowedInitial); err != nil {
+	if err := retainSearchValue(ctx, borrowedInitial, false); err != nil {
 		return nil, err
 	}
 	rootID, ok := initial.CanonicalRoot(b.cfg.RootName)

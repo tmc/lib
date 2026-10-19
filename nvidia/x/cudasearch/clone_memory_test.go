@@ -236,11 +236,10 @@ func TestCloneMemoryPublicSearchOwners(t *testing.T) {
 					t.Fatalf("owned charges not released: before=%d after=%d clones=%d bookkeeping=%d", available, after, ownedBytes, bookkeepingBytes)
 				}
 				if ending == "noop" {
-					candidateBytes, err := storageBytes(&CandidatePlan{Cost: 9, Validated: true, Derivation: borrowed[0].Derivation})
-					if err != nil {
-						t.Fatal(err)
-					}
-					wantLive := estimateStateMemory(state) + candidateBytes + 257
+					// Initial-state accounting ends with Search, candidate
+					// accounting with result.Close. Only this caller's explicit
+					// workspace reservation may remain live.
+					wantLive := int64(257)
 					if limit-after != wantLive {
 						t.Fatalf("no-op left unowned charge: live=%d want=%d", limit-after, wantLive)
 					}

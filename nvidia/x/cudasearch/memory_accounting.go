@@ -388,7 +388,10 @@ func storageBytesWithMemory(value any, scope *egraphcore.MemoryScope) (int64, er
 	return total, err
 }
 
-func retainSearchValue(ctx context.Context, value any) error {
+// retainSearchValue is conservative post-hoc accounting, not allocation-site
+// admission. Borrowed initial state storage is charged while Search uses it;
+// candidate aliases remain charged through the returned result owner.
+func retainSearchValue(ctx context.Context, value any, retained bool) error {
 	b := searchMemoryBudget(ctx)
 	if b == nil {
 		return nil
@@ -399,6 +402,13 @@ func retainSearchValue(ctx context.Context, value any) error {
 			return nil
 		}
 		return err
+	}
+	if b.book != nil {
+		scope := b.book.temporary()
+		if retained {
+			scope = b.book.retained()
+		}
+		return scope.Reserve(bytes)
 	}
 	_, err = b.reserve(bytes)
 	return err
@@ -587,7 +597,7 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 		}
 		value = &copy
 	}
-	if err := retainSearchValue(ctx, value); err != nil {
+	if err := retainSearchValue(ctx, value, true); err != nil {
 		candidate.Close()
 		return nil, err
 	}
