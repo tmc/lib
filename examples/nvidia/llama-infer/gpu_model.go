@@ -386,18 +386,6 @@ func enqueueGPUForwardPass(
 	if err := checkPos(pos, cfg.MaxSeqLen); err != nil {
 		return 0, err
 	}
-	gemv, embed := gm.gemvFn, gm.embedFn
-	fusedQKV, fusedSwiGLU := gm.fusedQKVFn, gm.fusedSwiGLUFn
-	if gpuW.DType == weightBF16 {
-		gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn
-		fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn
-	}
-	headDim := cfg.HeadDim()
-	qHeads := cfg.NumAttentionHeads
-	kvHeads := cfg.NumKeyValueHeads
-	hiddenSize := cfg.HiddenSize
-	interSize := cfg.IntermediateSize
-	vocabSize := cfg.VocabSize
 	seqLen := pos + 1
 	attnShared, err := cudaattn.DecodeSharedMemoryBytes(seqLen, attnThreads)
 	if err != nil {
@@ -416,163 +404,23 @@ func enqueueGPUForwardPass(
 		}
 	}
 
-	ptrOrNull := func(s cudamem.Slice[float32]) driver.DevicePtr {
-		if s.Len() == 0 {
-			return driver.DevicePtr(0)
-		}
-		return s.Ptr()
-	}
-	nullPtr := driver.DevicePtr(0)
-
-	launcher := func(fn driver.Function) *cudalaunch.Launcher {
-		l := cudalaunch.Kernel(fn)
-		if stream != nil {
-			l = l.On(stream)
-		}
-		return l
-	}
-
-	// 1. Embedding lookup
-	if err := launcher(embed).Grid(1, 1, 1).Block(256, 1, 1).
-		Launch(gpuW.EmbedTokens, sp.TokenIn, sp.X, int32(hiddenSize)); err != nil {
-		return 0, err
-	}
-
 	// The attention kernel's dynamic shared memory grows with the position.
 	// Check it against the device limit and raise the kernel attribute once per
 	// step; an oversized request fails here instead of at launch.
-	if err := launcher(attnFn).SharedMem(uint32(attnShared)).PrepareSharedMem(sp.X.Device()); err != nil {
+	attnPrep := cudalaunch.Kernel(attnFn).SharedMem(uint32(attnShared))
+	if stream != nil {
+		attnPrep = attnPrep.On(stream)
+	}
+	if err := attnPrep.PrepareSharedMem(sp.X.Device()); err != nil {
 		return 0, fmt.Errorf("attention launch at position %d: %w", pos, err)
 	}
 
-	// 2. Transformer Decoder Layers
-	for i := 0; i < cfg.NumHiddenLayers; i++ {
-		layerW := &gpuW.Layers[i]
-		layerKV, err := kv.Layer(i)
-		if err != nil {
-			return 0, err
+	if err := emitForwardStep(gpuW, cfg, kv.Layer, sp, gm, attnFn, sampleFn, sp.TokenIn, pos, uint32(attnShared), func(l *cudalaunch.Launcher, args ...any) error {
+		if stream != nil {
+			l = l.On(stream)
 		}
-
-		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
-		if *fuseEGraphFlag && fusedQKV != 0 {
-			// Fused RMSNorm + QKV projection: one block per Q, K and V row.
-			if err := launcher(fusedQKV).Grid(uint32(qHeads*headDim+2*kvHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
-					ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
-					sp.Q, sp.K, sp.V,
-					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
-				return 0, err
-			}
-		} else {
-			// Unfused fallback path
-			if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
-				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-				return 0, err
-			}
-			if err := launcher(gemv).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
-				return 0, err
-			}
-			if err := launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-				return 0, err
-			}
-			if err := launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-				return 0, err
-			}
-		}
-
-		// Step 2c: RoPE
-		if err := launcher(gm.ropeFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1).
-			Launch(sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
-			return 0, err
-		}
-
-		// Step 2d: Store K and V in KV Cache
-		if err := launcher(gm.storeKVFn).Grid(1, 1, 1).Block(128, 1, 1).
-			Launch(sp.K, sp.V, layerKV.K, layerKV.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
-			return 0, err
-		}
-
-		// Step 2e: Causal FlashAttention Decode
-		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-		if err := launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(attnThreads, 1, 1).SharedMem(uint32(attnShared)).
-			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
-			return 0, err
-		}
-
-		// Step 2f: Output GEMV
-		if err := launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
-			Launch(sp.AttnOut, layerW.WO, nullPtr, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
-			return 0, err
-		}
-
-		// Step 2g: Residual 1
-		if err := launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1).
-			Launch(sp.X, sp.NormX, int32(hiddenSize)); err != nil {
-			return 0, err
-		}
-
-		// Step 2h: FFN Pre-RMSNorm
-		if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
-			Launch(sp.X, layerW.PostNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-			return 0, err
-		}
-
-		// Step 2i: Gate & Up GEMVs
-		if err := launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
-			Launch(sp.NormX, layerW.WGate, nullPtr, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
-			return 0, err
-		}
-		if err := launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
-			Launch(sp.NormX, layerW.WUp, nullPtr, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
-			return 0, err
-		}
-
-		// Step 2j & 2k: Fused SwiGLU + Down GEMV
-		if *fuseEGraphFlag && fusedSwiGLU != 0 {
-			// Fused SwiGLU Down Projection (Single kernel launch)
-			if err := launcher(fusedSwiGLU).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
-				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
-				return 0, err
-			}
-		} else {
-			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
-			if err := launcher(gm.swigluFn).Grid(1, 1, 1).Block(256, 1, 1).
-				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
-				return 0, err
-			}
-
-			// Step 2k: Down GEMV
-			if err := launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
-				Launch(sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
-				return 0, err
-			}
-		}
-
-		// Step 2l: Residual 2
-		if err := launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1).
-			Launch(sp.X, sp.FFNOut, int32(hiddenSize)); err != nil {
-			return 0, err
-		}
-	}
-
-	// 3. Final RMSNorm
-	if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
-		Launch(sp.X, gpuW.Norm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-		return 0, err
-	}
-
-	// 4. LM Head Logits GEMV
-	if err := launcher(gemv).Grid(uint32(vocabSize), 1, 1).Block(128, 1, 1).
-		Launch(sp.NormX, gpuW.LMHead, nullPtr, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
-		return 0, err
-	}
-
-	// 5. In-GPU Argmax Sampling
-	if err := launcher(sampleFn).Grid(1, 1, 1).Block(256, 1, 1).
-		Launch(sp.Logits, sp.TokenOut, int32(vocabSize)); err != nil {
+		return l.Launch(args...)
+	}); err != nil {
 		return 0, err
 	}
 
@@ -593,4 +441,189 @@ func enqueueGPUForwardPass(
 	}
 
 	return sp.HostTokenOut[0], nil
+}
+
+// emitForwardStep emits the per-token decoder kernel sequence (15L+4 unfused
+// or 11L+4 fused) in launch order, reading the input token ID from tokenSrc
+// and passing each configured *cudalaunch.Launcher and its arguments to emit.
+// Callers must prepare dynamic shared memory on attnFn for at least attnShared
+// bytes before executing the emitted launches.
+func emitForwardStep(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	layerKV func(int) (cudakv.LayerCache, error),
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn driver.Function,
+	sampleFn driver.Function,
+	tokenSrc cudamem.Slice[int32],
+	pos int,
+	attnShared uint32,
+	emit func(l *cudalaunch.Launcher, args ...any) error,
+) error {
+	if *fuseEGraphFlag && !fusedKernelsQualified {
+		return fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
+	}
+	if err := gpuW.checkDTypes(); err != nil {
+		return err
+	}
+	if err := checkPos(pos, cfg.MaxSeqLen); err != nil {
+		return err
+	}
+	gemv, embed := gm.gemvFn, gm.embedFn
+	fusedQKV, fusedSwiGLU := gm.fusedQKVFn, gm.fusedSwiGLUFn
+	if gpuW.DType == weightBF16 {
+		gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn
+		fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn
+	}
+	headDim := cfg.HeadDim()
+	qHeads := cfg.NumAttentionHeads
+	kvHeads := cfg.NumKeyValueHeads
+	hiddenSize := cfg.HiddenSize
+	interSize := cfg.IntermediateSize
+	vocabSize := cfg.VocabSize
+
+	ptrOrNull := func(s cudamem.Slice[float32]) driver.DevicePtr {
+		if s.Len() == 0 {
+			return driver.DevicePtr(0)
+		}
+		return s.Ptr()
+	}
+	nullPtr := driver.DevicePtr(0)
+	launcher := cudalaunch.Kernel
+
+	// 1. Embedding lookup
+	if err := emit(launcher(embed).Grid(1, 1, 1).Block(256, 1, 1),
+		gpuW.EmbedTokens, tokenSrc, sp.X, int32(hiddenSize)); err != nil {
+		return err
+	}
+
+	// 2. Transformer Decoder Layers
+	attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
+	for i := 0; i < cfg.NumHiddenLayers; i++ {
+		layerW := &gpuW.Layers[i]
+		lkv, err := layerKV(i)
+		if err != nil {
+			return err
+		}
+
+		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
+		if *fuseEGraphFlag && fusedQKV != 0 {
+			// Fused RMSNorm + QKV projection: one block per Q, K and V row.
+			if err := emit(launcher(fusedQKV).Grid(uint32(qHeads*headDim+2*kvHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
+				ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
+				sp.Q, sp.K, sp.V,
+				int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
+				return err
+			}
+		} else {
+			// Unfused fallback path
+			if err := emit(launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1),
+				sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+				return err
+			}
+			if err := emit(launcher(gemv).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
+				return err
+			}
+			if err := emit(launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+				return err
+			}
+			if err := emit(launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+				return err
+			}
+		}
+
+		// Step 2c: RoPE
+		if err := emit(launcher(gm.ropeFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1),
+			sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
+			return err
+		}
+
+		// Step 2d: Store K and V in KV Cache
+		if err := emit(launcher(gm.storeKVFn).Grid(1, 1, 1).Block(128, 1, 1),
+			sp.K, sp.V, lkv.K, lkv.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
+			return err
+		}
+
+		// Step 2e: Causal FlashAttention Decode
+		if err := emit(launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(attnThreads, 1, 1).SharedMem(attnShared),
+			sp.Q, lkv.K, lkv.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
+			return err
+		}
+
+		// Step 2f: Output GEMV
+		if err := emit(launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+			sp.AttnOut, layerW.WO, nullPtr, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
+			return err
+		}
+
+		// Step 2g: Residual 1
+		if err := emit(launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1),
+			sp.X, sp.NormX, int32(hiddenSize)); err != nil {
+			return err
+		}
+
+		// Step 2h: FFN Pre-RMSNorm
+		if err := emit(launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1),
+			sp.X, layerW.PostNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+			return err
+		}
+
+		// Step 2i: Gate & Up GEMVs
+		if err := emit(launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1),
+			sp.NormX, layerW.WGate, nullPtr, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
+			return err
+		}
+		if err := emit(launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1),
+			sp.NormX, layerW.WUp, nullPtr, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
+			return err
+		}
+
+		// Step 2j & 2k: Fused SwiGLU + Down GEMV
+		if *fuseEGraphFlag && fusedSwiGLU != 0 {
+			// Fused SwiGLU Down Projection (Single kernel launch)
+			if err := emit(launcher(fusedSwiGLU).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
+				return err
+			}
+		} else {
+			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
+			if err := emit(launcher(gm.swigluFn).Grid(1, 1, 1).Block(256, 1, 1),
+				sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
+				return err
+			}
+
+			// Step 2k: Down GEMV
+			if err := emit(launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
+				return err
+			}
+		}
+
+		// Step 2l: Residual 2
+		if err := emit(launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1),
+			sp.X, sp.FFNOut, int32(hiddenSize)); err != nil {
+			return err
+		}
+	}
+
+	// 3. Final RMSNorm
+	if err := emit(launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1),
+		sp.X, gpuW.Norm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+		return err
+	}
+
+	// 4. LM Head Logits GEMV
+	if err := emit(launcher(gemv).Grid(uint32(vocabSize), 1, 1).Block(128, 1, 1),
+		sp.NormX, gpuW.LMHead, nullPtr, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
+		return err
+	}
+
+	// 5. In-GPU Argmax Sampling
+	return emit(launcher(sampleFn).Grid(1, 1, 1).Block(256, 1, 1),
+		sp.Logits, sp.TokenOut, int32(vocabSize))
 }

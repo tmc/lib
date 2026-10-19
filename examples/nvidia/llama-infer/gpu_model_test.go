@@ -16,6 +16,9 @@ import (
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 )
 
@@ -844,23 +847,34 @@ func TestDeviceClosures(t *testing.T) {
 	}
 }
 
-// forwardKernelDispatchFailures inspects enqueueGPUForwardPass in src, the
-// contents of gpu_model.go, to verify that weightF32 selects gm.fusedQKVFn
-// and gm.fusedSwiGLUFn, weightBF16 selects gm.fusedQKVBF16Fn and
-// gm.fusedSwiGLUBF16Fn, and the -fuse-egraph branches guard and launch
-// fusedQKV and fusedSwiGLU.
+// forwardKernelDispatchFailures inspects emitForwardStep and
+// enqueueGPUForwardPass in src, the contents of gpu_model.go, to verify that
+// weightF32 selects gm.fusedQKVFn and gm.fusedSwiGLUFn, weightBF16 selects
+// gm.fusedQKVBF16Fn and gm.fusedSwiGLUBF16Fn, the -fuse-egraph branches guard
+// and launch fusedQKV and fusedSwiGLU, and enqueueGPUForwardPass delegates its
+// per-step kernel sequence to emitForwardStep with sp.TokenIn.
 func forwardKernelDispatchFailures(src string) ([]string, error) {
 	f, err := parser.ParseFile(token.NewFileSet(), "gpu_model.go", src, 0)
 	if err != nil {
 		return nil, err
 	}
-	var fn *ast.FuncDecl
+	var emitFn, enqueueFn *ast.FuncDecl
 	for _, decl := range f.Decls {
-		if fd, ok := decl.(*ast.FuncDecl); ok && fd.Recv == nil && fd.Name.Name == "enqueueGPUForwardPass" {
-			fn = fd
+		fd, ok := decl.(*ast.FuncDecl)
+		if !ok || fd.Recv != nil {
+			continue
+		}
+		switch fd.Name.Name {
+		case "emitForwardStep":
+			emitFn = fd
+		case "enqueueGPUForwardPass":
+			enqueueFn = fd
 		}
 	}
-	if fn == nil || fn.Body == nil {
+	if emitFn == nil || emitFn.Body == nil {
+		return []string{"emitForwardStep not found"}, nil
+	}
+	if enqueueFn == nil || enqueueFn.Body == nil {
 		return []string{"enqueueGPUForwardPass not found"}, nil
 	}
 
@@ -868,7 +882,7 @@ func forwardKernelDispatchFailures(src string) ([]string, error) {
 	var bf16Assigns []string
 	var fuseConds []string
 	var launched []string
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
+	ast.Inspect(emitFn.Body, func(n ast.Node) bool {
 		switch s := n.(type) {
 		case *ast.AssignStmt:
 			var lhs, rhs []string
@@ -912,6 +926,20 @@ func forwardKernelDispatchFailures(src string) ([]string, error) {
 		return true
 	})
 
+	var emitCalls []string
+	ast.Inspect(enqueueFn.Body, func(n ast.Node) bool {
+		if c, ok := n.(*ast.CallExpr); ok {
+			if id, ok := c.Fun.(*ast.Ident); ok && id.Name == "emitForwardStep" {
+				var args []string
+				for _, a := range c.Args[:min(len(c.Args), 10)] {
+					args = append(args, types.ExprString(a))
+				}
+				emitCalls = append(emitCalls, strings.Join(args, ", "))
+			}
+		}
+		return true
+	})
+
 	var bad []string
 	wantAssigns := []string{
 		"gemv, embed := gm.gemvFn, gm.embedFn",
@@ -939,7 +967,6 @@ func forwardKernelDispatchFailures(src string) ([]string, error) {
 	}
 	wantLaunched := []string{
 		"embed",
-		"attnFn",
 		"fusedQKV",
 		"gm.normFn",
 		"gemv",
@@ -963,6 +990,10 @@ func forwardKernelDispatchFailures(src string) ([]string, error) {
 	}
 	if !slices.Equal(launched, wantLaunched) {
 		bad = append(bad, fmt.Sprintf("launcher arguments = %q, want %q", launched, wantLaunched))
+	}
+	wantEmitCalls := []string{"gpuW, cfg, kv.Layer, sp, gm, attnFn, sampleFn, sp.TokenIn, pos, uint32(attnShared)"}
+	if !slices.Equal(emitCalls, wantEmitCalls) {
+		bad = append(bad, fmt.Sprintf("enqueueGPUForwardPass emitForwardStep calls = %q, want %q", emitCalls, wantEmitCalls))
 	}
 	return bad, nil
 }
@@ -1023,6 +1054,7 @@ func TestForwardKernelDispatch(t *testing.T) {
 		{"F4 swiglu launch uses f32 field directly", "launcher(fusedSwiGLU)", "launcher(gm.fusedSwiGLUFn)"},
 		{"F5 qkv guard checks f32 field", "*fuseEGraphFlag && fusedQKV != 0", "*fuseEGraphFlag && gm.fusedQKVFn != 0"},
 		{"F6 swiglu guard checks f32 field", "*fuseEGraphFlag && fusedSwiGLU != 0", "*fuseEGraphFlag && gm.fusedSwiGLUFn != 0"},
+		{"F7 eager passes TokenOut instead of TokenIn", "sp.TokenIn, pos, uint32(attnShared)", "sp.TokenOut, pos, uint32(attnShared)"},
 	} {
 		if !strings.Contains(src, m.old) {
 			t.Fatalf("must-fail control %s: %q not in gpu_model.go", m.name, m.old)
@@ -1036,3 +1068,365 @@ func TestForwardKernelDispatch(t *testing.T) {
 		}
 	}
 }
+
+// fakeDeviceSliceLen returns a cudamem.Slice[T] with device pointer p and
+// length n and nothing allocated behind it.
+func fakeDeviceSliceLen[T any](p driver.DevicePtr, n int) (cudamem.Slice[T], bool) {
+	s, ok := fakeDeviceSlice[T](p)
+	if !ok {
+		return s, false
+	}
+	f := reflect.ValueOf(&s).Elem().FieldByName("len")
+	if !f.IsValid() || f.Kind() != reflect.Int {
+		return s, false
+	}
+	reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem().SetInt(int64(n))
+	return s, s.Ptr() == p && s.Len() == n
+}
+
+type fakePtrBuffer struct {
+	ptr driver.DevicePtr
+}
+
+func (b fakePtrBuffer) Ptr() driver.DevicePtr { return b.ptr }
+func (b fakePtrBuffer) Free() error           { return nil }
+
+type emittedStepKernel struct {
+	desc cudalaunch.Description
+	args []any
+}
+
+// stepTestFixture holds a synthetic multi-layer GPU model, KV cache layers,
+// scratchpad, and module handles where every buffer and kernel has a distinct
+// non-zero handle. Layer 0 has Q/K/V biases present; layer 1 has biases absent.
+type stepTestFixture struct {
+	cfg      ModelConfig
+	gpuW     *GPUModelWeights
+	kvLayers []cudakv.LayerCache
+	sp       *GPUScratchpad
+	gm       *GPUModules
+	attnFn   driver.Function
+	sampleFn driver.Function
+}
+
+func newStepTestFixture(t *testing.T, dtype weightDType) *stepTestFixture {
+	t.Helper()
+	cfg := ModelConfig{
+		HiddenSize:        16,
+		IntermediateSize:  32,
+		NumHiddenLayers:   2,
+		NumAttentionHeads: 4,
+		NumKeyValueHeads:  2,
+		ExplicitHeadDim:   4,
+		VocabSize:         20,
+		MaxSeqLen:         64,
+		RmsNormEps:        1e-5,
+		RopeTheta:         10000,
+	}
+	nextPtr := driver.DevicePtr(100)
+	mat := func() deviceWeight {
+		nextPtr++
+		return deviceWeight{buf: fakePtrBuffer{ptr: nextPtr}, dtype: dtype}
+	}
+	vec := func(n int) cudamem.Slice[float32] {
+		nextPtr++
+		s, ok := fakeDeviceSliceLen[float32](nextPtr, n)
+		if !ok {
+			t.Fatal("fakeDeviceSliceLen[float32] failed")
+		}
+		return s
+	}
+	tokSlice := func() cudamem.Slice[int32] {
+		nextPtr++
+		s, ok := fakeDeviceSliceLen[int32](nextPtr, 1)
+		if !ok {
+			t.Fatal("fakeDeviceSliceLen[int32] failed")
+		}
+		return s
+	}
+
+	gpuW := &GPUModelWeights{
+		DType:       dtype,
+		EmbedTokens: mat(),
+		Norm:        vec(cfg.HiddenSize),
+		LMHead:      mat(),
+		Layers:      make([]GPULayerWeights, cfg.NumHiddenLayers),
+	}
+	kvLayers := make([]cudakv.LayerCache, cfg.NumHiddenLayers)
+	for i := range gpuW.Layers {
+		l := &gpuW.Layers[i]
+		l.InputNorm = vec(cfg.HiddenSize)
+		l.PostNorm = vec(cfg.HiddenSize)
+		l.WQ, l.WK, l.WV, l.WO = mat(), mat(), mat(), mat()
+		l.WGate, l.WUp, l.WDown = mat(), mat(), mat()
+		if i == 0 {
+			l.QBias = vec(cfg.NumAttentionHeads * cfg.HeadDim())
+			l.KBias = vec(cfg.NumKeyValueHeads * cfg.HeadDim())
+			l.VBias = vec(cfg.NumKeyValueHeads * cfg.HeadDim())
+		}
+		kvLayers[i] = cudakv.LayerCache{
+			LayerIndex: i,
+			K:          vec(cfg.MaxSeqLen * cfg.NumKeyValueHeads * cfg.HeadDim()),
+			V:          vec(cfg.MaxSeqLen * cfg.NumKeyValueHeads * cfg.HeadDim()),
+		}
+	}
+	sp := &GPUScratchpad{
+		X:        vec(cfg.HiddenSize),
+		NormX:    vec(cfg.HiddenSize),
+		Q:        vec(cfg.NumAttentionHeads * cfg.HeadDim()),
+		K:        vec(cfg.NumKeyValueHeads * cfg.HeadDim()),
+		V:        vec(cfg.NumKeyValueHeads * cfg.HeadDim()),
+		AttnOut:  vec(cfg.NumAttentionHeads * cfg.HeadDim()),
+		Gate:     vec(cfg.IntermediateSize),
+		Up:       vec(cfg.IntermediateSize),
+		FFNAct:   vec(cfg.IntermediateSize),
+		FFNOut:   vec(cfg.HiddenSize),
+		Logits:   vec(cfg.VocabSize),
+		TokenIn:  tokSlice(),
+		TokenOut: tokSlice(),
+	}
+	gm := &GPUModules{
+		embedFn:           1,
+		normFn:            2,
+		gemvFn:            3,
+		ropeFn:            4,
+		storeKVFn:         5,
+		swigluFn:          6,
+		addResFn:          7,
+		fusedQKVFn:        8,
+		fusedSwiGLUFn:     9,
+		gemvBF16Fn:        10,
+		convertBF16Fn:     11,
+		embedBF16Fn:       12,
+		fusedQKVBF16Fn:    13,
+		fusedSwiGLUBF16Fn: 14,
+	}
+	return &stepTestFixture{
+		cfg:      cfg,
+		gpuW:     gpuW,
+		kvLayers: kvLayers,
+		sp:       sp,
+		gm:       gm,
+		attnFn:   15,
+		sampleFn: 16,
+	}
+}
+
+func (f *stepTestFixture) layerKV(i int) (cudakv.LayerCache, error) {
+	if i < 0 || i >= len(f.kvLayers) {
+		return cudakv.LayerCache{}, fmt.Errorf("layer %d out of bounds", i)
+	}
+	return f.kvLayers[i], nil
+}
+
+// wantEmittedKernels returns the expected sequence of emittedStepKernel for f.
+func (f *stepTestFixture) wantEmittedKernels(fused bool, tokenSrc cudamem.Slice[int32], pos int, attnShared uint32) []emittedStepKernel {
+	gemv, embed := f.gm.gemvFn, f.gm.embedFn
+	fusedQKV, fusedSwiGLU := f.gm.fusedQKVFn, f.gm.fusedSwiGLUFn
+	if f.gpuW.DType == weightBF16 {
+		gemv, embed = f.gm.gemvBF16Fn, f.gm.embedBF16Fn
+		fusedQKV, fusedSwiGLU = f.gm.fusedQKVBF16Fn, f.gm.fusedSwiGLUBF16Fn
+	}
+	headDim := f.cfg.HeadDim()
+	qHeads := f.cfg.NumAttentionHeads
+	kvHeads := f.cfg.NumKeyValueHeads
+	hidden := f.cfg.HiddenSize
+	inter := f.cfg.IntermediateSize
+	vocab := f.cfg.VocabSize
+	qDim := qHeads * headDim
+	kvDim := kvHeads * headDim
+	attnScale := cudaattn.DefaultConfig(qHeads, kvHeads, headDim).Scale
+	nullPtr := driver.DevicePtr(0)
+	biasPtr := func(s cudamem.Slice[float32]) driver.DevicePtr {
+		if s.Len() == 0 {
+			return 0
+		}
+		return s.Ptr()
+	}
+	mk := func(fn driver.Function, gx, bx, smem uint32, args ...any) emittedStepKernel {
+		return emittedStepKernel{
+			desc: cudalaunch.Description{
+				Function:  fn,
+				Grid:      driver.Dim3{X: gx, Y: 1, Z: 1},
+				Block:     driver.Dim3{X: bx, Y: 1, Z: 1},
+				SharedMem: smem,
+			},
+			args: args,
+		}
+	}
+
+	var out []emittedStepKernel
+	out = append(out, mk(embed, 1, 256, 0, f.gpuW.EmbedTokens, tokenSrc, f.sp.X, int32(hidden)))
+	for i := 0; i < f.cfg.NumHiddenLayers; i++ {
+		lw := &f.gpuW.Layers[i]
+		lkv := f.kvLayers[i]
+		if fused {
+			out = append(out, mk(fusedQKV, uint32(qDim+2*kvDim), 128, 0,
+				f.sp.X, lw.InputNorm, lw.WQ, lw.WK, lw.WV,
+				biasPtr(lw.QBias), biasPtr(lw.KBias), biasPtr(lw.VBias),
+				f.sp.Q, f.sp.K, f.sp.V,
+				int32(hidden), int32(qDim), int32(kvDim), f.cfg.RmsNormEps))
+		} else {
+			out = append(out,
+				mk(f.gm.normFn, 1, 256, 0, f.sp.X, lw.InputNorm, f.sp.NormX, int32(hidden), f.cfg.RmsNormEps),
+				mk(gemv, uint32(qDim), 128, 0, f.sp.NormX, lw.WQ, biasPtr(lw.QBias), f.sp.Q, int32(hidden), int32(qDim)),
+				mk(gemv, uint32(kvDim), 128, 0, f.sp.NormX, lw.WK, biasPtr(lw.KBias), f.sp.K, int32(hidden), int32(kvDim)),
+				mk(gemv, uint32(kvDim), 128, 0, f.sp.NormX, lw.WV, biasPtr(lw.VBias), f.sp.V, int32(hidden), int32(kvDim)),
+			)
+		}
+		out = append(out,
+			mk(f.gm.ropeFn, uint32(qHeads), uint32(headDim/2), 0, f.sp.Q, f.sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), f.cfg.RopeTheta),
+			mk(f.gm.storeKVFn, 1, 128, 0, f.sp.K, f.sp.V, lkv.K, lkv.V, int32(pos), int32(kvHeads), int32(headDim)),
+			mk(f.attnFn, uint32(qHeads), attnThreads, attnShared, f.sp.Q, lkv.K, lkv.V, f.sp.AttnOut, int32(pos), int32(f.cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnScale),
+			mk(gemv, uint32(hidden), 128, 0, f.sp.AttnOut, lw.WO, nullPtr, f.sp.NormX, int32(qDim), int32(hidden)),
+			mk(f.gm.addResFn, 1, 256, 0, f.sp.X, f.sp.NormX, int32(hidden)),
+			mk(f.gm.normFn, 1, 256, 0, f.sp.X, lw.PostNorm, f.sp.NormX, int32(hidden), f.cfg.RmsNormEps),
+			mk(gemv, uint32(inter), 128, 0, f.sp.NormX, lw.WGate, nullPtr, f.sp.Gate, int32(hidden), int32(inter)),
+			mk(gemv, uint32(inter), 128, 0, f.sp.NormX, lw.WUp, nullPtr, f.sp.Up, int32(hidden), int32(inter)),
+		)
+		if fused {
+			out = append(out, mk(fusedSwiGLU, uint32(hidden), 128, 0, f.sp.Gate, f.sp.Up, lw.WDown, f.sp.FFNOut, int32(hidden), int32(inter)))
+		} else {
+			out = append(out,
+				mk(f.gm.swigluFn, 1, 256, 0, f.sp.Gate, f.sp.Up, f.sp.FFNAct, int32(inter)),
+				mk(gemv, uint32(hidden), 128, 0, f.sp.FFNAct, lw.WDown, nullPtr, f.sp.FFNOut, int32(inter), int32(hidden)),
+			)
+		}
+		out = append(out, mk(f.gm.addResFn, 1, 256, 0, f.sp.X, f.sp.FFNOut, int32(hidden)))
+	}
+	out = append(out,
+		mk(f.gm.normFn, 1, 256, 0, f.sp.X, f.gpuW.Norm, f.sp.NormX, int32(hidden), f.cfg.RmsNormEps),
+		mk(gemv, uint32(vocab), 128, 0, f.sp.NormX, f.gpuW.LMHead, nullPtr, f.sp.Logits, int32(hidden), int32(vocab)),
+		mk(f.sampleFn, 1, 256, 0, f.sp.Logits, f.sp.TokenOut, int32(vocab)),
+	)
+	return out
+}
+
+func stepKernelDiff(got, want []emittedStepKernel) string {
+	if len(got) != len(want) {
+		return fmt.Sprintf("emitted %d kernels, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if !reflect.DeepEqual(got[i].desc, want[i].desc) {
+			return fmt.Sprintf("kernel %d desc = %+v, want %+v", i, got[i].desc, want[i].desc)
+		}
+		if !reflect.DeepEqual(got[i].args, want[i].args) {
+			return fmt.Sprintf("kernel %d args = %#v, want %#v", i, got[i].args, want[i].args)
+		}
+	}
+	return ""
+}
+
+// TestEmitForwardStep checks emitForwardStep on CPU across weight dtypes,
+// unfused and fused modes, TokenIn vs TokenOut embedding sources, position
+// checks, layerKV errors, and per-kernel emit errors.
+func TestEmitForwardStep(t *testing.T) {
+	saveFlag, saveQualified := *fuseEGraphFlag, fusedKernelsQualified
+	defer func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified }()
+
+	for _, dtype := range []weightDType{weightF32, weightBF16} {
+		for _, fused := range []bool{false, true} {
+			for _, useTokenOut := range []bool{false, true} {
+				name := fmt.Sprintf("dtype=%s/fused=%v/tokenOut=%v", dtype, fused, useTokenOut)
+				t.Run(name, func(t *testing.T) {
+					*fuseEGraphFlag, fusedKernelsQualified = fused, true
+					f := newStepTestFixture(t, dtype)
+					tokenSrc := f.sp.TokenIn
+					if useTokenOut {
+						tokenSrc = f.sp.TokenOut
+					}
+					const pos = 5
+					const attnShared = 4096
+
+					var got []emittedStepKernel
+					err := emitForwardStep(f.gpuW, &f.cfg, f.layerKV, f.sp, f.gm, f.attnFn, f.sampleFn, tokenSrc, pos, attnShared, func(l *cudalaunch.Launcher, args ...any) error {
+						desc, err := l.Describe()
+						if err != nil {
+							return err
+						}
+						got = append(got, emittedStepKernel{desc: desc, args: slices.Clone(args)})
+						return nil
+					})
+					if err != nil {
+						t.Fatalf("emitForwardStep: %v", err)
+					}
+					wantCount := 15*f.cfg.NumHiddenLayers + 4
+					if fused {
+						wantCount = 11*f.cfg.NumHiddenLayers + 4
+					}
+					if len(got) != wantCount {
+						t.Fatalf("emitted %d kernels, want %d", len(got), wantCount)
+					}
+					want := f.wantEmittedKernels(fused, tokenSrc, pos, attnShared)
+					if diff := stepKernelDiff(got, want); diff != "" {
+						t.Fatalf("mismatch: %s", diff)
+					}
+
+					// Must-fail controls on stepKernelDiff: wrong token source, wrong pos, wrong sharedMem.
+					otherTok := f.sp.TokenOut
+					if useTokenOut {
+						otherTok = f.sp.TokenIn
+					}
+					if stepKernelDiff(got, f.wantEmittedKernels(fused, otherTok, pos, attnShared)) == "" {
+						t.Error("must-fail control: wrong token source not detected")
+					}
+					if stepKernelDiff(got, f.wantEmittedKernels(fused, tokenSrc, pos+1, attnShared)) == "" {
+						t.Error("must-fail control: wrong pos not detected")
+					}
+					if stepKernelDiff(got, f.wantEmittedKernels(fused, tokenSrc, pos, attnShared+64)) == "" {
+						t.Error("must-fail control: wrong attnShared not detected")
+					}
+
+					// Every kth emit failure stops immediately and returns the error.
+					errEmit := errors.New("emit failed")
+					for failAt := 1; failAt <= wantCount; failAt++ {
+						calls := 0
+						err := emitForwardStep(f.gpuW, &f.cfg, f.layerKV, f.sp, f.gm, f.attnFn, f.sampleFn, tokenSrc, pos, attnShared, func(l *cudalaunch.Launcher, args ...any) error {
+							calls++
+							if calls == failAt {
+								return errEmit
+							}
+							return nil
+						})
+						if !errors.Is(err, errEmit) || calls != failAt {
+							t.Fatalf("failAt %d: err = %v, calls = %d; want %v at call %d", failAt, err, calls, errEmit, failAt)
+						}
+					}
+				})
+			}
+		}
+	}
+
+	// Refusal checks on unqualified -fuse-egraph, out-of-range pos, and layerKV error.
+	f := newStepTestFixture(t, weightBF16)
+	*fuseEGraphFlag, fusedKernelsQualified = true, false
+	if err := emitForwardStep(f.gpuW, &f.cfg, f.layerKV, f.sp, f.gm, f.attnFn, f.sampleFn, f.sp.TokenIn, 0, 1024, func(*cudalaunch.Launcher, ...any) error { return nil }); err == nil || !strings.Contains(err.Error(), "not qualified") {
+		t.Errorf("unqualified -fuse-egraph: got %v, want not qualified", err)
+	}
+	*fuseEGraphFlag, fusedKernelsQualified = false, true
+	for _, badPos := range []int{-1, f.cfg.MaxSeqLen, f.cfg.MaxSeqLen + 1} {
+		called := false
+		err := emitForwardStep(f.gpuW, &f.cfg, f.layerKV, f.sp, f.gm, f.attnFn, f.sampleFn, f.sp.TokenIn, badPos, 1024, func(*cudalaunch.Launcher, ...any) error {
+			called = true
+			return nil
+		})
+		if err == nil || !strings.Contains(err.Error(), "outside the kv cache") || called {
+			t.Errorf("pos %d: err = %v, called = %v; want outside the kv cache before emit", badPos, err, called)
+		}
+	}
+	errKV := errors.New("kv layer failed")
+	calls := 0
+	err := emitForwardStep(f.gpuW, &f.cfg, func(i int) (cudakv.LayerCache, error) {
+		if i == 1 {
+			return cudakv.LayerCache{}, errKV
+		}
+		return f.layerKV(i)
+	}, f.sp, f.gm, f.attnFn, f.sampleFn, f.sp.TokenIn, 0, 1024, func(*cudalaunch.Launcher, ...any) error {
+		calls++
+		return nil
+	})
+	if !errors.Is(err, errKV) || calls != 1+15 {
+		t.Errorf("layer 1 KV error: err = %v, calls = %d; want %v after 16 calls", err, calls, errKV)
+	}
+}
+
