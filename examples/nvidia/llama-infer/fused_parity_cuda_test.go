@@ -580,6 +580,7 @@ func TestCUDATestLaunchesInContext(t *testing.T) {
 		"bf16_parity_cuda_test.go":        6,
 		"context_experiment_cuda_test.go": 0,
 		"fused_parity_cuda_test.go":       9,
+		"graph_parity_cuda_test.go":       7,
 	}
 	for file, w := range want {
 		if got[file] != w {

@@ -211,7 +211,7 @@ func TestGenerateWiring(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"\tif *benchFlag {\n\t\tforward := func(tok int32, pos int) (int32, error) {\n\t\t\treturn GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)\n\t\t}\n\t\treturn runBenchmark(os.Stdout, dtype, promptTokens, *stepsFlag, *benchCountFlag, cfg.MaxSeqLen, kvCache.Reset, forward)\n\t}\n",
+		"\tif *benchFlag {\n\t\tforward := func(tok int32, pos int) (int32, error) {\n\t\t\tif dg != nil && pos >= len(promptTokens) {\n\t\t\t\treturn dg.Step(pos, nil)\n\t\t\t}\n\t\t\treturn GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)\n\t\t}\n\t\treturn runBenchmark(os.Stdout, dtype, promptTokens, *stepsFlag, *benchCountFlag, cfg.MaxSeqLen, kvCache.Reset, forward)\n\t}\n",
 		"st := newDecodeState(promptTokens, *stepsFlag, drafter)\n",
 		"prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)\n\tif err != nil {\n\t\treturn err\n\t}\n",
 		"\t\t\tif err == nil {\n\t\t\t\ttok = scratch.HostTokenOut[0]\n\t\t\t}\n\t\t})\n\t\treturn tok, err\n\t}\n\tforward := func(",

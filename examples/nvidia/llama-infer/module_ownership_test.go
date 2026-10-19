@@ -182,6 +182,7 @@ var ownerReturning = map[string]bool{
 	"uploadModel": true, "uploadModelWith": true, "UploadModelToGPU": true,
 	"NewGPUScratchpad": true, "newGPUScratchpadWith": true,
 	"CompileGPUModules": true, "compileGPUModules": true,
+	"NewDecodeGraph": true, "newDecodeGraphWith": true,
 	libX + "cudakv.New": true, libX + "cudamem.Alloc": false,
 }
 
@@ -287,6 +288,12 @@ var ownerSites = []struct {
 	{ownerSite{"gpu_model.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "allocator for newGPUScratchpadWith"}, 2, "TestNewGPUScratchpadWith",
 		"newGPUScratchpadWith stores what each allocator returns, with its error too, in the scratchpad " +
 			"its deferred release frees on error"},
+	{ownerSite{"decode_graph.go", "NewDecodeGraph", "newDecodeGraphWith", "return"}, 1, "",
+		"hands the owner and error to the callers of NewDecodeGraph, whose calls are checked"},
+	{ownerSite{"main.go", "runGPUInference", "NewDecodeGraph", "call"}, 1, "TestCloseDecodeGraph",
+		"runGPUInference defers closeDecodeGraph(td, &dg) before calling NewDecodeGraph, which closes a non-nil dg when !td.held() and records its error in td"},
+	{ownerSite{"decode_graph_test.go", "build", "newDecodeGraphWith", "call"}, 1, "TestDecodeGraphCloseAndSetupErrors",
+		"called with fake graph operations, so nothing is allocated on a device"},
 	{ownerSite{"weights_bf16.go", "uploadWeight", libX + "cudamem.Alloc", "allocator for uploadWeightWith"}, 2, "TestUploadWeightWith",
 		"uploadWeightWith passes it to uploadAs, which returns a nonzero slice with its allocation error " +
 			"(control W1 here, A1 in TestUploadAs)"},
@@ -939,14 +946,17 @@ func controlSrc(body string) string {
 // the inspected form, changes a count, and must be reviewed before the
 // count is updated here; ownerSites lists each one not inspected.
 var ownerCalls = map[string]callCount{
-	"main.go":                   {4, 4},
+	"main.go":                   {5, 4},
 	"fused_parity_cuda_test.go": {6, 6},
 	"bf16_parity_cuda_test.go":  {6, 6},
+	"graph_parity_cuda_test.go": {12, 12},
 	"profile_cuda_test.go":      {2, 2},
 	"gpu_kernels.go":            {1, 0},
 	"gpu_model.go":              {6, 0},
+	"decode_graph.go":           {1, 0},
 	"weights_bf16.go":           {2, 0},
 	"gpu_model_test.go":         {4, 0},
+	"decode_graph_test.go":      {1, 0},
 }
 
 // testFuncs returns the names of the functions declared in the package's

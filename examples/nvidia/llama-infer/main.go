@@ -44,6 +44,7 @@ var (
 	benchFlag       = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
 	benchCountFlag  = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 	weightDTypeFlag = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
+	cudaGraphFlag   = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
 )
 
 func main() {
@@ -93,6 +94,9 @@ func run() (rerr error) {
 	dtype, err := parseWeightDType(*weightDTypeFlag)
 	if err != nil {
 		return err
+	}
+	if *cudaGraphFlag && *specDraftFlag > 0 {
+		return errors.New("-cuda-graph cannot be combined with -draft")
 	}
 
 	// 2. Load or generate Model Weights
@@ -152,6 +156,9 @@ func run() (rerr error) {
 
 	if dtype != weightF32 {
 		return fmt.Errorf("-weight-dtype %s needs a CUDA device (%v); the CPU reference runs float32 only", dtype, err)
+	}
+	if *cudaGraphFlag {
+		return fmt.Errorf("-cuda-graph needs a CUDA device (%v); the CPU reference has no graph executor", err)
 	}
 	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", err)
 	return runCPUInference(weights, cfg, tokenizer, promptTokens, tracer, profSession)
@@ -289,6 +296,17 @@ func runGPUInference(
 		return fmt.Errorf("alloc scratchpad: %w", err)
 	}
 
+	var dg *DecodeGraph
+	if *cudaGraphFlag {
+		if *specDraftFlag > 0 {
+			return errors.New("-cuda-graph cannot be combined with -draft")
+		}
+		defer closeDecodeGraph(td, &dg)
+		if dg, err = NewDecodeGraph(dev, gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn); err != nil {
+			return fmt.Errorf("build decode graph: %w", err)
+		}
+	}
+
 	forwardCU := findForwardCUPath()
 
 	var timer *stepTimer
@@ -310,6 +328,9 @@ func runGPUInference(
 
 	if *benchFlag {
 		forward := func(tok int32, pos int) (int32, error) {
+			if dg != nil && pos >= len(promptTokens) {
+				return dg.Step(pos, nil)
+			}
 			return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 		}
 		return runBenchmark(os.Stdout, dtype, promptTokens, *stepsFlag, *benchCountFlag, cfg.MaxSeqLen, kvCache.Reset, forward)
@@ -358,11 +379,19 @@ func runGPUInference(
 		labels := cudaprof.Labels("phase", "decode", "step", fmt.Sprintf("%d", step+1), "pos", fmt.Sprintf("%d", curPos), "token_id", fmt.Sprintf("%d", nextTokID))
 		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
 			if timer == nil {
+				if dg != nil {
+					tok, err = dg.Step(curPos, nil)
+					return
+				}
 				tok, err = GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos)
 				return
 			}
 			err = timer.measure(stepCtx, fmt.Sprintf("Decode Token %d", step+1), stepAnnotations("decode", curPos, nextTokID, major, minor), func(stream *cuda.Stream) error {
 				var ferr error
+				if dg != nil {
+					_, ferr = dg.Enqueue(curPos, stream)
+					return ferr
+				}
 				_, ferr = enqueueGPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, nextTokID, curPos, stream)
 				return ferr
 			})

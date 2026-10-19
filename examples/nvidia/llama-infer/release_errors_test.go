@@ -20,7 +20,7 @@ import (
 // functions those private methods take as arguments are called as
 // function values, which errorFuncCalls finds instead.
 var releaseNames = map[string]bool{
-	"Close": true, "Free": true, "Synchronize": true, "CtxSynchronize": true,
+	"Close": true, "Free": true, "Destroy": true, "Synchronize": true, "CtxSynchronize": true,
 	"Reset": true, "close": true, "release": true, "free": true, "unload": true,
 }
 
@@ -341,17 +341,17 @@ func TestReleaseErrorsReported(t *testing.T) {
 	// The files holding the cleanup paths must have been read and must
 	// contain release calls, or a clean result means nothing was looked at.
 	for _, name := range []string{
-		"main.go", "steptime.go", "model.go", "gpu_model.go", "gen.go",
-		"profile_cuda_test.go", "fused_parity_cuda_test.go", "bf16_parity_cuda_test.go",
+		"main.go", "steptime.go", "model.go", "gpu_model.go", "decode_graph.go", "gen.go",
+		"profile_cuda_test.go", "fused_parity_cuda_test.go", "bf16_parity_cuda_test.go", "graph_parity_cuda_test.go",
 	} {
 		if perFile[name] == 0 {
 			t.Errorf("%s: no release calls found", name)
 		}
 	}
 	// The release functions that GPUScratchpad.release,
-	// GPUModelWeights.free, GPUModules.close and stepTimer.build take
-	// must have been seen as function value calls.
-	for _, name := range []string{"gpu_model.go", "gpu_kernels.go", "steptime.go"} {
+	// GPUModelWeights.free, GPUModules.close, DecodeGraph.close and
+	// stepTimer.build take must have been seen as function value calls.
+	for _, name := range []string{"gpu_model.go", "gpu_kernels.go", "decode_graph.go", "steptime.go"} {
 		if perFileValue[name] == 0 {
 			t.Errorf("%s: no function value calls found", name)
 		}
