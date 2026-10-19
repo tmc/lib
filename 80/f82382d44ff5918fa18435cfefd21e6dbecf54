@@ -1,0 +1,10 @@
+commit: 80f82382d44ff5918fa18435cfefd21e6dbecf54
+date: 2026-10-19T02:38:34.084142+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 77012
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-w3f-unit35-roofline/atomA.patch
+source sha256: d80808e3df253b1290ca3aab29d2d1995e589f4fe12b33a25c4a9fbf744ec886
