@@ -285,10 +285,11 @@ func uploadModelWith(w *ModelWeights, cfg *ModelConfig, dtype weightDType,
 	return gw, nil
 }
 
-// fusedKernelsQualified reports whether FusedRMSNormQKV and FusedSwiGLUDown
-// have passed fused_parity_cuda_test.go on a device. Until then -fuse-egraph
-// is refused rather than silently running unqualified kernels.
-var fusedKernelsQualified = false
+// fusedKernelsQualified reports whether FusedRMSNormQKV, FusedSwiGLUDown,
+// FusedRMSNormQKVBF16 and FusedSwiGLUDownBF16 have passed parity on a device.
+// When false, -fuse-egraph is refused rather than silently running unqualified
+// kernels.
+var fusedKernelsQualified = true
 
 // attnThreads is the decode attention block width. CausalFlashAttentionDecode
 // accepts any width from 1 to 1024; shared memory follows from it through
@@ -386,11 +387,10 @@ func enqueueGPUForwardPass(
 		return 0, err
 	}
 	gemv, embed := gm.gemvFn, gm.embedFn
+	fusedQKV, fusedSwiGLU := gm.fusedQKVFn, gm.fusedSwiGLUFn
 	if gpuW.DType == weightBF16 {
-		if *fuseEGraphFlag {
-			return 0, fmt.Errorf("-fuse-egraph: fused kernels take float32 weights, not %s", gpuW.DType)
-		}
 		gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn
+		fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn
 	}
 	headDim := cfg.HeadDim()
 	qHeads := cfg.NumAttentionHeads
@@ -454,9 +454,9 @@ func enqueueGPUForwardPass(
 		}
 
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
-		if *fuseEGraphFlag && gm.fusedQKVFn != 0 {
+		if *fuseEGraphFlag && fusedQKV != 0 {
 			// Fused RMSNorm + QKV projection: one block per Q, K and V row.
-			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads*headDim+2*kvHeads*headDim), 1, 1).Block(128, 1, 1).
+			if err := launcher(fusedQKV).Grid(uint32(qHeads*headDim+2*kvHeads*headDim), 1, 1).Block(128, 1, 1).
 				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
 					ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
 					sp.Q, sp.K, sp.V,
@@ -531,9 +531,9 @@ func enqueueGPUForwardPass(
 		}
 
 		// Step 2j & 2k: Fused SwiGLU + Down GEMV
-		if *fuseEGraphFlag && gm.fusedSwiGLUFn != 0 {
+		if *fuseEGraphFlag && fusedSwiGLU != 0 {
 			// Fused SwiGLU Down Projection (Single kernel launch)
-			if err := launcher(gm.fusedSwiGLUFn).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
+			if err := launcher(fusedSwiGLU).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
 				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
 				return 0, err
 			}

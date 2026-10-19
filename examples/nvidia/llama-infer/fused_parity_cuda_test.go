@@ -367,13 +367,28 @@ func TestGPUForwardParity(t *testing.T) {
 }
 
 func TestFuseEGraphRefusedUntilQualified(t *testing.T) {
+	if !fusedKernelsQualified {
+		t.Fatal("fusedKernelsQualified = false, want true")
+	}
 	saveFlag, saveQualified := *fuseEGraphFlag, fusedKernelsQualified
-	t.Cleanup(func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified })
+	defer func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified }()
 	*fuseEGraphFlag, fusedKernelsQualified = true, false
 	// The refusal precedes any device or argument use.
 	_, err := GPUForwardPass(nil, nil, nil, nil, nil, 0, 0, 0, 0)
 	if err == nil || !strings.Contains(err.Error(), "-fuse-egraph") {
 		t.Fatalf("unqualified -fuse-egraph: got %v, want refusal", err)
+	}
+
+	*fuseEGraphFlag, fusedKernelsQualified = true, true
+	var log []string
+	w := fakeModel(&log, true, 0)
+	cfg := DefaultModelConfig()
+	cfg.NumHiddenLayers = 1
+	if _, err := enqueueGPUForwardPass(w, &cfg, nil, nil, nil, 0, 0, -1, 0, nil); err == nil || !strings.Contains(err.Error(), "outside vocabulary") {
+		t.Fatalf("qualified -fuse-egraph token check: got %v, want outside vocabulary", err)
+	}
+	if _, err := enqueueGPUForwardPass(w, &cfg, nil, nil, nil, 0, 0, 0, -1, nil); err == nil || !strings.Contains(err.Error(), "outside the kv cache") {
+		t.Fatalf("qualified -fuse-egraph pos check: got %v, want outside the kv cache", err)
 	}
 }
 
@@ -562,7 +577,7 @@ func TestCUDATestLaunchesInContext(t *testing.T) {
 		bad = append(bad, b...)
 	}
 	want := map[string]int{
-		"bf16_parity_cuda_test.go":        4,
+		"bf16_parity_cuda_test.go":        6,
 		"context_experiment_cuda_test.go": 0,
 		"fused_parity_cuda_test.go":       9,
 	}

@@ -843,3 +843,196 @@ func TestDeviceClosures(t *testing.T) {
 		}
 	}
 }
+
+// forwardKernelDispatchFailures inspects enqueueGPUForwardPass in src, the
+// contents of gpu_model.go, to verify that weightF32 selects gm.fusedQKVFn
+// and gm.fusedSwiGLUFn, weightBF16 selects gm.fusedQKVBF16Fn and
+// gm.fusedSwiGLUBF16Fn, and the -fuse-egraph branches guard and launch
+// fusedQKV and fusedSwiGLU.
+func forwardKernelDispatchFailures(src string) ([]string, error) {
+	f, err := parser.ParseFile(token.NewFileSet(), "gpu_model.go", src, 0)
+	if err != nil {
+		return nil, err
+	}
+	var fn *ast.FuncDecl
+	for _, decl := range f.Decls {
+		if fd, ok := decl.(*ast.FuncDecl); ok && fd.Recv == nil && fd.Name.Name == "enqueueGPUForwardPass" {
+			fn = fd
+		}
+	}
+	if fn == nil || fn.Body == nil {
+		return []string{"enqueueGPUForwardPass not found"}, nil
+	}
+
+	var assigns []string
+	var bf16Assigns []string
+	var fuseConds []string
+	var launched []string
+	ast.Inspect(fn.Body, func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.AssignStmt:
+			var lhs, rhs []string
+			for _, e := range s.Lhs {
+				lhs = append(lhs, types.ExprString(e))
+			}
+			for _, e := range s.Rhs {
+				rhs = append(rhs, types.ExprString(e))
+			}
+			line := strings.Join(lhs, ", ") + " " + s.Tok.String() + " " + strings.Join(rhs, ", ")
+			if strings.HasPrefix(line, "gemv, embed") || strings.HasPrefix(line, "fusedQKV, fusedSwiGLU") {
+				assigns = append(assigns, line)
+			}
+		case *ast.IfStmt:
+			cond := types.ExprString(s.Cond)
+			if cond == "gpuW.DType == weightBF16" && s.Body != nil {
+				for _, stmt := range s.Body.List {
+					as, ok := stmt.(*ast.AssignStmt)
+					if !ok {
+						bf16Assigns = append(bf16Assigns, fmt.Sprintf("non-assign %T", stmt))
+						continue
+					}
+					var lhs, rhs []string
+					for _, e := range as.Lhs {
+						lhs = append(lhs, types.ExprString(e))
+					}
+					for _, e := range as.Rhs {
+						rhs = append(rhs, types.ExprString(e))
+					}
+					bf16Assigns = append(bf16Assigns, strings.Join(lhs, ", ")+" "+as.Tok.String()+" "+strings.Join(rhs, ", "))
+				}
+			}
+			if strings.Contains(cond, "fuseEGraphFlag") {
+				fuseConds = append(fuseConds, cond)
+			}
+		case *ast.CallExpr:
+			if id, ok := s.Fun.(*ast.Ident); ok && id.Name == "launcher" && len(s.Args) == 1 {
+				launched = append(launched, types.ExprString(s.Args[0]))
+			}
+		}
+		return true
+	})
+
+	var bad []string
+	wantAssigns := []string{
+		"gemv, embed := gm.gemvFn, gm.embedFn",
+		"fusedQKV, fusedSwiGLU := gm.fusedQKVFn, gm.fusedSwiGLUFn",
+		"gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn",
+		"fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn",
+	}
+	if !slices.Equal(assigns, wantAssigns) {
+		bad = append(bad, fmt.Sprintf("kernel assignments = %q, want %q", assigns, wantAssigns))
+	}
+	wantBF16 := []string{
+		"gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn",
+		"fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn",
+	}
+	if !slices.Equal(bf16Assigns, wantBF16) {
+		bad = append(bad, fmt.Sprintf("weightBF16 block = %q, want %q", bf16Assigns, wantBF16))
+	}
+	wantConds := []string{
+		"*fuseEGraphFlag && !fusedKernelsQualified",
+		"*fuseEGraphFlag && fusedQKV != 0",
+		"*fuseEGraphFlag && fusedSwiGLU != 0",
+	}
+	if !slices.Equal(fuseConds, wantConds) {
+		bad = append(bad, fmt.Sprintf("fuseEGraphFlag conditions = %q, want %q", fuseConds, wantConds))
+	}
+	wantLaunched := []string{
+		"embed",
+		"attnFn",
+		"fusedQKV",
+		"gm.normFn",
+		"gemv",
+		"gemv",
+		"gemv",
+		"gm.ropeFn",
+		"gm.storeKVFn",
+		"attnFn",
+		"gemv",
+		"gm.addResFn",
+		"gm.normFn",
+		"gemv",
+		"gemv",
+		"fusedSwiGLU",
+		"gm.swigluFn",
+		"gemv",
+		"gm.addResFn",
+		"gm.normFn",
+		"gemv",
+		"sampleFn",
+	}
+	if !slices.Equal(launched, wantLaunched) {
+		bad = append(bad, fmt.Sprintf("launcher arguments = %q, want %q", launched, wantLaunched))
+	}
+	return bad, nil
+}
+
+// TestForwardKernelDispatch checks both qualified and unqualified
+// -fuse-egraph states in enqueueGPUForwardPass and verifies that weightBF16
+// selects and dispatches fusedQKVBF16Fn and fusedSwiGLUBF16Fn when
+// -fuse-egraph is set.
+func TestForwardKernelDispatch(t *testing.T) {
+	if !fusedKernelsQualified {
+		t.Fatal("fusedKernelsQualified = false, want true")
+	}
+	if *fuseEGraphFlag {
+		t.Fatal("-fuse-egraph default = true, want false")
+	}
+
+	saveFlag, saveQualified := *fuseEGraphFlag, fusedKernelsQualified
+	defer func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified }()
+
+	var log []string
+	w := fakeModel(&log, true, 0)
+	cfg := DefaultModelConfig()
+	cfg.NumHiddenLayers = 1
+
+	// When unqualified, -fuse-egraph is refused before touching model or token checks.
+	*fuseEGraphFlag, fusedKernelsQualified = true, false
+	if _, err := enqueueGPUForwardPass(w, &cfg, nil, nil, nil, 0, 0, -1, 0, nil); err == nil || !strings.Contains(err.Error(), "not qualified") {
+		t.Fatalf("unqualified -fuse-egraph: got %v, want qualification refusal", err)
+	}
+
+	// When qualified, -fuse-egraph with weightBF16 is accepted past the qualification
+	// and dtype gates and reaches the token and position checks.
+	*fuseEGraphFlag, fusedKernelsQualified = true, true
+	if _, err := enqueueGPUForwardPass(w, &cfg, nil, nil, nil, 0, 0, -1, 0, nil); err == nil || !strings.Contains(err.Error(), "outside vocabulary") {
+		t.Fatalf("qualified bf16 -fuse-egraph token check: got %v, want outside vocabulary", err)
+	}
+	if _, err := enqueueGPUForwardPass(w, &cfg, nil, nil, nil, 0, 0, 0, -1, nil); err == nil || !strings.Contains(err.Error(), "outside the kv cache") {
+		t.Fatalf("qualified bf16 -fuse-egraph pos check: got %v, want outside the kv cache", err)
+	}
+
+	b, err := os.ReadFile("gpu_model.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	bad, err := forwardKernelDispatchFailures(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range bad {
+		t.Error(f)
+	}
+
+	for _, m := range []struct{ name, old, new string }{
+		{"F1 bf16 fused assignment omitted", "\t\tfusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn\n", ""},
+		{"F2 bf16 fused kernels swapped", "fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn", "fusedQKV, fusedSwiGLU = gm.fusedSwiGLUBF16Fn, gm.fusedQKVBF16Fn"},
+		{"F3 qkv launch uses f32 field directly", "launcher(fusedQKV)", "launcher(gm.fusedQKVFn)"},
+		{"F4 swiglu launch uses f32 field directly", "launcher(fusedSwiGLU)", "launcher(gm.fusedSwiGLUFn)"},
+		{"F5 qkv guard checks f32 field", "*fuseEGraphFlag && fusedQKV != 0", "*fuseEGraphFlag && gm.fusedQKVFn != 0"},
+		{"F6 swiglu guard checks f32 field", "*fuseEGraphFlag && fusedSwiGLU != 0", "*fuseEGraphFlag && gm.fusedSwiGLUFn != 0"},
+	} {
+		if !strings.Contains(src, m.old) {
+			t.Fatalf("must-fail control %s: %q not in gpu_model.go", m.name, m.old)
+		}
+		bad, err := forwardKernelDispatchFailures(strings.Replace(src, m.old, m.new, 1))
+		if err != nil {
+			t.Fatalf("must-fail control %s: %v", m.name, err)
+		}
+		if len(bad) == 0 {
+			t.Errorf("must-fail control %s: not detected", m.name)
+		}
+	}
+}

@@ -18,20 +18,22 @@ var ForwardKernelsCUDA string
 
 // GPUModules holds compiled and loaded CUDA functions for model execution.
 type GPUModules struct {
-	mod           driver.Module
-	ptx           string
-	embedFn       driver.Function
-	normFn        driver.Function
-	gemvFn        driver.Function
-	ropeFn        driver.Function
-	storeKVFn     driver.Function
-	swigluFn      driver.Function
-	addResFn      driver.Function
-	fusedQKVFn    driver.Function
-	fusedSwiGLUFn driver.Function
-	gemvBF16Fn    driver.Function
-	convertBF16Fn driver.Function
-	embedBF16Fn   driver.Function
+	mod               driver.Module
+	ptx               string
+	embedFn           driver.Function
+	normFn            driver.Function
+	gemvFn            driver.Function
+	ropeFn            driver.Function
+	storeKVFn         driver.Function
+	swigluFn          driver.Function
+	addResFn          driver.Function
+	fusedQKVFn        driver.Function
+	fusedSwiGLUFn     driver.Function
+	gemvBF16Fn        driver.Function
+	convertBF16Fn     driver.Function
+	embedBF16Fn       driver.Function
+	fusedQKVBF16Fn    driver.Function
+	fusedSwiGLUBF16Fn driver.Function
 }
 
 // PTX returns the exact JIT-compiled PTX assembly string.
@@ -85,19 +87,21 @@ func lookupModules(loaded driver.Module, lookup func(string) (driver.Function, e
 		return f
 	}
 	gm := &GPUModules{
-		mod:           loaded,
-		embedFn:       fn("EmbeddingLookup"),
-		normFn:        fn("RMSNorm"),
-		gemvFn:        fn("LinearGEMV"),
-		ropeFn:        fn("ApplyRoPE"),
-		storeKVFn:     fn("StoreKVCache"),
-		swigluFn:      fn("SwiGLU"),
-		addResFn:      fn("AddResidual"),
-		fusedQKVFn:    fn("FusedRMSNormQKV"),
-		fusedSwiGLUFn: fn("FusedSwiGLUDown"),
-		gemvBF16Fn:    fn("LinearGEMVBF16"),
-		convertBF16Fn: fn("WeightConvertProbeBF16"),
-		embedBF16Fn:   fn("EmbeddingLookupBF16"),
+		mod:               loaded,
+		embedFn:           fn("EmbeddingLookup"),
+		normFn:            fn("RMSNorm"),
+		gemvFn:            fn("LinearGEMV"),
+		ropeFn:            fn("ApplyRoPE"),
+		storeKVFn:         fn("StoreKVCache"),
+		swigluFn:          fn("SwiGLU"),
+		addResFn:          fn("AddResidual"),
+		fusedQKVFn:        fn("FusedRMSNormQKV"),
+		fusedSwiGLUFn:     fn("FusedSwiGLUDown"),
+		gemvBF16Fn:        fn("LinearGEMVBF16"),
+		convertBF16Fn:     fn("WeightConvertProbeBF16"),
+		embedBF16Fn:       fn("EmbeddingLookupBF16"),
+		fusedQKVBF16Fn:    fn("FusedRMSNormQKVBF16"),
+		fusedSwiGLUBF16Fn: fn("FusedSwiGLUDownBF16"),
 	}
 	if err != nil {
 		if cerr := gm.close(unload); cerr != nil {

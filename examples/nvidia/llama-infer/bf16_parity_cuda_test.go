@@ -240,18 +240,148 @@ func TestEmbeddingLookupBF16BitExact(t *testing.T) {
 	}
 }
 
+// widenBF16 widens a slice of bfloat16 bit patterns to float32.
+func widenBF16(w16 []uint16) []float32 {
+	w32 := make([]float32, len(w16))
+	for i, b := range w16 {
+		w32[i] = bf16Widen(b)
+	}
+	return w32
+}
+
+// fusedQKVBF16Mismatch runs gm's FusedRMSNormQKVBF16 on random bfloat16
+// weights and ref's FusedRMSNormQKV on the same weights widened, and reports
+// the first projection (0=q, 1=k, 2=v) and index whose bits differ, or -1.
+func fusedQKVBF16Mismatch(d *parityDevice, gm, ref *GPUModules, in, qDim, kvDim int, bias string) (proj, idx int, got, want []float32) {
+	d.t.Helper()
+	r := rand.New(rand.NewPCG(uint64(in), uint64(qDim*100+kvDim)))
+	x, g := bf16Activations(r, in), bf16Activations(r, in)
+	wq16, wk16, wv16 := bf16Weights(r, qDim*in), bf16Weights(r, kvDim*in), bf16Weights(r, kvDim*in)
+	var hbq, hbk, hbv []float32
+	if bias == "q" || bias == "all" {
+		hbq = bf16Activations(r, qDim)
+	}
+	if bias == "k" || bias == "all" {
+		hbk = bf16Activations(r, kvDim)
+	}
+	if bias == "v" || bias == "all" {
+		hbv = bf16Activations(r, kvDim)
+	}
+	ptr := func(b []float32) any {
+		if b == nil {
+			return nullDevicePtr
+		}
+		return d.upload(b)
+	}
+	dx, dg := d.upload(x), d.upload(g)
+	bq, bk, bv := ptr(hbq), ptr(hbk), ptr(hbv)
+	dwq16, dwk16, dwv16 := uploadBF16(d, wq16), uploadBF16(d, wk16), uploadBF16(d, wv16)
+	dwq32, dwk32, dwv32 := d.upload(widenBF16(wq16)), d.upload(widenBF16(wk16)), d.upload(widenBF16(wv16))
+
+	run := func(fn driver.Function, wq, wk, wv any) [3][]float32 {
+		oq := d.upload(make([]float32, qDim))
+		ok := d.upload(make([]float32, kvDim))
+		ov := d.upload(make([]float32, kvDim))
+		if err := d.dev.WithContext(func() error {
+			return cudalaunch.Kernel(fn).Grid(uint32(qDim+2*kvDim), 1, 1).Block(128, 1, 1).
+				Launch(dx, dg, wq, wk, wv, bq, bk, bv, oq, ok, ov,
+					int32(in), int32(qDim), int32(kvDim), float32(qkvParityEps))
+		}); err != nil {
+			d.t.Fatal(err)
+		}
+		return [3][]float32{d.download(oq), d.download(ok), d.download(ov)}
+	}
+	got3 := run(gm.fusedQKVBF16Fn, dwq16, dwk16, dwv16)
+	want3 := run(ref.fusedQKVFn, dwq32, dwk32, dwv32)
+	for p := range 3 {
+		if i := bitMismatch(got3[p], want3[p]); i >= 0 {
+			return p, i, got3[p], want3[p]
+		}
+	}
+	return -1, -1, nil, nil
+}
+
+// TestFusedRMSNormQKVBF16BitExact verifies bit-for-bit equality of
+// FusedRMSNormQKVBF16 against FusedRMSNormQKV on widened weights across
+// qkvParityCases and qkvBiasModes.
+func TestFusedRMSNormQKVBF16BitExact(t *testing.T) {
+	d := newParityDevice(t)
+	names := [3]string{"q", "k", "v"}
+	for _, tt := range qkvParityCases {
+		for _, bias := range qkvBiasModes {
+			t.Run(tt.name+"/bias "+bias, func(t *testing.T) {
+				d := &parityDevice{t: t, dev: d.dev, gm: d.gm}
+				if p, i, got, want := fusedQKVBF16Mismatch(d, d.gm, d.gm, tt.in, tt.qDim, tt.kvDim, bias); p >= 0 {
+					t.Errorf("%s[%d]: bf16 %#08x, widened f32 %#08x", names[p], i, math.Float32bits(got[i]), math.Float32bits(want[i]))
+				}
+			})
+		}
+	}
+}
+
+// fusedSwiGLUBF16Mismatch runs gm's FusedSwiGLUDownBF16 on random bfloat16
+// weights and ref's FusedSwiGLUDown on the same weights widened, and reports
+// the first index whose bits differ, or -1.
+func fusedSwiGLUBF16Mismatch(d *parityDevice, gm, ref *GPUModules, hidden, inter int) (int, []float32, []float32) {
+	d.t.Helper()
+	r := rand.New(rand.NewPCG(uint64(hidden), uint64(inter)))
+	gate, up := bf16Activations(r, inter), bf16Activations(r, inter)
+	w16 := bf16Weights(r, hidden*inter)
+	dg, du := d.upload(gate), d.upload(up)
+	dw16, dw32 := uploadBF16(d, w16), d.upload(widenBF16(w16))
+
+	run := func(fn driver.Function, w any) []float32 {
+		o := d.upload(make([]float32, hidden))
+		if err := d.dev.WithContext(func() error {
+			return cudalaunch.Kernel(fn).Grid(uint32(hidden), 1, 1).Block(128, 1, 1).
+				Launch(dg, du, w, o, int32(hidden), int32(inter))
+		}); err != nil {
+			d.t.Fatal(err)
+		}
+		return d.download(o)
+	}
+	got := run(gm.fusedSwiGLUBF16Fn, dw16)
+	want := run(ref.fusedSwiGLUFn, dw32)
+	return bitMismatch(got, want), got, want
+}
+
+// TestFusedSwiGLUDownBF16BitExact verifies bit-for-bit equality of
+// FusedSwiGLUDownBF16 against FusedSwiGLUDown on widened weights across
+// swigluParityCases.
+func TestFusedSwiGLUDownBF16BitExact(t *testing.T) {
+	d := newParityDevice(t)
+	for _, tt := range swigluParityCases {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &parityDevice{t: t, dev: d.dev, gm: d.gm}
+			if i, got, want := fusedSwiGLUBF16Mismatch(d, d.gm, d.gm, tt.hidden, tt.inter); i >= 0 {
+				t.Errorf("out[%d]: bf16 %#08x, widened f32 %#08x", i, math.Float32bits(got[i]), math.Float32bits(want[i]))
+			}
+		})
+	}
+}
+
 // Source fragments the BF16 controls replace.
 const (
-	bf16LanesSource  = "bf16_to_f32(wb.x), bf16_to_f32(wb.y)"
-	bf16LanesSwapped = "bf16_to_f32(wb.y), bf16_to_f32(wb.x)"
-	bf16WidenSource  = "((unsigned int)b) << 16"
-	bf16EmbedRow     = "(size_t)(*token_id) * hidden_dim"
+	bf16LanesSource        = "bf16_to_f32(wb.x), bf16_to_f32(wb.y)"
+	bf16LanesSwapped       = "bf16_to_f32(wb.y), bf16_to_f32(wb.x)"
+	bf16QKVLanesSource     = "bf16_to_f32(wqkv.x), bf16_to_f32(wqkv.y)"
+	bf16QKVLanesSwapped    = "bf16_to_f32(wqkv.y), bf16_to_f32(wqkv.x)"
+	bf16SwiGLULanesSource  = "bf16_to_f32(wd.x), bf16_to_f32(wd.y)"
+	bf16SwiGLULanesSwapped = "bf16_to_f32(wd.y), bf16_to_f32(wd.x)"
+	bf16WidenSource        = "((unsigned int)b) << 16"
+	bf16EmbedRow           = "(size_t)(*token_id) * hidden_dim"
 )
 
 // TestBF16MutationsApply checks without a device that every fragment the
 // controls replace occurs exactly once, so each mutant changes the kernel.
 func TestBF16MutationsApply(t *testing.T) {
-	for _, old := range []string{bf16LanesSource, bf16WidenSource, bf16EmbedRow} {
+	for _, old := range []string{
+		bf16LanesSource,
+		bf16QKVLanesSource,
+		bf16SwiGLULanesSource,
+		bf16WidenSource,
+		bf16EmbedRow,
+	} {
 		if n := strings.Count(forwardBF16CUDA, old); n != 1 {
 			t.Errorf("%q occurs %d times in forward_bf16.cu, want 1", old, n)
 		}
@@ -280,31 +410,46 @@ func mutateBF16(d *parityDevice, old, new string) *GPUModules {
 	return gm
 }
 
-// TestBF16Controls checks that the K1 and K2 gates see the defects they
-// exist to catch. Every entry in mustFail must be detected. inactivePath
-// entries change code a shape never runs and must not be detected there:
-// they show the gate is specific to the path, and are not failures.
+// TestBF16Controls checks that the K1, K2, E1 and fused BF16 gates see the
+// defects they exist to catch. Every entry in mustFail must be detected.
+// inactivePath entries change code a shape never runs and must not be
+// detected there: they show the gate is specific to the path, and are not
+// failures.
 func TestBF16Controls(t *testing.T) {
 	d := newParityDevice(t)
 	lanes, swapped, widen := bf16LanesSource, bf16LanesSwapped, bf16WidenSource
 
 	mustFail := []struct {
-		name     string
-		old, new string
-		shapes   [][2]int // K1 shapes that must detect it
-		convert  bool     // K2 must detect it
-		embed    bool     // E1 must detect it on every embedBF16Shapes case that has a next row
+		name         string
+		old, new     string
+		shapes       [][2]int // K1 shapes that must detect it
+		qkvShapes    [][3]int // FusedRMSNormQKVBF16 (in, qDim, kvDim) shapes that must detect it
+		swigluShapes [][2]int // FusedSwiGLUDownBF16 (hidden, inter) shapes that must detect it
+		convert      bool     // K2 must detect it
+		embed        bool     // E1 must detect it on every embedBF16Shapes case that has a next row
 	}{
-		{"permuted ushort4 lanes", lanes, swapped, [][2]int{{8, 3}, {64, 3}}, false, false},
-		{"shift by 15", widen, "((unsigned int)b) << 15", [][2]int{{8, 3}, {13, 3}, {64, 3}}, true, true},
-		{"sign bit dropped", widen, "((unsigned int)(b & 0x7fff)) << 16", nil, true, false},
-		{"embedding row off by one", bf16EmbedRow, "(size_t)(*token_id + 1) * hidden_dim", nil, false, true},
+		{"permuted ushort4 lanes", lanes, swapped, [][2]int{{8, 3}, {64, 3}}, nil, nil, false, false},
+		{"permuted FusedRMSNormQKVBF16 ushort4 lanes", bf16QKVLanesSource, bf16QKVLanesSwapped, nil, [][3]int{{8, 8, 8}, {64, 64, 32}}, nil, false, false},
+		{"permuted FusedSwiGLUDownBF16 ushort4 lanes", bf16SwiGLULanesSource, bf16SwiGLULanesSwapped, nil, nil, [][2]int{{8, 12}, {64, 128}}, false, false},
+		{"shift by 15", widen, "((unsigned int)b) << 15", [][2]int{{8, 3}, {13, 3}, {64, 3}}, [][3]int{{7, 12, 6}, {8, 8, 8}, {13, 10, 2}, {64, 64, 32}}, [][2]int{{5, 7}, {8, 12}, {13, 9}, {64, 128}}, true, true},
+		{"sign bit dropped", widen, "((unsigned int)(b & 0x7fff)) << 16", nil, nil, nil, true, false},
+		{"embedding row off by one", bf16EmbedRow, "(size_t)(*token_id + 1) * hidden_dim", nil, nil, nil, false, true},
 	}
 	for _, m := range mustFail {
 		gm := mutateBF16(d, m.old, m.new)
 		for _, s := range m.shapes {
 			if i, _, _ := gemvBF16Mismatch(d, gm, d.gm, s[0], s[1]); i < 0 {
 				t.Errorf("%s: K1 in %d out %d did not detect it", m.name, s[0], s[1])
+			}
+		}
+		for _, s := range m.qkvShapes {
+			if p, _, _, _ := fusedQKVBF16Mismatch(d, gm, d.gm, s[0], s[1], s[2], "all"); p < 0 {
+				t.Errorf("%s: FusedRMSNormQKVBF16 in %d q %d kv %d did not detect it", m.name, s[0], s[1], s[2])
+			}
+		}
+		for _, s := range m.swigluShapes {
+			if i, _, _ := fusedSwiGLUBF16Mismatch(d, gm, d.gm, s[0], s[1]); i < 0 {
+				t.Errorf("%s: FusedSwiGLUDownBF16 hidden %d inter %d did not detect it", m.name, s[0], s[1])
 			}
 		}
 		if m.convert && convertMismatches(d, gm) == 0 {
@@ -330,17 +475,31 @@ func TestBF16Controls(t *testing.T) {
 	}
 
 	inactivePath := []struct {
-		name     string
-		old, new string
-		shapes   [][2]int // shapes that never take the mutated path
+		name         string
+		old, new     string
+		shapes       [][2]int // K1 shapes that never take the mutated path
+		qkvShapes    [][3]int // FusedRMSNormQKVBF16 scalar-row shapes
+		swigluShapes [][2]int // FusedSwiGLUDownBF16 scalar-row shapes
 	}{
-		{"permuted ushort4 lanes, scalar rows", lanes, swapped, [][2]int{{5, 3}, {7, 3}, {13, 3}}},
+		{"permuted ushort4 lanes, scalar rows", lanes, swapped, [][2]int{{5, 3}, {7, 3}, {13, 3}}, nil, nil},
+		{"permuted FusedRMSNormQKVBF16 ushort4 lanes, scalar rows", bf16QKVLanesSource, bf16QKVLanesSwapped, nil, [][3]int{{7, 12, 6}, {13, 10, 2}}, nil},
+		{"permuted FusedSwiGLUDownBF16 ushort4 lanes, scalar rows", bf16SwiGLULanesSource, bf16SwiGLULanesSwapped, nil, nil, [][2]int{{5, 7}, {13, 9}}},
 	}
 	for _, m := range inactivePath {
 		gm := mutateBF16(d, m.old, m.new)
 		for _, s := range m.shapes {
 			if i, _, _ := gemvBF16Mismatch(d, gm, d.gm, s[0], s[1]); i >= 0 {
 				t.Errorf("%s: in %d out %d changed out[%d] on a path it does not run", m.name, s[0], s[1], i)
+			}
+		}
+		for _, s := range m.qkvShapes {
+			if p, i, _, _ := fusedQKVBF16Mismatch(d, gm, d.gm, s[0], s[1], s[2], "all"); p >= 0 {
+				t.Errorf("%s: in %d q %d kv %d changed proj %d[%d] on a path it does not run", m.name, s[0], s[1], s[2], p, i)
+			}
+		}
+		for _, s := range m.swigluShapes {
+			if i, _, _ := fusedSwiGLUBF16Mismatch(d, gm, d.gm, s[0], s[1]); i >= 0 {
+				t.Errorf("%s: hidden %d inter %d changed out[%d] on a path it does not run", m.name, s[0], s[1], i)
 			}
 		}
 	}
@@ -490,21 +649,25 @@ func firstDifference(a, b [][]float32, at, bt []int32) int {
 }
 
 func bf16ModelConfigs() []struct {
-	name string
-	cfg  ModelConfig
-	tied bool
+	name  string
+	cfg   ModelConfig
+	tied  bool
+	fused bool
 } {
 	odd := DefaultModelConfig()
 	// Query width equals hidden: CPU Forward's output projection assumes it.
 	odd.HiddenSize, odd.IntermediateSize, odd.NumAttentionHeads, odd.NumKeyValueHeads, odd.VocabSize = 18, 30, 3, 1, 50
 	return []struct {
-		name string
-		cfg  ModelConfig
-		tied bool
+		name  string
+		cfg   ModelConfig
+		tied  bool
+		fused bool
 	}{
-		{"default", DefaultModelConfig(), false},
-		{"default tied", DefaultModelConfig(), true},
-		{"odd rows", odd, false},
+		{"default", DefaultModelConfig(), false, false},
+		{"default tied", DefaultModelConfig(), true, false},
+		{"odd rows", odd, false, false},
+		{"default_fused", DefaultModelConfig(), false, true},
+		{"odd_rows_fused", odd, false, true},
 	}
 }
 
@@ -550,6 +713,13 @@ func TestBF16ModelParity(t *testing.T) {
 	k := newForwardKit(t)
 	for _, tt := range bf16ModelConfigs() {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.fused && (k.d.gm.fusedQKVFn == 0 || k.d.gm.fusedSwiGLUFn == 0 || k.d.gm.fusedQKVBF16Fn == 0 || k.d.gm.fusedSwiGLUBF16Fn == 0) {
+				t.Fatal("fused kernels missing from module; the fused path would silently fall back")
+			}
+			saveFlag, saveQualified := *fuseEGraphFlag, fusedKernelsQualified
+			*fuseEGraphFlag, fusedKernelsQualified = tt.fused, true
+			t.Cleanup(func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified })
+
 			w := bf16Model(tt.cfg, tt.tied)
 			f32, f32Toks := k.decode(t, w, tt.cfg, weightF32)
 			b16, b16Toks := k.decode(t, w, tt.cfg, weightBF16)

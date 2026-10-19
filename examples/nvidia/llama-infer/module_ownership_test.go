@@ -29,6 +29,7 @@ var (
 type fakeModule struct {
 	failAt      int
 	lookups     int
+	names       []string
 	unloadFails int
 	unloads     int
 	handles     []driver.Module // the handle each unload was given
@@ -36,6 +37,7 @@ type fakeModule struct {
 
 func (f *fakeModule) lookup(name string) (driver.Function, error) {
 	f.lookups++
+	f.names = append(f.names, name)
 	if f.failAt > 0 && f.lookups >= f.failAt {
 		return 0, errFakeLookup
 	}
@@ -64,8 +66,41 @@ func moduleFailures(lookup lookupFunc) []string {
 
 	f := &fakeModule{}
 	gm, err := lookup(loaded, f.lookup, f.unload)
-	if err != nil || gm == nil || gm.mod != loaded || gm.embedBF16Fn == 0 || f.unloads != 0 {
-		bad = append(bad, fmt.Sprintf("success: %v, %v, %d unloads", gm, err, f.unloads))
+	wantNames := []string{
+		"EmbeddingLookup",
+		"RMSNorm",
+		"LinearGEMV",
+		"ApplyRoPE",
+		"StoreKVCache",
+		"SwiGLU",
+		"AddResidual",
+		"FusedRMSNormQKV",
+		"FusedSwiGLUDown",
+		"LinearGEMVBF16",
+		"WeightConvertProbeBF16",
+		"EmbeddingLookupBF16",
+		"FusedRMSNormQKVBF16",
+		"FusedSwiGLUDownBF16",
+	}
+	wantGM := &GPUModules{
+		mod:               loaded,
+		embedFn:           1,
+		normFn:            2,
+		gemvFn:            3,
+		ropeFn:            4,
+		storeKVFn:         5,
+		swigluFn:          6,
+		addResFn:          7,
+		fusedQKVFn:        8,
+		fusedSwiGLUFn:     9,
+		gemvBF16Fn:        10,
+		convertBF16Fn:     11,
+		embedBF16Fn:       12,
+		fusedQKVBF16Fn:    13,
+		fusedSwiGLUBF16Fn: 14,
+	}
+	if err != nil || gm == nil || *gm != *wantGM || !slices.Equal(f.names, wantNames) || f.unloads != 0 {
+		bad = append(bad, fmt.Sprintf("success: %+v, %v, names=%v, %d unloads", gm, err, f.names, f.unloads))
 	}
 
 	f = &fakeModule{failAt: 3}
