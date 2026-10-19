@@ -344,8 +344,8 @@ func TestToolFileIdentity_DetectsInPlaceDSOModification(t *testing.T) {
 }
 
 // TestVerifyTool_DetectsSameSizeRewriteWithRestoredMtime rewrites a tool
-// at the size and modification time its digest recorded, so only the
-// device, inode and change time can tell VerifyTool to rehash.
+// at the size and modification time its digest recorded, so only its bytes,
+// device, inode and change time differ.
 func TestVerifyTool_DetectsSameSizeRewriteWithRestoredMtime(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -716,10 +716,33 @@ func TestNVRTCAdapter_RevalidatesAtomicManifestOnLookup(t *testing.T) {
 	}
 
 	// The tool changes on disk after the identity was taken.
-	rewriteInPlace(t, f.nvrtc, "nvrtc bytes, build 2")
-	got, ok, err = f.adapter.Lookup(ctx, "input", f.id)
-	if !errors.Is(err, cudacache.ErrToolIdentityChanged) || ok || got != nil {
-		t.Fatalf("Lookup after tool rewrite = %v, %v, %v; want ErrToolIdentityChanged", got, ok, err)
+	// Every Lookup rehashes the tools, whether they were rewritten in
+	// place or replaced, and whether or not the bytes match again.
+	steps := []struct {
+		name    string
+		rewrite func(t *testing.T, path, content string)
+		content string
+		wantHit bool
+	}{
+		{"rewritten in place", rewriteInPlace, "nvrtc bytes, build 2", false},
+		{"restored in place", rewriteInPlace, "nvrtc bytes, build 1", true},
+		{"replaced", replaceByRename, "nvrtc bytes, build 3", false},
+		{"replaced by original bytes", replaceByRename, "nvrtc bytes, build 1", true},
+	}
+	for _, st := range steps {
+		st.rewrite(t, f.nvrtc, st.content)
+		for range 2 {
+			got, ok, err := f.adapter.Lookup(ctx, "input", f.id)
+			if st.wantHit {
+				if err != nil || !ok || got.Digest != art.Digest {
+					t.Fatalf("Lookup after tool %s = %v, %v, %v; want hit", st.name, got, ok, err)
+				}
+				continue
+			}
+			if !errors.Is(err, cudacache.ErrToolIdentityChanged) || ok || got != nil {
+				t.Fatalf("Lookup after tool %s = %v, %v, %v; want ErrToolIdentityChanged", st.name, got, ok, err)
+			}
+		}
 	}
 }
 
