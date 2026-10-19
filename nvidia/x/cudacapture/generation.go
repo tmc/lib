@@ -10,13 +10,16 @@ import (
 // without an explicit generation bump.
 var ErrModuleGenerationReuse = errors.New("cudacapture: module address reused with different code digest")
 
-// ModuleEntry tracks an immutable module generation loaded at a specific virtual address.
+// ModuleEntry identifies one module generation loaded at a virtual address.
+// Code identity is immutable; Active reports its lifecycle at lookup or snapshot time.
 type ModuleEntry struct {
 	ID          string
 	BaseAddress uint64
 	Generation  uint64
 	ImageDigest string
 	Code        CodeFiles
+	// Active is false after Unload or replacement at this address.
+	Active bool
 }
 
 // ModuleTracker tracks loaded modules and their generation history by virtual address.
@@ -27,7 +30,7 @@ type ModuleTracker struct {
 	generations map[uint64][]ModuleEntry // base address -> slice of generations in order
 }
 
-// NewModuleTracker creates a new module tracker.
+// NewModuleTracker creates a new module tracker. The zero ModuleTracker is also usable.
 func NewModuleTracker() *ModuleTracker {
 	return &ModuleTracker{
 		generations: make(map[uint64][]ModuleEntry),
@@ -36,7 +39,8 @@ func NewModuleTracker() *ModuleTracker {
 
 // Load registers a module image at baseAddress.
 // If baseAddress is already in use:
-//   - With the identical digest: returns the existing generation number.
+//   - With the identical active digest: returns the existing generation number.
+//   - After Unload, even with the same digest: records a new generation.
 //   - With a different digest: increments the generation and records the new entry.
 func (mt *ModuleTracker) Load(id string, baseAddress uint64, digest string, code CodeFiles) (uint64, error) {
 	if baseAddress == 0 {
@@ -49,19 +53,27 @@ func (mt *ModuleTracker) Load(id string, baseAddress uint64, digest string, code
 	mt.mu.Lock()
 	defer mt.mu.Unlock()
 
+	if mt.generations == nil {
+		mt.generations = make(map[uint64][]ModuleEntry)
+	}
 	history := mt.generations[baseAddress]
 	if len(history) > 0 {
 		latest := history[len(history)-1]
-		if latest.ImageDigest == digest {
+		if latest.Active && latest.ImageDigest == digest {
 			return latest.Generation, nil
 		}
+		if latest.Generation == ^uint64(0) {
+			return 0, errors.New("cudacapture: module generation overflow")
+		}
+		history[len(history)-1].Active = false
 		newGen := latest.Generation + 1
 		entry := ModuleEntry{
 			ID:          id,
 			BaseAddress: baseAddress,
 			Generation:  newGen,
 			ImageDigest: digest,
-			Code:        code,
+			Code:        cloneCode(code),
+			Active:      true,
 		}
 		mt.generations[baseAddress] = append(history, entry)
 		return newGen, nil
@@ -72,7 +84,8 @@ func (mt *ModuleTracker) Load(id string, baseAddress uint64, digest string, code
 		BaseAddress: baseAddress,
 		Generation:  1,
 		ImageDigest: digest,
-		Code:        code,
+		Code:        cloneCode(code),
+		Active:      true,
 	}
 	mt.generations[baseAddress] = []ModuleEntry{entry}
 	return 1, nil
@@ -119,9 +132,28 @@ func (mt *ModuleTracker) Lookup(baseAddress uint64, generation uint64) (*ModuleE
 	for _, entry := range history {
 		if entry.Generation == generation {
 			entryCopy := entry
+			entryCopy.Code = cloneCode(entry.Code)
 			return &entryCopy, nil
 		}
 	}
 
 	return nil, fmt.Errorf("cudacapture: generation %d not found for address 0x%x", generation, baseAddress)
+}
+
+// Unload retires the current generation at baseAddress. Repeated unloads are
+// idempotent. Historical Lookup and Verify results remain available.
+func (mt *ModuleTracker) Unload(baseAddress uint64) error {
+	mt.mu.Lock()
+	defer mt.mu.Unlock()
+	h := mt.generations[baseAddress]
+	if len(h) == 0 {
+		return fmt.Errorf("cudacapture: no module registered at address 0x%x", baseAddress)
+	}
+	h[len(h)-1].Active = false
+	return nil
+}
+
+func cloneCode(c CodeFiles) CodeFiles {
+	c.Sources = append([]string(nil), c.Sources...)
+	return c
 }
