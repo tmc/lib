@@ -1,0 +1,9 @@
+commit: 8408d9513f0d2377c9d1c9abc6035f52aa81da5f
+date: 2026-10-19T03:30:05.802190+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 76087
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source inputs: [{"path": "/Users/tmc/tmp/lib-wt-next/20261018-quota-fix-recovery/corrective.patch", "sha256": "cb60c65afc58a6685b7eaa94354e65d9dc40047ec262bc0cf7cda2c61e030ca7", "included_paths": ["nvidia/x/cmd/nvtelemetry/agent.go", "nvidia/x/cmd/nvtelemetry/agent_reload_lock_test.go", "nvidia/x/cmd/nvtelemetry/config.go", "nvidia/x/cmd/nvtelemetry/config_delivery_ownership_test.go"]}]
