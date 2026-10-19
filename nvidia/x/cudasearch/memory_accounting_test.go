@@ -333,8 +333,19 @@ func TestMemoryBorrowedBaselineBeforeCompile(t *testing.T) {
 				} else if calls != 1 || !errors.Is(err, stopped) {
 					t.Fatalf("calls=%d err=%v", calls, err)
 				}
+				// Failed-attempt metadata remains owned by the evaluator;
+				// the borrowed device reservation must already have unwound.
+				if work.memory.live != setupBytes+eval.attemptMemory.Bytes() {
+					t.Fatal("borrowed accounting leaked", work.memory.live-setupBytes-eval.attemptMemory.Bytes())
+				}
+				if err := eval.Close(); err != nil {
+					t.Fatal(err)
+				}
 				if work.memory.live != setupBytes {
-					t.Fatal("borrowed accounting leaked", work.memory.live-setupBytes)
+					t.Fatal("attempt metadata leaked", work.memory.live-setupBytes)
+				}
+				if err := eval.Close(); err != nil || work.memory.live != setupBytes {
+					t.Fatal("evaluator close not idempotent", err, work.memory.live)
 				}
 				work.closeSearch()
 				if work.memory.live != 0 {

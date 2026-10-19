@@ -559,6 +559,11 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 	if w == nil {
 		return eval.Evaluate(ctx, state, root)
 	}
+	// A refusal is not a new callback attempt. Do not retain another unused
+	// opaque envelope while the previous attempt is awaiting cleanup.
+	if e, ok := eval.(*ExecutableEvaluator); ok && (len(e.pending) != 0 || e.pendingOutput != nil) {
+		return nil, fmt.Errorf("cudasearch: candidate cleanup pending")
+	}
 	known := false
 	if m, ok := eval.(*MockEvaluator); ok {
 		builtin := m.CostModel == nil
@@ -576,7 +581,7 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 		return nil, err
 	}
 	defer func() {
-		if e, ok := eval.(*ExecutableEvaluator); ok && len(e.pending) > 0 {
+		if e, ok := eval.(*ExecutableEvaluator); ok && (len(e.pending) > 0 || e.pendingOutput != nil) {
 			e.memoryReservations = append(e.memoryReservations, r)
 		} else {
 			r.release()

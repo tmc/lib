@@ -2,8 +2,10 @@ package cudasearch
 
 import (
 	"fmt"
+	"github.com/tmc/lib/egraphcore"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -112,3 +114,39 @@ func NewPrefillCompilerFloat32(dev *cuda.Device, target string, k, n int, a, b [
 func (c *PrefillCompiler) Preparation() []PreparationPhase { return slices.Clone(c.preparation) }
 
 func (x *prefillExecutable) Preparation() []PreparationPhase { return slices.Clone(x.preparation) }
+
+func clonePreparationWithMemory(scope *egraphcore.MemoryScope, in []PreparationPhase) ([]PreparationPhase, error) {
+	if in == nil {
+		return nil, nil
+	}
+	if err := bookkeepingSlots[PreparationPhase](scope, len(in)); err != nil {
+		return nil, err
+	}
+	for _, p := range in {
+		if err := scope.Reserve(int64(len(p.Name))); err != nil {
+			return nil, err
+		}
+	}
+	out := slices.Clone(in)
+	for i := range out {
+		out[i].Name = strings.Clone(out[i].Name)
+	}
+	return out, nil
+}
+
+// Built-ins expose their borrowed slice internally, so the reservation precedes
+// the first copy. Opaque reporters own any allocation inside Preparation.
+func executablePreparation(scope *egraphcore.MemoryScope, x Executable) ([]PreparationPhase, error) {
+	var in []PreparationPhase
+	switch x := x.(type) {
+	case *prefillExecutable:
+		in = x.preparation
+	case *sequenceExecutable:
+		in = x.preparation
+	default:
+		if p, ok := x.(preparationReporter); ok {
+			in = p.Preparation()
+		}
+	}
+	return clonePreparationWithMemory(scope, in)
+}

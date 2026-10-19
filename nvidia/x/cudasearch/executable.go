@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/egraphcore"
@@ -69,11 +71,16 @@ type ExecutableEvaluator struct {
 	// FailureEvidence optionally exports actual candidate comparison failures
 	// and checks caller-owned offline quarantine after compile-owner registration.
 	FailureEvidence *FailureEvidence
-	// Receipts and Comparison retain the last attempt, including failures.
+	// Receipts, Comparison and Preparation retain the last admitted attempt,
+	// including failures, until another attempt is admitted or Close succeeds.
+	// With capped search accounting their retained metadata remains reserved;
+	// callers must Close the evaluator independently of returned candidates.
 	Receipts           []cudatrial.Receipt
 	Comparison         map[string]OutputComparison
 	Preparation        map[string][]PreparationPhase
 	pending            []Executable
+	pendingOutput      io.Closer
+	attemptMemory      *egraphcore.MemoryScope
 	pendingExtraction  *egraph.Extraction
 	pendingMemory      *egraphcore.MemoryScope
 	memoryReservations []*memoryReservation
@@ -84,6 +91,12 @@ type ExecutableEvaluator struct {
 // Close retries destruction of candidates retained after cleanup failure.
 // The borrowed baseline remains the caller's responsibility.
 func (e *ExecutableEvaluator) Close() error {
+	if e.pendingOutput != nil {
+		if err := e.pendingOutput.Close(); err != nil {
+			return err
+		}
+		e.pendingOutput = nil
+	}
 	for len(e.pending) > 0 {
 		if err := e.pending[0].Close(); err != nil {
 			return err
@@ -99,6 +112,13 @@ func (e *ExecutableEvaluator) Close() error {
 		reservation.release()
 	}
 	e.memoryReservations = nil
+	e.attemptMemory.Close()
+	e.attemptMemory = nil
+	e.Receipts = nil
+	e.Comparison = nil
+	e.Preparation = nil
+	e.attemptIdentity = ""
+	e.comparisonArm = ""
 	return nil
 }
 
@@ -109,17 +129,24 @@ func (e *ExecutableEvaluator) Evaluate(ctx context.Context, s *egraph.SearchStat
 }
 
 func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchState, root egraph.Id, selection *egraph.Expr) (candidate *CandidatePlan, err error) {
-	e.Receipts = nil
-	e.attemptIdentity = ""
-	e.comparisonArm = ""
-	e.Comparison = make(map[string]OutputComparison)
-	e.Preparation = make(map[string][]PreparationPhase)
-	if len(e.pending) != 0 {
+	if len(e.pending) != 0 || e.pendingOutput != nil {
 		return nil, fmt.Errorf("cudasearch: candidate cleanup pending")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if err := e.beginAttempt(ctx); err != nil {
+		return nil, err
+	}
+	resultMemory, err := mockMemoryScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil || candidate == nil {
+			resultMemory.Close()
+		}
+	}()
 	if e.CompileTimeout < 0 {
 		return nil, fmt.Errorf("cudasearch: negative compile timeout")
 	}
@@ -182,16 +209,16 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 				extraction.Close()
 			}
 		}()
-		derivationBytes, memoryErr := storageBytes(s.Derivation)
+		derivationBytes, memoryErr := storageBytesWithMemory(s.Derivation, resultMemory)
 		if memoryErr != nil && searchMemoryBudget(ctx) != nil && searchMemoryBudget(ctx).limit > 0 {
 			return nil, memoryErr
 		}
-		pathMemory, memoryErr := reserveSearchMemory(ctx, derivationBytes)
+		memoryErr = resultMemory.Reserve(derivationBytes)
 		if memoryErr != nil {
 			return nil, memoryErr
 		}
-		defer pathMemory.release()
-		derivation = append([]egraph.Action(nil), s.Derivation...)
+		derivation = make([]egraph.Action, len(s.Derivation))
+		copy(derivation, s.Derivation)
 		for i := range derivation {
 			derivation[i].Subst = maps.Clone(derivation[i].Subst)
 			derivation[i].Binding = maps.Clone(derivation[i].Binding)
@@ -226,7 +253,6 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	}
 	cancelCompile()
 	if executable != nil {
-		e.attemptIdentity = executable.Identity()
 		defer func() {
 			if closeErr := executable.Close(); closeErr != nil {
 				if cleanupSlot == nil {
@@ -244,6 +270,14 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			}
 		}()
 	}
+	if executable != nil {
+		id := executable.Identity()
+		if memoryErr := e.attemptMemory.Reserve(int64(len(id))); memoryErr != nil {
+			err = errors.Join(err, memoryErr)
+		} else {
+			e.attemptIdentity = strings.Clone(id)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +294,18 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			return nil, err
 		}
 	}
-	e.Preparation["baseline"] = preparationOf(e.Baseline)
-	e.Preparation["candidate"] = preparationOf(executable)
+	for _, arm := range []struct {
+		name string
+		x    Executable
+	}{{"baseline", e.Baseline}, {"candidate", executable}} {
+		if _, ok := arm.x.(preparationReporter); ok {
+			phases, copyErr := executablePreparation(e.attemptMemory, arm.x)
+			if copyErr != nil {
+				return nil, copyErr
+			}
+			e.Preparation[arm.name] = phases
+		}
+	}
 	reset := func() error {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -280,16 +324,7 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 		}
 		e.comparisonArm = []string{"baseline", "candidate"}[i]
 		e.Comparison = nil
-		outputs, err := arm.Outputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		comparison, err := e.Policy.compare(outputs, e.References)
-		e.Comparison = comparison
-		if err != nil {
-			if i == 1 && errors.Is(err, ErrVerificationFailed) {
-				return nil, e.recordComparisonFailure(ctx, association, outputs, err)
-			}
+		if err := e.compareExecutable(ctx, arm, i == 1, association); err != nil {
 			return nil, err
 		}
 	}
@@ -299,6 +334,11 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 				return cudatrial.Receipt{}, err
 			}
 			r, err := x.Run(ctx)
+			detached, copyErr := r.CloneWithMemory(e.attemptMemory.Reserve)
+			if copyErr != nil {
+				return r, errors.Join(err, copyErr)
+			}
+			r = detached
 			if err != nil {
 				return r, err
 			}
@@ -320,15 +360,22 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			if r.Provenance == nil {
 				r.Provenance = make(map[string]string)
 			}
-			r.Provenance["executable_identity"] = x.Identity()
+			id := x.Identity()
+			if reserveErr := e.attemptMemory.Reserve(256 + int64(len(id))); reserveErr != nil {
+				return r, reserveErr
+			}
+			r.Provenance["executable_identity"] = strings.Clone(id)
 			return r, nil
 		}}
 	}
-	e.Receipts, err = cudatrial.InterleaveWithOptions(ctx, []cudatrial.Arm{makeArm("baseline", e.Baseline), makeArm("candidate", executable)}, e.Rounds, cudatrial.Options{RequireHardwareLock: true, HardwareLockChecker: e.HardwareLockChecker})
+	e.Receipts, err = cudatrial.InterleaveWithOptions(ctx, []cudatrial.Arm{makeArm("baseline", e.Baseline), makeArm("candidate", executable)}, e.Rounds, cudatrial.Options{RequireHardwareLock: true, HardwareLockChecker: e.HardwareLockChecker, ReserveMemory: e.attemptMemory.Reserve})
 	if err != nil {
 		return nil, err
 	}
-	var durations []time.Duration
+	if err := bookkeepingSlots[time.Duration](e.attemptMemory, e.Rounds); err != nil {
+		return nil, err
+	}
+	durations := make([]time.Duration, 0, e.Rounds)
 	var selected cudatrial.Receipt
 	for _, r := range e.Receipts {
 		if r.Name == "candidate" {
@@ -345,14 +392,21 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			break
 		}
 	}
-	trials := cloneTrials(e.Receipts)
-	selected.Timings = maps.Clone(selected.Timings)
-	selected.Provenance = maps.Clone(selected.Provenance)
 	ledger := searchMemoryBudget(ctx)
 	if extraction == nil {
 		ledger = nil
 	}
-	return &CandidatePlan{Generation: e.Generation, WorkloadKey: e.Workload.Key(), InputKey: inputKey(e.Workload), VerificationPolicy: e.Policy, ID: executable.Identity(), Expr: expr, Derivation: derivation, Cost: float64(median.Nanoseconds()), CostSource: CostMeasured, Receipt: &selected, Trials: trials, Validated: true, Comparison: maps.Clone(e.Comparison), Preparation: preparationOf(executable), extraction: extraction, extractionLedger: ledger}, nil
+	if err := bookkeepingSlots[CandidatePlan](resultMemory, 1); err != nil {
+		return nil, err
+	}
+	if err := bookkeepingSlots[cudatrial.Receipt](resultMemory, 1); err != nil {
+		return nil, err
+	}
+	candidate = &CandidatePlan{Generation: e.Generation, WorkloadKey: e.Workload.Key(), InputKey: inputKey(e.Workload), VerificationPolicy: e.Policy, ID: executable.Identity(), Expr: expr, Derivation: derivation, Cost: float64(median.Nanoseconds()), CostSource: CostMeasured, Receipt: &selected, Trials: nil, Validated: true, Comparison: nil, Preparation: e.Preparation["candidate"], extraction: extraction, extractionLedger: ledger, metadata: resultMemory, metadataLedger: searchMemoryBudget(ctx)}
+	if err := e.detachCandidate(resultMemory, candidate); err != nil {
+		return nil, err
+	}
+	return candidate, nil
 }
 
 func (p OutputPolicy) validate() error {

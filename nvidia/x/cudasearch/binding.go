@@ -247,6 +247,11 @@ func (c *CandidatePlan) Close() {
 		c.Derivation = nil
 		c.Receipt = nil
 		c.Profile = nil
+		c.Trials = nil
+		c.Comparison = nil
+		c.Preparation = nil
+		c.WorkloadKey = ""
+		c.InputKey = ""
 		c.ID = ""
 		c.Digest = ""
 	}
