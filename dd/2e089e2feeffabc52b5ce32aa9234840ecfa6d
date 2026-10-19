@@ -1,0 +1,10 @@
+commit: dd2e089e2feeffabc52b5ce32aa9234840ecfa6d
+date: 2026-10-19T02:57:09.851530+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 77091
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-training-context/candidate.patch
+source sha256: 5539b2ae7fa0701f9acaf52d0cefb273ecf3891252c96765520721266cf8f216
