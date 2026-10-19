@@ -48,6 +48,9 @@ type NativeConfig struct {
 	HostDelay time.Duration
 	LockDir   string
 	OutputDir string
+	// DeviceIterations repeats the same kernel in the device-negative arm. Zero means 16; otherwise 2 through 1024.
+	DeviceIterations int
+	Composition      NativeCompositionOptions
 }
 
 // NativeCall is a directly measured host wrapper interval in the process-local
@@ -62,22 +65,28 @@ type NativeCall struct {
 // NativeTrial retains a numerical result and host observations for one arm.
 // CUPTI brackets belong to CUPTI's domain; no mapping to host spans is inferred.
 type NativeTrial struct {
-	Arm          string       `json:"arm"`
-	Round        int          `json:"round"`
-	DelayNS      int64        `json:"delay_ns"`
-	WallNS       int64        `json:"wall_ns"`
-	OutputSHA256 string       `json:"output_sha256"`
-	Correct      bool         `json:"correct"`
-	CUPTIBefore  uint64       `json:"cupti_before,omitempty"`
-	CUPTIAfter   uint64       `json:"cupti_after,omitempty"`
-	Calls        []NativeCall `json:"calls"`
+	RequestedLaunches int          `json:"requested_launches"`
+	KernelLaunches    int          `json:"kernel_launches"`
+	RequestID         string       `json:"request_id"`
+	Attempt           string       `json:"attempt"`
+	Arm               string       `json:"arm"`
+	Round             int          `json:"round"`
+	DelayNS           int64        `json:"delay_ns"`
+	WallNS            int64        `json:"wall_ns"`
+	OutputSHA256      string       `json:"output_sha256"`
+	Correct           bool         `json:"correct"`
+	CUPTIBefore       uint64       `json:"cupti_before,omitempty"`
+	CUPTIAfter        uint64       `json:"cupti_after,omitempty"`
+	Calls             []NativeCall `json:"calls"`
 }
 
 // NativeResult separates physical numerical execution from diagnosis admission.
 // Scheduler capture and a bounded host/CUPTI clock mapping are required before
 // these observations can support a host submission-delay diagnosis.
 type NativeResult struct {
-	CleanupPending        bool `json:"cleanup_pending"`
+	Requests              []NativeRequestLog `json:"requests"`
+	Composition           *NativeComposition `json:"composition,omitempty"`
+	CleanupPending        bool               `json:"cleanup_pending"`
 	cleanup               *nativeCleanup
 	HostClockDomain       string                        `json:"host_clock_domain"`
 	HostClockEpochID      string                        `json:"host_clock_epoch_id"`
@@ -114,15 +123,22 @@ type NativeResult struct {
 // genuine CUPTI activity when supported. It never substitutes synthetic records.
 // Successful numerical execution is explicitly partial diagnosis qualification.
 func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, retErr error) {
-	if cfg.Device < 0 || cfg.Elements <= 0 || cfg.Elements > 1<<20 || cfg.Rounds <= 0 || cfg.Rounds > 64 || cfg.HostDelay < 0 || cfg.HostDelay > 30*time.Second {
+	if ctx == nil {
+		return nil, errors.New("cudadiagdemo: nil native context")
+	}
+	if cfg.Device < 0 || cfg.Elements <= 0 || cfg.Elements > 1<<20 || cfg.Rounds <= 0 || cfg.Rounds > 64 || cfg.HostDelay < 0 || cfg.HostDelay > 30*time.Second || cfg.DeviceIterations < 0 || cfg.DeviceIterations == 1 || cfg.DeviceIterations > 1024 {
 		return nil, errors.New("cudadiagdemo: invalid native trial bounds")
 	}
-	result = &NativeResult{HostClockDomain: "process_monotonic", NumericalGate: "unavailable", Qualification: "partial", Device: cfg.Device, SourceSHA256: digestBytes([]byte(nativeSource)), RemainingGates: []string{"scheduler observations", "host/CUPTI clock mapping", "collector-off/on overhead", "MIG scope metadata", "concurrent workload attribution", "device-bottleneck negative control"}}
+	if cfg.DeviceIterations == 0 {
+		cfg.DeviceIterations = 16
+	}
+	result = &NativeResult{HostClockDomain: "process_monotonic", NumericalGate: "unavailable", Qualification: "partial", Device: cfg.Device, SourceSHA256: digestBytes([]byte(nativeSource)), RemainingGates: []string{"scheduler observations", "host/CUPTI clock mapping", "collector-off/on overhead", "MIG scope metadata", "concurrent workload attribution", "physical device-negative attribution"}}
 	var clockID [16]byte
 	if _, err := rand.Read(clockID[:]); err != nil {
 		return result, err
 	}
 	result.HostClockEpochID = hex.EncodeToString(clockID[:])
+	result.ActivityRun = "native-" + result.HostClockEpochID
 
 	var cubin []byte
 	// Export after all native resources and the lease have been released so the
@@ -131,6 +147,12 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 		if retErr != nil {
 			result.ExecutionError = retErr.Error()
 			result.RemainingGates = append(result.RemainingGates, "native execution or cleanup failed")
+		}
+		composition, compositionErr := ComposeNativeEvidence(ctx, result, cfg.Composition)
+		result.Composition = &composition
+		retErr = errors.Join(retErr, compositionErr)
+		if compositionErr != nil {
+			result.ExecutionError = retErr.Error()
 		}
 		if cfg.OutputDir != "" {
 			retErr = errors.Join(retErr, exportNative(cfg.OutputDir, result, cubin))
@@ -324,87 +346,134 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 	epoch := time.Now()
 	result.ClockEpochUTC = epoch.UTC()
 	for round := 0; round < cfg.Rounds; round++ {
-		arms := []string{"baseline", "candidate"}
+		arms := []string{"baseline", "candidate", "device"}
 		if round%2 != 0 {
 			arms[0], arms[1] = arms[1], arms[0]
 		}
 		for _, arm := range arms {
-			if err := ctx.Err(); err != nil {
-				return result, err
-			}
-			trial := NativeTrial{Arm: arm, Round: round + 1}
-			start := time.Now()
-			if arm == "baseline" {
-				delayStart := time.Now()
-				timer := time.NewTimer(cfg.HostDelay)
-				select {
-				case <-ctx.Done():
-					timer.Stop()
-					return result, ctx.Err()
-				case <-timer.C:
+			if requestErr := func() error {
+				if err := ctx.Err(); err != nil {
+					return err
 				}
-				trial.DelayNS = time.Since(delayStart).Nanoseconds()
-			}
-			call := func(name string, fn func() error) error {
-				observation := NativeCall{Name: name, StartNS: time.Since(epoch).Nanoseconds()}
-				err := fn()
-				observation.EndNS = time.Since(epoch).Nanoseconds()
-				if err != nil {
-					observation.Error = err.Error()
+				trial := NativeTrial{Arm: arm, Round: round + 1, RequestID: fmt.Sprintf("request-%d", round+1), Attempt: arm}
+				trial.RequestedLaunches = 1
+				if arm == "device" {
+					trial.RequestedLaunches = cfg.DeviceIterations
 				}
-				trial.Calls = append(trial.Calls, observation)
-				return err
-			}
-			if captureErr == nil {
-				trial.CUPTIBefore, err = cupti.GetTimestamp()
-				if err != nil {
-					return result, err
+				mode := ModeBaseline
+				if arm == "baseline" {
+					mode = ModeHostSubmissionDelay
+				} else if arm == "device" {
+					mode = ModeDeviceBottleneck
 				}
-			}
-			if err := call("cuMemcpyHtoD_v2", func() error { return input.CopyFromHost(host) }); err != nil {
-				return result, err
-			}
-			inPtr, outPtr, n := input.Ptr(), output.Ptr(), int32(cfg.Elements)
-			launch := func() error {
-				return call("cuLaunchKernel", func() error {
-					return kernel.Launch([3]uint32{uint32((cfg.Elements + 127) / 128), 1, 1}, [3]uint32{128, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&inPtr), unsafe.Pointer(&outPtr), unsafe.Pointer(&n)})
-				})
-			}
-			if annotator == nil {
-				if err := launch(); err != nil {
-					return result, err
+				log := NativeRequestLog{Attempt: arm, StartedNS: time.Since(epoch).Nanoseconds(), GroundTruth: GroundTruthLog{RequestID: trial.RequestID, WorkloadName: "gpudiagdemo-native", Mode: mode}}
+				defer func() {
+					log.FinishedNS = time.Since(epoch).Nanoseconds()
+					log.Complete = trial.Correct
+					log.GroundTruth.TotalDuration = time.Duration(log.FinishedNS - log.StartedNS)
+					trial.WallNS = log.GroundTruth.TotalDuration.Nanoseconds()
+					result.Requests = append(result.Requests, log)
+					result.Trials = append(result.Trials, trial)
+				}()
+				start := time.Now()
+				if arm == "baseline" {
+					delayStart := time.Now()
+					timer := time.NewTimer(cfg.HostDelay)
+					select {
+					case <-ctx.Done():
+						timer.Stop()
+						return ctx.Err()
+					case <-timer.C:
+					}
+					trial.DelayNS = time.Since(delayStart).Nanoseconds()
 				}
-			} else {
-				_, scope := annotator.Begin(ctx, fmt.Sprintf("%s-%d", arm, round))
-				sub, err := scope.NativeOperation(ctx, cudaworkload.ContextStreamID{}, "cuLaunchKernel", result.SourceSHA256, launch)
-				scope.End()
-				if err != nil {
-					return result, err
+				call := func(name string, fn func() error) error {
+					observation := NativeCall{Name: name, StartNS: time.Since(epoch).Nanoseconds()}
+					err := fn()
+					observation.EndNS = time.Since(epoch).Nanoseconds()
+					if err != nil {
+						observation.Error = err.Error()
+					}
+					trial.Calls = append(trial.Calls, observation)
+					return err
 				}
-				result.Annotations = append(result.Annotations, sub)
-			}
+				if captureErr == nil {
+					trial.CUPTIBefore, err = cupti.GetTimestamp()
+					if err != nil {
+						return err
+					}
+				}
+				if err := call("cuMemcpyHtoD_v2", func() error { return input.CopyFromHost(host) }); err != nil {
+					return err
+				}
+				inPtr, outPtr, n := input.Ptr(), output.Ptr(), int32(cfg.Elements)
+				launch := func() error {
+					return call("cuLaunchKernel", func() error {
+						err := kernel.Launch([3]uint32{uint32((cfg.Elements + 127) / 128), 1, 1}, [3]uint32{128, 1, 1}, 0, 0, []unsafe.Pointer{unsafe.Pointer(&inPtr), unsafe.Pointer(&outPtr), unsafe.Pointer(&n)})
+						if err == nil {
+							trial.KernelLaunches++
+						}
+						return err
+					})
+				}
+				launchRequest := func() error {
+					repeats := 1
+					if arm == "device" {
+						repeats = cfg.DeviceIterations
+					}
+					for i := 0; i < repeats; i++ {
+						if err := ctx.Err(); err != nil {
+							return err
+						}
+						if err := launch(); err != nil {
+							return err
+						}
+					}
+					return nil
+				}
+				if annotator == nil {
+					if err := launchRequest(); err != nil {
+						return err
+					}
+				} else {
+					_, scope := annotator.Begin(ctx, trial.RequestID+"/"+trial.Attempt)
+					sub, err := scope.NativeOperation(ctx, cudaworkload.ContextStreamID{}, "cuLaunchKernel", result.SourceSHA256, launchRequest)
+					scope.End()
+					if err != nil {
+						return err
+					}
+					result.Annotations = append(result.Annotations, sub)
+					log.GroundTruth.OpID = sub.OpID
+					log.GroundTruth.ProcessGen = sub.Process
+					log.GroundTruth.Workload = sub.Workload
+					log.GroundTruth.TID = sub.TID
+				}
 
-			if err := call("cuCtxSynchronize", func() error { return dev.WithContext(driver.CtxSynchronize) }); err != nil {
-				return result, err
-			}
-			if err := call("cuMemcpyDtoH_v2", func() error { return output.CopyToHost(got) }); err != nil {
-				return result, err
-			}
-			if captureErr == nil {
-				trial.CUPTIAfter, err = cupti.GetTimestamp()
-				if err != nil {
-					return result, err
+				if err := call("cuCtxSynchronize", func() error { return dev.WithContext(driver.CtxSynchronize) }); err != nil {
+					return err
 				}
+				if err := call("cuMemcpyDtoH_v2", func() error { return output.CopyToHost(got) }); err != nil {
+					return err
+				}
+				if captureErr == nil {
+					trial.CUPTIAfter, err = cupti.GetTimestamp()
+					if err != nil {
+						return err
+					}
+				}
+				trial.WallNS = time.Since(start).Nanoseconds()
+				trial.OutputSHA256 = digestFloats(got)
+				if err := checkNativeOutput(host, got); err != nil {
+					result.NumericalGate = "failed"
+					return err
+				}
+				trial.Correct = true
+				log.GroundTruth.OutputChecksum = trial.OutputSHA256
+				log.GroundTruth.HostPrepDelay = time.Duration(trial.DelayNS)
+				return nil
+			}(); requestErr != nil {
+				return result, requestErr
 			}
-			trial.WallNS = time.Since(start).Nanoseconds()
-			trial.OutputSHA256 = digestFloats(got)
-			if err := checkNativeOutput(host, got); err != nil {
-				result.NumericalGate = "failed"
-				result.Trials = append(result.Trials, trial)
-				return result, err
-			}
-			trial.Correct = true
-			result.Trials = append(result.Trials, trial)
 		}
 	}
 	result.NumericalGate = "passed"
