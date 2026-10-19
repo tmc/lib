@@ -1,0 +1,10 @@
+commit=20e832ed936c0899d5cd4f31e55576f45393e826
+date=2026-10-19T02:42:25Z
+agent=agy
+model=gemini-4-argon-medium
+gates: gofmt=ok vet=ok test=94_pass_15_skip_0_fail linux=ok
+mutants:
+- M1_eager_token_src:gpu_model.go:FAIL:TestForwardKernelDispatch:restored_sha256=0ae64a97eeb21de2058fa6a59ad30109faab5d65124b9383443b2c2edf42f753
+- M2_embed_token_src:gpu_model.go:FAIL:TestEmitForwardStep:restored_sha256=0ae64a97eeb21de2058fa6a59ad30109faab5d65124b9383443b2c2edf42f753
+- M3_attn_shared_mem:gpu_model.go:FAIL:TestEmitForwardStep:restored_sha256=0ae64a97eeb21de2058fa6a59ad30109faab5d65124b9383443b2c2edf42f753
+- M4_rope_pos:gpu_model.go:FAIL:TestEmitForwardStep:restored_sha256=0ae64a97eeb21de2058fa6a59ad30109faab5d65124b9383443b2c2edf42f753
