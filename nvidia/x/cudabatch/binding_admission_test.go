@@ -149,19 +149,19 @@ func TestBindingAdmissionDecodeProducer(t *testing.T) {
 		}
 		// A detached row token must not overwrite either retained source slice.
 		row.Tokens[0] = 99
-		if req.PromptTokens[1] != 11 || i > 0 && req.GeneratedTokens[0] != 41 {
+		owned, _ := scheduler.Request(req.ID)
+		if req.PromptTokens[1] != 11 || i > 0 && owned.GeneratedTokens[0] != 41 {
 			t.Fatal("decode row aliases retained tokens")
 		}
 		if err := scheduler.CompleteStep(iteration, map[string]int32{"decode": 42}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
-	// Submit currently retains req. A caller can erase its tokens; Schedule
-	// must refuse before changing KV allocation, rather than indexing nil.
+	// Erasing caller input cannot erase the retained decode token.
 	req.PromptTokens, req.GeneratedTokens = nil, nil
 	free := allocator.NumFreeBlocks()
-	if iteration, err := scheduler.Schedule(); iteration != nil || !errors.Is(err, cudabatch.ErrInvalidRequest) || allocator.NumFreeBlocks() != free {
-		t.Fatalf("empty retained tokens: %+v, %v", iteration, err)
+	if iteration, err := scheduler.Schedule(); err != nil || len(iteration.AllocatedRows) != 1 || !reflect.DeepEqual(iteration.AllocatedRows[0].Tokens, []int32{42}) || allocator.NumFreeBlocks() != free-1 {
+		t.Fatalf("owned retained tokens: %+v, %v", iteration, err)
 	}
 }
 

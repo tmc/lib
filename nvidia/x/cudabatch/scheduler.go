@@ -1,6 +1,7 @@
 package cudabatch
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -16,6 +17,11 @@ type SchedulerConfig struct {
 	ChunkSize         int // Maximum prefill chunk tokens per request per step (e.g. 512)
 	MaxWaitingTimeout time.Duration
 	FairnessPolicy    FairnessPolicy
+	// MaxWaitingRequests and MaxFinishedRequests bound queued work and terminal
+	// status history. Zero selects 1024 for each. Negative limits are invalid.
+	// Retiring history removes only finished requests, never an outstanding step.
+	MaxWaitingRequests  int
+	MaxFinishedRequests int
 }
 
 // FairnessPolicy controls request arbitration among waiting and prefilling sequences.
@@ -50,6 +56,8 @@ type BatchScheduler struct {
 	seqIDCounter int64
 	stepCounter  int64
 	inFlight     *ScheduledIteration
+	finished     []*Request
+	configErr    error
 
 	// Completion and retained resources
 	pendingReleases map[string][]func() // Request ID -> retained release callbacks
@@ -57,6 +65,16 @@ type BatchScheduler struct {
 
 // NewBatchScheduler constructs a continuous batch scheduler with config and optional KV tracker.
 func NewBatchScheduler(cfg SchedulerConfig, kvTracker *MemoryBudgetTracker) *BatchScheduler {
+	var configErr error
+	if cfg.MaxWaitingRequests < 0 || cfg.MaxFinishedRequests < 0 || cfg.MaxWaitingTimeout < 0 || cfg.FairnessPolicy < PolicyFCFS || cfg.FairnessPolicy > PolicyPriorityDecode {
+		configErr = fmt.Errorf("%w: invalid scheduler limits or fairness policy", ErrInvalidRequest)
+	}
+	if cfg.MaxWaitingRequests == 0 {
+		cfg.MaxWaitingRequests = 1024
+	}
+	if cfg.MaxFinishedRequests == 0 {
+		cfg.MaxFinishedRequests = 1024
+	}
 	if cfg.MaxBatchSize <= 0 {
 		cfg.MaxBatchSize = 32
 	}
@@ -68,6 +86,7 @@ func NewBatchScheduler(cfg SchedulerConfig, kvTracker *MemoryBudgetTracker) *Bat
 	}
 	return &BatchScheduler{
 		cfg:             cfg,
+		configErr:       configErr,
 		kvTracker:       kvTracker,
 		requests:        make(map[string]*Request),
 		waitingQueue:    make([]*Request, 0),
@@ -75,7 +94,10 @@ func NewBatchScheduler(cfg SchedulerConfig, kvTracker *MemoryBudgetTracker) *Bat
 	}
 }
 
-// Submit admits a new request into the scheduler.
+// Submit copies a fresh request and its prompt. MaxTokens must be positive.
+// Caller mutations after return cannot change scheduler state. CreatedAt is
+// descriptive; arbitration and waiting timeout use scheduler admission order
+// and time. A full waiting queue returns ErrCapacityExhausted before admission.
 func (s *BatchScheduler) Submit(req *Request) error {
 	if req == nil || req.ID == "" {
 		return ErrInvalidRequest
@@ -83,20 +105,31 @@ func (s *BatchScheduler) Submit(req *Request) error {
 	if len(req.PromptTokens) == 0 {
 		return fmt.Errorf("%w: empty prompt tokens", ErrInvalidRequest)
 	}
+	if req.MaxTokens <= 0 || req.MaxTokens > int(^uint(0)>>1)-len(req.PromptTokens) || req.Visibility < VisibilityDefault || req.Visibility > VisibilityThinkingVisible || req.State < StateWaiting || req.State > StateCanceled {
+		return fmt.Errorf("%w: invalid token limit, visibility or state", ErrInvalidRequest)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.configErr != nil {
+		return s.configErr
+	}
+	s.expireWaitingLocked(time.Now())
 
 	if _, exists := s.requests[req.ID]; exists {
 		return fmt.Errorf("%w: %s", ErrRequestAlreadyExists, req.ID)
 	}
 
-	req.State = StateWaiting
-	if req.CreatedAt.IsZero() {
-		req.CreatedAt = time.Now()
+	if len(s.waitingQueue) >= s.cfg.MaxWaitingRequests || s.seqIDCounter == int64(^uint64(0)>>1) {
+		return ErrCapacityExhausted
 	}
-	s.requests[req.ID] = req
-	s.waitingQueue = append(s.waitingQueue, req)
+	s.seqIDCounter++
+	owned := &Request{ID: req.ID, PromptTokens: append([]int32(nil), req.PromptTokens...), MaxTokens: req.MaxTokens, CreatedAt: req.CreatedAt, Visibility: req.Visibility, SessionID: req.SessionID, OnFinish: req.OnFinish, State: StateWaiting, admissionOrdinal: s.seqIDCounter, admittedAt: time.Now()}
+	if owned.CreatedAt.IsZero() {
+		owned.CreatedAt = owned.admittedAt
+	}
+	s.requests[owned.ID] = owned
+	s.waitingQueue = append(s.waitingQueue, owned)
 	return nil
 }
 
@@ -116,12 +149,15 @@ func (s *BatchScheduler) Cancel(id string) error {
 	}
 
 	req.cancelRequested = true
+	req.err = context.Canceled
 
 	// If not actively executing an iteration, immediately mark canceled and free resources
 	if !req.activeExecution {
 		req.State = StateCanceled
 		req.completedAt = time.Now()
 		s.cleanupRequestResourcesLocked(req)
+		s.retainTerminalLocked(req)
+		s.removeWaitingLocked(req)
 	}
 	return nil
 }
@@ -132,13 +168,16 @@ func (s *BatchScheduler) Cancel(id string) error {
 func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.configErr != nil {
+		return nil, s.configErr
+	}
+	s.expireWaitingLocked(time.Now())
 
 	if s.inFlight != nil {
 		return nil, ErrExecutionInFlight
 	}
 
-	// Check before admission or KV growth: Submit currently retains requests,
-	// so a caller may have erased the token needed by an active decode.
+	// Check before admission or KV growth; invalid state must not invent input.
 	for _, req := range s.requests {
 		if req.State == StateDecoding && len(req.GeneratedTokens) == 0 {
 			return nil, fmt.Errorf("%w: decode request %q has no retained token", ErrInvalidRequest, req.ID)
@@ -175,7 +214,7 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 	// 3. Check waiting queue for admission
 	// Under PolicyFairShare, guarantee at least 1 row slot for prefill admission if waiting queue is non-empty
 	admissionSlots := maxRows - len(activeDecodes) - len(activePrefills)
-	if admissionSlots <= 0 && s.cfg.FairnessPolicy == PolicyFairShare && len(s.waitingQueue) > 0 {
+	if admissionSlots == 0 && s.cfg.FairnessPolicy == PolicyFairShare && len(s.waitingQueue) > 0 {
 		admissionSlots = 1
 	}
 	s.admitWaitingLocked(admissionSlots)
@@ -189,6 +228,7 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 	}
 
 	// Apply fairness ordering
+	sort.Slice(activeDecodes, func(i, j int) bool { return activeDecodes[i].admissionOrdinal < activeDecodes[j].admissionOrdinal })
 	s.applyFairnessOrdering(activePrefills)
 
 	// Step A: Decode requests (1 token per decode request)
@@ -355,12 +395,14 @@ func (s *BatchScheduler) CompleteStep(iter *ScheduledIteration, generatedTokens 
 			req.State = StateCompleted
 			req.completedAt = time.Now()
 			s.cleanupRequestResourcesLocked(req)
+			s.retainTerminalLocked(req)
 			continue
 		}
 		if req.cancelRequested {
 			req.State = StateCanceled
 			req.completedAt = time.Now()
 			s.cleanupRequestResourcesLocked(req)
+			s.retainTerminalLocked(req)
 			continue
 		}
 		if row.IsPrefill {
@@ -375,6 +417,7 @@ func (s *BatchScheduler) CompleteStep(iter *ScheduledIteration, generatedTokens 
 				req.State = StateCompleted
 				req.completedAt = time.Now()
 				s.cleanupRequestResourcesLocked(req)
+				s.retainTerminalLocked(req)
 			}
 		}
 	}
@@ -430,11 +473,14 @@ func (s *BatchScheduler) applyFairnessOrdering(prefills []*Request) {
 	case PolicyFairShare:
 		// Sort by prefilled tokens ascending so starved/new prefill requests get chunks
 		sort.SliceStable(prefills, func(i, j int) bool {
-			return prefills[i].PrefilledTokens < prefills[j].PrefilledTokens
+			if prefills[i].PrefilledTokens != prefills[j].PrefilledTokens {
+				return prefills[i].PrefilledTokens < prefills[j].PrefilledTokens
+			}
+			return prefills[i].admissionOrdinal < prefills[j].admissionOrdinal
 		})
-	case PolicyFCFS:
+	case PolicyFCFS, PolicyPriorityDecode:
 		sort.SliceStable(prefills, func(i, j int) bool {
-			return prefills[i].CreatedAt.Before(prefills[j].CreatedAt)
+			return prefills[i].admissionOrdinal < prefills[j].admissionOrdinal
 		})
 	}
 }
@@ -456,13 +502,15 @@ func (s *BatchScheduler) cleanupRequestResourcesLocked(req *Request) {
 }
 
 // RegisterResourceRelease registers a cleanup callback (e.g. output buffer release or KV handle)
-// to be executed only when the request completely finishes and execution has completed.
+// to be executed only when the current request completely finishes and execution
+// has completed. Unknown or retired IDs release immediately; callbacks cannot
+// attach to a future admission reusing the same ID.
 func (s *BatchScheduler) RegisterResourceRelease(seqID string, cb func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	req, ok := s.requests[seqID]
-	if ok && req.IsFinished() && !req.activeExecution {
+	if !ok || req.IsFinished() && !req.activeExecution {
 		// Already finished and inactive, call immediately
 		if cb != nil {
 			cb()
@@ -472,7 +520,8 @@ func (s *BatchScheduler) RegisterResourceRelease(seqID string, cb func()) {
 	s.pendingReleases[seqID] = append(s.pendingReleases[seqID], cb)
 }
 
-// Request returns the current status snapshot of a request.
+// Request returns a detached status snapshot. Finished snapshots are retained
+// up to MaxFinishedRequests; retired IDs may be submitted as new admissions.
 func (s *BatchScheduler) Request(id string) (*Request, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -480,9 +529,59 @@ func (s *BatchScheduler) Request(id string) (*Request, bool) {
 	if !ok {
 		return nil, false
 	}
-	// Return shallow copy
-	cp := *req
-	return &cp, true
+	return copyRequest(req), true
+}
+
+func (s *BatchScheduler) removeWaitingLocked(req *Request) {
+	for i, waiting := range s.waitingQueue {
+		if waiting == req {
+			copy(s.waitingQueue[i:], s.waitingQueue[i+1:])
+			s.waitingQueue[len(s.waitingQueue)-1] = nil
+			s.waitingQueue = s.waitingQueue[:len(s.waitingQueue)-1]
+			return
+		}
+	}
+}
+
+func (s *BatchScheduler) retainTerminalLocked(req *Request) {
+	if !req.IsFinished() || req.activeExecution || req.retainedTerminal {
+		return
+	}
+	req.retainedTerminal = true
+	if req.OnFinish != nil {
+		callback := req.OnFinish
+		req.OnFinish = nil
+		callback(copyRequest(req))
+	}
+	s.finished = append(s.finished, req)
+	if len(s.finished) > s.cfg.MaxFinishedRequests {
+		old := s.finished[0]
+		delete(s.requests, old.ID)
+		copy(s.finished, s.finished[1:])
+		s.finished[len(s.finished)-1] = nil
+		s.finished = s.finished[:len(s.finished)-1]
+	}
+}
+
+// Expiration applies only to waiting work, never prefills, decodes or in-flight
+// storage. Zero MaxWaitingTimeout disables expiration. Submit and Schedule
+// observe expiry without starting a background timer.
+func (s *BatchScheduler) expireWaitingLocked(now time.Time) {
+	if s.cfg.MaxWaitingTimeout <= 0 {
+		return
+	}
+	remaining := s.waitingQueue[:0]
+	for _, req := range s.waitingQueue {
+		if now.Sub(req.admittedAt) >= s.cfg.MaxWaitingTimeout {
+			req.State, req.err, req.completedAt = StateCanceled, ErrWaitingTimeout, now
+			s.cleanupRequestResourcesLocked(req)
+			s.retainTerminalLocked(req)
+		} else {
+			remaining = append(remaining, req)
+		}
+	}
+	clear(s.waitingQueue[len(remaining):])
+	s.waitingQueue = remaining
 }
 
 func hashSeqID(id string) int64 {

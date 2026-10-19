@@ -43,6 +43,7 @@ var (
 	ErrCorruptBlockTable    = errors.New("cudabatch: corrupted block table")
 	ErrRowBoundsViolation   = errors.New("cudabatch: row bounds or shape violation")
 	ErrExecutionInFlight    = errors.New("cudabatch: execution step in flight")
+	ErrWaitingTimeout       = errors.New("cudabatch: request waiting timeout")
 )
 
 // ContinuationVisibility defines how tokens are preserved for multi-turn protocols.
@@ -76,6 +77,9 @@ type Request struct {
 	CreatedAt    time.Time
 	Visibility   ContinuationVisibility
 	SessionID    string // Associated multi-turn conversation or session ID
+	// OnFinish, if non-nil, receives one detached terminal snapshot before
+	// history retirement. It runs synchronously and must not call the scheduler.
+	OnFinish func(*Request)
 
 	// Dynamic lifecycle state
 	State            RequestState
@@ -85,15 +89,30 @@ type Request struct {
 	PromptBlockCount int   // Number of prefix blocks retained
 
 	// Execution and cancellation synchronization
-	cancelRequested bool
-	activeExecution bool
-	completedAt     time.Time
-	err             error
+	cancelRequested  bool
+	activeExecution  bool
+	completedAt      time.Time
+	err              error
+	admissionOrdinal int64
+	admittedAt       time.Time
+	retainedTerminal bool
 }
 
 // IsFinished reports whether the request has reached a terminal state.
 func (r *Request) IsFinished() bool {
 	return r.State == StateCompleted || r.State == StateCanceled
+}
+
+// Err returns the terminal cancellation, timeout or execution error, if any.
+func (r *Request) Err() error { return r.err }
+
+func copyRequest(r *Request) *Request {
+	cp := *r
+	cp.PromptTokens = append([]int32(nil), r.PromptTokens...)
+	cp.GeneratedTokens = append([]int32(nil), r.GeneratedTokens...)
+	cp.BlockTable = append([]int(nil), r.BlockTable...)
+	cp.OnFinish = nil
+	return &cp
 }
 
 // TotalTokens returns the total prompt plus generated tokens so far.
