@@ -96,8 +96,10 @@ type Request struct {
 //	opcode_histogram      mnemonic counts of the selected SASS function
 //	memory_access_widths  global, shared and local load and store counts by width
 //	local_memory_ops      local loads and stores, which are not classified as spills
+//	precision_attribution static instruction-mix precision attribution of the
+//	                      selected SASS function via cudacensus.AttributeFromMix
 //
-// The last three require Request.SASS. They are observed when the listing's
+// The last four require Request.SASS. They are observed when the listing's
 // encodings are exactly the image's .text section and inferred otherwise.
 // An instruction with a malformed opcode or ambiguous width is quarantined:
 // it is reported in a diagnostic and never counted.
@@ -400,16 +402,17 @@ var (
 
 // featureRules holds every feature Report implements.
 var featureRules = map[string]featureRule{
-	"allocated_registers":  {elfStates, false, checkRegisters},
-	"static_shared_bytes":  {elfStates, false, checkValue[uint32]},
-	"dynamic_shared_bytes": {[]string{StateUnsupported}, false, nil},
-	"target":               {elfStates, false, checkTarget},
-	"feature_suffix":       {[]string{StateInferred, StateUnknown}, true, checkSuffix},
-	"toolchain_stamp":      {[]string{StateObserved, StateUnknown}, false, checkStamp},
-	"section_inventory":    {[]string{StateObserved}, false, checkSections},
-	"opcode_histogram":     {sassStates, true, checkHistogram},
-	"memory_access_widths": {sassStates, true, checkWidths},
-	"local_memory_ops":     {sassStates, true, checkValue[localMemoryOps]},
+	"allocated_registers":   {elfStates, false, checkRegisters},
+	"static_shared_bytes":   {elfStates, false, checkValue[uint32]},
+	"dynamic_shared_bytes":  {[]string{StateUnsupported}, false, nil},
+	"target":                {elfStates, false, checkTarget},
+	"feature_suffix":        {[]string{StateInferred, StateUnknown}, true, checkSuffix},
+	"toolchain_stamp":       {[]string{StateObserved, StateUnknown}, false, checkStamp},
+	"section_inventory":     {[]string{StateObserved}, false, checkSections},
+	"opcode_histogram":      {sassStates, true, checkHistogram},
+	"memory_access_widths":  {sassStates, true, checkWidths},
+	"local_memory_ops":      {sassStates, true, checkValue[localMemoryOps]},
+	"precision_attribution": {sassStates, true, checkPrecisionAttribution},
 }
 
 // decodeValue decodes v into dst, refusing unknown fields and trailing data.
@@ -618,6 +621,15 @@ func (r *Report) Validate() error {
 			if err := rule.check(f.Value); err != nil {
 				return bad("feature %q value %s: %v", f.Name, f.Value, err)
 			}
+			if f.Name == "precision_attribution" {
+				var pa PrecisionAttribution
+				if err := decodeValue(f.Value, &pa); err != nil {
+					return bad("feature %q value %s: %v", f.Name, f.Value, err)
+				}
+				if err := pa.validate(r, f.State); err != nil {
+					return bad("feature %q value %s: %v", f.Name, f.Value, err)
+				}
+			}
 		case StateUnknown, StateUnsupported, StateError:
 			if !isNull(f.Value) {
 				return bad("feature %q is %s with value %s", f.Name, f.State, f.Value)
@@ -636,6 +648,9 @@ func (r *Report) Validate() error {
 	}
 	for name := range featureRules {
 		if !seen[name] {
+			if name == "precision_attribution" && r.SASS == nil {
+				continue
+			}
 			return bad("feature %q absent", name)
 		}
 	}
