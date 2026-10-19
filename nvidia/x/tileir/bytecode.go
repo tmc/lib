@@ -1107,11 +1107,12 @@ func registerString(pool *[]string, s string) int {
 // operation encoding needed to assemble an executable module.
 var ErrUnsupportedASTEncoding = errors.New("tileir: AST bytecode encoding is unsupported")
 
-// ToBytecode serializes the supported straight-line numeric and token subset
-// at bytecode version 13.4. It preserves typed SSA operands, constant bits,
-// numerical attributes, and function return types. It refuses memory operand
-// segments, nested regions, attention, globals, debug locations, and unknown
-// attributes. Module names, comments and SSA spelling are not wire identities.
+// ToBytecode serializes the supported straight-line numeric, token, vector and
+// pointer-memory subset at bytecode version 13.4. It preserves typed SSA operands,
+// constant bits, supported attributes and function return types. It refuses
+// constructs outside this subset, including nested regions, attention, globals,
+// debug locations and unknown attributes. Module names, comments and SSA spelling
+// are not wire identities.
 func (m *Module) ToBytecode() (*BytecodeModule, error) {
 	return astModule(m)
 }
