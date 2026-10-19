@@ -34,7 +34,20 @@ func TestLowering_AddressSpaceInferenceMechanismOpt0(t *testing.T) {
 func testAddressSpaceInferenceAB(t *testing.T, opt int) {
 	t.Helper()
 	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Skip("requires GPU_LOCK_HELD; run under gpu-lock")
+		t.Skip("requires an inherited GPU lease; run under gpu-lock")
+	}
+	if err := withAddressSpaceNativeLease(os.Getenv, func() {
+		testAddressSpaceInferenceABAdmitted(t, opt)
+	}); err != nil {
+		t.Fatalf("native address-space test requires an inherited GPU lease: %v", err)
+	}
+}
+
+func testAddressSpaceInferenceABAdmitted(t *testing.T, opt int) {
+	t.Helper()
+	rowKind := "production-opt3"
+	if opt == 0 {
+		rowKind = "mechanism-opt0"
 	}
 	ptxas, nvdisasm := cudaTool(t, "ptxas"), cudaTool(t, "nvdisasm")
 	runtime.LockOSThread()
@@ -60,79 +73,124 @@ func testAddressSpaceInferenceAB(t *testing.T, opt int) {
 		}
 	}()
 
-	// The fixture uses opaque pointers, requiring NVVM IR 2.0. Declare the
-	// same metadata contract as the native nvvm compilation fixture.
-	input := append(addressSpaceABInput(), []byte("!nvvmir.version = !{!1}\n!1 = !{i32 2, i32 0, i32 3, i32 2}\n")...)
-	input = bytes.Replace(input, []byte("e-p:64:64:64-p3:32:32:32"), []byte("e-p:64:64:64-p3:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-i128:128:128-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64-a:8:8"), 1)
-	inferred, _, err := nvvmx.InferAddressSpaces(input)
+	input := twoSlotAddressSpaceABInput()
+	rewritten, inference, err := nvvmx.InferAddressSpaces(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	arch := fmt.Sprintf("%d%d", major, minor)
-	compilePTX := func(name string, source []byte) []byte {
-		t.Logf("%s exact NVVM input sha256=%x opt=%d", name, sha256.Sum256(source), opt)
-		r, err := nvvmx.CompileWithOptions([]nvvmx.Input{{Name: name, Data: source}}, nvvmx.WithArch("compute_"+arch), nvvmx.WithOpt(opt))
-		if err != nil {
-			t.Fatalf("compile %s: %v", name, err)
-		}
-		defer r.Close()
-		return append([]byte(nil), r.PTX...)
+	provenance, err := verifyTwoSlotInferenceOrigins(input, rewritten, inference)
+	if err != nil {
+		t.Fatal(err)
 	}
-	before := compilePTX("before", input)
-	after := compilePTX("after", inferred)
+
+	arch := fmt.Sprintf("%d%d", major, minor)
+	beforeOpts := []nvvmx.Option{nvvmx.WithArch("compute_" + arch), nvvmx.WithOpt(opt)}
+	t.Logf("row=%s arm=before input=before.ll orig_ir_sha256=%s arch=compute_%s opt=%d infer=false",
+		rowKind, provenance.OriginalSHA256, arch, opt)
+	beforeResult, err := nvvmx.CompileWithOptions([]nvvmx.Input{{Name: "before.ll", Data: input}}, beforeOpts...)
+	if err != nil {
+		t.Fatalf("compile before: %v", err)
+	}
+	defer func() {
+		if err := beforeResult.Close(); err != nil {
+			t.Errorf("close before result: %v", err)
+		}
+	}()
+	beforePTX := append([]byte(nil), beforeResult.PTX...)
+	if err := beforeResult.Close(); err != nil {
+		t.Fatalf("close before result: %v", err)
+	}
+
+	afterOpts := []nvvmx.Option{nvvmx.WithArch("compute_" + arch), nvvmx.WithOpt(opt), nvvmx.WithAddressSpaceInference()}
+	t.Logf("row=%s arm=after input=after.ll orig_ir_sha256=%s prep_ir_sha256=%s arch=compute_%s opt=%d infer=true",
+		rowKind, provenance.OriginalSHA256, provenance.PreparedSHA256, arch, opt)
+	afterResult, err := nvvmx.CompileWithOptions([]nvvmx.Input{{Name: "after.ll", Data: input}}, afterOpts...)
+	if err != nil {
+		t.Fatalf("compile after: %v", err)
+	}
+	defer func() {
+		if err := afterResult.Close(); err != nil {
+			t.Errorf("close after result: %v", err)
+		}
+	}()
+	afterPTX := append([]byte(nil), afterResult.PTX...)
 
 	work := t.TempDir()
-	disassemble := func(name string, ptx []byte) (*cudaptx.Module, *cudasass.Disassembly, []byte) {
+	disassemble := func(name string, ptx []byte) ([]byte, []byte) {
 		ptxPath := filepath.Join(work, name+".ptx")
 		cubinPath := filepath.Join(work, name+".cubin")
 		if err := os.WriteFile(ptxPath, ptx, 0o600); err != nil {
 			t.Fatal(err)
 		}
 		runTool(t, ptxas, "-arch=sm_"+arch, ptxPath, "-o", cubinPath)
-		out := runTool(t, nvdisasm, "-c", cubinPath)
+		sass := runTool(t, nvdisasm, "-c", cubinPath)
 		cubin, err := os.ReadFile(cubinPath)
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("%s actual CUBIN sha256=%x", name, sha256.Sum256(cubin))
-		mod, err := cudaptx.Parse(bytes.NewReader(ptx))
-		if err != nil {
+		if _, err := cudaptx.Parse(bytes.NewReader(ptx)); err != nil {
 			t.Fatalf("parse %s PTX: %v", name, err)
 		}
-		dis, err := cudasass.Parse(bytes.NewReader(out))
-		if err != nil {
+		if _, err := cudasass.Parse(bytes.NewReader(sass)); err != nil {
 			t.Fatalf("parse %s SASS: %v", name, err)
 		}
-		t.Logf("%s NVVM opt=%d PTX sha256=%x SASS sha256=%x", name, opt, sha256.Sum256(ptx), sha256.Sum256(out))
-		t.Logf("%s PTX:\n%s\n%s SASS:\n%s", name, ptx, name, out)
-		return mod, dis, cubin
+		t.Logf("row=%s arm=%s opt=%d ptxas=%s nvdisasm=%s ptx_sha256=%x cubin_sha256=%x sass_sha256=%x",
+			rowKind, name, opt, ptxas, nvdisasm, sha256.Sum256(ptx), sha256.Sum256(cubin), sha256.Sum256(sass))
+		t.Logf("%s PTX:\n%s\n%s SASS:\n%s", name, ptx, name, sass)
+		return sass, cubin
 	}
-	beforePTX, beforeSASS, beforeCUBIN := disassemble("before", before)
-	afterPTX, afterSASS, afterCUBIN := disassemble("after", after)
-	without, err := VerifyNoSharedConversions(beforePTX, beforeSASS, "@kernel/%slot")
+	beforeSASS, beforeCUBIN := disassemble("before", beforePTX)
+	afterSASS, afterCUBIN := disassemble("after", afterPTX)
+	if bytes.Equal(beforePTX, afterPTX) || bytes.Equal(beforeCUBIN, afterCUBIN) {
+		t.Fatalf("A/B compilation produced identical PTX or CUBIN artifacts (row=%s opt=%d)", rowKind, opt)
+	}
+
+	// Before arm compiled without inference; evaluate per-slot provenance from
+	// the original two-slot IR origins and actual before-arm PTX/SASS without
+	// claiming compile custody on the uninferred result.
+	without, err := VerifyInferredSharedConversions(input, inference, beforePTX, beforeSASS)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("before-arm per-slot provenance failed (row=%s opt=%d): %v\n%s", rowKind, opt, err, without)
 	}
-	if !hasSharedConversion(without) {
-		t.Fatalf("uninferred control contains no detected shared conversion:\n%s", without)
+	if err := verifyTwoSlotBeforeReport(without, provenance.OriginalSHA256, provenance.PreparedSHA256, sha256Hex(beforePTX), sha256Hex(beforeSASS)); err != nil {
+		t.Fatalf("before-arm per-slot report invalid (row=%s opt=%d): %v\n%s", rowKind, opt, err, without)
 	}
-	if !hasSASSSharedConversion(without) {
-		t.Fatalf("uninferred control has no recognized SASS conversion for @kernel/%%slot:\n%s", without)
-	}
-	with, err := VerifyNoSharedConversions(afterPTX, afterSASS, "@kernel/%slot")
+
+	// Retain afterResult until VerifyCompiledSharedConversions has verified its
+	// copied PTX and the actual nvdisasm listing for afterCUBIN.
+	compiledProv, err := afterResult.AddressSpaceProvenance()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("after-arm compile provenance unavailable: %v", err)
 	}
-	if hasSharedConversion(with) {
-		t.Fatalf("inferred output still contains a shared conversion:\n%s", with)
+	if len(compiledProv.Inputs) != 1 || compiledProv.Inputs[0].Name != "after.ll" ||
+		compiledProv.PTXSHA256 != sha256Hex(afterPTX) ||
+		compiledProv.Inputs[0].Provenance.OriginalSHA256 != provenance.OriginalSHA256 ||
+		compiledProv.Inputs[0].Provenance.PreparedSHA256 != provenance.PreparedSHA256 {
+		t.Fatalf("after-arm compile provenance binding mismatch: %+v", compiledProv)
 	}
+	with, err := VerifyCompiledSharedConversions(afterResult, afterSASS)
+	if err != nil {
+		t.Fatalf("after-arm compiled per-slot provenance failed (row=%s opt=%d): %v\n%s", rowKind, opt, err, with)
+	}
+	if err := verifyTwoSlotAfterReport(with, provenance.OriginalSHA256, provenance.PreparedSHA256, sha256Hex(afterPTX), sha256Hex(afterSASS)); err != nil {
+		t.Fatalf("after-arm per-slot report invalid (row=%s opt=%d): %v\n%s", rowKind, opt, err, with)
+	}
+	if err := afterResult.Close(); err != nil {
+		t.Fatalf("close after result: %v", err)
+	}
+
 	beforeValue, afterValue := launchAddressSpaceKernel(t, beforeCUBIN), launchAddressSpaceKernel(t, afterCUBIN)
-	if beforeValue != 42 || afterValue != 42 {
-		t.Fatalf("A/B output: before=%d after=%d want both42", beforeValue, afterValue)
+	if beforeValue != afterValue {
+		t.Fatalf("A/B numerical output mismatch: before=%d after=%d", beforeValue, afterValue)
 	}
-	// Unique slot attribution is confined to this exact single-slot fixture;
-	// caller labels supplied to Compare are not a general mapping proof.
-	t.Logf("NVVM opt=%d A/B passed on sm_%s; exact single-slot input sha256=%x; output before=%d after=%d", opt, arch, sha256.Sum256(input), beforeValue, afterValue)
+	if err := verifyTwoSlotAddressSpaceOutput(twoSlotAddressSpaceSeed, beforeValue); err != nil {
+		t.Fatalf("before A/B output failed two-slot oracle: %v", err)
+	}
+	if err := verifyTwoSlotAddressSpaceOutput(twoSlotAddressSpaceSeed, afterValue); err != nil {
+		t.Fatalf("after A/B output failed two-slot oracle: %v", err)
+	}
+	t.Logf("row=%s NVVM opt=%d A/B passed on sm_%s; slots=[%s,%s]; orig_ir_sha256=%s prep_ir_sha256=%s; output before=%d after=%d want=%d",
+		rowKind, opt, arch, twoSlotSlotA, twoSlotSlotB, provenance.OriginalSHA256, provenance.PreparedSHA256, beforeValue, afterValue, twoSlotExpectedOutput(twoSlotAddressSpaceSeed))
 }
 
 func cudaTool(t *testing.T, name string) string {
@@ -160,24 +218,6 @@ func runTool(t *testing.T, name string, args ...string) []byte {
 	return out
 }
 
-func hasSharedConversion(report *Report) bool {
-	for _, div := range report.Divergences {
-		if div.Kind == SharedConversion && (div.PTXCount > 0 || div.SASSCount > 0) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasSASSSharedConversion(report *Report) bool {
-	for _, div := range report.Divergences {
-		if div.Kind == SharedConversion && div.SASSCount > 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func launchAddressSpaceKernel(t *testing.T, cubin []byte) uint32 {
 	t.Helper()
 	t.Logf("loaded numerical CUBIN sha256=%x", sha256.Sum256(cubin))
@@ -203,7 +243,7 @@ func launchAddressSpaceKernel(t *testing.T, cubin []byte) uint32 {
 			t.Error(err)
 		}
 	}()
-	input := uint32(35)
+	input := twoSlotAddressSpaceSeed
 	if err := fn.LaunchKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 1, Y: 1, Z: 1}, 0, 0,
 		[]unsafe.Pointer{unsafe.Pointer(&p), unsafe.Pointer(&input)}); err != nil {
 		t.Fatal(err)
