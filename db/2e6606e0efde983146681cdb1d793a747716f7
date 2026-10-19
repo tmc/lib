@@ -1,0 +1,10 @@
+commit: db2e6606e0efde983146681cdb1d793a747716f7
+date: 2026-10-19T02:31:18.027644+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 41987
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-signed-adoption-queue/ebpfhost.patch
+source sha256: e104753e3a92bc50f54f84cef8304ca8c9cb6e30da992aab4e487ee61e2b5260
