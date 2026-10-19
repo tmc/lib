@@ -1,0 +1,10 @@
+commit: 93d306ea35746910dd7ecdc82123db0109e33de3
+date: 2026-10-19T02:57:09.416864+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 77091
+ITERM_SESSION_ID: w2t1p3:8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-unit100-admission-fix/candidate.patch
+source sha256: dd838bafc6f654ef8b8962b475dfc6d7bb1058a21d3c8afdd567e1830dd653f9
