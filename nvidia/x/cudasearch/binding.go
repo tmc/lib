@@ -49,7 +49,8 @@ const (
 
 // Objective defines an evaluator's optimization goal. ExecutableEvaluator
 // supports ObjectiveMinLatency and treats an empty objective as minimum latency.
-// Other evaluators may support additional objectives.
+// Bindings accept only the objectives declared below. Each evaluator must
+// reject an objective it does not implement before doing executable work.
 type Objective string
 
 const (
@@ -63,7 +64,7 @@ type WorkloadBindings struct {
 	Name             string            // Identifying workload name
 	Shape            cudashape.Shape   // Concrete activation/input shape
 	DType            cudair.DataType   // Activation tensor primitive data type
-	Layout           string            // Memory layout ("row_major", "col_major", "strided")
+	Layout           string            // Memory layout ("row_major", "col_major", "strided"); empty leaves it unspecified
 	InputNames       []string          // Required input/weight names, each covered by a nonempty identity below
 	InputIdentities  map[string]string // Input content digests or immutable versions
 	WeightIdentities map[string]string // Mapping of weight name to content digest/version
@@ -83,6 +84,21 @@ func (b WorkloadBindings) Validate() error {
 	}
 	if b.NumericalPolicy == "" {
 		return fmt.Errorf("%w: numerical policy must be specified", ErrMissingBinding)
+	}
+	switch b.DType {
+	case cudair.Float32, cudair.Float16, cudair.BFloat16, cudair.Int32, cudair.Int64, cudair.Uint8, cudair.Int8:
+	default:
+		return fmt.Errorf("%w: unsupported dtype %d", ErrMissingBinding, b.DType)
+	}
+	switch b.Layout {
+	case "", "row_major", "col_major", "strided":
+	default:
+		return fmt.Errorf("%w: unsupported layout %q", ErrMissingBinding, b.Layout)
+	}
+	switch b.Objective {
+	case "", ObjectiveMinLatency, ObjectiveMaxThroughput, ObjectiveProfileCost:
+	default:
+		return fmt.Errorf("%w: unsupported objective %q", ErrMissingBinding, b.Objective)
 	}
 	for _, identities := range []map[string]string{b.InputIdentities, b.WeightIdentities} {
 		keys := make([]string, 0, len(identities))
@@ -117,6 +133,7 @@ func (b WorkloadBindings) Validate() error {
 func (b WorkloadBindings) WorkloadIdentity() cudacache.WorkloadIdentity {
 	dims := b.Shape.Dims()
 	return cudacache.WorkloadIdentity{
+		BindingsKey:   b.Key(),
 		ProgramID:     b.Name,
 		ShapeDims:     dims,
 		NumericalMode: string(b.NumericalPolicy),
@@ -124,6 +141,8 @@ func (b WorkloadBindings) WorkloadIdentity() cudacache.WorkloadIdentity {
 }
 
 // Key returns a canonical SHA-256 digest string for the workload bindings.
+// Dtypes are encoded numerically, including invalid values that Validate rejects.
+// Keys from the earlier string-based dtype encoding are not reused.
 func (b WorkloadBindings) Key() string {
 	h := sha256.New()
 	write := func(s string) {
@@ -132,9 +151,11 @@ func (b WorkloadBindings) Key() string {
 		h.Write(size[:])
 		h.Write([]byte(s))
 	}
+	write("cudasearch-workload-bindings-v2")
 	write(b.Name)
 	write(fmt.Sprintf("%v", b.Shape.Dims()))
-	write(b.DType.String())
+	write("dtype")
+	write(fmt.Sprint(int(b.DType)))
 	write(b.Layout)
 	write(string(b.NumericalPolicy))
 	write(string(b.Objective))
