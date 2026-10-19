@@ -66,6 +66,9 @@ type ExecutableEvaluator struct {
 	TimingKind     cudatrial.TimingKind
 	// HardwareLockChecker must verify a live lease, not only an environment flag.
 	HardwareLockChecker func() bool
+	// FailureEvidence optionally exports actual candidate comparison failures
+	// and checks caller-owned offline quarantine after compile-owner registration.
+	FailureEvidence *FailureEvidence
 	// Receipts and Comparison retain the last attempt, including failures.
 	Receipts           []cudatrial.Receipt
 	Comparison         map[string]OutputComparison
@@ -119,6 +122,12 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	}
 	if e.CompileTimeout < 0 {
 		return nil, fmt.Errorf("cudasearch: negative compile timeout")
+	}
+	if c := e.FailureEvidence; c != nil && ((c.Recorder == nil) != (c.Writer == nil)) {
+		return nil, fmt.Errorf("cudasearch: incomplete failure evidence exporter")
+	}
+	if c := e.FailureEvidence; c != nil && c.Quarantine != nil && c.Quarantine.maxBytes == 0 {
+		return nil, fmt.Errorf("cudasearch: uninitialized quarantine")
 	}
 	if e.Generation < 0 {
 		return nil, ErrStaleGeneration
@@ -241,6 +250,16 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if executable == nil || executable.Identity() == "" {
 		return nil, fmt.Errorf("cudasearch: compiler returned no executable identity")
 	}
+	association, associationMemory, err := e.candidateAssociation(ctx, executable.Identity())
+	if err != nil {
+		return nil, err
+	}
+	defer associationMemory.release()
+	if e.FailureEvidence != nil {
+		if err := e.FailureEvidence.Quarantine.check(association); err != nil {
+			return nil, err
+		}
+	}
 	e.Preparation["baseline"] = preparationOf(e.Baseline)
 	e.Preparation["candidate"] = preparationOf(executable)
 	reset := func() error {
@@ -268,6 +287,9 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 		comparison, err := e.Policy.compare(outputs, e.References)
 		e.Comparison = comparison
 		if err != nil {
+			if i == 1 && errors.Is(err, ErrVerificationFailed) {
+				return nil, e.recordComparisonFailure(ctx, association, outputs, err)
+			}
 			return nil, err
 		}
 	}

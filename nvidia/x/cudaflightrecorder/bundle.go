@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // Manifest records metadata and time-window spans for a flight recorder snapshot.
@@ -235,40 +236,85 @@ const (
 	NegativeRewriteConstraintSchemaVersion = FaultSchemaVersion
 )
 
+// CandidateAssociation binds one evaluator-observed comparison failure to an
+// exact search invocation. It is not native fault attribution: executable,
+// workload, input and reference identities are asserted by their callers.
+// Version 1 is the only supported association version. Legacy fault schema 1
+// records without this additive field remain readable as module facts only.
+// Older strict readers refuse the additive field; no native-fault identity is
+// inferred during migration.
+type CandidateAssociation struct {
+	Version            int    `json:"version"`
+	Kind               string `json:"kind"`
+	IdentityProvenance string `json:"identity_provenance"`
+	ExecutableID       string `json:"executable_id"`
+	WorkloadKey        string `json:"workload_key"`
+	InputKey           string `json:"input_key"`
+	Generation         int    `json:"generation"`
+	VerificationKey    string `json:"verification_key"`
+}
+
+// CandidateReferenceMismatch identifies an evaluator-observed candidate-arm
+// comparison failure. It makes no claim about the cause of the wrong output.
+const CandidateReferenceMismatch = "evaluator_candidate_reference_mismatch"
+
+// CallerAssertedCandidateIdentity marks compiler identity and caller workload,
+// input and reference assertions, rather than a native attribution proof.
+const CallerAssertedCandidateIdentity = "compiler_workload_input_reference_assertions"
+
+// Validate checks the association's version, provenance kind and bounded exact
+// identities. Digests identify caller assertions, not authenticated evidence.
+func (a CandidateAssociation) Validate() error {
+	if a.Version != 1 || a.Kind != CandidateReferenceMismatch || a.IdentityProvenance != CallerAssertedCandidateIdentity || a.Generation <= 0 || a.ExecutableID == "" || len(a.ExecutableID) > 4096 || !utf8.ValidString(a.ExecutableID) || !validCandidateDigest(a.WorkloadKey) || !validCandidateDigest(a.InputKey) || !validCandidateDigest(a.VerificationKey) {
+		return fmt.Errorf("%w: invalid search candidate association", ErrArtifactInvalid)
+	}
+	return nil
+}
+
 // FaultInfo describes a GPU fault or abort event for zero-device crash dump generation.
 type FaultInfo struct {
-	SchemaVersion    int               `json:"schema_version"`
-	TimestampNs      int64             `json:"timestamp_ns"`
-	ErrorCode        int               `json:"error_code"`
-	ErrorName        string            `json:"error_name"`
-	ErrorMessage     string            `json:"error_message"`
-	OffendingKernel  string            `json:"offending_kernel,omitempty"`
-	CorrelationID    uint64            `json:"correlation_id,omitempty"`
-	ModuleID         string            `json:"module_id,omitempty"`
-	ModuleDigest     string            `json:"module_digest,omitempty"`
-	ModuleGeneration uint64            `json:"module_generation,omitempty"`
-	FailedRuleNames  []string          `json:"failed_rule_names,omitempty"`
-	Labels           map[string]string `json:"labels,omitempty"`
+	Candidate        *CandidateAssociation `json:"candidate_association,omitempty"`
+	SchemaVersion    int                   `json:"schema_version"`
+	TimestampNs      int64                 `json:"timestamp_ns"`
+	ErrorCode        int                   `json:"error_code"`
+	ErrorName        string                `json:"error_name"`
+	ErrorMessage     string                `json:"error_message"`
+	OffendingKernel  string                `json:"offending_kernel,omitempty"`
+	CorrelationID    uint64                `json:"correlation_id,omitempty"`
+	ModuleID         string                `json:"module_id,omitempty"`
+	ModuleDigest     string                `json:"module_digest,omitempty"`
+	ModuleGeneration uint64                `json:"module_generation,omitempty"`
+	FailedRuleNames  []string              `json:"failed_rule_names,omitempty"`
+	Labels           map[string]string     `json:"labels,omitempty"`
 }
 
 type faultInfoWire struct {
-	SchemaVersion    int               `json:"schema_version"`
-	TimestampNs      int64             `json:"timestamp_ns"`
-	ErrorCode        int               `json:"error_code"`
-	ErrorName        string            `json:"error_name"`
-	ErrorMessage     string            `json:"error_message"`
-	OffendingKernel  string            `json:"offending_kernel,omitempty"`
-	CorrelationID    uint64            `json:"correlation_id,omitempty"`
-	ModuleID         string            `json:"module_id,omitempty"`
-	ModuleDigest     string            `json:"module_digest,omitempty"`
-	ModuleGeneration uint64            `json:"module_generation,omitempty"`
-	FailedRuleNames  []string          `json:"failed_rule_names,omitempty"`
-	Labels           map[string]string `json:"labels,omitempty"`
+	Candidate        *CandidateAssociation `json:"candidate_association,omitempty"`
+	SchemaVersion    int                   `json:"schema_version"`
+	TimestampNs      int64                 `json:"timestamp_ns"`
+	ErrorCode        int                   `json:"error_code"`
+	ErrorName        string                `json:"error_name"`
+	ErrorMessage     string                `json:"error_message"`
+	OffendingKernel  string                `json:"offending_kernel,omitempty"`
+	CorrelationID    uint64                `json:"correlation_id,omitempty"`
+	ModuleID         string                `json:"module_id,omitempty"`
+	ModuleDigest     string                `json:"module_digest,omitempty"`
+	ModuleGeneration uint64                `json:"module_generation,omitempty"`
+	FailedRuleNames  []string              `json:"failed_rule_names,omitempty"`
+	Labels           map[string]string     `json:"labels,omitempty"`
 }
 
 // MarshalJSON encodes f with an explicit schema_version, defaulting zero
 // SchemaVersion values to FaultInfoSchemaVersion and rejecting unknown versions.
 func (f FaultInfo) MarshalJSON() ([]byte, error) {
+	if f.Candidate != nil {
+		if err := f.Candidate.Validate(); err != nil {
+			return nil, err
+		}
+		if f.ErrorName != CandidateReferenceMismatch || f.ErrorCode != 0 {
+			return nil, ErrArtifactInvalid
+		}
+	}
 	version := f.SchemaVersion
 	if version == 0 {
 		version = FaultInfoSchemaVersion
@@ -277,6 +323,7 @@ func (f FaultInfo) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("%w: unsupported fault schema version %d (want %d)", ErrArtifactInvalid, f.SchemaVersion, FaultInfoSchemaVersion)
 	}
 	return json.Marshal(faultInfoWire{
+		Candidate:        f.Candidate,
 		SchemaVersion:    version,
 		TimestampNs:      f.TimestampNs,
 		ErrorCode:        f.ErrorCode,
@@ -304,6 +351,11 @@ func (f *FaultInfo) UnmarshalJSON(data []byte) error {
 	if wire.SchemaVersion != FaultInfoSchemaVersion {
 		return fmt.Errorf("%w: unsupported fault schema version %d (want %d)", ErrArtifactInvalid, wire.SchemaVersion, FaultInfoSchemaVersion)
 	}
+	if wire.Candidate != nil {
+		if err := wire.Candidate.Validate(); err != nil {
+			return err
+		}
+	}
 	*f = FaultInfo(wire)
 	return nil
 }
@@ -324,6 +376,14 @@ func (f *FaultInfo) Validate() error {
 	if f.ModuleDigest != "" && !validCandidateDigest(f.ModuleDigest) {
 		return fmt.Errorf("%w: invalid fault module digest %q", ErrArtifactInvalid, f.ModuleDigest)
 	}
+	if f.Candidate != nil {
+		if err := f.Candidate.Validate(); err != nil {
+			return err
+		}
+		if f.ErrorName != CandidateReferenceMismatch || f.ErrorCode != 0 {
+			return fmt.Errorf("%w: candidate association requires observed comparison failure", ErrArtifactInvalid)
+		}
+	}
 	return nil
 }
 
@@ -343,32 +403,40 @@ func DecodeFaultInfo(data []byte) (FaultInfo, error) {
 	return info, nil
 }
 
-// NegativeRewriteConstraint represents a negative rewrite rule exported in a crash dump
-// to feed negative constraints to egraph search.
+// NegativeRewriteConstraint preserves candidate-only failure facts. The legacy
+// CandidateDigest is a module digest. Only Candidate supplies the exact search
+// invocation association; module digests must not be matched to executable IDs.
 type NegativeRewriteConstraint struct {
-	SchemaVersion    int       `json:"schema_version"`
-	CandidateDigest  string    `json:"candidate_digest"`
-	OffendingKernel  string    `json:"offending_kernel"`
-	QuarantinedRules []string  `json:"quarantined_rules"`
-	Reason           string    `json:"reason"`
-	PruneSubtree     bool      `json:"prune_subtree"`
-	Timestamp        time.Time `json:"timestamp"`
+	Candidate        *CandidateAssociation `json:"candidate_association,omitempty"`
+	SchemaVersion    int                   `json:"schema_version"`
+	CandidateDigest  string                `json:"candidate_digest"`
+	OffendingKernel  string                `json:"offending_kernel"`
+	QuarantinedRules []string              `json:"quarantined_rules"`
+	Reason           string                `json:"reason"`
+	PruneSubtree     bool                  `json:"prune_subtree"`
+	Timestamp        time.Time             `json:"timestamp"`
 }
 
 type negativeRewriteConstraintWire struct {
-	SchemaVersion    int       `json:"schema_version"`
-	CandidateDigest  string    `json:"candidate_digest"`
-	OffendingKernel  string    `json:"offending_kernel"`
-	QuarantinedRules []string  `json:"quarantined_rules"`
-	Reason           string    `json:"reason"`
-	PruneSubtree     bool      `json:"prune_subtree"`
-	Timestamp        time.Time `json:"timestamp"`
+	Candidate        *CandidateAssociation `json:"candidate_association,omitempty"`
+	SchemaVersion    int                   `json:"schema_version"`
+	CandidateDigest  string                `json:"candidate_digest"`
+	OffendingKernel  string                `json:"offending_kernel"`
+	QuarantinedRules []string              `json:"quarantined_rules"`
+	Reason           string                `json:"reason"`
+	PruneSubtree     bool                  `json:"prune_subtree"`
+	Timestamp        time.Time             `json:"timestamp"`
 }
 
 // MarshalJSON encodes c with an explicit schema_version, defaulting zero
 // SchemaVersion values to NegativeRewriteConstraintSchemaVersion and rejecting
 // unknown schema versions or invalid candidate digests.
 func (c NegativeRewriteConstraint) MarshalJSON() ([]byte, error) {
+	if c.Candidate != nil {
+		if err := c.Candidate.Validate(); err != nil {
+			return nil, err
+		}
+	}
 	version := c.SchemaVersion
 	if version == 0 {
 		version = NegativeRewriteConstraintSchemaVersion
@@ -383,6 +451,7 @@ func (c NegativeRewriteConstraint) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("%w: broad rewrite ban without exact candidate digest", ErrArtifactInvalid)
 	}
 	return json.Marshal(negativeRewriteConstraintWire{
+		Candidate:        c.Candidate,
 		SchemaVersion:    version,
 		CandidateDigest:  c.CandidateDigest,
 		OffendingKernel:  c.OffendingKernel,
@@ -414,7 +483,13 @@ func (c *NegativeRewriteConstraint) UnmarshalJSON(data []byte) error {
 	if wire.CandidateDigest == "" && (wire.PruneSubtree || len(wire.QuarantinedRules) > 0) {
 		return fmt.Errorf("%w: broad rewrite ban without exact candidate digest", ErrArtifactInvalid)
 	}
+	if wire.Candidate != nil {
+		if err := wire.Candidate.Validate(); err != nil {
+			return err
+		}
+	}
 	*c = NegativeRewriteConstraint{
+		Candidate:        wire.Candidate,
 		SchemaVersion:    wire.SchemaVersion,
 		CandidateDigest:  wire.CandidateDigest,
 		OffendingKernel:  wire.OffendingKernel,
@@ -428,7 +503,8 @@ func (c *NegativeRewriteConstraint) UnmarshalJSON(data []byte) error {
 
 // Validate checks that c is an admitted versioned exact-candidate quarantine
 // constraint: it must carry NegativeRewriteConstraintSchemaVersion, a valid
-// 64-character hexadecimal SHA-256 CandidateDigest, a non-empty Reason, and no
+// exact association or legacy 64-character hexadecimal module CandidateDigest,
+// a non-empty Reason, and no
 // unreproduced broad rule bans or subtree pruning.
 func (c *NegativeRewriteConstraint) Validate() error {
 	if c == nil {
@@ -437,7 +513,11 @@ func (c *NegativeRewriteConstraint) Validate() error {
 	if c.SchemaVersion != NegativeRewriteConstraintSchemaVersion {
 		return fmt.Errorf("%w: unsupported negative rewrite constraint schema version %d (want %d)", ErrArtifactInvalid, c.SchemaVersion, NegativeRewriteConstraintSchemaVersion)
 	}
-	if !validCandidateDigest(c.CandidateDigest) {
+	if c.Candidate != nil {
+		if err := c.Candidate.Validate(); err != nil {
+			return err
+		}
+	} else if !validCandidateDigest(c.CandidateDigest) {
 		return fmt.Errorf("%w: negative rewrite constraint requires exact 64-hex SHA256 candidate digest", ErrArtifactInvalid)
 	}
 	if strings.TrimSpace(c.Reason) == "" {
@@ -467,7 +547,8 @@ func DecodeNegativeRewriteConstraint(data []byte) (NegativeRewriteConstraint, er
 
 // DecodeFaultEvidence extracts and validates the versioned fault.json and
 // negative_rules.json replay/quarantine artifacts from b, requiring an exact
-// matching 64-hex SHA-256 candidate digest and offending kernel identity.
+// matching module digest, offending kernel and optional exact association.
+// A legacy module-only result remains facts, not an exact search quarantine.
 func (b *Bundle) DecodeFaultEvidence() (FaultInfo, NegativeRewriteConstraint, error) {
 	if b == nil {
 		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: nil bundle", ErrArtifactInvalid)
@@ -493,6 +574,9 @@ func (b *Bundle) DecodeFaultEvidence() (FaultInfo, NegativeRewriteConstraint, er
 	}
 	if fault.OffendingKernel != constraint.OffendingKernel {
 		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: fault offending kernel %q does not match constraint kernel %q", ErrArtifactInvalid, fault.OffendingKernel, constraint.OffendingKernel)
+	}
+	if (fault.Candidate == nil) != (constraint.Candidate == nil) || (fault.Candidate != nil && *fault.Candidate != *constraint.Candidate) {
+		return FaultInfo{}, NegativeRewriteConstraint{}, fmt.Errorf("%w: candidate associations differ", ErrArtifactInvalid)
 	}
 	return fault, constraint, nil
 }
