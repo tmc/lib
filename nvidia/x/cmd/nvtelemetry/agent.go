@@ -308,6 +308,7 @@ func (a *Agent) buildTarget(cfg *ParsedConfig) (*runningTarget, error) {
 	}
 
 	collectorCfg := nvtelemetry.CollectorConfig{
+		SchemaVersion:      nvtelemetry.SchemaVersionV3,
 		IntervalNanos:      cfg.Interval.Nanoseconds(),
 		MaxRecordBudget:    cfg.Budget,
 		MaxByteBudget:      128 << 20,
