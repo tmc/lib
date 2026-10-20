@@ -374,6 +374,35 @@ func ValidatePipeline(p *Pipeline) *Report {
 	}
 
 	// 3. Overlap check among stage buffers and barriers.
+	maxBarrierOffset := int(^uint(0)>>1) - 8
+	for i, stage := range p.Stages {
+		start := stage.Barrier.Offset
+		if start < 0 || start > maxBarrierOffset {
+			r.Issues = append(r.Issues, Issue{
+				StageIndex: i,
+				Severity:   SeverityError,
+				Category:   CatBufferCapacity,
+				Message:    fmt.Sprintf("stage %d has invalid mbarrier range at offset %d", i, start),
+			})
+			continue
+		}
+		end := start + 8
+		for j := 0; j < i; j++ {
+			other := p.Stages[j].Barrier.Offset
+			if other < 0 || other > maxBarrierOffset {
+				continue
+			}
+			if start < other+8 && other < end {
+				r.Issues = append(r.Issues, Issue{
+					StageIndex: i,
+					Severity:   SeverityError,
+					Category:   CatBufferCapacity,
+					Message: fmt.Sprintf("stage %d mbarrier [%d, %d) overlaps with stage %d mbarrier [%d, %d)",
+						i, start, end, j, other, other+8),
+				})
+			}
+		}
+	}
 	for i := 0; i < len(p.Stages); i++ {
 		b1Start := p.Stages[i].Buffer.Offset
 		b1End := b1Start + p.Stages[i].Buffer.SizeBytes
@@ -411,6 +440,9 @@ func ValidatePipeline(p *Pipeline) *Report {
 		if b1Space == MemorySpaceShared {
 			for j := 0; j < len(p.Stages); j++ {
 				barStart := p.Stages[j].Barrier.Offset
+				if barStart < 0 || barStart > maxBarrierOffset {
+					continue
+				}
 				barEnd := barStart + 8
 				if !(b1End <= barStart || barEnd <= b1Start) {
 					r.Issues = append(r.Issues, Issue{
