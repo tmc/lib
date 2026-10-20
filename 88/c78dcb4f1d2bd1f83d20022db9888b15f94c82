@@ -1,0 +1,10 @@
+commit: 88c78dcb4f1d2bd1f83d20022db9888b15f94c82
+date: 2026-10-20T00:24:50.065750+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 31011
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-pipeline-validation-fix/A-wait-parity.patch
+source sha256: 62ae9fbdf904e6f5a77fcf5559688f2e92fc842979dd7995f4a62b340b717a55
