@@ -1,0 +1,10 @@
+commit: 760379ebc56778a788f70584eccc8d1c4025ad9b
+date: 2026-10-20T00:42:30.486981+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 94317
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-claude-workhorse/r19/c/cumulative-27ed051-efb833f.patch
+source sha256: 347a352f83811caa130e956649f911dc11733422dafa858fda7340159d82c77e
