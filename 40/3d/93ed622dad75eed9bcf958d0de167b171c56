@@ -1,0 +1,10 @@
+commit: 403d93ed622dad75eed9bcf958d0de167b171c56
+date: 2026-10-20T02:41:09.925900+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 21688
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-claude-workhorse/r19/u101/unit101.patch
+source sha256: ceb25dde78ddf2128c51db52451f42a10ddec310ea7416d7c4a730f1b43cd3be
