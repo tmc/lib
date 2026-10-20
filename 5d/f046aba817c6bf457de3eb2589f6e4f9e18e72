@@ -1,0 +1,10 @@
+commit: 5df046aba817c6bf457de3eb2589f6e4f9e18e72
+date: 2026-10-20T01:01:47.986441+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 50793
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-native-admission-78-82/candidate.patch
+source sha256: 8a43654990e4fa4bf17ad23a6a0bc023ff50363f246724d328303431b6b189b4
