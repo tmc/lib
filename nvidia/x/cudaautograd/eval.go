@@ -45,8 +45,27 @@ type resultRecord struct {
 	backward         *cudair.Snapshot
 	digest           [32]byte
 	seed             int
+	loss             int // forward objective selected by Differentiate
 	saved, gradients map[int]int
 	names            map[int]string
+}
+
+// trainingLoss validates the objective against its private differentiation role.
+func (res *BackwardResult) trainingLoss(node *cudair.Node) (*cudair.Node, error) {
+	if res == nil || res.forward == nil || res.record == nil {
+		return nil, fmt.Errorf("%w: backward result not created by Differentiate", ErrActivationsMismatch)
+	}
+	if !res.forward.Contains(node) || node.ID != res.record.loss {
+		return nil, fmt.Errorf("%w: training loss is not the differentiated loss", ErrActivationsMismatch)
+	}
+	loss := res.forward.NodeByID(res.record.loss)
+	if err := checkNodeMetadata("loss", node, loss); err != nil {
+		return nil, err
+	}
+	if !sameNodeSemantics(node, loss, res.forward) {
+		return nil, fmt.Errorf("%w: loss node semantics changed", ErrActivationsMismatch)
+	}
+	return loss, nil
 }
 
 func (res *BackwardResult) validateRecord() error {

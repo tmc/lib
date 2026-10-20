@@ -244,6 +244,7 @@ func Differentiate(fwdSnap *cudair.Snapshot, loss *cudair.Node, targets []*cudai
 		return nil, fmt.Errorf("cudaautograd: backward snapshot: %w", err)
 	}
 	record := &resultRecord{
+		loss:      loss.ID,
 		backward:  backward,
 		digest:    digestSnapshot(backward),
 		seed:      seedInput.ID,
