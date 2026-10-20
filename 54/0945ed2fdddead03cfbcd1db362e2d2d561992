@@ -1,0 +1,10 @@
+commit: 540945ed2fdddead03cfbcd1db362e2d2d561992
+date: 2026-10-20T01:14:50.972222+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 80013
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-managed-sentinel-admission-fix/candidate.patch
+source sha256: 1659e90a74403e0baf57ffeb844fa54eaa479ec6c85393b2e7a73e0f51e4c43f
