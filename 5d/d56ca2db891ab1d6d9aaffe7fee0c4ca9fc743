@@ -1,0 +1,10 @@
+commit: 5dd56ca2db891ab1d6d9aaffe7fee0c4ca9fc743
+date: 2026-10-20T02:31:11.699691+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 17785
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-never-call-cfg-fix/never-call-cfg.patch
+source sha256: 8fbf7a81bc81d040b82d5983e42c2325d1f58e0874e6a4b81145b1c7cb646a1b
