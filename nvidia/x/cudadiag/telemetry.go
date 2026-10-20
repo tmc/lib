@@ -19,6 +19,11 @@ import (
 // by raw SHA256. Receipt is the independent capture receipt, not the stream's
 // copy. RawArtifacts contains its retained source bytes. The zero value cannot
 // admit an exact diagnosis. Callers must not mutate options during the call.
+//
+// Thresholds.TargetTID must be the independently selected API caller thread.
+// The stream's scheduler and host thread IDs never select the target, so a
+// zero TargetTID cannot establish a scheduler match. Missing probes and loss
+// retain their own withholding reasons.
 type TelemetryOptions struct {
 	MaxBytes           int64
 	Workload           cudaworkload.WorkloadIdentity

@@ -75,6 +75,11 @@ type NativeCompositionOptions struct {
 
 // NativeRequestDiagnosis retains one logged attempt and its independent finding.
 // Evidence absence/refusal cannot remove that attempt from the population.
+// Observations are the supplied inputs, including their thresholds. For an
+// api_scheduler record with a zero TargetTID, composition diagnoses with the
+// separately validated request GroundTruth.TID instead; reproduce Diagnosis by
+// replaying the composition with that request log, not by diagnosing the
+// unbound Observations alone.
 type NativeRequestDiagnosis struct {
 	RequestID    string                   `json:"request_id"`
 	Attempt      string                   `json:"attempt"`
@@ -248,6 +253,12 @@ func ComposeNativeEvidence(ctx context.Context, r *NativeResult, o NativeComposi
 			row.Refusal = "native host/device clock mapping, scheduler/loss and independent baseline qualification unavailable"
 		}
 		row.Observations = input
+		if ok && record.Phase == "api_scheduler" && input.Thresholds.TargetTID == 0 {
+			// The logged thread was matched to the supplied process, operation,
+			// request and scheduler TID above; it binds only an unspecified
+			// target. Observations above keep the supplied thresholds.
+			input.Thresholds.TargetTID = g.TID
+		}
 		if row.Refusal != "" {
 			// The current native producer has no qualified host/CUPTI mapping;
 			// an incomplete request likewise cannot inherit a clock admission.

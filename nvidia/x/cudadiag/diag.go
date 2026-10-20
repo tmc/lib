@@ -44,7 +44,12 @@ type Thresholds struct {
 	DeviceBottleneckRatio    float64
 	MaxUncertaintyNS         int64
 	MaxLoss                  uint64
-	TargetTID                uint64
+	// TargetTID is the independently selected API caller thread. Zero means
+	// no target was selected, and the API/scheduler rule withholds: supplied
+	// scheduler evidence never selects its own thread. Pre-entry timing with
+	// an active scheduler probe binds the validated Submission.TID instead,
+	// which a nonzero TargetTID must equal.
+	TargetTID uint64
 }
 
 // DefaultThresholds returns sensible default diagnostic thresholds.
@@ -203,11 +208,9 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 		return withheldDiagnosis(res, in, "invalid time accounting: "+err.Error())
 	}
 
-	// Verify target scheduler evidence identity
+	// Verify target scheduler evidence identity against an independently
+	// selected thread; the evidence cannot authenticate its own TID.
 	targetTID := thresh.TargetTID
-	if targetTID == 0 && in.Sched.TID != 0 {
-		targetTID = in.Sched.TID
-	}
 	if len(in.PreEntries) != 0 && in.Sched.ProbePresent {
 		targetTID = in.PreEntries[0].Submission.TID
 	}
