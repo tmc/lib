@@ -699,7 +699,11 @@ func AccountTelemetry(r io.Reader, in AccountingInput, window string, start, end
 			if reading.Name != MetricTotalEnergyMJ {
 				continue
 			}
-			if reading.Evidence != EvidenceMeasured || !reading.IsInt || !reading.IsAvailable() || !reading.HasSourceTimestamp || reading.SourceTimestampDomain != manifest.ClockMonotonicDomain || reading.SourceTimestamp != sample.QueryStartNanos {
+			integer := reading.IsInt
+			if manifest.SchemaVersion >= SchemaVersionV3 {
+				_, integer = coverageInteger(reading.Number)
+			}
+			if reading.Evidence != EvidenceMeasured || !integer || !reading.IsAvailable() || !reading.HasSourceTimestamp || reading.SourceTimestampDomain != manifest.ClockMonotonicDomain || reading.SourceTimestamp != sample.QueryStartNanos {
 				return AccountingReport{}, fmt.Errorf("accounting: unknown or misaligned counter sensor timestamp")
 			}
 		}
