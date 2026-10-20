@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync/atomic"
 
 	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/egraph"
@@ -54,6 +55,16 @@ type workBudget struct {
 	scoring                           *scoringSnapshot
 	setup                             *egraphcore.MemoryScope
 	bootstrap                         int64
+	epoch                             *searchEpoch
+}
+
+// searchEpoch is the part of one Search that a measurement memo may retain
+// after Search returns: the evaluator Search was called with and whether
+// closeSearch has run. It is a separate object so that a memo does not keep
+// the workBudget alive.
+type searchEpoch struct {
+	owner   *ExecutableEvaluator
+	retired atomic.Bool
 }
 
 func searchWorkBudget(ctx context.Context, b SearchBudget, eval Evaluator) (context.Context, *workBudget, error) {
@@ -87,6 +98,10 @@ func searchWorkBudget(ctx context.Context, b SearchBudget, eval Evaluator) (cont
 	switch e := eval.(type) {
 	case *ExecutableEvaluator:
 		w.known = true
+		if err := w.setup.Reserve(int64(reflect.TypeFor[searchEpoch]().Size())); err != nil {
+			return ctx, nil, err
+		}
+		w.epoch = &searchEpoch{owner: e}
 	case *MockEvaluator:
 		w.known = true
 		var err error
@@ -103,11 +118,16 @@ func searchWorkBudget(ctx context.Context, b SearchBudget, eval Evaluator) (cont
 	return context.WithValue(ctx, workBudgetKey{}, w), w, nil
 }
 
-// closeSearch releases search-lifetime storage. Returned result scopes and
-// caller reservations keep their own owners; neither is released here.
+// closeSearch ends the Search epoch and releases search-lifetime storage.
+// Returned result scopes and caller reservations keep their own owners;
+// neither is released here. Contexts that outlive Search still carry w, so
+// retiring the epoch revokes capabilities such as measurement reuse.
 func (w *workBudget) closeSearch() {
 	if w == nil {
 		return
+	}
+	if w.epoch != nil {
+		w.epoch.retired.Store(true)
 	}
 	closeStateClones(w.memory.takeClones())
 	w.scoring = nil

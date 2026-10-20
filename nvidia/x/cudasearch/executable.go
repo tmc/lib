@@ -49,6 +49,12 @@ type OutputComparison struct {
 // must cover every externally observable output, including secondary consumers.
 // Held-out winner confirmation and promotion remain separate steps.
 type ExecutableEvaluator struct {
+	// MeasurementContext optionally admits empirical reuse within one Search.
+	// Empty context measures normally. Algorithm/state/static scoring work is
+	// never reused; each current compiled owner still needs successful Close.
+	MeasurementContext MeasurementContext
+	measurements       *measurementMemo
+
 	Generation int // Execution-owner generation; zero permits evaluation but not promotion.
 	Workload   WorkloadBindings
 	CostModel  egraph.CostModel
@@ -112,6 +118,8 @@ func (e *ExecutableEvaluator) Close() error {
 		reservation.release()
 	}
 	e.memoryReservations = nil
+	e.measurements.close()
+	e.measurements = nil
 	e.attemptMemory.Close()
 	e.attemptMemory = nil
 	e.Receipts = nil
@@ -245,6 +253,9 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if e.CompileTimeout > 0 {
 		compileCtx, cancelCompile = context.WithTimeout(ctx, e.CompileTimeout)
 	}
+	var measurements *measurementMemo
+	var measurementKey [32]byte
+	reusedMeasurement := false
 	executable, err := e.Compile(compileCtx, expr, e.Workload)
 	// Inspect the deadline before canceling our child context. A compiler may
 	// return an owner even when it reports failure or ignores cancellation.
@@ -267,6 +278,12 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 				cleanupTransferred = true
 				candidate = nil
 				err = errors.Join(err, fmt.Errorf("cudasearch: close candidate: %w", closeErr))
+			}
+			if candidate != nil && err == nil && measurements != nil && !reusedMeasurement {
+				if cacheErr := measurements.remember(measurementKey, e.Receipts, e.Comparison); cacheErr != nil {
+					candidate = nil
+					err = cacheErr
+				}
 			}
 		}()
 	}
@@ -306,71 +323,93 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			e.Preparation[arm.name] = phases
 		}
 	}
-	reset := func() error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if !e.HardwareLockChecker() {
-			return cudatrial.ErrHardwareLockRequired
-		}
-		if e.Workload.ResetState != nil {
-			return e.Workload.ResetState()
-		}
-		return nil
+	// Compilation may outlive the original lease observation. Reuse must not
+	// turn a lost current lease into a successful measured candidate.
+	if !e.HardwareLockChecker() {
+		return nil, cudatrial.ErrHardwareLockRequired
 	}
-	for i, arm := range []Executable{e.Baseline, executable} {
-		if err := reset(); err != nil {
-			return nil, err
-		}
-		e.comparisonArm = []string{"baseline", "candidate"}[i]
-		e.Comparison = nil
-		if err := e.compareExecutable(ctx, arm, i == 1, association); err != nil {
-			return nil, err
-		}
-	}
-	makeArm := func(name string, x Executable) cudatrial.Arm {
-		return cudatrial.Arm{Name: name, Run: func(ctx context.Context) (cudatrial.Receipt, error) {
-			if err := reset(); err != nil {
-				return cudatrial.Receipt{}, err
-			}
-			r, err := x.Run(ctx)
-			detached, copyErr := r.CloneWithMemory(e.attemptMemory.Reserve)
-			if copyErr != nil {
-				return r, errors.Join(err, r.Err, copyErr)
-			}
-			r = detached
-			if err != nil {
-				return r, errors.Join(err, r.Err)
-			}
-			if !r.Complete || r.Err != nil {
-				return r, errors.Join(fmt.Errorf("cudasearch: incomplete execution receipt"), r.Err)
-			}
-			if r.TimingKind != e.TimingKind {
-				return r, ErrTimingKindMismatch
-			}
-			d, err := r.DurationFor(e.TimingKind)
-			if err != nil {
-				return r, err
-			}
-			if d <= 0 {
-				return r, fmt.Errorf("cudasearch: nonpositive measured duration")
-			}
-			r.Timings = maps.Clone(r.Timings)
-			r.Provenance = maps.Clone(r.Provenance)
-			if r.Provenance == nil {
-				r.Provenance = make(map[string]string)
-			}
-			id := x.Identity()
-			if reserveErr := e.attemptMemory.Reserve(256 + int64(len(id))); reserveErr != nil {
-				return r, reserveErr
-			}
-			r.Provenance["executable_identity"] = strings.Clone(id)
-			return r, nil
-		}}
-	}
-	e.Receipts, err = cudatrial.InterleaveWithOptions(ctx, []cudatrial.Arm{makeArm("baseline", e.Baseline), makeArm("candidate", executable)}, e.Rounds, cudatrial.Options{RequireHardwareLock: true, HardwareLockChecker: e.HardwareLockChecker, ReserveMemory: e.attemptMemory.Reserve})
+	measurements, measurementKey, err = e.measurementAttempt(ctx, selection != nil, executable.Identity())
 	if err != nil {
 		return nil, err
+	}
+	if measurements != nil && measurements.entries[measurementKey] != nil {
+		if err := e.reuseMeasurement(measurements.entries[measurementKey], measurementKey); err != nil {
+			return nil, err
+		}
+		reusedMeasurement = true
+	}
+	if !reusedMeasurement {
+		reset := func() error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if !e.HardwareLockChecker() {
+				return cudatrial.ErrHardwareLockRequired
+			}
+			if e.Workload.ResetState != nil {
+				return e.Workload.ResetState()
+			}
+			return nil
+		}
+		for i, arm := range []Executable{e.Baseline, executable} {
+			if err := reset(); err != nil {
+				return nil, err
+			}
+			e.comparisonArm = []string{"baseline", "candidate"}[i]
+			e.Comparison = nil
+			if err := e.compareExecutable(ctx, arm, i == 1, association); err != nil {
+				return nil, err
+			}
+		}
+		makeArm := func(name string, x Executable) cudatrial.Arm {
+			return cudatrial.Arm{Name: name, Run: func(ctx context.Context) (cudatrial.Receipt, error) {
+				if err := reset(); err != nil {
+					return cudatrial.Receipt{}, err
+				}
+				r, err := x.Run(ctx)
+				detached, copyErr := r.CloneWithMemory(e.attemptMemory.Reserve)
+				if copyErr != nil {
+					return r, errors.Join(err, r.Err, copyErr)
+				}
+				r = detached
+				if err != nil {
+					return r, errors.Join(err, r.Err)
+				}
+				if !r.Complete || r.Err != nil {
+					return r, errors.Join(fmt.Errorf("cudasearch: incomplete execution receipt"), r.Err)
+				}
+				if r.TimingKind != e.TimingKind {
+					return r, ErrTimingKindMismatch
+				}
+				d, err := r.DurationFor(e.TimingKind)
+				if err != nil {
+					return r, err
+				}
+				if d <= 0 {
+					return r, fmt.Errorf("cudasearch: nonpositive measured duration")
+				}
+				r.Timings = maps.Clone(r.Timings)
+				r.Provenance = maps.Clone(r.Provenance)
+				if r.Provenance == nil {
+					r.Provenance = make(map[string]string)
+				}
+				id := x.Identity()
+				if reserveErr := e.attemptMemory.Reserve(256 + int64(len(id))); reserveErr != nil {
+					return r, reserveErr
+				}
+				r.Provenance["executable_identity"] = strings.Clone(id)
+				return r, nil
+			}}
+		}
+		e.Receipts, err = cudatrial.InterleaveWithOptions(ctx, []cudatrial.Arm{makeArm("baseline", e.Baseline), makeArm("candidate", executable)}, e.Rounds, cudatrial.Options{RequireHardwareLock: true, HardwareLockChecker: e.HardwareLockChecker, ReserveMemory: e.attemptMemory.Reserve})
+		if err != nil {
+			return nil, err
+		}
+		if measurements != nil {
+			if err := markMeasurement(e.attemptMemory, e.Receipts, measurementKey, e.MeasurementContext, false); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if err := bookkeepingSlots[time.Duration](e.attemptMemory, e.Rounds); err != nil {
 		return nil, err
@@ -405,6 +444,13 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	candidate = &CandidatePlan{Generation: e.Generation, WorkloadKey: e.Workload.Key(), InputKey: inputKey(e.Workload), VerificationPolicy: e.Policy, ID: executable.Identity(), Expr: expr, Derivation: derivation, Cost: float64(median.Nanoseconds()), CostSource: CostMeasured, Receipt: &selected, Trials: nil, Validated: true, Comparison: nil, Preparation: e.Preparation["candidate"], extraction: extraction, extractionLedger: ledger, metadata: resultMemory, metadataLedger: searchMemoryBudget(ctx)}
 	if err := e.detachCandidate(resultMemory, candidate); err != nil {
 		return nil, err
+	}
+	if measurements != nil {
+		comparison, copyErr := cloneMeasurementComparison(resultMemory, candidate.Comparison)
+		if copyErr != nil {
+			return nil, copyErr
+		}
+		candidate.Comparison = comparison
 	}
 	return candidate, nil
 }
