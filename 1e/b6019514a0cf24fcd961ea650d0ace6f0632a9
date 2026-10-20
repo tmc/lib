@@ -1,0 +1,10 @@
+commit: 1eb6019514a0cf24fcd961ea650d0ace6f0632a9
+date: 2026-10-20T00:59:01.230195+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 43748
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-window-input-admission-fix/candidate.patch
+source sha256: 16ee287036188316dd990fdab519a62dcfe2e6fb99012f31af7de249e076515a
