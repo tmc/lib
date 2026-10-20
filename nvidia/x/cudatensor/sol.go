@@ -170,11 +170,22 @@ func ComputeSOLBounds(g *CanonicalGraph, c Ceiling) (SOLReport, error) {
 	}
 	wholeUnfused := totalUnfusedBytes / c.BytesPerCycle
 	wholeFused := totalFusedBytes / c.BytesPerCycle
-	cyclesPerSecond := c.FrequencyGHz * 1e9
-	report.Unfused = report.Unfused / cyclesPerSecond
-	report.Fused = report.Fused / cyclesPerSecond
-	report.UnfusedWholeGraph = math.Max(totalCompute, wholeUnfused) / cyclesPerSecond
-	report.FusedWholeGraph = math.Max(totalCompute, wholeFused) / cyclesPerSecond
+	durations := []struct {
+		cycles  float64
+		seconds *float64
+	}{
+		{report.Unfused, &report.Unfused},
+		{report.Fused, &report.Fused},
+		{math.Max(totalCompute, wholeUnfused), &report.UnfusedWholeGraph},
+		{math.Max(totalCompute, wholeFused), &report.FusedWholeGraph},
+	}
+	for _, duration := range durations {
+		seconds, err := solSeconds(duration.cycles, c.FrequencyGHz)
+		if err != nil {
+			return SOLReport{}, err
+		}
+		*duration.seconds = seconds
+	}
 	report.FusedPrefetched = report.FusedWholeGraph
 	report.UnfusedBytes = totalUnfusedBytes
 	report.FusedBytes = totalFusedBytes
@@ -185,4 +196,21 @@ func ComputeSOLBounds(g *CanonicalGraph, c Ceiling) (SOLReport, error) {
 		}
 	}
 	return report, nil
+}
+
+// solSeconds converts cycles without overflowing the frequency conversion.
+func solSeconds(cycles, frequencyGHz float64) (float64, error) {
+	cyclesPerSecond := frequencyGHz * 1e9
+	seconds := cycles / cyclesPerSecond
+	if math.IsInf(cyclesPerSecond, 0) && !math.IsInf(cycles, 0) {
+		// Keep the exponent separate so that only the final result can
+		// overflow or underflow. Both mantissas are in [0.5, 1).
+		cm, ce := math.Frexp(cycles)
+		fm, fe := math.Frexp(frequencyGHz)
+		seconds = math.Ldexp(cm/fm/1e9, ce-fe)
+	}
+	if math.IsNaN(seconds) || math.IsInf(seconds, 0) || seconds == 0 && cycles != 0 {
+		return 0, ErrSOLOverflow
+	}
+	return seconds, nil
 }
