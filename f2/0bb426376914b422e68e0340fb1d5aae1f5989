@@ -1,0 +1,10 @@
+commit: f20bb426376914b422e68e0340fb1d5aae1f5989
+date: 2026-10-20T04:07:41.888559+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 71678
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-nccl-progress-consumer/candidate.patch
+source sha256: 62b3f2ebf038f7732d1bf72a3cecbf3563bf5017cdf816f19c27cd0c8c92800a
