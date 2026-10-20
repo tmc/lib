@@ -273,8 +273,8 @@ func TestSparseTeacher_Native(t *testing.T) {
 	if os.Getenv("DISTILL_NATIVE") != "1" {
 		t.Skip("coordinator native dispatch not requested")
 	}
-	if os.Getenv("GPU_LOCK_HELD") == "" || os.Getenv("GPU_LOCK_DISABLED") != "" || os.Getenv("CUDATEST_NO_LOCK") != "" {
-		t.Fatal("actual inherited gpu-lock required")
+	if err := distillNativeAdmission(os.Getenv); err != nil {
+		t.Fatal(err)
 	}
 	if err := driver.Load(""); err != nil {
 		t.Fatal(err)

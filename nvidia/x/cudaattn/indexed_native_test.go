@@ -132,8 +132,8 @@ func TestIndexedPreparedPacketMetadata(t *testing.T) {
 
 func indexedNativeDevice(t *testing.T) *cuda.Device {
 	t.Helper()
-	if os.Getenv("GPU_LOCK_HELD") == "" || os.Getenv("GPU_LOCK_DISABLED") != "" || os.Getenv("CUDATEST_NO_LOCK") != "" {
-		t.Fatal("native indexed packet requires coordinator gpu-lock lease")
+	if err := indexedNativeAdmission(os.Getenv); err != nil {
+		t.Fatal(err)
 	}
 	if err := driver.Load(""); err != nil {
 		t.Fatal(err)

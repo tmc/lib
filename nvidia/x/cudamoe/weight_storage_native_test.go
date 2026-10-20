@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
@@ -229,14 +228,7 @@ func weightPacketReference(raw []byte, scales, input []float32, intermediate int
 }
 
 func weightPacketLock() error {
-	if os.Getenv("GPU_LOCK_DISABLED") != "" || os.Getenv("CUDATEST_NO_LOCK") != "" {
-		return fmt.Errorf("disabled lock cannot qualify native work")
-	}
-	pid, err := strconv.Atoi(os.Getenv("GPU_LOCK_HELD"))
-	if err != nil || pid <= 0 {
-		return fmt.Errorf("real inherited gpu-lock pid required")
-	}
-	return nil
+	return weightStorageNativeAdmission(os.Getenv)
 }
 
 func TestMoEWeightPacketReference(t *testing.T) {

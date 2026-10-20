@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -252,9 +251,8 @@ func TestAttentionResidual_Native(t *testing.T) {
 	if os.Getenv("ATTENTION_RESIDUAL_NATIVE") != "1" {
 		t.Skip("explicit native qualification required")
 	}
-	pid, err := strconv.Atoi(os.Getenv("GPU_LOCK_HELD"))
-	if err != nil || pid <= 0 {
-		t.Fatal("requires actual gpu-lock holder pid")
+	if err := attentionResidualNativeAdmission(os.Getenv); err != nil {
+		t.Fatal(err)
 	}
 	dir, outDir := os.Getenv("ATTENTION_RESIDUAL_ARTIFACTS"), os.Getenv("ATTENTION_RESIDUAL_OUTPUT")
 	if !filepath.IsAbs(dir) || !filepath.IsAbs(outDir) {
@@ -650,9 +648,8 @@ func TestAttentionResidual_Timing(t *testing.T) {
 	if os.Getenv("ATTENTION_RESIDUAL_TIMING") != "1" {
 		t.Skip("explicit post-correctness timing packet required")
 	}
-	pid, err := strconv.Atoi(os.Getenv("GPU_LOCK_HELD"))
-	if err != nil || pid <= 0 {
-		t.Fatal("requires actual gpu-lock holder pid")
+	if err := attentionResidualNativeAdmission(os.Getenv); err != nil {
+		t.Fatal(err)
 	}
 	dir, outDir, qualified := os.Getenv("ATTENTION_RESIDUAL_ARTIFACTS"), os.Getenv("ATTENTION_RESIDUAL_TIMING_OUTPUT"), os.Getenv("ATTENTION_RESIDUAL_QUALIFIED")
 	if !filepath.IsAbs(dir) || !filepath.IsAbs(outDir) || !filepath.IsAbs(qualified) {
