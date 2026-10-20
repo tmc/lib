@@ -25,6 +25,9 @@ import (
 // must be the target's mapped image, not an unrelated host library. Layer is
 // either runtime or driver; combining layers would double count nested APIs.
 type Config struct {
+	// Interposition declares exact selected symbols; omitted symbols remain unknown.
+	// Declarations are caller-reported and do not establish verified coactivity.
+	Interposition                      []InterpositionDeclaration
 	Backend                            string
 	PID                                int
 	Library, Version, Layer, TraceRoot string
@@ -80,6 +83,10 @@ type Result struct {
 // Open resolves and attaches entry/return probes. Permission, missing symbols,
 // unsupported signatures and tracefs failures return errors without fallback.
 func Open(cfg Config) (*Collector, error) {
+	declarations, err := validateInterposition(cfg)
+	if err != nil {
+		return nil, err
+	}
 	if runtime.GOOS != "linux" || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64") {
 		return nil, fmt.Errorf("cudatracehost: linux/amd64 or linux/arm64 required")
 	}
@@ -168,7 +175,7 @@ func Open(cfg Config) (*Collector, error) {
 		tagNames[uint64(2*i)] = fmt.Sprintf("cuda%d_in", i)
 		tagNames[uint64(2*i+1)] = fmt.Sprintf("cuda%d_out", i)
 		name := fmt.Sprintf("cuda%d", i)
-		id := cudaprobe.Identity{Process: cudaprobe.Process{PID: uint32(cfg.PID), Generation: generation}, Provenance: "linux_tracefs_uprobe", Library: cfg.Library, BuildID: image.BuildID, Version: cfg.Version, Symbol: symbol, ABI: captureABI()}
+		id := probeIdentity(cfg, generation, symbol, image.BuildID, declarations[symbol])
 		targets = append(targets, Target{Name: name, Identity: id, Arguments: n})
 		var fetch []string
 		regs, stackOffset := captureRegisters()
@@ -271,6 +278,9 @@ func Open(cfg Config) (*Collector, error) {
 		}
 	}
 	m := Manifest{ThreadCoverage: coverage, Backend: backend, Clock: "linux_monotonic", Epoch: strings.TrimSpace(string(boot)), Process: cudaprobe.Process{PID: uint32(cfg.PID), Generation: generation}, Images: images, Complete: false, LossStatus: "unknown", ThreadScope: "attachment_snapshot", LibraryVersionStatus: "caller_reported"}
+	for _, target := range targets {
+		m.Interposition = append(m.Interposition, calls.targets[target.Name].Identity)
+	}
 	if backend == "bpf" {
 		m.ThreadScope = "attachment_snapshot_new_threads_unknown"
 		m.KernelBTFHash = group.KernelBTFHash
@@ -429,6 +439,8 @@ func (c *Collector) Close() error {
 // Manifest records attachment provenance and explicit coverage limits. Epoch
 // is the kernel boot ID for the monotonic clock, not a sensor clock mapping.
 type Manifest struct {
+	// Interposition binds caller declarations to actual attachment target identities.
+	Interposition                                 []cudaprobe.Identity
 	ThreadCoverage                                SnapshotCoverage
 	ThreadRescans                                 []ThreadRescan
 	ThreadRescanInterval                          time.Duration
@@ -446,6 +458,7 @@ type Manifest struct {
 // Manifest returns a copy of immutable attachment provenance.
 func (c *Collector) Manifest() Manifest {
 	m := c.manifest
+	m.Interposition = append([]cudaprobe.Identity(nil), m.Interposition...)
 	if c.rescanner != nil {
 		m.ThreadRescans = c.rescanner.snapshot()
 		m.ThreadRescanInterval = c.rescanInterval
@@ -728,4 +741,42 @@ func validateImageABI(class elf.Class, data elf.Data, machine elf.Machine, arch 
 		return fmt.Errorf("cudatracehost: ELF architecture does not match %s capture ABI", arch)
 	}
 	return nil
+}
+
+// InterpositionDeclaration reports the caller's interposition status for Symbol.
+// Symbol must be one of Config.Symbols. Evidence is bounded by Interposition.Validate.
+type InterpositionDeclaration struct {
+	Symbol        string
+	Interposition cudaprobe.Interposition
+}
+
+func validateInterposition(cfg Config) (map[string]cudaprobe.Interposition, error) {
+	if len(cfg.Interposition) > 128 {
+		return nil, fmt.Errorf("cudatracehost: too many interposition declarations")
+	}
+	selected := make(map[string]bool, len(cfg.Symbols))
+	for _, symbol := range cfg.Symbols {
+		selected[symbol] = true
+	}
+	declarations := make(map[string]cudaprobe.Interposition, len(cfg.Interposition))
+	for _, d := range cfg.Interposition {
+		if len(d.Symbol) == 0 || len(d.Symbol) > 256 || !selected[d.Symbol] {
+			return nil, fmt.Errorf("cudatracehost: interposition symbol is not selected")
+		}
+		if _, ok := declarations[d.Symbol]; ok {
+			return nil, fmt.Errorf("cudatracehost: duplicate interposition declaration")
+		}
+		if err := d.Interposition.Validate(); err != nil {
+			return nil, err
+		}
+		declarations[d.Symbol] = d.Interposition
+	}
+	return declarations, nil
+}
+
+func probeIdentity(cfg Config, generation uint64, symbol, buildID string, declaration cudaprobe.Interposition) cudaprobe.Identity {
+	if declaration.Status == "" {
+		declaration.Status = "unknown"
+	}
+	return cudaprobe.Identity{Process: cudaprobe.Process{PID: uint32(cfg.PID), Generation: generation}, Provenance: "linux_tracefs_uprobe", Library: cfg.Library, BuildID: buildID, Version: cfg.Version, Symbol: symbol, ABI: captureABI(), Interposition: declaration}
 }

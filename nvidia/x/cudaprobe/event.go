@@ -23,9 +23,9 @@ type Identity struct {
 	ThreadGeneration uint64
 	Process          Process
 	// Provenance identifies the capture source, for example "uprobe" or
-	// "synthetic". Interposed reports that an in-process shim was also active.
-	Provenance string
-	Interposed bool
+	// "synthetic". Interposition retains a caller declaration, not proof of shim activity.
+	Provenance    string
+	Interposition Interposition
 	// AddressSpace identifies a CUDA address-space lifetime, including context
 	// reuse. Zero means unavailable; it must not join allocation observations.
 	AddressSpace                           uint64
@@ -267,4 +267,36 @@ func Decode(c Capture) (Event, error) {
 	}
 	e.Decoded = true
 	return e, nil
+}
+
+// Interposition is a caller-reported declaration for one exact probe target.
+// Status is unknown (also the zero value), declared_active or declared_inactive.
+// Evidence describes the declaration's source, not independently verified activity.
+type Interposition struct {
+	Status   string
+	Evidence string
+}
+
+func (i Interposition) status() string {
+	if i.Status == "" {
+		return "unknown"
+	}
+	return i.Status
+}
+
+// Validate checks the declaration's syntax and bounds. It does not verify it.
+func (i Interposition) Validate() error {
+	switch i.status() {
+	case "unknown":
+		if i.Evidence != "" {
+			return fmt.Errorf("cudaprobe: unknown interposition has evidence")
+		}
+	case "declared_active", "declared_inactive":
+		if len(i.Evidence) == 0 || len(i.Evidence) > 1024 {
+			return fmt.Errorf("cudaprobe: interposition evidence must contain 1 to 1024 bytes")
+		}
+	default:
+		return fmt.Errorf("cudaprobe: invalid interposition status")
+	}
+	return nil
 }

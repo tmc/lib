@@ -17,11 +17,15 @@ func (e Event) Record(received time.Time) (cudaflightrecorder.Record, error) {
 	if received.IsZero() {
 		return cudaflightrecorder.Record{}, fmt.Errorf("cudaprobe: missing collector receipt time")
 	}
+	if err := e.Identity.Interposition.Validate(); err != nil {
+		return cudaflightrecorder.Record{}, err
+	}
 	u := func(v uint64) string { return strconv.FormatUint(v, 10) }
 	labels := map[string]string{
 		"record_kind": "cuda_probe", "provenance": e.Identity.Provenance,
-		"probe.interposed": strconv.FormatBool(e.Identity.Interposed),
-		"duration_status":  "unavailable", "timestamp_source": "collector_receipt",
+		"probe.interposition":        e.Identity.Interposition.status(),
+		"probe.interposition_source": "unknown",
+		"duration_status":            "unavailable", "timestamp_source": "collector_receipt",
 		"probe.timestamp_ns": u(e.Timestamp), "probe.clock": "host_monotonic",
 		"probe.sequence": u(e.Sequence), "probe.tid": u(uint64(e.Identity.ThreadID)), "probe.thread_generation": u(e.Identity.ThreadGeneration), "probe.thread_generation_known": strconv.FormatBool(e.Identity.ThreadGenerationKnown), "probe.pid": u(uint64(e.Identity.Process.PID)),
 		"probe.process_generation": u(e.Identity.Process.Generation),
@@ -31,6 +35,10 @@ func (e Event) Record(received time.Time) (cudaflightrecorder.Record, error) {
 		"probe.abi": e.Identity.ABI, "probe.decoded": strconv.FormatBool(e.Decoded),
 		"probe.return_known": strconv.FormatBool(e.ReturnKnown),
 		"tensor_shapes":      "unavailable", "tensor_dtypes": "unavailable", "kernel_identity": "unavailable",
+	}
+	if e.Identity.Interposition.status() != "unknown" {
+		labels["probe.interposition_source"] = "caller_reported"
+		labels["probe.interposition_evidence"] = e.Identity.Interposition.Evidence
 	}
 	if labels["provenance"] == "" {
 		labels["provenance"] = "unavailable"
