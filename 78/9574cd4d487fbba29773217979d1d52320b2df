@@ -1,0 +1,10 @@
+commit: 789574cd4d487fbba29773217979d1d52320b2df
+date: 2026-10-20T00:28:18.509955+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 44407
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-unit131-permissions/candidate.patch
+source sha256: 4e53a632f4da88a4433f124aff25e13fe66ff7f3ef28a89661ae2ddab0bee3d2
