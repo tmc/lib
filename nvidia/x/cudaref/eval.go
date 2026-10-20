@@ -35,11 +35,17 @@ func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[s
 
 // EvaluateSnapshotAll executes a validated immutable snapshot on the CPU and
 // returns the value of every node, keyed by node ID. Input values are copied.
+// Every node must use Float32; other data types are rejected before loading inputs.
 // Empty mean reductions produce NaN for each output cell; if there are no
 // output cells, the result is empty.
 func EvaluateSnapshotAll(snap *cudair.Snapshot, inputs map[string][]float32) (map[int][]float32, error) {
 	if snap == nil {
 		return nil, errors.New("cudaref: nil snapshot")
+	}
+	for _, n := range snap.Order() {
+		if n.Type != cudair.Float32 {
+			return nil, fmt.Errorf("cudaref: node %s: unsupported data type %s; requires float32", n.Name, n.Type)
+		}
 	}
 	values := make(map[int][]float32)
 
