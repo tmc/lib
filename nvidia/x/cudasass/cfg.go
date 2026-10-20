@@ -51,7 +51,7 @@ type CFG struct {
 // guard is absent or @PT is unconditional; any other guard, or a predicate
 // operand other than PT, also allows the fall-through. A guard of @!PT, or a
 // predicate operand of !PT, never branches. A call has a Call edge to its
-// target when the target is inside fn, and always falls through.
+// target inside fn unless its guard never holds, and always falls through.
 //
 // A direct branch whose target names no block of fn is an error rather than
 // a missing edge.
@@ -108,7 +108,7 @@ func NewCFG(fn *Function) (*CFG, error) {
 				add(i+1, FallThrough)
 			}
 		case base == "CALL":
-			if ops := splitOperands(last.Operands); len(ops) > 0 {
+			if ops := splitOperands(last.Operands); !never && len(ops) > 0 {
 				if a, ok := fn.target(ops[len(ops)-1]); ok {
 					if to, ok := block[a]; ok {
 						add(to, Call)
