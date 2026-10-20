@@ -1,0 +1,10 @@
+commit: 61d805f6735236699aa4acf5ec74ea31279be873
+date: 2026-10-20T02:30:58.659119+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 17707
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-cluster-shared-race-fix/candidate.patch
+source sha256: b7c9b2b3558d01ee2f4f96407f6dce626a87d9804e67d411ae2b468260515431
