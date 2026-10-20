@@ -167,3 +167,50 @@ There is no second join.
 - Native callbacks (v7 descriptors, event masks, lifetimes), authentic
   healthy and loss captures, observer cost per plugin and mask, and
   multi-node and backend cells are not covered.
+
+## Separate task-owned progress-monitor sidecar
+
+`ReadProgressSnapshots` and `SummarizeProgress` select only
+`nccl.progress-monitor.diagnostic.v1`, from the task-owned patch retained at
+`testdata/progress-monitor-export.patch` (SHA-256
+`e8ce98d68626e1fa8275832daa4c06a5591948430077a74aea8cad2baad32da4`).
+Its external base is the same exact2.32.3 source commit above, but this format is
+**not emitted by stock NCCL**, the example v7 profiler, Inspector or RAS.
+None of their profiles, schemas, needs or allowlists is broadened by this API.
+
+The source patch's pure C++ state/encoder was host-tested; the NCCL/CUDA
+integration was not compiled or executed. The four encoded rows retained in
+`progress_snapshot_test.go` are actual output of those pure-header controls,
+with SHA-256 `91446f9f4155883c135872170d32d32615db1b7caa6aab22b1d041a13fa590a5`.
+They are constructed cross-language controls, not authentic producer captures.
+Other sidecar/Inspector controls are independently constructed or explicitly
+mutated; no numerical/native or same-run dual-plugin qualification is implied.
+
+The reader preserves exact16-slot counts/times and64 channel masks, source,
+build/capture/process/boot/worker/registration identities, copy generation and
+launch/success bounds, status, reset-unknown and upstream-loss-unknown. It
+checks required field presence, strict integer domains, units, dimensions,
+copy-event and nonstale bounds, and overflow-safe output accounting. A missing
+terminal, retained-row gap, exporter omission or untracked registration keeps
+exporter completeness false. Incomplete rows or contradictory source identities
+are errors; omissions remain visible and withhold dependent comparisons.
+
+The actual public consumer re-reads an existing Inspector Record's retained
+Raw, rejects edited decoded fields, and binds complete communicator/rank and
+explicit supplied process/capture/registration provenance. It does not infer an
+operation or collective sequence from a counter slot, treat a host callback as
+GPU completion, or construct a second join. Raw diagnostic facts, existing
+Inspector facts and caller assertions remain separate. Adjacent successful
+copy generations may report observed increased/unchanged integer counts under
+an omission-free exporter artifact. Decreases, failed/stale copy chains or
+missing coverage withhold affected comparisons. An unchanged counter is not a
+stall or GPU failure; non-atomic snapshots, reset-unknown and upstream-loss-
+unknown cannot establish completion, population zero-loss or calibrated age.
+Inspector collective/P2P drops never fill mirror/phase/proxy family coverage.
+
+Migration is additive: old files still use their existing readers and explicit
+unsupported results; only an opted-in patched producer can select this custom
+reader. Callers supply a raw SHA-256 and independently held expected identity;
+matching strings/digests establish integrity and association, not authenticity.
+Full127 producer-build/ABI/native, authentic healthy/delayed/control/loss,
+operational ownership, observer, platform and distributed cells remain open.
