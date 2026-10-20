@@ -1,0 +1,10 @@
+commit: e0815a5389bf750383cb7503062dc4085480a30b
+date: 2026-10-20T00:29:04.070602+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 47191
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-extraction-baseline-audit/repair/candidate.patch
+source sha256: f7a16d48fa1e361cbdb7141a93f039fee6e09ce4dbe99209199c047e961bd86d
