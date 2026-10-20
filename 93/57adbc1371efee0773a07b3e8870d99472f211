@@ -1,0 +1,10 @@
+commit: 9357adbc1371efee0773a07b3e8870d99472f211
+date: 2026-10-20T03:49:31.248194+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 46160
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-serving-context-final-composition/candidate.patch
+source sha256: 5b73cd1324dd703e05e7116cf18ca7713bdf39f48497b3da66df6c1e5acde3e8
