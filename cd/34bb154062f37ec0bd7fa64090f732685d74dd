@@ -1,0 +1,10 @@
+commit: cd34bb154062f37ec0bd7fa64090f732685d74dd
+date: 2026-10-20T00:29:56.126079+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 49449
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-autograd-loss-identity/PATCH.diff
+source sha256: 2dfefa09c10a20e340855596042d6c748b9f8743f32a04992eecd09d0c0d5364
