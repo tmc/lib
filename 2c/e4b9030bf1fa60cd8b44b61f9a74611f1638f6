@@ -1,0 +1,10 @@
+commit: 2ce4b9030bf1fa60cd8b44b61f9a74611f1638f6
+date: 2026-10-20T00:38:25.309258+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 82479
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-decode-exhaustion/decode-exhaustion.patch
+source sha256: 5f435276b898911ac0a792a76d627dc2edc06e92cdc9dcd917c394b9fb88d719
