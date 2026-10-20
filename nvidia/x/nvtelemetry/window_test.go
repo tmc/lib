@@ -18,6 +18,7 @@ func TestTimeWeightedMeanDiffersFromArithmeticMean(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      10.0,
@@ -29,6 +30,7 @@ func TestTimeWeightedMeanDiffersFromArithmeticMean(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      10.0,
@@ -40,6 +42,7 @@ func TestTimeWeightedMeanDiffersFromArithmeticMean(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      90.0,
@@ -152,6 +155,7 @@ func TestCumulativeEnergyResetDetected(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricTotalEnergyMJ,
+					Unit:       nvtelemetry.UnitMillijoules,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					IntValue:   100_000,
@@ -164,6 +168,7 @@ func TestCumulativeEnergyResetDetected(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricTotalEnergyMJ,
+					Unit:       nvtelemetry.UnitMillijoules,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					IntValue:   120_000,
@@ -176,6 +181,7 @@ func TestCumulativeEnergyResetDetected(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricTotalEnergyMJ,
+					Unit:       nvtelemetry.UnitMillijoules,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					IntValue:   5_000, // RESET! Counter decreased
@@ -210,6 +216,7 @@ func TestWindowCoverageAndGaps(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      50.0,
@@ -221,6 +228,7 @@ func TestWindowCoverageAndGaps(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      50.0,
@@ -253,6 +261,7 @@ func TestWindowDoesNotBridgeUnavailableGaps(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      50.0,
@@ -264,6 +273,7 @@ func TestWindowDoesNotBridgeUnavailableGaps(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:              nvtelemetry.MetricGPUUtilization,
+					Unit:              nvtelemetry.UnitPercent,
 					DeviceUUID:        "GPU-TEST",
 					Evidence:          nvtelemetry.EvidenceUnavailable,
 					UnavailableReason: nvtelemetry.ReasonQueryFailure,
@@ -275,6 +285,7 @@ func TestWindowDoesNotBridgeUnavailableGaps(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:              nvtelemetry.MetricGPUUtilization,
+					Unit:              nvtelemetry.UnitPercent,
 					DeviceUUID:        "GPU-TEST",
 					Evidence:          nvtelemetry.EvidenceUnavailable,
 					UnavailableReason: nvtelemetry.ReasonQueryFailure,
@@ -286,6 +297,7 @@ func TestWindowDoesNotBridgeUnavailableGaps(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      50.0,
@@ -317,6 +329,7 @@ func TestWindowMaxAllowedGapEnforcement(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      40.0,
@@ -328,6 +341,7 @@ func TestWindowMaxAllowedGapEnforcement(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      50.0,
@@ -339,6 +353,7 @@ func TestWindowMaxAllowedGapEnforcement(t *testing.T) {
 			Readings: []nvtelemetry.Reading{
 				{
 					Name:       nvtelemetry.MetricGPUUtilization,
+					Unit:       nvtelemetry.UnitPercent,
 					DeviceUUID: "GPU-TEST",
 					Evidence:   nvtelemetry.EvidenceMeasured,
 					Value:      60.0,
