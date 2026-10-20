@@ -229,7 +229,7 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 		select {
 		case <-finished:
 			finished = nil
-			if completion.request.State == cudabatch.StateCanceled && completion.request.PrefilledTokens == 0 && len(completion.request.GeneratedTokens) == 0 {
+			if completion.request.State == cudabatch.StateCompleted && completion.request.Err() != nil || completion.request.State == cudabatch.StateCanceled && completion.request.PrefilledTokens == 0 && len(completion.request.GeneratedTokens) == 0 {
 				return completion.request.Err()
 			}
 		case <-ctx.Done():

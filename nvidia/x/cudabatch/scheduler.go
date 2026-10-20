@@ -266,8 +266,19 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 			// Ensure token can be appended
 			seqHash := hashSeqID(req.ID)
 			if err := s.kvTracker.AppendToken(seqHash); err != nil {
-				// Memory exhausted during decode
+				// No execution owns this request: Schedule rejects an outstanding
+				// step before growing KV. Finish the failed request so its
+				// blocks can serve other waiting work.
 				req.err = err
+				if err == ErrCorruptBlockTable {
+					// Keep the owner for retry: cleanup cannot safely release
+					// a changed or invalid allocation.
+					continue
+				}
+				req.State = StateCompleted
+				req.completedAt = time.Now()
+				s.cleanupRequestResourcesLocked(req)
+				s.retainTerminalLocked(req)
 				continue
 			}
 			req.BlockTable = s.kvTracker.kvMgr.Table(seqHash)
