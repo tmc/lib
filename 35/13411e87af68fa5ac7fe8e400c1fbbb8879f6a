@@ -1,0 +1,10 @@
+commit: 3513411e87af68fa5ac7fe8e400c1fbbb8879f6a
+date: 2026-10-20T00:51:37.900622+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 26162
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-sol-frequency-conversion-fix/candidate.patch
+source sha256: d54de3204363657e00bb905234a4389b234a7f70fcfc2b3ea1c3ec5ab106237e
