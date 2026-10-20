@@ -1,0 +1,10 @@
+commit: 615c7696f31b5d0b4f55e5d55c5dbaabd7b31e05
+date: 2026-10-20T00:34:49.463127+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 65490
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-reference-dtype-admission/reference-dtype-admission.patch
+source sha256: 1afc5e0b2113cc160e887ba22d6f383d2b6f1a9197518b90dda9d987e548e69f
