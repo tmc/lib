@@ -664,29 +664,37 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		}
 
 		parity, ok := t.resolveInt(operands[2])
-		if ok {
-			if parity != 0 && parity != 1 {
-				violations = append(violations, ValidationError{
-					Line:      inst.Line,
-					Opcode:    inst.Opcode,
-					Violation: ErrInvalidParity,
-					Barrier:   addr,
-					Phase:     b.Phase,
-					Actual:    parity,
-					Message:   fmt.Sprintf("invalid phase parity value %d (must be 0 or 1)", parity),
-				})
-			} else if parity != int64(b.Parity()) {
-				violations = append(violations, ValidationError{
-					Line:      inst.Line,
-					Opcode:    inst.Opcode,
-					Violation: ErrPhaseParity,
-					Barrier:   addr,
-					Phase:     b.Phase,
-					Expected:  int64(b.Parity()),
-					Actual:    parity,
-					Message:   fmt.Sprintf("phase parity mismatch on %q: expected parity %d for phase %d, got %d", addr, b.Parity(), b.Phase, parity),
-				})
-			}
+		if !ok {
+			return []ValidationError{{
+				Line:      inst.Line,
+				Opcode:    inst.Opcode,
+				Violation: "unverified wait parity",
+				Barrier:   addr,
+				Phase:     b.Phase,
+				Message:   "wait parity cannot be resolved; barrier phase remains unverified",
+			}}
+		}
+		if parity != 0 && parity != 1 {
+			violations = append(violations, ValidationError{
+				Line:      inst.Line,
+				Opcode:    inst.Opcode,
+				Violation: ErrInvalidParity,
+				Barrier:   addr,
+				Phase:     b.Phase,
+				Actual:    parity,
+				Message:   fmt.Sprintf("invalid phase parity value %d (must be 0 or 1)", parity),
+			})
+		} else if parity != int64(b.Parity()) {
+			violations = append(violations, ValidationError{
+				Line:      inst.Line,
+				Opcode:    inst.Opcode,
+				Violation: ErrPhaseParity,
+				Barrier:   addr,
+				Phase:     b.Phase,
+				Expected:  int64(b.Parity()),
+				Actual:    parity,
+				Message:   fmt.Sprintf("phase parity mismatch on %q: expected parity %d for phase %d, got %d", addr, b.Parity(), b.Phase, parity),
+			})
 		}
 
 		if !b.Arrived || b.PendingArrivals > 0 {
