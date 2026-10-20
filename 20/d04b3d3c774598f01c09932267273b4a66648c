@@ -1,0 +1,10 @@
+commit: 20d04b3d3c774598f01c09932267273b4a66648c
+date: 2026-10-20T00:28:08.418685+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 43585
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-claude-workhorse/r19/u34/u34-cumulative.patch
+source sha256: 8d0173f20b880ae03e1c36aa37b5ff8230288fcf01be829ef8a56e8acd23a3d1
