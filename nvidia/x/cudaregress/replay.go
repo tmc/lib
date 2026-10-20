@@ -408,6 +408,9 @@ func CompareExecution(plan *ExperimentPlan, exec *ExecutionReceipt, opts ReplayO
 	if plan == nil || exec == nil {
 		return nil, errors.New("cudaregress: nil plan or execution receipt")
 	}
+	if err := validateComparisonExecution(plan, exec); err != nil {
+		return nil, err
+	}
 
 	timingKind := plan.TimingScope.Channel
 	var baseDurs, candDurs []time.Duration
@@ -555,4 +558,59 @@ func CompareExecution(plan *ExperimentPlan, exec *ExecutionReceipt, opts ReplayO
 	}
 
 	return comp, nil
+}
+
+// validateComparisonExecution checks retained experiment identity and the exact
+// comparative population produced by Replay. It does not authenticate receipt
+// claims, parent lineage, artifacts or the observed execution environment.
+func validateComparisonExecution(plan *ExperimentPlan, exec *ExecutionReceipt) error {
+	if exec.ExecutionID == "" || plan.PlanID == "" || plan.PlanDigest == "" || exec.PlanID != plan.PlanID || exec.PlanDigest != plan.PlanDigest {
+		return errors.New("cudaregress: comparison receipt identity mismatch")
+	}
+	digest, err := ComputePlanDigest(plan)
+	if err != nil {
+		return fmt.Errorf("cudaregress: comparison plan digest: %w", err)
+	}
+	if digest != plan.PlanDigest {
+		return errors.New("cudaregress: comparison plan digest mismatch")
+	}
+	if plan.Version != Version || plan.Rounds <= 0 || plan.StoppingRules.MaxTrials <= 0 || plan.Rounds > plan.StoppingRules.MaxTrials/2 {
+		return errors.New("cudaregress: invalid comparison plan population")
+	}
+	switch plan.ExecutionOrder {
+	case "ABBA", "interleaved", "sequential":
+	default:
+		return errors.New("cudaregress: invalid comparison plan order")
+	}
+	if exec.RoundsCompleted < 0 || exec.RoundsCompleted > plan.Rounds || len(exec.ArmReceipts) > 2*plan.Rounds {
+		return errors.New("cudaregress: comparison round count contradicts plan")
+	}
+	completed := 2 * exec.RoundsCompleted
+	if len(exec.ArmReceipts) < completed || len(exec.ArmReceipts)-completed > 2 {
+		return errors.New("cudaregress: comparison receipts contradict completed rounds")
+	}
+	if !exec.Partial && (exec.RoundsCompleted != plan.Rounds || len(exec.ArmReceipts) != 2*plan.Rounds) {
+		return errors.New("cudaregress: complete comparison is missing planned arms")
+	}
+	for i, receipt := range exec.ArmReceipts {
+		round := i/2 + 1
+		name := "baseline"
+		candidateFirst := plan.ExecutionOrder == "ABBA" && round%2 == 0
+		if (i%2 == 1) != candidateFirst {
+			name = "candidate"
+		}
+		if receipt.Round != round || receipt.Name != name {
+			return errors.New("cudaregress: comparison arm or round differs from planned order")
+		}
+		if receipt.Complete && receipt.Err != nil || !exec.Partial && !receipt.Complete {
+			return errors.New("cudaregress: comparison arm completeness is contradictory")
+		}
+	}
+	// Replay may halt on the last failed arm before incrementing RoundsCompleted.
+	// An otherwise complete pair has passed that increment and cannot claim this
+	// extra, unfinished round. A one-arm prefix can end on cancellation.
+	if exec.Partial && len(exec.ArmReceipts)-completed == 2 && exec.ArmReceipts[len(exec.ArmReceipts)-1].Complete {
+		return errors.New("cudaregress: comparison completed pair is not counted")
+	}
+	return nil
 }

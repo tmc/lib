@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -485,20 +486,21 @@ func TestReplay_PartialRun(t *testing.T) {
 
 func TestPreserve_MissingFamiliesVsMeasuredZero(t *testing.T) {
 	inc := validAdmittedIncident()
-	plan, _, err := cudaregress.NewPlanFromIncident(inc, cudaregress.PlanOptions{})
+	plan, _, err := cudaregress.NewPlanFromIncident(inc, cudaregress.PlanOptions{Rounds: 3})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	execRec := &cudaregress.ExecutionReceipt{
+		PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RoundsCompleted: 3,
 		ExecutionID: "exec-fam-test",
 		ArmReceipts: []cudatrial.Receipt{
-			{Name: "baseline", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "baseline", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "baseline", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "candidate", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "candidate", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "candidate", Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "baseline", Round: 1, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "candidate", Round: 1, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "candidate", Round: 2, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "baseline", Round: 2, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "baseline", Round: 3, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "candidate", Round: 3, Complete: true, WallElapsed: 100 * time.Microsecond},
 		},
 	}
 
@@ -524,20 +526,21 @@ func TestPreserve_MissingFamiliesVsMeasuredZero(t *testing.T) {
 
 func TestPreserve_ResourceVsPerformanceChanges(t *testing.T) {
 	inc := validAdmittedIncident()
-	plan, _, err := cudaregress.NewPlanFromIncident(inc, cudaregress.PlanOptions{})
+	plan, _, err := cudaregress.NewPlanFromIncident(inc, cudaregress.PlanOptions{Rounds: 3})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	execRec := &cudaregress.ExecutionReceipt{
+		PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RoundsCompleted: 3,
 		ExecutionID: "exec-res-test",
 		ArmReceipts: []cudatrial.Receipt{
-			{Name: "baseline", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "baseline", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "baseline", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "candidate", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "candidate", Complete: true, WallElapsed: 100 * time.Microsecond},
-			{Name: "candidate", Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "baseline", Round: 1, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "candidate", Round: 1, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "candidate", Round: 2, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "baseline", Round: 2, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "baseline", Round: 3, Complete: true, WallElapsed: 100 * time.Microsecond},
+			{Name: "candidate", Round: 3, Complete: true, WallElapsed: 100 * time.Microsecond},
 		},
 	}
 
@@ -715,9 +718,9 @@ func TestComparisonDoesNotSubstituteTiming(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	execution := &cudaregress.ExecutionReceipt{ArmReceipts: []cudatrial.Receipt{{Name: "baseline", Complete: true, WallElapsed: time.Second}}}
-	if _, err := cudaregress.CompareExecution(plan, execution, cudaregress.ReplayOptions{}); err == nil {
-		t.Fatal("wall duration substituted for GPU busy time")
+	execution := &cudaregress.ExecutionReceipt{ExecutionID: "missing-channel", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, Partial: true, ArmReceipts: []cudatrial.Receipt{{Name: "baseline", Round: 1, Complete: true, WallElapsed: time.Second}}}
+	if _, err := cudaregress.CompareExecution(plan, execution, cudaregress.ReplayOptions{}); err == nil || !strings.Contains(err.Error(), "missing requested timing channel") {
+		t.Fatalf("requested channel did not fail at timing admission: %v", err)
 	}
 }
 
