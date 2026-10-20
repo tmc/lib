@@ -73,7 +73,10 @@ func TestProfileActionsFallback(t *testing.T) {
 			case "clock":
 				p.Snapshot.ClockUncertaintyNs = -1
 			}
-			frozen := freezeProfileActions(p)
+			frozen, err := freezeBoundedProfile(p, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if frozen.fallback == "" || len(frozen.ranks) != 0 || frozen.guidance != nil {
 				t.Fatalf("bad fallback: %+v", frozen)
 			}

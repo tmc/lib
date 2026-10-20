@@ -1,8 +1,7 @@
 package cudasearch
 
 import (
-	"crypto/sha256"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -10,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
@@ -65,70 +65,101 @@ type profileActions struct {
 	weights  map[string]float64
 }
 
-func freezeProfileActions(config *ProfileActions) (p profileActions) {
+// freezeBoundedProfile admits config.Snapshot and freezes the decision.
+// Rank and encoding storage is charged to scratch, which the caller closes
+// when the search returns; the decision and guidance returned in p are charged
+// to result, which transfers to SearchResult. Nil scopes are unlimited and
+// cannot fail. A storage refusal is an error; an unusable profile is not.
+func freezeBoundedProfile(config *ProfileActions, scratch, result *egraphcore.MemoryScope) (p profileActions, err error) {
 	if config == nil {
-		return p
+		return p, nil
 	}
 	now := config.Time
 	if now.IsZero() {
 		now = time.Now()
 	}
+	if err := reserveDecision(config, result); err != nil {
+		return p, err
+	}
 	d := &ProfileDecision{Version: 1, Target: config.Target, Time: now.UTC(), MaxAge: config.MaxAge, MinCoverage: strconv.FormatFloat(config.MinCoverage, 'g', -1, 64), MaxLosses: config.MaxLosses, MaxUncertaintyNs: config.MaxUncertaintyNs, Priors: append([]MetricRulePrior(nil), config.Priors...)}
 	if config.Snapshot != nil {
-		data, err := json.Marshal(config.Snapshot)
+		d.SnapshotSHA256, d.SnapshotError, err = snapshotDigest(config.Snapshot, scratch, result)
 		if err != nil {
-			d.SnapshotError = err.Error()
-		} else {
-			d.SnapshotSHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
+			return p, err
 		}
 	} else {
 		d.SnapshotError = "missing snapshot"
 	}
-	defer func() {
-		d.Fallback = p.fallback
-		d.ActiveRules = make([]string, len(p.ranks))
-		for rule, rank := range p.ranks {
-			d.ActiveRules[rank] = rule
-		}
-		data, err := json.Marshal(d)
-		if err != nil {
-			d.IdentityError = err.Error()
-		} else {
-			d.ID = fmt.Sprintf("%x", sha256.Sum256(data))
-		}
-		p.decision = d
-	}()
-	fail := func(reason string) profileActions { return profileActions{fallback: reason} }
+	p, err = admitProfile(config, now, scratch, result)
+	if err != nil {
+		return profileActions{}, err
+	}
+	d.Fallback = p.fallback
+	if err := result.Reserve(int64(len(d.Fallback))); err != nil {
+		return profileActions{}, err
+	}
+	if err := bookkeepingSlots[string](result, len(p.ranks)); err != nil {
+		return profileActions{}, err
+	}
+	d.ActiveRules = make([]string, len(p.ranks))
+	for rule, rank := range p.ranks {
+		d.ActiveRules[rank] = rule
+	}
+	if err := identifyDecision(d, scratch, result); err != nil {
+		return profileActions{}, err
+	}
+	p.decision = d
+	return p, nil
+}
+
+// admitProfile applies the quality policy and priors to the snapshot. A
+// profile that cannot guide exploration yields a fallback reason, not an error.
+func admitProfile(config *ProfileActions, now time.Time, scratch, result *egraphcore.MemoryScope) (profileActions, error) {
+	fail := func(reason string) (profileActions, error) { return profileActions{fallback: reason}, nil }
 	if config.MaxAge <= 0 || config.MaxUncertaintyNs < 0 || math.IsNaN(config.MinCoverage) || config.MinCoverage < 0 || config.MinCoverage > 1 {
 		return fail("invalid profile quality policy")
 	}
-	g, err := config.Snapshot.Guidance(config.Target)
+	admit := func(g *cudaprof.SearchGuidance) error {
+		if g.Timestamp.IsZero() || g.Timestamp.After(now) || now.Sub(g.Timestamp) > config.MaxAge {
+			return profileFallback("profile timestamp missing, future or expired")
+		}
+		if g.Coverage < config.MinCoverage || g.Losses > config.MaxLosses || g.UncertaintyNs < 0 || g.UncertaintyNs > config.MaxUncertaintyNs {
+			return profileFallback("profile quality bounds not met")
+		}
+		for _, prior := range config.Priors {
+			if prior.Metric == "" || prior.Unit == "" || prior.Rule == "" || prior.Minimum < 0 {
+				return profileFallback("invalid metric rule priority")
+			}
+			if _, ok := g.StallCounts[prior.Metric]; !ok || g.MetricUnits[prior.Metric] != prior.Unit {
+				return profileFallback(fmt.Sprintf("profile metric or unit unavailable: %s", prior.Metric))
+			}
+		}
+		return nil
+	}
+	g, err := config.Snapshot.GuidanceBounded(config.Target, admit, scratch, result)
 	if err != nil {
+		if memory := errors.Join(scratch.Err(), result.Err()); memory != nil {
+			return profileActions{}, memory
+		}
+		if errors.Is(err, egraphcore.ErrMemorySize) {
+			return profileActions{}, err
+		}
 		return fail(err.Error())
 	}
-	if g.Timestamp.IsZero() || g.Timestamp.After(now) || now.Sub(g.Timestamp) > config.MaxAge {
-		return fail("profile timestamp missing, future or expired")
+	p := profileActions{guidance: g}
+	if p.ranks, err = bookkeepingMap[string, int](scratch); err != nil {
+		return profileActions{}, err
 	}
-	if g.Coverage < config.MinCoverage || g.Losses > config.MaxLosses || g.UncertaintyNs < 0 || g.UncertaintyNs > config.MaxUncertaintyNs {
-		return fail("profile quality bounds not met")
-	}
-	p.guidance = g
-	p.ranks = make(map[string]int)
 	for _, prior := range config.Priors {
-		if prior.Metric == "" || prior.Unit == "" || prior.Rule == "" || prior.Minimum < 0 {
-			return fail("invalid metric rule priority")
-		}
-		count, ok := g.StallCounts[prior.Metric]
-		if !ok || g.MetricUnits[prior.Metric] != prior.Unit {
-			return fail(fmt.Sprintf("profile metric or unit unavailable: %s", prior.Metric))
-		}
-		if count >= prior.Minimum {
+		if g.StallCounts[prior.Metric] >= prior.Minimum {
 			if _, ok := p.ranks[prior.Rule]; !ok {
-				p.ranks[prior.Rule] = len(p.ranks)
+				if err := bookkeepingPut(scratch, p.ranks, prior.Rule, len(p.ranks)); err != nil {
+					return profileActions{}, err
+				}
 			}
 		}
 	}
-	return p
+	return p, nil
 }
 
 func (p profileActions) rank(action egraph.ActionCandidate) int {

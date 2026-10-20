@@ -113,11 +113,11 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 
 	startTime := time.Now()
 	budget := m.cfg.Budget
-	profile := freezeProfileActions(m.cfg.Profile)
 	if err := validateMemoryEvaluator(m.cfg.Memory, eval); err != nil {
 		return nil, err
 	}
-	if err := freezeSearchMemory(m.cfg.Memory, &profile); err != nil {
+	var priors profileActions
+	if err := freezeSearchMemory(m.cfg.Memory, &priors); err != nil {
 		return nil, err
 	}
 	ctx, work, err := searchWorkBudget(ctx, budget, eval)
@@ -130,6 +130,11 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 		return nil, err
 	}
 	defer book.close()
+	profile, err := freezeBoundedProfile(m.cfg.Profile, book.temporary(), book.retained())
+	if err != nil {
+		return nil, err
+	}
+	profile.memory, profile.weights = priors.memory, priors.weights
 	if err := bookkeepingSlots[rand.Rand](book.temporary(), 1); err != nil {
 		return nil, err
 	}

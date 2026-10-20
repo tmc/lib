@@ -9,11 +9,19 @@ import (
 )
 
 func TestProfileDecisionIdentity(t *testing.T) {
-	base := freezeProfileActions(actionProfile()).decision
+	frozen, err := freezeBoundedProfile(actionProfile(), nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := frozen.decision
 	if base == nil || base.ID == "" || base.SnapshotSHA256 == "" || len(base.ActiveRules) != 1 || base.ActiveRules[0] != "z" {
 		t.Fatalf("incomplete decision: %+v", base)
 	}
-	if other := freezeProfileActions(actionProfile()).decision; other.ID != base.ID {
+	other, err := freezeBoundedProfile(actionProfile(), nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if other.decision.ID != base.ID {
 		t.Fatal("identical decisions differ")
 	}
 	for _, kind := range []string{"threshold", "unit", "rule", "snapshot", "quality", "time"} {
@@ -33,7 +41,11 @@ func TestProfileDecisionIdentity(t *testing.T) {
 			case "time":
 				cfg.Time = cfg.Time.Add(1)
 			}
-			d := freezeProfileActions(cfg).decision
+			frozen, err := freezeBoundedProfile(cfg, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			d := frozen.decision
 			if d.ID == "" || d.ID == base.ID {
 				t.Fatalf("identity omits %s: %+v", kind, d)
 			}
@@ -60,13 +72,20 @@ func TestProfileDecisionIdentity(t *testing.T) {
 
 func TestProfileDecisionRetainsFallbackAndCopiesPolicy(t *testing.T) {
 	cfg := actionProfile()
-	d := freezeProfileActions(cfg).decision
+	first, err := freezeBoundedProfile(cfg, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := first.decision
 	cfg.Priors[0].Minimum = 999
 	if d.Priors[0].Minimum != 10 {
 		t.Fatal("decision aliases policy")
 	}
 	cfg.MinCoverage = math.NaN()
-	frozen := freezeProfileActions(cfg)
+	frozen, err := freezeBoundedProfile(cfg, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if frozen.decision.ID == "" || frozen.decision.MinCoverage != "NaN" || frozen.decision.Fallback != frozen.fallback || frozen.fallback == "" {
 		t.Fatalf("invalid policy disappeared: %+v", frozen.decision)
 	}
