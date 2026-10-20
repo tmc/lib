@@ -222,14 +222,16 @@ func TestCommandReplayRunnerRetainsFailureAttempts(t *testing.T) {
 	}
 	for _, test := range []struct {
 		name      string
+		child     string
 		timeout   time.Duration
 		maxOutput int
 		wantExit  int
+		wantErr   error
 	}{
 		{name: "malformed", maxOutput: 4096, wantExit: 0},
 		{name: "nonzero", maxOutput: 4096, wantExit: 9},
 		{name: "overflow", maxOutput: 128, wantExit: -2},
-		{name: "timeout", timeout: 10 * time.Millisecond, maxOutput: 4096, wantExit: -1},
+		{name: "timeout", child: "wait", timeout: 10 * time.Millisecond, maxOutput: 4096, wantExit: -1, wantErr: context.DeadlineExceeded},
 		{name: "unmeasured", maxOutput: 4096, wantExit: 0},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -237,7 +239,11 @@ func TestCommandReplayRunnerRetainsFailureAttempts(t *testing.T) {
 			if timeout == 0 {
 				timeout = 10 * time.Second
 			}
-			args := []string{"command-replay-child-" + test.name}
+			child := test.child
+			if child == "" {
+				child = test.name
+			}
+			args := []string{"command-replay-child-" + child}
 			spec := ExecutionSpec{Version: 1, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, Mode: "host_fixture", WorkingDirectory: dir, Environment: map[string]string{}, TimeoutNanos: int64(timeout), MaxOutputBytes: test.maxOutput, Baseline: CommandArm{Path: binary, SHA256: digest, Args: args}, Candidate: CommandArm{Path: binary, SHA256: digest, Args: args}, Inputs: []CommandArtifact{}, Libraries: []CommandArtifact{}}
 			spec.SpecDigest, err = ComputeExecutionSpecDigest(spec)
 			if err != nil {
@@ -247,12 +253,19 @@ func TestCommandReplayRunnerRetainsFailureAttempts(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, _, err := runner.RunArm(context.Background(), "baseline", 1); err == nil {
+			_, _, err = runner.RunArm(context.Background(), "baseline", 1)
+			if test.wantErr != nil && !errors.Is(err, test.wantErr) {
+				t.Fatalf("RunArm error = %v, want %v", err, test.wantErr)
+			}
+			if err == nil {
 				t.Fatal("invalid child result accepted")
 			}
 			attempts := runner.Attempts()
 			if len(attempts) != 1 || !attempts[0].Partial || attempts[0].StdoutSHA256 == "" || (test.wantExit != -2 && attempts[0].ExitCode != test.wantExit) {
 				t.Fatalf("failure evidence missing: %+v", attempts)
+			}
+			if test.wantErr != nil && (attempts[0].Error != test.wantErr.Error() || attempts[0].Result != nil) {
+				t.Fatalf("attempt error = %q, result = %+v, want %q and no result", attempts[0].Error, attempts[0].Result, test.wantErr)
 			}
 		})
 	}
