@@ -276,6 +276,9 @@ func (e *Evaluator) RecordOutcome(snapshotID string, outcome ObservedOutcome) er
 			if outcome.TimestampNano < e.snapshots[i].Provenance.TimestampNano {
 				return errors.New("cudashadow: outcome precedes input")
 			}
+			if e.snapshots[i].Status != StatusValid {
+				return errors.New("cudashadow: outcome requires valid snapshot")
+			}
 			outcome.Details = maps.Clone(outcome.Details)
 			e.snapshots[i].ObservedOutcome = &outcome
 			return nil

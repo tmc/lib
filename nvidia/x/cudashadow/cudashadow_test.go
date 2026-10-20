@@ -712,6 +712,7 @@ func TestNegativeControls(t *testing.T) {
 
 	// 7. Record baseline outcome
 	t.Run("RecordOutcome", func(t *testing.T) {
+		eval.SetClock(func() int64 { return 5000000000 })
 		in := cudashadow.Input{
 			Provenance: validProvenance(500, 5000000000, cudashadow.HookBlockActivate),
 			Domain:     cudashadow.DomainEviction,
@@ -720,6 +721,9 @@ func TestNegativeControls(t *testing.T) {
 		snap, err := eval.Evaluate(ctx, pol, in)
 		if err != nil {
 			t.Fatalf("Evaluate failed: %v", err)
+		}
+		if snap.Status != cudashadow.StatusValid {
+			t.Fatalf("snap.Status = %s, want valid", snap.Status)
 		}
 
 		outcome := cudashadow.ObservedOutcome{
