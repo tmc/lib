@@ -1,0 +1,10 @@
+commit: e11849eb6525616f3d728dc46f885cb2a1378127
+date: 2026-10-20T01:26:14.428545+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 1604
+ITERM_SESSION_ID: w14t2p3:B990A707-1645-436B-A94A-C23BB6FF3717
+source patch: /Users/tmc/tmp/lib-wt-next/20261019-regress-comparison-admission-fix/candidate.patch
+source sha256: 5a7fc2db11e1907e2a5756066124905f94aea12e249575d6a370099d25a1a03a
