@@ -54,12 +54,12 @@ func nativeDir(t *testing.T) string {
 
 func requireNative(t *testing.T) {
 	t.Helper()
-	if os.Getenv("CUDA_GROUP_NATIVE") != "1" {
-		t.Skip("native qualification disabled: set CUDA_GROUP_NATIVE=1")
+	enabled, err := groupNativeAdmission(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("CUDA_GROUP_NATIVE=1 requires running under the GPU lock")
+	if !enabled {
+		t.Skip("native qualification disabled: set CUDA_GROUP_NATIVE=1")
 	}
 }
 
