@@ -17,6 +17,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudair"
 	"github.com/tmc/lib/nvidia/x/cudalayer"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -38,8 +39,8 @@ func TestNumericalOracle_MLPHealthyAndNaNStore(t *testing.T) {
 
 func runNumericalMLP(t *testing.T, corrupt bool) {
 	t.Helper()
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Skip("SKIPPED, NOT VERIFIED: native launch requires GPU_LOCK_HELD or gpu-lock")
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Skipf("SKIPPED, NOT VERIFIED: inherited GPU lock required: %v", err)
 	}
 	dev := cudatest.RequireDevice(t)
 	if dev == nil {
