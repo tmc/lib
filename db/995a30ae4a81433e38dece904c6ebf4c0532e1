@@ -1,0 +1,11 @@
+commit: db995a30ae4a81433e38dece904c6ebf4c0532e1
+date: 2026-10-22T04:26:44.442654+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 45720
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261021-unit131-mode-privileges/candidate.patch
+source sha256: 7cfc7f49d0b051ae46285094b38128bdbd505ea7aaf21ebcc0cb3b002158831c
+root review: /Users/tmc/tmp/lib-wt-next/20261021-unit131-root-review/GRADE.md
