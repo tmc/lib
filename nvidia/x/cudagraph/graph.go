@@ -60,6 +60,15 @@ func newGraph(d *cuda.Device, run func(func() error) error, create func() (drive
 // The caller must not destroy stream until Capture returns.
 // A non-nil graph must be destroyed even when an error is returned.
 func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
+	return CaptureWithMode(s, driver.StreamCaptureModeGlobal, fn)
+}
+
+// CaptureWithMode records fn using mode. ThreadLocal restricts the unsafe-API
+// checks to the capturing thread; it does not make unsafe calls on that thread
+// valid. Independent captures must also avoid implicit legacy-stream ordering.
+// Begin, fn, and end run on one OS thread. A non-nil graph must be destroyed
+// even when an error is returned.
+func CaptureWithMode(s *cuda.Stream, mode driver.StreamCaptureMode, fn func()) (*Graph, error) {
 	if s == nil {
 		return nil, errors.New("cudagraph: nil stream passed to Capture")
 	}
@@ -72,9 +81,17 @@ func Capture(s *cuda.Stream, fn func()) (*Graph, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	return captureGraph(s.Device(), s.Device().WithContext,
-		func() error { return s.Raw().BeginCapture(driver.StreamCaptureModeGlobal) },
-		s.Raw().EndCapture, fn)
+	return captureGraphWithMode(s.Device(), s.Device().WithContext, mode,
+		s.Raw().BeginCapture, s.Raw().EndCapture, fn)
+}
+
+func captureGraphWithMode(dev *cuda.Device, run func(func() error) error, mode driver.StreamCaptureMode, begin func(driver.StreamCaptureMode) error, end func() (driver.Graph, error), fn func()) (*Graph, error) {
+	switch mode {
+	case driver.StreamCaptureModeGlobal, driver.StreamCaptureModeThreadLocal, driver.StreamCaptureModeRelaxed:
+	default:
+		return nil, fmt.Errorf("cudagraph: invalid capture mode %d", mode)
+	}
+	return captureGraph(dev, run, func() error { return begin(mode) }, end, fn)
 }
 
 func captureGraph(dev *cuda.Device, run func(func() error) error, begin func() error, end func() (driver.Graph, error), fn func()) (*Graph, error) {
