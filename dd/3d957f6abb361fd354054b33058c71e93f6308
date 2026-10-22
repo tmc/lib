@@ -1,0 +1,11 @@
+commit: dd3d957f6abb361fd354054b33058c71e93f6308
+date: 2026-10-22T06:43:00.326753+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 90127
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261021-kernelsearch-model-client/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261021-kernelsearch-model-root-adoption/GRADE.md
+qualification: model transport source and inert host/race/vet/fuzz; no provider/native/spend
