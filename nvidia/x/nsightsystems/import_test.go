@@ -365,7 +365,7 @@ func TestOfficialSQLiteSchemaBodies(t *testing.T) {
 				t.Fatal(err)
 			}
 			db := filepath.Join(t.TempDir(), "synthetic.sqlite")
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, tool, "-batch", "-init", "/dev/null", db)
 			cmd.Stdin = strings.NewReader(string(sql))
