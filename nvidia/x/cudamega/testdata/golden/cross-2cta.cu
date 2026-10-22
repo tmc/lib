@@ -97,6 +97,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)0*n + e] = op_0(src_0[e]);
         asm volatile("fence.sc.sys;" ::: "memory"); // task 0: release at system scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 0, 1u); // publish task 0
         done_0 = 1u; remaining--;
       }
@@ -110,6 +111,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)(blockIdx.x - 1u)*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)1*n + e] = op_1(src_1[e]);
         asm volatile("fence.sc.gpu;" ::: "memory"); // task 1: release at device scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 1, 1u); // publish task 1
         done_1 = 1u; remaining--;
       }
@@ -134,6 +136,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)2*n + e] = op_2(src_2[e]);
         asm volatile("fence.sc.gpu;" ::: "memory"); // task 2: release at device scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 2, 1u); // publish task 2
         done_2 = 1u; remaining--;
       }
@@ -158,6 +161,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)(blockIdx.x - 1u)*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)3*n + e] = op_3(src_3[e]);
         asm volatile("fence.sc.sys;" ::: "memory"); // task 3: release at system scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 3, 1u); // publish task 3
         done_3 = 1u; remaining--;
       }

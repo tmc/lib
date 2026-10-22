@@ -328,6 +328,10 @@ func (c *cudaSource) Compute(i int, sources []int, op Operation) error {
 }
 
 func (c *cudaSource) Publish(i int) error {
+	// Gather every lane's released stores before thread zero publishes.
+	if err := c.Barrier(); err != nil {
+		return err
+	}
 	fmt.Fprintf(&c.body, "        if (threadIdx.x == 0) atomicAdd(completed + %d, 1u); // publish task %d\n", i, i)
 	return nil
 }

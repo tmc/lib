@@ -94,6 +94,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)0*n + e] = op_0(src_0[e]);
         asm volatile("mbarrier.arrive.release.cta.shared::cta.b64 _, [%0];" :: "r"(cta_barrier_addr) : "memory"); // task 0: release at cta scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 0, 1u); // publish task 0
         done_0 = 1u; remaining--;
       }
@@ -118,6 +119,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)1*n + e] = op_1(src_1[e]);
         asm volatile("mbarrier.arrive.release.cta.shared::cta.b64 _, [%0];" :: "r"(cta_barrier_addr) : "memory"); // task 1: release at cta scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 1, 1u); // publish task 1
         done_1 = 1u; remaining--;
       }
