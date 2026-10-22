@@ -1,0 +1,11 @@
+commit: 53f4794ae71329210a63024a1e9a19ff25644c60
+date: 2026-10-22T16:32:36.003678+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 38035
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261022-mega-portable-composed-adoption/root-atomic-groups/typed.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261022-mega-portable-composed-adoption/root-atomic-groups/typed/GRADE.md
+qualification: typed/portable MoE source and CPU host/race/vet;3 native/compiler SKIP; no provider/native/spend
