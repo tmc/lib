@@ -1,0 +1,11 @@
+commit: 4ac723a1f22375565e36262175c227aee546bb18
+date: 2026-10-22T04:22:35.984444+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 37772
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261020-interposition-registry/candidate.patch
+source sha256: 463f5a5c747a82c08a3f31661be5a03cc448b3e0f0d5c89089ff0d8ef043c5dd
+root review: /Users/tmc/tmp/lib-wt-next/20261020-interposition-registry/ROOT-REVIEW.json
