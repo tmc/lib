@@ -1,0 +1,13 @@
+commit: 9fe62efdfed7d0b906f0b949ad033dc415dc3186
+date: 2026-10-22T05:02:27.136173+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 6808
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261021-mega-declared-maximum/atom4.patch
+patch sha256: 1ec41829288e3f9f66b093f405e26aabaaeea25fd259480f7aefbe59359ba520
+fixture prerequisite: /Users/tmc/tmp/lib-wt-next/20261021-artifact-immutability-implementation/MAX-ELEMENTS.patch
+fixture patch sha256: d911c56d8786c1ce3c19ac54d2704f97b3f1c6cfac1ae36a1823658b46afa1fc
+root grade: /Users/tmc/tmp/lib-wt-next/20261021-mega-declared-maximum/recovery/ROOT-GRADE.md
