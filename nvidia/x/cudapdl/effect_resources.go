@@ -673,12 +673,13 @@ func validateKernelResources(role, kName string, desc KernelDesc, info cudakerne
 		return 0, 0, 0, 0, fmt.Sprintf("%s kernel %q CTA warps (%d) exceed target %s WarpsPerSM (%d)", role, kName, warps, info.Arch, info.WarpsPerSM)
 	}
 
-	rawRegs := uint64(warps) * 32 * uint64(res.AllocatedRegisters)
+	rawWarpRegs := 32 * uint64(res.AllocatedRegisters)
 	q := uint64(info.RegisterQuantum)
 	if q == 0 {
 		q = 256
 	}
-	roundedRegs := ((rawRegs + q - 1) / q) * q
+	warpRegs := ((rawWarpRegs + q - 1) / q) * q
+	roundedRegs := uint64(warps) * warpRegs
 	if roundedRegs > maxRegistersPerSM {
 		return 0, 0, 0, 0, fmt.Sprintf("%s kernel %q CTA registers (%d) exceed per-SM register file limit %d on %s", role, kName, roundedRegs, maxRegistersPerSM, info.Arch)
 	}
