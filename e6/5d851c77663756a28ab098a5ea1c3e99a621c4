@@ -1,0 +1,11 @@
+commit: e65d851c77663756a28ab098a5ea1c3e99a621c4
+date: 2026-10-22T04:26:10.157857+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 45720
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261021-collective-quiescence-close-order/candidate.patch
+source sha256: 0e37eb7bacdb8f7ee3a05e942105f3677eeb819515c6f74b9a843965bb2137fb
+root review: /Users/tmc/tmp/lib-wt-next/20261021-collective-root-review/GRADE.md
