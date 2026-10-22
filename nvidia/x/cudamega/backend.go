@@ -353,8 +353,8 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 		}
 		p.bound = p.bound || len(t.Inputs) != 0 || t.Extent != 0 || op.Body != nil
 		if op.moe != nil {
-			if !typed || op.Kind != MoEGateUp || len(tasks) != 1 || len(t.Deps) != 0 || grid.CTAs != 1 || grid.ThreadsPerCTA != 32 || t.Scope != cudataskgraph.ScopeDevice {
-				return nil, fmt.Errorf("typed weight payload requires one independent device-scope task and one 32-thread CTA")
+			if !typed || op.Kind != MoEGateUp || len(tasks) > 2 || len(t.Deps) != 0 || grid.CTAs != uint32(len(tasks)) || grid.ThreadsPerCTA != 32 || t.Scope != cudataskgraph.ScopeDevice || len(tasks) == 2 && grid.Policy != CountedPolicy {
+				return nil, fmt.Errorf("typed weight payload requires one or two independent device-scope tasks with one 32-thread CTA each")
 			}
 			if err := op.moe.validate(); err != nil {
 				return nil, err

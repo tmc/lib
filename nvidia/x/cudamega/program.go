@@ -50,6 +50,10 @@ const (
 	// AbortBadCompletion means a dependency reports more completed CTAs
 	// than its ownership permits. Such a count cannot publish valid output.
 	AbortBadCompletion = 5
+
+	// AbortStaleCompletion means a task's completion slot was nonzero at
+	// worker entry. It is distinct from a count exceeding its owner width.
+	AbortStaleCompletion = 6
 )
 
 // DefaultSpinLimit is the poll-iteration bound a dependency wait uses when
