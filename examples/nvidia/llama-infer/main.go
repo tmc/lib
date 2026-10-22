@@ -37,6 +37,11 @@ var (
 	tokenIDsFlag    = flag.String("token-ids", "", "comma-separated int32 prompt token IDs (overrides -prompt tokenization when non-empty)")
 	stepsFlag       = flag.Int("steps", 10, "number of autoregressive tokens to generate")
 	tempFlag        = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
+	seedFlag        = flag.Uint64("seed", 0, "deterministic Philox-4x32-10 sequence seed for sampling")
+	topKFlag        = flag.Int("top-k", 0, "top-k sampling cutoff (0 = disabled)")
+	topPFlag        = flag.Float64("top-p", 1.0, "sorting-free cumulative probability mass top-p cutoff in [0, 1]")
+	minPFlag        = flag.Float64("min-p", 0.0, "min-p relative probability threshold in [0, 1]")
+	syncGuardFlag   = flag.String("sync-guard", "", "host synchronization guard mode for decode graph execution: allow, warn, or reject")
 	tracePath       = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
 	profilePath     = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
 	disasmFlag      = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
@@ -312,10 +317,15 @@ func runGPUInference(
 		if *specDraftFlag > 0 {
 			return errors.New("-cuda-graph cannot be combined with -draft")
 		}
+		syncMode, serr := parseSyncGuardMode(*syncGuardFlag)
+		if serr != nil {
+			return serr
+		}
 		defer closeDecodeGraph(td, &dg)
 		if dg, err = NewDecodeGraph(dev, gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn); err != nil {
 			return fmt.Errorf("build decode graph: %w", err)
 		}
+		dg.SetSyncArbiter(newDecodeSyncArbiter(syncMode, nil))
 	}
 
 	forwardCU := findForwardCUPath()
@@ -471,7 +481,17 @@ func runCPUInference(
 		if *tempFlag <= 0 {
 			nextTokID = sampleArgmax(lastLogits)
 		} else {
-			nextTokID = sampleTemperature(lastLogits, float32(*tempFlag))
+			var serr error
+			nextTokID, serr = sampleStepLogits(lastLogits, step, sampleConfig{
+				seed: *seedFlag,
+				temp: float32(*tempFlag),
+				topK: *topKFlag,
+				topP: float32(*topPFlag),
+				minP: float32(*minPFlag),
+			})
+			if serr != nil {
+				return serr
+			}
 		}
 
 		generatedTokens = append(generatedTokens, nextTokID)

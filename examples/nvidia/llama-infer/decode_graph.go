@@ -11,6 +11,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
@@ -35,16 +36,20 @@ type posNode struct {
 // step's ArgmaxLogits kernel) and updates the 3*NumHiddenLayers
 // position-dependent kernel nodes in place before each launch.
 type DecodeGraph struct {
-	graph      *cudagraph.Graph
-	exec       *cudagraph.Exec
-	sp         *GPUScratchpad
-	maxSeq     int
-	posNodes   []posNode
-	setParams  func(node *cudagraph.Node, params *driver.KernelNodeParams) error
-	launchExec func(stream *cuda.Stream) error
-	syncCtx    func() error
-	syncStream func(stream *cuda.Stream) error
-	copyOut    func(stream *cuda.Stream) error
+	graph       *cudagraph.Graph
+	exec        *cudagraph.Exec
+	sp          *GPUScratchpad
+	maxSeq      int
+	posNodes    []posNode
+	syncArbiter *cudacapture.SyncArbiter
+	pingPong    *cudagraph.PingPongTimer
+	eventExec   driver.GraphExec
+	eventNodes  []cudagraph.EventRecordNode
+	setParams   func(node *cudagraph.Node, params *driver.KernelNodeParams) error
+	launchExec  func(stream *cuda.Stream) error
+	syncCtx     func() error
+	syncStream  func(stream *cuda.Stream) error
+	copyOut     func(stream *cuda.Stream) error
 }
 
 // NewDecodeGraph constructs and instantiates a single-token decode CUDA
@@ -277,8 +282,18 @@ func (dg *DecodeGraph) setNodePosition(p *posNode, pos int) error {
 // before reading sp.HostTokenOut[0]. When stream is nil, Enqueue
 // synchronizes the context and returns sp.HostTokenOut[0].
 func (dg *DecodeGraph) Enqueue(pos int, stream *cuda.Stream) (int32, error) {
+	if stream == nil && dg.syncArbiter != nil {
+		if err := dg.syncArbiter.CheckSync("DecodeGraph.Enqueue"); err != nil {
+			return 0, err
+		}
+	}
 	if err := dg.SetPosition(pos); err != nil {
 		return 0, err
+	}
+	if dg.pingPong != nil {
+		if _, err := dg.pingPong.PrepareReplay(dg.eventExec, dg.eventNodes); err != nil {
+			return 0, fmt.Errorf("prepare decode graph replay at position %d: %w", pos, err)
+		}
 	}
 	if err := dg.launchExec(stream); err != nil {
 		return 0, fmt.Errorf("launch decode graph at position %d: %w", pos, err)
@@ -302,6 +317,11 @@ func (dg *DecodeGraph) Enqueue(pos int, stream *cuda.Stream) (int32, error) {
 // sampled next token ID. When stream is non-nil, Step drains stream before
 // returning, even if Enqueue returned an error.
 func (dg *DecodeGraph) Step(pos int, stream *cuda.Stream) (int32, error) {
+	if stream != nil && dg.syncArbiter != nil {
+		if err := dg.syncArbiter.CheckSync("DecodeGraph.Step"); err != nil {
+			return 0, err
+		}
+	}
 	tok, err := dg.Enqueue(pos, stream)
 	if stream == nil {
 		return tok, err

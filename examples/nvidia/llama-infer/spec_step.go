@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/tmc/lib/lm/speculative"
+	"github.com/tmc/lib/nvidia/x/cudamtp"
 )
 
 // speculativeStep runs one step of speculative decoding with greedy
@@ -58,6 +59,7 @@ type decodeState struct {
 	generated []int32
 	context   []int32
 	drafter   *speculative.NgramDrafter // nil when not decoding speculatively
+	sched     *cudamtp.VarlenScheduler  // optional confidence-aware draft length scheduler
 }
 
 // newDecodeState returns a decodeState for prompt with room for steps
@@ -71,6 +73,14 @@ func newDecodeState(prompt []int32, steps int, drafter *speculative.NgramDrafter
 		context:   append([]int32(nil), prompt...),
 		drafter:   drafter,
 	}
+}
+
+// setScheduler attaches an optional variable-length MTP scheduler to s.
+func (s *decodeState) setScheduler(sched *cudamtp.VarlenScheduler) {
+	if s == nil {
+		return
+	}
+	s.sched = sched
 }
 
 // emit records tok as emitted.
@@ -97,13 +107,24 @@ func (s *decodeState) draft(next int32, n int) []int32 {
 // there are no drafts or budget is zero, speculate feeds and emits nothing
 // and returns nil, next and pos.
 func (s *decodeState) speculate(forward func(tok int32, pos int) (int32, error), next int32, n, pos, maxSeq, budget int) (emitted []int32, newNext int32, newPos int, err error) {
-	drafts := s.draft(next, n)
+	draftBudget := n
+	if s.sched != nil && draftBudget > 0 {
+		scheduled, serr := scheduleDraftBudget(s.sched, 0, len(s.context)+1, draftBudget)
+		if serr != nil {
+			return nil, next, pos, serr
+		}
+		draftBudget = scheduled
+	}
+	drafts := s.draft(next, draftBudget)
 	if len(drafts) == 0 {
 		return nil, next, pos, nil
 	}
 	emitted, newNext, newPos, err = speculativeStep(forward, next, drafts, pos, maxSeq, budget)
 	if err != nil {
 		return nil, next, pos, err
+	}
+	if s.sched != nil && len(emitted) > 0 {
+		s.sched.UpdateAcceptance(0, len(drafts), len(emitted)-1)
 	}
 	for _, tok := range emitted {
 		s.emit(tok)
