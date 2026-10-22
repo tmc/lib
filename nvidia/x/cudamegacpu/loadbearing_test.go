@@ -71,11 +71,13 @@ type watching struct {
 	early *atomic.Int32
 }
 
-func (w *watching) Compute(i, src int, op cudamega.Operation) error {
-	if src >= 0 && w.r.completed[src].Load() < w.r.ctas {
-		w.early.Add(1)
+func (w *watching) Compute(i int, sources []int, op cudamega.Operation) error {
+	for _, src := range sources {
+		if src >= 0 && w.r.completed[src].Load() < w.r.ctas {
+			w.early.Add(1)
+		}
 	}
-	return w.worker.Compute(i, src, op)
+	return w.worker.Compute(i, sources, op)
 }
 
 func (w *watching) Publish(i int) error {
@@ -204,11 +206,11 @@ func TestCrossWorkerResultIsLoadBearing(t *testing.T) {
 // and re-synchronizes it, which is the same absence of skew by a different
 // route; holding one lets the half of the grid that owns "lower" and "cross"
 // run ahead into a task whose input has not been written.
-func (w *skewed) Compute(i, src int, op cudamega.Operation) error {
+func (w *skewed) Compute(i int, sources []int, op cudamega.Operation) error {
 	if i == 1 && w.tid == 0 {
 		time.Sleep(20 * time.Millisecond)
 	}
-	return w.worker.Compute(i, src, op)
+	return w.worker.Compute(i, sources, op)
 }
 
 type skewed struct {

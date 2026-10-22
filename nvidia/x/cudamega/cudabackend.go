@@ -45,7 +45,7 @@ func (c *cudaSource) Begin(p *Program) error {
 		return fmt.Errorf("backend was built for another program")
 	}
 	for _, s := range p.steps {
-		if s.Operation.Kind != Add && s.Operation.Kind != Multiply || s.Operation.moe != nil {
+		if s.Operation.Body == nil && s.Operation.Kind != Add && s.Operation.Kind != Multiply || s.Operation.moe != nil {
 			return fmt.Errorf("scalar CUDA backend refuses typed payload")
 		}
 	}
@@ -76,6 +76,20 @@ func (c *cudaSource) Begin(p *Program) error {
 	}
 	c.defs.WriteString("static_assert(task_count >= 1, \"the generated worker has at least one task\");\n")
 	for i, s := range p.steps {
+		if s.Operation.Body != nil {
+			names := make([]string, len(p.inputSources(i)))
+			params := make([]string, len(names))
+			for j := range names {
+				names[j] = fmt.Sprintf("x%d", j)
+				params[j] = "unsigned " + names[j]
+			}
+			body, err := s.Operation.Body.Source(names, "result")
+			if err != nil {
+				return fmt.Errorf("task %q body: %w", s.Task.ID, err)
+			}
+			fmt.Fprintf(&c.defs, "__device__ unsigned op_%d(%s) { unsigned result; %s\nreturn result; }\n", i, strings.Join(params, ", "), body)
+			continue
+		}
 		operator := "+"
 		if s.Operation.Kind == Multiply {
 			operator = "*"
@@ -248,8 +262,23 @@ func (c *cudaSource) Fence(i, dep int, s cudataskgraph.Scope, k Fence) error {
 // producer and consumer have different owners, the element a consumer reads
 // was written by another CTA, and a wait that did not happen is a wrong
 // answer rather than a coincidence.
-func (c *cudaSource) Compute(i, src int, op Operation) error {
+func (c *cudaSource) Compute(i int, sources []int, op Operation) error {
 	s := c.p.steps[i]
+	if c.p.bound {
+		args := make([]string, len(sources))
+		for j, d := range sources {
+			base := "input"
+			if d >= 0 {
+				base = "scratch + " + c.p.offsetExpression(d)
+			}
+			fmt.Fprintf(&c.body, "        const unsigned *src_%d_%d = %s;\n", i, j, base)
+			args[j] = fmt.Sprintf("src_%d_%d[e]", i, j)
+		}
+		fmt.Fprintf(&c.body, "        for (size_t e = (size_t)(blockIdx.x - %du)*blockDim.x + threadIdx.x; e < %s; e += (size_t)%du*blockDim.x)\n", s.Owner.Lo, c.p.extentExpression(i), s.Owner.Count())
+		fmt.Fprintf(&c.body, "          scratch[%s + e] = op_%d(%s);\n", c.p.offsetExpression(i), i, strings.Join(args, ", "))
+		return nil
+	}
+	src := sources[0]
 	expr := "input"
 	if src >= 0 {
 		expr = fmt.Sprintf("scratch + (size_t)%d*n", src)
@@ -305,6 +334,9 @@ func (c *cudaSource) EndSelection() error {
 // they are a summary of the whole task list, and the driver has no step at
 // which to ask for one.
 func (c *cudaSource) End() error {
+	if c.p.bound {
+		return c.boundReference()
+	}
 	c.defs.WriteString("__device__ int dependency(unsigned task) { switch(task) {\n")
 	for i, s := range c.p.steps {
 		dep := -1
@@ -323,6 +355,9 @@ func (c *cudaSource) End() error {
 
 // source returns the whole translation unit.
 func (c *cudaSource) source() string {
+	if c.p.bound {
+		return programPrologue + c.defs.String() + workerPrologue(c.p.needBarrier, c.p.needPhase, c.p.grid.MaxElements) + c.boundChecks() + c.body.String() + workerEpilogue
+	}
 	return programPrologue + c.defs.String() +
 		workerPrologue(c.p.needBarrier, c.p.needPhase, c.p.grid.MaxElements) + c.body.String() +
 		workerEpilogue + ordinaryKernel

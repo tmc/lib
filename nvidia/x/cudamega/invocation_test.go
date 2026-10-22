@@ -36,8 +36,8 @@ func TestProgramInvocation(t *testing.T) {
 		{"maximum", 0, 3, 3, ""},
 		{"above maximum", 0, 4, 3, "exceeds maximum"},
 		{"exact", 3, 3, 0, ""},
-		{"short", 3, 2, 0, "declares extent"},
-		{"long", 3, 4, 0, "declares extent"},
+		{"short", 3, 2, 0, "requires 3 input elements"},
+		{"long input fixed output", 3, 4, 0, ""},
 		{"zero", 0, 0, 0, "invalid finite program extent"},
 		{"uint32", 0, uint64(math.MaxUint32) + 1, 0, "invalid finite program extent"},
 	} {
@@ -51,6 +51,9 @@ func TestProgramInvocation(t *testing.T) {
 				return
 			}
 			want := Invocation{Elements: uint32(tc.elements), ScratchWords: 2 * int(tc.elements), StartOrderWords: 5}
+			if tc.declared != 0 {
+				want.ScratchWords = 2 * int(tc.declared)
+			}
 			if err != nil || got != want {
 				t.Fatalf("Invocation = %+v, %v, want %+v", got, err, want)
 			}

@@ -14,7 +14,10 @@ import (
 type Operation struct {
 	Kind   Opcode
 	Scalar uint32
-	moe    *MoEWeightConfig
+	// Body replaces Kind and Scalar when non-nil. Kind and Scalar must then
+	// be zero. The caller retains the immutable body through every invocation.
+	Body Body
+	moe  *MoEWeightConfig
 }
 
 type Opcode uint8
@@ -74,7 +77,8 @@ const DefaultSpinLimit = 1 << 24
 // from the one the code was generated for has a different static task-to-CTA
 // mapping, and the abort buffer is how it says so.
 //
-// Buffers: scratch has len(tasks)*n uint32 elements; completed has len(tasks)
+// Buffers: scratch has Program.Invocation(n).ScratchWords uint32 elements,
+// laid out as Program.Storage(n) records; completed has len(tasks)
 // words, zeroed by the host before each epoch, and counts arriving CTAs;
 // start_order has [StartOrderWords] uint64 words and records when each CTA
 // took each task; abort_code is one volatile word. The caller retains every

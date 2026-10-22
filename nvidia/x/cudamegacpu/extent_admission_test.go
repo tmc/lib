@@ -40,8 +40,7 @@ func TestExtentAdmissionBeforeWorkers(t *testing.T) {
 		want     string
 	}{
 		{"above maximum", 0, 1, []uint32{7, 11}, "exceeds maximum"},
-		{"declared too long", 3, 0, []uint32{7, 11}, "declares extent"},
-		{"declared too short", 1, 0, []uint32{7, 11}, "declares extent"},
+		{"declared too long", 3, 0, []uint32{7, 11}, "requires 3 input elements"},
 		{"empty", 0, 0, nil, "invalid finite program extent"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -56,6 +55,22 @@ func TestExtentAdmissionBeforeWorkers(t *testing.T) {
 				t.Fatalf("Reference: error %v, output %v", refErr, ref)
 			}
 		})
+	}
+}
+
+func TestFixedPrefixExtent(t *testing.T) {
+	e, err := New(cudamega.Admission{ResidentCTAs: 1, WorkerThreads: 32, SharedBytes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := extentProgram(t, 1, 2)
+	got, err := e.Run(p, []uint32{7, 11}, 1, 0)
+	if err != nil || !reflect.DeepEqual(got.Scratch, []uint32{10, 20}) {
+		t.Fatalf("fixed output extent = %v, %v", got.Scratch, err)
+	}
+	ref, err := Reference(p, []uint32{7, 11})
+	if err != nil || !reflect.DeepEqual(ref, []uint32{10, 20}) {
+		t.Fatalf("fixed ordinary output extent = %v, %v", ref, err)
 	}
 }
 

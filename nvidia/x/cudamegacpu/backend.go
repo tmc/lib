@@ -51,7 +51,8 @@ func (e *Executor) Admission() cudamega.Admission { return e.admission }
 // A Result is one run's output: the scratch buffer every task wrote into, and
 // the abort code the run ended with.
 type Result struct {
-	// Scratch holds len(steps)*len(input) words, task-major.
+	// Scratch holds Program.Invocation(len(input)).ScratchWords words, with
+	// each exact task range given by Program.Storage(len(input)).
 	Scratch []uint32
 	// StartOrder is the overlap instrument, laid out as the emitted worker's
 	// buffer is: word zero is the ticket counter, and word
@@ -85,10 +86,15 @@ func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort 
 		return Result{}, fmt.Errorf("cudamegacpu: invocation: %w", err)
 	}
 	steps := p.Steps()
+	layout, err := p.Storage(uint64(len(input)))
+	if err != nil {
+		return Result{}, err
+	}
 	r := &run{
-		p:     p,
-		steps: steps,
-		n:     len(input),
+		p:      p,
+		steps:  steps,
+		n:      len(input),
+		layout: layout,
 		// The launch geometry is the executor's, not the program's. That is
 		// what the host does on a device -- it launches at the residency it
 		// measured -- and it is what leaves the emitted worker's geometry
@@ -178,6 +184,7 @@ const spinLimit = 1 << 26
 // the buffers the emitted worker takes as parameters, plus one barrier per
 // worker.
 type run struct {
+	layout  []cudamega.TaskStorage
 	p       *cudamega.Program
 	steps   []cudamega.Step
 	n       int
@@ -457,17 +464,30 @@ func (w *worker) Fence(_, _ int, s cudataskgraph.Scope, k cudamega.Fence) error 
 // consumer reads one another worker wrote -- and therefore what makes the
 // dependency wait something the result depends on rather than a coincidence
 // of the fixture.
-func (w *worker) Compute(i, src int, op cudamega.Operation) error {
-	n := w.r.n
-	from := w.r.input
-	if src >= 0 {
-		from = w.r.scratch[src*n : src*n+n]
+func (w *worker) Compute(i int, sources []int, op cudamega.Operation) error {
+	storage := w.r.layout[i]
+	n := storage.Elements
+	from := make([][]uint32, len(sources))
+	for j, src := range sources {
+		from[j] = w.r.input
+		if src >= 0 {
+			s := w.r.layout[src]
+			from[j] = w.r.scratch[s.Offset : s.Offset+s.Elements]
+		}
 	}
-	to := w.r.scratch[i*n : i*n+n]
+	to := w.r.scratch[storage.Offset : storage.Offset+n]
+	values := make([]uint32, len(sources))
 	o := w.r.steps[i].Owner
 	stride := int(o.Count()) * int(w.r.threads)
 	for e := int(w.cta-o.Lo)*int(w.r.threads) + int(w.tid); e < n; e += stride {
-		v := from[e]
+		for j := range values {
+			values[j] = from[j][e]
+		}
+		if op.Body != nil {
+			to[e] = op.Body.Evaluate(values)
+			continue
+		}
+		v := values[0]
 		switch op.Kind {
 		case cudamega.Add:
 			to[e] = v + op.Scalar

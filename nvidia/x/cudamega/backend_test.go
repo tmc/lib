@@ -252,9 +252,9 @@ func (r *recording) Fence(i, dep int, s cudataskgraph.Scope, k cudamega.Fence) e
 	r.note("Fence")
 	return r.Backend.Fence(i, dep, s, k)
 }
-func (r *recording) Compute(i, src int, op cudamega.Operation) error {
+func (r *recording) Compute(i int, sources []int, op cudamega.Operation) error {
 	r.note("Compute")
-	return r.Backend.Compute(i, src, op)
+	return r.Backend.Compute(i, sources, op)
 }
 func (r *recording) Publish(i int) error { r.note("Publish"); return r.Backend.Publish(i) }
 func (r *recording) EndTask(i int) error { r.note("EndTask"); return r.Backend.EndTask(i) }

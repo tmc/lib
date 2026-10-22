@@ -60,8 +60,8 @@ func (c *moeWeightCUDA) Begin(p *Program) error {
 	return nil
 }
 
-func (c *moeWeightCUDA) Compute(i, src int, op Operation) error {
-	if i != 0 || src != -1 || op.Kind != MoEGateUp || op.moe == nil || *op.moe != c.config {
+func (c *moeWeightCUDA) Compute(i int, sources []int, op Operation) error {
+	if i != 0 || len(sources) != 1 || sources[0] != -1 || op.Kind != MoEGateUp || op.moe == nil || *op.moe != c.config {
 		return errors.New("cudamega: unsupported typed task")
 	}
 	c.body.WriteString(`        for (unsigned neuron=threadIdx.x; neuron<n; neuron+=blockDim.x) {

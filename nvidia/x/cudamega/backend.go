@@ -182,10 +182,10 @@ type Backend interface {
 	Fence(i, dep int, s cudataskgraph.Scope, k Fence) error
 
 	// Compute applies step i's operation to this worker's share of the
-	// step's elements, reading from step src's output or, when src is
-	// negative, from the program input. The share is taken over the step's
-	// owning CTA range, not over the grid.
-	Compute(i, src int, op Operation) error
+	// step's elements. sources lists data operands in Body order, independently
+	// of ordering-only dependencies; a negative source denotes the input.
+	// The share is taken over the step's owning CTA range, not over the grid.
+	Compute(i int, sources []int, op Operation) error
 
 	// Publish increments step i's completion word with a device-scope atomic
 	// add, once per worker.
@@ -254,6 +254,8 @@ type Program struct {
 	// What the generated worker's prologue needs, decided once here because
 	// it is a property of the program and not of any backend.
 	needSpin, needBarrier, needPhase bool
+	// bound means the program has explicit operands, extents or a caller body.
+	bound bool
 }
 
 // NewProgram binds a graph and its operations to a grid and a target.
@@ -295,9 +297,6 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	if len(tasks) == 0 || len(tasks) > 1024 || len(operations) != len(tasks) {
 		return nil, fmt.Errorf("finite program requires 1..1024 operations matching its tasks")
 	}
-	if err := checkBinding(tasks); err != nil {
-		return nil, err
-	}
 	if err := grid.Validate(); err != nil {
 		return nil, err
 	}
@@ -336,9 +335,23 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	indices := make(map[string]int, len(tasks))
 	for i, t := range tasks {
 		op, ok := operations[t.ID]
-		if !ok || op.Kind != Add && op.Kind != Multiply && !(typed && op.Kind == MoEGateUp && op.moe != nil) {
+		if !ok || op.Body == nil && op.Kind != Add && op.Kind != Multiply && !(typed && op.Kind == MoEGateUp && op.moe != nil) {
 			return nil, fmt.Errorf("task %q has no supported operation", t.ID)
 		}
+		if op.Body != nil && (op.Kind != 0 || op.Scalar != 0 || op.Body.Inputs() < 1 || op.Body.Inputs() > 1024) {
+			return nil, fmt.Errorf("task %q has an invalid or ambiguous body", t.ID)
+		}
+		inputs := len(t.Inputs)
+		if inputs == 0 {
+			inputs = 1 // An undeclared data binding follows the graph's documented default.
+		}
+		if inputs != operationInputs(op) {
+			return nil, fmt.Errorf("task %q has %d operands, body requires %d: %w", t.ID, inputs, operationInputs(op), ErrUnsupportedInputs)
+		}
+		if t.Extent > uint64(^uint32(0)) || grid.MaxElements != 0 && t.Extent > uint64(grid.MaxElements) {
+			return nil, fmt.Errorf("task %q extent exceeds the declared worker bound: %w", t.ID, ErrUnsupportedInputs)
+		}
+		p.bound = p.bound || len(t.Inputs) != 0 || t.Extent != 0 || op.Body != nil
 		if op.moe != nil {
 			if !typed || op.Kind != MoEGateUp || len(tasks) != 1 || len(t.Deps) != 0 || grid.CTAs != 1 || grid.ThreadsPerCTA != 32 || t.Scope != cudataskgraph.ScopeDevice {
 				return nil, fmt.Errorf("typed weight payload requires one independent device-scope task and one 32-thread CTA")
@@ -401,50 +414,25 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 			}
 		}
 	}
+	// Validate relationships known at construction. Undeclared extents are
+	// resolved and checked by Invocation before storage allocation or execution.
+	for i, s := range p.steps {
+		for _, d := range p.inputSources(i) {
+			if d >= 0 && s.Task.Extent != 0 && p.steps[d].Task.Extent != 0 && p.steps[d].Task.Extent < s.Task.Extent {
+				return nil, fmt.Errorf("task %q extent exceeds task %q: %w", s.Task.ID, p.steps[d].Task.ID, ErrUnsupportedInputs)
+			}
+		}
+	}
 	return p, nil
 }
 
 // ErrUnsupportedInputs reports a task whose declared data inputs or extent
 // the worker cannot execute.
 //
-// The worker binds one data input and one extent. A task reads its first
-// dependency, or the program input when it has none, and every task runs over
-// the single extent the launch supplies, which is also the scratch stride.
-// So [NewProgram] refuses a task that names more than one input, a task whose
-// one input is not its first dependency, and a graph whose tasks declare
-// different extents, or declare one for some tasks and not others. Each would
-// otherwise run against the wrong data or the wrong number of elements and
-// report success.
-//
-// A graph whose tasks all declare the same extent is accepted. CPU execution
-// checks that positive extent against actual elements through [Program.Invocation].
-// Generated CUDA does not yet enforce this exact-extent contract.
-//
-// Refusal is a partial repair. Executing multi-input and mixed-extent graphs
-// needs a wider operation binding and a per-task scratch stride, which this
-// package does not yet have.
+// Data operands must match the body's arity, and every operand must cover the
+// consuming task's exact extent. Deps not named by Inputs are ordering edges.
+// Undeclared extents are resolved by Program.Invocation before allocation.
 var ErrUnsupportedInputs = errors.New("unsupported task inputs")
-
-// checkBinding refuses the input semantics the worker cannot execute. See
-// [ErrUnsupportedInputs].
-func checkBinding(tasks []cudataskgraph.Task) error {
-	for _, t := range tasks {
-		switch {
-		case len(t.Inputs) > 1:
-			return fmt.Errorf("task %q reads %d inputs and the worker reads one: %w", t.ID, len(t.Inputs), ErrUnsupportedInputs)
-		case len(t.Inputs) == 1 && t.Inputs[0] != t.Deps[0]:
-			return fmt.Errorf("task %q reads input %q and the worker reads its first dependency %q: %w", t.ID, t.Inputs[0], t.Deps[0], ErrUnsupportedInputs)
-		}
-	}
-	first := tasks[0]
-	for _, t := range tasks[1:] {
-		if t.Extent != first.Extent {
-			return fmt.Errorf("task %q declares extent %d and task %q extent %d (zero is undeclared), and the worker runs one extent: %w",
-				first.ID, first.Extent, t.ID, t.Extent, ErrUnsupportedInputs)
-		}
-	}
-	return nil
-}
 
 // supportsScope reports whether target can order a scope, and why not when it
 // cannot.
@@ -609,11 +597,7 @@ func (r *Runner) Run() error {
 					return fmt.Errorf("task %q: %w", s.Task.ID, err)
 				}
 			}
-			src := -1
-			if len(s.Deps) > 0 {
-				src = s.Deps[0]
-			}
-			if err := b.Compute(i, src, s.Operation); err != nil {
+			if err := b.Compute(i, p.inputSources(i), s.Operation); err != nil {
 				return fmt.Errorf("task %q: compute: %w", s.Task.ID, err)
 			}
 			if err := b.Fence(i, -1, s.ReleaseScope, Release); err != nil {

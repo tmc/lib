@@ -38,11 +38,11 @@ var inputsTests = []struct {
 	{name: "undeclared", inputs: nil},
 	{name: "first-dependency", inputs: []string{"a"}},
 	{name: "uniform-extent", extents: [3]uint64{64, 64, 64}},
-	{name: "two-inputs", inputs: []string{"a", "b"}, refuse: `task "c" reads 2 inputs`},
-	{name: "second-dependency", inputs: []string{"b"}, refuse: `task "c" reads input "b"`},
+	{name: "two-inputs", inputs: []string{"a", "b"}, refuse: `task "c" has 2 operands`},
+	{name: "second-dependency", inputs: []string{"b"}},
 	{name: "mixed-extent", extents: [3]uint64{64, 64, 128}, refuse: "extent"},
-	{name: "partly-declared-extent", extents: [3]uint64{64, 0, 64}, refuse: "extent"},
-	{name: "undeclared-first-extent", extents: [3]uint64{0, 64, 64}, refuse: "extent"},
+	{name: "partly-declared-extent", extents: [3]uint64{64, 0, 64}},
+	{name: "undeclared-first-extent", extents: [3]uint64{0, 64, 64}},
 }
 
 // TestNewProgramRefusesUnexecutableInputs is the partial repair of the
@@ -104,5 +104,5 @@ func ExampleNewProgram_unsupportedInputs() {
 	fmt.Println(err)
 	// Output:
 	// true
-	// task "sum" reads 2 inputs and the worker reads one: unsupported task inputs
+	// task "sum" has 2 operands, body requires 1: unsupported task inputs
 }
