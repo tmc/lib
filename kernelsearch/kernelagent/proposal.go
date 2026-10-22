@@ -33,7 +33,7 @@ type Reply struct {
 }
 
 // Proposer is implemented by a trusted transport; its returned edit is untrusted.
-// Implementations must honor cancellation. No model API client is provided.
+// Implementations must honor cancellation. OpenAI provides a Responses API client.
 type Proposer interface {
 	Propose(context.Context, Request) (Reply, error)
 }
