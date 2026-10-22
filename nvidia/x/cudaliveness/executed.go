@@ -33,10 +33,9 @@ var ErrUnexplainedPrediction = errors.New("cudaliveness: predicted output has no
 // derivation says the patch changes. An empty digest on either side is an
 // unrun control, never a match.
 //
-// The prediction and the mirrors are known before any launch and no run can
-// repair either, so they are checked first: a control with no derivation or
-// with a mirror fails whether or not it ran. The run state is checked next,
-// then the two comparisons.
+// The run state is checked first: if both launches were not made or either
+// digest is empty, Check reports [cudaerrors.ErrHardwarePending]. Otherwise
+// it checks the prediction and mirrors before comparing outputs.
 //
 // Executed says the patched bytes ran. It does not say the patch is correct.
 type Executed struct {
@@ -54,6 +53,9 @@ func (e Executed) Name() string { return "patch execution at " + e.Site }
 
 // Check implements [Control].
 func (e Executed) Check() error {
+	if !e.Ran || e.Patched == "" || e.Unpatched == "" {
+		return fmt.Errorf("%s: %w", e.Name(), cudaerrors.ErrHardwarePending)
+	}
 	if e.Predicted == "" {
 		return fmt.Errorf("%s: no predicted output: %w", e.Name(), ErrUnexplainedPrediction)
 	}
@@ -63,9 +65,6 @@ func (e Executed) Check() error {
 	if len(e.Mirrors) > 0 {
 		return fmt.Errorf("%s: the image keeps unpatched copies of the text %q, so no run can show which copy a later load will use: %w",
 			e.Name(), e.Mirrors, ErrNotLive)
-	}
-	if !e.Ran || e.Patched == "" || e.Unpatched == "" {
-		return fmt.Errorf("%s: %w", e.Name(), cudaerrors.ErrHardwarePending)
 	}
 	if e.Patched == e.Unpatched {
 		return fmt.Errorf("%s: patched output %s equals the unpatched output: the patch was inert or never ran: %w",
