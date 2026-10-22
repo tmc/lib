@@ -115,6 +115,14 @@ func attentionResidualRead(t *testing.T, path string) []byte {
 func attentionResidualDecode(t *testing.T, path string, v any) {
 	t.Helper()
 	b := attentionResidualRead(t, path)
+	if artifact, ok := v.(*cudakernel.Artifact); ok {
+		decoded, err := cudakernel.ParseArtifact(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		*artifact = *decoded
+		return
+	}
 	d := json.NewDecoder(strings.NewReader(string(b)))
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
@@ -186,7 +194,7 @@ func TestAttentionResidual_Prepare(t *testing.T) {
 			attentionResidualJSON(t, dir, name, a)
 			attentionResidualWrite(t, dir, fmt.Sprintf("%s-stage%d.cu", c.Name, i), []byte(s[i].Source))
 			p.Artifacts = append(p.Artifacts, name)
-			p.ImageDigests = append(p.ImageDigests, a.Digest)
+			p.ImageDigests = append(p.ImageDigests, a.Digest())
 			p.SourceDigests = append(p.SourceDigests, attentionResidualDigest(s[i].Source))
 		}
 		prep.Cases = append(prep.Cases, p)
@@ -314,7 +322,7 @@ func TestAttentionResidual_Native(t *testing.T) {
 			}
 			var a cudakernel.Artifact
 			attentionResidualDecode(t, filepath.Join(dir, name), &a)
-			if a.Digest != p.ImageDigests[j] || p.SourceDigests[j] != attentionResidualDigest(s[j].Source) || string(attentionResidualRead(t, filepath.Join(dir, fmt.Sprintf("%s-stage%d.cu", c.Name, j)))) != s[j].Source {
+			if a.Digest() != p.ImageDigests[j] || p.SourceDigests[j] != attentionResidualDigest(s[j].Source) || string(attentionResidualRead(t, filepath.Join(dir, fmt.Sprintf("%s-stage%d.cu", c.Name, j)))) != s[j].Source {
 				t.Fatal("stale image/source association")
 			}
 			owned, err := attentionResidualArtifact(&a, s[j])

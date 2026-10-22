@@ -195,13 +195,18 @@ func compileBackwardFixture(ctx context.Context, snapshot *cudair.Snapshot, targ
 		if err != nil {
 			return nil, err
 		}
-		if artifact.Kind != cudakernel.KindCUBIN || artifact.Target != target {
+		if artifact.Kind() != cudakernel.KindCUBIN || artifact.Target() != target {
 			return nil, fmt.Errorf("compile backward node %d: artifact kind or target mismatch", kernel.nodeID)
 		}
-		artifact.Toolchain = "nvrtc compiler-key=" + compiled.Key()
-		artifact.Dependencies = append(artifact.Dependencies, cudakernel.Dependency{
+		spec := artifact.Spec()
+		spec.Toolchain = "nvrtc compiler-key=" + compiled.Key()
+		spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{
 			Path: fmt.Sprintf("backward-node-%d.cu", kernel.nodeID), Digest: fmt.Sprintf("%x", sha256.Sum256([]byte(kernel.source))), Tracked: true,
 		})
+		artifact, err = cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			return nil, err
+		}
 		if err := registry.Register(kernel.output, artifact); err != nil {
 			return nil, err
 		}

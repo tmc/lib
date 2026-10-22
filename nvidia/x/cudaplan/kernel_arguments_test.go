@@ -16,6 +16,10 @@ func TestKernelArgumentsGeometry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	artifact, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte("fixture ptx"), "entry", schema, "sm_80")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		name        string
 		elements    int
@@ -37,7 +41,7 @@ func TestKernelArgumentsGeometry(t *testing.T) {
 				t.Fatal(err)
 			}
 			p := &ExecutablePlan{snap: snap}
-			step := StepPlan{NodeID: y.ID, NodeName: y.Name, InputNames: []string{"x"}, OutputName: y.Name, Artifact: &cudakernel.Artifact{Schema: schema}}
+			step := StepPlan{NodeID: y.ID, NodeName: y.Name, InputNames: []string{"x"}, OutputName: y.Name, Artifact: artifact}
 			pointers := map[string]driver.DevicePtr{"x": 0x1000, y.Name: 0x2000}
 			args, blocks, err := p.kernelArguments(step, pointers)
 			if tc.unsupported {
@@ -73,13 +77,22 @@ func TestReductionKernelArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := &ExecutablePlan{snap: snap}
-	step := StepPlan{NodeID: y.ID, NodeName: y.Name, InputNames: []string{"x"}, OutputName: y.Name, Artifact: &cudakernel.Artifact{Schema: schema}}
+	artifact, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte("fixture ptx"), "entry", schema, "sm_80")
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := StepPlan{NodeID: y.ID, NodeName: y.Name, InputNames: []string{"x"}, OutputName: y.Name, Artifact: artifact}
 	args, blocks, err := p.kernelArguments(step, map[string]driver.DevicePtr{"x": 0x1000, y.Name: 0x2000})
 	if err != nil || blocks != 1 || len(args) != 2 {
 		t.Fatalf("reduction args=%v blocks=%d err=%v", args, blocks, err)
 	}
 	// A registered reduction must still agree with the plan's pointer ABI.
-	step.Artifact.Schema.Params = step.Artifact.Schema.Params[:1]
+	spec := step.Artifact.Spec()
+	spec.Schema.Params = spec.Schema.Params[:1]
+	step.Artifact, err = cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, _, err := p.kernelArguments(step, map[string]driver.DevicePtr{"x": 0x1000, y.Name: 0x2000}); err == nil {
 		t.Fatal("mismatched reduction schema accepted")
 	}

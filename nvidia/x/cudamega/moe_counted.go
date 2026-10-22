@@ -121,11 +121,11 @@ func checkedMoECountedArtifact(config MoEWeightConfig, a *cudakernel.Artifact) (
 		return nil, err
 	}
 	schema, _ := MoEWeightSchema()
-	if a.Kind != cudakernel.KindCUBIN || a.Target != "sm_121" || a.EntryPoint != "moe_weight_counted_worker" || !reflect.DeepEqual(a.Schema, schema) || !reflect.DeepEqual(a.CompilerOpts, []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}) {
+	if a.Kind() != cudakernel.KindCUBIN || a.Target() != "sm_121" || a.EntryPoint() != "moe_weight_counted_worker" || !reflect.DeepEqual(a.Schema(), schema) || !reflect.DeepEqual(a.CompilerOptions(), []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}) {
 		return nil, errors.New("cudamega: counted weight artifact identity differs")
 	}
 	want, count := fmt.Sprintf("%x", sha256.Sum256([]byte(source))), 0
-	for _, dep := range a.Dependencies {
+	for _, dep := range a.Dependencies() {
 		if dep.Path == "cudamega_moe_counted.cu" {
 			count++
 			if !dep.Tracked || dep.Digest != want || dep.ErrorMsg != "" {
@@ -136,11 +136,8 @@ func checkedMoECountedArtifact(config MoEWeightConfig, a *cudakernel.Artifact) (
 	if count != 1 {
 		return nil, errors.New("cudamega: counted source binding missing or duplicated")
 	}
+	// Capture the immutable handle, not the caller-owned wrapper.
 	b := *a
-	b.Raw = append([]byte(nil), a.Raw...)
-	b.Dependencies = append([]cudakernel.Dependency(nil), a.Dependencies...)
-	b.CompilerOpts = append([]string(nil), a.CompilerOpts...)
-	b.Schema.Params = append([]cudakernel.Param(nil), a.Schema.Params...)
 	return &b, nil
 }
 

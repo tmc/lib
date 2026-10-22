@@ -177,7 +177,7 @@ func (c *GatherCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Workl
 		return x, err
 	}
 	args := []any{x.buffers["experts"], x.buffers["output"], x.buffers["routes"], int32(len(c.routes) / 4), int32(c.width), int32(c.expertCount)}
-	if _, err := artifact.Schema.Pack(args...); err != nil {
+	if _, err := x.stages[0].artifact.Pack(args...); err != nil {
 		return x, err
 	}
 	x.stages[0].args = args

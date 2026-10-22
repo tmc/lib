@@ -145,7 +145,7 @@ func (r Record) Validate() error {
 			return fmt.Errorf("history: missing artifact is not a compile failure")
 		}
 	} else {
-		kind := r.Artifact.Kind
+		kind := r.Artifact.Kind()
 		valid := false
 		switch r.Compiler.OutputKind {
 		case nvrtcx.OutputAuto:
@@ -170,7 +170,7 @@ func (r Record) Validate() error {
 		if err := r.Artifact.Validate(); err != nil {
 			return fmt.Errorf("history artifact: %w", err)
 		}
-		id := cudaevidence.Identity{ArtifactDigest: r.Artifact.Digest, Entry: r.Artifact.EntryPoint, Target: r.Artifact.Target, CompilerKey: r.CompilerKey, WorkloadKey: r.WorkloadKey}
+		id := cudaevidence.Identity{ArtifactDigest: r.Artifact.Digest(), Entry: r.Artifact.EntryPoint(), Target: r.Artifact.Target(), CompilerKey: r.CompilerKey, WorkloadKey: r.WorkloadKey}
 		if err := id.Validate(); err != nil {
 			return err
 		}

@@ -95,15 +95,16 @@ func InputFromKernelArtifact(name string, a *cudakernel.Artifact) (Input, error)
 	}
 	var in Input
 	in.Name = name
-	switch a.Kind {
+	owned := *a
+	switch owned.Kind() {
 	case cudakernel.KindLTOIR:
-		in.Kind, in.Data = nvjitlink.InputLtoir, a.Bytes()
+		in.Kind, in.Data = nvjitlink.InputLtoir, owned.Bytes()
 	case cudakernel.KindCUBIN:
-		in.Kind, in.Data = nvjitlink.InputCubin, a.Bytes()
+		in.Kind, in.Data = nvjitlink.InputCubin, owned.Bytes()
 	case cudakernel.KindPTX:
-		in.Kind, in.Data = nvjitlink.InputPtx, a.Bytes()
+		in.Kind, in.Data = nvjitlink.InputPtx, owned.Bytes()
 	default:
-		return Input{}, fmt.Errorf("nvjitlinkx: artifact kind %s cannot be linked", a.Kind)
+		return Input{}, fmt.Errorf("nvjitlinkx: artifact kind %s cannot be linked", owned.Kind())
 	}
 	if len(in.Data) == 0 {
 		return Input{}, fmt.Errorf("nvjitlinkx: artifact has no data")

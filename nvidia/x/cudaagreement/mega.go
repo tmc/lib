@@ -306,7 +306,7 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	input := bufs[plan.Steps[u.steps[0]].Inputs[0]]
 	e.epoch++
 	args := []any{input.Ptr, scratch.Ptr(), completed.Ptr(), order.Ptr(), abort.Ptr(), uint32(n), e.epoch}
-	if _, err := art.Schema.Pack(args...); err != nil {
+	if _, err := art.Schema().Pack(args...); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: persistent worker arguments: %w", err)
 	}
 	for _, s := range []cudamem.Slice[uint32]{completed, abort} {
@@ -358,8 +358,8 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 			return nil, "", fmt.Errorf("cudaagreement: copy %s from worker scratch: %w", s.Name, err)
 		}
 		r := recordFor(s, cudaplan.BackendMega, cudaplan.BackendMega, "", out)
-		r.Program = art.Digest
-		r.EntryPoint = art.EntryPoint
+		r.Program = art.Digest()
+		r.EntryPoint = art.EntryPoint()
 		r.Grid, r.Block = grid.CTAs, grid.ThreadsPerCTA
 		recs = append(recs, r)
 	}

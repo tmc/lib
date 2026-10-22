@@ -2,6 +2,7 @@ package cudaquant
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
@@ -56,12 +57,12 @@ func TestNormQuantArtifactCompilation(t *testing.T) {
 							t.Fatalf("parameter %d: %+v", i, p)
 						}
 					}
-					// Synthetic compiler output tests transport only, not valid device code.
-					result = &cudakernel.Artifact{
-						Kind: cudakernel.KindCUBIN, Raw: []byte("compiled output fixture"),
-						EntryPoint: entry, Schema: schema, Target: target,
-						Resources: cudakernel.ResourceRequirements{AllocatedRegisters: 24},
-						Toolchain: "compiler fixture",
+					// Synthetic ELF tests transport only, not valid device code.
+					var err error
+					result, err = cudakernel.NewArtifact(cudakernel.KindCUBIN, artifactELFFixture(), entry, schema, target,
+						cudakernel.WithResources(cudakernel.ResourceRequirements{AllocatedRegisters: 24}), cudakernel.WithToolchain("compiler fixture"))
+					if err != nil {
+						return nil, err
 					}
 					return result, nil
 				}), nil
@@ -69,8 +70,8 @@ func TestNormQuantArtifactCompilation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if a != result || a.Kind != cudakernel.KindCUBIN || a.Resources.AllocatedRegisters != 24 ||
-				a.Toolchain != "compiler fixture" || !reflect.DeepEqual(a.CompilerOpts, compiledFlags) || bytes.Equal(a.Raw, []byte(RMSNormQ8_1Source())) {
+			if a == result || *a == *result || a.Digest() != result.Digest() || len(result.CompilerOptions()) != 0 || a.Kind() != cudakernel.KindCUBIN || a.Resources().AllocatedRegisters != 24 ||
+				a.Toolchain() != "compiler fixture" || !reflect.DeepEqual(a.CompilerOptions(), compiledFlags) || bytes.Equal(a.Bytes(), []byte(RMSNormQ8_1Source())) {
 				t.Fatalf("lost compiled artifact metadata: %+v", a)
 			}
 		})
@@ -122,15 +123,14 @@ func TestUnfusedNormArtifacts(t *testing.T) {
 				if schema.TotalParamBytes != 40 || len(schema.Params) != 7 {
 					t.Fatalf("incorrect ABI: %+v", schema)
 				}
-				return &cudakernel.Artifact{EntryPoint: entry, Target: target, Schema: schema,
-					Resources: cudakernel.ResourceRequirements{AllocatedRegisters: uint32(len(calls) * 8)}}, nil
+				return cudakernel.NewArtifact(cudakernel.KindCUBIN, artifactELFFixture(), entry, schema, target, cudakernel.WithResources(cudakernel.ResourceRequirements{AllocatedRegisters: uint32(len(calls) * 8)}))
 			}), nil
 		})
 	if err != nil || !slices.Equal(calls, entries) || len(a) != 2 {
 		t.Fatalf("artifacts=%v calls=%v err=%v", a, calls, err)
 	}
 	for i := range a {
-		if a[i].EntryPoint != entries[i] || a[i].Resources.AllocatedRegisters != uint32((i+1)*8) || len(a[i].CompilerOpts) == 0 {
+		if a[i].EntryPoint() != entries[i] || a[i].Resources().AllocatedRegisters != uint32((i+1)*8) || len(a[i].CompilerOptions()) == 0 {
 			t.Fatalf("lost entry metadata: %+v", a[i])
 		}
 	}
@@ -163,16 +163,27 @@ func TestNormQuantCompile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, a := range []*cudakernel.Artifact{a, unfused[0], unfused[1]} {
-		if a.Kind != cudakernel.KindCUBIN {
-			t.Fatalf("compiled kind=%v", a.Kind)
+		if a.Kind() != cudakernel.KindCUBIN {
+			t.Fatalf("compiled kind=%v", a.Kind())
 		}
-		info, err := cudakernel.ParseCUBIN(a.Raw)
+		info, err := cudakernel.ParseCUBIN(a.Bytes())
 		if err != nil {
 			t.Fatalf("invalid compiled CUBIN: %v", err)
 		}
-		if !slices.Contains(info.Symbols, a.EntryPoint) {
-			t.Fatalf("compiled entry %q missing from %v", a.EntryPoint, info.Symbols)
+		if !slices.Contains(info.Symbols, a.EntryPoint()) {
+			t.Fatalf("compiled entry %q missing from %v", a.EntryPoint(), info.Symbols)
 		}
-		t.Logf("target=%s entry=%s digest=%s resources=%+v flags=%v", a.Target, a.EntryPoint, a.Digest, a.Resources, a.CompilerOpts)
+		t.Logf("target=%s entry=%s digest=%s resources=%+v flags=%v", a.Target(), a.EntryPoint(), a.Digest(), a.Resources(), a.CompilerOptions())
 	}
+}
+
+// artifactELFFixture is a parser-only CUDA ELF header, not executable device code.
+func artifactELFFixture() []byte {
+	image := make([]byte, 64)
+	copy(image, []byte{0x7f, 'E', 'L', 'F', 2, 1, 1, 0x33, 7})
+	binary.LittleEndian.PutUint16(image[16:], 2)
+	binary.LittleEndian.PutUint16(image[18:], 190)
+	binary.LittleEndian.PutUint32(image[20:], 1)
+	binary.LittleEndian.PutUint16(image[52:], 64)
+	return image
 }

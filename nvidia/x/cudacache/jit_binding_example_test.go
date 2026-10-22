@@ -30,7 +30,7 @@ func ExampleCompilerIdentity_jitOptions() {
 	err = a.Store(context.Background(), "fixture-source", id, art)
 	fmt.Println(err)
 	got, hit, err := a.Lookup(context.Background(), "fixture-source", id)
-	fmt.Println(hit, got.JITOptions.OptLevelSet, err)
+	fmt.Println(hit, got.JITOptions().OptLevelSet, err)
 	// Output:
 	// <nil>
 	// true true <nil>

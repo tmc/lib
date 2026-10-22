@@ -57,7 +57,7 @@ func TestBuildSparseTeacherPacket(t *testing.T) {
 			t.Fatalf("compile %s: %v", name, err)
 		}
 		if err := distillAdmitArtifact(a, source); err != nil {
-			t.Fatalf("%v; retained dependencies=%+v", err, a.Dependencies)
+			t.Fatalf("%v; retained dependencies=%+v", err, a.Dependencies())
 		}
 		p := distillPacket{Version: 1, SourceDigest: distillDigest([]byte(source)), HeaderDigest: distillDigest([]byte(cudablock.Header)), CompilerPath: nvrtc.Path(), CompilerVersion: "13.4.59", CompilerDigest: distillDigest(compiler), BuiltinsPath: builtins, BuiltinsDigest: distillDigest(builtin), Artifact: *a}
 		fragment, err := distillBlockHeader()
@@ -69,12 +69,12 @@ func TestBuildSparseTeacherPacket(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for suffix, data := range map[string][]byte{".json": raw, ".cu": []byte(source), ".cubin": a.Raw} {
+		for suffix, data := range map[string][]byte{".json": raw, ".cu": []byte(source), ".cubin": a.Bytes()} {
 			if err := os.WriteFile(filepath.Join(dir, name+suffix), data, 0600); err != nil {
 				t.Fatal(err)
 			}
 		}
-		t.Logf("compiled %s source=%s image=%s compiler=%s", name, p.SourceDigest, a.Digest, p.CompilerDigest)
+		t.Logf("compiled %s source=%s image=%s compiler=%s", name, p.SourceDigest, a.Digest(), p.CompilerDigest)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "cudablock.cuh"), []byte(cudablock.Header), 0600); err != nil {
 		t.Fatal(err)
@@ -261,7 +261,7 @@ func distillNativeOwner(t *testing.T, dev *cuda.Device, c SparseTeacherConfig, n
 		}
 		attrs[name] = value
 	}
-	t.Logf("loaded %s image=%s attributes=%v", name, packet.Artifact.Digest, attrs)
+	t.Logf("loaded %s image=%s attributes=%v", name, packet.Artifact.Digest(), attrs)
 	return owner
 }
 

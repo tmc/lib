@@ -301,7 +301,7 @@ func TestWorkflowPublicBackendAgreement(t *testing.T) {
 		}
 		for i, sr := range arm.Record.Steps {
 			wantOut := bufs[agreePlan.Steps[i].Output]
-			if sr.Step != fx.NodeNames[i] || sr.Requested != arm.Record.Requested || sr.Executed != arm.Record.Requested || sr.Digest != agreePlan.Steps[i].Artifact.Digest || sr.Grid != 1 || sr.Block != 256 || sr.Output.Ptr != wantOut.Ptr || sr.Output.Bytes != wantOut.Bytes {
+			if sr.Step != fx.NodeNames[i] || sr.Requested != arm.Record.Requested || sr.Executed != arm.Record.Requested || sr.Digest != agreePlan.Steps[i].Artifact.Digest() || sr.Grid != 1 || sr.Block != 256 || sr.Output.Ptr != wantOut.Ptr || sr.Output.Bytes != wantOut.Bytes {
 				t.Fatalf("step record %d mismatch: got=%+v", i, sr)
 			}
 		}
@@ -345,7 +345,7 @@ func TestWorkflowPublicBackendAgreement(t *testing.T) {
 
 	// Negative control 3: mutating one copied record digest must fail Verify.
 	mutatedRec := cloneAgreementRecord(graphArm.Record)
-	mutatedRec.Steps[1].Digest = fx.Artifacts["mul"].Digest
+	mutatedRec.Steps[1].Digest = fx.Artifacts["mul"].Digest()
 	mutatedDigestArm := cudaagreement.Arm{Record: mutatedRec, Output: append([]byte(nil), graphArm.Output...)}
 	if err := cudaagreement.Verify([]cudaagreement.Arm{launchArm, mutatedDigestArm}); err == nil {
 		t.Fatal("Verify accepted copied record with mutated step artifact digest")
@@ -453,7 +453,7 @@ func TestWorkflowFinitePlanReference(t *testing.T) {
 		t.Fatalf("finite Mega steps = %d, want %d", len(planned), workflowComputeNodes)
 	}
 	for i, s := range planned {
-		if s.Backend != cudaplan.BackendMega || s.Artifact == nil || s.Artifact.EntryPoint != "finite_plan" {
+		if s.Backend != cudaplan.BackendMega || s.Artifact == nil || s.Artifact.EntryPoint() != "finite_plan" {
 			t.Fatalf("step %d not planned on finite_plan BackendMega: %+v", i, s)
 		}
 	}

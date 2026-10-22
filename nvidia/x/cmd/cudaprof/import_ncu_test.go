@@ -104,7 +104,7 @@ func ncuJoinCommandFixture(t *testing.T) (nsightcompute.Envelope, string, string
 		t.Fatal(err)
 	}
 	w := cudacache.WorkloadIdentity{ProgramID: "synthetic offline CLI launch", ShapeDims: []int{64}, NumericalMode: "fp32"}
-	key := cudacache.CompilerCacheKey(a.Digest, cudacache.CompilerIdentity{TargetArch: a.Target, OutputKind: nvrtcx.OutputCUBIN})
+	key := cudacache.CompilerCacheKey(a.Digest(), cudacache.CompilerIdentity{TargetArch: a.Target(), OutputKind: nvrtcx.OutputCUBIN})
 	id, err := cudaprof.BindEvidence(a, w, key)
 	if err != nil {
 		t.Fatal(err)
@@ -115,8 +115,11 @@ func ncuJoinCommandFixture(t *testing.T) (nsightcompute.Envelope, string, string
 	if err := cudacapture.WriteLimits(&packet, c, cudacapture.Limits{}); err != nil {
 		t.Fatal(err)
 	}
-	artifact := ncuArtifact(*a)
-	receipt := ncuJoinReceipt{SchemaVersion: 1, Artifact: &artifact, Workload: w, CompilerKey: key}
+	artifact, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt := ncuJoinReceipt{SchemaVersion: 1, Artifact: artifact, Workload: w, CompilerKey: key}
 	b, err := json.Marshal(receipt)
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +203,14 @@ func TestImportNCUCommandRefusals(t *testing.T) {
 		bytes.Replace(data, []byte(`"schema"`), []byte(`"ſchema"`), 1),
 		bytes.Replace(data, []byte(`"schema"`), []byte(`"\u017fchema"`), 1),
 		append(append([]byte(nil), data...), []byte(` {}`)...),
+		// The artifact must carry its own digest.
+		bytes.Replace(data, []byte(`"raw":"`), []byte(`"raw":"AAAA`), 1),
+		bytes.Replace(data, []byte(`"digest":"`), []byte(`"digest":"0`), 1),
+		bytes.Replace(data, []byte(`"digest":"`), []byte(`"digest_":"`), 1),
 	} {
+		if bytes.Equal(bad, data) {
+			t.Fatal("receipt edit did not apply")
+		}
 		b.Reset()
 		p := ncuWriteFixture(t, "bad.json", bad)
 		if err := runImportNCUCommand([]string{"-capture", capture, "-join-receipt", p, path}, &b); err == nil {

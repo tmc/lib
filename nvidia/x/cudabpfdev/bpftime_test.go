@@ -315,7 +315,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// 1. Opt-in stub-based attach policy.
 	policy := InjectionPolicy{
 		Enabled:       true,
-		Allowlist:     []KernelIdentity{{artifact.Digest, artifact.EntryPoint, artifact.Target}},
+		Allowlist:     []KernelIdentity{{artifact.Digest(), artifact.EntryPoint(), artifact.Target()}},
 		StubFunctions: []string{"__bpftime_cuda__kernel_trace"},
 	}
 
@@ -328,7 +328,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 		t.Fatalf("candidate preparation failed: %s", reason)
 	}
 
-	candPTX := string(candidate.Raw)
+	candPTX := string(candidate.Bytes())
 	checkEmittedProgramBody(t, emittedBody(t, emitTrampoline(p, 0), "{\n"), p, "__cudabpfdev_site0_", false)
 	checkEmittedProgramBody(t, emittedBody(t, emitProbeFunction(p, "__cudabpfdev_probe_0"), ".func __cudabpfdev_probe_0\n{\n"), p, "__cudabpfdev_probe_0_", true)
 	checkEmittedProgramBody(t, emittedBody(t, candPTX, ".func __cudabpfdev_probe_0\n{\n"), p, "__cudabpfdev_probe_0_", true)
@@ -350,13 +350,13 @@ func TestStubCallSiteLocated(t *testing.T) {
 	}
 
 	// Verify kernel identity, ABI, and parseability by cudaptx.
-	if candidate.Digest == artifact.Digest {
+	if candidate.Digest() == artifact.Digest() {
 		t.Fatal("candidate digest did not change from original")
 	}
-	if !reflect.DeepEqual(candidate.Schema, artifact.Schema) {
+	if !reflect.DeepEqual(candidate.Schema(), artifact.Schema()) {
 		t.Fatal("candidate schema changed from original")
 	}
-	parsedMod, err := cudaptx.ParseBytes(candidate.Raw)
+	parsedMod, err := cudaptx.ParseBytes(candidate.Bytes())
 	if err != nil {
 		t.Fatalf("candidate is not parseable by cudaptx: %v", err)
 	}
@@ -367,7 +367,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// 2. Fallback when stub is not opted into (policy.StubFunctions is empty).
 	noStubPolicy := InjectionPolicy{
 		Enabled:   true,
-		Allowlist: []KernelIdentity{{artifact.Digest, artifact.EntryPoint, artifact.Target}},
+		Allowlist: []KernelIdentity{{artifact.Digest(), artifact.EntryPoint(), artifact.Target()}},
 		Entry:     true,
 	}
 	injNoStub, err := PrepareInjection(source, p, b, noStubPolicy)
@@ -387,7 +387,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 		t.Fatal("missing-stub fixture still defines the listed function")
 	}
 	missingSource, missingArtifact := newSource(missingStubPTX)
-	missingPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{missingArtifact.Digest, missingArtifact.EntryPoint, missingArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
+	missingPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{missingArtifact.Digest(), missingArtifact.EntryPoint(), missingArtifact.Target()}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
 	injMissing, err := PrepareInjection(missingSource, p, b, missingPolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -410,7 +410,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	noCallPTX = strings.Replace(noCallPTX, "    call.uni __bpftime_cuda__kernel_trace;\n", "", 1)
 	noCallSource, noCallArtifact := newSource(noCallPTX)
 	absentPolicy := InjectionPolicy{
-		Enabled: true, Allowlist: []KernelIdentity{{noCallArtifact.Digest, noCallArtifact.EntryPoint, noCallArtifact.Target}},
+		Enabled: true, Allowlist: []KernelIdentity{{noCallArtifact.Digest(), noCallArtifact.EntryPoint(), noCallArtifact.Target()}},
 		StubFunctions: []string{"never_defined_or_called"}, Entry: true,
 	}
 	injAbsent, err := PrepareInjection(noCallSource, p, b, absentPolicy)
@@ -424,12 +424,12 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// An empty-bodied definition is an admitted empty stub.
 	emptyStubPTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}", ".func __bpftime_cuda__kernel_trace\n{\n}", 1)
 	emptySource, emptyArtifact := newSource(emptyStubPTX)
-	emptyPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{emptyArtifact.Digest, emptyArtifact.EntryPoint, emptyArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
+	emptyPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{emptyArtifact.Digest(), emptyArtifact.EntryPoint(), emptyArtifact.Target()}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
 	injEmpty, err := PrepareInjection(emptySource, p, b, emptyPolicy)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cand, reason := injEmpty.Candidate(); cand == nil || !strings.Contains(string(cand.Raw), ".func __bpftime_cuda__kernel_trace\n{\n}\n") {
+	if cand, reason := injEmpty.Candidate(); cand == nil || !strings.Contains(string(cand.Bytes()), ".func __bpftime_cuda__kernel_trace\n{\n}\n") {
 		t.Fatalf("empty-bodied stub candidate = (%t, %q), want retained definition", cand != nil, reason)
 	}
 
@@ -440,7 +440,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 		t.Fatal("undefined-callee fixture does not contain only the intended call")
 	}
 	missingCalleeSource, missingCalleeArtifact := newSource(missingCalleePTX)
-	missingCalleePolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{missingCalleeArtifact.Digest, missingCalleeArtifact.EntryPoint, missingCalleeArtifact.Target}}, Entry: true}
+	missingCalleePolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{missingCalleeArtifact.Digest(), missingCalleeArtifact.EntryPoint(), missingCalleeArtifact.Target()}}, Entry: true}
 	injMissingCallee, err := PrepareInjection(missingCalleeSource, p, b, missingCalleePolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -462,7 +462,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	}
 	nonEmptyPolicy := InjectionPolicy{
 		Enabled:       true,
-		Allowlist:     []KernelIdentity{{nonEmptyArtifact.Digest, nonEmptyArtifact.EntryPoint, nonEmptyArtifact.Target}},
+		Allowlist:     []KernelIdentity{{nonEmptyArtifact.Digest(), nonEmptyArtifact.EntryPoint(), nonEmptyArtifact.Target()}},
 		StubFunctions: []string{"__bpftime_cuda__kernel_trace"},
 	}
 	injNonEmpty, err := PrepareInjection(nonEmptySource, p, b, nonEmptyPolicy)
@@ -481,7 +481,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 		"call.uni __bpftime_cuda__kernel_trace;",
 		"call.uni __bpftime_cuda__kernel_trace, (%value);", 1)
 	parameterSource, parameterArtifact := newSource(parameterStubPTX)
-	parameterPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{parameterArtifact.Digest, parameterArtifact.EntryPoint, parameterArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
+	parameterPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{parameterArtifact.Digest(), parameterArtifact.EntryPoint(), parameterArtifact.Target()}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
 	injParameter, err := PrepareInjection(parameterSource, p, b, parameterPolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -493,7 +493,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// An empty but unlisted device function is outside the admitted module contract.
 	unlistedPTX := strings.Replace(stubPTX, ".visible .entry affine(", ".func helper\n{\n    ret;\n}\n\n.visible .entry affine(", 1)
 	unlistedSource, unlistedArtifact := newSource(unlistedPTX)
-	unlistedPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{unlistedArtifact.Digest, unlistedArtifact.EntryPoint, unlistedArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}, Entry: true}
+	unlistedPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{unlistedArtifact.Digest(), unlistedArtifact.EntryPoint(), unlistedArtifact.Target()}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}, Entry: true}
 	injUnlisted, err := PrepareInjection(unlistedSource, p, b, unlistedPolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -505,7 +505,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// Duplicate entry names fail closed with a located reason.
 	duplicateEntryPTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace", ".visible .entry affine()\n{\n    ret;\n}\n\n.func __bpftime_cuda__kernel_trace", 1)
 	duplicateSource, duplicateArtifact := newSource(duplicateEntryPTX)
-	duplicatePolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{duplicateArtifact.Digest, duplicateArtifact.EntryPoint, duplicateArtifact.Target}}, Entry: true}
+	duplicatePolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{duplicateArtifact.Digest(), duplicateArtifact.EntryPoint(), duplicateArtifact.Target()}}, Entry: true}
 	injDuplicate, err := PrepareInjection(duplicateSource, p, b, duplicatePolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -517,7 +517,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// A bodiless declaration is not a defined empty stub.
 	bodilessPTX := strings.Replace(stubPTX, ".func __bpftime_cuda__kernel_trace\n{\n    ret;\n}\n", ".extern .func __bpftime_cuda__kernel_trace;\n", 1)
 	bodilessSource, bodilessArtifact := newSource(bodilessPTX)
-	bodilessPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{bodilessArtifact.Digest, bodilessArtifact.EntryPoint, bodilessArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
+	bodilessPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{bodilessArtifact.Digest(), bodilessArtifact.EntryPoint(), bodilessArtifact.Target()}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
 	injBodiless, err := PrepareInjection(bodilessSource, p, b, bodilessPolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -529,7 +529,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// A secondary .entry is refused even when its name appears in StubFunctions.
 	secondEntryPTX := strings.Replace(stubPTX, ".visible .entry affine(", ".visible .entry trace_stub()\n{\n    ret;\n}\n\n.visible .entry affine(", 1)
 	secondEntrySource, secondEntryArtifact := newSource(secondEntryPTX)
-	secondEntryPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{secondEntryArtifact.Digest, secondEntryArtifact.EntryPoint, secondEntryArtifact.Target}}, StubFunctions: []string{"trace_stub", "__bpftime_cuda__kernel_trace"}}
+	secondEntryPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{secondEntryArtifact.Digest(), secondEntryArtifact.EntryPoint(), secondEntryArtifact.Target()}}, StubFunctions: []string{"trace_stub", "__bpftime_cuda__kernel_trace"}}
 	injSecondEntry, err := PrepareInjection(secondEntrySource, p, b, secondEntryPolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -541,7 +541,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	// Two calls receive distinct function definitions and both parse without duplicate names.
 	multipleCallsPTX := strings.Replace(stubPTX, "call.uni __bpftime_cuda__kernel_trace;", "call.uni __bpftime_cuda__kernel_trace;\n    call.uni __bpftime_cuda__kernel_trace;", 1)
 	multipleSource, multipleArtifact := newSource(multipleCallsPTX)
-	multiplePolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{multipleArtifact.Digest, multipleArtifact.EntryPoint, multipleArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
+	multiplePolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{multipleArtifact.Digest(), multipleArtifact.EntryPoint(), multipleArtifact.Target()}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}}
 	injMultiple, err := PrepareInjection(multipleSource, p, b, multiplePolicy)
 	if err != nil {
 		t.Fatal(err)
@@ -550,7 +550,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 	if multipleCandidate == nil {
 		t.Fatalf("multiple call-site preparation failed: %s", reason)
 	}
-	multiplePTX := string(multipleCandidate.Raw)
+	multiplePTX := string(multipleCandidate.Bytes())
 	if strings.Count(multiplePTX, "call.uni __cudabpfdev_probe_") != 2 || !strings.Contains(multiplePTX, "call.uni __cudabpfdev_probe_0;") || !strings.Contains(multiplePTX, "call.uni __cudabpfdev_probe_1;") {
 		t.Fatalf("two call sites were not routed to distinct probes:\n%s", multiplePTX)
 	}
@@ -558,7 +558,7 @@ func TestStubCallSiteLocated(t *testing.T) {
 		name := "__cudabpfdev_probe_" + strconv.Itoa(site)
 		checkEmittedProgramBody(t, emittedBody(t, multiplePTX, ".func "+name+"\n{\n"), p, name+"_", true)
 	}
-	multipleModule, err := cudaptx.ParseBytes(multipleCandidate.Raw)
+	multipleModule, err := cudaptx.ParseBytes(multipleCandidate.Bytes())
 	if err != nil {
 		t.Fatalf("multiple call-site candidate is not parseable by cudaptx: %v", err)
 	}
@@ -582,14 +582,14 @@ func TestStubCallSiteLocated(t *testing.T) {
 	if layout.registers != 3 { // %addr is b64 (2 units); %value is b32 (1).
 		t.Fatalf("independent original register count = %d, want 3 (b64 addr + b32 value)", layout.registers)
 	}
-	translation, err := Translate(p, b, multipleArtifact.Target)
+	translation, err := Translate(p, b, multipleArtifact.Target())
 	if err != nil {
 		t.Fatal(err)
 	}
 	perSite := translation.DeclaredRegisters + 1
 	oneCallPTX := strings.Replace(stubPTX, "    call.uni __bpftime_cuda__kernel_trace;\n", "", 1)
 	oneCallSource, oneCallArtifact := newSource(oneCallPTX)
-	oneCallPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{oneCallArtifact.Digest, oneCallArtifact.EntryPoint, oneCallArtifact.Target}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}, Entry: true}
+	oneCallPolicy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{oneCallArtifact.Digest(), oneCallArtifact.EntryPoint(), oneCallArtifact.Target()}}, StubFunctions: []string{"__bpftime_cuda__kernel_trace"}, Entry: true}
 	oneCallLayout, err := inspectInjection(oneCallArtifact, oneCallPolicy)
 	if err != nil {
 		t.Fatal(err)

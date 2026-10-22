@@ -77,9 +77,9 @@ func ExampleNewArtifact() {
 		fmt.Println("error:", err)
 		return
 	}
-	fmt.Println("kind:", art.Kind)
-	fmt.Println("entry:", art.EntryPoint)
-	fmt.Println("target:", art.Target)
+	fmt.Println("kind:", art.Kind())
+	fmt.Println("entry:", art.EntryPoint())
+	fmt.Println("target:", art.Target())
 	fmt.Println("requires link:", art.RequiresLink())
 	// Output:
 	// kind: PTX

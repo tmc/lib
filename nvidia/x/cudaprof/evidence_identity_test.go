@@ -1,7 +1,9 @@
 package cudaprof_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudacache"
@@ -32,33 +34,58 @@ func TestEvidenceIdentityPreservesProducerKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id.ArtifactDigest != a.Digest || id.CompilerKey != key || id.WorkloadKey != w.Key() || id.Entry != a.EntryPoint || id.Target != a.Target {
+	if id.ArtifactDigest != a.Digest() || id.CompilerKey != key || id.WorkloadKey != w.Key() || id.Entry != a.EntryPoint() || id.Target != a.Target() {
 		t.Fatalf("lost producer identity: %+v", id)
 	}
-	if id.CompilerKey == cudacache.CompilerCacheKey(a.Digest, c) {
+	if id.CompilerKey == cudacache.CompilerCacheKey(a.Digest(), c) {
 		t.Fatal("rehash substituted final image as compiler input")
 	}
+	unknownKind := a.Spec()
+	unknownKind.Kind = 255
 	for _, tc := range []struct {
 		name   string
-		change func(*cudakernel.Artifact, *cudacache.WorkloadIdentity, *string)
+		spec   *cudakernel.ArtifactSpec // nil keeps a
+		change func(*cudacache.WorkloadIdentity, *string)
 	}{
-		{"corrupt image", func(a *cudakernel.Artifact, w *cudacache.WorkloadIdentity, k *string) { a.Raw = []byte("changed") }},
-		{"unknown kind", func(a *cudakernel.Artifact, w *cudacache.WorkloadIdentity, k *string) { a.Kind = 255 }},
-		{"missing entry", func(a *cudakernel.Artifact, w *cudacache.WorkloadIdentity, k *string) { a.EntryPoint = "" }},
-		{"unknown key", func(a *cudakernel.Artifact, w *cudacache.WorkloadIdentity, k *string) { *k = "" }},
-		{"missing workload", func(a *cudakernel.Artifact, w *cudacache.WorkloadIdentity, k *string) { w.ProgramID = "" }},
-		{"missing mode", func(a *cudakernel.Artifact, w *cudacache.WorkloadIdentity, k *string) { w.NumericalMode = "" }},
-		{"negative extent", func(a *cudakernel.Artifact, w *cudacache.WorkloadIdentity, k *string) { w.ShapeDims = []int{-1} }},
+		{"unknown kind", &unknownKind, func(w *cudacache.WorkloadIdentity, k *string) {}},
+		{"unknown key", nil, func(w *cudacache.WorkloadIdentity, k *string) { *k = "" }},
+		{"missing workload", nil, func(w *cudacache.WorkloadIdentity, k *string) { w.ProgramID = "" }},
+		{"missing mode", nil, func(w *cudacache.WorkloadIdentity, k *string) { w.NumericalMode = "" }},
+		{"negative extent", nil, func(w *cudacache.WorkloadIdentity, k *string) { w.ShapeDims = []int{-1} }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			badA := *a
+			badA := a
+			if tc.spec != nil {
+				var err error
+				if badA, err = cudakernel.NewArtifactFromSpec(*tc.spec); err != nil {
+					t.Fatal(err)
+				}
+			}
 			badW := w
 			badKey := key
-			tc.change(&badA, &badW, &badKey)
-			if _, err := cudaprof.BindEvidence(&badA, badW, badKey); err == nil {
+			tc.change(&badW, &badKey)
+			if _, err := cudaprof.BindEvidence(badA, badW, badKey); err == nil {
 				t.Fatal("accepted bad identity")
 			}
 		})
+	}
+	// A corrupt image or missing entry cannot be constructed; BindEvidence
+	// still rejects the invalid zero handle.
+	if _, err := cudaprof.BindEvidence(&cudakernel.Artifact{}, w, key); err == nil {
+		t.Fatal("accepted invalid artifact")
+	}
+	data, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, edit := range [][2]string{{`"entry_point":"kernel"`, `"entry_point":""`}, {`"raw":"`, `"raw":"AAAA`}} {
+		bad := strings.Replace(string(data), edit[0], edit[1], 1)
+		if bad == string(data) {
+			t.Fatalf("fixture lacks %s", edit[0])
+		}
+		if _, err := cudakernel.ParseArtifact([]byte(bad)); err == nil {
+			t.Fatalf("parsed artifact with %s", edit[1])
+		}
 	}
 	if _, err := cudaprof.BindEvidence(nil, w, key); err == nil {
 		t.Fatal("accepted nil artifact")

@@ -78,7 +78,7 @@ func Execute(ctx context.Context, dev *cuda.Device, t Translation, active uint32
 	if linked == nil || len(linked.CUBIN) == 0 || len(linked.PTX) != 0 {
 		return e, fmt.Errorf("cudabpfdev: linker did not return CUBIN")
 	}
-	a, err := cudakernel.NewArtifact(cudakernel.KindCUBIN, linked.CUBIN, t.Artifact.EntryPoint, t.Artifact.Schema, t.Artifact.Target)
+	a, err := cudakernel.NewArtifact(cudakernel.KindCUBIN, linked.CUBIN, t.Artifact.EntryPoint(), t.Artifact.Schema(), t.Artifact.Target())
 	if err != nil {
 		return e, fmt.Errorf("cudabpfdev: linked artifact: %w", err)
 	}
@@ -115,7 +115,7 @@ func (e *Execution) execute(ctx context.Context, source *ArtifactSource, slots, 
 		if err != nil {
 			return err
 		}
-		fn, err := e.ops.function(e.module, source.launch.Artifact.EntryPoint)
+		fn, err := e.ops.function(e.module, source.launch.Artifact.EntryPoint())
 		if err != nil {
 			return err
 		}
@@ -187,8 +187,8 @@ func (e *Execution) execute(ctx context.Context, source *ArtifactSource, slots, 
 		return err
 	}
 	e.snapshot, e.ready = snapshot, true
-	e.boundary = boundary{timestamp: time.Now().UnixNano(), digest: source.launch.Artifact.Digest,
-		entry: source.launch.Artifact.EntryPoint, target: source.launch.Artifact.Target, active: active}
+	e.boundary = boundary{timestamp: time.Now().UnixNano(), digest: source.launch.Artifact.Digest(),
+		entry: source.launch.Artifact.EntryPoint(), target: source.launch.Artifact.Target(), active: active}
 	return nil
 }
 

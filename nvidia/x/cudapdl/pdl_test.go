@@ -77,9 +77,9 @@ func TestPDLEligibility(t *testing.T) {
 	consSource.Source = `asm volatile("griddepcontrol.wait;":::"memory");`
 
 	prodArt := testProducerDesc("prod_art")
-	prodArt.Artifact = &cudakernel.Artifact{Target: "sm_121a"}
+	prodArt.Artifact = mustConstructPTXArtifact(t, "prod_art", "sm_121a")
 	consArt := testConsumerDesc("cons_art")
-	consArt.Artifact = &cudakernel.Artifact{Target: "sm_121a"}
+	consArt.Artifact = mustConstructPTXArtifact(t, "cons_art", "sm_121a")
 
 	prodVendor := testProducerDesc("cublaslt_gemm")
 	prodVendor.IsVendor = true

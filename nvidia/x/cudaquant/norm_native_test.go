@@ -138,7 +138,7 @@ func TestNativeNormQuantReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw = 0
-	kernel, err := module.Function(artifact.EntryPoint)
+	kernel, err := module.Function(artifact.EntryPoint())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestNativeNormQuantReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("device=%d uuid=%v target=%s driver=%d nvrtc=%d.%d artifact=%s resources=%+v flags=%v lease=%+v", ordinal, uuid, target, version, rtcMajor, rtcMinor, artifact.Digest, artifact.Resources, artifact.CompilerOpts, lease.Owner())
+	t.Logf("device=%d uuid=%v target=%s driver=%d nvrtc=%d.%d artifact=%s resources=%+v flags=%v lease=%+v", ordinal, uuid, target, version, rtcMajor, rtcMinor, artifact.Digest(), artifact.Resources(), artifact.CompilerOptions(), lease.Owner())
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	for _, f := range normFixtures() {
@@ -204,7 +204,7 @@ func TestNativeNormQuantReference(t *testing.T) {
 			weighted = 1
 		}
 		args := []any{input, weight, out, uint32(f.rows), uint32(f.cols), f.epsilon, weighted}
-		if _, err := artifact.Schema.Pack(args...); err != nil {
+		if _, err := artifact.Schema().Pack(args...); err != nil {
 			t.Fatal(err)
 		}
 		// An extra CTA and inactive lanes exercise the generated bounds checks.

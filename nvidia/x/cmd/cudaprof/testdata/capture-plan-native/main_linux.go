@@ -130,7 +130,7 @@ func preparePlan(dev *cuda.Device, dir, pmPath, pmMetric string) (err error) {
 	if err != nil {
 		return err
 	}
-	if artifact.Kind != cudakernel.KindCUBIN {
+	if artifact.Kind() != cudakernel.KindCUBIN {
 		return errors.New("compiler produced no CUBIN; exact loaded-image fixture unavailable")
 	}
 	chip, err := cuptisass.DeviceChipName(0)
@@ -147,7 +147,7 @@ func preparePlan(dev *cuda.Device, dir, pmPath, pmMetric string) (err error) {
 	}
 	image, passes := rp.Configuration()
 	metrics, sassErr := cuptisass.SupportedMetrics(chip)
-	if len(artifact.Raw) > 4<<20 || len(cm.PTX()) > 4<<20 {
+	if artifact.Size() > 4<<20 || len(cm.PTX()) > 4<<20 {
 		return errors.New("compiled code packet exceeds byte limits")
 	}
 	if sassErr == nil && len(metrics) == 0 {
@@ -180,7 +180,7 @@ func preparePlan(dev *cuda.Device, dir, pmPath, pmMetric string) (err error) {
 	}
 
 	cubinPath := filepath.Join(dir, "kernel.cubin")
-	if err := os.WriteFile(cubinPath, artifact.Raw, 0600); err != nil {
+	if err := os.WriteFile(cubinPath, artifact.Bytes(), 0600); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -295,7 +295,8 @@ func collect(dev *cuda.Device, dir string) (err error) {
 		return err
 	}
 	var raw driver.Module
-	err = dev.WithContext(func() error { var e error; raw, e = driver.ModuleLoadData(p.Artifact.Raw); return e })
+	cubin := p.Artifact.Bytes()
+	err = dev.WithContext(func() error { var e error; raw, e = driver.ModuleLoadData(cubin); return e })
 	if err != nil {
 		return err
 	}
@@ -544,7 +545,7 @@ func writeJSON(path string, v any) error {
 
 func writeCodePublication(dir string, provider cudaprof.CaptureProvider, p packet, loaded driver.Module, publication []byte, limit int) error {
 	code := cudacapture.CodeFiles{Source: "kernel.cu", PTX: "kernel.ptx", CUBIN: "kernel.cubin", SASS: "kernel.sass"}
-	capture := &cudacapture.Capture{Profile: &profile.Profile{SampleType: []*profile.ValueType{{Type: "code_receipt", Unit: "bytes"}}, Comments: []string{"code-only producer receipt; no GPU timing samples"}}, Code: code, Modules: []cudacapture.Module{{ID: fmt.Sprintf("producer-loaded-%x", uint64(loaded)), Generation: 1, Code: code}}, Files: map[string][]byte{"kernel.cu": []byte(p.Source), "kernel.ptx": []byte(p.PTX), "kernel.cubin": p.Artifact.Raw, "kernel.sass": []byte(p.SASS)}}
+	capture := &cudacapture.Capture{Profile: &profile.Profile{SampleType: []*profile.ValueType{{Type: "code_receipt", Unit: "bytes"}}, Comments: []string{"code-only producer receipt; no GPU timing samples"}}, Code: code, Modules: []cudacapture.Module{{ID: fmt.Sprintf("producer-loaded-%x", uint64(loaded)), Generation: 1, Code: code}}, Files: map[string][]byte{"kernel.cu": []byte(p.Source), "kernel.ptx": []byte(p.PTX), "kernel.cubin": p.Artifact.Bytes(), "kernel.sass": []byte(p.SASS)}}
 	var codeBytes int
 	for _, data := range capture.Files {
 		if len(data) > limit-codeBytes {

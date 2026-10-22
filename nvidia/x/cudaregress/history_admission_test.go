@@ -71,7 +71,7 @@ func TestHistoryRejectsUnprovenClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Environment.Clock != "test-clock" || r.Artifact.Digest != o.Artifact.Digest || r.Facts[0].Samples != 1 {
+	if r.Environment.Clock != "test-clock" || r.Artifact.Digest() != o.Artifact.Digest() || r.Facts[0].Samples != 1 {
 		t.Fatalf("changed supplied closure: %+v", r)
 	}
 }

@@ -126,7 +126,7 @@ func fixturePlanWithOp(t *testing.T, target, op string) *cudaagreement.Plan {
 	t.Helper()
 	p := fixturePlan(t, target)
 	last := p.Steps[len(p.Steps)-1]
-	art, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte(binaryPTX(target, op)), "apply", last.Artifact.Schema, target)
+	art, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte(binaryPTX(target, op)), "apply", last.Artifact.Schema(), target)
 	if err != nil {
 		t.Fatal(err)
 	}

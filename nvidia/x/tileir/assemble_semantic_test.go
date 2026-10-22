@@ -58,16 +58,16 @@ func TestAssembleSemanticMemoryComposition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls != 1 || got.Artifact.Kind != cudakernel.KindCUBIN || got.Artifact.Target != "sm_90" || got.Artifact.EntryPoint != "singleton" || got.Artifact.Schema.TotalParamBytes != 24 || got.BytecodeDigest != memoryDigest(want) {
+	if calls != 1 || got.Artifact.Kind() != cudakernel.KindCUBIN || got.Artifact.Target() != "sm_90" || got.Artifact.EntryPoint() != "singleton" || got.Artifact.Schema().TotalParamBytes != 24 || got.BytecodeDigest != memoryDigest(want) {
 		t.Fatal("artifact composition lost contract")
 	}
-	if got.Artifact.Toolchain != "tileiras (version unobserved)" || got.Log != result.Log || got.Remarks[0].Args["fixture"] != "true" {
+	if got.Artifact.Toolchain() != "tileiras (version unobserved)" || got.Log != result.Log || got.Remarks[0].Args["fixture"] != "true" {
 		t.Fatal("diagnostic/provenance lost")
 	}
 	result.CUBIN[0] = 0
 	result.Remarks[0].Args["fixture"] = "changed"
 	r.Schema.Params[0].Name = "changed"
-	if got.Artifact.Raw[0] != 0x7f || got.Remarks[0].Args["fixture"] != "true" || got.Artifact.Schema.Params[0].Name != "x" {
+	if got.Artifact.Bytes()[0] != 0x7f || got.Remarks[0].Args["fixture"] != "true" || got.Artifact.Schema().Params[0].Name != "x" {
 		t.Fatal("assembler output or schema retained mutable aliases")
 	}
 }

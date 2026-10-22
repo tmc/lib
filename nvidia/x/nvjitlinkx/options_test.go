@@ -55,6 +55,14 @@ func TestInputFromKernelArtifact(t *testing.T) {
 	if string(in.Data) != "lto-data" {
 		t.Errorf("in.Data = %q, want %q", string(in.Data), "lto-data")
 	}
+	in.Data[0] = '!'
+	if string(ltoArt.Bytes()) != "lto-data" {
+		t.Fatal("link input aliases immutable artifact")
+	}
+	again, err := InputFromKernelArtifact("module.lto", ltoArt)
+	if err != nil || string(again.Data) != "lto-data" {
+		t.Fatal("link adapter reused changed input bytes", err)
+	}
 
 	// TileIR cannot be linked via nvjitlink
 	tileArt, err := cudakernel.NewArtifact(cudakernel.KindTileIR, []byte("tile-data"), "entry", schema, "sm_121a")

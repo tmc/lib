@@ -105,7 +105,7 @@ func admitCapturePlanCodeBytes(raw, data []byte, limit int, pub cudaprof.Capture
 	if err != nil {
 		return raw, fmt.Errorf("capture plan code: %w", err)
 	}
-	if pub.Artifact == nil || pub.Artifact.Kind != cudakernel.KindCUBIN {
+	if pub.Artifact == nil || pub.Artifact.Kind() != cudakernel.KindCUBIN {
 		return raw, fmt.Errorf("capture plan code: native image association unavailable: %w", os.ErrNotExist)
 	}
 	if err := pub.Artifact.Validate(); err != nil {
@@ -115,17 +115,18 @@ func admitCapturePlanCodeBytes(raw, data []byte, limit int, pub cudaprof.Capture
 	if err != nil || id != pub.Result.Identity {
 		return raw, fmt.Errorf("capture plan code: artifact identity mismatch")
 	}
-	infoCUBIN, err := cudakernel.ParseCUBIN(pub.Artifact.Raw)
+	artImage, target := pub.Artifact.Bytes(), pub.Artifact.Target()
+	infoCUBIN, err := cudakernel.ParseCUBIN(artImage)
 	if err != nil {
 		return raw, fmt.Errorf("capture plan code: %w", err)
 	}
 	if infoCUBIN.Arch == "" {
 		return raw, fmt.Errorf("capture plan code: native target unavailable: %w", os.ErrNotExist)
 	}
-	if infoCUBIN.Arch != strings.TrimRight(pub.Artifact.Target, "af") {
+	if infoCUBIN.Arch != strings.TrimRight(target, "af") {
 		return raw, fmt.Errorf("capture plan code: native target mismatch")
 	}
-	if infoCUBIN.Arch != pub.Artifact.Target {
+	if infoCUBIN.Arch != target {
 		return raw, fmt.Errorf("capture plan code: target feature suffix unverified: %w", os.ErrNotExist)
 	}
 	var module *cudacapture.Module
@@ -137,7 +138,7 @@ func admitCapturePlanCodeBytes(raw, data []byte, limit int, pub cudaprof.Capture
 			continue
 		}
 		imageRetained = true
-		if !bytes.Equal(image, pub.Artifact.Raw) {
+		if !bytes.Equal(image, artImage) {
 			continue
 		}
 		if module != nil {
@@ -159,7 +160,7 @@ func admitCapturePlanCodeBytes(raw, data []byte, limit int, pub cudaprof.Capture
 			return raw, fmt.Errorf("capture plan code: code artifact unavailable: %w", os.ErrNotExist)
 		}
 	}
-	if _, err := cudacapture.VerifyModule(capture, module.ID, pub.Artifact.Digest, []string{pub.Result.Identity.Entry}); err != nil {
+	if _, err := cudacapture.VerifyModule(capture, module.ID, pub.Artifact.Digest(), []string{pub.Result.Identity.Entry}); err != nil {
 		return raw, fmt.Errorf("capture plan code: %w", err)
 	}
 	return raw, nil

@@ -170,11 +170,12 @@ func distillCompileSource(target, source string) (*cudakernel.Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
-	a.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
-	a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "cudareduce_distill.cu", Digest: distillDigest([]byte(source)), Tracked: true})
-	a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "cudablock.cuh", Digest: distillDigest([]byte(header)), Tracked: true}, cudakernel.Dependency{Path: "cudablock.owner.cuh", Digest: distillDigest([]byte(cudablock.Header)), Tracked: true})
-	return a, nil
+	spec := a.Spec()
+	spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
+	spec.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
+	spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "cudareduce_distill.cu", Digest: distillDigest([]byte(source)), Tracked: true})
+	spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "cudablock.cuh", Digest: distillDigest([]byte(header)), Tracked: true}, cudakernel.Dependency{Path: "cudablock.owner.cuh", Digest: distillDigest([]byte(cudablock.Header)), Tracked: true})
+	return cudakernel.NewArtifactFromSpec(spec)
 }
 
 // Include the owner's unchanged FP32 collectives without its unrelated half,
@@ -240,7 +241,7 @@ func distillAdmitArtifact(a *cudakernel.Artifact, source string) error {
 		return err
 	}
 	schema, _ := SparseTeacherSchema()
-	if a.Kind != cudakernel.KindCUBIN || a.EntryPoint != "sparse_teacher" || !reflect.DeepEqual(a.Schema, schema) || a.Toolchain == "" || a.JITOptions != (cudakernel.JITOptions{}) || !regexp.MustCompile(`^sm_[1-9][0-9]{1,2}$`).MatchString(a.Target) {
+	if a.Kind() != cudakernel.KindCUBIN || a.EntryPoint() != "sparse_teacher" || !reflect.DeepEqual(a.Schema(), schema) || a.Toolchain() == "" || a.JITOptions() != (cudakernel.JITOptions{}) || !regexp.MustCompile(`^sm_[1-9][0-9]{1,2}$`).MatchString(a.Target()) {
 		return fmt.Errorf("cudareduce: sparse teacher artifact contract disagrees")
 	}
 	header, err := distillBlockHeader()
@@ -248,7 +249,7 @@ func distillAdmitArtifact(a *cudakernel.Artifact, source string) error {
 		return err
 	}
 	required := map[string]string{"cudareduce_distill.cu": distillDigest([]byte(source)), "cudablock.cuh": distillDigest([]byte(header)), "cudablock.owner.cuh": distillDigest([]byte(cudablock.Header))}
-	for _, dep := range a.Dependencies {
+	for _, dep := range a.Dependencies() {
 		if want, ok := required[dep.Path]; ok {
 			if !dep.Tracked || dep.ErrorMsg != "" || dep.Digest != want {
 				return fmt.Errorf("cudareduce: sparse teacher dependency disagrees")
@@ -261,17 +262,14 @@ func distillAdmitArtifact(a *cudakernel.Artifact, source string) error {
 	if len(required) != 0 {
 		return fmt.Errorf("cudareduce: missing sparse teacher source binding")
 	}
-	if !reflect.DeepEqual(a.CompilerOpts, []string{"--gpu-architecture=" + a.Target, "--std=c++17", "--fmad=false", "--ftz=false"}) {
+	if !reflect.DeepEqual(a.CompilerOptions(), []string{"--gpu-architecture=" + a.Target(), "--std=c++17", "--fmad=false", "--ftz=false"}) {
 		return fmt.Errorf("cudareduce: sparse teacher compiler mode disagrees")
 	}
 	return nil
 }
 func distillClone(a *cudakernel.Artifact) *cudakernel.Artifact {
 	b := *a
-	b.Raw = append([]byte(nil), a.Raw...)
-	b.Schema.Params = append([]cudakernel.Param(nil), a.Schema.Params...)
-	b.CompilerOpts = append([]string(nil), a.CompilerOpts...)
-	b.Dependencies = append([]cudakernel.Dependency(nil), a.Dependencies...)
+
 	return &b
 }
 func distillLoadSource(dev *cuda.Device, c SparseTeacherConfig, a *cudakernel.Artifact, source string) (*SparseTeacher, error) {
@@ -295,7 +293,7 @@ func distillLoadSource(dev *cuda.Device, c SparseTeacherConfig, a *cudakernel.Ar
 		return o, err
 	}
 	o.raw = 0
-	o.kernel, err = o.module.Function(a.EntryPoint)
+	o.kernel, err = o.module.Function(o.artifact.EntryPoint())
 	if err != nil {
 		return o, err
 	}
@@ -518,7 +516,7 @@ func distillArguments(schema cudakernel.Schema, c SparseTeacherConfig, p [9]driv
 	return args, nil
 }
 func (o *SparseTeacher) launch(b SparseTeacherBuffers, stage int32) error {
-	args, err := distillArguments(o.artifact.Schema, o.config, [9]driver.DevicePtr{b.Logits.Ptr(), b.IDs.Ptr(), b.Weights.Ptr(), b.Masks.Ptr(), b.Status.Ptr(), b.Stats.Ptr(), b.ScratchLosses.Ptr(), b.ScratchGradients.Ptr(), b.ScratchTotal.Ptr()}, stage)
+	args, err := distillArguments(o.artifact.Schema(), o.config, [9]driver.DevicePtr{b.Logits.Ptr(), b.IDs.Ptr(), b.Weights.Ptr(), b.Masks.Ptr(), b.Status.Ptr(), b.Stats.Ptr(), b.ScratchLosses.Ptr(), b.ScratchGradients.Ptr(), b.ScratchTotal.Ptr()}, stage)
 	if err != nil {
 		return err
 	}

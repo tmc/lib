@@ -263,13 +263,13 @@ func TestSemanticTileNVRTCCompile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s sm_%d%d: %v", op, target[0], target[1], err)
 			}
-			if artifact.Kind != cudakernel.KindTileIR || len(artifact.Raw) == 0 || len(artifact.Schema.Params) != 2 || len(artifact.CompilerOpts) == 0 {
+			if artifact.Kind() != cudakernel.KindTileIR || len(artifact.Bytes()) == 0 || len(artifact.Schema().Params) != 2 || len(artifact.CompilerOptions()) == 0 {
 				t.Fatalf("%s sm_%d%d: missing authentic artifact, ABI or compile identity", op, target[0], target[1])
 			}
 			if err := artifact.Validate(); err != nil {
 				t.Fatalf("%s sm_%d%d: %v", op, target[0], target[1], err)
 			}
-			t.Logf("op=%s artifact=%s bytes=%d target=%s compiler=%s (%s) flags=%q log=%q", op, artifact.Digest, len(artifact.Raw), artifact.Target, artifact.Toolchain, nvrtc.Path(), artifact.CompilerOpts, log)
+			t.Logf("op=%s artifact=%s bytes=%d target=%s compiler=%s (%s) flags=%q log=%q", op, artifact.Digest(), len(artifact.Bytes()), artifact.Target(), artifact.Toolchain(), nvrtc.Path(), artifact.CompilerOptions(), log)
 		}
 	}
 }

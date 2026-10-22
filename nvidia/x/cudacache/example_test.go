@@ -58,7 +58,7 @@ func ExampleCache() {
 		return
 	}
 
-	fmt.Println(retrieved.EntryPoint)
+	fmt.Println(retrieved.EntryPoint())
 	// Output:
 	// k
 }

@@ -124,19 +124,24 @@ func TestBuildMoEWeightPacket(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		a.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
-		a.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
-		a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "cudamoe_weight_storage.cu", Digest: weightPacketDigest([]byte(source)), Tracked: true})
+		spec := a.Spec()
+		spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
+		spec.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
+		spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "cudamoe_weight_storage.cu", Digest: weightPacketDigest([]byte(source)), Tracked: true})
+		a, err = cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if err := weightPacketJSON(filepath.Join(dir, name+".artifact.json"), a); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(dir, name+".cu"), []byte(source), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, name+".cubin"), a.Raw, 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name+".cubin"), a.Bytes(), 0600); err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("COMPILED %s source=%s image=%s target=%s", name, weightPacketDigest([]byte(source)), a.Digest, target)
+		t.Logf("COMPILED %s source=%s image=%s target=%s", name, weightPacketDigest([]byte(source)), a.Digest(), target)
 	}
 }
 
@@ -178,11 +183,11 @@ func weightPacketArtifact(dir, name string) (*cudakernel.Artifact, error) {
 	if name == "view" {
 		entry = "moe_weight_view"
 	}
-	if string(cu) != source || !bytes.Equal(image, a.Raw) || a.Kind != cudakernel.KindCUBIN || a.Target != "sm_121" || a.EntryPoint != entry || !reflect.DeepEqual(a.Schema, schema) || !reflect.DeepEqual(a.CompilerOpts, []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}) {
+	if string(cu) != source || !bytes.Equal(image, a.Bytes()) || a.Kind() != cudakernel.KindCUBIN || a.Target() != "sm_121" || a.EntryPoint() != entry || !reflect.DeepEqual(a.Schema(), schema) || !reflect.DeepEqual(a.CompilerOptions(), []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}) {
 		return nil, fmt.Errorf("packet source/image/ABI/options differ")
 	}
 	n := 0
-	for _, d := range a.Dependencies {
+	for _, d := range a.Dependencies() {
 		if d.Path == "cudamoe_weight_storage.cu" {
 			n++
 			if !d.Tracked || d.ErrorMsg != "" || d.Digest != weightPacketDigest(cu) {
@@ -306,7 +311,7 @@ func weightNativeMutant(dev *cuda.Device, a *cudakernel.Artifact) (*MoEWeightCon
 		return c, err
 	}
 	c.raw = 0
-	c.kernel, err = c.module.Function(a.EntryPoint)
+	c.kernel, err = c.module.Function(a.EntryPoint())
 	return c, err
 }
 
@@ -368,7 +373,7 @@ func TestNativeSharedMoEWeightConsumers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if a.Toolchain != fmt.Sprintf("nvrtc %d.%d", compiler.Major, compiler.Minor) {
+		if a.Toolchain() != fmt.Sprintf("nvrtc %d.%d", compiler.Major, compiler.Minor) {
 			t.Fatal("compiler toolchain binding differs")
 		}
 		artifacts[name] = a
@@ -619,9 +624,9 @@ func TestNativeSharedMoEWeightConsumers(t *testing.T) {
 						Policy                          cudatest.CUDAOutputPolicy
 						Image                           string
 						Mutant                          bool
-					}{name, storage.layout.shape, d, raw, scales, x, got[1 : len(got)-1], want, policy, artifacts["slab"].Digest, mutant}
+					}{name, storage.layout.shape, d, raw, scales, x, got[1 : len(got)-1], want, policy, artifacts["slab"].Digest(), mutant}
 					if a := artifacts[name]; a != nil {
-						record.Image = a.Digest
+						record.Image = a.Digest()
 					}
 					path := filepath.Join(out, fmt.Sprintf("I%d-H%d-L%d-E%d-%s.json", intermediate, hidden, d.Layer, d.Expert, name))
 					if err := weightPacketJSON(path, record); err != nil {

@@ -113,10 +113,11 @@ func topkCompileNamedArtifact(source, target, entry string) (*cudakernel.Artifac
 		return nil, err
 	}
 	sum := sha256.Sum256([]byte(source))
-	a.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
-	a.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--generate-line-info"}
-	a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "cudablock_topk.cu", Digest: hex.EncodeToString(sum[:]), Tracked: true})
-	return a, nil
+	spec := a.Spec()
+	spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
+	spec.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--generate-line-info"}
+	spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "cudablock_topk.cu", Digest: hex.EncodeToString(sum[:]), Tracked: true})
+	return cudakernel.NewArtifactFromSpec(spec)
 }
 
 func topkLoadArtifact(dev *cuda.Device, config TopKConfig, artifact *cudakernel.Artifact) (*TopK, error) {
@@ -129,6 +130,8 @@ func topkLoadArtifact(dev *cuda.Device, config TopKConfig, artifact *cudakernel.
 	if err := artifact.Validate(); err != nil {
 		return nil, err
 	}
+	owned := *artifact
+	artifact = &owned
 	t := &TopK{config: config, device: dev, artifact: artifact}
 	var err error
 	t.raw, err = t.artifact.Load(dev)
@@ -140,7 +143,7 @@ func topkLoadArtifact(dev *cuda.Device, config TopKConfig, artifact *cudakernel.
 		return t, fmt.Errorf("cudablock: own topk module: %w", err)
 	}
 	t.raw = 0
-	t.kernel, err = t.module.Function(artifact.EntryPoint)
+	t.kernel, err = t.module.Function(artifact.EntryPoint())
 	if err != nil {
 		return t, fmt.Errorf("cudablock: resolve topk: %w", err)
 	}
@@ -158,10 +161,6 @@ func (t *TopK) Artifact() *cudakernel.Artifact {
 		return nil
 	}
 	a := *t.artifact
-	a.Raw = append([]byte(nil), a.Raw...)
-	a.Schema.Params = append([]cudakernel.Param(nil), a.Schema.Params...)
-	a.CompilerOpts = append([]string(nil), a.CompilerOpts...)
-	a.Dependencies = append([]cudakernel.Dependency(nil), a.Dependencies...)
 	return &a
 }
 

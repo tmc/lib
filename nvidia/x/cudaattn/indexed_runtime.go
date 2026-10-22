@@ -86,10 +86,11 @@ func indexedCompileSource(target, source string) (*cudakernel.Artifact, error) {
 		return nil, err
 	}
 	sum := sha256.Sum256([]byte(source))
-	a.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
-	a.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
-	a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "cudaattn_indexed.cu", Digest: hex.EncodeToString(sum[:]), Tracked: true})
-	return a, nil
+	spec := a.Spec()
+	spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
+	spec.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
+	spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "cudaattn_indexed.cu", Digest: hex.EncodeToString(sum[:]), Tracked: true})
+	return cudakernel.NewArtifactFromSpec(spec)
 }
 
 // CompileIndexedAttention compiles for the actual device and loads the baseline.
@@ -143,7 +144,7 @@ func indexedLoadSource(dev *cuda.Device, c IndexedConfig, a *cudakernel.Artifact
 		return t, err
 	}
 	t.raw = 0
-	t.kernel, err = t.module.Function(a.EntryPoint)
+	t.kernel, err = t.module.Function(t.artifact.EntryPoint())
 	if err == nil {
 		limit, attributeErr := t.kernel.Attribute(driver.FuncAttributeMaxThreadsPerBlock)
 		if attributeErr != nil {
@@ -167,23 +168,23 @@ func indexedAdmitSource(a *cudakernel.Artifact, source string) error {
 	if err := a.Validate(); err != nil {
 		return err
 	}
-	if a.Kind != cudakernel.KindCUBIN {
+	if a.Kind() != cudakernel.KindCUBIN {
 		return fmt.Errorf("cudaattn: indexed baseline requires direct cubin")
 	}
-	options := []string{"--gpu-architecture=" + a.Target, "--std=c++17", "--fmad=false", "--ftz=false"}
-	if !reflect.DeepEqual(a.CompilerOpts, options) || a.Toolchain == "" || a.JITOptions != (cudakernel.JITOptions{}) {
+	options := []string{"--gpu-architecture=" + a.Target(), "--std=c++17", "--fmad=false", "--ftz=false"}
+	if !reflect.DeepEqual(a.CompilerOptions(), options) || a.Toolchain() == "" || a.JITOptions() != (cudakernel.JITOptions{}) {
 		return fmt.Errorf("cudaattn: indexed numerical/compiler mode disagreement")
 	}
 	s, err := IndexedSchema()
 	if err != nil {
 		return err
 	}
-	if a.EntryPoint != "indexed_attention" || !reflect.DeepEqual(a.Schema, s) {
+	if a.EntryPoint() != "indexed_attention" || !reflect.DeepEqual(a.Schema(), s) {
 		return fmt.Errorf("cudaattn: indexed artifact ABI mismatch")
 	}
 	sum := sha256.Sum256([]byte(source))
 	found := false
-	for _, d := range a.Dependencies {
+	for _, d := range a.Dependencies() {
 		if d.Path != "cudaattn_indexed.cu" {
 			continue
 		}
@@ -203,10 +204,6 @@ func indexedClone(a *cudakernel.Artifact) *cudakernel.Artifact {
 		return nil
 	}
 	b := *a
-	b.Raw = append([]byte(nil), a.Raw...)
-	b.Schema.Params = append([]cudakernel.Param(nil), a.Schema.Params...)
-	b.CompilerOpts = append([]string(nil), a.CompilerOpts...)
-	b.Dependencies = append([]cudakernel.Dependency(nil), a.Dependencies...)
 	return &b
 }
 
@@ -389,7 +386,7 @@ func (t *IndexedAttention) release() {
 }
 func (t *IndexedAttention) launch(b IndexedBuffers, mode int32) error {
 	ptrs := [15]driver.DevicePtr{b.Q.Ptr(), b.K.Ptr(), b.V.Ptr(), b.Sequences.Ptr(), b.Positions.Ptr(), b.Lengths.Ptr(), b.Pages.Ptr(), b.IDs.Ptr(), b.Counts.Ptr(), b.Status.Ptr(), b.ScratchOutput.Ptr(), b.ScratchLSE.Ptr(), b.Scores.Ptr(), b.ScoreLengths.Ptr(), b.ScoreOffsets.Ptr()}
-	args, err := indexedLaunchArguments(t.artifact.Schema, t.config, ptrs, mode)
+	args, err := indexedLaunchArguments(t.artifact.Schema(), t.config, ptrs, mode)
 	if err != nil {
 		return err
 	}

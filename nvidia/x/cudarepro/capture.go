@@ -49,14 +49,19 @@ type Launch struct {
 
 // Capture snapshots one launch without submitting it. limit is the maximum
 // total allocation bytes to copy, and must be positive. Only native CUBINs are
-// accepted so replay does not silently recompile different code. Artifact.Schema
+// accepted so replay does not silently recompile different code. Artifact.Schema()
 // must be the complete, accurate ABI supplied by a trusted producer. The caller
 // must keep all allocations live and exclude concurrent writes until it returns.
 func Capture(stream *cuda.Stream, artifact *cudakernel.Artifact, grid, block [3]uint32, shared uint32, limit uint64, args ...Argument) (*Launch, error) {
 	if stream == nil || stream.Device() == nil {
 		return nil, fmt.Errorf("cudarepro: nil stream")
 	}
-	if artifact == nil || artifact.Kind != cudakernel.KindCUBIN {
+	if artifact == nil {
+		return nil, fmt.Errorf("cudarepro: capture requires a native CUBIN")
+	}
+	captured := *artifact
+	artifact = &captured
+	if artifact.Kind() != cudakernel.KindCUBIN {
 		return nil, fmt.Errorf("cudarepro: capture requires a native CUBIN")
 	}
 	if err := artifact.Validate(); err != nil {
@@ -137,10 +142,14 @@ func (l *Launch) Validate() error {
 	if l == nil || l.Version != 1 || l.ID == "" {
 		return fmt.Errorf("cudarepro: invalid capture version or identity")
 	}
-	if l.Artifact == nil || l.Artifact.Kind != cudakernel.KindCUBIN {
+	if l.Artifact == nil {
 		return fmt.Errorf("cudarepro: native CUBIN required")
 	}
-	if err := l.Artifact.Validate(); err != nil {
+	artifact := *l.Artifact
+	if artifact.Kind() != cudakernel.KindCUBIN {
+		return fmt.Errorf("cudarepro: native CUBIN required")
+	}
+	if err := artifact.Validate(); err != nil {
 		return err
 	}
 	for i := range l.Grid {
@@ -159,11 +168,12 @@ func (l *Launch) Validate() error {
 			}
 		}
 	}
-	if len(l.Artifact.Schema.Params) != len(l.Arguments) {
+	schema := artifact.Schema()
+	if len(schema.Params) != len(l.Arguments) {
 		return fmt.Errorf("cudarepro: argument count differs from captured ABI")
 	}
 	for i, a := range l.Arguments {
-		p := l.Artifact.Schema.Params[i]
+		p := schema.Params[i]
 		size := len(a.Value)
 		if a.Buffer {
 			size = 8

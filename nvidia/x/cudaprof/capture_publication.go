@@ -57,13 +57,13 @@ func ReadCapturePublication(r io.Reader, plan CapturePlan, maxBytes int) (Captur
 	if maxBytes <= 0 || maxBytes > 64<<20 {
 		return CapturePublication{}, fmt.Errorf("capture publication: invalid read byte limit")
 	}
-	// Avoid Artifact.UnmarshalJSON's permissive unknown-field behavior while
-	// retaining the existing artifact representation and validation contract.
-	type artifactFields cudakernel.Artifact
+	// Keep the artifact raw so the strict reader checks its keys, then parse
+	// it strictly rather than through Artifact.UnmarshalJSON, which ignores
+	// unknown fields.
 	var wire struct {
 		Version     int                        `json:"version"`
 		Result      CaptureProviderResult      `json:"result"`
-		Artifact    *artifactFields            `json:"artifact"`
+		Artifact    json.RawMessage            `json:"artifact"`
 		Workload    cudacache.WorkloadIdentity `json:"workload"`
 		CompilerKey string                     `json:"compiler_key"`
 	}
@@ -71,7 +71,14 @@ func ReadCapturePublication(r io.Reader, plan CapturePlan, maxBytes int) (Captur
 	if err := readCaptureJSON(r, min(maxBytes, plan.Budget.MaxBytes), &wire, &encoded); err != nil {
 		return CapturePublication{}, err
 	}
-	p := CapturePublication{Version: wire.Version, Result: wire.Result, Artifact: (*cudakernel.Artifact)(wire.Artifact), Workload: wire.Workload, CompilerKey: wire.CompilerKey}
+	p := CapturePublication{Version: wire.Version, Result: wire.Result, Workload: wire.Workload, CompilerKey: wire.CompilerKey}
+	if len(wire.Artifact) > 0 && string(wire.Artifact) != "null" {
+		a, err := cudakernel.ParseArtifact(wire.Artifact)
+		if err != nil {
+			return CapturePublication{}, fmt.Errorf("capture publication: %w", err)
+		}
+		p.Artifact = a
+	}
 	if err := publicationPreflight(plan, p); err != nil {
 		return CapturePublication{}, err
 	}
@@ -155,25 +162,26 @@ func publicationPreflight(plan CapturePlan, p CapturePublication) error {
 	if a == nil {
 		return captureEncodingPreflight(CaptureManifest{Plan: plan, Results: []CaptureProviderResult{p.Result}}, remaining)
 	}
-	for _, s := range []string{a.Digest, a.EntryPoint, a.Target, a.Toolchain, a.Resources.ExecutionGroup} {
+	for _, s := range []string{a.Digest(), a.EntryPoint(), a.Target(), a.Toolchain(), a.Resources().ExecutionGroup} {
 		if !take(len(s)) {
 			return fmt.Errorf("capture publication: artifact byte budget exceeded")
 		}
 	}
-	if len(a.Raw) > remaining/4*3 || !take((len(a.Raw)+2)/3*4) || !take(len(a.CompilerOpts)) || !take(len(a.Dependencies)) || !take(len(a.Schema.Params)) {
+	size, opts, deps, params := a.Size(), a.CompilerOptions(), a.Dependencies(), a.Schema().Params
+	if size > remaining/4*3 || !take((size+2)/3*4) || !take(len(opts)) || !take(len(deps)) || !take(len(params)) {
 		return fmt.Errorf("capture publication: artifact byte budget exceeded")
 	}
-	for _, s := range a.CompilerOpts {
+	for _, s := range opts {
 		if !take(len(s)) {
 			return fmt.Errorf("capture publication: option byte budget exceeded")
 		}
 	}
-	for _, d := range a.Dependencies {
+	for _, d := range deps {
 		if !take(len(d.Path)) || !take(len(d.Digest)) || !take(len(d.ErrorMsg)) {
 			return fmt.Errorf("capture publication: dependency byte budget exceeded")
 		}
 	}
-	for _, param := range a.Schema.Params {
+	for _, param := range params {
 		if !take(len(param.Name)) || !take(len(param.Type)) {
 			return fmt.Errorf("capture publication: schema byte budget exceeded")
 		}

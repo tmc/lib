@@ -127,26 +127,26 @@ func validateTileIRArtifact(art *cudakernel.Artifact, entryPoint string, wantSch
 	if art == nil {
 		return errors.New("tileir: nil artifact")
 	}
-	if art.Kind != cudakernel.KindTileIR {
-		return fmt.Errorf("tileir: refusing non-TileIR artifact kind %s (want %s)", art.Kind, cudakernel.KindTileIR)
+	if art.Kind() != cudakernel.KindTileIR {
+		return fmt.Errorf("tileir: refusing non-TileIR artifact kind %s (want %s)", art.Kind(), cudakernel.KindTileIR)
 	}
 	if err := art.Validate(); err != nil {
 		return fmt.Errorf("tileir: invalid artifact: %w", err)
 	}
-	if !tileir.IsTileIRBytecode(art.Raw) {
+	if !tileir.IsTileIRBytecode(art.Bytes()) {
 		return errors.New("tileir: artifact raw payload lacks TileIR bytecode magic header")
 	}
-	if art.EntryPoint != entryPoint {
-		return fmt.Errorf("tileir: artifact entry point = %q, want %q", art.EntryPoint, entryPoint)
+	if art.EntryPoint() != entryPoint {
+		return fmt.Errorf("tileir: artifact entry point = %q, want %q", art.EntryPoint(), entryPoint)
 	}
-	if len(art.Schema.Params) != len(wantSchema.Params) || art.Schema.TotalParamBytes != wantSchema.TotalParamBytes {
+	if len(art.Schema().Params) != len(wantSchema.Params) || art.Schema().TotalParamBytes != wantSchema.TotalParamBytes {
 		return fmt.Errorf("tileir: artifact schema mismatch: got %d params (%d B), want %d params (%d B)",
-			len(art.Schema.Params), art.Schema.TotalParamBytes, len(wantSchema.Params), wantSchema.TotalParamBytes)
+			len(art.Schema().Params), art.Schema().TotalParamBytes, len(wantSchema.Params), wantSchema.TotalParamBytes)
 	}
 	for i := range wantSchema.Params {
-		if art.Schema.Params[i] != wantSchema.Params[i] {
+		if art.Schema().Params[i] != wantSchema.Params[i] {
 			return fmt.Errorf("tileir: artifact schema param[%d] = %+v, want %+v",
-				i, art.Schema.Params[i], wantSchema.Params[i])
+				i, art.Schema().Params[i], wantSchema.Params[i])
 		}
 	}
 	return nil
@@ -180,9 +180,9 @@ func loadTileIRArtifact(
 	if mod == 0 {
 		return 0, errors.New("tileir: artifact loader returned zero module without error")
 	}
-	fn, err := lookupFn(mod, art.EntryPoint)
+	fn, err := lookupFn(mod, art.EntryPoint())
 	if err != nil {
-		return 0, fmt.Errorf("tileir: lookup function %q: %w", art.EntryPoint, err)
+		return 0, fmt.Errorf("tileir: lookup function %q: %w", art.EntryPoint(), err)
 	}
 	return fn, nil
 }
@@ -231,7 +231,12 @@ func compileTileIRSourceArtifact(
 	if err != nil {
 		return nil, err
 	}
-	art.Toolchain = fmt.Sprintf("nvrtc %d.%d", rtcMajor, rtcMinor)
+	spec := art.Spec()
+	spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", rtcMajor, rtcMinor)
+	art, err = cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		return nil, err
+	}
 	if err := validateTileIRArtifact(art, kernelName, schema); err != nil {
 		return nil, err
 	}
@@ -759,12 +764,9 @@ func TestTileIRNumericalFixtureContract(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewArtifact(KindLTOIR): %v", err)
 		}
-		cubinArt := &cudakernel.Artifact{
-			Kind:       cudakernel.KindCUBIN,
-			Raw:        rawTileBC,
-			EntryPoint: f.kernelName,
-			Schema:     f.lowering.Schema,
-			Target:     "sm_121",
+		// A non-ELF CUBIN is rejected by construction, before loading.
+		if _, err := cudakernel.NewArtifact(cudakernel.KindCUBIN, rawTileBC, f.kernelName, f.lowering.Schema, "sm_121"); err == nil {
+			t.Fatal("non-ELF CUBIN admitted")
 		}
 		nonMagicTileArt, err := cudakernel.NewArtifact(cudakernel.KindTileIR, []byte("not-tileir-bytecode"), f.kernelName, f.lowering.Schema, "sm_121")
 		if err != nil {
@@ -788,7 +790,6 @@ func TestTileIRNumericalFixtureContract(t *testing.T) {
 			art  *cudakernel.Artifact
 		}{
 			{"nil_artifact", nil},
-			{"kind_cubin_refused", cubinArt},
 			{"kind_ptx_refused", ptxArt},
 			{"kind_ltoir_refused", ltoArt},
 			{"missing_tileir_magic_refused", nonMagicTileArt},
@@ -1232,8 +1233,8 @@ func runNativeTileIRNumericalParity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile mutated TileIR artifact for sm_%d%d: %v", major, minor, err)
 	}
-	if mutArtifact.Digest == tileArtifact.Digest {
-		t.Fatalf("mutated TileIR artifact digest %s matched baseline digest", mutArtifact.Digest)
+	if mutArtifact.Digest() == tileArtifact.Digest() {
+		t.Fatalf("mutated TileIR artifact digest %s matched baseline digest", mutArtifact.Digest())
 	}
 	mutFn := loadArtifact(mutArtifact)
 	mutGot := runKernel(mutFn)
@@ -1269,6 +1270,6 @@ func runNativeTileIRNumericalParity(t *testing.T) {
 	}
 	t.Logf("native TileIR numerical readback: device=%d sm_%d%d driver=%d nvrtc=%d.%d (%s) lease_pid=%d artifact_kind=%s tilebc_digest=%s tilebc_bytes=%d mutant_tilebc_digest=%s mutant_tilebc_bytes=%d elements=%d",
 		ordinal, major, minor, drvVersion, rtcMajor, rtcMinor, nvrtc.Path(), owner.PID,
-		tileArtifact.Kind, tileArtifact.Digest, len(tileArtifact.Raw),
-		mutArtifact.Digest, len(mutArtifact.Raw), f.length)
+		tileArtifact.Kind(), tileArtifact.Digest(), len(tileArtifact.Bytes()),
+		mutArtifact.Digest(), len(mutArtifact.Bytes()), f.length)
 }

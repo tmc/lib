@@ -22,35 +22,53 @@ func TestMoECountedArtifact(t *testing.T) {
 		t.Fatal(err)
 	}
 	makeArtifact := func() *cudakernel.Artifact {
-		// The existing helper constructs a non-executable synthetic ELF header.
-		// This tests metadata association only and never calls a driver loader.
-		a := moeHostArtifact(t)
-		a.EntryPoint = "moe_weight_counted_worker"
-		a.Dependencies = []cudakernel.Dependency{{Path: "cudamega_moe_counted.cu", Tracked: true, Digest: fmt.Sprintf("%x", sha256.Sum256([]byte(source)))}}
+		// Synthetic non-executable ELF metadata, never passed to a driver.
+		spec := moeHostArtifact(t).Spec()
+		spec.EntryPoint = "moe_weight_counted_worker"
+		spec.Dependencies = []cudakernel.Dependency{{Path: "cudamega_moe_counted.cu", Tracked: true, Digest: fmt.Sprintf("%x", sha256.Sum256([]byte(source)))}}
+		a, err := cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
 		return a
 	}
 	a := makeArtifact()
+	original := *a
 	owned, err := checkedMoECountedArtifact(config, a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.Dependencies[0].Digest = "changed"
-	if owned.Dependencies[0].Digest == "changed" {
-		t.Fatal("source identity aliases the caller")
+	spec := a.Spec()
+	spec.Dependencies[0].Digest = "changed"
+	other, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, mutate := range []func(*cudakernel.Artifact){
-		func(a *cudakernel.Artifact) { a.EntryPoint = "moe_weight_worker" },
-		func(a *cudakernel.Artifact) { a.Target = "sm_121a" },
-		func(a *cudakernel.Artifact) { a.Dependencies[0].Digest = "stale" },
-		func(a *cudakernel.Artifact) { a.Dependencies = nil },
-		func(a *cudakernel.Artifact) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) },
-		func(a *cudakernel.Artifact) { a.CompilerOpts[2] = "--fmad=true" },
+	*a = *other
+	if *owned != original || owned.Dependencies()[0].Digest == "changed" {
+		t.Fatal("source identity follows caller replacement")
+	}
+	for _, mutate := range []func(*cudakernel.ArtifactSpec){
+		func(a *cudakernel.ArtifactSpec) { a.EntryPoint = "moe_weight_worker" },
+		func(a *cudakernel.ArtifactSpec) { a.Target = "sm_121a" },
+		func(a *cudakernel.ArtifactSpec) { a.Dependencies[0].Digest = "stale" },
+		func(a *cudakernel.ArtifactSpec) { a.Dependencies = nil },
+		func(a *cudakernel.ArtifactSpec) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) },
+		func(a *cudakernel.ArtifactSpec) { a.CompilerOpts[2] = "--fmad=true" },
 	} {
-		a := makeArtifact()
-		mutate(a)
+		spec := makeArtifact().Spec()
+		mutate(&spec)
+		a, err := cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			t.Logf("constructor refused descriptor: %v", err)
+			continue
+		}
 		if _, err := checkedMoECountedArtifact(config, a); err == nil {
 			t.Fatal("wrong counted artifact admitted")
 		}
+	}
+	if _, err := checkedMoECountedArtifact(config, nil); err == nil {
+		t.Fatal("nil counted artifact admitted")
 	}
 }
 

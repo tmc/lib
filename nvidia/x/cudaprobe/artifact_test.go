@@ -1,6 +1,7 @@
 package cudaprobe
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -19,11 +20,11 @@ func TestArtifactIdentityRequiresRegistration(t *testing.T) {
 	e.Identity.AddressSpace = 1
 	b := Binding{Process: e.Identity.Process, AddressSpace: 1, Function: 99, ModuleGeneration: 7, First: 2, Last: 8, Evidence: "synthetic registration", Artifact: a}
 	k, err := Identify(e, []Binding{b})
-	if err != nil || k.Digest != a.Digest || k.EntryPoint != "k" || k.ModuleGeneration != 7 {
+	if err != nil || k.Digest != a.Digest() || k.EntryPoint != "k" || k.ModuleGeneration != 7 {
 		t.Fatalf("kernel=%+v error=%v", k, err)
 	}
 	r, err := e.RecordWithBindings(time.Now(), []Binding{b})
-	if err != nil || r.KernelName != "k" || r.Labels["kernel.digest"] != a.Digest || r.Labels["duration_status"] != "unavailable" {
+	if err != nil || r.KernelName != "k" || r.Labels["kernel.digest"] != a.Digest() || r.Labels["duration_status"] != "unavailable" {
 		t.Fatalf("record=%+v error=%v", r, err)
 	}
 	r, err = e.RecordWithBindings(time.Now(), nil)
@@ -48,7 +49,27 @@ func TestArtifactIdentityRequiresRegistration(t *testing.T) {
 			t.Fatalf("accepted stale/incomplete binding: %+v", x)
 		}
 	}
-	a.Raw[0] = 'x'
+	data, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]json.RawMessage
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatal(err)
+	}
+	wire["raw"], err = json.Marshal([]byte("corrupted payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = json.Marshal(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var invalid cudakernel.Artifact
+	if err := json.Unmarshal(data, &invalid); err == nil {
+		t.Fatal("accepted corrupted wire artifact")
+	}
+	b.Artifact = &invalid
 	if _, err := Identify(e, []Binding{b}); err == nil {
 		t.Fatal("accepted corrupted artifact")
 	}

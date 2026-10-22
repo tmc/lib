@@ -33,13 +33,13 @@ type Executor interface {
 // The zero value is not usable; use NewModules.
 type Modules struct {
 	dev     *cuda.Device
-	loaded  map[*cudakernel.Artifact]*cuda.Module
+	loaded  map[cudakernel.Artifact]*cuda.Module
 	pending []driver.Module
 }
 
 // NewModules returns a module cache bound to dev.
 func NewModules(dev *cuda.Device) *Modules {
-	return &Modules{dev: dev, loaded: make(map[*cudakernel.Artifact]*cuda.Module)}
+	return &Modules{dev: dev, loaded: make(map[cudakernel.Artifact]*cuda.Module)}
 }
 
 // Function returns the entry point of art, loading its module on first use.
@@ -47,26 +47,45 @@ func (m *Modules) Function(art *cudakernel.Artifact) (*cuda.Kernel, error) {
 	if m == nil || m.dev == nil {
 		return nil, errors.New("cudaagreement: module cache has no device")
 	}
+	return m.function(art, moduleFunctionOps{
+		load: func(a cudakernel.Artifact) (driver.Module, error) { return a.Load(m.dev) },
+		own:  func(raw driver.Module) (*cuda.Module, error) { return cuda.OwnModule(m.dev, raw) },
+		function: func(mod *cuda.Module, entry string) (*cuda.Kernel, error) {
+			return mod.Function(entry)
+		},
+	})
+}
+
+// moduleFunctionOps is passed by value for the module ownership path. It is
+// private so callers cannot substitute a loader or change published operations.
+type moduleFunctionOps struct {
+	load     func(cudakernel.Artifact) (driver.Module, error)
+	own      func(driver.Module) (*cuda.Module, error)
+	function func(*cuda.Module, string) (*cuda.Kernel, error)
+}
+
+func (m *Modules) function(art *cudakernel.Artifact, ops moduleFunctionOps) (*cuda.Kernel, error) {
 	if art == nil {
 		return nil, errors.New("cudaagreement: nil artifact")
 	}
-	mod, ok := m.loaded[art]
+	owned := *art
+	mod, ok := m.loaded[owned]
 	if !ok {
-		raw, err := art.Load(m.dev)
+		raw, err := ops.load(owned)
 		if raw != 0 {
 			m.pending = append(m.pending, raw)
 		}
 		if err != nil {
-			return nil, fmt.Errorf("cudaagreement: load %s: %w", art.EntryPoint, err)
+			return nil, fmt.Errorf("cudaagreement: load %s: %w", owned.EntryPoint(), err)
 		}
-		mod, err = cuda.OwnModule(m.dev, raw)
+		mod, err = ops.own(raw)
 		if err != nil {
-			return nil, fmt.Errorf("cudaagreement: own module %s: %w", art.EntryPoint, err)
+			return nil, fmt.Errorf("cudaagreement: own module %s: %w", owned.EntryPoint(), err)
 		}
-		m.loaded[art] = mod
+		m.loaded[owned] = mod
 		m.pending = m.pending[:len(m.pending)-1]
 	}
-	return mod.Function(art.EntryPoint)
+	return ops.function(mod, owned.EntryPoint())
 }
 
 // Close unloads every module the cache owns. A module that fails to unload is
@@ -77,7 +96,7 @@ func (m *Modules) Close() error {
 	}
 	for art, mod := range m.loaded {
 		if err := mod.Close(); err != nil {
-			return fmt.Errorf("cudaagreement: close module %s: %w", art.EntryPoint, err)
+			return fmt.Errorf("cudaagreement: close module %s: %w", art.EntryPoint(), err)
 		}
 		delete(m.loaded, art)
 	}
@@ -103,7 +122,7 @@ func stepArgs(s Step, bufs map[string]Buffer) ([]any, Buffer, error) {
 		}
 		args = append(args, b.Ptr)
 	}
-	if _, err := s.Artifact.Schema.Pack(args...); err != nil {
+	if _, err := s.Artifact.Schema().Pack(args...); err != nil {
 		return nil, Buffer{}, fmt.Errorf("cudaagreement: arguments for %s: %w", s.Name, err)
 	}
 	return args, bufs[s.Output], nil
@@ -115,8 +134,8 @@ func recordFor(s Step, requested, executed cudaplan.TargetBackend, declined stri
 		Requested:  requested,
 		Executed:   executed,
 		Declined:   declined,
-		Digest:     s.Artifact.Digest,
-		EntryPoint: s.Artifact.EntryPoint,
+		Digest:     s.Artifact.Digest(),
+		EntryPoint: s.Artifact.EntryPoint(),
 		Grid:       s.Grid,
 		Block:      s.Block,
 		Output:     out,

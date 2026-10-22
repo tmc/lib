@@ -128,9 +128,11 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 	if !c.checkLease() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
+	ownedArtifact := *artifact
+	artifact = &ownedArtifact
 	x := &prefillExecutable{memory: searchMemoryBudget(ctx), dev: c.dev, checkLease: c.checkLease, closed: true, k: c.k, n: c.n, grid: grid, block: block}
 	x.preparation = c.Preparation()
-	x.identity = fmt.Sprintf("%s/%s/%v/%v/%s", artifact.Digest, artifact.EntryPoint, grid, block, c.bindings.Key())
+	x.identity = fmt.Sprintf("%s/%s/%v/%v/%s", artifact.Digest(), artifact.EntryPoint(), grid, block, c.bindings.Key())
 	x.raw, err = artifact.Load(c.dev)
 	if err != nil {
 		return x, err
@@ -140,7 +142,7 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 		return x, err
 	}
 	x.raw = 0
-	x.kernel, err = x.module.Function(artifact.EntryPoint)
+	x.kernel, err = x.module.Function(artifact.EntryPoint())
 	if err != nil {
 		return x, err
 	}
@@ -189,7 +191,7 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 		return x, err
 	}
 	x.args = []any{x.a, x.b, x.out, uint32(c.k), uint32(c.n)}
-	if _, err := artifact.Schema.Pack(x.args...); err != nil {
+	if _, err := artifact.Pack(x.args...); err != nil {
 		return x, err
 	}
 	x.closed = false

@@ -85,9 +85,14 @@ func TestBuildIndexedPacket(t *testing.T) {
 				s, _ := cudablock.TopKSchema()
 				a, err = cm.ToArtifact("topk_fp32", s, "sm_121")
 				if err == nil {
-					a.Toolchain = "nvrtc 13.4"
-					a.CompilerOpts = indexedPacketOptions(true)
-					a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "cudablock_topk.cu", Digest: indexedDigest([]byte(source)), Tracked: true})
+					spec := a.Spec()
+					spec.Toolchain = "nvrtc 13.4"
+					spec.CompilerOpts = indexedPacketOptions(true)
+					spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "cudablock_topk.cu", Digest: indexedDigest([]byte(source)), Tracked: true})
+					a, err = cudakernel.NewArtifactFromSpec(spec)
+					if err != nil {
+						t.Fatal(err)
+					}
 				}
 			}
 		} else {
@@ -96,12 +101,12 @@ func TestBuildIndexedPacket(t *testing.T) {
 		if err != nil {
 			t.Fatalf("compile %s: %v", name, err)
 		}
-		p := indexedPacket{Version: 1, SourceDigest: indexedDigest([]byte(source)), ImageDigest: a.Digest, CompilerPath: nvrtc.Path(), CompilerVersion: a.Toolchain, CompilerDigest: indexedDigest(compiler), BuiltinsPath: builtins, BuiltinsDigest: indexedDigest(builtin), Artifact: *a}
+		p := indexedPacket{Version: 1, SourceDigest: indexedDigest([]byte(source)), ImageDigest: a.Digest(), CompilerPath: nvrtc.Path(), CompilerVersion: a.Toolchain(), CompilerDigest: indexedDigest(compiler), BuiltinsPath: builtins, BuiltinsDigest: indexedDigest(builtin), Artifact: *a}
 		b, err := json.MarshalIndent(p, "", "  ")
 		if err != nil {
 			t.Fatal(err)
 		}
-		for suffix, data := range map[string][]byte{".json": b, ".cu": []byte(source), ".cubin": a.Raw} {
+		for suffix, data := range map[string][]byte{".json": b, ".cu": []byte(source), ".cubin": a.Bytes()} {
 			if err := os.WriteFile(filepath.Join(dir, name+suffix), data, 0600); err != nil {
 				t.Fatal(err)
 			}

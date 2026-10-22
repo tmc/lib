@@ -66,11 +66,12 @@ func TestJITInvalidAdmissionBeforeLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	art.JITOptions = jit
-	if art.Validate() == nil {
+	spec := art.Spec()
+	spec.JITOptions = jit
+	if _, err := cudakernel.NewArtifactFromSpec(spec); err == nil {
 		t.Fatal("invalid descriptor admitted")
 	}
-	_, err = art.Load(nil)
+	_, err = cudakernel.NewArtifact(cudakernel.KindPTX, []byte("fixture ptx"), "k", cudakernel.Schema{}, "compute_80", cudakernel.WithJIT(jit))
 	if err == nil || !strings.Contains(err.Error(), "optimization level") {
 		t.Fatal("validation did not precede load", err)
 	}

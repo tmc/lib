@@ -102,7 +102,7 @@ func runCompiledMLP(t *testing.T, cap uint64) (*CompiledResources, LoadedResourc
 	if cap > 0 {
 		ceiling = &cap
 	}
-	r, err := i.InspectCompiledResources(a, CompiledResourceInput{Source: []byte(source), CompilerVersion: receipt.CompilerVersion, CompilerOptions: receipt.CompilerOptions, Diagnostics: string(compiledBoundedRead(t, filepath.Join(variant, "compiler.stderr"), 4<<20)), DiagnosticImage: a.Digest, SASS: string(compiledBoundedRead(t, filepath.Join(variant, "sass.txt"), 12<<20)), SASSImage: a.Digest, DisassemblerVersion: receipt.DisassemblerVersion, RegisterCap: ceiling})
+	r, err := i.InspectCompiledResources(a, CompiledResourceInput{Source: []byte(source), CompilerVersion: receipt.CompilerVersion, CompilerOptions: receipt.CompilerOptions, Diagnostics: string(compiledBoundedRead(t, filepath.Join(variant, "compiler.stderr"), 4<<20)), DiagnosticImage: a.Digest(), SASS: string(compiledBoundedRead(t, filepath.Join(variant, "sass.txt"), 12<<20)), SASSImage: a.Digest(), DisassemblerVersion: receipt.DisassemblerVersion, RegisterCap: ceiling})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func runCompiledMLP(t *testing.T, cap uint64) (*CompiledResources, LoadedResourc
 	}
 	var module driver.Module
 	var fn driver.Function
-	l := LoadedResources{ImageDigest: a.Digest, Entry: a.EntryPoint, Target: a.Target}
+	l := LoadedResources{ImageDigest: a.Digest(), Entry: a.EntryPoint(), Target: a.Target()}
 	var ptrs []driver.DevicePtr
 	inFlight := false
 	defer func() {
@@ -156,7 +156,7 @@ func runCompiledMLP(t *testing.T, cap uint64) (*CompiledResources, LoadedResourc
 	}
 	if err := dev.WithContext(func() error {
 		var e error
-		fn, e = module.Function(a.EntryPoint)
+		fn, e = module.Function(a.EntryPoint())
 		if e != nil {
 			return e
 		}
@@ -248,7 +248,7 @@ func runCompiledMLP(t *testing.T, cap uint64) (*CompiledResources, LoadedResourc
 		binary.LittleEndian.PutUint32(b[:], math.Float32bits(v))
 		h.Write(b[:])
 	}
-	p := cudatest.CUDAOutputPolicy{Target: a.Target, DType: "fp32", MathMode: "offline nvcc FP32, compiler options retained", SourceDigest: sourceDigest, InputDigest: fmt.Sprintf("%x", h.Sum(nil)), Elements: len(want), Absolute: 1e-4, Relative: 1e-4, NaN: "reject", Infinity: "reject", Zero: "equal"}
+	p := cudatest.CUDAOutputPolicy{Target: a.Target(), DType: "fp32", MathMode: "offline nvcc FP32, compiler options retained", SourceDigest: sourceDigest, InputDigest: fmt.Sprintf("%x", h.Sum(nil)), Elements: len(want), Absolute: 1e-4, Relative: 1e-4, NaN: "reject", Infinity: "reject", Zero: "equal"}
 	if err := cudatest.CompareCUDAOutputFP32(got, want, p); err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +274,7 @@ func runCompiledMLP(t *testing.T, cap uint64) (*CompiledResources, LoadedResourc
 		LocalLoads, LocalStores                                                           int
 		Loaded                                                                            LoadedResources
 	}{r.Allocated, r.PeakLive, r.RegisterCap, r.StaticShared, r.LocalMemory, r.StackBytes, r.SpillLoadBytes, r.SpillStoreBytes, len(r.LocalLoads), len(r.LocalStores), l})
-	t.Logf("source=%s image=%s input=%s values=%d resources=%s", sourceDigest, a.Digest, p.InputDigest, len(got), summary)
+	t.Logf("source=%s image=%s input=%s values=%d resources=%s", sourceDigest, a.Digest(), p.InputDigest, len(got), summary)
 	return r, l, got
 }
 

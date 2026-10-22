@@ -147,11 +147,12 @@ func Import(e Envelope, candidates []Candidate) (*Report, error) {
 	retainedBytes := 0
 	for _, c := range candidates {
 		if c.Artifact != nil {
-			if len(c.Artifact.Raw) > MaxBytes-imageBytes {
+			size := c.Artifact.Size()
+			if size > MaxBytes-imageBytes {
 				return nil, fmt.Errorf("ncu import: candidate image byte budget exceeded")
 			}
-			imageBytes += len(c.Artifact.Raw)
-			if len(c.Artifact.Schema.Params) > 4096 || len(c.Artifact.CompilerOpts) > 128 || len(c.Artifact.Dependencies) > 128 {
+			imageBytes += size
+			if len(c.Artifact.Schema().Params) > 4096 || len(c.Artifact.CompilerOptions()) > 128 || len(c.Artifact.Dependencies()) > 128 {
 				return nil, fmt.Errorf("ncu import: candidate descriptor budget exceeded")
 			}
 		}
@@ -198,10 +199,10 @@ func Import(e Envelope, candidates []Candidate) (*Report, error) {
 	compatible := make(map[cudaevidence.Identity][]Candidate)
 	for _, c := range candidates {
 		actual, err := cudaprof.BindEvidence(c.Artifact, c.Workload, c.CompilerKey)
-		if err != nil || c.Capture == nil || c.Artifact.Kind != cudakernel.KindCUBIN {
+		if err != nil || c.Capture == nil || c.Artifact.Kind() != cudakernel.KindCUBIN {
 			continue
 		}
-		info, err := cudakernel.ParseCUBIN(c.Artifact.Raw)
+		info, err := cudakernel.ParseCUBIN(c.Artifact.Bytes())
 		if err != nil || info.Arch == "" || info.Arch != actual.Target {
 			continue
 		}
@@ -388,8 +389,9 @@ func join(id cudaevidence.Identity, candidates []Candidate) (string, uint64, str
 	var generation uint64
 	matches := 0
 	for _, candidate := range candidates {
+		image := candidate.Artifact.Bytes()
 		for _, m := range candidate.Capture.Modules {
-			if m.ID == "" || m.Generation == 0 || !bytes.Equal(candidate.Capture.Files[m.Code.CUBIN], candidate.Artifact.Raw) {
+			if m.ID == "" || m.Generation == 0 || !bytes.Equal(candidate.Capture.Files[m.Code.CUBIN], image) {
 				continue
 			}
 			if _, err := cudacapture.VerifyModule(candidate.Capture, m.ID, id.ArtifactDigest, []string{id.Entry}); err != nil {

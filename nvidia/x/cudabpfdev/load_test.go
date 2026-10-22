@@ -126,7 +126,7 @@ func TestInjectionLoadSelection(t *testing.T) {
 	if err != nil || !selection.Candidate || selection.Reason != "" || l.function != 2 {
 		t.Fatalf("selection=%+v fn=%v err=%v", selection, l.function, err)
 	}
-	if selection.Kernel.Digest != i.candidate.launch.Artifact.Digest {
+	if selection.Kernel.Digest != i.candidate.launch.Artifact.Digest() {
 		t.Fatal("wrong selected image")
 	}
 	if !bytes.Equal(f.images[0], append(i.original.launch.Artifact.Bytes(), 0)) {
@@ -158,7 +158,7 @@ func TestInjectionFailureLoadsOriginalArtifact(t *testing.T) {
 				t.Fatal(err)
 			}
 			sel, err := l.Selection()
-			if err != nil || sel.Candidate || sel.Reason == "" || l.function != 1 || sel.Kernel.Digest != i.original.launch.Artifact.Digest {
+			if err != nil || sel.Candidate || sel.Reason == "" || l.function != 1 || sel.Kernel.Digest != i.original.launch.Artifact.Digest() {
 				t.Fatalf("fallback=%+v fn=%v err=%v", sel, l.function, err)
 			}
 			if !bytes.Equal(f.images[0], append(i.original.launch.Artifact.Bytes(), 0)) {
@@ -279,7 +279,7 @@ func TestInjectionCompilerUsesPTX(t *testing.T) {
 	a := i.candidate.launch.Artifact
 	result := &nvjitlinkx.Result{ErrorLog: "synthetic failure"}
 	artifact, got, err := compileInjection(a, func(in []nvjitlinkx.Input, opts ...string) (*nvjitlinkx.Result, error) {
-		if len(in) != 1 || in[0].Kind != nvjitlink.InputPtx || !bytes.Equal(in[0].Data, a.Raw) || !reflect.DeepEqual(opts, []string{"-arch=" + a.Target}) {
+		if len(in) != 1 || in[0].Kind != nvjitlink.InputPtx || !bytes.Equal(in[0].Data, a.Bytes()) || !reflect.DeepEqual(opts, []string{"-arch=" + a.Target()}) {
 			t.Fatalf("bad link input: %+v %v", in, opts)
 		}
 		return result, errRun

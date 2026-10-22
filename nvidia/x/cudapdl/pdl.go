@@ -253,14 +253,14 @@ func artifactTarget(artifact *cudakernel.Artifact) string {
 	if artifact == nil {
 		return ""
 	}
-	return artifact.Target
+	return artifact.Target()
 }
 
 func artifactResources(artifact *cudakernel.Artifact) (cudakernel.ResourceRequirements, bool) {
 	if artifact == nil {
 		return cudakernel.ResourceRequirements{}, false
 	}
-	res := artifact.Resources
+	res := artifact.Resources()
 	return res, res != (cudakernel.ResourceRequirements{})
 }
 
@@ -268,7 +268,7 @@ func artifactThreadsPerBlock(artifact *cudakernel.Artifact) uint32 {
 	if artifact == nil {
 		return 0
 	}
-	return artifact.JITOptions.ThreadsPerBlock
+	return artifact.JITOptions().ThreadsPerBlock
 }
 
 func checkArtifactTarget(artifact *cudakernel.Artifact, target string) error {

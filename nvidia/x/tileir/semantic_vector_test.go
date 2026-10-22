@@ -372,7 +372,7 @@ func TestSemanticVectorRefusalsAndArtifact(t *testing.T) {
 		}
 		return &tileiras.Result{CUBIN: syntheticMemoryELF(t, "vector", 90)}, nil
 	})
-	if err != nil || calls != 1 || artifact.Artifact.EntryPoint != "vector" || artifact.BytecodeDigest != r.Memory.BytecodeDigest() {
+	if err != nil || calls != 1 || artifact.Artifact.EntryPoint() != "vector" || artifact.BytecodeDigest != r.Memory.BytecodeDigest() {
 		t.Fatalf("vector artifact composition: %v", err)
 	}
 	empty := vectorLowering(t, 0)

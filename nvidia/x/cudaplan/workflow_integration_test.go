@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -203,7 +204,7 @@ func TestWorkflowThreeNodeIdentityAndCache(t *testing.T) {
 		if got == orig {
 			t.Fatalf("GetArtifact %s returned original pointer instead of detached cache entry", op)
 		}
-		if got.Digest != orig.Digest || got.Target != target || got.EntryPoint != orig.EntryPoint || len(got.Schema.Params) != 3 {
+		if got.Digest() != orig.Digest() || got.Target() != target || got.EntryPoint() != orig.EntryPoint() || len(got.Schema().Params) != 3 {
 			t.Fatalf("retrieved artifact identity mismatch for %s: got=%+v want=%+v", op, got, orig)
 		}
 		if err := got.ValidateTarget("sm_100a"); err == nil {
@@ -254,7 +255,7 @@ func TestWorkflowThreeNodeIdentityAndCache(t *testing.T) {
 			t.Fatalf("step %d IsOutput=%v, want %v", i, s.IsOutput, i == workflowComputeNodes-1)
 		}
 		wantArt := retrievedByOp[wantOps[i]]
-		if s.Artifact == nil || s.Artifact.Digest != wantArt.Digest || s.Artifact.Target != target {
+		if s.Artifact == nil || s.Artifact.Digest() != wantArt.Digest() || s.Artifact.Target() != target {
 			t.Fatalf("step %d artifact=%+v, want retrieved %+v", i, s.Artifact, wantArt)
 		}
 	}
@@ -289,32 +290,39 @@ func TestWorkflowThreeNodeIdentityAndCache(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing side-table binding for %q", task.ID)
 		}
-		if b.StepIndex != i || b.NodeName != steps[i].NodeName || b.OutputName != steps[i].OutputName || b.IsOutput != steps[i].IsOutput || b.Artifact.Digest != steps[i].Artifact.Digest || !slices.Equal(b.InputNames, wantInputs[i]) {
+		if b.StepIndex != i || b.NodeName != steps[i].NodeName || b.OutputName != steps[i].OutputName || b.IsOutput != steps[i].IsOutput || b.Artifact.Digest() != steps[i].Artifact.Digest() || !slices.Equal(b.InputNames, wantInputs[i]) {
 			t.Fatalf("binding %d = %+v, want match with step %+v", i, b, steps[i])
 		}
 	}
 
 	baseGraphID := low.Graph().Identity()
-	if baseGraphID == "" || baseGraphID == retrievedByOp["mul"].Digest || baseGraphID == retrievedByOp["add"].Digest {
+	if baseGraphID == "" || baseGraphID == retrievedByOp["mul"].Digest() || baseGraphID == retrievedByOp["add"].Digest() {
 		t.Fatalf("invalid or conflated task graph identity: %q", baseGraphID)
 	}
 
 	// Negative control 1: altered artifact bytes/digest must fail validation and
 	// cache admission, and legitimately rebuilt altered bytes must change identity.
-	corruptArt := *retrievedByOp["mul"]
-	corruptArt.Raw = append([]byte(nil), corruptArt.Raw...)
-	corruptArt.Raw[len(corruptArt.Raw)-2] = ' '
-	if err := corruptArt.Validate(); err == nil {
-		t.Fatal("Artifact.Validate accepted mutated raw bytes with old digest")
+	corruptWire := struct {
+		cudakernel.ArtifactSpec
+		Digest string `json:"digest"`
+	}{retrievedByOp["mul"].Spec(), retrievedByOp["mul"].Digest()}
+	corruptWire.Raw[len(corruptWire.Raw)-2] = ' '
+	bad, err := json.Marshal(corruptWire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var corruptArt cudakernel.Artifact
+	if err := json.Unmarshal(bad, &corruptArt); err == nil {
+		t.Fatal("artifact decoder accepted mutated raw bytes with old digest")
 	}
 	if err := cache.PutArtifact(ctx, cudacache.CompilerCacheKey("corrupt_mul", compilerID), &corruptArt); err == nil {
 		t.Fatal("cache.PutArtifact accepted corrupted artifact")
 	}
-	rebuiltAlt, err := cudakernel.NewArtifact(cudakernel.KindPTX, append(append([]byte(nil), retrievedByOp["mul"].Raw...), '\n'), "apply", fx.Schema, target)
+	rebuiltAlt, err := cudakernel.NewArtifact(cudakernel.KindPTX, append(append([]byte(nil), retrievedByOp["mul"].Bytes()...), '\n'), "apply", fx.Schema, target)
 	if err != nil {
 		t.Fatalf("NewArtifact altered bytes: %v", err)
 	}
-	if rebuiltAlt.Digest == retrievedByOp["mul"].Digest {
+	if rebuiltAlt.Digest() == retrievedByOp["mul"].Digest() {
 		t.Fatal("altered artifact bytes reused old digest")
 	}
 
@@ -459,7 +467,7 @@ func TestWorkflowProfileIsSoftAndAttributable(t *testing.T) {
 	step0 := plan.Steps()[0]
 	now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	profTarget := cudaprof.ProfileTarget{
-		CodeDigest:    step0.Artifact.Digest,
+		CodeDigest:    step0.Artifact.Digest(),
 		Region:        step0.NodeName,
 		Workload:      workload.Key(),
 		Device:        targetArch,

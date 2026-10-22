@@ -44,10 +44,10 @@ func TestJITPublicProducerManifestRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, hit, err := cudacache.NewNVRTCAdapter(fresh).Lookup(ctx, "same source", id)
-		if err != nil || !hit || got.JITOptions != jit {
+		if err != nil || !hit || got.JITOptions() != jit {
 			t.Fatal(got, hit, err)
 		}
-		opts, vals := got.JITOptions.DriverOptions()
+		opts, vals := got.JITOptions().DriverOptions()
 		if i == 0 {
 			if len(opts) != 0 {
 				t.Fatal(opts)
@@ -81,21 +81,30 @@ func TestJITAdapterRejectsWrongIdentityAndTampering(t *testing.T) {
 	if len(entries) != 0 {
 		t.Fatal("failed Store published manifest", entries)
 	}
-	art.JITOptions = id.JITOptions
+	spec := art.Spec()
+	spec.JITOptions = id.JITOptions
+	art, err = cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := adapter.Store(ctx, "source", id, art); err != nil {
 		t.Fatal(err)
 	}
 	key := cudacache.CompilerCacheKey("source", id)
-	path := filepath.Join(dir, "artifacts", key+"-"+art.Digest+".artifact")
+	path := filepath.Join(dir, "artifacts", key+"-"+art.Digest()+".artifact")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var stored cudakernel.Artifact
+	var stored map[string]any
 	if err := json.Unmarshal(data, &stored); err != nil {
 		t.Fatal(err)
 	}
-	stored.JITOptions.OptLevelSet = false // Raw payload and its digest stay unchanged.
+	jit, ok := stored["jit_options"].(map[string]any)
+	if !ok || jit["opt_level_set"] != true {
+		t.Fatalf("persisted jit_options = %v, want opt_level_set", stored["jit_options"])
+	}
+	delete(jit, "opt_level_set") // Raw payload and its digest stay unchanged.
 	data, err = json.Marshal(stored)
 	if err != nil {
 		t.Fatal(err)

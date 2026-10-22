@@ -165,7 +165,9 @@ func (s *OnlineAttentionSchedule) Compile(ctx context.Context, major, minor int)
 	if err != nil {
 		return nil, compiled.Log(), fmt.Errorf("egraph: attention compiler version: %w", err)
 	}
-	artifact.Toolchain = fmt.Sprintf("nvrtc %d.%d", compilerMajor, compilerMinor)
-	artifact.CompilerOpts = slices.Clone(flags)
-	return artifact, compiled.Log(), nil
+	spec := artifact.Spec()
+	spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", compilerMajor, compilerMinor)
+	spec.CompilerOpts = slices.Clone(flags)
+	artifact, err = cudakernel.NewArtifactFromSpec(spec)
+	return artifact, compiled.Log(), err
 }

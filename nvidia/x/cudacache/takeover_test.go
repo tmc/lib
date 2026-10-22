@@ -40,25 +40,27 @@ func TestTakeoverArtifactIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := newTestArtifact(t, "fixture", "sm_90")
-	want := string(a.Raw)
+	other := newTestArtifact(t, "replacement", "sm_90")
+	want, wantDigest := string(a.Bytes()), a.Digest()
 	if err := c.PutArtifact(context.Background(), "key", a); err != nil {
 		t.Fatal(err)
 	}
-	a.Raw[0] = '!'
+	*a = *other
 	b, err := c.GetArtifact(context.Background(), "key")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(b.Raw) != want {
-		t.Fatal("caller mutation changed stored artifact")
+	if string(b.Bytes()) != want || b.Digest() != wantDigest {
+		t.Fatal("replacing the stored handle changed stored artifact")
 	}
-	b.Raw[0] = '?'
+	b.Bytes()[0] = '?'
+	*b = *other
 	d, err := c.GetArtifact(context.Background(), "key")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(d.Raw) != want {
-		t.Fatal("returned artifact mutation changed cache")
+	if string(d.Bytes()) != want || d.Digest() != wantDigest {
+		t.Fatal("replacing the returned handle changed cache")
 	}
 }
 

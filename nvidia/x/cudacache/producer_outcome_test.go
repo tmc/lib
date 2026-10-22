@@ -470,7 +470,7 @@ func TestProducerProofCloseKeepsLocalPublication(t *testing.T) {
 		t.Fatalf("Close calls=%d", reader.closes)
 	}
 	got, err = c.GetArtifact(context.Background(), "key")
-	if err != nil || got == nil || got.Digest != local.Digest {
+	if err != nil || got == nil || got.Digest() != local.Digest() {
 		t.Fatalf("local publication lost: got=%v err=%v", got, err)
 	}
 	fresh, err := cudacache.New(cudacache.Config{RootDir: root})
@@ -478,7 +478,7 @@ func TestProducerProofCloseKeepsLocalPublication(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err = fresh.GetArtifact(context.Background(), "key")
-	if err != nil || got == nil || got.Digest != local.Digest {
+	if err != nil || got == nil || got.Digest() != local.Digest() {
 		t.Fatalf("local publication did not persist: got=%v err=%v", got, err)
 	}
 }

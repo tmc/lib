@@ -45,11 +45,14 @@ const (
 	ArtifactSchemaVersion = 1
 )
 
-type artifactAlias cudakernel.Artifact
-
+// persistedArtifact is a cache entry: schema_version beside the flattened
+// artifact fields. Kind and Digest precede the embedded spec to keep the
+// field order of existing entries; the outer Kind shadows ArtifactSpec.Kind.
 type persistedArtifact struct {
-	SchemaVersion int `json:"schema_version"`
-	*artifactAlias
+	SchemaVersion int             `json:"schema_version"`
+	Kind          cudakernel.Kind `json:"kind"`
+	Digest        string          `json:"digest"`
+	cudakernel.ArtifactSpec
 }
 
 // MarshalArtifact encodes art as a versioned cudacache artifact JSON entry.
@@ -62,7 +65,9 @@ func MarshalArtifact(art *cudakernel.Artifact) ([]byte, error) {
 	}
 	return json.Marshal(persistedArtifact{
 		SchemaVersion: ArtifactSchemaVersion,
-		artifactAlias: (*artifactAlias)(art),
+		Kind:          art.Kind(),
+		Digest:        art.Digest(),
+		ArtifactSpec:  art.Spec(),
 	})
 }
 
@@ -248,7 +253,7 @@ func (c *Cache) GetArtifact(ctx context.Context, key string) (*cudakernel.Artifa
 	art, ok := c.memArtifacts[key]
 	c.memMu.RUnlock()
 	if ok {
-		return cloneArtifact(art)
+		return cloneArtifact(art), nil
 	}
 
 	// Single flight deduplication for disk/remote load
@@ -264,7 +269,7 @@ func (c *Cache) GetArtifact(ctx context.Context, key string) (*cudakernel.Artifa
 			return nil, fc.err
 		}
 		if a, ok := fc.val.(*cudakernel.Artifact); ok {
-			return cloneArtifact(a)
+			return cloneArtifact(a), nil
 		}
 		return nil, ErrNotFound
 	}
@@ -284,7 +289,7 @@ func (c *Cache) GetArtifact(ctx context.Context, key string) (*cudakernel.Artifa
 	if err != nil {
 		return nil, err
 	}
-	return cloneArtifact(art)
+	return cloneArtifact(art), nil
 }
 
 func (c *Cache) loadArtifact(ctx context.Context, key string) (*cudakernel.Artifact, error) {
@@ -424,26 +429,29 @@ func (c *Cache) validateAndDecodeArtifact(key string, data []byte, localFilePath
 		return nil, fmt.Errorf("%w: unsupported artifact schema version %d (want %d)", ErrCorruptArtifact, version, ArtifactSchemaVersion)
 	}
 
-	var art cudakernel.Artifact
-	if err := json.Unmarshal(data, (*artifactAlias)(&art)); err != nil {
+	var p persistedArtifact
+	if err := json.Unmarshal(data, &p); err != nil {
 		c.quarantine(key, data, localFilePath)
 		return nil, fmt.Errorf("%w: unmarshal failed: %v", ErrCorruptArtifact, err)
 	}
+	spec := p.ArtifactSpec
+	spec.Kind = p.Kind
 
-	// Verify SHA-256 of Raw bytes against art.Digest
-	computed := sha256.Sum256(art.Raw)
+	// Verify SHA-256 of Raw bytes against the recorded digest.
+	computed := sha256.Sum256(spec.Raw)
 	computedHex := hex.EncodeToString(computed[:])
-	if art.Digest != computedHex {
+	if p.Digest != computedHex {
 		c.quarantine(key, data, localFilePath)
-		return nil, fmt.Errorf("%w: digest mismatch (want %s, got %s)", ErrCorruptArtifact, art.Digest, computedHex)
+		return nil, fmt.Errorf("%w: digest mismatch (want %s, got %s)", ErrCorruptArtifact, p.Digest, computedHex)
 	}
 
-	if err := art.Validate(); err != nil {
+	art, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
 		c.quarantine(key, data, localFilePath)
 		return nil, fmt.Errorf("%w: validation failed: %v", ErrCorruptArtifact, err)
 	}
 
-	return &art, nil
+	return art, nil
 }
 
 func (c *Cache) quarantine(key string, data []byte, localFilePath string) {
@@ -642,14 +650,11 @@ func readFileBounded(path string, limit int64) ([]byte, error) {
 	return b, nil
 }
 
-func cloneArtifact(a *cudakernel.Artifact) (*cudakernel.Artifact, error) {
-	b, err := json.Marshal(a)
-	if err != nil {
-		return nil, err
-	}
-	var copy cudakernel.Artifact
-	err = json.Unmarshal(b, &copy)
-	return &copy, err
+// cloneArtifact copies the handle so a caller replacing *a cannot replace
+// the cached handle. The copy shares the artifact's immutable identity.
+func cloneArtifact(a *cudakernel.Artifact) *cudakernel.Artifact {
+	copy := *a
+	return &copy
 }
 
 func cloneReceipt(r *SearchReceipt) (*SearchReceipt, error) {

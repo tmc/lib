@@ -21,17 +21,17 @@ import (
 func registerReport(t *testing.T) *cudainspect.CompiledResources {
 	t.Helper()
 	a, in := compiledTargetFixture(t, 90, "sm_90a")
-	image := append([]byte(nil), a.Raw...)
+	image := append([]byte(nil), a.Bytes()...)
 	binary.LittleEndian.PutUint32(image[len(image)-4:], 64)
 	in.CompilerOptions = append(in.CompilerOptions, "--maxrregcount=64")
 	cap, modeled := uint64(64), uint64(12)
 	in.RegisterCap, in.ModelRegisters = &cap, &modeled
-	a, err := cudakernel.NewArtifact(cudakernel.KindCUBIN, image, a.EntryPoint, a.Schema, a.Target,
+	a, err := cudakernel.NewArtifact(cudakernel.KindCUBIN, image, a.EntryPoint(), a.Schema(), a.Target(),
 		cudakernel.WithToolchain(in.CompilerVersion), cudakernel.WithCompilerOptions(in.CompilerOptions))
 	if err != nil {
 		t.Fatal(err)
 	}
-	in.DiagnosticImage, in.SASSImage = a.Digest, a.Digest
+	in.DiagnosticImage, in.SASSImage = a.Digest(), a.Digest()
 	i, err := cudainspect.NewInspector(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +188,7 @@ func TestRegisterResourcesRecordedRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	i, _ := cudainspect.NewInspector(t.TempDir())
-	r, err := i.InspectCompiledResources(a, cudainspect.CompiledResourceInput{Source: []byte("retained image, supplied host receipts"), CompilerVersion: "supplied", DisassemblerVersion: "supplied", DiagnosticImage: a.Digest, SASSImage: a.Digest, Diagnostics: "Compiling entry function 'compute' for '" + info.Arch + "'\n0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n", SASS: ".target " + info.Arch + "\nFunction : compute\n/*0000*/ EXIT;\n"})
+	r, err := i.InspectCompiledResources(a, cudainspect.CompiledResourceInput{Source: []byte("retained image, supplied host receipts"), CompilerVersion: "supplied", DisassemblerVersion: "supplied", DiagnosticImage: a.Digest(), SASSImage: a.Digest(), Diagnostics: "Compiling entry function 'compute' for '" + info.Arch + "'\n0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n", SASS: ".target " + info.Arch + "\nFunction : compute\n/*0000*/ EXIT;\n"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestRegisterResourcesRecordedRefusal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resources.Allocated.Count != 8 || resources.ImageDigest != a.Digest {
+	if resources.Allocated.Count != 8 || resources.ImageDigest != a.Digest() {
 		t.Fatal("real retained metadata not read")
 	}
 	s, _, _ := cudareg.GenerateFixture()

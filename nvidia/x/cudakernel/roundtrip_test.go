@@ -65,48 +65,60 @@ func TestArtifactRoundTrip(t *testing.T) {
 	}
 
 	// Verify all fields
-	if roundTripped.Kind != orig.Kind {
-		t.Errorf("Kind mismatch: got %v, want %v", roundTripped.Kind, orig.Kind)
+	if roundTripped.Kind() != orig.Kind() {
+		t.Errorf("Kind mismatch: got %v, want %v", roundTripped.Kind(), orig.Kind())
 	}
-	if roundTripped.Digest != orig.Digest {
-		t.Errorf("Digest mismatch: got %s, want %s", roundTripped.Digest, orig.Digest)
+	if roundTripped.Digest() != orig.Digest() {
+		t.Errorf("Digest mismatch: got %s, want %s", roundTripped.Digest(), orig.Digest())
 	}
-	if string(roundTripped.Raw) != string(orig.Raw) {
+	if string(roundTripped.Bytes()) != string(orig.Bytes()) {
 		t.Errorf("Raw bytes mismatch")
 	}
-	if roundTripped.EntryPoint != orig.EntryPoint {
-		t.Errorf("EntryPoint mismatch: got %s, want %s", roundTripped.EntryPoint, orig.EntryPoint)
+	if roundTripped.EntryPoint() != orig.EntryPoint() {
+		t.Errorf("EntryPoint mismatch: got %s, want %s", roundTripped.EntryPoint(), orig.EntryPoint())
 	}
-	if roundTripped.Target != orig.Target {
-		t.Errorf("Target mismatch: got %s, want %s", roundTripped.Target, orig.Target)
+	if roundTripped.Target() != orig.Target() {
+		t.Errorf("Target mismatch: got %s, want %s", roundTripped.Target(), orig.Target())
 	}
-	if roundTripped.Resources.AllocatedRegisters != 32 {
-		t.Errorf("AllocatedRegisters mismatch: got %d, want 32", roundTripped.Resources.AllocatedRegisters)
+	if roundTripped.Resources().AllocatedRegisters != 32 {
+		t.Errorf("AllocatedRegisters mismatch: got %d, want 32", roundTripped.Resources().AllocatedRegisters)
 	}
-	if roundTripped.Resources.PeakLiveGPR != 18 {
-		t.Errorf("PeakLiveGPR mismatch: got %d, want 18", roundTripped.Resources.PeakLiveGPR)
+	if roundTripped.Resources().PeakLiveGPR != 18 {
+		t.Errorf("PeakLiveGPR mismatch: got %d, want 18", roundTripped.Resources().PeakLiveGPR)
 	}
-	if roundTripped.JITOptions.MaxRegisters != 32 || roundTripped.JITOptions.OptLevel != 4 {
-		t.Errorf("JITOptions mismatch: got %+v", roundTripped.JITOptions)
+	if roundTripped.JITOptions().MaxRegisters != 32 || roundTripped.JITOptions().OptLevel != 4 {
+		t.Errorf("JITOptions mismatch: got %+v", roundTripped.JITOptions())
 	}
-	if len(roundTripped.Dependencies) != 1 || roundTripped.Dependencies[0].Path != "helper.h" {
-		t.Errorf("Dependencies mismatch: got %+v", roundTripped.Dependencies)
+	if len(roundTripped.Dependencies()) != 1 || roundTripped.Dependencies()[0].Path != "helper.h" {
+		t.Errorf("Dependencies mismatch: got %+v", roundTripped.Dependencies())
 	}
 
 	// Negative control: corrupted artifact bytes rejected
-	corrupted := roundTripped
-	corrupted.Raw = append([]byte(nil), corrupted.Raw...)
-	corrupted.Raw[0] ^= 0xFF // Mutate a byte!
-	if err := corrupted.Validate(); err == nil {
+	corrupted := struct {
+		cudakernel.ArtifactSpec
+		Digest string `json:"digest"`
+	}{roundTripped.Spec(), roundTripped.Digest()}
+	corrupted.Raw[0] ^= 0xFF
+	bad, err := json.Marshal(corrupted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rejected cudakernel.Artifact
+	if err := json.Unmarshal(bad, &rejected); err == nil {
 		t.Fatal("negative control failed: corrupted artifact bytes passed validation")
 	} else if !strings.Contains(err.Error(), "digest mismatch") {
 		t.Fatalf("expected digest mismatch error, got: %v", err)
 	}
 
 	// Negative control: wrong digest
-	corruptedDigest := roundTripped
+	corruptedDigest := corrupted
+	corruptedDigest.Raw = roundTripped.Bytes()
 	corruptedDigest.Digest = hex.EncodeToString(sha256.New().Sum(nil))
-	if err := corruptedDigest.Validate(); err == nil {
+	bad, err = json.Marshal(corruptedDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(bad, &rejected); err == nil {
 		t.Fatal("negative control failed: mismatched digest passed validation")
 	}
 }

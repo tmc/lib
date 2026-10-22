@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"os"
@@ -306,10 +307,13 @@ func TestCapturePlanCooperativePublicationRemainsSourceBoundPartial(t *testing.T
 				t.Fatal(err)
 			}
 			if kind == "corrupt artifact" {
-				publication.Artifact.Raw[0] ^= 1
-				data, err := json.Marshal(publication)
-				if err != nil {
-					t.Fatal(err)
+				// Corrupt the written image under its recorded digest.
+				raw := publication.Artifact.Bytes()
+				was := base64.StdEncoding.EncodeToString(raw)
+				raw[0] ^= 1
+				data := bytes.Replace(original.Bytes(), []byte(was), []byte(base64.StdEncoding.EncodeToString(raw)), 1)
+				if bytes.Equal(data, original.Bytes()) {
+					t.Fatal("publication lacks artifact image")
 				}
 				original.Reset()
 				original.Write(data)

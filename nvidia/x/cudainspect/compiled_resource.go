@@ -95,7 +95,7 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	if i == nil || a == nil {
 		return nil, fmt.Errorf("compiled resources: inspector and artifact required")
 	}
-	if len(a.Raw) > 64<<20 || len(in.Source)+len(in.Diagnostics)+len(in.SASS)+len(in.LifeRanges) > 16<<20 {
+	if a.Size() > 64<<20 || len(in.Source)+len(in.Diagnostics)+len(in.SASS)+len(in.LifeRanges) > 16<<20 {
 		return nil, fmt.Errorf("compiled resources: input budget exceeded")
 	}
 	if len(in.CompilerVersion) > 4096 || len(in.DisassemblerVersion) > 4096 || len(in.CompilerOptions) > 128 {
@@ -104,13 +104,13 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	if err := a.Validate(); err != nil {
 		return nil, err
 	}
-	if a.Kind != cudakernel.KindCUBIN || len(in.Source) == 0 || strings.TrimSpace(in.CompilerVersion) == "" {
+	if a.Kind() != cudakernel.KindCUBIN || len(in.Source) == 0 || strings.TrimSpace(in.CompilerVersion) == "" {
 		return nil, fmt.Errorf("compiled resources: CUBIN, source and compiler version required")
 	}
-	if in.DiagnosticImage != a.Digest || in.SASSImage != a.Digest || strings.TrimSpace(in.DisassemblerVersion) == "" {
+	if in.DiagnosticImage != a.Digest() || in.SASSImage != a.Digest() || strings.TrimSpace(in.DisassemblerVersion) == "" {
 		return nil, fmt.Errorf("compiled resources: receipt image or tool identity mismatch")
 	}
-	if (a.Toolchain != "" && a.Toolchain != in.CompilerVersion) || (len(a.CompilerOpts) > 0 && !slices.Equal(a.CompilerOpts, in.CompilerOptions)) {
+	if (a.Toolchain() != "" && a.Toolchain() != in.CompilerVersion) || (len(a.CompilerOptions()) > 0 && !slices.Equal(a.CompilerOptions(), in.CompilerOptions)) {
 		return nil, fmt.Errorf("compiled resources: artifact compiler receipt mismatch")
 	}
 	var cap *uint64
@@ -140,18 +140,19 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	if (cap == nil) != (in.RegisterCap == nil) || (cap != nil && *cap != *in.RegisterCap) {
 		return nil, fmt.Errorf("compiled resources: register cap differs from compiler invocation")
 	}
-	base, err := i.Inspect(a.Raw, a.EntryPoint)
+	image := a.Bytes()
+	base, err := i.Inspect(image, a.EntryPoint())
 	if err != nil {
 		return nil, err
 	}
 	imageMajor, imageMinor, _, imageErr := cudakernel.ParseArch(base.Architecture)
-	targetMajor, targetMinor, _, targetErr := cudakernel.ParseArch(a.Target)
+	targetMajor, targetMinor, _, targetErr := cudakernel.ParseArch(a.Target())
 	if !base.ELFParsed || base.ELFMachine != "EM_CUDA" || imageErr != nil || targetErr != nil || imageMajor != targetMajor || imageMinor != targetMinor {
 		return nil, fmt.Errorf("compiled resources: decoded image target mismatch")
 	}
 	found := false
 	for _, name := range base.CodeSymbols {
-		if name == a.EntryPoint {
+		if name == a.EntryPoint() {
 			found = true
 		}
 	}
@@ -161,7 +162,7 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	h := sha256.Sum256(in.Source)
 	r := &CompiledResources{
 		SchemaVersion: "compiled-resources/v1",
-		SourceDigest:  hex.EncodeToString(h[:]), ImageDigest: a.Digest, Entry: a.EntryPoint, Target: a.Target,
+		SourceDigest:  hex.EncodeToString(h[:]), ImageDigest: a.Digest(), Entry: a.EntryPoint(), Target: a.Target(),
 		DecodedTarget:   base.Architecture,
 		CompilerVersion: in.CompilerVersion, CompilerOptions: append([]string(nil), in.CompilerOptions...),
 		DisassemblerVersion: in.DisassemblerVersion,
@@ -186,11 +187,11 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	summaries := 0
 	for _, line := range strings.Split(in.Diagnostics, "\n") {
 		if m := compiledEntry.FindStringSubmatch(line); m != nil {
-			selected = m[1] == a.EntryPoint && m[2] == a.Target
+			selected = m[1] == a.EntryPoint() && m[2] == a.Target()
 			continue
 		}
 		if m := compiledProperties.FindStringSubmatch(line); m != nil {
-			selected = selected && m[1] == a.EntryPoint
+			selected = selected && m[1] == a.EntryPoint()
 			continue
 		}
 		if m := compiledSpills.FindStringSubmatch(line); m != nil && selected {
@@ -216,7 +217,7 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 	}
 	var fn *cudasass.Function
 	for _, f := range d.Functions {
-		if f.Name == a.EntryPoint {
+		if f.Name == a.EntryPoint() {
 			if fn != nil {
 				return nil, fmt.Errorf("compiled resources: duplicate SASS entry")
 			}
@@ -224,8 +225,8 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 		}
 	}
 	r.InstructionsReason = "matched SASS entry unavailable"
-	if fn != nil && len(fn.Instructions) > 0 && d.Target == a.Target {
-		r.InstructionsReason = compiledInstructionCoverage(base.SectionDetails, a.Raw, a.EntryPoint, fn)
+	if fn != nil && len(fn.Instructions) > 0 && d.Target == a.Target() {
+		r.InstructionsReason = compiledInstructionCoverage(base.SectionDetails, image, a.EntryPoint(), fn)
 		r.InstructionsKnown = r.InstructionsReason == ""
 		for _, op := range fn.Instructions {
 			name := strings.Split(op.Opcode, ".")[0]
@@ -237,20 +238,20 @@ func (i *Inspector) InspectCompiledResources(a *cudakernel.Artifact, in Compiled
 			}
 		}
 	}
-	if d.Target != a.Target {
+	if d.Target != a.Target() {
 		r.InstructionsReason = "SASS target unavailable or inconsistent"
 	}
-	if in.LifeRanges != "" && d.Target == a.Target {
+	if in.LifeRanges != "" && d.Target == a.Target() {
 		p, err := cudasass.ParseLifeRangeCount(bytes.NewBufferString(in.LifeRanges))
 		if err != nil {
 			return nil, err
 		}
 		// Require exact names before the owner's join: its single-function fallback
 		// must not turn a different kernel's pressure into this entry's evidence.
-		if p[a.EntryPoint] == nil || fn == nil {
+		if p[a.EntryPoint()] == nil || fn == nil {
 			return nil, fmt.Errorf("compiled resources: unmatched life range entry")
 		}
-		r.PeakLive = compiledPeakLive(r.InstructionsKnown, fn, p[a.EntryPoint])
+		r.PeakLive = compiledPeakLive(r.InstructionsKnown, fn, p[a.EntryPoint()])
 	}
 	return r, nil
 }

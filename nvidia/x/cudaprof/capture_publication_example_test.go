@@ -26,7 +26,7 @@ func examplePublication() (cudaprof.CapturePlan, cudaprof.CapturePublication) {
 }
 func ExampleCapturePublication() {
 	_, publication := examplePublication()
-	fmt.Println(publication.Version, publication.Artifact.EntryPoint, publication.Result.Provider)
+	fmt.Println(publication.Version, publication.Artifact.EntryPoint(), publication.Result.Provider)
 	// Output: 1 kernel range
 }
 func ExampleWriteCapturePublication() {

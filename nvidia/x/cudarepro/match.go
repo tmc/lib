@@ -46,7 +46,7 @@ func Attribute(f cudasanitizer.Finding, launches ...*Launch) []Match {
 			if !outside {
 				outside = access.Bytes > a.Size-(access.Address-a.Address)
 			}
-			matches = append(matches, Match{l.ID, a.Name, l.CallSite, l.Artifact.Digest, outside, !inside})
+			matches = append(matches, Match{l.ID, a.Name, l.CallSite, l.Artifact.Digest(), outside, !inside})
 		}
 	}
 	return matches

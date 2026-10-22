@@ -455,7 +455,7 @@ func (f composedHostDelayFixture) writeHistoryFiles(t *testing.T, dir string, pl
 	compilerKey := cudacache.CompilerCacheKey(f.compilerInputKey, f.compiler)
 	workloadKey := f.historyWorkload.Key()
 	identity := cudaevidence.Identity{
-		ArtifactDigest: f.ptxArtifact.Digest,
+		ArtifactDigest: f.ptxArtifact.Digest(),
 		Entry:          "gemm_kernel",
 		Target:         "sm_90",
 		CompilerKey:    compilerKey,
@@ -663,7 +663,7 @@ func TestRegressComposedReconstructCheckReplayHistory(t *testing.T) {
 		if err := rec.Validate(); err != nil {
 			t.Fatalf("history record %d failed validation: %v", i, err)
 		}
-		if rec.PlanDigest != plan.PlanDigest || rec.Artifact == nil || rec.Artifact.Digest != fixture.ptxArtifact.Digest || rec.Correctness.Verdict != cudaprofilehistory.Pass || rec.Correctness.ExpectedDigest != fixture.expectedOutputDigest || len(rec.Facts) != 1 || rec.Facts[0].Qualified {
+		if rec.PlanDigest != plan.PlanDigest || rec.Artifact == nil || rec.Artifact.Digest() != fixture.ptxArtifact.Digest() || rec.Correctness.Verdict != cudaprofilehistory.Pass || rec.Correctness.ExpectedDigest != fixture.expectedOutputDigest || len(rec.Facts) != 1 || rec.Facts[0].Qualified {
 			t.Fatalf("unexpected history record %d: %+v", i, rec)
 		}
 	}
@@ -899,7 +899,7 @@ func TestRegressComposedChainMutants(t *testing.T) {
 						t.Fatal(err)
 					}
 					rec.Artifact = otherArt
-					rec.Identity.ArtifactDigest = otherArt.Digest
+					rec.Identity.ArtifactDigest = otherArt.Digest()
 				},
 				want: "history artifact digest is not in plan binary closure",
 			},

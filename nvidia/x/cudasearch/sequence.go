@@ -20,10 +20,11 @@ import (
 )
 
 type sequenceStage struct {
-	raw    driver.Module
-	module *cuda.Module
-	kernel *cuda.Kernel
-	args   []any
+	artifact cudakernel.Artifact
+	raw      driver.Module
+	module   *cuda.Module
+	kernel   *cuda.Kernel
+	args     []any
 }
 type sequenceLaunch struct{ grid, block [3]uint32 }
 type sequenceOutput struct {
@@ -37,21 +38,31 @@ func (x *sequenceExecutable) load(artifacts []*cudakernel.Artifact) error {
 	return measurePreparation(&x.preparation, "load_modules_stream_events", 0, 0, func() error { return x.loadResources(artifacts) })
 }
 
-func (x *sequenceExecutable) loadResources(artifacts []*cudakernel.Artifact) error {
-	if len(artifacts) == 0 || len(artifacts) != len(x.launches) {
-		return fmt.Errorf("cudasearch: sequence artifact/launch count mismatch")
+func sequenceArtifactHandles(artifacts []*cudakernel.Artifact, launches int) ([]cudakernel.Artifact, error) {
+	if len(artifacts) == 0 || len(artifacts) != launches {
+		return nil, fmt.Errorf("cudasearch: sequence artifact/launch count mismatch")
 	}
-	for _, a := range artifacts {
-		if a == nil {
-			return fmt.Errorf("cudasearch: nil sequence artifact")
-		}
-	}
+	captured := make([]cudakernel.Artifact, len(artifacts))
 	for i, a := range artifacts {
-		x.stages = append(x.stages, sequenceStage{})
+		if a == nil {
+			return nil, fmt.Errorf("cudasearch: nil sequence artifact")
+		}
+		captured[i] = *a
+	}
+	return captured, nil
+}
+
+func (x *sequenceExecutable) loadResources(artifacts []*cudakernel.Artifact) error {
+	captured, captureErr := sequenceArtifactHandles(artifacts, len(x.launches))
+	if captureErr != nil {
+		return captureErr
+	}
+	for i, a := range captured {
+		x.stages = append(x.stages, sequenceStage{artifact: a})
 		s := &x.stages[i]
-		x.identity += fmt.Sprintf("/%s/%s/%v/%v", a.Digest, a.EntryPoint, x.launches[i].grid, x.launches[i].block)
+		x.identity += fmt.Sprintf("/%s/%s/%v/%v", s.artifact.Digest(), s.artifact.EntryPoint(), x.launches[i].grid, x.launches[i].block)
 		var err error
-		s.raw, err = a.Load(x.dev)
+		s.raw, err = s.artifact.Load(x.dev)
 		if err != nil {
 			return err
 		}
@@ -60,7 +71,7 @@ func (x *sequenceExecutable) loadResources(artifacts []*cudakernel.Artifact) err
 			return err
 		}
 		s.raw = 0
-		s.kernel, err = s.module.Function(a.EntryPoint)
+		s.kernel, err = s.module.Function(s.artifact.EntryPoint())
 		if err != nil {
 			return err
 		}
@@ -375,6 +386,7 @@ func (x *sequenceExecutable) closeResources() error {
 				return err
 			}
 		}
+		s.artifact = cudakernel.Artifact{}
 	}
 	for i := range x.events {
 		if x.events[i] != 0 {

@@ -112,7 +112,7 @@ func TestNativeAffineArtifact(t *testing.T) {
 	}
 
 	// 3. Host-only validation of ABI packing
-	packed, err := art.Schema.Pack(
+	packed, err := art.Pack(
 		driver.DevicePtr(0x1000), // y
 		driver.DevicePtr(0x2000), // x
 		float32(2.5),             // a

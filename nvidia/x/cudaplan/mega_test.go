@@ -389,7 +389,7 @@ func TestSideTableRetainsDroppedStepFields(t *testing.T) {
 			t.Errorf("%s: NodeID = %d, want %d", s.NodeName, b.NodeID, s.NodeID)
 		case b.Backend != s.Backend:
 			t.Errorf("%s: Backend = %v, want %v", s.NodeName, b.Backend, s.Backend)
-		case b.Artifact != s.Artifact:
+		case *b.Artifact != *s.Artifact:
 			t.Errorf("%s: Artifact pointer not retained", s.NodeName)
 		case strings.Join(b.InputNames, ",") != strings.Join(s.InputNames, ","):
 			t.Errorf("%s: InputNames = %v, want %v", s.NodeName, b.InputNames, s.InputNames)

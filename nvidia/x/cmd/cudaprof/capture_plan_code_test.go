@@ -41,7 +41,7 @@ func planCodeFixture(t *testing.T) (*cudacapture.Capture, cudaprof.CapturePublic
 		t.Fatal(e)
 	}
 	w := cudacache.WorkloadIdentity{ProgramID: "retained fill fixture", ShapeDims: []int{64}, NumericalMode: "fp32"}
-	key := cudacache.CompilerCacheKey(a.Digest, cudacache.CompilerIdentity{TargetArch: a.Target, OutputKind: nvrtcx.OutputCUBIN, Flags: []string{"fixture producer receipt"}})
+	key := cudacache.CompilerCacheKey(a.Digest(), cudacache.CompilerIdentity{TargetArch: a.Target(), OutputKind: nvrtcx.OutputCUBIN, Flags: []string{"fixture producer receipt"}})
 	id, e := cudaprof.BindEvidence(a, w, key)
 	if e != nil {
 		t.Fatal(e)
@@ -49,6 +49,18 @@ func planCodeFixture(t *testing.T) (*cudacapture.Capture, cudaprof.CapturePublic
 	code := cudacapture.CodeFiles{Source: "kernels.cu", PTX: "kernels.ptx", CUBIN: "kernels.cubin", SASS: "kernels.sass"}
 	c := &cudacapture.Capture{Profile: &profile.Profile{SampleType: []*profile.ValueType{{Type: "gpu_time", Unit: "nanoseconds"}}}, Code: code, Modules: []cudacapture.Module{{ID: "module", Generation: 1, Code: code}}, Files: map[string][]byte{"kernels.cu": read("kernels.cu"), "kernels.ptx": read("kernels.ptx"), "kernels.cubin": raw, "kernels.sass": read("kernels.sass")}}
 	return c, cudaprof.CapturePublication{Version: 1, Artifact: a, Workload: w, CompilerKey: key, Result: cudaprof.CaptureProviderResult{Provider: cudaprof.CaptureRange, Identity: id}}
+}
+
+// planCodeRespec constructs a valid artifact from a's spec after edit.
+func planCodeRespec(t *testing.T, a *cudakernel.Artifact, edit func(*cudakernel.ArtifactSpec)) *cudakernel.Artifact {
+	t.Helper()
+	s := a.Spec()
+	edit(&s)
+	b, e := cudakernel.NewArtifactFromSpec(s)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return b
 }
 func planCodePacket(t *testing.T, c *cudacapture.Capture) []byte {
 	t.Helper()
@@ -80,50 +92,63 @@ func TestCapturePlanCodeRoundTrip(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = cudacapture.VerifyModule(parsed, "module", p.Artifact.Digest, []string{"fill"}); e != nil {
+	if _, e = cudacapture.VerifyModule(parsed, "module", p.Artifact.Digest(), []string{"fill"}); e != nil {
 		t.Fatal(e)
 	}
 }
 func TestCapturePlanCodeRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
-		change  func(*cudacapture.Capture, *cudaprof.CapturePublication)
+		change  func(*testing.T, *cudacapture.Capture, *cudaprof.CapturePublication)
 		missing bool
 	}{
-		{"cubin role", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { c.Modules[0].Code.CUBIN = "" }, true},
-		{"ptx role", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { c.Modules[0].Code.PTX = "" }, true},
-		{"source role", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { c.Modules[0].Code.Source = "" }, true},
-		{"sass role", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { c.Modules[0].Code.SASS = "" }, true},
-		{"stale image", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+		{"cubin role", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			c.Modules[0].Code.CUBIN = ""
+		}, true},
+		{"ptx role", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) { c.Modules[0].Code.PTX = "" }, true},
+		{"source role", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			c.Modules[0].Code.Source = ""
+		}, true},
+		{"sass role", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			c.Modules[0].Code.SASS = ""
+		}, true},
+		{"stale image", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
 			c.Files["kernels.cubin"][len(c.Files["kernels.cubin"])-1] ^= 1
 		}, false},
-		{"duplicate generation", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+		{"duplicate generation", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
 			m := c.Modules[0]
 			m.ID = "second"
 			m.Generation = 2
 			c.Modules = append(c.Modules, m)
 		}, false},
-		{"corrupt artifact", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { p.Artifact.Raw[0] ^= 1 }, false},
-		{"missing entry", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { p.Artifact.EntryPoint = "" }, false},
-		{"identity entry", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { p.Result.Identity.Entry = "other" }, false},
-		{"exact entry", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) {
-			p.Artifact.EntryPoint = "scale"
+		// A corrupt image or missing entry cannot be constructed; the
+		// invalid zero handle stands for both.
+		{"invalid artifact", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			p.Artifact = &cudakernel.Artifact{}
+		}, true},
+		{"identity entry", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			p.Result.Identity.Entry = "other"
+		}, false},
+		{"exact entry", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			p.Artifact = planCodeRespec(t, p.Artifact, func(s *cudakernel.ArtifactSpec) { s.EntryPoint = "scale" })
 			p.Result.Identity.Entry = "scale"
 		}, false},
-		{"native target", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) {
-			p.Artifact.Target = "sm_80"
+		{"native target", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			p.Artifact = planCodeRespec(t, p.Artifact, func(s *cudakernel.ArtifactSpec) { s.Target = "sm_80" })
 			p.Result.Identity.Target = "sm_80"
 		}, false},
-		{"feature suffix", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) {
-			p.Artifact.Target = "sm_90a"
+		{"feature suffix", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			p.Artifact = planCodeRespec(t, p.Artifact, func(s *cudakernel.ArtifactSpec) { s.Target = "sm_90a" })
 			p.Result.Identity.Target = "sm_90a"
 		}, true},
-		{"virtual ptx", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { p.Artifact.Kind = cudakernel.KindPTX }, true},
-		{"missing artifact", func(c *cudacapture.Capture, p *cudaprof.CapturePublication) { p.Artifact = nil }, true},
+		{"virtual ptx", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
+			p.Artifact = planCodeRespec(t, p.Artifact, func(s *cudakernel.ArtifactSpec) { s.Kind = cudakernel.KindPTX })
+		}, true},
+		{"missing artifact", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) { p.Artifact = nil }, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, p := planCodeFixture(t)
-			tc.change(c, &p)
+			tc.change(t, c, &p)
 			raw := planCodePacket(t, c)
 			got, e := admitCapturePlanCode(planCodeWrite(t, raw), 1<<20, p)
 			if e == nil {

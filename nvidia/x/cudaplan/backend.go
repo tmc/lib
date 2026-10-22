@@ -44,17 +44,18 @@ func (b TargetBackend) String() string {
 
 // KernelRegistry maps kernel entry points or operation signatures to compiled artifacts.
 type KernelRegistry struct {
-	artifacts map[string]*cudakernel.Artifact
+	artifacts map[string]cudakernel.Artifact
 }
 
 // NewKernelRegistry creates an empty KernelRegistry.
 func NewKernelRegistry() *KernelRegistry {
 	return &KernelRegistry{
-		artifacts: make(map[string]*cudakernel.Artifact),
+		artifacts: make(map[string]cudakernel.Artifact),
 	}
 }
 
-// Register adds a compiled kernel artifact under the specified key.
+// Register captures an immutable artifact handle under key. Replacing the
+// caller's wrapper later does not change the registered handle.
 func (r *KernelRegistry) Register(key string, art *cudakernel.Artifact) error {
 	if r == nil {
 		return errors.New("cudaplan: nil kernel registry")
@@ -69,18 +70,30 @@ func (r *KernelRegistry) Register(key string, art *cudakernel.Artifact) error {
 		return fmt.Errorf("cudaplan: invalid artifact for %q: %w", key, err)
 	}
 	if r.artifacts == nil {
-		r.artifacts = make(map[string]*cudakernel.Artifact)
+		r.artifacts = make(map[string]cudakernel.Artifact)
 	}
-	r.artifacts[key] = art
+	r.artifacts[key] = *art
 	return nil
 }
 
-// Get returns the registered kernel artifact for key, or nil if not found.
+// Get returns a detached wrapper for the registered handle, or nil if absent.
 func (r *KernelRegistry) Get(key string) *cudakernel.Artifact {
 	if r == nil {
 		return nil
 	}
-	return r.artifacts[key]
+	art, ok := r.artifacts[key]
+	if !ok {
+		return nil
+	}
+	return &art
+}
+
+func captureArtifact(art *cudakernel.Artifact) *cudakernel.Artifact {
+	if art == nil {
+		return nil
+	}
+	owned := *art
+	return &owned
 }
 
 // StepPlan describes a single executable dispatch in the plan.

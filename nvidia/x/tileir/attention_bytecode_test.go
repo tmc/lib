@@ -100,7 +100,7 @@ func TestAttentionAssemblyComposition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if called != 1 || got.Artifact.Kind != cudakernel.KindCUBIN || got.Artifact.EntryPoint != "tile_online_attention" || got.BytecodeDigest != r.Memory.BytecodeDigest() || got.Artifact.Schema.TotalParamBytes != 24 {
+	if called != 1 || got.Artifact.Kind() != cudakernel.KindCUBIN || got.Artifact.EntryPoint() != "tile_online_attention" || got.BytecodeDigest != r.Memory.BytecodeDigest() || got.Artifact.Schema().TotalParamBytes != 24 {
 		t.Fatal("typed attention assembly lost ABI or source identity")
 	}
 	for _, edit := range []func(){

@@ -226,7 +226,7 @@ func TestNativePrefillW256Reference(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw = 0
-	kernel, err := module.Function(artifact.EntryPoint)
+	kernel, err := module.Function(artifact.EntryPoint())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestNativePrefillW256Reference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("device=%d uuid=%v target=%s driver=%d nvrtc=%d.%d image=%s resources=%+v flags=%v lease=%+v", ordinal, uuid, target, driverVersion, rtcMajor, rtcMinor, artifact.Digest, artifact.Resources, artifact.CompilerOpts, lease.Owner())
+	t.Logf("device=%d uuid=%v target=%s driver=%d nvrtc=%d.%d image=%s resources=%+v flags=%v lease=%+v", ordinal, uuid, target, driverVersion, rtcMajor, rtcMinor, artifact.Digest(), artifact.Resources(), artifact.CompilerOptions(), lease.Owner())
 	runCtx, cancelRun := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancelRun()
 	for round, shape := range [][2]int{{16, 16}, {32, 48}, {48, 32}} {
@@ -293,7 +293,7 @@ func TestNativePrefillW256Reference(t *testing.T) {
 			t.Fatal(err)
 		}
 		args := []any{a, b, out, uint32(k), uint32(n)}
-		if _, err := artifact.Schema.Pack(args...); err != nil {
+		if _, err := artifact.Schema().Pack(args...); err != nil {
 			t.Fatal(err)
 		}
 		if err := cudalaunch.OwnedKernel(kernel).Grid(uint32(n/16), 4, 1).Block(128, 1, 1).On(stream).Launch(args...); err != nil {

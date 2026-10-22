@@ -73,7 +73,7 @@ func TestBuildTopKExtensionPacket(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		r := topkPacketEntry{image.name, topkDigest([]byte(image.source)), a.Digest, target, nvrtc.Path(), major, minor, a.CompilerOpts}
+		r := topkPacketEntry{image.name, topkDigest([]byte(image.source)), a.Digest(), target, nvrtc.Path(), major, minor, a.CompilerOptions()}
 		topkWriteJSON(t, filepath.Join(dir, image.name+".artifact.json"), a)
 		topkWriteJSON(t, filepath.Join(dir, image.name+".receipt.json"), r)
 		if err := os.WriteFile(filepath.Join(dir, image.name+".cu"), []byte(image.source), 0600); err != nil {

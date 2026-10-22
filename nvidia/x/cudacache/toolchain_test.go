@@ -678,7 +678,7 @@ func TestNVRTCAdapter_RevalidatesAtomicManifestOnLookup(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := cudacache.CompilerCacheKey("input", f.id)
-	if m.Version != 1 || m.Key != key || m.InputKey != "input" || m.PayloadSHA256 != art.Digest || m.ArtifactKey != key+"-"+art.Digest {
+	if m.Version != 1 || m.Key != key || m.InputKey != "input" || m.PayloadSHA256 != art.Digest() || m.ArtifactKey != key+"-"+art.Digest() {
 		t.Errorf("manifest = %+v", m)
 	}
 	if m.Recorded.Fingerprint() != f.id.Provenance.Fingerprint() || len(m.ManifestSHA256) != 64 || m.Nonce == "" {
@@ -697,8 +697,8 @@ func TestNVRTCAdapter_RevalidatesAtomicManifestOnLookup(t *testing.T) {
 	}
 
 	got, ok := mustLookup(t, f.adapter, f.id)
-	if !ok || got.Digest != art.Digest {
-		t.Fatalf("Lookup = %v, %v; want hit with digest %s", got, ok, art.Digest)
+	if !ok || got.Digest() != art.Digest() {
+		t.Fatalf("Lookup = %v, %v; want hit with digest %s", got, ok, art.Digest())
 	}
 
 	// Without a manifest the artifact is not trusted, although it is on disk.
@@ -734,7 +734,7 @@ func TestNVRTCAdapter_RevalidatesAtomicManifestOnLookup(t *testing.T) {
 		for range 2 {
 			got, ok, err := f.adapter.Lookup(ctx, "input", f.id)
 			if st.wantHit {
-				if err != nil || !ok || got.Digest != art.Digest {
+				if err != nil || !ok || got.Digest() != art.Digest() {
 					t.Fatalf("Lookup after tool %s = %v, %v, %v; want hit", st.name, got, ok, err)
 				}
 				continue
@@ -767,19 +767,20 @@ func TestCache_QuarantinesTamperedManifestOrPayload(t *testing.T) {
 			}
 		}
 	}
-	editPayload := func(edit func(a *cudakernel.Artifact)) func(t *testing.T, f *toolchainFixture, m cudacache.Manifest) {
+	// editPayload rewrites fields of the persisted artifact entry.
+	editPayload := func(edit func(a map[string]any)) func(t *testing.T, f *toolchainFixture, m cudacache.Manifest) {
 		return func(t *testing.T, f *toolchainFixture, m cudacache.Manifest) {
 			path := filepath.Join(f.dir, "cache", "artifacts", m.ArtifactKey+".artifact")
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			var a cudakernel.Artifact
+			var a map[string]any
 			if err := json.Unmarshal(data, &a); err != nil {
 				t.Fatal(err)
 			}
-			edit(&a)
-			if data, err = json.Marshal(&a); err != nil {
+			edit(a)
+			if data, err = json.Marshal(a); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(path, data, 0o644); err != nil {
@@ -814,12 +815,12 @@ func TestCache_QuarantinesTamperedManifestOrPayload(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, true},
-		{"payload replaced consistently", editPayload(func(a *cudakernel.Artifact) {
-			a.Raw, a.Digest = other.Raw, other.Digest
-			a.EntryPoint = other.EntryPoint
+		{"payload replaced consistently", editPayload(func(a map[string]any) {
+			a["raw"], a["digest"] = other.Bytes(), other.Digest()
+			a["entry_point"] = other.EntryPoint()
 		}), false},
-		{"payload raw only", editPayload(func(a *cudakernel.Artifact) {
-			a.Raw = append([]byte(nil), other.Raw...)
+		{"payload raw only", editPayload(func(a map[string]any) {
+			a["raw"] = other.Bytes()
 		}), false},
 		{"payload removed", func(t *testing.T, f *toolchainFixture, m cudacache.Manifest) {
 			if err := os.Remove(filepath.Join(f.dir, "cache", "artifacts", m.ArtifactKey+".artifact")); err != nil {

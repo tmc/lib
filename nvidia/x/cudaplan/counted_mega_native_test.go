@@ -174,6 +174,6 @@ func TestNativeCountedMegaReference(t *testing.T) {
 				t.Fatalf("round %d output %d got %g want %g", round, i, got[i], want)
 			}
 		}
-		t.Logf("round=%d uuid=%x target=sm_%d%d CTAs=2 artifact=%s outcome_counts=exact independent_FP32_reference=pass", round, uuid.Bytes, major, minor, plan.megaArtifact.Digest)
+		t.Logf("round=%d uuid=%x target=sm_%d%d CTAs=2 artifact=%s outcome_counts=exact independent_FP32_reference=pass", round, uuid.Bytes, major, minor, plan.megaArtifact.Digest())
 	}
 }

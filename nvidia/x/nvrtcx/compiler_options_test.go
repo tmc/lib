@@ -67,8 +67,14 @@ func TestCompilerOptionsCacheAndArtifactRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if joinOptions(artifact.CompilerOpts) != joinOptions(want) {
-		t.Fatalf("artifact compiler options = %q, want %q", artifact.CompilerOpts, want)
+	if joinOptions(artifact.CompilerOptions()) != joinOptions(want) {
+		t.Fatalf("artifact compiler options = %q, want %q", artifact.CompilerOptions(), want)
+	}
+	cached.compilerOptions[0] = "changed after conversion"
+	view := artifact.CompilerOptions()
+	view[0] = "changed detached view"
+	if joinOptions(artifact.CompilerOptions()) != joinOptions(want) {
+		t.Fatal("converted artifact retained mutable compiler options")
 	}
 }
 

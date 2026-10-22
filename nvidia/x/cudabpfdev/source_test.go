@@ -2,6 +2,7 @@ package cudabpfdev
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -35,11 +36,17 @@ func TestArtifactSourceOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	mutate := func(a *cudakernel.Artifact) {
-		a.Raw[0] = '!'
-		a.Schema.Params[0].Name = "changed"
-		a.CompilerOpts[0] = "changed"
-		a.Dependencies[0].Path = "changed"
-		a.EntryPoint = "changed"
+		spec := a.Spec()
+		spec.Raw[0] = '!'
+		spec.Schema.Params[0].Name = "changed"
+		spec.CompilerOpts[0] = "changed"
+		spec.Dependencies[0].Path = "changed"
+		spec.EntryPoint = "changed"
+		changed, err := cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		*a = *changed
 	}
 	mutate(a)
 	l, err := s.DescribeLaunch()
@@ -58,7 +65,7 @@ func TestArtifactSourceOwnership(t *testing.T) {
 		t.Fatal("description aliases source")
 	}
 	_, err = s.load(func(f func() error) error { return f() }, func(image []byte, jit cudakernel.JITOptions) (driver.Module, error) {
-		if !bytes.Equal(image, append(want.Bytes(), 0)) || jit != want.JITOptions {
+		if !bytes.Equal(image, append(want.Bytes(), 0)) || jit != want.JITOptions() {
 			t.Fatal("original image or options changed")
 		}
 		image[0] = '!'
@@ -79,9 +86,17 @@ func TestArtifactSourceRejects(t *testing.T) {
 		name   string
 		change func(*cudakernel.Artifact, *Geometry)
 	}{
-		{"digest", func(a *cudakernel.Artifact, _ *Geometry) { a.Raw[0]++ }},
-		{"kind", func(a *cudakernel.Artifact, _ *Geometry) { a.Kind = cudakernel.KindLTOIR }},
-		{"entry", func(a *cudakernel.Artifact, _ *Geometry) { a.EntryPoint = "kernel\x00other" }},
+		{"digest", func(a *cudakernel.Artifact, _ *Geometry) {
+			raw := a.Bytes()
+			raw[0]++
+			*a = rewriteSourceWire(t, a, "raw", raw, true)
+		}},
+		{"kind", func(a *cudakernel.Artifact, _ *Geometry) {
+			*a = rewriteSourceWire(t, a, "kind", cudakernel.KindLTOIR, false)
+		}},
+		{"entry", func(a *cudakernel.Artifact, _ *Geometry) {
+			*a = rewriteSourceWire(t, a, "entry_point", "kernel\x00other", false)
+		}},
 		{"grid", func(_ *cudakernel.Artifact, g *Geometry) { g.Grid[1] = 0 }},
 		{"block", func(_ *cudakernel.Artifact, g *Geometry) { g.Block[2] = 0 }},
 	} {
@@ -94,7 +109,7 @@ func TestArtifactSourceRejects(t *testing.T) {
 		})
 	}
 	a := sourceFixture(t)
-	a, err := cudakernel.NewArtifact(a.Kind, append([]byte{'x', 0}, a.Raw...), a.EntryPoint, a.Schema, a.Target)
+	a, err := cudakernel.NewArtifact(a.Kind(), append([]byte{'x', 0}, a.Bytes()...), a.EntryPoint(), a.Schema(), a.Target())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,4 +167,35 @@ func TestArtifactSourceLoadErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// rewriteSourceWire corrupts serialized input rather than resealing corruption
+// with a newly computed digest. A refused decode leaves an invalid handle.
+func rewriteSourceWire(t *testing.T, a *cudakernel.Artifact, field string, value any, wantReject bool) cudakernel.Artifact {
+	t.Helper()
+	data, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]json.RawMessage
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatal(err)
+	}
+	wire[field], err = json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = json.Marshal(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded cudakernel.Artifact
+	err = json.Unmarshal(data, &decoded)
+	if wantReject && err == nil {
+		t.Fatal("accepted corrupted wire artifact")
+	}
+	if !wantReject && err != nil {
+		t.Fatal(err)
+	}
+	return decoded
 }

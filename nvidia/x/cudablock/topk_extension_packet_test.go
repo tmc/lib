@@ -97,13 +97,13 @@ func topkReadExtensionPacket(dir, name, source, entry, target string) (*cudakern
 	if err != nil {
 		return fail(err)
 	}
-	if string(s) != source || r.Name != name || r.SourceSHA256 != topkDigest([]byte(source)) || r.ArtifactSHA256 != a.Digest || r.Target != target || a.Target != target || a.EntryPoint != entry || a.Kind != cudakernel.KindCUBIN || !reflect.DeepEqual(a.Schema, schema) || !reflect.DeepEqual(a.CompilerOpts, r.CompilerOptions) {
+	if string(s) != source || r.Name != name || r.SourceSHA256 != topkDigest([]byte(source)) || r.ArtifactSHA256 != a.Digest() || r.Target != target || a.Target() != target || a.EntryPoint() != entry || a.Kind() != cudakernel.KindCUBIN || !reflect.DeepEqual(a.Schema(), schema) || !reflect.DeepEqual(a.CompilerOptions(), r.CompilerOptions) {
 		return fail(fmt.Errorf("extension packet identity mismatch"))
 	}
 	// These are producer-reported facts. Agreement does not attest that the
 	// recorded compiler produced this image from the retained source.
 	opts := []string{"--gpu-architecture=" + target, "--std=c++17", "--generate-line-info"}
-	if !filepath.IsAbs(r.CompilerPath) || strings.ContainsRune(r.CompilerPath, 0) || r.CompilerMajor <= 0 || r.CompilerMinor < 0 || a.Toolchain != fmt.Sprintf("nvrtc %d.%d", r.CompilerMajor, r.CompilerMinor) || !reflect.DeepEqual(a.CompilerOpts, opts) {
+	if !filepath.IsAbs(r.CompilerPath) || strings.ContainsRune(r.CompilerPath, 0) || r.CompilerMajor <= 0 || r.CompilerMinor < 0 || a.Toolchain() != fmt.Sprintf("nvrtc %d.%d", r.CompilerMajor, r.CompilerMinor) || !reflect.DeepEqual(a.CompilerOptions(), opts) {
 		return fail(fmt.Errorf("invalid retained compiler metadata"))
 	}
 	if err := a.Validate(); err != nil {
@@ -132,7 +132,8 @@ func TestTopKExtensionPacket(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			r := topkPacketEntry{Name: "bf16", SourceSHA256: topkDigest([]byte(TopKBF16Source)), ArtifactSHA256: a.Digest, Target: a.Target, CompilerPath: "/recorded/libnvrtc.so", CompilerMajor: 13, CompilerMinor: 4, CompilerOptions: opts}
+			r := topkPacketEntry{Name: "bf16", SourceSHA256: topkDigest([]byte(TopKBF16Source)), ArtifactSHA256: a.Digest(), Target: a.Target(), CompilerPath: "/recorded/libnvrtc.so", CompilerMajor: 13, CompilerMinor: 4, CompilerOptions: opts}
+			spec := a.Spec()
 			switch name {
 			case "empty-path":
 				r.CompilerPath = ""
@@ -149,10 +150,14 @@ func TestTopKExtensionPacket(t *testing.T) {
 			case "version-mismatch":
 				r.CompilerMinor = 3
 			case "empty-toolchain":
-				a.Toolchain = ""
+				spec.Toolchain = ""
 			case "wrong-options":
-				a.CompilerOpts = nil
+				spec.CompilerOpts = nil
 				r.CompilerOptions = nil
+			}
+			a, err = cudakernel.NewArtifactFromSpec(spec)
+			if err != nil {
+				t.Fatal(err)
 			}
 			dir := t.TempDir()
 			topkWriteJSON(t, filepath.Join(dir, "bf16.artifact.json"), a)

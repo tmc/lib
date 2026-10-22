@@ -131,10 +131,10 @@ func TestAssembleNative(t *testing.T) {
 	if err := artifact.Validate(); err != nil {
 		t.Fatalf("compiled artifact: %v", err)
 	}
-	if artifact.Kind != cudakernel.KindTileIR || len(artifact.Raw) == 0 || len(artifact.Schema.Params) != 3 || !tileiras.IsBytecode(artifact.Raw) {
+	if artifact.Kind() != cudakernel.KindTileIR || len(artifact.Bytes()) == 0 || len(artifact.Schema().Params) != 3 || !tileiras.IsBytecode(artifact.Bytes()) {
 		t.Fatal("compiler did not return a Tile IR artifact with the expected pointer ABI")
 	}
-	result, err := tileiras.Assemble(ctx, artifact.Raw, tileiras.WithArch(major, minor), tileiras.WithRemarks("all"))
+	result, err := tileiras.Assemble(ctx, artifact.Bytes(), tileiras.WithArch(major, minor), tileiras.WithRemarks("all"))
 	if err != nil {
 		t.Fatalf("assemble compiler output: %v", err)
 	}
@@ -143,8 +143,8 @@ func TestAssembleNative(t *testing.T) {
 	}
 
 	t.Logf("uuid=%s target=%s compiler=%s options=%q TileIR=%s CUBIN=%x remarks=%d TMAfailures=%d log=%q",
-		os.Getenv("TILEIRAS_GPU_UUID"), artifact.Target, artifact.Toolchain, artifact.CompilerOpts,
-		artifact.Digest, sha256.Sum256(result.CUBIN), len(result.Remarks), len(result.TMAFailures()), log)
+		os.Getenv("TILEIRAS_GPU_UUID"), artifact.Target(), artifact.Toolchain(), artifact.CompilerOptions(),
+		artifact.Digest(), sha256.Sum256(result.CUBIN), len(result.Remarks), len(result.TMAFailures()), log)
 }
 
 func TestNativeTargetRefusals(t *testing.T) {

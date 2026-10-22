@@ -353,7 +353,7 @@ func appendReplayHistory(plan *cudaregress.ExperimentPlan, execRec *cudaregress.
 	}
 	found := false
 	for _, b := range plan.BinaryArtifacts {
-		if b.Digest == template.Artifact.Digest {
+		if b.Digest == template.Artifact.Digest() {
 			found = true
 			break
 		}

@@ -190,15 +190,19 @@ func TestSchemaValidationArtifactRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatal(err)
 	}
-	packed, err := got.Schema.Pack(uint64(1))
+	packed, err := got.Pack(uint64(1))
 	if err != nil || binary.LittleEndian.Uint64(packed) != 1 {
 		t.Fatalf("roundtrip pack %v %v", packed, err)
 	}
-	got.Schema.Params[0].ByteWidth = 1
-	if err := got.Validate(); err == nil {
+	spec := got.Spec()
+	spec.Schema.Params[0].ByteWidth = 1
+	if _, err := cudakernel.NewArtifactFromSpec(spec); err == nil {
 		t.Fatal("artifact mutation admitted")
 	}
-	bad, err := json.Marshal(&got)
+	bad, err := json.Marshal(struct {
+		cudakernel.ArtifactSpec
+		Digest string `json:"digest"`
+	}{spec, got.Digest()})
 	if err != nil {
 		t.Fatal(err)
 	}

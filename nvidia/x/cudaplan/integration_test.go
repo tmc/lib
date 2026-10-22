@@ -19,6 +19,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudagroup"
 	"github.com/tmc/lib/nvidia/x/cudair"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudalayout"
 	"github.com/tmc/lib/nvidia/x/cudapdl"
@@ -444,8 +445,8 @@ func TestSearchCacheEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetArtifact hit: %v", err)
 	}
-	if gotArt.Digest != art.Digest {
-		t.Fatalf("artifact digest mismatch: got %s, want %s", gotArt.Digest, art.Digest)
+	if gotArt.Digest() != art.Digest() {
+		t.Fatalf("artifact digest mismatch: got %s, want %s", gotArt.Digest(), art.Digest())
 	}
 
 	// Cache miss on keySM100
@@ -1315,7 +1316,7 @@ func TestSearchPolicyCacheIdentityEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetArtifact 2: %v", err)
 	}
-	if art1.Digest != art2.Digest {
-		t.Fatalf("both policies must share identical artifact digest, got %s != %s", art1.Digest, art2.Digest)
+	if art1.Digest() != art2.Digest() {
+		t.Fatalf("both policies must share identical artifact digest, got %s != %s", art1.Digest(), art2.Digest())
 	}
 }

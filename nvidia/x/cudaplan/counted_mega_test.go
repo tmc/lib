@@ -36,13 +36,13 @@ func TestCountedMegaCompilesActualFP32Graph(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	source := string(p.megaArtifact.Raw)
+	source := string(p.megaArtifact.Bytes())
 	for _, want := range []string{".param .u64 state", "mov.u32 i, %ctaid.x", "add.u32 i, i, 512", "neg.f32 z, x", "add.rn.f64 total, total, widened", "max.NaN.f32 z, x", "membar.gl;\nbar.sync 0;\nmov.u32 thread, %tid.x;", "atom.global.add.u32 old, [counter], 1", "ld.acquire.gpu.u32 count, [counter]", "setp.gt.u32 pred, count, 2", "setp.ge.u32 pred, spins, 16777216", "st.shared.u32 [phase_address], phase", "ld.shared.u32 phase, [phase_address]"} {
 		if !strings.Contains(source, want) {
 			t.Fatalf("missing actual graph or counted protocol %q", want)
 		}
 	}
-	if len(p.megaLowering.Graph().Tasks()) != 3 || p.steps[0].Backend != BackendMega || len(p.megaArtifact.Schema.Params) != len(p.megaNames)+1 {
+	if len(p.megaLowering.Graph().Tasks()) != 3 || p.steps[0].Backend != BackendMega || len(p.megaArtifact.Schema().Params) != len(p.megaNames)+1 {
 		t.Fatal("counted graph lost execution bindings")
 	}
 	if dir := os.Getenv("CUDAPLAN_COUNTED_PTX_DIR"); dir != "" {
@@ -51,7 +51,7 @@ func TestCountedMegaCompilesActualFP32Graph(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(dir, target+".ptx"), artifact.Raw, 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, target+".ptx"), artifact.Bytes(), 0600); err != nil {
 				t.Fatal(err)
 			}
 		}

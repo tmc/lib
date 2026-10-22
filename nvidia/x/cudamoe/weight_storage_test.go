@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -423,34 +424,65 @@ func TestMoEWeightArtifactBinding(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !slices.Equal(owned.Raw, a.Raw) || owned.EntryPoint != a.EntryPoint {
+		if *owned != *a || !slices.Equal(owned.Bytes(), a.Bytes()) || owned.EntryPoint() != a.EntryPoint() {
 			t.Fatal("valid binding changed")
 		}
-		a.Raw[0] = 'X'
-		a.Schema.Params[0].Name = "changed"
-		a.Dependencies[0].Digest = "changed"
-		a.CompilerOpts[0] = "changed"
-		if owned.Raw[0] == 'X' || owned.Schema.Params[0].Name == "changed" || owned.Dependencies[0].Digest == "changed" || owned.CompilerOpts[0] == "changed" {
+		a.Bytes()[0] = 'X'
+		a.Schema().Params[0].Name = "changed"
+		a.Dependencies()[0].Digest = "changed"
+		a.CompilerOptions()[0] = "changed"
+		if owned.Bytes()[0] == 'X' || owned.Schema().Params[0].Name == "changed" || owned.Dependencies()[0].Digest == "changed" || owned.CompilerOptions()[0] == "changed" {
 			t.Fatal("artifact aliases caller slices")
+		}
+		before := *owned
+		spec := a.Spec()
+		spec.Toolchain = "replacement"
+		replacement, err := cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		*a = *replacement
+		if owned == a || *owned != before || owned.Toolchain() == "replacement" {
+			t.Fatal("owned descriptor follows caller wrapper replacement")
 		}
 	}
 	for _, tt := range []struct {
 		name string
-		edit func(*cudakernel.Artifact)
+		edit func(*cudakernel.ArtifactSpec)
 	}{
-		{"wrong_entry", func(a *cudakernel.Artifact) { a.EntryPoint = "moe_weight_slab" }},
-		{"wrong_schema", func(a *cudakernel.Artifact) { a.Schema.Params[0].Name = "different" }},
-		{"missing_binding", func(a *cudakernel.Artifact) { a.Dependencies = nil }},
-		{"duplicate_binding", func(a *cudakernel.Artifact) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) }},
-		{"wrong_digest", func(a *cudakernel.Artifact) { a.Dependencies[0].Digest = "wrong" }},
-		{"untracked", func(a *cudakernel.Artifact) { a.Dependencies[0].Tracked = false }},
-		{"producer_error", func(a *cudakernel.Artifact) { a.Dependencies[0].ErrorMsg = "read failed" }},
-		{"corrupt_image", func(a *cudakernel.Artifact) { a.Raw[0] = 'X' }},
+		{"wrong_entry", func(spec *cudakernel.ArtifactSpec) { spec.EntryPoint = "moe_weight_slab" }},
+		{"wrong_schema", func(spec *cudakernel.ArtifactSpec) { spec.Schema.Params[0].Name = "different" }},
+		{"missing_binding", func(spec *cudakernel.ArtifactSpec) { spec.Dependencies = nil }},
+		{"duplicate_binding", func(spec *cudakernel.ArtifactSpec) {
+			spec.Dependencies = append(spec.Dependencies, spec.Dependencies[0])
+		}},
+		{"wrong_digest", func(spec *cudakernel.ArtifactSpec) { spec.Dependencies[0].Digest = "wrong" }},
+		{"untracked", func(spec *cudakernel.ArtifactSpec) { spec.Dependencies[0].Tracked = false }},
+		{"producer_error", func(spec *cudakernel.ArtifactSpec) { spec.Dependencies[0].ErrorMsg = "read failed" }},
+		{"corrupt_image", func(spec *cudakernel.ArtifactSpec) { spec.Raw[0] = 'X' }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			a := weightStorageArtifact(t, MoEWeightViewConsumer)
-			tt.edit(a)
-			if _, err := checkedMoEWeightArtifact(MoEWeightViewConsumer, a); err == nil {
+			spec := a.Spec()
+			tt.edit(&spec)
+			raw, err := json.Marshal(struct {
+				cudakernel.ArtifactSpec
+				Digest string `json:"digest"`
+			}{spec, a.Digest()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var damaged cudakernel.Artifact
+			if err := json.Unmarshal(raw, &damaged); err != nil {
+				if tt.name != "corrupt_image" {
+					t.Fatalf("metadata fixture refused before consumer: %v", err)
+				}
+				return
+			}
+			if tt.name == "corrupt_image" {
+				t.Fatal("corrupted image with old digest decoded")
+			}
+			if _, err := checkedMoEWeightArtifact(MoEWeightViewConsumer, &damaged); err == nil {
 				t.Fatal("invalid source/image/schema admitted")
 			}
 		})

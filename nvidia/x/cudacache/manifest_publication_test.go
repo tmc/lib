@@ -51,8 +51,8 @@ func TestManifestQuarantineSnapshot(t *testing.T) {
 			}
 			replacement := original
 			if tt.newPayload {
-				raw := append(append([]byte(nil), original.Raw...), []byte("\n// replacement\n")...)
-				replacement, err = cudakernel.NewArtifact(original.Kind, raw, original.EntryPoint, original.Schema, original.Target)
+				raw := append(original.Bytes(), []byte("\n// replacement\n")...)
+				replacement, err = cudakernel.NewArtifact(original.Kind(), raw, original.EntryPoint(), original.Schema(), original.Target())
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -146,9 +146,9 @@ func TestManifestEvictionSnapshot(t *testing.T) {
 			}
 			replacement := original
 			if newPayload {
-				raw := append(append([]byte(nil), original.Raw...), []byte("\n// replacement\n")...)
+				raw := append(original.Bytes(), []byte("\n// replacement\n")...)
 				var err error
-				replacement, err = cudakernel.NewArtifact(original.Kind, raw, original.EntryPoint, original.Schema, original.Target)
+				replacement, err = cudakernel.NewArtifact(original.Kind(), raw, original.EntryPoint(), original.Schema(), original.Target())
 				if err != nil {
 					t.Fatal(err)
 				}

@@ -438,17 +438,28 @@ func TestAttentionResidual_HeaderAndSourceBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.Raw[0] = 'x'
-	a.Schema.Params[0].Name = "wrong"
-	if owned.Raw[0] == 'x' || owned.Schema.Params[0].Name == "wrong" {
+	changed := a.Spec()
+	changed.Raw[0] = 'x'
+	changed.Schema.Params[0].Name = "wrong"
+	replacement, err := cudakernel.NewArtifactFromSpec(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*a = *replacement
+	if a.Bytes()[0] != 'x' || a.Schema().Params[0].Name != "wrong" {
+		t.Fatal("source handle was not replaced")
+	}
+	if owned.Bytes()[0] == 'x' || owned.Schema().Params[0].Name == "wrong" {
 		t.Fatal("artifact not detached")
 	}
-	for _, mutate := range []func(*cudakernel.Artifact){func(a *cudakernel.Artifact) { a.Dependencies[2].Digest = attentionResidualDigest(h + "\n") }, func(a *cudakernel.Artifact) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) }, func(a *cudakernel.Artifact) { a.EntryPoint = "wrong" }, func(a *cudakernel.Artifact) { a.CompilerOpts = append(a.CompilerOpts, "--use_fast_math") }} {
-		b := *owned
-		b.Dependencies = append([]cudakernel.Dependency(nil), owned.Dependencies...)
-		b.CompilerOpts = append([]string(nil), owned.CompilerOpts...)
-		mutate(&b)
-		if _, err := attentionResidualArtifact(&b, sources[0]); err == nil {
+	for _, mutate := range []func(*cudakernel.ArtifactSpec){func(a *cudakernel.ArtifactSpec) { a.Dependencies[2].Digest = attentionResidualDigest(h + "\n") }, func(a *cudakernel.ArtifactSpec) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) }, func(a *cudakernel.ArtifactSpec) { a.EntryPoint = "wrong" }, func(a *cudakernel.ArtifactSpec) { a.CompilerOpts = append(a.CompilerOpts, "--use_fast_math") }} {
+		spec := owned.Spec()
+		mutate(&spec)
+		b, err := cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			t.Fatalf("metadata control construction: %v", err)
+		}
+		if _, err := attentionResidualArtifact(b, sources[0]); err == nil {
 			t.Fatal("artifact mutation admitted")
 		}
 	}

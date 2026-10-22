@@ -27,7 +27,7 @@ func TestFiniteMegaConsumesActualIRAndSideTable(t *testing.T) {
 	}
 	defer p.Close()
 	for _, inst := range []string{"neg.f32 z, x", "max.NaN.f32 z, x", "add.rn.f32 z, x, y", "add.u32 i, i, 256", "bar.sync 0", "setp.ge.u32 pred, i, 512"} {
-		if !strings.Contains(string(p.megaArtifact.Raw), inst) {
+		if !strings.Contains(string(p.megaArtifact.Bytes()), inst) {
 			t.Fatalf("missing actual operation %q", inst)
 		}
 	}
@@ -37,7 +37,7 @@ func TestFiniteMegaConsumesActualIRAndSideTable(t *testing.T) {
 	}
 	for i, step := range p.steps {
 		binding, ok := p.megaLowering.Binding(step.NodeName)
-		if !ok || binding.StepIndex != i || binding.Artifact != p.megaArtifact || binding.Backend != BackendMega || binding.WorkspaceBytes != step.WorkspaceBytes || binding.WorkspaceOffset != step.WorkspaceOffset || binding.OutputName != step.OutputName || binding.IsOutput != step.IsOutput || len(binding.InputNames) != len(step.InputNames) {
+		if !ok || binding.StepIndex != i || binding.Artifact == nil || p.megaArtifact == nil || *binding.Artifact != *p.megaArtifact || binding.Backend != BackendMega || binding.WorkspaceBytes != step.WorkspaceBytes || binding.WorkspaceOffset != step.WorkspaceOffset || binding.OutputName != step.OutputName || binding.IsOutput != step.IsOutput || len(binding.InputNames) != len(step.InputNames) {
 			t.Fatalf("side-table %+v step %+v", binding, step)
 		}
 	}
@@ -60,7 +60,7 @@ func TestFiniteMegaReductionUsesActualAxis(t *testing.T) {
 			t.Fatal(err)
 		}
 		stride := []string{"add.u64 a, a, 48", "add.u64 a, a, 16", "add.u64 a, a, 4"}[axis]
-		if !strings.Contains(string(artifact.Raw), stride) || !strings.Contains(string(artifact.Raw), "add.rn.f64 total, total, widened") || !strings.Contains(string(artifact.Raw), "cvt.rn.f32.f64 z, total") {
+		if !strings.Contains(string(artifact.Bytes()), stride) || !strings.Contains(string(artifact.Bytes()), "add.rn.f64 total, total, widened") || !strings.Contains(string(artifact.Bytes()), "cvt.rn.f32.f64 z, total") {
 			t.Fatal("reduction ignores shape/axis")
 		}
 	}

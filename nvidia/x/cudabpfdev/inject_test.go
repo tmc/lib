@@ -45,7 +45,7 @@ func injectionFixture(t *testing.T, text string) (*ArtifactSource, InjectionPoli
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{a.Digest, a.EntryPoint, a.Target}}, Entry: true, Exit: true, MemoryInstructions: []int{2}}
+	policy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{a.Digest(), a.EntryPoint(), a.Target()}}, Entry: true, Exit: true, MemoryInstructions: []int{2}}
 	p := program(Instruction{Op: Const, Dst: 1, Imm: 1}, Instruction{Op: MapAdd, B: 1}, Instruction{Op: Exit})
 	b := budget()
 	b.MaxRegisters = 128
@@ -62,10 +62,10 @@ func TestPrepareInjectionPreservesOriginal(t *testing.T) {
 	if a == nil {
 		t.Fatal(reason)
 	}
-	if a.Digest == s.launch.Artifact.Digest || !reflect.DeepEqual(a.Schema, s.launch.Artifact.Schema) {
+	if a.Digest() == s.launch.Artifact.Digest() || !reflect.DeepEqual(a.Schema(), s.launch.Artifact.Schema()) {
 		t.Fatal("candidate identity or ABI wrong")
 	}
-	mod, err := cudaptx.ParseBytes(a.Raw)
+	mod, err := cudaptx.ParseBytes(a.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestPrepareInjectionPreservesOriginal(t *testing.T) {
 	// Remove only inserted blocks/globals and require every original byte back.
 	var restored strings.Builder
 	inBlock := false
-	for _, line := range strings.SplitAfter(string(a.Raw), "\n") {
+	for _, line := range strings.SplitAfter(string(a.Bytes()), "\n") {
 		if strings.HasPrefix(line, ".visible .global ") {
 			continue
 		}
@@ -95,11 +95,11 @@ func TestPrepareInjectionPreservesOriginal(t *testing.T) {
 		t.Fatalf("original code changed:\n%s", restored.String())
 	}
 	for _, name := range []string{"site0_", "site1_", "site2_"} {
-		if !strings.Contains(string(a.Raw), "__cudabpfdev_"+name+"r0") {
+		if !strings.Contains(string(a.Bytes()), "__cudabpfdev_"+name+"r0") {
 			t.Fatalf("missing isolated register namespace %s", name)
 		}
 	}
-	if strings.Count(string(a.Raw), "vote.sync.ballot.b32") != 3 || strings.Count(string(a.Raw), "activemask.b32") != 3 {
+	if strings.Count(string(a.Bytes()), "vote.sync.ballot.b32") != 3 || strings.Count(string(a.Bytes()), "activemask.b32") != 3 {
 		t.Fatal("missing active-lane synchronized site membership")
 	}
 	original, err := i.Original()
@@ -109,9 +109,16 @@ func TestPrepareInjectionPreservesOriginal(t *testing.T) {
 	if !reflect.DeepEqual(original.launch, s.launch) {
 		t.Fatal("fallback source changed")
 	}
-	a.Raw[0] = '!'
+	a.Bytes()[0] = '!'
+	spec := a.Spec()
+	spec.Raw[0] = '!'
+	replacement, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*a = *replacement
 	second, _ := i.Candidate()
-	if second.Raw[0] == '!' {
+	if second.Bytes()[0] == '!' {
 		t.Fatal("candidate aliases internal image")
 	}
 	j, err := PrepareInjection(s, p, b, policy)
@@ -119,7 +126,7 @@ func TestPrepareInjectionPreservesOriginal(t *testing.T) {
 		t.Fatal(err)
 	}
 	other, why := j.Candidate()
-	if other == nil || !bytes.Equal(second.Raw, other.Raw) {
+	if other == nil || !bytes.Equal(second.Bytes(), other.Bytes()) {
 		t.Fatalf("nondeterministic candidate: %s", why)
 	}
 }
@@ -178,8 +185,14 @@ func TestInjectionPolicyAndBudget(t *testing.T) {
 		{"budget", func(_ *InjectionPolicy, _ *Program, b *Budget, _ *ArtifactSource) { b.MaxRegisters = 64 }},
 		{"bytecode", func(_ *InjectionPolicy, p *Program, _ *Budget, _ *ArtifactSource) { p.Version = 99 }},
 		{"ABI offset", func(_ *InjectionPolicy, _ *Program, _ *Budget, s *ArtifactSource) {
-			s.launch.Artifact.Schema.Params[0].Offset = 8
-			s.launch.Artifact.Schema.TotalParamBytes = 16
+			spec := s.launch.Artifact.Spec()
+			spec.Schema.Params[0].Offset = 8
+			spec.Schema.TotalParamBytes = 16
+			a, err := cudakernel.NewArtifactFromSpec(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.launch.Artifact = a
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -220,10 +233,10 @@ func TestInjectionAssembler(t *testing.T) {
 	}
 	dir := t.TempDir()
 	src, dst := filepath.Join(dir, "injected.ptx"), filepath.Join(dir, "injected.cubin")
-	if err := os.WriteFile(src, a.Raw, 0600); err != nil {
+	if err := os.WriteFile(src, a.Bytes(), 0600); err != nil {
 		t.Fatal(err)
 	}
-	r, err := cudatool.Run(ctx, tool, "", nil, "-arch="+a.Target, "-v", src, "-o", dst)
+	r, err := cudatool.Run(ctx, tool, "", nil, "-arch="+a.Target(), "-v", src, "-o", dst)
 	t.Logf("args=%v stdout=%s stderr=%s", r.Args, r.Stdout, r.Stderr)
 	if err != nil {
 		t.Fatal(err)
@@ -298,11 +311,11 @@ func TestStubInjectionAssembler(t *testing.T) {
 			for _, a := range []*cudakernel.Artifact{original.Artifact, candidate} {
 				dir := t.TempDir()
 				src, dst := filepath.Join(dir, "stub.ptx"), filepath.Join(dir, "stub.cubin")
-				if err := os.WriteFile(src, a.Raw, 0600); err != nil {
+				if err := os.WriteFile(src, a.Bytes(), 0600); err != nil {
 					t.Fatal(err)
 				}
 				r, err := cudatool.Run(ctx, tool, "", nil, "-arch="+target, "-v", src, "-o", dst)
-				t.Logf("digest=%s args=%v stdout=%s stderr=%s", a.Digest, r.Args, r.Stdout, r.Stderr)
+				t.Logf("digest=%s args=%v stdout=%s stderr=%s", a.Digest(), r.Args, r.Stdout, r.Stderr)
 				if err != nil {
 					t.Fatal(err)
 				}

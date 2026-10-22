@@ -76,7 +76,7 @@ func distillReadPacket(dir, name, source string) (distillPacket, error) {
 	if err := decoder.Decode(new(any)); err != io.EOF {
 		return p, fmt.Errorf("trailing distill packet JSON")
 	}
-	if p.Version != 1 || p.SourceDigest != distillDigest([]byte(source)) || p.HeaderDigest != distillDigest([]byte(cudablock.Header)) || p.CompilerVersion != "13.4.59" || p.Artifact.Toolchain != "nvrtc 13.4" || !filepath.IsAbs(p.CompilerPath) || filepath.Base(p.CompilerPath) != "libnvrtc.so.13.4.59" || !filepath.IsAbs(p.BuiltinsPath) || filepath.Base(p.BuiltinsPath) != "libnvrtc-builtins.so.13.4.59" || p.CompilerDigest != "7aed524a136022f5938f104223d4a205008562d29dc4f65359b2a5c089750fae" || p.BuiltinsDigest != "0fb388f79e4cb37b419cd6b7a8fdd9f954bd522fcb8e442378cba234fc169df4" {
+	if p.Version != 1 || p.SourceDigest != distillDigest([]byte(source)) || p.HeaderDigest != distillDigest([]byte(cudablock.Header)) || p.CompilerVersion != "13.4.59" || p.Artifact.Toolchain() != "nvrtc 13.4" || !filepath.IsAbs(p.CompilerPath) || filepath.Base(p.CompilerPath) != "libnvrtc.so.13.4.59" || !filepath.IsAbs(p.BuiltinsPath) || filepath.Base(p.BuiltinsPath) != "libnvrtc-builtins.so.13.4.59" || p.CompilerDigest != "7aed524a136022f5938f104223d4a205008562d29dc4f65359b2a5c089750fae" || p.BuiltinsDigest != "0fb388f79e4cb37b419cd6b7a8fdd9f954bd522fcb8e442378cba234fc169df4" {
 		return p, fmt.Errorf("distill compiler/source receipt disagrees")
 	}
 	if err := distillAdmitArtifact(&p.Artifact, source); err != nil {
@@ -96,10 +96,10 @@ func distillReadPacket(dir, name, source string) (distillPacket, error) {
 	if !bytes.Equal(used, []byte(fragment)) {
 		return p, fmt.Errorf("distill used fragment bytes disagree")
 	}
-	if p.Artifact.Target != "sm_121" {
+	if p.Artifact.Target() != "sm_121" {
 		return p, fmt.Errorf("distill packet target disagrees")
 	}
-	for suffix, want := range map[string][]byte{".cu": []byte(source), ".cubin": p.Artifact.Raw} {
+	for suffix, want := range map[string][]byte{".cu": []byte(source), ".cubin": p.Artifact.Bytes()} {
 		limit := int64(16 << 20)
 		if suffix == ".cu" {
 			limit = 1 << 20
@@ -188,14 +188,46 @@ func TestSparseTeacher_HeaderAndArtifactBinding(t *testing.T) {
 	if err := distillAdmitArtifact(a, SparseTeacherSource); err != nil {
 		t.Fatal(err)
 	}
-	for _, edit := range []func(*cudakernel.Artifact){func(a *cudakernel.Artifact) {
-		a.Dependencies[1].Digest = distillDigest([]byte("mutated actual fragment"))
-	}, func(a *cudakernel.Artifact) { a.Dependencies[2].Digest = distillDigest([]byte("changed owner")) }, func(a *cudakernel.Artifact) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) }, func(a *cudakernel.Artifact) { a.CompilerOpts = append(a.CompilerOpts, "--use_fast_math") }, func(a *cudakernel.Artifact) { a.Schema.Params[0].Offset++ }} {
-		damaged := distillClone(a)
-		edit(damaged)
+	for i, edit := range []func(*cudakernel.ArtifactSpec){func(spec *cudakernel.ArtifactSpec) {
+		spec.Dependencies[1].Digest = distillDigest([]byte("mutated actual fragment"))
+	}, func(spec *cudakernel.ArtifactSpec) {
+		spec.Dependencies[2].Digest = distillDigest([]byte("changed owner"))
+	}, func(spec *cudakernel.ArtifactSpec) {
+		spec.Dependencies = append(spec.Dependencies, spec.Dependencies[0])
+	}, func(spec *cudakernel.ArtifactSpec) { spec.CompilerOpts = append(spec.CompilerOpts, "--use_fast_math") }, func(spec *cudakernel.ArtifactSpec) { spec.Schema.Params[0].Offset++ }} {
+		spec := a.Spec()
+		edit(&spec)
+		damaged, err := cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			if i != 4 {
+				t.Fatalf("metadata fixture refused before consumer: %v", err)
+			}
+			continue
+		}
+		if i == 4 {
+			t.Fatal("invalid schema constructed")
+		}
 		if distillAdmitArtifact(damaged, SparseTeacherSource) == nil {
 			t.Fatal("damaged artifact admitted")
 		}
+	}
+
+	captured := distillClone(a)
+	before := *a
+	spec := a.Spec()
+	spec.Toolchain = "replacement"
+	replacement, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*a = *replacement
+	if captured == a || *captured != before || captured.Toolchain() == "replacement" {
+		t.Fatal("clone follows caller wrapper replacement")
+	}
+	*a = before
+	*captured = *replacement
+	if *a != before {
+		t.Fatal("replacing clone changed original")
 	}
 	// Synthetic parser-only ELF. It is never loaded or called a compiler image.
 	p := distillPacket{Version: 1, SourceDigest: distillDigest([]byte(SparseTeacherSource)), HeaderDigest: distillDigest([]byte(cudablock.Header)), FragmentDigest: distillDigest([]byte(fragment)), CompilerPath: "/tool/libnvrtc.so.13.4.59", CompilerVersion: "13.4.59", CompilerDigest: "7aed524a136022f5938f104223d4a205008562d29dc4f65359b2a5c089750fae", BuiltinsPath: "/tool/libnvrtc-builtins.so.13.4.59", BuiltinsDigest: "0fb388f79e4cb37b419cd6b7a8fdd9f954bd522fcb8e442378cba234fc169df4", Artifact: *a}

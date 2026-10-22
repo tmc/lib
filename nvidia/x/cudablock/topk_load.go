@@ -32,19 +32,19 @@ func topkRetainedArtifact(artifact *cudakernel.Artifact) (*cudakernel.Artifact, 
 	if err := artifact.Validate(); err != nil {
 		return nil, fmt.Errorf("cudablock: retained topk artifact: %w", err)
 	}
-	if artifact.Kind != cudakernel.KindPTX && artifact.Kind != cudakernel.KindCUBIN {
+	if artifact.Kind() != cudakernel.KindPTX && artifact.Kind() != cudakernel.KindCUBIN {
 		return nil, fmt.Errorf("cudablock: retained topk image is not loadable")
 	}
 	schema, err := TopKSchema()
 	if err != nil {
 		return nil, err
 	}
-	if artifact.EntryPoint != "topk_fp32" || !reflect.DeepEqual(artifact.Schema, schema) {
+	if artifact.EntryPoint() != "topk_fp32" || !reflect.DeepEqual(artifact.Schema(), schema) {
 		return nil, fmt.Errorf("cudablock: retained topk entry or schema differs")
 	}
 	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(TopKSource)))
 	found := false
-	for _, dep := range artifact.Dependencies {
+	for _, dep := range artifact.Dependencies() {
 		if dep.Path != "cudablock_topk.cu" {
 			continue
 		}
@@ -57,9 +57,5 @@ func topkRetainedArtifact(artifact *cudakernel.Artifact) (*cudakernel.Artifact, 
 		return nil, fmt.Errorf("cudablock: retained topk source binding missing")
 	}
 	owned := *artifact
-	owned.Raw = append([]byte(nil), artifact.Raw...)
-	owned.Schema.Params = append([]cudakernel.Param(nil), artifact.Schema.Params...)
-	owned.CompilerOpts = append([]string(nil), artifact.CompilerOpts...)
-	owned.Dependencies = append([]cudakernel.Dependency(nil), artifact.Dependencies...)
 	return &owned, nil
 }

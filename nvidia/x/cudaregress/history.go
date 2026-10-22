@@ -69,7 +69,7 @@ func LinkToProfileHistory(plan *ExperimentPlan, execRec *ExecutionReceipt, compR
 	art := opts.Artifact
 
 	identity := cudaevidence.Identity{
-		ArtifactDigest: art.Digest,
+		ArtifactDigest: art.Digest(),
 		Entry:          entry,
 		Target:         target,
 		CompilerKey:    compilerKey,

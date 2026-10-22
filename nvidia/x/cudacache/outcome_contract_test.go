@@ -113,10 +113,14 @@ func TestOutcomeCompilerTarget(t *testing.T) {
 	if err := a.Store(ctx, "input", id, art); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(root, "artifacts", key+"-"+art.Digest+".artifact")
-	copy := *art
-	copy.Target = "sm_100"
-	data, err := cudacache.MarshalArtifact(&copy)
+	path := filepath.Join(root, "artifacts", key+"-"+art.Digest()+".artifact")
+	spec := art.Spec()
+	spec.Target = "sm_100"
+	wrong, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := cudacache.MarshalArtifact(wrong)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +358,7 @@ func TestOutcomeCloseKeepsLocalPublication(t *testing.T) {
 	closeErr := errors.New("close failed after local publication")
 	var c *cudacache.Cache
 	var publishErr error
-	r := &outcomeReader{Reader: bytes.NewReader(remoteData), closeErr: closeErr, close: func() { publishErr = c.PutArtifact(ctx, art.Digest, art) }}
+	r := &outcomeReader{Reader: bytes.NewReader(remoteData), closeErr: closeErr, close: func() { publishErr = c.PutArtifact(ctx, art.Digest(), art) }}
 	s := &outcomeSource{artifact: func(context.Context) (io.ReadCloser, int64, error) { return r, int64(len(remoteData)), nil }}
 	root := t.TempDir()
 	c, err = cudacache.New(cudacache.Config{RootDir: root, Remote: s})
@@ -364,7 +368,7 @@ func TestOutcomeCloseKeepsLocalPublication(t *testing.T) {
 	done := make(chan struct{})
 	var got *cudakernel.Artifact
 	var fetchErr error
-	go func() { defer close(done); got, fetchErr = c.GetArtifact(ctx, art.Digest) }()
+	go func() { defer close(done); got, fetchErr = c.GetArtifact(ctx, art.Digest()) }()
 	select {
 	case <-done:
 	case <-ctx.Done():
@@ -374,7 +378,7 @@ func TestOutcomeCloseKeepsLocalPublication(t *testing.T) {
 		t.Fatalf("got=%v publication=%v close calls=%d", got, publishErr, r.closes)
 	}
 	checkOutcome(t, fetchErr, []error{closeErr}, true)
-	data, err := os.ReadFile(filepath.Join(root, "artifacts", art.Digest+".artifact"))
+	data, err := os.ReadFile(filepath.Join(root, "artifacts", art.Digest()+".artifact"))
 	if err != nil || !bytes.Equal(data, localData) {
 		t.Fatalf("failed remote overwrote local publication: %v", err)
 	}
@@ -383,7 +387,7 @@ func TestOutcomeCloseKeepsLocalPublication(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, reader := range []*cudacache.Cache{c, fresh} {
-		if got, err := reader.GetArtifact(context.Background(), art.Digest); err != nil || !reflect.DeepEqual(got, art) {
+		if got, err := reader.GetArtifact(context.Background(), art.Digest()); err != nil || !reflect.DeepEqual(got, art) {
 			t.Fatalf("local publication lost: %v", err)
 		}
 	}
@@ -395,8 +399,8 @@ func TestOutcomeRemoteSuccess(t *testing.T) {
 			ctx := context.Background()
 			art := newTestArtifact(t, "k", "sm_90")
 			policy := cudacache.SearchPolicyID{Strategy: "beam", ScoringEpoch: "outcome"}
-			receipt := &cudacache.SearchReceipt{PolicyID: policy, WorkloadKey: "work", CandidateID: "candidate", ArtifactKey: art.Digest}
-			key := art.Digest
+			receipt := &cudacache.SearchReceipt{PolicyID: policy, WorkloadKey: "work", CandidateID: "candidate", ArtifactKey: art.Digest()}
+			key := art.Digest()
 			var data []byte
 			var err error
 			if kind == cudacache.RemoteReceipt {
