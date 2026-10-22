@@ -1,0 +1,11 @@
+commit: c379d7771c8298bfbdee92ffb57f82bd74e247f1
+date: 2026-10-22T05:36:52.923927+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 89631
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261021-nsightsystems-qualification-recovered/deadline-successor/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261021-nsightsystems-root-adoption/GRADE.md
+qualification: original pure-import source/host scope; no native capture
