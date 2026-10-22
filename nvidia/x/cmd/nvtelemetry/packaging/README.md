@@ -125,9 +125,28 @@ selected image contains this CLI, the Secret and ConfigMap match, the
 certificate is valid, or the runtime injects usable NVML devices. Do not copy
 the bearer token into a probe argument.
 
-The separate systemd template in this directory still contains
-`CAP_PERFMON`; it was not changed by this Kubernetes-only correction and is not
-qualified here for NVML-only operation.
+## NVML-only systemd service
+
+The separate `nvtelemetry.service` template runs
+`nvtelemetry serve -config /etc/nvtelemetry/config.json` as the `nvtelemetry`
+user and group. Its active `AmbientCapabilities` and `CapabilityBoundingSet`
+directives are explicitly empty; it grants no `CAP_PERFMON`, `CAP_SYS_ADMIN`
+or `CAP_BPF`. The existing sandbox and device directives remain in place.
+
+This template is intended for an NVML-only configuration: `mock` is false,
+`managed_config` is unset, and `device_uuids` names the selected devices. The
+config file and service account are operator inputs, not supplied here. The
+general `serve` command also accepts explicit mock or managed input; the unit
+does not itself lock the JSON to NVML. It does not enable BPF or CUPTI capture.
+Those modes and a managed exporter's own privileges require separate review;
+do not add capabilities to this template to enable them.
+
+`PrivateDevices=false` and the `DeviceAllow` entries are source settings, not
+proof of device isolation or usable GPU access. Actual NVML library/device
+access, UID/GID permissions, driver policy and systemd version, installed
+drop-ins, and any configured storage or credential paths need platform checks.
+Do not infer a verified minimum permission set or an installed service from
+the template or host directive tests. A denial does not authorize escalation.
 
 ## Qualification status
 

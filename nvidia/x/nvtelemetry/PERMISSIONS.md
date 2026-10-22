@@ -1,9 +1,11 @@
 # Collection permissions and refusal boundaries
 
-This inventory describes source at
-`6ae90f61e619caf7b222de332c95be595dd8b928`. It separates access made by this
-consumer from access made by an external exporter, scheduler adapter or injected
-target. It is not a verified minimum capability set for an installed platform.
+The core call inventory was recorded at
+`6ae90f61e619caf7b222de332c95be595dd8b928`; the platform-template section also
+records the checked-in empty systemd capability directives. It separates access
+made by this consumer from access made by an external exporter, scheduler
+adapter or injected target. It is not a verified minimum capability set for an
+installed platform.
 Unqualified filenames below are in this package. Paths beginning with `cmd/`
 or `cudadiag/` are relative to `nvidia/x`; `ebpfhost/` paths are relative to
 the repository root.
@@ -59,11 +61,16 @@ mappings do not authorize exact workload attribution.
   Kubernetes API calls and requests no RBAC role. BPF/CUPTI require a separate
   admitted mode; do not make this template privileged to enable them.
 - The [systemd template](../cmd/nvtelemetry/packaging/nvtelemetry.service)
-  currently grants CAP_PERFMON unconditionally and lists device-access
-  directives. Its own comment says that capability is not proved or required
-  for standard NVML operation. Those are actual template grants, not a verified
-  minimum requirement or a least-privilege qualification. The packaging README
-  explicitly leaves this service unqualified for NVML-only operation.
+  is intended for NVML-only collection and explicitly empties both
+  AmbientCapabilities and CapabilityBoundingSet. It grants no CAP_PERFMON,
+  CAP_SYS_ADMIN or CAP_BPF. Its `serve -config` command still uses an external
+  JSON file: NVML selection requires mock=false, no managed_config and an
+  explicit device UUID allowlist; that mode is not enforced by the unit.
+  The existing device directives and PrivateDevices=false remain source
+  settings. Actual library/device access, UID/GID rules, systemd version and
+  installed drop-ins require platform evidence. Host directive controls do not
+  qualify a minimum permission set, device isolation or a deployed service.
+  BPF, CUPTI and a managed exporter's privileges remain separate mode cells.
 - Slurm and Kubernetes allocation acquisition remain external consumer work.
   Parser fixtures, service/YAML lint and a successful scrape do not prove an
   authentic job/Pod assignment, usable runtime device injection or access to
