@@ -24,7 +24,7 @@ var astBodyOps = map[string]bool{
 	"cmpf": true, "cmpi": true, "select": true, "mmaf": true,
 	"load_ptr_tko": true, "store_ptr_tko": true,
 	"get_tile_block_id": true, "iota": true, "reshape": true,
-	"broadcast": true, "exti": true, "offset": true, "ftof": true,
+	"broadcast": true, "exti": true, "offset": true, "ftof": true, "exp": true,
 }
 
 // Values and ordering come from NVIDIA/cuda-tile AttrDefs.td at 7e8e2e68.
@@ -352,6 +352,12 @@ func checkASTOperands(name string, result Type, operands, returns []Type) error 
 	}
 	if name == "constant" {
 		return nil
+	}
+	// Ops.td:1844-1880 at NVIDIA/cuda-tile 7e8e2e68 permits full exp
+	// for f32 and f64. Approximate exp is deliberately outside this codec.
+	if name == "exp" && (len(operands) != 1 ||
+		(tile.ElementType.Kind() != KindFloat32 && tile.ElementType.Kind() != KindFloat64)) {
+		return astUnsupported("exp requires one f32 or f64 tile operand")
 	}
 	if name == "mmaf" {
 		if len(operands) != 3 || !typeEqual(result, operands[2]) || len(tile.Shape) != 2 {
@@ -836,6 +842,9 @@ func decodeASTBody(body []byte, types []Type, constants [][]byte, signature Type
 		// rounding check for both directions.
 		if short == "ftof" && op.Attributes != "{rounding_mode = nearest_even}" {
 			return nil, astUnsupported("ftof requires rounding_mode = nearest_even")
+		}
+		if short == "exp" && op.Attributes != "{rounding_mode = full}" {
+			return nil, astUnsupported("exp requires rounding_mode = full")
 		}
 		count := uint64(len(spec.Operands))
 		if memoryOp(name) {
