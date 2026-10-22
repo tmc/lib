@@ -1,0 +1,11 @@
+commit: 8b719e4b41eaf96be86e6457d997adb04ea858c5
+date: 2026-10-22T04:25:24.820422+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 45720
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261020-layer-native-admission/candidate.patch
+source sha256: 42fe677d66c6f9c34776db6134f08d22a03b0a139378d2900b9ac07e86135042
+root review: /Users/tmc/tmp/lib-wt-next/20261020-layer-native-admission/ROOT-REVIEW.json
