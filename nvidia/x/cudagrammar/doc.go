@@ -24,4 +24,10 @@
 //		m.ApplyMask(vocab, logits)
 //		m.Accept(vocab(sample(logits)))
 //	}
+//
+// For multi-token speculative decoding, [Matcher.Save], [Matcher.Restore], and
+// [Matcher.Rollback] rewind accepted transitions in O(1), while
+// [Matcher.SpeculativeMasks] and [Matcher.CommitPrefix] build per-step
+// [Bitmask] slices over a [Vocabulary] and roll back draft transitions before
+// verification commits the accepted prefix.
 package cudagrammar
