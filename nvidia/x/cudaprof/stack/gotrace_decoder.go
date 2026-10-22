@@ -26,8 +26,17 @@ import (
 // probes versions, builds, downloads, or selects a toolchain. Decoding is
 // format evidence only; it establishes no timing, clock or attribution.
 //
-// No decoder is admitted yet, so every call is refused before any file
-// system access.
+// One tuple is admitted: the reviewed cmd/trace built by go1.27.2 for
+// darwin/arm64, decoding header-26 traces whose producer is asserted to be
+// go1.27.2 on darwin/arm64. Any other header or producer is refused before
+// any file system access, any other decoder buildinfo before the decoder is
+// copied, and any other decoder digest before it is started.
+//
+// A successful decode establishes neither completeness nor absence of loss:
+// the admitted decoder accepts a trace cut at a generation boundary, so
+// GoTraceDecode.Completeness is always unknown. Loss must be established by
+// the producer. Decoded content with no event other than Sync, or with no
+// clock snapshot, proves nothing and is reported as ErrGoTraceUnproven.
 //
 // The zero value is not usable: Tool and Scratch are required.
 type GoTraceDecoder struct {
@@ -93,8 +102,12 @@ type GoTraceDecode struct {
 	InputBytes    int64      `json:"input_bytes"`
 	OutputBytes   int64      `json:"output_bytes"`
 	StderrBytes   int64      `json:"stderr_bytes"`
-	Cleanup       string     `json:"cleanup"` // "removed" or "failed: DIR: ERROR"
+	Completeness  string     `json:"completeness"` // always goTraceCompletenessUnknown
+	Cleanup       string     `json:"cleanup"`      // "removed" or "failed: DIR: ERROR"
 }
+
+// goTraceCompletenessUnknown is the only GoTraceDecode.Completeness.
+const goTraceCompletenessUnknown = "unknown: decoder success does not establish completeness or absence of loss"
 
 // Errors returned by GoTraceDecoder. Only ErrGoTraceMalformed says that the
 // input is bad; every other error leaves its validity unknown. Caller
@@ -112,6 +125,7 @@ var (
 	ErrGoTraceReap              = errors.New("go trace decoder output not drained")
 	ErrGoTraceDecoderFailed     = errors.New("go trace decoder failed")
 	ErrGoTraceMalformed         = errors.New("go trace rejected by admitted decoder")
+	ErrGoTraceUnproven          = errors.New("go trace decoded content unproven")
 	ErrGoTraceCleanup           = errors.New("go trace scratch cleanup failed")
 )
 
@@ -140,7 +154,25 @@ type goTraceAdmission struct {
 // goTraceAdmissions holds reviewed records. A record is added only by a
 // separate signed change after stage-0 and stage-1 evidence is reviewed;
 // neither an ID nor any digest string here authenticates that evidence.
-var goTraceAdmissions []goTraceAdmission
+var goTraceAdmissions = []goTraceAdmission{
+	// C6D1: cmd/trace built by the stage-0 recipe from the cached go1.27.2
+	// darwin/arm64 toolchain. Receipt is the sanitized stage-1 controls log
+	// and Review the independent stage-0/1 review; neither names this ID.
+	{
+		ID:            "412bcbb8468cc211a261253540af8dd5c3ad1aa0ea9db326fafa84aa11e6bbb4",
+		ToolSHA256:    "83ebbf936c4bd31a9c84c94c2053a2ddb32de57129478a69b17c588f4f9ac463",
+		ToolBytes:     17985074,
+		ToolPath:      "cmd/trace",
+		ToolGoVersion: "go1.27.2",
+		ToolGOOS:      "darwin",
+		ToolGOARCH:    "arm64",
+		RecipeSHA256:  "7040c4abf09c4ef8295491c8887c17977a7edf8782079ddeb18cd313ae002a04",
+		Header:        26,
+		Producer:      GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "arm64"},
+		Receipt:       "d69f53b69fbe0a029e2bf1948ccf591e853eca17de7f58d0f3ec6adc1d0a1b8a",
+		Review:        "497d786245f03dc5fd4353e1bfe0e284e2ee9dfb90595a5dbf19fcc2d539f648",
+	},
+}
 
 var (
 	goTraceDigest    = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -325,15 +357,24 @@ func (h *goTraceHooks) write(f *os.File, b []byte) (int, error) {
 // goTraceStarts counts attempted child starts.
 var goTraceStarts atomic.Int64
 
-// Validate fully decodes data with the admitted decoder and discards the
-// decoded events. It returns a non-nil *GoTraceDecode with a non-nil error
-// only when the decode succeeded and cleanup failed (ErrGoTraceCleanup).
-// A nil or zero decoder returns ErrGoTraceDecoderUnselected.
+// Validate fully decodes data with the admitted decoder, checks that the
+// decoded content is not empty, Sync-only or without a clock snapshot
+// (ErrGoTraceUnproven), and discards the decoded events. The decoder output
+// is held in memory for the check, up to Limits.OutputBytes. It returns a
+// non-nil *GoTraceDecode with a non-nil error only when the decode succeeded
+// and cleanup failed (ErrGoTraceCleanup). A nil or zero decoder returns
+// ErrGoTraceDecoderUnselected.
 func (d *GoTraceDecoder) Validate(ctx context.Context, data []byte, p GoProducer) (*GoTraceDecode, error) {
 	if d == nil {
 		return nil, ErrGoTraceDecoderUnselected
 	}
-	r, _, err := d.decode(ctx, data, p, goTraceAdmissions, false, nil)
+	r, out, err := d.decode(ctx, data, p, goTraceAdmissions, true, nil)
+	if r == nil {
+		return nil, err
+	}
+	if cerr := checkGoTraceContent(out); cerr != nil {
+		return nil, errors.Join(cerr, err)
+	}
 	return r, err
 }
 
@@ -350,6 +391,9 @@ func (d *GoTraceDecoder) Analyze(ctx context.Context, data []byte, p GoProducer,
 	if r == nil {
 		return nil, err
 	}
+	if cerr := checkGoTraceContent(out); cerr != nil {
+		return nil, errors.Join(cerr, err)
+	}
 	trace, perr := ReadGoTraceDebug(bytes.NewReader(out), identity, limits)
 	if perr != nil {
 		return nil, errors.Join(fmt.Errorf("read decoded go trace: %w", perr), err)
@@ -358,6 +402,31 @@ func (d *GoTraceDecoder) Analyze(ctx context.Context, data []byte, p GoProducer,
 	trace.Backend = "cmd/trace " + r.ToolGoVersion + " admission " + r.Admission
 	trace.Decoder = r
 	return trace, err
+}
+
+// checkGoTraceContent refuses decoder output that proves nothing about the
+// input: no event other than Sync, or no clock snapshot. The admitted
+// decoder prints one Sync without a clock snapshot for a header-only input.
+// The check is not a format or completeness check.
+func checkGoTraceContent(out []byte) error {
+	var events, clocks int
+	for line := range bytes.Lines(out) {
+		m := goEventHeader.FindSubmatch(bytes.TrimSuffix(line, []byte("\n")))
+		switch {
+		case m == nil:
+		case string(m[4]) != "Sync":
+			events++
+		case goClockSnapshot.Match(m[6]):
+			clocks++
+		}
+	}
+	if events == 0 {
+		return fmt.Errorf("%w: no event other than Sync", ErrGoTraceUnproven)
+	}
+	if clocks == 0 {
+		return fmt.Errorf("%w: no clock snapshot", ErrGoTraceUnproven)
+	}
+	return nil
 }
 
 // decode runs the pure prechecks P0-P7 and then the file system steps. table
@@ -487,6 +556,7 @@ func (d *GoTraceDecoder) decodeIn(ctx context.Context, dir string, data []byte, 
 		InputBytes:    int64(len(data)),
 		OutputBytes:   run.stdoutBytes,
 		StderrBytes:   run.stderrBytes,
+		Completeness:  goTraceCompletenessUnknown,
 	}, run.stdout, nil
 }
 
