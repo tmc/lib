@@ -24,8 +24,8 @@ func TestPDLRequiresOwnerDeclarations(t *testing.T) {
 			}
 		})
 	}
-	producer := cudapdl.KernelDesc{HasLaunchDependents: true}
-	consumer := cudapdl.KernelDesc{HasWait: true}
+	producer := testProducerDesc("prod")
+	consumer := testConsumerDesc("cons")
 	if got := cudapdl.CheckEligibility("sm_90", producer, consumer); !got.Eligible || got.Policy != cudapdl.PolicyProgrammatic {
 		t.Fatalf("declared planning pair refused: %+v", got)
 	}
@@ -39,6 +39,22 @@ func TestPDLRequiresOwnerDeclarations(t *testing.T) {
 	consumer.Source = "// griddepcontrol.wait"
 	if got := cudapdl.CheckEligibility("sm_90", producer, consumer); got.Eligible {
 		t.Fatalf("comment replaced missing consumer declaration: %+v", got)
+	}
+
+	// Trigger/wait boolean declarations without phase effect/resource contracts
+	// must also be refused even if Source contains griddepcontrol intrinsics.
+	declOnlyProd := cudapdl.KernelDesc{
+		Name:                "decl_only_prod",
+		Source:              "griddepcontrol.launch_dependents;",
+		HasLaunchDependents: true,
+	}
+	declOnlyCons := cudapdl.KernelDesc{
+		Name:    "decl_only_cons",
+		Source:  "griddepcontrol.wait;",
+		HasWait: true,
+	}
+	if got := cudapdl.CheckEligibility("sm_90", declOnlyProd, declOnlyCons); got.Eligible {
+		t.Fatalf("declaration-only pair without effects/resources admitted: %+v", got)
 	}
 }
 
@@ -66,8 +82,10 @@ func TestPDLArtifactTargetIdentity(t *testing.T) {
 		{"conflicting inferred targets", "", &cudakernel.Artifact{Target: "sm_90"}, &cudakernel.Artifact{Target: "sm_100"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			producer := cudapdl.KernelDesc{HasLaunchDependents: true, Artifact: tc.producer}
-			consumer := cudapdl.KernelDesc{HasWait: true, Artifact: tc.consumer}
+			producer := testProducerDesc("prod")
+			producer.Artifact = tc.producer
+			consumer := testConsumerDesc("cons")
+			consumer.Artifact = tc.consumer
 			got := cudapdl.CheckEligibility(tc.target, producer, consumer)
 			if got.Eligible != tc.want {
 				t.Fatalf("eligible=%v, want %v: %+v", got.Eligible, tc.want, got)
