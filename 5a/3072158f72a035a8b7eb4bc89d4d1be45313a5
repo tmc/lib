@@ -1,0 +1,12 @@
+commit: 5a3072158f72a035a8b7eb4bc89d4d1be45313a5
+date: 2026-10-22T04:59:10.120416+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 92256
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261018-claude-workhorse/r19/gotrace2/gotrace-stage2-cumulative.patch
+source sha256: d6b93362733ef6ab9e0359443b0d296dba3a75da79d411c24a8614174abc2d90
+root review: /Users/tmc/tmp/lib-wt-next/20261021-gotrace-stage2-adoption/GRADE-r2.md
+qualification: original selected receipts; current composition UNPROVEN
