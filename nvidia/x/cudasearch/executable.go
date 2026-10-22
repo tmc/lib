@@ -7,6 +7,7 @@ import (
 	"io"
 	"maps"
 	"math"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -63,6 +64,14 @@ type ExecutableEvaluator struct {
 	// any retained expression references when Close succeeds. Failed cleanup
 	// keeps the expression and its reservations alive until evaluator Close.
 	Compile func(context.Context, *egraph.Expr, WorkloadBindings) (Executable, error)
+	// Run optionally observes an existing arm's execution. It is trusted caller
+	// code, like Compile: it must call x.Run(ctx) exactly once, propagate its
+	// error and retain its real timing evidence. It must not substitute results.
+	// The evaluator still owns reset, verification, ABBA ordering, receipt
+	// validation and accounting. A nil hook dispatches directly to x.Run.
+	// Keeping the original executable preserves its preparation and private
+	// output ownership capabilities.
+	Run func(ctx context.Context, arm string, x Executable) (cudatrial.Receipt, error)
 	// CompileTimeout limits compilation through its context. Zero uses the
 	// caller's deadline. Compile must honor cancellation; synchronous native
 	// calls cannot be forcibly interrupted. Late results are closed and rejected.
@@ -77,6 +86,11 @@ type ExecutableEvaluator struct {
 	// FailureEvidence optionally exports actual candidate comparison failures
 	// and checks caller-owned offline quarantine after compile-owner registration.
 	FailureEvidence *FailureEvidence
+	// Observer optionally records each admitted attempt's start before any
+	// extraction or compilation and its outcome after cleanup. A recording
+	// failure refuses the attempt or rejects its candidate. Observer belongs
+	// to the caller; the evaluator never closes it.
+	Observer EvaluationObserver
 	// Receipts, Comparison and Preparation retain the last admitted attempt,
 	// including failures, until another attempt is admitted or Close succeeds.
 	// With capped search accounting their retained metadata remains reserved;
@@ -92,6 +106,7 @@ type ExecutableEvaluator struct {
 	memoryReservations []*memoryReservation
 	attemptIdentity    string
 	comparisonArm      string
+	observations       uint64
 }
 
 // Close retries destruction of candidates retained after cleanup failure.
@@ -133,10 +148,14 @@ func (e *ExecutableEvaluator) Close() error {
 // Evaluate implements Evaluator. A correctness failure prevents timing. Every
 // run resets workload state; unavailable or mixed device timing is rejected.
 func (e *ExecutableEvaluator) Evaluate(ctx context.Context, s *egraph.SearchState, root egraph.Id) (candidate *CandidatePlan, err error) {
-	return e.evaluate(ctx, s, root, nil)
+	return e.evaluate(ctx, s, root, nil, nil)
 }
 
-func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchState, root egraph.Id, selection *egraph.Expr) (candidate *CandidatePlan, err error) {
+// evaluate is the single owner of an attempt. It measures the extraction of
+// root in s; with selection set, that caller-owned copy (a SearchRegisters
+// option); or with screened set, a copy of the screened expression, which is
+// then recorded as ConfirmationOf. At most one of selection and screened is set.
+func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchState, root egraph.Id, selection *egraph.Expr, screened *CandidatePlan) (candidate *CandidatePlan, err error) {
 	if len(e.pending) != 0 || e.pendingOutput != nil {
 		return nil, fmt.Errorf("cudasearch: candidate cleanup pending")
 	}
@@ -167,7 +186,7 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if e.Generation < 0 {
 		return nil, ErrStaleGeneration
 	}
-	if (selection == nil && (s == nil || s.Graph == nil)) || e.Compile == nil || e.Baseline == nil || e.Baseline.Identity() == "" || len(e.References) == 0 {
+	if (selection != nil && screened != nil) || (selection == nil && screened == nil && (s == nil || s.Graph == nil)) || e.Compile == nil || e.Baseline == nil || e.Baseline.Identity() == "" || len(e.References) == 0 {
 		return nil, fmt.Errorf("cudasearch: incomplete executable evaluator")
 	}
 	if err := e.Workload.Validate(); err != nil {
@@ -200,10 +219,53 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if model == nil {
 		model = egraph.AstSizeCost{}
 	}
+	var measurements *measurementMemo
+	var measurementKey [32]byte
+	reusedMeasurement := false
+	cleanupStarted, cleanupCompleted := false, false
+	var start EvaluationStart
+	if e.Observer != nil {
+		var startErr error
+		start, startErr = e.evaluationStart(s, selection, screened)
+		if startErr != nil {
+			return nil, startErr
+		}
+		if startErr := e.Observer.StartEvaluation(ctx, start); startErr != nil {
+			return nil, fmt.Errorf("cudasearch: record evaluation start: %w", startErr)
+		}
+	}
+	// Registered before work owners, so publication follows ordinary cleanup.
+	// A built candidate is not proof that its deferred Close returned.
+	defer func() {
+		panicValue := recover()
+		abandoned := panicValue != nil || candidate == nil && err == nil || cleanupStarted && !cleanupCompleted
+		if abandoned {
+			// Preserve the original abnormal exit even if metadata cleanup or
+			// the terminal observer itself panics. Never retry executable.Close
+			// here: abnormal cleanup leaves its external resources unproven.
+			if panicValue != nil {
+				defer func() { panic(panicValue) }()
+			} else {
+				defer runtime.Goexit()
+			}
+			candidate.Close()
+			candidate = nil
+			err = errors.Join(err, errEvaluationAbandoned)
+		}
+		if e.Observer != nil {
+			candidate, err = e.finishEvaluation(ctx, start, candidate, err, reusedMeasurement)
+		}
+	}()
+
 	expr := selection
 	var extraction *egraph.Extraction
 	var derivation []egraph.Action
-	if expr == nil {
+	if screened != nil {
+		expr, err = confirmationExpr(ctx, screened.Expr)
+		if err != nil {
+			return nil, err
+		}
+	} else if expr == nil {
 		if err := chargeWork(ctx, false); err != nil {
 			return nil, err
 		}
@@ -253,9 +315,6 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if e.CompileTimeout > 0 {
 		compileCtx, cancelCompile = context.WithTimeout(ctx, e.CompileTimeout)
 	}
-	var measurements *measurementMemo
-	var measurementKey [32]byte
-	reusedMeasurement := false
 	executable, err := e.Compile(compileCtx, expr, e.Workload)
 	// Inspect the deadline before canceling our child context. A compiler may
 	// return an owner even when it reports failure or ignores cancellation.
@@ -265,6 +324,7 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	cancelCompile()
 	if executable != nil {
 		defer func() {
+			cleanupStarted = true
 			if closeErr := executable.Close(); closeErr != nil {
 				if cleanupSlot == nil {
 					e.pending = append(e.pending, executable)
@@ -285,6 +345,7 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 					err = cacheErr
 				}
 			}
+			cleanupCompleted = true
 		}()
 	}
 	if executable != nil {
@@ -328,7 +389,7 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if !e.HardwareLockChecker() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
-	measurements, measurementKey, err = e.measurementAttempt(ctx, selection != nil, executable.Identity())
+	measurements, measurementKey, err = e.measurementAttempt(ctx, selection != nil || screened != nil, executable.Identity())
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +427,13 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 				if err := reset(); err != nil {
 					return cudatrial.Receipt{}, err
 				}
-				r, err := x.Run(ctx)
+				var r cudatrial.Receipt
+				var err error
+				if e.Run == nil {
+					r, err = x.Run(ctx)
+				} else {
+					r, err = e.Run(ctx, name, x)
+				}
 				detached, copyErr := r.CloneWithMemory(e.attemptMemory.Reserve)
 				if copyErr != nil {
 					return r, errors.Join(err, r.Err, copyErr)
@@ -451,6 +518,9 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			return nil, copyErr
 		}
 		candidate.Comparison = comparison
+	}
+	if screened != nil {
+		candidate.ConfirmationOf = screened.ID
 	}
 	return candidate, nil
 }

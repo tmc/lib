@@ -128,7 +128,7 @@ func (e *ExecutableEvaluator) SearchRegisters(ctx context.Context, expr *egraph.
 			return x, err
 		}
 		result.Evaluations++
-		plan, err := e.evaluate(ctx, nil, 0, selection)
+		plan, err := e.evaluate(ctx, nil, 0, selection, nil)
 		if err != nil {
 			return result, err
 		}
