@@ -1,0 +1,11 @@
+commit: 16fd8eb40e5926a0f5b6e1f1924718337bec7718
+date: 2026-10-22T04:22:11.458780+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 37772
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261020-register-resource-search-consumer/candidate.patch
+source sha256: 6924e6601ca62150b257c1d5c64f2e97c8381fdb0c220f70366d0ce8ebbe2825
+root review: /Users/tmc/tmp/lib-wt-next/20261020-register-resource-root-review/GRADE.md
