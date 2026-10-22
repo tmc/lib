@@ -368,8 +368,8 @@ func TestGPUForwardParity(t *testing.T) {
 }
 
 func TestFuseEGraphRefusedUntilQualified(t *testing.T) {
-	if !fusedKernelsQualified {
-		t.Fatal("fusedKernelsQualified = false, want true")
+	if fusedKernelsQualified {
+		t.Fatal("fusedKernelsQualified = true, want false until device qualification is reconciled")
 	}
 	saveFlag, saveQualified := *fuseEGraphFlag, fusedKernelsQualified
 	defer func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified }()

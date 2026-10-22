@@ -1014,8 +1014,8 @@ func forwardKernelDispatchFailures(src string) ([]string, error) {
 // selects and dispatches fusedQKVBF16Fn and fusedSwiGLUBF16Fn when
 // -fuse-egraph is set.
 func TestForwardKernelDispatch(t *testing.T) {
-	if !fusedKernelsQualified {
-		t.Fatal("fusedKernelsQualified = false, want true")
+	if fusedKernelsQualified {
+		t.Fatal("fusedKernelsQualified = true, want false until device qualification is reconciled")
 	}
 	if *fuseEGraphFlag {
 		t.Fatal("-fuse-egraph default = true, want false")

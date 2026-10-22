@@ -328,10 +328,11 @@ func uploadModelWith(w *ModelWeights, cfg *ModelConfig, dtype weightDType,
 }
 
 // fusedKernelsQualified reports whether FusedRMSNormQKV, FusedSwiGLUDown,
-// FusedRMSNormQKVBF16 and FusedSwiGLUDownBF16 have passed parity on a device.
-// When false, -fuse-egraph is refused rather than silently running unqualified
-// kernels.
-var fusedKernelsQualified = true
+// FusedRMSNormQKVBF16, FusedSwiGLUDownBF16, and the 5-node/layer fused_decode
+// kernels have reconciled native device qualification evidence across all
+// supported dtypes and schedules. When false, -fuse-egraph and -fuse-decode
+// are refused rather than running unqualified kernels.
+var fusedKernelsQualified = false
 
 // attnThreads is the decode attention block width. CausalFlashAttentionDecode
 // accepts any width from 1 to 1024; shared memory follows from it through
