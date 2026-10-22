@@ -99,16 +99,17 @@ func TestMegaPreflightRefusal(t *testing.T) {
 		calls            int
 	}{
 		{name: "extent", words: 9, max: 8, want: "extent", calls: 0},
-		{name: "uint32", words: int(uint64(math.MaxUint32) + 1), want: "extent", calls: 0},
-		{name: "empty", words: 0, want: "extent", calls: 0},
-		{name: "stream", words: 8, owner: 1, want: "differ", calls: 0},
-		{name: "modules", words: 8, owner: 2, want: "differ", calls: 0},
-		{name: "device", words: 8, raw: 1, ctx: 7, want: "wrong device", calls: 1},
-		{name: "context", words: 8, ctx: 0, want: "absent", calls: 1},
-		{name: "query", words: 8, queryErr: boom, want: "query failed", calls: 1},
-		{name: "capability query", words: 8, ctx: 7, capErr: boom, want: "query failed", calls: 2},
-		{name: "unsupported", words: 8, ctx: 7, want: "does not support", calls: 2},
-		{name: "symbol", words: 8, ctx: 7, cap: 1, want: "cuLaunchKernelEx", calls: 3},
+		{name: "uint32", words: int(uint64(math.MaxUint32) + 1), max: math.MaxUint32, want: "extent", calls: 0},
+		{name: "empty", words: 0, max: 1, want: "extent", calls: 0},
+		{name: "undeclared maximum", words: 8, want: "declared maximum", calls: 0},
+		{name: "stream", words: 8, max: 8, owner: 1, want: "differ", calls: 0},
+		{name: "modules", words: 8, max: 8, owner: 2, want: "differ", calls: 0},
+		{name: "device", words: 8, max: 8, raw: 1, ctx: 7, want: "wrong device", calls: 1},
+		{name: "context", words: 8, max: 8, ctx: 0, want: "absent", calls: 1},
+		{name: "query", words: 8, max: 8, queryErr: boom, want: "query failed", calls: 1},
+		{name: "capability query", words: 8, max: 8, ctx: 7, capErr: boom, want: "query failed", calls: 2},
+		{name: "unsupported", words: 8, max: 8, ctx: 7, want: "does not support", calls: 2},
+		{name: "symbol", words: 8, max: 8, ctx: 7, cap: 1, want: "cuLaunchKernelEx", calls: 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dev, other := new(cuda.Device), new(cuda.Device)

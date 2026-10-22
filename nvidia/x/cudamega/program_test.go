@@ -31,7 +31,7 @@ func programOps() map[string]cudamega.Operation {
 
 func TestProgramSourceFiniteNumericalFixture(t *testing.T) {
 	g := programGraph(t, 16)
-	s, err := cudamega.ProgramSource(g, programOps(), cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}, goldenTarget)
+	s, err := cudamega.ProgramSource(g, programOps(), cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, MaxElements: 3}, goldenTarget)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestSchedulerResourceAndCloneContracts(t *testing.T) {
 func TestProgramSourceFailsClosed(t *testing.T) {
 	g := programGraph(t, 1)
 	ops := programOps()
-	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}
+	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, MaxElements: 3}
 	cluster, err := cudataskgraph.New([]cudataskgraph.Task{{ID: "x", Rank: 0, Scope: cudataskgraph.ScopeCluster}})
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func TestProgramSourceFailsClosed(t *testing.T) {
 	if _, err := cudamega.ProgramSource(g, map[string]cudamega.Operation{"add3": ops["add3"]}, grid, goldenTarget); err == nil {
 		t.Fatal("accepted incomplete operation set")
 	}
-	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 100}, goldenTarget); err == nil {
+	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 100, MaxElements: 3}, goldenTarget); err == nil {
 		t.Fatal("accepted a block that is not a whole number of warps")
 	}
 }
@@ -121,10 +121,10 @@ func TestCTAScopeRefusedOnBothEndsOfACrossCTAEdge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := cudamega.ProgramSource(local, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, goldenTarget); err != nil {
+	if _, err := cudamega.ProgramSource(local, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 3}, goldenTarget); err != nil {
 		t.Fatalf("one CTA: a CTA-to-CTA edge must be accepted: %v", err)
 	}
-	_, err = cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32}, goldenTarget)
+	_, err = cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, MaxElements: 3}, goldenTarget)
 	if err == nil {
 		t.Fatal("two CTAs: accepted a CTA-scope producer whose consumer runs in another CTA")
 	}
@@ -322,7 +322,7 @@ func TestIndependentTaskHasNoSpinToBound(t *testing.T) {
 		t.Fatal(err)
 	}
 	ops := map[string]cudamega.Operation{"solo": {Kind: cudamega.Add, Scalar: 1}}
-	src, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128}, goldenTarget)
+	src, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128, MaxElements: 3}, goldenTarget)
 	if err != nil {
 		t.Fatal(err)
 	}

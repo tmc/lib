@@ -5,6 +5,7 @@
 // equal to.
 extern "C" __global__ void ordinary_task(const unsigned *input, unsigned *scratch,
     unsigned n, unsigned task) {
+  if (n > %[1]du) return;
   size_t i = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
   int dep = dependency(task);
   if (i < n) {

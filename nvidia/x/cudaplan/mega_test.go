@@ -132,7 +132,7 @@ func TestLowerRegionRoundTripsAPlanRegion(t *testing.T) {
 	for _, id := range low.TaskIDs() {
 		ops[id] = cudamega.Operation{Kind: cudamega.Add, Scalar: 1}
 	}
-	grid := cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128}
+	grid := cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128, MaxElements: 32} // fixture shape is 4×8
 	src, err := cudamega.ProgramSource(low.Graph(), ops, grid, cudamega.SM80)
 	if err != nil {
 		t.Fatalf("ProgramSource on the lowered graph: %v", err)

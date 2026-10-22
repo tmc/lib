@@ -80,7 +80,7 @@ func build(t *testing.T, g cudataskgraph.Graph, ops map[string]cudamega.Operatio
 	// The target is still an input with no device in sight, which is the
 	// point of taking it at construction: the CPU backend runs a program
 	// built for sm_121a without ever being one.
-	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads}, cudamega.SM121a)
+	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads, MaxElements: uint32(len(input()))}, cudamega.SM121a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +333,7 @@ func Example() {
 		"add1":   {Kind: cudamega.Add, Scalar: 1},
 		"double": {Kind: cudamega.Multiply, Scalar: 2},
 	}
-	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32}, cudamega.SM80)
+	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, MaxElements: 4}, cudamega.SM80)
 	if err != nil {
 		fmt.Println(err)
 		return

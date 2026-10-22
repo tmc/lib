@@ -40,6 +40,10 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
     if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 3u);
     return;
   }
+  if (n > 1048576u) {
+    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 3u);
+    return;
+  }
   __shared__ __align__(8) unsigned long long cta_barrier;
   if (threadIdx.x == 0) {
     asm volatile("mbarrier.init.shared::cta.b64 [%0], %1;" ::
@@ -178,6 +182,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
 // equal to.
 extern "C" __global__ void ordinary_task(const unsigned *input, unsigned *scratch,
     unsigned n, unsigned task) {
+  if (n > 1048576u) return;
   size_t i = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
   int dep = dependency(task);
   if (i < n) {

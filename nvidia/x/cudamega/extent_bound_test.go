@@ -58,13 +58,10 @@ int main() {
 	}
 }
 
-func TestScalarExtentZeroLeavesCallerBoundUnset(t *testing.T) {
+func TestScalarExtentRequiresDeclaredMaximum(t *testing.T) {
 	source, err := cudamega.ProgramSource(programGraph(t, 16), programOps(), cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}, goldenTarget)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(source, "if (n >") {
-		t.Fatal("zero MaxElements inserted a caller bound")
+	if err == nil || !strings.Contains(err.Error(), "nonzero maximum") || source != "" {
+		t.Fatalf("undeclared maximum: source=%q error=%v", source, err)
 	}
 }
 

@@ -40,7 +40,7 @@ func TestDependencyWaitIsLoadBearing(t *testing.T) {
 		"scale": {Kind: cudamega.Multiply, Scalar: 2},
 	}
 	const ctas, threads = 2, 32
-	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads}, cudamega.SM80)
+	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads, MaxElements: 32}, cudamega.SM80)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestCrossWorkerResultIsLoadBearing(t *testing.T) {
 		"swap":  {Kind: cudamega.Add, Scalar: 7},
 	}
 	const ctas, threads = 4, 32
-	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads, Policy: cudamega.CountedPolicy}, cudamega.SM121a)
+	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads, Policy: cudamega.CountedPolicy, MaxElements: 64}, cudamega.SM121a)
 	if err != nil {
 		t.Fatal(err)
 	}

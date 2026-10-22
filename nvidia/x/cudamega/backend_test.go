@@ -73,7 +73,7 @@ func TestTargetConditionalScopeRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	ops := map[string]cudamega.Operation{"x": {Kind: cudamega.Add, Scalar: 1}}
-	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}
+	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 1}
 
 	for _, tc := range []struct {
 		name    string

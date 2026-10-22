@@ -40,7 +40,7 @@ func TestEntryBeforeAnyPublication(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, err := cudamega.NewProgram(g, map[string]cudamega.Operation{"producer": {Kind: cudamega.Add, Scalar: 3}, "consumer": {Kind: cudamega.Multiply, Scalar: 2}}, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32}, cudamega.SM80)
+			p, err := cudamega.NewProgram(g, map[string]cudamega.Operation{"producer": {Kind: cudamega.Add, Scalar: 3}, "consumer": {Kind: cudamega.Multiply, Scalar: 2}}, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, MaxElements: 3}, cudamega.SM80)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,7 +103,7 @@ func TestEntryBeforeAnyPublication(t *testing.T) {
 
 func TestEntryPreservesHostAbort(t *testing.T) {
 	g, _ := cudataskgraph.New([]cudataskgraph.Task{{ID: "a", Scope: cudataskgraph.ScopeDevice}})
-	p, err := cudamega.NewProgram(g, map[string]cudamega.Operation{"a": {Kind: cudamega.Add}}, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, cudamega.SM80)
+	p, err := cudamega.NewProgram(g, map[string]cudamega.Operation{"a": {Kind: cudamega.Add}}, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 1}, cudamega.SM80)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestEntryPreservesHostAbort(t *testing.T) {
 
 func TestEntryMissingWorkerIsBounded(t *testing.T) {
 	g, _ := cudataskgraph.New([]cudataskgraph.Task{{ID: "a", Scope: cudataskgraph.ScopeDevice}})
-	p, err := cudamega.NewProgram(g, map[string]cudamega.Operation{"a": {Kind: cudamega.Add}}, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, SpinLimit: 1}, cudamega.SM80)
+	p, err := cudamega.NewProgram(g, map[string]cudamega.Operation{"a": {Kind: cudamega.Add}}, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, SpinLimit: 1, MaxElements: 1}, cudamega.SM80)
 	if err != nil {
 		t.Fatal(err)
 	}

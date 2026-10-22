@@ -20,7 +20,7 @@ func TestCTAProducerWiderConsumerRefused(t *testing.T) {
 			for _, policy := range []cudamega.Policy{cudamega.WavePolicy, cudamega.CountedPolicy} {
 				t.Run(fmt.Sprintf("%s/%s/%v", target, scopeLabel(consumer), policy), func(t *testing.T) {
 					g, ops := scopePair(t, cudataskgraph.ScopeCTA, consumer)
-					grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, Policy: policy}
+					grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, Policy: policy, MaxElements: 1}
 					want := fmt.Sprintf("task %q at CTA scope has non-CTA consumer %q; an mbarrier cannot publish at %s scope", "produce", "consume", scopeLabel(consumer))
 					if consumer == cudataskgraph.ScopeDevice && want != strings.TrimSpace(string(golden)) {
 						t.Fatalf("device refusal expectation differs from golden: %q", want)

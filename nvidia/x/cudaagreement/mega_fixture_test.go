@@ -110,4 +110,4 @@ func megaBuffers() map[string]cudaagreement.Buffer {
 
 // megaGrid is the worker geometry: small enough to be resident on any
 // supported device, wide enough that every task is split across CTAs.
-var megaGrid = cudamega.Grid{CTAs: 8, ThreadsPerCTA: 128}
+var megaGrid = cudamega.Grid{CTAs: 8, ThreadsPerCTA: 128, MaxElements: megaElements}

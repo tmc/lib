@@ -488,7 +488,7 @@ type megaAdmission struct {
 
 func prepareMegaLaunch(grid cudamega.Grid, tasks uint64, words int, dev, streamDev, modulesDev *cuda.Device, q megaLaunchQueries) (megaAdmission, string, error) {
 	a := megaAdmission{device: dev}
-	if words <= 0 || uint64(words) > math.MaxUint32 || grid.MaxElements != 0 && uint64(words) > uint64(grid.MaxElements) {
+	if words <= 0 || grid.MaxElements == 0 || uint64(words) > math.MaxUint32 || uint64(words) > uint64(grid.MaxElements) {
 		return a, "persistent worker extent exceeds declared maximum or uint32 range", nil
 	}
 	var err error

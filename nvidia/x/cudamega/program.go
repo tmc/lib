@@ -197,9 +197,7 @@ var ordinaryKernel string
 func workerPrologue(barrier, phase bool, maxElements uint32) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, workerEntry, AbortBadLaunch, AbortBadExtent)
-	if maxElements != 0 {
-		fmt.Fprintf(&b, "  if (n > %du) {\n    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, %du);\n    return;\n  }\n", maxElements, AbortBadExtent)
-	}
+	fmt.Fprintf(&b, "  if (n > %du) {\n    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, %du);\n    return;\n  }\n", maxElements, AbortBadExtent)
 	if barrier {
 		b.WriteString(ctaBarrierInit)
 	}

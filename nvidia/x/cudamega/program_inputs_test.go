@@ -26,7 +26,7 @@ func inputsProgram(inputs []string, extents [3]uint64) (*cudamega.Program, error
 		"b": {Kind: cudamega.Add, Scalar: 2},
 		"c": {Kind: cudamega.Multiply, Scalar: 3},
 	}
-	return cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 64}, cudamega.SM121a)
+	return cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 64, MaxElements: 128}, cudamega.SM121a)
 }
 
 var inputsTests = []struct {
@@ -78,7 +78,7 @@ func TestUnsupportedInputsIsDistinguishable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = cudamega.NewProgram(g, map[string]cudamega.Operation{"a": {Kind: cudamega.Add}}, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, cudamega.SM121a)
+	_, err = cudamega.NewProgram(g, map[string]cudamega.Operation{"a": {Kind: cudamega.Add}}, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 128}, cudamega.SM121a)
 	if err == nil || errors.Is(err, cudamega.ErrUnsupportedInputs) {
 		t.Fatalf("cluster-scope refusal = %v, want a refusal that is not ErrUnsupportedInputs", err)
 	}
@@ -99,7 +99,7 @@ func ExampleNewProgram_unsupportedInputs() {
 		"y":   {Kind: cudamega.Add, Scalar: 2},
 		"sum": {Kind: cudamega.Add},
 	}
-	_, err = cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, cudamega.SM121a)
+	_, err = cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 128}, cudamega.SM121a)
 	fmt.Println(errors.Is(err, cudamega.ErrUnsupportedInputs))
 	fmt.Println(err)
 	// Output:

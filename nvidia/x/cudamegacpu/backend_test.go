@@ -29,7 +29,7 @@ func TestPublicationWaitsForProducerThreads(t *testing.T) {
 				"consumer":    {Kind: cudamega.Multiply, Scalar: 7},
 				"other":       {Kind: cudamega.Multiply, Scalar: 11},
 			}
-			p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, Policy: cudamega.CountedPolicy}, cudamega.SM90)
+			p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, Policy: cudamega.CountedPolicy, MaxElements: 8}, cudamega.SM90)
 			if err != nil {
 				t.Fatal(err)
 			}

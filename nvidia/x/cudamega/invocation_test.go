@@ -32,14 +32,14 @@ func TestProgramInvocation(t *testing.T) {
 		maximum            uint32
 		want               string
 	}{
-		{"runtime", 0, 3, 0, ""},
+		{"runtime", 0, 3, 3, ""},
 		{"maximum", 0, 3, 3, ""},
 		{"above maximum", 0, 4, 3, "exceeds maximum"},
-		{"exact", 3, 3, 0, ""},
-		{"short", 3, 2, 0, "requires 3 input elements"},
-		{"long input fixed output", 3, 4, 0, ""},
-		{"zero", 0, 0, 0, "invalid finite program extent"},
-		{"uint32", 0, uint64(math.MaxUint32) + 1, 0, "invalid finite program extent"},
+		{"exact", 3, 3, 3, ""},
+		{"short", 3, 2, 3, "requires 3 input elements"},
+		{"long input fixed output", 3, 4, 4, ""},
+		{"zero", 0, 0, 1, "invalid finite program extent"},
+		{"uint32", 0, uint64(math.MaxUint32) + 1, math.MaxUint32, "exceeds maximum"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := invocationProgram(t, tc.declared, tc.maximum)
@@ -102,7 +102,7 @@ func ExampleProgram_Invocation() {
 
 func ExampleInvocation() {
 	g, _ := cudataskgraph.New([]cudataskgraph.Task{{ID: "add", Scope: cudataskgraph.ScopeDevice}})
-	p, _ := NewProgram(g, map[string]Operation{"add": {Kind: Add}}, Grid{CTAs: 1, ThreadsPerCTA: 32}, SM80)
+	p, _ := NewProgram(g, map[string]Operation{"add": {Kind: Add}}, Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 2}, SM80)
 	inv, _ := p.Invocation(2)
 	fmt.Println(inv.ScratchWords*4, inv.StartOrderWords*8)
 	// Output: 8 32

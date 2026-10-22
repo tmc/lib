@@ -307,6 +307,9 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	if err := grid.Validate(); err != nil {
 		return nil, err
 	}
+	if grid.MaxElements == 0 {
+		return nil, fmt.Errorf("program requires a nonzero maximum element extent")
+	}
 	if _, _, _, err := target.Capability(); err != nil {
 		return nil, err
 	}
@@ -355,7 +358,7 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 		if inputs != operationInputs(op) {
 			return nil, fmt.Errorf("task %q has %d operands, body requires %d: %w", t.ID, inputs, operationInputs(op), ErrUnsupportedInputs)
 		}
-		if t.Extent > uint64(^uint32(0)) || grid.MaxElements != 0 && t.Extent > uint64(grid.MaxElements) {
+		if t.Extent > uint64(^uint32(0)) || t.Extent > uint64(grid.MaxElements) {
 			return nil, fmt.Errorf("task %q extent exceeds the declared worker bound: %w", t.ID, ErrUnsupportedInputs)
 		}
 		p.bound = p.bound || len(t.Inputs) != 0 || t.Extent != 0 || op.Body != nil
@@ -510,7 +513,7 @@ type Runner struct {
 
 // NewRunner binds p to b, or reports why b may not run p.
 //
-// Two refusals live here and nowhere else. A backend that declares no
+// A program must carry its declared maximum before binding. A backend that declares no
 // forward-progress guarantee is refused, because the worker's dependency wait
 // is a spin and a spin is only a wait where the predecessor is guaranteed to
 // run. A backend whose residency admits fewer workers than the program's grid
@@ -519,6 +522,9 @@ type Runner struct {
 func NewRunner(p *Program, b Backend) (*Runner, error) {
 	if p == nil {
 		return nil, fmt.Errorf("nil program")
+	}
+	if p.grid.MaxElements == 0 {
+		return nil, fmt.Errorf("program requires a nonzero maximum element extent")
 	}
 	if b == nil {
 		return nil, fmt.Errorf("nil backend")

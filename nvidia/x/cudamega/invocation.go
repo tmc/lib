@@ -20,14 +20,17 @@ type Invocation struct {
 // elements is the input buffer length, not a scratch stride. Declared task
 // extents are fixed; undeclared extents use elements. Each consumed source
 // must cover the exact task extent. Grid.MaxElements bounds input and task
-// extents when nonzero. Storage returns the individual scratch ranges.
+// extents and must be nonzero. Storage returns the individual scratch ranges.
 // CPU Run and Reference use this check; generated CUDA uses the same exact
 // task extents and refuses short sources before selection.
 func (p *Program) Invocation(elements uint64) (Invocation, error) {
 	if p == nil {
 		return Invocation{}, fmt.Errorf("nil program")
 	}
-	if p.grid.MaxElements != 0 && elements > uint64(p.grid.MaxElements) {
+	if p.grid.MaxElements == 0 {
+		return Invocation{}, fmt.Errorf("program requires a nonzero maximum element extent")
+	}
+	if elements > uint64(p.grid.MaxElements) {
 		return Invocation{}, fmt.Errorf("extent %d exceeds maximum %d", elements, p.grid.MaxElements)
 	}
 	for _, s := range p.steps {

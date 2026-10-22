@@ -97,11 +97,11 @@ func TestMoEWeightTypedRefusals(t *testing.T) {
 		t.Fatal("unqualified target admitted")
 	}
 	g, _ := cudataskgraph.New([]cudataskgraph.Task{{ID: "gate-up", Scope: cudataskgraph.ScopeDevice}})
-	if _, err := NewProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp}}, Grid{CTAs: 1, ThreadsPerCTA: 32}, "sm_121"); err == nil {
+	if _, err := NewProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp}}, Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 16}, "sm_121"); err == nil {
 		t.Fatal("public scalar admission accepted typed payload")
 	}
 	c := MoEWeightConfig{3, 2, 16, 17}
-	for _, grid := range []Grid{{CTAs: 2, ThreadsPerCTA: 32}, {CTAs: 1, ThreadsPerCTA: 64}} {
+	for _, grid := range []Grid{{CTAs: 2, ThreadsPerCTA: 32, MaxElements: 16}, {CTAs: 1, ThreadsPerCTA: 64, MaxElements: 16}} {
 		if _, err := newProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp, moe: &c}}, grid, "sm_121", true); err == nil {
 			t.Fatal("unsupported geometry admitted")
 		}

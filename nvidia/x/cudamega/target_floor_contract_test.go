@@ -9,7 +9,7 @@ import (
 )
 
 func TestEmitterTargetFloorContract(t *testing.T) {
-	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}
+	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 1}
 	operations := map[string]cudamega.Operation{"x": {Kind: cudamega.Add, Scalar: 1}}
 	for _, tc := range []struct {
 		name  string

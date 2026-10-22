@@ -392,7 +392,7 @@ func (c *cudaSource) source() string {
 	}
 	return programPrologue + c.defs.String() +
 		workerPrologue(c.p.needBarrier, c.p.needPhase, c.p.grid.MaxElements) + c.body.String() +
-		workerEpilogue + ordinaryKernel
+		workerEpilogue + fmt.Sprintf(ordinaryKernel, c.p.grid.MaxElements)
 }
 
 // ptxScope maps a synchronization domain to the PTX scope qualifier an

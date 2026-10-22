@@ -70,6 +70,9 @@ func operationInputs(op Operation) int {
 }
 
 func (p *Program) storage(elements uint64) ([]TaskStorage, int, error) {
+	if p.grid.MaxElements == 0 || elements > uint64(p.grid.MaxElements) {
+		return nil, 0, fmt.Errorf("input extent exceeds declared nonzero maximum %d", p.grid.MaxElements)
+	}
 	maxWords := uint64(^uint(0)>>1) / 4
 	var total uint64
 	out := make([]TaskStorage, len(p.steps))
@@ -81,7 +84,7 @@ func (p *Program) storage(elements uint64) ([]TaskStorage, int, error) {
 		if n == 0 || n > math.MaxUint32 || total > maxWords || n > maxWords-total {
 			return nil, 0, fmt.Errorf("task %q scratch extent exceeds addressable storage", s.Task.ID)
 		}
-		if p.grid.MaxElements != 0 && n > uint64(p.grid.MaxElements) {
+		if n > uint64(p.grid.MaxElements) {
 			return nil, 0, fmt.Errorf("task %q extent %d exceeds maximum %d", s.Task.ID, n, p.grid.MaxElements)
 		}
 		out[i] = TaskStorage{Offset: int(total), Elements: int(n)}
@@ -139,9 +142,7 @@ func (c *cudaSource) boundReference() error {
 	// The ordinary kernel uses exactly the same operand binding and task
 	// storage ranges, with one host-ordered launch for each task.
 	c.defs.WriteString("extern \"C\" __global__ void ordinary_task(const unsigned *input, unsigned *scratch, unsigned n, unsigned task) {\n  if (!n) return;\n")
-	if c.p.grid.MaxElements != 0 {
-		fmt.Fprintf(&c.defs, "  if (n > %du) return;\n", c.p.grid.MaxElements)
-	}
+	fmt.Fprintf(&c.defs, "  if (n > %du) return;\n", c.p.grid.MaxElements)
 	c.defs.WriteString("  size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x;\n  switch (task) {\n")
 	for i := range c.p.steps {
 		fmt.Fprintf(&c.defs, "  case %d: {\n", i)

@@ -18,9 +18,9 @@ type Grid struct {
 	CTAs          uint32
 	ThreadsPerCTA uint32
 
-	// MaxElements bounds the generated CUDA scalar worker extent. Zero leaves the
-	// extent unbounded by the caller. It is not a buffer size: callers must
-	// still retain input and scratch storage for every admitted element.
+	// MaxElements is the required nonzero bound on input and task extents when
+	// constructing a Program. Geometry-only helpers do not choose it for the
+	// caller. It is not a buffer size: retain storage for the exact Invocation.
 	MaxElements uint32
 
 	// Policy is how the grid's CTAs are dealt to the graph's tasks. The zero
@@ -47,7 +47,8 @@ func (g Grid) spinLimit() uint64 {
 	return g.SpinLimit
 }
 
-// Validate reports whether the grid is one the generated worker can run under.
+// Validate checks grid geometry. Program construction additionally requires a
+// nonzero MaxElements chosen by the caller for its payload.
 func (g Grid) Validate() error {
 	if g.CTAs == 0 {
 		return fmt.Errorf("grid has no CTAs")

@@ -42,7 +42,7 @@ func moeWeightProgram(c MoEWeightConfig, target Target) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp, moe: &c}}, Grid{CTAs: 1, ThreadsPerCTA: 32}, target, true)
+	return newProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp, moe: &c}}, Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: uint32(c.Intermediate)}, target, true)
 }
 
 // moeWeightCUDA reuses the existing selection, task guard, ownership, fences
