@@ -186,7 +186,11 @@ func TestShimDefinition(t *testing.T) {
 	observe := readObserveH(t)
 	compile := func(shim string) (string, error) {
 		dir := t.TempDir()
-		for name, data := range map[string]string{"interpose.c": shim, "observe.h": observe} {
+		registry, err := os.ReadFile("../registry.h")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for name, data := range map[string]string{"interpose.c": shim, "observe.h": observe, "registry.h": string(registry)} {
 			if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0600); err != nil {
 				t.Fatal(err)
 			}

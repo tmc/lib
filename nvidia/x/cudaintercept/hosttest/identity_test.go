@@ -68,7 +68,7 @@ func buildFixture(t *testing.T, fixture, shim string) string {
 		t.Fatal(err)
 	}
 	binary := filepath.Join(dir, fixture)
-	args := []string{"-std=c11", "-pthread", "-Wall", "-Wextra", "-Werror", path, "-o", binary}
+	args := []string{"-std=c11", "-pthread", "-Wall", "-Wextra", "-Werror", "-I..", path, filepath.Join("..", "registry.c"), "-o", binary}
 	t.Logf("compile: %s %v", cc, args)
 	if out, err := exec.Command(cc, args...).CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v\n%s", err, out)

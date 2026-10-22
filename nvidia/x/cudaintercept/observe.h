@@ -115,4 +115,67 @@ _Static_assert(sizeof(struct cudaintercept_record) == 80, "record layout");
  */
 long cudaintercept_drain(struct cudaintercept_record *out, size_t cap, uint64_t *dropped);
 
+/*
+ * Separate decision ABI. It does not change the v1 launch observer, whose
+ * argument semantics remain unavailable. Reasons are refusals, never native
+ * execution or qualification evidence. Values are fixed for this version.
+ */
+#define CUDAINTERCEPT_DECISION_VERSION 1
+#define CUDAINTERCEPT_DECISION_CAPACITY 128
+enum cudaintercept_decision_reason_v1 {
+    CUDAINTERCEPT_DEFAULT_OFF = 1,
+    CUDAINTERCEPT_PROCESS_DISABLED,
+    CUDAINTERCEPT_OPERATION_DISABLED,
+    CUDAINTERCEPT_REGISTRY_MISS,
+    CUDAINTERCEPT_REGISTRY_UNAVAILABLE,
+    CUDAINTERCEPT_NO_BINDING,
+    CUDAINTERCEPT_METADATA_ABI,
+    CUDAINTERCEPT_OPERATION,
+    CUDAINTERCEPT_CALLER,
+    CUDAINTERCEPT_GENERATION,
+    CUDAINTERCEPT_CONTEXT,
+    CUDAINTERCEPT_STREAM,
+    CUDAINTERCEPT_ARGUMENT_ABI,
+    CUDAINTERCEPT_SHAPE,
+    CUDAINTERCEPT_LAYOUT,
+    CUDAINTERCEPT_DTYPE,
+    CUDAINTERCEPT_ALIGNMENT,
+    CUDAINTERCEPT_REGIONS,
+    CUDAINTERCEPT_WORKSPACE,
+    CUDAINTERCEPT_TARGET,
+    CUDAINTERCEPT_TOOLCHAIN,
+    CUDAINTERCEPT_BASELINE_ARTIFACT,
+    CUDAINTERCEPT_CANDIDATE_ARTIFACT,
+    CUDAINTERCEPT_CAPTURE_UNKNOWN,
+    CUDAINTERCEPT_CAPTURE,
+    CUDAINTERCEPT_OWNERSHIP_UNKNOWN,
+    CUDAINTERCEPT_POPULATION,
+    CUDAINTERCEPT_GEOMETRY,
+    CUDAINTERCEPT_ARGUMENTS,
+    CUDAINTERCEPT_REENTRANT,
+    CUDAINTERCEPT_ADAPTER_UNQUALIFIED,
+    CUDAINTERCEPT_ALREADY_REGISTERED,
+};
+struct cudaintercept_decision_v1 {
+    uint32_t version, size;
+    uint64_t seq;
+    uint32_t reason;
+    int32_t result;
+    uint64_t caller_generation, function, stream;
+};
+_Static_assert(sizeof(struct cudaintercept_decision_v1) == 48, "decision layout");
+
+/*
+ * Decision recording is separately opt-in, initially off. enable accepts 0/1
+ * (otherwise -1). Off drains return -1 and dropped=0; queued records are
+ * retained across disable/enable. Recording uses a separate fixed ring,
+ * drops newest on capacity/sequence exhaustion, and never blocks launches.
+ * Drain has the same output-storage, stalled-writer, counter-wrap and fork
+ * constraints documented above for the launch observer. It is not a complete
+ * census: unresolved symbol calls never forward and have no decision record.
+ */
+int cudaintercept_decisions_enable_v1(int enable);
+long cudaintercept_decision_drain_v1(struct cudaintercept_decision_v1 *out,
+    size_t cap, uint64_t *dropped);
+
 #endif
