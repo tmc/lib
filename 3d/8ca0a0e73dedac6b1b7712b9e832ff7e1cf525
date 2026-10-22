@@ -1,0 +1,11 @@
+commit: 3d8ca0a0e73dedac6b1b7712b9e832ff7e1cf525
+date: 2026-10-22T04:26:20.862779+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 45720
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261020-mega-input-bindings/atom2-r2.patch
+source sha256: de5b538cebe73bd558cc786b73f92edf41a5e8e933a71c962b194e33bf47901e
+root review: /Users/tmc/tmp/lib-wt-next/20261021-mega-counted-root-review/GRADE.md
