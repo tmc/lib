@@ -19,4 +19,14 @@
 // agreement says nothing about it. The oracle is [Reference], which computes
 // the same result sequentially from the graph and does not use the driver,
 // the primitives or any thread.
+//
+// RunMoE executes the real typed E4M3FN expert graph through those same
+// primitives. Its standing numerical test compiles Program.MoEOrdinarySource
+// as ordinary host C++, with explicit FP32 roundings and contraction disabled;
+// it does not call the worker's arithmetic or a shared Body.Evaluate. Host
+// arithmetic agreement is not CUDA compiler, GPU or HIP qualification.
+// RunMoE accepts immutable bindings, caps total OS threads at 1024, and joins
+// every started thread before returning. A lane error breaks its peers'
+// barriers; an initial abort is supported, but there is no asynchronous
+// cancellation handle or wall-time promise.
 package cudamegacpu

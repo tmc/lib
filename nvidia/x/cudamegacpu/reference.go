@@ -14,6 +14,8 @@ import (
 // of the primitives; it does not call the driver; and it applies the two
 // operations through its own switch rather than the backend's, so that an
 // operation implemented wrongly in one is not implemented wrongly in both.
+// A caller-supplied Body is an exception: its Evaluate method is shared with
+// the worker, so agreement does not independently validate Body.Source.
 // What it does share is [cudamega.Step], which is the statement of the
 // problem rather than a step of the solution.
 //
@@ -25,6 +27,11 @@ import (
 func Reference(p *cudamega.Program, input []uint32) ([]uint32, error) {
 	if p == nil {
 		return nil, fmt.Errorf("cudamegacpu: nil program")
+	}
+	for _, s := range p.Steps() {
+		if _, typed := s.Operation.MoE(); typed || s.Operation.Kind == cudamega.MoEGateUp || s.Operation.Kind == cudamega.MoECombine {
+			return nil, fmt.Errorf("cudamegacpu: typed program requires an ordinary-source reference")
+		}
 	}
 	inv, err := p.Invocation(uint64(len(input)))
 	if err != nil {
