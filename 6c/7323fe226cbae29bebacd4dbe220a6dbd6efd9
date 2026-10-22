@@ -1,0 +1,11 @@
+commit: 6c7323fe226cbae29bebacd4dbe220a6dbd6efd9
+date: 2026-10-22T04:26:32.706689+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 45720
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261021-symbolic-dimension-errors/candidate.patch
+source sha256: 58794e3f2317ded2a6dbd661f4bae2b99cae680b1042e1d4e3aa0621d4477d76
+root review: /Users/tmc/tmp/lib-wt-next/20261021-symbolic-root-review/GRADE.md
