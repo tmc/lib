@@ -1,0 +1,9 @@
+commit=4de363a84f204790c032da8e31dbd5c0a72cb4af
+date=2026-10-19T03:36:23Z
+agent=agy
+model=gemini-4-argon-medium
+mutants_tested:
+1. fused_decode.go:297 swap gateSum and upSum in fusedRMSNormGateUpSwiGLUCPU -> FAIL TestFusedDecodeLayerCPUParityAndControls (restored sha256=323784dec343190ef6a3dfeff34fac7f897e402da3facb1765f1f6b221dfcf5c)
+2. fused_decode.go:271 drop residual addition in fusedOutProjResidualCPU -> FAIL TestFusedDecodeLayerCPUParityAndControls (restored sha256=323784dec343190ef6a3dfeff34fac7f897e402da3facb1765f1f6b221dfcf5c)
+3. fused_decode.go:130 QKVRoPEStoreGrid return uint32(p.qPairs) -> FAIL TestFusedDecodeLayerPlanValidationAndAccounting (restored sha256=323784dec343190ef6a3dfeff34fac7f897e402da3facb1765f1f6b221dfcf5c)
+4. fused_decode.cu:282 duplicate uq0.x lane in FusedRMSNormQKVRoPEStoreBF16 -> FAIL TestFusedDecodeBF16MutationsApply (restored sha256=9077b2e601c0af841081a278405f1f5ba2ae897faa1e7f8cb906b7dcb8c3033d)

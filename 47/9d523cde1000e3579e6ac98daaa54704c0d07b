@@ -1,0 +1,10 @@
+commit=af1c7b0a5077c3ca07a8d3ff1cceb3c703f0e183
+date=2026-10-19T04:34:29Z
+agent=agy
+model=gemini-4-argon-medium
+gates=gofmt:ok,vet:ok,test:109_pass_30_skip_0_fail,linux:ok
+mutants_tested:
+1. gpu_model.go:StreamedBytesPerToken include EmbedTokens.Bytes() in total -> FAIL TestStreamedBytesPerToken (restored sha256=e95f1ad7a394bf400857a0a3c36da54453fb4a20edcc17fb408f77e44301c03b)
+2. decode.go:achievedBandwidthGBps divide by tpot.Microseconds() instead of tpot.Nanoseconds() -> FAIL TestFormatBenchmarkBandwidth (restored sha256=a07cc11869c4862b94f333f929679e6c76bf4675b72505fcd67ada0259c0c459)
+3. bench_abba.go:SummarizeStepDurations omit steps[1:] filter when len(steps) > 1 -> FAIL TestSummarizeStepDurations (restored sha256=5c6c2e54ce11c238c4e715fddc3601d99aba382465e69517b55480d19e8b3f94)
+4. bench_abba.go:EvaluateABBAPairs relax win threshold from 9/10 to 8/10 -> FAIL TestEvaluateABBAPairs (restored sha256=5c6c2e54ce11c238c4e715fddc3601d99aba382465e69517b55480d19e8b3f94)
