@@ -9,15 +9,17 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudataskgraph"
 )
 
-// Operation is a finite elementwise task. Add and Multiply compute input plus
-// or times Scalar using uint32 arithmetic.
+// Operation is a finite task. Add and Multiply compute input plus or times
+// Scalar using uint32 arithmetic. Typed MoE constructors seal expert and
+// routing operations with their checked configuration.
 type Operation struct {
 	Kind   Opcode
 	Scalar uint32
 	// Body replaces Kind and Scalar when non-nil. Kind and Scalar must then
 	// be zero. The caller retains the immutable body through every invocation.
-	Body Body
-	moe  *MoEWeightConfig
+	Body     Body
+	moe      *MoEWeightConfig
+	typedMoE *MoEOperation
 }
 
 type Opcode uint8
@@ -25,9 +27,13 @@ type Opcode uint8
 const (
 	Add Opcode = iota + 1
 	Multiply
-	// MoEGateUp is the typed payload emitted only by MoEWeightSource.
-	// The scalar ProgramSource and public NewProgram refuse it.
+	// MoEGateUp identifies an expert gate/up operation. Use
+	// MoEGateUpOperation to construct a portable typed operation; an
+	// unsealed Kind value is refused.
 	MoEGateUp
+
+	// MoECombine routes one or two expert intermediate activations.
+	MoECombine
 )
 
 // Abort codes the generated worker writes to the volatile abort buffer. Zero
@@ -107,6 +113,9 @@ func ProgramSource(g cudataskgraph.Graph, operations map[string]Operation, grid 
 // The text is what the CUDA backend writes when the driver walks the program,
 // so it cannot drift from what that backend does: there is no second emitter.
 func (p *Program) Source() (string, error) {
+	if p != nil && p.hasTypedMoE() {
+		return p.moeMixtureSource()
+	}
 	c := &cudaSource{p: p}
 	r, err := NewRunner(p, c)
 	if err != nil {

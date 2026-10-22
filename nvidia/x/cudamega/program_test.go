@@ -90,8 +90,8 @@ func TestProgramSourceFailsClosed(t *testing.T) {
 	if _, err := cudamega.ProgramSource(g, map[string]cudamega.Operation{"add3": ops["add3"]}, grid, goldenTarget); err == nil {
 		t.Fatal("accepted incomplete operation set")
 	}
-	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 100, MaxElements: 3}, goldenTarget); err == nil {
-		t.Fatal("accepted a block that is not a whole number of warps")
+	if _, err := cudamega.ProgramSource(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 1025, MaxElements: 3}, goldenTarget); err == nil {
+		t.Fatal("accepted a block with more than 1024 threads")
 	}
 }
 

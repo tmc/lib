@@ -313,6 +313,9 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	if _, _, _, err := target.Capability(); err != nil {
 		return nil, err
 	}
+	if err := validateTypedMoE(tasks, operations, grid); err != nil {
+		return nil, err
+	}
 	dependedOn := make(map[string]bool, len(tasks))
 	for _, t := range tasks {
 		for _, d := range t.Deps {
@@ -345,18 +348,20 @@ func newProgram(g cudataskgraph.Graph, operations map[string]Operation, grid Gri
 	indices := make(map[string]int, len(tasks))
 	for i, t := range tasks {
 		op, ok := operations[t.ID]
-		if !ok || op.Body == nil && op.Kind != Add && op.Kind != Multiply && !(typed && op.Kind == MoEGateUp && op.moe != nil) {
+		if !ok || op.Body == nil && op.Kind != Add && op.Kind != Multiply && op.typedMoE == nil && !(typed && op.Kind == MoEGateUp && op.moe != nil) {
 			return nil, fmt.Errorf("task %q has no supported operation", t.ID)
 		}
 		if op.Body != nil && (op.Kind != 0 || op.Scalar != 0 || op.Body.Inputs() < 1 || op.Body.Inputs() > 1024) {
 			return nil, fmt.Errorf("task %q has an invalid or ambiguous body", t.ID)
 		}
-		inputs := len(t.Inputs)
-		if inputs == 0 {
-			inputs = 1 // An undeclared data binding follows the graph's documented default.
-		}
-		if inputs != operationInputs(op) {
-			return nil, fmt.Errorf("task %q has %d operands, body requires %d: %w", t.ID, inputs, operationInputs(op), ErrUnsupportedInputs)
+		if op.typedMoE == nil {
+			inputs := len(t.Inputs)
+			if inputs == 0 {
+				inputs = 1 // An undeclared data binding follows the graph's documented default.
+			}
+			if inputs != operationInputs(op) {
+				return nil, fmt.Errorf("task %q has %d operands, body requires %d: %w", t.ID, inputs, operationInputs(op), ErrUnsupportedInputs)
+			}
 		}
 		if t.Extent > uint64(^uint32(0)) || t.Extent > uint64(grid.MaxElements) {
 			return nil, fmt.Errorf("task %q extent exceeds the declared worker bound: %w", t.ID, ErrUnsupportedInputs)
@@ -483,6 +488,10 @@ func supportsScope(target Target, s cudataskgraph.Scope) error {
 func (p *Program) Steps() []Step {
 	out := make([]Step, len(p.steps))
 	for i, s := range p.steps {
+		if s.Operation.typedMoE != nil {
+			value := *s.Operation.typedMoE
+			s.Operation.typedMoE = &value
+		}
 		if s.Operation.moe != nil {
 			value := *s.Operation.moe
 			s.Operation.moe = &value

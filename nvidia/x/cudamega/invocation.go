@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-// Invocation is the checked storage required for one scalar program invocation.
+// Invocation is the checked storage required for one program invocation.
 // ScratchWords and StartOrderWords count uint32 and uint64 words, respectively.
 // Their byte sizes fit int. An Invocation does not allocate storage or admit a
 // device launch; the executor still checks kernel residency and ownership.
@@ -15,9 +15,11 @@ type Invocation struct {
 	StartOrderWords int
 }
 
-// Invocation checks elements against the program's scalar extent contract and
+// Invocation checks elements against the program's extent contract and
 // returns its required storage sizes, before any allocation or native call.
-// elements is the input buffer length, not a scratch stride. Declared task
+// elements is the scalar input buffer length, not a scratch stride. For a
+// sealed typed MoE program it is exactly Intermediate; the external hidden
+// vector and slab are checked separately by BindMoE. Declared task
 // extents are fixed; undeclared extents use elements. Each consumed source
 // must cover the exact task extent. Grid.MaxElements bounds input and task
 // extents and must be nonzero. Storage returns the individual scratch ranges.
@@ -34,6 +36,12 @@ func (p *Program) Invocation(elements uint64) (Invocation, error) {
 		return Invocation{}, fmt.Errorf("extent %d exceeds maximum %d", elements, p.grid.MaxElements)
 	}
 	for _, s := range p.steps {
+		if d, ok := s.Operation.MoE(); ok {
+			if elements != uint64(d.Config.Intermediate) {
+				return Invocation{}, fmt.Errorf("typed invocation requires exact intermediate extent")
+			}
+			continue
+		}
 		if s.Operation.Body == nil && s.Operation.Kind != Add && s.Operation.Kind != Multiply {
 			return Invocation{}, fmt.Errorf("task %q does not have a scalar operation", s.Task.ID)
 		}

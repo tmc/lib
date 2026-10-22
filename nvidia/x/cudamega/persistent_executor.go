@@ -56,9 +56,6 @@ func (g Grid) Validate() error {
 	if g.ThreadsPerCTA == 0 || g.ThreadsPerCTA > 1024 {
 		return fmt.Errorf("grid has %d threads per CTA, outside 1..1024", g.ThreadsPerCTA)
 	}
-	if g.ThreadsPerCTA%32 != 0 {
-		return fmt.Errorf("grid has %d threads per CTA, not a whole number of warps", g.ThreadsPerCTA)
-	}
 	return nil
 }
 

@@ -44,6 +44,9 @@ func (p *Program) Storage(elements uint64) ([]TaskStorage, error) {
 
 func (p *Program) inputSources(i int) []int {
 	s := p.steps[i]
+	if s.Operation.typedMoE != nil && s.Operation.Kind == MoEGateUp {
+		return nil
+	}
 	if len(s.Task.Inputs) == 0 {
 		if len(s.Deps) == 0 {
 			return []int{-1}
