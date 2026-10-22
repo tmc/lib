@@ -1,0 +1,5 @@
+commit: 9faa570f542c6b0164764fbe3ad076f65e592f5a
+date: 2026-10-18T20:08:40Z
+agent: agy
+model: gemini-4-argon-medium
+mutants: run_profile_test.go remove os.Stdout = devNull in TestRunProfile -> killed by TestInferenceTestsSilenceStdout and go test -v | file - reporting ISO-8859 text

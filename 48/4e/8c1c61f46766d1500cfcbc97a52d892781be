@@ -1,0 +1,5 @@
+commit: 885ea88a9db120af56df50b46f47c4c71205dc28
+date: 2026-10-18T20:13:19Z
+agent: agy
+model: gemini-4-argon-medium
+mutants: bf16_parity_cuda_test.go unwrap runGEMV Launch from WithContext -> killed by TestCUDATestLaunchesInContext; fused_parity_cuda_test.go unwrap normFn Launch from WithContext -> killed by TestCUDATestLaunchesInContext
