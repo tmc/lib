@@ -371,4 +371,14 @@ func TestDeepInferQuantAndKVTopology(t *testing.T) {
 	if win.ActiveTokens != 134 || win.StartPos != 166 || win.EndPos != 300 || win.RequiredPages != 3 {
 		t.Fatalf("planLayerSWAReplay = %+v, want ActiveTokens=134 StartPos=166 EndPos=300 RequiredPages=3", win)
 	}
+
+	// 4. Grammar vocabulary construction from BpeTokenizer.
+	byteTok := NewByteTokenizer()
+	vocab, err := buildGrammarVocabulary(byteTok, 256)
+	if err != nil {
+		t.Fatalf("buildGrammarVocabulary: %v", err)
+	}
+	if vocab.Size() != 256 {
+		t.Fatalf("buildGrammarVocabulary size = %d, want 256", vocab.Size())
+	}
 }

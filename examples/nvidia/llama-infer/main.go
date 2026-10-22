@@ -23,6 +23,7 @@ import (
 	"github.com/tmc/lib/lm/speculative"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudagrammar"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
 	"github.com/tmc/lib/nvidia/x/cudasample"
@@ -32,17 +33,20 @@ import (
 )
 
 var (
-	modelPath       = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
-	promptFlag      = flag.String("prompt", "The capital of France is", "text prompt for model generation")
-	tokenIDsFlag    = flag.String("token-ids", "", "comma-separated int32 prompt token IDs (overrides -prompt tokenization when non-empty)")
-	stepsFlag       = flag.Int("steps", 10, "number of autoregressive tokens to generate")
-	tempFlag        = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
-	seedFlag        = flag.Uint64("seed", 0, "deterministic Philox-4x32-10 sequence seed for sampling")
-	topKFlag        = flag.Int("top-k", 0, "top-k sampling cutoff (0 = disabled)")
-	topPFlag        = flag.Float64("top-p", 1.0, "sorting-free cumulative probability mass top-p cutoff in [0, 1]")
-	minPFlag        = flag.Float64("min-p", 0.0, "min-p relative probability threshold in [0, 1]")
-	syncGuardFlag   = flag.String("sync-guard", "", "host synchronization guard mode for decode graph execution: allow, warn, or reject")
-	tracePath       = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
+	modelPath         = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
+	promptFlag        = flag.String("prompt", "The capital of France is", "text prompt for model generation")
+	tokenIDsFlag      = flag.String("token-ids", "", "comma-separated int32 prompt token IDs (overrides -prompt tokenization when non-empty)")
+	stepsFlag         = flag.Int("steps", 10, "number of autoregressive tokens to generate")
+	tempFlag          = flag.Float64("temp", 0.0, "sampling temperature (0.0 = greedy argmax)")
+	seedFlag          = flag.Uint64("seed", 0, "deterministic Philox-4x32-10 sequence seed for sampling")
+	topKFlag          = flag.Int("top-k", 0, "top-k sampling cutoff (0 = disabled)")
+	topPFlag          = flag.Float64("top-p", 1.0, "sorting-free cumulative probability mass top-p cutoff in [0, 1]")
+	minPFlag          = flag.Float64("min-p", 0.0, "min-p relative probability threshold in [0, 1]")
+	jsonSchemaFlag    = flag.String("json-schema", "", "optional JSON Schema constraining token sampling")
+	syncGuardFlag     = flag.String("sync-guard", "", "host synchronization guard mode for decode graph execution: allow, warn, or reject")
+	yocoProducersFlag = flag.Int("yoco-producers", 0, "number of KV producer layers for YoCo cross-layer KV sharing topology (0 = disabled)")
+	swaWindowFlag     = flag.Int("swa-window", 0, "sliding-window attention (SWA) bounded replay window size (0 = disabled)")
+	tracePath         = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
 	profilePath     = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
 	disasmFlag      = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
 	disasmModeFlag  = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
@@ -142,6 +146,23 @@ func run() (rerr error) {
 	fmt.Printf("Prompt    : %q\n", *promptFlag)
 	fmt.Printf("Tokens    : %v\n", promptTokens)
 	fmt.Printf("Generating: %d tokens (temp=%.2f)\n\n", *stepsFlag, *tempFlag)
+
+	if *yocoProducersFlag > 0 {
+		topo, yerr := buildModelYOCOTopology(cfg.NumHiddenLayers, *yocoProducersFlag, *swaWindowFlag)
+		if yerr != nil {
+			return yerr
+		}
+		fmt.Printf("[KV Topology] YoCo cross-layer KV sharing enabled (%d/%d producer layers, %.1f%% memory savings)\n",
+			*yocoProducersFlag, cfg.NumHiddenLayers, topo.MemorySavingsRatio()*100)
+	}
+	if *swaWindowFlag > 0 {
+		win, serr := planLayerSWAReplay(len(promptTokens)+*stepsFlag, 1, *swaWindowFlag, *specDraftFlag, 64)
+		if serr != nil {
+			return serr
+		}
+		fmt.Printf("[KV Topology] SWA bounded replay active (window: %d, active: %d tokens, pages: %d)\n",
+			*swaWindowFlag, win.ActiveTokens, win.RequiredPages)
+	}
 
 	// Check if CUDA device is available for 100% GPU-resident execution
 	dev, err := cuda.NewDevice(0)
@@ -326,6 +347,15 @@ func runGPUInference(
 			return fmt.Errorf("build decode graph: %w", err)
 		}
 		dg.SetSyncArbiter(newDecodeSyncArbiter(syncMode, nil))
+		bucketRunner, berr := newDecodeBucketRunner(1, dg)
+		if berr != nil {
+			return fmt.Errorf("register decode bucket runner: %w", berr)
+		}
+		var bucketPad any
+		dg, bucketPad, err = selectDecodeBucket(bucketRunner, 1)
+		if err != nil {
+			return fmt.Errorf("select decode bucket: %w (%v)", err, bucketPad)
+		}
 	}
 
 	forwardCU := findForwardCUPath()
@@ -366,6 +396,13 @@ func runGPUInference(
 		fmt.Printf("[Speculative Decoding] N-gram drafter active (budget: %d tokens/step)\n", *specDraftFlag)
 	}
 	st := newDecodeState(promptTokens, *stepsFlag, drafter)
+	if *specDraftFlag > 0 {
+		sched, serr := newSpecVarlenScheduler(*specDraftFlag)
+		if serr != nil {
+			return serr
+		}
+		st.setScheduler(sched)
+	}
 
 	prefill := func(tokID int32, pos int) (int32, error) {
 		var tok int32
@@ -471,26 +508,55 @@ func runCPUInference(
 	curPos := len(promptTokens)
 	generatedTokens := make([]int32, 0, *stepsFlag)
 
+	var grammarMatcher *cudagrammar.Matcher
+	var grammarVocab *cudagrammar.Vocabulary
+	if *jsonSchemaFlag != "" {
+		g, gerr := cudagrammar.CompileString(*jsonSchemaFlag)
+		if gerr != nil {
+			return fmt.Errorf("compile -json-schema: %w", gerr)
+		}
+		grammarVocab, gerr = buildGrammarVocabulary(tokenizer, cfg.VocabSize)
+		if gerr != nil {
+			return gerr
+		}
+		grammarMatcher = g.Match()
+	}
+
 	tGen0 := time.Now()
 	for step := 0; step < *stepsFlag; step++ {
 		if curPos >= cfg.MaxSeqLen {
 			break
 		}
 
+		var allowedWords []uint32
+		if grammarMatcher != nil {
+			bm, berr := grammarMatcher.Bitmask(grammarVocab)
+			if berr != nil {
+				return fmt.Errorf("compute grammar bitmask at step %d: %w", step, berr)
+			}
+			allowedWords = bm.Words
+		}
+
 		var nextTokID int32
-		if *tempFlag <= 0 {
+		if *tempFlag <= 0 && len(allowedWords) == 0 {
 			nextTokID = sampleArgmax(lastLogits)
 		} else {
 			var serr error
 			nextTokID, serr = sampleStepLogits(lastLogits, step, sampleConfig{
-				seed: *seedFlag,
-				temp: float32(*tempFlag),
-				topK: *topKFlag,
-				topP: float32(*topPFlag),
-				minP: float32(*minPFlag),
+				seed:           *seedFlag,
+				temp:           float32(*tempFlag),
+				topK:           *topKFlag,
+				topP:           float32(*topPFlag),
+				minP:           float32(*minPFlag),
+				allowedBitmask: allowedWords,
 			})
 			if serr != nil {
 				return serr
+			}
+		}
+		if grammarMatcher != nil {
+			if aerr := grammarMatcher.AcceptToken(grammarVocab, nextTokID); aerr != nil {
+				return fmt.Errorf("grammar rejected sampled token %d at step %d: %w", nextTokID, step, aerr)
 			}
 		}
 
