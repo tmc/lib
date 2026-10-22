@@ -1,0 +1,8 @@
+commit=c35144c5fa41184878207bf9dce0a9bde34bbe17
+date=2026-10-22T04:39:51Z
+agent=agy
+model=gemini-4-argon-medium
+mutants:
+- M1 (gpu_model.go: pass int32(pos+1) at arg 15 of fusedQKVRoPEStore): failed TestEmitForwardStep, TestDecodeGraphBuildAndSetPosition; restored sha256=9d7f81d405ed0c210349a22a0d48615e4b63644fde33404a4a4d4c613a8a7d74
+- M2 (decode_graph.go: posIdx=14 instead of 15 for qkv_rope_store): failed TestDecodeGraphBuildAndSetPosition; restored sha256=e7029c1e047e9a70c84b7e46c14a1b1908647b1e14e3f93fc8ccfa4d2c65c005
+- M3 (gpu_model.go: swap fusedQKVRoPEStoreBF16Fn and fusedOutProjResBF16Fn in weightBF16 dispatch): failed TestForwardKernelDispatch, TestEmitForwardStep, TestDecodeGraphBuildAndSetPosition; restored sha256=9d7f81d405ed0c210349a22a0d48615e4b63644fde33404a4a4d4c613a8a7d74
