@@ -1,0 +1,11 @@
+commit: 276ae4060df5ac95787ea4578195d23093287d4d
+date: 2026-10-22T06:25:07.424928+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 33100
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261021-cudavet-unsupported-fuzz/candidate-r3.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261021-cudavet-root-adoption/GRADE.md
+qualification: scoped analyzer host/race/vet/fuzz and six-package census; not native or all analyzers
