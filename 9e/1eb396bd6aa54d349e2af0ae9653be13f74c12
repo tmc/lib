@@ -1,0 +1,11 @@
+commit: 9e1eb396bd6aa54d349e2af0ae9653be13f74c12
+date: 2026-10-22T16:44:31.014583+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 42355
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261022-unit15-recovery/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261022-unit15-recovery/GRADE.md
+qualification: Unit15 producer/fixture source and selected CPU127host/race; native unqualified; no provider/native/spend
