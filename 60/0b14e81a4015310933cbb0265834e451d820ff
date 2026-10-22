@@ -1,0 +1,11 @@
+commit: 600b14e81a4015310933cbb0265834e451d820ff
+date: 2026-10-22T16:32:17.434755+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 36592
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261022-artifact-atomic-adoption/canonical-artifact-api-r2.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261022-artifact-atomic-adoption/GRADE.md
+qualification: immutable Artifact API and actual composed host/race/vet; native unqualified; no provider/native/spend
