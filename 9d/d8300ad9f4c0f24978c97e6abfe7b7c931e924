@@ -1,0 +1,11 @@
+commit: 9dd8300ad9f4c0f24978c97e6abfe7b7c931e924
+date: 2026-10-22T04:25:58.053694+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty signing helper
+pid: 45720
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261020-tileir-attention/candidate.patch
+source sha256: aaba4e0831ee319e5b55bee96ba007f2aeca39bcc6843c4866bda20975a5f564
+root review: /Users/tmc/tmp/lib-wt-next/20261021-tileir-attention-root-review/GRADE.md
