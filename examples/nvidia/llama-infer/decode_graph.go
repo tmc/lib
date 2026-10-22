@@ -111,6 +111,9 @@ func newDecodeGraphWith(
 	if *fuseEGraphFlag && !fusedKernelsQualified {
 		return nil, fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
 	}
+	if *fuseDecodeFlag && !fusedKernelsQualified {
+		return nil, fmt.Errorf("-fuse-decode: fused kernels are not qualified on a device; run without it")
+	}
 	if err := gpuW.checkDTypes(); err != nil {
 		return nil, err
 	}
@@ -147,7 +150,7 @@ func newDecodeGraphWith(
 	}()
 
 	var prev []*cudagraph.Node
-	ropeLayer, storeLayer, attnLayer := 0, 0, 0
+	qkvRoPEStoreLayer, ropeLayer, storeLayer, attnLayer := 0, 0, 0, 0
 	if err = emitForwardStep(gpuW, cfg, layerKV, sp, gm, attnFn, sampleFn, sp.TokenOut, 0, uint32(attnShared), func(l *cudalaunch.Launcher, args ...any) error {
 		desc, derr := l.Describe()
 		if derr != nil {
@@ -162,6 +165,13 @@ func newDecodeGraphWith(
 		layer := 0
 		kind := ""
 		switch desc.Function {
+		case gm.fusedQKVRoPEStoreFn, gm.fusedQKVRoPEStoreBF16Fn:
+			if desc.Function != 0 {
+				posIdx = 15
+				layer = qkvRoPEStoreLayer
+				qkvRoPEStoreLayer++
+				kind = "qkv_rope_store"
+			}
 		case gm.ropeFn:
 			posIdx = 2
 			layer = ropeLayer
@@ -204,8 +214,12 @@ func newDecodeGraphWith(
 	}); err != nil {
 		return nil, fmt.Errorf("populate decode graph: %w", err)
 	}
-	if want := 3 * cfg.NumHiddenLayers; len(dg.posNodes) != want {
-		err = fmt.Errorf("decode graph recorded %d position nodes, want %d", len(dg.posNodes), want)
+	wantPosNodes := 3 * cfg.NumHiddenLayers
+	if qkvRoPEStoreLayer == cfg.NumHiddenLayers {
+		wantPosNodes = 2 * cfg.NumHiddenLayers
+	}
+	if len(dg.posNodes) != wantPosNodes {
+		err = fmt.Errorf("decode graph recorded %d position nodes, want %d", len(dg.posNodes), wantPosNodes)
 		return nil, err
 	}
 	dg.exec, err = instantiate(g)

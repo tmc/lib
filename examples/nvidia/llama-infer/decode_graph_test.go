@@ -229,9 +229,10 @@ func fakeStepFixture(t *testing.T, layers int, dtype weightDType) (*GPUModelWeig
 //     StoreKVCache arg 4, Attention arg 4) via SetKernelNodeParams without
 //     growing retained slice allocations, and rejects out-of-range positions.
 func TestDecodeGraphBuildAndSetPosition(t *testing.T) {
-	saveFuse, saveQual := *fuseEGraphFlag, fusedKernelsQualified
+	saveFuse, saveDecode, saveQual := *fuseEGraphFlag, *fuseDecodeFlag, fusedKernelsQualified
 	t.Cleanup(func() {
 		*fuseEGraphFlag = saveFuse
+		*fuseDecodeFlag = saveDecode
 		fusedKernelsQualified = saveQual
 	})
 	fusedKernelsQualified = true
@@ -242,11 +243,20 @@ func TestDecodeGraphBuildAndSetPosition(t *testing.T) {
 	)
 
 	for _, dtype := range []weightDType{weightF32, weightBF16} {
-		for _, fused := range []bool{false, true} {
+		for _, mode := range []struct {
+			name       string
+			fused      bool
+			fuseDecode bool
+		}{
+			{"unfused", false, false},
+			{"fuseEGraph", true, false},
+			{"fuseDecode", false, true},
+		} {
 			for _, layers := range []int{2, 3} {
-				name := fmt.Sprintf("%s_fused=%v_L=%d", dtype, fused, layers)
+				name := fmt.Sprintf("%s_mode=%s_L=%d", dtype, mode.name, layers)
 				t.Run(name, func(t *testing.T) {
-					*fuseEGraphFlag = fused
+					*fuseEGraphFlag = mode.fused
+					*fuseDecodeFlag = mode.fuseDecode
 					gpuW, cfg, sp, kvs, gm := fakeStepFixture(t, layers, dtype)
 					layerKV := func(i int) (cudakv.LayerCache, error) { return kvs[i], nil }
 
@@ -271,10 +281,12 @@ func TestDecodeGraphBuildAndSetPosition(t *testing.T) {
 						t.Errorf("build events = %v, want %v", h.events, wantBuildEvents)
 					}
 
-					// 2. Total node count is 15L+4 unfused or 11L+4 fused.
+					// 2. Total node count is 15L+4 unfused, 11L+4 fuse-egraph, or 5L+4 fuse-decode.
 					perLayer := 15
-					if fused {
+					if mode.fused {
 						perLayer = 11
+					} else if mode.fuseDecode {
+						perLayer = 5
 					}
 					wantNodes := perLayer*layers + 4
 					if len(h.added) != wantNodes {
@@ -307,14 +319,49 @@ func TestDecodeGraphBuildAndSetPosition(t *testing.T) {
 							gotTok, wantTok, sp.TokenIn)
 					}
 
-					// 5. Every attention node carries wantShared, and 3L position nodes are recorded.
-					if len(dg.posNodes) != 3*layers {
-						t.Fatalf("posNodes = %d, want %d", len(dg.posNodes), 3*layers)
+					// 5. Every attention node carries wantShared, and 3L (or 2L for fuse-decode) position nodes are recorded.
+					posPerLayer := 3
+					if mode.fuseDecode {
+						posPerLayer = 2
+					}
+					if len(dg.posNodes) != posPerLayer*layers {
+						t.Fatalf("posNodes = %d, want %d", len(dg.posNodes), posPerLayer*layers)
 					}
 					for l := 0; l < layers; l++ {
 						base := 1 + l*perLayer
+						if mode.fuseDecode {
+							qkvNode := h.added[base+0]
+							attnNode := h.added[base+1]
+							if attnNode.desc.SharedMem != wantShared {
+								t.Errorf("layer %d attn SharedMem = %d, want %d", l, attnNode.desc.SharedMem, wantShared)
+							}
+							wantQKVFn := gm.fusedQKVRoPEStoreFn
+							if dtype == weightBF16 {
+								wantQKVFn = gm.fusedQKVRoPEStoreBF16Fn
+							}
+							wantKinds := []struct {
+								kind   string
+								posIdx int
+								node   *cudagraph.Node
+								fn     driver.Function
+							}{
+								{"qkv_rope_store", 15, qkvNode.node, wantQKVFn},
+								{"attn", 4, attnNode.node, attnFn},
+							}
+							for k, wk := range wantKinds {
+								pn := dg.posNodes[l*2+k]
+								if pn.layer != l || pn.kind != wk.kind || pn.posIdx != wk.posIdx || pn.node != wk.node || pn.params.Func != wk.fn {
+									t.Errorf("posNode[%d] = %+v, want layer=%d kind=%s posIdx=%d node=%p fn=%v",
+										l*2+k, pn, l, wk.kind, wk.posIdx, wk.node, wk.fn)
+								}
+								if gotInitPos := pn.args[pn.posIdx]; gotInitPos != int32(0) {
+									t.Errorf("posNode[%d] initial pos = %v, want int32(0)", l*2+k, gotInitPos)
+								}
+							}
+							continue
+						}
 						ropeOff, storeOff, attnOff := 4, 5, 6
-						if fused {
+						if mode.fused {
 							ropeOff, storeOff, attnOff = 1, 2, 3
 						}
 						attnNode := h.added[base+attnOff]
@@ -344,14 +391,14 @@ func TestDecodeGraphBuildAndSetPosition(t *testing.T) {
 						}
 					}
 
-					// 6. SetPosition updates all 3L nodes in order and reads back the exact int32(pos).
+					// 6. SetPosition updates all posPerLayer*L nodes in order and reads back the exact int32(pos).
 					for _, pos := range []int{0, 1, 17, cfg.MaxSeqLen - 1} {
 						h.updates = nil
 						if err := dg.SetPosition(pos); err != nil {
 							t.Fatalf("SetPosition(%d): %v", pos, err)
 						}
-						if len(h.updates) != 3*layers {
-							t.Fatalf("SetPosition(%d) updated %d nodes, want %d", pos, len(h.updates), 3*layers)
+						if len(h.updates) != posPerLayer*layers {
+							t.Fatalf("SetPosition(%d) updated %d nodes, want %d", pos, len(h.updates), posPerLayer*layers)
 						}
 						for i, u := range h.updates {
 							pn := &dg.posNodes[i]
@@ -390,6 +437,15 @@ func TestDecodeGraphBuildAndSetPosition(t *testing.T) {
 				})
 			}
 		}
+	}
+
+	// Refusal check when -fuse-decode is set and fusedKernelsQualified is false.
+	*fuseEGraphFlag, *fuseDecodeFlag, fusedKernelsQualified = false, true, false
+	gpuW, cfg, sp, kvs, gm := fakeStepFixture(t, 1, weightF32)
+	layerKV := func(i int) (cudakv.LayerCache, error) { return kvs[i], nil }
+	h := newFakeGraphHarness()
+	if _, err := h.build(gpuW, cfg, layerKV, sp, gm, attnFn, sampleFn); err == nil || !strings.Contains(err.Error(), "-fuse-decode: fused kernels are not qualified") {
+		t.Errorf("unqualified -fuse-decode graph build: got %v, want not qualified", err)
 	}
 }
 

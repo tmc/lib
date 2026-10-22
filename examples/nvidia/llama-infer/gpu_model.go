@@ -419,6 +419,9 @@ func enqueueGPUForwardPass(
 	if *fuseEGraphFlag && !fusedKernelsQualified {
 		return 0, fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
 	}
+	if *fuseDecodeFlag && !fusedKernelsQualified {
+		return 0, fmt.Errorf("-fuse-decode: fused kernels are not qualified on a device; run without it")
+	}
 	if err := gpuW.checkDTypes(); err != nil {
 		return 0, err
 	}
@@ -506,6 +509,9 @@ func emitForwardStep(
 	if *fuseEGraphFlag && !fusedKernelsQualified {
 		return fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
 	}
+	if *fuseDecodeFlag && !fusedKernelsQualified {
+		return fmt.Errorf("-fuse-decode: fused kernels are not qualified on a device; run without it")
+	}
 	if err := gpuW.checkDTypes(); err != nil {
 		return err
 	}
@@ -514,9 +520,13 @@ func emitForwardStep(
 	}
 	gemv, embed := gm.gemvFn, gm.embedFn
 	fusedQKV, fusedSwiGLU := gm.fusedQKVFn, gm.fusedSwiGLUFn
+	fusedQKVRoPEStore, fusedOutProjRes := gm.fusedQKVRoPEStoreFn, gm.fusedOutProjResFn
+	fusedGateUpSwiGLU, fusedDownProjRes := gm.fusedGateUpSwiGLUFn, gm.fusedDownProjResFn
 	if gpuW.DType == weightBF16 {
 		gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn
 		fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn
+		fusedQKVRoPEStore, fusedOutProjRes = gm.fusedQKVRoPEStoreBF16Fn, gm.fusedOutProjResBF16Fn
+		fusedGateUpSwiGLU, fusedDownProjRes = gm.fusedGateUpSwiGLUBF16Fn, gm.fusedDownProjResBF16Fn
 	}
 	headDim := cfg.HeadDim()
 	qHeads := cfg.NumAttentionHeads
@@ -524,6 +534,13 @@ func emitForwardStep(
 	hiddenSize := cfg.HiddenSize
 	interSize := cfg.IntermediateSize
 	vocabSize := cfg.VocabSize
+	ropeFactor, ropeLow, ropeHigh := float32(0), float32(0), float32(0)
+	ropeOrigMax := int32(0)
+	if cfg.RoPEScaling.hasLlama3Params() {
+		rs := cfg.RoPEScaling
+		ropeFactor, ropeLow, ropeHigh = rs.Factor, rs.LowFreqFactor, rs.HighFreqFactor
+		ropeOrigMax = int32(rs.OriginalMaxPositionEmbeddings)
+	}
 
 	ptrOrNull := func(s cudamem.Slice[float32]) driver.DevicePtr {
 		if s.Len() == 0 {
@@ -547,6 +564,34 @@ func emitForwardStep(
 		lkv, err := layerKV(i)
 		if err != nil {
 			return err
+		}
+
+		if *fuseDecodeFlag && fusedQKVRoPEStore != 0 && fusedOutProjRes != 0 && fusedGateUpSwiGLU != 0 && fusedDownProjRes != 0 {
+			if err := emit(launcher(fusedQKVRoPEStore).Grid(uint32((qHeads+kvHeads)*(headDim/2)), 1, 1).Block(128, 1, 1),
+				sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
+				ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
+				sp.Q, lkv.K, lkv.V,
+				int32(hiddenSize), int32(qHeads), int32(kvHeads), int32(headDim), int32(pos),
+				cfg.RmsNormEps, cfg.RopeTheta, ropeFactor, ropeLow, ropeHigh, ropeOrigMax); err != nil {
+				return err
+			}
+			if err := emit(launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(attnThreads, 1, 1).SharedMem(attnShared),
+				sp.Q, lkv.K, lkv.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
+				return err
+			}
+			if err := emit(launcher(fusedOutProjRes).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.AttnOut, sp.X, layerW.WO, sp.X, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
+				return err
+			}
+			if err := emit(launcher(fusedGateUpSwiGLU).Grid(uint32(interSize), 1, 1).Block(128, 1, 1),
+				sp.X, layerW.PostNorm, layerW.WGate, layerW.WUp, sp.FFNAct, int32(hiddenSize), int32(interSize), cfg.RmsNormEps); err != nil {
+				return err
+			}
+			if err := emit(launcher(fusedDownProjRes).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.FFNAct, sp.X, layerW.WDown, sp.X, int32(interSize), int32(hiddenSize)); err != nil {
+				return err
+			}
+			continue
 		}
 
 		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection

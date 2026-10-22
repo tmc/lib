@@ -42,6 +42,7 @@ var (
 	disasmFlag      = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
 	disasmModeFlag  = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
 	fuseEGraphFlag  = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
+	fuseDecodeFlag  = flag.Bool("fuse-decode", false, "Use 5-node/layer norm-folded and epilogue-fused decode kernels")
 	specDraftFlag   = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
 	benchFlag       = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
 	benchCountFlag  = flag.Int("bench-count", 10, "number of benchmark iterations to run")

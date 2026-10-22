@@ -114,6 +114,7 @@ func TestFusedRMSNormQKVRoPEStoreParity(t *testing.T) {
 								dq, dkCache, dvCache,
 								int32(p.hidden), int32(p.qHeads), int32(p.kvHeads), int32(p.headDim), int32(pos),
 								p.epsilon, p.theta,
+								float32(0), float32(0), float32(0), int32(0),
 							)
 					}); err != nil {
 						t.Fatal(err)
@@ -442,7 +443,8 @@ func fusedQKVRoPEStoreBF16Mismatch(
 			return cudalaunch.Kernel(fn).Grid(grid, 1, 1).Block(128, 1, 1).
 				Launch(dx, dg, wq, wk, wv, bq, bk, bv, oq, kc, vc,
 					int32(in), int32(qHeads), int32(kvHeads), int32(headDim), int32(pos),
-					float32(1e-5), float32(1e4))
+					float32(1e-5), float32(1e4),
+					float32(0), float32(0), float32(0), int32(0))
 		}); err != nil {
 			d.t.Fatal(err)
 		}
@@ -720,6 +722,7 @@ func TestFusedDecodeLayerGPUParity(t *testing.T) {
 									dQ, dKC, dVC,
 									int32(p.hidden), int32(p.qHeads), int32(p.kvHeads), int32(p.headDim), int32(pos),
 									p.epsilon, p.theta,
+									float32(0), float32(0), float32(0), int32(0),
 								); err != nil {
 								return err
 							}
