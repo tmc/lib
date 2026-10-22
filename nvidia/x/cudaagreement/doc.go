@@ -40,4 +40,8 @@
 //	    arms = append(arms, cudaagreement.Arm{Record: rec, Output: out})
 //	}
 //	err := cudaagreement.Verify(arms)
+//
+// [CheckBatchInvariance], [VerifyBatchInvariance], and
+// [FixedSplitKReductionCPU] verify bitwise float32 invariance across solo
+// (batch=1) and multi-row batched placements.
 package cudaagreement

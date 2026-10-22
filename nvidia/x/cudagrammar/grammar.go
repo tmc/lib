@@ -71,8 +71,9 @@ type frame struct {
 // compiled grammar. A Matcher is not safe for concurrent use; use [Matcher.Clone]
 // to explore alternatives, which is how [Matcher.TokenMask] works.
 type Matcher struct {
-	stack []frame
-	pos   int
+	stack   []frame
+	pos     int
+	history []matcherSnapshot
 }
 
 // Match starts a matcher at the beginning of a document.
@@ -82,16 +83,13 @@ func (g *Grammar) Match() *Matcher {
 
 // Clone returns an independent copy of m.
 func (m *Matcher) Clone() *Matcher {
-	stack := make([]frame, len(m.stack))
-	copy(stack, m.stack)
-	for i := range stack {
-		if stack[i].cands != nil {
-			c := make([]int, len(stack[i].cands))
-			copy(c, stack[i].cands)
-			stack[i].cands = c
-		}
+	stack := cloneFrames(m.stack)
+	var hist []matcherSnapshot
+	if len(m.history) > 0 {
+		hist = make([]matcherSnapshot, len(m.history))
+		copy(hist, m.history)
 	}
-	return &Matcher{stack: stack, pos: m.pos}
+	return &Matcher{stack: stack, pos: m.pos, history: hist}
 }
 
 // Done reports whether a complete document has been matched. Once done, a
@@ -123,6 +121,15 @@ func (m *Matcher) pop() { m.stack = m.stack[:len(m.stack)-1] }
 // unchanged, and the error names the offset of the byte that could not be
 // matched.
 func (m *Matcher) AcceptByte(c byte) error {
+	snap := m.snapshot()
+	if err := m.acceptByteNoHistory(c); err != nil {
+		return err
+	}
+	m.history = append(m.history, snap)
+	return nil
+}
+
+func (m *Matcher) acceptByteNoHistory(c byte) error {
 	if err := m.step(c); err != nil {
 		return err
 	}
@@ -133,11 +140,16 @@ func (m *Matcher) AcceptByte(c byte) error {
 // Accept advances the matcher over a run of bytes, stopping at the first byte
 // that does not match.
 func (m *Matcher) Accept(b []byte) error {
+	if len(b) == 0 {
+		return nil
+	}
+	snap := m.snapshot()
 	for _, c := range b {
-		if err := m.AcceptByte(c); err != nil {
+		if err := m.acceptByteNoHistory(c); err != nil {
 			return err
 		}
 	}
+	m.history = append(m.history, snap)
 	return nil
 }
 
