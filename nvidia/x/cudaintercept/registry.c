@@ -47,6 +47,7 @@ static uint32_t contract(const struct cudaintercept_replay_v1 *e) {
     if (!TEXT(baseline, CUDAINTERCEPT_REPLAY_BASELINE)) return CUDAINTERCEPT_BASELINE_ARTIFACT;
     if (!TEXT(candidate, CUDAINTERCEPT_REPLAY_CANDIDATE)) return CUDAINTERCEPT_CANDIDATE_ARTIFACT;
     if (!e->capture) return CUDAINTERCEPT_CAPTURE_UNKNOWN;
+    if (e->capture == 3) return CUDAINTERCEPT_GRAPH_EXECUTION;
     if (e->capture != 1) return CUDAINTERCEPT_CAPTURE;
     if (e->caller_owned != 1) return CUDAINTERCEPT_OWNERSHIP_UNKNOWN;
     if (!TEXT(population, CUDAINTERCEPT_REPLAY_POPULATION)) return CUDAINTERCEPT_POPULATION;
@@ -110,6 +111,7 @@ uint32_t cudaintercept_replay_decide_v1(uint64_t function, uint64_t stream,
     if (!state) return CUDAINTERCEPT_REGISTRY_MISS;
     if (state != 2) return CUDAINTERCEPT_REGISTRY_UNAVAILABLE;
     if (invalid_binding) return CUDAINTERCEPT_METADATA_ABI;
+    if (!had_binding && function != replay.function) return CUDAINTERCEPT_REGISTRY_MISS;
     if (!had_binding) return CUDAINTERCEPT_NO_BINDING;
     const struct cudaintercept_replay_v1 *e = &binding;
     uint32_t reason = contract(e);

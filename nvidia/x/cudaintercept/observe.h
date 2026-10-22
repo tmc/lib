@@ -155,6 +155,7 @@ enum cudaintercept_decision_reason_v1 {
     CUDAINTERCEPT_REENTRANT,
     CUDAINTERCEPT_ADAPTER_UNQUALIFIED,
     CUDAINTERCEPT_ALREADY_REGISTERED,
+    CUDAINTERCEPT_GRAPH_EXECUTION,
 };
 struct cudaintercept_decision_v1 {
     uint32_t version, size;

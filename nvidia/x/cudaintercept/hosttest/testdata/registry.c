@@ -7,6 +7,10 @@
 #define dlsym fixture_dlsym
 #include "interpose-source.c"
 
+_Static_assert(CUDAINTERCEPT_DEFAULT_OFF == 1, "default_off enum value");
+_Static_assert(CUDAINTERCEPT_ALREADY_REGISTERED == 32, "already_registered enum value");
+_Static_assert(CUDAINTERCEPT_GRAPH_EXECUTION == 33, "graph_execution enum value");
+
 static atomic_uint calls;
 static atomic_uint winners;
 static atomic_int bad;
@@ -199,6 +203,17 @@ int main(int argc, char **argv) {
         else if (!strcmp(mode, "candidate")) { call.candidate[0] = '?'; reason = CUDAINTERCEPT_CANDIDATE_ARTIFACT; }
         else if (!strcmp(mode, "capture_unknown")) { call.capture = 0; reason = CUDAINTERCEPT_CAPTURE_UNKNOWN; }
         else if (!strcmp(mode, "capture")) { call.capture = 2; reason = CUDAINTERCEPT_CAPTURE; }
+        else if (!strcmp(mode, "graph_execution")) {
+            struct cudaintercept_replay_v1 wrong = e;
+            wrong.capture = 3;
+            check(cudaintercept_replay_register_v1(&wrong) == CUDAINTERCEPT_GRAPH_EXECUTION);
+            call.capture = 3;
+            reason = CUDAINTERCEPT_GRAPH_EXECUTION;
+        }
+        else if (!strcmp(mode, "unbound_function")) {
+            launch_function = (void *)0x9000;
+            reason = CUDAINTERCEPT_REGISTRY_MISS;
+        }
         else if (!strcmp(mode, "ownership")) { call.caller_owned = 0; reason = CUDAINTERCEPT_OWNERSHIP_UNKNOWN; }
         else if (!strcmp(mode, "population")) { call.population[0] = '?'; reason = CUDAINTERCEPT_POPULATION; }
         else if (!strcmp(mode, "grid")) { launch_grid[0] = 2; reason = CUDAINTERCEPT_GEOMETRY; }
@@ -220,9 +235,10 @@ int main(int argc, char **argv) {
             call.version++;
             check(cudaintercept_replay_bind_v1(&call) == CUDAINTERCEPT_METADATA_ABI);
             reason = CUDAINTERCEPT_METADATA_ABI;
-        } else if (strcmp(mode, "no_binding")) check(cudaintercept_replay_bind_v1(&call) == 0);
-        else reason = CUDAINTERCEPT_NO_BINDING;
-        uint64_t generation = (!strcmp(mode, "no_binding") || !strcmp(mode, "binding_abi")) ? 0 : call.caller_generation;
+        } else if (!strcmp(mode, "no_binding")) {
+            reason = CUDAINTERCEPT_NO_BINDING;
+        } else if (strcmp(mode, "unbound_function")) check(cudaintercept_replay_bind_v1(&call) == 0);
+        uint64_t generation = (!strcmp(mode, "no_binding") || !strcmp(mode, "unbound_function") || !strcmp(mode, "binding_abi")) ? 0 : call.caller_generation;
         if (!strcmp(mode, "copy")) memset(&call, 0, sizeof call);
         if (!strcmp(mode, "switches")) {
             check(cudaintercept_replay_enable_v1(2) == -1);
@@ -246,6 +262,42 @@ int main(int argc, char **argv) {
             check(cudaintercept_replay_bind_v1(&e) == 0);
             check(launch() == wanted_result);
             expect(CUDAINTERCEPT_ADAPTER_UNQUALIFIED, 7, 3);
+        } else if (!strcmp(mode, "unbound_function")) {
+            launch_function = (void *)0x1000;
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_NO_BINDING, 0, 2);
+            launch_function = (void *)0x9000;
+            call = e;
+            call.version++;
+            check(cudaintercept_replay_bind_v1(&call) == CUDAINTERCEPT_METADATA_ABI);
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_METADATA_ABI, 0, 3);
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_REGISTRY_MISS, 0, 4);
+            call = e;
+            call.operation[0] = '?';
+            check(cudaintercept_replay_bind_v1(&call) == 0);
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_OPERATION, 7, 5);
+        } else if (!strcmp(mode, "graph_execution")) {
+            call = e;
+            call.capture = 2;
+            check(cudaintercept_replay_bind_v1(&call) == 0);
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_CAPTURE, 7, 2);
+            call = e;
+            call.capture = 0;
+            check(cudaintercept_replay_bind_v1(&call) == 0);
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_CAPTURE_UNKNOWN, 7, 3);
+            call = e;
+            call.capture = 4;
+            check(cudaintercept_replay_bind_v1(&call) == 0);
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_CAPTURE, 7, 4);
+            check(cudaintercept_replay_bind_v1(&e) == 0);
+            check(launch() == wanted_result);
+            expect(CUDAINTERCEPT_ADAPTER_UNQUALIFIED, 7, 5);
         }
     }
     printf("mode=%s bad=%d calls=%u\n", mode, atomic_load(&bad), atomic_load(&calls));

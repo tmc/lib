@@ -34,7 +34,7 @@ struct cudaintercept_replay_v1 {
                                   * device pointer, 3: unsigned 32-bit scalar */
     uint32_t n, dtype, layout, alignment; /* 8,1 (FP32),1 (contiguous),4 */
     uint32_t grid[3], block[3], shared_bytes, workspace_bytes;
-    uint32_t capture;             /* 0 unknown, 1 ordinary noncapture, 2 capture */
+    uint32_t capture;             /* 0 unknown, 1 ordinary noncapture, 2 capture, 3 graph execution/mutation */
     uint32_t caller_owned;        /* 1: caller asserts lifetime below; 0 unknown */
     char population[64], target[16]; /* exact finite population, sm_121 */
     char baseline[65], candidate[65], nvrtc[65], builtins[65], flags[80];
@@ -60,6 +60,10 @@ struct cudaintercept_replay_v1 {
  * Both return a decision reason (0 on success). Invalid version/size marks
  * the next forwarded launch with an invalid binding (METADATA_ABI), subject
  * to higher-priority policy and registry refusals. That launch consumes it.
+ * Without a binding, an unrelated CUfunction reports REGISTRY_MISS and the
+ * registered CUfunction reports NO_BINDING. Explicit capture=3 reports
+ * GRAPH_EXECUTION refusal; the shim never hooks graph-launch APIs or infers
+ * graph or stream state from pointers or kernels.
  * Callers must not mutate inputs concurrently with either API. These APIs
  * must not be called from a signal handler or hook.
  */

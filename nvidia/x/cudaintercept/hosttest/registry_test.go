@@ -40,7 +40,7 @@ func TestReplayRegistry(t *testing.T) {
 		"stream", "declared_stream", "abi", "pointer_intent", "shape", "extent", "layout",
 		"stride", "dtype", "alignment", "unaligned", "regions", "overlap", "overflow",
 		"workspace", "target", "nvrtc", "builtins", "flags", "baseline", "candidate",
-		"capture_unknown", "capture", "ownership", "population", "grid", "block", "shared",
+		"capture_unknown", "capture", "graph_execution", "unbound_function", "ownership", "population", "grid", "block", "shared",
 		"declared_grid", "params", "extra", "bad_registration", "binding_abi", "copy",
 		"consumed", "switches", "result_max", "result_zero", "reentrant", "concurrent",
 		"bounded", "decision_off",
@@ -69,6 +69,11 @@ func TestReplayRegistryGuardOmissions(t *testing.T) {
 		{"baseline", "if (!TEXT(baseline, CUDAINTERCEPT_REPLAY_BASELINE)) return CUDAINTERCEPT_BASELINE_ARTIFACT;", "", "baseline"},
 		{"candidate", "if (!TEXT(candidate, CUDAINTERCEPT_REPLAY_CANDIDATE)) return CUDAINTERCEPT_CANDIDATE_ARTIFACT;", "", "candidate"},
 		{"generation", "return CUDAINTERCEPT_GENERATION;\n    if (e->context != replay.context)", "return CUDAINTERCEPT_ADAPTER_UNQUALIFIED;\n    if (e->context != replay.context)", "generation"},
+		{"unbound_function", "if (!had_binding && function != replay.function) return CUDAINTERCEPT_REGISTRY_MISS;", "", "unbound_function"},
+		{"unbound_invalid_binding_order", "if (invalid_binding) return CUDAINTERCEPT_METADATA_ABI;\n    if (!had_binding && function != replay.function) return CUDAINTERCEPT_REGISTRY_MISS;", "if (!had_binding && function != replay.function) return CUDAINTERCEPT_REGISTRY_MISS;\n    if (invalid_binding) return CUDAINTERCEPT_METADATA_ABI;", "unbound_function"},
+		{"unbound_only_contract_order", "if (!had_binding && function != replay.function) return CUDAINTERCEPT_REGISTRY_MISS;", "if (function != replay.function) return CUDAINTERCEPT_REGISTRY_MISS;", "unbound_function"},
+		{"graph_execution", "if (e->capture == 3) return CUDAINTERCEPT_GRAPH_EXECUTION;", "", "graph_execution"},
+		{"graph_execution_conflate_capture", "if (e->capture != 1) return CUDAINTERCEPT_CAPTURE;", "if (e->capture != 1) return CUDAINTERCEPT_GRAPH_EXECUTION;", "graph_execution"},
 		{"unqualified", "return CUDAINTERCEPT_ADAPTER_UNQUALIFIED;", "return CUDAINTERCEPT_REGISTRY_MISS;", "full"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
