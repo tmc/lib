@@ -25,11 +25,12 @@ type Dim struct {
 }
 
 // NamedDim constructs a symbolic dimension with the given identifier.
-func NamedDim(name string) Dim {
+// It returns an error if name is empty.
+func NamedDim(name string) (Dim, error) {
 	if name == "" {
-		panic("cudashape: empty symbol name")
+		return Dim{}, errors.New("cudashape: empty symbol name")
 	}
-	return Dim{name: name, isSymbol: true}
+	return Dim{name: name, isSymbol: true}, nil
 }
 
 // ConstDim constructs a fixed concrete dimension extent.

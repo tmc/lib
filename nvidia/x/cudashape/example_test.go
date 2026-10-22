@@ -45,11 +45,22 @@ func ExampleSymbolicShape_Bind() {
 	_ = env.Bind("seq", 128)
 	_ = env.Bind("hidden", 256)
 
-	symShape := cudashape.NewSymbolicShape(
-		cudashape.NamedDim("batch"),
-		cudashape.NamedDim("seq"),
-		cudashape.NamedDim("hidden"),
-	)
+	batch, err := cudashape.NamedDim("batch")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	seq, err := cudashape.NamedDim("seq")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	hidden, err := cudashape.NamedDim("hidden")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	symShape := cudashape.NewSymbolicShape(batch, seq, hidden)
 
 	shape, err := symShape.Bind(env)
 	if err != nil {
@@ -58,6 +69,16 @@ func ExampleSymbolicShape_Bind() {
 	fmt.Println(shape)
 	// Output:
 	// [4, 128, 256]
+}
+
+func ExampleNamedDim() {
+	dim, err := cudashape.NamedDim("batch")
+	fmt.Println(dim.Name(), dim.IsSymbol(), err)
+	_, err = cudashape.NamedDim("")
+	fmt.Println(err)
+	// Output:
+	// batch true <nil>
+	// cudashape: empty symbol name
 }
 
 func ExampleInferGrid() {
