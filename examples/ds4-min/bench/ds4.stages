@@ -1,0 +1,8 @@
+# One DeepSeek V4 layer, anchored on kernels both implementations launch once.
+# ffn-pre and ffn-post trade shared-expert work between C and Go; read their
+# sum as the FFN comparison unless a shared-expert boundary is added.
+hc_expand|hc_cached_expand     attention
+hc_expand|hc_cached_expand     ffn-pre
+gateup_iq2_swiglu_q8_d2r       moe-gateup
+down_q2k_d2r                    moe-down
+.                               ffn-post

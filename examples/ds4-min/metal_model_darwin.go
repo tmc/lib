@@ -1,0 +1,179 @@
+//go:build darwin && arm64
+
+package main
+
+import (
+	"fmt"
+	"os"
+
+	libmetal "github.com/tmc/lib/apple/x/metal"
+	"github.com/tmc/lib/apple/x/metal/metalmem"
+	"github.com/tmc/lib/gguf"
+)
+
+type metalModelView struct {
+	fileOffset uint64
+	data       metalmem.Slice[byte]
+}
+
+type metalModelViews struct {
+	views []metalModelView
+}
+
+type metalModelRange struct {
+	offset uint64
+	length uint64
+}
+
+type boundMetalTensor struct {
+	name       string
+	typeID     uint32
+	dimensions []uint64
+	data       metalmem.Slice[byte]
+}
+
+func (t boundMetalTensor) Rows(start, count int) (boundMetalTensor, error) {
+	if len(t.dimensions) != 2 || start < 0 || count <= 0 || uint64(start+count) > t.dimensions[1] {
+		return boundMetalTensor{}, fmt.Errorf("tensor %q: invalid row range", t.name)
+	}
+	total, err := gguf.Tensor{Name: t.name, TypeID: t.typeID, Dimensions: t.dimensions}.Bytes()
+	if err != nil {
+		return boundMetalTensor{}, err
+	}
+	rowBytes := int(total / t.dimensions[1])
+	data, err := t.data.Slice(start*rowBytes, (start+count)*rowBytes)
+	if err != nil {
+		return boundMetalTensor{}, err
+	}
+	return boundMetalTensor{t.name, t.typeID, []uint64{t.dimensions[0], uint64(count)}, data}, nil
+}
+
+func (t boundMetalTensor) Expert(id int32) (boundMetalTensor, error) {
+	if len(t.dimensions) != 3 || id < 0 || uint64(id) >= t.dimensions[2] {
+		return boundMetalTensor{}, fmt.Errorf("tensor %q: invalid expert %d", t.name, id)
+	}
+	total, err := gguf.Tensor{Name: t.name, TypeID: t.typeID, Dimensions: t.dimensions}.Bytes()
+	if err != nil {
+		return boundMetalTensor{}, err
+	}
+	expertBytes := int(total / t.dimensions[2])
+	data, err := t.data.Slice(int(id)*expertBytes, (int(id)+1)*expertBytes)
+	if err != nil {
+		return boundMetalTensor{}, err
+	}
+	return boundMetalTensor{t.name, t.typeID, append([]uint64(nil), t.dimensions[:2]...), data}, nil
+}
+
+func (m *metalModelViews) Bind(g *gguf.File, name string) (boundMetalTensor, error) {
+	if g == nil {
+		return boundMetalTensor{}, fmt.Errorf("bind tensor %q: missing GGUF", name)
+	}
+	for _, tensor := range g.Tensors {
+		if tensor.Name != name {
+			continue
+		}
+		n, err := tensor.Bytes()
+		if err != nil {
+			return boundMetalTensor{}, err
+		}
+		data, err := m.Tensor(g.DataOffset+tensor.Offset, n)
+		if err != nil {
+			return boundMetalTensor{}, fmt.Errorf("bind tensor %q: %w", name, err)
+		}
+		return boundMetalTensor{name, tensor.TypeID, append([]uint64(nil), tensor.Dimensions...), data}, nil
+	}
+	return boundMetalTensor{}, fmt.Errorf("bind tensor %q: not found", name)
+}
+
+func mapMetalModel(dev *libmetal.Device, f *os.File, fileBytes, maxTensorBytes uint64) (*metalModelViews, error) {
+	return mapMetalModelRange(dev, f, 0, fileBytes, maxTensorBytes)
+}
+
+func mapMetalModelRange(dev *libmetal.Device, f *os.File, fileOffset, fileBytes, maxTensorBytes uint64) (*metalModelViews, error) {
+	if dev == nil || f == nil {
+		return nil, fmt.Errorf("map model: missing device or file")
+	}
+	page := uint64(os.Getpagesize())
+	ranges, err := planMetalModelViews(fileOffset, fileBytes, uint64(dev.Raw().MaxBufferLength()), maxTensorBytes, page)
+	if err != nil {
+		return nil, err
+	}
+	m := &metalModelViews{}
+	for _, view := range ranges {
+		if view.offset > uint64(^uint64(0)>>1) || view.length > uint64(^uint(0)>>1) {
+			m.Close()
+			return nil, fmt.Errorf("map model: view range overflows int")
+		}
+		data, err := metalmem.AllocMMapZeroCopy[byte](dev, f, int64(view.offset), int(view.length))
+		if err != nil {
+			m.Close()
+			return nil, fmt.Errorf("map model view at %d: %w", view.offset, err)
+		}
+		m.views = append(m.views, metalModelView{fileOffset: view.offset, data: data})
+	}
+	return m, nil
+}
+
+func planMetalModelViews(fileOffset, fileBytes, maxBufferBytes, maxTensorBytes, page uint64) ([]metalModelRange, error) {
+	if fileBytes == 0 || fileOffset > ^uint64(0)-fileBytes {
+		return nil, fmt.Errorf("map model: invalid file range")
+	}
+	overlap, err := checkedRoundPage(maxTensorBytes, page)
+	if err != nil || overlap > ^uint64(0)-page {
+		return nil, fmt.Errorf("map model: tensor span overflow")
+	}
+	overlap += page
+	maxBuffer := maxBufferBytes &^ (page - 1)
+	if maxBuffer <= overlap {
+		return nil, fmt.Errorf("map model: Metal maximum %d cannot cover tensor span %d", maxBuffer, maxTensorBytes)
+	}
+	end := fileOffset + fileBytes
+	var ranges []metalModelRange
+	for off := fileOffset; off < end; {
+		prefix := off & (page - 1)
+		capacity := maxBuffer - prefix
+		if capacity <= overlap {
+			return nil, fmt.Errorf("map model: Metal maximum %d cannot cover tensor span %d at offset %d", maxBuffer, maxTensorBytes, off)
+		}
+		length := min(capacity, end-off)
+		ranges = append(ranges, metalModelRange{off, length})
+		if length == end-off {
+			break
+		}
+		off += capacity - overlap
+	}
+	return ranges, nil
+}
+
+func checkedRoundPage(n, page uint64) (uint64, error) {
+	if page == 0 || page&(page-1) != 0 || n > ^uint64(0)-(page-1) {
+		return 0, errShape
+	}
+	return (n + page - 1) &^ (page - 1), nil
+}
+
+func (m *metalModelViews) Tensor(fileOffset, length uint64) (metalmem.Slice[byte], error) {
+	if m == nil || length == 0 || fileOffset > ^uint64(0)-length {
+		return metalmem.Slice[byte]{}, fmt.Errorf("model tensor: invalid range")
+	}
+	end := fileOffset + length
+	for _, view := range m.views {
+		viewEnd := view.fileOffset + uint64(view.data.Len())
+		if fileOffset < view.fileOffset || end > viewEnd {
+			continue
+		}
+		start := int(fileOffset - view.fileOffset)
+		return view.data.Slice(start, start+int(length))
+	}
+	return metalmem.Slice[byte]{}, fmt.Errorf("model tensor: range [%d,%d) crosses mapped views", fileOffset, end)
+}
+
+func (m *metalModelViews) Close() {
+	if m == nil {
+		return
+	}
+	for i := range m.views {
+		m.views[i].data.Free()
+	}
+	m.views = nil
+}

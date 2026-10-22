@@ -1,0 +1,210 @@
+
+struct ds4_q8_1_activation { unsigned short d, sum; signed char qs[32]; };
+static_assert(sizeof(ds4_q8_1_activation) == 36, "Q8_1 block size");
+
+#define DS4_Q81_MAX_BATCH 32
+
+// ds4_half_round already implements the binary16 nearest-even boundary. Encode
+// its rounded float result without another rounding step or toolkit headers.
+__device__ unsigned short ds4_q81_half_bits(float value) {
+  unsigned bits = __float_as_uint(ds4_half_round(value));
+  unsigned sign = (bits >> 16) & 0x8000, mag = bits & 0x7fffffff;
+  if (mag >= 0x7f800000) return (unsigned short)(sign | 0x7c00 | ((mag & 0x7fffff) ? 0x200 : 0));
+  if (mag == 0) return (unsigned short)sign;
+  int exponent = int(mag >> 23) - 127;
+  unsigned mantissa = mag & 0x7fffff;
+  if (exponent >= -14) return (unsigned short)(sign | unsigned(exponent + 15) << 10 | mantissa >> 13);
+  return (unsigned short)(sign | ((mantissa | 0x800000) >> (-exponent - 1)));
+}
+
+
+extern "C" __global__ void ds4_quant_q8_1(const float *in, ds4_q8_1_activation *out) {
+  const unsigned tid = threadIdx.x;
+  float value = in[(unsigned long long)blockIdx.x * 32 + tid];
+  float magnitude = fabsf(value), sum = value;
+  for (unsigned stride = 16; stride; stride >>= 1) {
+    magnitude = fmaxf(magnitude, __shfl_xor_sync(0xffffffff, magnitude, stride));
+    sum += __shfl_xor_sync(0xffffffff, sum, stride);
+  }
+  float d = magnitude / 127.0f;
+  out[blockIdx.x].qs[tid] = magnitude == 0.0f ? 0 : (signed char)roundf(__fdiv_rn(value, d));
+  if (tid == 0) { out[blockIdx.x].d = ds4_q81_half_bits(d); out[blockIdx.x].sum = ds4_q81_half_bits(sum); }
+}
+
+extern "C" __global__ void ds4_quant_q8_1_batch(
+    const float *in, ds4_q8_1_activation *out,
+    unsigned blocks, unsigned stride) {
+  const unsigned flat = blockIdx.x, token = flat / blocks, block = flat % blocks;
+  const unsigned tid = threadIdx.x;
+  float value = in[(unsigned long long)token * stride + (unsigned long long)block * 32 + tid];
+  float magnitude = fabsf(value), sum = value;
+  for (unsigned offset = 16; offset; offset >>= 1) {
+    magnitude = fmaxf(magnitude, __shfl_xor_sync(0xffffffff, magnitude, offset));
+    sum += __shfl_xor_sync(0xffffffff, sum, offset);
+  }
+  float d = magnitude / 127.0f;
+  out[flat].qs[tid] = magnitude == 0.0f ? 0 : (signed char)roundf(__fdiv_rn(value, d));
+  if (tid == 0) { out[flat].d = ds4_q81_half_bits(d); out[flat].sum = ds4_q81_half_bits(sum); }
+}
+
+// ds4_q8_0_matvec_q8_1 is ds4_q8_0_matvec_quantized over a Q8_1 activation.
+// It deliberately reads the activation straight from global memory rather than
+// staging it in shared: the activation is at most 9 KiB and every block after
+// the first reads it out of L2, while the __syncthreads a staging pass needs
+// stalls all eight warps before the first weight load can issue. On the widest
+// decode shape (32768 rows of 32 blocks) each lane owns a single weight block,
+// so there is no loop left to hide that barrier behind.
+extern "C" __global__ void ds4_q8_0_matvec_q8_1(
+    const unsigned char *weights, const ds4_q8_1_activation *x, float *out,
+    unsigned blocks, unsigned rows) {
+  const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
+  const unsigned row = blockIdx.x * 8 + warp_id;
+  if (row >= rows) return;
+  const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
+  float sum = 0.0f;
+  for (unsigned b = lane; b < blocks; b += 32) {
+    const unsigned char *p = weight_row + (unsigned long long)b * 34;
+    const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+    const int *x4 = reinterpret_cast<const int *>(x[b].qs);
+    int dot = 0;
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+      int w4 = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
+      dot = __dp4a(w4, x4[i], dot);
+    }
+    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+    sum += d * ds4_half_to_float(x[b].d) * float(dot);
+  }
+  for (unsigned stride = 16; stride; stride >>= 1)
+    sum += __shfl_down_sync(0xffffffff, sum, stride);
+  if (lane == 0) out[row] = sum;
+}
+
+// ds4_q8_0_matvec_q8_1_aligned is ds4_q8_0_matvec_q8_1 reading the same
+// weights out of the split dq/qs planes that buildDenseArtifact already builds
+// in device memory, instead of out of the model's 34-byte GGUF blocks in the
+// host mapping. The artifact exists and is digest-checked; until now only the
+// prefill D2R GEMM read it, and decode streamed the raw blocks through HMM.
+//
+// Two things change and nothing else does. The bytes come from device memory
+// rather than a host mapping, which is the whole point -- the same weights, the
+// same kernel and the same shapes measure 163 GB/s off the mapping and 215 off
+// the device. And a block's 32 quant bytes arrive as two aligned 16-byte loads
+// rather than sixteen 2-byte ones, because the plane is contiguous where the
+// 34-byte interleave made a wide load unrepresentable.
+//
+// Bit-exactness is by construction, and it is the reason this is a fetch change
+// and not a port of the oracle's own aligned kernel, which reassociates. Every
+// lane keeps b = lane and the b += 32 stride, so each lane's float sum runs
+// over the same blocks in the same order; the eight __dp4a steps stay in order
+// and dot is an int, so the integer part cannot move a bit wherever it is
+// summed; the scale is read back through ds4_half_to_float from the same half
+// bits ds4_repack_q8_0_aligned copied out of the raw block; the accumulation
+// line and the shuffle-down tree are unchanged text. Register pressure is the
+// one thing an argument like this cannot pin, so the per-kernel bit gate runs
+// against the raw-block kernel rather than standing on the reasoning.
+extern "C" __global__ void ds4_q8_0_matvec_q8_1_aligned(
+    const unsigned short *dq, const unsigned char *qs,
+    const ds4_q8_1_activation *x, float *out,
+    unsigned blocks, unsigned rows) {
+  const unsigned warp_id = threadIdx.x / 32, lane = threadIdx.x % 32;
+  const unsigned row = blockIdx.x * 8 + warp_id;
+  if (row >= rows) return;
+  float sum = 0.0f;
+  for (unsigned b = lane; b < blocks; b += 32) {
+    const unsigned long long blk = (unsigned long long)row * blocks + b;
+    const int4 *qv = reinterpret_cast<const int4 *>(qs + blk * 32ull);
+    const int4 q0 = qv[0], q1 = qv[1];
+    const int w16[8] = {q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w};
+    const int *x4 = reinterpret_cast<const int *>(x[b].qs);
+    int dot = 0;
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+      int w4 = w16[i];
+      dot = __dp4a(w4, x4[i], dot);
+    }
+    const float d = ds4_half_to_float(dq[blk]);
+    sum += d * ds4_half_to_float(x[b].d) * float(dot);
+  }
+  for (unsigned stride = 16; stride; stride >>= 1)
+    sum += __shfl_down_sync(0xffffffff, sum, stride);
+  if (lane == 0) out[row] = sum;
+}
+
+extern "C" __global__ void ds4_q8_0_matvec_q8_1_batch(
+    const unsigned char *weights, const ds4_q8_1_activation *x, float *out,
+    unsigned blocks, unsigned rows, unsigned batch) {
+  const unsigned tid = threadIdx.x;
+  const unsigned warp_id = tid / 32, lane = tid % 32;
+  const unsigned row = blockIdx.x * 8 + warp_id;
+  const unsigned t_base = blockIdx.y * DS4_Q81_MAX_BATCH;
+
+  if (row >= rows || t_base >= batch) return;
+  const unsigned cur_batch = (batch - t_base < DS4_Q81_MAX_BATCH) ? (batch - t_base) : DS4_Q81_MAX_BATCH;
+
+  const unsigned char *weight_row = weights + (unsigned long long)row * blocks * 34;
+  const ds4_q8_1_activation *batch_x = x + (unsigned long long)t_base * blocks;
+  float *batch_out = out + (unsigned long long)t_base * rows;
+
+  float sum[DS4_Q81_MAX_BATCH] = {0.0f};
+
+  for (unsigned b = lane; b < blocks; b += 32) {
+    const unsigned char *p = weight_row + (unsigned long long)b * 34;
+    const unsigned short *w16 = reinterpret_cast<const unsigned short *>(p + 2);
+    int w4[8];
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+      w4[i] = int(unsigned(w16[i * 2]) | (unsigned(w16[i * 2 + 1]) << 16));
+    }
+    const float d = ds4_half_to_float(unsigned(p[0]) | unsigned(p[1]) << 8);
+
+    #pragma unroll
+    for (unsigned t = 0; t < DS4_Q81_MAX_BATCH; t++) {
+      if (t < cur_batch) {
+        const ds4_q8_1_activation *tx = batch_x + (unsigned long long)t * blocks;
+        const int *x4 = reinterpret_cast<const int *>(tx[b].qs);
+        int dot = 0;
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+          dot = __dp4a(w4[i], x4[i], dot);
+        }
+        sum[t] += d * ds4_half_to_float(tx[b].d) * float(dot);
+      }
+    }
+  }
+
+  #pragma unroll
+  for (unsigned t = 0; t < DS4_Q81_MAX_BATCH; t++) {
+    if (t < cur_batch) {
+      float s = sum[t];
+      #pragma unroll
+      for (unsigned stride = 16; stride; stride >>= 1)
+        s += __shfl_down_sync(0xffffffff, s, stride);
+      if (lane == 0) batch_out[(unsigned long long)t * rows + row] = s;
+    }
+  }
+}
+
+extern "C" __global__ void ds4_swiglu_quant_q8_1(
+    const float *gate, const float *up, const float *weights, ds4_q8_1_activation *out,
+    unsigned int width) {
+  const unsigned tid = threadIdx.x;
+  const unsigned block_idx = blockIdx.x;
+  const unsigned long long i = (unsigned long long)block_idx * 32 + tid;
+  const unsigned int slot = (block_idx * 32) / width;
+  const float w = weights[slot];
+  const float x = fminf(gate[i], 10.0f);
+  const float y = fminf(fmaxf(up[i], -10.0f), 10.0f);
+  const float value = (x / (1.0f + expf(-x))) * y * w;
+  float magnitude = fabsf(value), sum = value;
+  for (unsigned stride = 16; stride; stride >>= 1) {
+    magnitude = fmaxf(magnitude, __shfl_xor_sync(0xffffffff, magnitude, stride));
+    sum += __shfl_xor_sync(0xffffffff, sum, stride);
+  }
+  float d = magnitude / 127.0f;
+  out[block_idx].qs[tid] = magnitude == 0.0f ? 0 : (signed char)roundf(__fdiv_rn(value, d));
+  if (tid == 0) {
+    out[block_idx].d = ds4_q81_half_bits(d);
+    out[block_idx].sum = ds4_q81_half_bits(sum);
+  }
+}

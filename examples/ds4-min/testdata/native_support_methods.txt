@@ -1,0 +1,395 @@
+package main
+
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
+	"io"
+	"reflect"
+	"testing"
+)
+
+// Host primitive boundaries: no CUDA/Metal allocation, transfer or sync occurs.
+var Flash = struct{ Embed, Layers, Vocab, SlidingWindow int }{4096, 43, 129280, 128}
+var fixtureErrClosed = errors.New("closed")
+var fixtureErrDesynchronized = errors.New("desynchronized")
+var fixtureFault = errors.New("host fixture fault")
+
+const cudaStateMaxBytes = 1 << 30
+const metalStateMaxBytes = 1 << 30
+const cudaStateHeaderBytes = 104
+const metalStateHeaderSize = 32
+
+var cudaStateMagic = [8]byte{'C', 'O', 'R', 'E', 'C', 'U', 'D', 'A'}
+
+const metalStateMagic = "COREMETL"
+
+type hostBuffer[T any] struct {
+	data []T
+	fail bool
+}
+
+func (b hostBuffer[T]) Len() int { return len(b.data) }
+func (b hostBuffer[T]) CopyToHost(dst []T) error {
+	if b.fail {
+		return fixtureFault
+	}
+	copy(dst, b.data)
+	return nil
+}
+func (b hostBuffer[T]) CopyFromHost(src []T) error {
+	if b.fail {
+		return fixtureFault
+	}
+	copy(b.data, src)
+	return nil
+}
+
+type cudaDSparkFeatureSnapshot struct {
+	owner             *cudaDSparkFeatures
+	modelSHA          string
+	context, block    int
+	targets           []int
+	history, features hostBuffer[float32]
+	status            hostBuffer[uint32]
+	journal           *dsparkFeatureJournal
+	generation        uint64
+	position, token   int
+	published         bool
+	captured          []bool
+}
+type cudaDSparkFeatures struct {
+	modelSHA string
+	r        *cudaRuntime
+	block    int
+	targets  []int
+	value    *dsparkSupportEnvelope
+}
+type fixtureObserver struct{ invalidations int }
+
+func (o *fixtureObserver) invalidate() { o.invalidations++ }
+
+type cudaRuntime struct {
+	ctx          int
+	core         []byte
+	failed       error
+	headObserver fixtureObserver
+}
+
+func (*cudaRuntime) stream() int { return 0 }
+func syncStream(int) error       { return nil }
+
+type cudaRequestState struct {
+	runtime                    *cudaRuntime
+	dspark                     *cudaDSparkFeatures
+	generation, lifecycleEpoch uint64
+}
+type cudaStateSnapshot struct {
+	owner                      *cudaRuntime
+	dspark                     *cudaDSparkFeatureSnapshot
+	core                       []byte
+	pos                        int
+	generation                 uint64
+	closed, closing, failClose bool
+	closes                     int
+}
+type cudaSupportLoadHooks struct {
+	snapshot                                      func() (io.Closer, error)
+	afterStageTransfer, afterCore, beforeRollback func() error
+}
+
+func (v *cudaStateSnapshot) Close() error {
+	v.closes++
+	if v.failClose {
+		v.failClose = false
+		return fixtureFault
+	}
+	v.closed = true
+	return nil
+}
+func fixtureEnvelope(v *cudaDSparkFeatureSnapshot) *dsparkSupportEnvelope {
+	e, _ := cudaSupportIdentity(v.modelSHA, v.context, v.block, v.targets)
+	e.history = append([]float32(nil), v.history.data...)
+	e.journal = v.journal.clone()
+	e.capture = &dsparkSupportCapture{generation: v.generation, position: v.position, token: v.token, published: v.published, captured: append([]bool(nil), v.captured...), status: v.status.data[0], features: append([]float32(nil), v.features.data...)}
+	return e
+}
+func (f *cudaDSparkFeatures) validateSnapshot(v *cudaDSparkFeatureSnapshot, pos int, generation uint64) error {
+	return fixtureEnvelope(v).validate(pos, generation)
+}
+func (f *cudaDSparkFeatures) restore(v *cudaDSparkFeatureSnapshot, pos int, generation uint64) error {
+	f.value = fixtureEnvelope(v)
+	return nil
+}
+func fixtureNoRestore(*cudaDSparkFeatureSnapshot, int, uint64) error { return nil }
+func (s *cudaRequestState) Snapshot() (io.Closer, error) {
+	e := s.dspark.value
+	c := e.capture
+	v := &cudaDSparkFeatureSnapshot{owner: s.dspark, modelSHA: s.dspark.modelSHA, context: e.context, block: e.block, targets: append([]int(nil), e.targets...), history: hostBuffer[float32]{data: append([]float32(nil), e.history...)}, features: hostBuffer[float32]{data: append([]float32(nil), c.features...)}, status: hostBuffer[uint32]{data: []uint32{c.status}}, journal: e.journal.clone(), generation: c.generation, position: c.position, token: c.token, published: c.published, captured: append([]bool(nil), c.captured...)}
+	return &cudaStateSnapshot{owner: s.runtime, dspark: v, core: bytes.Clone(s.runtime.core), pos: e.journal.frontier, generation: s.generation}, nil
+}
+func (s *cudaRequestState) restoreSnapshot(v *cudaStateSnapshot) error {
+	s.runtime.core = bytes.Clone(v.core)
+	s.dspark.value = fixtureEnvelope(v.dspark)
+	s.generation = v.generation
+	return nil
+}
+func (s *cudaRequestState) completeObservedCacheReplacement(err error) error {
+	if err == nil {
+		s.lifecycleEpoch++
+	}
+	return err
+}
+func writeCUDAStateCoreSnapshot(w io.Writer, v *cudaStateSnapshot, model, quant [32]byte) error {
+	_, err := w.Write(v.core)
+	return err
+}
+func loadCUDAState(s *cudaRequestState, r io.Reader) error {
+	b, err := io.ReadAll(r)
+	if err == nil {
+		s.runtime.core = b
+	}
+	return err
+}
+
+type metalModel struct {
+	sha256 string
+	block  int
+}
+type metalWeights struct{ model *metalModel }
+type metalDSparkFeatureSnapshot struct {
+	owner          *metalDSparkFeatures
+	modelSHA       string
+	context, block int
+	targets        []int
+	journal        *dsparkFeatureJournal
+	data           []float32
+}
+type metalDSparkFeatures struct {
+	weights *metalWeights
+	targets []int
+	value   *dsparkSupportEnvelope
+}
+
+func (f *metalDSparkFeatures) validateSnapshot(v *metalDSparkFeatureSnapshot, pos int) error {
+	e, err := metalSupportEnvelope(v)
+	if err != nil {
+		return err
+	}
+	return e.validate(pos, 0)
+}
+func (f *metalDSparkFeatures) publishSnapshot(v *metalDSparkFeatureSnapshot) {
+	f.value, _ = metalSupportEnvelope(v)
+}
+func fixtureNoPublish(*metalDSparkFeatureSnapshot) {}
+
+type metalRuntime struct {
+	ctx              int
+	speculativeEpoch uint64
+	dsparkFeatures   *metalDSparkFeatures
+	core             []byte
+	failLoad         bool
+}
+type metalRequestState struct{ runtime *metalRuntime }
+type metalSnapshot struct {
+	data   []byte
+	dspark *metalDSparkFeatureSnapshot
+	closed bool
+}
+
+func writeMetalStateFull(w io.Writer, b []byte) error { _, err := w.Write(b); return err }
+func loadMetalState(s *metalRuntime, r io.Reader) error {
+	if s.failLoad {
+		return fixtureFault
+	}
+	b, err := io.ReadAll(r)
+	if err == nil {
+		s.core = b
+	}
+	return err
+}
+
+func fixtureCore(cuda bool, pos int, marker byte) []byte {
+	if cuda {
+		b := make([]byte, cudaStateHeaderBytes+1)
+		copy(b, cudaStateMagic[:])
+		binary.LittleEndian.PutUint64(b[12:20], uint64(pos))
+		b[len(b)-1] = marker
+		return b
+	}
+	b := make([]byte, metalStateHeaderSize+1)
+	copy(b, metalStateMagic)
+	binary.LittleEndian.PutUint64(b[16:24], uint64(pos))
+	b[len(b)-1] = marker
+	return b
+}
+func fixtureCUDA(t *testing.T, e *dsparkSupportEnvelope, generation uint64, marker byte) *cudaRequestState {
+	r := &cudaRuntime{ctx: e.context, core: fixtureCore(true, e.journal.frontier, marker)}
+	f := &cudaDSparkFeatures{modelSHA: hex.EncodeToString(e.model[:]), r: r, block: e.block, targets: e.targets, value: e}
+	return &cudaRequestState{runtime: r, dspark: f, generation: generation, lifecycleEpoch: 4}
+}
+func fixtureMetal(e *dsparkSupportEnvelope, marker byte) *metalRequestState {
+	f := &metalDSparkFeatures{weights: &metalWeights{&metalModel{hex.EncodeToString(e.model[:]), e.block}}, targets: e.targets, value: e}
+	return &metalRequestState{&metalRuntime{ctx: e.context, core: fixtureCore(false, e.journal.frontier, marker), dsparkFeatures: f, speculativeEpoch: 4}}
+}
+func fixtureOriginal(t *testing.T, e *dsparkSupportEnvelope, core []byte, generation uint64) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	if err := writeRetainedDSparkSupportContainer(&b, core, e, e.journal.frontier, generation, 1<<30); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+func TestCallerWrites(t *testing.T) {
+	for _, cuda := range []bool{true, false} {
+		for _, wrapped := range []bool{false, true} {
+			e, _, generation := supportCodecFixture(t, cuda, wrapped)
+			core := fixtureCore(cuda, e.journal.frontier, 17)
+			want := fixtureOriginal(t, e, core, generation)
+			var got bytes.Buffer
+			if cuda {
+				s := fixtureCUDA(t, e, generation, 17)
+				v, err := s.Snapshot()
+				if err != nil {
+					t.Fatal(err)
+				}
+				s.dspark.modelSHA = ""
+				s.dspark.value = nil
+				s.runtime = nil
+				if err := writeCUDASupportSnapshot(&got, v.(*cudaStateSnapshot), [32]byte{}, [32]byte{}); err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(got.Bytes(), want) {
+					t.Fatal("cuda caller omitted or changed original container bytes")
+				}
+			} else {
+				v := &metalSnapshot{data: core, dspark: &metalDSparkFeatureSnapshot{modelSHA: hex.EncodeToString(e.model[:]), context: e.context, block: e.block, targets: e.targets, journal: e.journal, data: e.history}}
+				if err := writeMetalStateSnapshot(&got, v); err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(got.Bytes(), want) {
+					t.Fatal("metal caller omitted or changed original container bytes")
+				}
+			}
+		}
+	}
+}
+func TestCallerLoads(t *testing.T) {
+	for _, cuda := range []bool{true, false} {
+		e, _, generation := supportCodecFixture(t, cuda, false)
+		destination, _, _ := supportCodecFixture(t, cuda, false)
+		destination.history[0] = -9
+		core := fixtureCore(cuda, e.journal.frontier, 23)
+		data := fixtureOriginal(t, e, core, generation)
+		if cuda {
+			s := fixtureCUDA(t, destination, generation, 5)
+			if err := s.loadSupportWithHooks(bytes.NewReader(data), nil); err != nil {
+				t.Fatal("cuda caller failed original envelope load", err)
+			}
+			if !reflect.DeepEqual(s.dspark.value, e) || !bytes.Equal(s.runtime.core, core) || s.generation != generation || s.lifecycleEpoch != 5 {
+				t.Fatal("cuda caller did not publish support values")
+			}
+		} else {
+			s := fixtureMetal(destination, 5)
+			if err := s.loadSupport(bytes.NewReader(data)); err != nil {
+				t.Fatal("metal caller failed original envelope load", err)
+			}
+			if !reflect.DeepEqual(s.runtime.dsparkFeatures.value, e) || !bytes.Equal(s.runtime.core, core) || s.runtime.speculativeEpoch != 5 {
+				t.Fatal("metal caller did not publish support values")
+			}
+		}
+	}
+}
+func TestCallerFailures(t *testing.T) {
+	for _, cuda := range []bool{true, false} {
+		e, _, generation := supportCodecFixture(t, cuda, false)
+		foreign, _, _ := supportCodecFixture(t, cuda, false)
+		foreign.model[0]++
+		data := fixtureOriginal(t, foreign, fixtureCore(cuda, e.journal.frontier, 23), generation)
+		if cuda {
+			s := fixtureCUDA(t, e, generation, 5)
+			before := bytes.Clone(s.runtime.core)
+			if err := s.loadSupportWithHooks(bytes.NewReader(data), nil); err == nil || !bytes.Equal(s.runtime.core, before) || s.dspark.value != e || s.lifecycleEpoch != 4 {
+				t.Fatal("cuda foreign load mutated destination")
+			}
+			data = fixtureOriginal(t, e, fixtureCore(true, e.journal.frontier, 23), generation)
+			if err := s.loadSupportWithHooks(bytes.NewReader(data), &cudaSupportLoadHooks{afterCore: func() error { return fixtureFault }}); !errors.Is(err, fixtureFault) || !bytes.Equal(s.runtime.core, before) || !reflect.DeepEqual(s.dspark.value, e) || s.lifecycleEpoch != 4 {
+				t.Fatal("cuda caller rollback lost destination", err)
+			}
+			if err := s.loadSupportWithHooks(bytes.NewReader(data), &cudaSupportLoadHooks{beforeRollback: func() error { return fixtureFault }, afterCore: func() error { return fixtureFault }}); !errors.Is(err, fixtureErrDesynchronized) || s.runtime.failed == nil || s.runtime.headObserver.invalidations != 1 {
+				t.Fatal("cuda caller failed rollback did not poison", err)
+			}
+		} else {
+			s := fixtureMetal(e, 5)
+			before := bytes.Clone(s.runtime.core)
+			if err := s.loadSupport(bytes.NewReader(data)); err == nil || !bytes.Equal(s.runtime.core, before) || s.runtime.dsparkFeatures.value != e || s.runtime.speculativeEpoch != 4 {
+				t.Fatal("metal foreign load mutated destination")
+			}
+			s.runtime.failLoad = true
+			data = fixtureOriginal(t, e, fixtureCore(false, e.journal.frontier, 23), generation)
+			if err := s.loadSupport(bytes.NewReader(data)); !errors.Is(err, fixtureFault) || s.runtime.dsparkFeatures.value != e || s.runtime.speculativeEpoch != 4 {
+				t.Fatal("metal failed core load published support", err)
+			}
+		}
+	}
+}
+func TestCallerOwner(t *testing.T) {
+	e, _, generation := supportCodecFixture(t, true, false)
+	s := fixtureCUDA(t, e, generation, 5)
+	before := bytes.Clone(s.runtime.core)
+	data := fixtureOriginal(t, e, fixtureCore(true, e.journal.frontier, 23), generation)
+	var stage *cudaStateSnapshot
+	hooks := &cudaSupportLoadHooks{snapshot: func() (io.Closer, error) {
+		v, err := s.Snapshot()
+		stage = v.(*cudaStateSnapshot)
+		stage.failClose = true
+		stage.dspark.history.fail = true
+		return v, err
+	}}
+	err := s.loadSupportWithHooks(bytes.NewReader(data), hooks)
+	var owner io.Closer
+	if !errors.Is(err, fixtureFault) || !errors.As(err, &owner) || !bytes.Equal(s.runtime.core, before) || s.dspark.value != e || s.lifecycleEpoch != 4 {
+		t.Fatal("cuda caller lost retryable cleanup owner", err)
+	}
+	if err := owner.Close(); err != nil || stage.closes != 2 {
+		t.Fatal("cuda retained owner retry failed", err)
+	}
+	if err := owner.Close(); err != nil || stage.closes != 2 {
+		t.Fatal("cuda retained owner repeated close", err)
+	}
+	for _, failCore := range []bool{false, true} {
+		s = fixtureCUDA(t, e, generation, 5)
+		before = bytes.Clone(s.runtime.core)
+		var snapshots []*cudaStateSnapshot
+		hooks = &cudaSupportLoadHooks{snapshot: func() (io.Closer, error) {
+			v, err := s.Snapshot()
+			native := v.(*cudaStateSnapshot)
+			snapshots = append(snapshots, native)
+			if len(snapshots) == 2 {
+				native.failClose = true
+			}
+			return v, err
+		}}
+		if failCore {
+			hooks.afterCore = func() error { return fixtureFault }
+		}
+		err = s.loadSupportWithHooks(bytes.NewReader(data), hooks)
+		owner = nil
+		if !errors.Is(err, fixtureFault) || !errors.As(err, &owner) || len(snapshots) != 2 {
+			t.Fatal("cuda backup cleanup owner lost", err)
+		}
+		if failCore && (!bytes.Equal(s.runtime.core, before) || s.lifecycleEpoch != 4) {
+			t.Fatal("cuda failed operation cleanup changed destination")
+		}
+		if !failCore && (!bytes.Equal(s.runtime.core, fixtureCore(true, e.journal.frontier, 23)) || s.lifecycleEpoch != 5) {
+			t.Fatal("cuda successful load cleanup lost committed destination")
+		}
+		if err := owner.Close(); err != nil || snapshots[0].closes != 1 || snapshots[1].closes != 2 {
+			t.Fatal("cuda backup cleanup retry failed", err)
+		}
+		if err := owner.Close(); err != nil || snapshots[0].closes != 1 || snapshots[1].closes != 2 {
+			t.Fatal("cuda backup cleanup repeated close", err)
+		}
+	}
+}

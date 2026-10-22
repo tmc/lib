@@ -1,0 +1,29 @@
+# CLI help exposes the line chat entry point.
+exec $DS4_MIN -help
+stderr '-interactive'
+stderr '-dir-steering-file'
+stderr '-dir-steering-attn'
+stderr '-dir-steering-ffn'
+
+# Explicit empty prompts conflict, before model loading or stdin reading.
+! exec $DS4_MIN -model missing.gguf -interactive -prompt ''
+stderr 'interactive conflicts with prompt'
+! exec $DS4_MIN -model missing.gguf -interactive -raw
+stderr 'interactive conflicts with raw'
+! exec $DS4_MIN -model missing.gguf -interactive -dump-logprobs dump.json
+stderr 'interactive conflicts with dump-logprobs'
+
+# Steering admission runs before model opening. Reject nonfinite controls and
+# nonzero scales without directions, including values that round in float32.
+! exec $DS4_MIN -model missing.gguf -interactive -dir-steering-file directions -dir-steering-ffn NaN
+stderr 'steering scale must be between -100 and 100'
+! exec $DS4_MIN -model missing.gguf -interactive -dir-steering-file directions -dir-steering-attn 100.000001
+stderr 'steering scale must be between -100 and 100'
+! exec $DS4_MIN -model missing.gguf -interactive -dir-steering-ffn 1
+stderr 'steering scale requires dir-steering-file'
+
+# Default mode consumes stdin only in the runner, verified with an unreadable
+# reader and the real configured sampler in deterministic host tests.
+cd $DS4_SOURCE
+exec go test -count=1 -run '^TestInteractive(Config|CLIScript|TokenHistory)$' .
+stdout '^ok'

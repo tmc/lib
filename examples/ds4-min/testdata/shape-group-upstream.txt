@@ -1,0 +1,9 @@
+Repository: https://github.com/antirez/ds4
+Commit: 11e8cad4473716a41baf4d62e92ed9764a00fce6
+ds4_cuda.cu Git object: 3543459df309d2b5bc4943b1c15a372fefe85e17
+Fixture SHA-256: ccc50abd6d4c3b632d65444f3e219f0988fb42fae0d4bc5a7ebd0ba2b3d7333d
+
+Extract the three count/prefix/scatter functions from the pinned Git object,
+ending before moe_build_expert_tile_offsets_kernel. Strip trailing blank lines
+and preserve one final newline. DS4_SHAPE_ORACLE optionally locates a checkout
+for the test's exact object pin and regeneration comparison.

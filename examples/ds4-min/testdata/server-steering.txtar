@@ -1,0 +1,18 @@
+# The independent server flag set exposes the same directional controls.
+! exec $DS4_MIN -server -help
+stderr 'dir-steering-file'
+stderr 'dir-steering-ffn'
+stderr 'dir-steering-attn'
+
+# Admission runs before opening a model or a direction file.
+! exec $DS4_MIN -server -dir-steering-ffn NaN
+stderr 'steering'
+! exec $DS4_MIN -server -dir-steering-ffn 1
+stderr 'steering'
+! exec $DS4_MIN -server -dir-steering-ffn 100.000001
+stderr 'steering'
+
+# Explicit zero scales skip direction-file loading, matching the C server.
+! exec $DS4_MIN -server -dir-steering-file absent -dir-steering-ffn 0 -dir-steering-attn 0
+stderr 'model is required'
+! stderr 'open steering vectors'

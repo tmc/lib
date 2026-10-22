@@ -1,0 +1,36 @@
+diff --git a/ds4.c b/ds4.c
+index 91ab214..64aaaa8 100644
+--- a/ds4.c
++++ b/ds4.c
+@@ -46,7 +46,7 @@
+ #include "ds4_tp.h"
+ 
+ /* TP context for the verify-block RDMA window (set with the gate callbacks). */
+-#if !defined(DS4_NO_GPU) && defined(__APPLE__)
++#if !defined(DS4_NO_GPU)
+ static ds4_tp *g_tp_block_ctx;
+ #endif
+ 
+@@ -112,6 +112,22 @@ static uint32_t metal_graph_cuda_tp_output_tiers_for_head(
+ 
+ #ifndef DS4_NO_GPU
+ #include "ds4_gpu.h"
++
++#if !defined(DS4_NO_GPU) && !defined(__APPLE__)
++static int ds4_gpu_add_tensor_tp_flag(
++        ds4_gpu_tensor       *out,
++        const ds4_gpu_tensor *a,
++        const ds4_gpu_tensor *b,
++        uint32_t              n,
++        uint32_t              layer,
++        uint32_t              gate) {
++    (void)layer;
++    (void)gate;
++    return ds4_gpu_add_tensor(out, a, b, n);
++}
++
++static void ds4_gpu_dsv4_qkv_norm_defer_kv_next(void) {}
++#endif
+ #endif
+ 
+ /* Non-CUDA builds (Mac/Metal, CPU-only) never link ds4_cuda.cu. Provide

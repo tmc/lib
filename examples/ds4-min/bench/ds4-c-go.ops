@@ -1,0 +1,22 @@
+# Shared operation names for cudaprof compare -ops.
+gateup_iq2_swiglu_q8_d2r            gateup_iq2_swiglu_q8_d2r
+down_q2k_d2r                        down_q2k_d2r
+dense_q8_d2r                        dense_q8_d2r
+attention_tokentile_hmma            attention_tokentile_hmma
+attention_tokentile_(raw_mirror|comp_mirror|dense_build)  attention_tokentile_aux
+quantize_mmq_q8_1                   quantize_mmq_q8_1
+rms_norm|^ds4_rms$|^ds4_hc_rms_half_batch$|^ds4_hc_norm_batch$ rms
+hc_expand_kernel|hc_cached_expand   hc_expand
+d2r_build_worklist                  d2r_build_worklist
+compressor_(prefill_)?pool          compressor_pool
+f32_to_f16                          f32_to_f16
+^swiglu_kernel$|^ds4_swiglu$        swiglu
+^nvjet_|^cutlass::|^cublasLt::      cublas
+^ds4_repack_                        repack
+
+# Current optimization targets, grouped by role.
+hc_split_weighted_sum_fused_kernel  hc
+ds4_hc_cached_collapse_batch         hc
+embed_tokens_hc_kernel|ds4_get_row_f16|ds4_get_rows_f16 embed
+attention_pack_group_heads_f16_kernel|attention_unpack_group_low_kernel attn_out
+ds4_quant_q8_1_batch|dense_q8_d2r     attn_out

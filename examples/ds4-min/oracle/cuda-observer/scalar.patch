@@ -1,0 +1,257 @@
+diff --git a/ds4_cuda.cu b/ds4_cuda.cu
+index fd36d70..fc4c68d 100644
+--- a/ds4_cuda.cu
++++ b/ds4_cuda.cu
+@@ -7197,6 +7197,139 @@ __global__ static void attention_prefill_raw_kernel(
+     }
+ }
+ 
++/* Mirrored in ds4_cuda.cu: the CUDA file cannot include this legacy header. */
++typedef struct {
++    uint32_t version;
++    uint32_t size;
++    uint32_t enabled;
++    uint32_t capacity;
++    uint32_t stride;
++    uint32_t token;
++    uint32_t head;
++    uint32_t row;
++    uint32_t dim;
++    uint32_t reserved;
++    uint64_t buffer;
++    uint64_t bytes;
++} ds4_gpu_raw_observer;
++
++typedef struct {
++    uint32_t write_index;
++    uint32_t overflow;
++} ds4_gpu_raw_observer_state;
++
++typedef struct {
++    uint32_t version;
++    uint32_t size;
++    uint32_t site;
++    uint32_t token;
++    uint32_t head;
++    uint32_t row;
++    uint32_t dim;
++    uint32_t value_bits;
++} ds4_gpu_raw_observer_record;
++
++static_assert(sizeof(ds4_gpu_raw_observer) == 56, "raw observer ABI");
++static_assert(sizeof(ds4_gpu_raw_observer_state) == 8, "raw observer state ABI");
++static_assert(sizeof(ds4_gpu_raw_observer_record) == 32, "raw observer record ABI");
++
++__device__ static void cuda_observe_raw(ds4_gpu_raw_observer o, uint32_t bits) {
++    ds4_gpu_raw_observer_state *state =
++        (ds4_gpu_raw_observer_state *)(uintptr_t)o.buffer;
++    uint32_t i = atomicAdd(&state->write_index, 0u);
++    for (;;) {
++        if (i >= o.capacity) {
++            atomicOr(&state->overflow, 1u);
++            return;
++        }
++        uint32_t prev = atomicCAS(&state->write_index, i, i + 1u);
++        if (prev == i) break;
++        i = prev;
++    }
++    ds4_gpu_raw_observer_record *r = (ds4_gpu_raw_observer_record *)
++        ((char *)state + sizeof(*state) + (uint64_t)i * o.stride);
++    r->version = 1;
++    r->size = sizeof(*r);
++    r->site = 1;
++    r->token = o.token;
++    r->head = o.head;
++    r->row = o.row;
++    r->dim = o.dim;
++    r->value_bits = bits;
++}
++
++static bool cuda_raw_observer_valid(const ds4_gpu_raw_observer *o) {
++    return o->version == 1 && o->size == sizeof(*o) && o->reserved == 0 &&
++        o->buffer != 0 && o->buffer % 4 == 0 &&
++        o->stride >= sizeof(ds4_gpu_raw_observer_record) && o->stride % 4 == 0 &&
++        o->bytes >= sizeof(ds4_gpu_raw_observer_state) &&
++        (uint64_t)o->capacity * o->stride <=
++            o->bytes - sizeof(ds4_gpu_raw_observer_state) &&
++        o->buffer <= UINT64_MAX - o->bytes;
++}
++
++__global__ static void attention_prefill_raw_observed_kernel(
++        float *heads,
++        const float *sinks,
++        const float *q,
++        const float *raw_kv,
++        uint32_t n_tokens,
++        uint32_t window,
++        uint32_t n_head,
++        uint32_t head_dim, ds4_gpu_raw_observer observer) {
++    uint32_t t = blockIdx.x;
++    uint32_t h = blockIdx.y;
++    if (t >= n_tokens || h >= n_head) return;
++    uint32_t raw_count = t + 1 < window ? t + 1 : window;
++    uint32_t raw_start = t + 1 - raw_count;
++    const float *qh = q + ((uint64_t)t * n_head + h) * head_dim;
++    __shared__ float scores[256];
++    __shared__ float partial[128];
++    __shared__ float max_s;
++    __shared__ float denom;
++    float scale = rsqrtf((float)head_dim);
++    float local_max = sinks[h];
++    __syncthreads();
++    for (uint32_t r = threadIdx.x; r < raw_count; r += blockDim.x) {
++        const float *kv = raw_kv + (uint64_t)(raw_start + r) * head_dim;
++        float dot = 0.0f;
++        for (uint32_t d = 0; d < head_dim; d++) {
++            float value = kv[d];
++            if (t == observer.token && h == observer.head &&
++                raw_start + r == observer.row && d == observer.dim)
++                cuda_observe_raw(observer, __float_as_uint(value));
++            dot += qh[d] * value;
++        }
++        scores[r] = dot * scale;
++        local_max = fmaxf(local_max, scores[r]);
++    }
++    partial[threadIdx.x] = local_max;
++    __syncthreads();
++    for (uint32_t stride = blockDim.x >> 1; stride > 0; stride >>= 1) {
++        if (threadIdx.x < stride) partial[threadIdx.x] = fmaxf(partial[threadIdx.x], partial[threadIdx.x + stride]);
++        __syncthreads();
++    }
++    if (threadIdx.x == 0) max_s = partial[0];
++    __syncthreads();
++    if (threadIdx.x == 0) {
++        float den = expf(sinks[h] - max_s);
++        for (uint32_t r = 0; r < raw_count; r++) {
++            scores[r] = expf(scores[r] - max_s);
++            den += scores[r];
++        }
++        denom = den;
++    }
++    __syncthreads();
++    float *oh = heads + ((uint64_t)t * n_head + h) * head_dim;
++    for (uint32_t d = threadIdx.x; d < head_dim; d += blockDim.x) {
++        float acc = 0.0f;
++        for (uint32_t r = 0; r < raw_count; r++) {
++            acc += raw_kv[(uint64_t)(raw_start + r) * head_dim + d] * scores[r];
++        }
++        oh[d] = acc / denom;
++    }
++}
++
+ __global__ static void attention_prefill_mixed_kernel(
+         float *heads,
+         const float *sinks,
+@@ -17806,6 +17939,35 @@ extern "C" int ds4_gpu_attention_prefill_raw_heads_tensor(ds4_gpu_tensor *heads,
+                                                 n_tokens, window, n_head, head_dim);
+     return cuda_ok(cudaGetLastError(), "attention_prefill_raw launch");
+ }
++extern "C" int ds4_gpu_attention_prefill_raw_heads_tensor_observed(ds4_gpu_tensor *heads, const void *model_map, uint64_t model_size, uint64_t sinks_offset, const ds4_gpu_tensor *q, const ds4_gpu_tensor *raw_kv, uint32_t n_tokens, uint32_t window, uint32_t n_head, uint32_t head_dim, const ds4_gpu_raw_observer *observer) {
++    if (!observer || !observer->enabled) return ds4_gpu_attention_prefill_raw_heads_tensor(heads, model_map, model_size, sinks_offset, q, raw_kv, n_tokens, window, n_head, head_dim);
++    if (!cuda_raw_observer_valid(observer)) return 0;
++    if (n_tokens > 1 && head_dim == 512 &&
++        getenv("DS4_CUDA_NO_WINDOW_ATTENTION") == NULL &&
++        (getenv("DS4_CUDA_WINDOW_ATTENTION") != NULL || (!g_quality_mode && n_tokens >= 128u))) {
++        return ds4_gpu_attention_prefill_raw_heads_tensor(heads, model_map, model_size, sinks_offset, q, raw_kv, n_tokens, window, n_head, head_dim);
++    }
++    if (g_cublas_ready && n_tokens > 1 && head_dim == 512 &&
++        getenv("DS4_CUDA_NO_CUBLAS_ATTENTION") == NULL) {
++        return ds4_gpu_attention_prefill_raw_heads_tensor(heads, model_map, model_size, sinks_offset, q, raw_kv, n_tokens, window, n_head, head_dim);
++    }
++    if (!heads || !q || !raw_kv || !model_map || sinks_offset > model_size ||
++        model_size - sinks_offset < (uint64_t)n_head * sizeof(float) ||
++        heads->bytes < (uint64_t)n_tokens * n_head * head_dim * sizeof(float) ||
++        q->bytes < (uint64_t)n_tokens * n_head * head_dim * sizeof(float) ||
++        raw_kv->bytes < (uint64_t)n_tokens * head_dim * sizeof(float) ||
++        window > 256) return 0;
++    const int logical_tier = ds4_tensor_device_idx(heads);
++    const float *sinks = (const float *)cuda_resolve_weight_ptr(
++            model_map, sinks_offset, (uint64_t)n_head * sizeof(float), logical_tier, "attn_sinks");
++    if (!sinks) return 0;
++    dim3 grid(n_tokens, n_head, 1);
++    attention_prefill_raw_observed_kernel<<<grid, 128>>>((float *)heads->ptr,
++        sinks, (const float *)q->ptr, (const float *)raw_kv->ptr,
++        n_tokens, window, n_head, head_dim, *observer);
++    return cuda_ok(cudaGetLastError(), "attention_prefill_raw observed launch");
++}
++
+ static int attention_decode_batch_launch(
+         ds4_gpu_tensor       *heads,
+         const void             *model_map,
+diff --git a/ds4_gpu.h b/ds4_gpu.h
+index 5b866dd..cb16864 100644
+--- a/ds4_gpu.h
++++ b/ds4_gpu.h
+@@ -2127,6 +2127,72 @@ int ds4_gpu_attention_prefill_raw_heads_tensor(
+         uint32_t                n_head,
+         uint32_t                head_dim);
+ 
++/* Mirrored in ds4_cuda.cu: the CUDA file cannot include this legacy header. */
++typedef struct {
++    uint32_t version;
++    uint32_t size;
++    uint32_t enabled;
++    uint32_t capacity;
++    uint32_t stride;
++    uint32_t token;
++    uint32_t head;
++    uint32_t row;
++    uint32_t dim;
++    uint32_t reserved;
++    uint64_t buffer;
++    uint64_t bytes;
++} ds4_gpu_raw_observer;
++
++typedef struct {
++    uint32_t write_index;
++    uint32_t overflow;
++} ds4_gpu_raw_observer_state;
++
++typedef struct {
++    uint32_t version;
++    uint32_t size;
++    uint32_t site;
++    uint32_t token;
++    uint32_t head;
++    uint32_t row;
++    uint32_t dim;
++    uint32_t value_bits;
++} ds4_gpu_raw_observer_record;
++
++/* CUDA-only scalar raw-prefill score-load observer, ABI version 1.
++ * The host descriptor is copied into kernel arguments; buffer is a device
++ * address on the same current device as the operands, never a host pointer.
++ * Initialize size=56, stride>=32 (multiple of 4), reserved=0. Allocate at least
++ * 8 + capacity*stride bytes, aligned to 4, separately from all operands.
++ * The buffer starts with zeroed state, followed by records at 8 + index*stride.
++ * write_index saturates at capacity; overflow is sticky (1 means full).
++ * A record identifies site 1: the selected raw KV scalar loaded for a score,
++ * before its source-level multiply. row is absolute, not window-relative;
++ * value_bits is the loaded float's bits, not a pointer or a tensor snapshot.
++ * Invalid enabled descriptors fail before launch. Null/disabled descriptors
++ * delegate to the original API. Window/cuBLAS routes delegate unchanged and
++ * emit no records: they, value accumulation, and every other route are UNREAD.
++ * No matching coordinate also emits no record; absence never proves a route.
++ * Read/reset/free only after caller synchronization. Concurrent appends reserve
++ * unique slots but are unordered; write_index is not a publication flag.
++ * Graph arguments copy the descriptor and retain buffer's address. Keep buffer
++ * alive until all graphs using it are destroyed. No host callbacks or added
++ * graph nodes. Direct/graph execution and off/on output identity are UNREAD
++ * pending CUDA qualification. Metal/ROCm do not implement this entry point.
++ */
++int ds4_gpu_attention_prefill_raw_heads_tensor_observed(
++        ds4_gpu_tensor       *heads,
++        const void             *model_map,
++        uint64_t                model_size,
++        uint64_t                sinks_offset,
++        const ds4_gpu_tensor *q,
++        const ds4_gpu_tensor *raw_kv,
++        uint32_t                n_tokens,
++        uint32_t                window,
++        uint32_t                n_head,
++        uint32_t                head_dim,
++        const ds4_gpu_raw_observer *observer);
++
+ /* Rectangular raw prefill attention: q is a view of the n_q query rows at
+  * token positions [q_row0, q_row0 + n_q) of the chunk, raw_kv keeps all
+  * n_kv rows, heads receives n_q output rows.  Used by the TP prefill row

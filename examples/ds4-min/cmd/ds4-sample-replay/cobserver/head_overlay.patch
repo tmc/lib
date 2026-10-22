@@ -1,0 +1,20 @@
+--- a/cuda/mmq/ds4_mmq.cu
++++ b/cuda/mmq/ds4_mmq.cu
+@@ -4182,1 +4182,2 @@
++#include "head_observer.h"
+ extern "C" int ds4_mmq_q8_0_aligned_dense_vec(
+@@ -4210,5 +4211,6 @@
+     // producers only; verify widths always quantize.
+     char *x8 = N == 1 ? ds4_mmq_folded_q81(X_f32, K, 1, ne10_padded) : NULL;
++    const bool head_folded = x8 != NULL;
+     cudaError_t err;
+     if (!x8) {
+     if (void *scratch = ds4_mmq_aligned_q81_scratch(dev, nbytes_q8_1)) {
+@@ -4237,3 +4239,7 @@
++    if (ds4_head_snapshot(X_f32, x8, M, N, K, head_folded, stream)) {
++        fprintf(stderr, "%s: head observer failed\n", tag);
++        return -3;
++    }
+     const uint64_t nblk = (uint64_t)M * (uint64_t)(K / 32);
+     const uint64_t dq_bytes = (nblk * 2u + 63u) & ~63ull;
+     const int4   *qsp = (const int4 *)((const char *)W_aligned + dq_bytes);
