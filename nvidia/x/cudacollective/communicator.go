@@ -15,12 +15,12 @@ type Generation uint64
 // Its zero value is not usable; create one with NewCommunicator.
 type Communicator struct {
 	mu         sync.RWMutex
+	closeMu    sync.Mutex
 	rank       int
 	membership Membership
 	generation Generation
 	transport  Transport
 	closed     bool
-	closeDone  chan struct{}
 	closeErr   error
 	failed     bool
 	failErr    error
@@ -39,7 +39,7 @@ type InFlightTransfer struct {
 	BufferAddr uintptr
 	Bytes      int
 	Done       chan struct{}
-	Err        error
+	Err        error // read only after Done closes
 }
 
 // CommunicatorConfig provides parameters for creating a Communicator.
@@ -72,7 +72,6 @@ func NewCommunicator(cfg CommunicatorConfig) (*Communicator, error) {
 
 	return &Communicator{
 		rank:               cfg.Rank,
-		closeDone:          make(chan struct{}),
 		membership:         cfg.Membership,
 		generation:         cfg.Generation,
 		transport:          cfg.Transport,
@@ -254,28 +253,38 @@ func (c *Communicator) ReleaseTransferBuffer(tr *InFlightTransfer, err error) {
 }
 
 // Close stops admission and waits for the transport to finish accepted work.
-// For native transports this wait is only bounded when native work completes.
+// A transport Close error retains every in-flight reservation and permits an
+// explicit Close retry. Concurrent attempts are serialized. Buffers and native
+// handles remain borrowed until Close succeeds; native waits may be unbounded.
 func (c *Communicator) Close() error {
+	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
 	c.mu.Lock()
-	if c.closed {
-		done := c.closeDone
+	if c.closed && c.closeErr == nil {
 		c.mu.Unlock()
-		<-done
-		c.mu.RLock()
-		defer c.mu.RUnlock()
-		return c.closeErr
+		return nil
 	}
 	c.closed = true
 	c.mu.Unlock()
 	// Do not hold c.mu while waiting: completion and failure reporting can
 	// still need the communicator while accepted native work drains.
 	err := c.transport.Close()
+	if err != nil {
+		c.mu.Lock()
+		c.closeErr = err
+		c.mu.Unlock()
+		return err
+	}
 	c.inFlightMu.Lock()
 	for _, tr := range c.inFlight {
 		select {
 		case <-tr.Done:
 		default:
-			tr.Err = ErrCommunicatorClosed
+			if tr.Err == nil {
+				tr.Err = ErrCommunicatorClosed
+			} else {
+				tr.Err = errors.Join(tr.Err, ErrCommunicatorClosed)
+			}
 			close(tr.Done)
 		}
 	}
@@ -283,7 +292,6 @@ func (c *Communicator) Close() error {
 	c.inFlightMu.Unlock()
 	c.mu.Lock()
 	c.closeErr = err
-	close(c.closeDone)
 	c.mu.Unlock()
 	return err
 }

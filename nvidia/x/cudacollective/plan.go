@@ -22,11 +22,14 @@ type CollectiveStep struct {
 
 // Plan coordinates execution across distributed steps and kernel execution.
 type Plan struct {
-	mu       sync.Mutex
-	comm     *Communicator
-	pipeline *PipelineManager
-	steps    []CollectiveStep
-	closed   bool
+	mu         sync.Mutex
+	comm       *Communicator
+	pipeline   *PipelineManager
+	steps      []CollectiveStep
+	closed     bool
+	pending    *CompletionError
+	pendingTr  *InFlightTransfer
+	pendingErr error
 }
 
 // ErrPipelineCommunicator reports a PipelineManager created for a different
@@ -183,6 +186,9 @@ func (p *Plan) ExecuteSteps(ctx context.Context) error {
 
 			// Execute via communicator transport
 			err = p.comm.Transport().Execute(ctx, p.comm, step.Descriptor, step.SendBuffer, step.RecvBuffer)
+			if pending := pendingCompletion(err); pending != nil {
+				p.pending, p.pendingTr, p.pendingErr = pending, tr, err
+			}
 			p.pipeline.CompleteStage(tr, err)
 			if err != nil {
 				p.comm.MarkFailed(err)
@@ -191,6 +197,9 @@ func (p *Plan) ExecuteSteps(ctx context.Context) error {
 		} else {
 			err := p.comm.Transport().Execute(ctx, p.comm, step.Descriptor, step.SendBuffer, step.RecvBuffer)
 			if err != nil {
+				if pending := pendingCompletion(err); pending != nil {
+					p.pending, p.pendingErr = pending, err
+				}
 				p.comm.MarkFailed(err)
 				return fmt.Errorf("step %s execute: %w", step.Name, err)
 			}
@@ -199,14 +208,24 @@ func (p *Plan) ExecuteSteps(ctx context.Context) error {
 	return nil
 }
 
-// Close closes the plan. The caller owns the PipelineManager and Communicator
-// passed to NewPlan; Close does not close or drain them.
+// Close stops plan admission and retries its one incomplete operation, if any.
+// Failure retains the transfer and error owner for an explicit retry. Success
+// retires that operation exactly once, preserving its original execution error
+// in the pipeline. The caller owns the PipelineManager and Communicator; Close
+// does not close them or other plans' work. Native recovery needs the original
+// CUDA context and may block; cancellation is not completion.
 func (p *Plan) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.closed {
-		return nil
-	}
 	p.closed = true
+	if p.pending != nil {
+		if err := p.pending.Close(); err != nil {
+			return err
+		}
+		if p.pendingTr != nil {
+			p.pipeline.CompleteStage(p.pendingTr, p.pendingErr)
+		}
+		p.pending, p.pendingTr, p.pendingErr = nil, nil, nil
+	}
 	return nil
 }
