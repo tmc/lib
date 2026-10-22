@@ -1,0 +1,11 @@
+commit: 1c9e68cb50ff077fa1abc549a4946afa63ec706f
+date: 2026-10-22T05:47:57.645355+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 52242
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+root grade: /Users/tmc/tmp/lib-wt-next/20261021-kernelsearch-root-adoption/GRADE.md
+source: /Users/tmc/tmp/lib-wt-next/20261021-kernelsearch-observer-fixes/source
+qualification: selected task-workspace CPU/race/vet; no standalone or native/full33 proof
