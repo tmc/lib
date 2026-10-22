@@ -12,7 +12,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasearch"
 )
 
-func hostPlan(t *testing.T) *cudaplan.ExecutablePlan {
+func hostPlan(t *testing.T, opts ...cudaplan.PlanOption) *cudaplan.ExecutablePlan {
 	t.Helper()
 	g := cudair.NewGraph()
 	x := g.AddInput("x", []int{2}, cudair.Float32)
@@ -24,7 +24,7 @@ func hostPlan(t *testing.T) *cudaplan.ExecutablePlan {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := cudaplan.Compile(s)
+	p, err := cudaplan.Compile(s, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,18 +59,24 @@ func TestPromotionReplacesPlanForNextLaunchOnly(t *testing.T) {
 func TestExecutingGraphMutationNotAttempted(t *testing.T) {
 	f, l := setup(t)
 	result := run(t, l, f)
-	p, q := hostPlan(t), hostPlan(t)
+	p, q := hostPlan(t, cudaplan.WithFiniteMega(true)), hostPlan(t, cudaplan.WithFiniteMega(true))
 	before := p.Steps()
 	r, _ := NewResident(HostStub, 1, PlanBinding{f.cfg.Baseline.Identity(), p})
 	if err := r.Promote(result.Promotion, PlanBinding{result.Search.Winner.ID, q}); err != nil {
 		t.Fatal(err)
 	}
 	after := p.Steps()
-	if len(before) != len(after) {
+	if len(before) == 0 || len(before) != len(after) {
 		t.Fatal("previous plan mutated")
 	}
 	for i := range before {
-		if before[i].NodeID != after[i].NodeID || before[i].NodeName != after[i].NodeName || before[i].Artifact != after[i].Artifact {
+		if before[i].Artifact == nil || after[i].Artifact == nil {
+			t.Fatal("generated plan has no artifact")
+		}
+		if before[i].Artifact == after[i].Artifact {
+			t.Fatal("plan readback did not detach artifact wrappers")
+		}
+		if before[i].NodeID != after[i].NodeID || before[i].NodeName != after[i].NodeName || *before[i].Artifact != *after[i].Artifact {
 			t.Fatal("graph node changed")
 		}
 	}
