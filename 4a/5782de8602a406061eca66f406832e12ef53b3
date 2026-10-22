@@ -1,0 +1,11 @@
+commit: 4a5782de8602a406061eca66f406832e12ef53b3
+date: 2026-10-22T07:35:40.462276+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 15087
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261022-unit25-source-followup/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261022-unit25-source-followup/GRADE.md
+qualification: guarded C-shim source and controlled-host/race/vet; D2 and native unqualified; no provider/native/spend
