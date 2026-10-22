@@ -1659,6 +1659,7 @@ var (
 		"nvrtcx.SpliceAndCompile",
 	}
 	loadNearMisses = []string{
+		"nvrtcx.(*CompiledModule).CompilerOptions",
 		"nvrtcx.CompileFlags",
 		"nvrtcx.ValidateJITFusionCompilerVersion",
 		"nvrtcx.WithFastCompile",
@@ -1718,10 +1719,10 @@ var loadPackages = map[string]bool{
 
 // isLoadName reports whether name is that of a compile or load entry
 // point: Compile or Load followed by anything, Bind, or SpliceAndCompile,
-// but not CompileFlags, which only resolves options to flags.
+// but not CompileFlags or CompilerOptions, which only resolve or report options.
 func isLoadName(name string) bool {
 	switch name {
-	case "CompileFlags":
+	case "CompileFlags", "CompilerOptions":
 		return false
 	case "Bind", "SpliceAndCompile":
 		return true
