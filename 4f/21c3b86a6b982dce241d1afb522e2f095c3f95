@@ -1,0 +1,10 @@
+commit: 4f21c3b86a6b982dce241d1afb522e2f095c3f95
+date: 2026-10-22T04:16:41.133326+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty
+pid: 19091
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261020-r1-unrun-precedence/candidate.patch
+source sha256: f75ed43995df9f17b0e43dcb91852953dfe4f3103eb2e0fb29e423f674c7ed5f
