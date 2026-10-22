@@ -57,7 +57,8 @@ type Result struct {
 	// StartOrder is the overlap instrument, laid out as the emitted worker's
 	// buffer is: word zero is the ticket counter, and word
 	// 1 + cta*len(steps) + task is the one-based ticket that worker held when
-	// it took that task, or zero if it never did. See [cudamega.StartOrderWords].
+	// it took that task, or zero if it never did. The final two words are entry
+	// arrivals and release state. See [cudamega.StartOrderWords].
 	StartOrder []uint64
 	// Abort is zero for a run that finished, and otherwise one of the
 	// cudamega.Abort constants.
@@ -169,6 +170,8 @@ func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort 
 	// by the same test, and a layout that differed between them would make
 	// that test's agreement meaningless.
 	r.startOrder[0] = r.ticket.Load()
+	r.startOrder[len(r.startOrder)-2] = r.arrivals.Load()
+	r.startOrder[len(r.startOrder)-1] = r.released.Load()
 	return Result{Scratch: r.scratch, StartOrder: r.startOrder, Abort: r.abort.Load()}, nil
 }
 
@@ -199,13 +202,15 @@ type run struct {
 	abort     atomic.Uint32
 	cta       []ctaState
 
-	// startOrder and ticket are the overlap instrument, not part of the
-	// model. ticket is the device-scope atomic the emitted worker deals
+	// The ticket portion of startOrder is the overlap instrument. ticket is
+	// the device-scope atomic the emitted worker deals
 	// tickets from; startOrder is the buffer it writes them into. Each slot
 	// is written by exactly one thread of one worker and read only after
 	// every worker has finished, so the plain slice needs no atomics.
 	startOrder []uint64
 	ticket     atomic.Uint64
+	arrivals   atomic.Uint64
+	released   atomic.Uint64
 
 	// fence is the word a device- or system-scope fence performs a
 	// read-modify-write on. Go exposes no standalone fence; a
@@ -269,6 +274,38 @@ func (w *worker) Begin(p *cudamega.Program) error {
 	if w.r.n == 0 || w.r.epoch == 0 {
 		return fmt.Errorf("extent %d at epoch %d: abort code %d", w.r.n, w.r.epoch, cudamega.AbortBadExtent)
 	}
+	return nil
+}
+
+func (w *worker) Entry() error {
+	if w.tid == 0 {
+		for i := int(w.cta); i < len(w.r.steps); i += int(w.r.ctas) {
+			if w.r.completed[i].Load() != 0 {
+				w.r.abort.CompareAndSwap(0, cudamega.AbortStaleCompletion)
+			}
+		}
+		// Go's sequentially consistent operations implement the CUDA
+		// release-arrive/acquire-release chain with a stronger ordering.
+		arrival := w.r.arrivals.Add(1)
+		if arrival > uint64(w.r.ctas) {
+			w.r.abort.CompareAndSwap(0, cudamega.AbortStaleCompletion)
+		}
+		if arrival == uint64(w.r.ctas) {
+			w.r.released.Store(1)
+		}
+		limit := w.r.p.Grid().SpinLimit
+		if limit == 0 {
+			limit = cudamega.DefaultSpinLimit
+		}
+		for spins := uint64(0); w.r.released.Load() == 0; spins++ {
+			if spins+1 >= limit {
+				w.r.abort.CompareAndSwap(0, cudamega.AbortSpinExhausted)
+				break
+			}
+			runtime.Gosched()
+		}
+	}
+	w.observeAbort()
 	return nil
 }
 
@@ -390,7 +427,7 @@ func (w *worker) EndTask(i int) error {
 	return nil
 }
 
-// NextRound is where this backend waits, and the only place it does.
+// NextRound is where this backend waits after entry.
 //
 // A worker reaches it having declined every task it owns, so what it waits
 // for is another worker's publication. The bound exists for the reason the

@@ -305,7 +305,7 @@ func TestEveryPrimitiveHasTwoImplementations(t *testing.T) {
 		names = append(names, iface.Method(i).Name)
 	}
 	sort.Strings(names)
-	want := []string{"Barrier", "Begin", "BeginSelection", "BeginTask", "Compute", "End", "EndSelection", "EndTask", "Fence", "ForwardProgress", "NextRound", "Publish", "Ready", "Residency", "Take"}
+	want := []string{"Barrier", "Begin", "BeginSelection", "BeginTask", "Compute", "End", "EndSelection", "EndTask", "Entry", "Fence", "ForwardProgress", "NextRound", "Publish", "Ready", "Residency", "Take"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("cudamega.Backend has methods %v, want %v; a new primitive needs an implementation in every backend and a call in the driver", names, want)
 	}

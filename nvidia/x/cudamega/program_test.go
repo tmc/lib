@@ -327,7 +327,12 @@ func TestIndependentTaskHasNoSpinToBound(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, unwanted := range []string{"spins", "spin_limit"} {
-		if strings.Contains(src, unwanted) {
+		// All workers must first finish the distinct, bounded entry wait.
+		entryEnd := strings.Index(src, "// entry protocol end")
+		if entryEnd < 0 {
+			t.Fatal("entry protocol missing")
+		}
+		if strings.Contains(src[entryEnd:], unwanted) {
 			t.Errorf("a dependency-free task emitted %q, which nothing in it can reach:\n%s", unwanted, src)
 		}
 	}

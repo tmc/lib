@@ -466,10 +466,10 @@ func checkMoEPublication(b MoEWeightBuffers) error {
 
 func checkMoEPublicationWords(completed, abort []uint32, order []uint64) error {
 	tasks := uint32(len(completed))
-	if tasks < 1 || tasks > 2 || len(abort) != 1 || len(order) != 1+int(tasks*tasks) {
+	if tasks < 1 || tasks > 2 || len(abort) != 1 || len(order) != 3+int(tasks*tasks) {
 		return errors.New("cudamega: typed publication dimensions differ")
 	}
-	if abort[0] != 0 || order[0] != uint64(tasks) {
+	if abort[0] != 0 || order[0] != uint64(tasks) || order[len(order)-2] != uint64(tasks) || order[len(order)-1] != 1 {
 		return errors.New("cudamega: typed task publication incomplete")
 	}
 	seen := make(map[uint64]bool)

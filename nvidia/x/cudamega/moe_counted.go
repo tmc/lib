@@ -108,12 +108,7 @@ func MoECountedWeightSource(config MoEWeightConfig, target Target) (string, erro
   constexpr unsigned intermediate=%d, hidden=%d;
   if (gridDim.x!=2||gridDim.y!=1||gridDim.z!=1||blockDim.x!=32||blockDim.y!=1||blockDim.z!=1) { if(threadIdx.x==0) atomicCAS((unsigned*)abort_code,0u,%du); return; }
   if (n!=intermediate||!epoch||layer<0||layer>=3||layer==1||expert!=0) { if(threadIdx.x==0) atomicCAS((unsigned*)abort_code,0u,%du); return; }
-  // Each independent task checks only its own slot, which no other CTA writes.
-  __shared__ unsigned entry_bad;
-  if (threadIdx.x==0) entry_bad=completed[blockIdx.x]!=0;
-  __syncthreads();
-  if (entry_bad) { if(threadIdx.x==0) atomicCAS((unsigned*)abort_code,0u,%du); return; }
-`, config.Intermediate, config.Hidden, AbortBadLaunch, AbortBadExtent, AbortStaleCompletion)
+`, config.Intermediate, config.Hidden, AbortBadLaunch, AbortBadExtent)
 	return ordinary + c.defs.String() + entry + c.body.String() + "}\n", nil
 }
 

@@ -109,6 +109,38 @@ func (c *cudaSource) Begin(p *Program) error {
 // every guard: the guards below contain a __syncthreads, and a word another
 // CTA may be writing is not a thing the threads of one CTA can be relied on
 // to read alike.
+func (c *cudaSource) Entry() error {
+	// The appended words are separate from the task tickets. Every completion
+	// slot is checked once before the release of this all-worker entry barrier.
+	fmt.Fprintf(&c.body, `
+  // entry protocol begin
+  __shared__ unsigned entry_abort;
+  if (threadIdx.x==0) {
+    unsigned long long *arrivals=start_order+1+(unsigned long long)task_count*grid_ctas;
+    unsigned long long *released=arrivals+1;
+    for (unsigned long long i=blockIdx.x; i<task_count; i+=grid_ctas)
+      if (atomicAdd(completed+i,0u)!=0) atomicCAS((unsigned*)abort_code,0u,%du);
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    unsigned long long arrival=atomicAdd(arrivals,1ull);
+    if (arrival>=grid_ctas) atomicCAS((unsigned*)abort_code,0u,%du);
+    if (arrival==grid_ctas-1) {
+      asm volatile("fence.sc.gpu;" ::: "memory");
+      atomicExch(released,1ull);
+    }
+    unsigned long long spins=0;
+    while (atomicAdd(released,0ull)==0) {
+      if (++spins>=%dull) { atomicCAS((unsigned*)abort_code,0u,%du); break; }
+    }
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    entry_abort=atomicAdd((unsigned*)abort_code,0u);
+  }
+  __syncthreads();
+  if (entry_abort) return;
+  // entry protocol end
+`, AbortStaleCompletion, AbortStaleCompletion, c.p.grid.spinLimit(), AbortSpinExhausted)
+	return nil
+}
+
 func (c *cudaSource) BeginSelection() error {
 	p := c.p
 	b := &c.body

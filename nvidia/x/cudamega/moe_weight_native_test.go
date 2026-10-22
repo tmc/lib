@@ -458,7 +458,7 @@ func TestNativeMoEMegaSharedWeights(t *testing.T) {
 		t.Fatal(err)
 	}
 	frees = append(frees, abort.Free)
-	order, err := cudamem.Alloc[uint64](dev, 2)
+	order, err := cudamem.Alloc[uint64](dev, 4)
 	if err != nil {
 		t.Fatal(err)
 	}

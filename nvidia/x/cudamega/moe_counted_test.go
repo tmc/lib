@@ -112,11 +112,13 @@ func TestMoECountedOwnersAndPublication(t *testing.T) {
 		}
 	}
 	for _, order := range [][]uint64{{2, 1, 0, 0, 2}, {2, 2, 0, 0, 1}} {
+		order = append(order, 2, 1)
 		if err := checkMoEPublicationWords([]uint32{1, 1}, []uint32{0}, order); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, order := range [][]uint64{{2, 1, 0, 0, 1}, {2, 1, 1, 0, 2}, {2, 1, 0, 0, 0}, {1, 1, 0, 0, 2}, {2, 1, 0, 0, 3}} {
+		order = append(order, 2, 1)
 		if err := checkMoEPublicationWords([]uint32{1, 1}, []uint32{0}, order); err == nil {
 			t.Fatal("wrong task/owner/ticket admission")
 		}
@@ -142,6 +144,13 @@ func TestMoECountedEmittedPayload(t *testing.T) {
 	// Serially interpret each lane's emitted payload as host C++. This checks
 	// arithmetic, expert addressing and owner guards only: fences/barriers are
 	// explicitly erased and therefore have no GPU scheduling proof here.
+	// The all-CTA entry protocol cannot run in a serial lane interpreter.
+	// Its actual CPU implementation is checked by cudamegacpu entry controls.
+	start, end := strings.Index(source, "// entry protocol begin"), strings.Index(source, "// entry protocol end")
+	if start < 0 || end < start {
+		t.Fatal("entry protocol missing")
+	}
+	source = source[:start] + source[end+len("// entry protocol end"):]
 	source = strings.ReplaceAll(source, `asm volatile("fence.sc.gpu;" ::: "memory");`, "(void)0;")
 	stub := `#include <cmath>
 #include <cstring>
@@ -178,16 +187,14 @@ int main() {
   gridDim.x=1;
   for(int e=0;e<2;++e) for(threadIdx.x=0;threadIdx.x<32;++threadIdx.x)
     moe_weight_slab(weights,scales,input,ordinary+e*I,L,e,2,I,H);
-  gridDim.x=2; unsigned completed[2]={},abort=0; unsigned long long order[5]={};
+  gridDim.x=2; unsigned completed[2]={},abort=0; unsigned long long order[7]={};
   for(float &x:actual) x=-99;
   for(blockIdx.x=0;blockIdx.x<2;++blockIdx.x) for(threadIdx.x=0;threadIdx.x<32;++threadIdx.x)
     moe_weight_counted_worker(weights,scales,input,actual,completed,order,&abort,L,0,I,1);
   if(abort || completed[0]!=1 || completed[1]!=1 || order[0]!=2 || order[1]!=1 || order[2] || order[3] || order[4]!=2) return 1;
   for(int n=0;n<2*I;++n) if(actual[n]!=want[n] || ordinary[n]!=want[n]) return 2;
-  // Nonzero entry completion is distinct from over-publication.
-  abort=0; completed[0]=1; completed[1]=0; threadIdx.x=0; blockIdx.x=0;
-  moe_weight_counted_worker(weights,scales,input,actual,completed,order,&abort,L,0,I,2);
-  if(abort!=6) return 3;
+  // Entry synchronization is erased in this arithmetic-only interpreter.
+  threadIdx.x=0; blockIdx.x=0;
   abort=0; completed[0]=0;
   moe_weight_counted_worker(weights,scales,input,actual,completed,order,&abort,L,0,I+1,2);
   if(abort!=3) return 4;

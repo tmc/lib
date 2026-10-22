@@ -23,11 +23,12 @@ case 2: return op_2(x);
 case 3: return op_3(x);
 default: return 0; }}
 
-// start_order is the instrument, not part of the model: start_order[0] is a
+// start_order begins with the instrument: start_order[0] is a
 // ticket counter and start_order[1 + cta*task_count + task] is the ticket the
 // CTA held when it took that task, or zero for a task that CTA never took.
 // Tickets are dealt by one device-scope atomic add, so they are a total order
 // over task starts across the whole grid and can be compared between CTAs.
+// The final two words hold fresh zeroed entry arrivals and release state.
 extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
     unsigned *completed, unsigned long long *start_order, volatile unsigned *abort_code,
     unsigned n, unsigned long long epoch) {
@@ -39,6 +40,31 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
     if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 3u);
     return;
   }
+
+  // entry protocol begin
+  __shared__ unsigned entry_abort;
+  if (threadIdx.x==0) {
+    unsigned long long *arrivals=start_order+1+(unsigned long long)task_count*grid_ctas;
+    unsigned long long *released=arrivals+1;
+    for (unsigned long long i=blockIdx.x; i<task_count; i+=grid_ctas)
+      if (atomicAdd(completed+i,0u)!=0) atomicCAS((unsigned*)abort_code,0u,6u);
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    unsigned long long arrival=atomicAdd(arrivals,1ull);
+    if (arrival>=grid_ctas) atomicCAS((unsigned*)abort_code,0u,6u);
+    if (arrival==grid_ctas-1) {
+      asm volatile("fence.sc.gpu;" ::: "memory");
+      atomicExch(released,1ull);
+    }
+    unsigned long long spins=0;
+    while (atomicAdd(released,0ull)==0) {
+      if (++spins>=16777216ull) { atomicCAS((unsigned*)abort_code,0u,4u); break; }
+    }
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    entry_abort=atomicAdd((unsigned*)abort_code,0u);
+  }
+  __syncthreads();
+  if (entry_abort) return;
+  // entry protocol end
 
   __shared__ unsigned selection_abort;
   __shared__ unsigned task_ready;

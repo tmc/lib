@@ -50,7 +50,7 @@ func TestProgramInvocation(t *testing.T) {
 				}
 				return
 			}
-			want := Invocation{Elements: uint32(tc.elements), ScratchWords: 2 * int(tc.elements), StartOrderWords: 5}
+			want := Invocation{Elements: uint32(tc.elements), ScratchWords: 2 * int(tc.elements), StartOrderWords: 7}
 			if tc.declared != 0 {
 				want.ScratchWords = 2 * int(tc.declared)
 			}
@@ -72,9 +72,9 @@ func TestInvocationSizes(t *testing.T) {
 		refuse                     bool
 	}{
 		{"valid", 2, 3, 2, math.MaxInt64, false},
-		{"scratch byte boundary", 2, 3, 2, 40, false},
+		{"order byte boundary", 2, 3, 2, 56, false},
 		{"scratch bytes overflow", 2, 6, 1, 40, true},
-		{"order bytes overflow", 2, 3, 2, 39, true},
+		{"order bytes overflow", 2, 3, 2, 55, true},
 		{"scratch int32 overflow", 1024, math.MaxUint32, 1, math.MaxInt32, true},
 		{"order int32 overflow", 1024, 1, math.MaxUint32, math.MaxInt32, true},
 		{"zero tasks", 0, 1, 1, math.MaxInt64, true},
@@ -97,7 +97,7 @@ func ExampleProgram_Invocation() {
 	p, _ := NewProgram(g, map[string]Operation{"add": {Kind: Add, Scalar: 1}}, Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 3}, SM80)
 	inv, err := p.Invocation(3)
 	fmt.Println(inv.Elements, inv.ScratchWords, inv.StartOrderWords, err)
-	// Output: 3 3 2 <nil>
+	// Output: 3 3 4 <nil>
 }
 
 func ExampleInvocation() {
@@ -105,5 +105,5 @@ func ExampleInvocation() {
 	p, _ := NewProgram(g, map[string]Operation{"add": {Kind: Add}}, Grid{CTAs: 1, ThreadsPerCTA: 32}, SM80)
 	inv, _ := p.Invocation(2)
 	fmt.Println(inv.ScratchWords*4, inv.StartOrderWords*8)
-	// Output: 8 16
+	// Output: 8 32
 }

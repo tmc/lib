@@ -78,7 +78,7 @@ func (f Fence) String() string {
 // persistent worker needs.
 //
 // The set is deliberately the smallest one that expresses the worker and no
-// smaller. Six of the methods are the synchronization primitives the model
+// smaller. The methods include the synchronization primitives the model
 // rests on:
 //
 //   - [Backend.Barrier] is the workgroup barrier, over the threads of one
@@ -90,8 +90,10 @@ func (f Fence) String() string {
 //     CTA scope a backend may serve it with a workgroup-scoped barrier
 //     primitive -- an mbarrier on CUDA -- which is why the optional seventh
 //     primitive is a quality of this method rather than a method of its own.
-//   - [Backend.NextRound] is where a worker with nothing ready waits. It is
-//     the only method that may wait at all.
+//   - [Backend.Entry] joins the initial completion checks of all workers,
+//     before any producer can publish, using separate startup state.
+//   - [Backend.NextRound] is where a worker with nothing ready waits after
+//     entry. Both waits are bounded.
 //   - [Backend.Residency] is the residency query.
 //   - [Backend.ForwardProgress] is the co-residency guarantee, which is the
 //     actual boundary. See [ForwardProgress].
@@ -131,6 +133,11 @@ type Backend interface {
 	// generated worker's entry makes: a geometry that is not the one the
 	// program was built for, or an empty extent.
 	Begin(p *Program) error
+
+	// Entry checks the initially zero completion words and joins every worker
+	// before any task may publish. Startup state is fresh for each invocation.
+	// The wait is bounded and requires the declared forward-progress admission.
+	Entry() error
 
 	// BeginSelection opens the worker's selection loop and takes stock of the
 	// tasks this worker owns. A rendering backend emits the loop; a
@@ -195,7 +202,7 @@ type Backend interface {
 	EndTask(i int) error
 
 	// NextRound ends one pass over the worker's owned tasks and reports
-	// whether another is needed. It is the only method that waits, and a
+	// whether another is needed. After Entry it is the only wait, and a
 	// worker reaches it only having declined every task it owns, so what it
 	// waits for is another worker's publication and never its own.
 	NextRound() (bool, error)
@@ -548,12 +555,14 @@ func NewRunner(p *Program, b Backend) (*Runner, error) {
 // The outer loop is the selection loop. The inner pass visits every step in
 // program order, which is the order the emitted text lays them down; a worker
 // that owns none of them, or that finds none of its own ready, falls through
-// to [Backend.NextRound], which is where waiting happens and the only place
-// it happens.
+// to [Backend.NextRound], where dependency waiting happens.
 func (r *Runner) Run() error {
 	p, b := r.p, r.b
 	if err := b.Begin(p); err != nil {
 		return fmt.Errorf("begin: %w", err)
+	}
+	if err := b.Entry(); err != nil {
+		return fmt.Errorf("entry: %w", err)
 	}
 	if err := b.BeginSelection(); err != nil {
 		return fmt.Errorf("selection: %w", err)

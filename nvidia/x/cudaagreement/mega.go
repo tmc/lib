@@ -396,8 +396,12 @@ func (e *MegaExecutor) program(plan *Plan, u megaUnit) (*cudamega.Program, error
 // worker ran which task, and the record is made from it.
 func checkStartOrder(steps []cudamega.Step, ctas uint32, ord []uint64) error {
 	nt := len(steps)
-	if len(ord) < 1+nt*int(ctas) {
-		return fmt.Errorf("cudaagreement: start order has %d words, want %d", len(ord), 1+nt*int(ctas))
+	want, err := cudamega.StartOrderWords(uint64(nt), uint64(ctas))
+	if err != nil || uint64(len(ord)) != want {
+		return fmt.Errorf("cudaagreement: start order has %d words, want %d", len(ord), want)
+	}
+	if ord[len(ord)-2] != uint64(ctas) || ord[len(ord)-1] != 1 {
+		return errors.New("cudaagreement: persistent worker entry incomplete")
 	}
 	var total uint64
 	for _, s := range steps {

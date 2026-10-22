@@ -226,6 +226,7 @@ func (r *recording) Residency() cudamega.Admission {
 	return r.Backend.Residency()
 }
 func (r *recording) Begin(p *cudamega.Program) error { r.note("Begin"); return r.Backend.Begin(p) }
+func (r *recording) Entry() error                    { r.note("Entry"); return r.Backend.Entry() }
 func (r *recording) BeginTask(i int) (bool, error) {
 	r.note("BeginTask")
 	return r.Backend.BeginTask(i)

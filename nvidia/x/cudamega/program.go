@@ -84,8 +84,8 @@ const DefaultSpinLimit = 1 << 24
 // Buffers: scratch has Program.Invocation(n).ScratchWords uint32 elements,
 // laid out as Program.Storage(n) records; completed has len(tasks)
 // words, zeroed by the host before each epoch, and counts arriving CTAs;
-// start_order has [StartOrderWords] uint64 words and records when each CTA
-// took each task; abort_code is one volatile word. The caller retains every
+// start_order has [StartOrderWords] freshly zeroed uint64 words for entry and
+// task-start tickets; abort_code is one volatile word. The caller retains every
 // buffer until stream completion.
 //
 // Epoch must be nonzero, and the parameter is 64 bits wide because the host's
@@ -216,17 +216,21 @@ const workerEpilogue = `
 // StartOrderWords is the length of the start-order buffer, in uint64 words,
 // for a program of the given shape.
 //
-// The buffer is the overlap instrument. Word zero is the ticket counter; word
+// The buffer combines overlap instrumentation and startup state.
+// Word zero is the ticket counter; word
 // 1 + cta*tasks + task is the ticket that CTA held when it took that task,
 // one-based so that zero means the CTA never took it. Tickets come from a
 // single device-scope atomic, so they order task starts across CTAs and not
 // only within one, which is the whole question the instrument exists to
 // answer: whether the workers are in the same task at the same time.
+// The final two words are startup arrivals and release state. Both must be
+// freshly zeroed, together with the ticket counter and tickets, before each
+// invocation. All initially zero completion words are checked before release.
 func StartOrderWords(tasks, ctas uint64) (uint64, error) {
 	if tasks == 0 || tasks > 1024 || ctas == 0 || ctas > math.MaxUint32 {
 		return 0, fmt.Errorf("invalid start-order extent")
 	}
-	return 1 + tasks*ctas, nil
+	return 3 + tasks*ctas, nil
 }
 
 // ProgramScratchBytes checks the finite worker's scratch extent and returns

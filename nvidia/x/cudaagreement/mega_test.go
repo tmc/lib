@@ -114,14 +114,17 @@ func TestCheckStartOrder(t *testing.T) {
 		{Task: cudataskgraph.Task{ID: "b"}, Owner: cudamega.Owner{Lo: 2, Hi: 4}},
 	}
 	// Layout: ord[0] is the ticket counter, ord[1+cta*tasks+task] the ticket.
-	good := []uint64{4, 1, 0, 2, 0, 0, 3, 0, 4}
+	good := []uint64{4, 1, 0, 2, 0, 0, 3, 0, 4, 4, 1}
 	tests := []struct {
 		name string
 		edit func([]uint64) []uint64
 		want string
 	}{
 		{"as dealt", nil, ""},
-		{"short buffer", func(o []uint64) []uint64 { return o[:5] }, "start order has 5 words, want 9"},
+		{"short buffer", func(o []uint64) []uint64 { return o[:5] }, "start order has 5 words, want 11"},
+		{"entry arrivals missing", func(o []uint64) []uint64 { o[9] = 3; return o }, "entry incomplete"},
+		{"entry release missing", func(o []uint64) []uint64 { o[10] = 0; return o }, "entry incomplete"},
+		{"entry release invalid", func(o []uint64) []uint64 { o[10] = 2; return o }, "entry incomplete"},
 		{"counter", func(o []uint64) []uint64 { o[0] = 3; return o }, "dealt 3 start tickets, want 4"},
 		{"owner never started", func(o []uint64) []uint64 { o[3] = 0; o[0] = 4; return o }, "task a on CTA 1 has ticket 0"},
 		{"non-owner started", func(o []uint64) []uint64 { o[2] = 5; return o }, "task b on CTA 0 has ticket 5"},

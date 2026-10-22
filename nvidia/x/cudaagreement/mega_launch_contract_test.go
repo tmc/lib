@@ -34,7 +34,7 @@ func TestMegaLaunchContract(t *testing.T) {
 			if err != nil || reason != "" {
 				t.Fatalf("prepare: %q, %v", reason, err)
 			}
-			if a.scratchWords != 24 || a.orderWords != 1+3*int(ctas) {
+			if a.scratchWords != 24 || a.orderWords != 3+3*int(ctas) {
 				t.Fatalf("sizes: %+v", a)
 			}
 			reason, err = a.resident(grid, dev, dev, dev, dev, current, func() (int32, int, error) {

@@ -135,7 +135,7 @@ type startEvent struct {
 
 func events(t *testing.T, order []uint64, tasks int, ctas uint32) []startEvent {
 	t.Helper()
-	if want := 1 + tasks*int(ctas); len(order) != want {
+	if want := 3 + tasks*int(ctas); len(order) != want {
 		t.Fatalf("start-order buffer has %d words, want %d", len(order), want)
 	}
 	var out []startEvent
