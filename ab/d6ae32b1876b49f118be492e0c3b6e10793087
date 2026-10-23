@@ -1,0 +1,11 @@
+commit: abd6ae32b1876b49f118be492e0c3b6e10793087
+date: 2026-10-23T07:57:09.847883+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 33754
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-collective-clique-impl/r3/W/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-clique-adoption/ROOT-GRADE.md
+qualification: Clique source; base126+20paths; focusedhost/race/vet/twoomissions pass with retained deviations; native unqualified
