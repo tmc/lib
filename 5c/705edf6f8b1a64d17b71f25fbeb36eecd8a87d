@@ -1,0 +1,11 @@
+commit: 5c705edf6f8b1a64d17b71f25fbeb36eecd8a87d
+date: 2026-10-23T05:24:46.963228+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 7080
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-unit34-host-control-adoption/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-unit34-host-control-adoption/ROOT-GRADE.md
+qualification: one add-only host test file; actual114 tracked module bodies; host/race/vet and two causal compiled omissions PASS; actual toolkit/native work unqualified
