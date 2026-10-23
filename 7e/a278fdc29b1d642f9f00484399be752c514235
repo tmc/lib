@@ -1,0 +1,11 @@
+commit: 7ea278fdc29b1d642f9f00484399be752c514235
+date: 2026-10-23T06:05:25.824434+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 66764
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-constructor-kernel-plan-clients/B2/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-constructor-matrix-client-adoption/ROOT-GRADE.md
+qualification: two test-file matrix source; tested115 plus B2; host/race20PASS each and vet; current117 source composition only; native unqualified
