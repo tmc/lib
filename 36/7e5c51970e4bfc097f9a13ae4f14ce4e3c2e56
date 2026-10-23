@@ -1,0 +1,11 @@
+commit: 367e5c51970e4bfc097f9a13ae4f14ce4e3c2e56
+date: 2026-10-23T06:47:15.004612+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 20707
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-artifact-workspace-successor/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-workspace-capability-adoption/ROOT-GRADE.md
+qualification: artifact workspace source; exact120 plus18paths; sixpackages27roots66PASS each host/race plusvet; native unqualified
