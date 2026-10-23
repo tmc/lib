@@ -42,6 +42,12 @@ type NVMLProcessDevice struct {
 // Snapshot supplies the observation provenance, and BootID, Snapshot.NodeID
 // and PIDNamespace identify the host the queries observe, which must be the
 // host whose proc files are read.
+//
+// The caps are not the effective limits. [QueryNVMLProcesses] accepts at most
+// 4096 records from each query, and [ReadNVMLAttributionSnapshot] reads at
+// most 4096 distinct PIDs. Caps up to 65536 remain valid configuration, but a
+// real result beyond 4096 records in one query, or 4096 distinct PIDs in all,
+// fails the call rather than being truncated.
 type NVMLProcessSelection struct {
 	UUIDs        []string
 	Sources      []string

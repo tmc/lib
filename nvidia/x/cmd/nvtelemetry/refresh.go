@@ -209,7 +209,14 @@ func newAttributionSource(a *attributionConfig, clock nvtelemetry.Clock, cfg nvt
 						_ = nvml.Shutdown()
 						return nil, nil, fmt.Errorf("select NVML device: %w", err)
 					}
-					if actual, err := device.UUID(); err != nil || actual != uuid {
+					// On these failure paths the Shutdown error is discarded:
+					// the identity failure is reported, not the release.
+					actual, err := device.UUID()
+					if err != nil {
+						_ = nvml.Shutdown()
+						return nil, nil, fmt.Errorf("read selected NVML device uuid: %w", err)
+					}
+					if actual != uuid {
 						_ = nvml.Shutdown()
 						return nil, nil, errors.New("selected NVML device identity mismatch")
 					}

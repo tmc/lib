@@ -13,9 +13,12 @@ import (
 //
 // It makes exactly one call to nvmlDeviceGetComputeRunningProcesses_v3 with
 // capacity len(buf). Unlike [Device.ComputeRunningProcesses], it never
-// retries or allocates. A zero length, or one
-// that does not fit in a uint32, is refused before the call. If the processes
-// do not fit, it returns an error wrapping [ErrInsufficientSize] and stores
+// retries, allocates no query buffer, and never sizes storage from a count
+// NVML reports: buf is the only storage the call fills. This is not a promise
+// of no heap allocation at all; a returned error, for one, is allocated.
+// A zero length, or one that does not fit in a uint32, is refused before the
+// call and before the NVML library is loaded. If the processes do not fit,
+// it returns an error wrapping [ErrInsufficientSize] and stores
 // nothing usable; it does not truncate the list. A returned count beyond
 // len(buf) is likewise refused. Errors from the call wrap its [Result], so
 // errors.Is reports the NVML error.
