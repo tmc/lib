@@ -1,0 +1,25 @@
+{
+  "skinny_gemm": [
+    {"Name": "moe8_qkv_gate_skinny", "N": 2304, "K": 8192, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_o_skinny", "N": 8192, "K": 1024, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_pooler_skinny", "N": 4096, "K": 8192, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_unpooler_skinny", "N": 8192, "K": 4096, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_router_skinny", "N": 256, "K": 8192, "MaxM": 16, "Weight": "bf16hilo", "Out": "f32"}
+  ],
+  "tile_gemm": [
+    {"Name": "moe8_qkv_gate_tile", "N": 2304, "K": 8192, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_o_tile", "N": 8192, "K": 1024, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_pooler_tile", "N": 4096, "K": 8192, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_unpooler_tile", "N": 8192, "K": 4096, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_moe_w13", "N": 8192, "K": 4096, "Weight": "nvfp4", "Out": "bf16", "Grouped": true, "Gather": true},
+    {"Name": "moe8_moe_w2", "N": 4096, "K": 4096, "Weight": "nvfp4", "Out": "f32", "Grouped": true}
+  ],
+  "paged_attention": [
+    {"Name": "moe8_attn_tp8_sliding_q1", "Hq": 16, "Hkv": 2, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_tp8_sliding_q8", "Hq": 16, "Hkv": 2, "QLen": 8, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_tp8_full_q1", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_tp8_full_q8", "Hq": 16, "Hkv": 2, "QLen": 8, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_dp_sliding_q1", "Hq": 128, "Hkv": 16, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_dp_full_q8", "Hq": 128, "Hkv": 16, "QLen": 8, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875}
+  ]
+}

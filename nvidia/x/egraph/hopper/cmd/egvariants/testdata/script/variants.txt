@@ -1,0 +1,38 @@
+# One variant per configuration, plus a dispatcher over them.
+egvariants -o out spec.json
+exists out/qkv_small.cu out/qkv_large.cu out/qkv.cu out/manifest.json
+grep '"key": "gemm/N=2304/K=8192/w=bf16/out=bf16/epi=\$0"' out/manifest.json
+grep '"split_k": 2' out/manifest.json
+grep '"sha256": "[0-9a-f]{64}"' out/manifest.json
+grep 'extern "C" void qkv_large_launch_c' out/qkv_large.cu
+grep 'if \(m <= 8\) \{ qkv_small_launch\(m, x, w, out, ws, stream\)' out/qkv.cu
+grep 'qkv_large_launch\(m, x, w, out, stream\)' out/qkv.cu
+
+# A sweep names each variant after its tunables.
+egvariants -sweep -o swept attn.json
+exists swept/attn_kv128.cu swept/attn_kv1024.cu
+grep '"split_kv": 512' swept/manifest.json
+
+# Errors.
+! egvariants -o bad missing.json
+stderr 'no such file'
+! egvariants -o bad baddispatch.json
+stderr 'no variant "nope"'
+! egvariants spec.json
+stderr usage
+
+-- spec.json --
+{
+  "skinny_gemm": [{"Name": "qkv_small", "N": 2304, "K": 8192, "MaxM": 8, "Weight": "bf16", "Out": "bf16", "SplitK": 2}],
+  "tile_gemm": [{"Name": "qkv_large", "N": 2304, "K": 8192, "Weight": "bf16", "Out": "bf16"}],
+  "dispatch": [{"name": "qkv", "routes": [{"max": 8, "variant": "qkv_small"}, {"variant": "qkv_large"}]}]
+}
+-- attn.json --
+{
+  "paged_attention": [{"Name": "attn", "Hq": 16, "Hkv": 2, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875}]
+}
+-- baddispatch.json --
+{
+  "tile_gemm": [{"Name": "g", "N": 128, "K": 128, "Weight": "bf16", "Out": "f32"}],
+  "dispatch": [{"name": "d", "routes": [{"variant": "nope"}]}]
+}
