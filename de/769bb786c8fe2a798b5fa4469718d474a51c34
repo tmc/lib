@@ -1,0 +1,11 @@
+commit: de769bb786c8fe2a798b5fa4469718d474a51c34
+date: 2026-10-23T08:38:00.089377+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 3459
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-nvml-process-consumer-impl/W/A.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-nvml-process-adoption/A/ROOT-GRADE.md
+qualification: NVML process source; exact132+A+B host/race25roots101events/vet/twoomissions; native unqualified
