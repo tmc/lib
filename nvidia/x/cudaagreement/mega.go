@@ -49,6 +49,7 @@ import (
 // required. Do not copy an executor after first use. Keep caller streams,
 // devices and modules live through Drain or Close. Exclude caller buffer
 // mutation until then, including after a timeout or submission error.
+// Synchronize changes to exported fields with executor method calls.
 type MegaExecutor struct {
 	Device  *cuda.Device
 	Modules *Modules
@@ -72,12 +73,17 @@ type MegaExecutor struct {
 	// is what ends a worker that cannot make progress.
 	Timeout time.Duration
 
-	compiled map[string]*cudakernel.Artifact
+	compiled map[megaArtifactKey]*cudakernel.Artifact
 	scratch  map[string]cudamem.Slice[uint32]
 	order    cudamem.Slice[uint64]
 	epoch    uint64
 	mu       sync.Mutex
 	pending  *megaInvocation
+}
+
+type megaArtifactKey struct {
+	source string
+	target cudamega.Target
 }
 
 // Requested reports [cudaplan.BackendMega].
@@ -429,16 +435,18 @@ func checkStartOrder(steps []cudamega.Step, ctas uint32, ord []uint64) error {
 	return nil
 }
 
-// artifact compiles the program's source, once per distinct source.
+// artifact compiles the program's source, once per source and target.
 func (e *MegaExecutor) artifact(p *cudamega.Program) (*cudakernel.Artifact, error) {
+	target := e.Target
 	src, err := p.Source()
 	if err != nil {
 		return nil, fmt.Errorf("cudaagreement: render persistent worker: %w", err)
 	}
-	if art, ok := e.compiled[src]; ok {
+	key := megaArtifactKey{source: src, target: target}
+	if art, ok := e.compiled[key]; ok {
 		return art, nil
 	}
-	kind, image, err := e.Compile(src, e.Target)
+	kind, image, err := e.Compile(src, target)
 	if err != nil {
 		return nil, fmt.Errorf("cudaagreement: compile persistent worker: %w", err)
 	}
@@ -446,14 +454,14 @@ func (e *MegaExecutor) artifact(p *cudamega.Program) (*cudakernel.Artifact, erro
 	if err != nil {
 		return nil, err
 	}
-	art, err := cudakernel.NewArtifact(kind, image, "dag_worker", schema, string(e.Target))
+	art, err := cudakernel.NewArtifact(kind, image, "dag_worker", schema, string(target))
 	if err != nil {
 		return nil, fmt.Errorf("cudaagreement: persistent worker artifact: %w", err)
 	}
 	if e.compiled == nil {
-		e.compiled = make(map[string]*cudakernel.Artifact)
+		e.compiled = make(map[megaArtifactKey]*cudakernel.Artifact)
 	}
-	e.compiled[src] = art
+	e.compiled[key] = art
 	return art, nil
 }
 
