@@ -1,0 +1,11 @@
+commit: af1b1d5fb729dad1ca261a8150ddf987c53ea164
+date: 2026-10-23T07:00:25.715248+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 35460
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-constructor-client-adoption-manifests/B4.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-constructor-client-root-adoption/B4/ROOT-GRADE.md
+qualification: fixture B4; actual118+clientcomposition 11roots30PASS each host/race; staticvet/build; core/native unqualified
