@@ -97,6 +97,17 @@ template <typename T> T __shfl_down_sync(unsigned, T v, int d, int = 32) {
     return eg_emu_exchange(v, src < 32 ? src : eg_emu_lane);
 }
 
+inline unsigned __ballot_sync(unsigned, int pred) {
+    eg_emu_warp* w = eg_emu_cur_warp;
+    w->val[eg_emu_lane] = pred != 0;
+    w->bar.arrive_and_wait();
+    unsigned r = 0;
+    for (int i = 0; i < 32; ++i) r |= (unsigned)(w->val[i] & 1) << i;
+    w->bar.arrive_and_wait();
+    return r;
+}
+inline int __popc(unsigned v) { return __builtin_popcount(v); }
+
 template <typename T> T atomicAdd(T* p, T v) {
     static std::mutex mu;
     std::lock_guard<std::mutex> lock(mu);
