@@ -695,6 +695,9 @@ func validateKernelResources(role, kName string, desc KernelDesc, info cudakerne
 	if totalShared64 > uint64(info.MaxSharedMemoryBytes) {
 		return 0, 0, 0, 0, fmt.Sprintf("%s kernel %q total shared memory (%d B) exceeds target %s SM limit (%d B)", role, kName, totalShared64, info.Arch, info.MaxSharedMemoryBytes)
 	}
+	if totalShared64 > uint64(info.MaxOptInSharedBytes) {
+		return 0, 0, 0, 0, fmt.Sprintf("%s kernel %q static (%d B) + dynamic (%d B) shared memory exceeds target %s per-block opt-in limit (%d B)", role, kName, res.StaticSharedMemory, res.DynamicSharedMemory, info.Arch, info.MaxOptInSharedBytes)
+	}
 	sharedBytes = uint32(totalShared64)
 
 	if res.TMEMBytes > 0 && !info.SupportsTMEM {
