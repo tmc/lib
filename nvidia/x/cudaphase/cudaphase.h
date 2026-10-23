@@ -17,7 +17,22 @@
 //
 // cudaphase_now reads %globaltimer, in nanoseconds; its resolution is
 // coarse (stamps on an H200 move in 256 ns steps), and the summary reports
-// the step it observed. Under cudahostemu a host clock stands in.
+// the step it observed. cudaphase_clock reads %clock64, the SM's cycle
+// counter: it resolves single instructions, but counts per SM at a clock
+// that varies, so a kernel stamping cycles also stamps cudaphase_now (and
+// cudaphase_smid) at its start and end, and SummarizeClock in the Go
+// package (cudaphase_summary's clock argument) measures the rate:
+//
+//	CUDAPHASE_MARK(trace, 0, cudaphase_clock());
+//	CUDAPHASE_MARK(trace, 8, cudaphase_now());
+//	CUDAPHASE_MARK(trace, 10, cudaphase_smid());
+//	...
+//	CUDAPHASE_MARK(trace, 3, cudaphase_clock());
+//	CUDAPHASE_MARK(trace, 9, cudaphase_now());
+//	CUDAPHASE_MARK(trace, 11, cudaphase_smid());
+//
+// Under cudahostemu a host nanosecond clock stands in for both, so the
+// emulated SM runs at 1 GHz.
 #pragma once
 #include <stdint.h>
 
@@ -31,12 +46,18 @@ inline unsigned long long cudaphase_now() {
     return (unsigned long long)std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
 }
+inline unsigned long long cudaphase_clock() { return cudaphase_now(); }
 inline unsigned cudaphase_smid() { return 1; }
 #else
 __device__ __forceinline__ unsigned long long cudaphase_now() {
     unsigned long long t;
     asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(t));
     return t;
+}
+__device__ __forceinline__ unsigned long long cudaphase_clock() {
+    unsigned long long c;
+    asm volatile("mov.u64 %0, %%clock64;" : "=l"(c));
+    return c;
 }
 __device__ __forceinline__ unsigned cudaphase_smid() {
     unsigned s;
