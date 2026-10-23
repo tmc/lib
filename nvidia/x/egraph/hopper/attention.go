@@ -493,7 +493,7 @@ const attnCombine = `    // The finished rows go to fin (the first KW slot of re
         // finds the row's max and weight sum in one online pass (red_m,
         // red_l); then each thread accumulates its OUTS outputs, with the
         // loads of several partials in flight.
-        constexpr int OUTS = (ROWS * 64 + 127) / 128;
+        constexpr int OUTS = (ROWS * 64 + 127) / 128, CH = OUTS < 4 ? OUTS : 4;
         auto merge = [&](const float* src, int n, float* dst, bool final) {
             for (int r = tid; r < ROWS; r += 128) {
                 float mx = NEG_INF, sum = 0.0f;
@@ -508,28 +508,33 @@ const attnCombine = `    // The finished rows go to fin (the first KW slot of re
                 red_l[r] = sum;
             }
             __syncthreads();
-            float base[OUTS], acc[OUTS];
+            // Outputs in chunks of CH, so a 64-row tile does not hold all of
+            // its OUTS accumulators and their loads at once.
+#pragma unroll 1
+            for (int k0 = 0; k0 < OUTS; k0 += CH) {
+                float base[CH], acc[CH];
 #pragma unroll
-            for (int k = 0; k < OUTS; ++k) {
-                const int i = min(tid + 128 * k, ROWS * 64 - 1);
-                base[k] = red_m[i / 64] == NEG_INF ? 0.0f : red_m[i / 64];
-                acc[k] = 0.0f;
-            }
-#pragma unroll 4
-            for (int s = 0; s < n; ++s) {
-#pragma unroll
-                for (int k = 0; k < OUTS; ++k) {
-                    const int i = min(tid + 128 * k, ROWS * 64 - 1);
-                    const float* p = src + (size_t)s * ROWS * 66 + (i / 64) * 66;
-                    acc[k] += exp2f(eg_ld_cg(p) - base[k]) * eg_ld_cg(p + 2 + i % 64);
+                for (int k = 0; k < CH; ++k) {
+                    const int i = min(tid + 128 * (k0 + k), ROWS * 64 - 1);
+                    base[k] = red_m[i / 64] == NEG_INF ? 0.0f : red_m[i / 64];
+                    acc[k] = 0.0f;
                 }
-            }
+#pragma unroll 4
+                for (int s = 0; s < n; ++s) {
 #pragma unroll
-            for (int k = 0; k < OUTS; ++k) {
-                const int i = tid + 128 * k;
-                if (i >= ROWS * 64) break;
-                if (final) fin[i] = acc[k] / red_l[i / 64] * vs;
-                else dst[(i / 64) * 66 + 2 + i % 64] = acc[k];
+                    for (int k = 0; k < CH; ++k) {
+                        const int i = min(tid + 128 * (k0 + k), ROWS * 64 - 1);
+                        const float* p = src + (size_t)s * ROWS * 66 + (i / 64) * 66;
+                        acc[k] += exp2f(eg_ld_cg(p) - base[k]) * eg_ld_cg(p + 2 + i % 64);
+                    }
+                }
+#pragma unroll
+                for (int k = 0; k < CH; ++k) {
+                    const int i = tid + 128 * (k0 + k);
+                    if (k0 + k >= OUTS || i >= ROWS * 64) break;
+                    if (final) fin[i] = acc[k] / red_l[i / 64] * vs;
+                    else dst[(i / 64) * 66 + 2 + i % 64] = acc[k];
+                }
             }
             for (int r = tid; r < ROWS && !final; r += 128) { dst[r * 66] = red_m[r]; dst[r * 66 + 1] = red_l[r]; }
         };
