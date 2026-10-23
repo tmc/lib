@@ -96,6 +96,9 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
+	if err := id.Workspace.Validate(); err != nil {
+		return nil, false, err
+	}
 	if err := id.JITOptions.Validate(); err != nil {
 		return nil, false, err
 	}
@@ -155,6 +158,10 @@ func (a *NVRTCAdapter) Store(ctx context.Context, inputKey string, id CompilerId
 }
 
 func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerIdentity, recorded ToolProvenance, art *cudakernel.Artifact) error {
+	if err := id.Workspace.Validate(); err != nil {
+		return err
+	}
+
 	if err := id.JITOptions.Validate(); err != nil {
 		return err
 	}
@@ -204,6 +211,13 @@ func checkCompilerArtifact(id CompilerIdentity, art *cudakernel.Artifact) error 
 	if err := art.Validate(); err != nil {
 		return fmt.Errorf("cudacache: artifact: %w", err)
 	}
+	if err := id.Workspace.Validate(); err != nil {
+		return err
+	}
+	if id.Workspace != art.Resources().Workspace {
+		return errors.New("cudacache: artifact workspace differs from compiler identity")
+	}
+
 	opts, vals := id.JITOptions.DriverOptions()
 	actual, values := art.JITOptions().DriverOptions()
 	if !slices.Equal(opts, actual) || !slices.Equal(vals, values) {

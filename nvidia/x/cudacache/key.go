@@ -32,6 +32,9 @@ type CompilerIdentity struct {
 	OutputKind   nvrtcx.OutputKind     // Output kind magic
 	Provenance   ToolProvenance        // exact tool bytes, driver version and recipe
 	JITOptions   cudakernel.JITOptions // effective driver options, including explicit zero
+	// Workspace binds caller-declared scratch metadata, independently of the
+	// raw artifact digest. Zero preserves prior compiler keys and JSON.
+	Workspace cudakernel.WorkspaceRequirements `json:"Workspace,omitzero"`
 }
 
 // CompilerCacheKey computes a deterministic SHA-256 digest string hashing inputKey
@@ -88,6 +91,13 @@ func CompilerCacheKey(inputKey string, id CompilerIdentity) string {
 	for i, opt := range opts {
 		writeField(fmt.Sprint(int32(opt)))
 		writeField(fmt.Sprint(vals[i]))
+	}
+
+	if id.Workspace != (cudakernel.WorkspaceRequirements{}) {
+		writeField("artifact-workspace-v1")
+		writeField(fmt.Sprint(id.Workspace.Bytes))
+		writeField(fmt.Sprint(id.Workspace.Alignment))
+		writeField(id.Workspace.Parameter)
 	}
 
 	return hex.EncodeToString(h.Sum(nil))

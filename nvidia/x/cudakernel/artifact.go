@@ -95,16 +95,65 @@ func (o JITOptions) DriverOptions() ([]driver.JITOption, []uintptr) {
 	return opts, vals
 }
 
+// WorkspaceRequirements declares per-dispatch global device scratch. It is a
+// caller declaration, not a measurement or a property authenticated by Digest.
+// The zero value requires no scratch. Positive Bytes names exactly one ptr
+// parameter in the artifact schema. Alignment applies to the device address,
+// not to the parameter-bank slot. Contents are unspecified on entry and are
+// private to the dispatch until completion; inputs and outputs must not alias it.
+type WorkspaceRequirements struct {
+	Bytes     uint64 `json:"bytes"`
+	Alignment uint32 `json:"alignment"`
+	Parameter string `json:"parameter"`
+}
+
+// Validate checks the declaration without allocating storage or resolving a
+// schema. Artifact.Validate additionally checks the named device-pointer slot.
+func (w WorkspaceRequirements) Validate() error {
+	if w.Bytes == 0 {
+		if w.Alignment != 0 || w.Parameter != "" {
+			return errors.New("cudakernel: zero workspace requires zero alignment and empty parameter")
+		}
+		return nil
+	}
+	if w.Alignment == 0 || w.Alignment&(w.Alignment-1) != 0 {
+		return errors.New("cudakernel: workspace alignment must be a positive power of two")
+	}
+	if w.Parameter == "" || strings.ContainsRune(w.Parameter, 0) {
+		return errors.New("cudakernel: workspace requires a named device-pointer parameter")
+	}
+	return nil
+}
+
+func validateWorkspaceSchema(w WorkspaceRequirements, schema Schema) error {
+	if err := w.Validate(); err != nil {
+		return err
+	}
+	if w.Bytes == 0 {
+		return nil
+	}
+	for _, p := range schema.Params {
+		if p.Name == w.Parameter {
+			if !p.IsPointer || p.Type != "ptr" || p.ByteWidth != 8 {
+				return errors.New("cudakernel: workspace parameter must be an eight-byte device pointer")
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("cudakernel: workspace parameter %q is absent from schema", w.Parameter)
+}
+
 // ResourceRequirements records hardware resources and execution bounds
 // required by a kernel.
 type ResourceRequirements struct {
-	StaticSharedMemory  uint32 `json:"static_shared_memory"`
-	DynamicSharedMemory uint32 `json:"dynamic_shared_memory,omitempty"`
-	AllocatedRegisters  uint32 `json:"allocated_registers"`
-	PeakLiveGPR         uint32 `json:"peak_live_gpr"`
-	RegisterQuantum     uint32 `json:"register_quantum,omitempty"`
-	TMEMBytes           uint32 `json:"tmem_bytes,omitempty"`
-	ExecutionGroup      string `json:"execution_group,omitempty"`
+	Workspace           WorkspaceRequirements `json:"workspace,omitzero"`
+	StaticSharedMemory  uint32                `json:"static_shared_memory"`
+	DynamicSharedMemory uint32                `json:"dynamic_shared_memory,omitempty"`
+	AllocatedRegisters  uint32                `json:"allocated_registers"`
+	PeakLiveGPR         uint32                `json:"peak_live_gpr"`
+	RegisterQuantum     uint32                `json:"register_quantum,omitempty"`
+	TMEMBytes           uint32                `json:"tmem_bytes,omitempty"`
+	ExecutionGroup      string                `json:"execution_group,omitempty"`
 }
 
 // Dependency records external inputs (such as headers) affecting compilation identity.
@@ -386,6 +435,10 @@ func (a *Artifact) Validate() error {
 
 	if err := s.Schema.Validate(); err != nil {
 		return fmt.Errorf("cudakernel: invalid schema: %w", err)
+	}
+
+	if err := validateWorkspaceSchema(s.Resources.Workspace, s.Schema); err != nil {
+		return err
 	}
 
 	if s.Target == "" {

@@ -121,6 +121,10 @@ func (r Record) Validate() error {
 	if r.CompilerInputKey == "" || r.Compiler.NVRTCVersion == "" || r.Compiler.DriverSONAME == "" || r.Compiler.TargetArch != r.Target || r.Entry == "" || r.Target == "" {
 		return fmt.Errorf("history: incomplete compiler or entry identity")
 	}
+	if err := r.Compiler.Workspace.Validate(); err != nil {
+		return err
+	}
+
 	if r.CompilerKey != cudacache.CompilerCacheKey(r.CompilerInputKey, r.Compiler) {
 		return fmt.Errorf("history: compiler key mismatch")
 	}
@@ -170,6 +174,10 @@ func (r Record) Validate() error {
 		if err := r.Artifact.Validate(); err != nil {
 			return fmt.Errorf("history artifact: %w", err)
 		}
+		if r.Compiler.Workspace != r.Artifact.Resources().Workspace {
+			return fmt.Errorf("history: compiler and artifact workspace differ")
+		}
+
 		id := cudaevidence.Identity{ArtifactDigest: r.Artifact.Digest(), Entry: r.Artifact.EntryPoint(), Target: r.Artifact.Target(), CompilerKey: r.CompilerKey, WorkloadKey: r.WorkloadKey}
 		if err := id.Validate(); err != nil {
 			return err

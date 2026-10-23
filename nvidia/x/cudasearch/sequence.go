@@ -47,6 +47,12 @@ func sequenceArtifactHandles(artifacts []*cudakernel.Artifact, launches int) ([]
 		if a == nil {
 			return nil, fmt.Errorf("cudasearch: nil sequence artifact")
 		}
+		if err := a.Validate(); err != nil {
+			return nil, err
+		}
+		if a.Resources().Workspace.Bytes != 0 {
+			return nil, fmt.Errorf("cudasearch: sequence artifact workspace is unsupported")
+		}
 		captured[i] = *a
 	}
 	return captured, nil

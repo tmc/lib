@@ -57,6 +57,12 @@ func LinkToProfileHistory(plan *ExperimentPlan, execRec *ExecutionReceipt, compR
 	}
 
 	compiler := opts.Compiler
+	if err := compiler.Workspace.Validate(); err != nil {
+		return cudaprofilehistory.Record{}, err
+	}
+	if compiler.Workspace != opts.Artifact.Resources().Workspace {
+		return cudaprofilehistory.Record{}, errors.New("cudaregress: compiler and artifact workspace differ")
+	}
 	compilerInputKey := opts.CompilerInputKey
 	if compilerInputKey == "" || compiler.NVRTCVersion == "" || compiler.DriverSONAME == "" || compiler.TargetArch == "" {
 		return cudaprofilehistory.Record{}, errors.New("cudaregress: history requires compiler identity")

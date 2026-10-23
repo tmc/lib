@@ -44,6 +44,8 @@ type Binding struct {
 	IsOutput        bool
 	WorkspaceOffset int
 	WorkspaceBytes  int
+	ScratchOffset   int `json:",omitempty"`
+	ScratchCapacity int `json:",omitempty"`
 
 	// ExternalDeps holds the indices of steps this step reads that lie before
 	// the region. They are not task-graph edges: the producer is not a task,
@@ -121,6 +123,10 @@ func LowerRegion(steps []StepPlan, r Region) (Lowering, error) {
 	if r.Start < 0 || r.End > len(steps) || r.Start >= r.End {
 		return Lowering{}, fmt.Errorf("cudaplan: lower region [%d,%d) of %d steps: empty or out of range", r.Start, r.End, len(steps))
 	}
+	if err := validateRegionScratch(steps[r.Start:r.End]); err != nil {
+		return Lowering{}, err
+	}
+
 	n := r.End - r.Start
 
 	ids := make([]string, n)
@@ -199,6 +205,8 @@ func LowerRegion(steps []StepPlan, r Region) (Lowering, error) {
 			IsOutput:        s.IsOutput,
 			WorkspaceOffset: s.WorkspaceOffset,
 			WorkspaceBytes:  s.WorkspaceBytes,
+			ScratchOffset:   s.ScratchOffset,
+			ScratchCapacity: s.ScratchCapacity,
 			ExternalDeps:    external[i],
 		}
 	}
@@ -230,4 +238,51 @@ func deriveScope(s StepPlan, consumed bool) (cudataskgraph.Scope, error) {
 	default:
 		return 0, fmt.Errorf("%w: no step in the region reads its output and it is not a plan output, so nothing determines its visibility scope", ErrNotLowerable)
 	}
+}
+
+// Region topology does not prove scratch reuse ordering. Keep every positive
+// reservation disjoint, including independent tasks with equal ranks.
+func validateRegionScratch(steps []StepPlan) error {
+	maxInt := int(^uint(0) >> 1)
+	for i, s := range steps {
+		// Vendor dispatch does not consume the registry's ordinary artifact.
+		// Its workspace belongs to the vendor plan, not this side table.
+		if s.Backend == BackendCuBLASLt {
+			if s.ScratchOffset != 0 || s.ScratchCapacity != 0 {
+				return fmt.Errorf("%w: vendor step has artifact scratch reservation", ErrNotLowerable)
+			}
+			continue
+		}
+		var w cudakernel.WorkspaceRequirements
+		if s.Artifact != nil {
+			w = s.Artifact.Resources().Workspace
+			if err := s.Artifact.Validate(); err != nil {
+				return err
+			}
+		}
+		if w.Bytes == 0 {
+			if s.ScratchOffset != 0 || s.ScratchCapacity != 0 {
+				return fmt.Errorf("%w: undeclared scratch reservation", ErrNotLowerable)
+			}
+			continue
+		}
+		if s.Backend == BackendMega {
+			return fmt.Errorf("%w: finite worker does not bind artifact workspace", ErrNotLowerable)
+		}
+		if s.ScratchOffset < 0 || s.ScratchCapacity < 0 || s.ScratchOffset > maxInt-s.ScratchCapacity || uint64(s.ScratchCapacity) < w.Bytes || uint64(s.ScratchCapacity)-w.Bytes < uint64(w.Alignment)-1 {
+			return fmt.Errorf("%w: invalid artifact scratch range", ErrNotLowerable)
+		}
+		for j := 0; j < i; j++ {
+			t := steps[j]
+			if t.ScratchCapacity > 0 && s.ScratchOffset < t.ScratchOffset+t.ScratchCapacity && t.ScratchOffset < s.ScratchOffset+s.ScratchCapacity {
+				return fmt.Errorf("%w: overlapping artifact scratch reservations", ErrNotLowerable)
+			}
+		}
+		for _, t := range steps {
+			if !t.IsOutput && t.WorkspaceBytes > 0 && t.WorkspaceOffset >= 0 && t.WorkspaceOffset <= maxInt-t.WorkspaceBytes && s.ScratchOffset < t.WorkspaceOffset+t.WorkspaceBytes && t.WorkspaceOffset < s.ScratchOffset+s.ScratchCapacity {
+				return fmt.Errorf("%w: artifact scratch overlaps tensor workspace", ErrNotLowerable)
+			}
+		}
+	}
+	return nil
 }

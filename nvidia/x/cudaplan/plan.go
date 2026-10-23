@@ -211,6 +211,31 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 		plan.requiredOutputs[out.Name] = out.SizeBytes()
 	}
 
+	// Capture handles once for both reservation and execution. Matmul uses
+	// vendor scratch; the finite worker has its own generated artifact ABI.
+	artifacts := make(map[int]*cudakernel.Artifact)
+	for _, n := range snap.Order() {
+		if n.Kind == cudair.KindInput {
+			continue
+		}
+		var art *cudakernel.Artifact
+		if cfg.registry != nil {
+			art = cfg.registry.Get(n.Op)
+			if art == nil {
+				art = cfg.registry.Get(n.Name)
+			}
+		}
+		if cfg.finiteMega {
+			art = captureArtifact(plan.megaArtifact)
+		}
+		artifacts[n.ID] = art
+		if art != nil && n.Kind != cudair.KindMatMul && !cfg.finiteMega && (cfg.dev != nil || art.Resources().Workspace.Bytes != 0) {
+			if err := validateKernelSchema(art, len(n.Inputs)); err != nil {
+				return nil, fmt.Errorf("cudaplan: artifact for %s: %w", n.Name, err)
+			}
+		}
+	}
+
 	// Calculate workspace demands
 	arena := snap.ArenaPlan()
 	totalScratchBytes := 0
@@ -233,6 +258,11 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 			return nil, err
 		}
 	}
+	scratch, totalScratchBytes, err := planArtifactWorkspace(snap.Order(), artifacts, cfg.finiteMega, totalScratchBytes, cfg.peakBudget)
+	if err != nil {
+		return nil, err
+	}
+
 	// Resolve the actual device only after the host workspace budget checks.
 	// No-device compilation keeps target facts unknown, including when its
 	// finite code generator uses the existing sm_80 inspection default.
@@ -304,16 +334,7 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 			}
 		}
 
-		var art *cudakernel.Artifact
-		if cfg.registry != nil {
-			art = cfg.registry.Get(n.Op)
-			if art == nil {
-				art = cfg.registry.Get(n.Name)
-			}
-		}
-		if cfg.finiteMega {
-			art = plan.megaArtifact
-		}
+		art := artifacts[n.ID]
 		region := Region{stepIdx, stepIdx + 1}
 		if cfg.finiteMega {
 			region = Region{0, stepCount}
@@ -332,16 +353,6 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 		backend := decision.Backend
 		if cfg.dev != nil && (backend == BackendLaunch || backend == BackendGraph) && art == nil {
 			return nil, fmt.Errorf("%w: no kernel artifact for %s", ErrUnsupportedBackend, n.Name)
-		}
-		if cfg.dev != nil && art != nil && (backend == BackendLaunch || backend == BackendGraph) {
-			if len(art.Schema().Params) != len(n.Inputs)+1 {
-				return nil, fmt.Errorf("%w: artifact schema for %s has %d parameters, want %d", ErrUnsupportedBackend, n.Name, len(art.Schema().Params), len(n.Inputs)+1)
-			}
-			for i, param := range art.Schema().Params {
-				if !param.IsPointer || param.Type != "ptr" {
-					return nil, fmt.Errorf("%w: artifact schema for %s parameter %d is not a device pointer", ErrUnsupportedBackend, n.Name, i)
-				}
-			}
 		}
 
 		// Load module if artifact is present and device is bound
@@ -378,6 +389,8 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 			IsOutput:        isOut,
 			WorkspaceOffset: plan.intermediateLoc[n.Name],
 			WorkspaceBytes:  n.SizeBytes(),
+			ScratchOffset:   scratch[n.ID].offset,
+			ScratchCapacity: scratch[n.ID].capacity,
 			Dependencies:    deps,
 		}
 
@@ -416,6 +429,79 @@ func (p *ExecutablePlan) BackendDecisions() []BackendDecision {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]BackendDecision(nil), p.backendDecisions...)
+}
+
+type scratchReservation struct{ offset, capacity int }
+
+// planArtifactWorkspace allocates no device storage. Every ordinary/graph
+// step gets a disjoint interval; task-graph concurrency cannot alias scratch.
+// Vendor scratch and tensor output ranges keep their separate meanings.
+func planArtifactWorkspace(nodes []*cudair.Node, artifacts map[int]*cudakernel.Artifact, finiteMega bool, prefix, budget int) (map[int]scratchReservation, int, error) {
+	if prefix < 0 || budget < 0 || prefix > budget {
+		return nil, 0, ErrWorkspaceBudgetExceeded
+	}
+	reserved := make(map[int]scratchReservation)
+	cursor := prefix
+	maxInt := uint64(^uint(0) >> 1)
+	for _, n := range nodes {
+		art := artifacts[n.ID]
+		if n.Kind == cudair.KindInput || n.Kind == cudair.KindMatMul || art == nil {
+			continue
+		}
+		w := art.Resources().Workspace
+		if err := art.Validate(); err != nil {
+			return nil, 0, err
+		}
+		if w.Bytes == 0 {
+			continue
+		}
+		if finiteMega {
+			return nil, 0, fmt.Errorf("%w: finite worker does not bind artifact workspace", ErrUnsupportedBackend)
+		}
+		slack := uint64(w.Alignment) - 1
+		if w.Bytes > maxInt || slack > maxInt-w.Bytes {
+			return nil, 0, fmt.Errorf("%w: artifact workspace size or alignment overflows int", ErrWorkspaceBudgetExceeded)
+		}
+		capacity := int(w.Bytes + slack)
+		if uint64(cursor) > maxInt-uint64(capacity) {
+			return nil, 0, ErrWorkspaceBudgetExceeded
+		}
+		reserved[n.ID] = scratchReservation{cursor, capacity}
+		cursor += capacity
+		if cursor > budget {
+			return nil, 0, ErrWorkspaceBudgetExceeded
+		}
+	}
+	// Match the actual WorkspaceManager allocation, including final padding.
+	padding := (256 - cursor%256) % 256
+	if uint64(cursor) > maxInt-uint64(padding) {
+		return nil, 0, ErrWorkspaceBudgetExceeded
+	}
+	cursor += padding
+	if cursor > budget {
+		return nil, 0, ErrWorkspaceBudgetExceeded
+	}
+	return reserved, cursor, nil
+}
+
+func validateKernelSchema(art *cudakernel.Artifact, inputs int) error {
+	if err := art.Validate(); err != nil {
+		return err
+	}
+	want := inputs + 1
+	if art.Resources().Workspace.Bytes != 0 {
+		want++
+	}
+	params := art.Schema().Params
+	if len(params) != want {
+		return fmt.Errorf("%w: kernel schema has %d parameters, want %d", ErrUnsupportedBackend, len(params), want)
+	}
+	for i, p := range params {
+		if !p.IsPointer || p.Type != "ptr" || p.ByteWidth != 8 {
+			return fmt.Errorf("%w: kernel parameter %d is not an eight-byte device pointer", ErrUnsupportedBackend, i)
+		}
+	}
+	return nil
 }
 
 func vendorWorkspaceBudget(scratch, peak int) (int, error) {

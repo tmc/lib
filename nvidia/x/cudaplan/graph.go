@@ -9,6 +9,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudagraph"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 )
 
@@ -151,16 +152,107 @@ func (p *ExecutablePlan) kernelArguments(step StepPlan, pointers map[string]driv
 	if blocks == 0 {
 		blocks = 1
 	}
-	args := make([]any, 0, len(step.InputNames)+1)
-	for _, name := range append(append([]string(nil), step.InputNames...), step.OutputName) {
+	var scratch driver.DevicePtr
+	w := step.Artifact.Resources().Workspace
+	if w.Bytes != 0 {
+		if p.workspace == nil {
+			return nil, 0, fmt.Errorf("%w: kernel %s workspace owner", ErrMissingBinding, step.NodeName)
+		}
+		buffer := p.workspace.Buffer()
+		var err error
+		scratch, err = artifactScratchPointerAt(buffer.Ptr(), buffer.Len(), step.ScratchOffset, step.ScratchCapacity, w)
+		if err != nil {
+			return nil, 0, err
+		}
+		// Retain WorkspaceManager's closed/range checks after proving its
+		// base+offset arithmetic cannot wrap or leave the owned object.
+		if _, err := p.workspace.SliceAt(step.ScratchOffset, step.ScratchCapacity); err != nil {
+			return nil, 0, err
+		}
+
+	}
+	args, err := artifactKernelArguments(step, pointers, scratch)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return args, blocks, nil
+}
+
+func artifactScratchPointerAt(base driver.DevicePtr, total, offset, capacity int, w cudakernel.WorkspaceRequirements) (driver.DevicePtr, error) {
+	if total < 0 || offset < 0 || capacity < 0 || offset > total || capacity > total-offset {
+		return 0, fmt.Errorf("cudaplan: scratch reservation is outside workspace")
+	}
+	if base == 0 || uint64(offset) > ^uint64(0)-uint64(base) {
+		return 0, fmt.Errorf("cudaplan: scratch workspace base plus offset overflows")
+	}
+	return artifactScratchPointer(base+driver.DevicePtr(offset), capacity, w)
+}
+
+// artifactScratchPointer checks the whole reservation before aligning its
+// device address. A false kernel mask cannot repair an invalid pointer.
+func artifactScratchPointer(base driver.DevicePtr, capacity int, w cudakernel.WorkspaceRequirements) (driver.DevicePtr, error) {
+	if err := w.Validate(); err != nil {
+		return 0, err
+	}
+	if w.Bytes == 0 {
+		return 0, nil
+	}
+	if base == 0 || capacity < 0 {
+		return 0, ErrMissingBinding
+	}
+	b := uint64(base)
+	if uint64(capacity) > ^uint64(0)-b {
+		return 0, fmt.Errorf("cudaplan: scratch reservation address overflows")
+	}
+	padding := (-b) & (uint64(w.Alignment) - 1)
+	if padding > uint64(capacity) || w.Bytes > uint64(capacity)-padding || padding > ^uint64(0)-b {
+		return 0, fmt.Errorf("cudaplan: scratch reservation does not cover aligned demand")
+	}
+	return driver.DevicePtr(b + padding), nil
+}
+
+// artifactKernelArguments shares ABI construction between graph and ordinary
+// launches. The caller owns scratch until actual completion; this helper only
+// validates and packs fixed-width device addresses.
+func artifactKernelArguments(step StepPlan, pointers map[string]driver.DevicePtr, scratch driver.DevicePtr) ([]any, error) {
+	if step.Artifact == nil {
+		return nil, ErrUnsupportedBackend
+	}
+	if err := validateKernelSchema(step.Artifact, len(step.InputNames)); err != nil {
+		return nil, err
+	}
+	w := step.Artifact.Resources().Workspace
+	if w.Bytes == 0 && (step.ScratchOffset != 0 || step.ScratchCapacity != 0 || scratch != 0) {
+		return nil, fmt.Errorf("cudaplan: unexpected scratch for zero-workspace artifact")
+	}
+	if w.Bytes != 0 && (scratch == 0 || uint64(scratch)%uint64(w.Alignment) != 0 || step.ScratchOffset < 0 || step.ScratchCapacity < 0 || uint64(step.ScratchCapacity) < w.Bytes) {
+		return nil, fmt.Errorf("%w: invalid artifact scratch binding", ErrMissingBinding)
+	}
+	names := append(append([]string(nil), step.InputNames...), step.OutputName)
+	args := make([]any, 0, len(step.Artifact.Schema().Params))
+	tensor := 0
+	for _, param := range step.Artifact.Schema().Params {
+		if w.Bytes != 0 && param.Name == w.Parameter {
+			args = append(args, scratch)
+			continue
+		}
+		if tensor >= len(names) {
+			return nil, ErrUnsupportedBackend
+		}
+		name := names[tensor]
+		tensor++
 		ptr := pointers[name]
 		if ptr == 0 {
-			return nil, 0, fmt.Errorf("%w: kernel %s tensor %s", ErrMissingBinding, step.NodeName, name)
+			return nil, fmt.Errorf("%w: kernel %s tensor %s", ErrMissingBinding, step.NodeName, name)
 		}
 		args = append(args, ptr)
 	}
-	if _, err := step.Artifact.Pack(args...); err != nil {
-		return nil, 0, fmt.Errorf("cudaplan: arguments for %s: %w", step.NodeName, err)
+	if tensor != len(names) {
+		return nil, ErrUnsupportedBackend
 	}
-	return args, blocks, nil
+	if _, err := step.Artifact.Pack(args...); err != nil {
+		return nil, fmt.Errorf("cudaplan: arguments for %s: %w", step.NodeName, err)
+	}
+	return args, nil
 }

@@ -107,6 +107,11 @@ type StepPlan struct {
 	IsOutput        bool
 	WorkspaceOffset int
 	WorkspaceBytes  int
+	// ScratchOffset and ScratchCapacity reserve a disjoint byte interval in
+	// the plan-owned workspace, including alignment slack. Exact demand and
+	// the named pointer slot belong to Artifact.Resources().Workspace.
+	ScratchOffset   int   `json:",omitempty"`
+	ScratchCapacity int   `json:",omitempty"`
 	Dependencies    []int // Step indices this step depends on
 }
 
