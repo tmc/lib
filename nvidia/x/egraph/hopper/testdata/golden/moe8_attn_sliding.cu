@@ -493,6 +493,9 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         if (d == 0) { mine[r * 66] = mx; mine[r * 66 + 1] = sum; }
     }
     auto put = [&](size_t i, float v) { out[i] = v; };
+    // The finished rows go to fin (the first KW slot of red_o, which each
+    // thread reads only at the index it then writes).
+    float* const fin = red_o;
     if (nsplit == 1) {
         for (int i = tid; i < ROWS * 64; i += 128) {
             const int r = i / 64, d = i % 64;
@@ -506,32 +509,37 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
                 sum += w * red_l[k * MROWS + r];
                 acc += w * red_o[(k * MROWS + r) * 64 + d];
             }
-            put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, acc / sum * vs);
+            fin[r * 64 + d] = acc / sum * vs;
         }
-        return;
+    } else {
+        __threadfence();
+        __syncthreads();
+        int* const counter = reinterpret_cast<int*>(counters) + b * HKV + kvh;
+        if (tid == 0) last = atomicAdd(counter, 1) == nsplit - 1;
+        __syncthreads();
+        if (!last) return;
+        __threadfence();
+        const float* const all = parts + ((size_t)b * HKV + kvh) * gridDim.x * ROWS * 66;
+        for (int i = tid; i < ROWS * 64; i += 128) {
+            const int r = i / 64, d = i % 64;
+            float mx = NEG_INF;
+            for (int s = 0; s < nsplit; ++s) mx = fmaxf(mx, eg_ld_cg(all + (size_t)s * ROWS * 66 + r * 66));
+            float sum = 0.0f, acc = 0.0f;
+            for (int s = 0; s < nsplit; ++s) {
+                const float* p = all + (size_t)s * ROWS * 66 + r * 66;
+                const float w = exp2f(eg_ld_cg(p) - mx);
+                sum += w * eg_ld_cg(p + 1);
+                acc += w * eg_ld_cg(p + 2 + d);
+            }
+            fin[r * 64 + d] = acc / sum * vs;
+        }
+        if (tid == 0) *counter = 0;
     }
-    __threadfence();
     __syncthreads();
-    int* const counter = reinterpret_cast<int*>(counters) + b * HKV + kvh;
-    if (tid == 0) last = atomicAdd(counter, 1) == nsplit - 1;
-    __syncthreads();
-    if (!last) return;
-    __threadfence();
-    const float* const all = parts + ((size_t)b * HKV + kvh) * gridDim.x * ROWS * 66;
     for (int i = tid; i < ROWS * 64; i += 128) {
         const int r = i / 64, d = i % 64;
-        float mx = NEG_INF;
-        for (int s = 0; s < nsplit; ++s) mx = fmaxf(mx, eg_ld_cg(all + (size_t)s * ROWS * 66 + r * 66));
-        float sum = 0.0f, acc = 0.0f;
-        for (int s = 0; s < nsplit; ++s) {
-            const float* p = all + (size_t)s * ROWS * 66 + r * 66;
-            const float w = exp2f(eg_ld_cg(p) - mx);
-            sum += w * eg_ld_cg(p + 1);
-            acc += w * eg_ld_cg(p + 2 + d);
-        }
-        put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, acc / sum * vs);
+        put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, fin[i]);
     }
-    if (tid == 0) *counter = 0;
 }
 
 inline void moe8_attn_sliding_launch(int batch, int max_keys, const uint8_t* __restrict__ q, const uint8_t* __restrict__ k_cache, const uint8_t* __restrict__ v_cache, const int32_t* __restrict__ page_table, int max_pages, const int32_t* __restrict__ seqlens, const float* __restrict__ k_scale, const float* __restrict__ v_scale, float* __restrict__ out, unsigned char* __restrict__ ws, cudaStream_t stream) {

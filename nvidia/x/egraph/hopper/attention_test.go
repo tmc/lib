@@ -61,22 +61,30 @@ func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys
 	}
 	batch := len(c.SeqLens)
 	grid, block := a.Grid(batch, maxKeys)
-	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), 0, %s, q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws)",
+	args := "q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws"
+	bufs := []emuBuf{
+		{"q", a.Q.cType(), typed{a.Q, f64s(q)}.bytes()},
+		{"k_cache", "uint8_t", c.K},
+		{"v_cache", "uint8_t", c.V},
+		{"page_table", "int32_t", i32Bytes(c.PageTable)},
+		{"seqlens", "int32_t", i32Bytes(c.SeqLens)},
+		{"k_scale", "float", f32Bytes([]float32{c.KScale})},
+		{"v_scale", "float", f32Bytes([]float32{c.VScale})},
+	}
+	if a.Gate {
+		bufs = append(bufs, emuBuf{"gate", "uint16_t", typed{BF16, f64s(c.Gate)}.bytes()})
+		args = "q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, gate, out, ws"
+	}
+	bufs = append(bufs,
+		emuBuf{"out", a.Out.cType(), make([]byte, len(q)*a.Out.Bits()/8)},
+		emuBuf{"ws", "unsigned char", make([]byte, a.WorkspaceBytes(batch, maxKeys))})
+	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), 0, %s, "+args+")",
 		grid[0], grid[1], grid[2], block[0], a.Name, c.MaxPages)
 	one := launch
 	for i := 1; i < launches; i++ {
 		launch += ";\n    " + one
 	}
-	res := runEmu(t, src, launch,
-		emuBuf{"q", a.Q.cType(), typed{a.Q, f64s(q)}.bytes()},
-		emuBuf{"k_cache", "uint8_t", c.K},
-		emuBuf{"v_cache", "uint8_t", c.V},
-		emuBuf{"page_table", "int32_t", i32Bytes(c.PageTable)},
-		emuBuf{"seqlens", "int32_t", i32Bytes(c.SeqLens)},
-		emuBuf{"k_scale", "float", f32Bytes([]float32{c.KScale})},
-		emuBuf{"v_scale", "float", f32Bytes([]float32{c.VScale})},
-		emuBuf{"out", a.Out.cType(), make([]byte, len(q)*a.Out.Bits()/8)},
-		emuBuf{"ws", "unsigned char", make([]byte, a.WorkspaceBytes(batch, maxKeys))})
+	res := runEmu(t, src, launch, bufs...)
 	return decode(a.Out, res["out"]), res["ws"]
 }
 
@@ -92,11 +100,21 @@ func TestPagedAttentionEmulated(t *testing.T) {
 		{"sliding_verify", PagedAttention{Name: "attn_verify", Hq: 16, Hkv: 2, QLen: 8, Window: 100, Page: 1, Q: BF16, Out: BF16, Chunk: 64}, []int32{130, 9}, 107, 1},
 		{"verify4_scaled", PagedAttention{Name: "attn_v4", Hq: 16, Hkv: 2, QLen: 4, Window: 0, Page: 64, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 128}, []int32{200, 64, 5}, 200, 1.0 / 64},
 		{"decode2_window", PagedAttention{Name: "attn_w", Hq: 8, Hkv: 1, QLen: 2, Window: 50, Page: 4, Q: E4M3, Out: F32, Chunk: 64}, []int32{90, 3}, 51, 1},
+		{"gate_splits", PagedAttention{Name: "attn_gate", Hq: 16, Hkv: 2, QLen: 2, Window: 0, Page: 8, Q: E4M3, Out: BF16, QScale: 5.4730064863875, Chunk: 64,
+			Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{150, 20}, 150, 1},
+		{"gate_dp", PagedAttention{Name: "attn_gate_dp", Hq: 64, Hkv: 8, QLen: 8, Window: 30, Page: 1, Q: E4M3, Out: F32, Chunk: 64,
+			Gate: true, GateStride: 9216, GateOffset: 5120}, []int32{60}, 37, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := rand.New(rand.NewPCG(31, uint64(len(tt.name))))
 			q, c := pagedCase(r, tt.a, tt.seqlens, tt.kvScale)
+			if tt.a.Gate {
+				c.Gate = make([]float32, len(tt.seqlens)*tt.a.QLen*tt.a.GateStride)
+				for i := range c.Gate {
+					c.Gate[i] = BF16.Round(float32(r.NormFloat64()))
+				}
+			}
 			want, err := tt.a.Reference(q, c)
 			if err != nil {
 				t.Fatal(err)

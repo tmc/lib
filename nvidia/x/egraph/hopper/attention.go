@@ -40,6 +40,16 @@ type PagedAttention struct {
 	QScale  float32 // 0 means 1
 	SMScale float32 // 0 means 1/8
 	Chunk   int     // keys per block, a multiple of 64; 0 means 256
+
+	// With Gate, out = head_rms(attention, GateEps) · sigmoid(gate), the
+	// rms_norm_gate epilogue (moe8_attention_decode/reference.py:336), with
+	// gate BF16 read at gate[t·GateStride + GateOffset + head·64 + d] (in
+	// place from the fused qkv rows: stride (2Hq+2Hkv)·64, offset
+	// (Hq+2Hkv)·64).
+	Gate       bool
+	GateStride int
+	GateOffset int
+	GateEps    float32 // 0 means 1e-5
 }
 
 type attnGeom struct {
@@ -73,6 +83,12 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	}
 	if a.Chunk == 0 {
 		a.Chunk = 256
+	}
+	if a.GateEps == 0 {
+		a.GateEps = 1e-5
+	}
+	if a.Gate && (a.GateStride < a.Hq*HeadDim || a.GateOffset < 0 || a.GateOffset%8 != 0 || a.GateStride%8 != 0) {
+		return a, g, fmt.Errorf("paged attention %s: bad gate stride %d or offset %d", a.Name, a.GateStride, a.GateOffset)
 	}
 	if a.Chunk%64 != 0 {
 		return a, g, fmt.Errorf("paged attention %s: chunk %d is not a multiple of 64", a.Name, a.Chunk)
@@ -112,7 +128,7 @@ func (a PagedAttention) WorkspaceBytes(batch, maxKeys int) int {
 }
 
 func (a PagedAttention) params() []string {
-	return []string{
+	p := []string{
 		"const " + a.Q.cType() + "* __restrict__ q",
 		"const uint8_t* __restrict__ k_cache",
 		"const uint8_t* __restrict__ v_cache",
@@ -121,9 +137,11 @@ func (a PagedAttention) params() []string {
 		"const int32_t* __restrict__ seqlens",
 		"const float* __restrict__ k_scale",
 		"const float* __restrict__ v_scale",
-		a.Out.cType() + "* __restrict__ out",
-		"unsigned char* __restrict__ ws",
 	}
+	if a.Gate {
+		p = append(p, "const uint16_t* __restrict__ gate")
+	}
+	return append(p, a.Out.cType()+"* __restrict__ out", "unsigned char* __restrict__ ws")
 }
 
 // Grid returns the grid and block for batch requests of at most maxKeys keys.
@@ -157,6 +175,13 @@ func (a PagedAttention) CUDA() (string, error) {
 		b.WriteString("    auto put = [&](size_t i, float v) { out[i] = v; };\n")
 	}
 	b.WriteString(attnCombine)
+	if a.Gate {
+		fmt.Fprintf(&b, "    constexpr int GATE_STRIDE = %d, GATE_OFFSET = %d;\n    constexpr float GATE_EPS = %s;\n",
+			a.GateStride, a.GateOffset, floatLiteral(a.GateEps))
+		b.WriteString(attnGateStore)
+	} else {
+		b.WriteString(attnStore)
+	}
 	return b.String(), nil
 }
 
@@ -333,7 +358,10 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
 
 // attnCombine finishes: direct store for one split, else the last block
 // combines every split's partial in split order.
-const attnCombine = `    if (nsplit == 1) {
+const attnCombine = `    // The finished rows go to fin (the first KW slot of red_o, which each
+    // thread reads only at the index it then writes).
+    float* const fin = red_o;
+    if (nsplit == 1) {
         for (int i = tid; i < ROWS * 64; i += 128) {
             const int r = i / 64, d = i % 64;
             float mx = NEG_INF;
@@ -346,32 +374,55 @@ const attnCombine = `    if (nsplit == 1) {
                 sum += w * red_l[k * MROWS + r];
                 acc += w * red_o[(k * MROWS + r) * 64 + d];
             }
-            put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, acc / sum * vs);
+            fin[r * 64 + d] = acc / sum * vs;
         }
-        return;
+    } else {
+        __threadfence();
+        __syncthreads();
+        int* const counter = reinterpret_cast<int*>(counters) + b * HKV + kvh;
+        if (tid == 0) last = atomicAdd(counter, 1) == nsplit - 1;
+        __syncthreads();
+        if (!last) return;
+        __threadfence();
+        const float* const all = parts + ((size_t)b * HKV + kvh) * gridDim.x * ROWS * 66;
+        for (int i = tid; i < ROWS * 64; i += 128) {
+            const int r = i / 64, d = i % 64;
+            float mx = NEG_INF;
+            for (int s = 0; s < nsplit; ++s) mx = fmaxf(mx, eg_ld_cg(all + (size_t)s * ROWS * 66 + r * 66));
+            float sum = 0.0f, acc = 0.0f;
+            for (int s = 0; s < nsplit; ++s) {
+                const float* p = all + (size_t)s * ROWS * 66 + r * 66;
+                const float w = exp2f(eg_ld_cg(p) - mx);
+                sum += w * eg_ld_cg(p + 1);
+                acc += w * eg_ld_cg(p + 2 + d);
+            }
+            fin[r * 64 + d] = acc / sum * vs;
+        }
+        if (tid == 0) *counter = 0;
     }
-    __threadfence();
     __syncthreads();
-    int* const counter = reinterpret_cast<int*>(counters) + b * HKV + kvh;
-    if (tid == 0) last = atomicAdd(counter, 1) == nsplit - 1;
-    __syncthreads();
-    if (!last) return;
-    __threadfence();
-    const float* const all = parts + ((size_t)b * HKV + kvh) * gridDim.x * ROWS * 66;
-    for (int i = tid; i < ROWS * 64; i += 128) {
+`
+
+// attnStore writes fin to out.
+const attnStore = `    for (int i = tid; i < ROWS * 64; i += 128) {
         const int r = i / 64, d = i % 64;
-        float mx = NEG_INF;
-        for (int s = 0; s < nsplit; ++s) mx = fmaxf(mx, eg_ld_cg(all + (size_t)s * ROWS * 66 + r * 66));
-        float sum = 0.0f, acc = 0.0f;
-        for (int s = 0; s < nsplit; ++s) {
-            const float* p = all + (size_t)s * ROWS * 66 + r * 66;
-            const float w = exp2f(eg_ld_cg(p) - mx);
-            sum += w * eg_ld_cg(p + 1);
-            acc += w * eg_ld_cg(p + 2 + d);
-        }
-        put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, acc / sum * vs);
+        put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, fin[i]);
     }
-    if (tid == 0) *counter = 0;
+}
+`
+
+// attnGateStore writes head_rms(fin) · sigmoid(gate) to out, one warp per
+// query row (head).
+const attnGateStore = `    for (int r = warp; r < ROWS; r += 4) {
+        const float v0 = fin[r * 64 + lane], v1 = fin[r * 64 + lane + 32];
+        const float inv = rsqrtf(eg_warp_sum(v0 * v0 + v1 * v1) * (1.0f / 64) + GATE_EPS);
+        const size_t t = (size_t)b * L + r / G;
+        const int h = kvh * G + r % G;
+        const uint16_t* const g = gate + t * GATE_STRIDE + GATE_OFFSET + h * 64;
+        const size_t o = (t * HQ + h) * 64;
+        put(o + lane, v0 * inv * eg_sigmoid(eg_bf16_to_f32(g[lane])));
+        put(o + lane + 32, v1 * inv * eg_sigmoid(eg_bf16_to_f32(g[lane + 32])));
+    }
 }
 `
 
@@ -420,18 +471,21 @@ type PagedCache struct {
 	SeqLens   []int32 // [batch]
 	KScale    float32
 	VScale    float32
+	Gate      []float32 // with PagedAttention.Gate: [tokens, GateStride] values
 }
 
 // Reference computes the attention output [batch·QLen, Hq, 64] in float64
 // from query values q (as stored, before QScale), following
-// moe8_attention_decode/reference.py:216-236.
+// moe8_attention_decode/reference.py:216-236, then the gate epilogue (:236)
+// when a.Gate is set.
 func (a PagedAttention) Reference(q []float32, c PagedCache) ([]float64, error) {
 	a, g, err := a.norm()
 	if err != nil {
 		return nil, err
 	}
 	batch := len(c.SeqLens)
-	if len(q) != batch*a.QLen*a.Hq*HeadDim || len(c.PageTable) != batch*c.MaxPages {
+	if len(q) != batch*a.QLen*a.Hq*HeadDim || len(c.PageTable) != batch*c.MaxPages ||
+		a.Gate && len(c.Gate) != batch*a.QLen*a.GateStride {
 		return nil, fmt.Errorf("paged attention %s reference: bad input sizes", a.Name)
 	}
 	out := make([]float64, len(q))
@@ -481,6 +535,17 @@ func (a PagedAttention) Reference(q []float32, c PagedCache) ([]float64, error) 
 					w := logits[t-start] / sum
 					for d, vq := range c.V[(r*a.Hkv+kvh)*HeadDim:][:HeadDim] {
 						o[d] += w * float64(FromE4M3Bits(vq)) * float64(c.VScale)
+					}
+				}
+				if a.Gate {
+					var ss float64
+					for _, v := range o {
+						ss += v * v
+					}
+					inv := 1 / math.Sqrt(ss/HeadDim+float64(a.GateEps))
+					g := c.Gate[(b*a.QLen+j)*a.GateStride+a.GateOffset+h*HeadDim:][:HeadDim]
+					for d := range o {
+						o[d] *= inv / (1 + math.Exp(-float64(g[d])))
 					}
 				}
 			}
