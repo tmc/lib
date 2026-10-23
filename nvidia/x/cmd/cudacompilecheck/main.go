@@ -66,6 +66,14 @@
 //	cudacompilecheck -exec 'limactl shell --workdir / okcnvcc --' -nvcc ... \
 //	    -torch /home/me.linux/venv/lib/python3.12/site-packages submission.py
 //
+// -spills lists every local-memory access (STL, LDL) of each function, by
+// source line, whether nvdisasm marks it a spill, and how many loops hold
+// it, from nvdisasm -g on the compiling host. Loops are the natural loops
+// of the function's control flow graph, so code that ptxas places after
+// the exit and branches back from counts only if it is in a cycle. -no-loop-spill fails a
+// function with a spill inside a loop, which costs every iteration;
+// spills outside loops are often harmless.
+//
 // The command compiles only; it never loads a module or touches a device.
 package main
 
@@ -108,6 +116,9 @@ func (l *listFlag) Set(s string) error { *l = append(*l, s); return nil }
 
 type config struct {
 	nvcc, cuobjdump string
+	nvdisasm        string
+	spills          bool
+	noLoopSpill     bool
 	exec            []string
 	archs           []string
 	std             string
@@ -142,8 +153,9 @@ type Census struct {
 
 type function struct {
 	*ptxasinfo.Function
-	SASS *Census `json:",omitempty"`
-	PTX  *Census `json:",omitempty"`
+	SASS  *Census       `json:",omitempty"`
+	PTX   *Census       `json:",omitempty"`
+	Local []localAccess `json:",omitempty"` // with -spills
 }
 
 type fileReport struct {
@@ -171,6 +183,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&keep, "keep", "", "comma-separated function `names` to instantiate")
 	fs.BoolVar(&c.launchers, "launchers", false, "instantiate every inline void function defined at the start of a line")
 	fs.BoolVar(&c.sass, "sass", false, "add a SASS instruction census from cuobjdump")
+	fs.BoolVar(&c.spills, "spills", false, "list each function's local-memory accesses by source line and loop depth, from nvdisasm -g; adds -lineinfo")
+	fs.BoolVar(&c.noLoopSpill, "no-loop-spill", false, "fail if a spill is inside a loop; implies -spills")
+	fs.StringVar(&c.nvdisasm, "nvdisasm", "nvdisasm", "nvdisasm `path` on the compiling host, for -spills")
 	fs.BoolVar(&c.ptx, "ptx", false, "add a PTX instruction census")
 	fs.StringVar(&c.savePTX, "save-ptx", "", "write each source's PTX to `directory` as NAME.ARCH.ptx; implies -ptx")
 	fs.IntVar(&c.top, "top", 8, "opcodes to print per function with -sass or -ptx")
@@ -203,6 +218,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
 	c.exec = strings.Fields(execPrefix)
+	if c.noLoopSpill {
+		c.spills = true
+	}
 	if c.savePTX != "" {
 		c.ptx = true
 		if err := os.MkdirAll(c.savePTX, 0o755); err != nil {
@@ -433,6 +451,9 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	}
 	out := filepath.Join(outDir, "out.fatbin")
 	args := []string{c.nvcc, "-std=" + c.std, "-fatbin", "-Xptxas", "-v", "-o", out}
+	if c.spills {
+		args = append(args, "-lineinfo")
+	}
 	for _, a := range c.archs {
 		args = append(args, fmt.Sprintf("-gencode=arch=compute_%s,code=%s", strings.TrimPrefix(a, "sm_"), a))
 	}
@@ -485,8 +506,36 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 			}
 		}
 	}
+	local := map[string]map[string][]localAccess{} // arch -> function -> accesses
+	if c.spills {
+		for _, a := range c.archs {
+			d, err := disassembleLines(ctx, c, outDir, a)
+			if err != nil {
+				return nil, err
+			}
+			local[a] = map[string][]localAccess{}
+			for _, fn := range d.Functions {
+				acc, incomplete, err := localAccesses(fn)
+				if err != nil {
+					return nil, err
+				}
+				local[a][fn.Name] = acc
+				if incomplete && len(acc) > 0 {
+					rep.Notes = append(rep.Notes, fmt.Sprintf("%s %s has an indirect branch or an irreducible cycle; -spills may miss a loop", a, fn.Name))
+				}
+			}
+		}
+	}
 	for _, f := range info.Functions() {
-		rep.Functions = append(rep.Functions, function{Function: f, SASS: census[f.Arch][f.Name], PTX: ptx[f.Arch][f.Name]})
+		rep.Functions = append(rep.Functions, function{Function: f, SASS: census[f.Arch][f.Name], PTX: ptx[f.Arch][f.Name], Local: local[f.Arch][f.Name]})
+		if c.noLoopSpill {
+			for _, a := range local[f.Arch][f.Name] {
+				if a.Spill && a.Loops > 0 {
+					rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: spill inside a loop at %#04x (%s:%d)", f.Arch, f.Name, a.PC, filepath.Base(a.File), a.Line))
+					break
+				}
+			}
+		}
 		if f.Entry && c.maxRegisters > 0 && f.Registers > c.maxRegisters {
 			rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: %d registers > %d", f.Arch, f.Name, f.Registers, c.maxRegisters))
 		}
@@ -605,7 +654,7 @@ func (c *config) runOn(ctx context.Context, lock bool, args []string) ([]byte, e
 func (c *config) hint(err error, tool, flagName string) string {
 	var ee *exec.ExitError
 	switch {
-	case errors.Is(err, exec.ErrNotFound), errors.Is(err, fs.ErrNotExist), errors.As(err, &ee) && ee.ExitCode() == 127 && len(c.exec) > 0:
+	case errors.Is(err, exec.ErrNotFound), errors.Is(err, fs.ErrNotExist), errors.As(err, &ee) && ee.ExitCode() == 127:
 		return fmt.Sprintf(" (%s not found on the compiling host; %s gives its path)", tool, flagName)
 	case errors.As(err, &ee) && ee.ExitCode() == lockBusy && len(c.exec) > 0 && c.lock != "":
 		return fmt.Sprintf(" (waited %v for %s on the compiling host; another compile holds it)", c.lockWait, c.lock)
@@ -674,6 +723,7 @@ func printText(w io.Writer, r *fileReport, top int) {
 	for _, f := range r.Functions {
 		printCensus(w, "SASS", f.Arch, f.Name, f.SASS, top)
 		printCensus(w, "PTX", f.Arch, f.Name, f.PTX, top)
+		printLocals(w, f.Arch, f.Name, f.Local)
 	}
 	for _, s := range r.Warnings {
 		fmt.Fprintf(w, "  warning: %s\n", s)
