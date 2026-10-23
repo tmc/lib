@@ -57,17 +57,22 @@ func TestEventDoneAcrossRecordings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dev.Close()
+	owners := newTestOwners(t)
+	owners.Add("device", dev.Close)
 	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Close()
 	event, err := dev.NewEvent()
+	if event != nil {
+		owners.Add("event", event.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer event.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	var previous <-chan struct{}

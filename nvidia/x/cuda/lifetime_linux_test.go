@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
@@ -45,19 +46,35 @@ func TestConcurrentWithContextAndClose(t *testing.T) {
 
 func TestStreamOperationSerializedWithClose(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
-	defer dev.Close()
+	owners := cuda.NewTestOwners(t)
+	owners.Add("device", dev.Close)
+	var streamOwner *cuda.TestOwner
 	stream, err := dev.NewStream()
+	if stream != nil {
+		streamOwner = owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	entered := make(chan struct{})
 	release := make(chan struct{})
+	releaseOnce := sync.OnceFunc(func() { close(release) })
 	stream.AddCleanup(func() {
 		close(entered)
 		<-release
 	})
 	destroyDone := make(chan error, 1)
-	go func() { destroyDone <- stream.Close() }()
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		destroyDone <- streamOwner.Close()
+	}()
+	// On every path, unblock the callback and let Close finish before
+	// cleanup sweeps the owners.
+	defer func() {
+		releaseOnce()
+		<-closed
+	}()
 	<-entered
 	queryDone := make(chan error, 1)
 	go func() {
@@ -72,7 +89,7 @@ func TestStreamOperationSerializedWithClose(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("Query remained blocked during cleanup callback")
 	}
-	close(release)
+	releaseOnce()
 	if err := <-destroyDone; err != nil {
 		t.Fatal(err)
 	}
@@ -80,8 +97,13 @@ func TestStreamOperationSerializedWithClose(t *testing.T) {
 
 func TestWithHandleExcludesClose(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
-	defer dev.Close()
+	owners := cuda.NewTestOwners(t)
+	owners.Add("device", dev.Close)
+	var streamOwner *cuda.TestOwner
 	stream, err := dev.NewStream()
+	if stream != nil {
+		streamOwner = owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +119,7 @@ func TestWithHandleExcludesClose(t *testing.T) {
 	}()
 	<-entered
 	destroyDone := make(chan error, 1)
-	go func() { destroyDone <- stream.Close() }()
+	go func() { destroyDone <- streamOwner.Close() }()
 	select {
 	case err := <-destroyDone:
 		t.Fatalf("Close crossed live-handle submission: %v", err)
@@ -122,17 +144,24 @@ func TestWithHandleExcludesClose(t *testing.T) {
 
 func TestEventOperationsAfterCloseFail(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
-	defer dev.Close()
+	owners := cuda.NewTestOwners(t)
+	owners.Add("device", dev.Close)
 	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Close()
+	var eventOwner *cuda.TestOwner
 	event, err := dev.NewEvent()
+	if event != nil {
+		eventOwner = owners.Add("event", event.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := event.Close(); err != nil {
+	if err := eventOwner.Close(); err != nil {
 		t.Fatal(err)
 	}
 	tests := []struct {
@@ -155,13 +184,20 @@ func TestEventOperationsAfterCloseFail(t *testing.T) {
 
 func TestEventQuerySerializedWithClose(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
-	defer dev.Close()
+	owners := cuda.NewTestOwners(t)
+	owners.Add("device", dev.Close)
 	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.Close()
+	var eventOwner *cuda.TestOwner
 	event, err := dev.NewEvent()
+	if event != nil {
+		eventOwner = owners.Add("event", event.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,18 +208,30 @@ func TestEventQuerySerializedWithClose(t *testing.T) {
 		t.Fatal(err)
 	}
 	start := make(chan struct{})
+	stop := make(chan struct{})
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		<-start
 		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
 			if _, err := event.Query(); err != nil {
 				return
 			}
 		}
 	}()
+	// A failed Close leaves the event live; stop the loop rather than
+	// let it query until the process exits.
+	defer func() {
+		close(stop)
+		<-done
+	}()
 	close(start)
-	if err := event.Close(); err != nil {
+	if err := eventOwner.Close(); err != nil {
 		t.Fatal(err)
 	}
 	<-done
@@ -295,15 +343,25 @@ func TestContextRunRestoresChangedCurrent(t *testing.T) {
 
 func TestRepeatedRelease(t *testing.T) {
 	dev := cudatest.RequireDevice(t)
+	owners := cuda.NewTestOwners(t)
+	devOwner := owners.Add("device", dev.Close)
 	ctx, err := dev.PrimaryContext()
 	if err != nil {
 		t.Fatal(err)
 	}
+	ctxOwner := owners.Add("context", ctx.Release)
+	var streamOwner, eventOwner *cuda.TestOwner
 	stream, err := dev.NewStream()
+	if stream != nil {
+		streamOwner = owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	event, err := dev.NewEvent()
+	if event != nil {
+		eventOwner = owners.Add("event", event.Close)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,23 +372,29 @@ func TestRepeatedRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The first release goes through the owner so cleanup does not repeat
+	// it. A failed release stops the sequence: later entries depend on it.
 	tests := []struct {
 		name    string
+		owner   *cuda.TestOwner
 		release func() error
 	}{
-		{"event", event.Close},
-		{"stream", stream.Close},
-		{"context", ctx.Release},
-		{"device", dev.Close},
+		{"event", eventOwner, event.Close},
+		{"stream", streamOwner, stream.Close},
+		{"context", ctxOwner, ctx.Release},
+		{"device", devOwner, dev.Close},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.release(); err != nil {
+		ok := t.Run(tt.name, func(t *testing.T) {
+			if err := tt.owner.Close(); err != nil {
 				t.Fatalf("first release: %v", err)
 			}
 			if err := tt.release(); err != nil {
 				t.Fatalf("second release: %v", err)
 			}
 		})
+		if !ok {
+			break
+		}
 	}
 }

@@ -71,25 +71,32 @@ func TestStreamAndEventLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDevice(0) failed: %v", err)
 	}
-	defer dev.Close()
+	owners := cuda.NewTestOwners(t)
+	owners.Add("device", dev.Close)
 
 	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Close()
 
 	eventStart, err := dev.NewEvent()
+	if eventStart != nil {
+		owners.Add("start event", eventStart.Close)
+	}
 	if err != nil {
 		t.Fatalf("NewEvent (start) failed: %v", err)
 	}
-	defer eventStart.Close()
 
 	eventEnd, err := dev.NewEvent()
+	if eventEnd != nil {
+		owners.Add("end event", eventEnd.Close)
+	}
 	if err != nil {
 		t.Fatalf("NewEvent (end) failed: %v", err)
 	}
-	defer eventEnd.Close()
 
 	if err := eventStart.Record(stream); err != nil {
 		t.Fatalf("eventStart.Record failed: %v", err)
@@ -130,13 +137,16 @@ func TestStreamCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDevice(0) failed: %v", err)
 	}
-	defer dev.Close()
+	owners := cuda.NewTestOwners(t)
+	owners.Add("device", dev.Close)
 
 	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.Add("stream", stream.Close)
+	}
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Close()
 
 	cleaned := false
 	stream.AddCleanup(func() {

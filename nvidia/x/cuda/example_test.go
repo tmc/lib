@@ -21,19 +21,33 @@ func Example() {
 	}
 
 	dev := devs[0]
+	// A stream or event returned with an error can still hold a handle,
+	// so close any non-nil result and report a failed close.
 	stream, err := dev.NewStream()
+	if stream != nil {
+		defer func() {
+			if err := stream.Close(); err != nil {
+				fmt.Printf("Failed to close stream: %v\n", err)
+			}
+		}()
+	}
 	if err != nil {
 		fmt.Printf("Failed to create stream: %v\n", err)
 		return
 	}
-	defer stream.Close()
 
 	event, err := dev.NewEvent()
+	if event != nil {
+		defer func() {
+			if err := event.Close(); err != nil {
+				fmt.Printf("Failed to close event: %v\n", err)
+			}
+		}()
+	}
 	if err != nil {
 		fmt.Printf("Failed to create event: %v\n", err)
 		return
 	}
-	defer event.Close()
 
 	_ = event.Record(stream)
 
