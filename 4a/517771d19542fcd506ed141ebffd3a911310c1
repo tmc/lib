@@ -1,0 +1,12 @@
+commit: 4a517771d19542fcd506ed141ebffd3a911310c1
+date: 2026-10-23T08:38:18.315213+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 4294
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-nvml-process-consumer-impl/W/B.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-nvml-process-adoption/B/ROOT-GRADE.md
+lease ratification: P1 attributionConfig.source slices.Clone(a.PIDs), hunk @@ -88,7 +108,7 @@, accepted by root for configuration ownership
+qualification: NVML process source; exact132+A+B host/race25roots101events/vet/twoomissions; native unqualified
