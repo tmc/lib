@@ -12,7 +12,9 @@
     {"Name": "moe8_pooler_tile", "N": 4096, "K": 8192, "Weight": "bf16", "Out": "bf16"},
     {"Name": "moe8_unpooler_tile", "N": 8192, "K": 4096, "Weight": "bf16", "Out": "bf16"},
     {"Name": "moe8_moe_w13", "N": 8192, "K": 4096, "Weight": "nvfp4", "Out": "bf16", "Grouped": true, "Gather": true, "GLU": true, "Epilogue": "(mul (silu $0) $1)"},
-    {"Name": "moe8_moe_w2", "N": 4096, "K": 4096, "Weight": "nvfp4", "Out": "f32", "Grouped": true}
+    {"Name": "moe8_moe_w2", "N": 4096, "K": 4096, "Weight": "nvfp4", "Out": "f32", "Grouped": true},
+    {"Name": "moe8_moe_w2_sumsq", "N": 4096, "K": 4096, "Weight": "nvfp4", "Out": "bf16", "Grouped": true, "SumSq": true,
+     "Epilogue": "(mul $0 (add 1 $1))", "Extras": [{"Name": "post_w", "DType": "bf16", "Broadcast": "col"}]}
   ],
   "paged_attention": [
     {"Name": "moe8_attn_tp8_sliding_q1", "Hq": 16, "Hkv": 2, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},

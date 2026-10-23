@@ -448,7 +448,8 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
                 if (m >= row1) continue;
                 const float v = acc[mt][nt][i] * gs;
                 const float u = acc[mt][nt + NT / 2][i] * gs;
-                out[(size_t)m * NOUT + n] = eg_f32_to_bf16((eg_silu((v)) * (u)));
+                const float y = (eg_silu((v)) * (u));
+                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(y);
             }
 }
 

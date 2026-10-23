@@ -2,6 +2,7 @@ package hopper
 
 import (
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"strings"
 	"testing"
@@ -32,6 +33,14 @@ func TestTileGEMMEmulated(t *testing.T) {
 		{"wgmma_glu_grouped", TileGEMM{N: 128, K: 64, Weight: WeightBF16, Out: BF16, BN: 64, WGMMA: true,
 			Epilogue: MustLambda("(mul (silu $0) $1)"), Grouped: true, Gather: true, GLU: true}, 140, 33, []int32{0, 129, 129, 140}},
 		{"grouped_bf16", TileGEMM{N: 128, K: 64, Weight: WeightBF16, Out: F32, BM: 64, BN: 128, Grouped: true}, 75, 0, []int32{0, 64, 65, 75}},
+		// The MoE down projection with its post-norm scale and row sums of
+		// squares: 32-column groups of 2 warps (BN 64) and of 1 warp (BN 128).
+		{"sumsq_nvfp4_grouped", TileGEMM{N: 256, K: 128, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 64, Grouped: true, SumSq: true,
+			Epilogue: MustLambda("(mul $0 (add 1 $1))"), Extras: []Operand{{"post_w", BF16, PerCol}}}, 75, 0, []int32{0, 64, 65, 75}},
+		{"sumsq_bf16_128", TileGEMM{N: 256, K: 64, Weight: WeightBF16, Out: F32, SumSq: true}, 130, 0, nil},
+		// GLU at BN 64: 32 output columns per block, 4 warps per group.
+		{"sumsq_glu", TileGEMM{N: 128, K: 64, Weight: WeightBF16, Out: BF16, BM: 64, BN: 64, GLU: true, SumSq: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 40, 0, nil},
 	}
 	r := rand.New(rand.NewPCG(41, 42))
 	for _, tt := range tests {
@@ -113,6 +122,10 @@ func TestTileGEMMEmulated(t *testing.T) {
 			}
 			bufs = append(bufs, emuBuf{"out", g.Out.cType(), make([]byte, m*nout*g.Out.Bits()/8)})
 			args = append(args, "out")
+			if g.SumSq {
+				bufs = append(bufs, emuBuf{"ss", "float", make([]byte, 4*m*nout/32)})
+				args = append(args, "ss")
+			}
 			grid, block := g.Grid(maxRows, experts)
 			launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %s)",
 				grid[0], grid[1], grid[2], block[0], g.SharedBytes(), g.Name, strings.Join(args, ", "))
@@ -136,6 +149,24 @@ func TestTileGEMMEmulated(t *testing.T) {
 			if i, ok := closeTo(got, want, rel, 1e-5); !ok {
 				t.Fatalf("out[%d] = %g, want %g (relL2 %g)", i, got[i], want[i], relL2(got, want))
 			}
+			if g.SumSq {
+				g32 := g
+				g32.Out = F32
+				y, err := g32.Reference(m, x, rows, offsets, ws, extras)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantSS := make([]float64, m*nout/32)
+				for i, v := range y {
+					wantSS[i/32] += float64(v) * float64(v)
+				}
+				gotSS := decode(F32, res["ss"])
+				for i := range wantSS {
+					if d := math.Abs(gotSS[i] - wantSS[i]); d > 1e-4*wantSS[i]+1e-6 {
+						t.Fatalf("ss[%d] = %g, want %g", i, gotSS[i], wantSS[i])
+					}
+				}
+			}
 		})
 	}
 }
@@ -155,6 +186,8 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"out", func(g *TileGEMM) { g.Out = E4M3 }},
 		{"arity", func(g *TileGEMM) { g.Epilogue = MustLambda("(add $0 $1)") }},
 		{"extra_name", func(g *TileGEMM) { g.Extras = []Operand{{"rows", F32, PerCol}} }},
+		{"extra_ss", func(g *TileGEMM) { g.Extras = []Operand{{"ss", F32, PerCol}} }},
+		{"wgmma_sumsq", func(g *TileGEMM) { g.WGMMA, g.SumSq = true, true }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)

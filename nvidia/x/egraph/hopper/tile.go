@@ -37,6 +37,14 @@ type TileGEMM struct {
 	// own 64 rows of a 128 × BN tile. BF16 weights only.
 	WGMMA  bool
 	Gather bool
+	// SumSq adds a parameter float ss[m_total, Nout/32] after out (Nout =
+	// N, or N/2 with GLU): ss[m][j] is the sum of squares of the FP32
+	// epilogue values of row m in columns 32j .. 32j+31, before rounding to
+	// Out, summed in a fixed order. Σ_j ss[m][j] / Nout is the mean square
+	// a following RMS norm needs (the MoE post-expert norm,
+	// moe8_moe_w4a16/reference.py:88-90), so the norm need not reread out
+	// to find it. mma.sync only.
+	SumSq bool
 
 	BM, BN int // 64 or 128 (BN 256 with WGMMA); 0 means 128
 	Stages int // 2 to 4; 0 means 3
@@ -54,6 +62,9 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	}
 	if g.Stages == 0 {
 		g.Stages = 3
+	}
+	if g.WGMMA && g.SumSq {
+		return g, fmt.Errorf("tile gemm %s: SumSq is not implemented with WGMMA", g.Name)
 	}
 	if g.WGMMA && (g.BM != 128 || g.Weight != WeightBF16) {
 		return g, fmt.Errorf("tile gemm %s: WGMMA needs BM 128 and BF16 weights", g.Name)
@@ -83,7 +94,7 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.Epilogue.Arity() > acc+len(g.Extras) {
 		return g, fmt.Errorf("tile gemm %s: epilogue uses $%d, have %d accumulators and %d extras", g.Name, g.Epilogue.Arity()-1, acc, len(g.Extras))
 	}
-	seen := map[string]bool{"x": true, "rows": true, "w": true, "w_sf": true, "w_gs": true, "offsets": true, "out": true, "m_total": true}
+	seen := map[string]bool{"x": true, "rows": true, "w": true, "w_sf": true, "w_gs": true, "offsets": true, "out": true, "ss": true, "m_total": true}
 	for _, e := range g.Extras {
 		if !cIdent(e.Name) || seen[e.Name] || e.DType != F32 && e.DType != BF16 || e.Broadcast < PerCol || e.Broadcast > Full {
 			return g, fmt.Errorf("tile gemm %s: bad extra %+v", g.Name, e)
@@ -125,7 +136,11 @@ func (g TileGEMM) params() []string {
 	for _, e := range g.Extras {
 		p = append(p, "const "+e.DType.cType()+"* __restrict__ "+e.Name)
 	}
-	return append(p, g.Out.cType()+"* __restrict__ out")
+	p = append(p, g.Out.cType()+"* __restrict__ out")
+	if g.SumSq {
+		p = append(p, "float* __restrict__ ss")
+	}
+	return p
 }
 
 // Grid returns the grid and block for m rows (the most rows of any expert
@@ -276,6 +291,9 @@ func (g TileGEMM) CUDA() (string, error) {
 	if g.GLU {
 		nts, col = "NT / 2", "blockIdx.x * (BN / 2) + wn * (WN / 2)"
 	}
+	if g.SumSq {
+		b.WriteString("    float sq[MT][2] = {};\n")
+	}
 	fmt.Fprintf(&b, `#pragma unroll
     for (int mt = 0; mt < MT; ++mt)
 #pragma unroll
@@ -303,12 +321,46 @@ func (g TileGEMM) CUDA() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fmt.Fprintf(&b, "                const float y = %s;\n", expr)
 	if g.Out == BF16 {
-		fmt.Fprintf(&b, "                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(%s);\n", expr)
+		b.WriteString("                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(y);\n")
 	} else {
-		fmt.Fprintf(&b, "                out[(size_t)m * NOUT + n] = %s;\n", expr)
+		b.WriteString("                out[(size_t)m * NOUT + n] = y;\n")
 	}
-	b.WriteString("            }\n}\n")
+	if g.SumSq {
+		b.WriteString("                sq[mt][i / 2] += y * y;\n")
+	}
+	b.WriteString("            }\n")
+	if g.SumSq {
+		bno := "BN"
+		if g.GLU {
+			bno = "BN / 2"
+		}
+		fmt.Fprintf(&b, `    // Row sums of squares: lanes of a row, then the warps of each 32-column
+    // group in column order.
+    constexpr int E = (%s) / 32, WPE = 4 / E;
+    __shared__ float red_ss[4][BM];
+#pragma unroll
+    for (int mt = 0; mt < MT; ++mt)
+#pragma unroll
+        for (int h = 0; h < 2; ++h) {
+            float s = sq[mt][h];
+            s += __shfl_xor_sync(0xffffffffu, s, 1);
+            s += __shfl_xor_sync(0xffffffffu, s, 2);
+            if (lane %% 4 == 0) red_ss[wn][wm * WM + mt * 16 + lane / 4 + 8 * h] = s;
+        }
+    __syncthreads();
+    for (int c = tid; c < BM * E; c += 256) {
+        const int r = c / E, j = c %% E;
+        if (bm0 + r >= row1) continue;
+        float s = 0.0f;
+#pragma unroll
+        for (int k = 0; k < WPE; ++k) s += red_ss[j * WPE + k][r];
+        ss[(size_t)(bm0 + r) * (NOUT / 32) + blockIdx.x * E + j] = s;
+    }
+`, bno)
+	}
+	b.WriteString("}\n")
 	return b.String(), nil
 }
 

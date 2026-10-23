@@ -431,7 +431,8 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv(
                 const int n = bn0 + wn * WN + nt * 8 + 2 * (lane % 4) + (i & 1);
                 if (m >= row1) continue;
                 const float v = acc[mt][nt][i];
-                out[(size_t)m * NOUT + n] = eg_f32_to_bf16((v));
+                const float y = (v);
+                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(y);
             }
 }
 

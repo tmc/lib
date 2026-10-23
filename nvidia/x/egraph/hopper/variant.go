@@ -133,6 +133,9 @@ func (g TileGEMM) Variant() (Variant, error) {
 	if g.GLU {
 		key += "/glu"
 	}
+	if g.SumSq {
+		key += "/sumsq"
+	}
 	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, SharedBytes: g.SharedBytes(), MMA: "mma.sync"}
 	if g.WGMMA {
 		l.MMA = "wgmma"
