@@ -140,6 +140,13 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 	}
 	var violations []ValidationError
 	operands := cudaptx.SplitOperands(inst.Operands)
+	// Read a numeric move source before invalidating destinations, including
+	// when the source and destination are the same register.
+	var moveValue int64
+	var moveKnown bool
+	if strings.HasPrefix(inst.Opcode, "mov.") && len(operands) >= 2 && inst.Predicate == "" {
+		moveValue, moveKnown = t.resolveInt(cleanAddress(operands[1]))
+	}
 
 	// Forget each possible destination before the value handlers below.
 	// Compound destinations do not have modeled scalar value semantics.
@@ -165,8 +172,10 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 			return nil
 		}
 		src := cleanAddress(operands[1])
-		if val, err := strconv.ParseInt(src, 0, 64); err == nil {
-			t.regs[dst] = val
+		// A numeric register copy takes its source value now. Retaining only
+		// its spelling would either lose this fact or follow a later write.
+		if moveKnown {
+			t.regs[dst] = moveValue
 		} else {
 			t.regSyms[dst] = src
 		}
@@ -241,17 +250,17 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 	// 1. mbarrier.init
 	if strings.HasPrefix(inst.Opcode, "mbarrier.init") {
 		if len(operands) < 1 {
-			return nil
+			return []ValidationError{{Line: inst.Line, Opcode: inst.Opcode,
+				Violation: "unverified barrier arrival count",
+				Message:   "barrier initialization has no address or arrival count"}}
 		}
 		addr := t.resolveSymbol(cleanAddress(operands[0]))
-		count := int64(1)
+		var count int64
+		var known bool
 		if len(operands) >= 2 {
-			if c, ok := t.resolveInt(operands[1]); ok && c > 0 {
-				count = c
-			}
-		}
-		if defaultCount, ok := t.barrierArrivals[addr]; ok && len(operands) < 2 {
-			count = int64(defaultCount)
+			count, known = t.resolveInt(operands[1])
+		} else if defaultCount, ok := t.barrierArrivals[addr]; ok {
+			count, known = int64(defaultCount), true
 		}
 
 		b, exists := t.barriers[addr]
@@ -267,13 +276,32 @@ func (t *BarrierTracker) processInstruction(inst cudaptx.Instruction) []Validati
 		}
 
 		b = t.getOrCreateBarrier(addr)
-		b.Initialized = true
+		// Refuse an unresolved or invalid initialization rather than inventing
+		// one arrival. Subsequent uses remain uninitialized, including after
+		// an earlier valid init, so no wait can manufacture a verified phase.
+		b.Initialized = false
 		b.Invalidated = false
 		b.InitLine = inst.Line
-		b.ExpectedArrivals = int(count)
-		b.PendingArrivals = int(count)
+		b.ExpectedArrivals = 0
+		b.PendingArrivals = 0
 		b.Phase = 0
 		b.resetTransactions()
+		if !known || count <= 0 || uint64(count) > uint64(^uint(0)>>1) {
+			kind := "unverified barrier arrival count"
+			message := "arrival count cannot be resolved; barrier initialization remains unverified"
+			if known {
+				kind = "invalid barrier arrival count"
+				message = "arrival count must be positive and representable by the barrier model"
+			}
+			violations = append(violations, ValidationError{
+				Line: inst.Line, Opcode: inst.Opcode, Violation: kind,
+				Barrier: addr, Actual: count, Message: message,
+			})
+			return violations
+		}
+		b.Initialized = true
+		b.ExpectedArrivals = int(count)
+		b.PendingArrivals = int(count)
 		b.Events = append(b.Events, BarrierEvent{
 			Line:   inst.Line,
 			Opcode: inst.Opcode,
