@@ -133,6 +133,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nvtelemetrybridge](nvtelemetrybridge/) | Package nvtelemetrybridge publishes bounded NVML polling snapshots in a BPF hash map for independent readers. |
 | [nvtx](nvtx/) | Package nvtx provides a pure-Go, zero-cgo implementation of NVIDIA Tools Extension (NVTX v3). |
 | [nvvmx](nvvmx/) | Package nvvmx compiles NVVM IR with owned inputs and copied output. |
+| [okcprofile](okcprofile/) | Package okcprofile reads Open Kernel Challenge judge profiles: the JSON a judge returns after timing a submission against its baseline. |
 | [pairedtiming](pairedtiming/) | Package pairedtiming estimates the speedup of a candidate over a baseline from paired GPU timings run in ABBA blocks. |
 | [perfetto](perfetto/) | Package perfetto implements a streaming wire-format encoder for Perfetto trace files (.pftrace) compatible with the Chrome / Perfetto UI trace viewer. |
 | [ptxasinfo](ptxasinfo/) | Package ptxasinfo parses the resource report that ptxas prints with -v (--verbose), as in nvcc -Xptxas -v. |
