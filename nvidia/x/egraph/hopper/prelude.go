@@ -123,6 +123,17 @@ EG_DEV eg_u32x4 eg_ldg_stream(const void* p) {
 
 EG_DEV eg_u32x4 eg_ldg16(const void* p) { return *reinterpret_cast<const eg_u32x4*>(p); }
 
+// eg_ld_cg loads through L2 only, to read another block's fenced writes.
+EG_DEV float eg_ld_cg(const float* p) {
+#if defined(EG_HOST_EMU)
+    return *(volatile const float*)p;
+#else
+    float r;
+    asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(r) : "l"(p));
+    return r;
+#endif
+}
+
 // eg_cp_async16 copies 16 bytes global to shared without staging in registers.
 EG_DEV void eg_cp_async16(void* smem, const void* gmem) {
 #if defined(EG_HOST_EMU)

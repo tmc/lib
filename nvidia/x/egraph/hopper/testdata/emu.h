@@ -29,6 +29,7 @@
 #define __forceinline__ inline
 #define __restrict__
 #define __shared__ static
+#define __launch_bounds__(...)
 
 struct dim3 {
     unsigned x = 1, y = 1, z = 1;
@@ -69,6 +70,7 @@ inline float __fdividef(float a, float b) { return a / b; }
 inline float rsqrtf(float x) { return 1.0f / std::sqrt(x); }
 inline void sincosf(float x, float* s, float* c) { *s = std::sin(x); *c = std::cos(x); }
 using std::expf; using std::sqrtf; using std::fmaxf; using std::fminf; using std::exp2f; using std::powf;
+using std::logf; using std::cosf; using std::sinf; using std::fabsf;
 
 template <typename T> T __ldg(const T* p) { return *p; }
 
