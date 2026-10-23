@@ -1,26 +1,46 @@
 package cudaplan_test
 
 import (
+	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
-func requireNativePlanDevice(t *testing.T) *cuda.Device {
+func requireNativePlanDevice(t *testing.T) (*cuda.Device, *workflowNativeOwners) {
 	t.Helper()
-	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("enabled native plan test requires running under the GPU lock")
-	}
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Fatalf("enabled native plan test requires a CUDA device: %v", err)
-	}
+	owners := &workflowNativeOwners{}
 	t.Cleanup(func() {
-		if err := dev.Close(); err != nil {
-			t.Errorf("close native device: %v", err)
+		if err := closeNativePlanOwners(owners); err != nil {
+			t.Error(err)
 		}
 	})
-	return dev
+	var dev *cuda.Device
+	err := setupNativePlanOwners(owners,
+		func() error { _, err := cudalock.Inherited(os.Getenv); return err },
+		func() (func() error, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			lease, err := cudalock.Acquire(ctx, cudalock.WithLabel(t.Name()))
+			if err != nil {
+				return nil, err
+			}
+			return lease.Release, nil
+		},
+		func() (func() error, error) {
+			var err error
+			dev, err = cuda.NewDevice(0)
+			if err != nil {
+				return nil, err
+			}
+			return dev.Close, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("enabled native plan test requires an owned CUDA device: %v", err)
+	}
+	return dev, owners
 }

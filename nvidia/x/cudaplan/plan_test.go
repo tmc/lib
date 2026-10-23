@@ -188,46 +188,54 @@ func TestNativeMatMulReference(t *testing.T) {
 		t.Skip("native qualification pending: CUDA_COMPILER_TEST=1 required for hardware execution")
 	}
 
-	dev := requireNativePlanDevice(t)
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatalf("NewStream: %v", err)
+	dev, owners := requireNativePlanDevice(t)
+	check := func(err error) {
+		t.Helper()
+		retainNativePlanError(owners, err)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
-	defer stream.Close()
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.ownStream(stream)
+	}
+	check(err)
 
 	nativePlan, err := cudaplan.Compile(snap, cudaplan.WithDevice(dev))
-	if err != nil {
-		t.Fatalf("Compile native: %v", err)
+	if nativePlan != nil {
+		owners.add(workflowPlan, "native plan", nativePlan.Close)
 	}
-	defer nativePlan.Close()
+	check(err)
 
-	aBuf, _ := cudamem.Alloc[float32](dev, 6)
-	defer aBuf.Free()
-	bBuf, _ := cudamem.Alloc[float32](dev, 6)
-	defer bBuf.Free()
-	dBuf, _ := cudamem.Alloc[float32](dev, 4)
-	defer dBuf.Free()
+	alloc := func(n int) cudamem.Slice[float32] {
+		t.Helper()
+		buf, err := cudamem.Alloc[float32](dev, n)
+		if buf.Ptr() != 0 {
+			owners.add(workflowBuffer, "matrix buffer", buf.Free)
+		}
+		check(err)
+		return buf
+	}
+	aBuf, bBuf, dBuf := alloc(6), alloc(6), alloc(4)
 
 	// A = [[1, 2, 3], [4, 5, 6]]
-	_ = aBuf.CopyFromHost([]float32{1, 2, 3, 4, 5, 6})
+	check(aBuf.CopyFromHost([]float32{1, 2, 3, 4, 5, 6}))
 	// B = [[7, 8], [9, 10], [11, 12]]
-	_ = bBuf.CopyFromHost([]float32{7, 8, 9, 10, 11, 12})
+	check(bBuf.CopyFromHost([]float32{7, 8, 9, 10, 11, 12}))
 
 	nativeBindings := cudaplan.NewBindings()
-	_ = cudaplan.SetInputSlice(nativeBindings, "A", aBuf, dev)
-	_ = cudaplan.SetInputSlice(nativeBindings, "B", bBuf, dev)
-	_ = cudaplan.SetOutputSlice(nativeBindings, "matmul_2", dBuf, dev)
+	check(cudaplan.SetInputSlice(nativeBindings, "A", aBuf, dev))
+	check(cudaplan.SetInputSlice(nativeBindings, "B", bBuf, dev))
+	check(cudaplan.SetOutputSlice(nativeBindings, "matmul_2", dBuf, dev))
 
 	nativeComp, err := nativePlan.Execute(stream, nativeBindings)
-	if err != nil {
-		t.Fatalf("Execute native: %v", err)
-	}
-	if err := nativeComp.Wait(context.Background()); err != nil {
-		t.Fatalf("Wait native: %v", err)
-	}
+	owners.retainCompletion(nativeComp)
+	check(err)
+	check(nativeComp.Wait(context.Background()))
 
 	res := make([]float32, 4)
-	_ = dBuf.CopyToHost(res)
+	check(dBuf.CopyToHost(res))
 	// D = [[1*7 + 2*9 + 3*11, 1*8 + 2*10 + 3*12], [4*7 + 5*9 + 6*11, 4*8 + 5*10 + 6*12]]
 	//   = [[58, 64], [139, 154]]
 	expected := []float32{58, 64, 139, 154}
