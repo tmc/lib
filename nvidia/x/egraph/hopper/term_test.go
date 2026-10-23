@@ -26,6 +26,17 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 				grid[0], grid[1], block[0], k.GEMM.Name, k.M, strings.Join(k.Args, ", ")))
 			continue
 		}
+		if k.Tile != nil {
+			s, err := k.Tile.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString(s)
+			grid, block := k.Tile.Grid(k.M, 1)
+			launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d, %d), dim3(%d), %d, %s, %d, %s)",
+				grid[0], grid[1], block[0], k.Tile.SharedBytes(), k.Tile.Name, k.M, strings.Join(k.Args, ", ")))
+			continue
+		}
 		s, err := k.Row.CUDA()
 		if err != nil {
 			t.Fatal(err)
@@ -184,6 +195,37 @@ func TestCompileGEMMThenNorm(t *testing.T) {
 		t.Fatal(err)
 	}
 	agree(t, "chain", F32, runPlan(t, plan, env), want.Data)
+}
+
+// TestCompilePrefillGEMM lowers a many-row projection with a fused
+// residual add to one tensor-core TileGEMM.
+func TestCompilePrefillGEMM(t *testing.T) {
+	b := NewBuilder()
+	x := b.Input("x", BF16, 70, 128)
+	w := b.Input("w", BF16, 64, 128)
+	resid := b.Input("resid", F32, 70, 64)
+	root := b.Map(MustLambda("(add $0 $1)"), b.MatMul(x, w), resid)
+	expr, err := Optimize(b.G, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Compile(expr, "prefill", F32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Kernels) != 1 || plan.Kernels[0].Tile == nil {
+		t.Fatalf("plan: %+v", plan.Kernels)
+	}
+	if _, err := plan.Source(); err != nil {
+		t.Fatal(err)
+	}
+	env := randEnv(rand.New(rand.NewPCG(17, 18)),
+		Tensor{"x", BF16, []int{70, 128}}, Tensor{"w", BF16, []int{64, 128}}, Tensor{"resid", F32, []int{70, 64}})
+	want, err := Eval(expr, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agree(t, "prefill", F32, runPlan(t, plan, env), want.Data)
 }
 
 func ExampleOptimize() {

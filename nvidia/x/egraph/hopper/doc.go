@@ -13,7 +13,12 @@
 // weights. [Eval] is their CPU reference. [Optimize] saturates them with
 // [Rules] and [FuseEpilogues] (maps folded into a GEMM's epilogue) and
 // extracts by [Cost]; [Compile] lowers the result to a [Plan] of
-// [SkinnyGEMM] and [RowKernel] launches.
+// [SkinnyGEMM], [TileGEMM] and [RowKernel] launches.
+//
+// Kernels that terms do not yet describe are emitted directly:
+// [PagedAttention] (paged FP8 split-KV attention), [RowTopK] (biased top-k
+// routing) and [ExpertAlign] (expert-sorted MoE routes for a grouped
+// [TileGEMM]).
 //
 // Emitted CUDA uses raw integer types for low-precision data and routes every
 // PTX instruction through a small device prelude, so the same source compiles

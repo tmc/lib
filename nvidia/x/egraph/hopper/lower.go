@@ -17,18 +17,21 @@ type Plan struct {
 	Kernels []PlanKernel
 }
 
-// A PlanKernel is one launch of a Plan. Exactly one of GEMM and Row is set.
+// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile and Row
+// is set.
 type PlanKernel struct {
 	GEMM *SkinnyGEMM
+	Tile *TileGEMM
 	Row  *RowKernel
-	M    int      // GEMM: rows of x
+	M    int      // GEMM, Tile: rows of x
 	Rows int      // Row: rows
 	Args []string // buffer names, in kernel parameter order (after rows)
 }
 
 // Compile lowers an extracted term to a Plan whose output is a tensor named
 // name+"_out" of dtype out (F32 or BF16, or E4M3 for row kernels). gemm terms
-// become [SkinnyGEMM] launches; trees of map, reduction, cast, col, sgn and
+// become [SkinnyGEMM] launches for up to 16 rows and [TileGEMM] launches
+// beyond; trees of map, reduction, cast, col, sgn and
 // pair over a common row width become one [RowKernel]; slices and reshapes of
 // inputs become row addressing. A gemm whose result feeds a row tree is
 // materialized to an FP32 temporary first.
@@ -181,10 +184,24 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 		g.Extras = append(g.Extras, Operand{Name: fmt.Sprintf("e%d", i+1), DType: t.DType, Broadcast: bc})
 		args = append(args, t.Name)
 	}
+	args = append(args, out.Name)
+	if m > 16 {
+		t := TileGEMM{Name: g.Name, N: g.N, K: g.K, Weight: g.Weight, Out: g.Out, Epilogue: g.Epilogue, Extras: g.Extras}
+		if t.N%128 != 0 {
+			t.BN = 64
+		}
+		if m <= 64 {
+			t.BM = 64
+		}
+		if _, err := t.norm(); err != nil {
+			return err
+		}
+		c.plan.Kernels = append(c.plan.Kernels, PlanKernel{Tile: &t, M: m, Args: args})
+		return nil
+	}
 	if _, err := g.norm(); err != nil {
 		return err
 	}
-	args = append(args, out.Name)
 	c.plan.Kernels = append(c.plan.Kernels, PlanKernel{GEMM: &g, M: m, Args: args})
 	return nil
 }
@@ -613,11 +630,16 @@ func (p *Plan) Source() (string, error) {
 	for _, k := range p.Kernels {
 		var src, l string
 		var err error
-		if k.GEMM != nil {
+		switch {
+		case k.GEMM != nil:
 			if src, err = k.GEMM.CUDA(); err == nil {
 				l, err = k.GEMM.Launcher()
 			}
-		} else {
+		case k.Tile != nil:
+			if src, err = k.Tile.CUDA(); err == nil {
+				l, err = k.Tile.Launcher()
+			}
+		default:
 			if src, err = k.Row.CUDA(); err == nil {
 				l, err = k.Row.Launcher()
 			}
@@ -636,9 +658,12 @@ func (p *Plan) Source() (string, error) {
 	}
 	fmt.Fprintf(&b, "\ninline void %s_run(%s, cudaStream_t stream) {\n", p.Name, strings.Join(params, ", "))
 	for _, k := range p.Kernels {
-		if k.GEMM != nil {
+		switch {
+		case k.GEMM != nil:
 			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.GEMM.Name, k.M, strings.Join(k.Args, ", "))
-		} else {
+		case k.Tile != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Tile.Name, k.M, strings.Join(k.Args, ", "))
+		default:
 			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Row.Name, k.Rows, strings.Join(k.Args, ", "))
 		}
 	}
