@@ -1,0 +1,11 @@
+commit: cdd9b3fece895f05d4910e1796fca0af3aa04cf0
+date: 2026-10-23T05:44:22.526001+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 30298
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-plan-device-region-policy/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-plan-policy-adoption/ROOT-GRADE.md
+qualification: seven-path policy source; actual115 plus patch; host/race34PASS each and vet; compiler/native unqualified
