@@ -464,6 +464,15 @@ func hostLightMembership(t *testing.T, world int) cudacollective.Membership {
 	return m
 }
 
+func hostLightClique(t *testing.T, world int) *cudacollective.Clique {
+	t.Helper()
+	q, err := cudacollective.NewClique(hostLightMembership(t, world))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return q
+}
+
 // TestHostLightRingSyntheticCollective drives consumed commands into public
 // cudacollective Plans over a synthetic transport. It checks dispatch order
 // and that neither ExecuteSteps nor the consumer reports completion before
@@ -471,10 +480,10 @@ func hostLightMembership(t *testing.T, world int) cudacollective.Membership {
 func TestHostLightRingSyntheticCollective(t *testing.T) {
 	const world = 2
 	tr := newHostLightSyntheticTransport(world)
-	m := hostLightMembership(t, world)
+	q := hostLightClique(t, world)
 	var want []string
 	for rank := 0; rank < world; rank++ {
-		comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: rank, Membership: m, Generation: hostLightGeneration, Transport: tr})
+		comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: rank, Clique: q, Generation: hostLightGeneration, Transport: tr})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -563,7 +572,7 @@ func TestHostLightRingSyntheticCollectiveRefuses(t *testing.T) {
 			if gen == 0 && !tt.zeroGen {
 				gen = hostLightGeneration
 			}
-			comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: tt.rank, Membership: hostLightMembership(t, world), Generation: gen, Transport: tr})
+			comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: tt.rank, Clique: hostLightClique(t, world), Generation: gen, Transport: tr})
 			if tt.stage == "communicator" {
 				if !errors.Is(err, tt.want) {
 					t.Fatalf("NewCommunicator: %v, want %v", err, tt.want)

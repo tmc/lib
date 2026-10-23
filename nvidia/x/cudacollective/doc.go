@@ -2,8 +2,10 @@
 // membership, communicator generations, multi-transport fallback resolution,
 // and double-buffered pipelined transfers for distributed CUDA execution.
 //
-// Communicators are created with a Membership and an explicit generation
-// counter. Multi-transport fallback resolves along the hierarchy:
+// Communicators are created from a caller-owned Clique, shared by every rank
+// and reconstruction of one clique, and an explicit generation. A failure
+// refuses that generation and older ones on the Clique; it recovers no native
+// resources. Multi-transport fallback resolves along the hierarchy:
 //
 //	nvlshm (NVLink / NVSwitch P2P / multicast)
 //	  -> moonep (RDMA / Eager transport)

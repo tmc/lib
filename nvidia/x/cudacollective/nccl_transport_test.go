@@ -24,8 +24,12 @@ func testNCCL(t *testing.T, world, rank int, calls *ncclCalls) (*NCCLTransport, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	q, err := NewClique(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tr := &NCCLTransport{Comms: handles, Streams: streams, calls: calls}
-	c, err := NewCommunicator(CommunicatorConfig{Rank: rank, Membership: m, Generation: 1, Transport: tr})
+	c, err := NewCommunicator(CommunicatorConfig{Rank: rank, Clique: q, Generation: 1, Transport: tr})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +161,7 @@ func TestNCCLRanksSubmitConcurrently(t *testing.T) {
 	release := make(chan struct{})
 	calls := &ncclCalls{info: func(c nccl.Comm) (int, int, error) { return 2, int(c) - 1, nil }, invoke: func(ncclInvocation) error { entered <- struct{}{}; <-release; return nil }, complete: func(driver.Stream) error { return nil }}
 	tr, c0 := testNCCL(t, 2, 0, calls)
-	c1, err := NewCommunicator(CommunicatorConfig{Rank: 1, Membership: c0.Membership(), Generation: 1, Transport: tr})
+	c1, err := NewCommunicator(CommunicatorConfig{Rank: 1, Clique: c0.clique, Generation: 1, Transport: tr})
 	if err != nil {
 		t.Fatal(err)
 	}

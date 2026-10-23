@@ -12,11 +12,12 @@ import (
 // on host inputs.
 func ExampleCollectiveSchedule_Plan() {
 	m, _ := cudacollective.NewMembership([]cudacollective.Rank{{ID: 0}, {ID: 1, DeviceID: 1}})
+	clique, _ := cudacollective.NewClique(m)
 	tr := cudacollective.NewDeterministicTestTransport(2)
 	var s egraph.CollectiveSchedule
 	s.Quarantine = new(egraph.CollectiveQuarantine)
 	for r := range 2 {
-		comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: r, Membership: m, Generation: 1, Transport: tr})
+		comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: r, Clique: clique, Generation: 1, Transport: tr})
 		if err != nil {
 			fmt.Println(err)
 			return

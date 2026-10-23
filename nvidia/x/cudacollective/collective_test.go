@@ -66,6 +66,7 @@ func TestCommunicatorGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	q := testClique(t, m)
 
 	transport := cudacollective.NewDeterministicTestTransport(2)
 	defer transport.Close()
@@ -73,7 +74,7 @@ func TestCommunicatorGeneration(t *testing.T) {
 	// Invalid generation 0
 	_, err = cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 0,
 		Transport:  transport,
 	})
@@ -84,7 +85,7 @@ func TestCommunicatorGeneration(t *testing.T) {
 	// Valid generation 1
 	comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 1,
 		Transport:  transport,
 	})
@@ -118,12 +119,13 @@ func TestCollectiveBufferLifetime(t *testing.T) {
 		{ID: 1, HostID: "hostA", DeviceID: 1},
 	}
 	m, _ := cudacollective.NewMembership(ranks)
+	q := testClique(t, m)
 	transport := cudacollective.NewDeterministicTestTransport(2)
 	defer transport.Close()
 
 	comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 1,
 		Transport:  transport,
 	})
@@ -178,12 +180,13 @@ func TestDistributedBackpressure(t *testing.T) {
 		{ID: 1, HostID: "hostA", DeviceID: 1},
 	}
 	m, _ := cudacollective.NewMembership(ranks)
+	q := testClique(t, m)
 	transport := cudacollective.NewDeterministicTestTransport(2)
 	defer transport.Close()
 
 	comm, _ := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 1,
 		Transport:  transport,
 	})
@@ -253,12 +256,13 @@ func TestRankFailure(t *testing.T) {
 		{ID: 2, HostID: "hostA", DeviceID: 2},
 	}
 	m, _ := cudacollective.NewMembership(ranks)
+	q := testClique(t, m)
 	transport := cudacollective.NewDeterministicTestTransport(3)
 	defer transport.Close()
 
 	comm, _ := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 1,
 		Transport:  transport,
 	})
@@ -318,11 +322,12 @@ func TestUninitializedNCCLTransportRefusesExecution(t *testing.T) {
 		{ID: 1, HostID: "hostA", DeviceID: 1},
 	}
 	m, _ := cudacollective.NewMembership(ranks)
+	q := testClique(t, m)
 
 	ncclTr := &cudacollective.NCCLTransport{}
 	comm, _ := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 1,
 		Transport:  ncclTr,
 	})
@@ -343,4 +348,14 @@ func TestUninitializedNCCLTransportRefusesExecution(t *testing.T) {
 	if !errors.Is(err, cudacollective.ErrExecutionUnavailable) {
 		t.Fatalf("native execute without hardware: got %v, want ErrExecutionUnavailable", err)
 	}
+}
+
+// testClique returns a new Clique for m.
+func testClique(t *testing.T, m cudacollective.Membership) *cudacollective.Clique {
+	t.Helper()
+	q, err := cudacollective.NewClique(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return q
 }

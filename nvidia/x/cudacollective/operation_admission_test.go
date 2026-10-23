@@ -302,12 +302,16 @@ func TestPlanRefusesInvalidDescriptorBeforeReservation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	q, err := NewClique(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	transport := NewDeterministicTestTransport(2)
 	defer transport.Close()
 
 	comm, err := NewCommunicator(CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 1,
 		Transport:  transport,
 	})

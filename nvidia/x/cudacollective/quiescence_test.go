@@ -274,7 +274,7 @@ func TestQuiescenceAdmissionDoesNotTransferForeignOwner(t *testing.T) {
 		complete: func(driver.Stream) error { completeCalls++; return failure },
 	}
 	transport, firstComm := testNCCL(t, 2, 0, calls)
-	secondComm, err := NewCommunicator(CommunicatorConfig{Rank: 1, Membership: firstComm.Membership(), Generation: 1, Transport: transport})
+	secondComm, err := NewCommunicator(CommunicatorConfig{Rank: 1, Clique: firstComm.clique, Generation: 1, Transport: transport})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestQuiescenceAdmissionDoesNotTransferForeignOwner(t *testing.T) {
 	}
 	err = secondPlan.ExecuteSteps(context.Background())
 	var foreign *CompletionError
-	if !errors.Is(err, ErrCompletionPending) || errors.As(err, &foreign) {
+	if !errors.Is(err, ErrCommunicatorGeneration) || errors.As(err, &foreign) {
 		t.Fatalf("foreign recovery authority leaked: %v", err)
 	}
 	if err := secondPlan.Close(); err != nil || completeCalls != 1 {
@@ -344,7 +344,8 @@ func TestQuiescenceCommunicatorCloseRetryConcurrent(t *testing.T) {
 		x.entered[i], x.release[i] = make(chan struct{}), make(chan struct{})
 	}
 	m, _ := NewMembership([]Rank{{ID: 0}})
-	c, err := NewCommunicator(CommunicatorConfig{Rank: 0, Membership: m, Generation: 1, Transport: x})
+	q, _ := NewClique(m)
+	c, err := NewCommunicator(CommunicatorConfig{Rank: 0, Clique: q, Generation: 1, Transport: x})
 	if err != nil {
 		t.Fatal(err)
 	}

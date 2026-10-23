@@ -18,7 +18,8 @@ func ExampleCompletionError() {
 		complete: func(driver.Stream) error { return failure },
 	}}
 	m, _ := NewMembership([]Rank{{ID: 0}})
-	c, _ := NewCommunicator(CommunicatorConfig{Rank: 0, Membership: m, Generation: 1, Transport: t})
+	q, _ := NewClique(m)
+	c, _ := NewCommunicator(CommunicatorConfig{Rank: 0, Clique: q, Generation: 1, Transport: t})
 	err := t.Execute(context.Background(), c, OperationDescriptor{Kind: KindAllReduce, Count: 1, Reduction: ReductionSum}, 0x1000, 0x2000)
 	var pending *CompletionError
 	if errors.As(err, &pending) {

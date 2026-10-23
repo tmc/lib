@@ -40,13 +40,17 @@ func newBindingFixture(t *testing.T, tr Transport, buf DoubleBuffer, maxQueue in
 	if err != nil {
 		t.Fatal(err)
 	}
+	q, err := NewClique(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if tr == nil {
 		tr = NewDeterministicTestTransport(2)
 	}
 	t.Cleanup(func() { tr.Close() })
 	comm, err := NewCommunicator(CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     q,
 		Generation: 1,
 		Transport:  tr,
 	})

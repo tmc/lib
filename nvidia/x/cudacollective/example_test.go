@@ -7,8 +7,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudair"
 )
 
-// Example demonstrates constructing a rank membership, resolving a transport,
-// creating a communicator, and configuring an operation descriptor.
+// Example demonstrates constructing a rank membership and its clique,
+// resolving a transport, creating a communicator, and configuring an operation descriptor.
 func Example() {
 	ranks := []cudacollective.Rank{
 		{ID: 0, HostID: "node-0", DeviceID: 0},
@@ -29,9 +29,14 @@ func Example() {
 		return
 	}
 
+	clique, err := cudacollective.NewClique(membership)
+	if err != nil {
+		fmt.Printf("clique error: %v\n", err)
+		return
+	}
 	comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: membership,
+		Clique:     clique,
 		Generation: 1,
 		Transport:  transport,
 	})

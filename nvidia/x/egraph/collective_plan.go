@@ -500,10 +500,15 @@ type CollectiveReceipt struct {
 // failed and quarantines the plan identity only for a failure of its own
 // execution: when some ranks executed a collective and another rank did not,
 // or when the runtime records a failed generation or lost participant while
-// executing a collective. A communicator that fails or closes concurrently
-// with that execution is attributed to the plan. Cancellation inside a
-// transport is the transport's to report. In-place inputs of collectives
-// that completed before an error are already overwritten.
+// executing a collective. The runtime records an error returned by a
+// transport, including a context cancellation, with MarkFailed, which fails
+// the communicator's generation for its whole cudacollective.Clique.
+// Cancellation inside a transport is the transport's to report. A result
+// that is only a local cudacollective.ErrCommunicatorClosed records no clique
+// failure: unless ranks diverged or another failure is recorded, Replay
+// returns it without marking communicators or quarantining the plan.
+// In-place inputs of collectives that completed before an error are already
+// overwritten.
 //
 // Concurrent calls of Replay on one plan run one at a time. Plans that
 // share communicators and buffers may refuse each other's held buffers.

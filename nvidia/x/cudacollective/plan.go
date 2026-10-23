@@ -191,7 +191,9 @@ func (p *Plan) ExecuteSteps(ctx context.Context) error {
 			}
 			p.pipeline.CompleteStage(tr, err)
 			if err != nil {
-				p.comm.MarkFailed(err)
+				if !onlyClosed(err) {
+					p.comm.MarkFailed(err)
+				}
 				return fmt.Errorf("step %s execute: %w", step.Name, err)
 			}
 		} else {
@@ -200,12 +202,31 @@ func (p *Plan) ExecuteSteps(ctx context.Context) error {
 				if pending := pendingCompletion(err); pending != nil {
 					p.pending, p.pendingErr = pending, err
 				}
-				p.comm.MarkFailed(err)
+				if !onlyClosed(err) {
+					p.comm.MarkFailed(err)
+				}
 				return fmt.Errorf("step %s execute: %w", step.Name, err)
 			}
 		}
 	}
 	return nil
+}
+
+// onlyClosed reports whether err is ErrCommunicatorClosed, possibly wrapped
+// by single-error wrappers. A local close is not a clique failure; an error
+// joining any other failure is.
+func onlyClosed(err error) bool {
+	for err != nil {
+		if err == ErrCommunicatorClosed {
+			return true
+		}
+		u, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = u.Unwrap()
+	}
+	return false
 }
 
 // Close stops plan admission and retries its one incomplete operation, if any.

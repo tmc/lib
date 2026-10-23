@@ -20,10 +20,15 @@ func transportMembership(t *testing.T) cudacollective.Membership {
 	return m
 }
 
+func transportClique(t *testing.T) *cudacollective.Clique {
+	t.Helper()
+	return testClique(t, transportMembership(t))
+}
+
 func transportPlan(t *testing.T, tr cudacollective.Transport) *cudacollective.Plan {
 	t.Helper()
 	comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
-		Rank: 0, Membership: transportMembership(t), Generation: 1, Transport: tr,
+		Rank: 0, Clique: transportClique(t), Generation: 1, Transport: tr,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +68,7 @@ func TestTCPSocketTransportUnavailable(t *testing.T) {
 func TestTCPSocketDirectExecutionRefuses(t *testing.T) {
 	tr := &cudacollective.TCPSocketTransport{}
 	comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
-		Rank: 0, Membership: transportMembership(t), Generation: 1, Transport: tr,
+		Rank: 0, Clique: transportClique(t), Generation: 1, Transport: tr,
 	})
 	if err != nil {
 		t.Fatal(err)

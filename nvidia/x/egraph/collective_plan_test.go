@@ -21,12 +21,16 @@ func collectiveComms(t *testing.T, generation cudacollective.Generation, tr cuda
 	if err != nil {
 		t.Fatal(err)
 	}
+	q, err := cudacollective.NewClique(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if tr == nil {
 		tr = cudacollective.NewDeterministicTestTransport(2)
 	}
 	var comms []*cudacollective.Communicator
 	for r := range 2 {
-		c, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: r, Membership: m, Generation: generation, Transport: tr})
+		c, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: r, Clique: q, Generation: generation, Transport: tr})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -977,7 +981,11 @@ func TestCollectivePlanEdges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	foreign, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: 1, Membership: m2, Generation: 7, Transport: cudacollective.NewDeterministicTestTransport(2)})
+	q2, err := cudacollective.NewClique(m2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: 1, Clique: q2, Generation: 7, Transport: cudacollective.NewDeterministicTestTransport(2)})
 	if err != nil {
 		t.Fatal(err)
 	}

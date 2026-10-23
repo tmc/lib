@@ -7,16 +7,21 @@ import (
 )
 
 // Generation represents an incarnation counter for a communicator clique.
-// When a rank fails or a communicator is aborted, the generation is marked failed.
-// Subsequent operations or re-creation with that generation fail closed.
+// When a rank fails or a communicator is aborted, its Clique marks that
+// generation and every older one failed. Subsequent operations or re-creation
+// with a failed generation fail closed. Generation 0 is invalid.
 type Generation uint64
 
 // Communicator is the coordinated control plane interface for a rank.
 // Its zero value is not usable; create one with NewCommunicator.
 type Communicator struct {
+	// When nested, locks are acquired in the order clique.mu, mu, inFlightMu.
+	// clique.mu is never held across transport, native, Close or completion
+	// calls.
 	mu         sync.RWMutex
 	closeMu    sync.Mutex
 	rank       int
+	clique     *Clique
 	membership Membership
 	generation Generation
 	transport  Transport
@@ -43,20 +48,28 @@ type InFlightTransfer struct {
 }
 
 // CommunicatorConfig provides parameters for creating a Communicator.
+// Clique supplies the membership and failure authority; every rank and
+// every reconstruction of one clique must share the same Clique.
 type CommunicatorConfig struct {
 	Rank       int
-	Membership Membership
+	Clique     *Clique
 	Generation Generation
 	Transport  Transport
 }
 
 // NewCommunicator creates and validates a Communicator for a specific rank and generation.
+// It refuses a generation at or below the Clique's failed generation.
 func NewCommunicator(cfg CommunicatorConfig) (*Communicator, error) {
-	if cfg.Membership.WorldSize() <= 0 {
-		return nil, ErrInvalidWorldSize
+	q := cfg.Clique
+	if q == nil {
+		return nil, errors.New("cudacollective: clique cannot be nil")
 	}
-	if cfg.Rank < 0 || cfg.Rank >= cfg.Membership.WorldSize() {
-		return nil, fmt.Errorf("%w: rank %d out of world bounds [0, %d)", ErrInvalidRank, cfg.Rank, cfg.Membership.WorldSize())
+	m := q.membership
+	if m.WorldSize() <= 0 {
+		return nil, fmt.Errorf("%w: clique has no membership", ErrInvalidWorldSize)
+	}
+	if cfg.Rank < 0 || cfg.Rank >= m.WorldSize() {
+		return nil, fmt.Errorf("%w: rank %d out of world bounds [0, %d)", ErrInvalidRank, cfg.Rank, m.WorldSize())
 	}
 	if cfg.Generation == 0 {
 		return nil, fmt.Errorf("%w: generation 0 is invalid", ErrCommunicatorGeneration)
@@ -65,14 +78,20 @@ func NewCommunicator(cfg CommunicatorConfig) (*Communicator, error) {
 		return nil, errors.New("cudacollective: transport cannot be nil")
 	}
 
-	participants := make(map[int]bool, cfg.Membership.WorldSize())
-	for i := 0; i < cfg.Membership.WorldSize(); i++ {
+	participants := make(map[int]bool, m.WorldSize())
+	for i := 0; i < m.WorldSize(); i++ {
 		participants[i] = true
 	}
 
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	if err := q.check(cfg.Generation); err != nil {
+		return nil, err
+	}
 	return &Communicator{
 		rank:               cfg.Rank,
-		membership:         cfg.Membership,
+		clique:             q,
+		membership:         m,
 		generation:         cfg.Generation,
 		transport:          cfg.Transport,
 		inFlight:           make(map[uintptr]*InFlightTransfer),
@@ -100,9 +119,26 @@ func (c *Communicator) Transport() Transport {
 	return c.transport
 }
 
+// errUnspecifiedFailure records a MarkFailed call with a nil error.
+var errUnspecifiedFailure = errors.New("cudacollective: unspecified failure")
+
 // MarkFailed transitions the communicator to a permanently failed state with err.
-// Any future operation on this communicator will immediately return ErrCommunicatorGeneration.
+// It also marks the communicator's generation failed in its Clique before
+// returning, so every communicator of that generation or an older one refuses
+// admission.
+// Future operations on this communicator return ErrCommunicatorGeneration
+// wrapping the first err; those on other communicators do not wrap err.
+// Work admitted before the failure keeps its reservations; Close remains
+// available.
 func (c *Communicator) MarkFailed(err error) {
+	if err == nil {
+		err = errUnspecifiedFailure
+	}
+	if q := c.clique; q != nil {
+		q.mu.Lock()
+		defer q.mu.Unlock()
+		q.fail(c.generation, c.rank)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.failed = true
@@ -112,7 +148,14 @@ func (c *Communicator) MarkFailed(err error) {
 }
 
 // ReportLostParticipant records that a remote participant dropped out or failed.
+// Like MarkFailed, it marks the communicator's generation failed in its Clique
+// before returning.
 func (c *Communicator) ReportLostParticipant(rank int) {
+	if q := c.clique; q != nil {
+		q.mu.Lock()
+		defer q.mu.Unlock()
+		q.fail(c.generation, c.rank)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.activeParticipants, rank)
@@ -121,7 +164,12 @@ func (c *Communicator) ReportLostParticipant(rank int) {
 }
 
 // CheckAlive verifies that all members are present and the generation is active.
+// The result is a point-in-time observation, not a lease on later work.
 func (c *Communicator) CheckAlive() error {
+	if q := c.clique; q != nil {
+		q.mu.RLock()
+		defer q.mu.RUnlock()
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.closed {
@@ -130,10 +178,22 @@ func (c *Communicator) CheckAlive() error {
 	if c.failed {
 		return fmt.Errorf("%w: %w", ErrCommunicatorGeneration, c.failErr)
 	}
+	if err := c.cliqueCheck(); err != nil {
+		return err
+	}
 	if len(c.activeParticipants) < c.membership.WorldSize() {
 		return fmt.Errorf("%w: missing ranks", ErrLostParticipant)
 	}
 	return nil
+}
+
+// cliqueCheck reports whether the Clique has marked c's generation failed.
+// The caller holds c.clique.mu.
+func (c *Communicator) cliqueCheck() error {
+	if c.clique == nil {
+		return nil
+	}
+	return c.clique.check(c.generation)
 }
 
 // ValidateRange verifies that [addr, addr+bytes) is non-nil, does not wrap
@@ -174,7 +234,15 @@ func (tr *InFlightTransfer) ValidateRange(addr uintptr, bytes int) error {
 
 // AcquireTransferBuffer marks a buffer range [addr, addr+bytes) as actively transferring in a double-buffered slot.
 // If the buffer or any overlapping subrange is already registered in flight, it returns ErrBufferInUse.
+// It refuses a generation its Clique has marked failed: once MarkFailed or
+// ReportLostParticipant has returned on any communicator of the Clique, no
+// reservation of that generation or an older one is admitted.
 func (c *Communicator) AcquireTransferBuffer(addr uintptr, bytes int, slot int) (*InFlightTransfer, error) {
+	// Hold the Clique admission through reservation insertion.
+	if q := c.clique; q != nil {
+		q.mu.RLock()
+		defer q.mu.RUnlock()
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.closed {
@@ -182,6 +250,9 @@ func (c *Communicator) AcquireTransferBuffer(addr uintptr, bytes int, slot int) 
 	}
 	if c.failed {
 		return nil, fmt.Errorf("%w: %w", ErrCommunicatorGeneration, c.failErr)
+	}
+	if err := c.cliqueCheck(); err != nil {
+		return nil, err
 	}
 	if len(c.activeParticipants) < c.membership.WorldSize() {
 		return nil, ErrLostParticipant

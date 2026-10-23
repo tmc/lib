@@ -23,7 +23,7 @@ func newAdmissionComm(t *testing.T) *cudacollective.Communicator {
 	t.Cleanup(func() { transport.Close() })
 	comm, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{
 		Rank:       0,
-		Membership: m,
+		Clique:     testClique(t, m),
 		Generation: 1,
 		Transport:  transport,
 	})

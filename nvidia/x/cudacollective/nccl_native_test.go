@@ -113,8 +113,12 @@ func TestNCCLNativeOneRank(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		q, err := NewClique(m)
+		if err != nil {
+			return err
+		}
 		tr := &NCCLTransport{Comms: []nccl.Comm{handle}, Streams: []driver.Stream{stream}}
-		c, err := NewCommunicator(CommunicatorConfig{Rank: 0, Membership: m, Generation: 1, Transport: tr})
+		c, err := NewCommunicator(CommunicatorConfig{Rank: 0, Clique: q, Generation: 1, Transport: tr})
 		if err != nil {
 			return err
 		}

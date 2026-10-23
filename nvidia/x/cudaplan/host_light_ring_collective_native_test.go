@@ -146,11 +146,15 @@ func TestHostLightNativeRingNCCL(t *testing.T) {
 	if !transport.Available(membership) {
 		fail(errors.New("concrete NCCL transport unavailable"))
 	}
+	clique, err := cudacollective.NewClique(membership)
+	if err != nil {
+		fail(err)
+	}
 	var comms [2]*cudacollective.Communicator
 	var plans [2]*cudacollective.Plan
 	op := hostLightAllReduce(hostLightElements, cudair.Int32)
 	for rank := range plans {
-		comms[rank], err = cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: rank, Membership: membership, Generation: hostLightGeneration, Transport: transport})
+		comms[rank], err = cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: rank, Clique: clique, Generation: hostLightGeneration, Transport: transport})
 		if err != nil {
 			fail(err)
 		}
