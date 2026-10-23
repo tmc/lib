@@ -9,39 +9,38 @@ import (
 	"github.com/tmc/lib/nvidia/x/cublasltx"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 func TestMatMulValues(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	const m, k, n = 2, 3, 2
 	a, err := cudamem.Alloc[float32](dev, m*k)
+	owner.add(a.Free)
 	if err != nil {
 		t.Fatalf("alloc A: %v", err)
 	}
-	defer a.Free()
 	b, err := cudamem.Alloc[float32](dev, k*n)
+	owner.add(b.Free)
 	if err != nil {
 		t.Fatalf("alloc B: %v", err)
 	}
-	defer b.Free()
 	d, err := cudamem.Alloc[float32](dev, m*n)
+	owner.add(d.Free)
 	if err != nil {
 		t.Fatalf("alloc D: %v", err)
 	}
-	defer d.Free()
 
 	// cuBLASLt uses column-major layouts here. These encode
 	// A=[[1,2,3],[4,5,6]] and B=[[7,8],[9,10],[11,12]].
@@ -68,17 +67,17 @@ func TestMatMulValues(t *testing.T) {
 }
 
 func TestMatMulShapeDifferential(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	shapes := []struct {
 		name    string
@@ -104,20 +103,20 @@ func TestMatMulShapeDifferential(t *testing.T) {
 			}
 			want := hostMatMul(aHost, bHost, shape.m, shape.k, shape.n)
 			a, err := cudamem.Alloc[float32](dev, len(aHost))
+			owner.add(a.Free)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer a.Free()
 			b, err := cudamem.Alloc[float32](dev, len(bHost))
+			owner.add(b.Free)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer b.Free()
 			d, err := cudamem.Alloc[float32](dev, len(want))
+			owner.add(d.Free)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer d.Free()
 			if err := a.CopyFromHost(aHost); err != nil {
 				t.Fatal(err)
 			}
@@ -156,41 +155,37 @@ func hostMatMul(a, b []float32, m, k, n int) []float32 {
 }
 
 func TestMatMul(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine failed: %v", err)
 	}
-	defer func() {
-		if err := engine.Close(); err != nil {
-			t.Errorf("Close: %v", err)
-		}
-	}()
 
 	m, k, n := 128, 64, 128
 	aBuf, err := cudamem.Alloc[float32](dev, m*k)
+	owner.add(aBuf.Free)
 	if err != nil {
 		t.Fatalf("alloc a: %v", err)
 	}
-	defer aBuf.Free()
 
 	bBuf, err := cudamem.Alloc[float32](dev, k*n)
+	owner.add(bBuf.Free)
 	if err != nil {
 		t.Fatalf("alloc b: %v", err)
 	}
-	defer bBuf.Free()
 
 	dBuf, err := cudamem.Alloc[float32](dev, m*n)
+	owner.add(dBuf.Free)
 	if err != nil {
 		t.Fatalf("alloc d: %v", err)
 	}
-	defer dBuf.Free()
 
 	if err := engine.MatMul(stream, aBuf, m, k, bBuf, n, dBuf); err != nil {
 		t.Fatalf("MatMul failed: %v", err)
@@ -208,27 +203,27 @@ func TestMatMul(t *testing.T) {
 }
 
 func TestMatMulSubmissionFailureDoesNotPoisonEngine(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 	a, err := cudamem.Alloc[float32](dev, 1)
+	owner.add(a.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Free()
 	b, err := cudamem.Alloc[float32](dev, 1)
+	owner.add(b.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Free()
 	d, err := cudamem.Alloc[float32](dev, 1)
+	owner.add(d.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Free()
 	if err := a.CopyFromHost([]float32{3}); err != nil {
 		t.Fatal(err)
 	}
@@ -237,6 +232,7 @@ func TestMatMulSubmissionFailureDoesNotPoisonEngine(t *testing.T) {
 	}
 
 	closed, err := dev.NewStream()
+	owner.stream(closed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,10 +245,10 @@ func TestMatMulSubmissionFailureDoesNotPoisonEngine(t *testing.T) {
 		}
 	}
 	live, err := dev.NewStream()
+	owner.stream(live)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer live.Close()
 	if err := engine.MatMul(live, a, 1, 1, b, 1, d); err != nil {
 		t.Fatalf("MatMul after rejected submissions: %v", err)
 	}
@@ -269,40 +265,36 @@ func TestMatMulSubmissionFailureDoesNotPoisonEngine(t *testing.T) {
 }
 
 func BenchmarkCuBLASLtGEMM(b *testing.B) {
-	dev := cudatest.Require(b)
+	dev, owner := requireDevice(b)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		b.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		b.Fatalf("NewEngine failed: %v", err)
 	}
-	defer func() {
-		if err := engine.Close(); err != nil {
-			b.Errorf("Close: %v", err)
-		}
-	}()
 
 	// Benchmark large batch prefill matrix sizes: M=64 (batch), K=2048, N=5632 (intermediate)
 	m, k, n := 64, 2048, 5632
 	aBuf, err := cudamem.Alloc[float32](dev, m*k)
+	owner.add(aBuf.Free)
 	if err != nil {
 		b.Fatalf("alloc A: %v", err)
 	}
-	defer aBuf.Free()
 	bBuf, err := cudamem.Alloc[float32](dev, k*n)
+	owner.add(bBuf.Free)
 	if err != nil {
 		b.Fatalf("alloc B: %v", err)
 	}
-	defer bBuf.Free()
 	dBuf, err := cudamem.Alloc[float32](dev, m*n)
+	owner.add(dBuf.Free)
 	if err != nil {
 		b.Fatalf("alloc D: %v", err)
 	}
-	defer dBuf.Free()
 
 	// Warmup
 	if err := engine.MatMul(stream, aBuf, m, k, bBuf, n, dBuf); err != nil {
@@ -329,44 +321,40 @@ func BenchmarkCuBLASLtGEMM(b *testing.B) {
 }
 
 func TestMatMulWithGELUBias(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream failed: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine failed: %v", err)
 	}
-	defer func() {
-		if err := engine.Close(); err != nil {
-			t.Errorf("Close: %v", err)
-		}
-	}()
 
 	m, k, n := 3, 5, 4
 	aBuf, err := cudamem.Alloc[float32](dev, m*k)
+	owner.add(aBuf.Free)
 	if err != nil {
 		t.Fatalf("alloc A: %v", err)
 	}
-	defer aBuf.Free()
 	bBuf, err := cudamem.Alloc[float32](dev, k*n)
+	owner.add(bBuf.Free)
 	if err != nil {
 		t.Fatalf("alloc B: %v", err)
 	}
-	defer bBuf.Free()
 	biasBuf, err := cudamem.Alloc[float32](dev, m)
+	owner.add(biasBuf.Free)
 	if err != nil {
 		t.Fatalf("alloc bias: %v", err)
 	}
-	defer biasBuf.Free()
 	dBuf, err := cudamem.Alloc[float32](dev, m*n)
+	owner.add(dBuf.Free)
 	if err != nil {
 		t.Fatalf("alloc D: %v", err)
 	}
-	defer dBuf.Free()
 
 	a := []float32{-.5, .25, .75, 1, -.25, .5, -.75, 1.25, .125, .375, -.625, .875, -.125, .625, -1}
 	b := []float32{.5, -.5, .25, .75, -1, -.25, .75, .5, -1, .25, 1, .125, -.375, .625, -.875, .25, -.75, .375, .875, -.125}
@@ -410,18 +398,18 @@ func gelu(x float32) float32 {
 }
 
 func TestMatMulRowMajor(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	const m, k, n = 2, 3, 2
 	aHost := []float32{1, 2, 3, 4, 5, 6}
@@ -429,20 +417,20 @@ func TestMatMulRowMajor(t *testing.T) {
 	want := hostMatMulRowMajor(aHost, bHost, m, k, n)
 
 	a, err := cudamem.Alloc[float32](dev, len(aHost))
+	owner.add(a.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Free()
 	b, err := cudamem.Alloc[float32](dev, len(bHost))
+	owner.add(b.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Free()
 	d, err := cudamem.Alloc[float32](dev, len(want))
+	owner.add(d.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Free()
 
 	if err := a.CopyFromHost(aHost); err != nil {
 		t.Fatal(err)
@@ -468,18 +456,18 @@ func TestMatMulRowMajor(t *testing.T) {
 }
 
 func TestLinearRowMajor(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	const tokens, inFeatures, outFeatures = 2, 3, 2
 	xHost := []float32{1, 2, 3, 4, 5, 6}
@@ -487,20 +475,20 @@ func TestLinearRowMajor(t *testing.T) {
 	want := hostLinearRowMajor(xHost, wHost, tokens, inFeatures, outFeatures)
 
 	x, err := cudamem.Alloc[float32](dev, len(xHost))
+	owner.add(x.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer x.Free()
 	w, err := cudamem.Alloc[float32](dev, len(wHost))
+	owner.add(w.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer w.Free()
 	y, err := cudamem.Alloc[float32](dev, len(want))
+	owner.add(y.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer y.Free()
 
 	if err := x.CopyFromHost(xHost); err != nil {
 		t.Fatal(err)
@@ -526,18 +514,18 @@ func TestLinearRowMajor(t *testing.T) {
 }
 
 func TestMatMulF16(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	const m, k, n = 2, 3, 2
 	aF32 := []float32{1, 4, 2, 5, 3, 6}
@@ -552,20 +540,20 @@ func TestMatMulF16(t *testing.T) {
 	}
 
 	a, err := cudamem.Alloc[uint16](dev, len(aHost))
+	owner.add(a.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Free()
 	b, err := cudamem.Alloc[uint16](dev, len(bHost))
+	owner.add(b.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Free()
 	d, err := cudamem.Alloc[uint16](dev, m*n)
+	owner.add(d.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Free()
 
 	if err := a.CopyFromHost(aHost); err != nil {
 		t.Fatal(err)
@@ -598,18 +586,18 @@ func TestMatMulF16(t *testing.T) {
 }
 
 func TestLinearRowMajorF16(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	const tokens, inFeatures, outFeatures = 2, 3, 2
 	xF32 := []float32{1, 2, 3, 4, 5, 6}
@@ -624,20 +612,20 @@ func TestLinearRowMajorF16(t *testing.T) {
 	}
 
 	x, err := cudamem.Alloc[uint16](dev, len(xHost))
+	owner.add(x.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer x.Free()
 	w, err := cudamem.Alloc[uint16](dev, len(wHost))
+	owner.add(w.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer w.Free()
 	y, err := cudamem.Alloc[uint16](dev, tokens*outFeatures)
+	owner.add(y.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer y.Free()
 
 	if err := x.CopyFromHost(xHost); err != nil {
 		t.Fatal(err)
@@ -682,12 +670,12 @@ func TestWorkspaceOptionsValidation(t *testing.T) {
 }
 
 func TestWithWorkspaceBytesZero(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	engine, err := cublasltx.NewEngine(dev, cublasltx.WithWorkspaceBytes(0))
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine with 0 workspace: %v", err)
 	}
-	defer engine.Close()
 
 	if engine.WorkspaceSize() != 0 {
 		t.Fatalf("WorkspaceSize = %d, want 0", engine.WorkspaceSize())
@@ -698,15 +686,16 @@ func TestWithWorkspaceBytesZero(t *testing.T) {
 }
 
 func TestWithWorkspaceCustom(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	const wsBytes = 4 * 1024 * 1024
 	ws, err := cudamem.Alloc[byte](dev, wsBytes)
+	owner.add(ws.Free)
 	if err != nil {
 		t.Fatalf("alloc custom workspace: %v", err)
 	}
-	defer ws.Free()
 
 	engine, err := cublasltx.NewEngine(dev, cublasltx.WithWorkspace(ws))
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine with custom workspace: %v", err)
 	}
@@ -730,12 +719,12 @@ func TestWithWorkspaceCustom(t *testing.T) {
 }
 
 func TestEngineWithWorkspaceConcurrentStreams(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	const numStreams = 4
 	const m, k, n = 32, 32, 32
@@ -746,46 +735,46 @@ func TestEngineWithWorkspaceConcurrentStreams(t *testing.T) {
 
 	for i := 0; i < numStreams; i++ {
 		s, err := dev.NewStream()
+		owner.stream(s)
 		if err != nil {
 			t.Fatalf("NewStream %d: %v", i, err)
 		}
-		defer s.Close()
 		streams = append(streams, s)
 
 		// Allocate dedicated workspace per stream (1MB each)
 		ws, err := cudamem.Alloc[byte](dev, 1024*1024)
+		owner.add(ws.Free)
 		if err != nil {
 			t.Fatalf("alloc ws %d: %v", i, err)
 		}
-		defer ws.Free()
 		workspaces = append(workspaces, ws)
 
 		se, err := engine.WithWorkspace(ws)
+		owner.add(se.Close)
 		if err != nil {
 			t.Fatalf("WithWorkspace %d: %v", i, err)
 		}
-		defer se.Close()
 		streamEngines = append(streamEngines, se)
 
 		a, err := cudamem.Alloc[float32](dev, m*k)
+		owner.add(a.Free)
 		if err != nil {
 			t.Fatalf("alloc A %d: %v", i, err)
 		}
-		defer a.Free()
 		aSlices = append(aSlices, a)
 
 		b, err := cudamem.Alloc[float32](dev, k*n)
+		owner.add(b.Free)
 		if err != nil {
 			t.Fatalf("alloc B %d: %v", i, err)
 		}
-		defer b.Free()
 		bSlices = append(bSlices, b)
 
 		d, err := cudamem.Alloc[float32](dev, m*n)
+		owner.add(d.Free)
 		if err != nil {
 			t.Fatalf("alloc D %d: %v", i, err)
 		}
-		defer d.Free()
 		dSlices = append(dSlices, d)
 
 		// Populate A and B
@@ -831,42 +820,42 @@ func TestEngineWithWorkspaceConcurrentStreams(t *testing.T) {
 }
 
 func TestMatMulRawPerOperationWorkspace(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	// Create engine with 0 default workspace
 	engine, err := cublasltx.NewEngine(dev, cublasltx.WithWorkspaceBytes(0))
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 
 	const m, k, n = 8, 8, 8
 	a, err := cudamem.Alloc[float32](dev, m*k)
+	owner.add(a.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Free()
 	b, err := cudamem.Alloc[float32](dev, k*n)
+	owner.add(b.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Free()
 	d, err := cudamem.Alloc[float32](dev, m*n)
+	owner.add(d.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Free()
 
 	ws, err := cudamem.Alloc[byte](dev, 1024*1024)
+	owner.add(ws.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ws.Free()
 
 	aHost := make([]float32, m*k)
 	bHost := make([]float32, k*n)

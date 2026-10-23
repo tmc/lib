@@ -9,7 +9,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cublasltx"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 // geluAct is the exact (erf) GELU. cuBLASLt may use the tanh approximation,
@@ -42,29 +41,31 @@ func epilogueRef(a, b, bias []float32, m, k, n int, f func(float64) float64) []f
 
 // epilogueFixture is one column-major problem and its device buffers.
 type epilogueFixture struct {
+	dev                 *cuda.Device
 	m, k, n             int
 	hostA, hostB, hostC []float32
 	a, b, bias, d       cudamem.Slice[float32]
 	stream              *cuda.Stream
 	engine              *cublasltx.Engine
+	owner               *testOwner
 }
 
 func newEpilogueFixture(t *testing.T) *epilogueFixture {
 	t.Helper()
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	t.Cleanup(func() { stream.Close() })
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	t.Cleanup(func() { engine.Close() })
 
 	const m, k, n = 3, 4, 2
-	f := &epilogueFixture{m: m, k: k, n: n, stream: stream, engine: engine}
+	f := &epilogueFixture{dev: dev, m: m, k: k, n: n, stream: stream, engine: engine, owner: owner}
 	f.hostA = make([]float32, m*k)
 	for i := range f.hostA {
 		f.hostA[i] = float32(i%5)*0.25 - 0.5
@@ -80,10 +81,10 @@ func newEpilogueFixture(t *testing.T) *epilogueFixture {
 		src []float32
 	}{{&f.a, f.hostA}, {&f.b, f.hostB}, {&f.bias, f.hostC}, {&f.d, make([]float32, m*n)}} {
 		s, err := cudamem.Alloc[float32](dev, len(e.src))
+		owner.add(s.Free)
 		if err != nil {
 			t.Fatalf("alloc: %v", err)
 		}
-		t.Cleanup(func() { s.Free() })
 		if err := s.CopyFromHost(e.src); err != nil {
 			t.Fatalf("upload: %v", err)
 		}
@@ -198,12 +199,11 @@ func TestMatMulEpilogueUnchangedWithoutEpilogue(t *testing.T) {
 // both halves of the fused epilogue are observed rather than just D.
 func TestMatMulEpilogueGELUAux(t *testing.T) {
 	f := newEpilogueFixture(t)
-	dev := cudatest.Require(t)
-	aux, err := cudamem.Alloc[float32](dev, f.m*f.n)
+	aux, err := cudamem.Alloc[float32](f.dev, f.m*f.n)
+	f.owner.add(aux.Free)
 	if err != nil {
 		t.Fatalf("alloc aux: %v", err)
 	}
-	defer aux.Free()
 
 	got := f.run(t, cublasltx.MatMulConfig{
 		Alpha:    1,
@@ -237,17 +237,17 @@ func TestMatMulEpilogueGELUAux(t *testing.T) {
 // the row-major result. A bias that landed on the token axis instead would
 // disagree with the reference for every row but the first.
 func TestMatMulEpilogueRowMajorBias(t *testing.T) {
-	dev := cudatest.Require(t)
+	dev, owner := requireDevice(t)
 	stream, err := dev.NewStream()
+	owner.stream(stream)
 	if err != nil {
 		t.Fatalf("NewStream: %v", err)
 	}
-	defer stream.Close()
 	engine, err := cublasltx.NewEngine(dev)
+	owner.add(engine.Close)
 	if err != nil {
 		t.Fatalf("NewEngine: %v", err)
 	}
-	defer engine.Close()
 
 	// Row-major X is tokens by inFeatures, W is outFeatures by inFeatures, and
 	// Y is tokens by outFeatures. tokens and outFeatures differ so a bias on
@@ -269,10 +269,10 @@ func TestMatMulEpilogueRowMajorBias(t *testing.T) {
 	upload := func(src []float32) cudamem.Slice[float32] {
 		t.Helper()
 		s, err := cudamem.Alloc[float32](dev, len(src))
+		owner.add(s.Free)
 		if err != nil {
 			t.Fatalf("alloc: %v", err)
 		}
-		t.Cleanup(func() { s.Free() })
 		if err := s.CopyFromHost(src); err != nil {
 			t.Fatalf("upload: %v", err)
 		}
