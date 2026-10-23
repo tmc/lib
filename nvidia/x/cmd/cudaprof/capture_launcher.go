@@ -1440,7 +1440,7 @@ func runCapture(ctx context.Context, o captureOptions) (captureResult, error) {
 			if result.DroppedRecords > 0 {
 				result.CaptureError = fmt.Sprintf("dropped %d records", result.DroppedRecords)
 			} else if result.UnqualifiedGenerations > 0 {
-				result.CaptureError = fmt.Sprintf("%d unqualified worker generation(s)", result.UnqualifiedGenerations)
+				result.CaptureError = fmt.Sprintf("%d unqualified worker generation(s): processes the target spawned, such as a JIT compiler, loaded the agent and did not publish a finalized journal; see worker_generations", result.UnqualifiedGenerations)
 			} else {
 				result.CaptureError = fmt.Sprintf("run completeness is %s", result.RunCompleteness)
 			}
