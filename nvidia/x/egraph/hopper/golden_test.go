@@ -1,6 +1,7 @@
 package hopper
 
 import (
+	"encoding/json"
 	"flag"
 	"math"
 	"os"
@@ -57,17 +58,66 @@ func closeTo(got, want []float32, rel, abs float64) (int, bool) {
 	return 0, true
 }
 
-// TestGoldensCompile compiles every golden translation unit for sm_90a. It
-// needs nvcc on PATH (not available on the macOS development host), so it is
-// the check to run on a CUDA machine: go test -run GoldensCompile.
+// TestGoldensCompile compiles every golden translation unit for sm_90a.
+//
+// With CUDACOMPILECHECK set to a cudacompilecheck binary
+// (github.com/tmc/lib/nvidia/x/cmd/cudacompilecheck) it compiles through
+// that, and fails unless ptxas reports at least one entry function. To
+// compile on another host, such as a Lima VM with the toolkit, also set
+// CUDACOMPILECHECK_EXEC to its -exec prefix and CUDACOMPILECHECK_NVCC to
+// nvcc's path there:
+//
+//	CUDACOMPILECHECK=$(go env GOPATH)/bin/cudacompilecheck \
+//	CUDACOMPILECHECK_EXEC='limactl shell --workdir / okcnvcc --' \
+//	CUDACOMPILECHECK_NVCC=/home/me.linux/venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc \
+//	go test -run GoldensCompile
+//
+// Otherwise it runs nvcc from PATH, and skips if there is none.
 func TestGoldensCompile(t *testing.T) {
-	nvcc, err := exec.LookPath("nvcc")
-	if err != nil {
-		t.Skip("nvcc not on PATH; goldens not compiled")
-	}
 	files, err := filepath.Glob(filepath.Join("testdata", "golden", "*.cu"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if check := os.Getenv("CUDACOMPILECHECK"); check != "" {
+		args := []string{"-arch", "sm_90a", "-std", "c++20", "-flags", "-O3", "-json"}
+		if x := os.Getenv("CUDACOMPILECHECK_EXEC"); x != "" {
+			args = append(args, "-exec", x)
+		}
+		if nvcc := os.Getenv("CUDACOMPILECHECK_NVCC"); nvcc != "" {
+			args = append(args, "-nvcc", nvcc)
+		}
+		for _, f := range files {
+			t.Run(filepath.Base(f), func(t *testing.T) {
+				out, err := exec.Command(check, append(args, f)...).Output()
+				if err != nil {
+					var stderr []byte
+					if ee, ok := err.(*exec.ExitError); ok {
+						stderr = ee.Stderr
+					}
+					t.Fatalf("cudacompilecheck %s: %v\n%s%s", f, err, out, stderr)
+				}
+				var reports []struct{ Functions []struct{ Entry bool } }
+				if err := json.Unmarshal(out, &reports); err != nil {
+					t.Fatalf("cudacompilecheck %s: %v\n%s", f, err, out)
+				}
+				entries := 0
+				for _, r := range reports {
+					for _, fn := range r.Functions {
+						if fn.Entry {
+							entries++
+						}
+					}
+				}
+				if entries == 0 {
+					t.Errorf("%s: ptxas reported no entry functions", f)
+				}
+			})
+		}
+		return
+	}
+	nvcc, err := exec.LookPath("nvcc")
+	if err != nil {
+		t.Skip("nvcc not on PATH and CUDACOMPILECHECK not set; goldens not compiled")
 	}
 	for _, f := range files {
 		t.Run(filepath.Base(f), func(t *testing.T) {
