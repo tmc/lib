@@ -16,7 +16,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/nsightcompute"
 )
 
-const importNCUUsage = "usage: cudaprof import-ncu [-json] [-limit N] [-max-bytes N] [-capture capture.pprof -join-receipt receipt.json] envelope.json"
+const importNCUUsage = "usage: cudaprof import-ncu [-json] [-limit N] [-max-bytes N] [-capture capture.pprof -join-receipt receipt.json] envelope.json\n       cudaprof import-ncu -raw [-json] [-ceiling GB/s] [-max-bytes N] raw.csv"
 
 // The receipt is a project producer record, not NVIDIA report metadata and not
 // a driver attestation. An alias prevents permissive Artifact.UnmarshalJSON
@@ -52,6 +52,8 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 	maxBytes := fs.Int("max-bytes", nsightcompute.MaxBytes, "maximum bytes per input and output")
 	capturePath := fs.String("capture", "", "retained capture for an explicit identity join")
 	receiptPath := fs.String("join-receipt", "", "actual artifact/workload/compiler producer receipt")
+	raw := fs.Bool("raw", false, "read an ncu --csv --page raw log file instead of an envelope")
+	ceiling := fs.Float64("ceiling", 0, "with -raw, measured DRAM bandwidth ceiling in GB/s")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			_, err = fmt.Fprintln(stdout, importNCUUsage)
@@ -61,6 +63,19 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 	}
 	if fs.NArg() != 1 {
 		return errors.New(importNCUUsage)
+	}
+	if *raw {
+		if *maxBytes <= 0 || *maxBytes > nsightcompute.MaxBytes || *ceiling < 0 || *capturePath != "" || *receiptPath != "" {
+			return fmt.Errorf("import-ncu: -raw takes only -json, -ceiling and -max-bytes")
+		}
+		data, err := readNCUFile(fs.Arg(0), *maxBytes)
+		if err != nil {
+			return err
+		}
+		return runImportNCURaw(data, *maxBytes, *ceiling, *jsonOutput, stdout)
+	}
+	if *ceiling != 0 {
+		return fmt.Errorf("import-ncu: -ceiling requires -raw")
 	}
 	if *limit < 1 || *limit > 1024 || *maxBytes <= 0 || *maxBytes > nsightcompute.MaxBytes {
 		return fmt.Errorf("import-ncu: invalid summary or byte budget")
