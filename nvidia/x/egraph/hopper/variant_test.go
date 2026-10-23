@@ -24,8 +24,8 @@ func TestSweepMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tile) != 12 {
-		t.Errorf("%d tile variants, want 12", len(tile))
+	if len(tile) != 21 { // 12 mma.sync, 9 wgmma
+		t.Errorf("%d tile variants, want 21", len(tile))
 	}
 	for _, set := range [][]Variant{skinny, tile, attn} {
 		configs := make(map[string]bool)
@@ -132,6 +132,6 @@ func ExampleSweepTileGEMM() {
 	fmt.Println(len(vs), vs[0].Name, vs[0].Key)
 	fmt.Println(vs[0].Config)
 	// Output:
-	// 12 proj_m64n64s2 gemm/N=8192/K=1024/w=bf16/out=bf16/epi=$0
-	// block=256,warps=8,stages=2,bm=64,bn=64
+	// 21 proj_wg_n64s2 gemm/N=8192/K=1024/w=bf16/out=bf16/epi=$0
+	// block=256,warps=8,stages=2,bm=128,bn=64,mma=wgmma
 }

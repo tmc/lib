@@ -200,6 +200,44 @@ EG_DEV void eg_mma_bf16(float d[4], const uint32_t a[4], const uint32_t b[2], co
 #endif
 }
 
+// eg_wgmma_desc returns a wgmma shared-memory matrix descriptor (no
+// swizzle) for the matrix at p with leading and stride byte offsets.
+EG_DEV uint64_t eg_wgmma_desc(const void* p, uint32_t lbo, uint32_t sbo) {
+#if defined(EG_HOST_EMU)
+    const uint64_t a = (uint64_t)((const unsigned char*)p - eg_emu_dynamic_smem());
+#else
+    const uint64_t a = (uint32_t)__cvta_generic_to_shared(p);
+#endif
+    return ((a & 0x3ffffu) >> 4) | (uint64_t)((lbo & 0x3ffffu) >> 4) << 16 | (uint64_t)((sbo & 0x3ffffu) >> 4) << 32;
+}
+
+// eg_fence_proxy_async orders this thread's generic-proxy shared memory
+// writes (st.shared, cp.async) before later async-proxy reads (wgmma).
+EG_DEV void eg_fence_proxy_async() {
+#if !defined(EG_HOST_EMU)
+    asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
+#endif
+}
+
+EG_DEV void eg_wgmma_fence() {
+#if !defined(EG_HOST_EMU)
+    asm volatile("wgmma.fence.sync.aligned;" ::: "memory");
+#endif
+}
+
+EG_DEV void eg_wgmma_commit() {
+#if !defined(EG_HOST_EMU)
+    asm volatile("wgmma.commit_group.sync.aligned;" ::: "memory");
+#endif
+}
+
+// eg_wgmma_wait waits until at most n wgmma groups are pending.
+template <int n> EG_DEV void eg_wgmma_wait() {
+#if !defined(EG_HOST_EMU)
+    asm volatile("wgmma.wait_group.sync.aligned %0;" :: "n"(n) : "memory");
+#endif
+}
+
 // eg_mma_e4m3 is d = a·b + c for one m16n8k32 tile, E4M3 inputs (four per
 // register, k ascending from the low byte), FP32 accumulate (sm_89+).
 EG_DEV void eg_mma_e4m3(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {

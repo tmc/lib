@@ -31,10 +31,14 @@ type TileGEMM struct {
 	// and $1 are the accumulators of columns c and c + N/2 (W13 rows
 	// [:N/2] gate, [N/2:] up), so (mul (silu $0) $1) is SwiGLU
 	// (moe8_moe_w4a16/reference.py:103-104). Extras follow as $2, ....
-	GLU    bool
+	GLU bool
+	// WGMMA uses sm_90a warpgroup MMA (wgmma.mma_async m64nBNk16) from
+	// shared-memory descriptors instead of mma.sync: two warpgroups each
+	// own 64 rows of a 128 × BN tile. BF16 weights only.
+	WGMMA  bool
 	Gather bool
 
-	BM, BN int // 64 or 128; 0 means 128
+	BM, BN int // 64 or 128 (BN 256 with WGMMA); 0 means 128
 	Stages int // 2 to 4; 0 means 3
 }
 
@@ -51,7 +55,10 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.Stages == 0 {
 		g.Stages = 3
 	}
-	if g.BM != 64 && g.BM != 128 || g.BN != 64 && g.BN != 128 || g.Stages < 2 || g.Stages > 4 {
+	if g.WGMMA && (g.BM != 128 || g.Weight != WeightBF16) {
+		return g, fmt.Errorf("tile gemm %s: WGMMA needs BM 128 and BF16 weights", g.Name)
+	}
+	if g.BM != 64 && g.BM != 128 || g.BN != 64 && g.BN != 128 && !(g.WGMMA && g.BN == 256) || g.Stages < 2 || g.Stages > 4 {
 		return g, fmt.Errorf("tile gemm %s: unsupported tile %dx%d, %d stages", g.Name, g.BM, g.BN, g.Stages)
 	}
 	if g.N < 1 || g.N%g.BN != 0 || g.K < 64 || g.K%64 != 0 {
@@ -91,6 +98,9 @@ func (g TileGEMM) SharedBytes() int {
 	g, err := g.norm()
 	if err != nil {
 		return 0
+	}
+	if g.WGMMA {
+		return g.Stages * (g.BM + g.BN) * 64 * 2
 	}
 	b := g.BN * 72 * 2
 	if g.Weight == WeightNVFP4 {
@@ -137,6 +147,9 @@ func (g TileGEMM) CUDA() (string, error) {
 	g, err := g.norm()
 	if err != nil {
 		return "", err
+	}
+	if g.WGMMA {
+		return g.cudaWGMMA()
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "// %s: out = %s over x[M, %d] · W[%d, %d]ᵀ (%v), %dx%d tiles, %d stages.\n",

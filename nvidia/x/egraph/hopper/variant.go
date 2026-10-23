@@ -14,16 +14,17 @@ import (
 // Launch is a variant's tunable launch configuration. Zero fields do not
 // apply to the variant's kernel.
 type Launch struct {
-	Block        int `json:"block"`                    // threads per block
-	Warps        int `json:"warps"`                    // warps per block
-	Stages       int `json:"stages,omitempty"`         // cp.async ring depth
-	SplitK       int `json:"split_k,omitempty"`        // K splits (SkinnyGEMM)
-	SplitKV      int `json:"split_kv,omitempty"`       // keys per split (PagedAttention)
-	BM           int `json:"bm,omitempty"`             // output tile rows (TileGEMM)
-	BN           int `json:"bn,omitempty"`             // output tile columns (TileGEMM)
-	RowsPerBlock int `json:"rows_per_block,omitempty"` // W rows per block (SkinnyGEMM)
-	Unroll       int `json:"unroll,omitempty"`         // loads in flight (SkinnyGEMM)
-	SharedBytes  int `json:"shared_bytes,omitempty"`   // dynamic shared memory
+	Block        int    `json:"block"`                    // threads per block
+	Warps        int    `json:"warps"`                    // warps per block
+	Stages       int    `json:"stages,omitempty"`         // cp.async ring depth
+	SplitK       int    `json:"split_k,omitempty"`        // K splits (SkinnyGEMM)
+	SplitKV      int    `json:"split_kv,omitempty"`       // keys per split (PagedAttention)
+	BM           int    `json:"bm,omitempty"`             // output tile rows (TileGEMM)
+	BN           int    `json:"bn,omitempty"`             // output tile columns (TileGEMM)
+	RowsPerBlock int    `json:"rows_per_block,omitempty"` // W rows per block (SkinnyGEMM)
+	Unroll       int    `json:"unroll,omitempty"`         // loads in flight (SkinnyGEMM)
+	MMA          string `json:"mma,omitempty"`            // tensor-core instruction: mma.sync or wgmma
+	SharedBytes  int    `json:"shared_bytes,omitempty"`   // dynamic shared memory
 }
 
 // A Variant is one emitted kernel configuration with the metadata an
@@ -74,6 +75,9 @@ func (l Launch) config() string {
 	add("bn", l.BN)
 	add("rows_per_block", l.RowsPerBlock)
 	add("unroll", l.Unroll)
+	if l.MMA != "" {
+		parts = append(parts, "mma="+l.MMA)
+	}
 	return strings.Join(parts, ",")
 }
 
@@ -127,7 +131,10 @@ func (g TileGEMM) Variant() (Variant, error) {
 	if g.GLU {
 		key += "/glu"
 	}
-	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, SharedBytes: g.SharedBytes()}
+	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, SharedBytes: g.SharedBytes(), MMA: "mma.sync"}
+	if g.WGMMA {
+		l.MMA = "wgmma"
+	}
 	head := []string{"int m"}
 	if g.Grouped {
 		head = append(head, "int max_rows", "int experts")
@@ -185,15 +192,27 @@ func SweepSkinnyGEMM(base SkinnyGEMM) ([]Variant, error) {
 }
 
 // SweepTileGEMM returns the valid variants of base over BM, BN in {64, 128}
-// and 2 to 4 stages, named base.Name + "_m<BM>n<BN>s<S>".
+// and 2 to 4 stages, named base.Name + "_m<BM>n<BN>s<S>", and, for BF16
+// weights, WGMMA variants over BN in {64, 128, 256} and 2 to 4 stages,
+// named base.Name + "_wg_n<BN>s<S>".
 func SweepTileGEMM(base TileGEMM) ([]Variant, error) {
 	var vs []Variant
+	for _, bn := range []int{64, 128, 256} {
+		for s := 2; s <= 4; s++ {
+			g := base
+			g.Name = fmt.Sprintf("%s_wg_n%ds%d", base.Name, bn, s)
+			g.BM, g.BN, g.Stages, g.WGMMA = 128, bn, s, true
+			if v, err := g.Variant(); err == nil {
+				vs = append(vs, v)
+			}
+		}
+	}
 	for _, bm := range []int{64, 128} {
 		for _, bn := range []int{64, 128} {
 			for s := 2; s <= 4; s++ {
 				g := base
 				g.Name = fmt.Sprintf("%s_m%dn%ds%d", base.Name, bm, bn, s)
-				g.BM, g.BN, g.Stages = bm, bn, s
+				g.BM, g.BN, g.Stages, g.WGMMA = bm, bn, s, false
 				v, err := g.Variant()
 				if err != nil {
 					continue

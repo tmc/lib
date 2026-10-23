@@ -243,6 +243,31 @@ inline void eg_emu_mma_e4m3_16832(float d[4], const uint32_t a[4], const uint32_
     for (int i = 0; i < 4; ++i) d[i] = out[i];
 }
 
+// wgmma.mma_async m64nNk16 f32.bf16.bf16, D += A·B, A and B K-major in
+// shared memory with no-swizzle descriptors: element (r, k) of a matrix
+// is at start + (r/8)·SBO + (k/8)·LBO + (r%8)·16 + (k%8)·2. Thread i of
+// the warpgroup holds d[nt*4 + j] = D[(i/32%4)*16 + lane/4 + 8(j/2)][nt*8 +
+// 2(lane%4) + (j&1)]. Operands come from shared memory, so each thread
+// computes its own elements; the emulation completes synchronously.
+inline unsigned char* eg_emu_dynamic_smem();
+inline void eg_emu_wgmma_bf16(float* d, uint64_t da, uint64_t db, int n) {
+    auto at = [](uint64_t desc, int r, int k) {
+        const unsigned char* base = eg_emu_dynamic_smem() + ((desc & 0x3fff) << 4);
+        const uint64_t lbo = ((desc >> 16) & 0x3fff) << 4, sbo = ((desc >> 32) & 0x3fff) << 4;
+        uint16_t h;
+        std::memcpy(&h, base + (r / 8) * sbo + (k / 8) * lbo + (r % 8) * 16 + (k % 8) * 2, 2);
+        return eg_emu_bf16(h, 0);
+    };
+    const int wig = (threadIdx.x / 32) % 4, g = eg_emu_lane / 4, t = eg_emu_lane % 4;
+    for (int nt = 0; nt < n / 8; ++nt)
+        for (int i = 0; i < 4; ++i) {
+            const int row = wig * 16 + g + 8 * (i / 2), col = nt * 8 + 2 * t + (i & 1);
+            float acc = d[nt * 4 + i];
+            for (int k = 0; k < 16; ++k) acc += at(da, row, k) * at(db, col, k);
+            d[nt * 4 + i] = acc;
+        }
+}
+
 // --- launch ---------------------------------------------------------------
 
 inline unsigned char* eg_emu_dynamic_smem() { return eg_emu_cur_block->smem.data(); }

@@ -26,6 +26,11 @@ func TestTileGEMMEmulated(t *testing.T) {
 			Epilogue: MustLambda("(mul (silu $0) $1)"), Grouped: true, Gather: true, GLU: true}, 70, 25, []int32{0, 3, 70}},
 		{"glu_bf16_128", TileGEMM{N: 256, K: 64, Weight: WeightBF16, Out: F32, GLU: true,
 			Epilogue: MustLambda("(add (mul (silu $0) $1) $2)"), Extras: []Operand{{"bias", F32, PerCol}}}, 20, 0, nil},
+		{"wgmma_128", TileGEMM{N: 128, K: 192, Weight: WeightBF16, Out: F32, WGMMA: true, Stages: 2}, 150, 0, nil},
+		{"wgmma_256_epilogue", TileGEMM{N: 256, K: 128, Weight: WeightBF16, Out: BF16, BN: 256, WGMMA: true, Stages: 4,
+			Epilogue: MustLambda("(add (mul $0 $1) $2)"), Extras: []Operand{{"scale", BF16, PerCol}, {"resid", F32, Full}}}, 70, 0, nil},
+		{"wgmma_glu_grouped", TileGEMM{N: 128, K: 64, Weight: WeightBF16, Out: BF16, BN: 64, WGMMA: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)"), Grouped: true, Gather: true, GLU: true}, 140, 33, []int32{0, 129, 129, 140}},
 		{"grouped_bf16", TileGEMM{N: 128, K: 64, Weight: WeightBF16, Out: F32, BM: 64, BN: 128, Grouped: true}, 75, 0, []int32{0, 64, 65, 75}},
 	}
 	r := rand.New(rand.NewPCG(41, 42))
@@ -167,6 +172,7 @@ func TestTileGEMMGolden(t *testing.T) {
 	for _, g := range []TileGEMM{
 		// Prefill qkv_gate projection (moe8_prefill_layer).
 		{Name: "moe8_prefill_qkv", N: 2304, K: 8192, Weight: WeightBF16, Out: BF16},
+		{Name: "moe8_prefill_qkv_wgmma", N: 2304, K: 8192, Weight: WeightBF16, Out: BF16, WGMMA: true},
 		// MoE gate/up for local experts, tokens gathered by expert, SwiGLU applied later.
 		{Name: "moe8_moe_w13", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, Grouped: true, Gather: true,
 			GLU: true, Epilogue: MustLambda("(mul (silu $0) $1)")},
