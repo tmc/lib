@@ -26,6 +26,39 @@
 // emulation header (one thread per CUDA thread, emulated shuffles, barriers
 // and tensor-core fragments).
 //
+// # Testing generated kernels without a GPU
+//
+// The tests use three tools that work for any kernel written against the
+// prelude.
+//
+// The emulator, testdata/emu.h, is included first (clang++ -std=c++20
+// -include emu.h) and runs a launch on the host. Each CUDA thread is a
+// std::thread and blocks run one after another, so it finds layout,
+// indexing and synchronization errors, not inter-block races. It is
+// adversarial where a GPU may differ from a naive host:
+//
+//   - cp.async writes 0xff (NaN) to its destination when issued and the
+//     data lands only when cp.async.wait_group retires its group, so a
+//     too-shallow wait or a read ahead of its barrier reads NaN;
+//   - each block starts with its static and dynamic shared memory filled
+//     with 0xff, so a kernel that reads shared memory it did not write in
+//     that block reads NaN (EG_EMU_ZERO_SMEM turns this off, as a control);
+//   - the tests pass output buffers filled with 0xff, as a fresh
+//     allocation might hold, so an unwritten output is NaN.
+//
+// Results are compared with float64 references written independently of
+// the kernel ([PagedAttention.Reference], [TileGEMM.Reference], ...).
+//
+// Mutation runs check that those tests can fail: each mutant replaces one
+// exact line of emitted CUDA (a barrier, a wait depth, an index, a fill),
+// runs the emulated tests and must make at least one fail; a mutant that
+// survives is either a missing test or code that does nothing. A mutant
+// that fails only under the poison modes must survive with them off.
+//
+// Golden files (testdata/golden/*.cu, rewritten by go test -update) are the
+// emitted translation units. TestGoldensCompile compiles each for sm_90a
+// with nvcc when it is on PATH and fails on errors.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.
 package hopper
