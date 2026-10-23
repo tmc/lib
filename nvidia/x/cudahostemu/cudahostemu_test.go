@@ -116,13 +116,19 @@ __global__ void k(uint32_t* out) {
 }`
 	for _, tt := range []struct {
 		flags []string
+		env   string // CUDAHOSTEMU_FLAGS
 		want  uint32
-	}{{nil, 0xffffffff}, {[]string{"-DEG_EMU_ZERO_SMEM"}, 0}} {
+	}{
+		{nil, "", 0xffffffff},
+		{[]string{"-DEG_EMU_ZERO_SMEM"}, "", 0},
+		{nil, "-DEG_EMU_ZERO_SMEM", 0},
+	} {
+		t.Setenv("CUDAHOSTEMU_FLAGS", tt.env)
 		got := u32s(run(t, Program{Source: src, Flags: tt.flags, Launch: "eg_emu_launch(dim3(3), dim3(32), 64, k, out)",
 			Buffers: []Buffer{{"out", "uint32_t", zeros(24)}}})["out"])
 		for i, v := range got {
 			if v != tt.want {
-				t.Errorf("%v: out[%d] = %#x, want %#x", tt.flags, i, v, tt.want)
+				t.Errorf("%v %q: out[%d] = %#x, want %#x", tt.flags, tt.env, i, v, tt.want)
 			}
 		}
 	}
@@ -145,7 +151,7 @@ __global__ void k(const float* in, float* out) {
 		binary.LittleEndian.PutUint32(in[4*i:], math.Float32bits(float32(i)))
 	}
 	got := f32s(run(t, Program{Source: src, Launch: "eg_emu_launch(dim3(1), dim3(32), 512, k, in, out)",
-		Buffers: []Buffer{{"in", "float", in}, {"out", "float", zeros(32 * 8)}}})["out"])
+		Buffers: []Buffer{{"in", "float", in}, {"out", "float", Poison(32 * 8)}}})["out"])
 	for i := 0; i < 32; i++ {
 		if !math.IsNaN(float64(got[2*i])) || got[2*i+1] != float32(4*i) {
 			t.Errorf("thread %d read %v before wait and %v after, want NaN and %d", i, got[2*i], got[2*i+1], 4*i)
@@ -276,6 +282,25 @@ void host(int* res) {
 	}
 }
 
+// TestDeviceQueries checks that launchers sizing grids from the device see
+// the emulated device.
+func TestDeviceQueries(t *testing.T) {
+	const src = `
+__global__ void k() {}
+void host(int* res) {
+    eg_emu_sms = 7;
+    eg_emu_blocks_per_sm = 3;
+    int dev = -1, sms = 0, per = 0;
+    res[0] = cudaGetDevice(&dev) + dev;
+    res[1] = cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev) + sms;
+    res[2] = cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per, k, 128, 0) + per;
+}`
+	got := u32s(run(t, Program{Source: src, Launch: "host(res)", Buffers: []Buffer{{"res", "int", Poison(12)}}})["res"])
+	if want := []uint32{0, 7, 3}; got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+		t.Errorf("res = %v, want %v", got, want)
+	}
+}
+
 func TestSGLangMock(t *testing.T) {
 	const src = `
 __global__ void scale(float* p) { p[blockIdx.x * 32 + threadIdx.x] *= 2; }
@@ -361,5 +386,18 @@ func TestRunErrors(t *testing.T) {
 	_, err = Run(context.Background(), t.TempDir(), Program{Source: `void f() { run_grid(dim3(1), dim3(4096), [] {}); }`, Launch: "f()"})
 	if err == nil || !strings.Contains(err.Error(), "run_grid: invalid launch configuration") {
 		t.Errorf("run error = %v", err)
+	}
+}
+
+func TestPoison(t *testing.T) {
+	p := Poison(4)
+	if len(p) != 4 {
+		t.Fatalf("len(Poison(4)) = %d", len(p))
+	}
+	if f := f32s(p)[0]; !math.IsNaN(float64(f)) {
+		t.Errorf("Poison as float32 = %v, want NaN", f)
+	}
+	if b := fromBF16(binary.LittleEndian.Uint16(p)); !math.IsNaN(b) {
+		t.Errorf("Poison as bf16 = %v, want NaN", b)
 	}
 }

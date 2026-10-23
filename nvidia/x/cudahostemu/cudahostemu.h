@@ -49,6 +49,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <math.h>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -205,9 +206,9 @@ inline void sincosf(float x, float* s, float* c) { *s = std::sin(x); *c = std::c
 inline float __fmul_rn(float a, float b) { return a * b; }
 inline float __fadd_rn(float a, float b) { return a + b; }
 inline float __fsub_rn(float a, float b) { return a - b; }
+// expf, sqrtf and the rest come from <math.h> in the global namespace;
+// libstdc++ does not declare them in std.
 using std::min; using std::max;
-using std::expf; using std::sqrtf; using std::fmaxf; using std::fminf; using std::exp2f; using std::powf;
-using std::logf; using std::cosf; using std::sinf; using std::fabsf;
 
 template <typename T> T __ldg(const T* p) { return *p; }
 template <class T> inline void __stwb(T* p, T v) { *p = v; }
@@ -584,6 +585,18 @@ inline cudaError_t cudaStreamSynchronize(cudaStream_t) { return cudaSuccess; }
 inline cudaError_t cudaStreamCreate(cudaStream_t* s) { *s = nullptr; return cudaSuccess; }
 inline cudaError_t cudaStreamDestroy(cudaStream_t) { return cudaSuccess; }
 template <typename K> cudaError_t cudaFuncSetAttribute(K, cudaFuncAttribute, int) { return cudaSuccess; }
+
+// The emulated device: eg_emu_sms multiprocessors of eg_emu_blocks_per_sm
+// resident blocks each, which launchers that size grids from the device
+// see. Set them before the first launch.
+inline int eg_emu_sms = 4, eg_emu_blocks_per_sm = 2;
+enum cudaDeviceAttr { cudaDevAttrMultiProcessorCount = 16 };
+inline cudaError_t cudaGetDevice(int* dev) { *dev = 0; return cudaSuccess; }
+inline cudaError_t cudaDeviceGetAttribute(int* v, cudaDeviceAttr, int) { *v = eg_emu_sms; return cudaSuccess; }
+template <typename K> cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(int* n, K, int, size_t) {
+    *n = eg_emu_blocks_per_sm;
+    return cudaSuccess;
+}
 
 // --- launch ----------------------------------------------------------------
 

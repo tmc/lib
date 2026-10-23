@@ -66,6 +66,11 @@ type Buffer struct {
 	Data  []byte
 }
 
+// Poison returns n bytes of 0xff, NaN in every float format the header
+// handles. Passing outputs in poisoned shows an element a kernel never
+// writes.
+func Poison(n int) []byte { return bytes.Repeat([]byte{0xff}, n) }
+
 // A Program is kernel source and the statement that launches it.
 type Program struct {
 	Source  string   // kernels and launchers, compiled after the headers
@@ -76,7 +81,9 @@ type Program struct {
 }
 
 // Run compiles and runs p in dir, a scratch directory, and returns every
-// buffer's final contents by name.
+// buffer's final contents by name. Flags in $CUDAHOSTEMU_FLAGS, split on
+// spaces, follow p.Flags, so that a caller can rebuild every program
+// differently (-DEG_EMU_ZERO_SMEM, say) without editing it.
 func Run(ctx context.Context, dir string, p Program) (map[string][]byte, error) {
 	cxx, err := Compiler()
 	if err != nil {
@@ -112,6 +119,7 @@ func Run(ctx context.Context, dir string, p Program) (map[string][]byte, error) 
 	}
 	bin := filepath.Join(dir, "main")
 	args := append([]string{"-std=c++20", "-O1", "-w", "-pthread", "-I", dir, "-o", bin}, p.Flags...)
+	args = append(args, strings.Fields(os.Getenv("CUDAHOSTEMU_FLAGS"))...)
 	args = append(args, cc)
 	if out, err := exec.CommandContext(ctx, cxx, args...).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("compile: %v\n%s", err, out)
