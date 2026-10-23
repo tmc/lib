@@ -58,15 +58,21 @@ func pagedCase(r *rand.Rand, a PagedAttention, seqlens []int32, kvScale float32)
 // counters, then partials holding NaN.
 func attnWorkspace(a PagedAttention, batch, maxKeys int) []byte {
 	ws := poison(a.WorkspaceBytes(batch, maxKeys))
-	ng := (a.Splits(maxKeys) + attnGroup - 1) / attnGroup
-	clear(ws[:4*batch*a.Hkv*(1+ng)])
+	clear(ws[:attnCounterBytes(a, batch, a.Splits(maxKeys))])
 	return ws
+}
+
+// attnCounterBytes returns the bytes of a's counters for batch requests
+// split splits ways.
+func attnCounterBytes(a PagedAttention, batch, splits int) int {
+	ng := (splits + attnGroup - 1) / attnGroup
+	return 4 * batch * a.Hkv / max(a.KVHeadsPerBlock, 1) * (1 + ng)
 }
 
 // runPaged launches a through its launcher on an emulated device of slots
 // resident blocks (one per SM). It returns the output, the workspace and
-// the launch's grid x.
-func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys, launches, slots int) ([]float64, []byte, int) {
+// the launch's grid.
+func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys, launches, slots int) ([]float64, []byte, [3]int) {
 	t.Helper()
 	src, err := a.CUDA()
 	if err != nil {
@@ -95,16 +101,17 @@ func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys
 	bufs = append(bufs,
 		emuBuf{"out", a.Out.cType(), poison(len(q) * a.Out.Bits() / 8)},
 		emuBuf{"ws", "unsigned char", attnWorkspace(a, batch, maxKeys)},
-		emuBuf{"grid", "uint32_t", poison(4)})
+		emuBuf{"grid", "uint32_t", poison(12)})
 	launch := fmt.Sprintf("eg_emu_sms = %d;\n    eg_emu_blocks_per_sm = 1", slots)
 	one := fmt.Sprintf("%s_launch(%d, %d, "+args+", nullptr)", a.Name, batch, maxKeys, c.MaxPages)
 	launch += ";\n    " + one
 	for i := 1; i < launches; i++ {
 		launch += ";\n    " + one
 	}
-	launch += ";\n    grid[0] = eg_emu_last_grid.x"
+	launch += ";\n    grid[0] = eg_emu_last_grid.x;\n    grid[1] = eg_emu_last_grid.y;\n    grid[2] = eg_emu_last_grid.z"
 	res := runEmu(t, src, launch, bufs...)
-	return decode(a.Out, res["out"]), res["ws"], int(i32s(res["grid"])[0])
+	g := i32s(res["grid"])
+	return decode(a.Out, res["out"]), res["ws"], [3]int{int(g[0]), int(g[1]), int(g[2])}
 }
 
 func TestPagedAttentionEmulated(t *testing.T) {
@@ -155,6 +162,15 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			[]int32{700, 31}, 700, 1},
 		{"ring8_fp8_q8", PagedAttention{Name: "attn_r8", Hq: 64, Hkv: 8, QLen: 8, Page: 16, Q: E4M3, Out: F32, Chunk: 320, QKFP8: true, Stages: 8},
 			[]int32{511, 300}, 511, 1},
+		// Two KV heads per block: 4 query rows per head (tile rows 0-3 and
+		// 8-11), 8 (the full tile, two-level merge), and 8 from 2 tokens
+		// with F16 Q·Kᵀ in a window.
+		{"hpb2_fp8_gate", PagedAttention{Name: "attn_h2", Hq: 16, Hkv: 4, QLen: 1, Page: 16, Q: E4M3, Out: BF16, QScale: 5.4730064863875, Chunk: 64,
+			QKFP8: true, Gate: true, GateStride: 3072, GateOffset: 2048, KVHeadsPerBlock: 2}, []int32{300, 37, 1}, 300, 1},
+		{"hpb2_two_level", PagedAttention{Name: "attn_h2_2l", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+			QKFP8: true, DeviceSplits: true, Chunk: 64, KVHeadsPerBlock: 2}, []int32{4000, 641, 1}, 4000, 1},
+		{"hpb2_f16_window", PagedAttention{Name: "attn_h2_w", Hq: 8, Hkv: 2, QLen: 2, Window: 50, Page: 1, Q: BF16, Out: BF16, Chunk: 64, KVHeadsPerBlock: 2},
+			[]int32{130, 9}, 51, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -171,7 +187,7 @@ func TestPagedAttentionEmulated(t *testing.T) {
 				t.Fatal(err)
 			}
 			// Resident blocks of the emulated device.
-			slots := cmp.Or(map[string]int{"device_splits_many": 200}[tt.name], 8)
+			slots := cmp.Or(map[string]int{"device_splits_many": 200, "hpb2_two_level": 200}[tt.name], 8)
 			got, ws, grid := runPaged(t, tt.a, q, c, tt.maxKeys, 2, slots)
 			bound := 5e-4 // F16 tiles, F32 accumulation
 			if tt.a.Out == BF16 {
@@ -186,11 +202,12 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			if tt.a.DeviceSplits {
 				_, splits = tt.a.PlanSplits(len(tt.seqlens), tt.maxKeys, slots)
 			}
-			if grid != splits {
-				t.Errorf("grid x %d, want %d splits", grid, splits)
+			want3, _ := tt.a.Grid(len(tt.seqlens), tt.maxKeys)
+			want3[0] = splits
+			if grid != want3 {
+				t.Errorf("grid %v, want %v", grid, want3)
 			}
-			ng := (splits + attnGroup - 1) / attnGroup
-			for i, b := range ws[:4*len(tt.seqlens)*tt.a.Hkv*(1+ng)] {
+			for i, b := range ws[:attnCounterBytes(tt.a, len(tt.seqlens), splits)] {
 				if b != 0 {
 					t.Fatalf("counter byte %d = %d after launch, want 0", i, b)
 				}
@@ -265,6 +282,9 @@ func TestPagedAttentionErrors(t *testing.T) {
 		{"stages9", func(a *PagedAttention) { a.Stages = 9 }},
 		{"shared", func(a *PagedAttention) { a.Depth, a.Stages = 2, 3 }},
 		{"fp8_q", func(a *PagedAttention) { a.Q, a.QKFP8 = BF16, true }},
+		{"hpb3", func(a *PagedAttention) { a.KVHeadsPerBlock = 3 }},
+		{"hpb2_odd", func(a *PagedAttention) { a.Hq, a.Hkv, a.KVHeadsPerBlock = 3, 3, 2 }},
+		{"hpb2_rows", func(a *PagedAttention) { a.QLen, a.KVHeadsPerBlock = 2, 2 }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)

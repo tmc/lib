@@ -47,6 +47,14 @@ type PagedAttention struct {
 	SMScale float32 // 0 means 1/8
 	Chunk   int     // keys per block, a multiple of 64; 0 means 256 (128 with DeviceSplits)
 
+	// KVHeadsPerBlock is 1 (the default for 0) or 2. With 2, one block
+	// serves two adjacent KV heads: their query rows (at most 8 per head)
+	// fill one 16-row tile, each key is one 128-byte row of K and of V, Q·Kᵀ
+	// runs over both heads' 128 dimensions with the other head's query
+	// dimensions zero, and P·V keeps only each row's own head. It halves
+	// the blocks, page-table reads and partials.
+	KVHeadsPerBlock int
+
 	// DeviceSplits sizes the splits at launch: the launcher gives each
 	// (request, KV head) enough splits to fill the device's resident
 	// blocks once ([PagedAttention.PlanSplits]), with at least Chunk keys
@@ -79,8 +87,40 @@ type PagedAttention struct {
 	GateEps    float32 // 0 means 1e-5
 }
 
+// attnGeom is a kernel's layout: G query heads per KV head, rows query
+// rows per block (partials and outputs), a 16·mt-row tile (mrows) per
+// warp group, kw warps splitting each step's keys, hpb KV heads per block
+// and rb shared memory bytes per staged K or V row.
 type attnGeom struct {
-	G, rows, mrows, mt, kw int
+	G, rows, mrows, mt, kw, hpb, rb int
+}
+
+// geom returns a's layout; a's fields must be valid.
+func (a PagedAttention) geom() attnGeom {
+	g := attnGeom{G: a.Hq / a.Hkv, hpb: max(a.KVHeadsPerBlock, 1)}
+	g.rows = g.hpb * g.G * a.QLen
+	g.mt = 4
+	switch {
+	case g.hpb == 2 || g.rows <= 16:
+		g.mt = 1
+	case g.rows <= 32:
+		g.mt = 2
+	}
+	g.mrows, g.kw = 16*g.mt, 4/g.mt
+	// 64·hpb bytes padded so ldmatrix rows fall in distinct banks.
+	g.rb = 64*g.hpb + 16
+	return g
+}
+
+// stageBytes returns the bytes of one ring stage: a step's K and V rows.
+func (g attnGeom) stageBytes(depth int) int { return 2 * 16 * g.kw * depth * g.rb }
+
+// qStride returns the shared memory stride of a query row in uint16s.
+func (g attnGeom) qStride(qkfp8 bool) int {
+	if qkfp8 {
+		return g.rb / 2 // E4M3 bytes
+	}
+	return 64*g.hpb + 8 // F16
 }
 
 // attnGroup is the number of chunk partials one block merges.
@@ -94,10 +134,17 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	if a.Hq < 1 || a.Hkv < 1 || a.Hq%a.Hkv != 0 {
 		return a, g, fmt.Errorf("paged attention %s: bad heads %d/%d", a.Name, a.Hq, a.Hkv)
 	}
-	g.G = a.Hq / a.Hkv
-	g.rows = g.G * a.QLen
-	if a.QLen < 1 || a.QLen > 8 || g.rows > 64 {
-		return a, g, fmt.Errorf("paged attention %s: %d query rows per KV head (QLen %d), want at most 64", a.Name, g.rows, a.QLen)
+	if rows := a.Hq / a.Hkv * a.QLen; a.QLen < 1 || a.QLen > 8 || rows > 64 {
+		return a, g, fmt.Errorf("paged attention %s: %d query rows per KV head (QLen %d), want at most 64", a.Name, rows, a.QLen)
+	}
+	switch a.KVHeadsPerBlock {
+	case 0, 1:
+	case 2:
+		if a.Hkv%2 != 0 || a.Hq/a.Hkv*a.QLen > 8 {
+			return a, g, fmt.Errorf("paged attention %s: 2 KV heads per block need an even Hkv and at most 8 query rows per KV head", a.Name)
+		}
+	default:
+		return a, g, fmt.Errorf("paged attention %s: %d KV heads per block, want 1 or 2", a.Name, a.KVHeadsPerBlock)
 	}
 	if a.Window < 0 || a.Page < 1 {
 		return a, g, fmt.Errorf("paged attention %s: bad window %d or page %d", a.Name, a.Window, a.Page)
@@ -135,17 +182,9 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	if a.Depth != 1 && a.Depth != 2 {
 		return a, g, fmt.Errorf("paged attention %s: depth %d, want 1 or 2", a.Name, a.Depth)
 	}
-	switch {
-	case g.rows <= 16:
-		g.mt = 1
-	case g.rows <= 32:
-		g.mt = 2
-	default:
-		g.mt = 4
-	}
-	g.mrows, g.kw = 16*g.mt, 4/g.mt
+	g = a.geom()
 	if a.Stages == 0 {
-		a.Stages = max(2, min(4, 40<<10/attnStageBytes(16*g.kw*a.Depth)))
+		a.Stages = max(2, min(4, 40<<10/g.stageBytes(a.Depth)))
 	}
 	if a.Stages < 2 || a.Stages > 8 {
 		return a, g, fmt.Errorf("paged attention %s: %d stages, want 2 to 8", a.Name, a.Stages)
@@ -156,43 +195,19 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	return a, g, nil
 }
 
-// attnRowBytes is the shared memory stride of a staged K or V row: 64
-// bytes padded so ldmatrix rows fall in distinct banks.
-const attnRowBytes = 80
-
-// attnStageBytes returns the bytes of one ring stage: step K and V rows.
-func attnStageBytes(step int) int { return 2 * step * attnRowBytes }
-
-// attnQStride returns the shared memory stride of a query row in uint16s.
-func (a PagedAttention) attnQStride() int {
-	if a.QKFP8 {
-		return attnRowBytes / 2 // E4M3 bytes
-	}
-	return 72 // F16
-}
-
 // SharedBytes returns the kernel's static shared memory in bytes, or 0 if a
 // is invalid.
 func (a PagedAttention) SharedBytes() int {
 	if a.Hkv < 1 || a.Hq%a.Hkv != 0 || a.QLen < 1 {
 		return 0
 	}
-	rows := a.Hq / a.Hkv * a.QLen
-	mt := 4
-	switch {
-	case rows <= 16:
-		mt = 1
-	case rows <= 32:
-		mt = 2
-	}
-	mrows, kw, depth := 16*mt, 4/mt, max(a.Depth, 1)
-	stage := attnStageBytes(16 * kw * depth)
+	g := a.geom()
 	stages := a.Stages
 	if stages == 0 {
-		stages = max(2, min(4, 40<<10/stage))
+		stages = max(2, min(4, 40<<10/g.stageBytes(max(a.Depth, 1))))
 	}
-	ring := max(stages*stage, 4*kw*mrows*HeadDim) // red_o reuses the ring
-	return 2*mrows*a.attnQStride() + 8*kw*mrows + 4 + ring
+	ring := max(stages*g.stageBytes(max(a.Depth, 1)), 4*g.kw*g.mrows*HeadDim) // red_o reuses the ring
+	return 2*g.mrows*g.qStride(a.QKFP8) + 8*g.kw*g.mrows + 4 + ring
 }
 
 // Splits returns the number of key chunks for a request attending maxKeys
@@ -217,13 +232,13 @@ func (a PagedAttention) PlanSplits(batch, maxKeys, slots int) (chunk, splits int
 	if err != nil || batch < 1 || maxKeys < 1 {
 		return 0, 0
 	}
-	per := max(1, slots/(batch*a.Hkv))
+	per := max(1, slots/(batch*a.Hkv/a.geom().hpb))
 	chunk = max(a.Chunk, ((maxKeys+per-1)/per+63)/64*64)
 	return chunk, (maxKeys + chunk - 1) / chunk
 }
 
 // WorkspaceBytes returns the workspace size for batch requests of at most
-// maxKeys keys: for each (request, KV head) 1 + ceil(splits/16) int32
+// maxKeys keys: for each (request, block of KV heads) 1 + ceil(splits/16) int32
 // counters, then the chunk and group partials. The counters must be zero
 // before a launch; the kernel leaves them zero. Their offsets depend on
 // the grid, so clear them again when batch or maxKeys changes.
@@ -234,7 +249,8 @@ func (a PagedAttention) WorkspaceBytes(batch, maxKeys int) int {
 	}
 	s := a.Splits(maxKeys)
 	ng := (s + attnGroup - 1) / attnGroup
-	return 4*batch*a.Hkv*(1+ng) + 4*batch*a.Hkv*(s+ng)*g.rows*(2+HeadDim)
+	units := batch * a.Hkv / g.hpb
+	return 4*units*(1+ng) + 4*units*(s+ng)*g.rows*(2+HeadDim)
 }
 
 func (a PagedAttention) params() []string {
@@ -272,7 +288,7 @@ func (a PagedAttention) launchParams() []string {
 // Grid returns the grid and block for batch requests of at most maxKeys
 // keys; with DeviceSplits, the largest grid the launcher picks.
 func (a PagedAttention) Grid(batch, maxKeys int) (grid, block [3]int) {
-	return [3]int{a.Splits(maxKeys), a.Hkv, batch}, [3]int{128, 1, 1}
+	return [3]int{a.Splits(maxKeys), a.Hkv / a.geom().hpb, batch}, [3]int{128, 1, 1}
 }
 
 // CUDA returns the kernel source (without [Prelude]):
@@ -290,6 +306,7 @@ func (a PagedAttention) CUDA() (string, error) {
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(128) %s(\n    %s) {\n", a.Name, strings.Join(a.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int HQ = %d, HKV = %d, G = %d, L = %d, ROWS = %d, MROWS = %d, MT = %d, KW = %d;\n",
 		a.Hq, a.Hkv, g.G, a.QLen, g.rows, g.mrows, g.mt, g.kw)
+	fmt.Fprintf(&b, "    constexpr int HPB = %d, HKVB = HKV / HPB, ROWS1 = G * L, D = 64 * HPB, KP = D / 16; // KV heads per block, blocks per request, rows per KV head, K/V row bytes and pieces\n", g.hpb)
 	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, DEPTH = %d, STEP = 16 * KW * DEPTH, STAGES = %d;\n",
 		a.Window, a.Page, a.Depth, a.Stages)
 	if a.DeviceSplits {
@@ -297,8 +314,8 @@ func (a PagedAttention) CUDA() (string, error) {
 	} else {
 		fmt.Fprintf(&b, "    constexpr int CHUNK = %d;\n", a.Chunk)
 	}
-	fmt.Fprintf(&b, "    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = %d, LDQ = %d, RB = %d;\n",
-		attnGroup, a.attnQStride(), attnRowBytes)
+	fmt.Fprintf(&b, "    constexpr int PIECES = STEP * KP, NP = (PIECES + 127) / 128, GROUP = %d, LDQ = %d, RB = %d;\n",
+		attnGroup, g.qStride(a.QKFP8), g.rb)
 	b.WriteString("    constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > KW * MROWS * 256 ? STAGES * STAGE_BYTES : KW * MROWS * 256;\n")
 	fmt.Fprintf(&b, "    const float scale = %s * k_scale[0] * 1.4426950408889634f; // log2 domain\n",
 		floatLiteral(a.QScale*a.SMScale))
@@ -327,10 +344,10 @@ func (a PagedAttention) CUDA() (string, error) {
 	return b.String(), nil
 }
 
-// attnHead declares the block's coordinates and stages its query rows
-// (r = j*G + g: token j, head kvh*G + g) in sq, padded with zeros: F16
-// values, or with QKFP8 the E4M3 bytes.
-const attnHead = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockIdx.z;
+// attnHead declares the block's coordinates. Partial row pr is query row
+// j = pr % ROWS1 (token j / G, head (kvh0 + pr / ROWS1)·G + j % G); its tile
+// row is pr, or with two KV heads per block j + 8·(pr / ROWS1).
+const attnHead = `    const int split = blockIdx.x, kvb = blockIdx.y, kvh0 = kvb * HPB, b = blockIdx.z;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane / 4, c = lane % 4;
     const int mt = warp % MT, kw = warp / MT;
     const int seqlen = seqlens[b], p0 = seqlen - L;
@@ -339,6 +356,11 @@ const attnHead = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     if (split >= nsplit) return;
     const int c0 = kbegin + split * CHUNK, c1 = min(seqlen, c0 + CHUNK);
     const float NEG_INF = -__uint_as_float(0x7f800000u);
+    auto trow = [](int pr) { return HPB == 1 ? pr : pr / ROWS1 * 8 + pr % ROWS1; };
+    auto qrow = [&](int pr) { // [token, head] index of partial row pr
+        const int j = pr % ROWS1;
+        return (size_t)(b * L + j / G) * HQ + (kvh0 + pr / ROWS1) * G + j % G;
+    };
 
     alignas(16) __shared__ uint16_t sq[MROWS * LDQ];
     __shared__ float red_m[KW * MROWS], red_l[KW * MROWS];
@@ -349,12 +371,15 @@ const attnHead = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     float* const red_o = reinterpret_cast<float*>(ring);
 `
 
-const attnQF16 = `    for (int i = tid; i < MROWS * 8; i += 128) {
-        const int r = i / 8, d = (i % 8) * 8;
+// attnQF16 and attnQFP8 stage the query rows in sq as F16 values or E4M3
+// bytes: tile row r holds its head's 64 dimensions at 64·hp and zeros
+// elsewhere, as do rows that hold no query.
+const attnQF16 = `    for (int i = tid; i < MROWS * (D / 8); i += 128) {
+        const int r = i / (D / 8), d = (i % (D / 8)) * 8, hp = HPB == 1 ? 0 : r / 8, j = HPB == 1 ? r : r % 8;
         eg_u32x4 w = {0, 0, 0, 0};
-        if (r < ROWS) {
+        if (j < ROWS1 && d / 64 == hp) {
             float f[8];
-            eg_load<8>(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, f);
+            eg_load<8>(q + qrow(hp * ROWS1 + j) * 64 + d % 64, f);
             w = eg_u32x4{eg_pack_f16x2(f[0], f[1]), eg_pack_f16x2(f[2], f[3]),
                          eg_pack_f16x2(f[4], f[5]), eg_pack_f16x2(f[6], f[7])};
         }
@@ -362,10 +387,10 @@ const attnQF16 = `    for (int i = tid; i < MROWS * 8; i += 128) {
     }
 `
 
-const attnQFP8 = `    for (int i = tid; i < MROWS * 4; i += 128) {
-        const int r = i / 4, piece = i % 4;
+const attnQFP8 = `    for (int i = tid; i < MROWS * KP; i += 128) {
+        const int r = i / KP, piece = i % KP, hp = HPB == 1 ? 0 : r / 8, j = HPB == 1 ? r : r % 8;
         eg_u32x4 w = {0, 0, 0, 0};
-        if (r < ROWS) w = eg_ldg16(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + piece * 16);
+        if (j < ROWS1 && piece / 4 == hp) w = eg_ldg16(q + qrow(hp * ROWS1 + j) * 64 + piece % 4 * 16);
         *reinterpret_cast<eg_u32x4*>(&sq[r * LDQ + piece * 8]) = w;
     }
 `
@@ -379,7 +404,7 @@ const attnQFP8 = `    for (int i = tid; i < MROWS * 4; i += 128) {
 // the P·V B fragments: lane (g, c) loads bytes 8g..8g+7 of keys 2c, 2c+1,
 // 2c+8 and 2c+9, so n-tile t's column g is dimension 8g + t and o[t][i]
 // holds dimension 8(2c + i%2) + t.
-const attnLoop = `    const int fk = tid * NP / 4;
+const attnLoop = `    const int fk = tid * NP / KP;
     auto rowof = [&](int kb) -> long long {
         const int kp = kb + fk;
         if (tid * NP >= PIECES || kp >= c1) return -1;
@@ -391,9 +416,9 @@ const attnLoop = `    const int fk = tid * NP / 4;
         for (int n = 0; n < NP; ++n) {
             const int piece = tid * NP + n;
             if (piece >= PIECES) break;
-            unsigned char* const dk = kd + (piece / 4) * RB + (piece % 4) * 16;
+            unsigned char* const dk = kd + (piece / KP) * RB + (piece % KP) * 16;
             if (row >= 0) {
-                const size_t at = ((size_t)row * HKV + kvh) * 64 + (piece % 4) * 16;
+                const size_t at = ((size_t)row * HKV + kvh0) * 64 + (piece % KP) * 16;
                 eg_cp_async16(dk, k_cache + at);
                 eg_cp_async16(dk + STEP * RB, v_cache + at);
             } else {
@@ -417,8 +442,8 @@ QK_LOAD
     int pos[2], lo[2];
 #pragma unroll
     for (int h = 0; h < 2; ++h) {
-        const int r = mt * 16 + g + 8 * h;
-        pos[h] = p0 + min(r / G, L - 1);
+        const int r = mt * 16 + g + 8 * h, j = HPB == 1 ? r : r % 8;
+        pos[h] = p0 + min(j / G, L - 1);
         lo[h] = WINDOW ? max(0, pos[h] - WINDOW + 1) : 0;
     }
     float m[2] = {NEG_INF, NEG_INF}, l[2] = {0.0f, 0.0f}, o[8][4] = {};
@@ -471,7 +496,12 @@ QK_TILE
         }
         const uint32_t pa[4] = {eg_pack_f16x2(s[0][0], s[0][1]), eg_pack_f16x2(s[0][2], s[0][3]),
                                 eg_pack_f16x2(s[1][0], s[1][1]), eg_pack_f16x2(s[1][2], s[1][3])};
-        const unsigned char* const vr = vst + (kt0 + 2 * c) * RB + 8 * g;
+        // With two KV heads, rows g (head kvh0) take V's first 64 bytes
+        // and rows g + 8 the second: each mma keeps one row half and
+        // discards the other.
+#pragma unroll
+        for (int hb = 0; hb < HPB; ++hb) {
+        const unsigned char* const vr = vst + (kt0 + 2 * c) * RB + 64 * hb + 8 * g;
         const eg_u32x2 va = *reinterpret_cast<const eg_u32x2*>(vr), vb = *reinterpret_cast<const eg_u32x2*>(vr + RB);
         const eg_u32x2 vc = *reinterpret_cast<const eg_u32x2*>(vr + 8 * RB), vd = *reinterpret_cast<const eg_u32x2*>(vr + 9 * RB);
 #pragma unroll
@@ -479,7 +509,14 @@ QK_TILE
             const uint32_t sel = (t % 4) | (4 + t % 4) << 4;
             const uint32_t vf[2] = {eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(va.x, vb.x, sel) : eg_prmt(va.y, vb.y, sel)),
                                     eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(vc.x, vd.x, sel) : eg_prmt(vc.y, vd.y, sel))};
-            eg_mma_f16(o[t], pa, vf, o[t]);
+            if (HPB == 1) {
+                eg_mma_f16(o[t], pa, vf, o[t]);
+            } else {
+                float d[4];
+                eg_mma_f16(d, pa, vf, o[t]);
+                if (hb == 0) { o[t][0] = d[0]; o[t][1] = d[1]; } else { o[t][2] = d[2]; o[t][3] = d[3]; }
+            }
+        }
         }
         }
     }
@@ -501,15 +538,15 @@ QK_TILE
     }
     __syncthreads();
     const float vs = v_scale[0];
-    // Per (request, KV head): 1 + NG counters, then gridDim.x chunk partials
-    // and NG group partials of ROWS x (max, sum, 64 outputs).
+    // Per (request, block of KV heads): 1 + NG counters, then gridDim.x
+    // chunk partials and NG group partials of ROWS x (max, sum, 64 outputs).
     const int NG = (gridDim.x + GROUP - 1) / GROUP;
-    int* const cnt = reinterpret_cast<int*>(ws) + ((size_t)b * HKV + kvh) * (1 + NG);
-    float* const all = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKV * (1 + NG)) +
-                       ((size_t)b * HKV + kvh) * (gridDim.x + NG) * ROWS * 66;
+    int* const cnt = reinterpret_cast<int*>(ws) + ((size_t)b * HKVB + kvb) * (1 + NG);
+    float* const all = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKVB * (1 + NG)) +
+                       ((size_t)b * HKVB + kvb) * (gridDim.x + NG) * ROWS * 66;
     float* const mine = all + (size_t)split * ROWS * 66;
     for (int i = tid; i < ROWS * 64 && nsplit > 1; i += 128) {
-        const int r = i / 64, d = i % 64;
+        const int r = trow(i / 64), d = i % 64;
         float mx = NEG_INF;
 #pragma unroll
         for (int k = 0; k < KW; ++k) mx = fmaxf(mx, red_m[k * MROWS + r]);
@@ -521,19 +558,20 @@ QK_TILE
             sum += w * red_l[k * MROWS + r];
             acc += w * red_o[(k * MROWS + r) * 64 + d];
         }
-        mine[r * 66 + 2 + d] = acc;
-        if (d == 0) { mine[r * 66] = mx; mine[r * 66 + 1] = sum; }
+        mine[i / 64 * 66 + 2 + d] = acc;
+        if (d == 0) { mine[i / 64 * 66] = mx; mine[i / 64 * 66 + 1] = sum; }
     }
 `
 
 // attnQKF16 loads the F16 query fragments and computes a 16-key tile's
-// logits with m16n8k16 F16 tiles, K widened from the raw bytes: b0 of
-// n-tile nt holds dimensions 16ks + 2c, +1 of key kt0 + 8nt + g.
-var attnQKF16 = [2]string{`    uint32_t qa[4][4];
+// logits over the D staged dimensions with m16n8k16 F16 tiles, K widened
+// from the raw bytes: b0 of n-tile nt holds dimensions 16ks + 2c, +1 of
+// key kt0 + 8nt + g.
+var attnQKF16 = [2]string{`    uint32_t qa[KP][4];
 #pragma unroll
-    for (int ks = 0; ks < 4; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
+    for (int ks = 0; ks < KP; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
 `, `#pragma unroll
-        for (int ks = 0; ks < 4; ++ks)
+        for (int ks = 0; ks < KP; ++ks)
 #pragma unroll
             for (int nt = 0; nt < 2; ++nt) {
                 const unsigned char* const kr = kst + (kt0 + nt * 8 + g) * RB + ks * 16 + 2 * c;
@@ -546,12 +584,12 @@ var attnQKF16 = [2]string{`    uint32_t qa[4][4];
 // attnQKFP8 multiplies the E4M3 bytes of Q and K with m16n8k32 tiles. In
 // the b16 view the k32 fragments have the k16 layout, so ldmatrix
 // addresses them as F16 rows of 32 elements.
-var attnQKFP8 = [2]string{`    uint32_t qa[2][4];
+var attnQKFP8 = [2]string{`    uint32_t qa[KP / 2][4];
 #pragma unroll
-    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
+    for (int ks = 0; ks < KP / 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
 `, `        const uint16_t* const sk = reinterpret_cast<const uint16_t*>(kst);
 #pragma unroll
-        for (int ks = 0; ks < 2; ++ks) {
+        for (int ks = 0; ks < KP / 2; ++ks) {
             uint32_t kf[4];
             eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * (RB / 2) + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
@@ -566,7 +604,7 @@ const attnCombine = `    // The finished rows go to fin (the first KW slot of re
     float* const fin = red_o;
     if (nsplit == 1) {
         for (int i = tid; i < ROWS * 64; i += 128) {
-            const int r = i / 64, d = i % 64;
+            const int r = trow(i / 64), d = i % 64;
             float mx = NEG_INF;
 #pragma unroll
             for (int k = 0; k < KW; ++k) mx = fmaxf(mx, red_m[k * MROWS + r]);
@@ -577,7 +615,7 @@ const attnCombine = `    // The finished rows go to fin (the first KW slot of re
                 sum += w * red_l[k * MROWS + r];
                 acc += w * red_o[(k * MROWS + r) * 64 + d];
             }
-            fin[r * 64 + d] = acc / sum * vs;
+            fin[i] = acc / sum * vs;
         }
     } else {
         // merge combines n partials at src in chunk order: into fin (scaled
@@ -658,7 +696,7 @@ const attnCombine = `    // The finished rows go to fin (the first KW slot of re
 // attnStore writes fin to out.
 const attnStore = `    for (int i = tid; i < ROWS * 64; i += 128) {
         const int r = i / 64, d = i % 64;
-        put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, fin[i]);
+        put(qrow(r) * 64 + d, fin[i]);
     }
 }
 `
@@ -668,8 +706,8 @@ const attnStore = `    for (int i = tid; i < ROWS * 64; i += 128) {
 const attnGateStore = `    for (int r = warp; r < ROWS; r += 4) {
         const float v0 = fin[r * 64 + lane], v1 = fin[r * 64 + lane + 32];
         const float inv = rsqrtf(eg_warp_sum(v0 * v0 + v1 * v1) * (1.0f / 64) + GATE_EPS);
-        const size_t t = (size_t)b * L + r / G;
-        const int h = kvh * G + r % G;
+        const size_t t = qrow(r) / HQ;
+        const int h = qrow(r) % HQ;
         const uint16_t* const g = gate + t * GATE_STRIDE + GATE_OFFSET + h * 64;
         const size_t o = (t * HQ + h) * 64;
         put(o + lane, v0 * inv * eg_sigmoid(eg_bf16_to_f32(g[lane])));
@@ -685,7 +723,7 @@ const attnGateStore = `    for (int r = warp; r < ROWS; r += 4) {
 // whose grid is fixed by batch and max_keys, so it can be captured in a CUDA
 // graph and replayed for any lengths up to max_keys keys per request.
 func (a PagedAttention) Launcher() (string, error) {
-	a, _, err := a.norm()
+	a, g, err := a.norm()
 	if err != nil {
 		return "", err
 	}
@@ -703,11 +741,11 @@ func (a PagedAttention) Launcher() (string, error) {
     }();
     const int per = batch > 0 ? (slots / (batch * %d) > 1 ? slots / (batch * %d) : 1) : 1;
     const int want = ((max_keys + per - 1) / per + 63) / 64 * 64, chunk = want > %d ? want : %d;
-`, a.Name, a.Hkv, a.Hkv, a.Chunk, a.Chunk)
+`, a.Name, a.Hkv/g.hpb, a.Hkv/g.hpb, a.Chunk, a.Chunk)
 	} else {
 		fmt.Fprintf(&b, "    constexpr int chunk = %d;\n", a.Chunk)
 	}
-	fmt.Fprintf(&b, "    const dim3 grid((max_keys + chunk - 1) / chunk, %d, batch), block(128);\n", a.Hkv)
+	fmt.Fprintf(&b, "    const dim3 grid((max_keys + chunk - 1) / chunk, %d, batch), block(128);\n", a.Hkv/g.hpb)
 	fmt.Fprintf(&b, "    if (max_keys > 0 && batch > 0) EG_LAUNCH(%s, grid, block, 0, stream, %s);\n}\n", a.Name, strings.Join(names, ", "))
 	return b.String(), nil
 }

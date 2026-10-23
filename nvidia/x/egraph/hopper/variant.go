@@ -20,6 +20,7 @@ type Launch struct {
 	SplitK       int    `json:"split_k,omitempty"`        // K splits (SkinnyGEMM)
 	SplitKV      int    `json:"split_kv,omitempty"`       // keys per split (PagedAttention)
 	KVDepth      int    `json:"kv_depth,omitempty"`       // 16-key tiles per warp per step (PagedAttention)
+	KVHeads      int    `json:"kv_heads,omitempty"`       // KV heads per block (PagedAttention)
 	DeviceSplits bool   `json:"device_splits,omitempty"`  // split_kv is the least keys per split; the launcher sizes splits from the device
 	BM           int    `json:"bm,omitempty"`             // output tile rows (TileGEMM)
 	BN           int    `json:"bn,omitempty"`             // output tile columns (TileGEMM)
@@ -74,6 +75,7 @@ func (l Launch) config() string {
 	add("split_k", l.SplitK)
 	add("split_kv", l.SplitKV)
 	add("kv_depth", l.KVDepth)
+	add("kv_heads", l.KVHeads)
 	add("bm", l.BM)
 	add("bn", l.BN)
 	add("rows_per_block", l.RowsPerBlock)
@@ -169,7 +171,7 @@ func (a PagedAttention) Variant() (Variant, error) {
 	if a.Gate {
 		key += fmt.Sprintf("/gate=%d:%d:%s", a.GateStride, a.GateOffset, floatLiteral(a.GateEps))
 	}
-	l := Launch{Block: 128, Warps: 4, Stages: a.Stages, SplitKV: a.Chunk, KVDepth: a.Depth, DeviceSplits: a.DeviceSplits}
+	l := Launch{Block: 128, Warps: 4, Stages: a.Stages, SplitKV: a.Chunk, KVDepth: a.Depth, KVHeads: a.KVHeadsPerBlock, DeviceSplits: a.DeviceSplits}
 	return newVariant(a.Name, "paged_attention", key, l, append([]string{"int batch", "int max_keys"}, a.launchParams()...), src), nil
 }
 

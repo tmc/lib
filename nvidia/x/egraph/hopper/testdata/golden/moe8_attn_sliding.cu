@@ -422,12 +422,13 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     float* __restrict__ out,
     unsigned char* __restrict__ ws) {
     constexpr int HQ = 16, HKV = 2, G = 8, L = 1, ROWS = 8, MROWS = 16, MT = 1, KW = 4;
+    constexpr int HPB = 1, HKVB = HKV / HPB, ROWS1 = G * L, D = 64 * HPB, KP = D / 16; // KV heads per block, blocks per request, rows per KV head, K/V row bytes and pieces
     constexpr int WINDOW = 2048, PAGE = 1, DEPTH = 1, STEP = 16 * KW * DEPTH, STAGES = 4;
     constexpr int CHUNK = 256;
-    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = 16, LDQ = 40, RB = 80;
+    constexpr int PIECES = STEP * KP, NP = (PIECES + 127) / 128, GROUP = 16, LDQ = 40, RB = 80;
     constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > KW * MROWS * 256 ? STAGES * STAGE_BYTES : KW * MROWS * 256;
     const float scale = 0.6841258f * k_scale[0] * 1.4426950408889634f; // log2 domain
-    const int split = blockIdx.x, kvh = blockIdx.y, b = blockIdx.z;
+    const int split = blockIdx.x, kvb = blockIdx.y, kvh0 = kvb * HPB, b = blockIdx.z;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane / 4, c = lane % 4;
     const int mt = warp % MT, kw = warp / MT;
     const int seqlen = seqlens[b], p0 = seqlen - L;
@@ -436,6 +437,11 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     if (split >= nsplit) return;
     const int c0 = kbegin + split * CHUNK, c1 = min(seqlen, c0 + CHUNK);
     const float NEG_INF = -__uint_as_float(0x7f800000u);
+    auto trow = [](int pr) { return HPB == 1 ? pr : pr / ROWS1 * 8 + pr % ROWS1; };
+    auto qrow = [&](int pr) { // [token, head] index of partial row pr
+        const int j = pr % ROWS1;
+        return (size_t)(b * L + j / G) * HQ + (kvh0 + pr / ROWS1) * G + j % G;
+    };
 
     alignas(16) __shared__ uint16_t sq[MROWS * LDQ];
     __shared__ float red_m[KW * MROWS], red_l[KW * MROWS];
@@ -444,13 +450,13 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     // bytes; after the main loop, red_o.
     alignas(16) __shared__ unsigned char ring[RING_BYTES];
     float* const red_o = reinterpret_cast<float*>(ring);
-    for (int i = tid; i < MROWS * 4; i += 128) {
-        const int r = i / 4, piece = i % 4;
+    for (int i = tid; i < MROWS * KP; i += 128) {
+        const int r = i / KP, piece = i % KP, hp = HPB == 1 ? 0 : r / 8, j = HPB == 1 ? r : r % 8;
         eg_u32x4 w = {0, 0, 0, 0};
-        if (r < ROWS) w = eg_ldg16(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + piece * 16);
+        if (j < ROWS1 && piece / 4 == hp) w = eg_ldg16(q + qrow(hp * ROWS1 + j) * 64 + piece % 4 * 16);
         *reinterpret_cast<eg_u32x4*>(&sq[r * LDQ + piece * 8]) = w;
     }
-    const int fk = tid * NP / 4;
+    const int fk = tid * NP / KP;
     auto rowof = [&](int kb) -> long long {
         const int kp = kb + fk;
         if (tid * NP >= PIECES || kp >= c1) return -1;
@@ -462,9 +468,9 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         for (int n = 0; n < NP; ++n) {
             const int piece = tid * NP + n;
             if (piece >= PIECES) break;
-            unsigned char* const dk = kd + (piece / 4) * RB + (piece % 4) * 16;
+            unsigned char* const dk = kd + (piece / KP) * RB + (piece % KP) * 16;
             if (row >= 0) {
-                const size_t at = ((size_t)row * HKV + kvh) * 64 + (piece % 4) * 16;
+                const size_t at = ((size_t)row * HKV + kvh0) * 64 + (piece % KP) * 16;
                 eg_cp_async16(dk, k_cache + at);
                 eg_cp_async16(dk + STEP * RB, v_cache + at);
             } else {
@@ -483,15 +489,15 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     long long next = rowof(c0 + (STAGES - 1) * STEP);
     __syncthreads();
 
-    uint32_t qa[2][4];
+    uint32_t qa[KP / 2][4];
 #pragma unroll
-    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
+    for (int ks = 0; ks < KP / 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
     // This lane's two rows (g and g+8 of its tile): positions and first keys.
     int pos[2], lo[2];
 #pragma unroll
     for (int h = 0; h < 2; ++h) {
-        const int r = mt * 16 + g + 8 * h;
-        pos[h] = p0 + min(r / G, L - 1);
+        const int r = mt * 16 + g + 8 * h, j = HPB == 1 ? r : r % 8;
+        pos[h] = p0 + min(j / G, L - 1);
         lo[h] = WINDOW ? max(0, pos[h] - WINDOW + 1) : 0;
     }
     float m[2] = {NEG_INF, NEG_INF}, l[2] = {0.0f, 0.0f}, o[8][4] = {};
@@ -514,7 +520,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         float s[2][4] = {};
         const uint16_t* const sk = reinterpret_cast<const uint16_t*>(kst);
 #pragma unroll
-        for (int ks = 0; ks < 2; ++ks) {
+        for (int ks = 0; ks < KP / 2; ++ks) {
             uint32_t kf[4];
             eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * (RB / 2) + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
@@ -551,7 +557,12 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         }
         const uint32_t pa[4] = {eg_pack_f16x2(s[0][0], s[0][1]), eg_pack_f16x2(s[0][2], s[0][3]),
                                 eg_pack_f16x2(s[1][0], s[1][1]), eg_pack_f16x2(s[1][2], s[1][3])};
-        const unsigned char* const vr = vst + (kt0 + 2 * c) * RB + 8 * g;
+        // With two KV heads, rows g (head kvh0) take V's first 64 bytes
+        // and rows g + 8 the second: each mma keeps one row half and
+        // discards the other.
+#pragma unroll
+        for (int hb = 0; hb < HPB; ++hb) {
+        const unsigned char* const vr = vst + (kt0 + 2 * c) * RB + 64 * hb + 8 * g;
         const eg_u32x2 va = *reinterpret_cast<const eg_u32x2*>(vr), vb = *reinterpret_cast<const eg_u32x2*>(vr + RB);
         const eg_u32x2 vc = *reinterpret_cast<const eg_u32x2*>(vr + 8 * RB), vd = *reinterpret_cast<const eg_u32x2*>(vr + 9 * RB);
 #pragma unroll
@@ -559,7 +570,14 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
             const uint32_t sel = (t % 4) | (4 + t % 4) << 4;
             const uint32_t vf[2] = {eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(va.x, vb.x, sel) : eg_prmt(va.y, vb.y, sel)),
                                     eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(vc.x, vd.x, sel) : eg_prmt(vc.y, vd.y, sel))};
-            eg_mma_f16(o[t], pa, vf, o[t]);
+            if (HPB == 1) {
+                eg_mma_f16(o[t], pa, vf, o[t]);
+            } else {
+                float d[4];
+                eg_mma_f16(d, pa, vf, o[t]);
+                if (hb == 0) { o[t][0] = d[0]; o[t][1] = d[1]; } else { o[t][2] = d[2]; o[t][3] = d[3]; }
+            }
+        }
         }
         }
     }
@@ -581,15 +599,15 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     }
     __syncthreads();
     const float vs = v_scale[0];
-    // Per (request, KV head): 1 + NG counters, then gridDim.x chunk partials
-    // and NG group partials of ROWS x (max, sum, 64 outputs).
+    // Per (request, block of KV heads): 1 + NG counters, then gridDim.x
+    // chunk partials and NG group partials of ROWS x (max, sum, 64 outputs).
     const int NG = (gridDim.x + GROUP - 1) / GROUP;
-    int* const cnt = reinterpret_cast<int*>(ws) + ((size_t)b * HKV + kvh) * (1 + NG);
-    float* const all = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKV * (1 + NG)) +
-                       ((size_t)b * HKV + kvh) * (gridDim.x + NG) * ROWS * 66;
+    int* const cnt = reinterpret_cast<int*>(ws) + ((size_t)b * HKVB + kvb) * (1 + NG);
+    float* const all = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKVB * (1 + NG)) +
+                       ((size_t)b * HKVB + kvb) * (gridDim.x + NG) * ROWS * 66;
     float* const mine = all + (size_t)split * ROWS * 66;
     for (int i = tid; i < ROWS * 64 && nsplit > 1; i += 128) {
-        const int r = i / 64, d = i % 64;
+        const int r = trow(i / 64), d = i % 64;
         float mx = NEG_INF;
 #pragma unroll
         for (int k = 0; k < KW; ++k) mx = fmaxf(mx, red_m[k * MROWS + r]);
@@ -601,8 +619,8 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
             sum += w * red_l[k * MROWS + r];
             acc += w * red_o[(k * MROWS + r) * 64 + d];
         }
-        mine[r * 66 + 2 + d] = acc;
-        if (d == 0) { mine[r * 66] = mx; mine[r * 66 + 1] = sum; }
+        mine[i / 64 * 66 + 2 + d] = acc;
+        if (d == 0) { mine[i / 64 * 66] = mx; mine[i / 64 * 66 + 1] = sum; }
     }
     auto put = [&](size_t i, float v) { out[i] = v; };
     // The finished rows go to fin (the first KW slot of red_o, which each
@@ -610,7 +628,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     float* const fin = red_o;
     if (nsplit == 1) {
         for (int i = tid; i < ROWS * 64; i += 128) {
-            const int r = i / 64, d = i % 64;
+            const int r = trow(i / 64), d = i % 64;
             float mx = NEG_INF;
 #pragma unroll
             for (int k = 0; k < KW; ++k) mx = fmaxf(mx, red_m[k * MROWS + r]);
@@ -621,7 +639,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
                 sum += w * red_l[k * MROWS + r];
                 acc += w * red_o[(k * MROWS + r) * 64 + d];
             }
-            fin[r * 64 + d] = acc / sum * vs;
+            fin[i] = acc / sum * vs;
         }
     } else {
         // merge combines n partials at src in chunk order: into fin (scaled
@@ -702,8 +720,8 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     for (int r = warp; r < ROWS; r += 4) {
         const float v0 = fin[r * 64 + lane], v1 = fin[r * 64 + lane + 32];
         const float inv = rsqrtf(eg_warp_sum(v0 * v0 + v1 * v1) * (1.0f / 64) + GATE_EPS);
-        const size_t t = (size_t)b * L + r / G;
-        const int h = kvh * G + r % G;
+        const size_t t = qrow(r) / HQ;
+        const int h = qrow(r) % HQ;
         const uint16_t* const g = gate + t * GATE_STRIDE + GATE_OFFSET + h * 64;
         const size_t o = (t * HQ + h) * 64;
         put(o + lane, v0 * inv * eg_sigmoid(eg_bf16_to_f32(g[lane])));
