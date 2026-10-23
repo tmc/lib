@@ -341,7 +341,7 @@ func TestLowerabilityPredicates(t *testing.T) {
 		{"fused_gemv_pipeline", true, false, true},
 		{"gemv", false, false, false},
 		{"matmul", false, false, false},
-		{"tile_rmsnorm_gemv_swiglu", false, true, true},
+		{"tile_rmsnorm_gemv_swiglu", false, false, false},
 		{"tile_rmsnorm_qkv_split", false, true, true},
 		{"tile_gelu", false, true, true},
 		{"tile_geglu", false, true, true},
@@ -439,6 +439,15 @@ func TestLowerabilityDifferential(t *testing.T) {
 
 			// 2. Tile IR differential: IsLowerableTileIROp(op) == (Lower and GenerateDeclarativeTile succeed)
 			node := &egraph.Node{Op: op}
+			if strings.HasPrefix(op, "tile_rmsnorm_") || strings.HasPrefix(op, "fused_rmsnorm_") {
+				switch op {
+				case "tile_rmsnorm_proj", "fused_rmsnorm_proj", "tile_rmsnorm_qkv", "fused_rmsnorm_qkv", "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
+					if _, err := egraph.ToTileIR(node, egraph.CodegenOptions{}); err == nil {
+						t.Fatal("missing shape accepted")
+					}
+					node = normalizedFixture(op, egraph.TileNormalizedProjection{M: 2, N: 17, K: 65})
+				}
+			}
 			_, tileErr := egraph.NewLowerer(egraph.CodegenOptions{}).Lower(node)
 			tileLowerable := (tileErr == nil)
 			if egraph.IsLowerableTileIROp(op) != tileLowerable {
@@ -446,7 +455,7 @@ func TestLowerabilityDifferential(t *testing.T) {
 					op, egraph.IsLowerableTileIROp(op), tileErr)
 			}
 
-			_, declErr := egraph.GenerateDeclarativeTile(expr, egraph.CodegenOptions{})
+			_, declErr := egraph.GenerateDeclarativeTile(node, egraph.CodegenOptions{})
 			declLowerable := (declErr == nil)
 			if egraph.IsLowerableTileIROp(op) != declLowerable {
 				t.Errorf("Tile IR Declarative differential mismatch for %q: IsLowerableTileIROp=%v, GenerateDeclarativeTile err=%v",

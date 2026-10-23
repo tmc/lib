@@ -9,16 +9,21 @@ import (
 	"github.com/tmc/lib/nvidia/x/tileiras"
 )
 
-// GenerateDeclarativeTile generates declarative C++ Tile IR source code
-// using the cuda::tiles namespace and __tile_global__ execution model.
-//
-// It targets hardware Tensor Core units and asynchronous TMA transfers,
-// ensuring memory access spans are 16-byte aligned and tile box extents
-// satisfy TMA hardware constraints.
+// GenerateDeclarativeTile generates C++ Tile source. Normalized projections
+// require the shape and ABI contract documented by TileNormalizedProjection.
+// Source generation does not establish compiler acceptance or device parity.
 func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 	if expr == nil {
 		return "", fmt.Errorf("egraph: nil expr passed to GenerateDeclarativeTile")
 	}
+	if normalizedProjectionOp(expr.Op) {
+		_, source, err := lowerNormalizedProjection(expr, opts)
+		return source, err
+	}
+	if normalizedSwiGLUNode(expr) {
+		return "", fmt.Errorf("egraph: %s requires full-row RMS normalization and composite output lowering", expr.Op)
+	}
+
 	if opts.KernelName == "" {
 		opts.KernelName = "DeclarativeTileKernel"
 	}
@@ -54,14 +59,6 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 
 	switch expr.Op {
-	case "tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu":
-		sb.WriteString(generateDeclarativeRMSNormGEMVSwiGLU(opts.KernelName, elemType))
-	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
-		sb.WriteString(generateDeclarativeRMSNormQKVSplit(opts.KernelName, elemType))
-	case "tile_rmsnorm_qkv", "fused_rmsnorm_qkv":
-		sb.WriteString(generateDeclarativeRMSNormQKV(opts.KernelName, elemType))
-	case "tile_rmsnorm_proj", "fused_rmsnorm_proj":
-		sb.WriteString(generateDeclarativeRMSNormProj(opts.KernelName, elemType))
 	case "tile_swiglu", "fused_swiglu":
 		sb.WriteString(generateDeclarativeSwiGLU(opts.KernelName, elemType))
 	case "tile_geglu", "fused_geglu":
@@ -79,97 +76,6 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 
 	return sb.String(), nil
-}
-
-func generateDeclarativeRMSNormQKVSplit(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
-    const %s* __restrict__ X,
-    const %s* __restrict__ W_norm,
-    const %s* __restrict__ W_q,
-    const %s* __restrict__ W_k,
-    const %s* __restrict__ W_v,
-    %s* __restrict__ Out,
-    int M, int N, int K,
-    float eps
-) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto x_span = tensor_span{assume_aligned<16>(X), extents{M, K}};
-    auto w_q_span = tensor_span{assume_aligned<16>(W_q), extents{K, N}};
-    auto w_k_span = tensor_span{assume_aligned<16>(W_k), extents{K, N}};
-    auto w_v_span = tensor_span{assume_aligned<16>(W_v), extents{K, N}};
-    auto out_span = tensor_span{assume_aligned<16>(Out), extents{M, N}};
-
-    auto x = partition_view{x_span, shape<TM, TK>{}};
-    auto w_q = partition_view{w_q_span, shape<TK, TN>{}};
-    auto w_k = partition_view{w_k_span, shape<TK, TN>{}};
-    auto w_v = partition_view{w_v_span, shape<TK, TN>{}};
-    auto out = partition_view{out_span, shape<TM, TN>{}};
-
-    auto sum_q = full<tile<%s, shape<TM, TN>>>(0.0f);
-    auto sum_k = full<tile<%s, shape<TM, TN>>>(0.0f);
-    auto sum_v = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        sum_q = mma(x.load(0, k), w_q.load(k, 0), sum_q);
-        sum_k = mma(x.load(0, k), w_k.load(k, 0), sum_k);
-        sum_v = mma(x.load(0, k), w_v.load(k, 0), sum_v);
-    }
-    out.store(sum_q + sum_k + sum_v, 0, 0);
-}
-`, kernelName, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType)
-}
-
-func generateDeclarativeRMSNormQKV(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
-    const %s* __restrict__ X,
-    const %s* __restrict__ W_norm,
-    const %s* __restrict__ W_qkv,
-    %s* __restrict__ Out,
-    int M, int N, int K,
-    float eps
-) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto x_span = tensor_span{assume_aligned<16>(X), extents{M, K}};
-    auto w_span = tensor_span{assume_aligned<16>(W_qkv), extents{K, N}};
-    auto out_span = tensor_span{assume_aligned<16>(Out), extents{M, N}};
-
-    auto x = partition_view{x_span, shape<TM, TK>{}};
-    auto w = partition_view{w_span, shape<TK, TN>{}};
-    auto out = partition_view{out_span, shape<TM, TN>{}};
-
-    auto sum = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        sum = mma(x.load(0, k), w.load(k, 0), sum);
-    }
-    out.store(sum, 0, 0);
-}
-`, kernelName, elemType, elemType, elemType, elemType, elemType)
-}
-
-func generateDeclarativeRMSNormProj(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
-    const %s* __restrict__ X,
-    const %s* __restrict__ W_norm,
-    const %s* __restrict__ W_proj,
-    %s* __restrict__ Out,
-    int M, int N, int K,
-    float eps
-) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto x_span = tensor_span{assume_aligned<16>(X), extents{M, K}};
-    auto w_span = tensor_span{assume_aligned<16>(W_proj), extents{K, N}};
-    auto out_span = tensor_span{assume_aligned<16>(Out), extents{M, N}};
-
-    auto x = partition_view{x_span, shape<TM, TK>{}};
-    auto w = partition_view{w_span, shape<TK, TN>{}};
-    auto out = partition_view{out_span, shape<TM, TN>{}};
-
-    auto sum = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        sum = mma(x.load(0, k), w.load(k, 0), sum);
-    }
-    out.store(sum, 0, 0);
-}
-`, kernelName, elemType, elemType, elemType, elemType, elemType)
 }
 
 func generateDeclarativeSwiGLU(kernelName, elemType string) string {
@@ -330,49 +236,6 @@ func generateDeclarativeFP4(kernelName string) string {
 `, kernelName)
 }
 
-func generateDeclarativeRMSNormGEMVSwiGLU(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
-    const %s* __restrict__ X,
-    const %s* __restrict__ W_norm,
-    const %s* __restrict__ W_proj,
-    const %s* __restrict__ W_gate,
-    const %s* __restrict__ W_up,
-    const %s* __restrict__ W_down,
-    %s* __restrict__ Out,
-    int M, int N, int K,
-    float eps
-) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto x = partition_view{tensor_span{assume_aligned<16>(X), extents{M, K}}, shape<TM, TK>{}};
-    auto wn = partition_view{tensor_span{assume_aligned<16>(W_norm), extents{K, 1}}, shape<TK, 1>{}};
-    auto wp = partition_view{tensor_span{assume_aligned<16>(W_proj), extents{K, N}}, shape<TK, TN>{}};
-    auto wg = partition_view{tensor_span{assume_aligned<16>(W_gate), extents{N, N}}, shape<TN, TN>{}};
-    auto wu = partition_view{tensor_span{assume_aligned<16>(W_up), extents{N, N}}, shape<TN, TN>{}};
-    auto wd = partition_view{tensor_span{assume_aligned<16>(W_down), extents{N, K}}, shape<TN, TK>{}};
-    auto out = partition_view{tensor_span{assume_aligned<16>(Out), extents{M, K}}, shape<TM, TK>{}};
-
-    auto proj = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        proj = mma(x.load(0, k), wp.load(k, 0), proj);
-    }
-
-    auto gate = full<tile<%s, shape<TM, TN>>>(0.0f);
-    auto up = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto n : irange(0, N / TN)) {
-        gate = mma(proj, wg.load(n, 0), gate);
-        up = mma(proj, wu.load(n, 0), up);
-    }
-    auto act = (gate / (1.0f + exp(-gate))) * up;
-
-    auto down = full<tile<%s, shape<TM, TK>>>(0.0f);
-    for (auto n : irange(0, N / TN)) {
-        down = mma(act, wd.load(n, 0), down);
-    }
-    out.store(down, 0, 0);
-}
-`, kernelName, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType)
-}
-
 // Lowerer translates egraph expressions into Tile IR modules and textual IR.
 type Lowerer struct {
 	opts CodegenOptions
@@ -401,16 +264,16 @@ func GenerateTileIR(node *Node, opts ...CodegenOptions) (string, error) {
 // ToTileIR lowers an extracted AST Expr into an intermediate Tile IR Module (tileir.Module).
 //
 // The resulting Module can be rendered as Tile IR text with Module.String.
-// AST bytecode encoding is unsupported because this representation lacks the
-// complete vendor operand, result type, and region encoding.
+// Normalized projections use the supported straight-line bytecode subset.
+// Other lowerings may require operation or region encoding not yet supported.
 func ToTileIR(expr *Expr, opts CodegenOptions) (*tileir.Module, error) {
 	return NewLowerer(opts).Lower(expr)
 }
 
 // AssembleTileIR attempts to encode and assemble expr as a device CUBIN.
-// Currently it returns an error wrapping [tileir.ErrUnsupportedASTEncoding]
-// before invoking the assembler. Textual lowering remains available through
-// [ToTileIR]; it does not establish executable bytecode or numerical parity.
+// Unsupported operation or region encoding returns an error wrapping
+// [tileir.ErrUnsupportedASTEncoding] before invoking the assembler. Successful
+// encoding or assembly does not establish numerical parity on a device.
 func AssembleTileIR(ctx context.Context, expr *Expr, opts CodegenOptions, asm ...tileiras.Option) ([]byte, error) {
 	mod, err := ToTileIR(expr, opts)
 	if err != nil {
@@ -448,8 +311,18 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 	// If node is an unfused composite expression, attempt to fuse using TransformerTileRules.
 	if !strings.HasPrefix(node.Op, "tile_") && len(node.Children) > 0 {
 		if fused := fuseNode(node); fused != nil && strings.HasPrefix(fused.Op, "tile_") {
+			// Shape specialization belongs to the original root, not a rewrite leaf.
+			fused.Data = node.Data
 			node = fused
 		}
+	}
+
+	if normalizedProjectionOp(node.Op) {
+		mod, _, err := lowerNormalizedProjection(node, l.opts)
+		return mod, err
+	}
+	if normalizedSwiGLUNode(node) {
+		return nil, fmt.Errorf("egraph: %s requires full-row RMS normalization and composite output lowering", node.Op)
 	}
 
 	var elemType tileir.Type = tileir.Float32
@@ -486,116 +359,6 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 	}
 
 	switch node.Op {
-	case "tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu":
-		fn.Params = []*tileir.Param{
-			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_proj", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_gate", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_up", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_down", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
-		}
-		fn.Operations = []*tileir.Operation{
-			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWproj"}, Operands: []string{"%W_proj", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWg"}, Operands: []string{"%W_gate", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWu"}, Operands: []string{"%W_up", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWd"}, Operands: []string{"%W_down", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.constant", Results: []string{"%cst1"}, Attributes: "<f32: 1.0>", Type: tile64f32.String(), TypeVal: tile64f32},
-			// RMSNorm
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
-			// GEMV Projection
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%proj"}, Operands: []string{"%x_scaled", "%vWproj", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			// SwiGLU FFN
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%gate"}, Operands: []string{"%proj", "%vWg", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%up"}, Operands: []string{"%proj", "%vWu", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.negf", Results: []string{"%neg_gate"}, Operands: []string{"%gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.exp", Results: []string{"%exp_gate"}, Operands: []string{"%neg_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.addf", Results: []string{"%denom"}, Operands: []string{"%cst1", "%exp_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.divf", Results: []string{"%sig_gate"}, Operands: []string{"%cst1", "%denom"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%silu_gate"}, Operands: []string{"%gate", "%sig_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%act"}, Operands: []string{"%silu_gate", "%up"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%acc"}, Operands: []string{"%act", "%vWd", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.return"},
-		}
-
-	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
-		fn.Params = []*tileir.Param{
-			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_q", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_k", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_v", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
-		}
-		fn.Operations = []*tileir.Operation{
-			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWq"}, Operands: []string{"%W_q", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWk"}, Operands: []string{"%W_k", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWv"}, Operands: []string{"%W_v", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%q"}, Operands: []string{"%x_scaled", "%vWq", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%k"}, Operands: []string{"%x_scaled", "%vWk", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%v"}, Operands: []string{"%x_scaled", "%vWv", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.addf", Results: []string{"%kv"}, Operands: []string{"%k", "%v"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.addf", Results: []string{"%acc"}, Operands: []string{"%q", "%kv"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.return"},
-		}
-
-	case "tile_rmsnorm_qkv", "fused_rmsnorm_qkv":
-		fn.Params = []*tileir.Param{
-			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_qkv", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
-		}
-		fn.Operations = []*tileir.Operation{
-			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWqkv"}, Operands: []string{"%W_qkv", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%acc"}, Operands: []string{"%x_scaled", "%vWqkv", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.return"},
-		}
-
-	case "tile_rmsnorm_proj", "fused_rmsnorm_proj":
-		fn.Params = []*tileir.Param{
-			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_norm", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%W_proj", Type: tilePtr.String(), TypeVal: tilePtr},
-			{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr},
-		}
-		fn.Operations = []*tileir.Operation{
-			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWnorm"}, Operands: []string{"%W_norm", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vWproj"}, Operands: []string{"%W_proj", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mulf", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%vWnorm"}, Type: tile64.String(), TypeVal: tile64},
-			{OpCode: "cuda_tile.mmaf", Results: []string{"%acc"}, Operands: []string{"%x_scaled", "%vWproj", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
-			{OpCode: "cuda_tile.return"},
-		}
 
 	case "tile_swiglu", "fused_swiglu":
 		fn.Params = []*tileir.Param{
@@ -760,6 +523,9 @@ func fuseNode(node *Node) *Node {
 	var addExpr func(e *Expr) Id
 	addExpr = func(e *Expr) Id {
 		if len(e.Children) == 0 {
+			if e.Data != nil {
+				return g.Add(ENode{Op: e.Op, Data: e.Data})
+			}
 			return g.Add(NewLeaf(e.Op))
 		}
 		childIds := make([]Id, len(e.Children))

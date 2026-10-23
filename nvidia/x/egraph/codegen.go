@@ -953,10 +953,11 @@ func IsLowerableCUDAOp(op string) bool {
 // IsLowerableTileIROp reports whether an operator name can be lowered to Tile IR
 // by GenerateTileIR, ToTileIR, or GenerateDeclarativeTile.
 // It requires an exact match against the registered Tile IR operator set.
+// Normalized projections additionally require TileNormalizedProjection metadata
+// and symbolic operands; a matching name alone does not validate a workload.
 func IsLowerableTileIROp(op string) bool {
 	switch op {
-	case "tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu",
-		"tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
+	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
 		"tile_rmsnorm_qkv", "fused_rmsnorm_qkv",
 		"tile_rmsnorm_proj", "fused_rmsnorm_proj",
 		"tile_swiglu", "fused_swiglu",

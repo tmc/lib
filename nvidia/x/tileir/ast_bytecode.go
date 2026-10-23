@@ -24,7 +24,7 @@ var astBodyOps = map[string]bool{
 	"cmpf": true, "cmpi": true, "select": true, "mmaf": true,
 	"load_ptr_tko": true, "store_ptr_tko": true,
 	"get_tile_block_id": true, "iota": true, "reshape": true,
-	"broadcast": true, "exti": true, "offset": true, "ftof": true, "exp": true,
+	"broadcast": true, "exti": true, "offset": true, "ftof": true, "exp": true, "rsqrt": true,
 }
 
 // Values and ordering come from NVIDIA/cuda-tile AttrDefs.td at 7e8e2e68.
@@ -359,6 +359,13 @@ func checkASTOperands(name string, result Type, operands, returns []Type) error 
 		(tile.ElementType.Kind() != KindFloat32 && tile.ElementType.Kind() != KindFloat64)) {
 		return astUnsupported("exp requires one f32 or f64 tile operand")
 	}
+	// The pinned Ops.td RsqrtOp schema has one same-type floating operand,
+	// one result, optional flush_to_zero and no regions (opcode 0x5D).
+	// Admit f32 only here; broader vendor types need separate qualification.
+	if name == "rsqrt" && (len(operands) != 1 || tile.ElementType.Kind() != KindFloat32) {
+		return astUnsupported("rsqrt requires one f32 tile operand")
+	}
+
 	if name == "mmaf" {
 		if len(operands) != 3 || !typeEqual(result, operands[2]) || len(tile.Shape) != 2 {
 			return astUnsupported("mmaf accumulator type or arity")

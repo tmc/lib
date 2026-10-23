@@ -140,6 +140,10 @@ func TestTransformerTileRulesTable(t *testing.T) {
 				t.Errorf("cost = %f, want < %f", cost, tt.wantCostLt)
 			}
 
+			normalized := strings.HasPrefix(best.Op, "tile_rmsnorm_")
+			if normalized {
+				best.Data = egraph.TileNormalizedProjection{M: 2, N: 17, K: 65}
+			}
 			// Verify declarative C++ Tile IR emission with __tile_global__
 			src, err := egraph.GenerateDeclarativeTile(best, egraph.CodegenOptions{
 				KernelName: "TestKernel_" + tt.wantOp,
@@ -150,10 +154,14 @@ func TestTransformerTileRulesTable(t *testing.T) {
 			if !strings.Contains(src, "__tile_global__") {
 				t.Errorf("expected source to contain '__tile_global__':\n%s", src)
 			}
-			if !strings.Contains(src, "using namespace cuda::tiles;") {
+			if !strings.Contains(src, "using namespace cuda::tiles;") && !strings.Contains(src, "namespace ct = ::cuda::tiles;") {
 				t.Errorf("expected source to use cuda::tiles namespace:\n%s", src)
 			}
-			if !strings.Contains(src, "assume_aligned<16>") {
+			if normalized {
+				if !strings.Contains(src, "ct::store_masked(") || !strings.Contains(src, "ct::rsqrt(") {
+					t.Fatal("missing normalized projection memory/math")
+				}
+			} else if !strings.Contains(src, "assume_aligned<16>") {
 				t.Errorf("expected source to enforce 16-byte TMA alignment:\n%s", src)
 			}
 		})
@@ -430,6 +438,24 @@ func TestGeneratedTileIRRefusesIncompleteASTEncoding(t *testing.T) {
 	for _, op := range ops {
 		t.Run(op, func(t *testing.T) {
 			expr := &egraph.Expr{Op: op}
+			if op == "tile_rmsnorm_qkv" || op == "tile_rmsnorm_proj" {
+				if _, err := egraph.ToTileIR(expr, egraph.CodegenOptions{}); err == nil {
+					t.Fatal("missing shape accepted")
+				}
+				expr = normalizedFixture(op, egraph.TileNormalizedProjection{M: 2, N: 17, K: 65})
+				if _, err := egraph.ToTileIR(expr, egraph.CodegenOptions{Precision: "f16"}); err == nil {
+					t.Fatal("unsupported dtype accepted")
+				}
+				mod, err := egraph.ToTileIR(expr, egraph.CodegenOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := mod.EncodeBytecode(); err != nil {
+					t.Fatal(err)
+				}
+				return // No compiler or native gate is invoked by this offline test.
+			}
+
 			mod, err := egraph.ToTileIR(expr, egraph.CodegenOptions{
 				KernelName: op + "_kernel",
 				Precision:  "f16",
