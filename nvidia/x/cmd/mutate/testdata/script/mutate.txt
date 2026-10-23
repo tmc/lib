@@ -29,7 +29,22 @@ cmp sum.txt sum.orig
 stderr 'interrupted; files restored'
 cmp sum.txt sum.orig
 
+# A control environment switches the instrument off; a mutation must
+# survive under it, or the catch is not the instrument's.
+! exec mutate control.json -- sh check.sh
+stdout '^sum_off +caught +1 '
+stdout '^scale_too +uncontrolled +1 '
+stdout '^1 caught, 0 survived, 0 unmatched, 1 uncontrolled of 2$'
+stdout '--- scale_too caught, but its control also failed \(failed\); last control output:\nTestScale: scale wrong'
+cmp sum.txt sum.orig
+cmp other.txt other.orig
+! exec mutate -json control.json -- sh check.sh
+stdout '"control": "survived"'
+stdout '"uncontrolled": 1'
+
 # Setup errors exit 2 and run nothing.
+! exec mutate badcontrol.json -- sh check.sh
+stderr 'mutation c: control "NOSUM": want KEY=VALUE'
 ! exec mutate ambiguous.json -- sh check.sh
 stderr 'old text occurs 3 times in sum.txt, want 1'
 ! exec mutate missing.json -- sh check.sh
@@ -67,7 +82,7 @@ scale = 1
 -- other.orig --
 scale = 1
 -- check.sh --
-grep -q '^total = 3$' sum.txt || { echo "TestSum: total wrong"; seq 30; exit 1; }
+[ -n "$NOSUM" ] || grep -q '^total = 3$' sum.txt || { echo "TestSum: total wrong"; seq 30; exit 1; }
 grep -q '^scale = 1$' other.txt || { echo "TestScale: scale wrong"; exit 1; }
 -- interrupt.sh --
 grep -q '^total = 3$' sum.txt && exit 0
@@ -88,6 +103,15 @@ grep -q '^total = 3$' sum.txt || sleep 30
    {"file": "other.txt", "old": "scale = 1", "new": "scale = 2"}]},
  {"name": "wrong_reason", "file": "other.txt", "old": "scale = 1", "new": "scale = 3", "want": "TestSum"}
 ]
+-- control.json --
+[
+ {"name": "sum_off", "file": "sum.txt", "old": "total = 3", "new": "total = 4", "want": "TestSum", "control": ["NOSUM=1"]},
+ {"name": "scale_too", "edits": [
+   {"file": "sum.txt", "old": "total = 3", "new": "total = 4"},
+   {"file": "other.txt", "old": "scale = 1", "new": "scale = 2"}], "control": ["NOSUM=1"]}
+]
+-- badcontrol.json --
+[{"name": "c", "file": "sum.txt", "old": "total = 3", "new": "total = 4", "control": ["NOSUM"]}]
 -- caught.json --
 [{"name": "add_wrong", "file": "sum.txt", "old": "total = 3", "new": "total = 4"}]
 -- slow.json --

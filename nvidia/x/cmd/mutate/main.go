@@ -30,12 +30,22 @@
 // reports carry only its last 20 lines. A command that exceeds -timeout is killed with its
 // process group and counts as caught.
 //
+// A mutation may also name a control: environment assignments under which
+// the mutation must survive, such as {"control": ["CUDAHOSTEMU_FLAGS=-DEG_EMU_ZERO_SMEM"]}
+// to switch off an instrument the tests rely on. A caught mutation with a
+// control is run again, still applied, with that environment added; if it
+// fails there too, the catch is not the instrument's doing and the mutation
+// is reported uncontrolled.
+//
 // Files are restored after every mutation and on interrupt. If a file
 // changes during a run other than by mutate, it is left alone and the run
-// stops: something else is editing the tree.
+// stops: something else is editing the tree. While a mutation is applied
+// the tree holds it, so nothing else should build or test from that tree
+// during a run.
 //
-// The exit status is 0 if every mutation was caught, 1 if any survived or
-// failed without matching its want pattern, and 2 for a setup error.
+// The exit status is 0 if every mutation was caught, 1 if any survived,
+// failed without matching its want pattern, or was uncontrolled, and 2 for
+// a setup error.
 package main
 
 import (
@@ -64,6 +74,8 @@ const (
 	Survived  = "survived"
 	Unmatched = "unmatched" // failed, but the output did not match want
 	TimedOut  = "timeout"   // killed at -timeout; counts as caught
+
+	Uncontrolled = "uncontrolled" // caught, but also failed under its control
 )
 
 type edit struct {
@@ -80,6 +92,10 @@ type mutation struct {
 	Edits []edit `json:"edits,omitempty"`
 	Want  string `json:"want,omitempty"`
 
+	// Control is environment assignments, KEY=VALUE, under which the
+	// mutation must survive.
+	Control []string `json:"control,omitempty"`
+
 	want *regexp.Regexp
 }
 
@@ -88,7 +104,8 @@ type result struct {
 	Status   string  `json:"status"`
 	ExitCode int     `json:"exit_code"`
 	Seconds  float64 `json:"seconds"`
-	Output   string  `json:"output,omitempty"` // last lines of combined output
+	Output   string  `json:"output,omitempty"`  // last lines of combined output
+	Control  string  `json:"control,omitempty"` // with a control: the control run's status
 
 	full string // all of the combined output, for matching want
 }
@@ -101,6 +118,8 @@ type report struct {
 	Caught    int      `json:"caught"`
 	Survived  int      `json:"survived"`
 	Unmatched int      `json:"unmatched"`
+
+	Uncontrolled int `json:"uncontrolled"`
 }
 
 func main() {
@@ -154,7 +173,7 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	if err != nil {
 		return 2, err
 	}
-	if rep.Survived > 0 || rep.Unmatched > 0 {
+	if rep.Survived > 0 || rep.Unmatched > 0 || rep.Uncontrolled > 0 {
 		return 1, nil
 	}
 	return 0, nil
@@ -196,6 +215,11 @@ func load(path string) ([]*mutation, error) {
 		for j, e := range m.Edits {
 			if e.File == "" || e.Old == "" || e.Old == e.New {
 				return nil, fmt.Errorf("mutation %s edit %d: want a file, a nonempty old, and a new that differs", m.Name, j)
+			}
+		}
+		for _, kv := range m.Control {
+			if k, _, ok := strings.Cut(kv, "="); !ok || k == "" {
+				return nil, fmt.Errorf("mutation %s: control %q: want KEY=VALUE", m.Name, kv)
 			}
 		}
 		if m.Want != "" {
@@ -247,7 +271,7 @@ func (r *runner) all(muts []*mutation) (*report, error) {
 	}()
 
 	rep := &report{Command: r.argv, Dir: r.dir}
-	rep.Baseline = r.exec(ctx, "baseline")
+	rep.Baseline = r.exec(ctx, "baseline", nil)
 	if rep.Baseline.ExitCode != 0 {
 		return rep, fmt.Errorf("baseline failed (%s, exit %d); mutations cannot be judged", rep.Baseline.Status, rep.Baseline.ExitCode)
 	}
@@ -260,7 +284,11 @@ func (r *runner) all(muts []*mutation) (*report, error) {
 			r.restoreAll()
 			return rep, err
 		}
-		res := r.exec(ctx, m.Name)
+		res := r.exec(ctx, m.Name, nil)
+		var ctl result
+		if len(m.Control) > 0 && res.ExitCode != 0 && (m.want == nil || res.Status == TimedOut || m.want.MatchString(res.full)) {
+			ctl = r.exec(ctx, m.Name+" (control)", m.Control)
+		}
 		if err := r.restoreAll(); err != nil {
 			return rep, err
 		}
@@ -270,17 +298,23 @@ func (r *runner) all(muts []*mutation) (*report, error) {
 		default:
 		}
 		switch {
-		case res.Status == TimedOut:
+		case res.Status == TimedOut && (ctl.Name == "" || ctl.ExitCode == 0):
 			rep.Caught++
 		case res.ExitCode == 0:
 			res.Status = Survived
 			rep.Survived++
+		case ctl.Name != "" && ctl.ExitCode != 0:
+			res.Status, res.Control, res.Output = Uncontrolled, ctl.Status, ctl.Output
+			rep.Uncontrolled++
 		case m.want != nil && !m.want.MatchString(res.full):
 			res.Status = Unmatched
 			rep.Unmatched++
 		default:
 			res.Status = Caught
 			rep.Caught++
+		}
+		if ctl.Name != "" && res.Status != Uncontrolled {
+			res.Control = Survived
 		}
 		if res.Status == Caught {
 			res.Output = ""
@@ -366,12 +400,15 @@ func (r *runner) restoreAll() error {
 	return errors.Join(errs...)
 }
 
-// exec runs the command once.
-func (r *runner) exec(ctx context.Context, name string) result {
+// exec runs the command once, with env added to the environment.
+func (r *runner) exec(ctx context.Context, name string, env []string) result {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, r.argv[0], r.argv[1:]...)
 	cmd.Dir = r.dir
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	cmd.WaitDelay = 5 * time.Second
@@ -411,9 +448,17 @@ func printText(w io.Writer, rep *report) {
 	}
 	tw.Flush()
 	for _, m := range rep.Mutations {
-		if m.Status != Caught && m.Status != TimedOut {
+		switch m.Status {
+		case Caught, TimedOut:
+		case Uncontrolled:
+			fmt.Fprintf(w, "\n--- %s caught, but its control also failed (%s); last control output:\n%s\n", m.Name, m.Control, m.Output)
+		default:
 			fmt.Fprintf(w, "\n--- %s %s; last output:\n%s\n", m.Name, m.Status, m.Output)
 		}
 	}
-	fmt.Fprintf(w, "\n%d caught, %d survived, %d unmatched of %d\n", rep.Caught, rep.Survived, rep.Unmatched, len(rep.Mutations))
+	fmt.Fprintf(w, "\n%d caught, %d survived, %d unmatched", rep.Caught, rep.Survived, rep.Unmatched)
+	if rep.Uncontrolled > 0 {
+		fmt.Fprintf(w, ", %d uncontrolled", rep.Uncontrolled)
+	}
+	fmt.Fprintf(w, " of %d\n", len(rep.Mutations))
 }
