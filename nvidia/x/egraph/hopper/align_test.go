@@ -49,9 +49,9 @@ func TestExpertAlignEmulated(t *testing.T) {
 				32*tt.a.Warps, tt.a.Name, tt.tokens),
 				emuBuf{"ids", "int32_t", i32Bytes(ids)},
 				emuBuf{"local_start", "int32_t", i32Bytes([]int32{tt.ls})},
-				emuBuf{"offsets", "int32_t", make([]byte, 4*(tt.a.Local+1))},
-				emuBuf{"rows", "int32_t", make([]byte, 4*n)},
-				emuBuf{"slots", "int32_t", make([]byte, 4*n)})
+				emuBuf{"offsets", "int32_t", poison(4 * (tt.a.Local + 1))},
+				emuBuf{"rows", "int32_t", poison(4 * n)},
+				emuBuf{"slots", "int32_t", poison(4 * n)})
 			offsets, rows, slots, err := tt.a.Reference(ids, tt.ls)
 			if err != nil {
 				t.Fatal(err)

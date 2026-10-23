@@ -114,7 +114,7 @@ func TestDispatcherEmulated(t *testing.T) {
 		res := runEmu(t, src, fmt.Sprintf("proj(%d, x, w, out, ws, nullptr)", m),
 			emuBuf{"x", "uint16_t", u16Bytes(x)},
 			emuBuf{"w", "uint16_t", u16Bytes(w.BF16)},
-			emuBuf{"out", "float", make([]byte, 4*m*n)},
+			emuBuf{"out", "float", poison(4 * m * n)},
 			emuBuf{"ws", "float", make([]byte, ws)})
 		want, err := TileGEMM{Name: "ref", N: n, K: k, Weight: WeightBF16, Out: F32, BN: 64}.Reference(m, x, nil, nil, []GEMMWeights{w}, nil)
 		if err != nil {

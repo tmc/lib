@@ -120,10 +120,10 @@ func TestTileGEMMEmulated(t *testing.T) {
 				bufs = append(bufs, emuBuf{e.Name, e.DType.cType(), typed{e.DType, f64s(v)}.bytes()})
 				args = append(args, e.Name)
 			}
-			bufs = append(bufs, emuBuf{"out", g.Out.cType(), make([]byte, m*nout*g.Out.Bits()/8)})
+			bufs = append(bufs, emuBuf{"out", g.Out.cType(), poison(m * nout * g.Out.Bits() / 8)})
 			args = append(args, "out")
 			if g.SumSq {
-				bufs = append(bufs, emuBuf{"ss", "float", make([]byte, 4*m*nout/32)})
+				bufs = append(bufs, emuBuf{"ss", "float", poison(4 * m * nout / 32)})
 				args = append(args, "ss")
 			}
 			grid, block := g.Grid(maxRows, experts)

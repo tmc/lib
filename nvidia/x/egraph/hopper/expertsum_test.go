@@ -68,7 +68,7 @@ func TestExpertSumEmulated(t *testing.T) {
 				emuBuf{"ss", "float", f32Bytes(ss)},
 				emuBuf{"slots", "int32_t", i32Bytes(slots)},
 				emuBuf{"weights", "float", f32Bytes(weights)},
-				emuBuf{"out", s.Out.cType(), make([]byte, n*s.Width*s.Out.Bits()/8)})
+				emuBuf{"out", s.Out.cType(), poison(n * s.Width * s.Out.Bits() / 8)})
 			want, err := s.Reference(n, y, ss, slots, weights)
 			if err != nil {
 				t.Fatal(err)
@@ -202,12 +202,12 @@ func TestMoEDownChainEmulated(t *testing.T) {
 		rgrid[0], rblock[0], tokens, 32*align.Warps, tokens),
 		emuBuf{"x", "float", f32Bytes(logits)},
 		emuBuf{"bias", "float", f32Bytes(bias)},
-		emuBuf{"ids", "int32_t", make([]byte, 4*tokens*8)},
-		emuBuf{"weights", "float", make([]byte, 4*tokens*8)},
+		emuBuf{"ids", "int32_t", poison(4 * tokens * 8)},
+		emuBuf{"weights", "float", poison(4 * tokens * 8)},
 		emuBuf{"local_start", "int32_t", i32Bytes([]int32{start})},
-		emuBuf{"offsets", "int32_t", make([]byte, 4*(local+1))},
-		emuBuf{"rows", "int32_t", make([]byte, 4*tokens*8)},
-		emuBuf{"slots", "int32_t", make([]byte, 4*tokens*8)})
+		emuBuf{"offsets", "int32_t", poison(4 * (local + 1))},
+		emuBuf{"rows", "int32_t", poison(4 * tokens * 8)},
+		emuBuf{"slots", "int32_t", poison(4 * tokens * 8)})
 	ids, slots, offsets := i32s(res["ids"]), i32s(res["slots"]), i32s(res["offsets"])
 	weights := make([]float32, tokens*8)
 	for i, v := range decode(F32, res["weights"]) {
@@ -261,11 +261,11 @@ func TestMoEDownChainEmulated(t *testing.T) {
 		emuBuf{"w", "uint8_t", all.Packed}, emuBuf{"w_sf", "uint8_t", all.Scales}, emuBuf{"w_gs", "float", f32Bytes(gs)},
 		emuBuf{"offsets", "int32_t", i32Bytes(offsets)},
 		emuBuf{"post_w", "uint16_t", typed{BF16, f64s(postW)}.bytes()},
-		emuBuf{"y", "uint16_t", make([]byte, 2*max(nrows, 1)*width)},
-		emuBuf{"ss", "float", make([]byte, 4*max(nrows, 1)*width/32)},
+		emuBuf{"y", "uint16_t", poison(2 * max(nrows, 1) * width)},
+		emuBuf{"ss", "float", poison(4 * max(nrows, 1) * width / 32)},
 		emuBuf{"slots", "int32_t", i32Bytes(slots)},
 		emuBuf{"weights", "float", f32Bytes(weights)},
-		emuBuf{"out", "uint16_t", make([]byte, 2*tokens*width)})
+		emuBuf{"out", "uint16_t", poison(2 * tokens * width)})
 	got := make([]float32, tokens*width)
 	for i, v := range decode(BF16, res["out"]) {
 		got[i] = float32(v)

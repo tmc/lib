@@ -48,8 +48,8 @@ func TestRowTopKEmulated(t *testing.T) {
 				bufs = append(bufs, emuBuf{"bias", tt.k.Bias.cType(), typed{tt.k.Bias, f64s(bias)}.bytes()})
 			}
 			bufs = append(bufs,
-				emuBuf{"ids", "int32_t", make([]byte, 4*tt.rows*tt.k.K)},
-				emuBuf{"weights", "float", make([]byte, 4*tt.rows*tt.k.K)})
+				emuBuf{"ids", "int32_t", poison(4 * tt.rows * tt.k.K)},
+				emuBuf{"weights", "float", poison(4 * tt.rows * tt.k.K)})
 			src, err := tt.k.CUDA()
 			if err != nil {
 				t.Fatal(err)

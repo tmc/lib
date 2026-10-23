@@ -1,6 +1,7 @@
 package hopper
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -165,10 +166,10 @@ __global__ void conv(const float* in, uint16_t* bf, uint8_t* e4, float* e4dec, u
 	n := len(in)
 	res := runEmu(t, kernel, fmt.Sprintf("eg_emu_launch(dim3((%d+127)/128), dim3(128), 0, conv, in, bf, e4, e4dec, e2, %d)", n, n),
 		emuBuf{"in", "float", f32Bytes(in)},
-		emuBuf{"bf", "uint16_t", make([]byte, 2*n)},
-		emuBuf{"e4", "uint8_t", make([]byte, 2*n)},
-		emuBuf{"e4dec", "float", make([]byte, 4*256)},
-		emuBuf{"e2", "uint16_t", make([]byte, 2*256)},
+		emuBuf{"bf", "uint16_t", poison(2 * n)},
+		emuBuf{"e4", "uint8_t", poison(2 * n)},
+		emuBuf{"e4dec", "float", poison(4 * 256)},
+		emuBuf{"e2", "uint16_t", poison(2 * 256)},
 	)
 	bf := bytesU16(res["bf"])
 	for i, f := range in {
@@ -231,7 +232,7 @@ __global__ void mma(const uint16_t* a, const uint16_t* bt, float* d) {
 	res := runEmu(t, kernel, "eg_emu_launch(dim3(1), dim3(32), 0, mma, a, bt, d)",
 		emuBuf{"a", "uint16_t", u16Bytes(a)},
 		emuBuf{"bt", "uint16_t", u16Bytes(bt)},
-		emuBuf{"d", "float", make([]byte, 4*128)},
+		emuBuf{"d", "float", poison(4 * 128)},
 	)
 	d := bytesF32(res["d"])
 	for m := 0; m < 16; m++ {
@@ -283,7 +284,7 @@ __global__ void mma8(const uint8_t* a, const uint8_t* bt, float* d) {
 	res := runEmu(t, kernel, "eg_emu_launch(dim3(1), dim3(32), 0, mma8, a, bt, d)",
 		emuBuf{"a", "uint8_t", a},
 		emuBuf{"bt", "uint8_t", bt},
-		emuBuf{"d", "float", make([]byte, 4*128)},
+		emuBuf{"d", "float", poison(4 * 128)},
 	)
 	d := bytesF32(res["d"])
 	for m := 0; m < 16; m++ {
@@ -298,6 +299,10 @@ __global__ void mma8(const uint8_t* a, const uint8_t* bt, float* d) {
 		}
 	}
 }
+
+// poison returns n bytes of 0xff (NaN in every float format the kernels
+// use), standing in for a fresh device allocation a kernel must overwrite.
+func poison(n int) []byte { return bytes.Repeat([]byte{0xff}, n) }
 
 // f16Bits rounds f to IEEE binary16 bits, nearest even.
 func f16Bits(f float32) uint16 {
@@ -337,8 +342,8 @@ __global__ void f16(const float* x, uint32_t* wide, uint32_t* packed) {
 	}
 	res := runEmu(t, kernel, "eg_emu_launch(dim3(1), dim3(32), 0, f16, x, wide, packed)",
 		emuBuf{"x", "float", f32Bytes(x)},
-		emuBuf{"wide", "uint32_t", make([]byte, 4*256)},
-		emuBuf{"packed", "uint32_t", make([]byte, 4*64)})
+		emuBuf{"wide", "uint32_t", poison(4 * 256)},
+		emuBuf{"packed", "uint32_t", poison(4 * 64)})
 	wide, packed := i32s(res["wide"]), i32s(res["packed"])
 	for i := range 256 {
 		lo, hi := FromE4M3Bits(uint8(i)), FromE4M3Bits(uint8(255-i))
@@ -387,7 +392,7 @@ __global__ void mma16(const float* a, const float* bt, float* d) {
 	res := runEmu(t, kernel, "eg_emu_launch(dim3(1), dim3(32), 0, mma16, a, bt, d)",
 		emuBuf{"a", "float", f32Bytes(a)},
 		emuBuf{"bt", "float", f32Bytes(bt)},
-		emuBuf{"d", "float", make([]byte, 4*128)})
+		emuBuf{"d", "float", poison(4 * 128)})
 	d := bytesF32(res["d"])
 	for m := range 16 {
 		for n := range 8 {
@@ -421,6 +426,30 @@ func TestF16Bits(t *testing.T) {
 	for _, tt := range tests {
 		if got := f16Bits(math.Float32frombits(tt.in)); got != tt.want {
 			t.Errorf("f16Bits(%#x) = %#04x, want %#04x", tt.in, got, tt.want)
+		}
+	}
+}
+
+// TestEmuPoisonsSharedMemory checks that each block starts with static and
+// dynamic shared memory holding 0xff bytes, whatever an earlier block wrote.
+func TestEmuPoisonsSharedMemory(t *testing.T) {
+	const kernel = `
+__global__ void stale(uint32_t* out) {
+    __shared__ uint32_t s[4];
+    EG_DYNAMIC_SMEM(uint32_t, d);
+    if (threadIdx.x == 0) {
+        out[blockIdx.x * 2] = s[blockIdx.x];
+        out[blockIdx.x * 2 + 1] = d[blockIdx.x];
+        s[blockIdx.x + 1] = 7;
+        d[blockIdx.x + 1] = 7;
+    }
+}
+`
+	res := runEmu(t, kernel, "eg_emu_launch(dim3(3), dim3(32), 64, stale, out)",
+		emuBuf{"out", "uint32_t", poison(4 * 6)})
+	for i, v := range i32s(res["out"]) {
+		if uint32(v) != 0xffffffff {
+			t.Errorf("out[%d] = %#x, want 0xffffffff", i, uint32(v))
 		}
 	}
 }

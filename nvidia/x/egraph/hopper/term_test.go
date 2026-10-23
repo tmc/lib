@@ -51,7 +51,7 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 		bufs = append(bufs, emuBuf{in.Name, in.DType.cType(), typed{in.DType, env[in.Name].Data}.bytes()})
 	}
 	for _, tmp := range append(p.Temps, p.Output) {
-		bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), make([]byte, size(tmp.Shape)*tmp.DType.Bits()/8)})
+		bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), poison(size(tmp.Shape) * tmp.DType.Bits() / 8)})
 	}
 	res := runEmu(t, src.String(), strings.Join(launches, ";\n    "), bufs...)
 	return decode(p.Output.DType, res[p.Output.Name])

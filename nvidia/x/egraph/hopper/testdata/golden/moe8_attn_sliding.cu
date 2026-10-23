@@ -457,7 +457,8 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
                 eg_cp_async16(dk, k_cache + at);
                 eg_cp_async16(dk + STEP * RB, v_cache + at);
             } else {
-                *reinterpret_cast<eg_u32x4*>(dk) = eg_u32x4{0, 0, 0, 0};
+                // Past the chunk's end P is 0, and 0·NaN is NaN: zero V.
+                // K needs nothing; its logits are masked.
                 *reinterpret_cast<eg_u32x4*>(dk + STEP * RB) = eg_u32x4{0, 0, 0, 0};
             }
         }

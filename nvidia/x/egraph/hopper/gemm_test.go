@@ -97,7 +97,7 @@ func TestSkinnyGEMMEmulated(t *testing.T) {
 				args = append(args, e.Name)
 			}
 			outBytes := m * n * g.Out.Bits() / 8
-			bufs = append(bufs, emuBuf{"out", g.Out.cType(), make([]byte, outBytes)})
+			bufs = append(bufs, emuBuf{"out", g.Out.cType(), poison(outBytes)})
 			args = append(args, "out")
 			if ws := g.WorkspaceBytes(); ws > 0 {
 				bufs = append(bufs, emuBuf{"ws", "float", make([]byte, ws)})

@@ -53,6 +53,15 @@ func pagedCase(r *rand.Rand, a PagedAttention, seqlens []int32, kvScale float32)
 	return q, c
 }
 
+// attnWorkspace returns a's workspace as a launch first sees it: zero
+// counters, then partials holding NaN.
+func attnWorkspace(a PagedAttention, batch, maxKeys int) []byte {
+	ws := poison(a.WorkspaceBytes(batch, maxKeys))
+	ng := (a.Splits(maxKeys) + attnGroup - 1) / attnGroup
+	clear(ws[:4*batch*a.Hkv*(1+ng)])
+	return ws
+}
+
 func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys, launches int) ([]float64, []byte) {
 	t.Helper()
 	src, err := a.CUDA()
@@ -76,8 +85,8 @@ func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys
 		args = "q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, gate, out, ws"
 	}
 	bufs = append(bufs,
-		emuBuf{"out", a.Out.cType(), make([]byte, len(q)*a.Out.Bits()/8)},
-		emuBuf{"ws", "unsigned char", make([]byte, a.WorkspaceBytes(batch, maxKeys))})
+		emuBuf{"out", a.Out.cType(), poison(len(q) * a.Out.Bits() / 8)},
+		emuBuf{"ws", "unsigned char", attnWorkspace(a, batch, maxKeys)})
 	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), 0, %s, "+args+")",
 		grid[0], grid[1], grid[2], block[0], a.Name, c.MaxPages)
 	one := launch

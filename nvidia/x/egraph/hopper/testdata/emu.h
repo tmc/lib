@@ -1,7 +1,12 @@
 // Host emulation of the CUDA subset that hopper emits.
 //
 // Each CUDA thread is a std::thread; blocks run one after another, so a
-// function-local static stands in for __shared__ memory. Warp collectives
+// function-local static stands in for __shared__ memory. All of them live
+// in one linker section, which each block starts with filled with 0xff
+// bytes (NaN as FP32, BF16, F16 and E4M3), as is dynamic shared memory: a
+// kernel that reads shared memory it did not write in that block reads NaN
+// here, as it may read garbage on a GPU. Define EG_EMU_ZERO_SMEM to start
+// from zeros instead. Warp collectives
 // (shuffles, ldmatrix, mma.sync) exchange operands through a per-warp buffer
 // between two barrier phases and follow the PTX ISA fragment layouts. A
 // thread that returns early drops out of its barriers, so early exit never
@@ -28,7 +33,26 @@
 #define __host__
 #define __forceinline__ inline
 #define __restrict__
-#define __shared__ static
+#if defined(__APPLE__)
+#define __shared__ static __attribute__((section("__DATA,__eg_shared")))
+extern unsigned char eg_emu_shared_start[] __asm("section$start$__DATA$__eg_shared");
+extern unsigned char eg_emu_shared_end[] __asm("section$end$__DATA$__eg_shared");
+#else
+#define __shared__ static __attribute__((section("eg_shared")))
+extern unsigned char __start_eg_shared[], __stop_eg_shared[];
+#define eg_emu_shared_start __start_eg_shared
+#define eg_emu_shared_end __stop_eg_shared
+#endif
+
+// The anchor keeps the section, and its bounds, defined in a program
+// without shared memory.
+__attribute__((used)) __shared__ unsigned char eg_emu_shared_anchor;
+
+#if defined(EG_EMU_ZERO_SMEM)
+constexpr unsigned char eg_emu_smem_fill = 0;
+#else
+constexpr unsigned char eg_emu_smem_fill = 0xff;
+#endif
 #define __launch_bounds__(...)
 
 struct dim3 {
@@ -347,7 +371,8 @@ void eg_emu_launch(dim3 grid, dim3 block, size_t smem, K kernel, Args... args) {
     for (unsigned by = 0; by < grid.y; ++by)
     for (unsigned bx = 0; bx < grid.x; ++bx) {
         eg_emu_block b(n);
-        b.smem.assign(smem + 16, 0);
+        b.smem.assign(smem + 16, eg_emu_smem_fill);
+        std::memset(eg_emu_shared_start, eg_emu_smem_fill, eg_emu_shared_end - eg_emu_shared_start);
         for (int w = 0; w * 32 < n; ++w) b.warps.emplace_back(new eg_emu_warp(std::min(32, n - 32 * w)));
         std::vector<std::thread> threads;
         for (int i = 0; i < n; ++i) {
