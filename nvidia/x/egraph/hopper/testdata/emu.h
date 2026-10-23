@@ -108,6 +108,40 @@ inline unsigned __ballot_sync(unsigned, int pred) {
 }
 inline int __popc(unsigned v) { return __builtin_popcount(v); }
 
+// cp.async is modeled at its most adversarial legal timing: issue poisons
+// the destination with 0xff (a BF16/FP32 NaN, so a read before the matching
+// wait_group, or an overwrite of a slot still being read, shows up as NaN),
+// and the data lands only when cp.async.wait_group retires its group.
+struct eg_emu_cp {
+    void* dst;
+    unsigned char src[16];
+    int n, group;
+};
+inline thread_local std::vector<eg_emu_cp> eg_emu_cp_pending;
+inline thread_local int eg_emu_cp_committed;
+
+inline void eg_emu_cp_async(void* dst, const void* src, int n) {
+    eg_emu_cp c{dst, {}, n, -1};
+    std::memcpy(c.src, src, n);
+    std::memset(dst, 0xff, n);
+    eg_emu_cp_pending.push_back(c);
+}
+inline void eg_emu_cp_async_commit() {
+    for (auto& c : eg_emu_cp_pending)
+        if (c.group < 0) c.group = eg_emu_cp_committed;
+    ++eg_emu_cp_committed;
+}
+// eg_emu_cp_async_wait retires every committed group except the newest n.
+inline void eg_emu_cp_async_wait(int n) {
+    int keep = eg_emu_cp_committed - n;
+    std::vector<eg_emu_cp> rest;
+    for (auto& c : eg_emu_cp_pending) {
+        if (c.group >= 0 && c.group < keep) std::memcpy(c.dst, c.src, c.n);
+        else rest.push_back(c);
+    }
+    eg_emu_cp_pending.swap(rest);
+}
+
 template <typename T> T atomicAdd(T* p, T v) {
     static std::mutex mu;
     std::lock_guard<std::mutex> lock(mu);

@@ -144,7 +144,7 @@ EG_DEV float eg_ld_cg(const float* p) {
 // eg_cp_async16 copies 16 bytes global to shared without staging in registers.
 EG_DEV void eg_cp_async16(void* smem, const void* gmem) {
 #if defined(EG_HOST_EMU)
-    memcpy(smem, gmem, 16);
+    eg_emu_cp_async(smem, gmem, 16);
 #else
     const uint32_t s = (uint32_t)__cvta_generic_to_shared(smem);
     asm volatile("cp.async.cg.shared.global [%0], [%1], 16;" :: "r"(s), "l"(gmem));
@@ -154,7 +154,7 @@ EG_DEV void eg_cp_async16(void* smem, const void* gmem) {
 // eg_cp_async4 copies 4 bytes global to shared (through L1).
 EG_DEV void eg_cp_async4(void* smem, const void* gmem) {
 #if defined(EG_HOST_EMU)
-    memcpy(smem, gmem, 4);
+    eg_emu_cp_async(smem, gmem, 4);
 #else
     const uint32_t s = (uint32_t)__cvta_generic_to_shared(smem);
     asm volatile("cp.async.ca.shared.global [%0], [%1], 4;" :: "r"(s), "l"(gmem));
@@ -162,14 +162,18 @@ EG_DEV void eg_cp_async4(void* smem, const void* gmem) {
 }
 
 EG_DEV void eg_cp_async_commit() {
-#if !defined(EG_HOST_EMU)
+#if defined(EG_HOST_EMU)
+    eg_emu_cp_async_commit();
+#else
     asm volatile("cp.async.commit_group;");
 #endif
 }
 
 // eg_cp_async_wait waits until at most n committed groups are pending.
 template <int n> EG_DEV void eg_cp_async_wait() {
-#if !defined(EG_HOST_EMU)
+#if defined(EG_HOST_EMU)
+    eg_emu_cp_async_wait(n);
+#else
     asm volatile("cp.async.wait_group %0;" :: "n"(n));
 #endif
 }
