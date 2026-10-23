@@ -1,0 +1,11 @@
+commit: ba382a3b24b7cc5de38748330c48a21c6c62dd04
+date: 2026-10-23T06:08:06.675599+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 69030
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-mbarrier-init-count/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-mbarrier-init-adoption/ROOT-GRADE.md
+qualification: barrier count source; tested116 plus patch; twenty roots host/race and vet plus causal preimage semantic FAIL; native unqualified
