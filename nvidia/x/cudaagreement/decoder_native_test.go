@@ -17,6 +17,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudaagreement"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
+	proftimeline "github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 )
 
@@ -364,18 +365,14 @@ func TestSpanOfEmptyRegionNative(t *testing.T) {
 	if err := lossless(res); err != nil {
 		t.Fatal(err)
 	}
-	ks, err := cudaagreement.KernelsFromActivity(res.Records, isChainKernel)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a, err := cudaagreement.Account(ks)
+	ks, a, err := decoderSpan(res.Records)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, ferr := a.Fractions()
-	t.Logf("empty region: open=%v records=%d kernels=%d account: %v; Fractions: %v", open, len(res.Records), len(ks), a, ferr)
-	if len(ks) != 0 || a != (cudaagreement.SpanAccount{}) {
-		t.Fatalf("empty region accounts as %v, want zero", a)
+	t.Logf("empty region: open=%v records=%d kernels=%d account: %s; Fractions: %v", open, len(res.Records), len(ks), spanString(a), ferr)
+	if len(ks) != 0 || a != (proftimeline.DeviceSpan{}) {
+		t.Fatalf("empty region accounts as %s, want zero", spanString(a))
 	}
 	if ferr == nil {
 		t.Fatal("Fractions divided by an empty region")
@@ -405,15 +402,11 @@ func TestSpanOfEmptyRegionNative(t *testing.T) {
 	if err := lossless(res); err != nil {
 		t.Fatal(err)
 	}
-	ks, err = cudaagreement.KernelsFromActivity(res.Records, func(string) bool { return true })
+	ks, a, err = decoderSpan(res.Records)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err = cudaagreement.Account(ks)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("one-kernel control: open=%v kernels=%d account: %v", open, len(ks), a)
+	t.Logf("one-kernel control: open=%v kernels=%d account: %s", open, len(ks), spanString(a))
 	if len(ks) != 1 || a.SpanNs == 0 || a.SpanNs >= uint64(open.Nanoseconds()) {
 		t.Fatalf("one-kernel control: %d kernels, span %d ns over a %v session; want 1 kernel whose span is nonzero and shorter than the session", len(ks), a.SpanNs, open)
 	}
@@ -435,7 +428,7 @@ func TestSpanFractionsNative(t *testing.T) {
 			for range warmups {
 				r.run(t, true)
 			}
-			var accounts []cudaagreement.SpanAccount
+			var accounts []proftimeline.DeviceSpan
 			for rep := range reps {
 				r.reset(t)
 				before := cudalaunch.TotalLaunches()
@@ -452,11 +445,7 @@ func TestSpanFractionsNative(t *testing.T) {
 				if err := lossless(res); err != nil {
 					t.Fatalf("rep %d: %v", rep, err)
 				}
-				ks, err := cudaagreement.KernelsFromActivity(res.Records, isChainKernel)
-				if err != nil {
-					t.Fatalf("rep %d: %v", rep, err)
-				}
-				a, err := cudaagreement.Account(ks)
+				ks, a, err := decoderSpan(res.Records)
 				if err != nil {
 					t.Fatalf("rep %d: %v", rep, err)
 				}
@@ -466,19 +455,19 @@ func TestSpanFractionsNative(t *testing.T) {
 				}
 				// Counted control: the classifier's chain count is the
 				// number of chain launches the host actually made.
-				if uint64(a.ChainLaunches) != launched || launched != decoderChainLaunches {
-					t.Fatalf("rep %d: %d chain kernel records, %d chain launches counted, want %d of each", rep, a.ChainLaunches, launched, decoderChainLaunches)
+				if uint64(a.SelectedLaunches) != launched || launched != decoderChainLaunches {
+					t.Fatalf("rep %d: %d chain kernel records, %d chain launches counted, want %d of each", rep, a.SelectedLaunches, launched, decoderChainLaunches)
 				}
 				if a.OtherLaunches < decoderGEMMCalls {
 					t.Fatalf("rep %d: %d non-chain kernel records for %d cuBLAS calls", rep, a.OtherLaunches, decoderGEMMCalls)
 				}
-				if a.ChainNs+a.OtherNs+a.OverlapNs+a.IdleNs != a.SpanNs || a.ChainLaunches+a.OtherLaunches != a.Launches {
-					t.Fatalf("rep %d: parts do not sum: %v", rep, a)
+				if a.SelectedNs+a.OtherNs+a.OverlapNs+a.IdleNs != a.SpanNs || a.SelectedLaunches+a.OtherLaunches != a.Launches {
+					t.Fatalf("rep %d: parts do not sum: %s", rep, spanString(a))
 				}
-				t.Logf("rep %d: %v", rep, a)
+				t.Logf("rep %d: %s", rep, spanString(a))
 				t.Logf("rep %d: fractions launches chain=%.4f other=%.4f sum=%.4f (of %d kernel records); span chain=%.4f other=%.4f overlap=%.4f idle=%.4f sum=%.4f (of %d ns)",
-					rep, f.ChainLaunches, f.OtherLaunches, f.ChainLaunches+f.OtherLaunches, a.Launches,
-					f.ChainSpan, f.OtherSpan, f.OverlapSpan, f.IdleSpan, f.ChainSpan+f.OtherSpan+f.OverlapSpan+f.IdleSpan, a.SpanNs)
+					rep, f.SelectedLaunches, f.OtherLaunches, f.SelectedLaunches+f.OtherLaunches, a.Launches,
+					f.SelectedSpan, f.OtherSpan, f.OverlapSpan, f.IdleSpan, f.SelectedSpan+f.OtherSpan+f.OverlapSpan+f.IdleSpan, a.SpanNs)
 				t.Logf("rep %d kernels:\n%s", rep, kernelTable(ks))
 				accounts = append(accounts, a)
 			}
@@ -495,7 +484,7 @@ func TestSpanFractionsNative(t *testing.T) {
 }
 
 // kernelTable lists kernels in start order with their durations.
-func kernelTable(ks []cudaagreement.Kernel) string {
+func kernelTable(ks []proftimeline.KernelInterval) string {
 	ks = slices.Clone(ks)
 	sort.Slice(ks, func(i, j int) bool { return ks[i].Start < ks[j].Start })
 	var b strings.Builder
@@ -504,16 +493,16 @@ func kernelTable(ks []cudaagreement.Kernel) string {
 		if i > 0 && k.Start > ks[i-1].End {
 			gap = k.Start - ks[i-1].End
 		}
-		fmt.Fprintf(&b, "  %2d chain=%-5v dur_ns=%-9d gap_before_ns=%-7d %s\n", i, k.Chain, k.End-k.Start, gap, k.Name)
+		fmt.Fprintf(&b, "  %2d chain=%-5v dur_ns=%-9d gap_before_ns=%-7d %s\n", i, k.Selected, k.End-k.Start, gap, k.Name)
 	}
 	return b.String()
 }
 
 // logMedians reports each span part's median over the repetitions, with its
 // range. Medians are per part and are not expected to sum.
-func logMedians(t *testing.T, as []cudaagreement.SpanAccount) {
+func logMedians(t *testing.T, as []proftimeline.DeviceSpan) {
 	t.Helper()
-	med := func(get func(cudaagreement.SpanAccount) float64) (m, lo, hi float64) {
+	med := func(get func(proftimeline.DeviceSpan) float64) (m, lo, hi float64) {
 		v := make([]float64, len(as))
 		for i, a := range as {
 			v[i] = get(a)
@@ -523,14 +512,14 @@ func logMedians(t *testing.T, as []cudaagreement.SpanAccount) {
 	}
 	for _, p := range []struct {
 		name string
-		get  func(cudaagreement.SpanAccount) float64
+		get  func(proftimeline.DeviceSpan) float64
 	}{
-		{"span_ns", func(a cudaagreement.SpanAccount) float64 { return float64(a.SpanNs) }},
-		{"chain_span_fraction", func(a cudaagreement.SpanAccount) float64 { return float64(a.ChainNs) / float64(a.SpanNs) }},
-		{"other_span_fraction", func(a cudaagreement.SpanAccount) float64 { return float64(a.OtherNs) / float64(a.SpanNs) }},
-		{"overlap_span_fraction", func(a cudaagreement.SpanAccount) float64 { return float64(a.OverlapNs) / float64(a.SpanNs) }},
-		{"idle_span_fraction", func(a cudaagreement.SpanAccount) float64 { return float64(a.IdleNs) / float64(a.SpanNs) }},
-		{"chain_launch_fraction", func(a cudaagreement.SpanAccount) float64 { return float64(a.ChainLaunches) / float64(a.Launches) }},
+		{"span_ns", func(a proftimeline.DeviceSpan) float64 { return float64(a.SpanNs) }},
+		{"chain_span_fraction", func(a proftimeline.DeviceSpan) float64 { return float64(a.SelectedNs) / float64(a.SpanNs) }},
+		{"other_span_fraction", func(a proftimeline.DeviceSpan) float64 { return float64(a.OtherNs) / float64(a.SpanNs) }},
+		{"overlap_span_fraction", func(a proftimeline.DeviceSpan) float64 { return float64(a.OverlapNs) / float64(a.SpanNs) }},
+		{"idle_span_fraction", func(a proftimeline.DeviceSpan) float64 { return float64(a.IdleNs) / float64(a.SpanNs) }},
+		{"chain_launch_fraction", func(a proftimeline.DeviceSpan) float64 { return float64(a.SelectedLaunches) / float64(a.Launches) }},
 	} {
 		m, lo, hi := med(p.get)
 		t.Logf("median over %d reps: %s=%.4f range=[%.4f, %.4f]", len(as), p.name, m, lo, hi)

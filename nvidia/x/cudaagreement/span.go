@@ -1,11 +1,9 @@
 package cudaagreement
 
 import (
-	"errors"
 	"fmt"
-	"slices"
 
-	"github.com/tmc/lib/nvidia/cupti"
+	proftimeline "github.com/tmc/lib/nvidia/x/cudaprof/timeline"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 )
 
@@ -22,19 +20,17 @@ type Kernel struct {
 // each by chain(name). Records of other kinds are ignored. A kernel record
 // without valid timestamps is an error rather than a row left out: dropping
 // it would shrink the span without saying so.
+//
+// It is [proftimeline.KernelIntervalsFromActivity] with Selected reported as
+// Chain.
 func KernelsFromActivity(records []cuptiactivity.Record, chain func(name string) bool) ([]Kernel, error) {
-	if chain == nil {
-		return nil, errors.New("cudaagreement: nil chain classifier")
+	ivs, err := proftimeline.KernelIntervalsFromActivity(records, chain)
+	if err != nil {
+		return nil, fmt.Errorf("cudaagreement: %w", err)
 	}
 	var out []Kernel
-	for i, r := range records {
-		if r.Kind != cupti.ActivityKindConcurrentKernel && r.Kind != cupti.ActivityKindKernel {
-			continue
-		}
-		if !r.Complete || r.End < r.Start {
-			return nil, fmt.Errorf("cudaagreement: kernel record %d (%s) has no valid interval", i, r.Name)
-		}
-		out = append(out, Kernel{Name: r.Name, Start: r.Start, End: r.End, Chain: chain(r.Name)})
+	for _, iv := range ivs {
+		out = append(out, Kernel{Name: iv.Name, Start: iv.Start, End: iv.End, Chain: iv.Selected})
 	}
 	return out, nil
 }
@@ -67,66 +63,27 @@ type SpanAccount struct {
 
 // Account partitions the span of kernels. The order of kernels does not
 // matter. A kernel whose End precedes its Start is an error.
+//
+// It is [proftimeline.AccountDeviceSpan] with the chain kernels selected.
 func Account(kernels []Kernel) (SpanAccount, error) {
-	var a SpanAccount
-	if len(kernels) == 0 {
-		return a, nil
-	}
-	// A sweep over interval edges. At each edge the number of running chain
-	// and other kernels changes; the time since the previous edge belongs
-	// to whichever class was running over it.
-	type edge struct {
-		t     uint64
-		chain bool
-		delta int
-	}
-	edges := make([]edge, 0, 2*len(kernels))
+	ivs := make([]proftimeline.KernelInterval, len(kernels))
 	for i, k := range kernels {
-		if k.End < k.Start {
-			return SpanAccount{}, fmt.Errorf("cudaagreement: kernel %d (%s) ends at %d before it starts at %d", i, k.Name, k.End, k.Start)
-		}
-		a.Launches++
-		if k.Chain {
-			a.ChainLaunches++
-		} else {
-			a.OtherLaunches++
-		}
-		edges = append(edges, edge{k.Start, k.Chain, +1}, edge{k.End, k.Chain, -1})
+		ivs[i] = proftimeline.KernelInterval{Name: k.Name, Start: k.Start, End: k.End, Selected: k.Chain}
 	}
-	slices.SortFunc(edges, func(x, y edge) int {
-		switch {
-		case x.t < y.t:
-			return -1
-		case x.t > y.t:
-			return 1
-		}
-		return 0
-	})
-	first, last := edges[0].t, edges[len(edges)-1].t
-	a.SpanNs = last - first
-	var chain, other int
-	prev := first
-	for _, e := range edges {
-		if d := e.t - prev; d > 0 {
-			switch {
-			case chain > 0 && other > 0:
-				a.OverlapNs += d
-			case chain > 0:
-				a.ChainNs += d
-			case other > 0:
-				a.OtherNs += d
-			default:
-				a.IdleNs += d
-			}
-			prev = e.t
-		}
-		if e.chain {
-			chain += e.delta
-		} else {
-			other += e.delta
-		}
+	d, err := proftimeline.AccountDeviceSpan(ivs)
+	if err != nil {
+		return SpanAccount{}, fmt.Errorf("cudaagreement: %w", err)
 	}
-	return a, nil
+	return SpanAccount{
+		Launches:      d.Launches,
+		ChainLaunches: d.SelectedLaunches,
+		OtherLaunches: d.OtherLaunches,
+		SpanNs:        d.SpanNs,
+		ChainNs:       d.SelectedNs,
+		OtherNs:       d.OtherNs,
+		OverlapNs:     d.OverlapNs,
+		IdleNs:        d.IdleNs,
+	}, nil
 }
 
 // Fractions are a SpanAccount's parts divided by its totals: the launch
@@ -138,21 +95,30 @@ type Fractions struct {
 
 // Fractions divides the account by its totals. It refuses an account with no
 // launches, and one whose kernels span no time, before dividing by either.
+//
+// It is [proftimeline.DeviceSpan.Fractions] with the chains selected.
 func (a SpanAccount) Fractions() (Fractions, error) {
-	if a.Launches <= 0 {
-		return Fractions{}, errors.New("cudaagreement: region has no kernel launches; no fraction has a denominator")
+	d := proftimeline.DeviceSpan{
+		Launches:         a.Launches,
+		SelectedLaunches: a.ChainLaunches,
+		OtherLaunches:    a.OtherLaunches,
+		SpanNs:           a.SpanNs,
+		SelectedNs:       a.ChainNs,
+		OtherNs:          a.OtherNs,
+		OverlapNs:        a.OverlapNs,
+		IdleNs:           a.IdleNs,
 	}
-	if a.SpanNs == 0 {
-		return Fractions{}, fmt.Errorf("cudaagreement: region's %d launches span 0 ns; no span fraction has a denominator", a.Launches)
+	f, err := d.Fractions()
+	if err != nil {
+		return Fractions{}, fmt.Errorf("cudaagreement: %w", err)
 	}
-	n, s := float64(a.Launches), float64(a.SpanNs)
 	return Fractions{
-		ChainLaunches: float64(a.ChainLaunches) / n,
-		OtherLaunches: float64(a.OtherLaunches) / n,
-		ChainSpan:     float64(a.ChainNs) / s,
-		OtherSpan:     float64(a.OtherNs) / s,
-		OverlapSpan:   float64(a.OverlapNs) / s,
-		IdleSpan:      float64(a.IdleNs) / s,
+		ChainLaunches: f.SelectedLaunches,
+		OtherLaunches: f.OtherLaunches,
+		ChainSpan:     f.SelectedSpan,
+		OtherSpan:     f.OtherSpan,
+		OverlapSpan:   f.OverlapSpan,
+		IdleSpan:      f.IdleSpan,
 	}, nil
 }
 
