@@ -426,90 +426,157 @@ func validStackSidecarFrames(frames []string) bool {
 	return true
 }
 
-func labelExternalStacks(p *profile.Profile, activities []cudacapture.ActivityRecord, sampleRecords []int, data []byte, targetPID uint64) (*profile.Profile, error) {
+// labelExternalStacks projects the existing tracker's exact-ID decisions.
+// Trackers are partitioned by process because RuntimeLaunch has no process
+// field. An observed API record is required for runtime_api attribution;
+// sidecar-only Do-site stacks remain visible without claiming a runtime join.
+func labelExternalStacks(p *profile.Profile, activities []cudacapture.ActivityRecord, apis []cudacapture.APIRecord, sampleRecords []int, data []byte, targetPID uint64) (*profile.Profile, error) {
 	var table cudaprof.ExternalStackTable
 	if len(data) != 0 {
 		if err := json.Unmarshal(data, &table); err != nil {
 			return nil, fmt.Errorf("decode normalized external stack sidecar: %w", err)
 		}
 	}
-	type stackKey struct {
-		process uint64
-		kind    uint32
-		id      uint64
+	trackers := make(map[uint64]*cudacapture.CorrelationTracker)
+	tracker := func(process uint64) *cudacapture.CorrelationTracker {
+		if trackers[process] == nil {
+			trackers[process] = cudacapture.NewCorrelationTracker()
+		}
+		return trackers[process]
 	}
-	stacks := make(map[stackKey][][]string)
-	for _, record := range table.Stacks {
-		stacks[stackKey{record.Process, record.ExternalKind, record.ExternalID}] = append(stacks[stackKey{record.Process, record.ExternalKind, record.ExternalID}], record.Frames)
+	// Partition once rather than copying the entire table into every process.
+	rows := make(map[uint64][]cudaprof.ExternalStackRecord)
+	for _, row := range table.Stacks {
+		rows[row.Process] = append(rows[row.Process], row)
 	}
-	byCorrelation := make(map[[2]uint64][]cudacapture.ActivityRecord)
-	for _, activity := range activities {
-		if activity.Subtype != "external_correlation" {
+	for process, stacks := range rows {
+		part, err := json.Marshal(cudaprof.ExternalStackTable{Version: table.Version, Stacks: stacks})
+		if err != nil {
+			return nil, err
+		}
+		if err := tracker(process).ReadExternalStackTable(bytes.NewReader(part)); err != nil {
+			return nil, err
+		}
+	}
+	processOf := func(a cudacapture.ActivityRecord) uint64 {
+		if a.Process != 0 {
+			return a.Process
+		}
+		// The capture controller owns this legacy activity provenance. This
+		// fallback is not applied to processless API records or sidecar rows.
+		return targetPID
+	}
+	for _, a := range activities {
+		if a.Subtype != "external_correlation" && (a.Subtype != "kernel" || !a.Valid) {
 			continue
 		}
-		process := activity.Process
-		if process == 0 {
-			process = targetPID
+		if a.Correlation == 0 && a.RuntimeCorrelation == 0 {
+			continue
 		}
-		corr := uint64(activity.Correlation)
-		if corr == 0 {
-			corr = uint64(activity.RuntimeCorrelation)
+		a.Process = processOf(a)
+		if err := tracker(a.Process).RecordActivity(a); err != nil {
+			return nil, err
 		}
-		if corr != 0 {
-			key := [2]uint64{process, corr}
-			byCorrelation[key] = append(byCorrelation[key], activity)
+	}
+	for _, api := range apis {
+		if api.Correlation == 0 || (api.Domain != "runtime" && api.Domain != "driver") {
+			continue
+		}
+		// These fields come from the host API journal, never from a kernel's
+		// device interval. Unknown API process remains the unknown bucket.
+		if err := tracker(uint64(api.ProcessID)).RecordRuntime(cudacapture.RuntimeLaunch{
+			CorrelationID: uint64(api.Correlation), HostThreadID: uint64(api.ThreadID),
+		}); err != nil {
+			return nil, err
 		}
 	}
 	out := p.Copy()
+	kinds := make(map[uint32]bool)
 	for i, index := range sampleRecords {
 		if index < 0 || index >= len(activities) || i >= len(out.Sample) {
 			return nil, fmt.Errorf("sample record index %d is out of range", index)
 		}
-		activity := activities[index]
-		process := activity.Process
-		if process == 0 {
-			process = targetPID
-		}
 		labels := out.Sample[i].Label
-		ids, kinds := labels["cupti.external.id"], labels["cupti.external.kind"]
-		if len(ids) != 1 || len(kinds) != 1 {
+		if len(labels["cupti.external.id"]) != 1 || len(labels["cupti.external.kind"]) != 1 {
+			continue
+		}
+		kind, err := strconv.ParseUint(labels["cupti.external.kind"][0], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid external kind label: %w", err)
+		}
+		kinds[uint32(kind)] = true
+	}
+	// These are indexes of existing tracker results, not another join.
+	matched := make(map[[3]uint64]cudacapture.CorrelationJoin)
+	ambiguous := make(map[[3]uint64]cudacapture.AmbiguousCorrelation)
+	for process, ct := range trackers {
+		for kind := range kinds {
+			joins, conflicts, _, _ := ct.JoinKind(kind)
+			for _, j := range joins {
+				matched[[3]uint64{process, uint64(kind), j.CorrelationID}] = j
+			}
+			for _, j := range conflicts {
+				ambiguous[[3]uint64{process, uint64(kind), j.CorrelationID}] = j
+			}
+		}
+	}
+	for i, index := range sampleRecords {
+		a := activities[index]
+		labels := out.Sample[i].Label
+		ids, selectedKinds := labels["cupti.external.id"], labels["cupti.external.kind"]
+		if len(ids) != 1 || len(selectedKinds) != 1 {
 			continue
 		}
 		id, err := strconv.ParseUint(ids[0], 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("invalid external ID label: %w", err)
 		}
-		kind, err := strconv.ParseUint(kinds[0], 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("invalid external kind label: %w", err)
-		}
-		corr := uint64(activity.Correlation)
+		kind, _ := strconv.ParseUint(selectedKinds[0], 10, 32) // validated above
+		process := processOf(a)
+		corr := uint64(a.Correlation)
 		if corr == 0 {
-			corr = uint64(activity.RuntimeCorrelation)
+			corr = uint64(a.RuntimeCorrelation)
 		}
-		linked := false
-		for _, external := range byCorrelation[[2]uint64{process, corr}] {
-			if external.ExternalID == id && external.ExternalKind == uint32(kind) {
-				linked = true
-				break
+		key := [3]uint64{process, kind, corr}
+		runtimeStatus := "missing"
+		if a.Subtype != "kernel" {
+			runtimeStatus = "not_kernel"
+		} else if j, ok := matched[key]; ok && j.HasExternalID && j.ExternalID == id {
+			setStackLabel(out.Sample[i], "cupti.external.runtime_status", "matched")
+			setStackLabel(out.Sample[i], "cupti.external.stack_basis", "runtime_api")
+			if j.CallstackMissing || len(j.Callstack) == 0 {
+				setStackLabel(out.Sample[i], "cupti.external.stack_status", "missing")
+			} else {
+				setStackLabel(out.Sample[i], "cupti.external.stack", strings.Join(j.Callstack, ";"))
+				setStackLabel(out.Sample[i], "cupti.external.stack_status", "matched")
 			}
+			continue
+		} else if conflict, ok := ambiguous[key]; ok && conflict.RuntimeCount != 0 {
+			runtimeStatus = "ambiguous"
 		}
-		if !linked {
+		setStackLabel(out.Sample[i], "cupti.external.runtime_status", runtimeStatus)
+		setStackLabel(out.Sample[i], "cupti.external.stack_basis", "external_id_sidecar")
+		ct := trackers[process]
+		if ct == nil {
 			setStackLabel(out.Sample[i], "cupti.external.stack_status", "missing")
 			continue
 		}
-		matches := stacks[stackKey{process, uint32(kind), id}]
-		if len(matches) > 1 {
+		linkedID, frames, err := ct.ExternalCallstack(process, corr, uint32(kind))
+		if errors.Is(err, cudacapture.ErrAmbiguousCorrelation) {
 			setStackLabel(out.Sample[i], "cupti.external.stack_status", "ambiguous")
 			continue
 		}
-		if len(matches) == 0 {
+		if err != nil {
+			return nil, err
+		}
+		if linkedID != id || len(frames) == 0 {
 			setStackLabel(out.Sample[i], "cupti.external.stack_status", "missing")
 			continue
 		}
-		setStackLabel(out.Sample[i], "cupti.external.stack", strings.Join(matches[0], ";"))
+		setStackLabel(out.Sample[i], "cupti.external.stack", strings.Join(frames, ";"))
 		setStackLabel(out.Sample[i], "cupti.external.stack_status", "matched")
 	}
+
 	if table.Losses > 0 {
 		qualifier := "exact"
 		if table.LossesLowerBound {

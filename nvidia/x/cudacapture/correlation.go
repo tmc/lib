@@ -498,6 +498,54 @@ func (ct *CorrelationTracker) ExternalStackLossesLowerBound() bool {
 	return ct.externalStackLossesLowerBound
 }
 
+// ExternalCallstack resolves a recorded external link and its retained Do-site
+// stack. It does not establish a runtime launch or device execution match.
+// A zero ID means no link; a nonzero ID with no frames means no retained stack.
+// Conflicting links or distinct stacks return [ErrAmbiguousCorrelation].
+// Frames are detached, and process zero matches only process zero.
+func (ct *CorrelationTracker) ExternalCallstack(process, correlationID uint64, kind uint32) (id uint64, frames []string, err error) {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	return ct.externalCallstackLocked(process, correlationID, &kind)
+}
+
+func (ct *CorrelationTracker) externalCallstackLocked(process, correlationID uint64, kind *uint32) (uint64, []string, error) {
+	var selected []externalStackKey
+	for _, key := range ct.cudaToExternal[externalCorrelationKey{process: process, id: correlationID}] {
+		if kind != nil && key.kind != *kind {
+			continue
+		}
+		if len(selected) == 0 || key.kind < selected[0].kind {
+			selected = []externalStackKey{key}
+		} else if key.kind == selected[0].kind {
+			selected = appendUniqueExternal(selected, key)
+		}
+	}
+	if len(selected) == 0 {
+		return 0, nil, nil
+	}
+	if len(selected) > 1 {
+		return 0, nil, fmt.Errorf("%w: correlation ID %d maps to multiple external IDs of kind %d", ErrAmbiguousCorrelation, correlationID, selected[0].kind)
+	}
+	key := selected[0]
+	stacks := ct.externalStacks[key]
+	if len(stacks) > 1 {
+		return 0, nil, fmt.Errorf("%w: external correlation ID %d of kind %d maps to multiple conflicting callstacks", ErrAmbiguousCorrelation, key.id, key.kind)
+	}
+	if len(stacks) == 0 {
+		return key.id, nil, nil
+	}
+	return key.id, append([]string(nil), stacks[0]...), nil
+}
+
+// JoinKind is [CorrelationTracker.Join] restricted to one external correlation
+// namespace. Runtime/activity cardinality, missing and ambiguity rules are
+// unchanged. Like Join, it fills the retained RuntimeLaunch.Callstack only
+// when the external link and stack are unambiguous.
+func (ct *CorrelationTracker) JoinKind(kind uint32) (matched []CorrelationJoin, ambiguous []AmbiguousCorrelation, unmappedRuntime, unmappedActivity []uint64) {
+	return ct.join(&kind)
+}
+
 // Join correlates runtime launches with device activities by exact ID matching.
 // It partitions results into unambiguous matches, ambiguous joins, unmapped runtime launches,
 // and unmapped device activities.
@@ -508,6 +556,10 @@ func (ct *CorrelationTracker) ExternalStackLossesLowerBound() bool {
 // RuntimeLaunch.Callstack only for the kernel with the matching external ID;
 // otherwise a caller-supplied stack is preserved.
 func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []AmbiguousCorrelation, unmappedRuntime []uint64, unmappedActivity []uint64) {
+	return ct.join(nil)
+}
+
+func (ct *CorrelationTracker) join(kind *uint32) (matched []CorrelationJoin, ambiguous []AmbiguousCorrelation, unmappedRuntime []uint64, unmappedActivity []uint64) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 
@@ -536,18 +588,8 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 			r := rList[0]
 			a := aList[0]
 
-			// CUPTI can report more than one framework namespace for a
-			// correlation. Use the lowest kind, matching MatchExternal.
-			extIDs := ct.cudaToExternal[externalCorrelationKey{process: a.Process, id: id}]
-			var selected []externalStackKey
-			for _, key := range extIDs {
-				if len(selected) == 0 || key.kind < selected[0].kind {
-					selected = []externalStackKey{key}
-				} else if key.kind == selected[0].kind {
-					selected = appendUniqueExternal(selected, key)
-				}
-			}
-			if len(selected) > 1 {
+			extID, stack, err := ct.externalCallstackLocked(a.Process, id, kind)
+			if err != nil {
 				name := r.KernelName
 				if name == "" {
 					name = a.Name
@@ -557,46 +599,16 @@ func (ct *CorrelationTracker) Join() (matched []CorrelationJoin, ambiguous []Amb
 					names = []string{name}
 				}
 				ambiguous = append(ambiguous, AmbiguousCorrelation{
-					CorrelationID: id,
-					RuntimeCount:  len(rList),
-					ActivityCount: len(aList),
-					KernelNames:   names,
-					Reason:        fmt.Sprintf("correlation ID %d maps to multiple external IDs of kind %d", id, selected[0].kind),
+					CorrelationID: id, RuntimeCount: len(rList), ActivityCount: len(aList),
+					KernelNames: names, Reason: err.Error(),
 				})
 				continue
 			}
-
-			if len(selected) == 1 {
-				ext := selected[0]
-				extID := ext.id
-				stacks := ct.externalStacks[ext]
-				if len(stacks) > 1 {
-					name := r.KernelName
-					if name == "" {
-						name = a.Name
-					}
-					var names []string
-					if name != "" {
-						names = []string{name}
-					}
-					ambiguous = append(ambiguous, AmbiguousCorrelation{
-						CorrelationID: id,
-						RuntimeCount:  len(rList),
-						ActivityCount: len(aList),
-						KernelNames:   names,
-						Reason:        fmt.Sprintf("external correlation ID %d of kind %d maps to multiple conflicting callstacks", extID, ext.kind),
-					})
-					continue
-				}
-				if len(stacks) == 1 {
-					r.Callstack = append([]string(nil), stacks[0]...)
-					ct.runtimes[id][0].Callstack = append([]string(nil), stacks[0]...)
-				} else {
-					r.Callstack = nil
-					ct.runtimes[id][0].Callstack = nil
-					runtimeMissingStack[id] = true
-				}
+			if extID != 0 {
+				r.Callstack = stack
+				ct.runtimes[id][0].Callstack = append([]string(nil), stack...)
 				runtimeExternal[id] = extID
+				runtimeMissingStack[id] = len(stack) == 0
 			}
 
 			var dur uint64

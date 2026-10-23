@@ -903,7 +903,7 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 		if err != nil {
 			return nil, err
 		}
-		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, sampleRecords, stackData, uint64(result.TargetPID))
+		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, result.APIRecords, sampleRecords, stackData, uint64(result.TargetPID))
 		if err != nil {
 			return nil, err
 		}
@@ -919,7 +919,7 @@ func writeCapture(path string, result captureResult, budget captureArtifactBudge
 		if err != nil {
 			return nil, err
 		}
-		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, sampleRecords, nil, uint64(result.TargetPID))
+		c.Profile, err = labelExternalStacks(c.Profile, result.Activities, result.APIRecords, sampleRecords, nil, uint64(result.TargetPID))
 		if err != nil {
 			return nil, err
 		}
