@@ -20,6 +20,22 @@ stdout '^void\* cudacompilecheck_keep_0 = \(void\*\)&launch_scale;$'
 ! exec cudacompilecheck -nvcc $WORK/nvcc -no-spill k.cu
 stdout 'FAIL: sm_90a _Z5spillPfPKf: spills 2232 B stores, 2660 B loads'
 stderr 'gate failed'
+# -spill-allow pins a known spill: at its recorded bytes the gate passes
+# and says so; 4 more bytes of stores or loads fail it.
+exec cudacompilecheck -nvcc $WORK/nvcc -spill-allow allow.txt k.cu
+stdout 'note: sm_90a _Z5spillPfPKf: spills 2232 B stores, 2660 B loads, within the 2232, 2660 allowed by -spill-allow line 2'
+stdout 'note: -spill-allow line 3 \(_Z4gone.\*\) matches no function'
+! stdout FAIL
+! exec cudacompilecheck -nvcc $WORK/nvcc -spill-allow allow-st.txt k.cu
+stdout 'FAIL: sm_90a _Z5spillPfPKf: spills 2232 B stores, 2660 B loads, over the 2228, 2660 allowed by -spill-allow line 1'
+! exec cudacompilecheck -nvcc $WORK/nvcc -spill-allow allow-ld.txt k.cu
+stdout 'FAIL: sm_90a _Z5spillPfPKf: spills 2232 B stores, 2660 B loads, over the 2232, 2656 allowed by -spill-allow line 1'
+# An unlisted spilling function still fails, and the regexp is anchored.
+! exec cudacompilecheck -nvcc $WORK/nvcc -spill-allow allow-prefix.txt k.cu
+stdout 'FAIL: sm_90a _Z5spillPfPKf: spills 2232 B stores, 2660 B loads$'
+! exec cudacompilecheck -nvcc $WORK/nvcc -spill-allow allow-bad.txt k.cu
+stderr 'allow-bad.txt:1: want regexp max_store_bytes max_load_bytes'
+
 ! exec cudacompilecheck -nvcc $WORK/nvcc -max-registers 24 k.cu
 stdout 'FAIL: sm_90a _Z5scaleILi128EEvPfPKfi: 32 registers > 24'
 exec cudacompilecheck -nvcc $WORK/nvcc -max-registers 32 k.cu
@@ -133,6 +149,18 @@ fi
 cp "$last" $WORK/wrap
 : > "$out"
 cat $WORK/ptxas.txt >&2
+-- allow.txt --
+# copied from the spill owner
+_Z5spill.* 2232 2660
+_Z4gone.* 8 8
+-- allow-st.txt --
+_Z5spill.* 2228 2660
+-- allow-ld.txt --
+_Z5spill.* 2232 2656
+-- allow-prefix.txt --
+_Z5sp 9999 9999
+-- allow-bad.txt --
+_Z5spill.* 2232
 -- cuobjdump --
 #!/bin/sh
 cat $WORK/scale.sass

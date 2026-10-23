@@ -33,6 +33,16 @@
 //
 // -max-registers and -no-spill turn the report into a gate: the command
 // exits with status 1 if any entry function exceeds the limit or spills.
+// -spill-allow FILE implies -no-spill but pins known spills, such as those
+// of kernels copied from another owner: each line is
+//
+//	regexp max_store_bytes max_load_bytes
+//
+// with blank lines and # comments ignored. A function whose mangled name
+// matches the regexp (anchored) on the first such line fails only if its
+// spill stores or loads exceed that line's bytes, so an allowance cannot
+// grow unnoticed; the report notes each allowance used, and each line that
+// matched no function.
 // -count N and -want-entries are gates on the set of entry functions, per
 // file and architecture: -count fails unless there are exactly N, and
 // -want-entries fails if any wanted name matches no entry. A wanted name is
@@ -91,7 +101,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -134,6 +146,7 @@ type config struct {
 	work            string
 	maxRegisters    int
 	noSpill         bool
+	spillAllow      []spillAllowance
 	count           int
 	wantEntries     []string
 	timeout         time.Duration
@@ -192,6 +205,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&c.work, "work", "", "work `directory`; must be visible to the compiling host")
 	fs.IntVar(&c.maxRegisters, "max-registers", 0, "fail if an entry function uses more registers")
 	fs.BoolVar(&c.noSpill, "no-spill", false, "fail if a function spills")
+	var spillAllow string
+	fs.StringVar(&spillAllow, "spill-allow", "", "with -no-spill, which it implies, allow the spills listed in `file`: regexp max_store_bytes max_load_bytes per line")
 	fs.IntVar(&c.count, "count", -1, "fail unless each architecture has exactly `N` entry functions")
 	var wantEntries string
 	fs.StringVar(&wantEntries, "want-entries", "", "fail if an entry `name` is missing: a comma-separated list or a file, one per line; exact or regexp")
@@ -241,6 +256,13 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if keep != "" {
 		c.keep = strings.Split(keep, ",")
+	}
+	if spillAllow != "" {
+		var err error
+		if c.spillAllow, err = parseSpillAllow(spillAllow); err != nil {
+			return err
+		}
+		c.noSpill = true
 	}
 	if wantEntries != "" {
 		var err error
@@ -540,7 +562,20 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 			rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: %d registers > %d", f.Arch, f.Name, f.Registers, c.maxRegisters))
 		}
 		if c.noSpill && f.Spills() {
-			rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: spills %d B stores, %d B loads", f.Arch, f.Name, f.SpillStores, f.SpillLoads))
+			a := matchSpillAllowance(c.spillAllow, f.Name)
+			switch {
+			case a == nil:
+				rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: spills %d B stores, %d B loads", f.Arch, f.Name, f.SpillStores, f.SpillLoads))
+			case f.SpillStores > a.stores || f.SpillLoads > a.loads:
+				rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: spills %d B stores, %d B loads, over the %d, %d allowed by -spill-allow line %d", f.Arch, f.Name, f.SpillStores, f.SpillLoads, a.stores, a.loads, a.line))
+			default:
+				rep.Notes = append(rep.Notes, fmt.Sprintf("%s %s: spills %d B stores, %d B loads, within the %d, %d allowed by -spill-allow line %d", f.Arch, f.Name, f.SpillStores, f.SpillLoads, a.stores, a.loads, a.line))
+			}
+		}
+	}
+	for _, a := range c.spillAllow {
+		if !slices.ContainsFunc(info.Functions(), func(f *ptxasinfo.Function) bool { return a.re.MatchString(f.Name) }) {
+			rep.Notes = append(rep.Notes, fmt.Sprintf("-spill-allow line %d (%s) matches no function", a.line, a.pattern))
 		}
 	}
 	if len(rep.Functions) == 0 {
@@ -548,6 +583,54 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	}
 	rep.Failures = append(rep.Failures, entryFailures(c, info)...)
 	return rep, nil
+}
+
+// A spillAllowance is one line of a -spill-allow file.
+type spillAllowance struct {
+	pattern       string
+	re            *regexp.Regexp // pattern, anchored
+	stores, loads int            // bytes
+	line          int
+}
+
+// parseSpillAllow reads a -spill-allow file.
+func parseSpillAllow(file string) ([]spillAllowance, error) {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	var out []spillAllowance
+	for i, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		f := strings.Fields(line)
+		if len(f) != 3 {
+			return nil, fmt.Errorf("%s:%d: want regexp max_store_bytes max_load_bytes", file, i+1)
+		}
+		re, err := regexp.Compile("^(?:" + f[0] + ")$")
+		if err != nil {
+			return nil, fmt.Errorf("%s:%d: %w", file, i+1, err)
+		}
+		st, err1 := strconv.Atoi(f[1])
+		ld, err2 := strconv.Atoi(f[2])
+		if err1 != nil || err2 != nil || st < 0 || ld < 0 {
+			return nil, fmt.Errorf("%s:%d: byte counts %q %q are not non-negative integers", file, i+1, f[1], f[2])
+		}
+		out = append(out, spillAllowance{pattern: f[0], re: re, stores: st, loads: ld, line: i + 1})
+	}
+	return out, nil
+}
+
+// matchSpillAllowance returns the first allowance matching name, or nil.
+func matchSpillAllowance(as []spillAllowance, name string) *spillAllowance {
+	for i := range as {
+		if as[i].re.MatchString(name) {
+			return &as[i]
+		}
+	}
+	return nil
 }
 
 // parseWantEntries reads -want-entries: the name of an existing file of
