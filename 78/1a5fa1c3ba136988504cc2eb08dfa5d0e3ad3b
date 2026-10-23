@@ -1,0 +1,11 @@
+commit: 781a5fa1c3ba136988504cc2eb08dfa5d0e3ad3b
+date: 2026-10-23T04:29:58.548402+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 1333
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-cudarepro-cli-owner-adoption/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-cudarepro-cli-owner-adoption/ROOT-GRADE.md
+qualification: two CLI consumer files; current111 selected CPU host/race/vet; constructor core unchanged/unadopted; native unqualified; no provider/native/spend
