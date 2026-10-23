@@ -47,6 +47,19 @@
 // With -exec the tool also runs under timeout(1) on the compiling host,
 // because the local group holds only the prefix.
 //
+// A source ending in .py is a submission that builds its CUDA with
+// torch.utils.cpp_extension.load_inline. The command reads each
+// load_inline call's cuda_sources and extra_cuda_cflags without importing
+// the file (with python3, statically: literals, top-level names and +),
+// and compiles the translation unit load_inline would: torch's implicit
+// includes, defines and nvcc flags, the call's flags in place of -flags,
+// and its -gencode architectures unless -arch is given. -torch names the
+// site-packages directory, on the compiling host, that holds torch's
+// headers; a CPU-only torch wheel is enough.
+//
+//	cudacompilecheck -exec 'limactl shell --workdir / okcnvcc --' -nvcc ... \
+//	    -torch /home/me.linux/venv/lib/python3.12/site-packages submission.py
+//
 // The command compiles only; it never loads a module or touches a device.
 package main
 
@@ -106,6 +119,7 @@ type config struct {
 	count           int
 	wantEntries     []string
 	timeout         time.Duration
+	torch, python   string
 }
 
 // A Census is the instruction count of one function. LocalLoads and
@@ -158,6 +172,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	var wantEntries string
 	fs.StringVar(&wantEntries, "want-entries", "", "fail if an entry `name` is missing: a comma-separated list or a file, one per line; exact or regexp")
 	fs.DurationVar(&c.timeout, "timeout", 5*time.Minute, "limit for each tool run")
+	fs.StringVar(&c.torch, "torch", "", "site-packages `directory` holding torch on the compiling host, for .py sources")
+	fs.StringVar(&c.python, "python", "python3", "local `python` that reads load_inline calls from .py sources")
 	asJSON := fs.Bool("json", false, "print JSON")
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "usage: cudacompilecheck [flags] file.cu...")
@@ -173,6 +189,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		fs.Usage()
 		return errors.New("no source files")
 	}
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
 	c.exec = strings.Fields(execPrefix)
 	if c.savePTX != "" {
 		c.ptx = true
@@ -235,15 +253,63 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	var reports []*fileReport
 	failed := false
+	var torchFlags []string
+	compileErrors := 0
+	// fail records a source that did not compile and lets the others run.
+	fail := func(name string, err error) {
+		fmt.Fprintf(stderr, "cudacompilecheck: %s: %v\n", name, err)
+		msg, _, _ := strings.Cut(err.Error(), "\n")
+		reports = append(reports, &fileReport{Source: name, Failures: []string{"did not compile: " + msg}})
+		compileErrors++
+	}
 	for i, src := range srcs {
-		rep, err := check(ctx, &c, src, filepath.Join(work, fmt.Sprint(i)), filepath.Join(outRoot, fmt.Sprint(i)))
+		dir, out := filepath.Join(work, fmt.Sprint(i)), filepath.Join(outRoot, fmt.Sprint(i))
+		if !strings.HasSuffix(src, ".py") {
+			rep, err := check(ctx, &c, src, dir, out)
+			if err != nil {
+				fail(src, err)
+				continue
+			}
+			failed = failed || len(rep.Failures) > 0
+			reports = append(reports, rep)
+			continue
+		}
+		units, err := loadInlineUnits(ctx, c.python, src)
 		if err != nil {
-			return fmt.Errorf("%s: %w", src, err)
+			fail(src, err)
+			continue
 		}
-		if len(rep.Failures) > 0 {
-			failed = true
+		if torchFlags == nil {
+			if torchFlags, err = c.torchFlags(ctx, work); err != nil {
+				return err
+			}
 		}
-		reports = append(reports, rep)
+		stem := strings.TrimSuffix(filepath.Base(src), ".py")
+		for j, u := range units {
+			at := fmt.Sprintf("%s:%d", src, u.Line)
+			cc, err := unitConfig(&c, u, set["arch"], set["flags"])
+			if err != nil {
+				fail(at, err)
+				continue
+			}
+			cc.extra = append(cc.extra, torchFlags...)
+			name := stem
+			if len(units) > 1 {
+				name = fmt.Sprintf("%s.%d", stem, j)
+			}
+			cu, err := writeUnit(filepath.Join(dir, fmt.Sprint(j)), name, u)
+			if err != nil {
+				return err
+			}
+			rep, err := check(ctx, cc, cu, filepath.Join(dir, fmt.Sprint(j)), filepath.Join(out, fmt.Sprint(j)))
+			if err != nil {
+				fail(at, err)
+				continue
+			}
+			rep.Source = at
+			failed = failed || len(rep.Failures) > 0
+			reports = append(reports, rep)
+		}
 	}
 	if *asJSON {
 		enc := json.NewEncoder(stdout)
@@ -256,6 +322,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			printText(stdout, r, c.top)
 		}
 	}
+	if compileErrors > 0 {
+		return fmt.Errorf("%d of %d sources did not compile", compileErrors, len(reports))
+	}
 	if failed {
 		return errors.New("gate failed")
 	}
@@ -266,6 +335,52 @@ var (
 	archRE     = regexp.MustCompile(`^sm_\d{2,3}[af]?$`)
 	launcherRE = regexp.MustCompile(`(?m)^(?:static\s+)?inline\s+void\s+([A-Za-z_]\w*)\s*\(`)
 )
+
+// torchFlags returns the include flags for torch's headers on the
+// compiling host, adding a stand-in for the one header a CPU-only wheel
+// lacks under work, which the compiling host must see.
+func (c *config) torchFlags(ctx context.Context, work string) ([]string, error) {
+	if c.torch == "" {
+		return nil, errors.New("a .py source needs -torch, the site-packages directory holding torch on the compiling host")
+	}
+	if out, err := c.run(ctx, "test", "-e", c.torch+"/torch/include/torch/extension.h"); err != nil {
+		return nil, fmt.Errorf("-torch %s: no torch/include/torch/extension.h there: %v\n%s", c.torch, err, out)
+	}
+	flags := torchIncludes(c.torch)
+	// torch/extension.h reaches Python.h; load_inline adds Python's include
+	// directory as sysconfig reports it, so ask the compiling host's python3.
+	if out, err := c.run(ctx, "python3", "-c", "import sysconfig; print(sysconfig.get_path('include'))"); err == nil {
+		if dir := strings.TrimSpace(string(out)); dir != "" {
+			flags = append(flags, "-isystem", dir)
+		}
+	}
+	if _, err := c.run(ctx, "test", "-e", c.torch+"/torch/include/c10/cuda/impl/cuda_cmake_macros.h"); err != nil {
+		stub := filepath.Join(work, "torchstub")
+		if err := os.MkdirAll(filepath.Join(stub, "c10/cuda/impl"), 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(filepath.Join(stub, "c10/cuda/impl/cuda_cmake_macros.h"), []byte(cudaCMakeMacros), 0o644); err != nil {
+			return nil, err
+		}
+		flags = append(flags, "-isystem", stub)
+	}
+	return flags, nil
+}
+
+// killedHint explains a tool killed by SIGKILL, which on Linux is usually
+// the out-of-memory killer: cicc for a large translation unit can need
+// gigabytes, and other compiles on a shared host count against the same
+// memory.
+func killedHint(err error) string {
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) {
+		return ""
+	}
+	if ee.ExitCode() == 137 || strings.Contains(ee.String(), "signal: killed") {
+		return " (SIGKILL: probably out of memory on the compiling host; is another compile running there?)"
+	}
+	return ""
+}
 
 // wrapper returns a translation unit that includes src and takes the
 // address of each named function, or "" if there is nothing to keep.
@@ -321,7 +436,7 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 
 	output, err := c.run(ctx, args...)
 	if err != nil {
-		return nil, fmt.Errorf("nvcc: %v\n%s", err, output)
+		return nil, fmt.Errorf("nvcc: %v%s\n%s", err, killedHint(err), output)
 	}
 	info, err := ptxasinfo.Parse(bytes.NewReader(output))
 	if err != nil {

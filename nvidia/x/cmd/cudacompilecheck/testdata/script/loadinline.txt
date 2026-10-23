@@ -1,0 +1,121 @@
+# A .py source is a load_inline submission: the command compiles the
+# translation unit load_inline would assemble, with its flags, without
+# importing the file. A fake nvcc records what it was given.
+[!exec:sh] skip
+[!exec:python3] skip
+chmod 0755 nvcc
+
+exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site sub.py
+stdout 'sub.py:9$'
+stdout '^sm_90a +entry +32 .*_Z5scalePf$'
+
+# torch's implicit includes come first, then the sources joined as
+# load_inline joins them.
+exec cat unit
+cmp unit want.cu
+
+# The call's flags replace -flags; its -gencode architectures and -std
+# replace the defaults; torch's defines, flags and include directories are
+# added, with a stand-in for the header a CPU-only wheel lacks.
+exec cat args
+stdout '-std=c\+\+17 '
+stdout '-gencode=arch=compute_100a,code=sm_100a'
+! stdout 'compute_90a'
+stdout ' -O2 -lineinfo '
+! stdout '-O3'
+stdout '-DTORCH_EXTENSION_NAME=sub_ext -DTORCH_API_INCLUDE_EXTENSION_H'
+stdout '-D__CUDA_NO_HALF_OPERATORS__ .*--expt-relaxed-constexpr'
+stdout '-isystem \S*site/torch/include -isystem \S*site/torch/include/torch/csrc/api/include'
+stdout '-isystem \S*/torchstub'
+
+# A header the wheel has is not shadowed by the stand-in.
+mkdir site/torch/include/c10/cuda/impl
+cp sub.py site/torch/include/c10/cuda/impl/cuda_cmake_macros.h
+exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site sub.py
+exec cat args
+! stdout torchstub
+
+# -arch and -flags given on the command line still apply.
+exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site -arch sm_90a -flags -G sub.py
+exec cat args
+stdout '-gencode=arch=compute_90a,code=sm_90a'
+! stdout 'compute_100a'
+stdout ' -O2 -lineinfo .*-G '
+
+# Arguments are read statically; anything else is an error for that file,
+# and the other sources are still checked.
+! exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site fstring.py k.cu
+stderr 'fstring.py: load_inline call at line 3: line 3: cannot evaluate JoinedStr statically'
+stderr '1 of 2 sources did not compile'
+stdout 'k.cu'
+stdout 'FAIL: did not compile: load_inline call at line 3'
+! exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site plain.py
+stderr 'plain.py: no load_inline call'
+! exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site noarch.py
+stderr 'no -gencode or -arch in extra_cuda_cflags; give -arch'
+
+# -torch is required and checked.
+! exec cudacompilecheck -nvcc $WORK/nvcc sub.py
+stderr 'a .py source needs -torch'
+! exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK sub.py
+stderr 'no torch/include/torch/extension.h there'
+
+# A compiler killed by SIGKILL is probably out of memory.
+! exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site -D KILL sub.py
+stderr 'probably out of memory on the compiling host'
+
+-- nvcc --
+#!/bin/sh
+echo "$@" > $WORK/args
+out=
+prev=
+for a in "$@"; do
+	[ "$prev" = -o ] && out=$a
+	case $a in -DKILL) kill -9 $$;; esac
+	prev=$a
+	last=$a
+done
+cp "$last" $WORK/unit
+: > "$out"
+cat $WORK/ptxas.txt >&2
+-- ptxas.txt --
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z5scalePf' for 'sm_90a'
+ptxas info    : Function properties for _Z5scalePf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+-- site/torch/include/torch/extension.h --
+-- sub.py --
+from torch.utils.cpp_extension import load_inline
+
+CPP = "void f();"
+PRELUDE = "#define N 4\n"
+KERNEL = r"""__global__ void scale(float* x) { x[0] *= N; }"""
+
+
+def build():
+    return load_inline(
+        name="sub_ext",
+        cpp_sources=CPP,
+        cuda_sources=[PRELUDE + KERNEL, "// second\n"],
+        functions=["f"],
+        extra_cuda_cflags=["-O2", "-std=c++17", "-gencode", "arch=compute_100a,code=sm_100a", "-lineinfo"],
+    )
+-- want.cu --
+#include <torch/types.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#define N 4
+__global__ void scale(float* x) { x[0] *= N; }
+// second
+-- fstring.py --
+import torch.utils.cpp_extension as ext
+N = 4
+m = ext.load_inline(name="x", cpp_sources="", cuda_sources=f"#define N {N}", extra_cuda_cflags=["-arch=sm_90a"])
+-- plain.py --
+print("no extension here")
+-- noarch.py --
+from torch.utils.cpp_extension import load_inline
+load_inline(name="x", cpp_sources="", cuda_sources="", extra_cuda_cflags=["-O3"])
+-- k.cu --
+__global__ void k() {}
