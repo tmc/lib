@@ -30,8 +30,29 @@ exec cudacompilecheck -exec $WORK/pfx -timeout 90s -nvcc $WORK/nvcc k.cu
 stdout '_Z5spillPfPKf'
 exec cat pfxlog
 stdout '^timeout -k 5 90s mkdir -p /tmp/cudacompilecheck-'
-stdout '^timeout -k 5 90s .*/nvcc '
 stdout '^timeout -k 5 90s rm -rf /tmp/cudacompilecheck-'
+
+# Compiles also hold a lock on the compiling host, so concurrent users
+# queue; the local limit grows by -lock-wait.
+stdout '^flock -E 75 -w 1800 /tmp/cudacompilecheck.lock timeout -k 5 90s .*/nvcc '
+! stdout 'flock .* mkdir'
+rm pfxlog
+exec cudacompilecheck -exec $WORK/pfx -lock '' -nvcc $WORK/nvcc k.cu
+exec cat pfxlog
+stdout '^timeout -k 5 300s .*/nvcc '
+! stdout flock
+cp nvcc busy
+! exec cudacompilecheck -exec $WORK/pfx -lock $WORK/l -lock-wait 2s -nvcc $WORK/nvcc k.cu
+stderr 'waited 2s for .*/l on the compiling host; another compile holds it'
+rm busy
+
+# A tool missing from the compiling host is named.
+! exec cudacompilecheck -exec $WORK/pfx -sass -cuobjdump nosuchcuobjdump -nvcc $WORK/nvcc k.cu
+stderr 'cuobjdump: exit status 127 \(nosuchcuobjdump not found on the compiling host; -cuobjdump gives its path\)'
+! exec cudacompilecheck -sass -cuobjdump $WORK/nosuchcuobjdump -nvcc $WORK/nvcc k.cu
+stderr 'nosuchcuobjdump not found on the compiling host'
+! exec cudacompilecheck -nvcc nosuchnvcc k.cu
+stderr 'nosuchnvcc not found on the compiling host; -nvcc gives its path'
 
 # Entry gates: the fixture has two entry functions and one device function.
 exec cudacompilecheck -nvcc $WORK/nvcc -count 2 -want-entries '_Z5spillPfPKf,_Z5scale.*' k.cu
@@ -75,7 +96,12 @@ stderr 'bad architecture "sm90"'
 #!/bin/sh
 # A stand-in for limactl shell: log, drop timeout(1), run locally.
 echo "$@" >> $WORK/pfxlog
+if [ "$1" = flock ]; then
+	[ -e $WORK/busy ] && exit 75
+	shift 6
+fi
 [ "$1" = timeout ] && shift 4
+command -v "$1" >/dev/null || exit 127
 exec "$@"
 -- want.txt --
 # kernels the generator emits

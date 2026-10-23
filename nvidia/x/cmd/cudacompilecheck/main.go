@@ -47,6 +47,12 @@
 // With -exec the tool also runs under timeout(1) on the compiling host,
 // because the local group holds only the prefix.
 //
+// With -exec, each compile and disassembly also holds an exclusive
+// flock(1) on -lock on the compiling host, waiting up to -lock-wait for
+// it, so that several users of a small build machine queue instead of
+// running out of memory together. Scripts that compile on the same host
+// can take the same lock: flock /tmp/cudacompilecheck.lock nvcc ....
+//
 // A source ending in .py is a submission that builds its CUDA with
 // torch.utils.cpp_extension.load_inline. The command reads each
 // load_inline call's cuda_sources and extra_cuda_cflags without importing
@@ -71,6 +77,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"os/exec"
@@ -119,6 +126,8 @@ type config struct {
 	count           int
 	wantEntries     []string
 	timeout         time.Duration
+	lock            string
+	lockWait        time.Duration
 	torch, python   string
 }
 
@@ -172,6 +181,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	var wantEntries string
 	fs.StringVar(&wantEntries, "want-entries", "", "fail if an entry `name` is missing: a comma-separated list or a file, one per line; exact or regexp")
 	fs.DurationVar(&c.timeout, "timeout", 5*time.Minute, "limit for each tool run")
+	fs.StringVar(&c.lock, "lock", "/tmp/cudacompilecheck.lock", "with -exec, `file` on the compiling host that compiles hold with flock(1), so concurrent users queue; empty disables")
+	fs.DurationVar(&c.lockWait, "lock-wait", 30*time.Minute, "limit on waiting for -lock")
 	fs.StringVar(&c.torch, "torch", "", "site-packages `directory` holding torch on the compiling host, for .py sources")
 	fs.StringVar(&c.python, "python", "python3", "local `python` that reads load_inline calls from .py sources")
 	asJSON := fs.Bool("json", false, "print JSON")
@@ -434,9 +445,9 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	args = append(args, c.extra...)
 	args = append(args, input)
 
-	output, err := c.run(ctx, args...)
+	output, err := c.compile(ctx, args...)
 	if err != nil {
-		return nil, fmt.Errorf("nvcc: %v%s\n%s", err, killedHint(err), output)
+		return nil, fmt.Errorf("nvcc: %v%s\n%s", err, c.hint(err, c.nvcc, "-nvcc"), output)
 	}
 	info, err := ptxasinfo.Parse(bytes.NewReader(output))
 	if err != nil {
@@ -446,9 +457,9 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	census := map[string]map[string]*Census{} // arch -> function -> census
 	if c.sass {
 		for _, a := range c.archs {
-			text, err := c.run(ctx, c.cuobjdump, "-sass", "-arch", a, out)
+			text, err := c.compile(ctx, c.cuobjdump, "-sass", "-arch", a, out)
 			if err != nil {
-				return nil, fmt.Errorf("cuobjdump: %v\n%s", err, text)
+				return nil, fmt.Errorf("cuobjdump: %v%s\n%s", err, c.hint(err, c.cuobjdump, "-cuobjdump"), text)
 			}
 			d, err := cudasass.Parse(bytes.NewReader(text))
 			if err != nil {
@@ -562,12 +573,44 @@ func entryFailures(c *config, info *ptxasinfo.Report) []string {
 // not the tool on the far side, so the tool also runs under timeout(1)
 // there with the same limit; the compiling host must provide it.
 func (c *config) run(ctx context.Context, args ...string) ([]byte, error) {
-	argv := args
+	return c.runOn(ctx, false, args)
+}
+
+// compile is run for the heavy tools, which with -exec hold -lock.
+func (c *config) compile(ctx context.Context, args ...string) ([]byte, error) {
+	return c.runOn(ctx, true, args)
+}
+
+// lockBusy is flock's exit status when -lock-wait expires.
+const lockBusy = 75
+
+func (c *config) runOn(ctx context.Context, lock bool, args []string) ([]byte, error) {
+	argv, limit := args, c.timeout
 	if len(c.exec) > 0 {
 		secs := int(math.Ceil(c.timeout.Seconds()))
-		argv = append(append(append([]string(nil), c.exec...), "timeout", "-k", "5", fmt.Sprintf("%ds", secs)), args...)
+		argv = append(append([]string(nil), c.exec...), "timeout", "-k", "5", fmt.Sprintf("%ds", secs))
+		if lock && c.lock != "" {
+			wait := int(math.Ceil(c.lockWait.Seconds()))
+			argv = append(append(append([]string(nil), c.exec...), "flock", "-E", fmt.Sprint(lockBusy), "-w", fmt.Sprint(wait), c.lock), argv[len(c.exec):]...)
+			limit += c.lockWait
+		}
+		argv = append(argv, args...)
 	}
-	return runTool(ctx, c.timeout, argv)
+	return runTool(ctx, limit, argv)
+}
+
+// hint explains a tool failure that has a likely cause: a tool missing
+// from the compiling host, a compiler killed for memory, or -lock held
+// past -lock-wait.
+func (c *config) hint(err error, tool, flagName string) string {
+	var ee *exec.ExitError
+	switch {
+	case errors.Is(err, exec.ErrNotFound), errors.Is(err, fs.ErrNotExist), errors.As(err, &ee) && ee.ExitCode() == 127 && len(c.exec) > 0:
+		return fmt.Sprintf(" (%s not found on the compiling host; %s gives its path)", tool, flagName)
+	case errors.As(err, &ee) && ee.ExitCode() == lockBusy && len(c.exec) > 0 && c.lock != "":
+		return fmt.Sprintf(" (waited %v for %s on the compiling host; another compile holds it)", c.lockWait, c.lock)
+	}
+	return killedHint(err)
 }
 
 // groupWarning receives the one-time notice that process groups are
@@ -680,8 +723,8 @@ func ptxCensus(ctx context.Context, c *config, src, input, outDir, arch string) 
 		args = append(args, "-D"+d)
 	}
 	args = append(append(args, c.extra...), input)
-	if text, err := c.run(ctx, args...); err != nil {
-		return nil, fmt.Errorf("nvcc -ptx: %v\n%s", err, text)
+	if text, err := c.compile(ctx, args...); err != nil {
+		return nil, fmt.Errorf("nvcc -ptx: %v%s\n%s", err, c.hint(err, c.nvcc, "-nvcc"), text)
 	}
 	// The PTX is on the compiling host, which may be another machine.
 	text, err := c.run(ctx, "cat", out)
