@@ -1,0 +1,11 @@
+commit: 02257a64a31978a3cb28cc256aa7e9e9ae37ab22
+date: 2026-10-23T09:07:37.111311+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 50160
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-profiler-span-routing-impl/W/S.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-profiler-span-adoption/S/ROOT-GRADE.md
+qualification: profiler span+NVML followup; exact134+S+N host/race scoped12roots38events plus3examples/vet/twoomissions; native unqualified
