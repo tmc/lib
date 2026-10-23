@@ -68,6 +68,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaoptim](cudaoptim/) | Package cudaoptim implements optimizer steps for training with hand-written CUDA kernels: AdamW with decoupled weight decay, global gradient-norm clipping, and non-finite gradient detection. |
 | [cudaoutputcoverage](cudaoutputcoverage/) | Package cudaoutputcoverage checks which logical CUDA output elements were written, independently of numerical output agreement. |
 | [cudapdl](cudapdl/) | Package cudapdl implements Programmatic Dependent Launch (PDL) region composition, eligibility evaluation, and hardware/software fallback policies for NVIDIA GPUs. |
+| [cudaphase](cudaphase/) | Package cudaphase times the phases of a kernel from inside it, one row of timestamps per block, and summarizes them where no profiler runs, such as a remote judge that returns only the tail of a program's output. |
 | [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
 | [cudaplan](cudaplan/) | Package cudaplan provides executable plans, resource ownership, and completion tracking for CUDA execution graphs and compiled kernels. |
 | [cudaprecompiled](cudaprecompiled/) | Package cudaprecompiled loads CUDA C++ device code that may have been compiled ahead of time by cudaprecompile. |
