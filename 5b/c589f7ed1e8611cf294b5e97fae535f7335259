@@ -1,0 +1,11 @@
+commit: 5bc589f7ed1e8611cf294b5e97fae535f7335259
+date: 2026-10-23T04:22:20.277852+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 84802
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-constructor-fixture-custody/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-fixture-only-adoption/ROOT-GRADE.md
+qualification: four test-only fixture files; current110 selected CPU host/race/vet; constructor core unchanged/unadopted; native unqualified; no provider/native/spend
