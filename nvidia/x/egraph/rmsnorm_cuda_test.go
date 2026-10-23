@@ -10,7 +10,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -36,14 +35,14 @@ func rmsNormGEMVReference(x, weight, wProj []float32, inDim, outDim int, eps flo
 	return out
 }
 
-func deviceSlice[T any](t *testing.T, dev *cuda.Device, values []T) cudamem.Slice[T] {
+func deviceSlice[T any](t *testing.T, owners *nativeOwners, dev *cuda.Device, values []T) cudamem.Slice[T] {
 	t.Helper()
 	s, err := cudamem.Alloc[T](dev, len(values))
+	owners.add(s.Free)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := dev.WithContext(func() error { return s.CopyFromHost(values) }); err != nil {
-		_ = s.Free()
 		t.Fatal(err)
 	}
 	return s
@@ -65,8 +64,7 @@ func TestGeneratedRMSNormGEMVMatchesReference(t *testing.T) {
 }
 
 func testRMSNormGEMV(t *testing.T, threads uint32) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 	src, err := egraph.GenerateCUDA(
 		&egraph.Expr{Op: "fused_rmsnorm_gemv", Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}},
 		egraph.CodegenOptions{KernelName: "RMSNormGEMV"},
@@ -79,23 +77,20 @@ func testRMSNormGEMV(t *testing.T, threads uint32) {
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	mod, err := compiled.Load(dev)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Close()
+	owners.add(func() error { return dev.WithContext(mod.Close) })
 	fn, err := mod.Function("RMSNormGEMV")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Close()
 
 	const (
 		inDim  = 128
@@ -115,12 +110,16 @@ func testRMSNormGEMV(t *testing.T, threads uint32) {
 		wProj[i] = float32((i*7)%11-5) / 16
 	}
 
-	dx := deviceSlice(t, dev, x)
-	dw := deviceSlice(t, dev, weight)
-	dp := deviceSlice(t, dev, wProj)
-	dout := deviceSlice(t, dev, make([]float32, outDim))
-	for _, free := range []func() error{dx.Free, dw.Free, dp.Free, dout.Free} {
-		defer free()
+	dx := deviceSlice(t, owners, dev, x)
+	dw := deviceSlice(t, owners, dev, weight)
+	dp := deviceSlice(t, owners, dev, wProj)
+	dout := deviceSlice(t, owners, dev, make([]float32, outDim))
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.add(stream.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if err := cudalaunch.Kernel(fn).Grid(outDim, 1, 1).Block(threads, 1, 1).On(stream).Launch(

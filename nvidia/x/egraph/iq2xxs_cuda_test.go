@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -208,8 +207,7 @@ func TestGeneratedIQ2XXSMatvecMatchesReference(t *testing.T) {
 }
 
 func testIQ2XXSMatvec(t *testing.T, threads uint32) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 	src, err := egraph.GenerateCUDA(
 		&egraph.Expr{Op: "iq2_xxs_matvec", Children: []*egraph.Expr{{Op: "w"}, {Op: "x"}}},
 		egraph.CodegenOptions{KernelName: "IQ2XXSMatvec", Precision: "iq2_xxs"},
@@ -222,23 +220,20 @@ func testIQ2XXSMatvec(t *testing.T, threads uint32) {
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	mod, err := compiled.Load(dev)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Close()
+	owners.add(func() error { return dev.WithContext(mod.Close) })
 	fn, err := mod.Function("IQ2XXSMatvec")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Close()
 
 	const (
 		rows = 4
@@ -250,11 +245,15 @@ func testIQ2XXSMatvec(t *testing.T, threads uint32) {
 		x[i] = float32((i*13)%17-8) / 4
 	}
 
-	dw := deviceSlice(t, dev, blocks)
-	dx := deviceSlice(t, dev, x)
-	dy := deviceSlice(t, dev, make([]float32, rows))
-	for _, free := range []func() error{dw.Free, dx.Free, dy.Free} {
-		defer free()
+	dw := deviceSlice(t, owners, dev, blocks)
+	dx := deviceSlice(t, owners, dev, x)
+	dy := deviceSlice(t, owners, dev, make([]float32, rows))
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.add(stream.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	grid := (rows*32 + threads - 1) / threads
@@ -283,8 +282,7 @@ func testIQ2XXSMatvec(t *testing.T, threads uint32) {
 }
 
 func TestGeneratedIQ2XXSMatvecRaggedColsReturnsNaN(t *testing.T) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 	src, err := egraph.GenerateCUDA(
 		&egraph.Expr{Op: "iq2_xxs_matvec", Children: []*egraph.Expr{{Op: "w"}, {Op: "x"}}},
 		egraph.CodegenOptions{KernelName: "IQ2XXSMatvec", Precision: "iq2_xxs"},
@@ -297,23 +295,20 @@ func TestGeneratedIQ2XXSMatvecRaggedColsReturnsNaN(t *testing.T) {
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	mod, err := compiled.Load(dev)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Close()
+	owners.add(func() error { return dev.WithContext(mod.Close) })
 	fn, err := mod.Function("IQ2XXSMatvec")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Close()
 
 	const (
 		rows = 2
@@ -323,11 +318,15 @@ func TestGeneratedIQ2XXSMatvecRaggedColsReturnsNaN(t *testing.T) {
 	x := make([]float32, cols)
 	yInit := []float32{123.456, 789.012}
 
-	dw := deviceSlice(t, dev, blocks)
-	dx := deviceSlice(t, dev, x)
-	dy := deviceSlice(t, dev, yInit)
-	for _, free := range []func() error{dw.Free, dx.Free, dy.Free} {
-		defer free()
+	dw := deviceSlice(t, owners, dev, blocks)
+	dx := deviceSlice(t, owners, dev, x)
+	dy := deviceSlice(t, owners, dev, yInit)
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.add(stream.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(64, 1, 1).On(stream).Launch(

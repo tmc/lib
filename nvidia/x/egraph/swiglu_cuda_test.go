@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -40,8 +39,7 @@ func swigluReference(x, wGate, wUp, wDown []float32, hidden, inter int) []float3
 // is valid CUDA; after fused_rmsnorm_gemv turned out to compute a different
 // function entirely, an unoracled kernel is assumed wrong until checked.
 func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 	expr := &egraph.Expr{Op: "fused_swiglu_gemv", Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
 	src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "SwiGLU"})
 	if err != nil {
@@ -52,23 +50,20 @@ func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	mod, err := compiled.Load(dev)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Close()
+	owners.add(func() error { return dev.WithContext(mod.Close) })
 	fn, err := mod.Function("SwiGLU")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Close()
 
 	const (
 		hidden = 32
@@ -89,13 +84,17 @@ func TestGeneratedSwiGLUMatchesReference(t *testing.T) {
 		wDown[i] = float32((i*5)%19-9) / 64
 	}
 
-	dx := deviceSlice(t, dev, x)
-	dg := deviceSlice(t, dev, wGate)
-	du := deviceSlice(t, dev, wUp)
-	dd := deviceSlice(t, dev, wDown)
-	dout := deviceSlice(t, dev, make([]float32, hidden))
-	for _, free := range []func() error{dx.Free, dg.Free, du.Free, dd.Free, dout.Free} {
-		defer free()
+	dx := deviceSlice(t, owners, dev, x)
+	dg := deviceSlice(t, owners, dev, wGate)
+	du := deviceSlice(t, owners, dev, wUp)
+	dd := deviceSlice(t, owners, dev, wDown)
+	dout := deviceSlice(t, owners, dev, make([]float32, hidden))
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.add(stream.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// The kernel stages the activations in dynamic shared memory, one float

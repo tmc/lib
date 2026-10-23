@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -55,8 +54,7 @@ func halfFloat(h uint16) float32 {
 // conversion reads the bit pattern as an integer: 1.0 arrives as 15360, and
 // this test turns red.
 func TestGeneratedHalfAddMatchesReference(t *testing.T) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 
 	src, err := egraph.GenerateCUDA(
 		&egraph.Expr{Op: "add", Children: []*egraph.Expr{{Op: "a"}, {Op: "b"}}},
@@ -70,23 +68,20 @@ func TestGeneratedHalfAddMatchesReference(t *testing.T) {
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	mod, err := compiled.Load(dev)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Close()
+	owners.add(func() error { return dev.WithContext(mod.Close) })
 	fn, err := mod.Function("HalfAdd")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Close()
 
 	// Exactly representable half values, so the expected sums are exact and the
 	// comparison can be on bit patterns.
@@ -102,11 +97,15 @@ func TestGeneratedHalfAddMatchesReference(t *testing.T) {
 		b[i] = halfBits(bf[i])
 	}
 
-	da := deviceSlice(t, dev, a)
-	db := deviceSlice(t, dev, b)
-	dout := deviceSlice(t, dev, make([]uint16, n))
-	for _, free := range []func() error{da.Free, db.Free, dout.Free} {
-		defer free()
+	da := deviceSlice(t, owners, dev, a)
+	db := deviceSlice(t, owners, dev, b)
+	dout := deviceSlice(t, owners, dev, make([]uint16, n))
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.add(stream.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if err := cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(n, 1, 1).On(stream).Launch(

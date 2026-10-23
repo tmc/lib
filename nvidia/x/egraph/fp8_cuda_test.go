@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -60,30 +59,26 @@ func TestScaledFP8GEMVMatchesReference(t *testing.T) {
 }
 
 func testFP8GEMV(t *testing.T, threads uint32) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 	compiled, err := nvrtcx.Compile(egraph.ScaledFP8GEMVTemplate,
 		nvrtcx.WithName("fp8.cu"),
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	mod, err := compiled.Load(dev)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Close()
+	owners.add(func() error { return dev.WithContext(mod.Close) })
 	fn, err := mod.Function("ScaledFP8GEMV")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Close()
 
 	const (
 		inDim  = 128
@@ -104,12 +99,16 @@ func testFP8GEMV(t *testing.T, threads uint32) {
 		scale[i] = float32(i+1) / 4
 	}
 
-	dx := deviceSlice(t, dev, x)
-	dw := deviceSlice(t, dev, w)
-	ds := deviceSlice(t, dev, scale)
-	dout := deviceSlice(t, dev, make([]float32, outDim))
-	for _, free := range []func() error{dx.Free, dw.Free, ds.Free, dout.Free} {
-		defer free()
+	dx := deviceSlice(t, owners, dev, x)
+	dw := deviceSlice(t, owners, dev, w)
+	ds := deviceSlice(t, owners, dev, scale)
+	dout := deviceSlice(t, owners, dev, make([]float32, outDim))
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.add(stream.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if err := cudalaunch.Kernel(fn).Grid(outDim, 1, 1).Block(threads, 1, 1).On(stream).Launch(

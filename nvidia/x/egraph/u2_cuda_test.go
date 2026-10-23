@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -34,8 +33,7 @@ func u2Reference(q []uint32, a []int8, scale float32) []float32 {
 // asserts bit-for-bit equivalence between SIMD and scalar execution, and
 // checks both against u2Reference.
 func TestGeneratedU2MatchesReference(t *testing.T) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 
 	const n = 64 // 64 elements = 64 * 16 = 1024 activations
 	q := make([]uint32, n)
@@ -54,6 +52,7 @@ func TestGeneratedU2MatchesReference(t *testing.T) {
 
 	for _, op := range []string{"u2_simd", "u2_scalar"} {
 		t.Run(op, func(t *testing.T) {
+			sub := owners.child(t)
 			expr := &egraph.Expr{Op: op, Children: []*egraph.Expr{{Op: "q"}, {Op: "a"}}}
 			src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "U2Kernel"})
 			if err != nil {
@@ -65,29 +64,30 @@ func TestGeneratedU2MatchesReference(t *testing.T) {
 				nvrtcx.WithDeviceArch(dev),
 				nvrtcx.WithNoCache(),
 			)
+			sub.addError(err)
 			if err != nil {
 				t.Fatalf("compile: %v", err)
 			}
 			mod, err := compiled.Load(dev)
+			sub.addError(err)
 			if err != nil {
 				t.Fatalf("load: %v", err)
 			}
-			defer mod.Close()
+			sub.add(func() error { return dev.WithContext(mod.Close) })
 			fn, err := mod.Function("U2Kernel")
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			dq := deviceSlice(t, sub, dev, q)
+			da := deviceSlice(t, sub, dev, a)
+			dout := deviceSlice(t, sub, dev, make([]float32, n))
 			stream, err := dev.NewStream()
+			if stream != nil {
+				sub.add(stream.Close)
+			}
 			if err != nil {
 				t.Fatal(err)
-			}
-			defer stream.Close()
-
-			dq := deviceSlice(t, dev, q)
-			da := deviceSlice(t, dev, a)
-			dout := deviceSlice(t, dev, make([]float32, n))
-			for _, free := range []func() error{dq.Free, da.Free, dout.Free} {
-				defer free()
 			}
 
 			threads := uint32(32)

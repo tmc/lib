@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
-	"github.com/tmc/lib/nvidia/x/cudatest"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
@@ -48,8 +47,7 @@ func TestCompositeKernelRejectsDeeperTrees(t *testing.T) {
 // the compile gate cannot supply: an "add" kernel that returns anything at all
 // compiles, and only comparing numbers shows whether it added.
 func TestGeneratedCompositeMatchesReference(t *testing.T) {
-	dev := cudatest.Require(t)
-	defer dev.Close()
+	dev, owners := requireNativeDevice(t)
 	expr := &egraph.Expr{Op: "add", Children: []*egraph.Expr{{Op: "x"}, {Op: "w"}}}
 	src, err := egraph.GenerateCUDA(expr, egraph.CodegenOptions{KernelName: "Composite"})
 	if err != nil {
@@ -60,23 +58,20 @@ func TestGeneratedCompositeMatchesReference(t *testing.T) {
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithNoCache(),
 	)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("compile: %v", err)
 	}
 	mod, err := compiled.Load(dev)
+	owners.addError(err)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	defer mod.Close()
+	owners.add(func() error { return dev.WithContext(mod.Close) })
 	fn, err := mod.Function("Composite")
 	if err != nil {
 		t.Fatal(err)
 	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer stream.Close()
 
 	const n = 1024
 	a := make([]float32, n)
@@ -85,11 +80,15 @@ func TestGeneratedCompositeMatchesReference(t *testing.T) {
 		a[i] = float32((i*13)%17-8) * 0.5
 		b[i] = float32((i*7)%11-5) * 0.25
 	}
-	da := deviceSlice(t, dev, a)
-	db := deviceSlice(t, dev, b)
-	dout := deviceSlice(t, dev, make([]float32, n))
-	for _, free := range []func() error{da.Free, db.Free, dout.Free} {
-		defer free()
+	da := deviceSlice(t, owners, dev, a)
+	db := deviceSlice(t, owners, dev, b)
+	dout := deviceSlice(t, owners, dev, make([]float32, n))
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.add(stream.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if err := cudalaunch.Kernel(fn).Grid(4, 1, 1).Block(256, 1, 1).On(stream).Launch(
