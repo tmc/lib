@@ -1,0 +1,11 @@
+commit: e3a52cb477e18d91ae49ac5b8e8d432ec99bc165
+date: 2026-10-23T07:53:38.649692+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 27185
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-tileir-example-repair/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-tileir-example-adoption/ROOT-GRADE.md
+qualification: TileIR example; exact130 onehunk; scoped host/race/vet pass; native unqualified
