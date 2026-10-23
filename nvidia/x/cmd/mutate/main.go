@@ -26,7 +26,8 @@
 // bytes. A mutation is caught when the command fails; with "want", only
 // when its output also matches that regular expression, so that a
 // mutation which merely breaks the build can be told apart from one a
-// specific test detects. A command that exceeds -timeout is killed with its
+// specific test detects. The pattern is matched against the whole output;
+// reports carry only its last 20 lines. A command that exceeds -timeout is killed with its
 // process group and counts as caught.
 //
 // Files are restored after every mutation and on interrupt. If a file
@@ -88,6 +89,8 @@ type result struct {
 	ExitCode int     `json:"exit_code"`
 	Seconds  float64 `json:"seconds"`
 	Output   string  `json:"output,omitempty"` // last lines of combined output
+
+	full string // all of the combined output, for matching want
 }
 
 type report struct {
@@ -272,7 +275,7 @@ func (r *runner) all(muts []*mutation) (*report, error) {
 		case res.ExitCode == 0:
 			res.Status = Survived
 			rep.Survived++
-		case m.want != nil && !m.want.MatchString(res.Output):
+		case m.want != nil && !m.want.MatchString(res.full):
 			res.Status = Unmatched
 			rep.Unmatched++
 		default:
@@ -375,7 +378,7 @@ func (r *runner) exec(ctx context.Context, name string) result {
 	setProcessGroup(cmd)
 	start := time.Now()
 	err := cmd.Run()
-	res := result{Name: name, Seconds: time.Since(start).Seconds(), Output: tail(out.String(), 20)}
+	res := result{Name: name, Seconds: time.Since(start).Seconds(), Output: tail(out.String(), 20), full: out.String()}
 	var ee *exec.ExitError
 	switch {
 	case ctx.Err() == context.DeadlineExceeded:

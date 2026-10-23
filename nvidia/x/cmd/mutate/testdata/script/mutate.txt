@@ -67,7 +67,7 @@ scale = 1
 -- other.orig --
 scale = 1
 -- check.sh --
-grep -q '^total = 3$' sum.txt || { echo "TestSum: total wrong"; exit 1; }
+grep -q '^total = 3$' sum.txt || { echo "TestSum: total wrong"; seq 30; exit 1; }
 grep -q '^scale = 1$' other.txt || { echo "TestScale: scale wrong"; exit 1; }
 -- interrupt.sh --
 grep -q '^total = 3$' sum.txt && exit 0
