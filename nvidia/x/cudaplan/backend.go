@@ -113,6 +113,16 @@ type StepPlan struct {
 // BackendRequest contains the facts used to select one region's backend.
 // Capability flags describe available entry points, not observed performance.
 type BackendRequest struct {
+	// DeviceTarget is a detached target description, such as "sm_90".
+	// Empty means unknown. A supplied value is a caller fact, not a device
+	// measurement; compatibility uses cudakernel's existing target policy.
+	DeviceTarget string
+	// Region is the actual candidate within StepCount executable steps.
+	// Ordinary and graph/vendor selection use [StepIndex, StepIndex+1).
+	// The finite worker uses the whole plan [0, StepCount).
+	Region              Region
+	StepIndex           int
+	StepCount           int
 	FiniteMegaRequested bool
 	FiniteMegaAdmitted  bool
 	// MegaCTAs is zero for the finite single-CTA worker, or 2..1024 for
@@ -128,14 +138,50 @@ type BackendRequest struct {
 
 // BackendDecision records a backend and its admission reason.
 type BackendDecision struct {
-	Backend TargetBackend
-	Reason  string
+	Backend      TargetBackend
+	Reason       string
+	Region       Region
+	StepIndex    int
+	DeviceTarget string
+	// TargetChecked means the supplied target and artifact passed
+	// cudakernel's compatibility check. It is not physical qualification.
+	TargetChecked bool
 }
 
 // SelectBackend applies the admission policy without opening a CUDA device.
 // Mega execution requires a separately admitted task-body implementation and
 // is never inferred from the operation's name or a task graph alone.
 func SelectBackend(r BackendRequest) (BackendDecision, error) {
+	if r.StepCount <= 0 || r.Region.Start < 0 || r.Region.End > r.StepCount || r.Region.Start >= r.Region.End || r.StepIndex < r.Region.Start || r.StepIndex >= r.Region.End {
+		return BackendDecision{}, fmt.Errorf("%w: invalid backend region [%d,%d), step %d of %d", ErrUnsupportedBackend, r.Region.Start, r.Region.End, r.StepIndex, r.StepCount)
+	}
+	want := Region{r.StepIndex, r.StepIndex + 1}
+	if r.FiniteMegaRequested {
+		want = Region{0, r.StepCount}
+	}
+	if r.Region != want {
+		return BackendDecision{}, fmt.Errorf("%w: backend candidate region [%d,%d), want [%d,%d)", ErrUnsupportedBackend, r.Region.Start, r.Region.End, want.Start, want.End)
+	}
+	checked := false
+	if r.DeviceTarget != "" {
+		if err := cudakernel.ValidateTargetArch(r.DeviceTarget); err != nil {
+			return BackendDecision{}, fmt.Errorf("cudaplan: device target: %w", err)
+		}
+	}
+	if r.Artifact != nil {
+		if err := r.Artifact.Validate(); err != nil {
+			return BackendDecision{}, fmt.Errorf("cudaplan: backend artifact: %w", err)
+		}
+		if r.DeviceTarget != "" {
+			if err := r.Artifact.ValidateTarget(r.DeviceTarget); err != nil {
+				return BackendDecision{}, fmt.Errorf("cudaplan: backend target: %w", err)
+			}
+			checked = true
+		}
+	}
+	decision := func(backend TargetBackend, reason string) BackendDecision {
+		return BackendDecision{Backend: backend, Reason: reason, Region: r.Region, StepIndex: r.StepIndex, DeviceTarget: r.DeviceTarget, TargetChecked: checked}
+	}
 	if r.Kind < cudair.KindConstant || r.Kind > cudair.KindConcat {
 		return BackendDecision{}, fmt.Errorf("%w: non-executable node kind %s", ErrUnsupportedBackend, r.Kind)
 	}
@@ -146,13 +192,10 @@ func SelectBackend(r BackendRequest) (BackendDecision, error) {
 		if r.GraphRequested || !r.FiniteMegaAdmitted || r.Artifact == nil || r.Kind == cudair.KindMatMul {
 			return BackendDecision{}, fmt.Errorf("%w: finite worker region not admitted", ErrUnsupportedBackend)
 		}
-		if err := r.Artifact.Validate(); err != nil {
-			return BackendDecision{}, fmt.Errorf("cudaplan: finite worker artifact: %w", err)
-		}
 		if r.MegaCTAs != 0 {
-			return BackendDecision{BackendMega, fmt.Sprintf("counted FP32 region requested for %d cooperative CTAs", r.MegaCTAs)}, nil
+			return decision(BackendMega, fmt.Sprintf("counted FP32 region requested for %d cooperative CTAs", r.MegaCTAs)), nil
 		}
-		return BackendDecision{BackendMega, "finite FP32 region admitted to one CTA"}, nil
+		return decision(BackendMega, "finite FP32 region admitted to one CTA"), nil
 	}
 	if r.Kind == cudair.KindMatMul {
 		if !r.VendorAvailable {
@@ -161,21 +204,16 @@ func SelectBackend(r BackendRequest) (BackendDecision, error) {
 		if r.GraphRequested && !r.GraphAvailable {
 			return BackendDecision{}, fmt.Errorf("%w: matmul stream capture unavailable", ErrUnsupportedBackend)
 		}
-		return BackendDecision{BackendCuBLASLt, "rank-2 matmul uses cuBLASLt"}, nil
+		return decision(BackendCuBLASLt, "rank-2 matmul uses cuBLASLt"), nil
 	}
 	if r.RequireArtifact && r.Artifact == nil {
 		return BackendDecision{}, fmt.Errorf("%w: kernel artifact missing", ErrUnsupportedBackend)
-	}
-	if r.Artifact != nil {
-		if err := r.Artifact.Validate(); err != nil {
-			return BackendDecision{}, fmt.Errorf("cudaplan: backend artifact: %w", err)
-		}
 	}
 	if r.GraphRequested {
 		if !r.GraphAvailable {
 			return BackendDecision{}, fmt.Errorf("%w: graph entry points unavailable", ErrUnsupportedBackend)
 		}
-		return BackendDecision{BackendGraph, "admitted kernel graph replay"}, nil
+		return decision(BackendGraph, "admitted kernel graph replay"), nil
 	}
-	return BackendDecision{BackendLaunch, "ordinary kernel dispatch"}, nil
+	return decision(BackendLaunch, "ordinary kernel dispatch"), nil
 }

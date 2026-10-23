@@ -7,7 +7,9 @@ import (
 )
 
 func ExampleSelectBackend() {
-	decision, err := cudaplan.SelectBackend(cudaplan.BackendRequest{Kind: cudair.KindUnary})
+	decision, err := cudaplan.SelectBackend(cudaplan.BackendRequest{
+		Kind: cudair.KindUnary, Region: cudaplan.Region{Start: 0, End: 1}, StepCount: 1,
+	})
 	fmt.Println(decision.Backend, err)
 	// Output: Launch <nil>
 }

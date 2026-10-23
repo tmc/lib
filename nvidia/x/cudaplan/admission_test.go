@@ -26,6 +26,8 @@ func TestBackendSelectionIsTestableWithoutDevice(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			test.request.Region = Region{0, 1}
+			test.request.StepCount = 1
 			got, err := SelectBackend(test.request)
 			if (err != nil) != test.fail || got.Backend != test.want {
 				t.Fatalf("decision=%+v error=%v", got, err)

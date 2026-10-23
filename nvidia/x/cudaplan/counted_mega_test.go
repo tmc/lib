@@ -148,6 +148,7 @@ func TestCountedBackendRequest(t *testing.T) {
 	}
 	defer p.Close()
 	r := BackendRequest{Kind: cudair.KindUnary, FiniteMegaRequested: true, FiniteMegaAdmitted: true, Artifact: p.megaArtifact, MegaCTAs: 2}
+	r.Region, r.StepCount = Region{0, len(p.steps)}, len(p.steps)
 	d, err := SelectBackend(r)
 	if err != nil || d.Backend != BackendMega || !strings.Contains(d.Reason, "2 cooperative CTAs") {
 		t.Fatalf("decision %v, %v", d, err)

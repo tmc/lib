@@ -111,6 +111,7 @@ type ExecutablePlan struct {
 	megaLowering     Lowering
 	countedCTAs      uint32
 	megaStateOffset  int
+	backendDecisions []BackendDecision
 }
 
 // Compile builds an ExecutablePlan from a validated cudair.Snapshot.
@@ -126,11 +127,15 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 		return nil, err
 	}
 	names := make(map[string]bool)
+	stepCount := 0
 	for _, node := range snap.Order() {
 		if node.Name == "" || names[node.Name] {
 			return nil, fmt.Errorf("cudaplan: duplicate or empty tensor name %q", node.Name)
 		}
 		names[node.Name] = true
+		if node.Kind != cudair.KindInput {
+			stepCount++
+		}
 		if node.Kind == cudair.KindMatMul {
 			if err := validateMatMulNode(node); err != nil {
 				return nil, err
@@ -171,14 +176,15 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 		requiredOutputs: make(map[string]int),
 		intermediateLoc: make(map[string]int),
 	}
+	deviceTarget := ""
 	if cfg.finiteMega {
 		target := "sm_80"
 		if cfg.dev != nil {
-			major, minor, e := cfg.dev.ComputeCapability()
-			if e != nil {
-				return nil, e
+			deviceTarget, err = planDeviceTarget(cfg.dev)
+			if err != nil {
+				return nil, err
 			}
-			target = fmt.Sprintf("sm_%d%d", major, minor)
+			target = deviceTarget
 		}
 		plan.countedCTAs = cfg.countedCTAs
 		plan.megaArtifact, plan.megaNames, err = planMegaArtifact(snap, target, cfg.countedCTAs)
@@ -223,6 +229,15 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 
 	if cfg.countedCTAs != 0 {
 		plan.megaStateOffset, totalScratchBytes, err = countedWorkspace(totalScratchBytes, len(plan.megaNames), cfg.peakBudget)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Resolve the actual device only after the host workspace budget checks.
+	// No-device compilation keeps target facts unknown, including when its
+	// finite code generator uses the existing sm_80 inspection default.
+	if cfg.dev != nil && deviceTarget == "" {
+		deviceTarget, err = planDeviceTarget(cfg.dev)
 		if err != nil {
 			return nil, err
 		}
@@ -299,7 +314,12 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 		if cfg.finiteMega {
 			art = plan.megaArtifact
 		}
+		region := Region{stepIdx, stepIdx + 1}
+		if cfg.finiteMega {
+			region = Region{0, stepCount}
+		}
 		decision, err := SelectBackend(BackendRequest{
+			DeviceTarget: deviceTarget, Region: region, StepIndex: stepIdx, StepCount: stepCount,
 			Kind: n.Kind, GraphRequested: cfg.enableGraph,
 			GraphAvailable:  cfg.dev == nil || graphAvailable(),
 			VendorAvailable: cfg.dev == nil || plan.cublasEngine != nil,
@@ -362,17 +382,40 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 		}
 
 		plan.steps = append(plan.steps, step)
+		plan.backendDecisions = append(plan.backendDecisions, decision)
 		nodeStepMap[n] = stepIdx
 		stepIdx++
 	}
 
 	if cfg.finiteMega {
-		plan.megaLowering, err = LowerRegion(plan.steps, Region{0, len(plan.steps)})
+		plan.megaLowering, err = LowerRegion(plan.steps, plan.backendDecisions[0].Region)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return plan, nil
+}
+
+func planDeviceTarget(dev *cuda.Device) (string, error) {
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		return "", fmt.Errorf("cudaplan: device target: %w", err)
+	}
+	return fmt.Sprintf("sm_%d%d", major, minor), nil
+}
+
+// BackendDecisions returns detached compile-time admission decisions in step
+// order. Ordinary/vendor/graph candidates cover one step; a finite worker
+// candidate covers the whole plan. Without WithDevice, device facts remain
+// unknown. These are choices, not execution receipts; Completion.ExecutedSteps
+// reports actual submitted backends after Execute.
+func (p *ExecutablePlan) BackendDecisions() []BackendDecision {
+	if p == nil {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]BackendDecision(nil), p.backendDecisions...)
 }
 
 func vendorWorkspaceBudget(scratch, peak int) (int, error) {
