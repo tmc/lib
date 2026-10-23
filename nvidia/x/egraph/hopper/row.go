@@ -428,7 +428,7 @@ func launcher(name string, params []string, grid func(*strings.Builder)) string 
 	var b strings.Builder
 	fmt.Fprintf(&b, "inline void %s_launch(%s, cudaStream_t stream) {\n", name, strings.Join(params, ", "))
 	grid(&b)
-	fmt.Fprintf(&b, "    if (grid.x > 0) %s<<<grid, block, 0, stream>>>(%s);\n}\n", name, strings.Join(names, ", "))
+	fmt.Fprintf(&b, "    if (grid.x > 0) EG_LAUNCH(%s, grid, block, 0, stream, %s);\n}\n", name, strings.Join(names, ", "))
 	return b.String()
 }
 

@@ -15,6 +15,13 @@ typedef unsigned long long uint64_t;
 
 #define EG_DEV static __device__ __forceinline__
 
+// EG_LAUNCH launches kernel; host launchers use it so the emulator can run them.
+#if defined(EG_HOST_EMU)
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) eg_emu_launch(grid, block, smem, kernel, __VA_ARGS__)
+#else
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) kernel<<<grid, block, smem, stream>>>(__VA_ARGS__)
+#endif
+
 struct alignas(16) eg_u32x4 { uint32_t x, y, z, w; };
 
 EG_DEV float eg_bf16_to_f32(uint32_t b) { return __uint_as_float((b & 0xffffu) << 16); }
@@ -377,5 +384,5 @@ inline void moe8_prefill_qkv_launch(int m, const uint16_t* __restrict__ x, const
     static const cudaError_t attr = cudaFuncSetAttribute(moe8_prefill_qkv, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
     (void)attr;
     const dim3 grid(18, (m + 127) / 128, 1), block(256);
-    if (grid.y > 0 && grid.z > 0) moe8_prefill_qkv<<<grid, block, smem, stream>>>(m, x, w, out);
+    if (grid.y > 0 && grid.z > 0) EG_LAUNCH(moe8_prefill_qkv, grid, block, smem, stream, m, x, w, out);
 }

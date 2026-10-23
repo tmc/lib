@@ -291,7 +291,7 @@ func (g TileGEMM) Launcher() (string, error) {
 	fmt.Fprintf(&b, "    constexpr int smem = %d;\n", g.SharedBytes())
 	fmt.Fprintf(&b, "    static const cudaError_t attr = cudaFuncSetAttribute(%s, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);\n    (void)attr;\n", g.Name)
 	fmt.Fprintf(&b, "    const dim3 grid(%d, (%s + %d) / %d, %s), block(256);\n", g.N/g.BN, rows, g.BM-1, g.BM, experts)
-	fmt.Fprintf(&b, "    if (grid.y > 0 && grid.z > 0) %s<<<grid, block, smem, stream>>>(%s);\n}\n", g.Name, strings.Join(names, ", "))
+	fmt.Fprintf(&b, "    if (grid.y > 0 && grid.z > 0) EG_LAUNCH(%s, grid, block, smem, stream, %s);\n}\n", g.Name, strings.Join(names, ", "))
 	return b.String(), nil
 }
 

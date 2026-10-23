@@ -160,7 +160,7 @@ func TestTileGEMMGolden(t *testing.T) {
 		// Prefill qkv_gate projection (moe8_prefill_layer).
 		{Name: "moe8_prefill_qkv", N: 2304, K: 8192, Weight: WeightBF16, Out: BF16},
 		// MoE gate/up for local experts, tokens gathered by expert, SwiGLU applied later.
-		{Name: "moe8_moe_w13", N: 8192, K: 8192, Weight: WeightNVFP4, Out: BF16, Grouped: true, Gather: true},
+		{Name: "moe8_moe_w13", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, Grouped: true, Gather: true},
 	} {
 		src, err := g.Source()
 		if err != nil {

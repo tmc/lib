@@ -15,6 +15,13 @@ typedef unsigned long long uint64_t;
 
 #define EG_DEV static __device__ __forceinline__
 
+// EG_LAUNCH launches kernel; host launchers use it so the emulator can run them.
+#if defined(EG_HOST_EMU)
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) eg_emu_launch(grid, block, smem, kernel, __VA_ARGS__)
+#else
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) kernel<<<grid, block, smem, stream>>>(__VA_ARGS__)
+#endif
+
 struct alignas(16) eg_u32x4 { uint32_t x, y, z, w; };
 
 EG_DEV float eg_bf16_to_f32(uint32_t b) { return __uint_as_float((b & 0xffffu) << 16); }
@@ -404,13 +411,13 @@ __global__ void __launch_bounds__(256) moe8_router_hilo(
 inline void moe8_router_hilo_launch(int m, const uint16_t* __restrict__ x, const uint16_t* __restrict__ w_hi, const uint16_t* __restrict__ w_lo, float* __restrict__ out, float* __restrict__ ws, cudaStream_t stream) {
     const dim3 grid(256, 4), block(256);
     switch (m) {
-    case 1: moe8_router_hilo<1><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
-    case 2: moe8_router_hilo<2><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
-    case 3: moe8_router_hilo<3><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
-    case 4: moe8_router_hilo<4><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
-    case 5: moe8_router_hilo<5><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
-    case 6: moe8_router_hilo<6><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
-    case 7: moe8_router_hilo<7><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
-    case 8: moe8_router_hilo<8><<<grid, block, 0, stream>>>(x, w_hi, w_lo, out, ws); break;
+    case 1: EG_LAUNCH(moe8_router_hilo<1>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
+    case 2: EG_LAUNCH(moe8_router_hilo<2>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
+    case 3: EG_LAUNCH(moe8_router_hilo<3>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
+    case 4: EG_LAUNCH(moe8_router_hilo<4>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
+    case 5: EG_LAUNCH(moe8_router_hilo<5>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
+    case 6: EG_LAUNCH(moe8_router_hilo<6>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
+    case 7: EG_LAUNCH(moe8_router_hilo<7>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
+    case 8: EG_LAUNCH(moe8_router_hilo<8>, grid, block, 0, stream, x, w_hi, w_lo, out, ws); break;
     }
 }

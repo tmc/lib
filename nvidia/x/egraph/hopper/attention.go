@@ -395,7 +395,7 @@ func (a PagedAttention) Launcher() (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "inline void %s_launch(int batch, int max_keys, %s, cudaStream_t stream) {\n", a.Name, strings.Join(params, ", "))
 	fmt.Fprintf(&b, "    const dim3 grid((max_keys + %d) / %d, %d, batch), block(128);\n", a.Chunk-1, a.Chunk, a.Hkv)
-	fmt.Fprintf(&b, "    if (grid.x > 0 && batch > 0) %s<<<grid, block, 0, stream>>>(%s);\n}\n", a.Name, strings.Join(names, ", "))
+	fmt.Fprintf(&b, "    if (grid.x > 0 && batch > 0) EG_LAUNCH(%s, grid, block, 0, stream, %s);\n}\n", a.Name, strings.Join(names, ", "))
 	return b.String(), nil
 }
 

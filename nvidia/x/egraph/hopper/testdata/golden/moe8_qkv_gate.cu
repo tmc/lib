@@ -15,6 +15,13 @@ typedef unsigned long long uint64_t;
 
 #define EG_DEV static __device__ __forceinline__
 
+// EG_LAUNCH launches kernel; host launchers use it so the emulator can run them.
+#if defined(EG_HOST_EMU)
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) eg_emu_launch(grid, block, smem, kernel, __VA_ARGS__)
+#else
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) kernel<<<grid, block, smem, stream>>>(__VA_ARGS__)
+#endif
+
 struct alignas(16) eg_u32x4 { uint32_t x, y, z, w; };
 
 EG_DEV float eg_bf16_to_f32(uint32_t b) { return __uint_as_float((b & 0xffffu) << 16); }
@@ -378,13 +385,13 @@ __global__ void __launch_bounds__(256) moe8_qkv_gate(
 inline void moe8_qkv_gate_launch(int m, const uint16_t* __restrict__ x, const uint16_t* __restrict__ w, uint16_t* __restrict__ out, cudaStream_t stream) {
     const dim3 grid(576, 1), block(256);
     switch (m) {
-    case 1: moe8_qkv_gate<1><<<grid, block, 0, stream>>>(x, w, out); break;
-    case 2: moe8_qkv_gate<2><<<grid, block, 0, stream>>>(x, w, out); break;
-    case 3: moe8_qkv_gate<3><<<grid, block, 0, stream>>>(x, w, out); break;
-    case 4: moe8_qkv_gate<4><<<grid, block, 0, stream>>>(x, w, out); break;
-    case 5: moe8_qkv_gate<5><<<grid, block, 0, stream>>>(x, w, out); break;
-    case 6: moe8_qkv_gate<6><<<grid, block, 0, stream>>>(x, w, out); break;
-    case 7: moe8_qkv_gate<7><<<grid, block, 0, stream>>>(x, w, out); break;
-    case 8: moe8_qkv_gate<8><<<grid, block, 0, stream>>>(x, w, out); break;
+    case 1: EG_LAUNCH(moe8_qkv_gate<1>, grid, block, 0, stream, x, w, out); break;
+    case 2: EG_LAUNCH(moe8_qkv_gate<2>, grid, block, 0, stream, x, w, out); break;
+    case 3: EG_LAUNCH(moe8_qkv_gate<3>, grid, block, 0, stream, x, w, out); break;
+    case 4: EG_LAUNCH(moe8_qkv_gate<4>, grid, block, 0, stream, x, w, out); break;
+    case 5: EG_LAUNCH(moe8_qkv_gate<5>, grid, block, 0, stream, x, w, out); break;
+    case 6: EG_LAUNCH(moe8_qkv_gate<6>, grid, block, 0, stream, x, w, out); break;
+    case 7: EG_LAUNCH(moe8_qkv_gate<7>, grid, block, 0, stream, x, w, out); break;
+    case 8: EG_LAUNCH(moe8_qkv_gate<8>, grid, block, 0, stream, x, w, out); break;
     }
 }

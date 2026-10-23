@@ -15,6 +15,13 @@ typedef unsigned long long uint64_t;
 
 #define EG_DEV static __device__ __forceinline__
 
+// EG_LAUNCH launches kernel; host launchers use it so the emulator can run them.
+#if defined(EG_HOST_EMU)
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) eg_emu_launch(grid, block, smem, kernel, __VA_ARGS__)
+#else
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) kernel<<<grid, block, smem, stream>>>(__VA_ARGS__)
+#endif
+
 struct alignas(16) eg_u32x4 { uint32_t x, y, z, w; };
 
 EG_DEV float eg_bf16_to_f32(uint32_t b) { return __uint_as_float((b & 0xffffu) << 16); }
@@ -301,7 +308,7 @@ EG_DEV float eg_sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 EG_DEV float eg_silu(float x) { return x / (1.0f + expf(-x)); }
 #endif // EG_PRELUDE
 
-// moe8_moe_w13: out = $0 over x[M, 8192] · W[8192, 8192]ᵀ (nvfp4), 128x128 tiles, 3 stages.
+// moe8_moe_w13: out = $0 over x[M, 4096] · W[8192, 4096]ᵀ (nvfp4), 128x128 tiles, 3 stages.
 __global__ void __launch_bounds__(256) moe8_moe_w13(
     int m_total,
     const uint16_t* __restrict__ x,
@@ -311,7 +318,7 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
     const float* __restrict__ w_gs,
     const int32_t* __restrict__ offsets,
     uint16_t* __restrict__ out) {
-    constexpr int N = 8192, K = 8192, BM = 128, BN = 128, BK = 64, STAGES = 3, LD = 72;
+    constexpr int N = 8192, K = 4096, BM = 128, BN = 128, BK = 64, STAGES = 3, LD = 72;
     constexpr int WM = BM / 2, WN = BN / 4, MT = WM / 16, NT = WN / 8, KT = K / BK;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, wm = warp / 4, wn = warp % 4;
     const int e = blockIdx.z, row0 = offsets[e], row1 = offsets[e + 1];
@@ -389,5 +396,5 @@ inline void moe8_moe_w13_launch(int m, int max_rows, int experts, const uint16_t
     static const cudaError_t attr = cudaFuncSetAttribute(moe8_moe_w13, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
     (void)attr;
     const dim3 grid(64, (max_rows + 127) / 128, experts), block(256);
-    if (grid.y > 0 && grid.z > 0) moe8_moe_w13<<<grid, block, smem, stream>>>(m, x, rows, w, w_sf, w_gs, offsets, out);
+    if (grid.y > 0 && grid.z > 0) EG_LAUNCH(moe8_moe_w13, grid, block, smem, stream, m, x, rows, w, w_sf, w_gs, offsets, out);
 }

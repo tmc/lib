@@ -15,6 +15,13 @@ typedef unsigned long long uint64_t;
 
 #define EG_DEV static __device__ __forceinline__
 
+// EG_LAUNCH launches kernel; host launchers use it so the emulator can run them.
+#if defined(EG_HOST_EMU)
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) eg_emu_launch(grid, block, smem, kernel, __VA_ARGS__)
+#else
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) kernel<<<grid, block, smem, stream>>>(__VA_ARGS__)
+#endif
+
 struct alignas(16) eg_u32x4 { uint32_t x, y, z, w; };
 
 EG_DEV float eg_bf16_to_f32(uint32_t b) { return __uint_as_float((b & 0xffffu) << 16); }
@@ -529,5 +536,5 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
 
 inline void moe8_attn_sliding_launch(int batch, int max_keys, const uint8_t* __restrict__ q, const uint8_t* __restrict__ k_cache, const uint8_t* __restrict__ v_cache, const int32_t* __restrict__ page_table, int max_pages, const int32_t* __restrict__ seqlens, const float* __restrict__ k_scale, const float* __restrict__ v_scale, float* __restrict__ out, unsigned char* __restrict__ ws, cudaStream_t stream) {
     const dim3 grid((max_keys + 255) / 256, 2, batch), block(128);
-    if (grid.x > 0 && batch > 0) moe8_attn_sliding<<<grid, block, 0, stream>>>(q, k_cache, v_cache, page_table, max_pages, seqlens, k_scale, v_scale, out, ws);
+    if (grid.x > 0 && batch > 0) EG_LAUNCH(moe8_attn_sliding, grid, block, 0, stream, q, k_cache, v_cache, page_table, max_pages, seqlens, k_scale, v_scale, out, ws);
 }

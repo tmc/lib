@@ -210,6 +210,11 @@ inline void eg_emu_mma_bf16_16816(float d[4], const uint32_t a[4], const uint32_
 
 inline unsigned char* eg_emu_dynamic_smem() { return eg_emu_cur_block->smem.data(); }
 
+typedef struct eg_emu_stream* cudaStream_t;
+typedef int cudaError_t;
+enum cudaFuncAttribute { cudaFuncAttributeMaxDynamicSharedMemorySize = 8 };
+template <typename K> cudaError_t cudaFuncSetAttribute(K, cudaFuncAttribute, int) { return 0; }
+
 template <typename K, typename... Args>
 void eg_emu_launch(dim3 grid, dim3 block, size_t smem, K kernel, Args... args) {
     gridDim = grid;

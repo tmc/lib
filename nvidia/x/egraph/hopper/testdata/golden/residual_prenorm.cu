@@ -15,6 +15,13 @@ typedef unsigned long long uint64_t;
 
 #define EG_DEV static __device__ __forceinline__
 
+// EG_LAUNCH launches kernel; host launchers use it so the emulator can run them.
+#if defined(EG_HOST_EMU)
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) eg_emu_launch(grid, block, smem, kernel, __VA_ARGS__)
+#else
+#define EG_LAUNCH(kernel, grid, block, smem, stream, ...) kernel<<<grid, block, smem, stream>>>(__VA_ARGS__)
+#endif
+
 struct alignas(16) eg_u32x4 { uint32_t x, y, z, w; };
 
 EG_DEV float eg_bf16_to_f32(uint32_t b) { return __uint_as_float((b & 0xffffu) << 16); }
@@ -368,5 +375,5 @@ __global__ void __launch_bounds__(256) residual_prenorm(
 
 inline void residual_prenorm_launch(int rows, const float* __restrict__ resid, const uint16_t* __restrict__ a, const uint16_t* __restrict__ gate, const uint16_t* __restrict__ pre, float* __restrict__ stream1, uint16_t* __restrict__ hidden, cudaStream_t stream) {
     const dim3 grid(rows), block(256);
-    if (grid.x > 0) residual_prenorm<<<grid, block, 0, stream>>>(rows, resid, a, gate, pre, stream1, hidden);
+    if (grid.x > 0) EG_LAUNCH(residual_prenorm, grid, block, 0, stream, rows, resid, a, gate, pre, stream1, hidden);
 }

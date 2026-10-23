@@ -410,7 +410,7 @@ func (g SkinnyGEMM) Launcher() (string, error) {
 	fmt.Fprintf(&b, "inline void %s_launch(int m, %s, cudaStream_t stream) {\n", g.Name, strings.Join(params, ", "))
 	fmt.Fprintf(&b, "    const dim3 grid(%d, %d), block(%d);\n    switch (m) {\n", grid[0], grid[1], block[0])
 	for m := 1; m <= g.MaxM; m++ {
-		fmt.Fprintf(&b, "    case %d: %s<%d><<<grid, block, 0, stream>>>(%s); break;\n", m, g.Name, m, strings.Join(names, ", "))
+		fmt.Fprintf(&b, "    case %d: EG_LAUNCH(%s<%d>, grid, block, 0, stream, %s); break;\n", m, g.Name, m, strings.Join(names, ", "))
 	}
 	b.WriteString("    }\n}\n")
 	return b.String(), nil
