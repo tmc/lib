@@ -31,6 +31,13 @@
 //
 // -max-registers and -no-spill turn the report into a gate: the command
 // exits with status 1 if any entry function exceeds the limit or spills.
+// -count N and -want-entries are gates on the set of entry functions, per
+// file and architecture: -count fails unless there are exactly N, and
+// -want-entries fails if any wanted name matches no entry. A wanted name is
+// a comma-separated list or a file of names, one per line, with blank lines
+// and # comments ignored; each matches an entry whose mangled name equals
+// it or matches it as an anchored regular expression. They catch a
+// kernel that silently failed to instantiate.
 //
 // The command compiles only; it never loads a module or touches a device.
 package main
@@ -85,6 +92,8 @@ type config struct {
 	work            string
 	maxRegisters    int
 	noSpill         bool
+	count           int
+	wantEntries     []string
 	timeout         time.Duration
 }
 
@@ -133,6 +142,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&c.work, "work", "", "work `directory`; must be visible to the compiling host")
 	fs.IntVar(&c.maxRegisters, "max-registers", 0, "fail if an entry function uses more registers")
 	fs.BoolVar(&c.noSpill, "no-spill", false, "fail if a function spills")
+	fs.IntVar(&c.count, "count", -1, "fail unless each architecture has exactly `N` entry functions")
+	var wantEntries string
+	fs.StringVar(&wantEntries, "want-entries", "", "fail if an entry `name` is missing: a comma-separated list or a file, one per line; exact or regexp")
 	fs.DurationVar(&c.timeout, "timeout", 5*time.Minute, "limit for each tool run")
 	asJSON := fs.Bool("json", false, "print JSON")
 	fs.Usage = func() {
@@ -164,6 +176,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if keep != "" {
 		c.keep = strings.Split(keep, ",")
+	}
+	if wantEntries != "" {
+		var err error
+		if c.wantEntries, err = parseWantEntries(wantEntries); err != nil {
+			return err
+		}
 	}
 
 	srcs := make([]string, fs.NArg())
@@ -337,7 +355,69 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	if len(rep.Functions) == 0 {
 		return nil, fmt.Errorf("nvcc reported no functions; is -Xptxas -v output reaching stderr?\n%s", output)
 	}
+	rep.Failures = append(rep.Failures, entryFailures(c, info)...)
 	return rep, nil
+}
+
+// parseWantEntries reads -want-entries: the name of an existing file of
+// names, or a comma-separated list. Every name must compile as a regexp.
+func parseWantEntries(v string) ([]string, error) {
+	var names []string
+	if data, err := os.ReadFile(v); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
+				names = append(names, line)
+			}
+		}
+	} else {
+		for _, n := range strings.Split(v, ",") {
+			if n = strings.TrimSpace(n); n != "" {
+				names = append(names, n)
+			}
+		}
+	}
+	if len(names) == 0 {
+		return nil, fmt.Errorf("-want-entries %q names no entries", v)
+	}
+	for _, n := range names {
+		if _, err := regexp.Compile("^(?:" + n + ")$"); err != nil {
+			return nil, fmt.Errorf("-want-entries: %w", err)
+		}
+	}
+	return names, nil
+}
+
+// entryFailures applies -count and -want-entries to each architecture.
+func entryFailures(c *config, info *ptxasinfo.Report) []string {
+	if c.count < 0 && len(c.wantEntries) == 0 {
+		return nil
+	}
+	var failures []string
+	for _, a := range c.archs {
+		var entries []string
+		for _, f := range info.Functions() {
+			if f.Entry && f.Arch == a {
+				entries = append(entries, f.Name)
+			}
+		}
+		if c.count >= 0 && len(entries) != c.count {
+			failures = append(failures, fmt.Sprintf("%s: %d entry functions, want %d", a, len(entries), c.count))
+		}
+		for _, w := range c.wantEntries {
+			re := regexp.MustCompile("^(?:" + w + ")$")
+			found := false
+			for _, e := range entries {
+				if e == w || re.MatchString(e) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				failures = append(failures, fmt.Sprintf("%s: no entry function matches %q", a, w))
+			}
+		}
+	}
+	return failures
 }
 
 func runTool(ctx context.Context, timeout time.Duration, argv []string) ([]byte, error) {

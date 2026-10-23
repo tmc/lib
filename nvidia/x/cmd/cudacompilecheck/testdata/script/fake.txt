@@ -24,6 +24,21 @@ stderr 'gate failed'
 stdout 'FAIL: sm_90a _Z5scaleILi128EEvPfPKfi: 32 registers > 24'
 exec cudacompilecheck -nvcc $WORK/nvcc -max-registers 32 k.cu
 
+# Entry gates: the fixture has two entry functions and one device function.
+exec cudacompilecheck -nvcc $WORK/nvcc -count 2 -want-entries '_Z5spillPfPKf,_Z5scale.*' k.cu
+! stdout FAIL
+! exec cudacompilecheck -nvcc $WORK/nvcc -count 3 k.cu
+stdout 'FAIL: sm_90a: 2 entry functions, want 3'
+stderr 'gate failed'
+
+# A missing kernel fails, named; device functions are not entries.
+! exec cudacompilecheck -nvcc $WORK/nvcc -want-entries want.txt k.cu
+stdout 'FAIL: sm_90a: no entry function matches "_Z6missingv"'
+stdout 'FAIL: sm_90a: no entry function matches "_Z6helperfi"'
+! stdout 'matches "_Z5spill'
+! exec cudacompilecheck -nvcc $WORK/nvcc -want-entries '(' k.cu
+stderr 'want-entries: error parsing regexp'
+
 # PTX census, counted per function from nvcc -ptx output.
 exec cudacompilecheck -nvcc $WORK/nvcc -ptx -top 2 k.cu
 stdout '^  PTX sm_90a _Z5scaleILi128EEvPfPKfi: 32 instructions, 0 local loads, 0 local stores: mov.u32=4 add.s32=3$'
@@ -42,6 +57,13 @@ stderr 'error: boom'
 ! exec cudacompilecheck -arch sm90 k.cu
 stderr 'bad architecture "sm90"'
 
+-- want.txt --
+# kernels the generator emits
+_Z5spillPfPKf
+_Z5scaleILi128EEvPfPKfi
+
+_Z6missingv
+_Z6helperfi
 -- k.cu --
 template <int N> __global__ void scale(float* y) {}
 inline void launch_scale(float* y) { scale<128><<<1, 128>>>(y); }
