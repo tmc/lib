@@ -210,6 +210,90 @@ EG_DEV void eg_pdl_launch_dependents() {
 #define EG_DYNAMIC_SMEM(T, name) extern __shared__ __align__(16) unsigned char eg_smem_raw[]; T* name = reinterpret_cast<T*>(eg_smem_raw)
 #endif
 
+struct alignas(8) eg_u32x2 { uint32_t x, y; };
+
+// eg_load converts V contiguous elements at p (aligned to their width) to FP32.
+template <int V> EG_DEV void eg_load(const float* p, float* o) {
+    if constexpr (V % 4 == 0) {
+#pragma unroll
+        for (int i = 0; i < V; i += 4) {
+            const eg_u32x4 u = *reinterpret_cast<const eg_u32x4*>(p + i);
+            o[i] = __uint_as_float(u.x); o[i + 1] = __uint_as_float(u.y);
+            o[i + 2] = __uint_as_float(u.z); o[i + 3] = __uint_as_float(u.w);
+        }
+    } else {
+#pragma unroll
+        for (int i = 0; i < V; i += 2) {
+            const eg_u32x2 u = *reinterpret_cast<const eg_u32x2*>(p + i);
+            o[i] = __uint_as_float(u.x); o[i + 1] = __uint_as_float(u.y);
+        }
+    }
+}
+
+template <int V> EG_DEV void eg_load(const uint16_t* p, float* o) {
+    uint32_t w[V / 2];
+    if constexpr (V % 8 == 0) {
+#pragma unroll
+        for (int i = 0; i < V / 2; i += 4) {
+            const eg_u32x4 u = *reinterpret_cast<const eg_u32x4*>(p + 2 * i);
+            w[i] = u.x; w[i + 1] = u.y; w[i + 2] = u.z; w[i + 3] = u.w;
+        }
+    } else {
+#pragma unroll
+        for (int i = 0; i < V / 2; ++i) w[i] = reinterpret_cast<const uint32_t*>(p)[i];
+    }
+#pragma unroll
+    for (int i = 0; i < V / 2; ++i) { o[2 * i] = eg_bf16_to_f32(w[i]); o[2 * i + 1] = eg_bf16_hi_to_f32(w[i]); }
+}
+
+template <int V> EG_DEV void eg_load(const uint8_t* p, float* o) {
+#pragma unroll
+    for (int i = 0; i < V; i += 2) {
+        const uint32_t u = reinterpret_cast<const uint16_t*>(p)[i / 2];
+        o[i] = eg_e4m3_to_f32(u & 0xffu); o[i + 1] = eg_e4m3_to_f32(u >> 8);
+    }
+}
+
+// eg_store rounds V FP32 values to the element type at p.
+template <int V> EG_DEV void eg_store(float* p, const float* v) {
+    if constexpr (V % 4 == 0) {
+#pragma unroll
+        for (int i = 0; i < V; i += 4)
+            *reinterpret_cast<eg_u32x4*>(p + i) = eg_u32x4{__float_as_uint(v[i]), __float_as_uint(v[i + 1]), __float_as_uint(v[i + 2]), __float_as_uint(v[i + 3])};
+    } else {
+#pragma unroll
+        for (int i = 0; i < V; i += 2) *reinterpret_cast<eg_u32x2*>(p + i) = eg_u32x2{__float_as_uint(v[i]), __float_as_uint(v[i + 1])};
+    }
+}
+
+template <int V> EG_DEV void eg_store(uint16_t* p, const float* v) {
+    if constexpr (V % 8 == 0) {
+#pragma unroll
+        for (int i = 0; i < V; i += 8)
+            *reinterpret_cast<eg_u32x4*>(p + i) = eg_u32x4{eg_pack_bf16x2(v[i], v[i + 1]), eg_pack_bf16x2(v[i + 2], v[i + 3]),
+                                                           eg_pack_bf16x2(v[i + 4], v[i + 5]), eg_pack_bf16x2(v[i + 6], v[i + 7])};
+    } else {
+#pragma unroll
+        for (int i = 0; i < V; i += 2) reinterpret_cast<uint32_t*>(p)[i / 2] = eg_pack_bf16x2(v[i], v[i + 1]);
+    }
+}
+
+template <int V> EG_DEV void eg_store(uint8_t* p, const float* v) {
+#pragma unroll
+    for (int i = 0; i < V; i += 2) reinterpret_cast<uint16_t*>(p)[i / 2] = eg_f32x2_to_e4m3x2(v[i], v[i + 1]);
+}
+
+// eg_block_combine combines one warp-reduced value per warp (OP 0: sum,
+// 1: max) in warp order; every thread gets the result. red holds 32 floats.
+template <int OP> EG_DEV float eg_block_combine(float v, float* red) {
+    if ((threadIdx.x & 31) == 0) red[threadIdx.x >> 5] = v;
+    __syncthreads();
+    float s = red[0];
+    for (int i = 1; i < (int)(blockDim.x >> 5); ++i) s = OP ? fmaxf(s, red[i]) : s + red[i];
+    __syncthreads();
+    return s;
+}
+
 EG_DEV float eg_sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 EG_DEV float eg_silu(float x) { return x / (1.0f + expf(-x)); }
 #endif // EG_PRELUDE
