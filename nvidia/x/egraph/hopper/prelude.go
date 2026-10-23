@@ -135,9 +135,7 @@ EG_DEV float eg_ld_cg(const float* p) {
 #if defined(EG_HOST_EMU)
     return *(volatile const float*)p;
 #else
-    float r;
-    asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(r) : "l"(p));
-    return r;
+    return __ldcg(p);
 #endif
 }
 

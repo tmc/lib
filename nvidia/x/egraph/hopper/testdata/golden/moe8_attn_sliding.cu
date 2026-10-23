@@ -128,9 +128,7 @@ EG_DEV float eg_ld_cg(const float* p) {
 #if defined(EG_HOST_EMU)
     return *(volatile const float*)p;
 #else
-    float r;
-    asm volatile("ld.global.cg.f32 %0, [%1];" : "=f"(r) : "l"(p));
-    return r;
+    return __ldcg(p);
 #endif
 }
 
@@ -364,7 +362,7 @@ EG_DEV float eg_sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 EG_DEV float eg_silu(float x) { return x / (1.0f + expf(-x)); }
 #endif // EG_PRELUDE
 
-// moe8_attn_sliding: paged FP8 GQA attention, 16/2 heads, 1 query tokens, window 2048, page 1, 256-key splits.
+// moe8_attn_sliding: paged FP8 GQA attention, 16/2 heads, 1 query tokens, window 2048, page 1, 256-key splits, depth 1.
 __global__ void __launch_bounds__(128) moe8_attn_sliding(
     const uint8_t* __restrict__ q,
     const uint8_t* __restrict__ k_cache,
@@ -378,7 +376,8 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     float* __restrict__ out,
     unsigned char* __restrict__ ws) {
     constexpr int HQ = 16, HKV = 2, G = 8, L = 1, ROWS = 8, MROWS = 16, MT = 1, KW = 4;
-    constexpr int WINDOW = 2048, PAGE = 1, CHUNK = 256, LD = 72, PIECES = KW * 64, NP = (PIECES + 127) / 128;
+    constexpr int WINDOW = 2048, PAGE = 1, CHUNK = 256, DEPTH = 1, STEP = 16 * KW * DEPTH, LD = 72;
+    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = 16;
     const float scale = 0.6841258f * k_scale[0] * 1.4426950408889634f; // log2 domain
     const int split = blockIdx.x, kvh = blockIdx.y, b = blockIdx.z;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
@@ -392,8 +391,8 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
 
     constexpr int LD8 = 40;
     alignas(16) __shared__ uint16_t sq[MROWS * LD8];
-    alignas(16) __shared__ uint16_t sk[KW * 16 * LD8];
-    alignas(16) __shared__ uint16_t sv[KW * 16 * LD];
+    alignas(16) __shared__ uint16_t sk[STEP * LD8];
+    alignas(16) __shared__ uint16_t sv[STEP * LD];
     __shared__ float red_m[KW * MROWS], red_l[KW * MROWS];
     __shared__ float red_o[KW * MROWS * 64];
     __shared__ int last;
@@ -406,7 +405,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         *reinterpret_cast<eg_u32x4*>(&sq[r * LD8 + piece * 8]) = w;
     }
 
-    // Each thread moves NP 16-byte pieces (16 keys x 4 pieces per KW group).
+    // Each thread moves NP 16-byte pieces of K and of V (4 per key).
     eg_u32x4 kreg[NP], vreg[NP];
     auto fetch = [&](int kb) {
 #pragma unroll
@@ -449,7 +448,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     }
     float m[2] = {NEG_INF, NEG_INF}, l[2] = {0.0f, 0.0f}, o[8][4] = {};
 
-    for (int kb = c0; kb < c1; kb += 16 * KW) {
+    for (int kb = c0; kb < c1; kb += STEP) {
         __syncthreads();
 #pragma unroll
         for (int n = 0; n < NP; ++n) {
@@ -460,14 +459,16 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
             }
         }
         __syncthreads();
-        if (kb + 16 * KW < c1) fetch(kb + 16 * KW);
-        const int key0 = kb + kw * 16;
-        if (key0 >= c1) continue;
+        if (kb + STEP < c1) fetch(kb + STEP);
+#pragma unroll
+        for (int sub = 0; sub < DEPTH; ++sub) {
+        const int kt0 = (kw * DEPTH + sub) * 16, key0 = kb + kt0;
+        if (key0 >= c1) break;
         float s[2][4] = {};
 #pragma unroll
         for (int ks = 0; ks < 2; ++ks) {
             uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
             eg_mma_e4m3(s[1], qa[ks], &kf[2], s[1]);
         }
@@ -505,9 +506,10 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
 #pragma unroll
         for (int nd = 0; nd < 4; ++nd) {
             uint32_t vf[4];
-            eg_ldmatrix_x4_trans(vf, &sv[(kw * 16 + lane % 8 + 8 * ((lane / 8) % 2)) * LD + nd * 16 + 8 * (lane / 16)]);
+            eg_ldmatrix_x4_trans(vf, &sv[(kt0 + lane % 8 + 8 * ((lane / 8) % 2)) * LD + nd * 16 + 8 * (lane / 16)]);
             eg_mma_bf16(o[2 * nd], pa, &vf[0], o[2 * nd]);
             eg_mma_bf16(o[2 * nd + 1], pa, &vf[2], o[2 * nd + 1]);
+        }
         }
     }
 
@@ -526,9 +528,13 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     }
     __syncthreads();
     const float vs = v_scale[0];
-    unsigned char* const counters = ws;
-    float* const parts = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKV);
-    float* const mine = parts + (((size_t)b * HKV + kvh) * gridDim.x + split) * ROWS * 66;
+    // Per (request, KV head): 1 + NG counters, then gridDim.x chunk partials
+    // and NG group partials of ROWS x (max, sum, 64 outputs).
+    const int NG = (gridDim.x + GROUP - 1) / GROUP;
+    int* const cnt = reinterpret_cast<int*>(ws) + ((size_t)b * HKV + kvh) * (1 + NG);
+    float* const all = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKV * (1 + NG)) +
+                       ((size_t)b * HKV + kvh) * (gridDim.x + NG) * ROWS * 66;
+    float* const mine = all + (size_t)split * ROWS * 66;
     for (int i = tid; i < ROWS * 64 && nsplit > 1; i += 128) {
         const int r = i / 64, d = i % 64;
         float mx = NEG_INF;
@@ -565,28 +571,74 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
             fin[r * 64 + d] = acc / sum * vs;
         }
     } else {
+        // merge combines n partials at src in chunk order: into fin (scaled
+        // by vs) when final, else into the partial at dst. One thread per row
+        // finds the row's max and weight sum in one online pass (red_m,
+        // red_l); then each thread accumulates its OUTS outputs, with the
+        // loads of several partials in flight.
+        constexpr int OUTS = (ROWS * 64 + 127) / 128;
+        auto merge = [&](const float* src, int n, float* dst, bool final) {
+            for (int r = tid; r < ROWS; r += 128) {
+                float mx = NEG_INF, sum = 0.0f;
+#pragma unroll 8
+                for (int s = 0; s < n; ++s) {
+                    const float* p = src + (size_t)s * ROWS * 66 + r * 66;
+                    const float m = eg_ld_cg(p), l = eg_ld_cg(p + 1), mnew = fmaxf(mx, m);
+                    if (mnew != NEG_INF) sum = sum * exp2f(mx - mnew) + l * exp2f(m - mnew);
+                    mx = mnew;
+                }
+                red_m[r] = mx;
+                red_l[r] = sum;
+            }
+            __syncthreads();
+            float base[OUTS], acc[OUTS];
+#pragma unroll
+            for (int k = 0; k < OUTS; ++k) {
+                const int i = min(tid + 128 * k, ROWS * 64 - 1);
+                base[k] = red_m[i / 64] == NEG_INF ? 0.0f : red_m[i / 64];
+                acc[k] = 0.0f;
+            }
+#pragma unroll 4
+            for (int s = 0; s < n; ++s) {
+#pragma unroll
+                for (int k = 0; k < OUTS; ++k) {
+                    const int i = min(tid + 128 * k, ROWS * 64 - 1);
+                    const float* p = src + (size_t)s * ROWS * 66 + (i / 64) * 66;
+                    acc[k] += exp2f(eg_ld_cg(p) - base[k]) * eg_ld_cg(p + 2 + i % 64);
+                }
+            }
+#pragma unroll
+            for (int k = 0; k < OUTS; ++k) {
+                const int i = tid + 128 * k;
+                if (i >= ROWS * 64) break;
+                if (final) fin[i] = acc[k] / red_l[i / 64] * vs;
+                else dst[(i / 64) * 66 + 2 + i % 64] = acc[k];
+            }
+            for (int r = tid; r < ROWS && !final; r += 128) { dst[r * 66] = red_m[r]; dst[r * 66 + 1] = red_l[r]; }
+        };
+        const int ng = (nsplit + GROUP - 1) / GROUP, grp = split / GROUP;
+        const int gn = min(GROUP, nsplit - grp * GROUP);
         __threadfence();
         __syncthreads();
-        int* const counter = reinterpret_cast<int*>(counters) + b * HKV + kvh;
-        if (tid == 0) last = atomicAdd(counter, 1) == nsplit - 1;
+        if (tid == 0) last = atomicAdd(cnt + 1 + grp, 1) == gn - 1;
         __syncthreads();
         if (!last) return;
         __threadfence();
-        const float* const all = parts + ((size_t)b * HKV + kvh) * gridDim.x * ROWS * 66;
-        for (int i = tid; i < ROWS * 64; i += 128) {
-            const int r = i / 64, d = i % 64;
-            float mx = NEG_INF;
-            for (int s = 0; s < nsplit; ++s) mx = fmaxf(mx, eg_ld_cg(all + (size_t)s * ROWS * 66 + r * 66));
-            float sum = 0.0f, acc = 0.0f;
-            for (int s = 0; s < nsplit; ++s) {
-                const float* p = all + (size_t)s * ROWS * 66 + r * 66;
-                const float w = exp2f(eg_ld_cg(p) - mx);
-                sum += w * eg_ld_cg(p + 1);
-                acc += w * eg_ld_cg(p + 2 + d);
-            }
-            fin[r * 64 + d] = acc / sum * vs;
+        if (tid == 0) cnt[1 + grp] = 0;
+        float* const groups = all + (size_t)gridDim.x * ROWS * 66;
+        if (ng == 1) {
+            merge(all, nsplit, nullptr, true);
+        } else {
+            merge(all + (size_t)grp * GROUP * ROWS * 66, gn, groups + (size_t)grp * ROWS * 66, false);
+            __threadfence();
+            __syncthreads();
+            if (tid == 0) last = atomicAdd(cnt, 1) == ng - 1;
+            __syncthreads();
+            if (!last) return;
+            __threadfence();
+            if (tid == 0) cnt[0] = 0;
+            merge(groups, ng, nullptr, true);
         }
-        if (tid == 0) *counter = 0;
     }
     __syncthreads();
     constexpr int GATE_STRIDE = 2304, GATE_OFFSET = 1280;

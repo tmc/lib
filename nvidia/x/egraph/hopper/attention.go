@@ -26,9 +26,12 @@ const HeadDim = 64
 // Q·Kᵀ and P·V with mma.sync m16n8k16 BF16 tensor-core tiles (FP8 and
 // FP32 inputs convert to BF16 exactly; P rounds to BF16) and an online
 // softmax in FP32. When a request needs more than one chunk, each block
-// stores its (max, sum, output) partial in a workspace and the last block
-// to finish combines them in chunk order, so results do not depend on
-// scheduling.
+// stores its (max, sum, output) partial in a workspace. The chunks form
+// groups of 16; the last block to finish in a group merges the group's
+// partials, and with more than one group the last group to finish merges the
+// group results. Every merge runs in chunk order, so results do not depend on
+// scheduling, and at most ceil(chunks/16) blocks per (request, KV head) read
+// 16 partials each, plus one that reads the group results.
 type PagedAttention struct {
 	Name    string
 	Hq, Hkv int
@@ -40,6 +43,12 @@ type PagedAttention struct {
 	QScale  float32 // 0 means 1
 	SMScale float32 // 0 means 1/8
 	Chunk   int     // keys per block, a multiple of 64; 0 means 256
+
+	// Depth is the number of 16-key tiles each warp loads per step: 1 (the
+	// default for 0) or 2. A step's K and V loads are issued a step ahead,
+	// so Depth 2 doubles the bytes each thread has in flight (8 16-byte
+	// loads instead of 4) and the K/V shared memory.
+	Depth int
 
 	// QKFP8 computes Q·Kᵀ with mma.sync m16n8k32 E4M3 tiles on the stored
 	// bytes (Q must be E4M3), skipping the widening of K to BF16. Products
@@ -60,6 +69,9 @@ type PagedAttention struct {
 type attnGeom struct {
 	G, rows, mrows, mt, kw int
 }
+
+// attnGroup is the number of chunk partials one block merges.
+const attnGroup = 16
 
 func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	var g attnGeom
@@ -101,6 +113,12 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	if a.Chunk%64 != 0 {
 		return a, g, fmt.Errorf("paged attention %s: chunk %d is not a multiple of 64", a.Name, a.Chunk)
 	}
+	if a.Depth == 0 {
+		a.Depth = 1
+	}
+	if a.Depth != 1 && a.Depth != 2 {
+		return a, g, fmt.Errorf("paged attention %s: depth %d, want 1 or 2", a.Name, a.Depth)
+	}
 	switch {
 	case g.rows <= 16:
 		g.mt = 1
@@ -110,7 +128,32 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 		g.mt = 4
 	}
 	g.mrows, g.kw = 16*g.mt, 4/g.mt
+	if n := a.SharedBytes(); n > 48<<10 {
+		return a, g, fmt.Errorf("paged attention %s: %d bytes of static shared memory, want at most 48 KiB", a.Name, n)
+	}
 	return a, g, nil
+}
+
+// SharedBytes returns the kernel's static shared memory in bytes, or 0 if a
+// is invalid.
+func (a PagedAttention) SharedBytes() int {
+	if a.Hkv < 1 || a.Hq%a.Hkv != 0 || a.QLen < 1 {
+		return 0
+	}
+	rows := a.Hq / a.Hkv * a.QLen
+	mt := 4
+	switch {
+	case rows <= 16:
+		mt = 1
+	case rows <= 32:
+		mt = 2
+	}
+	mrows, kw, depth := 16*mt, 4/mt, max(a.Depth, 1)
+	ld := 72 // BF16 row stride
+	if a.QKFP8 {
+		ld = 40 // E4M3 bytes as uint16
+	}
+	return 2*mrows*ld + 2*kw*16*depth*ld + 2*kw*16*depth*72 + 8*kw*mrows + 4*kw*mrows*HeadDim + 4
 }
 
 // Splits returns the number of key chunks for a request attending maxKeys
@@ -125,14 +168,17 @@ func (a PagedAttention) Splits(maxKeys int) int {
 }
 
 // WorkspaceBytes returns the workspace size for batch requests of at most
-// maxKeys keys: Hkv·batch int32 counters, then the partials. The counters
-// must be zero before the first launch; the kernel leaves them zero.
+// maxKeys keys: for each (request, KV head) 1 + ceil(splits/16) int32
+// counters, then the chunk and group partials. The counters must be zero
+// before the first launch; the kernel leaves them zero.
 func (a PagedAttention) WorkspaceBytes(batch, maxKeys int) int {
 	_, g, err := a.norm()
 	if err != nil {
 		return 0
 	}
-	return 4*batch*a.Hkv + 4*batch*a.Hkv*a.Splits(maxKeys)*g.rows*(2+HeadDim)
+	s := a.Splits(maxKeys)
+	ng := (s + attnGroup - 1) / attnGroup
+	return 4*batch*a.Hkv*(1+ng) + 4*batch*a.Hkv*(s+ng)*g.rows*(2+HeadDim)
 }
 
 func (a PagedAttention) params() []string {
@@ -167,13 +213,14 @@ func (a PagedAttention) CUDA() (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "// %s: paged FP8 GQA attention, %d/%d heads, %d query tokens, window %d, page %d, %d-key splits.\n",
-		a.Name, a.Hq, a.Hkv, a.QLen, a.Window, a.Page, a.Chunk)
+	fmt.Fprintf(&b, "// %s: paged FP8 GQA attention, %d/%d heads, %d query tokens, window %d, page %d, %d-key splits, depth %d.\n",
+		a.Name, a.Hq, a.Hkv, a.QLen, a.Window, a.Page, a.Chunk, a.Depth)
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(128) %s(\n    %s) {\n", a.Name, strings.Join(a.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int HQ = %d, HKV = %d, G = %d, L = %d, ROWS = %d, MROWS = %d, MT = %d, KW = %d;\n",
 		a.Hq, a.Hkv, g.G, a.QLen, g.rows, g.mrows, g.mt, g.kw)
-	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, CHUNK = %d, LD = 72, PIECES = KW * 64, NP = (PIECES + 127) / 128;\n",
-		a.Window, a.Page, a.Chunk)
+	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, CHUNK = %d, DEPTH = %d, STEP = 16 * KW * DEPTH, LD = 72;\n",
+		a.Window, a.Page, a.Chunk, a.Depth)
+	b.WriteString("    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = " + fmt.Sprint(attnGroup) + ";\n")
 	fmt.Fprintf(&b, "    const float scale = %s * k_scale[0] * 1.4426950408889634f; // log2 domain\n",
 		floatLiteral(a.QScale*a.SMScale))
 	body := attnBody
@@ -213,8 +260,8 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     const float NEG_INF = -__uint_as_float(0x7f800000u);
 
     alignas(16) __shared__ uint16_t sq[MROWS * LD];
-    alignas(16) __shared__ uint16_t sk[KW * 16 * LD];
-    alignas(16) __shared__ uint16_t sv[KW * 16 * LD];
+    alignas(16) __shared__ uint16_t sk[STEP * LD];
+    alignas(16) __shared__ uint16_t sv[STEP * LD];
     __shared__ float red_m[KW * MROWS], red_l[KW * MROWS];
     __shared__ float red_o[KW * MROWS * 64];
     __shared__ int last;
@@ -232,7 +279,7 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
         *reinterpret_cast<eg_u32x4*>(&sq[r * LD + d]) = w;
     }
 
-    // Each thread moves NP 16-byte pieces (16 keys x 4 pieces per KW group).
+    // Each thread moves NP 16-byte pieces of K and of V (4 per key).
     eg_u32x4 kreg[NP], vreg[NP];
     auto fetch = [&](int kb) {
 #pragma unroll
@@ -275,7 +322,7 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     }
     float m[2] = {NEG_INF, NEG_INF}, l[2] = {0.0f, 0.0f}, o[8][4] = {};
 
-    for (int kb = c0; kb < c1; kb += 16 * KW) {
+    for (int kb = c0; kb < c1; kb += STEP) {
         __syncthreads();
 #pragma unroll
         for (int n = 0; n < NP; ++n) {
@@ -286,14 +333,16 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
             }
         }
         __syncthreads();
-        if (kb + 16 * KW < c1) fetch(kb + 16 * KW);
-        const int key0 = kb + kw * 16;
-        if (key0 >= c1) continue;
+        if (kb + STEP < c1) fetch(kb + STEP);
+#pragma unroll
+        for (int sub = 0; sub < DEPTH; ++sub) {
+        const int kt0 = (kw * DEPTH + sub) * 16, key0 = kb + kt0;
+        if (key0 >= c1) break;
         float s[2][4] = {};
 #pragma unroll
         for (int ks = 0; ks < 4; ++ks) {
             uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_bf16(s[0], qa[ks], &kf[0], s[0]);
             eg_mma_bf16(s[1], qa[ks], &kf[2], s[1]);
         }
@@ -331,9 +380,10 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
 #pragma unroll
         for (int nd = 0; nd < 4; ++nd) {
             uint32_t vf[4];
-            eg_ldmatrix_x4_trans(vf, &sv[(kw * 16 + lane % 8 + 8 * ((lane / 8) % 2)) * LD + nd * 16 + 8 * (lane / 16)]);
+            eg_ldmatrix_x4_trans(vf, &sv[(kt0 + lane % 8 + 8 * ((lane / 8) % 2)) * LD + nd * 16 + 8 * (lane / 16)]);
             eg_mma_bf16(o[2 * nd], pa, &vf[0], o[2 * nd]);
             eg_mma_bf16(o[2 * nd + 1], pa, &vf[2], o[2 * nd + 1]);
+        }
         }
     }
 
@@ -352,9 +402,13 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     }
     __syncthreads();
     const float vs = v_scale[0];
-    unsigned char* const counters = ws;
-    float* const parts = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKV);
-    float* const mine = parts + (((size_t)b * HKV + kvh) * gridDim.x + split) * ROWS * 66;
+    // Per (request, KV head): 1 + NG counters, then gridDim.x chunk partials
+    // and NG group partials of ROWS x (max, sum, 64 outputs).
+    const int NG = (gridDim.x + GROUP - 1) / GROUP;
+    int* const cnt = reinterpret_cast<int*>(ws) + ((size_t)b * HKV + kvh) * (1 + NG);
+    float* const all = reinterpret_cast<float*>(ws + 4 * (size_t)gridDim.z * HKV * (1 + NG)) +
+                       ((size_t)b * HKV + kvh) * (gridDim.x + NG) * ROWS * 66;
+    float* const mine = all + (size_t)split * ROWS * 66;
     for (int i = tid; i < ROWS * 64 && nsplit > 1; i += 128) {
         const int r = i / 64, d = i % 64;
         float mx = NEG_INF;
@@ -373,15 +427,15 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     }
 `
 
-// attnCombine finishes: direct store for one split, else the last block
-// combines every split's partial in split order.
+// attnCombine finishes: direct store for one split, else the two-level
+// merge of the chunk partials.
 // attnFP8 rewrites attnBody to keep Q and K as E4M3 bytes (rows of 64
 // bytes padded to 80) and multiply them with m16n8k32 tiles. In the b16
 // view the k32 fragments have the k16 BF16 layout, so the ldmatrix
 // addressing is unchanged apart from the row stride and step count.
 var attnFP8 = [][2]string{
 	{"alignas(16) __shared__ uint16_t sq[MROWS * LD];", "constexpr int LD8 = 40;\n    alignas(16) __shared__ uint16_t sq[MROWS * LD8];"},
-	{"alignas(16) __shared__ uint16_t sk[KW * 16 * LD];", "alignas(16) __shared__ uint16_t sk[KW * 16 * LD8];"},
+	{"alignas(16) __shared__ uint16_t sk[STEP * LD];", "alignas(16) __shared__ uint16_t sk[STEP * LD8];"},
 	{`    // Query rows r = j*G + g (token j, head kvh*G + g) as BF16, padded with zeros.
     for (int i = tid; i < MROWS * 8; i += 128) {
         const int r = i / 8, d = (i % 8) * 8;
@@ -406,11 +460,11 @@ var attnFP8 = [][2]string{
 		"*reinterpret_cast<eg_u32x4*>(&sk[(piece / 4) * LD8 + (piece % 4) * 8]) = kreg[n];"},
 	{`        for (int ks = 0; ks < 4; ++ks) {
             uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_bf16(s[0], qa[ks], &kf[0], s[0]);
             eg_mma_bf16(s[1], qa[ks], &kf[2], s[1]);`, `        for (int ks = 0; ks < 2; ++ks) {
             uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
             eg_mma_e4m3(s[1], qa[ks], &kf[2], s[1]);`},
 }
@@ -434,28 +488,74 @@ const attnCombine = `    // The finished rows go to fin (the first KW slot of re
             fin[r * 64 + d] = acc / sum * vs;
         }
     } else {
+        // merge combines n partials at src in chunk order: into fin (scaled
+        // by vs) when final, else into the partial at dst. One thread per row
+        // finds the row's max and weight sum in one online pass (red_m,
+        // red_l); then each thread accumulates its OUTS outputs, with the
+        // loads of several partials in flight.
+        constexpr int OUTS = (ROWS * 64 + 127) / 128;
+        auto merge = [&](const float* src, int n, float* dst, bool final) {
+            for (int r = tid; r < ROWS; r += 128) {
+                float mx = NEG_INF, sum = 0.0f;
+#pragma unroll 8
+                for (int s = 0; s < n; ++s) {
+                    const float* p = src + (size_t)s * ROWS * 66 + r * 66;
+                    const float m = eg_ld_cg(p), l = eg_ld_cg(p + 1), mnew = fmaxf(mx, m);
+                    if (mnew != NEG_INF) sum = sum * exp2f(mx - mnew) + l * exp2f(m - mnew);
+                    mx = mnew;
+                }
+                red_m[r] = mx;
+                red_l[r] = sum;
+            }
+            __syncthreads();
+            float base[OUTS], acc[OUTS];
+#pragma unroll
+            for (int k = 0; k < OUTS; ++k) {
+                const int i = min(tid + 128 * k, ROWS * 64 - 1);
+                base[k] = red_m[i / 64] == NEG_INF ? 0.0f : red_m[i / 64];
+                acc[k] = 0.0f;
+            }
+#pragma unroll 4
+            for (int s = 0; s < n; ++s) {
+#pragma unroll
+                for (int k = 0; k < OUTS; ++k) {
+                    const int i = min(tid + 128 * k, ROWS * 64 - 1);
+                    const float* p = src + (size_t)s * ROWS * 66 + (i / 64) * 66;
+                    acc[k] += exp2f(eg_ld_cg(p) - base[k]) * eg_ld_cg(p + 2 + i % 64);
+                }
+            }
+#pragma unroll
+            for (int k = 0; k < OUTS; ++k) {
+                const int i = tid + 128 * k;
+                if (i >= ROWS * 64) break;
+                if (final) fin[i] = acc[k] / red_l[i / 64] * vs;
+                else dst[(i / 64) * 66 + 2 + i % 64] = acc[k];
+            }
+            for (int r = tid; r < ROWS && !final; r += 128) { dst[r * 66] = red_m[r]; dst[r * 66 + 1] = red_l[r]; }
+        };
+        const int ng = (nsplit + GROUP - 1) / GROUP, grp = split / GROUP;
+        const int gn = min(GROUP, nsplit - grp * GROUP);
         __threadfence();
         __syncthreads();
-        int* const counter = reinterpret_cast<int*>(counters) + b * HKV + kvh;
-        if (tid == 0) last = atomicAdd(counter, 1) == nsplit - 1;
+        if (tid == 0) last = atomicAdd(cnt + 1 + grp, 1) == gn - 1;
         __syncthreads();
         if (!last) return;
         __threadfence();
-        const float* const all = parts + ((size_t)b * HKV + kvh) * gridDim.x * ROWS * 66;
-        for (int i = tid; i < ROWS * 64; i += 128) {
-            const int r = i / 64, d = i % 64;
-            float mx = NEG_INF;
-            for (int s = 0; s < nsplit; ++s) mx = fmaxf(mx, eg_ld_cg(all + (size_t)s * ROWS * 66 + r * 66));
-            float sum = 0.0f, acc = 0.0f;
-            for (int s = 0; s < nsplit; ++s) {
-                const float* p = all + (size_t)s * ROWS * 66 + r * 66;
-                const float w = exp2f(eg_ld_cg(p) - mx);
-                sum += w * eg_ld_cg(p + 1);
-                acc += w * eg_ld_cg(p + 2 + d);
-            }
-            fin[r * 64 + d] = acc / sum * vs;
+        if (tid == 0) cnt[1 + grp] = 0;
+        float* const groups = all + (size_t)gridDim.x * ROWS * 66;
+        if (ng == 1) {
+            merge(all, nsplit, nullptr, true);
+        } else {
+            merge(all + (size_t)grp * GROUP * ROWS * 66, gn, groups + (size_t)grp * ROWS * 66, false);
+            __threadfence();
+            __syncthreads();
+            if (tid == 0) last = atomicAdd(cnt, 1) == ng - 1;
+            __syncthreads();
+            if (!last) return;
+            __threadfence();
+            if (tid == 0) cnt[0] = 0;
+            merge(groups, ng, nullptr, true);
         }
-        if (tid == 0) *counter = 0;
     }
     __syncthreads();
 `

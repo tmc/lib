@@ -107,6 +107,15 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{150, 20}, 150, 1},
 		{"gate_dp", PagedAttention{Name: "attn_gate_dp", Hq: 64, Hkv: 8, QLen: 8, Window: 30, Page: 1, Q: E4M3, Out: F32, Chunk: 64,
 			Gate: true, GateStride: 9216, GateOffset: 5120}, []int32{60}, 37, 1},
+		// 41, 17, 16 and 1 chunks: three groups with a short last one, two
+		// groups with a last group of one chunk, one full group, no split.
+		{"two_level", PagedAttention{Name: "attn_2l", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 64},
+			[]int32{2600, 1025, 1024, 37}, 2600, 1},
+		// 128-key steps over 192-key chunks: every other step is half empty.
+		{"fp8_depth2_two_level", PagedAttention{Name: "attn_fp8_d2", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			Chunk: 192, Depth: 2, QKFP8: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{4000, 200}, 4000, 1.0 / 64},
+		{"depth2_dp", PagedAttention{Name: "attn_d2_dp", Hq: 64, Hkv: 8, QLen: 8, Page: 1, Q: E4M3, Out: F32, Chunk: 128, Depth: 2},
+			[]int32{300, 70}, 300, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -128,7 +137,8 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			} else {
 				t.Logf("relative L2 error %.2e", e)
 			}
-			for i, b := range ws[:4*len(tt.seqlens)*tt.a.Hkv] {
+			ng := (tt.a.Splits(tt.maxKeys) + attnGroup - 1) / attnGroup
+			for i, b := range ws[:4*len(tt.seqlens)*tt.a.Hkv*(1+ng)] {
 				if b != 0 {
 					t.Fatalf("counter byte %d = %d after launch, want 0", i, b)
 				}
@@ -198,6 +208,8 @@ func TestPagedAttentionErrors(t *testing.T) {
 		{"q", func(a *PagedAttention) { a.Q = F32 }},
 		{"out", func(a *PagedAttention) { a.Out = E4M3 }},
 		{"chunk", func(a *PagedAttention) { a.Chunk = 100 }},
+		{"depth", func(a *PagedAttention) { a.Depth = 3 }},
+		{"shared", func(a *PagedAttention) { a.Depth = 2 }},
 		{"fp8_q", func(a *PagedAttention) { a.Q, a.QKFP8 = BF16, true }},
 	}
 	if _, err := ok.CUDA(); err != nil {
@@ -229,5 +241,5 @@ func ExamplePagedAttention() {
 	maxKeys := 2048
 	grid, block := a.Grid(32, maxKeys)
 	fmt.Println(grid, block, a.WorkspaceBytes(32, maxKeys))
-	// Output: [8 2 32] [128 1 1] 1081600
+	// Output: [8 2 32] [128 1 1] 1217024
 }

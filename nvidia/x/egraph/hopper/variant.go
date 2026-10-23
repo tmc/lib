@@ -19,6 +19,7 @@ type Launch struct {
 	Stages       int    `json:"stages,omitempty"`         // cp.async ring depth
 	SplitK       int    `json:"split_k,omitempty"`        // K splits (SkinnyGEMM)
 	SplitKV      int    `json:"split_kv,omitempty"`       // keys per split (PagedAttention)
+	KVDepth      int    `json:"kv_depth,omitempty"`       // 16-key tiles per warp per step (PagedAttention)
 	BM           int    `json:"bm,omitempty"`             // output tile rows (TileGEMM)
 	BN           int    `json:"bn,omitempty"`             // output tile columns (TileGEMM)
 	RowsPerBlock int    `json:"rows_per_block,omitempty"` // W rows per block (SkinnyGEMM)
@@ -71,6 +72,7 @@ func (l Launch) config() string {
 	add("stages", l.Stages)
 	add("split_k", l.SplitK)
 	add("split_kv", l.SplitKV)
+	add("kv_depth", l.KVDepth)
 	add("bm", l.BM)
 	add("bn", l.BN)
 	add("rows_per_block", l.RowsPerBlock)
@@ -160,7 +162,7 @@ func (a PagedAttention) Variant() (Variant, error) {
 	if a.Gate {
 		key += fmt.Sprintf("/gate=%d:%d:%s", a.GateStride, a.GateOffset, floatLiteral(a.GateEps))
 	}
-	l := Launch{Block: 128, Warps: 4, SplitKV: a.Chunk}
+	l := Launch{Block: 128, Warps: 4, SplitKV: a.Chunk, KVDepth: a.Depth}
 	return newVariant(a.Name, "paged_attention", key, l, append([]string{"int batch", "int max_keys"}, a.params()...), src), nil
 }
 
@@ -227,19 +229,33 @@ func SweepTileGEMM(base TileGEMM) ([]Variant, error) {
 	return vs, nil
 }
 
-// SweepPagedAttention returns base's variants over keys per split
-// {128, 256, 512, 1024}, named base.Name + "_kv<C>".
+// SweepPagedAttention returns base's valid variants over keys per split
+// {64, 128, 192, 256, 320, 384, 512, 1024} and, unless base sets Depth,
+// depth {1, 2}, named base.Name + "_kv<C>" (depth 1) or "_kv<C>d2". Depth 2
+// is left out where its shared memory does not fit.
 func SweepPagedAttention(base PagedAttention) ([]Variant, error) {
+	depths := []int{1, 2}
+	if base.Depth != 0 {
+		depths = []int{base.Depth}
+	}
 	var vs []Variant
-	for _, c := range []int{128, 256, 512, 1024} {
-		a := base
-		a.Name = fmt.Sprintf("%s_kv%d", base.Name, c)
-		a.Chunk = c
-		v, err := a.Variant()
-		if err != nil {
-			return nil, err
+	for _, d := range depths {
+		for _, c := range []int{64, 128, 192, 256, 320, 384, 512, 1024} {
+			a := base
+			a.Name = fmt.Sprintf("%s_kv%d", base.Name, c)
+			if d > 1 {
+				a.Name += fmt.Sprintf("d%d", d)
+			}
+			a.Chunk, a.Depth = c, d
+			v, err := a.Variant()
+			if err != nil && d > 1 && a.SharedBytes() > 48<<10 {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			vs = append(vs, v)
 		}
-		vs = append(vs, v)
 	}
 	return vs, nil
 }
