@@ -1,7 +1,7 @@
 // Command cudacompilecheck compiles CUDA C++ for one or more architectures
 // without a GPU and reports each function's registers, spills, stack,
 // barriers and shared memory, as ptxas -v prints them, and optionally a
-// SASS instruction census from cuobjdump.
+// SASS instruction census from cuobjdump and a PTX instruction census.
 //
 // Usage:
 //
@@ -24,6 +24,10 @@
 // addresses a generated wrapper takes, and -launchers adds every
 // "inline void name(" defined at the start of a line, so that launchers
 // instantiate their kernels.
+//
+// -ptx counts PTX instructions per function, which shows arithmetic
+// differences between two versions of a kernel (an extra cvt.rn.bf16, a
+// lost fma.rn) before ptxas reorders them.
 //
 // -max-registers and -no-spill turn the report into a gate: the command
 // exits with status 1 if any entry function exceeds the limit or spills.
@@ -48,6 +52,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/ptxasinfo"
 )
@@ -75,6 +80,7 @@ type config struct {
 	keep            []string
 	launchers       bool
 	sass            bool
+	ptx             bool
 	top             int
 	work            string
 	maxRegisters    int
@@ -82,7 +88,8 @@ type config struct {
 	timeout         time.Duration
 }
 
-// A Census is the SASS instruction count of one function.
+// A Census is the instruction count of one function. LocalLoads and
+// LocalStores count LDL and STL in SASS and ld.local and st.local in PTX.
 type Census struct {
 	Total      int            `json:"total"`
 	LocalLoads int            `json:"local_loads"` // LDL
@@ -93,6 +100,7 @@ type Census struct {
 type function struct {
 	*ptxasinfo.Function
 	SASS *Census `json:",omitempty"`
+	PTX  *Census `json:",omitempty"`
 }
 
 type fileReport struct {
@@ -120,7 +128,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&keep, "keep", "", "comma-separated function `names` to instantiate")
 	fs.BoolVar(&c.launchers, "launchers", false, "instantiate every inline void function defined at the start of a line")
 	fs.BoolVar(&c.sass, "sass", false, "add a SASS instruction census from cuobjdump")
-	fs.IntVar(&c.top, "top", 8, "opcodes to print per function with -sass")
+	fs.BoolVar(&c.ptx, "ptx", false, "add a PTX instruction census")
+	fs.IntVar(&c.top, "top", 8, "opcodes to print per function with -sass or -ptx")
 	fs.StringVar(&c.work, "work", "", "work `directory`; must be visible to the compiling host")
 	fs.IntVar(&c.maxRegisters, "max-registers", 0, "fail if an entry function uses more registers")
 	fs.BoolVar(&c.noSpill, "no-spill", false, "fail if a function spills")
@@ -308,8 +317,16 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 			}
 		}
 	}
+	ptx := map[string]map[string]*Census{}
+	if c.ptx {
+		for _, a := range c.archs {
+			if ptx[a], err = ptxCensus(ctx, c, input, outDir, a); err != nil {
+				return nil, err
+			}
+		}
+	}
 	for _, f := range info.Functions() {
-		rep.Functions = append(rep.Functions, function{Function: f, SASS: census[f.Arch][f.Name]})
+		rep.Functions = append(rep.Functions, function{Function: f, SASS: census[f.Arch][f.Name], PTX: ptx[f.Arch][f.Name]})
 		if f.Entry && c.maxRegisters > 0 && f.Registers > c.maxRegisters {
 			rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: %d registers > %d", f.Arch, f.Name, f.Registers, c.maxRegisters))
 		}
@@ -348,14 +365,8 @@ func printText(w io.Writer, r *fileReport, top int) {
 	}
 	tw.Flush()
 	for _, f := range r.Functions {
-		if f.SASS == nil {
-			continue
-		}
-		fmt.Fprintf(w, "  %s %s: %d instructions, %d LDL, %d STL:", f.Arch, f.Name, f.SASS.Total, f.SASS.LocalLoads, f.SASS.LocalStore)
-		for _, o := range topOpcodes(f.SASS.Opcodes, top) {
-			fmt.Fprintf(w, " %s=%d", o, f.SASS.Opcodes[o])
-		}
-		fmt.Fprintln(w)
+		printCensus(w, "SASS", f.Arch, f.Name, f.SASS, top)
+		printCensus(w, "PTX", f.Arch, f.Name, f.PTX, top)
 	}
 	for _, s := range r.Warnings {
 		fmt.Fprintf(w, "  warning: %s\n", s)
@@ -380,4 +391,55 @@ func topOpcodes(m map[string]int, n int) []string {
 		return ops[i] < ops[j]
 	})
 	return ops[:min(n, len(ops))]
+}
+
+func printCensus(w io.Writer, kind, arch, name string, c *Census, top int) {
+	if c == nil {
+		return
+	}
+	fmt.Fprintf(w, "  %s %s %s: %d instructions, %d local loads, %d local stores:", kind, arch, name, c.Total, c.LocalLoads, c.LocalStore)
+	for _, o := range topOpcodes(c.Opcodes, top) {
+		fmt.Fprintf(w, " %s=%d", o, c.Opcodes[o])
+	}
+	fmt.Fprintln(w)
+}
+
+// ptxCensus compiles input to PTX for arch and counts each function's
+// instructions.
+func ptxCensus(ctx context.Context, c *config, input, outDir, arch string) (map[string]*Census, error) {
+	out := filepath.Join(outDir, arch+".ptx")
+	args := []string{c.nvcc, "-std=" + c.std, "-ptx", "-arch=compute_" + strings.TrimPrefix(arch, "sm_"), "-o", out}
+	for _, d := range c.includes {
+		args = append(args, "-I"+d)
+	}
+	for _, d := range c.defines {
+		args = append(args, "-D"+d)
+	}
+	args = append(append(args, c.extra...), input)
+	if text, err := runTool(ctx, c.timeout, append(append([]string(nil), c.exec...), args...)); err != nil {
+		return nil, fmt.Errorf("nvcc -ptx: %v\n%s", err, text)
+	}
+	// The PTX is on the compiling host, which may be another machine.
+	text, err := runTool(ctx, c.timeout, append(append([]string(nil), c.exec...), "cat", out))
+	if err != nil {
+		return nil, fmt.Errorf("read ptx: %v\n%s", err, text)
+	}
+	m, err := cudaptx.ParseBytes(text)
+	if err != nil {
+		return nil, fmt.Errorf("parse ptx for %s: %w", arch, err)
+	}
+	census := map[string]*Census{}
+	for _, k := range m.Kernels {
+		if !k.Body {
+			continue
+		}
+		s := k.Summary()
+		census[k.Name] = &Census{
+			Total:      s.Total,
+			LocalLoads: s.Count("ld.local"),
+			LocalStore: s.Count("st.local"),
+			Opcodes:    s.Counts,
+		}
+	}
+	return census, nil
 }
