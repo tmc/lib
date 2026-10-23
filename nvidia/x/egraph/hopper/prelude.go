@@ -66,6 +66,29 @@ EG_DEV float eg_e4m3_to_f32(uint32_t b) {
     return (b & 0x80u) ? -v : v;
 }
 
+// eg_pack_f16x2 rounds lo and hi to F16 (nearest even) into bits 0-15 and 16-31.
+EG_DEV uint32_t eg_pack_f16x2(float lo, float hi) {
+#if defined(EG_HOST_EMU)
+    return eg_emu_f32_to_f16(lo) | ((uint32_t)eg_emu_f32_to_f16(hi) << 16);
+#else
+    uint32_t r;
+    asm("cvt.rn.f16x2.f32 %0, %1, %2;" : "=r"(r) : "f"(hi), "f"(lo));
+    return r;
+#endif
+}
+
+// eg_e4m3x2_to_f16x2 widens the two E4M3 bytes in bits 0-15 of x to F16
+// (exactly; cvt.rn.f16x2.e4m3x2, sm_89+), the low byte into bits 0-15.
+EG_DEV uint32_t eg_e4m3x2_to_f16x2(uint32_t x) {
+#if defined(EG_HOST_EMU)
+    return eg_emu_f32_to_f16(eg_emu_e4m3(x & 0xffu)) | ((uint32_t)eg_emu_f32_to_f16(eg_emu_e4m3((x >> 8) & 0xffu)) << 16);
+#else
+    uint32_t r;
+    asm("{\n.reg .b16 lo;\ncvt.u16.u32 lo, %1;\ncvt.rn.f16x2.e4m3x2 %0, lo;\n}" : "=r"(r) : "r"(x));
+    return r;
+#endif
+}
+
 // eg_f32x2_to_e4m3x2 rounds to nearest even, saturating to ±448
 // (cvt.rn.satfinite.e4m3x2.f32); lo lands in bits 0-7.
 EG_DEV uint16_t eg_f32x2_to_e4m3x2(float lo, float hi) {
@@ -202,6 +225,19 @@ EG_DEV void eg_mma_bf16(float d[4], const uint32_t a[4], const uint32_t b[2], co
     eg_emu_mma_bf16_16816(d, a, b, c);
 #else
     asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32 "
+                 "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                 : "=f"(d[0]), "=f"(d[1]), "=f"(d[2]), "=f"(d[3])
+                 : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]),
+                   "f"(c[0]), "f"(c[1]), "f"(c[2]), "f"(c[3]));
+#endif
+}
+
+// eg_mma_f16 is d = a·b + c for one m16n8k16 tile, F16 inputs, FP32 accumulate.
+EG_DEV void eg_mma_f16(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
+#if defined(EG_HOST_EMU)
+    eg_emu_mma_f16_16816(d, a, b, c);
+#else
+    asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
                  "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
                  : "=f"(d[0]), "=f"(d[1]), "=f"(d[2]), "=f"(d[3])
                  : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]),

@@ -132,7 +132,11 @@ func TestPagedAttentionEmulated(t *testing.T) {
 				t.Fatal(err)
 			}
 			got, ws := runPaged(t, tt.a, q, c, tt.maxKeys, 2)
-			if e := relErr(got, want); e > 4e-3 || math.IsNaN(e) {
+			bound := 5e-4 // F16 tiles, F32 accumulation
+			if tt.a.Out == BF16 {
+				bound = 4e-3
+			}
+			if e := relErr(got, want); e > bound || math.IsNaN(e) {
 				t.Errorf("relative L2 error %.2e", e)
 			} else {
 				t.Logf("relative L2 error %.2e", e)

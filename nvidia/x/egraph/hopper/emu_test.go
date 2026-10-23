@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -294,6 +295,132 @@ __global__ void mma8(const uint8_t* a, const uint8_t* bt, float* d) {
 			if float64(d[m*8+n]) != want {
 				t.Fatalf("d[%d][%d] = %g, want %g", m, n, d[m*8+n], want)
 			}
+		}
+	}
+}
+
+// f16Bits rounds f to IEEE binary16 bits, nearest even.
+func f16Bits(f float32) uint16 {
+	u := math.Float32bits(f)
+	s, a := uint16(u>>16)&0x8000, u&0x7fffffff
+	switch {
+	case a > 0x7f800000:
+		return s | 0x7e00
+	case a >= 0x477ff000:
+		return s | 0x7c00
+	case a < 0x38800000:
+		return s | uint16(math.RoundToEven(float64(math.Float32frombits(a))*(1<<24)))
+	}
+	r := ((a>>23)-112)<<10 | (a>>13)&0x3ff
+	if rem := a & 0x1fff; rem > 0x1000 || rem == 0x1000 && r&1 == 1 {
+		r++
+	}
+	return s | uint16(r)
+}
+
+// TestPreludeF16 widens every E4M3 pair to F16 and rounds FP32 values,
+// halfway cases and subnormals included, to F16.
+func TestPreludeF16(t *testing.T) {
+	const kernel = `
+__global__ void f16(const float* x, uint32_t* wide, uint32_t* packed) {
+    for (int i = threadIdx.x; i < 256; i += 32) wide[i] = eg_e4m3x2_to_f16x2(i | (255 - i) << 8);
+    for (int i = threadIdx.x; i < 64; i += 32) packed[i] = eg_pack_f16x2(x[2 * i], x[2 * i + 1]);
+}
+`
+	x := []float32{0, 1, -1, 65504, 65519, 65520, 1e-8, 3e-5, 6.1e-5, -2.9802322e-08, 2.9802326e-08}
+	for _, b := range []uint32{0x3f800000, 0x3f801000, 0x3f802000, 0x3f803000, 0x3f800fff, 0x38800000, 0x387fe000} {
+		x = append(x, math.Float32frombits(b))
+	}
+	r := rand.New(rand.NewPCG(1, 1))
+	for len(x) < 128 {
+		x = append(x, float32(r.NormFloat64()*math.Pow(2, float64(r.IntN(40)-20))))
+	}
+	res := runEmu(t, kernel, "eg_emu_launch(dim3(1), dim3(32), 0, f16, x, wide, packed)",
+		emuBuf{"x", "float", f32Bytes(x)},
+		emuBuf{"wide", "uint32_t", make([]byte, 4*256)},
+		emuBuf{"packed", "uint32_t", make([]byte, 4*64)})
+	wide, packed := i32s(res["wide"]), i32s(res["packed"])
+	for i := range 256 {
+		lo, hi := FromE4M3Bits(uint8(i)), FromE4M3Bits(uint8(255-i))
+		want := uint32(f16Bits(lo)) | uint32(f16Bits(hi))<<16
+		if i == 0x7f || i == 0xff || 255-i == 0x7f || 255-i == 0xff {
+			continue // NaN payloads are not specified
+		}
+		if uint32(wide[i]) != want {
+			t.Fatalf("e4m3x2 %#04x -> %#08x, want %#08x", i|(255-i)<<8, uint32(wide[i]), want)
+		}
+	}
+	for i := range 64 {
+		want := uint32(f16Bits(x[2*i])) | uint32(f16Bits(x[2*i+1]))<<16
+		if uint32(packed[i]) != want {
+			t.Fatalf("pack_f16x2(%g, %g) = %#08x, want %#08x", x[2*i], x[2*i+1], uint32(packed[i]), want)
+		}
+	}
+}
+
+// TestPreludeMMAF16 multiplies one 16x16 by 16x8 F16 tile with eg_mma_f16.
+func TestPreludeMMAF16(t *testing.T) {
+	const kernel = `
+__global__ void mma16(const float* a, const float* bt, float* d) {
+    const int lane = threadIdx.x, g = lane / 4, c = lane % 4;
+    auto A = [&](int r, int k) { return a[r * 16 + k]; };
+    auto B = [&](int k, int n) { return bt[n * 16 + k]; };
+    const uint32_t fa[4] = {eg_pack_f16x2(A(g, 2 * c), A(g, 2 * c + 1)), eg_pack_f16x2(A(g + 8, 2 * c), A(g + 8, 2 * c + 1)),
+                            eg_pack_f16x2(A(g, 2 * c + 8), A(g, 2 * c + 9)), eg_pack_f16x2(A(g + 8, 2 * c + 8), A(g + 8, 2 * c + 9))};
+    const uint32_t fb[2] = {eg_pack_f16x2(B(2 * c, g), B(2 * c + 1, g)), eg_pack_f16x2(B(2 * c + 8, g), B(2 * c + 9, g))};
+    float z[4] = {0, 0, 0, 0}, out[4];
+    eg_mma_f16(out, fa, fb, z);
+    d[g * 8 + 2 * c] = out[0];
+    d[g * 8 + 2 * c + 1] = out[1];
+    d[(g + 8) * 8 + 2 * c] = out[2];
+    d[(g + 8) * 8 + 2 * c + 1] = out[3];
+}
+`
+	a := make([]float32, 16*16)
+	bt := make([]float32, 8*16)
+	for i := range a {
+		a[i] = float32(i%9)*0.375 - 1.5
+	}
+	for i := range bt {
+		bt[i] = float32(i%13)*0.0625 - 0.25
+	}
+	res := runEmu(t, kernel, "eg_emu_launch(dim3(1), dim3(32), 0, mma16, a, bt, d)",
+		emuBuf{"a", "float", f32Bytes(a)},
+		emuBuf{"bt", "float", f32Bytes(bt)},
+		emuBuf{"d", "float", make([]byte, 4*128)})
+	d := bytesF32(res["d"])
+	for m := range 16 {
+		for n := range 8 {
+			var want float64
+			for k := range 16 {
+				want += float64(a[m*16+k]) * float64(bt[n*16+k])
+			}
+			if float64(d[m*8+n]) != want {
+				t.Fatalf("d[%d][%d] = %g, want %g", m, n, d[m*8+n], want)
+			}
+		}
+	}
+}
+
+// TestF16Bits pins f16Bits, the oracle of TestPreludeF16, to known encodings.
+func TestF16Bits(t *testing.T) {
+	tests := []struct {
+		in   uint32 // float32 bits
+		want uint16
+	}{
+		{0x3f800000, 0x3c00}, // 1
+		{0x3f801000, 0x3c00}, // 1 + 2^-11, halfway, to even
+		{0x3f803000, 0x3c02}, // 1 + 3·2^-11, halfway, to even
+		{0x477fe000, 0x7bff}, // 65504
+		{0x477ff000, 0x7c00}, // 65520 rounds to infinity
+		{0x33800000, 0x0001}, // 2^-24
+		{0x33000000, 0x0000}, // 2^-25, halfway, to even
+		{0x38800000, 0x0400}, // 2^-14
+		{0xc0000000, 0xc000}, // -2
+	}
+	for _, tt := range tests {
+		if got := f16Bits(math.Float32frombits(tt.in)); got != tt.want {
+			t.Errorf("f16Bits(%#x) = %#04x, want %#04x", tt.in, got, tt.want)
 		}
 	}
 }

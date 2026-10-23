@@ -159,6 +159,24 @@ inline uint16_t eg_emu_f32_to_bf16(float f) {
     return (uint16_t)(u >> 16);
 }
 
+// eg_emu_f32_to_f16 rounds to nearest even (cvt.rn.f16.f32).
+inline uint16_t eg_emu_f32_to_f16(float f) {
+    const uint32_t u = __float_as_uint(f), s = (u >> 16) & 0x8000u, a = u & 0x7fffffffu;
+    if (a > 0x7f800000u) return s | 0x7e00u;
+    if (a >= 0x477ff000u) return s | 0x7c00u;
+    if (a < 0x38800000u) return s | (uint16_t)std::nearbyint(__uint_as_float(a) * 16777216.0f);
+    uint32_t r = (((a >> 23) - 112u) << 10) | ((a >> 13) & 0x3ffu);
+    const uint32_t rem = a & 0x1fffu;
+    if (rem > 0x1000u || (rem == 0x1000u && (r & 1u))) ++r;
+    return s | r;
+}
+
+inline float eg_emu_f16_value(uint32_t h) {
+    const int e = (h >> 10) & 31, m = h & 0x3ff;
+    const float v = e == 0 ? std::ldexp((float)m, -24) : e == 31 ? (m ? NAN : INFINITY) : std::ldexp((float)(m | 0x400), e - 25);
+    return h & 0x8000u ? -v : v;
+}
+
 inline uint8_t eg_emu_f32_to_e4m3(float f) {
     uint32_t bits = __float_as_uint(f);
     uint8_t sign = (bits >> 24) & 0x80;
@@ -208,11 +226,13 @@ inline void eg_emu_ldmatrix_x4(uint32_t r[4], const void* row, bool trans) {
 }
 
 inline float eg_emu_bf16(uint32_t reg, int half) { return __uint_as_float((half ? reg >> 16 : reg & 0xffffu) << 16); }
+inline float eg_emu_f16(uint32_t reg, int half) { return eg_emu_f16_value(half ? reg >> 16 : reg & 0xffffu); }
 
-// mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32, fragments per the PTX ISA:
+// mma.sync.aligned.m16n8k16.row.col.f32.{bf16,f16}, fragments per the PTX ISA:
 // g = lane/4, t = lane%4; a0 (g, 2t..), a1 (g+8, 2t..), a2 (g, 2t+8..), a3 (g+8, 2t+8..);
 // b0 (k 2t.., n g), b1 (k 2t+8.., n g); c0,c1 (g, 2t..), c2,c3 (g+8, 2t..).
-inline void eg_emu_mma_bf16_16816(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
+template <float (*eg_emu_elem)(uint32_t, int)>
+inline void eg_emu_mma_16816(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
     eg_emu_warp* w = eg_emu_cur_warp;
     uint32_t* mine = w->regs[eg_emu_lane];
     for (int i = 0; i < 4; ++i) mine[i] = a[i];
@@ -222,11 +242,11 @@ inline void eg_emu_mma_bf16_16816(float d[4], const uint32_t a[4], const uint32_
     auto A = [&](int row, int col) {
         int lane = (row % 8) * 4 + (col % 8) / 2;
         int reg = (row / 8) + 2 * (col / 8);
-        return eg_emu_bf16(w->regs[lane][reg], col & 1);
+        return eg_emu_elem(w->regs[lane][reg], col & 1);
     };
     auto B = [&](int k, int col) {
         int lane = col * 4 + (k % 8) / 2;
-        return eg_emu_bf16(w->regs[lane][4 + k / 8], k & 1);
+        return eg_emu_elem(w->regs[lane][4 + k / 8], k & 1);
     };
     int g = eg_emu_lane / 4, t = eg_emu_lane % 4;
     float out[4];
@@ -238,6 +258,13 @@ inline void eg_emu_mma_bf16_16816(float d[4], const uint32_t a[4], const uint32_
     }
     w->bar.arrive_and_wait();
     for (int i = 0; i < 4; ++i) d[i] = out[i];
+}
+
+inline void eg_emu_mma_bf16_16816(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
+    eg_emu_mma_16816<eg_emu_bf16>(d, a, b, c);
+}
+inline void eg_emu_mma_f16_16816(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
+    eg_emu_mma_16816<eg_emu_f16>(d, a, b, c);
 }
 
 inline float eg_emu_e4m3(uint32_t b) {

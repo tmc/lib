@@ -23,9 +23,10 @@ const HeadDim = 64
 // The kernel splits each request's keys into Chunk-key blocks (split-KV).
 // One block of 4 warps owns one (request, KV head, chunk) and all its
 // query rows (the KV head's Hq/Hkv query heads times QLen tokens), computes
-// Q·Kᵀ and P·V with mma.sync m16n8k16 BF16 tensor-core tiles (FP8 and
-// FP32 inputs convert to BF16 exactly; P rounds to BF16) and an online
-// softmax in FP32. When a request needs more than one chunk, each block
+// Q·Kᵀ and P·V with mma.sync m16n8k16 F16 tensor-core tiles and an online
+// softmax in FP32. K and V widen from E4M3 to F16 exactly
+// (cvt.rn.f16x2.e4m3x2), as do E4M3 queries; BF16 queries and P in [0, 1]
+// round to F16. When a request needs more than one chunk, each block
 // stores its (max, sum, output) partial in a workspace. The chunks form
 // groups of 16; the last block to finish in a group merges the group's
 // partials, and with more than one group the last group to finish merges the
@@ -51,7 +52,7 @@ type PagedAttention struct {
 	Depth int
 
 	// QKFP8 computes Q·Kᵀ with mma.sync m16n8k32 E4M3 tiles on the stored
-	// bytes (Q must be E4M3), skipping the widening of K to BF16. Products
+	// bytes (Q must be E4M3), skipping the widening of K to F16. Products
 	// are exact; the tensor core's FP32 accumulation order differs.
 	QKFP8 bool
 
@@ -149,7 +150,7 @@ func (a PagedAttention) SharedBytes() int {
 		mt = 2
 	}
 	mrows, kw, depth := 16*mt, 4/mt, max(a.Depth, 1)
-	ld := 72 // BF16 row stride
+	ld := 72 // F16 row stride
 	if a.QKFP8 {
 		ld = 40 // E4M3 bytes as uint16
 	}
@@ -266,15 +267,15 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     __shared__ float red_o[KW * MROWS * 64];
     __shared__ int last;
 
-    // Query rows r = j*G + g (token j, head kvh*G + g) as BF16, padded with zeros.
+    // Query rows r = j*G + g (token j, head kvh*G + g) as F16, padded with zeros.
     for (int i = tid; i < MROWS * 8; i += 128) {
         const int r = i / 8, d = (i % 8) * 8;
         eg_u32x4 w = {0, 0, 0, 0};
         if (r < ROWS) {
             float f[8];
             eg_load<8>(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, f);
-            w = eg_u32x4{eg_pack_bf16x2(f[0], f[1]), eg_pack_bf16x2(f[2], f[3]),
-                         eg_pack_bf16x2(f[4], f[5]), eg_pack_bf16x2(f[6], f[7])};
+            w = eg_u32x4{eg_pack_f16x2(f[0], f[1]), eg_pack_f16x2(f[2], f[3]),
+                         eg_pack_f16x2(f[4], f[5]), eg_pack_f16x2(f[6], f[7])};
         }
         *reinterpret_cast<eg_u32x4*>(&sq[r * LD + d]) = w;
     }
@@ -299,8 +300,8 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
         uint32_t o[8];
 #pragma unroll
         for (int i = 0; i < 4; ++i) {
-            o[2 * i] = eg_pack_bf16x2(eg_e4m3_to_f32(w[i] & 0xffu), eg_e4m3_to_f32((w[i] >> 8) & 0xffu));
-            o[2 * i + 1] = eg_pack_bf16x2(eg_e4m3_to_f32((w[i] >> 16) & 0xffu), eg_e4m3_to_f32(w[i] >> 24));
+            o[2 * i] = eg_e4m3x2_to_f16x2(w[i]);
+            o[2 * i + 1] = eg_e4m3x2_to_f16x2(w[i] >> 16);
         }
         reinterpret_cast<eg_u32x4*>(dst)[0] = eg_u32x4{o[0], o[1], o[2], o[3]};
         reinterpret_cast<eg_u32x4*>(dst)[1] = eg_u32x4{o[4], o[5], o[6], o[7]};
@@ -343,8 +344,8 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
         for (int ks = 0; ks < 4; ++ks) {
             uint32_t kf[4];
             eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
-            eg_mma_bf16(s[0], qa[ks], &kf[0], s[0]);
-            eg_mma_bf16(s[1], qa[ks], &kf[2], s[1]);
+            eg_mma_f16(s[0], qa[ks], &kf[0], s[0]);
+            eg_mma_f16(s[1], qa[ks], &kf[2], s[1]);
         }
 #pragma unroll
         for (int h = 0; h < 2; ++h) {
@@ -375,14 +376,14 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
                     l[h] += x;
                 }
         }
-        const uint32_t pa[4] = {eg_pack_bf16x2(s[0][0], s[0][1]), eg_pack_bf16x2(s[0][2], s[0][3]),
-                                eg_pack_bf16x2(s[1][0], s[1][1]), eg_pack_bf16x2(s[1][2], s[1][3])};
+        const uint32_t pa[4] = {eg_pack_f16x2(s[0][0], s[0][1]), eg_pack_f16x2(s[0][2], s[0][3]),
+                                eg_pack_f16x2(s[1][0], s[1][1]), eg_pack_f16x2(s[1][2], s[1][3])};
 #pragma unroll
         for (int nd = 0; nd < 4; ++nd) {
             uint32_t vf[4];
             eg_ldmatrix_x4_trans(vf, &sv[(kt0 + lane % 8 + 8 * ((lane / 8) % 2)) * LD + nd * 16 + 8 * (lane / 16)]);
-            eg_mma_bf16(o[2 * nd], pa, &vf[0], o[2 * nd]);
-            eg_mma_bf16(o[2 * nd + 1], pa, &vf[2], o[2 * nd + 1]);
+            eg_mma_f16(o[2 * nd], pa, &vf[0], o[2 * nd]);
+            eg_mma_f16(o[2 * nd + 1], pa, &vf[2], o[2 * nd + 1]);
         }
         }
     }
@@ -431,20 +432,20 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
 // merge of the chunk partials.
 // attnFP8 rewrites attnBody to keep Q and K as E4M3 bytes (rows of 64
 // bytes padded to 80) and multiply them with m16n8k32 tiles. In the b16
-// view the k32 fragments have the k16 BF16 layout, so the ldmatrix
+// view the k32 fragments have the k16 F16 layout, so the ldmatrix
 // addressing is unchanged apart from the row stride and step count.
 var attnFP8 = [][2]string{
 	{"alignas(16) __shared__ uint16_t sq[MROWS * LD];", "constexpr int LD8 = 40;\n    alignas(16) __shared__ uint16_t sq[MROWS * LD8];"},
 	{"alignas(16) __shared__ uint16_t sk[STEP * LD];", "alignas(16) __shared__ uint16_t sk[STEP * LD8];"},
-	{`    // Query rows r = j*G + g (token j, head kvh*G + g) as BF16, padded with zeros.
+	{`    // Query rows r = j*G + g (token j, head kvh*G + g) as F16, padded with zeros.
     for (int i = tid; i < MROWS * 8; i += 128) {
         const int r = i / 8, d = (i % 8) * 8;
         eg_u32x4 w = {0, 0, 0, 0};
         if (r < ROWS) {
             float f[8];
             eg_load<8>(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, f);
-            w = eg_u32x4{eg_pack_bf16x2(f[0], f[1]), eg_pack_bf16x2(f[2], f[3]),
-                         eg_pack_bf16x2(f[4], f[5]), eg_pack_bf16x2(f[6], f[7])};
+            w = eg_u32x4{eg_pack_f16x2(f[0], f[1]), eg_pack_f16x2(f[2], f[3]),
+                         eg_pack_f16x2(f[4], f[5]), eg_pack_f16x2(f[6], f[7])};
         }
         *reinterpret_cast<eg_u32x4*>(&sq[r * LD + d]) = w;
     }`, `    // Query rows r = j*G + g (token j, head kvh*G + g) as E4M3 bytes, padded with zeros.
@@ -461,8 +462,8 @@ var attnFP8 = [][2]string{
 	{`        for (int ks = 0; ks < 4; ++ks) {
             uint32_t kf[4];
             eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
-            eg_mma_bf16(s[0], qa[ks], &kf[0], s[0]);
-            eg_mma_bf16(s[1], qa[ks], &kf[2], s[1]);`, `        for (int ks = 0; ks < 2; ++ks) {
+            eg_mma_f16(s[0], qa[ks], &kf[0], s[0]);
+            eg_mma_f16(s[1], qa[ks], &kf[2], s[1]);`, `        for (int ks = 0; ks < 2; ++ks) {
             uint32_t kf[4];
             eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
