@@ -125,6 +125,12 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			Chunk: 192, Depth: 2, QKFP8: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{4000, 200}, 4000, 1.0 / 64},
 		{"depth2_dp", PagedAttention{Name: "attn_d2_dp", Hq: 64, Hkv: 8, QLen: 8, Page: 1, Q: E4M3, Out: F32, Chunk: 128, Depth: 2},
 			[]int32{300, 70}, 300, 1},
+		// 481 chunks: 31 groups, so the final merge folds two batches of
+		// about equal weight. The
+		// large QScale spreads logits over hundreds of binades, so a merge
+		// whose running max is wrong overflows instead of passing.
+		{"wide_merge", PagedAttention{Name: "attn_wide", Hq: 8, Hkv: 1, QLen: 1, Page: 1, Q: E4M3, Out: F32, Chunk: 64, QKFP8: true, QScale: 200},
+			[]int32{30770}, 30770, 1},
 		// 16-step chunks through a 3-stage ring, with ragged last steps.
 		{"ring3_wrap", PagedAttention{Name: "attn_r3", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 1024, Stages: 3},
 			[]int32{1000, 129, 65}, 1000, 1},

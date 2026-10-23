@@ -60,6 +60,8 @@ struct dim3 {
     dim3(unsigned x = 1, unsigned y = 1, unsigned z = 1) : x(x), y(y), z(z) {}
 };
 
+struct alignas(8) float2 { float x, y; };
+
 inline thread_local dim3 threadIdx, blockIdx;
 inline dim3 blockDim, gridDim;
 constexpr int warpSize = 32;

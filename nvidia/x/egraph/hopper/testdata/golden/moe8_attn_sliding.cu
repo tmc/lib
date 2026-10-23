@@ -155,6 +155,16 @@ EG_DEV float eg_ld_cg(const float* p) {
 #endif
 }
 
+// eg_ld_cg2 loads two floats (8-byte aligned) through L2 only.
+EG_DEV float2 eg_ld_cg2(const float* p) {
+#if defined(EG_HOST_EMU)
+    const volatile float* q = p;
+    return float2{q[0], q[1]};
+#else
+    return __ldcg(reinterpret_cast<const float2*>(p));
+#endif
+}
+
 // eg_cp_async16 copies 16 bytes global to shared without staging in registers.
 EG_DEV void eg_cp_async16(void* smem, const void* gmem) {
 #if defined(EG_HOST_EMU)
@@ -614,54 +624,52 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         }
     } else {
         // merge combines n partials at src in chunk order: into fin (scaled
-        // by vs) when final, else into the partial at dst. One thread per row
-        // finds the row's max and weight sum in one online pass (red_m,
-        // red_l); then each thread accumulates its OUTS outputs, with the
-        // loads of several partials in flight.
-        constexpr int OUTS = (ROWS * 64 + 127) / 128, CH = OUTS < 4 ? OUTS : 4;
+        // by vs) when final, else into the partial at dst. Each thread owns
+        // output pairs; for a batch of NB partials it issues every load of
+        // (max, sum) and of the pair at once, then folds the batch into a
+        // running max, sum and pair.
+        constexpr int PAIRS = ROWS * 32, NB = 8;
         auto merge = [&](const float* src, int n, float* dst, bool final) {
-            for (int r = tid; r < ROWS; r += 128) {
-                float mx = NEG_INF, sum = 0.0f;
-#pragma unroll 8
-                for (int s = 0; s < n; ++s) {
-                    const float* p = src + (size_t)s * ROWS * 66 + r * 66;
-                    const float m = eg_ld_cg(p), l = eg_ld_cg(p + 1), mnew = fmaxf(mx, m);
-                    if (mnew != NEG_INF) sum = sum * exp2f(mx - mnew) + l * exp2f(m - mnew);
-                    mx = mnew;
-                }
-                red_m[r] = mx;
-                red_l[r] = sum;
-            }
-            __syncthreads();
-            // Outputs in chunks of CH, so a 64-row tile does not hold all of
-            // its OUTS accumulators and their loads at once.
 #pragma unroll 1
-            for (int k0 = 0; k0 < OUTS; k0 += CH) {
-                float base[CH], acc[CH];
+            for (int i = tid; i < PAIRS; i += 128) {
+                const int r = i / 32, d = 2 * (i % 32);
+                float mx = NEG_INF, sum = 0.0f;
+                float2 acc = {0.0f, 0.0f};
+#pragma unroll 1
+                for (int s0 = 0; s0 < n; s0 += NB) {
+                    float2 ml[NB], v[NB];
 #pragma unroll
-                for (int k = 0; k < CH; ++k) {
-                    const int i = min(tid + 128 * (k0 + k), ROWS * 64 - 1);
-                    base[k] = red_m[i / 64] == NEG_INF ? 0.0f : red_m[i / 64];
-                    acc[k] = 0.0f;
-                }
-#pragma unroll 4
-                for (int s = 0; s < n; ++s) {
-#pragma unroll
-                    for (int k = 0; k < CH; ++k) {
-                        const int i = min(tid + 128 * (k0 + k), ROWS * 64 - 1);
-                        const float* p = src + (size_t)s * ROWS * 66 + (i / 64) * 66;
-                        acc[k] += exp2f(eg_ld_cg(p) - base[k]) * eg_ld_cg(p + 2 + i % 64);
+                    for (int s = 0; s < NB; ++s) {
+                        const float* p = src + (size_t)min(s0 + s, n - 1) * ROWS * 66 + r * 66;
+                        ml[s] = eg_ld_cg2(p);
+                        v[s] = eg_ld_cg2(p + 2 + d);
                     }
-                }
+                    float bm = mx;
 #pragma unroll
-                for (int k = 0; k < CH; ++k) {
-                    const int i = tid + 128 * (k0 + k);
-                    if (k0 + k >= OUTS || i >= ROWS * 64) break;
-                    if (final) fin[i] = acc[k] / red_l[i / 64] * vs;
-                    else dst[(i / 64) * 66 + 2 + i % 64] = acc[k];
+                    for (int s = 0; s < NB; ++s) bm = fmaxf(bm, ml[s].x);
+                    const float base = bm == NEG_INF ? 0.0f : bm, c = exp2f(mx - base);
+                    sum *= c;
+                    acc.x *= c;
+                    acc.y *= c;
+#pragma unroll
+                    for (int s = 0; s < NB; ++s) {
+                        // Clamped loads past n repeat partial n-1: weigh them 0.
+                        const float w = s0 + s < n ? exp2f(ml[s].x - base) : 0.0f;
+                        sum += w * ml[s].y;
+                        acc.x += w * v[s].x;
+                        acc.y += w * v[s].y;
+                    }
+                    mx = bm;
+                }
+                if (final) {
+                    fin[r * 64 + d] = acc.x / sum * vs;
+                    fin[r * 64 + d + 1] = acc.y / sum * vs;
+                } else {
+                    dst[r * 66 + 2 + d] = acc.x;
+                    dst[r * 66 + 3 + d] = acc.y;
+                    if (d == 0) { dst[r * 66] = mx; dst[r * 66 + 1] = sum; }
                 }
             }
-            for (int r = tid; r < ROWS && !final; r += 128) { dst[r * 66] = red_m[r]; dst[r * 66 + 1] = red_l[r]; }
         };
         const int ng = (nsplit + GROUP - 1) / GROUP, grp = split / GROUP;
         const int gn = min(GROUP, nsplit - grp * GROUP);

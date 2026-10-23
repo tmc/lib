@@ -155,6 +155,16 @@ EG_DEV float eg_ld_cg(const float* p) {
 #endif
 }
 
+// eg_ld_cg2 loads two floats (8-byte aligned) through L2 only.
+EG_DEV float2 eg_ld_cg2(const float* p) {
+#if defined(EG_HOST_EMU)
+    const volatile float* q = p;
+    return float2{q[0], q[1]};
+#else
+    return __ldcg(reinterpret_cast<const float2*>(p));
+#endif
+}
+
 // eg_cp_async16 copies 16 bytes global to shared without staging in registers.
 EG_DEV void eg_cp_async16(void* smem, const void* gmem) {
 #if defined(EG_HOST_EMU)
