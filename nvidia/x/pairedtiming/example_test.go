@@ -62,3 +62,38 @@ func ExampleSignTest() {
 	// Output:
 	// p = 0.00098
 }
+
+// A bound model: what would the suite score if every candidate ran at a
+// fraction of its memory floor, the bytes it must move divided by a
+// bandwidth ceiling measured on the same host, but no faster than a fixed
+// per-call latency? Score the projected times as if they were measured.
+func ExampleScore_bound() {
+	const (
+		ceiling    = 2740e9 / 1e6 // measured copy bandwidth, bytes per microsecond
+		efficiency = 0.8          // fraction of the floor reached
+		latency    = 2.5          // microseconds no kernel goes below
+	)
+	type op struct {
+		load       string
+		weight     float64
+		baselineUS float64 // measured
+		bytes      float64 // bytes the operation must move
+	}
+	ops := []op{
+		{"decode", 1, 7.9, 8.39e6},
+		{"decode", 1, 21.6, 37.7e6},
+		{"verify", 1, 30.1, 67.1e6},
+	}
+	var shapes []pairedtiming.Shape
+	for _, o := range ops {
+		floor := o.bytes / ceiling
+		shapes = append(shapes, pairedtiming.Shape{
+			Load: o.load, Weight: o.weight, Baseline: o.baselineUS,
+			Candidate: max(floor/efficiency, latency),
+		})
+	}
+	s, _ := pairedtiming.Score(shapes)
+	fmt.Printf("projected score %.2f\n", s.Speedup)
+	// Output:
+	// projected score 1.17
+}
