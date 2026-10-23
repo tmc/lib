@@ -142,13 +142,6 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 
 	startTime := time.Now()
 	budget := b.cfg.Budget
-	if err := validateMemoryEvaluator(b.cfg.Memory, eval); err != nil {
-		return nil, err
-	}
-	var priors profileActions
-	if err := freezeSearchMemory(b.cfg.Memory, &priors); err != nil {
-		return nil, err
-	}
 	ctx, work, err := searchWorkBudget(ctx, budget, eval)
 	if err != nil {
 		return nil, err
@@ -159,6 +152,13 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 		return nil, err
 	}
 	defer book.close()
+	if err := validateMemoryEvaluator(b.cfg.Memory, eval, book.temporary()); err != nil {
+		return nil, err
+	}
+	var priors profileActions
+	if err := freezeBoundedSearchMemory(b.cfg.Memory, &priors, book.temporary(), book.retained()); err != nil {
+		return nil, err
+	}
 	profile, err := freezeBoundedProfile(b.cfg.Profile, book.temporary(), book.retained())
 	if err != nil {
 		return nil, err

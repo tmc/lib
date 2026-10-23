@@ -140,17 +140,17 @@ func TestSearchProfileIdentityAndMutation(t *testing.T) {
 func TestSearchProfileRequiresBoundEvaluator(t *testing.T) {
 	bindings := WorkloadBindings{Name: "profile-fixture", InputNames: []string{"x"}, NumericalPolicy: NumericalPolicyExact}
 	m := &SearchMemory{Profile: new(BottleneckProfile), WorkloadKey: bindings.Key()}
-	if err := validateMemoryEvaluator(m, &ExecutableEvaluator{Workload: bindings}); err != nil {
+	if err := validateMemoryEvaluator(m, &ExecutableEvaluator{Workload: bindings}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateMemoryEvaluator(m, &ExecutableEvaluator{Workload: WorkloadBindings{Name: "other"}}); err == nil {
+	if err := validateMemoryEvaluator(m, &ExecutableEvaluator{Workload: WorkloadBindings{Name: "other"}}, nil); err == nil {
 		t.Fatal("accepted other workload")
 	}
-	if err := validateMemoryEvaluator(m, &MockEvaluator{Workload: bindings}); err == nil {
+	if err := validateMemoryEvaluator(m, &MockEvaluator{Workload: bindings}, nil); err == nil {
 		t.Fatal("accepted mock evaluator")
 	}
 	var nilEvaluator *ExecutableEvaluator
-	if err := validateMemoryEvaluator(m, nilEvaluator); err == nil {
+	if err := validateMemoryEvaluator(m, nilEvaluator, nil); err == nil {
 		t.Fatal("accepted typed-nil evaluator")
 	}
 }

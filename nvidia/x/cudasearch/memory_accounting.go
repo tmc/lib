@@ -17,7 +17,8 @@ import (
 // reserve before allocation and keep a result owner. Some legacy bookkeeping
 // still measures retained values after allocation. Its peak includes the
 // simultaneous retained and temporary reservations, not all process storage.
-// This is separate from the search-memory catalog of exploration priors.
+// Caller-owned prior catalogs are separate; their frozen search-owned copies
+// and decision encodings use this ledger before allocation.
 type memoryBudget struct {
 	mu        sync.Mutex
 	limit     int64

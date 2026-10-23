@@ -18,6 +18,100 @@ type searchPolicyOptions struct {
 	exploration                         float64
 }
 
+// SearchMemory uses the existing application ledger, not a process heap cap.
+// Admit the descriptor and the classifier's fixed maximum collections before
+// classification; the latter has one string slot and three string-map entries.
+func reserveMemoryDecisionBase(c *SearchMemory, scratch, result *egraphcore.MemoryScope) error {
+	if err := bookkeepingSlots[MemoryDecision](result, 1); err != nil {
+		return err
+	}
+	n, err := setupStringBound(c.TargetArch)
+	if err != nil || n > (math.MaxInt64-256)/2 {
+		return ErrMemoryBudgetExceeded
+	}
+	if err := scratch.Reserve(2*n + 256); err != nil {
+		return err
+	}
+	var bytes int64
+	for _, s := range []string{c.TargetArch, c.Domain} {
+		if err := setupAdd(&bytes, int64(len(s))); err != nil {
+			return err
+		}
+	}
+	if c.Profile != nil {
+		if err := setupAdd(&bytes, int64(len(c.Profile.ID))); err != nil {
+			return err
+		}
+	}
+	if err := result.Reserve(bytes); err != nil {
+		return err
+	}
+	if err := bookkeepingSlots[string](result, 1); err != nil {
+		return err
+	}
+	if err := bookkeepingSlots[map[string]string](result, 1); err != nil {
+		return err
+	}
+	return bookkeepingSlots[struct{ key, value string }](result, 3)
+}
+
+func reserveMemoryJSON(v any, scratch *egraphcore.MemoryScope) error {
+	n, err := setupJSONBound(v, scratch)
+	if err != nil {
+		return err
+	}
+	if n > math.MaxInt64/2 {
+		return ErrMemoryBudgetExceeded
+	}
+	// Produced encoding and the simultaneous encoding buffer; reflection and
+	// codec implementation caches remain outside declared application units.
+	return scratch.Reserve(2 * n)
+}
+
+func copyMemoryState(s BottleneckState, result *egraphcore.MemoryScope) (BottleneckState, error) {
+	if err := bookkeepingSlots[string](result, len(s.SecondaryCharacteristics)); err != nil {
+		return BottleneckState{}, err
+	}
+	patterns, err := bookkeepingMap[string, string](result)
+	if err != nil {
+		return BottleneckState{}, err
+	}
+	var bytes int64
+	for _, v := range []string{string(s.StateName), string(s.PrimaryBottleneck), s.Reason} {
+		if err := setupAdd(&bytes, int64(len(v))); err != nil {
+			return BottleneckState{}, err
+		}
+	}
+	for _, v := range s.SecondaryCharacteristics {
+		if err := setupAdd(&bytes, int64(len(v))); err != nil {
+			return BottleneckState{}, err
+		}
+	}
+	for k, v := range s.RelativePatterns {
+		if err := setupAdd(&bytes, int64(len(k))); err != nil {
+			return BottleneckState{}, err
+		}
+		if err := setupAdd(&bytes, int64(len(v))); err != nil {
+			return BottleneckState{}, err
+		}
+	}
+	if err := result.Reserve(bytes); err != nil {
+		return BottleneckState{}, err
+	}
+	var secondary SecondaryCharacteristics
+	if len(s.SecondaryCharacteristics) != 0 {
+		secondary = make(SecondaryCharacteristics, len(s.SecondaryCharacteristics))
+		copy(secondary, s.SecondaryCharacteristics)
+	}
+	for k, v := range s.RelativePatterns {
+		if err := bookkeepingPut(result, patterns, k, v); err != nil {
+			return BottleneckState{}, err
+		}
+	}
+	s.SecondaryCharacteristics, s.RelativePatterns = secondary, patterns
+	return s, nil
+}
+
 func policyScopes(work *workBudget) (scratch, result *egraphcore.MemoryScope, err error) {
 	if work == nil || work.memory.limit == 0 {
 		return nil, nil, nil

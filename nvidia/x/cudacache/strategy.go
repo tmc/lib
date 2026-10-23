@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"sort"
 	"sync"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
 )
@@ -136,17 +138,73 @@ func (k *StrategyKnowledgeBase) Update(s Strategy) error {
 // Query returns detached strategies, ordered by confidence and then technique.
 // Exact target matching prevents transferring an architecture-specific prior.
 func (k *StrategyKnowledgeBase) Query(f cudatrial.BottleneckFamily, target string) []Strategy {
+	rows, _ := k.QueryWithMemory(f, target, nil, nil)
+	return rows
+}
+
+// QueryWithMemory returns the same ordered snapshot as Query. It reserves
+// application value/slice/string units under the catalog lock before copying.
+// scratch owns sorting temporaries; result must remain open until the returned
+// rows are no longer used. Nil scopes are unlimited. On error no rows escape;
+// the caller still closes its scopes, including any earlier reservations.
+// The memory capability must not call back into the catalog while reserving.
+func (k *StrategyKnowledgeBase) QueryWithMemory(f cudatrial.BottleneckFamily, target string, scratch, result *egraphcore.MemoryScope) ([]Strategy, error) {
 	if k == nil {
-		return nil
+		return nil, nil
 	}
 	k.mu.RLock()
-	var rows []Strategy
+	defer k.mu.RUnlock()
+	count := 0
+	var bytes int64
+	add := func(n int64) error {
+		if n < 0 || n > math.MaxInt64-bytes {
+			return egraphcore.ErrMemorySize
+		}
+		bytes += n
+		return nil
+	}
 	for _, s := range k.rows {
-		if s.Family == f && s.TargetArch == target {
-			rows = append(rows, cloneStrategy(s))
+		if s.Family != f || s.TargetArch != target {
+			continue
+		}
+		count++
+		for _, n := range []int64{int64(reflect.TypeFor[Strategy]().Size()), int64(len(s.HistoricalSpeedups)) * 8, int64(len(s.TrajectoryIDs)) * int64(reflect.TypeFor[string]().Size()), int64(len(s.Family)), int64(len(s.TargetArch)), int64(len(s.Technique)), int64(len(s.SourceGroup))} {
+			if err := add(n); err != nil {
+				return nil, err
+			}
+		}
+		for _, id := range s.TrajectoryIDs {
+			if err := add(int64(len(id))); err != nil {
+				return nil, err
+			}
 		}
 	}
-	k.mu.RUnlock()
+	if count == 0 {
+		return nil, nil
+	}
+	if err := result.Reserve(bytes); err != nil {
+		return nil, err
+	}
+	if err := scratch.Reserve(2 * int64(reflect.TypeFor[Strategy]().Size())); err != nil {
+		return nil, err
+	}
+	rows := make([]Strategy, 0, count)
+	for _, s := range k.rows {
+		if s.Family == f && s.TargetArch == target {
+			var history []float64
+			if len(s.HistoricalSpeedups) != 0 {
+				history = make([]float64, len(s.HistoricalSpeedups))
+				copy(history, s.HistoricalSpeedups)
+			}
+			var ids []string
+			if len(s.TrajectoryIDs) != 0 {
+				ids = make([]string, len(s.TrajectoryIDs))
+				copy(ids, s.TrajectoryIDs)
+			}
+			s.HistoricalSpeedups, s.TrajectoryIDs = history, ids
+			rows = append(rows, s)
+		}
+	}
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].Confidence != rows[j].Confidence {
 			return rows[i].Confidence > rows[j].Confidence
@@ -156,7 +214,7 @@ func (k *StrategyKnowledgeBase) Query(f cudatrial.BottleneckFamily, target strin
 		}
 		return rows[i].SourceGroup < rows[j].SourceGroup
 	})
-	return rows
+	return rows, nil
 }
 
 type strategyEnvelope struct {

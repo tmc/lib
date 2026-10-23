@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
@@ -267,12 +270,42 @@ type TrajectoryReplay struct {
 // Replay freezes matching history under one lock, so its rewards and receipt
 // lineage cannot disagree because of a concurrent Record.
 func (m *TrajectoryMemory) Replay(domain string, family BottleneckFamily, target string) TrajectoryReplay {
+	snapshot, _ := m.ReplayWithMemory(domain, family, target, nil, nil)
+	return snapshot
+}
+
+// ReplayWithMemory freezes the same history as Replay, reserving application
+// units before its maps, slices and sorting storage are allocated. It holds
+// the existing history lock throughout admission and snapshotting. scratch
+// owns aggregation/sort temporaries; result owns the returned IDs and rewards.
+// Keep result open until their last use. Nil scopes are unlimited. On error
+// no snapshot escapes and the caller still closes both scopes.
+// The memory capability must not call back into the history while reserving.
+func (m *TrajectoryMemory) ReplayWithMemory(domain string, family BottleneckFamily, target string, scratch, result *egraphcore.MemoryScope) (TrajectoryReplay, error) {
 	var snapshot TrajectoryReplay
 	if m == nil {
-		return snapshot
+		return snapshot, nil
 	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	count := 0
+	var idBytes int64
+	for _, r := range m.rows {
+		if r.Domain == domain && r.BottleneckState == family && r.TargetArch == target {
+			count++
+			idBytes += int64(len(r.SHA256))
+		}
+	}
+	if count == 0 {
+		return snapshot, nil
+	}
+	if err := result.Reserve(idBytes + int64(count)*int64(reflect.TypeFor[string]().Size())); err != nil {
+		return TrajectoryReplay{}, err
+	}
+	if err := scratch.Reserve(int64(reflect.TypeFor[map[string]RuleReward]().Size())); err != nil {
+		return TrajectoryReplay{}, err
+	}
+	snapshot.ReceiptIDs = make([]string, 0, count)
 	by := make(map[string]RuleReward)
 	for _, r := range m.rows {
 		if r.Domain != domain || r.BottleneckState != family || r.TargetArch != target {
@@ -283,20 +316,39 @@ func (m *TrajectoryMemory) Replay(domain string, family BottleneckFamily, target
 		if r.VerifiedCorrect {
 			v = math.Max(-8, math.Min(8, math.Log2(r.SpeedupRatio)))
 		}
-		seen := make(map[string]bool)
-		for _, rule := range r.AppliedRules {
-			if seen[rule] {
+		for i, rule := range r.AppliedRules {
+			// Each admitted receipt has at most 128 rules. Check its prefix
+			// directly rather than allocating a per-receipt deduplication map.
+			if slices.Contains(r.AppliedRules[:i], rule) {
 				continue
 			}
-			seen[rule] = true
-			x := by[rule]
+			x, exists := by[rule]
+			if !exists {
+				bytes := int64(reflect.TypeFor[struct {
+					key   string
+					value RuleReward
+				}]().Size()) + 2*int64(len(rule))
+				if err := scratch.Reserve(bytes); err != nil {
+					return TrajectoryReplay{}, err
+				}
+			}
 			x.Rule = rule
 			x.Reward += v
 			x.Observations++
 			by[rule] = x
 		}
 	}
-	var out []RuleReward
+	bytes := int64(len(by)) * int64(reflect.TypeFor[RuleReward]().Size())
+	for rule := range by {
+		bytes += int64(len(rule))
+	}
+	if err := result.Reserve(bytes); err != nil {
+		return TrajectoryReplay{}, err
+	}
+	if err := scratch.Reserve(2 * int64(reflect.TypeFor[RuleReward]().Size())); err != nil {
+		return TrajectoryReplay{}, err
+	}
+	out := make([]RuleReward, 0, len(by))
 	for _, x := range by {
 		x.Reward /= float64(x.Observations)
 		out = append(out, x)
@@ -308,5 +360,5 @@ func (m *TrajectoryMemory) Replay(domain string, family BottleneckFamily, target
 		return out[i].Rule < out[j].Rule
 	})
 	snapshot.Rewards = out
-	return snapshot
+	return snapshot, nil
 }

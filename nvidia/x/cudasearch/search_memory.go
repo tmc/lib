@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
@@ -30,12 +31,18 @@ type SearchMemory struct {
 	RuleTechniques map[string]string
 }
 
-func validateMemoryEvaluator(memory *SearchMemory, eval Evaluator) error {
+func validateMemoryEvaluator(memory *SearchMemory, eval Evaluator, scratch *egraphcore.MemoryScope) error {
 	if memory == nil || memory.Profile == nil {
 		return nil
 	}
 	e, ok := eval.(*ExecutableEvaluator)
-	if !ok || e == nil || e.Workload.Key() != memory.WorkloadKey {
+	if !ok || e == nil {
+		return fmt.Errorf("cudasearch: bottleneck profile requires its bound executable evaluator")
+	}
+	if err := reserveWorkloadKey(scratch, e.Workload); err != nil {
+		return err
+	}
+	if e.Workload.Key() != memory.WorkloadKey {
 		return fmt.Errorf("cudasearch: bottleneck profile requires its bound executable evaluator")
 	}
 	return nil
@@ -57,8 +64,15 @@ type MemoryDecision struct {
 }
 
 func freezeSearchMemory(config *SearchMemory, p *profileActions) error {
+	return freezeBoundedSearchMemory(config, p, nil, nil)
+}
+
+func freezeBoundedSearchMemory(config *SearchMemory, p *profileActions, scratch, result *egraphcore.MemoryScope) error {
 	if config == nil {
 		return nil
+	}
+	if err := reserveMemoryDecisionBase(config, scratch, result); err != nil {
+		return err
 	}
 	if cudakernel.ValidateTargetArch(config.TargetArch) != nil || len(config.RuleTechniques) > 4096 {
 		return fmt.Errorf("cudasearch: invalid search memory target or mapping")
@@ -66,14 +80,22 @@ func freezeSearchMemory(config *SearchMemory, p *profileActions) error {
 	state := ClassifyBottleneck(config.Metrics)
 	if config.Profile != nil {
 		p := config.Profile
+		// HardwareObserved hashes JSON. Admit that encoding, including map
+		// sorting slots, before calling the provenance checker.
+		if err := reserveMemoryJSON(p, scratch); err != nil {
+			return err
+		}
+		if err := scratch.Reserve(64); err != nil {
+			return err
+		}
 		if !p.HardwareObserved() || p.TargetArch != config.TargetArch || p.WorkloadKey != config.WorkloadKey || p.InputDigest != config.InputDigest || (config.Family != "" && config.Family != p.State.StateName) {
 			return fmt.Errorf("cudasearch: unqualified or incompatible bottleneck profile")
 		}
 		state = p.State
-		state.SecondaryCharacteristics = append(SecondaryCharacteristics(nil), p.State.SecondaryCharacteristics...)
-		state.RelativePatterns = make(RelativePattern, len(p.State.RelativePatterns))
-		for k, v := range p.State.RelativePatterns {
-			state.RelativePatterns[k] = v
+		var err error
+		state, err = copyMemoryState(p.State, result)
+		if err != nil {
+			return err
 		}
 	}
 	if config.Family != "" {
@@ -87,7 +109,15 @@ func freezeSearchMemory(config *SearchMemory, p *profileActions) error {
 	if !state.StateName.Valid() {
 		return fmt.Errorf("cudasearch: search memory category unavailable: %s", state.Reason)
 	}
-	d := &MemoryDecision{Version: 1, State: state, TargetArch: config.TargetArch, Domain: config.Domain, RuleTechniques: make(map[string]string), Weights: make(map[string]float64)}
+	rules, err := bookkeepingMap[string, string](result)
+	if err != nil {
+		return err
+	}
+	weights, err := bookkeepingMap[string, float64](result)
+	if err != nil {
+		return err
+	}
+	d := &MemoryDecision{Version: 1, State: state, TargetArch: config.TargetArch, Domain: config.Domain, RuleTechniques: rules, Weights: weights}
 	if config.Profile != nil {
 		d.ProfileID = config.Profile.ID
 	}
@@ -95,34 +125,68 @@ func freezeSearchMemory(config *SearchMemory, p *profileActions) error {
 		if len(config.Domain) != 64 {
 			return fmt.Errorf("cudasearch: invalid cross-task compatibility digest")
 		}
+		if err := scratch.Reserve(160); err != nil {
+			return err
+		}
 		b, err := hex.DecodeString(config.Domain)
 		if err != nil || len(b) != 32 || hex.EncodeToString(b) != config.Domain {
 			return fmt.Errorf("cudasearch: invalid cross-task compatibility digest")
 		}
 	}
 	if config.Trajectories != nil {
-		snapshot := config.Trajectories.Replay(config.Domain, state.StateName, config.TargetArch)
+		snapshot, err := config.Trajectories.ReplayWithMemory(config.Domain, state.StateName, config.TargetArch, scratch, result)
+		if err != nil {
+			return err
+		}
 		d.Rewards = snapshot.Rewards
 		d.TrajectoryIDs = snapshot.ReceiptIDs
 	}
 	if config.Knowledge != nil {
-		d.Strategies = config.Knowledge.Query(state.StateName, config.TargetArch)
+		d.Strategies, err = config.Knowledge.QueryWithMemory(state.StateName, config.TargetArch, scratch, result)
+		if err != nil {
+			return err
+		}
 	}
-	techniques := make(map[string]float64)
+	techniques, err := bookkeepingMap[string, float64](scratch)
+	if err != nil {
+		return err
+	}
 	for _, s := range d.Strategies {
 		if s.Confidence > techniques[s.Technique] {
-			techniques[s.Technique] = s.Confidence
+			if err := bookkeepingPut(scratch, techniques, s.Technique, s.Confidence); err != nil {
+				return err
+			}
 		}
 	}
 	for rule, technique := range config.RuleTechniques {
 		if rule == "" || technique == "" || len(rule) > 256 || len(technique) > 128 {
 			return fmt.Errorf("cudasearch: invalid technique mapping")
 		}
-		d.RuleTechniques[rule] = technique
-		d.Weights[rule] = techniques[technique]
+		if err := result.Reserve(2*int64(len(rule)) + int64(len(technique))); err != nil {
+			return err
+		}
+		if err := bookkeepingPut(result, d.RuleTechniques, rule, technique); err != nil {
+			return err
+		}
+		if err := bookkeepingPut(result, d.Weights, rule, techniques[technique]); err != nil {
+			return err
+		}
 	}
 	for _, r := range d.Rewards {
-		d.Weights[r.Rule] += r.Reward
+		if _, exists := d.Weights[r.Rule]; !exists {
+			if err := result.Reserve(int64(len(r.Rule))); err != nil {
+				return err
+			}
+		}
+		if err := bookkeepingPut(result, d.Weights, r.Rule, d.Weights[r.Rule]+r.Reward); err != nil {
+			return err
+		}
+	}
+	if err := reserveMemoryJSON(d, scratch); err != nil {
+		return err
+	}
+	if err := result.Reserve(64); err != nil {
+		return err
 	}
 	b, err := json.Marshal(d)
 	if err != nil {
