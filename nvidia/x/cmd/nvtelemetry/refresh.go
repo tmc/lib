@@ -11,9 +11,12 @@ import (
 	"io/fs"
 	"os"
 	"os/signal"
+	"slices"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/tmc/lib/nvidia/nvml"
 	"github.com/tmc/lib/nvidia/x/nvtelemetry"
 )
 
@@ -29,6 +32,10 @@ type refreshConfig struct {
 
 // attributionConfig names Slurm attribution files below Root. See
 // nvtelemetry.SlurmAttributionSource for what is opened.
+//
+// The processes read are either the configured PIDs or, if any NVML field is
+// set, the PIDs observed on each cycle by live NVML queries; see
+// nvtelemetry.NVMLProcessSelection. The two are mutually exclusive.
 type attributionConfig struct {
 	Root          string         `json:"root"`
 	Squeue        string         `json:"squeue"`
@@ -42,6 +49,19 @@ type attributionConfig struct {
 	Snapshot      snapshotConfig `json:"snapshot"`
 	TableCapacity int            `json:"table_capacity"`
 	TableTTL      time.Duration  `json:"table_ttl_nanos"`
+
+	NVMLUUIDs        []string        `json:"nvml_uuids,omitempty"`
+	NVMLSources      []string        `json:"nvml_sources,omitempty"`
+	NVMLMaxPerCall   int             `json:"nvml_max_per_call,omitempty"`
+	NVMLMaxRecords   int             `json:"nvml_max_records,omitempty"`
+	NVMLBootID       string          `json:"nvml_boot_id,omitempty"`
+	NVMLPIDNamespace string          `json:"nvml_pid_namespace,omitempty"`
+	NVMLSnapshot     *snapshotConfig `json:"nvml_snapshot,omitempty"`
+
+	// Test seams. A nil fsys reads below Root; a nil acquireNVML initializes
+	// NVML and opens each selected device by UUID.
+	fsys        fs.FS
+	acquireNVML func(uuids []string) ([]nvtelemetry.NVMLProcessDevice, func() error, error)
 }
 
 type snapshotConfig struct {
@@ -88,7 +108,7 @@ func (a *attributionConfig) source() nvtelemetry.SlurmAttributionSource {
 		Mappings:     a.Mappings,
 		Executions:   a.Executions,
 		ProcDir:      a.ProcDir,
-		PIDs:         a.PIDs,
+		PIDs:         slices.Clone(a.PIDs),
 		BootID:       a.BootID,
 		NodeID:       a.NodeID,
 		PIDNamespace: a.PIDNamespace,
@@ -102,6 +122,25 @@ func (a *attributionConfig) source() nvtelemetry.SlurmAttributionSource {
 			EndNanos:       s.EndNanos,
 		},
 	}
+}
+
+// nvmlSelection returns the live NVML process selection, which owns its
+// slices, and whether any of its fields is set.
+func (a *attributionConfig) nvmlSelection() (nvtelemetry.NVMLProcessSelection, bool) {
+	sel := nvtelemetry.NVMLProcessSelection{
+		UUIDs:        slices.Clone(a.NVMLUUIDs),
+		Sources:      slices.Clone(a.NVMLSources),
+		MaxPerCall:   a.NVMLMaxPerCall,
+		MaxRecords:   a.NVMLMaxRecords,
+		BootID:       a.NVMLBootID,
+		PIDNamespace: a.NVMLPIDNamespace,
+	}
+	if a.NVMLSnapshot != nil {
+		sel.Snapshot = nvtelemetry.EntitySnapshot(*a.NVMLSnapshot)
+	}
+	live := a.NVMLUUIDs != nil || a.NVMLSources != nil || a.NVMLMaxPerCall != 0 || a.NVMLMaxRecords != 0 ||
+		a.NVMLBootID != "" || a.NVMLPIDNamespace != "" || a.NVMLSnapshot != nil
+	return sel, live
 }
 
 // noFiles fails every open. ReadSlurmAttributionSnapshot validates its
@@ -138,19 +177,94 @@ func newAttributionSource(a *attributionConfig, clock nvtelemetry.Clock, cfg nvt
 	if _, err := nvtelemetry.ReadSlurmAttributionSnapshot(noFiles{}, src); !errors.Is(err, fs.ErrNotExist) {
 		return refreshSource{}, err
 	}
+	sel, live := a.nvmlSelection()
+	if live {
+		if err := sel.Validate(src); err != nil {
+			return refreshSource{}, err
+		}
+	}
 	table, err := nvtelemetry.NewJobAttributionTable(a.TableCapacity, int64(a.TableTTL))
 	if err != nil {
 		return refreshSource{}, err
 	}
-	fsys := os.DirFS(a.Root)
+	fsys := a.fsys
+	if fsys == nil {
+		fsys = os.DirFS(a.Root)
+	}
 	read := func(context.Context) (nvtelemetry.AttributionRead, error) {
 		return nvtelemetry.ReadSlurmAttributionSnapshot(fsys, src)
 	}
+	closeNVML := func() error { return nil }
+	if live {
+		acquire := a.acquireNVML
+		if acquire == nil {
+			acquire = func(uuids []string) ([]nvtelemetry.NVMLProcessDevice, func() error, error) {
+				if err := nvml.Init(); err != nil {
+					return nil, nil, fmt.Errorf("initialize NVML: %w", err)
+				}
+				devices := make([]nvtelemetry.NVMLProcessDevice, 0, len(uuids))
+				for _, uuid := range uuids {
+					device, err := nvml.NewDeviceByUUID(uuid)
+					if err != nil {
+						_ = nvml.Shutdown()
+						return nil, nil, fmt.Errorf("select NVML device: %w", err)
+					}
+					if actual, err := device.UUID(); err != nil || actual != uuid {
+						_ = nvml.Shutdown()
+						return nil, nil, errors.New("selected NVML device identity mismatch")
+					}
+					devices = append(devices, nvtelemetry.NVMLProcessDevice{Device: nvtelemetry.DeviceMetadata{UUID: uuid}, Query: device})
+				}
+				return devices, nvml.Shutdown, nil
+			}
+		}
+		devices, release, err := acquire(sel.UUIDs)
+		if err != nil {
+			return refreshSource{}, err
+		}
+		// The source owns NVML from here. Release runs once, after close and
+		// after any query still running, possibly one abandoned by a timed-out
+		// Step, has returned. A busy or closed source refuses new queries.
+		release = sync.OnceValue(release)
+		var mu sync.Mutex
+		var busy, closed bool
+		read = func(ctx context.Context) (nvtelemetry.AttributionRead, error) {
+			mu.Lock()
+			if busy || closed {
+				mu.Unlock()
+				return nvtelemetry.AttributionRead{}, errors.New("nvml processes: source busy or closed")
+			}
+			busy = true
+			mu.Unlock()
+			got, err := nvtelemetry.ReadNVMLAttributionSnapshot(ctx, fsys, src, sel, devices)
+			mu.Lock()
+			busy = false
+			done := closed
+			mu.Unlock()
+			if done {
+				release()
+			}
+			return got, err
+		}
+		closeNVML = func() error {
+			mu.Lock()
+			closed = true
+			idle := !busy
+			mu.Unlock()
+			if idle {
+				return release()
+			}
+			return nil
+		}
+	}
 	r, err := nvtelemetry.NewAttributionRefresher(table, read, clock, cfg)
 	if err != nil {
+		closeNVML()
 		return refreshSource{}, err
 	}
-	return refreshSource{name: "attribution", step: r.Step, ready: r.Ready, status: r.Status, close: r.Close}, nil
+	return refreshSource{name: "attribution", step: r.Step, ready: r.Ready, status: r.Status, close: func() error {
+		return errors.Join(r.Close(), closeNVML())
+	}}, nil
 }
 
 func newWorkloadSource(i int, path string, clock nvtelemetry.Clock, cfg nvtelemetry.RefreshConfig) (refreshSource, error) {
