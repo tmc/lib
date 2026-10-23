@@ -1,7 +1,7 @@
 # A fake nvcc prints recorded ptxas -v output and writes the fatbin; a fake
 # cuobjdump prints recorded SASS. The real tools are not needed.
 [!exec:sh] skip
-chmod 0755 nvcc cuobjdump
+chmod 0755 nvcc cuobjdump pfx
 
 exec cudacompilecheck -nvcc $WORK/nvcc -cuobjdump $WORK/cuobjdump -launchers -sass k.cu
 stdout '^sm_90a +entry +32 +- +128 +0 +0 +512 +1 +_Z5scaleILi128EEvPfPKfi$'
@@ -23,6 +23,15 @@ stderr 'gate failed'
 ! exec cudacompilecheck -nvcc $WORK/nvcc -max-registers 24 k.cu
 stdout 'FAIL: sm_90a _Z5scaleILi128EEvPfPKfi: 32 registers > 24'
 exec cudacompilecheck -nvcc $WORK/nvcc -max-registers 32 k.cu
+
+# With -exec the tool runs under timeout(1) on the far side, because the
+# local process group holds only the prefix.
+exec cudacompilecheck -exec $WORK/pfx -timeout 90s -nvcc $WORK/nvcc k.cu
+stdout '_Z5spillPfPKf'
+exec cat pfxlog
+stdout '^timeout -k 5 90s mkdir -p /tmp/cudacompilecheck-'
+stdout '^timeout -k 5 90s .*/nvcc '
+stdout '^timeout -k 5 90s rm -rf /tmp/cudacompilecheck-'
 
 # Entry gates: the fixture has two entry functions and one device function.
 exec cudacompilecheck -nvcc $WORK/nvcc -count 2 -want-entries '_Z5spillPfPKf,_Z5scale.*' k.cu
@@ -57,6 +66,12 @@ stderr 'error: boom'
 ! exec cudacompilecheck -arch sm90 k.cu
 stderr 'bad architecture "sm90"'
 
+-- pfx --
+#!/bin/sh
+# A stand-in for limactl shell: log, drop timeout(1), run locally.
+echo "$@" >> $WORK/pfxlog
+[ "$1" = timeout ] && shift 4
+exec "$@"
 -- want.txt --
 # kernels the generator emits
 _Z5spillPfPKf

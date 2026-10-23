@@ -39,6 +39,12 @@
 // it or matches it as an anchored regular expression. They catch a
 // kernel that silently failed to instantiate.
 //
+// -timeout bounds each tool run. Locally the tool runs in its own process
+// group and the timeout kills the group; where process groups are not
+// permitted the command says so once and the kill reaches only the tool.
+// With -exec the tool also runs under timeout(1) on the compiling host,
+// because the local group holds only the prefix.
+//
 // The command compiles only; it never loads a module or touches a device.
 package main
 
@@ -50,12 +56,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -213,7 +221,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	outRoot := work
 	if len(c.exec) > 0 {
 		outRoot = fmt.Sprintf("/tmp/cudacompilecheck-%d-%d", os.Getpid(), time.Now().UnixNano())
-		defer runTool(context.WithoutCancel(ctx), c.timeout, append(append([]string(nil), c.exec...), "rm", "-rf", outRoot))
+		defer c.run(context.WithoutCancel(ctx), "rm", "-rf", outRoot)
 	}
 	var reports []*fileReport
 	failed := false
@@ -277,7 +285,7 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	if out, err := runTool(ctx, c.timeout, append(append([]string(nil), c.exec...), "mkdir", "-p", outDir)); err != nil {
+	if out, err := c.run(ctx, "mkdir", "-p", outDir); err != nil {
 		return nil, fmt.Errorf("make output directory: %v\n%s", err, out)
 	}
 	input := src
@@ -301,8 +309,7 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	args = append(args, c.extra...)
 	args = append(args, input)
 
-	cmd := append(append([]string(nil), c.exec...), args...)
-	output, err := runTool(ctx, c.timeout, cmd)
+	output, err := c.run(ctx, args...)
 	if err != nil {
 		return nil, fmt.Errorf("nvcc: %v\n%s", err, output)
 	}
@@ -310,12 +317,11 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	if err != nil {
 		return nil, err
 	}
-	rep := &fileReport{Source: src, Command: cmd, Warnings: info.Warnings, Notes: info.Notes}
+	rep := &fileReport{Source: src, Command: append(append([]string(nil), c.exec...), args...), Warnings: info.Warnings, Notes: info.Notes}
 	census := map[string]map[string]*Census{} // arch -> function -> census
 	if c.sass {
 		for _, a := range c.archs {
-			cmd := append(append([]string(nil), c.exec...), c.cuobjdump, "-sass", "-arch", a, out)
-			text, err := runTool(ctx, c.timeout, cmd)
+			text, err := c.run(ctx, c.cuobjdump, "-sass", "-arch", a, out)
 			if err != nil {
 				return nil, fmt.Errorf("cuobjdump: %v\n%s", err, text)
 			}
@@ -420,11 +426,64 @@ func entryFailures(c *config, info *ptxasinfo.Report) []string {
 	return failures
 }
 
+// run runs a tool on the compiling host and returns its combined output.
+//
+// Locally the tool runs in its own process group, and the timeout kills the
+// group, so compiler subprocesses (cicc, ptxas) die with nvcc. Where a
+// process group cannot be created, run says so once on stderr and the
+// timeout reaches only the direct child.
+//
+// With -exec the local group holds only the prefix (limactl, ssh, docker),
+// not the tool on the far side, so the tool also runs under timeout(1)
+// there with the same limit; the compiling host must provide it.
+func (c *config) run(ctx context.Context, args ...string) ([]byte, error) {
+	argv := args
+	if len(c.exec) > 0 {
+		secs := int(math.Ceil(c.timeout.Seconds()))
+		argv = append(append(append([]string(nil), c.exec...), "timeout", "-k", "5", fmt.Sprintf("%ds", secs)), args...)
+	}
+	return runTool(ctx, c.timeout, argv)
+}
+
+// groupWarning receives the one-time notice that process groups are
+// unavailable.
+var (
+	groupWarning     io.Writer = os.Stderr
+	groupWarningOnce sync.Once
+)
+
 func runTool(ctx context.Context, timeout time.Duration, argv []string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-	return cmd.CombinedOutput()
+	command := func(group bool) *exec.Cmd {
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+		// Grandchildren that keep the output pipe open must not hold
+		// Wait past the timeout.
+		cmd.WaitDelay = 5 * time.Second
+		if group {
+			setProcessGroup(cmd)
+		}
+		return cmd
+	}
+	cmd := command(true)
+	out, err := cmd.CombinedOutput()
+	grouped := true
+	if cmd.Process == nil && isGroupError(err) {
+		groupWarningOnce.Do(func() {
+			fmt.Fprintf(groupWarning, "cudacompilecheck: cannot create a process group (%v); a timeout kills only %s, not its children\n", err, filepath.Base(argv[0]))
+		})
+		cmd = command(false)
+		out, err = cmd.CombinedOutput()
+		grouped = false
+	}
+	if err != nil && ctx.Err() == context.DeadlineExceeded {
+		reach := "killed its process group"
+		if !grouped {
+			reach = "killed " + filepath.Base(argv[0]) + " only; its children may still be running"
+		}
+		return out, fmt.Errorf("timed out after %v (%s): %w", timeout, reach, err)
+	}
+	return out, err
 }
 
 func printText(w io.Writer, r *fileReport, top int) {
@@ -496,11 +555,11 @@ func ptxCensus(ctx context.Context, c *config, input, outDir, arch string) (map[
 		args = append(args, "-D"+d)
 	}
 	args = append(append(args, c.extra...), input)
-	if text, err := runTool(ctx, c.timeout, append(append([]string(nil), c.exec...), args...)); err != nil {
+	if text, err := c.run(ctx, args...); err != nil {
 		return nil, fmt.Errorf("nvcc -ptx: %v\n%s", err, text)
 	}
 	// The PTX is on the compiling host, which may be another machine.
-	text, err := runTool(ctx, c.timeout, append(append([]string(nil), c.exec...), "cat", out))
+	text, err := c.run(ctx, "cat", out)
 	if err != nil {
 		return nil, fmt.Errorf("read ptx: %v\n%s", err, text)
 	}
