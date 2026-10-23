@@ -441,16 +441,23 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         *reinterpret_cast<eg_u32x4*>(&sq[r * LD8 + piece * 8]) = w;
     }
 
-    // Each thread moves NP 16-byte pieces of K and of V (4 per key).
+    // Each thread moves NP 16-byte pieces of K and of V (4 per key), pieces
+    // NP·tid .. NP·tid + NP - 1, all of key fk of a step. It reads the page
+    // table once per step, a step ahead of the fetch that uses the row.
     eg_u32x4 kreg[NP], vreg[NP];
-    auto fetch = [&](int kb) {
+    const int fk = tid * NP / 4;
+    auto rowof = [&](int kb) -> long long {
+        const int kp = kb + fk;
+        if (tid * NP >= PIECES || kp >= c1) return -1;
+        return (long long)page_table[(size_t)b * max_pages + kp / PAGE] * PAGE + kp % PAGE;
+    };
+    auto fetch = [&](long long row) {
 #pragma unroll
         for (int n = 0; n < NP; ++n) {
-            const int piece = tid + 128 * n, kp = kb + piece / 4;
+            const int piece = tid * NP + n;
             kreg[n] = vreg[n] = eg_u32x4{0, 0, 0, 0};
-            if (piece < PIECES && kp < c1) {
-                const size_t row = (size_t)page_table[(size_t)b * max_pages + kp / PAGE] * PAGE + kp % PAGE;
-                const size_t at = (row * HKV + kvh) * 64 + (piece % 4) * 16;
+            if (row >= 0) {
+                const size_t at = ((size_t)row * HKV + kvh) * 64 + (piece % 4) * 16;
                 kreg[n] = eg_ldg16(k_cache + at);
                 vreg[n] = eg_ldg16(v_cache + at);
             }
@@ -467,7 +474,8 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         reinterpret_cast<eg_u32x4*>(dst)[0] = eg_u32x4{o[0], o[1], o[2], o[3]};
         reinterpret_cast<eg_u32x4*>(dst)[1] = eg_u32x4{o[4], o[5], o[6], o[7]};
     };
-    fetch(c0);
+    fetch(rowof(c0));
+    long long next = rowof(c0 + STEP);
     __syncthreads();
 
     uint32_t qa[2][4];
@@ -488,14 +496,17 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         __syncthreads();
 #pragma unroll
         for (int n = 0; n < NP; ++n) {
-            const int piece = tid + 128 * n;
+            const int piece = tid * NP + n;
             if (piece < PIECES) {
                 *reinterpret_cast<eg_u32x4*>(&sk[(piece / 4) * LD8 + (piece % 4) * 8]) = kreg[n];
                 widen(&sv[(piece / 4) * LD + (piece % 4) * 16], vreg[n]);
             }
         }
         __syncthreads();
-        if (kb + STEP < c1) fetch(kb + STEP);
+        if (kb + STEP < c1) {
+            fetch(next);
+            next = rowof(kb + 2 * STEP);
+        }
 #pragma unroll
         for (int sub = 0; sub < DEPTH; ++sub) {
         const int kt0 = (kw * DEPTH + sub) * 16, key0 = kb + kt0;
