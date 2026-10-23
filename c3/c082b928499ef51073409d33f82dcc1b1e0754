@@ -1,0 +1,11 @@
+commit: c3c082b928499ef51073409d33f82dcc1b1e0754
+date: 2026-10-23T07:13:04.769471+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 49432
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-cudatest-owned-implementation/r3/W/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-owned-helper-adoption/ROOT-GRADE.md
+qualification: owned helper r3; exact120 plus7paths;44PASS each host/race plusvet/portablelinuxCGO0vet andM21 omission; native unqualified
