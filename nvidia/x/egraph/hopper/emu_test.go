@@ -59,7 +59,11 @@ func runEmu(t *testing.T, src, launch string, bufs ...emuBuf) map[string][]byte 
 		t.Fatal(err)
 	}
 	bin := filepath.Join(dir, "main")
-	cmd := exec.Command(cxx, "-std=c++20", "-O1", "-w", "-include", emu, "-o", bin, cc)
+	args := []string{"-std=c++20", "-O1", "-w", "-include", emu, "-o", bin, cc}
+	// EG_EMU_FLAGS adds compiler flags, such as -DEG_EMU_ZERO_SMEM for a
+	// mutation run's control.
+	args = append(args, strings.Fields(os.Getenv("EG_EMU_FLAGS"))...)
+	cmd := exec.Command(cxx, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("compile emulated kernel: %v\n%s\n--- source ---\n%s", err, out, numbered(main.String()))
 	}

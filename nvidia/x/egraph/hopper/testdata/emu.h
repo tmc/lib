@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <mutex>
 #include <cmath>
+#include <math.h> // expf and the other float functions, global in C and libstdc++
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -96,8 +97,6 @@ inline float __fdividef(float a, float b) { return a / b; }
 inline float rsqrtf(float x) { return 1.0f / std::sqrt(x); }
 inline void sincosf(float x, float* s, float* c) { *s = std::sin(x); *c = std::cos(x); }
 using std::min; using std::max;
-using std::expf; using std::sqrtf; using std::fmaxf; using std::fminf; using std::exp2f; using std::powf;
-using std::logf; using std::cosf; using std::sinf; using std::fabsf;
 
 template <typename T> T __ldg(const T* p) { return *p; }
 
