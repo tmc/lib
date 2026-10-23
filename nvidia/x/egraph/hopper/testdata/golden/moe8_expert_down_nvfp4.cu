@@ -137,6 +137,16 @@ EG_DEV void eg_cp_async16(void* smem, const void* gmem) {
 #endif
 }
 
+// eg_cp_async4 copies 4 bytes global to shared (through L1).
+EG_DEV void eg_cp_async4(void* smem, const void* gmem) {
+#if defined(EG_HOST_EMU)
+    memcpy(smem, gmem, 4);
+#else
+    const uint32_t s = (uint32_t)__cvta_generic_to_shared(smem);
+    asm volatile("cp.async.ca.shared.global [%0], [%1], 4;" :: "r"(s), "l"(gmem));
+#endif
+}
+
 EG_DEV void eg_cp_async_commit() {
 #if !defined(EG_HOST_EMU)
     asm volatile("cp.async.commit_group;");

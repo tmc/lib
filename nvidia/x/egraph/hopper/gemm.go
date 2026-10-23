@@ -437,47 +437,62 @@ func (g SkinnyGEMM) Reference(m int, x []uint16, w GEMMWeights, extras [][]float
 	if m < 1 || m > g.MaxM || len(x) != m*g.K || len(extras) != len(g.Extras) {
 		return nil, fmt.Errorf("skinny gemm %s reference: bad inputs", g.Name)
 	}
-	row := make([]float64, g.K)
-	vals := make([]float32, g.K)
 	out := make([]float32, m*g.N)
-	for n := 0; n < g.N; n++ {
-		switch g.Weight {
-		case WeightBF16:
-			for k := range row {
-				row[k] = float64(FromBF16Bits(w.BF16[n*g.K+k]))
-			}
-		case WeightBF16HiLo:
-			for k := range row {
-				row[k] = float64(FromBF16Bits(w.BF16[n*g.K+k])) + float64(FromBF16Bits(w.Lo[n*g.K+k]))
-			}
-		case WeightNVFP4:
-			if err := DequantNVFP4(vals, w.Packed[n*g.K/2:(n+1)*g.K/2], w.Scales[n*g.K/16:(n+1)*g.K/16], w.GlobalScal); err != nil {
-				return nil, err
-			}
-			for k := range row {
-				row[k] = float64(vals[k])
-			}
-		}
-		for i := 0; i < m; i++ {
-			var s float64
-			for k, wk := range row {
-				s += float64(FromBF16Bits(x[i*g.K+k])) * wk
-			}
-			args := []float32{float32(s)}
-			for j, e := range g.Extras {
-				switch e.Broadcast {
-				case PerCol:
-					args = append(args, extras[j][n])
-				case PerRow:
-					args = append(args, extras[j][i])
-				default:
-					args = append(args, extras[j][i*g.N+n])
-				}
-			}
-			out[i*g.N+n] = g.Out.Round(g.Epilogue.Eval(args...))
-		}
+	rows := make([]int, m)
+	for i := range rows {
+		rows[i] = i
+	}
+	xRow := func(i int) []uint16 { return x[i*g.K : (i+1)*g.K] }
+	if err := gemmRows(g.N, g.K, g.Weight, w, xRow, rows, g.Epilogue, g.Extras, extras, g.Out, out); err != nil {
+		return nil, fmt.Errorf("skinny gemm %s reference: %w", g.Name, err)
 	}
 	return out, nil
+}
+
+// gemmRows computes out[i, n] = epi(Σ_k xRow(i)[k] · W[n, k], extras at
+// (i, n)) for each output row i of rows in float64, applies the epilogue in
+// FP32 and rounds to d. out and Full extras are [*, n] row-major.
+func gemmRows(n, k int, f WeightFormat, w GEMMWeights, xRow func(int) []uint16, rows []int, epi Lambda, ops []Operand, extras [][]float32, d DType, out []float32) error {
+	row := make([]float64, k)
+	vals := make([]float32, k)
+	for c := 0; c < n; c++ {
+		switch f {
+		case WeightBF16:
+			for j := range row {
+				row[j] = float64(FromBF16Bits(w.BF16[c*k+j]))
+			}
+		case WeightBF16HiLo:
+			for j := range row {
+				row[j] = float64(FromBF16Bits(w.BF16[c*k+j])) + float64(FromBF16Bits(w.Lo[c*k+j]))
+			}
+		case WeightNVFP4:
+			if err := DequantNVFP4(vals, w.Packed[c*k/2:(c+1)*k/2], w.Scales[c*k/16:(c+1)*k/16], w.GlobalScal); err != nil {
+				return err
+			}
+			for j := range row {
+				row[j] = float64(vals[j])
+			}
+		}
+		for _, i := range rows {
+			var s float64
+			for j, xv := range xRow(i) {
+				s += float64(FromBF16Bits(xv)) * row[j]
+			}
+			args := []float32{float32(s)}
+			for e, o := range ops {
+				switch o.Broadcast {
+				case PerCol:
+					args = append(args, extras[e][c])
+				case PerRow:
+					args = append(args, extras[e][i])
+				default:
+					args = append(args, extras[e][i*n+c])
+				}
+			}
+			out[i*n+c] = d.Round(epi.Eval(args...))
+		}
+	}
+	return nil
 }
 
 // cIdent reports whether s is a C identifier that cannot collide with the
