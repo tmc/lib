@@ -48,6 +48,14 @@ func MinVRAM(bytes uint64) Requirement {
 // If this machine has no CUDA driver, or no device satisfies the requirements,
 // the test is skipped. A driver that is present but fails to initialize is a
 // failure, not a skip.
+//
+// Require does not own what it opens. It initializes the driver and opens
+// devices before taking the GPU lease, and takes no lease at all when
+// GPU_LOCK_DISABLED or CUDATEST_NO_LOCK is set. Devices it rejects, and a
+// matched device when the lease cannot be acquired, are never closed. The
+// caller must close the returned device itself. The lease is released by a
+// separate cleanup that ignores its error and runs whether or not the
+// caller's resources were released. New tests should use [RequireOwned].
 func Require(t testing.TB, reqs ...Requirement) *cuda.Device {
 	t.Helper()
 
@@ -215,6 +223,10 @@ func (c *DeviceMemoryCheck) Check() error {
 //
 // A skipped call establishes no evidence. Callers that must prove CUDA
 // execution should check retained test output for an actual run.
+//
+// RequireDevice takes no GPU lease and registers no cleanup. The caller owns
+// the returned device and must close it, after releasing everything created
+// on it. New tests should use [RequireOwned].
 func RequireDevice(t testing.TB) *cuda.Device {
 	t.Helper()
 	if err := driver.Load(""); err != nil {

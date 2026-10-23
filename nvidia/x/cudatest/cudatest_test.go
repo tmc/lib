@@ -1,13 +1,15 @@
 package cudatest_test
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
-// TestRequireFilters checks that Require applies its requirements and hands
-// back a device that satisfies them.
+// TestRequireFilters checks that RequireOwned applies its requirements and
+// hands back a device that satisfies them.
 //
 // It used to wrap the body in a zero-tolerance BeginDeviceMemoryCheck, which
 // could not test what it appeared to. The baseline is captured after Require
@@ -22,22 +24,21 @@ import (
 // TestDeviceMemoryCheckCUDA, which is gated for exactly this reason.
 func TestRequireFilters(t *testing.T) {
 	const wantMajor, wantMinor = 7, 0
-	dev := cudatest.Require(t, cudatest.MinCompute(wantMajor, wantMinor))
+	// admission bounds the wait for the GPU lease and the admission checks
+	// after it, not driver calls or cleanup.
+	admission, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	dev, _ := cudatest.RequireOwned(admission, t, cudatest.MinCompute(wantMajor, wantMinor))
 	if dev == nil {
-		t.Fatal("Require returned a nil device without skipping")
+		t.Fatal("RequireOwned returned a nil device without skipping")
 	}
-	defer func() {
-		if err := dev.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
 
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if major < wantMajor || (major == wantMajor && minor < wantMinor) {
-		t.Errorf("Require returned device %d with sm_%d%d, below the requested sm_%d%d",
+		t.Errorf("RequireOwned returned device %d with sm_%d%d, below the requested sm_%d%d",
 			dev.Ordinal(), major, minor, wantMajor, wantMinor)
 	}
 	t.Logf("Acquired device %d: sm_%d%d", dev.Ordinal(), major, minor)

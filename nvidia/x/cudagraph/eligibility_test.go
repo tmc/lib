@@ -1,7 +1,9 @@
 package cudagraph_test
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudatest"
@@ -22,12 +24,18 @@ func TestEligibilityClosedGraph(t *testing.T) {
 }
 
 func TestEligibilityEmptyGraph(t *testing.T) {
-	dev := cudatest.Require(t)
+	// admission bounds the wait for the GPU lease and the admission checks
+	// after it, not driver calls or cleanup.
+	admission, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	dev, owner := cudatest.RequireOwned(admission, t)
 	g, err := cudagraph.New(dev)
+	if g != nil {
+		owner.Defer(g.Destroy)
+	}
 	if err != nil {
 		t.Fatalf("cudagraph.New: %v", err)
 	}
-	defer g.Destroy()
 
 	el, err := g.Eligibility()
 	if err != nil {
@@ -45,12 +53,18 @@ func TestEligibilityEmptyGraph(t *testing.T) {
 }
 
 func TestEligibilityEmptyNodes(t *testing.T) {
-	dev := cudatest.Require(t)
+	// admission bounds the wait for the GPU lease and the admission checks
+	// after it, not driver calls or cleanup.
+	admission, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	dev, owner := cudatest.RequireOwned(admission, t)
 	g, err := cudagraph.New(dev)
+	if g != nil {
+		owner.Defer(g.Destroy)
+	}
 	if err != nil {
 		t.Fatalf("cudagraph.New: %v", err)
 	}
-	defer g.Destroy()
 
 	_, err = g.AddEmptyNode()
 	if err != nil {
