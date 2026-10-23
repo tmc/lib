@@ -294,10 +294,18 @@ void host(int* res) {
     res[0] = cudaGetDevice(&dev) + dev;
     res[1] = cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev) + sms;
     res[2] = cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per, k, 128, 0) + per;
+    eg_emu_launch(dim3(sms * per, 2), dim3(32), 0, k);
+    res[3] = eg_emu_last_grid.x * 10 + eg_emu_last_grid.y;
+    run_cluster_grid(dim3(4, 5), dim3(32), 2, [] {});
+    res[4] = eg_emu_last_grid.x * 10 + eg_emu_last_grid.y;
 }`
-	got := u32s(run(t, Program{Source: src, Launch: "host(res)", Buffers: []Buffer{{"res", "int", Poison(12)}}})["res"])
-	if want := []uint32{0, 7, 3}; got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
-		t.Errorf("res = %v, want %v", got, want)
+	got := u32s(run(t, Program{Source: src, Launch: "host(res)", Buffers: []Buffer{{"res", "int", Poison(20)}}})["res"])
+	want := []uint32{0, 7, 3, 212, 45}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("res = %v, want %v", got, want)
+			break
+		}
 	}
 }
 

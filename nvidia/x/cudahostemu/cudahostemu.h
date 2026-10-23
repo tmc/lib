@@ -600,11 +600,16 @@ template <typename K> cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(
 
 // --- launch ----------------------------------------------------------------
 
+// eg_emu_last_grid is the grid of the latest launch, valid or not, for
+// tests of launchers that size it.
+inline dim3 eg_emu_last_grid;
+
 // eg_emu_run runs body on every thread of grid × block, cluster blocks at a
 // time along x. It reports an invalid configuration through
 // cudaGetLastError and runs nothing.
 template <typename F>
 void eg_emu_run(dim3 grid, dim3 block, size_t smem, int cluster, F body) {
+    eg_emu_last_grid = grid;
     const long n = (long)block.x * block.y * block.z;
     if (n <= 0 || n > 1024 || grid.x == 0 || grid.y == 0 || grid.z == 0 ||
         cluster < 1 || cluster > 16 || grid.x % cluster != 0) {
