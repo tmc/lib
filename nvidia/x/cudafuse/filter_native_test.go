@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -494,6 +496,57 @@ func retainFilterNativePacket(t *testing.T, e *Execution, out, want []float32, p
 	}
 }
 
+// filterNativeOwners retains the device until its stream has drained and closed.
+// Failed cleanup stays reachable for the lifetime of the test process.
+type filterNativeOwners struct {
+	drain       func() error
+	streamClose func() error
+	deviceClose func() error
+	quiesced    bool
+}
+
+var filterRetainedOwners struct {
+	sync.Mutex
+	owners []*filterNativeOwners
+}
+
+func (o *filterNativeOwners) ownStream(stream interface {
+	Synchronize(context.Context) error
+	Close() error
+}) {
+	o.drain = func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		return stream.Synchronize(ctx)
+	}
+	o.streamClose = stream.Close
+}
+
+func (o *filterNativeOwners) close() error {
+	if o.streamClose != nil {
+		if !o.quiesced {
+			if o.drain == nil {
+				return errors.New("stream drain unavailable, retain native owners")
+			}
+			if err := o.drain(); err != nil {
+				return fmt.Errorf("drain stream, retain native owners: %w", err)
+			}
+			o.quiesced = true
+		}
+		if err := o.streamClose(); err != nil {
+			return fmt.Errorf("close stream, retain native owners: %w", err)
+		}
+		o.streamClose = nil
+	}
+	if o.deviceClose != nil {
+		if err := o.deviceClose(); err != nil {
+			return fmt.Errorf("close device, retain native owners: %w", err)
+		}
+		o.deviceClose = nil
+	}
+	return nil
+}
+
 func requireFilterNativeStream(t *testing.T) (*cuda.Device, *cuda.Stream, filterNativeGate) {
 	t.Helper()
 	gate, err := filterNativeAdmission(os.Getenv)
@@ -504,8 +557,12 @@ func requireFilterNativeStream(t *testing.T) (*cuda.Device, *cuda.Stream, filter
 		t.Fatal(err)
 	}
 	dev := cudatest.RequireDevice(t)
+	owners := &filterNativeOwners{deviceClose: dev.Close}
 	t.Cleanup(func() {
-		if err := dev.Close(); err != nil {
+		if err := owners.close(); err != nil {
+			filterRetainedOwners.Lock()
+			filterRetainedOwners.owners = append(filterRetainedOwners.owners, owners)
+			filterRetainedOwners.Unlock()
 			t.Error(err)
 		}
 	})
@@ -514,14 +571,12 @@ func requireFilterNativeStream(t *testing.T) (*cuda.Device, *cuda.Stream, filter
 		t.Fatal(err)
 	}
 	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.ownStream(stream)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := stream.Close(); err != nil {
-			t.Error(err)
-		}
-	})
 	t.Logf("filter native gate admitted: lock_pid=%d label=%q target=%s device_sm=%d.%d", gate.Owner.PID, gate.Owner.Label, gate.Target, major, minor)
 	return dev, stream, gate
 }

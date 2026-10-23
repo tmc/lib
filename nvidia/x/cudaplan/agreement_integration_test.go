@@ -84,8 +84,23 @@ func (o *workflowNativeOwners) retainCompletion(c *cudaplan.Completion) {
 	})
 }
 
+func (o *workflowNativeOwners) ownStream(stream interface {
+	Synchronize(context.Context) error
+	Close() error
+}) {
+	o.drain = func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		return stream.Synchronize(ctx)
+	}
+	o.add(workflowStream, "stream", stream.Close)
+}
+
 func (o *workflowNativeOwners) close() error {
-	if !o.quiesced {
+	if !o.quiesced && (o.drain != nil || len(o.resources[workflowStream]) != 0) {
+		if o.drain == nil {
+			return errors.New("stream drain unavailable, retain native owners")
+		}
 		if err := o.drain(); err != nil {
 			return fmt.Errorf("drain stream, retain native owners: %w", err)
 		}
@@ -128,24 +143,7 @@ func admitWorkflowNativeDevice(t *testing.T, gate string) (*cuda.Device, *cuda.S
 	if err != nil {
 		t.Fatal(err)
 	}
-	dev, err := cuda.NewDevice(ordinal)
-	if err != nil {
-		_ = lease.Release()
-		t.Fatal(err)
-	}
-	stream, err := dev.NewStream()
-	if err != nil {
-		_ = dev.Close()
-		_ = lease.Release()
-		t.Fatal(err)
-	}
-	owners := &workflowNativeOwners{drain: func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-		return stream.Synchronize(ctx)
-	}}
-	owners.add(workflowStream, "stream", stream.Close)
-	owners.add(workflowDevice, "device", dev.Close)
+	owners := &workflowNativeOwners{}
 	owners.add(workflowLease, "GPU lease", lease.Release)
 	t.Cleanup(func() {
 		if err := owners.close(); err != nil {
@@ -153,9 +151,22 @@ func admitWorkflowNativeDevice(t *testing.T, gate string) (*cuda.Device, *cuda.S
 			workflowRetainedOwners.owners = append(workflowRetainedOwners.owners, owners)
 			workflowRetainedOwners.Unlock()
 			t.Error(err)
-			return
 		}
 	})
+	dev, err := cuda.NewDevice(ordinal)
+	if dev != nil {
+		owners.add(workflowDevice, "device", dev.Close)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.ownStream(stream)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
 		t.Fatal(err)
