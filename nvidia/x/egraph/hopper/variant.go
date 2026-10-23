@@ -147,6 +147,9 @@ func (a PagedAttention) Variant() (Variant, error) {
 	}
 	key := fmt.Sprintf("paged_attention/Hq=%d/Hkv=%d/qlen=%d/window=%d/page=%d/q=%v/out=%v/qscale=%s/smscale=%s",
 		a.Hq, a.Hkv, a.QLen, a.Window, a.Page, a.Q, a.Out, floatLiteral(a.QScale), floatLiteral(a.SMScale))
+	if a.QKFP8 {
+		key += "/qkfp8"
+	}
 	if a.Gate {
 		key += fmt.Sprintf("/gate=%d:%d:%s", a.GateStride, a.GateOffset, floatLiteral(a.GateEps))
 	}

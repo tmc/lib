@@ -206,6 +206,43 @@ inline void eg_emu_mma_bf16_16816(float d[4], const uint32_t a[4], const uint32_
     for (int i = 0; i < 4; ++i) d[i] = out[i];
 }
 
+inline float eg_emu_e4m3(uint32_t b) {
+    const int e = (b >> 3) & 15, m = b & 7;
+    float v = e == 15 && m == 7 ? NAN : e == 0 ? std::ldexp((float)m, -9) : std::ldexp(1.0f + m / 8.0f, e - 7);
+    return b & 0x80 ? -v : v;
+}
+
+// mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32: as m16n8k16 with four
+// k values per register (low byte first): a0 (g, 4t..), a1 (g+8, 4t..),
+// a2 (g, 4t+16..), a3 (g+8, 4t+16..); b0 (k 4t.., n g), b1 (k 4t+16.., n g).
+inline void eg_emu_mma_e4m3_16832(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
+    eg_emu_warp* w = eg_emu_cur_warp;
+    uint32_t* mine = w->regs[eg_emu_lane];
+    for (int i = 0; i < 4; ++i) mine[i] = a[i];
+    mine[4] = b[0];
+    mine[5] = b[1];
+    w->bar.arrive_and_wait();
+    auto A = [&](int row, int col) {
+        int lane = (row % 8) * 4 + (col % 16) / 4;
+        int reg = (row / 8) + 2 * (col / 16);
+        return eg_emu_e4m3((w->regs[lane][reg] >> (8 * (col % 4))) & 0xff);
+    };
+    auto B = [&](int k, int col) {
+        int lane = col * 4 + (k % 16) / 4;
+        return eg_emu_e4m3((w->regs[lane][4 + k / 16] >> (8 * (k % 4))) & 0xff);
+    };
+    int g = eg_emu_lane / 4, t = eg_emu_lane % 4;
+    float out[4];
+    for (int i = 0; i < 4; ++i) {
+        int row = g + 8 * (i / 2), col = 2 * t + (i & 1);
+        float acc = c[i];
+        for (int k = 0; k < 32; ++k) acc += A(row, k) * B(k, col);
+        out[i] = acc;
+    }
+    w->bar.arrive_and_wait();
+    for (int i = 0; i < 4; ++i) d[i] = out[i];
+}
+
 // --- launch ---------------------------------------------------------------
 
 inline unsigned char* eg_emu_dynamic_smem() { return eg_emu_cur_block->smem.data(); }

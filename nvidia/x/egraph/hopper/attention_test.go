@@ -100,6 +100,9 @@ func TestPagedAttentionEmulated(t *testing.T) {
 		{"sliding_verify", PagedAttention{Name: "attn_verify", Hq: 16, Hkv: 2, QLen: 8, Window: 100, Page: 1, Q: BF16, Out: BF16, Chunk: 64}, []int32{130, 9}, 107, 1},
 		{"verify4_scaled", PagedAttention{Name: "attn_v4", Hq: 16, Hkv: 2, QLen: 4, Window: 0, Page: 64, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 128}, []int32{200, 64, 5}, 200, 1.0 / 64},
 		{"decode2_window", PagedAttention{Name: "attn_w", Hq: 8, Hkv: 1, QLen: 2, Window: 50, Page: 4, Q: E4M3, Out: F32, Chunk: 64}, []int32{90, 3}, 51, 1},
+		{"fp8_full_splits", PagedAttention{Name: "attn_fp8", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 64, QKFP8: true}, []int32{150, 37}, 150, 1},
+		{"fp8_verify_gate", PagedAttention{Name: "attn_fp8_v", Hq: 16, Hkv: 2, QLen: 8, Window: 100, Page: 1, Q: E4M3, Out: BF16, QScale: 5.4730064863875, Chunk: 64, QKFP8: true,
+			Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{130, 9}, 107, 1.0 / 64},
 		{"gate_splits", PagedAttention{Name: "attn_gate", Hq: 16, Hkv: 2, QLen: 2, Window: 0, Page: 8, Q: E4M3, Out: BF16, QScale: 5.4730064863875, Chunk: 64,
 			Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{150, 20}, 150, 1},
 		{"gate_dp", PagedAttention{Name: "attn_gate_dp", Hq: 64, Hkv: 8, QLen: 8, Window: 30, Page: 1, Q: E4M3, Out: F32, Chunk: 64,
@@ -195,6 +198,7 @@ func TestPagedAttentionErrors(t *testing.T) {
 		{"q", func(a *PagedAttention) { a.Q = F32 }},
 		{"out", func(a *PagedAttention) { a.Out = E4M3 }},
 		{"chunk", func(a *PagedAttention) { a.Chunk = 100 }},
+		{"fp8_q", func(a *PagedAttention) { a.Q, a.QKFP8 = BF16, true }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)
@@ -209,7 +213,7 @@ func TestPagedAttentionErrors(t *testing.T) {
 }
 
 func TestPagedAttentionGolden(t *testing.T) {
-	a := PagedAttention{Name: "moe8_attn_sliding", Hq: 16, Hkv: 2, QLen: 1, Window: 2048, Page: 1,
+	a := PagedAttention{Name: "moe8_attn_sliding", Hq: 16, Hkv: 2, QLen: 1, Window: 2048, Page: 1, QKFP8: true, Gate: true, GateStride: 2304, GateOffset: 1280,
 		Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 256}
 	src, err := a.Source()
 	if err != nil {

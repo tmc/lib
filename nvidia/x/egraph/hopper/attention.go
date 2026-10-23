@@ -41,6 +41,11 @@ type PagedAttention struct {
 	SMScale float32 // 0 means 1/8
 	Chunk   int     // keys per block, a multiple of 64; 0 means 256
 
+	// QKFP8 computes Q·Kᵀ with mma.sync m16n8k32 E4M3 tiles on the stored
+	// bytes (Q must be E4M3), skipping the widening of K to BF16. Products
+	// are exact; the tensor core's FP32 accumulation order differs.
+	QKFP8 bool
+
 	// With Gate, out = head_rms(attention, GateEps) · sigmoid(gate), the
 	// rms_norm_gate epilogue (moe8_attention_decode/reference.py:336), with
 	// gate BF16 read at gate[t·GateStride + GateOffset + head·64 + d] (in
@@ -71,6 +76,9 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	}
 	if a.Window < 0 || a.Page < 1 {
 		return a, g, fmt.Errorf("paged attention %s: bad window %d or page %d", a.Name, a.Window, a.Page)
+	}
+	if a.QKFP8 && a.Q != E4M3 {
+		return a, g, fmt.Errorf("paged attention %s: QKFP8 needs E4M3 queries", a.Name)
 	}
 	if a.Q != E4M3 && a.Q != BF16 || a.Out != F32 && a.Out != BF16 {
 		return a, g, fmt.Errorf("paged attention %s: q must be E4M3 or BF16, out F32 or BF16", a.Name)
@@ -168,7 +176,16 @@ func (a PagedAttention) CUDA() (string, error) {
 		a.Window, a.Page, a.Chunk)
 	fmt.Fprintf(&b, "    const float scale = %s * k_scale[0] * 1.4426950408889634f; // log2 domain\n",
 		floatLiteral(a.QScale*a.SMScale))
-	b.WriteString(attnBody)
+	body := attnBody
+	if a.QKFP8 {
+		for _, r := range attnFP8 {
+			if !strings.Contains(body, r[0]) {
+				return "", fmt.Errorf("paged attention %s: internal: fp8 rewrite %q does not apply", a.Name, r[0])
+			}
+			body = strings.ReplaceAll(body, r[0], r[1])
+		}
+	}
+	b.WriteString(body)
 	if a.Out == BF16 {
 		b.WriteString("    auto put = [&](size_t i, float v) { out[i] = eg_f32_to_bf16(v); };\n")
 	} else {
@@ -358,6 +375,46 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
 
 // attnCombine finishes: direct store for one split, else the last block
 // combines every split's partial in split order.
+// attnFP8 rewrites attnBody to keep Q and K as E4M3 bytes (rows of 64
+// bytes padded to 80) and multiply them with m16n8k32 tiles. In the b16
+// view the k32 fragments have the k16 BF16 layout, so the ldmatrix
+// addressing is unchanged apart from the row stride and step count.
+var attnFP8 = [][2]string{
+	{"alignas(16) __shared__ uint16_t sq[MROWS * LD];", "constexpr int LD8 = 40;\n    alignas(16) __shared__ uint16_t sq[MROWS * LD8];"},
+	{"alignas(16) __shared__ uint16_t sk[KW * 16 * LD];", "alignas(16) __shared__ uint16_t sk[KW * 16 * LD8];"},
+	{`    // Query rows r = j*G + g (token j, head kvh*G + g) as BF16, padded with zeros.
+    for (int i = tid; i < MROWS * 8; i += 128) {
+        const int r = i / 8, d = (i % 8) * 8;
+        eg_u32x4 w = {0, 0, 0, 0};
+        if (r < ROWS) {
+            float f[8];
+            eg_load<8>(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, f);
+            w = eg_u32x4{eg_pack_bf16x2(f[0], f[1]), eg_pack_bf16x2(f[2], f[3]),
+                         eg_pack_bf16x2(f[4], f[5]), eg_pack_bf16x2(f[6], f[7])};
+        }
+        *reinterpret_cast<eg_u32x4*>(&sq[r * LD + d]) = w;
+    }`, `    // Query rows r = j*G + g (token j, head kvh*G + g) as E4M3 bytes, padded with zeros.
+    for (int i = tid; i < MROWS * 4; i += 128) {
+        const int r = i / 4, piece = i % 4;
+        eg_u32x4 w = {0, 0, 0, 0};
+        if (r < ROWS) w = eg_ldg16(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + piece * 16);
+        *reinterpret_cast<eg_u32x4*>(&sq[r * LD8 + piece * 8]) = w;
+    }`},
+	{"    uint32_t qa[4][4];\n#pragma unroll\n    for (int ks = 0; ks < 4; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD + ks * 16 + (lane / 16) * 8]);",
+		"    uint32_t qa[2][4];\n#pragma unroll\n    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD8 + ks * 16 + (lane / 16) * 8]);"},
+	{"widen(&sk[(piece / 4) * LD + (piece % 4) * 16], kreg[n]);",
+		"*reinterpret_cast<eg_u32x4*>(&sk[(piece / 4) * LD8 + (piece % 4) * 8]) = kreg[n];"},
+	{`        for (int ks = 0; ks < 4; ++ks) {
+            uint32_t kf[4];
+            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_mma_bf16(s[0], qa[ks], &kf[0], s[0]);
+            eg_mma_bf16(s[1], qa[ks], &kf[2], s[1]);`, `        for (int ks = 0; ks < 2; ++ks) {
+            uint32_t kf[4];
+            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
+            eg_mma_e4m3(s[1], qa[ks], &kf[2], s[1]);`},
+}
+
 const attnCombine = `    // The finished rows go to fin (the first KW slot of red_o, which each
     // thread reads only at the index it then writes).
     float* const fin = red_o;

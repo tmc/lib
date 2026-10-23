@@ -200,6 +200,20 @@ EG_DEV void eg_mma_bf16(float d[4], const uint32_t a[4], const uint32_t b[2], co
 #endif
 }
 
+// eg_mma_e4m3 is d = a·b + c for one m16n8k32 tile, E4M3 inputs (four per
+// register, k ascending from the low byte), FP32 accumulate (sm_89+).
+EG_DEV void eg_mma_e4m3(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
+#if defined(EG_HOST_EMU)
+    eg_emu_mma_e4m3_16832(d, a, b, c);
+#else
+    asm volatile("mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32 "
+                 "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                 : "=f"(d[0]), "=f"(d[1]), "=f"(d[2]), "=f"(d[3])
+                 : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]),
+                   "f"(c[0]), "f"(c[1]), "f"(c[2]), "f"(c[3]));
+#endif
+}
+
 // Programmatic dependent launch: wait for the previous kernel's writes, and
 // let the next kernel start its preamble.
 EG_DEV void eg_pdl_wait() {
@@ -318,6 +332,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     const int32_t* __restrict__ seqlens,
     const float* __restrict__ k_scale,
     const float* __restrict__ v_scale,
+    const uint16_t* __restrict__ gate,
     float* __restrict__ out,
     unsigned char* __restrict__ ws) {
     constexpr int HQ = 16, HKV = 2, G = 8, L = 1, ROWS = 8, MROWS = 16, MT = 1, KW = 4;
@@ -333,24 +348,20 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     const int c0 = kbegin + split * CHUNK, c1 = min(seqlen, c0 + CHUNK);
     const float NEG_INF = -__uint_as_float(0x7f800000u);
 
-    alignas(16) __shared__ uint16_t sq[MROWS * LD];
-    alignas(16) __shared__ uint16_t sk[KW * 16 * LD];
+    constexpr int LD8 = 40;
+    alignas(16) __shared__ uint16_t sq[MROWS * LD8];
+    alignas(16) __shared__ uint16_t sk[KW * 16 * LD8];
     alignas(16) __shared__ uint16_t sv[KW * 16 * LD];
     __shared__ float red_m[KW * MROWS], red_l[KW * MROWS];
     __shared__ float red_o[KW * MROWS * 64];
     __shared__ int last;
 
-    // Query rows r = j*G + g (token j, head kvh*G + g) as BF16, padded with zeros.
-    for (int i = tid; i < MROWS * 8; i += 128) {
-        const int r = i / 8, d = (i % 8) * 8;
+    // Query rows r = j*G + g (token j, head kvh*G + g) as E4M3 bytes, padded with zeros.
+    for (int i = tid; i < MROWS * 4; i += 128) {
+        const int r = i / 4, piece = i % 4;
         eg_u32x4 w = {0, 0, 0, 0};
-        if (r < ROWS) {
-            float f[8];
-            eg_load<8>(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, f);
-            w = eg_u32x4{eg_pack_bf16x2(f[0], f[1]), eg_pack_bf16x2(f[2], f[3]),
-                         eg_pack_bf16x2(f[4], f[5]), eg_pack_bf16x2(f[6], f[7])};
-        }
-        *reinterpret_cast<eg_u32x4*>(&sq[r * LD + d]) = w;
+        if (r < ROWS) w = eg_ldg16(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + piece * 16);
+        *reinterpret_cast<eg_u32x4*>(&sq[r * LD8 + piece * 8]) = w;
     }
 
     // Each thread moves NP 16-byte pieces (16 keys x 4 pieces per KW group).
@@ -382,9 +393,9 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     fetch(c0);
     __syncthreads();
 
-    uint32_t qa[4][4];
+    uint32_t qa[2][4];
 #pragma unroll
-    for (int ks = 0; ks < 4; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD + ks * 16 + (lane / 16) * 8]);
+    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD8 + ks * 16 + (lane / 16) * 8]);
 
     // This lane's two rows (g and g+8 of its tile): positions and first keys.
     int pos[2], lo[2];
@@ -402,7 +413,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         for (int n = 0; n < NP; ++n) {
             const int piece = tid + 128 * n;
             if (piece < PIECES) {
-                widen(&sk[(piece / 4) * LD + (piece % 4) * 16], kreg[n]);
+                *reinterpret_cast<eg_u32x4*>(&sk[(piece / 4) * LD8 + (piece % 4) * 8]) = kreg[n];
                 widen(&sv[(piece / 4) * LD + (piece % 4) * 16], vreg[n]);
             }
         }
@@ -412,11 +423,11 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         if (key0 >= c1) continue;
         float s[2][4] = {};
 #pragma unroll
-        for (int ks = 0; ks < 4; ++ks) {
+        for (int ks = 0; ks < 2; ++ks) {
             uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
-            eg_mma_bf16(s[0], qa[ks], &kf[0], s[0]);
-            eg_mma_bf16(s[1], qa[ks], &kf[2], s[1]);
+            eg_ldmatrix_x4(kf, &sk[(kw * 16 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
+            eg_mma_e4m3(s[1], qa[ks], &kf[2], s[1]);
         }
 #pragma unroll
         for (int h = 0; h < 2; ++h) {
@@ -536,13 +547,21 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         if (tid == 0) *counter = 0;
     }
     __syncthreads();
-    for (int i = tid; i < ROWS * 64; i += 128) {
-        const int r = i / 64, d = i % 64;
-        put(((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, fin[i]);
+    constexpr int GATE_STRIDE = 2304, GATE_OFFSET = 1280;
+    constexpr float GATE_EPS = 1e-05f;
+    for (int r = warp; r < ROWS; r += 4) {
+        const float v0 = fin[r * 64 + lane], v1 = fin[r * 64 + lane + 32];
+        const float inv = rsqrtf(eg_warp_sum(v0 * v0 + v1 * v1) * (1.0f / 64) + GATE_EPS);
+        const size_t t = (size_t)b * L + r / G;
+        const int h = kvh * G + r % G;
+        const uint16_t* const g = gate + t * GATE_STRIDE + GATE_OFFSET + h * 64;
+        const size_t o = (t * HQ + h) * 64;
+        put(o + lane, v0 * inv * eg_sigmoid(eg_bf16_to_f32(g[lane])));
+        put(o + lane + 32, v1 * inv * eg_sigmoid(eg_bf16_to_f32(g[lane + 32])));
     }
 }
 
-inline void moe8_attn_sliding_launch(int batch, int max_keys, const uint8_t* __restrict__ q, const uint8_t* __restrict__ k_cache, const uint8_t* __restrict__ v_cache, const int32_t* __restrict__ page_table, int max_pages, const int32_t* __restrict__ seqlens, const float* __restrict__ k_scale, const float* __restrict__ v_scale, float* __restrict__ out, unsigned char* __restrict__ ws, cudaStream_t stream) {
+inline void moe8_attn_sliding_launch(int batch, int max_keys, const uint8_t* __restrict__ q, const uint8_t* __restrict__ k_cache, const uint8_t* __restrict__ v_cache, const int32_t* __restrict__ page_table, int max_pages, const int32_t* __restrict__ seqlens, const float* __restrict__ k_scale, const float* __restrict__ v_scale, const uint16_t* __restrict__ gate, float* __restrict__ out, unsigned char* __restrict__ ws, cudaStream_t stream) {
     const dim3 grid((max_keys + 255) / 256, 2, batch), block(128);
-    if (grid.x > 0 && batch > 0) EG_LAUNCH(moe8_attn_sliding, grid, block, 0, stream, q, k_cache, v_cache, page_table, max_pages, seqlens, k_scale, v_scale, out, ws);
+    if (grid.x > 0 && batch > 0) EG_LAUNCH(moe8_attn_sliding, grid, block, 0, stream, q, k_cache, v_cache, page_table, max_pages, seqlens, k_scale, v_scale, gate, out, ws);
 }

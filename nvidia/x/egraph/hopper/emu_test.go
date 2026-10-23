@@ -245,3 +245,55 @@ __global__ void mma(const uint16_t* a, const uint16_t* bt, float* d) {
 		}
 	}
 }
+
+// TestPreludeMMAE4M3 multiplies one 16x32 by 32x8 E4M3 tile through
+// ldmatrix (on the b16 view of the bytes) and eg_mma_e4m3, as
+// PagedAttention's QKFP8 path addresses them.
+func TestPreludeMMAE4M3(t *testing.T) {
+	const kernel = `
+__global__ void mma8(const uint8_t* a, const uint8_t* bt, float* d) {
+    alignas(16) __shared__ uint16_t sa[16 * 16];
+    alignas(16) __shared__ uint16_t sb[8 * 16];
+    int lane = threadIdx.x;
+    for (int i = lane; i < 256; i += 32) sa[i] = a[2 * i] | (uint16_t)(a[2 * i + 1] << 8);
+    for (int i = lane; i < 128; i += 32) sb[i] = bt[2 * i] | (uint16_t)(bt[2 * i + 1] << 8);
+    __syncthreads();
+    uint32_t fa[4], fb[4];
+    eg_ldmatrix_x4(fa, &sa[(lane % 16) * 16 + (lane / 16) * 8]);
+    // B stored as [n][k] bytes: matrices (n 0-7, k 0-15), (n 0-7, k 16-31).
+    eg_ldmatrix_x4(fb, &sb[(lane % 8) * 16 + ((lane / 8) % 2) * 8]);
+    float c[4] = {0, 0, 0, 0}, out[4];
+    eg_mma_e4m3(out, fa, fb, c);
+    int g = lane / 4, t = lane % 4;
+    d[g * 8 + 2 * t] = out[0];
+    d[g * 8 + 2 * t + 1] = out[1];
+    d[(g + 8) * 8 + 2 * t] = out[2];
+    d[(g + 8) * 8 + 2 * t + 1] = out[3];
+}
+`
+	a := make([]uint8, 16*32)
+	bt := make([]uint8, 8*32)
+	for i := range a {
+		a[i] = E4M3Bits(float32(i%7) - 3.5)
+	}
+	for i := range bt {
+		bt[i] = E4M3Bits(float32(i%11)*0.25 - 1)
+	}
+	res := runEmu(t, kernel, "eg_emu_launch(dim3(1), dim3(32), 0, mma8, a, bt, d)",
+		emuBuf{"a", "uint8_t", a},
+		emuBuf{"bt", "uint8_t", bt},
+		emuBuf{"d", "float", make([]byte, 4*128)},
+	)
+	d := bytesF32(res["d"])
+	for m := 0; m < 16; m++ {
+		for n := 0; n < 8; n++ {
+			var want float64
+			for k := 0; k < 32; k++ {
+				want += float64(FromE4M3Bits(a[m*32+k])) * float64(FromE4M3Bits(bt[n*32+k]))
+			}
+			if float64(d[m*8+n]) != want {
+				t.Fatalf("d[%d][%d] = %g, want %g", m, n, d[m*8+n], want)
+			}
+		}
+	}
+}

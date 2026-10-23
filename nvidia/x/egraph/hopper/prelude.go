@@ -207,6 +207,20 @@ EG_DEV void eg_mma_bf16(float d[4], const uint32_t a[4], const uint32_t b[2], co
 #endif
 }
 
+// eg_mma_e4m3 is d = a·b + c for one m16n8k32 tile, E4M3 inputs (four per
+// register, k ascending from the low byte), FP32 accumulate (sm_89+).
+EG_DEV void eg_mma_e4m3(float d[4], const uint32_t a[4], const uint32_t b[2], const float c[4]) {
+#if defined(EG_HOST_EMU)
+    eg_emu_mma_e4m3_16832(d, a, b, c);
+#else
+    asm volatile("mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32 "
+                 "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                 : "=f"(d[0]), "=f"(d[1]), "=f"(d[2]), "=f"(d[3])
+                 : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]),
+                   "f"(c[0]), "f"(c[1]), "f"(c[2]), "f"(c[3]));
+#endif
+}
+
 // Programmatic dependent launch: wait for the previous kernel's writes, and
 // let the next kernel start its preamble.
 EG_DEV void eg_pdl_wait() {
