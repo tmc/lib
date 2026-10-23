@@ -1,0 +1,72 @@
+# Equal listings exit 0.
+exec sassequiv base.sass renamed.sass
+stdout '^f: equal$'
+
+# A changed floating-point operation exits 1 and names both addresses.
+! exec sassequiv base.sass fmul.sass
+stdout '^f: different: .*before 0x70 FADD.*after 0x70 FMUL'
+
+# An unmodeled instruction exits 3.
+! exec sassequiv base.sass trap.sass
+stdout '^f: unknown: after: unmodeled instruction BPT.TRAP at 0x10$'
+
+# A function on one side only is a difference.
+! exec sassequiv base.sass other.sass
+stdout '^f: different: missing after$'
+stdout '^g: different: missing before$'
+
+! exec sassequiv base.sass
+stderr 'usage: sassequiv before.sass after.sass'
+
+! exec sassequiv base.sass missing.sass
+stderr 'missing.sass: no such file'
+
+-- base.sass --
+	code for sm_90a
+		Function : f
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   LDC.64 R2, c[0x0][0x210] ;
+        /*0030*/                   IMAD.WIDE.U32 R2, R0, 0x4, R2 ;
+        /*0040*/                   LDG.E R6, desc[UR4][R2.64] ;
+        /*0050*/                   LDG.E R7, desc[UR4][R2.64+0x4] ;
+        /*0060*/                   NOP ;
+        /*0070*/                   FADD R6, R6, R7 ;
+        /*0080*/                   STG.E desc[UR4][R2.64], R6 ;
+        /*0090*/                   EXIT ;
+-- renamed.sass --
+	code for sm_90a
+		Function : f
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R5, SR_TID.X ;
+        /*0020*/                   LDC.64 R8, c[0x0][0x210] ;
+        /*0030*/                   IMAD.WIDE.U32 R8, R5, 0x4, R8 ;
+        /*0040*/                   LDG.E R11, desc[UR4][R8.64+0x4] ;
+        /*0050*/                   LDG.E R10, desc[UR4][R8.64] ;
+        /*0060*/                   NOP ;
+        /*0070*/                   FADD R10, R11, R10 ;
+        /*0080*/                   STG.E desc[UR4][R8.64], R10 ;
+        /*0090*/                   EXIT ;
+-- fmul.sass --
+	code for sm_90a
+		Function : f
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   S2R R0, SR_TID.X ;
+        /*0020*/                   LDC.64 R2, c[0x0][0x210] ;
+        /*0030*/                   IMAD.WIDE.U32 R2, R0, 0x4, R2 ;
+        /*0040*/                   LDG.E R6, desc[UR4][R2.64] ;
+        /*0050*/                   LDG.E R7, desc[UR4][R2.64+0x4] ;
+        /*0060*/                   NOP ;
+        /*0070*/                   FMUL R6, R6, R7 ;
+        /*0080*/                   STG.E desc[UR4][R2.64], R6 ;
+        /*0090*/                   EXIT ;
+-- trap.sass --
+	code for sm_90a
+		Function : f
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0010*/                   BPT.TRAP 0x1 ;
+        /*0020*/                   EXIT ;
+-- other.sass --
+	code for sm_90a
+		Function : g
+        /*0000*/                   EXIT ;

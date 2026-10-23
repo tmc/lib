@@ -141,6 +141,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [ptxasinfo](ptxasinfo/) | Package ptxasinfo parses the resource report that ptxas prints with -v (--verbose), as in nvcc -Xptxas -v. |
 | [puffernet](puffernet/) | Package puffernet runs the default PufferLib 5.0 policy network on CUDA. |
 | [safetensors](safetensors/) | Package safetensors reads and writes the Hugging Face safetensors format. |
+| [sassequiv](sassequiv/) | Package sassequiv compares two compilations of a kernel, from their SASS, to find a change in what they compute. |
 | [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
 | [tileiras](tileiras/) | Package tileiras provides programmatic invocation and diagnostics parsing for NVIDIA's tileiras optimizing Tile IR assembler. |
 | [tileirdisasm](tileirdisasm/) | Package tileirdisasm disassembles binary CUDA Tile IR bytecode (.tilebc) and parses textual Tile IR into an SSA abstract syntax tree (AST). |
