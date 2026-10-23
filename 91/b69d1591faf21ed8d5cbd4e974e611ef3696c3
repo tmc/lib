@@ -1,0 +1,11 @@
+commit: 91b69d1591faf21ed8d5cbd4e974e611ef3696c3
+date: 2026-10-23T06:53:47.665208+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 29820
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-search-memory-prior-budget/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-search-prior-adoption/ROOT-GRADE.md
+qualification: search prior source; exact116 plus12paths; 32roots72PASS each host/race plusvet; native unqualified
