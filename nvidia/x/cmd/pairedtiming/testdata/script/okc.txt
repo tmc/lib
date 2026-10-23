@@ -1,0 +1,19 @@
+# Consecutive judge samples pair into blocks; the judge's intercept is used.
+exec pairedtiming -format okc -bootstrap 0 profile.json
+stdout '^ *0 *decode 1 *46 *2 *4000 *2e\+04 *1e\+04 *2.0000 *2.0000 *$'
+stdout '^ *decode 1 .* 2.0000 *$'
+stdout '^score 2.0000'
+
+# Odd sample counts cannot form blocks.
+! exec pairedtiming -format okc odd.json
+stderr 'benchmark 0: 3 baseline and 3 candidate samples'
+
+-- profile.json --
+{"benchmarks": [{"case": {"load": "decode 1", "weight": 46},
+  "baseline_runs_ns": [24000, 24000, 24000, 24000],
+  "runs_ns": [14000, 14000, 14000, 14000],
+  "replay_overhead": {"overhead_ns": 4000}}]}
+-- odd.json --
+{"benchmarks": [{"case": {"load": "d", "weight": 1},
+  "baseline_runs_ns": [1, 2, 3], "runs_ns": [1, 2, 3],
+  "replay_overhead": {"overhead_ns": 0}}]}
