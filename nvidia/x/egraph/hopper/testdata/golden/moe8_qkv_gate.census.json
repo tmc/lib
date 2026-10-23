@@ -1,0 +1,85 @@
+{
+  "source_sha256": "8c32398498aabc7216f120957f1badb5e7bc4815351abf60b2653cb8c5f59953",
+  "kernels": {
+    "_Z13moe8_qkv_gateILi1EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 4
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    },
+    "_Z13moe8_qkv_gateILi2EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 8
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    },
+    "_Z13moe8_qkv_gateILi3EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 12
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    },
+    "_Z13moe8_qkv_gateILi4EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 16
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    },
+    "_Z13moe8_qkv_gateILi5EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 20
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    },
+    "_Z13moe8_qkv_gateILi6EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 24
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    },
+    "_Z13moe8_qkv_gateILi7EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 28
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    },
+    "_Z13moe8_qkv_gateILi8EEvPKtS1_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 16,
+        "nc.v4.u32": 32
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    }
+  }
+}

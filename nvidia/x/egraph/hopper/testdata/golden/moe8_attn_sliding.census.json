@@ -1,0 +1,19 @@
+{
+  "source_sha256": "e2c65bfe3897fe15bc07ea9db7000d2f94cbca0995026e0d172853316d93531f",
+  "kernels": {
+    "_Z17moe8_attn_slidingPKhS0_S0_PKiiS2_PKfS4_PKtPfPh": {
+      "loads": {
+        "cg.v2.f32": 48,
+        "nc.f32": 2,
+        "nc.u16": 2,
+        "nc.u32": 6,
+        "nc.v4.u32": 5
+      },
+      "stores": {
+        "f32": 9,
+        "u32": 2
+      },
+      "late_loads": 4
+    }
+  }
+}

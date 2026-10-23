@@ -1,0 +1,101 @@
+{
+  "source_sha256": "b50e778c58aa7f2e36fde4efcf1045db28b19a861aef7f9a14fbc2452d3fd4a6",
+  "kernels": {
+    "_Z16moe8_router_hiloILi1EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 4
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z16moe8_router_hiloILi2EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 8
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z16moe8_router_hiloILi3EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 12
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z16moe8_router_hiloILi4EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 16
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z16moe8_router_hiloILi5EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 20
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z16moe8_router_hiloILi6EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 24
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z16moe8_router_hiloILi7EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 28
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z16moe8_router_hiloILi8EEvPKtS1_S1_PfS2_": {
+      "loads": {
+        "cg.f32": 4,
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 32
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1
+      },
+      "late_loads": 0
+    }
+  }
+}

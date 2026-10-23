@@ -1,0 +1,17 @@
+{
+  "source_sha256": "76e22d61e5c361e20c83e38aa3798505668886ad3d73d5f107f2d32c0d77af6f",
+  "kernels": {
+    "_Z17k_norm_rope_storeiPKtPKlPKfS4_PhS2_": {
+      "loads": {
+        "nc.f32": 1,
+        "nc.u32": 1,
+        "nc.u64": 2,
+        "nc.v2.f32": 1
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    }
+  }
+}

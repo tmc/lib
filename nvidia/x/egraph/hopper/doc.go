@@ -28,7 +28,7 @@
 //
 // # Testing generated kernels without a GPU
 //
-// The tests use three tools that work for any kernel written against the
+// The tests use four tools that work for any kernel written against the
 // prelude.
 //
 // The emulator, testdata/emu.h, is included first (clang++ -std=c++20
@@ -57,7 +57,14 @@
 //
 // Golden files (testdata/golden/*.cu, rewritten by go test -update) are the
 // emitted translation units. TestGoldensCompile compiles each for sm_90a
-// with nvcc when it is on PATH and fails on errors.
+// with nvcc when it is on PATH and fails on errors. Each golden also has a
+// PTX census (testdata/golden/*.census.json): its global loads and stores
+// by width and the loads issued after the first barrier. TestGoldenCensus
+// checks, without nvcc, that every census matches its golden and that
+// every kernel issues its loads before its first barrier and stores
+// adjacent 16-bit values together, naming the goldens exempt from each
+// rule and why; go test -update-census rewrites the censuses with nvcc
+// ($CUDACOMPILECHECK_NVCC, run through $CUDACOMPILECHECK_EXEC if set).
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.

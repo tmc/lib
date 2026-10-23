@@ -1,0 +1,15 @@
+{
+  "source_sha256": "a99e4f643a7e489441138abbf536ee54fc0d8a66ac22d868f4edcabf5ba772fc",
+  "kernels": {
+    "_Z13rms_norm_gateiPKfPKtPt": {
+      "loads": {
+        "nc.u32": 1,
+        "nc.v2.f32": 1
+      },
+      "stores": {
+        "u32": 1
+      },
+      "late_loads": 0
+    }
+  }
+}
