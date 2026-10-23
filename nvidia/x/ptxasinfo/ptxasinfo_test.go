@@ -81,6 +81,30 @@ func TestParseSpill(t *testing.T) {
 	}
 }
 
+// TestParseDebugTwoArch reads nvcc -G output, where each module reports a
+// device function before its first Compiling line. The function belongs to
+// the module that follows the gmem line, not to the previous architecture.
+func TestParseDebugTwoArch(t *testing.T) {
+	r := parseFile(t, "testdata/debug-two-arch.txt")
+	if len(r.Targets) != 2 || r.Targets[0].Arch != "sm_90a" || r.Targets[1].Arch != "sm_100a" {
+		t.Fatalf("targets = %v, want sm_90a then sm_100a", r.Targets)
+	}
+	for _, tt := range []struct {
+		arch  string
+		frame int
+	}{{"sm_90a", 128}, {"sm_100a", 136}} {
+		f := r.Lookup("_Z6helperfi", tt.arch)
+		if f == nil || f.Entry || f.StackFrame != tt.frame {
+			t.Errorf("%s helper = %+v, want device function with %d-byte frame", tt.arch, f, tt.frame)
+		}
+	}
+	for _, tg := range r.Targets {
+		if len(tg.Functions) != 3 || tg.Functions[0].Name != "_Z6helperfi" {
+			t.Errorf("%s functions = %v, want helper first of 3", tg.Arch, tg.Functions)
+		}
+	}
+}
+
 func TestParseLines(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -107,6 +131,15 @@ func TestParseLines(t *testing.T) {
 			check: func(r *Report) bool {
 				return len(r.Targets) == 0 && len(r.Warnings) == 1 && len(r.Notes) == 1 &&
 					strings.HasPrefix(r.Notes[0], "(C7515)")
+			},
+		},
+		{
+			name: "device function only: architecture unknown",
+			in: "ptxas info    : 0 bytes gmem\n" +
+				"ptxas info    : Function properties for d\n" +
+				"    8 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n",
+			check: func(r *Report) bool {
+				return len(r.Targets) == 1 && r.Targets[0].Arch == "" && r.Lookup("d", "") != nil
 			},
 		},
 		{

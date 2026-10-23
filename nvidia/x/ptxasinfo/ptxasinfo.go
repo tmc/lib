@@ -12,7 +12,7 @@ import (
 // A Function is one function's resources for one target architecture.
 type Function struct {
 	Name  string // mangled name
-	Arch  string // target, such as "sm_90a"
+	Arch  string // target, such as "sm_90a"; empty if ptxas never named it
 	Entry bool   // a kernel (entry function) rather than a device function
 
 	StackFrame  int // bytes per thread
@@ -41,7 +41,7 @@ func (f *Function) Spills() bool { return f.SpillStores > 0 || f.SpillLoads > 0 
 
 // A Target holds the module-level resources for one architecture.
 type Target struct {
-	Arch      string
+	Arch      string      // empty for a module with no Compiling line, which ptxas never names
 	GlobalMem int         // bytes of __device__ data
 	ConstMem  map[int]int // constant bank -> bytes
 	Functions []*Function // in report order
@@ -116,8 +116,14 @@ func Parse(r io.Reader) (*Report, error) {
 		return target
 	}
 	// A module-level line (gmem) precedes the first Compiling line of its
-	// architecture, so it is held until the architecture is known.
-	var pendingModule []string
+	// architecture, so it is held until the architecture is known. It also
+	// starts a new module: device functions reported before that module's
+	// first Compiling line (as with nvcc -G) are held too, rather than
+	// credited to the previous architecture.
+	var (
+		pendingModule []string
+		pendingFns    []*Function
+	)
 	errorf := func(format string, args ...any) error {
 		return fmt.Errorf("ptxasinfo: line %d: %s", lineNum, fmt.Sprintf(format, args...))
 	}
@@ -159,6 +165,11 @@ func Parse(r io.Reader) (*Report, error) {
 				}
 			}
 			pendingModule = nil
+			for _, f := range pendingFns {
+				f.Arch = t.Arch
+			}
+			t.Functions = append(t.Functions, pendingFns...)
+			pendingFns = nil
 			current = &Function{Name: c[2], Arch: c[3], Entry: c[1] != "", MaxRegisters: maxRegs[c[2]]}
 			delete(maxRegs, c[2])
 			t.Functions = append(t.Functions, current)
@@ -167,11 +178,13 @@ func Parse(r io.Reader) (*Report, error) {
 			if current == nil || current.Name != name {
 				// A device function reported without its own Compiling
 				// line belongs to the architecture being compiled.
+				current = &Function{Name: name}
 				if target == nil {
-					return nil, errorf("function properties for %s before any target", name)
+					pendingFns = append(pendingFns, current)
+				} else {
+					current.Arch = target.Arch
+					target.Functions = append(target.Functions, current)
 				}
-				current = &Function{Name: name, Arch: target.Arch}
-				target.Functions = append(target.Functions, current)
 			}
 			wantFrame = true
 		case strings.HasPrefix(msg, "Used "):
@@ -186,6 +199,7 @@ func Parse(r io.Reader) (*Report, error) {
 			maxRegs[o[1]] = atoi(o[2])
 		case strings.HasSuffix(msg, "bytes gmem") || strings.Contains(msg, "bytes gmem,"):
 			pendingModule = append(pendingModule, msg)
+			target, current = nil, nil
 		case strings.HasPrefix(msg, "Compile time"):
 		default:
 			rep.Notes = append(rep.Notes, msg)
@@ -196,6 +210,17 @@ func Parse(r io.Reader) (*Report, error) {
 	}
 	if wantFrame {
 		return nil, fmt.Errorf("ptxasinfo: input ends before stack frame line of %s", current.Name)
+	}
+	if len(pendingFns) > 0 || len(pendingModule) > 0 {
+		// ptxas never named this module's architecture: it had no
+		// Compiling line, which happens when it has no entry function.
+		t := &Target{Functions: pendingFns}
+		for _, p := range pendingModule {
+			if err := parseModule(t, p); err != nil {
+				return nil, fmt.Errorf("ptxasinfo: %v", err)
+			}
+		}
+		rep.Targets = append(rep.Targets, t)
 	}
 	return rep, nil
 }

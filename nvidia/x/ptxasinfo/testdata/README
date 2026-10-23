@@ -8,3 +8,8 @@ two-arch.txt: the spill kernel declared __launch_bounds__(256), with
 
 spill.txt: k.cu as checked in, __launch_bounds__(1024, 2), with
   nvcc -std=c++20 -O3 -arch=sm_90a -cubin -Xptxas -v
+
+debug-two-arch.txt: k.cu as checked in, without the wrapper, with -G
+  nvcc -std=c++20 -fatbin -Xptxas -v -G -gencode=arch=compute_90a,code=sm_90a \
+    -gencode=arch=compute_100a,code=sm_100a
+  Each module reports _Z6helperfi before its first Compiling line.
