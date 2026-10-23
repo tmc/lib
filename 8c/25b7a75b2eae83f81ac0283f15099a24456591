@@ -1,0 +1,11 @@
+commit: 8c25b7a75b2eae83f81ac0283f15099a24456591
+date: 2026-10-23T07:42:35.961714+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 4974
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-unit17-hybrid-fixture/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-hybrid-fixture-adoption/ROOT-GRADE.md
+qualification: original17hybridfixture; exact126+2paths3host/raceroots/vet/test-c+CPUomission; native NEVER_EXECUTED
