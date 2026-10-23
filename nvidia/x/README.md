@@ -54,7 +54,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudalayout](cudalayout/) | Package cudalayout describes checked physical tile layouts. |
 | [cudalineinfo](cudalineinfo/) | Package cudalineinfo attributes device code to the source it was generated from. |
 | [cudaliveness](cudaliveness/) | Package cudaliveness asserts that an instrumentation probe was live for a run. |
-| [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across processes and tests. |
+| [cudalock](cudalock/) | Package cudalock coordinates exclusive GPU access across cooperating processes. |
 | [cudalowering](cudalowering/) | Package cudalowering compares the PTX for a kernel with the SASS it lowered to. |
 | [cudamega](cudamega/) | Package cudamega schedules finite task graphs and generates CUDA workers. |
 | [cudamegacpu](cudamegacpu/) | Package cudamegacpu runs a [cudamega.Program] on operating-system threads. |
@@ -70,7 +70,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudapipeline](cudapipeline/) | Package cudapipeline provides static verification and transaction-barrier analysis for asynchronous tensor copy pipelines. |
 | [cudaplan](cudaplan/) | Package cudaplan provides executable plans, resource ownership, and completion tracking for CUDA execution graphs and compiled kernels. |
 | [cudaprecompiled](cudaprecompiled/) | Package cudaprecompiled loads CUDA C++ device code that may have been compiled ahead of time by cudaprecompile. |
-| [cudaprepack](cudaprepack/) | Package cudaprepack provides ahead-of-time (AOT) hardware layout transformations for NVIDIA Blackwell TMA (cp.async.bulk.tensor.2d) tensor boxes and microscaled sub-byte formats. |
+| [cudaprepack](cudaprepack/) | Package cudaprepack transforms host tensor storage and describes its byte layout. |
 | [cudaprobe](cudaprobe/) | Package cudaprobe decodes CUDA API observations and tracks allocation lifetimes within one observed process. |
 | [cudaprof](cudaprof/) | Package cudaprof writes caller-supplied CUDA execution observations as Go profiles, Perfetto traces, and bounded in-memory recordings. |
 | [cudaprofagent](cudaprofagent/) | Package cudaprofagent lets a Go program finalize an attached cudaprof CUPTI agent before it exits. |
@@ -78,7 +78,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
 | [cudareduce](cudareduce/) | Package cudareduce provides deterministic column reductions for backward passes: bias gradients, per-group embedding gradients, and the LayerNorm weight and bias gradients. |
-| [cudaref](cudaref/) | Package cudaref provides an independent CPU reference implementation and numerical oracle for validating GPU kernel operations and semantic IR execution graphs. |
+| [cudaref](cudaref/) | Package cudaref provides CPU reference operations for cudair graphs. |
 | [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
 | [cudaregress](cudaregress/) | Package cudaregress turns admitted CUDA performance and diagnostic incidents into bounded, reproducible regression trials. |
 | [cudarepro](cudarepro/) | Package cudarepro reduces recorded GPU failures without editing kernel source. |
@@ -114,6 +114,8 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cuptisass](cuptisass/) | Package cuptisass provides CUPTI SASS metrics data collection for NVIDIA GPUs. |
 | [dcgmjson](dcgmjson/) | Package dcgmjson reads bounded, single-iteration dcgmi diag -j output from the pinned DCGM 4.6.1 producer. |
 | [egraph](egraph/) | Package egraph implements a lightweight, pure-Go E-Graph (equivalence graph) and equality saturation engine for term rewriting, program optimization, kernel fusion, declarative C++ Tile IR lowering, and sub-byte quantized inference. |
+| [gpucampaign](gpucampaign/) | Package gpucampaign runs the phases of a bounded GPU measurement campaign as subprocesses and records a receipt for each, so that a campaign that loses its GPU, overruns its time or crashes still says what ran. |
+| [gpuhealth](gpuhealth/) | Package gpuhealth checks, from inside a process about to measure, that it can still reach an NVIDIA GPU: the device nodes open read-write, NVML answers through nvidia-smi, and the expected GPU is the one present. |
 | [imex](imex/) | Package imex reads finite IMEX domain JSON snapshots supplied by a caller. |
 | [moonep](moonep/) | Package moonep is a Go port of the host-side layer of MoonEP (github.com/MoonshotAI/MoonEP), an expert-parallel MoE communication library. |
 | [mxfp4](mxfp4/) | Package mxfp4 provides OCP Microscaling FP4 (E2M1) quantization, dequantization, and CUDA fused GEMV kernels. |
@@ -131,7 +133,9 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nvtelemetrybridge](nvtelemetrybridge/) | Package nvtelemetrybridge publishes bounded NVML polling snapshots in a BPF hash map for independent readers. |
 | [nvtx](nvtx/) | Package nvtx provides a pure-Go, zero-cgo implementation of NVIDIA Tools Extension (NVTX v3). |
 | [nvvmx](nvvmx/) | Package nvvmx compiles NVVM IR with owned inputs and copied output. |
+| [pairedtiming](pairedtiming/) | Package pairedtiming estimates the speedup of a candidate over a baseline from paired GPU timings run in ABBA blocks. |
 | [perfetto](perfetto/) | Package perfetto implements a streaming wire-format encoder for Perfetto trace files (.pftrace) compatible with the Chrome / Perfetto UI trace viewer. |
+| [ptxasinfo](ptxasinfo/) | Package ptxasinfo parses the resource report that ptxas prints with -v (--verbose), as in nvcc -Xptxas -v. |
 | [puffernet](puffernet/) | Package puffernet runs the default PufferLib 5.0 policy network on CUDA. |
 | [safetensors](safetensors/) | Package safetensors reads and writes the Hugging Face safetensors format. |
 | [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
