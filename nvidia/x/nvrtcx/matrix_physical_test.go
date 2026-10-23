@@ -7,11 +7,13 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
@@ -56,6 +58,10 @@ extern "C" __tile_global__ void matrix(float* A, float* B, float* C) {
 }`
 
 func compileTileMatrix(t *testing.T, major, minor int, mixed bool) *nvrtcx.CompiledModule {
+	return compileTileMatrixWithOwners(t, major, minor, mixed, nil)
+}
+
+func compileTileMatrixWithOwners(t *testing.T, major, minor int, mixed bool, owners *matrixOwners) *nvrtcx.CompiledModule {
 	t.Helper()
 	output := nvrtcx.OutputTileIR
 	source := tileMatrixStandaloneSource
@@ -73,6 +79,9 @@ func compileTileMatrix(t *testing.T, major, minor int, mixed bool) *nvrtcx.Compi
 		opts = append(opts, nvrtcx.WithNameExpressions(expression))
 	}
 	cm, err := nvrtcx.Compile(source, opts...)
+	if owners != nil {
+		owners.addError(err)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,24 +154,38 @@ func TestTileOnlyTemplateLoweredName(t *testing.T) {
 
 func runTileMatrix(t *testing.T, mixed bool) {
 	t.Helper()
-	requireTile(t)
+	if os.Getenv("CUDA_TILE_TEST") != "1" {
+		t.Skip("CUDA_TILE_TEST is not 1: Tile tests need NVRTC 13.3 and a TileIR-capable driver")
+	}
+	owners := newMatrixOwners(t)
 	check := func(err error) {
 		t.Helper()
+		owners.addError(err)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
-	cleanup := func(fn func() error) {
-		t.Helper()
-		t.Cleanup(func() {
-			if err := fn(); err != nil {
-				t.Errorf("cleanup: %v", err)
+	err := setupMatrixLease(owners,
+		func() error { _, err := cudalock.Inherited(os.Getenv); return err },
+		func() (func() error, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			lease, err := cudalock.Acquire(ctx, cudalock.WithLabel(t.Name()))
+			if err != nil {
+				return nil, err
 			}
-		})
+			return lease.Release, nil
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
+	requireTile(t)
 	dev, err := cuda.NewDevice(0)
+	if dev != nil {
+		owners.add(matrixDevice, dev.Close)
+	}
 	check(err)
-	cleanup(dev.Close)
 	major, minor, err := dev.ComputeCapability()
 	check(err)
 	name, err := dev.Name()
@@ -172,11 +195,13 @@ func runTileMatrix(t *testing.T, mixed bool) {
 	compilerMajor, compilerMinor, err := nvrtc.Version()
 	check(err)
 	t.Logf("GPU=%s compute=%d.%d driver=%d NVRTC=%d.%d path=%s", name, major, minor, driverVersion, compilerMajor, compilerMinor, nvrtc.Path())
-	cm := compileTileMatrix(t, int(major), int(minor), mixed)
+	cm := compileTileMatrixWithOwners(t, int(major), int(minor), mixed, owners)
 	mod, log, err := cm.LoadOwnedOutput(dev, nvrtcx.OutputTileIR)
 	t.Logf("TileIR JIT info=%q error=%q load=%v", log.Info, log.Error, err)
+	if mod != nil {
+		owners.add(matrixModule, mod.Close)
+	}
 	check(err)
-	cleanup(mod.Close)
 	lowered := "matrix"
 	if mixed {
 		lowered, _ = cm.LoweredName(tileMatrixName)
@@ -187,14 +212,18 @@ func runTileMatrix(t *testing.T, mixed bool) {
 	if mixed {
 		ptxMod, log, err := cm.LoadOwnedOutput(dev, nvrtcx.OutputPTX)
 		t.Logf("PTX JIT info=%q error=%q load=%v", log.Info, log.Error, err)
+		if ptxMod != nil {
+			owners.add(matrixModule, ptxMod.Close)
+		}
 		check(err)
-		cleanup(ptxMod.Close)
 		transform, err = ptxMod.Function("transform")
 		check(err)
 	}
 	stream, err := dev.NewStream()
+	if stream != nil {
+		owners.ownStream(stream)
+	}
 	check(err)
-	cleanup(stream.Close)
 	var a, b [16 * 32]float32
 	var c [16 * 16]float32
 	for i := range a {
@@ -207,18 +236,20 @@ func runTileMatrix(t *testing.T, mixed bool) {
 	alloc := func(data []float32) driver.DevicePtr {
 		t.Helper()
 		var p driver.DevicePtr
-		check(dev.WithContext(func() error {
+		err := dev.WithContext(func() error {
 			var err error
 			p, err = driver.MemAllocBytes(uint(len(data) * 4))
 			return err
-		}))
-		cleanup(func() error { return dev.WithContext(p.Free) })
+		})
+		if p != 0 {
+			owners.add(matrixBuffer, matrixAllocationClose(dev.WithContext, p.Free))
+		}
+		check(err)
 		check(dev.WithContext(func() error { return p.CopyFromHostPtr(unsafe.Pointer(&data[0]), uint(len(data)*4)) }))
 		return p
 	}
 	pa, pb, pc := alloc(a[:]), alloc(b[:]), alloc(c[:])
-	// Synchronize before freeing buffers or modules even after a launch failure.
-	cleanup(func() error { return stream.Synchronize(context.Background()) })
+	// The owner drains stream before releasing buffers or modules, including on failure.
 	check(kernel.Launch([3]uint32{1, 1, 1}, [3]uint32{1, 1, 1}, 0, stream.Raw(), []unsafe.Pointer{unsafe.Pointer(&pa), unsafe.Pointer(&pb), unsafe.Pointer(&pc)}))
 	if mixed {
 		// Both modules use the same allocation and stream. No host barrier
