@@ -35,6 +35,20 @@ produces a warning, not a failure: the versions need not match for every workflo
 The command does not change paths, download software, clear caches or repair an
 installation. `cudavet` continues to analyze Go source for CUDA hazards.
 
+## Device health
+
+```
+cudadoctor -health -uuid GPU-1234-abcd -json
+```
+
+`-health` runs `nvidia-smi -q -x`, selects the GPU by UUID (or the only GPU),
+and opens `/dev/nvidia<minor>`, `/dev/nvidiactl`, `/dev/nvidia-uvm` and
+`/dev/nvidia-uvm-tools` read-write, recording each errno. It creates no CUDA
+context, so it is cheap to run before every measurement in a container. Each
+failure is a failed check naming the likely cause, such as nodes whose mode
+allows access while the device cgroup denies it. See package
+[gpuhealth](../../gpuhealth/).
+
 ## Smoke tests
 
 ```

@@ -1,0 +1,12 @@
+# -health names the cause when NVML is lost, without a CUDA context.
+[!exec:sh] skip
+chmod 0755 bin/nvidia-smi
+env PATH=$WORK/bin:$PATH
+! exec cudadoctor -health -json
+stdout '"name": "gpu-health"'
+stdout 'NVML failed through nvidia-smi \(exit 255\): Failed to initialize NVML: Unknown Error'
+
+-- bin/nvidia-smi --
+#!/bin/sh
+echo 'Failed to initialize NVML: Unknown Error'
+exit 255

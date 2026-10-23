@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tmc/lib/nvidia/x/gpuhealth"
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 )
 
@@ -50,6 +51,8 @@ func run(args []string, out, errout io.Writer) int {
 	arch := fs.String("arch", "compute_75", "virtual architecture for the JIT smoke test")
 	timeout := fs.Duration("timeout", 15*time.Second, "timeout for each probe")
 	probe := fs.String("probe", "", "internal subprocess probe")
+	health := fs.Bool("health", false, "check device nodes open read-write and nvidia-smi answers, without a CUDA context")
+	uuid := fs.String("uuid", "", "GPU UUID expected by -health")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
@@ -116,6 +119,9 @@ func run(args []string, out, errout io.Writer) int {
 	}
 	if *smoke != "none" {
 		r.Checks = append(r.Checks, childCheck("smoke-"+*smoke, *arch, *timeout))
+	}
+	if *health {
+		r.Checks = append(r.Checks, healthChecks(gpuhealth.Probe(context.Background(), gpuhealth.Options{UUID: *uuid, Timeout: *timeout}))...)
 	}
 	r.Checks = append(r.Checks, check{Name: "execution", Status: "info", Detail: "Library discovery does not initialize a CUDA context or prove kernel execution; only -smoke=load/run uses the GPU."})
 	addVersionWarning(&r, *timeout)
@@ -259,4 +265,17 @@ func writeReport(w io.Writer, r report, jsonOutput bool) error {
 		}
 	}
 	return nil
+}
+
+// healthChecks reports a gpuhealth probe: one failing check per problem, or
+// one passing check naming the GPU and its node.
+func healthChecks(r *gpuhealth.Report) []check {
+	if r.OK {
+		return []check{{Name: "gpu-health", Status: "ok", Path: r.GPU.DevicePath(), Detail: fmt.Sprintf("%s %s; %d nodes open read-write; %s", r.GPU.Name, r.GPU.UUID, len(r.Nodes), r.Driver)}}
+	}
+	var checks []check
+	for _, p := range r.Problems {
+		checks = append(checks, check{Name: "gpu-health", Status: "fail", Detail: p})
+	}
+	return checks
 }
