@@ -111,19 +111,19 @@ func ExampleDequantizeIQ2XXS() {
 }
 
 func ExampleGenerateTileIR() {
-	// Build an AST expression: RMSNorm -> GEMV
-	x := egraph.NewLeafNode("x")
-	wNorm := egraph.NewLeafNode("w_norm")
-	eps := egraph.NewLeafNode("eps")
-	wQKV := egraph.NewLeafNode("w_qkv")
+	// Specialize a contiguous float32 RMSNorm projection: X is 2 by 65,
+	// normalization weights have 65 elements, and packed QKV is 65 by 17.
+	// eps is a positive finite scalar supplied at launch.
+	qkvProj := egraph.NewNodeExpr("tile_rmsnorm_qkv",
+		egraph.NewLeafNode("x"), egraph.NewLeafNode("w_norm"),
+		egraph.NewLeafNode("eps"), egraph.NewLeafNode("w_qkv"),
+	)
+	qkvProj.Data = egraph.TileNormalizedProjection{M: 2, N: 17, K: 65}
 
-	norm := egraph.NewNodeExpr("rmsnorm", x, wNorm, eps)
-	qkvProj := egraph.NewNodeExpr("gemv", norm, wQKV)
-
-	// Lower directly to Tile IR assembly text (auto-fusing to tile_rmsnorm_qkv)
+	// Generate typed Tile IR source; this does not compile or launch a kernel.
 	textIR, err := egraph.GenerateTileIR(qkvProj, egraph.CodegenOptions{
 		KernelName: "fused_rmsnorm_qkv",
-		Precision:  "f16",
+		Precision:  "f32",
 	})
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
@@ -132,7 +132,10 @@ func ExampleGenerateTileIR() {
 
 	fmt.Println(strings.Contains(textIR, "cuda_tile.entry @fused_rmsnorm_qkv"))
 	fmt.Println(strings.Contains(textIR, "cuda_tile.rsqrt"))
-	fmt.Println(strings.Contains(textIR, "cuda_tile.mmaf"))
+	// This reference projection uses float32 multiply/add operations.
+	fmt.Println(strings.Contains(textIR, "cuda_tile.mulf") &&
+		strings.Contains(textIR, "cuda_tile.addf") &&
+		!strings.Contains(textIR, "cuda_tile.mmaf"))
 	// Output:
 	// true
 	// true
