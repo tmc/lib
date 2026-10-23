@@ -49,6 +49,18 @@ type RowTensor struct {
 	Offset, Group, GroupStride, RowStride int    // RowData addressing; zero strides mean D
 	Index                                 string // outputs: optional I64 or I32 row-group index tensor
 	IndexDType                            DType
+
+	// Buffer is the kernel parameter holding the data; empty means Name.
+	// Several inputs may view one buffer (the q and gate columns of a
+	// fused projection). Non-row kinds index from Offset too.
+	Buffer string
+}
+
+func (t RowTensor) buffer() string {
+	if t.Buffer != "" {
+		return t.Buffer
+	}
+	return t.Name
 }
 
 // A RowValue defines a named value. A map is a vector over the row's D
@@ -95,8 +107,13 @@ func (k RowKernel) check() (map[string]rowSym, error) {
 		syms[name] = s
 		return nil
 	}
+	buffers := make(map[string]DType)
 	for i := range k.Inputs {
 		in := &k.Inputs[i]
+		if d, ok := buffers[in.buffer()]; ok && d != in.DType || !cIdent(in.buffer()) || rowReserved[in.buffer()] {
+			return nil, fmt.Errorf("row kernel %s: bad buffer %q for input %s", k.Name, in.buffer(), in.Name)
+		}
+		buffers[in.buffer()] = in.DType
 		switch in.DType {
 		case F32, BF16, E4M3:
 		case I32, I64:
@@ -163,6 +180,12 @@ func (k RowKernel) check() (map[string]rowSym, error) {
 	}
 	for i := range k.Outputs {
 		o := &k.Outputs[i]
+		if o.Buffer != "" {
+			return nil, fmt.Errorf("row kernel %s: output %s cannot name a buffer", k.Name, o.Name)
+		}
+		if _, ok := buffers[o.Name]; ok {
+			return nil, fmt.Errorf("row kernel %s: output %s is also an input buffer", k.Name, o.Name)
+		}
 		if o.Kind != RowData || o.DType != F32 && o.DType != BF16 && o.DType != E4M3 {
 			return nil, fmt.Errorf("row kernel %s: output %s must be F32, BF16 or E4M3 row data", k.Name, o.Name)
 		}
@@ -234,8 +257,12 @@ func (k RowKernel) Grid(rows int) (grid, block [3]int) {
 
 func (k RowKernel) params() []string {
 	p := []string{"int rows"}
+	seen := make(map[string]bool)
 	for _, in := range k.Inputs {
-		p = append(p, "const "+in.DType.cType()+"* __restrict__ "+in.Name)
+		if !seen[in.buffer()] {
+			seen[in.buffer()] = true
+			p = append(p, "const "+in.DType.cType()+"* __restrict__ "+in.buffer())
+		}
 	}
 	for _, o := range k.Outputs {
 		p = append(p, o.DType.cType()+"* __restrict__ "+o.Name)
@@ -286,15 +313,15 @@ func (k RowKernel) body() (string, error) {
 	for _, in := range k.Inputs {
 		switch in.Kind {
 		case RowData:
-			fmt.Fprintf(&b, "    float %s_v[PER];\n    {\n        const %s* p = %s + %s;\n", in.Name, in.DType.cType(), in.Name, addr(in, fmt.Sprintf("r / %d", in.group())))
+			fmt.Fprintf(&b, "    float %s_v[PER];\n    {\n        const %s* p = %s + %s;\n", in.Name, in.DType.cType(), in.buffer(), addr(in, fmt.Sprintf("r / %d", in.group())))
 			b.WriteString("#pragma unroll\n        for (int j = 0; j < PER; j += VEC) eg_load<VEC>(p + EG_COL(j), &" + in.Name + "_v[j]);\n    }\n")
 		case ColVector:
 			fmt.Fprintf(&b, "    float %s_v[PER];\n", in.Name)
-			b.WriteString("#pragma unroll\n    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(" + in.Name + " + EG_COL(j), &" + in.Name + "_v[j]);\n")
+			fmt.Fprintf(&b, "#pragma unroll\n    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(%s + %d + EG_COL(j), &%s_v[j]);\n", in.buffer(), in.Offset, in.Name)
 		case RowScalar:
-			fmt.Fprintf(&b, "    const float %s_s = %s;\n", in.Name, scalarLoad(in.DType, fmt.Sprintf("%s[r / %d]", in.Name, in.group())))
+			fmt.Fprintf(&b, "    const float %s_s = %s;\n", in.Name, scalarLoad(in.DType, fmt.Sprintf("%s[%d + r / %d]", in.buffer(), in.Offset, in.group())))
 		case Scalar:
-			fmt.Fprintf(&b, "    const float %s_s = %s;\n", in.Name, scalarLoad(in.DType, in.Name+"[0]"))
+			fmt.Fprintf(&b, "    const float %s_s = %s;\n", in.Name, scalarLoad(in.DType, fmt.Sprintf("%s[%d]", in.buffer(), in.Offset)))
 		}
 	}
 	ref := func(a string) (string, error) {
@@ -428,9 +455,9 @@ func (k RowKernel) Reference(rows int, bufs map[string][]float64) error {
 	if err != nil {
 		return err
 	}
-	for name, s := range syms {
-		if s.tensor != nil && bufs[name] == nil {
-			return fmt.Errorf("row kernel %s reference: missing buffer %s", k.Name, name)
+	for _, s := range syms {
+		if s.tensor != nil && bufs[s.tensor.buffer()] == nil {
+			return fmt.Errorf("row kernel %s reference: missing buffer %s", k.Name, s.tensor.buffer())
 		}
 	}
 	D := k.D
@@ -438,7 +465,7 @@ func (k RowKernel) Reference(rows int, bufs map[string][]float64) error {
 		vec := make(map[string][]float32)
 		sca := make(map[string]float32)
 		for _, in := range k.Inputs {
-			buf := bufs[in.Name]
+			buf := bufs[in.buffer()]
 			switch in.Kind {
 			case RowData:
 				gs, rs := in.strides(D)
@@ -451,13 +478,13 @@ func (k RowKernel) Reference(rows int, bufs map[string][]float64) error {
 			case ColVector:
 				v := make([]float32, D)
 				for c := range v {
-					v[c] = float32(buf[c])
+					v[c] = float32(buf[in.Offset+c])
 				}
 				vec[in.Name] = v
 			case RowScalar:
-				sca[in.Name] = float32(buf[r/in.group()])
+				sca[in.Name] = float32(buf[in.Offset+r/in.group()])
 			case Scalar:
-				sca[in.Name] = float32(buf[0])
+				sca[in.Name] = float32(buf[in.Offset])
 			}
 		}
 		arg := func(a string, c int) float32 {

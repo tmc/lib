@@ -7,6 +7,14 @@
 // conversions do, so CPU references and kernels agree bit for bit where the
 // arithmetic order allows.
 //
+// Terms ([Builder]) describe tensor programs: typed Tensor leaves, slices
+// and reshapes, elementwise [Lambda] maps with NumPy broadcasting, last-axis
+// reductions, casts, and x·Wᵀ matmuls over BF16, BF16 hi+lo or NVFP4
+// weights. [Eval] is their CPU reference. [Optimize] saturates them with
+// [Rules] and [FuseEpilogues] (maps folded into a GEMM's epilogue) and
+// extracts by [Cost]; [Compile] lowers the result to a [Plan] of
+// [SkinnyGEMM] and [RowKernel] launches.
+//
 // Emitted CUDA uses raw integer types for low-precision data and routes every
 // PTX instruction through a small device prelude, so the same source compiles
 // with nvcc or NVRTC for sm_90a and, for tests, as host C++ against an

@@ -319,10 +319,10 @@ __global__ void __launch_bounds__(256) residual_prenorm(
     }
     float gate_v[PER];
 #pragma unroll
-    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(gate + EG_COL(j), &gate_v[j]);
+    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(gate + 0 + EG_COL(j), &gate_v[j]);
     float pre_v[PER];
 #pragma unroll
-    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(pre + EG_COL(j), &pre_v[j]);
+    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(pre + 0 + EG_COL(j), &pre_v[j]);
     float asq_s = 0.0f;
 #pragma unroll
     for (int j = 0; j < PER; ++j) asq_s += ((a_v[j]) * (a_v[j]));

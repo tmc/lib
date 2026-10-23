@@ -311,10 +311,10 @@ __global__ void __launch_bounds__(256) k_norm_rope_store(
 #pragma unroll
         for (int j = 0; j < PER; j += VEC) eg_load<VEC>(p + EG_COL(j), &x_v[j]);
     }
-    const float pos_s = (float)pos[r / 2];
+    const float pos_s = (float)pos[0 + r / 2];
     float inv_freq_v[PER];
 #pragma unroll
-    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(inv_freq + EG_COL(j), &inv_freq_v[j]);
+    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(inv_freq + 0 + EG_COL(j), &inv_freq_v[j]);
     const float k_scale_s = (float)k_scale[0];
     float ss_s = 0.0f;
 #pragma unroll

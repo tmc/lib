@@ -309,10 +309,10 @@ __global__ void __launch_bounds__(256) q_norm_rope(
 #pragma unroll
         for (int j = 0; j < PER; j += VEC) eg_load<VEC>(p + EG_COL(j), &x_v[j]);
     }
-    const float pos_s = (float)pos[r / 16];
+    const float pos_s = (float)pos[0 + r / 16];
     float inv_freq_v[PER];
 #pragma unroll
-    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(inv_freq + EG_COL(j), &inv_freq_v[j]);
+    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(inv_freq + 0 + EG_COL(j), &inv_freq_v[j]);
     float ss_s = 0.0f;
 #pragma unroll
     for (int j = 0; j < PER; ++j) ss_s += ((x_v[j]) * (x_v[j]));
