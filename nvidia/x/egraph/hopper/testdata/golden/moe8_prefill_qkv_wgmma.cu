@@ -449,8 +449,8 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv_wgmma(
         unsigned char* const sa = smem + st * STAGE;
         unsigned char* const sb = sa + BM * BK * 2;
         for (int c = tid; c < BM * 8; c += 256) {
-            const int r = c / 8, ch = c % 8, gm = min(bm0 + r, row1 - 1);
-            eg_cp_async16(sa + core(r, ch), x + (size_t)gm * K + kt * BK + ch * 8);
+            const int r = c / 8, ch = c % 8;
+            eg_cp_async16(sa + core(r, ch), x + (size_t)min(bm0 + r, row1 - 1) * K + kt * BK + ch * 8);
         }
         for (int c = tid; c < BN * 8; c += 256) {
             const int r = c / 8, ch = c % 8;
@@ -481,15 +481,18 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv_wgmma(
     eg_cp_async_wait<0>();
     // Accumulator d[nt*4 + i]: row (warp % 4)*16 + lane/4 + 8*(i/2), column nt*8 + 2*(lane%4) + (i&1).
 #pragma unroll
-    for (int nt = 0; nt < BN / 8; ++nt)
+    for (int nt = 0; nt < BN / 8; ++nt) {
+        float yv[2]; // a row's two adjacent columns, stored together
 #pragma unroll
         for (int i = 0; i < 4; ++i) {
             const int m = bm0 + wgi * 64 + (warp % 4) * 16 + lane / 4 + 8 * (i / 2);
             const int n = bn0 + nt * 8 + 2 * (lane % 4) + (i & 1);
             if (m >= row1) continue;
             const float v = d[nt * 4 + i];
-            out[(size_t)m * NOUT + n] = eg_f32_to_bf16((v));
+            yv[i & 1] = (v);
+            if (i & 1) eg_store<2>(out + (size_t)m * NOUT + n - 1, yv);
         }
+    }
 }
 
 inline void moe8_prefill_qkv_wgmma_launch(int m, const uint16_t* __restrict__ x, const uint16_t* __restrict__ w, uint16_t* __restrict__ out, cudaStream_t stream) {

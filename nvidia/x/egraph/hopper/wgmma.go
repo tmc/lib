@@ -46,16 +46,22 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	} else {
 		b.WriteString("    auto wrow = [&](int j) { return bn0 + j; };\n")
 	}
-	xrow := "gm"
+	xrow := "min(bm0 + r, row1 - 1)"
 	if g.Gather {
-		xrow = "rows[gm]"
+		// Read the gathered row indices once, before the first copy, so
+		// the loop's copies wait on no global load.
+		xrow = "srow[r]"
+		b.WriteString(`    __shared__ int srow[BM];
+    for (int r = tid; r < BM; r += 256) srow[r] = rows[min(bm0 + r, row1 - 1)];
+    __syncthreads();
+`)
 	}
 	fmt.Fprintf(&b, `    auto core = [](int r, int ch) { return ((r / 8) * 8 + ch) * 128 + (r %% 8) * 16; };
     auto load = [&](int st, int kt) {
         unsigned char* const sa = smem + st * STAGE;
         unsigned char* const sb = sa + BM * BK * 2;
         for (int c = tid; c < BM * 8; c += 256) {
-            const int r = c / 8, ch = c %% 8, gm = min(bm0 + r, row1 - 1);
+            const int r = c / 8, ch = c %% 8;
             eg_cp_async16(sa + core(r, ch), x + (size_t)%s * K + kt * BK + ch * 8);
         }
         for (int c = tid; c < BN * 8; c += 256) {
@@ -95,7 +101,8 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	}
 	fmt.Fprintf(&b, `    // Accumulator d[nt*4 + i]: row (warp %% 4)*16 + lane/4 + 8*(i/2), column nt*8 + 2*(lane%%4) + (i&1).
 #pragma unroll
-    for (int nt = 0; nt < %s; ++nt)
+    for (int nt = 0; nt < %s; ++nt) {
+        float yv[2]; // a row's two adjacent columns, stored together
 #pragma unroll
         for (int i = 0; i < 4; ++i) {
             const int m = bm0 + wgi * 64 + (warp %% 4) * 16 + lane / 4 + 8 * (i / 2);
@@ -115,12 +122,9 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if g.Out == BF16 {
-		fmt.Fprintf(&b, "            out[(size_t)m * NOUT + n] = eg_f32_to_bf16(%s);\n", expr)
-	} else {
-		fmt.Fprintf(&b, "            out[(size_t)m * NOUT + n] = %s;\n", expr)
-	}
-	b.WriteString("        }\n}\n")
+	fmt.Fprintf(&b, "            yv[i & 1] = %s;\n", expr)
+	b.WriteString("            if (i & 1) eg_store<2>(out + (size_t)m * NOUT + n - 1, yv);\n")
+	b.WriteString("        }\n    }\n}\n")
 	return b.String(), nil
 }
 

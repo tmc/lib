@@ -198,24 +198,31 @@ func (g TileGEMM) CUDA() (string, error) {
 	} else {
 		b.WriteString("    auto wrow = [&](int j) { return bn0 + j; };\n")
 	}
-	xrow := "gm"
-	if g.Gather {
-		xrow = "rows[gm]"
-	}
 	if g.Weight == WeightNVFP4 {
 		b.WriteString(`    uint8_t* const sbq = reinterpret_cast<uint8_t*>(sa + STAGES * BM * LD); // [STAGES][BN][48]
     uint8_t* const sbs = sbq + STAGES * BN * 48;                                 // [STAGES][BN][4]
     const uint8_t* const we = w + (size_t)e * N * (K / 2);
     const uint8_t* const se = w_sf + (size_t)e * N * (K / 16);
+    const float gs = w_gs[e];
 `)
 	} else {
 		b.WriteString(`    uint16_t* const sb = sa + STAGES * BM * LD; // [STAGES][BN][LD]
     const uint16_t* const we = w + (size_t)e * N * K;
 `)
 	}
+	xrow := "min(bm0 + r, row1 - 1)"
+	if g.Gather {
+		// Read the gathered row indices once, before the first copy, so
+		// the loop's copies wait on no global load.
+		xrow = "srow[r]"
+		b.WriteString(`    __shared__ int srow[BM];
+    for (int r = tid; r < BM; r += 256) srow[r] = rows[min(bm0 + r, row1 - 1)];
+    __syncthreads();
+`)
+	}
 	fmt.Fprintf(&b, `    auto load = [&](int st, int kt) {
         for (int c = tid; c < BM * 8; c += 256) {
-            const int r = c / 8, ch = c %% 8, gm = min(bm0 + r, row1 - 1);
+            const int r = c / 8, ch = c %% 8;
             eg_cp_async16(&sa[(st * BM + r) * LD + ch * 8], x + (size_t)%s * K + kt * BK + ch * 8);
         }
 `, xrow)
@@ -284,9 +291,6 @@ func (g TileGEMM) CUDA() (string, error) {
     }
     eg_cp_async_wait<0>();
 `)
-	if g.Weight == WeightNVFP4 {
-		b.WriteString("    const float gs = w_gs[e];\n")
-	}
 	nts, col := "NT", "bn0 + wn * WN"
 	if g.GLU {
 		nts, col = "NT / 2", "blockIdx.x * (BN / 2) + wn * (WN / 2)"
@@ -297,7 +301,8 @@ func (g TileGEMM) CUDA() (string, error) {
 	fmt.Fprintf(&b, `#pragma unroll
     for (int mt = 0; mt < MT; ++mt)
 #pragma unroll
-        for (int nt = 0; nt < %s; ++nt)
+        for (int nt = 0; nt < %s; ++nt) {
+            float yv[2]; // a row's two adjacent columns, stored together
 #pragma unroll
             for (int i = 0; i < 4; ++i) {
                 const int m = bm0 + wm * WM + mt * 16 + lane / 4 + 8 * (i / 2);
@@ -322,15 +327,12 @@ func (g TileGEMM) CUDA() (string, error) {
 		return "", err
 	}
 	fmt.Fprintf(&b, "                const float y = %s;\n", expr)
-	if g.Out == BF16 {
-		b.WriteString("                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(y);\n")
-	} else {
-		b.WriteString("                out[(size_t)m * NOUT + n] = y;\n")
-	}
+	b.WriteString("                yv[i & 1] = y;\n")
+	b.WriteString("                if (i & 1) eg_store<2>(out + (size_t)m * NOUT + n - 1, yv);\n")
 	if g.SumSq {
 		b.WriteString("                sq[mt][i / 2] += y * y;\n")
 	}
-	b.WriteString("            }\n")
+	b.WriteString("            }\n        }\n")
 	if g.SumSq {
 		bno := "BN"
 		if g.GLU {

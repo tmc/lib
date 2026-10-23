@@ -455,9 +455,7 @@ __global__ void __launch_bounds__(256) moe8_expert_sum(
 #pragma unroll
             for (int i = 0; i < 8; ++i) acc[i] += v[i] * inv[k] * wt[k];
         }
-#pragma unroll
-        for (int i = 0; i < 8; ++i)
-            out[(size_t)t * W + c + i] = eg_f32_to_bf16(acc[i]);
+        eg_store<8>(out + (size_t)t * W + c, acc);
     }
 }
 

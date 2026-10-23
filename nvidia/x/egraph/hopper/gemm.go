@@ -219,7 +219,11 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	b.WriteString(`    const int lane = threadIdx.x & 31, warp = threadIdx.x >> 5;
     const int n0 = blockIdx.x * R;
     const int first = blockIdx.y * (STEPS / SPLIT), last = first + STEPS / SPLIT;
-    float acc[R][M];
+`)
+	if g.Weight == WeightNVFP4 {
+		b.WriteString("    const float gs = w_gs[0]; // read before the reduction's barriers\n")
+	}
+	b.WriteString(`    float acc[R][M];
 #pragma unroll
     for (int r = 0; r < R; ++r)
 #pragma unroll
@@ -370,7 +374,7 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	}
 	b.WriteString("    if (t < R * M) {\n        const int n = n0 + t / M, m = t % M;\n")
 	if g.Weight == WeightNVFP4 {
-		b.WriteString("        v *= w_gs[0];\n")
+		b.WriteString("        v *= gs;\n")
 	}
 	args := []string{"v"}
 	for _, e := range g.Extras {

@@ -106,15 +106,10 @@ func (s ExpertSum) CUDA() (string, error) {
 #pragma unroll
             for (int i = 0; i < 8; ++i) acc[i] += v[i] * inv[k] * wt[k];
         }
-#pragma unroll
-        for (int i = 0; i < 8; ++i)
+        eg_store<8>(out + (size_t)t * W + c, acc);
+    }
+}
 `)
-	if s.Out == BF16 {
-		b.WriteString("            out[(size_t)t * W + c + i] = eg_f32_to_bf16(acc[i]);\n")
-	} else {
-		b.WriteString("            out[(size_t)t * W + c + i] = acc[i];\n")
-	}
-	b.WriteString("    }\n}\n")
 	return b.String(), nil
 }
 

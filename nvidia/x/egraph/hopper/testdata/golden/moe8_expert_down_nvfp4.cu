@@ -422,6 +422,7 @@ __global__ void __launch_bounds__(256) moe8_expert_down_nvfp4(
     const int lane = threadIdx.x & 31, warp = threadIdx.x >> 5;
     const int n0 = blockIdx.x * R;
     const int first = blockIdx.y * (STEPS / SPLIT), last = first + STEPS / SPLIT;
+    const float gs = w_gs[0]; // read before the reduction's barriers
     float acc[R][M];
 #pragma unroll
     for (int r = 0; r < R; ++r)
@@ -503,7 +504,7 @@ __global__ void __launch_bounds__(256) moe8_expert_down_nvfp4(
     }
     if (t < R * M) {
         const int n = n0 + t / M, m = t % M;
-        v *= w_gs[0];
+        v *= gs;
         out[(size_t)m * N + n] = (v);
     }
 }

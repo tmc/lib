@@ -427,8 +427,8 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv(
     const uint16_t* const we = w + (size_t)e * N * K;
     auto load = [&](int st, int kt) {
         for (int c = tid; c < BM * 8; c += 256) {
-            const int r = c / 8, ch = c % 8, gm = min(bm0 + r, row1 - 1);
-            eg_cp_async16(&sa[(st * BM + r) * LD + ch * 8], x + (size_t)gm * K + kt * BK + ch * 8);
+            const int r = c / 8, ch = c % 8;
+            eg_cp_async16(&sa[(st * BM + r) * LD + ch * 8], x + (size_t)min(bm0 + r, row1 - 1) * K + kt * BK + ch * 8);
         }
         for (int c = tid; c < BN * 8; c += 256) {
             const int r = c / 8, ch = c % 8;
@@ -470,7 +470,8 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv(
 #pragma unroll
     for (int mt = 0; mt < MT; ++mt)
 #pragma unroll
-        for (int nt = 0; nt < NT; ++nt)
+        for (int nt = 0; nt < NT; ++nt) {
+            float yv[2]; // a row's two adjacent columns, stored together
 #pragma unroll
             for (int i = 0; i < 4; ++i) {
                 const int m = bm0 + wm * WM + mt * 16 + lane / 4 + 8 * (i / 2);
@@ -478,8 +479,10 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv(
                 if (m >= row1) continue;
                 const float v = acc[mt][nt][i];
                 const float y = (v);
-                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(y);
+                yv[i & 1] = y;
+                if (i & 1) eg_store<2>(out + (size_t)m * NOUT + n - 1, yv);
             }
+        }
 }
 
 inline void moe8_prefill_qkv_launch(int m, const uint16_t* __restrict__ x, const uint16_t* __restrict__ w, uint16_t* __restrict__ out, cudaStream_t stream) {

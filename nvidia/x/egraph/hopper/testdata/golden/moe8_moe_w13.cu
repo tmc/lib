@@ -435,10 +435,14 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
     uint8_t* const sbs = sbq + STAGES * BN * 48;                                 // [STAGES][BN][4]
     const uint8_t* const we = w + (size_t)e * N * (K / 2);
     const uint8_t* const se = w_sf + (size_t)e * N * (K / 16);
+    const float gs = w_gs[e];
+    __shared__ int srow[BM];
+    for (int r = tid; r < BM; r += 256) srow[r] = rows[min(bm0 + r, row1 - 1)];
+    __syncthreads();
     auto load = [&](int st, int kt) {
         for (int c = tid; c < BM * 8; c += 256) {
-            const int r = c / 8, ch = c % 8, gm = min(bm0 + r, row1 - 1);
-            eg_cp_async16(&sa[(st * BM + r) * LD + ch * 8], x + (size_t)rows[gm] * K + kt * BK + ch * 8);
+            const int r = c / 8, ch = c % 8;
+            eg_cp_async16(&sa[(st * BM + r) * LD + ch * 8], x + (size_t)srow[r] * K + kt * BK + ch * 8);
         }
         for (int c = tid; c < BN * 2; c += 256) {
             const int r = c / 2, ch = c % 2;
@@ -482,11 +486,11 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
         }
     }
     eg_cp_async_wait<0>();
-    const float gs = w_gs[e];
 #pragma unroll
     for (int mt = 0; mt < MT; ++mt)
 #pragma unroll
-        for (int nt = 0; nt < NT / 2; ++nt)
+        for (int nt = 0; nt < NT / 2; ++nt) {
+            float yv[2]; // a row's two adjacent columns, stored together
 #pragma unroll
             for (int i = 0; i < 4; ++i) {
                 const int m = bm0 + wm * WM + mt * 16 + lane / 4 + 8 * (i / 2);
@@ -495,8 +499,10 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
                 const float v = acc[mt][nt][i] * gs;
                 const float u = acc[mt][nt + NT / 2][i] * gs;
                 const float y = (eg_silu((v)) * (u));
-                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(y);
+                yv[i & 1] = y;
+                if (i & 1) eg_store<2>(out + (size_t)m * NOUT + n - 1, yv);
             }
+        }
 }
 
 inline void moe8_moe_w13_launch(int m, int max_rows, int experts, const uint16_t* __restrict__ x, const int32_t* __restrict__ rows, const uint8_t* __restrict__ w, const uint8_t* __restrict__ w_sf, const float* __restrict__ w_gs, const int32_t* __restrict__ offsets, uint16_t* __restrict__ out, cudaStream_t stream) {
