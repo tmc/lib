@@ -2,4 +2,4 @@
 egvariants -sweep -o moe8 $MOE8
 exists moe8/manifest.json moe8/moe8_router_skinny_r1w8s4u4.cu moe8/moe8_moe_w13_m128n128s3.cu moe8/moe8_attn_dp_full_q8_kv256.cu
 grep '"op": "paged_attention"' moe8/manifest.json
-grep '"key": "gemm/N=8192/K=4096/w=nvfp4/out=bf16/epi=\$0/grouped=true/gather=true"' moe8/manifest.json
+grep '"key": "gemm/N=8192/K=4096/w=nvfp4/out=bf16/epi=\(mul \(silu \$0\) \$1\)/grouped=true/gather=true/glu"' moe8/manifest.json

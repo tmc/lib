@@ -315,12 +315,14 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv(
     const uint16_t* __restrict__ w,
     uint16_t* __restrict__ out) {
     constexpr int N = 2304, K = 8192, BM = 128, BN = 128, BK = 64, STAGES = 3, LD = 72;
+    constexpr int NOUT = N;
     constexpr int WM = BM / 2, WN = BN / 4, MT = WM / 16, NT = WN / 8, KT = K / BK;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, wm = warp / 4, wn = warp % 4;
     const int e = 0, row0 = 0, row1 = m_total;
     const int bm0 = row0 + blockIdx.y * BM, bn0 = blockIdx.x * BN;
     if (bm0 >= row1) return;
     EG_DYNAMIC_SMEM(uint16_t, sa); // [STAGES][BM][LD], then the W ring
+    auto wrow = [&](int j) { return bn0 + j; };
     uint16_t* const sb = sa + STAGES * BM * LD; // [STAGES][BN][LD]
     const uint16_t* const we = w + (size_t)e * N * K;
     auto load = [&](int st, int kt) {
@@ -330,7 +332,7 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv(
         }
         for (int c = tid; c < BN * 8; c += 256) {
             const int r = c / 8, ch = c % 8;
-            eg_cp_async16(&sb[(st * BN + r) * LD + ch * 8], we + (size_t)(bn0 + r) * K + kt * BK + ch * 8);
+            eg_cp_async16(&sb[(st * BN + r) * LD + ch * 8], we + (size_t)wrow(r) * K + kt * BK + ch * 8);
         }
     };
     float acc[MT][NT][4] = {};
@@ -375,7 +377,7 @@ __global__ void __launch_bounds__(256) moe8_prefill_qkv(
                 const int n = bn0 + wn * WN + nt * 8 + 2 * (lane % 4) + (i & 1);
                 if (m >= row1) continue;
                 const float v = acc[mt][nt][i];
-                out[(size_t)m * N + n] = eg_f32_to_bf16((v));
+                out[(size_t)m * NOUT + n] = eg_f32_to_bf16((v));
             }
 }
 

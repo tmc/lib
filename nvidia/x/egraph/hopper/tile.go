@@ -27,7 +27,12 @@ type TileGEMM struct {
 	Epilogue Lambda       // $0 is the accumulator; zero value means $0
 	Extras   []Operand
 	Grouped  bool
-	Gather   bool
+	// GLU pairs W's two halves: out has N/2 columns and the epilogue's $0
+	// and $1 are the accumulators of columns c and c + N/2 (W13 rows
+	// [:N/2] gate, [N/2:] up), so (mul (silu $0) $1) is SwiGLU
+	// (moe8_moe_w4a16/reference.py:103-104). Extras follow as $2, ....
+	GLU    bool
+	Gather bool
 
 	BM, BN int // 64 or 128; 0 means 128
 	Stages int // 2 to 4; 0 means 3
@@ -61,8 +66,15 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.Epilogue.root == nil {
 		g.Epilogue = Identity
 	}
-	if g.Epilogue.Arity() > 1+len(g.Extras) {
-		return g, fmt.Errorf("tile gemm %s: epilogue uses $%d, have %d extras", g.Name, g.Epilogue.Arity()-1, len(g.Extras))
+	acc := 1
+	if g.GLU {
+		acc = 2
+		if (g.N/2)%(g.BN/2) != 0 {
+			return g, fmt.Errorf("tile gemm %s: GLU half width %d is not a multiple of %d", g.Name, g.N/2, g.BN/2)
+		}
+	}
+	if g.Epilogue.Arity() > acc+len(g.Extras) {
+		return g, fmt.Errorf("tile gemm %s: epilogue uses $%d, have %d accumulators and %d extras", g.Name, g.Epilogue.Arity()-1, acc, len(g.Extras))
 	}
 	seen := map[string]bool{"x": true, "rows": true, "w": true, "w_sf": true, "w_gs": true, "offsets": true, "out": true, "m_total": true}
 	for _, e := range g.Extras {
@@ -131,6 +143,11 @@ func (g TileGEMM) CUDA() (string, error) {
 		g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.BM, g.BN, g.Stages)
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(256) %s(\n    %s) {\n", g.Name, strings.Join(g.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, BM = %d, BN = %d, BK = 64, STAGES = %d, LD = 72;\n", g.N, g.K, g.BM, g.BN, g.Stages)
+	if g.GLU {
+		b.WriteString("    constexpr int NOUT = N / 2;\n")
+	} else {
+		b.WriteString("    constexpr int NOUT = N;\n")
+	}
 	b.WriteString(`    constexpr int WM = BM / 2, WN = BN / 4, MT = WM / 16, NT = WN / 8, KT = K / BK;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, wm = warp / 4, wn = warp % 4;
 `)
@@ -143,6 +160,16 @@ func (g TileGEMM) CUDA() (string, error) {
     if (bm0 >= row1) return;
     EG_DYNAMIC_SMEM(uint16_t, sa); // [STAGES][BM][LD], then the W ring
 `)
+	if g.GLU {
+		b.WriteString(`    // Tile row j: warp column j / WN holds WN/2 gate rows, then the matching up rows.
+    auto wrow = [&](int j) {
+        const int o = j % WN, c = blockIdx.x * (BN / 2) + (j / WN) * (WN / 2) + o % (WN / 2);
+        return o < WN / 2 ? c : NOUT + c;
+    };
+`)
+	} else {
+		b.WriteString("    auto wrow = [&](int j) { return bn0 + j; };\n")
+	}
 	xrow := "gm"
 	if g.Gather {
 		xrow = "rows[gm]"
@@ -167,14 +194,14 @@ func (g TileGEMM) CUDA() (string, error) {
 	if g.Weight == WeightNVFP4 {
 		b.WriteString(`        for (int c = tid; c < BN * 2; c += 256) {
             const int r = c / 2, ch = c % 2;
-            eg_cp_async16(&sbq[(st * BN + r) * 48 + ch * 16], we + (size_t)(bn0 + r) * (K / 2) + kt * 32 + ch * 16);
+            eg_cp_async16(&sbq[(st * BN + r) * 48 + ch * 16], we + (size_t)wrow(r) * (K / 2) + kt * 32 + ch * 16);
         }
-        for (int r = tid; r < BN; r += 256) eg_cp_async4(&sbs[(st * BN + r) * 4], se + (size_t)(bn0 + r) * (K / 16) + kt * 4);
+        for (int r = tid; r < BN; r += 256) eg_cp_async4(&sbs[(st * BN + r) * 4], se + (size_t)wrow(r) * (K / 16) + kt * 4);
 `)
 	} else {
 		b.WriteString(`        for (int c = tid; c < BN * 8; c += 256) {
             const int r = c / 8, ch = c % 8;
-            eg_cp_async16(&sb[(st * BN + r) * LD + ch * 8], we + (size_t)(bn0 + r) * K + kt * BK + ch * 8);
+            eg_cp_async16(&sb[(st * BN + r) * LD + ch * 8], we + (size_t)wrow(r) * K + kt * BK + ch * 8);
         }
 `)
 	}
@@ -232,33 +259,41 @@ func (g TileGEMM) CUDA() (string, error) {
 	if g.Weight == WeightNVFP4 {
 		b.WriteString("    const float gs = w_gs[e];\n")
 	}
-	b.WriteString(`#pragma unroll
+	nts, col := "NT", "bn0 + wn * WN"
+	if g.GLU {
+		nts, col = "NT / 2", "blockIdx.x * (BN / 2) + wn * (WN / 2)"
+	}
+	fmt.Fprintf(&b, `#pragma unroll
     for (int mt = 0; mt < MT; ++mt)
 #pragma unroll
-        for (int nt = 0; nt < NT; ++nt)
+        for (int nt = 0; nt < %s; ++nt)
 #pragma unroll
             for (int i = 0; i < 4; ++i) {
                 const int m = bm0 + wm * WM + mt * 16 + lane / 4 + 8 * (i / 2);
-                const int n = bn0 + wn * WN + nt * 8 + 2 * (lane % 4) + (i & 1);
+                const int n = %s + nt * 8 + 2 * (lane %% 4) + (i & 1);
                 if (m >= row1) continue;
-`)
+`, nts, col)
+	scale := ""
 	if g.Weight == WeightNVFP4 {
-		b.WriteString("                const float v = acc[mt][nt][i] * gs;\n")
-	} else {
-		b.WriteString("                const float v = acc[mt][nt][i];\n")
+		scale = " * gs"
 	}
+	fmt.Fprintf(&b, "                const float v = acc[mt][nt][i]%s;\n", scale)
 	args := []string{"v"}
+	if g.GLU {
+		fmt.Fprintf(&b, "                const float u = acc[mt][nt + NT / 2][i]%s;\n", scale)
+		args = append(args, "u")
+	}
 	for _, e := range g.Extras {
-		args = append(args, e.load("m", "n", "N"))
+		args = append(args, e.load("m", "n", "NOUT"))
 	}
 	expr, err := g.Epilogue.CUDA(args...)
 	if err != nil {
 		return "", err
 	}
 	if g.Out == BF16 {
-		fmt.Fprintf(&b, "                out[(size_t)m * N + n] = eg_f32_to_bf16(%s);\n", expr)
+		fmt.Fprintf(&b, "                out[(size_t)m * NOUT + n] = eg_f32_to_bf16(%s);\n", expr)
 	} else {
-		fmt.Fprintf(&b, "                out[(size_t)m * N + n] = %s;\n", expr)
+		fmt.Fprintf(&b, "                out[(size_t)m * NOUT + n] = %s;\n", expr)
 	}
 	b.WriteString("            }\n}\n")
 	return b.String(), nil
@@ -308,8 +343,8 @@ func (g TileGEMM) Source() (string, error) {
 	return Prelude + "\n" + src + "\n" + l, nil
 }
 
-// Reference computes the [m, N] output in float64 with the epilogue in
-// FP32. w holds one weight set, or one per expert when Grouped; rows and
+// Reference computes the [m, N] output ([m, N/2] with GLU) in float64
+// with the epilogue in FP32. w holds one weight set, or one per expert when Grouped; rows and
 // offsets are as the kernel takes them (nil when unused).
 func (g TileGEMM) Reference(m int, x []uint16, rows, offsets []int32, w []GEMMWeights, extras [][]float32) ([]float32, error) {
 	g, err := g.norm()
@@ -331,15 +366,40 @@ func (g TileGEMM) Reference(m int, x []uint16, rows, offsets []int32, w []GEMMWe
 		}
 		return x[i*g.K : (i+1)*g.K]
 	}
+	epi, ops, d := g.Epilogue, g.Extras, g.Out
+	if g.GLU {
+		epi, ops, d = Identity, nil, F32
+	}
 	out := make([]float32, m*g.N)
 	for e := range w {
 		var idx []int
 		for i := offsets[e]; i < offsets[e+1]; i++ {
 			idx = append(idx, int(i))
 		}
-		if err := gemmRows(g.N, g.K, g.Weight, w[e], xRow, idx, g.Epilogue, g.Extras, extras, g.Out, out); err != nil {
+		if err := gemmRows(g.N, g.K, g.Weight, w[e], xRow, idx, epi, ops, extras, d, out); err != nil {
 			return nil, fmt.Errorf("tile gemm %s reference: %w", g.Name, err)
 		}
 	}
-	return out, nil
+	if !g.GLU {
+		return out, nil
+	}
+	half := g.N / 2
+	glu := make([]float32, m*half)
+	for i := range m {
+		for c := range half {
+			args := []float32{out[i*g.N+c], out[i*g.N+half+c]}
+			for j, o := range g.Extras {
+				switch o.Broadcast {
+				case PerCol:
+					args = append(args, extras[j][c])
+				case PerRow:
+					args = append(args, extras[j][i])
+				default:
+					args = append(args, extras[j][i*half+c])
+				}
+			}
+			glu[i*half+c] = g.Out.Round(g.Epilogue.Eval(args...))
+		}
+	}
+	return glu, nil
 }

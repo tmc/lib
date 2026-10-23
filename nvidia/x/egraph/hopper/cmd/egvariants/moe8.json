@@ -11,7 +11,7 @@
     {"Name": "moe8_o_tile", "N": 8192, "K": 1024, "Weight": "bf16", "Out": "bf16"},
     {"Name": "moe8_pooler_tile", "N": 4096, "K": 8192, "Weight": "bf16", "Out": "bf16"},
     {"Name": "moe8_unpooler_tile", "N": 8192, "K": 4096, "Weight": "bf16", "Out": "bf16"},
-    {"Name": "moe8_moe_w13", "N": 8192, "K": 4096, "Weight": "nvfp4", "Out": "bf16", "Grouped": true, "Gather": true},
+    {"Name": "moe8_moe_w13", "N": 8192, "K": 4096, "Weight": "nvfp4", "Out": "bf16", "Grouped": true, "Gather": true, "GLU": true, "Epilogue": "(mul (silu $0) $1)"},
     {"Name": "moe8_moe_w2", "N": 4096, "K": 4096, "Weight": "nvfp4", "Out": "f32", "Grouped": true}
   ],
   "paged_attention": [

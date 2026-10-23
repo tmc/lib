@@ -22,6 +22,10 @@ func TestTileGEMMEmulated(t *testing.T) {
 		{"nvfp4_64", TileGEMM{N: 64, K: 256, Weight: WeightNVFP4, Out: F32, BM: 64, BN: 64, Stages: 4}, 40, 0, nil},
 		{"grouped_nvfp4_gather", TileGEMM{N: 64, K: 128, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 64,
 			Epilogue: MustLambda("(silu $0)"), Grouped: true, Gather: true}, 90, 30, []int32{0, 17, 17, 90}},
+		{"glu_nvfp4_grouped", TileGEMM{N: 128, K: 128, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 64,
+			Epilogue: MustLambda("(mul (silu $0) $1)"), Grouped: true, Gather: true, GLU: true}, 70, 25, []int32{0, 3, 70}},
+		{"glu_bf16_128", TileGEMM{N: 256, K: 64, Weight: WeightBF16, Out: F32, GLU: true,
+			Epilogue: MustLambda("(add (mul (silu $0) $1) $2)"), Extras: []Operand{{"bias", F32, PerCol}}}, 20, 0, nil},
 		{"grouped_bf16", TileGEMM{N: 128, K: 64, Weight: WeightBF16, Out: F32, BM: 64, BN: 128, Grouped: true}, 75, 0, []int32{0, 64, 65, 75}},
 	}
 	r := rand.New(rand.NewPCG(41, 42))
@@ -43,6 +47,10 @@ func TestTileGEMMEmulated(t *testing.T) {
 				}
 			}
 			x := randBF16(r, xrows*k, 1)
+			nout := n
+			if g.GLU {
+				nout = n / 2
+			}
 			experts := 1
 			if g.Grouped {
 				experts = len(tt.offsets) - 1
@@ -89,7 +97,7 @@ func TestTileGEMMEmulated(t *testing.T) {
 			}
 			var extras [][]float32
 			for _, e := range g.Extras {
-				size := map[Broadcast]int{PerCol: n, PerRow: m, Full: m * n}[e.Broadcast]
+				size := map[Broadcast]int{PerCol: nout, PerRow: m, Full: m * nout}[e.Broadcast]
 				v := make([]float32, size)
 				for i := range v {
 					v[i] = e.DType.Round(float32(r.NormFloat64()))
@@ -98,7 +106,7 @@ func TestTileGEMMEmulated(t *testing.T) {
 				bufs = append(bufs, emuBuf{e.Name, e.DType.cType(), typed{e.DType, f64s(v)}.bytes()})
 				args = append(args, e.Name)
 			}
-			bufs = append(bufs, emuBuf{"out", g.Out.cType(), make([]byte, m*n*g.Out.Bits()/8)})
+			bufs = append(bufs, emuBuf{"out", g.Out.cType(), make([]byte, m*nout*g.Out.Bits()/8)})
 			args = append(args, "out")
 			grid, block := g.Grid(maxRows, experts)
 			launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %s)",
@@ -121,7 +129,7 @@ func TestTileGEMMEmulated(t *testing.T) {
 				rel = 1.0 / 128
 			}
 			if i, ok := closeTo(got, want, rel, 1e-5); !ok {
-				t.Fatalf("out[%d] (row %d, col %d) = %g, want %g (relL2 %g)", i, i/n, i%n, got[i], want[i], relL2(got, want))
+				t.Fatalf("out[%d] = %g, want %g (relL2 %g)", i, got[i], want[i], relL2(got, want))
 			}
 		})
 	}
@@ -160,7 +168,8 @@ func TestTileGEMMGolden(t *testing.T) {
 		// Prefill qkv_gate projection (moe8_prefill_layer).
 		{Name: "moe8_prefill_qkv", N: 2304, K: 8192, Weight: WeightBF16, Out: BF16},
 		// MoE gate/up for local experts, tokens gathered by expert, SwiGLU applied later.
-		{Name: "moe8_moe_w13", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, Grouped: true, Gather: true},
+		{Name: "moe8_moe_w13", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, Grouped: true, Gather: true,
+			GLU: true, Epilogue: MustLambda("(mul (silu $0) $1)")},
 	} {
 		src, err := g.Source()
 		if err != nil {

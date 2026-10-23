@@ -124,6 +124,9 @@ func (g TileGEMM) Variant() (Variant, error) {
 	if g.Grouped || g.Gather {
 		key += fmt.Sprintf("/grouped=%t/gather=%t", g.Grouped, g.Gather)
 	}
+	if g.GLU {
+		key += "/glu"
+	}
 	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, SharedBytes: g.SharedBytes()}
 	head := []string{"int m"}
 	if g.Grouped {

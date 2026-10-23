@@ -308,7 +308,7 @@ EG_DEV float eg_sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 EG_DEV float eg_silu(float x) { return x / (1.0f + expf(-x)); }
 #endif // EG_PRELUDE
 
-// moe8_moe_w13: out = $0 over x[M, 4096] · W[8192, 4096]ᵀ (nvfp4), 128x128 tiles, 3 stages.
+// moe8_moe_w13: out = (mul (silu $0) $1) over x[M, 4096] · W[8192, 4096]ᵀ (nvfp4), 128x128 tiles, 3 stages.
 __global__ void __launch_bounds__(256) moe8_moe_w13(
     int m_total,
     const uint16_t* __restrict__ x,
@@ -319,12 +319,18 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
     const int32_t* __restrict__ offsets,
     uint16_t* __restrict__ out) {
     constexpr int N = 8192, K = 4096, BM = 128, BN = 128, BK = 64, STAGES = 3, LD = 72;
+    constexpr int NOUT = N / 2;
     constexpr int WM = BM / 2, WN = BN / 4, MT = WM / 16, NT = WN / 8, KT = K / BK;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, wm = warp / 4, wn = warp % 4;
     const int e = blockIdx.z, row0 = offsets[e], row1 = offsets[e + 1];
     const int bm0 = row0 + blockIdx.y * BM, bn0 = blockIdx.x * BN;
     if (bm0 >= row1) return;
     EG_DYNAMIC_SMEM(uint16_t, sa); // [STAGES][BM][LD], then the W ring
+    // Tile row j: warp column j / WN holds WN/2 gate rows, then the matching up rows.
+    auto wrow = [&](int j) {
+        const int o = j % WN, c = blockIdx.x * (BN / 2) + (j / WN) * (WN / 2) + o % (WN / 2);
+        return o < WN / 2 ? c : NOUT + c;
+    };
     uint8_t* const sbq = reinterpret_cast<uint8_t*>(sa + STAGES * BM * LD); // [STAGES][BN][48]
     uint8_t* const sbs = sbq + STAGES * BN * 48;                                 // [STAGES][BN][4]
     const uint8_t* const we = w + (size_t)e * N * (K / 2);
@@ -336,9 +342,9 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
         }
         for (int c = tid; c < BN * 2; c += 256) {
             const int r = c / 2, ch = c % 2;
-            eg_cp_async16(&sbq[(st * BN + r) * 48 + ch * 16], we + (size_t)(bn0 + r) * (K / 2) + kt * 32 + ch * 16);
+            eg_cp_async16(&sbq[(st * BN + r) * 48 + ch * 16], we + (size_t)wrow(r) * (K / 2) + kt * 32 + ch * 16);
         }
-        for (int r = tid; r < BN; r += 256) eg_cp_async4(&sbs[(st * BN + r) * 4], se + (size_t)(bn0 + r) * (K / 16) + kt * 4);
+        for (int r = tid; r < BN; r += 256) eg_cp_async4(&sbs[(st * BN + r) * 4], se + (size_t)wrow(r) * (K / 16) + kt * 4);
     };
     float acc[MT][NT][4] = {};
 #pragma unroll
@@ -380,14 +386,15 @@ __global__ void __launch_bounds__(256) moe8_moe_w13(
 #pragma unroll
     for (int mt = 0; mt < MT; ++mt)
 #pragma unroll
-        for (int nt = 0; nt < NT; ++nt)
+        for (int nt = 0; nt < NT / 2; ++nt)
 #pragma unroll
             for (int i = 0; i < 4; ++i) {
                 const int m = bm0 + wm * WM + mt * 16 + lane / 4 + 8 * (i / 2);
-                const int n = bn0 + wn * WN + nt * 8 + 2 * (lane % 4) + (i & 1);
+                const int n = blockIdx.x * (BN / 2) + wn * (WN / 2) + nt * 8 + 2 * (lane % 4) + (i & 1);
                 if (m >= row1) continue;
                 const float v = acc[mt][nt][i] * gs;
-                out[(size_t)m * N + n] = eg_f32_to_bf16((v));
+                const float u = acc[mt][nt + NT / 2][i] * gs;
+                out[(size_t)m * NOUT + n] = eg_f32_to_bf16((eg_silu((v)) * (u)));
             }
 }
 
