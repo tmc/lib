@@ -5,10 +5,61 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 
+	"github.com/tmc/lib/nvidia/x/cudaroofline"
 	"github.com/tmc/lib/nvidia/x/nsightcompute"
 )
+
+// ncuCeiling is the bandwidth the raw import divides by, and where it came
+// from: a -ceiling number (Device empty) or a -device table lookup.
+type ncuCeiling struct {
+	GBps       float64 `json:"ceiling_gbps,omitempty"`
+	Device     string  `json:"ceiling_device,omitempty"`
+	Provenance string  `json:"ceiling_provenance,omitempty"`
+}
+
+// ncuDisplayName is the metric ncu records the device's product name in.
+const ncuDisplayName = "device__attribute_display_name"
+
+// resolveNCUCeiling returns the ceiling for the export. With device "auto"
+// the product name comes from the export, which must name exactly one. With
+// any other device name, every launch that records a name must agree with
+// it: a ceiling measured on another part is the wrong denominator.
+func resolveNCUCeiling(t *nsightcompute.RawTable, gbps float64, device string) (ncuCeiling, error) {
+	if device == "" {
+		return ncuCeiling{GBps: gbps}, nil
+	}
+	norm := func(s string) string { return strings.ToLower(strings.Join(strings.Fields(s), " ")) }
+	var names []string
+	seen := map[string]bool{}
+	if t.Column(ncuDisplayName) >= 0 {
+		for i := range t.Launches {
+			v := strings.TrimSpace(t.Launches[i].Raw[t.Column(ncuDisplayName)])
+			if v != "" && !seen[norm(v)] {
+				seen[norm(v)] = true
+				names = append(names, v)
+			}
+		}
+	}
+	if device == "auto" {
+		if len(names) != 1 {
+			return ncuCeiling{}, fmt.Errorf("-device auto: export names %d devices %q in %s, want 1", len(names), names, ncuDisplayName)
+		}
+		device = names[0]
+	}
+	for _, n := range names {
+		if norm(n) != norm(device) {
+			return ncuCeiling{}, fmt.Errorf("-device %q: export was recorded on %q", device, n)
+		}
+	}
+	c, err := cudaroofline.LookupDeviceCeiling(device, cudaroofline.DeviceResident)
+	if err != nil {
+		return ncuCeiling{}, err
+	}
+	return ncuCeiling{GBps: c.PeakMemoryGBps, Device: c.Device, Provenance: string(c.MemoryProvenance)}, nil
+}
 
 // ncuRawLaunch is one launch of a raw-page export with the rates derived
 // from it. A rate is absent when a metric it needs is absent, not a number,
@@ -80,20 +131,27 @@ func ncuRawLaunches(t *nsightcompute.RawTable, ceilingGBps float64) []ncuRawLaun
 	return out
 }
 
-func runImportNCURaw(data []byte, maxBytes int, ceilingGBps float64, jsonOutput bool, stdout io.Writer) error {
+func runImportNCURaw(data []byte, maxBytes int, ceilingGBps float64, device string, jsonOutput bool, stdout io.Writer) error {
 	t, err := nsightcompute.ReadRaw(bytes.NewReader(data), maxBytes)
 	if err != nil {
 		return fmt.Errorf("import-ncu: %w", err)
 	}
-	launches := ncuRawLaunches(t, ceilingGBps)
+	c, err := resolveNCUCeiling(t, ceilingGBps, device)
+	if err != nil {
+		return fmt.Errorf("import-ncu: %w", err)
+	}
+	launches := ncuRawLaunches(t, c.GBps)
 	if jsonOutput {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(struct {
-			Metrics  int            `json:"metrics"`
-			Ceiling  float64        `json:"ceiling_gbps,omitempty"`
+			Metrics int `json:"metrics"`
+			ncuCeiling
 			Launches []ncuRawLaunch `json:"launches"`
-		}{len(t.Metrics), ceilingGBps, launches})
+		}{len(t.Metrics), c, launches})
+	}
+	if c.Device != "" {
+		fmt.Fprintf(stdout, "ceiling %s: %.2f GB/s (%s)\n", c.Device, c.GBps, c.Provenance)
 	}
 	tw := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "id\tduration ns\tDRAM bytes\tGB/s\tof ceiling\twarps active %\tCTAs\tkernel")
