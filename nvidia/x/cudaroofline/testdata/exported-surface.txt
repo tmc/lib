@@ -1,5 +1,6 @@
   field Ceiling.Architecture string
   field Ceiling.ComputeProvenance Provenance
+  field Ceiling.Device string
   field Ceiling.L2BandwidthGBps float64
   field Ceiling.MemoryProvenance Provenance
   field Ceiling.PeakMemoryGBps float64
@@ -138,6 +139,7 @@ func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.Te
 func AnalyticalGEMMSplitK(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int, profile GEMMSpatialProfile) (GEMMSplitKMovement, error)
 func DecodeRecord(rd io.Reader) (Record, error)
 func LookupCeiling(arch string, residency Residency) (Ceiling, error)
+func LookupDeviceCeiling(device string, residency Residency) (Ceiling, error)
 func NewModel(arch string, residency Residency) (*Model, error)
 func NewModelWithCeiling(c Ceiling) *Model
 func NewRecord(m *Model, judgments []Judgment) Record
