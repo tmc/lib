@@ -46,7 +46,10 @@ and opens `/dev/nvidia<minor>`, `/dev/nvidiactl`, `/dev/nvidia-uvm` and
 `/dev/nvidia-uvm-tools` read-write, recording each errno. It creates no CUDA
 context, so it is cheap to run before every measurement in a container. Each
 failure is a failed check naming the likely cause, such as nodes whose mode
-allows access while the device cgroup denies it. See package
+allows access while the device cgroup denies it. By itself `-health` runs
+only these checks, so a host without NVRTC or a toolkit (one that only runs
+a container image) still passes; add `-workflow` or `-smoke` to include
+those checks. See package
 [gpuhealth](../../gpuhealth/).
 
 ## Smoke tests

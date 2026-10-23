@@ -51,7 +51,7 @@ func run(args []string, out, errout io.Writer) int {
 	arch := fs.String("arch", "compute_75", "virtual architecture for the JIT smoke test")
 	timeout := fs.Duration("timeout", 15*time.Second, "timeout for each probe")
 	probe := fs.String("probe", "", "internal subprocess probe")
-	health := fs.Bool("health", false, "check device nodes open read-write and nvidia-smi answers, without a CUDA context")
+	health := fs.Bool("health", false, "check device nodes open read-write and nvidia-smi answers, without a CUDA context; alone, it skips the workflow checks")
 	uuid := fs.String("uuid", "", "GPU UUID expected by -health")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -66,6 +66,13 @@ func run(args []string, out, errout io.Writer) int {
 	if *probe != "" {
 		return probeMain(*probe, *arch, out, errout)
 	}
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	// -health by itself checks the device and nothing else: a host that only
+	// runs a container image has no NVRTC, and its absence says nothing
+	// about whether the GPU is usable. Naming a workflow or smoke test adds
+	// those checks back.
+	healthOnly := *health && !set["workflow"] && !set["smoke"]
 	plan, ok := workflows[*workflow]
 	if !ok {
 		fmt.Fprintln(errout, "cudadoctor: unknown workflow", *workflow)
@@ -80,6 +87,9 @@ func run(args []string, out, errout io.Writer) int {
 	if *smoke != "none" && *workflow != "jit" {
 		fmt.Fprintln(errout, "cudadoctor: smoke tests require -workflow=jit")
 		return 2
+	}
+	if healthOnly {
+		*workflow, plan = "health", workflowPlan{}
 	}
 	r := report{Schema: 1, Workflow: *workflow, Go: runtime.Version(), Platform: runtime.GOOS + "/" + runtime.GOARCH, Environment: map[string]string{}}
 	if info, ok := debug.ReadBuildInfo(); ok {
@@ -123,8 +133,10 @@ func run(args []string, out, errout io.Writer) int {
 	if *health {
 		r.Checks = append(r.Checks, healthChecks(gpuhealth.Probe(context.Background(), gpuhealth.Options{UUID: *uuid, Timeout: *timeout}))...)
 	}
-	r.Checks = append(r.Checks, check{Name: "execution", Status: "info", Detail: "Library discovery does not initialize a CUDA context or prove kernel execution; only -smoke=load/run uses the GPU."})
-	addVersionWarning(&r, *timeout)
+	if !healthOnly {
+		r.Checks = append(r.Checks, check{Name: "execution", Status: "info", Detail: "Library discovery does not initialize a CUDA context or prove kernel execution; only -smoke=load/run uses the GPU."})
+		addVersionWarning(&r, *timeout)
+	}
 	if err := writeReport(out, r, *jsonOutput); err != nil {
 		fmt.Fprintln(errout, err)
 		return 1
