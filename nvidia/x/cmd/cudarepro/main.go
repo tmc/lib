@@ -3,8 +3,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
@@ -57,7 +59,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer dev.Close()
 	buffers, err := launch.Replay(dev, func(l *cudarepro.Launch) error {
 		f, err := os.OpenFile(*record, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err != nil {
@@ -71,8 +72,9 @@ func run() error {
 		return closeErr
 	})
 	if err != nil {
-		return err
+		return releaseOwners(err, dev.Close)
 	}
+	defer dev.Close()
 	if *output != "" {
 		f, err := os.OpenFile(*output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err != nil {
@@ -89,4 +91,23 @@ func run() error {
 	}
 	fmt.Println("replay complete")
 	return nil
+}
+
+// releaseOwners closes an io.Closer carried by cause, then each dependent in
+// order, and returns cause joined with the first cleanup failure. Nothing after
+// a failed cleanup is closed: it still backs the failed resource, and an owner
+// that failed to close remains reachable through the returned error.
+func releaseOwners(cause error, dependents ...func() error) error {
+	var owner io.Closer
+	if errors.As(cause, &owner) {
+		if err := owner.Close(); err != nil {
+			return errors.Join(cause, fmt.Errorf("cudarepro: release replay owner: %w", err))
+		}
+	}
+	for _, release := range dependents {
+		if err := release(); err != nil {
+			return errors.Join(cause, fmt.Errorf("cudarepro: cleanup: %w", err))
+		}
+	}
+	return cause
 }
