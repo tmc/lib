@@ -4,7 +4,7 @@
 //
 // Usage:
 //
-//	pairedtiming [-estimator geometric|sum] [-bootstrap N] [-seed S] [-format blocks|okc] [-kernels] [-json] [file.json]
+//	pairedtiming [-estimator geometric|sum] [-bootstrap N] [-seed S] [-format blocks|okc] [-kernels] [-elasticity] [-json] [file.json]
 //
 // The default blocks format is
 //
@@ -20,7 +20,9 @@
 // (benchmarks[].baseline_runs_ns, runs_ns, replay_overhead.overhead_ns,
 // case.load, case.weight); consecutive sample pairs form one block. With
 // -kernels, the judge's per-case kernel tables are summed into one
-// case-weighted table per load (see package okcprofile).
+// case-weighted table per load. With -elasticity, each kernel's share of the
+// log score is printed: cutting a kernel with elasticity E by 10% on every
+// shape raises log(score) by about 0.1·E (see package okcprofile).
 //
 // The command reads samples only; it never runs a workload.
 package main
@@ -70,17 +72,18 @@ type shapeReport struct {
 }
 
 type report struct {
-	Estimator string                   `json:"estimator"`
-	Shapes    []shapeReport            `json:"shapes"`
-	Loads     []pairedtiming.LoadScore `json:"loads"`
-	Speedup   float64                  `json:"speedup"`
-	Interval  *pairedtiming.Interval   `json:"interval,omitempty"`
-	Draws     int                      `json:"draws,omitempty"`
-	Seed      uint64                   `json:"seed,omitempty"`
-	Wins      int                      `json:"block_wins"`
-	Losses    int                      `json:"block_losses"`
-	SignP     float64                  `json:"sign_p"`
-	Kernels   *okcprofile.Table        `json:"kernels,omitempty"`
+	Estimator  string                      `json:"estimator"`
+	Shapes     []shapeReport               `json:"shapes"`
+	Loads      []pairedtiming.LoadScore    `json:"loads"`
+	Speedup    float64                     `json:"speedup"`
+	Interval   *pairedtiming.Interval      `json:"interval,omitempty"`
+	Draws      int                         `json:"draws,omitempty"`
+	Seed       uint64                      `json:"seed,omitempty"`
+	Wins       int                         `json:"block_wins"`
+	Losses     int                         `json:"block_losses"`
+	SignP      float64                     `json:"sign_p"`
+	Kernels    *okcprofile.Table           `json:"kernels,omitempty"`
+	Elasticity *okcprofile.ElasticityTable `json:"elasticity,omitempty"`
 }
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -91,6 +94,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	seed := fs.Uint64("seed", 1, "bootstrap seed")
 	format := fs.String("format", "blocks", "input format: blocks or okc")
 	kernels := fs.Bool("kernels", false, "with -format okc, also print the weighted per-kernel table from the judge's profile reports")
+	elasticity := fs.Bool("elasticity", false, "with -format okc, also print each kernel's share of the log score")
 	asJSON := fs.Bool("json", false, "print JSON")
 	fs.Usage = func() {
 		fmt.Fprintln(stderr, "usage: pairedtiming [flags] [file.json]")
@@ -118,8 +122,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		defer f.Close()
 		r = f
 	}
-	if *kernels && *format != "okc" {
-		return errors.New("-kernels needs -format okc")
+	if (*kernels || *elasticity) && *format != "okc" {
+		return errors.New("-kernels and -elasticity need -format okc")
 	}
 	series, profile, err := decode(r, *format)
 	if err != nil {
@@ -135,6 +139,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 			return err
 		}
 		rep.Kernels = &t
+	}
+	if *elasticity {
+		t, err := okcprofile.Elasticities(profile)
+		if err != nil {
+			return err
+		}
+		rep.Elasticity = &t
 	}
 	if *asJSON {
 		enc := json.NewEncoder(stdout)
@@ -252,9 +263,32 @@ func printText(w io.Writer, rep *report) error {
 	}
 	fmt.Fprintf(w, "blocks won %d, lost %d, sign test p=%.3g\n", rep.Wins, rep.Losses, rep.SignP)
 	if rep.Kernels != nil {
-		return printKernels(w, rep.Kernels)
+		if err := printKernels(w, rep.Kernels); err != nil {
+			return err
+		}
+	}
+	if rep.Elasticity != nil {
+		return printElasticity(w, rep.Elasticity)
 	}
 	return nil
+}
+
+func printElasticity(w io.Writer, t *okcprofile.ElasticityTable) error {
+	fmt.Fprintf(w, "\nratio-of-medians score %.4f over %d loads; kernel tables cover %.1f%% of judged time\n",
+		t.Score, t.Loads, 100*t.Coverage)
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "elasticity\tcalls\tkernel")
+	for _, k := range t.Kernels {
+		name := k.Kernel
+		if k.Truncated {
+			name += "..."
+		}
+		if k.Merged {
+			name += " (merged rows)"
+		}
+		fmt.Fprintf(tw, "%.1f%%\t%d\t%s\n", 100*k.E, k.Calls, name)
+	}
+	return tw.Flush()
 }
 
 func printKernels(w io.Writer, t *okcprofile.Table) error {

@@ -11,8 +11,15 @@ stdout '^decode 1 +7\.5 +27\.3% +1 +1 +norm$'
 stdout '^2 kernel groups hidden'
 ! stdout overlapped
 
+# -elasticity divides weighted kernel time by the judged load time:
+# attn (3·10 + 1·40) / (46·14) = 10.9%.
+exec pairedtiming -format okc -elasticity -bootstrap 0 profile.json
+stdout '^ratio-of-medians score 1.7143 over 1 loads; kernel tables cover 15.5% of judged time$'
+stdout '^10\.9% +3 +attn\.\.\. \(merged rows\)$'
+stdout '^4\.7% +1 +norm$'
+
 ! exec pairedtiming -kernels profile.json
-stderr '-kernels needs -format okc'
+stderr '-kernels and -elasticity need -format okc'
 
 # A report line the parser does not know is an error, not a dropped row.
 ! exec pairedtiming -format okc -kernels -bootstrap 0 badreport.json
@@ -24,6 +31,7 @@ stderr 'benchmark 0: 3 baseline and 3 candidate samples'
 
 -- profile.json --
 {"benchmarks": [{"case": {"load": "decode 1", "weight": 46},
+  "baseline_ns": 24000, "median_ns": 14000,
   "baseline_runs_ns": [24000, 24000, 24000, 24000],
   "runs_ns": [14000, 14000, 14000, 14000],
   "replay_overhead": {"overhead_ns": 4000}}],

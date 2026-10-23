@@ -20,6 +20,13 @@
 //     waiting for its predecessor, so the rows sum to more than the GPU was
 //     busy, and the judge prints the busy time separately.
 //
+// [Elasticities] ranks kernels by their share of the log score. When a score
+// is a geometric mean over loads of weighted baseline-to-candidate ratios,
+// cutting one kernel's time by a fraction x on every shape raises log(score)
+// by about x·E, where E sums the kernel's weighted time over the load's
+// judged time, averaged over loads. The formula holds for any such
+// benchmark; the judge profile only supplies the inputs.
+//
 // A line the parser does not recognize is an error, not a skipped row: a
 // format change must not shrink the table silently.
 //

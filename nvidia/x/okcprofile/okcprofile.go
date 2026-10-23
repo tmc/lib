@@ -51,9 +51,12 @@ func (c *Case) UnmarshalJSON(b []byte) error {
 }
 
 // Benchmark is one timed shape: baseline and candidate samples in the order
-// they ran, and the replay overhead the judge subtracts from both.
+// they ran, the replay overhead the judge subtracts from both, and the
+// judge's per-shape baseline and candidate times.
 type Benchmark struct {
 	Case           Case      `json:"case"`
+	BaselineNS     float64   `json:"baseline_ns"`
+	MedianNS       float64   `json:"median_ns"`
 	BaselineRunsNS []float64 `json:"baseline_runs_ns"`
 	RunsNS         []float64 `json:"runs_ns"`
 	ReplayOverhead struct {
