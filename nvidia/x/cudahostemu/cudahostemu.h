@@ -15,7 +15,10 @@
 // through a per-warp buffer between two barrier phases and follow the PTX
 // ISA fragment layouts. cp.async is modeled at its latest legal timing:
 // issue fills the destination with 0xff and the data lands only when
-// cp.async.wait_group retires its group. A thread that returns early drops
+// cp.async.wait_group retires its group. wgmma is modeled the same way once
+// a thread calls eg_emu_wgmma_fence: the accumulator reads NaN, and shared
+// memory is read, only at the wgmma.wait_group that retires the op (see
+// eg_emu_wgmma_bf16). A thread that returns early drops
 // out of its barriers, so early exit never deadlocks the emulation (on a
 // GPU it is the kernel's responsibility). Warps may be partial.
 //
@@ -500,13 +503,14 @@ inline void eg_emu_mma_e4m3_16832(float d[4], const uint32_t a[4], const uint32_
     for (int i = 0; i < 4; ++i) d[i] = out[i];
 }
 
-// wgmma.mma_async m64nNk16 f32.bf16.bf16, D += A·B, A and B K-major in
-// shared memory with no-swizzle descriptors: element (r, k) of a matrix
-// is at start + (r/8)·SBO + (k/8)·LBO + (r%8)·16 + (k%8)·2. Thread i of
-// the warpgroup holds d[nt*4 + j] = D[(i/32%4)*16 + lane/4 + 8(j/2)][nt*8 +
-// 2(lane%4) + (j&1)]. Operands come from shared memory, so each thread
-// computes its own elements; the emulation completes synchronously.
-inline void eg_emu_wgmma_bf16(float* d, uint64_t da, uint64_t db, int n) {
+// eg_emu_wgmma_bf16_math is wgmma.mma_async m64nNk16 f32.bf16.bf16, d +=
+// A·B, for one thread's elements, with A and B K-major in shared memory
+// under no-swizzle descriptors: element (r, k) of a matrix is at start +
+// (r/8)·SBO + (k/8)·LBO + (r%8)·16 + (k%8)·2. Thread i of the warpgroup
+// holds d[nt*4 + j] = D[(i/32%4)*16 + lane/4 + 8(j/2)][nt*8 + 2(lane%4) +
+// (j&1)], n/2 values. Operands come from shared memory, so each thread
+// computes its own elements.
+inline void eg_emu_wgmma_bf16_math(float* d, uint64_t da, uint64_t db, int n) {
     auto at = [](uint64_t desc, int r, int k) {
         const unsigned char* base = eg_emu_dynamic_smem() + ((desc & 0x3fff) << 4);
         const uint64_t lbo = ((desc >> 16) & 0x3fff) << 4, sbo = ((desc >> 32) & 0x3fff) << 4;
@@ -522,6 +526,82 @@ inline void eg_emu_wgmma_bf16(float* d, uint64_t da, uint64_t db, int n) {
             for (int k = 0; k < 16; ++k) acc += at(da, row, k) * at(db, col, k);
             d[nt * 4 + i] = acc;
         }
+}
+
+// wgmma is asynchronous on the GPU: mma_async returns at once, and the
+// accumulator registers and the shared-memory operands are in use until
+// wgmma.wait_group retires the op's group. The emulation models the latest
+// legal timing, as it does for cp.async. A thread that calls
+// eg_emu_wgmma_fence (wgmma.fence, which the PTX ISA requires before the
+// first mma_async) is in async mode for the rest of the launch: each
+// mma_async fills its accumulator with NaN, and the product is computed
+// only when eg_emu_wgmma_wait retires its group, from shared memory as it
+// is then. A read of the accumulator before the wait therefore sees NaN,
+// and an operand overwritten before the wait changes the result. Ops on
+// the same accumulator chain, as a k-loop does, in issue order. A thread
+// that returns with ops pending is an error. Without eg_emu_wgmma_fence, or
+// with EG_EMU_SYNC_WGMMA defined, mma_async completes at once.
+struct eg_emu_wg_op {
+    float* d;
+    uint64_t da, db;
+    int n, group;
+};
+struct eg_emu_wg_acc {
+    float* d;
+    std::vector<float> value;  // the accumulator as the hardware would hold it
+    int pending;
+};
+inline thread_local bool eg_emu_wg_async;
+inline thread_local std::vector<eg_emu_wg_op> eg_emu_wg_pending;
+inline thread_local std::vector<eg_emu_wg_acc> eg_emu_wg_accs;
+inline thread_local int eg_emu_wg_committed;
+
+inline void eg_emu_wgmma_fence() {
+#if !defined(EG_EMU_SYNC_WGMMA)
+    eg_emu_wg_async = true;
+#endif
+}
+
+inline void eg_emu_wgmma_bf16(float* d, uint64_t da, uint64_t db, int n) {
+    if (!eg_emu_wg_async) {
+        eg_emu_wgmma_bf16_math(d, da, db, n);
+        return;
+    }
+    eg_emu_wg_acc* a = nullptr;
+    for (auto& x : eg_emu_wg_accs)
+        if (x.d == d) a = &x;
+    if (!a) {
+        eg_emu_wg_accs.push_back({d, std::vector<float>(d, d + n / 2), 0});
+        a = &eg_emu_wg_accs.back();
+    }
+    ++a->pending;
+    std::fill(d, d + n / 2, NAN);
+    eg_emu_wg_pending.push_back({d, da, db, n, -1});
+}
+
+inline void eg_emu_wgmma_commit() {
+    for (auto& op : eg_emu_wg_pending)
+        if (op.group < 0) op.group = eg_emu_wg_committed;
+    ++eg_emu_wg_committed;
+}
+
+// eg_emu_wgmma_wait retires every committed group except the newest n.
+inline void eg_emu_wgmma_wait(int n) {
+    const int keep = eg_emu_wg_committed - n;
+    std::vector<eg_emu_wg_op> rest;
+    for (auto& op : eg_emu_wg_pending) {
+        if (op.group < 0 || op.group >= keep) {
+            rest.push_back(op);
+            continue;
+        }
+        auto a = std::find_if(eg_emu_wg_accs.begin(), eg_emu_wg_accs.end(), [&](auto& x) { return x.d == op.d; });
+        eg_emu_wgmma_bf16_math(a->value.data(), op.da, op.db, op.n);
+        if (--a->pending == 0) {
+            std::copy(a->value.begin(), a->value.end(), op.d);
+            eg_emu_wg_accs.erase(a);
+        }
+    }
+    eg_emu_wg_pending.swap(rest);
 }
 
 // --- runtime ---------------------------------------------------------------
@@ -645,7 +725,17 @@ void eg_emu_run(dim3 grid, dim3 block, size_t smem, int cluster, F body) {
                     eg_emu_rank = r;
                     eg_emu_cp_pending.clear();
                     eg_emu_cp_committed = 0;
+                    eg_emu_wg_async = false;
+                    eg_emu_wg_pending.clear();
+                    eg_emu_wg_accs.clear();
+                    eg_emu_wg_committed = 0;
                     body();
+                    if (!eg_emu_wg_pending.empty()) {
+                        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) thread %d returned with %zu wgmma ops pending (no wgmma.wait_group)\n",
+                                     blockIdx.x, blockIdx.y, blockIdx.z, i, eg_emu_wg_pending.size());
+                        std::fflush(stderr);
+                        std::_Exit(3);
+                    }
                     eg_emu_cur_warp->bar.arrive_and_drop();
                     b.bar.arrive_and_drop();
                     cl.bar.arrive_and_drop();

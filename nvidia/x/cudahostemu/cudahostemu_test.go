@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"strings"
@@ -407,5 +408,145 @@ func TestPoison(t *testing.T) {
 	}
 	if b := fromBF16(binary.LittleEndian.Uint16(p)); !math.IsNaN(b) {
 		t.Errorf("Poison as bf16 = %v, want NaN", b)
+	}
+}
+
+// wgmmaSrc is a warpgroup computing D = A1·B1 + A2·B2 (m64n8, two k16
+// steps) from shared memory, then writing D. STEP runs between issue and
+// the final wait.
+const wgmmaSrc = `
+__global__ void k(const uint16_t* A, const uint16_t* B, float* D, int mode) {
+    unsigned char* s = eg_emu_dynamic_smem();
+    // K-major, no swizzle, LBO 128 (8x8 core matrices), SBO 256: A step j
+    // at 4096*j, B step j at 2048 + 4096*j.
+    auto put = [&](size_t base, const uint16_t* m, int rows, int ld, int k0) {
+        for (int r = threadIdx.x; r < rows; r += blockDim.x)
+            for (int k = 0; k < 16; ++k)
+                std::memcpy(s + base + (r / 8) * 256 + (k / 8) * 128 + (r % 8) * 16 + (k % 8) * 2, &m[r * ld + k0 + k], 2);
+    };
+    for (int j = 0; j < 2; ++j) {
+        put(4096 * j, A, 64, 32, 16 * j);
+        put(2048 + 4096 * j, B, 8, 32, 16 * j);
+    }
+    __syncthreads();
+    auto desc = [&](size_t off) { return (uint64_t)(off >> 4) | (uint64_t)(128 >> 4) << 16 | (uint64_t)(256 >> 4) << 32; };
+    float d[4] = {0, 0, 0, 0};
+    eg_emu_wgmma_fence();
+    eg_emu_wgmma_bf16(d, desc(0), desc(2048), 8);
+    if (mode == 2) eg_emu_wgmma_commit();
+    eg_emu_wgmma_bf16(d, desc(4096), desc(6144), 8);
+    if (mode != 5) eg_emu_wgmma_commit();
+    const int wig = threadIdx.x / 32, lane = threadIdx.x % 32;
+    auto store = [&](float* out) {
+        for (int i = 0; i < 4; ++i) out[(wig * 16 + lane / 4 + 8 * (i / 2)) * 8 + 2 * (lane % 4) + (i & 1)] = d[i];
+    };
+    if (mode == 1) store(D + 512);                   // read before the wait
+    if (mode == 2) { eg_emu_wgmma_wait(1); store(D + 512); }  // first group only: chain still pending
+    if (mode == 5) { eg_emu_wgmma_wait(0); store(D + 512); eg_emu_wgmma_commit(); }  // wait retires no uncommitted op
+    if (mode == 3) { __syncthreads(); std::memset(s + 6144, 0, 256); __syncthreads(); }  // B2 overwritten in flight
+    if (mode != 4) eg_emu_wgmma_wait(0);
+    store(D);
+}`
+
+func wgmmaInputs() (a, b []uint16, want []float64) {
+	r := rand.New(rand.NewPCG(3, 4))
+	a, b = make([]uint16, 64*32), make([]uint16, 8*32)
+	for i := range a {
+		a[i] = bf16(float32(r.NormFloat64()))
+	}
+	for i := range b {
+		b[i] = bf16(float32(r.NormFloat64()))
+	}
+	want = make([]float64, 64*8)
+	for m := 0; m < 64; m++ {
+		for n := 0; n < 8; n++ {
+			for k := 0; k < 32; k++ {
+				want[m*8+n] += fromBF16(a[m*32+k]) * fromBF16(b[n*32+k])
+			}
+		}
+	}
+	return a, b, want
+}
+
+func runWGMMA(t *testing.T, mode int, flags ...string) ([]float32, error) {
+	t.Helper()
+	a, b, _ := wgmmaInputs()
+	enc := func(h []uint16) []byte {
+		out := make([]byte, 2*len(h))
+		for i, v := range h {
+			binary.LittleEndian.PutUint16(out[2*i:], v)
+		}
+		return out
+	}
+	out, err := Run(context.Background(), t.TempDir(), Program{Source: wgmmaSrc, Flags: flags,
+		Launch:  fmt.Sprintf("eg_emu_launch(dim3(1), dim3(128), 8192, k, A, B, D, %d)", mode),
+		Buffers: []Buffer{{"A", "uint16_t", enc(a)}, {"B", "uint16_t", enc(b)}, {"D", "float", Poison(2 * 512 * 4)}}})
+	if errors.Is(err, ErrNoCompiler) {
+		t.Skip(err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return f32s(out["D"]), nil
+}
+
+func near(got float32, want float64) bool {
+	return math.Abs(float64(got)-want) <= 1e-4*(1+math.Abs(want))
+}
+
+// TestWGMMAAsync checks the async wgmma model: a correct fence, commit,
+// wait sequence gives the product; the accumulator reads NaN until the
+// wait that retires its last op; operands are read at the wait.
+func TestWGMMAAsync(t *testing.T) {
+	_, _, want := wgmmaInputs()
+	for _, tt := range []struct {
+		name  string
+		mode  int
+		flags []string
+		early string // what the early read (D+512) must see: "", "nan" or "done"
+		final string // "done" or "wrong"
+	}{
+		{"protocol", 0, nil, "", "done"},
+		{"read before wait", 1, nil, "nan", "done"},
+		{"chain across groups", 2, nil, "nan", "done"},
+		{"uncommitted ops stay pending", 5, nil, "nan", "done"},
+		{"operand overwritten in flight", 3, nil, "", "wrong"},
+		{"sync control", 1, []string{"-DEG_EMU_SYNC_WGMMA"}, "done", "done"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := runWGMMA(t, tt.mode, tt.flags...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wrong := 0
+			for i, w := range want {
+				if !near(d[i], w) {
+					wrong++
+				}
+				switch e := d[512+i]; tt.early {
+				case "nan":
+					if !math.IsNaN(float64(e)) {
+						t.Fatalf("early read D[%d] = %v, want NaN", i, e)
+					}
+				case "done":
+					if !near(e, w) {
+						t.Fatalf("early read D[%d] = %v, want %v", i, e, w)
+					}
+				}
+			}
+			switch {
+			case tt.final == "done" && wrong > 0:
+				t.Errorf("%d of 512 results wrong", wrong)
+			case tt.final == "wrong" && wrong == 0:
+				t.Errorf("all results right; an operand overwritten before the wait must change them")
+			}
+		})
+	}
+}
+
+func TestWGMMAMissingWait(t *testing.T) {
+	_, err := runWGMMA(t, 4)
+	if err == nil || !strings.Contains(err.Error(), "wgmma ops pending (no wgmma.wait_group)") {
+		t.Errorf("run error = %v, want a pending-wgmma error", err)
 	}
 }

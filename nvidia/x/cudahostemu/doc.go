@@ -8,7 +8,11 @@
 // thread. Shared memory, cp.async destinations and cudaMalloc memory start
 // as 0xff bytes (NaN in every float format the header handles), so a
 // kernel that reads memory it never wrote fails visibly; define
-// EG_EMU_ZERO_SMEM to start shared memory zeroed. sgl_mock.h adds the parts
+// EG_EMU_ZERO_SMEM to start shared memory zeroed. cp.async and, in kernels
+// that issue wgmma.fence, wgmma are modeled at their latest legal timing,
+// so a result read or an operand overwritten before the matching
+// wait_group shows up on the host; EG_EMU_SYNC_WGMMA turns the wgmma model
+// off. sgl_mock.h adds the parts
 // of SGLang's JIT headers and tvm-ffi that generated launcher structs use.
 //
 // [Run] compiles kernel source with a launch statement and named buffers,
