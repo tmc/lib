@@ -27,8 +27,15 @@ func TestSweepMetadata(t *testing.T) {
 	if len(tile) != 21 { // 12 mma.sync, 9 wgmma
 		t.Errorf("%d tile variants, want 21", len(tile))
 	}
-	if len(attn) != 8 { // BF16 K at depth 2 needs more than 48 KiB
-		t.Errorf("%d attention variants, want 8", len(attn))
+	if len(attn) != 16 {
+		t.Errorf("%d attention variants, want 16", len(attn))
+	}
+	deep, err := SweepPagedAttention(PagedAttention{Name: "attn", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32, Stages: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(deep) != 8 { // 4 stages of 128 keys need 80 KiB
+		t.Errorf("%d 4-stage attention variants, want 8", len(deep))
 	}
 	fp8, err := SweepPagedAttention(PagedAttention{Name: "attn", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32, QKFP8: true})
 	if err != nil {

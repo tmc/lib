@@ -165,7 +165,7 @@ func (a PagedAttention) Variant() (Variant, error) {
 	if a.Gate {
 		key += fmt.Sprintf("/gate=%d:%d:%s", a.GateStride, a.GateOffset, floatLiteral(a.GateEps))
 	}
-	l := Launch{Block: 128, Warps: 4, SplitKV: a.Chunk, KVDepth: a.Depth}
+	l := Launch{Block: 128, Warps: 4, Stages: a.Stages, SplitKV: a.Chunk, KVDepth: a.Depth}
 	return newVariant(a.Name, "paged_attention", key, l, append([]string{"int batch", "int max_keys"}, a.params()...), src), nil
 }
 

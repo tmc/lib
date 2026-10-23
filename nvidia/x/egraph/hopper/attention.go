@@ -26,7 +26,9 @@ const HeadDim = 64
 // Q·Kᵀ and P·V with mma.sync m16n8k16 F16 tensor-core tiles and an online
 // softmax in FP32. K and V widen from E4M3 to F16 exactly
 // (cvt.rn.f16x2.e4m3x2), as do E4M3 queries; BF16 queries and P in [0, 1]
-// round to F16. When a request needs more than one chunk, each block
+// round to F16. K and V bytes stream through a cp.async ring in shared
+// memory, Stages steps deep, with one barrier per step; V widens in
+// registers. When a request needs more than one chunk, each block
 // stores its (max, sum, output) partial in a workspace. The chunks form
 // groups of 16; the last block to finish in a group merges the group's
 // partials, and with more than one group the last group to finish merges the
@@ -45,11 +47,15 @@ type PagedAttention struct {
 	SMScale float32 // 0 means 1/8
 	Chunk   int     // keys per block, a multiple of 64; 0 means 256
 
-	// Depth is the number of 16-key tiles each warp loads per step: 1 (the
-	// default for 0) or 2. A step's K and V loads are issued a step ahead,
-	// so Depth 2 doubles the bytes each thread has in flight (8 16-byte
-	// loads instead of 4) and the K/V shared memory.
+	// Depth is the number of 16-key tiles each warp computes per step: 1
+	// (the default for 0) or 2.
 	Depth int
+
+	// Stages is the depth of the ring that stages K and V bytes in shared
+	// memory, in steps: 2 to 8. The block copies a step's keys with
+	// cp.async Stages-1 steps before it uses them. 0 means the most, up to
+	// 4, that fit 40 KiB.
+	Stages int
 
 	// QKFP8 computes Q·Kᵀ with mma.sync m16n8k32 E4M3 tiles on the stored
 	// bytes (Q must be E4M3), skipping the widening of K to F16. Products
@@ -129,10 +135,31 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 		g.mt = 4
 	}
 	g.mrows, g.kw = 16*g.mt, 4/g.mt
+	if a.Stages == 0 {
+		a.Stages = max(2, min(4, 40<<10/attnStageBytes(16*g.kw*a.Depth)))
+	}
+	if a.Stages < 2 || a.Stages > 8 {
+		return a, g, fmt.Errorf("paged attention %s: %d stages, want 2 to 8", a.Name, a.Stages)
+	}
 	if n := a.SharedBytes(); n > 48<<10 {
 		return a, g, fmt.Errorf("paged attention %s: %d bytes of static shared memory, want at most 48 KiB", a.Name, n)
 	}
 	return a, g, nil
+}
+
+// attnRowBytes is the shared memory stride of a staged K or V row: 64
+// bytes padded so ldmatrix rows fall in distinct banks.
+const attnRowBytes = 80
+
+// attnStageBytes returns the bytes of one ring stage: step K and V rows.
+func attnStageBytes(step int) int { return 2 * step * attnRowBytes }
+
+// attnQStride returns the shared memory stride of a query row in uint16s.
+func (a PagedAttention) attnQStride() int {
+	if a.QKFP8 {
+		return attnRowBytes / 2 // E4M3 bytes
+	}
+	return 72 // F16
 }
 
 // SharedBytes returns the kernel's static shared memory in bytes, or 0 if a
@@ -150,11 +177,13 @@ func (a PagedAttention) SharedBytes() int {
 		mt = 2
 	}
 	mrows, kw, depth := 16*mt, 4/mt, max(a.Depth, 1)
-	ld := 72 // F16 row stride
-	if a.QKFP8 {
-		ld = 40 // E4M3 bytes as uint16
+	stage := attnStageBytes(16 * kw * depth)
+	stages := a.Stages
+	if stages == 0 {
+		stages = max(2, min(4, 40<<10/stage))
 	}
-	return 2*mrows*ld + 2*kw*16*depth*ld + 2*kw*16*depth*72 + 8*kw*mrows + 4*kw*mrows*HeadDim + 4
+	ring := max(stages*stage, 4*kw*mrows*HeadDim) // red_o reuses the ring
+	return 2*mrows*a.attnQStride() + 8*kw*mrows + 4 + ring
 }
 
 // Splits returns the number of key chunks for a request attending maxKeys
@@ -214,26 +243,27 @@ func (a PagedAttention) CUDA() (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "// %s: paged FP8 GQA attention, %d/%d heads, %d query tokens, window %d, page %d, %d-key splits, depth %d.\n",
-		a.Name, a.Hq, a.Hkv, a.QLen, a.Window, a.Page, a.Chunk, a.Depth)
+	fmt.Fprintf(&b, "// %s: paged FP8 GQA attention, %d/%d heads, %d query tokens, window %d, page %d, %d-key splits, depth %d, %d stages.\n",
+		a.Name, a.Hq, a.Hkv, a.QLen, a.Window, a.Page, a.Chunk, a.Depth, a.Stages)
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(128) %s(\n    %s) {\n", a.Name, strings.Join(a.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int HQ = %d, HKV = %d, G = %d, L = %d, ROWS = %d, MROWS = %d, MT = %d, KW = %d;\n",
 		a.Hq, a.Hkv, g.G, a.QLen, g.rows, g.mrows, g.mt, g.kw)
-	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, CHUNK = %d, DEPTH = %d, STEP = 16 * KW * DEPTH, LD = 72;\n",
-		a.Window, a.Page, a.Chunk, a.Depth)
-	b.WriteString("    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = " + fmt.Sprint(attnGroup) + ";\n")
+	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, CHUNK = %d, DEPTH = %d, STEP = 16 * KW * DEPTH, STAGES = %d;\n",
+		a.Window, a.Page, a.Chunk, a.Depth, a.Stages)
+	fmt.Fprintf(&b, "    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = %d, LDQ = %d, RB = %d;\n",
+		attnGroup, a.attnQStride(), attnRowBytes)
+	b.WriteString("    constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > KW * MROWS * 256 ? STAGES * STAGE_BYTES : KW * MROWS * 256;\n")
 	fmt.Fprintf(&b, "    const float scale = %s * k_scale[0] * 1.4426950408889634f; // log2 domain\n",
 		floatLiteral(a.QScale*a.SMScale))
-	body := attnBody
+	b.WriteString(attnHead)
+	qk := attnQKF16
 	if a.QKFP8 {
-		for _, r := range attnFP8 {
-			if !strings.Contains(body, r[0]) {
-				return "", fmt.Errorf("paged attention %s: internal: fp8 rewrite %q does not apply", a.Name, r[0])
-			}
-			body = strings.ReplaceAll(body, r[0], r[1])
-		}
+		b.WriteString(attnQFP8)
+		qk = attnQKFP8
+	} else {
+		b.WriteString(attnQF16)
 	}
-	b.WriteString(body)
+	b.WriteString(strings.NewReplacer("QK_LOAD\n", qk[0], "QK_TILE\n", qk[1]).Replace(attnLoop))
 	if a.Out == BF16 {
 		b.WriteString("    auto put = [&](size_t i, float v) { out[i] = eg_f32_to_bf16(v); };\n")
 	} else {
@@ -250,8 +280,11 @@ func (a PagedAttention) CUDA() (string, error) {
 	return b.String(), nil
 }
 
-const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockIdx.z;
-    const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
+// attnHead declares the block's coordinates and stages its query rows
+// (r = j*G + g: token j, head kvh*G + g) in sq, padded with zeros: F16
+// values, or with QKFP8 the E4M3 bytes.
+const attnHead = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockIdx.z;
+    const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane / 4, c = lane % 4;
     const int mt = warp % MT, kw = warp / MT;
     const int seqlen = seqlens[b], p0 = seqlen - L;
     const int kbegin = WINDOW ? max(0, p0 - WINDOW + 1) : 0;
@@ -260,15 +293,16 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     const int c0 = kbegin + split * CHUNK, c1 = min(seqlen, c0 + CHUNK);
     const float NEG_INF = -__uint_as_float(0x7f800000u);
 
-    alignas(16) __shared__ uint16_t sq[MROWS * LD];
-    alignas(16) __shared__ uint16_t sk[STEP * LD];
-    alignas(16) __shared__ uint16_t sv[STEP * LD];
+    alignas(16) __shared__ uint16_t sq[MROWS * LDQ];
     __shared__ float red_m[KW * MROWS], red_l[KW * MROWS];
-    __shared__ float red_o[KW * MROWS * 64];
     __shared__ int last;
+    // The cp.async ring: STAGES stages of STEP K rows then STEP V rows of RB
+    // bytes; after the main loop, red_o.
+    alignas(16) __shared__ unsigned char ring[RING_BYTES];
+    float* const red_o = reinterpret_cast<float*>(ring);
+`
 
-    // Query rows r = j*G + g (token j, head kvh*G + g) as F16, padded with zeros.
-    for (int i = tid; i < MROWS * 8; i += 128) {
+const attnQF16 = `    for (int i = tid; i < MROWS * 8; i += 128) {
         const int r = i / 8, d = (i % 8) * 8;
         eg_u32x4 w = {0, 0, 0, 0};
         if (r < ROWS) {
@@ -277,87 +311,87 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
             w = eg_u32x4{eg_pack_f16x2(f[0], f[1]), eg_pack_f16x2(f[2], f[3]),
                          eg_pack_f16x2(f[4], f[5]), eg_pack_f16x2(f[6], f[7])};
         }
-        *reinterpret_cast<eg_u32x4*>(&sq[r * LD + d]) = w;
+        *reinterpret_cast<eg_u32x4*>(&sq[r * LDQ + d]) = w;
     }
+`
 
-    // Each thread moves NP 16-byte pieces of K and of V (4 per key), pieces
-    // NP·tid .. NP·tid + NP - 1, all of key fk of a step. It reads the page
-    // table once per step, a step ahead of the fetch that uses the row.
-    eg_u32x4 kreg[NP], vreg[NP];
-    const int fk = tid * NP / 4;
+const attnQFP8 = `    for (int i = tid; i < MROWS * 4; i += 128) {
+        const int r = i / 4, piece = i % 4;
+        eg_u32x4 w = {0, 0, 0, 0};
+        if (r < ROWS) w = eg_ldg16(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + piece * 16);
+        *reinterpret_cast<eg_u32x4*>(&sq[r * LDQ + piece * 8]) = w;
+    }
+`
+
+// attnLoop is the main loop. Thread tid copies NP 16-byte pieces of K and
+// of V per step (pieces NP·tid .. NP·tid + NP - 1, all of key fk) with
+// cp.async into a STAGES-deep ring, reading the key's page-table entry a
+// step before it issues the copy. One barrier per step frees the stage
+// the step refills. Warp kw takes DEPTH 16-key tiles of each step; K is
+// read raw by the QK tile (QK_TILE) and V widened to F16 in registers as
+// the P·V B fragments: lane (g, c) loads bytes 8g..8g+7 of keys 2c, 2c+1,
+// 2c+8 and 2c+9, so n-tile t's column g is dimension 8g + t and o[t][i]
+// holds dimension 8(2c + i%2) + t.
+const attnLoop = `    const int fk = tid * NP / 4;
     auto rowof = [&](int kb) -> long long {
         const int kp = kb + fk;
         if (tid * NP >= PIECES || kp >= c1) return -1;
         return (long long)page_table[(size_t)b * max_pages + kp / PAGE] * PAGE + kp % PAGE;
     };
-    auto fetch = [&](long long row) {
+    auto issue = [&](int st, long long row) {
+        unsigned char* const kd = ring + st * STAGE_BYTES;
 #pragma unroll
         for (int n = 0; n < NP; ++n) {
             const int piece = tid * NP + n;
-            kreg[n] = vreg[n] = eg_u32x4{0, 0, 0, 0};
+            if (piece >= PIECES) break;
+            unsigned char* const dk = kd + (piece / 4) * RB + (piece % 4) * 16;
             if (row >= 0) {
                 const size_t at = ((size_t)row * HKV + kvh) * 64 + (piece % 4) * 16;
-                kreg[n] = eg_ldg16(k_cache + at);
-                vreg[n] = eg_ldg16(v_cache + at);
+                eg_cp_async16(dk, k_cache + at);
+                eg_cp_async16(dk + STEP * RB, v_cache + at);
+            } else {
+                *reinterpret_cast<eg_u32x4*>(dk) = eg_u32x4{0, 0, 0, 0};
+                *reinterpret_cast<eg_u32x4*>(dk + STEP * RB) = eg_u32x4{0, 0, 0, 0};
             }
         }
     };
-    auto widen = [&](uint16_t* dst, eg_u32x4 u) {
-        const uint32_t w[4] = {u.x, u.y, u.z, u.w};
-        uint32_t o[8];
+    const int nsteps = (c1 - c0 + STEP - 1) / STEP;
 #pragma unroll
-        for (int i = 0; i < 4; ++i) {
-            o[2 * i] = eg_e4m3x2_to_f16x2(w[i]);
-            o[2 * i + 1] = eg_e4m3x2_to_f16x2(w[i] >> 16);
-        }
-        reinterpret_cast<eg_u32x4*>(dst)[0] = eg_u32x4{o[0], o[1], o[2], o[3]};
-        reinterpret_cast<eg_u32x4*>(dst)[1] = eg_u32x4{o[4], o[5], o[6], o[7]};
-    };
-    fetch(rowof(c0));
-    long long next = rowof(c0 + STEP);
+    for (int s = 0; s < STAGES - 1; ++s) {
+        if (s < nsteps) issue(s, rowof(c0 + s * STEP));
+        eg_cp_async_commit();
+    }
+    long long next = rowof(c0 + (STAGES - 1) * STEP);
     __syncthreads();
 
-    uint32_t qa[4][4];
-#pragma unroll
-    for (int ks = 0; ks < 4; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD + ks * 16 + (lane / 16) * 8]);
-
+QK_LOAD
     // This lane's two rows (g and g+8 of its tile): positions and first keys.
     int pos[2], lo[2];
 #pragma unroll
     for (int h = 0; h < 2; ++h) {
-        const int r = mt * 16 + lane / 4 + 8 * h;
+        const int r = mt * 16 + g + 8 * h;
         pos[h] = p0 + min(r / G, L - 1);
         lo[h] = WINDOW ? max(0, pos[h] - WINDOW + 1) : 0;
     }
     float m[2] = {NEG_INF, NEG_INF}, l[2] = {0.0f, 0.0f}, o[8][4] = {};
 
-    for (int kb = c0; kb < c1; kb += STEP) {
+    for (int it = 0; it < nsteps; ++it) {
+        eg_cp_async_wait<STAGES - 2>();
         __syncthreads();
-#pragma unroll
-        for (int n = 0; n < NP; ++n) {
-            const int piece = tid * NP + n;
-            if (piece < PIECES) {
-                widen(&sk[(piece / 4) * LD + (piece % 4) * 16], kreg[n]);
-                widen(&sv[(piece / 4) * LD + (piece % 4) * 16], vreg[n]);
-            }
+        if (it + STAGES - 1 < nsteps) {
+            issue((it + STAGES - 1) % STAGES, next);
+            next = rowof(c0 + (it + STAGES) * STEP);
         }
-        __syncthreads();
-        if (kb + STEP < c1) {
-            fetch(next);
-            next = rowof(kb + 2 * STEP);
-        }
+        eg_cp_async_commit();
+        const int kb = c0 + it * STEP;
+        const unsigned char* const kst = ring + (it % STAGES) * STAGE_BYTES;
+        const unsigned char* const vst = kst + STEP * RB;
 #pragma unroll
         for (int sub = 0; sub < DEPTH; ++sub) {
         const int kt0 = (kw * DEPTH + sub) * 16, key0 = kb + kt0;
         if (key0 >= c1) break;
         float s[2][4] = {};
-#pragma unroll
-        for (int ks = 0; ks < 4; ++ks) {
-            uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
-            eg_mma_f16(s[0], qa[ks], &kf[0], s[0]);
-            eg_mma_f16(s[1], qa[ks], &kf[2], s[1]);
-        }
+QK_TILE
 #pragma unroll
         for (int h = 0; h < 2; ++h) {
             float mx = NEG_INF;
@@ -365,7 +399,7 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
             for (int nt = 0; nt < 2; ++nt)
 #pragma unroll
                 for (int e = 0; e < 2; ++e) {
-                    const int key = key0 + nt * 8 + 2 * (lane % 4) + e;
+                    const int key = key0 + nt * 8 + 2 * c + e;
                     float& x = s[nt][2 * h + e];
                     x = key < c1 && key >= lo[h] && key <= pos[h] ? x * scale : NEG_INF;
                     mx = fmaxf(mx, x);
@@ -377,7 +411,7 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
             m[h] = mnew;
             l[h] *= corr;
 #pragma unroll
-            for (int nd = 0; nd < 8; ++nd) { o[nd][2 * h] *= corr; o[nd][2 * h + 1] *= corr; }
+            for (int t = 0; t < 8; ++t) { o[t][2 * h] *= corr; o[t][2 * h + 1] *= corr; }
 #pragma unroll
             for (int nt = 0; nt < 2; ++nt)
 #pragma unroll
@@ -389,28 +423,33 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
         }
         const uint32_t pa[4] = {eg_pack_f16x2(s[0][0], s[0][1]), eg_pack_f16x2(s[0][2], s[0][3]),
                                 eg_pack_f16x2(s[1][0], s[1][1]), eg_pack_f16x2(s[1][2], s[1][3])};
+        const unsigned char* const vr = vst + (kt0 + 2 * c) * RB + 8 * g;
+        const eg_u32x2 va = *reinterpret_cast<const eg_u32x2*>(vr), vb = *reinterpret_cast<const eg_u32x2*>(vr + RB);
+        const eg_u32x2 vc = *reinterpret_cast<const eg_u32x2*>(vr + 8 * RB), vd = *reinterpret_cast<const eg_u32x2*>(vr + 9 * RB);
 #pragma unroll
-        for (int nd = 0; nd < 4; ++nd) {
-            uint32_t vf[4];
-            eg_ldmatrix_x4_trans(vf, &sv[(kt0 + lane % 8 + 8 * ((lane / 8) % 2)) * LD + nd * 16 + 8 * (lane / 16)]);
-            eg_mma_f16(o[2 * nd], pa, &vf[0], o[2 * nd]);
-            eg_mma_f16(o[2 * nd + 1], pa, &vf[2], o[2 * nd + 1]);
+        for (int t = 0; t < 8; ++t) {
+            const uint32_t sel = (t % 4) | (4 + t % 4) << 4;
+            const uint32_t vf[2] = {eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(va.x, vb.x, sel) : eg_prmt(va.y, vb.y, sel)),
+                                    eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(vc.x, vd.x, sel) : eg_prmt(vc.y, vd.y, sel))};
+            eg_mma_f16(o[t], pa, vf, o[t]);
         }
         }
     }
+    eg_cp_async_wait<0>();
+    __syncthreads();
 
     // Combine the KW key groups of each row tile in shared memory.
 #pragma unroll
     for (int h = 0; h < 2; ++h) {
         l[h] += __shfl_xor_sync(0xffffffffu, l[h], 1);
         l[h] += __shfl_xor_sync(0xffffffffu, l[h], 2);
-        const int r = mt * 16 + lane / 4 + 8 * h;
-        if (lane % 4 == 0) { red_m[kw * MROWS + r] = m[h]; red_l[kw * MROWS + r] = l[h]; }
+        const int r = mt * 16 + g + 8 * h;
+        if (c == 0) { red_m[kw * MROWS + r] = m[h]; red_l[kw * MROWS + r] = l[h]; }
 #pragma unroll
-        for (int nd = 0; nd < 8; ++nd)
+        for (int t = 0; t < 8; ++t)
 #pragma unroll
             for (int e = 0; e < 2; ++e)
-                red_o[(kw * MROWS + r) * 64 + nd * 8 + 2 * (lane % 4) + e] = o[nd][2 * h + e];
+                red_o[(kw * MROWS + r) * 64 + 8 * (2 * c + e) + t] = o[t][2 * h + e];
     }
     __syncthreads();
     const float vs = v_scale[0];
@@ -439,48 +478,41 @@ const attnBody = `    const int split = blockIdx.x, kvh = blockIdx.y, b = blockI
     }
 `
 
+// attnQKF16 loads the F16 query fragments and computes a 16-key tile's
+// logits with m16n8k16 F16 tiles, K widened from the raw bytes: b0 of
+// n-tile nt holds dimensions 16ks + 2c, +1 of key kt0 + 8nt + g.
+var attnQKF16 = [2]string{`    uint32_t qa[4][4];
+#pragma unroll
+    for (int ks = 0; ks < 4; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
+`, `#pragma unroll
+        for (int ks = 0; ks < 4; ++ks)
+#pragma unroll
+            for (int nt = 0; nt < 2; ++nt) {
+                const unsigned char* const kr = kst + (kt0 + nt * 8 + g) * RB + ks * 16 + 2 * c;
+                const uint32_t kf[2] = {eg_e4m3x2_to_f16x2(*reinterpret_cast<const uint16_t*>(kr)),
+                                        eg_e4m3x2_to_f16x2(*reinterpret_cast<const uint16_t*>(kr + 8))};
+                eg_mma_f16(s[nt], qa[ks], kf, s[nt]);
+            }
+`}
+
+// attnQKFP8 multiplies the E4M3 bytes of Q and K with m16n8k32 tiles. In
+// the b16 view the k32 fragments have the k16 layout, so ldmatrix
+// addresses them as F16 rows of 32 elements.
+var attnQKFP8 = [2]string{`    uint32_t qa[2][4];
+#pragma unroll
+    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
+`, `        const uint16_t* const sk = reinterpret_cast<const uint16_t*>(kst);
+#pragma unroll
+        for (int ks = 0; ks < 2; ++ks) {
+            uint32_t kf[4];
+            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * (RB / 2) + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
+            eg_mma_e4m3(s[1], qa[ks], &kf[2], s[1]);
+        }
+`}
+
 // attnCombine finishes: direct store for one split, else the two-level
 // merge of the chunk partials.
-// attnFP8 rewrites attnBody to keep Q and K as E4M3 bytes (rows of 64
-// bytes padded to 80) and multiply them with m16n8k32 tiles. In the b16
-// view the k32 fragments have the k16 F16 layout, so the ldmatrix
-// addressing is unchanged apart from the row stride and step count.
-var attnFP8 = [][2]string{
-	{"alignas(16) __shared__ uint16_t sq[MROWS * LD];", "constexpr int LD8 = 40;\n    alignas(16) __shared__ uint16_t sq[MROWS * LD8];"},
-	{"alignas(16) __shared__ uint16_t sk[STEP * LD];", "alignas(16) __shared__ uint16_t sk[STEP * LD8];"},
-	{`    // Query rows r = j*G + g (token j, head kvh*G + g) as F16, padded with zeros.
-    for (int i = tid; i < MROWS * 8; i += 128) {
-        const int r = i / 8, d = (i % 8) * 8;
-        eg_u32x4 w = {0, 0, 0, 0};
-        if (r < ROWS) {
-            float f[8];
-            eg_load<8>(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + d, f);
-            w = eg_u32x4{eg_pack_f16x2(f[0], f[1]), eg_pack_f16x2(f[2], f[3]),
-                         eg_pack_f16x2(f[4], f[5]), eg_pack_f16x2(f[6], f[7])};
-        }
-        *reinterpret_cast<eg_u32x4*>(&sq[r * LD + d]) = w;
-    }`, `    // Query rows r = j*G + g (token j, head kvh*G + g) as E4M3 bytes, padded with zeros.
-    for (int i = tid; i < MROWS * 4; i += 128) {
-        const int r = i / 4, piece = i % 4;
-        eg_u32x4 w = {0, 0, 0, 0};
-        if (r < ROWS) w = eg_ldg16(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + piece * 16);
-        *reinterpret_cast<eg_u32x4*>(&sq[r * LD8 + piece * 8]) = w;
-    }`},
-	{"    uint32_t qa[4][4];\n#pragma unroll\n    for (int ks = 0; ks < 4; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD + ks * 16 + (lane / 16) * 8]);",
-		"    uint32_t qa[2][4];\n#pragma unroll\n    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD8 + ks * 16 + (lane / 16) * 8]);"},
-	{"widen(&sk[(piece / 4) * LD + (piece % 4) * 16], kreg[n]);",
-		"*reinterpret_cast<eg_u32x4*>(&sk[(piece / 4) * LD8 + (piece % 4) * 8]) = kreg[n];"},
-	{`        for (int ks = 0; ks < 4; ++ks) {
-            uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD + ks * 16 + 8 * ((lane / 8) % 2)]);
-            eg_mma_f16(s[0], qa[ks], &kf[0], s[0]);
-            eg_mma_f16(s[1], qa[ks], &kf[2], s[1]);`, `        for (int ks = 0; ks < 2; ++ks) {
-            uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
-            eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
-            eg_mma_e4m3(s[1], qa[ks], &kf[2], s[1]);`},
-}
-
 const attnCombine = `    // The finished rows go to fin (the first KW slot of red_o, which each
     // thread reads only at the index it then writes).
     float* const fin = red_o;

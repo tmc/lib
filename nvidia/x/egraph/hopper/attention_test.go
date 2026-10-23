@@ -116,6 +116,13 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			Chunk: 192, Depth: 2, QKFP8: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{4000, 200}, 4000, 1.0 / 64},
 		{"depth2_dp", PagedAttention{Name: "attn_d2_dp", Hq: 64, Hkv: 8, QLen: 8, Page: 1, Q: E4M3, Out: F32, Chunk: 128, Depth: 2},
 			[]int32{300, 70}, 300, 1},
+		// 16-step chunks through a 3-stage ring, with ragged last steps.
+		{"ring3_wrap", PagedAttention{Name: "attn_r3", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 1024, Stages: 3},
+			[]int32{1000, 129, 65}, 1000, 1},
+		{"ring2_bf16q", PagedAttention{Name: "attn_r2", Hq: 16, Hkv: 2, QLen: 2, Page: 4, Q: BF16, Out: F32, Chunk: 512, Stages: 2},
+			[]int32{700, 31}, 700, 1},
+		{"ring8_fp8_q8", PagedAttention{Name: "attn_r8", Hq: 64, Hkv: 8, QLen: 8, Page: 16, Q: E4M3, Out: F32, Chunk: 320, QKFP8: true, Stages: 8},
+			[]int32{511, 300}, 511, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -213,7 +220,9 @@ func TestPagedAttentionErrors(t *testing.T) {
 		{"out", func(a *PagedAttention) { a.Out = E4M3 }},
 		{"chunk", func(a *PagedAttention) { a.Chunk = 100 }},
 		{"depth", func(a *PagedAttention) { a.Depth = 3 }},
-		{"shared", func(a *PagedAttention) { a.Depth = 2 }},
+		{"stages1", func(a *PagedAttention) { a.Stages = 1 }},
+		{"stages9", func(a *PagedAttention) { a.Stages = 9 }},
+		{"shared", func(a *PagedAttention) { a.Depth, a.Stages = 2, 3 }},
 		{"fp8_q", func(a *PagedAttention) { a.Q, a.QKFP8 = BF16, true }},
 	}
 	if _, err := ok.CUDA(); err != nil {

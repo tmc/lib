@@ -398,7 +398,7 @@ EG_DEV float eg_sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 EG_DEV float eg_silu(float x) { return x / (1.0f + expf(-x)); }
 #endif // EG_PRELUDE
 
-// moe8_attn_sliding: paged FP8 GQA attention, 16/2 heads, 1 query tokens, window 2048, page 1, 256-key splits, depth 1.
+// moe8_attn_sliding: paged FP8 GQA attention, 16/2 heads, 1 query tokens, window 2048, page 1, 256-key splits, depth 1, 4 stages.
 __global__ void __launch_bounds__(128) moe8_attn_sliding(
     const uint8_t* __restrict__ q,
     const uint8_t* __restrict__ k_cache,
@@ -412,11 +412,12 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     float* __restrict__ out,
     unsigned char* __restrict__ ws) {
     constexpr int HQ = 16, HKV = 2, G = 8, L = 1, ROWS = 8, MROWS = 16, MT = 1, KW = 4;
-    constexpr int WINDOW = 2048, PAGE = 1, CHUNK = 256, DEPTH = 1, STEP = 16 * KW * DEPTH, LD = 72;
-    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = 16;
+    constexpr int WINDOW = 2048, PAGE = 1, CHUNK = 256, DEPTH = 1, STEP = 16 * KW * DEPTH, STAGES = 4;
+    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = 16, LDQ = 40, RB = 80;
+    constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > KW * MROWS * 256 ? STAGES * STAGE_BYTES : KW * MROWS * 256;
     const float scale = 0.6841258f * k_scale[0] * 1.4426950408889634f; // log2 domain
     const int split = blockIdx.x, kvh = blockIdx.y, b = blockIdx.z;
-    const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
+    const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane / 4, c = lane % 4;
     const int mt = warp % MT, kw = warp / MT;
     const int seqlen = seqlens[b], p0 = seqlen - L;
     const int kbegin = WINDOW ? max(0, p0 - WINDOW + 1) : 0;
@@ -425,97 +426,85 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     const int c0 = kbegin + split * CHUNK, c1 = min(seqlen, c0 + CHUNK);
     const float NEG_INF = -__uint_as_float(0x7f800000u);
 
-    constexpr int LD8 = 40;
-    alignas(16) __shared__ uint16_t sq[MROWS * LD8];
-    alignas(16) __shared__ uint16_t sk[STEP * LD8];
-    alignas(16) __shared__ uint16_t sv[STEP * LD];
+    alignas(16) __shared__ uint16_t sq[MROWS * LDQ];
     __shared__ float red_m[KW * MROWS], red_l[KW * MROWS];
-    __shared__ float red_o[KW * MROWS * 64];
     __shared__ int last;
-
-    // Query rows r = j*G + g (token j, head kvh*G + g) as E4M3 bytes, padded with zeros.
+    // The cp.async ring: STAGES stages of STEP K rows then STEP V rows of RB
+    // bytes; after the main loop, red_o.
+    alignas(16) __shared__ unsigned char ring[RING_BYTES];
+    float* const red_o = reinterpret_cast<float*>(ring);
     for (int i = tid; i < MROWS * 4; i += 128) {
         const int r = i / 4, piece = i % 4;
         eg_u32x4 w = {0, 0, 0, 0};
         if (r < ROWS) w = eg_ldg16(q + ((size_t)(b * L + r / G) * HQ + kvh * G + r % G) * 64 + piece * 16);
-        *reinterpret_cast<eg_u32x4*>(&sq[r * LD8 + piece * 8]) = w;
+        *reinterpret_cast<eg_u32x4*>(&sq[r * LDQ + piece * 8]) = w;
     }
-
-    // Each thread moves NP 16-byte pieces of K and of V (4 per key), pieces
-    // NP·tid .. NP·tid + NP - 1, all of key fk of a step. It reads the page
-    // table once per step, a step ahead of the fetch that uses the row.
-    eg_u32x4 kreg[NP], vreg[NP];
     const int fk = tid * NP / 4;
     auto rowof = [&](int kb) -> long long {
         const int kp = kb + fk;
         if (tid * NP >= PIECES || kp >= c1) return -1;
         return (long long)page_table[(size_t)b * max_pages + kp / PAGE] * PAGE + kp % PAGE;
     };
-    auto fetch = [&](long long row) {
+    auto issue = [&](int st, long long row) {
+        unsigned char* const kd = ring + st * STAGE_BYTES;
 #pragma unroll
         for (int n = 0; n < NP; ++n) {
             const int piece = tid * NP + n;
-            kreg[n] = vreg[n] = eg_u32x4{0, 0, 0, 0};
+            if (piece >= PIECES) break;
+            unsigned char* const dk = kd + (piece / 4) * RB + (piece % 4) * 16;
             if (row >= 0) {
                 const size_t at = ((size_t)row * HKV + kvh) * 64 + (piece % 4) * 16;
-                kreg[n] = eg_ldg16(k_cache + at);
-                vreg[n] = eg_ldg16(v_cache + at);
+                eg_cp_async16(dk, k_cache + at);
+                eg_cp_async16(dk + STEP * RB, v_cache + at);
+            } else {
+                *reinterpret_cast<eg_u32x4*>(dk) = eg_u32x4{0, 0, 0, 0};
+                *reinterpret_cast<eg_u32x4*>(dk + STEP * RB) = eg_u32x4{0, 0, 0, 0};
             }
         }
     };
-    auto widen = [&](uint16_t* dst, eg_u32x4 u) {
-        const uint32_t w[4] = {u.x, u.y, u.z, u.w};
-        uint32_t o[8];
+    const int nsteps = (c1 - c0 + STEP - 1) / STEP;
 #pragma unroll
-        for (int i = 0; i < 4; ++i) {
-            o[2 * i] = eg_e4m3x2_to_f16x2(w[i]);
-            o[2 * i + 1] = eg_e4m3x2_to_f16x2(w[i] >> 16);
-        }
-        reinterpret_cast<eg_u32x4*>(dst)[0] = eg_u32x4{o[0], o[1], o[2], o[3]};
-        reinterpret_cast<eg_u32x4*>(dst)[1] = eg_u32x4{o[4], o[5], o[6], o[7]};
-    };
-    fetch(rowof(c0));
-    long long next = rowof(c0 + STEP);
+    for (int s = 0; s < STAGES - 1; ++s) {
+        if (s < nsteps) issue(s, rowof(c0 + s * STEP));
+        eg_cp_async_commit();
+    }
+    long long next = rowof(c0 + (STAGES - 1) * STEP);
     __syncthreads();
 
     uint32_t qa[2][4];
 #pragma unroll
-    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LD8 + ks * 16 + (lane / 16) * 8]);
-
+    for (int ks = 0; ks < 2; ++ks) eg_ldmatrix_x4(qa[ks], &sq[(mt * 16 + lane % 16) * LDQ + ks * 16 + (lane / 16) * 8]);
     // This lane's two rows (g and g+8 of its tile): positions and first keys.
     int pos[2], lo[2];
 #pragma unroll
     for (int h = 0; h < 2; ++h) {
-        const int r = mt * 16 + lane / 4 + 8 * h;
+        const int r = mt * 16 + g + 8 * h;
         pos[h] = p0 + min(r / G, L - 1);
         lo[h] = WINDOW ? max(0, pos[h] - WINDOW + 1) : 0;
     }
     float m[2] = {NEG_INF, NEG_INF}, l[2] = {0.0f, 0.0f}, o[8][4] = {};
 
-    for (int kb = c0; kb < c1; kb += STEP) {
+    for (int it = 0; it < nsteps; ++it) {
+        eg_cp_async_wait<STAGES - 2>();
         __syncthreads();
-#pragma unroll
-        for (int n = 0; n < NP; ++n) {
-            const int piece = tid * NP + n;
-            if (piece < PIECES) {
-                *reinterpret_cast<eg_u32x4*>(&sk[(piece / 4) * LD8 + (piece % 4) * 8]) = kreg[n];
-                widen(&sv[(piece / 4) * LD + (piece % 4) * 16], vreg[n]);
-            }
+        if (it + STAGES - 1 < nsteps) {
+            issue((it + STAGES - 1) % STAGES, next);
+            next = rowof(c0 + (it + STAGES) * STEP);
         }
-        __syncthreads();
-        if (kb + STEP < c1) {
-            fetch(next);
-            next = rowof(kb + 2 * STEP);
-        }
+        eg_cp_async_commit();
+        const int kb = c0 + it * STEP;
+        const unsigned char* const kst = ring + (it % STAGES) * STAGE_BYTES;
+        const unsigned char* const vst = kst + STEP * RB;
 #pragma unroll
         for (int sub = 0; sub < DEPTH; ++sub) {
         const int kt0 = (kw * DEPTH + sub) * 16, key0 = kb + kt0;
         if (key0 >= c1) break;
         float s[2][4] = {};
+        const uint16_t* const sk = reinterpret_cast<const uint16_t*>(kst);
 #pragma unroll
         for (int ks = 0; ks < 2; ++ks) {
             uint32_t kf[4];
-            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * LD8 + ks * 16 + 8 * ((lane / 8) % 2)]);
+            eg_ldmatrix_x4(kf, &sk[(kt0 + lane % 8 + 8 * (lane / 16)) * (RB / 2) + ks * 16 + 8 * ((lane / 8) % 2)]);
             eg_mma_e4m3(s[0], qa[ks], &kf[0], s[0]);
             eg_mma_e4m3(s[1], qa[ks], &kf[2], s[1]);
         }
@@ -526,7 +515,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
             for (int nt = 0; nt < 2; ++nt)
 #pragma unroll
                 for (int e = 0; e < 2; ++e) {
-                    const int key = key0 + nt * 8 + 2 * (lane % 4) + e;
+                    const int key = key0 + nt * 8 + 2 * c + e;
                     float& x = s[nt][2 * h + e];
                     x = key < c1 && key >= lo[h] && key <= pos[h] ? x * scale : NEG_INF;
                     mx = fmaxf(mx, x);
@@ -538,7 +527,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
             m[h] = mnew;
             l[h] *= corr;
 #pragma unroll
-            for (int nd = 0; nd < 8; ++nd) { o[nd][2 * h] *= corr; o[nd][2 * h + 1] *= corr; }
+            for (int t = 0; t < 8; ++t) { o[t][2 * h] *= corr; o[t][2 * h + 1] *= corr; }
 #pragma unroll
             for (int nt = 0; nt < 2; ++nt)
 #pragma unroll
@@ -550,28 +539,33 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
         }
         const uint32_t pa[4] = {eg_pack_f16x2(s[0][0], s[0][1]), eg_pack_f16x2(s[0][2], s[0][3]),
                                 eg_pack_f16x2(s[1][0], s[1][1]), eg_pack_f16x2(s[1][2], s[1][3])};
+        const unsigned char* const vr = vst + (kt0 + 2 * c) * RB + 8 * g;
+        const eg_u32x2 va = *reinterpret_cast<const eg_u32x2*>(vr), vb = *reinterpret_cast<const eg_u32x2*>(vr + RB);
+        const eg_u32x2 vc = *reinterpret_cast<const eg_u32x2*>(vr + 8 * RB), vd = *reinterpret_cast<const eg_u32x2*>(vr + 9 * RB);
 #pragma unroll
-        for (int nd = 0; nd < 4; ++nd) {
-            uint32_t vf[4];
-            eg_ldmatrix_x4_trans(vf, &sv[(kt0 + lane % 8 + 8 * ((lane / 8) % 2)) * LD + nd * 16 + 8 * (lane / 16)]);
-            eg_mma_f16(o[2 * nd], pa, &vf[0], o[2 * nd]);
-            eg_mma_f16(o[2 * nd + 1], pa, &vf[2], o[2 * nd + 1]);
+        for (int t = 0; t < 8; ++t) {
+            const uint32_t sel = (t % 4) | (4 + t % 4) << 4;
+            const uint32_t vf[2] = {eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(va.x, vb.x, sel) : eg_prmt(va.y, vb.y, sel)),
+                                    eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(vc.x, vd.x, sel) : eg_prmt(vc.y, vd.y, sel))};
+            eg_mma_f16(o[t], pa, vf, o[t]);
         }
         }
     }
+    eg_cp_async_wait<0>();
+    __syncthreads();
 
     // Combine the KW key groups of each row tile in shared memory.
 #pragma unroll
     for (int h = 0; h < 2; ++h) {
         l[h] += __shfl_xor_sync(0xffffffffu, l[h], 1);
         l[h] += __shfl_xor_sync(0xffffffffu, l[h], 2);
-        const int r = mt * 16 + lane / 4 + 8 * h;
-        if (lane % 4 == 0) { red_m[kw * MROWS + r] = m[h]; red_l[kw * MROWS + r] = l[h]; }
+        const int r = mt * 16 + g + 8 * h;
+        if (c == 0) { red_m[kw * MROWS + r] = m[h]; red_l[kw * MROWS + r] = l[h]; }
 #pragma unroll
-        for (int nd = 0; nd < 8; ++nd)
+        for (int t = 0; t < 8; ++t)
 #pragma unroll
             for (int e = 0; e < 2; ++e)
-                red_o[(kw * MROWS + r) * 64 + nd * 8 + 2 * (lane % 4) + e] = o[nd][2 * h + e];
+                red_o[(kw * MROWS + r) * 64 + 8 * (2 * c + e) + t] = o[t][2 * h + e];
     }
     __syncthreads();
     const float vs = v_scale[0];
