@@ -1,0 +1,11 @@
+commit: f1209bd1d27eb31e9655c0d2b689e57d35933ce8
+date: 2026-10-23T07:40:51.879274+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 1875
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-guard-cleanup-adoption/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-guard-cleanup-adoption/ROOT-GRADE.md
+qualification: Acquire guard custody; exact126+2paths17roots42PASS eachhost/race/vet+omission; roothelpercomment only; target/native unqualified
