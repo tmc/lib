@@ -54,6 +54,11 @@ stdout '^  PTX sm_90a _Z5scaleILi128EEvPfPKfi: 32 instructions, 0 local loads, 0
 stdout '^  PTX sm_90a _Z6helperfi: 82 instructions, 1 local loads, 8 local stores: ld.const.f32=32 fma.rn.f32=31$'
 ! stdout SASS
 
+# -save-ptx writes the PTX it counted and implies -ptx.
+exec cudacompilecheck -nvcc $WORK/nvcc -save-ptx ptxout -top 2 k.cu
+stdout '^  PTX sm_90a _Z5scaleILi128EEvPfPKfi: 32 instructions'
+cmp ptxout/k.sm_90a.ptx small.ptx
+
 # JSON.
 exec cudacompilecheck -nvcc $WORK/nvcc -json k.cu
 stdout '"SpillStores": 2232'

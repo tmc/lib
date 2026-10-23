@@ -27,7 +27,9 @@
 //
 // -ptx counts PTX instructions per function, which shows arithmetic
 // differences between two versions of a kernel (an extra cvt.rn.bf16, a
-// lost fma.rn) before ptxas reorders them.
+// lost fma.rn) before ptxas reorders them. -save-ptx also writes the PTX,
+// one file per source and architecture (k.sm_90a.ptx for k.cu), for
+// checks the census cannot express.
 //
 // -max-registers and -no-spill turn the report into a gate: the command
 // exits with status 1 if any entry function exceeds the limit or spills.
@@ -96,6 +98,7 @@ type config struct {
 	launchers       bool
 	sass            bool
 	ptx             bool
+	savePTX         string
 	top             int
 	work            string
 	maxRegisters    int
@@ -146,6 +149,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.BoolVar(&c.launchers, "launchers", false, "instantiate every inline void function defined at the start of a line")
 	fs.BoolVar(&c.sass, "sass", false, "add a SASS instruction census from cuobjdump")
 	fs.BoolVar(&c.ptx, "ptx", false, "add a PTX instruction census")
+	fs.StringVar(&c.savePTX, "save-ptx", "", "write each source's PTX to `directory` as NAME.ARCH.ptx; implies -ptx")
 	fs.IntVar(&c.top, "top", 8, "opcodes to print per function with -sass or -ptx")
 	fs.StringVar(&c.work, "work", "", "work `directory`; must be visible to the compiling host")
 	fs.IntVar(&c.maxRegisters, "max-registers", 0, "fail if an entry function uses more registers")
@@ -170,6 +174,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return errors.New("no source files")
 	}
 	c.exec = strings.Fields(execPrefix)
+	if c.savePTX != "" {
+		c.ptx = true
+		if err := os.MkdirAll(c.savePTX, 0o755); err != nil {
+			return err
+		}
+	}
 	c.extra = strings.Fields(extra)
 	for _, a := range strings.Split(archs, ",") {
 		if a = strings.TrimSpace(a); a != "" {
@@ -344,7 +354,7 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	ptx := map[string]map[string]*Census{}
 	if c.ptx {
 		for _, a := range c.archs {
-			if ptx[a], err = ptxCensus(ctx, c, input, outDir, a); err != nil {
+			if ptx[a], err = ptxCensus(ctx, c, src, input, outDir, a); err != nil {
 				return nil, err
 			}
 		}
@@ -543,9 +553,9 @@ func printCensus(w io.Writer, kind, arch, name string, c *Census, top int) {
 	fmt.Fprintln(w)
 }
 
-// ptxCensus compiles input to PTX for arch and counts each function's
-// instructions.
-func ptxCensus(ctx context.Context, c *config, input, outDir, arch string) (map[string]*Census, error) {
+// ptxCensus compiles input, built from src, to PTX for arch and counts
+// each function's instructions.
+func ptxCensus(ctx context.Context, c *config, src, input, outDir, arch string) (map[string]*Census, error) {
 	out := filepath.Join(outDir, arch+".ptx")
 	args := []string{c.nvcc, "-std=" + c.std, "-ptx", "-arch=compute_" + strings.TrimPrefix(arch, "sm_"), "-o", out}
 	for _, d := range c.includes {
@@ -562,6 +572,12 @@ func ptxCensus(ctx context.Context, c *config, input, outDir, arch string) (map[
 	text, err := c.run(ctx, "cat", out)
 	if err != nil {
 		return nil, fmt.Errorf("read ptx: %v\n%s", err, text)
+	}
+	if c.savePTX != "" {
+		name := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + "." + arch + ".ptx"
+		if err := os.WriteFile(filepath.Join(c.savePTX, name), text, 0o644); err != nil {
+			return nil, err
+		}
 	}
 	m, err := cudaptx.ParseBytes(text)
 	if err != nil {
