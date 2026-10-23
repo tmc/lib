@@ -72,9 +72,9 @@ var driverOperations = operations{
 // device and lease stay with the owner.
 //
 // If Acquire fails with an error carrying an [io.Closer], the owner keeps
-// that closer and calls it on Close. Acquire can lose its handle when closing
-// its namespace guard fails; that error carries no closer, and RequireOwned
-// cannot recover the lease.
+// that closer and calls it on Close. Guard cleanup retries use a fresh guard
+// with verified namespace identity and refuse a busy or displaced guard. A
+// failed retry retains cleanup custody; it does not admit work.
 func RequireOwned(ctx context.Context, t testing.TB, reqs ...Requirement) (*cuda.Device, *DeviceOwner) {
 	t.Helper()
 	dev, o, err := admit(ctx, t.Name(), &driverOperations, reqs)

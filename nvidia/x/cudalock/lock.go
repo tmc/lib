@@ -312,10 +312,22 @@ func restoreRetired(g *namespaceGuard, hold *dirHold) error {
 // Acquire acquires exclusive GPU access via the atomic directory mutex.
 // It blocks until the lock is acquired, the context is canceled, or an unrecoverable
 // preflight error occurs. Cancellation after root publication retires that exact
-// publication before returning. If retirement fails, the returned error wraps
-// the context and cleanup errors and implements io.Closer for retrying cleanup;
-// it does not authorize work. A caller can obtain it with errors.As.
-func Acquire(ctx context.Context, opts ...Option) (handle *Handle, retErr error) {
+// publication before returning. If retirement or guard cleanup fails after
+// admission, the returned error preserves its causes and implements io.Closer
+// for retrying cleanup; it does not authorize work. A caller can obtain it with
+// errors.As. Cleanup retries refuse a busy or displaced namespace guard.
+func Acquire(ctx context.Context, opts ...Option) (*Handle, error) {
+	return acquire(ctx, acquireGuardOps{guardUnlock, (*os.File).Close}, opts...)
+}
+
+// acquireGuardOps keeps guard cleanup faults local to one admission and its
+// cleanup owner. The public entry point always uses the actual guard and file.
+type acquireGuardOps struct {
+	unlock func(*os.File) error
+	close  func(*os.File) error
+}
+
+func acquire(ctx context.Context, ops acquireGuardOps, opts ...Option) (handle *Handle, retErr error) {
 	cfg := config{
 		dir:          DefaultDir(),
 		label:        os.Getenv("GPU_LOCK_LABEL"),
@@ -339,11 +351,35 @@ func Acquire(ctx context.Context, opts ...Option) (handle *Handle, retErr error)
 	if err != nil {
 		return nil, err
 	}
+	var owned *Handle
+	clearAuthority := false
+	guardFailed := false
+	finalizingRoot := false
 	defer func() {
-		if err := g.file.Close(); err != nil {
-			forgetHandle(handle)
-			handle = nil
+		if finalizingRoot {
+			defer processMu.Unlock()
+		}
+		// Close may consume the descriptor even when it reports an error.
+		// Never retain it for retry or attempt Close a second time.
+		if err := ops.close(g.file); err != nil {
+			guardFailed = true
 			retErr = errors.Join(retErr, fmt.Errorf("cudalock: close guard: %w", err))
+		}
+		if owned != nil && retErr != nil {
+			if finalizingRoot {
+				if hold := processHolds[owned.dir]; hold == owned.hold {
+					hold.cleanupOnly = true
+				}
+			}
+			if guardFailed || !owned.released {
+				retErr = &acquireCleanupError{err: retErr, handle: owned, ops: ops, clearAuthority: clearAuthority}
+			}
+			handle = nil
+		}
+		// Environment authority must not escape before BOTH guard operations
+		// succeed. A failed root admission retains only cleanup custody.
+		if handle != nil && !handle.isNested && isDefaultDir(handle.dir) {
+			_ = os.Setenv("GPU_LOCK_HELD", strconv.Itoa(handle.owner.PID))
 		}
 	}()
 	cfg.dir = g.dir
@@ -355,21 +391,33 @@ func Acquire(ctx context.Context, opts ...Option) (handle *Handle, retErr error)
 			return nil, err
 		}
 		h, acquireErr := acquireGuarded(ctx, cfg, g)
+		owned = h
 		if h != nil {
 			if err := ctx.Err(); err != nil {
-				acquireErr = errors.Join(acquireErr, cancelAdmission(h, g, err, os.Remove))
+				cancelErr := cancelAdmission(h, g, err, os.Remove)
+				// The finalizer installs one owner with this call's guard ops.
+				if cleanup, ok := cancelErr.(*acquireCleanupError); ok {
+					clearAuthority = cleanup.clearAuthority
+					cancelErr = cleanup.err
+				}
+				acquireErr = errors.Join(acquireErr, cancelErr)
 				h = nil
 			}
 		}
-		unlockErr := guardUnlock(g.file)
+		if owned != nil && !owned.isNested {
+			// Keep this publication unavailable to other local admissions
+			// until guard cleanup has decided whether it authorizes work.
+			// Acquire processMu while still holding the namespace guard,
+			// after cancelAdmission has released its own processMu lock.
+			processMu.Lock()
+			finalizingRoot = true
+		}
+		unlockErr := ops.unlock(g.file)
+		guardFailed = unlockErr != nil
 		if err := errors.Join(acquireErr, unlockErr); err != nil {
-			forgetHandle(h)
 			return nil, err
 		}
 		if h != nil {
-			if !h.isNested && isDefaultDir(h.dir) {
-				_ = os.Setenv("GPU_LOCK_HELD", strconv.Itoa(h.owner.PID))
-			}
 			return h, nil
 		}
 		select {
@@ -592,9 +640,9 @@ func cancelAdmission(h *Handle, g *namespaceGuard, cause error, removeDir func(s
 	primary := fmt.Errorf("cudalock: %w", cause)
 	hold := processHolds[h.dir]
 	if hold == nil || hold != h.hold || hold.count <= 0 {
-		return &acquireCleanupError{errors.Join(primary, errors.New("cudalock: canceled admission ownership changed")), h}
+		return &acquireCleanupError{err: errors.Join(primary, errors.New("cudalock: canceled admission ownership changed")), handle: h, ops: acquireGuardOps{guardUnlock, (*os.File).Close}}
 	}
-	if h.isNested {
+	if hold.retired == "" && (hold.count > 1 || hold.inherited) {
 		hold.count--
 		if hold.count == 0 {
 			delete(processHolds, h.dir)
@@ -602,33 +650,95 @@ func cancelAdmission(h *Handle, g *namespaceGuard, cause error, removeDir func(s
 		h.released = true
 		return primary
 	}
+	// A final nested reference may carry authority exported by its parent.
+	// A new root admission has never exported any authority of its own.
+	clearAuthority := h.isNested && !hold.cleanupOnly
 	hold.cleanupOnly = true
 	if err := h.releaseRoot(g, hold, removeDir); err != nil {
-		return &acquireCleanupError{errors.Join(primary, err), h}
+		return &acquireCleanupError{err: errors.Join(primary, err), handle: h, ops: acquireGuardOps{guardUnlock, (*os.File).Close}, clearAuthority: clearAuthority}
+	}
+	if clearAuthority {
+		clearAdmissionAuthority(h)
 	}
 	return primary
 }
 
+// acquireCleanupError owns only the reference created by one failed admission.
+// It never calls Release: that method may wait indefinitely on the old guard.
 type acquireCleanupError struct {
-	err    error
-	handle *Handle
+	mu             sync.Mutex
+	err            error
+	handle         *Handle
+	ops            acquireGuardOps
+	done           bool
+	clearAuthority bool
 }
 
 func (e *acquireCleanupError) Error() string { return e.err.Error() }
 func (e *acquireCleanupError) Unwrap() error { return e.err }
-func (e *acquireCleanupError) Close() error  { return e.handle.Release() }
 
-func forgetHandle(h *Handle) {
-	if h == nil {
-		return
+func (e *acquireCleanupError) Close() (retErr error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.done {
+		return nil
+	}
+	h := e.handle
+	g, err := openNamespace(h.dir)
+	if err != nil {
+		return err
+	}
+	// Every fresh descriptor gets exactly one Close, including refusal paths.
+	defer func() {
+		retErr = errors.Join(retErr, e.ops.close(g.file))
+		if retErr == nil {
+			e.done = true
+		}
+	}()
+	if !g.matches(h.hold.namespace) {
+		return errors.New("cudalock: admission cleanup guard identity changed")
+	}
+	if err := g.tryLock(); err != nil {
+		return err
+	}
+	defer func() { retErr = errors.Join(retErr, e.ops.unlock(g.file)) }()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.released {
+		return nil
 	}
 	processMu.Lock()
 	defer processMu.Unlock()
-	if hold := processHolds[h.dir]; hold != nil && hold == h.hold {
+	hold := processHolds[h.dir]
+	if hold == nil || hold != h.hold || hold.count <= 0 {
+		return errors.New("cudalock: admission cleanup ownership changed")
+	}
+	if hold.retired == "" && (hold.count > 1 || hold.inherited) {
+		// Preserve every other live reference and an inherited publication.
 		hold.count--
 		if hold.count == 0 {
 			delete(processHolds, h.dir)
 		}
+		h.released = true
+		return nil
+	}
+	e.clearAuthority = e.clearAuthority || (h.isNested && !hold.cleanupOnly)
+	hold.cleanupOnly = true
+	if err := h.releaseRoot(g, hold, os.Remove); err != nil {
+		return err
+	}
+	if e.clearAuthority {
+		clearAdmissionAuthority(h)
+		// Consume this obligation even if the current environment differs.
+		// A later guard-only retry must not clear a successor's authority.
+		e.clearAuthority = false
+	}
+	return nil
+}
+
+func clearAdmissionAuthority(h *Handle) {
+	if h.released && isDefaultDir(h.dir) && os.Getenv("GPU_LOCK_HELD") == strconv.Itoa(h.owner.PID) {
+		_ = os.Unsetenv("GPU_LOCK_HELD")
 	}
 }
 
