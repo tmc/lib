@@ -42,6 +42,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
 | [cudaheadroom](cudaheadroom/) | Package cudaheadroom checks shared-memory plans against a loaded CUDA kernel. |
 | [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
+| [cudahostemu](cudahostemu/) | Package cudahostemu runs CUDA kernel source on the host CPU, for testing kernels where no GPU is available. |
 | [cudahotswap](cudahotswap/) | Package cudahotswap checks and replaces CUDA kernels in a retained service. |
 | [cudainject](cudainject/) | Package cudainject builds the CUPTI injection agent and reads its artifacts. |
 | [cudainspect](cudainspect/) | Package cudainspect inspects supplied CUDA artifacts and emits bounded, schema-versioned reports. |
