@@ -25,6 +25,9 @@
 // "inline void name(" defined at the start of a line, so that launchers
 // instantiate their kernels.
 //
+// -save-sass writes each source's cuobjdump -sass listing (k.sm_90a.sass
+// for k.cu), as input to sassequiv.
+//
 // -ptx counts PTX instructions per function, which shows arithmetic
 // differences between two versions of a kernel (an extra cvt.rn.bf16, a
 // lost fma.rn) before ptxas reorders them. -save-ptx also writes the PTX,
@@ -142,6 +145,7 @@ type config struct {
 	sass            bool
 	ptx             bool
 	savePTX         string
+	saveSASS        string
 	top             int
 	work            string
 	maxRegisters    int
@@ -201,6 +205,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&c.nvdisasm, "nvdisasm", "nvdisasm", "nvdisasm `path` on the compiling host, for -spills")
 	fs.BoolVar(&c.ptx, "ptx", false, "add a PTX instruction census")
 	fs.StringVar(&c.savePTX, "save-ptx", "", "write each source's PTX to `directory` as NAME.ARCH.ptx; implies -ptx")
+	fs.StringVar(&c.saveSASS, "save-sass", "", "write each source's cuobjdump -sass listing to `directory` as NAME.ARCH.sass; implies -sass")
 	fs.IntVar(&c.top, "top", 8, "opcodes to print per function with -sass or -ptx")
 	fs.StringVar(&c.work, "work", "", "work `directory`; must be visible to the compiling host")
 	fs.IntVar(&c.maxRegisters, "max-registers", 0, "fail if an entry function uses more registers")
@@ -235,6 +240,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	c.exec = strings.Fields(execPrefix)
 	if c.noLoopSpill {
 		c.spills = true
+	}
+	if c.saveSASS != "" {
+		c.sass = true
+		if err := os.MkdirAll(c.saveSASS, 0o755); err != nil {
+			return err
+		}
 	}
 	if c.savePTX != "" {
 		c.ptx = true
@@ -503,6 +514,12 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 			text, err := c.compile(ctx, c.cuobjdump, "-sass", "-arch", a, out)
 			if err != nil {
 				return nil, fmt.Errorf("cuobjdump: %v%s\n%s", err, c.hint(err, c.cuobjdump, "-cuobjdump"), text)
+			}
+			if c.saveSASS != "" {
+				name := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)) + "." + a + ".sass"
+				if err := os.WriteFile(filepath.Join(c.saveSASS, name), text, 0o644); err != nil {
+					return nil, err
+				}
 			}
 			d, err := cudasass.Parse(bytes.NewReader(text))
 			if err != nil {

@@ -91,6 +91,11 @@ stdout '^  PTX sm_90a _Z5scaleILi128EEvPfPKfi: 32 instructions, 0 local loads, 0
 stdout '^  PTX sm_90a _Z6helperfi: 82 instructions, 1 local loads, 8 local stores: ld.const.f32=32 fma.rn.f32=31$'
 ! stdout SASS
 
+# -save-sass writes the listing it counted and implies -sass.
+exec cudacompilecheck -nvcc $WORK/nvcc -cuobjdump $WORK/cuobjdump -save-sass sassout k.cu
+stdout 'SASS sm_90a _Z5scaleILi128EEvPfPKfi: 128 instructions'
+cmp sassout/k.sm_90a.sass scale.sass
+
 # -save-ptx writes the PTX it counted and implies -ptx.
 exec cudacompilecheck -nvcc $WORK/nvcc -save-ptx ptxout -top 2 k.cu
 stdout '^  PTX sm_90a _Z5scaleILi128EEvPfPKfi: 32 instructions'
