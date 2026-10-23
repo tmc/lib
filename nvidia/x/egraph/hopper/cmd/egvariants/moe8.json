@@ -23,6 +23,7 @@
     {"Name": "moe8_attn_tp8_full_q1", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
     {"Name": "moe8_attn_tp8_full_q1_fp8_gate", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "Chunk": 320, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280},
     {"Name": "moe8_attn_tp8_full_q1_fp8_gate_d2", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "Chunk": 320, "Depth": 2, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280},
+    {"Name": "moe8_attn_tp8_full_q1_fp8_gate_dev", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280, "DeviceSplits": true},
     {"Name": "moe8_attn_tp8_full_q8", "Hq": 16, "Hkv": 2, "QLen": 8, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
     {"Name": "moe8_attn_dp_sliding_q1", "Hq": 128, "Hkv": 16, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
     {"Name": "moe8_attn_dp_full_q8", "Hq": 128, "Hkv": 16, "QLen": 8, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875}

@@ -1,6 +1,7 @@
 package hopper
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -62,14 +63,21 @@ func attnWorkspace(a PagedAttention, batch, maxKeys int) []byte {
 	return ws
 }
 
-func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys, launches int) ([]float64, []byte) {
+// runPaged launches a through its launcher on an emulated device of slots
+// resident blocks (one per SM). It returns the output, the workspace and
+// the launch's grid x.
+func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys, launches, slots int) ([]float64, []byte, int) {
 	t.Helper()
 	src, err := a.CUDA()
 	if err != nil {
 		t.Fatal(err)
 	}
+	l, err := a.Launcher()
+	if err != nil {
+		t.Fatal(err)
+	}
+	src += "\n" + l
 	batch := len(c.SeqLens)
-	grid, block := a.Grid(batch, maxKeys)
 	args := "q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws"
 	bufs := []emuBuf{
 		{"q", a.Q.cType(), typed{a.Q, f64s(q)}.bytes()},
@@ -86,15 +94,17 @@ func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys
 	}
 	bufs = append(bufs,
 		emuBuf{"out", a.Out.cType(), poison(len(q) * a.Out.Bits() / 8)},
-		emuBuf{"ws", "unsigned char", attnWorkspace(a, batch, maxKeys)})
-	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), 0, %s, "+args+")",
-		grid[0], grid[1], grid[2], block[0], a.Name, c.MaxPages)
-	one := launch
+		emuBuf{"ws", "unsigned char", attnWorkspace(a, batch, maxKeys)},
+		emuBuf{"grid", "uint32_t", poison(4)})
+	launch := fmt.Sprintf("eg_emu_sms = %d;\n    eg_emu_blocks_per_sm = 1", slots)
+	one := fmt.Sprintf("%s_launch(%d, %d, "+args+", nullptr)", a.Name, batch, maxKeys, c.MaxPages)
+	launch += ";\n    " + one
 	for i := 1; i < launches; i++ {
 		launch += ";\n    " + one
 	}
+	launch += ";\n    grid[0] = eg_emu_last_grid.x"
 	res := runEmu(t, src, launch, bufs...)
-	return decode(a.Out, res["out"]), res["ws"]
+	return decode(a.Out, res["out"]), res["ws"], int(i32s(res["grid"])[0])
 }
 
 func TestPagedAttentionEmulated(t *testing.T) {
@@ -125,6 +135,13 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			Chunk: 192, Depth: 2, QKFP8: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{4000, 200}, 4000, 1.0 / 64},
 		{"depth2_dp", PagedAttention{Name: "attn_d2_dp", Hq: 64, Hkv: 8, QLen: 8, Page: 1, Q: E4M3, Out: F32, Chunk: 128, Depth: 2},
 			[]int32{300, 70}, 300, 1},
+		// Device-sized splits: 8 slots give 3 requests x 2 KV heads one
+		// split each; 200 give 33, rounded to 32 splits of 128 keys (2
+		// groups).
+		{"device_splits_few", PagedAttention{Name: "attn_dev", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			QKFP8: true, Gate: true, GateStride: 2304, GateOffset: 1280, DeviceSplits: true, Chunk: 64}, []int32{4000, 641, 1}, 4000, 1},
+		{"device_splits_many", PagedAttention{Name: "attn_dev_many", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			QKFP8: true, Gate: true, GateStride: 2304, GateOffset: 1280, DeviceSplits: true, Chunk: 64}, []int32{4000, 641, 1}, 4000, 1},
 		// 481 chunks: 31 groups, so the final merge folds two batches of
 		// about equal weight. The
 		// large QScale spreads logits over hundreds of binades, so a merge
@@ -153,7 +170,9 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, ws := runPaged(t, tt.a, q, c, tt.maxKeys, 2)
+			// Resident blocks of the emulated device.
+			slots := cmp.Or(map[string]int{"device_splits_many": 200}[tt.name], 8)
+			got, ws, grid := runPaged(t, tt.a, q, c, tt.maxKeys, 2, slots)
 			bound := 5e-4 // F16 tiles, F32 accumulation
 			if tt.a.Out == BF16 {
 				bound = 4e-3
@@ -163,7 +182,14 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			} else {
 				t.Logf("relative L2 error %.2e", e)
 			}
-			ng := (tt.a.Splits(tt.maxKeys) + attnGroup - 1) / attnGroup
+			splits := tt.a.Splits(tt.maxKeys)
+			if tt.a.DeviceSplits {
+				_, splits = tt.a.PlanSplits(len(tt.seqlens), tt.maxKeys, slots)
+			}
+			if grid != splits {
+				t.Errorf("grid x %d, want %d splits", grid, splits)
+			}
+			ng := (splits + attnGroup - 1) / attnGroup
 			for i, b := range ws[:4*len(tt.seqlens)*tt.a.Hkv*(1+ng)] {
 				if b != 0 {
 					t.Fatalf("counter byte %d = %d after launch, want 0", i, b)
@@ -270,4 +296,35 @@ func ExamplePagedAttention() {
 	grid, block := a.Grid(32, maxKeys)
 	fmt.Println(grid, block, a.WorkspaceBytes(32, maxKeys))
 	// Output: [8 2 32] [128 1 1] 1217024
+}
+
+// TestPagedAttentionVariantEmulated runs a DeviceSplits variant through its
+// extern "C" entry, the way a tuner or a ctypes caller does.
+func TestPagedAttentionVariantEmulated(t *testing.T) {
+	a := PagedAttention{Name: "attn_v", Hq: 16, Hkv: 2, QLen: 1, Page: 4, Q: E4M3, Out: F32, Chunk: 64, QKFP8: true, DeviceSplits: true}
+	v, err := a.Variant()
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqlens := []int32{900, 70}
+	q, c := pagedCase(rand.New(rand.NewPCG(5, 6)), a, seqlens, 1)
+	want, err := a.Reference(q, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const maxKeys = 900
+	res := runEmu(t, v.Source, fmt.Sprintf("eg_emu_sms = 16;\n    %s_c(%d, %d, q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws, nullptr)",
+		v.Entry, len(seqlens), maxKeys, c.MaxPages),
+		emuBuf{"q", "uint8_t", typed{E4M3, f64s(q)}.bytes()},
+		emuBuf{"k_cache", "uint8_t", c.K},
+		emuBuf{"v_cache", "uint8_t", c.V},
+		emuBuf{"page_table", "int32_t", i32Bytes(c.PageTable)},
+		emuBuf{"seqlens", "int32_t", i32Bytes(c.SeqLens)},
+		emuBuf{"k_scale", "float", f32Bytes([]float32{c.KScale})},
+		emuBuf{"v_scale", "float", f32Bytes([]float32{c.VScale})},
+		emuBuf{"out", "float", poison(4 * len(q))},
+		emuBuf{"ws", "unsigned char", attnWorkspace(a, len(seqlens), maxKeys)})
+	if e := relErr(decode(F32, res["out"]), want); e > 5e-4 || math.IsNaN(e) {
+		t.Errorf("relative L2 error %.2e", e)
+	}
 }

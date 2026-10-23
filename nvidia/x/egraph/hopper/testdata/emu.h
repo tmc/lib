@@ -364,8 +364,25 @@ typedef int cudaError_t;
 enum cudaFuncAttribute { cudaFuncAttributeMaxDynamicSharedMemorySize = 8 };
 template <typename K> cudaError_t cudaFuncSetAttribute(K, cudaFuncAttribute, int) { return 0; }
 
+// The emulated device: eg_emu_sms multiprocessors of eg_emu_blocks_per_sm
+// resident blocks each, which launchers that size grids from the device
+// see. Set them before the first launch.
+inline int eg_emu_sms = 4, eg_emu_blocks_per_sm = 2;
+enum cudaDeviceAttr { cudaDevAttrMultiProcessorCount = 16 };
+inline cudaError_t cudaGetDevice(int* dev) { *dev = 0; return 0; }
+inline cudaError_t cudaDeviceGetAttribute(int* v, cudaDeviceAttr, int) { *v = eg_emu_sms; return 0; }
+template <typename K> cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(int* n, K, int, size_t) {
+    *n = eg_emu_blocks_per_sm;
+    return 0;
+}
+
+// eg_emu_last_grid is the grid of the latest launch, for tests of
+// launchers that size it.
+inline dim3 eg_emu_last_grid;
+
 template <typename K, typename... Args>
 void eg_emu_launch(dim3 grid, dim3 block, size_t smem, K kernel, Args... args) {
+    eg_emu_last_grid = grid;
     gridDim = grid;
     blockDim = block;
     int n = block.x * block.y * block.z;

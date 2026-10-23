@@ -422,7 +422,8 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
     float* __restrict__ out,
     unsigned char* __restrict__ ws) {
     constexpr int HQ = 16, HKV = 2, G = 8, L = 1, ROWS = 8, MROWS = 16, MT = 1, KW = 4;
-    constexpr int WINDOW = 2048, PAGE = 1, CHUNK = 256, DEPTH = 1, STEP = 16 * KW * DEPTH, STAGES = 4;
+    constexpr int WINDOW = 2048, PAGE = 1, DEPTH = 1, STEP = 16 * KW * DEPTH, STAGES = 4;
+    constexpr int CHUNK = 256;
     constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = 16, LDQ = 40, RB = 80;
     constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > KW * MROWS * 256 ? STAGES * STAGE_BYTES : KW * MROWS * 256;
     const float scale = 0.6841258f * k_scale[0] * 1.4426950408889634f; // log2 domain
@@ -711,6 +712,7 @@ __global__ void __launch_bounds__(128) moe8_attn_sliding(
 }
 
 inline void moe8_attn_sliding_launch(int batch, int max_keys, const uint8_t* __restrict__ q, const uint8_t* __restrict__ k_cache, const uint8_t* __restrict__ v_cache, const int32_t* __restrict__ page_table, int max_pages, const int32_t* __restrict__ seqlens, const float* __restrict__ k_scale, const float* __restrict__ v_scale, const uint16_t* __restrict__ gate, float* __restrict__ out, unsigned char* __restrict__ ws, cudaStream_t stream) {
-    const dim3 grid((max_keys + 255) / 256, 2, batch), block(128);
-    if (grid.x > 0 && batch > 0) EG_LAUNCH(moe8_attn_sliding, grid, block, 0, stream, q, k_cache, v_cache, page_table, max_pages, seqlens, k_scale, v_scale, gate, out, ws);
+    constexpr int chunk = 256;
+    const dim3 grid((max_keys + chunk - 1) / chunk, 2, batch), block(128);
+    if (max_keys > 0 && batch > 0) EG_LAUNCH(moe8_attn_sliding, grid, block, 0, stream, q, k_cache, v_cache, page_table, max_pages, seqlens, k_scale, v_scale, gate, out, ws);
 }

@@ -45,7 +45,13 @@ type PagedAttention struct {
 	Out     DType   // F32 or BF16 [tokens, Hq, 64]
 	QScale  float32 // 0 means 1
 	SMScale float32 // 0 means 1/8
-	Chunk   int     // keys per block, a multiple of 64; 0 means 256
+	Chunk   int     // keys per block, a multiple of 64; 0 means 256 (128 with DeviceSplits)
+
+	// DeviceSplits sizes the splits at launch: the launcher gives each
+	// (request, KV head) enough splits to fill the device's resident
+	// blocks once ([PagedAttention.PlanSplits]), with at least Chunk keys
+	// per split. The kernel then takes keys per split as a parameter.
+	DeviceSplits bool
 
 	// Depth is the number of 16-key tiles each warp computes per step: 1
 	// (the default for 0) or 2.
@@ -110,6 +116,9 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	}
 	if a.Chunk == 0 {
 		a.Chunk = 256
+		if a.DeviceSplits {
+			a.Chunk = 128
+		}
 	}
 	if a.GateEps == 0 {
 		a.GateEps = 1e-5
@@ -187,8 +196,9 @@ func (a PagedAttention) SharedBytes() int {
 }
 
 // Splits returns the number of key chunks for a request attending maxKeys
-// keys: the grid's x dimension. maxKeys is at most Window+QLen-1 for a
-// windowed layer, else the longest cache length.
+// keys: the grid's x dimension, or with DeviceSplits its largest value.
+// maxKeys is at most Window+QLen-1 for a windowed layer, else the longest
+// cache length.
 func (a PagedAttention) Splits(maxKeys int) int {
 	a, _, err := a.norm()
 	if err != nil || maxKeys < 1 {
@@ -197,10 +207,26 @@ func (a PagedAttention) Splits(maxKeys int) int {
 	return (maxKeys + a.Chunk - 1) / a.Chunk
 }
 
+// PlanSplits returns the keys per split and the splits (grid x) that a
+// DeviceSplits launcher picks for batch requests of at most maxKeys keys on
+// a device with slots resident blocks (SMs times blocks per SM): the
+// fewest keys per split, a multiple of 64 and at least Chunk, that keep
+// batch·Hkv·splits within slots.
+func (a PagedAttention) PlanSplits(batch, maxKeys, slots int) (chunk, splits int) {
+	a, _, err := a.norm()
+	if err != nil || batch < 1 || maxKeys < 1 {
+		return 0, 0
+	}
+	per := max(1, slots/(batch*a.Hkv))
+	chunk = max(a.Chunk, ((maxKeys+per-1)/per+63)/64*64)
+	return chunk, (maxKeys + chunk - 1) / chunk
+}
+
 // WorkspaceBytes returns the workspace size for batch requests of at most
 // maxKeys keys: for each (request, KV head) 1 + ceil(splits/16) int32
 // counters, then the chunk and group partials. The counters must be zero
-// before the first launch; the kernel leaves them zero.
+// before a launch; the kernel leaves them zero. Their offsets depend on
+// the grid, so clear them again when batch or maxKeys changes.
 func (a PagedAttention) WorkspaceBytes(batch, maxKeys int) int {
 	_, g, err := a.norm()
 	if err != nil {
@@ -222,13 +248,29 @@ func (a PagedAttention) params() []string {
 		"const float* __restrict__ k_scale",
 		"const float* __restrict__ v_scale",
 	}
+	if a.DeviceSplits {
+		p = append(p[:5], append([]string{"int chunk"}, p[5:]...)...)
+	}
 	if a.Gate {
 		p = append(p, "const uint16_t* __restrict__ gate")
 	}
 	return append(p, a.Out.cType()+"* __restrict__ out", "unsigned char* __restrict__ ws")
 }
 
-// Grid returns the grid and block for batch requests of at most maxKeys keys.
+// launchParams returns the launcher's parameters after batch and max_keys:
+// the kernel's, less the keys per split the launcher computes.
+func (a PagedAttention) launchParams() []string {
+	var p []string
+	for _, s := range a.params() {
+		if s != "int chunk" {
+			p = append(p, s)
+		}
+	}
+	return p
+}
+
+// Grid returns the grid and block for batch requests of at most maxKeys
+// keys; with DeviceSplits, the largest grid the launcher picks.
 func (a PagedAttention) Grid(batch, maxKeys int) (grid, block [3]int) {
 	return [3]int{a.Splits(maxKeys), a.Hkv, batch}, [3]int{128, 1, 1}
 }
@@ -248,8 +290,13 @@ func (a PagedAttention) CUDA() (string, error) {
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(128) %s(\n    %s) {\n", a.Name, strings.Join(a.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int HQ = %d, HKV = %d, G = %d, L = %d, ROWS = %d, MROWS = %d, MT = %d, KW = %d;\n",
 		a.Hq, a.Hkv, g.G, a.QLen, g.rows, g.mrows, g.mt, g.kw)
-	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, CHUNK = %d, DEPTH = %d, STEP = 16 * KW * DEPTH, STAGES = %d;\n",
-		a.Window, a.Page, a.Chunk, a.Depth, a.Stages)
+	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, DEPTH = %d, STEP = 16 * KW * DEPTH, STAGES = %d;\n",
+		a.Window, a.Page, a.Depth, a.Stages)
+	if a.DeviceSplits {
+		b.WriteString("    const int CHUNK = chunk;\n")
+	} else {
+		fmt.Fprintf(&b, "    constexpr int CHUNK = %d;\n", a.Chunk)
+	}
 	fmt.Fprintf(&b, "    constexpr int PIECES = STEP * 4, NP = (PIECES + 127) / 128, GROUP = %d, LDQ = %d, RB = %d;\n",
 		attnGroup, a.attnQStride(), attnRowBytes)
 	b.WriteString("    constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > KW * MROWS * 256 ? STAGES * STAGE_BYTES : KW * MROWS * 256;\n")
@@ -642,16 +689,26 @@ func (a PagedAttention) Launcher() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	params := a.params()
-	names := make([]string, len(params))
-	for i, p := range params {
-		f := strings.Fields(p)
-		names[i] = f[len(f)-1]
-	}
+	params, names := a.launchParams(), paramNames(a.params())
 	var b strings.Builder
 	fmt.Fprintf(&b, "inline void %s_launch(int batch, int max_keys, %s, cudaStream_t stream) {\n", a.Name, strings.Join(params, ", "))
-	fmt.Fprintf(&b, "    const dim3 grid((max_keys + %d) / %d, %d, batch), block(128);\n", a.Chunk-1, a.Chunk, a.Hkv)
-	fmt.Fprintf(&b, "    if (grid.x > 0 && batch > 0) EG_LAUNCH(%s, grid, block, 0, stream, %s);\n}\n", a.Name, strings.Join(names, ", "))
+	if a.DeviceSplits {
+		// PlanSplits, with the device's resident blocks.
+		fmt.Fprintf(&b, `    static const int slots = [] {
+        int dev = 0, sms = 0, per = 0;
+        cudaGetDevice(&dev);
+        cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev);
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per, %s, 128, 0);
+        return sms * per;
+    }();
+    const int per = batch > 0 ? (slots / (batch * %d) > 1 ? slots / (batch * %d) : 1) : 1;
+    const int want = ((max_keys + per - 1) / per + 63) / 64 * 64, chunk = want > %d ? want : %d;
+`, a.Name, a.Hkv, a.Hkv, a.Chunk, a.Chunk)
+	} else {
+		fmt.Fprintf(&b, "    constexpr int chunk = %d;\n", a.Chunk)
+	}
+	fmt.Fprintf(&b, "    const dim3 grid((max_keys + chunk - 1) / chunk, %d, batch), block(128);\n", a.Hkv)
+	fmt.Fprintf(&b, "    if (max_keys > 0 && batch > 0) EG_LAUNCH(%s, grid, block, 0, stream, %s);\n}\n", a.Name, strings.Join(names, ", "))
 	return b.String(), nil
 }
 
