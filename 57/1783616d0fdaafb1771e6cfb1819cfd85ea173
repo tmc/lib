@@ -1,0 +1,11 @@
+commit: 571783616d0fdaafb1771e6cfb1819cfd85ea173
+date: 2026-10-23T07:21:39.341023+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 63728
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261023-stack-tracker-consumer-implementation/candidate.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261023-stack-tracker-adoption/ROOT-GRADE.md
+qualification: original14tracker source; exact126 plus6paths;48roots98PASS eachhost/race/vet+3consumeromissions; independent1hostcontrol; native unqualified
