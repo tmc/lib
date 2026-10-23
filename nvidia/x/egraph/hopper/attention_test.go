@@ -1,0 +1,211 @@
+package hopper
+
+import (
+	"fmt"
+	"math"
+	"math/rand/v2"
+	"testing"
+)
+
+// pagedCase builds a scattered paged cache for seqlens and random queries.
+func pagedCase(r *rand.Rand, a PagedAttention, seqlens []int32, kvScale float32) ([]float32, PagedCache) {
+	maxPages := 0
+	for _, s := range seqlens {
+		maxPages = max(maxPages, (int(s)+a.Page-1)/a.Page)
+	}
+	total := len(seqlens) * maxPages
+	c := PagedCache{
+		PageTable: make([]int32, len(seqlens)*maxPages),
+		MaxPages:  maxPages,
+		SeqLens:   seqlens,
+		KScale:    kvScale,
+		VScale:    kvScale,
+		K:         make([]uint8, total*a.Page*a.Hkv*HeadDim),
+		V:         make([]uint8, total*a.Page*a.Hkv*HeadDim),
+	}
+	perm := r.Perm(total)
+	for i := range c.PageTable {
+		c.PageTable[i] = int32(perm[i])
+	}
+	for b, s := range seqlens {
+		for p := (int(s) + a.Page - 1) / a.Page; p < maxPages; p++ {
+			c.PageTable[b*maxPages+p] = -1
+		}
+	}
+	live := make([]bool, total*a.Page)
+	for b, s := range seqlens {
+		for t := range int(s) {
+			live[int(c.PageTable[b*maxPages+t/a.Page])*a.Page+t%a.Page] = true
+		}
+	}
+	// NaN codes in rows holding no token catch a kernel that reads them.
+	for i := range c.K {
+		c.K[i], c.V[i] = 0x7f, 0x7f
+		if live[i/(a.Hkv*HeadDim)] {
+			c.K[i] = E4M3Bits(float32(r.NormFloat64()) / kvScale)
+			c.V[i] = E4M3Bits(float32(r.NormFloat64()) / kvScale)
+		}
+	}
+	q := make([]float32, len(seqlens)*a.QLen*a.Hq*HeadDim)
+	for i := range q {
+		q[i] = a.Q.Round(float32(r.NormFloat64()))
+	}
+	return q, c
+}
+
+func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys, launches int) ([]float64, []byte) {
+	t.Helper()
+	src, err := a.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := len(c.SeqLens)
+	grid, block := a.Grid(batch, maxKeys)
+	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), 0, %s, q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws)",
+		grid[0], grid[1], grid[2], block[0], a.Name, c.MaxPages)
+	one := launch
+	for i := 1; i < launches; i++ {
+		launch += ";\n    " + one
+	}
+	res := runEmu(t, src, launch,
+		emuBuf{"q", a.Q.cType(), typed{a.Q, f64s(q)}.bytes()},
+		emuBuf{"k_cache", "uint8_t", c.K},
+		emuBuf{"v_cache", "uint8_t", c.V},
+		emuBuf{"page_table", "int32_t", i32Bytes(c.PageTable)},
+		emuBuf{"seqlens", "int32_t", i32Bytes(c.SeqLens)},
+		emuBuf{"k_scale", "float", f32Bytes([]float32{c.KScale})},
+		emuBuf{"v_scale", "float", f32Bytes([]float32{c.VScale})},
+		emuBuf{"out", a.Out.cType(), make([]byte, len(q)*a.Out.Bits()/8)},
+		emuBuf{"ws", "unsigned char", make([]byte, a.WorkspaceBytes(batch, maxKeys))})
+	return decode(a.Out, res["out"]), res["ws"]
+}
+
+func TestPagedAttentionEmulated(t *testing.T) {
+	tests := []struct {
+		name    string
+		a       PagedAttention
+		seqlens []int32
+		maxKeys int
+		kvScale float32
+	}{
+		{"full_decode_splits", PagedAttention{Name: "attn_full", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 64}, []int32{150, 37}, 150, 1},
+		{"sliding_verify", PagedAttention{Name: "attn_verify", Hq: 16, Hkv: 2, QLen: 8, Window: 100, Page: 1, Q: BF16, Out: BF16, Chunk: 64}, []int32{130, 9}, 107, 1},
+		{"verify4_scaled", PagedAttention{Name: "attn_v4", Hq: 16, Hkv: 2, QLen: 4, Window: 0, Page: 64, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 128}, []int32{200, 64, 5}, 200, 1.0 / 64},
+		{"decode2_window", PagedAttention{Name: "attn_w", Hq: 8, Hkv: 1, QLen: 2, Window: 50, Page: 4, Q: E4M3, Out: F32, Chunk: 64}, []int32{90, 3}, 51, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := rand.New(rand.NewPCG(31, uint64(len(tt.name))))
+			q, c := pagedCase(r, tt.a, tt.seqlens, tt.kvScale)
+			want, err := tt.a.Reference(q, c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, ws := runPaged(t, tt.a, q, c, tt.maxKeys, 2)
+			if e := relErr(got, want); e > 4e-3 || math.IsNaN(e) {
+				t.Errorf("relative L2 error %.2e", e)
+			} else {
+				t.Logf("relative L2 error %.2e", e)
+			}
+			for i, b := range ws[:4*len(tt.seqlens)*tt.a.Hkv] {
+				if b != 0 {
+					t.Fatalf("counter byte %d = %d after launch, want 0", i, b)
+				}
+			}
+		})
+	}
+}
+
+func relErr(got, want []float64) float64 {
+	var num, den float64
+	for i := range want {
+		num += (got[i] - want[i]) * (got[i] - want[i])
+		den += want[i] * want[i]
+	}
+	return math.Sqrt(num / den)
+}
+
+// TestPagedAttentionFormula checks Reference against reference.py's
+// formula for one query: softmax over the window, FP8 values times scales.
+func TestPagedAttentionFormula(t *testing.T) {
+	a := PagedAttention{Name: "attn", Hq: 4, Hkv: 2, QLen: 2, Window: 3, Page: 2, Q: BF16, Out: F32, QScale: 2}
+	r := rand.New(rand.NewPCG(33, 34))
+	q, c := pagedCase(r, a, []int32{7}, 0.5)
+	got, err := a.Reference(q, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Token j=0 sits at position 5 and attends 3, 4, 5; head 3 reads KV head 1.
+	const j, h, kvh = 0, 3, 1
+	var logits [3]float64
+	var mx = math.Inf(-1)
+	for i, pos := range []int{3, 4, 5} {
+		row := int(c.PageTable[pos/2])*2 + pos%2
+		for d := range 64 {
+			logits[i] += float64(q[(j*4+h)*64+d]) * 2 * float64(FromE4M3Bits(c.K[(row*2+kvh)*64+d])) * 0.5 / 8
+		}
+		mx = math.Max(mx, logits[i])
+	}
+	var sum float64
+	for i := range logits {
+		logits[i] = math.Exp(logits[i] - mx)
+		sum += logits[i]
+	}
+	for d := range 64 {
+		var want float64
+		for i, pos := range []int{3, 4, 5} {
+			row := int(c.PageTable[pos/2])*2 + pos%2
+			want += logits[i] / sum * float64(FromE4M3Bits(c.V[(row*2+kvh)*64+d])) * 0.5
+		}
+		if g := got[(j*4+h)*64+d]; math.Abs(g-want) > 1e-12 {
+			t.Fatalf("out[%d] = %g, want %g", d, g, want)
+		}
+	}
+}
+
+func TestPagedAttentionErrors(t *testing.T) {
+	ok := PagedAttention{Name: "a", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32}
+	tests := []struct {
+		name string
+		edit func(*PagedAttention)
+	}{
+		{"name", func(a *PagedAttention) { a.Name = "eg_x" }},
+		{"heads", func(a *PagedAttention) { a.Hkv = 3 }},
+		{"rows", func(a *PagedAttention) { a.Hq, a.Hkv, a.QLen = 128, 16, 9 }},
+		{"rows64", func(a *PagedAttention) { a.Hq, a.Hkv, a.QLen = 128, 1, 1 }},
+		{"page", func(a *PagedAttention) { a.Page = 0 }},
+		{"q", func(a *PagedAttention) { a.Q = F32 }},
+		{"out", func(a *PagedAttention) { a.Out = E4M3 }},
+		{"chunk", func(a *PagedAttention) { a.Chunk = 100 }},
+	}
+	if _, err := ok.CUDA(); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range tests {
+		a := ok
+		tt.edit(&a)
+		if _, err := a.CUDA(); err == nil {
+			t.Errorf("%s: no error", tt.name)
+		}
+	}
+}
+
+func TestPagedAttentionGolden(t *testing.T) {
+	a := PagedAttention{Name: "moe8_attn_sliding", Hq: 16, Hkv: 2, QLen: 1, Window: 2048, Page: 1,
+		Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 256}
+	src, err := a.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "moe8_attn_sliding.cu", src)
+}
+
+func ExamplePagedAttention() {
+	// Moe8 tp8 sliding-window decode: 16 query heads over 2 FP8 KV heads.
+	a := PagedAttention{Name: "attn", Hq: 16, Hkv: 2, QLen: 1, Window: 2048, Page: 1,
+		Q: E4M3, Out: F32, QScale: 5.4730064863875}
+	maxKeys := 2048
+	grid, block := a.Grid(32, maxKeys)
+	fmt.Println(grid, block, a.WorkspaceBytes(32, maxKeys))
+	// Output: [8 2 32] [128 1 1] 1081600
+}
