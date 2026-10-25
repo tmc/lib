@@ -17,6 +17,7 @@ type Launch struct {
 	Block        int    `json:"block"`                    // threads per block
 	Warps        int    `json:"warps"`                    // warps per block
 	Stages       int    `json:"stages,omitempty"`         // cp.async ring depth
+	TableAhead   int    `json:"table_ahead,omitempty"`    // page-table register prefetch depth (PagedAttention)
 	SplitK       int    `json:"split_k,omitempty"`        // K splits (SkinnyGEMM)
 	SplitKV      int    `json:"split_kv,omitempty"`       // keys per split (PagedAttention)
 	KVDepth      int    `json:"kv_depth,omitempty"`       // 16-key tiles per warp per step (PagedAttention)
@@ -26,6 +27,7 @@ type Launch struct {
 	BN           int    `json:"bn,omitempty"`             // output tile columns (TileGEMM)
 	RowsPerBlock int    `json:"rows_per_block,omitempty"` // W rows per block (SkinnyGEMM)
 	Unroll       int    `json:"unroll,omitempty"`         // loads in flight (SkinnyGEMM)
+	Prefetch     int    `json:"prefetch,omitempty"`       // prefetched K steps per warp (SkinnyGEMM)
 	MMA          string `json:"mma,omitempty"`            // tensor-core instruction: mma.sync or wgmma
 	SharedBytes  int    `json:"shared_bytes,omitempty"`   // dynamic shared memory
 }
@@ -72,6 +74,7 @@ func (l Launch) config() string {
 	add("block", l.Block)
 	add("warps", l.Warps)
 	add("stages", l.Stages)
+	add("table_ahead", l.TableAhead)
 	add("split_k", l.SplitK)
 	add("split_kv", l.SplitKV)
 	add("kv_depth", l.KVDepth)
@@ -80,6 +83,7 @@ func (l Launch) config() string {
 	add("bn", l.BN)
 	add("rows_per_block", l.RowsPerBlock)
 	add("unroll", l.Unroll)
+	add("prefetch", l.Prefetch)
 	if l.MMA != "" {
 		parts = append(parts, "mma="+l.MMA)
 	}
@@ -117,7 +121,7 @@ func (g SkinnyGEMM) Variant() (Variant, error) {
 		return Variant{}, err
 	}
 	key := fmt.Sprintf("gemm/N=%d/K=%d/w=%v/out=%v/%s", g.N, g.K, g.Weight, g.Out, epilogueKey(g.Epilogue, g.Extras))
-	l := Launch{Block: 32 * g.Warps, Warps: g.Warps, SplitK: g.SplitK, RowsPerBlock: g.RowsPerBlock, Unroll: g.Unroll}
+	l := Launch{Block: 32 * g.Warps, Warps: g.Warps, SplitK: g.SplitK, RowsPerBlock: g.RowsPerBlock, Unroll: g.Unroll, Prefetch: g.Prefetch}
 	return newVariant(g.Name, "skinny_gemm", key, l, append([]string{"int m"}, g.params()...), src), nil
 }
 
@@ -171,13 +175,19 @@ func (a PagedAttention) Variant() (Variant, error) {
 	if a.Gate {
 		key += fmt.Sprintf("/gate=%d:%d:%s", a.GateStride, a.GateOffset, floatLiteral(a.GateEps))
 	}
-	l := Launch{Block: 128, Warps: 4, Stages: a.Stages, SplitKV: a.Chunk, KVDepth: a.Depth, KVHeads: a.KVHeadsPerBlock, DeviceSplits: a.DeviceSplits}
+	tableAhead := a.TableAhead
+	if tableAhead <= 1 {
+		tableAhead = 0
+	}
+	l := Launch{Block: 128, Warps: 4, Stages: a.Stages, TableAhead: tableAhead, SplitKV: a.Chunk, KVDepth: a.Depth, KVHeads: a.KVHeadsPerBlock, DeviceSplits: a.DeviceSplits}
 	return newVariant(a.Name, "paged_attention", key, l, append([]string{"int batch", "int max_keys"}, a.launchParams()...), src), nil
 }
 
 // SweepSkinnyGEMM returns the valid variants of base over rows per block
 // {1, 2, 4}, warps {4, 8, 16}, split-K {1, 2, 4, 8} and unroll {2, 4},
-// named base.Name + "_r<R>w<W>s<S>u<U>".
+// named base.Name + "_r<R>w<W>s<S>u<U>", plus, when base.Prefetch > 0,
+// prefetched variants over prefetch {2, 4, 8} (with SplitK 1 and Unroll 1),
+// named base.Name + "_r<R>w<W>p<P>".
 func SweepSkinnyGEMM(base SkinnyGEMM) ([]Variant, error) {
 	var vs []Variant
 	for _, r := range []int{1, 2, 4} {
@@ -186,7 +196,19 @@ func SweepSkinnyGEMM(base SkinnyGEMM) ([]Variant, error) {
 				for _, u := range []int{2, 4} {
 					g := base
 					g.Name = fmt.Sprintf("%s_r%dw%ds%du%d", base.Name, r, w, s, u)
-					g.RowsPerBlock, g.Warps, g.SplitK, g.Unroll = r, w, s, u
+					g.RowsPerBlock, g.Warps, g.SplitK, g.Unroll, g.Prefetch = r, w, s, u, 0
+					v, err := g.Variant()
+					if err != nil {
+						continue
+					}
+					vs = append(vs, v)
+				}
+			}
+			if base.Prefetch > 0 {
+				for _, p := range []int{2, 4, 8} {
+					g := base
+					g.Name = fmt.Sprintf("%s_r%dw%dp%d", base.Name, r, w, p)
+					g.RowsPerBlock, g.Warps, g.SplitK, g.Unroll, g.Prefetch = r, w, 1, 1, p
 					v, err := g.Variant()
 					if err != nil {
 						continue

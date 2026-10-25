@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"strings"
 	"testing"
 )
 
@@ -171,6 +172,13 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			QKFP8: true, DeviceSplits: true, Chunk: 64, KVHeadsPerBlock: 2}, []int32{4000, 641, 1}, 4000, 1},
 		{"hpb2_f16_window", PagedAttention{Name: "attn_h2_w", Hq: 8, Hkv: 2, QLen: 2, Window: 50, Page: 1, Q: BF16, Out: BF16, Chunk: 64, KVHeadsPerBlock: 2},
 			[]int32{130, 9}, 51, 1},
+		// Multi-stage page-table register prefetch (TableAhead 3 across a
+		// 4-stage cp.async ring): page sizes 1 and 64, windowed and full,
+		// ragged lengths, and split-KV.
+		{"ahead3_p1_window", PagedAttention{Name: "attn_ta3_p1", Hq: 4, Hkv: 1, QLen: 1, Window: 300, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+			Chunk: 384, Stages: 4, TableAhead: 3, QKFP8: true}, []int32{400, 129, 7}, 300, 1},
+		{"ahead3_p64_full_splits", PagedAttention{Name: "attn_ta3_p64", Hq: 4, Hkv: 1, QLen: 2, Window: 0, Page: 64, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			Chunk: 256, Stages: 4, TableAhead: 3, QKFP8: true, Gate: true, GateStride: 768, GateOffset: 512}, []int32{520, 65, 5}, 520, 1.0 / 64},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -285,6 +293,8 @@ func TestPagedAttentionErrors(t *testing.T) {
 		{"hpb3", func(a *PagedAttention) { a.KVHeadsPerBlock = 3 }},
 		{"hpb2_odd", func(a *PagedAttention) { a.Hq, a.Hkv, a.KVHeadsPerBlock = 3, 3, 2 }},
 		{"hpb2_rows", func(a *PagedAttention) { a.QLen, a.KVHeadsPerBlock = 2, 2 }},
+		{"ahead_neg", func(a *PagedAttention) { a.TableAhead = -1 }},
+		{"ahead_over", func(a *PagedAttention) { a.Stages, a.TableAhead = 3, 4 }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)
@@ -346,5 +356,72 @@ func TestPagedAttentionVariantEmulated(t *testing.T) {
 		emuBuf{"ws", "unsigned char", attnWorkspace(a, len(seqlens), maxKeys)})
 	if e := relErr(decode(F32, res["out"]), want); e > 5e-4 || math.IsNaN(e) {
 		t.Errorf("relative L2 error %.2e", e)
+	}
+}
+
+// TestPagedAttentionTableAheadMutations verifies that corrupting the
+// multi-stage page-table register ring (off-by-one slot or dropped tail
+// prefetch) fails the emulator.
+func TestPagedAttentionTableAheadMutations(t *testing.T) {
+	// With 265 keys in a 512-key chunk (5 steps of 64 keys: steps 0..3 full
+	// and step 4 partially empty, keys 256..264) and Stages=3, TableAhead=2,
+	// the prologue issues steps 0..1 and prefetches steps 2..3 into pg[0..1],
+	// step 0 refills pg[0] with step 4, and step 1 refills pg[1] with -1.
+	// Reading pg[(it + 1) % TABLE_AHEAD] in issue() or dropping the in-loop
+	// prefetch corrupts the prefetched steps.
+	a := PagedAttention{Name: "attn_ta_mut", Hq: 4, Hkv: 1, QLen: 1, Window: 265, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+		Chunk: 512, Stages: 3, TableAhead: 2, QKFP8: true}
+	src, err := a.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := a.Launcher()
+	if err != nil {
+		t.Fatal(err)
+	}
+	full := src + "\n" + l
+	seqlens := []int32{560}
+	q, c := pagedCase(rand.New(rand.NewPCG(71, 72)), a, seqlens, 1)
+	want, err := a.Reference(q, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const maxKeys = 265
+	launch := fmt.Sprintf("eg_emu_sms = 8;\n    %s_launch(%d, %d, q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws, nullptr)",
+		a.Name, len(seqlens), maxKeys, c.MaxPages)
+	mutants := []struct {
+		name string
+		old  string
+		repl string
+	}{
+		{
+			name: "off_by_one_slot",
+			old:  "issue((it + STAGES - 1) % STAGES, pg[slot]);",
+			repl: "issue((it + STAGES - 1) % STAGES, pg[(slot + 1) % TABLE_AHEAD]);",
+		},
+		{
+			name: "dropped_tail_prefetch",
+			old:  "pg[slot] = it + STAGES - 1 + TABLE_AHEAD < nsteps ? rowof(c0 + (it + STAGES - 1 + TABLE_AHEAD) * STEP) : -1;",
+			repl: "pg[slot] = -1;",
+		},
+	}
+	for _, mut := range mutants {
+		if !strings.Contains(full, mut.old) {
+			t.Fatalf("%s: target not in source", mut.name)
+		}
+		msrc := strings.Replace(full, mut.old, mut.repl, 1)
+		res := runEmu(t, msrc, launch,
+			emuBuf{"q", "uint8_t", typed{E4M3, f64s(q)}.bytes()},
+			emuBuf{"k_cache", "uint8_t", c.K},
+			emuBuf{"v_cache", "uint8_t", c.V},
+			emuBuf{"page_table", "int32_t", i32Bytes(c.PageTable)},
+			emuBuf{"seqlens", "int32_t", i32Bytes(c.SeqLens)},
+			emuBuf{"k_scale", "float", f32Bytes([]float32{c.KScale})},
+			emuBuf{"v_scale", "float", f32Bytes([]float32{c.VScale})},
+			emuBuf{"out", "float", poison(4 * len(q))},
+			emuBuf{"ws", "unsigned char", attnWorkspace(a, len(seqlens), maxKeys)})
+		if e := relErr(decode(F32, res["out"]), want); !(e > 5e-4 || math.IsNaN(e)) {
+			t.Errorf("mutant %s survived (relErr %.2e)", mut.name, e)
+		}
 	}
 }

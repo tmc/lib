@@ -100,6 +100,12 @@ type SkinnyGEMM struct {
 	Warps        int // per block; 0 means 8
 	SplitK       int // 0 or 1 means no split
 	Unroll       int // weight loads in flight per lane per row; 0 means 4
+
+	// Prefetch, when at least 1, unrolls the K loop in batches of Prefetch
+	// steps per warp (or the whole split when it has at most Prefetch steps per
+	// warp) and issues every weight load of the batch into registers before the
+	// activation loads and FMA accumulation.
+	Prefetch int
 }
 
 // norm validates g and fills defaults.
@@ -154,7 +160,7 @@ func (g SkinnyGEMM) norm() (SkinnyGEMM, error) {
 	if per := 32 * g.Weight.chunk() * g.SplitK; g.K <= 0 || g.K%per != 0 {
 		return g, fmt.Errorf("skinny gemm %s: K %d not a multiple of %d", g.Name, g.K, per)
 	}
-	if g.Warps < 1 || g.Warps > 32 || g.SplitK < 1 || g.Unroll < 1 || 32*g.Warps < g.RowsPerBlock*g.MaxM {
+	if g.Warps < 1 || g.Warps > 32 || g.SplitK < 1 || g.Unroll < 1 || g.Prefetch < 0 || 32*g.Warps < g.RowsPerBlock*g.MaxM {
 		return g, fmt.Errorf("skinny gemm %s: bad schedule", g.Name)
 	}
 	return g, nil
@@ -210,10 +216,19 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	}
 	R, W, E := g.RowsPerBlock, g.Warps, g.Weight.chunk()
 	steps := g.K / (32 * E)
+	u := g.Unroll
+	fullPrefetch := false
+	if g.Prefetch > 0 {
+		u = g.Prefetch
+		if maxSteps := (steps/g.SplitK + W - 1) / W; maxSteps <= g.Prefetch {
+			u = maxSteps
+			fullPrefetch = true
+		}
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "// %s: out[m,n] = %s over x[M,%d] bf16 · W[%d,%d] %s, M <= %d.\n", g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.MaxM)
 	fmt.Fprintf(&b, "template <int M>\n__global__ void __launch_bounds__(%d) %s(\n    %s) {\n", 32*W, g.Name, strings.Join(g.params(), ",\n    "))
-	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, R = %d, WARPS = %d, U = %d, SPLIT = %d, MAXM = %d;\n", g.N, g.K, R, W, g.Unroll, g.SplitK, g.MaxM)
+	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, R = %d, WARPS = %d, U = %d, SPLIT = %d, MAXM = %d;\n", g.N, g.K, R, W, u, g.SplitK, g.MaxM)
 	b.WriteString("    static_assert(M >= 1 && M <= MAXM, \"M out of range\");\n")
 	fmt.Fprintf(&b, "    constexpr int STEPS = %d;  // 32-lane steps of %d values along K\n", steps, E)
 	b.WriteString(`    const int lane = threadIdx.x & 31, warp = threadIdx.x >> 5;
@@ -228,8 +243,12 @@ func (g SkinnyGEMM) CUDA() (string, error) {
     for (int r = 0; r < R; ++r)
 #pragma unroll
         for (int m = 0; m < M; ++m) acc[r][m] = 0.0f;
-    for (int base = first + warp; base < last; base += WARPS * U) {
 `)
+	if fullPrefetch {
+		b.WriteString("    {\n        const int base = first + warp;\n")
+	} else {
+		b.WriteString("    for (int base = first + warp; base < last; base += WARPS * U) {\n")
+	}
 	switch g.Weight {
 	case WeightBF16, WeightBF16HiLo:
 		planes := []string{"w"}

@@ -44,7 +44,21 @@ func TestSweepMetadata(t *testing.T) {
 	if len(fp8) != 16 {
 		t.Errorf("%d FP8 attention variants, want 16", len(fp8))
 	}
-	for _, set := range [][]Variant{skinny, tile, attn} {
+	skinnyPF, err := SweepSkinnyGEMM(SkinnyGEMM{Name: "qkv", N: 2304, K: 8192, MaxM: 8, Weight: WeightBF16, Out: BF16, Prefetch: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skinnyPF) <= len(skinny) {
+		t.Errorf("opt-in prefetch sweep produced %d variants, want more than %d", len(skinnyPF), len(skinny))
+	}
+	attnTA, err := PagedAttention{Name: "attn_ta", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32, Stages: 4, TableAhead: 3}.Variant()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attnTA.Launch.TableAhead != 3 {
+		t.Errorf("attn_ta launch TableAhead = %d, want 3", attnTA.Launch.TableAhead)
+	}
+	for _, set := range [][]Variant{skinny, skinnyPF, tile, attn} {
 		configs := make(map[string]bool)
 		for _, v := range set {
 			if v.Key != set[0].Key {

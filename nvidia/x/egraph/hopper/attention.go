@@ -71,6 +71,13 @@ type PagedAttention struct {
 	// 4, that fit 40 KiB.
 	Stages int
 
+	// TableAhead is the depth of the register ring that prefetches
+	// page-table entries ahead of the cp.async copies that consume them:
+	// 1 to Stages. 0 or 1 prefetches one step ahead; TableAhead >= 2 keeps
+	// TableAhead steps of page-table entries in registers so the cp.async
+	// of step s + (Stages - 1) never waits on a dependent page-table load.
+	TableAhead int
+
 	// QKFP8 computes Q·Kᵀ with mma.sync m16n8k32 E4M3 tiles on the stored
 	// bytes (Q must be E4M3), skipping the widening of K to F16. Products
 	// are exact; the tensor core's FP32 accumulation order differs.
@@ -188,6 +195,12 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	}
 	if a.Stages < 2 || a.Stages > 8 {
 		return a, g, fmt.Errorf("paged attention %s: %d stages, want 2 to 8", a.Name, a.Stages)
+	}
+	if a.TableAhead == 0 {
+		a.TableAhead = 1
+	}
+	if a.TableAhead < 1 || a.TableAhead > a.Stages {
+		return a, g, fmt.Errorf("paged attention %s: table ahead %d, want 1 to %d", a.Name, a.TableAhead, a.Stages)
 	}
 	if n := a.SharedBytes(); n > 48<<10 {
 		return a, g, fmt.Errorf("paged attention %s: %d bytes of static shared memory, want at most 48 KiB", a.Name, n)
@@ -317,6 +330,9 @@ func (a PagedAttention) CUDA() (string, error) {
 	fmt.Fprintf(&b, "    constexpr int PIECES = STEP * KP, NP = (PIECES + 127) / 128, GROUP = %d, LDQ = %d, RB = %d;\n",
 		attnGroup, g.qStride(a.QKFP8), g.rb)
 	b.WriteString("    constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > KW * MROWS * 256 ? STAGES * STAGE_BYTES : KW * MROWS * 256;\n")
+	if a.TableAhead >= 2 {
+		fmt.Fprintf(&b, "    constexpr int TABLE_AHEAD = %d;\n", a.TableAhead)
+	}
 	fmt.Fprintf(&b, "    const float scale = %s * k_scale[0] * 1.4426950408889634f; // log2 domain\n",
 		floatLiteral(a.QScale*a.SMScale))
 	b.WriteString(attnHead)
@@ -327,7 +343,11 @@ func (a PagedAttention) CUDA() (string, error) {
 	} else {
 		b.WriteString(attnQF16)
 	}
-	b.WriteString(strings.NewReplacer("QK_LOAD\n", qk[0], "QK_TILE\n", qk[1]).Replace(attnLoop))
+	table := attnTableAhead1
+	if a.TableAhead >= 2 {
+		table = attnTableAheadN
+	}
+	b.WriteString(strings.NewReplacer("QK_LOAD\n", qk[0], "QK_TILE\n", qk[1], "TABLE_PREFETCH\n", table[0], "TABLE_STEP\n", table[1]).Replace(attnLoop))
 	if a.Out == BF16 {
 		b.WriteString("    auto put = [&](size_t i, float v) { out[i] = eg_f32_to_bf16(v); };\n")
 	} else {
@@ -429,12 +449,7 @@ const attnLoop = `    const int fk = tid * NP / KP;
         }
     };
     const int nsteps = (c1 - c0 + STEP - 1) / STEP;
-#pragma unroll
-    for (int s = 0; s < STAGES - 1; ++s) {
-        if (s < nsteps) issue(s, rowof(c0 + s * STEP));
-        eg_cp_async_commit();
-    }
-    long long next = rowof(c0 + (STAGES - 1) * STEP);
+TABLE_PREFETCH
     __syncthreads();
 
 QK_LOAD
@@ -451,10 +466,7 @@ QK_LOAD
     for (int it = 0; it < nsteps; ++it) {
         eg_cp_async_wait<STAGES - 2>();
         __syncthreads();
-        if (it + STAGES - 1 < nsteps) {
-            issue((it + STAGES - 1) % STAGES, next);
-            next = rowof(c0 + (it + STAGES) * STEP);
-        }
+TABLE_STEP
         eg_cp_async_commit();
         const int kb = c0 + it * STEP;
         const unsigned char* const kst = ring + (it % STAGES) * STAGE_BYTES;
@@ -562,6 +574,40 @@ QK_TILE
         if (d == 0) { mine[i / 64 * 66] = mx; mine[i / 64 * 66 + 1] = sum; }
     }
 `
+
+// attnTableAhead1 and attnTableAheadN issue the prologue and per-step
+// page-table lookups and cp.async copies for TableAhead == 1 and
+// TableAhead >= 2. With TableAhead >= 2, pg[TABLE_AHEAD] holds the next
+// TABLE_AHEAD steps' cache rows in registers.
+var attnTableAhead1 = [2]string{`#pragma unroll
+    for (int s = 0; s < STAGES - 1; ++s) {
+        if (s < nsteps) issue(s, rowof(c0 + s * STEP));
+        eg_cp_async_commit();
+    }
+    long long next = rowof(c0 + (STAGES - 1) * STEP);
+`, `        if (it + STAGES - 1 < nsteps) {
+            issue((it + STAGES - 1) % STAGES, next);
+            next = rowof(c0 + (it + STAGES) * STEP);
+        }
+`}
+
+var attnTableAheadN = [2]string{`    long long pg[TABLE_AHEAD];
+#pragma unroll
+    for (int s = 0; s < STAGES - 1 + TABLE_AHEAD; ++s) {
+        const long long r = s < nsteps ? rowof(c0 + s * STEP) : -1;
+        if (s < STAGES - 1) {
+            if (s < nsteps) issue(s, r);
+            eg_cp_async_commit();
+        } else {
+            pg[(s - (STAGES - 1)) % TABLE_AHEAD] = r;
+        }
+    }
+`, `        if (it + STAGES - 1 < nsteps) {
+            const int slot = it % TABLE_AHEAD;
+            issue((it + STAGES - 1) % STAGES, pg[slot]);
+            pg[slot] = it + STAGES - 1 + TABLE_AHEAD < nsteps ? rowof(c0 + (it + STAGES - 1 + TABLE_AHEAD) * STEP) : -1;
+        }
+`}
 
 // attnQKF16 loads the F16 query fragments and computes a 16-key tile's
 // logits over the D staged dimensions with m16n8k16 F16 tiles, K widened

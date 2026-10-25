@@ -41,6 +41,11 @@ func TestSkinnyGEMMEmulated(t *testing.T) {
 		{"epilogue", SkinnyGEMM{N: 8, K: 256, MaxM: 2, Weight: WeightBF16, Out: BF16,
 			Epilogue: MustLambda("(add (mul $0 $1) (silu $2))"),
 			Extras:   []Operand{{"scale", BF16, PerCol}, {"resid", F32, Full}}}, 2},
+		{"bf16_prefetch2", SkinnyGEMM{N: 8, K: 1024, MaxM: 4, Weight: WeightBF16, Out: BF16, RowsPerBlock: 2, Warps: 1, Prefetch: 2}, 3},
+		{"bf16_prefetch4_full", SkinnyGEMM{N: 8, K: 1024, MaxM: 2, Weight: WeightBF16, Out: F32, RowsPerBlock: 2, Warps: 1, Prefetch: 4}, 2},
+		{"hilo_prefetch2", SkinnyGEMM{N: 4, K: 1024, MaxM: 2, Weight: WeightBF16HiLo, Out: F32, Warps: 1, Prefetch: 2}, 2},
+		{"nvfp4_prefetch2", SkinnyGEMM{N: 4, K: 4096, MaxM: 2, Weight: WeightNVFP4, Out: F32, RowsPerBlock: 2, Warps: 1, Prefetch: 2}, 2},
+		{"bf16_split_prefetch4", SkinnyGEMM{N: 4, K: 2048, MaxM: 4, Weight: WeightBF16, Out: BF16, SplitK: 2, RowsPerBlock: 2, Warps: 1, Prefetch: 4}, 4},
 	}
 	r := rand.New(rand.NewPCG(1, 2))
 	for _, tt := range tests {
@@ -153,6 +158,7 @@ func TestSkinnyGEMMErrors(t *testing.T) {
 		"ragged_n": func(g *SkinnyGEMM) { g.RowsPerBlock = 3 },
 		"epilogue": func(g *SkinnyGEMM) { g.Epilogue = MustLambda("(add $0 $1)") },
 		"split":    func(g *SkinnyGEMM) { g.SplitK = 2 },
+		"prefetch": func(g *SkinnyGEMM) { g.Prefetch = -1 },
 	} {
 		g := ok
 		mutate(&g)
@@ -188,4 +194,57 @@ func ExampleSkinnyGEMM() {
 	fmt.Println(grid, block, strings.Contains(src, "o_proj_launch(int m"))
 	// Output:
 	// [2048 1 1] [256 1 1] true
+}
+
+// TestSkinnyGEMMPrefetchMutations verifies that corrupting the prefetched
+// weight buffer index or dropping the last prefetched step fails the emulator.
+func TestSkinnyGEMMPrefetchMutations(t *testing.T) {
+	g := SkinnyGEMM{Name: "gemm_pf", N: 8, K: 1024, MaxM: 2, Weight: WeightBF16, Out: F32, RowsPerBlock: 2, Warps: 1, Prefetch: 4}
+	src, err := g.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := rand.New(rand.NewPCG(7, 8))
+	const m = 2
+	x := randBF16(r, m*g.K, 1)
+	w := GEMMWeights{BF16: randBF16(r, g.N*g.K, 0.05)}
+	want, err := g.Reference(m, x, w, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, block, err := g.Grid()
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d), dim3(%d), 0, %s<%d>, x, w, out)", grid[0], grid[1], block[0], g.Name, m)
+	mutants := []struct {
+		name string
+		old  string
+		repl string
+	}{
+		{
+			name: "off_by_one_step",
+			old:  "const uint32_t ww[4] = {wv[u][r][0].x, wv[u][r][0].y, wv[u][r][0].z, wv[u][r][0].w};",
+			repl: "const uint32_t ww[4] = {wv[(u + 1) % U][r][0].x, wv[(u + 1) % U][r][0].y, wv[(u + 1) % U][r][0].z, wv[(u + 1) % U][r][0].w};",
+		},
+		{
+			name: "drop_tail_prefetch",
+			old:  "for (int u = 0; u < U; ++u) {\n            const int s = base + u * WARPS;",
+			repl: "for (int u = 0; u < U; ++u) {\n            const int s = u + 1 < U ? base + u * WARPS : last;",
+		},
+	}
+	for _, mut := range mutants {
+		if !strings.Contains(src, mut.old) {
+			t.Fatalf("%s: target not in source", mut.name)
+		}
+		msrc := strings.Replace(src, mut.old, mut.repl, 1)
+		res := runEmu(t, msrc, launch,
+			emuBuf{"x", "uint16_t", u16Bytes(x)},
+			emuBuf{"w", "uint16_t", u16Bytes(w.BF16)},
+			emuBuf{"out", "float", poison(4 * m * g.N)})
+		got := bytesF32(res["out"])
+		if _, ok := closeTo(got, want, 1e-5, 1e-6); ok {
+			t.Errorf("mutant %s survived", mut.name)
+		}
+	}
 }
