@@ -1,0 +1,89 @@
+# -spills extracts each architecture's cubin from the fatbin and lists
+# the local-memory accesses nvdisasm -g attributes to source lines.
+[!exec:sh] skip
+chmod 0755 nvcc cuobjdump nvdisasm
+
+exec cudacompilecheck -nvcc $WORK/nvcc -cuobjdump $WORK/cuobjdump -nvdisasm $WORK/nvdisasm -spills k.cu
+stdout '^  local sm_90a _Z1kPf: 5 accesses, 3 inside loops$'
+stdout '^    k.cu:8 spill, loop depth 2: 1 STL, 0 LDL \(first at 0x0030\)$'
+stdout '^    k.cu:11 spill, outside loops: 0 STL, 1 LDL'
+! stdout FAIL
+exec cat args
+stdout ' -lineinfo '
+exec cat nvdisasm.args
+stdout '^-g -c k.sm_90a.cubin$'
+
+# Without -spills there is no line info and no disassembly.
+rm nvdisasm.args
+exec cudacompilecheck -nvcc $WORK/nvcc -cuobjdump $WORK/cuobjdump -nvdisasm $WORK/nvdisasm k.cu
+! stdout local
+exec cat args
+! stdout lineinfo
+! exists nvdisasm.args
+
+# The gate fails only on a spill inside a loop.
+! exec cudacompilecheck -nvcc $WORK/nvcc -cuobjdump $WORK/cuobjdump -nvdisasm $WORK/nvdisasm -no-loop-spill k.cu
+stdout 'FAIL: sm_90a _Z1kPf: spill inside a loop at 0x0020 \(k.cu:6\)'
+! exec cudacompilecheck -nvcc $WORK/nvcc -cuobjdump $WORK/cuobjdump -nvdisasm $WORK/nvdisasm -no-loop-spill -json k.cu
+stdout '"Local":'
+stdout '"loops": 2'
+
+# A missing disassembler is named.
+! exec cudacompilecheck -nvcc $WORK/nvcc -cuobjdump $WORK/cuobjdump -nvdisasm $WORK/none -spills k.cu
+stderr 'nvdisasm: exit status 127 \(.*/none not found on the compiling host; -nvdisasm gives its path\)'
+
+-- k.cu --
+__global__ void k(float* x) {}
+-- nvcc --
+#!/bin/sh
+echo "$@" > $WORK/args
+out=
+prev=
+for a in "$@"; do
+	[ "$prev" = -o ] && out=$a
+	prev=$a
+done
+: > "$out"
+cat >&2 <<'X'
+ptxas info    : Compiling entry function '_Z1kPf' for 'sm_90a'
+ptxas info    : Function properties for _Z1kPf
+    40 bytes stack frame, 8 bytes spill stores, 8 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+X
+-- cuobjdump --
+#!/bin/sh
+[ "$1" = -xelf ] || exit 1
+[ -e out.fatbin ] || exit 1
+: > k.sm_90a.cubin
+-- nvdisasm --
+#!/bin/sh
+echo "$@" > $WORK/nvdisasm.args
+cat $WORK/listing.txt
+-- listing.txt --
+	.target	sm_90a
+	.section	.text._Z1kPf,"ax",@progbits
+        .global         _Z1kPf
+        .type           _Z1kPf,@function
+        .size           _Z1kPf,(.L_x_9 - _Z1kPf)
+_Z1kPf:
+.text._Z1kPf:
+	//## File "/src/k.cu", line 3
+        /*0000*/                   STL [R1+0x1c], R4                                 (*"SpillRefill"*);
+        /*0010*/              @!P0 BRA `(.L_x_0) ;
+.L_x_1:
+	//## File "/src/k.cu", line 6
+        /*0020*/                   LDL.LU R21, [R1+0x1c]                             (*"SpillRefill"*);
+.L_x_2:
+	//## File "/src/k.cu", line 8
+        /*0030*/                   STL [R1+0x20], R5                                 (*"SpillRefill"*);
+        /*0040*/                   LDL R6, [R1+0x40] ;
+        /*0050*/              @P1 BRA `(.L_x_2) ;
+	//## File "/src/k.cu", line 6
+        /*0060*/              @P2 BRA `(.L_x_1) ;
+.L_x_0:
+	//## File "/src/k.cu", line 11
+        /*0070*/                   LDL.LU R25, [R1+0x20]                             (*"SpillRefill"*);
+        /*0080*/                   EXIT ;
+.L_x_3:
+        /*0090*/                   BRA `(.L_x_3);
+.L_x_9:

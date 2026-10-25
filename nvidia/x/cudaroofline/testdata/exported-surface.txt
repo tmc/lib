@@ -1,5 +1,6 @@
   field Ceiling.Architecture string
   field Ceiling.ComputeProvenance Provenance
+  field Ceiling.Device string
   field Ceiling.L2BandwidthGBps float64
   field Ceiling.MemoryProvenance Provenance
   field Ceiling.PeakMemoryGBps float64
@@ -17,6 +18,22 @@
   field DeviceRecord.PeakPrecision string
   field DeviceRecord.PeakTFLOPS float64
   field DeviceRecord.Residency string
+  field GEMMReductionRound.Additions uint64
+  field GEMMReductionRound.InputPartials uint64
+  field GEMMReductionRound.OutputPartials uint64
+  field GEMMReductionRound.ReadBytes uint64
+  field GEMMReductionRound.WriteBytes uint64
+  field GEMMSpatialProfile.LaneMesh map[string]int
+  field GEMMSplitKMovement.DRAM CompoundDataMovement
+  field GEMMSplitKMovement.ExecutedFLOPs uint64
+  field GEMMSplitKMovement.GEMM SpatialHierarchyMovement
+  field GEMMSplitKMovement.MergeRegisterBytes uint64
+  field GEMMSplitKMovement.OutputBytes uint64
+  field GEMMSplitKMovement.Partials uint64
+  field GEMMSplitKMovement.PeakLivePartialBytes uint64
+  field GEMMSplitKMovement.ReductionAdditions uint64
+  field GEMMSplitKMovement.Rounds []GEMMReductionRound
+  field GEMMSplitKMovement.WorkspaceBytes uint64
   field HardwareCalibration.LatencyNs float64
   field HardwareCalibration.Status HardwareVerificationStatus
   field HierarchyLevel.Level cudalayout.StorageLevel
@@ -53,6 +70,15 @@
   field Record.Device DeviceRecord
   field Record.Triples []Triple
   field Record.Version int
+  field SpatialHierarchyLevel.Instances uint64
+  field SpatialHierarchyLevel.Level cudalayout.StorageLevel
+  field SpatialHierarchyLevel.Tensors map[cudalayout.TensorRole]SpatialTensorMovement
+  field SpatialHierarchyMovement.ComputeInstances uint64
+  field SpatialHierarchyMovement.Levels []SpatialHierarchyLevel
+  field SpatialHierarchyMovement.Movement HierarchyMovement
+  field SpatialTensorMovement.MaxResidentUnionBytes uint64
+  field SpatialTensorMovement.ParentFanout uint64
+  field SpatialTensorMovement.PerInstance TensorMovement
   field TensorMovement.ReadBytes uint64
   field TensorMovement.ResidentBytes uint64
   field TensorMovement.WriteBytes uint64
@@ -109,8 +135,11 @@ func (Record) Encode(w io.Writer) error
 func (Record) Validate() error
 func AnalyticalDataMovement(problem, tileFactors, dtypes map[string]int, bypassed map[string]bool) (CompoundDataMovement, error)
 func AnalyticalGEMMHierarchy(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int) (HierarchyMovement, error)
+func AnalyticalGEMMSpatial(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int, profile GEMMSpatialProfile) (SpatialHierarchyMovement, error)
+func AnalyticalGEMMSplitK(mapping cudalayout.MapSpace, dtypes map[cudalayout.TensorRole]int, profile GEMMSpatialProfile) (GEMMSplitKMovement, error)
 func DecodeRecord(rd io.Reader) (Record, error)
 func LookupCeiling(arch string, residency Residency) (Ceiling, error)
+func LookupDeviceCeiling(device string, residency Residency) (Ceiling, error)
 func NewModel(arch string, residency Residency) (*Model, error)
 func NewModelWithCeiling(c Ceiling) *Model
 func NewRecord(m *Model, judgments []Judgment) Record
@@ -121,6 +150,9 @@ type Ceiling struct
 type CompoundDataMovement struct
 type DeviceRecord struct
 type FloorBasis string
+type GEMMReductionRound struct
+type GEMMSpatialProfile struct
+type GEMMSplitKMovement struct
 type HardwareCalibration struct
 type HardwareProbe func(target string) (available bool, err error)
 type HardwareVerificationStatus string
@@ -135,6 +167,9 @@ type Precision string
 type Provenance string
 type Record struct
 type Residency string
+type SpatialHierarchyLevel struct
+type SpatialHierarchyMovement struct
+type SpatialTensorMovement struct
 type TensorMovement struct
 type Triple struct
 type Verdict string

@@ -12,7 +12,12 @@
 // carried from vendor documentation and never measured in this repository. A
 // ratio against an unverified ceiling is a hypothesis about the hardware, not a
 // reading of it. Only the GB10 (sm_121, sm_121a) memory bandwidths are
-// measured; every other figure in the table is unverified.
+// measured; every other figure in the architecture table is unverified.
+//
+// An architecture does not name a memory system: an H100 SXM and an H200 are
+// both sm_90. LookupDeviceCeiling therefore keys measured ceilings by product
+// name, as NVML reports it ("NVIDIA H200", "NVIDIA GB10"), and never falls
+// back to the architecture table for a product it does not know.
 //
 // A ceiling is also specific to a Residency, because bandwidth belongs to the
 // memory path rather than to the architecture. On GB10 the same kernel reading

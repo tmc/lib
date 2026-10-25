@@ -125,6 +125,7 @@ To print the build of this cudaprof:
 
 To import a bounded offline Nsight Compute project export:
   cudaprof import-ncu [-json] [-limit N] envelope.json
+  cudaprof import-ncu -raw [-json] [-ceiling GB/s] raw.csv
 
 To summarize supplied compiler members against retained activity:
   cudaprof operator-summary -run-id ID context.json activities.jsonl

@@ -1,0 +1,91 @@
+# loadinlinegen fills a submission template with CUDA sources.
+[!exec:python3] skip
+
+exec loadinlinegen -o out.py -name scale -D N=4 -set Trace=False sub.py.tmpl a.cuh b.cu
+stdout '^wrote out.py \(extension scale_[0-9a-f]{10}\)$'
+exec python3 out.py
+cmp stdout want.txt
+
+# The tag follows the code: a changed define, source, -set value or
+# template renames the extension, and identical inputs keep it.
+exec loadinlinegen -o out.py -name scale -D N=4 -set Trace=False sub.py.tmpl a.cuh b.cu
+cp stdout first.txt
+exec loadinlinegen -o out.py -name scale -D N=5 -set Trace=False sub.py.tmpl a.cuh b.cu
+! cmp stdout first.txt
+exec loadinlinegen -o out.py -name scale -D N=4 -set Trace=True sub.py.tmpl a.cuh b.cu
+! cmp stdout first.txt
+exec loadinlinegen -o out.py -name scale -D N=4 -set Trace=False sub.py.tmpl a.cuh other.py:KERNEL
+! cmp stdout first.txt
+exec loadinlinegen -o out.py -name scale -D N=4 -set Trace=False sub.py.tmpl a.cuh b.cu
+cmp stdout first.txt
+
+# A source can be a string assignment in another submission.
+exec loadinlinegen -o out3.py -name pair -set Trace=False sub.py.tmpl other.py:KERNEL
+exec python3 out3.py
+stdout '^// ---- other.py:KERNEL ----$'
+stdout '^__global__ void other\(\) \{\}$'
+
+# A source without a final newline still ends its line.
+exec loadinlinegen -o out3.py -name pair -set Trace=False sub.py.tmpl other.py:SHORT b.cu
+exec python3 out3.py
+stdout '^__global__ void k2\(\) \{\}$'
+stdout '^// ---- b.cu ----$'
+! exec loadinlinegen -o out3.py -set Trace=False sub.py.tmpl other.py:MISSING
+stderr 'other.py:MISSING: .*no top-level assignment to MISSING'
+! exec loadinlinegen -o out3.py -set Trace=False sub.py.tmpl other.py:COUNT
+stderr 'COUNT is not a string literal'
+
+# Sources that cannot sit in a raw triple-quoted string are refused.
+! exec loadinlinegen -set Trace=False sub.py.tmpl quote.cu
+stderr 'quote.cu: line 2: contains """'
+! exec loadinlinegen -set Trace=False sub.py.tmpl squote.cu
+stderr 'squote.cu: line 1: contains '''''
+! exec loadinlinegen -set Trace=False sub.py.tmpl backslash.cu
+stderr 'backslash.cu: ends in a backslash'
+
+# A template that does not embed the source verbatim fails the check,
+# as does one that names a field nobody set.
+! exec loadinlinegen nonraw.py.tmpl a.cuh
+stderr 'no Python string in it holds the CUDA source unchanged'
+! exec loadinlinegen sub.py.tmpl a.cuh
+stderr 'map has no entry for key "Trace"'
+! exec loadinlinegen -set CUDA=x sub.py.tmpl a.cuh
+stderr '-set CUDA: the command sets that field'
+
+-- sub.py.tmpl --
+CUDA_SRC = r"""
+{{.CUDA}}
+"""
+TRACE = {{.Trace}}
+NAME = "{{.Name}}"
+print(CUDA_SRC.strip())
+print(TRACE, len(NAME))
+-- a.cuh --
+#pragma once
+__device__ float twice(float x) { return 2 * x; }  // "\n" stays two characters
+-- b.cu --
+__global__ void scale(float* x) { x[0] = twice(x[0]) * N; }
+-- want.txt --
+#define N 4
+// ---- a.cuh ----
+#pragma once
+__device__ float twice(float x) { return 2 * x; }  // "\n" stays two characters
+// ---- b.cu ----
+__global__ void scale(float* x) { x[0] = twice(x[0]) * N; }
+False 16
+-- other.py --
+COUNT = 3
+SHORT = "__global__ void k2() {}"
+KERNEL = r'''__global__ void other() {}
+'''
+-- quote.cu --
+// fine
+// says """ here
+-- squote.cu --
+// '''
+-- backslash.cu --
+#define LONG a \
+-- nonraw.py.tmpl --
+CUDA_SRC = """
+{{.CUDA}}
+"""

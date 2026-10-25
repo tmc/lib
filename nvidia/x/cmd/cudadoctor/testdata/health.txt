@@ -1,0 +1,24 @@
+# -health names the cause when NVML is lost, without a CUDA context.
+[!exec:sh] skip
+chmod 0755 bin/nvidia-smi
+env PATH=$WORK/bin:$PATH
+! exec cudadoctor -health -json
+stdout '"name": "gpu-health"'
+stdout 'NVML failed through nvidia-smi \(exit 255\): Failed to initialize NVML: Unknown Error'
+
+# -health alone checks only the device: no NVRTC lookup, workflow "health".
+stdout '"workflow": "health"'
+! stdout '"name": "nvrtc"'
+! stdout '"name": "execution"'
+
+# Naming a workflow adds its checks back.
+env NVRTC_LIB_PATH=$WORK/missing/libnvrtc.so
+! exec cudadoctor -health -workflow jit -json
+stdout '"workflow": "jit"'
+stdout '"name": "nvrtc"'
+stdout '"name": "gpu-health"'
+
+-- bin/nvidia-smi --
+#!/bin/sh
+echo 'Failed to initialize NVML: Unknown Error'
+exit 255

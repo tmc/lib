@@ -109,3 +109,12 @@ Tests and examples run offline. A real export without external identities is
 an unjoined positive fixture, not proof that the bundled kernel matches a local
 image. Positive numeric joins are explicitly synthetic producer controls backed
 by real retained CUBIN fixtures. No runtime Nsight dependency is required.
+
+## Raw-page tables
+
+`ReadRaw` reads `ncu --csv --page raw --log-file` output from any Nsight
+Compute version, without an envelope: preamble lines, header, units row, one
+row per launch. `RawTable.Value` parses a value with thousands separators and
+returns its unit; `n/a` and other strings are retained in `Raw` but are not
+values. An `==ERROR==` line anywhere, a duplicate column or launch ID, or a
+row of the wrong length is refused. Raw tables are not joined to captures.
