@@ -42,7 +42,8 @@ func (x *blockExec) vec(parts []int) int {
 }
 
 // lea64 recognizes lo = LEA a, blo, s (writing carry c) and hi =
-// LEA.HI.X a, bhi, 0, s, c (or LEA.HI.X.SX32 a, bhi, s, c).
+// LEA.HI.X a, bhi, h, s, c where h is 0 or the sign of a (or
+// LEA.HI.X.SX32 a, bhi, s, c).
 func (x *blockExec) lea64(lo, hi int) (int, bool) {
 	g := x.fx.g
 	l, nh := g.nodes[lo], g.nodes[hi]
@@ -56,6 +57,9 @@ func (x *blockExec) lea64(lo, hi int) (int, bool) {
 	case nh.label == "LEA.HI.X" && len(nh.args) == 5 && nh.args[0] == a && g.nodes[nh.args[2]].label == "imm:0x0" && nh.args[3] == s && nh.args[4] == carry:
 		label = "mad64.u32"
 	case nh.label == "LEA.HI.X.SX32" && len(nh.args) == 4 && nh.args[0] == a && nh.args[2] == s && nh.args[3] == carry:
+		label = "mad64.s32"
+	case nh.label == "LEA.HI.X" && len(nh.args) == 5 && nh.args[0] == a && nh.args[2] == x.add("shr.s32", 0, a, x.imm(31)) && nh.args[3] == s && nh.args[4] == carry:
+		// The high word of a is its sign, as SHF.R.S32.HI computes it.
 		label = "mad64.s32"
 	default:
 		return 0, false

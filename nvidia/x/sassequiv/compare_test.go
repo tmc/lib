@@ -604,6 +604,28 @@ MOV R10, R6
 MOV R11, R9
 STG.E.64 desc[UR4][R4.64], R10
 EXIT`, Unknown, ""},
+		{"sign extended index scaled two ways", prologue + `
+IMAD.WIDE R6, R0, 0x4, R2
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, prologue + `
+SHF.R.S32.HI R9, RZ, 0x1f, R0
+LEA R6, P0, R0, R2, 0x2
+LEA.HI.X R7, R0, R3, R9, 0x2, P0
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, Equal, ""},
+		{"index extended with the wrong word", prologue + `
+IMAD.WIDE R6, R0, 0x4, R2
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, prologue + `
+SHF.R.S32.HI R9, RZ, 0x1e, R0
+LEA R6, P0, R0, R2, 0x2
+LEA.HI.X R7, R0, R3, R9, 0x2, P0
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, Unknown, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `
