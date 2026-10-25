@@ -11,14 +11,19 @@
 // EG_EMU_ZERO_SMEM to start from zeros instead. cudaMalloc memory starts
 // as 0xff bytes for the same reason.
 //
-// Warp collectives (shuffles, ballot, ldmatrix, mma.sync) exchange operands
-// through a per-warp buffer between two barrier phases and follow the PTX
-// ISA fragment layouts. cp.async is modeled at its latest legal timing:
+// Warp collectives (shuffles, ballot/any/all, ldmatrix, mma.sync) exchange
+// operands through a per-warp buffer between two mask-aware barrier phases
+// and follow the PTX ISA fragment layouts; disjoint sub-warp masks (such as
+// 0xff << 8k) synchronize independently without deadlocking the rest of the
+// warp. Named CTA barriers (eg_emu_bar_sync / bar_sync, ids 0..15) synchronize
+// a multiple-of-32 thread subset and fail loudly on invalid counts or
+// incomplete barriers. cp.async is modeled at its latest legal timing:
 // issue fills the destination with 0xff and the data lands only when
-// cp.async.wait_group retires its group. wgmma is modeled the same way once
-// a thread calls eg_emu_wgmma_fence: the accumulator reads NaN, and shared
-// memory is read, only at the wgmma.wait_group that retires the op (see
-// eg_emu_wgmma_bf16). A thread that returns early drops
+// cp.async.wait_group retires its group. wgmma (bf16, f16 and e4m3, with
+// shared-A or register-A, K-major or MN-major, and no/32B/64B/128B swizzle)
+// is modeled the same way once a thread calls eg_emu_wgmma_fence: the
+// accumulator reads NaN, and shared memory is read, only at the
+// wgmma.wait_group that retires the op. A thread that returns early drops
 // out of its barriers, so early exit never deadlocks the emulation (on a
 // GPU it is the kernel's responsibility). Warps may be partial.
 //
@@ -47,6 +52,7 @@
 #include <atomic>
 #include <barrier>
 #include <cmath>
+#include <condition_variable>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -58,6 +64,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #define __global__
@@ -67,6 +74,10 @@
 #define __restrict__
 #define __launch_bounds__(...)
 #define __cluster_dims__(...)
+#define __grid_constant__
+#ifndef __align__
+#define __align__(n) alignas(n)
+#endif
 
 #if defined(__APPLE__)
 #define __shared__ static __attribute__((section("__DATA,__eg_shared")))
@@ -98,9 +109,11 @@ struct dim3 {
 
 struct alignas(8) float2 { float x, y; };
 struct alignas(16) float4 { float x, y, z, w; };
+struct alignas(8) uint2 { unsigned x, y; };
 struct alignas(16) uint4 { unsigned x, y, z, w; };
 inline float2 make_float2(float x, float y) { return {x, y}; }
 inline float4 make_float4(float x, float y, float z, float w) { return {x, y, z, w}; }
+inline uint2 make_uint2(unsigned x, unsigned y) { return {x, y}; }
 inline uint4 make_uint4(unsigned x, unsigned y, unsigned z, unsigned w) { return {x, y, z, w}; }
 
 struct __nv_bfloat16 { uint16_t b; };
@@ -113,15 +126,92 @@ constexpr int warpSize = 32;
 // --- blocks, warps and clusters --------------------------------------------
 
 struct eg_emu_warp {
-    std::barrier<> bar;
-    uint64_t val[32];
-    const void* ptr[32];
-    uint32_t regs[32][8];
-    explicit eg_emu_warp(int n) : bar(n) {}
+    std::mutex mu;
+    std::condition_variable cv;
+    uint32_t active_mask;
+    uint32_t arrived_mask = 0;
+    uint32_t target_mask[32] = {};
+    uint32_t released_eff[32] = {};
+    unsigned lane_gen[32] = {};
+    uint64_t val[32] = {};
+    const void* ptr[32] = {};
+    uint32_t regs[32][8] = {};
+
+    explicit eg_emu_warp(int n)
+        : active_mask(n >= 32 ? 0xffffffffu : ((1u << n) - 1u)) {}
+
+    uint32_t sync(uint32_t mask, int lane) {
+        std::unique_lock<std::mutex> lock(mu);
+        const uint32_t bit = 1u << lane;
+        if (!(mask & bit)) {
+            std::fprintf(stderr, "cudahostemu: lane %d not in warp sync mask %#x\n", lane, mask);
+            std::fflush(stderr);
+            std::_Exit(3);
+        }
+        uint32_t eff = mask & active_mask;
+        for (uint32_t m = eff & arrived_mask; m; m &= m - 1) {
+            int k = __builtin_ctz(m);
+            if ((target_mask[k] & active_mask) != eff) {
+                std::fprintf(stderr, "cudahostemu: conflicting warp sync masks %#x (lane %d) and %#x (lane %d)\n",
+                             mask, lane, target_mask[k], k);
+                std::fflush(stderr);
+                std::_Exit(3);
+            }
+        }
+        arrived_mask |= bit;
+        target_mask[lane] = mask;
+        unsigned g = lane_gen[lane];
+        if ((arrived_mask & eff) == eff) {
+            arrived_mask &= ~eff;
+            for (uint32_t m = eff; m; m &= m - 1) {
+                int k = __builtin_ctz(m);
+                target_mask[k] = 0;
+                released_eff[k] = eff;
+                ++lane_gen[k];
+            }
+            cv.notify_all();
+            return eff;
+        }
+        cv.wait(lock, [&] { return lane_gen[lane] != g; });
+        return released_eff[lane];
+    }
+
+    void drop(int lane) {
+        std::lock_guard<std::mutex> lock(mu);
+        active_mask &= ~(1u << lane);
+        bool woke = false;
+        for (int k = 0; k < 32; ++k) {
+            if (!(arrived_mask & (1u << k))) continue;
+            uint32_t eff = target_mask[k] & active_mask;
+            if (eff && (arrived_mask & eff) == eff) {
+                arrived_mask &= ~eff;
+                for (uint32_t m = eff; m; m &= m - 1) {
+                    int j = __builtin_ctz(m);
+                    target_mask[j] = 0;
+                    released_eff[j] = eff;
+                    ++lane_gen[j];
+                }
+                woke = true;
+            }
+        }
+        if (woke) cv.notify_all();
+    }
+};
+
+struct eg_emu_named_bar {
+    std::condition_variable cv;
+    int arrived = 0;
+    int expected = 0;
+    unsigned gen = 0;
 };
 
 struct eg_emu_block {
     std::barrier<> bar;
+    int nthreads;
+    std::mutex bar_mu;
+    int live_threads;
+    int waiting_named = 0;
+    eg_emu_named_bar named[16];
     std::vector<std::unique_ptr<eg_emu_warp>> warps;
     std::vector<unsigned char> smem;  // dynamic shared memory
 
@@ -129,7 +219,7 @@ struct eg_emu_block {
     std::mutex mu;
     std::map<std::string, std::vector<unsigned char>> keyed;
 
-    explicit eg_emu_block(int n) : bar(n) {}
+    explicit eg_emu_block(int n) : bar(n), nthreads(n), live_threads(n) {}
     void* get(const std::string& key, size_t n) {
         std::lock_guard<std::mutex> l(mu);
         auto& b = keyed[key];
@@ -151,9 +241,53 @@ inline thread_local int eg_emu_lane;
 inline thread_local int eg_emu_rank;
 
 inline void __syncthreads() { eg_emu_cur_block->bar.arrive_and_wait(); }
-inline void __syncwarp(unsigned = 0xffffffffu) { eg_emu_cur_warp->bar.arrive_and_wait(); }
+inline void __syncwarp(unsigned mask = 0xffffffffu) { eg_emu_cur_warp->sync(mask, eg_emu_lane); }
 inline void __threadfence() { std::atomic_thread_fence(std::memory_order_seq_cst); }
 inline void __threadfence_block() { std::atomic_thread_fence(std::memory_order_seq_cst); }
+
+// eg_emu_bar_sync emulates PTX bar.sync id, count for named barriers 0..15.
+// count must be a positive multiple of 32 not exceeding the block size.
+inline void eg_emu_bar_sync(int id, int count) {
+    eg_emu_block* b = eg_emu_cur_block;
+    if (id < 0 || id >= 16 || count <= 0 || count % 32 != 0 || count > b->nthreads) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_emu_bar_sync(%d, %d): invalid barrier id or thread count (block has %d threads)\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, id, count, b->nthreads);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    std::unique_lock<std::mutex> lock(b->bar_mu);
+    eg_emu_named_bar& nb = b->named[id];
+    if (nb.arrived == 0) {
+        nb.expected = count;
+    } else if (nb.expected != count) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_emu_bar_sync(%d, %d): count mismatch (expected %d)\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, id, count, nb.expected);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    ++nb.arrived;
+    ++b->waiting_named;
+    if (nb.arrived == nb.expected) {
+        b->waiting_named -= nb.expected;
+        nb.arrived = 0;
+        nb.expected = 0;
+        ++nb.gen;
+        nb.cv.notify_all();
+        return;
+    }
+    for (int j = 0; j < 16; ++j) {
+        auto& m = b->named[j];
+        if (m.arrived > 0 && (b->live_threads < m.expected || b->waiting_named == b->live_threads)) {
+            std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) named barrier %d incomplete (%d of %d threads arrived)\n",
+                         blockIdx.x, blockIdx.y, blockIdx.z, j, m.arrived, m.expected);
+            std::fflush(stderr);
+            std::_Exit(3);
+        }
+    }
+    unsigned g = nb.gen;
+    nb.cv.wait(lock, [&] { return nb.gen != g; });
+}
+inline void bar_sync(int id, int count) { eg_emu_bar_sync(id, count); }
 
 template <class A> A* eg_emu_keyed_shared(const char* key) { return (A*)eg_emu_cur_block->get(key, sizeof(A)); }
 #define EG_EMU_STR2(x) #x
@@ -201,8 +335,11 @@ inline thread_block this_thread_block() { return {}; }
 
 inline float __uint_as_float(uint32_t u) { float f; std::memcpy(&f, &u, 4); return f; }
 inline uint32_t __float_as_uint(float f) { uint32_t u; std::memcpy(&u, &f, 4); return u; }
+inline float __int_as_float(int i) { float f; std::memcpy(&f, &i, 4); return f; }
+inline int __float_as_int(float f) { int i; std::memcpy(&i, &f, 4); return i; }
 inline float __expf(float x) { return std::exp(x); }
 inline float __fdividef(float a, float b) { return a / b; }
+inline float __frcp_rn(float x) { return 1.0f / x; }
 inline float rsqrtf(float x) { return 1.0f / std::sqrt(x); }
 inline void sincosf(float x, float* s, float* c) { *s = std::sin(x); *c = std::cos(x); }
 // Separate functions, so the compiler cannot contract them into an FMA.
@@ -214,7 +351,13 @@ inline float __fsub_rn(float a, float b) { return a - b; }
 using std::min; using std::max;
 
 template <typename T> T __ldg(const T* p) { return *p; }
+template <typename T> T __ldcg(const T* p) { return *p; }
+template <typename T> T __ldca(const T* p) { return *p; }
+template <typename T> T __ldcs(const T* p) { return *p; }
 template <class T> inline void __stwb(T* p, T v) { *p = v; }
+template <class T> inline void __stcg(T* p, T v) { *p = v; }
+template <class T> inline void __stcs(T* p, T v) { *p = v; }
+template <class T> inline void __stwt(T* p, T v) { *p = v; }
 inline int __popc(unsigned v) { return __builtin_popcount(v); }
 
 inline std::mutex eg_emu_atomic_mu;
@@ -251,39 +394,61 @@ template <typename T> T atomicCAS(T* p, T cmp, T v) {
 
 // --- warp collectives ------------------------------------------------------
 
-template <typename T> T eg_emu_exchange(T v, int src) {
+template <typename T> T eg_emu_exchange(unsigned mask, T v, int src) {
     static_assert(sizeof(T) <= 8, "shuffle operand too large");
     eg_emu_warp* w = eg_emu_cur_warp;
     uint64_t bits = 0;
     std::memcpy(&bits, &v, sizeof(T));
     w->val[eg_emu_lane] = bits;
-    w->bar.arrive_and_wait();
+    w->sync(mask, eg_emu_lane);
     uint64_t got = w->val[src & 31];
-    w->bar.arrive_and_wait();
+    w->sync(mask, eg_emu_lane);
     T r;
     std::memcpy(&r, &got, sizeof(T));
     return r;
 }
-template <typename T> T __shfl_xor_sync(unsigned, T v, int m, int = 32) { return eg_emu_exchange(v, eg_emu_lane ^ m); }
-template <typename T> T __shfl_sync(unsigned, T v, int src, int width = 32) {
-    return eg_emu_exchange(v, (eg_emu_lane & ~(width - 1)) | (src & (width - 1)));
+template <typename T> T __shfl_xor_sync(unsigned mask, T v, int m, int = 32) {
+    return eg_emu_exchange(mask, v, eg_emu_lane ^ m);
 }
-template <typename T> T __shfl_down_sync(unsigned, T v, int d, int = 32) {
-    int src = eg_emu_lane + d;
-    return eg_emu_exchange(v, src < 32 ? src : eg_emu_lane);
+template <typename T> T __shfl_sync(unsigned mask, T v, int src, int width = 32) {
+    return eg_emu_exchange(mask, v, (eg_emu_lane & ~(width - 1)) | (src & (width - 1)));
 }
-template <typename T> T __shfl_up_sync(unsigned, T v, int d, int = 32) {
-    int src = eg_emu_lane - d;
-    return eg_emu_exchange(v, src >= 0 ? src : eg_emu_lane);
+template <typename T> T __shfl_down_sync(unsigned mask, T v, int d, int width = 32) {
+    int sub = eg_emu_lane & (width - 1);
+    int src = sub + d < width ? eg_emu_lane + d : eg_emu_lane;
+    return eg_emu_exchange(mask, v, src);
+}
+template <typename T> T __shfl_up_sync(unsigned mask, T v, int d, int width = 32) {
+    int sub = eg_emu_lane & (width - 1);
+    int src = sub - d >= 0 ? eg_emu_lane - d : eg_emu_lane;
+    return eg_emu_exchange(mask, v, src);
 }
 
-inline unsigned __ballot_sync(unsigned, int pred) {
+inline unsigned __ballot_sync(unsigned mask, int pred) {
     eg_emu_warp* w = eg_emu_cur_warp;
     w->val[eg_emu_lane] = pred != 0;
-    w->bar.arrive_and_wait();
+    uint32_t eff = w->sync(mask, eg_emu_lane);
     unsigned r = 0;
-    for (int i = 0; i < 32; ++i) r |= (unsigned)(w->val[i] & 1) << i;
-    w->bar.arrive_and_wait();
+    for (uint32_t m = eff; m; m &= m - 1) {
+        int i = __builtin_ctz(m);
+        r |= (unsigned)(w->val[i] & 1) << i;
+    }
+    w->sync(mask, eg_emu_lane);
+    return r;
+}
+inline int __any_sync(unsigned mask, int pred) {
+    return __ballot_sync(mask, pred) != 0;
+}
+inline int __all_sync(unsigned mask, int pred) {
+    eg_emu_warp* w = eg_emu_cur_warp;
+    w->val[eg_emu_lane] = pred != 0;
+    uint32_t eff = w->sync(mask, eg_emu_lane);
+    int r = 1;
+    for (uint32_t m = eff; m; m &= m - 1) {
+        int i = __builtin_ctz(m);
+        if (!(w->val[i] & 1)) r = 0;
+    }
+    w->sync(mask, eg_emu_lane);
     return r;
 }
 
@@ -388,12 +553,33 @@ inline uint8_t e4m3(float f) { return eg_emu_f32_to_e4m3(f); }
 
 inline float2 __bfloat1622float2(__nv_bfloat162 v) { return {bf2f(v.x), bf2f(v.y)}; }
 inline __nv_bfloat162 __float22bfloat162_rn(float2 v) { return {f2bf(v.x), f2bf(v.y)}; }
+inline __nv_bfloat162 __floats2bfloat162_rn(float a, float b) { return {f2bf(a), f2bf(b)}; }
 inline float __bfloat162float(__nv_bfloat16 v) { return bf2f(v); }
 inline __nv_bfloat16 __float2bfloat16_rn(float f) { return f2bf(f); }
 
 enum { __NV_SATFINITE = 1, __NV_E4M3 = 1 };
 inline uint16_t __nv_cvt_float2_to_fp8x2(float2 v, int, int) {
     return (uint16_t)e4m3(v.x) | ((uint16_t)e4m3(v.y) << 8);
+}
+
+// eg_emu_e4m3x2_to_f16x2 converts the low two E4M3 bytes of x to packed F16x2 (cvt.rn.f16x2.e4m3x2).
+inline uint32_t eg_emu_e4m3x2_to_f16x2(uint32_t x) {
+    uint16_t lo = eg_emu_f32_to_f16(eg_emu_e4m3(x & 0xffu));
+    uint16_t hi = eg_emu_f32_to_f16(eg_emu_e4m3((x >> 8) & 0xffu));
+    return (uint32_t)lo | ((uint32_t)hi << 16);
+}
+inline uint32_t cvt_e4m3x2_to_f16x2(uint32_t x) { return eg_emu_e4m3x2_to_f16x2(x); }
+inline uint32_t e4m3x2_to_f16x2(uint32_t x) { return eg_emu_e4m3x2_to_f16x2(x); }
+
+inline uint32_t __byte_perm(uint32_t a, uint32_t b, uint32_t s) {
+    uint8_t bytes[8];
+    for (int i = 0; i < 4; ++i) {
+        bytes[i] = (a >> (8 * i)) & 0xffu;
+        bytes[4 + i] = (b >> (8 * i)) & 0xffu;
+    }
+    uint32_t r = 0;
+    for (int i = 0; i < 4; ++i) r |= (uint32_t)bytes[(s >> (4 * i)) & 7u] << (8 * i);
+    return r;
 }
 
 inline uint32_t eg_emu_prmt(uint32_t a, uint32_t b, uint32_t sel) {
@@ -417,7 +603,7 @@ inline uint32_t eg_emu_prmt(uint32_t a, uint32_t b, uint32_t sel) {
 inline void eg_emu_ldmatrix_x4(uint32_t r[4], const void* row, bool trans) {
     eg_emu_warp* w = eg_emu_cur_warp;
     w->ptr[eg_emu_lane] = row;
-    w->bar.arrive_and_wait();
+    w->sync(0xffffffffu, eg_emu_lane);
     for (int j = 0; j < 4; ++j) {
         uint16_t h[2];
         for (int k = 0; k < 2; ++k) {
@@ -427,7 +613,7 @@ inline void eg_emu_ldmatrix_x4(uint32_t r[4], const void* row, bool trans) {
         }
         r[j] = h[0] | ((uint32_t)h[1] << 16);
     }
-    w->bar.arrive_and_wait();
+    w->sync(0xffffffffu, eg_emu_lane);
 }
 
 inline float eg_emu_bf16(uint32_t reg, int half) { return __uint_as_float((half ? reg >> 16 : reg & 0xffffu) << 16); }
@@ -443,7 +629,7 @@ inline void eg_emu_mma_16816(float d[4], const uint32_t a[4], const uint32_t b[2
     for (int i = 0; i < 4; ++i) mine[i] = a[i];
     mine[4] = b[0];
     mine[5] = b[1];
-    w->bar.arrive_and_wait();
+    w->sync(0xffffffffu, eg_emu_lane);
     auto A = [&](int row, int col) {
         int lane = (row % 8) * 4 + (col % 8) / 2;
         int reg = (row / 8) + 2 * (col / 8);
@@ -461,7 +647,7 @@ inline void eg_emu_mma_16816(float d[4], const uint32_t a[4], const uint32_t b[2
         for (int k = 0; k < 16; ++k) acc += A(row, k) * B(k, col);
         out[i] = acc;
     }
-    w->bar.arrive_and_wait();
+    w->sync(0xffffffffu, eg_emu_lane);
     for (int i = 0; i < 4; ++i) d[i] = out[i];
 }
 
@@ -481,7 +667,7 @@ inline void eg_emu_mma_e4m3_16832(float d[4], const uint32_t a[4], const uint32_
     for (int i = 0; i < 4; ++i) mine[i] = a[i];
     mine[4] = b[0];
     mine[5] = b[1];
-    w->bar.arrive_and_wait();
+    w->sync(0xffffffffu, eg_emu_lane);
     auto A = [&](int row, int col) {
         int lane = (row % 8) * 4 + (col % 16) / 4;
         int reg = (row / 8) + 2 * (col / 16);
@@ -499,33 +685,56 @@ inline void eg_emu_mma_e4m3_16832(float d[4], const uint32_t a[4], const uint32_
         for (int k = 0; k < 32; ++k) acc += A(row, k) * B(k, col);
         out[i] = acc;
     }
-    w->bar.arrive_and_wait();
+    w->sync(0xffffffffu, eg_emu_lane);
     for (int i = 0; i < 4; ++i) d[i] = out[i];
 }
 
-// eg_emu_wgmma_bf16_math is wgmma.mma_async m64nNk16 f32.bf16.bf16, d +=
-// A·B, for one thread's elements, with A and B K-major in shared memory
-// under no-swizzle descriptors: element (r, k) of a matrix is at start +
-// (r/8)·SBO + (k/8)·LBO + (r%8)·16 + (k%8)·2. Thread i of the warpgroup
-// holds d[nt*4 + j] = D[(i/32%4)*16 + lane/4 + 8(j/2)][nt*8 + 2(lane%4) +
-// (j&1)], n/2 values. Operands come from shared memory, so each thread
-// computes its own elements.
-inline void eg_emu_wgmma_bf16_math(float* d, uint64_t da, uint64_t db, int n) {
-    auto at = [](uint64_t desc, int r, int k) {
-        const unsigned char* base = eg_emu_dynamic_smem() + ((desc & 0x3fff) << 4);
-        const uint64_t lbo = ((desc >> 16) & 0x3fff) << 4, sbo = ((desc >> 32) & 0x3fff) << 4;
-        uint16_t h;
-        std::memcpy(&h, base + (r / 8) * sbo + (k / 8) * lbo + (r % 8) * 16 + (k % 8) * 2, 2);
-        return eg_emu_bf16(h, 0);
-    };
-    const int wig = (threadIdx.x / 32) % 4, g = eg_emu_lane / 4, t = eg_emu_lane % 4;
-    for (int nt = 0; nt < n / 8; ++nt)
-        for (int i = 0; i < 4; ++i) {
-            const int row = wig * 16 + g + 8 * (i / 2), col = nt * 8 + 2 * t + (i & 1);
-            float acc = d[nt * 4 + i];
-            for (int k = 0; k < 16; ++k) acc += at(da, row, k) * at(db, col, k);
-            d[nt * 4 + i] = acc;
-        }
+enum eg_emu_wg_kind {
+    eg_emu_wg_kind_bf16 = 0,
+    eg_emu_wg_kind_f16 = 1,
+    eg_emu_wg_kind_e4m3 = 2,
+};
+
+inline uint32_t eg_emu_wgmma_swizzle(uint32_t offset, uint64_t desc) {
+    switch ((desc >> 62) & 3u) {
+    case 1: return offset ^ (((offset >> 7) & 7u) << 4);  // 128B swizzle
+    case 2: return offset ^ (((offset >> 7) & 3u) << 4);  // 64B swizzle
+    case 3: return offset ^ (((offset >> 7) & 1u) << 4);  // 32B swizzle
+    default: return offset;                               // no swizzle
+    }
+}
+
+inline uint64_t eg_emu_wgmma_desc(size_t start, size_t lbo, size_t sbo, uint64_t swizzle = 0) {
+    return (uint64_t)((start >> 4) & 0x3fff) | ((uint64_t)((lbo >> 4) & 0x3fff) << 16) |
+           ((uint64_t)((sbo >> 4) & 0x3fff) << 32) | ((swizzle & 3u) << 62);
+}
+
+inline uint64_t eg_emu_wgmma_desc_128b(const void* smem_ptr, uint32_t sbo) {
+    const size_t start = (const unsigned char*)smem_ptr - eg_emu_dynamic_smem();
+    return eg_emu_wgmma_desc(start, 16, sbo, 1);
+}
+
+inline float eg_emu_wgmma_smem_elem(eg_emu_wg_kind kind, uint64_t desc, int r, int k, bool mn_major) {
+    const unsigned char* smem = eg_emu_dynamic_smem();
+    const uint32_t start = (uint32_t)(desc & 0x3fff) << 4;
+    const uint32_t lbo = (uint32_t)((desc >> 16) & 0x3fff) << 4;
+    const uint32_t sbo = (uint32_t)((desc >> 32) & 0x3fff) << 4;
+    const uint32_t swz = (uint32_t)((desc >> 62) & 3u);
+    const uint32_t w = swz ? (128u >> (swz - 1)) : 16u;
+    const uint32_t eb = (kind == eg_emu_wg_kind_e4m3) ? 1u : 2u;
+    uint32_t off;
+    if (!mn_major) {
+        const uint32_t b = (uint32_t)k * eb;
+        off = start + (uint32_t)(r / 8) * sbo + (b / w) * lbo + (uint32_t)(r % 8) * w + (b % w);
+    } else {
+        const uint32_t b = (uint32_t)r * eb;
+        off = start + (uint32_t)(k / 8) * sbo + (b / w) * lbo + (uint32_t)(k % 8) * w + (b % w);
+    }
+    off = eg_emu_wgmma_swizzle(off, desc);
+    if (kind == eg_emu_wg_kind_e4m3) return eg_emu_e4m3(smem[off]);
+    uint16_t h;
+    std::memcpy(&h, smem + off, 2);
+    return (kind == eg_emu_wg_kind_f16) ? eg_emu_f16(h, 0) : eg_emu_bf16(h, 0);
 }
 
 // wgmma is asynchronous on the GPU: mma_async returns at once, and the
@@ -542,9 +751,14 @@ inline void eg_emu_wgmma_bf16_math(float* d, uint64_t da, uint64_t db, int n) {
 // that returns with ops pending is an error. Without eg_emu_wgmma_fence, or
 // with EG_EMU_SYNC_WGMMA defined, mma_async completes at once.
 struct eg_emu_wg_op {
+    eg_emu_wg_kind kind;
     float* d;
     uint64_t da, db;
     int n, group;
+    bool trans_a, trans_b;
+    int scale_d;
+    bool has_reg_a;
+    float a_rows[2][32];
 };
 struct eg_emu_wg_acc {
     float* d;
@@ -556,27 +770,117 @@ inline thread_local std::vector<eg_emu_wg_op> eg_emu_wg_pending;
 inline thread_local std::vector<eg_emu_wg_acc> eg_emu_wg_accs;
 inline thread_local int eg_emu_wg_committed;
 
+// eg_emu_wgmma_math computes wgmma.mma_async m64nNk16 (bf16/f16) or m64nNk32
+// (e4m3) for one thread's elements. Thread i of the warpgroup holds
+// d[nt*4 + j] = D[(i/32%4)*16 + lane/4 + 8(j/2)][nt*8 + 2(lane%4) + (j&1)],
+// n/2 values.
+inline void eg_emu_wgmma_math(float* d, const eg_emu_wg_op& op) {
+    const int wig = (threadIdx.x / 32) % 4, g = eg_emu_lane / 4, t = eg_emu_lane % 4;
+    const int K = (op.kind == eg_emu_wg_kind_e4m3) ? 32 : 16;
+    for (int nt = 0; nt < op.n / 8; ++nt)
+        for (int i = 0; i < 4; ++i) {
+            const int row = wig * 16 + g + 8 * (i / 2), col = nt * 8 + 2 * t + (i & 1);
+            float acc = op.scale_d ? d[nt * 4 + i] : 0.0f;
+            for (int k = 0; k < K; ++k) {
+                float av = op.has_reg_a ? op.a_rows[i / 2][k]
+                                        : eg_emu_wgmma_smem_elem(op.kind, op.da, row, k, op.trans_a);
+                float bv = eg_emu_wgmma_smem_elem(op.kind, op.db, col, k, op.trans_b);
+                acc += av * bv;
+            }
+            d[nt * 4 + i] = acc;
+        }
+}
+
+inline void eg_emu_wgmma_bf16_math(float* d, uint64_t da, uint64_t db, int n) {
+    eg_emu_wg_op op{eg_emu_wg_kind_bf16, d, da, db, n, -1, false, false, 1, false, {}};
+    eg_emu_wgmma_math(d, op);
+}
+
 inline void eg_emu_wgmma_fence() {
 #if !defined(EG_EMU_SYNC_WGMMA)
     eg_emu_wg_async = true;
 #endif
 }
 
-inline void eg_emu_wgmma_bf16(float* d, uint64_t da, uint64_t db, int n) {
+inline void eg_emu_wgmma_issue(eg_emu_wg_op op) {
     if (!eg_emu_wg_async) {
-        eg_emu_wgmma_bf16_math(d, da, db, n);
+        eg_emu_wgmma_math(op.d, op);
         return;
     }
     eg_emu_wg_acc* a = nullptr;
     for (auto& x : eg_emu_wg_accs)
-        if (x.d == d) a = &x;
+        if (x.d == op.d) a = &x;
     if (!a) {
-        eg_emu_wg_accs.push_back({d, std::vector<float>(d, d + n / 2), 0});
+        eg_emu_wg_accs.push_back({op.d, std::vector<float>(op.d, op.d + op.n / 2), 0});
         a = &eg_emu_wg_accs.back();
     }
     ++a->pending;
-    std::fill(d, d + n / 2, NAN);
-    eg_emu_wg_pending.push_back({d, da, db, n, -1});
+    std::fill(op.d, op.d + op.n / 2, NAN);
+    op.group = -1;
+    eg_emu_wg_pending.push_back(op);
+}
+
+inline void eg_emu_wgmma_fill_reg_a(eg_emu_wg_op& op, const uint32_t a[4]) {
+    eg_emu_warp* w = eg_emu_cur_warp;
+    for (int i = 0; i < 4; ++i) w->regs[eg_emu_lane][i] = a[i];
+    w->sync(0xffffffffu, eg_emu_lane);
+    const int g = eg_emu_lane / 4;
+    if (op.kind == eg_emu_wg_kind_e4m3) {
+        for (int r = 0; r < 2; ++r)
+            for (int k = 0; k < 32; ++k) {
+                int lane = g * 4 + (k % 16) / 4;
+                int reg = r + 2 * (k / 16);
+                op.a_rows[r][k] = eg_emu_e4m3((w->regs[lane][reg] >> (8 * (k % 4))) & 0xffu);
+            }
+    } else {
+        for (int r = 0; r < 2; ++r)
+            for (int k = 0; k < 16; ++k) {
+                int lane = g * 4 + (k % 8) / 2;
+                int reg = r + 2 * (k / 8);
+                uint32_t word = w->regs[lane][reg];
+                op.a_rows[r][k] = (op.kind == eg_emu_wg_kind_f16) ? eg_emu_f16(word, k & 1) : eg_emu_bf16(word, k & 1);
+            }
+    }
+    w->sync(0xffffffffu, eg_emu_lane);
+}
+
+inline void eg_emu_wgmma_bf16(float* d, uint64_t da, uint64_t db, int n, int trans_a = 0, int trans_b = 0, int scale_d = 1) {
+    eg_emu_wgmma_issue({eg_emu_wg_kind_bf16, d, da, db, n, -1, trans_a != 0, trans_b != 0, scale_d, false, {}});
+}
+inline void eg_emu_wgmma_f16(float* d, uint64_t da, uint64_t db, int n, int trans_a = 0, int trans_b = 0, int scale_d = 1) {
+    eg_emu_wgmma_issue({eg_emu_wg_kind_f16, d, da, db, n, -1, trans_a != 0, trans_b != 0, scale_d, false, {}});
+}
+inline void eg_emu_wgmma_e4m3(float* d, uint64_t da, uint64_t db, int n, int scale_d = 1) {
+    eg_emu_wgmma_issue({eg_emu_wg_kind_e4m3, d, da, db, n, -1, false, false, scale_d, false, {}});
+}
+
+inline void eg_emu_wgmma_rs_bf16(float* d, const uint32_t a[4], uint64_t db, int n, int trans_b = 0, int scale_d = 1) {
+    eg_emu_wg_op op{eg_emu_wg_kind_bf16, d, 0, db, n, -1, false, trans_b != 0, scale_d, true, {}};
+    eg_emu_wgmma_fill_reg_a(op, a);
+    eg_emu_wgmma_issue(op);
+}
+inline void eg_emu_wgmma_rs_f16(float* d, const uint32_t a[4], uint64_t db, int n, int trans_b = 0, int scale_d = 1) {
+    eg_emu_wg_op op{eg_emu_wg_kind_f16, d, 0, db, n, -1, false, trans_b != 0, scale_d, true, {}};
+    eg_emu_wgmma_fill_reg_a(op, a);
+    eg_emu_wgmma_issue(op);
+}
+inline void eg_emu_wgmma_rs_e4m3(float* d, const uint32_t a[4], uint64_t db, int n, int scale_d = 1) {
+    eg_emu_wg_op op{eg_emu_wg_kind_e4m3, d, 0, db, n, -1, false, false, scale_d, true, {}};
+    eg_emu_wgmma_fill_reg_a(op, a);
+    eg_emu_wgmma_issue(op);
+}
+
+template <typename Ptr, std::enable_if_t<std::is_pointer_v<Ptr>, int> = 0>
+inline void eg_emu_wgmma_bf16(float* d, Ptr a, uint64_t db, int n, int trans_b = 0, int scale_d = 1) {
+    eg_emu_wgmma_rs_bf16(d, a, db, n, trans_b, scale_d);
+}
+template <typename Ptr, std::enable_if_t<std::is_pointer_v<Ptr>, int> = 0>
+inline void eg_emu_wgmma_f16(float* d, Ptr a, uint64_t db, int n, int trans_b = 0, int scale_d = 1) {
+    eg_emu_wgmma_rs_f16(d, a, db, n, trans_b, scale_d);
+}
+template <typename Ptr, std::enable_if_t<std::is_pointer_v<Ptr>, int> = 0>
+inline void eg_emu_wgmma_e4m3(float* d, Ptr a, uint64_t db, int n, int scale_d = 1) {
+    eg_emu_wgmma_rs_e4m3(d, a, db, n, scale_d);
 }
 
 inline void eg_emu_wgmma_commit() {
@@ -595,7 +899,7 @@ inline void eg_emu_wgmma_wait(int n) {
             continue;
         }
         auto a = std::find_if(eg_emu_wg_accs.begin(), eg_emu_wg_accs.end(), [&](auto& x) { return x.d == op.d; });
-        eg_emu_wgmma_bf16_math(a->value.data(), op.da, op.db, op.n);
+        eg_emu_wgmma_math(a->value.data(), op);
         if (--a->pending == 0) {
             std::copy(a->value.begin(), a->value.end(), op.d);
             eg_emu_wg_accs.erase(a);
@@ -736,7 +1040,20 @@ void eg_emu_run(dim3 grid, dim3 block, size_t smem, int cluster, F body) {
                         std::fflush(stderr);
                         std::_Exit(3);
                     }
-                    eg_emu_cur_warp->bar.arrive_and_drop();
+                    {
+                        std::lock_guard<std::mutex> lock(b.bar_mu);
+                        --b.live_threads;
+                        for (int j = 0; j < 16; ++j) {
+                            auto& m = b.named[j];
+                            if (m.arrived > 0 && (b.live_threads < m.expected || b.waiting_named == b.live_threads)) {
+                                std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) named barrier %d incomplete (%d of %d threads arrived before exit)\n",
+                                             blockIdx.x, blockIdx.y, blockIdx.z, j, m.arrived, m.expected);
+                                std::fflush(stderr);
+                                std::_Exit(3);
+                            }
+                        }
+                    }
+                    eg_emu_cur_warp->drop(eg_emu_lane);
                     b.bar.arrive_and_drop();
                     cl.bar.arrive_and_drop();
                 });
