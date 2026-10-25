@@ -13,7 +13,10 @@
 // weights. [Eval] is their CPU reference. [Optimize] saturates them with
 // [Rules] and [FuseEpilogues] (maps folded into a GEMM's epilogue) and
 // extracts by [Cost]; [Compile] lowers the result to a [Plan] of
-// [SkinnyGEMM], [TileGEMM] and [RowKernel] launches.
+// [SkinnyGEMM], [TileGEMM] and [RowKernel] launches. For wide rows, setting
+// [RowKernel.Cluster] emits an 8-CTA distributed shared memory reduction
+// schedule with a matching single-block wide schedule for large batches, and
+// [SourceTVMFFI] emits TVM-FFI host wrapper headers for load_jit.
 //
 // Kernels that terms do not yet describe are emitted directly:
 // [PagedAttention] (paged FP8 split-KV attention), [RowTopK] (biased top-k

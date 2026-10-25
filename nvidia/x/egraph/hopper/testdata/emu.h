@@ -26,8 +26,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <memory>
+#include <set>
+#include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #define __global__
@@ -56,6 +60,7 @@ constexpr unsigned char eg_emu_smem_fill = 0;
 constexpr unsigned char eg_emu_smem_fill = 0xff;
 #endif
 #define __launch_bounds__(...)
+#define __cluster_dims__(...)
 
 struct dim3 {
     unsigned x = 1, y = 1, z = 1;
@@ -80,12 +85,71 @@ struct eg_emu_block {
     std::barrier<> bar;
     std::vector<std::unique_ptr<eg_emu_warp>> warps;
     std::vector<unsigned char> smem;
+    std::map<std::string, std::vector<unsigned char>> named_smem;
     explicit eg_emu_block(int n) : bar(n) {}
 };
 
+struct eg_emu_cluster {
+    std::barrier<> bar;
+    std::vector<std::unique_ptr<eg_emu_block>> blocks;
+    explicit eg_emu_cluster(int n) : bar(n) {}
+};
+
 inline thread_local eg_emu_block* eg_emu_cur_block;
+inline thread_local eg_emu_cluster* eg_emu_cur_cluster;
+inline thread_local int eg_emu_cluster_rank;
 inline thread_local eg_emu_warp* eg_emu_cur_warp;
 inline thread_local int eg_emu_lane;
+inline std::mutex eg_emu_smem_mu;
+
+template <typename A>
+A* eg_emu_shared(const char* key) {
+    std::lock_guard<std::mutex> lock(eg_emu_smem_mu);
+    auto& b = eg_emu_cur_block->named_smem[key];
+    if (b.empty()) b.assign(sizeof(A), eg_emu_smem_fill);
+    return reinterpret_cast<A*>(b.data());
+}
+#define EG_EMU_STR2(x) #x
+#define EG_EMU_STR(x) EG_EMU_STR2(x)
+#define EG_EMU_SHARED(T, name, dims) T (&name) dims = *eg_emu_shared<T dims>(#name ":" EG_EMU_STR(__LINE__))
+
+inline void eg_emu_cluster_sync() {
+    if (!eg_emu_cur_cluster) {
+        std::fprintf(stderr, "emu: cluster_sync outside cluster\n");
+        std::_Exit(3);
+    }
+    eg_emu_cur_cluster->bar.arrive_and_wait();
+}
+
+template <typename T>
+T* eg_emu_map_shared_rank(T* p, int r) {
+    std::lock_guard<std::mutex> lock(eg_emu_smem_mu);
+    if (!eg_emu_cur_cluster || r < 0 || r >= (int)eg_emu_cur_cluster->blocks.size()) {
+        std::fprintf(stderr, "emu: map_shared_rank(%d) outside cluster\n", r);
+        std::_Exit(3);
+    }
+    eg_emu_block* own = eg_emu_cur_cluster->blocks[eg_emu_cluster_rank].get();
+    eg_emu_block* dst = eg_emu_cur_cluster->blocks[r].get();
+    for (auto& [key, vec] : own->named_smem) {
+        unsigned char* base = vec.data();
+        size_t off = (size_t)((unsigned char*)p - base);
+        if ((unsigned char*)p >= base && off < vec.size()) {
+            auto& target = dst->named_smem[key];
+            if (target.empty()) target.assign(vec.size(), eg_emu_smem_fill);
+            return reinterpret_cast<T*>(target.data() + off);
+        }
+    }
+    std::fprintf(stderr, "emu: map_shared_rank of non-EG_SHARED memory\n");
+    std::_Exit(3);
+}
+
+namespace cooperative_groups {
+struct cluster_group {
+    void sync() const { eg_emu_cluster_sync(); }
+    template <typename T> T* map_shared_rank(T* p, int r) const { return eg_emu_map_shared_rank(p, r); }
+};
+inline cluster_group this_cluster() { return {}; }
+}  // namespace cooperative_groups
 
 inline void __syncthreads() { eg_emu_cur_block->bar.arrive_and_wait(); }
 inline void __syncwarp(unsigned = 0xffffffffu) { eg_emu_cur_warp->bar.arrive_and_wait(); }
@@ -459,8 +523,67 @@ template <typename K> cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(
 // launchers that size it.
 inline dim3 eg_emu_last_grid;
 
+// eg_emu_cluster_kernels holds kernels that eg_emu_launch runs as 8-CTA clusters.
+inline std::set<const void*> eg_emu_cluster_kernels;
+
+template <typename K, typename... Args>
+void eg_emu_launch_cluster(dim3 grid, dim3 block, size_t smem, int cluster_size, K kernel, Args... args) {
+    eg_emu_last_grid = grid;
+    gridDim = grid;
+    blockDim = block;
+    int n = block.x * block.y * block.z;
+    if (grid.x % cluster_size != 0 || cluster_size < 1) {
+        std::fprintf(stderr, "emu: grid.x %u not a multiple of cluster %d\n", grid.x, cluster_size);
+        std::_Exit(3);
+    }
+    for (unsigned bz = 0; bz < grid.z; ++bz)
+    for (unsigned by = 0; by < grid.y; ++by)
+    for (unsigned cx = 0; cx < grid.x; cx += cluster_size) {
+        eg_emu_cluster cl(cluster_size * n);
+        for (int r = 0; r < cluster_size; ++r) {
+            cl.blocks.emplace_back(new eg_emu_block(n));
+            cl.blocks.back()->smem.assign(smem + 16, eg_emu_smem_fill);
+            for (int w = 0; w * 32 < n; ++w)
+                cl.blocks.back()->warps.emplace_back(new eg_emu_warp(std::min(32, n - 32 * w)));
+        }
+        std::vector<std::thread> threads;
+        for (int r = 0; r < cluster_size; ++r) {
+            for (int i = 0; i < n; ++i) {
+                threads.emplace_back([&, r, i] {
+                    unsigned bx = cx + r;
+                    eg_emu_block& b = *cl.blocks[r];
+                    threadIdx = dim3(i % block.x, (i / block.x) % block.y, i / (block.x * block.y));
+                    blockIdx = dim3(bx, by, bz);
+                    eg_emu_cur_block = &b;
+                    eg_emu_cur_cluster = &cl;
+                    eg_emu_cluster_rank = r;
+                    eg_emu_cur_warp = b.warps[i / 32].get();
+                    eg_emu_lane = i % 32;
+                    kernel(args...);
+                    if (!eg_emu_wg_pending.empty()) {
+                        std::fprintf(stderr, "emu: block (%u,%u,%u) thread %d returned with %zu wgmma ops pending (no wgmma.wait_group)\n",
+                                     bx, by, bz, i, eg_emu_wg_pending.size());
+                        std::fflush(stderr);
+                        std::_Exit(3);
+                    }
+                    eg_emu_cur_warp->bar.arrive_and_drop();
+                    b.bar.arrive_and_drop();
+                    cl.bar.arrive_and_drop();
+                });
+            }
+        }
+        for (auto& t : threads) t.join();
+    }
+}
+
 template <typename K, typename... Args>
 void eg_emu_launch(dim3 grid, dim3 block, size_t smem, K kernel, Args... args) {
+    if constexpr (std::is_pointer_v<std::decay_t<K>>) {
+        if (eg_emu_cluster_kernels.count(reinterpret_cast<const void*>(kernel))) {
+            eg_emu_launch_cluster(grid, block, smem, 8, kernel, args...);
+            return;
+        }
+    }
     eg_emu_last_grid = grid;
     gridDim = grid;
     blockDim = block;

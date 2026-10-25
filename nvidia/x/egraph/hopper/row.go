@@ -27,6 +27,20 @@ type RowKernel struct {
 	Inputs  []RowTensor
 	Values  []RowValue
 	Outputs []RowTensor
+
+	// Cluster emits <Name>_cluster (an 8-CTA DSMEM cluster kernel launched
+	// for rows <= ClusterMaxRows) and <Name>_wide (one wide block per row,
+	// reducing the 8 warp-groups in the cluster's exact floating-point
+	// association order, launched for rows > ClusterMaxRows). D must be a
+	// multiple of 256.
+	Cluster        bool
+	ClusterMaxRows int // 0 means ClusterMaxRows (64)
+
+	// Slots, when > 0, makes each output row r accumulate over Slots
+	// consecutive input rows r*Slots+k (0 <= k < Slots), skipping slots
+	// where SlotIDs[r*Slots+k] < 0.
+	Slots   int
+	SlotIDs string
 }
 
 // A RowKind says how a tensor is indexed by row r and column c.
@@ -46,7 +60,8 @@ type RowTensor struct {
 	Kind  RowKind
 	Value string // outputs: the value stored
 
-	Offset, Group, GroupStride, RowStride int    // RowData addressing; zero strides mean D
+	Offset, Group, GroupStride, RowStride int    // RowData addressing; zero strides mean D (or Padded)
+	Padded                                int    // RowData inputs: when > 0, valid columns before zero-padding to D
 	Index                                 string // outputs: optional I64 or I32 row-group index tensor
 	IndexDType                            DType
 
@@ -126,6 +141,9 @@ func (k RowKernel) check() (map[string]rowSym, error) {
 		if in.Kind < RowData || in.Kind > Scalar {
 			return nil, fmt.Errorf("row kernel %s: input %s has no kind", k.Name, in.Name)
 		}
+		if in.Padded < 0 || in.Padded > k.D || in.Padded != 0 && in.Kind != RowData {
+			return nil, fmt.Errorf("row kernel %s: bad padded width %d for input %s", k.Name, in.Padded, in.Name)
+		}
 		if err := define(in.Name, rowSym{vector: in.Kind == RowData || in.Kind == ColVector, tensor: in}); err != nil {
 			return nil, err
 		}
@@ -174,7 +192,7 @@ func (k RowKernel) check() (map[string]rowSym, error) {
 	_, _, vec := k.geometry()
 	for _, t := range append(append([]RowTensor(nil), k.Inputs...), k.Outputs...) {
 		gs, rs := t.strides(k.D)
-		if t.Kind == RowData && (t.Offset%vec != 0 || gs%vec != 0 || rs%vec != 0) {
+		if t.Kind == RowData && (t.Offset%vec != 0 || gs%vec != 0 || rs%vec != 0 || t.Padded%vec != 0) {
 			return nil, fmt.Errorf("row kernel %s: %s offset and strides must be multiples of %d", k.Name, t.Name, vec)
 		}
 	}
@@ -182,6 +200,9 @@ func (k RowKernel) check() (map[string]rowSym, error) {
 		o := &k.Outputs[i]
 		if o.Buffer != "" {
 			return nil, fmt.Errorf("row kernel %s: output %s cannot name a buffer", k.Name, o.Name)
+		}
+		if o.Padded != 0 {
+			return nil, fmt.Errorf("row kernel %s: output %s cannot be padded", k.Name, o.Name)
 		}
 		if _, ok := buffers[o.Name]; ok {
 			return nil, fmt.Errorf("row kernel %s: output %s is also an input buffer", k.Name, o.Name)
@@ -208,6 +229,9 @@ func (k RowKernel) check() (map[string]rowSym, error) {
 			}
 		}
 	}
+	if err := k.checkCluster(syms); err != nil {
+		return nil, err
+	}
 	return syms, nil
 }
 
@@ -221,7 +245,11 @@ func (t RowTensor) group() int {
 func (t RowTensor) strides(d int) (gs, rs int) {
 	gs, rs = t.GroupStride, t.RowStride
 	if rs == 0 {
-		rs = d
+		if t.Padded > 0 {
+			rs = t.Padded
+		} else {
+			rs = d
+		}
 	}
 	if gs == 0 {
 		gs = rs * t.group()
@@ -275,16 +303,38 @@ func (k RowKernel) params() []string {
 
 // CUDA returns the kernel source (without [Prelude]):
 // __global__ void Name(int rows, inputs..., outputs and their indices...).
+// When Cluster is set, it also includes [ClusterPrelude], Name_cluster and
+// Name_wide.
 func (k RowKernel) CUDA() (string, error) {
 	body, err := k.body()
 	if err != nil {
 		return "", err
 	}
 	var b strings.Builder
+	if k.Cluster || k.Slots > 0 {
+		b.WriteString(ClusterPrelude)
+		b.WriteString("\n")
+	}
 	fmt.Fprintf(&b, "// %s: row kernel over rows of %d values.\n", k.Name, k.D)
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(256) %s(\n    %s) {\n", k.Name, strings.Join(k.params(), ",\n    "))
 	b.WriteString(body)
 	b.WriteString("}\n")
+	if k.Cluster {
+		csrc, err := k.ClusterCUDA()
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("\n")
+		b.WriteString(csrc)
+		if k.HasWide() {
+			wsrc, err := k.WideCUDA()
+			if err != nil {
+				return "", err
+			}
+			b.WriteString("\n")
+			b.WriteString(wsrc)
+		}
+	}
 	return b.String(), nil
 }
 
@@ -294,6 +344,9 @@ func (k RowKernel) body() (string, error) {
 	syms, err := k.check()
 	if err != nil {
 		return "", err
+	}
+	if k.Slots > 0 {
+		return k.slotBody(syms, 0)
 	}
 	threads, per, vec := k.geometry()
 	var b strings.Builder
@@ -313,8 +366,13 @@ func (k RowKernel) body() (string, error) {
 	for _, in := range k.Inputs {
 		switch in.Kind {
 		case RowData:
-			fmt.Fprintf(&b, "    float %s_v[PER];\n    {\n        const %s* p = %s + %s;\n", in.Name, in.DType.cType(), in.buffer(), addr(in, fmt.Sprintf("r / %d", in.group())))
-			b.WriteString("#pragma unroll\n        for (int j = 0; j < PER; j += VEC) eg_load<VEC>(p + EG_COL(j), &" + in.Name + "_v[j]);\n    }\n")
+			if in.Padded > 0 {
+				fmt.Fprintf(&b, "    float %s_v[PER] = {};\n    {\n        const %s* p = %s + %s;\n", in.Name, in.DType.cType(), in.buffer(), addr(in, fmt.Sprintf("r / %d", in.group())))
+				fmt.Fprintf(&b, "#pragma unroll\n        for (int j = 0; j < PER; j += VEC) if (EG_COL(j) < %d) eg_load<VEC>(p + EG_COL(j), &%s_v[j]);\n    }\n", in.Padded, in.Name)
+			} else {
+				fmt.Fprintf(&b, "    float %s_v[PER];\n    {\n        const %s* p = %s + %s;\n", in.Name, in.DType.cType(), in.buffer(), addr(in, fmt.Sprintf("r / %d", in.group())))
+				b.WriteString("#pragma unroll\n        for (int j = 0; j < PER; j += VEC) eg_load<VEC>(p + EG_COL(j), &" + in.Name + "_v[j]);\n    }\n")
+			}
 		case ColVector:
 			fmt.Fprintf(&b, "    float %s_v[PER];\n", in.Name)
 			fmt.Fprintf(&b, "#pragma unroll\n    for (int j = 0; j < PER; j += VEC) eg_load<VEC>(%s + %d + EG_COL(j), &%s_v[j]);\n", in.buffer(), in.Offset, in.Name)
@@ -409,6 +467,9 @@ func (k RowKernel) Launcher() (string, error) {
 	if _, err := k.check(); err != nil {
 		return "", err
 	}
+	if k.Cluster {
+		return k.clusterLauncher(), nil
+	}
 	return launcher(k.Name, k.params(), func(b *strings.Builder) {
 		threads, _, _ := k.geometry()
 		if threads == 32 {
@@ -461,7 +522,7 @@ func (k RowKernel) Reference(rows int, bufs map[string][]float64) error {
 		}
 	}
 	D := k.D
-	for r := 0; r < rows; r++ {
+	evalRow := func(sr int) map[string][]float32 {
 		vec := make(map[string][]float32)
 		sca := make(map[string]float32)
 		for _, in := range k.Inputs {
@@ -469,9 +530,13 @@ func (k RowKernel) Reference(rows int, bufs map[string][]float64) error {
 			switch in.Kind {
 			case RowData:
 				gs, rs := in.strides(D)
-				base := in.Offset + r/in.group()*gs + r%in.group()*rs
+				base := in.Offset + sr/in.group()*gs + sr%in.group()*rs
 				v := make([]float32, D)
-				for c := range v {
+				valid := D
+				if in.Padded > 0 {
+					valid = in.Padded
+				}
+				for c := 0; c < valid; c++ {
 					v[c] = float32(buf[base+c])
 				}
 				vec[in.Name] = v
@@ -482,7 +547,7 @@ func (k RowKernel) Reference(rows int, bufs map[string][]float64) error {
 				}
 				vec[in.Name] = v
 			case RowScalar:
-				sca[in.Name] = float32(buf[in.Offset+r/in.group()])
+				sca[in.Name] = float32(buf[in.Offset+sr/in.group()])
 			case Scalar:
 				sca[in.Name] = float32(buf[in.Offset])
 			}
@@ -531,6 +596,33 @@ func (k RowKernel) Reference(rows int, bufs map[string][]float64) error {
 			default:
 				sca[v.Name] = at(0)
 			}
+		}
+		return vec
+	}
+	for r := 0; r < rows; r++ {
+		var vec map[string][]float32
+		if k.Slots > 0 {
+			vec = make(map[string][]float32)
+			for _, o := range k.Outputs {
+				vec[o.Value] = make([]float32, D)
+			}
+			for slot := 0; slot < k.Slots; slot++ {
+				sr := r*k.Slots + slot
+				if k.SlotIDs != "" {
+					idIn := syms[k.SlotIDs].tensor
+					if bufs[idIn.buffer()][idIn.Offset+sr/idIn.group()] < 0 {
+						continue
+					}
+				}
+				sv := evalRow(sr)
+				for _, o := range k.Outputs {
+					for c, f := range sv[o.Value] {
+						vec[o.Value][c] += f
+					}
+				}
+			}
+		} else {
+			vec = evalRow(r)
 		}
 		for _, o := range k.Outputs {
 			g := r / o.group()
