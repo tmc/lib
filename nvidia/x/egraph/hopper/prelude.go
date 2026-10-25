@@ -275,20 +275,26 @@ EG_DEV void eg_fence_proxy_async() {
 }
 
 EG_DEV void eg_wgmma_fence() {
-#if !defined(EG_HOST_EMU)
+#if defined(EG_HOST_EMU)
+    eg_emu_wgmma_fence();
+#else
     asm volatile("wgmma.fence.sync.aligned;" ::: "memory");
 #endif
 }
 
 EG_DEV void eg_wgmma_commit() {
-#if !defined(EG_HOST_EMU)
+#if defined(EG_HOST_EMU)
+    eg_emu_wgmma_commit();
+#else
     asm volatile("wgmma.commit_group.sync.aligned;" ::: "memory");
 #endif
 }
 
 // eg_wgmma_wait waits until at most n wgmma groups are pending.
 template <int n> EG_DEV void eg_wgmma_wait() {
-#if !defined(EG_HOST_EMU)
+#if defined(EG_HOST_EMU)
+    eg_emu_wgmma_wait(n);
+#else
     asm volatile("wgmma.wait_group.sync.aligned %0;" :: "n"(n) : "memory");
 #endif
 }
