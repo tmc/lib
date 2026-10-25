@@ -23,9 +23,9 @@ func ExampleSolve() {
 	//     const uint32_t t2 = __funnelshift_l(q[0], q[0], 10);
 	//     const uint32_t t3 = q[0] << 6;
 	//     const uint32_t t4 = q[0] >> 2;
-	//     a[0] = (t3 & 0x80c080c0u) | (t4 & 0x01000100u);
-	//     a[1] = (q[0] & 0x81c081c0u);
-	//     a[2] = (t1 & 0x81c081c0u);
-	//     a[3] = (t2 & 0x81c081c0u);
+	//     a[0] = (q[0] & 0x81c081c0u);
+	//     a[1] = (t1 & 0x81c081c0u);
+	//     a[2] = (t2 & 0x81c081c0u);
+	//     a[3] = (t3 & 0x80c080c0u) | (t4 & 0x01000100u);
 	// }
 }

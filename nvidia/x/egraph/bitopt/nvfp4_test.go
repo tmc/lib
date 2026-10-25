@@ -1,7 +1,11 @@
 package bitopt
 
 import (
+	"errors"
+	"flag"
+	"math/rand/v2"
 	"runtime"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -127,5 +131,58 @@ func TestNVFP4Exhaustive(t *testing.T) {
 	wg.Wait()
 	if bad.Load() != 0 {
 		t.Fatalf("%d code words differ, first %#08x", bad.Load(), first.Load())
+	}
+}
+
+var long = flag.Bool("long", false, "run searches that take minutes")
+
+// nvfp4x2 is nvfp4 for two words a lane loads together, packed jointly.
+var nvfp4x2 = Problem{Words: 2, Outputs: slices.Repeat(nvfp4.Outputs, 2)}
+
+// TestNVFP4TwoWords finds a 16-instruction program for two words, 8 per
+// word against 9 for one, and checks it on random code words against
+// moe.cu's dequant11 applied to each word.
+func TestNVFP4TwoWords(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping a seconds-long search in -short mode")
+	}
+	s := newSearcher(nvfp4x2)
+	s.cover = newCoverer(s)
+	sol := s.solve(16)
+	if sol == nil {
+		t.Fatal("no program of cost 16")
+	}
+	if err := sol.Check(); err != nil {
+		t.Fatal(err)
+	}
+	if sol.Cost() != 16 {
+		t.Errorf("cost %d, want 16", sol.Cost())
+	}
+	t.Logf("\n%s", sol.CUDA("dequant16"))
+	r := rand.New(rand.NewPCG(7, 8))
+	for range 1 << 16 {
+		x := [2]uint32{r.Uint32(), r.Uint32()}
+		got := sol.Eval(sol.Pack(append(codeFields(x[0]), codeFields(x[1])...)))
+		w0, w1 := dequant11(packOld(x[0])), dequant11(packOld(x[1]))
+		if want := append(w0[:], w1[:]...); !slices.Equal(got, want) {
+			t.Fatalf("codes %#08x: got %#08x, want %#08x", x, got, want)
+		}
+	}
+}
+
+// TestNoNVFP4TwoWordsBelow16 proves that two words need 16 instructions
+// in the model, and 18 without byte permutes: a packing shared by two
+// words saves one instruction per word only through PRMT.
+func TestNoNVFP4TwoWordsBelow16(t *testing.T) {
+	if !*long {
+		t.Skip("takes about five minutes; run with -long")
+	}
+	if _, err := Solve(nvfp4x2, 15); !errors.Is(err, ErrNoProgram) {
+		t.Errorf("Solve(cost 15) = %v, want ErrNoProgram", err)
+	}
+	p := nvfp4x2
+	p.Ops = []Op{Shl, Shr, Funnel}
+	if _, err := Solve(p, 17); !errors.Is(err, ErrNoProgram) {
+		t.Errorf("Solve(no PRMT, cost 17) = %v, want ErrNoProgram", err)
 	}
 }

@@ -134,7 +134,7 @@ func naiveParts(s *searcher, avail []int, parts int) bool {
 	var rec func(k, left int) bool
 	rec = func(k, left int) bool {
 		if k == n {
-			return left == 0 && s.match(make([]int, n), seq(n), nil, nil, sets, s.all) != nil
+			return left == 0 && naiveMatch(s, sets)
 		}
 		var cur []int
 		var comb func(start int) bool
@@ -162,10 +162,40 @@ func naiveParts(s *searcher, avail []int, parts int) bool {
 	return rec(0, parts)
 }
 
-func seq(n int) []int {
-	s := make([]int, n)
-	for i := range s {
-		s[i] = i
+// naiveMatch reports whether every bit of every output can read a
+// distinct input bit through one of the moves in its set.
+func naiveMatch(s *searcher, sets [][]int) bool {
+	var adj [][]int // target -> inputs
+	for k, set := range sets {
+		for _, b := range s.targets[k] {
+			var in []int
+			for _, m := range set {
+				if x := s.src[m][k][b]; x >= 0 {
+					in = append(in, x)
+				}
+			}
+			adj = append(adj, in)
+		}
 	}
-	return s
+	owner := map[int]int{}
+	var aug func(t int, seen map[int]bool) bool
+	aug = func(t int, seen map[int]bool) bool {
+		for _, x := range adj[t] {
+			if seen[x] {
+				continue
+			}
+			seen[x] = true
+			if o, ok := owner[x]; !ok || aug(o, seen) {
+				owner[x] = t
+				return true
+			}
+		}
+		return false
+	}
+	for t := range adj {
+		if !aug(t, map[int]bool{}) {
+			return false
+		}
+	}
+	return true
 }
