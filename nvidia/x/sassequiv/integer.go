@@ -1,6 +1,8 @@
 package sassequiv
 
 import (
+	"fmt"
+	"math/bits"
 	"slices"
 	"strconv"
 	"strings"
@@ -88,12 +90,104 @@ func (x *blockExec) node(l linear) int {
 	if len(atoms) == 1 && l.k == 0 && l.terms[atoms[0]] == 1 {
 		return atoms[0]
 	}
+	// A coefficient with t trailing zeros discards the atom's top t
+	// bits; simplify each atom to the bits that remain.
+	demanded := linear{k: l.k, terms: map[int]uint32{}}
+	changed := false
+	for _, a := range atoms {
+		c := l.terms[a]
+		d := a
+		if tz := bits.TrailingZeros32(c); tz > 0 {
+			d = x.demand(a, 32-tz)
+		}
+		changed = changed || d != a
+		demanded.terms[d] += c
+	}
+	if changed {
+		return x.node(demanded)
+	}
 	var args []int
 	for _, a := range atoms {
 		args = append(args, x.add("term", 0, x.imm(uint64(l.terms[a])), a))
 	}
 	return x.add("lin", len(args), append(args, x.imm(uint64(l.k)))...)
 }
+
+// demand returns a value whose low n bits equal v's, simplified by
+// discarding what the other bits depend on: PRMT bytes and AND masks
+// above bit n.
+func (x *blockExec) demand(v int, n int) int {
+	g := x.fx.g
+	nd := g.nodes[v]
+	low := uint32(1)<<n - 1
+	if n >= 32 {
+		low = ^uint32(0)
+	}
+	switch {
+	case nd.label == "PRMT" && len(nd.args) == 3 && isImm(g, nd.args[1]):
+		sel := x.immVal(nd.args[1])
+		bytes := (n + 7) / 8
+		var out uint32
+		usesA, usesB, identity := false, false, true
+		for k := range bytes {
+			nib := sel >> (4 * k) & 0xf
+			out |= nib << (4 * k)
+			usesA = usesA || nib&7 < 4
+			usesB = usesB || nib&7 >= 4
+			identity = identity && nib == uint32(k)
+		}
+		if identity {
+			return x.demand(nd.args[0], n)
+		}
+		if in := g.nodes[nd.args[0]]; !usesB && in.label == "PRMT" && len(in.args) == 3 && isImm(g, in.args[1]) {
+			// Bytes of a PRMT's bytes: compose the selectors.
+			inner := x.immVal(in.args[1])
+			var sel uint32
+			ok := true
+			for k := range bytes {
+				nib := inner >> (4 * (out >> (4 * k) & 7)) & 0xf
+				ok = ok && out>>(4*k)&8 == 0 && nib < 8
+				sel |= nib << (4 * k)
+			}
+			if ok {
+				return x.demand(x.add("PRMT", 0, in.args[0], x.imm(uint64(sel)), in.args[2]), n)
+			}
+		}
+		a, b := nd.args[0], nd.args[2]
+		if !usesA && usesB {
+			// Only B's bytes: select them from A instead.
+			var sel uint32
+			for k := range bytes {
+				sel |= (out>>(4*k)&0xf - 4) << (4 * k)
+			}
+			return x.demand(x.add("PRMT", 0, b, x.imm(uint64(sel)), x.imm(0)), n)
+		}
+		if !usesA {
+			a = x.imm(0)
+		}
+		if !usesB {
+			b = x.imm(0)
+		}
+		if bytes == 4 {
+			if out == sel && a == nd.args[0] && b == nd.args[2] {
+				return v
+			}
+			return x.add("PRMT", 0, a, x.imm(uint64(out)), b)
+		}
+		return x.add(fmt.Sprintf("PRMT.low%d", bytes*8), 0, a, x.imm(uint64(out)), b)
+	case nd.label == "LOP3.LUT" && len(nd.args) >= 4 && isImm(g, nd.args[1]) && isImm(g, nd.args[3]):
+		m, lut := x.immVal(nd.args[1]), x.immVal(nd.args[3])
+		switch {
+		case lut == 0xc0 && m&low == low: // a & m
+			return x.demand(nd.args[0], n)
+		case lut == 0xfc && m&low == 0: // a | m
+			return x.demand(nd.args[0], n)
+		}
+	}
+	return v
+}
+
+func isImm(g *graph, v int) bool { return strings.HasPrefix(g.nodes[v].label, "imm:") }
 
 // shift returns the shift amount immediate v holds, if it is one below 32.
 func (x *blockExec) shift(v int) (uint32, bool) {
@@ -132,6 +226,33 @@ func (x *blockExec) integer(label string, args []int) (int, bool) {
 			return x.node(a.scale(k).plus(c)), true
 		}
 		return x.node(x.lin(x.add("mul.lo", 2, args[0], args[1])).plus(c)), true
+	case "IADD3.X":
+		// IADD3.X d, a, b, c, cin, cin2: a + b + c + cin + cin2.
+		if len(args) != 5 || x.fx.g.nodes[args[4]].label != "false" {
+			return 0, false
+		}
+		return x.addx(args[:3], args[3]), true
+	case "IMAD.X":
+		// IMAD.X d, a, b, c, cin: a*b + c + cin.
+		if len(args) != 4 {
+			return 0, false
+		}
+		a, b := x.lin(args[0]), x.lin(args[1])
+		var p []int
+		switch ka, aok := a.constant(); {
+		case aok && ka == 0:
+		case aok && ka == 1:
+			p = []int{args[1]}
+		default:
+			switch kb, bok := b.constant(); {
+			case bok && kb == 0:
+			case bok && kb == 1:
+				p = []int{args[0]}
+			default:
+				return 0, false
+			}
+		}
+		return x.addx(append(p, args[2]), args[3]), true
 	case "LEA":
 		if len(args) != 3 {
 			return 0, false
@@ -189,4 +310,17 @@ func (x *blockExec) integer(label string, args []int) (int, bool) {
 		return x.add(kind, 0, args[2], x.imm(uint64(s))), true
 	}
 	return 0, false
+}
+
+// addx returns the high word of a multi-word add: the sum of addends,
+// which commute, and the carry cin. Zero addends are dropped.
+func (x *blockExec) addx(addends []int, cin int) int {
+	var args []int
+	for _, a := range addends {
+		if x.fx.g.nodes[a].label != "imm:0x0" {
+			args = append(args, a)
+		}
+	}
+	slices.Sort(args)
+	return x.add("addx", len(args), append(args, cin)...)
 }

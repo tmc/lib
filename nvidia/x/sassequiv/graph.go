@@ -22,9 +22,116 @@ type node struct {
 type graph struct {
 	nodes  []node
 	intern map[string]int
+	// edges holds, for each phi, the condition under which control
+	// arrives with each argument, or -1 for an unconditional edge.
+	edges     map[int][]int
+	invariant map[int]bool
 }
 
-func newGraph() *graph { return &graph{intern: map[string]int{}} }
+func newGraph() *graph {
+	return &graph{intern: map[string]int{}, edges: map[int][]int{}, invariant: map[int]bool{}}
+}
+
+// once reports whether a value is computed at most once per run of the
+// function: it depends on no value that depends on itself, as a value
+// carried around a loop does, so it is the same wherever it is read.
+func (g *graph) once(id int) bool {
+	if r, ok := g.invariant[id]; ok {
+		return r
+	}
+	g.invariant[id] = false // cut cycles
+	r := true
+	for _, a := range g.nodes[id].args {
+		if !r {
+			break
+		}
+		r = g.once(a)
+	}
+	g.invariant[id] = r
+	return r
+}
+
+// negation returns not(c) if the graph holds it, or -1.
+func (g *graph) negation(c int) int {
+	if n := g.nodes[c]; n.label == "not" {
+		return g.resolve(n.args[0])
+	}
+	var k strings.Builder
+	k.WriteString("not\x000,")
+	k.WriteString(strconv.Itoa(c))
+	if id, ok := g.intern[k.String()]; ok {
+		return g.resolve(id)
+	}
+	return -1
+}
+
+// contradicts reports whether conditions a and b cannot both hold.
+func (g *graph) contradicts(a, b int) bool {
+	na, nb := g.nodes[a], g.nodes[b]
+	return na.label == "not" && g.resolve(na.args[0]) == b || nb.label == "not" && g.resolve(nb.args[0]) == a
+}
+
+// gate resolves assume(v, guard), the value v holds where guard holds:
+// a phi whose other incoming edges contradict guard is the value along
+// the remaining edge. It reports whether it aliased the node.
+func (g *graph) gate(i int) bool {
+	n := &g.nodes[i]
+	v, guard := g.resolve(n.args[0]), g.resolve(n.args[1])
+	side := 0
+	if !n.has[0] {
+		side = 1
+	}
+	if s := g.nodes[v]; s.label == "vec" {
+		// Each register of a tuple holds where the tuple does.
+		args := make([]int, len(s.args))
+		for k, a := range s.args {
+			args[k] = g.add(side, n.pc[side], "assume", 0, a, guard)
+		}
+		return g.setAlias(i, g.add(side, n.pc[side], "vec", 0, args...))
+	}
+	if s := g.nodes[v]; s.label == "sel" {
+		c := g.resolve(s.args[0])
+		switch {
+		case implies(g, guard, c):
+			return g.setAlias(i, g.add(side, n.pc[side], "assume", 0, s.args[1], guard))
+		case g.contradicts(guard, c) || g.negation(c) >= 0 && implies(g, guard, g.negation(c)):
+			return g.setAlias(i, g.add(side, n.pc[side], "assume", 0, s.args[2], guard))
+		}
+		return false
+	}
+	if !strings.HasPrefix(g.nodes[v].label, "phi:") {
+		return g.setAlias(i, v)
+	}
+	if !g.once(guard) {
+		return false
+	}
+	conds := g.edges[v]
+	only := -1
+	for j, a := range g.nodes[v].args {
+		a = g.strip(a)
+		if j < len(conds) && conds[j] >= 0 && g.contradicts(conds[j], guard) || a == v || a == only {
+			continue
+		}
+		if only >= 0 {
+			return false
+		}
+		only = a
+	}
+	if only < 0 {
+		return false
+	}
+	return g.setAlias(i, g.add(side, n.pc[side], "assume", 0, only, guard))
+}
+
+// setAlias aliases node i to t unless t already resolves to i, and
+// reports whether it did.
+func (g *graph) setAlias(i, t int) bool {
+	if g.resolve(t) == i {
+		return false
+	}
+	g.nodes[i].alias = t
+	return true
+}
 
 // add returns the node for label applied to args, creating it once.
 func (g *graph) add(side int, pc uint64, label string, comm int, args ...int) int {
@@ -68,6 +175,44 @@ func (g *graph) mark(id, side int, pc uint64) {
 // partition. On acyclic graphs that is equality of expression trees; at
 // loop-header phis it identifies loops that compute the same recurrence.
 func (g *graph) classes() []int {
+	for {
+		class := g.refine()
+		if !g.joinParts(class) {
+			return class
+		}
+	}
+}
+
+// joinParts aliases each vec(part:0(a), part:1(b), ...) whose parts all
+// come from one class to a, and reports whether it aliased any. Building
+// the graph joins parts of one node; this catches parts of nodes that
+// become equal only once trivial phis are removed.
+func (g *graph) joinParts(class []int) bool {
+	changed := false
+	for i := range g.nodes {
+		n := &g.nodes[i]
+		if n.alias >= 0 || n.label != "vec" || len(n.args) < 2 {
+			continue
+		}
+		whole := -1
+		for k, p := range n.args {
+			pn := g.nodes[g.resolve(p)]
+			if pn.label != fmt.Sprintf("part:%d", k) || whole >= 0 && class[pn.args[0]] != class[whole] {
+				whole = -1
+				break
+			}
+			whole = pn.args[0]
+		}
+		if whole >= 0 {
+			changed = g.setAlias(i, whole) || changed
+		}
+	}
+	return changed
+}
+
+// refine returns the greatest bisimulation's classes after removing
+// trivial phis.
+func (g *graph) refine() []int {
 	g.removeTrivialPhis()
 	class := make([]int, len(g.nodes))
 	ids := map[string]int{}
@@ -156,29 +301,13 @@ func (g *graph) resolve(id int) int {
 // that is the same on every path into a block, such as a thread index
 // kept in a register around a loop instead of read again inside it.
 func (g *graph) removeTrivialPhis() {
-	for changed := true; changed; {
-		changed = false
+	for again := true; again; {
+		g.simplify()
+		// An assume no edge resolves is the identity.
+		again = false
 		for i := range g.nodes {
-			n := &g.nodes[i]
-			if n.alias >= 0 || !strings.HasPrefix(n.label, "phi:") {
-				continue
-			}
-			only := -1
-			trivial := true
-			for _, a := range n.args {
-				a = g.resolve(a)
-				if a == i || a == only {
-					continue
-				}
-				if only >= 0 {
-					trivial = false
-					break
-				}
-				only = a
-			}
-			if trivial && only >= 0 {
-				n.alias = only
-				changed = true
+			if n := g.nodes[i]; n.label == "assume" && n.alias < 0 {
+				again = g.setAlias(i, n.args[0]) || again
 			}
 		}
 	}
@@ -187,4 +316,171 @@ func (g *graph) removeTrivialPhis() {
 			g.nodes[i].args[j] = g.resolve(a)
 		}
 	}
+}
+
+// simplify aliases trivial phis, selections of undefined values and
+// resolvable assumes until none remain.
+func (g *graph) simplify() {
+	for changed := true; changed; {
+		changed = g.rehash()
+		for i := range g.nodes {
+			n := &g.nodes[i]
+			if n.alias >= 0 {
+				continue
+			}
+			switch {
+			case strings.HasPrefix(n.label, "phi:"):
+				// A phi of one value, itself and undefined values is
+				// that value.
+				only, undef := -1, -1
+				trivial := true
+				for _, a := range n.args {
+					a = g.strip(a)
+					if g.undefined(a) {
+						undef = a
+					}
+					if a == i || a == only || g.undefined(a) {
+						continue
+					}
+					if only >= 0 {
+						trivial = false
+						break
+					}
+					only = a
+				}
+				if trivial && only < 0 {
+					only = undef
+				}
+				if trivial && only >= 0 {
+					changed = g.setAlias(i, only) || changed
+				}
+			case n.label == "assume":
+				changed = g.gate(i) || changed
+			case n.label == "lin":
+				changed = g.flatten(i) || changed
+			case n.label == "sel" && len(n.args) == 3:
+				// Selecting an undefined value may select the other.
+				a, b := g.resolve(n.args[1]), g.resolve(n.args[2])
+				switch {
+				case g.undefined(b) || a == b:
+					changed = g.setAlias(i, a) || changed
+				case g.undefined(a):
+					changed = g.setAlias(i, b) || changed
+				}
+			}
+		}
+	}
+}
+
+// rehash aliases each node to an earlier one with its label and resolved
+// arguments, as add would have had the arguments been known, and reports
+// whether it aliased any. Phis are never shared.
+func (g *graph) rehash() bool {
+	changed := false
+	seen := map[string]int{}
+	var k strings.Builder
+	for i := range g.nodes {
+		n := &g.nodes[i]
+		if n.alias >= 0 || strings.HasPrefix(n.label, "phi:") {
+			continue
+		}
+		k.Reset()
+		k.WriteString(n.label)
+		k.WriteByte(0)
+		k.WriteString(strconv.Itoa(n.comm))
+		for _, a := range n.args {
+			k.WriteByte(',')
+			k.WriteString(strconv.Itoa(g.resolve(a)))
+		}
+		if j, ok := seen[k.String()]; ok && g.setAlias(i, j) {
+			changed = true
+			continue
+		}
+		seen[k.String()] = i
+	}
+	return changed
+}
+
+// flatten re-normalizes lin node i when a term's atom has become a lin
+// or an immediate, as resolving a phi or assume can make it, and reports
+// whether it aliased the node.
+func (g *graph) flatten(i int) bool {
+	n := g.nodes[i]
+	need := false
+	for _, t := range n.args[:n.comm] {
+		a := g.resolve(g.nodes[g.resolve(t)].args[1])
+		need = need || g.nodes[a].label == "lin" || isImm(g, a)
+	}
+	if !need {
+		return false
+	}
+	terms := map[int]uint32{}
+	k := uint32(0)
+	var add func(lin int, c uint32)
+	add = func(lin int, c uint32) {
+		ln := g.nodes[lin]
+		k += c * g.immVal(ln.args[len(ln.args)-1])
+		for _, t := range ln.args[:ln.comm] {
+			tn := g.nodes[g.resolve(t)]
+			a, tc := g.resolve(tn.args[1]), c*g.immVal(tn.args[0])
+			switch {
+			case isImm(g, a):
+				k += tc * g.immVal(a)
+			case g.nodes[a].label == "lin":
+				add(a, tc)
+			default:
+				terms[a] += tc
+			}
+		}
+	}
+	add(i, 1)
+	side := 0
+	if !n.has[0] {
+		side = 1
+	}
+	pc := n.pc[side]
+	imm := func(v uint32) int { return g.add(side, pc, fmt.Sprintf("imm:%#x", v), 0) }
+	var atoms []int
+	for a, c := range terms {
+		if c != 0 {
+			atoms = append(atoms, a)
+		}
+	}
+	slices.Sort(atoms)
+	switch {
+	case len(atoms) == 0:
+		return g.setAlias(i, imm(k))
+	case len(atoms) == 1 && k == 0 && terms[atoms[0]] == 1:
+		return g.setAlias(i, atoms[0])
+	}
+	var args []int
+	for _, a := range atoms {
+		args = append(args, g.add(side, pc, "term", 0, imm(terms[a]), a))
+	}
+	return g.setAlias(i, g.add(side, pc, "lin", len(args), append(args, imm(k))...))
+}
+
+func (g *graph) immVal(v int) uint32 {
+	u, _ := strconv.ParseUint(strings.TrimPrefix(g.nodes[g.resolve(v)].label, "imm:0x"), 16, 64)
+	return uint32(u)
+}
+
+// strip returns the value a stands for, seeing through assumes: assume(v,
+// guard) is v wherever its value is used.
+func (g *graph) strip(a int) int {
+	a = g.resolve(a)
+	for g.nodes[a].label == "assume" {
+		a = g.resolve(g.nodes[a].args[0])
+	}
+	return a
+}
+
+// undefined reports whether a node is a register or stack slot read
+// before the function writes it. ptxas leaves registers uninitialized on
+// paths where their value is never used, so a compilation of a program
+// without undefined behavior computes the same results whatever value an
+// undefined node takes; the model may choose one.
+func (g *graph) undefined(id int) bool {
+	l := g.nodes[id].label
+	return strings.HasPrefix(l, "in:") && l != "in:MEM"
 }

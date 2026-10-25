@@ -12,7 +12,13 @@ func (x *blockExec) assume(v, guard int) int {
 	if x.fx.assumed == nil {
 		x.fx.assumed = map[[2]int]int{}
 	}
-	return x.assumeDepth(v, guard, 8)
+	r := x.assumeDepth(v, guard, 8)
+	g := x.fx.g
+	if isPhi(g, r) && x.fx.merges(r) || g.nodes[r].label == "sel" || g.nodes[r].label == "vec" {
+		// Resolved once the phis it depends on are.
+		r = x.add("assume", 0, r, guard)
+	}
+	return r
 }
 
 func (x *blockExec) assumeDepth(v, guard, depth int) int {
@@ -60,5 +66,20 @@ func (x *blockExec) assumeDepth(v, guard, depth int) int {
 
 // implies reports whether guard holding means c holds.
 func implies(g *graph, guard, c int) bool {
-	return guard == c
+	guard, c = g.resolve(guard), g.resolve(c)
+	if guard == c {
+		return true
+	}
+	// A predicate set under c and left at its other value otherwise, as
+	// @c PLOP3 leaves it: sel(c, x, false) holds only where c does, and
+	// sel(c, x, true) fails only where c holds.
+	n := g.nodes[guard]
+	if n.label == "sel" && g.resolve(n.args[0]) == c && g.nodes[g.resolve(n.args[2])].label == "false" {
+		return true
+	}
+	if n.label == "not" {
+		m := g.nodes[g.resolve(n.args[0])]
+		return m.label == "sel" && g.resolve(m.args[0]) == c && g.nodes[g.resolve(m.args[2])].label == "true"
+	}
+	return false
 }

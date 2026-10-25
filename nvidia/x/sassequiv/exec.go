@@ -2,6 +2,7 @@ package sassequiv
 
 import (
 	"fmt"
+	"math/bits"
 	"regexp"
 	"slices"
 	"strconv"
@@ -18,6 +19,7 @@ type fn struct {
 	blocks []cudasass.BasicBlock // reachable from the entry, in address order
 	preds  [][]int
 	edges  []cudasass.FlowEdge // between reachable blocks, renumbered
+	kinds  map[[2]int][2]bool  // whether each edge is taken, falls through
 	outs   []map[string]int    // values each block defines, at its end
 	ins    []map[string]int    // values read at each block's entry
 	state  []int               // 0 not run, 1 running, 2 done
@@ -59,15 +61,15 @@ func build(g *graph, side int, f *cudasass.Function) (fx *fn) {
 	if cfg.IsDegenerate {
 		unknownf("indirect branch at %#x", cfg.Blocks[cfg.Indirect[0]].Instructions[len(cfg.Blocks[cfg.Indirect[0]].Instructions)-1].Address)
 	}
-	edges := subroutineEdges(cfg)
-	// Number the blocks reachable from the entry in depth-first preorder,
-	// fall-through edges first, so that two layouts of one control flow
-	// graph, such as subroutines placed in another order, number alike.
-	succ := make([][]cudasass.FlowEdge, len(cfg.Blocks))
+	blocks, edges := chain(inline(cfg))
+	// Number the blocks in depth-first preorder, fall-through edges
+	// first, so that two layouts of one control flow graph, such as
+	// subroutines placed in another order, number alike.
+	succ := make([][]cudasass.FlowEdge, len(blocks))
 	for _, e := range edges {
 		succ[e.From] = append(succ[e.From], e)
 	}
-	index := make([]int, len(cfg.Blocks))
+	index := make([]int, len(blocks))
 	for i := range index {
 		index[i] = -1
 	}
@@ -86,16 +88,24 @@ func build(g *graph, side int, f *cudasass.Function) (fx *fn) {
 	}
 	visit(0)
 	for _, b := range order {
-		fx.blocks = append(fx.blocks, cfg.Blocks[b])
+		fx.blocks = append(fx.blocks, blocks[b])
 	}
 	n := len(fx.blocks)
 	fx.preds = make([][]int, n)
+	fx.kinds = map[[2]int][2]bool{}
 	for _, e := range edges {
 		if index[e.From] < 0 {
 			continue
 		}
 		e := cudasass.FlowEdge{From: index[e.From], To: index[e.To], Kind: e.Kind}
 		fx.edges = append(fx.edges, e)
+		k := fx.kinds[[2]int{e.From, e.To}]
+		if e.Kind == cudasass.FallThrough {
+			k[1] = true
+		} else {
+			k[0] = true
+		}
+		fx.kinds[[2]int{e.From, e.To}] = k
 		if !slices.Contains(fx.preds[e.To], e.From) {
 			fx.preds[e.To] = append(fx.preds[e.To], e.From)
 		}
@@ -128,12 +138,31 @@ func build(g *graph, side int, f *cudasass.Function) (fx *fn) {
 		if p.block == 0 {
 			args = append(args, fx.entry(p.key))
 		}
+		conds := make([]int, len(args)) // the entry edge is unconditional
 		for _, q := range fx.preds[p.block] {
-			args = append(args, fx.out(q, p.key))
+			args = append(args, fx.along(q, p.block, fx.out(q, p.key)))
+			conds = append(conds, fx.edgeCond(q, p.block))
 		}
 		fx.g.nodes[p.id].args = args
+		for j := range conds[:len(conds)-len(fx.preds[p.block])] {
+			conds[j] = -1
+		}
+		fx.g.edges[p.id] = conds
 	}
 	return fx
+}
+
+// merges reports whether phi v joins values from two or more edges.
+func (fx *fn) merges(v int) bool {
+	b, err := strconv.Atoi(strings.TrimPrefix(fx.g.nodes[v].label, "phi:"))
+	if err != nil || b >= len(fx.preds) {
+		return false
+	}
+	n := len(fx.preds[b])
+	if b == 0 {
+		n++
+	}
+	return n > 1
 }
 
 // entry is the value of key when the function starts.
@@ -148,13 +177,48 @@ func (fx *fn) in(b int, key string) int {
 	}
 	var v int
 	if b != 0 && len(fx.preds[b]) == 1 {
-		v = fx.out(fx.preds[b][0], key)
+		v = fx.along(fx.preds[b][0], b, fx.out(fx.preds[b][0], key))
 	} else {
 		v = fx.g.fresh(fx.side, fx.blocks[b].Start, "phi:"+strconv.Itoa(b))
 		fx.phis = append(fx.phis, phiRef{v, b, key})
 	}
 	fx.ins[b][key] = v
 	return v
+}
+
+// edgeCond returns the condition under which control flows from block q
+// to block b, or -1 if it always does when q ends.
+func (fx *fn) edgeCond(q, b int) int {
+	k := fx.kinds[[2]int{q, b}]
+	taken, fall := k[0], k[1]
+	cond := -1
+	if c, ok := fx.roots[fmt.Sprintf("branch:%d", q)]; ok {
+		cond = c
+	} else if c, ok := fx.roots[fmt.Sprintf("exit:%d", q)]; ok {
+		cond = fx.g.nodes[c].args[0]
+	}
+	if cond < 0 || fx.g.nodes[cond].label == "true" || taken == fall {
+		return -1
+	}
+	if fall {
+		ins := fx.blocks[q].Instructions
+		x := &blockExec{fx: fx, b: q, pc: ins[len(ins)-1].Address, guard: -1}
+		return x.not(cond)
+	}
+	return cond
+}
+
+// along returns v, the value of a register at the end of block q,
+// simplified for its flow to block b: an edge taken only when a
+// condition holds carries values selected by that condition.
+func (fx *fn) along(q, b, v int) int {
+	cond := fx.edgeCond(q, b)
+	if cond < 0 {
+		return v
+	}
+	ins := fx.blocks[q].Instructions
+	x := &blockExec{fx: fx, b: q, pc: ins[len(ins)-1].Address, guard: -1}
+	return x.assume(v, cond)
 }
 
 // out is the value of key at the end of block b.
@@ -218,7 +282,13 @@ func (x *blockExec) write(key string, v, guard int) {
 		return
 	}
 	if guard >= 0 {
-		if old := x.read(key); old != v {
+		old := x.read(key)
+		if x.fx.g.nodes[old].label == "sel" {
+			// The old value shows only where the guard fails, as when
+			// @P0 and @!P0 write one register in turn.
+			old = x.assumeDepth(old, x.not(guard), 8)
+		}
+		if old != v {
 			v = x.add("sel", 0, guard, v, old)
 		}
 	}
@@ -313,7 +383,28 @@ func (x *blockExec) inst(in cudasass.Instruction) {
 	case unmodeled[base]:
 		unknownf("unmodeled instruction %s at %#x", op, in.Address)
 	case base == "BRA" || base == "JMP" || base == "RET" || base == "CALL":
-		x.fx.roots[fmt.Sprintf("branch:%d", x.b)] = x.cond(guard)
+		cond := x.cond(guard)
+		if (base == "BRA" || base == "JMP") && len(ops) > 1 {
+			// A predicate operand must hold too: @!P2 BRA !P3 falls
+			// through when P2 or P3 holds.
+			o := parseOperand(ops[0])
+			p := x.read(o.core)
+			if strings.Contains(o.prefix, "!") {
+				p = x.not(p)
+			}
+			switch {
+			case x.fx.g.nodes[p].label == "true":
+			case guard < 0:
+				cond = p
+			default:
+				cond = x.add("sel", 0, cond, p, x.leaf("false"))
+			}
+		}
+		if x.fx.g.nodes[cond].label != "true" {
+			// An unconditional transfer says nothing a block's edges
+			// do not.
+			x.fx.roots[fmt.Sprintf("branch:%d", x.b)] = cond
+		}
 		return
 	case base == "EXIT":
 		x.fx.roots[fmt.Sprintf("exit:%d", x.b)] = x.add("exit", 0, x.cond(guard), x.read("MEM"))
@@ -375,8 +466,36 @@ func (x *blockExec) inst(in cudasass.Instruction) {
 		x.write(dsts[0].core, x.add("ISETP.NE.AND", 2, v, x.imm(0), x.leaf("true")), guard)
 		return
 	}
+	if v, ok := x.p2rBit(label, args); ok {
+		x.writeDsts(op, base, dsts, v, guard)
+		return
+	}
 	v := x.add(label, comm, args...)
 	x.writeDsts(op, base, dsts, v, guard)
+}
+
+// p2rBit recognizes ISETP.NE r, 0 where r = P2R PR, RZ, 1<<k: a
+// predicate saved to a register and restored, which is Pk.
+func (x *blockExec) p2rBit(label string, args []int) (int, bool) {
+	g := x.fx.g
+	if label != "ISETP.NE.AND" || len(args) != 3 || g.nodes[args[2]].label != "true" {
+		return 0, false
+	}
+	r := args[0]
+	if g.nodes[r].label == "imm:0x0" {
+		r = args[1]
+	} else if g.nodes[args[1]].label != "imm:0x0" {
+		return 0, false
+	}
+	n := g.nodes[r]
+	if n.label != "P2R" || len(n.args) != 9 || g.nodes[n.args[0]].label != "imm:0x0" || !isImm(g, n.args[1]) {
+		return 0, false
+	}
+	m := x.immVal(n.args[1])
+	if m == 0 || m&(m-1) != 0 || m >= 1<<7 {
+		return 0, false
+	}
+	return n.args[2+bits.TrailingZeros32(m)], true
 }
 
 // cond is guard as a value: true when the instruction is unguarded.
@@ -736,6 +855,9 @@ func (x *blockExec) core(o operand, width int) int {
 		if m == nil {
 			return x.leaf("tok:" + c)
 		}
+		if zero(m[2]) {
+			m[2] = "0x0" // c[0x0][RZ]
+		}
 		if off, err := strconv.ParseUint(strings.TrimPrefix(m[2], "0x"), 16, 64); err == nil && strings.HasPrefix(m[2], "0x") {
 			parts := make([]int, max(width, 1))
 			for k := range parts {
@@ -804,52 +926,152 @@ func (x *blockExec) addr(s string) int {
 	return x.add("addr", len(wide), append(wide, x.node(sum))...)
 }
 
-// subroutineEdges returns cfg's edges with calls followed: a call block
-// flows into its subroutine instead of the instruction after it, and a
-// block ending in RET flows to every instruction after a call. Merging
-// the return paths of all call sites admits paths no execution takes,
-// but both functions under comparison admit the same ones.
-func subroutineEdges(cfg *cudasass.CFG) []cudasass.FlowEdge {
+// maxInlined bounds the blocks of a function with its calls inlined.
+const maxInlined = 1 << 16
+
+// inline returns the blocks of cfg reachable from its entry, with each
+// call expanded in place, and the edges between them: a call block flows
+// into its own copy of the subroutine, and that copy's returns flow to
+// the instruction after the call. The entry is block 0. A copy keeps the
+// addresses of the instructions it copies.
+func inline(cfg *cudasass.CFG) ([]cudasass.BasicBlock, []cudasass.FlowEdge) {
 	last := func(b int) cudasass.Instruction {
 		ins := cfg.Blocks[b].Instructions
 		return ins[len(ins)-1]
 	}
-	calls := map[int]bool{}
+	succ := make([][]cudasass.FlowEdge, len(cfg.Blocks))
 	for _, e := range cfg.Edges {
-		if e.Kind == cudasass.Call {
-			calls[e.From] = true
-		}
+		succ[e.From] = append(succ[e.From], e)
 	}
-	for b := range cfg.Blocks {
-		if cudasass.BaseOpcode(last(b).Opcode) == "CALL" && !calls[b] {
-			unknownf("call at %#x to a function outside this one", last(b).Address)
-		}
+	// A site is a block of cfg reached through a chain of calls, the
+	// call blocks listed outermost first.
+	type site struct {
+		calls string
+		b     int
 	}
-	var edges []cudasass.FlowEdge
-	for _, e := range cfg.Edges {
-		if calls[e.From] && e.Kind == cudasass.FallThrough {
-			continue
+	ids := map[site]int{}
+	var (
+		sites  []site
+		blocks []cudasass.BasicBlock
+		edges  []cudasass.FlowEdge
+	)
+	id := func(s site) int {
+		if i, ok := ids[s]; ok {
+			return i
 		}
-		edges = append(edges, e)
+		if len(blocks) == maxInlined {
+			unknownf("more than %d blocks with calls inlined", maxInlined)
+		}
+		ids[s] = len(blocks)
+		sites = append(sites, s)
+		blocks = append(blocks, cfg.Blocks[s.b])
+		return ids[s]
 	}
-	for b := range cfg.Blocks {
-		if cudasass.BaseOpcode(last(b).Opcode) != "RET" {
-			continue
-		}
-		for c := range calls {
-			if c+1 < len(cfg.Blocks) {
-				edges = append(edges, cudasass.FlowEdge{From: b, To: c + 1, Kind: cudasass.Taken})
+	id(site{"", 0})
+	for i := 0; i < len(sites); i++ {
+		s := sites[i]
+		in := last(s.b)
+		switch cudasass.BaseOpcode(in.Opcode) {
+		case "CALL":
+			if p := strings.TrimSpace(in.Predicate); p != "" && p != "@PT" {
+				unknownf("guarded call at %#x", in.Address)
 			}
+			callee := -1
+			for _, e := range succ[s.b] {
+				if e.Kind == cudasass.Call {
+					callee = e.To
+				}
+			}
+			if callee < 0 {
+				unknownf("call at %#x to a function outside this one", in.Address)
+			}
+			c := "/" + strconv.Itoa(s.b)
+			if strings.Contains(s.calls+"/", c+"/") {
+				unknownf("recursive call at %#x", in.Address)
+			}
+			edges = append(edges, cudasass.FlowEdge{From: i, To: id(site{s.calls + c, callee}), Kind: cudasass.Taken})
+			continue
+		case "RET":
+			k := strings.LastIndexByte(s.calls, '/')
+			if k < 0 {
+				unknownf("return at %#x outside a call", in.Address)
+			}
+			caller, _ := strconv.Atoi(s.calls[k+1:])
+			if caller+1 == len(cfg.Blocks) {
+				unknownf("call at %#x is the last instruction", last(caller).Address)
+			}
+			edges = append(edges, cudasass.FlowEdge{From: i, To: id(site{s.calls[:k], caller + 1}), Kind: cudasass.Taken})
+		}
+		for _, e := range succ[s.b] {
+			edges = append(edges, cudasass.FlowEdge{From: i, To: id(site{s.calls, e.To}), Kind: e.Kind})
 		}
 	}
-	slices.SortFunc(edges, func(a, b cudasass.FlowEdge) int {
-		if a.From != b.From {
-			return a.From - b.From
-		}
-		if a.To != b.To {
-			return a.To - b.To
-		}
-		return int(a.Kind) - int(b.Kind)
-	})
-	return slices.Compact(edges)
+	return blocks, edges
 }
+
+// chain merges each block into its predecessor when that is its only
+// predecessor and the predecessor has no other successor, so that two
+// layouts placing a split at different points, such as register moves
+// after a call's return, have the same blocks. An unconditional branch,
+// call or return between merged blocks is dropped, and a block's only
+// edge is a fall-through. Block 0 stays the entry.
+func chain(blocks []cudasass.BasicBlock, edges []cudasass.FlowEdge) ([]cudasass.BasicBlock, []cudasass.FlowEdge) {
+	n := len(blocks)
+	succs := make([][]cudasass.FlowEdge, n)
+	npred := make([]int, n)
+	for _, e := range edges {
+		succs[e.From] = append(succs[e.From], e)
+		npred[e.To]++
+	}
+	into := make([]int, n) // the block each block merged into, or itself
+	for b := range into {
+		into[b] = b
+	}
+	blocks = slices.Clone(blocks)
+	for p := range n {
+		if into[p] != p {
+			continue
+		}
+		for len(succs[p]) == 1 {
+			b := succs[p][0].To
+			if b == p || b == 0 || npred[b] != 1 {
+				break
+			}
+			ins := blocks[p].Instructions
+			last := ins[len(ins)-1]
+			if transfer[cudasass.BaseOpcode(last.Opcode)] {
+				if pr := strings.TrimSpace(last.Predicate); pr != "" && pr != "@PT" {
+					break
+				}
+				ins = ins[:len(ins)-1]
+			}
+			blocks[p].Instructions = append(slices.Clip(ins), blocks[b].Instructions...)
+			blocks[p].End = blocks[b].End
+			succs[p], succs[b] = succs[b], nil
+			into[b] = p
+		}
+	}
+	index := make([]int, n)
+	var out []cudasass.BasicBlock
+	for b := range n {
+		if into[b] == b {
+			index[b] = len(out)
+			out = append(out, blocks[b])
+		}
+	}
+	var outEdges []cudasass.FlowEdge
+	for b := range n {
+		for _, e := range succs[b] {
+			e := cudasass.FlowEdge{From: index[b], To: index[e.To], Kind: e.Kind}
+			if len(succs[b]) == 1 {
+				// A block's only edge is unconditional, however it is taken.
+				e.Kind = cudasass.FallThrough
+			}
+			outEdges = append(outEdges, e)
+		}
+	}
+	return out, outEdges
+}
+
+// transfer lists the opcodes that end a block only to pass control.
+var transfer = map[string]bool{"BRA": true, "JMP": true, "CALL": true, "RET": true}

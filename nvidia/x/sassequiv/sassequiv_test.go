@@ -52,6 +52,120 @@ func TestRegisterLimitNotDifferent(t *testing.T) {
 	}
 }
 
+// equalPairs are compilations of one kernel that must compare Equal.
+// NAME.lb.sass and NAME.lb1.sass are functions of egraph-owner's
+// generated decode kernels compiled with __launch_bounds__(n) and
+// __launch_bounds__(n, 1); the minimum block count lets ptxas use more
+// registers. NAME.rN.sass is compiled at -maxrregcount N. Both change
+// allocation, spilling and schedule, never values.
+var equalPairs = [][2]string{
+	{"pre_expert_norm_cluster.lb", "pre_expert_norm_cluster.lb1"},
+	{"post_expert_sum_cluster.lb", "post_expert_sum_cluster.lb1"},
+	{"stock_pre_norm_4096_cluster.lb", "stock_pre_norm_4096_cluster.lb1"},
+	{"stock_boundary_attn_cluster.lb", "stock_boundary_attn_cluster.lb1"},
+	{"stock_boundary_ffn_cluster.lb", "stock_boundary_ffn_cluster.lb1"},
+	{"stock_boundary_ffn_slice1024_cluster.lb", "stock_boundary_ffn_slice1024_cluster.lb1"},
+	{"stock_post_expert_sum_4096_cluster.lb", "stock_post_expert_sum_4096_cluster.lb1"},
+	{"moe8_router_hilo4.r255", "moe8_router_hilo4.r96"},
+	{"moe8_router_hilo5.r255", "moe8_router_hilo5.r96"},
+	{"attn_boundary_router_cluster.lb", "attn_boundary_router_cluster.lb1"},
+}
+
+// TestNegativeControls edits the second listing of an equal pair in ways
+// that change what it computes; each must compare Different.
+func TestNegativeControls(t *testing.T) {
+	tests := []struct {
+		name, pair, old, new string
+	}{
+		{"fadd of an earlier partial sum", "attn_boundary_router_cluster",
+			"/*0e40*/                   FADD R17, R16, R17 ;",
+			"/*0e40*/                   FADD R17, R15, R17 ;"},
+		{"rms epsilon", "attn_boundary_router_cluster",
+			"FFMA R18, R17, R18, 9.9999999392252902908e-09 ;",
+			"FFMA R18, R17, R18, 9.9999997473787516356e-06 ;"},
+		{"router epsilon", "attn_boundary_router_cluster",
+			"FFMA R18, R17, R18, 9.9999997473787516356e-06 ;",
+			"FFMA R18, R17, R18, 9.9999999392252902908e-09 ;"},
+		{"fadd of an earlier partial sum", "pre_expert_norm_cluster",
+			"/*0790*/                   FADD R19, R18, R19 ;",
+			"/*0790*/                   FADD R19, R17, R19 ;"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.pair+"/"+tt.name, func(t *testing.T) {
+			after := listing(t, tt.pair+".lb1")
+			if n := strings.Count(after, tt.old); n != 1 {
+				t.Fatalf("%q occurs %d times", tt.old, n)
+			}
+			after = strings.Replace(after, tt.old, tt.new, 1)
+			r := CompareAll(parse(t, listing(t, tt.pair+".lb")), parse(t, after))[0]
+			if r.Verdict != Different {
+				t.Errorf("got %v, want different", r)
+			}
+		})
+	}
+}
+
+func TestEqualPairs(t *testing.T) {
+	for _, pair := range equalPairs {
+		before, after := parse(t, listing(t, pair[0])), parse(t, listing(t, pair[1]))
+		for _, r := range CompareAll(before, after) {
+			if r.Verdict != Equal {
+				t.Errorf("%s against %s: %v", pair[0], pair[1], r)
+			}
+		}
+	}
+}
+
+// undefinedReads are mutants that make a function read a register it
+// never wrote on some path. The model may take such a register to hold
+// any value, so they compare Equal.
+var undefinedReads = map[string]bool{
+	// R22 is first written at 0x09f0, which the branch at 0x08f0 skips.
+	"stock_post_expert_sum_4096_cluster.lb1:227": true,
+}
+
+// TestEqualPairMutantsDiffer mutates the second listing of each equal
+// pair, which exercises the rules that make the pair equal: none of the
+// mutants may compare Equal to the first. Every eleventh match of each
+// mutation is tried.
+func TestEqualPairMutantsDiffer(t *testing.T) {
+	stats := map[string]map[Verdict]int{}
+	for _, pair := range equalPairs {
+		before := parse(t, listing(t, pair[0]))
+		lines := strings.Split(listing(t, pair[1]), "\n")
+		for _, mu := range mutations {
+			if stats[mu.name] == nil {
+				stats[mu.name] = map[Verdict]int{}
+			}
+			n := 0
+			for i, line := range lines {
+				m := mu.re.FindStringSubmatch(line)
+				if m == nil {
+					continue
+				}
+				key := fmt.Sprintf("%s:%d", pair[1], i+1)
+				if n++; n%11 != 0 && !undefinedReads[key] {
+					continue
+				}
+				mutated := append([]string(nil), lines...)
+				mutated[i] = mu.edit(m)
+				if mutated[i] == line {
+					continue
+				}
+				r := CompareAll(before, parse(t, strings.Join(mutated, "\n")))[0]
+				stats[mu.name][r.Verdict]++
+				if (r.Verdict == Equal) != (undefinedReads[key] && mu.name == "fp source register") {
+					t.Errorf("%s: %s at line %d (%s -> %s): %v", pair[1], mu.name, i+1, strings.TrimSpace(line), strings.TrimSpace(mutated[i]), r)
+				}
+			}
+		}
+	}
+	for _, mu := range mutations {
+		s := stats[mu.name]
+		t.Logf("%-22s different %3d  unknown %3d  equal %d", mu.name, s[Different], s[Unknown], s[Equal])
+	}
+}
+
 // A mutation edits one instruction of a listing.
 type mutation struct {
 	name string
@@ -81,6 +195,15 @@ var mutations = []mutation{
 	{"mufu function", regexp.MustCompile(instRE + `MUFU\.(RSQ|RCP|EX2)(.*)$`),
 		func(m []string) string {
 			return m[1] + "MUFU." + map[string]string{"RSQ": "RCP", "RCP": "EX2", "EX2": "RSQ"}[m[2]] + m[3]
+		}},
+	{"store offset", regexp.MustCompile(instRE + `(ST[GS][^;]*\[R\d+(?:\.64)?)(\+0x[0-9a-f]+)?(\][^;]*;.*)$`),
+		func(m []string) string { return m[1] + m[2] + "+0x404" + m[4] }},
+	{"branch condition negated", regexp.MustCompile(`^(\s+/\*[0-9a-f]+\*/\s+@)(!?)(U?P[0-6]\s+BRA.*)$`),
+		func(m []string) string {
+			if m[2] == "!" {
+				return m[1] + m[3]
+			}
+			return m[1] + "!" + m[3]
 		}},
 }
 

@@ -17,8 +17,10 @@
 // products by constants are linear forms, so IADD3, IMAD, LEA and shifts
 // computing one sum agree; a 64-bit address formed with LEA and LEA.HI.X
 // is the IMAD.WIDE it computes. Operands of a predicated instruction are
-// read assuming its predicate holds. Calls are followed into their
-// subroutine, merging the returns of every call site.
+// read assuming its predicate holds. Each call runs its own copy of the
+// subroutine, returning to the instruction after that call, and blocks
+// joined by an edge no other block shares are one block, so register
+// moves ptxas places after a return do not change the graph.
 //
 // Two functions are [Equal] when their control flow graphs have the same
 // shape and, block by block, their exits see the same memory chain and
@@ -44,10 +46,15 @@
 // shapes (one loop unrolled further, say), indirect branches, or an
 // instruction the model does not describe. Unknown never means equal.
 //
-// Register limits are a hard case. Of 62 functions in hopper's golden
-// kernels whose SASS changes between -maxrregcount 255 and 128, 96 or
-// 64, none is reported Equal and none Different: ptxas rewrites their
-// index arithmetic and store order along with their allocation.
+// Register limits are a hard case. Of egraph's generated decode, MoE,
+// prefill and fragment kernels, the 16 functions whose SASS changes
+// between __launch_bounds__(n) and __launch_bounds__(n, 1) are all
+// Equal, though ptxas allocates, spills and schedules them differently;
+// so are the 41 whose SASS does not change. Of 62 functions
+// in hopper's golden kernels whose SASS changes between -maxrregcount
+// 255 and 128, 96 or 64, 2 are Equal, none Different and 60 Unknown:
+// ptxas rewrites their index arithmetic and store order along with their
+// allocation.
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.

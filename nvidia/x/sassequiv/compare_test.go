@@ -330,6 +330,280 @@ EXIT`, Unknown, "values merge at different blocks"},
 				"FADD R8, R8, R7", "S2R R9, SR_TID.X\nI2FP.F32.U32 R9, R9\nFADD R8, R8, R9",
 				"BRA 0x110", "BRA 0x130", "BRA 0x100", "BRA 0x120",
 			).Replace(loop), Equal, ""},
+		{"register never written", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+@P0 MOV R9, R6
+STG.E desc[UR4][R4.64], R9
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+@P0 MOV R10, R6
+STG.E desc[UR4][R4.64], R10
+EXIT`, Equal, ""},
+		{"register never written, other value", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+@P0 MOV R9, R6
+STG.E desc[UR4][R4.64], R9
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64+0x4]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+@P0 MOV R10, R6
+STG.E desc[UR4][R4.64], R10
+EXIT`, Different, ""},
+		{"stale value on the edge that skips its use", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+MOV R9, R0
+@!P0 BRA 0xb0
+FMUL R9, R6, 2
+@P0 FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+IADD3 R9, R0, 0x1, RZ
+@!P0 BRA 0xb0
+FMUL R9, R6, 2
+@P0 FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT`, Equal, ""},
+		{"stale value used", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+MOV R9, R0
+@!P0 BRA 0xb0
+FMUL R9, R6, 2
+@!P0 FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+IADD3 R9, R0, 0x1, RZ
+@!P0 BRA 0xb0
+FMUL R9, R6, 2
+@!P0 FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT`, Unknown, ""},
+		{"guard that changes between iterations", prologue + `
+LDC R6, c[0x0][0x220]
+MOV R8, RZ
+MOV R9, R0
+LDG.E R7, desc[UR4][R2.64]
+IADD3 R6, R6, -0x1, RZ
+ISETP.NE.AND P0, PT, R6, RZ, PT
+@!P0 FADD R8, R8, R9
+FMUL R9, R7, 2
+@P0 BRA 0xa0
+STG.E desc[UR4][R4.64], R8
+EXIT`, prologue + `
+LDC R6, c[0x0][0x220]
+MOV R8, RZ
+MOV R9, R0
+LDG.E R7, desc[UR4][R2.64]
+IADD3 R6, R6, -0x1, RZ
+ISETP.NE.AND P0, PT, R6, RZ, PT
+@!P0 FADD R8, R8, R9
+FMUL R9, R7, 3
+@P0 BRA 0xa0
+STG.E desc[UR4][R4.64], R8
+EXIT`, Different, ""},
+		{"predicate saved and restored", prologue + `
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+P2R R9, PR, RZ, 0x1
+ISETP.GT.AND P0, PT, R0, 0x7, PT
+ISETP.NE.AND P1, PT, R9, RZ, PT
+LDG.E R6, desc[UR4][R2.64]
+@P1 FADD R6, R6, 1
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+ISETP.GT.AND P1, PT, R0, 0x3, PT
+LDG.E R6, desc[UR4][R2.64]
+@P1 FADD R6, R6, 1
+STG.E desc[UR4][R4.64], R6
+EXIT`, Equal, ""},
+		{"predicate restored from another bit", prologue + `
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+ISETP.GT.AND P1, PT, R0, 0x5, PT
+P2R R9, PR, RZ, 0x2
+ISETP.GT.AND P0, PT, R0, 0x7, PT
+ISETP.NE.AND P1, PT, R9, RZ, PT
+LDG.E R6, desc[UR4][R2.64]
+@P1 FADD R6, R6, 1
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+ISETP.GT.AND P1, PT, R0, 0x3, PT
+LDG.E R6, desc[UR4][R2.64]
+@P1 FADD R6, R6, 1
+STG.E desc[UR4][R4.64], R6
+EXIT`, Unknown, ""},
+		{"high word added two ways", prologue + `
+IADD3 R2, P1, R2, 0x4, RZ
+IADD3.X R3, RZ, R3, RZ, P1, !PT
+LDG.E R6, desc[UR4][R2.64]
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+IADD3 R2, P1, R2, 0x4, RZ
+IMAD.X R3, RZ, RZ, R3, P1
+LDG.E R6, desc[UR4][R2.64]
+STG.E desc[UR4][R4.64], R6
+EXIT`, Equal, ""},
+		{"high word from another register", prologue + `
+IADD3 R2, P1, R2, 0x4, RZ
+IADD3.X R3, RZ, R3, RZ, P1, !PT
+LDG.E R6, desc[UR4][R2.64]
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+IADD3 R2, P1, R2, 0x4, RZ
+IMAD.X R3, RZ, RZ, R5, P1
+LDG.E R6, desc[UR4][R2.64]
+STG.E desc[UR4][R4.64], R6
+EXIT`, Unknown, ""},
+		{"high half of a word permuted two ways", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+PRMT R7, R6, 0x7632, R6
+IMAD.U32 R7, R7, 0x10000, RZ
+FADD R7, R7, 1
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+PRMT R7, RZ, 0x76, R6
+IMAD.U32 R7, R7, 0x10000, RZ
+FADD R7, R7, 1
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"low half permuted instead", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+PRMT R7, R6, 0x7632, R6
+IMAD.U32 R7, R7, 0x10000, RZ
+FADD R7, R7, 1
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+PRMT R7, RZ, 0x54, R6
+IMAD.U32 R7, R7, 0x10000, RZ
+FADD R7, R7, 1
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"constant kept across calls", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+CALL.REL.NOINC 0x120
+MOV R9, 0x3e99999a
+FMUL R6, R6, R9
+CALL.REL.NOINC 0x120
+MOV R9, 0x3e99999a
+FMUL R6, R6, R9
+FMUL R9, R6, R6
+CALL.REL.NOINC 0x120
+FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT
+FADD R6, R6, 1
+RET.REL.NODEC R10 0x0`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+MOV R9, 0x3e99999a
+CALL.REL.NOINC 0x110
+FMUL R6, R6, R9
+CALL.REL.NOINC 0x110
+FMUL R6, R6, R9
+FMUL R9, R6, R6
+CALL.REL.NOINC 0x110
+FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT
+FADD R6, R6, 1
+RET.REL.NODEC R10 0x0`, Equal, ""},
+		{"constant clobbered by the subroutine", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+CALL.REL.NOINC 0x120
+MOV R9, 0x3e99999a
+FMUL R6, R6, R9
+CALL.REL.NOINC 0x120
+MOV R9, 0x3e99999a
+FMUL R6, R6, R9
+FMUL R9, R6, R6
+CALL.REL.NOINC 0x120
+FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT
+FADD R6, R6, 1
+RET.REL.NODEC R10 0x0`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+MOV R9, 0x3e99999a
+CALL.REL.NOINC 0x110
+FMUL R6, R6, R9
+CALL.REL.NOINC 0x110
+FMUL R6, R6, R9
+FMUL R9, R6, R6
+CALL.REL.NOINC 0x110
+FADD R6, R6, R9
+STG.E desc[UR4][R4.64], R6
+EXIT
+FADD R9, R6, 1
+RET.REL.NODEC R10 0x0`, Different, ""},
+		{"moves after a return", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+@P0 BRA 0xa0
+CALL.REL.NOINC 0xc0
+STG.E desc[UR4][R4.64], R6
+EXIT
+FADD R6, R6, 1
+RET.REL.NODEC R10 0x0`, prologue + `
+LDG.E R7, desc[UR4][R2.64]
+MOV R6, R7
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+@P0 BRA 0xc0
+CALL.REL.NOINC 0xe0
+MOV R6, R7
+STG.E desc[UR4][R4.64], R6
+EXIT
+FADD R7, R7, 1
+RET.REL.NODEC R10 0x0`, Equal, ""},
+		{"branch with a predicate operand", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P2, PT, R0, 0x3, PT
+ISETP.GT.AND P3, PT, R0, 0x1, PT
+@P2 FADD R6, R6, 1
+@!P2 BRA !P3, 0xc0
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDG.E R7, desc[UR4][R2.64]
+ISETP.GT.AND P2, PT, R0, 0x3, PT
+ISETP.GT.AND P3, PT, R0, 0x1, PT
+@!P2 BRA !P3, 0xc0
+FADD R6, R7, 1
+STG.E desc[UR4][R4.64], R6
+EXIT`, Unknown, ""},
+		{"taken branch with a predicate operand", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P2, PT, R0, 0x3, PT
+ISETP.GT.AND P3, PT, R0, 0x1, PT
+@P2 FADD R6, R6, 1
+@P2 BRA P3, 0xc0
+EXIT
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDG.E R7, desc[UR4][R2.64]
+ISETP.GT.AND P2, PT, R0, 0x3, PT
+ISETP.GT.AND P3, PT, R0, 0x1, PT
+@P2 BRA P3, 0xb0
+EXIT
+FADD R6, R7, 1
+STG.E desc[UR4][R4.64], R6
+EXIT`, Equal, ""},
+		{"halves of two loads", prologue + `
+LDG.E.64 R6, desc[UR4][R2.64]
+LDG.E.64 R8, desc[UR4][R2.64+0x100]
+STG.E.64 desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDG.E.64 R6, desc[UR4][R2.64]
+LDG.E.64 R8, desc[UR4][R2.64+0x100]
+MOV R10, R6
+MOV R11, R9
+STG.E.64 desc[UR4][R4.64], R10
+EXIT`, Unknown, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `
@@ -347,7 +621,7 @@ EXIT`, Unknown, ""},
 	}
 }
 
-func TestSubroutineEdges(t *testing.T) {
+func TestInline(t *testing.T) {
 	d := parse(t, sass(prologue+`
 CALL.REL.NOINC 0x90
 CALL.REL.NOINC 0x90
@@ -358,16 +632,43 @@ RET.REL.NODEC R10 0x0`))
 	if err != nil {
 		t.Fatal(err)
 	}
+	blocks, edges := inline(cfg)
 	var got []string
-	for _, e := range subroutineEdges(cfg) {
-		from := cfg.Blocks[e.From].Instructions[0].Address
-		to := cfg.Blocks[e.To].Instructions[0].Address
-		got = append(got, fmt.Sprintf("%#x->%#x", from, to))
+	for _, e := range edges {
+		got = append(got, fmt.Sprintf("%d:%#x->%d:%#x", e.From, blocks[e.From].Start, e.To, blocks[e.To].Start))
 	}
-	// Each call enters the subroutine, and its return reaches the
-	// instruction after either call; no call falls through.
-	want := []string{"0x0->0x90", "0x70->0x90", "0x90->0x70", "0x90->0x80"}
+	// Each call enters its own copy of the subroutine, whose return
+	// reaches the instruction after that call; no call falls through.
+	want := []string{"0:0x0->1:0x90", "1:0x90->2:0x70", "2:0x70->3:0x90", "3:0x90->4:0x80"}
 	if !slices.Equal(got, want) {
 		t.Errorf("edges = %v, want %v", got, want)
+	}
+}
+
+func TestInlineUnknown(t *testing.T) {
+	tests := []struct {
+		name, body, why string
+	}{
+		{"recursion", `
+CALL.REL.NOINC 0x80
+EXIT
+CALL.REL.NOINC 0x80
+RET.REL.NODEC R10 0x0`, "recursive call"},
+		{"guarded call", `
+ISETP.GT.AND P0, PT, R0, 0x3, PT
+@P0 CALL.REL.NOINC 0x90
+EXIT
+RET.REL.NODEC R10 0x0`, "guarded call"},
+		{"return from the kernel", `
+RET.REL.NODEC R10 0x0`, "outside a call"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := parse(t, sass(prologue+tt.body))
+			r := Compare(d.Functions[0], d.Functions[0])
+			if r.Verdict != Unknown || !strings.Contains(r.Reason, tt.why) {
+				t.Errorf("got %v, want unknown %q", r, tt.why)
+			}
+		})
 	}
 }
