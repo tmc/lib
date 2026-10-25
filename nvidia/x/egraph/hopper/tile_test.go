@@ -187,7 +187,9 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"arity", func(g *TileGEMM) { g.Epilogue = MustLambda("(add $0 $1)") }},
 		{"extra_name", func(g *TileGEMM) { g.Extras = []Operand{{"rows", F32, PerCol}} }},
 		{"extra_ss", func(g *TileGEMM) { g.Extras = []Operand{{"ss", F32, PerCol}} }},
-		{"wgmma_sumsq", func(g *TileGEMM) { g.WGMMA, g.SumSq = true, true }},
+		{"wgmma_bm", func(g *TileGEMM) { g.WGMMA, g.BM = true, 64 }},
+		{"repacked_no_wgmma", func(g *TileGEMM) { g.Weight, g.Repacked = WeightNVFP4, true }},
+		{"repacked_bf16", func(g *TileGEMM) { g.WGMMA, g.Repacked = true, true }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)

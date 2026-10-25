@@ -34,7 +34,7 @@ type TileGEMM struct {
 	GLU bool
 	// WGMMA uses sm_90a warpgroup MMA (wgmma.mma_async m64nBNk16) from
 	// shared-memory descriptors instead of mma.sync: two warpgroups each
-	// own 64 rows of a 128 × BN tile. BF16 weights only.
+	// own 64 rows of a 128 × BN tile.
 	WGMMA  bool
 	Gather bool
 	// SumSq adds a parameter float ss[m_total, Nout/32] after out (Nout =
@@ -43,8 +43,14 @@ type TileGEMM struct {
 	// Out, summed in a fixed order. Σ_j ss[m][j] / Nout is the mean square
 	// a following RMS norm needs (the MoE post-expert norm,
 	// moe8_moe_w4a16/reference.py:88-90), so the norm need not reread out
-	// to find it. mma.sync only.
+	// to find it.
 	SumSq bool
+	// Repacked selects the RepackNVFP4WGMMA weight layout when WGMMA and
+	// Weight == WeightNVFP4: w holds uint32 fragment words [N/128, K/64, 256, 4]
+	// and w_sf holds E4M3 scale bytes [N/128, K/64, 256, 8], which the kernel
+	// widens to core-matrix shared memory with 9-instruction dequant9 or
+	// nibble-shift + bf16x2 scale multiply.
+	Repacked bool
 
 	BM, BN int // 64 or 128 (BN 256 with WGMMA); 0 means 128
 	Stages int // 2 to 4; 0 means 3
@@ -63,11 +69,11 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.Stages == 0 {
 		g.Stages = 3
 	}
-	if g.WGMMA && g.SumSq {
-		return g, fmt.Errorf("tile gemm %s: SumSq is not implemented with WGMMA", g.Name)
+	if g.WGMMA && g.BM != 128 {
+		return g, fmt.Errorf("tile gemm %s: WGMMA needs BM 128", g.Name)
 	}
-	if g.WGMMA && (g.BM != 128 || g.Weight != WeightBF16) {
-		return g, fmt.Errorf("tile gemm %s: WGMMA needs BM 128 and BF16 weights", g.Name)
+	if g.Repacked && (!g.WGMMA || g.Weight != WeightNVFP4 || g.BN != 128) {
+		return g, fmt.Errorf("tile gemm %s: Repacked requires WGMMA, WeightNVFP4 and BN 128", g.Name)
 	}
 	if g.BM != 64 && g.BM != 128 || g.BN != 64 && g.BN != 128 && !(g.WGMMA && g.BN == 256) || g.Stages < 2 || g.Stages > 4 {
 		return g, fmt.Errorf("tile gemm %s: unsupported tile %dx%d, %d stages", g.Name, g.BM, g.BN, g.Stages)
@@ -111,6 +117,12 @@ func (g TileGEMM) SharedBytes() int {
 		return 0
 	}
 	if g.WGMMA {
+		if g.Weight == WeightNVFP4 {
+			if g.Repacked {
+				return g.Stages * (g.BM*64*2 + g.BN*64*2 + 256*(16+8))
+			}
+			return g.Stages * (g.BM*64*2 + g.BN*64*2 + g.BN*(32+4))
+		}
 		return g.Stages * (g.BM + g.BN) * 64 * 2
 	}
 	b := g.BN * 72 * 2
@@ -126,7 +138,11 @@ func (g TileGEMM) params() []string {
 		p = append(p, "const int32_t* __restrict__ rows")
 	}
 	if g.Weight == WeightNVFP4 {
-		p = append(p, "const uint8_t* __restrict__ w", "const uint8_t* __restrict__ w_sf", "const float* __restrict__ w_gs")
+		if g.WGMMA && g.Repacked {
+			p = append(p, "const uint32_t* __restrict__ w", "const uint8_t* __restrict__ w_sf", "const float* __restrict__ w_gs")
+		} else {
+			p = append(p, "const uint8_t* __restrict__ w", "const uint8_t* __restrict__ w_sf", "const float* __restrict__ w_gs")
+		}
 	} else {
 		p = append(p, "const uint16_t* __restrict__ w")
 	}
