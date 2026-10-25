@@ -20,6 +20,18 @@ func TransformerTileRules() []*Rewrite {
 		MustRewrite("fuse_rmsnorm_qkv_split_matmul",
 			"(add (matmul (rmsnorm ?x ?w_norm ?eps) ?w_q) (add (matmul (rmsnorm ?x ?w_norm ?eps) ?w_k) (matmul (rmsnorm ?x ?w_norm ?eps) ?w_v)))",
 			"(tile_rmsnorm_qkv_split ?x ?w_norm ?eps ?w_q ?w_k ?w_v)"),
+		MustRewrite("fuse_rmsnorm_qkv_split_tuple_gemv",
+			"(qkv_split (gemv (rmsnorm ?x ?w_norm ?eps) ?w_q) (gemv (rmsnorm ?x ?w_norm ?eps) ?w_k) (gemv (rmsnorm ?x ?w_norm ?eps) ?w_v))",
+			"(tile_rmsnorm_qkv_split ?x ?w_norm ?eps ?w_q ?w_k ?w_v)"),
+		MustRewrite("fuse_rmsnorm_qkv_split_tuple_matmul",
+			"(qkv_split (matmul (rmsnorm ?x ?w_norm ?eps) ?w_q) (matmul (rmsnorm ?x ?w_norm ?eps) ?w_k) (matmul (rmsnorm ?x ?w_norm ?eps) ?w_v))",
+			"(tile_rmsnorm_qkv_split ?x ?w_norm ?eps ?w_q ?w_k ?w_v)"),
+		MustRewrite("fuse_rmsnorm_qkv_split_concat_gemv",
+			"(concat (gemv (rmsnorm ?x ?w_norm ?eps) ?w_q) (gemv (rmsnorm ?x ?w_norm ?eps) ?w_k) (gemv (rmsnorm ?x ?w_norm ?eps) ?w_v))",
+			"(tile_rmsnorm_qkv_split ?x ?w_norm ?eps ?w_q ?w_k ?w_v)"),
+		MustRewrite("fuse_rmsnorm_qkv_split_concat_matmul",
+			"(concat (matmul (rmsnorm ?x ?w_norm ?eps) ?w_q) (matmul (rmsnorm ?x ?w_norm ?eps) ?w_k) (matmul (rmsnorm ?x ?w_norm ?eps) ?w_v))",
+			"(tile_rmsnorm_qkv_split ?x ?w_norm ?eps ?w_q ?w_k ?w_v)"),
 
 		// 3. RMSNorm -> Single Projection (e.g. Attention Out or MLP In)
 		MustRewrite("fuse_rmsnorm_proj_gemv",

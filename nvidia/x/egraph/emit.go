@@ -498,7 +498,9 @@ func (s Source) ReferenceGraph() (*cudair.Graph, error) {
 			return nil, fmt.Errorf("%w: operator %q e-class %d: unsupported payload", ErrEmissionUnsupported, e.Op, e.Class)
 		}
 		switch e.Op {
-		case "add", "mul", "silu", "swish", "gelu", "rmsnorm", "gemv", "fused_rmsnorm_gemv":
+		case "add", "mul", "silu", "swish", "gelu", "rmsnorm", "gemv", "fused_rmsnorm_gemv",
+			"tile_rmsnorm_qkv", "fused_rmsnorm_qkv", "tile_rmsnorm_proj", "fused_rmsnorm_proj",
+			"tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split", "qkv_split", "concat":
 		default:
 			return nil, fmt.Errorf("%w: operator %q e-class %d", ErrEmissionUnsupported, e.Op, e.Class)
 		}
@@ -535,15 +537,46 @@ func (s Source) ReferenceGraph() (*cudair.Graph, error) {
 				return nil, fmt.Errorf("reference gemv: two operands required")
 			}
 			return gemv(nodes[0], nodes[1])
-		case "fused_rmsnorm_gemv":
+		case "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "fused_rmsnorm_qkv", "tile_rmsnorm_proj", "fused_rmsnorm_proj":
 			if len(nodes) != 4 {
-				return nil, fmt.Errorf("reference fused_rmsnorm_gemv: four operands required")
+				return nil, fmt.Errorf("reference %s: four operands required", e.Op)
 			}
 			normalized, err := norm(nodes[0], nodes[1], nodes[2])
 			if err != nil {
 				return nil, err
 			}
 			return gemv(normalized, nodes[3])
+		case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
+			if len(nodes) != 6 {
+				return nil, fmt.Errorf("reference %s: six operands required", e.Op)
+			}
+			normalized, err := norm(nodes[0], nodes[1], nodes[2])
+			if err != nil {
+				return nil, err
+			}
+			q, err := gemv(normalized, nodes[3])
+			if err != nil {
+				return nil, err
+			}
+			k, err := gemv(normalized, nodes[4])
+			if err != nil {
+				return nil, err
+			}
+			v, err := gemv(normalized, nodes[5])
+			if err != nil {
+				return nil, err
+			}
+			return g.AddConcatChecked([]*cudair.Node{q, k, v}, 0)
+		case "qkv_split", "concat":
+			if len(nodes) < 2 {
+				return nil, fmt.Errorf("reference %s: at least two operands required", e.Op)
+			}
+			for _, n := range nodes {
+				if len(n.Shape) != 1 {
+					return nil, fmt.Errorf("reference %s: expected 1D vector operands", e.Op)
+				}
+			}
+			return g.AddConcatChecked(nodes, 0)
 		default:
 			return nil, fmt.Errorf("%w: operator %q e-class %d", ErrEmissionUnsupported, e.Op, e.Class)
 		}
@@ -653,13 +686,29 @@ func (n *expressionEmitter) EmitForwardWithDependencies(name string, children []
 			fmt.Fprintf(&body, "    for (int i = 0; i < %d; ++i) {\n        output[i] = arg0[i] / (1.0f + expf(-arg0[i]));\n    }\n", n.OutputWidth())
 		case "gelu":
 			fmt.Fprintf(&body, "    for (int i = 0; i < %d; ++i) {\n        output[i] = 0.5f * arg0[i] * (1.0f + erff(arg0[i] * 0.7071067811865475f));\n    }\n", n.OutputWidth())
-		case "rmsnorm", "fused_rmsnorm_gemv":
+		case "rmsnorm", "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "fused_rmsnorm_qkv", "tile_rmsnorm_proj", "fused_rmsnorm_proj":
 			width := n.dependencies[0].OutputWidth()
 			fmt.Fprintf(&body, "    float sum = 0.0f;\n    for (int i = 0; i < %d; ++i) {\n        sum += arg0[i] * arg0[i];\n    }\n    float scale = 1.0f / sqrtf(sum / %s + arg2[0]);\n", width, floatLiteral(float32(width)))
 			if n.expression.Op == "rmsnorm" {
 				fmt.Fprintf(&body, "    for (int i = 0; i < %d; ++i) {\n        output[i] = (arg0[i] * scale) * arg1[i];\n    }\n", width)
 			} else {
 				fmt.Fprintf(&body, "    for (int row = 0; row < %d; ++row) {\n        float dot = 0.0f;\n        for (int i = 0; i < %d; ++i) {\n            float normalized = (arg0[i] * scale) * arg1[i];\n            dot += arg3[row * %d + i] * normalized;\n        }\n        output[row] = dot;\n    }\n", n.OutputWidth(), width, width)
+			}
+		case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
+			width := n.dependencies[0].OutputWidth()
+			qRows := n.dependencies[3].shape[0]
+			kRows := n.dependencies[4].shape[0]
+			vRows := n.dependencies[5].shape[0]
+			fmt.Fprintf(&body, "    float sum = 0.0f;\n    for (int i = 0; i < %d; ++i) {\n        sum += arg0[i] * arg0[i];\n    }\n    float scale = 1.0f / sqrtf(sum / %s + arg2[0]);\n", width, floatLiteral(float32(width)))
+			fmt.Fprintf(&body, "    for (int row = 0; row < %d; ++row) {\n        float dot = 0.0f;\n        for (int i = 0; i < %d; ++i) {\n            float normalized = (arg0[i] * scale) * arg1[i];\n            dot += arg3[row * %d + i] * normalized;\n        }\n        output[row] = dot;\n    }\n", qRows, width, width)
+			fmt.Fprintf(&body, "    for (int row = 0; row < %d; ++row) {\n        float dot = 0.0f;\n        for (int i = 0; i < %d; ++i) {\n            float normalized = (arg0[i] * scale) * arg1[i];\n            dot += arg4[row * %d + i] * normalized;\n        }\n        output[%d + row] = dot;\n    }\n", kRows, width, width, qRows)
+			fmt.Fprintf(&body, "    for (int row = 0; row < %d; ++row) {\n        float dot = 0.0f;\n        for (int i = 0; i < %d; ++i) {\n            float normalized = (arg0[i] * scale) * arg1[i];\n            dot += arg5[row * %d + i] * normalized;\n        }\n        output[%d + row] = dot;\n    }\n", vRows, width, width, qRows+kRows)
+		case "qkv_split", "concat":
+			off := 0
+			for idx, dep := range n.dependencies {
+				w := dep.OutputWidth()
+				fmt.Fprintf(&body, "    for (int i = 0; i < %d; ++i) {\n        output[%d + i] = arg%d[i];\n    }\n", w, off, idx)
+				off += w
 			}
 		case "gemv":
 			width := n.dependencies[0].OutputWidth()
@@ -772,8 +821,16 @@ func EmitCUDA(expr *Expr, opts EmitOptions) (Source, error) {
 				n.shape = append([]int(nil), n.dependencies[0].shape...)
 			case "gemv":
 				n.shape = []int{n.dependencies[1].shape[0]}
-			case "fused_rmsnorm_gemv":
+			case "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "fused_rmsnorm_qkv", "tile_rmsnorm_proj", "fused_rmsnorm_proj":
 				n.shape = []int{n.dependencies[3].shape[0]}
+			case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
+				n.shape = []int{n.dependencies[3].shape[0] + n.dependencies[4].shape[0] + n.dependencies[5].shape[0]}
+			case "qkv_split", "concat":
+				total := 0
+				for _, dep := range n.dependencies {
+					total += dep.OutputWidth()
+				}
+				n.shape = []int{total}
 			default:
 				return nil, fmt.Errorf("%w: operator %q e-class %d", ErrEmissionUnsupported, e.Op, e.Class)
 			}
