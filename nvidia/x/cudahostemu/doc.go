@@ -14,7 +14,13 @@
 // and, in kernels that issue wgmma.fence, wgmma are modeled at their latest
 // legal timing, so a result read or an operand overwritten before the
 // matching wait_group shows up on the host; EG_EMU_SYNC_WGMMA turns the
-// wgmma model off. sgl_mock.h adds the parts of SGLang's JIT headers and
+// wgmma model off. Hopper mbarriers, cp.async.bulk and 2D TMA tile loads
+// (with the 128-byte swizzle) are modeled adversarially: a copy's
+// destination reads NaN until a thread waits on the phase that completes it,
+// so a missing wait or a wait for the wrong phase parity shows up, and a
+// satisfied wait returns only once no other thread of the block can run, so
+// a producer that refills a stage before its consumers release it shows up
+// too; EG_EMU_SYNC_MBAR turns that model off. sgl_mock.h adds the parts of SGLang's JIT headers and
 // tvm-ffi that generated launcher structs use.
 //
 // [Run] compiles kernel source with a launch statement and named buffers,

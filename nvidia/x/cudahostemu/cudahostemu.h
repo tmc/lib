@@ -19,7 +19,11 @@
 // a multiple-of-32 thread subset and fail loudly on invalid counts or
 // incomplete barriers. cp.async is modeled at its latest legal timing:
 // issue fills the destination with 0xff and the data lands only when
-// cp.async.wait_group retires its group. wgmma (bf16, f16 and e4m3, with
+// cp.async.wait_group retires its group. Hopper mbarriers and bulk copies
+// (eg_emu_mbar_*, eg_emu_cp_async_bulk, eg_emu_cp_async_bulk_tensor_2d) are
+// modeled as adversarially: a copy's data lands only when a wait observes
+// its phase, and a satisfied wait returns only when no other thread of the
+// block can run. wgmma (bf16, f16 and e4m3, with
 // shared-A or register-A, K-major or MN-major, and no/32B/64B/128B swizzle)
 // is modeled the same way once a thread calls eg_emu_wgmma_fence: the
 // accumulator reads NaN, and shared memory is read, only at the
@@ -51,6 +55,7 @@
 #include <algorithm>
 #include <atomic>
 #include <barrier>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstdint>
@@ -125,6 +130,8 @@ constexpr int warpSize = 32;
 
 // --- blocks, warps and clusters --------------------------------------------
 
+inline void eg_emu_wake_delayers();
+
 struct eg_emu_warp {
     std::mutex mu;
     std::condition_variable cv;
@@ -136,6 +143,7 @@ struct eg_emu_warp {
     uint64_t val[32] = {};
     const void* ptr[32] = {};
     uint32_t regs[32][8] = {};
+    std::atomic<int>* stalled = nullptr;  // the block's count of lanes blocked here
 
     explicit eg_emu_warp(int n)
         : active_mask(n >= 32 ? 0xffffffffu : ((1u << n) - 1u)) {}
@@ -169,8 +177,13 @@ struct eg_emu_warp {
                 released_eff[k] = eff;
                 ++lane_gen[k];
             }
+            if (stalled) stalled->fetch_sub(__builtin_popcount(eff) - 1);
             cv.notify_all();
             return eff;
+        }
+        if (stalled) {
+            stalled->fetch_add(1);
+            eg_emu_wake_delayers();
         }
         cv.wait(lock, [&] { return lane_gen[lane] != g; });
         return released_eff[lane];
@@ -191,6 +204,7 @@ struct eg_emu_warp {
                     released_eff[j] = eff;
                     ++lane_gen[j];
                 }
+                if (stalled) stalled->fetch_sub(__builtin_popcount(eff));
                 woke = true;
             }
         }
@@ -205,13 +219,50 @@ struct eg_emu_named_bar {
     unsigned gen = 0;
 };
 
+// An mbarrier (eg_emu_mbar_*). phase is the current, incomplete phase; it
+// completes when pending arrivals and tx transaction bytes both reach zero.
+struct eg_emu_mbar_waiter;
+struct eg_emu_mbar {
+    int count = 0;
+    int pending = 0;
+    int64_t tx = 0;
+    int64_t phase = 0;
+    std::vector<std::pair<unsigned char*, uint64_t>> copies;  // undelivered bulk copies: dst, seq
+    std::vector<eg_emu_mbar_waiter*> waiters;
+};
+
+// A thread blocked in eg_emu_mbar_wait until phase target completes.
+struct eg_emu_mbar_waiter {
+    int64_t target;
+    uint64_t gen = 0;  // the block's delay generation when target completed
+    bool done = false;
+};
+
+// A cp.async.bulk copy whose data has not been delivered to its destination.
+struct eg_emu_bulk {
+    uint64_t* bar;
+    int64_t phase;  // the phase of bar whose completion the copy signals
+    uint64_t seq;
+    std::vector<unsigned char> data;
+};
+
 struct eg_emu_block {
-    std::barrier<> bar;
     int nthreads;
     std::mutex bar_mu;
     int live_threads;
-    int waiting_named = 0;
+    // Threads blocked in each kind of wait, for deadlock detection and for
+    // the mbarrier wait's late release. warp_stalled is exact: the lane that
+    // releases a warp sync subtracts the lanes it releases.
+    int waiting_named = 0, waiting_sync = 0, waiting_mbar = 0;
+    std::atomic<int> delaying{0}, warp_stalled{0}, cluster_stalled{0};
     eg_emu_named_bar named[16];
+    int sync_arrived = 0;
+    unsigned sync_gen = 0;
+    std::condition_variable sync_cv;
+    std::condition_variable mbar_cv;
+    uint64_t delay_gen = 0, bulk_seq = 0;
+    std::map<uint64_t*, eg_emu_mbar> mbars;
+    std::map<unsigned char*, eg_emu_bulk> bulk;  // by destination
     std::vector<std::unique_ptr<eg_emu_warp>> warps;
     std::vector<unsigned char> smem;  // dynamic shared memory
 
@@ -219,7 +270,7 @@ struct eg_emu_block {
     std::mutex mu;
     std::map<std::string, std::vector<unsigned char>> keyed;
 
-    explicit eg_emu_block(int n) : bar(n), nthreads(n), live_threads(n) {}
+    explicit eg_emu_block(int n) : nthreads(n), live_threads(n) {}
     void* get(const std::string& key, size_t n, unsigned char fill = 0) {
         std::lock_guard<std::mutex> l(mu);
         auto& b = keyed[key];
@@ -241,7 +292,60 @@ inline thread_local int eg_emu_lane;
 inline thread_local int eg_emu_rank;
 inline thread_local int& eg_emu_cluster_rank = eg_emu_rank;
 
-inline void __syncthreads() { eg_emu_cur_block->bar.arrive_and_wait(); }
+inline void eg_emu_wake_delayers() {
+    if (eg_emu_cur_block && eg_emu_cur_block->delaying.load() > 0) eg_emu_cur_block->mbar_cv.notify_all();
+}
+
+// eg_emu_quiescent reports whether no thread of b can run until a delayed
+// mbarrier wait returns. b->bar_mu must be held.
+inline bool eg_emu_quiescent(eg_emu_block* b) {
+    return b->waiting_named + b->waiting_sync + b->waiting_mbar + b->delaying +
+               b->warp_stalled.load() + b->cluster_stalled.load() >= b->live_threads;
+}
+
+// eg_emu_release_delayers returns every delayed mbarrier wait once b is
+// quiescent. b->bar_mu must be held.
+inline void eg_emu_release_delayers(eg_emu_block* b) {
+    if (b->delaying > 0 && eg_emu_quiescent(b)) {
+        ++b->delay_gen;
+        b->delaying = 0;
+        b->mbar_cv.notify_all();
+    }
+}
+
+// eg_emu_check_deadlock fails if every live thread of b waits for another
+// one. b->bar_mu must be held.
+inline void eg_emu_check_deadlock(eg_emu_block* b, const char* what) {
+    if (b->live_threads > 0 && b->delaying == 0 &&
+        b->waiting_named + b->waiting_sync + b->waiting_mbar + b->warp_stalled.load() == b->live_threads) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) deadlock in %s: %d threads in named barriers, %d in __syncthreads, %d in mbarrier waits, %d in warp syncs\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, what, b->waiting_named, b->waiting_sync, b->waiting_mbar, b->warp_stalled.load());
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+}
+
+// eg_emu_sync_release completes a __syncthreads that waiters threads wait in.
+inline void eg_emu_sync_release(eg_emu_block* b, int waiters) {
+    b->waiting_sync -= waiters;
+    b->sync_arrived = 0;
+    ++b->sync_gen;
+    b->sync_cv.notify_all();
+}
+
+inline void __syncthreads() {
+    eg_emu_block* b = eg_emu_cur_block;
+    std::unique_lock<std::mutex> lock(b->bar_mu);
+    if (++b->sync_arrived == b->live_threads) {
+        eg_emu_sync_release(b, b->sync_arrived - 1);
+        return;
+    }
+    ++b->waiting_sync;
+    eg_emu_check_deadlock(b, "__syncthreads");
+    eg_emu_release_delayers(b);
+    const unsigned g = b->sync_gen;
+    b->sync_cv.wait(lock, [&] { return b->sync_gen != g; });
+}
 inline void __syncwarp(unsigned mask = 0xffffffffu) { eg_emu_cur_warp->sync(mask, eg_emu_lane); }
 inline void __threadfence() { std::atomic_thread_fence(std::memory_order_seq_cst); }
 inline void __threadfence_block() { std::atomic_thread_fence(std::memory_order_seq_cst); }
@@ -285,6 +389,8 @@ inline void eg_emu_bar_sync(int id, int count) {
             std::_Exit(3);
         }
     }
+    eg_emu_check_deadlock(b, "named barrier");
+    eg_emu_release_delayers(b);
     unsigned g = nb.gen;
     nb.cv.wait(lock, [&] { return nb.gen != g; });
 }
@@ -310,7 +416,10 @@ inline void eg_emu_cluster_sync() {
         std::fflush(stderr);
         std::_Exit(3);
     }
+    eg_emu_cur_block->cluster_stalled.fetch_add(1);
+    eg_emu_wake_delayers();
     eg_emu_cur_cluster->bar.arrive_and_wait();
+    eg_emu_cur_block->cluster_stalled.fetch_sub(1);
 }
 
 namespace cooperative_groups {
@@ -512,6 +621,297 @@ inline void eg_emu_cp_async_wait(int n) {
         else rest.push_back(c);
     }
     eg_emu_cp_pending.swap(rest);
+}
+
+// --- mbarrier and cp.async.bulk --------------------------------------------
+
+// Hopper mbarriers and bulk copies are modeled adversarially, in the spirit
+// of cp.async above. A phase completes when its pending arrivals and its
+// transaction bytes (added by arrive.expect_tx, removed by each copy) both
+// reach zero, as on the GPU. Issuing a copy fills its destination with 0xff
+// and supersedes any undelivered copy it overlaps; the data lands only when
+// a thread's eg_emu_mbar_wait (mbarrier.try_wait.parity in a loop) or
+// eg_emu_mbar_test_wait (test_wait.parity) observes the completion of the
+// copy's phase or a later one. A wait for the wrong parity, which returns at
+// once for a phase that has not completed, therefore delivers nothing, and
+// a consumer that reads without waiting reads NaN. A wait that is satisfied
+// still returns as late as it legally can: only when every other live
+// thread of the block is blocked too (or has exited). A producer that does
+// not wait for a stage to be released therefore overwrites it, with 0xff,
+// before its consumer reads. A thread that waits forever, and an exit with
+// transaction bytes outstanding, fail loudly. With EG_EMU_SYNC_MBAR defined,
+// copies land at issue and waits return when satisfied.
+
+inline eg_emu_mbar& eg_emu_mbar_get(eg_emu_block* b, uint64_t* bar, const char* op) {
+    auto it = b->mbars.find(bar);
+    if (it == b->mbars.end()) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) %s: uninitialized mbarrier %p\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, op, (void*)bar);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    return it->second;
+}
+
+// eg_emu_mbar_advance completes m's phase if nothing is pending. b->bar_mu
+// must be held.
+inline void eg_emu_mbar_advance(eg_emu_block* b, eg_emu_mbar& m) {
+    if (m.pending > 0 || m.tx != 0) return;
+    ++m.phase;
+    m.pending = m.count;
+    std::vector<eg_emu_mbar_waiter*> rest;
+    for (eg_emu_mbar_waiter* w : m.waiters) {
+        if (w->target >= m.phase) {
+            rest.push_back(w);
+            continue;
+        }
+        w->done = true;
+        w->gen = b->delay_gen;
+        --b->waiting_mbar;
+#if !defined(EG_EMU_SYNC_MBAR)
+        ++b->delaying;
+#endif
+    }
+    m.waiters.swap(rest);
+    b->mbar_cv.notify_all();
+}
+
+// eg_emu_mbar_deliver copies the data of m's copies of phase c and earlier
+// to their destinations. b->bar_mu must be held.
+inline void eg_emu_mbar_deliver(eg_emu_block* b, eg_emu_mbar& m, int64_t c) {
+    std::vector<std::pair<unsigned char*, uint64_t>> rest;
+    for (auto& [dst, seq] : m.copies) {
+        auto it = b->bulk.find(dst);
+        if (it == b->bulk.end() || it->second.seq != seq) continue;  // superseded
+        if (it->second.phase > c) {
+            rest.push_back({dst, seq});
+            continue;
+        }
+        std::memcpy(dst, it->second.data.data(), it->second.data.size());
+        b->bulk.erase(it);
+    }
+    m.copies.swap(rest);
+}
+
+// eg_emu_mbar_init is mbarrier.init: count arrivals complete each phase.
+inline void eg_emu_mbar_init(uint64_t* bar, int count) {
+    eg_emu_block* b = eg_emu_cur_block;
+    if (!bar || (uintptr_t)bar % 8 != 0 || count < 1 || count >= (1 << 20)) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_emu_mbar_init(%p, %d): bad barrier address or count\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, (void*)bar, count);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    std::lock_guard<std::mutex> lock(b->bar_mu);
+    auto it = b->mbars.find(bar);
+    if (it != b->mbars.end()) {
+        if (!it->second.waiters.empty()) {
+            std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_emu_mbar_init: mbarrier %p reinitialized with threads waiting on it\n",
+                         blockIdx.x, blockIdx.y, blockIdx.z, (void*)bar);
+            std::fflush(stderr);
+            std::_Exit(3);
+        }
+        for (auto& [dst, seq] : it->second.copies) {
+            auto c = b->bulk.find(dst);
+            if (c != b->bulk.end() && c->second.seq == seq) b->bulk.erase(c);
+        }
+    }
+    *bar = 0;
+    eg_emu_mbar& m = b->mbars[bar];
+    m = eg_emu_mbar{};
+    m.count = count;
+    m.pending = count;
+}
+
+inline void eg_emu_mbar_arrive_tx(uint64_t* bar, uint32_t tx, const char* op) {
+    eg_emu_block* b = eg_emu_cur_block;
+    std::lock_guard<std::mutex> lock(b->bar_mu);
+    eg_emu_mbar& m = eg_emu_mbar_get(b, bar, op);
+    if (m.pending == 0) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) %s: more than %d arrivals in phase %lld\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, op, m.count, (long long)m.phase);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    m.tx += tx;
+    --m.pending;
+    eg_emu_mbar_advance(b, m);
+}
+
+// eg_emu_mbar_arrive is mbarrier.arrive.
+inline void eg_emu_mbar_arrive(uint64_t* bar) { eg_emu_mbar_arrive_tx(bar, 0, "eg_emu_mbar_arrive"); }
+
+// eg_emu_mbar_arrive_expect_tx is mbarrier.arrive.expect_tx: the phase
+// also waits for tx more bytes of copies.
+inline void eg_emu_mbar_arrive_expect_tx(uint64_t* bar, uint32_t tx) {
+    eg_emu_mbar_arrive_tx(bar, tx, "eg_emu_mbar_arrive_expect_tx");
+}
+
+// eg_emu_mbar_wait is a loop on mbarrier.try_wait.parity: it returns once
+// the phase with parity phase_parity (the current phase, if its parity is
+// phase_parity, else the one before it) has completed.
+inline void eg_emu_mbar_wait(uint64_t* bar, int phase_parity) {
+    eg_emu_block* b = eg_emu_cur_block;
+    if (phase_parity != 0 && phase_parity != 1) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_emu_mbar_wait: phase parity %d is not 0 or 1\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, phase_parity);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    std::unique_lock<std::mutex> lock(b->bar_mu);
+    eg_emu_mbar& m = eg_emu_mbar_get(b, bar, "eg_emu_mbar_wait");
+    int64_t c;  // the completed phase the wait observes
+    uint64_t gen;
+    if ((m.phase & 1) != phase_parity) {
+        c = m.phase - 1;
+        gen = b->delay_gen;
+#if !defined(EG_EMU_SYNC_MBAR)
+        ++b->delaying;
+#endif
+    } else {
+        eg_emu_mbar_waiter w{m.phase};
+        m.waiters.push_back(&w);
+        ++b->waiting_mbar;
+        eg_emu_check_deadlock(b, "mbarrier wait");
+        eg_emu_release_delayers(b);
+        while (!w.done) {
+            b->mbar_cv.wait_for(lock, std::chrono::microseconds(200));
+            if (!w.done) eg_emu_check_deadlock(b, "mbarrier wait");
+        }
+        c = w.target;
+        gen = w.gen;
+    }
+#if !defined(EG_EMU_SYNC_MBAR)
+    while (b->delay_gen == gen) {
+        if (eg_emu_quiescent(b)) {
+            ++b->delay_gen;
+            b->delaying = 0;
+            b->mbar_cv.notify_all();
+            break;
+        }
+        b->mbar_cv.wait_for(lock, std::chrono::microseconds(200));
+    }
+#endif
+    eg_emu_mbar_deliver(b, m, c);
+}
+
+// eg_emu_mbar_test_wait is mbarrier.test_wait.parity: it reports, without
+// blocking or delay, whether the phase with parity phase_parity has
+// completed.
+inline bool eg_emu_mbar_test_wait(uint64_t* bar, int phase_parity) {
+    eg_emu_block* b = eg_emu_cur_block;
+    std::lock_guard<std::mutex> lock(b->bar_mu);
+    eg_emu_mbar& m = eg_emu_mbar_get(b, bar, "eg_emu_mbar_test_wait");
+    if ((m.phase & 1) == (phase_parity & 1)) return false;
+    eg_emu_mbar_deliver(b, m, m.phase - 1);
+    return true;
+}
+
+// eg_emu_bulk_issue queues data for dst against bar's current phase.
+inline void eg_emu_bulk_issue(unsigned char* dst, std::vector<unsigned char> data, uint64_t* bar, const char* op) {
+    eg_emu_block* b = eg_emu_cur_block;
+    const size_t n = data.size();
+    std::lock_guard<std::mutex> lock(b->bar_mu);
+    eg_emu_mbar& m = eg_emu_mbar_get(b, bar, op);
+    auto it = b->bulk.lower_bound(dst);
+    if (it != b->bulk.begin()) {
+        auto p = std::prev(it);
+        if (p->first + p->second.data.size() > dst) it = p;
+    }
+    while (it != b->bulk.end() && it->first < dst + n) it = b->bulk.erase(it);
+    // The bytes complete one at a time: if the phase's count runs out
+    // within the copy, the phase completes there and the copy, not fully
+    // landed, belongs to the next one.
+    int64_t rest = (int64_t)n;
+    if (m.pending == 0 && m.tx > 0 && m.tx < rest) {
+        rest -= m.tx;
+        m.tx = 0;
+        eg_emu_mbar_advance(b, m);
+    }
+#if defined(EG_EMU_SYNC_MBAR)
+    std::memcpy(dst, data.data(), n);
+#else
+    std::memset(dst, 0xff, n);
+    const uint64_t seq = ++b->bulk_seq;
+    b->bulk.emplace(dst, eg_emu_bulk{bar, m.phase, seq, std::move(data)});
+    m.copies.push_back({dst, seq});
+#endif
+    m.tx -= rest;
+    eg_emu_mbar_advance(b, m);
+}
+
+// eg_emu_cp_async_bulk is cp.async.bulk.shared::cluster.global.mbarrier::
+// complete_tx::bytes: size bytes, a multiple of 16, between 16-byte aligned
+// addresses.
+inline void eg_emu_cp_async_bulk(void* smem_dst, const void* gmem_src, uint32_t size, uint64_t* bar) {
+    if (size == 0 || size % 16 != 0 || (uintptr_t)smem_dst % 16 != 0 || (uintptr_t)gmem_src % 16 != 0) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_emu_cp_async_bulk(%p, %p, %u): size must be a positive multiple of 16 and addresses 16-byte aligned\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, smem_dst, gmem_src, size);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    const unsigned char* src = (const unsigned char*)gmem_src;
+    eg_emu_bulk_issue((unsigned char*)smem_dst, std::vector<unsigned char>(src, src + size), bar, "eg_emu_cp_async_bulk");
+}
+
+// An eg_emu_tensor_map stands in for a 2D CUtensorMap made by
+// cuTensorMapEncodeTiled: a row-major global tensor of dims[1] rows of
+// dims[0] elements, rows stride bytes apart, read box[1] rows of box[0]
+// elements at a time, with no swizzle or the 128-byte swizzle.
+struct eg_emu_tensor_map {
+    const unsigned char* base;
+    uint32_t elem_bytes;
+    uint64_t dims[2];
+    uint64_t stride;
+    uint32_t box[2];
+    bool swizzle_128b;
+};
+
+inline eg_emu_tensor_map eg_emu_make_tensor_map_2d(const void* base, uint32_t elem_bytes, uint64_t inner, uint64_t outer,
+                                                   uint64_t stride_bytes, uint32_t box_inner, uint32_t box_outer, bool swizzle_128b) {
+    const uint64_t row = (uint64_t)box_inner * elem_bytes;
+    if (!base || (uintptr_t)base % 16 != 0 || stride_bytes % 16 != 0 || row % 16 != 0 ||
+        box_inner < 1 || box_inner > 256 || box_outer < 1 || box_outer > 256 || (swizzle_128b && row != 128)) {
+        std::fprintf(stderr, "cudahostemu: eg_emu_make_tensor_map_2d: bad tensor map (box row %llu bytes, stride %llu)\n",
+                     (unsigned long long)row, (unsigned long long)stride_bytes);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    return {(const unsigned char*)base, elem_bytes, {inner, outer}, stride_bytes, {box_inner, box_outer}, swizzle_128b};
+}
+
+// eg_emu_cp_async_bulk_tensor_2d is cp.async.bulk.tensor.2d.shared::cluster.
+// global.tile.mbarrier::complete_tx::bytes: the box at element (c0, c1)
+// lands at smem_dst, rows box[0] elements apart, elements outside the tensor
+// zero, and with the 128-byte swizzle 16-byte chunk j of row r at chunk
+// j ^ (r % 8). A swizzled box must start 1024-byte aligned in dynamic
+// shared memory, so that the swizzle matches wgmma's.
+inline void eg_emu_cp_async_bulk_tensor_2d(void* smem_dst, const eg_emu_tensor_map* map, int c0, int c1, uint64_t* bar) {
+    // Alignment is relative to the start of dynamic shared memory, which the
+    // emulation treats as 1024-byte aligned.
+    unsigned char* dst = (unsigned char*)smem_dst;
+    const unsigned char* smem = eg_emu_dynamic_smem();
+    const bool dynamic = dst >= smem && dst < smem + eg_emu_cur_block->smem.size();
+    const uintptr_t addr = dynamic ? (uintptr_t)(dst - smem) : (uintptr_t)dst;
+    if (addr % 128 != 0 || (map->swizzle_128b && (!dynamic || addr % 1024 != 0))) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_emu_cp_async_bulk_tensor_2d: destination %p misaligned for the box\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, smem_dst);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    const uint32_t eb = map->elem_bytes, row = map->box[0] * eb;
+    std::vector<unsigned char> data((size_t)row * map->box[1], 0);
+    for (uint32_t r = 0; r < map->box[1]; ++r) {
+        const int64_t y = (int64_t)c1 + r;
+        for (uint32_t i = 0; i < map->box[0]; ++i) {
+            const int64_t x = (int64_t)c0 + i;
+            if (x < 0 || y < 0 || (uint64_t)x >= map->dims[0] || (uint64_t)y >= map->dims[1]) continue;
+            uint32_t o = r * row + i * eb;
+            if (map->swizzle_128b) o ^= ((o >> 7) & 7u) << 4;
+            std::memcpy(&data[o], map->base + (uint64_t)y * map->stride + (uint64_t)x * eb, eb);
+        }
+    }
+    eg_emu_bulk_issue(dst, std::move(data), bar, "eg_emu_cp_async_bulk_tensor_2d");
 }
 
 // --- conversions -----------------------------------------------------------
@@ -1038,7 +1438,10 @@ void eg_emu_run(dim3 grid, dim3 block, size_t smem, int cluster, F body) {
             blocks.emplace_back(new eg_emu_block((int)n));
             eg_emu_block& b = *blocks.back();
             b.smem.assign(smem + 16, eg_emu_smem_fill);
-            for (int w = 0; w * 32 < n; ++w) b.warps.emplace_back(new eg_emu_warp(std::min(32, (int)n - 32 * w)));
+            for (int w = 0; w * 32 < n; ++w) {
+                b.warps.emplace_back(new eg_emu_warp(std::min(32, (int)n - 32 * w)));
+                b.warps.back()->stalled = &b.warp_stalled;
+            }
             cl.blocks.push_back(&b);
         }
         std::vector<std::thread> threads;
@@ -1066,6 +1469,9 @@ void eg_emu_run(dim3 grid, dim3 block, size_t smem, int cluster, F body) {
                         std::fflush(stderr);
                         std::_Exit(3);
                     }
+                    // Drop out of the warp first, so lanes waiting for this one are not
+                    // counted as stalled once it is no longer live.
+                    eg_emu_cur_warp->drop(eg_emu_lane);
                     {
                         std::lock_guard<std::mutex> lock(b.bar_mu);
                         --b.live_threads;
@@ -1078,12 +1484,29 @@ void eg_emu_run(dim3 grid, dim3 block, size_t smem, int cluster, F body) {
                                 std::_Exit(3);
                             }
                         }
+                        if (b.sync_arrived > 0 && b.sync_arrived == b.live_threads) eg_emu_sync_release(&b, b.sync_arrived);
+                        eg_emu_check_deadlock(&b, "thread exit");
+                        eg_emu_release_delayers(&b);
                     }
-                    eg_emu_cur_warp->drop(eg_emu_lane);
-                    b.bar.arrive_and_drop();
                     cl.bar.arrive_and_drop();
                 });
         for (auto& t : threads) t.join();
+        for (int r = 0; r < cluster; ++r) {
+            eg_emu_block& b = *blocks[r];
+            for (auto& [bar, m] : b.mbars) {
+                bool inflight = m.tx != 0;
+                for (auto& [dst, seq] : m.copies) {
+                    auto it = b.bulk.find(dst);
+                    if (it != b.bulk.end() && it->second.seq == seq && it->second.phase >= m.phase) inflight = true;
+                }
+                if (inflight) {
+                    std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) exited with mbarrier %p phase %lld incomplete: %lld transaction bytes outstanding\n",
+                                 cx + r, by, bz, (void*)bar, (long long)m.phase, (long long)m.tx);
+                    std::fflush(stderr);
+                    std::_Exit(3);
+                }
+            }
+        }
     }
 }
 
