@@ -12,6 +12,12 @@
 // launch or a grid no larger than the device holds at once: a waiting block
 // spins, so a producer that never becomes resident deadlocks it.
 //
+// Memory ordering is verified only on hardware. The host race test checks
+// the counting with threads standing in for blocks, and it passes with
+// either fence removed. TestDeviceLitmus, a message-passing test in which
+// consumers must read every word producers wrote before signaling, needs
+// nvcc and a CUDA device and skips without them.
+//
 // Include the header from a source tree, or write [Header] beside a
 // generated kernel.
 //
