@@ -79,6 +79,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudaprofilehistory](cudaprofilehistory/) | Package cudaprofilehistory retains bounded, immutable observations of CUDA artifacts and profiling receipts. |
 | [cudaptx](cudaptx/) | Package cudaptx parses NVIDIA PTX virtual assembly. |
 | [cudaquant](cudaquant/) | Package cudaquant decodes Q4_0 and Q8_0 blocks used by CUDA kernels. |
+| [cudaready](cudaready/) | Package cudaready holds ready.cuh, epoch-tagged dataflow counters for persistent and cooperative CUDA kernels: a stage signals a counter when its writes are visible, and a later stage waits for the count it needs instead of a grid-wide barrier. |
 | [cudareduce](cudareduce/) | Package cudareduce provides deterministic column reductions for backward passes: bias gradients, per-group embedding gradients, and the LayerNorm weight and bias gradients. |
 | [cudaref](cudaref/) | Package cudaref provides CPU reference operations for cudair graphs. |
 | [cudareg](cudareg/) | Package cudareg checks a bounded setmaxnreg producer-consumer protocol. |
