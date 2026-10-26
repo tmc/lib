@@ -3,8 +3,10 @@
  * For i=0..7, y[i]=x[i]+w[i], x[i]+=100; w must remain unchanged.
  * The finite input population is x[i]=i+2, w[i]=5+2*i, y[i]=-8-i.
  * Historical artifact evidence does not qualify this interposer adapter.
- * Every decision still forwards the original launch, including a full match.
- * No public flag or callback can authorize replacement.
+ * Every v1 metadata-only decision forwards original, including a full match.
+ * The separate v2 owner requires immutable independent admission plus a real
+ * canary; its production admission table is empty. No public flag or callback
+ * can authorize replacement.
  */
 #ifndef CUDAINTERCEPT_REGISTRY_H
 #define CUDAINTERCEPT_REGISTRY_H
@@ -76,7 +78,8 @@ uint32_t cudaintercept_replay_bind_v1(const struct cudaintercept_replay_v1 *call
  * override that request. All three switches accept 0 or 1 (other values
  * return -1 without changing policy). Acquire/release atomics make changes
  * visible to subsequent decisions; an in-flight decision may use the prior
- * value. No switch can suppress the original launch in this implementation.
+ * value. These switches issue no eligibility; v1 declarations always forward.
+ * The separate owned v2 path must additionally possess its private capsule.
  */
 int cudaintercept_replay_enable_v1(int enable);
 int cudaintercept_process_disable_v1(int disable);
@@ -88,5 +91,34 @@ uint32_t cudaintercept_replay_decide_v1(uint64_t function, uint64_t stream,
     int params_present, int extra_present, int reentrant, uint64_t *generation);
 void cudaintercept_decision_record_v1(uint32_t reason, uint64_t generation,
     uint64_t function, uint64_t stream, int result);
+
+/* Private translation-unit bridge, hidden from the dynamic public API. Only
+ * replay.c's concrete producer may publish/arm it after independent admission
+ * and completed canary. This is not a hostile-native-code security boundary. */
+#define CUDAINTERCEPT_PRIVATE __attribute__((visibility("hidden")))
+struct cudaintercept_owned_capsule_v2 {
+    struct cudaintercept_replay_v1 operation;
+    uint64_t candidate, process;
+    uint64_t modules[2];
+    char driver_image[65];
+    char canary[65];
+    char digest[65];
+};
+struct cudaintercept_owned_frame_v2 {
+    const struct cudaintercept_owned_capsule_v2 *owner;
+    void **params;
+    uint32_t refusal, decision;
+};
+CUDAINTERCEPT_PRIVATE uint32_t cudaintercept_owned_contract_v2(const struct cudaintercept_replay_v1 *);
+CUDAINTERCEPT_PRIVATE uint32_t cudaintercept_owned_publish_v2(const struct cudaintercept_owned_capsule_v2 *);
+CUDAINTERCEPT_PRIVATE int cudaintercept_owned_arm_v2(struct cudaintercept_owned_frame_v2 *);
+CUDAINTERCEPT_PRIVATE void cudaintercept_owned_clear_v2(void);
+CUDAINTERCEPT_PRIVATE int cudaintercept_owned_prewarm_v2(uint64_t expected_launch);
+CUDAINTERCEPT_PRIVATE int cudaintercept_owned_in_hook_v2(void);
+CUDAINTERCEPT_PRIVATE int cudaintercept_owned_decide_v2(uint64_t, uint64_t,
+    const uint32_t[3], const uint32_t[3], uint32_t, void **, void **, int,
+    uint32_t *, uint64_t *, uint64_t *);
+CUDAINTERCEPT_PRIVATE void cudaintercept_owned_record_v2(uint32_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, int);
 
 #endif

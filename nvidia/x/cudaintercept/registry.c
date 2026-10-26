@@ -10,11 +10,12 @@ static atomic_uint replay_state;
 static atomic_int replay_enabled, process_disabled, replay_disabled;
 static _Thread_local struct cudaintercept_replay_v1 binding;
 static _Thread_local int bound;
+static _Thread_local int v1_consumed;
 
 #define TEXT(field, value) (sizeof(value) <= sizeof(e->field) && \
     memcmp(e->field, value, sizeof(value)) == 0)
 
-static uint32_t contract(const struct cudaintercept_replay_v1 *e) {
+static uint32_t contract_check(const struct cudaintercept_replay_v1 *e, int owned) {
     if (!e || e->version != CUDAINTERCEPT_REPLAY_VERSION || e->size != sizeof *e)
         return CUDAINTERCEPT_METADATA_ABI;
     if (!TEXT(operation, CUDAINTERCEPT_REPLAY_OPERATION)) return CUDAINTERCEPT_OPERATION;
@@ -44,8 +45,10 @@ static uint32_t contract(const struct cudaintercept_replay_v1 *e) {
     if (!TEXT(target, "sm_121")) return CUDAINTERCEPT_TARGET;
     if (!TEXT(nvrtc, CUDAINTERCEPT_REPLAY_NVRTC) || !TEXT(builtins, CUDAINTERCEPT_REPLAY_BUILTINS) ||
         !TEXT(flags, CUDAINTERCEPT_REPLAY_FLAGS)) return CUDAINTERCEPT_TOOLCHAIN;
-    if (!TEXT(baseline, CUDAINTERCEPT_REPLAY_BASELINE)) return CUDAINTERCEPT_BASELINE_ARTIFACT;
-    if (!TEXT(candidate, CUDAINTERCEPT_REPLAY_CANDIDATE)) return CUDAINTERCEPT_CANDIDATE_ARTIFACT;
+    if (!owned) {
+        if (!TEXT(baseline, CUDAINTERCEPT_REPLAY_BASELINE)) return CUDAINTERCEPT_BASELINE_ARTIFACT;
+        if (!TEXT(candidate, CUDAINTERCEPT_REPLAY_CANDIDATE)) return CUDAINTERCEPT_CANDIDATE_ARTIFACT;
+    }
     if (!e->capture) return CUDAINTERCEPT_CAPTURE_UNKNOWN;
     if (e->capture == 3) return CUDAINTERCEPT_GRAPH_EXECUTION;
     if (e->capture != 1) return CUDAINTERCEPT_CAPTURE;
@@ -55,6 +58,18 @@ static uint32_t contract(const struct cudaintercept_replay_v1 *e) {
     if (memcmp(e->grid, grid, sizeof grid) || memcmp(e->block, block, sizeof block) || e->shared_bytes)
         return CUDAINTERCEPT_GEOMETRY;
     return 0;
+}
+
+static uint32_t contract(const struct cudaintercept_replay_v1 *e) {
+    return contract_check(e, 0);
+}
+
+uint32_t cudaintercept_owned_contract_v2(const struct cudaintercept_replay_v1 *e) {
+    /* Image identity is checked against the private independent table by the
+     * producer. Public v1 registration never bypasses its historic pins. */
+    uint32_t reason = contract_check(e, 1);
+    if (reason) return reason;
+    return e->stream <= 2 ? CUDAINTERCEPT_STREAM : 0; /* no special streams */
 }
 
 uint32_t cudaintercept_replay_register_v1(const struct cudaintercept_replay_v1 *e) {
@@ -101,6 +116,7 @@ uint32_t cudaintercept_replay_decide_v1(uint64_t function, uint64_t stream,
     int params_present, int extra_present, int reentrant, uint64_t *generation) {
     int had_binding = bound == 1;
     int invalid_binding = bound < 0;
+    v1_consumed = had_binding || invalid_binding;
     bound = 0; /* Consume before forwarding, including recursive calls. */
     *generation = had_binding ? binding.caller_generation : 0;
     if (reentrant) return CUDAINTERCEPT_REENTRANT;
@@ -126,7 +142,7 @@ uint32_t cudaintercept_replay_decide_v1(uint64_t function, uint64_t stream,
     if (memcmp(grid, e->grid, sizeof e->grid) || memcmp(block, e->block, sizeof e->block) || shared != e->shared_bytes)
         return CUDAINTERCEPT_GEOMETRY;
     if (!params_present || extra_present) return CUDAINTERCEPT_ARGUMENTS;
-    /* No adapter or synchronous-dispatch contract has been qualified. */
+    /* A v1 declaration carries no private owner-issued eligibility capsule. */
     return CUDAINTERCEPT_ADAPTER_UNQUALIFIED;
 }
 
@@ -182,5 +198,110 @@ long cudaintercept_decision_drain_v1(struct cudaintercept_decision_v1 *out, size
     atomic_store_explicit(&decision_tail, t, memory_order_release);
     pthread_mutex_unlock(&decision_drain_mu);
     if (dropped) *dropped = atomic_load_explicit(&decision_dropped, memory_order_relaxed);
+    return (long)n;
+}
+
+/* Shares replay_state/replay with v1: there is exactly one registry slot. */
+static const struct cudaintercept_owned_capsule_v2 *owned_capsule;
+static _Thread_local struct cudaintercept_owned_frame_v2 *owned_frame;
+
+uint32_t cudaintercept_owned_publish_v2(const struct cudaintercept_owned_capsule_v2 *e) {
+    if (!e || !e->candidate || e->candidate == e->operation.function || !e->process ||
+        !e->modules[0] || !e->modules[1] || e->modules[0] == e->modules[1] ||
+        !e->digest[0] || e->digest[64] || !e->canary[0] || e->canary[64]) return CUDAINTERCEPT_OWNED_FRAME;
+    uint32_t reason = cudaintercept_owned_contract_v2(&e->operation);
+    if (reason) return reason;
+    unsigned empty = 0;
+    if (!atomic_compare_exchange_strong_explicit(&replay_state, &empty, 1,
+        memory_order_acquire, memory_order_relaxed)) return CUDAINTERCEPT_ALREADY_REGISTERED;
+    replay = e->operation;
+    owned_capsule = e; /* successful owner is never reclaimed */
+    atomic_store_explicit(&replay_state, 2, memory_order_release);
+    return 0;
+}
+
+int cudaintercept_owned_arm_v2(struct cudaintercept_owned_frame_v2 *f) {
+    if (!f || owned_frame) return 0;
+    owned_frame = f;
+    return 1;
+}
+void cudaintercept_owned_clear_v2(void) { owned_frame = NULL; }
+
+int cudaintercept_owned_decide_v2(uint64_t function, uint64_t stream,
+    const uint32_t grid[3], const uint32_t block[3], uint32_t shared,
+    void **params, void **extra, int nested, uint32_t *reason,
+    uint64_t *generation, uint64_t *dispatch) {
+    struct cudaintercept_owned_frame_v2 *f = owned_frame;
+    owned_frame = NULL; /* single use, before any tail launch or recursion */
+    if (!f) return 0;
+    *dispatch = function;
+    uint32_t r = CUDAINTERCEPT_OWNED_FRAME;
+    if (nested) r = CUDAINTERCEPT_REENTRANT;
+    else if (atomic_load_explicit(&process_disabled, memory_order_acquire)) r = CUDAINTERCEPT_PROCESS_DISABLED;
+    else if (!atomic_load_explicit(&replay_enabled, memory_order_acquire)) r = CUDAINTERCEPT_DEFAULT_OFF;
+    else if (atomic_load_explicit(&replay_disabled, memory_order_acquire)) r = CUDAINTERCEPT_OPERATION_DISABLED;
+    else if (atomic_load_explicit(&replay_state, memory_order_acquire) != 2) r = CUDAINTERCEPT_REGISTRY_UNAVAILABLE;
+    else if (!owned_capsule || f->owner != owned_capsule) r = CUDAINTERCEPT_ADAPTER_UNQUALIFIED;
+    else if (v1_consumed) r = *reason; /* a public v1 declaration still refuses */
+    else if (f->refusal) r = f->refusal;
+    else if (function != replay.function) r = CUDAINTERCEPT_REGISTRY_MISS;
+    else if (stream != replay.stream) r = CUDAINTERCEPT_STREAM;
+    else if (memcmp(grid, replay.grid, sizeof replay.grid) ||
+             memcmp(block, replay.block, sizeof replay.block) || shared != replay.shared_bytes) r = CUDAINTERCEPT_GEOMETRY;
+    else if (params != f->params || !params || extra) r = CUDAINTERCEPT_ARGUMENTS;
+    else {
+        *dispatch = owned_capsule->candidate;
+        r = CUDAINTERCEPT_REPLACED;
+    }
+    *generation = f->owner ? f->owner->operation.caller_generation : 0;
+    *reason = f->decision = r;
+    return 1;
+}
+
+struct owned_slot_v2 {
+    _Atomic uint64_t commit;
+    struct cudaintercept_owned_decision_v2 record;
+};
+static struct owned_slot_v2 owned_decisions[CUDAINTERCEPT_DECISION_CAPACITY];
+static _Atomic uint64_t owned_head, owned_tail, owned_dropped;
+static pthread_mutex_t owned_drain_mu = PTHREAD_MUTEX_INITIALIZER;
+
+void cudaintercept_owned_record_v2(uint32_t reason, uint64_t generation,
+    uint64_t requested, uint64_t dispatched, uint64_t stream, int result) {
+    if (!atomic_load_explicit(&decisions_enabled, memory_order_acquire)) return;
+    uint64_t t = atomic_load_explicit(&owned_tail, memory_order_acquire);
+    uint64_t h = atomic_load_explicit(&owned_head, memory_order_relaxed);
+    if (h == UINT64_MAX || h - t >= CUDAINTERCEPT_DECISION_CAPACITY ||
+        !atomic_compare_exchange_strong_explicit(&owned_head, &h, h + 1,
+            memory_order_relaxed, memory_order_relaxed)) {
+        atomic_fetch_add_explicit(&owned_dropped, 1, memory_order_relaxed);
+        return;
+    }
+    struct owned_slot_v2 *s = &owned_decisions[h % CUDAINTERCEPT_DECISION_CAPACITY];
+    s->record = (struct cudaintercept_owned_decision_v2){.version=2,
+        .size=sizeof s->record, .seq=h, .reason=reason, .result=result,
+        .caller_generation=generation, .requested_function=requested,
+        .dispatched_function=dispatched, .stream=stream};
+    if (owned_capsule) memcpy(s->record.capsule, owned_capsule->digest, sizeof s->record.capsule);
+    atomic_store_explicit(&s->commit, h + 1, memory_order_release);
+}
+
+long cudaintercept_owned_drain_v2(struct cudaintercept_owned_decision_v2 *out, size_t cap, uint64_t *dropped) {
+    if (!atomic_load_explicit(&decisions_enabled, memory_order_acquire)) {
+        if (dropped) *dropped = 0;
+        return -1;
+    }
+    pthread_mutex_lock(&owned_drain_mu);
+    uint64_t t = atomic_load_explicit(&owned_tail, memory_order_relaxed);
+    uint64_t h = atomic_load_explicit(&owned_head, memory_order_relaxed);
+    size_t n = 0;
+    for (; n < cap && t != h; n++, t++) {
+        struct owned_slot_v2 *s = &owned_decisions[t % CUDAINTERCEPT_DECISION_CAPACITY];
+        if (atomic_load_explicit(&s->commit, memory_order_acquire) != t + 1) break;
+        out[n] = s->record;
+    }
+    atomic_store_explicit(&owned_tail, t, memory_order_release);
+    pthread_mutex_unlock(&owned_drain_mu);
+    if (dropped) *dropped = atomic_load_explicit(&owned_dropped, memory_order_relaxed);
     return (long)n;
 }

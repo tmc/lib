@@ -28,6 +28,8 @@ static pthread_once_t resolve_once = PTHREAD_ONCE_INIT;
 static _Thread_local int resolving;
 static _Thread_local int launching;
 
+int cudaintercept_owned_in_hook_v2(void) { return resolving || launching; }
+
 static void resolve_symbol(void) {
     if (resolving) return;
     resolving = 1;
@@ -67,6 +69,14 @@ static pthread_mutex_t drain_mu = PTHREAD_MUTEX_INITIALIZER;
 static void observe_init(void) {
     const char *v = getenv("CUDAINTERCEPT_OBSERVE");
     observing = v != NULL && strcmp(v, "1") == 0;
+}
+
+int cudaintercept_owned_prewarm_v2(uint64_t expected_launch) {
+    if (resolving || launching) return 0;
+    pthread_once(&resolve_once, resolve_symbol);
+    pthread_once(&observe_once, observe_init);
+    return real_cuLaunchKernel != NULL &&
+        real_cuLaunchKernel == (cuLaunchKernel_t)(uintptr_t)expected_launch;
 }
 
 /* observe records one forwarded launch. It calls no function. */
@@ -149,10 +159,21 @@ int cuLaunchKernel(void* f, unsigned int gridDimX, unsigned int gridDimY, unsign
     uint32_t reason = cudaintercept_replay_decide_v1((uint64_t)(uintptr_t)f,
         (uint64_t)(uintptr_t)hStream, grid, block, sharedMemBytes,
         kernelParams != NULL, extra != NULL, nested, &generation);
+    void *requested_f = f;
+    uint64_t dispatch = (uint64_t)(uintptr_t)f;
+    int owned = cudaintercept_owned_decide_v2(dispatch, (uint64_t)(uintptr_t)hStream,
+        grid, block, sharedMemBytes, kernelParams, extra, nested,
+        &reason, &generation, &dispatch);
+    f = (void *)(uintptr_t)dispatch;
     int result = real_cuLaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams, extra);
+    f = requested_f;
     launching = nested;
-    cudaintercept_decision_record_v1(reason, generation, (uint64_t)(uintptr_t)f,
-        (uint64_t)(uintptr_t)hStream, result);
+    if (owned)
+        cudaintercept_owned_record_v2(reason, generation, (uint64_t)(uintptr_t)f,
+            dispatch, (uint64_t)(uintptr_t)hStream, result);
+    else
+        cudaintercept_decision_record_v1(reason, generation, (uint64_t)(uintptr_t)f,
+            (uint64_t)(uintptr_t)hStream, result);
     /* Observation follows forwarding and cannot change the result. */
     pthread_once(&observe_once, observe_init);
     if (observing)

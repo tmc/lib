@@ -43,7 +43,7 @@ func TestReplayRegistry(t *testing.T) {
 		"capture_unknown", "capture", "graph_execution", "unbound_function", "ownership", "population", "grid", "block", "shared",
 		"declared_grid", "params", "extra", "bad_registration", "binding_abi", "copy",
 		"consumed", "switches", "result_max", "result_zero", "reentrant", "concurrent",
-		"bounded", "decision_off",
+		"bounded", "decision_off", "owned_absent",
 	} {
 		t.Run(mode, func(t *testing.T) {
 			timedOut, err, out := runRegistry(t, binary, mode)
