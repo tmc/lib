@@ -63,6 +63,19 @@ type TileGEMM struct {
 	// GroupM, when > 1, orders CTA (tile_m, tile_n) coordinates in GroupM-row
 	// M-bands so concurrently scheduled blocks share A and B tiles in L2 cache.
 	GroupM int
+	// StreamK, when > 0, launches a persistent Stream-K grid of StreamK
+	// blocks (one or two per SM) in place of one block per tile. The
+	// tiles × K/BK k-steps, in tile-major order, are divided evenly: block
+	// b takes iterations [b·T/StreamK, (b+1)·T/StreamK) of T, so a tile
+	// may be split across blocks. Thread 0 computes each tile segment's
+	// bounds and broadcasts them through shared memory, so that the
+	// k-loop around the wgmma is warpgroup-uniform and ptxas does not
+	// serialize it (C7519). A block that covers part of a tile stores its
+	// FP32 partial in the workspace ws (see [TileGEMM.WorkspaceBytes]);
+	// the last to arrive sums the tile's partials in block order and runs
+	// the epilogue, so the result does not depend on which block finishes
+	// last. Grouped is not supported.
+	StreamK int
 
 	BM, BN int // 64 or 128 (BN 256 with WGMMA); 0 means 128
 	Stages int // 2 to 4; 0 means 3
@@ -89,6 +102,12 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	}
 	if g.GroupM < 0 {
 		return g, fmt.Errorf("tile gemm %s: negative GroupM %d", g.Name, g.GroupM)
+	}
+	if g.StreamK < 0 {
+		return g, fmt.Errorf("tile gemm %s: negative StreamK %d", g.Name, g.StreamK)
+	}
+	if g.StreamK > 0 && g.Grouped {
+		return g, fmt.Errorf("tile gemm %s: StreamK does not support Grouped", g.Name)
 	}
 	if g.Repacked && (!g.WGMMA || g.Weight != WeightNVFP4 || g.BN != 128) {
 		return g, fmt.Errorf("tile gemm %s: Repacked requires WGMMA, WeightNVFP4 and BN 128", g.Name)
@@ -124,7 +143,7 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.Epilogue.Arity() > acc+len(g.Extras) {
 		return g, fmt.Errorf("tile gemm %s: epilogue uses $%d, have %d accumulators and %d extras", g.Name, g.Epilogue.Arity()-1, acc, len(g.Extras))
 	}
-	seen := map[string]bool{"x": true, "rows": true, "w": true, "w_sf": true, "w_gs": true, "offsets": true, "out": true, "ss": true, "m_total": true}
+	seen := map[string]bool{"x": true, "rows": true, "w": true, "w_sf": true, "w_gs": true, "offsets": true, "out": true, "ss": true, "ws": true, "m_total": true}
 	for _, e := range g.Extras {
 		if !cIdent(e.Name) || seen[e.Name] || e.DType != F32 && e.DType != BF16 || e.Broadcast < PerCol || e.Broadcast > Full {
 			return g, fmt.Errorf("tile gemm %s: bad extra %+v", g.Name, e)
@@ -132,6 +151,19 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 		seen[e.Name] = true
 	}
 	return g, nil
+}
+
+// WorkspaceBytes reports the bytes of workspace ws that the kernel needs
+// when StreamK > 0, or 0 without Stream-K: two BM × BN FP32 partial tiles
+// per block, then StreamK int32 arrival counters. The counters, the last
+// 4·StreamK bytes, must be zero before the first launch; the kernel leaves
+// them zero, so a CUDA graph can replay it.
+func (g TileGEMM) WorkspaceBytes() int {
+	g, err := g.norm()
+	if err != nil || g.StreamK == 0 {
+		return 0
+	}
+	return 4 * (2*g.StreamK*g.BM*g.BN + g.StreamK)
 }
 
 // SharedBytes returns the dynamic shared memory one block uses.
@@ -194,6 +226,9 @@ func (g TileGEMM) params() []string {
 	if g.SumSq {
 		p = append(p, "float* __restrict__ ss")
 	}
+	if g.StreamK > 0 {
+		p = append(p, "float* __restrict__ ws")
+	}
 	return p
 }
 
@@ -203,6 +238,9 @@ func (g TileGEMM) Grid(m, experts int) (grid, block [3]int) {
 	g, err := g.norm()
 	if err != nil {
 		return
+	}
+	if g.StreamK > 0 {
+		return [3]int{g.StreamK, 1, 1}, [3]int{256, 1, 1}
 	}
 	return [3]int{g.N / g.BN, (m + g.BM - 1) / g.BM, experts}, [3]int{256, 1, 1}
 }
@@ -221,7 +259,7 @@ func (g TileGEMM) CUDA() (string, error) {
 		return g.cudaWGMMA()
 	}
 	bx := "blockIdx.x"
-	if g.GroupM > 1 {
+	if g.GroupM > 1 || g.StreamK > 0 {
 		bx = "tile_n"
 	}
 	var b strings.Builder
@@ -242,10 +280,8 @@ func (g TileGEMM) CUDA() (string, error) {
 	} else {
 		b.WriteString("    const int e = 0, row0 = 0, row1 = m_total;\n")
 	}
-	tileCoord(&b, g.GroupM)
-	b.WriteString(`    if (bm0 >= row1) return;
-    EG_DYNAMIC_SMEM(uint16_t, sa); // [STAGES][BM][LD], then the W ring
-`)
+	tileSetup(&b, g.GroupM, g.StreamK)
+	b.WriteString("    EG_DYNAMIC_SMEM(uint16_t, sa); // [STAGES][BM][LD], then the W ring\n")
 	if g.GLU {
 		fmt.Fprintf(&b, `    // Tile row j: warp column j / WN holds WN/2 gate rows, then the matching up rows.
     auto wrow = [&](int j) {
@@ -300,7 +336,24 @@ func (g TileGEMM) CUDA() (string, error) {
 	}
 	b.WriteString(`    };
     float acc[MT][NT][4] = {};
+`)
+	if g.StreamK > 0 {
+		b.WriteString(`    const int sk_kt = sk_k1 - sk_k0;
 #pragma unroll
+    for (int s = 0; s < STAGES - 1; ++s) {
+        if (s < sk_kt) load(s, sk_k0 + s);
+        eg_cp_async_commit();
+    }
+    for (int kt = sk_k0; kt < sk_k1; ++kt) {
+        const int step = kt - sk_k0;
+        eg_cp_async_wait<STAGES - 2>();
+        __syncthreads();
+        if (kt + STAGES - 1 < sk_k1) load((step + STAGES - 1) % STAGES, kt + STAGES - 1);
+        eg_cp_async_commit();
+        const int st = step % STAGES;
+`)
+	} else {
+		b.WriteString(`#pragma unroll
     for (int s = 0; s < STAGES - 1; ++s) {
         if (s < KT) load(s, s);
         eg_cp_async_commit();
@@ -311,7 +364,9 @@ func (g TileGEMM) CUDA() (string, error) {
         if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) % STAGES, kt + STAGES - 1);
         eg_cp_async_commit();
         const int st = kt % STAGES;
-#pragma unroll
+`)
+	}
+	b.WriteString(`#pragma unroll
         for (int ks = 0; ks < BK / 16; ++ks) {
             uint32_t af[MT][4], bf[NT][2];
 #pragma unroll
@@ -349,6 +404,57 @@ func (g TileGEMM) CUDA() (string, error) {
     }
     eg_cp_async_wait<0>();
 `)
+	if g.StreamK > 0 {
+		b.WriteString(`    if (is_partial) {
+        float* const sk_part = ws + (size_t)(2 * (int)blockIdx.x + (sk_k0 == 0 ? 1 : 0)) * (BM * BN);
+#pragma unroll
+        for (int mt = 0; mt < MT; ++mt)
+#pragma unroll
+            for (int nt = 0; nt < NT; ++nt)
+#pragma unroll
+                for (int i = 0; i < 4; ++i)
+                    sk_part[((mt * NT + nt) * 4 + i) * 256 + tid] = acc[mt][nt][i];
+        __threadfence();
+        __syncthreads();
+        if (tid == 0) {
+            const int ta = tile_idx * KT, tb = ta + KT;
+            int cta_lo = (int)(((int64_t)ta * STREAM_K) / total_iters);
+            while (cta_lo + 1 < STREAM_K && (int)(((int64_t)(cta_lo + 1) * total_iters) / STREAM_K) <= ta) ++cta_lo;
+            int cta_hi = cta_lo;
+            while (cta_hi + 1 < STREAM_K && (int)(((int64_t)(cta_hi + 1) * total_iters) / STREAM_K) < tb) ++cta_hi;
+            const int old = atomicAdd(&counters[cta_lo], sk_k1 - sk_k0);
+            sk_ctrl[1] = (old + (sk_k1 - sk_k0) == KT) ? 1 : 0;
+            sk_ctrl[2] = cta_lo;
+            sk_ctrl[3] = cta_hi;
+        }
+        __syncthreads();
+        if (!sk_ctrl[1]) continue;
+        __threadfence();
+#pragma unroll
+        for (int mt = 0; mt < MT; ++mt)
+#pragma unroll
+            for (int nt = 0; nt < NT; ++nt)
+#pragma unroll
+                for (int i = 0; i < 4; ++i)
+                    acc[mt][nt][i] = 0.0f;
+        for (int c = sk_ctrl[2]; c <= sk_ctrl[3]; ++c) {
+            const int c0 = (int)(((int64_t)c * total_iters) / STREAM_K);
+            const int c1 = (int)(((int64_t)(c + 1) * total_iters) / STREAM_K);
+            if (c0 >= c1) continue;
+            const float* const c_part = ws + (size_t)(2 * c + (c0 <= tile_idx * KT ? 1 : 0)) * (BM * BN);
+#pragma unroll
+            for (int mt = 0; mt < MT; ++mt)
+#pragma unroll
+                for (int nt = 0; nt < NT; ++nt)
+#pragma unroll
+                    for (int i = 0; i < 4; ++i)
+                        acc[mt][nt][i] += eg_ld_cg(&c_part[((mt * NT + nt) * 4 + i) * 256 + tid]);
+        }
+        __syncthreads();
+        if (tid == 0) counters[sk_ctrl[2]] = 0;
+    }
+`)
+	}
 	nts, col := "NT", "bn0 + wn * WN"
 	if g.GLU {
 		nts, col = "NT / 2", bx+" * (BN / 2) + wn * (WN / 2)"
@@ -420,8 +526,67 @@ func (g TileGEMM) CUDA() (string, error) {
     }
 `, bno, bx)
 	}
+	if g.StreamK > 0 {
+		b.WriteString("    }\n")
+	}
 	b.WriteString("}\n")
 	return b.String(), nil
+}
+
+// tileSetup emits the CTA coordinate setup, or the persistent Stream-K outer
+// loop and uniform shared-memory broadcast when streamK > 0.
+func tileSetup(b *strings.Builder, groupM, streamK int) {
+	if streamK <= 0 {
+		tileCoord(b, groupM)
+		b.WriteString("    if (bm0 >= row1) return;\n")
+		return
+	}
+	fmt.Fprintf(b, `    constexpr int STREAM_K = %d, NUM_N = N / BN;
+    const int num_m = (row1 - row0 + BM - 1) / BM;
+    const int total_tiles = num_m * NUM_N;
+    const int total_iters = total_tiles * KT;
+    int* const counters = reinterpret_cast<int*>(ws + (size_t)(2 * STREAM_K) * BM * BN);
+    __shared__ int sk_ctrl[4];
+    for (int sk_base = (int)(((int64_t)blockIdx.x * total_iters) / STREAM_K),
+             sk_end = (int)(((int64_t)(blockIdx.x + 1) * total_iters) / STREAM_K);
+         ; ) {
+        __syncthreads();
+        if (tid == 0) {
+            if (sk_base >= sk_end) {
+                sk_ctrl[0] = -1;
+                sk_ctrl[1] = 0;
+                sk_ctrl[2] = 0;
+                sk_ctrl[3] = 0;
+            } else {
+                const int tile_idx = sk_base / KT;
+                const int k_begin = sk_base - tile_idx * KT;
+                const int k_end = min(sk_end, (tile_idx + 1) * KT) - tile_idx * KT;
+                sk_ctrl[0] = tile_idx;
+                sk_ctrl[1] = k_begin;
+                sk_ctrl[2] = k_end;
+                sk_ctrl[3] = (k_begin > 0 || k_end < KT) ? 1 : 0;
+            }
+        }
+        __syncthreads();
+        const int tile_idx = sk_ctrl[0];
+        if (tile_idx < 0) break;
+        const int sk_k0 = sk_ctrl[1], sk_k1 = sk_ctrl[2], is_partial = sk_ctrl[3];
+        sk_base = tile_idx * KT + sk_k1;
+`, streamK)
+	if groupM <= 1 {
+		b.WriteString(`        const int tile_m = tile_idx / NUM_N, tile_n = tile_idx % NUM_N;
+        const int bm0 = row0 + tile_m * BM, bn0 = tile_n * BN;
+`)
+	} else {
+		fmt.Fprintf(b, `        constexpr int GROUP_M = %d;
+        const int in_group = GROUP_M * NUM_N;
+        const int first_m = (tile_idx / in_group) * GROUP_M;
+        const int gsz = min(num_m - first_m, GROUP_M);
+        const int tile_m = first_m + (tile_idx %% in_group) %% gsz;
+        const int tile_n = (tile_idx %% in_group) / gsz;
+        const int bm0 = row0 + tile_m * BM, bn0 = tile_n * BN;
+`, groupM)
+	}
 }
 
 // tileCoord emits the CTA (tile_m, tile_n) and (bm0, bn0) coordinate setup.
@@ -472,8 +637,13 @@ func (g TileGEMM) Launcher() (string, error) {
 	fmt.Fprintf(&b, "inline void %s_launch(%s, %s, cudaStream_t stream) {\n", g.Name, head, strings.Join(params, ", "))
 	fmt.Fprintf(&b, "    constexpr int smem = %d;\n", g.SharedBytes())
 	fmt.Fprintf(&b, "    static const cudaError_t attr = cudaFuncSetAttribute(%s, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);\n    (void)attr;\n", g.Name)
-	fmt.Fprintf(&b, "    const dim3 grid(%d, (%s + %d) / %d, %s), block(256);\n", g.N/g.BN, rows, g.BM-1, g.BM, experts)
-	fmt.Fprintf(&b, "    if (grid.y > 0 && grid.z > 0) EG_LAUNCH(%s, grid, block, smem, stream, %s);\n}\n", g.Name, strings.Join(names, ", "))
+	if g.StreamK > 0 {
+		fmt.Fprintf(&b, "    const dim3 grid(%d, 1, 1), block(256);\n", g.StreamK)
+		fmt.Fprintf(&b, "    if (m > 0) EG_LAUNCH(%s, grid, block, smem, stream, %s);\n}\n", g.Name, strings.Join(names, ", "))
+	} else {
+		fmt.Fprintf(&b, "    const dim3 grid(%d, (%s + %d) / %d, %s), block(256);\n", g.N/g.BN, rows, g.BM-1, g.BM, experts)
+		fmt.Fprintf(&b, "    if (grid.y > 0 && grid.z > 0) EG_LAUNCH(%s, grid, block, smem, stream, %s);\n}\n", g.Name, strings.Join(names, ", "))
+	}
 	return b.String(), nil
 }
 

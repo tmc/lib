@@ -28,6 +28,7 @@ type Launch struct {
 	BM             int    `json:"bm,omitempty"`              // output tile rows (TileGEMM)
 	BN             int    `json:"bn,omitempty"`              // output tile columns (TileGEMM)
 	GroupM         int    `json:"group_m,omitempty"`         // CTA M-band size for L2 tile reuse (TileGEMM)
+	StreamK        int    `json:"stream_k,omitempty"`        // persistent Stream-K grid size (TileGEMM)
 	Swizzle128B    bool   `json:"swizzle_128b,omitempty"`    // 128B XOR-swizzled shared memory (TileGEMM WGMMA)
 	RowsPerBlock   int    `json:"rows_per_block,omitempty"`  // W rows per block (SkinnyGEMM)
 	Unroll         int    `json:"unroll,omitempty"`          // loads in flight (SkinnyGEMM)
@@ -86,6 +87,7 @@ func (l Launch) config() string {
 	add("bm", l.BM)
 	add("bn", l.BN)
 	add("group_m", l.GroupM)
+	add("stream_k", l.StreamK)
 	add("rows_per_block", l.RowsPerBlock)
 	add("unroll", l.Unroll)
 	add("prefetch", l.Prefetch)
@@ -164,7 +166,7 @@ func (g TileGEMM) Variant() (Variant, error) {
 	if groupM <= 1 {
 		groupM = 0
 	}
-	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, GroupM: groupM, Swizzle128B: g.Swizzle128B, SharedBytes: g.SharedBytes(), MMA: "mma.sync"}
+	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, GroupM: groupM, StreamK: g.StreamK, Swizzle128B: g.Swizzle128B, SharedBytes: g.SharedBytes(), MMA: "mma.sync"}
 	if g.WGMMA {
 		l.MMA = "wgmma"
 	}

@@ -259,6 +259,8 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"repacked_bf16", func(g *TileGEMM) { g.WGMMA, g.Repacked = true, true }},
 		{"swizzle128b_no_wgmma", func(g *TileGEMM) { g.Swizzle128B = true }},
 		{"groupm_neg", func(g *TileGEMM) { g.GroupM = -1 }},
+		{"streamk_neg", func(g *TileGEMM) { g.StreamK = -1 }},
+		{"streamk_grouped", func(g *TileGEMM) { g.StreamK, g.Grouped = 4, true }},
 		{"e4m3_no_wgmma", func(g *TileGEMM) { g.Weight = WeightE4M3 }},
 		{"e4m3_swizzle128b_k64", func(g *TileGEMM) { g.Weight, g.WGMMA, g.Swizzle128B, g.K = WeightE4M3, true, true, 64 }},
 		{"dequant_words_no_repacked", func(g *TileGEMM) { g.Weight, g.WGMMA, g.DequantWords = WeightNVFP4, true, 2 }},

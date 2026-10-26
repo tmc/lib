@@ -98,7 +98,7 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 		b.WriteString(wgmmaFunc(wg, g.BN))
 	}
 	bx := "blockIdx.x"
-	if g.GroupM > 1 {
+	if g.GroupM > 1 || g.StreamK > 0 {
 		bx = "tile_n"
 	}
 	bk := 64
@@ -120,10 +120,8 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	} else {
 		b.WriteString("    const int e = 0, row0 = 0, row1 = m_total;\n")
 	}
-	tileCoord(&b, g.GroupM)
-	b.WriteString(`    if (bm0 >= row1) return;
-    EG_DYNAMIC_SMEM(unsigned char, smem); // [STAGES][BM*64 + BN*64] BF16 in core-matrix order
-`)
+	tileSetup(&b, g.GroupM, g.StreamK)
+	b.WriteString("    EG_DYNAMIC_SMEM(unsigned char, smem); // [STAGES][BM*64 + BN*64] BF16 in core-matrix order\n")
 	switch {
 	case g.Weight == WeightNVFP4 && g.Repacked:
 		fmt.Fprintf(&b, `    constexpr int STAGE = (BM + BN) * BK * 2 + 256 * (16 + 8);
@@ -245,8 +243,22 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 `)
 		}
 	}
-	b.WriteString(`    float d[BN / 2] = {};
+	b.WriteString("    float d[BN / 2] = {};\n")
+	ktEnd, stepExpr := "KT", "kt"
+	if g.StreamK > 0 {
+		ktEnd, stepExpr = "sk_k1", "step"
+		b.WriteString(`    const int sk_kt = sk_k1 - sk_k0;
 #pragma unroll
+    for (int s = 0; s < STAGES - 1; ++s) {
+        if (s < sk_kt) load(s, sk_k0 + s);
+        eg_cp_async_commit();
+    }
+    for (int kt = sk_k0; kt < sk_k1; ++kt) {
+        const int step = kt - sk_k0;
+        eg_cp_async_wait<STAGES - 2>();
+`)
+	} else {
+		b.WriteString(`#pragma unroll
     for (int s = 0; s < STAGES - 1; ++s) {
         if (s < KT) load(s, s);
         eg_cp_async_commit();
@@ -254,6 +266,7 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
     for (int kt = 0; kt < KT; ++kt) {
         eg_cp_async_wait<STAGES - 2>();
 `)
+	}
 	switch {
 	case g.Weight == WeightNVFP4 && g.Repacked && g.DequantWords == 2:
 		storeExpr := "sb + core(r, ch) + tq * 4"
@@ -302,9 +315,9 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 			storeExpr = "sb + eg_swizzle_128b((uint32_t)(r * 128 + ch * 16 + tq * 4))"
 		}
 		fmt.Fprintf(&b, `        __syncthreads();
-        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) %% STAGES, kt + STAGES - 1);
+        if (kt + STAGES - 1 < %s) load((%s + STAGES - 1) %% STAGES, kt + STAGES - 1);
         eg_cp_async_commit();
-        unsigned char* const sa = smem + (kt %% STAGES) * STAGE;
+        unsigned char* const sa = smem + (%s %% STAGES) * STAGE;
         unsigned char* const sb = sa + BM * BK * 2;
         const uint32_t* const sbq = reinterpret_cast<const uint32_t*>(sb + BN * BK * 2 + tid * 16);
         const uint8_t* const sbs = sb + BN * BK * 2 + 256 * 16 + tid * 8;
@@ -330,17 +343,17 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         }
         eg_fence_proxy_async();
         __syncthreads();
-`, storeExpr)
+`, ktEnd, stepExpr, stepExpr, storeExpr)
 	case g.Weight == WeightNVFP4:
-		b.WriteString(`        __syncthreads();
-        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) % STAGES, kt + STAGES - 1);
+		fmt.Fprintf(&b, `        __syncthreads();
+        if (kt + STAGES - 1 < %s) load((%s + STAGES - 1) %% STAGES, kt + STAGES - 1);
         eg_cp_async_commit();
-        unsigned char* const sa = smem + (kt % STAGES) * STAGE;
+        unsigned char* const sa = smem + (%s %% STAGES) * STAGE;
         unsigned char* const sb = sa + BM * BK * 2;
         const uint8_t* const sbq = sb + BN * BK * 2;
         const uint8_t* const sbs = sbq + BN * 32;
         for (int c = tid; c < BN * 8; c += 256) {
-            const int r = c / 8, ch = c % 8, ks = ch / 2;
+            const int r = c / 8, ch = c %% 8, ks = ch / 2;
             const uint32_t q = *reinterpret_cast<const uint32_t*>(sbq + r * 32 + ch * 4);
             uint32_t h0[2], h1[2];
             eg_e2m1x4_to_bf16x4(q & 0xffffu, h0);
@@ -355,23 +368,23 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         }
         eg_fence_proxy_async();
         __syncthreads();
-`)
+`, ktEnd, stepExpr, stepExpr)
 	case g.Weight == WeightE4M3:
-		b.WriteString(`        eg_fence_proxy_async();
+		fmt.Fprintf(&b, `        eg_fence_proxy_async();
         __syncthreads();
-        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) % STAGES, kt + STAGES - 1);
+        if (kt + STAGES - 1 < %s) load((%s + STAGES - 1) %% STAGES, kt + STAGES - 1);
         eg_cp_async_commit();
-        const unsigned char* const sa = smem + (kt % STAGES) * STAGE;
+        const unsigned char* const sa = smem + (%s %% STAGES) * STAGE;
         const unsigned char* const sb = sa + BM * BK;
-`)
+`, ktEnd, stepExpr, stepExpr)
 	default:
-		b.WriteString(`        eg_fence_proxy_async();
+		fmt.Fprintf(&b, `        eg_fence_proxy_async();
         __syncthreads();
-        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) % STAGES, kt + STAGES - 1);
+        if (kt + STAGES - 1 < %s) load((%s + STAGES - 1) %% STAGES, kt + STAGES - 1);
         eg_cp_async_commit();
-        const unsigned char* const sa = smem + (kt % STAGES) * STAGE;
+        const unsigned char* const sa = smem + (%s %% STAGES) * STAGE;
         const unsigned char* const sb = sa + BM * BK * 2;
-`)
+`, ktEnd, stepExpr, stepExpr)
 	}
 	switch {
 	case g.Weight == WeightE4M3 && g.Swizzle128B:
@@ -415,6 +428,45 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
     eg_cp_async_wait<0>();
 `, wg)
 	}
+	if g.StreamK > 0 {
+		b.WriteString(`    if (is_partial) {
+        float* const sk_part = ws + (size_t)(2 * (int)blockIdx.x + (sk_k0 == 0 ? 1 : 0)) * (BM * BN);
+#pragma unroll
+        for (int i = 0; i < BN / 2; ++i)
+            sk_part[i * 256 + tid] = d[i];
+        __threadfence();
+        __syncthreads();
+        if (tid == 0) {
+            const int ta = tile_idx * KT, tb = ta + KT;
+            int cta_lo = (int)(((int64_t)ta * STREAM_K) / total_iters);
+            while (cta_lo + 1 < STREAM_K && (int)(((int64_t)(cta_lo + 1) * total_iters) / STREAM_K) <= ta) ++cta_lo;
+            int cta_hi = cta_lo;
+            while (cta_hi + 1 < STREAM_K && (int)(((int64_t)(cta_hi + 1) * total_iters) / STREAM_K) < tb) ++cta_hi;
+            const int old = atomicAdd(&counters[cta_lo], sk_k1 - sk_k0);
+            sk_ctrl[1] = (old + (sk_k1 - sk_k0) == KT) ? 1 : 0;
+            sk_ctrl[2] = cta_lo;
+            sk_ctrl[3] = cta_hi;
+        }
+        __syncthreads();
+        if (!sk_ctrl[1]) continue;
+        __threadfence();
+#pragma unroll
+        for (int i = 0; i < BN / 2; ++i)
+            d[i] = 0.0f;
+        for (int c = sk_ctrl[2]; c <= sk_ctrl[3]; ++c) {
+            const int c0 = (int)(((int64_t)c * total_iters) / STREAM_K);
+            const int c1 = (int)(((int64_t)(c + 1) * total_iters) / STREAM_K);
+            if (c0 >= c1) continue;
+            const float* const c_part = ws + (size_t)(2 * c + (c0 <= tile_idx * KT ? 1 : 0)) * (BM * BN);
+#pragma unroll
+            for (int i = 0; i < BN / 2; ++i)
+                d[i] += eg_ld_cg(&c_part[i * 256 + tid]);
+        }
+        __syncthreads();
+        if (tid == 0) counters[sk_ctrl[2]] = 0;
+    }
+`)
+	}
 	nts, col := "BN / 8", "bn0"
 	if g.GLU {
 		nts, col = "BN / 16", bx+" * (BN / 2)"
@@ -430,8 +482,14 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         for (int i = 0; i < 4; ++i) {
             const int m = bm0 + wgi * 64 + (warp %% 4) * 16 + lane / 4 + 8 * (i / 2);
             const int n = %s + nt * 8 + 2 * (lane %% 4) + (i & 1);
-            if (m >= row1) continue;
 `, nts, col)
+	if g.SumSq {
+		// The row-sum shuffles below name all 32 lanes, so lanes past
+		// row1 must still reach them.
+		b.WriteString("            if (m < row1) {\n")
+	} else {
+		b.WriteString("            if (m >= row1) continue;\n")
+	}
 	scale := ""
 	if g.Weight == WeightNVFP4 {
 		scale = " * gs"
@@ -467,16 +525,21 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	b.WriteString("            if (i & 1) eg_store<2>(out + (size_t)m * NOUT + n - 1, yv);\n")
 	if g.SumSq {
 		b.WriteString(`            sq[i / 2] += y * y;
+            }
             if ((nt % 4) == 3 && (i & 1) == 1) {
                 float s = sq[i / 2];
                 s += __shfl_xor_sync(0xffffffffu, s, 1);
                 s += __shfl_xor_sync(0xffffffffu, s, 2);
-                if (lane % 4 == 0) ss[(size_t)m * (NOUT / 32) + n / 32] = s;
+                if (lane % 4 == 0 && m < row1) ss[(size_t)m * (NOUT / 32) + n / 32] = s;
                 sq[i / 2] = 0.0f;
             }
 `)
 	}
-	b.WriteString("        }\n    }\n}\n")
+	b.WriteString("        }\n    }\n")
+	if g.StreamK > 0 {
+		b.WriteString("    }\n")
+	}
+	b.WriteString("}\n")
 	return b.String(), nil
 }
 
