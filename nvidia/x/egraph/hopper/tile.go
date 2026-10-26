@@ -51,6 +51,11 @@ type TileGEMM struct {
 	// widens to core-matrix shared memory with 9-instruction dequant9 or
 	// nibble-shift + bf16x2 scale multiply.
 	Repacked bool
+	// DequantWords selects the bitopt sub-byte unpack width when Repacked is
+	// true: 0 or 1 uses 1-word per-subtile unpacking, and 2 uses the 2-word
+	// bitopt.NVFP4Program2Word (eg_dequant_2w, 16 instructions across 2 words
+	// via RepackNVFP4Dequant2Word).
+	DequantWords int
 	// Swizzle128B stages WGMMA shared-memory tiles in 128-byte XOR-swizzled
 	// lines (offset ^ (((offset >> 7) & 7) << 4)) and emits 128B-swizzled
 	// WGMMA descriptors (layout mode 1, bits [63:62] = 1).
@@ -87,6 +92,9 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	}
 	if g.Repacked && (!g.WGMMA || g.Weight != WeightNVFP4 || g.BN != 128) {
 		return g, fmt.Errorf("tile gemm %s: Repacked requires WGMMA, WeightNVFP4 and BN 128", g.Name)
+	}
+	if g.DequantWords < 0 || g.DequantWords > 2 || (g.DequantWords > 0 && !g.Repacked) {
+		return g, fmt.Errorf("tile gemm %s: DequantWords %d requires Repacked and must be 0, 1 or 2", g.Name, g.DequantWords)
 	}
 	if g.BM != 64 && g.BM != 128 || g.BN != 64 && g.BN != 128 && !(g.WGMMA && g.BN == 256) || g.Stages < 2 || g.Stages > 4 {
 		return g, fmt.Errorf("tile gemm %s: unsupported tile %dx%d, %d stages", g.Name, g.BM, g.BN, g.Stages)

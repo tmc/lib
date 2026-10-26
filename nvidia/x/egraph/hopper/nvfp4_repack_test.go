@@ -387,6 +387,25 @@ func TestTileGEMMWGMMANVFP4Emulated(t *testing.T) {
 			tokens:  35,
 			offsets: []int32{0, 65, 65, 140},
 		},
+		{
+			name: "wgmma_nvfp4_repacked_dequant2word_128",
+			g: TileGEMM{
+				N: 256, K: 128, Weight: WeightNVFP4, Out: F32, BN: 128, WGMMA: true,
+				Repacked: true, DequantWords: 2, SumSq: true,
+			},
+			m: 70,
+		},
+		{
+			name: "wgmma_nvfp4_repacked_dequant2word_grouped_gather_glu_sumsq",
+			g: TileGEMM{
+				N: 256, K: 128, Weight: WeightNVFP4, Out: BF16, BN: 128, WGMMA: true,
+				Repacked: true, DequantWords: 2, Swizzle128B: true, Grouped: true, Gather: true, GLU: true, SumSq: true,
+				Epilogue: MustLambda("(mul (silu $0) $1)"),
+			},
+			m:       140,
+			tokens:  35,
+			offsets: []int32{0, 65, 65, 140},
+		},
 	}
 	r := rand.New(rand.NewPCG(41, 42))
 	for _, tt := range tests {
@@ -431,7 +450,16 @@ func TestTileGEMMWGMMANVFP4Emulated(t *testing.T) {
 				}
 				w.GlobalScal = float32(1.0 / 64.0) // power-of-two global scale so BF16 (e2m1 * sf) * gs has no FP32 rounding in Reference
 				if g.Repacked {
-					wq, wsf, err := RepackNVFP4WGMMA(w.Packed, w.Scales, n, k, g.GLU)
+					var (
+						wq  []uint32
+						wsf []uint8
+						err error
+					)
+					if g.DequantWords == 2 {
+						wq, wsf, err = RepackNVFP4Dequant2Word(w.Packed, w.Scales, n, k, g.GLU)
+					} else {
+						wq, wsf, err = RepackNVFP4WGMMA(w.Packed, w.Scales, n, k, g.GLU)
+					}
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -543,5 +571,164 @@ func TestTileGEMMWGMMANVFP4Emulated(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestRepackNVFP4Dequant2WordRoundTrip checks that RepackNVFP4Dequant2Word and
+// UnpackNVFP4Dequant2Word round-trip losslessly and that decoding each thread's
+// 2-word pairs with Dequant2Words matches DequantNVFP4 bit-for-bit across all
+// 256 E4M3 scales.
+func TestRepackNVFP4Dequant2WordRoundTrip(t *testing.T) {
+	r := rand.New(rand.NewPCG(303, 404))
+	const n, k = 256, 128
+	for _, glu := range []bool{false, true} {
+		packed := make([]uint8, n*k/2)
+		scales := make([]uint8, n*k/16)
+		for i := range packed {
+			packed[i] = uint8(r.IntN(256))
+		}
+		for i := range scales {
+			scales[i] = uint8(i % 256)
+		}
+		wq, ws, err := RepackNVFP4Dequant2Word(packed, scales, n, k, glu)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotPacked, gotScales, err := UnpackNVFP4Dequant2Word(wq, ws, n, k, glu)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(gotPacked, packed) {
+			t.Fatalf("glu=%v: unpacked codes differ", glu)
+		}
+		if !slices.Equal(gotScales, scales) {
+			t.Fatalf("glu=%v: unpacked scales differ", glu)
+		}
+
+		// Emulate thread 2-word pair decode with Dequant2Words and compare against DequantNVFP4(..., 1.0/256).
+		gotBF16 := make([]uint16, n*k)
+		koff := [4]int{0, 0, 8, 8}
+		for nt := range n / 128 {
+			for kb := range k / 64 {
+				for th := range 256 {
+					cw, warp, lane := th/128, (th%128)/32, th%32
+					g, tq := lane/4, lane%4
+					rg := 64*cw + 16*warp + g
+					r0 := wgmmaTileRow(n, nt, rg, glu)
+					r1 := wgmmaTileRow(n, nt, rg+8, glu)
+					trows := [4]int{r0, r1, r0, r1}
+					wIdx := ((nt*(k/64)+kb)*256 + th) * 4
+					sIdx := ((nt*(k/64)+kb)*256 + th) * 8
+					for p := range 2 {
+						u := Dequant2Words([2]uint32{wq[wIdx+2*p], wq[wIdx+2*p+1]})
+						for sub := range 2 {
+							ks := 2*p + sub
+							s0 := ScaleE4M3ToBF16x2(ws[sIdx+2*ks], false)
+							s1 := ScaleE4M3ToBF16x2(ws[sIdx+2*ks+1], false)
+							sv := [4]uint32{s0, s1, s0, s1}
+							for j := range 4 {
+								prod := MulBF16x2(u[4*sub+j], sv[j])
+								row := trows[j]
+								col := kb*64 + ks*16 + koff[j] + 2*tq
+								gotBF16[row*k+col] = uint16(prod)
+								gotBF16[row*k+col+1] = uint16(prod >> 16)
+							}
+						}
+					}
+				}
+			}
+		}
+		rowVals := make([]float32, k)
+		for row := range n {
+			if err := DequantNVFP4(rowVals, packed[row*(k/2):(row+1)*(k/2)], scales[row*(k/16):(row+1)*(k/16)], 1.0/256); err != nil {
+				t.Fatal(err)
+			}
+			for col, v := range rowVals {
+				want := BF16Bits(v)
+				got := gotBF16[row*k+col]
+				if want&0x7fff > 0x7f80 {
+					if got&0x7fff <= 0x7f80 {
+						t.Fatalf("glu=%v [%d,%d]: got %#04x, want NaN", glu, row, col, got)
+					}
+				} else if got != want {
+					t.Fatalf("glu=%v [%d,%d]: got %#04x, want %#04x", glu, row, col, got, want)
+				}
+			}
+		}
+	}
+}
+
+// TestTileGEMMWGMMANVFP4BitoptMutations verifies that corrupting a shift or
+// mask constant emitted by bitopt in eg_dequant_2w causes the emulated
+// DequantWords: 2 WGMMA kernel to disagree with the Go float64 reference.
+func TestTileGEMMWGMMANVFP4BitoptMutations(t *testing.T) {
+	r := rand.New(rand.NewPCG(505, 606))
+	g := TileGEMM{
+		Name:         "tile_mut_dq2w",
+		N:            128,
+		K:            64,
+		Weight:       WeightNVFP4,
+		Out:          F32,
+		BN:           128,
+		WGMMA:        true,
+		Repacked:     true,
+		DequantWords: 2,
+		Stages:       2,
+	}
+	src, err := g.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const m = 32
+	x := randBF16(r, m*g.K, 1)
+	w := randNVFP4(r, g.N, g.K)
+	w.GlobalScal = float32(1.0 / 64.0)
+	wq, wsf, err := RepackNVFP4Dequant2Word(w.Packed, w.Scales, g.N, g.K, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := g.Reference(m, x, nil, nil, []GEMMWeights{w}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, block := g.Grid(m, 1)
+	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %d, x, w, w_sf, w_gs, out)",
+		grid[0], grid[1], grid[2], block[0], g.SharedBytes(), g.Name, m)
+	mutants := []struct {
+		name string
+		old  string
+		repl string
+	}{
+		{
+			name: "corrupt_shift_t0",
+			old:  "const uint32_t t0 = q[0] << 2;",
+			repl: "const uint32_t t0 = q[0] << 3;",
+		},
+		{
+			name: "corrupt_prmt_selector",
+			old:  "const uint32_t t6 = __byte_perm(q[0], q[1], 0x4163);",
+			repl: "const uint32_t t6 = __byte_perm(q[0], q[1], 0x4162);",
+		},
+		{
+			name: "corrupt_part_mask_a7",
+			old:  "a[7] = (q[0] & 0x01800180u) | (q[1] & 0x80408040u);",
+			repl: "a[7] = (q[0] & 0x01000100u) | (q[1] & 0x80408040u);",
+		},
+	}
+	for _, mut := range mutants {
+		if !strings.Contains(src, mut.old) {
+			t.Fatalf("%s: target %q not in source", mut.name, mut.old)
+		}
+		msrc := strings.Replace(src, mut.old, mut.repl, 1)
+		res := runEmu(t, msrc, launch,
+			emuBuf{"x", "uint16_t", u16Bytes(x)},
+			emuBuf{"w", "uint32_t", u32Bytes(wq)},
+			emuBuf{"w_sf", "uint8_t", wsf},
+			emuBuf{"w_gs", "float", f32Bytes([]float32{w.GlobalScal})},
+			emuBuf{"out", "float", poison(4 * m * g.N)})
+		got := bytesF32(res["out"])
+		if _, ok := closeTo(got, want, 1e-5, 1e-5); ok {
+			t.Errorf("mutant %s survived", mut.name)
+		}
 	}
 }

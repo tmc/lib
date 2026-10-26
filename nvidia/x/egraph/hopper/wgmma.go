@@ -7,23 +7,22 @@ import (
 
 // nvfp4WGMMAHelpers is the header-free device helper block emitted ahead of a
 // WGMMA NVFP4 kernel for Repacked (dequant9 / scale2 / mul.rn.bf16x2).
-const nvfp4WGMMAHelpers = `EG_DEV uint32_t eg_rotl32(uint32_t x, int n) {
-#if defined(EG_HOST_EMU)
-    return (x << n) | (x >> (32 - n));
-#else
-    return __funnelshift_l(x, x, n);
-#endif
+// Both eg_dequant_1w and eg_dequant_2w are generated directly from verified
+// bitopt programs ([bitopt.NVFP4Program1Word] and [bitopt.NVFP4Program2Word]).
+var nvfp4WGMMAHelpers = `#if defined(EG_HOST_EMU)
+EG_DEV uint32_t __funnelshift_l(uint32_t lo, uint32_t hi, uint32_t shift) {
+    return (uint32_t)((((uint64_t)hi << 32) | (uint64_t)lo) << (shift & 31u) >> 32);
 }
-
+#endif
+` + nvfp4Prog1.CUDA("eg_dequant_1w") + "\n" + nvfp4Prog2.CUDA("eg_dequant_2w") + `
 // eg_dequant9 unpacks a dequant9-repacked 32-bit word into four bf16x2
 // registers holding unscaled E2M1 subnormals (v * 2^-126 as bf16) in 9
-// integer instructions.
+// integer instructions via bitopt's eg_dequant_1w.
 EG_DEV void eg_dequant9(uint32_t q, uint32_t& a0, uint32_t& a1, uint32_t& a2, uint32_t& a3) {
-    constexpr uint32_t M = 0x81C081C0u, C1 = 0x01000100u, C2 = 0x80C080C0u;
-    a0 = q & M;
-    a1 = (q << 4) & M;
-    a2 = eg_rotl32(q, 10) & M;
-    a3 = ((q >> 2) & C1) | ((q << 6) & C2);
+    const uint32_t qv[1] = {q};
+    uint32_t av[4];
+    eg_dequant_1w(qv, av);
+    a0 = av[0]; a1 = av[1]; a2 = av[2]; a3 = av[3];
 }
 
 // eg_scale_e4m3_bf16x2 converts an E4M3 byte b to bf16x2 of (sf * 2^118, sf * 2^118):
@@ -256,6 +255,47 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         eg_cp_async_wait<STAGES - 2>();
 `)
 	switch {
+	case g.Weight == WeightNVFP4 && g.Repacked && g.DequantWords == 2:
+		storeExpr := "sb + core(r, ch) + tq * 4"
+		if g.Swizzle128B {
+			storeExpr = "sb + eg_swizzle_128b((uint32_t)(r * 128 + ch * 16 + tq * 4))"
+		}
+		fmt.Fprintf(&b, `        __syncthreads();
+        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) %% STAGES, kt + STAGES - 1);
+        eg_cp_async_commit();
+        unsigned char* const sa = smem + (kt %% STAGES) * STAGE;
+        unsigned char* const sb = sa + BM * BK * 2;
+        const uint32_t* const sbq = reinterpret_cast<const uint32_t*>(sb + BN * BK * 2 + tid * 16);
+        const uint8_t* const sbs = sb + BN * BK * 2 + 256 * 16 + tid * 8;
+        const int g = lane / 4, tq = lane %% 4;
+        const int rg = wgi * 64 + (warp %% 4) * 16 + g;
+#pragma unroll
+        for (int p = 0; p < 2; ++p) {
+            const uint32_t q[2] = {sbq[2 * p], sbq[2 * p + 1]};
+            uint32_t u[8];
+            eg_dequant_2w(q, u);
+#pragma unroll
+            for (int sub = 0; sub < 2; ++sub) {
+                const int ks = 2 * p + sub;
+                const uint32_t s0 = eg_scale_e4m3_bf16x2(sbs[2 * ks]);
+                const uint32_t s1 = eg_scale_e4m3_bf16x2(sbs[2 * ks + 1]);
+                const uint32_t a[4] = {
+                    eg_mul_bf16x2(u[4 * sub + 0], s0),
+                    eg_mul_bf16x2(u[4 * sub + 1], s1),
+                    eg_mul_bf16x2(u[4 * sub + 2], s0),
+                    eg_mul_bf16x2(u[4 * sub + 3], s1),
+                };
+#pragma unroll
+                for (int j = 0; j < 4; ++j) {
+                    const int r = (j & 1) ? (rg + 8) : rg;
+                    const int ch = ks * 2 + (j >> 1);
+                    *reinterpret_cast<uint32_t*>(%s) = a[j];
+                }
+            }
+        }
+        eg_fence_proxy_async();
+        __syncthreads();
+`, storeExpr)
 	case g.Weight == WeightNVFP4 && g.Repacked:
 		storeExpr := "sb + core(r, ch) + tq * 4"
 		if g.Swizzle128B {

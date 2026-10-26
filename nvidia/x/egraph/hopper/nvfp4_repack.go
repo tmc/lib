@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	"github.com/tmc/lib/nvidia/x/egraph/bitopt"
 )
 
 // IsPositiveNormalE4M3 reports whether b is a positive normal float8_e4m3fn
@@ -56,6 +58,11 @@ func ScaleE4M3ToBF16x2(b uint8, fast bool) uint32 {
 	return uint32(h) | uint32(h)<<16
 }
 
+var (
+	nvfp4Prog1 = bitopt.NVFP4Program1Word()
+	nvfp4Prog2 = bitopt.NVFP4Program2Word()
+)
+
 // dequant9Src maps (register r in 0..3, code bit 4*half + bit in 0..7) to its
 // bit position in the repacked 32-bit word consumed by [Dequant9].
 var dequant9Src = [4][8]uint8{
@@ -67,32 +74,22 @@ var dequant9Src = [4][8]uint8{
 
 // PackDequant9Word packs eight 4-bit E2M1 codes (code 2*r+h at bits
 // 4*(2*r+h)..4*(2*r+h)+3 of codes, for register r in 0..3 and half h in 0..1)
-// into one 32-bit word for [Dequant9].
+// into one 32-bit word for [Dequant9], routed according to [bitopt.NVFP4Program1Word].
 func PackDequant9Word(codes uint32) uint32 {
-	var q uint32
-	for r := range 4 {
-		for h := range 2 {
-			c := (codes >> (4 * (2*r + h))) & 15
-			for j := range 4 {
-				q |= ((c >> j) & 1) << dequant9Src[r][4*h+j]
-			}
-		}
+	var cs [8]uint8
+	for i := range 8 {
+		cs[i] = uint8((codes >> (4 * i)) & 15)
 	}
-	return q
+	return nvfp4Prog1.PackWords(cs[:])[0]
 }
 
 // UnpackDequant9Word is the inverse of [PackDequant9Word]: it recovers the
 // eight 4-bit E2M1 codes (code 2*r+h in nibble 2*r+h) from a [Dequant9] word.
 func UnpackDequant9Word(q uint32) uint32 {
+	cs := nvfp4Prog1.UnpackWords([]uint32{q})
 	var codes uint32
-	for r := range 4 {
-		for h := range 2 {
-			var c uint32
-			for j := range 4 {
-				c |= ((q >> dequant9Src[r][4*h+j]) & 1) << j
-			}
-			codes |= c << (4 * (2*r + h))
-		}
+	for i, c := range cs {
+		codes |= uint32(c&15) << (4 * i)
 	}
 	return codes
 }
@@ -100,25 +97,48 @@ func UnpackDequant9Word(q uint32) uint32 {
 // Dequant9 decodes a repacked 32-bit word (built by [PackDequant9Word]) into
 // four bf16x2 registers holding unscaled E2M1 values (FromE2M1(c) * 2^-126 as
 // bfloat16 subnormals, with magnitude at bits 6..8 and sign at bit 15 of each
-// 16-bit half) in 9 integer instructions:
+// 16-bit half) in 9 integer instructions via [bitopt.NVFP4Program1Word]:
 //
 //	a[0] = q & 0x81c081c0
 //	a[1] = (q << 4) & 0x81c081c0
 //	a[2] = rotl32(q, 10) & 0x81c081c0
 //	a[3] = ((q >> 2) & 0x01000100) | ((q << 6) & 0x80c080c0)
 func Dequant9(q uint32) [4]uint32 {
-	const (
-		m  = 0x81c081c0
-		c1 = 0x01000100
-		c2 = 0x80c080c0
-	)
-	rot10 := (q << 10) | (q >> 22)
-	return [4]uint32{
-		q & m,
-		(q << 4) & m,
-		rot10 & m,
-		((q >> 2) & c1) | ((q << 6) & c2),
+	out := nvfp4Prog1.EvalWords([]uint32{q})
+	return [4]uint32{out[0], out[1], out[2], out[3]}
+}
+
+// PackDequant2Words packs 16 4-bit E2M1 codes (codes0 holds codes 0..7 in
+// nibbles 0..7, codes1 holds codes 8..15 in nibbles 0..7) into a 2-word pair
+// for [Dequant2Words], routed according to [bitopt.NVFP4Program2Word].
+func PackDequant2Words(codes0, codes1 uint32) [2]uint32 {
+	var cs [16]uint8
+	for i := range 8 {
+		cs[i] = uint8((codes0 >> (4 * i)) & 15)
+		cs[8+i] = uint8((codes1 >> (4 * i)) & 15)
 	}
+	w := nvfp4Prog2.PackWords(cs[:])
+	return [2]uint32{w[0], w[1]}
+}
+
+// UnpackDequant2Words is the inverse of [PackDequant2Words]: it recovers the
+// two 32-bit words of eight 4-bit E2M1 codes each from a 2-word [Dequant2Words]
+// pair.
+func UnpackDequant2Words(q [2]uint32) (codes0, codes1 uint32) {
+	cs := nvfp4Prog2.UnpackWords(q[:])
+	for i := range 8 {
+		codes0 |= uint32(cs[i]&15) << (4 * i)
+		codes1 |= uint32(cs[8+i]&15) << (4 * i)
+	}
+	return codes0, codes1
+}
+
+// Dequant2Words decodes a 2-word repacked pair (built by [PackDequant2Words])
+// into eight bf16x2 registers holding unscaled E2M1 subnormals (v * 2^-126) in
+// 16 instructions (8 per word) via [bitopt.NVFP4Program2Word].
+func Dequant2Words(q [2]uint32) [8]uint32 {
+	out := nvfp4Prog2.EvalWords(q[:])
+	return [8]uint32(out)
 }
 
 // DecodeWGMMAWord decodes register j (0..3) of a WGMMA fragment word packed by
@@ -403,6 +423,125 @@ func UnpackNVFP4WGMMA(wq []uint32, ws []uint8, n, k int, glu bool) (packed, scal
 					if tq == 0 {
 						scales[r0*(k/16)+grp] = ws[sIdx+2*ks]
 						scales[r1*(k/16)+grp] = ws[sIdx+2*ks+1]
+					}
+				}
+			}
+		}
+	}
+	return packed, scales, nil
+}
+
+// RepackNVFP4Dequant2Word losslessly repacks an [n, k] NVFP4 weight matrix
+// (packed [n, k/2] E2M1 bytes, scales [n, k/16] E4M3 bytes) into per-thread
+// WGMMA A-fragment order where each pair of k-subtiles (2*p, 2*p+1) is jointly
+// bit-routed with [bitopt.NVFP4Program2Word] (16 instructions per 2 words,
+// 8 instructions per word):
+//   - wq has length (n/128) * (k/64) * 256 * 4 uint32 words
+//     ([n/128][k/64][256 threads][2 pairs][2 words]), where words (2*p, 2*p+1)
+//     are packed via [PackDequant2Words] from the 16 E2M1 codes of sub-tiles
+//     ks = 2*p and ks = 2*p+1 (codes 2*j + half for j in 0..3);
+//   - ws has length (n/128) * (k/64) * 256 * 8 E4M3 bytes, identical to
+//     [RepackNVFP4WGMMA].
+//
+// Dimensions must satisfy n%128 == 0 and k%64 == 0.
+func RepackNVFP4Dequant2Word(packed, scales []uint8, n, k int, glu bool) (wq []uint32, ws []uint8, err error) {
+	if n <= 0 || n%128 != 0 || k <= 0 || k%64 != 0 {
+		return nil, nil, fmt.Errorf("repack nvfp4 dequant2word: shape [%d, %d] must be a multiple of [128, 64]", n, k)
+	}
+	if len(packed) != n*k/2 || len(scales) != n*k/16 {
+		return nil, nil, fmt.Errorf("repack nvfp4 dequant2word: [%d, %d] needs %d packed bytes and %d scales, have %d and %d",
+			n, k, n*k/2, n*k/16, len(packed), len(scales))
+	}
+	ntiles := n / 128
+	kblocks := k / 64
+	wq = make([]uint32, ntiles*kblocks*256*4)
+	ws = make([]uint8, ntiles*kblocks*256*8)
+	codeAt := func(row, col int) uint8 {
+		b := packed[row*(k/2)+col/2]
+		return (b >> (4 * (col & 1))) & 15
+	}
+	koff := [4]int{0, 0, 8, 8}
+	for nt := range ntiles {
+		for kb := range kblocks {
+			for th := range 256 {
+				cw, warp, lane := th/128, (th%128)/32, th%32
+				g, tq := lane/4, lane%4
+				rg := 64*cw + 16*warp + g
+				r0 := wgmmaTileRow(n, nt, rg, glu)
+				r1 := wgmmaTileRow(n, nt, rg+8, glu)
+				trows := [4]int{r0, r1, r0, r1}
+				wIdx := ((nt*kblocks+kb)*256 + th) * 4
+				sIdx := ((nt*kblocks+kb)*256 + th) * 8
+				for p := range 2 {
+					var codes [16]uint8
+					for sub := range 2 {
+						ks := 2*p + sub
+						for j := range 4 {
+							row := trows[j]
+							col := kb*64 + ks*16 + koff[j] + 2*tq
+							codes[8*sub+2*j+0] = codeAt(row, col)
+							codes[8*sub+2*j+1] = codeAt(row, col+1)
+						}
+						grp := kb*4 + ks
+						ws[sIdx+2*ks] = scales[r0*(k/16)+grp]
+						ws[sIdx+2*ks+1] = scales[r1*(k/16)+grp]
+					}
+					pair := nvfp4Prog2.PackWords(codes[:])
+					wq[wIdx+2*p+0] = pair[0]
+					wq[wIdx+2*p+1] = pair[1]
+				}
+			}
+		}
+	}
+	return wq, ws, nil
+}
+
+// UnpackNVFP4Dequant2Word reverses [RepackNVFP4Dequant2Word], recovering the
+// original [n, k/2] packed E2M1 bytes and [n, k/16] E4M3 block scales bit-for-bit.
+func UnpackNVFP4Dequant2Word(wq []uint32, ws []uint8, n, k int, glu bool) (packed, scales []uint8, err error) {
+	if n <= 0 || n%128 != 0 || k <= 0 || k%64 != 0 {
+		return nil, nil, fmt.Errorf("unpack nvfp4 dequant2word: shape [%d, %d] must be a multiple of [128, 64]", n, k)
+	}
+	ntiles := n / 128
+	kblocks := k / 64
+	if len(wq) != ntiles*kblocks*256*4 || len(ws) != ntiles*kblocks*256*8 {
+		return nil, nil, fmt.Errorf("unpack nvfp4 dequant2word: have %d words and %d scale bytes, want %d and %d",
+			len(wq), len(ws), ntiles*kblocks*256*4, ntiles*kblocks*256*8)
+	}
+	packed = make([]uint8, n*k/2)
+	scales = make([]uint8, n*k/16)
+	setCode := func(row, col int, c uint8) {
+		idx := row*(k/2) + col/2
+		shift := 4 * (col & 1)
+		packed[idx] = (packed[idx] &^ (0xf << shift)) | ((c & 15) << shift)
+	}
+	koff := [4]int{0, 0, 8, 8}
+	for nt := range ntiles {
+		for kb := range kblocks {
+			for th := range 256 {
+				cw, warp, lane := th/128, (th%128)/32, th%32
+				g, tq := lane/4, lane%4
+				rg := 64*cw + 16*warp + g
+				r0 := wgmmaTileRow(n, nt, rg, glu)
+				r1 := wgmmaTileRow(n, nt, rg+8, glu)
+				trows := [4]int{r0, r1, r0, r1}
+				wIdx := ((nt*kblocks+kb)*256 + th) * 4
+				sIdx := ((nt*kblocks+kb)*256 + th) * 8
+				for p := range 2 {
+					codes := nvfp4Prog2.UnpackWords(wq[wIdx+2*p : wIdx+2*p+2])
+					for sub := range 2 {
+						ks := 2*p + sub
+						for j := range 4 {
+							row := trows[j]
+							col := kb*64 + ks*16 + koff[j] + 2*tq
+							setCode(row, col, codes[8*sub+2*j+0])
+							setCode(row, col+1, codes[8*sub+2*j+1])
+						}
+						grp := kb*4 + ks
+						if tq == 0 {
+							scales[r0*(k/16)+grp] = ws[sIdx+2*ks]
+							scales[r1*(k/16)+grp] = ws[sIdx+2*ks+1]
+						}
 					}
 				}
 			}

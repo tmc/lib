@@ -261,6 +261,8 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"groupm_neg", func(g *TileGEMM) { g.GroupM = -1 }},
 		{"e4m3_no_wgmma", func(g *TileGEMM) { g.Weight = WeightE4M3 }},
 		{"e4m3_swizzle128b_k64", func(g *TileGEMM) { g.Weight, g.WGMMA, g.Swizzle128B, g.K = WeightE4M3, true, true, 64 }},
+		{"dequant_words_no_repacked", func(g *TileGEMM) { g.Weight, g.WGMMA, g.DequantWords = WeightNVFP4, true, 2 }},
+		{"dequant_words_bad", func(g *TileGEMM) { g.Weight, g.WGMMA, g.Repacked, g.DequantWords = WeightNVFP4, true, true, 3 }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)

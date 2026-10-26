@@ -213,6 +213,65 @@ func (s *Solution) Pack(fields []uint32) []uint32 {
 	return q
 }
 
+// EvalWords runs the program on input words.
+func (s *Solution) EvalWords(words []uint32) []uint32 {
+	return s.Eval(words)
+}
+
+// PackWords packs 4-bit codes (2*len(Outputs) values in [0, 15]) into
+// Problem.Words 32-bit words according to s's bit routing. For each output
+// register r and 16-bit half h in 0..1, code c = codes[2*r+h] & 15 has its 4
+// bits assigned to the active mask bits of half h of Outputs[r] in ascending
+// bit order; for an output with 4 mask bits at bits 6..8 and 15 of each half
+// (E2M1ToBF16Spec), bits 0..2 of c land at bits 6..8 and bit 3 at bit 15.
+func (s *Solution) PackWords(codes []uint8) []uint32 {
+	fields := make([]uint32, len(s.Problem.Outputs))
+	for r, m := range s.Problem.Outputs {
+		for h := range 2 {
+			var c uint8
+			if idx := 2*r + h; idx < len(codes) {
+				c = codes[idx] & 15
+			}
+			halfMask := (m >> (16 * h)) & 0xffff
+			bitIdx := 0
+			for b := range 16 {
+				if (halfMask>>b)&1 != 0 {
+					if (c>>bitIdx)&1 != 0 {
+						fields[r] |= 1 << (16*h + b)
+					}
+					bitIdx++
+				}
+			}
+		}
+	}
+	return s.Pack(fields)
+}
+
+// UnpackWords reverses PackWords: given input words q, it evaluates s and
+// extracts the 2*len(Outputs) 4-bit codes from the active mask bits of each
+// 16-bit half.
+func (s *Solution) UnpackWords(words []uint32) []uint8 {
+	out := s.Eval(words)
+	codes := make([]uint8, 2*len(s.Problem.Outputs))
+	for r, m := range s.Problem.Outputs {
+		for h := range 2 {
+			halfMask := (m >> (16 * h)) & 0xffff
+			var c uint8
+			bitIdx := 0
+			for b := range 16 {
+				if (halfMask>>b)&1 != 0 {
+					if (out[r]>>(16*h+b))&1 != 0 {
+						c |= 1 << bitIdx
+					}
+					bitIdx++
+				}
+			}
+			codes[2*r+h] = c
+		}
+	}
+	return codes
+}
+
 // Check proves the program correct for every input: each output is zero
 // outside its mask, each mask bit reads a distinct input bit, and the
 // program computes exactly that routing. Every operation routes bits
