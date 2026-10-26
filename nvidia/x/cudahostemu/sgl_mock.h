@@ -24,11 +24,11 @@ struct TensorView {
     void* ptr;
     std::vector<int64_t> shape, strides;
     DLDataType dtype;
-    DLDevice device;
+    DLDevice device = {kDLCUDA, 0};
     void* data_ptr() const { return ptr; }
     int64_t ndim() const { return (int64_t)shape.size(); }
-    int64_t size(int i) const { return shape[i]; }
-    int64_t stride(int i) const { return strides[i]; }
+    int64_t size(int i) const { return shape[i < 0 ? (int)shape.size() + i : i]; }
+    int64_t stride(int i) const { return strides[i < 0 ? (int)strides.size() + i : i]; }
 };
 }  // namespace tvm::ffi
 
@@ -108,7 +108,14 @@ struct TensorMatcher {
         RuntimeCheck(t.ndim() == (int64_t)shape.size(), "ndim ", t.ndim(), " != ", shape.size());
         for (size_t i = 0; i < shape.size(); ++i) {
             shape[i].ref->verify(t.size((int)i));
-            if (!strides.empty()) strides[i].ref->verify(t.stride((int)i));
+            if (!strides.empty()) {
+                int64_t got = t.stride((int)i);
+                SymbolicSize* sr = strides[i].ref;
+                if (sr->set && sr->value != got) {
+                    RuntimeCheck(false, "stride ", i, ": ", got, " != ", sr->value);
+                }
+                sr->verify(got);
+            }
         }
         RuntimeCheck(t.dtype.code == dtype.code && t.dtype.bits == dtype.bits, "dtype ", (int)t.dtype.code, "/", (int)t.dtype.bits);
         if (device) device->verify(t.device);
@@ -123,8 +130,14 @@ struct LaunchKernel {
     LaunchKernel(dim3 grid, dim3 block, DLDevice) : grid(grid), block(block) {}
     template <typename K, typename... Args>
     void operator()(K&& kernel, Args&&... args) const {
-        if (shim_cluster_kernels.count((const void*)kernel)) run_cluster_grid(grid, block, 8, [&] { kernel(args...); });
-        else run_grid(grid, block, [&] { kernel(args...); });
+        const void* p = reinterpret_cast<const void*>(kernel);
+        if (shim_cluster_kernels.count(p)) {
+            auto it = eg_emu_cluster_sizes.find(p);
+            int cluster = (it != eg_emu_cluster_sizes.end()) ? it->second : 8;
+            run_cluster_grid(grid, block, cluster, [&] { kernel(args...); });
+        } else {
+            run_grid(grid, block, [&] { kernel(args...); });
+        }
     }
     dim3 grid, block;
 };

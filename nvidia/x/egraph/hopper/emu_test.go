@@ -3,14 +3,15 @@ package hopper
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand/v2"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudahostemu"
 )
 
 // An emuBuf is one kernel buffer for runEmu. Every buffer is read back after
@@ -21,62 +22,26 @@ type emuBuf struct {
 	data  []byte
 }
 
-// runEmu compiles prelude+src as host C++ against testdata/emu.h, runs
+// runEmu compiles Prelude+src as host C++ against cudahostemu.Header, runs
 // launch (a C++ statement that may name the buffers), and returns every
 // buffer's final contents.
 func runEmu(t *testing.T, src, launch string, bufs ...emuBuf) map[string][]byte {
 	t.Helper()
-	cxx, err := exec.LookPath("clang++")
-	if err != nil {
-		cxx, err = exec.LookPath("g++")
+	cbufs := make([]cudahostemu.Buffer, len(bufs))
+	for i, b := range bufs {
+		cbufs[i] = cudahostemu.Buffer{Name: b.name, CType: b.ctype, Data: b.data}
 	}
-	if err != nil {
+	res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+		Source:  Prelude + src,
+		Launch:  launch,
+		Buffers: cbufs,
+		Flags:   strings.Fields(os.Getenv("EG_EMU_FLAGS")),
+	})
+	if errors.Is(err, cudahostemu.ErrNoCompiler) {
 		t.Skip("no host C++ compiler; emulated kernel not run")
 	}
-	emu, err := filepath.Abs("testdata/emu.h")
 	if err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	var main strings.Builder
-	main.WriteString(Prelude)
-	main.WriteString(src)
-	main.WriteString("\nint main() {\n")
-	for _, b := range bufs {
-		if err := os.WriteFile(filepath.Join(dir, b.name+".bin"), b.data, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		fmt.Fprintf(&main, "    auto eg_b_%s = eg_emu_read(%q);\n    auto* %s = reinterpret_cast<%s*>(eg_b_%s.data());\n",
-			b.name, filepath.Join(dir, b.name+".bin"), b.name, b.ctype, b.name)
-	}
-	fmt.Fprintf(&main, "    %s;\n", launch)
-	for _, b := range bufs {
-		fmt.Fprintf(&main, "    eg_emu_write(%q, %s, %d);\n", filepath.Join(dir, b.name+".out"), b.name, len(b.data))
-	}
-	main.WriteString("    return 0;\n}\n")
-	cc := filepath.Join(dir, "main.cc")
-	if err := os.WriteFile(cc, []byte(main.String()), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	bin := filepath.Join(dir, "main")
-	args := []string{"-std=c++20", "-O1", "-w", "-include", emu, "-o", bin, cc}
-	// EG_EMU_FLAGS adds compiler flags, such as -DEG_EMU_ZERO_SMEM for a
-	// mutation run's control.
-	args = append(args, strings.Fields(os.Getenv("EG_EMU_FLAGS"))...)
-	cmd := exec.Command(cxx, args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("compile emulated kernel: %v\n%s\n--- source ---\n%s", err, out, numbered(main.String()))
-	}
-	if out, err := exec.Command(bin).CombinedOutput(); err != nil {
-		t.Fatalf("run emulated kernel: %v\n%s", err, out)
-	}
-	res := make(map[string][]byte)
-	for _, b := range bufs {
-		data, err := os.ReadFile(filepath.Join(dir, b.name+".out"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		res[b.name] = data
+		t.Fatalf("emulated kernel: %v\n--- source ---\n%s", err, numbered(Prelude+src))
 	}
 	return res
 }

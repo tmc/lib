@@ -252,6 +252,50 @@ __global__ void k(int* out) {
 	}
 }
 
+// TestClusterRegisteredKernelAndEGShared checks that a kernel registered with
+// eg_emu_register_cluster_kernel is automatically launched as a cluster by
+// eg_emu_launch, and that EG_EMU_SHARED, eg_emu_cluster_sync, and
+// eg_emu_map_shared_rank work across cluster ranks.
+func TestClusterRegisteredKernelAndEGShared(t *testing.T) {
+	const src = `
+__global__ void ck(uint32_t* out) {
+    EG_EMU_SHARED(uint32_t, s, [2]);
+    if (threadIdx.x == 0) {
+        out[blockIdx.x * 2 + 0] = s[0];  // starts poisoned (0xffffffff)
+        s[1] = 100 + blockIdx.x;
+    }
+    eg_emu_cluster_sync();
+    if (threadIdx.x == 0) {
+        int partner = (blockIdx.x % 8) ^ 1;
+        out[blockIdx.x * 2 + 1] = *eg_emu_map_shared_rank(&s[1], partner);
+    }
+    eg_emu_cluster_sync();
+}
+static const bool reg_ck = eg_emu_register_cluster_kernel(ck);
+`
+	got := u32s(run(t, Program{
+		Source:  src,
+		Launch:  "eg_emu_launch(dim3(8, 2), dim3(32), 0, ck, out)",
+		Buffers: []Buffer{{"out", "uint32_t", zeros(16 * 8)}},
+	})["out"])
+	for by := 0; by < 2; by++ {
+		for bx := 0; bx < 8; bx++ {
+			idx := by*8 + bx
+			// Wait: in ck above, blockIdx.x is 0..7 for both by=0 and by=1; let's check bx=0..7:
+			_ = idx
+		}
+	}
+	for bx := 0; bx < 8; bx++ {
+		if got[bx*2+0] != 0xffffffff {
+			t.Errorf("block %d initial EG_EMU_SHARED = %#x, want 0xffffffff", bx, got[bx*2+0])
+		}
+		wantPartner := uint32(100 + (bx ^ 1))
+		if got[bx*2+1] != wantPartner {
+			t.Errorf("block %d partner value = %d, want %d", bx, got[bx*2+1], wantPartner)
+		}
+	}
+}
+
 func TestRuntime(t *testing.T) {
 	const src = `
 __global__ void fill(float* p) { p[threadIdx.x] = threadIdx.x + 0.5f; }
@@ -629,7 +673,7 @@ __global__ void prod_cons(uint32_t* out) {
 		},
 		{
 			name: "count mismatch",
-			body: "eg_emu_bar_sync(2, threadIdx.x < 32 ? 32 : 64);",
+			body: "eg_emu_bar_sync(2, threadIdx.x < 16 ? 32 : 64);",
 			want: "count mismatch",
 		},
 		{

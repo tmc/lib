@@ -2,13 +2,13 @@ package hopper
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/rand/v2"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudahostemu"
 )
 
 type ffiTensorView struct {
@@ -31,60 +31,25 @@ func (tv ffiTensorView) cDecl(varName string) string {
 		varName, tv.name, shapeStr, strideStr, dt)
 }
 
-// runTVMFFI compiles the verbatim SourceTVMFFI header against testdata/emu.h
-// and testdata/tvmffi_mock.h, runs mainBody, and returns all buffer contents.
+// runTVMFFI compiles the verbatim SourceTVMFFI header against cudahostemu.Header
+// and cudahostemu.SGLangMock, runs mainBody, and returns all buffer contents.
 func runTVMFFI(t *testing.T, ffiHeader, mainBody string, bufs ...emuBuf) map[string][]byte {
 	t.Helper()
-	cxx, err := exec.LookPath("clang++")
-	if err != nil {
-		cxx, err = exec.LookPath("g++")
+	cbufs := make([]cudahostemu.Buffer, len(bufs))
+	for i, b := range bufs {
+		cbufs[i] = cudahostemu.Buffer{Name: b.name, CType: b.ctype, Data: b.data}
 	}
-	if err != nil {
+	res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+		Source:  "namespace host = sglang::host;\n" + ffiHeader,
+		Launch:  mainBody,
+		Buffers: cbufs,
+		Mock:    true,
+	})
+	if errors.Is(err, cudahostemu.ErrNoCompiler) {
 		t.Skip("no host C++ compiler; emulated TVM-FFI test not run")
 	}
-	emu, err := filepath.Abs("testdata/emu.h")
 	if err != nil {
-		t.Fatal(err)
-	}
-	mock, err := filepath.Abs("testdata/tvmffi_mock.h")
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	var main strings.Builder
-	main.WriteString(ffiHeader)
-	main.WriteString("\nint main() {\n")
-	for _, b := range bufs {
-		if err := os.WriteFile(filepath.Join(dir, b.name+".bin"), b.data, 0o644); err != nil {
-			t.Fatal(err)
-		}
-		fmt.Fprintf(&main, "    auto eg_b_%s = eg_emu_read(%q);\n    auto* %s = reinterpret_cast<%s*>(eg_b_%s.data());\n",
-			b.name, filepath.Join(dir, b.name+".bin"), b.name, b.ctype, b.name)
-	}
-	main.WriteString(mainBody)
-	for _, b := range bufs {
-		fmt.Fprintf(&main, "    eg_emu_write(%q, %s, %d);\n", filepath.Join(dir, b.name+".out"), b.name, len(b.data))
-	}
-	main.WriteString("    return 0;\n}\n")
-	cc := filepath.Join(dir, "main.cc")
-	if err := os.WriteFile(cc, []byte(main.String()), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	bin := filepath.Join(dir, "main")
-	cmd := exec.Command(cxx, "-std=c++20", "-O1", "-w", "-include", emu, "-include", mock, "-o", bin, cc)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("compile TVM-FFI header: %v\n%s\n--- source ---\n%s", err, out, numbered(main.String()))
-	}
-	if out, err := exec.Command(bin).CombinedOutput(); err != nil {
-		t.Fatalf("run TVM-FFI binary: %v\n%s", err, out)
-	}
-	res := make(map[string][]byte, len(bufs))
-	for _, b := range bufs {
-		data, err := os.ReadFile(filepath.Join(dir, b.name+".out"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		res[b.name] = data
+		t.Fatalf("TVM-FFI kernel: %v\n--- source ---\n%s", err, numbered(ffiHeader))
 	}
 	return res
 }

@@ -215,15 +215,15 @@ struct eg_emu_block {
     std::vector<std::unique_ptr<eg_emu_warp>> warps;
     std::vector<unsigned char> smem;  // dynamic shared memory
 
-    // Keyed per-block shared memory (MOE8_SHARED), zeroed on first use.
+    // Keyed per-block shared memory (MOE8_SHARED / EG_EMU_SHARED).
     std::mutex mu;
     std::map<std::string, std::vector<unsigned char>> keyed;
 
     explicit eg_emu_block(int n) : bar(n), nthreads(n), live_threads(n) {}
-    void* get(const std::string& key, size_t n) {
+    void* get(const std::string& key, size_t n, unsigned char fill = 0) {
         std::lock_guard<std::mutex> l(mu);
         auto& b = keyed[key];
-        if (b.empty()) b.assign(n, 0);
+        if (b.empty()) b.assign(n, fill);
         return b.data();
     }
 };
@@ -239,6 +239,7 @@ inline thread_local eg_emu_warp* eg_emu_cur_warp;
 inline thread_local eg_emu_cluster* eg_emu_cur_cluster;
 inline thread_local int eg_emu_lane;
 inline thread_local int eg_emu_rank;
+inline thread_local int& eg_emu_cluster_rank = eg_emu_rank;
 
 inline void __syncthreads() { eg_emu_cur_block->bar.arrive_and_wait(); }
 inline void __syncwarp(unsigned mask = 0xffffffffu) { eg_emu_cur_warp->sync(mask, eg_emu_lane); }
@@ -289,23 +290,43 @@ inline void eg_emu_bar_sync(int id, int count) {
 }
 inline void bar_sync(int id, int count) { eg_emu_bar_sync(id, count); }
 
-template <class A> A* eg_emu_keyed_shared(const char* key) { return (A*)eg_emu_cur_block->get(key, sizeof(A)); }
+template <class A> A* eg_emu_keyed_shared(const char* key, unsigned char fill = 0) {
+    return (A*)eg_emu_cur_block->get(key, sizeof(A), fill);
+}
+template <class A> A* eg_emu_shared(const char* key) {
+    return eg_emu_keyed_shared<A>(key, eg_emu_smem_fill);
+}
 #define EG_EMU_STR2(x) #x
 #define EG_EMU_STR(x) EG_EMU_STR2(x)
 #define CUDAHOSTEMU_SHARED(T, name, dims) T (&name) dims = *eg_emu_keyed_shared<T dims>(#name ":" EG_EMU_STR(__LINE__))
 #define MOE8_SHARED(T, name, dims) CUDAHOSTEMU_SHARED(T, name, dims)
+#define EG_EMU_SHARED(T, name, dims) T (&name) dims = *eg_emu_shared<T dims>(#name ":" EG_EMU_STR(__LINE__))
 
 inline unsigned char* eg_emu_dynamic_smem() { return eg_emu_cur_block->smem.data(); }
 
+inline void eg_emu_cluster_sync() {
+    if (!eg_emu_cur_cluster) {
+        std::fprintf(stderr, "cudahostemu: cluster_sync outside cluster\n");
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    eg_emu_cur_cluster->bar.arrive_and_wait();
+}
+
 namespace cooperative_groups {
 struct cluster_group {
-    void sync() const { eg_emu_cur_cluster->bar.arrive_and_wait(); }
+    void sync() const { eg_emu_cluster_sync(); }
     unsigned block_rank() const { return (unsigned)eg_emu_rank; }
     unsigned num_blocks() const { return (unsigned)eg_emu_cur_cluster->blocks.size(); }
     // map_shared_rank returns the address of the same shared object, at the
     // same offset, in block r of the cluster. p must point into keyed or
     // dynamic shared memory; static __shared__ storage is not per block.
     template <class T> T* map_shared_rank(T* p, int r) const {
+        if (!eg_emu_cur_cluster || r < 0 || r >= (int)eg_emu_cur_cluster->blocks.size()) {
+            std::fprintf(stderr, "cudahostemu: map_shared_rank(%d) outside cluster\n", r);
+            std::fflush(stderr);
+            std::_Exit(3);
+        }
         eg_emu_block* own = eg_emu_cur_block;
         eg_emu_block* other = eg_emu_cur_cluster->blocks.at(r);
         const unsigned char* q = (const unsigned char*)p;
@@ -319,7 +340,7 @@ struct cluster_group {
                 if (q >= buf.data() && q < buf.data() + buf.size()) key = k, size = buf.size(), off = q - buf.data();
         }
         // Lock one block at a time: two blocks may map each other at once.
-        if (size) return (T*)((unsigned char*)other->get(key, size) + off);
+        if (size) return (T*)((unsigned char*)other->get(key, size, eg_emu_smem_fill) + off);
         std::fprintf(stderr, "cudahostemu: map_shared_rank of memory that is not per-block shared memory\n");
         std::exit(2);
     }
@@ -330,6 +351,11 @@ struct thread_block {
 };
 inline thread_block this_thread_block() { return {}; }
 }  // namespace cooperative_groups
+
+template <typename T>
+T* eg_emu_map_shared_rank(T* p, int r) {
+    return cooperative_groups::this_cluster().map_shared_rank(p, r);
+}
 
 // --- arithmetic ------------------------------------------------------------
 
@@ -1061,13 +1087,37 @@ void eg_emu_run(dim3 grid, dim3 block, size_t smem, int cluster, F body) {
     }
 }
 
-template <typename K, typename... Args>
-void eg_emu_launch(dim3 grid, dim3 block, size_t smem, K kernel, Args... args) {
-    eg_emu_run(grid, block, smem, 1, [&] { kernel(args...); });
+// eg_emu_cluster_kernels (aliased as shim_cluster_kernels) holds kernels that
+// eg_emu_launch and sgl_mock.h's LaunchKernel dispatch as thread-block clusters
+// (8 CTAs by default, or the size passed to eg_emu_register_cluster_kernel).
+inline std::set<const void*> eg_emu_cluster_kernels;
+inline std::set<const void*>& shim_cluster_kernels = eg_emu_cluster_kernels;
+inline std::map<const void*, int> eg_emu_cluster_sizes;
+
+template <typename K>
+inline bool eg_emu_register_cluster_kernel(K kernel, int cluster = 8) {
+    const void* p = reinterpret_cast<const void*>(kernel);
+    eg_emu_cluster_kernels.insert(p);
+    eg_emu_cluster_sizes[p] = cluster;
+    return true;
 }
+
 template <typename K, typename... Args>
 void eg_emu_launch_cluster(dim3 grid, dim3 block, size_t smem, int cluster, K kernel, Args... args) {
     eg_emu_run(grid, block, smem, cluster, [&] { kernel(args...); });
+}
+template <typename K, typename... Args>
+void eg_emu_launch(dim3 grid, dim3 block, size_t smem, K kernel, Args... args) {
+    if constexpr (std::is_pointer_v<std::decay_t<K>>) {
+        const void* p = reinterpret_cast<const void*>(kernel);
+        if (eg_emu_cluster_kernels.count(p)) {
+            auto it = eg_emu_cluster_sizes.find(p);
+            int cluster = (it != eg_emu_cluster_sizes.end()) ? it->second : 8;
+            eg_emu_launch_cluster(grid, block, smem, cluster, kernel, args...);
+            return;
+        }
+    }
+    eg_emu_run(grid, block, smem, 1, [&] { kernel(args...); });
 }
 
 // CUDAHOSTEMU_LAUNCH stands in for kernel<<<grid, block, smem, stream>>>(...).
@@ -1088,10 +1138,6 @@ template <class F> void run_cluster_grid(dim3 grid, dim3 block, int n, F kernel)
     eg_emu_run(grid, block, 0, n, kernel);
     eg_emu_check_launch("run_cluster_grid");
 }
-
-// shim_cluster_kernels holds the kernels a mock launcher runs with
-// run_cluster_grid; the host has no __cluster_dims__ to read.
-inline std::set<const void*> shim_cluster_kernels;
 
 // --- files -----------------------------------------------------------------
 
