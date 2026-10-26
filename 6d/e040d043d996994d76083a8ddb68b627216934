@@ -1,0 +1,11 @@
+commit: 6de040d043d996994d76083a8ddb68b627216934
+date: 2026-10-26T05:42:33.223349+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 2980
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-original136-passive-import-implementation/consumer/implementation.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-original136-consumer-adoption/ROOT-GRADE.md
+qualification: original136 passive source/CPU command; named host/race/vet and29 controls; two historical cleanup failures preserved; no native/full136 claim
