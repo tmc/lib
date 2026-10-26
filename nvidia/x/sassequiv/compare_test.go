@@ -777,6 +777,63 @@ EXIT`, prologue + `
 LOP3.LUT R7, RZ, R0, 0x1f, 0x88, !PT
 STG.E desc[UR4][R4.64], R7
 EXIT`, Equal, ""},
+		{"low bits cleared after a shift", prologue + `
+SHF.R.U32.HI R7, RZ, 0x5, R0
+IMAD.SHL.U32 R7, R7, 0x10, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x1, R0
+LOP3.LUT R7, R7, 0x7ffffff0, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"low bits cleared after a shift, one bit more", prologue + `
+SHF.R.U32.HI R7, RZ, 0x5, R0
+IMAD.SHL.U32 R7, R7, 0x10, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x1, R0
+LOP3.LUT R7, R7, 0x7fffffe0, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"low bits cleared", prologue + `
+LOP3.LUT R7, R0, 0xfffffff0, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x4, R0
+IMAD.SHL.U32 R7, R7, 0x10, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"mask keeping every bit a shift leaves", prologue + `
+SHF.R.U32.HI R7, RZ, 0x4, R0
+LOP3.LUT R7, R7, 0xfffffff, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x4, R0
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"shift of a shift", prologue + `
+SHF.R.U32.HI R7, RZ, 0x2, R0
+SHF.R.U32.HI R7, RZ, 0x3, R7
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x5, R0
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"shift of a shift, one more", prologue + `
+SHF.R.U32.HI R7, RZ, 0x2, R0
+SHF.R.U32.HI R7, RZ, 0x3, R7
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x6, R0
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"negation as a move", prologue + `
+IMAD.MOV R7, RZ, RZ, -R0
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IADD3 R7, -R0, RZ, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `

@@ -231,7 +231,7 @@ func (x *blockExec) integer(label string, args []int) (int, bool) {
 			return 0, false
 		}
 		return x.node(x.lin(args[0]).plus(x.lin(args[1]))), true
-	case "IMAD", "IMAD.SHL.U32", "IMAD.IADD", "IMAD.U32":
+	case "IMAD", "IMAD.SHL.U32", "IMAD.IADD", "IMAD.U32", "IMAD.MOV", "IMAD.MOV.U32":
 		if len(args) != 3 {
 			return 0, false
 		}
@@ -288,7 +288,7 @@ func (x *blockExec) integer(label string, args []int) (int, bool) {
 		if !ok || s == 0 {
 			return 0, false
 		}
-		hi := x.lin(x.add("shr.u32", 0, args[0], x.imm(uint64(32-s))))
+		hi := x.lin(x.shr(args[0], 32-s))
 		return x.node(hi.plus(x.lin(args[1])).plus(x.lin(args[2]).scale(1 << s))), true
 	case "LEA.HI.SX32":
 		if len(args) != 3 {
@@ -332,11 +332,10 @@ func (x *blockExec) integer(label string, args []int) (int, bool) {
 		if s == 0 {
 			return args[2], true
 		}
-		kind := "shr.u32"
 		if label == "SHF.R.S32.HI" {
-			kind = "shr.s32"
+			return x.add("shr.s32", 0, args[2], x.imm(uint64(s))), true
 		}
-		return x.add(kind, 0, args[2], x.imm(uint64(s))), true
+		return x.shr(args[2], s), true
 	}
 	return 0, false
 }
@@ -399,11 +398,40 @@ func (x *blockExec) and(v int, k uint32) int {
 		s := bits.TrailingZeros32(c.coef)
 		return x.node(x.lin(x.and(c.atom, k>>s)).scale(c.coef))
 	}
+	// Clearing the low j bits of t >> s, the only bits of it a mask
+	// can clear, is (t >> s+j) << j.
+	t, s := v, uint32(0)
+	if n := x.fx.g.nodes[v]; n.label == "shr.u32" && isImm(x.fx.g, n.args[1]) {
+		t, s = n.args[0], x.immVal(n.args[1])
+	}
+	full := ^uint32(0) >> s
+	if k&full == full {
+		return v
+	}
+	if j := uint32(bits.TrailingZeros32(k & full)); k&full == full&^(1<<j-1) {
+		return x.node(x.lin(x.shr(t, s+j)).scale(1 << j))
+	}
 	if n := x.fx.g.nodes[v]; n.label == "LOP3.LUT" && len(n.args) == 5 && x.fx.g.nodes[n.args[2]].label == "imm:0x0" &&
 		isImm(x.fx.g, n.args[1]) && isImm(x.fx.g, n.args[3]) && x.immVal(n.args[3]) == 0xc0 {
 		return x.and(n.args[0], k&x.immVal(n.args[1]))
 	}
 	return x.add("LOP3.LUT", 0, v, x.imm(uint64(k)), x.imm(0), x.imm(0xc0), x.leaf("false"))
+}
+
+// shr returns v >> s, logical, with shifts of shifts combined.
+func (x *blockExec) shr(v int, s uint32) int {
+	n := x.fx.g.nodes[v]
+	switch {
+	case s == 0:
+		return v
+	case s >= 32:
+		return x.imm(0)
+	case isImm(x.fx.g, v):
+		return x.imm(uint64(x.immVal(v) >> s))
+	case n.label == "shr.u32" && isImm(x.fx.g, n.args[1]):
+		return x.shr(n.args[0], x.immVal(n.args[1])+s)
+	}
+	return x.add("shr.u32", 0, v, x.imm(uint64(s)))
 }
 
 // addx returns the high word of a multi-word add: the sum of addends,
