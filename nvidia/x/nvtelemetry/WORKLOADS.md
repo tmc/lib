@@ -218,3 +218,37 @@ scroll contract. It requires a fresh task-specific POST body and bounds raw
 bytes, raw events and pages independently of scalar filtering. Original page
 bytes, hashes and integer request values are retained; contradictory totals
 and repeated pages are refused.
+
+### Additional vLLM 0.8.5 V1 contract
+
+Set `WorkloadSource.Engine` to exactly `v1` with provider `vllm` and version
+`0.8.5`. Omitted Engine retains the historical legacy mapping and JSON/series
+identity. A mapped legacy sample carrying an `engine` label is ambiguous and
+requires the explicit selector. Other nonempty selectors/provider/version
+combinations refuse before HTTP transport. Engine names are case sensitive.
+
+This additional contract follows official vLLM tag `v0.8.5`, commit
+`ba41cc90e8ef7f236347b2f1599eec2cbb9e1f0d`, `vllm/v1/metrics/loggers.py`,
+`stats.py` and `vllm/v1/engine/__init__.py`. It selects 15 families: prompt and
+generation token counters; finished-request counters by stop, length or abort;
+running/waiting request gauges; GPU KV-cache fraction; and histograms for first
+token, output token, end-to-end request, prompt tokens, generation tokens,
+queue time, inference time, prefill time and decode time. Every selected series
+requires nonempty `model_name` and a canonical nonnegative decimal `engine`
+index. Finish reason is required only on the finished-request counter; `le` is
+allowed only on histogram buckets. Other selected-family labels refuse.
+
+Engine index remains part of series hashes through reader, window and OTLP.
+OTLP adds `nvtelemetry.workload.engine_contract="v1"`. Durations describe
+aggregate producer intervals, including the producer's preemption intervals;
+they do not identify individual requests or GPU execution. An abort remains a
+separate finish reason and is not accepted-output success. KV usage is a
+fraction, where 1 means 100 percent, without a byte conversion.
+
+The `.prom.control` fixture is a constructed source-derived control. It is not
+an authentic deployment capture. Legacy swapped/CPU-cache families, V1 prefix
+cache queries/hits, preemptions, iteration/max-generation token histograms,
+n/max_tokens parameter histograms, LoRA/cache configuration and speculative
+metrics remain raw/unmapped pending a separately selected contract and owner.
+Actual deployment capture and newer version migrations remain pending. This
+15-family slice does not close all V1 metrics or original120.

@@ -75,7 +75,11 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 	case s.Provider == "triton" && s.Version == "25.06":
 		mappings = tritonWorkloadMappings
 	case s.Provider == "vllm" && s.Version == "0.8.5":
-		mappings = vllmWorkloadMappings
+		var err error
+		mappings, err = vllmMappings(s)
+		if err != nil {
+			return WorkloadExport{}, err
+		}
 	case s.Provider == "ray" && s.Version == "2.44.0":
 		mappings = rayWorkloadMappings
 	case s.Provider == "sglang" && s.Version == "0.5.21":
@@ -125,8 +129,10 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 		if s.Provider == "triton" && (v.Labels["model"] == "" || v.Labels["version"] == "") {
 			return e, errors.New("missing Triton model or version label")
 		}
-		if s.Provider == "vllm" && v.Labels["model_name"] == "" {
-			return e, errors.New("missing vLLM model_name label")
+		if s.Provider == "vllm" {
+			if err := validateVLLMLabels(s, base, component, v.Labels); err != nil {
+				return e, err
+			}
 		}
 		if s.Provider == "sglang" {
 			if err := validateSGLangWorkloadLabels(base, v.Labels); err != nil {
@@ -150,6 +156,9 @@ func ReadServingExposition(ctx context.Context, r io.Reader, s WorkloadSource, l
 		}
 		if m.kind == "counter" && isWorkloadCountUnit(m.unit) && !n.IsInt() {
 			return e, errors.New("fractional workload count")
+		}
+		if s.Engine == "v1" && m.kind == "gauge" && m.unit == "requests" && !n.IsInt() {
+			return e, errors.New("fractional vLLM request gauge")
 		}
 		if m.semantic == "worker_total_kv_blocks" && !n.IsInt() {
 			return e, errors.New("fractional Dynamo total blocks")

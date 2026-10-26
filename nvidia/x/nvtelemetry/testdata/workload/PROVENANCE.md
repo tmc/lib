@@ -38,3 +38,23 @@ authentic-export gates are listed
 in `WORKLOADS.md`. `mlflow.json` is also a protocol control, separate from the
 native fixture. Large integer, dynamic-batch, failure, cache and abort fields in
 controls test preservation/refusal behavior, not measured application outcomes.
+
+`vllm-v1-0.8.5.prom.control` is a constructed source-derived control, not a
+producer capture. It follows official vLLM `v0.8.5` commit
+`ba41cc90e8ef7f236347b2f1599eec2cbb9e1f0d`: V1 `metrics/loggers.py`
+(SHA256 `ff937b60b06d7e596855d6529c5075e2c2b1ee943b673015eb6a78b715892e42`),
+`metrics/stats.py` (`de768a1a3022f6593d1abae4d7280551e76a4f18e4d80d8749f6088acaa2d71b`),
+and `engine/__init__.py`
+(`2122e83c6cef6d8b926f3f156b364c748d712e61bb19c98dfa3a5bf119bf2495`).
+The explicit `Engine: "v1"` profile selects 15 families, with model `m`, engines
+0/1, all stop/length/abort reasons, exact token counters above 2^53, fraction
+endpoints 0/1 and consistent histogram endpoints. Test code constructs a second
+snapshot with independent engine deltas 7/13. Clock mapping is a constructed
+control, never a calibration receipt. Unsupported families stay raw/unmapped.
+The old legacy fixture retains its distinct engine contract.
+
+Authentic V1 acceptance still needs a consented deployment capture with exact
+build/config and V1 selection, unchanged bytes/hash, capture bounds/epoch,
+engine labels, independent workload/finish outcomes and window/replay receipts.
+Later deployment versions and all other original120 provider rows remain
+separate pending work. No native, performance or full120 claim follows here.

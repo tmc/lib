@@ -213,3 +213,14 @@ budgets include events that do not produce scalar metrics. Advertised totals
 must remain consistent and match terminal counts. Original integers and page
 bytes are preserved. A completed traversal does not establish a stable task
 snapshot.
+
+For the selected vLLM 0.8.5 V1 source contract, configure the nested source as
+`"workload":{"Provider":"vllm","Version":"0.8.5","Engine":"v1","RunID":"cohort"}`.
+Omitting `Engine` retains the legacy contract, whose mapped samples must not
+carry a V1 `engine` label. Engine selector values are case sensitive; `V1`,
+`v0`, whitespace aliases and nonempty selectors on other provider/version
+combinations refuse before transport. Duplicate case aliases for a JSON key
+also refuse. The numeric sample `engine` index remains a separate series label.
+Only the selected 15 source-defined families are normalized; unsupported V1
+families remain raw/unmapped. Tests use constructed controls and in-memory
+transports, not live deployment captures or a full original120 qualification.

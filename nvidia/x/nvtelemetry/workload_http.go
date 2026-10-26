@@ -58,6 +58,9 @@ func FetchWorkload(ctx context.Context, client *http.Client, request *http.Reque
 }
 
 func supportedWorkloadHTTP(s WorkloadSource) bool {
+	if validateWorkloadEngine(s) != nil {
+		return false
+	}
 	switch s.Provider {
 	case "triton":
 		return s.Version == "25.06"

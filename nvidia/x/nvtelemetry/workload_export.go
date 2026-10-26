@@ -54,7 +54,10 @@ func WriteWorkloadOTLP(w io.Writer, before, after WorkloadExport, o WorkloadOTLP
 	case before.Source.Provider == "triton" && before.Source.Version == "25.06":
 		mappings = tritonWorkloadMappings
 	case before.Source.Provider == "vllm" && before.Source.Version == "0.8.5":
-		mappings = vllmWorkloadMappings
+		mappings, err = vllmMappings(before.Source)
+		if err != nil {
+			return err
+		}
 	default:
 		return errors.New("unsupported workload OTLP provider or version")
 	}
@@ -83,11 +86,17 @@ func WriteWorkloadOTLP(w io.Writer, before, after WorkloadExport, o WorkloadOTLP
 			if !ok || m.kind != kind || expectedUnit != p.Unit || m.semantic != p.Semantic {
 				return errors.New("workload OTLP pinned schema mismatch")
 			}
+			if before.Source.Provider == "vllm" {
+				component := strings.TrimPrefix(p.Kind, "histogram_")
+				if err := validateVLLMLabels(before.Source, base, component, p.Labels); err != nil {
+					return err
+				}
+			}
 			if len(p.Labels) > 32 {
 				return errors.New("workload OTLP label limit exceeded")
 			}
 			for k, v := range p.Labels {
-				allowed := k == "le" && p.Kind == "histogram_bucket" || before.Source.Provider == "triton" && (k == "model" || k == "version" || k == "reason") || before.Source.Provider == "vllm" && (k == "model_name" || k == "finished_reason")
+				allowed := k == "le" && p.Kind == "histogram_bucket" || before.Source.Provider == "triton" && (k == "model" || k == "version" || k == "reason") || before.Source.Provider == "vllm" && (k == "model_name" || k == "finished_reason" || before.Source.Engine == "v1" && k == "engine")
 				if !allowed {
 					return errors.New("unsupported workload OTLP label")
 				}
@@ -266,6 +275,9 @@ func workloadOTLPPoint(p WorkloadDelta, s WorkloadSource, o WorkloadOTLPOptions)
 	key := workloadSeriesKey(WorkloadMetric{Name: p.Name, Labels: p.Labels})
 	hash := sha256.Sum256([]byte(key))
 	pairs := [][2]string{{"provider", s.Provider}, {"version", s.Version}, {"run_cohort", s.RunID}, {"series_sha256", hex.EncodeToString(hash[:])}, {"evidence", "derived_aggregate_delta"}, {"clock_domain", o.ClockDomain}, {"clock_epoch", o.ClockEpochID}, {"clock_mapping", o.MappingProvenance}}
+	if s.Engine != "" {
+		pairs = append(pairs, [2]string{"engine_contract", s.Engine})
+	}
 	if s.Phase != "" {
 		pairs = append(pairs, [2]string{"phase", s.Phase})
 	}

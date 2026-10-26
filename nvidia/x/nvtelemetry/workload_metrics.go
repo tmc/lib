@@ -16,8 +16,10 @@ import (
 // WorkloadSource identifies an offline producer export. RunID, Phase and Rank
 // are caller-supplied export context, never inferred from hardware activity.
 type WorkloadSource struct {
-	Provider     string
-	Version      string
+	Provider string
+	Version  string
+	// Engine selects an additional producer contract; empty preserves legacy.
+	Engine       string `json:",omitempty"`
 	RunID        string
 	Phase        string
 	Rank         *int
@@ -99,10 +101,13 @@ func readWorkload(r io.Reader, s WorkloadSource, l WorkloadLimits) (WorkloadExpo
 	if r == nil || strings.TrimSpace(s.Provider) == "" || strings.TrimSpace(s.Version) == "" || strings.TrimSpace(s.RunID) == "" {
 		return WorkloadExport{}, l, errors.New("missing workload reader or source identity")
 	}
+	if err := validateWorkloadEngine(s); err != nil {
+		return WorkloadExport{}, l, err
+	}
 	if s.Rank != nil && *s.Rank < 0 {
 		return WorkloadExport{}, l, errors.New("negative workload rank")
 	}
-	for _, v := range []string{s.Provider, s.Version, s.RunID, s.Phase, s.ClockDomain, s.ClockEpochID} {
+	for _, v := range []string{s.Provider, s.Version, s.Engine, s.RunID, s.Phase, s.ClockDomain, s.ClockEpochID} {
 		if len(v) > l.MaxStringBytes {
 			return WorkloadExport{}, l, errors.New("workload source string limit exceeded")
 		}
@@ -205,7 +210,7 @@ func aggregateWorkloadWindow(before, after WorkloadExport, start, end int64, dom
 	if end <= start || strings.TrimSpace(domain) == "" || strings.TrimSpace(epoch) == "" {
 		return nil, errors.New("invalid workload window or unknown clock")
 	}
-	if before.Source.Provider != after.Source.Provider || before.Source.Version != after.Source.Version || before.Source.RunID != after.Source.RunID || before.Source.Phase != after.Source.Phase || !sameWorkloadRank(before.Source.Rank, after.Source.Rank) {
+	if before.Source.Provider != after.Source.Provider || before.Source.Version != after.Source.Version || before.Source.Engine != after.Source.Engine || before.Source.RunID != after.Source.RunID || before.Source.Phase != after.Source.Phase || !sameWorkloadRank(before.Source.Rank, after.Source.Rank) {
 		return nil, errors.New("workload source changed across window")
 	}
 	if before.NextPageToken != "" || after.NextPageToken != "" {
@@ -287,7 +292,7 @@ func sameWorkloadRank(a, b *int) bool {
 }
 
 func sameWorkloadContext(a, b WorkloadSource) bool {
-	return a.Provider == b.Provider && a.Version == b.Version && a.RunID == b.RunID && a.Phase == b.Phase && sameWorkloadRank(a.Rank, b.Rank) && a.ClockDomain == b.ClockDomain && a.ClockEpochID == b.ClockEpochID
+	return a.Provider == b.Provider && a.Version == b.Version && a.Engine == b.Engine && a.RunID == b.RunID && a.Phase == b.Phase && sameWorkloadRank(a.Rank, b.Rank) && a.ClockDomain == b.ClockDomain && a.ClockEpochID == b.ClockEpochID
 }
 func workloadSeriesKey(p WorkloadMetric) string {
 	var keys []string
