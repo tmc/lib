@@ -1,0 +1,11 @@
+commit: 325491fc323f79d1526ffc01fc5bf4f8c6b250a8
+date: 2026-10-26T03:01:52.687138+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 6970
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-native21-22-admission/native21-22-admission.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-native21-22-adoption/ROOT-GRADE.md
+qualification: 21/22fixture admission; actual144+4testpaths host/race177passes1ptxasskip; vet/staticGo compile and semanticomission; native unqualified
