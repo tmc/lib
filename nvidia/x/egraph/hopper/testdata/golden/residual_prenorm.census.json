@@ -1,0 +1,15 @@
+{
+  "source_sha256": "1ec8f70119622c3a6c48f88d39dc7c82e2a58c058516fc3ae56f2b6838d16d3b",
+  "kernels": {
+    "_Z16residual_prenormiPKfPKtS2_S2_PfPt": {
+      "loads": {
+        "nc.v4.u32": 20
+      },
+      "stores": {
+        "v4.f32": 8,
+        "v4.u32": 4
+      },
+      "late_loads": 0
+    }
+  }
+}

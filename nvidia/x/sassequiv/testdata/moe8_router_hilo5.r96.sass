@@ -1,0 +1,1749 @@
+	code for sm_90a
+	.target	sm_90a
+		Function : _Z16moe8_router_hiloILi5EEvPKtS1_S1_PfS2_
+	.headerflags	@"EF_CUDA_ACCELERATORS EF_CUDA_SM90 EF_CUDA_VIRTUAL_SM(EF_CUDA_SM90)"
+        /*0000*/                   LDC R1, c[0x0][0x28] ;
+
+        /*0010*/                   S2R R58, SR_TID.X ;
+
+        /*0020*/                   ULDC.64 UR6, c[0x0][0x208] ;
+
+        /*0030*/                   BSSY B0, 0x2a60 ;
+
+        /*0040*/                   HFMA2.MMA R2, -RZ, RZ, 0, 0 ;
+
+        /*0050*/                   S2R R6, SR_CTAID.Y ;
+
+        /*0060*/                   HFMA2.MMA R40, -RZ, RZ, 0, 0 ;
+
+        /*0070*/                   CS2R R4, SRZ ;
+
+        /*0080*/                   MOV R0, RZ ;
+
+        /*0090*/                   S2R R60, SR_CTAID.X ;
+
+        /*00a0*/                   SHF.R.U32.HI R43, RZ, 0x5, R58 ;
+
+        /*00b0*/                   LOP3.LUT R3, R58, 0x1f, RZ, 0xc0, !PT ;
+
+        /*00c0*/                   LEA R56, R6.reuse, 0x8, 0x3 ;
+
+        /*00d0*/                   LEA R42, R6, R43, 0x3 ;
+
+        /*00e0*/                   ISETP.GE.AND P0, PT, R42, R56, PT ;
+
+        /*00f0*/               @P0 BRA 0x2a50 ;
+
+        /*0100*/                   SHF.L.U32 R41, R3, 0x3, RZ ;
+
+        /*0110*/                   IMAD.WIDE R54, R60, 0x2000, RZ ;
+
+        /*0120*/                   SHF.L.U32 R3, R42, 0x8, RZ ;
+
+        /*0130*/                   LEA R6, R6, R41.reuse, 0xb ;
+
+        /*0140*/                   MOV R5, RZ ;
+
+        /*0150*/                   LEA R43, R43, R6, 0x8 ;
+
+        /*0160*/                   LOP3.LUT R41, R54, R41, RZ, 0xfc, !PT ;
+
+        /*0170*/                   ISETP.GE.AND P1, PT, R42, R56, PT ;
+
+        /*0180*/                   BSSY B1, 0x2a00 ;
+
+        /*0190*/               @P1 BRA 0x29f0 ;
+
+        /*01a0*/              @!P1 LDC.64 R24, c[0x0][0x218] ;
+
+        /*01b0*/              @!P1 IADD3 R8, P0, R3.reuse, R41, RZ ;
+
+        /*01c0*/                   CS2R R10, SRZ ;
+
+        /*01d0*/              @!P1 LEA.HI.X.SX32 R9, R3, R55, 0x1, P0 ;
+
+        /*01e0*/                   LDC.64 R6, c[0x0][0x210] ;
+
+        /*01f0*/              @!P1 LDC.64 R46, c[0x0][0x220] ;
+
+        /*0200*/              @!P1 LEA R24, P0, R8, R24, 0x1 ;
+
+        /*0210*/              @!P1 LEA.HI.X R25, R8, R25, R9, 0x1, P0 ;
+
+        /*0220*/                   CS2R R8, SRZ ;
+
+        /*0230*/                   IMAD.WIDE R6, R43, 0x2, R6 ;
+
+        /*0240*/              @!P1 LDG.E.NA.128.CONSTANT R8, desc[UR6][R24.64] ;
+
+        /*0250*/                   LDG.E.128.CONSTANT R12, desc[UR6][R6.64] ;
+
+        /*0260*/              @!P1 IADD3 R16, P0, R3.reuse, R41, RZ ;
+
+        /*0270*/                   CS2R R18, SRZ ;
+
+        /*0280*/                   LDG.E.128.CONSTANT R20, desc[UR6][R6.64+0x4000] ;
+
+        /*0290*/              @!P1 LEA.HI.X.SX32 R17, R3, R55, 0x1, P0 ;
+
+        /*02a0*/              @!P1 LEA R46, P0, R16.reuse, R46, 0x1 ;
+
+        /*02b0*/                   LDG.E.128.CONSTANT R24, desc[UR6][R6.64+0x8000] ;
+
+        /*02c0*/              @!P1 LEA.HI.X R47, R16, R47, R17, 0x1, P0 ;
+
+        /*02d0*/                   CS2R R16, SRZ ;
+
+        /*02e0*/                   LDG.E.128.CONSTANT R28, desc[UR6][R6.64+0xc000] ;
+
+        /*02f0*/                   LDG.E.128.CONSTANT R32, desc[UR6][R6.64+0x10000] ;
+
+        /*0300*/              @!P1 LDG.E.NA.128.CONSTANT R16, desc[UR6][R46.64] ;
+
+        /*0310*/                   SHF.L.U32 R44, R8, 0x10, RZ ;
+
+        /*0320*/                   SHF.L.U32 R38, R12.reuse, 0x10, RZ ;
+
+        /*0330*/                   LOP3.LUT R39, R12, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0340*/                   LOP3.LUT R8, R8, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0350*/                   FFMA R36, R38, R44, R5 ;
+
+        /*0360*/                   SHF.L.U32 R37, R13, 0x10, RZ ;
+
+        /*0370*/                   SHF.L.U32 R12, R9, 0x10, RZ ;
+
+        /*0380*/                   FFMA R46, R39, R8, R36 ;
+
+        /*0390*/                   LOP3.LUT R36, R13, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*03a0*/                   LOP3.LUT R45, R9, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*03b0*/                   FFMA R9, R37, R12, R46 ;
+
+        /*03c0*/                   SHF.L.U32 R5, R14, 0x10, RZ ;
+
+        /*03d0*/                   SHF.L.U32 R13, R10, 0x10, RZ ;
+
+        /*03e0*/                   FFMA R46, R36, R45, R9 ;
+
+        /*03f0*/                   LOP3.LUT R53, R14, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0400*/                   LOP3.LUT R10, R10, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0410*/                   FFMA R46, R5, R13, R46 ;
+
+        /*0420*/                   SHF.L.U32 R51, R15, 0x10, RZ ;
+
+        /*0430*/                   SHF.L.U32 R9, R11, 0x10, RZ ;
+
+        /*0440*/                   FFMA R46, R53, R10, R46 ;
+
+        /*0450*/                   LOP3.LUT R11, R11, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0460*/                   LOP3.LUT R50, R15, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0470*/                   FFMA R15, R51, R9, R46 ;
+
+        /*0480*/                   SHF.L.U32 R57, R20, 0x10, RZ ;
+
+        /*0490*/                   SHF.L.U32 R14, R16, 0x10, RZ ;
+
+        /*04a0*/                   FFMA R15, R50, R11, R15 ;
+
+        /*04b0*/                   LOP3.LUT R47, R20, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*04c0*/                   FFMA R49, R44, R57, R2 ;
+
+        /*04d0*/                   FFMA R2, R38, R14, R15 ;
+
+        /*04e0*/                   SHF.L.U32 R38, R21.reuse, 0x10, RZ ;
+
+        /*04f0*/                   FFMA R49, R8, R47, R49 ;
+
+        /*0500*/                   LOP3.LUT R52, R21, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0510*/                   FFMA R20, R12, R38, R49 ;
+
+        /*0520*/                   LOP3.LUT R16, R16, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0530*/                   SHF.L.U32 R46, R22.reuse, 0x10, RZ ;
+
+        /*0540*/                   FFMA R20, R45, R52, R20 ;
+
+        /*0550*/                   LOP3.LUT R49, R22, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0560*/                   FFMA R2, R39, R16, R2 ;
+
+        /*0570*/                   SHF.L.U32 R21, R17, 0x10, RZ ;
+
+        /*0580*/                   FFMA R39, R13, R46, R20 ;
+
+        /*0590*/                   SHF.L.U32 R48, R23, 0x10, RZ ;
+
+        /*05a0*/                   FFMA R20, R10, R49, R39 ;
+
+        /*05b0*/                   FFMA R15, R37, R21, R2 ;
+
+        /*05c0*/                   LOP3.LUT R2, R23, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*05d0*/                   FFMA R20, R9, R48, R20 ;
+
+        /*05e0*/                   SHF.L.U32 R37, R24, 0x10, RZ ;
+
+        /*05f0*/                   FFMA R23, R11, R2, R20 ;
+
+        /*0600*/                   LOP3.LUT R20, R24, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0610*/                   FFMA R39, R44, R37, R0 ;
+
+        /*0620*/                   FFMA R23, R14, R57, R23 ;
+
+        /*0630*/                   FFMA R39, R8, R20, R39 ;
+
+        /*0640*/                   FFMA R24, R16, R47, R23 ;
+
+        /*0650*/                   SHF.L.U32 R23, R25, 0x10, RZ ;
+
+        /*0660*/                   LOP3.LUT R17, R17, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0670*/                   LOP3.LUT R25, R25, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0680*/                   FFMA R0, R12, R23, R39 ;
+
+        /*0690*/                   SHF.L.U32 R22, R26, 0x10, RZ ;
+
+        /*06a0*/                   FFMA R15, R36, R17, R15 ;
+
+        /*06b0*/                   FFMA R36, R45, R25, R0 ;
+
+        /*06c0*/                   LOP3.LUT R0, R26, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*06d0*/                   SHF.L.U32 R47, R28, 0x10, RZ ;
+
+        /*06e0*/                   FFMA R39, R13, R22, R36 ;
+
+        /*06f0*/                   SHF.L.U32 R36, R27, 0x10, RZ ;
+
+        /*0700*/                   LOP3.LUT R28, R28, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0710*/                   FFMA R26, R10, R0, R39 ;
+
+        /*0720*/                   FFMA R57, R44, R47, R4 ;
+
+        /*0730*/                   LOP3.LUT R4, R27, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0740*/                   FFMA R26, R9, R36, R26 ;
+
+        /*0750*/                   SHF.L.U32 R27, R29.reuse, 0x10, RZ ;
+
+        /*0760*/                   FFMA R57, R8, R28, R57 ;
+
+        /*0770*/                   LOP3.LUT R29, R29, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0780*/                   FFMA R39, R11, R4, R26 ;
+
+        /*0790*/                   FFMA R26, R12, R27, R57 ;
+
+        /*07a0*/                   FFMA R39, R14, R37, R39 ;
+
+        /*07b0*/                   FFMA R37, R45, R29, R26 ;
+
+        /*07c0*/                   SHF.L.U32 R26, R30.reuse, 0x10, RZ ;
+
+        /*07d0*/                   FFMA R24, R21, R38, R24 ;
+
+        /*07e0*/                   LOP3.LUT R38, R30, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*07f0*/                   FFMA R30, R16, R20, R39 ;
+
+        /*0800*/                   FFMA R37, R13, R26, R37 ;
+
+        /*0810*/                   SHF.L.U32 R39, R31, 0x10, RZ ;
+
+        /*0820*/                   FFMA R20, R10, R38, R37 ;
+
+        /*0830*/                   LOP3.LUT R37, R31, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0840*/                   FFMA R20, R9, R39, R20 ;
+
+        /*0850*/                   FFMA R31, R11, R37, R20 ;
+
+        /*0860*/                   FFMA R31, R14, R47, R31 ;
+
+        /*0870*/                   SHF.L.U32 R47, R18, 0x10, RZ ;
+
+        /*0880*/                   FFMA R5, R5, R47, R15 ;
+
+        /*0890*/                   SHF.L.U32 R15, R32, 0x10, RZ ;
+
+        /*08a0*/                   FFMA R57, R44, R15, R40 ;
+
+        /*08b0*/                   LOP3.LUT R44, R32, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*08c0*/                   SHF.L.U32 R40, R33, 0x10, RZ ;
+
+        /*08d0*/                   FFMA R57, R8, R44, R57 ;
+
+        /*08e0*/                   FFMA R8, R12, R40, R57 ;
+
+        /*08f0*/                   LOP3.LUT R12, R33, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0900*/                   SHF.L.U32 R20, R34, 0x10, RZ ;
+
+        /*0910*/                   FFMA R8, R45, R12, R8 ;
+
+        /*0920*/                   LOP3.LUT R34, R34, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0930*/                   FFMA R13, R13, R20, R8 ;
+
+        /*0940*/                   SHF.L.U32 R32, R35, 0x10, RZ ;
+
+        /*0950*/                   FFMA R10, R10, R34, R13 ;
+
+        /*0960*/                   IADD3 R13, R42, 0x8, RZ ;
+
+        /*0970*/                   FFMA R10, R9, R32, R10 ;
+
+        /*0980*/                   ISETP.GE.AND P2, PT, R13, R56.reuse, PT ;
+
+        /*0990*/                   IADD3 R9, R42.reuse, 0x10, RZ ;
+
+        /*09a0*/                   LOP3.LUT R35, R35, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*09b0*/                   ISETP.GE.AND P0, PT, R9, R56, PT ;
+
+        /*09c0*/                   IADD3 R9, R42, 0x18, RZ ;
+
+        /*09d0*/                   FFMA R11, R11, R35, R10 ;
+
+        /*09e0*/                   ISETP.GE.AND P1, PT, R9, R56, PT ;
+
+        /*09f0*/                   FFMA R9, R14, R15, R11 ;
+
+        /*0a00*/              @!P2 LDC.64 R14, c[0x0][0x218] ;
+
+        /*0a10*/                   FFMA R28, R16.reuse, R28, R31 ;
+
+        /*0a20*/                   FFMA R16, R16, R44, R9 ;
+
+        /*0a30*/                   FFMA R30, R21, R23, R30 ;
+
+        /*0a40*/              @!P2 LDC.64 R10, c[0x0][0x220] ;
+
+        /*0a50*/                   FFMA R28, R21, R27, R28 ;
+
+        /*0a60*/                   FFMA R33, R17, R25, R30 ;
+
+        /*0a70*/                   FFMA R16, R21, R40, R16 ;
+
+        /*0a80*/              @!P0 LDC.64 R8, c[0x0][0x218] ;
+
+        /*0a90*/                   FFMA R29, R17, R29, R28 ;
+
+        /*0aa0*/                   FFMA R33, R47, R22, R33 ;
+
+        /*0ab0*/                   FFMA R24, R17.reuse, R52, R24 ;
+
+        /*0ac0*/                   FFMA R22, R17, R12, R16 ;
+
+        /*0ad0*/                   FFMA R40, R47, R26, R29 ;
+
+        /*0ae0*/              @!P2 IADD3 R21, R3.reuse, 0x800, RZ ;
+
+        /*0af0*/              @!P0 LDC.64 R12, c[0x0][0x220] ;
+
+        /*0b00*/              @!P2 IADD3 R26, R3, 0x800, RZ ;
+
+        /*0b10*/                   FFMA R46, R47, R46, R24 ;
+
+        /*0b20*/              @!P2 IADD3 R24, P3, R21, R41, RZ ;
+
+        /*0b30*/              @!P1 LDC.64 R16, c[0x0][0x218] ;
+
+        /*0b40*/              @!P2 IADD3 R27, P4, R26, R41, RZ ;
+
+        /*0b50*/              @!P0 IADD3 R23, R3, 0x1000, RZ ;
+
+        /*0b60*/              @!P2 LEA.HI.X.SX32 R25, R21, R55, 0x1, P3 ;
+
+        /*0b70*/              @!P1 LDC.64 R44, c[0x0][0x220] ;
+
+        /*0b80*/              @!P2 LEA.HI.X.SX32 R26, R26, R55, 0x1, P4 ;
+
+        /*0b90*/              @!P2 LEA R14, P3, R24.reuse, R14, 0x1 ;
+
+        /*0ba0*/              @!P2 LEA R10, P4, R27, R10, 0x1 ;
+
+        /*0bb0*/              @!P0 IADD3 R21, P5, R23, R41, RZ ;
+
+        /*0bc0*/              @!P2 LEA.HI.X R15, R24, R15, R25, 0x1, P3 ;
+
+        /*0bd0*/              @!P2 LEA.HI.X R11, R27, R11, R26, 0x1, P4 ;
+
+        /*0be0*/              @!P0 LEA.HI.X.SX32 R24, R23, R55, 0x1, P5 ;
+
+        /*0bf0*/              @!P0 LEA R8, P3, R21, R8, 0x1 ;
+
+        /*0c00*/              @!P0 IADD3 R26, R3.reuse, 0x1000, RZ ;
+
+        /*0c10*/              @!P1 IADD3 R28, R3, 0x1800, RZ ;
+
+        /*0c20*/              @!P0 LEA.HI.X R9, R21, R9, R24, 0x1, P3 ;
+
+        /*0c30*/              @!P0 IADD3 R21, P4, R26, R41, RZ ;
+
+        /*0c40*/              @!P1 IADD3 R23, P3, R28, R41, RZ ;
+
+        /*0c50*/              @!P1 IADD3 R25, R3, 0x1800, RZ ;
+
+        /*0c60*/              @!P0 LEA.HI.X.SX32 R26, R26, R55.reuse, 0x1, P4 ;
+
+        /*0c70*/              @!P1 LEA.HI.X.SX32 R28, R28, R55, 0x1, P3 ;
+
+        /*0c80*/              @!P0 LEA R12, P3, R21, R12, 0x1 ;
+
+        /*0c90*/              @!P1 LEA R16, P4, R23, R16, 0x1 ;
+
+        /*0ca0*/              @!P1 IADD3 R24, P5, R25, R41, RZ ;
+
+        /*0cb0*/                   FFMA R47, R47, R20, R22 ;
+
+        /*0cc0*/              @!P0 LEA.HI.X R13, R21, R13, R26, 0x1, P3 ;
+
+        /*0cd0*/                   CS2R R30, SRZ ;
+
+        /*0ce0*/              @!P1 LEA.HI.X R17, R23, R17, R28, 0x1, P4 ;
+
+        /*0cf0*/                   CS2R R28, SRZ ;
+
+        /*0d00*/                   CS2R R20, SRZ ;
+
+        /*0d10*/                   CS2R R22, SRZ ;
+
+        /*0d20*/              @!P1 LEA.HI.X.SX32 R25, R25, R55, 0x1, P5 ;
+
+        /*0d30*/              @!P1 LEA R44, P5, R24.reuse, R44, 0x1 ;
+
+        /*0d40*/              @!P2 LDG.E.NA.128.CONSTANT R28, desc[UR6][R10.64] ;
+
+        /*0d50*/                   CS2R R26, SRZ ;
+
+        /*0d60*/              @!P1 LEA.HI.X R45, R24, R45, R25, 0x1, P5 ;
+
+        /*0d70*/              @!P0 LDG.E.NA.128.CONSTANT R20, desc[UR6][R8.64] ;
+
+        /*0d80*/                   CS2R R24, SRZ ;
+
+        /*0d90*/                   LOP3.LUT R57, R18, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0da0*/                   CS2R R10, SRZ ;
+
+        /*0db0*/              @!P2 LDG.E.NA.128.CONSTANT R24, desc[UR6][R14.64] ;
+
+        /*0dc0*/                   CS2R R8, SRZ ;
+
+        /*0dd0*/                   FFMA R18, R53, R57, R5 ;
+
+        /*0de0*/                   SHF.L.U32 R53, R19, 0x10, RZ ;
+
+        /*0df0*/              @!P0 LDG.E.NA.128.CONSTANT R8, desc[UR6][R12.64] ;
+
+        /*0e00*/                   CS2R R14, SRZ ;
+
+        /*0e10*/                   FFMA R5, R51, R53, R18 ;
+
+        /*0e20*/                   LOP3.LUT R51, R19, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0e30*/                   CS2R R12, SRZ ;
+
+        /*0e40*/                   CS2R R18, SRZ ;
+
+        /*0e50*/              @!P1 LDG.E.NA.128.CONSTANT R12, desc[UR6][R16.64] ;
+
+        /*0e60*/                   CS2R R16, SRZ ;
+
+        /*0e70*/              @!P1 LDG.E.NA.128.CONSTANT R16, desc[UR6][R44.64] ;
+
+        /*0e80*/                   FFMA R33, R57.reuse, R0, R33 ;
+
+        /*0e90*/                   FFMA R40, R57.reuse, R38, R40 ;
+
+        /*0ea0*/                   FFMA R46, R57.reuse, R49, R46 ;
+
+        /*0eb0*/                   FFMA R47, R57, R34, R47 ;
+
+        /*0ec0*/                   FFMA R33, R53.reuse, R36, R33 ;
+
+        /*0ed0*/                   FFMA R40, R53.reuse, R39, R40 ;
+
+        /*0ee0*/                   FFMA R46, R53.reuse, R48, R46 ;
+
+        /*0ef0*/                   FFMA R32, R53, R32, R47 ;
+
+        /*0f00*/                   FFMA R0, R51.reuse, R4, R33 ;
+
+        /*0f10*/                   FFMA R4, R51.reuse, R37, R40 ;
+
+        /*0f20*/                   FFMA R5, R50, R51, R5 ;
+
+        /*0f30*/                   FFMA R2, R51.reuse, R2, R46 ;
+
+        /*0f40*/                   FFMA R40, R51, R35, R32 ;
+
+        /*0f50*/               @P2 BRA 0x29f0 ;
+
+        /*0f60*/                   LDG.E.128.CONSTANT R32, desc[UR6][R6.64+0x1000] ;
+
+        /*0f70*/                   LDG.E.128.CONSTANT R36, desc[UR6][R6.64+0x5000] ;
+
+        /*0f80*/                   SHF.L.U32 R44, R24.reuse, 0x10, RZ ;
+
+        /*0f90*/                   LOP3.LUT R45, R24, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0fa0*/                   LOP3.LUT R46, R25, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0fb0*/                   LOP3.LUT R47, R26, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0fc0*/                   SHF.L.U32 R49, R32.reuse, 0x10, RZ ;
+
+        /*0fd0*/                   LOP3.LUT R51, R32, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*0fe0*/                   SHF.L.U32 R32, R25, 0x10, RZ ;
+
+        /*0ff0*/                   FFMA R24, R49, R44, R5 ;
+
+        /*1000*/                   SHF.L.U32 R52, R33.reuse, 0x10, RZ ;
+
+        /*1010*/                   LOP3.LUT R53, R33, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1020*/                   FFMA R5, R51, R45, R24 ;
+
+        /*1030*/                   SHF.L.U32 R33, R26, 0x10, RZ ;
+
+        /*1040*/                   SHF.L.U32 R24, R34, 0x10, RZ ;
+
+        /*1050*/                   FFMA R48, R52, R32, R5 ;
+
+        /*1060*/                   LOP3.LUT R26, R34, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1070*/                   SHF.L.U32 R34, R27, 0x10, RZ ;
+
+        /*1080*/                   FFMA R5, R53, R46, R48 ;
+
+        /*1090*/                   SHF.L.U32 R25, R35, 0x10, RZ ;
+
+        /*10a0*/                   LOP3.LUT R48, R27, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*10b0*/                   FFMA R5, R24, R33, R5 ;
+
+        /*10c0*/                   SHF.L.U32 R27, R36, 0x10, RZ ;
+
+        /*10d0*/                   LOP3.LUT R59, R37, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*10e0*/                   FFMA R50, R26, R47, R5 ;
+
+        /*10f0*/                   LOP3.LUT R5, R35, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1100*/                   FFMA R2, R44, R27, R2 ;
+
+        /*1110*/                   SHF.L.U32 R35, R28, 0x10, RZ ;
+
+        /*1120*/                   FFMA R50, R25, R34, R50 ;
+
+        /*1130*/                   SHF.L.U32 R57, R39.reuse, 0x10, RZ ;
+
+        /*1140*/                   LOP3.LUT R39, R39, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1150*/                   FFMA R50, R5, R48, R50 ;
+
+        /*1160*/                   FFMA R49, R49, R35, R50 ;
+
+        /*1170*/                   LOP3.LUT R50, R28, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1180*/                   LOP3.LUT R28, R36, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1190*/                   SHF.L.U32 R36, R30, 0x10, RZ ;
+
+        /*11a0*/                   FFMA R51, R51, R50, R49 ;
+
+        /*11b0*/                   SHF.L.U32 R49, R29, 0x10, RZ ;
+
+        /*11c0*/                   FFMA R52, R52, R49, R51 ;
+
+        /*11d0*/                   LOP3.LUT R51, R29, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*11e0*/                   FFMA R29, R45, R28, R2 ;
+
+        /*11f0*/                   SHF.L.U32 R2, R38, 0x10, RZ ;
+
+        /*1200*/                   FFMA R53, R53, R51, R52 ;
+
+        /*1210*/                   LOP3.LUT R52, R30, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1220*/                   FFMA R53, R24, R36, R53 ;
+
+        /*1230*/                   SHF.L.U32 R24, R37, 0x10, RZ ;
+
+        /*1240*/                   SHF.L.U32 R37, R31, 0x10, RZ ;
+
+        /*1250*/                   FFMA R26, R26, R52, R53 ;
+
+        /*1260*/                   LOP3.LUT R53, R38, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1270*/                   FFMA R29, R32, R24, R29 ;
+
+        /*1280*/                   FFMA R30, R46, R59, R29 ;
+
+        /*1290*/                   FFMA R29, R25, R37, R26 ;
+
+        /*12a0*/                   FFMA R30, R33, R2, R30 ;
+
+        /*12b0*/                   FFMA R25, R47, R53, R30 ;
+
+        /*12c0*/                   FFMA R25, R34, R57, R25 ;
+
+        /*12d0*/                   FFMA R26, R48, R39, R25 ;
+
+        /*12e0*/                   FFMA R27, R35, R27, R26 ;
+
+        /*12f0*/                   FFMA R28, R50, R28, R27 ;
+
+        /*1300*/                   FFMA R28, R49, R24, R28 ;
+
+        /*1310*/                   LDG.E.128.CONSTANT R24, desc[UR6][R6.64+0x9000] ;
+
+        /*1320*/                   LOP3.LUT R38, R31, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1330*/                   FFMA R59, R51, R59, R28 ;
+
+        /*1340*/                   FFMA R5, R5, R38, R29 ;
+
+        /*1350*/                   LDG.E.128.CONSTANT R28, desc[UR6][R6.64+0xd000] ;
+
+        /*1360*/                   FFMA R59, R36, R2, R59 ;
+
+        /*1370*/                   FFMA R2, R52, R53, R59 ;
+
+        /*1380*/                   FFMA R57, R37, R57, R2 ;
+
+        /*1390*/                   FFMA R2, R38, R39, R57 ;
+
+        /*13a0*/                   SHF.L.U32 R53, R24.reuse, 0x10, RZ ;
+
+        /*13b0*/                   LOP3.LUT R24, R24, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*13c0*/                   FFMA R0, R44, R53, R0 ;
+
+        /*13d0*/                   SHF.L.U32 R57, R25, 0x10, RZ ;
+
+        /*13e0*/                   FFMA R39, R45, R24, R0 ;
+
+        /*13f0*/                   LOP3.LUT R59, R25, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1400*/                   FFMA R39, R32, R57, R39 ;
+
+        /*1410*/                   SHF.L.U32 R25, R26, 0x10, RZ ;
+
+        /*1420*/                   FFMA R0, R46, R59, R39 ;
+
+        /*1430*/                   LOP3.LUT R26, R26, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1440*/                   FFMA R0, R33, R25, R0 ;
+
+        /*1450*/                   SHF.L.U32 R61, R27, 0x10, RZ ;
+
+        /*1460*/                   FFMA R0, R47, R26, R0 ;
+
+        /*1470*/                   LOP3.LUT R39, R27, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1480*/                   FFMA R27, R34, R61, R0 ;
+
+        /*1490*/                   FFMA R0, R48, R39, R27 ;
+
+        /*14a0*/                   FFMA R53, R35, R53, R0 ;
+
+        /*14b0*/                   FFMA R24, R50, R24, R53 ;
+
+        /*14c0*/                   FFMA R24, R49, R57, R24 ;
+
+        /*14d0*/                   FFMA R59, R51, R59, R24 ;
+
+        /*14e0*/                   SHF.L.U32 R24, R28.reuse, 0x10, RZ ;
+
+        /*14f0*/                   LOP3.LUT R28, R28, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1500*/                   FFMA R4, R44, R24, R4 ;
+
+        /*1510*/                   FFMA R59, R36, R25, R59 ;
+
+        /*1520*/                   SHF.L.U32 R53, R29, 0x10, RZ ;
+
+        /*1530*/                   FFMA R25, R45, R28, R4 ;
+
+        /*1540*/                   LOP3.LUT R29, R29, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1550*/                   FFMA R25, R32, R53, R25 ;
+
+        /*1560*/                   SHF.L.U32 R57, R30, 0x10, RZ ;
+
+        /*1570*/                   FFMA R4, R46, R29, R25 ;
+
+        /*1580*/                   LOP3.LUT R30, R30, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1590*/                   FFMA R4, R33, R57, R4 ;
+
+        /*15a0*/                   FFMA R25, R47, R30, R4 ;
+
+        /*15b0*/                   SHF.L.U32 R4, R31.reuse, 0x10, RZ ;
+
+        /*15c0*/                   LOP3.LUT R31, R31, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*15d0*/                   FFMA R25, R34, R4, R25 ;
+
+        /*15e0*/                   FFMA R0, R52, R26, R59 ;
+
+        /*15f0*/                   FFMA R26, R48, R31, R25 ;
+
+        /*1600*/                   FFMA R59, R35, R24, R26 ;
+
+        /*1610*/                   LDG.E.128.CONSTANT R24, desc[UR6][R6.64+0x11000] ;
+
+        /*1620*/                   FFMA R28, R50, R28, R59 ;
+
+        /*1630*/                   FFMA R28, R49, R53, R28 ;
+
+        /*1640*/                   FFMA R29, R51, R29, R28 ;
+
+        /*1650*/                   FFMA R57, R36, R57, R29 ;
+
+        /*1660*/                   FFMA R30, R52, R30, R57 ;
+
+        /*1670*/                   FFMA R0, R37, R61, R0 ;
+
+        /*1680*/                   FFMA R4, R37, R4, R30 ;
+
+        /*1690*/                   FFMA R0, R38, R39, R0 ;
+
+        /*16a0*/                   FFMA R4, R38, R31, R4 ;
+
+        /*16b0*/                   SHF.L.U32 R29, R24.reuse, 0x10, RZ ;
+
+        /*16c0*/                   LOP3.LUT R24, R24, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*16d0*/                   FFMA R40, R44, R29, R40 ;
+
+        /*16e0*/                   SHF.L.U32 R28, R25, 0x10, RZ ;
+
+        /*16f0*/                   FFMA R45, R45, R24, R40 ;
+
+        /*1700*/                   LOP3.LUT R25, R25, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1710*/                   FFMA R45, R32, R28, R45 ;
+
+        /*1720*/                   SHF.L.U32 R32, R26, 0x10, RZ ;
+
+        /*1730*/                   FFMA R46, R46, R25, R45 ;
+
+        /*1740*/                   LOP3.LUT R26, R26, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1750*/                   FFMA R46, R33, R32, R46 ;
+
+        /*1760*/                   SHF.L.U32 R33, R27, 0x10, RZ ;
+
+        /*1770*/                   FFMA R47, R47, R26, R46 ;
+
+        /*1780*/                   LOP3.LUT R27, R27, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1790*/                   FFMA R47, R34, R33, R47 ;
+
+        /*17a0*/                   FFMA R48, R48, R27, R47 ;
+
+        /*17b0*/                   FFMA R29, R35, R29, R48 ;
+
+        /*17c0*/                   FFMA R24, R50, R24, R29 ;
+
+        /*17d0*/                   FFMA R24, R49, R28, R24 ;
+
+        /*17e0*/                   FFMA R25, R51, R25, R24 ;
+
+        /*17f0*/                   FFMA R25, R36, R32, R25 ;
+
+        /*1800*/                   FFMA R26, R52, R26, R25 ;
+
+        /*1810*/                   FFMA R26, R37, R33, R26 ;
+
+        /*1820*/                   FFMA R40, R38, R27, R26 ;
+
+        /*1830*/               @P0 BRA 0x29f0 ;
+
+        /*1840*/                   LDG.E.128.CONSTANT R24, desc[UR6][R6.64+0x2000] ;
+
+        /*1850*/                   LDG.E.128.CONSTANT R28, desc[UR6][R6.64+0x6000] ;
+
+        /*1860*/                   LDG.E.128.CONSTANT R32, desc[UR6][R6.64+0xa000] ;
+
+        /*1870*/                   SHF.L.U32 R44, R20.reuse, 0x10, RZ ;
+
+        /*1880*/                   LOP3.LUT R45, R20, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1890*/                   LOP3.LUT R46, R21.reuse, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*18a0*/                   LOP3.LUT R47, R22, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*18b0*/                   SHF.L.U32 R48, R24.reuse, 0x10, RZ ;
+
+        /*18c0*/                   LOP3.LUT R20, R24, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*18d0*/                   SHF.L.U32 R24, R21, 0x10, RZ ;
+
+        /*18e0*/                   FFMA R37, R48, R44, R5 ;
+
+        /*18f0*/                   SHF.L.U32 R5, R25, 0x10, RZ ;
+
+        /*1900*/                   LOP3.LUT R51, R25, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1910*/                   FFMA R36, R20, R45, R37 ;
+
+        /*1920*/                   SHF.L.U32 R25, R22, 0x10, RZ ;
+
+        /*1930*/                   SHF.L.U32 R21, R26.reuse, 0x10, RZ ;
+
+        /*1940*/                   FFMA R36, R5, R24, R36 ;
+
+        /*1950*/                   LOP3.LUT R52, R26, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1960*/                   FFMA R36, R51, R46, R36 ;
+
+        /*1970*/                   FFMA R49, R21, R25, R36 ;
+
+        /*1980*/                   LDG.E.128.CONSTANT R36, desc[UR6][R6.64+0xe000] ;
+
+        /*1990*/                   SHF.L.U32 R26, R23, 0x10, RZ ;
+
+        /*19a0*/                   FFMA R53, R52, R47, R49 ;
+
+        /*19b0*/                   SHF.L.U32 R22, R27, 0x10, RZ ;
+
+        /*19c0*/                   LOP3.LUT R49, R23, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*19d0*/                   LOP3.LUT R50, R27, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*19e0*/                   FFMA R53, R22, R26, R53 ;
+
+        /*19f0*/                   SHF.L.U32 R27, R8, 0x10, RZ ;
+
+        /*1a00*/                   LOP3.LUT R8, R8, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1a10*/                   FFMA R53, R50, R49, R53 ;
+
+        /*1a20*/                   FFMA R53, R48, R27, R53 ;
+
+        /*1a30*/                   SHF.L.U32 R48, R9.reuse, 0x10, RZ ;
+
+        /*1a40*/                   LOP3.LUT R9, R9, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1a50*/                   FFMA R20, R20, R8, R53 ;
+
+        /*1a60*/                   FFMA R20, R5, R48, R20 ;
+
+        /*1a70*/                   FFMA R20, R51, R9, R20 ;
+
+        /*1a80*/                   SHF.L.U32 R51, R10.reuse, 0x10, RZ ;
+
+        /*1a90*/                   LOP3.LUT R10, R10, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1aa0*/                   FFMA R21, R21, R51, R20 ;
+
+        /*1ab0*/                   FFMA R21, R52, R10, R21 ;
+
+        /*1ac0*/                   SHF.L.U32 R52, R11, 0x10, RZ ;
+
+        /*1ad0*/                   FFMA R5, R22, R52, R21 ;
+
+        /*1ae0*/                   LDG.E.128.CONSTANT R20, desc[UR6][R6.64+0x12000] ;
+
+        /*1af0*/                   LOP3.LUT R11, R11, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1b00*/                   SHF.L.U32 R53, R29.reuse, 0x10, RZ ;
+
+        /*1b10*/                   LOP3.LUT R59, R29, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1b20*/                   FFMA R5, R50, R11, R5 ;
+
+        /*1b30*/                   SHF.L.U32 R50, R28.reuse, 0x10, RZ ;
+
+        /*1b40*/                   LOP3.LUT R28, R28, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1b50*/                   SHF.L.U32 R29, R30, 0x10, RZ ;
+
+        /*1b60*/                   FFMA R2, R44, R50, R2 ;
+
+        /*1b70*/                   FFMA R57, R45, R28, R2 ;
+
+        /*1b80*/                   FFMA R57, R24, R53, R57 ;
+
+        /*1b90*/                   FFMA R2, R46, R59, R57 ;
+
+        /*1ba0*/                   LOP3.LUT R57, R30, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1bb0*/                   SHF.L.U32 R30, R31, 0x10, RZ ;
+
+        /*1bc0*/                   FFMA R2, R25, R29, R2 ;
+
+        /*1bd0*/                   LOP3.LUT R31, R31, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1be0*/                   FFMA R2, R47, R57, R2 ;
+
+        /*1bf0*/                   FFMA R2, R26, R30, R2 ;
+
+        /*1c00*/                   FFMA R2, R49, R31, R2 ;
+
+        /*1c10*/                   FFMA R61, R27, R50, R2 ;
+
+        /*1c20*/                   LOP3.LUT R50, R33, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1c30*/                   FFMA R61, R8, R28, R61 ;
+
+        /*1c40*/                   SHF.L.U32 R28, R33, 0x10, RZ ;
+
+        /*1c50*/                   SHF.L.U32 R33, R34, 0x10, RZ ;
+
+        /*1c60*/                   FFMA R2, R48, R53, R61 ;
+
+        /*1c70*/                   FFMA R59, R9, R59, R2 ;
+
+        /*1c80*/                   SHF.L.U32 R2, R32.reuse, 0x10, RZ ;
+
+        /*1c90*/                   LOP3.LUT R32, R32, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1ca0*/                   FFMA R59, R51, R29, R59 ;
+
+        /*1cb0*/                   FFMA R0, R44, R2, R0 ;
+
+        /*1cc0*/                   FFMA R59, R10, R57, R59 ;
+
+        /*1cd0*/                   FFMA R53, R45, R32, R0 ;
+
+        /*1ce0*/                   FFMA R53, R24, R28, R53 ;
+
+        /*1cf0*/                   FFMA R0, R46, R50, R53 ;
+
+        /*1d00*/                   LOP3.LUT R53, R34, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1d10*/                   SHF.L.U32 R34, R35, 0x10, RZ ;
+
+        /*1d20*/                   FFMA R0, R25, R33, R0 ;
+
+        /*1d30*/                   LOP3.LUT R35, R35, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1d40*/                   FFMA R0, R47, R53, R0 ;
+
+        /*1d50*/                   FFMA R0, R26, R34, R0 ;
+
+        /*1d60*/                   FFMA R0, R49, R35, R0 ;
+
+        /*1d70*/                   FFMA R61, R27, R2, R0 ;
+
+        /*1d80*/                   FFMA R61, R8, R32, R61 ;
+
+        /*1d90*/                   FFMA R28, R48, R28, R61 ;
+
+        /*1da0*/                   FFMA R50, R9, R50, R28 ;
+
+        /*1db0*/                   FFMA R50, R51, R33, R50 ;
+
+        /*1dc0*/                   FFMA R53, R10, R53, R50 ;
+
+        /*1dd0*/                   SHF.L.U32 R2, R36.reuse, 0x10, RZ ;
+
+        /*1de0*/                   LOP3.LUT R36, R36, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1df0*/                   SHF.L.U32 R28, R38, 0x10, RZ ;
+
+        /*1e00*/                   FFMA R4, R44, R2, R4 ;
+
+        /*1e10*/                   LOP3.LUT R38, R38, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1e20*/                   SHF.L.U32 R32, R39, 0x10, RZ ;
+
+        /*1e30*/                   FFMA R61, R45, R36, R4 ;
+
+        /*1e40*/                   SHF.L.U32 R4, R37, 0x10, RZ ;
+
+        /*1e50*/                   LOP3.LUT R37, R37, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1e60*/                   LOP3.LUT R39, R39, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1e70*/                   FFMA R61, R24, R4, R61 ;
+
+        /*1e80*/                   FFMA R0, R46, R37, R61 ;
+
+        /*1e90*/                   FFMA R0, R25, R28, R0 ;
+
+        /*1ea0*/                   FFMA R0, R47, R38, R0 ;
+
+        /*1eb0*/                   FFMA R0, R26, R32, R0 ;
+
+        /*1ec0*/                   FFMA R0, R49, R39, R0 ;
+
+        /*1ed0*/                   FFMA R61, R27, R2, R0 ;
+
+        /*1ee0*/                   FFMA R61, R8, R36, R61 ;
+
+        /*1ef0*/                   LOP3.LUT R2, R21, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1f00*/                   FFMA R4, R48, R4, R61 ;
+
+        /*1f10*/                   SHF.L.U32 R61, R20.reuse, 0x10, RZ ;
+
+        /*1f20*/                   LOP3.LUT R20, R20, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1f30*/                   FFMA R37, R9, R37, R4 ;
+
+        /*1f40*/                   SHF.L.U32 R0, R22, 0x10, RZ ;
+
+        /*1f50*/                   FFMA R40, R44, R61, R40 ;
+
+        /*1f60*/                   LOP3.LUT R22, R22, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*1f70*/                   FFMA R37, R51, R28, R37 ;
+
+        /*1f80*/                   FFMA R40, R45, R20, R40 ;
+
+        /*1f90*/                   SHF.L.U32 R45, R21, 0x10, RZ ;
+
+        /*1fa0*/                   FFMA R37, R10, R38, R37 ;
+
+        /*1fb0*/                   SHF.L.U32 R21, R23, 0x10, RZ ;
+
+        /*1fc0*/                   FFMA R40, R24, R45, R40 ;
+
+        /*1fd0*/                   FFMA R4, R52, R32, R37 ;
+
+        /*1fe0*/                   FFMA R40, R46, R2, R40 ;
+
+        /*1ff0*/                   FFMA R4, R11, R39, R4 ;
+
+        /*2000*/                   FFMA R40, R25, R0, R40 ;
+
+        /*2010*/                   FFMA R47, R47, R22, R40 ;
+
+        /*2020*/                   LOP3.LUT R40, R23, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2030*/                   FFMA R26, R26, R21, R47 ;
+
+        /*2040*/                   FFMA R26, R49, R40, R26 ;
+
+        /*2050*/                   FFMA R27, R27, R61, R26 ;
+
+        /*2060*/                   FFMA R27, R8, R20, R27 ;
+
+        /*2070*/                   FFMA R48, R48, R45, R27 ;
+
+        /*2080*/                   FFMA R9, R9, R2, R48 ;
+
+        /*2090*/                   FFMA R2, R52, R30, R59 ;
+
+        /*20a0*/                   FFMA R9, R51, R0, R9 ;
+
+        /*20b0*/                   FFMA R0, R52, R34, R53 ;
+
+        /*20c0*/                   FFMA R2, R11.reuse, R31, R2 ;
+
+        /*20d0*/                   FFMA R10, R10, R22, R9 ;
+
+        /*20e0*/                   FFMA R0, R11, R35, R0 ;
+
+        /*20f0*/                   FFMA R21, R52, R21, R10 ;
+
+        /*2100*/                   FFMA R40, R11, R40, R21 ;
+
+        /*2110*/               @P1 BRA 0x29f0 ;
+
+        /*2120*/                   LDG.E.128.CONSTANT R28, desc[UR6][R6.64+0x3000] ;
+
+        /*2130*/                   LDG.E.128.CONSTANT R20, desc[UR6][R6.64+0x7000] ;
+
+        /*2140*/                   LDG.E.128.CONSTANT R8, desc[UR6][R6.64+0xb000] ;
+
+        /*2150*/                   LDG.E.128.CONSTANT R24, desc[UR6][R6.64+0xf000] ;
+
+        /*2160*/                   LDG.E.128.CONSTANT R32, desc[UR6][R6.64+0x13000] ;
+
+        /*2170*/                   SHF.L.U32 R37, R12, 0x10, RZ ;
+
+        /*2180*/                   LOP3.LUT R12, R12, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2190*/                   SHF.L.U32 R6, R14.reuse, 0x10, RZ ;
+
+        /*21a0*/                   LOP3.LUT R14, R14, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*21b0*/                   SHF.L.U32 R7, R15.reuse, 0x10, RZ ;
+
+        /*21c0*/                   LOP3.LUT R15, R15, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*21d0*/                   SHF.L.U32 R36, R28, 0x10, RZ ;
+
+        /*21e0*/                   LOP3.LUT R45, R28, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*21f0*/                   SHF.L.U32 R28, R13, 0x10, RZ ;
+
+        /*2200*/                   FFMA R38, R36, R37, R5 ;
+
+        /*2210*/                   SHF.L.U32 R39, R29, 0x10, RZ ;
+
+        /*2220*/                   LOP3.LUT R13, R13, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2230*/                   FFMA R38, R45, R12, R38 ;
+
+        /*2240*/                   LOP3.LUT R46, R29, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2250*/                   SHF.L.U32 R44, R30.reuse, 0x10, RZ ;
+
+        /*2260*/                   FFMA R5, R39, R28, R38 ;
+
+        /*2270*/                   LOP3.LUT R47, R30, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2280*/                   LOP3.LUT R38, R31.reuse, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2290*/                   FFMA R5, R46, R13, R5 ;
+
+        /*22a0*/                   SHF.L.U32 R29, R16, 0x10, RZ ;
+
+        /*22b0*/                   SHF.L.U32 R53, R32, 0x10, RZ ;
+
+        /*22c0*/                   FFMA R30, R44, R6, R5 ;
+
+        /*22d0*/                   SHF.L.U32 R5, R31, 0x10, RZ ;
+
+        /*22e0*/                   LOP3.LUT R57, R32, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*22f0*/                   FFMA R30, R47, R14, R30 ;
+
+        /*2300*/                   FFMA R40, R37, R53, R40 ;
+
+        /*2310*/                   SHF.L.U32 R61, R25, 0x10, RZ ;
+
+        /*2320*/                   FFMA R31, R5, R7, R30 ;
+
+        /*2330*/                   LOP3.LUT R30, R16, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2340*/                   FFMA R40, R12, R57, R40 ;
+
+        /*2350*/                   SHF.L.U32 R16, R17, 0x10, RZ ;
+
+        /*2360*/                   FFMA R31, R38, R15, R31 ;
+
+        /*2370*/                   FFMA R36, R36, R29, R31 ;
+
+        /*2380*/                   LOP3.LUT R31, R17, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2390*/                   SHF.L.U32 R17, R18, 0x10, RZ ;
+
+        /*23a0*/                   FFMA R48, R45, R30, R36 ;
+
+        /*23b0*/                   SHF.L.U32 R36, R20, 0x10, RZ ;
+
+        /*23c0*/                   LOP3.LUT R18, R18, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*23d0*/                   FFMA R45, R39, R16, R48 ;
+
+        /*23e0*/                   LOP3.LUT R39, R20, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*23f0*/                   FFMA R51, R37, R36, R2 ;
+
+        /*2400*/                   LOP3.LUT R20, R21.reuse, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2410*/                   FFMA R49, R46, R31, R45 ;
+
+        /*2420*/                   SHF.L.U32 R45, R21, 0x10, RZ ;
+
+        /*2430*/                   FFMA R51, R12, R39, R51 ;
+
+        /*2440*/                   SHF.L.U32 R2, R19.reuse, 0x10, RZ ;
+
+        /*2450*/                   FFMA R44, R44, R17, R49 ;
+
+        /*2460*/                   SHF.L.U32 R21, R22, 0x10, RZ ;
+
+        /*2470*/                   FFMA R46, R28, R45, R51 ;
+
+        /*2480*/                   LOP3.LUT R19, R19, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2490*/                   FFMA R44, R47, R18, R44 ;
+
+        /*24a0*/                   LOP3.LUT R47, R22, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*24b0*/                   FFMA R49, R13, R20, R46 ;
+
+        /*24c0*/                   SHF.L.U32 R22, R23, 0x10, RZ ;
+
+        /*24d0*/                   FFMA R5, R5, R2, R44 ;
+
+        /*24e0*/                   LOP3.LUT R44, R23, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*24f0*/                   FFMA R49, R6, R21, R49 ;
+
+        /*2500*/                   LOP3.LUT R23, R8, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2510*/                   FFMA R5, R38, R19, R5 ;
+
+        /*2520*/                   SHF.L.U32 R38, R8, 0x10, RZ ;
+
+        /*2530*/                   FFMA R46, R14, R47, R49 ;
+
+        /*2540*/                   SHF.L.U32 R49, R24, 0x10, RZ ;
+
+        /*2550*/                   LOP3.LUT R51, R24, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2560*/                   FFMA R59, R37, R38, R0 ;
+
+        /*2570*/                   SHF.L.U32 R0, R9, 0x10, RZ ;
+
+        /*2580*/                   FFMA R4, R37, R49, R4 ;
+
+        /*2590*/                   FFMA R46, R7, R22, R46 ;
+
+        /*25a0*/                   FFMA R8, R12.reuse, R23, R59 ;
+
+        /*25b0*/                   SHF.L.U32 R59, R33, 0x10, RZ ;
+
+        /*25c0*/                   FFMA R32, R12, R51, R4 ;
+
+        /*25d0*/                   LOP3.LUT R4, R9, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*25e0*/                   FFMA R24, R28.reuse, R0, R8 ;
+
+        /*25f0*/                   LOP3.LUT R12, R25, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2600*/                   FFMA R32, R28, R61, R32 ;
+
+        /*2610*/                   SHF.L.U32 R8, R10.reuse, 0x10, RZ ;
+
+        /*2620*/                   FFMA R25, R13, R4, R24 ;
+
+        /*2630*/                   LOP3.LUT R9, R10, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2640*/                   FFMA R40, R28, R59, R40 ;
+
+        /*2650*/                   LOP3.LUT R24, R33, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2660*/                   FFMA R25, R6, R8, R25 ;
+
+        /*2670*/                   FFMA R46, R15, R44, R46 ;
+
+        /*2680*/                   FFMA R33, R13.reuse, R12, R32 ;
+
+        /*2690*/                   SHF.L.U32 R28, R26, 0x10, RZ ;
+
+        /*26a0*/                   FFMA R32, R14, R9, R25 ;
+
+        /*26b0*/                   SHF.L.U32 R25, R34, 0x10, RZ ;
+
+        /*26c0*/                   FFMA R40, R13, R24, R40 ;
+
+        /*26d0*/                   FFMA R37, R29, R36, R46 ;
+
+        /*26e0*/                   SHF.L.U32 R13, R11.reuse, 0x10, RZ ;
+
+        /*26f0*/                   FFMA R36, R6.reuse, R28, R33 ;
+
+        /*2700*/                   LOP3.LUT R10, R11, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2710*/                   FFMA R40, R6, R25, R40 ;
+
+        /*2720*/                   LOP3.LUT R11, R26, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2730*/                   FFMA R32, R7, R13, R32 ;
+
+        /*2740*/                   LOP3.LUT R33, R34, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2750*/                   FFMA R37, R30, R39, R37 ;
+
+        /*2760*/                   SHF.L.U32 R26, R27, 0x10, RZ ;
+
+        /*2770*/                   FFMA R36, R14.reuse, R11, R36 ;
+
+        /*2780*/                   FFMA R32, R15, R10, R32 ;
+
+        /*2790*/                   FFMA R40, R14, R33, R40 ;
+
+        /*27a0*/                   SHF.L.U32 R14, R35, 0x10, RZ ;
+
+        /*27b0*/                   FFMA R36, R7, R26, R36 ;
+
+        /*27c0*/                   LOP3.LUT R6, R27, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*27d0*/                   FFMA R38, R29, R38, R32 ;
+
+        /*27e0*/                   FFMA R7, R7, R14, R40 ;
+
+        /*27f0*/                   LOP3.LUT R40, R35, 0xffff0000, RZ, 0xc0, !PT ;
+
+        /*2800*/                   FFMA R36, R15, R6, R36 ;
+
+        /*2810*/                   FFMA R23, R30, R23, R38 ;
+
+        /*2820*/                   FFMA R32, R15, R40, R7 ;
+
+        /*2830*/                   FFMA R36, R29.reuse, R49, R36 ;
+
+        /*2840*/                   FFMA R23, R16, R0, R23 ;
+
+        /*2850*/                   FFMA R32, R29, R53, R32 ;
+
+        /*2860*/                   FFMA R36, R30.reuse, R51, R36 ;
+
+        /*2870*/                   FFMA R23, R31, R4, R23 ;
+
+        /*2880*/                   FFMA R32, R30, R57, R32 ;
+
+        /*2890*/                   FFMA R30, R16.reuse, R45, R37 ;
+
+        /*28a0*/                   FFMA R61, R16.reuse, R61, R36 ;
+
+        /*28b0*/                   FFMA R8, R17, R8, R23 ;
+
+        /*28c0*/                   FFMA R59, R16, R59, R32 ;
+
+        /*28d0*/                   FFMA R30, R31.reuse, R20, R30 ;
+
+        /*28e0*/                   FFMA R61, R31.reuse, R12, R61 ;
+
+        /*28f0*/                   FFMA R8, R18, R9, R8 ;
+
+        /*2900*/                   FFMA R24, R31, R24, R59 ;
+
+        /*2910*/                   FFMA R21, R17.reuse, R21, R30 ;
+
+        /*2920*/                   FFMA R28, R17.reuse, R28, R61 ;
+
+        /*2930*/                   FFMA R13, R2, R13, R8 ;
+
+        /*2940*/                   FFMA R24, R17, R25, R24 ;
+
+        /*2950*/                   FFMA R21, R18.reuse, R47, R21 ;
+
+        /*2960*/                   FFMA R11, R18.reuse, R11, R28 ;
+
+        /*2970*/                   FFMA R0, R19, R10, R13 ;
+
+        /*2980*/                   FFMA R33, R18, R33, R24 ;
+
+        /*2990*/                   FFMA R22, R2.reuse, R22, R21 ;
+
+        /*29a0*/                   FFMA R11, R2, R26, R11 ;
+
+        /*29b0*/                   FFMA R33, R2, R14, R33 ;
+
+        /*29c0*/                   FFMA R2, R19.reuse, R44, R22 ;
+
+        /*29d0*/                   FFMA R4, R19.reuse, R6, R11 ;
+
+        /*29e0*/                   FFMA R40, R19, R40, R33 ;
+
+        /*29f0*/                   BSYNC B1 ;
+
+        /*2a00*/                   IADD3 R42, R42, 0x20, RZ ;
+
+        /*2a10*/                   IADD3 R43, R43, 0x2000, RZ ;
+
+        /*2a20*/                   ISETP.GE.AND P0, PT, R42, R56, PT ;
+
+        /*2a30*/                   IADD3 R3, R3, 0x2000, RZ ;
+
+        /*2a40*/              @!P0 BRA 0x170 ;
+
+        /*2a50*/                   BSYNC B0 ;
+
+        /*2a60*/                   SHFL.BFLY PT, R6, R5, 0x10, 0x1f ;
+
+        /*2a70*/                   LOP3.LUT R14, R58, 0x1f, RZ, 0xc0, !PT ;
+
+        /*2a80*/                   BSSY B0, 0x2e80 ;
+
+        /*2a90*/                   SHFL.BFLY PT, R3, R2, 0x10, 0x1f ;
+
+        /*2aa0*/                   ISETP.NE.AND P0, PT, R14, RZ, PT ;
+
+        /*2ab0*/                   SHFL.BFLY PT, R9, R0, 0x10, 0x1f ;
+
+        /*2ac0*/                   SHFL.BFLY PT, R11, R4, 0x10, 0x1f ;
+
+        /*2ad0*/                   SHFL.BFLY PT, R13, R40, 0x10, 0x1f ;
+
+        /*2ae0*/                   FADD R6, R6, R5 ;
+
+        /*2af0*/                   FADD R7, R3, R2 ;
+
+        /*2b00*/                   SHFL.BFLY PT, R3, R6, 0x8, 0x1f ;
+
+        /*2b10*/                   FADD R9, R9, R0 ;
+
+        /*2b20*/                   SHFL.BFLY PT, R8, R7, 0x8, 0x1f ;
+
+        /*2b30*/                   FADD R11, R11, R4 ;
+
+        /*2b40*/                   SHFL.BFLY PT, R2, R9, 0x8, 0x1f ;
+
+        /*2b50*/                   FADD R13, R13, R40 ;
+
+        /*2b60*/                   SHFL.BFLY PT, R0, R11, 0x8, 0x1f ;
+
+        /*2b70*/                   SHFL.BFLY PT, R4, R13, 0x8, 0x1f ;
+
+        /*2b80*/                   FADD R3, R6, R3 ;
+
+        /*2b90*/                   FADD R8, R7, R8 ;
+
+        /*2ba0*/                   FADD R2, R9, R2 ;
+
+        /*2bb0*/                   SHFL.BFLY PT, R5, R8, 0x4, 0x1f ;
+
+        /*2bc0*/                   FADD R10, R11, R0 ;
+
+        /*2bd0*/                   SHFL.BFLY PT, R7, R2, 0x4, 0x1f ;
+
+        /*2be0*/                   FADD R12, R13, R4 ;
+
+        /*2bf0*/                   SHFL.BFLY PT, R0, R3, 0x4, 0x1f ;
+
+        /*2c00*/                   SHFL.BFLY PT, R9, R10, 0x4, 0x1f ;
+
+        /*2c10*/                   SHFL.BFLY PT, R15, R12, 0x4, 0x1f ;
+
+        /*2c20*/                   FADD R4, R8, R5 ;
+
+        /*2c30*/                   FADD R7, R2, R7 ;
+
+        /*2c40*/                   FADD R0, R3, R0 ;
+
+        /*2c50*/                   SHFL.BFLY PT, R6, R7, 0x2, 0x1f ;
+
+        /*2c60*/                   FADD R11, R10, R9 ;
+
+        /*2c70*/                   SHFL.BFLY PT, R5, R0, 0x2, 0x1f ;
+
+        /*2c80*/                   FADD R15, R12, R15 ;
+
+        /*2c90*/                   SHFL.BFLY PT, R3, R4, 0x2, 0x1f ;
+
+        /*2ca0*/                   SHFL.BFLY PT, R2, R11, 0x2, 0x1f ;
+
+        /*2cb0*/                   SHFL.BFLY PT, R10, R15, 0x2, 0x1f ;
+
+        /*2cc0*/                   FADD R6, R7, R6 ;
+
+        /*2cd0*/                   FADD R5, R0, R5 ;
+
+        /*2ce0*/                   SHFL.BFLY PT, R9, R6, 0x1, 0x1f ;
+
+        /*2cf0*/                   FADD R3, R4, R3 ;
+
+        /*2d00*/                   FADD R8, R11, R2 ;
+
+        /*2d10*/                   SHFL.BFLY PT, R0, R3, 0x1, 0x1f ;
+
+        /*2d20*/                   FADD R10, R15, R10 ;
+
+        /*2d30*/                   SHFL.BFLY PT, R2, R5, 0x1, 0x1f ;
+
+        /*2d40*/                   SHFL.BFLY PT, R7, R8, 0x1, 0x1f ;
+
+        /*2d50*/                   SHFL.BFLY PT, R11, R10, 0x1, 0x1f ;
+
+        /*2d60*/                   FADD R9, R6, R9 ;
+
+        /*2d70*/                   FADD R15, R3, R0 ;
+
+        /*2d80*/                   FADD R13, R5, R2 ;
+
+        /*2d90*/                   FADD R7, R8, R7 ;
+
+        /*2da0*/                   FADD R11, R10, R11 ;
+
+        /*2db0*/               @P0 BRA 0x2e70 ;
+
+        /*2dc0*/                   S2R R3, SR_CgaCtaId ;
+
+        /*2dd0*/                   MOV R0, 0x400 ;
+
+        /*2de0*/                   S2R R58, SR_TID.X ;
+
+        /*2df0*/                   LEA R0, R3, R0, 0x18 ;
+
+        /*2e00*/                   SHF.R.U32.HI R3, RZ, 0x5, R58 ;
+
+        /*2e10*/                   IMAD R0, R3, 0x14, R0 ;
+
+        /*2e20*/                   STS [R0], R13 ;
+
+        /*2e30*/                   STS [R0+0x4], R15 ;
+
+        /*2e40*/                   STS [R0+0x8], R9 ;
+
+        /*2e50*/                   STS [R0+0xc], R7 ;
+
+        /*2e60*/                   STS [R0+0x10], R11 ;
+
+        /*2e70*/                   BSYNC B0 ;
+
+        /*2e80*/                   BAR.SYNC.DEFER_BLOCKING 0x0 ;
+
+        /*2e90*/                   ISETP.GT.AND P0, PT, R58, 0x4, PT ;
+
+        /*2ea0*/                   MOV R9, RZ ;
+
+        /*2eb0*/                   BSSY B0, 0x3170 ;
+
+        /*2ec0*/               @P0 BRA 0x3160 ;
+
+        /*2ed0*/                   S2R R5, SR_CgaCtaId ;
+
+        /*2ee0*/                   IMAD.HI R0, R58, 0x66666667, RZ ;
+
+        /*2ef0*/                   MOV R2, 0x400 ;
+
+        /*2f00*/                   ULDC.64 UR4, c[0x0][0x230] ;
+
+        /*2f10*/                   S2R R17, SR_CTAID.Y ;
+
+        /*2f20*/                   SHF.R.S32.HI R3, RZ, 0x1, R0 ;
+
+        /*2f30*/                   LEA.HI R3, R0, R3, RZ, 0x1 ;
+
+        /*2f40*/                   LEA R2, R5, R2, 0x18 ;
+
+        /*2f50*/                   IMAD R0, R3.reuse, 0x14, R2 ;
+
+        /*2f60*/                   IMAD R3, R3, -0x5, R58 ;
+
+        /*2f70*/                   IMAD.HI R2, R58, 0x66666667, RZ ;
+
+        /*2f80*/                   LEA R0, R3, R0, 0x2 ;
+
+        /*2f90*/                   SHF.R.S32.HI R19, RZ, 0x1, R2 ;
+
+        /*2fa0*/                   LDS R3, [R0] ;
+
+        /*2fb0*/                   LEA.HI R19, R2, R19, RZ, 0x1 ;
+
+        /*2fc0*/                   LDS R4, [R0+0x14] ;
+
+        /*2fd0*/                   IMAD R2, R19, -0x5, R58 ;
+
+        /*2fe0*/                   LDS R5, [R0+0x28] ;
+
+        /*2ff0*/                   LDS R7, [R0+0x3c] ;
+
+        /*3000*/                   LDS R9, [R0+0x50] ;
+
+        /*3010*/                   LDS R11, [R0+0x64] ;
+
+        /*3020*/                   LDS R13, [R0+0x78] ;
+
+        /*3030*/                   LDS R15, [R0+0x8c] ;
+
+        /*3040*/                   FADD R3, RZ, R3 ;
+
+        /*3050*/                   FADD R4, R3, R4 ;
+
+        /*3060*/                   SHF.R.S32.HI R3, RZ, 0x1f, R2 ;
+
+        /*3070*/                   FADD R4, R4, R5 ;
+
+        /*3080*/                   SHF.R.S32.HI R5, RZ, 0x1f, R60 ;
+
+        /*3090*/                   IMAD.WIDE.U32 R2, R17, 0x5, R2 ;
+
+        /*30a0*/                   FADD R4, R4, R7 ;
+
+        /*30b0*/                   IADD3 R7, P1, R19, R60, RZ ;
+
+        /*30c0*/                   FADD R4, R4, R9 ;
+
+        /*30d0*/                   LEA.HI.X.SX32 R5, R19, R5, 0x1, P1 ;
+
+        /*30e0*/                   LEA R0, P1, R2, R7, 0x8 ;
+
+        /*30f0*/                   FADD R4, R4, R11 ;
+
+        /*3100*/                   LEA.HI.X R3, R2, R5, R3, 0x8, P1 ;
+
+        /*3110*/                   FADD R4, R4, R13 ;
+
+        /*3120*/                   LEA R2, P1, R0, UR4, 0x2 ;
+
+        /*3130*/                   FADD R9, R4, R15 ;
+
+        /*3140*/                   LEA.HI.X R3, R0, UR5, R3, 0x2, P1 ;
+
+        /*3150*/                   STG.E desc[UR6][R2.64], R9 ;
+
+        /*3160*/                   BSYNC B0 ;
+
+        /*3170*/                   MEMBAR.SC.GPU ;
+
+        /*3180*/                   ERRBAR;
+
+        /*3190*/                   CGAERRBAR ;
+
+        /*31a0*/                   CCTL.IVALL ;
+
+        /*31b0*/                   BAR.SYNC.DEFER_BLOCKING 0x0 ;
+
+        /*31c0*/                   ISETP.NE.AND P2, PT, R58, RZ, PT ;
+
+        /*31d0*/                   BSSY B0, 0x32a0 ;
+
+        /*31e0*/               @P2 BRA 0x3290 ;
+
+        /*31f0*/                   LDC.64 R2, c[0x0][0x230] ;
+
+        /*3200*/                   HFMA2.MMA R5, -RZ, RZ, 0, 5.9604644775390625e-08 ;
+
+        /*3210*/                   IMAD.WIDE.U32 R2, R60, 0x4, R2 ;
+
+        /*3220*/                   ATOMG.E.ADD.STRONG.GPU PT, R2, desc[UR6][R2.64+0x8000], R5 ;
+
+        /*3230*/                   S2UR UR5, SR_CgaCtaId ;
+
+        /*3240*/                   UMOV UR4, 0x400 ;
+
+        /*3250*/                   ULEA UR4, UR5, UR4, 0x18 ;
+
+        /*3260*/                   ISETP.NE.AND P1, PT, R2, 0x3, PT ;
+
+        /*3270*/                   SEL R0, RZ, 0x1, P1 ;
+
+        /*3280*/                   STS [UR4+0xa0], R0 ;
+
+        /*3290*/                   BSYNC B0 ;
+
+        /*32a0*/                   S2UR UR5, SR_CgaCtaId ;
+
+        /*32b0*/                   BAR.SYNC.DEFER_BLOCKING 0x0 ;
+
+        /*32c0*/                   UMOV UR4, 0x400 ;
+
+        /*32d0*/                   ULEA UR4, UR5, UR4, 0x18 ;
+
+        /*32e0*/                   LDS R0, [UR4+0xa0] ;
+
+        /*32f0*/                   ISETP.NE.AND P1, PT, R0, RZ, PT ;
+
+        /*3300*/              @!P1 EXIT ;
+
+        /*3310*/              @!P2 LDC.64 R2, c[0x0][0x230] ;
+
+        /*3320*/              @!P2 IMAD.WIDE.U32 R6, R60, 0x4, R2 ;
+
+        /*3330*/                   MEMBAR.SC.GPU ;
+
+        /*3340*/                   ERRBAR;
+
+        /*3350*/                   CGAERRBAR ;
+
+        /*3360*/                   CCTL.IVALL ;
+
+        /*3370*/                   BSSY B0, 0x34d0 ;
+
+        /*3380*/               @P0 BRA 0x34c0 ;
+
+        /*3390*/                   IMAD.HI R0, R58, 0x66666667, RZ ;
+
+        /*33a0*/                   ULDC.64 UR4, c[0x0][0x230] ;
+
+        /*33b0*/                   SHF.R.S32.HI R3, RZ, 0x1, R0 ;
+
+        /*33c0*/                   LEA.HI R5, R0, R3, RZ, 0x1 ;
+
+        /*33d0*/                   SHF.R.S32.HI R0, RZ, 0x1f, R60 ;
+
+        /*33e0*/                   IADD3 R2, P1, R5, R60, RZ ;
+
+        /*33f0*/                   LEA.HI.X.SX32 R3, R5.reuse, R0, 0x1, P1 ;
+
+        /*3400*/                   IMAD R5, R5, -0x5, R58 ;
+
+        /*3410*/                   IMAD.WIDE R2, R5, 0x100, R2 ;
+
+        /*3420*/                   LEA R4, P1, R2, UR4, 0x2 ;
+
+        /*3430*/                   LEA.HI.X R5, R2, UR5, R3, 0x2, P1 ;
+
+        /*3440*/                   LDG.E.STRONG.GPU R0, desc[UR6][R4.64] ;
+
+        /*3450*/                   LDG.E.STRONG.GPU R3, desc[UR6][R4.64+0x1400] ;
+
+        /*3460*/                   LDG.E.STRONG.GPU R9, desc[UR6][R4.64+0x2800] ;
+
+        /*3470*/                   LDG.E.STRONG.GPU R2, desc[UR6][R4.64+0x3c00] ;
+
+        /*3480*/                   FADD R0, RZ, R0 ;
+
+        /*3490*/                   FADD R0, R0, R3 ;
+
+        /*34a0*/                   FADD R9, R0, R9 ;
+
+        /*34b0*/                   FADD R9, R9, R2 ;
+
+        /*34c0*/                   BSYNC B0 ;
+
+        /*34d0*/              @!P2 STG.E desc[UR6][R6.64+0x8000], RZ ;
+
+        /*34e0*/               @P0 EXIT ;
+
+        /*34f0*/                   IMAD.HI R0, R58, 0x66666667, RZ ;
+
+        /*3500*/                   ULDC.64 UR4, c[0x0][0x228] ;
+
+        /*3510*/                   SHF.R.S32.HI R3, RZ, 0x1, R0 ;
+
+        /*3520*/                   LEA.HI R3, R0, R3, RZ, 0x1 ;
+
+        /*3530*/                   IADD3 R60, R3.reuse, R60, RZ ;
+
+        /*3540*/                   IMAD R3, R3, -0x5, R58 ;
+
+        /*3550*/                   SHF.R.S32.HI R61, RZ, 0x1f, R60 ;
+
+        /*3560*/                   IMAD.WIDE R60, R3, 0x100, R60 ;
+
+        /*3570*/                   LEA R2, P0, R60, UR4, 0x2 ;
+
+        /*3580*/                   LEA.HI.X R3, R60, UR5, R61, 0x2, P0 ;
+
+        /*3590*/                   STG.E desc[UR6][R2.64], R9 ;
+
+        /*35a0*/                   EXIT ;
+
+        /*35b0*/                   BRA 0x35b0;
+
+        /*35c0*/                   NOP;
+
+        /*35d0*/                   NOP;
+
+        /*35e0*/                   NOP;
+
+        /*35f0*/                   NOP;
+
+        /*3600*/                   NOP;
+
+        /*3610*/                   NOP;
+
+        /*3620*/                   NOP;
+
+        /*3630*/                   NOP;
+
+        /*3640*/                   NOP;
+
+        /*3650*/                   NOP;
+
+        /*3660*/                   NOP;
+
+        /*3670*/                   NOP;
+
+		..........

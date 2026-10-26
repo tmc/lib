@@ -1,0 +1,28 @@
+ptxas info    : Overriding maximum register limit 256 for '_Z5scaleILi128EEvPfPKfi' with  64 of maxrregcount option
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z5scaleILi128EEvPfPKfi' for 'sm_90a'
+ptxas info    : Function properties for _Z5scaleILi128EEvPfPKfi
+    128 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 40 registers, used 1 barriers, 128 bytes cumulative stack size, 512 bytes smem
+ptxas info    : Compile time = 8.384 ms
+ptxas info    : Function properties for _Z6helperfi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Compiling entry function '_Z5spillPfPKf' for 'sm_90a'
+ptxas info    : Function properties for _Z5spillPfPKf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 122 registers, used 0 barriers
+ptxas info    : Compile time = 57.287 ms
+ptxas info    : Overriding maximum register limit 256 for '_Z5scaleILi128EEvPfPKfi' with  64 of maxrregcount option
+ptxas info    : 0 bytes gmem, 256 bytes cmem[3]
+ptxas info    : Compiling entry function '_Z5scaleILi128EEvPfPKfi' for 'sm_80'
+ptxas info    : Function properties for _Z5scaleILi128EEvPfPKfi
+    128 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 1 barriers, 128 bytes cumulative stack size, 512 bytes smem, 372 bytes cmem[0]
+ptxas info    : Compile time = 5.776 ms
+ptxas info    : Function properties for _Z6helperfi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Compiling entry function '_Z5spillPfPKf' for 'sm_80'
+ptxas info    : Function properties for _Z5spillPfPKf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 124 registers, used 0 barriers, 368 bytes cmem[0]
+ptxas info    : Compile time = 29.338 ms

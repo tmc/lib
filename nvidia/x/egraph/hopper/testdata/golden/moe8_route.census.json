@@ -1,0 +1,15 @@
+{
+  "source_sha256": "1875fc82be4188ebc99450640ff244f15a1606ccb9c57bc75f7d54e129760108",
+  "kernels": {
+    "_Z10moe8_routeiPKfS0_PiPf": {
+      "loads": {
+        "nc.v4.f32": 4
+      },
+      "stores": {
+        "f32": 1,
+        "u32": 1
+      },
+      "late_loads": 0
+    }
+  }
+}

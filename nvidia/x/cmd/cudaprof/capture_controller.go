@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/internal/cudainject/journal"
 	"github.com/tmc/lib/nvidia/internal/cudainject/wire"
@@ -459,10 +460,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		if targetInjectionFailure != "" {
 			result.Outcome, result.CaptureError = captureOutcomeInjection, targetInjectionFailure
 		} else if targetFailureState.failure != "" {
-			errStr := targetFailureState.failure
-			if targetFailureState.failureError != "" {
-				errStr += ": " + targetFailureState.failureError
-			}
+			errStr := agentFailureMessage(targetFailureState.failure, targetFailureState.failureError)
 			if targetFailureState.failure == "cupti_unavailable" {
 				result.Outcome, result.CaptureError = captureOutcomeUnsupported, errStr
 			} else {
@@ -584,10 +582,7 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 		return applyPartialRecovery(result)
 	}
 	if selectedState.failure != "" {
-		errStr := selectedState.failure
-		if selectedState.failureError != "" {
-			errStr += ": " + selectedState.failureError
-		}
+		errStr := agentFailureMessage(selectedState.failure, selectedState.failureError)
 		result.CaptureError = errStr
 		if selectedState.failure == "cupti_unavailable" {
 			result.Outcome = captureOutcomeUnsupported
@@ -609,6 +604,31 @@ func observeSession(result captureResult, dir, session string, opts observeOptio
 	}
 	_ = opts.injectionRequested
 	return applyPartialRecovery(result)
+}
+
+// agentFailureMessage formats a failure the agent published, adding the
+// likely cause for the CUPTI results whose names do not say it.
+//
+// CUPTI_ERROR_UNKNOWN from cuptiActivityRegisterCallbacks was seen on an
+// H200 container that had lost its GPU: the same arm's ncu said the driver
+// could not be loaded, nvidia-smi exited 255, and the device nodes no longer
+// opened. The result named CUPTI, but CUPTI was the first library to ask the
+// driver for anything.
+func agentFailureMessage(failure, detail string) string {
+	msg := failure
+	if detail == "" {
+		return msg
+	}
+	msg += ": " + detail
+	switch {
+	case strings.Contains(detail, "CUPTI_ERROR_UNKNOWN"):
+		msg += " (CUPTI_ERROR_UNKNOWN during setup usually means the process could not reach the driver or device, not a CUPTI fault;" +
+			" check device access with cudadoctor -health before blaming the profiler)"
+	case strings.Contains(detail, "CUPTI_ERROR_INSUFFICIENT_PRIVILEGES"):
+		msg += " (GPU performance counters are restricted to administrators: set NVreg_RestrictProfilingToAdminUsers=0 for the nvidia module," +
+			" or run as root or with CAP_SYS_ADMIN; ncu reports the same as ERR_NVGPUCTRPERM)"
+	}
+	return msg
 }
 
 // captureWorkerUnfinalizedPartial labels a worker generation whose records

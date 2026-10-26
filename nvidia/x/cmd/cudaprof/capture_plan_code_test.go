@@ -130,8 +130,8 @@ func TestCapturePlanCodeRefusals(t *testing.T) {
 			p.Result.Identity.Entry = "other"
 		}, false},
 		{"exact entry", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
-			p.Artifact = planCodeRespec(t, p.Artifact, func(s *cudakernel.ArtifactSpec) { s.EntryPoint = "scale" })
-			p.Result.Identity.Entry = "scale"
+			c.Files["kernels.ptx"] = bytes.ReplaceAll(c.Files["kernels.ptx"], []byte("fill"), []byte("fil"))
+			c.Files["kernels.sass"] = bytes.ReplaceAll(c.Files["kernels.sass"], []byte("fill"), []byte("fil"))
 		}, false},
 		{"native target", func(t *testing.T, c *cudacapture.Capture, p *cudaprof.CapturePublication) {
 			p.Artifact = planCodeRespec(t, p.Artifact, func(s *cudakernel.ArtifactSpec) { s.Target = "sm_80" })

@@ -1,0 +1,15 @@
+{
+  "source_sha256": "accc76d907e5b41c34243fb362011f0389a965a75af6733e61e08d24f830206c",
+  "kernels": {
+    "_Z10moe8_aligniPKiS0_PiS1_S1_": {
+      "loads": {
+        "nc.u32": 7,
+        "u32": 5
+      },
+      "stores": {
+        "u32": 12
+      },
+      "late_loads": 10
+    }
+  }
+}

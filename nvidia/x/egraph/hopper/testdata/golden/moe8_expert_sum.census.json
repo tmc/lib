@@ -1,0 +1,16 @@
+{
+  "source_sha256": "a95e3163902ad54bd2099f3336149205b46086995719a0c12f82642cd63815fe",
+  "kernels": {
+    "_Z15moe8_expert_sumiPKtPKfPKiS2_Pt": {
+      "loads": {
+        "nc.f32": 2,
+        "nc.u32": 1,
+        "nc.v4.u32": 8
+      },
+      "stores": {
+        "v4.u32": 1
+      },
+      "late_loads": 8
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "skinny_gemm": [
+    {"Name": "moe8_qkv_gate_skinny", "N": 2304, "K": 8192, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_o_skinny", "N": 8192, "K": 1024, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_pooler_skinny", "N": 4096, "K": 8192, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_unpooler_skinny", "N": 8192, "K": 4096, "MaxM": 16, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_router_skinny", "N": 256, "K": 8192, "MaxM": 16, "Weight": "bf16hilo", "Out": "f32"}
+  ],
+  "tile_gemm": [
+    {"Name": "moe8_qkv_gate_tile", "N": 2304, "K": 8192, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_o_tile", "N": 8192, "K": 1024, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_pooler_tile", "N": 4096, "K": 8192, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_unpooler_tile", "N": 8192, "K": 4096, "Weight": "bf16", "Out": "bf16"},
+    {"Name": "moe8_moe_w13", "N": 8192, "K": 4096, "Weight": "nvfp4", "Out": "bf16", "Grouped": true, "Gather": true, "GLU": true, "Epilogue": "(mul (silu $0) $1)"},
+    {"Name": "moe8_moe_w2", "N": 4096, "K": 4096, "Weight": "nvfp4", "Out": "f32", "Grouped": true},
+    {"Name": "moe8_moe_w2_sumsq", "N": 4096, "K": 4096, "Weight": "nvfp4", "Out": "bf16", "Grouped": true, "SumSq": true,
+     "Epilogue": "(mul $0 (add 1 $1))", "Extras": [{"Name": "post_w", "DType": "bf16", "Broadcast": "col"}]}
+  ],
+  "paged_attention": [
+    {"Name": "moe8_attn_tp8_sliding_q1", "Hq": 16, "Hkv": 2, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_tp8_sliding_q1_fp8_gate", "Hq": 16, "Hkv": 2, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280},
+    {"Name": "moe8_attn_tp8_sliding_q8", "Hq": 16, "Hkv": 2, "QLen": 8, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_tp8_full_q1", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_tp8_full_q1_fp8_gate", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "Chunk": 320, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280},
+    {"Name": "moe8_attn_tp8_full_q1_fp8_gate_d2", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "Chunk": 320, "Depth": 2, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280},
+    {"Name": "moe8_attn_tp8_full_q1_fp8_gate_dev", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280, "DeviceSplits": true},
+    {"Name": "moe8_attn_tp8_full_q1_fp8_gate_dev_h2", "Hq": 16, "Hkv": 2, "QLen": 1, "Page": 1, "Q": "e4m3", "Out": "bf16", "QScale": 5.4730064863875, "QKFP8": true, "Gate": true, "GateStride": 2304, "GateOffset": 1280, "DeviceSplits": true, "KVHeadsPerBlock": 2},
+    {"Name": "moe8_attn_tp8_full_q8", "Hq": 16, "Hkv": 2, "QLen": 8, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_dp_sliding_q1", "Hq": 128, "Hkv": 16, "QLen": 1, "Window": 2048, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875},
+    {"Name": "moe8_attn_dp_full_q8", "Hq": 128, "Hkv": 16, "QLen": 8, "Page": 1, "Q": "e4m3", "Out": "f32", "QScale": 5.4730064863875}
+  ]
+}
