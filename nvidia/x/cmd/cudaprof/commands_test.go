@@ -23,6 +23,7 @@ func TestLookupCommand(t *testing.T) {
 		want string // "" when arg names no command
 	}{
 		{"capture", "capture"},
+		{"verify-capture", "verify-capture"},
 		{"qualify", "qualify"},
 		{"export", "export"},
 		{"version", "version"},

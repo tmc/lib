@@ -127,6 +127,9 @@ To import a bounded offline Nsight Compute project export:
   cudaprof import-ncu [-json] [-limit N] envelope.json
   cudaprof import-ncu -raw [-json] [-ceiling GB/s] raw.csv
 
+To verify capture completeness receipts against the strict qualification gate:
+  cudaprof verify-capture [-json] capture.json...
+
 To summarize supplied compiler members against retained activity:
   cudaprof operator-summary -run-id ID context.json activities.jsonl
 
@@ -177,6 +180,7 @@ func commands() []command {
 		{name: "probe", run: func(args []string) error { return runProbeCommand(args[1:]) }},
 		{name: "counter-receipt", run: func(args []string) error { return runCounterReceiptCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
+		{name: "verify-capture", usage: verifyCaptureUsage, run: func(args []string) error { return runVerifyCaptureCommand(args[1:], os.Stdout) }},
 		{name: "import-ncu", usage: importNCUUsage, run: func(args []string) error { return runImportNCUCommand(args[1:], os.Stdout) }},
 		{name: "operator-summary", usage: operatorSummaryUsage, run: func(args []string) error { return runOperatorSummaryCommand(args[1:], os.Stdout) }},
 		{name: "history", usage: historyUsage, run: func(args []string) error { return runHistoryCommand(args[1:], os.Stdout) }},

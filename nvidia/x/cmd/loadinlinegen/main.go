@@ -1,32 +1,31 @@
 // Command loadinlinegen writes a single-file torch load_inline submission
-// from a template and CUDA sources.
+// from a template, CUDA sources, and optional Python fragments.
 //
 // Usage:
 //
-//	loadinlinegen [-o file] [-name prefix] [-D NAME=VALUE]... [-set KEY=VALUE]... template source...
+//	loadinlinegen [-o file] [-name prefix] [-D NAME=VALUE]... [-set KEY=VALUE]... [-fragment [NAME=]FILE.py]... template [source...]
 //
 // The template is a Go text/template of the Python file. A source is a
 // CUDA file, or FILE.py:NAME for the top-level string assignment NAME in
-// another submission, such as a kernel another owner ships. The template
-// sees:
+// another submission. A -fragment imports FUNCTIONS, CPP, CUDA (and optional
+// PY) from a fragment .py file by parsing its AST without importing it.
 //
-//	.CUDA  the -D defines, then each source after a "// ---- source ----" line
-//	.Tag   the first 10 hex digits of the SHA-256 of the template, .CUDA and the -set values
-//	.Name  prefix_Tag, an extension name that changes whenever the code does,
-//	       so torch never reuses a stale build of an older kernel
-//	.KEY   each -set value
+// Across all merged CUDA sources and fragments, loadinlinegen checks for
+// duplicate top-level C++ namespaces, duplicate top-level function or kernel
+// definitions, and duplicate exported FUNCTIONS entries, and writes a
+// deterministic provenance comment banner with per-input SHA-256 digests.
 //
-// A template embeds .CUDA in a raw triple-quoted string, either kind:
+// The template sees:
 //
-//	CUDA_SRC = r"""
-//	{{.CUDA}}
-//	"""
-//
-// so the command refuses sources that contain """ or ”' or end in a
-// backslash. Referring to a field the command did not set is an error.
-// After writing the output, loadinlinegen parses it with Python (-python)
-// and fails unless one of its string constants holds .CUDA exactly: the
-// check that the embedding survived Python's quoting.
+//	.CUDA        the -D defines, then each source and fragment after a "// ---- source ----" line
+//	.CPP         merged C++ declarations from fragments (also available as .Decl)
+//	.Functions   merged FUNCTIONS list from fragments formatted as a Python list literal
+//	.PY          merged PY helper snippets from fragments
+//	.Fragments   map of fragment name to fragment metadata (Name, Path, SHA256, ShortSHA256, CPP, CUDA, PY, Functions)
+//	.Provenance  deterministic comment lines recording the SHA-256 of the template and each source/fragment
+//	.Tag         the first 10 hex digits of the SHA-256 of the inputs
+//	.Name        prefix_Tag, an extension name that changes whenever the code does
+//	.KEY         each -set value
 package main
 
 import (
@@ -34,6 +33,7 @@ import (
 	"context"
 	"crypto/sha256"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -41,6 +41,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -55,10 +56,29 @@ func (l *listFlag) String() string     { return strings.Join(*l, ",") }
 func (l *listFlag) Set(v string) error { *l = append(*l, v); return nil }
 
 type config struct {
-	out, name, python string
-	defines, sets     []string
-	tmpl              string
-	sources           []string
+	out, name, python        string
+	defines, sets, fragments []string
+	tmpl                     string
+	sources                  []string
+}
+
+// Fragment holds the parsed components and digest of a .py fragment file.
+type Fragment struct {
+	Name        string   `json:"name"`
+	Path        string   `json:"path"`
+	SHA256      string   `json:"sha256"`
+	ShortSHA256 string   `json:"short_sha256"`
+	Functions   []string `json:"functions"`
+	CPP         string   `json:"cpp"`
+	CUDA        string   `json:"cuda"`
+	PY          string   `json:"py"`
+}
+
+type sourceUnit struct {
+	label  string
+	kind   string // "source" or "fragment"
+	sha256 string
+	cuda   string
 }
 
 func main() {
@@ -67,16 +87,17 @@ func main() {
 	var c config
 	flag.StringVar(&c.out, "o", "submission.py", "output `file`")
 	flag.StringVar(&c.name, "name", "ext", "extension name `prefix`")
-	flag.StringVar(&c.python, "python", "python3", "Python used to read FILE.py:NAME sources and check the output")
+	flag.StringVar(&c.python, "python", "python3", "Python used to read FILE.py:NAME sources, fragments, and check the output")
 	flag.Var((*listFlag)(&c.defines), "D", "add `NAME=VALUE` as a #define ahead of the sources (repeatable)")
 	flag.Var((*listFlag)(&c.sets), "set", "set template field `KEY=VALUE` (repeatable)")
+	flag.Var((*listFlag)(&c.fragments), "fragment", "import FUNCTIONS/CPP/CUDA[/PY] from `[NAME=]FILE.py` (repeatable)")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: loadinlinegen [flags] template source...\n")
+		fmt.Fprintf(os.Stderr, "usage: loadinlinegen [flags] template [source...]\n")
 		flag.PrintDefaults()
 		os.Exit(2)
 	}
 	flag.Parse()
-	if flag.NArg() < 2 {
+	if flag.NArg() < 1 || (flag.NArg() < 2 && len(c.fragments) == 0) {
 		flag.Usage()
 	}
 	c.tmpl, c.sources = flag.Arg(0), flag.Args()[1:]
@@ -85,6 +106,19 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("wrote %s (extension %s)\n", c.out, name)
+}
+
+var reservedFields = map[string]bool{
+	"CUDA":       true,
+	"Tag":        true,
+	"Name":       true,
+	"CPP":        true,
+	"Decl":       true,
+	"Functions":  true,
+	"FUNCTIONS":  true,
+	"PY":         true,
+	"Fragments":  true,
+	"Provenance": true,
 }
 
 func run(ctx context.Context, c config) (string, error) {
@@ -98,11 +132,17 @@ func run(ctx context.Context, c config) (string, error) {
 		if !ok || k == "" {
 			return "", fmt.Errorf("-set %q: want KEY=VALUE", s)
 		}
-		if k == "CUDA" || k == "Tag" || k == "Name" {
+		if reservedFields[k] {
 			return "", fmt.Errorf("-set %s: the command sets that field", k)
 		}
 		data[k] = v
 	}
+
+	var prov strings.Builder
+	tmplSum := sha256.Sum256(tmplText)
+	fmt.Fprintf(&prov, "# Generated by loadinlinegen; do not edit.\n")
+	fmt.Fprintf(&prov, "# template %s sha256:%x\n", filepath.Base(c.tmpl), tmplSum)
+
 	var cuda strings.Builder
 	for _, d := range c.defines {
 		k, v, _ := strings.Cut(d, "=")
@@ -111,24 +151,94 @@ func run(ctx context.Context, c config) (string, error) {
 		}
 		fmt.Fprintf(&cuda, "#define %s %s\n", k, v)
 	}
+
+	var units []sourceUnit
 	for _, src := range c.sources {
-		text, err := readSource(ctx, c.python, src)
+		text, rawSum, err := readSource(ctx, c.python, src)
 		if err != nil {
 			return "", err
 		}
 		if err := embeddable(text); err != nil {
 			return "", fmt.Errorf("%s: %w", src, err)
 		}
-		fmt.Fprintf(&cuda, "// ---- %s ----\n%s", filepath.Base(src), text)
+		base := filepath.Base(src)
+		fmt.Fprintf(&prov, "# source %s sha256:%s\n", base, rawSum)
+		fmt.Fprintf(&cuda, "// ---- %s ----\n%s", base, text)
 		if !strings.HasSuffix(text, "\n") {
 			cuda.WriteString("\n")
 		}
+		units = append(units, sourceUnit{label: base, kind: "source", sha256: rawSum, cuda: text})
 	}
+
+	fragMap := map[string]Fragment{}
+	var cppDecls []string
+	var pyParts []string
+	var allFuncs []string
+	funcOwner := map[string]string{}
+
+	for _, fspec := range c.fragments {
+		frag, err := readFragment(ctx, c.python, fspec)
+		if err != nil {
+			return "", err
+		}
+		if _, exists := fragMap[frag.Name]; exists {
+			return "", fmt.Errorf("-fragment %s: duplicate fragment name", frag.Name)
+		}
+		for _, fn := range frag.Functions {
+			if prev, dup := funcOwner[fn]; dup {
+				return "", fmt.Errorf("function collision: %s in FUNCTIONS of both %s and %s", fn, prev, frag.Name)
+			}
+			funcOwner[fn] = frag.Name
+			allFuncs = append(allFuncs, fn)
+		}
+		fragMap[frag.Name] = frag
+		base := filepath.Base(frag.Path)
+		fmt.Fprintf(&prov, "# fragment %s %s sha256:%s\n", frag.Name, base, frag.SHA256)
+		header := fmt.Sprintf("%s (%s sha256 %s)", frag.Name, base, frag.ShortSHA256)
+		if frag.Name == strings.TrimSuffix(base, ".py") {
+			header = fmt.Sprintf("%s (sha256 %s)", base, frag.ShortSHA256)
+		}
+		fmt.Fprintf(&cuda, "// ---- %s ----\n%s", header, strings.TrimLeft(frag.CUDA, "\n"))
+		if !strings.HasSuffix(frag.CUDA, "\n") {
+			cuda.WriteString("\n")
+		}
+		if strings.TrimSpace(frag.CPP) != "" {
+			cppDecls = append(cppDecls, strings.TrimSpace(frag.CPP))
+		}
+		if strings.TrimSpace(frag.PY) != "" {
+			pyParts = append(pyParts, strings.TrimSpace(frag.PY))
+		}
+		units = append(units, sourceUnit{label: frag.Name + " (" + base + ")", kind: "fragment", sha256: frag.SHA256, cuda: frag.CUDA})
+	}
+
+	if err := checkCollisions(units); err != nil {
+		return "", err
+	}
+
+	quotedFuncs := make([]string, len(allFuncs))
+	for i, fn := range allFuncs {
+		quotedFuncs[i] = fmt.Sprintf("%q", fn)
+	}
+	funcsLiteral := "[" + strings.Join(quotedFuncs, ", ") + "]"
+	cppJoined := strings.Join(cppDecls, "\n")
+	pyJoined := strings.Join(pyParts, "\n\n")
+	provText := strings.TrimSuffix(prov.String(), "\n")
+
 	data["CUDA"] = strings.TrimSuffix(cuda.String(), "\n")
+	data["CPP"] = cppJoined
+	data["Decl"] = cppJoined
+	data["Functions"] = funcsLiteral
+	data["FUNCTIONS"] = funcsLiteral
+	data["PY"] = pyJoined
+	data["Fragments"] = fragMap
+	data["Provenance"] = provText
 
 	h := sha256.New()
 	h.Write(tmplText)
 	h.Write([]byte(cuda.String()))
+	if len(c.fragments) > 0 {
+		fmt.Fprintf(h, "\x00cpp:%s\x00funcs:%s\x00py:%s", cppJoined, funcsLiteral, pyJoined)
+	}
 	sets := slices.Clone(c.sets)
 	slices.Sort(sets)
 	for _, s := range sets {
@@ -145,7 +255,15 @@ func run(ctx context.Context, c config) (string, error) {
 	if err := t.Execute(&buf, data); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(c.out, buf.Bytes(), 0o644); err != nil {
+	rendered := buf.Bytes()
+	if !bytes.Contains(rendered, []byte("# Generated by loadinlinegen")) {
+		var withProv bytes.Buffer
+		withProv.WriteString(provText)
+		withProv.WriteString("\n")
+		withProv.Write(rendered)
+		rendered = withProv.Bytes()
+	}
+	if err := os.WriteFile(c.out, rendered, 0o644); err != nil {
 		return "", err
 	}
 	if err := check(ctx, c.python, c.out, data["CUDA"].(string)); err != nil {
@@ -168,19 +286,307 @@ func embeddable(text string) error {
 	return nil
 }
 
-// readSource returns a CUDA file's text, or for FILE.py:NAME the value of
-// that top-level string assignment.
-func readSource(ctx context.Context, python, src string) (string, error) {
+// readSource returns a CUDA file's text and its SHA-256 hex digest, or for
+// FILE.py:NAME the value of that top-level string assignment and its digest.
+func readSource(ctx context.Context, python, src string) (text, sumHex string, err error) {
 	file, name, ok := strings.Cut(src, ".py:")
 	if !ok {
 		b, err := os.ReadFile(src)
-		return string(b), err
+		if err != nil {
+			return "", "", err
+		}
+		sum := sha256.Sum256(b)
+		return string(b), fmt.Sprintf("%x", sum), nil
 	}
 	out, err := runPython(ctx, python, nil, "extract", file+".py", name)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", src, err)
+		return "", "", fmt.Errorf("%s: %w", src, err)
 	}
-	return out, nil
+	sum := sha256.Sum256([]byte(out))
+	return out, fmt.Sprintf("%x", sum), nil
+}
+
+// readFragment parses a .py fragment file (without importing it) and extracts
+// its FUNCTIONS, CPP, CUDA and optional PY assignments.
+func readFragment(ctx context.Context, python, spec string) (Fragment, error) {
+	name, path, hasName := strings.Cut(spec, "=")
+	if !hasName {
+		path = spec
+		name = strings.TrimSuffix(filepath.Base(path), ".py")
+	}
+	if name == "" || path == "" {
+		return Fragment{}, fmt.Errorf("-fragment %q: want [NAME=]FILE.py", spec)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return Fragment{}, err
+	}
+	sum := sha256.Sum256(raw)
+	out, err := runPython(ctx, python, nil, "fragment", path)
+	if err != nil {
+		return Fragment{}, fmt.Errorf("%s: %w", path, err)
+	}
+	var parsed struct {
+		Functions []string `json:"functions"`
+		CPP       string   `json:"cpp"`
+		CUDA      string   `json:"cuda"`
+		PY        string   `json:"py"`
+	}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		return Fragment{}, fmt.Errorf("%s: decode fragment: %w", path, err)
+	}
+	if err := embeddable(parsed.CUDA); err != nil {
+		return Fragment{}, fmt.Errorf("%s (CUDA): %w", path, err)
+	}
+	cpp := strings.Replace(parsed.CPP, "#include <torch/extension.h>\n", "", 1)
+	if cpp != "" {
+		if err := embeddable(cpp); err != nil {
+			return Fragment{}, fmt.Errorf("%s (CPP): %w", path, err)
+		}
+	}
+	sumHex := fmt.Sprintf("%x", sum)
+	return Fragment{
+		Name:        name,
+		Path:        path,
+		SHA256:      sumHex,
+		ShortSHA256: sumHex[:8],
+		Functions:   parsed.Functions,
+		CPP:         cpp,
+		CUDA:        parsed.CUDA,
+		PY:          parsed.PY,
+	}, nil
+}
+
+// checkCollisions rejects merged CUDA sources that define the same top-level
+// named C++ namespace or the same top-level function/kernel across distinct
+// input units.
+func checkCollisions(units []sourceUnit) error {
+	nsOwner := map[string]string{}
+	fnOwner := map[string]string{}
+	for _, u := range units {
+		namespaces, funcs := scanTopLevelDecls(u.cuda)
+		for _, ns := range namespaces {
+			if prev, ok := nsOwner[ns]; ok && prev != u.label {
+				return fmt.Errorf("namespace collision: namespace %s defined in both %s and %s", ns, prev, u.label)
+			}
+			nsOwner[ns] = u.label
+		}
+		for _, fn := range funcs {
+			if prev, ok := fnOwner[fn]; ok && prev != u.label {
+				return fmt.Errorf("function collision: %s defined in both %s and %s", fn, prev, u.label)
+			}
+			fnOwner[fn] = u.label
+		}
+	}
+	return nil
+}
+
+var (
+	reNamespaceDecl = regexp.MustCompile(`^(?:inline\s+)?namespace\s+([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*$`)
+	reTrailingIdent = regexp.MustCompile(`([A-Za-z_]\w*)\s*$`)
+	cppNonFuncNames = map[string]bool{
+		"if": true, "for": true, "while": true, "switch": true, "catch": true,
+		"namespace": true, "struct": true, "class": true, "union": true, "enum": true,
+		"sizeof": true, "alignas": true, "decltype": true, "static_assert": true,
+		"__launch_bounds__": true, "__cluster_dims__": true, "__attribute__": true,
+	}
+)
+
+// scanTopLevelDecls returns the top-level named C++ namespaces and top-level
+// function or kernel definitions in src. Declarations inside a named or
+// anonymous namespace have brace depth > 0 and are scoped to that namespace.
+func scanTopLevelDecls(src string) (namespaces, funcs []string) {
+	clean := stripCommentsAndLiterals(src)
+	var header strings.Builder
+	depth := 0
+	seenNS := map[string]bool{}
+	seenFn := map[string]bool{}
+
+	for i := 0; i < len(clean); i++ {
+		c := clean[i]
+		switch c {
+		case '{':
+			if depth == 0 {
+				h := strings.TrimSpace(header.String())
+				header.Reset()
+				if m := reNamespaceDecl.FindStringSubmatch(h); m != nil {
+					ns := m[1]
+					if !seenNS[ns] {
+						seenNS[ns] = true
+						namespaces = append(namespaces, ns)
+					}
+				} else if fn := extractTopLevelFuncName(h); fn != "" {
+					if !seenFn[fn] {
+						seenFn[fn] = true
+						funcs = append(funcs, fn)
+					}
+				}
+			}
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+			if depth == 0 {
+				header.Reset()
+			}
+		case ';':
+			if depth == 0 {
+				header.Reset()
+			}
+		default:
+			if depth == 0 {
+				header.WriteByte(c)
+			}
+		}
+	}
+	return namespaces, funcs
+}
+
+func extractTopLevelFuncName(header string) string {
+	h := strings.TrimSpace(header)
+	if h == "" {
+		return ""
+	}
+	for _, kw := range []string{"namespace", "struct", "class", "union", "enum"} {
+		if strings.HasPrefix(h, kw+" ") || strings.HasPrefix(h, kw+"\t") || strings.HasPrefix(h, kw+"\n") || h == kw {
+			return ""
+		}
+	}
+	// Strip trailing qualifiers after the parameter list.
+	for {
+		trimmed := strings.TrimSpace(h)
+		changed := false
+		for _, sfx := range []string{"const", "noexcept", "override", "final"} {
+			if strings.HasSuffix(trimmed, sfx) {
+				before := trimmed[:len(trimmed)-len(sfx)]
+				if len(before) > 0 && !isIdentChar(before[len(before)-1]) {
+					h = strings.TrimSpace(before)
+					changed = true
+				}
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+	if !strings.HasSuffix(h, ")") {
+		return ""
+	}
+	// Walk backward across the balanced parameter list (...).
+	pdepth := 0
+	openIdx := -1
+	for i := len(h) - 1; i >= 0; i-- {
+		switch h[i] {
+		case ')':
+			pdepth++
+		case '(':
+			pdepth--
+			if pdepth == 0 {
+				openIdx = i
+				i = -1
+			}
+		}
+	}
+	if openIdx <= 0 {
+		return ""
+	}
+	prefix := strings.TrimSpace(h[:openIdx])
+	if strings.Contains(prefix, "::") {
+		return ""
+	}
+	m := reTrailingIdent.FindStringSubmatch(prefix)
+	if m == nil {
+		return ""
+	}
+	name := m[1]
+	if cppNonFuncNames[name] {
+		return ""
+	}
+	return name
+}
+
+func isIdentChar(c byte) bool {
+	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+}
+
+// stripCommentsAndLiterals replaces comments, preprocessor lines, and string
+// or character literal contents with spaces so brace and token scanning sees
+// only C++ structure.
+func stripCommentsAndLiterals(src string) string {
+	out := make([]byte, len(src))
+	for i := range out {
+		if src[i] == '\n' {
+			out[i] = '\n'
+		} else {
+			out[i] = ' '
+		}
+	}
+	n := len(src)
+	lineStart := true
+	for i := 0; i < n; {
+		c := src[i]
+		if c == '\n' {
+			lineStart = true
+			i++
+			continue
+		}
+		if lineStart && (c == ' ' || c == '\t' || c == '\r') {
+			i++
+			continue
+		}
+		if lineStart && c == '#' {
+			// Preprocessor directive (including backslash-continued lines).
+			for i < n {
+				if src[i] == '\\' && i+1 < n && src[i+1] == '\n' {
+					i += 2
+					continue
+				}
+				if src[i] == '\n' {
+					break
+				}
+				i++
+			}
+			continue
+		}
+		lineStart = false
+		if c == '/' && i+1 < n && src[i+1] == '/' {
+			for i < n && src[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		if c == '/' && i+1 < n && src[i+1] == '*' {
+			i += 2
+			for i+1 < n && !(src[i] == '*' && src[i+1] == '/') {
+				i++
+			}
+			if i+1 < n {
+				i += 2
+			}
+			continue
+		}
+		if c == '"' || c == '\'' {
+			quote := c
+			out[i] = quote
+			i++
+			for i < n && src[i] != quote {
+				if src[i] == '\\' && i+1 < n {
+					i += 2
+					continue
+				}
+				i++
+			}
+			if i < n {
+				out[i] = quote
+				i++
+			}
+			continue
+		}
+		out[i] = c
+		i++
+	}
+	return string(out)
 }
 
 // check parses the written file and requires a string constant that
