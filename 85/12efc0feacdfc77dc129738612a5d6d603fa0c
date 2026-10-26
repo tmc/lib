@@ -1,0 +1,12 @@
+commit: 8512efc0feacdfc77dc129738612a5d6d603fa0c
+date: 2026-10-26T12:52:13.467778+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 24049
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261025-original02-entry-symbol-implementation/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-artifact-cache-adoption/ROOT-GRADE.md
+qualification: exact named source/CPU scope; historical failures and generic-control downgrade retained; native/full-original unqualified
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
