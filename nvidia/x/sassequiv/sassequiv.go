@@ -169,6 +169,11 @@ func classify(g *graph, class []int, d diff) (Verdict, string) {
 		// ptxas leaves a register unwritten on paths that never use
 		// it, so an undefined value need not make the results differ.
 		return Unknown, "reads a register no path writes"
+	case selects(g, class, x, y) || selects(g, class, y, x):
+		// A guarded write read where its guard is known to hold is the
+		// written value alone; the model does not show the other side
+		// reads it only there.
+		return Unknown, "guarded value read without its guard"
 	case isPhi(g, x) || isPhi(g, y):
 		// An operation on merged values against a merge of operations:
 		// code moved across a block boundary, which the model does not
@@ -404,6 +409,13 @@ func isFloat(g *graph, id int) bool {
 }
 
 // onSide reports whether side has a node equivalent to id.
+// selects reports whether x is a guarded write, sel(p, v, old), with v
+// or old equivalent to y.
+func selects(g *graph, class []int, x, y int) bool {
+	n := g.nodes[x]
+	return n.label == "sel" && (class[n.args[1]] == class[y] || class[n.args[2]] == class[y])
+}
+
 func onSide(g *graph, class []int, side, id int) bool {
 	for i, n := range g.nodes {
 		if n.has[side] && class[i] == class[id] {
