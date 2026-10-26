@@ -14,22 +14,24 @@ import (
 // Launch is a variant's tunable launch configuration. Zero fields do not
 // apply to the variant's kernel.
 type Launch struct {
-	Block        int    `json:"block"`                    // threads per block
-	Warps        int    `json:"warps"`                    // warps per block
-	Stages       int    `json:"stages,omitempty"`         // cp.async ring depth
-	TableAhead   int    `json:"table_ahead,omitempty"`    // page-table register prefetch depth (PagedAttention)
-	SplitK       int    `json:"split_k,omitempty"`        // K splits (SkinnyGEMM)
-	SplitKV      int    `json:"split_kv,omitempty"`       // keys per split (PagedAttention)
-	KVDepth      int    `json:"kv_depth,omitempty"`       // 16-key tiles per warp per step (PagedAttention)
-	KVHeads      int    `json:"kv_heads,omitempty"`       // KV heads per block (PagedAttention)
-	DeviceSplits bool   `json:"device_splits,omitempty"`  // split_kv is the least keys per split; the launcher sizes splits from the device
-	BM           int    `json:"bm,omitempty"`             // output tile rows (TileGEMM)
-	BN           int    `json:"bn,omitempty"`             // output tile columns (TileGEMM)
-	RowsPerBlock int    `json:"rows_per_block,omitempty"` // W rows per block (SkinnyGEMM)
-	Unroll       int    `json:"unroll,omitempty"`         // loads in flight (SkinnyGEMM)
-	Prefetch     int    `json:"prefetch,omitempty"`       // prefetched K steps per warp (SkinnyGEMM)
-	MMA          string `json:"mma,omitempty"`            // tensor-core instruction: mma.sync or wgmma
-	SharedBytes  int    `json:"shared_bytes,omitempty"`   // dynamic shared memory
+	Block          int    `json:"block"`                     // threads per block
+	Warps          int    `json:"warps"`                     // warps per block
+	Stages         int    `json:"stages,omitempty"`          // cp.async ring depth
+	TableAhead     int    `json:"table_ahead,omitempty"`     // page-table register prefetch depth (PagedAttention)
+	SplitK         int    `json:"split_k,omitempty"`         // K splits (SkinnyGEMM)
+	SplitKV        int    `json:"split_kv,omitempty"`        // keys per split (PagedAttention)
+	KVDepth        int    `json:"kv_depth,omitempty"`        // 16-key tiles per warp per step (PagedAttention)
+	KVHeads        int    `json:"kv_heads,omitempty"`        // KV heads per block (PagedAttention)
+	DeviceSplits   bool   `json:"device_splits,omitempty"`   // split_kv is the least keys per split; the launcher sizes splits from the device
+	Swizzle        bool   `json:"swizzle,omitempty"`         // 128B XOR-swizzled shared-memory K/V staging (PagedAttention)
+	ClusterCombine bool   `json:"cluster_combine,omitempty"` // 8-CTA cluster DSMEM split-KV combine (PagedAttention)
+	BM             int    `json:"bm,omitempty"`              // output tile rows (TileGEMM)
+	BN             int    `json:"bn,omitempty"`              // output tile columns (TileGEMM)
+	RowsPerBlock   int    `json:"rows_per_block,omitempty"`  // W rows per block (SkinnyGEMM)
+	Unroll         int    `json:"unroll,omitempty"`          // loads in flight (SkinnyGEMM)
+	Prefetch       int    `json:"prefetch,omitempty"`        // prefetched K steps per warp (SkinnyGEMM)
+	MMA            string `json:"mma,omitempty"`             // tensor-core instruction: mma.sync or wgmma
+	SharedBytes    int    `json:"shared_bytes,omitempty"`    // dynamic shared memory
 }
 
 // A Variant is one emitted kernel configuration with the metadata an
@@ -89,6 +91,12 @@ func (l Launch) config() string {
 	}
 	if l.DeviceSplits {
 		parts = append(parts, "device_splits")
+	}
+	if l.Swizzle {
+		parts = append(parts, "swizzle")
+	}
+	if l.ClusterCombine {
+		parts = append(parts, "cluster_combine")
 	}
 	return strings.Join(parts, ",")
 }
@@ -179,7 +187,18 @@ func (a PagedAttention) Variant() (Variant, error) {
 	if tableAhead <= 1 {
 		tableAhead = 0
 	}
-	l := Launch{Block: 128, Warps: 4, Stages: a.Stages, TableAhead: tableAhead, SplitKV: a.Chunk, KVDepth: a.Depth, KVHeads: a.KVHeadsPerBlock, DeviceSplits: a.DeviceSplits}
+	l := Launch{
+		Block:          128,
+		Warps:          4,
+		Stages:         a.Stages,
+		TableAhead:     tableAhead,
+		SplitKV:        a.Chunk,
+		KVDepth:        a.Depth,
+		KVHeads:        a.KVHeadsPerBlock,
+		DeviceSplits:   a.DeviceSplits,
+		Swizzle:        a.Swizzle,
+		ClusterCombine: a.ClusterCombine,
+	}
 	return newVariant(a.Name, "paged_attention", key, l, append([]string{"int batch", "int max_keys"}, a.launchParams()...), src), nil
 }
 

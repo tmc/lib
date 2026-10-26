@@ -51,12 +51,15 @@ func TestSweepMetadata(t *testing.T) {
 	if len(skinnyPF) <= len(skinny) {
 		t.Errorf("opt-in prefetch sweep produced %d variants, want more than %d", len(skinnyPF), len(skinny))
 	}
-	attnTA, err := PagedAttention{Name: "attn_ta", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32, Stages: 4, TableAhead: 3}.Variant()
+	attnTA, err := PagedAttention{Name: "attn_ta", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32, Stages: 4, TableAhead: 3, Swizzle: true, ClusterCombine: true}.Variant()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if attnTA.Launch.TableAhead != 3 {
-		t.Errorf("attn_ta launch TableAhead = %d, want 3", attnTA.Launch.TableAhead)
+	if attnTA.Launch.TableAhead != 3 || !attnTA.Launch.Swizzle || !attnTA.Launch.ClusterCombine {
+		t.Errorf("attn_ta launch = %+v, want TableAhead=3, Swizzle=true, ClusterCombine=true", attnTA.Launch)
+	}
+	if want := "block=128,warps=4,stages=4,table_ahead=3,split_kv=256,kv_depth=1,swizzle,cluster_combine"; attnTA.Config != want {
+		t.Errorf("attn_ta config = %q, want %q", attnTA.Config, want)
 	}
 	for _, set := range [][]Variant{skinny, skinnyPF, tile, attn} {
 		configs := make(map[string]bool)

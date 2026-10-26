@@ -27,9 +27,19 @@ const ClusterPrelude = `#ifndef EG_CLUSTER_PRELUDE
 #define EG_REGISTER_CLUSTER(fn) \
     static const bool eg_reg_##fn = (eg_emu_cluster_kernels.insert(reinterpret_cast<const void*>(fn)), true);
 #else
-#define EG_SHARED(T, name, dims) __shared__ T name dims
+#define EG_SHARED(T, name, dims) alignas(16) __shared__ T name dims
 #define EG_REGISTER_CLUSTER(fn)
 #endif
+
+EG_DEV int eg_cluster_rank() {
+#if defined(EG_HOST_EMU)
+    return eg_emu_cluster_rank;
+#else
+    uint32_t r;
+    asm("mov.u32 %0, %%cluster_ctarank;" : "=r"(r));
+    return (int)r;
+#endif
+}
 
 EG_DEV void eg_cluster_sync() {
 #if defined(EG_HOST_EMU)

@@ -66,6 +66,9 @@ func attnWorkspace(a PagedAttention, batch, maxKeys int) []byte {
 // attnCounterBytes returns the bytes of a's counters for batch requests
 // split splits ways.
 func attnCounterBytes(a PagedAttention, batch, splits int) int {
+	if a.ClusterCombine {
+		splits /= ClusterSize
+	}
 	ng := (splits + attnGroup - 1) / attnGroup
 	return 4 * batch * a.Hkv / max(a.KVHeadsPerBlock, 1) * (1 + ng)
 }
@@ -179,6 +182,25 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			Chunk: 384, Stages: 4, TableAhead: 3, QKFP8: true}, []int32{400, 129, 7}, 300, 1},
 		{"ahead3_p64_full_splits", PagedAttention{Name: "attn_ta3_p64", Hq: 4, Hkv: 1, QLen: 2, Window: 0, Page: 64, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
 			Chunk: 256, Stages: 4, TableAhead: 3, QKFP8: true, Gate: true, GateStride: 768, GateOffset: 512}, []int32{520, 65, 5}, 520, 1.0 / 64},
+		// 128B XOR-swizzled shared-memory K/V staging: 5 stages fit in 48 KiB
+		// with unpadded 64B rows; covers QKFP8 true/false and KVHeadsPerBlock 1/2.
+		{"swizzle_fp8_s5", PagedAttention{Name: "attn_sw_fp8", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+			Chunk: 384, Stages: 5, TableAhead: 3, QKFP8: true, Swizzle: true}, []int32{450, 130, 19}, 450, 1},
+		{"swizzle_f16_s3", PagedAttention{Name: "attn_sw_f16", Hq: 16, Hkv: 2, QLen: 2, Window: 150, Page: 4, Q: BF16, Out: F32,
+			Chunk: 192, Stages: 3, Swizzle: true}, []int32{220, 75, 5}, 151, 1.0 / 64},
+		{"swizzle_hpb2_fp8", PagedAttention{Name: "attn_sw_h2_fp8", Hq: 16, Hkv: 4, QLen: 1, Page: 16, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			Chunk: 128, Stages: 2, KVHeadsPerBlock: 2, QKFP8: true, Swizzle: true, Gate: true, GateStride: 3072, GateOffset: 2048}, []int32{300, 65, 3}, 300, 1},
+		{"swizzle_hpb2_f16", PagedAttention{Name: "attn_sw_h2_f16", Hq: 8, Hkv: 2, QLen: 2, Window: 90, Page: 1, Q: BF16, Out: BF16,
+			Chunk: 128, Stages: 2, KVHeadsPerBlock: 2, Swizzle: true}, []int32{140, 11}, 91, 1},
+		// 8-CTA cluster DSMEM split-KV combine: 8 splits (single cluster, no
+		// global partials), 16 splits (two clusters with fused Gate), and
+		// ragged multi-group cluster splits.
+		{"cluster_8_splits", PagedAttention{Name: "attn_cl8", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+			Chunk: 64, QKFP8: true, Swizzle: true, ClusterCombine: true}, []int32{512, 300, 37}, 512, 1},
+		{"cluster_16_splits_gate", PagedAttention{Name: "attn_cl16_gate", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			Chunk: 64, QKFP8: true, Swizzle: true, ClusterCombine: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{1024, 577, 130}, 1024, 1.0 / 64},
+		{"cluster_ragged_two_level", PagedAttention{Name: "attn_cl_2l", Hq: 8, Hkv: 2, QLen: 2, Page: 8, Q: BF16, Out: F32,
+			Chunk: 64, Stages: 2, KVHeadsPerBlock: 2, Swizzle: true, ClusterCombine: true}, []int32{8500, 700, 35}, 8500, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -423,5 +445,102 @@ func TestPagedAttentionTableAheadMutations(t *testing.T) {
 		if e := relErr(decode(F32, res["out"]), want); !(e > 5e-4 || math.IsNaN(e)) {
 			t.Errorf("mutant %s survived (relErr %.2e)", mut.name, e)
 		}
+	}
+}
+
+// TestPagedAttentionSwizzleAndClusterMutations verifies that removing the
+// read-side XOR swizzle (when stages are written swizzled) or corrupting the
+// cluster DSMEM peer rank offset in ClusterCombine fails the emulator.
+func TestPagedAttentionSwizzleAndClusterMutations(t *testing.T) {
+	cases := []struct {
+		name    string
+		a       PagedAttention
+		seqlens []int32
+		maxKeys int
+		old     string
+		repl    string
+	}{
+		{
+			name: "unswizzled_k_fp8_read",
+			a: PagedAttention{Name: "attn_mut_kfp8", Hq: 8, Hkv: 1, QLen: 1, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+				Chunk: 64, QKFP8: true, Swizzle: true},
+			seqlens: []int32{64},
+			maxKeys: 64,
+			old:     "((2 * ks + (lane / 8) % 2) ^ (lane & (KP - 1))) * 8",
+			repl:    "ks * 16 + 8 * ((lane / 8) % 2)",
+		},
+		{
+			name: "unswizzled_k_f16_read",
+			a: PagedAttention{Name: "attn_mut_kf16", Hq: 8, Hkv: 1, QLen: 1, Page: 1, Q: BF16, Out: F32,
+				Chunk: 64, Swizzle: true},
+			seqlens: []int32{64},
+			maxKeys: 64,
+			old:     "(ks ^ (g & (KP - 1))) * 16",
+			repl:    "ks * 16",
+		},
+		{
+			name: "unswizzled_v_read",
+			a: PagedAttention{Name: "attn_mut_v", Hq: 8, Hkv: 1, QLen: 1, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+				Chunk: 64, QKFP8: true, Swizzle: true},
+			seqlens: []int32{64},
+			maxKeys: 64,
+			old:     "((4 * hb + (g >> 1)) ^ ((2 * c) & (KP - 1))) * 16",
+			repl:    "(4 * hb + (g >> 1)) * 16",
+		},
+		{
+			name: "cluster_rank_offset_single",
+			a: PagedAttention{Name: "attn_mut_cl1", Hq: 8, Hkv: 1, QLen: 1, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+				Chunk: 64, QKFP8: true, Swizzle: true, ClusterCombine: true},
+			seqlens: []int32{512},
+			maxKeys: 512,
+			old:     "eg_map_shared_rank(red_o, rk)",
+			repl:    "eg_map_shared_rank(red_o, (rk + 1) & 7)",
+		},
+		{
+			name: "cluster_rank_offset_multi",
+			a: PagedAttention{Name: "attn_mut_cl2", Hq: 8, Hkv: 1, QLen: 1, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+				Chunk: 64, QKFP8: true, Swizzle: true, ClusterCombine: true},
+			seqlens: []int32{1024},
+			maxKeys: 1024,
+			old:     "eg_map_shared_rank(red_m, rk)",
+			repl:    "eg_map_shared_rank(red_m, 0)",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src, err := tc.a.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			l, err := tc.a.Launcher()
+			if err != nil {
+				t.Fatal(err)
+			}
+			full := src + "\n" + l
+			if !strings.Contains(full, tc.old) {
+				t.Fatalf("target %q not in source", tc.old)
+			}
+			msrc := strings.Replace(full, tc.old, tc.repl, 1)
+			q, c := pagedCase(rand.New(rand.NewPCG(83, 89)), tc.a, tc.seqlens, 1)
+			want, err := tc.a.Reference(q, c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			launch := fmt.Sprintf("eg_emu_sms = 8;\n    %s_launch(%d, %d, q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws, nullptr)",
+				tc.a.Name, len(tc.seqlens), tc.maxKeys, c.MaxPages)
+			res := runEmu(t, msrc, launch,
+				emuBuf{"q", tc.a.Q.cType(), typed{tc.a.Q, f64s(q)}.bytes()},
+				emuBuf{"k_cache", "uint8_t", c.K},
+				emuBuf{"v_cache", "uint8_t", c.V},
+				emuBuf{"page_table", "int32_t", i32Bytes(c.PageTable)},
+				emuBuf{"seqlens", "int32_t", i32Bytes(c.SeqLens)},
+				emuBuf{"k_scale", "float", f32Bytes([]float32{c.KScale})},
+				emuBuf{"v_scale", "float", f32Bytes([]float32{c.VScale})},
+				emuBuf{"out", "float", poison(4 * len(q))},
+				emuBuf{"ws", "unsigned char", attnWorkspace(tc.a, len(tc.seqlens), tc.maxKeys)})
+			if e := relErr(decode(F32, res["out"]), want); !(e > 5e-4 || math.IsNaN(e)) {
+				t.Errorf("mutant %s survived (relErr %.2e)", tc.name, e)
+			}
+		})
 	}
 }
