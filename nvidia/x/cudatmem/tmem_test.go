@@ -171,9 +171,8 @@ func TestNativeTMEMReference(t *testing.T) {
 	if os.Getenv("CUDA_TMEM_TEST") != "1" && os.Getenv("CUDA_TMEM_COMPILE") != "1" {
 		t.Skip("native fixture requires CUDA_TMEM_COMPILE=1 or CUDA_TMEM_TEST=1")
 	}
-	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
-	if os.Getenv("CUDA_TMEM_TEST") == "1" && os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("CUDA_TMEM_TEST=1 requires running under the GPU lock")
+	if _, err := tmemNativeAdmission(os.Getenv); err != nil {
+		t.Fatal(err)
 	}
 	nvcc, _ := cudatest.NVCC(t)
 	dir := t.TempDir()
