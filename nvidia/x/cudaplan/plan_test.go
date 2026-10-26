@@ -335,8 +335,8 @@ func TestCancelDoesNotFreeBuffers(t *testing.T) {
 		t.Fatal("buffer lease was released upon cancellation; violates completion retention invariant")
 	}
 
-	// Negative control: Delayed native completion after cancellation.
-	// When native work finally establishes completion later, buffers are released.
+	// Negative control: simulated host completion after cancellation.
+	// Host release is checked here; TestNativeCanceledPlanStillPending supplies the native witness.
 	close(waitBlocked)
 	if err := comp.Close(); err != nil {
 		t.Fatalf("Close after cancel: %v", err)
