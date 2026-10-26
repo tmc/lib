@@ -1,0 +1,12 @@
+commit: 01001e335fb9130cc5e4bad0ed01a00901e1449a
+date: 2026-10-26T23:24:16.253578+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 24745
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-tile-declarative-math-implementation/r2/cumulative.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-tile-declarative-math-adoption/ROOT-GRADE.md
+qualification: exact emitted-source CPP primitive-model and focused Go/race/vet scope; source F1 and setup stops preserved; actual CUDA/native/full-original unqualified
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
