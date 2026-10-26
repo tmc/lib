@@ -1,0 +1,11 @@
+commit: 0281773b279bfbdc00089f40e20394636cc549f0
+date: 2026-10-26T01:16:07.174894+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 38247
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-hotswap-wait-report-impl/W/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-hotswap-wait-adoption/ROOT-GRADE.md
+qualification: service waiting; exact56cd+fourpaths host/race26roots29subtests each; vet/twocompiledomissions; installed-lock/native/63unqualified
