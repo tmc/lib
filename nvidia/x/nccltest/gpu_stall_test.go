@@ -152,25 +152,15 @@ func TestTwoRankDelayedPeerControl(t *testing.T) {
 		report.Diagnosis, report.DelayedRank, report.DelayNS)
 }
 
-// TestCollectorCostComparison compares performance overhead when telemetry/inspection
-// recording is disabled versus enabled.
+// TestCollectorCostComparison verifies that collector-off/on cost comparisons
+// refuse in-process env toggles or uncollected on-arm runs and require per-arm
+// process isolation, off-path collector exclusion, and retained public
+// ncclinspector.Read + nccljoin.Join admission on the on arm. Physical GPU
+// execution must use TestNativeCollectorCostComparison (-tags=native,
+// NCCLCOST_NATIVE=1) with fresh child processes per arm.
 func TestCollectorCostComparison(t *testing.T) {
-	devices := requireTwoCUDA(t)
-	c := Case{Operation: AllReduce, DataType: Float32, Bytes: 65536}
-
-	// Baseline run (collector disabled)
-	t.Setenv("NCCL_INSPECTOR_ENABLE", "0")
-	baseline, err := Run(c, Options{Devices: devices, Warmup: 2, Iterations: 10, Checks: 1})
-	if err != nil {
-		t.Fatalf("baseline run failed: %v", err)
+	if os.Getenv("NCCLTEST_CUDA") == "1" {
+		t.Fatal("in-process NCCL_INSPECTOR_ENABLE toggle cannot establish collector custody or per-arm process isolation; run TestNativeCollectorCostComparison with -tags=native and NCCLCOST_NATIVE=1")
 	}
-
-	// Monitored run (collector enabled)
-	t.Setenv("NCCL_INSPECTOR_ENABLE", "1")
-	monitored, err := Run(c, Options{Devices: devices, Warmup: 2, Iterations: 10, Checks: 1})
-	if err != nil {
-		t.Fatalf("monitored run failed: %v", err)
-	}
-
-	t.Logf("Collector-off: %s, Collector-on: %s", baseline.GPUTime, monitored.GPUTime)
+	testCollectorCostComparisonContract(t)
 }
