@@ -62,10 +62,11 @@ func closeTo(got, want []float32, rel, abs float64) (int, bool) {
 //
 // With CUDACOMPILECHECK set to a cudacompilecheck binary
 // (github.com/tmc/lib/nvidia/x/cmd/cudacompilecheck) it compiles through
-// that, and fails unless ptxas reports at least one entry function. To
-// compile on another host, such as a Lima VM with the toolkit, also set
-// CUDACOMPILECHECK_EXEC to its -exec prefix and CUDACOMPILECHECK_NVCC to
-// nvcc's path there:
+// that. It fails unless ptxas reports at least one entry function, and if
+// any function spills or ptxas serializes a function's wgmma instructions
+// (C7512, C7513, C7519). To compile on another host, such as a Lima VM with
+// the toolkit, also set CUDACOMPILECHECK_EXEC to its -exec prefix and
+// CUDACOMPILECHECK_NVCC to nvcc's path there:
 //
 //	CUDACOMPILECHECK=$(go env GOPATH)/bin/cudacompilecheck \
 //	CUDACOMPILECHECK_EXEC='limactl shell --workdir / okcnvcc --' \
@@ -79,7 +80,7 @@ func TestGoldensCompile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if check := os.Getenv("CUDACOMPILECHECK"); check != "" {
-		args := []string{"-arch", "sm_90a", "-std", "c++20", "-flags", "-O3", "-json"}
+		args := []string{"-arch", "sm_90a", "-std", "c++20", "-flags", "-O3", "-json", "-no-spill", "-no-wgmma-serial"}
 		if x := os.Getenv("CUDACOMPILECHECK_EXEC"); x != "" {
 			args = append(args, "-exec", x)
 		}
