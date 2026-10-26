@@ -1,0 +1,12 @@
+commit: 6e0b0019e6eb493d610edee001150f2efac5206e
+date: 2026-10-26T23:33:18.075686+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 26311
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-unit25-owned-replacement/r3/cumulative-vs-154.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-owned-replay-plan-fixtures-adoption/ROOT-GRADE.md
+qualification: source, ordinary CPU and authentic CUDA13.4 header static compile only; production admissions zero; native and full Original25 unqualified
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
