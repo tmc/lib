@@ -4,3 +4,5 @@ agent: Claude Code 2.1.284 (teammate under team-lead, Wave 3 track 3)
 model: claude-opus-5-5
 tty: none; pid: 12063; ITERM_SESSION_ID: w2t1p2:96935236-73AE-46D0-8740-9197D78C4486
 session: 4f4f4f72-98c3-4d17-af9f-cd14788572a2
+
+cherry-picked from 5faa72fd7 onto work/fold-unified (after 9dd6da716) by Claude Code lead 96935236, 2026-10-26T02:31:00Z, session=4f4f4f72-98c3-4d17-af9f-cd14788572a2.
