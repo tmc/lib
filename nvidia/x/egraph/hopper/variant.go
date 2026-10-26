@@ -14,27 +14,28 @@ import (
 // Launch is a variant's tunable launch configuration. Zero fields do not
 // apply to the variant's kernel.
 type Launch struct {
-	Block          int    `json:"block"`                     // threads per block
-	Warps          int    `json:"warps"`                     // warps per block
-	Stages         int    `json:"stages,omitempty"`          // cp.async ring depth
-	TableAhead     int    `json:"table_ahead,omitempty"`     // page-table register prefetch depth (PagedAttention)
-	SplitK         int    `json:"split_k,omitempty"`         // K splits (SkinnyGEMM)
-	SplitKV        int    `json:"split_kv,omitempty"`        // keys per split (PagedAttention)
-	KVDepth        int    `json:"kv_depth,omitempty"`        // 16-key tiles per warp per step (PagedAttention)
-	KVHeads        int    `json:"kv_heads,omitempty"`        // KV heads per block (PagedAttention)
-	DeviceSplits   bool   `json:"device_splits,omitempty"`   // split_kv is the least keys per split; the launcher sizes splits from the device
-	Swizzle        bool   `json:"swizzle,omitempty"`         // 128B XOR-swizzled shared-memory K/V staging (PagedAttention)
-	ClusterCombine bool   `json:"cluster_combine,omitempty"` // 8-CTA cluster DSMEM split-KV combine (PagedAttention)
-	BM             int    `json:"bm,omitempty"`              // output tile rows (TileGEMM)
-	BN             int    `json:"bn,omitempty"`              // output tile columns (TileGEMM)
-	GroupM         int    `json:"group_m,omitempty"`         // CTA M-band size for L2 tile reuse (TileGEMM)
-	StreamK        int    `json:"stream_k,omitempty"`        // persistent Stream-K grid size (TileGEMM)
-	Swizzle128B    bool   `json:"swizzle_128b,omitempty"`    // 128B XOR-swizzled shared memory (TileGEMM WGMMA)
-	RowsPerBlock   int    `json:"rows_per_block,omitempty"`  // W rows per block (SkinnyGEMM)
-	Unroll         int    `json:"unroll,omitempty"`          // loads in flight (SkinnyGEMM)
-	Prefetch       int    `json:"prefetch,omitempty"`        // prefetched K steps per warp (SkinnyGEMM)
-	MMA            string `json:"mma,omitempty"`             // tensor-core instruction: mma.sync or wgmma
-	SharedBytes    int    `json:"shared_bytes,omitempty"`    // dynamic shared memory
+	Block           int    `json:"block"`                      // threads per block
+	Warps           int    `json:"warps"`                      // warps per block
+	Stages          int    `json:"stages,omitempty"`           // cp.async ring depth
+	TableAhead      int    `json:"table_ahead,omitempty"`      // page-table register prefetch depth (PagedAttention)
+	SplitK          int    `json:"split_k,omitempty"`          // K splits (SkinnyGEMM)
+	SplitKV         int    `json:"split_kv,omitempty"`         // keys per split (PagedAttention)
+	KVDepth         int    `json:"kv_depth,omitempty"`         // 16-key tiles per warp per step (PagedAttention)
+	KVHeads         int    `json:"kv_heads,omitempty"`         // KV heads per block (PagedAttention)
+	DeviceSplits    bool   `json:"device_splits,omitempty"`    // split_kv is the least keys per split; the launcher sizes splits from the device
+	Swizzle         bool   `json:"swizzle,omitempty"`          // 128B XOR-swizzled shared-memory K/V staging (PagedAttention)
+	ClusterCombine  bool   `json:"cluster_combine,omitempty"`  // 8-CTA cluster DSMEM split-KV combine (PagedAttention)
+	BM              int    `json:"bm,omitempty"`               // output tile rows (TileGEMM)
+	BN              int    `json:"bn,omitempty"`               // output tile columns (TileGEMM)
+	GroupM          int    `json:"group_m,omitempty"`          // CTA M-band size for L2 tile reuse (TileGEMM)
+	StreamK         int    `json:"stream_k,omitempty"`         // persistent Stream-K grid size (TileGEMM)
+	Swizzle128B     bool   `json:"swizzle_128b,omitempty"`     // 128B XOR-swizzled shared memory (TileGEMM WGMMA)
+	WarpSpecialized bool   `json:"warp_specialized,omitempty"` // producer/consumer warpgroups on an mbarrier ring (TileGEMM)
+	RowsPerBlock    int    `json:"rows_per_block,omitempty"`   // W rows per block (SkinnyGEMM)
+	Unroll          int    `json:"unroll,omitempty"`           // loads in flight (SkinnyGEMM)
+	Prefetch        int    `json:"prefetch,omitempty"`         // prefetched K steps per warp (SkinnyGEMM)
+	MMA             string `json:"mma,omitempty"`              // tensor-core instruction: mma.sync or wgmma
+	SharedBytes     int    `json:"shared_bytes,omitempty"`     // dynamic shared memory
 }
 
 // A Variant is one emitted kernel configuration with the metadata an
@@ -169,6 +170,9 @@ func (g TileGEMM) Variant() (Variant, error) {
 	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, GroupM: groupM, StreamK: g.StreamK, Swizzle128B: g.Swizzle128B, SharedBytes: g.SharedBytes(), MMA: "mma.sync"}
 	if g.WGMMA {
 		l.MMA = "wgmma"
+	}
+	if g.WarpSpecialized {
+		l.Block, l.Warps, l.WarpSpecialized = 384, 12, true
 	}
 	head := []string{"int m"}
 	if g.Grouped {

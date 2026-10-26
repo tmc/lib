@@ -76,6 +76,17 @@ type TileGEMM struct {
 	// the epilogue, so the result does not depend on which block finishes
 	// last. Grouped is not supported.
 	StreamK int
+	// WarpSpecialized, with WGMMA and Swizzle128B, runs 384-thread blocks:
+	// one producer warpgroup fills a Stages-deep shared-memory ring with
+	// cp.async.bulk copies that complete on full[stage] mbarriers, and two
+	// consumer warpgroups wait on full[stage], run wgmma and release the
+	// stage on empty[stage]. With WeightNVFP4 (which needs Repacked) the
+	// product is computed transposed: the weights are wgmma's A operand,
+	// dequantized in registers from RepackNVFP4WGMMA fragments, each consumer
+	// warpgroup owning 64 of the tile's BN = 128 weight rows, and BM (64 or
+	// 128) tokens of x are the B operand. SumSq is not supported with
+	// WeightNVFP4. StreamK and DequantWords are not supported.
+	WarpSpecialized bool
 
 	BM, BN int // 64 or 128 (BN 256 with WGMMA); 0 means 128
 	Stages int // 2 to 4; 0 means 3
@@ -94,7 +105,17 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.Stages == 0 {
 		g.Stages = 3
 	}
-	if g.WGMMA && g.BM != 128 {
+	swapAB := g.WarpSpecialized && g.Weight == WeightNVFP4
+	if g.WarpSpecialized && (!g.WGMMA || !g.Swizzle128B) {
+		return g, fmt.Errorf("tile gemm %s: WarpSpecialized requires WGMMA and Swizzle128B", g.Name)
+	}
+	if g.WarpSpecialized && (g.StreamK > 0 || g.DequantWords > 0) {
+		return g, fmt.Errorf("tile gemm %s: WarpSpecialized does not support StreamK or DequantWords", g.Name)
+	}
+	if swapAB && (!g.Repacked || g.SumSq) {
+		return g, fmt.Errorf("tile gemm %s: WarpSpecialized WeightNVFP4 requires Repacked and does not support SumSq", g.Name)
+	}
+	if g.WGMMA && g.BM != 128 && !(swapAB && g.BM == 64) {
 		return g, fmt.Errorf("tile gemm %s: WGMMA needs BM 128", g.Name)
 	}
 	if g.Swizzle128B && !g.WGMMA {
@@ -172,6 +193,15 @@ func (g TileGEMM) SharedBytes() int {
 	if err != nil {
 		return 0
 	}
+	if g.WarpSpecialized {
+		stage := (g.BM + g.BN) * 128
+		if g.Weight == WeightNVFP4 {
+			stage = (g.BM*128 + 256*(16+8) + 1023) / 1024 * 1024
+		}
+		// The stages, their full and empty mbarriers, and slack to align the
+		// ring to 1024 bytes.
+		return g.Stages*stage + 2*g.Stages*8 + 1024
+	}
 	if g.WGMMA {
 		if g.Weight == WeightNVFP4 {
 			if g.Repacked {
@@ -242,7 +272,11 @@ func (g TileGEMM) Grid(m, experts int) (grid, block [3]int) {
 	if g.StreamK > 0 {
 		return [3]int{g.StreamK, 1, 1}, [3]int{256, 1, 1}
 	}
-	return [3]int{g.N / g.BN, (m + g.BM - 1) / g.BM, experts}, [3]int{256, 1, 1}
+	threads := 256
+	if g.WarpSpecialized {
+		threads = 384
+	}
+	return [3]int{g.N / g.BN, (m + g.BM - 1) / g.BM, experts}, [3]int{threads, 1, 1}
 }
 
 // CUDA returns the kernel source (without [Prelude]):
@@ -254,6 +288,9 @@ func (g TileGEMM) CUDA() (string, error) {
 	g, err := g.norm()
 	if err != nil {
 		return "", err
+	}
+	if g.WarpSpecialized {
+		return g.cudaWarpSpecialized()
 	}
 	if g.WGMMA {
 		return g.cudaWGMMA()
@@ -641,7 +678,8 @@ func (g TileGEMM) Launcher() (string, error) {
 		fmt.Fprintf(&b, "    const dim3 grid(%d, 1, 1), block(256);\n", g.StreamK)
 		fmt.Fprintf(&b, "    if (m > 0) EG_LAUNCH(%s, grid, block, smem, stream, %s);\n}\n", g.Name, strings.Join(names, ", "))
 	} else {
-		fmt.Fprintf(&b, "    const dim3 grid(%d, (%s + %d) / %d, %s), block(256);\n", g.N/g.BN, rows, g.BM-1, g.BM, experts)
+		_, block := g.Grid(0, 1)
+		fmt.Fprintf(&b, "    const dim3 grid(%d, (%s + %d) / %d, %s), block(%d);\n", g.N/g.BN, rows, g.BM-1, g.BM, experts, block[0])
 		fmt.Fprintf(&b, "    if (grid.y > 0 && grid.z > 0) EG_LAUNCH(%s, grid, block, smem, stream, %s);\n}\n", g.Name, strings.Join(names, ", "))
 	}
 	return b.String(), nil

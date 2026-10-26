@@ -61,6 +61,26 @@ func TestTileGEMMEmulated(t *testing.T) {
 		{"wgmma_e4m3_glu_grouped", TileGEMM{N: 128, K: 128, Weight: WeightE4M3, Out: F32, BN: 64, WGMMA: true, Swizzle128B: true,
 			GLU: true, Grouped: true, Gather: true, SumSq: true,
 			Epilogue: MustLambda("(mul (mul (silu $0) $1) $2)"), Extras: []Operand{{"scale", F32, PerCol}}}, 140, 30, []int32{0, 129, 140}},
+		// Warp-specialized producer/consumer mbarrier rings; every k loop
+		// passes each stage at least three times.
+		{"ws_bf16", TileGEMM{N: 128, K: 384, Weight: WeightBF16, Out: F32, WGMMA: true, Swizzle128B: true, WarpSpecialized: true,
+			Stages: 2}, 150, 0, nil},
+		{"ws_bf16_256_epilogue", TileGEMM{N: 256, K: 640, Weight: WeightBF16, Out: BF16, BN: 256, WGMMA: true, Swizzle128B: true,
+			WarpSpecialized: true, Stages: 3, Epilogue: MustLambda("(add (mul $0 $1) $2)"),
+			Extras: []Operand{{"scale", BF16, PerCol}, {"resid", F32, Full}}}, 70, 0, nil},
+		{"ws_bf16_glu_grouped_gather", TileGEMM{N: 128, K: 384, Weight: WeightBF16, Out: BF16, BN: 64, WGMMA: true, Swizzle128B: true,
+			WarpSpecialized: true, Stages: 2, GroupM: 2, GLU: true, Grouped: true, Gather: true, SumSq: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 160, 40, []int32{0, 140, 160}},
+		{"ws_e4m3", TileGEMM{N: 128, K: 768, Weight: WeightE4M3, Out: F32, BN: 64, WGMMA: true, Swizzle128B: true,
+			WarpSpecialized: true, Stages: 2}, 135, 0, nil},
+		{"ws_nvfp4_64", TileGEMM{N: 128, K: 512, Weight: WeightNVFP4, Out: F32, BM: 64, BN: 128, WGMMA: true, Swizzle128B: true,
+			Repacked: true, WarpSpecialized: true, Stages: 2}, 90, 0, nil},
+		{"ws_nvfp4_128_epilogue", TileGEMM{N: 256, K: 640, Weight: WeightNVFP4, Out: BF16, BN: 128, WGMMA: true, Swizzle128B: true,
+			Repacked: true, WarpSpecialized: true, Stages: 3, GroupM: 2, Epilogue: MustLambda("(add (mul $0 $1) $2)"),
+			Extras: []Operand{{"scale", F32, PerCol}, {"resid", BF16, Full}}}, 200, 0, nil},
+		{"ws_nvfp4_glu_grouped_gather", TileGEMM{N: 256, K: 384, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 128, WGMMA: true,
+			Swizzle128B: true, Repacked: true, WarpSpecialized: true, Stages: 2, GLU: true, Grouped: true, Gather: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 100, 30, []int32{0, 37, 37, 100}},
 	}
 	r := rand.New(rand.NewPCG(41, 42))
 	for _, tt := range tests {
@@ -209,11 +229,17 @@ func TestTileGEMMEmulated(t *testing.T) {
 			for i, v := range decode(g.Out, res["out"]) {
 				got[i] = float32(v)
 			}
-			rel := 1e-5
+			// FP32 accumulation error grows with K and the size of the
+			// partial sums, which can be far larger than a cancelling output.
+			var ms float64
+			for _, v := range want {
+				ms += float64(v) * float64(v)
+			}
+			rel, abs := 1e-5, max(1e-5, 1e-6*math.Sqrt(float64(k)*ms/float64(len(want))))
 			if g.Out == BF16 {
 				rel = 1.0 / 128
 			}
-			if i, ok := closeTo(got, want, rel, 1e-5); !ok {
+			if i, ok := closeTo(got, want, rel, abs); !ok {
 				t.Fatalf("out[%d] = %g, want %g (relL2 %g)", i, got[i], want[i], relL2(got, want))
 			}
 			if g.SumSq {
@@ -265,6 +291,19 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"e4m3_swizzle128b_k64", func(g *TileGEMM) { g.Weight, g.WGMMA, g.Swizzle128B, g.K = WeightE4M3, true, true, 64 }},
 		{"dequant_words_no_repacked", func(g *TileGEMM) { g.Weight, g.WGMMA, g.DequantWords = WeightNVFP4, true, 2 }},
 		{"dequant_words_bad", func(g *TileGEMM) { g.Weight, g.WGMMA, g.Repacked, g.DequantWords = WeightNVFP4, true, true, 3 }},
+		{"ws_no_wgmma", func(g *TileGEMM) { g.WarpSpecialized, g.Swizzle128B = true, true }},
+		{"ws_no_swizzle", func(g *TileGEMM) { g.WarpSpecialized, g.WGMMA = true, true }},
+		{"ws_nvfp4_not_repacked", func(g *TileGEMM) {
+			g.Weight, g.WGMMA, g.Swizzle128B, g.WarpSpecialized = WeightNVFP4, true, true, true
+		}},
+		{"ws_nvfp4_sumsq", func(g *TileGEMM) {
+			g.Weight, g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.Repacked, g.SumSq = WeightNVFP4, true, true, true, true, true
+		}},
+		{"ws_stream_k", func(g *TileGEMM) { g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.StreamK = true, true, true, 132 }},
+		{"ws_dequant_words", func(g *TileGEMM) {
+			g.Weight, g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.Repacked, g.DequantWords = WeightNVFP4, true, true, true, true, 2
+		}},
+		{"ws_bf16_bm64", func(g *TileGEMM) { g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.BM = true, true, true, 64 }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)
@@ -286,6 +325,14 @@ func TestTileGEMMGolden(t *testing.T) {
 		// MoE gate/up for local experts, tokens gathered by expert, SwiGLU applied later.
 		{Name: "moe8_moe_w13", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, Grouped: true, Gather: true,
 			GLU: true, Epilogue: MustLambda("(mul (silu $0) $1)")},
+		// Warp-specialized mbarrier rings: BF16 and E4M3 with wgmma from shared
+		// memory, NVFP4 with in-register dequant as wgmma's A operand.
+		{Name: "moe8_prefill_qkv_ws", N: 2304, K: 8192, Weight: WeightBF16, Out: BF16, BN: 128, Stages: 4,
+			WGMMA: true, Swizzle128B: true, WarpSpecialized: true},
+		{Name: "moe8_e4m3_ws", N: 2304, K: 8192, Weight: WeightE4M3, Out: BF16, BN: 256, Stages: 3,
+			WGMMA: true, Swizzle128B: true, WarpSpecialized: true},
+		{Name: "moe8_moe_w13_ws", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, BN: 128, Stages: 4, Grouped: true, Gather: true,
+			GLU: true, Epilogue: MustLambda("(mul (silu $0) $1)"), WGMMA: true, Swizzle128B: true, Repacked: true, WarpSpecialized: true},
 	} {
 		src, err := g.Source()
 		if err != nil {

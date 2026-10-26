@@ -467,6 +467,19 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
     }
 `)
 	}
+	if err := g.wgmmaEpilogue(&b, bx); err != nil {
+		return "", err
+	}
+	if g.StreamK > 0 {
+		b.WriteString("    }\n")
+	}
+	b.WriteString("}\n")
+	return b.String(), nil
+}
+
+// wgmmaEpilogue emits the epilogue loops of a WGMMA kernel in which
+// warpgroup wgi (0 or 1) holds tile rows 64*wgi .. 64*wgi+63 in d.
+func (g TileGEMM) wgmmaEpilogue(b *strings.Builder, bx string) error {
 	nts, col := "BN / 8", "bn0"
 	if g.GLU {
 		nts, col = "BN / 16", bx+" * (BN / 2)"
@@ -474,7 +487,7 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	if g.SumSq {
 		b.WriteString("    float sq[2] = {};\n")
 	}
-	fmt.Fprintf(&b, `    // Accumulator d[nt*4 + i]: row (warp %% 4)*16 + lane/4 + 8*(i/2), column nt*8 + 2*(lane%%4) + (i&1).
+	fmt.Fprintf(b, `    // Accumulator d[nt*4 + i]: row (warp %% 4)*16 + lane/4 + 8*(i/2), column nt*8 + 2*(lane%%4) + (i&1).
 #pragma unroll
     for (int nt = 0; nt < %s; ++nt) {
         float yv[2]; // a row's two adjacent columns, stored together
@@ -497,12 +510,12 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	if g.GLU && g.Repacked {
 		// Under RepackNVFP4WGMMA with GLU, rows 16b..16b+7 are gate rows 8b..8b+7
 		// and rows 16b+8..16b+15 are the matching up rows, so nt pairs (2*nt, 2*nt+1).
-		fmt.Fprintf(&b, "            const float v = d[(2 * nt) * 4 + i]%s;\n", scale)
-		fmt.Fprintf(&b, "            const float u = d[(2 * nt + 1) * 4 + i]%s;\n", scale)
+		fmt.Fprintf(b, "            const float v = d[(2 * nt) * 4 + i]%s;\n", scale)
+		fmt.Fprintf(b, "            const float u = d[(2 * nt + 1) * 4 + i]%s;\n", scale)
 	} else {
-		fmt.Fprintf(&b, "            const float v = d[nt * 4 + i]%s;\n", scale)
+		fmt.Fprintf(b, "            const float v = d[nt * 4 + i]%s;\n", scale)
 		if g.GLU {
-			fmt.Fprintf(&b, "            const float u = d[(nt + BN / 16) * 4 + i]%s;\n", scale)
+			fmt.Fprintf(b, "            const float u = d[(nt + BN / 16) * 4 + i]%s;\n", scale)
 		}
 	}
 	args := []string{"v"}
@@ -514,13 +527,13 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	}
 	expr, err := g.Epilogue.CUDA(args...)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if g.SumSq {
-		fmt.Fprintf(&b, "            const float y = %s;\n", expr)
+		fmt.Fprintf(b, "            const float y = %s;\n", expr)
 		b.WriteString("            yv[i & 1] = y;\n")
 	} else {
-		fmt.Fprintf(&b, "            yv[i & 1] = %s;\n", expr)
+		fmt.Fprintf(b, "            yv[i & 1] = %s;\n", expr)
 	}
 	b.WriteString("            if (i & 1) eg_store<2>(out + (size_t)m * NOUT + n - 1, yv);\n")
 	if g.SumSq {
@@ -536,11 +549,7 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 `)
 	}
 	b.WriteString("        }\n    }\n")
-	if g.StreamK > 0 {
-		b.WriteString("    }\n")
-	}
-	b.WriteString("}\n")
-	return b.String(), nil
+	return nil
 }
 
 // wgmmaFunc returns a device function name(float* d, uint64_t da,

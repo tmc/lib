@@ -43,6 +43,11 @@
 //   - cp.async writes 0xff (NaN) to its destination when issued and the
 //     data lands only when cp.async.wait_group retires its group, so a
 //     too-shallow wait or a read ahead of its barrier reads NaN;
+//   - cp.async.bulk writes 0xff the same way, and its data lands only when
+//     a thread waits on the mbarrier phase the copy completes; a satisfied
+//     mbarrier wait returns only once no other thread of the block can run,
+//     so a missing or wrong-parity wait, or a producer that refills a stage
+//     its consumers have not released, reads NaN or deadlocks loudly;
 //   - each block starts with its static and dynamic shared memory filled
 //     with 0xff, so a kernel that reads shared memory it did not write in
 //     that block reads NaN (EG_EMU_ZERO_SMEM turns this off, as a control);
