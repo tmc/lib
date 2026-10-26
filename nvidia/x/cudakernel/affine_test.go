@@ -1,13 +1,17 @@
 package cudakernel_test
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudalock"
+	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 // affinePTX is a valid, hand-crafted PTX module implementing y[i] = a * x[i] + b.
@@ -140,11 +144,14 @@ func TestNativeAffineArtifact(t *testing.T) {
 		t.Fatalf("native affine qualification requires an inherited GPU owner: %v", err)
 	}
 
-	dev, err := cuda.NewDevice(0)
-	if err != nil {
-		t.Skipf("CUDA device unavailable: %v", err)
-	}
-	defer dev.Close()
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	dev, owner := cudatest.RequireOwned(ctx, t, func(d *cuda.Device) error {
+		if d.Ordinal() != 0 {
+			return fmt.Errorf("affine fixture requires device 0")
+		}
+		return nil
+	})
 
 	major, minor, err := dev.ComputeCapability()
 	if err != nil {
@@ -154,13 +161,32 @@ func TestNativeAffineArtifact(t *testing.T) {
 		t.Skipf("sm_121a fixture requires compute capability 12.1; device is %d.%d", major, minor)
 	}
 
-	mod, err := art.Load(dev)
-	if err != nil {
+	if err := affineLoadModule(owner.Defer, func() (driver.Module, error) {
+		return art.Load(dev)
+	}, dev.WithContext, (*driver.Module).Close); err != nil {
 		t.Fatalf("art.Load on device: %v", err)
 	}
-	defer func() {
-		_ = dev.WithContext(mod.Close)
-	}()
+}
+
+// affineLoadModule registers partial load results before returning their error.
+// Forget a module after unloading it, even when restoring the context fails.
+func affineLoadModule(deferCleanup func(func() error), load func() (driver.Module, error), withContext func(func() error) error, unload func(*driver.Module) error) error {
+	mod, err := load()
+	if mod != 0 {
+		deferCleanup(func() error {
+			if mod == 0 {
+				return nil
+			}
+			return withContext(func() error {
+				if err := unload(&mod); err != nil {
+					return err
+				}
+				mod = 0
+				return nil
+			})
+		})
+	}
+	return err
 }
 
 // affineNativeAdmission validates the canonical inherited owner before device setup.
