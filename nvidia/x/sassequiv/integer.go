@@ -74,6 +74,23 @@ func (l linear) constant() (uint32, bool) {
 	return l.k, true
 }
 
+// single reports whether l has exactly one atom, and its term.
+func (l linear) single() (t struct {
+	atom int
+	coef uint32
+}, ok bool) {
+	for a, c := range l.terms {
+		if c == 0 {
+			continue
+		}
+		if ok {
+			return t, false
+		}
+		t.atom, t.coef, ok = a, c, true
+	}
+	return t, ok
+}
+
 // node returns l as a value: an immediate, a lone atom, or a lin node of
 // commuting terms coef*atom and then the constant.
 func (x *blockExec) node(l linear) int {
@@ -283,6 +300,18 @@ func (x *blockExec) integer(label string, args []int) (int, bool) {
 		}
 		hi := x.lin(x.add("shr.s32", 0, args[0], x.imm(uint64(32-s))))
 		return x.node(hi.plus(x.lin(args[1]))), true
+	case "LOP3.LUT":
+		// LOP3.LUT d, a, b, c, lut, p with one register input and the
+		// rest constants is often a mask: (R8 & 0x3e) written with
+		// lut 0xe2 and c = RZ.
+		if len(args) != 5 || !isImm(x.fx.g, args[3]) || x.fx.g.nodes[args[4]].label != "false" {
+			return 0, false
+		}
+		v, k, ok := x.mask(args[:3], x.immVal(args[3]))
+		if !ok {
+			return 0, false
+		}
+		return x.and(v, k), true
 	case "SHF.L.U32", "SHF.L.W.U32":
 		if len(args) != 3 || x.fx.g.nodes[args[2]].label != "imm:0x0" {
 			return 0, false
@@ -310,6 +339,71 @@ func (x *blockExec) integer(label string, args []int) (int, bool) {
 		return x.add(kind, 0, args[2], x.imm(uint64(s))), true
 	}
 	return 0, false
+}
+
+// mask reports whether the three-input function lut of ins, all
+// immediates but one, v, is v & k: each bit of the result either is 0 or
+// is v's bit.
+func (x *blockExec) mask(ins []int, lut uint32) (v int, k uint32, ok bool) {
+	v = -1
+	var consts [3]uint32
+	for i, a := range ins {
+		if isImm(x.fx.g, a) {
+			consts[i] = x.immVal(a)
+			continue
+		}
+		if v >= 0 {
+			return 0, 0, false
+		}
+		v = i
+	}
+	if v < 0 {
+		return 0, 0, false
+	}
+	for bit := range 32 {
+		var f [2]uint32
+		for vb := range uint32(2) {
+			idx := 0
+			for i := range 3 {
+				b := consts[i] >> bit & 1
+				if i == v {
+					b = vb
+				}
+				idx |= int(b) << (2 - i)
+			}
+			f[vb] = lut >> idx & 1
+		}
+		switch f {
+		case [2]uint32{0, 0}:
+		case [2]uint32{0, 1}:
+			k |= 1 << bit
+		default:
+			return 0, 0, false
+		}
+	}
+	return ins[v], k, true
+}
+
+// and returns v & k in canonical form, as LOP3.LUT v, k, RZ, 0xc0.
+// A mask of a multiple of 2^s moves inside it, (t << s) & k being
+// (t & k >> s) << s, and masks of masks combine.
+func (x *blockExec) and(v int, k uint32) int {
+	switch k {
+	case 0:
+		return x.imm(0)
+	case ^uint32(0):
+		return v
+	}
+	l := x.lin(v)
+	if c, ok := l.single(); ok && l.k == 0 && c.coef&(c.coef-1) == 0 && c.coef > 1 {
+		s := bits.TrailingZeros32(c.coef)
+		return x.node(x.lin(x.and(c.atom, k>>s)).scale(c.coef))
+	}
+	if n := x.fx.g.nodes[v]; n.label == "LOP3.LUT" && len(n.args) == 5 && x.fx.g.nodes[n.args[2]].label == "imm:0x0" &&
+		isImm(x.fx.g, n.args[1]) && isImm(x.fx.g, n.args[3]) && x.immVal(n.args[3]) == 0xc0 {
+		return x.and(n.args[0], k&x.immVal(n.args[1]))
+	}
+	return x.add("LOP3.LUT", 0, v, x.imm(uint64(k)), x.imm(0), x.imm(0xc0), x.leaf("false"))
 }
 
 // addx returns the high word of a multi-word add: the sum of addends,

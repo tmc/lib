@@ -737,6 +737,46 @@ ISETP.GE.AND P0, PT, R6, RZ, PT
 LDG.E R6, desc[UR4][R2.64]
 STG.E desc[UR4][R4.64], R6
 EXIT`, Different, ""},
+		{"mask before or after a shift", prologue + `
+LOP3.LUT R7, R0, 0x1f, RZ, 0xc0, !PT
+IMAD.SHL.U32 R7, R7, 0x2, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD.SHL.U32 R7, R0, 0x2, RZ
+LOP3.LUT R7, R7, 0x3e, RZ, 0xe2, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"mask before or after a shift, one bit more", prologue + `
+LOP3.LUT R7, R0, 0x1f, RZ, 0xc0, !PT
+IMAD.SHL.U32 R7, R7, 0x2, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD.SHL.U32 R7, R0, 0x2, RZ
+LOP3.LUT R7, R7, 0x7e, RZ, 0xe2, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"mask of the complement", prologue + `
+LOP3.LUT R7, R0, 0x1f, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LOP3.LUT R7, R0, 0x1f, RZ, 0x0c, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"mask of a mask", prologue + `
+LOP3.LUT R7, R0, 0xf0, RZ, 0xc0, !PT
+LOP3.LUT R7, R7, 0x3c, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LOP3.LUT R7, R0, 0x30, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"mask written with the operands swapped", prologue + `
+LOP3.LUT R7, R0, 0x1f, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LOP3.LUT R7, RZ, R0, 0x1f, 0x88, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `
