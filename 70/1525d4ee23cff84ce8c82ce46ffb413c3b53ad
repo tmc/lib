@@ -1,0 +1,11 @@
+commit: 701525d4ee23cff84ce8c82ce46ffb413c3b53ad
+date: 2026-10-26T02:18:20.700353+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 23259
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-vllm-v1-codex-implementation/vllm-v1.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-vllm-v1-adoption/ROOT-GRADE.md
+qualification: selected vLLM0.8.5V1; actual139+12paths host/race36testpasses2pkgpasses, vet, fivecompiledomissions, legacybytespreserved; authentic/native unqualified
