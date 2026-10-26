@@ -36,6 +36,8 @@ var streamKTests = []struct {
 	// 1 tile × 5 = 5 over 7: one tile split five ways, two idle blocks.
 	{"wgmma_nvfp4_repacked_glu", TileGEMM{N: 128, K: 320, Weight: WeightNVFP4, Out: F32, BN: 128, WGMMA: true, Repacked: true, Swizzle128B: true, StreamK: 7,
 		GLU: true, Gather: true, SumSq: true, Epilogue: MustLambda("(mul (silu $0) $1)")}, 90, 25},
+	// 2 tiles × 7 = 14 over 5 (two tiles split three ways), two-word dequant.
+	{"wgmma_nvfp4_repacked_2w", TileGEMM{N: 256, K: 448, Weight: WeightNVFP4, Out: F32, BN: 128, WGMMA: true, Repacked: true, DequantWords: 2, StreamK: 5, Stages: 2}, 100, 0},
 	// 4 tiles × 3 = 12 over 5, FP8 weights.
 	{"wgmma_e4m3", TileGEMM{N: 128, K: 192, Weight: WeightE4M3, Out: F32, BN: 64, WGMMA: true, Stages: 2, StreamK: 5}, 135, 0},
 }
@@ -135,7 +137,11 @@ func emuTileGEMM(t *testing.T, g TileGEMM, src string, in tileInputs, launches i
 	}
 	switch {
 	case g.Weight == WeightNVFP4 && g.Repacked:
-		q, sf, err := RepackNVFP4WGMMA(in.w.Packed, in.w.Scales, g.N, g.K, g.GLU)
+		repack := RepackNVFP4WGMMA
+		if g.DequantWords == 2 {
+			repack = RepackNVFP4Dequant2Word
+		}
+		q, sf, err := repack(in.w.Packed, in.w.Scales, g.N, g.K, g.GLU)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -274,9 +274,9 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 			storeExpr = "sb + eg_swizzle_128b((uint32_t)(r * 128 + ch * 16 + tq * 4))"
 		}
 		fmt.Fprintf(&b, `        __syncthreads();
-        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) %% STAGES, kt + STAGES - 1);
+        if (kt + STAGES - 1 < %s) load((%s + STAGES - 1) %% STAGES, kt + STAGES - 1);
         eg_cp_async_commit();
-        unsigned char* const sa = smem + (kt %% STAGES) * STAGE;
+        unsigned char* const sa = smem + (%s %% STAGES) * STAGE;
         unsigned char* const sb = sa + BM * BK * 2;
         const uint32_t* const sbq = reinterpret_cast<const uint32_t*>(sb + BN * BK * 2 + tid * 16);
         const uint8_t* const sbs = sb + BN * BK * 2 + 256 * 16 + tid * 8;
@@ -308,7 +308,7 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         }
         eg_fence_proxy_async();
         __syncthreads();
-`, storeExpr)
+`, ktEnd, stepExpr, stepExpr, storeExpr)
 	case g.Weight == WeightNVFP4 && g.Repacked:
 		storeExpr := "sb + core(r, ch) + tq * 4"
 		if g.Swizzle128B {
