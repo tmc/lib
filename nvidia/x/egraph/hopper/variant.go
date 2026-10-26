@@ -36,6 +36,8 @@ type Launch struct {
 	Prefetch        int    `json:"prefetch,omitempty"`         // prefetched K steps per warp (SkinnyGEMM)
 	MMA             string `json:"mma,omitempty"`              // tensor-core instruction: mma.sync or wgmma
 	SharedBytes     int    `json:"shared_bytes,omitempty"`     // dynamic shared memory
+	Registers       int    `json:"registers,omitempty"`        // registers per thread from ptxas -v
+	ptxasShared     int    // static shared memory bytes from ptxas -v
 }
 
 // A Variant is one emitted kernel configuration with the metadata an

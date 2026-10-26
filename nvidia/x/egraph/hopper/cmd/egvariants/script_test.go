@@ -23,7 +23,7 @@ func TestScript(t *testing.T) {
 			abs := make([]string, len(args))
 			for i, a := range args {
 				abs[i] = a
-				if !strings.HasPrefix(a, "-") {
+				if !strings.HasPrefix(a, "-") && (i == 0 || args[i-1] != "-rank-device") {
 					abs[i] = s.Path(a)
 				}
 			}
@@ -41,4 +41,8 @@ func TestScript(t *testing.T) {
 	}
 	engine := &script.Engine{Cmds: cmds, Conds: scripttest.DefaultConds()}
 	scripttest.Test(t, context.Background(), engine, []string{"MOE8=" + moe8}, "testdata/script/*.txt")
+}
+
+func TestTunerSweepAndRankCLI(t *testing.T) {
+	TestScript(t)
 }

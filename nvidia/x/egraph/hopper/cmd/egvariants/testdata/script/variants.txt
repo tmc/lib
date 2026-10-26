@@ -13,14 +13,32 @@ egvariants -sweep -o swept attn.json
 exists swept/attn_kv128.cu swept/attn_kv1024.cu
 grep '"split_kv": 512' swept/manifest.json
 
+# Static ptxas gate filters out spilling/serialized variants and -rank-device emits a shape dispatcher.
+egvariants -sweep -ptxas ptxas.log -rank-device sm_90 -o tuned attn.json
+! exists tuned/attn_kv64.cu
+exists tuned/attn_kv320.cu tuned/attn_dispatch.cu tuned/ranked.json
+grep 'inline void attn_dispatch' tuned/attn_dispatch.cu
+
 # Errors.
 ! egvariants -o bad missing.json
 stderr 'no such file'
 ! egvariants -o bad baddispatch.json
 stderr 'no variant "nope"'
+! egvariants -rank-device bad_gpu -o bad spec.json
+stderr 'unknown rank device'
 ! egvariants spec.json
 stderr usage
 
+-- ptxas.log --
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z9attn_kv64PKuPKhS2_PKiiS4_PKfS6_PfPh' for 'sm_90a'
+ptxas info    : Function properties for _Z9attn_kv64PKuPKhS2_PKiiS4_PKfS6_PfPh
+    16 bytes stack frame, 16 bytes spill stores, 16 bytes spill loads
+ptxas info    : Used 128 registers, 38916 bytes smem, 400 bytes cmem[0]
+ptxas info    : Compiling entry function '_Z10attn_kv320PKuPKhS2_PKiiS4_PKfS6_PfPh' for 'sm_90a'
+ptxas info    : Function properties for _Z10attn_kv320PKuPKhS2_PKiiS4_PKfS6_PfPh
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 112 registers, 38916 bytes smem, 400 bytes cmem[0]
 -- spec.json --
 {
   "skinny_gemm": [{"Name": "qkv_small", "N": 2304, "K": 8192, "MaxM": 8, "Weight": "bf16", "Out": "bf16", "SplitK": 2}],

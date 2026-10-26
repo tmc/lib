@@ -103,6 +103,35 @@ type Result struct {
 	Ratios    []float64 // per-block ratios in input order
 }
 
+// A Summary is the paired estimate and block-win sign test for one shape's
+// ABBA blocks.
+type Summary struct {
+	Result
+	Wins   int     // blocks with ratio > 1
+	Losses int     // blocks with ratio < 1
+	SignP  float64 // exact two-sided binomial p-value from SignTest(Wins, Losses)
+}
+
+// Analyze computes [Paired] with the [Geometric] estimator and [SignTest] over
+// the per-block ratios.
+func Analyze(blocks []Block, h float64) (Summary, error) {
+	r, err := Paired(blocks, h, Geometric)
+	if err != nil {
+		return Summary{}, err
+	}
+	s := Summary{Result: r}
+	for _, x := range r.Ratios {
+		switch {
+		case x > 1:
+			s.Wins++
+		case x < 1:
+			s.Losses++
+		}
+	}
+	s.SignP = SignTest(s.Wins, s.Losses)
+	return s, nil
+}
+
 // Paired returns the paired estimate for blocks after removing the
 // intercept h, which may be zero.
 func Paired(blocks []Block, h float64, e Estimator) (Result, error) {
