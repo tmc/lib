@@ -41,6 +41,8 @@ type Service struct {
 	table       generationTable
 	loader      Loader
 	acquire     func(context.Context, string) (io.Closer, error)
+	rawAcquire  func(context.Context, string) (io.Closer, error)
+	waits       acquireWaits
 	states      map[string]State
 	settings    map[string]kernelSettings
 	reports     *reportEvents
@@ -156,13 +158,15 @@ func NewService(loader Loader) (*Service, error) {
 	s := &Service{loader: loader, states: make(map[string]State), pending: make(map[*PendingLaunch]struct{}), reports: reports}
 	s.graphs = newGraphRegistry(&s.table)
 	s.versionKeys = make(map[*generation]string)
-	s.acquire = func(ctx context.Context, name string) (io.Closer, error) {
-		h, err := cudalock.Acquire(ctx, cudalock.WithLabel("cudahotswap:"+name))
+	s.rawAcquire = func(ctx context.Context, name string) (io.Closer, error) {
+		h, err := cudalock.Acquire(ctx, cudalock.WithLabel(lockLabel(name)))
 		if err != nil {
 			return nil, err
 		}
 		return requestLease{h}, nil
 	}
+	s.waits = newAcquireWaits()
+	s.acquire = s.acquireWaiting
 	if native, ok := loader.(*NVRTCLoader); ok && native != nil {
 		s.newReplay = func(name string, spec replaySpec, policy replayPolicy, bindings []replayDeviceBinding) (replayBackend, error) {
 			b, err := newCUDAReplayBackend(native.dev, spec, policy, bindings)
