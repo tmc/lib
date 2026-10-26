@@ -23,7 +23,7 @@ func TestRunToolKillsGroup(t *testing.T) {
 	pidFile := filepath.Join(t.TempDir(), "pid")
 	start := time.Now()
 	_, err := runTool(context.Background(), 300*time.Millisecond,
-		[]string{"sh", "-c", "sleep 30 & echo $! > " + pidFile + "; wait"})
+		[]string{"sh", "-c", "sleep 30 & echo $! > " + pidFile + "; wait"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "timed out after 300ms (killed its process group)") {
 		t.Fatalf("err = %v", err)
 	}
@@ -44,7 +44,7 @@ func TestRunToolGroupFallback(t *testing.T) {
 	processGroup, groupWarning, groupWarningOnce = 1, &warn, sync.Once{}
 
 	for range 2 {
-		out, err := runTool(context.Background(), 10*time.Second, []string{"sh", "-c", "echo ok"})
+		out, err := runTool(context.Background(), 10*time.Second, []string{"sh", "-c", "echo ok"}, nil)
 		if err != nil || string(out) != "ok\n" {
 			t.Fatalf("runTool = %q, %v", out, err)
 		}
@@ -58,7 +58,7 @@ func TestRunToolGroupFallback(t *testing.T) {
 
 	pidFile := filepath.Join(t.TempDir(), "pid")
 	_, err := runTool(context.Background(), 300*time.Millisecond,
-		[]string{"sh", "-c", "sleep 30 & echo $! > " + pidFile + "; wait"})
+		[]string{"sh", "-c", "sleep 30 & echo $! > " + pidFile + "; wait"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "killed sh only; its children may still be running") {
 		t.Errorf("err = %v", err)
 	}

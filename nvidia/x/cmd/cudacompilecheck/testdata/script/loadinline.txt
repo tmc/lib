@@ -28,6 +28,14 @@ stdout '-D__CUDA_NO_HALF_OPERATORS__ .*--expt-relaxed-constexpr'
 stdout '-isystem \S*site/torch/include -isystem \S*site/torch/include/torch/csrc/api/include'
 stdout '-isystem \S*/torchstub'
 
+# With -exec the stand-in reaches the compiling host with the work
+# directory, and the flag names its copy there.
+chmod 0755 vm.sh
+mkdir vm
+exec cudacompilecheck -exec $WORK/vm.sh -remote-tmp $WORK/vm -nvcc $WORK/nvcc -torch $WORK/site sub.py
+exec cat args
+stdout '-isystem \S*/vm/cudacompilecheck-[0-9-]+/src/\S*/torchstub '
+
 # A header the wheel has is not shadowed by the stand-in.
 mkdir site/torch/include/c10/cuda/impl
 cp sub.py site/torch/include/c10/cuda/impl/cuda_cmake_macros.h
@@ -64,6 +72,12 @@ stderr 'no torch/include/torch/extension.h there'
 ! exec cudacompilecheck -nvcc $WORK/nvcc -torch $WORK/site -D KILL sub.py
 stderr 'probably out of memory on the compiling host'
 
+-- vm.sh --
+#!/bin/sh
+# A stand-in for limactl shell: drop flock(1) and timeout(1).
+[ "$1" = flock ] && shift 6
+[ "$1" = timeout ] && shift 4
+exec "$@"
 -- nvcc --
 #!/bin/sh
 echo "$@" > $WORK/args

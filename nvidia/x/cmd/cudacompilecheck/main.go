@@ -14,11 +14,19 @@
 //	    -nvcc /home/me.linux/venv/lib/python3.12/site-packages/nvidia/cu13/bin/nvcc \
 //	    -arch sm_90a,sm_121a -launchers kernels.cu
 //
-// With -exec, the sources and the work directory, which holds generated
-// wrappers, must have the same path on both sides; Lima mounts the macOS
-// home directory that way, read-only. The default work directory is then a
-// hidden directory beside the first source. Compiler outputs go to a fresh
-// directory under /tmp on the compiling host. Both are removed on exit.
+// With -exec, the command sends each source, the local files it includes
+// (quoted names, and names found in an -I directory) and the work
+// directory, which holds generated wrappers, to the compiling host as a tar
+// archive on the prefix's standard input. They land in a fresh directory
+// under -remote-tmp there, beside the compiler outputs, and the outputs come
+// back as the tools' standard output: no filesystem is shared, so a wedged
+// host mount cannot stall a compile. Paths in the tools' output name the
+// local files. Both directories are removed on exit.
+//
+// -shared-fs instead has the compiling host read the sources and the work
+// directory through a filesystem it shares at the same paths, as Lima
+// mounts the macOS home directory, read-only. The default work directory is
+// then a hidden directory beside the first source.
 //
 // Templates are compiled only when instantiated. -keep names functions whose
 // addresses a generated wrapper takes, and -launchers adds every
@@ -143,6 +151,9 @@ type config struct {
 	spills          bool
 	noLoopSpill     bool
 	exec            []string
+	sharedFS        bool
+	remoteTmp       string
+	root            string // with -exec and no -shared-fs, where the compiling host holds the sources
 	archs           []string
 	std             string
 	includes        listFlag
@@ -216,7 +227,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&c.savePTX, "save-ptx", "", "write each source's PTX to `directory` as NAME.ARCH.ptx; implies -ptx")
 	fs.StringVar(&c.saveSASS, "save-sass", "", "write each source's cuobjdump -sass listing to `directory` as NAME.ARCH.sass; implies -sass")
 	fs.IntVar(&c.top, "top", 8, "opcodes to print per function with -sass or -ptx")
-	fs.StringVar(&c.work, "work", "", "work `directory`; must be visible to the compiling host")
+	fs.StringVar(&c.work, "work", "", "work `directory`; with -shared-fs, must be visible to the compiling host")
+	fs.BoolVar(&c.sharedFS, "shared-fs", false, "with -exec, read sources through a filesystem the compiling host shares at the same paths instead of sending them")
+	fs.StringVar(&c.remoteTmp, "remote-tmp", "/tmp", "with -exec, `directory` on the compiling host for sources and outputs")
 	fs.IntVar(&c.maxRegisters, "max-registers", 0, "fail if an entry function uses more registers")
 	fs.BoolVar(&c.noSpill, "no-spill", false, "fail if a function spills")
 	fs.BoolVar(&c.noWGMMASerial, "no-wgmma-serial", false, "fail if ptxas serializes a function's wgmma instructions (C7512, C7513, C7519)")
@@ -303,7 +316,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	work := c.work
 	if work == "" {
 		var err error
-		if len(c.exec) > 0 {
+		if len(c.exec) > 0 && c.sharedFS {
 			work, err = os.MkdirTemp(filepath.Dir(srcs[0]), ".cudacompilecheck-")
 		} else {
 			work, err = os.MkdirTemp("", "cudacompilecheck-")
@@ -316,12 +329,18 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return errors.New("bad work directory")
 	}
 
+	c.work = work
+
 	// Outputs go where the compiler can write: the work directory when
-	// local, a fresh directory under /tmp on the remote side otherwise.
+	// local, a fresh directory under -remote-tmp on the remote side
+	// otherwise, which also holds the sources sent there.
 	outRoot := work
 	if len(c.exec) > 0 {
-		outRoot = fmt.Sprintf("/tmp/cudacompilecheck-%d-%d", os.Getpid(), time.Now().UnixNano())
+		outRoot = fmt.Sprintf("%s/cudacompilecheck-%d-%d", strings.TrimSuffix(c.remoteTmp, "/"), os.Getpid(), time.Now().UnixNano())
 		defer c.run(context.WithoutCancel(ctx), "rm", "-rf", outRoot)
+		if !c.sharedFS {
+			c.root = outRoot + "/src"
+		}
 	}
 	var reports []*fileReport
 	failed := false
@@ -434,7 +453,7 @@ func (c *config) torchFlags(ctx context.Context, work string) ([]string, error) 
 		if err := os.WriteFile(filepath.Join(stub, "c10/cuda/impl/cuda_cmake_macros.h"), []byte(cudaCMakeMacros), 0o644); err != nil {
 			return nil, err
 		}
-		flags = append(flags, "-isystem", stub)
+		flags = append(flags, "-isystem", c.remote(stub))
 	}
 	return flags, nil
 }
@@ -467,7 +486,7 @@ func wrapper(src string, text []byte, c *config) string {
 		return ""
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "#include %q\n", src)
+	fmt.Fprintf(&b, "#include %q\n", c.remote(src))
 	for i, n := range names {
 		fmt.Fprintf(&b, "void* cudacompilecheck_keep_%d = (void*)&%s;\n", i, n)
 	}
@@ -492,6 +511,19 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 			return nil, err
 		}
 	}
+	if c.root != "" {
+		send, err := includes(src, c.includeDirs())
+		if err != nil {
+			return nil, err
+		}
+		work, err := files(c.work)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.send(ctx, append(send, work...)); err != nil {
+			return nil, err
+		}
+	}
 	out := filepath.Join(outDir, "out.fatbin")
 	args := []string{c.nvcc, "-std=" + c.std, "-fatbin", "-Xptxas", "-v", "-o", out}
 	if c.spills {
@@ -500,14 +532,9 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 	for _, a := range c.archs {
 		args = append(args, fmt.Sprintf("-gencode=arch=compute_%s,code=%s", strings.TrimPrefix(a, "sm_"), a))
 	}
-	for _, d := range c.includes {
-		args = append(args, "-I"+d)
-	}
-	for _, d := range c.defines {
-		args = append(args, "-D"+d)
-	}
+	args = append(args, c.includeFlags()...)
 	args = append(args, c.extra...)
-	args = append(args, input)
+	args = append(args, c.remote(input))
 
 	output, err := c.compile(ctx, args...)
 	if err != nil {
@@ -695,6 +722,35 @@ func parseWantEntries(v string) ([]string, error) {
 	return names, nil
 }
 
+// includeDirs returns the -I directories that exist locally, which hold
+// headers to send to the compiling host.
+func (c *config) includeDirs() []string {
+	var dirs []string
+	for _, d := range c.includes {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			abs, _ := filepath.Abs(d)
+			dirs = append(dirs, abs)
+		}
+	}
+	return dirs
+}
+
+// includeFlags returns the -I and -D flags, with each local -I directory
+// named as the compiling host sees it.
+func (c *config) includeFlags() []string {
+	var args []string
+	for _, d := range c.includes {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			d = c.remote(d)
+		}
+		args = append(args, "-I"+d)
+	}
+	for _, d := range c.defines {
+		args = append(args, "-D"+d)
+	}
+	return args
+}
+
 // entryFailures applies -count and -want-entries to each architecture.
 func entryFailures(c *config, info *ptxasinfo.Report) []string {
 	if c.count < 0 && len(c.wantEntries) == 0 {
@@ -739,18 +795,20 @@ func entryFailures(c *config, info *ptxasinfo.Report) []string {
 // not the tool on the far side, so the tool also runs under timeout(1)
 // there with the same limit; the compiling host must provide it.
 func (c *config) run(ctx context.Context, args ...string) ([]byte, error) {
-	return c.runOn(ctx, false, args)
+	return c.runOn(ctx, false, nil, args)
 }
 
 // compile is run for the heavy tools, which with -exec hold -lock.
 func (c *config) compile(ctx context.Context, args ...string) ([]byte, error) {
-	return c.runOn(ctx, true, args)
+	return c.runOn(ctx, true, nil, args)
 }
 
 // lockBusy is flock's exit status when -lock-wait expires.
 const lockBusy = 75
 
-func (c *config) runOn(ctx context.Context, lock bool, args []string) ([]byte, error) {
+// runOn runs args with stdin as its standard input. Paths in its output
+// that name a sent copy of a local file name the local file.
+func (c *config) runOn(ctx context.Context, lock bool, stdin []byte, args []string) ([]byte, error) {
 	argv, limit := args, c.timeout
 	if len(c.exec) > 0 {
 		secs := int(math.Ceil(c.timeout.Seconds()))
@@ -762,7 +820,11 @@ func (c *config) runOn(ctx context.Context, lock bool, args []string) ([]byte, e
 		}
 		argv = append(argv, args...)
 	}
-	return runTool(ctx, limit, argv)
+	out, err := runTool(ctx, limit, argv, stdin)
+	if c.root != "" {
+		out = bytes.ReplaceAll(out, []byte(c.root+"/"), []byte("/"))
+	}
+	return out, err
 }
 
 // hint explains a tool failure that has a likely cause: a tool missing
@@ -786,7 +848,7 @@ var (
 	groupWarningOnce sync.Once
 )
 
-func runTool(ctx context.Context, timeout time.Duration, argv []string) ([]byte, error) {
+func runTool(ctx context.Context, timeout time.Duration, argv []string, stdin []byte) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	command := func(group bool) *exec.Cmd {
@@ -794,6 +856,9 @@ func runTool(ctx context.Context, timeout time.Duration, argv []string) ([]byte,
 		// Grandchildren that keep the output pipe open must not hold
 		// Wait past the timeout.
 		cmd.WaitDelay = 5 * time.Second
+		if stdin != nil {
+			cmd.Stdin = bytes.NewReader(stdin)
+		}
 		if group {
 			setProcessGroup(cmd)
 		}
@@ -888,13 +953,8 @@ func printCensus(w io.Writer, kind, arch, name string, c *Census, top int) {
 func ptxCensus(ctx context.Context, c *config, src, input, outDir, arch string) (map[string]*Census, error) {
 	out := filepath.Join(outDir, arch+".ptx")
 	args := []string{c.nvcc, "-std=" + c.std, "-ptx", "-arch=compute_" + strings.TrimPrefix(arch, "sm_"), "-o", out}
-	for _, d := range c.includes {
-		args = append(args, "-I"+d)
-	}
-	for _, d := range c.defines {
-		args = append(args, "-D"+d)
-	}
-	args = append(append(args, c.extra...), input)
+	args = append(args, c.includeFlags()...)
+	args = append(append(args, c.extra...), c.remote(input))
 	if text, err := c.compile(ctx, args...); err != nil {
 		return nil, fmt.Errorf("nvcc -ptx: %v%s\n%s", err, c.hint(err, c.nvcc, "-nvcc"), text)
 	}
