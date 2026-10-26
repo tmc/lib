@@ -1,0 +1,12 @@
+commit: 18a9ee23302ea3e5a831b1d63b551008e6a320fe
+date: 2026-10-26T13:16:10.099375+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 56857
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original100-fixed-counts/cumulative-vs-147.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-collector-precision-adoption/ROOT-GRADE.md
+qualification: exact named source/CPU scope; historical failures and generic-control downgrade retained; native/full-original unqualified
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
