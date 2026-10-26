@@ -364,9 +364,10 @@ func commuting(op, base string) int {
 
 func (x *blockExec) inst(in cudasass.Instruction) {
 	x.pc = in.Address
-	// A generic access with .E takes a 64-bit address in a register
-	// pair, though the listing names only the first: LD.E R18, [R16].
-	x.wide = generic[cudasass.BaseOpcode(in.Opcode)] && slices.Contains(strings.Split(in.Opcode, "."), "E")
+	// An .E access takes a 64-bit address in a register pair, though
+	// the listing may name only the first: LD.E R18, [R16] and
+	// ATOMG.E.CAS PT, RZ, [R2], R4, R5.
+	x.wide = pairAddress[cudasass.BaseOpcode(in.Opcode)] && slices.Contains(strings.Split(in.Opcode, "."), "E")
 	x.guard = -1
 	guard := -1
 	switch p := strings.TrimSpace(in.Predicate); p {
@@ -517,9 +518,12 @@ func (x *blockExec) cond(guard int) int {
 }
 
 func (x *blockExec) writeDsts(op, base string, dsts []operand, v, guard int) {
+	// The opcode's width is its first register destination's, which
+	// follows a predicate in ATOMG PT, R14, ...
+	first := slices.IndexFunc(dsts, func(d operand) bool { return !isPred(d.core) })
 	for i, d := range dsts {
 		w := 1
-		if i == 0 && !isPred(d.core) {
+		if i == first {
 			w = dstWidth(op, base)
 		}
 		if w < 0 {
@@ -548,7 +552,7 @@ func (x *blockExec) move(op, base string, ops []string, guard int) bool {
 	}
 	var src string
 	switch {
-	case base == "LDC" || base == "ULDC":
+	case base == "LDC" || base == "ULDC" || base == "LDCU":
 		if len(ops) != 2 {
 			return false
 		}
@@ -632,8 +636,15 @@ func (x *blockExec) p2r(ops []string, guard int) {
 	}
 	args := []int{x.val(ops[2], 1), x.val(ops[3], 1)}
 	if strings.TrimSpace(ops[1]) == "PR" {
+		// P2R R, PR, RZ, 0x2 reads only P1: a predicate outside an
+		// immediate mask does not reach the result.
+		mask, ok := immediate(ops[3])
 		for i := range 7 {
-			args = append(args, x.read("P"+strconv.Itoa(i)))
+			p := x.leaf("false")
+			if !ok || mask>>i&1 != 0 {
+				p = x.read("P" + strconv.Itoa(i))
+			}
+			args = append(args, p)
 		}
 	} else {
 		args = append(args, x.val(ops[1], 1))
@@ -798,6 +809,8 @@ func srcWidths(op, base string, srcs []string) []int {
 		}
 	}
 	switch {
+	case (base == "MOV" || base == "UMOV") && widthOf(op) == 2:
+		set(0, 2)
 	case base == "DADD" || base == "DMUL" || base == "DFMA" || base == "DMNMX" || base == "DSETP":
 		for i := range w {
 			w[i] = 2
@@ -1110,8 +1123,10 @@ func chain(blocks []cudasass.BasicBlock, edges []cudasass.FlowEdge) ([]cudasass.
 	return out, outEdges
 }
 
-// generic lists the opcodes that access memory through generic addresses.
-var generic = map[string]bool{"LD": true, "ST": true, "ATOM": true, "RED": true}
+// pairAddress lists the opcodes whose .E form addresses memory through a
+// register pair. LDGSTS is not among them: its bracketed register is a
+// 32-bit shared-memory address.
+var pairAddress = map[string]bool{"LD": true, "ST": true, "ATOM": true, "RED": true, "ATOMG": true, "REDG": true}
 
 // transfer lists the opcodes that end a block only to pass control.
 var transfer = map[string]bool{"BRA": true, "JMP": true, "CALL": true, "RET": true}

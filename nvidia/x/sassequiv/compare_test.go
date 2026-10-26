@@ -701,6 +701,15 @@ EXIT`, prologue + `
 LOP3.LUT R9, R10, 0xfffffffd, RZ, 0xc0, !PT
 STG.E desc[UR4][R4.64], R9
 EXIT`, Unknown, ""},
+		{"uniform constant loaded either way", prologue + `
+ULDC.64 UR6, c[0x0][0x220]
+MOV R6, UR7
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDCU.64 UR6, c[0x0][0x220]
+MOV R6, UR7
+STG.E desc[UR4][R4.64], R6
+EXIT`, Equal, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `
