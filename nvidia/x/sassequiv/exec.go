@@ -729,7 +729,7 @@ func dstWidth(op, base string) int {
 	case base == "DADD" || base == "DMUL" || base == "DFMA" || base == "DMNMX":
 		return 2
 	case base == "F2F" || base == "I2F" || base == "F2I" || base == "I2FP" || base == "F2IP":
-		if t := types(op); len(t) > 0 && strings.HasSuffix(t[0], "64") {
+		if dst, _ := conversion(op, base); strings.HasSuffix(dst, "64") {
 			return 2
 		}
 		return 1
@@ -746,6 +746,33 @@ func types(op string) []string {
 		}
 	}
 	return t
+}
+
+// conversion returns the destination and source types of a conversion
+// opcode. Both are named when both are, destination first; a lone type
+// is the one that is not the default, F32 for a float and S32 for an
+// integer: I2F.S64 converts an S64 to an F32, F2I.F64 an F64 to an S32.
+func conversion(op, base string) (dst, src string) {
+	t := types(op)
+	if len(t) >= 2 {
+		return t[0], t[1]
+	}
+	float := len(t) == 1 && (t[0][0] == 'F' || t[0] == "BF16" || t[0] == "E4M3" || t[0] == "E5M2")
+	switch {
+	case len(t) == 0:
+		return "", ""
+	case base == "I2F" || base == "I2FP":
+		if float {
+			return t[0], "S32"
+		}
+		return "F32", t[0]
+	case base == "F2I" || base == "F2IP":
+		if float {
+			return "S32", t[0]
+		}
+		return t[0], "F32"
+	}
+	return t[0], ""
 }
 
 // srcWidths returns the register count of each source operand.
@@ -768,7 +795,7 @@ func srcWidths(op, base string, srcs []string) []int {
 	case strings.HasPrefix(op, "IMAD.WIDE") || strings.HasPrefix(op, "UIMAD.WIDE"):
 		set(2, 2)
 	case base == "F2F" || base == "F2I" || base == "F2IP" || base == "I2F" || base == "I2FP":
-		if t := types(op); len(t) > 1 && strings.HasSuffix(t[1], "64") {
+		if _, src := conversion(op, base); strings.HasSuffix(src, "64") {
 			set(0, 2)
 		}
 	case base == "HMMA":

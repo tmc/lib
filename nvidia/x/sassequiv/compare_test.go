@@ -626,6 +626,31 @@ LEA.HI.X R7, R0, R3, R9, 0x2, P0
 LDG.E R8, desc[UR4][R6.64]
 STG.E desc[UR4][R4.64], R8
 EXIT`, Unknown, ""},
+		{"register after a 64-bit conversion source", prologue + `
+LDG.E.64 R8, desc[UR4][R2.64]
+LDG.E R6, desc[UR4][R2.64+0x100]
+FMUL R7, R6, 2
+I2F.S64 R6, R8
+FADD R7, R7, R6
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LDG.E.64 R8, desc[UR4][R2.64]
+LDG.E R6, desc[UR4][R2.64+0x100]
+FMUL R7, R6, 3
+I2F.S64 R6, R8
+FADD R7, R7, R6
+STG.E desc[UR4][R4.64], R7
+EXIT`, Different, ""},
+		{"high word of a 64-bit conversion source", prologue + `
+LDG.E.64 R8, desc[UR4][R2.64]
+I2F.S64 R6, R8
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDG.E.64 R8, desc[UR4][R2.64]
+MOV R9, RZ
+I2F.S64 R6, R8
+STG.E desc[UR4][R4.64], R6
+EXIT`, Unknown, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `
