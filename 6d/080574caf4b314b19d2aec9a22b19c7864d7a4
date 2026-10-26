@@ -1,0 +1,11 @@
+commit: 6d080574caf4b314b19d2aec9a22b19c7864d7a4
+date: 2026-10-26T02:44:38.021045+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 80119
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-shadow-observation-implementation/consumer/P2.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-shadow-observation-adoption/P2/ROOT-GRADE.md
+qualification: combined139+P1+P2 host/race/vet and24semanticcontrols; authentic/native unqualified
