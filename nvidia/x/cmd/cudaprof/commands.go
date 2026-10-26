@@ -126,6 +126,9 @@ To print the build of this cudaprof:
 To import a bounded offline Nsight Compute project export:
   cudaprof import-ncu [-json] [-limit N] envelope.json
 
+To compose passive health and workload evidence, optionally importing NVSentinel JSON:
+  cudaprof health-capacity -health health.json -telemetry telemetry.jsonl -input options.json [-nvsentinel request.json]
+
 To summarize supplied compiler members against retained activity:
   cudaprof operator-summary -run-id ID context.json activities.jsonl
 
@@ -177,6 +180,7 @@ func commands() []command {
 		{name: "counter-receipt", run: func(args []string) error { return runCounterReceiptCommand(args[1:]) }},
 		{name: "capture", run: func(args []string) error { return runCaptureCommand(args[1:]) }},
 		{name: "import-ncu", usage: importNCUUsage, run: func(args []string) error { return runImportNCUCommand(args[1:], os.Stdout) }},
+		{name: "health-capacity", usage: healthCapacityUsage, run: func(args []string) error { return runHealthCapacityCommand(args[1:], os.Stdout) }},
 		{name: "operator-summary", usage: operatorSummaryUsage, run: func(args []string) error { return runOperatorSummaryCommand(args[1:], os.Stdout) }},
 		{name: "history", usage: historyUsage, run: func(args []string) error { return runHistoryCommand(args[1:], os.Stdout) }},
 		{name: "bisect", usage: bisectUsage, run: func(args []string) error { return runBisectCommand(args[1:], os.Stdout) }},

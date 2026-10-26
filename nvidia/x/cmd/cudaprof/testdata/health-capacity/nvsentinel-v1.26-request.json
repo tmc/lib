@@ -1,0 +1,31 @@
+{
+  "apiVersion": "nvsentinel.nvidia.com/v1alpha1",
+  "kind": "ValidationRequest",
+  "metadata": {
+    "name": "constructed-request",
+    "uid": "constructed-uid",
+    "resourceVersion": "42",
+    "generation": 1,
+    "creationTimestamp": "2026-01-01T00:00:00Z",
+    "labels": {"fixture": "constructed-public-schema"}
+  },
+  "spec": {
+    "nodes": [{"name": "node-a"}, {"name": "node-b"}],
+    "tests": ["dcgm-diag-test", "bandwidth"]
+  },
+  "status": {
+    "phase": "Succeeded",
+    "testGroups": [{
+      "name": "diagnostics", "provider": "k8s-job-provider",
+      "tests": ["dcgm-diag-test"], "nodes": ["node-a"], "phase": "Succeeded",
+      "attempts": [
+        {"objectName": "constructed-job-0", "phase": "Failed", "failureReason": "TestTimeout", "failedNodes": ["node-a"], "startTime": "2026-01-01T00:01:00Z", "endTime": "2026-01-01T00:02:00Z"},
+        {"objectName": "constructed-job-1", "phase": "Succeeded", "startTime": "2026-01-01T00:03:00Z", "endTime": "2026-01-01T00:04:00Z"}
+      ]
+    }],
+    "skipped": {"nodes": ["node-b"], "tests": ["bandwidth"]},
+    "startTime": "2026-01-01T00:00:30Z",
+    "completionTime": "2026-01-01T00:05:00Z",
+    "conditions": [{"type": "Complete", "status": "True", "observedGeneration": 1, "lastTransitionTime": "2026-01-01T00:05:00Z", "reason": "ValidationSucceeded", "message": "Constructed producer judgment; one node and test skipped"}]
+  }
+}
