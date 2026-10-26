@@ -1,0 +1,11 @@
+commit: 8eeee4618c1f97882c3267ca412dbf2763ebb87a
+date: 2026-10-26T01:30:38.772624+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 56047
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-fuse-output-control-impl/W/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-fuse-output-control-adoption/ROOT-GRADE.md
+qualification: output control; exact138+twotestfiles host/race2roots14subtests each; host/native-tag/Linuxvet; compiledomission; native notexecuted
