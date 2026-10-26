@@ -38,9 +38,16 @@ type Result struct {
 	// Before and After are the addresses of the instructions where a
 	// difference shows, when Verdict is Different.
 	Before, After uint64
+	// Assumes lists the registers both functions read before writing
+	// when Verdict is Equal: they are equal only if both compilations
+	// find the same values there, which the hardware does not promise.
+	Assumes []string
 }
 
 func (r Result) String() string {
+	if len(r.Assumes) > 0 {
+		return fmt.Sprintf("%s: %s (assumes identical uninitialized %s)", r.Function, r.Verdict, strings.Join(r.Assumes, ", "))
+	}
 	if r.Reason == "" {
 		return fmt.Sprintf("%s: %s", r.Function, r.Verdict)
 	}
@@ -106,6 +113,7 @@ func Compare(before, after *cudasass.Function) Result {
 		}
 	}
 	r.Verdict = Equal
+	r.Assumes = g.sharedUndefined(a.roots, b.roots)
 	return r
 }
 

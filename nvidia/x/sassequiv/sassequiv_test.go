@@ -110,7 +110,7 @@ func TestEqualPairs(t *testing.T) {
 	for _, pair := range equalPairs {
 		before, after := parse(t, listing(t, pair[0])), parse(t, listing(t, pair[1]))
 		for _, r := range CompareAll(before, after) {
-			if r.Verdict != Equal {
+			if r.Verdict != Equal || r.Assumes != nil {
 				t.Errorf("%s against %s: %v", pair[0], pair[1], r)
 			}
 		}

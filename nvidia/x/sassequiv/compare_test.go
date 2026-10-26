@@ -765,13 +765,6 @@ ISETP.GT.AND P0, PT, R0, 0x7, PT
 FADD R8, R7, 1
 STG.E desc[UR4][R4.64], R8
 EXIT`, Unknown, ""},
-		{"same register read undefined", prologue + `
-LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
-STG.E desc[UR4][R4.64], R9
-EXIT`, prologue + `
-LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
-STG.E desc[UR4][R4.64], R9
-EXIT`, Equal, ""},
 		{"another register read undefined", prologue + `
 LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
 STG.E desc[UR4][R4.64], R9
@@ -1035,8 +1028,84 @@ EXIT`, Unknown, ""},
 		t.Run(tt.name, func(t *testing.T) {
 			before, after := parse(t, sass(tt.before)), parse(t, sass(tt.after))
 			r := Compare(before.Functions[0], after.Functions[0])
-			if r.Verdict != tt.want || !strings.Contains(r.Reason, tt.reason) {
+			// The prologue leaves the descriptor UR4:UR5 unloaded, so
+			// every Equal assumes it; TestAssumes checks the rest.
+			if r.Verdict != tt.want || !strings.Contains(r.Reason, tt.reason) || r.Assumes != nil && !slices.Equal(r.Assumes, []string{"UR4", "UR5"}) {
 				t.Errorf("got %v, want %v %q", r, tt.want, tt.reason)
+			}
+		})
+	}
+}
+
+// TestAssumes compares functions that read registers no path writes. An
+// Equal that rests on both reading the same uninitialized register says
+// so; one whose undefined read never reaches a result does not.
+func TestAssumes(t *testing.T) {
+	const loaded = prologue + "ULDC.64 UR4, c[0x0][0x208]\n"
+	tests := []struct {
+		name          string
+		before, after string
+		want          string // the result's String
+	}{
+		{"same register read undefined", loaded + `
+LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R9
+EXIT`, loaded + `
+LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R9
+EXIT`, "f: equal (assumes identical uninitialized R9)"},
+		{"pair read undefined", loaded + `
+STG.E.64 desc[UR4][R4.64], R24
+EXIT`, loaded + `
+STG.E.64 desc[UR4][R4.64], R24
+EXIT`, "f: equal (assumes identical uninitialized R24, R25)"},
+		{"registers read undefined", loaded + `
+IADD3 R7, R9, R10, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, loaded + `
+IADD3 R7, R10, R9, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, "f: equal (assumes identical uninitialized R9, R10)"},
+		{"guarded write over an undefined register read under its guard", loaded + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+@P0 MOV R9, R0
+@P0 STG.E desc[UR4][R4.64], R9
+EXIT`, loaded + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+@P0 MOV R9, R0
+@P0 STG.E desc[UR4][R4.64], R9
+EXIT`, "f: equal"},
+		{"guarded write over an undefined register read in a block its guard reaches", loaded + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+@P0 MOV R9, R0
+@!P0 BRA 0xb0
+STG.E desc[UR4][R4.64], R9
+EXIT`, loaded + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+@P0 MOV R9, R0
+@!P0 BRA 0xb0
+STG.E desc[UR4][R4.64], R9
+EXIT`, "f: equal"},
+		{"undefined read overwritten", loaded + `
+LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
+MOV R9, R0
+STG.E desc[UR4][R4.64], R9
+EXIT`, loaded + `
+MOV R9, R0
+STG.E desc[UR4][R4.64], R9
+EXIT`, "f: equal"},
+		{"undefined read on one side only", loaded + `
+LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R0
+EXIT`, loaded + `
+STG.E desc[UR4][R4.64], R0
+EXIT`, "f: equal"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before, after := parse(t, sass(tt.before)), parse(t, sass(tt.after))
+			if got := Compare(before.Functions[0], after.Functions[0]).String(); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
 	}

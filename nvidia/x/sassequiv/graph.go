@@ -497,3 +497,54 @@ func (g *graph) mergesUndefined(id int) bool {
 	}
 	return false
 }
+
+// sharedUndefined returns the registers whose undefined value is
+// reachable from the roots of both sides. An undefined value is one
+// symbol for both, so equal roots may rest on it. Every condition a phi
+// merges under is a branch or exit condition, itself a root.
+func (g *graph) sharedUndefined(a, b map[string]int) []string {
+	reach := func(roots map[string]int) map[int]bool {
+		seen := map[int]bool{}
+		var walk func(int)
+		walk = func(v int) {
+			if seen[v] {
+				return
+			}
+			seen[v] = true
+			for _, w := range g.nodes[v].args {
+				walk(w)
+			}
+		}
+		for _, r := range roots {
+			walk(r)
+		}
+		return seen
+	}
+	ra, rb := reach(a), reach(b)
+	var regs []string
+	for v := range ra {
+		if rb[v] && g.undefined(v) {
+			regs = append(regs, strings.TrimPrefix(g.nodes[v].label, "undef:"))
+		}
+	}
+	slices.SortFunc(regs, func(x, y string) int { return cmpRegister(x, y) })
+	return regs
+}
+
+// cmpRegister orders register names by file, then number: R2 before R10.
+func cmpRegister(x, y string) int {
+	split := func(s string) (string, int) {
+		i := strings.IndexFunc(s, func(r rune) bool { return r >= '0' && r <= '9' })
+		if i < 0 {
+			return s, -1
+		}
+		n, _ := strconv.Atoi(s[i:])
+		return s[:i], n
+	}
+	fx, nx := split(x)
+	fy, ny := split(y)
+	if c := strings.Compare(fx, fy); c != 0 {
+		return c
+	}
+	return nx - ny
+}

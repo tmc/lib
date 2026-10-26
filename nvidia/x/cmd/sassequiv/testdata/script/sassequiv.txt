@@ -2,6 +2,19 @@
 exec sassequiv base.sass renamed.sass
 stdout '^f: equal$'
 
+# An equal that rests on both reading the same uninitialized register
+# says so; it exits 0.
+exec sassequiv undef.sass undef.sass
+stdout '^f: equal \(assumes identical uninitialized R24, R25\)$'
+
+# -json prints one object per function.
+exec sassequiv -json base.sass renamed.sass
+stdout '^\{"function":"f","verdict":"equal"\}$'
+exec sassequiv -json undef.sass undef.sass
+stdout '^\{"function":"f","verdict":"equal","assumes":\["R24","R25"\]\}$'
+! exec sassequiv -json base.sass fmul.sass
+stdout '^\{"function":"f","verdict":"different","reason":".*FMUL.*","before":"0x70","after":"0x70"\}$'
+
 # A changed floating-point operation exits 1 and names both addresses.
 ! exec sassequiv base.sass fmul.sass
 stdout '^f: different: .*before 0x70 FADD.*after 0x70 FMUL'
@@ -16,7 +29,7 @@ stdout '^f: different: missing after$'
 stdout '^g: different: missing before$'
 
 ! exec sassequiv base.sass
-stderr 'usage: sassequiv before.sass after.sass'
+stderr 'usage: sassequiv \[-json\] before.sass after.sass'
 
 ! exec sassequiv base.sass missing.sass
 stderr 'missing.sass: no such file'
@@ -24,7 +37,7 @@ stderr 'missing.sass: no such file'
 -- base.sass --
 	code for sm_90a
 		Function : f
-        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0000*/                   ULDC.64 UR4, c[0x0][0x208] ;
         /*0010*/                   S2R R0, SR_TID.X ;
         /*0020*/                   LDC.64 R2, c[0x0][0x210] ;
         /*0030*/                   IMAD.WIDE.U32 R2, R0, 0x4, R2 ;
@@ -37,7 +50,7 @@ stderr 'missing.sass: no such file'
 -- renamed.sass --
 	code for sm_90a
 		Function : f
-        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0000*/                   ULDC.64 UR4, c[0x0][0x208] ;
         /*0010*/                   S2R R5, SR_TID.X ;
         /*0020*/                   LDC.64 R8, c[0x0][0x210] ;
         /*0030*/                   IMAD.WIDE.U32 R8, R5, 0x4, R8 ;
@@ -50,7 +63,7 @@ stderr 'missing.sass: no such file'
 -- fmul.sass --
 	code for sm_90a
 		Function : f
-        /*0000*/                   LDC R1, c[0x0][0x28] ;
+        /*0000*/                   ULDC.64 UR4, c[0x0][0x208] ;
         /*0010*/                   S2R R0, SR_TID.X ;
         /*0020*/                   LDC.64 R2, c[0x0][0x210] ;
         /*0030*/                   IMAD.WIDE.U32 R2, R0, 0x4, R2 ;
@@ -70,3 +83,10 @@ stderr 'missing.sass: no such file'
 	code for sm_90a
 		Function : g
         /*0000*/                   EXIT ;
+-- undef.sass --
+	code for sm_90a
+		Function : f
+        /*0000*/                   ULDC.64 UR4, c[0x0][0x208] ;
+        /*0010*/                   LDC.64 R2, c[0x0][0x210] ;
+        /*0020*/                   STG.E.64 desc[UR4][R2.64], R24 ;
+        /*0030*/                   EXIT ;
