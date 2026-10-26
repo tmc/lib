@@ -5,3 +5,5 @@ evidence: candidate.patch 812f8c42 = staged diff f414d25d; gated at b90f9d443 (l
 limit: TestMetalMixedAttentionCapacity failed identically on base and candidate in that gate (pre-existing, not caused by this change); the full suite is not green.
 pre-commit checks at 82cb7c39+candidate under Mac gpu-lock (thinking-land/check.log rc 0): gofmt; vet and test -c for linux/amd64, linux/arm64, darwin/arm64 (. and ./dsv4chat); go test TestOracleGate|TestThinking|TestReconfigure.
 git-auto-commit-message failed twice (missing ANTHROPIC_API_KEY); manual signed commit. The first signing attempt hung (ssh-agent had no identities) and was killed before committing.
+
+fast-forward: the first --ff-only failed on a stale 0-byte wt-ds4-min index.lock (mtime 2026-10-18 21:21, no git process running). The coordinator moved it, not deleted it, to ~/tmp/ds4-min/20261011-claude-takeover/worktree-archive-20261023/wt-ds4-min.index.lock.stale-20261018 and the ff then succeeded. Foreign paths verified unchanged.
