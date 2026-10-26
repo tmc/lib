@@ -20,14 +20,25 @@ func Evaluate(g *cudair.Graph, inputs map[string][]float32) (map[string][]float3
 	return EvaluateSnapshot(snap, inputs)
 }
 
-// EvaluateSnapshot executes a validated immutable snapshot on the CPU.
+// EvaluateSnapshot executes a validated immutable snapshot on the CPU and
+// returns the value of each output node keyed by node name. An output node
+// listed more than once yields a single entry. Distinct output nodes that
+// share a name cannot be keyed by name, so EvaluateSnapshot reports an error
+// for them rather than return only one; use EvaluateSnapshotAll to read such
+// outputs by node ID.
 func EvaluateSnapshot(snap *cudair.Snapshot, inputs map[string][]float32) (map[string][]float32, error) {
 	values, err := EvaluateSnapshotAll(snap, inputs)
 	if err != nil {
 		return nil, err
 	}
-	outputs := make(map[string][]float32, len(snap.Outputs()))
-	for _, outNode := range snap.Outputs() {
+	outs := snap.Outputs()
+	outputs := make(map[string][]float32, len(outs))
+	ids := make(map[string]int, len(outs))
+	for _, outNode := range outs {
+		if id, ok := ids[outNode.Name]; ok && id != outNode.ID {
+			return nil, fmt.Errorf("cudaref: output name %q is shared by nodes %d and %d", outNode.Name, id, outNode.ID)
+		}
+		ids[outNode.Name] = outNode.ID
 		outputs[outNode.Name] = values[outNode.ID]
 	}
 	return outputs, nil
