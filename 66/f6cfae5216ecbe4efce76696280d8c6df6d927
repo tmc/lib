@@ -1,0 +1,11 @@
+commit: 66f6cfae5216ecbe4efce76696280d8c6df6d927
+date: 2026-10-26T01:07:09.648594+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 26708
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-timeloop-renames-implementation/W/timeloop-renames.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-timeloop-adoption/ROOT-GRADE.md
+qualification: Timeloop role export; exact56cd+two paths; host/race 4 roots+5 subtests each, vet and compiled omission; external mapper/native unqualified
