@@ -21,6 +21,12 @@
 //     ConnectX-7 400G = 50 GB/s) and GB300 (288 GB 12-Hi HBM3e, ConnectX-8
 //     800G PCIe Gen6 = 100 GB/s) multi-rack pod hierarchy with rack-deduped
 //     two-stage All-to-All dispatch and Two-Batch Overlap.
+//   - [NVL72KVPageTransfer] streams paged KV or compressed MLA latent cache
+//     pages from prefill ranks to decode ranks over NVLink 5 peer pointers
+//     with system-scope release/acquire ordering and optional Grace LPDDR5X
+//     NVLink-C2C staging.
+//   - [PlanPDDisaggregation] selects optimal prefill/decode rack and GPU splits
+//     under TTFT and TPOT SLAs across GB200 and GB300 NVL72 pods.
 //
 // Basic usage:
 //
