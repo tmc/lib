@@ -1,8 +1,10 @@
 package ptxasinfo
 
 import (
+	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -192,6 +194,113 @@ func TestParseLines(t *testing.T) {
 			}
 			if !tt.check(r) {
 				t.Errorf("Parse() = %+v", r)
+			}
+		})
+	}
+}
+
+// TestParseWGMMASerialized checks that ptxas's wgmma serialization
+// diagnostics reach the function they name. The C7519 and C7512 lines are
+// copied from ptxas 13.4 output; C7513 follows their form.
+func TestParseWGMMASerialized(t *testing.T) {
+	const (
+		c7512 = "(C7512) Potential Performance Loss: wgmma.mma_async instructions are serialized due to insufficient register resources for the function '%s'"
+		c7513 = "(C7513) Potential Performance Loss: wgmma.mma_async instructions are serialized due to non wgmma instructions defining input registers of a wgmma between start and end of the pipeline stage in the function '%s'"
+		c7519 = "(C7519) Potential Performance Loss: wgmma.mma_async instructions are serialized due to program dependence on compiler-inserted WG.AR in divergent path in the function '%s' in line 1191"
+		c7517 = "(C7517) wgmma.wait_group is injected in around line 1159 by compiler to allow use of registers defined by GMMA in function '%s'"
+	)
+	// module reports kernels k and clean for arch, after the lines ptxas
+	// prints ahead of the module.
+	module := func(arch string, before ...string) string {
+		var b strings.Builder
+		for _, l := range before {
+			b.WriteString("ptxas info    : " + l + "\n")
+		}
+		for _, name := range []string{"k", "clean"} {
+			fmt.Fprintf(&b, "ptxas info    : Compiling entry function '%s' for '%s'\n", name, arch)
+			fmt.Fprintf(&b, "ptxas info    : Function properties for %s\n", name)
+			b.WriteString("    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n")
+			b.WriteString("ptxas info    : Used 74 registers, used 1 barriers, 16 bytes smem\n")
+		}
+		return b.String()
+	}
+	gmem := "0 bytes gmem"
+	tests := []struct {
+		name     string
+		in       string
+		want     map[string][]string // arch -> codes ptxas serialized k for
+		wantDiag int                 // diagnostics on k, in total
+		notes    int
+	}{
+		{"clean", module("sm_90a", gmem), map[string][]string{"sm_90a": nil}, 0, 0},
+		{"C7512", module("sm_90a", fmt.Sprintf(c7512, "k"), gmem), map[string][]string{"sm_90a": {"C7512"}}, 1, 0},
+		{"C7513", module("sm_90a", fmt.Sprintf(c7513, "k"), gmem), map[string][]string{"sm_90a": {"C7513"}}, 1, 0},
+		{"C7519", module("sm_90a", fmt.Sprintf(c7519, "k"), gmem), map[string][]string{"sm_90a": {"C7519"}}, 1, 0},
+		{"C7517 is not serialization", module("sm_90a", fmt.Sprintf(c7517, "k"), gmem), map[string][]string{"sm_90a": nil}, 1, 0},
+		{
+			"two codes",
+			module("sm_90a", fmt.Sprintf(c7512, "k"), fmt.Sprintf(c7519, "k"), gmem),
+			map[string][]string{"sm_90a": {"C7512", "C7519"}}, 2, 0,
+		},
+		{
+			"first architecture only",
+			module("sm_90a", fmt.Sprintf(c7519, "k"), gmem) + module("sm_100a", gmem),
+			map[string][]string{"sm_90a": {"C7519"}, "sm_100a": nil}, 1, 0,
+		},
+		{
+			"second architecture only",
+			module("sm_90a", gmem) + module("sm_100a", fmt.Sprintf(c7519, "k"), gmem),
+			map[string][]string{"sm_90a": nil, "sm_100a": {"C7519"}}, 1, 0,
+		},
+		{
+			"after the function",
+			module("sm_90a", gmem) + "ptxas info    : " + fmt.Sprintf(c7519, "k") + "\n",
+			map[string][]string{"sm_90a": {"C7519"}}, 1, 0,
+		},
+		{
+			"unnamed and unknown functions stay notes",
+			module("sm_90a", "(C7515) Potential Performance Loss: wgmma.mma_async instructions are serialized", fmt.Sprintf(c7519, "other"), gmem),
+			map[string][]string{"sm_90a": nil}, 0, 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := Parse(strings.NewReader(tt.in))
+			if err != nil {
+				t.Fatal(err)
+			}
+			diags := 0
+			for arch, want := range tt.want {
+				k := r.Lookup("k", arch)
+				if k == nil {
+					t.Fatalf("no k for %s in %+v", arch, r)
+				}
+				diags += len(k.Diagnostics)
+				var got []string
+				for _, d := range k.WGMMASerialized() {
+					got = append(got, d.Code)
+				}
+				if !slices.Equal(got, want) {
+					t.Errorf("%s k: serialized codes %q, want %q", arch, got, want)
+				}
+				if c := r.Lookup("clean", arch); c == nil || len(c.Diagnostics) != 0 {
+					t.Errorf("%s clean = %+v, want no diagnostics", arch, c)
+				}
+			}
+			if diags != tt.wantDiag {
+				t.Errorf("k diagnostics = %d, want %d", diags, tt.wantDiag)
+			}
+			if len(r.Notes) != tt.notes {
+				t.Errorf("Notes = %q, want %d", r.Notes, tt.notes)
+			}
+			wantSerial := 0
+			for _, codes := range tt.want {
+				if len(codes) > 0 {
+					wantSerial++
+				}
+			}
+			if got := len(r.WGMMASerialized()); got != wantSerial {
+				t.Errorf("Report.WGMMASerialized() has %d functions, want %d", got, wantSerial)
 			}
 		})
 	}

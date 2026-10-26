@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -34,10 +35,44 @@ type Function struct {
 	// MaxRegisters is the register limit ptxas reported overriding with
 	// -maxrregcount, or zero.
 	MaxRegisters int
+
+	// Diagnostics holds the ptxas warning and coded info lines that name
+	// this function, such as C7519.
+	Diagnostics []Diagnostic `json:",omitempty"`
+}
+
+// A Diagnostic is a ptxas line about one function, such as
+//
+//	ptxas info    : (C7519) Potential Performance Loss: wgmma.mma_async instructions are serialized due to program dependence on compiler-inserted WG.AR in divergent path in the function '_Z4gemmv' in line 1191
+type Diagnostic struct {
+	Code string // such as "C7519"; empty if the line has none
+	Text string // the line, "ptxas info :" or "ptxas warning :" removed
+}
+
+// WGMMASerialized reports whether d says ptxas serialized the function's
+// wgmma.mma_async instructions, which it does for want of registers
+// (C7512), for non-wgmma instructions writing wgmma inputs inside a
+// pipeline stage (C7513), for a warpgroup arrive in a divergent path
+// (C7519), and for other reasons.
+func (d Diagnostic) WGMMASerialized() bool {
+	t := strings.ToLower(d.Text)
+	return strings.Contains(t, "wgmma") && strings.Contains(t, "serialized")
 }
 
 // Spills reports whether the function spills registers to local memory.
 func (f *Function) Spills() bool { return f.SpillStores > 0 || f.SpillLoads > 0 }
+
+// WGMMASerialized returns the diagnostics in which ptxas reported
+// serializing the function's wgmma instructions.
+func (f *Function) WGMMASerialized() []Diagnostic {
+	var ds []Diagnostic
+	for _, d := range f.Diagnostics {
+		if d.WGMMASerialized() {
+			ds = append(ds, d)
+		}
+	}
+	return ds
+}
 
 // A Target holds the module-level resources for one architecture.
 type Target struct {
@@ -50,7 +85,7 @@ type Target struct {
 // A Report is everything Parse found.
 type Report struct {
 	Targets  []*Target
-	Warnings []string // "ptxas warning" lines, prefix removed
+	Warnings []string // "ptxas warning" lines not in a function's Diagnostics, prefix removed
 	Errors   []string // "ptxas error" and "ptxas fatal" lines, prefix removed
 	Notes    []string // other "ptxas info" lines, prefix removed
 }
@@ -60,6 +95,18 @@ func (r *Report) Functions() []*Function {
 	var fns []*Function
 	for _, t := range r.Targets {
 		fns = append(fns, t.Functions...)
+	}
+	return fns
+}
+
+// WGMMASerialized returns, in report order, every function whose wgmma
+// instructions ptxas reported serializing.
+func (r *Report) WGMMASerialized() []*Function {
+	var fns []*Function
+	for _, f := range r.Functions() {
+		if len(f.WGMMASerialized()) > 0 {
+			fns = append(fns, f)
+		}
 	}
 	return fns
 }
@@ -87,6 +134,8 @@ var (
 	overrideRE  = regexp.MustCompile(`^Overriding maximum register limit \d{1,18} for '([^']+)' with\s+(\d{1,18}) of maxrregcount option$`)
 	countRE     = regexp.MustCompile(`^(?:[Uu]sed )?(\d{1,18}) (registers|barriers|textures|samplers|surfaces)$`)
 	bytesRE     = regexp.MustCompile(`^(\d{1,18}) bytes (smem|lmem|gmem|cumulative stack size|cmem\[(\d{1,18})\])$`)
+	codeRE      = regexp.MustCompile(`^\((C\d{4})\)`)
+	namedRE     = regexp.MustCompile(`(?:in|for) (?:the )?function '([^']+)'`)
 )
 
 // Parse reads ptxas -v output, possibly mixed with other compiler output.
@@ -124,6 +173,39 @@ func Parse(r io.Reader) (*Report, error) {
 		pendingModule []string
 		pendingFns    []*Function
 	)
+	// ptxas prints a diagnostic naming a function before the module's
+	// gmem line, ahead of the function's own report, so it waits for the
+	// next function of that name. One that never finds it goes to the
+	// last function of that name, or else back to Warnings or Notes.
+	type diag struct {
+		name, kind string
+		d          Diagnostic
+	}
+	var pending []diag
+	claim := func(f *Function) {
+		pending = slices.DeleteFunc(pending, func(p diag) bool {
+			if p.name != f.Name {
+				return false
+			}
+			f.Diagnostics = append(f.Diagnostics, p.d)
+			return true
+		})
+	}
+	// diagnostic reports whether msg is a diagnostic naming a function,
+	// and if so holds it for that function.
+	diagnostic := func(kind, msg string) bool {
+		n := namedRE.FindStringSubmatch(msg)
+		c := codeRE.FindStringSubmatch(msg)
+		if n == nil || kind != "warning" && c == nil {
+			return false
+		}
+		d := Diagnostic{Text: msg}
+		if c != nil {
+			d.Code = c[1]
+		}
+		pending = append(pending, diag{n[1], kind, d})
+		return true
+	}
 	errorf := func(format string, args ...any) error {
 		return fmt.Errorf("ptxasinfo: line %d: %s", lineNum, fmt.Sprintf(format, args...))
 	}
@@ -149,7 +231,9 @@ func Parse(r io.Reader) (*Report, error) {
 		kind, msg := m[1], strings.TrimSpace(m[2])
 		switch kind {
 		case "warning":
-			rep.Warnings = append(rep.Warnings, msg)
+			if !diagnostic(kind, msg) {
+				rep.Warnings = append(rep.Warnings, msg)
+			}
 			continue
 		case "error", "fatal":
 			rep.Errors = append(rep.Errors, msg)
@@ -172,6 +256,7 @@ func Parse(r io.Reader) (*Report, error) {
 			pendingFns = nil
 			current = &Function{Name: c[2], Arch: c[3], Entry: c[1] != "", MaxRegisters: maxRegs[c[2]]}
 			delete(maxRegs, c[2])
+			claim(current)
 			t.Functions = append(t.Functions, current)
 		case propsRE.MatchString(msg):
 			name := propsRE.FindStringSubmatch(msg)[1]
@@ -179,6 +264,7 @@ func Parse(r io.Reader) (*Report, error) {
 				// A device function reported without its own Compiling
 				// line belongs to the architecture being compiled.
 				current = &Function{Name: name}
+				claim(current)
 				if target == nil {
 					pendingFns = append(pendingFns, current)
 				} else {
@@ -201,6 +287,7 @@ func Parse(r io.Reader) (*Report, error) {
 			pendingModule = append(pendingModule, msg)
 			target, current = nil, nil
 		case strings.HasPrefix(msg, "Compile time"):
+		case diagnostic(kind, msg):
 		default:
 			rep.Notes = append(rep.Notes, msg)
 		}
@@ -221,6 +308,23 @@ func Parse(r io.Reader) (*Report, error) {
 			}
 		}
 		rep.Targets = append(rep.Targets, t)
+	}
+	fns := rep.Functions()
+	for _, p := range pending {
+		var last *Function
+		for _, f := range fns {
+			if f.Name == p.name {
+				last = f
+			}
+		}
+		switch {
+		case last != nil:
+			last.Diagnostics = append(last.Diagnostics, p.d)
+		case p.kind == "warning":
+			rep.Warnings = append(rep.Warnings, p.d.Text)
+		default:
+			rep.Notes = append(rep.Notes, p.d.Text)
+		}
 	}
 	return rep, nil
 }
