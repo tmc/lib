@@ -355,6 +355,7 @@ func Parse(r io.Reader) (*Disassembly, error) {
 			} else {
 				d.Target = target
 			}
+			archAlign = targetAlignment(d.Target)
 		}
 
 		if malformedTextLabel(trimmed) {
@@ -362,13 +363,6 @@ func Parse(r io.Reader) (*Disassembly, error) {
 		}
 		if malformedSectionDirective(trimmed) {
 			return nil, fmt.Errorf("cudasass: malformed section directive %q", trimmed)
-		}
-
-		if strings.HasPrefix(trimmed, ".target") {
-			fields := strings.Fields(trimmed)
-			if len(fields) >= 2 {
-				archAlign = targetAlignment(fields[1])
-			}
 		}
 
 		if name, nonText, opens := openedSection(trimmed); opens {
