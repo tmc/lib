@@ -144,7 +144,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [puffernet](puffernet/) | Package puffernet runs the default PufferLib 5.0 policy network on CUDA. |
 | [safetensors](safetensors/) | Package safetensors reads and writes the Hugging Face safetensors format. |
 | [sassequiv](sassequiv/) | Package sassequiv compares two compilations of a kernel, from their SASS, to find a change in what they compute. |
-| [tcgen05](tcgen05/) | Package tcgen05 implements Blackwell (sm_100a, sm_103a, sm_100f, sm_103f) Tensor Memory (TMEM) Fifth-Generation Tensor Core (tcgen05) and Cluster Launch Control (CLC) kernel emitters, hardware descriptors, and GB300 residency planners. |
+| [tcgen05](tcgen05/) | Package tcgen05 implements Blackwell (sm_100a, sm_103a, sm_100f, sm_103f) Tensor Memory (TMEM) Fifth-Generation Tensor Core (tcgen05), FlashAttention-4 paged and absorbed Multi-head Latent Attention (MLA), and Cluster Launch Control (CLC) kernel emitters, hardware descriptors, and GB300 residency planners. |
 | [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
 | [tileiras](tileiras/) | Package tileiras provides programmatic invocation and diagnostics parsing for NVIDIA's tileiras optimizing Tile IR assembler. |
 | [tileirdisasm](tileirdisasm/) | Package tileirdisasm disassembles binary CUDA Tile IR bytecode (.tilebc) and parses textual Tile IR into an SSA abstract syntax tree (AST). |

@@ -2,48 +2,31 @@ package hopper
 
 import (
 	"fmt"
-	"math"
 	"slices"
-	"strings"
 
+	"github.com/tmc/lib/nvidia/x/egraph/qualify"
 	"github.com/tmc/lib/nvidia/x/ptxasinfo"
 )
 
 // BottleneckKind classifies a measured or compiled hardware bottleneck.
-type BottleneckKind string
+type BottleneckKind = qualify.BottleneckKind
 
 const (
-	BottleneckBankConflict   BottleneckKind = "shared_bank_conflict"
-	BottleneckWGMMASerial    BottleneckKind = "wgmma_serialization"
-	BottleneckRegisterSpill  BottleneckKind = "register_spill"
-	BottleneckLowOccupancy   BottleneckKind = "low_occupancy"
-	BottleneckWaveTail       BottleneckKind = "wave_tail_quantization"
-	BottleneckLaunchOverhead BottleneckKind = "launch_overhead"
-	BottleneckMemoryBoundKV  BottleneckKind = "memory_bound_kv"
+	BottleneckBankConflict   = qualify.BottleneckBankConflict
+	BottleneckWGMMASerial    = qualify.BottleneckWGMMASerial
+	BottleneckRegisterSpill  = qualify.BottleneckRegisterSpill
+	BottleneckLowOccupancy   = qualify.BottleneckLowOccupancy
+	BottleneckWaveTail       = qualify.BottleneckWaveTail
+	BottleneckLaunchOverhead = qualify.BottleneckLaunchOverhead
+	BottleneckMemoryBoundKV  = qualify.BottleneckMemoryBoundKV
 )
 
 // KernelObservation holds measured profiling and compiler telemetry for a
 // single kernel or plan step.
-type KernelObservation struct {
-	Name               string
-	DurationNs         float64
-	LaunchGapNs        float64 // idle gap before this kernel launched
-	SharedBankConflict float64 // ratio of bank-conflict wavefronts (e.g., >= 0.10 triggers swizzle)
-	WGMMASerialized    bool    // ptxas C7519 or measured GMMA stall serialization
-	SpillStoreBytes    int
-	SpillLoadBytes     int
-	Registers          int
-	AchievedOccupancy  float64 // [0, 1]
-	GridBlocks         int
-	DeviceSMs          int  // e.g., 132 for H200
-	MemoryBoundKV      bool // explicit HBM latency/bandwidth stall on KV or streaming weights
-}
+type KernelObservation = qualify.KernelObservation
 
 // ProfileReceipt aggregates per-step observations and device metadata.
-type ProfileReceipt struct {
-	Device       string // e.g., "NVIDIA H200", "NVIDIA GB10"
-	Observations []KernelObservation
-}
+type ProfileReceipt = qualify.ProfileReceipt
 
 // Step is an alias for [PlanKernel] used by profile-guided refinement.
 type Step = PlanKernel
@@ -55,54 +38,13 @@ type MegakernelSource = Megakernel
 // ClassifyBottlenecks classifies the hardware bottlenecks present in obs in a
 // deterministic order.
 func ClassifyBottlenecks(obs KernelObservation) []BottleneckKind {
-	var out []BottleneckKind
-	if obs.SharedBankConflict >= 0.10 {
-		out = append(out, BottleneckBankConflict)
-	}
-	if obs.WGMMASerialized {
-		out = append(out, BottleneckWGMMASerial)
-	}
-	if obs.SpillStoreBytes > 0 || obs.SpillLoadBytes > 0 {
-		out = append(out, BottleneckRegisterSpill)
-	}
-	if obs.AchievedOccupancy > 0 && obs.AchievedOccupancy < 0.25 && obs.Registers > 128 {
-		out = append(out, BottleneckLowOccupancy)
-	}
-	if obs.MemoryBoundKV || (obs.AchievedOccupancy > 0 && obs.AchievedOccupancy < 0.25 && obs.Registers > 0 && obs.Registers <= 128) {
-		out = append(out, BottleneckMemoryBoundKV)
-	}
-	if obs.GridBlocks > 0 && obs.DeviceSMs > 0 {
-		waves := float64(obs.GridBlocks) / float64(obs.DeviceSMs)
-		tail := waves - math.Floor(waves)
-		if waves > 1.0 && tail > 0 && tail <= 0.35+1e-9 {
-			out = append(out, BottleneckWaveTail)
-		}
-	}
-	if obs.DurationNs > 0 && obs.LaunchGapNs/obs.DurationNs >= 0.15-1e-9 {
-		out = append(out, BottleneckLaunchOverhead)
-	}
-	return out
+	return qualify.ClassifyBottlenecks(obs)
 }
 
 // ObservationFromPTXAS constructs a [KernelObservation] from a parsed
 // [ptxasinfo.Function] report entry and launch geometry.
 func ObservationFromPTXAS(fn ptxasinfo.Function, gridBlocks, deviceSMs int) KernelObservation {
-	obs := KernelObservation{
-		Name:            fn.Name,
-		SpillStoreBytes: fn.SpillStores,
-		SpillLoadBytes:  fn.SpillLoads,
-		Registers:       fn.Registers,
-		GridBlocks:      gridBlocks,
-		DeviceSMs:       deviceSMs,
-	}
-	for _, d := range fn.Diagnostics {
-		lower := strings.ToLower(d.Text)
-		if d.WGMMASerialized() || d.Code == "C7519" || strings.Contains(lower, "serialized") || strings.Contains(lower, "c7519") {
-			obs.WGMMASerialized = true
-			break
-		}
-	}
-	return obs
+	return qualify.ObservationFromPTXAS(fn, gridBlocks, deviceSMs)
 }
 
 // RefineStep deterministically rewrites step's schedule parameters to cure each
@@ -116,380 +58,158 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 	}
 	switch {
 	case out.Tile != nil:
-		t, reasons := refineTileGEMM(*out.Tile, out.M, obs, bns)
+		g := *out.Tile
+		apply := func(k qualify.TileGEMMKnobs) TileGEMM {
+			cand := g
+			cand.BM = k.BM
+			cand.BN = k.BN
+			cand.Stages = k.Stages
+			cand.WGMMA = k.WGMMA
+			cand.Swizzle128B = k.Swizzle128B
+			cand.WarpSpecialized = k.WarpSpecialized
+			cand.Repacked = k.Repacked
+			cand.DequantWords = k.DequantWords
+			cand.StreamK = k.StreamK
+			cand.GroupM = k.GroupM
+			return cand
+		}
+		knobs, reasons := qualify.RefineTileGEMMKnobs(qualify.TileGEMMKnobs{
+			Name:            g.Name,
+			BM:              g.BM,
+			BN:              g.BN,
+			Stages:          g.Stages,
+			WGMMA:           g.WGMMA,
+			Swizzle128B:     g.Swizzle128B,
+			WarpSpecialized: g.WarpSpecialized,
+			Repacked:        g.Repacked,
+			DequantWords:    g.DequantWords,
+			StreamK:         g.StreamK,
+			GroupM:          g.GroupM,
+			Grouped:         g.Grouped,
+			IsNVFP4:         g.Weight == WeightNVFP4,
+			LinearEpilogue:  g.Epilogue.root == nil || g.Epilogue.IsIdentity(),
+		}, obs, bns, func(ck qualify.TileGEMMKnobs) bool {
+			_, err := apply(ck).norm()
+			return err == nil
+		})
+		t := apply(knobs)
 		out.Tile = &t
 		return out, reasons
+
 	case out.GEMM != nil:
-		g, reasons := refineSkinnyGEMM(*out.GEMM, out.M, obs, bns)
-		out.GEMM = &g
+		g := *out.GEMM
+		normed, err := g.norm()
+		normR, normW, normS, normU := g.RowsPerBlock, g.Warps, g.SplitK, g.Unroll
+		chunk := g.Weight.chunk()
+		if err == nil {
+			normR, normW, normS, normU = normed.RowsPerBlock, normed.Warps, normed.SplitK, normed.Unroll
+			chunk = normed.Weight.chunk()
+		}
+		apply := func(k qualify.SkinnyGEMMKnobs) SkinnyGEMM {
+			cand := g
+			cand.RowsPerBlock = k.RowsPerBlock
+			cand.Unroll = k.Unroll
+			cand.Prefetch = k.Prefetch
+			cand.BlackwellFP4 = k.BlackwellFP4
+			return cand
+		}
+		knobs, reasons := qualify.RefineSkinnyGEMMKnobs(qualify.SkinnyGEMMKnobs{
+			Name:             g.Name,
+			N:                g.N,
+			K:                g.K,
+			RowsPerBlock:     g.RowsPerBlock,
+			NormRowsPerBlock: normR,
+			Warps:            g.Warps,
+			NormWarps:        normW,
+			SplitK:           g.SplitK,
+			NormSplitK:       normS,
+			Unroll:           g.Unroll,
+			NormUnroll:       normU,
+			Prefetch:         g.Prefetch,
+			BlackwellFP4:     g.BlackwellFP4,
+			IsNVFP4:          g.Weight == WeightNVFP4,
+			WeightChunk:      chunk,
+		}, obs, bns, func(ck qualify.SkinnyGEMMKnobs) bool {
+			_, err := apply(ck).norm()
+			return err == nil
+		})
+		sg := apply(knobs)
+		out.GEMM = &sg
 		return out, reasons
+
 	case out.Attention != nil:
-		a, reasons := refinePagedAttention(*out.Attention, out.Batch, out.MaxKeys, obs, bns)
-		out.Attention = &a
+		a := *out.Attention
+		normStages := a.Stages
+		if normStages == 0 {
+			if normed, _, err := a.norm(); err == nil {
+				normStages = normed.Stages
+			} else {
+				normStages = 2
+			}
+		}
+		apply := func(k qualify.PagedAttentionKnobs) PagedAttention {
+			cand := a
+			cand.Chunk = k.Chunk
+			cand.Depth = k.Depth
+			cand.Stages = k.Stages
+			cand.TableAhead = k.TableAhead
+			cand.WGMMA = k.WGMMA
+			cand.QKFP8 = k.QKFP8
+			cand.Swizzle = k.Swizzle
+			cand.ClusterCombine = k.ClusterCombine
+			return cand
+		}
+		knobs, reasons := qualify.RefinePagedAttentionKnobs(qualify.PagedAttentionKnobs{
+			Name:            a.Name,
+			Hq:              a.Hq,
+			Hkv:             a.Hkv,
+			QLen:            a.QLen,
+			Window:          a.Window,
+			QIsE4M3:         a.Q == E4M3,
+			KVHeadsPerBlock: a.KVHeadsPerBlock,
+			Chunk:           a.Chunk,
+			Depth:           a.Depth,
+			Stages:          a.Stages,
+			NormStages:      normStages,
+			TableAhead:      a.TableAhead,
+			WGMMA:           a.WGMMA,
+			QKFP8:           a.QKFP8,
+			Swizzle:         a.Swizzle,
+			ClusterCombine:  a.ClusterCombine,
+		}, out.Batch, out.MaxKeys, obs, bns, func(ck qualify.PagedAttentionKnobs) bool {
+			_, _, err := apply(ck).norm()
+			return err == nil
+		})
+		pa := apply(knobs)
+		out.Attention = &pa
 		return out, reasons
+
 	case out.Row != nil:
-		r, reasons := refineRowKernel(*out.Row, obs, bns)
+		r := *out.Row
+		knobs, reasons := qualify.RefineRowKernelKnobs(qualify.RowKernelKnobs{
+			Name:       r.Name,
+			Cluster:    r.Cluster,
+			CanCluster: r.CanCluster(),
+		}, bns, func(ck qualify.RowKernelKnobs) bool {
+			cand := r
+			cand.Cluster = ck.Cluster
+			_, err := cand.check()
+			return err == nil
+		})
+		r.Cluster = knobs.Cluster
 		out.Row = &r
 		return out, reasons
+
 	default:
 		return out, nil
 	}
 }
 
-func refineTileGEMM(g TileGEMM, m int, obs KernelObservation, bns []BottleneckKind) (TileGEMM, []string) {
-	var reasons []string
-	has := func(k BottleneckKind) bool { return slices.Contains(bns, k) }
-
-	if has(BottleneckBankConflict) && !g.Swizzle128B {
-		cand := g
-		cand.WGMMA = true
-		cand.Swizzle128B = true
-		if cand.BM == 0 || (cand.BM == 64 && !(cand.WarpSpecialized && cand.Weight == WeightNVFP4)) {
-			cand.BM = 128
-		}
-		if _, err := cand.norm(); err == nil {
-			g = cand
-			reasons = append(reasons, fmt.Sprintf("%s: enable Swizzle128B to eliminate shared memory bank conflicts", g.Name))
-		}
-	}
-
-	if has(BottleneckWGMMASerial) {
-		stages := g.Stages
-		if stages == 0 {
-			stages = 3
-		}
-		promoted := false
-		if g.WGMMA && stages >= 2 && g.StreamK == 0 && !g.WarpSpecialized {
-			cand := g
-			cand.Swizzle128B = true
-			cand.WarpSpecialized = true
-			cand.DequantWords = 0
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				promoted = true
-				reasons = append(reasons, fmt.Sprintf("%s: enable WarpSpecialized to cure WGMMA serialization", g.Name))
-			}
-		}
-		if !promoted {
-			if g.DequantWords > 1 {
-				cand := g
-				cand.DequantWords = 1
-				if _, err := cand.norm(); err == nil {
-					g = cand
-					reasons = append(reasons, fmt.Sprintf("%s: step down DequantWords=1 to avoid WGMMA serialization", g.Name))
-				}
-			} else if g.StreamK > 0 {
-				cand := g
-				cand.StreamK = 0
-				if _, err := cand.norm(); err == nil {
-					g = cand
-					reasons = append(reasons, fmt.Sprintf("%s: disable StreamK to avoid divergent WGMMA loop serialization", g.Name))
-				}
-			}
-		}
-	}
-
-	if has(BottleneckRegisterSpill) || has(BottleneckLowOccupancy) {
-		bn := g.BN
-		if bn == 0 {
-			bn = 128
-		}
-		stages := g.Stages
-		if stages == 0 {
-			stages = 3
-		}
-		if g.DequantWords == 2 {
-			cand := g
-			cand.DequantWords = 1
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: step down DequantWords 2 -> 1 to reduce register pressure", g.Name))
-			}
-		} else if bn > 64 {
-			cand := g
-			cand.BN = 64
-			if cand.Repacked {
-				cand.Repacked = false
-				cand.DequantWords = 0
-				if cand.WarpSpecialized && cand.Weight == WeightNVFP4 {
-					cand.WarpSpecialized = false
-				}
-			}
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: step down BN %d -> 64 to reduce register pressure", g.Name, bn))
-			} else if stages > 2 {
-				cand2 := g
-				cand2.Stages = 2
-				if _, err := cand2.norm(); err == nil {
-					g = cand2
-					reasons = append(reasons, fmt.Sprintf("%s: step down Stages %d -> 2 to reduce register pressure", g.Name, stages))
-				}
-			}
-		} else if stages > 2 {
-			cand := g
-			cand.Stages = 2
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: step down Stages %d -> 2 to reduce register pressure", g.Name, stages))
-			}
-		}
-	}
-
-	if has(BottleneckWaveTail) {
-		sms := obs.DeviceSMs
-		if sms <= 0 {
-			sms = 132
-		}
-		linearEpi := g.Epilogue.root == nil || g.Epilogue.IsIdentity()
-		if !g.WarpSpecialized && !g.Grouped && linearEpi && g.StreamK == 0 {
-			cand := g
-			cand.StreamK = sms
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: enable StreamK=%d to eliminate wave tail quantization", g.Name, sms))
-			}
-		} else if g.GroupM != 8 {
-			cand := g
-			cand.GroupM = 8
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: set GroupM=8 to improve wave L2 locality", g.Name))
-			}
-		}
-	}
-
-	return g, reasons
-}
-
-func refineSkinnyGEMM(g SkinnyGEMM, m int, obs KernelObservation, bns []BottleneckKind) (SkinnyGEMM, []string) {
-	var reasons []string
-	has := func(k BottleneckKind) bool { return slices.Contains(bns, k) }
-
-	if has(BottleneckRegisterSpill) {
-		if g.Prefetch > 0 {
-			cand := g
-			cand.Prefetch = 0
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: disable Prefetch to eliminate register spills", g.Name))
-			}
-		}
-		normed, err := g.norm()
-		if err == nil && normed.RowsPerBlock > 1 {
-			for _, nextR := range []int{2, 1} {
-				if nextR < normed.RowsPerBlock && g.N%nextR == 0 {
-					cand := g
-					cand.RowsPerBlock = nextR
-					if _, err := cand.norm(); err == nil {
-						prev := normed.RowsPerBlock
-						g = cand
-						reasons = append(reasons, fmt.Sprintf("%s: step down RowsPerBlock %d -> %d to reduce register pressure", g.Name, prev, nextR))
-						break
-					}
-				}
-			}
-		} else if err == nil && normed.Unroll > 1 {
-			cand := g
-			cand.Unroll = max(normed.Unroll/2, 1)
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: step down Unroll %d -> %d to reduce register pressure", g.Name, normed.Unroll, cand.Unroll))
-			}
-		}
-	}
-
-	if !has(BottleneckRegisterSpill) && (has(BottleneckMemoryBoundKV) || has(BottleneckLowOccupancy)) {
-		if g.Prefetch <= 0 {
-			cand := g
-			cand.Prefetch = 2
-			if normed, err := g.norm(); err == nil {
-				steps := normed.K / (32 * normed.Weight.chunk())
-				perWarp := (steps/normed.SplitK + normed.Warps - 1) / normed.Warps
-				cand.Prefetch = min(4, max(2, perWarp))
-			}
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: enable Prefetch=%d to hide HBM weight streaming latency", g.Name, g.Prefetch))
-			}
-		}
-		if g.Weight == WeightNVFP4 && !g.BlackwellFP4 {
-			cand := g
-			cand.BlackwellFP4 = true
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: enable BlackwellFP4 hardware nibble widening for NVFP4", g.Name))
-			}
-		}
-	}
-
-	if has(BottleneckWaveTail) {
-		if normed, err := g.norm(); err == nil && normed.RowsPerBlock > 1 && g.N >= 1 {
-			cand := g
-			cand.RowsPerBlock = 1
-			if _, err := cand.norm(); err == nil {
-				g = cand
-				reasons = append(reasons, fmt.Sprintf("%s: step down RowsPerBlock %d -> 1 to spread CTAs across SMs", g.Name, normed.RowsPerBlock))
-			}
-		}
-	}
-
-	return g, reasons
-}
-
-func refinePagedAttention(a PagedAttention, batch, maxKeys int, obs KernelObservation, bns []BottleneckKind) (PagedAttention, []string) {
-	var reasons []string
-	has := func(k BottleneckKind) bool { return slices.Contains(bns, k) }
-
-	if batch <= 0 {
-		batch = 1
-	}
-	if maxKeys <= 0 {
-		if a.Window > 0 {
-			maxKeys = a.Window + max(a.QLen, 1) - 1
-		} else {
-			maxKeys = 1024
-		}
-	}
-
-	if has(BottleneckBankConflict) && !a.Swizzle {
-		cand := a
-		cand.Swizzle = true
-		if _, _, err := cand.norm(); err == nil {
-			a = cand
-			reasons = append(reasons, fmt.Sprintf("%s: enable Swizzle to eliminate shared memory bank conflicts", a.Name))
-		}
-	}
-
-	if has(BottleneckMemoryBoundKV) || has(BottleneckLowOccupancy) {
-		g := a.Hq / max(a.Hkv, 1)
-		if !a.WGMMA && g >= 8 && HeadDim%32 == 0 && a.Q == E4M3 && a.KVHeadsPerBlock <= 1 {
-			cand := a
-			cand.WGMMA = true
-			cand.QKFP8 = true
-			if _, _, err := cand.norm(); err == nil {
-				a = cand
-				reasons = append(reasons, fmt.Sprintf("%s: enable WGMMA and QKFP8 for G=%d FP8 KV attention", a.Name, g))
-			}
-		}
-		if a.TableAhead < 2 {
-			cand := a
-			if cand.Stages == 0 {
-				if normed, _, err := cand.norm(); err == nil {
-					cand.Stages = normed.Stages
-				} else {
-					cand.Stages = 2
-				}
-			}
-			cand.TableAhead = min(2, max(cand.Stages, 2))
-			if _, _, err := cand.norm(); err == nil {
-				a = cand
-				reasons = append(reasons, fmt.Sprintf("%s: enable TableAhead=%d to prefetch page-table entries ahead of cp.async", a.Name, a.TableAhead))
-			}
-		}
-	}
-
-	if has(BottleneckWaveTail) {
-		sms := obs.DeviceSMs
-		if sms <= 0 {
-			sms = 132
-		}
-		curChunk := a.Chunk
-		if curChunk == 0 {
-			curChunk = 256
-		}
-		hpb := max(a.KVHeadsPerBlock, 1)
-		units := max(batch*(max(a.Hkv, 1)/hpb), 1)
-
-		bestChunk := curChunk
-		for _, c := range []int{128, 64} {
-			if c >= curChunk {
-				continue
-			}
-			splits := (maxKeys + c - 1) / c
-			ctas := units * splits
-			waves := float64(ctas) / float64(sms)
-			tail := waves - math.Floor(waves)
-			bestChunk = c
-			if waves >= 1.0 && (tail == 0 || tail > 0.35) {
-				break
-			}
-		}
-		if bestChunk != curChunk {
-			cand := a
-			cand.Chunk = bestChunk
-			if _, _, err := cand.norm(); err == nil {
-				a = cand
-				reasons = append(reasons, fmt.Sprintf("%s: adjust Chunk %d -> %d to balance SM wave occupancy", a.Name, curChunk, bestChunk))
-			}
-		}
-
-		effChunk := a.Chunk
-		if effChunk == 0 {
-			effChunk = 256
-		}
-		splits := (maxKeys + effChunk - 1) / effChunk
-		if splits >= ClusterSize && !a.ClusterCombine {
-			cand := a
-			cand.ClusterCombine = true
-			if _, _, err := cand.norm(); err == nil {
-				a = cand
-				reasons = append(reasons, fmt.Sprintf("%s: enable ClusterCombine across %d splits", a.Name, splits))
-			}
-		}
-	}
-
-	if has(BottleneckRegisterSpill) {
-		if a.Depth > 1 {
-			cand := a
-			cand.Depth = 1
-			if _, _, err := cand.norm(); err == nil {
-				a = cand
-				reasons = append(reasons, fmt.Sprintf("%s: step down Depth -> 1 to eliminate register spills", a.Name))
-			}
-		} else if a.TableAhead > 1 {
-			cand := a
-			cand.TableAhead = 1
-			if _, _, err := cand.norm(); err == nil {
-				a = cand
-				reasons = append(reasons, fmt.Sprintf("%s: step down TableAhead -> 1 to reduce register pressure", a.Name))
-			}
-		}
-	}
-
-	return a, reasons
-}
-
-func refineRowKernel(r RowKernel, obs KernelObservation, bns []BottleneckKind) (RowKernel, []string) {
-	var reasons []string
-	has := func(k BottleneckKind) bool { return slices.Contains(bns, k) }
-
-	if has(BottleneckRegisterSpill) && r.Cluster {
-		cand := r
-		cand.Cluster = false
-		if _, err := cand.check(); err == nil {
-			r = cand
-			reasons = append(reasons, fmt.Sprintf("%s: disable Cluster to reduce register pressure", r.Name))
-		}
-		return r, reasons
-	}
-
-	if (has(BottleneckWaveTail) || has(BottleneckMemoryBoundKV) || has(BottleneckLowOccupancy)) && !r.Cluster && r.CanCluster() {
-		cand := r
-		cand.Cluster = true
-		if _, err := cand.check(); err == nil {
-			r = cand
-			reasons = append(reasons, fmt.Sprintf("%s: enable 8-CTA Cluster reduction", r.Name))
-		}
-	}
-	return r, reasons
-}
-
-// RefinePlan matches plan's kernel steps to receipt.Observations (by kernel
-// name or step index), applies [RefineStep] to each step, updates any affected
-// workspace tensors, and if [BottleneckLaunchOverhead] is present on at least
-// one consumer step of a megakernel-compatible plan, lowers the refined plan
-// to a persistent [MegakernelSource] named plan.Name+"_mega".
+// RefinePlan matches plan's kernel steps to receipt.Observations, applies
+// [RefineStep] to each step, updates any affected workspace tensors, and if
+// [BottleneckLaunchOverhead] is present on at least one consumer step of a
+// megakernel-compatible plan, lowers the refined plan to a persistent
+// [MegakernelSource] named plan.Name+"_mega".
 func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, []string, error) {
 	if plan == nil {
 		return nil, nil, nil, fmt.Errorf("refine plan: nil plan")
@@ -509,7 +229,7 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 	)
 	matched := make([]bool, len(receipt.Observations))
 	for i := range refined.Kernels {
-		obs, ok := matchObservation(refined.Kernels[i], i, receipt.Observations, matched)
+		obs, ok := qualify.MatchObservation(stepKernelName(refined.Kernels[i]), i, receipt.Observations, matched)
 		if !ok {
 			continue
 		}
@@ -517,11 +237,9 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 			obs.DeviceSMs = defaultSMs
 		}
 		bns := ClassifyBottlenecks(obs)
-		if slices.Contains(bns, BottleneckLaunchOverhead) {
-			if i >= 1 || len(refined.Kernels) > 1 {
-				consumerHits++
-				wantMega = true
-			}
+		if slices.Contains(bns, BottleneckLaunchOverhead) && (i >= 1 || len(refined.Kernels) > 1) {
+			consumerHits++
+			wantMega = true
 		}
 
 		prevTileStreamK := refined.Kernels[i].Tile != nil && refined.Kernels[i].Tile.StreamK > 0
@@ -529,7 +247,6 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 		refined.Kernels[i] = step
 		actions = append(actions, stepLog...)
 
-		// Keep plan workspace buffers consistent with refined schedule parameters.
 		if step.Attention != nil && len(step.Args) > 0 {
 			maxKeys := step.MaxKeys
 			if maxKeys <= 0 {
@@ -548,8 +265,7 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 			}
 		}
 		if step.Tile != nil && step.Tile.StreamK > 0 && !prevTileStreamK {
-			wsBytes := step.Tile.WorkspaceBytes()
-			if wsBytes > 0 {
+			if wsBytes := step.Tile.WorkspaceBytes(); wsBytes > 0 {
 				wsName := fmt.Sprintf("%s_sk_ws%d", refined.Name, i+1)
 				refined.Temps = append(refined.Temps, Tensor{
 					Name:  wsName,
@@ -568,9 +284,6 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 		}
 		mega, err := refined.Megakernel(megaName)
 		if err != nil {
-			// If a secondary refinement enabled Cluster on a RowKernel or
-			// WarpSpecialized on a TileGEMM that prevents megakernel fusion,
-			// retry with megakernel-compatible stage flags.
 			compat := clonePlan(refined)
 			for i := range compat.Kernels {
 				if compat.Kernels[i].Row != nil && compat.Kernels[i].Row.Cluster {
@@ -581,9 +294,7 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 				}
 			}
 			if m2, err2 := compat.Megakernel(megaName); err2 == nil {
-				refined = compat
-				mega = m2
-				err = nil
+				refined, mega, err = compat, m2, nil
 			}
 		}
 		if err == nil {
@@ -598,33 +309,6 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 // RefineFromProfile is a convenience alias for [RefinePlan].
 func RefineFromProfile(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, []string, error) {
 	return RefinePlan(plan, receipt)
-}
-
-func matchObservation(k PlanKernel, idx int, obs []KernelObservation, used []bool) (KernelObservation, bool) {
-	kName := stepKernelName(k)
-	if kName != "" {
-		for j, o := range obs {
-			if used[j] || o.Name == "" {
-				continue
-			}
-			if o.Name == kName || matchesVariantFunction(o.Name, kName) {
-				used[j] = true
-				return o, true
-			}
-		}
-	}
-	if idx < len(obs) && !used[idx] {
-		if obs[idx].Name == "" || kName == "" || len(obs) == 1 {
-			used[idx] = true
-			return obs[idx], true
-		}
-		// Fall back to positional matching when all observations are positional.
-		if idx < len(obs) {
-			used[idx] = true
-			return obs[idx], true
-		}
-	}
-	return KernelObservation{}, false
 }
 
 func stepKernelName(k PlanKernel) string {
