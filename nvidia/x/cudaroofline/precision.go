@@ -29,17 +29,35 @@ const (
 	INT8Tensor Precision = "int8_tensor"
 )
 
+// IsValid reports whether p is a recognized Precision constant.
+func (p Precision) IsValid() bool {
+	return validPrecision(p) == nil
+}
+
+// IsFloatingPoint reports whether p names a floating-point arithmetic pipe
+// whose throughput is measured in TFLOPS (10^12 FLOP/s). It returns false for
+// INT8Tensor, which executes integer operations measured in TOPS (10^12 integer
+// OPs/s), and for any unrecognized Precision.
+func (p Precision) IsFloatingPoint() bool {
+	switch p {
+	case FP64, FP32, FP16, TF32Tensor, FP16Tensor, BF16Tensor, FP8Tensor:
+		return true
+	}
+	return false
+}
+
 // PeakTFLOPSFor returns the compute peak for one architecture and precision,
 // with the provenance of the number returned.
 //
-// It answers only for precisions this repository holds a number for, which is
-// FP32 and nothing else. Ceiling.PeakTFLOPS is the FP32 non-tensor peak -- that
-// is what every figure in the table is -- and this function reads that one
-// table rather than introducing a second. A tensor-format peak is absent, and
-// absent is the answer: an FP16 tensor peak inferred from an FP32 pipe peak by
-// multiplying by a ratio from a datasheet nobody here checked would be a
-// fabrication dressed as a lookup, and every efficiency computed against it
-// would inherit the fabrication silently.
+// It answers only for precisions this repository's built-in architecture table
+// holds a number for, which is FP32 and nothing else. Ceiling.PeakTFLOPS is the
+// FP32 non-tensor peak -- that is what every figure in knownCeilings is -- and
+// this function reads that one table rather than introducing a second. Non-FP32
+// peaks depend on the specific SKU (DeviceName), SM count, and SM clock
+// (MaxSMClockMHz); supply an explicit Ceiling with PrecisionPeaks to
+// NewModelWithCeiling and query Model.PeakTFLOPSFor instead of inferring a
+// tensor peak from an FP32 pipe peak. INT8Tensor is an integer TOPS format and
+// is never returned as TFLOPS.
 //
 // Absence is not an obstacle to the memory axis. Bandwidth does not depend on
 // the format of the arithmetic, so Model.Judge still bounds a tensor-precision
@@ -49,6 +67,9 @@ func PeakTFLOPSFor(arch string, p Precision) (float64, Provenance, error) {
 	if p != FP32 {
 		if err := validPrecision(p); err != nil {
 			return 0, "", err
+		}
+		if !p.IsFloatingPoint() {
+			return 0, "", fmt.Errorf("cudaroofline: no %s peak for %q: %s measures integer TOPS, not floating-point TFLOPS (the table holds FP32 non-tensor peaks only)", p, arch, p)
 		}
 		return 0, "", fmt.Errorf("cudaroofline: no %s peak for %q: the table holds FP32 non-tensor peaks only", p, arch)
 	}

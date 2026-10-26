@@ -171,12 +171,14 @@ func (r *CalibrationResult) ThresholdReceipt(separates, failsWhen string) (cudac
 // work of req.Shape.
 //
 // It refuses missing or invalid reports, inferred SASS listings whose encodings
-// are not bound to the artifact's .text section, overflowed or zero GEMM
+// are not bound to the artifact's .text section, non-floating integer workloads
+// (such as INT8Tensor, whose work is measured in integer OPs/TOPS rather than
+// AnalyticFLOPs/TFLOPS) before invoking req.Observe, overflowed or zero GEMM
 // shapes, failed or incomplete callback runs, mismatched artifact digests or
-// entry symbols, mismatched model/identity architectures or residencies, and
-// missing, nonpositive, or host-wall timing. Unavailable or rejected estimates
-// remain visible in CalibrationResult with ComparisonError set and
-// RelativeError set to NaN.
+// entry symbols, mismatched model/identity architectures, device names, SM
+// clocks, or residencies, and missing, nonpositive, or host-wall timing.
+// Unavailable or rejected estimates remain visible in CalibrationResult with
+// ComparisonError set and RelativeError set to NaN.
 func CalibrateWorkload(ctx context.Context, req CalibrationRequest) (*CalibrationResult, error) {
 	if ctx != nil {
 		if err := ctx.Err(); err != nil {
@@ -223,6 +225,10 @@ func CalibrateWorkload(ctx context.Context, req CalibrationRequest) (*Calibratio
 	attr, err := cudacensus.AttributeFromMix(mix)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrCalibration, err)
+	}
+	if !attr.Precision.IsFloatingPoint() {
+		return nil, fmt.Errorf("%w: precision %q measures integer TOPS/OPs, not floating-point TFLOPS/AnalyticFLOPs",
+			ErrCalibration, attr.Precision)
 	}
 
 	obs, err := req.Observe(ctx)
@@ -370,6 +376,29 @@ func validateObservationEnvironment(r *Report, m *cudaroofline.Model, obs Worklo
 	if modelSuffix != "" && modelSuffix != obsSuffix && modelSuffix != repSuffix {
 		return fmt.Errorf("%w: model architecture %q claims suffix %q not established by observation %q or report SASS",
 			ErrCalibration, m.Ceiling.Architecture, modelSuffix, obs.Identity.Architecture)
+	}
+
+	if len(m.Ceiling.PrecisionPeaks) > 0 || strings.TrimSpace(m.Ceiling.DeviceName) != "" || m.Ceiling.MaxSMClockMHz > 0 {
+		if strings.TrimSpace(m.Ceiling.Architecture) != strings.TrimSpace(obs.Identity.Architecture) {
+			return fmt.Errorf("%w: model architecture %q does not exactly match observation architecture %q",
+				ErrCalibration, m.Ceiling.Architecture, obs.Identity.Architecture)
+		}
+	}
+	if strings.TrimSpace(m.Ceiling.DeviceName) != "" {
+		if strings.TrimSpace(obs.Identity.DeviceName) != strings.TrimSpace(m.Ceiling.DeviceName) {
+			return fmt.Errorf("%w: observation device name %q does not match model ceiling device name %q",
+				ErrCalibration, obs.Identity.DeviceName, m.Ceiling.DeviceName)
+		}
+	}
+	if m.Ceiling.MaxSMClockMHz > 0 {
+		if obs.Identity.MaxSMClockMHz == 0 {
+			return fmt.Errorf("%w: observation identity must state max_sm_clock_mhz matching model ceiling (%d MHz)",
+				ErrCalibration, m.Ceiling.MaxSMClockMHz)
+		}
+		if obs.Identity.MaxSMClockMHz != m.Ceiling.MaxSMClockMHz {
+			return fmt.Errorf("%w: observation max_sm_clock_mhz %d does not match model ceiling max_sm_clock_mhz %d",
+				ErrCalibration, obs.Identity.MaxSMClockMHz, m.Ceiling.MaxSMClockMHz)
+		}
 	}
 	return nil
 }

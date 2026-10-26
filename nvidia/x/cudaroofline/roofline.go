@@ -3,6 +3,7 @@ package cudaroofline
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strings"
@@ -75,6 +76,21 @@ const (
 	ComputeLimited LimitingAxis = "compute"
 )
 
+// PrecisionPeak is a caller-supplied dense floating-point compute ceiling for
+// one Precision on the Architecture, Residency, DeviceName, and MaxSMClockMHz
+// named by its enclosing Ceiling.
+//
+// Provenance and Citation are caller-supplied assertions recorded for
+// auditability; they do not authenticate hardware measurements. Sparse (2:4
+// structured sparsity) peaks are rejected so a 2x sparse datasheet figure
+// cannot be applied to dense arithmetic.
+type PrecisionPeak struct {
+	PeakTFLOPS float64    `json:"peak_tflops"`
+	Provenance Provenance `json:"provenance"`
+	Citation   string     `json:"citation,omitempty"`
+	Sparse     bool       `json:"sparse,omitempty"`
+}
+
 // Ceiling is the set of hardware limits a kernel is judged against. A ceiling
 // is specific to both an architecture and a Residency, and records how its
 // numbers were obtained.
@@ -85,6 +101,13 @@ type Ceiling struct {
 	Architecture string    // e.g. "sm_90", "sm_121"
 	Residency    Residency // memory path the bandwidth figures describe
 
+	// DeviceName and MaxSMClockMHz name the specific SKU and maximum SM clock
+	// (matching cudacensus.Identity) that qualify PrecisionPeaks. They are
+	// caller-supplied assertions checked for consistency, not hardware
+	// authentication.
+	DeviceName    string `json:"device_name,omitempty"`
+	MaxSMClockMHz uint32 `json:"max_sm_clock_mhz,omitempty"`
+
 	PeakTFLOPS      float64 // Peak FP32 non-tensor compute throughput in TFLOPS
 	PeakMemoryGBps  float64 // Peak DRAM bandwidth in GB/s for this residency
 	L2BandwidthGBps float64 // Peak L2 cache bandwidth in GB/s; zero if unknown
@@ -93,6 +116,11 @@ type Ceiling struct {
 	// PeakMemoryGBps and, when it is nonzero, L2BandwidthGBps.
 	ComputeProvenance Provenance
 	MemoryProvenance  Provenance
+
+	// PrecisionPeaks holds optional caller-supplied dense floating-point
+	// peaks keyed by Precision for the single Architecture, Residency,
+	// DeviceName, and MaxSMClockMHz of this Ceiling.
+	PrecisionPeaks map[Precision]PrecisionPeak `json:"precision_peaks,omitempty"`
 }
 
 // provenanceFor returns the provenance of the limit on the given axis. A
@@ -223,6 +251,7 @@ var knownCeilings = map[ceilingKey]Ceiling{
 func LookupCeiling(arch string, residency Residency) (Ceiling, error) {
 	key := ceilingKey{strings.ToLower(strings.TrimSpace(arch)), residency}
 	if c, ok := knownCeilings[key]; ok {
+		c.PrecisionPeaks = maps.Clone(c.PrecisionPeaks)
 		return c, nil
 	}
 	if known := residenciesFor(key.arch); len(known) > 0 {
@@ -245,6 +274,12 @@ func residenciesFor(arch string) []string {
 }
 
 // Model evaluates kernel operational points against one ceiling.
+//
+// Ceiling is the single authoritative state for the model. NewModelWithCeiling
+// defensively clones Ceiling.PrecisionPeaks so mutating the caller's input map
+// does not alter the model. Explicit mutations to Model.Ceiling or
+// Model.Ceiling.PrecisionPeaks affect future reads consistently across all
+// Model methods; Model is not safe for concurrent mutation and read.
 type Model struct {
 	Ceiling Ceiling
 }
@@ -259,11 +294,86 @@ func NewModel(arch string, residency Residency) (*Model, error) {
 }
 
 // NewModelWithCeiling creates a roofline model with a caller-supplied ceiling,
-// for a part or a memory path the table does not cover. The caller is
-// responsible for the ceiling's provenance; ValidateCeiling checks that it is
-// at least stated.
+// for a part or a memory path the table does not cover. It defensively clones
+// c.PrecisionPeaks so mutating the caller's map after construction does not
+// mutate the model. The caller is responsible for the ceiling's provenance;
+// ValidateCeiling checks that it is at least stated.
 func NewModelWithCeiling(c Ceiling) *Model {
+	c.PrecisionPeaks = maps.Clone(c.PrecisionPeaks)
 	return &Model{Ceiling: c}
+}
+
+// PeakTFLOPSFor returns the validated floating-point compute peak and
+// provenance for p from m.Ceiling.
+//
+// For FP32 it returns m.Ceiling.PeakTFLOPS and m.Ceiling.ComputeProvenance
+// (and verifies that m.Ceiling.PrecisionPeaks, if populated, is coherent and
+// does not contradict Ceiling.PeakTFLOPS). For other floating-point precisions
+// (FP64, FP16, TF32Tensor, FP16Tensor, BF16Tensor, FP8Tensor) it requires a
+// validated coherent m.Ceiling.PrecisionPeaks entry qualified by
+// m.Ceiling.Architecture, m.Ceiling.DeviceName, and m.Ceiling.MaxSMClockMHz,
+// and never falls back to Ceiling.PeakTFLOPS. INT8Tensor is an integer TOPS
+// format and is always refused here.
+func (m *Model) PeakTFLOPSFor(p Precision) (float64, Provenance, error) {
+	if m == nil {
+		return 0, "", errors.New("cudaroofline: nil model")
+	}
+	if err := validPrecision(p); err != nil {
+		return 0, "", err
+	}
+	if !p.IsFloatingPoint() {
+		return 0, "", fmt.Errorf("cudaroofline: no %s peak: %s measures integer TOPS, not floating-point TFLOPS (the model holds an FP32 non-tensor peak only)", p, p)
+	}
+	if p == FP32 {
+		if m.Ceiling.PeakTFLOPS <= 0 || math.IsNaN(m.Ceiling.PeakTFLOPS) || math.IsInf(m.Ceiling.PeakTFLOPS, 0) {
+			return 0, "", errors.New("cudaroofline: no finite positive FP32 peak in the model")
+		}
+		if err := validProvenance(m.Ceiling.ComputeProvenance); err != nil {
+			return 0, "", errors.New("cudaroofline: FP32 peak has no recognized provenance")
+		}
+		if len(m.Ceiling.PrecisionPeaks) > 0 {
+			if err := validatePrecisionPeaks(m.Ceiling); err != nil {
+				return 0, "", err
+			}
+		}
+		return m.Ceiling.PeakTFLOPS, m.Ceiling.ComputeProvenance, nil
+	}
+	if len(m.Ceiling.PrecisionPeaks) == 0 {
+		return 0, "", fmt.Errorf("cudaroofline: no %s peak: the model holds an FP32 non-tensor peak only", p)
+	}
+	if err := validatePrecisionPeaks(m.Ceiling); err != nil {
+		return 0, "", err
+	}
+	pk, ok := m.Ceiling.PrecisionPeaks[p]
+	if !ok {
+		return 0, "", fmt.Errorf("cudaroofline: no %s peak in model for %s (%s at %d MHz)",
+			p, m.Ceiling.DeviceName, m.Ceiling.Architecture, m.Ceiling.MaxSMClockMHz)
+	}
+	return pk.PeakTFLOPS, pk.Provenance, nil
+}
+
+// CeilingAtFor reports the maximum attainable floating-point TFLOPS for
+// precision p at the given arithmetic intensity (FLOPs / Byte). It bounds the
+// memory slope against p's own validated compute peak from m.PeakTFLOPSFor(p),
+// never substituting m.Ceiling.PeakTFLOPS for a non-FP32 precision.
+func (m *Model) CeilingAtFor(p Precision, intensity float64) (float64, error) {
+	peak, _, err := m.PeakTFLOPSFor(p)
+	if err != nil {
+		return 0, err
+	}
+	if m.Ceiling.PeakMemoryGBps <= 0 || math.IsNaN(m.Ceiling.PeakMemoryGBps) || math.IsInf(m.Ceiling.PeakMemoryGBps, 0) {
+		return 0, errors.New("cudaroofline: PeakMemoryGBps must be finite and positive")
+	}
+	if err := validProvenance(m.Ceiling.MemoryProvenance); err != nil {
+		return 0, fmt.Errorf("cudaroofline: MemoryProvenance: %w", err)
+	}
+	if intensity <= 0 || math.IsNaN(intensity) || math.IsInf(intensity, 0) {
+		return 0, nil
+	}
+	if memCeiling := intensity * (m.Ceiling.PeakMemoryGBps / 1000.0); memCeiling < peak {
+		return memCeiling, nil
+	}
+	return peak, nil
 }
 
 // KernelPoint records the arithmetic intensity, throughput, and roofline
@@ -402,6 +512,9 @@ const unconstrainedEfficiency = 0.35
 // ValidateCeiling returns an error if a ceiling is unusable: a nonfinite or non-positive
 // limit, or a limit whose provenance is not stated. An unstated provenance is
 // an error because the number's kind determines what a ratio against it means.
+// When PrecisionPeaks is populated, it also checks that Architecture,
+// DeviceName, and MaxSMClockMHz are stated and that every entry is a dense
+// floating-point TFLOPS peak with recognized provenance and non-empty citation.
 func ValidateCeiling(c Ceiling) error {
 	if c.PeakTFLOPS <= 0 || math.IsNaN(c.PeakTFLOPS) || math.IsInf(c.PeakTFLOPS, 0) {
 		return errors.New("cudaroofline: PeakTFLOPS must be finite and positive")
@@ -420,7 +533,77 @@ func ValidateCeiling(c Ceiling) error {
 	if err := validProvenance(c.MemoryProvenance); err != nil {
 		return fmt.Errorf("cudaroofline: MemoryProvenance: %w", err)
 	}
+	if len(c.PrecisionPeaks) > 0 {
+		if err := validatePrecisionPeaks(c); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func validatePrecisionPeaks(c Ceiling) error {
+	if !isCanonicalSMArch(c.Architecture) {
+		return fmt.Errorf("cudaroofline: PrecisionPeaks requires canonical sm_XY architecture, got %q", c.Architecture)
+	}
+	if strings.TrimSpace(c.DeviceName) == "" {
+		return errors.New("cudaroofline: DeviceName is required when PrecisionPeaks are set")
+	}
+	if c.MaxSMClockMHz == 0 {
+		return errors.New("cudaroofline: MaxSMClockMHz must be positive when PrecisionPeaks are set")
+	}
+	keys := make([]string, 0, len(c.PrecisionPeaks))
+	for p := range c.PrecisionPeaks {
+		keys = append(keys, string(p))
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		p := Precision(k)
+		pk := c.PrecisionPeaks[p]
+		if err := validPrecision(p); err != nil {
+			return err
+		}
+		if !p.IsFloatingPoint() {
+			return fmt.Errorf("cudaroofline: PrecisionPeaks[%q]: %s measures integer TOPS, not floating-point TFLOPS", p, p)
+		}
+		if pk.Sparse {
+			return fmt.Errorf("cudaroofline: PrecisionPeaks[%q]: sparse (2:4) peaks are unsupported; ceiling requires dense (1:1) peaks", p)
+		}
+		if pk.PeakTFLOPS <= 0 || math.IsNaN(pk.PeakTFLOPS) || math.IsInf(pk.PeakTFLOPS, 0) {
+			return fmt.Errorf("cudaroofline: PrecisionPeaks[%q]: PeakTFLOPS must be finite and positive", p)
+		}
+		if err := validProvenance(pk.Provenance); err != nil {
+			return fmt.Errorf("cudaroofline: PrecisionPeaks[%q]: Provenance: %w", p, err)
+		}
+		if strings.TrimSpace(pk.Citation) == "" {
+			return fmt.Errorf("cudaroofline: PrecisionPeaks[%q]: Citation is required", p)
+		}
+		if p == FP32 {
+			if pk.PeakTFLOPS != c.PeakTFLOPS || pk.Provenance != c.ComputeProvenance {
+				return fmt.Errorf("cudaroofline: PrecisionPeaks[%q] (%v, %q) disagrees with Ceiling.PeakTFLOPS (%v, %q)",
+					p, pk.PeakTFLOPS, pk.Provenance, c.PeakTFLOPS, c.ComputeProvenance)
+			}
+		}
+	}
+	return nil
+}
+
+func isCanonicalSMArch(arch string) bool {
+	if !strings.HasPrefix(arch, "sm_") {
+		return false
+	}
+	body := arch[len("sm_"):]
+	if strings.HasSuffix(body, "a") {
+		body = body[:len(body)-1]
+	}
+	if len(body) < 2 || body[0] == '0' {
+		return false
+	}
+	for i := 0; i < len(body); i++ {
+		if body[i] < '0' || body[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func validProvenance(p Provenance) error {

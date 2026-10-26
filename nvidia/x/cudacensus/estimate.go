@@ -2,7 +2,7 @@ package cudacensus
 
 import (
 	"fmt"
-	"math"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaroofline"
@@ -46,11 +46,14 @@ const (
 type Derivation struct {
 	Readings []Reading // owned snapshot of the counters read, including absences
 
-	Architecture string                 // from the step 1 identity
-	Residency    cudaroofline.Residency // memory path the bandwidth figure describes
+	Architecture  string                 // from the step 1 identity
+	Residency     cudaroofline.Residency // memory path the bandwidth figure describes
+	DeviceName    string                 `json:"device_name,omitempty"`
+	MaxSMClockMHz uint32                 `json:"max_sm_clock_mhz,omitempty"`
 
 	PeakTFLOPS        float64                 // the peak the activity was scaled by
 	PeakProvenance    cudaroofline.Provenance // how that peak was obtained
+	PeakCitation      string                  `json:"peak_citation,omitempty"`
 	PeakMemoryGBps    float64                 // the bandwidth ceiling the byte rate was scaled by
 	MemoryProvenance  cudaroofline.Provenance // how that bandwidth was obtained
 	Attribution       Attribution             // which precision, and how decided
@@ -95,14 +98,30 @@ type Inputs struct {
 //
 // It returns an unavailable estimate, rather than an error, for every ordinary
 // absence: an unattributed precision, a precision the peak table has no entry
-// for, or a missing activity counter. Those are the states the device and the
-// table actually produce, and an error would invite a caller to substitute a
-// zero for them.
+// for, an integer TOPS precision (INT8Tensor) that cannot populate TFLOPS
+// fields, an ambiguous tensor format (TF32Tensor, BF16Tensor, FP8Tensor)
+// lacking static instruction-mix attribution, or a missing activity counter.
+// Those are the states the device and the table actually produce, and an error
+// would invite a caller to substitute a zero for them.
 func NewEstimate(m *cudaroofline.Model, in Inputs) Estimate {
+	if m == nil {
+		return Estimate{
+			Confidence: ConfidenceUnavailable,
+			Derivation: Derivation{
+				Readings:          append([]Reading(nil), in.Readings...),
+				Attribution:       in.Attribution,
+				Interval:          in.Interval,
+				UnavailableReason: "nil roofline model",
+			},
+		}
+	}
+
 	d := Derivation{
 		Readings:         append([]Reading(nil), in.Readings...),
 		Architecture:     m.Ceiling.Architecture,
 		Residency:        m.Ceiling.Residency,
+		DeviceName:       m.Ceiling.DeviceName,
+		MaxSMClockMHz:    m.Ceiling.MaxSMClockMHz,
 		PeakMemoryGBps:   m.Ceiling.PeakMemoryGBps,
 		MemoryProvenance: m.Ceiling.MemoryProvenance,
 		Attribution:      in.Attribution,
@@ -135,21 +154,43 @@ func NewEstimate(m *cudaroofline.Model, in Inputs) Estimate {
 		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
 	}
 
-	if in.Attribution.Precision != cudaroofline.FP32 {
-		d.UnavailableReason = fmt.Sprintf("no %s peak: the model holds an FP32 non-tensor peak only", in.Attribution.Precision)
+	if !in.Attribution.Precision.IsValid() {
+		d.UnavailableReason = fmt.Sprintf("unknown precision %q", in.Attribution.Precision)
 		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
 	}
-	// Use the same supplied peak for scaling and bounding. A table lookup here
-	// would discard a caller's calibrated or partition-specific ceiling.
-	peak, prov := m.Ceiling.PeakTFLOPS, m.Ceiling.ComputeProvenance
+	if !in.Attribution.Precision.IsFloatingPoint() {
+		d.UnavailableReason = fmt.Sprintf("no %s peak: %s measures integer TOPS, not floating-point TFLOPS (the model holds an FP32 non-tensor peak only)",
+			in.Attribution.Precision, in.Attribution.Precision)
+		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+	}
+
+	switch in.Attribution.Method {
+	case FromInstructionMix:
+	case FromCounterRatio:
+		if requiresStaticMixAttribution(in.Attribution.Precision) {
+			d.UnavailableReason = fmt.Sprintf("%s requires static %s attribution; %s cannot disambiguate %s from other HMMA tensor formats",
+				in.Attribution.Precision, FromInstructionMix, FromCounterRatio, in.Attribution.Precision)
+			return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+		}
+	default:
+		d.UnavailableReason = fmt.Sprintf("unsupported attribution method %q for %s", in.Attribution.Method, in.Attribution.Precision)
+		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+	}
+
+	if in.Attribution.Precision == cudaroofline.FP32 {
+		d.PeakTFLOPS, d.PeakProvenance = m.Ceiling.PeakTFLOPS, m.Ceiling.ComputeProvenance
+	}
+	// Use the model's validated precision-specific peak for both scaling and
+	// roofline bounding so a non-FP32 workload is never scaled or bounded by
+	// Ceiling.PeakTFLOPS.
+	peak, prov, err := m.PeakTFLOPSFor(in.Attribution.Precision)
+	if err != nil {
+		d.UnavailableReason = strings.TrimPrefix(err.Error(), "cudaroofline: ")
+		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+	}
 	d.PeakTFLOPS, d.PeakProvenance = peak, prov
-	if peak <= 0 || math.IsNaN(peak) || math.IsInf(peak, 0) {
-		d.UnavailableReason = "no finite positive FP32 peak in the model"
-		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
-	}
-	if prov != cudaroofline.Measured && prov != cudaroofline.Unverified {
-		d.UnavailableReason = "FP32 peak has no recognized provenance"
-		return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+	if pk, ok := m.Ceiling.PrecisionPeaks[in.Attribution.Precision]; ok {
+		d.PeakCitation = pk.Citation
 	}
 
 	activity, ok := activityFor(in.Readings, in.Attribution.Precision)
@@ -172,12 +213,17 @@ func NewEstimate(m *cudaroofline.Model, in Inputs) Estimate {
 	if util, ok := readingValue(in.Readings, DRAMBandwidthUtil); ok && util > 0 && m.Ceiling.PeakMemoryGBps > 0 {
 		gbps := util * m.Ceiling.PeakMemoryGBps
 		est.ArithmeticIntensity = (est.AchievedTFLOPS * 1000.0) / gbps
-		est.CeilingTFLOPS = m.CeilingAt(est.ArithmeticIntensity)
+		ceiling, err := m.CeilingAtFor(in.Attribution.Precision, est.ArithmeticIntensity)
+		if err != nil {
+			d.UnavailableReason = strings.TrimPrefix(err.Error(), "cudaroofline: ")
+			return Estimate{Confidence: ConfidenceUnavailable, Derivation: d}
+		}
+		est.CeilingTFLOPS = ceiling
 		est.Derivation.Note = fmt.Sprintf("intensity uses %s (%.4f), a fraction of the driver's theoretical bandwidth, scaled by this model's %s ceiling of %.1f GB/s: the two figures are not one measurement",
 			DRAMBandwidthUtil, util, m.Ceiling.MemoryProvenance, m.Ceiling.PeakMemoryGBps)
 	} else {
 		est.Derivation.Note = fmt.Sprintf("%s unavailable: no arithmetic intensity, and the estimate is bounded by the compute plateau alone", DRAMBandwidthUtil)
-		est.CeilingTFLOPS = m.Ceiling.PeakTFLOPS
+		est.CeilingTFLOPS = peak
 	}
 
 	if est.CeilingTFLOPS > 0 && est.AchievedTFLOPS > est.CeilingTFLOPS {
@@ -189,6 +235,17 @@ func NewEstimate(m *cudaroofline.Model, in Inputs) Estimate {
 			activity, peak, prov, in.Attribution.Precision, in.Attribution.Method)
 	}
 	return est
+}
+
+// requiresStaticMixAttribution reports whether p shares HMMA tensor-pipe
+// counters with other formats that cannot be separated by runtime counter
+// ratios alone. Preserve existing calibrated FP16Tensor counter-ratio behavior.
+func requiresStaticMixAttribution(p cudaroofline.Precision) bool {
+	switch p {
+	case cudaroofline.TF32Tensor, cudaroofline.BF16Tensor, cudaroofline.FP8Tensor:
+		return true
+	}
+	return false
 }
 
 // confidenceFor maps an attribution method to the confidence class an estimate
@@ -204,14 +261,17 @@ func confidenceFor(method Method) Confidence {
 }
 
 // precisionActivity names the counter whose activity scales the peak for a
-// precision. A precision absent here has no activity counter, which is a
-// different absence from a missing peak and is reported as such.
+// floating-point precision. All floating-point tensor formats execute on HMMA
+// tensor pipes; AnyTensorActive is never used because it collapses HMMA and
+// integer IMMA pipes.
 var precisionActivity = map[cudaroofline.Precision]Counter{
 	cudaroofline.FP64:       FP64Active,
 	cudaroofline.FP32:       FP32Active,
 	cudaroofline.FP16:       FP16Active,
+	cudaroofline.TF32Tensor: HMMATensorActive,
 	cudaroofline.FP16Tensor: HMMATensorActive,
-	cudaroofline.INT8Tensor: IMMATensorActive,
+	cudaroofline.BF16Tensor: HMMATensorActive,
+	cudaroofline.FP8Tensor:  HMMATensorActive,
 }
 
 func activityFor(readings []Reading, p cudaroofline.Precision) (float64, bool) {

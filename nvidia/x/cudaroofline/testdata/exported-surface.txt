@@ -1,9 +1,12 @@
   field Ceiling.Architecture string
   field Ceiling.ComputeProvenance Provenance
+  field Ceiling.DeviceName string
   field Ceiling.L2BandwidthGBps float64
+  field Ceiling.MaxSMClockMHz uint32
   field Ceiling.MemoryProvenance Provenance
   field Ceiling.PeakMemoryGBps float64
   field Ceiling.PeakTFLOPS float64
+  field Ceiling.PrecisionPeaks map[Precision]PrecisionPeak
   field Ceiling.Residency Residency
   field CompoundDataMovement.OperationalIntensity float64
   field CompoundDataMovement.ReadBytes uint64
@@ -50,6 +53,10 @@
   field Operation.FLOPs uint64
   field Operation.Name string
   field Operation.Precision Precision
+  field PrecisionPeak.Citation string
+  field PrecisionPeak.PeakTFLOPS float64
+  field PrecisionPeak.Provenance Provenance
+  field PrecisionPeak.Sparse bool
   field Record.Device DeviceRecord
   field Record.Triples []Triple
   field Record.Version int
@@ -100,11 +107,15 @@ const VerdictRejected
 const VerdictUnjudged
 const VerificationPending
 func (*Model) CeilingAt(intensity float64) float64
+func (*Model) CeilingAtFor(p Precision, intensity float64) (float64, error)
 func (*Model) Evaluate(kernelName string, flops uint64, bytesTransferred uint64, durationNs uint64) KernelPoint
 func (*Model) Floor(op Operation) Judgment
 func (*Model) Judge(op Operation, durationNs uint64) Judgment
 func (*Model) KneeIntensity() float64
+func (*Model) PeakTFLOPSFor(p Precision) (float64, Provenance, error)
 func (*Model) RenderSVG(w io.Writer, points []KernelPoint) error
+func (Precision) IsFloatingPoint() bool
+func (Precision) IsValid() bool
 func (Record) Encode(w io.Writer) error
 func (Record) Validate() error
 func AnalyticalDataMovement(problem, tileFactors, dtypes map[string]int, bypassed map[string]bool) (CompoundDataMovement, error)
@@ -132,6 +143,7 @@ type LimitingAxis string
 type Model struct
 type Operation struct
 type Precision string
+type PrecisionPeak struct
 type Provenance string
 type Record struct
 type Residency string
