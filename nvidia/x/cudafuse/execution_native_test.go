@@ -277,11 +277,12 @@ func TestLazyExecution_NativeOutputControls(t *testing.T) {
 					}
 				}()
 			}
-			if err != nil {
-				t.Fatal("control failed before output oracle", err)
-			}
-			out, err := e.Readback(context.Background())
 			if control == "wrong-second-operand" {
+				// Complete guarded output must reach the value oracle.
+				if err != nil {
+					t.Fatal("wrong operand control failed before readback", err)
+				}
+				out, err := e.Readback(context.Background())
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -294,8 +295,8 @@ func TestLazyExecution_NativeOutputControls(t *testing.T) {
 				if control == "write-past-tail" {
 					expected = ErrOutputGuard
 				}
-				if !errors.Is(err, expected) {
-					t.Fatal("control did not reach the declared output oracle", err)
+				if err := checkOutputControl(e, err, expected); err != nil {
+					t.Fatal(err)
 				}
 			}
 		})

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -538,6 +539,130 @@ func TestLazyExecution_OutputFillAndTailControls(t *testing.T) {
 		if err := checkExecutionOutput(bad, 1003); err == nil {
 			t.Fatalf("output control %d passed", index)
 		}
+	}
+}
+
+// checkOutputControl reports whether a deliberate output-write control was
+// refused with want at its earliest terminal boundary. runExecution waits and
+// checks output guards before returning, so runErr may already carry want;
+// otherwise Readback must refuse with it. Any other error, or no refusal at
+// either boundary, fails the control.
+func checkOutputControl(e *Execution, runErr, want error) error {
+	if e == nil {
+		return fmt.Errorf("control returned no execution owner: %v", runErr)
+	}
+	if runErr != nil && !errors.Is(runErr, want) {
+		return fmt.Errorf("control failed before output oracle: %v", runErr)
+	}
+	if _, err := e.Readback(context.Background()); !errors.Is(err, want) {
+		return fmt.Errorf("control did not reach the declared output oracle: run %v, readback %v", runErr, err)
+	}
+	return nil
+}
+
+func TestLazyExecution_OutputControlBoundary(t *testing.T) {
+	_, nodes := executionChain(t, 1003)
+	sentinel := errors.New("injected unrelated failure")
+	tests := []struct {
+		name  string
+		stage string // where err is injected
+		err   error
+		want  error
+		ok    bool
+	}{
+		{"guard-at-wait", "check", ErrOutputGuard, ErrOutputGuard, true},
+		{"unwritten-at-wait", "check", ErrOutputUnwritten, ErrOutputUnwritten, true},
+		{"guard-at-readback", "read", ErrOutputGuard, ErrOutputGuard, true},
+		{"unwritten-at-readback", "read", ErrOutputUnwritten, ErrOutputUnwritten, true},
+		{"wrong-sentinel-at-wait", "check", ErrOutputUnwritten, ErrOutputGuard, false},
+		{"wrong-sentinel-at-readback", "read", ErrOutputGuard, ErrOutputUnwritten, false},
+		{"check-copy", "check", sentinel, ErrOutputGuard, false},
+		{"compile", "compile", sentinel, ErrOutputUnwritten, false},
+		{"launch", "launch", sentinel, ErrOutputUnwritten, false},
+		{"synchronize", "synchronize", sentinel, ErrOutputUnwritten, false},
+		{"cancel", "cancel", context.Canceled, ErrOutputUnwritten, false},
+		{"copy", "read", sentinel, ErrOutputUnwritten, false},
+		{"cleanup", "cleanup", sentinel, ErrOutputUnwritten, false},
+		{"no-refusal", "none", nil, ErrOutputUnwritten, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &executionProbe{}
+			var checkErr error
+			pending := &executionPendingCleanup{cause: errors.New("compile original failure"), cleanupErr: tt.err}
+			switch tt.stage {
+			case "check":
+				checkErr = tt.err
+			case "read":
+				p.copyErr = tt.err
+			case "compile":
+				p.compileErr = tt.err
+			case "launch":
+				p.launchErr = tt.err
+			case "synchronize":
+				p.syncErr = tt.err
+			case "cancel":
+				p.cancel = true
+			}
+			ops := p.ops()
+			alloc := ops.alloc
+			ops.alloc = func(n int) (*executionBuffer, error) {
+				b, err := alloc(n)
+				if b != nil {
+					b.check = func() error { return checkErr }
+				}
+				return b, err
+			}
+			if tt.stage == "cleanup" {
+				ops.compile = func(FusedKernel) (*executionKernel, error) { return nil, pending }
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			e, err := runExecution(ctx, nodes, 1003, executionPointers(nodes), false, ops, []func(){func() { p.released++ }})
+			if e == nil {
+				t.Fatal("execution owner lost", err)
+			}
+			if tt.stage == "check" && !errors.Is(err, tt.err) {
+				t.Fatal("output check did not fail at completion", err)
+			}
+			if (tt.stage == "read" || tt.stage == "none") && err != nil {
+				t.Fatal(err)
+			}
+			got := checkOutputControl(e, err, tt.want)
+			if tt.ok && got != nil {
+				t.Fatal("expected output refusal rejected:", got)
+			}
+			if !tt.ok && got == nil {
+				t.Fatal("control accepted without its declared output refusal", err)
+			}
+			p.syncErr = nil
+			pending.cleanupErr = nil
+			if err := e.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if p.released != 1 || p.frees != p.allocs || p.closed != len(p.sources) {
+				t.Fatal("owner not cleaned once", p)
+			}
+		})
+	}
+}
+
+// The native output controls run only with a device. Pin that they classify
+// the execution result through checkOutputControl instead of failing on any
+// early runExecution error.
+func TestLazyExecution_NativeOutputControlsUseCheck(t *testing.T) {
+	source, err := os.ReadFile("execution_native_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, body, ok := strings.Cut(string(source), "func TestLazyExecution_NativeOutputControls(")
+	if !ok {
+		t.Fatal("native output controls missing")
+	}
+	run := strings.Index(body, "e, err := runExecution(")
+	check := strings.Index(body, "checkOutputControl(e, err, expected)")
+	if run < 0 || check <= run || strings.Contains(body, `"control failed before output oracle"`) {
+		t.Fatal("native output controls do not classify the runExecution result")
 	}
 }
 
