@@ -834,6 +834,42 @@ EXIT`, prologue + `
 IADD3 R7, -R0, RZ, RZ
 STG.E desc[UR4][R4.64], R7
 EXIT`, Equal, ""},
+		{"low bits cleared after a left shift", prologue + `
+SHF.L.U32 R7, R0, 0x2, RZ
+LOP3.LUT R7, R7, 0xffffff80, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x5, R0
+IMAD.SHL.U32 R7, R7, 0x80, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"low bits cleared after a left shift, one bit more", prologue + `
+SHF.L.U32 R7, R0, 0x2, RZ
+LOP3.LUT R7, R7, 0xffffff00, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+SHF.R.U32.HI R7, RZ, 0x5, R0
+IMAD.SHL.U32 R7, R7, 0x80, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"mask bits a shift discards", prologue + `
+LOP3.LUT R7, R0, 0x8000001f, RZ, 0xc0, !PT
+IMAD.SHL.U32 R7, R7, 0x2, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LOP3.LUT R7, R0, 0x1f, RZ, 0xc0, !PT
+IMAD.SHL.U32 R7, R7, 0x2, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"mask bits a shift keeps", prologue + `
+LOP3.LUT R7, R0, 0x4000001f, RZ, 0xc0, !PT
+IMAD.SHL.U32 R7, R7, 0x2, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LOP3.LUT R7, R0, 0x1f, RZ, 0xc0, !PT
+IMAD.SHL.U32 R7, R7, 0x2, RZ
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `
