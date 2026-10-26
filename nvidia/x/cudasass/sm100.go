@@ -20,18 +20,19 @@ const (
 	SM100ELECT     SM100Kind = "ELECT"        // elect.sync single-thread leader election
 )
 
-// SM100InstInfo holds decoded attributes of a Blackwell sm_100a SASS instruction.
+// SM100InstInfo holds decoded attributes of a Blackwell sm_100a/sm_103a SASS instruction.
 type SM100InstInfo struct {
 	Kind        SM100Kind
 	Mnemonic    string
 	CTAGroup    int    // 1 or 2 (.CTA_GROUP_1 / .CTA_GROUP_2 / .2CTA)
 	BlockScaled bool   // .MXF4NVF4, .MXF8F6F4, .BLOCK_SCALE
+	ScaleVec    int    // 2 or 4 when .SCALE_VEC_2X / .SCALE_VEC_4X / .2X / .4X is present
 	TMEMSourceA bool   // true if operand A is sourced from TMEM ([TMEM:...]) rather than shared memory
 	DataType    string // e.g., "F16", "BF16", "E4M3", "MXF4NVF4"
 	TMEMCols    int    // width/columns for LDTM/STTM (e.g., 32, 64, 128)
 }
 
-// SM100Summary holds instruction counts and attributes for Blackwell sm_100a
+// SM100Summary holds instruction counts and attributes for Blackwell sm_100a/sm_103a
 // tensor-memory and cluster instructions in a disassembled function.
 type SM100Summary struct {
 	Total        int
@@ -45,6 +46,8 @@ type SM100Summary struct {
 	CTAGroup1    int
 	CTAGroup2    int
 	BlockScaled  int
+	ScaleVec2X   int
+	ScaleVec4X   int
 	TMEMSourceA  int
 	ByKind       map[SM100Kind]int
 }
@@ -151,6 +154,12 @@ func ClassifySM100Inst(inst Instruction) (SM100InstInfo, bool) {
 			info.CTAGroup = 1
 		case "TS", "TMEM_A":
 			info.TMEMSourceA = true
+		case "SCALE_VEC_4X", "SCALE_VEC4X", "4X", "VEC4X":
+			info.ScaleVec = 4
+			info.BlockScaled = true
+		case "SCALE_VEC_2X", "SCALE_VEC2X", "2X", "VEC2X":
+			info.ScaleVec = 2
+			info.BlockScaled = true
 		}
 		if sm100BlockScaledTypes[mod] {
 			info.BlockScaled = true
@@ -174,6 +183,17 @@ func ClassifySM100Inst(inst Instruction) (SM100InstInfo, bool) {
 			info.CTAGroup = 1
 		case kind == SM100UTMMA || kind == SM100UTMACP || kind == SM100UTMAFlush || kind == SM100UTMALDG:
 			info.CTAGroup = 1
+		}
+	}
+
+	if info.ScaleVec == 0 {
+		switch {
+		case strings.Contains(upperOps, "SCALE_VEC::4X") || strings.Contains(upperOps, "SCALE_VEC_4X") || strings.Contains(upperOps, ".4X"):
+			info.ScaleVec = 4
+			info.BlockScaled = true
+		case strings.Contains(upperOps, "SCALE_VEC::2X") || strings.Contains(upperOps, "SCALE_VEC_2X") || strings.Contains(upperOps, ".2X"):
+			info.ScaleVec = 2
+			info.BlockScaled = true
 		}
 	}
 
@@ -260,6 +280,12 @@ func SummarizeSM100Function(fn Function) SM100Summary {
 			}
 			if info.BlockScaled {
 				s.BlockScaled++
+			}
+			switch info.ScaleVec {
+			case 2:
+				s.ScaleVec2X++
+			case 4:
+				s.ScaleVec4X++
 			}
 			if info.TMEMSourceA {
 				s.TMEMSourceA++

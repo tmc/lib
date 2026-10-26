@@ -133,13 +133,15 @@ func TestVerifyTraceValid(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			sum, err := VerifyTrace(SM100A, tc.events)
-			if err != nil {
-				t.Fatalf("VerifyTrace(%s) unexpected error: %v", tc.name, err)
-			}
-			if sum.CTAs != tc.wantCTAs || sum.CTAGroup != tc.wantGrp || sum.MaxAllocatedColumns != tc.wantCols || sum.MMAs != tc.wantMMAs {
-				t.Fatalf("VerifyTrace(%s) summary = %+v, want CTAs=%d CTAGroup=%d MaxCols=%d MMAs=%d",
-					tc.name, sum, tc.wantCTAs, tc.wantGrp, tc.wantCols, tc.wantMMAs)
+			for _, target := range []Target{SM100A, SM103A, SM100F, SM103F} {
+				sum, err := VerifyTrace(target, tc.events)
+				if err != nil {
+					t.Fatalf("VerifyTrace(%s, %s) unexpected error: %v", target, tc.name, err)
+				}
+				if sum.Target != target || sum.CTAs != tc.wantCTAs || sum.CTAGroup != tc.wantGrp || sum.MaxAllocatedColumns != tc.wantCols || sum.MMAs != tc.wantMMAs {
+					t.Fatalf("VerifyTrace(%s, %s) summary = %+v, want Target=%s CTAs=%d CTAGroup=%d MaxCols=%d MMAs=%d",
+						target, tc.name, sum, target, tc.wantCTAs, tc.wantGrp, tc.wantCols, tc.wantMMAs)
+				}
 			}
 		})
 	}

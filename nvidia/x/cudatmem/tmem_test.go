@@ -92,6 +92,40 @@ func TestTMEMRejectSM121(t *testing.T) {
 		t.Fatalf("sm121: %v", err)
 	}
 }
+
+func TestTMEMGB300AndFamilyTargets(t *testing.T) {
+	for _, target := range []Target{SM100A, SM103A, SM100F, SM103F} {
+		parsed, err := ParseTarget(string(target))
+		if err != nil || parsed != target {
+			t.Fatalf("ParseTarget(%q) = %q, %v; want %q, nil", target, parsed, err, target)
+		}
+		a, err := New(target)
+		if err != nil {
+			t.Fatalf("New(%q): %v", target, err)
+		}
+		cap := a.Capability()
+		if cap.Target != target || cap.MaxColumns != 512 || cap.MaxRows != 128 || cap.ColumnUnit != 32 || cap.RowUnit != 1 {
+			t.Fatalf("Capability(%q) = %+v", target, cap)
+		}
+		p, err := a.AcquirePermit(32)
+		if err != nil {
+			t.Fatalf("AcquirePermit(%q): %v", target, err)
+		}
+		x, err := a.Allocate(p, 32, 128, 128)
+		if err != nil || x.Columns() != 128 || x.Offset() != 0 {
+			t.Fatalf("Allocate(%q) = %+v, %v", target, x, err)
+		}
+		if err := a.Release(p, x, 32); err != nil {
+			t.Fatalf("Release(%q): %v", target, err)
+		}
+		if err := a.Relinquish(p); err != nil {
+			t.Fatalf("Relinquish(%q): %v", target, err)
+		}
+		if err := a.Close(); err != nil {
+			t.Fatalf("Close(%q): %v", target, err)
+		}
+	}
+}
 func TestTMEMCollectiveParticipation(t *testing.T) {
 	a, _ := New(SM100A)
 	p, _ := a.AcquirePermit(32)

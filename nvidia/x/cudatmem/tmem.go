@@ -24,13 +24,16 @@ type Target string
 
 const (
 	SM100A Target = "sm_100a"
+	SM103A Target = "sm_103a"
+	SM100F Target = "sm_100f"
+	SM103F Target = "sm_103f"
 	SM121A Target = "sm_121a"
 )
 
 func ParseTarget(s string) (Target, error) {
 	switch Target(s) {
-	case SM100A:
-		return SM100A, nil
+	case SM100A, SM103A, SM100F, SM103F:
+		return Target(s), nil
 	case SM121A:
 		return SM121A, ErrUnsupportedTarget
 	default:
@@ -40,7 +43,7 @@ func ParseTarget(s string) (Target, error) {
 
 // Capability describes the target-specific hardware allocation limits used by
 // this bounded model. MaxRows and MaxColumns follow PTX ISA 9.4 section
-// 9.7.18.1 for sm_100a; target admission remains package policy.
+// 9.7.18.1 for sm_100a/sm_103a/sm_100f/sm_103f; target admission remains package policy.
 type Capability struct {
 	Target     Target
 	MaxColumns uint32
@@ -50,10 +53,12 @@ type Capability struct {
 }
 
 func capability(target Target) (Capability, error) {
-	if target != SM100A {
+	switch target {
+	case SM100A, SM103A, SM100F, SM103F:
+		return Capability{Target: target, MaxColumns: 512, MaxRows: 128, ColumnUnit: 32, RowUnit: 1}, nil
+	default:
 		return Capability{}, fmt.Errorf("%w: %s", ErrUnsupportedTarget, target)
 	}
-	return Capability{Target: target, MaxColumns: 512, MaxRows: 128, ColumnUnit: 32, RowUnit: 1}, nil
 }
 
 // Permit models one CTA's tcgen05 allocation permit and the allocation
