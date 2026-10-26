@@ -870,6 +870,83 @@ LOP3.LUT R7, R0, 0x1f, RZ, 0xc0, !PT
 IMAD.SHL.U32 R7, R7, 0x2, RZ
 STG.E desc[UR4][R4.64], R7
 EXIT`, Unknown, ""},
+		{"low word of a wide multiply-add", prologue + `
+IMAD.WIDE R8, R0, 0x2000, R2
+MOV R7, R8
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD R7, R0, 0x2000, R2
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"low word of a wide multiply-add, constant first", prologue + `
+IMAD.WIDE.U32 R8, 0x2000, R0, R2
+MOV R7, R8
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD R7, R0, 0x2000, R2
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"low word of a wide multiply-add, other constant", prologue + `
+IMAD.WIDE R8, R0, 0x1000, R2
+MOV R7, R8
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD R7, R0, 0x2000, R2
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"high word of a wide multiply-add", prologue + `
+IMAD.WIDE R8, R0, 0x2000, R2
+MOV R7, R9
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD R7, R0, 0x2000, R2
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"sum that also writes a carry", prologue + `
+LEA R7, P0, R0, R2, 0x1
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD R7, R0, 0x2, R2
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
+		{"sum that also writes a carry, other shift", prologue + `
+LEA R7, P0, R0, R2, 0x2
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD R7, R0, 0x2, R2
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"carry of a sum", prologue + `
+LEA R6, P0, R0, R2, 0x1
+SEL R7, RZ, 0x1, !P0
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+IMAD R6, R0, 0x2, R2
+ISETP.LT.U32.AND P0, PT, R6, R2, PT
+SEL R7, RZ, 0x1, !P0
+STG.E desc[UR4][R4.64], R7
+EXIT`, Unknown, ""},
+		{"sign extended index scaled with LEA.HI.X.SX32", prologue + `
+IMAD.WIDE R6, R0, 0x4, R2
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, prologue + `
+LEA R6, P0, R0, R2, 0x2
+LEA.HI.X.SX32 R7, R0, R3, 0x2, P0
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, Equal, ""},
+		{"low word changed after its carry", prologue + `
+IMAD.WIDE.U32 R6, R0, 0x4, R2
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, prologue + `
+LEA R6, P0, R0, R2, 0x2
+IADD3 R6, R6, 0x4, RZ
+LEA.HI.X R7, R0, R3, RZ, 0x2, P0
+LDG.E R8, desc[UR4][R6.64]
+STG.E desc[UR4][R4.64], R8
+EXIT`, Unknown, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `

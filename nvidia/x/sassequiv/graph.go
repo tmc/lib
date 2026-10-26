@@ -26,10 +26,13 @@ type graph struct {
 	// arrives with each argument, or -1 for an unconditional edge.
 	edges     map[int][]int
 	invariant map[int]bool
+	// low holds, for a multi-register value whose register 0 is
+	// computed apart from it, that register.
+	low map[int]int
 }
 
 func newGraph() *graph {
-	return &graph{intern: map[string]int{}, edges: map[int][]int{}, invariant: map[int]bool{}}
+	return &graph{intern: map[string]int{}, edges: map[int][]int{}, invariant: map[int]bool{}, low: map[int]int{}}
 }
 
 // once reports whether a value is computed at most once per run of the
@@ -184,7 +187,8 @@ func (g *graph) classes() []int {
 }
 
 // joinParts aliases each vec(part:0(a), part:1(b), ...) whose parts all
-// come from one class to a, and reports whether it aliased any. Building
+// come from one class to a, and reports whether it aliased any. Register
+// 0 may instead be the value low records for a. Building
 // the graph joins parts of one node; this catches parts of nodes that
 // become equal only once trivial phis are removed.
 func (g *graph) joinParts(class []int) bool {
@@ -194,14 +198,24 @@ func (g *graph) joinParts(class []int) bool {
 		if n.alias >= 0 || n.label != "vec" || len(n.args) < 2 {
 			continue
 		}
-		whole := -1
+		last := g.nodes[g.resolve(n.args[len(n.args)-1])]
+		if last.label != fmt.Sprintf("part:%d", len(n.args)-1) {
+			continue
+		}
+		whole := last.args[0]
 		for k, p := range n.args {
-			pn := g.nodes[g.resolve(p)]
-			if pn.label != fmt.Sprintf("part:%d", k) || whole >= 0 && class[pn.args[0]] != class[whole] {
+			p = g.resolve(p)
+			pn := g.nodes[p]
+			low, ok := g.low[whole]
+			switch {
+			case pn.label == fmt.Sprintf("part:%d", k) && class[pn.args[0]] == class[whole]:
+			case k == 0 && ok && class[low] == class[p]:
+			default:
 				whole = -1
+			}
+			if whole < 0 {
 				break
 			}
-			whole = pn.args[0]
 		}
 		if whole >= 0 {
 			changed = g.setAlias(i, whole) || changed

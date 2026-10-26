@@ -475,6 +475,15 @@ func (x *blockExec) inst(in cudasass.Instruction) {
 			return
 		}
 	}
+	if label == "LEA" && len(dsts) == 2 && !isPred(dsts[0].core) && isPred(dsts[1].core) {
+		// LEA d, P, ...: d is the sum in canonical form, P its carry,
+		// which depends on how the sum was grouped.
+		if v, ok := x.integer(label, args); ok {
+			x.write(dsts[0].core, v, guard)
+			x.write(dsts[1].core, x.part(x.add(label, comm, args...), 1000), guard)
+			return
+		}
+	}
 	if (label == "LOP3.LUT" || label == "PLOP3.LUT") && len(dsts) == 2 && isPred(dsts[0].core) && !isPred(dsts[1].core) {
 		// LOP3.LUT P, R, ...: R is the result, P whether it is nonzero.
 		v := x.add(label, comm, args...)
