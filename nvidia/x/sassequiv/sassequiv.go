@@ -187,9 +187,11 @@ func classify(g *graph, class []int, d diff) (Verdict, string) {
 		return Different, ""
 	case len(nx.args) == 0 && len(ny.args) == 0 && injective(g, class, d):
 		return Different, "constant differs"
-	case len(nx.args) > 0 && len(ny.args) > 0 && onSide(g, class, 1, x) && onSide(g, class, 0, y):
+	case len(nx.args) > 0 && len(ny.args) > 0 && !isInteger(g, x) && !isInteger(g, y) &&
+		onSide(g, class, 1, x) && onSide(g, class, 0, y):
 		// Both values exist on both sides, used in swapped places: two
-		// loads' addresses exchanged, say.
+		// loads exchanged, say. Integer forms share subterms in too
+		// many ways for this to mean anything.
 		return Different, "values exchanged"
 	}
 	// Integer arithmetic that differs in form: ptxas computes one index

@@ -11,13 +11,14 @@ func TestClassify(t *testing.T) {
 	const why = "guarded value read without its guard"
 	tests := []struct {
 		name    string
-		other   string // "v", "old", or "w", an unrelated load
+		other   string // "v", "old", "w", an unrelated load, or "shr", v >> 5
 		verdict Verdict
 		why     string
 	}{
 		{"value read under the guard", "v", Unknown, why},
 		{"old value read under its negation", "old", Unknown, why},
 		{"unrelated value", "w", Different, "values exchanged"},
+		{"integer form", "shr", Unknown, "integer expressions differ in form"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -29,7 +30,8 @@ func TestClassify(t *testing.T) {
 				v := g.add(side, 0, "LDG.E", 0, mem, g.add(side, 0, "imm:0x10", 0))
 				old := g.add(side, 0, "LDG.E", 0, mem, g.add(side, 0, "imm:0x20", 0))
 				w := g.add(side, 0, "LDG.E", 0, mem, g.add(side, 0, "imm:0x30", 0))
-				other := map[string]int{"v": v, "old": old, "w": w}[tt.other]
+				shr := g.add(side, 0, "shr.u32", 0, v, g.add(side, 0, "imm:0x5", 0))
+				other := map[string]int{"v": v, "old": old, "w": w, "shr": shr}[tt.other]
 				s := g.add(side, 0, "sel", 0, p, v, old)
 				one, two := g.add(side, 0, "imm:0x1", 0), g.add(side, 0, "imm:0x2", 0)
 				a := g.add(side, 0, "IMNMX", 2, s, one)
