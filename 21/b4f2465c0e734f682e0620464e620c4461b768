@@ -1,0 +1,11 @@
+commit: 21b4f2465c0e734f682e0620464e620c4461b768
+date: 2026-10-26T02:41:12.922059+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 74781
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-timeloop-mapspace-consumer-impl/W/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-timeloop-mapspace-consumer-adoption/ROOT-GRADE.md
+qualification: bounded Timeloop GEMM consumer; actual139+3files host/race12roots90subtests, vet and4compiledomissions; native unqualified
