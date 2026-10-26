@@ -725,6 +725,18 @@ MOV R7, 0x5
 @!P1 SEL R7, R6, 0xffffffff, !P4
 STG.E desc[UR4][R4.64], R7
 EXIT`, Equal, ""},
+		{"two exits in one block", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GE.AND P0, PT, R6, RZ, PT
+@!P0 EXIT
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64+0x4]
+ISETP.GE.AND P0, PT, R6, RZ, PT
+@!P0 EXIT
+LDG.E R6, desc[UR4][R2.64]
+STG.E desc[UR4][R4.64], R6
+EXIT`, Different, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `

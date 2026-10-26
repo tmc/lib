@@ -25,7 +25,8 @@ type fn struct {
 	state  []int               // 0 not run, 1 running, 2 done
 	phis   []phiRef
 	roots  map[string]int
-	why    string // why the function cannot be compared, if it cannot
+	exits  map[int]int // the condition of each block's last exit
+	why    string      // why the function cannot be compared, if it cannot
 
 	assumed map[[2]int]int // memoizes assume
 }
@@ -44,7 +45,7 @@ func unknownf(format string, args ...any) {
 
 // build constructs the value graph of f on side side of g.
 func build(g *graph, side int, f *cudasass.Function) (fx *fn) {
-	fx = &fn{g: g, side: side, f: f, roots: map[string]int{}}
+	fx = &fn{g: g, side: side, f: f, roots: map[string]int{}, exits: map[int]int{}}
 	defer func() {
 		if r := recover(); r != nil {
 			e, ok := r.(errUnknown)
@@ -200,8 +201,8 @@ func (fx *fn) edgeCond(q, b int) int {
 	cond := -1
 	if c, ok := fx.roots[fmt.Sprintf("branch:%d", q)]; ok {
 		cond = c
-	} else if c, ok := fx.roots[fmt.Sprintf("exit:%d", q)]; ok {
-		cond = fx.g.nodes[c].args[0]
+	} else if c, ok := fx.exits[q]; ok {
+		cond = c
 	}
 	if cond < 0 || fx.g.nodes[cond].label == "true" || taken == fall {
 		return -1
@@ -259,6 +260,7 @@ type blockExec struct {
 	st map[string]int
 	pc uint64
 
+	exits int  // the exits run so far
 	guard int  // the predicate of the instruction being run, or -1
 	wide  bool // whether its register addresses are 64-bit
 }
@@ -418,7 +420,10 @@ func (x *blockExec) inst(in cudasass.Instruction) {
 		}
 		return
 	case base == "EXIT":
-		x.fx.roots[fmt.Sprintf("exit:%d", x.b)] = x.add("exit", 0, x.cond(guard), x.read("MEM"))
+		// A block can hold several guarded exits, each a root.
+		x.fx.roots[fmt.Sprintf("exit:%d.%d", x.b, x.exits)] = x.add("exit", 0, x.cond(guard), x.read("MEM"))
+		x.fx.exits[x.b] = x.cond(guard)
+		x.exits++
 		return
 	}
 	if strings.Contains(base, "MMA") && !loads[base] && base != "HMMA" {
