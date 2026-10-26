@@ -456,11 +456,11 @@ func (a *Artifact) Validate() error {
 		if err != nil {
 			return fmt.Errorf("cudakernel: invalid cubin elf: %w", err)
 		}
-		// If entry point was specified, verify it matches or is present in symbols when symbols are extracted.
+		// Match the exact lookup token when raw entry symbols are available.
 		if len(info.Symbols) > 0 {
 			found := false
 			for _, sym := range info.Symbols {
-				if sym == s.EntryPoint || strings.Contains(sym, s.EntryPoint) {
+				if sym == s.EntryPoint {
 					found = true
 					break
 				}
