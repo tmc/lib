@@ -2,9 +2,12 @@ package cudashadow
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tmc/lib/nvidia/x/cudabpfdev"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"io"
 	"math"
 	"strings"
@@ -43,6 +46,8 @@ const (
 	HookPagePrefetchIter Hook = "gpu_page_prefetch_iter"
 	// HookSchedTimeslice corresponds to GPU scheduler timeslice assignment.
 	HookSchedTimeslice Hook = "gpu_sched_timeslice"
+	// HookDescribeLaunch identifies a host artifact description, not a live hook.
+	HookDescribeLaunch Hook = "cudabpfdev_describe_launch"
 	// HookPTXInstrument corresponds to bpftime PTX attach interception.
 	HookPTXInstrument Hook = "bpftime_ptx_attach"
 )
@@ -83,6 +88,10 @@ const (
 
 // Provenance captures the provenance and observation context of a policy input.
 type Provenance struct {
+	// Kind is empty for legacy native claims.
+	Kind string `json:"kind,omitempty"`
+	// Source identifies the host adapter epoch, not a device or module.
+	Source        string        `json:"source,omitempty"`
 	DeviceID      int           `json:"device_id"`
 	DriverVersion string        `json:"driver_version"`
 	KernelModule  string        `json:"kernel_module"`
@@ -96,6 +105,15 @@ type Provenance struct {
 func (p Provenance) Validate() error {
 	if len(p.DriverVersion) > 256 || len(p.KernelModule) > 256 || len(p.Hook) > 256 {
 		return errors.New("cudashadow: provenance field too large")
+	}
+	if p.Kind == "artifact_description" {
+		if p.DeviceID != -1 || p.DriverVersion != "" || p.KernelModule != "" || p.Hook != HookDescribeLaunch || p.Source == "" || len(p.Source) > 256 || p.Sequence == 0 || p.TimestampNano <= 0 || p.TTL < 0 {
+			return errors.New("cudashadow: invalid artifact description provenance")
+		}
+		return nil
+	}
+	if p.Kind != "" || p.Source != "" {
+		return errors.New("cudashadow: unknown provenance kind or source")
 	}
 	if strings.TrimSpace(p.DriverVersion) == "" {
 		return errors.New("cudashadow: provenance missing driver version")
@@ -179,10 +197,14 @@ type SchedulingData struct {
 
 // PTXData holds kernel instrumentation input parameters.
 type PTXData struct {
-	KernelName     string `json:"kernel_name"`
-	TargetArch     string `json:"target_arch"`
-	FunctionOffset uint64 `json:"function_offset"`
-	CodeSize       uint64 `json:"code_size"`
+	FunctionOffsetUnknown bool                 `json:"function_offset_unknown,omitempty"`
+	ArtifactDigest        string               `json:"artifact_digest,omitempty"`
+	Geometry              *cudabpfdev.Geometry `json:"geometry,omitempty"`
+	Schema                *cudakernel.Schema   `json:"schema,omitempty"`
+	KernelName            string               `json:"kernel_name"`
+	TargetArch            string               `json:"target_arch"`
+	FunctionOffset        uint64               `json:"function_offset"`
+	CodeSize              uint64               `json:"code_size"`
 }
 
 // Input represents an observed policy input payload.
@@ -212,6 +234,9 @@ func (in Input) Validate() error {
 	if count != 1 {
 		return errors.New("cudashadow: expected exactly one domain payload")
 	}
+	if in.Provenance.Hook == HookDescribeLaunch && in.Provenance.Kind != "artifact_description" {
+		return errors.New("cudashadow: description hook requires artifact provenance")
+	}
 	switch in.Provenance.Hook {
 	case HookBlockActivate, HookBlockAccess, HookEvictPrepare:
 		if in.Domain != DomainEviction {
@@ -225,7 +250,7 @@ func (in Input) Validate() error {
 		if in.Domain != DomainScheduling {
 			return errors.New("cudashadow: hook/domain mismatch")
 		}
-	case HookPTXInstrument:
+	case HookPTXInstrument, HookDescribeLaunch:
 		if in.Domain != DomainPTXInstrument {
 			return errors.New("cudashadow: hook/domain mismatch")
 		}
@@ -255,6 +280,21 @@ func (in Input) Validate() error {
 		if in.PTX == nil {
 			return errors.New("cudashadow: ptx_instrument domain missing ptx payload")
 		}
+		if in.PTX.FunctionOffsetUnknown && in.PTX.FunctionOffset != 0 {
+			return errors.New("cudashadow: contradictory unknown function offset")
+		}
+		if in.Provenance.Kind == "artifact_description" {
+			p := in.PTX
+			digest, err := hex.DecodeString(p.ArtifactDigest)
+			if err != nil || len(digest) != 32 || p.ArtifactDigest != strings.ToLower(p.ArtifactDigest) || !p.FunctionOffsetUnknown || p.Geometry == nil || p.Schema == nil || p.CodeSize == 0 || p.CodeSize > 16<<20 || p.KernelName == "" || p.TargetArch == "" {
+				return errors.New("cudashadow: invalid artifact description")
+			}
+			if err := validateLaunchDescriptor(*p.Geometry, *p.Schema); err != nil {
+				return err
+			}
+		} else if in.PTX.ArtifactDigest != "" || in.PTX.Geometry != nil || in.PTX.Schema != nil {
+			return errors.New("cudashadow: artifact fields require description provenance")
+		}
 		if in.PTX.CodeSize > math.MaxInt64 || in.PTX.FunctionOffset > in.PTX.CodeSize {
 			return errors.New("cudashadow: invalid ptx bounds")
 		}
@@ -268,6 +308,25 @@ func (in Input) Validate() error {
 }
 
 func (in Input) validateBounds() error {
+	if len(in.Provenance.Kind) > 256 || len(in.Provenance.Source) > 256 {
+		return errors.New("cudashadow: provenance field too large")
+	}
+	if in.PTX != nil {
+		if len(in.PTX.ArtifactDigest) > 64 {
+			return errors.New("cudashadow: artifact digest too large")
+		}
+		if schema := in.PTX.Schema; schema != nil {
+			if len(schema.Params) > 128 || schema.TotalParamBytes > 1<<20 {
+				return errors.New("cudashadow: parameter schema exceeds bound")
+			}
+			for _, p := range schema.Params {
+				if len(p.Name) > 256 || len(p.Type) > 64 {
+					return errors.New("cudashadow: parameter metadata exceeds bound")
+				}
+			}
+		}
+	}
+
 	if len(in.Domain) > 256 || len(in.Provenance.DriverVersion) > 256 || len(in.Provenance.KernelModule) > 256 || len(in.Provenance.Hook) > 256 {
 		return errors.New("cudashadow: input field too large")
 	}
@@ -314,13 +373,18 @@ func (d Decision) validate(domain Domain) error {
 
 // ObservedOutcome records the baseline outcome observed without policy mutation.
 type ObservedOutcome struct {
-	TimestampNano int64             `json:"timestamp_nano"`
-	Action        string            `json:"action"`
-	LatencyNano   int64             `json:"latency_nano"`
-	Details       map[string]string `json:"details,omitempty"`
+	// LatencyUnavailable requires LatencyNano zero; zero is then not a measurement.
+	LatencyUnavailable bool              `json:"latency_unavailable,omitempty"`
+	TimestampNano      int64             `json:"timestamp_nano"`
+	Action             string            `json:"action"`
+	LatencyNano        int64             `json:"latency_nano"`
+	Details            map[string]string `json:"details,omitempty"`
 }
 
 func (outcome ObservedOutcome) validate() error {
+	if outcome.LatencyUnavailable && outcome.LatencyNano != 0 {
+		return errors.New("cudashadow: contradictory unavailable latency")
+	}
 	if outcome.TimestampNano <= 0 || outcome.LatencyNano < 0 || outcome.Action == "" || len(outcome.Action) > 4096 || len(outcome.Details) > 64 {
 		return errors.New("cudashadow: invalid observed outcome")
 	}
@@ -382,6 +446,9 @@ func (s Snapshot) Validate() error {
 		return errors.New("cudashadow: status contradicts decision")
 	}
 	if s.ObservedOutcome != nil {
+		if s.Provenance.Kind == "artifact_description" && !s.ObservedOutcome.LatencyUnavailable {
+			return errors.New("cudashadow: artifact completion latency unavailable")
+		}
 		if err := s.ObservedOutcome.validate(); err != nil {
 			return err
 		}

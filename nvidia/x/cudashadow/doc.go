@@ -15,4 +15,12 @@
 // Replay requires a fresh policy and its complete initial-state history.
 // Use one evaluator and policy instance for one ordered device/source epoch;
 // source changes require a new instance. Snapshots use Unix nanoseconds.
+//
+// BeginLaunchObservation supports a host artifact description followed by a
+// producer-reported completion from the same existing original-fallback owner.
+// Device, driver, module, function offset and latency remain unknown. Receipt
+// order and timestamps are host observations. This route neither executes a
+// kernel nor supports authentic gpu_ext or bpftime hooks. Replay re-evaluates
+// observations only; serialized receipts do not authenticate native execution.
+// Histories containing these fields use version 2; old readers may refuse them.
 package cudashadow

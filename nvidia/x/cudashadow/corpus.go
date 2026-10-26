@@ -496,13 +496,14 @@ func (p *ptxShadowPolicy) Evaluate(ctx context.Context, in Input) (Decision, err
 		return Decision{}, fmt.Errorf("cudashadow ptx: missing ptx payload")
 	}
 
-	// Shadow observation only: plan entry and exit telemetry without mutating PTX
+	parameters := map[string]int64{"observed_size": int64(in.PTX.CodeSize)}
+	if !in.PTX.FunctionOffsetUnknown {
+		parameters["offset"] = int64(in.PTX.FunctionOffset)
+	}
+	// Shadow observation only.
 	return Decision{
-		Type: DecisionSkip,
-		Parameters: map[string]int64{
-			"observed_size": int64(in.PTX.CodeSize),
-			"offset":        int64(in.PTX.FunctionOffset),
-		},
+		Type:       DecisionSkip,
+		Parameters: parameters,
 		Reason: fmt.Sprintf("ptx shadow observation: kernel %q (arch %s) recorded; mutation skipped in shadow mode",
 			in.PTX.KernelName, in.PTX.TargetArch),
 	}, nil

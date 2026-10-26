@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 const historyVersion = 1
+const descriptionHistoryVersion = 2
 const maxHistoryBytes = 16 << 20
 const maxHistorySnapshots = 4096
 
@@ -17,7 +19,7 @@ type historyWire struct {
 	Snapshots []Snapshot `json:"snapshots"`
 }
 
-// WriteHistory writes a version 1 offline replay corpus. It validates every
+// WriteHistory writes a version 1 or 2 offline replay corpus. It validates every
 // snapshot and refuses more than 4096 snapshots or 16 MiB of encoded data.
 // A stateful policy requires a complete history from its initial state;
 // a wrapped evaluator's retained suffix is not necessarily replayable.
@@ -28,12 +30,16 @@ func WriteHistory(w io.Writer, snapshots []Snapshot) error {
 	if len(snapshots) > maxHistorySnapshots {
 		return errors.New("cudashadow: history capacity exceeded")
 	}
+	version := historyVersion
 	for i, snapshot := range snapshots {
+		if successorSnapshot(snapshot) {
+			version = descriptionHistoryVersion
+		}
 		if err := snapshot.Validate(); err != nil {
 			return fmt.Errorf("cudashadow history snapshot %d: %w", i, err)
 		}
 	}
-	data, err := json.Marshal(historyWire{Version: historyVersion, Snapshots: snapshots})
+	data, err := json.Marshal(historyWire{Version: version, Snapshots: snapshots})
 	if err != nil {
 		return err
 	}
@@ -50,7 +56,7 @@ func WriteHistory(w io.Writer, snapshots []Snapshot) error {
 	return nil
 }
 
-// ReadHistory reads a bounded version 1 replay corpus, rejecting unknown
+// ReadHistory reads a bounded version 1 or 2 replay corpus, rejecting unknown
 // fields, invalid snapshots, unsupported versions, and trailing data.
 func ReadHistory(r io.Reader) ([]Snapshot, error) {
 	if r == nil {
@@ -76,11 +82,33 @@ func ReadHistory(r io.Reader) ([]Snapshot, error) {
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		return nil, errors.New("cudashadow: trailing history data")
 	}
-	if wire.Version != historyVersion {
+	if wire.Version != historyVersion && wire.Version != descriptionHistoryVersion {
 		return nil, errors.New("cudashadow: unsupported history version")
 	}
 	if len(wire.Snapshots) > maxHistorySnapshots {
 		return nil, errors.New("cudashadow: history capacity exceeded")
+	}
+	if wire.Version == historyVersion {
+		// Reject even zero-valued successor fields disguised as the old schema.
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return nil, err
+		}
+
+		for name, value := range raw {
+			if !strings.EqualFold(name, "snapshots") {
+				continue
+			}
+			var list []map[string]json.RawMessage
+			if err := json.Unmarshal(value, &list); err != nil {
+				return nil, err
+			}
+			for _, snapshot := range list {
+				if successorJSON(snapshot, "snapshot") {
+					return nil, errors.New("cudashadow: successor fields in version 1 history")
+				}
+			}
+		}
 	}
 	for i, snapshot := range wire.Snapshots {
 		if err := snapshot.Validate(); err != nil {
@@ -88,4 +116,61 @@ func ReadHistory(r io.Reader) ([]Snapshot, error) {
 		}
 	}
 	return wire.Snapshots, nil
+}
+
+func successorSnapshot(s Snapshot) bool {
+	return s.Provenance.Kind != "" || s.Provenance.Source != "" || s.Input.Provenance.Kind != "" || s.Input.Provenance.Source != "" || s.Input.PTX != nil && (s.Input.PTX.FunctionOffsetUnknown || s.Input.PTX.ArtifactDigest != "" || s.Input.PTX.Geometry != nil || s.Input.PTX.Schema != nil) || s.ObservedOutcome != nil && s.ObservedOutcome.LatencyUnavailable
+}
+func successorJSON(fields map[string]json.RawMessage, parent string) bool {
+	for name, raw := range fields {
+		name = historyName(name)
+		child := ""
+		switch parent {
+		case "snapshot":
+			switch name {
+			case "provenance":
+				child = "provenance"
+			case "input":
+				child = "input"
+			case "observed_outcome":
+				child = "outcome"
+			}
+		case "input":
+			switch name {
+			case "provenance":
+				child = "provenance"
+			case "ptx":
+				child = "ptx"
+			}
+		case "provenance":
+			if name == "kind" || name == "source" {
+				return true
+			}
+		case "ptx":
+			switch name {
+			case "function_offset_unknown", "artifact_digest", "geometry", "schema":
+				return true
+			}
+		case "outcome":
+			if name == "latency_unavailable" {
+				return true
+			}
+		}
+		if child != "" {
+			var nested map[string]json.RawMessage
+			if json.Unmarshal(raw, &nested) == nil && successorJSON(nested, child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func historyName(name string) string {
+	for _, key := range []string{"provenance", "input", "observed_outcome", "ptx", "kind", "source", "function_offset_unknown", "artifact_digest", "geometry", "schema", "latency_unavailable"} {
+		if strings.EqualFold(name, key) {
+			return key
+		}
+	}
+	return ""
 }

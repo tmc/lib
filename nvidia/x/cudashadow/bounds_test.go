@@ -119,7 +119,7 @@ func TestHistoryPublicRoundTrip(t *testing.T) {
 	if _, err := e.Replay(context.Background(), fresh, history); err != nil {
 		t.Fatal(err)
 	}
-	for _, mutated := range []string{strings.Replace(encoded.String(), `"version":1`, `"version":2`, 1), strings.Replace(encoded.String(), `"status":"valid"`, `"status":"invented"`, 1), encoded.String() + `{}`} {
+	for _, mutated := range []string{strings.Replace(encoded.String(), `"version":1`, `"version":3`, 1), strings.Replace(encoded.String(), `"status":"valid"`, `"status":"invented"`, 1), encoded.String() + `{}`} {
 		if _, err := ReadHistory(strings.NewReader(mutated)); err == nil {
 			t.Fatal("mutated history admitted")
 		}

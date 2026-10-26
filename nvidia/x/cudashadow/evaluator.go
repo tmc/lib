@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudaerrors"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 )
 
 // Policy defines an observational policy evaluator.
@@ -151,7 +152,7 @@ func (e *Evaluator) Evaluate(ctx context.Context, pol Policy, in Input) (Snapsho
 		isStale = true
 		staleReason = "input timestamp moved backwards"
 	}
-	if e.source != nil && (e.source.DeviceID != in.Provenance.DeviceID || e.source.DriverVersion != in.Provenance.DriverVersion || e.source.KernelModule != in.Provenance.KernelModule) {
+	if e.source != nil && (!sameSource(*e.source, in.Provenance)) {
 		return Snapshot{}, errors.New("cudashadow: input source changed; use a new evaluator")
 	}
 
@@ -270,6 +271,9 @@ func (e *Evaluator) RecordOutcome(snapshotID string, outcome ObservedOutcome) er
 
 	for i := range e.snapshots {
 		if e.snapshots[i].ID == snapshotID {
+			if e.snapshots[i].Provenance.Kind == "artifact_description" && !outcome.LatencyUnavailable {
+				return errors.New("cudashadow: artifact completion latency unavailable")
+			}
 			if e.snapshots[i].ObservedOutcome != nil {
 				return errors.New("cudashadow: outcome already recorded")
 			}
@@ -313,7 +317,7 @@ func (e *Evaluator) Replay(ctx context.Context, pol Policy, history []Snapshot) 
 		}
 		// Re-evaluate input if original status was valid
 		if snap.Status == StatusValid {
-			if previous != nil && (previous.DeviceID != snap.Provenance.DeviceID || previous.DriverVersion != snap.Provenance.DriverVersion || previous.KernelModule != snap.Provenance.KernelModule || previous.TimestampNano > snap.Provenance.TimestampNano) {
+			if previous != nil && (!sameSource(*previous, snap.Provenance) || previous.TimestampNano > snap.Provenance.TimestampNano) {
 				return nil, errors.New("cudashadow replay: source change or timestamp disorder")
 			}
 			current := snap.Provenance
@@ -333,12 +337,12 @@ func (e *Evaluator) Replay(ctx context.Context, pol Policy, history []Snapshot) 
 				return nil, fmt.Errorf("cudashadow replay step %d (id %s): parameter mismatch: recorded %v, got %v",
 					i, snap.ID, snap.Decision.Parameters, dec.Parameters)
 			}
-			snapCopy := snap
+			snapCopy := cloneSnapshot(snap)
 			snapCopy.Decision = dec
 			replayed = append(replayed, snapCopy)
 		} else {
 			// Retain non-valid snapshot as recorded
-			replayed = append(replayed, snap)
+			replayed = append(replayed, cloneSnapshot(snap))
 		}
 	}
 
@@ -360,6 +364,15 @@ func cloneInput(in Input) Input {
 	}
 	if in.PTX != nil {
 		v := *in.PTX
+		if v.Geometry != nil {
+			g := *v.Geometry
+			v.Geometry = &g
+		}
+		if v.Schema != nil {
+			schema := *v.Schema
+			schema.Params = append([]cudakernel.Param(nil), schema.Params...)
+			v.Schema = &schema
+		}
 		in.PTX = &v
 	}
 	return in
@@ -374,4 +387,8 @@ func cloneSnapshot(s Snapshot) Snapshot {
 		s.ObservedOutcome = &v
 	}
 	return s
+}
+
+func sameSource(a, b Provenance) bool {
+	return a.Kind == b.Kind && a.Source == b.Source && a.DeviceID == b.DeviceID && a.DriverVersion == b.DriverVersion && a.KernelModule == b.KernelModule
 }
