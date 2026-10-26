@@ -197,10 +197,14 @@ func (x *blockExec) demand(v int, n int) int {
 		switch {
 		case lut == 0xc0 && m&low == low: // a & m
 			return x.demand(nd.args[0], n)
-		case lut == 0xc0 && m|^low != m && len(nd.args) == 5 && g.nodes[nd.args[2]].label == "imm:0x0":
-			// Only the low n bits are read: set the mask's others, so
-			// that a mask clearing only low bits is recognized as one.
-			if r := x.and(nd.args[0], m|^low); r != v {
+		case lut == 0xc0 && len(nd.args) == 5 && g.nodes[nd.args[2]].label == "imm:0x0":
+			// Only the low n bits are read. If the mask clears only low
+			// bits of those, it is a shift; otherwise drop the rest of
+			// it, as a mask written for n bits has none.
+			if r := x.and(nd.args[0], m&low|^low); g.nodes[r].label != "LOP3.LUT" {
+				return x.demand(r, n)
+			}
+			if r := x.and(nd.args[0], m&low); r != v {
 				return x.demand(r, n)
 			}
 		case lut == 0xfc && m&low == 0: // a | m

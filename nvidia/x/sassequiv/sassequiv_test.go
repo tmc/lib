@@ -68,6 +68,7 @@ var equalPairs = [][2]string{
 	{"stock_post_expert_sum_4096_cluster.lb", "stock_post_expert_sum_4096_cluster.lb1"},
 	{"moe8_router_hilo4.r255", "moe8_router_hilo4.r96"},
 	{"moe8_router_hilo5.r255", "moe8_router_hilo5.r96"},
+	{"moe8_qkv_gate7.r255", "moe8_qkv_gate7.r96"},
 	{"attn_boundary_router_cluster.lb", "attn_boundary_router_cluster.lb1"},
 }
 
