@@ -651,6 +651,28 @@ MOV R9, RZ
 I2F.S64 R6, R8
 STG.E desc[UR4][R4.64], R6
 EXIT`, Unknown, ""},
+		{"generic address in another pair", prologue + `
+MOV R16, R2
+MOV R17, R3
+LD.E R6, [R16]
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+MOV R10, R2
+MOV R11, R3
+LD.E R6, [R10]
+STG.E desc[UR4][R4.64], R6
+EXIT`, Equal, ""},
+		{"generic address with another high word", prologue + `
+MOV R16, R2
+MOV R17, R3
+LD.E R6, [R16]
+STG.E desc[UR4][R4.64], R6
+EXIT`, prologue + `
+MOV R16, R2
+MOV R17, R5
+LD.E R6, [R16]
+STG.E desc[UR4][R4.64], R6
+EXIT`, Unknown, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `

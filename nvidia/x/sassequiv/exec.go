@@ -253,7 +253,8 @@ type blockExec struct {
 	st map[string]int
 	pc uint64
 
-	guard int // the predicate of the instruction being run, or -1
+	guard int  // the predicate of the instruction being run, or -1
+	wide  bool // whether its register addresses are 64-bit
 }
 
 func (x *blockExec) add(label string, comm int, args ...int) int {
@@ -357,6 +358,9 @@ func commuting(op, base string) int {
 
 func (x *blockExec) inst(in cudasass.Instruction) {
 	x.pc = in.Address
+	// A generic access with .E takes a 64-bit address in a register
+	// pair, though the listing names only the first: LD.E R18, [R16].
+	x.wide = generic[cudasass.BaseOpcode(in.Opcode)] && slices.Contains(strings.Split(in.Opcode, "."), "E")
 	x.guard = -1
 	guard := -1
 	switch p := strings.TrimSpace(in.Predicate); p {
@@ -941,8 +945,8 @@ func (x *blockExec) addr(s string) int {
 		if zero(o.core) {
 			continue
 		}
-		if o.suffix == ".64" {
-			wide = append(wide, x.val(t, 2))
+		if o.suffix == ".64" || x.wide && isReg(o.core) {
+			wide = append(wide, x.val(o.prefix+o.core+".64", 2))
 			continue
 		}
 		sum = sum.plus(x.lin(x.val(t, 1)))
@@ -1099,6 +1103,9 @@ func chain(blocks []cudasass.BasicBlock, edges []cudasass.FlowEdge) ([]cudasass.
 	}
 	return out, outEdges
 }
+
+// generic lists the opcodes that access memory through generic addresses.
+var generic = map[string]bool{"LD": true, "ST": true, "ATOM": true, "RED": true}
 
 // transfer lists the opcodes that end a block only to pass control.
 var transfer = map[string]bool{"BRA": true, "JMP": true, "CALL": true, "RET": true}
