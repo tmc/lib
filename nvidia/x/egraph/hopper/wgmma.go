@@ -58,23 +58,58 @@ EG_DEV uint32_t eg_wgmma_decode_nibble(uint32_t q, int j) {
 
 `
 
+const wgmmaSwizzleHelpers = `// eg_wgmma_desc_128b returns a 128B-swizzled wgmma shared-memory matrix
+// descriptor (layout mode 1, bits [63:62] = 1, LBO = 16) for the matrix at p
+// with stride byte offset sbo.
+EG_DEV uint64_t eg_wgmma_desc_128b(const void* p, uint32_t sbo) {
+#if defined(EG_HOST_EMU)
+    return eg_emu_wgmma_desc_128b(p, sbo);
+#else
+    const uint64_t a = (uint32_t)__cvta_generic_to_shared(p);
+    return ((a & 0x3ffffu) >> 4) | ((uint64_t)1u << 16) | ((uint64_t)((sbo & 0x3ffffu) >> 4) << 32) | ((uint64_t)1u << 62);
+#endif
+}
+
+EG_DEV uint32_t eg_swizzle_128b(uint32_t offset) {
+    return offset ^ (((offset >> 7) & 7u) << 4);
+}
+
+`
+
 // cudaWGMMA emits the WGMMA form of g (normalized, g.WGMMA set).
 //
-// x and W tiles sit in shared memory in the no-swizzle K-major layout of
-// 8-row × 16-byte core matrices: element (r, k) of a 64-wide K slice is at
-// byte ((r/8)·8 + k/8)·128 + (r%8)·16 + (k%8)·2, so the descriptors have
-// leading (K) byte offset 128 and stride (8-row) byte offset 1024.
+// Without Swizzle128B, x and W tiles sit in shared memory in the no-swizzle
+// K-major layout of 8-row × 16-byte core matrices: element (r, k) of a
+// 64-wide K slice is at byte ((r/8)·8 + ch)·128 + (r%8)·16 + (k_in_ch), so the
+// descriptors have leading (K) byte offset 128 and stride (8-row) byte offset
+// 1024. With Swizzle128B, each 8-row × 128-byte block is XOR-swizzled by
+// offset ^ (((offset >> 7) & 7) << 4) and addressed with eg_wgmma_desc_128b.
 func (g TileGEMM) cudaWGMMA() (string, error) {
 	var b strings.Builder
 	if g.Weight == WeightNVFP4 {
 		b.WriteString(nvfp4WGMMAHelpers)
 	}
+	if g.Swizzle128B {
+		b.WriteString(wgmmaSwizzleHelpers)
+	}
 	wg := g.Name + "_wgmma"
-	b.WriteString(wgmmaFunc(wg, g.BN))
+	if g.Weight == WeightE4M3 {
+		b.WriteString(wgmmaE4M3Func(wg, g.BN))
+	} else {
+		b.WriteString(wgmmaFunc(wg, g.BN))
+	}
+	bx := "blockIdx.x"
+	if g.GroupM > 1 {
+		bx = "tile_n"
+	}
+	bk := 64
+	if g.Weight == WeightE4M3 && g.Swizzle128B {
+		bk = 128
+	}
 	fmt.Fprintf(&b, "// %s: out = %s over x[M, %d] · W[%d, %d]ᵀ (%v), %dx%d tiles, %d stages, wgmma.\n",
 		g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.BM, g.BN, g.Stages)
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(256) %s(\n    %s) {\n", g.Name, strings.Join(g.params(), ",\n    "))
-	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, BM = %d, BN = %d, BK = 64, STAGES = %d, KT = K / BK;\n", g.N, g.K, g.BM, g.BN, g.Stages)
+	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, BM = %d, BN = %d, BK = %d, STAGES = %d, KT = K / BK;\n", g.N, g.K, g.BM, g.BN, bk, g.Stages)
 	if g.GLU {
 		b.WriteString("    constexpr int NOUT = N / 2;\n")
 	} else {
@@ -86,22 +121,30 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	} else {
 		b.WriteString("    const int e = 0, row0 = 0, row1 = m_total;\n")
 	}
-	b.WriteString(`    const int bm0 = row0 + blockIdx.y * BM, bn0 = blockIdx.x * BN;
-    if (bm0 >= row1) return;
+	tileCoord(&b, g.GroupM)
+	b.WriteString(`    if (bm0 >= row1) return;
     EG_DYNAMIC_SMEM(unsigned char, smem); // [STAGES][BM*64 + BN*64] BF16 in core-matrix order
 `)
 	switch {
 	case g.Weight == WeightNVFP4 && g.Repacked:
-		b.WriteString(`    constexpr int STAGE = (BM + BN) * BK * 2 + 256 * (16 + 8);
-    const uint32_t* const we = w + ((size_t)e * (N / 128) + blockIdx.x) * KT * 256 * 4;
-    const uint8_t* const se = w_sf + ((size_t)e * (N / 128) + blockIdx.x) * KT * 256 * 8;
+		fmt.Fprintf(&b, `    constexpr int STAGE = (BM + BN) * BK * 2 + 256 * (16 + 8);
+    const uint32_t* const we = w + ((size_t)e * (N / 128) + %s) * KT * 256 * 4;
+    const uint8_t* const se = w_sf + ((size_t)e * (N / 128) + %s) * KT * 256 * 8;
     const float gs = w_gs[e] * 256.0f;
-`)
+`, bx, bx)
 	case g.Weight == WeightNVFP4:
-		b.WriteString(`    constexpr int STAGE = (BM + BN) * BK * 2 + BN * (32 + 4);
+		stageExpr := "(BM + BN) * BK * 2 + BN * (32 + 4)"
+		if g.Swizzle128B {
+			stageExpr = "((BM + BN) * BK * 2 + BN * (32 + 4) + 1023) / 1024 * 1024"
+		}
+		fmt.Fprintf(&b, `    constexpr int STAGE = %s;
     const uint8_t* const we = w + (size_t)e * N * (K / 2);
     const uint8_t* const se = w_sf + (size_t)e * N * (K / 16);
     const float gs = w_gs[e];
+`, stageExpr)
+	case g.Weight == WeightE4M3:
+		b.WriteString(`    constexpr int STAGE = (BM + BN) * BK;
+    const uint8_t* const we = w + (size_t)e * N * K;
 `)
 	default:
 		b.WriteString(`    constexpr int STAGE = (BM + BN) * BK * 2;
@@ -110,12 +153,12 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 	}
 	if !g.Repacked {
 		if g.GLU {
-			b.WriteString(`    // Tile row j < BN/2 is gate column j, row BN/2 + j its up column.
+			fmt.Fprintf(&b, `    // Tile row j < BN/2 is gate column j, row BN/2 + j its up column.
     auto wrow = [&](int j) {
-        const int c = blockIdx.x * (BN / 2) + j % (BN / 2);
+        const int c = %s * (BN / 2) + j %% (BN / 2);
         return j < BN / 2 ? c : NOUT + c;
     };
-`)
+`, bx)
 		} else {
 			b.WriteString("    auto wrow = [&](int j) { return bn0 + j; };\n")
 		}
@@ -130,8 +173,44 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
     __syncthreads();
 `)
 	}
-	fmt.Fprintf(&b, `    auto core = [](int r, int ch) { return ((r / 8) * 8 + ch) * 128 + (r %% 8) * 16; };
-    auto load = [&](int st, int kt) {
+	if g.Swizzle128B {
+		b.WriteString("    auto core = [](int r, int ch) { return (int)eg_swizzle_128b((uint32_t)(r * 128 + ch * 16)); };\n")
+	} else if g.Weight == WeightE4M3 {
+		b.WriteString("    auto core = [](int r, int ch) { return ((r / 8) * 4 + ch) * 128 + (r % 8) * 16; };\n")
+	} else {
+		b.WriteString("    auto core = [](int r, int ch) { return ((r / 8) * 8 + ch) * 128 + (r % 8) * 16; };\n")
+	}
+	switch {
+	case g.Weight == WeightE4M3 && g.Swizzle128B:
+		fmt.Fprintf(&b, `    auto load = [&](int st, int kt) {
+        unsigned char* const sa = smem + st * STAGE;
+        unsigned char* const sb = sa + BM * BK;
+        for (int c = tid; c < BM * 8; c += 256) {
+            const int r = c / 8, ch = c %% 8;
+            eg_cp_async16(sa + core(r, ch), x + (size_t)%s * K + kt * BK + ch * 16);
+        }
+        for (int c = tid; c < BN * 8; c += 256) {
+            const int r = c / 8, ch = c %% 8;
+            eg_cp_async16(sb + core(r, ch), we + (size_t)wrow(r) * K + kt * BK + ch * 16);
+        }
+    };
+`, xrow)
+	case g.Weight == WeightE4M3:
+		fmt.Fprintf(&b, `    auto load = [&](int st, int kt) {
+        unsigned char* const sa = smem + st * STAGE;
+        unsigned char* const sb = sa + BM * BK;
+        for (int c = tid; c < BM * 4; c += 256) {
+            const int r = c / 4, ch = c %% 4;
+            eg_cp_async16(sa + core(r, ch), x + (size_t)%s * K + kt * BK + ch * 16);
+        }
+        for (int c = tid; c < BN * 4; c += 256) {
+            const int r = c / 4, ch = c %% 4;
+            eg_cp_async16(sb + core(r, ch), we + (size_t)wrow(r) * K + kt * BK + ch * 16);
+        }
+    };
+`, xrow)
+	default:
+		fmt.Fprintf(&b, `    auto load = [&](int st, int kt) {
         unsigned char* const sa = smem + st * STAGE;
         unsigned char* const sb = sa + BM * BK * 2;
         for (int c = tid; c < BM * 8; c += 256) {
@@ -139,17 +218,17 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
             eg_cp_async16(sa + core(r, ch), x + (size_t)%s * K + kt * BK + ch * 8);
         }
 `, xrow)
-	switch {
-	case g.Weight == WeightNVFP4 && g.Repacked:
-		b.WriteString(`        uint8_t* const sbq = sb + BN * BK * 2;
+		switch {
+		case g.Weight == WeightNVFP4 && g.Repacked:
+			b.WriteString(`        uint8_t* const sbq = sb + BN * BK * 2;
         uint8_t* const sbs = sbq + 256 * 16;
         eg_cp_async16(sbq + tid * 16, we + (size_t)(kt * 256 + tid) * 4);
         eg_cp_async4(sbs + tid * 8, se + (size_t)(kt * 256 + tid) * 8);
         eg_cp_async4(sbs + tid * 8 + 4, se + (size_t)(kt * 256 + tid) * 8 + 4);
     };
 `)
-	case g.Weight == WeightNVFP4:
-		b.WriteString(`        uint8_t* const sbq = sb + BN * BK * 2;
+		case g.Weight == WeightNVFP4:
+			b.WriteString(`        uint8_t* const sbq = sb + BN * BK * 2;
         uint8_t* const sbs = sbq + BN * 32;
         for (int c = tid; c < BN * 2; c += 256) {
             const int r = c / 2, ch = c % 2;
@@ -158,13 +237,14 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         for (int r = tid; r < BN; r += 256) eg_cp_async4(sbs + r * 4, se + (size_t)wrow(r) * (K / 16) + kt * 4);
     };
 `)
-	default:
-		b.WriteString(`        for (int c = tid; c < BN * 8; c += 256) {
+		default:
+			b.WriteString(`        for (int c = tid; c < BN * 8; c += 256) {
             const int r = c / 8, ch = c % 8;
             eg_cp_async16(sb + core(r, ch), we + (size_t)wrow(r) * K + kt * BK + ch * 8);
         }
     };
 `)
+		}
 	}
 	b.WriteString(`    float d[BN / 2] = {};
 #pragma unroll
@@ -177,15 +257,19 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
 `)
 	switch {
 	case g.Weight == WeightNVFP4 && g.Repacked:
-		b.WriteString(`        __syncthreads();
-        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) % STAGES, kt + STAGES - 1);
+		storeExpr := "sb + core(r, ch) + tq * 4"
+		if g.Swizzle128B {
+			storeExpr = "sb + eg_swizzle_128b((uint32_t)(r * 128 + ch * 16 + tq * 4))"
+		}
+		fmt.Fprintf(&b, `        __syncthreads();
+        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) %% STAGES, kt + STAGES - 1);
         eg_cp_async_commit();
-        unsigned char* const sa = smem + (kt % STAGES) * STAGE;
+        unsigned char* const sa = smem + (kt %% STAGES) * STAGE;
         unsigned char* const sb = sa + BM * BK * 2;
         const uint32_t* const sbq = reinterpret_cast<const uint32_t*>(sb + BN * BK * 2 + tid * 16);
         const uint8_t* const sbs = sb + BN * BK * 2 + 256 * 16 + tid * 8;
-        const int g = lane / 4, tq = lane % 4;
-        const int rg = wgi * 64 + (warp % 4) * 16 + g;
+        const int g = lane / 4, tq = lane %% 4;
+        const int rg = wgi * 64 + (warp %% 4) * 16 + g;
 #pragma unroll
         for (int ks = 0; ks < 4; ++ks) {
             const uint32_t q = sbq[ks];
@@ -201,12 +285,12 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
             for (int j = 0; j < 4; ++j) {
                 const int r = (j & 1) ? (rg + 8) : rg;
                 const int ch = ks * 2 + (j >> 1);
-                *reinterpret_cast<uint32_t*>(sb + core(r, ch) + tq * 4) = a[j];
+                *reinterpret_cast<uint32_t*>(%s) = a[j];
             }
         }
         eg_fence_proxy_async();
         __syncthreads();
-`)
+`, storeExpr)
 	case g.Weight == WeightNVFP4:
 		b.WriteString(`        __syncthreads();
         if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) % STAGES, kt + STAGES - 1);
@@ -232,6 +316,14 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         eg_fence_proxy_async();
         __syncthreads();
 `)
+	case g.Weight == WeightE4M3:
+		b.WriteString(`        eg_fence_proxy_async();
+        __syncthreads();
+        if (kt + STAGES - 1 < KT) load((kt + STAGES - 1) % STAGES, kt + STAGES - 1);
+        eg_cp_async_commit();
+        const unsigned char* const sa = smem + (kt % STAGES) * STAGE;
+        const unsigned char* const sb = sa + BM * BK;
+`)
 	default:
 		b.WriteString(`        eg_fence_proxy_async();
         __syncthreads();
@@ -241,7 +333,39 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
         const unsigned char* const sb = sa + BM * BK * 2;
 `)
 	}
-	fmt.Fprintf(&b, `        eg_wgmma_fence();
+	switch {
+	case g.Weight == WeightE4M3 && g.Swizzle128B:
+		fmt.Fprintf(&b, `        eg_wgmma_fence();
+#pragma unroll
+        for (int ks = 0; ks < BK / 32; ++ks)
+            %s(d, eg_wgmma_desc_128b(sa + wgi * 8 * 1024 + ks * 32, 1024), eg_wgmma_desc_128b(sb + ks * 32, 1024));
+        eg_wgmma_commit();
+        eg_wgmma_wait<0>();
+    }
+    eg_cp_async_wait<0>();
+`, wg)
+	case g.Weight == WeightE4M3:
+		fmt.Fprintf(&b, `        eg_wgmma_fence();
+#pragma unroll
+        for (int ks = 0; ks < BK / 32; ++ks)
+            %s(d, eg_wgmma_desc(sa + wgi * 8 * 512 + ks * 256, 128, 512), eg_wgmma_desc(sb + ks * 256, 128, 512));
+        eg_wgmma_commit();
+        eg_wgmma_wait<0>();
+    }
+    eg_cp_async_wait<0>();
+`, wg)
+	case g.Swizzle128B:
+		fmt.Fprintf(&b, `        eg_wgmma_fence();
+#pragma unroll
+        for (int ks = 0; ks < BK / 16; ++ks)
+            %s(d, eg_wgmma_desc_128b(sa + wgi * 8 * 1024 + ks * 32, 1024), eg_wgmma_desc_128b(sb + ks * 32, 1024));
+        eg_wgmma_commit();
+        eg_wgmma_wait<0>();
+    }
+    eg_cp_async_wait<0>();
+`, wg)
+	default:
+		fmt.Fprintf(&b, `        eg_wgmma_fence();
 #pragma unroll
         for (int ks = 0; ks < BK / 16; ++ks)
             %s(d, eg_wgmma_desc(sa + wgi * 8 * 1024 + ks * 256, 128, 1024), eg_wgmma_desc(sb + ks * 256, 128, 1024));
@@ -250,9 +374,10 @@ func (g TileGEMM) cudaWGMMA() (string, error) {
     }
     eg_cp_async_wait<0>();
 `, wg)
+	}
 	nts, col := "BN / 8", "bn0"
 	if g.GLU {
-		nts, col = "BN / 16", "blockIdx.x * (BN / 2)"
+		nts, col = "BN / 16", bx+" * (BN / 2)"
 	}
 	if g.SumSq {
 		b.WriteString("    float sq[2] = {};\n")
@@ -347,6 +472,41 @@ func wgmmaFunc(name string, n int) string {
 		fmt.Fprintf(&b, "        \"%s%s\"\n", l, sep)
 	}
 	fmt.Fprintf(&b, "        \"}, %%%d, %%%d, p, 1, 1, 0, 0;\\n}\\n\"\n", n/2, n/2+1)
+	fmt.Fprintf(&b, "        : %s\n", strings.Join(outLines, ",\n          "))
+	b.WriteString("        : \"l\"(da), \"l\"(db), \"r\"(1));\n#endif\n}\n\n")
+	return b.String()
+}
+
+// wgmmaE4M3Func returns a device function name(float* d, uint64_t da,
+// uint64_t db) issuing wgmma.mma_async m64n<n>k32 E4M3 → FP32 with D += A·B,
+// both operands K-major in shared memory.
+func wgmmaE4M3Func(name string, n int) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "EG_DEV void %s(float* d, uint64_t da, uint64_t db) {\n", name)
+	b.WriteString("#if defined(EG_HOST_EMU)\n")
+	fmt.Fprintf(&b, "    eg_emu_wgmma_e4m3(d, da, db, %d);\n", n)
+	b.WriteString("#else\n")
+	regs := make([]string, n/2)
+	outs := make([]string, n/2)
+	for i := range regs {
+		regs[i] = fmt.Sprintf("%%%d", i)
+		outs[i] = fmt.Sprintf("\"+f\"(d[%d])", i)
+	}
+	var regLines, outLines []string
+	for i := 0; i < len(regs); i += 16 {
+		regLines = append(regLines, strings.Join(regs[i:min(i+16, len(regs))], ", "))
+		outLines = append(outLines, strings.Join(outs[i:min(i+16, len(outs))], ", "))
+	}
+	fmt.Fprintf(&b, "    asm volatile(\n        \"{\\n.reg .pred p;\\nsetp.ne.b32 p, %%%d, 0;\\n\"\n", n/2+2)
+	fmt.Fprintf(&b, "        \"wgmma.mma_async.sync.aligned.m64n%dk32.f32.e4m3.e4m3 {\"\n", n)
+	for i, l := range regLines {
+		sep := ", "
+		if i == len(regLines)-1 {
+			sep = ""
+		}
+		fmt.Fprintf(&b, "        \"%s%s\"\n", l, sep)
+	}
+	fmt.Fprintf(&b, "        \"}, %%%d, %%%d, p, 1, 1;\\n}\\n\"\n", n/2, n/2+1)
 	fmt.Fprintf(&b, "        : %s\n", strings.Join(outLines, ",\n          "))
 	b.WriteString("        : \"l\"(da), \"l\"(db), \"r\"(1));\n#endif\n}\n\n")
 	return b.String()

@@ -1,6 +1,7 @@
 package hopper
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -41,6 +42,25 @@ func TestTileGEMMEmulated(t *testing.T) {
 		// GLU at BN 64: 32 output columns per block, 4 warps per group.
 		{"sumsq_glu", TileGEMM{N: 128, K: 64, Weight: WeightBF16, Out: BF16, BM: 64, BN: 64, GLU: true, SumSq: true,
 			Epilogue: MustLambda("(mul (silu $0) $1)")}, 40, 0, nil},
+		// 128B shared-memory swizzle + WGMMA descriptor mode 1.
+		{"wgmma_swizzle128b_bf16", TileGEMM{N: 128, K: 192, Weight: WeightBF16, Out: F32, WGMMA: true, Swizzle128B: true, Stages: 2}, 150, 0, nil},
+		{"wgmma_swizzle128b_bf16_256", TileGEMM{N: 256, K: 128, Weight: WeightBF16, Out: BF16, BN: 256, WGMMA: true, Swizzle128B: true, Stages: 3,
+			Epilogue: MustLambda("(add (mul $0 $1) $2)"), Extras: []Operand{{"scale", BF16, PerCol}, {"resid", F32, Full}}}, 70, 0, nil},
+		{"wgmma_swizzle128b_nvfp4", TileGEMM{N: 128, K: 128, Weight: WeightNVFP4, Out: F32, BN: 64, WGMMA: true, Swizzle128B: true, GLU: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 90, 0, nil},
+		{"wgmma_swizzle128b_nvfp4_repacked", TileGEMM{N: 256, K: 128, Weight: WeightNVFP4, Out: BF16, BN: 128, WGMMA: true, Repacked: true, Swizzle128B: true,
+			GLU: true, Grouped: true, Gather: true, SumSq: true, Epilogue: MustLambda("(mul (silu $0) $1)")}, 70, 25, []int32{0, 19, 70}},
+		// L2 GroupM tile scheduling across ragged multi-tile grids.
+		{"groupm_mma_sync", TileGEMM{N: 256, K: 64, Weight: WeightBF16, Out: F32, BM: 64, BN: 64, GroupM: 4, SumSq: true}, 300, 0, nil},
+		{"groupm_wgmma_glu_grouped", TileGEMM{N: 256, K: 128, Weight: WeightBF16, Out: BF16, BN: 64, WGMMA: true, Swizzle128B: true, GroupM: 4,
+			GLU: true, Grouped: true, Gather: true, SumSq: true, Epilogue: MustLambda("(mul (silu $0) $1)")}, 290, 40, []int32{0, 140, 290}},
+		// Native Hopper FP8 (WeightE4M3) WGMMA m64nBNk32, unswizzled and 128B-swizzled.
+		{"wgmma_e4m3_64", TileGEMM{N: 128, K: 192, Weight: WeightE4M3, Out: F32, BN: 64, WGMMA: true, Stages: 2}, 135, 0, nil},
+		{"wgmma_e4m3_swizzle128b", TileGEMM{N: 256, K: 256, Weight: WeightE4M3, Out: BF16, BN: 128, WGMMA: true, Swizzle128B: true, GroupM: 4,
+			Epilogue: MustLambda("(add (mul $0 $1) $2)"), Extras: []Operand{{"scale", F32, PerCol}, {"bias", BF16, PerCol}}}, 150, 0, nil},
+		{"wgmma_e4m3_glu_grouped", TileGEMM{N: 128, K: 128, Weight: WeightE4M3, Out: F32, BN: 64, WGMMA: true, Swizzle128B: true,
+			GLU: true, Grouped: true, Gather: true, SumSq: true,
+			Epilogue: MustLambda("(mul (mul (silu $0) $1) $2)"), Extras: []Operand{{"scale", F32, PerCol}}}, 140, 30, []int32{0, 129, 140}},
 	}
 	r := rand.New(rand.NewPCG(41, 42))
 	for _, tt := range tests {
@@ -60,7 +80,19 @@ func TestTileGEMMEmulated(t *testing.T) {
 					rows = append(rows, int32(r.IntN(tt.tokens)))
 				}
 			}
-			x := randBF16(r, xrows*k, 1)
+			var x []uint16
+			var xE4 []uint8
+			if g.Weight == WeightE4M3 {
+				xE4 = make([]uint8, xrows*k)
+				x = make([]uint16, xrows*k)
+				for i := range xE4 {
+					b := E4M3Bits(float32(r.NormFloat64() * 0.5))
+					xE4[i] = b
+					x[i] = uint16(b)
+				}
+			} else {
+				x = randBF16(r, xrows*k, 1)
+			}
 			nout := n
 			if g.GLU {
 				nout = n / 2
@@ -71,32 +103,67 @@ func TestTileGEMMEmulated(t *testing.T) {
 			}
 			var ws []GEMMWeights
 			var all GEMMWeights
+			var repackedW []uint32
+			var repackedSF []uint8
 			var gs []float32
 			for range experts {
 				var w GEMMWeights
-				if g.Weight == WeightNVFP4 {
+				switch g.Weight {
+				case WeightNVFP4:
 					w = randNVFP4(r, n, k)
 					w.GlobalScal = float32(0.01 + r.Float64()*0.01)
-					all.Packed = append(all.Packed, w.Packed...)
-					all.Scales = append(all.Scales, w.Scales...)
+					if g.WGMMA {
+						w.GlobalScal = float32(1.0 / 64.0)
+					}
+					if g.Repacked {
+						q, sf, err := RepackNVFP4WGMMA(w.Packed, w.Scales, n, k, g.GLU)
+						if err != nil {
+							t.Fatal(err)
+						}
+						repackedW = append(repackedW, q...)
+						repackedSF = append(repackedSF, sf...)
+					} else {
+						all.Packed = append(all.Packed, w.Packed...)
+						all.Scales = append(all.Scales, w.Scales...)
+					}
 					gs = append(gs, w.GlobalScal)
-				} else {
+				case WeightE4M3:
+					w.E4M3 = make([]uint8, n*k)
+					for i := range w.E4M3 {
+						w.E4M3[i] = E4M3Bits(float32(r.NormFloat64() * 0.125))
+					}
+					all.E4M3 = append(all.E4M3, w.E4M3...)
+				default:
 					w.BF16 = randBF16(r, n*k, 0.05)
 					all.BF16 = append(all.BF16, w.BF16...)
 				}
 				ws = append(ws, w)
 			}
-			bufs := []emuBuf{{"x", "uint16_t", u16Bytes(x)}}
+			var bufs []emuBuf
+			if g.Weight == WeightE4M3 {
+				bufs = append(bufs, emuBuf{"x", "uint8_t", xE4})
+			} else {
+				bufs = append(bufs, emuBuf{"x", "uint16_t", u16Bytes(x)})
+			}
 			args := []string{fmt.Sprint(m), "x"}
 			if g.Gather {
 				bufs = append(bufs, emuBuf{"rows", "int32_t", i32Bytes(rows)})
 				args = append(args, "rows")
 			}
-			if g.Weight == WeightNVFP4 {
-				bufs = append(bufs, emuBuf{"w", "uint8_t", all.Packed}, emuBuf{"w_sf", "uint8_t", all.Scales},
-					emuBuf{"w_gs", "float", f32Bytes(gs)})
+			switch g.Weight {
+			case WeightNVFP4:
+				if g.Repacked {
+					bufs = append(bufs, emuBuf{"w", "uint32_t", u32Bytes(repackedW)}, emuBuf{"w_sf", "uint8_t", repackedSF},
+						emuBuf{"w_gs", "float", f32Bytes(gs)})
+				} else {
+					bufs = append(bufs, emuBuf{"w", "uint8_t", all.Packed}, emuBuf{"w_sf", "uint8_t", all.Scales},
+						emuBuf{"w_gs", "float", f32Bytes(gs)})
+				}
 				args = append(args, "w", "w_sf", "w_gs")
-			} else {
+			case WeightE4M3:
+				bufs = append(bufs, emuBuf{"w", "uint8_t", all.E4M3})
+				args = append(args, "w")
+			default:
 				bufs = append(bufs, emuBuf{"w", "uint16_t", u16Bytes(all.BF16)})
 				args = append(args, "w")
 			}
@@ -190,6 +257,10 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"wgmma_bm", func(g *TileGEMM) { g.WGMMA, g.BM = true, 64 }},
 		{"repacked_no_wgmma", func(g *TileGEMM) { g.Weight, g.Repacked = WeightNVFP4, true }},
 		{"repacked_bf16", func(g *TileGEMM) { g.WGMMA, g.Repacked = true, true }},
+		{"swizzle128b_no_wgmma", func(g *TileGEMM) { g.Swizzle128B = true }},
+		{"groupm_neg", func(g *TileGEMM) { g.GroupM = -1 }},
+		{"e4m3_no_wgmma", func(g *TileGEMM) { g.Weight = WeightE4M3 }},
+		{"e4m3_swizzle128b_k64", func(g *TileGEMM) { g.Weight, g.WGMMA, g.Swizzle128B, g.K = WeightE4M3, true, true, 64 }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)
@@ -225,4 +296,188 @@ func ExampleTileGEMM() {
 	grid, block := g.Grid(753, 1)
 	fmt.Println(grid, block, g.SharedBytes())
 	// Output: [18 6 1] [256 1 1] 110592
+}
+
+// TestTileGEMMGroupMIdentical verifies that GroupM > 1 produces bit-for-bit
+// identical output and SumSq reductions to GroupM == 0 across ragged
+// multi-tile grids for both mma.sync and WGMMA.
+func TestTileGEMMGroupMIdentical(t *testing.T) {
+	r := rand.New(rand.NewPCG(91, 92))
+	const m, n, k = 300, 256, 64
+	x := randBF16(r, m*k, 1)
+	w := randBF16(r, 2*n*k, 0.05)
+	offsets := []int32{0, 140, 300}
+	for _, wgmma := range []bool{false, true} {
+		bm := 64
+		if wgmma {
+			bm = 128
+		}
+		base := TileGEMM{
+			Name:     "gm_base",
+			N:        n,
+			K:        k,
+			Weight:   WeightBF16,
+			Out:      F32,
+			BM:       bm,
+			BN:       64,
+			WGMMA:    wgmma,
+			GLU:      true,
+			Grouped:  true,
+			SumSq:    true,
+			Epilogue: MustLambda("(mul (silu $0) $1)"),
+		}
+		run := func(groupM int) (out, ss []byte) {
+			g := base
+			g.GroupM = groupM
+			src, err := g.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			grid, block := g.Grid(160, 2)
+			launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %d, x, w, offsets, out, ss)",
+				grid[0], grid[1], grid[2], block[0], g.SharedBytes(), g.Name, m)
+			res := runEmu(t, src, launch,
+				emuBuf{"x", "uint16_t", u16Bytes(x)},
+				emuBuf{"w", "uint16_t", u16Bytes(w)},
+				emuBuf{"offsets", "int32_t", i32Bytes(offsets)},
+				emuBuf{"out", "float", poison(4 * m * (n / 2))},
+				emuBuf{"ss", "float", poison(4 * m * (n / 2) / 32)})
+			return res["out"], res["ss"]
+		}
+		wantOut, wantSS := run(0)
+		for _, gm := range []int{2, 4, 8} {
+			gotOut, gotSS := run(gm)
+			if !bytes.Equal(gotOut, wantOut) {
+				t.Fatalf("wgmma=%t groupM=%d: out bytes differ from groupM=0", wgmma, gm)
+			}
+			if !bytes.Equal(gotSS, wantSS) {
+				t.Fatalf("wgmma=%t groupM=%d: ss bytes differ from groupM=0", wgmma, gm)
+			}
+		}
+	}
+}
+
+// TestTileGEMMSwizzleGroupMAndE4M3Mutations verifies that mismatching the 128B
+// swizzle between cp.async staging and the WGMMA descriptor, corrupting the
+// GroupM tile decomposition, or corrupting WeightE4M3 k-step offsets fails the
+// host emulator test.
+func TestTileGEMMSwizzleGroupMAndE4M3Mutations(t *testing.T) {
+	r := rand.New(rand.NewPCG(101, 102))
+
+	// 1. Swizzle128B and GroupM mutations on BF16 WGMMA.
+	{
+		g := TileGEMM{
+			Name:        "tile_mut_bf16",
+			N:           192,
+			K:           128,
+			Weight:      WeightBF16,
+			Out:         F32,
+			BN:          64,
+			WGMMA:       true,
+			Swizzle128B: true,
+			GroupM:      4,
+			Stages:      2,
+		}
+		src, err := g.CUDA()
+		if err != nil {
+			t.Fatal(err)
+		}
+		const m = 260
+		x := randBF16(r, m*g.K, 1)
+		w := GEMMWeights{BF16: randBF16(r, g.N*g.K, 0.05)}
+		want, err := g.Reference(m, x, nil, nil, []GEMMWeights{w}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		grid, block := g.Grid(m, 1)
+		launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %d, x, w, out)",
+			grid[0], grid[1], grid[2], block[0], g.SharedBytes(), g.Name, m)
+		mutants := []struct {
+			name string
+			old  string
+			repl string
+		}{
+			{
+				name: "mismatch_store_unswizzled_desc_swizzled",
+				old:  "auto core = [](int r, int ch) { return (int)eg_swizzle_128b((uint32_t)(r * 128 + ch * 16)); };",
+				repl: "auto core = [](int r, int ch) { return r * 128 + ch * 16; };",
+			},
+			{
+				name: "mismatch_store_swizzled_desc_unswizzled",
+				old:  "eg_wgmma_desc_128b(sa + wgi * 8 * 1024 + ks * 32, 1024), eg_wgmma_desc_128b(sb + ks * 32, 1024)",
+				repl: "eg_wgmma_desc(sa + wgi * 8 * 1024 + ks * 256, 128, 1024), eg_wgmma_desc(sb + ks * 256, 128, 1024)",
+			},
+			{
+				name: "corrupt_groupm_tile_n",
+				old:  "const int tile_n = (pid % in_group) / gsz;",
+				repl: "const int tile_n = (pid % in_group) % NUM_N;",
+			},
+		}
+		for _, mut := range mutants {
+			if !strings.Contains(src, mut.old) {
+				t.Fatalf("%s: target not in source", mut.name)
+			}
+			msrc := strings.Replace(src, mut.old, mut.repl, 1)
+			res := runEmu(t, msrc, launch,
+				emuBuf{"x", "uint16_t", u16Bytes(x)},
+				emuBuf{"w", "uint16_t", u16Bytes(w.BF16)},
+				emuBuf{"out", "float", poison(4 * m * g.N)})
+			got := bytesF32(res["out"])
+			if _, ok := closeTo(got, want, 1e-5, 1e-5); ok {
+				t.Errorf("mutant %s survived", mut.name)
+			}
+		}
+	}
+
+	// 2. WeightE4M3 k-step offset mutation.
+	{
+		g := TileGEMM{
+			Name:        "tile_mut_e4m3",
+			N:           64,
+			K:           128,
+			Weight:      WeightE4M3,
+			Out:         F32,
+			BN:          64,
+			WGMMA:       true,
+			Swizzle128B: true,
+			Stages:      2,
+		}
+		src, err := g.CUDA()
+		if err != nil {
+			t.Fatal(err)
+		}
+		const m = 64
+		xE4 := make([]uint8, m*g.K)
+		x := make([]uint16, m*g.K)
+		for i := range xE4 {
+			b := E4M3Bits(float32(r.NormFloat64() * 0.5))
+			xE4[i] = b
+			x[i] = uint16(b)
+		}
+		w := GEMMWeights{E4M3: make([]uint8, g.N*g.K)}
+		for i := range w.E4M3 {
+			w.E4M3[i] = E4M3Bits(float32(r.NormFloat64() * 0.125))
+		}
+		want, err := g.Reference(m, x, nil, nil, []GEMMWeights{w}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		grid, block := g.Grid(m, 1)
+		launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %d, x, w, out)",
+			grid[0], grid[1], grid[2], block[0], g.SharedBytes(), g.Name, m)
+		old := "eg_wgmma_desc_128b(sa + wgi * 8 * 1024 + ks * 32, 1024), eg_wgmma_desc_128b(sb + ks * 32, 1024)"
+		repl := "eg_wgmma_desc_128b(sa + wgi * 8 * 1024 + ks * 16, 1024), eg_wgmma_desc_128b(sb + ks * 16, 1024)"
+		if !strings.Contains(src, old) {
+			t.Fatal("e4m3 k-step target not in source")
+		}
+		msrc := strings.Replace(src, old, repl, 1)
+		res := runEmu(t, msrc, launch,
+			emuBuf{"x", "uint8_t", xE4},
+			emuBuf{"w", "uint8_t", w.E4M3},
+			emuBuf{"out", "float", poison(4 * m * g.N)})
+		got := bytesF32(res["out"])
+		if _, ok := closeTo(got, want, 1e-5, 1e-5); ok {
+			t.Error("mutant corrupt_e4m3_k_step survived")
+		}
+	}
 }

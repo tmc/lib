@@ -19,6 +19,10 @@ const (
 	// E4M3 [N, K/16] block scales, and w_gs: one FP32 global scale, with
 	// W = e2m1 · sf · gs (moe8_moe_w4a16/nvfp4.py:90-97).
 	WeightNVFP4
+	// WeightE4M3 is w: E4M3 [N, K] with E4M3 activations x [M, K] (for
+	// [TileGEMM] with WGMMA). Per-tensor or per-column scales can be
+	// applied via [TileGEMM.Epilogue] and [TileGEMM.Extras].
+	WeightE4M3
 )
 
 func (f WeightFormat) String() string {
@@ -29,6 +33,8 @@ func (f WeightFormat) String() string {
 		return "bf16hilo"
 	case WeightNVFP4:
 		return "nvfp4"
+	case WeightE4M3:
+		return "e4m3"
 	}
 	return fmt.Sprintf("WeightFormat(%d)", uint8(f))
 }
@@ -446,6 +452,7 @@ type GEMMWeights struct {
 	Packed     []uint8  // WeightNVFP4 [N*K/2]
 	Scales     []uint8  // WeightNVFP4 [N*K/16]
 	GlobalScal float32  // WeightNVFP4
+	E4M3       []uint8  // WeightE4M3 [N*K]
 }
 
 // Reference computes g's output for m rows of x (BF16 bits, [m, K]) in
@@ -495,11 +502,22 @@ func gemmRows(n, k int, f WeightFormat, w GEMMWeights, xRow func(int) []uint16, 
 			for j := range row {
 				row[j] = float64(vals[j])
 			}
+		case WeightE4M3:
+			if len(w.E4M3) != n*k {
+				return fmt.Errorf("gemm e4m3: %dx%d needs %d weight bytes, have %d", n, k, n*k, len(w.E4M3))
+			}
+			for j := range row {
+				row[j] = float64(FromE4M3Bits(w.E4M3[c*k+j]))
+			}
 		}
 		for _, i := range rows {
 			var s float64
 			for j, xv := range xRow(i) {
-				s += float64(FromBF16Bits(xv)) * row[j]
+				if f == WeightE4M3 {
+					s += float64(FromE4M3Bits(uint8(xv))) * row[j]
+				} else {
+					s += float64(FromBF16Bits(xv)) * row[j]
+				}
 			}
 			args := []float32{float32(s)}
 			for e, o := range ops {

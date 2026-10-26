@@ -27,6 +27,8 @@ type Launch struct {
 	ClusterCombine bool   `json:"cluster_combine,omitempty"` // 8-CTA cluster DSMEM split-KV combine (PagedAttention)
 	BM             int    `json:"bm,omitempty"`              // output tile rows (TileGEMM)
 	BN             int    `json:"bn,omitempty"`              // output tile columns (TileGEMM)
+	GroupM         int    `json:"group_m,omitempty"`         // CTA M-band size for L2 tile reuse (TileGEMM)
+	Swizzle128B    bool   `json:"swizzle_128b,omitempty"`    // 128B XOR-swizzled shared memory (TileGEMM WGMMA)
 	RowsPerBlock   int    `json:"rows_per_block,omitempty"`  // W rows per block (SkinnyGEMM)
 	Unroll         int    `json:"unroll,omitempty"`          // loads in flight (SkinnyGEMM)
 	Prefetch       int    `json:"prefetch,omitempty"`        // prefetched K steps per warp (SkinnyGEMM)
@@ -83,11 +85,15 @@ func (l Launch) config() string {
 	add("kv_heads", l.KVHeads)
 	add("bm", l.BM)
 	add("bn", l.BN)
+	add("group_m", l.GroupM)
 	add("rows_per_block", l.RowsPerBlock)
 	add("unroll", l.Unroll)
 	add("prefetch", l.Prefetch)
 	if l.MMA != "" {
 		parts = append(parts, "mma="+l.MMA)
+	}
+	if l.Swizzle128B {
+		parts = append(parts, "swizzle_128b")
 	}
 	if l.DeviceSplits {
 		parts = append(parts, "device_splits")
@@ -154,7 +160,11 @@ func (g TileGEMM) Variant() (Variant, error) {
 	if g.SumSq {
 		key += "/sumsq"
 	}
-	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, SharedBytes: g.SharedBytes(), MMA: "mma.sync"}
+	groupM := g.GroupM
+	if groupM <= 1 {
+		groupM = 0
+	}
+	l := Launch{Block: 256, Warps: 8, Stages: g.Stages, BM: g.BM, BN: g.BN, GroupM: groupM, Swizzle128B: g.Swizzle128B, SharedBytes: g.SharedBytes(), MMA: "mma.sync"}
 	if g.WGMMA {
 		l.MMA = "wgmma"
 	}
@@ -264,7 +274,7 @@ func SweepTileGEMM(base TileGEMM) ([]Variant, error) {
 			for s := 2; s <= 4; s++ {
 				g := base
 				g.Name = fmt.Sprintf("%s_m%dn%ds%d", base.Name, bm, bn, s)
-				g.BM, g.BN, g.Stages, g.WGMMA = bm, bn, s, false
+				g.BM, g.BN, g.Stages, g.WGMMA, g.Swizzle128B, g.Repacked = bm, bn, s, false, false, false
 				v, err := g.Variant()
 				if err != nil {
 					continue

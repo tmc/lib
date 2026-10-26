@@ -51,6 +51,13 @@ type TileGEMM struct {
 	// widens to core-matrix shared memory with 9-instruction dequant9 or
 	// nibble-shift + bf16x2 scale multiply.
 	Repacked bool
+	// Swizzle128B stages WGMMA shared-memory tiles in 128-byte XOR-swizzled
+	// lines (offset ^ (((offset >> 7) & 7) << 4)) and emits 128B-swizzled
+	// WGMMA descriptors (layout mode 1, bits [63:62] = 1).
+	Swizzle128B bool
+	// GroupM, when > 1, orders CTA (tile_m, tile_n) coordinates in GroupM-row
+	// M-bands so concurrently scheduled blocks share A and B tiles in L2 cache.
+	GroupM int
 
 	BM, BN int // 64 or 128 (BN 256 with WGMMA); 0 means 128
 	Stages int // 2 to 4; 0 means 3
@@ -72,16 +79,25 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.WGMMA && g.BM != 128 {
 		return g, fmt.Errorf("tile gemm %s: WGMMA needs BM 128", g.Name)
 	}
+	if g.Swizzle128B && !g.WGMMA {
+		return g, fmt.Errorf("tile gemm %s: Swizzle128B requires WGMMA", g.Name)
+	}
+	if g.GroupM < 0 {
+		return g, fmt.Errorf("tile gemm %s: negative GroupM %d", g.Name, g.GroupM)
+	}
 	if g.Repacked && (!g.WGMMA || g.Weight != WeightNVFP4 || g.BN != 128) {
 		return g, fmt.Errorf("tile gemm %s: Repacked requires WGMMA, WeightNVFP4 and BN 128", g.Name)
 	}
 	if g.BM != 64 && g.BM != 128 || g.BN != 64 && g.BN != 128 && !(g.WGMMA && g.BN == 256) || g.Stages < 2 || g.Stages > 4 {
 		return g, fmt.Errorf("tile gemm %s: unsupported tile %dx%d, %d stages", g.Name, g.BM, g.BN, g.Stages)
 	}
-	if g.N < 1 || g.N%g.BN != 0 || g.K < 64 || g.K%64 != 0 {
-		return g, fmt.Errorf("tile gemm %s: N %d must be a multiple of %d and K %d of 64", g.Name, g.N, g.BN, g.K)
+	if g.N < 1 || g.N%g.BN != 0 || g.K < 64 || g.K%64 != 0 || (g.Weight == WeightE4M3 && g.Swizzle128B && (g.K < 128 || g.K%128 != 0)) {
+		return g, fmt.Errorf("tile gemm %s: N %d must be a multiple of %d and K %d of 64 (128 for Swizzle128B E4M3)", g.Name, g.N, g.BN, g.K)
 	}
-	if g.Weight != WeightBF16 && g.Weight != WeightNVFP4 {
+	if g.Weight == WeightE4M3 && !g.WGMMA {
+		return g, fmt.Errorf("tile gemm %s: WeightE4M3 requires WGMMA", g.Name)
+	}
+	if g.Weight != WeightBF16 && g.Weight != WeightNVFP4 && g.Weight != WeightE4M3 {
 		return g, fmt.Errorf("tile gemm %s: weight %v unsupported", g.Name, g.Weight)
 	}
 	if g.Out != BF16 && g.Out != F32 {
@@ -121,7 +137,14 @@ func (g TileGEMM) SharedBytes() int {
 			if g.Repacked {
 				return g.Stages * (g.BM*64*2 + g.BN*64*2 + 256*(16+8))
 			}
-			return g.Stages * (g.BM*64*2 + g.BN*64*2 + g.BN*(32+4))
+			stage := g.BM*64*2 + g.BN*64*2 + g.BN*(32+4)
+			if g.Swizzle128B {
+				stage = (stage + 1023) / 1024 * 1024
+			}
+			return g.Stages * stage
+		}
+		if g.Weight == WeightE4M3 && !g.Swizzle128B {
+			return g.Stages * (g.BM + g.BN) * 64
 		}
 		return g.Stages * (g.BM + g.BN) * 64 * 2
 	}
@@ -133,17 +156,24 @@ func (g TileGEMM) SharedBytes() int {
 }
 
 func (g TileGEMM) params() []string {
-	p := []string{"int m_total", "const uint16_t* __restrict__ x"}
+	xType := "const uint16_t* __restrict__ x"
+	if g.Weight == WeightE4M3 {
+		xType = "const uint8_t* __restrict__ x"
+	}
+	p := []string{"int m_total", xType}
 	if g.Gather {
 		p = append(p, "const int32_t* __restrict__ rows")
 	}
-	if g.Weight == WeightNVFP4 {
+	switch g.Weight {
+	case WeightNVFP4:
 		if g.WGMMA && g.Repacked {
 			p = append(p, "const uint32_t* __restrict__ w", "const uint8_t* __restrict__ w_sf", "const float* __restrict__ w_gs")
 		} else {
 			p = append(p, "const uint8_t* __restrict__ w", "const uint8_t* __restrict__ w_sf", "const float* __restrict__ w_gs")
 		}
-	} else {
+	case WeightE4M3:
+		p = append(p, "const uint8_t* __restrict__ w")
+	default:
 		p = append(p, "const uint16_t* __restrict__ w")
 	}
 	if g.Grouped {
@@ -182,6 +212,10 @@ func (g TileGEMM) CUDA() (string, error) {
 	if g.WGMMA {
 		return g.cudaWGMMA()
 	}
+	bx := "blockIdx.x"
+	if g.GroupM > 1 {
+		bx = "tile_n"
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "// %s: out = %s over x[M, %d] · W[%d, %d]ᵀ (%v), %dx%d tiles, %d stages.\n",
 		g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.BM, g.BN, g.Stages)
@@ -200,17 +234,17 @@ func (g TileGEMM) CUDA() (string, error) {
 	} else {
 		b.WriteString("    const int e = 0, row0 = 0, row1 = m_total;\n")
 	}
-	b.WriteString(`    const int bm0 = row0 + blockIdx.y * BM, bn0 = blockIdx.x * BN;
-    if (bm0 >= row1) return;
+	tileCoord(&b, g.GroupM)
+	b.WriteString(`    if (bm0 >= row1) return;
     EG_DYNAMIC_SMEM(uint16_t, sa); // [STAGES][BM][LD], then the W ring
 `)
 	if g.GLU {
-		b.WriteString(`    // Tile row j: warp column j / WN holds WN/2 gate rows, then the matching up rows.
+		fmt.Fprintf(&b, `    // Tile row j: warp column j / WN holds WN/2 gate rows, then the matching up rows.
     auto wrow = [&](int j) {
-        const int o = j % WN, c = blockIdx.x * (BN / 2) + (j / WN) * (WN / 2) + o % (WN / 2);
+        const int o = j %% WN, c = %s * (BN / 2) + (j / WN) * (WN / 2) + o %% (WN / 2);
         return o < WN / 2 ? c : NOUT + c;
     };
-`)
+`, bx)
 	} else {
 		b.WriteString("    auto wrow = [&](int j) { return bn0 + j; };\n")
 	}
@@ -309,7 +343,7 @@ func (g TileGEMM) CUDA() (string, error) {
 `)
 	nts, col := "NT", "bn0 + wn * WN"
 	if g.GLU {
-		nts, col = "NT / 2", "blockIdx.x * (BN / 2) + wn * (WN / 2)"
+		nts, col = "NT / 2", bx+" * (BN / 2) + wn * (WN / 2)"
 	}
 	if g.SumSq {
 		b.WriteString("    float sq[MT][2] = {};\n")
@@ -374,12 +408,34 @@ func (g TileGEMM) CUDA() (string, error) {
         float s = 0.0f;
 #pragma unroll
         for (int k = 0; k < WPE; ++k) s += red_ss[j * WPE + k][r];
-        ss[(size_t)(bm0 + r) * (NOUT / 32) + blockIdx.x * E + j] = s;
+        ss[(size_t)(bm0 + r) * (NOUT / 32) + %s * E + j] = s;
     }
-`, bno)
+`, bno, bx)
 	}
 	b.WriteString("}\n")
 	return b.String(), nil
+}
+
+// tileCoord emits the CTA (tile_m, tile_n) and (bm0, bn0) coordinate setup.
+// When groupM <= 1, it emits the direct blockIdx.y / blockIdx.x mapping.
+// When groupM > 1, it decomposes linear pid = blockIdx.y * gridDim.x + blockIdx.x
+// into GroupM-row M-bands so concurrently scheduled blocks share A and B tiles in L2.
+func tileCoord(b *strings.Builder, groupM int) {
+	if groupM <= 1 {
+		b.WriteString("    const int bm0 = row0 + blockIdx.y * BM, bn0 = blockIdx.x * BN;\n")
+		return
+	}
+	fmt.Fprintf(b, `    constexpr int GROUP_M = %d, NUM_N = N / BN;
+    const int num_m = (row1 - row0 + BM - 1) / BM;
+    const int pid = blockIdx.y * gridDim.x + blockIdx.x;
+    if (pid >= num_m * NUM_N) return;
+    const int in_group = GROUP_M * NUM_N;
+    const int first_m = (pid / in_group) * GROUP_M;
+    const int gsz = min(num_m - first_m, GROUP_M);
+    const int tile_m = first_m + (pid %% in_group) %% gsz;
+    const int tile_n = (pid %% in_group) / gsz;
+    const int bm0 = row0 + tile_m * BM, bn0 = tile_n * BN;
+`, groupM)
 }
 
 // Launcher returns a host function

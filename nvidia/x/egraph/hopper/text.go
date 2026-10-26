@@ -29,7 +29,7 @@ func (d *DType) UnmarshalText(b []byte) error {
 func (f WeightFormat) MarshalText() ([]byte, error) { return []byte(f.String()), nil }
 
 func (f *WeightFormat) UnmarshalText(b []byte) error {
-	for _, v := range []WeightFormat{WeightBF16, WeightBF16HiLo, WeightNVFP4} {
+	for _, v := range []WeightFormat{WeightBF16, WeightBF16HiLo, WeightNVFP4, WeightE4M3} {
 		if v.String() == string(b) {
 			*f = v
 			return nil
