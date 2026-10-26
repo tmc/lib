@@ -100,7 +100,8 @@ type pairState struct {
 }
 
 // VerifyTrace validates a sequence of device-side tcgen05 events against the
-// cudatmem Allocator state machine and the sm_100a PTX 9.4 datapath rules:
+// cudatmem Allocator state machine and the sm_100a/sm_103a/sm_100f/sm_103f
+// PTX 9.4 datapath rules:
 //  1. Single-thread elect.sync issue for tcgen05.mma, tcgen05.cp, tcgen05.commit.
 //  2. 4-warp 32-row epilogue datapath partitioning for tcgen05.ld and tcgen05.st.
 //  3. tcgen05.cp scale staging prior to block-scaled tcgen05.mma.

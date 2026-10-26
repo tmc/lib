@@ -9,9 +9,10 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
-// SM100PTXSummary records counts of Blackwell sm_100a PTX instructions
+// SM100PTXSummary records counts of Blackwell sm_100a/sm_103a/sm_100f/sm_103f PTX instructions
 // (tcgen05.*, elect.sync, clusterlaunchcontrol.try_cancel, and local memory traffic).
 type SM100PTXSummary struct {
+	Target           string
 	Total            int
 	Alloc            int // tcgen05.alloc
 	Dealloc          int // tcgen05.dealloc
@@ -20,6 +21,8 @@ type SM100PTXSummary struct {
 	MMACTAGroup1     int // tcgen05.mma.cta_group::1
 	MMACTAGroup2     int // tcgen05.mma.cta_group::2
 	MMABlockScaled   int // tcgen05.mma with kind::mxf4nvf4, kind::mxf8f6f4, or .block_scale
+	MMAScaleVec2X    int // tcgen05.mma with .scale_vec::2X
+	MMAScaleVec4X    int // tcgen05.mma with .scale_vec::4X (sm_103a K=128 NVFP4)
 	MMATMEMSourceA   int // tcgen05.mma with TMEM-resident matrix A ([tmem])
 	Commit           int // tcgen05.commit
 	Wait             int // tcgen05.wait
@@ -32,7 +35,7 @@ type SM100PTXSummary struct {
 	LocalSt          int // st.local
 }
 
-// SM100Correlation links a PTX sm_100a instruction to its lowered SASS instruction(s).
+// SM100Correlation links a PTX sm_100a/sm_103a instruction to its lowered SASS instruction(s).
 type SM100Correlation struct {
 	PTXLine     int
 	PTXOpcode   string
@@ -40,14 +43,16 @@ type SM100Correlation struct {
 	SASSOpcodes []string
 	CTAGroup    int
 	BlockScaled bool
+	ScaleVec    int
 	TMEMSourceA bool
 	Matched     bool
 }
 
 // SM100LoweringReport holds the PTX-to-SASS correlation and audit results for a
-// Blackwell sm_100a kernel.
+// Blackwell sm_100a/sm_103a kernel.
 type SM100LoweringReport struct {
 	Kernel       string
+	Target       string
 	PTX          SM100PTXSummary
 	SASS         cudasass.SM100Summary
 	Correlations []SM100Correlation
@@ -109,7 +114,7 @@ func CompareSM100PTXAndSASS(ptxSrc, sassSrc string) (*SM100LoweringReport, error
 		return nil, errors.New("cudalowering: empty SASS source")
 	}
 
-	k, err := parseSM100PTXKernel(ptxSrc)
+	k, ptxTarget, err := parseSM100PTXKernel(ptxSrc)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +125,15 @@ func CompareSM100PTXAndSASS(ptxSrc, sassSrc string) (*SM100LoweringReport, error
 
 	report := &SM100LoweringReport{
 		Kernel: k.Name,
+		Target: ptxTarget,
+		PTX:    SM100PTXSummary{Target: ptxTarget},
 		SASS:   cudasass.SummarizeSM100Function(*fn),
+	}
+	if ptxTarget != "" && !isSupportedSM100Target(ptxTarget) {
+		report.Divergences = append(report.Divergences, fmt.Sprintf(
+			"%s: unsupported PTX .target %q (want sm_100a, sm_103a, sm_100f, or sm_103f)",
+			k.Name, ptxTarget,
+		))
 	}
 
 	sassByKind := make(map[cudasass.SM100Kind][]cudasass.SM100InstInfo)
@@ -167,7 +180,14 @@ func CompareSM100PTXAndSASS(ptxSrc, sassSrc string) (*SM100LoweringReport, error
 				ctaGroup = 1
 				report.PTX.MMACTAGroup1++
 			}
-			blockScaled := isPTXBlockScaled(op)
+			scaleVec := parsePTXScaleVec(op)
+			switch scaleVec {
+			case 2:
+				report.PTX.MMAScaleVec2X++
+			case 4:
+				report.PTX.MMAScaleVec4X++
+			}
+			blockScaled := isPTXBlockScaled(op) || scaleVec > 0
 			if blockScaled {
 				report.PTX.MMABlockScaled++
 			}
@@ -178,6 +198,9 @@ func CompareSM100PTXAndSASS(ptxSrc, sassSrc string) (*SM100LoweringReport, error
 			corr := correlateNextSASS(inst, cudasass.SM100UTMMA, sassByKind, sassConsumed)
 			corr.CTAGroup = ctaGroup
 			corr.BlockScaled = blockScaled
+			if scaleVec > 0 {
+				corr.ScaleVec = scaleVec
+			}
 			corr.TMEMSourceA = tmemA
 			report.Correlations = append(report.Correlations, corr)
 
@@ -250,6 +273,13 @@ func CompareSM100PTXAndSASS(ptxSrc, sassSrc string) (*SM100LoweringReport, error
 		report.Divergences = append(report.Divergences, fmt.Sprintf(
 			"%s: PTX block-scaled MMA count (%d) != SASS block-scaled UTMMA count (%d)",
 			k.Name, report.PTX.MMABlockScaled, report.SASS.BlockScaled,
+		))
+	}
+	if (report.SASS.ScaleVec4X > 0 || report.SASS.ScaleVec2X > 0) &&
+		(report.PTX.MMAScaleVec4X != report.SASS.ScaleVec4X || report.PTX.MMAScaleVec2X != report.SASS.ScaleVec2X) {
+		report.Divergences = append(report.Divergences, fmt.Sprintf(
+			"%s: PTX scale_vec (2X=%d, 4X=%d) != SASS scale_vec (2X=%d, 4X=%d)",
+			k.Name, report.PTX.MMAScaleVec2X, report.PTX.MMAScaleVec4X, report.SASS.ScaleVec2X, report.SASS.ScaleVec4X,
 		))
 	}
 	if report.PTX.MMATMEMSourceA != report.SASS.TMEMSourceA {
@@ -332,6 +362,7 @@ func correlateNextSASS(
 	idx := consumed[kind]
 	if idx < len(list) {
 		corr.SASSOpcodes = []string{list[idx].Mnemonic}
+		corr.ScaleVec = list[idx].ScaleVec
 		corr.Matched = true
 		consumed[kind] = idx + 1
 	}
@@ -350,6 +381,26 @@ func parsePTXCTAGroup(op string) int {
 		return 1
 	default:
 		return 0
+	}
+}
+
+func parsePTXScaleVec(op string) int {
+	switch {
+	case strings.Contains(op, "scale_vec::4x") || strings.Contains(op, "scale_vec_4x") || strings.Contains(op, ".4x"):
+		return 4
+	case strings.Contains(op, "scale_vec::2x") || strings.Contains(op, "scale_vec_2x") || strings.Contains(op, ".2x"):
+		return 2
+	default:
+		return 0
+	}
+}
+
+func isSupportedSM100Target(target string) bool {
+	switch strings.ToLower(strings.TrimSpace(target)) {
+	case "sm_100a", "sm_103a", "sm_100f", "sm_103f", "sm_100", "sm_103":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -400,26 +451,26 @@ func splitTopLevelComma(s string) []string {
 	return out
 }
 
-func parseSM100PTXKernel(ptxSrc string) (*cudaptx.Kernel, error) {
+func parseSM100PTXKernel(ptxSrc string) (*cudaptx.Kernel, string, error) {
 	m, err := cudaptx.ParseString(ptxSrc)
 	if err == nil && m != nil {
 		for _, k := range m.Kernels {
 			if k != nil && len(k.Instructions) > 0 {
-				return k, nil
+				return k, m.Target, nil
 			}
 		}
 	}
 	wrapped := ".version 8.8\n.target sm_100a\n.address_size 64\n.visible .entry sm100_kernel()\n{\n" + ptxSrc + "\n}\n"
 	m, err = cudaptx.ParseString(wrapped)
 	if err != nil {
-		return nil, fmt.Errorf("cudalowering: parse PTX: %w", err)
+		return nil, "", fmt.Errorf("cudalowering: parse PTX: %w", err)
 	}
 	for _, k := range m.Kernels {
 		if k != nil && len(k.Instructions) > 0 {
-			return k, nil
+			return k, m.Target, nil
 		}
 	}
-	return &cudaptx.Kernel{Name: "sm100_kernel"}, nil
+	return &cudaptx.Kernel{Name: "sm100_kernel"}, m.Target, nil
 }
 
 func parseSM100SASSFunction(sassSrc, defaultName string) (*cudasass.Function, error) {

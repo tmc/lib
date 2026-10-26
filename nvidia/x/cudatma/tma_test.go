@@ -65,9 +65,11 @@ func TestTransferTargetSupport(t *testing.T) {
 	if err := (Transfer{Descriptor: d, Direction: GlobalToTMEM, Bytes: 64}).Validate(); err == nil {
 		t.Fatal("accepted direct sm_121a global-to-tmem")
 	}
-	d.Target = TargetSM100a
-	if err := (Transfer{Descriptor: d, Direction: GlobalToTMEM, Bytes: 64, Staged: true}).Validate(); err != nil {
-		t.Fatal(err)
+	for _, target := range []string{TargetSM100a, TargetSM103a, TargetSM100f} {
+		d.Target = target
+		if err := (Transfer{Descriptor: d, Direction: GlobalToTMEM, Bytes: 64, Staged: true}).Validate(); err != nil {
+			t.Fatalf("GlobalToTMEM on %s: %v", target, err)
+		}
 	}
 }
 func TestMulticastRankMask(t *testing.T) {

@@ -4,6 +4,8 @@ import "fmt"
 
 const (
 	TargetSM100a = "sm_100a"
+	TargetSM103a = "sm_103a"
+	TargetSM100f = "sm_100f"
 	TargetSM121a = "sm_121a"
 )
 
@@ -17,7 +19,7 @@ func FixtureSourceForTarget(t Tile, target string) (string, error) {
 	if _, err := t.FootprintBytes(); err != nil {
 		return "", err
 	}
-	if target != TargetSM100a && target != TargetSM121a {
+	if target != TargetSM100a && target != TargetSM103a && target != TargetSM100f && target != TargetSM121a {
 		return "", fmt.Errorf("%w: no fixture for target %q", ErrUnmodeled, target)
 	}
 	typeName := map[int]string{1: "unsigned char", 2: "half", 4: "float"}[t.elemBytes]

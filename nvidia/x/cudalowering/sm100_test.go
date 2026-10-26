@@ -214,4 +214,48 @@ func TestSM100ComparePTXAndSASS(t *testing.T) {
 			t.Errorf("SpillLoads=%d SpillStores=%d, want 1, 1", rep.SpillLoads, rep.SpillStores)
 		}
 	})
+
+	t.Run("sm103a_and_family_targets_scale_vec_4x", func(t *testing.T) {
+		for _, target := range []string{"sm_103a", "sm_100f", "sm_103f"} {
+			ptx := `
+.version 8.8
+.target ` + target + `
+.address_size 64
+
+.visible .entry gb300_gemm_4x()
+{
+	tcgen05.alloc.cta_group::1.sync.aligned.shared::cta.b32 [%r1], 160;
+	elect.sync %r0|%p0, 0xffffffff;
+	@%p0 tcgen05.cp.cta_group::1.32x128b [%tmem_scale], [%smem_scale];
+	@%p0 tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X [%tmem_d], %descA, %descB, %idesc, [%tmem_scale], %p1;
+	@%p0 tcgen05.commit.cta_group::1.mbarrier::arrive::one.b64 [%mbar0];
+	tcgen05.wait::ld.sync.aligned;
+	tcgen05.ld.sync.aligned.32x32b.x4.b32 {%r4, %r5, %r6, %r7}, [%tmem_d];
+	tcgen05.dealloc.cta_group::1.sync.aligned.b32 %r1, 160;
+	ret;
+}
+`
+			sass := `
+	.headerflags @"EF_CUDA_SM103"
+	.section .text.gb300_gemm_4x,"ax",@progbits
+.text.gb300_gemm_4x:
+	/*0000*/                   ELECT UP0, URZ, 0xffffffff ;
+	/*0010*/              @UP0 UTMACP.CTA_GROUP_1 [TMEM:0x80], [SMEM:0x400] ;
+	/*0020*/              @UP0 UTMMA.MXF4NVF4.CTA_GROUP_1.BLOCK_SCALE.SCALE_VEC_4X [TMEM:0x0], [SMEM:0x0], [SMEM:0x200], [TMEM:0x80] ;
+	/*0030*/              @UP0 UTMACMDFLUSH.CTA_GROUP_1 [SMEM:0x800] ;
+	/*0040*/                   LDTM.128 R4, [TMEM:0x0] ;
+	/*0050*/                   EXIT ;
+`
+			rep, err := CompareSM100PTXAndSASS(ptx, sass)
+			if err != nil {
+				t.Fatalf("CompareSM100PTXAndSASS(%s) error: %v", target, err)
+			}
+			if !rep.OK() {
+				t.Fatalf("CompareSM100PTXAndSASS(%s) divergences: %v", target, rep.Divergences)
+			}
+			if rep.Target != target || rep.PTX.Target != target || rep.PTX.MMAScaleVec4X != 1 || rep.SASS.ScaleVec4X != 1 {
+				t.Errorf("CompareSM100PTXAndSASS(%s): Target=%q PTX=%+v SASS=%+v", target, rep.Target, rep.PTX, rep.SASS)
+			}
+		}
+	})
 }
