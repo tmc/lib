@@ -1,0 +1,12 @@
+commit: 78273a6cc5abc490c1bec72412c38d9a634c5efc
+date: 2026-10-26T23:33:18.432187+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 26311
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-owned-replay-plan-fixtures-adoption/original03-git-compatible.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-owned-replay-plan-fixtures-adoption/ROOT-GRADE.md
+qualification: source, ordinary CPU and Go native-tag compile only; actual CUDA/compiler/device/timing/pending completion and full Original03 unqualified
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
