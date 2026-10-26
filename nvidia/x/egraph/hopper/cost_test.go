@@ -188,10 +188,52 @@ func TestCompileWithCostSchedules(t *testing.T) {
 			t.Fatal(err)
 		}
 		ak := optPlan.Kernels[0].Attention
-		if ak == nil || !ak.Gate || !ak.Swizzle || ak.TableAhead != ak.Stages-1 || !ak.ClusterCombine {
-			t.Fatalf("PagedAttention schedule = %+v, want Gate, Swizzle, TableAhead=Stages-1, ClusterCombine", ak)
+		if ak == nil || !ak.Gate || !ak.Swizzle || ak.TableAhead != ak.Stages-1 || !ak.ClusterCombine || ak.WGMMA {
+			t.Fatalf("PagedAttention schedule = %+v, want Gate, Swizzle, TableAhead=Stages-1, ClusterCombine, WGMMA=false", ak)
 		}
 		if optNs, unoptNs := optPlan.EstimateNs(cfg), unfusedPlan.EstimateNs(cfg); optNs >= unoptNs {
+			t.Errorf("optimized EstimateNs %.1f >= unoptimized EstimateNs %.1f", optNs, unoptNs)
+		}
+	})
+
+	t.Run("paged_attention_wgmma_qlen8", func(t *testing.T) {
+		b := NewBuilder()
+		q := b.Input("q", E4M3, 2, 16, 8, HeadDim)
+		kCache := b.Input("k_cache", U8, 64, 2, HeadDim)
+		vCache := b.Input("v_cache", U8, 64, 2, HeadDim)
+		pageTable := b.Input("page_table", I32, 2, 32)
+		seqLens := b.Input("seqlens", I32, 2)
+		kScale := b.Input("k_scale", F32, 1)
+		vScale := b.Input("v_scale", F32, 1)
+		gate := b.Input("gate", BF16, 2, 16, 8, HeadDim)
+
+		attn := b.PagedAttention(PagedAttention{
+			Hq: 16, Hkv: 2, QLen: 8, Page: 16, Q: E4M3, Chunk: 64,
+		}, q, kCache, vCache, pageTable, seqLens, kScale, vScale)
+		root := b.RMSNormGate(attn, gate, 1e-5)
+
+		unoptExpr, _, err := egraph.ExtractBest(b.G, root, Cost{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		unoptPlan, err := Compile(unoptExpr, "attn_wg_unopt", BF16)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fusedExpr, err := Optimize(b.G, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		optPlan, err := CompileWithCost(fusedExpr, "attn_wg_opt", BF16, cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ak := optPlan.Kernels[0].Attention
+		if ak == nil || !ak.WGMMA || !ak.QKFP8 || !ak.Gate || !ak.Swizzle || ak.TableAhead != ak.Stages-1 || !ak.ClusterCombine {
+			t.Fatalf("PagedAttention schedule = %+v, want WGMMA, QKFP8, Gate, Swizzle, TableAhead=Stages-1, ClusterCombine", ak)
+		}
+		if optNs, unoptNs := optPlan.EstimateNs(cfg), unoptPlan.EstimateNs(cfg); optNs >= unoptNs {
 			t.Errorf("optimized EstimateNs %.1f >= unoptimized EstimateNs %.1f", optNs, unoptNs)
 		}
 	})

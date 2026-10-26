@@ -83,6 +83,13 @@ type PagedAttention struct {
 	// are exact; the tensor core's FP32 accumulation order differs.
 	QKFP8 bool
 
+	// WGMMA computes Q·Kᵀ over 64 keys per step with sm_90a warpgroup MMA
+	// (wgmma.mma_async.sync.aligned.m64n64k32.f32.e4m3.e4m3) across the
+	// 128-thread warpgroup (Q must be E4M3 and KVHeadsPerBlock 1), mapping
+	// the block's query rows (up to 64) across the 4 warps (16 rows per
+	// warp) and computing online softmax and P·V over all 64 keys.
+	WGMMA bool
+
 	// Swizzle stages K and V rows in unpadded 64·KVHeadsPerBlock-byte shared
 	// memory rows with 16-byte chunks XOR-swizzled by row & (KP - 1).
 	Swizzle bool
@@ -117,6 +124,9 @@ func (a PagedAttention) geom() attnGeom {
 	g.rows = g.hpb * g.G * a.QLen
 	g.mt = 4
 	switch {
+	case a.WGMMA:
+		g.mrows, g.kw, g.rb = 64, 4, 64
+		return g
 	case g.hpb == 2 || g.rows <= 16:
 		g.mt = 1
 	case g.rows <= 32:
@@ -168,6 +178,9 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	}
 	if a.Window < 0 || a.Page < 1 {
 		return a, g, fmt.Errorf("paged attention %s: bad window %d or page %d", a.Name, a.Window, a.Page)
+	}
+	if a.WGMMA && (a.Q != E4M3 || a.KVHeadsPerBlock > 1) {
+		return a, g, fmt.Errorf("paged attention %s: WGMMA needs E4M3 queries and 1 KV head per block", a.Name)
 	}
 	if a.QKFP8 && a.Q != E4M3 {
 		return a, g, fmt.Errorf("paged attention %s: QKFP8 needs E4M3 queries", a.Name)
@@ -221,8 +234,8 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	return a, g, nil
 }
 
-// SharedBytes returns the kernel's static shared memory in bytes, or 0 if a
-// is invalid.
+	// SharedBytes returns the kernel's static shared memory in bytes, or 0 if a
+	// is invalid.
 func (a PagedAttention) SharedBytes() int {
 	if a.Hkv < 1 || a.Hq%a.Hkv != 0 || a.QLen < 1 {
 		return 0
@@ -232,7 +245,18 @@ func (a PagedAttention) SharedBytes() int {
 	if stages == 0 {
 		stages = max(2, min(4, 40<<10/g.stageBytes(max(a.Depth, 1))))
 	}
-	ring := max(stages*g.stageBytes(max(a.Depth, 1)), 4*g.kw*g.mrows*HeadDim) // red_o reuses the ring
+	kw := g.kw
+	if a.WGMMA {
+		kw = 1
+	}
+	ring := max(stages*g.stageBytes(max(a.Depth, 1)), 4*kw*g.mrows*HeadDim) // red_o reuses the ring
+	if a.WGMMA {
+		sqBytes := 64 * 64
+		if a.Swizzle {
+			sqBytes = 64 * 128
+		}
+		return sqBytes + 8*g.mrows + 4 + ring
+	}
 	return 2*g.mrows*g.qStride(a.QKFP8) + 8*g.kw*g.mrows + 4 + ring
 }
 
@@ -336,6 +360,9 @@ func (a PagedAttention) CUDA() (string, error) {
 	a, g, err := a.norm()
 	if err != nil {
 		return "", err
+	}
+	if a.WGMMA {
+		return a.cudaWGMMA(g), nil
 	}
 	var b strings.Builder
 	if a.ClusterCombine {
@@ -1071,10 +1098,346 @@ func (a PagedAttention) Launcher() (string, error) {
 	if a.ClusterCombine {
 		gridX = "((max_keys + chunk - 1) / chunk + 7) / 8 * 8"
 	}
+	smem := "0"
+	if a.WGMMA {
+		smem = "smem"
+		sqBytes := 64 * 64
+		if a.Swizzle {
+			sqBytes = 64 * 128
+		}
+		dsmem := sqBytes + max(a.Stages*g.stageBytes(a.Depth), 4*64*HeadDim)
+		fmt.Fprintf(&b, "    constexpr int smem = %d;\n", dsmem)
+		fmt.Fprintf(&b, "    static const cudaError_t attr = cudaFuncSetAttribute(%s, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);\n    (void)attr;\n", a.Name)
+	}
 	fmt.Fprintf(&b, "    const dim3 grid(%s, %d, batch), block(128);\n", gridX, a.Hkv/g.hpb)
-	fmt.Fprintf(&b, "    if (max_keys > 0 && batch > 0) EG_LAUNCH(%s, grid, block, 0, stream, %s);\n}\n", a.Name, strings.Join(names, ", "))
+	fmt.Fprintf(&b, "    if (max_keys > 0 && batch > 0) EG_LAUNCH(%s, grid, block, %s, stream, %s);\n}\n", a.Name, smem, strings.Join(names, ", "))
 	return b.String(), nil
 }
+
+// cudaWGMMA emits the native Hopper FP8 WGMMA form of a (normalized, a.WGMMA set).
+//
+// The 128-thread warpgroup (4 warps) maps the block's query rows (up to 64)
+// across the 4 warps (16 rows per warp) and computes Q·Kᵀ over 64 keys per
+// tile with two k=32 steps of wgmma.mma_async.sync.aligned.m64n64k32.f32.e4m3.e4m3
+// from shared-memory descriptors (unswizzled core-matrix layout or 128B XOR
+// swizzle), followed by online softmax and P·V over all 64 keys.
+func (a PagedAttention) cudaWGMMA(g attnGeom) string {
+	var b strings.Builder
+	if a.ClusterCombine {
+		b.WriteString(ClusterPrelude)
+		b.WriteString("\n")
+	}
+	if a.Swizzle {
+		b.WriteString(wgmmaSwizzleHelpers)
+	}
+	wg := a.Name + "_wgmma"
+	b.WriteString(wgmmaE4M3Func(wg, 64))
+	fmt.Fprintf(&b, "// %s: paged FP8 GQA attention, %d/%d heads, %d query tokens, window %d, page %d, %d-key splits, depth %d, %d stages, wgmma.\n",
+		a.Name, a.Hq, a.Hkv, a.QLen, a.Window, a.Page, a.Chunk, a.Depth, a.Stages)
+	if a.ClusterCombine {
+		fmt.Fprintf(&b, "__global__ void __cluster_dims__(%d, 1, 1) __launch_bounds__(128, 1) %s(\n    %s) {\n",
+			ClusterSize, a.Name, strings.Join(a.params(), ",\n    "))
+	} else {
+		fmt.Fprintf(&b, "__global__ void __launch_bounds__(128) %s(\n    %s) {\n", a.Name, strings.Join(a.params(), ",\n    "))
+	}
+	fmt.Fprintf(&b, "    constexpr int HQ = %d, HKV = %d, G = %d, L = %d, ROWS = %d, MROWS = 64, KW = 1;\n",
+		a.Hq, a.Hkv, g.G, a.QLen, g.rows)
+	b.WriteString("    constexpr int HPB = 1, HKVB = HKV, ROWS1 = ROWS, D = 64, KP = 4;\n")
+	fmt.Fprintf(&b, "    constexpr int WINDOW = %d, PAGE = %d, DEPTH = %d, STEP = 64 * DEPTH, STAGES = %d;\n",
+		a.Window, a.Page, a.Depth, a.Stages)
+	if a.DeviceSplits {
+		b.WriteString("    const int CHUNK = chunk;\n")
+	} else {
+		fmt.Fprintf(&b, "    constexpr int CHUNK = %d;\n", a.Chunk)
+	}
+	sqRB := 64
+	if a.Swizzle {
+		sqRB = 128
+	}
+	fmt.Fprintf(&b, "    constexpr int PIECES = STEP * KP, NP = (PIECES + 127) / 128, GROUP = %d, RB = 64, SQ_RB = %d;\n", attnGroup, sqRB)
+	b.WriteString("    constexpr int STAGE_BYTES = 2 * STEP * RB, RING_BYTES = STAGES * STAGE_BYTES > MROWS * 256 ? STAGES * STAGE_BYTES : MROWS * 256;\n")
+	if a.TableAhead >= 2 {
+		fmt.Fprintf(&b, "    constexpr int TABLE_AHEAD = %d;\n", a.TableAhead)
+	}
+	fmt.Fprintf(&b, "    const float scale = %s * k_scale[0] * 1.4426950408889634f; // log2 domain\n",
+		floatLiteral(a.QScale*a.SMScale))
+	if a.ClusterCombine {
+		b.WriteString(attnWGMMAHeadCluster)
+	} else {
+		b.WriteString(attnWGMMAHead)
+	}
+	table := attnTableAhead1
+	if a.TableAhead >= 2 {
+		table = attnTableAheadN
+	}
+	qload := attnWGMMAQ
+	issue := attnWGMMAIssue
+	vload := attnWGMMAVLoad
+	qkTile := fmt.Sprintf(`        eg_wgmma_fence();
+#pragma unroll
+        for (int ks = 0; ks < 2; ++ks)
+            %s(s, eg_wgmma_desc(sq + ks * 256, 128, 512), eg_wgmma_desc(kst + sub * 4096 + ks * 256, 128, 512));
+        eg_wgmma_commit();
+        eg_wgmma_wait<0>();
+`, wg)
+	if a.Swizzle {
+		qload = attnWGMMAQSwizzle
+		issue = attnWGMMAIssueSwizzle
+		vload = attnWGMMAVLoadSwizzle
+		qkTile = fmt.Sprintf(`        eg_wgmma_fence();
+#pragma unroll
+        for (int ks = 0; ks < 2; ++ks)
+            %s(s, eg_wgmma_desc_128b(sq + ks * 32, 1024), eg_wgmma_desc_128b(kst + sub * 8192 + ks * 32, 1024));
+        eg_wgmma_commit();
+        eg_wgmma_wait<0>();
+`, wg)
+	}
+	nsteps := "    const int nsteps = (c1 - c0 + STEP - 1) / STEP;\n"
+	tail := attnTail
+	if a.ClusterCombine {
+		nsteps = "    const int nsteps = c1 > c0 ? (c1 - c0 + STEP - 1) / STEP : 0;\n"
+		tail = attnClusterTail
+	}
+	b.WriteString(qload)
+	b.WriteString(strings.NewReplacer(
+		"ISSUE_STAGE\n", issue,
+		"NSTEPS_DECL\n", nsteps,
+		"QK_TILE\n", qkTile,
+		"V_LOAD\n", vload,
+		"TABLE_PREFETCH\n", table[0],
+		"TABLE_STEP\n", table[1],
+		"LOOP_TAIL\n", tail,
+	).Replace(attnWGMMALoop))
+	if a.Out == BF16 {
+		b.WriteString("    auto put = [&](size_t i, float v) { out[i] = eg_f32_to_bf16(v); };\n")
+	} else {
+		b.WriteString("    auto put = [&](size_t i, float v) { out[i] = v; };\n")
+	}
+	if a.ClusterCombine {
+		b.WriteString(attnClusterCombine)
+	} else {
+		b.WriteString(attnCombine)
+	}
+	if a.Gate {
+		fmt.Fprintf(&b, "    constexpr int GATE_STRIDE = %d, GATE_OFFSET = %d;\n    constexpr float GATE_EPS = %s;\n",
+			a.GateStride, a.GateOffset, floatLiteral(a.GateEps))
+		b.WriteString(attnGateStore)
+	} else {
+		b.WriteString(attnStore)
+	}
+	if a.ClusterCombine {
+		fmt.Fprintf(&b, "EG_REGISTER_CLUSTER(%s)\n", a.Name)
+	}
+	return b.String()
+}
+
+const attnWGMMAHead = `    const int split = blockIdx.x, kvb = blockIdx.y, kvh0 = kvb, b = blockIdx.z;
+    const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane / 4, c = lane % 4;
+    const int seqlen = seqlens[b], p0 = seqlen - L;
+    const int kbegin = WINDOW ? max(0, p0 - WINDOW + 1) : 0;
+    const int nsplit = (seqlen - kbegin + CHUNK - 1) / CHUNK;
+    if (split >= nsplit) return;
+    const int c0 = kbegin + split * CHUNK, c1 = min(seqlen, c0 + CHUNK);
+    const float NEG_INF = -__uint_as_float(0x7f800000u);
+    auto trow = [](int pr) { return pr; };
+    auto qrow = [&](int pr) { // [token, head] index of partial row pr
+        return (size_t)(b * L + pr / G) * HQ + kvh0 * G + pr % G;
+    };
+
+    EG_DYNAMIC_SMEM(unsigned char, dsmem);
+    unsigned char* const sq = dsmem;
+    __shared__ float red_m[MROWS], red_l[MROWS];
+    __shared__ int last;
+    // The cp.async ring: STAGES stages of STEP K rows then STEP V rows of RB
+    // bytes; after the main loop, red_o.
+    unsigned char* const ring = dsmem + MROWS * SQ_RB;
+    float* const red_o = reinterpret_cast<float*>(ring);
+`
+
+const attnWGMMAHeadCluster = `    const int split = blockIdx.x, kvb = blockIdx.y, kvh0 = kvb, b = blockIdx.z;
+    const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane / 4, c = lane % 4;
+    const int seqlen = seqlens[b], p0 = seqlen - L;
+    const int kbegin = WINDOW ? max(0, p0 - WINDOW + 1) : 0;
+    const int nsplit = (seqlen - kbegin + CHUNK - 1) / CHUNK;
+    const int rank = eg_cluster_rank(), cl = split / 8, ncl = (nsplit + 7) / 8;
+    if (cl >= ncl) return;
+    const int c0 = kbegin + split * CHUNK, c1 = min(seqlen, c0 + CHUNK);
+    const float NEG_INF = -__uint_as_float(0x7f800000u);
+    auto trow = [](int pr) { return pr; };
+    auto qrow = [&](int pr) { // [token, head] index of partial row pr
+        return (size_t)(b * L + pr / G) * HQ + kvh0 * G + pr % G;
+    };
+
+    EG_DYNAMIC_SMEM(unsigned char, dsmem);
+    unsigned char* const sq = dsmem;
+    EG_SHARED(float, red_m, [MROWS]);
+    EG_SHARED(float, red_l, [MROWS]);
+    EG_SHARED(int, last, [1]);
+    // The cp.async ring: STAGES stages of STEP K rows then STEP V rows of RB
+    // bytes; after the main loop, red_o.
+    unsigned char* const ring = dsmem + MROWS * SQ_RB;
+    float* const red_o = reinterpret_cast<float*>(ring);
+`
+
+const attnWGMMAQ = `    auto kcore = [](int r, int ch) { return ((r / 8) * 4 + ch) * 128 + (r % 8) * 16; };
+    for (int i = tid; i < MROWS * KP; i += 128) {
+        const int r = i / KP, ch = i % KP;
+        eg_u32x4 w = {0, 0, 0, 0};
+        if (r < ROWS) w = eg_ldg16(q + qrow(r) * 64 + ch * 16);
+        *reinterpret_cast<eg_u32x4*>(sq + kcore(r, ch)) = w;
+    }
+`
+
+const attnWGMMAQSwizzle = `    auto kcore = [](int r, int ch) { return (int)eg_swizzle_128b((uint32_t)(r * 128 + ch * 16)); };
+    auto vcore = [](int r, int ch) { return (int)eg_swizzle_128b((uint32_t)(r * 128 + 64 + ch * 16)); };
+    for (int i = tid; i < MROWS * KP; i += 128) {
+        const int r = i / KP, ch = i % KP;
+        eg_u32x4 w = {0, 0, 0, 0};
+        if (r < ROWS) w = eg_ldg16(q + qrow(r) * 64 + ch * 16);
+        *reinterpret_cast<eg_u32x4*>(sq + kcore(r, ch)) = w;
+    }
+`
+
+const attnWGMMAIssue = `            unsigned char* const dk = kd + kcore(piece / KP, piece % KP);
+            unsigned char* const dv = kd + STEP * RB + (piece / KP) * RB + (piece % KP) * 16;
+`
+
+const attnWGMMAIssueSwizzle = `            unsigned char* const dk = kd + kcore(piece / KP, piece % KP);
+            unsigned char* const dv = kd + vcore(piece / KP, piece % KP);
+`
+
+const attnWGMMAVLoad = `            const unsigned char* const vr = vst + (sub * 64 + ks * 16 + 2 * c) * RB + 8 * g;
+            const eg_u32x2 va = *reinterpret_cast<const eg_u32x2*>(vr), vb = *reinterpret_cast<const eg_u32x2*>(vr + RB);
+            const eg_u32x2 vc = *reinterpret_cast<const eg_u32x2*>(vr + 8 * RB), vd = *reinterpret_cast<const eg_u32x2*>(vr + 9 * RB);
+`
+
+const attnWGMMAVLoadSwizzle = `            const int k0 = sub * 64 + ks * 16 + 2 * c;
+            const unsigned char* const vr0 = kst + vcore(k0, g >> 1) + (g & 1) * 8;
+            const unsigned char* const vr1 = kst + vcore(k0 + 1, g >> 1) + (g & 1) * 8;
+            const unsigned char* const vr2 = kst + vcore(k0 + 8, g >> 1) + (g & 1) * 8;
+            const unsigned char* const vr3 = kst + vcore(k0 + 9, g >> 1) + (g & 1) * 8;
+            const eg_u32x2 va = *reinterpret_cast<const eg_u32x2*>(vr0), vb = *reinterpret_cast<const eg_u32x2*>(vr1);
+            const eg_u32x2 vc = *reinterpret_cast<const eg_u32x2*>(vr2), vd = *reinterpret_cast<const eg_u32x2*>(vr3);
+`
+
+const attnWGMMALoop = `    const int fk = tid * NP / KP;
+    auto rowof = [&](int kb) -> long long {
+        const int kp = kb + fk;
+        if (tid * NP >= PIECES || kp >= c1) return -1;
+        return (long long)page_table[(size_t)b * max_pages + kp / PAGE] * PAGE + kp % PAGE;
+    };
+    auto issue = [&](int st, long long row) {
+        unsigned char* const kd = ring + st * STAGE_BYTES;
+#pragma unroll
+        for (int n = 0; n < NP; ++n) {
+            const int piece = tid * NP + n;
+            if (piece >= PIECES) break;
+ISSUE_STAGE
+            if (row >= 0) {
+                const size_t at = ((size_t)row * HKV + kvh0) * 64 + (piece % KP) * 16;
+                eg_cp_async16(dk, k_cache + at);
+                eg_cp_async16(dv, v_cache + at);
+            } else {
+                // Past the chunk's end P is 0, and 0·NaN is NaN: zero K and V.
+                *reinterpret_cast<eg_u32x4*>(dk) = eg_u32x4{0, 0, 0, 0};
+                *reinterpret_cast<eg_u32x4*>(dv) = eg_u32x4{0, 0, 0, 0};
+            }
+        }
+    };
+NSTEPS_DECL
+TABLE_PREFETCH
+    eg_fence_proxy_async();
+    __syncthreads();
+
+    // This lane's two rows (warp*16 + g and +8): positions and first keys.
+    int pos[2], lo[2];
+#pragma unroll
+    for (int h = 0; h < 2; ++h) {
+        const int r = warp * 16 + g + 8 * h;
+        pos[h] = p0 + min(r / G, L - 1);
+        lo[h] = WINDOW ? max(0, pos[h] - WINDOW + 1) : 0;
+    }
+    float m[2] = {NEG_INF, NEG_INF}, l[2] = {0.0f, 0.0f}, o[8][4] = {};
+
+    for (int it = 0; it < nsteps; ++it) {
+        eg_cp_async_wait<STAGES - 2>();
+        eg_fence_proxy_async();
+        __syncthreads();
+TABLE_STEP
+        eg_cp_async_commit();
+        const int kb = c0 + it * STEP;
+        const unsigned char* const kst = ring + (it % STAGES) * STAGE_BYTES;
+        const unsigned char* const vst = kst + STEP * RB;
+#pragma unroll
+        for (int sub = 0; sub < DEPTH; ++sub) {
+        const int key0 = kb + sub * 64;
+        if (key0 >= c1) break;
+        float s[32] = {};
+QK_TILE
+#pragma unroll
+        for (int h = 0; h < 2; ++h) {
+            float mx = NEG_INF;
+#pragma unroll
+            for (int nt = 0; nt < 8; ++nt)
+#pragma unroll
+                for (int e = 0; e < 2; ++e) {
+                    const int key = key0 + nt * 8 + 2 * c + e;
+                    float& x = s[nt * 4 + 2 * h + e];
+                    x = key < c1 && key >= lo[h] && key <= pos[h] ? x * scale : NEG_INF;
+                    mx = fmaxf(mx, x);
+                }
+            mx = fmaxf(mx, __shfl_xor_sync(0xffffffffu, mx, 1));
+            mx = fmaxf(mx, __shfl_xor_sync(0xffffffffu, mx, 2));
+            const float mnew = fmaxf(m[h], mx), base = mnew == NEG_INF ? 0.0f : mnew;
+            const float corr = exp2f(m[h] - base);
+            m[h] = mnew;
+            l[h] *= corr;
+#pragma unroll
+            for (int t = 0; t < 8; ++t) { o[t][2 * h] *= corr; o[t][2 * h + 1] *= corr; }
+#pragma unroll
+            for (int nt = 0; nt < 8; ++nt)
+#pragma unroll
+                for (int e = 0; e < 2; ++e) {
+                    float& x = s[nt * 4 + 2 * h + e];
+                    x = exp2f(x - base);
+                    l[h] += x;
+                }
+        }
+#pragma unroll
+        for (int ks = 0; ks < 4; ++ks) {
+            const float* const sk = &s[ks * 8];
+            const uint32_t pa[4] = {eg_pack_f16x2(sk[0], sk[1]), eg_pack_f16x2(sk[2], sk[3]),
+                                    eg_pack_f16x2(sk[4], sk[5]), eg_pack_f16x2(sk[6], sk[7])};
+V_LOAD
+#pragma unroll
+            for (int t = 0; t < 8; ++t) {
+                const uint32_t sel = (t % 4) | (4 + t % 4) << 4;
+                const uint32_t vf[2] = {eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(va.x, vb.x, sel) : eg_prmt(va.y, vb.y, sel)),
+                                        eg_e4m3x2_to_f16x2(t < 4 ? eg_prmt(vc.x, vd.x, sel) : eg_prmt(vc.y, vd.y, sel))};
+                eg_mma_f16(o[t], pa, vf, o[t]);
+            }
+        }
+        }
+    }
+    eg_cp_async_wait<0>();
+    __syncthreads();
+
+#pragma unroll
+    for (int h = 0; h < 2; ++h) {
+        l[h] += __shfl_xor_sync(0xffffffffu, l[h], 1);
+        l[h] += __shfl_xor_sync(0xffffffffu, l[h], 2);
+        const int r = warp * 16 + g + 8 * h;
+        if (c == 0) { red_m[r] = m[h]; red_l[r] = l[h]; }
+#pragma unroll
+        for (int t = 0; t < 8; ++t)
+#pragma unroll
+            for (int e = 0; e < 2; ++e)
+                red_o[r * 64 + 8 * (2 * c + e) + t] = o[t][2 * h + e];
+    }
+    __syncthreads();
+    const float vs = v_scale[0];
+LOOP_TAIL
+`
 
 // Source returns [Prelude], the kernel and its launcher.
 func (a PagedAttention) Source() (string, error) {

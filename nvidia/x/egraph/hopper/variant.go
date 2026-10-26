@@ -217,6 +217,9 @@ func (a PagedAttention) Variant() (Variant, error) {
 		Swizzle:        a.Swizzle,
 		ClusterCombine: a.ClusterCombine,
 	}
+	if a.WGMMA {
+		l.MMA = "wgmma"
+	}
 	return newVariant(a.Name, "paged_attention", key, l, append([]string{"int batch", "int max_keys"}, a.launchParams()...), src), nil
 }
 
@@ -299,30 +302,42 @@ func SweepTileGEMM(base TileGEMM) ([]Variant, error) {
 
 // SweepPagedAttention returns base's valid variants over keys per split
 // {64, 128, 192, 256, 320, 384, 512, 1024} and, unless base sets Depth,
-// depth {1, 2}, named base.Name + "_kv<C>" (depth 1) or "_kv<C>d2". Depth 2
-// is left out where its shared memory does not fit.
+// depth {1, 2}, named base.Name + "_kv<C>" (depth 1) or "_kv<C>d2", plus,
+// when base.WGMMA is set, WGMMA variants named base.Name + "_wg_kv<C>" (or
+// "_wg_kv<C>d2"). Depth 2 is left out where its shared memory does not fit.
 func SweepPagedAttention(base PagedAttention) ([]Variant, error) {
 	depths := []int{1, 2}
 	if base.Depth != 0 {
 		depths = []int{base.Depth}
 	}
+	wgmmas := []bool{false}
+	if base.WGMMA {
+		wgmmas = []bool{true, false}
+	}
 	var vs []Variant
-	for _, d := range depths {
-		for _, c := range []int{64, 128, 192, 256, 320, 384, 512, 1024} {
-			a := base
-			a.Name = fmt.Sprintf("%s_kv%d", base.Name, c)
-			if d > 1 {
-				a.Name += fmt.Sprintf("d%d", d)
+	for _, wg := range wgmmas {
+		for _, d := range depths {
+			for _, c := range []int{64, 128, 192, 256, 320, 384, 512, 1024} {
+				a := base
+				a.WGMMA = wg
+				if wg {
+					a.Name = fmt.Sprintf("%s_wg_kv%d", base.Name, c)
+				} else {
+					a.Name = fmt.Sprintf("%s_kv%d", base.Name, c)
+				}
+				if d > 1 {
+					a.Name += fmt.Sprintf("d%d", d)
+				}
+				a.Chunk, a.Depth = c, d
+				v, err := a.Variant()
+				if err != nil && d > 1 && a.SharedBytes() > 48<<10 {
+					continue
+				}
+				if err != nil {
+					return nil, err
+				}
+				vs = append(vs, v)
 			}
-			a.Chunk, a.Depth = c, d
-			v, err := a.Variant()
-			if err != nil && d > 1 && a.SharedBytes() > 48<<10 {
-				continue
-			}
-			if err != nil {
-				return nil, err
-			}
-			vs = append(vs, v)
 		}
 	}
 	return vs, nil

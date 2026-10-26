@@ -118,14 +118,62 @@ func runPaged(t *testing.T, a PagedAttention, q []float32, c PagedCache, maxKeys
 	return decode(a.Out, res["out"]), res["ws"], [3]int{int(g[0]), int(g[1]), int(g[2])}
 }
 
+type pagedTestCase struct {
+	name    string
+	a       PagedAttention
+	seqlens []int32
+	maxKeys int
+	kvScale float32
+}
+
+func runPagedCases(t *testing.T, tests []pagedTestCase) {
+	t.Helper()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := rand.New(rand.NewPCG(31, uint64(len(tt.name))))
+			q, c := pagedCase(r, tt.a, tt.seqlens, tt.kvScale)
+			if tt.a.Gate {
+				c.Gate = make([]float32, len(tt.seqlens)*tt.a.QLen*tt.a.GateStride)
+				for i := range c.Gate {
+					c.Gate[i] = BF16.Round(float32(r.NormFloat64()))
+				}
+			}
+			want, err := tt.a.Reference(q, c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Resident blocks of the emulated device.
+			slots := cmp.Or(map[string]int{"device_splits_many": 200, "hpb2_two_level": 200}[tt.name], 8)
+			got, ws, grid := runPaged(t, tt.a, q, c, tt.maxKeys, 2, slots)
+			bound := 5e-4 // F16 tiles, F32 accumulation
+			if tt.a.Out == BF16 {
+				bound = 4e-3
+			}
+			if e := relErr(got, want); e > bound || math.IsNaN(e) {
+				t.Errorf("relative L2 error %.2e", e)
+			} else {
+				t.Logf("relative L2 error %.2e", e)
+			}
+			splits := tt.a.Splits(tt.maxKeys)
+			if tt.a.DeviceSplits {
+				_, splits = tt.a.PlanSplits(len(tt.seqlens), tt.maxKeys, slots)
+			}
+			want3, _ := tt.a.Grid(len(tt.seqlens), tt.maxKeys)
+			want3[0] = splits
+			if grid != want3 {
+				t.Errorf("grid %v, want %v", grid, want3)
+			}
+			for i, b := range ws[:attnCounterBytes(tt.a, len(tt.seqlens), splits)] {
+				if b != 0 {
+					t.Fatalf("counter byte %d = %d after launch, want 0", i, b)
+				}
+			}
+		})
+	}
+}
+
 func TestPagedAttentionEmulated(t *testing.T) {
-	tests := []struct {
-		name    string
-		a       PagedAttention
-		seqlens []int32
-		maxKeys int
-		kvScale float32
-	}{
+	runPagedCases(t, []pagedTestCase{
 		{"full_decode_splits", PagedAttention{Name: "attn_full", Hq: 16, Hkv: 2, QLen: 1, Page: 16, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 64}, []int32{150, 37}, 150, 1},
 		{"sliding_verify", PagedAttention{Name: "attn_verify", Hq: 16, Hkv: 2, QLen: 8, Window: 100, Page: 1, Q: BF16, Out: BF16, Chunk: 64}, []int32{130, 9}, 107, 1},
 		{"verify4_scaled", PagedAttention{Name: "attn_v4", Hq: 16, Hkv: 2, QLen: 4, Window: 0, Page: 64, Q: E4M3, Out: F32, QScale: 5.4730064863875, Chunk: 128}, []int32{200, 64, 5}, 200, 1.0 / 64},
@@ -201,49 +249,22 @@ func TestPagedAttentionEmulated(t *testing.T) {
 			Chunk: 64, QKFP8: true, Swizzle: true, ClusterCombine: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{1024, 577, 130}, 1024, 1.0 / 64},
 		{"cluster_ragged_two_level", PagedAttention{Name: "attn_cl_2l", Hq: 8, Hkv: 2, QLen: 2, Page: 8, Q: BF16, Out: F32,
 			Chunk: 64, Stages: 2, KVHeadsPerBlock: 2, Swizzle: true, ClusterCombine: true}, []int32{8500, 700, 35}, 8500, 1},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := rand.New(rand.NewPCG(31, uint64(len(tt.name))))
-			q, c := pagedCase(r, tt.a, tt.seqlens, tt.kvScale)
-			if tt.a.Gate {
-				c.Gate = make([]float32, len(tt.seqlens)*tt.a.QLen*tt.a.GateStride)
-				for i := range c.Gate {
-					c.Gate[i] = BF16.Round(float32(r.NormFloat64()))
-				}
-			}
-			want, err := tt.a.Reference(q, c)
-			if err != nil {
-				t.Fatal(err)
-			}
-			// Resident blocks of the emulated device.
-			slots := cmp.Or(map[string]int{"device_splits_many": 200, "hpb2_two_level": 200}[tt.name], 8)
-			got, ws, grid := runPaged(t, tt.a, q, c, tt.maxKeys, 2, slots)
-			bound := 5e-4 // F16 tiles, F32 accumulation
-			if tt.a.Out == BF16 {
-				bound = 4e-3
-			}
-			if e := relErr(got, want); e > bound || math.IsNaN(e) {
-				t.Errorf("relative L2 error %.2e", e)
-			} else {
-				t.Logf("relative L2 error %.2e", e)
-			}
-			splits := tt.a.Splits(tt.maxKeys)
-			if tt.a.DeviceSplits {
-				_, splits = tt.a.PlanSplits(len(tt.seqlens), tt.maxKeys, slots)
-			}
-			want3, _ := tt.a.Grid(len(tt.seqlens), tt.maxKeys)
-			want3[0] = splits
-			if grid != want3 {
-				t.Errorf("grid %v, want %v", grid, want3)
-			}
-			for i, b := range ws[:attnCounterBytes(tt.a, len(tt.seqlens), splits)] {
-				if b != 0 {
-					t.Fatalf("counter byte %d = %d after launch, want 0", i, b)
-				}
-			}
-		})
-	}
+	})
+}
+
+func TestPagedAttentionWGMMA(t *testing.T) {
+	// Native Hopper FP8 WGMMA m64n64k32 Q·Kᵀ across QLen 1 and 8 (Hq 16,
+	// Hkv 2 -> 64 rows), Swizzle true/false, Page 1/64, Window/full, Gate.
+	runPagedCases(t, []pagedTestCase{
+		{"wgmma_q1_unswizzled_p1", PagedAttention{Name: "attn_wg_q1", Hq: 16, Hkv: 2, QLen: 1, Page: 1, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+			Chunk: 128, QKFP8: true, WGMMA: true}, []int32{300, 75, 5}, 300, 1},
+		{"wgmma_q1_swizzle_p64_gate", PagedAttention{Name: "attn_wg_q1_sw", Hq: 16, Hkv: 2, QLen: 1, Window: 180, Page: 64, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			Chunk: 128, QKFP8: true, WGMMA: true, Swizzle: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{250, 90, 12}, 180, 1.0 / 64},
+		{"wgmma_q8_unswizzled_p64_window", PagedAttention{Name: "attn_wg_q8", Hq: 16, Hkv: 2, QLen: 8, Window: 120, Page: 64, Q: E4M3, Out: F32, QScale: 5.4730064863875,
+			Chunk: 64, QKFP8: true, WGMMA: true}, []int32{180, 65, 9}, 127, 1},
+		{"wgmma_q8_swizzle_p1_full_gate", PagedAttention{Name: "attn_wg_q8_sw", Hq: 16, Hkv: 2, QLen: 8, Page: 1, Q: E4M3, Out: BF16, QScale: 5.4730064863875,
+			Chunk: 128, Stages: 4, TableAhead: 3, QKFP8: true, WGMMA: true, Swizzle: true, Gate: true, GateStride: 2304, GateOffset: 1280}, []int32{290, 129, 11}, 290, 1.0 / 64},
+	})
 }
 
 func relErr(got, want []float64) float64 {
@@ -317,6 +338,8 @@ func TestPagedAttentionErrors(t *testing.T) {
 		{"hpb2_rows", func(a *PagedAttention) { a.QLen, a.KVHeadsPerBlock = 2, 2 }},
 		{"ahead_neg", func(a *PagedAttention) { a.TableAhead = -1 }},
 		{"ahead_over", func(a *PagedAttention) { a.Stages, a.TableAhead = 3, 4 }},
+		{"wgmma_bf16_q", func(a *PagedAttention) { a.Q, a.WGMMA = BF16, true }},
+		{"wgmma_hpb2", func(a *PagedAttention) { a.KVHeadsPerBlock, a.WGMMA = 2, true }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)
@@ -540,6 +563,81 @@ func TestPagedAttentionSwizzleAndClusterMutations(t *testing.T) {
 				emuBuf{"ws", "unsigned char", attnWorkspace(tc.a, len(tc.seqlens), tc.maxKeys)})
 			if e := relErr(decode(F32, res["out"]), want); !(e > 5e-4 || math.IsNaN(e)) {
 				t.Errorf("mutant %s survived (relErr %.2e)", tc.name, e)
+			}
+		})
+	}
+}
+
+// TestPagedAttentionWGMMAMutations verifies that dropping eg_wgmma_wait<0>() in
+// PagedAttention{WGMMA: true} fails with NaN on the host emulator (when
+// finalized at kernel exit) or errors on exit if uncommitted, and survives
+// under EG_EMU_SYNC_WGMMA=1.
+func TestPagedAttentionWGMMAMutations(t *testing.T) {
+	for _, swizzle := range []bool{false, true} {
+		name := "unswizzled"
+		if swizzle {
+			name = "swizzled"
+		}
+		t.Run(name, func(t *testing.T) {
+			a := PagedAttention{
+				Name: "attn_wg_mut", Hq: 16, Hkv: 2, QLen: 8, Page: 1,
+				Q: E4M3, Out: F32, QScale: 5.4730064863875,
+				Chunk: 64, QKFP8: true, WGMMA: true, Swizzle: swizzle,
+			}
+			src, err := a.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			l, err := a.Launcher()
+			if err != nil {
+				t.Fatal(err)
+			}
+			full := src + "\n" + l
+			seqlens := []int32{128, 64}
+			const maxKeys = 128
+			q, c := pagedCase(rand.New(rand.NewPCG(91, 97)), a, seqlens, 1)
+			want, err := a.Reference(q, c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			launch := fmt.Sprintf("eg_emu_sms = 8;\n    %s_launch(%d, %d, q, k_cache, v_cache, page_table, %d, seqlens, k_scale, v_scale, out, ws, nullptr)",
+				a.Name, len(seqlens), maxKeys, c.MaxPages)
+			runWithFlags := func(code string, flags ...string) []float64 {
+				t.Setenv("EG_EMU_FLAGS", strings.Join(flags, " "))
+				res := runEmu(t, code, launch,
+					emuBuf{"q", "uint8_t", typed{E4M3, f64s(q)}.bytes()},
+					emuBuf{"k_cache", "uint8_t", c.K},
+					emuBuf{"v_cache", "uint8_t", c.V},
+					emuBuf{"page_table", "int32_t", i32Bytes(c.PageTable)},
+					emuBuf{"seqlens", "int32_t", i32Bytes(c.SeqLens)},
+					emuBuf{"k_scale", "float", f32Bytes([]float32{c.KScale})},
+					emuBuf{"v_scale", "float", f32Bytes([]float32{c.VScale})},
+					emuBuf{"out", "float", poison(4 * len(q))},
+					emuBuf{"ws", "unsigned char", attnWorkspace(a, len(seqlens), maxKeys)})
+				return decode(F32, res["out"])
+			}
+			// 1. Unmutated kernel passes.
+			if e := relErr(runWithFlags(full), want); e > 5e-4 || math.IsNaN(e) {
+				t.Fatalf("unmutated relErr = %.2e", e)
+			}
+
+			// 2. Dropping eg_wgmma_wait<0>() before reading s for softmax (while
+			// draining pending ops at loop exit so the thread does not abort)
+			// reads the NaN-poisoned accumulator under async WGMMA, and survives
+			// under -DEG_EMU_SYNC_WGMMA=1.
+			const target = "        eg_wgmma_wait<0>();\n"
+			if !strings.Contains(full, target) {
+				t.Fatalf("target %q not in source", target)
+			}
+			msrc := strings.Replace(full, target, "", 1)
+			msrc = strings.Replace(msrc, "    eg_cp_async_wait<0>();\n", "    eg_wgmma_wait<0>();\n    eg_cp_async_wait<0>();\n", 1)
+			gotAsync := runWithFlags(msrc)
+			if e := relErr(gotAsync, want); !math.IsNaN(e) {
+				t.Errorf("dropped wgmma_wait mutant: relErr = %.2e, want NaN", e)
+			}
+			gotSync := runWithFlags(msrc, "-DEG_EMU_SYNC_WGMMA=1")
+			if e := relErr(gotSync, want); e > 5e-4 || math.IsNaN(e) {
+				t.Errorf("dropped wgmma_wait mutant under EG_EMU_SYNC_WGMMA=1: relErr = %.2e, want <= 5e-4", e)
 			}
 		})
 	}

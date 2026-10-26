@@ -44,6 +44,23 @@ func TestSweepMetadata(t *testing.T) {
 	if len(fp8) != 16 {
 		t.Errorf("%d FP8 attention variants, want 16", len(fp8))
 	}
+	wgmmaAttn, err := SweepPagedAttention(PagedAttention{Name: "attn", Hq: 16, Hkv: 2, QLen: 8, Page: 1, Q: E4M3, Out: F32, WGMMA: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wgmmaAttn) != 32 { // 16 mma.sync + 16 wgmma
+		t.Errorf("%d WGMMA attention variants, want 32", len(wgmmaAttn))
+	}
+	attnWG, err := PagedAttention{Name: "attn_wg", Hq: 16, Hkv: 2, QLen: 8, Page: 1, Q: E4M3, Out: F32, WGMMA: true, Swizzle: true}.Variant()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attnWG.Launch.MMA != "wgmma" || !attnWG.Launch.Swizzle {
+		t.Errorf("attn_wg launch = %+v, want MMA=wgmma, Swizzle=true", attnWG.Launch)
+	}
+	if want := "block=128,warps=4,stages=4,split_kv=256,kv_depth=1,mma=wgmma,swizzle"; attnWG.Config != want {
+		t.Errorf("attn_wg config = %q, want %q", attnWG.Config, want)
+	}
 	skinnyPF, err := SweepSkinnyGEMM(SkinnyGEMM{Name: "qkv", N: 2304, K: 8192, MaxM: 8, Weight: WeightBF16, Out: BF16, Prefetch: 1})
 	if err != nil {
 		t.Fatal(err)

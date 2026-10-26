@@ -45,6 +45,12 @@ type CostConfig struct {
 // register prefetch at small batch sizes (M <= 8).
 const maxPrefetchWeightBytes = 128 << 20
 
+func (c CostConfig) isHopper() bool {
+	return c.Ceiling.Architecture == "sm_90" ||
+		strings.Contains(strings.ToLower(c.Device), "h200") ||
+		strings.Contains(strings.ToLower(c.Ceiling.Device), "h200")
+}
+
 func (c CostConfig) norm() (CostConfig, error) {
 	if c.Residency == "" {
 		c.Residency = cudaroofline.DeviceResident
@@ -66,9 +72,7 @@ func (c CostConfig) norm() (CostConfig, error) {
 	if c.Ceiling.PeakTFLOPS <= 0 {
 		c.Ceiling.PeakTFLOPS = 67.0
 	}
-	isHopper := c.Ceiling.Architecture == "sm_90" ||
-		strings.Contains(strings.ToLower(c.Device), "h200") ||
-		strings.Contains(strings.ToLower(c.Ceiling.Device), "h200")
+	isHopper := c.isHopper()
 	if c.TensorTFLOPS <= 0 {
 		if isHopper {
 			c.TensorTFLOPS = 778.0
@@ -164,6 +168,10 @@ func (p *Plan) SelectSchedules(cfg CostConfig) error {
 		case k.Attention != nil:
 			a := *k.Attention
 			a.Swizzle = true
+			if cfg.isHopper() && a.Q == E4M3 && a.Hkv > 0 && (a.Hq/a.Hkv)*max(a.QLen, 1) >= 16 && a.KVHeadsPerBlock <= 1 {
+				a.WGMMA = true
+				a.QKFP8 = true
+			}
 			normed, _, err := a.norm()
 			if err != nil {
 				return err
@@ -256,6 +264,9 @@ func (k PlanKernel) estimateStepNs(cfg CostConfig) float64 {
 		}
 	case k.Attention != nil:
 		tflops = cfg.TensorTFLOPS
+		if k.Attention.WGMMA {
+			tflops *= 1.50
+		}
 		if k.Attention.Swizzle {
 			bw *= 1.10
 		}
