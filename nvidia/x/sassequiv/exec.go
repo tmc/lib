@@ -464,7 +464,12 @@ func (x *blockExec) inst(in cudasass.Instruction) {
 		args = append(args, x.read("MEM"))
 	}
 	if effects[base] {
-		mem := x.add(label, 0, append([]int{x.cond(guard), x.read("MEM")}, args...)...)
+		var mem int
+		if len(dsts) == 0 {
+			mem = x.store(label, x.cond(guard), x.read("MEM"), args)
+		} else {
+			mem = x.add(label, 0, append([]int{x.cond(guard), x.read("MEM")}, args...)...)
+		}
 		x.st["MEM"] = mem
 		x.writeDsts(op, base, dsts, x.add("result", 0, mem), -1)
 		return

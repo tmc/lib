@@ -94,6 +94,84 @@ STG.E desc[UR4][R4.64+0x4], RZ
 EXIT`, prologue + `
 STG.E desc[UR4][R4.64+0x4], RZ
 STG.E desc[UR4][R4.64], RZ
+EXIT`, Equal, ""},
+		{"shared stores reordered", prologue + `
+STS [R0+0x400], R2
+STS [R0+0x404], R3
+EXIT`, prologue + `
+STS [R0+0x404], R3
+STS [R0+0x400], R2
+EXIT`, Equal, ""},
+		{"stores reordered with their values exchanged", prologue + `
+LDG.E R8, desc[UR4][R2.64]
+LDG.E R9, desc[UR4][R2.64+0x4]
+STG.E desc[UR4][R4.64], R8
+STG.E desc[UR4][R4.64+0x4], R9
+EXIT`, prologue + `
+LDG.E R8, desc[UR4][R2.64]
+LDG.E R9, desc[UR4][R2.64+0x4]
+STG.E desc[UR4][R4.64+0x4], R8
+STG.E desc[UR4][R4.64], R9
+EXIT`, Different, ""},
+		{"stores a byte short of disjoint reordered", prologue + `
+STG.E desc[UR4][R4.64], RZ
+STG.E desc[UR4][R4.64+0x3], RZ
+EXIT`, prologue + `
+STG.E desc[UR4][R4.64+0x3], RZ
+STG.E desc[UR4][R4.64], RZ
+EXIT`, Unknown, ""},
+		{"guarded store reordered", prologue + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+@P0 STG.E desc[UR4][R4.64+0x4], RZ
+STG.E desc[UR4][R4.64], RZ
+EXIT`, prologue + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+STG.E desc[UR4][R4.64], RZ
+@P0 STG.E desc[UR4][R4.64+0x4], RZ
+EXIT`, Equal, ""},
+		{"guarded store reordered without its guard", prologue + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+@P0 STG.E desc[UR4][R4.64+0x4], RZ
+STG.E desc[UR4][R4.64], RZ
+EXIT`, prologue + `
+ISETP.GE.AND P0, PT, R0, 0x10, PT
+STG.E desc[UR4][R4.64], RZ
+STG.E desc[UR4][R4.64+0x4], RZ
+EXIT`, Unknown, ""},
+		{"shared stores off two bases reordered", prologue + `
+STS [R0+R3+0x4], RZ
+STS [R0], RZ
+EXIT`, prologue + `
+STS [R0], RZ
+STS [R0+R3+0x4], RZ
+EXIT`, Unknown, ""},
+		{"stores under two descriptors reordered", prologue + `
+STG.E desc[UR4][R4.64+0x4], RZ
+STG.E desc[UR6][R4.64], RZ
+EXIT`, prologue + `
+STG.E desc[UR6][R4.64], RZ
+STG.E desc[UR4][R4.64+0x4], RZ
+EXIT`, Unknown, ""},
+		{"overlapping stores reordered", prologue + `
+STG.E.64 desc[UR4][R4.64], R2
+STG.E.64 desc[UR4][R4.64+0x4], R6
+EXIT`, prologue + `
+STG.E.64 desc[UR4][R4.64+0x4], R6
+STG.E.64 desc[UR4][R4.64], R2
+EXIT`, Unknown, ""},
+		{"strong stores reordered", prologue + `
+STG.E.STRONG.GPU desc[UR4][R4.64], RZ
+STG.E.STRONG.GPU desc[UR4][R4.64+0x4], RZ
+EXIT`, prologue + `
+STG.E.STRONG.GPU desc[UR4][R4.64+0x4], RZ
+STG.E.STRONG.GPU desc[UR4][R4.64], RZ
+EXIT`, Unknown, ""},
+		{"stores off two bases reordered", prologue + `
+STG.E desc[UR4][R4.64], RZ
+STG.E desc[UR4][R2.64+0x4], RZ
+EXIT`, prologue + `
+STG.E desc[UR4][R2.64+0x4], RZ
+STG.E desc[UR4][R4.64], RZ
 EXIT`, Unknown, ""},
 		{"spilled", prologue + `
 LDG.E R6, desc[UR4][R2.64]
