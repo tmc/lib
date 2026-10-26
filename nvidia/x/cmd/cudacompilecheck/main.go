@@ -34,8 +34,15 @@
 // one file per source and architecture (k.sm_90a.ptx for k.cu), for
 // checks the census cannot express.
 //
-// -max-registers and -no-spill turn the report into a gate: the command
-// exits with status 1 if any entry function exceeds the limit or spills.
+// -max-registers, -no-spill and -no-wgmma-serial turn the report into a gate:
+// the command exits with status 1 if any entry function exceeds the limit,
+// any function spills, or ptxas reports serializing a function's
+// wgmma.mma_async instructions: for want of registers (C7512), for other
+// instructions writing wgmma inputs inside a pipeline stage (C7513), for a
+// warpgroup arrive in a divergent path (C7519), or for another reason.
+// The report lists every ptxas warning or coded note that names a
+// function, such as these, under that function; -json puts them in the
+// function's Diagnostics.
 // -spill-allow FILE implies -no-spill but pins known spills, such as those
 // of kernels copied from another owner: each line is
 //
@@ -92,6 +99,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -150,6 +158,7 @@ type config struct {
 	work            string
 	maxRegisters    int
 	noSpill         bool
+	noWGMMASerial   bool
 	spillAllow      []spillAllowance
 	count           int
 	wantEntries     []string
@@ -210,6 +219,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	fs.StringVar(&c.work, "work", "", "work `directory`; must be visible to the compiling host")
 	fs.IntVar(&c.maxRegisters, "max-registers", 0, "fail if an entry function uses more registers")
 	fs.BoolVar(&c.noSpill, "no-spill", false, "fail if a function spills")
+	fs.BoolVar(&c.noWGMMASerial, "no-wgmma-serial", false, "fail if ptxas serializes a function's wgmma instructions (C7512, C7513, C7519)")
 	var spillAllow string
 	fs.StringVar(&spillAllow, "spill-allow", "", "with -no-spill, which it implies, allow the spills listed in `file`: regexp max_store_bytes max_load_bytes per line")
 	fs.IntVar(&c.count, "count", -1, "fail unless each architecture has exactly `N` entry functions")
@@ -578,6 +588,13 @@ func check(ctx context.Context, c *config, src, dir, outDir string) (*fileReport
 		if f.Entry && c.maxRegisters > 0 && f.Registers > c.maxRegisters {
 			rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: %d registers > %d", f.Arch, f.Name, f.Registers, c.maxRegisters))
 		}
+		if ds := f.WGMMASerialized(); c.noWGMMASerial && len(ds) > 0 {
+			var codes []string
+			for _, d := range ds {
+				codes = append(codes, cmp.Or(d.Code, "no code"))
+			}
+			rep.Failures = append(rep.Failures, fmt.Sprintf("%s %s: wgmma serialized (%s)", f.Arch, f.Name, strings.Join(codes, ", ")))
+		}
 		if c.noSpill && f.Spills() {
 			a := matchSpillAllowance(c.spillAllow, f.Name)
 			switch {
@@ -820,6 +837,11 @@ func printText(w io.Writer, r *fileReport, top int) {
 			f.StackFrame, f.SpillStores, f.SpillLoads, f.SharedMem, f.Barriers, f.Name)
 	}
 	tw.Flush()
+	for _, f := range r.Functions {
+		for _, d := range f.Diagnostics {
+			fmt.Fprintf(w, "  ptxas: %s %s: %s\n", f.Arch, f.Name, d.Text)
+		}
+	}
 	for _, f := range r.Functions {
 		printCensus(w, "SASS", f.Arch, f.Name, f.SASS, top)
 		printCensus(w, "PTX", f.Arch, f.Name, f.PTX, top)

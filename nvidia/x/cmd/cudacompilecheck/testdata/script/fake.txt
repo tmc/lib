@@ -40,6 +40,32 @@ stderr 'allow-bad.txt:1: want regexp max_store_bytes max_load_bytes'
 stdout 'FAIL: sm_90a _Z5scaleILi128EEvPfPKfi: 32 registers > 24'
 exec cudacompilecheck -nvcc $WORK/nvcc -max-registers 32 k.cu
 
+# A coded ptxas note that names a function (the fake nvcc prints one for
+# each -D C75xx, ahead of the report, as ptxas does) is listed under that
+# function. -no-wgmma-serial fails on those in which ptxas serialized wgmma
+# instructions, naming the function and the code.
+exec cudacompilecheck -nvcc $WORK/nvcc -no-wgmma-serial k.cu
+! stdout 'ptxas:'
+! stdout FAIL
+exec cudacompilecheck -nvcc $WORK/nvcc -D C7519 k.cu
+stdout '^  ptxas: sm_90a _Z5scaleILi128EEvPfPKfi: \(C7519\) Potential Performance Loss: wgmma.mma_async instructions are serialized due to program dependence on compiler-inserted WG.AR in divergent path'
+! stdout 'note: \(C7519\)'
+! stdout FAIL
+! exec cudacompilecheck -nvcc $WORK/nvcc -D C7519 -no-wgmma-serial k.cu
+stdout 'FAIL: sm_90a _Z5scaleILi128EEvPfPKfi: wgmma serialized \(C7519\)$'
+stderr 'gate failed'
+! exec cudacompilecheck -nvcc $WORK/nvcc -D C7512 -no-wgmma-serial k.cu
+stdout 'FAIL: sm_90a _Z5spillPfPKf: wgmma serialized \(C7512\)$'
+! stdout 'FAIL: sm_90a _Z5scale'
+! exec cudacompilecheck -nvcc $WORK/nvcc -D C7513 -D C7519 -no-wgmma-serial k.cu
+stdout 'FAIL: sm_90a _Z5scaleILi128EEvPfPKfi: wgmma serialized \(C7513, C7519\)$'
+# C7517, an injected wait, is listed but is not serialization.
+exec cudacompilecheck -nvcc $WORK/nvcc -D C7517 -no-wgmma-serial k.cu
+stdout '^  ptxas: sm_90a _Z5scaleILi128EEvPfPKfi: \(C7517\) wgmma.wait_group is injected'
+! stdout FAIL
+exec cudacompilecheck -nvcc $WORK/nvcc -D C7519 -json k.cu
+stdout '"Code": "C7519"'
+
 # With -exec the tool runs under timeout(1) on the far side, because the
 # local process group holds only the prefix.
 exec cudacompilecheck -exec $WORK/pfx -timeout 90s -nvcc $WORK/nvcc k.cu
@@ -140,10 +166,12 @@ echo "$@" > $WORK/args
 out=
 prev=
 ptx=
+codes=
 for a in "$@"; do
 	[ "$prev" = -o ] && out=$a
 	[ "$a" = -ptx ] && ptx=1
 	case $a in -DFAIL) echo 'k.cu(1): error: boom' >&2; exit 1;; esac
+	case $a in -DC75*) codes="$codes ${a#-D}";; esac
 	prev=$a
 	last=$a
 done
@@ -153,6 +181,9 @@ if [ -n "$ptx" ]; then
 fi
 cp "$last" $WORK/wrap
 : > "$out"
+for c in $codes; do
+	grep -F "($c)" $WORK/diag.txt >&2
+done
 cat $WORK/ptxas.txt >&2
 -- allow.txt --
 # copied from the spill owner
@@ -169,6 +200,11 @@ _Z5spill.* 2232
 -- cuobjdump --
 #!/bin/sh
 cat $WORK/scale.sass
+-- diag.txt --
+ptxas info    : (C7512) Potential Performance Loss: wgmma.mma_async instructions are serialized due to insufficient register resources for the function '_Z5spillPfPKf'
+ptxas info    : (C7513) Potential Performance Loss: wgmma.mma_async instructions are serialized due to non wgmma instructions defining input registers of a wgmma between start and end of the pipeline stage in the function '_Z5scaleILi128EEvPfPKfi'
+ptxas info    : (C7517) wgmma.wait_group is injected in around line 1159 by compiler to allow use of registers defined by GMMA in function '_Z5scaleILi128EEvPfPKfi'
+ptxas info    : (C7519) Potential Performance Loss: wgmma.mma_async instructions are serialized due to program dependence on compiler-inserted WG.AR in divergent path in the function '_Z5scaleILi128EEvPfPKfi' in line 1191
 -- ptxas.txt --
 ptxas info    : 0 bytes gmem
 ptxas info    : Compiling entry function '_Z5scaleILi128EEvPfPKfi' for 'sm_90a'
