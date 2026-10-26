@@ -710,6 +710,21 @@ LDCU.64 UR6, c[0x0][0x220]
 MOV R6, UR7
 STG.E desc[UR4][R4.64], R6
 EXIT`, Equal, ""},
+		{"negated predicate written under the same guard", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P1, PT, R0, 0x7, PT
+MOV R7, 0x5
+@!P1 ISETP.GE.AND P3, PT, R6, 0x20, PT
+@!P1 SEL R7, R6, 0xffffffff, !P3
+STG.E desc[UR4][R4.64], R7
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P1, PT, R0, 0x7, PT
+MOV R7, 0x5
+@!P1 ISETP.GE.AND P4, PT, R6, 0x20, PT
+@!P1 SEL R7, R6, 0xffffffff, !P4
+STG.E desc[UR4][R4.64], R7
+EXIT`, Equal, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1
 EXIT`, prologue + `

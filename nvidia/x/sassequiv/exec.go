@@ -861,12 +861,12 @@ func (x *blockExec) val(s string, width int) int {
 			return x.imm(v)
 		}
 	}
-	if o.prefix == "!" && isPred(o.core) {
-		return x.not(x.core(o, 1))
-	}
 	v := x.core(o, width)
 	if x.guard >= 0 {
 		v = x.assume(v, x.guard)
+	}
+	if o.prefix == "!" && isPred(o.core) {
+		return x.not(v)
 	}
 	if o.prefix != "" || o.abs || (o.suffix != "" && o.suffix != ".64") {
 		label := "mod:" + o.prefix
