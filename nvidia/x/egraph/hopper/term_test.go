@@ -14,6 +14,7 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 	t.Helper()
 	var src strings.Builder
 	var launches []string
+	wsZero := make(map[string]int)
 	for _, k := range p.Kernels {
 		if k.GEMM != nil {
 			s, err := k.GEMM.CUDA()
@@ -32,9 +33,67 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 				t.Fatal(err)
 			}
 			src.WriteString(s)
-			grid, block := k.Tile.Grid(k.M, 1)
-			launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d, %d), dim3(%d), %d, %s, %d, %s)",
-				grid[0], grid[1], block[0], k.Tile.SharedBytes(), k.Tile.Name, k.M, strings.Join(k.Args, ", ")))
+			if k.Tile.Grouped {
+				grid, block := k.Tile.Grid(k.MaxRows, k.Experts)
+				launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %d, %s)",
+					grid[0], grid[1], grid[2], block[0], k.Tile.SharedBytes(), k.Tile.Name, k.M, strings.Join(k.Args, ", ")))
+			} else {
+				grid, block := k.Tile.Grid(k.M, 1)
+				launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d, %d), dim3(%d), %d, %s, %d, %s)",
+					grid[0], grid[1], block[0], k.Tile.SharedBytes(), k.Tile.Name, k.M, strings.Join(k.Args, ", ")))
+			}
+			continue
+		}
+		if k.Attention != nil {
+			s, err := k.Attention.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			l, err := k.Attention.Launcher()
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString(s + "\n" + l)
+			args := append([]string(nil), k.Args[:4]...)
+			args = append(args, fmt.Sprint(k.MaxPages))
+			args = append(args, k.Args[4:]...)
+			launches = append(launches, fmt.Sprintf("eg_emu_sms = 16; eg_emu_blocks_per_sm = 1; %s_launch(%d, %d, %s, nullptr)",
+				k.Attention.Name, k.Batch, k.MaxKeys, strings.Join(args, ", ")))
+			wsName := k.Args[len(k.Args)-1]
+			wsZero[wsName] = attnCounterBytes(*k.Attention, k.Batch, k.Attention.Splits(k.MaxKeys))
+			continue
+		}
+		if k.TopK != nil {
+			s, err := k.TopK.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString(s)
+			grid, block := k.TopK.Grid(k.Rows)
+			launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d), dim3(%d), 0, %s, %d, %s)",
+				grid[0], block[0], k.TopK.Name, k.Rows, strings.Join(k.Args, ", ")))
+			continue
+		}
+		if k.Align != nil {
+			s, err := k.Align.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString(s)
+			al, _ := k.Align.norm()
+			launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(1), dim3(%d), 0, %s, %d, %s)",
+				32*al.Warps, k.Align.Name, k.Rows, strings.Join(k.Args, ", ")))
+			continue
+		}
+		if k.ExpertSum != nil {
+			s, err := k.ExpertSum.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString(s)
+			grid, block := k.ExpertSum.Grid(k.Rows)
+			launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d), dim3(%d), 0, %s, %d, %s)",
+				grid[0], block[0], k.ExpertSum.Name, k.Rows, strings.Join(k.Args, ", ")))
 			continue
 		}
 		s, err := k.Row.CUDA()
@@ -42,6 +101,16 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 			t.Fatal(err)
 		}
 		src.WriteString(s)
+		if k.Row.Cluster {
+			l, err := k.Row.Launcher()
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString("\n" + l)
+			launches = append(launches, fmt.Sprintf("%s_launch(%d, %s, nullptr)",
+				k.Row.Name, k.Rows, strings.Join(k.Args, ", ")))
+			continue
+		}
 		grid, block := k.Row.Grid(k.Rows)
 		launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d), dim3(%d), 0, %s, %d, %s)",
 			grid[0], block[0], k.Row.Name, k.Rows, strings.Join(k.Args, ", ")))
@@ -51,7 +120,11 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 		bufs = append(bufs, emuBuf{in.Name, in.DType.cType(), typed{in.DType, env[in.Name].Data}.bytes()})
 	}
 	for _, tmp := range append(p.Temps, p.Output) {
-		bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), poison(size(tmp.Shape) * tmp.DType.Bits() / 8)})
+		raw := poison(size(tmp.Shape) * tmp.DType.Bits() / 8)
+		if z, ok := wsZero[tmp.Name]; ok && z <= len(raw) {
+			clear(raw[:z])
+		}
+		bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), raw})
 	}
 	res := runEmu(t, src.String(), strings.Join(launches, ";\n    "), bufs...)
 	return decode(p.Output.DType, res[p.Output.Name])

@@ -124,6 +124,12 @@ func (b typed) bytes() []byte {
 			v[i] = E4M3Bits(float32(f))
 		}
 		return v
+	case U8:
+		v := make([]byte, len(b.vals))
+		for i, f := range b.vals {
+			v[i] = byte(f)
+		}
+		return v
 	case I64:
 		v := make([]int64, len(b.vals))
 		for i, f := range b.vals {

@@ -119,14 +119,15 @@ func (b *Builder) Sgn(x egraph.Id) egraph.Id { return b.node(OpSgn, x) }
 // Pair swaps columns 2i and 2i+1 of x.
 func (b *Builder) Pair(x egraph.Id) egraph.Id { return b.node(OpPair, x) }
 
-// Rules returns the rewrites that make matmuls lowerable:
+// Rules returns the rewrites that make matmuls lowerable and fuse cross-op
+// attention and MoE subgraphs:
 // (matmul x w) = (gemm fn:$0 x w).
 func Rules() []*egraph.Rewrite {
-	return []*egraph.Rewrite{
+	return append([]*egraph.Rewrite{
 		{Name: "matmul-gemm",
 			LHS: egraph.Pat(OpMatMul, egraph.Var("x"), egraph.Var("w")),
 			RHS: egraph.Pat(OpGEMM, egraph.Pat("fn:$0"), egraph.Var("x"), egraph.Var("w"))},
-	}
+	}, modelRules()...)
 }
 
 func lambdaOf(n egraph.ENode) (Lambda, bool) {
@@ -199,7 +200,11 @@ func FuseEpilogues(g *egraph.EGraph) (int, error) {
 		}
 	}
 	g.Rebuild()
-	return added, nil
+	mAdded, err := fuseModelPatterns(g)
+	if err != nil {
+		return added, err
+	}
+	return added + mAdded, nil
 }
 
 // allLeafViews reports whether every class holds a Tensor leaf or a slice
@@ -289,8 +294,16 @@ func (Cost) NodeCost(n egraph.ENode, children []float64) float64 {
 	switch n.Op {
 	case OpMatMul:
 		return sum + 1e12
-	case OpGEMM:
+	case OpGroupedMatMul:
+		return sum + 2500
+	case OpGEMM, OpGroupedGEMM, OpGroupedGEMMGLU, OpGroupedGEMMSumSq:
 		return sum + 2000
+	case OpPagedAttn, OpPagedAttnGated, OpRMSNormGate:
+		return sum + 2000
+	case OpRowTopK, OpExpertAlign, OpSwiGLU, OpPostExpertNorm, OpWeightedTopKSum:
+		return sum + 2000
+	case OpExpertSum:
+		return sum + 1500
 	case OpMap, OpReduceSum, OpReduceMax:
 		return sum + 2000
 	}
@@ -513,7 +526,7 @@ func eval1(e *egraph.Expr, env map[string]Value, memo map[*egraph.Expr]Value) (V
 		}
 		return matmul(x, w)
 	}
-	return Value{}, fmt.Errorf("eval: unsupported operator %q", e.Op)
+	return evalModel(e, env, memo)
 }
 
 // evalWeight evaluates a weight operand to [N, K] values.

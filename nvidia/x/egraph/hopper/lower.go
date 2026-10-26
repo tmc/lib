@@ -17,15 +17,24 @@ type Plan struct {
 	Kernels []PlanKernel
 }
 
-// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile and Row
-// is set.
+// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, Row,
+// Attention, TopK, Align and ExpertSum is set.
 type PlanKernel struct {
-	GEMM *SkinnyGEMM
-	Tile *TileGEMM
-	Row  *RowKernel
-	M    int      // GEMM, Tile: rows of x
-	Rows int      // Row: rows
-	Args []string // buffer names, in kernel parameter order (after rows)
+	GEMM      *SkinnyGEMM
+	Tile      *TileGEMM
+	Row       *RowKernel
+	Attention *PagedAttention
+	TopK      *RowTopK
+	Align     *ExpertAlign
+	ExpertSum *ExpertSum
+	M         int      // GEMM, Tile: rows of x
+	MaxRows   int      // Grouped Tile: max rows per expert
+	Experts   int      // Grouped Tile: local expert count
+	Batch     int      // Attention: batch size
+	MaxKeys   int      // Attention: max keys per request
+	MaxPages  int      // Attention: max pages per request
+	Rows      int      // Row, TopK, Align, ExpertSum: rows or tokens
+	Args      []string // buffer names, in kernel parameter order (after leading size args)
 }
 
 // Compile lowers an extracted term to a Plan whose output is a tensor named
@@ -39,7 +48,12 @@ func Compile(e *egraph.Expr, name string, out DType) (*Plan, error) {
 	if !cIdent(name) {
 		return nil, fmt.Errorf("compile: bad name %q", name)
 	}
-	c := &compiler{plan: &Plan{Name: name}, inputs: make(map[string]bool), done: make(map[egraph.Id]string)}
+	c := &compiler{
+		plan:   &Plan{Name: name},
+		inputs: make(map[string]bool),
+		done:   make(map[egraph.Id]string),
+		multi:  make(map[egraph.Id][]Tensor),
+	}
 	if err := c.emit(e, name+"_out", out); err != nil {
 		return nil, fmt.Errorf("compile %s: %w", name, err)
 	}
@@ -49,7 +63,8 @@ func Compile(e *egraph.Expr, name string, out DType) (*Plan, error) {
 type compiler struct {
 	plan   *Plan
 	inputs map[string]bool
-	done   map[egraph.Id]string // e-class → buffer holding it
+	done   map[egraph.Id]string   // e-class → buffer holding it
+	multi  map[egraph.Id][]Tensor // e-class → buffers holding a multi-output op
 	temps  int
 }
 
@@ -66,7 +81,10 @@ func (c *compiler) buffer(e *egraph.Expr) (Tensor, error) {
 		c.input(t)
 		return t, nil
 	}
-	if name, ok := c.done[e.Class]; ok {
+	if t, ok, err := c.modelProjectionBuffer(e); ok || err != nil {
+		return t, err
+	}
+	if name, ok := c.done[e.Class]; ok && e.Class != 0 {
 		for _, t := range c.plan.Temps {
 			if t.Name == name {
 				return t, nil
@@ -75,7 +93,7 @@ func (c *compiler) buffer(e *egraph.Expr) (Tensor, error) {
 	}
 	c.temps++
 	name := fmt.Sprintf("%s_t%d", c.plan.Name, c.temps)
-	if err := c.emit(e, name, F32); err != nil {
+	if err := c.emit(e, name, defaultTempDType(e)); err != nil {
 		return Tensor{}, err
 	}
 	return c.plan.Temps[len(c.plan.Temps)-1], nil
@@ -97,19 +115,37 @@ func (c *compiler) emit(e *egraph.Expr, dst string, d DType) error {
 		return err
 	}
 	t := Tensor{Name: dst, DType: d, Shape: shape}
-	if e.Op == OpGEMM {
+	switch {
+	case e.Op == OpMatMul:
+		gemmExpr := &egraph.Expr{
+			Op:       OpGEMM,
+			Class:    e.Class,
+			Children: []*egraph.Expr{{Op: "fn:$0"}, e.Children[0], e.Children[1]},
+		}
+		if err := c.gemm(gemmExpr, t); err != nil {
+			return err
+		}
+	case e.Op == OpGEMM:
 		if err := c.gemm(e, t); err != nil {
 			return err
 		}
-	} else if err := c.rows(e, t); err != nil {
-		return err
+	case isModelOp(e.Op):
+		if err := c.emitModel(e, t); err != nil {
+			return err
+		}
+	default:
+		if err := c.rows(e, t); err != nil {
+			return err
+		}
 	}
 	if dst == c.plan.Name+"_out" {
 		c.plan.Output = t
 	} else {
 		c.plan.Temps = append(c.plan.Temps, t)
 	}
-	c.done[e.Class] = dst
+	if e.Class != 0 {
+		c.done[e.Class] = dst
+	}
 	return nil
 }
 
@@ -615,7 +651,7 @@ func shapeOf(e *egraph.Expr) ([]int, error) {
 		}
 		return broadcastShape(shapes...)
 	}
-	return nil, fmt.Errorf("no shape for operator %q", e.Op)
+	return shapeOfModel(e)
 }
 
 // Source returns one load_inline translation unit with every kernel of the
@@ -638,6 +674,22 @@ func (p *Plan) Source() (string, error) {
 		case k.Tile != nil:
 			if src, err = k.Tile.CUDA(); err == nil {
 				l, err = k.Tile.Launcher()
+			}
+		case k.Attention != nil:
+			if src, err = k.Attention.CUDA(); err == nil {
+				l, err = k.Attention.Launcher()
+			}
+		case k.TopK != nil:
+			if src, err = k.TopK.CUDA(); err == nil {
+				l, err = k.TopK.Launcher()
+			}
+		case k.Align != nil:
+			if src, err = k.Align.CUDA(); err == nil {
+				l, err = k.Align.Launcher()
+			}
+		case k.ExpertSum != nil:
+			if src, err = k.ExpertSum.CUDA(); err == nil {
+				l, err = k.ExpertSum.Launcher()
 			}
 		default:
 			if src, err = k.Row.CUDA(); err == nil {
@@ -662,7 +714,25 @@ func (p *Plan) Source() (string, error) {
 		case k.GEMM != nil:
 			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.GEMM.Name, k.M, strings.Join(k.Args, ", "))
 		case k.Tile != nil:
-			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Tile.Name, k.M, strings.Join(k.Args, ", "))
+			if k.Tile.Grouped {
+				fmt.Fprintf(&b, "    %s_launch(%d, %d, %d, %s, stream);\n", k.Tile.Name, k.M, k.MaxRows, k.Experts, strings.Join(k.Args, ", "))
+			} else {
+				fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Tile.Name, k.M, strings.Join(k.Args, ", "))
+			}
+		case k.Attention != nil:
+			// Args are q, k_cache, v_cache, page_table, seqlens, k_scale, v_scale, [gate,] out, ws;
+			// Launcher expects max_pages after page_table.
+			args := slices.Clone(k.Args)
+			if len(args) >= 4 {
+				args = append(args[:4], append([]string{fmt.Sprint(k.MaxPages)}, args[4:]...)...)
+			}
+			fmt.Fprintf(&b, "    %s_launch(%d, %d, %s, stream);\n", k.Attention.Name, k.Batch, k.MaxKeys, strings.Join(args, ", "))
+		case k.TopK != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.TopK.Name, k.Rows, strings.Join(k.Args, ", "))
+		case k.Align != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Align.Name, k.Rows, strings.Join(k.Args, ", "))
+		case k.ExpertSum != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.ExpertSum.Name, k.Rows, strings.Join(k.Args, ", "))
 		default:
 			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Row.Name, k.Rows, strings.Join(k.Args, ", "))
 		}

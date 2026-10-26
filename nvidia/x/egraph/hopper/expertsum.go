@@ -29,6 +29,9 @@ type ExpertSum struct {
 	Y     DType   // BF16 or F32
 	Out   DType   // BF16 or F32
 	Eps   float32 // 0 means 1e-8
+	// PreNormed, when true, sums already-normalized rows y weighted by
+	// weights without reading ss.
+	PreNormed bool
 }
 
 func (s ExpertSum) norm() (ExpertSum, error) {
@@ -48,6 +51,10 @@ func (s ExpertSum) norm() (ExpertSum, error) {
 }
 
 func (s ExpertSum) params() []string {
+	if s.PreNormed {
+		return []string{"int tokens", "const " + s.Y.cType() + "* __restrict__ y",
+			"const int32_t* __restrict__ slots", "const float* __restrict__ weights", s.Out.cType() + "* __restrict__ out"}
+	}
 	return []string{"int tokens", "const " + s.Y.cType() + "* __restrict__ y", "const float* __restrict__ ss",
 		"const int32_t* __restrict__ slots", "const float* __restrict__ weights", s.Out.cType() + "* __restrict__ out"}
 }
@@ -72,7 +79,19 @@ func (s ExpertSum) CUDA() (string, error) {
 	b.WriteString(`    const int t = blockIdx.x, tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
     __shared__ int row[K];
     __shared__ float inv[K], wt[K];
-    // A warp per route: the row's rsqrt of mean square, from its 32-column sums.
+`)
+	if s.PreNormed {
+		b.WriteString(`    for (int k = warp; k < K; k += 8) {
+        const int r = slots[(size_t)t * K + k];
+        if (lane == 0) {
+            row[k] = r;
+            inv[k] = 1.0f;
+            wt[k] = weights[(size_t)t * K + k];
+        }
+    }
+`)
+	} else {
+		b.WriteString(`    // A warp per route: the row's rsqrt of mean square, from its 32-column sums.
     for (int k = warp; k < K; k += 8) {
         const int r = slots[(size_t)t * K + k];
         float sum = 0.0f;
@@ -84,7 +103,9 @@ func (s ExpertSum) CUDA() (string, error) {
             wt[k] = weights[(size_t)t * K + k];
         }
     }
-    __syncthreads();
+`)
+	}
+	b.WriteString(`    __syncthreads();
     // Routes in increasing row order (local expert order), absent ones last.
     if (tid == 0) {
         for (int i = 1; i < K; ++i) {
@@ -150,7 +171,7 @@ func (s ExpertSum) Reference(tokens int, y, ss []float32, slots []int32, weights
 		return nil, err
 	}
 	g := s.Width / 32
-	if len(slots) != tokens*s.K || len(weights) != tokens*s.K || len(y)%s.Width != 0 || len(ss) != len(y)/32 {
+	if len(slots) != tokens*s.K || len(weights) != tokens*s.K || len(y)%s.Width != 0 || (!s.PreNormed && len(ss) != len(y)/32) {
 		return nil, fmt.Errorf("expert sum %s reference: bad input sizes", s.Name)
 	}
 	out := make([]float32, tokens*s.Width)
@@ -168,11 +189,14 @@ func (s ExpertSum) Reference(tokens int, y, ss []float32, slots []int32, weights
 			if (r+1)*s.Width > len(y) {
 				return nil, fmt.Errorf("expert sum %s reference: row %d out of range", s.Name, r)
 			}
-			var sum float32
-			for _, v := range ss[r*g : (r+1)*g] {
-				sum += v
+			inv := float32(1)
+			if !s.PreNormed {
+				var sum float32
+				for _, v := range ss[r*g : (r+1)*g] {
+					sum += v
+				}
+				inv = float32(1 / math.Sqrt(float64(sum/float32(s.Width)+s.Eps)))
 			}
-			inv := float32(1 / math.Sqrt(float64(sum/float32(s.Width)+s.Eps)))
 			rs = append(rs, route{r, inv, weights[t*s.K+k]})
 		}
 		sort.SliceStable(rs, func(i, j int) bool { return rs[i].r < rs[j].r })
