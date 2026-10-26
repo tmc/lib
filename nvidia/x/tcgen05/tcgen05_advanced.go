@@ -21,10 +21,17 @@ const TCGen05AdvancedPrelude = `#ifndef EG_TCGEN05_ADVANCED_PRELUDE
 
 #if defined(EG_HOST_EMU)
 #define EG_TCGEN05_SHARED(T, name, dims) EG_EMU_SHARED(T, name, dims)
+#define EG_TCGEN05_TMEM_BUF(name) EG_EMU_SHARED(float, name, [128 * 512])
 #define EG_REGISTER_CLUSTER2(fn) \
     static const bool eg_reg_cluster2_##fn = eg_emu_register_cluster_kernel(fn, 2);
+#elif defined(EG_EMU)
+#define EG_TCGEN05_SHARED(T, name, dims) alignas(16) __shared__ T name dims
+__device__ float eg_emu_dev_tmem_backing[128 * 512];
+#define EG_TCGEN05_TMEM_BUF(name) float* name = eg_emu_dev_tmem_backing
+#define EG_REGISTER_CLUSTER2(fn)
 #else
 #define EG_TCGEN05_SHARED(T, name, dims) alignas(16) __shared__ T name dims
+#define EG_TCGEN05_TMEM_BUF(name) float* name = nullptr
 #define EG_REGISTER_CLUSTER2(fn)
 #endif
 
@@ -214,7 +221,7 @@ EG_DEV void eg_tcgen05_wait_st() {
 EG_DEV void eg_tcgen05_commit_cta1(uint64_t* mbar) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
     const uint32_t s = (uint32_t)__cvta_generic_to_shared(mbar);
-    asm volatile("tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cta.b64 [%0];"
+    asm volatile("tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.b64 [%0];"
                  :: "r"(s) : "memory");
 #else
     (void)mbar;
@@ -232,7 +239,7 @@ EG_DEV void eg_tcgen05_commit_cta2(uint64_t* mbar) {
 }
 
 // eg_tcgen05_cp_scales_32x128b copies staged UE4M3 block scales from shared
-// memory into dedicated TMEM columns at scale_taddr via tcgen05.cp.cta_group::1.32x128b.
+// memory into dedicated TMEM columns at scale_taddr via tcgen05.cp.cta_group::1.32x128b.warpx4.
 EG_DEV void eg_tcgen05_cp_scales_32x128b(
     float* tmem, uint32_t scale_taddr,
     const uint8_t* smem_a_scales, const uint8_t* smem_b_scales,
@@ -244,7 +251,7 @@ EG_DEV void eg_tcgen05_cp_scales_32x128b(
     (void)n_cols;
     (void)k_blocks;
     const uint64_t desc = eg_wgmma_desc(smem_a_scales, 16, 128);
-    asm volatile("tcgen05.cp.cta_group::1.32x128b [%0], %1;"
+    asm volatile("tcgen05.cp.cta_group::1.32x128b.warpx4 [%0], %1;"
                  :: "r"(scale_taddr), "l"(desc) : "memory");
 #else
     for (int r = 0; r < m_rows; ++r) {
@@ -318,13 +325,15 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4(
     (void)k_dim;
     const uint64_t desc_a = eg_wgmma_desc(smem_a_packed, 32, 256);
     const uint64_t desc_b = eg_wgmma_desc(smem_b_packed, 32, 256);
+    const uint32_t sfa_taddr = scale_taddr;
+    const uint32_t sfb_taddr = scale_taddr + 16u;
     const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
         "setp.ne.b32 p, 1, 0;\n"
-        "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale [%0], %1, %2, %3, [%4], p;\n"
-        "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "r"(scale_taddr) : "memory");
+        "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::2X [%0], %1, %2, %3, [%4], [%5], p;\n"
+        "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
 #else
     const int k_blocks = k_dim / 16;
     const int k_bytes = k_dim / 2;
@@ -366,13 +375,15 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4_4x(
     (void)k_dim;
     const uint64_t desc_a = eg_wgmma_desc(smem_a_packed, 64, 512);
     const uint64_t desc_b = eg_wgmma_desc(smem_b_packed, 64, 512);
+    const uint32_t sfa_taddr = scale_taddr;
+    const uint32_t sfb_taddr = scale_taddr + 16u;
     const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
         "setp.ne.b32 p, 1, 0;\n"
-        "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], p;\n"
-        "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "r"(scale_taddr) : "memory");
+        "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], [%5], p;\n"
+        "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
 #else
     const int k_blocks = k_dim / 16;
     const int k_bytes = k_dim / 2;
@@ -721,7 +732,7 @@ func (k TCGen05BlockScaledGEMM) CUDA() (string, error) {
     EG_TCGEN05_SHARED(uint8_t, smem_b_packed, [N * K_BYTES]);
     EG_TCGEN05_SHARED(uint8_t, smem_a_scales, [M * K_BLOCKS]);
     EG_TCGEN05_SHARED(uint8_t, smem_b_scales, [N * K_BLOCKS]);
-    EG_TCGEN05_SHARED(float, tmem, [128 * 512]);
+    EG_TCGEN05_TMEM_BUF(tmem);
     EG_TCGEN05_SHARED(uint32_t, slot_d, [1]);
     EG_TCGEN05_SHARED(uint32_t, slot_s, [1]);
     EG_TCGEN05_SHARED(uint64_t, mbar, [1]);

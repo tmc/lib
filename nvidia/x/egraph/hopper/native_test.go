@@ -24,6 +24,22 @@ func hopperNativeArch() string {
 	if arch := os.Getenv("CUDA_EGRAPH_HOPPER_NATIVE_ARCH"); arch != "" {
 		return arch
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader").Output(); err == nil {
+		fields := strings.Fields(string(out))
+		if len(fields) > 0 {
+			cc := strings.ReplaceAll(strings.TrimSpace(fields[0]), ".", "")
+			switch cc {
+			case "90", "100", "103", "120", "121":
+				return "sm_" + cc + "a"
+			default:
+				if cc != "" {
+					return "sm_" + cc
+				}
+			}
+		}
+	}
 	return "sm_90a"
 }
 
@@ -353,7 +369,7 @@ func buildHopperNativeHarness(t *testing.T) string {
 	}
 
 	var b strings.Builder
-	b.WriteString("#include <cuda_runtime.h>\n#include <cstdio>\n#include <cmath>\n#include <cstdint>\n#include <vector>\n")
+	b.WriteString("#include <cuda_runtime.h>\n#include <cstdio>\n#include <cmath>\n#include <cstdint>\n#include <cstring>\n#include <vector>\n")
 	b.WriteString("#define EG_NATIVE_COND_SLOT 1\n")
 	b.WriteString(Prelude)
 	b.WriteString("\n")
@@ -363,10 +379,17 @@ func buildHopperNativeHarness(t *testing.T) string {
 	b.WriteString(specCUDA + "\n" + specLaunch + "\n")
 
 	fmt.Fprintf(&b, `
+static float host_bf16_to_f32(uint16_t b) {
+    uint32_t u = ((uint32_t)b) << 16;
+    float f = 0.0f;
+    std::memcpy(&f, &u, sizeof(f));
+    return f;
+}
+
 static bool check_close(const char* label, const uint16_t* got_bf16, const float* want, int n, float tol) {
     float max_diff = 0.0f;
     for (int i = 0; i < n; ++i) {
-        float g = __uint_as_float(((uint32_t)got_bf16[i]) << 16);
+        float g = host_bf16_to_f32(got_bf16[i]);
         float d = std::fabs(g - want[i]);
         if (std::isnan(g) || d > max_diff) max_diff = d;
         if (std::isnan(g) || d > tol) {
@@ -456,7 +479,7 @@ int main() {
     if (cudaMemcpy(h_mtp_mut_out, d_mtp_out, sizeof(h_mtp_mut_out), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
     bool mutant_rejected = false;
     for (int i = 0; i < 64; ++i) {
-        float g = __uint_as_float(((uint32_t)h_mtp_mut_out[i]) << 16);
+        float g = host_bf16_to_f32(h_mtp_mut_out[i]);
         if (std::fabs(g - want_mtp[i]) > 1e-2f) {
             mutant_rejected = true;
             break;

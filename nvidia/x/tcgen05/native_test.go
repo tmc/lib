@@ -367,7 +367,26 @@ func inspectCubinWithNVDisasm(t *testing.T, cubinPath, target string) {
 
 func detectDeviceArchFlag(t *testing.T, nvcc string) string {
 	t.Helper()
-	for _, candidate := range []string{"sm_100a", "sm_121a", "sm_90a", "sm_89", "sm_80"} {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader").Output(); err == nil {
+		lines := strings.Fields(string(out))
+		if len(lines) > 0 {
+			cc := strings.ReplaceAll(strings.TrimSpace(lines[0]), ".", "")
+			switch cc {
+			case "100", "103", "120", "121", "90":
+				cand := "sm_" + cc + "a"
+				if nvccSupportsTarget(t, nvcc, cand) {
+					return cand
+				}
+			}
+			cand := "sm_" + cc
+			if nvccSupportsTarget(t, nvcc, cand) {
+				return cand
+			}
+		}
+	}
+	for _, candidate := range []string{"sm_121a", "sm_100a", "sm_90a", "sm_89", "sm_80"} {
 		if nvccSupportsTarget(t, nvcc, candidate) {
 			return candidate
 		}
