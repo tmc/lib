@@ -11,6 +11,13 @@ import (
 
 // GenerateDeclarativeTile generates C++ Tile source. Normalized projections
 // require the shape and ABI contract documented by TileNormalizedProjection.
+// Ordinary MMA and FFN kernels retain pointer arguments followed by runtime
+// M,N,K. Buffers are disjoint, contiguous row-major matrices: MMA uses A[M,K],
+// B[K,N], C[M,N]; FFN uses X[M,K], input weights[K,N], down weights[N,K],
+// Out[M,K]. The reference launch uses CTA0 to visit every output tile; other
+// CTAs do nothing. Nonpositive or overflowing byte extents do nothing before
+// addresses are formed. Callers still own buffer sizes, lifetimes and launch
+// admission. No tensor-core throughput or non-FP32 numerical parity is implied.
 // Source generation does not establish compiler acceptance or device parity.
 func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 	if expr == nil {
@@ -79,119 +86,124 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 }
 
 func generateDeclarativeSwiGLU(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
-    const %s* __restrict__ X,
-    const %s* __restrict__ W_gate,
-    const %s* __restrict__ W_up,
-    const %s* __restrict__ W_down,
-    %s* __restrict__ Out,
-    int M, int N, int K
-) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto x = partition_view{tensor_span{assume_aligned<16>(X), extents{M, K}}, shape<TM, TK>{}};
-    auto wg = partition_view{tensor_span{assume_aligned<16>(W_gate), extents{K, N}}, shape<TK, TN>{}};
-    auto wu = partition_view{tensor_span{assume_aligned<16>(W_up), extents{K, N}}, shape<TK, TN>{}};
-    auto wd = partition_view{tensor_span{assume_aligned<16>(W_down), extents{N, K}}, shape<TN, TK>{}};
-    auto out = partition_view{tensor_span{assume_aligned<16>(Out), extents{M, K}}, shape<TM, TK>{}};
-
-    auto gate = full<tile<%s, shape<TM, TN>>>(0.0f);
-    auto up = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        gate = mma(x.load(0, k), wg.load(k, 0), gate);
-        up = mma(x.load(0, k), wu.load(k, 0), up);
-    }
-    auto act = (gate / (1.0f + exp(-gate))) * up;
-
-    auto down = full<tile<%s, shape<TM, TK>>>(0.0f);
-    for (auto n : irange(0, N / TN)) {
-        down = mma(act, wd.load(n, 0), down);
-    }
-    out.store(down, 0, 0);
-}
-`, kernelName, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType)
+	return generateDeclarativeFFN(kernelName, elemType, true, false)
 }
 
 func generateDeclarativeGeGLU(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
-    const %s* __restrict__ X,
-    const %s* __restrict__ W_gate,
-    const %s* __restrict__ W_up,
-    const %s* __restrict__ W_down,
-    %s* __restrict__ Out,
-    int M, int N, int K
-) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto x = partition_view{tensor_span{assume_aligned<16>(X), extents{M, K}}, shape<TM, TK>{}};
-    auto wg = partition_view{tensor_span{assume_aligned<16>(W_gate), extents{K, N}}, shape<TK, TN>{}};
-    auto wu = partition_view{tensor_span{assume_aligned<16>(W_up), extents{K, N}}, shape<TK, TN>{}};
-    auto wd = partition_view{tensor_span{assume_aligned<16>(W_down), extents{N, K}}, shape<TN, TK>{}};
-    auto out = partition_view{tensor_span{assume_aligned<16>(Out), extents{M, K}}, shape<TM, TK>{}};
-
-    auto gate = full<tile<%s, shape<TM, TN>>>(0.0f);
-    auto up = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        gate = mma(x.load(0, k), wg.load(k, 0), gate);
-        up = mma(x.load(0, k), wu.load(k, 0), up);
-    }
-    auto gelu = 0.5f * gate * (1.0f + erf(gate * 0.7071067811865475f));
-    auto act = gelu * up;
-
-    auto down = full<tile<%s, shape<TM, TK>>>(0.0f);
-    for (auto n : irange(0, N / TN)) {
-        down = mma(act, wd.load(n, 0), down);
-    }
-    out.store(down, 0, 0);
-}
-`, kernelName, elemType, elemType, elemType, elemType, elemType, elemType, elemType, elemType)
+	return generateDeclarativeFFN(kernelName, elemType, true, true)
 }
 
 func generateDeclarativeGeLU(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
+	return generateDeclarativeFFN(kernelName, elemType, false, true)
+}
+
+// The reference source uses masked pointer tiles rather than relying on a
+// partition view's padding behavior. Reshape/masked-load syntax still requires
+// qualification against the selected CUDA Tile header and compiler.
+func declarativeMatrixSupport() string {
+	return `#ifndef EGRAPH_DECLARATIVE_MATRIX_DEFINED
+#define EGRAPH_DECLARATIVE_MATRIX_DEFINED
+template<class T> inline bool egraph_tile_shape(int M, int N, int K, bool ffn) {
+    if (M <= 0 || N <= 0 || K <= 0) return false;
+    constexpr long long limit = 9223372036854775807LL / sizeof(T);
+    return (long long)M <= limit / K && (long long)K <= limit / N &&
+           (ffn || (long long)M <= limit / N);
+}
+inline auto egraph_tile_indices() {
+    return reshape<shape<16, 16>>(iota<tile<long long, shape<256>>>());
+}
+template<class T> inline auto egraph_tile_load(const T* base, long long r, long long c, int rows, int cols) {
+    auto indices = egraph_tile_indices();
+    auto row = r + indices / 16LL;
+    auto col = c + indices % 16LL;
+    auto valid = (row < (long long)rows) & (col < (long long)cols);
+    auto offset = select(valid, row * (long long)cols + col, full<tile<long long, shape<16, 16>>>(0LL));
+    return load_masked(base + offset, valid, full<tile<T, shape<16, 16>>>(T(0)));
+}
+template<class T, class V> inline void egraph_tile_store(T* base, V value, long long r, long long c, int rows, int cols) {
+    auto indices = egraph_tile_indices();
+    auto row = r + indices / 16LL;
+    auto col = c + indices % 16LL;
+    auto valid = (row < (long long)rows) & (col < (long long)cols);
+    auto offset = select(valid, row * (long long)cols + col, full<tile<long long, shape<16, 16>>>(0LL));
+    store_masked(base + offset, value, valid);
+}
+#endif
+`
+}
+
+func generateDeclarativeFFN(kernelName, elemType string, gated, gelu bool) string {
+	inputWeight, downWeight := "W_in", "W_out"
+	upParam, upInit, upMMA, upMultiply := "", "", "", ""
+	if gated {
+		inputWeight, downWeight = "W_gate", "W_down"
+		upParam = fmt.Sprintf("    const %s* __restrict__ W_up,\n", elemType)
+		upInit = fmt.Sprintf("                auto up = full<tile<%s, shape<16, 16>>>(0.0f);\n", elemType)
+		upMMA = "                    up = mma(x, egraph_tile_load(W_up, (long long)k * 16, (long long)n * 16, K, N), up);\n"
+		upMultiply = "                act = act * up;\n"
+	}
+	activation := "gate / (1.0f + exp(-gate))"
+	if gelu {
+		activation = "0.5f * gate * (1.0f + erf(gate * 0.7071067811865475f))"
+	}
+	return declarativeMatrixSupport() + fmt.Sprintf(`extern "C" __tile_global__ void %s(
     const %s* __restrict__ X,
-    const %s* __restrict__ W_in,
-    const %s* __restrict__ W_out,
+    const %s* __restrict__ %s,
+%s    const %s* __restrict__ %s,
     %s* __restrict__ Out,
     int M, int N, int K
 ) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto x = partition_view{tensor_span{assume_aligned<16>(X), extents{M, K}}, shape<TM, TK>{}};
-    auto wi = partition_view{tensor_span{assume_aligned<16>(W_in), extents{K, N}}, shape<TK, TN>{}};
-    auto wo = partition_view{tensor_span{assume_aligned<16>(W_out), extents{N, K}}, shape<TN, TK>{}};
-    auto out = partition_view{tensor_span{assume_aligned<16>(Out), extents{M, K}}, shape<TM, TK>{}};
-
-    auto mid = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        mid = mma(x.load(0, k), wi.load(k, 0), mid);
+    if (!egraph_tile_shape<%s>(M, N, K, true)) return;
+    if (bid().x != 0 || bid().y != 0 || bid().z != 0) return;
+    const int row_tiles = (M - 1) / 16 + 1;
+    const int hidden_tiles = (N - 1) / 16 + 1;
+    const int output_tiles = (K - 1) / 16 + 1;
+    for (auto m : irange(0, row_tiles)) {
+        for (auto o : irange(0, output_tiles)) {
+            auto down = full<tile<%s, shape<16, 16>>>(0.0f);
+            for (auto n : irange(0, hidden_tiles)) {
+                auto gate = full<tile<%s, shape<16, 16>>>(0.0f);
+%s                for (auto k : irange(0, output_tiles)) {
+                    auto x = egraph_tile_load(X, (long long)m * 16, (long long)k * 16, M, K);
+                    gate = mma(x, egraph_tile_load(%s, (long long)k * 16, (long long)n * 16, K, N), gate);
+%s                }
+                auto act = %s;
+%s                auto hidden = (long long)n * 16 + egraph_tile_indices() %% 16LL;
+                act = select(hidden < (long long)N, act, full<decltype(act)>(0.0f));
+                down = mma(act, egraph_tile_load(%s, (long long)n * 16, (long long)o * 16, N, K), down);
+            }
+            egraph_tile_store(Out, down, (long long)m * 16, (long long)o * 16, M, K);
+        }
     }
-    auto act = 0.5f * mid * (1.0f + erf(mid * 0.7071067811865475f));
-
-    auto down = full<tile<%s, shape<TM, TK>>>(0.0f);
-    for (auto n : irange(0, N / TN)) {
-        down = mma(act, wo.load(n, 0), down);
-    }
-    out.store(down, 0, 0);
 }
-`, kernelName, elemType, elemType, elemType, elemType, elemType, elemType)
+`, kernelName, elemType, elemType, inputWeight, upParam, elemType, downWeight, elemType,
+		elemType, elemType, elemType, upInit, inputWeight, upMMA, activation, upMultiply, downWeight)
 }
 
 func generateDeclarativeMMA(kernelName, elemType string) string {
-	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
+	return declarativeMatrixSupport() + fmt.Sprintf(`extern "C" __tile_global__ void %s(
     const %s* __restrict__ A,
     const %s* __restrict__ B,
     %s* __restrict__ C,
     int M, int N, int K
 ) {
-    constexpr int TM = 16, TN = 16, TK = 16;
-    auto a = partition_view{tensor_span{assume_aligned<16>(A), extents{M, K}}, shape<TM, TK>{}};
-    auto b = partition_view{tensor_span{assume_aligned<16>(B), extents{K, N}}, shape<TK, TN>{}};
-    auto c = partition_view{tensor_span{assume_aligned<16>(C), extents{M, N}}, shape<TM, TN>{}};
-    auto sum = full<tile<%s, shape<TM, TN>>>(0.0f);
-    for (auto k : irange(0, K / TK)) {
-        sum = mma(a.load(0, k), b.load(k, 0), sum);
+    if (!egraph_tile_shape<%s>(M, N, K, false)) return;
+    if (bid().x != 0 || bid().y != 0 || bid().z != 0) return;
+    const int row_tiles = (M - 1) / 16 + 1;
+    const int column_tiles = (N - 1) / 16 + 1;
+    const int reduction_tiles = (K - 1) / 16 + 1;
+    for (auto m : irange(0, row_tiles)) {
+        for (auto n : irange(0, column_tiles)) {
+            auto sum = full<tile<%s, shape<16, 16>>>(0.0f);
+            for (auto k : irange(0, reduction_tiles)) {
+                sum = mma(egraph_tile_load(A, (long long)m * 16, (long long)k * 16, M, K),
+                          egraph_tile_load(B, (long long)k * 16, (long long)n * 16, K, N), sum);
+            }
+            egraph_tile_store(C, sum, (long long)m * 16, (long long)n * 16, M, N);
+        }
     }
-    c.store(sum, 0, 0);
 }
-`, kernelName, elemType, elemType, elemType, elemType)
+`, kernelName, elemType, elemType, elemType, elemType, elemType)
 }
 
 func generateDeclarativeFP8(kernelName string) string {
