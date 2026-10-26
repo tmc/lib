@@ -1,0 +1,11 @@
+commit: 97cf111dcfc527ce1632953203e1ab376c765cf6
+date: 2026-10-26T04:20:09.633816+00:00
+agent: Codex
+model: inherited, not introspected
+claude-code: not applicable
+tty: non-tty task helper
+pid: 99053
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source patch: /Users/tmc/tmp/lib-wt-next/20261025-reference-output-name-impl/W/net.patch
+root grade: /Users/tmc/tmp/lib-wt-next/20261025-reference-output-name-adoption/ROOT-GRADE.md
+qualification: original01 projection fix; actual145+2files affected host/race/vet and independent unchanged failing-probe successor PASS; no native claim
