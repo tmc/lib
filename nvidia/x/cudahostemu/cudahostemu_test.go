@@ -1156,3 +1156,70 @@ __global__ void wgmma_f16_mn_k(const uint16_t* A, const uint16_t* B, float* D, i
 		})
 	}
 }
+
+func TestEpochReadyCounters(t *testing.T) {
+	const src = `
+__global__ void stage_pair(const float* in, float* mid, float* out, unsigned long long* ready, unsigned int epoch) {
+    const int b = blockIdx.x, tid = threadIdx.x;
+    if (b < 4) {
+        mid[b * 32 + tid] = in[b * 32 + tid] + (float)epoch;
+        __syncthreads();
+        if (tid == 0) {
+            eg_emu_ready_stage(&ready[0], epoch, 4, mid, 4 * 32 * sizeof(float));
+            eg_emu_ready_signal(&ready[0], epoch, 1);
+        }
+        return;
+    }
+    if (tid == 0) {
+#if !defined(EG_NO_READY_WAIT)
+        eg_emu_ready_wait(&ready[0], epoch, 4);
+#endif
+    }
+    __syncthreads();
+    out[(b - 4) * 32 + tid] = mid[(b - 4) * 32 + tid] * 2.0f;
+}
+`
+	in := make([]byte, 128*4)
+	for i := range 128 {
+		binary.LittleEndian.PutUint32(in[4*i:], math.Float32bits(float32(i+1)))
+	}
+	res := run(t, Program{
+		Source: src,
+		Launch: `eg_emu_launch(dim3(8), dim3(32), 0, stage_pair, in, mid, out, ready, 1u);
+    eg_emu_launch(dim3(8), dim3(32), 0, stage_pair, in, mid, out, ready, 2u);
+    eg_emu_launch(dim3(8), dim3(32), 0, stage_pair, in, mid, out, ready, 3u)`,
+		Buffers: []Buffer{
+			{"in", "float", in},
+			{"mid", "float", Poison(128 * 4)},
+			{"out", "float", Poison(128 * 4)},
+			{"ready", "unsigned long long", zeros(8)},
+		},
+	})
+	got := f32s(res["out"])
+	for i, v := range got {
+		if want := float32(i+1+3) * 2; v != want {
+			t.Fatalf("out[%d] = %g, want %g", i, v, want)
+		}
+	}
+	if r := binary.LittleEndian.Uint64(res["ready"]); r != (3<<32)|4 {
+		t.Fatalf("ready[0] = %#x, want %#x", r, uint64((3<<32)|4))
+	}
+
+	// Without eg_emu_ready_wait, mid stays poisoned with NaN.
+	resNoWait := run(t, Program{
+		Source: src,
+		Flags:  []string{"-DEG_NO_READY_WAIT"},
+		Launch: `eg_emu_launch(dim3(8), dim3(32), 0, stage_pair, in, mid, out, ready, 1u)`,
+		Buffers: []Buffer{
+			{"in", "float", in},
+			{"mid", "float", Poison(128 * 4)},
+			{"out", "float", Poison(128 * 4)},
+			{"ready", "unsigned long long", zeros(8)},
+		},
+	})
+	for i, v := range f32s(resNoWait["out"]) {
+		if !math.IsNaN(float64(v)) {
+			t.Fatalf("out[%d] without wait = %g, want NaN", i, v)
+		}
+	}
+}

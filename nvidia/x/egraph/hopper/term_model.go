@@ -356,6 +356,10 @@ func isModelOp(op string) bool {
 
 func defaultTempDType(e *egraph.Expr) DType {
 	switch e.Op {
+	case OpCast:
+		if d, ok := e.Children[0].Data.(DType); ok {
+			return d
+		}
 	case OpGroupedGEMMGLU, OpSwiGLU:
 		return BF16
 	case OpTopKIDs, OpAlignOffsets, OpAlignRows, OpAlignSlots:

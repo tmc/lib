@@ -498,14 +498,36 @@ inline int __popc(unsigned v) { return __builtin_popcount(v); }
 inline std::mutex eg_emu_atomic_mu;
 template <typename T> T atomicAdd(T* p, T v) {
     std::lock_guard<std::mutex> lock(eg_emu_atomic_mu);
-    T old = *p;
-    *p = old + v;
-    return old;
+    if constexpr (std::is_integral_v<T>) {
+        return std::atomic_ref<T>(*p).fetch_add(v, std::memory_order_acq_rel);
+    } else {
+        T old = *p;
+        *p = old + v;
+        return old;
+    }
+}
+inline unsigned long long atomicAdd(unsigned long long* p, unsigned long long v) {
+    std::lock_guard<std::mutex> lock(eg_emu_atomic_mu);
+    return std::atomic_ref<unsigned long long>(*p).fetch_add(v, std::memory_order_acq_rel);
 }
 template <typename T> T atomicMax(T* p, T v) {
     std::lock_guard<std::mutex> lock(eg_emu_atomic_mu);
-    T old = *p;
-    *p = old < v ? v : old;
+    if constexpr (std::is_integral_v<T>) {
+        std::atomic_ref<T> a(*p);
+        T old = a.load(std::memory_order_acquire);
+        while (old < v && !a.compare_exchange_weak(old, v, std::memory_order_acq_rel, std::memory_order_acquire)) {}
+        return old;
+    } else {
+        T old = *p;
+        *p = old < v ? v : old;
+        return old;
+    }
+}
+inline unsigned long long atomicMax(unsigned long long* p, unsigned long long v) {
+    std::lock_guard<std::mutex> lock(eg_emu_atomic_mu);
+    std::atomic_ref<unsigned long long> a(*p);
+    unsigned long long old = a.load(std::memory_order_acquire);
+    while (old < v && !a.compare_exchange_weak(old, v, std::memory_order_acq_rel, std::memory_order_acquire)) {}
     return old;
 }
 template <typename T> T atomicMin(T* p, T v) {
@@ -525,6 +547,109 @@ template <typename T> T atomicCAS(T* p, T cmp, T v) {
     T old = *p;
     if (old == cmp) *p = v;
     return old;
+}
+inline void __nanosleep(unsigned) { std::this_thread::yield(); }
+
+// --- epoch-tagged ready counters -------------------------------------------
+
+struct eg_emu_ready_buf {
+    unsigned char* dst;
+    size_t size;
+    std::vector<unsigned char> data;
+};
+struct eg_emu_ready_entry {
+    unsigned int epoch = 0;
+    unsigned int expected = 0;
+    bool poisoned = false;
+    bool delivered = false;
+    std::vector<eg_emu_ready_buf> bufs;
+};
+inline std::mutex eg_emu_ready_mu;
+inline std::map<const unsigned long long*, eg_emu_ready_entry> eg_emu_ready_map;
+
+// eg_emu_ready_stage registers [ptr, ptr+bytes) as produced by expected units
+// on *slot in epoch. Once *slot reaches (epoch << 32) | expected,
+// eg_emu_ready_signal snapshots the registered buffers and fills them with
+// 0xff (NaN) until eg_emu_ready_wait(slot, epoch, need) observes the epoch
+// with need >= expected.
+inline void eg_emu_ready_stage(const unsigned long long* slot, unsigned int epoch,
+                               unsigned int expected, void* ptr, size_t bytes) {
+    if (!ptr || bytes == 0 || expected == 0) return;
+    std::lock_guard<std::mutex> lock(eg_emu_ready_mu);
+    eg_emu_ready_entry& e = eg_emu_ready_map[slot];
+    if (e.epoch != epoch) {
+        e = eg_emu_ready_entry{};
+        e.epoch = epoch;
+        e.expected = expected;
+    }
+    for (auto& b : e.bufs) {
+        if (b.dst == (unsigned char*)ptr && b.size == bytes) return;
+    }
+    e.bufs.push_back({(unsigned char*)ptr, bytes, {}});
+}
+
+inline void eg_emu_ready_signal(unsigned long long* slot, unsigned int epoch, unsigned int units = 1) {
+    if (!slot || epoch == 0) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_ready_signal(%p, epoch=%u, units=%u): bad slot or epoch 0\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, (void*)slot, epoch, units);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    std::atomic_thread_fence(std::memory_order_release);
+    atomicMax(slot, (unsigned long long)epoch << 32);
+    const unsigned long long prev = atomicAdd(slot, (unsigned long long)units);
+    const unsigned long long cur = std::max(prev, (unsigned long long)epoch << 32) + units;
+    std::lock_guard<std::mutex> lock(eg_emu_ready_mu);
+    auto it = eg_emu_ready_map.find(slot);
+    if (it != eg_emu_ready_map.end() && it->second.epoch == epoch && !it->second.poisoned) {
+        const unsigned long long want = ((unsigned long long)epoch << 32) | it->second.expected;
+        if (cur >= want) {
+            it->second.poisoned = true;
+            for (auto& b : it->second.bufs) {
+                b.data.assign(b.dst, b.dst + b.size);
+                std::memset(b.dst, 0xff, b.size);
+            }
+        }
+    }
+}
+
+inline void eg_emu_ready_wait(const unsigned long long* slot, unsigned int epoch, unsigned int need) {
+    if (!slot || epoch == 0) {
+        std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_ready_wait(%p, epoch=%u, need=%u): bad slot or epoch 0\n",
+                     blockIdx.x, blockIdx.y, blockIdx.z, (const void*)slot, epoch, need);
+        std::fflush(stderr);
+        std::_Exit(3);
+    }
+    if (need == 0) return;
+    const unsigned long long want = ((unsigned long long)epoch << 32) | need;
+    std::atomic_ref<unsigned long long> a(*const_cast<unsigned long long*>(slot));
+    const auto t0 = std::chrono::steady_clock::now();
+    while (a.load(std::memory_order_acquire) < want) {
+        if (std::chrono::steady_clock::now() - t0 > std::chrono::milliseconds(500)) {
+            const unsigned long long got = a.load(std::memory_order_acquire);
+            std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_ready_wait(%p, epoch=%u, need=%u): counter %#llx (epoch=%u, count=%u) did not reach %#llx\n",
+                         blockIdx.x, blockIdx.y, blockIdx.z, (const void*)slot, epoch, need,
+                         got, (unsigned)(got >> 32), (unsigned)got, want);
+            std::fflush(stderr);
+            std::_Exit(3);
+        }
+        std::this_thread::yield();
+    }
+    std::atomic_thread_fence(std::memory_order_acquire);
+    std::lock_guard<std::mutex> lock(eg_emu_ready_mu);
+    auto it = eg_emu_ready_map.find(slot);
+    if (it != eg_emu_ready_map.end() && it->second.epoch == epoch && it->second.poisoned && !it->second.delivered) {
+        if (need < it->second.expected) {
+            std::fprintf(stderr, "cudahostemu: block (%u,%u,%u) eg_ready_wait(%p, epoch=%u, need=%u): need < expected %u\n",
+                         blockIdx.x, blockIdx.y, blockIdx.z, (const void*)slot, epoch, need, it->second.expected);
+            std::fflush(stderr);
+            std::_Exit(3);
+        }
+        it->second.delivered = true;
+        for (auto& b : it->second.bufs) {
+            std::memcpy(b.dst, b.data.data(), b.size);
+        }
+    }
 }
 
 // --- warp collectives ------------------------------------------------------
