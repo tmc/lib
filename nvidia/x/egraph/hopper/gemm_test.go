@@ -45,6 +45,7 @@ func TestSkinnyGEMMEmulated(t *testing.T) {
 		{"bf16_prefetch4_full", SkinnyGEMM{N: 8, K: 1024, MaxM: 2, Weight: WeightBF16, Out: F32, RowsPerBlock: 2, Warps: 1, Prefetch: 4}, 2},
 		{"hilo_prefetch2", SkinnyGEMM{N: 4, K: 1024, MaxM: 2, Weight: WeightBF16HiLo, Out: F32, Warps: 1, Prefetch: 2}, 2},
 		{"nvfp4_prefetch2", SkinnyGEMM{N: 4, K: 4096, MaxM: 2, Weight: WeightNVFP4, Out: F32, RowsPerBlock: 2, Warps: 1, Prefetch: 2}, 2},
+		{"nvfp4_blackwell", SkinnyGEMM{N: 4, K: 2048, MaxM: 2, Weight: WeightNVFP4, Out: F32, RowsPerBlock: 2, BlackwellFP4: true, Prefetch: 2}, 2},
 		{"bf16_split_prefetch4", SkinnyGEMM{N: 4, K: 2048, MaxM: 4, Weight: WeightBF16, Out: BF16, SplitK: 2, RowsPerBlock: 2, Warps: 1, Prefetch: 4}, 4},
 	}
 	r := rand.New(rand.NewPCG(1, 2))
@@ -159,6 +160,7 @@ func TestSkinnyGEMMErrors(t *testing.T) {
 		"epilogue": func(g *SkinnyGEMM) { g.Epilogue = MustLambda("(add $0 $1)") },
 		"split":    func(g *SkinnyGEMM) { g.SplitK = 2 },
 		"prefetch": func(g *SkinnyGEMM) { g.Prefetch = -1 },
+		"bw_fp4":   func(g *SkinnyGEMM) { g.BlackwellFP4 = true },
 	} {
 		g := ok
 		mutate(&g)

@@ -36,12 +36,38 @@ func MMAM16N8K16B(lane, reg int) (rowPair, col int) {
 }
 
 // MMAM16N8C returns the accumulator row (0..15) and column (0..7) held by
-// FP32 register reg (0..3) of warp lane (0..31) in mma.sync.aligned.m16n8k16
-// and mma.sync.aligned.m16n8k32.
+// FP32 register reg (0..3) of warp lane (0..31) in mma.sync.aligned.m16n8k16,
+// mma.sync.aligned.m16n8k32, and mma.sync.aligned.m16n8k64.
 func MMAM16N8C(lane, reg int) (row, col int) {
 	l := lane & 31
 	g, t := l>>2, l&3
 	return g + 8*((reg>>1)&1), 2*t + (reg & 1)
+}
+
+// MMAM16N8K64NVFP4A returns the matrix A row (0..15) and starting K-column
+// octad (0, 8, ..., 56) held by 32-bit register reg (0..3) of warp lane (0..31)
+// in Blackwell block-scaled mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.
+//
+// Nibble n (0..7, from bits 0..3 to bits 28..31) of reg holds A[row, colOct+n].
+// The four E4M3 block-16 scales for A[row, 0..63] sit in bytes 0..3 of sfa on
+// lane (row%8)*4 + (row/8).
+func MMAM16N8K64NVFP4A(lane, reg int) (row, colOct int) {
+	l := lane & 31
+	g, t := l>>2, l&3
+	return g + 8*(reg&1), 8*t + 32*((reg>>1)&1)
+}
+
+// MMAM16N8K64NVFP4B returns the starting K-row octad (0, 8, ..., 56) and
+// N-column (0..7) held by 32-bit register reg (0..1) of warp lane (0..31) in
+// Blackwell block-scaled mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.
+//
+// Nibble n (0..7, from bits 0..3 to bits 28..31) of reg holds B[rowOct+n, col].
+// The four E4M3 block-16 scales for B[0..63, col] sit in bytes 0..3 of sfb on
+// lane col*4.
+func MMAM16N8K64NVFP4B(lane, reg int) (rowOct, col int) {
+	l := lane & 31
+	g, t := l>>2, l&3
+	return 8*t + 32*(reg&1), g
 }
 
 // MMAM16N8K32A returns the matrix A row (0..15) and starting K-column quad

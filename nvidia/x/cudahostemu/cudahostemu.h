@@ -1122,6 +1122,23 @@ inline uint32_t eg_emu_e4m3x2_to_f16x2(uint32_t x) {
 inline uint32_t cvt_e4m3x2_to_f16x2(uint32_t x) { return eg_emu_e4m3x2_to_f16x2(x); }
 inline uint32_t e4m3x2_to_f16x2(uint32_t x) { return eg_emu_e4m3x2_to_f16x2(x); }
 
+// eg_emu_e2m1 decodes a 4-bit float4_e2m1fn code (bit 3 is sign).
+inline float eg_emu_e2m1(uint32_t code) {
+    static constexpr float grid[8] = {0.0f, 0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 6.0f};
+    const float v = grid[code & 7u];
+    return (code & 8u) ? -v : v;
+}
+
+// eg_emu_e2m1x2_to_f16x2 converts the two E2M1 nibbles in the low byte of byte
+// (low nibble to bits 0..15, high nibble to bits 16..31) to packed F16x2
+// (cvt.rn.f16x2.e2m1x2, PTX ISA 8.6+ / sm_100a+).
+inline uint32_t eg_emu_e2m1x2_to_f16x2(uint32_t byte) {
+    const uint16_t lo = eg_emu_f32_to_f16(eg_emu_e2m1(byte & 0xfu));
+    const uint16_t hi = eg_emu_f32_to_f16(eg_emu_e2m1((byte >> 4) & 0xfu));
+    return (uint32_t)lo | ((uint32_t)hi << 16);
+}
+inline uint32_t cvt_e2m1x2_to_f16x2(uint32_t byte) { return eg_emu_e2m1x2_to_f16x2(byte); }
+
 inline uint32_t __byte_perm(uint32_t a, uint32_t b, uint32_t s) {
     uint8_t bytes[8];
     for (int i = 0; i < 4; ++i) {
@@ -1234,6 +1251,51 @@ inline void eg_emu_mma_e4m3_16832(float d[4], const uint32_t a[4], const uint32_
         int row = g + 8 * (i / 2), col = 2 * t + (i & 1);
         float acc = c[i];
         for (int k = 0; k < 32; ++k) acc += A(row, k) * B(k, col);
+        out[i] = acc;
+    }
+    w->sync(0xffffffffu, eg_emu_lane);
+    for (int i = 0; i < 4; ++i) d[i] = out[i];
+}
+
+// mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale.scale_vec::4X.f32.e2m1.e2m1.f32.ue4m3
+// (sm_100a / sm_120a / sm_121a Blackwell block-scaled NVFP4 MMA):
+// g = lane/4, t = lane%4; each 32-bit register holds 8 E2M1 nibbles (k ascending from low nibble):
+//   a0: row g,   k = 8t..8t+7;      a1: row g+8, k = 8t..8t+7;
+//   a2: row g,   k = 8t+32..8t+39;  a3: row g+8, k = 8t+32..8t+39;
+//   b0: col g,   k = 8t..8t+7;      b1: col g,   k = 8t+32..8t+39.
+// sfa on lane (row%8)*4 + (row/8) holds the 4 E4M3 block-16 scales for A[row, 16*blk..16*blk+15]
+// in byte blk (0..3); sfb on lane col*4 holds the 4 E4M3 block-16 scales for B[col, 16*blk..16*blk+15]
+// in byte blk (0..3). Accumulates into d[0..3] in place.
+inline void eg_emu_mma_nvfp4_16864(float d[4], const uint32_t a[4], const uint32_t b[2], uint32_t sfa, uint32_t sfb) {
+    eg_emu_warp* w = eg_emu_cur_warp;
+    uint32_t* mine = w->regs[eg_emu_lane];
+    for (int i = 0; i < 4; ++i) mine[i] = a[i];
+    mine[4] = b[0];
+    mine[5] = b[1];
+    mine[6] = sfa;
+    mine[7] = sfb;
+    w->sync(0xffffffffu, eg_emu_lane);
+    auto A = [&](int row, int k) {
+        const int lane = (row % 8) * 4 + (k % 32) / 8;
+        const int reg = (row / 8) + 2 * (k / 32);
+        const float code = eg_emu_e2m1((w->regs[lane][reg] >> (4 * (k % 8))) & 0xfu);
+        const int slane = (row % 8) * 4 + (row / 8);
+        const float sf = eg_emu_e4m3((w->regs[slane][6] >> (8 * (k / 16))) & 0xffu);
+        return code * sf;
+    };
+    auto B = [&](int k, int col) {
+        const int lane = col * 4 + (k % 32) / 8;
+        const float code = eg_emu_e2m1((w->regs[lane][4 + k / 32] >> (4 * (k % 8))) & 0xfu);
+        const int slane = col * 4;
+        const float sf = eg_emu_e4m3((w->regs[slane][7] >> (8 * (k / 16))) & 0xffu);
+        return code * sf;
+    };
+    const int g = eg_emu_lane / 4, t = eg_emu_lane % 4;
+    float out[4];
+    for (int i = 0; i < 4; ++i) {
+        const int row = g + 8 * (i / 2), col = 2 * t + (i & 1);
+        float acc = d[i];
+        for (int k = 0; k < 64; ++k) acc += A(row, k) * B(k, col);
         out[i] = acc;
     }
     w->sync(0xffffffffu, eg_emu_lane);

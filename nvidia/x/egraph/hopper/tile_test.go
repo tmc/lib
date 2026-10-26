@@ -81,6 +81,10 @@ func TestTileGEMMEmulated(t *testing.T) {
 		{"ws_nvfp4_glu_grouped_gather", TileGEMM{N: 256, K: 384, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 128, WGMMA: true,
 			Swizzle128B: true, Repacked: true, WarpSpecialized: true, Stages: 2, GLU: true, Grouped: true, Gather: true,
 			Epilogue: MustLambda("(mul (silu $0) $1)")}, 100, 30, []int32{0, 37, 37, 100}},
+		{"blackwell_nvfp4_64", TileGEMM{N: 64, K: 256, Weight: WeightNVFP4, Out: F32, BM: 64, BN: 64, Stages: 3, BlackwellFP4: true}, 40, 0, nil},
+		{"blackwell_nvfp4_grouped_gather_glu_sumsq", TileGEMM{N: 128, K: 128, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 64,
+			BlackwellFP4: true, Grouped: true, Gather: true, GLU: true, SumSq: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 70, 25, []int32{0, 17, 70}},
 	}
 	r := rand.New(rand.NewPCG(41, 42))
 	for _, tt := range tests {
@@ -304,6 +308,8 @@ func TestTileGEMMErrors(t *testing.T) {
 			g.Weight, g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.Repacked, g.DequantWords = WeightNVFP4, true, true, true, true, 2
 		}},
 		{"ws_bf16_bm64", func(g *TileGEMM) { g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.BM = true, true, true, 64 }},
+		{"blackwell_fp4_bf16", func(g *TileGEMM) { g.BlackwellFP4 = true }},
+		{"blackwell_fp4_wgmma", func(g *TileGEMM) { g.Weight, g.WGMMA, g.BlackwellFP4 = WeightNVFP4, true, true }},
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)
@@ -530,5 +536,100 @@ func TestTileGEMMSwizzleGroupMAndE4M3Mutations(t *testing.T) {
 		if _, ok := closeTo(got, want, 1e-5, 1e-5); ok {
 			t.Error("mutant corrupt_e4m3_k_step survived")
 		}
+	}
+}
+
+// TestTileGEMMBlackwellNVFP4 checks BlackwellFP4 TileGEMM (including Grouped,
+// Gather, GLU, and SumSq) against TileGEMM.Reference and verifies that
+// corrupting the sfb scale byte shift fails the emulator test.
+func TestTileGEMMBlackwellNVFP4(t *testing.T) {
+	r := rand.New(rand.NewPCG(103, 104))
+	g := TileGEMM{
+		Name:         "tile_blackwell_fp4",
+		N:            128,
+		K:            128,
+		Weight:       WeightNVFP4,
+		Out:          F32,
+		BM:           64,
+		BN:           64,
+		Stages:       2,
+		BlackwellFP4: true,
+		Grouped:      true,
+		Gather:       true,
+		GLU:          true,
+		SumSq:        true,
+		Epilogue:     MustLambda("(mul (silu $0) $1)"),
+	}
+	src, err := g.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const m, tokens = 70, 25
+	offsets := []int32{0, 23, 70}
+	rows := make([]int32, m)
+	for i := range rows {
+		rows[i] = int32(r.IntN(tokens))
+	}
+	x := randBF16(r, tokens*g.K, 1)
+	var ws []GEMMWeights
+	var allPacked, allScales []uint8
+	var gs []float32
+	for range 2 {
+		w := randNVFP4(r, g.N, g.K)
+		w.GlobalScal = float32(0.01 + r.Float64()*0.01)
+		ws = append(ws, w)
+		allPacked = append(allPacked, w.Packed...)
+		allScales = append(allScales, w.Scales...)
+		gs = append(gs, w.GlobalScal)
+	}
+	want, err := g.Reference(m, x, rows, offsets, ws, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nout := g.N / 2
+	grid, block := g.Grid(47, 2)
+	launch := fmt.Sprintf("eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %d, x, rows, w, w_sf, w_gs, offsets, out, ss)",
+		grid[0], grid[1], grid[2], block[0], g.SharedBytes(), g.Name, m)
+	bufs := []emuBuf{
+		{"x", "uint16_t", u16Bytes(x)},
+		{"rows", "int32_t", i32Bytes(rows)},
+		{"w", "uint8_t", allPacked},
+		{"w_sf", "uint8_t", allScales},
+		{"w_gs", "float", f32Bytes(gs)},
+		{"offsets", "int32_t", i32Bytes(offsets)},
+		{"out", "float", poison(4 * m * nout)},
+		{"ss", "float", poison(4 * m * nout / 32)},
+	}
+	ctrl := runEmu(t, src, launch, bufs...)
+	gotCtrl := bytesF32(ctrl["out"])
+	var ms float64
+	for _, v := range want {
+		ms += float64(v) * float64(v)
+	}
+	rel, abs := 1e-5, max(1e-5, 1e-6*math.Sqrt(float64(g.K)*ms/float64(len(want))))
+	if i, ok := closeTo(gotCtrl, want, rel, abs); !ok {
+		t.Fatalf("BlackwellFP4 control out[%d] = %g, want %g", i, gotCtrl[i], want[i])
+	}
+	wantSS := make([]float64, m*nout/32)
+	for i, v := range want {
+		wantSS[i/32] += float64(v) * float64(v)
+	}
+	gotSS := decode(F32, ctrl["ss"])
+	for i := range wantSS {
+		if d := math.Abs(gotSS[i] - wantSS[i]); d > 1e-4*wantSS[i]+1e-6 {
+			t.Fatalf("BlackwellFP4 control ss[%d] = %g, want %g", i, gotSS[i], wantSS[i])
+		}
+	}
+	// Mutate the sfb scale byte shift: (sfb >> (8 * ks)) -> sfb & 0xffu.
+	old := "const uint32_t s_e4m3 = (sfb >> (8 * ks)) & 0xffu;"
+	repl := "const uint32_t s_e4m3 = sfb & 0xffu;"
+	if !strings.Contains(src, old) {
+		t.Fatal("blackwell fp4 sfb shift target not in source")
+	}
+	msrc := strings.Replace(src, old, repl, 1)
+	mres := runEmu(t, msrc, launch, bufs...)
+	gotMut := bytesF32(mres["out"])
+	if _, ok := closeTo(gotMut, want, rel, abs); ok {
+		t.Error("mutant corrupt_blackwell_fp4_sfb_shift survived")
 	}
 }

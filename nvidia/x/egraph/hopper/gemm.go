@@ -112,6 +112,11 @@ type SkinnyGEMM struct {
 	// warp) and issues every weight load of the batch into registers before the
 	// activation loads and FMA accumulation.
 	Prefetch int
+
+	// BlackwellFP4, when Weight == WeightNVFP4, emits Blackwell
+	// (sm_100a / sm_120a / sm_121a GB10) hardware cvt.rn.f16x2.e2m1x2 widening
+	// via eg_e2m1x8_to_bf16.
+	BlackwellFP4 bool
 }
 
 // norm validates g and fills defaults.
@@ -168,6 +173,9 @@ func (g SkinnyGEMM) norm() (SkinnyGEMM, error) {
 	}
 	if g.Warps < 1 || g.Warps > 32 || g.SplitK < 1 || g.Unroll < 1 || g.Prefetch < 0 || 32*g.Warps < g.RowsPerBlock*g.MaxM {
 		return g, fmt.Errorf("skinny gemm %s: bad schedule", g.Name)
+	}
+	if g.BlackwellFP4 && g.Weight != WeightNVFP4 {
+		return g, fmt.Errorf("skinny gemm %s: BlackwellFP4 requires WeightNVFP4", g.Name)
 	}
 	return g, nil
 }
@@ -232,6 +240,9 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 		}
 	}
 	var b strings.Builder
+	if g.BlackwellFP4 {
+		b.WriteString(blackwellFP4Helpers)
+	}
 	fmt.Fprintf(&b, "// %s: out[m,n] = %s over x[M,%d] bf16 · W[%d,%d] %s, M <= %d.\n", g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.MaxM)
 	fmt.Fprintf(&b, "template <int M>\n__global__ void __launch_bounds__(%d) %s(\n    %s) {\n", 32*W, g.Name, strings.Join(g.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, R = %d, WARPS = %d, U = %d, SPLIT = %d, MAXM = %d;\n", g.N, g.K, R, W, u, g.SplitK, g.MaxM)
@@ -322,7 +333,22 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 #pragma unroll
             for (int r = 0; r < R; ++r) {
                 const uint32_t q[4] = {wv[u][r].x, wv[u][r].y, wv[u][r].z, wv[u][r].w};
+`)
+		if g.BlackwellFP4 {
+			b.WriteString(`#pragma unroll
+                for (int w = 0; w < 4; ++w) {
+                    uint32_t h[4];
+                    eg_e2m1x8_to_bf16(q[w], h);
 #pragma unroll
+                    for (int i = 0; i < 4; ++i) {
+                        wf[r][8 * w + 2 * i] = eg_bf16_to_f32(h[i]);
+                        wf[r][8 * w + 2 * i + 1] = eg_bf16_hi_to_f32(h[i]);
+                    }
+                }
+            }
+`)
+		} else {
+			b.WriteString(`#pragma unroll
                 for (int j = 0; j < 8; ++j) {
                     uint32_t h[2];
                     eg_e2m1x4_to_bf16x4(q[j / 2] >> (16 * (j % 2)), h);
@@ -332,7 +358,9 @@ func (g SkinnyGEMM) CUDA() (string, error) {
                     wf[r][4 * j + 3] = eg_bf16_hi_to_f32(h[1]);
                 }
             }
-#pragma unroll
+`)
+		}
+		b.WriteString(`#pragma unroll
             for (int m = 0; m < M; ++m) {
                 float xf[32];
 #pragma unroll

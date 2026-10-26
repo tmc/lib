@@ -28,9 +28,9 @@
 // headers for callers that drive the compiler themselves.
 //
 // [MMAM16N8K16A], [MMAM16N8K16B], [MMAM16N8C], [MMAM16N8K32A], [MMAM16N8K32B],
-// [LDMatrixM8N8X4], [WGMMADesc], and [SwizzleOffset] report the PTX ISA
-// register-fragment and shared-memory descriptor layouts that the header
-// emulates.
+// [MMAM16N8K64NVFP4A], [MMAM16N8K64NVFP4B], [LDMatrixM8N8X4], [WGMMADesc], and
+// [SwizzleOffset] report the PTX ISA register-fragment and shared-memory
+// descriptor layouts that the header emulates.
 //
 // The emulation checks a kernel's arithmetic, indexing and synchronization
 // on small inputs. It does not model timing, memory ordering beyond

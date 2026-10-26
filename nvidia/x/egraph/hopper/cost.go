@@ -113,11 +113,24 @@ func CompileWithCost(e *egraph.Expr, name string, out DType, cfg CostConfig) (*P
 	return plan, nil
 }
 
+func (c CostConfig) isBlackwell() bool {
+	arch := strings.ToLower(strings.TrimSpace(c.Ceiling.Architecture))
+	dev := strings.ToLower(strings.TrimSpace(c.Device + " " + c.Ceiling.Device))
+	return strings.HasPrefix(arch, "sm_100") ||
+		strings.HasPrefix(arch, "sm_120") ||
+		strings.HasPrefix(arch, "sm_121") ||
+		strings.Contains(dev, "gb10") ||
+		strings.Contains(dev, "b200") ||
+		strings.Contains(dev, "b100")
+}
+
 // SelectSchedules updates each kernel in p to the optimal schedule under cfg:
 //   - SkinnyGEMM enables register Prefetch when M <= 8 and weight bytes fit
-//     the register-prefetch window;
-//   - TileGEMM enables WGMMA, Swizzle128B, and GroupM = 8 when M >= 64 and
-//     K is a multiple of 64;
+//     the register-prefetch window (and BlackwellFP4 when targeting Blackwell
+//     with WeightNVFP4);
+//   - TileGEMM enables BlackwellFP4 (with GroupM = 8 when M >= 64) when
+//     targeting Blackwell with WeightNVFP4, or WGMMA, Swizzle128B, and
+//     GroupM = 8 when M >= 64 and K is a multiple of 64;
 //   - RowKernel enables Cluster when CanCluster holds;
 //   - PagedAttention enables Swizzle, TableAhead = Stages - 1, and
 //     DeviceSplits (or ClusterCombine when splits are a multiple of 8).
@@ -126,6 +139,7 @@ func (p *Plan) SelectSchedules(cfg CostConfig) error {
 	if err != nil {
 		return err
 	}
+	blackwell := cfg.isBlackwell()
 	for i := range p.Kernels {
 		k := &p.Kernels[i]
 		switch {
@@ -135,18 +149,32 @@ func (p *Plan) SelectSchedules(cfg CostConfig) error {
 			if err != nil {
 				return err
 			}
+			if blackwell && normed.Weight == WeightNVFP4 {
+				g.BlackwellFP4 = true
+			}
 			wBytes := weightFormatBytes(normed.Weight, normed.N, normed.K)
 			if k.M <= 8 && wBytes <= maxPrefetchWeightBytes {
 				steps := normed.K / (32 * normed.Weight.chunk())
 				perWarp := (steps/normed.SplitK + normed.Warps - 1) / normed.Warps
 				g.Prefetch = min(4, max(2, perWarp))
-				if _, err := g.norm(); err == nil {
-					*k.GEMM = g
-				}
+			}
+			if _, err := g.norm(); err == nil {
+				*k.GEMM = g
 			}
 		case k.Tile != nil:
 			t := *k.Tile
-			if k.M >= 64 && t.K >= 64 && t.K%64 == 0 && t.Weight != WeightBF16HiLo {
+			if blackwell && t.Weight == WeightNVFP4 {
+				cand := t
+				cand.WGMMA = false
+				cand.Swizzle128B = false
+				cand.BlackwellFP4 = true
+				if k.M >= 64 {
+					cand.GroupM = 8
+				}
+				if _, err := cand.norm(); err == nil {
+					*k.Tile = cand
+				}
+			} else if k.M >= 64 && t.K >= 64 && t.K%64 == 0 && t.Weight != WeightBF16HiLo {
 				cand := t
 				cand.BM = 128
 				if cand.N%128 == 0 && (!cand.GLU || (cand.N/2)%64 == 0) {
@@ -247,12 +275,15 @@ func (k PlanKernel) estimateStepNs(cfg CostConfig) float64 {
 		if k.GEMM.Prefetch > 0 {
 			bw *= 1.15
 		}
+		if k.GEMM.BlackwellFP4 {
+			bw *= 1.05
+		}
 	case k.Tile != nil:
 		tflops = cfg.TensorTFLOPS
-		if !k.Tile.WGMMA {
+		if !k.Tile.WGMMA && !k.Tile.BlackwellFP4 {
 			tflops *= 0.65
 		}
-		if k.Tile.Swizzle128B {
+		if k.Tile.Swizzle128B || k.Tile.BlackwellFP4 {
 			bw *= 1.10
 		}
 		if k.Tile.GroupM > 1 {

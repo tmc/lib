@@ -87,10 +87,83 @@ type TileGEMM struct {
 	// 128) tokens of x are the B operand. SumSq is not supported with
 	// WeightNVFP4. StreamK and DequantWords are not supported.
 	WarpSpecialized bool
+	// BlackwellFP4, when Weight == WeightNVFP4 and !WGMMA, emits Blackwell
+	// (sm_100a / sm_120a / sm_121a GB10) hardware cvt.rn.f16x2.e2m1x2 nibble
+	// widening and block-scaled mma.sync.aligned.m16n8k64.kind::mxf4nvf4
+	// helpers alongside F16 m16n8k16 tensor-core accumulation.
+	BlackwellFP4 bool
 
 	BM, BN int // 64 or 128 (BN 256 with WGMMA); 0 means 128
 	Stages int // 2 to 4; 0 means 3
 }
+
+const blackwellFP4Helpers = `// eg_e2m1x2_to_f16x2 widens the two E2M1 nibbles in the low byte of b to F16x2
+// (cvt.rn.f16x2.e2m1x2 on sm_100a / sm_120a / sm_121a Blackwell).
+EG_DEV uint32_t eg_e2m1x2_to_f16x2(uint32_t b) {
+#if defined(EG_HOST_EMU)
+    return eg_emu_e2m1x2_to_f16x2(b);
+#elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 1000
+    uint32_t r;
+    asm("{\n.reg .b8 q;\ncvt.u8.u32 q, %1;\ncvt.rn.f16x2.e2m1x2 %0, q;\n}" : "=r"(r) : "r"(b));
+    return r;
+#else
+    uint32_t h[2];
+    eg_e2m1x4_to_bf16x4(b & 0xffu, h);
+    return eg_pack_f16x2(eg_bf16_to_f32(h[0]), eg_bf16_hi_to_f32(h[0]));
+#endif
+}
+
+// eg_e2m1x4_to_f16x4 widens four E2M1 nibbles in bits 0..15 of q to two F16x2 words.
+EG_DEV void eg_e2m1x4_to_f16x4(uint32_t q, uint32_t out[2]) {
+    out[0] = eg_e2m1x2_to_f16x2(q & 0xffu);
+    out[1] = eg_e2m1x2_to_f16x2((q >> 8) & 0xffu);
+}
+
+// eg_e2m1x8_to_bf16 widens eight E2M1 nibbles in q to four BF16x2 words, using
+// hardware cvt.rn.f16x2.e2m1x2 on Blackwell (__CUDA_ARCH__ >= 1000).
+EG_DEV void eg_e2m1x8_to_bf16(uint32_t q, uint32_t out[4]) {
+#if defined(EG_HOST_EMU) || (defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 1000)
+#pragma unroll
+    for (int i = 0; i < 4; ++i) {
+        const uint32_t f2 = eg_e2m1x2_to_f16x2((q >> (8 * i)) & 0xffu);
+        const uint32_t lo = f2 & 0xffffu, hi = f2 >> 16;
+        // E2M1 values in F16 have biased exponent 14..17 (or 0 for ±0), so
+        // shifting the 10-bit F16 mantissa >>3 and adding (127-15)<<7 = 0x3800
+        // converts non-zero F16 to BF16 in register without FP32 round-trip.
+        const uint32_t blo = (lo & 0x7fffu) ? (((lo & 0x7fffu) >> 3) + 0x3800u) | (lo & 0x8000u) : (lo & 0x8000u);
+        const uint32_t bhi = (hi & 0x7fffu) ? (((hi & 0x7fffu) >> 3) + 0x3800u) | (hi & 0x8000u) : (hi & 0x8000u);
+        out[i] = blo | (bhi << 16);
+    }
+#else
+    eg_e2m1x4_to_bf16x4(q & 0xffffu, out);
+    eg_e2m1x4_to_bf16x4(q >> 16, out + 2);
+#endif
+}
+
+// eg_dequant_nvfp4 widens four E2M1 nibbles in bits 0..15 of q with
+// cvt.rn.f16x2.e2m1x2 and multiplies by block scale byte s_e4m3 into two BF16x2 words.
+EG_DEV void eg_dequant_nvfp4(uint32_t q, uint32_t s_e4m3, uint32_t out[2]) {
+    uint32_t h[4];
+    eg_e2m1x8_to_bf16(q & 0xffffu, h);
+    const float sf = eg_e4m3_to_f32(s_e4m3);
+    out[0] = eg_pack_bf16x2(eg_bf16_to_f32(h[0]) * sf, eg_bf16_hi_to_f32(h[0]) * sf);
+    out[1] = eg_pack_bf16x2(eg_bf16_to_f32(h[1]) * sf, eg_bf16_hi_to_f32(h[1]) * sf);
+}
+
+// eg_mma_nvfp4_16864 issues Blackwell block-scaled mma.sync.aligned.m16n8k64
+// (kind::mxf4nvf4.block_scale.scale_vec::4X.f32.e2m1.e2m1.f32.ue4m3).
+EG_DEV void eg_mma_nvfp4_16864(float d[4], const uint32_t a[4], const uint32_t b[2], uint32_t sfa, uint32_t sfb) {
+#if defined(EG_HOST_EMU)
+    eg_emu_mma_nvfp4_16864(d, a, b, sfa, sfb);
+#else
+    asm volatile("mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale.scale_vec::4X.f32.e2m1.e2m1.f32.ue4m3 "
+                 "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%0,%1,%2,%3}, {%10}, {0, 0}, {%11}, {0, 0};"
+                 : "+f"(d[0]), "+f"(d[1]), "+f"(d[2]), "+f"(d[3])
+                 : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]), "r"(sfa), "r"(sfb));
+#endif
+}
+
+`
 
 func (g TileGEMM) norm() (TileGEMM, error) {
 	if !cIdent(g.Name) {
@@ -135,6 +208,9 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	}
 	if g.DequantWords < 0 || g.DequantWords > 2 || (g.DequantWords > 0 && !g.Repacked) {
 		return g, fmt.Errorf("tile gemm %s: DequantWords %d requires Repacked and must be 0, 1 or 2", g.Name, g.DequantWords)
+	}
+	if g.BlackwellFP4 && (g.Weight != WeightNVFP4 || g.WGMMA) {
+		return g, fmt.Errorf("tile gemm %s: BlackwellFP4 requires WeightNVFP4 without WGMMA", g.Name)
 	}
 	if g.BM != 64 && g.BM != 128 || g.BN != 64 && g.BN != 128 && !(g.WGMMA && g.BN == 256) || g.Stages < 2 || g.Stages > 4 {
 		return g, fmt.Errorf("tile gemm %s: unsupported tile %dx%d, %d stages", g.Name, g.BM, g.BN, g.Stages)
@@ -300,6 +376,9 @@ func (g TileGEMM) CUDA() (string, error) {
 		bx = "tile_n"
 	}
 	var b strings.Builder
+	if g.BlackwellFP4 {
+		b.WriteString(blackwellFP4Helpers)
+	}
 	fmt.Fprintf(&b, "// %s: out = %s over x[M, %d] · W[%d, %d]ᵀ (%v), %dx%d tiles, %d stages.\n",
 		g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.BM, g.BN, g.Stages)
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(256) %s(\n    %s) {\n", g.Name, strings.Join(g.params(), ",\n    "))
@@ -411,7 +490,20 @@ func (g TileGEMM) CUDA() (string, error) {
                 eg_ldmatrix_x4(af[mt], &sa[(st * BM + wm * WM + mt * 16 + lane % 16) * LD + ks * 16 + (lane / 16) * 8]);
 `)
 	if g.Weight == WeightNVFP4 {
-		b.WriteString(`#pragma unroll
+		if g.BlackwellFP4 {
+			b.WriteString(`#pragma unroll
+            for (int nt = 0; nt < NT; ++nt) {
+                // b0 holds k = 2t, 2t+1 (byte t of the k16 step), b1 k + 8 (byte t + 4).
+                // sfb packs the 4 E4M3 block-16 scales for the k=64 slice in bytes 0..3.
+                const int r = st * BN + wn * WN + nt * 8 + lane / 4;
+                const uint8_t* const qb = &sbq[r * 48 + ks * 8 + lane % 4];
+                const uint32_t sfb = *reinterpret_cast<const uint32_t*>(&sbs[r * 4]);
+                const uint32_t s_e4m3 = (sfb >> (8 * ks)) & 0xffu;
+                eg_dequant_nvfp4(qb[0] | (uint32_t)qb[4] << 8, s_e4m3, bf[nt]);
+            }
+`)
+		} else {
+			b.WriteString(`#pragma unroll
             for (int nt = 0; nt < NT; ++nt) {
                 // b0 holds k = 2t, 2t+1 (byte t of the k16 step), b1 k + 8 (byte t + 4).
                 const int r = st * BN + wn * WN + nt * 8 + lane / 4;
@@ -423,6 +515,7 @@ func (g TileGEMM) CUDA() (string, error) {
                 bf[nt][1] = eg_pack_bf16x2(eg_bf16_to_f32(h[1]) * sf, eg_bf16_hi_to_f32(h[1]) * sf);
             }
 `)
+		}
 	} else {
 		b.WriteString(`#pragma unroll
             for (int np = 0; np < NT / 2; ++np) {

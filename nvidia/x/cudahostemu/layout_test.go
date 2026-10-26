@@ -483,3 +483,133 @@ func TestFragSimPackedMatmul(t *testing.T) {
 		}
 	}
 }
+
+// TestMMAM16N8K64NVFP4LayoutsMatchEmulator verifies that MMAM16N8K64NVFP4A
+// and MMAM16N8K64NVFP4B agree with eg_emu_mma_nvfp4_16864 for every lane 0..31,
+// register, and nibble 0..7.
+func TestMMAM16N8K64NVFP4LayoutsMatchEmulator(t *testing.T) {
+	const src = `
+__global__ void probe_nvfp4_64(int* a64_coords, int* b64_coords) {
+    const int lane = threadIdx.x, g = lane / 4, t = lane % 4;
+    const uint32_t one_nibble = 0x2u; // E2M1 code 2 = 1.0f
+    const uint32_t all_ones_sf = 0x38383838u; // four E4M3 1.0f scales
+
+    // 1. Probe A(tlane, treg, tnib) by encoding k = 0..63 as base-4 digits in B:
+    // col 0 holds (k & 3) + 1, col 1 holds ((k >> 2) & 3) + 1, col 2 holds ((k >> 4) & 3) + 1.
+    // Digits 1, 2, 3, 4 are exact in E2M1 (codes 2=1.0, 4=2.0, 5=3.0, 6=4.0).
+    static constexpr uint32_t digit_code[4] = {2u, 4u, 5u, 6u};
+    uint32_t b_probe[2] = {0, 0};
+    if (g < 3) {
+        for (int reg = 0; reg < 2; ++reg) {
+            uint32_t w = 0;
+            for (int nib = 0; nib < 8; ++nib) {
+                int k = 8 * t + 32 * reg + nib;
+                int dig = (k >> (2 * g)) & 3;
+                w |= digit_code[dig] << (4 * nib);
+            }
+            b_probe[reg] = w;
+        }
+    }
+    for (int tlane = 0; tlane < 32; ++tlane) {
+        for (int treg = 0; treg < 4; ++treg) {
+            for (int tnib = 0; tnib < 8; ++tnib) {
+                uint32_t a[4] = {0, 0, 0, 0};
+                if (lane == tlane) {
+                    a[treg] = one_nibble << (4 * tnib);
+                }
+                float d[4] = {0, 0, 0, 0};
+                eg_emu_mma_nvfp4_16864(d, a, b_probe, all_ones_sf, all_ones_sf);
+                // Lane with t == 0 holds col 0 in d[0], col 1 in d[1] (for row g) and d[2], d[3] (for row g+8).
+                // Lane with t == 1 holds col 2 in d[0] (for row g) and d[2] (for row g+8).
+                for (int half_r = 0; half_r < 2; ++half_r) {
+                    float d0 = d[2 * half_r + 0];
+                    float d1 = d[2 * half_r + 1];
+                    float d2 = __shfl_xor_sync(0xffffffffu, d0, 1);
+                    if (t == 0 && (d0 != 0.0f || d1 != 0.0f || d2 != 0.0f)) {
+                        int row = g + 8 * half_r;
+                        int k = ((int)(d0 + 0.5f) - 1) + (((int)(d1 + 0.5f) - 1) << 2) + (((int)(d2 + 0.5f) - 1) << 4);
+                        int idx = (tlane * 4 + treg) * 8 + tnib;
+                        a64_coords[idx * 2 + 0] = row;
+                        a64_coords[idx * 2 + 1] = k;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Probe B(tlane, treg, tnib) by encoding k = 0..63 in A rows 0, 1, 2.
+    uint32_t a_probe[4] = {0, 0, 0, 0};
+    if (g < 3) {
+        for (int reg = 0; reg < 2; ++reg) {
+            uint32_t w = 0;
+            for (int nib = 0; nib < 8; ++nib) {
+                int k = 8 * t + 32 * reg + nib;
+                int dig = (k >> (2 * g)) & 3;
+                w |= digit_code[dig] << (4 * nib);
+            }
+            a_probe[2 * reg] = w;
+        }
+    }
+    for (int tlane = 0; tlane < 32; ++tlane) {
+        for (int treg = 0; treg < 2; ++treg) {
+            for (int tnib = 0; tnib < 8; ++tnib) {
+                uint32_t b[2] = {0, 0};
+                if (lane == tlane) {
+                    b[treg] = one_nibble << (4 * tnib);
+                }
+                float d[4] = {0, 0, 0, 0};
+                eg_emu_mma_nvfp4_16864(d, a_probe, b, all_ones_sf, all_ones_sf);
+                for (int creg = 0; creg < 2; ++creg) {
+                    float d0 = d[creg];
+                    float d1 = __shfl_xor_sync(0xffffffffu, d0, 4);
+                    float d2 = __shfl_xor_sync(0xffffffffu, d0, 8);
+                    if (g == 0 && (d0 != 0.0f || d1 != 0.0f || d2 != 0.0f)) {
+                        int k = ((int)(d0 + 0.5f) - 1) + (((int)(d1 + 0.5f) - 1) << 2) + (((int)(d2 + 0.5f) - 1) << 4);
+                        int col = 2 * t + creg;
+                        int idx = (tlane * 2 + treg) * 8 + tnib;
+                        b64_coords[idx * 2 + 0] = k;
+                        b64_coords[idx * 2 + 1] = col;
+                    }
+                }
+            }
+        }
+    }
+}
+`
+	res := run(t, Program{
+		Source: src,
+		Launch: "eg_emu_launch(dim3(1), dim3(32), 0, probe_nvfp4_64, a64, b64)",
+		Buffers: []Buffer{
+			{"a64", "int", Poison(32 * 4 * 8 * 2 * 4)},
+			{"b64", "int", Poison(32 * 2 * 8 * 2 * 4)},
+		},
+	})
+	a64 := u32s(res["a64"])
+	for lane := range 32 {
+		for reg := range 4 {
+			wantRow, wantColOct := MMAM16N8K64NVFP4A(lane, reg)
+			for nib := range 8 {
+				idx := (lane*4+reg)*8 + nib
+				gotRow, gotCol := int(a64[idx*2+0]), int(a64[idx*2+1])
+				if gotRow != wantRow || gotCol != wantColOct+nib {
+					t.Fatalf("MMAM16N8K64NVFP4A(lane=%d, reg=%d) nib=%d: emu=(%d,%d), want=(%d,%d)",
+						lane, reg, nib, gotRow, gotCol, wantRow, wantColOct+nib)
+				}
+			}
+		}
+	}
+	b64 := u32s(res["b64"])
+	for lane := range 32 {
+		for reg := range 2 {
+			wantRowOct, wantCol := MMAM16N8K64NVFP4B(lane, reg)
+			for nib := range 8 {
+				idx := (lane*2+reg)*8 + nib
+				gotRow, gotCol := int(b64[idx*2+0]), int(b64[idx*2+1])
+				if gotRow != wantRowOct+nib || gotCol != wantCol {
+					t.Fatalf("MMAM16N8K64NVFP4B(lane=%d, reg=%d) nib=%d: emu=(%d,%d), want=(%d,%d)",
+						lane, reg, nib, gotRow, gotCol, wantRowOct+nib, wantCol)
+				}
+			}
+		}
+	}
+}

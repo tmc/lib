@@ -1223,3 +1223,146 @@ __global__ void stage_pair(const float* in, float* mid, float* out, unsigned lon
 		}
 	}
 }
+
+func fromE2M1(code uint8) float64 {
+	grid := [8]float64{0, 0.5, 1, 1.5, 2, 3, 4, 6}
+	v := grid[code&7]
+	if code&8 != 0 {
+		return -v
+	}
+	return v
+}
+
+// TestBlackwellNVFP4 checks eg_emu_e2m1x2_to_f16x2 across all 256 byte values
+// and eg_emu_mma_nvfp4_16864 (including per-16-element sfa and sfb scale
+// application and accumulation) against a float64 reference.
+func TestBlackwellNVFP4(t *testing.T) {
+	const src = `
+__global__ void test_e2m1x2(uint32_t* out) {
+    for (int b = threadIdx.x; b < 256; b += 32) {
+        out[b] = eg_emu_e2m1x2_to_f16x2((uint32_t)b);
+    }
+}
+
+__global__ void test_mma_nvfp4(
+    const uint8_t* A, const uint8_t* SFA,
+    const uint8_t* B, const uint8_t* SFB,
+    const float* C, float* D
+) {
+    const int lane = threadIdx.x, g = lane / 4, t = lane % 4;
+    uint32_t a[4], b[2];
+    for (int reg = 0; reg < 4; ++reg) {
+        int row = g + 8 * (reg & 1);
+        int colOct = 8 * t + 32 * ((reg >> 1) & 1);
+        // 8 nibbles = 4 packed bytes at A[row, colOct..colOct+7].
+        uint32_t w = 0;
+        std::memcpy(&w, &A[row * 32 + colOct / 2], 4);
+        a[reg] = w;
+    }
+    for (int reg = 0; reg < 2; ++reg) {
+        int rowOct = 8 * t + 32 * (reg & 1);
+        int col = g;
+        uint32_t w = 0;
+        std::memcpy(&w, &B[col * 32 + rowOct / 2], 4);
+        b[reg] = w;
+    }
+    uint32_t sfa = 0, sfb = 0;
+    if (t < 2) {
+        int row = g + 8 * t;
+        std::memcpy(&sfa, &SFA[row * 4], 4);
+    }
+    if (t == 0) {
+        int col = g;
+        std::memcpy(&sfb, &SFB[col * 4], 4);
+    }
+    float d[4];
+    for (int i = 0; i < 4; ++i) {
+        int row = g + 8 * (i / 2), col = 2 * t + (i & 1);
+        d[i] = C[row * 8 + col];
+    }
+    eg_emu_mma_nvfp4_16864(d, a, b, sfa, sfb);
+    for (int i = 0; i < 4; ++i) {
+        int row = g + 8 * (i / 2), col = 2 * t + (i & 1);
+        D[row * 8 + col] = d[i];
+    }
+}
+`
+	res := run(t, Program{
+		Source:  src,
+		Launch:  "eg_emu_launch(dim3(1), dim3(32), 0, test_e2m1x2, out)",
+		Buffers: []Buffer{{"out", "uint32_t", Poison(256 * 4)}},
+	})
+	gotF16 := u32s(res["out"])
+	for b := 0; b < 256; b++ {
+		lo := toF16(float32(fromE2M1(uint8(b & 0xf))))
+		hi := toF16(float32(fromE2M1(uint8((b >> 4) & 0xf))))
+		want := uint32(lo) | (uint32(hi) << 16)
+		if gotF16[b] != want {
+			t.Fatalf("eg_emu_e2m1x2_to_f16x2(%#02x) = %#08x, want %#08x", b, gotF16[b], want)
+		}
+	}
+
+	r := rand.New(rand.NewPCG(55, 66))
+	aPacked := make([]byte, 16*32)
+	bPacked := make([]byte, 8*32)
+	sfaBytes := make([]byte, 16*4)
+	sfbBytes := make([]byte, 8*4)
+	cInit := make([]float32, 16*8)
+	cBytes := make([]byte, 16*8*4)
+
+	for i := range aPacked {
+		aPacked[i] = uint8(r.UintN(256))
+	}
+	for i := range bPacked {
+		bPacked[i] = uint8(r.UintN(256))
+	}
+	randScale := func() byte {
+		// Distinct non-NaN E4M3 scales with moderate exponents so corrupting block scale indexing changes the sum.
+		exp := uint8(r.UintN(6) + 5) // biased exponent 5..10
+		mant := uint8(r.UintN(8))
+		return (exp << 3) | mant
+	}
+	for i := range sfaBytes {
+		sfaBytes[i] = randScale()
+	}
+	for i := range sfbBytes {
+		sfbBytes[i] = randScale()
+	}
+	for i := range cInit {
+		cInit[i] = float32(r.NormFloat64() * 0.5)
+		binary.LittleEndian.PutUint32(cBytes[4*i:], math.Float32bits(cInit[i]))
+	}
+
+	mmaOut := run(t, Program{
+		Source: src,
+		Launch: "eg_emu_launch(dim3(1), dim3(32), 0, test_mma_nvfp4, A, SFA, B, SFB, C, D)",
+		Buffers: []Buffer{
+			{"A", "uint8_t", aPacked},
+			{"SFA", "uint8_t", sfaBytes},
+			{"B", "uint8_t", bPacked},
+			{"SFB", "uint8_t", sfbBytes},
+			{"C", "float", cBytes},
+			{"D", "float", Poison(16 * 8 * 4)},
+		},
+	})
+	gotD := f32s(mmaOut["D"])
+	for row := 0; row < 16; row++ {
+		for col := 0; col < 8; col++ {
+			want := float64(cInit[row*8+col])
+			for k := 0; k < 64; k++ {
+				ab := aPacked[row*32+k/2]
+				acode := (ab >> (4 * (k & 1))) & 0xf
+				as := fromE4M3(sfaBytes[row*4+k/16])
+
+				bb := bPacked[col*32+k/2]
+				bcode := (bb >> (4 * (k & 1))) & 0xf
+				bs := fromE4M3(sfbBytes[col*4+k/16])
+
+				want += (fromE2M1(acode) * as) * (fromE2M1(bcode) * bs)
+			}
+			if !near(gotD[row*8+col], want) {
+				t.Fatalf("D[%d,%d] = %v, want %v", row, col, gotD[row*8+col], want)
+			}
+		}
+	}
+}

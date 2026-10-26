@@ -237,6 +237,94 @@ func TestCompileWithCostSchedules(t *testing.T) {
 			t.Errorf("optimized EstimateNs %.1f >= unoptimized EstimateNs %.1f", optNs, unoptNs)
 		}
 	})
+
+	t.Run("blackwell_gb10_nvfp4_tile_and_skinny", func(t *testing.T) {
+		gb10Cfg := CostConfig{Device: "NVIDIA GB10"}
+		r := rand.New(rand.NewPCG(201, 202))
+		nvfp4Env := func(m, n, k int) map[string]Value {
+			env := randEnv(r,
+				Tensor{"x", BF16, []int{m, k}},
+				Tensor{"bias", F32, []int{n}})
+			w := randNVFP4(r, n, k)
+			packed := make([]float64, len(w.Packed))
+			for i, b := range w.Packed {
+				packed[i] = float64(b)
+			}
+			scales := make([]float64, len(w.Scales))
+			for i := range w.Scales {
+				scales[i] = float64(E4M3Bits(float32(0.25 + r.Float64()*2.0)))
+			}
+			env["wq"] = Value{Shape: []int{n, k / 2}, Data: packed}
+			env["wsf"] = Value{Shape: []int{n, k / 16}, Data: scales}
+			env["wgs"] = Value{Shape: []int{1}, Data: []float64{float64(w.GlobalScal)}}
+			return env
+		}
+
+		// 1. TileGEMM (M = 128) on NVIDIA GB10 selects BlackwellFP4: true.
+		b := NewBuilder()
+		x := b.Input("x", BF16, 128, 128)
+		wq := b.Input("wq", U8, 128, 64)
+		wsf := b.Input("wsf", U8, 128, 8)
+		wgs := b.Input("wgs", F32, 1)
+		w := b.NVFP4(wq, wsf, wgs)
+		bias := b.Input("bias", F32, 128)
+		root := b.Map(MustLambda("(add $0 $1)"), b.MatMul(x, w), bias)
+
+		expr, err := Optimize(b.G, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan, err := CompileWithCost(expr, "gb10_tile", F32, gb10Cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(plan.Kernels) != 1 || plan.Kernels[0].Tile == nil {
+			t.Fatalf("gb10 tile plan kernels = %+v, want 1 TileGEMM", plan.Kernels)
+		}
+		tk := plan.Kernels[0].Tile
+		if !tk.BlackwellFP4 || tk.WGMMA || tk.GroupM != 8 {
+			t.Fatalf("gb10 TileGEMM schedule = {BlackwellFP4:%t WGMMA:%t GroupM:%d}, want {true false 8}",
+				tk.BlackwellFP4, tk.WGMMA, tk.GroupM)
+		}
+		env := nvfp4Env(128, 128, 128)
+		want, err := Eval(expr, env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := runPlan(t, plan, env)
+		agree(t, "gb10_tile", F32, got, want.Data)
+
+		// 2. SkinnyGEMM (M = 4) on NVIDIA GB10 selects BlackwellFP4: true and Prefetch >= 2.
+		b2 := NewBuilder()
+		xs := b2.Input("x", BF16, 4, 2048)
+		wqs := b2.Input("wq", U8, 16, 1024)
+		wsfs := b2.Input("wsf", U8, 16, 128)
+		wgss := b2.Input("wgs", F32, 1)
+		ws := b2.NVFP4(wqs, wsfs, wgss)
+		expr2, err := Optimize(b2.G, b2.MatMul(xs, ws))
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan2, err := CompileWithCost(expr2, "gb10_skinny", F32, gb10Cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(plan2.Kernels) != 1 || plan2.Kernels[0].GEMM == nil {
+			t.Fatalf("gb10 skinny plan kernels = %+v, want 1 SkinnyGEMM", plan2.Kernels)
+		}
+		sk := plan2.Kernels[0].GEMM
+		if !sk.BlackwellFP4 || sk.Prefetch < 2 {
+			t.Fatalf("gb10 SkinnyGEMM schedule = {BlackwellFP4:%t Prefetch:%d}, want {true >=2}",
+				sk.BlackwellFP4, sk.Prefetch)
+		}
+		env2 := nvfp4Env(4, 16, 2048)
+		want2, err := Eval(expr2, env2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got2 := runPlan(t, plan2, env2)
+		agree(t, "gb10_skinny", F32, got2, want2.Data)
+	})
 }
 
 func ExampleCompileWithCost() {
