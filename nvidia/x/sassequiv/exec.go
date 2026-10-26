@@ -165,9 +165,15 @@ func (fx *fn) merges(v int) bool {
 	return n > 1
 }
 
-// entry is the value of key when the function starts.
+// entry is the value of key when the function starts. A kernel starts
+// with no register or stack slot written, so each is an undefined value
+// of its own, equal only to itself: an undefined R22 is never taken to
+// hold some other value, though both sides reading R22 undefined agree.
 func (fx *fn) entry(key string) int {
-	return fx.g.add(fx.side, fx.f.BaseAddress, "in:"+key, 0)
+	if key == "MEM" {
+		return fx.g.add(fx.side, fx.f.BaseAddress, "in:MEM", 0)
+	}
+	return fx.g.add(fx.side, fx.f.BaseAddress, "undef:"+key, 0)
 }
 
 // in is the value of key at the start of block b.

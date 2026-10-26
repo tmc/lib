@@ -340,7 +340,7 @@ LDG.E R6, desc[UR4][R2.64]
 ISETP.GT.AND P0, PT, R0, 0x3, PT
 @P0 MOV R10, R6
 STG.E desc[UR4][R4.64], R10
-EXIT`, Equal, ""},
+EXIT`, Unknown, "no path writes"},
 		{"register never written, other value", prologue + `
 LDG.E R6, desc[UR4][R2.64]
 ISETP.GT.AND P0, PT, R0, 0x3, PT
@@ -672,6 +672,34 @@ MOV R16, R2
 MOV R17, R5
 LD.E R6, [R16]
 STG.E desc[UR4][R4.64], R6
+EXIT`, Unknown, ""},
+		{"register undefined on one path", prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x7, PT
+@P0 MOV R7, R6
+@!P0 MOV R7, R6
+FADD R8, R7, 1
+STG.E desc[UR4][R4.64], R8
+EXIT`, prologue + `
+LDG.E R6, desc[UR4][R2.64]
+ISETP.GT.AND P0, PT, R0, 0x7, PT
+@P0 MOV R7, R6
+FADD R8, R7, 1
+STG.E desc[UR4][R4.64], R8
+EXIT`, Unknown, ""},
+		{"same register read undefined", prologue + `
+LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R9
+EXIT`, prologue + `
+LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R9
+EXIT`, Equal, ""},
+		{"another register read undefined", prologue + `
+LOP3.LUT R9, R9, 0xfffffffd, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R9
+EXIT`, prologue + `
+LOP3.LUT R9, R10, 0xfffffffd, RZ, 0xc0, !PT
+STG.E desc[UR4][R4.64], R9
 EXIT`, Unknown, ""},
 		{"unmodeled opcode", prologue + `
 BPT.TRAP 0x1

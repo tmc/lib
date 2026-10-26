@@ -165,6 +165,10 @@ func classify(g *graph, class []int, d diff) (Verdict, string) {
 	switch {
 	case reordered(g, class, d):
 		return Unknown, "memory operations reordered"
+	case g.mergesUndefined(x) || g.mergesUndefined(y):
+		// ptxas leaves a register unwritten on paths that never use
+		// it, so an undefined value need not make the results differ.
+		return Unknown, "reads a register no path writes"
 	case isPhi(g, x) || isPhi(g, y):
 		// An operation on merged values against a merge of operations:
 		// code moved across a block boundary, which the model does not

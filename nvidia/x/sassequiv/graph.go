@@ -318,8 +318,8 @@ func (g *graph) removeTrivialPhis() {
 	}
 }
 
-// simplify aliases trivial phis, selections of undefined values and
-// resolvable assumes until none remain.
+// simplify aliases trivial phis, selections of one value and resolvable
+// assumes until none remain.
 func (g *graph) simplify() {
 	for changed := true; changed; {
 		changed = g.rehash()
@@ -330,16 +330,12 @@ func (g *graph) simplify() {
 			}
 			switch {
 			case strings.HasPrefix(n.label, "phi:"):
-				// A phi of one value, itself and undefined values is
-				// that value.
-				only, undef := -1, -1
+				// A phi of one value and itself is that value.
+				only := -1
 				trivial := true
 				for _, a := range n.args {
 					a = g.strip(a)
-					if g.undefined(a) {
-						undef = a
-					}
-					if a == i || a == only || g.undefined(a) {
+					if a == i || a == only {
 						continue
 					}
 					if only >= 0 {
@@ -347,9 +343,6 @@ func (g *graph) simplify() {
 						break
 					}
 					only = a
-				}
-				if trivial && only < 0 {
-					only = undef
 				}
 				if trivial && only >= 0 {
 					changed = g.setAlias(i, only) || changed
@@ -359,13 +352,8 @@ func (g *graph) simplify() {
 			case n.label == "lin":
 				changed = g.flatten(i) || changed
 			case n.label == "sel" && len(n.args) == 3:
-				// Selecting an undefined value may select the other.
-				a, b := g.resolve(n.args[1]), g.resolve(n.args[2])
-				switch {
-				case g.undefined(b) || a == b:
-					changed = g.setAlias(i, a) || changed
-				case g.undefined(a):
-					changed = g.setAlias(i, b) || changed
+				if g.resolve(n.args[1]) == g.resolve(n.args[2]) {
+					changed = g.setAlias(i, g.resolve(n.args[1])) || changed
 				}
 			}
 		}
@@ -476,11 +464,22 @@ func (g *graph) strip(a int) int {
 }
 
 // undefined reports whether a node is a register or stack slot read
-// before the function writes it. ptxas leaves registers uninitialized on
-// paths where their value is never used, so a compilation of a program
-// without undefined behavior computes the same results whatever value an
-// undefined node takes; the model may choose one.
+// before the function writes it.
 func (g *graph) undefined(id int) bool {
-	l := g.nodes[id].label
-	return strings.HasPrefix(l, "in:") && l != "in:MEM"
+	return strings.HasPrefix(g.nodes[id].label, "undef")
+}
+
+// mergesUndefined reports whether a node is undefined or selects or
+// merges an undefined value with others.
+func (g *graph) mergesUndefined(id int) bool {
+	n := g.nodes[id]
+	if n.label != "sel" && !strings.HasPrefix(n.label, "phi:") {
+		return g.undefined(id)
+	}
+	for _, a := range n.args {
+		if g.undefined(g.strip(a)) {
+			return true
+		}
+	}
+	return false
 }

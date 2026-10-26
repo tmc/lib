@@ -116,14 +116,6 @@ func TestEqualPairs(t *testing.T) {
 	}
 }
 
-// undefinedReads are mutants that make a function read a register it
-// never wrote on some path. The model may take such a register to hold
-// any value, so they compare Equal.
-var undefinedReads = map[string]bool{
-	// R22 is first written at 0x09f0, which the branch at 0x08f0 skips.
-	"stock_post_expert_sum_4096_cluster.lb1:227": true,
-}
-
 // TestEqualPairMutantsDiffer mutates the second listing of each equal
 // pair, which exercises the rules that make the pair equal: none of the
 // mutants may compare Equal to the first. Every eleventh match of each
@@ -143,8 +135,10 @@ func TestEqualPairMutantsDiffer(t *testing.T) {
 				if m == nil {
 					continue
 				}
-				key := fmt.Sprintf("%s:%d", pair[1], i+1)
-				if n++; n%11 != 0 && !undefinedReads[key] {
+				// Line 227 of this listing reads R22 where the
+				// branch at 0x08f0 skips its first write.
+				undef := pair[1] == "stock_post_expert_sum_4096_cluster.lb1" && i+1 == 227
+				if n++; n%11 != 0 && !undef {
 					continue
 				}
 				mutated := append([]string(nil), lines...)
@@ -154,7 +148,7 @@ func TestEqualPairMutantsDiffer(t *testing.T) {
 				}
 				r := CompareAll(before, parse(t, strings.Join(mutated, "\n")))[0]
 				stats[mu.name][r.Verdict]++
-				if (r.Verdict == Equal) != (undefinedReads[key] && mu.name == "fp source register") {
+				if r.Verdict == Equal {
 					t.Errorf("%s: %s at line %d (%s -> %s): %v", pair[1], mu.name, i+1, strings.TrimSpace(line), strings.TrimSpace(mutated[i]), r)
 				}
 			}
