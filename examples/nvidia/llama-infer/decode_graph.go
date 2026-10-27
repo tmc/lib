@@ -24,6 +24,7 @@ type posNode struct {
 	layer  int
 	kind   string // "rope", "store_kv", or "attn"
 	posIdx int
+	set    func(args []any, pos int) // when non-nil, replaces args[posIdx] = pos
 	node   *cudagraph.Node
 	params driver.KernelNodeParams
 	args   []any
@@ -200,11 +201,27 @@ func newDecodeGraphWith(
 			attnLayer++
 			kind = "attn"
 		}
+		var set func([]any, int)
+		if gm.eg != nil {
+			if k, pa, ok := gm.eg.positionArgs(desc.Function); ok {
+				base := slices.Clone(args)
+				set = func(a []any, pos int) { setPos(a, base, pa, pos) }
+				posIdx, kind = 0, k
+				if k == "attn" {
+					layer = attnLayer
+					attnLayer++
+				} else {
+					layer = ropeLayer
+					ropeLayer++
+				}
+			}
+		}
 		if posIdx >= 0 {
 			dg.posNodes = append(dg.posNodes, posNode{
 				layer:  layer,
 				kind:   kind,
 				posIdx: posIdx,
+				set:    set,
 				node:   node,
 				params: driver.KernelNodeParams{
 					Func:           desc.Function,
@@ -220,7 +237,7 @@ func newDecodeGraphWith(
 		return nil, fmt.Errorf("populate decode graph: %w", err)
 	}
 	wantPosNodes := 3 * cfg.NumHiddenLayers
-	if qkvRoPEStoreLayer == cfg.NumHiddenLayers {
+	if qkvRoPEStoreLayer == cfg.NumHiddenLayers || gm.eg != nil && gm.eg.plans.attn {
 		wantPosNodes = 2 * cfg.NumHiddenLayers
 	}
 	if len(dg.posNodes) != wantPosNodes {
@@ -256,7 +273,11 @@ func (dg *DecodeGraph) SetPosition(pos int) error {
 }
 
 func (dg *DecodeGraph) setNodePosition(p *posNode, pos int) error {
-	p.args[p.posIdx] = int32(pos)
+	if p.set != nil {
+		p.set(p.args, pos)
+	} else {
+		p.args[p.posIdx] = int32(pos)
+	}
 	packed, err := cudalaunch.PackArgs(p.args...)
 	if err != nil {
 		return fmt.Errorf("layer %d %s pack args at position %d: %w", p.layer, p.kind, pos, err)

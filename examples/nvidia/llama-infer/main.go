@@ -60,6 +60,7 @@ var (
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
+	egraphAttnFlag    = flag.Bool("egraph-attn", false, "with -egraph, run RoPE, the KV-cache store and attention as generated sm_121a kernels over a BF16 KV cache")
 )
 
 func main() {
@@ -339,8 +340,11 @@ func runGPUInference(
 	if *egraphMegaFlag && (!*egraphFlag || *cudaGraphFlag) {
 		return errors.New("-egraph-mega needs -egraph and cannot replay in a -cuda-graph: its ready-counter epoch is a launch argument")
 	}
+	if *egraphAttnFlag && !*egraphFlag {
+		return errors.New("-egraph-attn needs -egraph")
+	}
 	if *egraphFlag {
-		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag)
+		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag, *egraphAttnFlag)
 		if err != nil {
 			return fmt.Errorf("e-graph decoder: %w", err)
 		}
@@ -353,8 +357,9 @@ func runGPUInference(
 			}
 		}()
 		gm.eg = eg
+		gen, fallback := eg.plans.ops()
 		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
-			eg.Kernels(), strings.Join(egraphGenerated, ", "), strings.Join(egraphFallback, ", "))
+			eg.Kernels(), strings.Join(gen, ", "), strings.Join(fallback, ", "))
 	}
 
 	var dg *DecodeGraph

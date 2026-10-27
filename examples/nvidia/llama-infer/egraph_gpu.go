@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -24,6 +26,27 @@ type egraphLaunch struct {
 	smem        uint32
 	args        []any
 	epoch       int
+	pos         []egraphPosArg // arguments that follow the position
+}
+
+// An egraphPosArg is a launch argument that depends on the token position:
+// with stride > 0 a device pointer, advanced stride bytes per position from
+// its position-0 value; with stride 0 the sequence length pos+1.
+type egraphPosArg struct {
+	idx    int
+	stride driver.DevicePtr
+}
+
+// setPos sets args' position-dependent arguments for pos from base, the
+// arguments at position 0.
+func setPos(args, base []any, pa []egraphPosArg, pos int) {
+	for _, a := range pa {
+		if a.stride == 0 {
+			args[a.idx] = int32(pos + 1)
+			continue
+		}
+		args[a.idx] = base[a.idx].(driver.DevicePtr) + driver.DevicePtr(pos)*a.stride
+	}
 }
 
 // An egraphDecoder runs the decode step's projections, norms, SwiGLU and
@@ -51,14 +74,26 @@ type egraphDecoder struct {
 
 	attnIn, post [][]egraphLaunch // per layer
 	head         []egraphLaunch
+
+	// With plans.attn: the BF16 KV cache, the rotary cos|sin table, the
+	// page tables and seqlens the emitted kernels read, q in BF16, and the
+	// per-layer rotary and attention launches.
+	kc, vc     []cudamem.Slice[uint16]
+	cs         cudamem.Slice[float32]
+	ints       []cudamem.Slice[int32]
+	qbf        cudamem.Slice[uint16]
+	rope, sdpa []egraphLaunch
+	qcast      []egraphLaunch
+	posKind    map[driver.Function]string
+	posArgs    map[driver.Function][]egraphPosArg
 }
 
-func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega bool) (eg *egraphDecoder, err error) {
+func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega, attn bool) (eg *egraphDecoder, err error) {
 	if gpuW.DType != weightBF16 {
 		return nil, errors.New("-egraph needs -weight-dtype bf16")
 	}
 	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
-	plans, err := buildEgraphPlans(cfg, bias)
+	plans, err := buildEgraphPlans(cfg, bias, attn)
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
@@ -69,6 +104,8 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		fns:     make(map[string]driver.Function),
 		ready:   make(map[*hopper.Plan]cudamem.Slice[uint64]),
 		tempPtr: make(map[string]driver.DevicePtr),
+		posKind: make(map[driver.Function]string),
+		posArgs: make(map[driver.Function][]egraphPosArg),
 	}
 	defer func() {
 		if err != nil {
@@ -193,7 +230,117 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	if err != nil {
 		return nil, err
 	}
+	if attn {
+		if err := eg.bindAttention(dev, cfg, sp); err != nil {
+			return nil, err
+		}
+	}
 	return eg, nil
+}
+
+// bindAttention allocates the BF16 KV cache and the tables the emitted
+// rotary and attention kernels read, and binds their launches.
+func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *GPUScratchpad) error {
+	hd := cfg.HeadDim()
+	kvDim := cfg.NumKeyValueHeads * hd
+	maxSeq := cfg.MaxSeqLen
+	for i := range cfg.NumHiddenLayers {
+		for _, c := range []*[]cudamem.Slice[uint16]{&eg.kc, &eg.vc} {
+			s, err := cudamem.Alloc[uint16](dev, maxSeq*kvDim)
+			*c = append(*c, s)
+			if err != nil {
+				return fmt.Errorf("alloc layer %d kv cache: %w", i, err)
+			}
+		}
+	}
+
+	// cos_sin_table row pos holds cos(pos·f_i) then sin(pos·f_i), i < hd/2,
+	// the NeoX (split-half) layout llama-infer's RoPE uses.
+	half := hd / 2
+	table := make([]float32, maxSeq*hd)
+	for pos := range maxSeq {
+		for i := range half {
+			a := float64(pos) * float64(ropeInvFreq(i, hd, cfg.RopeTheta, cfg.RoPEScaling))
+			table[pos*hd+i] = float32(math.Cos(a))
+			table[pos*hd+half+i] = float32(math.Sin(a))
+		}
+	}
+	var err error
+	if eg.cs, err = cudamem.Alloc[float32](dev, len(table)); err != nil {
+		return fmt.Errorf("alloc rope table: %w", err)
+	}
+	if err := eg.cs.CopyFromHost(table); err != nil {
+		return fmt.Errorf("upload rope table: %w", err)
+	}
+	ints := func(v []int32) (driver.DevicePtr, error) {
+		s, err := cudamem.Alloc[int32](dev, len(v))
+		eg.ints = append(eg.ints, s)
+		if err != nil {
+			return 0, err
+		}
+		return s.Ptr(), s.CopyFromHost(v)
+	}
+	// The rotary kernel writes cache slot page_table[0]·1 + (seqlens[0]-1)
+	// = 0 of the pointers it is given, which the decoder offsets to the
+	// token's row. The attention kernel reads page i at row 16i.
+	zero, err := ints([]int32{0})
+	if err != nil {
+		return fmt.Errorf("alloc rope page table: %w", err)
+	}
+	one, err := ints([]int32{1})
+	if err != nil {
+		return fmt.Errorf("alloc seqlens: %w", err)
+	}
+	pages := make([]int32, eg.plans.sdpa.MaxPages)
+	for i := range pages {
+		pages[i] = int32(i)
+	}
+	pageTable, err := ints(pages)
+	if err != nil {
+		return fmt.Errorf("alloc attention page table: %w", err)
+	}
+	if eg.qbf, err = cudamem.Alloc[uint16](dev, cfg.NumAttentionHeads*hd); err != nil {
+		return fmt.Errorf("alloc q: %w", err)
+	}
+	if eg.qcast, err = eg.bind(eg.plans.qcast, map[string]driver.DevicePtr{
+		"q":                        eg.qbf.Ptr(),
+		eg.plans.qcast.Output.Name: sp.Q.Ptr(),
+	}); err != nil {
+		return err
+	}
+
+	ropeFn, sdpaFn := eg.fns[eg.plans.rope.Name], eg.fns[eg.plans.sdpa.Name]
+	row := driver.DevicePtr(2 * kvDim)
+	eg.posKind[ropeFn], eg.posKind[sdpaFn] = "rope_kv", "attn"
+	eg.posArgs[ropeFn] = []egraphPosArg{{idx: 1, stride: driver.DevicePtr(4 * hd)}, {idx: 8, stride: row}, {idx: 9, stride: row}}
+	eg.posArgs[sdpaFn] = []egraphPosArg{{idx: 7}}
+	for i := range cfg.NumHiddenLayers {
+		// qkv, cos_sin_table, positions, seq_ids, seqlens, kv_positions,
+		// page_table, q_out, k_cache, v_cache
+		eg.rope = append(eg.rope, egraphLaunch{
+			fn: ropeFn, grid: [3]uint32{1, 1, 1}, block: [3]uint32{128, 1, 1}, epoch: -1,
+			args: []any{eg.qkv.Ptr(), eg.cs.Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), one, driver.DevicePtr(0),
+				zero, eg.qbf.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
+			pos: eg.posArgs[ropeFn],
+		})
+		// q, k_pages, v_pages, k_scales, v_scales, page_table, out, seq_len
+		g := eg.plans.sdpa.Grid(1)
+		b := eg.plans.sdpa.Block()
+		eg.sdpa = append(eg.sdpa, egraphLaunch{
+			fn: sdpaFn, grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(b[0]), uint32(b[1]), uint32(b[2])}, epoch: -1,
+			args: []any{sp.Q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), pageTable, sp.AttnOut.Ptr(), int32(1)},
+			pos:  eg.posArgs[sdpaFn],
+		})
+	}
+	return nil
+}
+
+// positionArgs reports how a DecodeGraph must update a node running fn
+// when the position changes: its kind and its position-dependent arguments,
+// or ok false when fn's arguments do not depend on the position.
+func (eg *egraphDecoder) positionArgs(fn driver.Function) (kind string, pa []egraphPosArg, ok bool) {
+	pa, ok = eg.posArgs[fn]
+	return eg.posKind[fn], pa, ok
 }
 
 func concat(parts ...[]float32) []float32 {
@@ -209,7 +356,11 @@ func concat(parts ...[]float32) []float32 {
 }
 
 func (eg *egraphDecoder) planList() []*hopper.Plan {
-	return []*hopper.Plan{eg.plans.attnIn, eg.plans.post, eg.plans.head}
+	ps := []*hopper.Plan{eg.plans.attnIn, eg.plans.post, eg.plans.head}
+	if eg.plans.attn {
+		ps = append(ps, eg.plans.qcast)
+	}
+	return ps
 }
 
 // kernelName returns the NVRTC name expression for k.
@@ -255,6 +406,18 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 			src.WriteString("\n" + cu + "\n")
 			names = append(names, name)
 		}
+	}
+	if eg.plans.attn {
+		for _, k := range []interface {
+			CUDA() (string, error)
+		}{eg.plans.rope, eg.plans.sdpa} {
+			cu, err := k.CUDA()
+			if err != nil {
+				return fmt.Errorf("emit attention: %w", err)
+			}
+			src.WriteString("\n" + cu + "\n")
+		}
+		names = append(names, eg.plans.rope.Name, eg.plans.sdpa.Name)
 	}
 	cm, err := nvrtcx.Compile(src.String(),
 		nvrtcx.WithName("llama_egraph.cu"),
@@ -347,7 +510,11 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 
 // Kernels returns the number of generated launches per decode step.
 func (eg *egraphDecoder) Kernels() int {
-	return len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
+	n := len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
+	if eg.plans.attn {
+		n += len(eg.rope) + len(eg.sdpa) + len(eg.attnIn)*len(eg.qcast)
+	}
+	return n
 }
 
 // Close releases eg's module and buffers.
@@ -368,6 +535,16 @@ func (eg *egraphDecoder) Close() error {
 	for i := range eg.temps16 {
 		errs = append(errs, freeOwned(&eg.temps16[i]))
 	}
+	for i := range eg.kc {
+		errs = append(errs, freeOwned(&eg.kc[i]))
+	}
+	for i := range eg.vc {
+		errs = append(errs, freeOwned(&eg.vc[i]))
+	}
+	for i := range eg.ints {
+		errs = append(errs, freeOwned(&eg.ints[i]))
+	}
+	errs = append(errs, freeOwned(&eg.cs), freeOwned(&eg.qbf))
 	for p, r := range eg.ready {
 		errs = append(errs, freeOwned(&r))
 		delete(eg.ready, p)
@@ -410,7 +587,12 @@ func (eg *egraphDecoder) emitStep(
 				eg.epoch++
 				l.args[l.epoch] = eg.epoch
 			}
-			if err := emit(cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]).SharedMem(l.smem), l.args...); err != nil {
+			args := l.args
+			if l.pos != nil {
+				args = slices.Clone(l.args)
+				setPos(args, l.args, l.pos, pos)
+			}
+			if err := emit(cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]).SharedMem(l.smem), args...); err != nil {
 				return err
 			}
 		}
@@ -429,6 +611,21 @@ func (eg *egraphDecoder) emitStep(
 		}
 		if err := launch(eg.attnIn[i]); err != nil {
 			return err
+		}
+		if eg.plans.attn {
+			if err := launch([]egraphLaunch{eg.rope[i]}); err != nil {
+				return err
+			}
+			if err := launch(eg.qcast); err != nil {
+				return err
+			}
+			if err := launch([]egraphLaunch{eg.sdpa[i]}); err != nil {
+				return err
+			}
+			if err := launch(eg.post[i]); err != nil {
+				return err
+			}
+			continue
 		}
 		if cfg.RoPEScaling.hasLlama3Params() {
 			rs := cfg.RoPEScaling
