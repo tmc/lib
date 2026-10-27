@@ -508,6 +508,9 @@ func generateRMSQuantQ81Kernel(opts CodegenOptions) string {
             float v = x[i] * weight[i] * norm;
             out[block].qs[i - begin] = d == 0.0f ? 0 : (int8_t)roundf(v / d);
         }
+        for (int i = end - begin; i < 32; i++) {
+            out[block].qs[i] = 0;
+        }
     }
 }`, "KERNEL_NAME", opts.KernelName)
 }
