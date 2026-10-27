@@ -381,17 +381,19 @@ func runGPUInference(
 			PrefillRows: prefillRows,
 			AttnSplits:  splits,
 		})
+		if eg != nil {
+			defer func() {
+				if td.held() {
+					return
+				}
+				if cerr := eg.Close(); cerr != nil {
+					td.add(fmt.Errorf("close e-graph decoder: %w", cerr))
+				}
+			}()
+		}
 		if err != nil {
 			return fmt.Errorf("e-graph decoder: %w", err)
 		}
-		defer func() {
-			if td.held() {
-				return
-			}
-			if cerr := eg.Close(); cerr != nil {
-				td.add(fmt.Errorf("close e-graph decoder: %w", cerr))
-			}
-		}()
 		gm.eg = eg
 		gen, fallback := eg.plans.ops()
 		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
@@ -498,6 +500,9 @@ func runGPUInference(
 		})
 		return tok, err
 	}
+	forward := func(tok int32, pos int) (int32, error) {
+		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
+	}
 	if gm.eg != nil && gm.eg.pf != nil {
 		// The batched prefill runs the whole prompt when its last token
 		// arrives, so generate's prefill time covers all of it.
@@ -507,9 +512,6 @@ func runGPUInference(
 			}
 			return gm.eg.prefill(gpuWeights, cfg, scratch, sampleFn, promptTokens)
 		}
-	}
-	forward := func(tok int32, pos int) (int32, error) {
-		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 	}
 
 	show := func(tok int32) error {

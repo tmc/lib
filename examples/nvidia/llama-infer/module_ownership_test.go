@@ -203,6 +203,7 @@ var ownerReturning = map[string]bool{
 	"NewGPUScratchpad": true, "newGPUScratchpadWith": true,
 	"CompileGPUModules": true, "compileGPUModules": true,
 	"NewDecodeGraph": true, "newDecodeGraphWith": true,
+	"newEgraphDecoder":  true,
 	libX + "cudakv.New": true, libX + "cudamem.Alloc": false,
 }
 
@@ -310,6 +311,8 @@ var ownerSites = []struct {
 			"its deferred release frees on error"},
 	{ownerSite{"decode_graph.go", "NewDecodeGraph", "newDecodeGraphWith", "return"}, 1, "",
 		"hands the owner and error to the callers of NewDecodeGraph, whose calls are checked"},
+	{ownerSite{"egraph_gpu.go", "newEgraphDecoder", libX + "cudamem.Alloc", "owner field"}, 23, "",
+		"each buffer lies in eg, which the constructor's deferred eg.Close frees on error"},
 	{ownerSite{"main.go", "runGPUInference", "NewDecodeGraph", "call"}, 1, "TestCloseDecodeGraph",
 		"runGPUInference defers closeDecodeGraph(td, &dg) before calling NewDecodeGraph, which closes a non-nil dg when !td.held() and records its error in td"},
 	{ownerSite{"decode_graph_test.go", "build", "newDecodeGraphWith", "call"}, 1, "TestDecodeGraphCloseAndSetupErrors",
@@ -966,7 +969,7 @@ func controlSrc(body string) string {
 // the inspected form, changes a count, and must be reviewed before the
 // count is updated here; ownerSites lists each one not inspected.
 var ownerCalls = map[string]callCount{
-	"main.go":                   {5, 4},
+	"main.go":                   {6, 5},
 	"fused_parity_cuda_test.go": {6, 6},
 	"bf16_parity_cuda_test.go":  {6, 6},
 	"fused_decode_cuda_test.go": {1, 1},
@@ -978,6 +981,7 @@ var ownerCalls = map[string]callCount{
 	"weights_bf16.go":           {2, 0},
 	"gpu_model_test.go":         {4, 0},
 	"decode_graph_test.go":      {1, 0},
+	"egraph_gpu.go":             {23, 0},
 }
 
 // testFuncs returns the names of the functions declared in the package's
@@ -1458,6 +1462,7 @@ var loadCalls = map[string]callCount{
 	"bf16_parity_cuda_test.go":        {4, 4},
 	"context_experiment_cuda_test.go": {2, 2},
 	"gpu_kernels.go":                  {2, 2},
+	"egraph_gpu.go":                   {2, 2},
 }
 
 // TestCallErrorsReleased checks that every module compile and load in the

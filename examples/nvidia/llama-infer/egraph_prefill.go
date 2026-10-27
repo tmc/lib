@@ -66,64 +66,31 @@ func prefillSeqLens(start, n, qtok int) []int32 {
 	return lens
 }
 
-func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights) (pf *egraphPrefill, err error) {
-	pl := eg.plans.pf
-	h := cfg.HiddenSize
-	qDim := cfg.NumAttentionHeads * cfg.HeadDim()
-	kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
-	groups := (pl.rows + pl.qtok - 1) / pl.qtok
-	// Every chunk but the last fills its groups, so the prompt needs at
-	// most one partial group per chunk beyond MaxSeqLen/qtok.
-	maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows
-	pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, gather: eg.fns[embedGatherName]}
-	defer func() {
-		if err != nil {
-			err = errors.Join(err, pf.free())
-			pf = nil
-		}
-	}()
-	allocs := []struct {
-		what string
-		f    func() error
-	}{
-		{"tokens", func() (err error) { pf.tokens, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); return }},
-		{"positions", func() (err error) { pf.positions, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); return }},
-		{"seq lens", func() (err error) { pf.seqLens, err = cudamem.Alloc[int32](dev, maxGroups); return }},
-		{"seq ids", func() (err error) { pf.seqIDs, err = cudamem.Alloc[int32](dev, pl.rows); return }},
-		{"page table", func() (err error) { pf.pages, err = cudamem.Alloc[int32](dev, groups*pl.attn.MaxPages); return }},
-		{"residual", func() (err error) { pf.x[0], err = cudamem.Alloc[float32](dev, pl.rows*h); return }},
-		{"residual", func() (err error) { pf.x[1], err = cudamem.Alloc[float32](dev, pl.rows*h); return }},
-		{"qkv", func() (err error) { pf.qkv, err = cudamem.Alloc[uint16](dev, pl.rows*(qDim+2*kvDim)); return }},
-		// Attention reads and writes whole groups.
-		{"q", func() (err error) { pf.q, err = cudamem.Alloc[uint16](dev, groups*pl.qtok*qDim); return }},
-		{"attention", func() (err error) { pf.attnOut, err = cudamem.Alloc[uint16](dev, groups*pl.qtok*qDim); return }},
-	}
-	for _, a := range allocs {
-		if err := a.f(); err != nil {
-			return nil, fmt.Errorf("alloc prefill %s: %w", a.what, err)
-		}
-	}
+// bindPrefill fills the prefill tables newEgraphDecoder allocated in eg.pf
+// and binds its launches.
+func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights) error {
+	pl, pf := eg.plans.pf, eg.pf
 	pos := make([]int32, cfg.MaxSeqLen)
 	for i := range pos {
 		pos[i] = int32(i)
 	}
 	if err := pf.positions.CopyFromHost(pos); err != nil {
-		return nil, fmt.Errorf("upload prefill positions: %w", err)
+		return fmt.Errorf("upload prefill positions: %w", err)
 	}
-	if err := pf.seqIDs.CopyFromHost(make([]int32, pl.rows)); err != nil {
-		return nil, fmt.Errorf("upload prefill seq ids: %w", err)
+	if err := pf.seqIDs.CopyFromHost(make([]int32, pf.seqIDs.Len())); err != nil {
+		return fmt.Errorf("upload prefill seq ids: %w", err)
 	}
-	pages := make([]int32, groups*pl.attn.MaxPages)
+	pages := make([]int32, pf.pages.Len())
 	for i := range pages {
 		pages[i] = int32(i % pl.attn.MaxPages)
 	}
 	if err := pf.pages.CopyFromHost(pages); err != nil {
-		return nil, fmt.Errorf("upload prefill page table: %w", err)
+		return fmt.Errorf("upload prefill page table: %w", err)
 	}
 	// A partial last group reads q rows past the chunk; zero them so the
 	// rows it computes and ignores stay finite.
 	if err := pf.q.CopyFromHost(make([]uint16, pf.q.Len())); err != nil {
-		return nil, fmt.Errorf("zero prefill q: %w", err)
+		return fmt.Errorf("zero prefill q: %w", err)
 	}
 
 	cur, next := pf.x[0], pf.x[1]
@@ -146,11 +113,11 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 		}
 		in, err := eg.bind(pl.attnIn, bufs)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		post, err := eg.bind(pl.post, bufs)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		pf.attnIn = append(pf.attnIn, in)
 		pf.post = append(pf.post, post)
@@ -160,8 +127,8 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 		// page_table, q_out, k_cache, v_cache
 		pf.rope = append(pf.rope, egraphLaunch{
 			fn: eg.fns[pl.rope.Name], block: [3]uint32{128, 1, 1}, epoch: -1,
-			args: []any{pf.qkv.Ptr(), eg.cs.Ptr(), pf.positions.Ptr(), pf.seqIDs.Ptr(), eg.one, pf.positions.Ptr(),
-				eg.pageTable, pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
+			args: []any{pf.qkv.Ptr(), eg.cs.Ptr(), pf.positions.Ptr(), pf.seqIDs.Ptr(), eg.seqLen1.Ptr(), pf.positions.Ptr(),
+				eg.pages.Ptr(), pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
 		})
 		// q, k_cache, v_cache, page_table, seqlens, draft_mask, out
 		_, block := pl.attn.Grid(1)
@@ -175,11 +142,11 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 	for _, ls := range [][]egraphLaunch{pf.attnIn[0], pf.post[0]} {
 		for _, l := range ls {
 			if err := cudalaunch.Kernel(l.fn).SharedMem(l.smem).PrepareSharedMem(dev); err != nil {
-				return nil, fmt.Errorf("prefill gemm shared memory: %w", err)
+				return fmt.Errorf("prefill gemm shared memory: %w", err)
 			}
 		}
 	}
-	return pf, nil
+	return nil
 }
 
 // launches returns the launches one chunk makes, before the head.

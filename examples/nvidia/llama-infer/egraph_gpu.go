@@ -35,18 +35,20 @@ type egraphLaunch struct {
 // by it.
 func (l egraphLaunch) withRows(n int) egraphLaunch {
 	k := l.kern
-	var grid [3]int
+	var grid, block [3]int
 	switch {
 	case k == nil || k.GEMM != nil:
 		return l
 	case k.Tile != nil:
-		grid, _ = k.Tile.Grid(n, 1)
+		grid, block = k.Tile.Grid(n, 1)
 	case k.Row != nil:
-		grid, _ = k.Row.Grid(n)
+		grid, block = k.Row.Grid(n)
 	}
 	l.args = slices.Clone(l.args)
 	l.args[0] = int32(n)
-	l.grid = [3]uint32{uint32(grid[0]), uint32(grid[1]), uint32(grid[2])}
+	for i := range 3 {
+		l.grid[i], l.block[i] = uint32(grid[i]), uint32(block[i])
+	}
 	return l
 }
 
@@ -89,8 +91,8 @@ type egraphDecoder struct {
 	wqkv, wgu []deviceWeight
 	bqkv      []cudamem.Slice[float32]
 	qkv, x2   cudamem.Slice[float32]
-	temps32   []cudamem.Slice[float32]
-	temps16   []cudamem.Slice[uint16]
+	temps32   map[string]cudamem.Slice[float32] // by name
+	temps16   map[string]cudamem.Slice[uint16]
 	tempPtr   map[string]driver.DevicePtr
 
 	attnIn, post [][]egraphLaunch // per layer
@@ -101,7 +103,9 @@ type egraphDecoder struct {
 	// per-layer rotary and attention launches.
 	kc, vc     []cudamem.Slice[uint16]
 	cs         cudamem.Slice[float32]
-	ints       []cudamem.Slice[int32]
+	ropePage   cudamem.Slice[int32] // {0}
+	seqLen1    cudamem.Slice[int32] // {1}
+	pages      cudamem.Slice[int32] // identity page table
 	qbf        cudamem.Slice[uint16]
 	rope, sdpa []egraphLaunch
 	ws         cudamem.Slice[float32] // split attention partials
@@ -109,8 +113,6 @@ type egraphDecoder struct {
 	qcast      []egraphLaunch
 	posKind    map[driver.Function]string
 	posArgs    map[driver.Function][]egraphPosArg
-	pageTable  driver.DevicePtr
-	one        driver.DevicePtr
 
 	pf *egraphPrefill // with plans.pf
 }
@@ -132,13 +134,17 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		megas:   make(map[*hopper.Plan]hopper.Megakernel),
 		fns:     make(map[string]driver.Function),
 		ready:   make(map[*hopper.Plan]cudamem.Slice[uint64]),
+		temps32: make(map[string]cudamem.Slice[float32]),
+		temps16: make(map[string]cudamem.Slice[uint16]),
 		tempPtr: make(map[string]driver.DevicePtr),
 		posKind: make(map[driver.Function]string),
 		posArgs: make(map[driver.Function][]egraphPosArg),
 	}
 	defer func() {
 		if err != nil {
-			err = errors.Join(err, eg.Close())
+			if cerr := eg.Close(); cerr != nil {
+				err = errors.Join(err, cerr)
+			}
 			eg = nil
 		}
 	}()
@@ -149,12 +155,10 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 				return nil, err
 			}
 			eg.megas[p] = m
-			r, err := cudamem.Alloc[uint64](dev, m.ReadyWords())
-			eg.ready[p] = r
-			if err != nil {
+			if eg.ready[p], err = cudamem.Alloc[uint64](dev, m.ReadyWords()); err != nil {
 				return nil, fmt.Errorf("alloc %s ready counters: %w", m.Name, err)
 			}
-			if err := r.CopyFromHost(make([]uint64, m.ReadyWords())); err != nil {
+			if err := eg.ready[p].CopyFromHost(make([]uint64, m.ReadyWords())); err != nil {
 				return nil, fmt.Errorf("zero %s ready counters: %w", m.Name, err)
 			}
 		}
@@ -163,25 +167,24 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		return nil, err
 	}
 
+	eg.wqkv = make([]deviceWeight, len(w.Layers))
+	eg.wgu = make([]deviceWeight, len(w.Layers))
+	if bias {
+		eg.bqkv = make([]cudamem.Slice[float32], len(w.Layers))
+	}
 	for i := range w.Layers {
 		l := &w.Layers[i]
-		qkv, err := uploadWeight(dev, concat(l.WQ, l.WK, l.WV), weightBF16)
-		eg.wqkv = append(eg.wqkv, qkv)
-		if err != nil {
+		if eg.wqkv[i], err = uploadWeight(dev, concat(l.WQ, l.WK, l.WV), weightBF16); err != nil {
 			return nil, fmt.Errorf("upload layer %d qkv: %w", i, err)
 		}
-		gu, err := uploadWeight(dev, concat(l.WGate, l.WUp), weightBF16)
-		eg.wgu = append(eg.wgu, gu)
-		if err != nil {
+		if eg.wgu[i], err = uploadWeight(dev, concat(l.WGate, l.WUp), weightBF16); err != nil {
 			return nil, fmt.Errorf("upload layer %d gate_up: %w", i, err)
 		}
 		if bias {
-			b, err := cudamem.Alloc[float32](dev, len(l.QBias)+len(l.KBias)+len(l.VBias))
-			eg.bqkv = append(eg.bqkv, b)
-			if err != nil {
+			if eg.bqkv[i], err = cudamem.Alloc[float32](dev, len(l.QBias)+len(l.KBias)+len(l.VBias)); err != nil {
 				return nil, fmt.Errorf("alloc layer %d qkv bias: %w", i, err)
 			}
-			if err := b.CopyFromHost(concat(l.QBias, l.KBias, l.VBias)); err != nil {
+			if err := eg.bqkv[i].CopyFromHost(concat(l.QBias, l.KBias, l.VBias)); err != nil {
 				return nil, fmt.Errorf("upload layer %d qkv bias: %w", i, err)
 			}
 		}
@@ -200,19 +203,15 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 			}
 			switch t.DType {
 			case hopper.F32:
-				s, err := cudamem.Alloc[float32](dev, n)
-				eg.temps32 = append(eg.temps32, s)
-				if err != nil {
+				if eg.temps32[t.Name], err = cudamem.Alloc[float32](dev, n); err != nil {
 					return nil, fmt.Errorf("alloc %s: %w", t.Name, err)
 				}
-				eg.tempPtr[t.Name] = s.Ptr()
+				eg.tempPtr[t.Name] = eg.temps32[t.Name].Ptr()
 			case hopper.BF16:
-				s, err := cudamem.Alloc[uint16](dev, n)
-				eg.temps16 = append(eg.temps16, s)
-				if err != nil {
+				if eg.temps16[t.Name], err = cudamem.Alloc[uint16](dev, n); err != nil {
 					return nil, fmt.Errorf("alloc %s: %w", t.Name, err)
 				}
-				eg.tempPtr[t.Name] = s.Ptr()
+				eg.tempPtr[t.Name] = eg.temps16[t.Name].Ptr()
 			default:
 				return nil, fmt.Errorf("temporary %s has dtype %v", t.Name, t.DType)
 			}
@@ -260,39 +259,104 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		return nil, err
 	}
 	if opt.Attn {
-		if err := eg.bindAttention(dev, cfg, sp); err != nil {
+		hd := cfg.HeadDim()
+		slots := cfg.MaxSeqLen
+		if plans.pf != nil {
+			slots = plans.pf.cacheSlots
+		}
+		n := slots * cfg.NumKeyValueHeads * hd
+		eg.kc = make([]cudamem.Slice[uint16], cfg.NumHiddenLayers)
+		eg.vc = make([]cudamem.Slice[uint16], cfg.NumHiddenLayers)
+		for i := range cfg.NumHiddenLayers {
+			if eg.kc[i], err = cudamem.Alloc[uint16](dev, n); err != nil {
+				return nil, fmt.Errorf("alloc layer %d k cache: %w", i, err)
+			}
+			if eg.vc[i], err = cudamem.Alloc[uint16](dev, n); err != nil {
+				return nil, fmt.Errorf("alloc layer %d v cache: %w", i, err)
+			}
+		}
+		if eg.cs, err = cudamem.Alloc[float32](dev, cfg.MaxSeqLen*hd); err != nil {
+			return nil, fmt.Errorf("alloc rope table: %w", err)
+		}
+		if eg.ropePage, err = cudamem.Alloc[int32](dev, 1); err != nil {
+			return nil, fmt.Errorf("alloc rope page table: %w", err)
+		}
+		if eg.seqLen1, err = cudamem.Alloc[int32](dev, 1); err != nil {
+			return nil, fmt.Errorf("alloc seqlens: %w", err)
+		}
+		if eg.pages, err = cudamem.Alloc[int32](dev, plans.sdpa.MaxPages); err != nil {
+			return nil, fmt.Errorf("alloc attention page table: %w", err)
+		}
+		if eg.qbf, err = cudamem.Alloc[uint16](dev, cfg.NumAttentionHeads*hd); err != nil {
+			return nil, fmt.Errorf("alloc q: %w", err)
+		}
+		if n := plans.sdpa.WorkspaceFloats(1); n > 0 {
+			if eg.ws, err = cudamem.Alloc[float32](dev, n); err != nil {
+				return nil, fmt.Errorf("alloc attention workspace: %w", err)
+			}
+		}
+		if err := eg.bindAttention(cfg, sp); err != nil {
 			return nil, err
 		}
 	}
-	if plans.pf != nil {
-		if eg.pf, err = eg.bindPrefill(dev, cfg, gpuW); err != nil {
+	if pl := plans.pf; pl != nil {
+		h := cfg.HiddenSize
+		qDim := cfg.NumAttentionHeads * cfg.HeadDim()
+		kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
+		groups := (pl.rows + pl.qtok - 1) / pl.qtok
+		// Every chunk but the last fills its groups, so the prompt needs
+		// at most one partial group per chunk beyond MaxSeqLen/qtok.
+		maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows
+		eg.pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, gather: eg.fns[embedGatherName]}
+		if eg.pf.tokens, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); err != nil {
+			return nil, fmt.Errorf("alloc prefill tokens: %w", err)
+		}
+		if eg.pf.positions, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); err != nil {
+			return nil, fmt.Errorf("alloc prefill positions: %w", err)
+		}
+		if eg.pf.seqLens, err = cudamem.Alloc[int32](dev, maxGroups); err != nil {
+			return nil, fmt.Errorf("alloc prefill seq lens: %w", err)
+		}
+		if eg.pf.seqIDs, err = cudamem.Alloc[int32](dev, pl.rows); err != nil {
+			return nil, fmt.Errorf("alloc prefill seq ids: %w", err)
+		}
+		if eg.pf.pages, err = cudamem.Alloc[int32](dev, groups*pl.attn.MaxPages); err != nil {
+			return nil, fmt.Errorf("alloc prefill page table: %w", err)
+		}
+		for i := range eg.pf.x {
+			if eg.pf.x[i], err = cudamem.Alloc[float32](dev, pl.rows*h); err != nil {
+				return nil, fmt.Errorf("alloc prefill residual: %w", err)
+			}
+		}
+		if eg.pf.qkv, err = cudamem.Alloc[uint16](dev, pl.rows*(qDim+2*kvDim)); err != nil {
+			return nil, fmt.Errorf("alloc prefill qkv: %w", err)
+		}
+		// Attention reads and writes whole groups.
+		if eg.pf.q, err = cudamem.Alloc[uint16](dev, groups*pl.qtok*qDim); err != nil {
+			return nil, fmt.Errorf("alloc prefill q: %w", err)
+		}
+		if eg.pf.attnOut, err = cudamem.Alloc[uint16](dev, groups*pl.qtok*qDim); err != nil {
+			return nil, fmt.Errorf("alloc prefill attention: %w", err)
+		}
+		if err := eg.bindPrefill(dev, cfg, gpuW); err != nil {
 			return nil, err
 		}
 	}
 	return eg, nil
 }
 
-// bindAttention allocates the BF16 KV cache and the tables the emitted
-// rotary and attention kernels read, and binds their launches.
-func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *GPUScratchpad) error {
+// bindAttention fills the BF16 KV cache with zeros and the tables the
+// emitted rotary and attention kernels read, and binds their launches.
+func (eg *egraphDecoder) bindAttention(cfg *ModelConfig, sp *GPUScratchpad) error {
 	hd := cfg.HeadDim()
 	kvDim := cfg.NumKeyValueHeads * hd
 	maxSeq := cfg.MaxSeqLen
-	slots := maxSeq
-	if eg.plans.pf != nil {
-		slots = eg.plans.pf.cacheSlots
-	}
-	for i := range cfg.NumHiddenLayers {
-		for _, c := range []*[]cudamem.Slice[uint16]{&eg.kc, &eg.vc} {
-			s, err := cudamem.Alloc[uint16](dev, slots*kvDim)
-			*c = append(*c, s)
-			if err != nil {
-				return fmt.Errorf("alloc layer %d kv cache: %w", i, err)
-			}
-			// Prefill attention loads, and masks, cache rows past a
-			// chunk's last token; a NaN there would still poison the
-			// output (0·NaN), so start from zeros.
-			if err := s.CopyFromHost(make([]uint16, slots*kvDim)); err != nil {
+	// Prefill attention loads, and masks, cache rows past a chunk's last
+	// token; a NaN there would still poison the output (0·NaN), so start
+	// from zeros.
+	for i := range eg.kc {
+		for _, c := range []cudamem.Slice[uint16]{eg.kc[i], eg.vc[i]} {
+			if err := c.CopyFromHost(make([]uint16, c.Len())); err != nil {
 				return fmt.Errorf("zero layer %d kv cache: %w", i, err)
 			}
 		}
@@ -309,49 +373,25 @@ func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *G
 			table[pos*hd+half+i] = float32(math.Sin(a))
 		}
 	}
-	var err error
-	if eg.cs, err = cudamem.Alloc[float32](dev, len(table)); err != nil {
-		return fmt.Errorf("alloc rope table: %w", err)
-	}
 	if err := eg.cs.CopyFromHost(table); err != nil {
 		return fmt.Errorf("upload rope table: %w", err)
-	}
-	ints := func(v []int32) (driver.DevicePtr, error) {
-		s, err := cudamem.Alloc[int32](dev, len(v))
-		eg.ints = append(eg.ints, s)
-		if err != nil {
-			return 0, err
-		}
-		return s.Ptr(), s.CopyFromHost(v)
 	}
 	// The rotary kernel writes cache slot page_table[0]·1 + (seqlens[0]-1)
 	// = 0 of the pointers it is given, which the decoder offsets to the
 	// token's row. The attention kernel reads page i at row 16i.
-	zero, err := ints([]int32{0})
-	if err != nil {
-		return fmt.Errorf("alloc rope page table: %w", err)
-	}
-	one, err := ints([]int32{1})
-	if err != nil {
-		return fmt.Errorf("alloc seqlens: %w", err)
-	}
-	pages := make([]int32, eg.plans.sdpa.MaxPages)
+	pages := make([]int32, eg.pages.Len())
 	for i := range pages {
 		pages[i] = int32(i)
 	}
-	pageTable, err := ints(pages)
-	if err != nil {
-		return fmt.Errorf("alloc attention page table: %w", err)
-	}
-	eg.pageTable, eg.one = pageTable, one
-	if eg.qbf, err = cudamem.Alloc[uint16](dev, cfg.NumAttentionHeads*hd); err != nil {
-		return fmt.Errorf("alloc q: %w", err)
-	}
-	if n := eg.plans.sdpa.WorkspaceFloats(1); n > 0 {
-		if eg.ws, err = cudamem.Alloc[float32](dev, n); err != nil {
-			return fmt.Errorf("alloc attention workspace: %w", err)
+	for _, t := range []struct {
+		s cudamem.Slice[int32]
+		v []int32
+	}{{eg.ropePage, []int32{0}}, {eg.seqLen1, []int32{1}}, {eg.pages, pages}} {
+		if err := t.s.CopyFromHost(t.v); err != nil {
+			return fmt.Errorf("upload attention tables: %w", err)
 		}
 	}
+	var err error
 	if eg.qcast, err = eg.bind(eg.plans.qcast, map[string]driver.DevicePtr{
 		"q":                        eg.qbf.Ptr(),
 		eg.plans.qcast.Output.Name: sp.Q.Ptr(),
@@ -369,8 +409,8 @@ func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *G
 		// page_table, q_out, k_cache, v_cache
 		eg.rope = append(eg.rope, egraphLaunch{
 			fn: ropeFn, grid: [3]uint32{1, 1, 1}, block: [3]uint32{128, 1, 1}, epoch: -1,
-			args: []any{eg.qkv.Ptr(), eg.cs.Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), one, driver.DevicePtr(0),
-				zero, eg.qbf.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
+			args: []any{eg.qkv.Ptr(), eg.cs.Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), eg.seqLen1.Ptr(), driver.DevicePtr(0),
+				eg.ropePage.Ptr(), eg.qbf.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
 			pos: eg.posArgs[ropeFn],
 		})
 		// q, k_pages, v_pages, k_scales, v_scales, page_table, out (ws
@@ -383,7 +423,7 @@ func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *G
 		}
 		eg.sdpa = append(eg.sdpa, egraphLaunch{
 			fn: sdpaFn, grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(b[0]), uint32(b[1]), uint32(b[2])}, epoch: -1,
-			args: []any{sp.Q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), pageTable, out, int32(1)},
+			args: []any{sp.Q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), eg.pages.Ptr(), out, int32(1)},
 			pos:  eg.posArgs[sdpaFn],
 		})
 	}
@@ -521,7 +561,8 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 	if err != nil {
 		return fmt.Errorf("compile e-graph kernels: %w", releaseErrorOwner(err))
 	}
-	if eg.mod, err = cm.Load(dev); err != nil {
+	eg.mod, err = cm.Load(dev)
+	if err != nil {
 		return fmt.Errorf("load e-graph kernels: %w", releaseErrorOwner(err))
 	}
 	for _, name := range names {
@@ -628,11 +669,13 @@ func (eg *egraphDecoder) Close() error {
 	for i := range eg.bqkv {
 		errs = append(errs, freeOwned(&eg.bqkv[i]))
 	}
-	for i := range eg.temps32 {
-		errs = append(errs, freeOwned(&eg.temps32[i]))
+	for name, s := range eg.temps32 {
+		errs = append(errs, freeOwned(&s))
+		delete(eg.temps32, name)
 	}
-	for i := range eg.temps16 {
-		errs = append(errs, freeOwned(&eg.temps16[i]))
+	for name, s := range eg.temps16 {
+		errs = append(errs, freeOwned(&s))
+		delete(eg.temps16, name)
 	}
 	for i := range eg.kc {
 		errs = append(errs, freeOwned(&eg.kc[i]))
@@ -640,9 +683,7 @@ func (eg *egraphDecoder) Close() error {
 	for i := range eg.vc {
 		errs = append(errs, freeOwned(&eg.vc[i]))
 	}
-	for i := range eg.ints {
-		errs = append(errs, freeOwned(&eg.ints[i]))
-	}
+	errs = append(errs, freeOwned(&eg.ropePage), freeOwned(&eg.seqLen1), freeOwned(&eg.pages))
 	errs = append(errs, freeOwned(&eg.cs), freeOwned(&eg.qbf), freeOwned(&eg.ws))
 	if eg.pf != nil {
 		errs = append(errs, eg.pf.free())
