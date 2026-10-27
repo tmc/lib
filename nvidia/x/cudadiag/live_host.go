@@ -23,17 +23,25 @@ import (
 // HostEvidence retains an actual collector's host observations. Receipt.Partial
 // remains true: late attachment and unquantified tracefs transport loss prevent
 // exact totals and causal GPU attribution. HostCalls are API intervals, never
-// GPU execution intervals. RawSHA256 hashes the JSON lines written to the sink.
+// GPU execution intervals. RawSHA256 hashes the JSON lines written to the sink. Records counts
+// serialized results, including coverage attempts. Final manifest and counter
+// metadata are returned in this envelope; the raw stream remains Result JSONL.
 type HostEvidence struct {
-	Manifest  cudatracehost.Manifest
-	Process   cudaworkload.ProcessGenID
-	TID       uint64
-	RawSHA256 string
-	Records   int
-	HostCalls []HostCallEvent
-	Scheduler SchedEvidence
-	Receipt   tracecontract.Receipt
-	Findings  []tracecontract.Finding
+	// StopStats preserves the collector's final counters. StopError makes any
+	// partial/failed counter acquisition explicit; ring counters do not establish
+	// complete call, scheduler or thread coverage.
+	StopStats    *cudatracehost.StopStats `json:",omitempty"`
+	StopError    string                   `json:",omitempty"`
+	CleanupError string                   `json:",omitempty"`
+	Manifest     cudatracehost.Manifest
+	Process      cudaworkload.ProcessGenID
+	TID          uint64
+	RawSHA256    string
+	Records      int
+	HostCalls    []HostCallEvent
+	Scheduler    SchedEvidence
+	Receipt      tracecontract.Receipt
+	Findings     []tracecontract.Finding
 }
 
 // CollectHostEvidence attaches real CUDA API and scheduler probes for cfg.PID.
@@ -56,15 +64,53 @@ func CollectHostEvidence(ctx context.Context, cfg cudatracehost.Config, tid uint
 	if err != nil {
 		return out, err
 	}
-	defer func() { err = errors.Join(err, collector.Close()) }()
-	generation, err := ebpfhost.ProcessStartTime(cfg.PID)
+	return collectHostEvidence(ctx, collector, func() (cudaworkload.ProcessGenID, error) {
+		generation, err := ebpfhost.ProcessStartTime(cfg.PID)
+		if err != nil {
+			return cudaworkload.ProcessGenID{}, err
+		}
+		if _, err := os.Stat(fmt.Sprintf("/proc/%d/task/%d", cfg.PID, tid)); err != nil {
+			return cudaworkload.ProcessGenID{}, fmt.Errorf("host evidence: target thread membership: %w", err)
+		}
+		return cudaworkload.ProcessGenID{PID: uint32(cfg.PID), Generation: generation}, nil
+	}, tid, maxRecords, raw, recorder)
+}
+
+type hostEvidenceCollector interface {
+	Next(context.Context) (cudatracehost.Result, error)
+	Manifest() cudatracehost.Manifest
+	StopAndStats() (cudatracehost.StopStats, error)
+	Close() error
+}
+
+// collectHostEvidence is the live consumer loop, shared with controlled host
+// tests. The public wrapper resolves the real process and opens the collector.
+func collectHostEvidence(ctx context.Context, collector hostEvidenceCollector, process func() (cudaworkload.ProcessGenID, error), tid uint64, maxRecords int, raw io.Writer, recorder *cudaflightrecorder.Recorder) (out HostEvidence, err error) {
+	defer func() {
+		stats, stopErr := collector.StopAndStats()
+		out.StopStats = &stats
+		if stopErr != nil {
+			out.StopError = stopErr.Error()
+		}
+		final := collector.Manifest()
+		var identityErr error
+		if out.Process.PID != 0 && (final.Process.PID != out.Process.PID || final.Process.Generation != out.Process.Generation) {
+			identityErr = fmt.Errorf("host evidence: final process generation mismatch")
+		}
+		out.Manifest = final
+		closeErr := collector.Close()
+		if closeErr != nil {
+			out.CleanupError = closeErr.Error()
+		}
+		// Early errors may precede receipt construction. They are still partial,
+		// never evidence of an empty complete observation population.
+		out.Receipt.Partial = true
+		err = errors.Join(err, stopErr, identityErr, closeErr)
+	}()
+	out.Process, err = process()
 	if err != nil {
 		return out, err
 	}
-	if _, err := os.Stat(fmt.Sprintf("/proc/%d/task/%d", cfg.PID, tid)); err != nil {
-		return out, fmt.Errorf("host evidence: target thread membership: %w", err)
-	}
-	out.Process = cudaworkload.ProcessGenID{PID: uint32(cfg.PID), Generation: generation}
 	out.TID = tid
 	out.Manifest = collector.Manifest()
 	if out.Manifest.Process.PID != out.Process.PID || out.Manifest.Process.Generation != out.Process.Generation {
@@ -76,7 +122,7 @@ func CollectHostEvidence(ctx context.Context, cfg cudatracehost.Config, tid uint
 	var warnings []string
 	for out.Records < maxRecords {
 		result, nextErr := collector.Next(ctx)
-		if result.Raw != "" {
+		if result.Raw != "" || result.Native != nil || result.Capture != nil || result.Call != nil || result.ThreadRescan != nil {
 			if e := encoder.Encode(result); e != nil {
 				return out, fmt.Errorf("host evidence: write raw record: %w", e)
 			}
@@ -146,7 +192,7 @@ func CollectHostEvidence(ctx context.Context, cfg cudatracehost.Config, tid uint
 		out.Receipt.InputPath = named.Name()
 	}
 	value := float64(out.Records)
-	out.Findings = []tracecontract.Finding{tracecontract.Admit("received-host-records", "received_host_records", tracecontract.FindingObserved, "raw transport records retained; not a complete API or GPU count", &value, "received_records", []tracecontract.Requirement{{Name: "raw_artifact", ArtifactDigest: out.RawSHA256}}, tracecontract.EvidenceContext{Receipt: out.Receipt, Artifacts: []string{out.RawSHA256}})}
+	out.Findings = []tracecontract.Finding{tracecontract.Admit("received-host-records", "received_host_records", tracecontract.FindingObserved, "raw result records, including coverage attempts, retained; not a complete API or GPU count", &value, "received_records", []tracecontract.Requirement{{Name: "raw_artifact", ArtifactDigest: out.RawSHA256}}, tracecontract.EvidenceContext{Receipt: out.Receipt, Artifacts: []string{out.RawSHA256}})}
 	return out, err
 }
 
