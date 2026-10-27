@@ -1,0 +1,12 @@
+commit: 7df4bffbda6b26f3f8ec5ef036345ca18d41027f
+date: 2026-10-27T11:15:26.611738+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 60241
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original103-numeric-artifacts/W/net.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-original103-numeric-adoption/ROOT-GRADE.md
+qualification: source/CPU:wholedefaultpackageexceptNativePhysical63roots120subs PASS each host/race,2vets,2compiled omissions;distinct source review+root short-write fix;no real-device retention/full103
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
