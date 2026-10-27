@@ -863,6 +863,9 @@ func buildTCGen05Wave12And13Fixtures(t *testing.T) tcgen05Wave12And13Fixtures {
 	b.WriteString("#include <cuda.h>\n#include <cuda_runtime.h>\n#include <cstdio>\n#include <cmath>\n#include <cstdint>\n#include <cstring>\n#include <vector>\n")
 	b.WriteString("#if !defined(__CUDA_ARCH__) || (__CUDA_ARCH__ != 1070)\n#define EG_EMU 1\n#endif\n")
 	b.WriteString(Prelude + "\n")
+	// TCGen05AdvancedPrelude declares templates, which may not have C linkage;
+	// emit it first so its include guard empties the copies inside extern "C".
+	b.WriteString(TCGen05AdvancedPrelude + "\n")
 	b.WriteString("extern \"C\" {\n")
 	b.WriteString(lutCUDA + "\n")
 	b.WriteString(prepareEarlyReleaseDeviceSource(erCUDA) + "\n")

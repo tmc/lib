@@ -271,7 +271,7 @@ EG_DEV void eg_tcgen05_alloc_exclusive_576(float* tmem, uint32_t* slot) {
 	if k.UseExclusive576Cols {
 		b.WriteString("        eg_tcgen05_alloc_exclusive_576(tmem, &slot_d[0]);\n")
 	} else {
-		fmt.Fprintf(&b, "        eg_tcgen05_alloc_cta1(tmem, &slot_d[0], 0u, %du);\n", k.N)
+		fmt.Fprintf(&b, "        eg_tcgen05_alloc_cta1(tmem, &slot_d[0], 0u, %du);\n", k.allocCols())
 	}
 
 	b.WriteString(`    }
@@ -288,27 +288,35 @@ EG_DEV void eg_tcgen05_alloc_exclusive_576(float* tmem, uint32_t* slot) {
         const uint64_t desc_b = eg_wgmma_desc(smem_b, 128, 1024);
         const uint32_t idesc = `)
 	fmt.Fprintf(&b, "0x%08xu;\n", idesc)
+	// tcgen05.mma.ws.sp takes the sparsity metadata TMEM address
+	// ([sp-meta-tmem]) between b-desc and idesc (PTX ISA 9.4 §9.7.18.10.10.4);
+	// it lives in the columns allocated past the N accumulator columns.
+	fmt.Fprintf(&b, "        const uint32_t meta_taddr = d_taddr + %du;\n", k.N)
+	spMetaOperand := ""
+	if k.Sparse {
+		spMetaOperand = "[%5], "
+	}
 	if maskWord != 0 {
 		fmt.Fprintf(&b, `        const uint64_t zmask = ZERO_COL_MASK;
         asm volatile(
             "{\n"
             ".reg .pred p;\n"
             "setp.ne.b32 p, 1, 0;\n"
-            "%s [%%0], %%1, %%2, %%3, p, %%4;\n"
+            "%s [%%0], %%1, %%2, %s%%3, p, %%4;\n"
             "}"
-            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "l"(zmask)
+            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "l"(zmask), "r"(meta_taddr)
             : "memory");
-`, mnemonic)
+`, mnemonic, spMetaOperand)
 	} else {
 		fmt.Fprintf(&b, `        asm volatile(
             "{\n"
             ".reg .pred p;\n"
             "setp.ne.b32 p, 1, 0;\n"
-            "%s [%%0], %%1, %%2, %%3, p;\n"
+            "%s [%%0], %%1, %%2, %s%%3, p;\n"
             "}"
-            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc)
+            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "l"(0ULL), "r"(meta_taddr)
             : "memory");
-`, mnemonic)
+`, mnemonic, spMetaOperand)
 	}
 	b.WriteString(`#else
         for (int r = 0; r < M; ++r) {
@@ -336,7 +344,7 @@ EG_DEV void eg_tcgen05_alloc_exclusive_576(float* tmem, uint32_t* slot) {
 
     if (warp == 0) {
 `)
-	fmt.Fprintf(&b, "        eg_tcgen05_dealloc_cta1(d_taddr, %du);\n", k.N)
+	fmt.Fprintf(&b, "        eg_tcgen05_dealloc_cta1(d_taddr, %du);\n", k.allocCols())
 	b.WriteString(`    }
 }
 `)
@@ -382,4 +390,14 @@ func (k TCGen05WeightsStationaryGEMM) Reference(a, b []float32) ([]float32, erro
 		}
 	}
 	return out, nil
+}
+
+// allocCols reports the TMEM columns k allocates without .exclusive: the N
+// accumulator columns, doubled for the sparse form so the [sp-meta-tmem]
+// operand at d_taddr+N lies inside the allocation.
+func (k TCGen05WeightsStationaryGEMM) allocCols() int {
+	if k.Sparse {
+		return 2 * k.N
+	}
+	return k.N
 }
