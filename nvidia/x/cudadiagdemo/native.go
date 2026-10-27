@@ -47,6 +47,11 @@ const nativeSource = `extern "C" __global__ void transform(const float *input, f
 // order, and the maximum is 8. Each attempt owns its stream and input and
 // output buffers, so the workers that can run at once (at most 3*Rounds) must
 // keep 8*Elements bytes each within 32 MiB of device buffers.
+//
+// A nonempty OutputDir retains each attempt's input, CPU reference and
+// downloaded output vectors there; see NativeNumerics. Their worst case,
+// 36*Rounds*Elements bytes, must be at most 64 MiB. An empty OutputDir
+// retains no files.
 type NativeConfig struct {
 	Device    int
 	Elements  int
@@ -117,9 +122,11 @@ type NativeResult struct {
 	Composition           *NativeComposition `json:"composition,omitempty"`
 	CleanupPending        bool               `json:"cleanup_pending"`
 	cleanup               *nativeCleanup
+	vectors               []nativeVectors
 	HostClockDomain       string                        `json:"host_clock_domain"`
 	HostClockEpochID      string                        `json:"host_clock_epoch_id"`
 	NumericalGate         string                        `json:"numerical_gate"`
+	Numerics              NativeNumerics                `json:"numerics"`
 	ExecutionError        string                        `json:"execution_error,omitempty"`
 	Synthetic             bool                          `json:"synthetic"`
 	Qualification         string                        `json:"qualification"`
@@ -151,6 +158,8 @@ type NativeResult struct {
 // cudalock, compares every output to an independent CPU oracle, and retains
 // genuine CUPTI activity when supported. It never substitutes synthetic records.
 // Successful numerical execution is explicitly partial diagnosis qualification.
+// With an OutputDir, the retained vectors replay each attempt's numerical
+// check; they do not qualify diagnosis.
 // Every request worker quiesces before capture close, resource teardown and
 // lease release.
 func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, retErr error) {
@@ -164,11 +173,15 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 	if err != nil {
 		return nil, err
 	}
+	numerics, err := nativeNumericsFor(cfg)
+	if err != nil {
+		return nil, err
+	}
 	if cfg.DeviceIterations == 0 {
 		cfg.DeviceIterations = 16
 	}
 	plan := planNativeRequests(cfg.Rounds, cfg.DeviceIterations)
-	result = &NativeResult{PlannedRequests: len(plan), Concurrency: workers, HostClockDomain: "process_monotonic", NumericalGate: "unavailable", Qualification: "partial", Device: cfg.Device, SourceSHA256: digestBytes([]byte(nativeSource)), RemainingGates: []string{"scheduler observations", "host/CUPTI clock mapping", "collector-off/on overhead", "MIG scope metadata", "concurrent workload attribution", "physical device-negative attribution"}}
+	result = &NativeResult{PlannedRequests: len(plan), Concurrency: workers, HostClockDomain: "process_monotonic", NumericalGate: "unavailable", Qualification: "partial", Numerics: numerics, Device: cfg.Device, SourceSHA256: digestBytes([]byte(nativeSource)), RemainingGates: []string{"scheduler observations", "host/CUPTI clock mapping", "collector-off/on overhead", "MIG scope metadata", "concurrent workload attribution", "physical device-negative attribution"}}
 	var clockID [16]byte
 	if _, err := rand.Read(clockID[:]); err != nil {
 		return result, err
@@ -357,6 +370,7 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 		elements:  cfg.Elements,
 		hostDelay: cfg.HostDelay,
 		evidence:  result.SourceSHA256,
+		retain:    cfg.OutputDir != "",
 	}
 	if captureErr == nil {
 		executor.timestamp = cupti.GetTimestamp
@@ -370,16 +384,7 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 	executor.epoch = time.Now()
 	result.ClockEpochUTC = executor.epoch.UTC()
 	attempts, err := executor.run(ctx, workers, plan, result.cleanup)
-	for _, a := range attempts {
-		result.Requests = append(result.Requests, a.log)
-		result.Trials = append(result.Trials, a.trial)
-		if a.annotation != nil {
-			result.Annotations = append(result.Annotations, *a.annotation)
-		}
-		if a.incorrect {
-			result.NumericalGate = "failed"
-		}
-	}
+	result.recordAttempts(attempts)
 	if err != nil {
 		return result, err
 	}
@@ -472,16 +477,24 @@ func checkNativeOutput(input, output []float32) error {
 	return nil
 }
 
+// exportNative writes transform.cu, result's retained vectors, then its
+// receipt and remaining artifacts to dir. A reused dir fails at transform.cu
+// before any vector is written. A vector failure is recorded in the receipt,
+// which is still written, and returned.
 func exportNative(dir string, result *NativeResult, cubin []byte) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
+	if err := writeNativeFile(createNativeFile, filepath.Join(dir, "transform.cu"), []byte(nativeSource)); err != nil {
+		return err
+	}
+	vectorErr := retainNativeVectors(dir, result, createNativeFile)
 	var activityRaw bytes.Buffer
 	if len(result.Annotations) > 0 && len(result.Activity.Records) > 0 && !result.CleanupPending {
 		writer := &nativeActivityWriter{buffer: &activityRaw, remaining: 32 << 20}
 		for _, record := range result.Activity.Records {
 			if err := json.NewEncoder(writer).Encode(record); err != nil {
-				return err
+				return errors.Join(vectorErr, err)
 			}
 		}
 		result.ActivitySHA256 = digestBytes(activityRaw.Bytes())
@@ -500,12 +513,12 @@ func exportNative(dir string, result *NativeResult, cubin []byte) error {
 	}
 	receipt, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		return err
+		return errors.Join(vectorErr, err)
 	}
-	artifacts := []struct {
+	var artifacts []struct {
 		name string
 		data []byte
-	}{{"transform.cu", []byte(nativeSource)}}
+	}
 	if len(cubin) > 0 {
 		artifacts = append(artifacts, struct {
 			name string
@@ -523,16 +536,11 @@ func exportNative(dir string, result *NativeResult, cubin []byte) error {
 		}{"activity.jsonl", activityRaw.Bytes()})
 	}
 	for _, artifact := range artifacts {
-		f, err := os.OpenFile(filepath.Join(dir, artifact.name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
-		if err != nil {
-			return err
-		}
-		_, writeErr := f.Write(artifact.data)
-		if err := errors.Join(writeErr, f.Close()); err != nil {
-			return err
+		if err := writeNativeFile(createNativeFile, filepath.Join(dir, artifact.name), artifact.data); err != nil {
+			return errors.Join(vectorErr, err)
 		}
 	}
-	return nil
+	return vectorErr
 }
 
 type nativeCleanupAction struct {

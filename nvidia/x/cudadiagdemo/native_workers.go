@@ -97,7 +97,9 @@ type nativeStream interface {
 // nativeExecutor runs request attempts. Open constructs one attempt's
 // stream and registers every owner it constructs on own, including when it
 // returns an error. Annotators is indexed by worker and is nil when capture
-// is unavailable, as is timestamp. Fields are read-only while requests run.
+// is unavailable, as is timestamp. Retain keeps each attempt's encoded input,
+// CPU reference and completely downloaded output. Fields are read-only while
+// requests run.
 type nativeExecutor struct {
 	open       func(own *nativeCleanup) (nativeStream, error)
 	annotators []*cudaworkload.Annotator
@@ -106,6 +108,7 @@ type nativeExecutor struct {
 	hostDelay  time.Duration
 	evidence   string
 	epoch      time.Time
+	retain     bool
 }
 
 // nativeAttempt is the retained record of one dispatched request attempt.
@@ -114,6 +117,7 @@ type nativeAttempt struct {
 	log        NativeRequestLog
 	annotation *cudaworkload.HostSubmission
 	incorrect  bool
+	vectors    *nativeVectors
 }
 
 // run executes plan on at most workers goroutines. Each worker runs one
@@ -215,6 +219,9 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 	host := nativeInput(e.elements, req.index)
 	got := make([]float32, e.elements)
 	trial.InputSHA256 = digestFloats(host)
+	if e.retain {
+		a.vectors = &nativeVectors{index: req.index, input: encodeFloats(host), reference: encodeFloats(nativeReference(host))}
+	}
 	stream, err := e.open(own)
 	if err != nil {
 		return a, err
@@ -307,7 +314,11 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 		return a, err
 	}
 	if err := call("cuMemcpyDtoH_v2", func() error { return stream.download(got) }); err != nil {
+		// A failed download may have partly written got; it is not output.
 		return a, err
+	}
+	if a.vectors != nil {
+		a.vectors.output = encodeFloats(got)
 	}
 	if e.timestamp != nil {
 		if trial.CUPTIAfter, err = e.timestamp(); err != nil {
