@@ -130,7 +130,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nsightsystems](nsightsystems/) | Package nsightsystems imports a bounded subset of documented Nsight Systems SQLite exports through a small read-only database boundary. |
 | [nvfatbinx](nvfatbinx/) | Package nvfatbinx packages alternative CUDA device images into a fatbinary. |
 | [nvjitlinkx](nvjitlinkx/) | Package nvjitlinkx links CUDA device-code inputs with nvJitLink. |
-| [nvl72](nvl72/) | Package nvl72 emits multi-GPU NVLink 5 symmetric-memory collective kernels, 72-rank Wide Expert Parallelism (Wide-EP) pipelines, O(1) NVSwitch multicast barriers, and 4-tier GB200/GB300 NVL72 rack and multi-rack pod planners. |
+| [nvl72](nvl72/) | Package nvl72 emits multi-GPU NVLink 5 and NVLink 6 symmetric-memory collective kernels, 72-rank and 144-rank Wide Expert Parallelism (Wide-EP) pipelines, O(1) NVSwitch multicast barriers, fabric tensor descriptors, and 4-tier GB200/GB300 NVL72 and Vera Rubin NVL144/NVL576 rack and pod planners. |
 | [nvlshm](nvlshm/) | Package nvlshm provides cross-process NVLink shared GPU buffers built on the CUDA virtual memory management (VMM) API, with optional NVSwitch multicast mappings. |
 | [nvrtcx](nvrtcx/) | Package nvrtcx provides runtime compilation of CUDA C++ source code into explicit compiler artifacts with content-addressed caching. |
 | [nvtelemetry](nvtelemetry/) | Package nvtelemetry collects NVIDIA telemetry through NVML, DCGM, and bounded documented exports, and records JSONL streams for replay and window summaries. |
@@ -144,7 +144,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [puffernet](puffernet/) | Package puffernet runs the default PufferLib 5.0 policy network on CUDA. |
 | [safetensors](safetensors/) | Package safetensors reads and writes the Hugging Face safetensors format. |
 | [sassequiv](sassequiv/) | Package sassequiv compares two compilations of a kernel, from their SASS, to find a change in what they compute. |
-| [tcgen05](tcgen05/) | Package tcgen05 implements Blackwell (sm_100a, sm_103a, sm_100f, sm_103f) Tensor Memory (TMEM) Fifth-Generation Tensor Core (tcgen05), FlashAttention-4 paged and absorbed Multi-head Latent Attention (MLA), and Cluster Launch Control (CLC) kernel emitters, hardware descriptors, and GB300 residency planners. |
+| [tcgen05](tcgen05/) | Package tcgen05 implements Blackwell (sm_100a, sm_103a, sm_100f, sm_103f) and Vera Rubin (sm_107a, sm_107f) Tensor Memory (TMEM) Fifth- and Sixth-Generation Tensor Core (tcgen05 / PTX ISA 9.4), FlashAttention-4 paged and absorbed Multi-head Latent Attention (MLA), 2:4 structured sparsity and spcompress, and Cluster Launch Control (CLC) kernel emitters, hardware descriptors, and GB200/GB300/VR200 residency planners. |
 | [tileir](tileir/) | Package tileir provides abstract syntax tree (AST) representations, type models, textual MLIR parsing, and binary bytecode decoding for CUDA Tile IR (.tilebc / .tileirbc). |
 | [tileiras](tileiras/) | Package tileiras provides programmatic invocation and diagnostics parsing for NVIDIA's tileiras optimizing Tile IR assembler. |
 | [tileirdisasm](tileirdisasm/) | Package tileirdisasm disassembles binary CUDA Tile IR bytecode (.tilebc) and parses textual Tile IR into an SSA abstract syntax tree (AST). |

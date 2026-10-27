@@ -1,5 +1,7 @@
 // Package hopper describes typed tensor kernels as e-graph terms and lowers
-// them to CUDA C++ for sm_90a (H100, H200).
+// them to CUDA C++ across Hopper (sm_90a), Blackwell datacenter and workstation
+// (sm_100a, sm_103a, sm_120a, sm_121a), and Vera Rubin (sm_107a, sm_107f) with
+// PTX ISA 9.4 support.
 //
 // Tensors are stored as F32, BF16, E4M3 (float8_e4m3fn), E2M1 (NVFP4 codes)
 // or integers; values in registers are FP32. The Go codecs ([BF16Bits],
@@ -17,6 +19,24 @@
 // [RowKernel.Cluster] emits an 8-CTA distributed shared memory reduction
 // schedule with a matching single-block wide schedule for large batches, and
 // [SourceTVMFFI] emits TVM-FFI host wrapper headers for load_jit.
+//
+// Multi-architecture lowering and PTX ISA 9.4 emitters complement the e-graph
+// pipeline:
+//
+//   - [SelectArchDispatchPlan] selects the optimal architecture execution
+//     strategy across sm_90a (WGMMA + TMA), sm_100a / sm_103a (tcgen05 TMEM +
+//     2-CTA Cluster Launch Control), sm_107a / sm_107f (Vera Rubin PTX ISA 9.4
+//     block-scaled UMMA + NVLink 6), and sm_120a / sm_121a (Blackwell RTX 5090
+//     and DGX Spark register-file `mma.sync.aligned.block_scale` without TMEM
+//     or cluster multicast) with online hardware telemetry adaptation.
+//   - [SM120BlockScaleGEMM] emits sm_120a / sm_121a register-file block-scaled
+//     NVFP4/MXFP8 kernels within the 99 KB shared memory envelope.
+//   - [RubinPTX94BlockScaleGEMM] and [PTX94VectorizedEpilogue] emit Vera Rubin
+//     sm_107a / sm_107f PTX ISA 9.4 `tcgen05.mma.cta_group::2.kind::mxf4nvf4`,
+//     128-bit vectorized `.v4.bf16x2` / `.v4.f16x2` SIMD epilogues, and
+//     hardware `cvt.rn.satfinite.e2m1x2.f32` quantization intrinsics.
+//   - [DynamicNVFP4Quantize] and [DynamicMXFP8Quantize] emit single-pass warp
+//     amax reduction and hardware FP4/MXFP8 dynamic activation quantization.
 //
 // Kernels that terms do not yet describe are emitted directly:
 // [PagedAttention] (paged FP8 split-KV attention), [RowTopK] (biased top-k
