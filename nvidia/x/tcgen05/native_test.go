@@ -1133,14 +1133,14 @@ int main(int argc, char** argv) {
 	}
 }
 
-func probeNVCCSupportsSM107A(t *testing.T, nvcc, dir string) bool {
+func probeNVCCSupportsSM107A(t *testing.T, nvcc, dir, sampleTU string) bool {
 	t.Helper()
 	if !nvccSupportsTarget(t, nvcc, "sm_107a") {
 		return false
 	}
 	probeCU := filepath.Join(dir, "probe_sm107a.cu")
 	probeCubin := filepath.Join(dir, "probe_sm107a.cubin")
-	if err := os.WriteFile(probeCU, []byte("__global__ void probe_sm107a(float* out) { *out = 1.0f; }\n"), 0o600); err != nil {
+	if err := os.WriteFile(probeCU, []byte(sampleTU), 0o600); err != nil {
 		t.Fatalf("write %s: %v", probeCU, err)
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
@@ -1155,8 +1155,8 @@ func qualifyTCGen05Wave12And13Rubin(t *testing.T, nvcc string, cudaVer cudatool.
 	t.Helper()
 	fx := buildTCGen05Wave12And13Fixtures(t)
 
-	// Probe whether the installed toolkit supports -arch=sm_107a.
-	sm107Supported := probeNVCCSupportsSM107A(t, nvcc, dir)
+	// Probe whether the installed toolkit supports -arch=sm_107a with Rubin PTX 9.4 instructions.
+	sm107Supported := probeNVCCSupportsSM107A(t, nvcc, dir, fx.tuFiles["TCGen05LUTDecompressGEMM"])
 	if !sm107Supported {
 		t.Logf("sm_107a_toolchain_support=false (CUDA %s max sm_103a/sm_121a)", cudaVer)
 	} else {
