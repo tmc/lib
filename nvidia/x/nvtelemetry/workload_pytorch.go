@@ -24,8 +24,10 @@ type WorkloadAnnotation struct {
 // ReadPyTorchAnnotations reads complete CPU user_annotation events from PyTorch
 // 2.7.0 and a fixed CPU-only subset of 2.10.0 Chrome exports. The 2.10.0 profile
 // requires schemaVersion 1, present empty deviceProperties, and only
-// user_annotation, cpu_op, Trace or uncategorized records. The version is a
-// caller declaration checked for consistency, not producer authentication.
+// user_annotation, cpu_op, Trace, CPU forward/backward flows or uncategorized
+// records. Forward/backward flows remain uninterpreted in Export.Raw.
+// The version is a caller declaration checked for consistency, not producer
+// authentication.
 // Operator records remain in Export.Raw; this does not establish native GPU
 // correlation or compiled member identity. The 2.7.0 raw GPU/flow behavior is
 // unchanged.
@@ -43,6 +45,8 @@ func ReadPyTorchAnnotations(r io.Reader, s WorkloadSource, l WorkloadLimits) (Wo
 		DeviceProperties json.RawMessage `json:"deviceProperties"`
 		TraceEvents      []struct {
 			Name string             `json:"name"`
+			ID   json.RawMessage    `json:"id"`
+			BP   json.RawMessage    `json:"bp"`
 			Cat  string             `json:"cat"`
 			Ph   string             `json:"ph"`
 			TS   workloadJSONNumber `json:"ts"`
@@ -72,6 +76,16 @@ func ReadPyTorchAnnotations(r io.Reader, s WorkloadSource, l WorkloadLimits) (Wo
 		if s.Version == "2.10.0" {
 			switch v.Cat {
 			case "user_annotation", "cpu_op", "Trace", "":
+			case "fwdbwd":
+				var id uint64
+				var bp string
+				if len(v.BP) != 0 && (string(v.BP) == "null" || json.Unmarshal(v.BP, &bp) != nil) {
+					return e, nil, errors.New("unsupported PyTorch CPU flow binding")
+				}
+				phase := v.Ph == "s" && len(v.BP) == 0 || v.Ph == "f" && bp == "e"
+				if v.Name != "fwdbwd" || !phase || len(v.ID) == 0 || string(v.ID) == "null" || json.Unmarshal(v.ID, &id) != nil {
+					return e, nil, errors.New("unsupported PyTorch CPU forward/backward flow")
+				}
 			default:
 				return e, nil, errors.New("unsupported PyTorch CPU trace category")
 			}
