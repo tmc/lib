@@ -1,0 +1,12 @@
+commit: 8305a7cc48518e0aea36380a71c77eaefbef3596
+date: 2026-10-27T04:09:26.279737+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 44381
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original29-kv-consumer-implementation/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-original29-kv-consumer-adoption/ROOT-GRADE.md
+qualification: realKV HolderPolicy host/race11PASS each, bothvets, actualbindingomission assertion kill;independent exact4root race11PASS;no GPU/native/full29
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
