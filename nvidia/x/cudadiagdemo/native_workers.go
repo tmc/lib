@@ -103,10 +103,12 @@ type nativeStream interface {
 // keeps each attempt's encoded input, CPU reference and completely
 // downloaded output. Now and wait, when set, replace the monotonic clock
 // since epoch and the baseline's timer. Fields are read-only while requests
-// run.
+// run. Identity, when set, queries the owned stream before launch-ready; nil
+// retains unknown legacy identity rather than inventing activity IDs.
 type nativeExecutor struct {
 	open         func(req nativeRequest, own *nativeCleanup) (nativeStream, error)
 	annotators   []*cudaworkload.Annotator
+	identity     func(nativeStream) (cudaworkload.ContextStreamID, error)
 	timestamp    func() (uint64, error)
 	timestampAPI string
 	elements     int
@@ -239,6 +241,7 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 		timing.TimestampAPI, timing.TimestampMethod = e.timestampAPI, "unknown"
 	}
 	trial.Timing = timing
+	trial.OperationName = "cuLaunchKernel"
 	mode := ModeBaseline
 	if req.arm == "baseline" {
 		mode = ModeHostSubmissionDelay
@@ -297,12 +300,23 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 	if e.annotators != nil {
 		annotator = e.annotators[worker]
 	}
+	var contextStream cudaworkload.ContextStreamID
+	if annotator != nil && e.identity != nil {
+		if err := ctx.Err(); err != nil {
+			return a, err
+		}
+		contextStream, err = e.identity(stream)
+		if err != nil {
+			return a, fmt.Errorf("cudadiagdemo: query submission identity: %w", err)
+		}
+		trial.ContextStream = &contextStream
+	}
 	var scope *cudaworkload.Scope
 	if annotator != nil {
 		// The application identity is known from here whether or not the
 		// operation is entered; its entry thread is known only once the
 		// launches begin.
-		_, scope = annotator.Begin(ctx, trial.RequestID+"/"+trial.Attempt)
+		_, scope = annotator.Begin(ctx, trial.OperationName)
 		workload := scope.Workload()
 		a.log.GroundTruth.OpID = scope.ID()
 		a.log.GroundTruth.ProcessGen = workload.Process
@@ -340,10 +354,10 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 		}
 	} else {
 		var entry *cudaworkload.HostSubmission
-		sub, err := scope.NativeOperation(ctx, cudaworkload.ContextStreamID{}, "cuLaunchKernel", e.evidence, func() error {
+		sub, err := scope.NativeOperation(ctx, contextStream, "cuLaunchKernel", e.evidence, func() error {
 			// NativeOperation calls this only after correlation entry, on
 			// the pinned thread that makes the launches.
-			observed := scope.NewSubmission(0, cudaworkload.ContextStreamID{}, cudaworkload.GraphReplayGeneration{}, "cuLaunchKernel", e.evidence)
+			observed := scope.NewSubmission(0, contextStream, cudaworkload.GraphReplayGeneration{}, "cuLaunchKernel", e.evidence)
 			entry = &observed
 			return launchRequest()
 		})

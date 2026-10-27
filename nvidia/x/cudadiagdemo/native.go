@@ -101,24 +101,30 @@ type NativeCall struct {
 // observation at entry on the launching thread; no native correlation ID is
 // inferred.
 type NativeTrial struct {
-	RequestedLaunches int           `json:"requested_launches"`
-	KernelLaunches    int           `json:"kernel_launches"`
-	RequestID         string        `json:"request_id"`
-	Attempt           string        `json:"attempt"`
-	Arm               string        `json:"arm"`
-	Round             int           `json:"round"`
-	Worker            int           `json:"worker"`
-	DelayNS           int64         `json:"delay_ns"`
-	WallNS            int64         `json:"wall_ns"`
-	InputSHA256       string        `json:"input_sha256"`
-	OutputSHA256      string        `json:"output_sha256"`
-	Correct           bool          `json:"correct"`
-	Correlation       string        `json:"correlation,omitempty"`
-	CUPTIBefore       uint64        `json:"cupti_before,omitempty"`
-	CUPTIAfter        uint64        `json:"cupti_after,omitempty"`
-	Calls             []NativeCall  `json:"calls"`
-	Error             string        `json:"error,omitempty"`
-	Timing            *NativeTiming `json:"timing,omitempty"`
+	// ContextStream contains independently queried CUPTI identifiers, not raw
+	// driver handles or values copied from the activity records being joined.
+	// Nil means no successful identity query was retained. It establishes no activity
+	// coverage, numerical correctness or native qualification.
+	ContextStream     *cudaworkload.ContextStreamID `json:"context_stream,omitempty"`
+	OperationName     string                        `json:"operation_name,omitempty"`
+	RequestedLaunches int                           `json:"requested_launches"`
+	KernelLaunches    int                           `json:"kernel_launches"`
+	RequestID         string                        `json:"request_id"`
+	Attempt           string                        `json:"attempt"`
+	Arm               string                        `json:"arm"`
+	Round             int                           `json:"round"`
+	Worker            int                           `json:"worker"`
+	DelayNS           int64                         `json:"delay_ns"`
+	WallNS            int64                         `json:"wall_ns"`
+	InputSHA256       string                        `json:"input_sha256"`
+	OutputSHA256      string                        `json:"output_sha256"`
+	Correct           bool                          `json:"correct"`
+	Correlation       string                        `json:"correlation,omitempty"`
+	CUPTIBefore       uint64                        `json:"cupti_before,omitempty"`
+	CUPTIAfter        uint64                        `json:"cupti_after,omitempty"`
+	Calls             []NativeCall                  `json:"calls"`
+	Error             string                        `json:"error,omitempty"`
+	Timing            *NativeTiming                 `json:"timing,omitempty"`
 }
 
 // NativeResult separates physical numerical execution from diagnosis admission.
@@ -402,6 +408,13 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 		executor.timestamp, executor.timestampAPI = cupti.GetTimestamp, "cupti.GetTimestamp"
 	}
 	if annotator != nil {
+		executor.identity = func(stream nativeStream) (cudaworkload.ContextStreamID, error) {
+			owned, ok := stream.(*cudaNativeStream)
+			if !ok {
+				return cudaworkload.ContextStreamID{}, errors.New("cudadiagdemo: missing CUDA stream identity provider")
+			}
+			return owned.attributionIdentity()
+		}
 		executor.annotators = make([]*cudaworkload.Annotator, workers)
 		for i := range executor.annotators {
 			executor.annotators[i] = annotator
