@@ -23,7 +23,23 @@ work from a metric's name.
 | MLflow | `2.22.0` | `ReadMLflowHistory` | Native metric-history response, user-defined scalar values, Unix milliseconds, explicit steps and pagination | Native offline file-store SDK/serializer capture and public reader-to-step-report replay pass; endpoint capture pending |
 | W&B | `0.19.11` | `ReadWandBHistory` | Native history JSONL numeric scalars, `_timestamp` seconds and `_step`; media/nested values remain raw | Source-derived protocol controls pass; pinned native history export pending |
 | ClearML | `1.18.0/api-2.9` | `ReadClearMLScalars` | `events.get_task_events` response data or successful HTTP envelope; `training_stats_scalar`, variant, iteration, task, Unix milliseconds and scroll token | Source-derived protocol controls pass; pinned task export pending; scalar-histogram endpoint intentionally unsupported because its schema is opaque |
-| PyTorch | `2.7.0` | `ReadPyTorchAnnotations` | Native Chrome-trace complete CPU `user_annotation` intervals; exact names, PID/TID and args retained | Source-derived protocol controls pass; pinned profiler export pending; a bounded profile is not a continuous metric stream |
+| PyTorch | `2.7.0` | `ReadPyTorchAnnotations` | Chrome-trace complete CPU `user_annotation` intervals; exact names, PID/TID and args retained | Historical source-derived protocol controls; authentic 2.7 profiler export pending |
+| PyTorch | `2.10.0`, selected CPU subset | `ReadPyTorchAnnotations` | Complete CPU annotations from the selected eager and Inductor exports; repeated names, raw numeric spelling, PID/TID and args retained | Actual local CPU exports replay through the reader and imported CPU summary; native IDs, compiler membership, training and HTTP qualification remain open |
+
+The 2.10.0 profile requires `schemaVersion: 1`, a present empty
+`deviceProperties` array, and only `user_annotation`, `cpu_op`, `Trace` or
+uncategorized events. This checks a caller-selected version contract; it does
+not authenticate the producer or prove a complete population with no native work.
+The historical 2.7.0 schema, device and raw GPU/flow behavior is unchanged.
+The selected 2.10.0 profile is offline only; `FetchWorkload` still admits only
+2.7.0 PyTorch downloads. A bounded annotation profile is not a continuous stream.
+
+Both profiles retain timestamp and duration spelling and convert event
+microseconds exactly to integer nanoseconds. Chrome display formatting and the
+raw base-time header do not establish an absolute clock mapping. The genuine
+2.10.0 fixtures are siblings of `testdata/workload`, not replacements for its
+constructed 2.7.0 fixture; their provenance and remaining limits are recorded in
+`testdata/workload/PROVENANCE.md`.
 
 Unknown provider/version combinations are errors. Unmapped Prometheus metric
 names are reported in `UnmappedNames` and preserved in `Raw`. Summaries,

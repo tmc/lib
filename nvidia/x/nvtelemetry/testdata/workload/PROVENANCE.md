@@ -24,6 +24,31 @@ authentic producer scrape. The reader recomputes and preserves each raw hash.
 - ClearML `v1.18.0` [v2_9/events.py](https://github.com/clearml/clearml/blob/v1.18.0/clearml/backend_api/services/v2_9/events.py) and [callresult.py](https://github.com/clearml/clearml/blob/v1.18.0/clearml/backend_api/session/callresult.py): scalar-event schema, response-data envelope and successful result code.
 - PyTorch `v2.7.0` [test_profiler.py](https://github.com/pytorch/pytorch/blob/v2.7.0/test/profiler/test_profiler.py) and Kineto `v0.4.0` [output_json.cpp](https://github.com/pytorch/kineto/blob/v0.4.0/libkineto/src/output_json.cpp): user annotations and Chrome-trace timestamp/duration serialization. No claim that a bounded profile is a live workload metric stream.
 
+The historical `pytorch.json` in this directory remains a constructed 2.7.0
+protocol control. The sibling
+[`pytorch-2.10.0-cpu-eager.chrome.json`](../pytorch-2.10.0-cpu-eager.chrome.json)
+and
+[`pytorch-2.10.0-cpu-inductor.chrome.json`](../pytorch-2.10.0-cpu-inductor.chrome.json)
+are untouched exports from an actual local CPU experiment captured on
+2026-10-27. Their SHA-256 values are respectively
+`da43e72ecac5387566568d1f139af9b4aaefa3cb5861ce11ff5028e6e96cad47` and
+`39a23a35df382fc29e27e3781849810c74d66d294ed3eac4a9bed401486f01ad`.
+The producer reports PyTorch 2.10.0, Git
+`449b1768410104d3ed79d3bcfe4ba1d65c7f22c0`, from a macOS ARM64 wheel.
+The experiment selected CPU tensors and profiler activities. Its eager and real
+Inductor executions used the same 32-element input and
+matched an independent literal float32 output oracle. These are controlled
+CPU arithmetic captures, not serving, optimizer-training or GPU evidence.
+
+The reader returns two eager and four compiled annotations, including both
+repeated `## Call CompiledFxGraph None ##` records. The imported CPU summary preserves
+their raw references with native population uncollected and compiler membership
+unavailable; an annotation name or profiler `External id` is not a native
+submission or member identity. The runtime inventory pins selected installed
+files, but reproducible wheel-to-Kineto source pairing remains unestablished.
+This additional fixed CPU profile does not qualify all 2.10.0 formats, HTTP,
+native correlation, clocks, compiler membership or the other provider rows.
+
 `mlflow-native.json` is an actual vendor SDK file-store history/response
 serialization captured on 2026-10-10 with `mlflow-skinny==2.22.0`. The receipt
 records the real run ID and exact hash. `generate_mlflow.py` repeats the native
