@@ -1,0 +1,12 @@
+commit: b30b4bc582949d6475813d16312e45aa897170dc
+date: 2026-10-27T07:54:05.411760+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 13933
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original42-basis-axis-implementation/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-arithmetic-boundary-adoption/ROOT-GRADE.md
+qualification: authorhost/race41each,2vets,beforepanicrecovered,constructoromission3assertionfails;oldrunnerUNPROVENbadtextpreserved;independentrace42PASS,no physicalOOM/native/full42
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
