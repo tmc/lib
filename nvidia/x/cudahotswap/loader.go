@@ -37,6 +37,9 @@ type Compilation struct {
 // lease. A nonnil Kernel returned with an error is still owned by the caller.
 // Cleanup errors may additionally implement io.Closer and require retry before
 // the device closes. Implementations must retain those owners on failure.
+// Owners need not be comparable. If two same-typed owner values cannot be
+// compared, the service retains both and returns CleanupIdentityError so the
+// caller can explicitly resolve aliases before cleanup continues.
 type Loader interface {
 	Compile(context.Context, Source) (*Compilation, error)
 	Load(context.Context, *Compilation) (Kernel, error)
