@@ -1,0 +1,12 @@
+commit: 6ea843391c350e02c580e6fbaf63d45554e074b3
+date: 2026-10-27T06:13:50.963560+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 13779
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original31-event-supplier-fix/cumulative-source167.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-original31-event-adoption/ROOT-GRADE.md
+qualification: source167cumulativeevents;author108host/race+2vets,finalpredCLI/dict;projectionorigin4assertions;independent11roots57subs68PASSinclCLI/Delivery;alloldfailurespreserved;no authenticproducer/backend/native/full31
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
