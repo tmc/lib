@@ -1,0 +1,12 @@
+commit: 5d5c446cb483d6a76ad4977a170d822e90559eed
+date: 2026-10-27T06:26:50.759080+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 31545
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original40-compile-key-implementation/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-probe-report-compile-key-adoption/ROOT-GRADE.md
+qualification: source169actualCompilemetadatahost/race78each,2vets,M14memory/diskpoisonassertionkill;independentrace27PASS;defaultrealprobeunchanged,no actualDSO/nativeNVRTC/full40
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
