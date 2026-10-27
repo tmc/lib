@@ -104,7 +104,7 @@ type TMAGather4Spec struct {
 
 func validGather4Target(target string) bool {
 	switch target {
-	case TargetSM100a, TargetSM103a, TargetSM100f, TargetSM120a, TargetSM121a:
+	case TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, TargetSM107f, TargetSM120a, TargetSM121a:
 		return true
 	}
 	return false
@@ -192,7 +192,7 @@ func (s TMAMulticastSpec) Validate() error {
 		return fmt.Errorf("cluster size %d must be 2, 4, 8, or 16", s.ClusterSize)
 	}
 	switch s.Target {
-	case TargetSM90a, TargetSM100a, TargetSM103a, TargetSM100f:
+	case TargetSM90a, TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, TargetSM107f:
 	case TargetSM120a, TargetSM121a:
 		if s.ClusterSize > 2 {
 			return fmt.Errorf("target %q does not support cluster size %d (max 2)", s.Target, s.ClusterSize)

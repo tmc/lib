@@ -424,7 +424,7 @@ func TestSwizzleCompositionBankConflictFree(t *testing.T) {
 }
 
 func TestHardwareExecutionPending(t *testing.T) {
-	for _, target := range []string{TargetSM100a, TargetSM121a} {
+	for _, target := range []string{TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, TargetSM107f, TargetSM121a} {
 		for _, mode := range []TMASwizzle{TMASwizzle32B, TMASwizzle64B, TMASwizzle128B} {
 			err := TMASwizzleXOR(mode).CheckDevice(target)
 			if !errors.Is(err, cudaerrors.ErrHardwarePending) {

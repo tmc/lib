@@ -145,7 +145,7 @@ func TestTMAGather4Spec(t *testing.T) {
 		Fraction:        0.25,
 	}
 
-	for _, target := range []string{TargetSM100a, TargetSM103a, TargetSM100f, TargetSM120a, TargetSM121a} {
+	for _, target := range []string{TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, TargetSM107f, TargetSM120a, TargetSM121a} {
 		spec := TMAGather4Spec{
 			Target:     target,
 			Mode:       TMAGather4Load,
@@ -297,6 +297,29 @@ func TestTMAMulticastSpec(t *testing.T) {
 			},
 			wantRecipients: 4,
 			wantHint:       true,
+		},
+		{
+			name: "sm_107a 8-CTA Rubin cluster",
+			spec: TMAMulticastSpec{
+				Target:      TargetSM107a,
+				ClusterSize: 8,
+				CTAMask:     0xff,
+				TileBytes:   8192,
+				L2Policy:    evictLast,
+			},
+			wantRecipients: 8,
+			wantHint:       true,
+		},
+		{
+			name: "sm_107f 4-CTA Rubin family cluster",
+			spec: TMAMulticastSpec{
+				Target:      TargetSM107f,
+				ClusterSize: 4,
+				CTAMask:     0xf,
+				TileBytes:   4096,
+			},
+			wantRecipients: 4,
+			wantHint:       false,
 		},
 		{
 			name: "sm_121a 2-CTA cluster allowed",

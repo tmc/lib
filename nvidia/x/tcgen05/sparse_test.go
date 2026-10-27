@@ -137,13 +137,48 @@ func TestTCGen05SparseGEMM(t *testing.T) {
 		t.Fatalf("DecodeInstDesc(0x%08x) = %+v, want Sparsity != 0, M=128, N=128", d, got)
 	}
 
-	for _, target := range []cudatmem.Target{cudatmem.SM100A, cudatmem.SM103A} {
+	for _, target := range []cudatmem.Target{cudatmem.SM100A, cudatmem.SM103A, cudatmem.SM107A, cudatmem.SM100F, cudatmem.SM103F, cudatmem.SM107F} {
 		sum, err := cudatmem.VerifyTrace(target, k.TraceEvents())
 		if err != nil {
 			t.Fatalf("VerifyTrace(%s) failed: %v", target, err)
 		}
 		if sum.CTAs != 1 || sum.CTAGroup != 1 || sum.MaxAllocatedColumns != 160 || sum.Copies != 1 || sum.MMAs != 1 || sum.Loads != 4 {
 			t.Fatalf("VerifyTrace(%s) unexpected summary: %+v", target, sum)
+		}
+	}
+
+	// Verify SparsityVersion (bit 12) is 0 on sm_100a/sm_103a and 1 on sm_107a/sm_107f.
+	if UnpackInstDesc(d).SparsityVersion != 0 || ((d>>12)&1) != 0 {
+		t.Fatalf("sm_100a descriptor 0x%08x SparsityVersion = %d, want 0", d, UnpackInstDesc(d).SparsityVersion)
+	}
+	for _, rubinTarget := range []string{"sm_107a", "sm_107f"} {
+		kRubin := TCGen05SparseGEMM{
+			Name:             "test_tcgen05_sparse_nvfp4_rubin",
+			M:                128,
+			N:                128,
+			K:                128,
+			Target:           rubinTarget,
+			CTAGroup:         1,
+			BlockScaledNVFP4: true,
+		}
+		dRubin, err := kRubin.InstDescriptor()
+		if err != nil {
+			t.Fatalf("kRubin(%s).InstDescriptor() failed: %v", rubinTarget, err)
+		}
+		unpackedRubin := UnpackInstDesc(dRubin)
+		if !unpackedRubin.Sparsity || unpackedRubin.SparsityVersion != 1 || ((dRubin>>12)&1) != 1 {
+			t.Fatalf("kRubin(%s) descriptor 0x%08x unpacked = %+v, want Sparsity=true SparsityVersion=1 (bit 12 = 1)",
+				rubinTarget, dRubin, unpackedRubin)
+		}
+		if err := DecodeInstDesc(dRubin).ValidateForTarget(rubinTarget); err != nil {
+			t.Fatalf("DecodeInstDesc(dRubin).ValidateForTarget(%s) failed: %v", rubinTarget, err)
+		}
+		srcRubin, err := kRubin.CUDA()
+		if err != nil {
+			t.Fatalf("kRubin(%s).CUDA() failed: %v", rubinTarget, err)
+		}
+		if !strings.Contains(srcRubin, "tcgen05.mma.sp.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X") {
+			t.Fatalf("%s BlockScaledNVFP4 CUDA() missing scale_vec::4X sparse mma", rubinTarget)
 		}
 	}
 

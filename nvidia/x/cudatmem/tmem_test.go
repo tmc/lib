@@ -94,7 +94,7 @@ func TestTMEMRejectSM121(t *testing.T) {
 }
 
 func TestTMEMGB300AndFamilyTargets(t *testing.T) {
-	for _, target := range []Target{SM100A, SM103A, SM100F, SM103F} {
+	for _, target := range []Target{SM100A, SM103A, SM107A, SM100F, SM103F, SM107F} {
 		parsed, err := ParseTarget(string(target))
 		if err != nil || parsed != target {
 			t.Fatalf("ParseTarget(%q) = %q, %v; want %q, nil", target, parsed, err, target)

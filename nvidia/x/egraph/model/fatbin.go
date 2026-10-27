@@ -20,6 +20,10 @@ const (
 	// tcgen05 scale_vec::4X K=128 + 2x SFU + 288 GiB 12-Hi HBM3e + ConnectX-8 800G).
 	FamilyBlackwellUltra_SM103 ArchFamily = "blackwell-ultra-sm103"
 
+	// FamilyRubin_SM107 is Vera Rubin R200/VR200 (sm_107a / sm_107f:
+	// tcgen05 SparsityVersion v1 + LUT decompression + 8-Stack HBM4 + NVLink 6).
+	FamilyRubin_SM107 ArchFamily = "rubin-sm107"
+
 	// FamilyBlackwellEdge_SM120 is workstation/consumer/Spark Blackwell RTX PRO 6000,
 	// RTX 5090, and DGX Spark GB10 (sm_120a / sm_120f / sm_121a: 5th-gen FP4 Tensor
 	// Cores via warp-level mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale
@@ -27,11 +31,18 @@ const (
 	FamilyBlackwellEdge_SM120 ArchFamily = "blackwell-edge-sm120"
 )
 
+// Arch is an alias for [TargetArch] used in multi-architecture fatbinary target constants.
+type Arch = TargetArch
+
 // Additional TargetArch constants for multi-architecture fatbinary compilation.
 const (
 	ArchBlackwellSM100F TargetArch = "sm_100f"
 	ArchBlackwellSM103  TargetArch = "sm_103a"
 	ArchBlackwellSM103F TargetArch = "sm_103f"
+	ArchSM107A          Arch       = "sm_107a"
+	ArchSM107F          Arch       = "sm_107f"
+	ArchRubinSM107      TargetArch = "sm_107a"
+	ArchRubinSM107F     TargetArch = "sm_107f"
 	ArchBlackwellSM120  TargetArch = "sm_120a"
 	ArchBlackwellSM120F TargetArch = "sm_120f"
 )
@@ -56,7 +67,7 @@ type ArchTargetSpec struct {
 
 // ClassifyComputeCapability returns the [ArchTargetSpec] for a GPU compute
 // capability (major, minor). Supported capabilities are (9,0), (10,0), (10,3),
-// (12,0), and (12,1).
+// (10,7), (12,0), and (12,1).
 func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 	switch {
 	case major == 9 && minor == 0:
@@ -90,6 +101,20 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 			Target:         "sm_103a",
 			FamilyTarget:   "sm_103f",
 			Family:         FamilyBlackwellUltra_SM103,
+			HasTCGen05:     true,
+			HasTMEM:        true,
+			HasCLC:         true,
+			HasTMA:         true,
+			HasScaleVec4X:  true,
+			MMAInstruction: "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X",
+		}, nil
+	case major == 10 && minor == 7:
+		return ArchTargetSpec{
+			ComputeMajor:   10,
+			ComputeMinor:   7,
+			Target:         "sm_107a",
+			FamilyTarget:   "sm_107f",
+			Family:         FamilyRubin_SM107,
 			HasTCGen05:     true,
 			HasTMEM:        true,
 			HasCLC:         true,
@@ -145,6 +170,12 @@ func LookupArchTarget(target string) (ArchTargetSpec, error) {
 	case "sm_103f":
 		spec, _ := ClassifyComputeCapability(10, 3)
 		spec.Target = "sm_103f"
+		return spec, nil
+	case "sm_107a", "sm_107":
+		return ClassifyComputeCapability(10, 7)
+	case "sm_107f":
+		spec, _ := ClassifyComputeCapability(10, 7)
+		spec.Target = "sm_107f"
 		return spec, nil
 	case "sm_120a", "sm_120":
 		return ClassifyComputeCapability(12, 0)
@@ -207,6 +238,9 @@ func (b *MultiArchBundle) NVCCFlags() [][]string {
 func estimateTargetLatencyUs(cfg ArchConfig, spec ArchTargetSpec) float64 {
 	var bwGBps, peakTFLOPS float64
 	switch spec.Family {
+	case FamilyRubin_SM107:
+		bwGBps = 22000.0
+		peakTFLOPS = 25000.0
 	case FamilyBlackwellUltra_SM103:
 		bwGBps = 12000.0
 		peakTFLOPS = 4500.0
@@ -253,6 +287,8 @@ func emitTargetUnitCUDA(layerName string, cfg ArchConfig, spec ArchTargetSpec) (
 		hwComment = "// Target: Blackwell DC sm_100a / sm_100f (tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale + TMEM + CLC clusterlaunchcontrol.try_cancel)"
 	case FamilyBlackwellUltra_SM103:
 		hwComment = "// Target: Blackwell Ultra sm_103a / sm_103f (tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X K=128 + 2x SFU + 288 GiB HBM3e)"
+	case FamilyRubin_SM107:
+		hwComment = "// Target: Vera Rubin sm_107a / sm_107f (tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X + SparsityVersion v1 + LUT decompress + 288 GiB HBM4)"
 	case FamilyBlackwellEdge_SM120:
 		hwComment = "// Target: Blackwell Edge/Spark " + spec.Target + " / sm_120f (warp mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale + CLC + TMA, no TMEM)"
 	}
@@ -403,7 +439,19 @@ func BuildMultiArchBundle(layerName string, cfg ArchConfig, targets []string) (*
 		if l, ok := byCap[[2]int{major, minor}]; ok {
 			return l
 		}
-		return byFamily[fam]
+		if l := byFamily[fam]; l != "" {
+			return l
+		}
+		if fam == FamilyRubin_SM107 {
+			if l := byFamily[FamilyBlackwellUltra_SM103]; l != "" {
+				return l
+			}
+			return byFamily[FamilyBlackwellDC_SM100]
+		}
+		if fam == FamilyBlackwellUltra_SM103 {
+			return byFamily[FamilyBlackwellDC_SM100]
+		}
+		return ""
 	}
 
 	fmt.Fprintf(&disp, "inline cudaError_t dispatch_%s_by_capability(\n", cleanName)
@@ -425,6 +473,7 @@ func BuildMultiArchBundle(layerName string, cfg ArchConfig, targets []string) (*
 		comment      string
 	}
 	cases := []capCase{
+		{10, 7, FamilyRubin_SM107, "sm_107a / sm_107f (Vera Rubin R200/VR200)"},
 		{10, 3, FamilyBlackwellUltra_SM103, "sm_103a (Blackwell Ultra B300/GB300)"},
 		{10, 0, FamilyBlackwellDC_SM100, "sm_100a / sm_100f (Blackwell DC B200/GB200)"},
 		{12, 1, FamilyBlackwellEdge_SM120, "sm_121a (DGX Spark GB10)"},

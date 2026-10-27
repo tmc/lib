@@ -133,7 +133,7 @@ func TestVerifyTraceValid(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, target := range []Target{SM100A, SM103A, SM100F, SM103F} {
+			for _, target := range []Target{SM100A, SM103A, SM107A, SM100F, SM103F, SM107F} {
 				sum, err := VerifyTrace(target, tc.events)
 				if err != nil {
 					t.Fatalf("VerifyTrace(%s, %s) unexpected error: %v", target, tc.name, err)
@@ -359,7 +359,7 @@ func TestVerifyTraceShift(t *testing.T) {
 		return events
 	}
 
-	for _, target := range []Target{SM100A, SM103A, SM100F, SM103F} {
+	for _, target := range []Target{SM100A, SM103A, SM107A, SM100F, SM103F, SM107F} {
 		sum, err := VerifyTrace(target, validShift())
 		if err != nil {
 			t.Fatalf("VerifyTrace(%s, validShift) unexpected error: %v", target, err)
@@ -431,5 +431,65 @@ func TestVerifyTraceShift(t *testing.T) {
 				t.Fatalf("VerifyTrace(%s) error = %v, want errors.Is(_, %v)", tc.name, err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestVerifyTraceRubinLUTAndSyncRestrict(t *testing.T) {
+	validRubinTrace := func(lutOffset uint32, syncRestrict bool) []TraceEvent {
+		events := []TraceEvent{
+			{Kind: EventAlloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			{Kind: EventAlloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 128, Columns: 32, Rows: 128},
+			{Kind: EventCp, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 128, Columns: 32, Rows: 128},
+			{
+				Kind: EventMMA, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1,
+				Offset: 0, Columns: 128, Rows: 128,
+				HasScaleInTMEM: true, ScaleOffset: 128,
+				DecompressLUTB: true, LUTMetadataOffset: lutOffset,
+			},
+			{
+				Kind: EventCommit, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1,
+				Offset: 0, Columns: 128, Rows: 128,
+				SyncRestrictReadA: syncRestrict,
+			},
+			{Kind: EventWait, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+		}
+		for w := range 4 {
+			events = append(events, TraceEvent{
+				Kind: EventLd, CTA: 0, Warp: w, ActiveThreads: 32, CTAGroup: 1,
+				Offset: 0, Columns: 128, RowStart: uint32(32 * w), Rows: 32,
+			})
+		}
+		events = append(events,
+			TraceEvent{Kind: EventDealloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			TraceEvent{Kind: EventDealloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 128, Columns: 32, Rows: 128},
+		)
+		return events
+	}
+
+	for _, target := range []Target{SM107A, SM107F} {
+		sum, err := VerifyTrace(target, validRubinTrace(128, true))
+		if err != nil {
+			t.Fatalf("VerifyTrace(%s, validRubinTrace) unexpected error: %v", target, err)
+		}
+		if sum.Target != target || sum.MMAs != 1 || sum.Commits != 1 {
+			t.Fatalf("VerifyTrace(%s, validRubinTrace) summary = %+v", target, sum)
+		}
+	}
+
+	// Unaligned LUTMetadataOffset (odd column offset) must be rejected.
+	if _, err := VerifyTrace(SM107A, validRubinTrace(129, false)); !errors.Is(err, ErrInvalidUnit) {
+		t.Fatalf("VerifyTrace(SM107A, unaligned LUT offset 129) = %v, want ErrInvalidUnit", err)
+	}
+
+	// Unallocated LUTMetadataOffset must be rejected.
+	if _, err := VerifyTrace(SM107A, validRubinTrace(256, false)); !errors.Is(err, ErrClosed) {
+		t.Fatalf("VerifyTrace(SM107A, unallocated LUT offset 256) = %v, want ErrClosed", err)
+	}
+
+	// SyncRestrictReadA must be rejected on sm_100a and sm_103a.
+	for _, target := range []Target{SM100A, SM103A} {
+		if _, err := VerifyTrace(target, validRubinTrace(128, true)); !errors.Is(err, ErrUnsupportedTarget) {
+			t.Fatalf("VerifyTrace(%s, SyncRestrictReadA=true) = %v, want ErrUnsupportedTarget", target, err)
+		}
 	}
 }

@@ -131,7 +131,7 @@ func CompareSM100PTXAndSASS(ptxSrc, sassSrc string) (*SM100LoweringReport, error
 	}
 	if ptxTarget != "" && !isSupportedSM100Target(ptxTarget) {
 		report.Divergences = append(report.Divergences, fmt.Sprintf(
-			"%s: unsupported PTX .target %q (want sm_100a, sm_103a, sm_100f, or sm_103f)",
+			"%s: unsupported PTX .target %q (want sm_100a, sm_103a, sm_107a, sm_100f, sm_103f, or sm_107f)",
 			k.Name, ptxTarget,
 		))
 	}
@@ -397,7 +397,7 @@ func parsePTXScaleVec(op string) int {
 
 func isSupportedSM100Target(target string) bool {
 	switch strings.ToLower(strings.TrimSpace(target)) {
-	case "sm_100a", "sm_103a", "sm_100f", "sm_103f", "sm_100", "sm_103":
+	case "sm_100a", "sm_103a", "sm_107a", "sm_100f", "sm_103f", "sm_107f", "sm_100", "sm_103", "sm_107":
 		return true
 	default:
 		return false

@@ -13,9 +13,24 @@ import (
 const (
 	TargetSM100a = "sm_100a"
 	TargetSM103a = "sm_103a"
+	TargetSM107a = "sm_107a"
 	TargetSM100f = "sm_100f"
+	TargetSM103f = "sm_103f"
+	TargetSM107f = "sm_107f"
 	TargetSM121a = "sm_121a"
 )
+
+func isAdmittedTMEMTarget(target string) bool {
+	switch target {
+	case TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, TargetSM107f:
+		return true
+	}
+	return false
+}
+
+func isAdmittedTMATarget(target string) bool {
+	return isAdmittedTMEMTarget(target) || target == TargetSM121a
+}
 
 type Direction uint8
 
@@ -152,7 +167,7 @@ func (d Descriptor) EncodeTiled() (*driver.TensorMap, error) {
 }
 
 func (d Descriptor) Validate() error {
-	if d.Target != TargetSM100a && d.Target != TargetSM103a && d.Target != TargetSM100f && d.Target != TargetSM121a {
+	if !isAdmittedTMATarget(d.Target) {
 		return fmt.Errorf("unsupported target %q", d.Target)
 	}
 	if d.Rank < 1 || d.Rank > MaxRank {
@@ -246,7 +261,8 @@ func (d Descriptor) Validate() error {
 }
 
 // Transfer is a checked operation description. GlobalToTMEM requires
-// TargetSM100a, TargetSM103a, or TargetSM100f; Validate rejects sm_121a even when Staged is true.
+// TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, or TargetSM107f;
+// Validate rejects sm_121a even when Staged is true.
 type Transfer struct {
 	Descriptor          Descriptor
 	Direction           Direction
@@ -264,7 +280,7 @@ func (t Transfer) Validate() error {
 	if t.Bytes == 0 || t.Bytes > math.MaxUint64-t.SharedOffset {
 		return fmt.Errorf("invalid transfer extent")
 	}
-	if t.Direction == GlobalToTMEM && t.Descriptor.Target != TargetSM100a && t.Descriptor.Target != TargetSM103a && t.Descriptor.Target != TargetSM100f {
+	if t.Direction == GlobalToTMEM && !isAdmittedTMEMTarget(t.Descriptor.Target) {
 		return fmt.Errorf("global-to-tmem is unsupported on %s", t.Descriptor.Target)
 	}
 	return nil
@@ -398,7 +414,7 @@ func (m Multicast) Participating(rank uint32) bool {
 
 // FixtureSource emits an ordinary synchronous global-to-shared fixture.
 func FixtureSource(target string, elements int) (string, error) {
-	if target != TargetSM100a && target != TargetSM103a && target != TargetSM100f && target != TargetSM121a {
+	if !isAdmittedTMATarget(target) {
 		return "", fmt.Errorf("unsupported target %q", target)
 	}
 	if elements <= 0 {
@@ -427,7 +443,7 @@ func FixtureSource(target string, elements int) (string, error) {
 // "=r" operand as the destination is an arguments mismatch that ptxas
 // rejects outright.
 func TMAFixtureSource(target string) (string, error) {
-	if target != TargetSM100a && target != TargetSM103a && target != TargetSM100f && target != TargetSM121a {
+	if !isAdmittedTMATarget(target) {
 		return "", fmt.Errorf("unsupported target %q", target)
 	}
 	return fmt.Sprintf(`#include <cuda.h>
