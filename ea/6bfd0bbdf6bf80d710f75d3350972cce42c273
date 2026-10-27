@@ -1,0 +1,12 @@
+commit: ea6bfd0bbdf6bf80d710f75d3350972cce42c273
+date: 2026-10-27T10:00:24.397518+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 56334
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-pytorch210-migration-adoption/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-pytorch210-migration-adoption/ROOT-GRADE.md
+qualification: test/docs only;authorhost/race57each0fail/skip,2vets,3actualcompiledomissionassertions;distinctsource/receiptreview andnarrowprovenancewordingrecheck;no newruntime/native/full120
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
