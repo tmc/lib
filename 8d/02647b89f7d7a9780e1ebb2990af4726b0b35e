@@ -1,0 +1,12 @@
+commit: 8d02647b89f7d7a9780e1ebb2990af4726b0b35e
+date: 2026-10-27T12:59:00.091263+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 30524
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original103-launch-ready-adoption/combined.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-original103-launch-ready-adoption/ROOT-GRADE.md
+qualification: independent source review and focused CPU host/race/vet; native, actual API-entry and clock qualification remain open
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
