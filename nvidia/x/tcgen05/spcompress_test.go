@@ -1,21 +1,12 @@
 package tcgen05
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math"
 	"math/rand/v2"
 	"strings"
 	"testing"
 )
-
-func bytesU32(b []byte) []uint32 {
-	out := make([]uint32, len(b)/4)
-	for i := range out {
-		out[i] = binary.LittleEndian.Uint32(b[4*i:])
-	}
-	return out
-}
 
 func TestSpCompressDesc(t *testing.T) {
 	ops := []struct {
