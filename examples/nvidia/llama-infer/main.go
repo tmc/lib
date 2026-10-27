@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/lm/speculative"
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
 	"github.com/tmc/lib/nvidia/x/cudagrammar"
@@ -63,6 +64,7 @@ var (
 	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated sm_121a kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
 	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
+	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
 )
 
 func main() {
@@ -360,7 +362,25 @@ func runGPUInference(
 		default:
 			prefillRows = -1
 		}
-		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag, *egraphAttnFlag, prefillRows)
+		// Split decode attention so its KV heads × splits CTAs cover the
+		// SMs once.
+		splits := *egraphSplitsFlag
+		if !*egraphAttnFlag {
+			splits = 0
+		} else if splits < 0 {
+			sms, err := dev.Attribute(driver.DevAttrMultiprocessorCount)
+			if err != nil {
+				return fmt.Errorf("read SM count: %w", err)
+			}
+			splits = max(1, sms/cfg.NumKeyValueHeads)
+			fmt.Printf("[E-Graph] decode attention: %d SMs / %d KV heads = %d splits per KV head\n", sms, cfg.NumKeyValueHeads, splits)
+		}
+		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, egraphOptions{
+			Mega:        *egraphMegaFlag,
+			Attn:        *egraphAttnFlag,
+			PrefillRows: prefillRows,
+			AttnSplits:  splits,
+		})
 		if err != nil {
 			return fmt.Errorf("e-graph decoder: %w", err)
 		}

@@ -92,40 +92,126 @@ func TestPrefillAttentionCausal(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := res["out"]
-	scale := 1 / math.Sqrt(d)
 	for row := range n {
 		pos := start + row
 		for h := range hq {
-			kvh := h / (hq / hkv)
-			qv := q[(row*hq+h)*d:][:d]
-			// Attend positions 0..pos.
-			s := make([]float64, pos+1)
-			mx := math.Inf(-1)
-			for j := range s {
-				for e := range d {
-					s[j] += float64(hopper.FromBF16Bits(qv[e])) * float64(hopper.FromBF16Bits(k[(j*hkv+kvh)*d+e]))
-				}
-				s[j] *= scale
-				mx = max(mx, s[j])
+			qv := make([]float64, d)
+			for e := range qv {
+				qv[e] = float64(hopper.FromBF16Bits(q[(row*hq+h)*d+e]))
 			}
-			var sum float64
-			for j := range s {
-				s[j] = math.Exp(s[j] - mx)
-				sum += s[j]
-			}
+			want := causalAttention(qv, k, v, hkv, h/(hq/hkv), pos+1, func(p int) int { return p })
 			for e := range d {
-				var want float64
-				for j := range s {
-					want += s[j] * float64(hopper.FromBF16Bits(v[(j*hkv+kvh)*d+e]))
-				}
-				want /= sum
 				i := (row*hq+h)*d + e
 				got := float64(hopper.FromBF16Bits(binary.LittleEndian.Uint16(out[2*i:])))
-				if math.Abs(got-want) > 0.02+0.01*math.Abs(want) {
-					t.Fatalf("row %d (position %d) head %d dim %d = %g, want %g", row, pos, h, e, got, want)
+				if math.Abs(got-want[e]) > 0.02+0.01*math.Abs(want[e]) {
+					t.Fatalf("row %d (position %d) head %d dim %d = %g, want %g", row, pos, h, e, got, want[e])
 				}
 			}
 		}
+	}
+}
+
+// causalAttention returns softmax(q·Kᵀ/√d)·V over cache positions 0..n-1
+// of KV head kvh, in float64. slot maps a position to its cache row; k and
+// v are BF16 [rows, hkv, d].
+func causalAttention(q []float64, k, v []uint16, hkv, kvh, n int, slot func(int) int) []float64 {
+	d := len(q)
+	s := make([]float64, n)
+	mx := math.Inf(-1)
+	for j := range s {
+		row := (slot(j)*hkv + kvh) * d
+		for e := range d {
+			s[j] += q[e] * float64(hopper.FromBF16Bits(k[row+e]))
+		}
+		s[j] /= math.Sqrt(float64(d))
+		mx = max(mx, s[j])
+	}
+	var sum float64
+	for j := range s {
+		s[j] = math.Exp(s[j] - mx)
+		sum += s[j]
+	}
+	out := make([]float64, d)
+	for j := range s {
+		row := (slot(j)*hkv + kvh) * d
+		for e := range d {
+			out[e] += s[j] * float64(hopper.FromBF16Bits(v[row+e])) / sum
+		}
+	}
+	return out
+}
+
+// TestDecodeAttentionSplits runs the split-KV decode attention kernel and
+// its combine on the CPU over a cache whose 64-row pages are shuffled, so
+// split boundaries (multiples of 16 keys) fall inside pages, and checks
+// every head against attention over all positions.
+func TestDecodeAttentionSplits(t *testing.T) {
+	const (
+		hq, hkv, d = 4, 2, 16
+		page       = 64
+		maxPages   = 32
+		splits     = 6
+	)
+	a := hopper.SM120PagedAttention{
+		Name: "dec_attn", NumQHeads: hq, NumKVHeads: hkv, HeadDim: d,
+		PageSize: page, MaxPages: maxPages, SeqLen: page * maxPages,
+		KVFormat: hopper.WeightBF16, Splits: splits, MinSplitKeys: 16,
+	}
+	src, err := a.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := rand.New(rand.NewPCG(3, 4))
+	pages := make([]int32, maxPages)
+	for i, p := range r.Perm(maxPages) {
+		pages[i] = int32(p)
+	}
+	slot := func(p int) int { return int(pages[p/page])*page + p%page }
+	k := make([]uint16, maxPages*page*hkv*d)
+	v := make([]uint16, len(k))
+	for i := range k {
+		k[i] = hopper.BF16Bits(float32(r.NormFloat64()))
+		v[i] = hopper.BF16Bits(float32(r.NormFloat64()))
+	}
+	q := make([]float32, hq*d)
+	for i := range q {
+		q[i] = float32(r.NormFloat64())
+	}
+	for _, n := range []int{1, 15, 16, 17, 2000} {
+		t.Run(fmt.Sprint(n), func(t *testing.T) {
+			res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+				Source: src,
+				Launch: fmt.Sprintf("%s_launch(1, q, k_pages, v_pages, nullptr, nullptr, page_table, ws, out, %d)", a.Name, n),
+				Buffers: []cudahostemu.Buffer{
+					{Name: "q", CType: "float", Data: f32le(q)},
+					{Name: "k_pages", CType: "uint8_t", Data: u16le(k)},
+					{Name: "v_pages", CType: "uint8_t", Data: u16le(v)},
+					{Name: "page_table", CType: "int32_t", Data: i32le(pages)},
+					{Name: "ws", CType: "float", Data: cudahostemu.Poison(4 * a.WorkspaceFloats(1))},
+					{Name: "out", CType: "float", Data: cudahostemu.Poison(4 * len(q))},
+				},
+			})
+			if errors.Is(err, cudahostemu.ErrNoCompiler) {
+				t.Skip("no host C++ compiler; emulated kernel not run")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			out := res["out"]
+			for h := range hq {
+				qv := make([]float64, d)
+				for e := range qv {
+					qv[e] = float64(q[h*d+e])
+				}
+				want := causalAttention(qv, k, v, hkv, h/(hq/hkv), n, slot)
+				for e := range d {
+					got := float64(math.Float32frombits(binary.LittleEndian.Uint32(out[4*(h*d+e):])))
+					if math.Abs(got-want[e]) > 1e-4+1e-4*math.Abs(want[e]) {
+						t.Fatalf("head %d dim %d = %g, want %g", h, e, got, want[e])
+					}
+				}
+			}
+		})
 	}
 }
 
@@ -141,6 +227,14 @@ func i32le(v []int32) []byte {
 	b := make([]byte, 4*len(v))
 	for i, x := range v {
 		binary.LittleEndian.PutUint32(b[4*i:], uint32(x))
+	}
+	return b
+}
+
+func f32le(v []float32) []byte {
+	b := make([]byte, 4*len(v))
+	for i, x := range v {
+		binary.LittleEndian.PutUint32(b[4*i:], math.Float32bits(x))
 	}
 	return b
 }

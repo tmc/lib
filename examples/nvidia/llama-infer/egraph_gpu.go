@@ -104,6 +104,8 @@ type egraphDecoder struct {
 	ints       []cudamem.Slice[int32]
 	qbf        cudamem.Slice[uint16]
 	rope, sdpa []egraphLaunch
+	ws         cudamem.Slice[float32] // split attention partials
+	combine    []egraphLaunch         // with splits: merges ws into sp.AttnOut
 	qcast      []egraphLaunch
 	posKind    map[driver.Function]string
 	posArgs    map[driver.Function][]egraphPosArg
@@ -113,15 +115,15 @@ type egraphDecoder struct {
 	pf *egraphPrefill // with plans.pf
 }
 
-func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega, attn bool, prefillRows int) (eg *egraphDecoder, err error) {
+func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, opt egraphOptions) (eg *egraphDecoder, err error) {
 	if gpuW.DType != weightBF16 {
 		return nil, errors.New("-egraph needs -weight-dtype bf16")
 	}
-	if prefillRows != 0 && !attn {
-		return nil, errors.New("e-graph prefill needs generated attention")
+	if (opt.PrefillRows != 0 || opt.AttnSplits != 0) && !opt.Attn {
+		return nil, errors.New("e-graph prefill and attention splits need generated attention")
 	}
 	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
-	plans, err := buildEgraphPlans(cfg, bias, attn, prefillRows)
+	plans, err := buildEgraphPlans(cfg, bias, opt)
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
@@ -140,7 +142,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 			eg = nil
 		}
 	}()
-	if mega {
+	if opt.Mega {
 		for _, p := range eg.decodePlans() {
 			m, err := p.Megakernel("")
 			if err != nil {
@@ -257,7 +259,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	if err != nil {
 		return nil, err
 	}
-	if attn {
+	if opt.Attn {
 		if err := eg.bindAttention(dev, cfg, sp); err != nil {
 			return nil, err
 		}
@@ -345,6 +347,11 @@ func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *G
 	if eg.qbf, err = cudamem.Alloc[uint16](dev, cfg.NumAttentionHeads*hd); err != nil {
 		return fmt.Errorf("alloc q: %w", err)
 	}
+	if n := eg.plans.sdpa.WorkspaceFloats(1); n > 0 {
+		if eg.ws, err = cudamem.Alloc[float32](dev, n); err != nil {
+			return fmt.Errorf("alloc attention workspace: %w", err)
+		}
+	}
 	if eg.qcast, err = eg.bind(eg.plans.qcast, map[string]driver.DevicePtr{
 		"q":                        eg.qbf.Ptr(),
 		eg.plans.qcast.Output.Name: sp.Q.Ptr(),
@@ -366,14 +373,28 @@ func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *G
 				zero, eg.qbf.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
 			pos: eg.posArgs[ropeFn],
 		})
-		// q, k_pages, v_pages, k_scales, v_scales, page_table, out, seq_len
+		// q, k_pages, v_pages, k_scales, v_scales, page_table, out (ws
+		// with splits), seq_len
 		g := eg.plans.sdpa.Grid(1)
 		b := eg.plans.sdpa.Block()
+		out := sp.AttnOut.Ptr()
+		if eg.ws.Len() > 0 {
+			out = eg.ws.Ptr()
+		}
 		eg.sdpa = append(eg.sdpa, egraphLaunch{
 			fn: sdpaFn, grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(b[0]), uint32(b[1]), uint32(b[2])}, epoch: -1,
-			args: []any{sp.Q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), pageTable, sp.AttnOut.Ptr(), int32(1)},
+			args: []any{sp.Q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), pageTable, out, int32(1)},
 			pos:  eg.posArgs[sdpaFn],
 		})
+	}
+	if eg.ws.Len() > 0 {
+		// ws, out
+		g, b := eg.plans.sdpa.CombineGrid(1)
+		eg.combine = []egraphLaunch{{
+			fn: eg.fns[eg.plans.sdpa.Name+"_combine"], epoch: -1,
+			grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(b[0]), uint32(b[1]), uint32(b[2])},
+			args: []any{eg.ws.Ptr(), sp.AttnOut.Ptr()},
+		}}
 	}
 	return nil
 }
@@ -475,6 +496,9 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 			src.WriteString("\n" + cu + "\n")
 		}
 		names = append(names, eg.plans.rope.Name, eg.plans.sdpa.Name)
+		if eg.plans.sdpa.Splits > 0 {
+			names = append(names, eg.plans.sdpa.Name+"_combine")
+		}
 	}
 	if pf := eg.plans.pf; pf != nil {
 		for _, k := range []interface {
@@ -587,7 +611,7 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 func (eg *egraphDecoder) Kernels() int {
 	n := len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
 	if eg.plans.attn {
-		n += len(eg.rope) + len(eg.sdpa) + len(eg.attnIn)*len(eg.qcast)
+		n += len(eg.rope) + len(eg.sdpa) + len(eg.attnIn)*(len(eg.qcast)+len(eg.combine))
 	}
 	return n
 }
@@ -619,7 +643,7 @@ func (eg *egraphDecoder) Close() error {
 	for i := range eg.ints {
 		errs = append(errs, freeOwned(&eg.ints[i]))
 	}
-	errs = append(errs, freeOwned(&eg.cs), freeOwned(&eg.qbf))
+	errs = append(errs, freeOwned(&eg.cs), freeOwned(&eg.qbf), freeOwned(&eg.ws))
 	if eg.pf != nil {
 		errs = append(errs, eg.pf.free())
 	}
@@ -698,6 +722,9 @@ func (eg *egraphDecoder) emitStep(
 				return err
 			}
 			if err := launch([]egraphLaunch{eg.sdpa[i]}); err != nil {
+				return err
+			}
+			if err := launch(eg.combine); err != nil {
 				return err
 			}
 			if err := launch(eg.post[i]); err != nil {

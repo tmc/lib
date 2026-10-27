@@ -34,6 +34,20 @@ type egraphPlans struct {
 	pf *egraphPrefillPlans // with prefill
 }
 
+// egraphOptions selects the e-graph decoder's variants.
+type egraphOptions struct {
+	Mega bool // run each decode plan as one persistent megakernel
+	Attn bool // generate RoPE, the KV-cache store and attention
+
+	// PrefillRows, with Attn, prefills in chunks of this many rows: 0
+	// prefills token by token, < 0 picks the cache length.
+	PrefillRows int
+
+	// AttnSplits divides decode attention's keys among this many CTAs per
+	// KV head, with a combine kernel; 0 runs one CTA per KV head.
+	AttnSplits int
+}
+
 // egraphPageSize is the attention page size. The cache is contiguous: page
 // i holds positions [16i, 16i+16).
 const egraphPageSize = 16
@@ -43,7 +57,11 @@ const egraphPageSize = 16
 func (p *egraphPlans) ops() (generated, fallback []string) {
 	generated = []string{"rmsnorm", "qkv_proj(+bias)", "o_proj+residual", "rmsnorm", "gate_up_proj", "swiglu", "down_proj+residual", "final_rmsnorm", "lm_head"}
 	if p.attn {
-		generated = append(generated, "rope+kv_store (generated, direct emitter)", "q_cast", "attention (generated, direct emitter)")
+		a := "attention (generated, direct emitter)"
+		if p.sdpa.Splits > 0 {
+			a = fmt.Sprintf("attention (generated, direct emitter: split-KV, %d splits per KV head, + combine)", p.sdpa.Splits)
+		}
+		generated = append(generated, "rope+kv_store (generated, direct emitter)", "q_cast", a)
 		return generated, []string{"embedding", "argmax"}
 	}
 	return generated, []string{"embedding", "rope", "kv_store", "attention", "argmax"}
@@ -87,9 +105,10 @@ func prefillQTokens(g, headDim int) int {
 	return q
 }
 
-// buildEgraphPlans builds the decode plans and, with prefill > 0 rows or
-// prefill < 0 for the default, the prefill plans.
-func buildEgraphPlans(cfg *ModelConfig, qkvBias, attn bool, prefillRows int) (*egraphPlans, error) {
+// buildEgraphPlans builds the decode plans and, with opt.PrefillRows != 0,
+// the prefill plans.
+func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egraphPlans, error) {
+	attn, prefillRows := opt.Attn, opt.PrefillRows
 	p := egraphPlans{attn: attn}
 	var err error
 	if p.attnIn, p.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama", 1, hopper.F32); err != nil {
@@ -132,6 +151,7 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias, attn bool, prefillRows int) (*e
 		SeqLen:     cfg.MaxSeqLen,
 		Target:     "sm_121a",
 		KVFormat:   hopper.WeightBF16,
+		Splits:     opt.AttnSplits,
 	}
 	if prefillRows == 0 {
 		return &p, nil
