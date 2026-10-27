@@ -47,17 +47,18 @@ var (
 	yocoProducersFlag = flag.Int("yoco-producers", 0, "number of KV producer layers for YoCo cross-layer KV sharing topology (0 = disabled)")
 	swaWindowFlag     = flag.Int("swa-window", 0, "sliding-window attention (SWA) bounded replay window size (0 = disabled)")
 	tracePath         = flag.String("trace", "", "write Perfetto protobuf timeline trace to file (.pftrace)")
-	profilePath     = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
-	disasmFlag      = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
-	disasmModeFlag  = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
-	fuseEGraphFlag  = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
-	fuseDecodeFlag  = flag.Bool("fuse-decode", false, "Use 5-node/layer norm-folded and epilogue-fused decode kernels")
-	specDraftFlag   = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
-	benchFlag       = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
-	benchCountFlag  = flag.Int("bench-count", 10, "number of benchmark iterations to run")
-	weightDTypeFlag = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
-	cudaGraphFlag   = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
-	egraphFlag      = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
+	profilePath       = flag.String("profile", "", "write GPU SASS/PTX pprof profile to file (.pprof)")
+	disasmFlag        = flag.String("disasm", "", "print JIT-compiled disassembly for kernel (e.g. LinearGEMV, RMSNorm, all)")
+	disasmModeFlag    = flag.String("disasm-mode", "both", "disassembly format mode: both, ptx, or sass")
+	fuseEGraphFlag    = flag.Bool("fuse-egraph", false, "enable pure-Go E-Graph megakernel fusion (fused RMSNorm+QKV and SwiGLU)")
+	fuseDecodeFlag    = flag.Bool("fuse-decode", false, "Use 5-node/layer norm-folded and epilogue-fused decode kernels")
+	specDraftFlag     = flag.Int("draft", 0, "speculative decoding draft budget (e.g. 3..5, 0 = disabled)")
+	benchFlag         = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
+	benchCountFlag    = flag.Int("bench-count", 10, "number of benchmark iterations to run")
+	weightDTypeFlag   = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
+	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
+	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
+	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 )
 
 func main() {
@@ -380,7 +381,7 @@ func runGPUInference(
 	forwardCU := findForwardCUPath()
 
 	var timer *stepTimer
-	if prof != nil || tracer != nil {
+	if prof != nil || tracer != nil || *stepTimesFlag {
 		// newStepTimer can return a timer it could not release along with
 		// its error; close it on every path.
 		timer, err = newStepTimer(dev, prof, tracer, forwardCU)
@@ -485,6 +486,14 @@ func runGPUInference(
 	prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
 	if err != nil {
 		return err
+	}
+
+	fmt.Printf("\nGEN_IDS: %v\n", st.generated)
+	if timer != nil && *stepTimesFlag {
+		// Steps 0..len(promptTokens)-1 are prefill positions; the rest decode.
+		for i, s := range timer.steps {
+			fmt.Printf("STEP %d wall_ns=%d event_ns=%d\n", i, s.wall.Nanoseconds(), s.event.Nanoseconds())
+		}
 	}
 
 	tokensPerSec := float64(len(st.generated)) / genDuration.Seconds()
