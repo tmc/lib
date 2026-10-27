@@ -270,6 +270,31 @@ func TestCompileGEMMThenNorm(t *testing.T) {
 	agree(t, "chain", F32, runPlan(t, plan, env), want.Data)
 }
 
+// TestCompileCastInputGEMM rounds an F32 input to BF16 for a projection: the
+// cast of a bare input is its own row kernel.
+func TestCompileCastInputGEMM(t *testing.T) {
+	b := NewBuilder()
+	x := b.Input("x", F32, 2, 256)
+	w := b.Input("w", BF16, 64, 256)
+	expr, err := Optimize(b.G, b.MatMul(b.Cast(BF16, x), w))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Compile(expr, "castproj", F32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Kernels) != 2 || plan.Kernels[0].Row == nil || plan.Kernels[1].GEMM == nil {
+		t.Fatalf("plan: %+v", plan.Kernels)
+	}
+	env := randEnv(rand.New(rand.NewPCG(17, 18)), Tensor{"x", F32, []int{2, 256}}, Tensor{"w", BF16, []int{64, 256}})
+	want, err := Eval(expr, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agree(t, "castproj", F32, runPlan(t, plan, env), want.Data)
+}
+
 // TestCompilePrefillGEMM lowers a many-row projection with a fused
 // residual add to one tensor-core TileGEMM.
 func TestCompilePrefillGEMM(t *testing.T) {
