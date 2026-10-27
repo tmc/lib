@@ -42,7 +42,8 @@ type leaf struct {
 // nonzero contribution must be of one kind; an integer stride of 0 may appear
 // anywhere. An F2 stride's mode must have extent 1<<len(bits) and its bits
 // must be non-negative. The layout's size and every offset it can produce must
-// fit in an int.
+// fit in an int. For basis strides, the coordinate vector length and its size
+// in bytes must also fit in an int.
 func NewLayout(shape Shape, stride Stride) (Layout, error) {
 	l := Layout{shape: shape, stride: stride, kind: strideInt}
 	if err := l.build(); err != nil {
@@ -97,6 +98,9 @@ func (l *Layout) build() error {
 		case strideBasis:
 			if f.axis < 0 {
 				return fmt.Errorf("basis axis %d is negative: %w", f.axis, ErrUnsupported)
+			}
+			if _, err := basisSize(f.axis); err != nil {
+				return err
 			}
 			fallthrough
 		default:
@@ -369,7 +373,11 @@ func (l Layout) BasisOffset(i int, dst []int) ([]int, error) {
 	n := 1
 	for _, f := range l.leaves {
 		if f.kind == strideBasis {
-			n = max(n, f.axis+1)
+			size, err := basisSize(f.axis)
+			if err != nil {
+				return dst, err
+			}
+			n = max(n, size)
 		}
 	}
 	dst = slices.Grow(dst[:0], n)[:n]
@@ -387,6 +395,18 @@ func (l Layout) BasisOffset(i int, dst []int) ([]int, error) {
 		}
 	}
 	return dst, nil
+}
+
+// basisSize checks both the slice length and the byte size before allocation.
+func basisSize(axis int) (int, error) {
+	n, err := add(axis, 1)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := mul(n, bits.UintSize/8); err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // Equal reports whether two layouts have the same shape and stride trees.
