@@ -14,6 +14,9 @@ import (
 // Unknown/incomplete/unverified relationships remain visibly withheld. These
 // private attributes do not authenticate the supplying authority.
 func exportEntityResource(r Reading, options ExportOptions) ([]any, string, error) {
+	if err := validateEntityExportStructure(r, false); err != nil {
+		return nil, "", err
+	}
 	attrs := []any{}
 	text := func(key, value string) error {
 		if !exportText(value) {
@@ -43,18 +46,11 @@ func exportEntityResource(r Reading, options ExportOptions) ([]any, string, erro
 		if o.Scope == "process" && o.Assignment == nil {
 			return nil, "", fmt.Errorf("export: process scope requires assignment evidence")
 		}
-		if o.SourceClass != "" && o.SourceClass != "native" && o.SourceClass != "managed" && o.SourceClass != "imported" && o.SourceClass != "synthetic" && o.SourceClass != "modeled" {
-			return nil, "", fmt.Errorf("export: invalid observation source class")
+		observationAttrs, err := exportObservationAttributes(o)
+		if err != nil {
+			return nil, "", err
 		}
-		for _, pair := range [][2]string{
-			{"observation.scope", o.Scope}, {"observation.source_class", o.SourceClass},
-			{"observation.producer", o.Producer}, {"observation.producer_version", o.ProducerVersion}, {"observation.producer_schema", o.ProducerSchema},
-			{"observation.population", o.Observer.Population}, {"observation.mode", o.Observer.Mode}, {"observation.pass", o.Observer.Pass}, {"observation.filter", o.Observer.Filter}, {"observation.replay", o.Observer.Replay},
-		} {
-			if err := text(pair[0], pair[1]); err != nil {
-				return nil, "", err
-			}
-		}
+		attrs = append(attrs, observationAttrs...)
 	}
 	if o == nil || o.Assignment == nil {
 		if err := text("assignment.status", "absent"); err != nil {
@@ -63,20 +59,6 @@ func exportEntityResource(r Reading, options ExportOptions) ([]any, string, erro
 		return finish()
 	}
 	a := o.Assignment
-	if !exportText(a.State) || !exportText(a.Sharing) || !exportText(a.MPSRole) {
-		return nil, "", fmt.Errorf("export: invalid entity assignment")
-	}
-	if err := a.Validate(); err != nil {
-		// Structural enum errors can quote caller input. Keep that text out of
-		// collector diagnostics as well as the encoded resource.
-		return nil, "", fmt.Errorf("export: invalid entity assignment")
-	}
-	if a.Device.UUID != "" && a.Device.UUID != r.DeviceUUID {
-		return nil, "", fmt.Errorf("export: assignment device mismatch")
-	}
-	if len(a.Process.NamespacePIDs) > 32 || a.MPSServer != nil && len(a.MPSServer.NamespacePIDs) > 32 {
-		return nil, "", fmt.Errorf("export: namespace pid limit")
-	}
 	if o.Interval == nil || o.Interval.Start < 0 || o.Interval.End < o.Interval.Start || o.Interval.Clock != a.ClockDomain || o.ClockEpoch != a.ClockEpoch || options.ClockDomain != "" && options.ClockDomain != a.ClockDomain {
 		return nil, "", fmt.Errorf("export: assignment clock or epoch mismatch")
 	}
@@ -86,9 +68,6 @@ func exportEntityResource(r Reading, options ExportOptions) ([]any, string, erro
 	}
 	if uncertainty < 0 || o.Interval.Start < uncertainty || o.Interval.End > math.MaxInt64-uncertainty || o.Interval.Start-uncertainty < a.StartNanos || o.Interval.End+uncertainty >= a.EndNanos {
 		return nil, "", fmt.Errorf("export: assignment is not current for observation")
-	}
-	if o.Workload != nil && !o.Workload.Process.IsZero() && o.Workload.Process != a.Process.Process || o.Host != nil && !o.Host.Process.IsZero() && o.Host.Process != a.Process.Process || o.Device != nil && !o.Device.Process.IsZero() && o.Device.Process != a.Process.Process {
-		return nil, "", fmt.Errorf("export: assignment process generation mismatch")
 	}
 	status := a.State
 	if status == "assigned" {
@@ -136,9 +115,6 @@ func exportEntityResource(r Reading, options ExportOptions) ([]any, string, erro
 			return nil, "", err
 		}
 		if a.MPSServer != nil {
-			if !completeEntityProcess(*a.MPSServer) || a.MPSServer.BootID != a.Process.BootID || a.MPSServer.NodeID != a.Process.NodeID {
-				return nil, "", fmt.Errorf("export: incomplete or conflicting mps server")
-			}
 			if err := process("mps.server.", *a.MPSServer); err != nil {
 				return nil, "", err
 			}
@@ -147,9 +123,6 @@ func exportEntityResource(r Reading, options ExportOptions) ([]any, string, erro
 			if err := text(pair[0], pair[1]); err != nil {
 				return nil, "", err
 			}
-		}
-		if !a.Device.HasMIGInstanceID && a.Device.MIGInstanceID != 0 || !a.Device.HasMIGComputeInstanceID && a.Device.MIGComputeInstanceID != 0 || a.Device.HasMIGInstanceID && a.Device.MIGInstanceID < 0 || a.Device.HasMIGComputeInstanceID && a.Device.MIGComputeInstanceID < 0 {
-			return nil, "", fmt.Errorf("export: contradictory mig identity")
 		}
 		boolean("mig.instance_known", a.Device.HasMIGInstanceID)
 		boolean("mig.compute_instance_known", a.Device.HasMIGComputeInstanceID)
@@ -179,6 +152,110 @@ func exportEntityResource(r Reading, options ExportOptions) ([]any, string, erro
 	}
 	attrs = append(attrs, map[string]any{"key": "nvtelemetry.assignment.provenance", "value": map[string]any{"arrayValue": map[string]any{"values": provenance}}})
 	return finish()
+}
+
+// exportObservationAttributes preserves the fixed supplier assertion fields.
+// It does not authenticate them or establish a process or owner relationship.
+func exportObservationAttributes(o *Observation) ([]any, error) {
+	if o == nil {
+		return nil, nil
+	}
+	attrs := make([]any, 0, 10)
+	for _, pair := range [][2]string{
+		{"observation.scope", o.Scope}, {"observation.source_class", o.SourceClass},
+		{"observation.producer", o.Producer}, {"observation.producer_version", o.ProducerVersion}, {"observation.producer_schema", o.ProducerSchema},
+		{"observation.population", o.Observer.Population}, {"observation.mode", o.Observer.Mode}, {"observation.pass", o.Observer.Pass}, {"observation.filter", o.Observer.Filter}, {"observation.replay", o.Observer.Replay},
+	} {
+		if !exportText(pair[1]) {
+			return nil, fmt.Errorf("export: invalid entity attribute")
+		}
+		attrs = append(attrs, map[string]any{"key": "nvtelemetry." + pair[0], "value": map[string]string{"stringValue": pair[1]}})
+	}
+	return attrs, nil
+}
+
+// validateEntityExportStructure is a pure non-temporal check shared by ordinary
+// and supplied-event exports. includeWithheld checks even identity/text fields
+// that a new event will withhold; ordinary exports retain their prior scope and
+// owner-emission conditions. It never changes assignment eligibility or time.
+func validateEntityExportStructure(r Reading, includeWithheld bool) error {
+	validText := func(values ...string) error {
+		for _, v := range values {
+			if !exportText(v) {
+				return fmt.Errorf("export: invalid entity attribute")
+			}
+		}
+		return nil
+	}
+	if err := validText(r.DeviceUUID); err != nil {
+		return err
+	}
+	o := r.Observation
+	if o == nil {
+		return nil
+	}
+	if o.SourceClass != "" && o.SourceClass != "native" && o.SourceClass != "managed" && o.SourceClass != "imported" && o.SourceClass != "synthetic" && o.SourceClass != "modeled" {
+		return fmt.Errorf("export: invalid observation source class")
+	}
+	if err := validText(o.Scope, o.SourceClass, o.Producer, o.ProducerVersion, o.ProducerSchema, o.Observer.Population, o.Observer.Mode, o.Observer.Pass, o.Observer.Filter, o.Observer.Replay); err != nil {
+		return err
+	}
+	a := o.Assignment
+	if a == nil {
+		return nil
+	}
+	if !exportText(a.State) || !exportText(a.Sharing) || !exportText(a.MPSRole) {
+		return fmt.Errorf("export: invalid entity assignment")
+	}
+	if err := a.Validate(); err != nil {
+		return fmt.Errorf("export: invalid entity assignment")
+	}
+	if a.Device.UUID != "" && a.Device.UUID != r.DeviceUUID {
+		return fmt.Errorf("export: assignment device mismatch")
+	}
+	if len(a.Process.NamespacePIDs) > 32 || a.MPSServer != nil && len(a.MPSServer.NamespacePIDs) > 32 {
+		return fmt.Errorf("export: namespace pid limit")
+	}
+	if o.Workload != nil && !o.Workload.Process.IsZero() && o.Workload.Process != a.Process.Process || o.Host != nil && !o.Host.Process.IsZero() && o.Host.Process != a.Process.Process || o.Device != nil && !o.Device.Process.IsZero() && o.Device.Process != a.Process.Process {
+		return fmt.Errorf("export: assignment process generation mismatch")
+	}
+	if err := validText(a.Source, a.SourceRevision, a.ClockDomain, a.ClockEpoch); err != nil {
+		return err
+	}
+	process := func(p EntityProcess) error {
+		return validText(p.NodeID, p.BootID, p.PIDNamespace)
+	}
+	if o.Scope == "process" || includeWithheld {
+		if err := process(a.Process); err != nil {
+			return err
+		}
+		if a.MPSServer != nil {
+			if !completeEntityProcess(*a.MPSServer) || a.MPSServer.BootID != a.Process.BootID || a.MPSServer.NodeID != a.Process.NodeID {
+				return fmt.Errorf("export: incomplete or conflicting mps server")
+			}
+			if err := process(*a.MPSServer); err != nil {
+				return err
+			}
+		}
+		if err := validText(a.Sharing, a.MPSRole, a.MIGConfigurationEpoch, a.Device.MIGScope, a.Device.MIGParentUUID); err != nil {
+			return err
+		}
+		if !a.Device.HasMIGInstanceID && a.Device.MIGInstanceID != 0 || !a.Device.HasMIGComputeInstanceID && a.Device.MIGComputeInstanceID != 0 || a.Device.HasMIGInstanceID && a.Device.MIGInstanceID < 0 || a.Device.HasMIGComputeInstanceID && a.Device.MIGComputeInstanceID < 0 {
+			return fmt.Errorf("export: contradictory mig identity")
+		}
+	}
+	owner := a.State == "assigned" && o.Scope == "process" && a.Authoritative && o.UncertaintyNS != nil && completeEntityProcess(a.Process)
+	if owner || includeWithheld {
+		if err := validText(a.Owner.PodUID, a.Owner.ContainerID, a.Owner.JobID, a.Owner.AllocationID, a.Owner.Attempt); err != nil {
+			return err
+		}
+	}
+	for _, p := range a.Provenance {
+		if err := validText(p.Source, p.Revision); err != nil {
+			return fmt.Errorf("export: invalid entity provenance")
+		}
+	}
+	return nil
 }
 
 // exportSeriesKey keeps relationship revisions from manufacturing independent

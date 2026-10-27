@@ -208,7 +208,7 @@ type SamplingCoverage struct {
 // Observation links a V3 reading to existing subject, workload and trace
 // contracts. SourceClass is native, managed, imported, synthetic or modeled;
 // a label alone never establishes authenticity. Missing fields stay unknown.
-// Kind is gauge, counter, histogram, host_call, kernel or a scheduler state
+// Kind is gauge, counter, histogram, host_call, kernel, a supplied closed event, or a scheduler state
 // (sched_running, sched_runnable, sched_blocked).
 type Observation struct {
 	// OTLP fields are V5-only assertions, not verified source facts.

@@ -30,6 +30,10 @@ var (
 
 // Canonical metric unit expectations.
 var expectedMetricUnits = map[string]string{
+	"ecc_error_event":                       "code",
+	"job_start_event":                       "code",
+	"job_end_event":                         "code",
+	"device_reset_event":                    "code",
 	"ecc_corrected_errors":                  "count",
 	"ecc_uncorrected_errors":                "count",
 	"retired_pages_multiple_single_bit_ecc": "count",
@@ -712,6 +716,16 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 	if version < SchemaVersionLegacy || version > SchemaVersionV5 {
 		return ErrUnsupportedSchema
 	}
+	if rec.Sample != nil {
+		for _, r := range rec.Sample.Readings {
+			if version < SchemaVersionV3 && suppliedLogEvent(r.Name) {
+				return fmt.Errorf("%w: event category in legacy sample", ErrMalformedStream)
+			}
+			if err := validateSuppliedLogEvent(r); err != nil {
+				return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+			}
+		}
+	}
 	if version < SchemaVersionV5 && rec.Sample != nil {
 		for _, r := range rec.Sample.Readings {
 			if o := r.Observation; o != nil {
@@ -791,7 +805,7 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 				return fmt.Errorf("%w: unknown source class", ErrMalformedStream)
 			}
 			switch o.Kind {
-			case "", "gauge", "counter", "histogram", "host_call", "kernel", "sched_running", "sched_runnable", "sched_blocked":
+			case "", "gauge", "counter", "histogram", "host_call", "kernel", "sched_running", "sched_runnable", "sched_blocked", "event":
 			default:
 				return fmt.Errorf("%w: unknown observation kind", ErrMalformedStream)
 			}

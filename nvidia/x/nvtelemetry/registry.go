@@ -13,10 +13,14 @@ const (
 )
 
 // DefaultMetricRegistryVersion is the current version of the metric definitions dictionary.
-const DefaultMetricRegistryVersion = "2026.10-v3"
+const DefaultMetricRegistryVersion = "2026.10-v4"
 
 // metricKinds maps canonical metric names to their MetricKind classification.
 var metricKinds = map[string]MetricKind{
+	"ecc_error_event":                       KindEvent,
+	"job_start_event":                       KindEvent,
+	"job_end_event":                         KindEvent,
+	"device_reset_event":                    KindEvent,
 	"ecc_corrected_errors":                  KindCounter,
 	"ecc_uncorrected_errors":                KindCounter,
 	"retired_pages_multiple_single_bit_ecc": KindGauge,

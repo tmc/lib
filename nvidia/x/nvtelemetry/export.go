@@ -145,6 +145,10 @@ func otlpAttributes(r Reading, o ExportOptions) []any {
 }
 
 func exportReading(r Reading) error {
+	if err := validateSuppliedLogEvent(r); err != nil {
+		return err
+	}
+
 	if !exportText(r.Backend) || !exportText(r.SourceTimestampDomain) {
 		return fmt.Errorf("export: invalid provenance")
 	}
@@ -466,7 +470,11 @@ func WriteOTLPLogs(w io.Writer, readings []Reading, o ExportOptions) error {
 		add := func(key, value string) {
 			fields = append(fields, map[string]any{"key": key, "value": map[string]string{"stringValue": value}})
 		}
-		add("schema", "nvtelemetry.logs.v1")
+		schema := "logs.v1"
+		if suppliedLogEvent(r.Name) {
+			schema = "logs.events.v1"
+		}
+		add("schema", "nvtelemetry."+schema)
 		add("name", r.Name)
 		add("unit", r.Unit)
 		add("kind", string(kind))
@@ -500,15 +508,27 @@ func WriteOTLPLogs(w io.Writer, readings []Reading, o ExportOptions) error {
 		for _, a := range attrs {
 			attr := a.(map[string]any)
 			if attr["key"] == "nvtelemetry.export_schema" {
-				attr["value"] = map[string]string{"stringValue": "logs.v1"}
+				attr["value"] = map[string]string{"stringValue": schema}
 			}
 		}
 		attrs = append(attrs, map[string]any{"key": "nvtelemetry.collector_timestamp_known", "value": map[string]string{"stringValue": strconv.FormatBool(r.TimestampUnix > 0)}})
 		record := map[string]any{"body": map[string]any{"kvlistValue": map[string]any{"values": fields}}, "attributes": attrs}
-		if r.TimestampUnix > 0 {
-			record["timeUnixNano"] = strconv.FormatInt(r.TimestampUnix, 10)
+		var resourceAttrs []any
+		var resourceKey string
+		var err error
+		if suppliedLogEvent(r.Name) {
+			attrs, err = eventLogTime(r, o, record, attrs)
+			if err != nil {
+				return err
+			}
+			record["attributes"] = attrs
+			resourceAttrs, resourceKey, err = eventEntityResource(r, o)
+		} else {
+			if r.TimestampUnix > 0 {
+				record["timeUnixNano"] = strconv.FormatInt(r.TimestampUnix, 10)
+			}
+			resourceAttrs, resourceKey, err = exportEntityResource(r, o)
 		}
-		resourceAttrs, resourceKey, err := exportEntityResource(r, o)
 		if err != nil {
 			return err
 		}
