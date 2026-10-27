@@ -215,6 +215,9 @@ func (e *Executor) Grid() Grid { return e.grid }
 func (e *Executor) Progress() ProgressArgument { return e.progress }
 
 // Epoch returns the publication and ownership record for this launch.
+// Direct changes to this record are caller-managed: in particular, its Release
+// method does not enforce the executor's pre-drain release guard. Use
+// Executor.Release to preserve that guard.
 func (e *Executor) Epoch() *cudataskgraph.Epoch { return e.epoch }
 
 // Drain records that the host has observed the launch finish. Nothing may be
@@ -222,7 +225,19 @@ func (e *Executor) Epoch() *cudataskgraph.Epoch { return e.epoch }
 func (e *Executor) Drain() { e.epoch.Drain() }
 
 // Release relinquishes the device's ownership of one task's output storage.
-func (e *Executor) Release(id string) error { return e.epoch.Release(id) }
+// It refuses to release claimed storage until Drain records quiescence,
+// including when the launch was aborted. If no work was submitted, the caller
+// may call Drain to acknowledge that no work remains before releasing storage.
+func (e *Executor) Release(id string) error {
+	if !e.epoch.Drained() && !e.epoch.Aborted() {
+		for _, owned := range e.epoch.Retained() {
+			if owned == id {
+				return fmt.Errorf("task %q output storage may not be released: the launch has not been drained", id)
+			}
+		}
+	}
+	return e.epoch.Release(id)
+}
 
 // Abort requests termination through the volatile abort word: contract 6.
 //
