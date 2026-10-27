@@ -16,20 +16,31 @@ import (
 )
 
 // An egraphLaunch is one generated kernel launch with its arguments bound.
+// A megakernel launch also carries the ready-counter epoch, which must grow
+// with every launch: epoch is the index of that argument in args, or -1.
 type egraphLaunch struct {
 	fn          driver.Function
 	grid, block [3]uint32
+	smem        uint32
 	args        []any
+	epoch       int
 }
 
 // An egraphDecoder runs the decode step's projections, norms, SwiGLU and
 // residuals as kernels the e-graph generator emits ([buildEgraphPlans]).
 // It owns the generated module, the fused QKV and gate·up weights those
 // kernels read, and their intermediates.
+//
+// With mega set, each plan runs as one persistent [hopper.Megakernel]
+// launch whose stages wait on ready counters instead of on the stream.
 type egraphDecoder struct {
 	plans *egraphPlans
+	mega  bool
+	megas map[*hopper.Plan]hopper.Megakernel
 	mod   driver.Module
 	fns   map[string]driver.Function // kernel name -> function
+	ready map[*hopper.Plan]cudamem.Slice[uint64]
+	epoch uint32
 
 	wqkv, wgu []deviceWeight
 	bqkv      []cudamem.Slice[float32]
@@ -40,10 +51,9 @@ type egraphDecoder struct {
 
 	attnIn, post [][]egraphLaunch // per layer
 	head         []egraphLaunch
-	final        cudamem.Slice[float32] // the residual stream after the last layer
 }
 
-func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad) (eg *egraphDecoder, err error) {
+func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega bool) (eg *egraphDecoder, err error) {
 	if gpuW.DType != weightBF16 {
 		return nil, errors.New("-egraph needs -weight-dtype bf16")
 	}
@@ -52,13 +62,37 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
-	eg = &egraphDecoder{plans: plans, fns: make(map[string]driver.Function), tempPtr: make(map[string]driver.DevicePtr)}
+	eg = &egraphDecoder{
+		plans:   plans,
+		mega:    mega,
+		megas:   make(map[*hopper.Plan]hopper.Megakernel),
+		fns:     make(map[string]driver.Function),
+		ready:   make(map[*hopper.Plan]cudamem.Slice[uint64]),
+		tempPtr: make(map[string]driver.DevicePtr),
+	}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, eg.Close())
 			eg = nil
 		}
 	}()
+	if mega {
+		for _, p := range eg.planList() {
+			m, err := p.Megakernel("")
+			if err != nil {
+				return nil, err
+			}
+			eg.megas[p] = m
+			r, err := cudamem.Alloc[uint64](dev, m.ReadyWords())
+			eg.ready[p] = r
+			if err != nil {
+				return nil, fmt.Errorf("alloc %s ready counters: %w", m.Name, err)
+			}
+			if err := r.CopyFromHost(make([]uint64, m.ReadyWords())); err != nil {
+				return nil, fmt.Errorf("zero %s ready counters: %w", m.Name, err)
+			}
+		}
+	}
 	if err := eg.compile(dev); err != nil {
 		return nil, err
 	}
@@ -92,7 +126,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	if eg.x2, err = cudamem.Alloc[float32](dev, cfg.HiddenSize); err != nil {
 		return nil, fmt.Errorf("alloc residual: %w", err)
 	}
-	for _, p := range []*hopper.Plan{plans.attnIn, plans.post, plans.head} {
+	for _, p := range eg.planList() {
 		for _, t := range p.Temps {
 			n := 1
 			for _, d := range t.Shape {
@@ -150,7 +184,6 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		eg.post = append(eg.post, post)
 		cur, next = next, cur
 	}
-	eg.final = cur
 	eg.head, err = eg.bind(plans.head, map[string]driver.DevicePtr{
 		"x":                    cur.Ptr(),
 		"norm":                 gpuW.Norm.Ptr(),
@@ -175,6 +208,10 @@ func concat(parts ...[]float32) []float32 {
 	return out
 }
 
+func (eg *egraphDecoder) planList() []*hopper.Plan {
+	return []*hopper.Plan{eg.plans.attnIn, eg.plans.post, eg.plans.head}
+}
+
 // kernelName returns the NVRTC name expression for k.
 func kernelName(k hopper.PlanKernel) (string, error) {
 	switch {
@@ -190,7 +227,17 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 	var src strings.Builder
 	src.WriteString(hopper.Prelude)
 	var names []string
-	for _, p := range []*hopper.Plan{eg.plans.attnIn, eg.plans.post, eg.plans.head} {
+	for _, p := range eg.planList() {
+		if eg.mega {
+			m := eg.megas[p]
+			cu, err := m.CUDA()
+			if err != nil {
+				return fmt.Errorf("emit %s: %w", m.Name, err)
+			}
+			src.WriteString("\n" + cu + "\n")
+			names = append(names, m.Name)
+			continue
+		}
 		for _, k := range p.Kernels {
 			name, err := kernelName(k)
 			if err != nil {
@@ -237,13 +284,43 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 // bind resolves p's launches against bufs (inputs and output) and eg's
 // temporaries.
 func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) ([]egraphLaunch, error) {
+	lookup := func(kernel, name string) (driver.DevicePtr, error) {
+		ptr, ok := bufs[name]
+		if !ok {
+			ptr, ok = eg.tempPtr[name]
+		}
+		if !ok || ptr == 0 {
+			return 0, fmt.Errorf("%s: unbound buffer %s", kernel, name)
+		}
+		return ptr, nil
+	}
+	if eg.mega {
+		m := eg.megas[p]
+		grid, block := m.Grid()
+		l := egraphLaunch{
+			fn:    eg.fns[m.Name],
+			grid:  [3]uint32{uint32(grid[0]), uint32(grid[1]), uint32(grid[2])},
+			block: [3]uint32{uint32(block[0]), uint32(block[1]), uint32(block[2])},
+			smem:  uint32(m.SharedBytes()),
+		}
+		for _, t := range append(append(append([]hopper.Tensor(nil), m.Inputs...), m.Temps...), m.Output) {
+			ptr, err := lookup(m.Name, t.Name)
+			if err != nil {
+				return nil, err
+			}
+			l.args = append(l.args, ptr)
+		}
+		l.epoch = len(l.args) + 1
+		l.args = append(l.args, eg.ready[p].Ptr(), uint32(0))
+		return []egraphLaunch{l}, nil
+	}
 	var out []egraphLaunch
 	for _, k := range p.Kernels {
 		name, err := kernelName(k)
 		if err != nil {
 			return nil, err
 		}
-		l := egraphLaunch{fn: eg.fns[name]}
+		l := egraphLaunch{fn: eg.fns[name], epoch: -1}
 		var grid, block [3]int
 		if k.GEMM != nil {
 			if grid, block, err = k.GEMM.Grid(); err != nil {
@@ -257,12 +334,9 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 			l.grid[i], l.block[i] = uint32(grid[i]), uint32(block[i])
 		}
 		for _, a := range k.Args {
-			ptr, ok := bufs[a]
-			if !ok {
-				ptr, ok = eg.tempPtr[a]
-			}
-			if !ok || ptr == 0 {
-				return nil, fmt.Errorf("%s: unbound buffer %s", name, a)
+			ptr, err := lookup(name, a)
+			if err != nil {
+				return nil, err
 			}
 			l.args = append(l.args, ptr)
 		}
@@ -273,7 +347,7 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 
 // Kernels returns the number of generated launches per decode step.
 func (eg *egraphDecoder) Kernels() int {
-	return len(eg.attnIn)*(len(eg.plans.attnIn.Kernels)+len(eg.plans.post.Kernels)) + len(eg.plans.head.Kernels)
+	return len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
 }
 
 // Close releases eg's module and buffers.
@@ -293,6 +367,10 @@ func (eg *egraphDecoder) Close() error {
 	}
 	for i := range eg.temps16 {
 		errs = append(errs, freeOwned(&eg.temps16[i]))
+	}
+	for p, r := range eg.ready {
+		errs = append(errs, freeOwned(&r))
+		delete(eg.ready, p)
 	}
 	errs = append(errs, freeOwned(&eg.qkv), freeOwned(&eg.x2))
 	if eg.mod != 0 {
@@ -328,7 +406,11 @@ func (eg *egraphDecoder) emitStep(
 	v := k + driver.DevicePtr(4*kvHeads*headDim)
 	launch := func(ls []egraphLaunch) error {
 		for _, l := range ls {
-			if err := emit(cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]), l.args...); err != nil {
+			if l.epoch >= 0 {
+				eg.epoch++
+				l.args[l.epoch] = eg.epoch
+			}
+			if err := emit(cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]).SharedMem(l.smem), l.args...); err != nil {
 				return err
 			}
 		}

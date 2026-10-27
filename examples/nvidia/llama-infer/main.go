@@ -59,6 +59,7 @@ var (
 	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
+	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
 )
 
 func main() {
@@ -335,8 +336,11 @@ func runGPUInference(
 		return fmt.Errorf("alloc scratchpad: %w", err)
 	}
 
+	if *egraphMegaFlag && (!*egraphFlag || *cudaGraphFlag) {
+		return errors.New("-egraph-mega needs -egraph and cannot replay in a -cuda-graph: its ready-counter epoch is a launch argument")
+	}
 	if *egraphFlag {
-		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch)
+		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag)
 		if err != nil {
 			return fmt.Errorf("e-graph decoder: %w", err)
 		}
