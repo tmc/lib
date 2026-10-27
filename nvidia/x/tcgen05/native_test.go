@@ -1168,6 +1168,10 @@ func qualifyTCGen05Wave12And13Rubin(t *testing.T, nvcc string, cudaVer cudatool.
 	for name, tu := range fx.tuFiles {
 		cuPath := filepath.Join(dir, name+".cu")
 		cubinPath := filepath.Join(dir, name+"."+devArch+".cubin")
+		// The early-release and weights-stationary emitters stage more than
+		// 48 KB of static shared memory; under EG_EMU the device fallback uses
+		// global staging buffers instead.
+		tu = prepareWSDeviceSource(prepareEarlyReleaseDeviceSource(tu))
 		if err := os.WriteFile(cuPath, []byte(tu), 0o600); err != nil {
 			t.Fatalf("write %s: %v", cuPath, err)
 		}
@@ -1185,7 +1189,8 @@ func qualifyTCGen05Wave12And13Rubin(t *testing.T, nvcc string, cudaVer cudatool.
 			out107, err107 := exec.CommandContext(ctx107, nvcc, "-std=c++17", "-arch=sm_107a", "-cubin", cuPath, "-o", sm107Cubin).CombinedOutput()
 			cancel107()
 			if err107 != nil {
-				t.Fatalf("nvcc -arch=sm_107a -cubin %s (CUDA %s): %v\n%s", name, cudaVer, err107, out107)
+				t.Errorf("nvcc -arch=sm_107a -cubin %s (CUDA %s): %v\n%s", name, cudaVer, err107, out107)
+				continue
 			}
 			inspectCubinWithNVDisasm(t, sm107Cubin, "sm_107a")
 		}

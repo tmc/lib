@@ -25,7 +25,7 @@ const TCGen05AdvancedPrelude = `#ifndef EG_TCGEN05_ADVANCED_PRELUDE
 #define EG_REGISTER_CLUSTER2(fn) \
     static const bool eg_reg_cluster2_##fn = eg_emu_register_cluster_kernel(fn, 2);
 #elif defined(EG_EMU)
-#define EG_TCGEN05_SHARED(T, name, dims) static __device__ alignas(16) T name dims
+#define EG_TCGEN05_SHARED(T, name, dims) alignas(16) __shared__ T name dims
 __device__ float eg_emu_dev_tmem_backing[128 * 512];
 #define EG_TCGEN05_TMEM_BUF(name) float* name = eg_emu_dev_tmem_backing
 #define EG_REGISTER_CLUSTER2(fn)
