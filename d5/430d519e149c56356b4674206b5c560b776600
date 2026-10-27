@@ -1,0 +1,12 @@
+commit: d5430d519e149c56356b4674206b5c560b776600
+date: 2026-10-27T05:37:06.010280+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 67372
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original26-graph-consumer/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-original26-graph-consumer-adoption/ROOT-GRADE.md
+qualification: source166host/race47each,2vets,2originassertioncontrols;independentrace47;priorfixturefailureandENOSPCunqualifiedpreserved;composedon167separatenvtelemetrychange;no native/full26
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
