@@ -47,6 +47,13 @@
 //   - Graph inputs, node metadata, and unit/empty tensors are skipped; skipped values fold
 //     zero bytes and leave the accumulator unchanged.
 //
+// Node IDs distinguish values even when display names coincide. Display names
+// remain trace labels and input-map keys; two inputs with the same name read
+// the same supplied buffer. CPU evaluation does not change the graph's outputs.
+// Generated locals use node IDs and output parameters use output positions,
+// including repeated output nodes. This changes generated source and its cache
+// identity, but not the fold order, bytes, labels or hashes of existing graphs.
+//
 // Generated device kernels compute each graph node across threads in one CTA.
 // Each thread completes its node value before entering the ordered fold; one CTA
 // serializes node-major, then row-major fold tickets before updating the scalar

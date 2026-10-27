@@ -250,30 +250,12 @@ func EvaluateCPUGraph(g *cudair.Graph, inputs map[string][]float32, policy Float
 		return nil, errors.New("cudalmvet: nil graph")
 	}
 
-	// Ensure all non-input nodes are in outputs to inspect all intermediate values
-	origOutputs := g.Outputs()
-	defer func() {
-		_ = g.SetOutputs(origOutputs...)
-	}()
-
-	var intermediateNodes []*cudair.Node
-	for _, n := range g.Nodes() {
-		if n.Kind != cudair.KindInput {
-			intermediateNodes = append(intermediateNodes, n)
-		}
-	}
-	if len(intermediateNodes) > 0 {
-		if err := g.SetOutputs(intermediateNodes...); err != nil {
-			return nil, fmt.Errorf("cudalmvet: configure graph outputs: %w", err)
-		}
-	}
-
 	snap, err := g.Snapshot()
 	if err != nil {
 		return nil, fmt.Errorf("cudalmvet: snapshot graph: %w", err)
 	}
 
-	results, err := cudaref.EvaluateSnapshot(snap, inputs)
+	results, err := cudaref.EvaluateSnapshotAll(snap, inputs)
 	if err != nil {
 		return nil, fmt.Errorf("cudalmvet: evaluate CPU reference: %w", err)
 	}
@@ -281,14 +263,14 @@ func EvaluateCPUGraph(g *cudair.Graph, inputs map[string][]float32, policy Float
 	return foldGraphResults(snap, results, policy, recording), nil
 }
 
-func foldGraphResults(snap *cudair.Snapshot, results map[string][]float32, policy FloatPolicy, recording bool) *Accumulator {
+func foldGraphResults(snap *cudair.Snapshot, results map[int][]float32, policy FloatPolicy, recording bool) *Accumulator {
 	acc := NewAccumulator(WithPolicy(policy), WithRecording(recording))
 	// Sequential execution along topological order
 	for _, n := range snap.Order() {
 		if n.Kind == cudair.KindInput {
 			continue
 		}
-		buf, ok := results[n.Name]
+		buf, ok := results[n.ID]
 		if !ok || len(buf) == 0 {
 			continue // Unit/empty values pruned per contract
 		}
@@ -619,9 +601,9 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 	// Parameter order is shared with the host argument binder.
 	for _, arg := range kernelArgumentLayout(snap) {
 		if arg.Output {
-			sb.WriteString(fmt.Sprintf(", float *__restrict__ out_%s", arg.Name))
+			sb.WriteString(fmt.Sprintf(", float *__restrict__ %s", arg.Symbol))
 		} else {
-			sb.WriteString(fmt.Sprintf(", const float *__restrict__ in_%s", arg.Name))
+			sb.WriteString(fmt.Sprintf(", const float *__restrict__ %s", arg.Symbol))
 		}
 	}
 	outputs := snap.Outputs()
@@ -630,13 +612,7 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 	sb.WriteString("    if (idx >= num_elements) return;\n\n")
 
 	// Emit sequentially in topological order
-	foldPlan := buildTraceFoldPlan(snap)
-	ticketOffsets := make(map[string]int)
-	for _, event := range foldPlan {
-		if _, exists := ticketOffsets[event.Node]; !exists {
-			ticketOffsets[event.Node] = event.Ticket
-		}
-	}
+	ticketOffset := 0
 	for _, n := range snap.Order() {
 		if n.Kind == cudair.KindInput {
 			continue
@@ -645,7 +621,7 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 		switch n.Kind {
 		case cudair.KindConstant:
 			if len(n.ConstValues) > 1 {
-				name := "constant_" + n.Name
+				name := "constant_" + traceNodeSymbol(n)
 				sb.WriteString("    const float " + name + "[] = {")
 				for i, value := range n.ConstValues {
 					if i != 0 {
@@ -661,7 +637,7 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 				expr = "0.0f"
 			}
 		case cudair.KindUnary:
-			inName := n.Inputs[0].Name
+			inName := traceNodeSymbol(n.Inputs[0])
 			var valRef string
 			if n.Inputs[0].Kind == cudair.KindInput {
 				valRef = fmt.Sprintf("in_%s[idx]", inName)
@@ -683,8 +659,8 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 				return "", "", fmt.Errorf("synthesize: unsupported unary op %q", n.Op)
 			}
 		case cudair.KindBinary:
-			aName := n.Inputs[0].Name
-			bName := n.Inputs[1].Name
+			aName := traceNodeSymbol(n.Inputs[0])
+			bName := traceNodeSymbol(n.Inputs[1])
 			var aRef, bRef string
 			if n.Inputs[0].Kind == cudair.KindInput {
 				aRef = fmt.Sprintf("in_%s[idx]", aName)
@@ -713,18 +689,19 @@ func synthesizeGraphKernel(g *cudair.Graph) (src string, entryPoint string, err 
 			return "", "", fmt.Errorf("synthesize: unsupported op kind %v", n.Kind)
 		}
 
-		sb.WriteString(fmt.Sprintf("    float var_%s = %s;\n", n.Name, expr))
+		sb.WriteString(fmt.Sprintf("    float var_%s = %s;\n", traceNodeSymbol(n), expr))
 		count := n.NumElements()
 		if count > 0 {
-			ticket := fmt.Sprintf("%dU + (unsigned int)idx", ticketOffsets[n.Name])
-			sb.WriteString(fmt.Sprintf("    if (idx < %d) { %s", count, nvrtcx.EmitOrderedDumpVar(fmt.Sprintf("var_%s", n.Name), ticket, "trace_fold_limit")))
+			ticket := fmt.Sprintf("%dU + (unsigned int)idx", ticketOffset)
+			sb.WriteString(fmt.Sprintf("    if (idx < %d) { %s", count, nvrtcx.EmitOrderedDumpVar(fmt.Sprintf("var_%s", traceNodeSymbol(n)), ticket, "trace_fold_limit")))
 			sb.WriteString("    }\n")
+			ticketOffset += count
 		}
 	}
 
 	// Write outputs
-	for _, out := range outputs {
-		sb.WriteString(fmt.Sprintf("    out_%s[idx] = var_%s;\n", out.Name, out.Name))
+	for i, out := range outputs {
+		sb.WriteString(fmt.Sprintf("    out_%d[idx] = var_%s;\n", i, traceNodeSymbol(out)))
 	}
 	sb.WriteString("}\n")
 
@@ -772,15 +749,25 @@ func buildTraceFoldPlan(snap *cudair.Snapshot) []foldTicket {
 type kernelArgument struct {
 	Name   string
 	Output bool
+	Symbol string
+}
+
+// traceNodeSymbol uses snapshot identity, not a caller's display name.
+func traceNodeSymbol(n *cudair.Node) string {
+	id := strconv.Itoa(n.ID)
+	if strings.HasPrefix(id, "-") {
+		return "n_neg" + id[1:]
+	}
+	return "n" + id
 }
 
 func kernelArgumentLayout(snap *cudair.Snapshot) []kernelArgument {
 	var args []kernelArgument
 	for _, n := range snap.Inputs() {
-		args = append(args, kernelArgument{Name: n.Name})
+		args = append(args, kernelArgument{Name: n.Name, Symbol: "in_" + traceNodeSymbol(n)})
 	}
-	for _, n := range snap.Outputs() {
-		args = append(args, kernelArgument{Name: n.Name, Output: true})
+	for i, n := range snap.Outputs() {
+		args = append(args, kernelArgument{Name: n.Name, Output: true, Symbol: fmt.Sprintf("out_%d", i)})
 	}
 	return args
 }
