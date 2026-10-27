@@ -1,0 +1,12 @@
+commit: 7073fd3c43deac50955db6714005f6911d301d27
+date: 2026-10-27T10:36:27.960886+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 11450
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original103-raw-source-binding/W/net.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-original103-adoption/ROOT-GRADE.md
+qualification: source/CPU only; independent review and author host/race/vets; current181 composition required before signing; native clock/numeric/loss acquisition and full103 remain open
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
