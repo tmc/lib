@@ -333,3 +333,103 @@ func TestVerifyTraceViolations(t *testing.T) {
 		})
 	}
 }
+
+func TestVerifyTraceShift(t *testing.T) {
+	validShift := func() []TraceEvent {
+		events := []TraceEvent{
+			{Kind: EventAlloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			{Kind: EventAlloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 128, Columns: 32, Rows: 128},
+			{Kind: EventCp, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 128, Columns: 32, Rows: 128},
+			{Kind: EventMMA, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128, HasScaleInTMEM: true, ScaleOffset: 128},
+			{Kind: EventCommit, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			{Kind: EventWait, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			{Kind: EventShift, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			{Kind: EventWait, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+		}
+		for w := range 4 {
+			events = append(events, TraceEvent{
+				Kind: EventLd, CTA: 0, Warp: w, ActiveThreads: 32, CTAGroup: 1,
+				Offset: 0, Columns: 128, RowStart: uint32(32 * w), Rows: 32,
+			})
+		}
+		events = append(events,
+			TraceEvent{Kind: EventDealloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			TraceEvent{Kind: EventDealloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 128, Columns: 32, Rows: 128},
+		)
+		return events
+	}
+
+	for _, target := range []Target{SM100A, SM103A, SM100F, SM103F} {
+		sum, err := VerifyTrace(target, validShift())
+		if err != nil {
+			t.Fatalf("VerifyTrace(%s, validShift) unexpected error: %v", target, err)
+		}
+		if sum.Shifts != 1 || sum.MMAs != 1 || sum.Copies != 1 {
+			t.Fatalf("VerifyTrace(%s, validShift) summary = %+v, want Shifts=1 MMAs=1 Copies=1", target, sum)
+		}
+	}
+
+	badTests := []struct {
+		name    string
+		events  []TraceEvent
+		wantErr error
+	}{
+		{
+			name: "shift_wrong_active_threads",
+			events: func() []TraceEvent {
+				evs := validShift()
+				evs[6].ActiveThreads = 32
+				return evs
+			}(),
+			wantErr: ErrSingleThreadIssue,
+		},
+		{
+			name: "shift_wrong_warp",
+			events: func() []TraceEvent {
+				evs := validShift()
+				evs[6].Warp = 1
+				return evs
+			}(),
+			wantErr: ErrSingleThreadIssue,
+		},
+		{
+			name: "shift_unallocated_region",
+			events: []TraceEvent{
+				{Kind: EventAlloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 64, Rows: 128},
+				{Kind: EventShift, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 64, Columns: 64, Rows: 128},
+			},
+			wantErr: ErrClosed,
+		},
+		{
+			name: "shift_mma_in_flight_without_wait",
+			events: []TraceEvent{
+				{Kind: EventAlloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+				{Kind: EventMMA, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+				{Kind: EventCommit, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+				{Kind: EventShift, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 128, Rows: 128},
+			},
+			wantErr: ErrBusy,
+		},
+		{
+			name: "shift_cp_in_flight_without_wait",
+			events: []TraceEvent{
+				{Kind: EventAlloc, CTA: 0, Warp: 0, ActiveThreads: 32, CTAGroup: 1, Offset: 0, Columns: 32, Rows: 128},
+				{Kind: EventCp, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 32, Rows: 128},
+				{Kind: EventShift, CTA: 0, Warp: 0, ActiveThreads: 1, CTAGroup: 1, Offset: 0, Columns: 32, Rows: 128},
+			},
+			wantErr: ErrBusy,
+		},
+	}
+
+	for _, tc := range badTests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := VerifyTrace(SM100A, tc.events)
+			if err == nil {
+				t.Fatalf("VerifyTrace(%s) succeeded, want error %v", tc.name, tc.wantErr)
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("VerifyTrace(%s) error = %v, want errors.Is(_, %v)", tc.name, err, tc.wantErr)
+			}
+		})
+	}
+}

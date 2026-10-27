@@ -163,14 +163,93 @@ func TestTCGen05NativeClosedGateControl(t *testing.T) {
 	if _, err := cudatmem.VerifyTrace(cudatmem.SM103A, mutantEvents); err == nil {
 		t.Fatalf("VerifyTrace(SM103A, mutant missing dealloc) succeeded, want error")
 	}
+
+	// Verify TCGen05SparseGEMM (sm_100a and sm_103a 2:4 structured sparsity tcgen05.mma.sp).
+	for _, target := range []string{"sm_100a", "sm_103a"} {
+		sp := TCGen05SparseGEMM{
+			Name:             "tcgen05_sparse_gemm_" + strings.TrimSuffix(target, "a") + "a",
+			M:                128,
+			N:                128,
+			K:                64,
+			Target:           target,
+			BlockScaledNVFP4: true,
+		}
+		idesc, err := sp.InstDescriptor()
+		if err != nil {
+			t.Fatalf("TCGen05SparseGEMM(%s).InstDescriptor: %v", target, err)
+		}
+		if !UnpackInstDesc(idesc).Sparsity {
+			t.Fatalf("TCGen05SparseGEMM(%s) UnpackInstDesc(0x%08x).Sparsity = false, want true", target, idesc)
+		}
+		spSrc, err := sp.CUDAFile()
+		if err != nil || !strings.Contains(spSrc, "tcgen05.mma.sp") {
+			t.Fatalf("TCGen05SparseGEMM(%s).CUDAFile() error=%v or missing tcgen05.mma.sp", target, err)
+		}
+		if _, err := cudatmem.VerifyTrace(cudatmem.Target(target), sp.TraceEvents()); err != nil {
+			t.Fatalf("VerifyTrace(%s, TCGen05SparseGEMM): %v", target, err)
+		}
+	}
+
+	// Verify TCGen05PagedAttention and TCGen05MLAPagedAttention TMEMTrace() on SM100A and SM103A.
+	fa4 := TCGen05PagedAttention{
+		Name:       "tcgen05_paged_attn_native",
+		NumQHeads:  4,
+		NumKVHeads: 2,
+		HeadDim:    16,
+		PageSize:   8,
+		MaxPages:   4,
+		SeqLen:     12,
+		Target:     "sm_103a",
+		CTAGroup:   1,
+		PingPong:   true,
+		KVFormat:   WeightNVFP4,
+	}
+	if _, err := cudatmem.VerifyTrace(cudatmem.SM103A, fa4.TMEMTrace()); err != nil {
+		t.Fatalf("VerifyTrace(SM103A, TCGen05PagedAttention): %v", err)
+	}
+	if !strings.Contains(fa4.CUDA(), "scale_vec::4X") {
+		t.Fatalf("TCGen05PagedAttention(sm_103a) missing scale_vec::4X")
+	}
+
+	mla := TCGen05MLAPagedAttention{
+		Name:       "tcgen05_mla_paged_attn_native",
+		NumHeads:   4,
+		KVLoRARank: 16,
+		RoPEDim:    8,
+		VHeadDim:   16,
+		PageSize:   8,
+		MaxPages:   4,
+		SeqLen:     12,
+		Target:     "sm_103a",
+		CTAGroup:   1,
+		PingPong:   true,
+	}
+	if _, err := cudatmem.VerifyTrace(cudatmem.SM103A, mla.TMEMTrace()); err != nil {
+		t.Fatalf("VerifyTrace(SM103A, TCGen05MLAPagedAttention): %v", err)
+	}
+
+	harnessSrc := buildTCGen05DeviceHarness(t, sv4xSrc)
+	for _, want := range []string{
+		"tcgen05_scale_vec_4x_sm103a",
+		"tcgen05_sparse_gemm_sm100a",
+		"tcgen05_paged_attn_native",
+		"tcgen05_mla_paged_attn_native",
+		"mutant_rejected",
+	} {
+		if !strings.Contains(harnessSrc, want) {
+			t.Fatalf("buildTCGen05DeviceHarness missing %q", want)
+		}
+	}
 }
 
-// TestTCGen05NativeQualification compiles TCGen05GEMM (sm_100a) and
-// TCGen05ScaleVec4XGEMM (sm_103a if supported by the toolkit) with nvcc/ptxas,
-// inspects SASS with nvdisasm, runs on the device if the GPU is sm_100a/sm_103a
-// (or records cudaerrors.ErrUnsupported for hardware tcgen05 on sm_121a while
-// running the device mutant qualification harness), and verifies the mutant
-// control is rejected.
+// TestTCGen05NativeQualification compiles TCGen05GEMM (sm_100a),
+// TCGen05ScaleVec4XGEMM (sm_103a), TCGen05SparseGEMM (sm_100a and sm_103a 2:4
+// structured sparsity tcgen05.mma.sp), TCGen05PagedAttention, and
+// TCGen05MLAPagedAttention with nvcc/ptxas, inspects SASS with nvdisasm, runs
+// on the device if the GPU is sm_100a/sm_103a (or records
+// cudaerrors.ErrUnsupported for hardware tcgen05 on sm_121a while running the
+// device reference + mutant qualification harness), and verifies the mutant
+// controls are rejected.
 func TestTCGen05NativeQualification(t *testing.T) {
 	if os.Getenv(tcgen05NativeEnv) != "1" {
 		t.Skip("native qualification pending: CUDA_TCGEN05_NATIVE=1 required")
@@ -286,7 +365,164 @@ func TestTCGen05NativeQualification(t *testing.T) {
 		t.Logf("nvcc (CUDA %s) does not list sm_103; sm_103a PTX/cubin skipped on this toolkit", cudaVer)
 	}
 
-	// 3. Probe active device architecture and run the device qualification + mutant harness.
+	// 3. Compile TCGen05SparseGEMM (sm_100a and sm_103a 2:4 structured sparsity tcgen05.mma.sp).
+	sparse100 := TCGen05SparseGEMM{
+		Name:             "tcgen05_sparse_gemm_sm100a",
+		M:                128,
+		N:                128,
+		K:                64,
+		Target:           "sm_100a",
+		BlockScaledNVFP4: true,
+	}
+	sparse100Desc, err := sparse100.InstDescriptor()
+	if err != nil {
+		t.Fatalf("sparse100.InstDescriptor: %v", err)
+	}
+	if !UnpackInstDesc(sparse100Desc).Sparsity {
+		t.Fatalf("sparse100 UnpackInstDesc(0x%08x).Sparsity = false, want true", sparse100Desc)
+	}
+	if _, err := cudatmem.VerifyTrace(cudatmem.SM100A, sparse100.TraceEvents()); err != nil {
+		t.Fatalf("VerifyTrace(SM100A, sparse100): %v", err)
+	}
+	sparse100Raw, err := sparse100.CUDAFile()
+	if err != nil {
+		t.Fatalf("sparse100.CUDAFile: %v", err)
+	}
+	if !strings.Contains(sparse100Raw, "tcgen05.mma.sp") {
+		t.Fatalf("sparse100.CUDAFile missing tcgen05.mma.sp")
+	}
+	sparse100Src := prepareSparseDeviceSource(sparse100Raw)
+	sparse100CU := filepath.Join(dir, "tcgen05_sparse_gemm_sm100a.cu")
+	if err := os.WriteFile(sparse100CU, []byte(sparse100Src), 0o600); err != nil {
+		t.Fatalf("write %s: %v", sparse100CU, err)
+	}
+	if nvccSupportsTarget(t, nvcc, "sm_100a") {
+		ptxPath := filepath.Join(dir, "tcgen05_sparse_gemm_sm100a.ptx")
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+		out, err := exec.CommandContext(ctx, nvcc, "-std=c++17", "-arch=sm_100a", "-ptx", sparse100CU, "-o", ptxPath).CombinedOutput()
+		cancel()
+		if err != nil {
+			t.Fatalf("nvcc -arch=sm_100a -ptx TCGen05SparseGEMM (CUDA %s): %v\n%s", cudaVer, err, out)
+		}
+		ptxBytes, err := os.ReadFile(ptxPath)
+		if err != nil {
+			t.Fatalf("read %s: %v", ptxPath, err)
+		}
+		for _, want := range []string{"tcgen05.mma.sp", "tcgen05.cp", "tcgen05.ld", "tcgen05.dealloc"} {
+			if !strings.Contains(string(ptxBytes), want) {
+				t.Fatalf("sm_100a sparse PTX missing %q", want)
+			}
+		}
+		cubinPath := filepath.Join(dir, "tcgen05_sparse_gemm_sm100a.cubin")
+		ctxCubin, cancelCubin := context.WithTimeout(t.Context(), 2*time.Minute)
+		cubinOut, cubinErr := exec.CommandContext(ctxCubin, nvcc, "-std=c++17", "-arch=sm_100a", "-cubin", sparse100CU, "-o", cubinPath).CombinedOutput()
+		cancelCubin()
+		if cubinErr == nil {
+			inspectCubinWithNVDisasm(t, cubinPath, "sm_100a")
+		} else {
+			t.Logf("sm_100a sparse cubin assembly note: %v (%s)", cubinErr, strings.TrimSpace(string(cubinOut)))
+		}
+	}
+
+	sparse103 := TCGen05SparseGEMM{
+		Name:             "tcgen05_sparse_gemm_sm103a",
+		M:                128,
+		N:                128,
+		K:                64,
+		Target:           "sm_103a",
+		BlockScaledNVFP4: true,
+	}
+	if _, err := cudatmem.VerifyTrace(cudatmem.SM103A, sparse103.TraceEvents()); err != nil {
+		t.Fatalf("VerifyTrace(SM103A, sparse103): %v", err)
+	}
+	sparse103Raw, err := sparse103.CUDAFile()
+	if err != nil {
+		t.Fatalf("sparse103.CUDAFile: %v", err)
+	}
+	sparse103CU := filepath.Join(dir, "tcgen05_sparse_gemm_sm103a.cu")
+	if err := os.WriteFile(sparse103CU, []byte(prepareSparseDeviceSource(sparse103Raw)), 0o600); err != nil {
+		t.Fatalf("write %s: %v", sparse103CU, err)
+	}
+	if nvccSupportsTarget(t, nvcc, "sm_103a") {
+		ptxPath := filepath.Join(dir, "tcgen05_sparse_gemm_sm103a.ptx")
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+		out, err := exec.CommandContext(ctx, nvcc, "-std=c++17", "-arch=sm_103a", "-ptx", sparse103CU, "-o", ptxPath).CombinedOutput()
+		cancel()
+		if err != nil {
+			t.Fatalf("nvcc -arch=sm_103a -ptx TCGen05SparseGEMM (CUDA %s): %v\n%s", cudaVer, err, out)
+		}
+		ptxBytes, err := os.ReadFile(ptxPath)
+		if err != nil {
+			t.Fatalf("read %s: %v", ptxPath, err)
+		}
+		for _, want := range []string{"tcgen05.mma.sp", "scale_vec::4X"} {
+			if !strings.Contains(string(ptxBytes), want) {
+				t.Fatalf("sm_103a sparse PTX missing %q", want)
+			}
+		}
+	}
+
+	// 4. Verify TCGen05PagedAttention & TCGen05MLAPagedAttention TMEMTrace() and PTX emission.
+	fa4 := TCGen05PagedAttention{
+		Name:       "tcgen05_paged_attn_native",
+		NumQHeads:  4,
+		NumKVHeads: 2,
+		HeadDim:    16,
+		PageSize:   8,
+		MaxPages:   4,
+		SeqLen:     12,
+		Target:     "sm_103a",
+		CTAGroup:   1,
+		PingPong:   true,
+		KVFormat:   WeightNVFP4,
+	}
+	if _, err := cudatmem.VerifyTrace(cudatmem.SM103A, fa4.TMEMTrace()); err != nil {
+		t.Fatalf("VerifyTrace(SM103A, fa4): %v", err)
+	}
+	mla := TCGen05MLAPagedAttention{
+		Name:       "tcgen05_mla_paged_attn_native",
+		NumHeads:   4,
+		KVLoRARank: 16,
+		RoPEDim:    8,
+		VHeadDim:   16,
+		PageSize:   8,
+		MaxPages:   4,
+		SeqLen:     12,
+		Target:     "sm_103a",
+		CTAGroup:   1,
+		PingPong:   true,
+	}
+	if _, err := cudatmem.VerifyTrace(cudatmem.SM103A, mla.TMEMTrace()); err != nil {
+		t.Fatalf("VerifyTrace(SM103A, mla): %v", err)
+	}
+	fa4CU := filepath.Join(dir, "tcgen05_fa4_native.cu")
+	if err := os.WriteFile(fa4CU, []byte(prepareFA4DeviceSource(fa4.Source())+"\n"+prepareFA4DeviceSource(mla.CUDA()+"\n"+mla.Launcher())), 0o600); err != nil {
+		t.Fatalf("write %s: %v", fa4CU, err)
+	}
+	fa4PTXArch := "sm_100a"
+	if nvccSupportsTarget(t, nvcc, "sm_103a") {
+		fa4PTXArch = "sm_103a"
+	}
+	if nvccSupportsTarget(t, nvcc, fa4PTXArch) {
+		ptxPath := filepath.Join(dir, "tcgen05_fa4_native.ptx")
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+		out, err := exec.CommandContext(ctx, nvcc, "-std=c++17", "-arch="+fa4PTXArch, "-ptx", fa4CU, "-o", ptxPath).CombinedOutput()
+		cancel()
+		if err != nil {
+			t.Fatalf("nvcc -arch=%s -ptx TCGen05PagedAttention/MLA (CUDA %s): %v\n%s", fa4PTXArch, cudaVer, err, out)
+		}
+		ptxBytes, err := os.ReadFile(ptxPath)
+		if err != nil {
+			t.Fatalf("read %s: %v", ptxPath, err)
+		}
+		for _, want := range []string{"tcgen05.alloc", "tcgen05.mma", "tcgen05.ld", "tcgen05.st", "tcgen05.dealloc", "ex2.approx.ftz.f32"} {
+			if !strings.Contains(string(ptxBytes), want) {
+				t.Fatalf("%s FA4/MLA PTX missing %q", fa4PTXArch, want)
+			}
+		}
+	}
+
+	// 5. Probe active device architecture and run the device qualification + mutant harness.
 	harnessCU := filepath.Join(dir, "tcgen05_device_qualify.cu")
 	harnessBin := filepath.Join(dir, "tcgen05_device_qualify")
 	if err := os.WriteFile(harnessCU, []byte(buildTCGen05DeviceHarness(t, sv4xSrc)), 0o600); err != nil {
@@ -394,16 +630,122 @@ func detectDeviceArchFlag(t *testing.T, nvcc string) string {
 	return "sm_80"
 }
 
+func prepareSparseDeviceSource(src string) string {
+	const target = "    EG_TCGEN05_SHARED(float, smem_b, [K * N]);"
+	const replacement = `#if defined(EG_EMU)
+    static __device__ float eg_emu_sparse_smem_b[64 * 128];
+    float* const smem_b = eg_emu_sparse_smem_b;
+#else
+    EG_DYNAMIC_SMEM(float, smem_b);
+#endif`
+	return strings.ReplaceAll(src, target, replacement)
+}
+
+func prepareFA4DeviceSource(src string) string {
+	src = strings.ReplaceAll(src, "EG_TCGEN05_SHARED(float, tmem, [128 * 512]);", "EG_TCGEN05_TMEM_BUF(tmem);")
+	src = strings.ReplaceAll(src, "#ifdef __CUDA_ARCH__", "#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 1000 || __CUDA_ARCH__ == 1030) && !defined(EG_EMU)")
+	return src
+}
+
 func buildTCGen05DeviceHarness(t *testing.T, sv4xFile string) string {
 	t.Helper()
+
+	sparse100 := TCGen05SparseGEMM{
+		Name:             "tcgen05_sparse_gemm_sm100a",
+		M:                128,
+		N:                128,
+		K:                64,
+		Target:           "sm_100a",
+		BlockScaledNVFP4: true,
+	}
+	sparseRaw, err := sparse100.CUDAFile()
+	if err != nil {
+		t.Fatalf("sparse100.CUDAFile: %v", err)
+	}
+
+	fa4 := TCGen05PagedAttention{
+		Name:       "tcgen05_paged_attn_native",
+		NumQHeads:  4,
+		NumKVHeads: 2,
+		HeadDim:    16,
+		PageSize:   8,
+		MaxPages:   4,
+		SeqLen:     12,
+		Target:     "sm_103a",
+		CTAGroup:   1,
+		PingPong:   true,
+		KVFormat:   WeightNVFP4,
+	}
+	fa4Q := make([]float32, 4*16)
+	for r := range 4 {
+		fa4Q[r*16+0] = 1.5
+		for d := 1; d < 16; d++ {
+			fa4Q[r*16+d] = float32((d%3)-1) * 0.5
+		}
+	}
+	fa4KPages := make([]float32, 2*8*2*16)
+	fa4VPages := make([]float32, 2*8*2*16)
+	for row := range 2 * 8 * 2 {
+		fa4KPages[row*16+0] = 1.5
+		fa4VPages[row*16+0] = 1.5
+		for d := 1; d < 16; d++ {
+			fa4KPages[row*16+d] = float32(((row+d)%3)-1) * 0.5
+			fa4VPages[row*16+d] = float32(((row+2*d)%3)-1) * 0.5
+		}
+	}
+	fa4PT := []int32{1, 0, 0, 0}
+	fa4Want := fa4.Reference(fa4Q, fa4KPages, fa4VPages, fa4PT, 12)
+
+	mla := TCGen05MLAPagedAttention{
+		Name:       "tcgen05_mla_paged_attn_native",
+		NumHeads:   4,
+		KVLoRARank: 16,
+		RoPEDim:    8,
+		VHeadDim:   16,
+		PageSize:   8,
+		MaxPages:   4,
+		SeqLen:     12,
+		Target:     "sm_103a",
+		CTAGroup:   1,
+		PingPong:   true,
+	}
+	mlaQAbs := make([]float32, 4*16)
+	mlaQRope := make([]float32, 4*8)
+	for i := range mlaQAbs {
+		mlaQAbs[i] = float32((i%5)-2) * 0.125
+	}
+	for i := range mlaQRope {
+		mlaQRope[i] = float32((i%5)-2) * 0.125
+	}
+	mlaCKV := make([]float32, 2*8*16)
+	mlaKRope := make([]float32, 2*8*8)
+	for i := range mlaCKV {
+		mlaCKV[i] = float32(((i+1)%5)-2) * 0.125
+	}
+	for i := range mlaKRope {
+		mlaKRope[i] = float32(((i+2)%5)-2) * 0.125
+	}
+	mlaWant := mla.Reference(mlaQAbs, mlaQRope, mlaCKV, mlaKRope, fa4PT, 12)
+
 	var b strings.Builder
 	b.WriteString("#include <cuda_runtime.h>\n#include <cstdio>\n#include <cmath>\n#include <cstdint>\n#include <vector>\n")
 	// On non-sm_100a/sm_103a devices, EG_EMU selects the shared-memory TMEM
 	// reference path inside the kernel so the device harness and mutant control
 	// can execute on any CUDA GPU while sm_100a/sm_103a PTX/cubin is verified above.
 	b.WriteString("#if !defined(__CUDA_ARCH__) || (__CUDA_ARCH__ != 1000 && __CUDA_ARCH__ != 1030)\n#define EG_EMU 1\n#endif\n")
-	b.WriteString(sv4xFile)
-	b.WriteString(`
+	b.WriteString(sv4xFile + "\n")
+	b.WriteString(prepareSparseDeviceSource(sparseRaw) + "\n")
+	b.WriteString(prepareFA4DeviceSource(fa4.Source()) + "\n")
+	b.WriteString(prepareFA4DeviceSource(mla.Source()) + "\n")
+	fmt.Fprintf(&b, `
+template <typename T>
+static T* dev_dup(const T* host_data, size_t count) {
+    T* d = nullptr;
+    if (cudaMalloc(&d, count * sizeof(T)) != cudaSuccess) return nullptr;
+    if (cudaMemcpy(d, host_data, count * sizeof(T), cudaMemcpyHostToDevice) != cudaSuccess) return nullptr;
+    return d;
+}
+
 int main() {
     cudaDeviceProp prop{};
     if (cudaGetDeviceProperties(&prop, 0) != cudaSuccess) {
@@ -413,9 +755,10 @@ int main() {
     int runtime_ver = 0, driver_ver = 0;
     cudaRuntimeGetVersion(&runtime_ver);
     cudaDriverGetVersion(&driver_ver);
-    std::printf("device=%s sm=%d.%d driver=%d runtime=%d\n",
+    std::printf("device=%%s sm=%%d.%%d driver=%%d runtime=%%d\n",
                 prop.name, prop.major, prop.minor, driver_ver, runtime_ver);
 
+    // 1. TCGen05ScaleVec4XGEMM check + mutant control
     constexpr int M = 128, N = 128, K = 128;
     constexpr int K_BYTES = K / 2, K_BLOCKS = K / 16;
     std::vector<uint8_t> h_a(M * K_BYTES, 0x22u); // E2M1 code 2 = 1.0 in both nibbles
@@ -443,7 +786,7 @@ int main() {
     if (cudaMemcpy(h_out.data(), d_out, M * N * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
     for (int i = 0; i < M * N; ++i) {
         if (std::fabs(h_out[i] - 128.0f) > 1e-2f) {
-            std::printf("FAIL idx=%d got=%f want=128.0\n", i, h_out[i]);
+            std::printf("FAIL idx=%%d got=%%f want=128.0\n", i, h_out[i]);
             return 6;
         }
     }
@@ -467,9 +810,118 @@ int main() {
         return 7;
     }
 
+    // 2. TCGen05SparseGEMM (2:4 structured sparsity) check + mutant control
+    constexpr int K_SP = 64, K_SP_HALF = K_SP / 2, K_SP_META = K_SP / 32;
+    std::vector<float> h_sp_a(M * K_SP_HALF, 1.0f);
+    std::vector<uint32_t> h_sp_meta(M * K_SP_META, 0x44444444u); // idx0=0, idx1=1 per 4-element group
+    std::vector<float> h_sp_b(K_SP * N, 1.0f);
+    auto* d_sp_a = dev_dup(h_sp_a.data(), h_sp_a.size());
+    auto* d_sp_meta = dev_dup(h_sp_meta.data(), h_sp_meta.size());
+    auto* d_sp_b = dev_dup(h_sp_b.data(), h_sp_b.size());
+    if (!d_sp_a || !d_sp_meta || !d_sp_b) return 2;
+
+    tcgen05_sparse_gemm_sm100a<<<1, 128>>>(d_sp_a, d_sp_meta, d_sp_b, d_out);
+    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    if (cudaMemcpy(h_out.data(), d_out, M * N * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < M * N; ++i) {
+        if (std::fabs(h_out[i] - 32.0f) > 1e-3f) {
+            std::printf("FAIL TCGen05SparseGEMM idx=%%d got=%%f want=32.0\n", i, h_out[i]);
+            return 8;
+        }
+    }
+    std::vector<float> h_sp_a_mut(M * K_SP_HALF, 2.0f);
+    if (cudaMemcpy(d_sp_a, h_sp_a_mut.data(), h_sp_a_mut.size() * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    tcgen05_sparse_gemm_sm100a<<<1, 128>>>(d_sp_a, d_sp_meta, d_sp_b, d_out);
+    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    if (cudaMemcpy(h_out.data(), d_out, M * N * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::fabs(h_out[0] - 32.0f) <= 1e-3f) {
+        std::printf("FAIL TCGen05SparseGEMM mutant was not rejected\n");
+        return 8;
+    }
+    std::printf("PASS TCGen05SparseGEMM M=128 N=128 K=64 sparse_mutant_rejected=1\n");
+
+    // 3. TCGen05PagedAttention (FlashAttention-4) check
+    const float h_fa4_q[] = {%s};
+    const float h_fa4_k[] = {%s};
+    const float h_fa4_v[] = {%s};
+    const int32_t h_fa4_pt[] = {1, 0, 0, 0};
+    const float want_fa4[] = {%s};
+
+    auto* d_fa4_q = dev_dup(h_fa4_q, %d);
+    auto* d_fa4_k = dev_dup(h_fa4_k, %d);
+    auto* d_fa4_v = dev_dup(h_fa4_v, %d);
+    auto* d_fa4_pt = dev_dup(h_fa4_pt, 4);
+    float* d_fa4_out = nullptr;
+    if (!d_fa4_q || !d_fa4_k || !d_fa4_v || !d_fa4_pt ||
+        cudaMalloc(&d_fa4_out, 64 * sizeof(float)) != cudaSuccess) return 2;
+
+    tcgen05_paged_attn_native_launch(d_fa4_q, d_fa4_k, d_fa4_v, d_fa4_pt, d_fa4_out, 0);
+    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    float h_fa4_out[64] = {};
+    if (cudaMemcpy(h_fa4_out, d_fa4_out, sizeof(h_fa4_out), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 64; ++i) {
+        if (std::isnan(h_fa4_out[i]) || std::fabs(h_fa4_out[i] - want_fa4[i]) > 1e-2f) {
+            std::printf("FAIL TCGen05PagedAttention idx=%%d got=%%f want=%%f\n", i, h_fa4_out[i], want_fa4[i]);
+            return 9;
+        }
+    }
+    std::printf("PASS TCGen05PagedAttention heads=4/2 D=16 seq=12\n");
+
+    // 4. TCGen05MLAPagedAttention check
+    const float h_mla_qabs[] = {%s};
+    const float h_mla_qrope[] = {%s};
+    const float h_mla_ckv[] = {%s};
+    const float h_mla_krope[] = {%s};
+    const float want_mla[] = {%s};
+
+    auto* d_mla_qabs = dev_dup(h_mla_qabs, %d);
+    auto* d_mla_qrope = dev_dup(h_mla_qrope, %d);
+    auto* d_mla_ckv = dev_dup(h_mla_ckv, %d);
+    auto* d_mla_krope = dev_dup(h_mla_krope, %d);
+    float* d_mla_out = nullptr;
+    if (!d_mla_qabs || !d_mla_qrope || !d_mla_ckv || !d_mla_krope ||
+        cudaMalloc(&d_mla_out, 64 * sizeof(float)) != cudaSuccess) return 2;
+
+    tcgen05_mla_paged_attn_native_launch(d_mla_qabs, d_mla_qrope, d_mla_ckv, d_mla_krope, d_fa4_pt, d_mla_out, 0);
+    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    float h_mla_out[64] = {};
+    if (cudaMemcpy(h_mla_out, d_mla_out, sizeof(h_mla_out), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 64; ++i) {
+        if (std::isnan(h_mla_out[i]) || std::fabs(h_mla_out[i] - want_mla[i]) > 1e-3f) {
+            std::printf("FAIL TCGen05MLAPagedAttention idx=%%d got=%%f want=%%f\n", i, h_mla_out[i], want_mla[i]);
+            return 10;
+        }
+    }
+    std::printf("PASS TCGen05MLAPagedAttention heads=4 dc=16 dr=8 seq=12\n");
+
     std::printf("TCGEN05_NATIVE_OK mutant_rejected=1\n");
     return 0;
 }
-`)
+`,
+		formatTCGen05F32List(fa4Q),
+		formatTCGen05F32List(fa4KPages),
+		formatTCGen05F32List(fa4VPages),
+		formatTCGen05F32List(fa4Want),
+		len(fa4Q),
+		len(fa4KPages),
+		len(fa4VPages),
+		formatTCGen05F32List(mlaQAbs),
+		formatTCGen05F32List(mlaQRope),
+		formatTCGen05F32List(mlaCKV),
+		formatTCGen05F32List(mlaKRope),
+		formatTCGen05F32List(mlaWant),
+		len(mlaQAbs),
+		len(mlaQRope),
+		len(mlaCKV),
+		len(mlaKRope),
+	)
 	return b.String()
+}
+
+func formatTCGen05F32List(v []float32) string {
+	parts := make([]string, len(v))
+	for i, x := range v {
+		parts[i] = floatLiteral(x)
+	}
+	return strings.Join(parts, ", ")
 }
