@@ -14,7 +14,8 @@ import (
 )
 
 // TrainingWorkloadOTLPOptions declares the original producer timestamps as Unix
-// seconds. UnixClockProvenance is required caller evidence, not authenticated
+// time in the selected profile's units. UnixClockProvenance is required caller
+// evidence, not authenticated
 // synchronization or a clock transform. The source ClockDomain must be unix_utc.
 // UnitEvidence names caller evidence for each explicit Source.Units entry used;
 // absent units remain unknown. Limits bound input, points, names and output.
@@ -40,12 +41,17 @@ type trainingOTLPPoint struct {
 }
 
 // WriteTrainingWorkloadOTLP writes bounded instantaneous scalar gauges from a
-// W&B 0.19.11 history-compatible export, including an explicitly decoded SDK
-// datastore derivative. It replays Raw through ReadWandBHistory and refuses a
+// W&B 0.19.11 history-compatible export or MLflow 2.22.0 metric-history page.
+// W&B input may be an explicitly decoded SDK datastore derivative. It replays
+// Raw through the matching public reader and refuses a
 // changed digest or metric projection, missing time, ambiguous samples, and
 // integers outside [-2^53, 2^53] before converting to float64. Other finite
 // decimals use float64 rounding; original bytes remain identified by their hash.
 // Only unknown units or explicitly evidenced 1, s, ms, us, bytes/By are supported.
+// MLflow timestamps are milliseconds; W&B timestamps are seconds. MLflow
+// points retain logged_metric_step, which may repeat at distinct times; W&B
+// history steps must be unique. MLflow paging metadata describes only this page,
+// never run-wide completeness. Continuation tokens remain in Raw, not attributes.
 // Source provenance remains caller supplied; no native origin, training success,
 // convergence, counters, epochs, clock bounds or backend acceptance is inferred.
 // Every emitted caller/source string must be valid UTF-8. Validation completes
@@ -74,11 +80,22 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 	if !utf8.Valid(e.Raw) {
 		return errors.New("training OTLP source is not UTF-8")
 	}
-	replay, err := ReadWandBHistory(bytes.NewReader(e.Raw), e.Source, l)
+	var replay WorkloadExport
+	timeUnit, stepAttribute := "", ""
+	switch {
+	case e.Source.Provider == "wandb" && e.Source.Version == "0.19.11":
+		replay, err = ReadWandBHistory(bytes.NewReader(e.Raw), e.Source, l)
+		timeUnit, stepAttribute = "seconds", "history_step"
+	case e.Source.Provider == "mlflow" && e.Source.Version == "2.22.0":
+		replay, err = ReadMLflowHistory(bytes.NewReader(e.Raw), e.Source, l)
+		timeUnit, stepAttribute = "milliseconds", "logged_metric_step"
+	default:
+		return errors.New("unsupported training OTLP provider or version")
+	}
 	if err != nil {
 		return err
 	}
-	if e.RawSHA256 != replay.RawSHA256 || !reflect.DeepEqual(e.Metrics, replay.Metrics) {
+	if e.RawSHA256 != replay.RawSHA256 || e.NextPageToken != replay.NextPageToken || !reflect.DeepEqual(e.Metrics, replay.Metrics) {
 		return errors.New("training OTLP source digest or projection mismatch")
 	}
 	if len(replay.Metrics) == 0 {
@@ -96,6 +113,13 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 	}
 	if e.Source.Rank != nil {
 		attrs = append(attrs, pair("rank", strconv.Itoa(*e.Source.Rank)))
+	}
+	if e.Source.Provider == "mlflow" {
+		paging := "no_next_page_reported"
+		if replay.NextPageToken != "" {
+			paging = "has_next_page"
+		}
+		attrs = append(attrs, pair("snapshot_scope", "supplied_page_only"), pair("paging_status", paging))
 	}
 	request := func(metrics []*trainingOTLPGauge) map[string]any {
 		return map[string]any{"resourceMetrics": []any{map[string]any{"resource": map[string]any{"attributes": attrs}, "scopeMetrics": []any{map[string]any{"scope": map[string]string{"name": "github.com/tmc/lib/nvidia/x/nvtelemetry"}, "metrics": metrics}}}}}
@@ -119,7 +143,7 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 	steps := map[stepKey]bool{}
 	maxInt := big.NewInt(1 << 53)
 	for _, p := range replay.Metrics {
-		if !p.HasTime || p.TimeNanos <= 0 || p.RawTimeUnit != "seconds" || p.TimeSource != "producer" {
+		if !p.HasTime || p.TimeNanos <= 0 || p.RawTimeUnit != timeUnit || p.TimeSource != "producer" {
 			return errors.New("training OTLP requires present producer Unix timestamp")
 		}
 		tk := timeKey{p.Name, p.TimeNanos}
@@ -127,7 +151,7 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 			return errors.New("training OTLP duplicate sample time")
 		}
 		times[tk] = true
-		if p.HasStep {
+		if p.HasStep && e.Source.Provider == "wandb" {
 			sk := stepKey{p.Name, p.Step}
 			if steps[sk] {
 				return errors.New("training OTLP duplicate history step")
@@ -164,7 +188,7 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 		}
 		g := groups[p.Name]
 		if g == nil {
-			g = &trainingOTLPGauge{Name: "nvtelemetry.workload.wandb." + p.Name, Unit: unit}
+			g = &trainingOTLPGauge{Name: "nvtelemetry.workload." + e.Source.Provider + "." + p.Name, Unit: unit}
 			g.Gauge.DataPoints = []trainingOTLPPoint{}
 			raw, err := json.Marshal(g)
 			if err != nil {
@@ -179,7 +203,7 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 		}
 		point := trainingOTLPPoint{TimeUnixNano: strconv.FormatInt(p.TimeNanos, 10), AsDouble: value, Attributes: []any{pair("source_time_unit", p.RawTimeUnit), pair("step_kind", p.StepKind)}}
 		if p.HasStep {
-			point.Attributes = append(point.Attributes, pair("history_step", strconv.FormatInt(p.Step, 10)))
+			point.Attributes = append(point.Attributes, pair(stepAttribute, strconv.FormatInt(p.Step, 10)))
 		}
 		if evidence != "" {
 			point.Attributes = append(point.Attributes, pair("unit_evidence", evidence))
