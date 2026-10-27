@@ -138,6 +138,11 @@ func TestGeneratedFixture(t *testing.T) {
 			t.Errorf("fixture missing %q", s)
 		}
 	}
+	for _, target := range []string{TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, TargetSM107f, TargetSM121a} {
+		if _, err := FixtureSourceForTarget(tile, target); err != nil {
+			t.Fatalf("FixtureSourceForTarget(%s): %v", target, err)
+		}
+	}
 	if _, err := FixtureSourceForTarget(tile, "sm_90"); err == nil {
 		t.Fatal("unsupported target accepted")
 	}

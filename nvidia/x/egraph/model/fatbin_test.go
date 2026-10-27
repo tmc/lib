@@ -63,6 +63,19 @@ func TestClassifyComputeCapability(t *testing.T) {
 			wantMMAInstrSub:  "scale_vec::4X",
 		},
 		{
+			name:             "rubin_sm107a",
+			major:            10,
+			minor:            7,
+			wantTarget:       "sm_107a",
+			wantFamilyTarget: "sm_107f",
+			wantFamily:       FamilyRubin_SM107,
+			wantTCGen05:      true,
+			wantTMEM:         true,
+			wantCLC:          true,
+			wantScaleVec4X:   true,
+			wantMMAInstrSub:  "scale_vec::4X",
+		},
+		{
 			name:             "blackwell_edge_sm120a",
 			major:            12,
 			minor:            0,
@@ -190,7 +203,7 @@ func TestBuildMultiArchBundleAndDispatch(t *testing.T) {
 		WeightDType:       NVFP4,
 		KVDType:           E4M3,
 	}
-	targets := []string{"sm_90a", "sm_100a", "sm_103a", "sm_120a", "sm_121a"}
+	targets := []string{"sm_90a", "sm_100a", "sm_103a", "sm_107a", "sm_120a", "sm_121a"}
 	bundle, err := BuildMultiArchBundle("decoder_layer", cfg, targets)
 	if err != nil {
 		t.Fatalf("BuildMultiArchBundle: %v", err)
@@ -210,6 +223,8 @@ func TestBuildMultiArchBundleAndDispatch(t *testing.T) {
 		"arch=compute_100a,code=sm_100a",
 		"arch=compute_100f,code=sm_100f",
 		"arch=compute_103a,code=sm_103a",
+		"arch=compute_107a,code=sm_107a",
+		"arch=compute_107f,code=sm_107f",
 		"arch=compute_120a,code=sm_120a",
 		"arch=compute_120f,code=sm_120f",
 		"arch=compute_121a,code=sm_121a",
@@ -217,6 +232,13 @@ func TestBuildMultiArchBundleAndDispatch(t *testing.T) {
 		if !strings.Contains(joinedFlags, wantFlag) {
 			t.Errorf("NVCCFlags missing %q in %q", wantFlag, joinedFlags)
 		}
+	}
+
+	if ArchSM107A != "sm_107a" || ArchSM107F != "sm_107f" {
+		t.Fatalf("ArchSM107A=%q ArchSM107F=%q", ArchSM107A, ArchSM107F)
+	}
+	if spec107f, err := LookupArchTarget(string(ArchSM107F)); err != nil || spec107f.Target != "sm_107f" || spec107f.FamilyTarget != "sm_107f" {
+		t.Fatalf("LookupArchTarget(sm_107f) = %+v, %v", spec107f, err)
 	}
 
 	for _, marker := range []string{
@@ -263,6 +285,7 @@ func TestBuildMultiArchBundleAndDispatch(t *testing.T) {
 		{9, 0, 900, 0},
 		{10, 0, 1000, 0},
 		{10, 3, 1030, 0},
+		{10, 7, 1070, 0},
 		{12, 0, 1200, 0},
 		{12, 1, 1210, 0},
 		{8, 0, -1, 209}, // cudaErrorNoKernelImageForDevice

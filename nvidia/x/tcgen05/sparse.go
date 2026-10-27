@@ -18,6 +18,7 @@ func (d InstDesc) Pack() uint32 {
 type SparseInstDesc struct {
 	Sparsity         bool
 	SparsitySelector uint8
+	SparsityVersion  uint8
 	Saturate         bool
 	DType            DType
 	AType            DType
@@ -39,6 +40,7 @@ func UnpackInstDesc(w uint32) SparseInstDesc {
 	return SparseInstDesc{
 		Sparsity:         raw.Sparsity != 0,
 		SparsitySelector: raw.Sparsity,
+		SparsityVersion:  raw.SparsityVersion,
 		Saturate:         raw.Saturate,
 		DType:            raw.DType,
 		AType:            raw.AType,
@@ -254,9 +256,9 @@ func (k TCGen05SparseGEMM) norm() (TCGen05SparseGEMM, error) {
 		k.Target = "sm_100a"
 	}
 	switch k.Target {
-	case "sm_100a", "sm_103a", "sm_100f", "sm_103f":
+	case "sm_100a", "sm_103a", "sm_107a", "sm_100f", "sm_103f", "sm_107f":
 	default:
-		return k, fmt.Errorf("tcgen05 sparse gemm %s: unsupported target %q (want sm_100a or sm_103a)", k.Name, k.Target)
+		return k, fmt.Errorf("tcgen05 sparse gemm %s: unsupported target %q (want sm_100a, sm_103a, or sm_107a)", k.Name, k.Target)
 	}
 	if k.CTAGroup == 0 {
 		k.CTAGroup = 1
@@ -268,29 +270,38 @@ func (k TCGen05SparseGEMM) norm() (TCGen05SparseGEMM, error) {
 }
 
 // InstDescriptor packs the 32-bit tcgen05.mma.sp instruction descriptor (idesc)
-// with the 2:4 structured sparsity bit set.
+// with the 2:4 structured sparsity bit set and the target-appropriate
+// SparsityVersion (v0 on sm_100a/sm_103a, v1 on sm_107a/sm_107f).
 func (k TCGen05SparseGEMM) InstDescriptor() (uint32, error) {
 	k, err := k.norm()
 	if err != nil {
 		return 0, err
 	}
+	var spVer uint8
+	if k.Target == "sm_107a" || k.Target == "sm_107f" {
+		spVer = 1
+	}
 	desc := InstDesc{
-		Sparsity: 1,
-		DType:    F32,
-		AType:    F32,
-		BType:    F32,
-		M:        uint16(k.M),
-		N:        uint16(k.N),
-		ScaleVec: ScaleVecNone,
+		Sparsity:        1,
+		SparsityVersion: spVer,
+		DType:           F32,
+		AType:           F32,
+		BType:           F32,
+		M:               uint16(k.M),
+		N:               uint16(k.N),
+		ScaleVec:        ScaleVecNone,
 	}
 	if k.BlockScaledNVFP4 {
 		desc.AType = E2M1
 		desc.BType = E2M1
-		if k.Target == "sm_103a" || k.Target == "sm_103f" {
+		if k.Target == "sm_103a" || k.Target == "sm_103f" || k.Target == "sm_107a" || k.Target == "sm_107f" {
 			desc.ScaleVec = ScaleVec4X
 		} else {
 			desc.ScaleVec = ScaleVec2X
 		}
+	}
+	if err := desc.ValidateForTarget(k.Target); err != nil {
+		return 0, err
 	}
 	return desc.Pack(), nil
 }
@@ -389,7 +400,7 @@ func (k TCGen05SparseGEMM) CUDA() (string, error) {
 
 	mmaKind := "kind::tf32"
 	if k.BlockScaledNVFP4 {
-		if k.Target == "sm_103a" || k.Target == "sm_103f" {
+		if k.Target == "sm_103a" || k.Target == "sm_103f" || k.Target == "sm_107a" || k.Target == "sm_107f" {
 			mmaKind = "kind::mxf4nvf4.block_scale.scale_vec::4X"
 		} else {
 			mmaKind = "kind::mxf4nvf4.block_scale.scale_vec::2X"

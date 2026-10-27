@@ -20,7 +20,7 @@ const (
 	SM100ELECT     SM100Kind = "ELECT"        // elect.sync single-thread leader election
 )
 
-// SM100InstInfo holds decoded attributes of a Blackwell sm_100a/sm_103a SASS instruction.
+// SM100InstInfo holds decoded attributes of a Blackwell/Rubin sm_100a/sm_103a/sm_107a SASS instruction.
 type SM100InstInfo struct {
 	Kind        SM100Kind
 	Mnemonic    string
@@ -32,7 +32,7 @@ type SM100InstInfo struct {
 	TMEMCols    int    // width/columns for LDTM/STTM (e.g., 32, 64, 128)
 }
 
-// SM100Summary holds instruction counts and attributes for Blackwell sm_100a/sm_103a
+// SM100Summary holds instruction counts and attributes for Blackwell/Rubin sm_100a/sm_103a/sm_107a
 // tensor-memory and cluster instructions in a disassembled function.
 type SM100Summary struct {
 	Total        int

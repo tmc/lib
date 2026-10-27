@@ -52,16 +52,90 @@ func TestInstDescRoundTrip(t *testing.T) {
 				ScaleVec:   ScaleVec2X,
 			},
 		},
+		{
+			name: "rubin_sm107a_sparse_v1_scale_vec_4x",
+			desc: InstDesc{
+				Sparsity:        1,
+				SparsityVersion: 1,
+				Saturate:        true,
+				DType:           F32,
+				AType:           E2M1,
+				BType:           E2M1,
+				NegateA:         false,
+				NegateB:         false,
+				TransposeA:      false,
+				TransposeB:      true,
+				M:               128,
+				N:               128,
+				ScaleVec:        ScaleVec4X,
+			},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			enc := tc.desc.Encode()
+			if gotBit12 := uint8((enc >> 12) & 1); gotBit12 != tc.desc.SparsityVersion {
+				t.Fatalf("encoded 0x%08x bit 12 = %d, want SparsityVersion %d", enc, gotBit12, tc.desc.SparsityVersion)
+			}
 			got := DecodeInstDesc(enc)
 			if got != tc.desc {
 				t.Fatalf("DecodeInstDesc(Encode()) = %+v, want %+v (encoded 0x%08x)", got, tc.desc, enc)
 			}
 		})
+	}
+}
+
+func TestInstDescValidateForTarget(t *testing.T) {
+	denseDesc := InstDesc{
+		DType: F32,
+		AType: BF16,
+		BType: BF16,
+		M:     128,
+		N:     128,
+	}
+	for _, target := range []string{"sm_100a", "sm_103a", "sm_107a", "sm_100f", "sm_103f", "sm_107f"} {
+		if err := denseDesc.ValidateForTarget(target); err != nil {
+			t.Fatalf("denseDesc.ValidateForTarget(%q) unexpected error: %v", target, err)
+		}
+	}
+
+	sparseV0 := InstDesc{
+		Sparsity:        1,
+		SparsityVersion: 0,
+		DType:           F32,
+		AType:           E2M1,
+		BType:           E2M1,
+		M:               128,
+		N:               128,
+		ScaleVec:        ScaleVec4X,
+	}
+	for _, target := range []string{"sm_100a", "sm_103a", "sm_100f", "sm_103f"} {
+		if err := sparseV0.ValidateForTarget(target); err != nil {
+			t.Fatalf("sparseV0.ValidateForTarget(%q) unexpected error: %v", target, err)
+		}
+	}
+	for _, target := range []string{"sm_107a", "sm_107f"} {
+		if err := sparseV0.ValidateForTarget(target); err == nil {
+			t.Fatalf("sparseV0.ValidateForTarget(%q) succeeded, want error for SparsityVersion 0 on Rubin", target)
+		}
+	}
+
+	sparseV1 := sparseV0
+	sparseV1.SparsityVersion = 1
+	for _, target := range []string{"sm_107a", "sm_107f"} {
+		if err := sparseV1.ValidateForTarget(target); err != nil {
+			t.Fatalf("sparseV1.ValidateForTarget(%q) unexpected error: %v", target, err)
+		}
+	}
+	for _, target := range []string{"sm_100a", "sm_103a", "sm_100f", "sm_103f"} {
+		if err := sparseV1.ValidateForTarget(target); err == nil {
+			t.Fatalf("sparseV1.ValidateForTarget(%q) succeeded, want error for SparsityVersion 1 on %s", target, target)
+		}
+	}
+
+	if err := sparseV1.ValidateForTarget("sm_90a"); err == nil {
+		t.Fatal("ValidateForTarget(sm_90a) succeeded, want unsupported target error")
 	}
 }
 

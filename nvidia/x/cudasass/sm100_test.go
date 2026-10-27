@@ -94,6 +94,23 @@ func TestSM100ClassifyInst(t *testing.T) {
 			ok: true,
 		},
 		{
+			name: "utmmma_mxf4nvf4_scale_vec_4x_sm107a",
+			inst: Instruction{
+				Opcode:   "UTMMA.MXF4NVF4.CTA_GROUP_2.BLOCK_SCALE.SCALE_VEC_4X",
+				Operands: "[TMEM:0x0], [SMEM:0x100], [SMEM:0x200], [TMEM:0x80]",
+			},
+			want: SM100InstInfo{
+				Kind:        SM100UTMMA,
+				Mnemonic:    "UTMMA.MXF4NVF4.CTA_GROUP_2.BLOCK_SCALE.SCALE_VEC_4X",
+				CTAGroup:    2,
+				BlockScaled: true,
+				ScaleVec:    4,
+				TMEMSourceA: false,
+				DataType:    "MXF4NVF4",
+			},
+			ok: true,
+		},
+		{
 			name: "utmmma_mxf4nvf4_scale_vec_2x",
 			inst: Instruction{
 				Opcode:   "UTMMA.MXF4NVF4.CTA_GROUP_1.BLOCK_SCALE.2X",

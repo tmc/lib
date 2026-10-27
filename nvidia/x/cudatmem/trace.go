@@ -32,19 +32,22 @@ var (
 
 // TraceEvent records one device-side tcgen05 operation for protocol verification.
 type TraceEvent struct {
-	Kind            EventKind
-	CTA             int
-	Warp            int
-	ActiveThreads   int    // e.g., 32 for alloc/ld/st, 1 (elect.sync) for mma/cp/commit
-	CTAGroup        int    // 1 or 2
-	Offset          uint32 // TMEM column offset
-	Columns         uint32 // TMEM column width
-	RowStart        uint32 // row range [RowStart, RowStart+Rows)
-	Rows            uint32
-	ScaleOffset     uint32 // for block-scaled MMA: TMEM column holding scales staged by tcgen05.cp
-	HasScaleInTMEM  bool
-	SourceAFromTMEM bool
-	SourceAOffset   uint32
+	Kind              EventKind
+	CTA               int
+	Warp              int
+	ActiveThreads     int    // e.g., 32 for alloc/ld/st, 1 (elect.sync) for mma/cp/commit
+	CTAGroup          int    // 1 or 2
+	Offset            uint32 // TMEM column offset
+	Columns           uint32 // TMEM column width
+	RowStart          uint32 // row range [RowStart, RowStart+Rows)
+	Rows              uint32
+	ScaleOffset       uint32 // for block-scaled MMA: TMEM column holding scales staged by tcgen05.cp
+	HasScaleInTMEM    bool
+	SourceAFromTMEM   bool
+	SourceAOffset     uint32
+	DecompressLUTB    bool   // for .decompress::lut::b on sm_107a/sm_107f: 2-column aligned LUT metadata in TMEM
+	LUTMetadataOffset uint32 // TMEM column offset of the 2-column LUT metadata table when DecompressLUTB is true
+	SyncRestrictReadA bool   // for .sync_restrict::shared::read::mma::a on tcgen05.commit (sm_107a/sm_107f only)
 }
 
 // TraceSummary reports aggregate statistics for a verified tcgen05 trace.
@@ -103,7 +106,7 @@ type pairState struct {
 }
 
 // VerifyTrace validates a sequence of device-side tcgen05 events against the
-// cudatmem Allocator state machine and the sm_100a/sm_103a/sm_100f/sm_103f
+// cudatmem Allocator state machine and the sm_100a/sm_103a/sm_107a/sm_100f/sm_103f/sm_107f
 // PTX 9.4 datapath rules:
 //  1. Single-thread elect.sync issue for tcgen05.mma, tcgen05.cp, tcgen05.commit.
 //  2. 4-warp 32-row epilogue datapath partitioning for tcgen05.ld and tcgen05.st.
@@ -111,6 +114,8 @@ type pairState struct {
 //  4. TMEM-sourced operand A readiness (prior tcgen05.mma + commit + wait).
 //  5. 2-CTA (cta_group::2) matched allocation, CTA-0 MMA issue, and cluster.sync before dealloc.
 //  6. Underlying cudatmem.Allocator unit, ordering, busy-user, and leak checks.
+//  7. Rubin sm_107a/sm_107f 2-column aligned TMEM LUT metadata (.decompress::lut::b)
+//     and .sync_restrict::shared::read::mma::a commit admission.
 func VerifyTrace(target Target, events []TraceEvent) (*TraceSummary, error) {
 	probe, err := New(target)
 	if err != nil {
@@ -395,6 +400,16 @@ func VerifyTrace(target Target, events []TraceEvent) (*TraceSummary, error) {
 							step, ev.Kind, cid, ev.SourceAOffset, ErrOperandANotReady)
 					}
 				}
+				if ev.DecompressLUTB {
+					if ev.LUTMetadataOffset%2 != 0 {
+						return nil, fmt.Errorf("step %d (%s): CTA %d LUTMetadataOffset %d is not 2-column aligned: %w",
+							step, ev.Kind, cid, ev.LUTMetadataOffset, ErrInvalidUnit)
+					}
+					if _, err := findAlloc(st, ev.LUTMetadataOffset, 2); err != nil {
+						return nil, fmt.Errorf("step %d (%s): CTA %d LUTMetadataOffset %d (2 cols) not in live allocation: %w",
+							step, ev.Kind, cid, ev.LUTMetadataOffset, err)
+					}
+				}
 				rec, err := findAlloc(st, ev.Offset, ev.Columns)
 				if err != nil {
 					return nil, fmt.Errorf("step %d (%s): CTA %d: %w", step, ev.Kind, cid, err)
@@ -416,6 +431,10 @@ func VerifyTrace(target Target, events []TraceEvent) (*TraceSummary, error) {
 			}
 			if ev.ActiveThreads != 1 {
 				return nil, fmt.Errorf("step %d (%s): got ActiveThreads=%d: %w", step, ev.Kind, ev.ActiveThreads, ErrSingleThreadIssue)
+			}
+			if ev.SyncRestrictReadA && target != SM107A && target != SM107F {
+				return nil, fmt.Errorf("step %d (%s): .sync_restrict::shared::read::mma::a requires sm_107a or sm_107f, got %s: %w",
+					step, ev.Kind, target, ErrUnsupportedTarget)
 			}
 			targets := []int{ev.CTA}
 			if ev.CTAGroup == 2 {

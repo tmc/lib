@@ -27,20 +27,66 @@ func (s ScaleVec) String() string {
 }
 
 // InstDesc models the 32-bit instruction descriptor (idesc) consumed by
-// tcgen05.mma (PTX ISA 9.4 section 9.7.18.4).
+// tcgen05.mma (PTX ISA 9.4 section 9.7.18.4 and 9.7.18.10.9.3).
 type InstDesc struct {
-	Sparsity   uint8
-	Saturate   bool
-	DType      DType
-	AType      DType
-	BType      DType
-	NegateA    bool
-	NegateB    bool
-	TransposeA bool
-	TransposeB bool
-	M          uint16
-	N          uint16
-	ScaleVec   ScaleVec
+	Sparsity        uint8
+	SparsityVersion uint8 // Bit 12: 0 (v0) for sm_100a/sm_103a, 1 (v1) for sm_107a/sm_107f
+	Saturate        bool
+	DType           DType
+	AType           DType
+	BType           DType
+	NegateA         bool
+	NegateB         bool
+	TransposeA      bool
+	TransposeB      bool
+	M               uint16
+	N               uint16
+	ScaleVec        ScaleVec
+}
+
+// Validate checks target-independent descriptor field ranges.
+func (d InstDesc) Validate() error {
+	if d.Sparsity > 3 {
+		return fmt.Errorf("tcgen05 instdesc: invalid Sparsity %d (want 0..3)", d.Sparsity)
+	}
+	if d.SparsityVersion > 1 {
+		return fmt.Errorf("tcgen05 instdesc: invalid SparsityVersion %d (want 0 or 1)", d.SparsityVersion)
+	}
+	if d.ScaleVec > ScaleVec4X {
+		return fmt.Errorf("tcgen05 instdesc: invalid ScaleVec %d", uint8(d.ScaleVec))
+	}
+	if d.M != 0 && (d.M%8 != 0 || d.M > 256) {
+		return fmt.Errorf("tcgen05 instdesc: invalid M %d (want multiple of 8 in 8..256)", d.M)
+	}
+	if d.N != 0 && (d.N%8 != 0 || d.N > 512) {
+		return fmt.Errorf("tcgen05 instdesc: invalid N %d (want multiple of 8 in 8..512)", d.N)
+	}
+	return nil
+}
+
+// ValidateForTarget validates d against PTX ISA 9.4 §9.7.18.10.9.3 target rules:
+// bit 12 (SparsityVersion) must be v0 (0) for sm_100a/sm_103a/sm_100f/sm_103f
+// and v1 (1) for sm_107a/sm_107f when Sparsity != 0.
+func (d InstDesc) ValidateForTarget(target string) error {
+	if err := d.Validate(); err != nil {
+		return err
+	}
+	switch target {
+	case "sm_100a", "sm_103a", "sm_100f", "sm_103f":
+		if d.Sparsity != 0 && d.SparsityVersion != 0 {
+			return fmt.Errorf("tcgen05 instdesc: target %s requires SparsityVersion v0 (0) in bit 12 when Sparsity != 0, got %d", target, d.SparsityVersion)
+		}
+		if d.SparsityVersion != 0 {
+			return fmt.Errorf("tcgen05 instdesc: target %s requires SparsityVersion v0 (0) in bit 12, got %d", target, d.SparsityVersion)
+		}
+	case "sm_107a", "sm_107f":
+		if d.Sparsity != 0 && d.SparsityVersion != 1 {
+			return fmt.Errorf("tcgen05 instdesc: target %s requires SparsityVersion v1 (1) in bit 12 when Sparsity != 0, got %d", target, d.SparsityVersion)
+		}
+	default:
+		return fmt.Errorf("tcgen05 instdesc: unsupported target %q (want sm_100a, sm_103a, sm_107a, sm_100f, sm_103f, or sm_107f)", target)
+	}
+	return nil
 }
 
 // Encode packs d into a 32-bit tcgen05.mma instruction descriptor word.
@@ -53,9 +99,7 @@ func (d InstDesc) Encode() uint32 {
 	w |= uint32(d.DType&0x7) << 3
 	w |= uint32(d.AType&0x7) << 6
 	w |= uint32(d.BType&0x7) << 9
-	if d.NegateA {
-		w |= 1 << 12
-	}
+	w |= uint32(d.SparsityVersion&0x1) << 12
 	if d.NegateB {
 		w |= 1 << 13
 	}
@@ -67,25 +111,29 @@ func (d InstDesc) Encode() uint32 {
 	}
 	w |= uint32((d.N/8)&0x7f) << 16
 	w |= uint32(d.ScaleVec&0x3) << 23
-	w |= uint32((d.M/4)&0x7f) << 25
+	if d.NegateA {
+		w |= 1 << 25
+	}
+	w |= uint32((d.M/8)&0x3f) << 26
 	return w
 }
 
 // DecodeInstDesc unpacks a 32-bit tcgen05.mma instruction descriptor word.
 func DecodeInstDesc(w uint32) InstDesc {
 	return InstDesc{
-		Sparsity:   uint8(w & 0x3),
-		Saturate:   (w>>2)&1 != 0,
-		DType:      DType((w >> 3) & 0x7),
-		AType:      DType((w >> 6) & 0x7),
-		BType:      DType((w >> 9) & 0x7),
-		NegateA:    (w>>12)&1 != 0,
-		NegateB:    (w>>13)&1 != 0,
-		TransposeA: (w>>14)&1 != 0,
-		TransposeB: (w>>15)&1 != 0,
-		N:          uint16(((w >> 16) & 0x7f) * 8),
-		ScaleVec:   ScaleVec((w >> 23) & 0x3),
-		M:          uint16(((w >> 25) & 0x7f) * 4),
+		Sparsity:        uint8(w & 0x3),
+		SparsityVersion: uint8((w >> 12) & 0x1),
+		Saturate:        (w>>2)&1 != 0,
+		DType:           DType((w >> 3) & 0x7),
+		AType:           DType((w >> 6) & 0x7),
+		BType:           DType((w >> 9) & 0x7),
+		NegateA:         (w>>25)&1 != 0,
+		NegateB:         (w>>13)&1 != 0,
+		TransposeA:      (w>>14)&1 != 0,
+		TransposeB:      (w>>15)&1 != 0,
+		N:               uint16(((w >> 16) & 0x7f) * 8),
+		ScaleVec:        ScaleVec((w >> 23) & 0x3),
+		M:               uint16(((w >> 26) & 0x3f) * 8),
 	}
 }
 

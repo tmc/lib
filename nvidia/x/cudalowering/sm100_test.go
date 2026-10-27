@@ -216,7 +216,7 @@ func TestSM100ComparePTXAndSASS(t *testing.T) {
 	})
 
 	t.Run("sm103a_and_family_targets_scale_vec_4x", func(t *testing.T) {
-		for _, target := range []string{"sm_103a", "sm_100f", "sm_103f"} {
+		for _, target := range []string{"sm_103a", "sm_107a", "sm_100f", "sm_103f", "sm_107f"} {
 			ptx := `
 .version 8.8
 .target ` + target + `
