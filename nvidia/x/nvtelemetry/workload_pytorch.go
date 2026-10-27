@@ -21,11 +21,17 @@ type WorkloadAnnotation struct {
 	Args          json.RawMessage
 }
 
-// ReadPyTorchAnnotations reads PyTorch 2.7.0 Chrome trace user_annotation
-// complete events. CPU/GPU operators and flow records remain in Export.Raw.
-// This bounded profile is not a continuous training or node-health stream.
+// ReadPyTorchAnnotations reads complete CPU user_annotation events from PyTorch
+// 2.7.0 and a fixed CPU-only subset of 2.10.0 Chrome exports. The 2.10.0 profile
+// requires schemaVersion 1, present empty deviceProperties, and only
+// user_annotation, cpu_op, Trace or uncategorized records. The version is a
+// caller declaration checked for consistency, not producer authentication.
+// Operator records remain in Export.Raw; this does not establish native GPU
+// correlation or compiled member identity. The 2.7.0 raw GPU/flow behavior is
+// unchanged.
+// A bounded profile is not a continuous training or node-health stream.
 func ReadPyTorchAnnotations(r io.Reader, s WorkloadSource, l WorkloadLimits) (WorkloadExport, []WorkloadAnnotation, error) {
-	if s.Provider != "pytorch" || s.Version != "2.7.0" {
+	if s.Provider != "pytorch" || s.Version != "2.7.0" && s.Version != "2.10.0" {
 		return WorkloadExport{}, nil, errors.New("unsupported PyTorch version")
 	}
 	e, l, err := readWorkload(r, s, l)
@@ -33,7 +39,9 @@ func ReadPyTorchAnnotations(r io.Reader, s WorkloadSource, l WorkloadLimits) (Wo
 		return e, nil, err
 	}
 	var trace struct {
-		TraceEvents []struct {
+		SchemaVersion    json.RawMessage `json:"schemaVersion"`
+		DeviceProperties json.RawMessage `json:"deviceProperties"`
+		TraceEvents      []struct {
 			Name string             `json:"name"`
 			Cat  string             `json:"cat"`
 			Ph   string             `json:"ph"`
@@ -47,11 +55,27 @@ func ReadPyTorchAnnotations(r io.Reader, s WorkloadSource, l WorkloadLimits) (Wo
 	if err := decodeWorkloadJSON(e.Raw, &trace); err != nil {
 		return e, nil, err
 	}
+	if s.Version == "2.10.0" && string(trace.SchemaVersion) != "1" {
+		return e, nil, errors.New("unsupported PyTorch trace schema")
+	}
+	if s.Version == "2.10.0" {
+		var devices []json.RawMessage
+		if err := json.Unmarshal(trace.DeviceProperties, &devices); err != nil || devices == nil || len(devices) != 0 {
+			return e, nil, errors.New("unsupported PyTorch CPU device properties")
+		}
+	}
 	if trace.TraceEvents == nil || len(trace.TraceEvents) > l.MaxMetrics {
 		return e, nil, errors.New("missing PyTorch trace events or limit exceeded")
 	}
 	var out []WorkloadAnnotation
 	for _, v := range trace.TraceEvents {
+		if s.Version == "2.10.0" {
+			switch v.Cat {
+			case "user_annotation", "cpu_op", "Trace", "":
+			default:
+				return e, nil, errors.New("unsupported PyTorch CPU trace category")
+			}
+		}
 		if v.Cat != "user_annotation" {
 			continue
 		}
