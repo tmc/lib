@@ -6,13 +6,14 @@ import "math"
 type TriggerPolicy struct {
 	MetricName string  `json:"metric_name"`
 	Threshold  float64 `json:"threshold"`
-	Comparison string  `json:"comparison"` // ">", ">=", "<", "<="
+	Comparison string  `json:"comparison"` // ">" (also the default), ">=", "<", "<="
 	TenantID   string  `json:"tenant_id,omitempty"`
 	Reason     string  `json:"reason,omitempty"`
 }
 
 // Matches reports whether reading r satisfies the trigger condition.
 // Unavailable, histogram and malformed scalar readings never match.
+// An empty Comparison means ">"; other unsupported comparisons never match.
 // Integer readings are converted to float64 for comparison with Threshold;
 // integers outside [-2^53, 2^53] may round. The Reading retains its exact value.
 func (tp TriggerPolicy) Matches(r Reading) bool {
@@ -24,7 +25,7 @@ func (tp TriggerPolicy) Matches(r Reading) bool {
 		return false
 	}
 	switch tp.Comparison {
-	case ">":
+	case "", ">":
 		return val > tp.Threshold
 	case ">=":
 		return val >= tp.Threshold
@@ -33,7 +34,7 @@ func (tp TriggerPolicy) Matches(r Reading) bool {
 	case "<=":
 		return val <= tp.Threshold
 	default:
-		return val > tp.Threshold
+		return false
 	}
 }
 
