@@ -225,6 +225,27 @@ func TestGenerateWiring(t *testing.T) {
 	}
 }
 
+// TestProfilerStopWiring checks in the source that the GPU path stops an
+// attached profiler after runGPUInference returns, inside the device
+// context: Nsight Systems flushes from a C atexit handler, which a Go exit
+// skips, and its report of a run without the stop holds no kernels.
+func TestProfilerStopWiring(t *testing.T) {
+	src, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "\t\treturn dev.WithContext(func() error {\n" +
+		"\t\t\terr := runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)\n"
+	stop := "\t\t\treturn errors.Join(err, driver.ProfilerStop())\n\t\t})\n"
+	i := strings.Index(string(src), want)
+	if i < 0 || strings.Count(string(src), want) != 1 {
+		t.Fatalf("main.go does not call runGPUInference once in dev.WithContext")
+	}
+	if j := strings.Index(string(src[i:]), stop); j < 0 || strings.Contains(string(src[i:i+j]), "})") {
+		t.Errorf("main.go does not return driver.ProfilerStop's error from the dev.WithContext closure that runs runGPUInference")
+	}
+}
+
 // TestRunBenchmark is a CPU behaviour test of runBenchmark. It checks that
 // warmup feeds every prompt token at its position once, that each benchmark
 // iteration resets the KV cache before running generate (prefill then

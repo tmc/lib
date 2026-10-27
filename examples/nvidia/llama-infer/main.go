@@ -195,7 +195,11 @@ func run() (rerr error) {
 		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
 
 		return dev.WithContext(func() error {
-			return runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
+			err := runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
+			// Nsight Systems flushes its trace from a C atexit handler,
+			// which a Go exit skips; without this stop its report of the
+			// run holds no kernels.
+			return errors.Join(err, driver.ProfilerStop())
 		})
 	}
 
