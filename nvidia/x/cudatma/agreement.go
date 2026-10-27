@@ -42,14 +42,14 @@ func (d Descriptor) AgreesWithTile(t cudalayout.SwizzledTile) error {
 	}
 	// A rank-one box has one row. Higher ranks need a separate contract for
 	// their outer planes; comparing two axes would ignore their storage.
-	if uint32(t.Cols()) != d.Box[0] {
+	if uint64(t.Cols()) != uint64(d.Box[0]) {
 		return fmt.Errorf("tile has %d columns, descriptor box extent 0 is %d", t.Cols(), d.Box[0])
 	}
 	rows := uint32(1)
 	if d.Rank == 2 {
 		rows = d.Box[1]
 	}
-	if uint32(t.Rows()) != rows {
+	if uint64(t.Rows()) != uint64(rows) {
 		return fmt.Errorf("tile has %d rows, descriptor requires %d", t.Rows(), rows)
 	}
 	return nil
