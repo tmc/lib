@@ -263,7 +263,7 @@ func (c *compiler) rows(e *egraph.Expr, out Tensor) error {
 	if err != nil {
 		return err
 	}
-	if !rb.vector[v] {
+	if !rb.isVector(v) {
 		return fmt.Errorf("rows: result is not a row of %d values", d)
 	}
 	group, gs, rs, err := rowGeometry(domain, compact(domain), 0)
