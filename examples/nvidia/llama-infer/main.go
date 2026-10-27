@@ -365,7 +365,7 @@ func runGPUInference(
 		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
 			eg.Kernels(), strings.Join(gen, ", "), strings.Join(fallback, ", "))
 		if eg.pf != nil {
-			fmt.Printf("[E-Graph] prefill: %d-row chunks; tile gemm (mma.sync): %s; attention once per row; llama-infer kernels: embedding (once per row), argmax\n",
+			fmt.Printf("[E-Graph] prefill: %d-row chunks; tile gemm (mma.sync): %s; attention (generated, direct emitter) once per row; llama-infer kernels: embedding (once per row), argmax\n",
 				eg.pf.rows, strings.Join(eg.prefillTiles(), ", "))
 		}
 	}

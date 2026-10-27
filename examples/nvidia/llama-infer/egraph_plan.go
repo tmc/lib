@@ -43,7 +43,7 @@ const egraphPageSize = 16
 func (p *egraphPlans) ops() (generated, fallback []string) {
 	generated = []string{"rmsnorm", "qkv_proj(+bias)", "o_proj+residual", "rmsnorm", "gate_up_proj", "swiglu", "down_proj+residual", "final_rmsnorm", "lm_head"}
 	if p.attn {
-		generated = append(generated, "rope+kv_store(direct)", "q_cast", "attention(direct)")
+		generated = append(generated, "rope+kv_store (generated, direct emitter)", "q_cast", "attention (generated, direct emitter)")
 		return generated, []string{"embedding", "argmax"}
 	}
 	return generated, []string{"embedding", "rope", "kv_store", "attention", "argmax"}
