@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudadiag"
@@ -63,11 +64,15 @@ type NativeReplay struct {
 
 // NativeCompositionOptions supplies original evidence and optional existing
 // replay closure. Zero limits mean 16MiB and 512 requests; hard caps are 32MiB
-// and 4096 requests. Evidence nil preserves missing observations as withheld.
-// Readers and replay resources remain caller-owned; cancellation cannot interrupt
-// a caller's blocking Read. RunNative invokes this composition after cleanup.
+// and 4096 requests. MaxBytes bounds the envelope and raw activity together.
+// Evidence nil preserves missing observations as withheld. Activity optionally
+// binds one raw activity export; a selected Replay must then list its exact
+// Ref in PlanOptions.Sources. Readers and replay resources remain caller-owned;
+// cancellation cannot interrupt a caller's blocking Read. RunNative invokes
+// this composition after cleanup.
 type NativeCompositionOptions struct {
 	Evidence    io.Reader
+	Activity    *NativeActivitySource
 	Replay      *NativeReplay
 	MaxBytes    int64
 	MaxRequests int
@@ -92,17 +97,22 @@ type NativeRequestDiagnosis struct {
 // NativeComposition retains actual diagnosis -> incident -> plan -> replay
 // results. Synthetic host composition remains distinct from native qualification.
 // EvidenceSHA256 binds the supplied envelope, not authenticity of its assertions.
+// ActivitySource is the verified raw activity reference and ActivityAnalysis
+// the existing reader's complete joins of those bytes, in the producer clock;
+// neither changes a request diagnosis or qualification.
 type NativeComposition struct {
-	Synthetic      bool                           `json:"synthetic"`
-	Qualification  string                         `json:"qualification"`
-	EvidenceSHA256 string                         `json:"evidence_sha256,omitempty"`
-	Requests       []NativeRequestDiagnosis       `json:"requests"`
-	Incident       *cudaregress.Incident          `json:"incident,omitempty"`
-	Plan           *cudaregress.ExperimentPlan    `json:"plan,omitempty"`
-	PlanReceipt    *cudaregress.PlanReceipt       `json:"plan_receipt,omitempty"`
-	Execution      *cudaregress.ExecutionReceipt  `json:"execution,omitempty"`
-	Comparison     *cudaregress.ComparisonReceipt `json:"comparison,omitempty"`
-	ReplayRefusal  string                         `json:"replay_refusal,omitempty"`
+	Synthetic        bool                           `json:"synthetic"`
+	Qualification    string                         `json:"qualification"`
+	EvidenceSHA256   string                         `json:"evidence_sha256,omitempty"`
+	ActivitySource   *cudaregress.ArtifactRef       `json:"activity_source,omitempty"`
+	ActivityAnalysis *cudadiag.ActivityAnalysis     `json:"activity_analysis,omitempty"`
+	Requests         []NativeRequestDiagnosis       `json:"requests"`
+	Incident         *cudaregress.Incident          `json:"incident,omitempty"`
+	Plan             *cudaregress.ExperimentPlan    `json:"plan,omitempty"`
+	PlanReceipt      *cudaregress.PlanReceipt       `json:"plan_receipt,omitempty"`
+	Execution        *cudaregress.ExecutionReceipt  `json:"execution,omitempty"`
+	Comparison       *cudaregress.ComparisonReceipt `json:"comparison,omitempty"`
+	ReplayRefusal    string                         `json:"replay_refusal,omitempty"`
 }
 
 // ComposeNativeEvidence joins supplied observations to independently logged
@@ -171,6 +181,8 @@ func ComposeNativeEvidence(ctx context.Context, r *NativeResult, o NativeComposi
 		if int64(len(raw)) > o.MaxBytes {
 			return out, errors.New("native composition: evidence byte bound exceeded")
 		}
+		// Raw activity shares the remaining aggregate byte bound.
+		o.MaxBytes -= int64(len(raw))
 		out.EvidenceSHA256 = digestBytes(raw)
 		if err := nativeCompositionJSON(raw); err != nil {
 			return out, err
@@ -225,6 +237,25 @@ func ComposeNativeEvidence(ctx context.Context, r *NativeResult, o NativeComposi
 			}
 			evidence[k] = record
 		}
+	}
+	if o.Activity != nil {
+		ref, analysis, err := bindNativeActivity(ctx, r, *o.Activity, o.MaxBytes, out.EvidenceSHA256)
+		if err != nil {
+			return out, err
+		}
+		for _, log := range r.Requests {
+			if record, ok := evidence[key{log.GroundTruth.RequestID, log.Attempt}]; ok {
+				// OpIDs are unique only within a process; the raw records
+				// belong to the batch process alone.
+				if record.Input.Receipt.InputSHA256 == ref.Digest && log.GroundTruth.ProcessGen != o.Activity.Batch.Process {
+					return out, errors.New("native composition: raw activity projection contradicts raw records")
+				}
+				if err := checkNativeActivityProjection(record, ref.Digest, analysis); err != nil {
+					return out, err
+				}
+			}
+		}
+		out.ActivitySource, out.ActivityAnalysis = &ref, &analysis
 	}
 	for _, log := range r.Requests {
 		if err := ctx.Err(); err != nil {
@@ -302,6 +333,11 @@ func ComposeNativeEvidence(ctx context.Context, r *NativeResult, o NativeComposi
 	}
 	if digest != out.EvidenceSHA256 || size != replay.Capture.SizeBytes {
 		return out, errors.New("native composition: replay evidence file mismatch")
+	}
+	// The plan closure must name the exact raw source read, distinct from the
+	// envelope; existing plan validation then checks its bytes on disk.
+	if out.ActivitySource != nil && !slices.Contains(replay.PlanOptions.Sources, *out.ActivitySource) {
+		return out, errors.New("native composition: replay closure lacks raw activity source")
 	}
 	diagnosis := selected.Diagnosis
 	incident := cudaregress.Incident{ID: "request-" + out.EvidenceSHA256 + "-" + selected.Attempt, Admitted: diagnosis.Admitted, Diagnosis: diagnosis, PrimaryFinding: diagnosis.PrimaryFinding, Workload: diagnosis.Workload, CaptureReceiptRef: replay.Capture, ObservedEnvironment: replay.Environment, CreatedAt: time.Now()}
