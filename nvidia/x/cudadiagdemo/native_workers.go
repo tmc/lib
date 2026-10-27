@@ -74,13 +74,14 @@ func planNativeRequests(rounds, deviceIterations int) []nativeRequest {
 	return plan
 }
 
-// nativeInput returns the input of the request at plan index i. Inputs
-// differ between requests so that output read from another request's
-// buffers fails the numerical oracle.
-func nativeInput(elements, i int) []float32 {
+// nativeInput returns the input with the given seed. Under nativeRecipe
+// every attempt of round r uses seed r-1, so a round's arms upload the same
+// values to their own buffers. Rounds differ, so output read from another
+// round's buffers fails the numerical oracle.
+func nativeInput(elements, seed int) []float32 {
 	input := make([]float32, elements)
 	for j := range input {
-		input[j] = float32((j + i) % 1024)
+		input[j] = float32((j + seed) % 1024)
 	}
 	return input
 }
@@ -94,21 +95,50 @@ type nativeStream interface {
 	download(output []float32) error
 }
 
-// nativeExecutor runs request attempts. Open constructs one attempt's
-// stream and registers every owner it constructs on own, including when it
-// returns an error. Annotators is indexed by worker and is nil when capture
-// is unavailable, as is timestamp. Retain keeps each attempt's encoded input,
-// CPU reference and completely downloaded output. Fields are read-only while
-// requests run.
+// nativeExecutor runs request attempts. Open constructs the stream of req
+// and registers every owner it constructs on own, including when it returns
+// an error; RunNative's open ignores req, which identifies the attempt to
+// in-package fakes. Annotators is indexed by worker and is nil when capture
+// is unavailable, as is timestamp, the function timestampAPI names. Retain
+// keeps each attempt's encoded input, CPU reference and completely
+// downloaded output. Now and wait, when set, replace the monotonic clock
+// since epoch and the baseline's timer. Fields are read-only while requests
+// run.
 type nativeExecutor struct {
-	open       func(own *nativeCleanup) (nativeStream, error)
-	annotators []*cudaworkload.Annotator
-	timestamp  func() (uint64, error)
-	elements   int
-	hostDelay  time.Duration
-	evidence   string
-	epoch      time.Time
-	retain     bool
+	open         func(req nativeRequest, own *nativeCleanup) (nativeStream, error)
+	annotators   []*cudaworkload.Annotator
+	timestamp    func() (uint64, error)
+	timestampAPI string
+	elements     int
+	hostDelay    time.Duration
+	evidence     string
+	epoch        time.Time
+	retain       bool
+	now          func() int64
+	wait         func(ctx context.Context, d time.Duration) error
+}
+
+// since returns the nanoseconds since e.epoch on the monotonic clock.
+func (e *nativeExecutor) since() int64 {
+	if e.now != nil {
+		return e.now()
+	}
+	return time.Since(e.epoch).Nanoseconds()
+}
+
+// hostWait is the baseline's intentional host delay before its first launch.
+func (e *nativeExecutor) hostWait(ctx context.Context) error {
+	if e.wait != nil {
+		return e.wait(ctx, e.hostDelay)
+	}
+	timer := time.NewTimer(e.hostDelay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // nativeAttempt is the retained record of one dispatched request attempt.
@@ -195,20 +225,29 @@ func (e *nativeExecutor) run(ctx context.Context, workers int, plan []nativeRequ
 	return out, err
 }
 
-// attempt executes req with stream and buffers owned by own. The returned
-// record is complete even when err is non-nil.
+// attempt executes req with stream and buffers owned by own, in the order of
+// nativeRecipe: it opens the stream, enqueues the upload, begins the
+// application operation, observes launch-ready, waits if req is a baseline,
+// and then makes the launches, synchronizes and downloads. The returned
+// record is complete even when err is non-nil; it holds every wrapper that
+// was called, including a failed one, and none that was not.
 func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequest, own *nativeCleanup) (a nativeAttempt, err error) {
 	trial := &a.trial
 	*trial = NativeTrial{RequestedLaunches: req.launches, RequestID: fmt.Sprintf("request-%d", req.round), Attempt: req.arm, Arm: req.arm, Round: req.round, Worker: worker}
+	timing := &NativeTiming{Recipe: nativeRecipe, TimestampAPI: "unavailable"}
+	if e.timestamp != nil {
+		timing.TimestampAPI, timing.TimestampMethod = e.timestampAPI, "unknown"
+	}
+	trial.Timing = timing
 	mode := ModeBaseline
 	if req.arm == "baseline" {
 		mode = ModeHostSubmissionDelay
 	} else if req.arm == "device" {
 		mode = ModeDeviceBottleneck
 	}
-	a.log = NativeRequestLog{Attempt: req.arm, StartedNS: time.Since(e.epoch).Nanoseconds(), GroundTruth: GroundTruthLog{RequestID: trial.RequestID, WorkloadName: "gpudiagdemo-native", Mode: mode}}
+	a.log = NativeRequestLog{Attempt: req.arm, StartedNS: e.since(), GroundTruth: GroundTruthLog{RequestID: trial.RequestID, WorkloadName: "gpudiagdemo-native", Mode: mode}}
 	defer func() {
-		a.log.FinishedNS = time.Since(e.epoch).Nanoseconds()
+		a.log.FinishedNS = e.since()
 		a.log.Complete = trial.Correct
 		a.log.GroundTruth.TotalDuration = time.Duration(a.log.FinishedNS - a.log.StartedNS)
 		trial.WallNS = a.log.GroundTruth.TotalDuration.Nanoseconds()
@@ -216,31 +255,30 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 	if err := ctx.Err(); err != nil {
 		return a, err
 	}
-	host := nativeInput(e.elements, req.index)
+	host := nativeInput(e.elements, req.round-1)
 	got := make([]float32, e.elements)
 	trial.InputSHA256 = digestFloats(host)
 	if e.retain {
 		a.vectors = &nativeVectors{index: req.index, input: encodeFloats(host), reference: encodeFloats(nativeReference(host))}
 	}
-	stream, err := e.open(own)
+	stream, err := e.open(req, own)
 	if err != nil {
 		return a, err
 	}
-	if req.arm == "baseline" {
-		delayStart := time.Now()
-		timer := time.NewTimer(e.hostDelay)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return a, ctx.Err()
-		case <-timer.C:
-		}
-		trial.DelayNS = time.Since(delayStart).Nanoseconds()
-	}
+	// call brackets fn with monotonic times immediately around it and, with
+	// a timestamp source, raw samples just outside those. A sample failure
+	// is recorded in the sample, never as fn's error.
 	call := func(name string, fn func() error) error {
-		observation := NativeCall{Name: name, StartNS: time.Since(e.epoch).Nanoseconds()}
+		observation := NativeCall{Name: name}
+		if e.timestamp != nil {
+			observation.Before = e.sample()
+		}
+		observation.StartNS = e.since()
 		err := fn()
-		observation.EndNS = time.Since(e.epoch).Nanoseconds()
+		observation.EndNS = e.since()
+		if e.timestamp != nil {
+			observation.After = e.sample()
+		}
 		if err != nil {
 			observation.Error = err.Error()
 		}
@@ -255,6 +293,34 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 	if err := call("cuMemcpyHtoDAsync_v2", func() error { return stream.upload(host) }); err != nil {
 		return a, err
 	}
+	var annotator *cudaworkload.Annotator
+	if e.annotators != nil {
+		annotator = e.annotators[worker]
+	}
+	var scope *cudaworkload.Scope
+	if annotator != nil {
+		// The application identity is known from here whether or not the
+		// operation is entered; its entry thread is known only once the
+		// launches begin.
+		_, scope = annotator.Begin(ctx, trial.RequestID+"/"+trial.Attempt)
+		workload := scope.Workload()
+		a.log.GroundTruth.OpID = scope.ID()
+		a.log.GroundTruth.ProcessGen = workload.Process
+		a.log.GroundTruth.Workload = workload
+		identity := scope.Workload()
+		timing.OpID, timing.Workload = scope.ID(), &identity
+	}
+	e.observeReady(timing, scope)
+	if req.arm == "baseline" {
+		delayStart := time.Now()
+		if err := e.hostWait(ctx); err != nil {
+			if scope != nil {
+				scope.End()
+			}
+			return a, err
+		}
+		trial.DelayNS = time.Since(delayStart).Nanoseconds()
+	}
 	launchRequest := func() error {
 		for range req.launches {
 			if err := ctx.Err(); err != nil {
@@ -267,17 +333,12 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 		}
 		return nil
 	}
-	var annotator *cudaworkload.Annotator
-	if e.annotators != nil {
-		annotator = e.annotators[worker]
-	}
-	if annotator == nil {
+	if scope == nil {
 		trial.Correlation = "uninstrumented"
 		if err := launchRequest(); err != nil {
 			return a, err
 		}
 	} else {
-		_, scope := annotator.Begin(ctx, trial.RequestID+"/"+trial.Attempt)
 		var entry *cudaworkload.HostSubmission
 		sub, err := scope.NativeOperation(ctx, cudaworkload.ContextStreamID{}, "cuLaunchKernel", e.evidence, func() error {
 			// NativeOperation calls this only after correlation entry, on
@@ -287,12 +348,6 @@ func (e *nativeExecutor) attempt(ctx context.Context, worker int, req nativeRequ
 			return launchRequest()
 		})
 		scope.End()
-		// The application identity is known whether or not the operation
-		// succeeded; the thread is known only once the launches began.
-		workload := scope.Workload()
-		a.log.GroundTruth.OpID = scope.ID()
-		a.log.GroundTruth.ProcessGen = workload.Process
-		a.log.GroundTruth.Workload = workload
 		switch {
 		case err == nil:
 			trial.Correlation = "complete"

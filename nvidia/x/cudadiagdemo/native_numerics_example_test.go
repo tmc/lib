@@ -16,7 +16,8 @@ import (
 func ExampleNativeNumerics() {
 	// Host fakes stand in for the device streams; the executor, encoding
 	// and export are RunNative's with an OutputDir. This is not native
-	// execution.
+	// execution. Every arm of a round uploads the same input to its own
+	// buffers.
 	dir, err := os.MkdirTemp("", "cudadiagdemo-numerics-")
 	if err != nil {
 		fmt.Println(err)
@@ -77,6 +78,6 @@ func ExampleNativeNumerics() {
 	// Output:
 	// retained
 	// request-1/baseline: [0 1] -> [1 3] verified
-	// request-1/candidate: [1 2] -> [3 5] verified
-	// request-1/device: [2 3] -> [5 7] verified
+	// request-1/candidate: [0 1] -> [1 3] verified
+	// request-1/device: [0 1] -> [1 3] verified
 }

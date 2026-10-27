@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
@@ -49,7 +50,6 @@ func TestNativePhysical(t *testing.T) {
 		t.Fatalf("invalid native receipt: %+v", result)
 	}
 	seen := map[string]bool{}
-	inputs := map[string]bool{}
 	for _, trial := range result.Trials {
 		launches := 1
 		switch trial.Arm {
@@ -60,16 +60,79 @@ func TestNativePhysical(t *testing.T) {
 			t.Fatalf("unexpected physical arm: %+v", trial)
 		}
 		key := fmt.Sprintf("%d/%s", trial.Round, trial.Arm)
-		if trial.Round < 1 || trial.Round > cfg.Rounds || seen[key] || trial.RequestID == "" || trial.Attempt != trial.Arm || trial.RequestedLaunches != launches || trial.KernelLaunches != launches || !trial.Correct || len(trial.Calls) != launches+3 || trial.OutputSHA256 == "" || inputs[trial.InputSHA256] || trial.Error != "" {
+		if trial.Round < 1 || trial.Round > cfg.Rounds || seen[key] || trial.RequestID == "" || trial.Attempt != trial.Arm || trial.RequestedLaunches != launches || trial.KernelLaunches != launches || !trial.Correct || len(trial.Calls) != launches+3 || trial.OutputSHA256 == "" || trial.Error != "" {
 			t.Fatalf("invalid physical trial: %+v", trial)
 		}
 		seen[key] = true
-		inputs[trial.InputSHA256] = true
+	}
+	if err := checkNativeInputDigests(result.Trials); err != nil {
+		t.Fatalf("physical input digests: %v", err)
 	}
 	for _, request := range result.Composition.Requests {
 		if request.Diagnosis.Admitted || request.Refusal == "" {
 			t.Fatalf("partial native evidence promoted: %+v", request)
 		}
+	}
+}
+
+// checkNativeInputDigests checks the launch-ready-v1 input rule: every trial
+// has an input digest, all arms of a round share it, and rounds differ.
+func checkNativeInputDigests(trials []NativeTrial) error {
+	rounds := map[int]string{}
+	for _, trial := range trials {
+		if trial.InputSHA256 == "" {
+			return fmt.Errorf("%s/%s: empty input digest", trial.RequestID, trial.Attempt)
+		}
+		if d, ok := rounds[trial.Round]; ok && d != trial.InputSHA256 {
+			return fmt.Errorf("round %d: %s/%s input %s, want %s", trial.Round, trial.RequestID, trial.Attempt, trial.InputSHA256, d)
+		}
+		rounds[trial.Round] = trial.InputSHA256
+	}
+	byDigest := map[string]int{}
+	for round, d := range rounds {
+		if other, ok := byDigest[d]; ok {
+			return fmt.Errorf("rounds %d and %d share input %s", min(round, other), max(round, other), d)
+		}
+		byDigest[d] = round
+	}
+	return nil
+}
+
+func TestNativeInputDigestsByRound(t *testing.T) {
+	// trials returns two rounds of planned arms with the given input
+	// digests, in plan order.
+	trials := func(digests ...string) []NativeTrial {
+		var out []NativeTrial
+		for i, d := range digests {
+			round := i/len(nativeArms) + 1
+			arm := nativeArms[i%len(nativeArms)]
+			out = append(out, NativeTrial{RequestID: fmt.Sprintf("request-%d", round), Attempt: arm, Arm: arm, Round: round, InputSHA256: d})
+		}
+		return out
+	}
+	tests := []struct {
+		name   string
+		trials []NativeTrial
+		want   string
+	}{
+		{"matched rounds", trials("a", "a", "a", "b", "b", "b"), ""},
+		{"empty digest", trials("a", "a", "a", "b", "b", ""), "request-2/device: empty input digest"},
+		{"within-round mismatch", trials("a", "c", "a", "b", "b", "b"), "round 1: request-1/candidate input c, want a"},
+		{"cross-round collision", trials("a", "a", "a", "a", "a", "a"), "rounds 1 and 2 share input a"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkNativeInputDigests(tt.trials)
+			if tt.want == "" {
+				if err != nil {
+					t.Fatalf("checkNativeInputDigests = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("checkNativeInputDigests = %v, want error containing %q", err, tt.want)
+			}
+		})
 	}
 }
 

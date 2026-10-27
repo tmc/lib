@@ -7,10 +7,13 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,7 +22,9 @@ import (
 )
 
 // fakeNative is a host device for nativeExecutor. Each opened stream has its
-// own buffers unless shared is set. The hooks run on the request worker.
+// own buffers unless shared is set. Streams are identified by the plan index
+// of the request that opened them, never by their data. The hooks run on the
+// request worker.
 type fakeNative struct {
 	mu          sync.Mutex
 	shared      []float32
@@ -29,6 +34,7 @@ type fakeNative struct {
 	maxInflight int
 	closes      map[string]int
 
+	upload      func(index int) error
 	launch      func(index int) error
 	synchronize func(ctx context.Context, index int) error
 	close       func(name string, index int) error
@@ -40,13 +46,13 @@ type fakeNativeStream struct {
 	in, out []float32
 }
 
-func (f *fakeNative) open(own *nativeCleanup) (nativeStream, error) {
+func (f *fakeNative) open(req nativeRequest, own *nativeCleanup) (nativeStream, error) {
 	f.mu.Lock()
 	f.opened++
 	f.inflight++
 	f.maxInflight = max(f.maxInflight, f.inflight)
 	f.mu.Unlock()
-	s := &fakeNativeStream{f: f, index: -1}
+	s := &fakeNativeStream{f: f, index: req.index}
 	for _, name := range []string{"input", "output", "stream"} {
 		own.add(name, func() error {
 			if f.close != nil {
@@ -69,11 +75,14 @@ func (f *fakeNative) open(own *nativeCleanup) (nativeStream, error) {
 	return s, nil
 }
 
-// upload identifies the request by its first input element, the plan index.
 func (s *fakeNativeStream) upload(input []float32) error {
+	if s.f.upload != nil {
+		if err := s.f.upload(s.index); err != nil {
+			return err
+		}
+	}
 	s.in = append([]float32(nil), input...)
 	s.out = make([]float32, len(input))
-	s.index = int(input[0])
 	return nil
 }
 
@@ -251,6 +260,14 @@ func TestNativeWorkersOverlap(t *testing.T) {
 				if a.trial.Worker < 0 || a.trial.Worker >= workers {
 					t.Fatalf("attempt %d ran on worker %d of %d", i, a.trial.Worker, workers)
 				}
+				if tm := a.trial.Timing; tm == nil || tm.Recipe != nativeRecipe || tm.Ready == nil || tm.Ready.CUPTI != nil || tm.OpID != 0 || tm.Workload != nil || tm.TID != 0 || tm.TimestampAPI != "unavailable" || tm.TimestampMethod != "" {
+					t.Fatalf("attempt %d timing = %+v, want an unbound ready observation without samples", i, tm)
+				}
+				for _, c := range a.trial.Calls {
+					if c.Before != nil || c.After != nil {
+						t.Fatalf("attempt %d call %+v has samples without a timestamp source", i, c)
+					}
+				}
 				for _, name := range []string{"input", "output", "stream"} {
 					if n := f.count(fmt.Sprintf("%s/%d", name, i)); n != 1 {
 						t.Fatalf("%s of attempt %d closed %d times", name, i, n)
@@ -282,7 +299,7 @@ func TestNativeWorkersSameNameDistinctIdentity(t *testing.T) {
 	type key struct{ request, attempt string }
 	keys := map[key]bool{}
 	ops := map[cudaworkload.OpID]bool{}
-	outputs := map[string]bool{}
+	inputs := map[int]string{}
 	result := &NativeResult{}
 	for i, a := range attempts {
 		g := a.log.GroundTruth
@@ -298,16 +315,30 @@ func TestNativeWorkersSameNameDistinctIdentity(t *testing.T) {
 			t.Fatalf("attempt %d request identity %v is inconsistent or shared", i, k)
 		}
 		keys[k] = true
-		want := nativeInput(e.elements, i)
-		for j := range want {
-			want[j] = 2*want[j] + 1
+		// Matched arms share values, never buffers or identity.
+		in := nativeInput(e.elements, a.trial.Round-1)
+		if a.trial.InputSHA256 != digestFloats(in) || a.trial.OutputSHA256 != digestFloats(nativeReference(in)) {
+			t.Fatalf("attempt %d digests %s -> %s are not its round's", i, a.trial.InputSHA256, a.trial.OutputSHA256)
 		}
-		if a.trial.InputSHA256 != digestFloats(nativeInput(e.elements, i)) || a.trial.OutputSHA256 != digestFloats(want) || outputs[a.trial.OutputSHA256] {
-			t.Fatalf("attempt %d output %s is not its own", i, a.trial.OutputSHA256)
+		if d, ok := inputs[a.trial.Round]; ok && d != a.trial.InputSHA256 {
+			t.Fatalf("attempt %d input %s differs from its round's %s", i, a.trial.InputSHA256, d)
 		}
-		outputs[a.trial.OutputSHA256] = true
+		inputs[a.trial.Round] = a.trial.InputSHA256
+		for _, name := range []string{"input", "output", "stream"} {
+			if n := f.count(fmt.Sprintf("%s/%d", name, i)); n != 1 {
+				t.Fatalf("%s of attempt %d closed %d times", name, i, n)
+			}
+		}
+		// The ready observation is bound to the attempt's own operation and
+		// worker thread, not to its name or plan index.
+		if tm := a.trial.Timing; tm == nil || tm.Ready == nil || tm.OpID != g.OpID || tm.Workload == nil || tm.Workload.Process != process || tm.Workload.RunID != "native-test" || tm.TID != g.TID {
+			t.Fatalf("attempt %d timing %+v is not bound to operation %d thread %d", i, tm, g.OpID, g.TID)
+		}
 		result.Requests = append(result.Requests, a.log)
 		result.Trials = append(result.Trials, a.trial)
+	}
+	if len(inputs) != 2 || inputs[1] == inputs[2] || f.opened != len(plan) {
+		t.Fatalf("round inputs %v from %d opened streams, want 2 distinct rounds of %d streams", inputs, f.opened, len(plan))
 	}
 	composition, err := ComposeNativeEvidence(ctx, result, NativeCompositionOptions{})
 	if err != nil {
@@ -326,10 +357,29 @@ func TestNativeWorkersSameNameDistinctIdentity(t *testing.T) {
 func TestNativeWorkersSharedBufferFailsOracle(t *testing.T) {
 	ctx := testContext(t)
 	// Negative control: every stream writes one buffer, as if two requests
-	// shared device memory. All launches finish before any download.
-	b := newBarrier(3)
+	// shared device memory. All launches finish before any download. The
+	// concurrent attempts come from three rounds, so they have different
+	// correct outputs; matched arms of one round could not fail.
+	plan := planNativeRequests(3, 2)
+	requests := []nativeRequest{plan[0], plan[3], plan[6]}
+	for i, r := range requests {
+		if r.round != i+1 {
+			t.Fatalf("request %+v is not from round %d", r, i+1)
+		}
+	}
+	b := newBarrier(len(requests))
 	f := &fakeNative{shared: make([]float32, 8), synchronize: func(context.Context, int) error { return b.wait(ctx) }}
-	attempts, err := f.executor().run(ctx, 3, planNativeRequests(1, 2), &nativeCleanup{})
+	attempts, err := f.executor().run(ctx, len(requests), requests, &nativeCleanup{})
+	if len(attempts) != len(requests) || f.maxInflight != len(requests) {
+		t.Fatalf("attempts=%d max in-flight=%d, want %d concurrent", len(attempts), f.maxInflight, len(requests))
+	}
+	inputs := map[string]bool{}
+	for _, a := range attempts {
+		inputs[a.trial.InputSHA256] = true
+	}
+	if len(inputs) != len(requests) {
+		t.Fatalf("%d distinct inputs among %d rounds", len(inputs), len(requests))
+	}
 	incorrect := 0
 	for _, a := range attempts {
 		if a.incorrect {
@@ -395,6 +445,16 @@ func TestNativeWorkersCancellation(t *testing.T) {
 		}
 		if f.opened != 2 || f.launches != 1 {
 			t.Fatalf("opened=%d launches=%d, want 2 and 1", f.opened, f.launches)
+		}
+		// Each attempt retains every wrapper it called, the failed one once,
+		// and none after it.
+		for i, want := range [][]string{
+			{"cuMemcpyHtoDAsync_v2", "cuLaunchKernel", "cuStreamSynchronize: context canceled"},
+			{"cuMemcpyHtoDAsync_v2", "cuLaunchKernel: launch failed"},
+		} {
+			if got := callNames(attempts[i].trial.Calls); !reflect.DeepEqual(got, want) || attempts[i].trial.KernelLaunches != 1-i || attempts[i].trial.Timing.Ready == nil {
+				t.Fatalf("attempt %d calls %v launches %d, want %v", i, got, attempts[i].trial.KernelLaunches, want)
+			}
 		}
 	})
 	t.Run("parent canceled before dispatch", func(t *testing.T) {
@@ -566,11 +626,292 @@ func TestNativeWorkersCorrelationFailure(t *testing.T) {
 			} else if a.annotation != nil || g.TID != 0 {
 				t.Fatalf("unentered operation claims annotation %+v or thread %d", a.annotation, g.TID)
 			}
+			// Ready precedes correlation entry, so it is retained with the
+			// application identity either way; entry alone sets the thread.
+			wantCalls := []string{"cuMemcpyHtoDAsync_v2"}
+			if tt.launches > 0 {
+				wantCalls = append(wantCalls, "cuLaunchKernel")
+			}
+			if tm := a.trial.Timing; tm == nil || tm.Ready == nil || tm.OpID != g.OpID || tm.Workload == nil || tm.Workload.Process != process || !reflect.DeepEqual(callNames(a.trial.Calls), wantCalls) {
+				t.Fatalf("timing %+v calls %v, want ready for operation %d and calls %v", tm, callNames(a.trial.Calls), g.OpID, wantCalls)
+			}
+			checkObservedTID(t, a.trial.Timing.TID)
 			if n := f.count("stream/0"); n != 1 {
 				t.Fatalf("stream closed %d times", n)
 			}
 		})
 	}
+}
+
+// callNames returns the name of each call, with its error if it failed.
+func callNames(calls []NativeCall) []string {
+	var names []string
+	for _, c := range calls {
+		name := c.Name
+		if c.Error != "" {
+			name += ": " + c.Error
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+// checkObservedTID checks tid against the existing thread ID provider,
+// which observes threads only on Linux; elsewhere zero means unknown.
+func checkObservedTID(t *testing.T, tid uint64) {
+	t.Helper()
+	if (tid != 0) != (runtime.GOOS == "linux") {
+		t.Errorf("observed TID %d on %s", tid, runtime.GOOS)
+	}
+}
+
+// checkSample checks that s is an observed raw sample taken after after and
+// before before, with its CUPTI read between its host bounds.
+func checkSample(t *testing.T, what string, s *NativeSample, after, before int64) {
+	t.Helper()
+	if s == nil || s.CUPTI != "observed" || s.Error != "" || s.HostBeforeNS <= after || s.HostAfterNS >= before || int64(s.CUPTINS) <= s.HostBeforeNS || int64(s.CUPTINS) >= s.HostAfterNS {
+		t.Errorf("%s: sample %+v, want an observed read within (%d, %d)", what, s, after, before)
+	}
+}
+
+// TestNativeWorkersLaunchReadyOrder checks the launch-ready-v1 chronology of
+// the real executor on one logical clock shared by its observations, its raw
+// timestamps and the fake device: each upload is enqueued, then ready is
+// observed, then the baseline alone waits, then every planned launch is
+// called.
+func TestNativeWorkersLaunchReadyOrder(t *testing.T) {
+	ctx := testContext(t)
+	var (
+		clock    atomic.Int64
+		mu       sync.Mutex
+		uploads  = map[int]int64{}
+		launches = map[int][]int64{}
+		waits    []int64
+	)
+	f := &fakeNative{
+		upload: func(index int) error {
+			mu.Lock()
+			defer mu.Unlock()
+			uploads[index] = clock.Add(1)
+			return nil
+		},
+		launch: func(index int) error {
+			mu.Lock()
+			defer mu.Unlock()
+			launches[index] = append(launches[index], clock.Add(1))
+			return nil
+		},
+	}
+	e := f.executor()
+	e.now = func() int64 { return clock.Add(1) }
+	e.timestamp = func() (uint64, error) { return uint64(clock.Add(1)), nil }
+	e.timestampAPI = "logical clock"
+	e.wait = func(context.Context, time.Duration) error {
+		mu.Lock()
+		defer mu.Unlock()
+		waits = append(waits, clock.Add(1))
+		return nil
+	}
+	plan := planNativeRequests(2, 4)
+	attempts, err := e.run(ctx, 1, plan, &nativeCleanup{})
+	if err != nil || len(attempts) != len(plan) {
+		t.Fatalf("attempts=%d err=%v", len(attempts), err)
+	}
+	waited := 0
+	for i, a := range attempts {
+		r, tm, calls := plan[i], a.trial.Timing, a.trial.Calls
+		want := []string{"cuMemcpyHtoDAsync_v2"}
+		for range r.launches {
+			want = append(want, "cuLaunchKernel")
+		}
+		want = append(want, "cuStreamSynchronize", "cuMemcpyDtoH_v2")
+		if got := callNames(calls); !reflect.DeepEqual(got, want) || a.trial.KernelLaunches != r.launches || len(launches[i]) != r.launches || !a.trial.Correct {
+			t.Fatalf("attempt %d calls %v launched %d (%d by the device), want %v", i, got, a.trial.KernelLaunches, len(launches[i]), want)
+		}
+		if tm == nil || tm.Recipe != nativeRecipe || tm.TimestampAPI != "logical clock" || tm.TimestampMethod != "unknown" || tm.Ready == nil {
+			t.Fatalf("attempt %d timing = %+v", i, tm)
+		}
+		name := a.trial.RequestID + "/" + a.trial.Attempt
+		upload, ready, first := calls[0], tm.Ready.HostNS, calls[1].StartNS
+		if at := uploads[i]; at <= upload.StartNS || at >= upload.EndNS {
+			t.Errorf("%s: upload at %d outside its wrapper [%d, %d]", name, at, upload.StartNS, upload.EndNS)
+		}
+		if ready <= upload.EndNS {
+			t.Errorf("%s: ready at %d, not after upload ended at %d", name, ready, upload.EndNS)
+		}
+		if ready >= first {
+			t.Errorf("%s: ready at %d, not before first launch at %d", name, ready, first)
+		}
+		n := 0
+		for _, at := range waits {
+			if upload.EndNS < at && ready < at && at < first {
+				n++
+			}
+		}
+		wantWaits := 0
+		if r.arm == "baseline" {
+			wantWaits = 1
+		}
+		if n != wantWaits {
+			t.Errorf("%s: %d waits after upload and ready, before first launch, want %d", name, n, wantWaits)
+		}
+		if r.arm != "baseline" && a.trial.DelayNS != 0 {
+			t.Errorf("%s: delay %d inherited by a non-baseline arm", name, a.trial.DelayNS)
+		}
+		waited += n
+		for j, at := range launches[i] {
+			if c := calls[1+j]; at <= c.StartNS || at >= c.EndNS {
+				t.Errorf("%s: launch %d at %d outside its wrapper [%d, %d]", name, j, at, c.StartNS, c.EndNS)
+			}
+		}
+		checkSample(t, name+" ready", tm.Ready.CUPTI, ready, first)
+		for j, c := range calls {
+			checkSample(t, fmt.Sprintf("%s call %d before", name, j), c.Before, 0, c.StartNS)
+			checkSample(t, fmt.Sprintf("%s call %d after", name, j), c.After, c.EndNS, math.MaxInt64)
+		}
+	}
+	if len(waits) != 2 || waited != len(waits) {
+		t.Errorf("%d baseline waits, %d between an upload and a first launch; want 2", len(waits), waited)
+	}
+}
+
+func TestNativeWorkersReadyRequiresUpload(t *testing.T) {
+	errOpen, errUpload, errPush := errors.New("open failed"), errors.New("upload failed"), errors.New("push refused")
+	process := cudaworkload.ProcessGenID{PID: uint32(os.Getpid()), Generation: 1}
+	annotators := func(hook cudaworkload.CorrelationHook) []*cudaworkload.Annotator {
+		return []*cudaworkload.Annotator{cudaworkload.NewAnnotator(process, "gpudiagdemo-native", cudaworkload.WithRunID("native-test"), cudaworkload.WithCorrelationHook(hook))}
+	}
+	t.Run("open failure", func(t *testing.T) {
+		f := &fakeNative{}
+		e := f.executor()
+		e.open = func(nativeRequest, *nativeCleanup) (nativeStream, error) { return nil, errOpen }
+		attempts, err := e.run(testContext(t), 1, planNativeRequests(1, 2), &nativeCleanup{})
+		if !errors.Is(err, errOpen) || len(attempts) != 1 {
+			t.Fatalf("attempts=%d err=%v", len(attempts), err)
+		}
+		a := attempts[0]
+		if tm := a.trial.Timing; tm == nil || tm.Recipe != nativeRecipe || tm.Ready != nil || len(a.trial.Calls) != 0 || a.trial.Correlation != "" || a.log.StartedNS > a.log.FinishedNS {
+			t.Fatalf("failed open retained as %+v timing %+v", a.trial, tm)
+		}
+	})
+	t.Run("upload failure", func(t *testing.T) {
+		waited := false
+		f := &fakeNative{upload: func(int) error { return errUpload }}
+		e := f.executor()
+		e.annotators = annotators(&fakeCorrelation{})
+		e.wait = func(context.Context, time.Duration) error { waited = true; return nil }
+		attempts, err := e.run(testContext(t), 1, planNativeRequests(1, 2), &nativeCleanup{})
+		if !errors.Is(err, errUpload) || len(attempts) != 1 {
+			t.Fatalf("attempts=%d err=%v", len(attempts), err)
+		}
+		a := attempts[0]
+		if tm := a.trial.Timing; tm == nil || tm.Ready != nil || tm.OpID != 0 || a.log.GroundTruth.OpID != 0 || waited || f.launches != 0 || !reflect.DeepEqual(callNames(a.trial.Calls), []string{"cuMemcpyHtoDAsync_v2: upload failed"}) {
+			t.Fatalf("failed upload retained as %+v timing %+v, waited=%t", a.trial, tm, waited)
+		}
+		if n := f.count("stream/0"); n != 1 {
+			t.Fatalf("stream closed %d times", n)
+		}
+	})
+	t.Run("canceled wait", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testContext(t))
+		defer cancel()
+		f := &fakeNative{}
+		e := f.executor()
+		// A push would fail, so an entered operation would report errPush.
+		e.annotators = annotators(&failingCorrelation{push: errPush})
+		e.wait = func(ctx context.Context, _ time.Duration) error {
+			cancel()
+			<-ctx.Done()
+			return ctx.Err()
+		}
+		attempts, err := e.run(ctx, 1, planNativeRequests(1, 2), &nativeCleanup{})
+		if !errors.Is(err, context.Canceled) || errors.Is(err, errPush) || len(attempts) != 1 {
+			t.Fatalf("attempts=%d err=%v", len(attempts), err)
+		}
+		a := attempts[0]
+		g, tm := a.log.GroundTruth, a.trial.Timing
+		if tm == nil || tm.Ready == nil || tm.OpID == 0 || tm.OpID != g.OpID || g.ProcessGen != process || tm.Workload == nil || tm.Workload.Process != process {
+			t.Fatalf("canceled wait lost ready or application identity: timing %+v ground truth %+v", tm, g)
+		}
+		if a.trial.Correlation != "" || a.annotation != nil || g.TID != 0 || a.trial.KernelLaunches != 0 || f.launches != 0 || a.trial.DelayNS != 0 || !reflect.DeepEqual(callNames(a.trial.Calls), []string{"cuMemcpyHtoDAsync_v2"}) {
+			t.Fatalf("canceled wait claims entry or launches: %+v annotation %+v", a.trial, a.annotation)
+		}
+		checkObservedTID(t, tm.TID)
+	})
+}
+
+func TestNativeWorkersTimestampSamples(t *testing.T) {
+	errStamp, errLaunch := errors.New("timestamp failed"), errors.New("launch failed")
+	// attempt runs the first planned request, a baseline, with a timestamp
+	// source whose nth read returns read(n). Reads are numbered from 1:
+	// CUPTIBefore, then two per wrapper and one at ready, then CUPTIAfter.
+	attempt := func(t *testing.T, f *fakeNative, read func(n int) (uint64, error)) (nativeAttempt, error) {
+		t.Helper()
+		n := 0
+		e := f.executor()
+		e.timestamp = func() (uint64, error) {
+			n++
+			return read(n)
+		}
+		e.timestampAPI = "test"
+		attempts, err := e.run(testContext(t), 1, planNativeRequests(1, 2)[:1], &nativeCleanup{})
+		if len(attempts) != 1 {
+			t.Fatalf("attempts=%d err=%v", len(attempts), err)
+		}
+		return attempts[0], err
+	}
+	t.Run("launch error survives failed samples", func(t *testing.T) {
+		f := &fakeNative{launch: func(int) error { return errLaunch }}
+		// Reads 2 and 3 bracket the upload, 4 is ready, 5 and 6 bracket the launch.
+		a, err := attempt(t, f, func(n int) (uint64, error) {
+			switch n {
+			case 1:
+				return 7, nil
+			case 3:
+				return 0, nil
+			}
+			return 0, errStamp
+		})
+		if !errors.Is(err, errLaunch) || errors.Is(err, errStamp) || a.trial.CUPTIBefore != 7 || a.trial.KernelLaunches != 0 || f.launches != 0 {
+			t.Fatalf("trial %+v err %v", a.trial, err)
+		}
+		calls := a.trial.Calls
+		if got := callNames(calls); !reflect.DeepEqual(got, []string{"cuMemcpyHtoDAsync_v2", "cuLaunchKernel: launch failed"}) {
+			t.Fatalf("calls = %v", got)
+		}
+		for _, s := range []*NativeSample{calls[0].Before, a.trial.Timing.Ready.CUPTI, calls[1].Before, calls[1].After} {
+			if s == nil || s.CUPTI != "error" || s.Error != errStamp.Error() || s.CUPTINS != 0 {
+				t.Fatalf("failed read recorded as %+v", s)
+			}
+		}
+		if s := calls[0].After; s == nil || s.CUPTI != "zero" || s.CUPTINS != 0 || s.Error != "" {
+			t.Fatalf("zero read recorded as %+v", s)
+		}
+	})
+	t.Run("failed samples keep correct work", func(t *testing.T) {
+		f := &fakeNative{}
+		a, err := attempt(t, f, func(n int) (uint64, error) {
+			if n == 1 || n == 11 {
+				return uint64(n), nil
+			}
+			return 0, errStamp
+		})
+		if err != nil || !a.trial.Correct || a.trial.Error != "" || a.trial.CUPTIBefore != 1 || a.trial.CUPTIAfter != 11 || len(a.trial.Calls) != 4 || a.trial.Timing.Ready.CUPTI.CUPTI != "error" {
+			t.Fatalf("trial %+v err %v", a.trial, err)
+		}
+		for _, c := range a.trial.Calls {
+			if c.Error != "" || c.Before.CUPTI != "error" || c.After.CUPTI != "error" {
+				t.Fatalf("call %+v", c)
+			}
+		}
+	})
+	t.Run("CUPTIBefore failure", func(t *testing.T) {
+		f := &fakeNative{}
+		a, err := attempt(t, f, func(int) (uint64, error) { return 0, errStamp })
+		if !errors.Is(err, errStamp) || len(a.trial.Calls) != 0 || a.trial.Timing.Ready != nil || f.opened != 1 || f.count("stream/0") != 1 {
+			t.Fatalf("trial %+v err %v", a.trial, err)
+		}
+	})
 }
 
 func TestNativeFinishCleanup(t *testing.T) {

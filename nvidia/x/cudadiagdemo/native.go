@@ -28,6 +28,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
+	"github.com/tmc/lib/nvidia/x/cudaregress"
 	"github.com/tmc/lib/nvidia/x/cudaworkload"
 	"github.com/tmc/lib/nvidia/x/cuptiactivity"
 )
@@ -42,7 +43,10 @@ const nativeSource = `extern "C" __global__ void transform(const float *input, f
 // canonical cudalock location. The caller must own CUPTI registration in this
 // process. Native capture failures are retained as partial qualification.
 //
-// Each round plans baseline, candidate and device request attempts. Concurrency
+// Each round plans baseline, candidate and device request attempts, which all
+// upload the same round input to their own buffers; see NativeResult.Recipe.
+// Every planned wrapper observation, Rounds*(DeviceIterations+11), must be at
+// most 65536; launches are never dropped to fit. Concurrency
 // bounds the request workers: zero means 4, 1 runs attempts serially in plan
 // order, and the maximum is 8. Each attempt owns its stream and input and
 // output buffers, so the workers that can run at once (at most 3*Rounds) must
@@ -66,19 +70,27 @@ type NativeConfig struct {
 }
 
 // NativeCall is a directly measured host wrapper interval in the process-local
-// monotonic epoch. These intervals are not kernel durations or scheduler evidence.
+// monotonic epoch, taken immediately before and after the wrapped call. These
+// intervals are not kernel durations, CUDA API entry times or scheduler
+// evidence. With a CUPTI timestamp source, Before and After are raw samples
+// taken just outside the interval; a failed sample never changes Error, the
+// call's own failure.
 type NativeCall struct {
-	Name    string `json:"name"`
-	StartNS int64  `json:"start_ns"`
-	EndNS   int64  `json:"end_ns"`
-	Error   string `json:"error,omitempty"`
+	Name    string        `json:"name"`
+	StartNS int64         `json:"start_ns"`
+	EndNS   int64         `json:"end_ns"`
+	Error   string        `json:"error,omitempty"`
+	Before  *NativeSample `json:"before,omitempty"`
+	After   *NativeSample `json:"after,omitempty"`
 }
 
 // NativeTrial retains a numerical result and host observations for one request
 // attempt. CUPTI brackets belong to CUPTI's domain; no mapping to host spans is
 // inferred. Trials are in plan order, not execution order; Worker identifies the
 // request worker that ran the attempt. Each attempt has its own input, checked
-// by its own oracle. Error records why a failed or canceled attempt stopped.
+// by its own oracle; all arms of a round have the same input values. Error
+// records why a failed or canceled attempt stopped. Timing is the attempt's
+// raw launch-ready and timestamp observations.
 //
 // Correlation records how the launches relate to CUPTI external correlation:
 // "complete" when the native operation succeeded; "partial" when its launch
@@ -89,23 +101,24 @@ type NativeCall struct {
 // observation at entry on the launching thread; no native correlation ID is
 // inferred.
 type NativeTrial struct {
-	RequestedLaunches int          `json:"requested_launches"`
-	KernelLaunches    int          `json:"kernel_launches"`
-	RequestID         string       `json:"request_id"`
-	Attempt           string       `json:"attempt"`
-	Arm               string       `json:"arm"`
-	Round             int          `json:"round"`
-	Worker            int          `json:"worker"`
-	DelayNS           int64        `json:"delay_ns"`
-	WallNS            int64        `json:"wall_ns"`
-	InputSHA256       string       `json:"input_sha256"`
-	OutputSHA256      string       `json:"output_sha256"`
-	Correct           bool         `json:"correct"`
-	Correlation       string       `json:"correlation,omitempty"`
-	CUPTIBefore       uint64       `json:"cupti_before,omitempty"`
-	CUPTIAfter        uint64       `json:"cupti_after,omitempty"`
-	Calls             []NativeCall `json:"calls"`
-	Error             string       `json:"error,omitempty"`
+	RequestedLaunches int           `json:"requested_launches"`
+	KernelLaunches    int           `json:"kernel_launches"`
+	RequestID         string        `json:"request_id"`
+	Attempt           string        `json:"attempt"`
+	Arm               string        `json:"arm"`
+	Round             int           `json:"round"`
+	Worker            int           `json:"worker"`
+	DelayNS           int64         `json:"delay_ns"`
+	WallNS            int64         `json:"wall_ns"`
+	InputSHA256       string        `json:"input_sha256"`
+	OutputSHA256      string        `json:"output_sha256"`
+	Correct           bool          `json:"correct"`
+	Correlation       string        `json:"correlation,omitempty"`
+	CUPTIBefore       uint64        `json:"cupti_before,omitempty"`
+	CUPTIAfter        uint64        `json:"cupti_after,omitempty"`
+	Calls             []NativeCall  `json:"calls"`
+	Error             string        `json:"error,omitempty"`
+	Timing            *NativeTiming `json:"timing,omitempty"`
 }
 
 // NativeResult separates physical numerical execution from diagnosis admission.
@@ -115,6 +128,13 @@ type NativeTrial struct {
 // canceled ones, in plan order; after a failure, later planned requests are not
 // dispatched. Concurrency is the number of request workers used. InputSHA256
 // is the input of the first planned request.
+//
+// Recipe is launch-ready-v1: every attempt enqueues its upload before its
+// launch-ready observation and the baseline's intentional wait, and all arms
+// of round r use the same input seed, r-1. Both differ from unversioned
+// earlier results, which this recipe does not qualify. Timing references the
+// exported native-timing.jsonl, one raw line per dispatched attempt; on a
+// failed export it is nil and TimingError records why.
 type NativeResult struct {
 	Requests              []NativeRequestLog `json:"requests"`
 	PlannedRequests       int                `json:"planned_requests"`
@@ -127,6 +147,9 @@ type NativeResult struct {
 	HostClockEpochID      string                        `json:"host_clock_epoch_id"`
 	NumericalGate         string                        `json:"numerical_gate"`
 	Numerics              NativeNumerics                `json:"numerics"`
+	Recipe                string                        `json:"recipe,omitempty"`
+	Timing                *cudaregress.ArtifactRef      `json:"timing,omitempty"`
+	TimingError           string                        `json:"timing_error,omitempty"`
 	ExecutionError        string                        `json:"execution_error,omitempty"`
 	Synthetic             bool                          `json:"synthetic"`
 	Qualification         string                        `json:"qualification"`
@@ -180,8 +203,11 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 	if cfg.DeviceIterations == 0 {
 		cfg.DeviceIterations = 16
 	}
+	if _, err := nativeTimingCalls(cfg.Rounds, cfg.DeviceIterations); err != nil {
+		return nil, err
+	}
 	plan := planNativeRequests(cfg.Rounds, cfg.DeviceIterations)
-	result = &NativeResult{PlannedRequests: len(plan), Concurrency: workers, HostClockDomain: "process_monotonic", NumericalGate: "unavailable", Qualification: "partial", Numerics: numerics, Device: cfg.Device, SourceSHA256: digestBytes([]byte(nativeSource)), RemainingGates: []string{"scheduler observations", "host/CUPTI clock mapping", "collector-off/on overhead", "MIG scope metadata", "concurrent workload attribution", "physical device-negative attribution"}}
+	result = &NativeResult{PlannedRequests: len(plan), Concurrency: workers, HostClockDomain: "process_monotonic", NumericalGate: "unavailable", Qualification: "partial", Numerics: numerics, Recipe: nativeRecipe, Device: cfg.Device, SourceSHA256: digestBytes([]byte(nativeSource)), RemainingGates: []string{"scheduler observations", "host/CUPTI clock mapping", "collector-off/on overhead", "MIG scope metadata", "concurrent workload attribution", "physical device-negative attribution"}}
 	var clockID [16]byte
 	if _, err := rand.Read(clockID[:]); err != nil {
 		return result, err
@@ -364,7 +390,7 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 		annotator = cudaworkload.NewAnnotator(cudaworkload.ProcessGenID{PID: uint32(os.Getpid()), Generation: generation}, "gpudiagdemo-native", cudaworkload.WithRunID(result.ActivityRun))
 	}
 	executor := &nativeExecutor{
-		open: func(own *nativeCleanup) (nativeStream, error) {
+		open: func(_ nativeRequest, own *nativeCleanup) (nativeStream, error) {
 			return openCUDANativeStream(dev, kernel, cfg.Elements, own)
 		},
 		elements:  cfg.Elements,
@@ -373,7 +399,7 @@ func RunNative(ctx context.Context, cfg NativeConfig) (result *NativeResult, ret
 		retain:    cfg.OutputDir != "",
 	}
 	if captureErr == nil {
-		executor.timestamp = cupti.GetTimestamp
+		executor.timestamp, executor.timestampAPI = cupti.GetTimestamp, "cupti.GetTimestamp"
 	}
 	if annotator != nil {
 		executor.annotators = make([]*cudaworkload.Annotator, workers)
@@ -477,10 +503,10 @@ func checkNativeOutput(input, output []float32) error {
 	return nil
 }
 
-// exportNative writes transform.cu, result's retained vectors, then its
-// receipt and remaining artifacts to dir. A reused dir fails at transform.cu
-// before any vector is written. A vector failure is recorded in the receipt,
-// which is still written, and returned.
+// exportNative writes transform.cu, result's retained vectors and timing,
+// then its receipt and remaining artifacts to dir. A reused dir fails at
+// transform.cu before any vector is written. A vector or timing failure is
+// recorded in the receipt, which is still written, and returned.
 func exportNative(dir string, result *NativeResult, cubin []byte) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -488,13 +514,13 @@ func exportNative(dir string, result *NativeResult, cubin []byte) error {
 	if err := writeNativeFile(createNativeFile, filepath.Join(dir, "transform.cu"), []byte(nativeSource)); err != nil {
 		return err
 	}
-	vectorErr := retainNativeVectors(dir, result, createNativeFile)
+	retainErr := errors.Join(retainNativeVectors(dir, result, createNativeFile), retainNativeTiming(dir, result, createNativeFile))
 	var activityRaw bytes.Buffer
 	if len(result.Annotations) > 0 && len(result.Activity.Records) > 0 && !result.CleanupPending {
 		writer := &nativeActivityWriter{buffer: &activityRaw, remaining: 32 << 20}
 		for _, record := range result.Activity.Records {
 			if err := json.NewEncoder(writer).Encode(record); err != nil {
-				return errors.Join(vectorErr, err)
+				return errors.Join(retainErr, err)
 			}
 		}
 		result.ActivitySHA256 = digestBytes(activityRaw.Bytes())
@@ -513,7 +539,7 @@ func exportNative(dir string, result *NativeResult, cubin []byte) error {
 	}
 	receipt, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		return errors.Join(vectorErr, err)
+		return errors.Join(retainErr, err)
 	}
 	var artifacts []struct {
 		name string
@@ -537,10 +563,10 @@ func exportNative(dir string, result *NativeResult, cubin []byte) error {
 	}
 	for _, artifact := range artifacts {
 		if err := writeNativeFile(createNativeFile, filepath.Join(dir, artifact.name), artifact.data); err != nil {
-			return errors.Join(vectorErr, err)
+			return errors.Join(retainErr, err)
 		}
 	}
-	return vectorErr
+	return retainErr
 }
 
 type nativeCleanupAction struct {
