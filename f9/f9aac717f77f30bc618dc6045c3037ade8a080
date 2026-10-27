@@ -1,0 +1,12 @@
+commit: f9f9aac717f77f30bc618dc6045c3037ade8a080
+date: 2026-10-27T09:21:42.148083+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 77364
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-operator-cpu-summary-implementation/r3/cumulative.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-operator-cpu-summary-adoption/ROOT-GRADE.md
+qualification: author r1 host/race88each and actualCLI; r2 portable genuine2/4; r3 host/race19each allocation-bound regression and compiled origin; independent baseline41 and delta5 PASS; no native/full122
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
