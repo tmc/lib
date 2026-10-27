@@ -53,21 +53,46 @@ func (p *egraphPlans) ops() (generated, fallback []string) {
 // prompt tokens. With more than 16 rows the generator lowers every
 // projection to an mma.sync [hopper.TileGEMM]. The rotary kernel indexes
 // the cache through the attention page table, so it writes each token's
-// row without pointer offsets.
+// row without pointer offsets. Attention is one
+// [hopper.MTPPagedAttention] launch per chunk: each CTA serves qtok
+// consecutive rows of one KV head, attending the cache before its first
+// row and, causally, its own rows.
 type egraphPrefillPlans struct {
-	rows                int
-	attnIn, post, qcast *hopper.Plan
-	rope                hopper.QKNormRoPEKVAppend
+	rows       int
+	attnIn     *hopper.Plan
+	post       *hopper.Plan
+	rope       hopper.QKNormRoPEKVAppend
+	attn       hopper.MTPPagedAttention
+	qtok       int
+	cacheSlots int // KV cache rows, MaxSeqLen padded for a last partial group
 }
 
-// egraphPrefillRows is the most prompt tokens one prefill pass runs; a
-// longer prompt runs in chunks.
-const egraphPrefillRows = 128
+// sm121SharedPerBlock is the shared memory one sm_121 block may use (opt
+// in above 48 KiB), and staticSharedLimit the static shared memory any
+// kernel may declare.
+const (
+	sm121SharedPerBlock = 99 * 1024
+	staticSharedLimit   = 48 * 1024
+)
 
-func buildEgraphPlans(cfg *ModelConfig, qkvBias, attn, prefill bool) (*egraphPlans, error) {
+// prefillQTokens returns the most query rows per group the warp
+// MTPPagedAttention kernel takes: G·qtok query vectors may not exceed 64,
+// and its static shared memory (G·qtok query rows and 16-row K and V tiles
+// of FP32, and a mask word per row) must fit in 48 KiB.
+func prefillQTokens(g, headDim int) int {
+	q := 64 / g
+	for q > 1 && 4*headDim*(g*q+2*16)+8*q > staticSharedLimit {
+		q--
+	}
+	return q
+}
+
+// buildEgraphPlans builds the decode plans and, with prefill > 0 rows or
+// prefill < 0 for the default, the prefill plans.
+func buildEgraphPlans(cfg *ModelConfig, qkvBias, attn bool, prefillRows int) (*egraphPlans, error) {
 	p := egraphPlans{attn: attn}
 	var err error
-	if p.attnIn, p.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama", 1); err != nil {
+	if p.attnIn, p.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama", 1, hopper.F32); err != nil {
 		return nil, err
 	}
 	b := hopper.NewBuilder()
@@ -108,29 +133,49 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias, attn, prefill bool) (*egraphPla
 		Target:     "sm_121a",
 		KVFormat:   hopper.WeightBF16,
 	}
-	if !prefill {
+	if prefillRows == 0 {
 		return &p, nil
 	}
-	pf := egraphPrefillPlans{rows: egraphPrefillRows}
-	if pf.attnIn, pf.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pf", pf.rows); err != nil {
-		return nil, err
+	// The tile gemms' M rows set the chunk: by default the whole cache,
+	// so a prompt runs in one chunk and streams the weights once, in
+	// multiples of the largest tile height whose shared memory fits.
+	if prefillRows <= 0 {
+		prefillRows = cfg.MaxSeqLen
 	}
-	// The default 128 × 128 tile with three stages needs 108 KiB of
-	// shared memory, more than sm_121's 99 KiB per block; 64-row tiles
-	// need 81 KiB and waste fewer rows on short prompts.
-	for _, pl := range []*hopper.Plan{pf.attnIn, pf.post} {
-		for _, k := range pl.Kernels {
-			if k.Tile != nil {
-				k.Tile.BM = 64
+	pf := egraphPrefillPlans{qtok: prefillQTokens(cfg.NumAttentionHeads/cfg.NumKeyValueHeads, hd)}
+	for _, bm := range []int{128, 64} {
+		pf.rows = (prefillRows + bm - 1) / bm * bm
+		if pf.attnIn, pf.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pf", pf.rows, hopper.BF16); err != nil {
+			return nil, err
+		}
+		fits := true
+		for _, pl := range []*hopper.Plan{pf.attnIn, pf.post} {
+			for _, k := range pl.Kernels {
+				if k.Tile != nil {
+					k.Tile.BM = bm
+					fits = fits && k.Tile.SharedBytes() <= sm121SharedPerBlock
+				}
 			}
 		}
+		if fits {
+			break
+		}
 	}
-	if pf.qcast, err = buildQCastPlan(cfg, "llama_pf_qcast", pf.rows); err != nil {
-		return nil, err
-	}
+	// A last group of fewer than qtok rows still covers qtok positions;
+	// pad the cache so they exist.
+	pf.cacheSlots = (cfg.MaxSeqLen + pf.qtok - 1 + egraphPageSize - 1) / egraphPageSize * egraphPageSize
 	pf.rope = p.rope
 	pf.rope.Name = "llama_pf_rope_kv"
-	pf.rope.PageSize, pf.rope.MaxPages = egraphPageSize, maxPages
+	pf.rope.PageSize, pf.rope.MaxPages = egraphPageSize, pf.cacheSlots/egraphPageSize
+	pf.attn = hopper.MTPPagedAttention{
+		Name:          "llama_pf_attn",
+		NumHeads:      cfg.NumAttentionHeads,
+		KVHeads:       cfg.NumKeyValueHeads,
+		HeadDim:       hd,
+		PageSize:      egraphPageSize,
+		MaxPages:      pf.cacheSlots / egraphPageSize,
+		QTokensPerSeq: pf.qtok,
+	}
 	p.pf = &pf
 	return &p, nil
 }
@@ -144,8 +189,9 @@ func compilePlan(name string, b *hopper.Builder, root egraph.Id, out hopper.DTyp
 }
 
 // buildLayerPlans builds a decoder layer's attnIn and post plans over m
-// rows, named prefix_attn_in and prefix_post.
-func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int) (attnIn, post *hopper.Plan, err error) {
+// rows, named prefix_attn_in and prefix_post. The post plan reads the
+// attention output in attnDType.
+func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int, attnDType hopper.DType) (attnIn, post *hopper.Plan, err error) {
 	h := cfg.HiddenSize
 	qDim := cfg.NumAttentionHeads * cfg.HeadDim()
 	kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
@@ -170,7 +216,10 @@ func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int)
 	}
 
 	b = hopper.NewBuilder()
-	ao := b.Cast(hopper.BF16, b.Input("attn", hopper.F32, m, qDim))
+	ao := b.Input("attn", attnDType, m, qDim)
+	if attnDType != hopper.BF16 {
+		ao = b.Cast(hopper.BF16, ao)
+	}
 	x = b.Input("x", hopper.F32, m, h)
 	hid := b.Map(hopper.MustLambda("(add $0 $1)"), b.MatMul(ao, b.Input("w_o", hopper.BF16, h, qDim)), x)
 	norm = b.Cast(hopper.BF16, b.RMSNorm(hid, b.Input("ffn_norm", hopper.F32, h), h, eps))

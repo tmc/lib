@@ -75,11 +75,11 @@ func setPos(args, base []any, pa []egraphPosArg, pos int) {
 // It owns the generated module, the fused QKV and gate·up weights those
 // kernels read, and their intermediates.
 //
-// With mega set, each plan runs as one persistent [hopper.Megakernel]
-// launch whose stages wait on ready counters instead of on the stream.
+// With mega set, each decode plan runs as one persistent
+// [hopper.Megakernel] launch whose stages wait on ready counters instead
+// of on the stream.
 type egraphDecoder struct {
 	plans *egraphPlans
-	mega  bool
 	megas map[*hopper.Plan]hopper.Megakernel
 	mod   driver.Module
 	fns   map[string]driver.Function // kernel name -> function
@@ -113,21 +113,20 @@ type egraphDecoder struct {
 	pf *egraphPrefill // with plans.pf
 }
 
-func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega, attn, prefill bool) (eg *egraphDecoder, err error) {
+func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega, attn bool, prefillRows int) (eg *egraphDecoder, err error) {
 	if gpuW.DType != weightBF16 {
 		return nil, errors.New("-egraph needs -weight-dtype bf16")
 	}
-	if prefill && (!attn || mega) {
-		return nil, errors.New("e-graph prefill needs generated attention and per-kernel launches")
+	if prefillRows != 0 && !attn {
+		return nil, errors.New("e-graph prefill needs generated attention")
 	}
 	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
-	plans, err := buildEgraphPlans(cfg, bias, attn, prefill)
+	plans, err := buildEgraphPlans(cfg, bias, attn, prefillRows)
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
 	eg = &egraphDecoder{
 		plans:   plans,
-		mega:    mega,
 		megas:   make(map[*hopper.Plan]hopper.Megakernel),
 		fns:     make(map[string]driver.Function),
 		ready:   make(map[*hopper.Plan]cudamem.Slice[uint64]),
@@ -142,7 +141,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		}
 	}()
 	if mega {
-		for _, p := range eg.planList() {
+		for _, p := range eg.decodePlans() {
 			m, err := p.Megakernel("")
 			if err != nil {
 				return nil, err
@@ -263,7 +262,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 			return nil, err
 		}
 	}
-	if prefill {
+	if plans.pf != nil {
 		if eg.pf, err = eg.bindPrefill(dev, cfg, gpuW); err != nil {
 			return nil, err
 		}
@@ -277,12 +276,22 @@ func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *G
 	hd := cfg.HeadDim()
 	kvDim := cfg.NumKeyValueHeads * hd
 	maxSeq := cfg.MaxSeqLen
+	slots := maxSeq
+	if eg.plans.pf != nil {
+		slots = eg.plans.pf.cacheSlots
+	}
 	for i := range cfg.NumHiddenLayers {
 		for _, c := range []*[]cudamem.Slice[uint16]{&eg.kc, &eg.vc} {
-			s, err := cudamem.Alloc[uint16](dev, maxSeq*kvDim)
+			s, err := cudamem.Alloc[uint16](dev, slots*kvDim)
 			*c = append(*c, s)
 			if err != nil {
 				return fmt.Errorf("alloc layer %d kv cache: %w", i, err)
+			}
+			// Prefill attention loads, and masks, cache rows past a
+			// chunk's last token; a NaN there would still poison the
+			// output (0·NaN), so start from zeros.
+			if err := s.CopyFromHost(make([]uint16, slots*kvDim)); err != nil {
+				return fmt.Errorf("zero layer %d kv cache: %w", i, err)
 			}
 		}
 	}
@@ -389,13 +398,20 @@ func concat(parts ...[]float32) []float32 {
 	return out
 }
 
-func (eg *egraphDecoder) planList() []*hopper.Plan {
+// decodePlans returns the decode step's plans, which -egraph-mega runs as
+// megakernels.
+func (eg *egraphDecoder) decodePlans() []*hopper.Plan {
 	ps := []*hopper.Plan{eg.plans.attnIn, eg.plans.post, eg.plans.head}
 	if eg.plans.attn {
 		ps = append(ps, eg.plans.qcast)
 	}
+	return ps
+}
+
+func (eg *egraphDecoder) planList() []*hopper.Plan {
+	ps := eg.decodePlans()
 	if pf := eg.plans.pf; pf != nil {
-		ps = append(ps, pf.attnIn, pf.post, pf.qcast)
+		ps = append(ps, pf.attnIn, pf.post)
 	}
 	return ps
 }
@@ -418,8 +434,7 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 	src.WriteString(hopper.Prelude)
 	var names []string
 	for _, p := range eg.planList() {
-		if eg.mega {
-			m := eg.megas[p]
+		if m, ok := eg.megas[p]; ok {
 			cu, err := m.CUDA()
 			if err != nil {
 				return fmt.Errorf("emit %s: %w", m.Name, err)
@@ -462,12 +477,17 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 		names = append(names, eg.plans.rope.Name, eg.plans.sdpa.Name)
 	}
 	if pf := eg.plans.pf; pf != nil {
-		cu, err := pf.rope.CUDA()
-		if err != nil {
-			return fmt.Errorf("emit prefill rotary: %w", err)
+		for _, k := range []interface {
+			CUDA() (string, error)
+		}{pf.rope, pf.attn} {
+			cu, err := k.CUDA()
+			if err != nil {
+				return fmt.Errorf("emit prefill attention: %w", err)
+			}
+			src.WriteString("\n" + cu + "\n")
 		}
-		src.WriteString("\n" + cu + "\n")
-		names = append(names, pf.rope.Name)
+		src.WriteString("\n" + embedGatherCUDA + "\n")
+		names = append(names, pf.rope.Name, pf.attn.Name, embedGatherName)
 	}
 	cm, err := nvrtcx.Compile(src.String(),
 		nvrtcx.WithName("llama_egraph.cu"),
@@ -507,8 +527,7 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 		}
 		return ptr, nil
 	}
-	if eg.mega {
-		m := eg.megas[p]
+	if m, ok := eg.megas[p]; ok {
 		grid, block := m.Grid()
 		l := egraphLaunch{
 			fn:    eg.fns[m.Name],

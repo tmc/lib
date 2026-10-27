@@ -60,8 +60,9 @@ var (
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
-	egraphAttnFlag    = flag.Bool("egraph-attn", false, "with -egraph, run RoPE, the KV-cache store and attention as generated sm_121a kernels over a BF16 KV cache")
-	egraphPrefillFlag = flag.Bool("egraph-prefill", false, "with -egraph-attn, prefill the prompt in one batched pass of generated tile gemms (not with -bench or -egraph-mega)")
+	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated sm_121a kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
+	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
+	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
 )
 
 func main() {
@@ -341,14 +342,25 @@ func runGPUInference(
 	if *egraphMegaFlag && (!*egraphFlag || *cudaGraphFlag) {
 		return errors.New("-egraph-mega needs -egraph and cannot replay in a -cuda-graph: its ready-counter epoch is a launch argument")
 	}
-	if *egraphAttnFlag && !*egraphFlag {
-		return errors.New("-egraph-attn needs -egraph")
-	}
-	if *egraphPrefillFlag && (!*egraphAttnFlag || *egraphMegaFlag || *benchFlag) {
-		return errors.New("-egraph-prefill needs -egraph-attn and cannot run with -egraph-mega or -bench")
-	}
 	if *egraphFlag {
-		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag, *egraphAttnFlag, *egraphPrefillFlag)
+		// Batched prefill writes the generated attention's BF16 cache, and
+		// -bench times its own token-by-token prefill.
+		prefillRows, prefillOff := 0, ""
+		switch {
+		case !*egraphPrefillFlag:
+			prefillOff = "-egraph-prefill=false"
+		case !*egraphAttnFlag:
+			prefillOff = "needs -egraph-attn"
+		case *benchFlag:
+			prefillOff = "-bench"
+		case len(promptTokens) < 2:
+			prefillOff = "one-token prompt"
+		case *egraphChunkFlag > 0:
+			prefillRows = *egraphChunkFlag
+		default:
+			prefillRows = -1
+		}
+		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag, *egraphAttnFlag, prefillRows)
 		if err != nil {
 			return fmt.Errorf("e-graph decoder: %w", err)
 		}
@@ -365,8 +377,13 @@ func runGPUInference(
 		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
 			eg.Kernels(), strings.Join(gen, ", "), strings.Join(fallback, ", "))
 		if eg.pf != nil {
-			fmt.Printf("[E-Graph] prefill: %d-row chunks; tile gemm (mma.sync): %s; attention (generated, direct emitter) once per row; llama-infer kernels: embedding (once per row), argmax\n",
-				eg.pf.rows, strings.Join(eg.prefillTiles(), ", "))
+			fmt.Printf("[E-Graph] prefill: %d-row chunks, %d launches per chunk then head (%d) and argmax (1); "+
+				"generated: tile gemm (mma.sync) %s, rope+kv_append (generated, direct emitter) 1 per layer, "+
+				"attention (generated, direct emitter: MTPPagedAttention, causal groups of %d rows) 1 per layer; "+
+				"hand-written, not generated: embedding gather (1 per chunk); llama-infer kernels: argmax\n",
+				eg.pf.rows, eg.pf.launches(), len(eg.head), strings.Join(eg.prefillTiles(), ", "), eg.pf.qtok)
+		} else {
+			fmt.Printf("[E-Graph] prefill: token by token (%s)\n", prefillOff)
 		}
 	}
 
@@ -468,7 +485,7 @@ func runGPUInference(
 			if pos < len(promptTokens)-1 {
 				return 0, nil
 			}
-			return gm.eg.prefill(gpuWeights, cfg, scratch, gm, sampleFn, promptTokens)
+			return gm.eg.prefill(gpuWeights, cfg, scratch, sampleFn, promptTokens)
 		}
 	}
 	forward := func(tok int32, pos int) (int32, error) {

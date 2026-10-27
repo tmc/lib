@@ -20,7 +20,7 @@ var llama3_8B = ModelConfig{
 }
 
 func TestBuildEgraphPlans(t *testing.T) {
-	p, err := buildEgraphPlans(&llama3_8B, false, true, true)
+	p, err := buildEgraphPlans(&llama3_8B, false, true, -1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,9 +50,9 @@ func TestBuildEgraphPlans(t *testing.T) {
 		{p.attnIn, 1, 0, 1},
 		{p.pf.attnIn, 0, 1, 1},
 		// cast row, o_proj+x gemm, rmsnorm row, gate_up gemm, swiglu row,
-		// down_proj+h gemm.
+		// down_proj+h gemm. Prefill attention writes BF16: no cast.
 		{p.post, 3, 0, 3},
-		{p.pf.post, 0, 3, 3},
+		{p.pf.post, 0, 3, 2},
 		{p.head, 1, 0, 1},
 	}
 	for _, tt := range tests {
@@ -68,5 +68,11 @@ func TestBuildEgraphPlans(t *testing.T) {
 				t.Errorf("%s: %d bytes of shared memory, more than sm_121's 99 KiB", k.Tile.Name, k.Tile.SharedBytes())
 			}
 		}
+	}
+	if p.pf.rows != llama3_8B.MaxSeqLen {
+		t.Errorf("prefill chunk = %d rows, want the cache length %d", p.pf.rows, llama3_8B.MaxSeqLen)
+	}
+	if p.pf.qtok != 15 {
+		t.Errorf("prefill attention groups = %d rows, want 15 (G=4, D=128 in 48 KiB of static shared memory)", p.pf.qtok)
 	}
 }
