@@ -1,0 +1,12 @@
+commit: 887c0009872cc4f0bebc67061368acd9db50cdc3
+date: 2026-10-27T12:13:03.054297+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 49855
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-ray-memory-unit-repair/W/net.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-ray-memory-unit-adoption/ROOT-GRADE.md
+qualification: sourceconformance/CPU only:official pinnedemitter;before4unitfailures;host/race47PASS each,2vets,1compiled omission;no actualRay/native/full120
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
