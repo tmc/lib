@@ -1,0 +1,12 @@
+commit: 777ef05db6f02da1b69ba7351bcbcfef915feb8e
+date: 2026-10-27T07:59:14.005155+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 27311
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original83-adapter-test-persistence/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-original83-test-adoption/ROOT-GRADE.md
+qualification: requirednamedtestprefixbyteequal to qualifiedfixture;author198host/raceeach+2vets+4origincontrols,phaseSTOPshistorical;independentexactpermanentcandidate23PASS;noGPUrequired/fullprogramclaim
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
