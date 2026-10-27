@@ -205,7 +205,9 @@ func (d *Delivery) Stats() DeliveryStats {
 
 // Close stops admission and drains within ShutdownTimeout or the first caller's
 // context deadline. A timed-out or partially rejected drain returns
-// ErrDeliveryIncomplete. Repeated Close calls return the stored outcome.
+// ErrDeliveryIncomplete. Later callers may stop waiting with their own contexts,
+// but do not shorten the shared drain. After completion, repeated Close calls
+// return the stored outcome even if their contexts are canceled.
 // HTTP transports must honor request context cancellation; a custom transport
 // that ignores it cannot be forcibly terminated by this package.
 func (d *Delivery) Close(ctx context.Context) error {
@@ -214,6 +216,14 @@ func (d *Delivery) Close(ctx context.Context) error {
 	}
 	if d == nil || d.done == nil {
 		return ErrDeliveryClosed
+	}
+	// Prefer an already completed drain over an unrelated waiter deadline.
+	select {
+	case <-d.done:
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		return d.terminal
+	default:
 	}
 	d.closeOnce.Do(func() {
 		d.mu.Lock()
@@ -230,6 +240,14 @@ func (d *Delivery) Close(ctx context.Context) error {
 			case <-timer.C:
 			}
 			d.mu.Lock()
+			// A completed outcome cannot be invalidated by a late first-caller
+			// cancellation or timer selection. Publish expiration only while live.
+			select {
+			case <-d.done:
+				d.mu.Unlock()
+				return
+			default:
+			}
 			d.terminal = ErrDeliveryIncomplete
 			d.mu.Unlock()
 			d.cancel()
@@ -242,7 +260,6 @@ func (d *Delivery) Close(ctx context.Context) error {
 		defer d.mu.Unlock()
 		return d.terminal
 	case <-ctx.Done():
-		d.cancel()
 		return errors.Join(ErrDeliveryIncomplete, ctx.Err())
 	case <-d.shutdownExpired:
 		return ErrDeliveryIncomplete
