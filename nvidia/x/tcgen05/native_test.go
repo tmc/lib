@@ -595,7 +595,7 @@ func TestTCGen05Wave12And13NativeSuiteStructure(t *testing.T) {
 		"tcgen05.ld.red.sync.aligned.32x32b.x4.max.abs.f32",
 		"tcgen05.ld.red.spcompress.sync.aligned.32x32b.x4.max.sp::2:4.abs.f32.b2",
 		"tcgen05.mma.ws.sp.cta_group::1.kind::ti16.collector::b0::fill",
-		"tcgen05.alloc.exclusive.cta_group::2.sync.aligned.shared::cta.b32",
+		"tcgen05.alloc.exclusive.cta_group::1.sync.aligned.shared::cta.b32",
 		"spcompress.b8.b2.sp::2:4.x4",
 		"spdecompress.b8.b2.sp::2:4.x32",
 		"TCGEN05_WAVE12_13_NATIVE_OK",

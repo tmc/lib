@@ -100,8 +100,8 @@ func (a WSCollectorAction) valid() bool {
 
 // TCGen05WeightsStationaryGEMM configures a weights-stationary Tensor Memory
 // GEMM kernel using tcgen05.mma.ws{.sp} (PTX ISA 9.4 §9.7.18.10.10.3–4),
-// optional 576-column exclusive TMEM allocation (tcgen05.alloc.exclusive.cta_group::2,
-// §9.7.18.7.1), and a 64-bit ZeroColumnMaskDesc (§9.7.18.4.3).
+// optional exclusive TMEM allocation (tcgen05.alloc.exclusive.cta_group::1,
+// §9.7.18.7.1: 576 columns on sm_107, 512 on sm_100/sm_103), and a 64-bit ZeroColumnMaskDesc (§9.7.18.4.3).
 type TCGen05WeightsStationaryGEMM struct {
 	Name                string
 	M, N, K             int
@@ -234,16 +234,39 @@ EG_DEV bool eg_tcgen05_is_col_zeroed(uint64_t mask_desc, int col) {
 
 	if k.UseExclusive576Cols {
 		b.WriteString(`
-// eg_tcgen05_alloc_exclusive_576 allocates all 576 TMEM columns (512 standard
-// data columns + 64 exclusive scale/metadata columns) per PTX ISA 9.4 §9.7.18.7.1.
-EG_DEV void eg_tcgen05_alloc_exclusive_576(float* tmem, uint32_t* slot) {
+// EG_TCGEN05_EXCLUSIVE_COLS is the largest .exclusive allocation: 576 columns
+// on sm_107 and 512 on sm_100/sm_103 (PTX ISA 9.4 section 9.7.18.7.1, Table 58).
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 1070)
+#define EG_TCGEN05_EXCLUSIVE_COLS 576
+#else
+#define EG_TCGEN05_EXCLUSIVE_COLS 512
+#endif
+
+// eg_tcgen05_alloc_exclusive claims the CTA's whole allocation permit with
+// tcgen05.alloc.exclusive. tcgen05.mma.ws is single-CTA, so the allocation
+// uses cta_group::1; a kernel may not mix CTA groups.
+EG_DEV void eg_tcgen05_alloc_exclusive(float* tmem, uint32_t* slot) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 1000 || __CUDA_ARCH__ == 1030 || __CUDA_ARCH__ == 1070) && !defined(EG_EMU)
     (void)tmem;
     const uint32_t s = (uint32_t)__cvta_generic_to_shared(slot);
-    asm volatile("tcgen05.alloc.exclusive.cta_group::2.sync.aligned.shared::cta.b32 [%0], 576;"
-                 :: "r"(s) : "memory");
+    asm volatile("tcgen05.alloc.exclusive.cta_group::1.sync.aligned.shared::cta.b32 [%0], %1;"
+                 :: "r"(s), "n"(EG_TCGEN05_EXCLUSIVE_COLS) : "memory");
 #else
-    eg_tcgen05_alloc_cta1(tmem, slot, 0u, 128u);
+    eg_tcgen05_alloc_cta1(tmem, slot, 0u, 256u);
+#endif
+}
+
+// eg_tcgen05_dealloc_exclusive releases an allocation made by
+// eg_tcgen05_alloc_exclusive; .exclusive allocations must be freed with
+// tcgen05.dealloc.exclusive of the same column count.
+EG_DEV void eg_tcgen05_dealloc_exclusive(uint32_t taddr) {
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 1000 || __CUDA_ARCH__ == 1030 || __CUDA_ARCH__ == 1070) && !defined(EG_EMU)
+    asm volatile("tcgen05.dealloc.exclusive.cta_group::1.sync.aligned.b32 %0, %1;\n"
+                 "tcgen05.relinquish_alloc_permit.cta_group::1.sync.aligned;"
+                 :: "r"(taddr), "n"(EG_TCGEN05_EXCLUSIVE_COLS));
+#else
+    (void)taddr;
+    __syncwarp();
 #endif
 }
 `)
@@ -269,7 +292,7 @@ EG_DEV void eg_tcgen05_alloc_exclusive_576(float* tmem, uint32_t* slot) {
 `, k.Name, k.M, k.N, k.K, maskWord)
 
 	if k.UseExclusive576Cols {
-		b.WriteString("        eg_tcgen05_alloc_exclusive_576(tmem, &slot_d[0]);\n")
+		b.WriteString("        eg_tcgen05_alloc_exclusive(tmem, &slot_d[0]);\n")
 	} else {
 		fmt.Fprintf(&b, "        eg_tcgen05_alloc_cta1(tmem, &slot_d[0], 0u, %du);\n", k.allocCols())
 	}
@@ -344,7 +367,11 @@ EG_DEV void eg_tcgen05_alloc_exclusive_576(float* tmem, uint32_t* slot) {
 
     if (warp == 0) {
 `)
-	fmt.Fprintf(&b, "        eg_tcgen05_dealloc_cta1(d_taddr, %du);\n", k.allocCols())
+	if k.UseExclusive576Cols {
+		b.WriteString("        eg_tcgen05_dealloc_exclusive(d_taddr);\n")
+	} else {
+		fmt.Fprintf(&b, "        eg_tcgen05_dealloc_cta1(d_taddr, %du);\n", k.allocCols())
+	}
 	b.WriteString(`    }
 }
 `)
