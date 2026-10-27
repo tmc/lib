@@ -1,0 +1,12 @@
+commit: 956b3a1984cceb38e988af6aa94646544d14cc4c
+date: 2026-10-27T10:09:21.642383+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 76896
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-diagnostic-duration-repair/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-diagnostic-duration-adoption/ROOT-GRADE.md
+qualification: actualfiveoverlapbeforefailurepreserved;authorhost/race118each,2vets,compiledguardomission;independentpublicrace23PASS includingnineoverlap;fourexperimentalAPIsnowreturnerrors,externalclientsunaudited;no native/full99
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
