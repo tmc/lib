@@ -18,11 +18,12 @@ const (
 	EventWait        EventKind = "tcgen05.wait"
 	EventLd          EventKind = "tcgen05.ld"
 	EventSt          EventKind = "tcgen05.st"
+	EventShift       EventKind = "tcgen05.shift"
 	EventClusterSync EventKind = "cluster.sync"
 )
 
 var (
-	ErrSingleThreadIssue = errors.New("cudatmem: mma/cp/commit require ActiveThreads == 1 (elect.sync)")
+	ErrSingleThreadIssue = errors.New("cudatmem: mma/cp/commit/shift require ActiveThreads == 1 (elect.sync)")
 	ErrWarpRowPartition  = errors.New("cudatmem: ld/st violates 4-warp 32-row datapath partition")
 	ErrScaleNotStaged    = errors.New("cudatmem: block-scale mma requires prior tcgen05.cp into scale tmem")
 	ErrOperandANotReady  = errors.New("cudatmem: tmem operand A requires prior mma + commit + wait")
@@ -60,6 +61,7 @@ type TraceSummary struct {
 	Waits               int
 	Loads               int
 	Stores              int
+	Shifts              int
 	ClusterSyncs        int
 }
 
@@ -85,6 +87,7 @@ type ctaState struct {
 	permit        *Permit
 	live          map[uint32]*allocRecord // keyed by base Offset
 	cpStaged      map[uint32]uint32       // base Offset -> columns staged by tcgen05.cp
+	cpInFlight    map[uint32]bool         // base Offset -> tcgen05.cp in flight awaiting EventWait
 	mmaState      map[uint32]mmaStage     // base Offset -> MMA completion stage
 	mmaPendingUse map[uint32]uint32       // base Offset -> active BeginUser count awaiting EventWait
 	allocatedCols uint32
@@ -138,6 +141,7 @@ func VerifyTrace(target Target, events []TraceEvent) (*TraceSummary, error) {
 				alloc:         a,
 				live:          make(map[uint32]*allocRecord),
 				cpStaged:      make(map[uint32]uint32),
+				cpInFlight:    make(map[uint32]bool),
 				mmaState:      make(map[uint32]mmaStage),
 				mmaPendingUse: make(map[uint32]uint32),
 			}
@@ -282,6 +286,7 @@ func VerifyTrace(target Target, events []TraceEvent) (*TraceSummary, error) {
 			}
 			delete(st.live, ev.Offset)
 			delete(st.cpStaged, ev.Offset)
+			delete(st.cpInFlight, ev.Offset)
 			delete(st.mmaState, ev.Offset)
 			delete(st.mmaPendingUse, ev.Offset)
 			if st.allocatedCols >= ev.Columns {
@@ -323,6 +328,7 @@ func VerifyTrace(target Target, events []TraceEvent) (*TraceSummary, error) {
 					return nil, fmt.Errorf("step %d (%s): CTA %d: %w", step, ev.Kind, cid, err)
 				}
 				st.cpStaged[ev.Offset] = ev.Columns
+				st.cpInFlight[rec.offset] = true
 			}
 			if ev.CTAGroup == 2 {
 				getPair(ev.CTA).lastAccessStep = step
@@ -455,10 +461,60 @@ func VerifyTrace(target Target, events []TraceEvent) (*TraceSummary, error) {
 				}
 				delete(st.mmaPendingUse, baseOff)
 			}
+			clear(st.cpInFlight)
 			if ev.CTAGroup == 2 {
 				getPair(ev.CTA).lastAccessStep = step
 			}
 			summary.Waits++
+
+		case EventShift:
+			if err := validateCTAGroup(ev.CTAGroup); err != nil {
+				return nil, fmt.Errorf("step %d (%s): %w", step, ev.Kind, err)
+			}
+			if ev.ActiveThreads != 1 || ev.Warp != 0 {
+				return nil, fmt.Errorf("step %d (%s): got Warp=%d ActiveThreads=%d: %w",
+					step, ev.Kind, ev.Warp, ev.ActiveThreads, ErrSingleThreadIssue)
+			}
+			if ev.Columns == 0 || (ev.Rows != 0 && ev.Rows != 128) {
+				return nil, fmt.Errorf("step %d (%s): invalid columns %d or rows %d (want 128): %w",
+					step, ev.Kind, ev.Columns, ev.Rows, ErrInvalidUnit)
+			}
+			targets := []int{ev.CTA}
+			if ev.CTAGroup == 2 {
+				if ev.CTA%2 != 0 {
+					return nil, fmt.Errorf("step %d (%s): %w: cta_group::2 shift must be issued by even CTA, got CTA %d",
+						step, ev.Kind, ErrCTA2Protocol, ev.CTA)
+				}
+				targets = []int{ev.CTA &^ 1, ev.CTA | 1}
+			}
+			for _, cid := range targets {
+				st, err := getCTA(cid)
+				if err != nil {
+					return nil, fmt.Errorf("step %d (%s): %w", step, ev.Kind, err)
+				}
+				rec, err := findAlloc(st, ev.Offset, ev.Columns)
+				if err != nil {
+					return nil, fmt.Errorf("step %d (%s): CTA %d: %w", step, ev.Kind, cid, err)
+				}
+				if rec.rows != 128 {
+					return nil, fmt.Errorf("step %d (%s): CTA %d allocation rows %d != 128: %w",
+						step, ev.Kind, cid, rec.rows, ErrInvalidUnit)
+				}
+				if st.mmaPendingUse[rec.offset] > 0 || st.mmaState[rec.offset] == mmaWritten || st.mmaState[rec.offset] == mmaCommitted || st.cpInFlight[rec.offset] {
+					return nil, fmt.Errorf("step %d (%s): CTA %d offset %d has in-flight mma/cp awaiting tcgen05.wait: %w",
+						step, ev.Kind, cid, ev.Offset, ErrBusy)
+				}
+				if err := rec.alloc.BeginUser(); err != nil {
+					return nil, fmt.Errorf("step %d (%s): CTA %d: %w", step, ev.Kind, cid, err)
+				}
+				if err := rec.alloc.CompleteUser(); err != nil {
+					return nil, fmt.Errorf("step %d (%s): CTA %d: %w", step, ev.Kind, cid, err)
+				}
+			}
+			if ev.CTAGroup == 2 {
+				getPair(ev.CTA).lastAccessStep = step
+			}
+			summary.Shifts++
 
 		case EventLd, EventSt:
 			if err := validateCTAGroup(ev.CTAGroup); err != nil {
