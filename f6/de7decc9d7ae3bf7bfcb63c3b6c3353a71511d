@@ -1,0 +1,12 @@
+commit: f6de7decc9d7ae3bf7bfcb63c3b6c3353a71511d
+date: 2026-10-27T07:52:30.964155+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 10362
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original32-frame-implementation/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-original32-frame-adoption/ROOT-GRADE.md
+qualification: ordinary caller-admitted inert ELF source/host only; author48PASS host/race and two assertion omissions; independent publicrace49PASS; no hostile parser admission, authentic live mapping, physical unwind/native/full32
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
