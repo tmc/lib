@@ -1,9 +1,11 @@
-// Package nvl72 emits multi-GPU NVLink 5 symmetric-memory collective kernels,
-// 72-rank Wide Expert Parallelism (Wide-EP) pipelines, O(1) NVSwitch multicast
-// barriers, and 4-tier GB200/GB300 NVL72 rack and multi-rack pod planners.
+// Package nvl72 emits multi-GPU NVLink 5 and NVLink 6 symmetric-memory
+// collective kernels, 72-rank and 144-rank Wide Expert Parallelism (Wide-EP)
+// pipelines, O(1) NVSwitch multicast barriers, fabric tensor descriptors, and
+// 4-tier GB200/GB300 NVL72 and Vera Rubin NVL144/NVL576 rack and pod planners.
 //
-// Kernels emitted by this package compile for sm_90a and sm_100a with nvcc or
-// NVRTC and run on the CPU under the cudahostemu multi-rank host emulator:
+// Kernels emitted by this package compile for Hopper (sm_90a), Blackwell
+// (sm_100a, sm_103a), and Vera Rubin (sm_107a, sm_107f) with nvcc or NVRTC and
+// run on the CPU under the cudahostemu multi-rank host emulator:
 //
 //   - [AllReduceResidualRMSNorm] fuses in-switch multimem.ld_reduce across
 //     ranks with residual addition and RMSNorm in a single kernel launch.
@@ -21,12 +23,19 @@
 //     ConnectX-7 400G = 50 GB/s) and GB300 (288 GB 12-Hi HBM3e, ConnectX-8
 //     800G PCIe Gen6 = 100 GB/s) multi-rack pod hierarchy with rack-deduped
 //     two-stage All-to-All dispatch and Two-Batch Overlap.
+//   - [PlanRubinNVL144] and [RubinNVL144Combine] model and emit Vera Rubin
+//     VR200 NVL144 single-rack (144 GPUs, NVLink 6 at 1800 GB/s unidirectional
+//     per GPU, HBM4 at 13.0 TB/s, Vera CPU LPDDR5X C2C at 900 GB/s) and NVL576
+//     4-rack Spectrum-X800 1600G RDMA scale-out pipelines with PTX ISA 9.4
+//     `multimem.ld_reduce.relaxed.sys.global.add.v4.bf16x2` collectives.
+//   - [NewFabricTensor] and [FabricMultimemKernel] provide 64-bit peer-mapped
+//     fabric tensor views (`cudaMemAllocationHandleTypeFabric`) across NVL72
+//     and NVL144 domains.
 //   - [NVL72KVPageTransfer] streams paged KV or compressed MLA latent cache
-//     pages from prefill ranks to decode ranks over NVLink 5 peer pointers
-//     with system-scope release/acquire ordering and optional Grace LPDDR5X
-//     NVLink-C2C staging.
+//     pages from prefill ranks to decode ranks over NVLink peer pointers with
+//     system-scope release/acquire ordering and optional C2C staging.
 //   - [PlanPDDisaggregation] selects optimal prefill/decode rack and GPU splits
-//     under TTFT and TPOT SLAs across GB200 and GB300 NVL72 pods.
+//     under TTFT and TPOT SLAs across GB200, GB300, and Vera Rubin pods.
 //
 // Basic usage:
 //
