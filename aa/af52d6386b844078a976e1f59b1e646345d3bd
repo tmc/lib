@@ -1,0 +1,12 @@
+commit: aaaf52d6386b844078a976e1f59b1e646345d3bd
+date: 2026-10-27T14:38:05.882351+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 62954
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original113-serving-aggregate-identity/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-serving-identity-adoption/ROOT-GRADE.md
+qualification: focused source/host/race/vet; caller assertion, no native or full113
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
