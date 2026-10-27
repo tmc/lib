@@ -22,6 +22,10 @@ type ProcEntityFacts struct {
 	Process        EntityProcess
 	StartTimeTicks uint64
 	Cgroups        []string
+	// SelfReported contains only untrusted environment observations. It is
+	// independent of cgroup, scheduler and execution identity. The zero state
+	// means no environment observation was made.
+	SelfReported ProcEnvironFacts
 }
 
 // ReadProcEntity reads supplied /proc/PID/stat, status and cgroup snapshots.

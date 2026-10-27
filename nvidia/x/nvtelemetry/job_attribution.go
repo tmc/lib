@@ -10,7 +10,7 @@ import (
 )
 
 // SlurmCgroupIdentity records the parsed job, step, and task IDs extracted
-// from a Slurm cgroup v2 hierarchy path.
+// from a Slurm cgroup hierarchy path.
 type SlurmCgroupIdentity struct {
 	JobID      string `json:"job_id"`
 	StepID     string `json:"step_id,omitempty"`
@@ -18,10 +18,13 @@ type SlurmCgroupIdentity struct {
 	CgroupPath string `json:"cgroup_path"`
 }
 
-// ParseSlurmCgroupPath parses a unified cgroup v2 path or /proc/$pid/cgroup
-// line into a SlurmCgroupIdentity. It requires a valid job_<jobid> component,
-// enforces strict hierarchy ordering (job before step, step before task), and
-// rejects cgroup v1 entries or contradictory paths.
+// ParseSlurmCgroupPath parses an absolute Slurm cgroup path or a proc cgroup
+// membership line. Unified v2 lines use hierarchy 0 and no controllers. V1
+// lines require a positive hierarchy and a nonempty, unique list of controller
+// names consisting of lowercase letters, digits and underscores. Named v1
+// hierarchies such as name=systemd are outside this profile.
+// It requires a valid job_<jobid> component and strict hierarchy ordering
+// (job before step, step before task). Membership is not allocation authority.
 func ParseSlurmCgroupPath(path string) (SlurmCgroupIdentity, error) {
 	if len(path) == 0 {
 		return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: empty path")
@@ -42,9 +45,36 @@ func ParseSlurmCgroupPath(path string) (SlurmCgroupIdentity, error) {
 		if len(parts) != 3 {
 			return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: invalid cgroup format %q", path)
 		}
-		// In cgroup v2 unified hierarchy, the hierarchy ID is 0 and controller name is empty.
-		if parts[0] != "0" || parts[1] != "" {
-			return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: not a cgroup v2 path (hierarchy=%q, controllers=%q)", parts[0], parts[1])
+		if parts[0] == "" {
+			return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: missing hierarchy")
+		}
+		for _, c := range parts[0] {
+			if c < '0' || c > '9' {
+				return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: invalid hierarchy")
+			}
+		}
+		hierarchy, err := strconv.ParseUint(parts[0], 10, 32)
+		if err != nil || (hierarchy == 0 && parts[0] != "0") {
+			return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: invalid hierarchy")
+		}
+		if hierarchy == 0 {
+			if parts[1] != "" {
+				return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: unified hierarchy has controllers")
+			}
+		} else {
+			controllers := strings.Split(parts[1], ",")
+			seen := make(map[string]bool)
+			for _, controller := range controllers {
+				if controller == "" || seen[controller] {
+					return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: empty or repeated controller")
+				}
+				for _, c := range controller {
+					if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_') {
+						return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: unsupported controller name")
+					}
+				}
+				seen[controller] = true
+			}
 		}
 		toParse = parts[2]
 	}
@@ -136,7 +166,7 @@ func ParseSlurmCgroupPath(path string) (SlurmCgroupIdentity, error) {
 	}, nil
 }
 
-// ResolveSlurmProcessCgroup extracts and validates Slurm cgroup v2 membership
+// ResolveSlurmProcessCgroup extracts and validates supported Slurm cgroup membership
 // from a process's ProcEntityFacts. It returns an error if no valid Slurm cgroup
 // is found or if contradictory memberships are listed.
 func ResolveSlurmProcessCgroup(facts ProcEntityFacts) (SlurmCgroupIdentity, error) {
@@ -162,7 +192,7 @@ func ResolveSlurmProcessCgroup(facts ProcEntityFacts) (SlurmCgroupIdentity, erro
 	}
 
 	if !found {
-		return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: no slurm cgroup v2 membership")
+		return SlurmCgroupIdentity{}, fmt.Errorf("slurm cgroup: no supported slurm cgroup membership")
 	}
 	return resolved, nil
 }
@@ -485,6 +515,11 @@ func JoinSlurmAttribution(allocations []SlurmAllocation, mappings []SlurmGPUMapp
 				Reason:     "missing_slurm_cgroup",
 			})
 			continue
+		}
+
+		cgroupSource := "slurm_cgroup_v2"
+		if strings.Contains(cg.CgroupPath, ":") && !strings.HasPrefix(cg.CgroupPath, "0::") {
+			cgroupSource = "slurm_cgroup_v1"
 		}
 
 		af, ok := allocMap[cg.JobID]
@@ -966,7 +1001,7 @@ func JoinSlurmAttribution(allocations []SlurmAllocation, mappings []SlurmGPUMapp
 					Process:               procWithExec,
 					Device:                cloneAssignment(EntityAssignment{Device: m.Device}).Device,
 					Owner:                 EntityOwner{JobID: cg.JobID, AllocationID: m.AllocationID, Attempt: m.Attempt},
-					Source:                "slurm_cgroup_v2_attribution",
+					Source:                cgroupSource + "_attribution",
 					SourceRevision:        "1",
 					Authoritative:         authoritative,
 					State:                 state,
@@ -979,7 +1014,7 @@ func JoinSlurmAttribution(allocations []SlurmAllocation, mappings []SlurmGPUMapp
 					MPSRole:               mpsRole,
 					MPSServer:             mpsServer,
 					Provenance: []EntityProvenance{
-						{Source: "slurm_cgroup_v2", Revision: cg.CgroupPath, StartNanos: startNanos, EndNanos: endNanos},
+						{Source: cgroupSource, Revision: cg.CgroupPath, StartNanos: startNanos, EndNanos: endNanos},
 						{Source: "slurm_squeue_v0.0.43", Revision: af.alloc.Snapshot.SourceRevision, StartNanos: af.alloc.Snapshot.StartNanos, EndNanos: af.alloc.Snapshot.EndNanos},
 						{Source: matchedExec.Source, Revision: matchedExec.SourceRevision, StartNanos: matchedExec.StartNanos, EndNanos: matchedExec.EndNanos},
 					},
