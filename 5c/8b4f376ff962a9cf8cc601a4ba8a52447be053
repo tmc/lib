@@ -1,0 +1,12 @@
+commit: 5c8b4f376ff962a9cf8cc601a4ba8a52447be053
+date: 2026-10-27T06:26:50.362616+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 31545
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original32-probe-report-pairing-fix/cumulative.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-probe-report-compile-key-adoption/ROOT-GRADE.md
+qualification: source168host/race45each,2vets,actualcallpairingbefore/omissionfail;independent45PASS;authorcrossprocessaggregateclockenforcementUNPROVEN preserved,functionalonly;no authenticcapture/frames/native/full32
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
