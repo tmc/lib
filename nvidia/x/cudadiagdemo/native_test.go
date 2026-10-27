@@ -13,7 +13,7 @@ import (
 )
 
 func TestNativeBoundsRefuseBeforeAdmission(t *testing.T) {
-	for _, cfg := range []NativeConfig{{Elements: 0, Rounds: 1}, {Elements: 1 << 21, Rounds: 1}, {Elements: 1, Rounds: 65}, {Device: -1, Elements: 1, Rounds: 1}} {
+	for _, cfg := range []NativeConfig{{Elements: 0, Rounds: 1}, {Elements: 1 << 21, Rounds: 1}, {Elements: 1, Rounds: 65}, {Device: -1, Elements: 1, Rounds: 1}, {Elements: 1, Rounds: 1, Concurrency: -1}, {Elements: 1, Rounds: 64, Concurrency: 9}, {Elements: 1 << 20, Rounds: 2, Concurrency: 5}} {
 		if result, err := RunNative(context.Background(), cfg); err == nil || result != nil {
 			t.Fatalf("invalid bounds admitted: %+v", cfg)
 		}
@@ -45,10 +45,11 @@ func TestNativePhysical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Synthetic || result.Qualification != "partial" || len(result.Trials) != 3*cfg.Rounds || len(result.Requests) != 3*cfg.Rounds || result.Composition == nil || len(result.Composition.Requests) != 3*cfg.Rounds {
+	if result.Synthetic || result.Qualification != "partial" || result.PlannedRequests != 3*cfg.Rounds || result.Concurrency != 4 || len(result.Trials) != 3*cfg.Rounds || len(result.Requests) != 3*cfg.Rounds || result.Composition == nil || len(result.Composition.Requests) != 3*cfg.Rounds {
 		t.Fatalf("invalid native receipt: %+v", result)
 	}
 	seen := map[string]bool{}
+	inputs := map[string]bool{}
 	for _, trial := range result.Trials {
 		launches := 1
 		switch trial.Arm {
@@ -59,10 +60,11 @@ func TestNativePhysical(t *testing.T) {
 			t.Fatalf("unexpected physical arm: %+v", trial)
 		}
 		key := fmt.Sprintf("%d/%s", trial.Round, trial.Arm)
-		if trial.Round < 1 || trial.Round > cfg.Rounds || seen[key] || trial.RequestID == "" || trial.Attempt != trial.Arm || trial.RequestedLaunches != launches || trial.KernelLaunches != launches || !trial.Correct || len(trial.Calls) != launches+3 || trial.OutputSHA256 == "" {
+		if trial.Round < 1 || trial.Round > cfg.Rounds || seen[key] || trial.RequestID == "" || trial.Attempt != trial.Arm || trial.RequestedLaunches != launches || trial.KernelLaunches != launches || !trial.Correct || len(trial.Calls) != launches+3 || trial.OutputSHA256 == "" || inputs[trial.InputSHA256] || trial.Error != "" {
 			t.Fatalf("invalid physical trial: %+v", trial)
 		}
 		seen[key] = true
+		inputs[trial.InputSHA256] = true
 	}
 	for _, request := range result.Composition.Requests {
 		if request.Diagnosis.Admitted || request.Refusal == "" {
