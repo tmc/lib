@@ -1,0 +1,129 @@
+# The "test" passes while sum.txt holds the right values; mutations change it.
+[!exec:sh] skip
+chmod 0755 check.sh slow.sh
+
+! exec mutate muts.json -- sh check.sh
+stdout '^\(baseline\) +ok +0 '
+stdout '^add_wrong +caught +1 '
+stdout '^comment +survived +0 '
+stdout '^two_files +caught +1 '
+stdout '^wrong_reason +unmatched +1 '
+stdout '^2 caught, 1 survived, 1 unmatched of 4$'
+stdout '--- comment survived'
+! stdout '--- add_wrong'
+cmp sum.txt sum.orig
+cmp other.txt other.orig
+
+# With every mutation caught the exit status is 0; JSON carries the statuses.
+exec mutate -json caught.json -- sh check.sh
+stdout '"status": "caught"'
+stdout '"caught": 1'
+
+# A slow command is killed at the timeout and counts as caught.
+exec mutate -timeout 500ms slow.json -- sh slow.sh
+stdout '^hang +timeout +-1 '
+cmp sum.txt sum.orig
+
+# An interrupt kills the command and restores the files.
+! exec mutate caught.json -- sh interrupt.sh
+stderr 'interrupted; files restored'
+cmp sum.txt sum.orig
+
+# A control environment switches the instrument off; a mutation must
+# survive under it, or the catch is not the instrument's.
+! exec mutate control.json -- sh check.sh
+stdout '^sum_off +caught +1 '
+stdout '^scale_too +uncontrolled +1 '
+stdout '^1 caught, 0 survived, 0 unmatched, 1 uncontrolled of 2$'
+stdout '--- scale_too caught, but its control also failed \(failed\); last control output:\nTestScale: scale wrong'
+cmp sum.txt sum.orig
+cmp other.txt other.orig
+! exec mutate -json control.json -- sh check.sh
+stdout '"control": "survived"'
+stdout '"uncontrolled": 1'
+
+# Setup errors exit 2 and run nothing.
+! exec mutate badcontrol.json -- sh check.sh
+stderr 'mutation c: control "NOSUM": want KEY=VALUE'
+! exec mutate ambiguous.json -- sh check.sh
+stderr 'old text occurs 3 times in sum.txt, want 1'
+! exec mutate missing.json -- sh check.sh
+stderr 'old text occurs 0 times'
+! exec mutate noop.json -- sh check.sh
+stderr 'mutation chained: edits leave every file unchanged'
+! exec mutate dup.json -- sh check.sh
+stderr 'duplicate name'
+cp bad.txt other.txt
+! exec mutate caught.json -- sh check.sh
+stderr 'baseline failed \(failed, exit 1\); mutations cannot be judged'
+! stdout add_wrong
+cp other.orig other.txt
+
+# A file changed by someone else during the run is left alone.
+! exec mutate caught.json -- sh meddle.sh
+stderr 'sum.txt changed during the run; left as found, original not restored'
+grep edited sum.txt
+grep 'total = 4' sum.txt
+
+-- sum.txt --
+# total
+a = 1
+b = 2
+total = 3
+-- sum.orig --
+# total
+a = 1
+b = 2
+total = 3
+-- bad.txt --
+scale = 9
+-- other.txt --
+scale = 1
+-- other.orig --
+scale = 1
+-- check.sh --
+[ -n "$NOSUM" ] || grep -q '^total = 3$' sum.txt || { echo "TestSum: total wrong"; seq 30; exit 1; }
+grep -q '^scale = 1$' other.txt || { echo "TestScale: scale wrong"; exit 1; }
+-- interrupt.sh --
+grep -q '^total = 3$' sum.txt && exit 0
+kill -INT $PPID
+sleep 30
+-- meddle.sh --
+grep -q '^total = 3$' sum.txt && exit 0
+echo edited >> sum.txt
+exit 1
+-- slow.sh --
+grep -q '^total = 3$' sum.txt || sleep 30
+-- muts.json --
+[
+ {"name": "add_wrong", "file": "sum.txt", "old": "total = 3", "new": "total = 4", "want": "TestSum"},
+ {"name": "comment", "file": "sum.txt", "old": "# total", "new": "# sum"},
+ {"name": "two_files", "edits": [
+   {"file": "sum.txt", "old": "a = 1", "new": "a = 2"},
+   {"file": "other.txt", "old": "scale = 1", "new": "scale = 2"}]},
+ {"name": "wrong_reason", "file": "other.txt", "old": "scale = 1", "new": "scale = 3", "want": "TestSum"}
+]
+-- control.json --
+[
+ {"name": "sum_off", "file": "sum.txt", "old": "total = 3", "new": "total = 4", "want": "TestSum", "control": ["NOSUM=1"]},
+ {"name": "scale_too", "edits": [
+   {"file": "sum.txt", "old": "total = 3", "new": "total = 4"},
+   {"file": "other.txt", "old": "scale = 1", "new": "scale = 2"}], "control": ["NOSUM=1"]}
+]
+-- badcontrol.json --
+[{"name": "c", "file": "sum.txt", "old": "total = 3", "new": "total = 4", "control": ["NOSUM"]}]
+-- caught.json --
+[{"name": "add_wrong", "file": "sum.txt", "old": "total = 3", "new": "total = 4"}]
+-- slow.json --
+[{"name": "hang", "file": "sum.txt", "old": "total = 3", "new": "total = 9"}]
+-- ambiguous.json --
+[{"name": "amb", "file": "sum.txt", "old": " = ", "new": " := "}]
+-- missing.json --
+[{"name": "gone", "file": "sum.txt", "old": "nothing here", "new": "x"}]
+-- noop.json --
+[{"name": "chained", "edits": [
+   {"file": "sum.txt", "old": "total = 3", "new": "total = 5"},
+   {"file": "sum.txt", "old": "total = 5", "new": "total = 3"}]}]
+-- dup.json --
+[{"name": "a", "file": "sum.txt", "old": "a = 1", "new": "a = 2"},
+ {"name": "a", "file": "sum.txt", "old": "b = 2", "new": "b = 3"}]

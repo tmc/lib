@@ -1,0 +1,16 @@
+{
+  "source_sha256": "156a07fe11a28b742b891eee390c8ad51cd5c2c3f205c43082931db11cf7e708",
+  "kernels": {
+    "_Z11q_norm_ropeiPKtPKlPKfPh": {
+      "loads": {
+        "nc.u32": 1,
+        "nc.u64": 1,
+        "nc.v2.f32": 1
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    }
+  }
+}

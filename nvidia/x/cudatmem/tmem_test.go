@@ -92,6 +92,40 @@ func TestTMEMRejectSM121(t *testing.T) {
 		t.Fatalf("sm121: %v", err)
 	}
 }
+
+func TestTMEMGB300AndFamilyTargets(t *testing.T) {
+	for _, target := range []Target{SM100A, SM103A, SM107A, SM100F, SM103F, SM107F} {
+		parsed, err := ParseTarget(string(target))
+		if err != nil || parsed != target {
+			t.Fatalf("ParseTarget(%q) = %q, %v; want %q, nil", target, parsed, err, target)
+		}
+		a, err := New(target)
+		if err != nil {
+			t.Fatalf("New(%q): %v", target, err)
+		}
+		cap := a.Capability()
+		if cap.Target != target || cap.MaxColumns != 512 || cap.MaxRows != 128 || cap.ColumnUnit != 32 || cap.RowUnit != 1 {
+			t.Fatalf("Capability(%q) = %+v", target, cap)
+		}
+		p, err := a.AcquirePermit(32)
+		if err != nil {
+			t.Fatalf("AcquirePermit(%q): %v", target, err)
+		}
+		x, err := a.Allocate(p, 32, 128, 128)
+		if err != nil || x.Columns() != 128 || x.Offset() != 0 {
+			t.Fatalf("Allocate(%q) = %+v, %v", target, x, err)
+		}
+		if err := a.Release(p, x, 32); err != nil {
+			t.Fatalf("Release(%q): %v", target, err)
+		}
+		if err := a.Relinquish(p); err != nil {
+			t.Fatalf("Relinquish(%q): %v", target, err)
+		}
+		if err := a.Close(); err != nil {
+			t.Fatalf("Close(%q): %v", target, err)
+		}
+	}
+}
 func TestTMEMCollectiveParticipation(t *testing.T) {
 	a, _ := New(SM100A)
 	p, _ := a.AcquirePermit(32)
@@ -143,6 +177,77 @@ func TestTMEMUserIdentity(t *testing.T) {
 	}
 	_ = a.Release(p, x, 32)
 	_ = a.Relinquish(p)
+}
+
+func TestTMEMExclusive576Columns(t *testing.T) {
+	if _, err := NewExclusiveMap(SM90A, CTAGroup2); !errors.Is(err, ErrUnsupportedTarget) {
+		t.Fatalf("NewExclusiveMap(SM90A, CTAGroup2) = %v, want ErrUnsupportedTarget", err)
+	}
+	if _, err := NewExclusiveMap(SM107F, CTAGroup1); !errors.Is(err, ErrParticipation) {
+		t.Fatalf("NewExclusiveMap(SM107F, CTAGroup1) = %v, want ErrParticipation", err)
+	}
+
+	// 1. Allocate 512 standard columns + 64 exclusive tail columns on SM107F CTAGroup2.
+	m, err := NewExclusiveMap(SM107F, CTAGroup2)
+	if err != nil {
+		t.Fatalf("NewExclusiveMap(SM107F, CTAGroup2): %v", err)
+	}
+	if !m.Exclusive() || m.CTAGroup() != CTAGroup2 || m.Capability().MaxColumns != MaxColumnsExclusive {
+		t.Fatalf("unexpected exclusive map capability: exclusive=%v group=%d cap=%+v",
+			m.Exclusive(), m.CTAGroup(), m.Capability())
+	}
+	p, err := m.AcquirePermit(32)
+	if err != nil {
+		t.Fatalf("AcquirePermit: %v", err)
+	}
+	x512, err := m.Allocate(p, 32, 512, 128)
+	if err != nil || x512.Columns() != 512 || x512.Offset() != 0 {
+		t.Fatalf("Allocate(512) = %+v, %v", x512, err)
+	}
+	x64, err := m.Allocate(p, 32, 64, 128)
+	if err != nil || x64.Columns() != 64 || x64.Offset() != 512 {
+		t.Fatalf("Allocate(64) = %+v, %v", x64, err)
+	}
+	if _, err := m.Allocate(p, 32, 32, 128); !errors.Is(err, ErrInvalidUnit) {
+		t.Fatalf("expected exhaustion after 576 columns, got %v", err)
+	}
+	if err := m.Release(p, x64, 32); err != nil {
+		t.Fatalf("Release(64): %v", err)
+	}
+	if err := m.Release(p, x512, 32); err != nil {
+		t.Fatalf("Release(512): %v", err)
+	}
+	if err := m.Relinquish(p); err != nil {
+		t.Fatalf("Relinquish: %v", err)
+	}
+	if err := m.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// 2. Allocate all 576 columns in a single tcgen05.alloc.exclusive.cta_group::2 call across supported targets.
+	for _, target := range []Target{SM100A, SM103A, SM107A, SM107F} {
+		m2, err := NewExclusiveMap(target, CTAGroup2)
+		if err != nil {
+			t.Fatalf("NewExclusiveMap(%s, CTAGroup2): %v", target, err)
+		}
+		p2, err := m2.AcquirePermit(32)
+		if err != nil {
+			t.Fatalf("AcquirePermit(%s): %v", target, err)
+		}
+		x576, err := m2.Allocate(p2, 32, MaxColumnsExclusive, 128)
+		if err != nil || x576.Columns() != MaxColumnsExclusive || x576.Offset() != 0 {
+			t.Fatalf("Allocate(%s, 576) = %+v, %v", target, x576, err)
+		}
+		if err := m2.Release(p2, x576, 32); err != nil {
+			t.Fatalf("Release(%s, 576): %v", target, err)
+		}
+		if err := m2.Relinquish(p2); err != nil {
+			t.Fatalf("Relinquish(%s): %v", target, err)
+		}
+		if err := m2.Close(); err != nil {
+			t.Fatalf("Close(%s): %v", target, err)
+		}
+	}
 }
 
 func FuzzTMEMAllocationBounds(f *testing.F) {

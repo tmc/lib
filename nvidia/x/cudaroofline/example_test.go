@@ -66,3 +66,23 @@ func ExampleLookupCeiling() {
 	// device           239.6 GB/s (measured)
 	// host_page_table  162.4 GB/s (measured)
 }
+
+// ExampleLookupDeviceCeiling judges a kernel against the bandwidth measured on
+// the product it ran on, named as nvidia-smi reports it, rather than against
+// the architecture's datasheet row.
+func ExampleLookupDeviceCeiling() {
+	c, err := cudaroofline.LookupDeviceCeiling("NVIDIA H200", cudaroofline.DeviceResident)
+	if err != nil {
+		panic(err)
+	}
+	m := cudaroofline.NewModelWithCeiling(c)
+	// 8,617,984 bytes in 16,608 ns.
+	j := m.Judge(cudaroofline.Operation{Name: "attention", Bytes: 8617984, Precision: cudaroofline.BF16Tensor}, 16608)
+	fmt.Printf("%s %s: floor %.0f ns against %.0f GB/s (%s), %s\n", c.Device, c.Architecture, j.FloorNs, c.PeakMemoryGBps, c.MemoryProvenance, j.Verdict)
+
+	_, err = cudaroofline.LookupDeviceCeiling("NVIDIA H100 80GB HBM3", cudaroofline.DeviceResident)
+	fmt.Println(err != nil)
+	// Output:
+	// NVIDIA H200 sm_90: floor 3145 ns against 2740 GB/s (measured), accepted
+	// true
+}

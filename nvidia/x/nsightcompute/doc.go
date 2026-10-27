@@ -12,4 +12,10 @@
 // and a unique compatible capture backed by retained module bytes. It is
 // classified as external:ncu, never as a local CUPTI observation. Joins verify
 // producer records against retained bytes; they are not driver attestations.
+//
+// [ReadRaw] separately reads the per-launch table that ncu --csv --page raw
+// writes, from any Nsight Compute version: the ==PROF== preamble, the header,
+// the units row and one row per launch. It refuses an export carrying an
+// ==ERROR== line, so a run refused for counter permissions
+// (ERR_NVGPUCTRPERM) is never read as an empty one. It joins nothing.
 package nsightcompute

@@ -1,0 +1,49 @@
+# Consecutive judge samples pair into blocks; the judge's intercept is used.
+exec pairedtiming -format okc -bootstrap 0 profile.json
+stdout '^ *0 *decode 1 *46 *2 *4000 *2e\+04 *1e\+04 *2.0000 *2.0000 *$'
+stdout '^ *decode 1 .* 2.0000 *$'
+stdout '^score 2.0000'
+
+# -kernels sums the judge's kernel tables, weighted by case.
+exec pairedtiming -format okc -kernels -bootstrap 0 profile.json
+stdout '^decode 1 +17\.5 +63\.6% +2 +3 +attn\.\.\. \(merged rows\)$'
+stdout '^decode 1 +7\.5 +27\.3% +1 +1 +norm$'
+stdout '^2 kernel groups hidden'
+! stdout overlapped
+
+# -elasticity divides weighted kernel time by the judged load time:
+# attn (3·10 + 1·40) / (46·14) = 10.9%.
+exec pairedtiming -format okc -elasticity -bootstrap 0 profile.json
+stdout '^ratio-of-medians score 1.7143 over 1 loads; kernel tables cover 15.5% of judged time$'
+stdout '^10\.9% +3 +attn\.\.\. \(merged rows\)$'
+stdout '^4\.7% +1 +norm$'
+
+! exec pairedtiming -kernels profile.json
+stderr '-kernels and -elasticity need -format okc'
+
+# A report line the parser does not know is an error, not a dropped row.
+! exec pairedtiming -format okc -kernels -bootstrap 0 badreport.json
+stderr 'profile 0: line 2: unrecognized report line "idle 3 µs"'
+
+# Odd sample counts cannot form blocks.
+! exec pairedtiming -format okc odd.json
+stderr 'benchmark 0: 3 baseline and 3 candidate samples'
+
+-- profile.json --
+{"benchmarks": [{"case": {"load": "decode 1", "weight": 46},
+  "baseline_ns": 24000, "median_ns": 14000,
+  "baseline_runs_ns": [24000, 24000, 24000, 24000],
+  "runs_ns": [14000, 14000, 14000, 14000],
+  "replay_overhead": {"overhead_ns": 4000}}],
+ "profiles": [
+  {"case": {"load": "decode 1", "weight": 3}, "report": "attn... 10.0 µs 50.0% 1\nnorm 10.0 µs 50.0% 1\ntotal 20.0 µs\n"},
+  {"case": {"load": "decode 1", "weight": 1}, "report": "attn... 20.0 µs 40.0% 1\nattn... 20.0 µs 40.0% 1\n... 2 more\ntotal 50.0 µs\n"}]}
+-- badreport.json --
+{"benchmarks": [{"case": {"load": "d", "weight": 1},
+  "baseline_runs_ns": [2, 2], "runs_ns": [1, 1],
+  "replay_overhead": {"overhead_ns": 0}}],
+ "profiles": [{"case": {"load": "d", "weight": 1}, "report": "k 1 µs 100.0% 1\nidle 3 µs\ntotal 1 µs\n"}]}
+-- odd.json --
+{"benchmarks": [{"case": {"load": "d", "weight": 1},
+  "baseline_runs_ns": [1, 2, 3], "runs_ns": [1, 2, 3],
+  "replay_overhead": {"overhead_ns": 0}}]}
