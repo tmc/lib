@@ -51,8 +51,11 @@ var rayWorkloadMappings = map[string]workloadMapping{
 	"ray_actors":                {"actors_by_state", "actors", "gauge"},
 	"ray_node_gpus_available":   {"node_gpu_count", "devices", "gauge"},
 	"ray_node_gpus_utilization": {"node_gpu_utilization", "percent", "gauge"},
-	"ray_node_gram_used":        {"node_gpu_memory_used", "bytes", "gauge"},
-	"ray_node_gram_available":   {"node_gpu_memory_available", "bytes", "gauge"},
+	// Ray 2.44.0 reporter_agent.py floors NVML bytes to integer MiB
+	// (int(bytes) // MB, MB = 1024*1024) before recording both gauges,
+	// although their Gauge declarations say "bytes". Values stay in MiB.
+	"ray_node_gram_used":      {"node_gpu_memory_used", "MiB", "gauge"},
+	"ray_node_gram_available": {"node_gpu_memory_available", "MiB", "gauge"},
 }
 
 // ReadServingExposition reads pinned Triton 25.06, vLLM 0.8.5, Ray 2.44.0,

@@ -17,7 +17,7 @@ work from a metric's name.
 | --- | --- | --- | --- | --- |
 | Triton | `25.06` | `ReadServingExposition` | Requests, failed requests, uncached inference items, uncached batch executions, response-cache lookups, cumulative durations, pending requests, first-response histogram | Source-derived protocol controls pass; pinned server capture pending |
 | vLLM | `0.8.5` | `ReadServingExposition` | Legacy `engine/metrics.py` prefill/generation counters, finish-reason labels, scheduler gauges, KV-cache fractions and latency/token histograms | Source-derived protocol controls pass; pinned engine capture pending; V1-specific and later-version mappings pending |
-| Ray | `2.44.0` | `ReadServingExposition` | Logical resource assignment, tasks/actors by state and selected reporter node-GPU gauges | Source-derived protocol controls pass; pinned cluster capture pending |
+| Ray | `2.44.0` | `ReadServingExposition` | Logical resource assignment, tasks/actors by state and selected reporter node-GPU gauges; GPU memory in integer MiB | Source-derived protocol controls pass; pinned cluster capture pending |
 | SGLang | `0.5.21` | `ReadServingExposition` | Aggregate request/token counters, scheduler and KV-cache gauges, request/queue/token histograms, disaggregated queue and KV transfer, plus documented host-cache capacity/eviction families; source labels retained | Pinned source-derived constructed controls pass; authentic producer capture pending; no per-request identity or independent outcomes |
 | Dynamo | `1.5.1` | `ReadServingExposition` | Runtime worker and frontend request, cancellation/rejection, token, latency, routing/backpressure, KV-cache event, and per-worker aggregate families; runtime labels retained | Pinned source-derived constructed controls pass; authentic scrape and exact image/build identity pending; not an authenticated SGLang 0.5.21 image pairing |
 | MLflow | `2.22.0` | `ReadMLflowHistory` | Native metric-history response, user-defined scalar values, Unix milliseconds, explicit steps and pagination | Native offline file-store SDK/serializer capture and public reader-to-step-report replay pass; endpoint capture pending |
@@ -77,6 +77,19 @@ cache hits, successful requests, uncached inference items and uncached batch
 executions remain separate denominators. KV-cache fractions are not total device
 memory. Ray logical GPU assignment is not GPU activity. No goodput or
 tokens-per-joule policy is inferred by these readers.
+
+Ray 2.44.0 `ray_node_gram_used` and `ray_node_gram_available` have unit `MiB`.
+The pinned `reporter_agent.py` floors NVML byte counts to integer MiB
+(`int(bytes) // MB` with `MB = 1024 * 1024`) and records the used value and the
+difference of floored total and used unchanged. Its `Gauge` declarations say
+`bytes`, and the exported HELP text ("Total GPU RAM usage on a ray node") names
+no unit; the emitted values govern. Earlier readers labelled these same values
+`bytes`; that label was wrong. Values are not multiplied back into bytes: used
+memory was floored, and available memory, a difference of two floored values,
+can exceed the floored free memory by 1 MiB. Raw bytes, hashes, numeric
+spelling and the retained fixtures are unchanged, and a result typed by an
+earlier reader is corrected by rereading its `Raw`. This is a source-conformance
+correction; no Ray process was run and authentic capture remains pending.
 
 SGLang `num_requests_total` counts requests processed; it is not a successful
 request count. Its abort, retraction, retry, transfer-failure, queue, cache and
