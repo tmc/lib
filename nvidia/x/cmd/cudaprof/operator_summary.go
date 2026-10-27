@@ -16,6 +16,7 @@ import (
 )
 
 const operatorSummaryUsage = "usage: cudaprof operator-summary -run-id ID [-clock DOMAIN -clock-epoch ID] [-max-bytes N -max-records N -output-bytes N] context.json activities.jsonl"
+const operatorCPUSummaryUsage = "usage: cudaprof operator-summary -profile operator-cpu-context-v1 -run-id ID [-max-bytes N -max-records N -output-bytes N] context.json"
 
 func runOperatorSummaryCommand(args []string, out io.Writer) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -27,6 +28,7 @@ func runOperatorSummary(ctx context.Context, args []string, out io.Writer) error
 	fs := flag.NewFlagSet("operator-summary", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	run := fs.String("run-id", "", "independently supplied application run ID")
+	profile := fs.String("profile", "operator-context-v1", "operator-context-v1 or operator-cpu-context-v1")
 	clock := fs.String("clock", "", "declared producer clock; omitted means unknown")
 	epoch := fs.String("clock-epoch", "", "declared clock epoch; omitted means unknown")
 	maxBytes := fs.Int64("max-bytes", 4<<20, "maximum bytes per input (up to 64 MiB)")
@@ -34,12 +36,25 @@ func runOperatorSummary(ctx context.Context, args []string, out io.Writer) error
 	outputBytes := fs.Int64("output-bytes", 8<<20, "maximum JSON output bytes (up to 64 MiB)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			_, err = fmt.Fprintln(out, operatorSummaryUsage)
+			usage := operatorSummaryUsage
+			if *profile == "operator-cpu-context-v1" {
+				usage = operatorCPUSummaryUsage
+			}
+			_, err = fmt.Fprintln(out, usage)
 			return err
 		}
 		return err
 	}
-	if ctx == nil || out == nil || *run == "" || fs.NArg() != 2 || *maxBytes <= 0 || *maxBytes > 64<<20 || *maxRecords <= 0 || *maxRecords > 65536 || *outputBytes <= 0 || *outputBytes > 64<<20 {
+	inputs := 2
+	if *profile == "operator-cpu-context-v1" {
+		inputs = 1
+	} else if *profile != "operator-context-v1" {
+		return errors.New("unsupported operator summary profile")
+	}
+	if ctx == nil || out == nil || *run == "" || fs.NArg() != inputs || *maxBytes <= 0 || *maxBytes > 64<<20 || *maxRecords <= 0 || *maxRecords > 65536 || *outputBytes <= 0 || *outputBytes > 64<<20 {
+		if *profile == "operator-cpu-context-v1" {
+			return errors.New(operatorCPUSummaryUsage)
+		}
 		return errors.New(operatorSummaryUsage)
 	}
 	if err := ctx.Err(); err != nil {
@@ -50,6 +65,14 @@ func runOperatorSummary(ctx context.Context, args []string, out io.Writer) error
 		return err
 	}
 	defer metadata.Close()
+	if *profile == "operator-cpu-context-v1" {
+		source := nvtelemetry.WorkloadSource{Provider: "application", Version: *profile, RunID: *run, ClockDomain: *clock, ClockEpochID: *epoch}
+		result, err := cudadiag.AnalyzeOperatorCPUJSON(ctx, metadata, source, nvtelemetry.WorkloadLimits{MaxBytes: *maxBytes, MaxMetrics: *maxRecords})
+		if err != nil {
+			return err
+		}
+		return writeOperatorSummary(ctx, out, result, *outputBytes)
+	}
 	activity, err := openOperatorInput(fs.Arg(1), *maxBytes)
 	if err != nil {
 		return err
@@ -67,11 +90,15 @@ func runOperatorSummary(ctx context.Context, args []string, out io.Writer) error
 	if err != nil {
 		return err
 	}
+	return writeOperatorSummary(ctx, out, result, *outputBytes)
+}
+
+func writeOperatorSummary(ctx context.Context, out io.Writer, result any, outputBytes int64) error {
 	data, err := json.Marshal(result)
 	if err != nil {
 		return err
 	}
-	if int64(len(data))+1 > *outputBytes {
+	if int64(len(data))+1 > outputBytes {
 		return errors.New("operator summary output byte limit exceeded")
 	}
 	if err := ctx.Err(); err != nil {
