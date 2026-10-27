@@ -12,6 +12,7 @@ import (
 type healthNVMLDevice interface {
 	UUID() (string, error)
 	TotalEccErrors(nvml.MemoryErrorType, nvml.EccCounterType) (uint64, error)
+	RetiredPagesV1(nvml.PageRetirementCause, *uint32, *uint64) error
 	RemappedRowsV1() (uint32, uint32, uint32, uint32, error)
 	Temperature(nvml.TemperatureSensors) (uint32, error)
 	PowerUsage() (uint32, error)
@@ -140,6 +141,12 @@ func (r *NVMLHealthReader) Read(ctx context.Context) (*HealthSnapshot, error) {
 		{"ecc_uncorrected_errors", "count", func() (uint64, error) {
 			return r.device.TotalEccErrors(nvml.MemoryErrorTypeUncorrected, nvml.VolatileEcc)
 		}},
+		{"retired_pages_multiple_single_bit_ecc", "count", func() (uint64, error) {
+			return retiredPageCount(r.device, nvml.PageRetirementCauseMultipleSingleBitEccErrors)
+		}},
+		{"retired_pages_double_bit_ecc", "count", func() (uint64, error) {
+			return retiredPageCount(r.device, nvml.PageRetirementCauseDoubleBitEccError)
+		}},
 		{MetricTemperatureC, UnitCelsius, func() (uint64, error) { v, e := r.device.Temperature(nvml.TemperatureGpu); return uint64(v), e }},
 		{MetricPowerUsageMW, UnitMilliwatts, func() (uint64, error) { v, e := r.device.PowerUsage(); return uint64(v), e }},
 		{MetricClocksEventReasons, UnitBitmask, r.device.CurrentClocksEventReasons},
@@ -234,6 +241,26 @@ func (r *NVMLHealthReader) Read(ctx context.Context) (*HealthSnapshot, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// retiredPageCount queries the current inventory, including pending retirement.
+// It is not a monotonic event counter or a remapped-row count. A zero capacity
+// requests only the count. Keep the ignored address nonnil because NVML lists a
+// nil address as invalid; never read it or allocate an address list.
+func retiredPageCount(device healthNVMLDevice, cause nvml.PageRetirementCause) (uint64, error) {
+	var count uint32
+	var ignored uint64
+	err := device.RetiredPagesV1(cause, &count, &ignored)
+	if errors.Is(err, nvml.ErrInsufficientSize) {
+		if count == 0 {
+			return 0, fmt.Errorf("retired page count: insufficient size with zero count: %w", err)
+		}
+		return uint64(count), nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return uint64(count), nil
 }
 
 func clockMetadata(clock Clock) (string, string) {

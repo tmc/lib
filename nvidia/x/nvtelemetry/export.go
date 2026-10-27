@@ -326,7 +326,8 @@ func otlpDeviceMetricName(name string) (string, bool) {
 		MetricPCIERxBytes, MetricPCIETxBytes,
 		"nvlink_dl_replay_errors", "nvlink_dl_recovery_errors",
 		"nvlink_dl_crc_flit_errors", "nvlink_dl_crc_data_errors", "nvlink_dl_ecc_data_errors",
-		"ecc_corrected_errors", "ecc_uncorrected_errors":
+		"ecc_corrected_errors", "ecc_uncorrected_errors",
+		"retired_pages_multiple_single_bit_ecc", "retired_pages_double_bit_ecc":
 		return "gpu." + name, true
 	}
 	return "", false

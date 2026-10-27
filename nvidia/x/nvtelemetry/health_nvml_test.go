@@ -26,6 +26,10 @@ func (d *operationNVMLDevice) TotalEccErrors(_ nvml.MemoryErrorType, c nvml.EccC
 func (d *operationNVMLDevice) RemappedRowsV1() (uint32, uint32, uint32, uint32, error) {
 	return 2, 3, 1, 0, d.err
 }
+func (d *operationNVMLDevice) RetiredPagesV1(_ nvml.PageRetirementCause, count *uint32, _ *uint64) error {
+	*count = 0
+	return d.err
+}
 func (d *operationNVMLDevice) Temperature(nvml.TemperatureSensors) (uint32, error) { return 31, d.err }
 func (d *operationNVMLDevice) PowerUsage() (uint32, error) {
 	if d.changeDuringQuery {
@@ -52,7 +56,7 @@ func TestNVMLHealthPublicReadAndBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(s.Observations) != 13 || len(d.linkCalls) != 2 || len(d.scopes) != 2 || d.scopes[0] != nvml.VolatileEcc {
+	if len(s.Observations) != 15 || len(d.linkCalls) != 2 || len(d.scopes) != 2 || d.scopes[0] != nvml.VolatileEcc {
 		t.Fatal("scope or selected link contract failed")
 	}
 	if s.Observations[0].Reading.IntValue != d.ecc || s.Observations[0].Reading.HasSourceTimestamp || s.Observations[0].Scope != MIGScopeUnknown {
