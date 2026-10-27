@@ -39,7 +39,7 @@ const egraphPageSize = 16
 // ops returns the ops the generator emits and the ops llama-infer's kernels
 // still run.
 func (p *egraphPlans) ops() (generated, fallback []string) {
-	generated = []string{"rmsnorm", "qkv_proj(+bias)", "o_proj+residual", "rmsnorm", "gate_up_proj", "swiglu", "down_proj", "residual", "final_rmsnorm", "lm_head"}
+	generated = []string{"rmsnorm", "qkv_proj(+bias)", "o_proj+residual", "rmsnorm", "gate_up_proj", "swiglu", "down_proj+residual", "final_rmsnorm", "lm_head"}
 	if p.attn {
 		generated = append(generated, "rope+kv_store(direct)", "q_cast", "attention(direct)")
 		return generated, []string{"embedding", "argmax"}
