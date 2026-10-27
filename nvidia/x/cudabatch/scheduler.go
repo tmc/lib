@@ -33,7 +33,9 @@ const (
 	PolicyFCFS FairnessPolicy = iota
 	// PolicyFairShare balances tokens served across active requests, preventing starvation of long prefills.
 	PolicyFairShare
-	// PolicyPriorityDecode prioritizes decode latency while guaranteeing non-zero prefill progress.
+	// PolicyPriorityDecode prioritizes decode latency while reserving one token
+	// and one row for admitted prefill work. Waiting prefill still needs KV
+	// capacity and bounded admission space before it can make progress.
 	PolicyPriorityDecode
 )
 
@@ -219,10 +221,19 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 	}
 
 	// 3. Check waiting queue for admission
-	// Under PolicyFairShare, guarantee at least 1 row slot for prefill admission if waiting queue is non-empty
+	// FairShare admits one extra prefill at a full batch. PriorityDecode does
+	// so only when no prefill is already active. Both paths remain bounded by
+	// MaxBatchSize+1 admitted requests; admission still checks KV availability.
 	admissionSlots := maxRows - len(activeDecodes) - len(activePrefills)
-	if admissionSlots == 0 && s.cfg.FairnessPolicy == PolicyFairShare && len(s.waitingQueue) > 0 {
-		admissionSlots = 1
+	if admissionSlots == 0 && len(s.waitingQueue) > 0 {
+		switch s.cfg.FairnessPolicy {
+		case PolicyFairShare:
+			admissionSlots = 1
+		case PolicyPriorityDecode:
+			if len(activePrefills) == 0 {
+				admissionSlots = 1
+			}
+		}
 	}
 	s.admitWaitingLocked(admissionSlots)
 
@@ -239,20 +250,26 @@ func (s *BatchScheduler) Schedule() (*ScheduledIteration, error) {
 	s.applyFairnessOrdering(activePrefills)
 
 	// Step A: Decode requests (1 token per decode request)
-	// Under PolicyFairShare, reserve at least ChunkSize tokens for prefill progress if prefill requests exist
+	// FairShare reserves its capped chunk budget; PriorityDecode reserves one
+	// token so remaining tokens stay available to decodes.
 	reservedForPrefill := 0
-	if s.cfg.FairnessPolicy == PolicyFairShare && len(activePrefills) > 0 {
-		reservedForPrefill = s.cfg.ChunkSize
-		if reservedForPrefill > tokenBudget/2 {
-			reservedForPrefill = tokenBudget / 2
-		}
-		if reservedForPrefill <= 0 && tokenBudget > 0 {
+	if len(activePrefills) > 0 {
+		switch s.cfg.FairnessPolicy {
+		case PolicyFairShare:
+			reservedForPrefill = s.cfg.ChunkSize
+			if reservedForPrefill > tokenBudget/2 {
+				reservedForPrefill = tokenBudget / 2
+			}
+			if reservedForPrefill <= 0 && tokenBudget > 0 {
+				reservedForPrefill = 1
+			}
+		case PolicyPriorityDecode:
 			reservedForPrefill = 1
 		}
 	}
 
 	maxDecodeRows := maxRows
-	if reservedForPrefill > 0 && len(activePrefills) > 0 && maxDecodeRows > 1 {
+	if reservedForPrefill > 0 && len(activePrefills) > 0 && (maxDecodeRows > 1 || s.cfg.FairnessPolicy == PolicyPriorityDecode) {
 		maxDecodeRows--
 	}
 
