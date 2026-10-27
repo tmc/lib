@@ -57,7 +57,11 @@ func compiledBoundedRead(t *testing.T, path string, limit int64) []byte {
 
 func runCompiledMLP(t *testing.T, cap uint64) (*CompiledResources, LoadedResources, []float32) {
 	t.Helper()
-	if os.Getenv("GPU_LOCK_HELD") == "" {
+	enabled, err := compiledResourceAdmission(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !enabled {
 		t.Skip("SKIPPED, NOT VERIFIED: compiled resource native tests require gpu-lock")
 	}
 	dir := os.Getenv("COMPILED_RESOURCE_PACKET_DIR")
