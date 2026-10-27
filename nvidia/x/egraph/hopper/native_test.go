@@ -68,7 +68,7 @@ func checkHopperNativeGate(getenv func(string) string) error {
 // TestHopperNativeClosedGateControl verifies that when CUDA_EGRAPH_HOPPER_NATIVE
 // is not "1", the native qualification gate reports cudaerrors.ErrHardwarePending,
 // refuses a presence-only GPU_LOCK_HELD=1, accepts a genuine inherited lock,
-// and emits a self-contained native harness for all four Hopper kernels.
+// and emits a self-contained native harness for all seven Hopper/Blackwell kernels.
 func TestHopperNativeClosedGateControl(t *testing.T) {
 	if os.Getenv(hopperNativeEnv) == "1" {
 		t.Skip("closed-gate control applies when CUDA_EGRAPH_HOPPER_NATIVE != 1")
@@ -125,6 +125,9 @@ func TestHopperNativeClosedGateControl(t *testing.T) {
 		"mtp_paged_attn_native",
 		"mla_paged_attn_native",
 		"specdecode_ctrl_native",
+		"rmsnorm_dyn_nvfp4_native",
+		"swiglu_dyn_nvfp4_native",
+		"sm120_paged_attn_native",
 		"mutant_rejected",
 	} {
 		if !strings.Contains(src, want) {
@@ -135,7 +138,8 @@ func TestHopperNativeClosedGateControl(t *testing.T) {
 
 // TestHopperNativeQualification compiles and runs the native device
 // qualification suite for QKNormRoPEKVAppend, MTPPagedAttention,
-// MLAPagedAttention, and SpeculativeDecodeController, plus a device mutant
+// MLAPagedAttention, SpeculativeDecodeController, RMSNormDynamicNVFP4Quant,
+// SwiGLUDynamicNVFP4Quant, and SM120PagedAttention, plus a device mutant
 // control that perturbs the attention input and verifies the check rejects it.
 func TestHopperNativeQualification(t *testing.T) {
 	if os.Getenv(hopperNativeEnv) != "1" {
@@ -368,6 +372,109 @@ func buildHopperNativeHarness(t *testing.T) string {
 		t.Fatalf("spec.Reference: %v", err)
 	}
 
+	// 5. RMSNormDynamicNVFP4Quant fixture (M=1, Cols=64, Eps=1e-5, In=F32, Residual=true, ScaleLayoutTCGen05Swizzled).
+	rmsQuant := RMSNormDynamicNVFP4Quant{
+		Name:        "rmsnorm_dyn_nvfp4_native",
+		Cols:        64,
+		Eps:         1e-5,
+		In:          F32,
+		Residual:    true,
+		ScaleLayout: ScaleLayoutTCGen05Swizzled,
+	}
+	rmsCUDA, err := rmsQuant.CUDA()
+	if err != nil {
+		t.Fatalf("rmsQuant.CUDA: %v", err)
+	}
+	rmsLaunch, err := rmsQuant.Launcher()
+	if err != nil {
+		t.Fatalf("rmsQuant.Launcher: %v", err)
+	}
+	rmsX := make([]float32, 64)
+	rmsRes := make([]float32, 64)
+	rmsW := make([]float32, 64)
+	for i := range 64 {
+		rmsX[i] = float32(math.Sin(float64(i)*0.17+0.3)) * 2.5
+		rmsRes[i] = float32(math.Cos(float64(i)*0.11-0.2)) * 1.4
+		rmsW[i] = 0.5 + 0.75*float32(math.Cos(float64(i)*0.09))
+	}
+	_, rmsWantFP4, rmsWantScales, _, err := rmsQuant.Reference(rmsX, rmsRes, rmsW, 1)
+	if err != nil {
+		t.Fatalf("rmsQuant.Reference: %v", err)
+	}
+
+	// 6. SwiGLUDynamicNVFP4Quant fixture (M=1, Cols=64, In=F32, ScaleLayoutRowMajor).
+	swigluQuant := SwiGLUDynamicNVFP4Quant{
+		Name:        "swiglu_dyn_nvfp4_native",
+		Cols:        64,
+		In:          F32,
+		ScaleLayout: ScaleLayoutRowMajor,
+	}
+	swigluCUDA, err := swigluQuant.CUDA()
+	if err != nil {
+		t.Fatalf("swigluQuant.CUDA: %v", err)
+	}
+	swigluLaunch, err := swigluQuant.Launcher()
+	if err != nil {
+		t.Fatalf("swigluQuant.Launcher: %v", err)
+	}
+	swigluGate := make([]float32, 64)
+	swigluUp := make([]float32, 64)
+	for i := range 64 {
+		swigluGate[i] = float32(math.Sin(float64(i)*0.23+0.1)) * 2.2
+		swigluUp[i] = float32(math.Cos(float64(i)*0.19-0.4)) * 1.8
+	}
+	swigluWantFP4, swigluWantScales, _, err := swigluQuant.Reference(swigluGate, swigluUp, 1)
+	if err != nil {
+		t.Fatalf("swigluQuant.Reference: %v", err)
+	}
+
+	// 7. SM120PagedAttention fixture (batch=1, NumQHeads=4, NumKVHeads=2, HeadDim=16, PageSize=4, MaxPages=2, SeqLen=6, Target="sm_121a", KVFormat=WeightNVFP4).
+	sm120Attn := SM120PagedAttention{
+		Name:       "sm120_paged_attn_native",
+		NumQHeads:  4,
+		NumKVHeads: 2,
+		HeadDim:    16,
+		PageSize:   4,
+		MaxPages:   2,
+		SeqLen:     6,
+		Target:     "sm_121a",
+		KVFormat:   WeightNVFP4,
+	}
+	sm120CUDA, err := sm120Attn.CUDA()
+	if err != nil {
+		t.Fatalf("sm120Attn.CUDA: %v", err)
+	}
+	sm120Launch, err := sm120Attn.Launcher()
+	if err != nil {
+		t.Fatalf("sm120Attn.Launcher: %v", err)
+	}
+	sm120Q := make([]float32, 4*16)
+	for i := range sm120Q {
+		sm120Q[i] = float32(0.15 * float64((i%7)-3))
+	}
+	// 2 pages * 4 tokens/page * 2 KV heads = 16 rows; HeadDim=16 -> 8 packed bytes/row, 1 scale byte/row.
+	sm120KPages := make([]uint8, 16*8)
+	sm120VPages := make([]uint8, 16*8)
+	for i := range sm120KPages {
+		c0 := uint8((i + 1) % 7)
+		c1 := uint8(((i + 3) % 7) | 8)
+		sm120KPages[i] = (c0 & 0xf) | ((c1 & 0xf) << 4)
+		v0 := uint8((i + 2) % 6)
+		v1 := uint8((i + 4) % 6)
+		sm120VPages[i] = (v0 & 0xf) | ((v1 & 0xf) << 4)
+	}
+	sm120KScales := make([]uint8, 16)
+	sm120VScales := make([]uint8, 16)
+	for i := range 16 {
+		sm120KScales[i] = E4M3Bits(0.25)
+		sm120VScales[i] = E4M3Bits(0.5)
+	}
+	sm120PageTable := []int32{1, 0}
+	sm120Ref, err := sm120Attn.Reference(sm120Q, sm120KPages, sm120VPages, sm120KScales, sm120VScales, sm120PageTable, 6)
+	if err != nil {
+		t.Fatalf("sm120Attn.Reference: %v", err)
+	}
+
 	var b strings.Builder
 	b.WriteString("#include <cuda_runtime.h>\n#include <cstdio>\n#include <cmath>\n#include <cstdint>\n#include <cstring>\n#include <vector>\n")
 	b.WriteString("#define EG_NATIVE_COND_SLOT 1\n")
@@ -377,6 +484,9 @@ func buildHopperNativeHarness(t *testing.T) string {
 	b.WriteString(mtpCUDA + "\n" + mtpLaunch + "\n")
 	b.WriteString(mlaCUDA + "\n" + mlaLaunch + "\n")
 	b.WriteString(specCUDA + "\n" + specLaunch + "\n")
+	b.WriteString(rmsCUDA + "\n" + rmsLaunch + "\n")
+	b.WriteString(swigluCUDA + "\n" + swigluLaunch + "\n")
+	b.WriteString(sm120CUDA + "\n" + sm120Launch + "\n")
 
 	fmt.Fprintf(&b, `
 static float host_bf16_to_f32(uint16_t b) {
@@ -390,6 +500,21 @@ static bool check_close(const char* label, const uint16_t* got_bf16, const float
     float max_diff = 0.0f;
     for (int i = 0; i < n; ++i) {
         float g = host_bf16_to_f32(got_bf16[i]);
+        float d = std::fabs(g - want[i]);
+        if (std::isnan(g) || d > max_diff) max_diff = d;
+        if (std::isnan(g) || d > tol) {
+            std::printf("FAIL %%s idx=%%d got=%%f want=%%f diff=%%f\n", label, i, g, want[i], d);
+            return false;
+        }
+    }
+    std::printf("PASS %%s n=%%d max_abs_diff=%%.6f\n", label, n, max_diff);
+    return true;
+}
+
+static bool check_close_f32(const char* label, const float* got, const float* want, int n, float tol) {
+    float max_diff = 0.0f;
+    for (int i = 0; i < n; ++i) {
+        float g = got[i];
         float d = std::fabs(g - want[i]);
         if (std::isnan(g) || d > max_diff) max_diff = d;
         if (std::isnan(g) || d > tol) {
@@ -419,7 +544,7 @@ int main() {
     cudaRuntimeGetVersion(&runtime_ver);
     cudaDriverGetVersion(&driver_ver);
     std::printf("device=%%s sm=%%d.%%d driver=%%d runtime=%%d\n",
-                prop.name, prop.major, prop.minor, driver_ver, runtime_ver);
+                prop.name, prop.minor >= 0 ? prop.major : 0, prop.minor, driver_ver, runtime_ver);
 
     // 1. QKNormRoPEKVAppend check
     const uint16_t h_qkv[] = {%s};
@@ -548,6 +673,84 @@ int main() {
         }
     }
     std::printf("PASS SpeculativeDecodeController seq=%%d accepted=%%d cond=%%u\n", h_cur_seq, h_acc_step[0], h_cond_slot);
+
+    // 5. RMSNormDynamicNVFP4Quant check (0 byte differences against Reference)
+    const float h_rms_x[] = {%s};
+    const float h_rms_res[] = {%s};
+    const float h_rms_w[] = {%s};
+    const uint8_t want_rms_fp4[] = {%s};
+    const uint8_t want_rms_scales[] = {%s};
+
+    auto* d_rms_x = dev_dup(h_rms_x, 64);
+    auto* d_rms_res = dev_dup(h_rms_res, 64);
+    auto* d_rms_w = dev_dup(h_rms_w, 64);
+    float* d_rms_hout = nullptr;
+    uint8_t *d_rms_fp4 = nullptr, *d_rms_scales = nullptr;
+    if (!d_rms_x || !d_rms_res || !d_rms_w ||
+        cudaMalloc(&d_rms_hout, 64 * sizeof(float)) != cudaSuccess ||
+        cudaMalloc(&d_rms_fp4, 32) != cudaSuccess ||
+        cudaMalloc(&d_rms_scales, 4) != cudaSuccess) return 2;
+
+    rmsnorm_dyn_nvfp4_native_launch(1, d_rms_x, d_rms_res, d_rms_w, d_rms_hout, d_rms_fp4, d_rms_scales, 0);
+    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    uint8_t h_rms_fp4[32] = {}, h_rms_scales[4] = {};
+    if (cudaMemcpy(h_rms_fp4, d_rms_fp4, 32, cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(h_rms_scales, d_rms_scales, 4, cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::memcmp(h_rms_fp4, want_rms_fp4, 32) != 0 || std::memcmp(h_rms_scales, want_rms_scales, 4) != 0) {
+        std::printf("FAIL RMSNormDynamicNVFP4Quant byte mismatch\n");
+        return 9;
+    }
+    std::printf("PASS RMSNormDynamicNVFP4Quant fp4_bytes=32 scale_bytes=4 byte_diffs=0\n");
+
+    // 6. SwiGLUDynamicNVFP4Quant check (0 byte differences against Reference)
+    const float h_swiglu_gate[] = {%s};
+    const float h_swiglu_up[] = {%s};
+    const uint8_t want_swiglu_fp4[] = {%s};
+    const uint8_t want_swiglu_scales[] = {%s};
+
+    auto* d_swiglu_gate = dev_dup(h_swiglu_gate, 64);
+    auto* d_swiglu_up = dev_dup(h_swiglu_up, 64);
+    uint8_t *d_swiglu_fp4 = nullptr, *d_swiglu_scales = nullptr;
+    if (!d_swiglu_gate || !d_swiglu_up ||
+        cudaMalloc(&d_swiglu_fp4, 32) != cudaSuccess ||
+        cudaMalloc(&d_swiglu_scales, 4) != cudaSuccess) return 2;
+
+    swiglu_dyn_nvfp4_native_launch(1, d_swiglu_gate, d_swiglu_up, d_swiglu_fp4, d_swiglu_scales, 0);
+    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    uint8_t h_swiglu_fp4[32] = {}, h_swiglu_scales[4] = {};
+    if (cudaMemcpy(h_swiglu_fp4, d_swiglu_fp4, 32, cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(h_swiglu_scales, d_swiglu_scales, 4, cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::memcmp(h_swiglu_fp4, want_swiglu_fp4, 32) != 0 || std::memcmp(h_swiglu_scales, want_swiglu_scales, 4) != 0) {
+        std::printf("FAIL SwiGLUDynamicNVFP4Quant byte mismatch\n");
+        return 10;
+    }
+    std::printf("PASS SwiGLUDynamicNVFP4Quant fp4_bytes=32 scale_bytes=4 byte_diffs=0\n");
+
+    // 7. SM120PagedAttention check (max_abs_diff < 1e-3f against Reference)
+    const float h_sm120_q[] = {%s};
+    const uint8_t h_sm120_kp[] = {%s};
+    const uint8_t h_sm120_vp[] = {%s};
+    const uint8_t h_sm120_ks[] = {%s};
+    const uint8_t h_sm120_vs[] = {%s};
+    const int32_t h_sm120_pt[] = {1, 0};
+    const float want_sm120_attn[] = {%s};
+
+    auto* d_sm120_q = dev_dup(h_sm120_q, 64);
+    auto* d_sm120_kp = dev_dup(h_sm120_kp, 128);
+    auto* d_sm120_vp = dev_dup(h_sm120_vp, 128);
+    auto* d_sm120_ks = dev_dup(h_sm120_ks, 16);
+    auto* d_sm120_vs = dev_dup(h_sm120_vs, 16);
+    auto* d_sm120_pt = dev_dup(h_sm120_pt, 2);
+    float* d_sm120_out = nullptr;
+    if (!d_sm120_q || !d_sm120_kp || !d_sm120_vp || !d_sm120_ks || !d_sm120_vs || !d_sm120_pt ||
+        cudaMalloc(&d_sm120_out, 64 * sizeof(float)) != cudaSuccess) return 2;
+
+    sm120_paged_attn_native_launch(1, d_sm120_q, d_sm120_kp, d_sm120_vp, d_sm120_ks, d_sm120_vs, d_sm120_pt, d_sm120_out, 6, 0);
+    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    float h_sm120_out[64] = {};
+    if (cudaMemcpy(h_sm120_out, d_sm120_out, sizeof(h_sm120_out), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (!check_close_f32("SM120PagedAttention", h_sm120_out, want_sm120_attn, 64, 1e-3f)) return 11;
+
     std::printf("HOPPER_NATIVE_OK mutant_rejected=1\n");
     return 0;
 }
@@ -570,8 +773,31 @@ int main() {
 		specRef.FinalSeqLen,
 		specRef.AcceptedPerStep[0],
 		len(specRef.OutputTokens),
+		formatF32List(rmsX),
+		formatF32List(rmsRes),
+		formatF32List(rmsW),
+		formatU8List(rmsWantFP4),
+		formatU8List(rmsWantScales),
+		formatF32List(swigluGate),
+		formatF32List(swigluUp),
+		formatU8List(swigluWantFP4),
+		formatU8List(swigluWantScales),
+		formatF32List(sm120Q),
+		formatU8List(sm120KPages),
+		formatU8List(sm120VPages),
+		formatU8List(sm120KScales),
+		formatU8List(sm120VScales),
+		formatF32List(sm120Ref),
 	)
 	return b.String()
+}
+
+func formatU8List(v []uint8) string {
+	parts := make([]string, len(v))
+	for i, x := range v {
+		parts[i] = fmt.Sprintf("0x%02xu", x)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func formatU16List(v []uint16) string {
