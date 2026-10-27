@@ -3,6 +3,7 @@ package cudair
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -430,7 +431,10 @@ func emitBackwardTreeRecursive(node BackwardEmitter, name string, usedNames map[
 			preambles = append(preambles, sub.Source)
 			symbols = append(symbols, sub.Symbols...)
 			childSymbols = append(childSymbols, ChildSymbol{Name: sub.Symbols[len(sub.Symbols)-1], FwdCtxOffset: ctxBytes})
-			ctxBytes += sub.FwdCtxBytes
+			ctxBytes, err = addFwdCtxBytes(node, ctxBytes, sub.FwdCtxBytes)
+			if err != nil {
+				return Unit{}, err
+			}
 			if sub.ShmemBytes > shmemBytes {
 				shmemBytes = sub.ShmemBytes
 			}
@@ -449,7 +453,10 @@ func emitBackwardTreeRecursive(node BackwardEmitter, name string, usedNames map[
 	if err != nil {
 		return Unit{}, err
 	}
-	ctxBytes += declared
+	ctxBytes, err = addFwdCtxBytes(node, ctxBytes, declared)
+	if err != nil {
+		return Unit{}, err
+	}
 	for i := range childSymbols {
 		childSymbols[i].ParentFwdCtxBytes = declared
 		childSymbols[i].ParentFwdCtxAligned = node.FwdCtxAlignedPerElement()
@@ -514,7 +521,10 @@ func emitTreeRecursive(node Emitter, name string, usedNames map[string]bool) (Un
 			symbols = append(symbols, subUnit.Symbols...)
 			childSymbol := subUnit.Symbols[len(subUnit.Symbols)-1]
 			childSymbols = append(childSymbols, ChildSymbol{Name: childSymbol, FwdCtxOffset: totalFwdCtx})
-			totalFwdCtx += subUnit.FwdCtxBytes
+			totalFwdCtx, err = addFwdCtxBytes(node, totalFwdCtx, subUnit.FwdCtxBytes)
+			if err != nil {
+				return Unit{}, err
+			}
 			if subUnit.ShmemBytes > maxShmem {
 				maxShmem = subUnit.ShmemBytes
 			}
@@ -538,7 +548,10 @@ func emitTreeRecursive(node Emitter, name string, usedNames map[string]bool) (Un
 	if err != nil {
 		return Unit{}, fmt.Errorf("cudair: %s fwd ctx bytes: %w", NodeName(node), err)
 	}
-	totalFwdCtx += nodeFwdCtx
+	totalFwdCtx, err = addFwdCtxBytes(node, totalFwdCtx, nodeFwdCtx)
+	if err != nil {
+		return Unit{}, err
+	}
 	for i := range childSymbols {
 		childSymbols[i].ParentFwdCtxBytes = nodeFwdCtx
 		childSymbols[i].ParentFwdCtxAligned = node.FwdCtxAlignedPerElement()
@@ -583,4 +596,16 @@ func emitTreeRecursive(node Emitter, name string, usedNames map[string]bool) (Un
 		FwdCtxBytes: totalFwdCtx,
 		ShmemBytes:  maxShmem,
 	}, nil
+}
+
+// addFwdCtxBytes checks that a tree's context regions fit in Unit.FwdCtxBytes.
+// Nonnegative regions also ensure every parent-plus-child offset fits the total.
+func addFwdCtxBytes(node Emitter, total, size int) (int, error) {
+	if size < 0 {
+		return 0, fmt.Errorf("cudair: node %s declares negative fwd ctx bytes %d", NodeName(node), size)
+	}
+	if total > math.MaxInt-size {
+		return 0, fmt.Errorf("%w: node %s fwd ctx byte total overflows int", ErrContextBoundsExceeded, NodeName(node))
+	}
+	return total + size, nil
 }
