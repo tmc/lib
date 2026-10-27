@@ -648,14 +648,28 @@ func (g SM120BlockScaledGEMM) Reference(aPacked, aScales, bPacked, bScales []uin
 // cache table with either BF16 or block-scaled NVFP4 (with per-16-element UE4M3
 // scales) KV storage.
 type SM120PagedAttention struct {
-	Name                   string
-	NumQHeads, NumKVHeads  int
-	HeadDim                int
-	PageSize, MaxPages     int
-	SeqLen                 int
-	Scale                  float32
-	Target                 string       // "sm_120a" or "sm_121a" (defaults to "sm_121a")
-	KVFormat               WeightFormat // WeightBF16 or WeightNVFP4
+	Name                  string
+	NumQHeads, NumKVHeads int
+	HeadDim               int
+	PageSize, MaxPages    int
+	SeqLen                int
+	Scale                 float32
+	Target                string       // "sm_120a" or "sm_121a" (defaults to "sm_121a")
+	KVFormat              WeightFormat // WeightBF16 or WeightNVFP4
+
+	// Splits, when > 0, divides each sequence's keys among Splits CTAs per
+	// KV head (split-KV, as in flash-decoding), so the grid is (batch,
+	// NumKVHeads, Splits). With seq_len keys, each split takes
+	// max(MinSplitKeys, ⌈seq_len/Splits⌉ rounded up to 16) keys, so a short
+	// sequence uses fewer splits and the rest write empty partials. The
+	// kernel writes each split's unnormalized output, running maximum and
+	// sum to ws ([SM120PagedAttention.WorkspaceFloats]) in place of out, and
+	// the Name_combine kernel ([SM120PagedAttention.CombineGrid]) rescales
+	// the partials to their common maximum and writes out. Splits reads the
+	// cache in 16-byte vectors and resolves each key's page once per tile;
+	// it needs WeightBF16.
+	Splits       int
+	MinSplitKeys int // at least this many keys per split: a multiple of 16; 0 means 64
 }
 
 func (a SM120PagedAttention) norm() (SM120PagedAttention, error) {
@@ -707,7 +721,38 @@ func (a SM120PagedAttention) norm() (SM120PagedAttention, error) {
 	if a.PageSize < 1 || a.MaxPages < 1 || a.SeqLen < 1 {
 		return a, fmt.Errorf("sm120 paged attention %s: PageSize=%d MaxPages=%d SeqLen=%d must be positive", a.Name, a.PageSize, a.MaxPages, a.SeqLen)
 	}
+	if a.Splits < 0 {
+		return a, fmt.Errorf("sm120 paged attention %s: negative Splits %d", a.Name, a.Splits)
+	}
+	if a.Splits > 0 {
+		if a.KVFormat != WeightBF16 {
+			return a, fmt.Errorf("sm120 paged attention %s: Splits needs WeightBF16 KV, have %v", a.Name, a.KVFormat)
+		}
+		if a.MinSplitKeys == 0 {
+			a.MinSplitKeys = 64
+		}
+		if a.MinSplitKeys < 16 || a.MinSplitKeys%16 != 0 {
+			return a, fmt.Errorf("sm120 paged attention %s: MinSplitKeys=%d must be a positive multiple of 16", a.Name, a.MinSplitKeys)
+		}
+	}
 	return a, nil
+}
+
+// WorkspaceFloats returns the floats of workspace ws a launch over batch
+// sequences needs with Splits > 0, or 0 without splits: D + 2 per
+// (sequence, query head, split).
+func (a SM120PagedAttention) WorkspaceFloats(batch int) int {
+	a, err := a.norm()
+	if err != nil || a.Splits == 0 {
+		return 0
+	}
+	return batch * a.NumQHeads * a.Splits * (a.HeadDim + 2)
+}
+
+// CombineGrid returns the grid and block of the Name_combine kernel for
+// batch sequences: one CTA per (sequence, query head).
+func (a SM120PagedAttention) CombineGrid(batch int) (grid, block [3]int) {
+	return [3]int{batch * a.NumQHeads, 1, 1}, [3]int{128, 1, 1}
 }
 
 // SharedBytes returns the shared memory size in bytes per CTA.
@@ -729,7 +774,7 @@ func (a SM120PagedAttention) Grid(batch int) [3]int {
 	if batch <= 0 {
 		batch = 1
 	}
-	return [3]int{batch, a.NumKVHeads, 1}
+	return [3]int{batch, a.NumKVHeads, max(a.Splits, 1)}
 }
 
 // Block returns the CTA thread block dimensions (4 warps = 128 threads).
@@ -738,6 +783,10 @@ func (a SM120PagedAttention) Block() [3]int {
 }
 
 func (a SM120PagedAttention) params() []string {
+	out := "float* __restrict__ out"
+	if a.Splits > 0 {
+		out = "float* __restrict__ ws"
+	}
 	return []string{
 		"const float* __restrict__ q",
 		"const uint8_t* __restrict__ k_pages",
@@ -745,7 +794,7 @@ func (a SM120PagedAttention) params() []string {
 		"const uint8_t* __restrict__ k_scales",
 		"const uint8_t* __restrict__ v_scales",
 		"const int32_t* __restrict__ page_table",
-		"float* __restrict__ out",
+		out,
 		fmt.Sprintf("int seq_len = %d", a.SeqLen),
 	}
 }
@@ -804,10 +853,16 @@ func (a SM120PagedAttention) CUDA() (string, error) {
         }
     }
 
-    for (int k0 = 0; k0 < seq_len; k0 += TILE_K) {
-        __syncthreads();
 `)
-	if a.KVFormat == WeightNVFP4 {
+	const loop = `    for (int k0 = 0; k0 < seq_len; k0 += TILE_K) {
+        __syncthreads();
+`
+	switch {
+	case a.Splits > 0:
+		fmt.Fprintf(&b, "    constexpr int SPLITS = %d, MIN_SPLIT_KEYS = %d;\n", a.Splits, a.MinSplitKeys)
+		b.WriteString(sm120SplitTile)
+	case a.KVFormat == WeightNVFP4:
+		b.WriteString(loop)
 		b.WriteString(`        constexpr int D_FP4 = D / 2, D_SF = D / 16;
         for (int idx = tid; idx < TILE_K * D_FP4; idx += 128) {
             const int tk = idx / D_FP4, byte_idx = idx % D_FP4;
@@ -832,7 +887,8 @@ func (a SM120PagedAttention) CUDA() (string, error) {
             sv[tk * D + d0 + 1] = v_pair[1];
         }
 `)
-	} else {
+	default:
+		b.WriteString(loop)
 		b.WriteString(`        const uint16_t* const k_bf16 = reinterpret_cast<const uint16_t*>(k_pages);
         const uint16_t* const v_bf16 = reinterpret_cast<const uint16_t*>(v_pages);
         for (int idx = tid; idx < TILE_K * D; idx += 128) {
@@ -852,7 +908,7 @@ func (a SM120PagedAttention) CUDA() (string, error) {
 `)
 	}
 
-	b.WriteString(`        __syncthreads();
+	score := `        __syncthreads();
         const int tk_end = min(TILE_K, seq_len - k0);
 #pragma unroll
         for (int rp = 0; rp < RPT; ++rp) {
@@ -886,7 +942,15 @@ func (a SM120PagedAttention) CUDA() (string, error) {
         }
     }
 
-#pragma unroll
+`
+	if a.Splits > 0 {
+		b.WriteString(strings.Replace(score, "seq_len - k0", "k_end - k0", 1))
+		b.WriteString(sm120SplitStore)
+		fmt.Fprintf(&b, sm120Combine, a.Name, a.HeadDim, a.Splits)
+		return b.String(), nil
+	}
+	b.WriteString(score)
+	b.WriteString(`#pragma unroll
     for (int rp = 0; rp < RPT; ++rp) {
         const int r = warp + rp * 4;
         if (r < G) {
@@ -904,10 +968,106 @@ func (a SM120PagedAttention) CUDA() (string, error) {
     }
 }
 `)
+
 	return b.String(), nil
 }
 
-// Launcher returns a C++ host launch wrapper for a.
+// sm120SplitTile opens a split CTA's key loop over [k_begin, k_end) and
+// stages each tile: one thread per key resolves its cache slot, then K and
+// V rows load as 16-byte vectors of 8 BF16 values.
+const sm120SplitTile = `    const int split = (int)blockIdx.z;
+    int split_keys = (seq_len + SPLITS - 1) / SPLITS;
+    split_keys = max(MIN_SPLIT_KEYS, (split_keys + TILE_K - 1) / TILE_K * TILE_K);
+    const int k_begin = split * split_keys;
+    const int k_end = min(seq_len, k_begin + split_keys);
+    const uint16_t* const k_bf16 = reinterpret_cast<const uint16_t*>(k_pages);
+    const uint16_t* const v_bf16 = reinterpret_cast<const uint16_t*>(v_pages);
+    __shared__ int sslot[TILE_K];
+    for (int k0 = k_begin; k0 < k_end; k0 += TILE_K) {
+        __syncthreads();
+        if (tid < TILE_K) {
+            const int k_pos = k0 + tid;
+            sslot[tid] = k_pos < k_end ? page_table[b * MAX_PAGES + k_pos / PAGE_SIZE] * PAGE_SIZE + k_pos % PAGE_SIZE : -1;
+        }
+        __syncthreads();
+        constexpr int DV = D / 8;
+        for (int idx = tid; idx < TILE_K * DV; idx += 128) {
+            const int tk = idx / DV, d0 = (idx % DV) * 8;
+            const int slot = sslot[tk];
+            uint4 kw = {0u, 0u, 0u, 0u}, vw = {0u, 0u, 0u, 0u};
+            if (slot >= 0) {
+                const size_t kv_off = ((size_t)slot * HKV + kvh) * D + d0;
+                kw = *reinterpret_cast<const uint4*>(k_bf16 + kv_off);
+                vw = *reinterpret_cast<const uint4*>(v_bf16 + kv_off);
+            }
+            const uint32_t kk[4] = {kw.x, kw.y, kw.z, kw.w};
+            const uint32_t vv[4] = {vw.x, vw.y, vw.z, vw.w};
+#pragma unroll
+            for (int j = 0; j < 4; ++j) {
+                sk[tk * D + d0 + 2 * j] = __uint_as_float(kk[j] << 16);
+                sk[tk * D + d0 + 2 * j + 1] = __uint_as_float(kk[j] & 0xffff0000u);
+                sv[tk * D + d0 + 2 * j] = __uint_as_float(vv[j] << 16);
+                sv[tk * D + d0 + 2 * j + 1] = __uint_as_float(vv[j] & 0xffff0000u);
+            }
+        }
+`
+
+// sm120SplitStore writes a split CTA's partial for each of its query
+// heads: the unnormalized output, then the running maximum (in log2 units)
+// and sum. An empty split writes maximum -inf and sum 0.
+const sm120SplitStore = `#pragma unroll
+    for (int rp = 0; rp < RPT; ++rp) {
+        const int r = warp + rp * 4;
+        if (r < G) {
+            const int qh = kvh * G + r;
+            float* const part = ws + (((size_t)b * HQ + qh) * SPLITS + split) * (D + 2);
+#pragma unroll
+            for (int dp = 0; dp < DPT; ++dp) {
+                const int d = lane + dp * 32;
+                if (d < D) {
+                    part[d] = o_reg[rp][dp];
+                }
+            }
+            if (lane == 0) {
+                part[D] = m_reg[rp];
+                part[D + 1] = l_reg[rp];
+            }
+        }
+    }
+}
+`
+
+// sm120Combine is the combine kernel, formatted with the attention
+// kernel's name, D and Splits. One CTA per (sequence, query head) rescales
+// every non-empty split's output and sum from its own maximum to the
+// largest and divides.
+const sm120Combine = `
+__global__ void %[1]s_combine(const float* __restrict__ ws, float* __restrict__ out) {
+    constexpr int D = %[2]d, SPLITS = %[3]d;
+    const float* const part = ws + (size_t)blockIdx.x * SPLITS * (D + 2);
+    float m = -__uint_as_float(0x7f800000u);
+    for (int s = 0; s < SPLITS; ++s) {
+        if (part[s * (D + 2) + D + 1] > 0.0f) {
+            m = fmaxf(m, part[s * (D + 2) + D]);
+        }
+    }
+    for (int d = (int)threadIdx.x; d < D; d += (int)blockDim.x) {
+        float o = 0.0f, l = 0.0f;
+        for (int s = 0; s < SPLITS; ++s) {
+            const float* const ps = part + s * (D + 2);
+            if (ps[D + 1] > 0.0f) {
+                const float w = exp2f(ps[D] - m);
+                o += ps[d] * w;
+                l += ps[D + 1] * w;
+            }
+        }
+        out[(size_t)blockIdx.x * D + d] = l > 0.0f ? o / l : 0.0f;
+    }
+}
+`
+
+// Launcher returns a C++ host launch wrapper for a. With Splits it takes
+// the workspace ws after page_table and launches the combine kernel too.
 func (a SM120PagedAttention) Launcher() (string, error) {
 	a, err := a.norm()
 	if err != nil {
@@ -915,6 +1075,15 @@ func (a SM120PagedAttention) Launcher() (string, error) {
 	}
 	block := a.Block()
 	var b strings.Builder
+	if a.Splits > 0 {
+		fmt.Fprintf(&b, "inline void %s_launch(\n    int batch,\n    const float* q,\n    const uint8_t* k_pages,\n    const uint8_t* v_pages,\n    const uint8_t* k_scales,\n    const uint8_t* v_scales,\n    const int32_t* page_table,\n    float* ws,\n    float* out,\n    int seq_len,\n    cudaStream_t stream = nullptr) {\n",
+			a.Name)
+		fmt.Fprintf(&b, "    const dim3 grid(batch, %d, %d), block(%d, %d, %d);\n", a.NumKVHeads, a.Splits, block[0], block[1], block[2])
+		fmt.Fprintf(&b, "    if (batch <= 0 || seq_len <= 0) return;\n")
+		fmt.Fprintf(&b, "    EG_LAUNCH(%s, grid, block, 0, stream, q, k_pages, v_pages, k_scales, v_scales, page_table, ws, seq_len);\n", a.Name)
+		fmt.Fprintf(&b, "    EG_LAUNCH(%s_combine, dim3(batch * %d, 1, 1), dim3(128, 1, 1), 0, stream, ws, out);\n}\n", a.Name, a.NumQHeads)
+		return b.String(), nil
+	}
 	fmt.Fprintf(&b, "inline void %s_launch(\n    int batch,\n    const float* q,\n    const uint8_t* k_pages,\n    const uint8_t* v_pages,\n    const uint8_t* k_scales,\n    const uint8_t* v_scales,\n    const int32_t* page_table,\n    float* out,\n    int seq_len,\n    cudaStream_t stream = nullptr) {\n",
 		a.Name)
 	fmt.Fprintf(&b, "    const dim3 grid(batch, %d, 1), block(%d, %d, %d);\n", a.NumKVHeads, block[0], block[1], block[2])
