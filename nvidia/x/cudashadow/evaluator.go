@@ -299,6 +299,9 @@ func (e *Evaluator) RecordOutcome(snapshotID string, outcome ObservedOutcome) er
 // snapshot or calls the policy. Because every snapshot is validated first,
 // an invalid snapshot is reported ahead of a cancellation, policy identity
 // mismatch, ordering error or evaluation failure at any step.
+// A policy error takes precedence over cancellation during that call. If the
+// policy succeeds, cancellation is checked before accepting its decision.
+// Returned snapshots are independent of both history and policy result maps.
 func (e *Evaluator) Replay(ctx context.Context, pol Policy, history []Snapshot) ([]Snapshot, error) {
 	if pol == nil || reflect.ValueOf(pol).Kind() == reflect.Pointer && reflect.ValueOf(pol).IsNil() {
 		return nil, errors.New("cudashadow replay: policy cannot be nil")
@@ -332,6 +335,9 @@ func (e *Evaluator) Replay(ctx context.Context, pol Policy, history []Snapshot) 
 				lastSequence = snap.Provenance.Sequence
 			}
 			dec, err := pol.Evaluate(ctx, cloneInput(snap.Input))
+			if err == nil {
+				err = ctx.Err()
+			}
 			if err != nil {
 				return nil, fmt.Errorf("cudashadow replay step %d (id %s): evaluation failed: %w", i, snap.ID, err)
 			}
@@ -343,9 +349,7 @@ func (e *Evaluator) Replay(ctx context.Context, pol Policy, history []Snapshot) 
 				return nil, fmt.Errorf("cudashadow replay step %d (id %s): parameter mismatch: recorded %v, got %v",
 					i, snap.ID, snap.Decision.Parameters, dec.Parameters)
 			}
-			snapCopy := cloneSnapshot(snap)
-			snapCopy.Decision = dec
-			replayed = append(replayed, snapCopy)
+			replayed = append(replayed, cloneSnapshot(snap))
 		} else {
 			// Retain non-valid snapshot as recorded
 			replayed = append(replayed, cloneSnapshot(snap))
