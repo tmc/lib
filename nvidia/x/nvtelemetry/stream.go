@@ -30,6 +30,8 @@ var (
 
 // Canonical metric unit expectations.
 var expectedMetricUnits = map[string]string{
+	"ecc_corrected_errors":      "count",
+	"ecc_uncorrected_errors":    "count",
 	"nvlink_dl_replay_errors":   "count",
 	"nvlink_dl_recovery_errors": "count",
 	"nvlink_dl_crc_flit_errors": "count",

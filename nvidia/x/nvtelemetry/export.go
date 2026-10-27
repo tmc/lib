@@ -12,7 +12,8 @@ import (
 )
 
 // ExportOptions selects a bounded snapshot encoding. Metrics use private names
-// nvtelemetry.*, not the developmental OpenTelemetry hardware conventions.
+// gpu.* for registered device metrics, not the developmental OpenTelemetry
+// hardware conventions. Resource and point attributes remain nvtelemetry.*.
 // CounterStartUnixNanos must be explicitly known for cumulative OTLP counters.
 type ExportOptions struct {
 	UnixTimeMapping       *UnixTimeMapping
@@ -311,6 +312,26 @@ func WriteOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) error {
 	return writeScalarOTLPMetrics(w, readings, o)
 }
 
+// otlpDeviceMetricName is the closed Original31 device metric profile. The old
+// wire spelling nvtelemetry.<name> maps one-to-one to gpu.<name>; canonical
+// Reading names, resource attributes and generic histograms are unchanged.
+func otlpDeviceMetricName(name string) (string, bool) {
+	switch name {
+	case MetricGPUUtilization, MetricMemoryUtilization, MetricMemoryUsedBytes,
+		MetricMemoryTotalBytes, MetricPowerUsageMW, MetricTotalEnergyMJ,
+		MetricTemperatureC, MetricSMClockMHz, MetricMemoryClockMHz,
+		MetricSMActivity, MetricTensorActivity, MetricDRAMActivity,
+		MetricPCIeRxBytesPerSec, MetricPCIeTxBytesPerSec,
+		MetricNVLinkRxBytesPerSec, MetricNVLinkTxBytesPerSec,
+		MetricPCIERxBytes, MetricPCIETxBytes,
+		"nvlink_dl_replay_errors", "nvlink_dl_recovery_errors",
+		"nvlink_dl_crc_flit_errors", "nvlink_dl_crc_data_errors", "nvlink_dl_ecc_data_errors",
+		"ecc_corrected_errors", "ecc_uncorrected_errors":
+		return "gpu." + name, true
+	}
+	return "", false
+}
+
 func writeScalarOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) error {
 	n, b, e := exportLimits(o)
 	if e != nil {
@@ -367,11 +388,15 @@ func writeScalarOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) er
 			}
 			point["asInt"] = value
 		}
-		ucum := map[string]string{"percent": "%", "bytes": "By", "bytes_per_sec": "By/s", "milliwatts": "mW", "millijoules": "mJ", "celsius": "Cel", "mhz": "MHz", "joules": "J"}[unit]
+		ucum := map[string]string{"percent": "%", "bytes": "By", "bytes_per_sec": "By/s", "milliwatts": "mW", "millijoules": "mJ", "celsius": "Cel", "mhz": "MHz", "joules": "J", "count": "1"}[unit]
 		if ucum == "" {
 			return fmt.Errorf("export: unsupported unit")
 		}
-		metric := map[string]any{"name": "nvtelemetry." + r.Name, "unit": ucum}
+		name, ok := otlpDeviceMetricName(r.Name)
+		if !ok {
+			return fmt.Errorf("export: unsupported device metric")
+		}
+		metric := map[string]any{"name": name, "unit": ucum}
 		points := []any{point}
 		if kind == KindCounter {
 			if !o.HasCounterStart || o.CounterStartUnixNanos <= 0 || o.CounterStartUnixNanos > r.TimestampUnix {

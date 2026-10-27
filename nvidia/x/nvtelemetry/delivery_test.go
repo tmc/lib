@@ -140,10 +140,10 @@ func TestDeliveryCanonicalEncoderReceiver(t *testing.T) {
 		t.Fatal("scope lost")
 	}
 	gauge, counter := scope.Metrics[0], scope.Metrics[1]
-	if gauge.Name != "nvtelemetry.power_milliwatts" || gauge.Unit != "mW" || gauge.Gauge == nil || len(gauge.Gauge.Points) != 1 || gauge.Gauge.Points[0].Value != "12500" {
+	if gauge.Name != "gpu.power_milliwatts" || gauge.Unit != "mW" || gauge.Gauge == nil || len(gauge.Gauge.Points) != 1 || gauge.Gauge.Points[0].Value != "12500" {
 		t.Fatal("gauge semantics lost")
 	}
-	if counter.Name != "nvtelemetry.total_energy_millijoules" || counter.Unit != "mJ" || counter.Sum == nil || counter.Sum.Temporality != 2 || !counter.Sum.Monotonic || len(counter.Sum.Points) != 1 || counter.Sum.Points[0].Value != "9007199254740993" || counter.Sum.Points[0].Start != "50" {
+	if counter.Name != "gpu.total_energy_millijoules" || counter.Unit != "mJ" || counter.Sum == nil || counter.Sum.Temporality != 2 || !counter.Sum.Monotonic || len(counter.Sum.Points) != 1 || counter.Sum.Points[0].Value != "9007199254740993" || counter.Sum.Points[0].Start != "50" {
 		t.Fatal("counter semantics lost")
 	}
 	for _, p := range []point{gauge.Gauge.Points[0], counter.Sum.Points[0]} {

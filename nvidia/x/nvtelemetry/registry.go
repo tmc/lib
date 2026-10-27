@@ -17,6 +17,8 @@ const DefaultMetricRegistryVersion = "2026.10-v3"
 
 // metricKinds maps canonical metric names to their MetricKind classification.
 var metricKinds = map[string]MetricKind{
+	"ecc_corrected_errors":      KindCounter,
+	"ecc_uncorrected_errors":    KindCounter,
 	"nvlink_dl_replay_errors":   KindCounter,
 	"nvlink_dl_recovery_errors": KindCounter,
 	"nvlink_dl_crc_flit_errors": KindCounter,
