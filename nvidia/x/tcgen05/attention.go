@@ -72,7 +72,7 @@ EG_DEV void eg_tmem_commit_group(uint64_t* mbar) {
         asm volatile("tcgen05.commit.cta_group::2.mbarrier::arrive::one.shared::cluster.b64 [%0], 3;"
                      :: "r"(s) : "memory");
     } else {
-        asm volatile("tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cta.b64 [%0];"
+        asm volatile("tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.b64 [%0];"
                      :: "r"(s) : "memory");
     }
 #else
@@ -240,10 +240,10 @@ EG_DEV void eg_tmem_cp_scales_group(
     (void)k_blocks;
     const uint64_t desc = eg_wgmma_desc(local_q_scales, 16, 128);
     if constexpr (CTA_GROUP == 2) {
-        asm volatile("tcgen05.cp.cta_group::2.32x128b [%0], %1;"
+        asm volatile("tcgen05.cp.cta_group::2.32x128b.warpx4 [%0], %1;"
                      :: "r"(scale_taddr), "l"(desc) : "memory");
     } else {
-        asm volatile("tcgen05.cp.cta_group::1.32x128b [%0], %1;"
+        asm volatile("tcgen05.cp.cta_group::1.32x128b.warpx4 [%0], %1;"
                      :: "r"(scale_taddr), "l"(desc) : "memory");
     }
 #else
@@ -337,6 +337,8 @@ EG_DEV void eg_tmem_mma_s_nvfp4(
     (void)head_dim;
     const uint64_t desc_q = eg_wgmma_desc(local_q_packed, 64, 512);
     const uint64_t desc_k = eg_wgmma_desc(local_k_packed, 64, 512);
+    const uint32_t sfa_taddr = scale_taddr;
+    const uint32_t sfb_taddr = scale_taddr + 16u;
     const uint32_t idesc = 0u;
     if constexpr (CTA_GROUP == 2) {
         if constexpr (SCALE_VEC_4X) {
@@ -344,15 +346,15 @@ EG_DEV void eg_tmem_mma_s_nvfp4(
                 "{\n"
                 ".reg .pred p;\n"
                 "setp.ne.b32 p, 0, 0;\n"
-                "tcgen05.mma.cta_group::2.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], p;\n"
-                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(scale_taddr) : "memory");
+                "tcgen05.mma.cta_group::2.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], [%5], p;\n"
+                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
         } else {
             asm volatile(
                 "{\n"
                 ".reg .pred p;\n"
                 "setp.ne.b32 p, 0, 0;\n"
-                "tcgen05.mma.cta_group::2.kind::mxf4nvf4.block_scale [%0], %1, %2, %3, [%4], p;\n"
-                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(scale_taddr) : "memory");
+                "tcgen05.mma.cta_group::2.kind::mxf4nvf4.block_scale.scale_vec::2X [%0], %1, %2, %3, [%4], [%5], p;\n"
+                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
         }
     } else {
         if constexpr (SCALE_VEC_4X) {
@@ -360,15 +362,15 @@ EG_DEV void eg_tmem_mma_s_nvfp4(
                 "{\n"
                 ".reg .pred p;\n"
                 "setp.ne.b32 p, 0, 0;\n"
-                "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], p;\n"
-                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(scale_taddr) : "memory");
+                "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], [%5], p;\n"
+                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
         } else {
             asm volatile(
                 "{\n"
                 ".reg .pred p;\n"
                 "setp.ne.b32 p, 0, 0;\n"
-                "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale [%0], %1, %2, %3, [%4], p;\n"
-                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(scale_taddr) : "memory");
+                "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::2X [%0], %1, %2, %3, [%4], [%5], p;\n"
+                "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
         }
     }
 #else

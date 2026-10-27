@@ -102,7 +102,7 @@ const blackwellFP4Helpers = `// eg_e2m1x2_to_f16x2 widens the two E2M1 nibbles i
 EG_DEV uint32_t eg_e2m1x2_to_f16x2(uint32_t b) {
 #if defined(EG_HOST_EMU)
     return eg_emu_e2m1x2_to_f16x2(b);
-#elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 1000
+#elif defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 1000 || __CUDA_ARCH__ == 1030 || (__CUDA_ARCH__ == 1200 && defined(__CUDA_ARCH_FEAT_SM120_ALL)))
     uint32_t r;
     asm("{\n.reg .b8 q;\ncvt.u8.u32 q, %1;\ncvt.rn.f16x2.e2m1x2 %0, q;\n}" : "=r"(r) : "r"(b));
     return r;

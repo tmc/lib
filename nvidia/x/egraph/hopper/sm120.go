@@ -24,7 +24,7 @@ EG_DEV float eg_sm120_decode_e2m1(uint32_t code) {
 // scales them by the UE4M3 block scale byte scale_e4m3.
 EG_DEV void eg_sm120_dequant_nvfp4_pair(uint32_t packed_byte, uint32_t scale_e4m3, float out[2]) {
     const float sf = eg_e4m3_to_f32(scale_e4m3 & 0xffu);
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1200) && !defined(EG_HOST_EMU) && !defined(EG_EMU)
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 1200) && defined(__CUDA_ARCH_FEAT_SM120_ALL) && !defined(EG_HOST_EMU) && !defined(EG_EMU)
     uint32_t f16x2;
     asm("{\n\t"
         ".reg .b8 q;\n\t"
@@ -50,7 +50,7 @@ EG_DEV void eg_sm120_dequant_nvfp4_pair(uint32_t packed_byte, uint32_t scale_e4m
 // warp registers d[0..3].
 EG_DEV void eg_sm120_mma_nvfp4_16864(
     float d[4], const uint32_t a[4], const uint32_t b[2], uint32_t sfa, uint32_t sfb) {
-#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1200) && !defined(EG_HOST_EMU) && !defined(EG_EMU)
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ == 1200) && defined(__CUDA_ARCH_FEAT_SM120_ALL) && !defined(EG_HOST_EMU) && !defined(EG_EMU)
     asm volatile(
         "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale.scale_vec::2X.f32.e2m1.e2m1.f32.ue4m3 "
         "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%0,%1,%2,%3}, {%10}, {0, 0}, {%11}, {0, 0};"

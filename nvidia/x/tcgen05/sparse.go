@@ -392,10 +392,31 @@ func (k TCGen05SparseGEMM) CUDA() (string, error) {
 		if k.Target == "sm_103a" || k.Target == "sm_103f" {
 			mmaKind = "kind::mxf4nvf4.block_scale.scale_vec::4X"
 		} else {
-			mmaKind = "kind::mxf4nvf4.block_scale"
+			mmaKind = "kind::mxf4nvf4.block_scale.scale_vec::2X"
 		}
 	}
 	ctaGroupStr := fmt.Sprintf("cta_group::%d", k.CTAGroup)
+
+	var mmaStmt string
+	if k.BlockScaledNVFP4 {
+		mmaStmt = fmt.Sprintf(`        const uint32_t sfa_taddr = e_taddr + 16u;
+        const uint32_t sfb_taddr = e_taddr + 24u;
+        asm volatile(
+            "{\n"
+            ".reg .pred p;\n"
+            "setp.ne.b32 p, 1, 0;\n"
+            "tcgen05.mma.sp.%s.%s [%%0], %%1, %%2, [%%3], %%4, [%%5], [%%6], p;\n"
+            "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(e_taddr), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");`,
+			ctaGroupStr, mmaKind)
+	} else {
+		mmaStmt = fmt.Sprintf(`        asm volatile(
+            "{\n"
+            ".reg .pred p;\n"
+            "setp.ne.b32 p, 1, 0;\n"
+            "tcgen05.mma.sp.%s.%s [%%0], %%1, %%2, [%%3], %%4, p;\n"
+            "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(e_taddr), "r"(idesc) : "memory");`,
+			ctaGroupStr, mmaKind)
+	}
 
 	var b strings.Builder
 	b.WriteString(TCGen05AdvancedPrelude)
@@ -443,12 +464,7 @@ func (k TCGen05SparseGEMM) CUDA() (string, error) {
         const uint64_t desc_a = eg_wgmma_desc(smem_a_comp, (uint32_t)(K_HALF * 4), (uint32_t)(8 * K_HALF * 4));
         const uint64_t desc_b = eg_wgmma_desc(smem_b, (uint32_t)(N * 4), (uint32_t)(8 * N * 4));
         const uint32_t idesc = 0x%08xu;
-        asm volatile(
-            "{\n"
-            ".reg .pred p;\n"
-            "setp.ne.b32 p, 1, 0;\n"
-            "tcgen05.mma.sp.%s.%s [%%0], %%1, %%2, [%%3], %%4, p;\n"
-            "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(e_taddr), "r"(idesc) : "memory");
+%s
 #else
         (void)e_taddr;
         for (int r = 0; r < M; ++r) {
@@ -487,7 +503,7 @@ func (k TCGen05SparseGEMM) CUDA() (string, error) {
         eg_tcgen05_dealloc_cta1(e_taddr, 32u);
     }
 }
-`, k.Name, k.M, k.N, k.K, ctaGroupStr, idesc, ctaGroupStr, mmaKind)
+`, k.Name, k.M, k.N, k.K, ctaGroupStr, idesc, mmaStmt)
 	return b.String(), nil
 }
 
