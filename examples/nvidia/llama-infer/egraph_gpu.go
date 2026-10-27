@@ -26,7 +26,28 @@ type egraphLaunch struct {
 	smem        uint32
 	args        []any
 	epoch       int
-	pos         []egraphPosArg // arguments that follow the position
+	pos         []egraphPosArg     // arguments that follow the position
+	kern        *hopper.PlanKernel // the plan kernel, for row-count changes
+}
+
+// withRows returns l over the first n rows of its plan's M: a tile gemm or
+// row kernel takes the row count as its first argument and sizes its grid
+// by it.
+func (l egraphLaunch) withRows(n int) egraphLaunch {
+	k := l.kern
+	var grid [3]int
+	switch {
+	case k == nil || k.GEMM != nil:
+		return l
+	case k.Tile != nil:
+		grid, _ = k.Tile.Grid(n, 1)
+	case k.Row != nil:
+		grid, _ = k.Row.Grid(n)
+	}
+	l.args = slices.Clone(l.args)
+	l.args[0] = int32(n)
+	l.grid = [3]uint32{uint32(grid[0]), uint32(grid[1]), uint32(grid[2])}
+	return l
 }
 
 // An egraphPosArg is a launch argument that depends on the token position:
@@ -86,14 +107,21 @@ type egraphDecoder struct {
 	qcast      []egraphLaunch
 	posKind    map[driver.Function]string
 	posArgs    map[driver.Function][]egraphPosArg
+	pageTable  driver.DevicePtr
+	one        driver.DevicePtr
+
+	pf *egraphPrefill // with plans.pf
 }
 
-func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega, attn bool) (eg *egraphDecoder, err error) {
+func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, mega, attn, prefill bool) (eg *egraphDecoder, err error) {
 	if gpuW.DType != weightBF16 {
 		return nil, errors.New("-egraph needs -weight-dtype bf16")
 	}
+	if prefill && (!attn || mega) {
+		return nil, errors.New("e-graph prefill needs generated attention and per-kernel launches")
+	}
 	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
-	plans, err := buildEgraphPlans(cfg, bias, attn)
+	plans, err := buildEgraphPlans(cfg, bias, attn, prefill)
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
@@ -235,6 +263,11 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 			return nil, err
 		}
 	}
+	if prefill {
+		if eg.pf, err = eg.bindPrefill(dev, cfg, gpuW); err != nil {
+			return nil, err
+		}
+	}
 	return eg, nil
 }
 
@@ -299,6 +332,7 @@ func (eg *egraphDecoder) bindAttention(dev *cuda.Device, cfg *ModelConfig, sp *G
 	if err != nil {
 		return fmt.Errorf("alloc attention page table: %w", err)
 	}
+	eg.pageTable, eg.one = pageTable, one
 	if eg.qbf, err = cudamem.Alloc[uint16](dev, cfg.NumAttentionHeads*hd); err != nil {
 		return fmt.Errorf("alloc q: %w", err)
 	}
@@ -360,6 +394,9 @@ func (eg *egraphDecoder) planList() []*hopper.Plan {
 	if eg.plans.attn {
 		ps = append(ps, eg.plans.qcast)
 	}
+	if pf := eg.plans.pf; pf != nil {
+		ps = append(ps, pf.attnIn, pf.post, pf.qcast)
+	}
 	return ps
 }
 
@@ -368,10 +405,12 @@ func kernelName(k hopper.PlanKernel) (string, error) {
 	switch {
 	case k.GEMM != nil:
 		return fmt.Sprintf("%s<%d>", k.GEMM.Name, k.M), nil
+	case k.Tile != nil:
+		return k.Tile.Name, nil
 	case k.Row != nil:
 		return k.Row.Name, nil
 	}
-	return "", fmt.Errorf("plan kernel %+v: only skinny gemm and row kernels are supported", k)
+	return "", fmt.Errorf("plan kernel %+v: only gemm and row kernels are supported", k)
 }
 
 func (eg *egraphDecoder) compile(dev *cuda.Device) error {
@@ -395,9 +434,12 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 				return err
 			}
 			var cu string
-			if k.GEMM != nil {
+			switch {
+			case k.GEMM != nil:
 				cu, err = k.GEMM.CUDA()
-			} else {
+			case k.Tile != nil:
+				cu, err = k.Tile.CUDA()
+			default:
 				cu, err = k.Row.CUDA()
 			}
 			if err != nil {
@@ -418,6 +460,14 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 			src.WriteString("\n" + cu + "\n")
 		}
 		names = append(names, eg.plans.rope.Name, eg.plans.sdpa.Name)
+	}
+	if pf := eg.plans.pf; pf != nil {
+		cu, err := pf.rope.CUDA()
+		if err != nil {
+			return fmt.Errorf("emit prefill rotary: %w", err)
+		}
+		src.WriteString("\n" + cu + "\n")
+		names = append(names, pf.rope.Name)
 	}
 	cm, err := nvrtcx.Compile(src.String(),
 		nvrtcx.WithName("llama_egraph.cu"),
@@ -478,18 +528,24 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 		return []egraphLaunch{l}, nil
 	}
 	var out []egraphLaunch
-	for _, k := range p.Kernels {
-		name, err := kernelName(k)
+	for i := range p.Kernels {
+		k := &p.Kernels[i]
+		name, err := kernelName(*k)
 		if err != nil {
 			return nil, err
 		}
-		l := egraphLaunch{fn: eg.fns[name], epoch: -1}
+		l := egraphLaunch{fn: eg.fns[name], epoch: -1, kern: k}
 		var grid, block [3]int
-		if k.GEMM != nil {
+		switch {
+		case k.GEMM != nil:
 			if grid, block, err = k.GEMM.Grid(); err != nil {
 				return nil, fmt.Errorf("%s: %w", name, err)
 			}
-		} else {
+		case k.Tile != nil:
+			grid, block = k.Tile.Grid(k.M, 1)
+			l.smem = uint32(k.Tile.SharedBytes())
+			l.args = append(l.args, int32(k.M))
+		default:
 			grid, block = k.Row.Grid(k.Rows)
 			l.args = append(l.args, int32(k.Rows))
 		}
@@ -545,6 +601,9 @@ func (eg *egraphDecoder) Close() error {
 		errs = append(errs, freeOwned(&eg.ints[i]))
 	}
 	errs = append(errs, freeOwned(&eg.cs), freeOwned(&eg.qbf))
+	if eg.pf != nil {
+		errs = append(errs, eg.pf.free())
+	}
 	for p, r := range eg.ready {
 		errs = append(errs, freeOwned(&r))
 		delete(eg.ready, p)

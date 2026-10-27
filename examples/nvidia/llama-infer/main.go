@@ -61,6 +61,7 @@ var (
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
 	egraphAttnFlag    = flag.Bool("egraph-attn", false, "with -egraph, run RoPE, the KV-cache store and attention as generated sm_121a kernels over a BF16 KV cache")
+	egraphPrefillFlag = flag.Bool("egraph-prefill", false, "with -egraph-attn, prefill the prompt in one batched pass of generated tile gemms (not with -bench or -egraph-mega)")
 )
 
 func main() {
@@ -343,8 +344,11 @@ func runGPUInference(
 	if *egraphAttnFlag && !*egraphFlag {
 		return errors.New("-egraph-attn needs -egraph")
 	}
+	if *egraphPrefillFlag && (!*egraphAttnFlag || *egraphMegaFlag || *benchFlag) {
+		return errors.New("-egraph-prefill needs -egraph-attn and cannot run with -egraph-mega or -bench")
+	}
 	if *egraphFlag {
-		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag, *egraphAttnFlag)
+		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, *egraphMegaFlag, *egraphAttnFlag, *egraphPrefillFlag)
 		if err != nil {
 			return fmt.Errorf("e-graph decoder: %w", err)
 		}
@@ -360,6 +364,10 @@ func runGPUInference(
 		gen, fallback := eg.plans.ops()
 		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
 			eg.Kernels(), strings.Join(gen, ", "), strings.Join(fallback, ", "))
+		if eg.pf != nil {
+			fmt.Printf("[E-Graph] prefill: %d-row chunks; tile gemm (mma.sync): %s; attention once per row; llama-infer kernels: embedding (once per row), argmax\n",
+				eg.pf.rows, strings.Join(eg.prefillTiles(), ", "))
+		}
 	}
 
 	var dg *DecodeGraph
@@ -452,6 +460,16 @@ func runGPUInference(
 			}
 		})
 		return tok, err
+	}
+	if gm.eg != nil && gm.eg.pf != nil {
+		// The batched prefill runs the whole prompt when its last token
+		// arrives, so generate's prefill time covers all of it.
+		prefill = func(tokID int32, pos int) (int32, error) {
+			if pos < len(promptTokens)-1 {
+				return 0, nil
+			}
+			return gm.eg.prefill(gpuWeights, cfg, scratch, gm, sampleFn, promptTokens)
+		}
 	}
 	forward := func(tok int32, pos int) (int32, error) {
 		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)

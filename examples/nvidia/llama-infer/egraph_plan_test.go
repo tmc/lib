@@ -1,0 +1,72 @@
+package main
+
+import (
+	"testing"
+
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+)
+
+// llama3_8B is Meta-Llama-3-8B's shape.
+var llama3_8B = ModelConfig{
+	HiddenSize:        4096,
+	IntermediateSize:  14336,
+	NumHiddenLayers:   32,
+	NumAttentionHeads: 32,
+	NumKeyValueHeads:  8,
+	VocabSize:         128256,
+	MaxSeqLen:         2048,
+	RmsNormEps:        1e-5,
+	RopeTheta:         500000,
+}
+
+func TestBuildEgraphPlans(t *testing.T) {
+	p, err := buildEgraphPlans(&llama3_8B, false, true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := func(p *hopper.Plan) (skinny, tile, row int) {
+		for _, k := range p.Kernels {
+			switch {
+			case k.GEMM != nil:
+				skinny++
+			case k.Tile != nil:
+				tile++
+				if k.Tile.WGMMA {
+					t.Errorf("%s: wgmma is not available on sm_121", k.Tile.Name)
+				}
+			case k.Row != nil:
+				row++
+			default:
+				t.Errorf("%s: unexpected kernel %+v", p.Name, k)
+			}
+		}
+		return
+	}
+	tests := []struct {
+		plan              *hopper.Plan
+		skinny, tile, row int
+	}{
+		// rmsnorm row, qkv gemm.
+		{p.attnIn, 1, 0, 1},
+		{p.pf.attnIn, 0, 1, 1},
+		// cast row, o_proj+x gemm, rmsnorm row, gate_up gemm, swiglu row,
+		// down_proj+h gemm.
+		{p.post, 3, 0, 3},
+		{p.pf.post, 0, 3, 3},
+		{p.head, 1, 0, 1},
+	}
+	for _, tt := range tests {
+		skinny, tile, row := count(tt.plan)
+		if skinny != tt.skinny || tile != tt.tile || row != tt.row {
+			t.Errorf("%s: %d skinny gemms, %d tile gemms, %d row kernels; want %d, %d, %d",
+				tt.plan.Name, skinny, tile, row, tt.skinny, tt.tile, tt.row)
+		}
+	}
+	for _, pl := range []*hopper.Plan{p.pf.attnIn, p.pf.post} {
+		for _, k := range pl.Kernels {
+			if k.Tile != nil && k.Tile.SharedBytes() > 99*1024 {
+				t.Errorf("%s: %d bytes of shared memory, more than sm_121's 99 KiB", k.Tile.Name, k.Tile.SharedBytes())
+			}
+		}
+	}
+}
