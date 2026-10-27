@@ -1,0 +1,12 @@
+commit: 96a47d6473c7921268c94c95081fbf0a2b7b2bfa
+date: 2026-10-27T11:29:33.635520+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 74419
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original102-history-bounds-repair/W/net.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-original102-history-adoption/ROOT-GRADE.md
+qualification: source/CPU only:public4097 predecessor and2omissions;host/race167PASS each,2vets;errorprecedence explicit;ordinary timeout cohort not accepted-helper group custody;native/full102open
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
