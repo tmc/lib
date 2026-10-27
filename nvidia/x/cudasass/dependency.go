@@ -844,7 +844,7 @@ func (p StallProfile) Valid() error {
 		if p.Source == "" {
 			return fmt.Errorf("stall profile %q claims a measurement with no source", p.Reason)
 		}
-		if p.Percent < 0 || p.Percent > 100 {
+		if !(0 <= p.Percent && p.Percent <= 100) {
 			return fmt.Errorf("stall profile %q: measured percentage %g outside 0-100", p.Reason, p.Percent)
 		}
 		return nil
