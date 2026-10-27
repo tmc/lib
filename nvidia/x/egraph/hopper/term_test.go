@@ -295,6 +295,43 @@ func TestCompileCastInputGEMM(t *testing.T) {
 	agree(t, "castproj", F32, runPlan(t, plan, env), want.Data)
 }
 
+// TestFuseEpilogueGEMMOperand folds a residual that is itself a projection's
+// result into the next projection's epilogue: out = (cast(h) · w2ᵀ) + h with
+// h = x · w1ᵀ is two gemms and the cast, with no row kernel for the add.
+func TestFuseEpilogueGEMMOperand(t *testing.T) {
+	b := NewBuilder()
+	x := b.Input("x", BF16, 2, 256)
+	h := b.MatMul(x, b.Input("w1", BF16, 256, 256))
+	y := b.MatMul(b.Cast(BF16, h), b.Input("w2", BF16, 256, 256))
+	expr, err := Optimize(b.G, b.Map(MustLambda("(add $0 $1)"), y, h))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Compile(expr, "resid", F32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gemms, rows int
+	for _, k := range plan.Kernels {
+		switch {
+		case k.GEMM != nil:
+			gemms++
+		case k.Row != nil:
+			rows++
+		}
+	}
+	last := plan.Kernels[len(plan.Kernels)-1]
+	if gemms != 2 || rows != 1 || last.GEMM == nil || len(last.GEMM.Extras) != 1 {
+		t.Fatalf("plan: %d gemms, %d row kernels, last %+v; want the add in the last gemm's epilogue", gemms, rows, last)
+	}
+	env := randEnv(rand.New(rand.NewPCG(19, 20)), Tensor{"x", BF16, []int{2, 256}}, Tensor{"w1", BF16, []int{256, 256}}, Tensor{"w2", BF16, []int{256, 256}})
+	want, err := Eval(expr, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agree(t, "resid", F32, runPlan(t, plan, env), want.Data)
+}
+
 // TestCompilePrefillGEMM lowers a many-row projection with a fused
 // residual add to one tensor-core TileGEMM.
 func TestCompilePrefillGEMM(t *testing.T) {
