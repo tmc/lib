@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -562,6 +564,687 @@ func TestTCGen05NativeQualification(t *testing.T) {
 	} else {
 		t.Logf("tcgen05 native qualification passed on %s (CUDA %s):\n%s", devArch, cudaVer, strings.TrimSpace(outStr))
 	}
+
+	// 6. Wave 12 & Wave 13 Rubin (sm_107a / PTX 9.4) tcgen05 native qualification.
+	t.Run("Wave12And13Rubin", func(t *testing.T) {
+		qualifyTCGen05Wave12And13Rubin(t, nvcc, cudaVer, devArch, dir)
+	})
+}
+
+// TestTCGen05Wave12And13NativeSuiteStructure verifies on the host (even when
+// CUDA_TCGEN05_NATIVE is unset) that all 6 Wave 12/13 Rubin / PTX 9.4 tcgen05
+// kernels emit valid CUDAFile() translation units, Reference() outputs, and
+// native device harness source.
+func TestTCGen05Wave12And13NativeSuiteStructure(t *testing.T) {
+	fx := buildTCGen05Wave12And13Fixtures(t)
+	if len(fx.tuFiles) != 6 {
+		t.Fatalf("len(tuFiles) = %d, want 6", len(fx.tuFiles))
+	}
+	for name, tu := range fx.tuFiles {
+		if !strings.Contains(tu, "EG_PRELUDE") {
+			t.Fatalf("%s CUDAFile() missing EG_PRELUDE", name)
+		}
+		if !strings.Contains(tu, "__global__ void") {
+			t.Fatalf("%s CUDAFile() missing __global__ void", name)
+		}
+	}
+	for _, want := range []string{
+		"tcgen05.mma.cta_group::1.kind::mxf8f6f4.block_scale.decompress::lut::b.block32",
+		"tcgen05.commit.cta_group::1.mbarrier::arrive::one.sync_restrict::shared::read::mma::a.shared::cluster.b64",
+		"tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.multicast::cluster::32b.b64",
+		"tcgen05.ld.red.sync.aligned.32x32b.x4.max.abs.f32",
+		"tcgen05.ld.red.spcompress.sync.aligned.32x32b.x4.max.sp::2:4.abs.f32.b2",
+		"tcgen05.mma.ws.sp.cta_group::1.kind::ti16.collector::b0::fill",
+		"tcgen05.alloc.exclusive.cta_group::2.sync.aligned.shared::cta.b32",
+		"spcompress.b8.b2.sp::2:4.x4",
+		"spdecompress.b8.b2.sp::2:4.x32",
+		"TCGEN05_WAVE12_13_NATIVE_OK",
+		"wave12_13_mutant_rejected=1",
+	} {
+		if !strings.Contains(fx.harnessSrc, want) {
+			t.Fatalf("Wave 12/13 device harness missing %q", want)
+		}
+	}
+}
+
+type tcgen05Wave12And13Fixtures struct {
+	tuFiles    map[string]string
+	harnessSrc string
+}
+
+func prepareEarlyReleaseDeviceSource(src string) string {
+	src = strings.ReplaceAll(src,
+		"    EG_TCGEN05_SHARED(float, smem_a, [STAGES * M * BK]);\n    EG_TCGEN05_SHARED(float, smem_b, [STAGES * BK * N]);",
+		`#if defined(EG_EMU)
+    static __device__ float eg_emu_er_smem_a[2 * 128 * 64];
+    static __device__ float eg_emu_er_smem_b[2 * 64 * 128];
+    float* const smem_a = eg_emu_er_smem_a;
+    float* const smem_b = eg_emu_er_smem_b;
+#else
+    EG_TCGEN05_SHARED(float, smem_a, [STAGES * M * BK]);
+    EG_TCGEN05_SHARED(float, smem_b, [STAGES * BK * N]);
+#endif`)
+	return src
+}
+
+func prepareWSDeviceSource(src string) string {
+	src = strings.ReplaceAll(src,
+		"    EG_TCGEN05_SHARED(float, smem_a, [M * K]);\n    EG_TCGEN05_SHARED(float, smem_b, [K * N]);",
+		`#if defined(EG_EMU)
+    static __device__ float eg_emu_ws_smem_a[128 * 64];
+    static __device__ float eg_emu_ws_smem_b[64 * 128];
+    float* const smem_a = eg_emu_ws_smem_a;
+    float* const smem_b = eg_emu_ws_smem_b;
+#else
+    EG_TCGEN05_SHARED(float, smem_a, [M * K]);
+    EG_TCGEN05_SHARED(float, smem_b, [K * N]);
+#endif`)
+	return src
+}
+
+func buildTCGen05Wave12And13Fixtures(t *testing.T) tcgen05Wave12And13Fixtures {
+	t.Helper()
+	tuFiles := make(map[string]string, 6)
+
+	// 1. TCGen05LUTDecompressGEMM (M=128, N=128, K=64)
+	lutK := TCGen05LUTDecompressGEMM{
+		Name:       "tcgen05_lut_decompress_native",
+		M:          128,
+		N:          128,
+		K:          64,
+		Target:     "sm_107f",
+		CollectorA: CollectorUse,
+		CollectorB: CollectorFill,
+	}
+	lutTU, err := lutK.CUDAFile()
+	if err != nil {
+		t.Fatalf("lutK.CUDAFile: %v", err)
+	}
+	tuFiles["TCGen05LUTDecompressGEMM"] = lutTU
+	lutCUDA, err := lutK.CUDA()
+	if err != nil {
+		t.Fatalf("lutK.CUDA: %v", err)
+	}
+
+	lutAF32 := make([]float32, 128*64)
+	lutBF32 := make([]float32, 64*128)
+	palette := [8]float32{-1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75}
+	for i := range lutAF32 {
+		lutAF32[i] = float32((i%5)-2) * 0.5
+	}
+	for kk := range 64 {
+		for n := range 128 {
+			lutBF32[kk*128+n] = palette[(kk*3+n*5)&7]
+		}
+	}
+	lutAE4M3, lutAScales := QuantizeMXFP8E4M3(lutAF32)
+	lutBIdx, lutBLUT, lutBScales, _, err := Quantize3BitLUTB(lutBF32, 64, 128)
+	if err != nil {
+		t.Fatalf("Quantize3BitLUTB: %v", err)
+	}
+	lutWant, err := lutK.Reference(lutAE4M3, lutAScales, lutBIdx, lutBLUT, lutBScales)
+	if err != nil {
+		t.Fatalf("lutK.Reference: %v", err)
+	}
+	lutBLUTMut := slices.Clone(lutBLUT)
+	for i := range lutBLUTMut {
+		lutBLUTMut[i] = E4M3Bits(FromE4M3Bits(lutBLUTMut[i]) + 8.0)
+	}
+	lutMutWant, err := lutK.Reference(lutAE4M3, lutAScales, lutBIdx, lutBLUTMut, lutBScales)
+	if err != nil {
+		t.Fatalf("lutK.Reference(mut): %v", err)
+	}
+	if math.Abs(float64(lutMutWant[0]-lutWant[0])) <= 1e-4 {
+		t.Fatalf("lutK mutant did not perturb output[0]: got %v vs %v", lutMutWant[0], lutWant[0])
+	}
+
+	// 2. TCGen05EarlyReleasePipelineGEMM (M=128, N=128, K=128, Stages=2, ClusterCTAs=16)
+	erK := TCGen05EarlyReleasePipelineGEMM{
+		Name:        "tcgen05_early_release_native",
+		M:           128,
+		N:           128,
+		K:           128,
+		Stages:      2,
+		ClusterCTAs: 16,
+		Target:      "sm_107f",
+	}
+	erTU, err := erK.CUDAFile()
+	if err != nil {
+		t.Fatalf("erK.CUDAFile: %v", err)
+	}
+	tuFiles["TCGen05EarlyReleasePipelineGEMM"] = erTU
+	erCUDA, err := erK.CUDA()
+	if err != nil {
+		t.Fatalf("erK.CUDA: %v", err)
+	}
+	erA := make([]float32, 128*128)
+	erB := make([]float32, 128*128)
+	for i := range erA {
+		erA[i] = 0.5
+		erB[i] = 0.25
+	}
+	erWant, err := erK.Reference(erA, erB)
+	if err != nil {
+		t.Fatalf("erK.Reference: %v", err)
+	}
+	if math.Abs(float64(erWant[0]-16.0)) > 1e-5 {
+		t.Fatalf("erWant[0] = %v, want 16.0", erWant[0])
+	}
+
+	// 3. TCGen05LdRed (M=32, N=32, RedOp=LdRedMax, Abs=true)
+	ldRedK := TCGen05LdRed{
+		M:      32,
+		N:      32,
+		RedOp:  LdRedMax,
+		Abs:    true,
+		Target: "sm_107a",
+	}
+	ldRedTU, err := ldRedK.CUDAFile()
+	if err != nil {
+		t.Fatalf("ldRedK.CUDAFile: %v", err)
+	}
+	tuFiles["TCGen05LdRed"] = ldRedTU
+	ldRedCUDA, err := ldRedK.CUDA()
+	if err != nil {
+		t.Fatalf("ldRedK.CUDA: %v", err)
+	}
+	ldRedIn := make([]float32, 32*32)
+	for r := range 32 {
+		for c := range 32 {
+			ldRedIn[r*32+c] = float32((c%7)-3) * 0.5
+		}
+		ldRedIn[r*32+(r%32)] = -float32(r + 10)
+	}
+	ldRedWantData, ldRedWantRow, err := ldRedK.Reference(ldRedIn)
+	if err != nil {
+		t.Fatalf("ldRedK.Reference: %v", err)
+	}
+
+	// 4. TCGen05LdSpCompress (M=32, N=32, RedOp=LdRedMax, Abs=true, WithReduction=true)
+	ldSpK := TCGen05LdSpCompress{
+		M:             32,
+		N:             32,
+		RedOp:         LdRedMax,
+		Abs:           true,
+		WithReduction: true,
+		Target:        "sm_107a",
+	}
+	ldSpTU, err := ldSpK.CUDAFile()
+	if err != nil {
+		t.Fatalf("ldSpK.CUDAFile: %v", err)
+	}
+	tuFiles["TCGen05LdSpCompress"] = ldSpTU
+	ldSpCUDA, err := ldSpK.CUDA()
+	if err != nil {
+		t.Fatalf("ldSpK.CUDA: %v", err)
+	}
+	ldSpWantC, ldSpWantM, ldSpWantRow, err := ldSpK.Reference(ldRedIn)
+	if err != nil {
+		t.Fatalf("ldSpK.Reference: %v", err)
+	}
+
+	// 5. TCGen05WeightsStationaryGEMM (M=128, N=128, K=64, Kind="ti16", Sparse=true, UseExclusive576Cols=true)
+	var zmask ZeroColumnMaskDesc
+	zmask.NonZeroMask = 0x03 // zero columns in groups 0 and 1
+	zmask.StartCount[0] = 2
+	zmask.SkipSpan[0] = 3 // zero 4 columns (2..5) in group 0
+	zmask.StartCount[1] = 0
+	zmask.SkipSpan[1] = 7 // zero all 8 columns (0..7) in group 1
+	wsK := TCGen05WeightsStationaryGEMM{
+		Name:                "tcgen05_ws_gemm_native",
+		M:                   128,
+		N:                   128,
+		K:                   64,
+		CollectorBuffer:     WSCollectorB0,
+		CollectorAction:     WSActionFill,
+		Kind:                "ti16",
+		UseExclusive576Cols: true,
+		ZeroColumnMask:      zmask,
+		Sparse:              true,
+		Target:              "sm_107a",
+	}
+	wsTU, err := wsK.CUDAFile()
+	if err != nil {
+		t.Fatalf("wsK.CUDAFile: %v", err)
+	}
+	tuFiles["TCGen05WeightsStationaryGEMM"] = wsTU
+	wsCUDA, err := wsK.CUDA()
+	if err != nil {
+		t.Fatalf("wsK.CUDA: %v", err)
+	}
+	wsA := make([]float32, 128*64)
+	wsB := make([]float32, 64*128)
+	for i := range wsA {
+		wsA[i] = 1.0
+	}
+	for i := range wsB {
+		wsB[i] = 0.5
+	}
+	wsWant, err := wsK.Reference(wsA, wsB)
+	if err != nil {
+		t.Fatalf("wsK.Reference: %v", err)
+	}
+	// 64 total K columns minus (4 + 8 = 12) zeroed columns = 52 active columns * 0.5 = 26.0.
+	if math.Abs(float64(wsWant[0]-26.0)) > 1e-5 {
+		t.Fatalf("wsWant[0] = %v, want 26.0", wsWant[0])
+	}
+
+	// 6. RubinSpCompressDecompressKernel (NumElements=64, Op=SpOpMaxAbs, ElemType=SpTypeE4M3)
+	spDesc := SpCompressDesc{Op: SpOpMaxAbs, ElemType: SpTypeE4M3}
+	spK := RubinSpCompressDecompressKernel{
+		NumElements: 64,
+		Desc:        spDesc,
+		Ratio:       SpRatio2to4,
+		Target:      "sm_107a",
+	}
+	spTU, err := spK.CUDAFile()
+	if err != nil {
+		t.Fatalf("spK.CUDAFile: %v", err)
+	}
+	tuFiles["RubinSpCompressDecompressKernel"] = spTU
+	spCUDA, err := spK.CUDA()
+	if err != nil {
+		t.Fatalf("spK.CUDA: %v", err)
+	}
+	spIn := make([]float32, 64)
+	for i := range spIn {
+		v := float32((i%9)-4) * 0.75
+		if i%4 == 2 {
+			v = -float32(i + 5)
+		}
+		spIn[i] = v
+	}
+	spWantC, spWantM, spWantRec, err := spK.Reference(spIn)
+	if err != nil {
+		t.Fatalf("spK.Reference: %v", err)
+	}
+
+	var b strings.Builder
+	b.WriteString("#include <cuda.h>\n#include <cuda_runtime.h>\n#include <cstdio>\n#include <cmath>\n#include <cstdint>\n#include <cstring>\n#include <vector>\n")
+	b.WriteString("#if !defined(__CUDA_ARCH__) || (__CUDA_ARCH__ != 1070)\n#define EG_EMU 1\n#endif\n")
+	b.WriteString(Prelude + "\n")
+	b.WriteString("extern \"C\" {\n")
+	b.WriteString(lutCUDA + "\n")
+	b.WriteString(prepareEarlyReleaseDeviceSource(erCUDA) + "\n")
+	b.WriteString(ldRedCUDA + "\n")
+	b.WriteString(ldSpCUDA + "\n")
+	b.WriteString(prepareWSDeviceSource(wsCUDA) + "\n")
+	b.WriteString(spCUDA + "\n")
+	b.WriteString("}\n")
+
+	fmt.Fprintf(&b, `
+template <typename T>
+static T* dev_dup(const T* host_data, size_t count) {
+    T* d = nullptr;
+    if (cudaMalloc(&d, count * sizeof(T)) != cudaSuccess) return nullptr;
+    if (cudaMemcpy(d, host_data, count * sizeof(T), cudaMemcpyHostToDevice) != cudaSuccess) return nullptr;
+    return d;
+}
+
+static bool launch_drv(CUmodule mod, const char* name, unsigned int gx, unsigned int bx, void** params) {
+    CUfunction fn = nullptr;
+    if (mod != nullptr && cuModuleGetFunction(&fn, mod, name) == CUDA_SUCCESS && fn != nullptr) {
+        if (cuLaunchKernel(fn, gx, 1, 1, bx, 1, 1, 0, nullptr, params, nullptr) != CUDA_SUCCESS) {
+            return false;
+        }
+        return cudaDeviceSynchronize() == cudaSuccess;
+    }
+    return false;
+}
+
+int main(int argc, char** argv) {
+    if (cuInit(0) != CUDA_SUCCESS) return 2;
+    cudaFree(0);
+    CUmodule mod = nullptr;
+    if (argc > 1 && argv[1] != nullptr && argv[1][0] != '\0') {
+        if (cuModuleLoad(&mod, argv[1]) != CUDA_SUCCESS) {
+            std::printf("cuModuleLoad(%%s) failed\n", argv[1]);
+            return 2;
+        }
+    }
+
+    // 1. TCGen05LUTDecompressGEMM + mutant
+    const uint8_t h_lut_a[] = {%s};
+    const uint8_t h_lut_as[] = {%s};
+    const uint8_t h_lut_bidx[] = {%s};
+    const uint8_t h_lut_blut[] = {%s};
+    const uint8_t h_lut_blut_mut[] = {%s};
+    const uint8_t h_lut_bs[] = {%s};
+    const float want_lut[] = {%s};
+
+    auto* d_lut_a = dev_dup(h_lut_a, %d);
+    auto* d_lut_as = dev_dup(h_lut_as, %d);
+    auto* d_lut_bidx = dev_dup(h_lut_bidx, %d);
+    auto* d_lut_blut = dev_dup(h_lut_blut, %d);
+    auto* d_lut_bs = dev_dup(h_lut_bs, %d);
+    float* d_out128 = nullptr;
+    if (cudaMalloc(&d_out128, 128 * 128 * sizeof(float)) != cudaSuccess) return 2;
+
+    void* lut_args[] = {&d_lut_a, &d_lut_as, &d_lut_bidx, &d_lut_blut, &d_lut_bs, &d_out128};
+    if (!launch_drv(mod, "tcgen05_lut_decompress_native", 1, 128, lut_args)) {
+        tcgen05_lut_decompress_native<<<1, 128>>>(d_lut_a, d_lut_as, d_lut_bidx, d_lut_blut, d_lut_bs, d_out128);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    std::vector<float> h_out128(128 * 128, 0.0f);
+    if (cudaMemcpy(h_out128.data(), d_out128, 128 * 128 * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 128 * 128; ++i) {
+        if (std::isnan(h_out128[i]) || std::fabs(h_out128[i] - want_lut[i]) >= 1e-4f) {
+            std::printf("FAIL TCGen05LUTDecompressGEMM idx=%%d got=%%f want=%%f\n", i, h_out128[i], want_lut[i]);
+            return 6;
+        }
+    }
+    if (cudaMemcpy(d_lut_blut, h_lut_blut_mut, sizeof(h_lut_blut_mut), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    if (!launch_drv(mod, "tcgen05_lut_decompress_native", 1, 128, lut_args)) {
+        tcgen05_lut_decompress_native<<<1, 128>>>(d_lut_a, d_lut_as, d_lut_bidx, d_lut_blut, d_lut_bs, d_out128);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_out128.data(), d_out128, 128 * 128 * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    bool lut_mut_rejected = false;
+    for (int i = 0; i < 128 * 128; ++i) {
+        if (std::fabs(h_out128[i] - want_lut[i]) > 1e-2f) { lut_mut_rejected = true; break; }
+    }
+    if (!lut_mut_rejected) return 7;
+    std::printf("PASS TCGen05LUTDecompressGEMM M=128 N=128 K=64 mutant_rejected=1\n");
+
+    // 2. TCGen05EarlyReleasePipelineGEMM + mutant
+    std::vector<float> h_er_a(128 * 128, 0.5f), h_er_b(128 * 128, 0.25f), h_er_b_mut(128 * 128, 0.75f);
+    auto* d_er_a = dev_dup(h_er_a.data(), h_er_a.size());
+    auto* d_er_b = dev_dup(h_er_b.data(), h_er_b.size());
+    void* er_args[] = {&d_er_a, &d_er_b, &d_out128};
+    if (!launch_drv(mod, "tcgen05_early_release_native", 1, 128, er_args)) {
+        tcgen05_early_release_native<<<1, 128>>>(d_er_a, d_er_b, d_out128);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_out128.data(), d_out128, 128 * 128 * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 128 * 128; ++i) {
+        if (std::fabs(h_out128[i] - 16.0f) >= 1e-4f) return 8;
+    }
+    if (cudaMemcpy(d_er_b, h_er_b_mut.data(), h_er_b_mut.size() * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    if (!launch_drv(mod, "tcgen05_early_release_native", 1, 128, er_args)) {
+        tcgen05_early_release_native<<<1, 128>>>(d_er_a, d_er_b, d_out128);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_out128.data(), d_out128, 128 * 128 * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::fabs(h_out128[0] - 16.0f) < 1e-2f) return 9;
+    std::printf("PASS TCGen05EarlyReleasePipelineGEMM M=128 N=128 K=128 mutant_rejected=1\n");
+
+    // 3. TCGen05LdRed + mutant
+    const float h_ld_in[] = {%s};
+    const float want_ld_data[] = {%s};
+    const float want_ld_row[] = {%s};
+    auto* d_ld_in = dev_dup(h_ld_in, 1024);
+    float *d_ld_data = nullptr, *d_ld_row = nullptr;
+    if (cudaMalloc(&d_ld_data, 1024 * sizeof(float)) != cudaSuccess ||
+        cudaMalloc(&d_ld_row, 32 * sizeof(float)) != cudaSuccess) return 2;
+    int m32 = 32, n32 = 32;
+    void* ld_red_args[] = {&d_ld_in, &d_ld_data, &d_ld_row, &m32, &n32};
+    if (!launch_drv(mod, "eg_tcgen05_ld_red_f32", 1, 128, ld_red_args)) {
+        eg_tcgen05_ld_red_f32<<<1, 128>>>(d_ld_in, d_ld_data, d_ld_row, 32, 32);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    float h_ld_data[1024] = {}, h_ld_row[32] = {};
+    if (cudaMemcpy(h_ld_data, d_ld_data, sizeof(h_ld_data), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(h_ld_row, d_ld_row, sizeof(h_ld_row), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 1024; ++i) {
+        if (std::fabs(h_ld_data[i] - want_ld_data[i]) >= 1e-4f) return 10;
+    }
+    for (int r = 0; r < 32; ++r) {
+        if (std::fabs(h_ld_row[r] - want_ld_row[r]) >= 1e-4f) return 10;
+    }
+    std::vector<float> h_ld_in_mut(1024, -250.0f);
+    if (cudaMemcpy(d_ld_in, h_ld_in_mut.data(), 1024 * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    if (!launch_drv(mod, "eg_tcgen05_ld_red_f32", 1, 128, ld_red_args)) {
+        eg_tcgen05_ld_red_f32<<<1, 128>>>(d_ld_in, d_ld_data, d_ld_row, 32, 32);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_ld_row, d_ld_row, sizeof(h_ld_row), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::fabs(h_ld_row[0] - want_ld_row[0]) < 1e-2f) return 11;
+    std::printf("PASS TCGen05LdRed M=32 N=32 mutant_rejected=1\n");
+
+    // 4. TCGen05LdSpCompress + mutant
+    if (cudaMemcpy(d_ld_in, h_ld_in, sizeof(h_ld_in), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    const float want_ldsp_c[] = {%s};
+    const uint32_t want_ldsp_m[] = {%s};
+    const float want_ldsp_row[] = {%s};
+    float* d_ldsp_c = nullptr;
+    unsigned int* d_ldsp_m = nullptr;
+    if (cudaMalloc(&d_ldsp_c, 512 * sizeof(float)) != cudaSuccess ||
+        cudaMalloc(&d_ldsp_m, 32 * sizeof(unsigned int)) != cudaSuccess) return 2;
+    void* ldsp_args[] = {&d_ld_in, &d_ldsp_c, &d_ldsp_m, &d_ld_row, &m32, &n32};
+    if (!launch_drv(mod, "eg_tcgen05_ld_spcompress_f32", 1, 128, ldsp_args)) {
+        eg_tcgen05_ld_spcompress_f32<<<1, 128>>>(d_ld_in, d_ldsp_c, d_ldsp_m, d_ld_row, 32, 32);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    float h_ldsp_c[512] = {};
+    uint32_t h_ldsp_m[32] = {};
+    if (cudaMemcpy(h_ldsp_c, d_ldsp_c, sizeof(h_ldsp_c), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(h_ldsp_m, d_ldsp_m, sizeof(h_ldsp_m), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(h_ld_row, d_ld_row, sizeof(h_ld_row), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 512; ++i) {
+        if (std::fabs(h_ldsp_c[i] - want_ldsp_c[i]) >= 1e-4f) return 12;
+    }
+    for (int r = 0; r < 32; ++r) {
+        if (h_ldsp_m[r] != want_ldsp_m[r] || std::fabs(h_ld_row[r] - want_ldsp_row[r]) >= 1e-4f) return 12;
+    }
+    if (cudaMemcpy(d_ld_in, h_ld_in_mut.data(), 1024 * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    if (!launch_drv(mod, "eg_tcgen05_ld_spcompress_f32", 1, 128, ldsp_args)) {
+        eg_tcgen05_ld_spcompress_f32<<<1, 128>>>(d_ld_in, d_ldsp_c, d_ldsp_m, d_ld_row, 32, 32);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_ldsp_c, d_ldsp_c, sizeof(h_ldsp_c), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::fabs(h_ldsp_c[0] - want_ldsp_c[0]) < 1e-2f) return 13;
+    std::printf("PASS TCGen05LdSpCompress M=32 N=32 mutant_rejected=1\n");
+
+    // 5. TCGen05WeightsStationaryGEMM + mutant
+    std::vector<float> h_ws_a(128 * 64, 1.0f), h_ws_b(64 * 128, 0.5f), h_ws_b_mut(64 * 128, 1.5f);
+    auto* d_ws_a = dev_dup(h_ws_a.data(), h_ws_a.size());
+    auto* d_ws_b = dev_dup(h_ws_b.data(), h_ws_b.size());
+    void* ws_args[] = {&d_ws_a, &d_ws_b, &d_out128};
+    if (!launch_drv(mod, "tcgen05_ws_gemm_native", 1, 128, ws_args)) {
+        tcgen05_ws_gemm_native<<<1, 128>>>(d_ws_a, d_ws_b, d_out128);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_out128.data(), d_out128, 128 * 128 * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 128 * 128; ++i) {
+        if (std::fabs(h_out128[i] - 26.0f) >= 1e-4f) return 14;
+    }
+    if (cudaMemcpy(d_ws_b, h_ws_b_mut.data(), h_ws_b_mut.size() * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    if (!launch_drv(mod, "tcgen05_ws_gemm_native", 1, 128, ws_args)) {
+        tcgen05_ws_gemm_native<<<1, 128>>>(d_ws_a, d_ws_b, d_out128);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_out128.data(), d_out128, 128 * 128 * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::fabs(h_out128[0] - 26.0f) < 1e-2f) return 15;
+    std::printf("PASS TCGen05WeightsStationaryGEMM M=128 N=128 K=64 mutant_rejected=1\n");
+
+    // 6. RubinSpCompressDecompressKernel + mutant
+    const float h_sp_in[] = {%s};
+    const float want_sp_c[] = {%s};
+    const uint32_t want_sp_m[] = {%s};
+    const float want_sp_rec[] = {%s};
+    auto* d_sp_in = dev_dup(h_sp_in, 64);
+    float *d_sp_c = nullptr, *d_sp_rec = nullptr;
+    unsigned int* d_sp_m = nullptr;
+    if (cudaMalloc(&d_sp_c, 32 * sizeof(float)) != cudaSuccess ||
+        cudaMalloc(&d_sp_m, 2 * sizeof(unsigned int)) != cudaSuccess ||
+        cudaMalloc(&d_sp_rec, 64 * sizeof(float)) != cudaSuccess) return 2;
+    int sp_n = 64;
+    unsigned int spdesc_val = 0x%08xu;
+    void* sp_args[] = {&d_sp_in, &d_sp_c, &d_sp_m, &d_sp_rec, &sp_n, &spdesc_val};
+    if (!launch_drv(mod, "eg_rubin_spcompress_roundtrip", 1, 64, sp_args)) {
+        eg_rubin_spcompress_roundtrip<<<1, 64>>>(d_sp_in, d_sp_c, d_sp_m, d_sp_rec, 64, spdesc_val);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    float h_sp_c[32] = {}, h_sp_rec[64] = {};
+    uint32_t h_sp_m[2] = {};
+    if (cudaMemcpy(h_sp_c, d_sp_c, sizeof(h_sp_c), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(h_sp_m, d_sp_m, sizeof(h_sp_m), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        cudaMemcpy(h_sp_rec, d_sp_rec, sizeof(h_sp_rec), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    for (int i = 0; i < 32; ++i) {
+        if (std::fabs(h_sp_c[i] - want_sp_c[i]) >= 1e-4f) return 16;
+    }
+    if (h_sp_m[0] != want_sp_m[0] || h_sp_m[1] != want_sp_m[1]) return 16;
+    for (int i = 0; i < 64; ++i) {
+        if (std::fabs(h_sp_rec[i] - want_sp_rec[i]) >= 1e-4f) return 16;
+    }
+    std::vector<float> h_sp_in_mut(64, 99.0f);
+    if (cudaMemcpy(d_sp_in, h_sp_in_mut.data(), 64 * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) return 3;
+    if (!launch_drv(mod, "eg_rubin_spcompress_roundtrip", 1, 64, sp_args)) {
+        eg_rubin_spcompress_roundtrip<<<1, 64>>>(d_sp_in, d_sp_c, d_sp_m, d_sp_rec, 64, spdesc_val);
+        if (cudaDeviceSynchronize() != cudaSuccess) return 4;
+    }
+    if (cudaMemcpy(h_sp_rec, d_sp_rec, sizeof(h_sp_rec), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
+    if (std::fabs(h_sp_rec[0] - want_sp_rec[0]) < 1e-2f) return 17;
+    std::printf("PASS RubinSpCompressDecompressKernel N=64 mutant_rejected=1\n");
+
+    if (mod != nullptr) cuModuleUnload(mod);
+    std::printf("TCGEN05_WAVE12_13_NATIVE_OK wave12_13_mutant_rejected=1\n");
+    return 0;
+}
+`,
+		formatTCGen05U8List(lutAE4M3),
+		formatTCGen05U8List(lutAScales),
+		formatTCGen05U8List(lutBIdx),
+		formatTCGen05U8List(lutBLUT),
+		formatTCGen05U8List(lutBLUTMut),
+		formatTCGen05U8List(lutBScales),
+		formatTCGen05F32List(lutWant),
+		len(lutAE4M3),
+		len(lutAScales),
+		len(lutBIdx),
+		len(lutBLUT),
+		len(lutBScales),
+		formatTCGen05F32List(ldRedIn),
+		formatTCGen05F32List(ldRedWantData),
+		formatTCGen05F32List(ldRedWantRow),
+		formatTCGen05F32List(ldSpWantC),
+		formatTCGen05U32List(ldSpWantM),
+		formatTCGen05F32List(ldSpWantRow),
+		formatTCGen05F32List(spIn),
+		formatTCGen05F32List(spWantC),
+		formatTCGen05U32List(spWantM),
+		formatTCGen05F32List(spWantRec),
+		spDesc.Encode(),
+	)
+
+	return tcgen05Wave12And13Fixtures{
+		tuFiles:    tuFiles,
+		harnessSrc: b.String(),
+	}
+}
+
+func probeNVCCSupportsSM107A(t *testing.T, nvcc, dir string) bool {
+	t.Helper()
+	if !nvccSupportsTarget(t, nvcc, "sm_107a") {
+		return false
+	}
+	probeCU := filepath.Join(dir, "probe_sm107a.cu")
+	probeCubin := filepath.Join(dir, "probe_sm107a.cubin")
+	if err := os.WriteFile(probeCU, []byte("__global__ void probe_sm107a(float* out) { *out = 1.0f; }\n"), 0o600); err != nil {
+		t.Fatalf("write %s: %v", probeCU, err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	if err := exec.CommandContext(ctx, nvcc, "-std=c++17", "-arch=sm_107a", "-cubin", probeCU, "-o", probeCubin).Run(); err != nil {
+		return false
+	}
+	return true
+}
+
+func qualifyTCGen05Wave12And13Rubin(t *testing.T, nvcc string, cudaVer cudatool.Version, devArch, dir string) {
+	t.Helper()
+	fx := buildTCGen05Wave12And13Fixtures(t)
+
+	// Probe whether the installed toolkit supports -arch=sm_107a.
+	sm107Supported := probeNVCCSupportsSM107A(t, nvcc, dir)
+	if !sm107Supported {
+		t.Logf("sm_107a_toolchain_support=false (CUDA %s max sm_103a/sm_121a)", cudaVer)
+	} else {
+		t.Logf("sm_107a_toolchain_support=true (CUDA %s)", cudaVer)
+	}
+
+	// Compile each of the 6 Wave 12/13 translation units under -arch=<devArch> -cubin
+	// (and under -arch=sm_107a -cubin + nvdisasm if supported by the toolkit).
+	for name, tu := range fx.tuFiles {
+		cuPath := filepath.Join(dir, name+".cu")
+		cubinPath := filepath.Join(dir, name+"."+devArch+".cubin")
+		if err := os.WriteFile(cuPath, []byte(tu), 0o600); err != nil {
+			t.Fatalf("write %s: %v", cuPath, err)
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+		out, err := exec.CommandContext(ctx, nvcc, "-std=c++17", "-arch="+devArch, "-cubin", cuPath, "-o", cubinPath).CombinedOutput()
+		cancel()
+		if err != nil {
+			t.Fatalf("nvcc -arch=%s -cubin %s (CUDA %s): %v\n%s", devArch, name, cudaVer, err, out)
+		}
+		inspectCubinWithNVDisasm(t, cubinPath, devArch)
+
+		if sm107Supported {
+			sm107Cubin := filepath.Join(dir, name+".sm_107a.cubin")
+			ctx107, cancel107 := context.WithTimeout(t.Context(), 2*time.Minute)
+			out107, err107 := exec.CommandContext(ctx107, nvcc, "-std=c++17", "-arch=sm_107a", "-cubin", cuPath, "-o", sm107Cubin).CombinedOutput()
+			cancel107()
+			if err107 != nil {
+				t.Fatalf("nvcc -arch=sm_107a -cubin %s (CUDA %s): %v\n%s", name, cudaVer, err107, out107)
+			}
+			inspectCubinWithNVDisasm(t, sm107Cubin, "sm_107a")
+		}
+	}
+
+	// Build and run the Wave 12/13 native device qualification harness (which also
+	// compiles a native-arch cubin and launches the kernels via the CUDA Driver API).
+	harnessCU := filepath.Join(dir, "tcgen05_wave12_13_qualify.cu")
+	harnessCubin := filepath.Join(dir, "tcgen05_wave12_13_qualify.cubin")
+	harnessBin := filepath.Join(dir, "tcgen05_wave12_13_qualify")
+	if err := os.WriteFile(harnessCU, []byte(fx.harnessSrc), 0o600); err != nil {
+		t.Fatalf("write %s: %v", harnessCU, err)
+	}
+
+	cubinCtx, cubinCancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cubinCancel()
+	if out, err := exec.CommandContext(cubinCtx, nvcc, "-std=c++17", "-O2", "-arch="+devArch, "-cubin", harnessCU, "-o", harnessCubin).CombinedOutput(); err != nil {
+		t.Fatalf("nvcc Wave 12/13 cubin (%s, CUDA %s): %v\n%s", devArch, cudaVer, err, out)
+	}
+
+	buildCtx, buildCancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer buildCancel()
+	if out, err := exec.CommandContext(buildCtx, nvcc, "-std=c++17", "-O2", "-arch="+devArch, harnessCU, "-lcuda", "-o", harnessBin).CombinedOutput(); err != nil {
+		t.Fatalf("nvcc Wave 12/13 harness (%s, CUDA %s): %v\n%s", devArch, cudaVer, err, out)
+	}
+
+	runCtx, runCancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer runCancel()
+	runCmd := exec.CommandContext(runCtx, harnessBin, harnessCubin)
+	runOut, err := runCmd.CombinedOutput()
+	if err != nil {
+		exitCode := -1
+		if runCmd.ProcessState != nil {
+			exitCode = runCmd.ProcessState.ExitCode()
+		}
+		t.Fatalf("tcgen05 Wave 12/13 harness failed (exit=%d, arch=%s, CUDA=%s): %v\n%s",
+			exitCode, devArch, cudaVer, err, runOut)
+	}
+	outStr := string(runOut)
+	if !strings.Contains(outStr, "TCGEN05_WAVE12_13_NATIVE_OK") || !strings.Contains(outStr, "wave12_13_mutant_rejected=1") {
+		t.Fatalf("tcgen05 Wave 12/13 harness output missing expected markers:\n%s", outStr)
+	}
+	t.Logf("tcgen05 Wave 12/13 Rubin qualification passed on %s (CUDA %s):\n%s", devArch, cudaVer, strings.TrimSpace(outStr))
+}
+
+func formatTCGen05U8List(v []uint8) string {
+	parts := make([]string, len(v))
+	for i, x := range v {
+		parts[i] = fmt.Sprintf("0x%02xu", x)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatTCGen05U32List(v []uint32) string {
+	parts := make([]string, len(v))
+	for i, x := range v {
+		parts[i] = fmt.Sprintf("0x%08xu", x)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func nvccSupportsTarget(t *testing.T, nvcc, target string) bool {
