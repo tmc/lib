@@ -293,9 +293,18 @@ func (e *Evaluator) RecordOutcome(snapshotID string, outcome ObservedOutcome) er
 
 // Replay re-evaluates a sequence of recorded snapshots against the policy,
 // asserting deterministic reproduction of decisions.
+//
+// Like WriteHistory, Replay refuses a history with more than 4096 snapshots,
+// an invalid snapshot, or a compact encoding over 16 MiB before it copies any
+// snapshot or calls the policy. Because every snapshot is validated first,
+// an invalid snapshot is reported ahead of a cancellation, policy identity
+// mismatch, ordering error or evaluation failure at any step.
 func (e *Evaluator) Replay(ctx context.Context, pol Policy, history []Snapshot) ([]Snapshot, error) {
 	if pol == nil || reflect.ValueOf(pol).Kind() == reflect.Pointer && reflect.ValueOf(pol).IsNil() {
 		return nil, errors.New("cudashadow replay: policy cannot be nil")
+	}
+	if _, _, err := checkHistory(history, "cudashadow replay step"); err != nil {
+		return nil, err
 	}
 	replayed := make([]Snapshot, 0, len(history))
 	var lastSequence uint64
@@ -308,9 +317,6 @@ func (e *Evaluator) Replay(ctx context.Context, pol Policy, history []Snapshot) 
 
 		if !reflect.DeepEqual(pol.Info(), snap.Policy) {
 			return nil, fmt.Errorf("cudashadow replay step %d: policy identity mismatch", i)
-		}
-		if err := snap.Validate(); err != nil {
-			return nil, fmt.Errorf("cudashadow replay step %d: %w", i, err)
 		}
 		if snap.Status == StatusValid && snap.Provenance.Sequence > 0 && lastSequence > 0 && snap.Provenance.Sequence <= lastSequence {
 			return nil, errors.New("cudashadow replay: sequence disorder")
