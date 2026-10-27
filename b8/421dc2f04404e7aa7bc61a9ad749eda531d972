@@ -1,0 +1,12 @@
+commit: b8421dc2f04404e7aa7bc61a9ad749eda531d972
+date: 2026-10-27T04:33:42.180115+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 82340
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original31-env-v1-implementation/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-original31-env-v1-adoption/ROOT-GRADE.md
+qualification: r1affected197PASS host/race with2assertioncontrols;finalv1provenancefocused9PASS each+hostvet;independent finalpublicrace80PASS;allfailures/tuples retained;no liveproc/NVML/native/full31
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
