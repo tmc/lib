@@ -1,0 +1,12 @@
+commit: 65e403097b88fe6f2903a34a4af397dc20adacad
+date: 2026-10-27T04:55:24.938005+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 6650
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original31-export-e1-implementation/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-original31-export-e1-adoption/ROOT-GRADE.md
+qualification: actualNVMLfakehealth→wire→writers host350/scopedE1race33;vets+2assertionkills;independent composed165clean8rootrace95PASS;oldbroadboundaryracetimeoutUNPROVEN;no native/backend/full31
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
