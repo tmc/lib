@@ -57,6 +57,7 @@ var (
 	benchCountFlag  = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 	weightDTypeFlag = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
 	cudaGraphFlag   = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
+	egraphFlag      = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 )
 
 func main() {
@@ -331,6 +332,24 @@ func runGPUInference(
 	}
 	if err != nil {
 		return fmt.Errorf("alloc scratchpad: %w", err)
+	}
+
+	if *egraphFlag {
+		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch)
+		if err != nil {
+			return fmt.Errorf("e-graph decoder: %w", err)
+		}
+		defer func() {
+			if td.held() {
+				return
+			}
+			if cerr := eg.Close(); cerr != nil {
+				td.add(fmt.Errorf("close e-graph decoder: %w", cerr))
+			}
+		}()
+		gm.eg = eg
+		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
+			eg.Kernels(), strings.Join(egraphGenerated, ", "), strings.Join(egraphFallback, ", "))
 	}
 
 	var dg *DecodeGraph

@@ -44,6 +44,9 @@ type GPUModules struct {
 	fusedDownProjResBF16Fn  driver.Function
 	ropeScaledFn            driver.Function
 	gemvBF16WideFn          driver.Function
+
+	// eg, when set, runs the decode step with e-graph generated kernels.
+	eg *egraphDecoder
 }
 
 // PTX returns the exact JIT-compiled PTX assembly string.

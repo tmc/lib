@@ -516,6 +516,9 @@ func emitForwardStep(
 	if err := gpuW.checkDTypes(); err != nil {
 		return err
 	}
+	if gm.eg != nil {
+		return gm.eg.emitStep(gpuW, cfg, layerKV, sp, gm, attnFn, sampleFn, tokenSrc, pos, attnShared, emit)
+	}
 	if err := checkPos(pos, cfg.MaxSeqLen); err != nil {
 		return err
 	}
