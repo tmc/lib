@@ -1,0 +1,12 @@
+commit: e5bf7e5245f754573c416362d9864f4a2bca199d
+date: 2026-10-27T14:33:49.725978+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 57449
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-wandb-go-consumer-qualification/W/net.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-wandb-go-consumer-adoption/ROOT-GRADE.md
+qualification: selected host/race/vet SDK-derived fixture; no native JSONL or full120
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
