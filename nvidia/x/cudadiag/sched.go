@@ -47,24 +47,31 @@ func (s SchedEvidence) Matches(proc cudaworkload.ProcessGenID, tid uint64) bool 
 	return s.Process == proc && s.TID == tid
 }
 
-// Durations computes the total runnable (CPU starvation), scheduled (running on CPU),
-// and wait (blocked off-CPU) times.
-func (s SchedEvidence) Durations() (runnable, scheduled, wait time.Duration) {
-	var rNs, sNs, wNs int64
+// Durations computes runnable, scheduled and blocked time separately.
+// Zero-length and inverted intervals contribute zero. It returns zero durations
+// and an error if any recognized state's duration is unrepresentable.
+func (s SchedEvidence) Durations() (runnable, scheduled, wait time.Duration, err error) {
 	for _, iv := range s.Intervals {
-		dur := iv.Span.Duration()
+		var total *time.Duration
 		switch iv.State {
 		case SchedRunnable:
-			rNs += dur
+			total = &runnable
 		case SchedRunning:
-			sNs += dur
+			total = &scheduled
 		case SchedBlocked:
-			wNs += dur
+			total = &wait
+		default:
+			continue
+		}
+		d, e := intervalDuration(iv.Span)
+		if e == nil {
+			*total, e = addDuration(*total, d)
+		}
+		if e != nil {
+			return 0, 0, 0, fmt.Errorf("%s: %w", iv.State, e)
 		}
 	}
-	return time.Duration(rNs) * time.Nanosecond,
-		time.Duration(sNs) * time.Nanosecond,
-		time.Duration(wNs) * time.Nanosecond
+	return runnable, scheduled, wait, nil
 }
 
 // Validate checks whether scheduler evidence is present, complete, and properly matched.

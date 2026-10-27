@@ -58,7 +58,10 @@ func TestTimeAccounting_Separation(t *testing.T) {
 		},
 	}
 
-	ta := ComputeTimeAccounting(wall, hostCalls, kernels, sched)
+	ta, err := ComputeTimeAccounting(wall, hostCalls, kernels, sched)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if ta.WallInterval.Duration() != 4000 {
 		t.Fatalf("wall duration got %d, want 4000", ta.WallInterval.Duration())
@@ -108,8 +111,14 @@ func TestUnionDuration_Concurrency(t *testing.T) {
 	// Total union duration = 30 + 150 + 200 = 380ns
 	// Sum of individual = 100 + 100 + 100 + 100 + 30 = 430ns
 
-	unionDur := UnionDuration(intervals)
-	sumDur := SumDuration(intervals)
+	unionDur, err := UnionDuration(intervals)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sumDur, err := SumDuration(intervals)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if unionDur != 380*time.Nanosecond {
 		t.Fatalf("union duration got %v, want 380ns", unionDur)
@@ -130,7 +139,7 @@ func TestComputeIntervalUnion_EmptyAndInverted(t *testing.T) {
 	if res := ComputeIntervalUnion(inverted); len(res) != 0 {
 		t.Fatalf("inverted intervals got %v, want empty", res)
 	}
-	if dur := UnionDuration(inverted); dur != 0 {
+	if dur, err := UnionDuration(inverted); err != nil || dur != 0 {
 		t.Fatalf("inverted duration got %v, want 0", dur)
 	}
 }

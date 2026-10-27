@@ -65,7 +65,10 @@ func TestSchedEvidence_Matching(t *testing.T) {
 	}
 
 	// Durations check
-	runnable, scheduled, wait := sched.Durations()
+	runnable, scheduled, wait, err := sched.Durations()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if runnable != 500*time.Nanosecond {
 		t.Fatalf("runnable got %v, want 500ns", runnable)
 	}
