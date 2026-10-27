@@ -1,0 +1,12 @@
+commit: 9b589257eb355519878e7e1f1f44e8d82c874aee
+date: 2026-10-27T14:00:29.146508+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 71452
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261027-original28-registered-chain/W/net.patch
+review: /Users/tmc/tmp/lib-wt-next/20261027-original28-registered-chain-adoption/ROOT-GRADE.md
+qualification: focused host/race/vet with synthetic control-plane transport; no native, data movement or full28
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
