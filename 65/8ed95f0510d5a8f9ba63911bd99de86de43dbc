@@ -1,0 +1,12 @@
+commit: 658ed95f0510d5a8f9ba63911bd99de86de43dbc
+date: 2026-10-27T00:35:25.084717+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 65055
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original14-real-stack-fixture/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-original14-real-stack-adoption/ROOT-GRADE.md
+qualification: two source fixtures, five ordinary Go compile/link/vet jobs only; target/test binaries unexecuted; physical capture, IDs, device-time weighting, native and full Original14 unqualified
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
