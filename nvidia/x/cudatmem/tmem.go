@@ -23,6 +23,7 @@ var (
 type Target string
 
 const (
+	SM90A  Target = "sm_90a"
 	SM100A Target = "sm_100a"
 	SM103A Target = "sm_103a"
 	SM107A Target = "sm_107a"
@@ -32,12 +33,28 @@ const (
 	SM121A Target = "sm_121a"
 )
 
+// MaxColumnsExclusive is the per-CTA TMEM column capacity (512 standard data
+// columns + 64 exclusive scale/metadata columns) unlocked by
+// tcgen05.alloc.exclusive.cta_group::2 (PTX ISA 9.4 section 9.7.18.7.1).
+const MaxColumnsExclusive = 576
+
+// CTAGroup identifies a 1-CTA or 2-CTA cooperative tcgen05 allocation group.
+type CTAGroup int
+
+const (
+	CTAGroup1 CTAGroup = 1
+	CTAGroup2 CTAGroup = 2
+)
+
+// Map aliases Allocator for TMEM column-map capacity modeling.
+type Map = Allocator
+
 func ParseTarget(s string) (Target, error) {
 	switch Target(s) {
 	case SM100A, SM103A, SM107A, SM100F, SM103F, SM107F:
 		return Target(s), nil
-	case SM121A:
-		return SM121A, ErrUnsupportedTarget
+	case SM90A, SM121A:
+		return Target(s), ErrUnsupportedTarget
 	default:
 		return "", fmt.Errorf("%w: %q", ErrUnsupportedTarget, s)
 	}
@@ -146,6 +163,8 @@ func (a *Allocation) CompleteUser() error {
 type Allocator struct {
 	mu            sync.Mutex
 	cap           Capability
+	exclusive     bool
+	group         CTAGroup
 	next          uint32
 	free          []columnRange
 	permits       uint32
@@ -188,12 +207,87 @@ func New(target Target) (*Allocator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Allocator{cap: c, allocations: make(map[*Allocation]struct{}), activePermits: make(map[*Permit]struct{})}, nil
+	return &Allocator{
+		cap:           c,
+		group:         CTAGroup1,
+		allocations:   make(map[*Allocation]struct{}),
+		activePermits: make(map[*Permit]struct{}),
+	}, nil
 }
+
+// NewExclusiveMap constructs a TMEM column map with .exclusive 576-column
+// capacity (512 data columns + 64 exclusive scale/metadata columns) per PTX ISA
+// 9.4 section 9.7.18.7.1:
+//
+//	tcgen05.alloc.exclusive.cta_group::2.sync.aligned.shared::cta.b32 [sMemAddr], 576;
+//
+// Exclusive allocation is supported on SM100A, SM103A, SM107A, SM100F, SM103F,
+// and SM107F when group == CTAGroup2.
+func NewExclusiveMap(target Target, group CTAGroup) (*Map, error) {
+	a, err := New(target)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.EnableExclusive(group); err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
+// EnableExclusive enables the 576-column .exclusive mode on an empty allocator
+// when group == CTAGroup2 on a supported tcgen05 target.
+func (a *Allocator) EnableExclusive(group CTAGroup) error {
+	if a == nil {
+		return ErrClosed
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed || a.cap.ColumnUnit == 0 {
+		return ErrClosed
+	}
+	switch a.cap.Target {
+	case SM100A, SM103A, SM107A, SM100F, SM103F, SM107F:
+	default:
+		return fmt.Errorf("%w: %s", ErrUnsupportedTarget, a.cap.Target)
+	}
+	if group != CTAGroup2 {
+		return fmt.Errorf("%w: .exclusive requires cta_group::2, got %d", ErrParticipation, group)
+	}
+	if len(a.allocations) != 0 || a.next != 0 {
+		return ErrBusy
+	}
+	a.exclusive = true
+	a.group = CTAGroup2
+	a.cap.MaxColumns = MaxColumnsExclusive
+	return nil
+}
+
+// Exclusive reports whether the allocator has 576-column .exclusive mode enabled.
+func (a *Allocator) Exclusive() bool {
+	if a == nil {
+		return false
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.exclusive
+}
+
+// CTAGroup returns the CTA group configured on the allocator.
+func (a *Allocator) CTAGroup() CTAGroup {
+	if a == nil {
+		return 0
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.group
+}
+
 func (a *Allocator) Capability() Capability {
 	if a == nil {
 		return Capability{}
 	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	return a.cap
 }
 
@@ -263,7 +357,8 @@ func (a *Allocator) allocateLocked(p *Permit, participants, columns, rows uint32
 	if participants != p.participants {
 		return nil, ErrParticipation
 	}
-	if columns == 0 || rows == 0 || rows > a.cap.MaxRows || columns%a.cap.ColumnUnit != 0 || columns&(columns-1) != 0 || rows%a.cap.RowUnit != 0 || columns > a.cap.MaxColumns {
+	isExclusive576 := a.exclusive && columns == MaxColumnsExclusive
+	if columns == 0 || rows == 0 || rows > a.cap.MaxRows || columns%a.cap.ColumnUnit != 0 || (!isExclusive576 && columns&(columns-1) != 0) || rows%a.cap.RowUnit != 0 || columns > a.cap.MaxColumns {
 		return nil, ErrInvalidUnit
 	}
 	if p.lastColumns != 0 && columns > p.lastColumns {
