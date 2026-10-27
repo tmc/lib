@@ -1,0 +1,12 @@
+commit: 04262cf429790655235e80ed40d1e7f59a823b98
+date: 2026-10-27T04:28:12.218429+00:00
+agent: Codex
+claude-code version: not applicable
+model: inherited, not introspected
+tty: non-tty task helper
+pid: 74985
+ITERM_SESSION_ID: 8A8E1B10-FDC6-4F78-AB24-EEE89220FD53
+source: /Users/tmc/tmp/lib-wt-next/20261026-original34-stall-profile-fix/candidate.patch
+review: /Users/tmc/tmp/lib-wt-next/20261026-original34-stall-profile-adoption/ROOT-GRADE.md
+qualification: oldpublicfunction NaN-only assertion failure;fixed host/race24PASS each,bothvets;independent Valid-only race17PASS;no encoder/tool/native/full34
+commit helper return codes: [1, 1]; manual signed fallback: True; no repeated helper loop
