@@ -658,15 +658,15 @@ func (l Legality) String() string {
 // not a claim that the resulting sequence is faster, and not a claim that it
 // loads, which is what the step 4 feasibility gate decides.
 func CanSwap(b BasicBlock, i, j int, arch Arch, policy NumericalPolicy) Legality {
+	if i < 0 || i >= len(b.Instructions) || j < 0 || j >= len(b.Instructions) {
+		return Legality{Reasons: []string{"position out of range"}}
+	}
 	if j != i+1 {
 		if i == j+1 {
 			i, j = j, i
 		} else {
 			return Legality{Reasons: []string{fmt.Sprintf("positions %d and %d are not adjacent", i, j)}}
 		}
-	}
-	if i < 0 || j >= len(b.Instructions) {
-		return Legality{Reasons: []string{"position out of range"}}
 	}
 	edges, err := Dependencies(b, arch)
 	if err != nil {
