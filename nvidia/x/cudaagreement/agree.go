@@ -69,7 +69,7 @@ func Verify(arms []Arm) error {
 }
 
 // sameWork checks that the arms ran the same plan: the same step names in the
-// same order over the same artifact digests, at the same geometry wherever
+// same order over the same artifact digests, entry points and geometry wherever
 // both arms launched the step's artifact. Two arms that agree on the output
 // of different work have not agreed on anything.
 func sameWork(arms []Arm) error {
@@ -87,11 +87,28 @@ func sameWork(arms []Arm) error {
 			if a.Digest != b.Digest {
 				return fmt.Errorf("cudaagreement: step %s used artifact %s in arm %s and %s in arm %s", a.Step, a.Digest, first.Arm, b.Digest, r.Arm)
 			}
-			// Geometry identifies a launch of the step's own artifact. A
-			// step run inside another program has that program's geometry,
-			// so geometry is compared only where both arms ran the artifact.
-			if a.Program == "" && b.Program == "" && (a.Grid != b.Grid || a.Block != b.Block) {
-				return fmt.Errorf("cudaagreement: step %s ran %dx%d in arm %s and %dx%d in arm %s", a.Step, a.Grid, a.Block, first.Arm, b.Grid, b.Block, r.Arm)
+		}
+	}
+	// A worker reports its own entry and geometry. Choose an ordinary
+	// reference separately for each step, regardless of the arms' order.
+	for i := range first.Steps {
+		var reference *Record
+		for _, arm := range arms {
+			r := arm.Record
+			b := r.Steps[i]
+			if b.Program != "" {
+				continue
+			}
+			if reference == nil {
+				reference = r
+				continue
+			}
+			a := reference.Steps[i]
+			if a.EntryPoint != b.EntryPoint {
+				return fmt.Errorf("cudaagreement: step %s used entry %s in arm %s and %s in arm %s", a.Step, a.EntryPoint, reference.Arm, b.EntryPoint, r.Arm)
+			}
+			if a.Grid != b.Grid || a.Block != b.Block {
+				return fmt.Errorf("cudaagreement: step %s ran %dx%d in arm %s and %dx%d in arm %s", a.Step, a.Grid, a.Block, reference.Arm, b.Grid, b.Block, r.Arm)
 			}
 		}
 	}
