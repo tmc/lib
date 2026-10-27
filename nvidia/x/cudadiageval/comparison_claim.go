@@ -156,7 +156,7 @@ func profileRole(role, profile string) bool {
 
 func (s *registeredPair) bindRoles(data map[string][]byte, hashes map[string]string, id *PairIdentity) error {
 	required := requiredRoleKeys(s)
-	if _, cost := s.registration.Protocol.Comparison.Properties["cost"]; cost {
+	if _, cost := s.registration.Protocol.Comparison.Properties["cost"]; cost && (s.registration.Observer.Body == nil || s.registration.Observer.Body.PhaseConfigurations == nil) {
 		s.problems = append(s.problems, "registered per-arm observer-off/on configuration identity unavailable")
 	}
 	seen := map[roleKey]bool{}
@@ -631,6 +631,46 @@ func (s *registeredPair) validateAttestation(v RegisteredReceipt, a ExternalAtte
 		c := a.Environment
 		if c == nil || r.Workload.Body == nil || r.Observer.Body == nil || r.Clock.Body == nil || a.MethodArtifact != r.Workload.Body.Code || !reflect.DeepEqual(c.SourceClosure, v.SourceClosure) || c.ObserverContractDigest != pairDigest(r.Observer.Body) || c.WorkloadContractDigest != pairDigest(r.Workload.Body) || !reflect.DeepEqual(c.ClockBounds, v.AcquisitionBounds) {
 			return errors.New("environment contract mismatch")
+		}
+		phase := scope.ExperimentPhase == "observer-off" || scope.ExperimentPhase == "observer-on"
+		if phase && scope.Property == "cost" {
+			planned, ok := r.observerPhase(scope.Arm, scope.ExperimentPhase)
+			if !ok || c.ObserverPhase == nil || c.ObserverPhase.Version != 1 {
+				return errors.New("observer phase configuration unavailable")
+			}
+			record := c.ObserverPhase.Record
+			if !refs([]RegistrationArtifact{record, planned.Configuration}) {
+				return errors.New("observer phase configuration unchecked or out of scope")
+			}
+			for _, ref := range []RegistrationArtifact{record, planned.Configuration} {
+				found := false
+				for _, underlying := range a.EvidenceArtifacts {
+					if ref == underlying {
+						found = true
+					}
+				}
+				if !found {
+					return errors.New("observer phase configuration underlying reference absent")
+				}
+			}
+			raw := data[record.Path]
+			if len(raw) > registrationLimit {
+				return errors.New("observer phase configuration record exceeds limit")
+			}
+			var actual ObserverPhaseConfiguration
+			if err := pairedDecode(raw, &actual, true); err != nil {
+				return fmt.Errorf("observer phase configuration: %w", err)
+			}
+			if !reflect.DeepEqual(actual, planned) {
+				return errors.New("observer phase configuration differs from registration")
+			}
+			for _, f := range append([]RegistrationFact{planned.Settings.Access}, planned.Settings.OwnerConflicts...) {
+				if !ledgerOneOf(f.State, "known", "not-applicable") {
+					return errors.New("observer phase access or conflict unresolved")
+				}
+			}
+		} else if c.ObserverPhase != nil {
+			return errors.New("observer phase configuration outside cost phase")
 		}
 		lease := r.Workload.Body.HardwareLease
 		if lease.State == "known" {

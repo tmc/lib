@@ -194,12 +194,102 @@ type RegistrationObserverSpec struct {
 	OwnerConflicts []RegistrationFact `json:"owner_conflicts"`
 	Arm            string             `json:"arm"`
 	ReferenceArm   string             `json:"reference_arm"`
+	// PhaseConfigurations is optional so legacy scalar registrations retain their bytes.
+	PhaseConfigurations *ObserverPhasePlan `json:"phase_configurations,omitempty"`
 }
 
 // RegistrationAnalysis freezes sample selection and the existing properties.
 type RegistrationAnalysis struct {
 	Contract RegistrationContract      `json:"contract"`
 	Body     *RegistrationAnalysisSpec `json:"body"`
+}
+
+// ObserverPhasePlan registers both off/on configurations for each comparison arm.
+// Version is 1. These declarations do not authenticate tool execution.
+type ObserverPhasePlan struct {
+	Version        int                          `json:"version"`
+	Configurations []ObserverPhaseConfiguration `json:"configurations"`
+}
+
+// ObserverPhaseConfiguration binds a tool's settings and original configuration
+// artifact to one arm and phase. Its canonical JSON is also the acquired record
+// format. Matching bytes establish consistency, not authentic acquisition.
+type ObserverPhaseConfiguration struct {
+	Version       int                   `json:"version"`
+	Arm           string                `json:"arm"`
+	Phase         string                `json:"phase"`
+	Tool          ToolSpec              `json:"tool"`
+	Settings      ObserverPhaseSettings `json:"settings"`
+	Configuration RegistrationArtifact  `json:"configuration"`
+}
+
+// ObserverPhaseSettings records the observer scope for one off/on phase.
+// Access and conflicts retain unresolved states rather than implying permission.
+type ObserverPhaseSettings struct {
+	Mode           string             `json:"mode"`
+	SensorScope    []string           `json:"sensor_scope"`
+	Access         RegistrationFact   `json:"access"`
+	FreshnessNanos int64              `json:"freshness_nanos"`
+	DutyCycle      float64            `json:"duty_cycle"`
+	SamplingRateHz float64            `json:"sampling_rate_hz"`
+	OwnerConflicts []RegistrationFact `json:"owner_conflicts"`
+}
+
+func (r Registration) observerPhase(arm, phase string) (ObserverPhaseConfiguration, bool) {
+	if r.Observer.Body != nil && r.Observer.Body.PhaseConfigurations != nil {
+		for _, c := range r.Observer.Body.PhaseConfigurations.Configurations {
+			if c.Arm == arm && c.Phase == phase {
+				return c, true
+			}
+		}
+	}
+	return ObserverPhaseConfiguration{}, false
+}
+
+func (r Registration) validateObserverPhases() error {
+	if r.Observer.Body == nil || r.Observer.Body.PhaseConfigurations == nil {
+		return nil
+	}
+	p := r.Observer.Body.PhaseConfigurations
+	if p.Version != 1 || len(p.Configurations) != 4 || r.Mode != "comparison" || r.Protocol.Comparison == nil {
+		return errors.New("registration: invalid observer phase plan")
+	}
+	if _, ok := r.Protocol.Comparison.Properties["cost"]; !ok {
+		return errors.New("registration: observer phase plan requires cost")
+	}
+	seen := map[[2]string]bool{}
+	for _, c := range p.Configurations {
+		if c.Version != 1 || !ledgerOneOf(c.Arm, "candidate", "comparator") || !ledgerOneOf(c.Phase, "observer-off", "observer-on") || seen[[2]string{c.Arm, c.Phase}] {
+			return errors.New("registration: duplicate or invalid observer phase")
+		}
+		seen[[2]string{c.Arm, c.Phase}] = true
+		name := r.Protocol.Comparison.Candidate
+		if c.Arm == "comparator" {
+			name = r.Protocol.Comparison.Comparator
+		}
+		matched := false
+		for _, tool := range r.Protocol.Tools {
+			if tool.Name == name && tool == c.Tool {
+				matched = true
+			}
+		}
+		if !matched {
+			return errors.New("registration: observer phase tool mismatch")
+		}
+		o := c.Settings
+		if !ledgerOneOf(o.Mode, "off", "basic", "host", "device-activity", "pc", "pm", "range", "sass", "deep", "serialized", "replay", "external") || len(o.SensorScope) == 0 || !registrationNames(o.SensorScope) || o.FreshnessNanos <= 0 || !registrationFinite(o.DutyCycle) || o.DutyCycle > 1 || !registrationFinite(o.SamplingRateHz) || c.Phase == "observer-off" && (o.Mode != "off" || o.DutyCycle != 0 || o.SamplingRateHz != 0) || c.Phase == "observer-on" && o.Mode == "off" {
+			return errors.New("registration: invalid observer phase settings")
+		}
+		for _, f := range append([]RegistrationFact{o.Access}, o.OwnerConflicts...) {
+			if err := f.validate(); err != nil {
+				return err
+			}
+		}
+		if err := registrationArtifacts([]RegistrationArtifact{c.Configuration}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RegistrationAnalysisSpec pins an externally supplied analysis method.
@@ -865,6 +955,9 @@ func (r Registration) validateContracts() error {
 			return errors.New("registration: observer arm differs from protocol")
 		}
 	}
+	if err := r.validateObserverPhases(); err != nil {
+		return err
+	}
 	if a := r.Analysis.Body; a != nil {
 		if a.Repetitions == 0 || a.MinSamples == 0 || a.MinSamples > a.Repetitions || !ledgerOneOf(a.Order, "randomized", "interleaved", "fixed") || a.Order == "randomized" && a.Seed == nil || a.Order != "randomized" && a.OrderArtifact == nil {
 			return errors.New("registration: invalid sample order or population")
@@ -1008,6 +1101,15 @@ func (r Registration) pendingContracts() bool {
 		for _, f := range o.OwnerConflicts {
 			if !resolved(f) {
 				return true
+			}
+		}
+	}
+	if r.Observer.Body != nil && r.Observer.Body.PhaseConfigurations != nil {
+		for _, c := range r.Observer.Body.PhaseConfigurations.Configurations {
+			for _, f := range append([]RegistrationFact{c.Settings.Access}, c.Settings.OwnerConflicts...) {
+				if !resolved(f) {
+					return true
+				}
 			}
 		}
 	}
