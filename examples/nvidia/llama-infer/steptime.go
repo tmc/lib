@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
@@ -31,6 +32,15 @@ type stepTimer struct {
 	prof    *cudaprof.Session
 	tracer  *cudatrace.Tracer
 	source  string
+	// steps holds the wall and event interval of every measured step,
+	// in order.
+	steps []stepTime
+}
+
+// A stepTime is one measured step: the host wall time of measure and the
+// device interval between its CUDA events.
+type stepTime struct {
+	wall, event time.Duration
 }
 
 // errUndrained marks a release that could not establish that the timer's
@@ -207,6 +217,7 @@ func (st *stepTimer) measure(ctx context.Context, name string, annotations []per
 	if st.drained {
 		return errTimerClosed
 	}
+	t0 := time.Now()
 	if err := st.start.Record(st.stream); err != nil {
 		return err
 	}
@@ -223,6 +234,7 @@ func (st *stepTimer) measure(ctx context.Context, name string, annotations []per
 	if err != nil {
 		return err
 	}
+	st.steps = append(st.steps, stepTime{wall: time.Since(t0), event: d})
 	if st.prof != nil {
 		st.prof.RecordDetailedSample(ctx, "GPUForwardPass", st.source, 0, 0, cudaprof.SampleValues{
 			Samples:  1,

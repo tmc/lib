@@ -57,6 +57,7 @@ var (
 	benchCountFlag    = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 	weightDTypeFlag   = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
 	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
+	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 )
 
 func main() {
@@ -361,7 +362,7 @@ func runGPUInference(
 	forwardCU := findForwardCUPath()
 
 	var timer *stepTimer
-	if prof != nil || tracer != nil {
+	if prof != nil || tracer != nil || *stepTimesFlag {
 		// newStepTimer can return a timer it could not release along with
 		// its error; close it on every path.
 		timer, err = newStepTimer(dev, prof, tracer, forwardCU)
@@ -466,6 +467,14 @@ func runGPUInference(
 	prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
 	if err != nil {
 		return err
+	}
+
+	fmt.Printf("\nGEN_IDS: %v\n", st.generated)
+	if timer != nil && *stepTimesFlag {
+		// Steps 0..len(promptTokens)-1 are prefill positions; the rest decode.
+		for i, s := range timer.steps {
+			fmt.Printf("STEP %d wall_ns=%d event_ns=%d\n", i, s.wall.Nanoseconds(), s.event.Nanoseconds())
+		}
 	}
 
 	tokensPerSec := float64(len(st.generated)) / genDuration.Seconds()
