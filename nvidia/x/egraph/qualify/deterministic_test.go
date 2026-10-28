@@ -49,6 +49,7 @@ func TestStochasticRoundE2M1(t *testing.T) {
 		{-100, 0, 15},
 		{0.1, 0, 0},
 		{0.1, 255, 1},
+		{float32(math.NaN()), 0, 7},
 	}
 	for _, tt := range tests {
 		if got := stochasticRoundE2M1(tt.v, tt.r); got != tt.want {

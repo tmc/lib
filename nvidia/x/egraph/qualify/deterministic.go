@@ -331,7 +331,7 @@ var e2m1Grid = [8]float64{0, 0.5, 1, 1.5, 2, 3, 4, 6}
 // rbits[15:8], e rbits[23:16] and f rbits[7:0]; the ISA describes this
 // assignment only in a figure, so it is unverified until a run on sm_100a,
 // sm_103a or sm_107a compares against the hardware. Results saturate to
-// ±6. NaN inputs are not modeled and convert to 0.
+// ±6 and NaN converts to +6, as .satfinite specifies for E2M1.
 func StochasticRoundE2M1x4(v [4]float32, rbits uint32) uint16 {
 	r := [4]uint8{uint8(rbits >> 24), uint8(rbits >> 8), uint8(rbits >> 16), uint8(rbits)}
 	var d uint16
@@ -343,7 +343,7 @@ func StochasticRoundE2M1x4(v [4]float32, rbits uint32) uint16 {
 
 func stochasticRoundE2M1(v float32, r uint8) uint8 {
 	if v != v {
-		return 0
+		return 7
 	}
 	var sign uint8
 	if math.Signbit(float64(v)) {

@@ -55,7 +55,7 @@ __device__ __forceinline__ void qd_philox(uint32_t c[4], uint32_t k0, uint32_t k
 
 // qd_sr_e2m1 rounds v to E2M1 stochastically with 8 random bits r.
 __device__ __forceinline__ uint32_t qd_sr_e2m1(float v, uint32_t r) {
-    if (v != v) return 0;
+    if (v != v) return 7u;
     uint32_t sign = (__float_as_uint(v) >> 31) ? 8u : 0u;
     float a = __uint_as_float(__float_as_uint(v) & 0x7fffffffu);
     if (a >= 6.0f) return sign | 7u;
