@@ -1463,6 +1463,7 @@ var loadCalls = map[string]callCount{
 	"context_experiment_cuda_test.go": {2, 2},
 	"gpu_kernels.go":                  {2, 2},
 	"egraph_gpu.go":                   {2, 2},
+	"tp.go":                           {2, 2},
 }
 
 // TestCallErrorsReleased checks that every module compile and load in the

@@ -31,6 +31,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cudatrace"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
+	"github.com/tmc/lib/nvidia/x/rankgroup"
 )
 
 var (
@@ -65,6 +66,10 @@ var (
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
 	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
+	tpFlag            = flag.Int("tp", 0, "with -egraph, run the decode step tensor-parallel over this many ranks (Megatron-sharded layers, an all-reduce after o_proj and down); prompts prefill token by token")
+	tpModeFlag        = flag.String("tp-mode", "serial", "with -tp and -tp-backend device, how ranks share the one GPU: serial (one stream), streams (one stream per rank) or green (one green-context SM partition per rank)")
+	tpBackendFlag     = flag.String("tp-backend", "device", "with -tp, the all-reduce: device (a kernel reading every rank's buffer; all ranks on one GPU) or nccl (one GPU per rank)")
+	tpFuseFlag        = flag.Bool("tp-fuse", false, "with -tp, fuse each all-reduce into the row-parallel GEMM epilogue (red.global.add into one shared buffer; one GPU only)")
 )
 
 func main() {
@@ -348,7 +353,42 @@ func runGPUInference(
 	if *egraphMegaFlag && (!*egraphFlag || *cudaGraphFlag) {
 		return errors.New("-egraph-mega needs -egraph and cannot replay in a -cuda-graph: its ready-counter epoch is a launch argument")
 	}
-	if *egraphFlag {
+	if *tpFlag > 0 && (!*egraphFlag || !*egraphAttnFlag || *egraphMegaFlag || *cudaGraphFlag || *specDraftFlag > 0 || *benchFlag) {
+		return errors.New("-tp needs -egraph with -egraph-attn, and not -egraph-mega, -cuda-graph, -draft or -bench")
+	}
+	var tpd *tpDecoder
+	if *tpFlag > 0 {
+		mode, err := rankgroup.ParseMode(*tpModeFlag)
+		if err != nil {
+			return err
+		}
+		splits := *egraphSplitsFlag
+		if splits < 0 {
+			// The same splits as the unsharded decoder, so each head's
+			// attention sums in the same order at every TP degree.
+			sms, err := dev.Attribute(driver.DevAttrMultiprocessorCount)
+			if err != nil {
+				return fmt.Errorf("read SM count: %w", err)
+			}
+			splits = max(1, sms/cfg.NumKeyValueHeads)
+		}
+		tpd, err = newTPDecoder(dev, w, cfg, gpuWeights, scratch, sampleFn, tpOptions{
+			TP: *tpFlag, Mode: mode, Fuse: *tpFuseFlag, Backend: *tpBackendFlag, Splits: splits,
+		})
+		if err != nil {
+			return fmt.Errorf("tp decoder: %w", err)
+		}
+		defer func() {
+			if td.held() {
+				return
+			}
+			if cerr := tpd.Close(); cerr != nil {
+				td.add(fmt.Errorf("close tp decoder: %w", cerr))
+			}
+		}()
+		fmt.Printf("[E-Graph TP] %s; attention splits %d per KV head; prefill: token by token\n", tpd.describe(), splits)
+	}
+	if *egraphFlag && tpd == nil {
 		// Batched prefill writes the generated attention's BF16 cache, and
 		// -bench times its own token-by-token prefill.
 		prefillRows, prefillOff := 0, ""
@@ -507,6 +547,10 @@ func runGPUInference(
 	forward := func(tok int32, pos int) (int32, error) {
 		return GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)
 	}
+	if tpd != nil {
+		forward = func(tok int32, pos int) (int32, error) { return tpd.step(tok, pos, cfg.MaxSeqLen) }
+		prefill = forward
+	}
 	if gm.eg != nil && gm.eg.pf != nil {
 		// The batched prefill runs the whole prompt when its last token
 		// arrives, so generate's prefill time covers all of it.
@@ -526,6 +570,10 @@ func runGPUInference(
 		var err error
 		labels := cudaprof.Labels("phase", "decode", "step", fmt.Sprintf("%d", step+1), "pos", fmt.Sprintf("%d", curPos), "token_id", fmt.Sprintf("%d", nextTokID))
 		cudaprof.Do(context.Background(), labels, func(stepCtx context.Context) {
+			if tpd != nil {
+				tok, err = tpd.step(nextTokID, curPos, cfg.MaxSeqLen)
+				return
+			}
 			if timer == nil {
 				if dg != nil {
 					tok, err = dg.Step(curPos, nil)
