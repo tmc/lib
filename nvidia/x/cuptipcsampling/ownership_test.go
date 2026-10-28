@@ -8,8 +8,8 @@ import (
 )
 
 func TestSamplingOwnershipBeforeNative(t *testing.T) {
-	a, _ := testSamplingSession(t)
-	b, _ := testSamplingSession(t)
+	a := testSamplingSession(t)
+	b := testSamplingSession(t)
 	if err := a.begin(); err != nil {
 		t.Fatal(err)
 	}
@@ -32,8 +32,8 @@ func TestSamplingOwnershipBeforeNative(t *testing.T) {
 }
 
 func TestSamplingOwnershipRetainedAfterDisableFailure(t *testing.T) {
-	a, _ := testSamplingSession(t)
-	b, _ := testSamplingSession(t)
+	a := testSamplingSession(t)
+	b := testSamplingSession(t)
 	if err := a.begin(); err != nil {
 		t.Fatal(err)
 	}
@@ -55,8 +55,8 @@ func TestSamplingOwnershipRetainedAfterDisableFailure(t *testing.T) {
 }
 
 func TestSamplingConcurrentOwnership(t *testing.T) {
-	a, _ := testSamplingSession(t)
-	b, _ := testSamplingSession(t)
+	a := testSamplingSession(t)
+	b := testSamplingSession(t)
 	type result struct {
 		s   *samplingSession
 		err error

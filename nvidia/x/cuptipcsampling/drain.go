@@ -56,8 +56,8 @@ func (b *samplingBuffer) snapshotOwned(names *samplingNames) (samplingBatch, err
 			return out, err
 		}
 	}
-	// Capture all names before snapshot can stop at a duplicate reason or a
-	// failed name copy. Otherwise later allocations would be abandoned.
+	// Register all names before snapshot can stop at a duplicate reason or a
+	// failed name copy, so every returned pointer counts against the budget.
 	var nameErrors []error
 	for i := uint(0); i < b.data.TotalNumPcs; i++ {
 		if _, err := names.copy(b.pcs[i].FunctionName); err != nil {

@@ -570,7 +570,7 @@ func TestSessionRingBufferConcurrent(t *testing.T) {
 			names := func(entries, nameBytes, totalBytes int) (*samplingNames, error) {
 				return newSamplingNames(entries, nameBytes, totalBytes, func(uintptr, int) (string, error) {
 					return "kernel_fn", nil
-				}, func(uintptr) {})
+				})
 			}
 
 			query := func(p *cupti.PCSamplingGetDataParams) error {

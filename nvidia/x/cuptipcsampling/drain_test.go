@@ -2,7 +2,7 @@ package cuptipcsampling
 
 import (
 	"errors"
-	"reflect"
+	"slices"
 	"testing"
 	"unsafe"
 
@@ -31,16 +31,15 @@ func TestSamplingDrain(t *testing.T) {
 	}
 }
 
-func TestSamplingDrainOwnsNamesAfterCopyFailure(t *testing.T) {
+func TestSamplingDrainRegistersNamesAfterCopyFailure(t *testing.T) {
 	b := testSamplingBuffer(t)
-	var freed []uintptr
 	failure := errors.New("name too long")
 	names, err := newSamplingNames(2, 10, 20, func(ptr uintptr, _ int) (string, error) {
 		if ptr == 11 {
 			return "", failure
 		}
 		return "kernel", nil
-	}, func(ptr uintptr) { freed = append(freed, ptr) })
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,15 +52,19 @@ func TestSamplingDrainOwnsNamesAfterCopyFailure(t *testing.T) {
 	if !errors.Is(err, failure) || got.pcs != nil || got.dropped != 9 {
 		t.Fatalf("got=%+v err=%v", got, err)
 	}
-	names.release()
-	if !reflect.DeepEqual(freed, []uintptr{11, 22}) {
-		t.Fatalf("lost native names: %v", freed)
+	var ptrs []uintptr
+	for ptr := range names.entries {
+		ptrs = append(ptrs, ptr)
+	}
+	slices.Sort(ptrs)
+	if !slices.Equal(ptrs, []uintptr{11, 22}) {
+		t.Fatalf("registered names = %v, want [11 22]", ptrs)
 	}
 }
 
 func TestSamplingDrainNameBudgetPrecedesNative(t *testing.T) {
 	b := testSamplingBuffer(t)
-	names, err := newSamplingNames(1, 10, 20, func(uintptr, int) (string, error) { return "kernel", nil }, func(uintptr) {})
+	names, err := newSamplingNames(1, 10, 20, func(uintptr, int) (string, error) { return "kernel", nil })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +80,7 @@ func TestSamplingDrainValidatesBeforeReadingNames(t *testing.T) {
 	names, err := newSamplingNames(2, 10, 20, func(uintptr, int) (string, error) {
 		t.Fatal("read name from malformed output")
 		return "", nil
-	}, func(uintptr) { t.Fatal("freed unvalidated name") })
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
