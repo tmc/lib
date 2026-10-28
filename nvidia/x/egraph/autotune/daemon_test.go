@@ -524,3 +524,65 @@ func TestDaemonSASSSpillNotSampled(t *testing.T) {
 		}
 	}
 }
+
+// preloadingDevice is a synthetic device that is also a Preloader. It
+// fails a sample of any variant that was not preloaded before the first
+// sample, the way CUPTI on GB10 rejected enables after a module load into
+// a context that sampling had configured.
+type preloadingDevice struct {
+	*synthetic
+	loaded   map[string]bool
+	sampling bool
+	released int
+	events   []string
+}
+
+func (p *preloadingDevice) Preload(_ context.Context, vs []autotune.Variant) (func() error, error) {
+	var names []string
+	for _, v := range vs {
+		names = append(names, v.Candidate.Name)
+		if p.sampling {
+			return nil, fmt.Errorf("preload %s after sampling began", v.Candidate.Name)
+		}
+		p.loaded[v.Candidate.Name] = true
+	}
+	p.events = append(p.events, "preload "+strings.Join(names, ","))
+	return func() error { p.released++; return nil }, nil
+}
+
+func (p *preloadingDevice) SampleKernel(ctx context.Context, v autotune.Variant, iters int) (autotune.ProfileObservation, autotune.StallHistogram, error) {
+	p.sampling = true
+	if !p.loaded[v.Candidate.Name] {
+		return autotune.ProfileObservation{}, autotune.StallHistogram{}, fmt.Errorf("%s loaded after sampling began", v.Candidate.Name)
+	}
+	p.events = append(p.events, "sample "+v.Candidate.Name)
+	return p.synthetic.SampleKernel(ctx, v, iters)
+}
+
+func TestDaemonPreloadsGenerationBeforeSampling(t *testing.T) {
+	cands, syn := tmaCandidates()
+	dev := &preloadingDevice{synthetic: syn, loaded: make(map[string]bool)}
+	d := newDaemon(t, dev, nil, nil)
+	if _, err := d.Step(t.Context(), cands); err != nil {
+		t.Fatal(err)
+	}
+	// s2_cta2 needs tcgen05, which sm_100a has, so all seven are valid.
+	if got, want := dev.events[0], "preload s2,s2_swz,s2_cta2,s2_sparse,s3,s4,s6"; got != want {
+		t.Errorf("first event = %q, want %q", got, want)
+	}
+	for _, e := range dev.events[1:] {
+		if strings.HasPrefix(e, "preload") {
+			t.Errorf("second preload in one step: %q", e)
+		}
+	}
+	// The next step's unmeasured candidates were preloaded by the first.
+	if _, err := d.Step(t.Context(), cands); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if dev.released != 1 {
+		t.Errorf("released %d generations, want 1", dev.released)
+	}
+}

@@ -61,6 +61,7 @@ var arbiterVariants = []struct {
 	{name: "load_all_first", steps: arbiterSteps{module: true, warmup: true, timing: true, preload: true}},
 	{name: "load_then_sync", steps: arbiterSteps{module: true, warmup: true, timing: true, loadSync: true}},
 	{name: "collector", real: true},
+	{name: "collector_preload", real: true, steps: arbiterSteps{preload: true}},
 }
 
 // arbiterCandidates are the first non-spilling candidates the daemon tries.
@@ -161,12 +162,24 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 	}
 
 	if real {
-		col := autotune.CUPTICollector{Device: ar.dev, Run: launch}
+		col := &autotune.CUPTICollector{Device: ar.dev, Run: launch}
+		var vs []autotune.Variant
 		for i, c := range cands {
 			v, err := ar.builder.Build(t.Context(), c)
 			if err != nil {
 				return fmt.Errorf("session %d: build %s: %w", i, c.Name, err)
 			}
+			vs = append(vs, v)
+		}
+		if steps.preload {
+			release, err := col.Preload(t.Context(), vs)
+			if err != nil {
+				return err
+			}
+			defer func() { err = errors.Join(err, release()) }()
+		}
+		for i, v := range vs {
+			c := v.Candidate
 			obs, h, err := col.SampleKernel(t.Context(), v, arbiterIters)
 			if err != nil {
 				return fmt.Errorf("session %d (%s): %w", i, c.Name, err)
