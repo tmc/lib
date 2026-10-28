@@ -53,9 +53,35 @@ func nativeDevice(t *testing.T) (driver.Device, string, int, Granularity) {
 			t.Fatal(err)
 		}
 	}
-	g.Alignment = roundUp(g.Min, g.Alignment)
-	g.Min = g.Alignment
+	if g, err = DeviceSplit(dev, g); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("driver makes %d groups of %d SMs", g.Groups, g.Granule())
+	logSplit(t, dev, g.Granule(), 0)
+	logSplit(t, dev, g.Granule(), driver.DevSmResourceSplitIgnoreSmCoscheduling)
 	return dev, arch, total, g
+}
+
+// logSplit logs the groups and remainder of a real split of dev's SMs into
+// groups of granule SMs with flags, for diagnosing the device's grouping.
+func logSplit(t *testing.T, dev driver.Device, granule int, flags driver.DevsmresourcesplitbycountFlags) {
+	t.Helper()
+	root, err := dev.DevResource(driver.DevResourceTypeSm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups := make([]driver.DevResource, int(root.Sm().SmCount)/granule)
+	n := uint32(len(groups))
+	var rem driver.DevResource
+	if err := driver.DevSmResourceSplitByCount(&groups[0], &n, &root, &rem, flags, uint32(granule)); err != nil {
+		t.Logf("split by %d, flags %#x: %v", granule, uint32(flags), err)
+		return
+	}
+	var sizes []uint32
+	for _, g := range groups[:n] {
+		sizes = append(sizes, g.Sm().SmCount)
+	}
+	t.Logf("split by %d, flags %#x: %d groups %v, remainder %d SMs", granule, uint32(flags), n, sizes, rem.Sm().SmCount)
 }
 
 func attr(t *testing.T, dev driver.Device, a driver.DeviceAttribute) int {
@@ -100,6 +126,33 @@ func TestNativeOpen(t *testing.T) {
 			}
 		})
 	}
+	t.Run("ignore-coscheduling", func(t *testing.T) {
+		g := g
+		g.IgnoreCoscheduling = true
+		g, err := DeviceSplit(dev, g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("driver makes %d groups of %d SMs ignoring coscheduling", g.Groups, g.Granule())
+		plan, err := ComputePlan(arch, total, g, sixWay())
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := Open(dev, plan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer p.Close()
+		for i := range plan.Partitions {
+			if err := p.Stream(i).Synchronize(); err != nil {
+				t.Errorf("partition %d: %v", i, err)
+			}
+		}
+		t.Logf("%d partitions of %d SMs, %d SMs unassigned", len(plan.Partitions), plan.Partitions[0].SMs, plan.Unassigned)
+		if err := p.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 // jitterSource holds the two kernels of TestNativeJitter. spin keeps every
@@ -301,7 +354,7 @@ func logJitter(t *testing.T, name string, lat []float64, spinMs float64) {
 
 // TestNativeJitter runs a 100 ms spin kernel that fills the device's thread
 // slots and times 200 small kernels launched beside it, first with the
-// two on the prefill and decode green contexts of the prefill-heavy plan,
+// two on 75/25 percent compute and decode green contexts,
 // then on two streams of the primary context. It checks both kernels'
 // outputs and logs the latency percentiles; it asserts nothing about them.
 // It runs only with CUDA_GREEN_NATIVE=1 and an inherited GPU lock.
@@ -318,7 +371,12 @@ func TestNativeJitter(t *testing.T) {
 	t.Logf("spin grid %d x %d", spinGrid, jitterBlock)
 
 	t.Run("green", func(t *testing.T) {
-		plan, err := ComputePlan(arch, total, g, PrefillHeavy())
+		// Two partitions, so a device that makes few groups still
+		// gives the spin kernel most of them.
+		plan, err := ComputePlan(arch, total, g, []Spec{
+			{Role: RoleCompute, Fraction: 0.75},
+			{Role: RoleDecode, Fraction: 0.25},
+		})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -170,6 +170,7 @@ func TestVerifyPlanMutants(t *testing.T) {
 		{"below minimum", func(p *Plan) { p.Partitions[1].Spec.MinSMs = p.Partitions[1].SMs + 8 }},
 		{"cluster count", func(p *Plan) { p.Partitions[0].Clusters++ }},
 		{"accounting", func(p *Plan) { p.Unassigned++ }},
+		{"too many groups", func(p *Plan) { p.Granularity.Groups = 2 }},
 	}
 	for _, m := range mutants {
 		t.Run(m.name, func(t *testing.T) {
@@ -189,10 +190,10 @@ func TestDefaultGranularity(t *testing.T) {
 		want Granularity
 		ok   bool
 	}{
-		{"sm_121a", Granularity{8, 8}, true},
-		{"sm_100f", Granularity{8, 8}, true},
-		{"sm_90a", Granularity{8, 8}, true},
-		{"sm_89", Granularity{2, 2}, true},
+		{"sm_121a", Granularity{Min: 8, Alignment: 8}, true},
+		{"sm_100f", Granularity{Min: 8, Alignment: 8}, true},
+		{"sm_90a", Granularity{Min: 8, Alignment: 8}, true},
+		{"sm_89", Granularity{Min: 2, Alignment: 2}, true},
 		{"sm_60", Granularity{}, false},
 		{"compute_90", Granularity{}, false},
 	}
@@ -205,7 +206,7 @@ func TestDefaultGranularity(t *testing.T) {
 }
 
 func TestPartitionGrid(t *testing.T) {
-	plan, err := ComputePlan("sm_121a", 48, Granularity{8, 8}, []Spec{{Role: RoleCompute, Fraction: 1, ClusterSize: 2}})
+	plan, err := ComputePlan("sm_121a", 48, Granularity{Min: 8, Alignment: 8}, []Spec{{Role: RoleCompute, Fraction: 1, ClusterSize: 2}})
 	if err != nil {
 		t.Fatal(err)
 	}
