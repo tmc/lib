@@ -46,6 +46,12 @@ type egraphOptions struct {
 	// AttnSplits divides decode attention's keys among this many CTAs per
 	// KV head, with a combine kernel; 0 runs one CTA per KV head.
 	AttnSplits int
+
+	// Target is the nvcc -arch of the GPU the projection plans are for,
+	// passed to [hopper.CompileFor]; "" lowers them for GB10. For sm_100a
+	// and sm_103a the projections become tcgen05 [hopper.UMMAGEMM]s, which
+	// the decoder cannot launch yet.
+	Target string
 }
 
 // egraphPageSize is the attention page size. The cache is contiguous: page
@@ -111,14 +117,14 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	attn, prefillRows := opt.Attn, opt.PrefillRows
 	p := egraphPlans{attn: attn}
 	var err error
-	if p.attnIn, p.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama", 1, hopper.F32); err != nil {
+	if p.attnIn, p.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama", 1, hopper.F32, opt.Target); err != nil {
 		return nil, err
 	}
 	b := hopper.NewBuilder()
 	x := b.Input("x", hopper.F32, 1, cfg.HiddenSize)
 	norm := b.Cast(hopper.BF16, b.RMSNorm(x, b.Input("norm", hopper.F32, cfg.HiddenSize), cfg.HiddenSize, cfg.RmsNormEps))
 	logits := b.MatMul(norm, b.Input("lm_head", hopper.BF16, cfg.VocabSize, cfg.HiddenSize))
-	if p.head, err = compilePlan("llama_head", b, logits, hopper.F32); err != nil {
+	if p.head, err = compilePlan("llama_head", b, logits, hopper.F32, opt.Target); err != nil {
 		return nil, err
 	}
 	if !attn {
@@ -165,7 +171,7 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	pf := egraphPrefillPlans{qtok: prefillQTokens(cfg.NumAttentionHeads/cfg.NumKeyValueHeads, hd)}
 	for _, bm := range []int{128, 64} {
 		pf.rows = (prefillRows + bm - 1) / bm * bm
-		if pf.attnIn, pf.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pf", pf.rows, hopper.BF16); err != nil {
+		if pf.attnIn, pf.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pf", pf.rows, hopper.BF16, opt.Target); err != nil {
 			return nil, err
 		}
 		fits := true
@@ -203,18 +209,19 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	return &p, nil
 }
 
-func compilePlan(name string, b *hopper.Builder, root egraph.Id, out hopper.DType) (*hopper.Plan, error) {
+func compilePlan(name string, b *hopper.Builder, root egraph.Id, out hopper.DType, target string) (*hopper.Plan, error) {
 	e, err := hopper.Optimize(b.G, root)
 	if err != nil {
 		return nil, fmt.Errorf("optimize %s: %w", name, err)
 	}
-	return hopper.Compile(e, name, out)
+	return hopper.CompileFor(e, name, out, target)
 }
 
 // buildLayerPlans builds a decoder layer's attnIn and post plans over m
 // rows, named prefix_attn_in and prefix_post. The post plan reads the
-// attention output in attnDType.
-func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int, attnDType hopper.DType) (attnIn, post *hopper.Plan, err error) {
+// attention output in attnDType. The gemms are lowered for target, an nvcc
+// -arch value or "".
+func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int, attnDType hopper.DType, target string) (attnIn, post *hopper.Plan, err error) {
 	h := cfg.HiddenSize
 	qDim := cfg.NumAttentionHeads * cfg.HeadDim()
 	kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
@@ -234,7 +241,7 @@ func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int,
 	if qkvBias {
 		qkv = b.Map(hopper.MustLambda("(add $0 $1)"), qkv, b.Input("b_qkv", hopper.F32, qDim+2*kvDim))
 	}
-	if attnIn, err = compilePlan(prefix+"_attn_in", b, qkv, qkvOut); err != nil {
+	if attnIn, err = compilePlan(prefix+"_attn_in", b, qkv, qkvOut, target); err != nil {
 		return nil, nil, err
 	}
 
@@ -248,7 +255,7 @@ func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int,
 	norm = b.Cast(hopper.BF16, b.RMSNorm(hid, b.Input("ffn_norm", hopper.F32, h), h, eps))
 	act := b.SwiGLU(b.MatMul(norm, b.Input("w_gu", hopper.BF16, 2*inter, h)))
 	out := b.Map(hopper.MustLambda("(add $0 $1)"), b.MatMul(act, b.Input("w_down", hopper.BF16, h, inter)), hid)
-	if post, err = compilePlan(prefix+"_post", b, out, hopper.F32); err != nil {
+	if post, err = compilePlan(prefix+"_post", b, out, hopper.F32, target); err != nil {
 		return nil, nil, err
 	}
 	return attnIn, post, nil
@@ -258,5 +265,5 @@ func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int,
 func buildQCastPlan(cfg *ModelConfig, name string, m int) (*hopper.Plan, error) {
 	b := hopper.NewBuilder()
 	qf := b.Cast(hopper.F32, b.Input("q", hopper.BF16, m, cfg.NumAttentionHeads*cfg.HeadDim()))
-	return compilePlan(name, b, qf, hopper.F32)
+	return compilePlan(name, b, qf, hopper.F32, "")
 }
