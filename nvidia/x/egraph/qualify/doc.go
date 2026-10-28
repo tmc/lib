@@ -21,4 +21,10 @@
 // order, and locates a corrupted element; [EmitABFTAndWatchdogPTX] emits the
 // Tensor Memory epilogue check, a %globaltimer-bounded mbarrier wait and a
 // [FaultRecord] ring writer.
+//
+// Power pacing: [AnalyzePowerTransient] models the dI/dt step of a
+// megakernel's clusters entering their Tensor Core phase together and the
+// inductive droop it causes; [SolveOptimalPacing] picks the cheapest
+// nanosleep stagger that keeps the modeled droop under a limit, and
+// [EmitPowerPacedProloguePTX] emits it.
 package qualify
