@@ -151,8 +151,7 @@ func (s *samplingSession) finish(sharingComplete bool) (samplingBatch, error) {
 	} else {
 		s.drain.release()
 	}
-	s.control.config.output.release()
-	s.control.config.release()
+	s.control.config.retire()
 	s.closed = true
 	s.releaseOwnership()
 	return s.final, s.finalErr
