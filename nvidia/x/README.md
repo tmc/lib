@@ -28,6 +28,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudacluster](cudacluster/) | Package cudacluster expresses thread-block-cluster distributed shared memory. |
 | [cudacmp](cudacmp/) | Package cudacmp implements pure-Go differential CUDA performance analysis. |
 | [cudacollective](cudacollective/) | Package cudacollective defines collective communication plans, rank membership, communicator generations, multi-transport fallback resolution, and double-buffered pipelined transfers for distributed CUDA execution. |
+| [cudadecomp](cudadecomp/) | Package cudadecomp prepares weight tensors for the CUDA hardware decompression engine and stages them from storage through decompression to their consumer. |
 | [cudadevicetable](cudadevicetable/) | Package cudadevicetable holds GPU device facts that were read from a real device, separated from the ones that were not. |
 | [cudadiag](cudadiag/) | Package cudadiag provides evidence-admitted diagnostic mechanisms for CUDA workloads. |
 | [cudadiagdemo](cudadiagdemo/) | Package cudadiagdemo exercises GPU diagnosis and regression APIs with a synthetic concurrent Go service fixture. |
