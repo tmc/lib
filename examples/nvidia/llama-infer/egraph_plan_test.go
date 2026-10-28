@@ -20,7 +20,7 @@ var llama3_8B = ModelConfig{
 }
 
 func TestBuildEgraphPlans(t *testing.T) {
-	p, err := buildEgraphPlans(&llama3_8B, false, egraphOptions{Attn: true, PrefillRows: -1, SMs: 48})
+	p, err := buildEgraphPlans(&llama3_8B, false, egraphOptions{Attn: true, PrefillRows: -1})
 	if err != nil {
 		t.Fatal(err)
 	}

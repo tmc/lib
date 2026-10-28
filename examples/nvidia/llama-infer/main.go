@@ -368,14 +368,14 @@ func runGPUInference(
 		}
 		// Split decode attention so its KV heads × splits CTAs cover the
 		// SMs once.
-		sms, err := dev.Attribute(driver.DevAttrMultiprocessorCount)
-		if err != nil {
-			return fmt.Errorf("read SM count: %w", err)
-		}
 		splits := *egraphSplitsFlag
 		if !*egraphAttnFlag {
 			splits = 0
 		} else if splits < 0 {
+			sms, err := dev.Attribute(driver.DevAttrMultiprocessorCount)
+			if err != nil {
+				return fmt.Errorf("read SM count: %w", err)
+			}
 			splits = max(1, sms/cfg.NumKeyValueHeads)
 			fmt.Printf("[E-Graph] decode attention: %d SMs / %d KV heads = %d splits per KV head\n", sms, cfg.NumKeyValueHeads, splits)
 		}
@@ -384,7 +384,6 @@ func runGPUInference(
 			Attn:        *egraphAttnFlag,
 			PrefillRows: prefillRows,
 			AttnSplits:  splits,
-			SMs:         sms,
 		})
 		if eg != nil {
 			defer func() {

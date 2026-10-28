@@ -137,6 +137,11 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	if (opt.PrefillRows != 0 || opt.AttnSplits != 0) && !opt.Attn {
 		return nil, errors.New("e-graph prefill and attention splits need generated attention")
 	}
+	if opt.SMs == 0 {
+		if opt.SMs, err = dev.Attribute(driver.DevAttrMultiprocessorCount); err != nil {
+			return nil, fmt.Errorf("read SM count: %w", err)
+		}
+	}
 	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
 	plans, err := buildEgraphPlans(cfg, bias, opt)
 	if err != nil {

@@ -40,8 +40,8 @@ type egraphPrefill struct {
 	rows, qtok, narrow   int
 	attnIn, post         [][]egraphLaunch // per layer
 	narrowIn, narrowPost [][]egraphLaunch // per layer
-	rope, attn   []egraphLaunch   // per layer; chunk arguments set per chunk
-	gather       driver.Function
+	rope, attn           []egraphLaunch   // per layer; chunk arguments set per chunk
+	gather               driver.Function
 
 	tokens    cudamem.Slice[int32] // the prompt
 	positions cudamem.Slice[int32] // positions[i] = i

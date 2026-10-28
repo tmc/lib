@@ -104,10 +104,6 @@ const (
 	staticSharedLimit   = 48 * 1024
 )
 
-// prefillNarrowRows is the most rows a [hopper.SkinnyMMA] takes, and so
-// the largest chunk the narrow prefill plans run.
-const prefillNarrowRows = 32
-
 // prefillQTokens returns the most query rows per group the warp
 // MTPPagedAttention kernel takes: G·qtok query vectors may not exceed 64,
 // and its static shared memory (G·qtok query rows and 16-row K and V tiles
@@ -199,12 +195,6 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	if err := overridePrefillTiles(&pf, prefillRows); err != nil {
 		return nil, err
 	}
-	pf.narrow = prefillNarrowRows
-	if pf.narrowIn, pf.narrowPost, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pfn", pf.narrow, hopper.BF16); err != nil {
-		return nil, err
-	}
-	pf.narrowIn.UseSkinnyMMA(opt.SMs)
-	pf.narrowPost.UseSkinnyMMA(opt.SMs)
 	// A last group of fewer than qtok rows still covers qtok positions;
 	// pad the cache so they exist.
 	pf.cacheSlots = (cfg.MaxSeqLen + pf.qtok - 1 + egraphPageSize - 1) / egraphPageSize * egraphPageSize
@@ -219,6 +209,9 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 		PageSize:      egraphPageSize,
 		MaxPages:      pf.cacheSlots / egraphPageSize,
 		QTokensPerSeq: pf.qtok,
+	}
+	if err := pf.planNarrow(cfg, qkvBias, opt.SMs); err != nil {
+		return nil, err
 	}
 	p.pf = &pf
 	return &p, nil
