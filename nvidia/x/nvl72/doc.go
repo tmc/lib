@@ -46,6 +46,11 @@
 //     counts per rank and step; [SimulateContextParallel] and
 //     [MergeOnlineSoftmaxTiles] check it against monolithic attention, and
 //     [ContextParallelRingKernel] runs the ring on emulated ranks.
+//   - [AlgebraicCollectiveRules] and [ExtractOptimalDistSchedule] fuse
+//     collectives into adjacent GEMM and RMSNorm ops in an e-graph and pick
+//     the pulled multimem.ld_reduce form or the pushed per-tile switch
+//     reduction by batch size under [DistCostModel]; [EvalDistExpr] checks
+//     each rewrite numerically and [MultimemRMSNormKernel] emits the pull.
 //
 // The native gate (CUDA_NVL72_NATIVE=1 under an inherited GPU lock, target
 // CUDA_NVL72_NATIVE_ARCH, default sm_121a) compiles emitted kernels with nvcc
