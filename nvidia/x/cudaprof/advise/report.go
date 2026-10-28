@@ -240,6 +240,14 @@ type Report struct {
 	// Base is the comparison against a base capture that ranks the items,
 	// when [Report.RankAgainst] was given one. It is marshaled as itself.
 	Base Baseline `json:"base,omitempty"`
+
+	// Ranks is the cross-rank timeline of a report from [AnalyzeRanks],
+	// and nil for a report of one capture.
+	Ranks *RankTimeline `json:"ranks,omitempty"`
+
+	// Target is the projection of the findings onto another device, when
+	// [Report.ProjectTo] was given one.
+	Target *Projection `json:"target,omitempty"`
 }
 
 // sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
@@ -278,6 +286,9 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 	}
 	if r.Base != nil {
 		r.writeBase(&sb)
+	}
+	if r.Ranks != nil {
+		r.Ranks.writeRanks(&sb)
 	}
 	// The caveats above are written before this return, not after it: a report
 	// with no findings on a capture that refused its source binding is not the
