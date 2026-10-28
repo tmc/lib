@@ -1,6 +1,7 @@
 package train
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -242,45 +243,80 @@ func TestComputeFusedGRPOChunkInvalid(t *testing.T) {
 	}
 }
 
-func TestFusedGRPOChunkEmu(t *testing.T) {
+// grpoKernelFixture is the GRPO case shared by the emulated and native
+// kernel tests.
+type grpoKernelFixture struct {
+	grpoCase
+	target        []int32
+	old, ref, adv []float32
+}
+
+func newGRPOKernelFixture() grpoKernelFixture {
 	const M, V, D = 6, 90, 24
 	cfg := GRPOConfig{TileV: 32, ClipEpsLow: 0.2, ClipEpsHigh: 0.28, BetaKL: 0.04, Temperature: 0.9}
-	c := newGRPOCase(77, M, V, D, cfg)
-	k := FusedGRPOChunk{Name: "grpo_test", Config: c.cfg, Threads: 64}
-	src, err := k.Emit()
-	if err != nil {
-		t.Fatal(err)
+	f := grpoKernelFixture{grpoCase: newGRPOCase(77, M, V, D, cfg)}
+	f.target = make([]int32, M)
+	f.old, f.ref, f.adv = make([]float32, M), make([]float32, M), make([]float32, M)
+	for i, m := range f.meta {
+		f.target[i], f.old[i], f.ref[i], f.adv[i] = m.TargetTokenID, m.OldLogProb, m.RefLogProb, m.Advantage
 	}
-	target := make([]int32, M)
-	old, ref, adv := make([]float32, M), make([]float32, M), make([]float32, M)
-	for i, m := range c.meta {
-		target[i], old[i], ref[i], adv[i] = m.TargetTokenID, m.OldLogProb, m.RefLogProb, m.Advantage
+	return f
+}
+
+func (f grpoKernelFixture) kernel(name string) FusedGRPOChunk {
+	return FusedGRPOChunk{Name: name, Config: f.cfg, Threads: 64}
+}
+
+// check compares kernel outputs (per-token loss, dH, dW) with the
+// materialized float64 reference at 1e-4 relative error.
+func (f grpoKernelFixture) check(loss, dH, dW []float32) error {
+	M := len(f.h)
+	wantLoss, wantDH, wantDW := grpoMaterialized(to64(f.h), to64(f.w), f.meta, f.cfg)
+	var gotLoss float64
+	for _, l := range loss {
+		gotLoss += float64(l) / float64(M)
 	}
-	launch := fmt.Sprintf("grpo_test_launch(loss, dH, dW, H, W, target, old_logp, ref_logp, adv, %d, %v, 0)", M, floatLiteral(1.0/M))
+	var errs []error
+	if e := math.Abs(gotLoss-wantLoss) / math.Abs(wantLoss); !(e <= 1e-4) {
+		errs = append(errs, fmt.Errorf("loss = %v, want %v", gotLoss, wantLoss))
+	}
+	if e := maxRelErr(dH, flat64(wantDH)); !(e <= 1e-4) {
+		errs = append(errs, fmt.Errorf("dH rel err %g", e))
+	}
+	if e := maxRelErr(dW, flat64(wantDW)); !(e <= 1e-4) {
+		errs = append(errs, fmt.Errorf("dW rel err %g", e))
+	}
+	return errors.Join(errs...)
+}
+
+// runGRPOEmu runs src, the emitted translation unit of f.kernel(name), under
+// cudahostemu.
+func (f grpoKernelFixture) runEmu(t *testing.T, name, src string) (loss, dH, dW []float32) {
+	t.Helper()
+	M, V, D := len(f.h), f.cfg.VocabSize, f.cfg.HiddenDim
+	launch := fmt.Sprintf("%s_launch(loss, dH, dW, H, W, target, old_logp, ref_logp, adv, %d, %v, 0)", name, M, floatLiteral(1/float32(M)))
 	res := runEmu(t, src, launch,
 		emuBuf{"loss", "float", poison(4 * M)},
 		emuBuf{"dH", "float", poison(4 * M * D)},
 		emuBuf{"dW", "float", make([]byte, 4*V*D)},
-		emuBuf{"H", "float", f32Bytes(flat32(c.h))},
-		emuBuf{"W", "float", f32Bytes(flat32(c.w))},
-		emuBuf{"target", "int", i32Bytes(target)},
-		emuBuf{"old_logp", "float", f32Bytes(old)},
-		emuBuf{"ref_logp", "float", f32Bytes(ref)},
-		emuBuf{"adv", "float", f32Bytes(adv)},
+		emuBuf{"H", "float", f32Bytes(flat32(f.h))},
+		emuBuf{"W", "float", f32Bytes(flat32(f.w))},
+		emuBuf{"target", "int", i32Bytes(f.target)},
+		emuBuf{"old_logp", "float", f32Bytes(f.old)},
+		emuBuf{"ref_logp", "float", f32Bytes(f.ref)},
+		emuBuf{"adv", "float", f32Bytes(f.adv)},
 	)
-	wantLoss, wantDH, wantDW := grpoMaterialized(to64(c.h), to64(c.w), c.meta, c.cfg)
-	var gotLoss float64
-	for _, l := range bytesF32(res["loss"]) {
-		gotLoss += float64(l) / M
+	return bytesF32(res["loss"]), bytesF32(res["dH"]), bytesF32(res["dW"])
+}
+
+func TestFusedGRPOChunkEmu(t *testing.T) {
+	f := newGRPOKernelFixture()
+	src, err := f.kernel("grpo_test").Emit()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if e := math.Abs(gotLoss-wantLoss) / math.Abs(wantLoss); e > 1e-4 {
-		t.Errorf("loss = %v, want %v", gotLoss, wantLoss)
-	}
-	if e := maxRelErr(bytesF32(res["dH"]), flat64(wantDH)); e > 1e-4 {
-		t.Errorf("dH rel err %g", e)
-	}
-	if e := maxRelErr(bytesF32(res["dW"]), flat64(wantDW)); e > 1e-4 {
-		t.Errorf("dW rel err %g", e)
+	if err := f.check(f.runEmu(t, "grpo_test", src)); err != nil {
+		t.Error(err)
 	}
 }
 
@@ -478,6 +514,19 @@ func TestMuonOrthogonalizeTall(t *testing.T) {
 	}
 }
 
+// checkMuonOutput compares a kernel's orthogonalized matrix with
+// MuonOrthogonalize at 1e-4 relative error.
+func checkMuonOutput(got []float32, g [][]float32, cfg MuonConfig) error {
+	want, err := MuonOrthogonalize(g, cfg)
+	if err != nil {
+		return err
+	}
+	if e := maxRelErr(got, flat64(to64(want))); !(e <= 1e-4) {
+		return fmt.Errorf("muon rel err %g", e)
+	}
+	return nil
+}
+
 func TestMuonNewtonSchulzEmu(t *testing.T) {
 	for _, steps := range []int{4, 5} {
 		t.Run(fmt.Sprint(steps), func(t *testing.T) {
@@ -495,12 +544,8 @@ func TestMuonNewtonSchulzEmu(t *testing.T) {
 				emuBuf{"B", "float", poison(4 * R * R)},
 				emuBuf{"G", "float", f32Bytes(flat32(g))},
 			)
-			want, err := MuonOrthogonalize(g, k.Config)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if e := maxRelErr(bytesF32(res["X"]), flat64(to64(want))); e > 1e-4 {
-				t.Errorf("rel err %g", e)
+			if err := checkMuonOutput(bytesF32(res["X"]), g, k.Config); err != nil {
+				t.Error(err)
 			}
 		})
 	}
