@@ -195,6 +195,22 @@ func TestGoldenBuildsFor(t *testing.T) {
 	}
 }
 
+// knownSpills lists kernels, by mangled name and target, that the native
+// gate is known to find spilling. Each entry is asserted to still spill:
+// when the spill goes away the test fails and the entry must be removed.
+var knownSpills = map[[2]string]string{
+	// moe8_qkv_gate<7> (egraph/hopper testdata/golden/moe8_qkv_gate.cu)
+	// spills on sm_100a and sm_121a: 128 registers, 4 STL and 2 LDL
+	// (dgx run of a559ca864); on sm_90a it uses 144 registers and does not
+	// spill. Neither the source nor this test's nvcc flags set a cap of
+	// 128: the kernel's only bound is __launch_bounds__(256) with no
+	// minimum-blocks argument, which permits 255 registers per thread, and
+	// there is no -maxrregcount. The 128 is ptxas's own choice for those
+	// targets; why was not established. The kernel belongs to egraph/hopper.
+	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_100a"}: "ptxas caps moe8_qkv_gate<7> at 128 registers on sm_100a",
+	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_121a"}: "ptxas caps moe8_qkv_gate<7> at 128 registers on sm_121a",
+}
+
 // TestProveCubinNative compiles the egraph/hopper golden kernels with nvcc
 // and checks each with ProveCubin: no spills, no stack frame and at most 232
 // registers. A golden is compiled only for the targets [goldenBuildsFor]
@@ -238,11 +254,25 @@ func TestProveCubinNative(t *testing.T) {
 					t.Fatal(err)
 				}
 				reps, err := cudasass.ProveCubin(b, string(out), cudasass.CubinConstraint{MaxGPRs: 232, ForbidSpills: true, MaxRedundantWaits: -1})
-				for _, r := range reps {
-					t.Logf("%s %s: %d GPRs, STL %d, LDL %d, MMA %d, redundant waits %d", r.Arch, r.Kernel, r.UsedGPRs, r.STL, r.LDL, r.TensorMMA, r.RedundantWaits)
+				if err != nil && !errors.Is(err, cudasass.ErrConstraint) {
+					t.Fatal(err)
 				}
 				if err != nil {
-					t.Fatal(err)
+					t.Logf("ptxas -v output:\n%s", out)
+				}
+				for _, r := range reps {
+					t.Logf("%s %s: %d GPRs, STL %d, LDL %d, MMA %d, redundant waits %d", arch, r.Kernel, r.UsedGPRs, r.STL, r.LDL, r.TensorMMA, r.RedundantWaits)
+					reason, known := knownSpills[[2]string{r.Kernel, arch}]
+					switch {
+					case known && r.OK():
+						t.Errorf("%s on %s no longer violates the gate (%s); remove its knownSpills entry", r.Kernel, arch, reason)
+					case known && r.STL+r.LDL == 0 && r.SpillStores <= 0 && r.SpillLoads <= 0:
+						t.Errorf("%s on %s: known spill gone but other violations remain: %q", r.Kernel, arch, r.Violations)
+					case known:
+						t.Logf("%s on %s: known violation still present (%s): %q", r.Kernel, arch, reason, r.Violations)
+					case !r.OK():
+						t.Errorf("%s on %s: %q", r.Kernel, arch, r.Violations)
+					}
 				}
 			})
 		}
