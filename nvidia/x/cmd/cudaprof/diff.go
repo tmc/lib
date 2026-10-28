@@ -16,7 +16,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudasass"
 )
 
-const diffUsage = "usage: cudaprof diff [--web] [-http=addr] [--html=file] [--no-color] [--explain] [--kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>"
+const diffUsage = "usage: cudaprof diff [--web] [-http=addr] [--html=file] [--no-color] [--explain] [--kernel=name | --base-kernel=name --target-kernel=name] <base.pprof|base.sass> <target.pprof|target.sass>"
 
 func runDiffCommand(args []string) error {
 	return runDiff(os.Stdout, args)
@@ -41,6 +41,8 @@ func runDiff(w io.Writer, rawArgs []string) error {
 	var htmlOut string
 	var noBrowser bool
 	var kernelFilter string
+	var baseKernel, targetKernel string
+	var paired bool
 	posArgs := make([]string, 0, len(args))
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -67,6 +69,23 @@ func runDiff(w io.Writer, rawArgs []string) error {
 			htmlOut = strings.TrimPrefix(arg, "-output=")
 		case arg == "--no-browser" || arg == "-no-browser" || arg == "-no_browser":
 			noBrowser = true
+		case strings.HasPrefix(arg, "--base-kernel="):
+			paired = true
+			baseKernel = strings.TrimPrefix(arg, "--base-kernel=")
+		case strings.HasPrefix(arg, "--target-kernel="):
+			paired = true
+			targetKernel = strings.TrimPrefix(arg, "--target-kernel=")
+		case arg == "--base-kernel" || arg == "--target-kernel":
+			paired = true
+			if i+1 >= len(args) {
+				return errors.New("flag needs an argument: " + arg)
+			}
+			i++
+			if arg == "--base-kernel" {
+				baseKernel = args[i]
+			} else {
+				targetKernel = args[i]
+			}
 		case strings.HasPrefix(arg, "--kernel="):
 			kernelFilter = strings.TrimPrefix(arg, "--kernel=")
 		case strings.HasPrefix(arg, "-kernel="):
@@ -87,6 +106,13 @@ func runDiff(w io.Writer, rawArgs []string) error {
 
 	if len(posArgs) != 2 {
 		return errors.New(diffUsage)
+	}
+
+	if paired && (baseKernel == "" || targetKernel == "") {
+		return errors.New("--base-kernel and --target-kernel must be supplied together")
+	}
+	if paired && (kernelFilter != "" || web || htmlOut != "" || explain) {
+		return errors.New("explicit kernel pairs require plain diff without --kernel, --web, --html or --explain")
 	}
 
 	if web || htmlOut != "" {
@@ -114,6 +140,21 @@ func runDiff(w io.Writer, rawArgs []string) error {
 	targetDisasm, err := loadDisassembly(posArgs[1], limits)
 	if err != nil {
 		return fmt.Errorf("read target %s: %w", posArgs[1], err)
+	}
+
+	if paired {
+		baseFn, err := exactDiffFunction(baseDisasm, baseKernel)
+		if err != nil {
+			return fmt.Errorf("base kernel: %w", err)
+		}
+		targetFn, err := exactDiffFunction(targetDisasm, targetKernel)
+		if err != nil {
+			return fmt.Errorf("target kernel: %w", err)
+		}
+		fd := cudasass.DiffFunctions(*baseFn, *targetFn)
+		diff := &cudasass.DisassemblyDiff{Functions: []cudasass.FunctionDiff{fd}, Architecture: fd.Architecture, Spills: fd.Spills}
+		fmt.Fprintf(w, "Explicit kernel pair: %s -> %s\nStatic instruction comparison; no runtime equivalence or speedup is established.\n", baseKernel, targetKernel)
+		return printDiff(w, diff, "", useColor)
 	}
 
 	diff, err := cudasass.Diff(baseDisasm, targetDisasm)
@@ -883,4 +924,22 @@ func collectStallCounts(p *profile.Profile, kernelFilter string) map[string]int6
 
 func hasJournal(cap *cudacapture.Capture) bool {
 	return cap != nil && len(cap.JournalNames()) > 0
+}
+
+// exactDiffFunction deliberately does not infer variant identity from names.
+func exactDiffFunction(d *cudasass.Disassembly, name string) (*cudasass.Function, error) {
+	var found *cudasass.Function
+	for _, f := range d.Functions {
+		if f.Name != name {
+			continue
+		}
+		if found != nil {
+			return nil, fmt.Errorf("duplicate symbol %q", name)
+		}
+		found = f
+	}
+	if found == nil {
+		return nil, fmt.Errorf("symbol %q not found", name)
+	}
+	return found, nil
 }
