@@ -27,9 +27,26 @@
 // and [TuneCache] persists outcomes keyed by [HardwareTwin.Fingerprint] so
 // [Daemon.Warm] can skip exploration.
 //
-// The loop runs on the host and is tested against a synthetic device model.
-// This package provides no Builder or LiveCollector backed by NVRTC and CUPTI;
-// stall thresholds and penalties are heuristics, not measured.
+// [NVRTCBuilder] compiles candidates with NVRTC to a cubin and counts STL
+// and LDL instructions in its SASS with nvdisasm ([CountSpills]); spilling
+// candidates are rejected before they run. [CUPTICollector] loads the cubin,
+// times launches with CUDA events and collects stall histograms with CUPTI
+// PC sampling. It does not use CUPTI range profiling; RangeMetrics carries
+// only the register count. Programs using it must call driver.ProfilerStop
+// before exit.
+//
+// Ordinary tests drive the loop against a synthetic device model. With
+// CUDA_EGRAPH_AUTOTUNE_NATIVE=1 under an inherited gpu-lock,
+// TestAutotuneNativeQualification tunes a tiled SGEMM on the GPU (written
+// for sm_121a). It checks that the chosen candidate matches a host
+// reference, that a register-capped candidate is rejected for spilling, and
+// that PC sampling returns samples. It does not assert a speedup. It also
+// compiles [KnobPreamble] output with NVRTC for sm_121a and sm_90a.
+//
+// Not included: the spec's gate of at least 5% lower median latency than
+// the analytical model on a 4-layer Llama block within 8 trials. It needs a
+// tuning budget this package does not spend. Stall thresholds and penalties
+// are heuristics, not measured.
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.

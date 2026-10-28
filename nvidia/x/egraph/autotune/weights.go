@@ -141,10 +141,13 @@ func (c ScheduleCandidate) Validate(twin HardwareTwin) error {
 }
 
 // KnobPreamble returns CUDA C++ that fixes c's schedule knobs for a kernel
-// compiled for twin: macros for the TMA stage count, cta_group, swizzle and
-// TMEM buffering, and, when c sets register targets, device functions that
+// compiled for twin: macros for the TMA stage count, cta_group, swizzle,
+// TMEM buffering and any nonzero tile sizes, and, when c sets register
+// targets, AUTOTUNE_PRODUCER_MAXNREG and AUTOTUNE_CONSUMER_MAXNREG with
+// device functions autotune_producer_regs and autotune_consumer_regs that
 // producer and consumer warpgroups call to run setmaxnreg.dec and
-// setmaxnreg.inc. The preamble is emitted, not compiled here.
+// setmaxnreg.inc. The CUDA_EGRAPH_AUTOTUNE_NATIVE=1 test compiles it with
+// NVRTC for sm_121a and sm_90a; ordinary tests only check the text.
 func KnobPreamble(twin HardwareTwin, c ScheduleCandidate) (string, error) {
 	if err := c.Validate(twin); err != nil {
 		return "", fmt.Errorf("knob preamble: %w", err)
@@ -162,10 +165,20 @@ func KnobPreamble(twin HardwareTwin, c ScheduleCandidate) (string, error) {
 	fmt.Fprintf(&b, "#define AUTOTUNE_SWIZZLE_128B %d\n", b2i(c.Swizzle128B))
 	fmt.Fprintf(&b, "#define AUTOTUNE_DOUBLE_BUFFER_TMEM %d\n", b2i(c.DoubleBufferTMEM))
 	fmt.Fprintf(&b, "#define AUTOTUNE_SPARSE_2TO4 %d\n", b2i(c.UseSparse2to4))
+	for _, t := range []struct {
+		name string
+		n    int
+	}{{"M", c.TileM}, {"N", c.TileN}, {"K", c.TileK}} {
+		if t.n > 0 {
+			fmt.Fprintf(&b, "#define AUTOTUNE_TILE_%s %d\n", t.name, t.n)
+		}
+	}
 	if c.ProducerMaxRegs != 0 {
+		fmt.Fprintf(&b, "#define AUTOTUNE_PRODUCER_MAXNREG %d\n", c.ProducerMaxRegs)
 		fmt.Fprintf(&b, "__device__ __forceinline__ void autotune_producer_regs() { asm volatile(\"setmaxnreg.dec.sync.aligned.u32 %d;\\n\" ::: \"memory\"); }\n", c.ProducerMaxRegs)
 	}
 	if c.ConsumerMaxRegs != 0 {
+		fmt.Fprintf(&b, "#define AUTOTUNE_CONSUMER_MAXNREG %d\n", c.ConsumerMaxRegs)
 		fmt.Fprintf(&b, "__device__ __forceinline__ void autotune_consumer_regs() { asm volatile(\"setmaxnreg.inc.sync.aligned.u32 %d;\\n\" ::: \"memory\"); }\n", c.ConsumerMaxRegs)
 	}
 	return b.String(), nil

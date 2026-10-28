@@ -25,7 +25,12 @@ var ErrNumericalDrift = errors.New("autotune: candidate output drifts from servi
 type Variant struct {
 	Candidate ScheduleCandidate
 	Source    cudahotswap.Source // the kernel source the variant was compiled from
+	PTX       string
 	Cubin     []byte
+
+	// SpillStores and SpillLoads count local-memory STL and LDL
+	// instructions in the entry function's SASS, as found by the Builder.
+	SpillStores, SpillLoads int
 }
 
 // ProfileObservation is one sampled run of a variant.
@@ -291,18 +296,25 @@ func (d *Daemon) next(valid []ScheduleCandidate, baseline ScheduleCandidate) (Sc
 }
 
 // trial builds and samples c, records the observation and refines the
-// weights.
+// weights. A candidate that fails to build, spills in SASS, or fails to
+// sample is recorded as disqualified so it is not tried again.
 func (d *Daemon) trial(ctx context.Context, c ScheduleCandidate) Trial {
 	t := Trial{Candidate: c}
+	fail := func(v Variant, err error) Trial {
+		t.Err = err
+		d.measured[c.Name] = &measurement{variant: v, err: err}
+		return t
+	}
 	v, err := d.cfg.Builder.Build(ctx, c)
 	if err != nil {
-		t.Err = fmt.Errorf("build %s: %w", c.Name, err)
-		return t
+		return fail(Variant{Candidate: c}, fmt.Errorf("build %s: %w", c.Name, err))
+	}
+	if v.SpillStores > 0 || v.SpillLoads > 0 {
+		return fail(v, fmt.Errorf("%s: %d STL and %d LDL in SASS: %w", c.Name, v.SpillStores, v.SpillLoads, ErrSpillDisqualified))
 	}
 	obs, h, err := d.collector.SampleKernel(ctx, v, d.cfg.Iters)
 	if err != nil {
-		t.Err = fmt.Errorf("sample %s: %w", c.Name, err)
-		return t
+		return fail(v, fmt.Errorf("sample %s: %w", c.Name, err))
 	}
 	t.Observation, t.Stalls = obs, h
 	m := &measurement{variant: v, obs: obs, stalls: h}

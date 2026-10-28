@@ -87,6 +87,8 @@ func ExampleKnobPreamble() {
 	// #define AUTOTUNE_SWIZZLE_128B 0
 	// #define AUTOTUNE_DOUBLE_BUFFER_TMEM 0
 	// #define AUTOTUNE_SPARSE_2TO4 0
+	// #define AUTOTUNE_PRODUCER_MAXNREG 40
 	// __device__ __forceinline__ void autotune_producer_regs() { asm volatile("setmaxnreg.dec.sync.aligned.u32 40;\n" ::: "memory"); }
+	// #define AUTOTUNE_CONSUMER_MAXNREG 232
 	// __device__ __forceinline__ void autotune_consumer_regs() { asm volatile("setmaxnreg.inc.sync.aligned.u32 232;\n" ::: "memory"); }
 }

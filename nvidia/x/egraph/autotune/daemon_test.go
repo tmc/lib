@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
+	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 	"github.com/tmc/lib/nvidia/x/egraph/autotune"
 )
@@ -444,5 +445,82 @@ func TestServiceSwapper(t *testing.T) {
 	refused := &fakeService{}
 	if err := (autotune.ServiceSwapper{Service: refused, Name: "decode"}).Swap(t.Context(), v); err == nil {
 		t.Errorf("Swap succeeded although the service did not publish")
+	}
+}
+
+func TestCountSpills(t *testing.T) {
+	dis, err := cudasass.ParseString(`
+.section .text.gemm,"ax",@progbits
+/* 0010 */   STL [R1], R4 ;
+/* 0020 */   STL.64 [R1+0x8], R6 ;
+/* 0030 */   STS [R0], R4 ;
+/* 0040 */   LDL R8, [R1] ;
+/* 0050 */   LDS R9, [R0] ;
+/* 0060 */   LDS R10, [R0+0x4] ;
+/* 0070 */   EXIT ;
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stl, ldl, err := autotune.CountSpills(dis, "gemm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stl != 2 || ldl != 1 {
+		t.Errorf("CountSpills = %d STL, %d LDL; want 2, 1", stl, ldl)
+	}
+	if _, _, err := autotune.CountSpills(dis, "missing"); err == nil {
+		t.Errorf("CountSpills(missing) = nil error")
+	}
+}
+
+// spillBuilder reports SASS spills for one candidate.
+type spillBuilder struct {
+	knobBuilder
+	spill string
+}
+
+func (b spillBuilder) Build(ctx context.Context, c autotune.ScheduleCandidate) (autotune.Variant, error) {
+	v, err := b.knobBuilder.Build(ctx, c)
+	if c.Name == b.spill {
+		v.SpillStores, v.SpillLoads = 3, 2
+	}
+	return v, err
+}
+
+func TestDaemonSASSSpillNotSampled(t *testing.T) {
+	cands, dev := tmaCandidates()
+	dev.us["s3"] = 5
+	twin, _ := autotune.TwinForTarget("sm_100a")
+	d, err := autotune.NewDaemon(autotune.DaemonConfig{
+		Twin: twin, MaxTrials: 2, Builder: spillBuilder{knobBuilder{twin}, "s3"},
+	}, dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := d.Step(t.Context(), cands)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range dev.sampled {
+		if s == "s3" {
+			t.Fatalf("SASS-spilling s3 was sampled: %v", dev.sampled)
+		}
+	}
+	if res.Winner.Name == "s3" {
+		t.Fatalf("SASS-spilling s3 won")
+	}
+	if !errors.Is(res.Trials[1].Err, autotune.ErrSpillDisqualified) {
+		t.Fatalf("trial %s err = %v, want ErrSpillDisqualified", res.Trials[1].Candidate.Name, res.Trials[1].Err)
+	}
+	// A disqualified candidate is not retried.
+	res, err = d.Step(t.Context(), cands)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tr := range res.Trials {
+		if tr.Candidate.Name == "s3" {
+			t.Fatalf("s3 retried in step 2")
+		}
 	}
 }
