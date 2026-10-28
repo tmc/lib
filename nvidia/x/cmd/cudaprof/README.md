@@ -344,6 +344,12 @@ says whether the gaps on the target can hide behind running kernels
 (programmatic dependent launch) or need a persistent kernel. The
 finding is labelled modeled.
 
+`cudaprof advise kernels.sass kernels.ptxas.txt` (or a `.cubin` or `.ptx`)
+reads compiled code with no capture and no device: registers, shared
+memory, spills, occupancy and the tensor-core instruction family each
+GEMM-like kernel uses against its target, for a kernel compiled for
+hardware that is not here.
+
 `cudaprof capture -o run.pprof --iteration-marker=RE` runs the gate on the
 capture it wrote, prints a one-line summary, and exits 2 when the gate
 fails, so a scripted capture cannot silently record the wrong window.

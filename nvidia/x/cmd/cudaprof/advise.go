@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -21,6 +22,18 @@ func runAdviseCommand(rawArgs []string) error {
 	opts, err := parseAdviseArgs(args)
 	if err != nil {
 		return err
+	}
+	inputs := append([]string{opts.capture}, opts.ranks...)
+	if isCodeFile(opts.capture) {
+		cap, err := readCodeCapture(inputs)
+		if err != nil {
+			return fmt.Errorf("advise: %w", err)
+		}
+		report, err := advise.Analyze(cap)
+		if err != nil {
+			return fmt.Errorf("analyze code: %w", err)
+		}
+		return printAdvice(report, opts)
 	}
 	if len(opts.ranks) > 0 {
 		return adviseRanks(opts, limits)
@@ -55,6 +68,56 @@ func runAdviseCommand(rawArgs []string) error {
 		}
 	}
 	return printAdvice(report, opts)
+}
+
+// isCodeFile reports whether name is compiled code rather than a capture:
+// a cubin, SASS or PTX file, or a ptxas -v report.
+func isCodeFile(name string) bool {
+	base := strings.ToLower(filepath.Base(name))
+	switch filepath.Ext(base) {
+	case ".cubin", ".sass", ".ptx":
+		return true
+	}
+	return strings.Contains(base, "ptxas")
+}
+
+// readCodeCapture assembles a compile-only capture from code files, which
+// advise reads the way it reads the code tiers of a capture of a run. It is
+// how a kernel compiled for a target with no device here -- sm_103a on a
+// GB10 host -- gets register, shared memory, spill, instruction-class and
+// occupancy findings.
+func readCodeCapture(paths []string) (*cudacapture.Capture, error) {
+	cap := &cudacapture.Capture{Files: map[string][]byte{}}
+	for _, p := range paths {
+		if !isCodeFile(p) {
+			return nil, fmt.Errorf("%s: not a .cubin, .sass, .ptx or ptxas report; code files and captures cannot be mixed", p)
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		name := filepath.Base(p)
+		if _, dup := cap.Files[name]; dup {
+			return nil, fmt.Errorf("%s: two code files named %s", p, name)
+		}
+		cap.Files[name] = data
+		var role *string
+		switch strings.ToLower(filepath.Ext(name)) {
+		case ".cubin":
+			role = &cap.Code.CUBIN
+		case ".sass":
+			role = &cap.Code.SASS
+		case ".ptx":
+			role = &cap.Code.PTX
+		}
+		if role != nil {
+			if *role != "" {
+				return nil, fmt.Errorf("%s: more than one %s file", p, filepath.Ext(name))
+			}
+			*role = name
+		}
+	}
+	return cap, nil
 }
 
 // adviseRanks analyzes the captures of several ranks of one job together.
@@ -96,7 +159,7 @@ func printAdvice(report *advise.Report, opts adviseOptions) error {
 	return nil
 }
 
-const adviseUsage = "usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] [-target sm_103a|gb300] [-base base.pprof [-ops ops.txt] [-phase i]] [-iteration-marker RE [-nvtx] [-skip-iterations N] [-expect-markers N]] capture.pprof\n       cudaprof advise [-e] [-limit N] [--format=json|markdown] [-align collective|clock] rank0.pprof rank1.pprof..."
+const adviseUsage = "usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] [-target sm_103a|gb300] [-base base.pprof [-ops ops.txt] [-phase i]] [-iteration-marker RE [-nvtx] [-skip-iterations N] [-expect-markers N]] capture.pprof\n       cudaprof advise [-e] [-limit N] [--format=json|markdown] [-align collective|clock] rank0.pprof rank1.pprof...\n       cudaprof advise [-e] [-limit N] [--format=json|markdown] kernels.sass|.cubin|.ptx [kernels.ptxas.txt]"
 
 type adviseOptions struct {
 	format  string
