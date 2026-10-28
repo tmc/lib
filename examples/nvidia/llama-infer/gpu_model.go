@@ -465,6 +465,15 @@ func enqueueGPUForwardPass(
 		if stream != nil {
 			l = l.On(stream)
 		}
+		if gm.eg != nil {
+			desc, err := l.Describe()
+			if err != nil {
+				return err
+			}
+			if gm.eg.programmatic(desc.Function) {
+				l = l.WithProgrammaticStreamSerialization(true)
+			}
+		}
 		return l.Launch(args...)
 	}); err != nil {
 		return 0, err

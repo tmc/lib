@@ -45,6 +45,10 @@ type egraphOptions struct {
 	Mega bool // run each decode plan as one persistent megakernel
 	Attn bool // generate RoPE, the KV-cache store and attention
 
+	// PDL launches each generated kernel as the programmatic dependent of
+	// the kernel before it. The caller sets it only for sm_90 and newer.
+	PDL bool
+
 	// PrefillRows, with Attn, prefills in chunks of this many rows: 0
 	// prefills token by token, < 0 picks the cache length.
 	PrefillRows int

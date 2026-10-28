@@ -85,6 +85,9 @@ type egraphDecoder struct {
 	megas map[*hopper.Plan]hopper.Megakernel
 	mod   driver.Module
 	fns   map[string]driver.Function // kernel name -> function
+	// pdl holds the functions that wait for their predecessor grid at
+	// entry ([hopper.AddPDLEntry]), which may launch programmatically.
+	pdl   map[driver.Function]bool
 	ready map[*hopper.Plan]cudamem.Slice[uint64]
 	epoch uint32
 
@@ -136,6 +139,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		plans:   plans,
 		megas:   make(map[*hopper.Plan]hopper.Megakernel),
 		fns:     make(map[string]driver.Function),
+		pdl:     make(map[driver.Function]bool),
 		ready:   make(map[*hopper.Plan]cudamem.Slice[uint64]),
 		temps32: make(map[string]cudamem.Slice[float32]),
 		temps16: make(map[string]cudamem.Slice[uint16]),
@@ -166,7 +170,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 			}
 		}
 	}
-	if err := eg.compile(dev); err != nil {
+	if err := eg.compile(dev, opt.PDL); err != nil {
 		return nil, err
 	}
 
@@ -507,6 +511,7 @@ func kernelName(k hopper.PlanKernel) (string, error) {
 func (eg *egraphDecoder) source() (string, []string, error) {
 	var src strings.Builder
 	src.WriteString(hopper.Prelude)
+	src.WriteString(hopper.PDLHelpers())
 	var names []string
 	for _, p := range eg.planList() {
 		if m, ok := eg.megas[p]; ok {
@@ -570,12 +575,24 @@ func (eg *egraphDecoder) source() (string, []string, error) {
 	return src.String(), names, nil
 }
 
-func (eg *egraphDecoder) compile(dev *cuda.Device) error {
-	src, names, err := eg.source()
+// compile builds eg's module. With pdl, every kernel in it waits for its
+// predecessor grid at entry.
+func (eg *egraphDecoder) compile(dev *cuda.Device, pdl bool) error {
+	cu, names, err := eg.source()
 	if err != nil {
 		return err
 	}
-	cm, err := nvrtcx.Compile(src,
+	waits := make(map[string]bool)
+	if pdl {
+		var rewritten []string
+		if cu, rewritten, err = hopper.AddPDLEntry(cu); err != nil {
+			return err
+		}
+		for _, name := range rewritten {
+			waits[name] = true
+		}
+	}
+	cm, err := nvrtcx.Compile(cu,
 		nvrtcx.WithName("llama_egraph.cu"),
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithStandard("c++20"),
@@ -597,8 +614,25 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 			return fmt.Errorf("lookup e-graph kernel %s: %w", name, err)
 		}
 		eg.fns[name] = fn
+		base := name
+		if i := strings.IndexByte(name, '<'); i >= 0 {
+			base = name[:i]
+		}
+		if waits[base] {
+			eg.pdl[fn] = true
+		}
+	}
+	if pdl && len(eg.pdl) != len(names) {
+		return fmt.Errorf("e-graph kernels: %d of %d wait at entry", len(eg.pdl), len(names))
 	}
 	return nil
+}
+
+// programmatic reports whether a launch of fn may be the programmatic
+// dependent of the launch before it: fn waits for its predecessor grid at
+// entry. It is false for every function without -egraph-pdl.
+func (eg *egraphDecoder) programmatic(fn driver.Function) bool {
+	return eg != nil && eg.pdl[fn]
 }
 
 // bind resolves p's launches against bufs (inputs and output) and eg's

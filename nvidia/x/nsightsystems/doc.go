@@ -13,4 +13,12 @@
 // certify capture completeness, align different reports or create local CUPTI
 // evidence. NCCL annotations remain NVTX rows: undocumented payload semantics
 // are not inferred from a range name.
+//
+// # Launch gaps
+//
+// [AnalyzeLaunchGaps] measures the idle device time between the kernels of
+// one step, read from an imported [Report] ([KernelSpans]) or from the CSV
+// that nsys stats writes for the cuda_gpu_trace report ([ReadGPUTraceCSV]).
+// [LaunchGaps.Project] adds that idle time to a bandwidth floor: a model of
+// the step on a faster device with the same launch latency.
 package nsightsystems

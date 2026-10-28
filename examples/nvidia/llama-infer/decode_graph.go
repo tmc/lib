@@ -162,7 +162,17 @@ func newDecodeGraphWith(
 		if derr != nil {
 			return derr
 		}
-		node, nerr := addNode(g, l, args, prev...)
+		var node *cudagraph.Node
+		var nerr error
+		if len(prev) == 1 && gm.eg.programmatic(desc.Function) {
+			// The kernel waits for prev at entry, so it may launch
+			// while prev drains.
+			if node, nerr = addNode(g, l, args); nerr == nil {
+				nerr = g.AddProgrammaticDependency(prev[0], node)
+			}
+		} else {
+			node, nerr = addNode(g, l, args, prev...)
+		}
 		if nerr != nil {
 			return nerr
 		}
