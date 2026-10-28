@@ -318,23 +318,30 @@ func AuditC2CCoherence(src string) error {
 //
 // The spec's target is a 1.5 us median round trip on GB200, GB300 and
 // VR200-class C2C; no such part has run it. Measured on GB10 on
-// 2026-10-27, 1000 rounds each, cudaHostAllocMapped memory (median, p99):
+// 2026-10-27, all rows in one GPU-lock hold, 1000 rounds each; medians
+// are the result, p99 is from a single run and noisy. The probe column is
+// the mean of dependent ld.acquire.sys loads of the idle slot.
 //
-//	default 16x64 task, unpinned worker     3456 ns, 5984 ns
-//	16x64, pinned, __nanosleep(100) polling 3392 ns, 6464 ns
-//	16x64, pinned, SplitCompletion          3360 ns, 6368 ns
-//	1x1 task, pinned                        1376 ns, 3488 ns
-//	1x1 task, pinned, SplitCompletion       1088 ns, 1504 ns
+//	variant                         median   p99     probe
+//	16x64 task, mapped, unpinned    4416 ns  4672 ns 330 ns
+//	16x64, pageable, unpinned       4608 ns  4896 ns 132 ns
+//	16x64, mapped, pinned           3520 ns 17248 ns 376 ns
+//	pinned, __nanosleep(100) polls  3488 ns  8000 ns 375 ns
+//	pinned, SplitCompletion         3488 ns  3712 ns 327 ns
+//	1x1 task, pinned                1376 ns  1536 ns 338 ns
+//	1x1, pinned, SplitCompletion    1120 ns  1472 ns 324 ns
+//	1x1, pinned, split, pageable    1568 ns  2080 ns 133 ns
 //
-// The default 16x64 task dominates the round trip (about 2 us; the pinned
-// 16x64 run that would separate it from pinning has not run yet); sharing
-// one cache line between the two flags costs about 0.3 us. The
-// doorbell itself, the last row, is about 1.1 us median on GB10, about 3x a
-// single dependent ld.acquire.sys of idle host memory (330-390 ns).
-// Under cudahostemu the .sys accesses are C++ acquire and release atomics
-// on host memory, so the emulation checks the protocol, not C2C latency;
-// the worker pauses after each output row there, so a completion released
-// before the output is written is observed by the kernel.
+// The default 16x64 task dominates: it costs about 2.1 us over the 1x1
+// task. Pinning the worker to a performance core saves about 0.9 us.
+// Moving the completion word to its own cache line saves about 0.26 us
+// with the 1x1 task and nothing measurable with the 16x64 task, and
+// __nanosleep polling gains nothing. The doorbell itself (1x1, pinned,
+// split) is about 1.1 us median, about 3x the idle probe. Pageable memory
+// through ATS is slower end to end (+0.2 us with the 16x64 task, +0.45 us
+// with the 1x1 task) although its idle probe is faster; why is
+// unexplained (the idle line may be served from a GPU-side cache until
+// the CPU writes it), so the probe is not evidence of faster memory.
 type C2CDoorbellKernel struct {
 	Name      string
 	Rounds    int
