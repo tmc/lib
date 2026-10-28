@@ -34,10 +34,12 @@ extern "C" __global__ void llama_embed_gather(
 // one embedding gather launch and, per layer, the attnIn plan's launches,
 // one rotary launch that appends the chunk's keys and values to the
 // decoder's BF16 cache, one attention launch over all the chunk's rows,
-// and the post plan's launches.
+// and the post plan's launches. A chunk of at most narrow rows makes the
+// narrow plans' launches in place of attnIn's and post's.
 type egraphPrefill struct {
-	rows, qtok   int
-	attnIn, post [][]egraphLaunch // per layer
+	rows, qtok, narrow   int
+	attnIn, post         [][]egraphLaunch // per layer
+	narrowIn, narrowPost [][]egraphLaunch // per layer
 	rope, attn   []egraphLaunch   // per layer; chunk arguments set per chunk
 	gather       driver.Function
 
@@ -97,16 +99,18 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 	for i := range gpuW.Layers {
 		lw := &gpuW.Layers[i]
 		bufs := map[string]driver.DevicePtr{
-			"x":                   cur.Ptr(),
-			"attn_norm":           lw.InputNorm.Ptr(),
-			"w_qkv":               eg.wqkv[i].Ptr(),
-			pl.attnIn.Output.Name: pf.qkv.Ptr(),
-			"attn":                pf.attnOut.Ptr(),
-			"w_o":                 lw.WO.Ptr(),
-			"ffn_norm":            lw.PostNorm.Ptr(),
-			"w_gu":                eg.wgu[i].Ptr(),
-			"w_down":              lw.WDown.Ptr(),
-			pl.post.Output.Name:   next.Ptr(),
+			"x":                       cur.Ptr(),
+			"attn_norm":               lw.InputNorm.Ptr(),
+			"w_qkv":                   eg.wqkv[i].Ptr(),
+			pl.attnIn.Output.Name:     pf.qkv.Ptr(),
+			pl.narrowIn.Output.Name:   pf.qkv.Ptr(),
+			"attn":                    pf.attnOut.Ptr(),
+			"w_o":                     lw.WO.Ptr(),
+			"ffn_norm":                lw.PostNorm.Ptr(),
+			"w_gu":                    eg.wgu[i].Ptr(),
+			"w_down":                  lw.WDown.Ptr(),
+			pl.post.Output.Name:       next.Ptr(),
+			pl.narrowPost.Output.Name: next.Ptr(),
 		}
 		if len(eg.bqkv) > 0 {
 			bufs["b_qkv"] = eg.bqkv[i].Ptr()
@@ -121,6 +125,14 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 		}
 		pf.attnIn = append(pf.attnIn, in)
 		pf.post = append(pf.post, post)
+		if in, err = eg.bind(pl.narrowIn, bufs); err != nil {
+			return err
+		}
+		if post, err = eg.bind(pl.narrowPost, bufs); err != nil {
+			return err
+		}
+		pf.narrowIn = append(pf.narrowIn, in)
+		pf.narrowPost = append(pf.narrowPost, post)
 		cur, next = next, cur
 
 		// qkv, cos_sin_table, positions, seq_ids, seqlens, kv_positions,
@@ -139,7 +151,7 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 	}
 	// Tile gemms use more dynamic shared memory than a launch gets by
 	// default.
-	for _, ls := range [][]egraphLaunch{pf.attnIn[0], pf.post[0]} {
+	for _, ls := range [][]egraphLaunch{pf.attnIn[0], pf.post[0], pf.narrowIn[0], pf.narrowPost[0]} {
 		for _, l := range ls {
 			if err := cudalaunch.Kernel(l.fn).SharedMem(l.smem).PrepareSharedMem(dev); err != nil {
 				return fmt.Errorf("prefill gemm shared memory: %w", err)
@@ -212,8 +224,12 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 		}
 		positions := pf.positions.Ptr() + driver.DevicePtr(4*start)
 		seqLens := pf.seqLens.Ptr() + driver.DevicePtr(4*g0)
+		attnIn, post := pf.attnIn, pf.post
+		if n <= pf.narrow {
+			attnIn, post = pf.narrowIn, pf.narrowPost
+		}
 		for i := range cfg.NumHiddenLayers {
-			if err := launchRows(pf.attnIn[i], n); err != nil {
+			if err := launchRows(attnIn[i], n); err != nil {
 				return 0, err
 			}
 			rope := pf.rope[i]
@@ -230,7 +246,7 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 			if err := launch(a); err != nil {
 				return 0, err
 			}
-			if err := launchRows(pf.post[i], n); err != nil {
+			if err := launchRows(post[i], n); err != nil {
 				return 0, err
 			}
 		}
@@ -268,15 +284,19 @@ func (pf *egraphPrefill) free() error {
 		freeOwned(&pf.attnOut))
 }
 
-// prefillTiles returns the names of the prefill plans' tile gemms.
-func (eg *egraphDecoder) prefillTiles() []string {
-	var names []string
-	for _, p := range []*hopper.Plan{eg.plans.pf.attnIn, eg.plans.pf.post} {
+// prefillGEMMs returns the names of the prefill plans' tile gemms and of
+// the narrow plans' skinny mmas.
+func (eg *egraphDecoder) prefillGEMMs() (tiles, skinny []string) {
+	pf := eg.plans.pf
+	for _, p := range []*hopper.Plan{pf.attnIn, pf.post, pf.narrowIn, pf.narrowPost} {
 		for _, k := range p.Kernels {
-			if k.Tile != nil {
-				names = append(names, k.Tile.Name)
+			switch {
+			case k.Tile != nil:
+				tiles = append(tiles, k.Tile.Name)
+			case k.MMA != nil:
+				skinny = append(skinny, k.MMA.Name)
 			}
 		}
 	}
-	return names
+	return tiles, skinny
 }

@@ -368,14 +368,14 @@ func runGPUInference(
 		}
 		// Split decode attention so its KV heads × splits CTAs cover the
 		// SMs once.
+		sms, err := dev.Attribute(driver.DevAttrMultiprocessorCount)
+		if err != nil {
+			return fmt.Errorf("read SM count: %w", err)
+		}
 		splits := *egraphSplitsFlag
 		if !*egraphAttnFlag {
 			splits = 0
 		} else if splits < 0 {
-			sms, err := dev.Attribute(driver.DevAttrMultiprocessorCount)
-			if err != nil {
-				return fmt.Errorf("read SM count: %w", err)
-			}
 			splits = max(1, sms/cfg.NumKeyValueHeads)
 			fmt.Printf("[E-Graph] decode attention: %d SMs / %d KV heads = %d splits per KV head\n", sms, cfg.NumKeyValueHeads, splits)
 		}
@@ -384,6 +384,7 @@ func runGPUInference(
 			Attn:        *egraphAttnFlag,
 			PrefillRows: prefillRows,
 			AttnSplits:  splits,
+			SMs:         sms,
 		})
 		if eg != nil {
 			defer func() {
@@ -403,11 +404,13 @@ func runGPUInference(
 		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
 			eg.Kernels(), strings.Join(gen, ", "), strings.Join(fallback, ", "))
 		if eg.pf != nil {
+			tiles, skinny := eg.prefillGEMMs()
 			fmt.Printf("[E-Graph] prefill: %d-row chunks, %d launches per chunk then head (%d) and argmax (1); "+
-				"generated: tile gemm (mma.sync) %s, rope+kv_append (generated, direct emitter) 1 per layer, "+
+				"generated: tile gemm (mma.sync) %s, in chunks of at most %d rows skinny mma (mma.sync) %s, "+
+				"rope+kv_append (generated, direct emitter) 1 per layer, "+
 				"attention (generated, direct emitter: MTPPagedAttention, causal groups of %d rows) 1 per layer; "+
 				"hand-written, not generated: embedding gather (1 per chunk); llama-infer kernels: argmax\n",
-				eg.pf.rows, eg.pf.launches(), len(eg.head), strings.Join(eg.prefillTiles(), ", "), eg.pf.qtok)
+				eg.pf.rows, eg.pf.launches(), len(eg.head), strings.Join(tiles, ", "), eg.pf.narrow, strings.Join(skinny, ", "), eg.pf.qtok)
 		} else {
 			fmt.Printf("[E-Graph] prefill: token by token (%s)\n", prefillOff)
 		}

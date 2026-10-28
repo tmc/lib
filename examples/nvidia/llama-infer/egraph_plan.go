@@ -46,6 +46,10 @@ type egraphOptions struct {
 	// AttnSplits divides decode attention's keys among this many CTAs per
 	// KV head, with a combine kernel; 0 runs one CTA per KV head.
 	AttnSplits int
+
+	// SMs is the device's multiprocessor count, which the prefill skinny
+	// mmas split K to fill; 0 means hopper's default.
+	SMs int
 }
 
 // egraphPageSize is the attention page size. The cache is contiguous: page
@@ -69,7 +73,11 @@ func (p *egraphPlans) ops() (generated, fallback []string) {
 
 // egraphPrefillPlans are the plans of a batched prefill over up to rows
 // prompt tokens. With more than 16 rows the generator lowers every
-// projection to an mma.sync [hopper.TileGEMM]. The rotary kernel indexes
+// projection to an mma.sync [hopper.TileGEMM]. A chunk of at most narrow
+// rows runs narrowIn and narrowPost instead, whose projections are
+// [hopper.SkinnyMMA]s: with so few rows a projection costs what streaming
+// its weights costs, and a skinny mma streams them as the decode GEMV
+// does, where a 64-row tile gemm does not. The rotary kernel indexes
 // the cache through the attention page table, so it writes each token's
 // row without pointer offsets. Attention is one
 // [hopper.MTPPagedAttention] launch per chunk: each CTA serves qtok
@@ -79,6 +87,9 @@ type egraphPrefillPlans struct {
 	rows       int
 	attnIn     *hopper.Plan
 	post       *hopper.Plan
+	narrow     int
+	narrowIn   *hopper.Plan
+	narrowPost *hopper.Plan
 	rope       hopper.QKNormRoPEKVAppend
 	attn       hopper.MTPPagedAttention
 	qtok       int
@@ -92,6 +103,10 @@ const (
 	sm121SharedPerBlock = 99 * 1024
 	staticSharedLimit   = 48 * 1024
 )
+
+// prefillNarrowRows is the most rows a [hopper.SkinnyMMA] takes, and so
+// the largest chunk the narrow prefill plans run.
+const prefillNarrowRows = 32
 
 // prefillQTokens returns the most query rows per group the warp
 // MTPPagedAttention kernel takes: G·qtok query vectors may not exceed 64,
@@ -184,6 +199,12 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	if err := overridePrefillTiles(&pf, prefillRows); err != nil {
 		return nil, err
 	}
+	pf.narrow = prefillNarrowRows
+	if pf.narrowIn, pf.narrowPost, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pfn", pf.narrow, hopper.BF16); err != nil {
+		return nil, err
+	}
+	pf.narrowIn.UseSkinnyMMA(opt.SMs)
+	pf.narrowPost.UseSkinnyMMA(opt.SMs)
 	// A last group of fewer than qtok rows still covers qtok positions;
 	// pad the cache so they exist.
 	pf.cacheSlots = (cfg.MaxSeqLen + pf.qtok - 1 + egraphPageSize - 1) / egraphPageSize * egraphPageSize
