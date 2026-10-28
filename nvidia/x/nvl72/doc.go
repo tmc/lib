@@ -36,6 +36,15 @@
 //     system-scope release/acquire ordering and optional C2C staging.
 //   - [PlanPDDisaggregation] selects optimal prefill/decode rack and GPU splits
 //     under TTFT and TPOT SLAs across GB200, GB300, and Vera Rubin pods.
+//   - [ComputeRoutingPlan] routes MoE tokens (DeepSeek-V3 sigmoid with
+//     selection-only bias, softmax, or Sinkhorn-Knopp), packs TMA .gather4
+//     row quads, and mirrors hot experts into shadow slots;
+//     [FusedMoERouter] emits the single-kernel router, checked against it
+//     under cudahostemu.
+//
+// The native gate (CUDA_NVL72_NATIVE=1 under an inherited GPU lock, target
+// CUDA_NVL72_NATIVE_ARCH, default sm_121a) compiles emitted kernels with nvcc
+// and runs the single-GPU ones; multi-rank paths run only on cudahostemu.
 //
 // Basic usage:
 //
