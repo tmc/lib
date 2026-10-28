@@ -27,6 +27,17 @@ type emuBuf struct {
 // buffer's final contents.
 func runEmu(t *testing.T, src, launch string, bufs ...emuBuf) map[string][]byte {
 	t.Helper()
+	res, err := runEmuErr(t, src, launch, bufs...)
+	if err != nil {
+		t.Fatalf("emulated kernel: %v\n--- source ---\n%s", err, numbered(Prelude+src))
+	}
+	return res
+}
+
+// runEmuErr is runEmu returning the compile or run error, for tests that
+// expect the emulation to fail.
+func runEmuErr(t *testing.T, src, launch string, bufs ...emuBuf) (map[string][]byte, error) {
+	t.Helper()
 	cbufs := make([]cudahostemu.Buffer, len(bufs))
 	for i, b := range bufs {
 		cbufs[i] = cudahostemu.Buffer{Name: b.name, CType: b.ctype, Data: b.data}
@@ -40,10 +51,7 @@ func runEmu(t *testing.T, src, launch string, bufs ...emuBuf) map[string][]byte 
 	if errors.Is(err, cudahostemu.ErrNoCompiler) {
 		t.Skip("no host C++ compiler; emulated kernel not run")
 	}
-	if err != nil {
-		t.Fatalf("emulated kernel: %v\n--- source ---\n%s", err, numbered(Prelude+src))
-	}
-	return res
+	return res, err
 }
 
 func numbered(s string) string {

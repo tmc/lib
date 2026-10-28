@@ -128,12 +128,12 @@ func newTPDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPU
 	b := hopper.NewBuilder()
 	x := b.Input("x", hopper.F32, 1, cfg.HiddenSize)
 	norm := b.Cast(hopper.BF16, b.RMSNorm(x, b.Input("norm", hopper.F32, cfg.HiddenSize), cfg.HiddenSize, cfg.RmsNormEps))
-	if d.head, err = compilePlan("tp_head", b, b.MatMul(norm, b.Input("lm_head", hopper.BF16, cfg.VocabSize, cfg.HiddenSize)), hopper.F32); err != nil {
+	if d.head, err = compilePlan("tp_head", b, b.MatMul(norm, b.Input("lm_head", hopper.BF16, cfg.VocabSize, cfg.HiddenSize)), hopper.F32, ""); err != nil {
 		return nil, err
 	}
 	local := d.plan.Local
 	b = hopper.NewBuilder()
-	if d.qcast, err = compilePlan("tp_qcast", b, b.Cast(hopper.F32, b.Input("q", hopper.BF16, 1, local.Heads*hd)), hopper.F32); err != nil {
+	if d.qcast, err = compilePlan("tp_qcast", b, b.Cast(hopper.F32, b.Input("q", hopper.BF16, 1, local.Heads*hd)), hopper.F32, ""); err != nil {
 		return nil, err
 	}
 	d.rope = hopper.QKNormRoPEKVAppend{Name: "tp_rope_kv", NumHeads: local.Heads, KVHeads: local.KVHeads, HeadDim: hd, PageSize: 1, MaxPages: 1, DType: hopper.BF16}

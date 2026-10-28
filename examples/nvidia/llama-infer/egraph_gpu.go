@@ -501,8 +501,12 @@ func kernelName(k hopper.PlanKernel) (string, error) {
 		return k.Tile.Name, nil
 	case k.Row != nil:
 		return k.Row.Name, nil
+	case k.UMMA != nil:
+		return k.UMMA.Name, nil
+	case k.Quant != nil:
+		return k.Quant.Name, nil
 	}
-	return "", fmt.Errorf("plan kernel %+v: only gemm and row kernels are supported", k)
+	return "", fmt.Errorf("plan kernel %+v: only gemm, row, tcgen05 and quantize kernels are supported", k)
 }
 
 // source returns the CUDA source of eg's plans, with eg.megas in place of
@@ -534,6 +538,10 @@ func (eg *egraphDecoder) source() (string, []string, error) {
 				cu, err = k.GEMM.CUDA()
 			case k.Tile != nil:
 				cu, err = k.Tile.CUDA()
+			case k.UMMA != nil:
+				cu, err = k.UMMA.CUDA()
+			case k.Quant != nil:
+				cu, err = k.Quant.CUDA()
 			default:
 				cu, err = k.Row.CUDA()
 			}

@@ -44,6 +44,27 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 			}
 			continue
 		}
+		if k.UMMA != nil || k.Quant != nil {
+			var s, l, name string
+			var err error
+			if k.UMMA != nil {
+				name = k.UMMA.Name
+				if s, err = k.UMMA.CUDA(); err == nil {
+					l, err = k.UMMA.Launcher()
+				}
+			} else {
+				name = k.Quant.Name
+				if s, err = k.Quant.CUDA(); err == nil {
+					l, err = k.Quant.Launcher()
+				}
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString(s + "\n" + l)
+			launches = append(launches, fmt.Sprintf("%s_launch(%d, %s, nullptr)", name, k.M, strings.Join(k.Args, ", ")))
+			continue
+		}
 		if k.Attention != nil {
 			s, err := k.Attention.CUDA()
 			if err != nil {

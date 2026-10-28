@@ -20,6 +20,13 @@
 // schedule with a matching single-block wide schedule for large batches, and
 // [SourceTVMFFI] emits TVM-FFI host wrapper headers for load_jit.
 //
+// [CompileFor] lowers for a named GPU. On targets with tcgen05 ([UMMATarget]:
+// sm_100a, sm_103a and sm_110a, as probed in cudadevicetable) BF16 and
+// NVFP4 gemms become [UMMAGEMM]s, TMA-fed tcgen05.mma kernels accumulating
+// in tensor memory, with an [NVFP4Quant] of the activations for NVFP4.
+// These kernels are compiled with ptxas 13.4 and run under cudahostemu's
+// descriptor-level emulation; they have not run on a tcgen05 GPU.
+//
 // Multi-architecture lowering and PTX ISA 9.4 emitters complement the e-graph
 // pipeline:
 //
