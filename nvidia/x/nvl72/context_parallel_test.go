@@ -196,7 +196,7 @@ func TestSimulateContextParallelEquivalence(t *testing.T) {
 					worst = max(worst, math.Abs(float64(got[h][i])-want[h][i]))
 				}
 			}
-			if worst > 1e-5 {
+			if !(worst <= 1e-5) {
 				t.Fatalf("max abs error %g, want <= 1e-5", worst)
 			}
 		})
@@ -238,7 +238,7 @@ func TestMergeOnlineSoftmaxTilesAssociative(t *testing.T) {
 		"single": merge(part(0, 24)).Normalize(),
 	} {
 		for i := range got {
-			if d := math.Abs(float64(got[i] - whole[i])); d > 1e-5 {
+			if d := math.Abs(float64(got[i] - whole[i])); !(d <= 1e-5) {
 				t.Fatalf("%s[%d] = %v, want %v", name, i, got[i], whole[i])
 			}
 		}
@@ -404,7 +404,7 @@ func TestContextParallelRingKernelHostEmu(t *testing.T) {
 					}
 				}
 			}
-			if worst > 1e-5 {
+			if !(worst <= 1e-5) {
 				t.Fatalf("max abs error %g vs monolithic attention, want <= 1e-5", worst)
 			}
 		})

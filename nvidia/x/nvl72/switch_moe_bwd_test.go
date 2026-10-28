@@ -178,10 +178,10 @@ func TestMoEBackwardFiniteDifference(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if d := maxAbsDiff(r.GradX, c.fdX); d > 1e-5 {
+			if d := maxAbsDiff(r.GradX, c.fdX); !(d <= 1e-5) {
 				t.Fatalf("GradX differs from finite differences by %g", d)
 			}
-			if d := maxAbsDiff(r.GradGateLogits, c.fdU); d > 1e-5 {
+			if d := maxAbsDiff(r.GradGateLogits, c.fdU); !(d <= 1e-5) {
 				t.Fatalf("GradGateLogits differs from finite differences by %g", d)
 			}
 		})
@@ -379,13 +379,13 @@ func TestSwitchMoEBackwardKernelHostEmu(t *testing.T) {
 		home := tok % P
 		for d := range D {
 			got := gotX[(home*T+tok)*D+d]
-			if math.Abs(float64(got-want.GradX[tok][d])) > 1e-5 {
+			if !(math.Abs(float64(got-want.GradX[tok][d])) <= 1e-5) {
 				t.Fatalf("token %d dim %d on home rank %d: %v, want %v", tok, d, home, got, want.GradX[tok][d])
 			}
 		}
 		for kk := range K {
 			got := gotDG[(home*T+tok)*K+kk]
-			if math.Abs(float64(got-want.GradGate[tok][kk])) > 1e-5 {
+			if !(math.Abs(float64(got-want.GradGate[tok][kk])) <= 1e-5) {
 				t.Fatalf("token %d slot %d dg %v, want %v", tok, kk, got, want.GradGate[tok][kk])
 			}
 		}

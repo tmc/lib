@@ -61,7 +61,7 @@ func checkPlanInvariants(t *testing.T, cfg MoERouterConfig, p RoutingPlan, T int
 		if len(groups) > cfg.TopGroups {
 			t.Fatalf("token %d: %d groups used, limit %d", tok, len(groups), cfg.TopGroups)
 		}
-		if math.Abs(sum-1) > 1e-5 {
+		if !(math.Abs(sum-1) <= 1e-5) {
 			t.Fatalf("token %d: weights sum %v, want 1", tok, sum)
 		}
 	}
@@ -188,10 +188,10 @@ func TestDeepSeekV3BiasOnlySelects(t *testing.T) {
 			sumb += sb[k]
 		}
 		for k := range s {
-			if got, want := float64(p.SelectedWeights[tok][k]), s[k]/sum; math.Abs(got-want) > 1e-6 {
+			if got, want := float64(p.SelectedWeights[tok][k]), s[k]/sum; !(math.Abs(got-want) <= 1e-6) {
 				t.Fatalf("token %d expert %d weight %v, want unbiased %v", tok, experts[k], got, want)
 			}
-			if math.Abs(sb[k]/sumb-s[k]/sum) > 1e-3 {
+			if !(math.Abs(sb[k]/sumb-s[k]/sum) <= 1e-3) {
 				mutantDiffers = true
 			}
 		}
@@ -215,7 +215,7 @@ func TestSinkhornBalance(t *testing.T) {
 		for _, x := range row {
 			s += float64(x)
 		}
-		if math.Abs(s-1) > 1e-5 {
+		if !(math.Abs(s-1) <= 1e-5) {
 			t.Fatalf("row %d sums to %v, want 1", tok, s)
 		}
 	}
@@ -356,7 +356,7 @@ func TestHotExpertMirroring(t *testing.T) {
 			}
 		}
 		for d := range D {
-			if math.Abs(out[tok][d]-want[d]) > 1e-9 {
+			if !(math.Abs(out[tok][d]-want[d]) <= 1e-9) {
 				t.Fatalf("token %d dim %d: mirrored %v, unmirrored %v", tok, d, out[tok][d], want[d])
 			}
 		}
@@ -419,7 +419,7 @@ func TestFusedMoERouterHostEmu(t *testing.T) {
 					if got.SelectedExperts[tok][k] != e {
 						t.Fatalf("token %d slot %d: kernel expert %d, plan %d", tok, k, got.SelectedExperts[tok][k], e)
 					}
-					if d := math.Abs(float64(got.SelectedWeights[tok][k] - want.SelectedWeights[tok][k])); d > 1e-6 {
+					if d := math.Abs(float64(got.SelectedWeights[tok][k] - want.SelectedWeights[tok][k])); !(d <= 1e-6) {
 						t.Fatalf("token %d slot %d: kernel weight %v, plan %v", tok, k, got.SelectedWeights[tok][k], want.SelectedWeights[tok][k])
 					}
 				}
@@ -584,7 +584,7 @@ int main() {
 					if int(sel[tok*K+kk]) != e {
 						t.Fatalf("token %d slot %d: device expert %v, plan %d", tok, kk, sel[tok*K+kk], e)
 					}
-					if d := math.Abs(w[tok*K+kk] - float64(want.SelectedWeights[tok][kk])); d > 1e-5 {
+					if d := math.Abs(w[tok*K+kk] - float64(want.SelectedWeights[tok][kk])); !(d <= 1e-5) {
 						t.Fatalf("token %d slot %d: device weight %v, plan %v", tok, kk, w[tok*K+kk], want.SelectedWeights[tok][kk])
 					}
 				}

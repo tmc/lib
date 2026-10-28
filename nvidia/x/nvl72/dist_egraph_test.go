@@ -144,7 +144,7 @@ func TestDistRulesSound(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if d := maxRelDiff(rhs, lhs); d > 1e-5 {
+			if d := maxRelDiff(rhs, lhs); !(d <= 1e-5) {
 				t.Fatalf("rewrite changes the result by %g", d)
 			}
 		})
@@ -305,7 +305,7 @@ func TestMultimemRMSNormKernelHostEmu(t *testing.T) {
 	got := bytesF32(out)
 	for r := range P {
 		for i := range rows * cols {
-			if d := math.Abs(float64(got[r*rows*cols+i]) - want[r][i]); d > 1e-4 {
+			if d := math.Abs(float64(got[r*rows*cols+i]) - want[r][i]); !(d <= 1e-4) {
 				t.Fatalf("rank %d elem %d: %v, want %v", r, i, got[r*rows*cols+i], want[r][i])
 			}
 		}
