@@ -84,6 +84,7 @@ func TestDecodeNativeHarnessBuilds(t *testing.T) {
 		"tree_verify_native_reserve",
 		"PASS TreeSpecVerify",
 		"PASS GrammarSampler",
+		"PASS EarlyExit",
 		"DECODE_NATIVE_OK",
 	} {
 		if !strings.Contains(src, want) {
@@ -97,6 +98,7 @@ func buildDecodeNativeHarness(t *testing.T) string {
 	cases := []decodeNativeCase{
 		treeSpecNativeCase(t),
 		samplerNativeCase(t),
+		earlyExitNativeCase(t),
 	}
 	var b strings.Builder
 	b.WriteString("#include <cuda_runtime.h>\n#include <cstdio>\n#include <cstring>\n#include <cmath>\n#include <vector>\n")
@@ -402,4 +404,73 @@ func samplerNativeCase(t *testing.T) decodeNativeCase {
 `, g.Name, rows, rows, rows, v, v, g.Name, i, g.Name, i, maxDiff, g.Name, g.Name, rows)
 	}
 	return decodeNativeCase{name: "GrammarSampler", src: src.String(), main: m.String()}
+}
+
+// earlyExitNativeCase runs the top-2-margin early-exit loop of
+// TestEarlyExitEmulatedLoop (plain tiles, KV propagation) as one CUDA graph
+// launch and compares hidden states, KV, exit layers and tile counts with
+// the host reference bit for bit; the margin test and the fixture layer
+// are exact in float32.
+func earlyExitNativeCase(t *testing.T) decodeNativeCase {
+	t.Helper()
+	cfg := EarlyExitConfig{Name: "ee_native", Tokens: 70, Dim: 6, NumLayers: 6, MinLayer: 0, Criterion: ExitTop2Margin, Threshold: 0.6, TileM: 16, PropagateSkipKV: true}
+	toy := newEarlyExitToy(t, rand.New(rand.NewPCG(29, 12)), cfg)
+	cfg = toy.cfg
+	want := toy.reference(t)
+	k, err := cfg.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bufs := toy.initialBuffers()
+	names := slices.Sorted(maps.Keys(bufs))
+	var src, m strings.Builder
+	src.WriteString(k)
+	src.WriteString(toy.rowSource())
+	for _, n := range names {
+		fmt.Fprintf(&src, "static const uint32_t ee_h_%s[] = {%s};\n", n, cWords(bufs[n]))
+	}
+	fmt.Fprintf(&src, "static const uint32_t ee_want_h[] = {%s};\n", cWords(f32le(want.h)))
+	fmt.Fprintf(&src, "static const uint32_t ee_want_kv[] = {%s};\n", cWords(f32le(want.kv)))
+	fmt.Fprintf(&src, "static const int32_t ee_want_exit[] = {%s};\n", formatI32List(want.exit))
+	for _, n := range names {
+		fmt.Fprintf(&m, "        uint32_t* d_%s = dn_dup(ee_h_%s, sizeof(ee_h_%s) / 4);\n        if (!d_%s) return 2;\n", n, n, n, n)
+	}
+	fmt.Fprintf(&m, `        float *h = reinterpret_cast<float*>(d_h), *hprev = reinterpret_cast<float*>(d_hprev), *kv = reinterpret_cast<float*>(d_kv);
+        const float* rate = reinterpret_cast<const float*>(d_rate);
+        int32_t *exit_layer = reinterpret_cast<int32_t*>(d_exit_layer), *active_idx = reinterpret_cast<int32_t*>(d_active_idx);
+        int32_t *ctrl = reinterpret_cast<int32_t*>(d_ctrl), *tiles_run = reinterpret_cast<int32_t*>(d_tiles_run);
+        void* ctx = nullptr;
+        ee_native_bind<<<1, 1>>>(h, hprev, kv, rate);
+        DN_CHECK(cudaDeviceSynchronize());
+        cudaGraph_t graph, body;
+        cudaGraphConditionalHandle cond_handle;
+        DN_CHECK(cudaGraphCreate(&graph, 0));
+        DN_CHECK(cudaGraphConditionalHandleCreate(&cond_handle, graph, 1, cudaGraphCondAssignDefault));
+        DN_CHECK(dn_add_while(graph, cond_handle, &body));
+        void* tile_args[] = {&active_idx, &ctrl, &tiles_run, &ctx};
+        void* probe_args[] = {&h, &hprev, &kv, &exit_layer, &active_idx, &ctrl, &cond_handle};
+        cudaGraphNode_t prev = nullptr;
+        DN_CHECK(dn_add_kernel(body, &prev, (void*)ee_native_tiles, tile_args, dim3(%d), dim3(128)));
+        DN_CHECK(dn_add_kernel(body, &prev, (void*)ee_native_probe, probe_args, dim3(1), dim3(256)));
+        cudaGraphExec_t exec;
+        DN_CHECK(cudaGraphInstantiate(&exec, graph, 0));
+        DN_CHECK(cudaGraphLaunch(exec, 0));
+        DN_CHECK(cudaDeviceSynchronize());
+        auto gh = dn_get(d_h, sizeof(ee_want_h) / 4);
+        auto gkv = dn_get(d_kv, sizeof(ee_want_kv) / 4);
+        auto gexit = dn_get(exit_layer, %d);
+        auto gctrl = dn_get(ctrl, 3);
+        auto gtiles = dn_get(tiles_run, 1);
+        if (gctrl.empty() || gctrl[0] != %d || gtiles[0] != %d) {
+            std::printf("FAIL EarlyExit layers %%d tiles %%d, want %d %d\n", gctrl.empty() ? -1 : gctrl[0], gtiles.empty() ? -1 : gtiles[0]);
+            return 5;
+        }
+        if (std::memcmp(gexit.data(), ee_want_exit, sizeof(ee_want_exit)) || std::memcmp(gh.data(), ee_want_h, sizeof(ee_want_h)) ||
+            std::memcmp(gkv.data(), ee_want_kv, sizeof(ee_want_kv))) {
+            std::printf("FAIL EarlyExit state differs from host reference\n");
+            return 5;
+        }
+        std::printf("PASS EarlyExit graph WHILE layers=%%d tiles_run=%%d of %d static\n", gctrl[0], gtiles[0]);
+`, cfg.StaticTiles(), cfg.Tokens, want.layers, want.tilesRun, want.layers, want.tilesRun, int(want.layers)*cfg.StaticTiles())
+	return decodeNativeCase{name: "EarlyExit", src: src.String(), main: m.String()}
 }
