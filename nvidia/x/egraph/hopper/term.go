@@ -127,7 +127,7 @@ func Rules() []*egraph.Rewrite {
 		{Name: "matmul-gemm",
 			LHS: egraph.Pat(OpMatMul, egraph.Var("x"), egraph.Var("w")),
 			RHS: egraph.Pat(OpGEMM, egraph.Pat("fn:$0"), egraph.Var("x"), egraph.Var("w"))},
-	}, modelRules()...)
+	}, append(modelRules(), ssmRules()...)...)
 }
 
 func lambdaOf(n egraph.ENode) (Lambda, bool) {
