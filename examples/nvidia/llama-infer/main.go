@@ -64,6 +64,7 @@ var (
 	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated sm_121a kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
 	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
+	egraphPDLFlag     = flag.Bool("egraph-pdl", false, "with -egraph, launch each generated kernel as the programmatic dependent of the one before it (sm_90 and newer; ignored on older devices)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
 )
 
@@ -379,8 +380,22 @@ func runGPUInference(
 			splits = max(1, sms/cfg.NumKeyValueHeads)
 			fmt.Printf("[E-Graph] decode attention: %d SMs / %d KV heads = %d splits per KV head\n", sms, cfg.NumKeyValueHeads, splits)
 		}
+		// Programmatic dependent launch needs sm_90; the generated
+		// kernels' griddepcontrol compiles away below it.
+		pdl := *egraphPDLFlag
+		if pdl {
+			major, _, err := dev.ComputeCapability()
+			if err != nil {
+				return fmt.Errorf("read compute capability: %w", err)
+			}
+			if major < 9 {
+				fmt.Printf("[E-Graph] -egraph-pdl ignored: compute capability %d < 9\n", major)
+				pdl = false
+			}
+		}
 		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, egraphOptions{
 			Mega:        *egraphMegaFlag,
+			PDL:         pdl,
 			Attn:        *egraphAttnFlag,
 			PrefillRows: prefillRows,
 			AttnSplits:  splits,
@@ -402,6 +417,9 @@ func runGPUInference(
 		gen, fallback := eg.plans.ops()
 		fmt.Printf("[E-Graph] %d generated launches per step: %s; llama-infer kernels: %s\n",
 			eg.Kernels(), strings.Join(gen, ", "), strings.Join(fallback, ", "))
+		if pdl {
+			fmt.Printf("[E-Graph] programmatic dependent launch: %d generated kernels wait at entry\n", len(eg.pdl))
+		}
 		if eg.pf != nil {
 			fmt.Printf("[E-Graph] prefill: %d-row chunks, %d launches per chunk then head (%d) and argmax (1); "+
 				"generated: tile gemm (mma.sync) %s, rope+kv_append (generated, direct emitter) 1 per layer, "+

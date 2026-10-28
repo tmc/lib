@@ -191,7 +191,11 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 
 	h := cfg.HiddenSize
 	launch := func(l egraphLaunch) error {
-		return cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]).SharedMem(l.smem).Launch(l.args...)
+		k := cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]).SharedMem(l.smem)
+		if eg.programmatic(l.fn) {
+			k = k.WithProgrammaticStreamSerialization(true)
+		}
+		return k.Launch(l.args...)
 	}
 	launchRows := func(ls []egraphLaunch, n int) error {
 		for _, l := range ls {

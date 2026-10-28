@@ -1,0 +1,46 @@
+# Three steps: the prefill, then two decode steps of three kernels each.
+# Decode step 1 idles 2µs+3µs, step 2 1µs+1µs; the median of two is the
+# longer. Step 1 has two kernels under 10µs and ends 75µs before step 2.
+nsysgaps -end argmax -floor 2ms -floor 100us -api $WORK/api.csv $WORK/gpu.csv
+stdout '9 kernels, 3 steps ending in "argmax"; skipping 1'
+stdout '^ +1 +3 +25µs +20µs +5µs +2.5µs +20.0%$'
+stdout 'median step: 3 launches, span 25µs, busy 20µs, idle 5µs \(2.5µs per launch\)'
+stdout '^ +3µs idle +1 launches +5µs busy  argmax$'
+stdout '2 kernels shorter than 10µs: 10µs'
+stdout 'median gap between steps: 75µs \(1 gaps\)'
+stdout 'floor +2ms: floor\+idle +2.005ms \(idle  0.2%\); \+short\+between +2.09ms \(overhead  4.3%\)'
+stdout 'floor +100µs: floor\+idle +105µs'
+stdout 'cuLaunchKernel +3 calls +9µs total +3µs mean'
+stdout 'cuGraphLaunch +1 calls +20µs total +20µs mean'
+
+# Every step is skipped.
+! nsysgaps -end argmax -skip 3 $WORK/gpu.csv
+stderr '3 steps ending in "argmax", need more than 3'
+
+# A missing column refuses the file.
+! nsysgaps $WORK/bad.csv
+stderr 'no "Duration \(ns\)" column'
+
+! nsysgaps
+stderr usage
+
+-- gpu.csv --
+Start (ns),Duration (ns),CorrId,GrdX,GrdY,GrdZ,BlkX,BlkY,BlkZ,Reg/Trd,StcSMem (MB),DymSMem (MB),Bytes (MB),Throughput (MB/s),SrcMemKd,DstMemKd,Device,Ctx,GreenCtx,Strm,Name
+0,5000,1,1,1,1,256,1,1,16,0,0,,,,,GB10,1,,7,embed
+5000,90000,2,48,1,1,256,1,1,40,0,0,,,,,GB10,1,,7,prefill_gemm
+95000,1000,3,1,1,1,256,1,1,16,0,0,,,,,GB10,1,,7,argmax
+200000,5000,4,1,1,1,256,1,1,16,0,0,,,,,GB10,1,,7,embed
+207000,10000,5,48,1,1,256,1,1,40,0,0,,,,,GB10,1,,7,"gemv<1>(int, const float *)"
+220000,5000,6,1,1,1,256,1,1,16,0,0,,,,,GB10,1,,7,argmax
+300000,5000,7,1,1,1,256,1,1,16,0,0,,,,,GB10,1,,7,embed
+306000,10000,8,48,1,1,256,1,1,40,0,0,,,,,GB10,1,,7,"gemv<1>(int, const float *)"
+317000,5000,9,1,1,1,256,1,1,16,0,0,,,,,GB10,1,,7,argmax
+-- api.csv --
+Start (ns),Duration (ns),Name,Result,CorrID,Pid,Tid,T-Pri,Thread Name
+0,3000,cuLaunchKernel,0,1,1,1,0,main
+3000,3000,cuLaunchKernel,0,2,1,1,0,main
+6000,3000,cuLaunchKernelEx,0,3,1,1,0,main
+190000,20000,cuGraphLaunch,0,4,1,1,0,main
+-- bad.csv --
+Start (ns),Name
+1,x
