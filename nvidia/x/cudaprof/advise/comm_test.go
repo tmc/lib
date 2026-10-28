@@ -17,6 +17,11 @@ func TestCommKind(t *testing.T) {
 	}{
 		{timeline.Event{Subtype: "kernel", Name: "ncclDevKernel_AllReduce_Sum_bf16_RING_LL(ncclDevKernelArgsStorage<4096ul>)"}, "NCCL"},
 		{timeline.Event{Subtype: "kernel", Name: "ncclKernel_AllGather_RING_LL_Sum_int8_t"}, "NCCL"},
+		{timeline.Event{Subtype: "kernel", Name: "ncclDevKernel_AllReduce_Sum_bf16_NVLS_SIMPLE(ncclDevKernelArgsStorage<4096ul>)"}, "NCCL"},
+		{timeline.Event{Subtype: "kernel", Name: "ncclDevKernel_ReduceScatter_Sum_f32_RING_LL(ncclDevKernelArgsStorage<4096ul>)"}, "NCCL"},
+		{timeline.Event{Subtype: "kernel", Name: "ncclDevKernel_SendRecv(ncclDevKernelArgsStorage<4096ul>)"}, "NCCL"},
+		{timeline.Event{Subtype: "kernel", Name: "nvshmemi_proxy_progress_kernel"}, "NVSHMEM"},
+		{timeline.Event{Subtype: "kernel", Name: "rankgroup_allreduce_f32"}, "collective"},
 		{timeline.Event{Subtype: "kernel", Name: "nvshmemi_transfer_rma_kernel"}, "NVSHMEM"},
 		{timeline.Event{Subtype: "kernel", Name: "multimem_collectives"}, "NVLink multicast"},
 		{timeline.Event{Subtype: "kernel", Name: "allreduce_residual_rmsnorm"}, "collective"},
