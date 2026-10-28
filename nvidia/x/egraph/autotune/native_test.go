@@ -55,7 +55,7 @@ const gemmSource = `
 #define TK AUTOTUNE_TILE_K
 #define ST AUTOTUNE_TMA_STAGES
 #define R (TM / T)
-extern "C" __global__ void __launch_bounds__(T * T, MIN_BLOCKS)
+extern "C" __global__ void KERNEL_BOUNDS
 autotune_gemm(const float *__restrict__ A, const float *__restrict__ B, float *__restrict__ C, int M, int N, int K) {
     __shared__ float As[ST][TK][TM];
     __shared__ float Bs[ST][TK][TM];
@@ -104,19 +104,22 @@ autotune_gemm(const float *__restrict__ A, const float *__restrict__ B, float *_
 }
 `
 
-// spillCandidate caps registers at 32 per thread with an 8×8 register
-// tile, which must spill.
+// spillCandidate caps registers at 32 per thread with __maxnreg__ while
+// each thread holds an 8×8 accumulator tile, so it must spill. A minimum
+// block count in __launch_bounds__ is not used for the cap: (256, 8) asks
+// for 2048 threads per SM, more than sm_121's 1536, and on GB10 that
+// build showed no STL or LDL.
 const spillCandidate = "t128_k8_s2_spill"
 
 func gemmSourceFor(c autotune.ScheduleCandidate) (string, error) {
 	if c.TileM%16 != 0 || c.TileN != c.TileM || c.TileK <= 0 {
 		return "", fmt.Errorf("gemm: tile %dx%dx%d, want square multiple of 16", c.TileM, c.TileN, c.TileK)
 	}
-	minBlocks := 1
+	bounds := "__launch_bounds__(T * T)"
 	if c.Name == spillCandidate {
-		minBlocks = 8
+		bounds = "__maxnreg__(32)"
 	}
-	return fmt.Sprintf("#define MIN_BLOCKS %d\n", minBlocks) + gemmSource, nil
+	return "#define KERNEL_BOUNDS " + bounds + "\n" + gemmSource, nil
 }
 
 func gemmCandidates() []autotune.ScheduleCandidate {
@@ -179,8 +182,8 @@ func TestAutotuneNativeClosedGateControl(t *testing.T) {
 				t.Errorf("%s: preamble missing %q", c.Name, want)
 			}
 		}
-		if wantSpill := c.Name == spillCandidate; strings.Contains(src, "MIN_BLOCKS 8") != wantSpill {
-			t.Errorf("%s: MIN_BLOCKS 8 present = %v, want %v", c.Name, !wantSpill, wantSpill)
+		if wantSpill := c.Name == spillCandidate; strings.Contains(src, "__maxnreg__(32)") != wantSpill {
+			t.Errorf("%s: __maxnreg__(32) present = %v, want %v", c.Name, !wantSpill, wantSpill)
 		}
 	}
 }
@@ -343,6 +346,21 @@ func TestAutotuneNativeQualification(t *testing.T) {
 		Entry:        gemmEntry,
 		Source:       gemmSourceFor,
 		Disassembler: cudasass.Disassembler{Path: nvdisasm},
+	}
+	// The spill check below is only meaningful if the capped candidate
+	// really spills in the cubin the daemon will see.
+	for _, c := range gemmCandidates() {
+		if c.Name != spillCandidate {
+			continue
+		}
+		v, err := builder.Build(t.Context(), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.SpillStores+v.SpillLoads == 0 {
+			t.Fatalf("%s: no STL or LDL in %s SASS; the candidate does not spill", c.Name, target)
+		}
+		t.Logf("%s: STL=%d LDL=%d in %s SASS", c.Name, v.SpillStores, v.SpillLoads, target)
 	}
 	d, err := autotune.NewDaemon(autotune.DaemonConfig{
 		Twin:      twin,
