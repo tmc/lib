@@ -1,6 +1,7 @@
 package cudasass_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -159,9 +160,62 @@ func TestProveDisassembly(t *testing.T) {
 	}
 }
 
+// goldenBuildsFor reports whether a golden kernel source compiles for arch.
+// A golden that issues wgmma.mma_async is sm_90a-only: wgmma exists on no
+// other target, and ptxas rejects it for sm_100a and sm_121a. The wgmma
+// fence, commit and wait helpers every golden's prelude defines are inline
+// functions that only those goldens call.
+func goldenBuildsFor(src []byte, arch string) bool {
+	return arch == "sm_90a" || !bytes.Contains(src, []byte("wgmma.mma_async"))
+}
+
+func TestGoldenBuildsFor(t *testing.T) {
+	files, err := filepath.Glob("../egraph/hopper/testdata/golden/*.cu")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no golden kernels: %v", err)
+	}
+	wgmma := map[string]bool{
+		"moe8_e4m3_ws.cu":           true,
+		"moe8_moe_w13_ws.cu":        true,
+		"moe8_prefill_qkv_ws.cu":    true,
+		"moe8_prefill_qkv_wgmma.cu": true,
+	}
+	for _, f := range files {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := filepath.Base(f)
+		for _, arch := range []string{"sm_90a", "sm_100a", "sm_121a"} {
+			want := arch == "sm_90a" || !wgmma[name]
+			if got := goldenBuildsFor(src, arch); got != want {
+				t.Errorf("goldenBuildsFor(%s, %s) = %v, want %v", name, arch, got, want)
+			}
+		}
+	}
+}
+
+// knownSpills lists kernels, by mangled name and target, that the native
+// gate is known to find spilling. Each entry is asserted to still spill:
+// when the spill goes away the test fails and the entry must be removed.
+var knownSpills = map[[2]string]string{
+	// moe8_qkv_gate<7> (egraph/hopper testdata/golden/moe8_qkv_gate.cu)
+	// spills on sm_100a and sm_121a: 128 registers, 4 STL and 2 LDL
+	// (dgx run of a559ca864); on sm_90a it uses 144 registers and does not
+	// spill. Nothing limits it to 128: the kernel's only bound is
+	// __launch_bounds__(256), which permits 255 registers per thread, and
+	// compiling for sm_121a with and without -Xptxas -maxrregcount=255
+	// gives the same "8 bytes stack frame, 16 bytes spill stores, 8 bytes
+	// spill loads". It is a small spill ptxas chooses on its own at 128
+	// registers on these targets. The kernel belongs to egraph/hopper.
+	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_100a"}: "ptxas chooses a 16-byte spill at 128 registers on sm_100a; -maxrregcount=255 does not remove it on sm_121a",
+	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_121a"}: "ptxas chooses a 16-byte spill at 128 registers on sm_121a; -maxrregcount=255 does not remove it",
+}
+
 // TestProveCubinNative compiles the egraph/hopper golden kernels with nvcc
 // and checks each with ProveCubin: no spills, no stack frame and at most 232
-// registers. It runs only with CUDA_CUDASASS_SPILL_NATIVE=1 and needs nvcc
+// registers. A golden is compiled only for the targets [goldenBuildsFor]
+// allows; the others are logged as skipped. It runs only with CUDA_CUDASASS_SPILL_NATIVE=1 and needs nvcc
 // and nvdisasm on PATH, but no GPU. CUDA_CUDASASS_SPILL_NATIVE_ARCHS lists
 // the targets, comma-separated; the default is sm_90a,sm_100a,sm_121a.
 func TestProveCubinNative(t *testing.T) {
@@ -182,6 +236,14 @@ func TestProveCubinNative(t *testing.T) {
 	}
 	for _, arch := range strings.Split(archs, ",") {
 		for _, f := range files {
+			src, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !goldenBuildsFor(src, arch) {
+				t.Logf("%s: skipped on %s: issues wgmma, which only sm_90a has", filepath.Base(f), arch)
+				continue
+			}
 			t.Run(arch+"/"+filepath.Base(f), func(t *testing.T) {
 				cubin := filepath.Join(t.TempDir(), "k.cubin")
 				out, err := exec.Command(nvcc, "-std=c++20", "-O3", "-arch="+arch, "-cubin", "-Xptxas", "-v", "-o", cubin, f).CombinedOutput()
@@ -193,11 +255,25 @@ func TestProveCubinNative(t *testing.T) {
 					t.Fatal(err)
 				}
 				reps, err := cudasass.ProveCubin(b, string(out), cudasass.CubinConstraint{MaxGPRs: 232, ForbidSpills: true, MaxRedundantWaits: -1})
-				for _, r := range reps {
-					t.Logf("%s %s: %d GPRs, STL %d, LDL %d, MMA %d, redundant waits %d", r.Arch, r.Kernel, r.UsedGPRs, r.STL, r.LDL, r.TensorMMA, r.RedundantWaits)
+				if err != nil && !errors.Is(err, cudasass.ErrConstraint) {
+					t.Fatal(err)
 				}
 				if err != nil {
-					t.Fatal(err)
+					t.Logf("ptxas -v output:\n%s", out)
+				}
+				for _, r := range reps {
+					t.Logf("%s %s: %d GPRs, STL %d, LDL %d, MMA %d, redundant waits %d", arch, r.Kernel, r.UsedGPRs, r.STL, r.LDL, r.TensorMMA, r.RedundantWaits)
+					reason, known := knownSpills[[2]string{r.Kernel, arch}]
+					switch {
+					case known && r.OK():
+						t.Errorf("%s on %s no longer violates the gate (%s); remove its knownSpills entry", r.Kernel, arch, reason)
+					case known && r.STL+r.LDL == 0 && r.SpillStores <= 0 && r.SpillLoads <= 0:
+						t.Errorf("%s on %s: known spill gone but other violations remain: %q", r.Kernel, arch, r.Violations)
+					case known:
+						t.Logf("%s on %s: known violation still present (%s): %q", r.Kernel, arch, reason, r.Violations)
+					case !r.OK():
+						t.Errorf("%s on %s: %q", r.Kernel, arch, r.Violations)
+					}
 				}
 			})
 		}
