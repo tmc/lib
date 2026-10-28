@@ -1,8 +1,0 @@
-commit: 8e36a5f4b134785db55ec4ee43d06fe0900990d9
-date: 2026-09-21T01:14:39-07:00
-claude-code: 2.1.278 (Claude Code)
-model: claude-opus-5[1m]
-tty: none
-pid: 8531
-iterm-session: none
-measurement: gpu-lock label=9bce, GB10, laya-flat + testdata/bench.json
