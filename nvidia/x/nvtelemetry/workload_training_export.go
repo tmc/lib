@@ -77,8 +77,8 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 			return errors.New("invalid training OTLP unit evidence")
 		}
 	}
-	if !utf8.Valid(e.Raw) {
-		return errors.New("training OTLP source is not UTF-8")
+	if !utf8.Valid(e.Raw) || !validJSONUnicodeScalars(e.Raw) {
+		return errors.New("training OTLP source is not valid Unicode")
 	}
 	var replay WorkloadExport
 	timeUnit, stepAttribute := "", ""
@@ -234,4 +234,55 @@ func WriteTrainingWorkloadOTLP(w io.Writer, e WorkloadExport, o TrainingWorkload
 		return io.ErrShortWrite
 	}
 	return err
+}
+
+// validJSONUnicodeScalars rejects unpaired UTF-16 surrogate escapes inside
+// JSON strings. encoding/json otherwise replaces them with U+FFFD, which can
+// merge distinct producer metric names. The reader still validates JSON syntax.
+func validJSONUnicodeScalars(raw []byte) bool {
+	inString := false
+	for i := 0; i < len(raw); i++ {
+		if !inString {
+			if raw[i] == '"' {
+				inString = true
+			}
+			continue
+		}
+		if raw[i] == '"' {
+			inString = false
+			continue
+		}
+		if raw[i] != '\\' {
+			continue
+		}
+		i++
+		if i >= len(raw) {
+			return false
+		}
+		if raw[i] != 'u' {
+			continue
+		}
+		if i+4 >= len(raw) {
+			return false
+		}
+		v, err := strconv.ParseUint(string(raw[i+1:i+5]), 16, 16)
+		if err != nil {
+			return false
+		}
+		i += 4
+		if v >= 0xdc00 && v <= 0xdfff {
+			return false
+		}
+		if v >= 0xd800 && v <= 0xdbff {
+			if i+6 >= len(raw) || raw[i+1] != '\\' || raw[i+2] != 'u' {
+				return false
+			}
+			low, err := strconv.ParseUint(string(raw[i+3:i+7]), 16, 16)
+			if err != nil || low < 0xdc00 || low > 0xdfff {
+				return false
+			}
+			i += 6
+		}
+	}
+	return !inString
 }
