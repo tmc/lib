@@ -20,6 +20,13 @@
 //   - [BuildFatbin] packages per-target PTX/CUBIN entries across Hopper,
 //     Blackwell, and Vera Rubin with automatic runtime selection via
 //     [SelectBestTarget].
+//   - [StreamLoader.PackTensor] repacks row-major checkpoint weights into
+//     tile-major TMA-swizzled BF16, FP8, NVFP4 scale_vec::4X, 2:4 sparse
+//     NVFP4 or Rubin 3-bit LUT layouts with matching cudatma descriptors;
+//     [UnpackTensorToFP32] inverts them on the host. [MapSafetensors] reads
+//     tensors in place from a read-only mapping, [PlanStream] schedules
+//     copy/repack overlap on two streams as a host model, and
+//     [SwizzleRepackCUDA] emits the device repack kernel.
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.
