@@ -466,7 +466,7 @@ func admitSearchCandidate(c *CandidatePlan) error {
 			return fmt.Errorf("%w: measured candidate has no complete receipt", ErrNoAdmittedPlan)
 		}
 		kind := c.Receipt.TimingKind
-		if kind != cudatrial.TimingSummedKernel && kind != cudatrial.TimingGPUBusy {
+		if kind != cudatrial.TimingSummedKernel && kind != cudatrial.TimingGPUBusy && kind != cudatrial.TimingCUDAEvent {
 			return ErrTimingKindMismatch
 		}
 		if duration, err := c.Receipt.DurationFor(kind); err != nil || duration <= 0 {

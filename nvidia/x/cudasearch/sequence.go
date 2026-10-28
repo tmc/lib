@@ -349,8 +349,8 @@ func (x *sequenceExecutable) runWith(ctx context.Context, measure bool, ops sequ
 	if math.IsNaN(float64(ms)) || math.IsInf(float64(ms), 0) || ms <= 0 || float64(ms) > float64(math.MaxInt64)/float64(time.Millisecond) {
 		return r, cudatrial.ErrTimingUnavailable
 	}
-	r = cudatrial.Receipt{Complete: true, TimingKind: cudatrial.TimingGPUBusy, Provenance: map[string]string{"timer": "cuda_event", "scope": "complete kernel sequence; conversion and transfer excluded", "executable_identity": x.identity}}
-	err = r.RecordTiming(cudatrial.TimingGPUBusy, time.Duration(float64(ms)*float64(time.Millisecond)))
+	r = cudatrial.Receipt{Complete: true, TimingKind: cudatrial.TimingCUDAEvent, Provenance: map[string]string{"timer": "cuda_event", "scope": "complete kernel sequence; conversion and transfer excluded", "executable_identity": x.identity}}
+	err = r.RecordTiming(cudatrial.TimingCUDAEvent, time.Duration(float64(ms)*float64(time.Millisecond)))
 	return r, err
 }
 

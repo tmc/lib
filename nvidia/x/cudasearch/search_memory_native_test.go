@@ -266,7 +266,7 @@ func (x *memoryNativeExecutable) Run(ctx context.Context) (r cudatrial.Receipt, 
 	x.timed++
 	r.Complete = true
 	r.Provenance = map[string]string{"timer": "cuda_event", "timing_scope": "single kernel start/stop on private stream; includes event boundary", "input_digest": x.input, "artifact_digest": x.artifact, "compiler_key": x.compiler, "policy_id": x.policy, "verified_correct": "true", "device_uuid": x.uuid, "entry": x.entry, "grid": fmt.Sprint(x.grid), "block": "256", "cache": "warm; no eviction"}
-	return r, r.RecordTiming(cudatrial.TimingSummedKernel, d)
+	return r, r.RecordTiming(cudatrial.TimingCUDAEvent, d)
 }
 
 func (x *memoryNativeExecutable) Close() error {
@@ -464,7 +464,7 @@ func TestNativeSearchMemoryProducerConsumer(t *testing.T) {
 			mapping := map[string]string{"vectorize": "vectorized_memory_access", "a-null": "identity_control"}
 			config := &SearchMemory{Profile: &profile, WorkloadKey: binding.Key(), InputDigest: inputID, TargetArch: target, Domain: domain, Knowledge: &catalog, Trajectories: memory, RuleTechniques: mapping}
 			compileCount := 0
-			eval := &ExecutableEvaluator{Generation: 1, Workload: binding, CostModel: memoryNativeCost{}, Baseline: base, References: map[string][]float32{"out": want}, Rounds: 4, TimingKind: cudatrial.TimingSummedKernel, HardwareLockChecker: func() bool { _, err := cudalock.Inherited(os.Getenv); return err == nil }}
+			eval := &ExecutableEvaluator{Generation: 1, Workload: binding, CostModel: memoryNativeCost{}, Baseline: base, References: map[string][]float32{"out": want}, Rounds: 4, TimingKind: cudatrial.TimingCUDAEvent, HardwareLockChecker: func() bool { _, err := cudalock.Inherited(os.Getenv); return err == nil }}
 			eval.Compile = func(ctx context.Context, expr *egraph.Expr, _ WorkloadBindings) (Executable, error) {
 				if err := ctx.Err(); err != nil {
 					return nil, err

@@ -207,7 +207,7 @@ func Replay(ctx context.Context, plan *ExperimentPlan, runner ReplayRunner, opts
 	// 3. Validate timing channel.
 	timingKind := effectivePlan.TimingScope.Channel
 	switch timingKind {
-	case cudatrial.TimingWallElapsed, cudatrial.TimingSummedKernel, cudatrial.TimingGPUBusy, cudatrial.TimingAPICall:
+	case cudatrial.TimingWallElapsed, cudatrial.TimingCUDAEvent, cudatrial.TimingSummedKernel, cudatrial.TimingGPUBusy, cudatrial.TimingAPICall:
 	default:
 		return nil, nil, fmt.Errorf("%w: %q", ErrUnsupportedTimingChannel, timingKind)
 	}

@@ -144,7 +144,7 @@ func TestNormQuantExecutionOrder(t *testing.T) {
 			ops := sequenceRunOps{poison: func() error { return step("poison") }, record: func(i int) error { return step(fmt.Sprint("record", i)) }, launch: func(i int) error { return step(fmt.Sprint("launch", i)) }, wait: func(context.Context) error { return step("wait") }, elapsed: func() (float32, error) { return 0.5, step("elapsed") }}
 			r, err := x.runWith(context.Background(), true, ops)
 			if fail < 0 {
-				if err != nil || !r.Complete || r.TimingKind != cudatrial.TimingGPUBusy || !slices.Equal(got, order) {
+				if err != nil || !r.Complete || r.TimingKind != cudatrial.TimingCUDAEvent || r.Timings[cudatrial.TimingCUDAEvent] != 500000 || r.HasTiming(cudatrial.TimingGPUBusy) || !slices.Equal(got, order) {
 					t.Fatalf("success: %+v %v %v", r, err, got)
 				}
 			} else {

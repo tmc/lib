@@ -128,7 +128,7 @@ func (sm ScoringModel) Score(receipt *cudatrial.Receipt, evidence *ProfileEviden
 	if kind == "" {
 		kind = cudatrial.TimingSummedKernel
 	}
-	if kind != cudatrial.TimingSummedKernel && kind != cudatrial.TimingGPUBusy {
+	if kind != cudatrial.TimingSummedKernel && kind != cudatrial.TimingGPUBusy && kind != cudatrial.TimingCUDAEvent {
 		return math.Inf(1), ErrTimingKindMismatch
 	}
 	if receipt.TimingKind != "" && receipt.TimingKind != kind {

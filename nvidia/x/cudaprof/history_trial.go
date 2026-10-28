@@ -123,7 +123,7 @@ func HistoryTrial(base cudaprofilehistory.Record, trial cudatrial.Receipt, corre
 	base.Facts = retained
 	for _, k := range keys {
 		switch cudatrial.TimingKind(k) {
-		case cudatrial.TimingWallElapsed, cudatrial.TimingSummedKernel, cudatrial.TimingGPUBusy, cudatrial.TimingAPICall:
+		case cudatrial.TimingWallElapsed, cudatrial.TimingCUDAEvent, cudatrial.TimingSummedKernel, cudatrial.TimingGPUBusy, cudatrial.TimingAPICall:
 		default:
 			return base, fmt.Errorf("history trial: unsupported explicit timing %q", k)
 		}

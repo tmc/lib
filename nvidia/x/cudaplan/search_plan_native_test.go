@@ -273,8 +273,8 @@ func (x *selectedExecutable) execute(ctx context.Context, measure bool) (cudatri
 	if elapsed <= 0 {
 		return cudatrial.Receipt{}, fmt.Errorf("unmeasured event interval")
 	}
-	r := cudatrial.Receipt{Complete: true, TimingKind: cudatrial.TimingGPUBusy, Provenance: map[string]string{"timer": "cuda_event", "scope": "single-stream interval around plan Execute; includes submission gaps; not summed kernel or SM-active time", "executable_identity": x.id, "output_digest": digest}}
-	err = r.RecordTiming(cudatrial.TimingGPUBusy, elapsed)
+	r := cudatrial.Receipt{Complete: true, TimingKind: cudatrial.TimingCUDAEvent, Provenance: map[string]string{"timer": "cuda_event", "scope": "single-stream interval around plan Execute; includes submission gaps; not summed kernel or SM-active time", "executable_identity": x.id, "output_digest": digest}}
+	err = r.RecordTiming(cudatrial.TimingCUDAEvent, elapsed)
 	return r, err
 }
 func (x *selectedExecutable) Outputs(ctx context.Context) (map[string][]float32, error) {
@@ -412,7 +412,7 @@ func TestNativeSearchUsesSelectedPlan(t *testing.T) {
 	}
 	workload := cudasearch.WorkloadBindings{Name: "connected-affine-64", InputNames: []string{"x", "a", "b"}, InputIdentities: map[string]string{"x": "replay-round2-x", "a": "replay-round2-a", "b": "replay-round2-b"}, NumericalPolicy: cudasearch.NumericalPolicyExact}
 	compiled := 0
-	eval = &cudasearch.ExecutableEvaluator{Generation: 1, Workload: workload, Baseline: base, References: map[string][]float32{"out": want}, Rounds: 2, TimingKind: cudatrial.TimingGPUBusy, CostModel: egraph.AstSizeCost{}, HardwareLockChecker: func() bool { _, err := cudalock.Inherited(os.Getenv); return err == nil }}
+	eval = &cudasearch.ExecutableEvaluator{Generation: 1, Workload: workload, Baseline: base, References: map[string][]float32{"out": want}, Rounds: 2, TimingKind: cudatrial.TimingCUDAEvent, CostModel: egraph.AstSizeCost{}, HardwareLockChecker: func() bool { _, err := cudalock.Inherited(os.Getenv); return err == nil }}
 	eval.Compile = func(ctx context.Context, expr *egraph.Expr, b cudasearch.WorkloadBindings) (cudasearch.Executable, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err

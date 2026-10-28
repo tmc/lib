@@ -14,7 +14,7 @@ func trajectoryProducerFixture() *CandidatePlan {
 	digest := strings.Repeat("a", 64)
 	c := &CandidatePlan{Validated: true, CostSource: CostMeasured, Cost: 30, WorkloadKey: digest, Derivation: []egraph.Action{{RuleName: "vectorize"}}}
 	for i, arm := range []string{"baseline", "candidate", "candidate", "baseline"} {
-		r := cudatrial.Receipt{Name: arm, Complete: true, TimingKind: cudatrial.TimingSummedKernel, Timings: map[cudatrial.TimingKind]time.Duration{cudatrial.TimingSummedKernel: time.Duration([]int{40, 20, 30, 50}[i])}, Provenance: map[string]string{"timer": "cuda_event", "verified_correct": "true", "input_digest": digest, "artifact_digest": digest, "compiler_key": digest, "policy_id": digest, "device_uuid": "synthetic-host-fixture"}}
+		r := cudatrial.Receipt{Name: arm, Complete: true, TimingKind: cudatrial.TimingCUDAEvent, Timings: map[cudatrial.TimingKind]time.Duration{cudatrial.TimingCUDAEvent: time.Duration([]int{40, 20, 30, 50}[i])}, Provenance: map[string]string{"timer": "cuda_event", "verified_correct": "true", "input_digest": digest, "artifact_digest": digest, "compiler_key": digest, "policy_id": digest, "device_uuid": "synthetic-host-fixture"}}
 		c.Trials = append(c.Trials, r)
 	}
 	return c
@@ -27,21 +27,22 @@ func TestTrajectoryProducerMedianAndRefusal(t *testing.T) {
 	}{
 		{"positive", func(*CandidatePlan) {}},
 		{"wall", func(c *CandidatePlan) { c.Trials[1].TimingKind = cudatrial.TimingWallElapsed }},
+		{"mislabeled-sum", func(c *CandidatePlan) { c.Trials[1].TimingKind = cudatrial.TimingSummedKernel }},
 		{"not-correct", func(c *CandidatePlan) { c.Trials[1].Provenance["verified_correct"] = "false" }},
 		{"mixed-input", func(c *CandidatePlan) { c.Trials[2].Provenance["input_digest"] = strings.Repeat("b", 64) }},
 		{"reordered", func(c *CandidatePlan) { c.Trials[0], c.Trials[1] = c.Trials[1], c.Trials[0] }},
-		{"zero", func(c *CandidatePlan) { c.Trials[2].Timings[cudatrial.TimingSummedKernel] = 0 }},
+		{"zero", func(c *CandidatePlan) { c.Trials[2].Timings[cudatrial.TimingCUDAEvent] = 0 }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			c := trajectoryProducerFixture()
 			tt.mutate(c)
 			got, err := trajectoryArmMedian(c.Trials, "candidate")
 			if tt.name == "positive" {
-				if err != nil || got.Timings[cudatrial.TimingSummedKernel] != 30 {
+				if err != nil || got.Timings[cudatrial.TimingCUDAEvent] != 30 {
 					t.Fatalf("median=%+v err=%v", got, err)
 				}
 				base, err := trajectoryArmMedian(c.Trials, "baseline")
-				if err != nil || base.Timings[cudatrial.TimingSummedKernel] != 50 {
+				if err != nil || base.Timings[cudatrial.TimingCUDAEvent] != 50 {
 					t.Fatal("baseline median")
 				}
 			} else if !errors.Is(err, cudatrial.ErrUnqualifiedOutcome) {

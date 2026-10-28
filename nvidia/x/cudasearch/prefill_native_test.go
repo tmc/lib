@@ -225,7 +225,7 @@ func TestNativePrefillSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &ExecutableEvaluator{Workload: compiler.Bindings(), Compile: compiler.Compile, Baseline: baseline, References: reference, Policy: OutputPolicy{IgnoreZeroSign: true}, Rounds: 2, TimingKind: cudatrial.TimingSummedKernel, HardwareLockChecker: check, CostModel: prefillExtractionCost{}}
+	e := &ExecutableEvaluator{Workload: compiler.Bindings(), Compile: compiler.Compile, Baseline: baseline, References: reference, Policy: OutputPolicy{IgnoreZeroSign: true}, Rounds: 2, TimingKind: cudatrial.TimingCUDAEvent, HardwareLockChecker: check, CostModel: prefillExtractionCost{}}
 	evaluators = append(evaluators, e)
 	var attempts [][]cudatrial.Receipt
 	recording := recordingEvaluator{inner: e, receipts: &attempts}

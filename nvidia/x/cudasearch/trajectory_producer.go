@@ -27,7 +27,7 @@ func ObserveCandidateTrajectory(device *cuda.Device, r cudatrial.TrajectoryRecei
 	if err != nil {
 		return r, err
 	}
-	if candidate.Cost != float64(observed.Timings[cudatrial.TimingSummedKernel]) {
+	if candidate.Cost != float64(observed.Timings[cudatrial.TimingCUDAEvent]) {
 		return r, cudatrial.ErrUnqualifiedOutcome
 	}
 	r.WorkloadKey = candidate.WorkloadKey
@@ -56,7 +56,7 @@ func trajectoryArmMedian(trials []cudatrial.Receipt, arm string) (cudatrial.Rece
 		if trial.Name != arm {
 			continue
 		}
-		if !trial.Complete || trial.Err != nil || trial.TimingKind != cudatrial.TimingSummedKernel || trial.Timings == nil || trial.Provenance["timer"] != "cuda_event" || trial.Provenance["verified_correct"] != "true" || trial.Timings[cudatrial.TimingSummedKernel] <= 0 {
+		if !trial.Complete || trial.Err != nil || trial.TimingKind != cudatrial.TimingCUDAEvent || trial.Timings == nil || trial.Provenance["timer"] != "cuda_event" || trial.Provenance["verified_correct"] != "true" || trial.Timings[cudatrial.TimingCUDAEvent] <= 0 {
 			return cudatrial.Receipt{}, cudatrial.ErrUnqualifiedOutcome
 		}
 		if len(rows) > 0 {
@@ -72,7 +72,7 @@ func trajectoryArmMedian(trials []cudatrial.Receipt, arm string) (cudatrial.Rece
 		return cudatrial.Receipt{}, fmt.Errorf("%w: unbalanced trajectory arms", cudatrial.ErrUnqualifiedOutcome)
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
-		return rows[i].Timings[cudatrial.TimingSummedKernel] < rows[j].Timings[cudatrial.TimingSummedKernel]
+		return rows[i].Timings[cudatrial.TimingCUDAEvent] < rows[j].Timings[cudatrial.TimingCUDAEvent]
 	})
 	return rows[len(rows)/2], nil
 }

@@ -41,7 +41,7 @@ func TestTrajectoryMemory_ReplayRewardRanking(t *testing.T) {
 
 func TestTrialReceipt_PendingHardwareWithoutDevice(t *testing.T) {
 	r := trajectoryFixture("fast", 50, true)
-	fake := Receipt{Complete: true, Timings: map[TimingKind]time.Duration{TimingSummedKernel: time.Nanosecond}, Provenance: map[string]string{"timer": "cuda_event"}}
+	fake := Receipt{Complete: true, Timings: map[TimingKind]time.Duration{TimingCUDAEvent: time.Nanosecond}, Provenance: map[string]string{"timer": "cuda_event"}}
 	got, err := ObserveTrajectory(nil, r, fake, fake)
 	if !errors.Is(err, ErrUnqualifiedOutcome) || !errors.Is(err, cudaerrors.ErrHardwarePending) || !got.PendingHardware || got.SpeedupRatio != 0 || got.MeasuredLatencyNs != 0 {
 		t.Fatalf("fake timing admitted: %+v %v", got, err)
