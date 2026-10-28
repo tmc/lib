@@ -385,7 +385,16 @@ func TestAutotuneNativeQualification(t *testing.T) {
 		}
 		if tr.Candidate.Name == spillCandidate {
 			spillRejected = errors.Is(tr.Err, autotune.ErrSpillDisqualified)
+			continue
 		}
+		// Every other candidate must build and sample: a failed trial
+		// would let the search pick from whatever was left.
+		if tr.Err != nil {
+			t.Errorf("%s: %v", tr.Candidate.Name, tr.Err)
+		}
+	}
+	if len(trials) != len(cands) {
+		t.Errorf("%d trials for %d candidates", len(trials), len(cands))
 	}
 	t.Logf("winner %s %.2fus, baseline %.2fus, speedup %.2f, serving %s, weights %+v",
 		res.Winner.Name, res.WinnerUS, res.BaselineUS, res.Speedup, res.Serving.Name, res.Weights)
