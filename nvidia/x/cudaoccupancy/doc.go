@@ -33,6 +33,13 @@
 //			k.Name, res.TheoreticalWarps, res.MaxWarps, res.Occupancy*100, res.LimitingFactor)
 //	}
 //
+// On architectures with Tensor Memory (sm_100, sm_103, sm_110) a CTA's
+// tcgen05.alloc columns are a residency limit of their own, and a kernel
+// launched in a thread block cluster or issuing cta_group::2 MMAs must fit
+// the device's cluster limit; set [KernelResource.TMEMColumns],
+// [KernelResource.ClusterSize] and [KernelResource.CTAPair] from the PTX,
+// which is where those facts are recorded.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudaoccupancy

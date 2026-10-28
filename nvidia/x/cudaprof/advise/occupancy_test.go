@@ -104,7 +104,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 		},
 	}
 
-	for _, arch := range []string{"", "sm_120", "unrecognized"} {
+	for _, arch := range []string{"", "sm_61", "unrecognized"} {
 		t.Run("unsupported/"+arch, func(t *testing.T) {
 			cap := &cudacapture.Capture{
 				Metadata: []byte(`{"architecture":"` + arch + `"}`),

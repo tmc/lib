@@ -56,3 +56,16 @@ func ExampleKernelResource_Evidence() {
 	// Output:
 	// gemv_q8: 48 regs, 0 bytes local, 40 warps/SM
 }
+
+func ExampleKernelResource_Calculate_tensorMemory() {
+	// A tcgen05 GEMM that allocates 256 TMEM columns per CTA fits two CTAs
+	// on an SM of 512 columns, whatever its registers allow.
+	kernel := cudaoccupancy.KernelResource{Name: "umma_gemm", Registers: 64, TMEMColumns: 256}
+	report, err := kernel.Calculate("sm_103a", 128, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(report)
+	// Output:
+	// sm_103: 8/64 warps (12.5%, 2 blocks/SM) limited by tensor_memory
+}

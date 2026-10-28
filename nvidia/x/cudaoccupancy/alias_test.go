@@ -27,6 +27,8 @@ func TestEveryAliasNamesItsOwnArchitecture(t *testing.T) {
 			want = "sm_121"
 		case "gb200":
 			want = "sm_100"
+		case "gb300":
+			want = "sm_103"
 		}
 		got := cudadevicetable.Normalize(props.Architecture)
 		if got != want {
@@ -42,7 +44,7 @@ func TestEveryAliasNamesItsOwnArchitecture(t *testing.T) {
 // rather than the nearest entry. See x/cuptirange/layout.go for the same
 // stance on CUPTI struct layouts, where a guess is a native memory error.
 func TestUnknownArchitectureIsAnError(t *testing.T) {
-	for _, arch := range []string{"sm_120", "sm120"} {
+	for _, arch := range []string{"sm_61", "sm_107", "sm_130"} {
 		if _, err := LookupDevice(arch); err == nil {
 			t.Errorf("LookupDevice(%q) succeeded; this package has no measurement "+
 				"for that part and must say so rather than substitute a neighbour", arch)

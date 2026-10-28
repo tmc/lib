@@ -8,6 +8,8 @@ const (
 	LimitSharedMemory = "shared_memory"
 	LimitBlockSize    = "block_size"
 	LimitBlocks       = "blocks"
+	LimitTensorMemory = "tensor_memory"
+	LimitCluster      = "cluster"
 	LimitNone         = "none"
 )
 
@@ -18,11 +20,12 @@ type Report struct {
 	MaxWarps         int     // Architecture maximum warps per SM
 	Occupancy        float64 // Theoretical occupancy ratio [0.0, 1.0]
 	ActiveBlocks     int     // Resident thread blocks (CTAs) per SM
-	LimitingFactor   string  // Primary bottleneck: "registers", "shared_memory", "block_size", "blocks", "none"
+	LimitingFactor   string  // Primary bottleneck: one of the Limit constants
 	BlockLimit       int     // Ceiling imposed by max blocks per SM
 	WarpLimit        int     // Ceiling imposed by max warps per SM
 	RegLimit         int     // Ceiling imposed by register file capacity
 	SmemLimit        int     // Ceiling imposed by shared memory capacity
+	TMEMLimit        int     // Ceiling imposed by Tensor Memory columns
 }
 
 // Calculate determines theoretical occupancy on the named GPU architecture.
@@ -77,7 +80,27 @@ func (k KernelResource) CalculateDevice(dev DeviceProperties, threadsPerBlock, d
 		rep.SmemLimit = dev.MaxSharedMemoryPerSM / alignedSmem
 	}
 
-	activeBlocks := min(rep.BlockLimit, min(rep.WarpLimit, min(rep.RegLimit, rep.SmemLimit)))
+	// Tensor Memory ceiling. A CTA that allocates columns on a device
+	// without TMEM cannot launch at all.
+	rep.TMEMLimit = dev.MaxBlocksPerSM
+	if k.TMEMColumns > 0 {
+		if k.TMEMColumns > dev.TMEMColumnsPerSM {
+			rep.TMEMLimit = 0
+			rep.LimitingFactor = LimitTensorMemory
+			return rep
+		}
+		rep.TMEMLimit = dev.TMEMColumnsPerSM / k.TMEMColumns
+	}
+
+	// A cluster larger than the device allows, or a CTA pair without an
+	// even cluster to pair in, does not launch.
+	if k.ClusterSize > 1 && k.ClusterSize > dev.MaxClusterSize ||
+		k.CTAPair && (k.ClusterSize < 2 || k.ClusterSize%2 != 0) {
+		rep.LimitingFactor = LimitCluster
+		return rep
+	}
+
+	activeBlocks := min(rep.BlockLimit, min(rep.WarpLimit, min(rep.RegLimit, min(rep.SmemLimit, rep.TMEMLimit))))
 	rep.ActiveBlocks = activeBlocks
 	rep.TheoreticalWarps = activeBlocks * warpsPerBlock
 	if dev.MaxWarpsPerSM > 0 {
@@ -88,6 +111,8 @@ func (k KernelResource) CalculateDevice(dev DeviceProperties, threadsPerBlock, d
 	switch {
 	case rep.TheoreticalWarps == dev.MaxWarpsPerSM && dev.MaxWarpsPerSM > 0:
 		rep.LimitingFactor = LimitNone
+	case activeBlocks == rep.TMEMLimit && rep.TMEMLimit < rep.WarpLimit && rep.TMEMLimit < rep.RegLimit && rep.TMEMLimit < rep.SmemLimit && rep.TMEMLimit < rep.BlockLimit:
+		rep.LimitingFactor = LimitTensorMemory
 	case activeBlocks == rep.SmemLimit && rep.SmemLimit < rep.WarpLimit && rep.SmemLimit < rep.RegLimit && rep.SmemLimit < rep.BlockLimit:
 		rep.LimitingFactor = LimitSharedMemory
 	case activeBlocks == rep.RegLimit && rep.RegLimit < rep.WarpLimit && rep.RegLimit < rep.BlockLimit:
