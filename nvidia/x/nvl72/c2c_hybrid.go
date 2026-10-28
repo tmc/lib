@@ -311,17 +311,54 @@ func AuditC2CCoherence(src string) error {
 //
 // On the GPU the slot, x and y must be in memory both processors address
 // coherently (cudaHostAllocMapped, or system memory on Grace and Vera).
-// Under cudahostemu the .sys accesses are C++ acquire and release atomics
-// on host memory, so the emulation checks the protocol, not C2C latency;
-// the worker pauses after each output row there, so a completion released
-// before the output is written is observed by the kernel.
+// SplitCompletion moves CompletionSeq out of the slot's cache line to byte
+// [C2CSplitCompletionOffset], so the two flags do not share a line; the
+// slot buffer must then hold [C2CSplitSlotBytes]. PollSleepNs, if nonzero,
+// makes the kernel __nanosleep between polls instead of spinning.
+//
+// The spec's target is a 1.5 us median round trip on GB200, GB300 and
+// VR200-class C2C; no such part has run it. Measured on GB10 on
+// 2026-10-27, all rows in one GPU-lock hold, 1000 rounds each; medians
+// are the result, p99 is from a single run and noisy. The probe column is
+// the mean of dependent ld.acquire.sys loads of the idle slot.
+//
+//	variant                         median   p99     probe
+//	16x64 task, mapped, unpinned    4416 ns  4672 ns 330 ns
+//	16x64, pageable, unpinned       4608 ns  4896 ns 132 ns
+//	16x64, mapped, pinned           3520 ns 17248 ns 376 ns
+//	pinned, __nanosleep(100) polls  3488 ns  8000 ns 375 ns
+//	pinned, SplitCompletion         3488 ns  3712 ns 327 ns
+//	1x1 task, pinned                1376 ns  1536 ns 338 ns
+//	1x1, pinned, SplitCompletion    1120 ns  1472 ns 324 ns
+//	1x1, pinned, split, pageable    1568 ns  2080 ns 133 ns
+//
+// The default 16x64 task dominates: it costs about 2.1 us over the 1x1
+// task. Pinning the worker to a performance core saves about 0.9 us.
+// Moving the completion word to its own cache line saves about 0.26 us
+// with the 1x1 task and nothing measurable with the 16x64 task, and
+// __nanosleep polling gains nothing. The doorbell itself (1x1, pinned,
+// split) is about 1.1 us median, about 3x the idle probe. Pageable memory
+// through ATS is slower end to end (+0.2 us with the 16x64 task, +0.45 us
+// with the 1x1 task) although its idle probe is faster; why is
+// unexplained (the idle line may be served from a GPU-side cache until
+// the CPU writes it), so the probe is not evidence of faster memory.
 type C2CDoorbellKernel struct {
 	Name      string
 	Rounds    int
 	Rows      int // expert output width
 	Cols      int // expert input width
 	TimeoutNs uint64
+
+	SplitCompletion bool
+	PollSleepNs     uint32
 }
+
+// With SplitCompletion, the completion word sits at C2CSplitCompletionOffset
+// in a slot buffer of C2CSplitSlotBytes, one 128-byte line after the slot.
+const (
+	C2CSplitCompletionOffset = 128
+	C2CSplitSlotBytes        = 256
+)
 
 func (k C2CDoorbellKernel) norm() (C2CDoorbellKernel, error) {
 	if k.Name == "" {
@@ -349,8 +386,15 @@ func (k C2CDoorbellKernel) CUDA() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	done := C2CSlotCompletionSeq
+	if k.SplitCompletion {
+		done = C2CSplitCompletionOffset
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "// %s: %d-round GPU/CPU .sys doorbell ping-pong, %dx%d cold-expert GEMV per round.\n", k.Name, k.Rounds, k.Rows, k.Cols)
+	fmt.Fprintf(&b, "constexpr int EG_C2C_ROUNDS = %d, EG_C2C_ROWS = %d, EG_C2C_COLS = %d;\n", k.Rounds, k.Rows, k.Cols)
+	fmt.Fprintf(&b, "constexpr unsigned long long EG_C2C_TIMEOUT_NS = %dull;\n", k.TimeoutNs)
+	fmt.Fprintf(&b, "constexpr unsigned int EG_C2C_POLL_SLEEP_NS = %du;\n", k.PollSleepNs)
 	b.WriteString(`#if !defined(EG_HOST_EMU)
 #include <chrono>
 #include <thread>
@@ -372,10 +416,13 @@ EG_DEV unsigned long long eg_c2c_ld_acquire_sys_u64(const unsigned long long* p)
 #endif
 }
 // eg_c2c_spin_pause yields the host thread under emulation, where the GPU
-// thread and the worker share CPUs; on hardware both sides spin.
+// thread and the worker share CPUs; on hardware the kernel spins, or
+// sleeps EG_C2C_POLL_SLEEP_NS.
 EG_DEV void eg_c2c_spin_pause() {
 #if defined(EG_HOST_EMU) || defined(EG_EMU)
     std::this_thread::yield();
+#else
+    if (EG_C2C_POLL_SLEEP_NS != 0u) __nanosleep(EG_C2C_POLL_SLEEP_NS);
 #endif
 }
 EG_DEV unsigned long long eg_c2c_globaltimer() {
@@ -389,8 +436,6 @@ EG_DEV unsigned long long eg_c2c_globaltimer() {
 #endif
 }
 `)
-	fmt.Fprintf(&b, "constexpr int EG_C2C_ROUNDS = %d, EG_C2C_ROWS = %d, EG_C2C_COLS = %d;\n", k.Rounds, k.Rows, k.Cols)
-	fmt.Fprintf(&b, "constexpr unsigned long long EG_C2C_TIMEOUT_NS = %dull;\n", k.TimeoutNs)
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(32) %s(unsigned long long* slot, const float* x, float* y,\n", k.Name)
 	fmt.Fprintf(&b, "    unsigned long long* lat_ns, float* ysum, unsigned int* status) {\n")
 	fmt.Fprintf(&b, `    if (threadIdx.x != 0) return;
@@ -447,7 +492,7 @@ inline int eg_c2c_worker(unsigned long long* slot, const float* w) {
     }
     return 0;
 }
-`, C2CSlotTaskKind, uint32(TaskColdMoESingleToken), C2CSlotNumTokens, C2CSlotInputAddr, C2CSlotOutputAddr, C2CSlotSeqNo, C2CSlotCompletionSeq)
+`, C2CSlotTaskKind, uint32(TaskColdMoESingleToken), C2CSlotNumTokens, C2CSlotInputAddr, C2CSlotOutputAddr, C2CSlotSeqNo, done)
 	return b.String(), nil
 }
 
