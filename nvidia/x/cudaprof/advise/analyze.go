@@ -464,6 +464,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	// 7a. Whole-capture duty cycle. This runs before the dominance audit so
 	// that an idle-dominated capture says so above every kernel-time finding.
 	auditDeviceDutyCycle(cap, report)
+	auditCommunication(cap, report)
 
 	// 8. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
 	kernelTimes, totalTime := computeProfileTimes(cap)
