@@ -34,6 +34,8 @@ type arbiterSteps struct {
 	noLaunch      bool // load the module but launch nothing while sampling
 	keepSessions  bool // keep every Session reachable until the last session ends
 	sync          bool // synchronize the context after each disable and Close
+	preload       bool // load every session's module before the first enable
+	loadSync      bool // synchronize and sleep 50ms after each module load
 }
 
 // arbiterVariants starts from the collector's sequence and removes one
@@ -56,6 +58,8 @@ var arbiterVariants = []struct {
 	{name: "no_sampled_launch", steps: arbiterSteps{module: true, warmup: true, timing: true, noLaunch: true}},
 	{name: "replica_keep_sessions", steps: arbiterSteps{module: true, warmup: true, timing: true, keepSessions: true}},
 	{name: "replica_sync", steps: arbiterSteps{module: true, warmup: true, timing: true, sync: true}},
+	{name: "load_all_first", steps: arbiterSteps{module: true, warmup: true, timing: true, preload: true}},
+	{name: "load_then_sync", steps: arbiterSteps{module: true, warmup: true, timing: true, loadSync: true}},
 	{name: "collector", real: true},
 }
 
@@ -181,7 +185,7 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 		return v.Cubin, err
 	}
 	var ahead [][]byte
-	if steps.compileAhead {
+	if steps.compileAhead || steps.preload {
 		for i := range cands {
 			b, err := cubin(i)
 			if err != nil {
@@ -200,12 +204,27 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 			return errors.Join(errs...)
 		}))
 	}()
+	if steps.preload {
+		err := ar.dev.WithContext(func() error {
+			for _, bin := range ahead {
+				m, err := driver.ModuleLoadData(bin)
+				if err != nil {
+					return fmt.Errorf("preload module: %w", err)
+				}
+				kept = append(kept, m)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
 	var inv *cuptipcsampling.ReasonInventory
 	var sessions []*cuptipcsampling.Session
 	defer func() { runtime.KeepAlive(sessions) }()
 	for i := range cands {
 		var bin []byte
-		if steps.module && !(steps.moduleOnce && i > 0) {
+		if steps.module && !steps.preload && !(steps.moduleOnce && i > 0) {
 			if steps.compileAhead {
 				bin = ahead[i]
 			} else {
@@ -221,6 +240,8 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 			if steps.module {
 				var mod driver.Module
 				switch {
+				case steps.preload:
+					mod = kept[i]
 				case steps.moduleOnce && i > 0:
 					mod = kept[0]
 				default:
@@ -229,6 +250,12 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 						return fmt.Errorf("load module: %w", loadErr)
 					}
 					mod = m
+					if steps.loadSync {
+						if err := driver.CtxSynchronize(); err != nil {
+							return fmt.Errorf("synchronize after load: %w", err)
+						}
+						time.Sleep(50 * time.Millisecond)
+					}
 					if steps.moduleOnce || steps.keepModules {
 						kept = append(kept, m)
 					} else {

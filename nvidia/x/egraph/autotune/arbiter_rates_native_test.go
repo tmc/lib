@@ -25,6 +25,8 @@ var arbiterRates = []struct {
 	{variant: "replica", env: []string{"GOGC=off"}},
 	{variant: "replica_keep_sessions"},
 	{variant: "replica_sync"},
+	{variant: "load_all_first"},
+	{variant: "load_then_sync"},
 }
 
 var arbiterFailure = regexp.MustCompile(`session \d+ \([^)]*\): .*`)
@@ -33,7 +35,9 @@ var arbiterFailure = regexp.MustCompile(`session \d+ \([^)]*\): .*`)
 // AUTOTUNE_ARBITER_RUNS times (default 5), every run a fresh process
 // executing one TestAutotuneSamplingArbiter variant, and logs how many
 // passed and the first failure of each failing run. It does not open a
-// device itself. It is gated like TestAutotuneNativeQualification and
+// device itself. AUTOTUNE_ARBITER_ROWS, a comma-separated list of row
+// labels such as "load_all_first,collector GOGC=off", restricts the rows.
+// It is gated like TestAutotuneNativeQualification and
 // fails only if a child neither passes nor fails cleanly.
 func TestAutotuneSamplingRates(t *testing.T) {
 	if os.Getenv(autotuneNativeEnv) != "1" {
@@ -50,11 +54,20 @@ func TestAutotuneSamplingRates(t *testing.T) {
 		}
 		runs = n
 	}
+	only := make(map[string]bool)
+	if s := os.Getenv("AUTOTUNE_ARBITER_ROWS"); s != "" {
+		for _, r := range strings.Split(s, ",") {
+			only[strings.TrimSpace(r)] = true
+		}
+	}
 	var table strings.Builder
 	for _, row := range arbiterRates {
 		label := row.variant
 		if len(row.env) > 0 {
 			label += " " + strings.Join(row.env, " ")
+		}
+		if len(only) > 0 && !only[label] {
+			continue
 		}
 		pass := 0
 		var failures []string
