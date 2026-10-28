@@ -1,0 +1,84 @@
+// The subset of onnx/onnx.proto (field numbers unchanged) used to encode
+// the test fixtures with protoc:
+//
+//	protoc --encode=onnx.ModelProto onnx_subset.proto < llama_mlp.textproto | xxd -p > llama_mlp.onnx.hex
+syntax = "proto2";
+
+package onnx;
+
+message ModelProto {
+  optional int64 ir_version = 1;
+  repeated OperatorSetIdProto opset_import = 8;
+  optional string producer_name = 2;
+  optional GraphProto graph = 7;
+}
+
+message OperatorSetIdProto {
+  optional string domain = 1;
+  optional int64 version = 2;
+}
+
+message GraphProto {
+  repeated NodeProto node = 1;
+  optional string name = 2;
+  repeated TensorProto initializer = 5;
+  repeated ValueInfoProto input = 11;
+  repeated ValueInfoProto output = 12;
+}
+
+message NodeProto {
+  repeated string input = 1;
+  repeated string output = 2;
+  optional string name = 3;
+  optional string op_type = 4;
+  repeated AttributeProto attribute = 5;
+  optional string domain = 7;
+}
+
+message AttributeProto {
+  optional string name = 1;
+  optional float f = 2;
+  optional int64 i = 3;
+  optional bytes s = 4;
+  optional TensorProto t = 5;
+  repeated float floats = 7;
+  repeated int64 ints = 8;
+  optional int32 type = 20;
+}
+
+message StringStringEntryProto {
+  optional string key = 1;
+  optional string value = 2;
+}
+
+message TensorProto {
+  repeated int64 dims = 1;
+  optional int32 data_type = 2;
+  repeated float float_data = 4 [packed = true];
+  repeated int64 int64_data = 7 [packed = true];
+  optional string name = 8;
+  optional bytes raw_data = 9;
+  repeated StringStringEntryProto external_data = 13;
+  optional int32 data_location = 14;
+}
+
+message ValueInfoProto {
+  optional string name = 1;
+  optional TypeProto type = 2;
+}
+
+message TypeProto {
+  message Tensor {
+    optional int32 elem_type = 1;
+    optional TensorShapeProto shape = 2;
+  }
+  optional Tensor tensor_type = 1;
+}
+
+message TensorShapeProto {
+  message Dimension {
+    optional int64 dim_value = 1;
+    optional string dim_param = 2;
+  }
+  repeated Dimension dim = 1;
+}

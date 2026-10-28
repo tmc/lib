@@ -1,0 +1,29 @@
+# The Llama MLP sub-block of llama_mlp.mlir as an ONNX graph, in the shape
+# torch.onnx.export gives it: MatMul weights stored [in, out] in an
+# external file, RMSNorm as SimplifiedLayerNormalization, SiLU as
+# Sigmoid and Mul.
+ir_version: 10
+opset_import { domain: "" version: 21 }
+opset_import { domain: "com.microsoft" version: 1 }
+producer_name: "hand-written fixture"
+graph {
+  name: "llama_mlp"
+  node { input: "hidden_states" output: "x32" name: "cast_x" op_type: "Cast" attribute { name: "to" i: 1 type: 2 } }
+  node { input: "model.layers.0.post_attention_layernorm.weight" output: "gamma32" name: "cast_gamma" op_type: "Cast" attribute { name: "to" i: 1 type: 2 } }
+  node { input: "x32" input: "gamma32" output: "norm" name: "rmsnorm" op_type: "SimplifiedLayerNormalization" domain: "com.microsoft" attribute { name: "axis" i: -1 type: 2 } attribute { name: "epsilon" f: 1e-05 type: 1 } }
+  node { input: "norm" output: "norm16" name: "cast_norm" op_type: "Cast" attribute { name: "to" i: 16 type: 2 } }
+  node { input: "norm16" input: "model.layers.0.mlp.gate_proj.weight" output: "gate" name: "gate_proj" op_type: "MatMul" }
+  node { input: "gate" output: "gate_sig" name: "sigmoid" op_type: "Sigmoid" }
+  node { input: "gate" input: "gate_sig" output: "gate_act" name: "silu" op_type: "Mul" }
+  node { input: "norm16" input: "model.layers.0.mlp.up_proj.weight" output: "up" name: "up_proj" op_type: "MatMul" }
+  node { input: "gate_act" input: "up" output: "prod" name: "glu" op_type: "Mul" }
+  node { input: "prod" output: "prod16" name: "cast_prod" op_type: "Cast" attribute { name: "to" i: 16 type: 2 } }
+  node { input: "prod16" input: "model.layers.0.mlp.down_proj.weight" output: "down" name: "down_proj" op_type: "MatMul" }
+  node { input: "down" input: "x32" output: "out" name: "residual" op_type: "Add" }
+  initializer { name: "model.layers.0.post_attention_layernorm.weight" dims: 256 data_type: 16 data_location: 1 external_data { key: "location" value: "weights.bin" } }
+  initializer { name: "model.layers.0.mlp.gate_proj.weight" dims: 256 dims: 512 data_type: 16 data_location: 1 external_data { key: "location" value: "weights.bin" } }
+  initializer { name: "model.layers.0.mlp.up_proj.weight" dims: 256 dims: 512 data_type: 16 data_location: 1 external_data { key: "location" value: "weights.bin" } }
+  initializer { name: "model.layers.0.mlp.down_proj.weight" dims: 512 dims: 256 data_type: 16 data_location: 1 external_data { key: "location" value: "weights.bin" } }
+  input { name: "hidden_states" type { tensor_type { elem_type: 16 shape { dim { dim_value: 4 } dim { dim_value: 256 } } } } }
+  output { name: "out" type { tensor_type { elem_type: 1 shape { dim { dim_value: 4 } dim { dim_value: 256 } } } } }
+}
