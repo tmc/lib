@@ -196,6 +196,10 @@ type ScheduleCandidate struct {
 	UseSparse2to4    bool    `json:"use_sparse_2to4"`
 	UseEarlyRelease  bool    `json:"use_early_release"`
 	AnalyticalCostUS float64 `json:"analytical_cost_us"`
+	ProducerMaxRegs  int     `json:"producer_max_regs,omitempty"`  // setmaxnreg.dec target; 0 leaves the allocation
+	ConsumerMaxRegs  int     `json:"consumer_max_regs,omitempty"`  // setmaxnreg.inc target; 0 leaves the allocation
+	Swizzle128B      bool    `json:"swizzle_128b,omitempty"`       // 128-byte TMA shared memory swizzle
+	DoubleBufferTMEM bool    `json:"double_buffer_tmem,omitempty"` // accumulators in TMEM columns [0,256) and [256,512)
 }
 
 type candidateRecord struct {
