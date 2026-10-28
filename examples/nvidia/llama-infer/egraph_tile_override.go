@@ -12,7 +12,8 @@ import (
 // overridePrefillTiles applies LLAMA_EGRAPH_PF_TILE, a comma-separated list
 // of bm=, bn=, stages= and streamk= settings, to every prefill tile gemm. It is an
 // experiment knob for sweeping tile shapes; unset, the plans are unchanged.
-func overridePrefillTiles(pf *egraphPrefillPlans, prefillRows int) error {
+// A tile needing more than smem bytes of shared memory is an error.
+func overridePrefillTiles(pf *egraphPrefillPlans, prefillRows, smem int) error {
 	s := os.Getenv("LLAMA_EGRAPH_PF_TILE")
 	if s == "" {
 		return nil
@@ -58,8 +59,8 @@ func overridePrefillTiles(pf *egraphPrefillPlans, prefillRows int) error {
 			if streamK > 0 {
 				t.StreamK = streamK
 			}
-			if b := t.SharedBytes(); b > sm121SharedPerBlock {
-				return fmt.Errorf("LLAMA_EGRAPH_PF_TILE %q: %s needs %d bytes of shared memory, over %d", s, t.Name, b, sm121SharedPerBlock)
+			if b := t.SharedBytes(); b > smem {
+				return fmt.Errorf("LLAMA_EGRAPH_PF_TILE %q: %s needs %d bytes of shared memory, over %d", s, t.Name, b, smem)
 			}
 		}
 	}

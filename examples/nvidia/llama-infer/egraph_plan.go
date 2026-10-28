@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
@@ -36,6 +37,11 @@ type egraphPlans struct {
 
 // egraphOptions selects the e-graph decoder's variants.
 type egraphOptions struct {
+	// Profile is the GPU the plans are built for. Its Target is the PTX
+	// target the kernels are emitted for, and its shared memory limits
+	// and SM count choose tile heights and attention splits.
+	Profile cudadevicetable.Profile
+
 	Mega bool // run each decode plan as one persistent megakernel
 	Attn bool // generate RoPE, the KV-cache store and attention
 
@@ -44,7 +50,8 @@ type egraphOptions struct {
 	PrefillRows int
 
 	// AttnSplits divides decode attention's keys among this many CTAs per
-	// KV head, with a combine kernel; 0 runs one CTA per KV head.
+	// KV head, with a combine kernel; 0 runs one CTA per KV head, and < 0
+	// picks Profile's SMs / KV heads, so the CTAs cover the SMs once.
 	AttnSplits int
 }
 
@@ -85,29 +92,25 @@ type egraphPrefillPlans struct {
 	cacheSlots int // KV cache rows, MaxSeqLen padded for a last partial group
 }
 
-// sm121SharedPerBlock is the shared memory one sm_121 block may use (opt
-// in above 48 KiB), and staticSharedLimit the static shared memory any
-// kernel may declare.
-const (
-	sm121SharedPerBlock = 99 * 1024
-	staticSharedLimit   = 48 * 1024
-)
-
 // prefillQTokens returns the most query rows per group the warp
 // MTPPagedAttention kernel takes: G·qtok query vectors may not exceed 64,
 // and its static shared memory (G·qtok query rows and 16-row K and V tiles
-// of FP32, and a mask word per row) must fit in 48 KiB.
-func prefillQTokens(g, headDim int) int {
+// of FP32, and a mask word per row) must fit in staticShared bytes.
+func prefillQTokens(g, headDim, staticShared int) int {
 	q := 64 / g
-	for q > 1 && 4*headDim*(g*q+2*16)+8*q > staticSharedLimit {
+	for q > 1 && 4*headDim*(g*q+2*16)+8*q > staticShared {
 		q--
 	}
 	return q
 }
 
 // buildEgraphPlans builds the decode plans and, with opt.PrefillRows != 0,
-// the prefill plans.
+// the prefill plans, for opt.Profile.
 func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egraphPlans, error) {
+	prof := opt.Profile
+	if prof.Target == "" || prof.SMs.Value < 1 || prof.SharedPerBlock.Value < 1 || prof.SharedPerBlockOptin.Value < 1 {
+		return nil, fmt.Errorf("e-graph plans need a target profile with SMs and shared memory limits, have %+v", prof)
+	}
 	attn, prefillRows := opt.Attn, opt.PrefillRows
 	p := egraphPlans{attn: attn}
 	var err error
@@ -149,31 +152,37 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 		PageSize:   egraphPageSize,
 		MaxPages:   maxPages,
 		SeqLen:     cfg.MaxSeqLen,
-		Target:     "sm_121a",
+		Target:     prof.Target,
 		KVFormat:   hopper.WeightBF16,
 		Splits:     opt.AttnSplits,
+	}
+	if p.sdpa.Splits < 0 {
+		p.sdpa.Splits = attnSplits(prof, cfg.NumKeyValueHeads)
 	}
 	if prefillRows == 0 {
 		return &p, nil
 	}
 	// The tile gemms' M rows set the chunk: by default the whole cache,
 	// so a prompt runs in one chunk and streams the weights once, in
-	// multiples of the largest tile height whose shared memory fits.
+	// multiples of the tallest tile, at the deepest pipeline, whose shared
+	// memory fits the profile.
 	if prefillRows <= 0 {
 		prefillRows = cfg.MaxSeqLen
 	}
-	pf := egraphPrefillPlans{qtok: prefillQTokens(cfg.NumAttentionHeads/cfg.NumKeyValueHeads, hd)}
-	for _, bm := range []int{128, 64} {
-		pf.rows = (prefillRows + bm - 1) / bm * bm
+	smem := int(prof.SharedPerBlockOptin.Value)
+	pf := egraphPrefillPlans{qtok: prefillQTokens(cfg.NumAttentionHeads/cfg.NumKeyValueHeads, hd, int(prof.SharedPerBlock.Value))}
+	fits := false
+	for _, tile := range prefillTiles {
+		pf.rows = (prefillRows + tile.bm - 1) / tile.bm * tile.bm
 		if pf.attnIn, pf.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pf", pf.rows, hopper.BF16); err != nil {
 			return nil, err
 		}
-		fits := true
+		fits = true
 		for _, pl := range []*hopper.Plan{pf.attnIn, pf.post} {
 			for _, k := range pl.Kernels {
 				if k.Tile != nil {
-					k.Tile.BM = bm
-					fits = fits && k.Tile.SharedBytes() <= sm121SharedPerBlock
+					k.Tile.BM, k.Tile.Stages = tile.bm, tile.stages
+					fits = fits && k.Tile.SharedBytes() <= smem
 				}
 			}
 		}
@@ -181,7 +190,10 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 			break
 		}
 	}
-	if err := overridePrefillTiles(&pf, prefillRows); err != nil {
+	if !fits {
+		return nil, fmt.Errorf("no prefill tile fits %s's %d bytes of shared memory per block", prof.Product, smem)
+	}
+	if err := overridePrefillTiles(&pf, prefillRows, smem); err != nil {
 		return nil, err
 	}
 	// A last group of fewer than qtok rows still covers qtok positions;
@@ -201,6 +213,20 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	}
 	p.pf = &pf
 	return &p, nil
+}
+
+// prefillTiles are the prefill tile heights and pipeline depths, in order
+// of preference. Stages 3 is [hopper.TileGEMM]'s default.
+var prefillTiles = []struct{ bm, stages int }{
+	{128, 3},
+	{64, 3},
+	{64, 2},
+}
+
+// attnSplits returns the decode attention splits per KV head that make
+// kvHeads × splits CTAs cover p's SMs once.
+func attnSplits(p cudadevicetable.Profile, kvHeads int) int {
+	return max(1, int(p.SMs.Value)/kvHeads)
 }
 
 func compilePlan(name string, b *hopper.Builder, root egraph.Id, out hopper.DType) (*hopper.Plan, error) {

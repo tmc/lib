@@ -1,7 +1,12 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 
 	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
@@ -20,7 +25,7 @@ var llama3_8B = ModelConfig{
 }
 
 func TestBuildEgraphPlans(t *testing.T) {
-	p, err := buildEgraphPlans(&llama3_8B, false, egraphOptions{Attn: true, PrefillRows: -1})
+	p, err := buildEgraphPlans(&llama3_8B, false, egraphOptions{Profile: mustProfile(t, "GB10"), Attn: true, PrefillRows: -1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,5 +79,84 @@ func TestBuildEgraphPlans(t *testing.T) {
 	}
 	if p.pf.qtok != 15 {
 		t.Errorf("prefill attention groups = %d rows, want 15 (G=4, D=128 in 48 KiB of static shared memory)", p.pf.qtok)
+	}
+}
+
+func mustProfile(t *testing.T, name string) cudadevicetable.Profile {
+	t.Helper()
+	p, err := cudadevicetable.LookupProfile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// TestEgraphPlansTarget checks that the profile, not a constant, sets the
+// attention target, the prefill tile and the decode attention splits.
+func TestEgraphPlansTarget(t *testing.T) {
+	small := llama3_8B
+	small.NumHiddenLayers = 1
+	tests := []struct {
+		target  string
+		splits  int // llama3_8B has 8 KV heads
+		bm      int
+		maxSmem int
+	}{
+		{"sm_121a", 6, 64, 99 << 10},
+		{"sm_103a", 20, 128, 227 << 10},
+		{"sm_100a", 18, 128, 227 << 10},
+		{"sm_90a", 16, 128, 227 << 10},
+		{"sm_120a", 23, 64, 99 << 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.target, func(t *testing.T) {
+			p, err := buildEgraphPlans(&small, false, egraphOptions{Profile: mustProfile(t, tt.target), Attn: true, PrefillRows: -1, AttnSplits: -1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if p.sdpa.Target != tt.target || p.sdpa.Splits != tt.splits {
+				t.Errorf("attention target %s, %d splits; want %s, %d", p.sdpa.Target, p.sdpa.Splits, tt.target, tt.splits)
+			}
+			if _, err := p.sdpa.CUDA(); err != nil {
+				t.Error(err)
+			}
+			for _, pl := range []*hopper.Plan{p.pf.attnIn, p.pf.post} {
+				for _, k := range pl.Kernels {
+					if k.Tile == nil {
+						continue
+					}
+					if k.Tile.BM != tt.bm || k.Tile.SharedBytes() > tt.maxSmem {
+						t.Errorf("%s: BM %d, %d bytes of shared memory; want BM %d within %d", k.Tile.Name, k.Tile.BM, k.Tile.SharedBytes(), tt.bm, tt.maxSmem)
+					}
+				}
+			}
+		})
+	}
+	if _, err := buildEgraphPlans(&small, false, egraphOptions{Attn: true}); err == nil {
+		t.Error("built plans without a target profile")
+	}
+}
+
+func TestEmitEgraph(t *testing.T) {
+	dir := t.TempDir()
+	cfg := llama3_8B
+	if err := emitEgraph(dir, "GB300", &cfg, egraphOptions{Attn: true, PrefillRows: -1, AttnSplits: -1}); err != nil {
+		t.Fatal(err)
+	}
+	src, err := os.ReadFile(filepath.Join(dir, "sm_103a", "llama_egraph.cu"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := os.ReadFile(filepath.Join(dir, "sm_103a", "names.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range strings.Fields(string(names)) {
+		if !strings.Contains(string(src), strings.TrimSuffix(name, "<1>")) {
+			t.Errorf("names.txt lists %s, which the source does not define", name)
+		}
+	}
+	if !strings.Contains(string(src), "sm_103a register-accumulated") {
+		t.Error("attention is not emitted for sm_103a")
 	}
 }

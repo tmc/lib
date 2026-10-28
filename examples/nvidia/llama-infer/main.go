@@ -61,10 +61,12 @@ var (
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
-	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated sm_121a kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
+	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
 	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
+	egraphEmitFlag    = flag.String("egraph-emit", "", "write the e-graph kernels for -egraph-target, planned for -model's config.json, to this directory and exit; needs no GPU")
+	egraphTargetFlag  = flag.String("egraph-target", "sm_121a", "with -egraph-emit, the target or product to plan for, such as sm_103a, GB300 or H200")
 )
 
 func main() {
@@ -77,6 +79,28 @@ func main() {
 func run() (rerr error) {
 	if *disasmFlag != "" {
 		return printKernelDisassembly(*disasmFlag, *disasmModeFlag)
+	}
+	if *egraphEmitFlag != "" {
+		cfg, err := LoadModelConfig(findDefaultModelPath())
+		if err != nil {
+			return err
+		}
+		prefillRows := -1
+		if !*egraphPrefillFlag || !*egraphAttnFlag {
+			prefillRows = 0
+		} else if *egraphChunkFlag > 0 {
+			prefillRows = *egraphChunkFlag
+		}
+		splits := *egraphSplitsFlag
+		if !*egraphAttnFlag {
+			splits = 0
+		}
+		return emitEgraph(*egraphEmitFlag, *egraphTargetFlag, cfg, egraphOptions{
+			Mega:        *egraphMegaFlag,
+			Attn:        *egraphAttnFlag,
+			PrefillRows: prefillRows,
+			AttnSplits:  splits,
+		})
 	}
 
 	var tracer *cudatrace.Tracer
@@ -366,20 +390,21 @@ func runGPUInference(
 		default:
 			prefillRows = -1
 		}
+		prof, err := deviceProfile(dev)
+		if err != nil {
+			return fmt.Errorf("e-graph target: %w", err)
+		}
 		// Split decode attention so its KV heads × splits CTAs cover the
 		// SMs once.
 		splits := *egraphSplitsFlag
 		if !*egraphAttnFlag {
 			splits = 0
 		} else if splits < 0 {
-			sms, err := dev.Attribute(driver.DevAttrMultiprocessorCount)
-			if err != nil {
-				return fmt.Errorf("read SM count: %w", err)
-			}
-			splits = max(1, sms/cfg.NumKeyValueHeads)
-			fmt.Printf("[E-Graph] decode attention: %d SMs / %d KV heads = %d splits per KV head\n", sms, cfg.NumKeyValueHeads, splits)
+			splits = attnSplits(prof, cfg.NumKeyValueHeads)
+			fmt.Printf("[E-Graph] decode attention: %d SMs / %d KV heads = %d splits per KV head\n", prof.SMs.Value, cfg.NumKeyValueHeads, splits)
 		}
 		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, egraphOptions{
+			Profile:     prof,
 			Mega:        *egraphMegaFlag,
 			Attn:        *egraphAttnFlag,
 			PrefillRows: prefillRows,

@@ -501,7 +501,10 @@ func kernelName(k hopper.PlanKernel) (string, error) {
 	return "", fmt.Errorf("plan kernel %+v: only gemm and row kernels are supported", k)
 }
 
-func (eg *egraphDecoder) compile(dev *cuda.Device) error {
+// source returns the CUDA source of eg's plans, with eg.megas in place of
+// the plans they run, and the name expressions of its kernels. It needs no
+// device.
+func (eg *egraphDecoder) source() (string, []string, error) {
 	var src strings.Builder
 	src.WriteString(hopper.Prelude)
 	var names []string
@@ -509,7 +512,7 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 		if m, ok := eg.megas[p]; ok {
 			cu, err := m.CUDA()
 			if err != nil {
-				return fmt.Errorf("emit %s: %w", m.Name, err)
+				return "", nil, fmt.Errorf("emit %s: %w", m.Name, err)
 			}
 			src.WriteString("\n" + cu + "\n")
 			names = append(names, m.Name)
@@ -518,7 +521,7 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 		for _, k := range p.Kernels {
 			name, err := kernelName(k)
 			if err != nil {
-				return err
+				return "", nil, err
 			}
 			var cu string
 			switch {
@@ -530,7 +533,7 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 				cu, err = k.Row.CUDA()
 			}
 			if err != nil {
-				return fmt.Errorf("emit %s: %w", name, err)
+				return "", nil, fmt.Errorf("emit %s: %w", name, err)
 			}
 			src.WriteString("\n" + cu + "\n")
 			names = append(names, name)
@@ -542,7 +545,7 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 		}{eg.plans.rope, eg.plans.sdpa} {
 			cu, err := k.CUDA()
 			if err != nil {
-				return fmt.Errorf("emit attention: %w", err)
+				return "", nil, fmt.Errorf("emit attention: %w", err)
 			}
 			src.WriteString("\n" + cu + "\n")
 		}
@@ -557,14 +560,22 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 		}{pf.rope, pf.attn} {
 			cu, err := k.CUDA()
 			if err != nil {
-				return fmt.Errorf("emit prefill attention: %w", err)
+				return "", nil, fmt.Errorf("emit prefill attention: %w", err)
 			}
 			src.WriteString("\n" + cu + "\n")
 		}
 		src.WriteString("\n" + embedGatherCUDA + "\n")
 		names = append(names, pf.rope.Name, pf.attn.Name, embedGatherName)
 	}
-	cm, err := nvrtcx.Compile(src.String(),
+	return src.String(), names, nil
+}
+
+func (eg *egraphDecoder) compile(dev *cuda.Device) error {
+	src, names, err := eg.source()
+	if err != nil {
+		return err
+	}
+	cm, err := nvrtcx.Compile(src,
 		nvrtcx.WithName("llama_egraph.cu"),
 		nvrtcx.WithDeviceArch(dev),
 		nvrtcx.WithStandard("c++20"),
