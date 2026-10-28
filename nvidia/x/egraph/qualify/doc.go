@@ -27,4 +27,12 @@
 // inductive droop it causes; [SolveOptimalPacing] picks the cheapest
 // nanosleep stagger that keeps the modeled droop under a limit, and
 // [EmitPowerPacedProloguePTX] emits it.
+//
+// Cross-target equivalence: [ProveCrossISAEquivalence] enumerates every
+// multiply-accumulate of an NVFP4 GEMM as lowered for sm_90a (wgmma, with
+// the [bitopt] FP4 decode), sm_100a, sm_103a and sm_107a (tcgen05 with
+// Tensor Memory) and sm_120a and sm_121a (mma.sync), using the instruction
+// layouts in [cudahostemu] and [tcgen05], and checks that each computes
+// every scaled term exactly once; [VerifyAllTargetISAs] runs it against
+// sm_90a for all six targets.
 package qualify
