@@ -11,10 +11,10 @@ type SM100Kind string
 
 const (
 	SM100None      SM100Kind = ""
-	SM100UTMMA     SM100Kind = "UTMMA"        // tcgen05.mma -> UTMMA.{F16,BF16,E4M3,MXF4NVF4,MXF8F6F4}
+	SM100UTMMA     SM100Kind = "UTMMA"        // tcgen05.mma -> UTCHMMA (kind::f16), UTCOMMA (block-scaled kind::mxf4nvf4)
 	SM100UTMALDG   SM100Kind = "UTMALDG"      // TMA global -> TMEM / shared load
-	SM100UTMACP    SM100Kind = "UTMACP"       // tcgen05.cp shared -> TMEM copy (e.g. block scales)
-	SM100UTMAFlush SM100Kind = "UTMACMDFLUSH" // tcgen05.commit / fence
+	SM100UTMACP    SM100Kind = "UTMACP"       // tcgen05.cp shared -> TMEM copy (e.g. block scales) -> UTCCP
+	SM100UTMAFlush SM100Kind = "UTMACMDFLUSH" // tcgen05.commit / fence -> UTCBAR
 	SM100LDTM      SM100Kind = "LDTM"         // tcgen05.ld TMEM -> register load
 	SM100STTM      SM100Kind = "STTM"         // tcgen05.st register -> TMEM store
 	SM100ELECT     SM100Kind = "ELECT"        // elect.sync single-thread leader election
@@ -123,13 +123,17 @@ func ClassifySM100Inst(inst Instruction) (SM100InstInfo, bool) {
 
 	var kind SM100Kind
 	switch base {
-	case "UTMMA", "UTCQMMA", "UTCHMMA", "UTCMMA":
+	// ptxas 13.4 spells tcgen05.mma kind::f16 UTCHMMA, block-scaled
+	// kind::mxf4nvf4 UTCOMMA.4X on sm_100a and UTCOMMA.BLOCK16 on sm_103a,
+	// tcgen05.cp UTCCP and tcgen05.commit UTCBAR
+	// (testdata/sm100a-umma-13.4.sass, testdata/sm103a-umma-13.4.sass).
+	case "UTMMA", "UTCQMMA", "UTCHMMA", "UTCMMA", "UTCOMMA":
 		kind = SM100UTMMA
 	case "UTMALDG":
 		kind = SM100UTMALDG
-	case "UTMACP":
+	case "UTMACP", "UTCCP":
 		kind = SM100UTMACP
-	case "UTMACMDFLUSH":
+	case "UTMACMDFLUSH", "UTCBAR":
 		kind = SM100UTMAFlush
 	case "LDTM":
 		kind = SM100LDTM
@@ -142,8 +146,9 @@ func ClassifySM100Inst(inst Instruction) (SM100InstInfo, bool) {
 	}
 
 	info := SM100InstInfo{
-		Kind:     kind,
-		Mnemonic: op,
+		Kind:        kind,
+		Mnemonic:    op,
+		BlockScaled: base == "UTCOMMA",
 	}
 
 	for _, mod := range parts[1:] {
@@ -158,6 +163,12 @@ func ClassifySM100Inst(inst Instruction) (SM100InstInfo, bool) {
 			info.ScaleVec = 4
 			info.BlockScaled = true
 		case "SCALE_VEC_2X", "SCALE_VEC2X", "2X", "VEC2X":
+			info.ScaleVec = 2
+			info.BlockScaled = true
+		case "BLOCK16": // 16-element scale blocks: scale_vec::4X for 4-bit operands
+			info.ScaleVec = 4
+			info.BlockScaled = true
+		case "BLOCK32":
 			info.ScaleVec = 2
 			info.BlockScaled = true
 		}
