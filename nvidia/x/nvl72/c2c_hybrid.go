@@ -317,9 +317,20 @@ func AuditC2CCoherence(src string) error {
 // makes the kernel __nanosleep between polls instead of spinning.
 //
 // The spec's target is a 1.5 us median round trip on GB200, GB300 and
-// VR200-class C2C; no such part has run it. Measured on GB10 on 2026-10-27
-// with the defaults (cudaHostAllocMapped, unpinned spinning worker, 16x64
-// task, 1000 rounds): median 4480 ns, p99 4736 ns.
+// VR200-class C2C; no such part has run it. Measured on GB10 on
+// 2026-10-27, 1000 rounds each, cudaHostAllocMapped memory (median, p99):
+//
+//	default 16x64 task, unpinned worker     3456 ns, 5984 ns
+//	16x64, pinned, __nanosleep(100) polling 3392 ns, 6464 ns
+//	16x64, pinned, SplitCompletion          3360 ns, 6368 ns
+//	1x1 task, pinned                        1376 ns, 3488 ns
+//	1x1 task, pinned, SplitCompletion       1088 ns, 1504 ns
+//
+// The default 16x64 task dominates the round trip (about 2 us; the pinned
+// 16x64 run that would separate it from pinning has not run yet); sharing
+// one cache line between the two flags costs about 0.3 us. The
+// doorbell itself, the last row, is about 1.1 us median on GB10, about 3x a
+// single dependent ld.acquire.sys of idle host memory (330-390 ns).
 // Under cudahostemu the .sys accesses are C++ acquire and release atomics
 // on host memory, so the emulation checks the protocol, not C2C latency;
 // the worker pauses after each output row there, so a completion released

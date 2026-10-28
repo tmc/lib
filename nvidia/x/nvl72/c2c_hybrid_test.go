@@ -449,8 +449,7 @@ int main(int argc, char** argv) {
 // worker on a performance core, __nanosleep polling, the completion word on
 // its own cache line, and an empty 1x1 task that leaves only the doorbell.
 //
-// Measured on GB10 (DGX Spark), 2026-10-27, baseline only: median 4480 ns,
-// p99 4736 ns over 1000 rounds of a 16x64 GEMV.
+// GB10 measurements are in the [C2CDoorbellKernel] doc comment.
 func TestC2CDoorbellNative(t *testing.T) {
 	nvcc := requireNative(t)
 	const rounds = 1000
@@ -477,20 +476,23 @@ func TestC2CDoorbellNative(t *testing.T) {
 		{"empty_split_pageable", with(empty, split), "pageable", true},
 	}
 	cpu := c2cWorkerCPU(t)
+	// Build in the parent test, whose TempDir outlives every subtest.
 	bins := make(map[C2CDoorbellKernel]string)
+	for i := range variants {
+		k := &variants[i].kernel
+		k.Name, k.Rounds = "c2c_doorbell", rounds
+		if _, ok := bins[*k]; ok {
+			continue
+		}
+		src, err := k.Source()
+		if err != nil {
+			t.Fatal(err)
+		}
+		bins[*k] = nativeBuild(t, nvcc, src+c2cDoorbellMain)
+	}
 	for _, v := range variants {
 		t.Run(v.name, func(t *testing.T) {
-			k := v.kernel
-			k.Name, k.Rounds = "c2c_doorbell", rounds
-			bin, ok := bins[k]
-			if !ok {
-				src, err := k.Source()
-				if err != nil {
-					t.Fatal(err)
-				}
-				bin = nativeBuild(t, nvcc, src+c2cDoorbellMain)
-				bins[k] = bin
-			}
+			k, bin := v.kernel, bins[v.kernel]
 			pin := -1
 			if v.pin {
 				pin = cpu
