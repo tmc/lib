@@ -523,6 +523,9 @@ func evalModel(e *egraph.Expr, env map[string]Value, memo map[*egraph.Expr]Value
 		}
 		return eval(e.Children[i], env, memo)
 	}
+	if isSSMOp(e.Op) {
+		return evalSSM(e, env, memo)
+	}
 	switch e.Op {
 	case OpPagedAttn, OpPagedAttnGated:
 		cfg, ok := e.Children[0].Data.(PagedAttention)
