@@ -196,6 +196,9 @@ func (e *Evaluator) Evaluate(ctx context.Context, pol Policy, in Input) (Snapsho
 		return snap, fmt.Errorf("cudashadow evaluate: %w", err)
 	}
 
+	// Detach the decision from policy-owned storage before returning it.
+	dec.Parameters = maps.Clone(dec.Parameters)
+
 	// Update sequence tracker
 	if in.Provenance.Sequence > 0 {
 		e.lastSequence = in.Provenance.Sequence
