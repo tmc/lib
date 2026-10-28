@@ -31,6 +31,27 @@
 // Layout admission is not native hardware qualification. Native reason counts
 // are not legacy stall enums or inferred instruction metrics.
 //
+// Load every module a context will sample before PC sampling is first
+// configured on that context. This is observed behaviour on CUPTI 13.4 on a
+// GB10 (sm_121a), not a documented rule. Each session there enabled for its
+// reason inventory, disabled, then ran a Start session. When a new module
+// was loaded into the context between sessions, a later
+// cuptiPCSamplingEnable intermittently returned
+// CUPTI_ERROR_INVALID_OPERATION. On 2026-10-27, in runs of four such
+// sessions on one context, each run its own process:
+//   - one module per session, loaded and unloaded around it: 1/5 runs
+//     passed, and 2/5 for the egraph/autotune collector;
+//   - the same with GOGC=off: 0/5;
+//   - the same with a context synchronize after each disable: 1/5;
+//   - the same with a synchronize and a 50ms sleep after each load: 3/5;
+//   - no module at all: 5/5;
+//   - one module loaded before the first session: 5/5;
+//   - every session's module loaded before the first session: 5/5.
+//
+// The CUPTI guide's PC sampling example configures and enables a context
+// once, samples ranges with Start and Stop, and disables it at the end. It
+// does not show disabling and re-enabling a context.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cuptipcsampling
