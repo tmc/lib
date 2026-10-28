@@ -123,6 +123,23 @@ func run() (rerr error) {
 		return errors.New("-cuda-graph cannot be combined with -draft")
 	}
 
+	// Retain the device's context, if there is one, for 100% GPU-resident
+	// execution before loading the weights: on a GPU that shares system
+	// memory (GB10), the float32 host weights can leave so little memory
+	// free that creating the context fails with out of memory.
+	dev, devErr := cuda.NewDevice(0)
+	if devErr == nil {
+		defer func() {
+			// Work on an undrained stream may still use the context.
+			if errors.Is(rerr, errReleasesHeld) {
+				return
+			}
+			if cerr := dev.Close(); cerr != nil {
+				rerr = errors.Join(rerr, fmt.Errorf("close device: %w", cerr))
+			}
+		}()
+	}
+
 	// 2. Load or generate Model Weights
 	weights, cfg, err := loadWeights(effectivePath)
 	if err != nil {
@@ -176,18 +193,7 @@ func run() (rerr error) {
 			*swaWindowFlag, win.ActiveTokens, win.RequiredPages)
 	}
 
-	// Check if CUDA device is available for 100% GPU-resident execution
-	dev, err := cuda.NewDevice(0)
-	if err == nil {
-		defer func() {
-			// Work on an undrained stream may still use the context.
-			if errors.Is(rerr, errReleasesHeld) {
-				return
-			}
-			if cerr := dev.Close(); cerr != nil {
-				rerr = errors.Join(rerr, fmt.Errorf("close device: %w", cerr))
-			}
-		}()
+	if devErr == nil {
 		name, err := dev.Name()
 		if err != nil {
 			return fmt.Errorf("device name: %w", err)
@@ -208,12 +214,12 @@ func run() (rerr error) {
 	}
 
 	if dtype != weightF32 {
-		return fmt.Errorf("-weight-dtype %s needs a CUDA device (%v); the CPU reference runs float32 only", dtype, err)
+		return fmt.Errorf("-weight-dtype %s needs a CUDA device (%v); the CPU reference runs float32 only", dtype, devErr)
 	}
 	if *cudaGraphFlag {
-		return fmt.Errorf("-cuda-graph needs a CUDA device (%v); the CPU reference has no graph executor", err)
+		return fmt.Errorf("-cuda-graph needs a CUDA device (%v); the CPU reference has no graph executor", devErr)
 	}
-	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", err)
+	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", devErr)
 	return runCPUInference(weights, cfg, tokenizer, promptTokens, tracer, profSession)
 }
 
