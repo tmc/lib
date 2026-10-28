@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -205,7 +206,11 @@ func run() (rerr error) {
 		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
 
 		return dev.WithContext(func() error {
-			err := runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
+			// runGPUInference holds the only reference to the host
+			// weights, so it can release them once they are on the GPU.
+			w := weights
+			weights = nil
+			err := runGPUInference(dev, w, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
 			// Nsight Systems flushes its trace from a C atexit handler,
 			// which a Go exit skips; without this stop its report of the
 			// run holds no kernels.
@@ -424,6 +429,14 @@ func runGPUInference(
 			fmt.Printf("[E-Graph] prefill: token by token (%s)\n", prefillOff)
 		}
 	}
+
+	// The GPU has the weights now. Drop this function's reference to the
+	// host copy, which is float32 (twice the BF16 bytes), and return its
+	// memory to the system: on a GPU that shares system memory, a prompt
+	// that runs with little free memory waits on the kernel to reclaim
+	// and compact it.
+	w = nil
+	debug.FreeOSMemory()
 
 	var dg *DecodeGraph
 	if *cudaGraphFlag {
