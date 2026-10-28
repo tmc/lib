@@ -85,6 +85,16 @@
 // an uncalibrated architecture returns an error that wraps [github.com/tmc/lib/nvidia/x/cudaerrors.ErrUnsupported],
 // allowing callers to test it with [errors.Is].
 //
+// # Spill and register gate
+//
+// [ProveDisassembly] checks each kernel of a listing against a
+// [CubinConstraint]: register count, STL and LDL instructions, ptxas-reported
+// spill bytes and stack frame, the presence of tensor-core MMA instructions,
+// and waits that cannot delay anything. [ProveCubin] runs nvdisasm first.
+// The checks count instructions; they do not reason about which paths
+// execute. [CheckRegisterFile] is the register-file equation for the warp
+// groups of one CTA.
+//
 // # Control-code optimization
 //
 // [OptimizeBasicBlockControl] rewrites only the control fields of a basic
