@@ -12,7 +12,7 @@ func TestZeroColumnMaskDesc(t *testing.T) {
 	desc := ZeroColumnMaskDesc{
 		StartCount:  [8]uint8{2, 0, 4, 1, 5, 3, 6, 7},
 		SkipSpan:    [8]uint8{2, 3, 1, 4, 0, 2, 1, 0}, // spans: 3, 4, 2, 5, 1, 3, 2, 1
-		NonZeroMask: 0b01010101,                        // groups 0, 2, 4, 6 active
+		NonZeroMask: 0b01010101,                       // groups 0, 2, 4, 6 active
 	}
 	encoded := desc.Encode()
 	got := DecodeZeroColumnMaskDesc(encoded)
