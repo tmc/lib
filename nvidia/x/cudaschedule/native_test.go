@@ -27,6 +27,13 @@ import (
 // TestCampaignNativeHarness is the checked-in child-process harness. It loads
 // and launches the exact PTX path appended by RunCampaign.
 func TestCampaignNativeHarness(t *testing.T) {
+	enabled, err := scheduleChildNativeAdmission(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !enabled {
+		t.Skip("CUDA_SCHEDULE_NATIVE=1 required for the native campaign child")
+	}
 	ptxPath := os.Args[len(os.Args)-1]
 	if !strings.HasSuffix(ptxPath, ".ptx") {
 		return

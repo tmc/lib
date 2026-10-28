@@ -761,6 +761,16 @@ func (s LiveSet) Registers() []Register {
 // that passes nil is asserting the block's successors read nothing, which is
 // true only for a block ending in EXIT.
 //
+// A write kills a register only if the instruction always executes: it is
+// unguarded or guarded by @PT or @UPT. Any other guard makes the write a
+// may-def. On the path where the guard is false the old value survives, so a
+// register live after a guarded write is still live before it. This includes
+// @!PT and @!UPT, which never execute and so write nothing, and a guard this
+// package cannot parse, which is never taken to be unconditional. The
+// registers an instruction reads, including its guard, are live before it
+// whatever its guard, which over-approximates liveness for an instruction that
+// never executes.
+//
 // It reports an error for the same reason [Dependencies] does: an unclassified
 // opcode makes every set after it wrong, and a liveness set that is quietly
 // wrong is worse than none, because it is what a reordering is checked against.
@@ -791,8 +801,10 @@ func Liveness(b BasicBlock, liveOut LiveSet, arch Arch) ([]LiveSet, error) {
 		for r := range live {
 			next[r] = true
 		}
-		for _, d := range defs {
-			delete(next, d)
+		if always, _ := guard(b.Instructions[i].Predicate); always {
+			for _, d := range defs {
+				delete(next, d)
+			}
 		}
 		for _, u := range uses {
 			next[u] = true

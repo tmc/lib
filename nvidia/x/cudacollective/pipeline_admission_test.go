@@ -105,12 +105,16 @@ func TestPlanMatchedPipelineExecutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	op := cudacollective.OperationDescriptor{
-		Kind:     cudacollective.KindAllReduce,
-		DataType: cudair.Float32,
-		Count:    4,
+		Kind:      cudacollective.KindAllReduce,
+		DataType:  cudair.Float32,
+		Count:     2,
+		Reduction: cudacollective.ReductionSum,
 	}
-	for _, name := range []string{"s0", "s1", "s2"} {
-		if err := plan.AddCollectiveStep(name, op, 0x9000, 0xa000); err != nil {
+	for i, name := range []string{"s0", "s1", "s2"} {
+		stepOp := op
+		stepOp.PipelineSlot = i % 2
+		base := buf.Slots[stepOp.PipelineSlot]
+		if err := plan.AddCollectiveStep(name, stepOp, base, base+8); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -154,4 +158,138 @@ func TestPlanMatchedPipelineExecutes(t *testing.T) {
 		t.Fatalf("SubmitStage after plan Close: %v", err)
 	}
 	pipeline.CompleteStage(tr, nil)
+}
+
+func TestPipelineSubmitStageOperationAdmission(t *testing.T) {
+	const maxInt = int(^uint(0) >> 1)
+
+	comm := newAdmissionComm(t)
+	buf := cudacollective.DoubleBuffer{
+		Slots: [2]driver.DevicePtr{0x1000, 0x2000},
+		Bytes: 64,
+	}
+	pipeline, err := cudacollective.NewPipelineManager(comm, buf, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validOp := cudacollective.OperationDescriptor{
+		Kind:         cudacollective.KindAllReduce,
+		DataType:     cudair.Float32,
+		Count:        4,
+		Reduction:    cudacollective.ReductionSum,
+		Topology:     cudacollective.TopologyAny,
+		PipelineSlot: 0,
+	}
+
+	invalidCases := []struct {
+		name    string
+		mutate  func(*cudacollective.OperationDescriptor)
+		wantErr error
+	}{
+		{"zero kind", func(op *cudacollective.OperationDescriptor) { op.Kind = 0 }, nil},
+		{"negative kind", func(op *cudacollective.OperationDescriptor) { op.Kind = cudacollective.Kind(-1) }, nil},
+		{"unknown kind above range", func(op *cudacollective.OperationDescriptor) { op.Kind = cudacollective.KindP2P + 1 }, nil},
+		{"negative dtype", func(op *cudacollective.OperationDescriptor) { op.DataType = cudair.DataType(-1) }, nil},
+		{"unknown dtype above range", func(op *cudacollective.OperationDescriptor) { op.DataType = cudair.Int8 + 1 }, nil},
+		{"omitted reduction on AllReduce", func(op *cudacollective.OperationDescriptor) { op.Reduction = 0 }, nil},
+		{"omitted reduction on ReduceScatter", func(op *cudacollective.OperationDescriptor) {
+			op.Kind = cudacollective.KindReduceScatter
+			op.Reduction = 0
+		}, nil},
+		{"omitted reduction on Reduce", func(op *cudacollective.OperationDescriptor) {
+			op.Kind = cudacollective.KindReduce
+			op.Reduction = 0
+		}, nil},
+		{"invalid reduction on AllReduce", func(op *cudacollective.OperationDescriptor) {
+			op.Reduction = cudacollective.ReductionAvg + 1
+		}, nil},
+		{"invalid reduction on AllGather", func(op *cudacollective.OperationDescriptor) {
+			op.Kind = cudacollective.KindAllGather
+			op.Reduction = cudacollective.Reduction(-1)
+		}, nil},
+		{"negative topology", func(op *cudacollective.OperationDescriptor) {
+			op.Topology = cudacollective.TopologyRequirement(-1)
+		}, cudacollective.ErrTopologyMismatch},
+		{"unknown topology above range", func(op *cudacollective.OperationDescriptor) {
+			op.Topology = cudacollective.TopologyRDMA + 1
+		}, cudacollective.ErrTopologyMismatch},
+		{"zero count", func(op *cudacollective.OperationDescriptor) {
+			op.Count = 0
+		}, cudacollective.ErrCountMismatch},
+		{"negative count", func(op *cudacollective.OperationDescriptor) {
+			op.Count = -4
+		}, cudacollective.ErrCountMismatch},
+		{"invalid root", func(op *cudacollective.OperationDescriptor) {
+			op.Root = 2
+		}, cudacollective.ErrInvalidRank},
+		{"invalid pipeline slot", func(op *cudacollective.OperationDescriptor) {
+			op.PipelineSlot = 2
+		}, nil},
+		{"element byte overflow", func(op *cudacollective.OperationDescriptor) {
+			op.Count = maxInt/4 + 1
+		}, cudacollective.ErrBufferLengthMismatch},
+		{"rank multiplier overflow AllGather", func(op *cudacollective.OperationDescriptor) {
+			op.Kind = cudacollective.KindAllGather
+			op.Reduction = 0
+			op.Count = maxInt / 4
+		}, cudacollective.ErrBufferLengthMismatch},
+		{"rank multiplier overflow ReduceScatter", func(op *cudacollective.OperationDescriptor) {
+			op.Kind = cudacollective.KindReduceScatter
+			op.Count = maxInt / 4
+		}, cudacollective.ErrBufferLengthMismatch},
+		{"rank multiplier overflow AllToAll", func(op *cudacollective.OperationDescriptor) {
+			op.Kind = cudacollective.KindAllToAll
+			op.Reduction = 0
+			op.Count = maxInt / 4
+		}, cudacollective.ErrBufferLengthMismatch},
+	}
+
+	ctx := context.Background()
+	for _, tc := range invalidCases {
+		t.Run(tc.name, func(t *testing.T) {
+			badOp := validOp
+			tc.mutate(&badOp)
+
+			tr, err := pipeline.SubmitStage(ctx, badOp)
+			if err == nil || tr != nil {
+				t.Fatalf("SubmitStage(%s) = (%v, %v); want (nil, error)", tc.name, tr, err)
+			}
+			if tc.wantErr != nil && !errors.Is(err, tc.wantErr) {
+				t.Fatalf("SubmitStage(%s) error = %v; want %v", tc.name, err, tc.wantErr)
+			}
+
+			// Both slot ranges in the communicator must remain unreserved after refusal.
+			for slot := 0; slot < 2; slot++ {
+				probe, err := comm.AcquireTransferBuffer(uintptr(buf.Slots[slot]), buf.Bytes, slot)
+				if err != nil {
+					t.Fatalf("slot %d unexpectedly reserved after rejected SubmitStage(%s): %v", slot, tc.name, err)
+				}
+				comm.ReleaseTransferBuffer(probe, nil)
+			}
+
+			// Valid positive submission must still succeed in slot 0 (proving neither
+			// pending queue capacity nor ping-pong activeSlot was mutated by refusal),
+			// and cycle through slot 1 back to slot 0 for the next case.
+			pos0, err := pipeline.SubmitStage(ctx, validOp)
+			if err != nil {
+				t.Fatalf("valid SubmitStage slot 0 after %s failed: %v", tc.name, err)
+			}
+			if pos0.Slot != 0 || pos0.BufferAddr != uintptr(buf.Slots[0]) {
+				t.Fatalf("valid SubmitStage after %s bound slot=%d addr=0x%x; want slot=0 addr=0x%x",
+					tc.name, pos0.Slot, pos0.BufferAddr, buf.Slots[0])
+			}
+			pipeline.CompleteStage(pos0, nil)
+
+			pos1, err := pipeline.SubmitStage(ctx, validOp)
+			if err != nil {
+				t.Fatalf("valid SubmitStage slot 1 after %s failed: %v", tc.name, err)
+			}
+			if pos1.Slot != 1 || pos1.BufferAddr != uintptr(buf.Slots[1]) {
+				t.Fatalf("second valid SubmitStage after %s bound slot=%d addr=0x%x; want slot=1 addr=0x%x",
+					tc.name, pos1.Slot, pos1.BufferAddr, buf.Slots[1])
+			}
+			pipeline.CompleteStage(pos1, nil)
+		})
+	}
 }

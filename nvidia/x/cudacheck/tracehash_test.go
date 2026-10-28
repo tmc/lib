@@ -515,62 +515,62 @@ func TestTraceHash_Mutant_CacheHitArtifactMismatch(t *testing.T) {
 		JITOptLevel:          3,
 	}
 
-	// Simulate a cached artifact that was compiled without --extra-device-vectorization (e.g. from baseline)
-	unperturbedArtifact := &cudakernel.Artifact{
-		CompilerOpts: []string{"-std=c++17"},
-		JITOptions: cudakernel.JITOptions{
+	// Use observed compiler metadata without --extra-device-vectorization (as returned from a baseline compile)
+	unperturbed := optionSourceFixture{
+		opts: []string{"-std=c++17"},
+		jit: cudakernel.JITOptions{
 			OptLevel: 3,
 		},
 	}
 
-	err := ValidatePerturbationArtifact(pert, unperturbedArtifact)
+	err := validatePerturbationOptions(pert, unperturbed.jit, unperturbed.opts)
 	if err == nil {
-		t.Fatal("expected ValidatePerturbationArtifact to reject unperturbed artifact for vectorize_on")
+		t.Fatal("expected metadata validation to reject unperturbed artifact for vectorize_on")
 	}
 	if !errors.Is(err, ErrPerturbationArtifactMismatch) {
 		t.Errorf("got error %v, want ErrPerturbationArtifactMismatch", err)
 	}
 
-	// Simulate an artifact with mismatched JIT opt level
-	optLevelMismatchArtifact := &cudakernel.Artifact{
-		CompilerOpts: []string{"-std=c++17", "--extra-device-vectorization"},
-		JITOptions: cudakernel.JITOptions{
+	// Use observed metadata with a mismatched JIT opt level
+	optLevelMismatch := optionSourceFixture{
+		opts: []string{"-std=c++17", "--extra-device-vectorization"},
+		jit: cudakernel.JITOptions{
 			OptLevel: 4, // requested 3, cached 4
 		},
 	}
 
-	err = ValidatePerturbationArtifact(pert, optLevelMismatchArtifact)
+	err = validatePerturbationOptions(pert, optLevelMismatch.jit, optLevelMismatch.opts)
 	if err == nil {
-		t.Fatal("expected ValidatePerturbationArtifact to reject artifact with mismatched JIT opt level")
+		t.Fatal("expected metadata validation to reject artifact with mismatched JIT opt level")
 	}
 	if !errors.Is(err, ErrPerturbationArtifactMismatch) {
 		t.Errorf("got error %v, want ErrPerturbationArtifactMismatch", err)
 	}
 
-	// Valid matching artifact
-	matchingArtifact := &cudakernel.Artifact{
-		CompilerOpts: []string{"-std=c++17", "--extra-device-vectorization"},
-		JITOptions: cudakernel.JITOptions{
+	// Valid matching metadata
+	matching := optionSourceFixture{
+		opts: []string{"-std=c++17", "--extra-device-vectorization"},
+		jit: cudakernel.JITOptions{
 			OptLevel: 3,
 		},
 	}
-	if err := ValidatePerturbationArtifact(pert, matchingArtifact); err != nil {
-		t.Errorf("unexpected validation failure for matching artifact: %v", err)
+	if err := validatePerturbationOptions(pert, matching.jit, matching.opts); err != nil {
+		t.Errorf("unexpected validation failure for matching metadata: %v", err)
 	}
 }
 
 func TestValidatePerturbationArtifactRejectsOutOfRange(t *testing.T) {
 	for _, level := range []int{-1, 5, 7} {
 		pert := Perturbation{Name: "invalid", JITOptLevel: level}
-		art := &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(level)}}
-		if err := ValidatePerturbationArtifact(pert, art); err == nil {
+		art := optionSourceFixture{jit: cudakernel.JITOptions{OptLevel: uint32(level)}}
+		if err := validatePerturbationOptions(pert, art.jit, art.opts); err == nil {
 			t.Errorf("ValidatePerturbationArtifact(%d) succeeded", level)
 		}
 	}
 	for _, level := range []int{0, 1, 4} {
 		pert := Perturbation{Name: "valid", JITOptLevel: level}
-		art := &cudakernel.Artifact{JITOptions: cudakernel.JITOptions{OptLevel: uint32(level), OptLevelSet: true}}
-		if err := ValidatePerturbationArtifact(pert, art); err != nil {
+		art := optionSourceFixture{jit: cudakernel.JITOptions{OptLevel: uint32(level), OptLevelSet: true}}
+		if err := validatePerturbationOptions(pert, art.jit, art.opts); err != nil {
 			t.Errorf("ValidatePerturbationArtifact(%d) = %v", level, err)
 		}
 	}
@@ -682,5 +682,32 @@ func TestContaminatedAccumulatorFailsWithoutReset(t *testing.T) {
 	err := validateAccumulatorState(0xdeadbeef, 8, 0x3f800000)
 	if !errors.Is(err, ErrContaminatedAccumulator) {
 		t.Fatalf("second launch state error = %v", err)
+	}
+}
+
+// This is a real sealed PTX descriptor, not evidence of compiler execution.
+func TestValidatePerturbationArtifactHandle(t *testing.T) {
+	flags := []string{"--extra-device-vectorization"}
+	jit := cudakernel.JITOptions{OptLevel: 3}
+	a, err := cudakernel.NewArtifact(cudakernel.KindPTX,
+		[]byte(".version 8.0\n.target sm_80\n.address_size 64\n.visible .entry k() { ret; }\n"),
+		"k", cudakernel.Schema{}, "sm_80", cudakernel.WithCompilerOptions(flags), cudakernel.WithJIT(jit))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := Perturbation{ExtraDeviceVectorize: true, JITOptLevel: 3}
+	if err := ValidatePerturbationArtifact(p, a); err != nil {
+		t.Fatal(err)
+	}
+	a.CompilerOptions()[0] = "detached change"
+	if err := ValidatePerturbationArtifact(p, a); err != nil {
+		t.Fatal(err)
+	}
+	p.ExtraDeviceVectorize = false
+	if err := ValidatePerturbationArtifact(p, a); !errors.Is(err, ErrPerturbationArtifactMismatch) {
+		t.Fatalf("vectorization mismatch: %v", err)
+	}
+	if err := ValidatePerturbationArtifact(p, nil); !errors.Is(err, ErrPerturbationArtifactMismatch) {
+		t.Fatalf("nil artifact: %v", err)
 	}
 }

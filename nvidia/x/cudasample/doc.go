@@ -10,4 +10,11 @@
 // logits pointer, an int32 output pointer, and an int32 vocabulary size. Launch
 // one block of 256 threads, keep both buffers alive through completion, and
 // synchronize before reading the output on the host.
+//
+// [SampleSeededCPU], [SampleBatchSeededCPU], and [VerifySpeculativeSeededCPU]
+// provide batch-invariant per-sequence deterministic sampling and speculative
+// rejection verification keyed by (SeqSeed, StepOffset) via [Philox4x32_10],
+// [PhiloxUniformFloat32], and sorting-free [SumSmallerProbsCPU].
+// [SeededSampleKernelSource] emits the corresponding NVRTC CUDA C++ kernel
+// source.
 package cudasample

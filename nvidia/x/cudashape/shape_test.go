@@ -144,10 +144,15 @@ func TestShapeBindingRejected(t *testing.T) {
 			setup: func() (cudashape.SymbolicShape, *cudashape.Environment, error) {
 				env := cudashape.NewEnvironment()
 				_ = env.Bind("batch", 16)
-				sym := cudashape.NewSymbolicShape(
-					cudashape.NamedDim("batch"),
-					cudashape.NamedDim("seq_len"), // un-bound!
-				)
+				batch, err := cudashape.NamedDim("batch")
+				if err != nil {
+					return cudashape.SymbolicShape{}, nil, err
+				}
+				seq, err := cudashape.NamedDim("seq_len") // un-bound!
+				if err != nil {
+					return cudashape.SymbolicShape{}, nil, err
+				}
+				sym := cudashape.NewSymbolicShape(batch, seq)
 				return sym, env, nil
 			},
 			expectErr: cudashape.ErrUnboundSymbol,

@@ -23,6 +23,7 @@ type PipelineManager struct {
 	activeSlot   int // 0 or 1
 	inFlight     [2]*InFlightTransfer
 	completed    [2]bool
+	unquiesced   [2]*CompletionError
 	maxQueueSize int
 	pending      int32
 }
@@ -63,10 +64,16 @@ func NewPipelineManager(comm *Communicator, buf DoubleBuffer, maxQueueSize int) 
 // If the target slot is currently in flight or maxQueueSize is exceeded,
 // it fails with ErrBackpressureExceeded or ErrBufferInUse rather than corrupting memory.
 func (p *PipelineManager) SubmitStage(ctx context.Context, op OperationDescriptor) (*InFlightTransfer, error) {
+	if p == nil || p.comm == nil {
+		return nil, ErrCommunicatorClosed
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if err := p.comm.CheckAlive(); err != nil {
+		return nil, err
+	}
+	if err := op.Validate(p.comm.Membership().WorldSize()); err != nil {
 		return nil, err
 	}
 
@@ -104,7 +111,10 @@ func (p *PipelineManager) SubmitStage(ctx context.Context, op OperationDescripto
 	return tr, nil
 }
 
-// CompleteStage marks a completed transfer stage, decrementing pending backpressure.
+// CompleteStage retires quiescent work, decrementing pending backpressure.
+// A pending CompletionError does not establish quiescence and leaves the slot
+// reserved. After its Close succeeds, call CompleteStage again with the same
+// error to retire the transfer while preserving its execution failure.
 func (p *PipelineManager) CompleteStage(tr *InFlightTransfer, err error) {
 	if tr == nil {
 		return
@@ -113,6 +123,21 @@ func (p *PipelineManager) CompleteStage(tr *InFlightTransfer, err error) {
 	defer p.mu.Unlock()
 	if tr.Slot < 0 || tr.Slot >= len(p.inFlight) || p.inFlight[tr.Slot] != tr || p.completed[tr.Slot] {
 		return
+	}
+	if pending := pendingCompletion(err); pending != nil {
+		if p.unquiesced[tr.Slot] == nil {
+			p.unquiesced[tr.Slot] = pending
+		}
+		return
+	}
+	if pending := p.unquiesced[tr.Slot]; pending != nil {
+		if pending.Pending() {
+			return
+		}
+		if err == nil {
+			err = pending
+		}
+		p.unquiesced[tr.Slot] = nil
 	}
 	p.completed[tr.Slot] = true
 	p.comm.ReleaseTransferBuffer(tr, err)

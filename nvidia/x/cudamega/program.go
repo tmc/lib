@@ -9,12 +9,17 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudataskgraph"
 )
 
-// Operation is a finite elementwise task. Add and Multiply compute input plus
-// or times Scalar using uint32 arithmetic.
+// Operation is a finite task. Add and Multiply compute input plus or times
+// Scalar using uint32 arithmetic. Typed MoE constructors seal expert and
+// routing operations with their checked configuration.
 type Operation struct {
 	Kind   Opcode
 	Scalar uint32
-	moe    *MoEWeightConfig
+	// Body replaces Kind and Scalar when non-nil. Kind and Scalar must then
+	// be zero. The caller retains the immutable body through every invocation.
+	Body     Body
+	moe      *MoEWeightConfig
+	typedMoE *MoEOperation
 }
 
 type Opcode uint8
@@ -22,9 +27,13 @@ type Opcode uint8
 const (
 	Add Opcode = iota + 1
 	Multiply
-	// MoEGateUp is the typed payload emitted only by MoEWeightSource.
-	// The scalar ProgramSource and public NewProgram refuse it.
+	// MoEGateUp identifies an expert gate/up operation. Use
+	// MoEGateUpOperation to construct a portable typed operation; an
+	// unsealed Kind value is refused.
 	MoEGateUp
+
+	// MoECombine routes one or two expert intermediate activations.
+	MoECombine
 )
 
 // Abort codes the generated worker writes to the volatile abort buffer. Zero
@@ -47,6 +56,10 @@ const (
 	// AbortBadCompletion means a dependency reports more completed CTAs
 	// than its ownership permits. Such a count cannot publish valid output.
 	AbortBadCompletion = 5
+
+	// AbortStaleCompletion means a task's completion slot was nonzero at
+	// worker entry. It is distinct from a count exceeding its owner width.
+	AbortStaleCompletion = 6
 )
 
 // DefaultSpinLimit is the poll-iteration bound a dependency wait uses when
@@ -74,10 +87,11 @@ const DefaultSpinLimit = 1 << 24
 // from the one the code was generated for has a different static task-to-CTA
 // mapping, and the abort buffer is how it says so.
 //
-// Buffers: scratch has len(tasks)*n uint32 elements; completed has len(tasks)
+// Buffers: scratch has Program.Invocation(n).ScratchWords uint32 elements,
+// laid out as Program.Storage(n) records; completed has len(tasks)
 // words, zeroed by the host before each epoch, and counts arriving CTAs;
-// start_order has [StartOrderWords] uint64 words and records when each CTA
-// took each task; abort_code is one volatile word. The caller retains every
+// start_order has [StartOrderWords] freshly zeroed uint64 words for entry and
+// task-start tickets; abort_code is one volatile word. The caller retains every
 // buffer until stream completion.
 //
 // Epoch must be nonzero, and the parameter is 64 bits wide because the host's
@@ -99,6 +113,9 @@ func ProgramSource(g cudataskgraph.Graph, operations map[string]Operation, grid 
 // The text is what the CUDA backend writes when the driver walks the program,
 // so it cannot drift from what that backend does: there is no second emitter.
 func (p *Program) Source() (string, error) {
+	if p != nil && p.hasTypedMoE() {
+		return p.moeMixtureSource()
+	}
 	c := &cudaSource{p: p}
 	r, err := NewRunner(p, c)
 	if err != nil {
@@ -189,9 +206,7 @@ var ordinaryKernel string
 func workerPrologue(barrier, phase bool, maxElements uint32) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, workerEntry, AbortBadLaunch, AbortBadExtent)
-	if maxElements != 0 {
-		fmt.Fprintf(&b, "  if (n > %du) {\n    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, %du);\n    return;\n  }\n", maxElements, AbortBadExtent)
-	}
+	fmt.Fprintf(&b, "  if (n > %du) {\n    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, %du);\n    return;\n  }\n", maxElements, AbortBadExtent)
 	if barrier {
 		b.WriteString(ctaBarrierInit)
 	}
@@ -208,17 +223,21 @@ const workerEpilogue = `
 // StartOrderWords is the length of the start-order buffer, in uint64 words,
 // for a program of the given shape.
 //
-// The buffer is the overlap instrument. Word zero is the ticket counter; word
+// The buffer combines overlap instrumentation and startup state.
+// Word zero is the ticket counter; word
 // 1 + cta*tasks + task is the ticket that CTA held when it took that task,
 // one-based so that zero means the CTA never took it. Tickets come from a
 // single device-scope atomic, so they order task starts across CTAs and not
 // only within one, which is the whole question the instrument exists to
 // answer: whether the workers are in the same task at the same time.
+// The final two words are startup arrivals and release state. Both must be
+// freshly zeroed, together with the ticket counter and tickets, before each
+// invocation. All initially zero completion words are checked before release.
 func StartOrderWords(tasks, ctas uint64) (uint64, error) {
 	if tasks == 0 || tasks > 1024 || ctas == 0 || ctas > math.MaxUint32 {
 		return 0, fmt.Errorf("invalid start-order extent")
 	}
-	return 1 + tasks*ctas, nil
+	return 3 + tasks*ctas, nil
 }
 
 // ProgramScratchBytes checks the finite worker's scratch extent and returns

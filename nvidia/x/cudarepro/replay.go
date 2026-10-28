@@ -48,6 +48,12 @@ func Read(r io.Reader, limit int64) (*Launch, error) {
 // replay. It must not mutate the record. Aliases retain their original offsets.
 // Replay does not recreate concurrent work, mutable globals or external state.
 func (l *Launch) Replay(dev *cuda.Device, before func(*Launch) error) (result map[string][]byte, err error) {
+	if l != nil && l.Artifact != nil {
+		captured := *l
+		artifact := *l.Artifact
+		captured.Artifact = &artifact
+		l = &captured
+	}
 	if err := l.Validate(); err != nil {
 		return nil, err
 	}
@@ -70,13 +76,13 @@ func (l *Launch) Replay(dev *cuda.Device, before func(*Launch) error) (result ma
 		return nil, errors.Join(err, dev.WithContext(raw.Close))
 	}
 	defer func() { err = errors.Join(err, mod.Close()) }()
-	kernel, err := mod.Function(l.Artifact.EntryPoint)
+	kernel, err := mod.Function(l.Artifact.EntryPoint())
 	if err != nil {
 		return nil, err
 	}
 
 	err = dev.WithContext(func() error {
-		f, err := raw.Function(l.Artifact.EntryPoint)
+		f, err := raw.Function(l.Artifact.EntryPoint())
 		if err != nil {
 			return err
 		}

@@ -105,7 +105,7 @@ func TestLocalPublicationWins(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			key := art.Digest
+			key := art.Digest()
 			readDone := make(chan struct{})
 			go func() {
 				defer close(readDone)

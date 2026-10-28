@@ -28,14 +28,14 @@ func TestExecutionRecord(t *testing.T) {
 	if rec.TimestampNs < before || rec.TimestampNs > after || rec.DurationNs != 0 || rec.CorrelationID != 0 {
 		t.Fatalf("bad timing: %+v", rec)
 	}
-	if rec.KernelName != source.launch.Artifact.EntryPoint {
+	if rec.KernelName != source.launch.Artifact.EntryPoint() {
 		t.Fatal("lost entry identity")
 	}
 	for key, want := range map[string]string{
 		"record_kind": "device_bpf_snapshot", "duration_status": "unavailable",
 		"timestamp_source": "host_snapshot_publication", "device_bpf.map_slots": "2",
 		"device_bpf.map_misses": "29", "device_bpf.active_mask": "5",
-		"device_bpf.image_digest": source.launch.Artifact.Digest,
+		"device_bpf.image_digest": source.launch.Artifact.Digest(),
 	} {
 		if rec.Labels[key] != want {
 			t.Errorf("%s=%q want %q", key, rec.Labels[key], want)

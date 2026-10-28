@@ -81,7 +81,7 @@ func TestFenceScopeIsTheMaxOfItsEdge(t *testing.T) {
 					want = cs
 				}
 				g, ops := scopePair(t, ps, cs)
-				grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}
+				grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, MaxElements: 1}
 				p, err := cudamega.NewProgram(g, ops, grid, goldenTarget)
 				if err != nil {
 					t.Fatal(err)
@@ -159,7 +159,7 @@ func TestRefusedScopePairIsRefusedAtBothEnds(t *testing.T) {
 			name := fmt.Sprintf("%s/%s-%s", target, scopeLabel(pair.producer), scopeLabel(pair.consumer))
 			t.Run(name, func(t *testing.T) {
 				g, ops := scopePair(t, pair.producer, pair.consumer)
-				_, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}, target)
+				_, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, MaxElements: 1}, target)
 				if err == nil {
 					t.Fatalf("accepted an edge this package cannot order: %s over %s",
 						scopeLabel(pair.consumer), scopeLabel(pair.producer))
@@ -183,7 +183,7 @@ func TestRefusedScopePairIsRefusedAtBothEnds(t *testing.T) {
 				continue
 			}
 			g, ops := scopePair(t, ps, cs)
-			if _, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}, goldenTarget); err != nil {
+			if _, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, MaxElements: 1}, goldenTarget); err != nil {
 				t.Errorf("refused an orderable pair %s over %s: %v", scopeLabel(cs), scopeLabel(ps), err)
 			}
 		}
@@ -253,7 +253,7 @@ func TestSelectionIgnoresBytes(t *testing.T) {
 		"upper": {Kind: cudamega.Add, Scalar: 5},
 		"cross": {Kind: cudamega.Multiply, Scalar: 2},
 	}
-	grid := cudamega.Grid{CTAs: 4, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy}
+	grid := cudamega.Grid{CTAs: 4, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy, MaxElements: 1}
 
 	owners := func(tasks []cudataskgraph.Task) ([]cudamega.Owner, string) {
 		t.Helper()

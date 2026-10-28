@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "observe.h"
+#include "registry.h"
 
 typedef int (*cuLaunchKernel_t)(void* f, unsigned int gridDimX, unsigned int gridDimY, unsigned int gridDimZ,
                                 unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ,
@@ -25,6 +26,7 @@ typedef int (*cuLaunchKernel_t)(void* f, unsigned int gridDimX, unsigned int gri
 static cuLaunchKernel_t real_cuLaunchKernel = NULL;
 static pthread_once_t resolve_once = PTHREAD_ONCE_INIT;
 static _Thread_local int resolving;
+static _Thread_local int launching;
 
 static void resolve_symbol(void) {
     if (resolving) return;
@@ -139,7 +141,18 @@ int cuLaunchKernel(void* f, unsigned int gridDimX, unsigned int gridDimY, unsign
     if (resolving) return 3; /* CUDA_ERROR_NOT_INITIALIZED: fail closed. */
     pthread_once(&resolve_once, resolve_symbol);
     if (!real_cuLaunchKernel) return 3; /* CUDA_ERROR_NOT_INITIALIZED: fail closed. */
+    const uint32_t grid[3] = {gridDimX, gridDimY, gridDimZ};
+    const uint32_t block[3] = {blockDimX, blockDimY, blockDimZ};
+    uint64_t generation;
+    int nested = launching;
+    launching = 1;
+    uint32_t reason = cudaintercept_replay_decide_v1((uint64_t)(uintptr_t)f,
+        (uint64_t)(uintptr_t)hStream, grid, block, sharedMemBytes,
+        kernelParams != NULL, extra != NULL, nested, &generation);
     int result = real_cuLaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams, extra);
+    launching = nested;
+    cudaintercept_decision_record_v1(reason, generation, (uint64_t)(uintptr_t)f,
+        (uint64_t)(uintptr_t)hStream, result);
     /* Observation follows forwarding and cannot change the result. */
     pthread_once(&observe_once, observe_init);
     if (observing)

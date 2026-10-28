@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -67,6 +69,9 @@ func goTraceValidateCheck(t *testing.T, before Bundle, b *Bundle, r *GoTraceVali
 	if !strings.HasPrefix(r.Status, r.Outcome+": ") {
 		t.Errorf("Status %q does not name Outcome %q", r.Status, r.Outcome)
 	}
+	if r.Outcome == "decoded" && !strings.HasSuffix(r.Status, "; timing unvalidated; completeness unknown") {
+		t.Errorf("decoded Status %q does not leave timing unvalidated and completeness unknown", r.Status)
+	}
 }
 
 func goTraceValidateSHA(data []byte) string {
@@ -84,7 +89,7 @@ func goTraceValidateBridge(dec *stack.GoTraceDecoder, p stack.GoProducer) GoTrac
 		if err != nil {
 			return "", err
 		}
-		return "cmd/trace admission " + r.Admission, nil
+		return "cmd/trace admission " + r.Admission + "; completeness " + r.Completeness, nil
 	}
 }
 
@@ -288,7 +293,7 @@ func TestValidateGoTraceDecoded(t *testing.T) {
 	}
 	want := GoTraceValidation{
 		Outcome:     "decoded",
-		Status:      "decoded: caller assertion by test decoder; timing unvalidated",
+		Status:      "decoded: caller assertion by test decoder; timing unvalidated; completeness unknown",
 		Authority:   GoTraceValidatorAuthority,
 		Decoder:     "test decoder",
 		InputSHA256: goTraceValidateSHA(goTraceValidateTrace),
@@ -330,24 +335,29 @@ func TestValidateGoTraceIsolation(t *testing.T) {
 	}
 }
 
-// R1b and R9b: the bridge over an unselected or header-refusing adapter is
+// R1b and R9b: the bridge over an unselected, header-refusing or
+// unadmitted adapter, or over the admitted tuple with a missing scratch, is
 // unavailable, never rejected, and never panics.
 func TestValidateGoTraceBridge(t *testing.T) {
-	producer := stack.GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "arm64"}
+	admitted := stack.GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "arm64"}
+	unadmitted := stack.GoProducer{GoVersion: "go1.27.1", GOOS: "darwin", GOARCH: "arm64"}
+	missing := &stack.GoTraceDecoder{Tool: "/nonexistent-c6d1/trace", Scratch: "/nonexistent-c6d1/scratch"}
 	n9 := []byte("go 1.27 trace\x00not trace records")
 	for _, tt := range []struct {
-		name string
-		dec  *stack.GoTraceDecoder
-		data []byte
-		want error
+		name     string
+		dec      *stack.GoTraceDecoder
+		producer stack.GoProducer
+		data     []byte
+		want     error
 	}{
-		{"nil decoder", nil, goTraceValidateTrace, stack.ErrGoTraceDecoderUnselected},
-		{"zero decoder", new(stack.GoTraceDecoder), goTraceValidateTrace, stack.ErrGoTraceDecoderUnselected},
-		{"historical header", &stack.GoTraceDecoder{Tool: "/nonexistent-c6d1/trace", Scratch: "/nonexistent-c6d1/scratch"}, n9, stack.ErrGoTraceHeader},
-		{"unadmitted", &stack.GoTraceDecoder{Tool: "/nonexistent-c6d1/trace", Scratch: "/nonexistent-c6d1/scratch"}, goTraceValidateTrace, stack.ErrGoTraceUnadmitted},
+		{"nil decoder", nil, admitted, goTraceValidateTrace, stack.ErrGoTraceDecoderUnselected},
+		{"zero decoder", new(stack.GoTraceDecoder), admitted, goTraceValidateTrace, stack.ErrGoTraceDecoderUnselected},
+		{"historical header", missing, admitted, n9, stack.ErrGoTraceHeader},
+		{"unadmitted", missing, unadmitted, goTraceValidateTrace, stack.ErrGoTraceUnadmitted},
+		{"admitted tuple, missing scratch", missing, admitted, goTraceValidateTrace, stack.ErrGoTraceScratch},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			r, err := goTraceValidateCall(t, context.Background(), goTraceValidateBundle(tt.data), goTraceValidateBridge(tt.dec, producer))
+			r, err := goTraceValidateCall(t, context.Background(), goTraceValidateBundle(tt.data), goTraceValidateBridge(tt.dec, tt.producer))
 			if !errors.Is(err, tt.want) || errors.Is(err, ErrArtifactInvalid) || r == nil || r.Outcome != "unavailable" {
 				t.Errorf("got %+v, %v", r, err)
 			}
@@ -355,13 +365,160 @@ func TestValidateGoTraceBridge(t *testing.T) {
 	}
 }
 
-// R9 (stage 2) needs an admitted decoder; D1 admits none. The name keeps it
-// out of the stage U selection; it never passes.
-func TestStage2ValidateGoTraceAdmitted(t *testing.T) {
-	if os.Getenv("CUDAPROF_GO_TRACE_REQUIRED") == "1" {
-		t.Fatal("stage 2 R9 requires an admitted decoder record; none is admitted")
+// The stage-1 writer receipt and the authentic trace it describes, written
+// by one public cudaprof.StartHostProfile run whose bounded writers fail
+// rather than truncate; the receipt exists only because Stop reported no
+// write failure.
+const (
+	goTraceWriterReceiptSHA256 = "e0e45625e6d3a6c3dc7f1aff8f9314384bcfe9ebf5e2e9d1c84897ddebf42607"
+	goTraceAuthenticSHA256     = "05a86dab1b8a7242fb1e04f55fd2f41535d73e6ea36a423b3b27791767164e90"
+)
+
+// goTraceStage2 returns the admitted decoder over a fresh 0700 scratch, the
+// producer the writer receipt asserts, and the authentic trace, checked
+// against the receipt. It skips unless CUDAPROF_GO_TRACE_DECODER,
+// CUDAPROF_GO_TRACE_INPUT and CUDAPROF_GO_TRACE_WRITER_RECEIPT are set, or
+// fails when CUDAPROF_GO_TRACE_REQUIRED=1.
+func goTraceStage2(t *testing.T) (*stack.GoTraceDecoder, stack.GoProducer, []byte) {
+	t.Helper()
+	env := make(map[string]string)
+	for _, k := range []string{"DECODER", "INPUT", "WRITER_RECEIPT"} {
+		env[k] = os.Getenv("CUDAPROF_GO_TRACE_" + k)
+		if env[k] == "" {
+			if os.Getenv("CUDAPROF_GO_TRACE_REQUIRED") == "1" {
+				t.Fatalf("CUDAPROF_GO_TRACE_%s is required", k)
+			}
+			t.Skipf("CUDAPROF_GO_TRACE_%s not set", k)
+		}
 	}
-	t.Skip("stage 2 R9: NOT RUN (no admitted decoder record)")
+	data, err := os.ReadFile(env["INPUT"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := os.ReadFile(env["WRITER_RECEIPT"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if goTraceValidateSHA(data) != goTraceAuthenticSHA256 || goTraceValidateSHA(receipt) != goTraceWriterReceiptSHA256 {
+		t.Fatalf("trace or writer receipt is not the pinned stage-1 file")
+	}
+	var w struct {
+		GoVersion string `json:"go_version"`
+		GOOS      string `json:"goos"`
+		GOARCH    string `json:"goarch"`
+		Header    string `json:"trace_header"`
+		Bytes     int    `json:"trace_bytes"`
+		SHA256    string `json:"trace_sha256"`
+	}
+	if err := json.Unmarshal(receipt, &w); err != nil {
+		t.Fatal(err)
+	}
+	if w.Bytes != len(data) || w.SHA256 != goTraceAuthenticSHA256 || len(data) < 16 || w.Header != strconv.Quote(string(data[:16])) {
+		t.Fatalf("writer receipt describes %d bytes %s header %s, not the trace", w.Bytes, w.SHA256, w.Header)
+	}
+	scratch := t.TempDir()
+	if err := os.Chmod(scratch, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if entries, err := os.ReadDir(scratch); err != nil || len(entries) != 0 {
+			t.Errorf("scratch holds %v, %v", entries, err)
+		}
+	})
+	return &stack.GoTraceDecoder{Tool: env["DECODER"], Scratch: scratch}, stack.GoProducer{GoVersion: w.GoVersion, GOOS: w.GOOS, GOARCH: w.GOARCH}, data
+}
+
+// goTraceRetain writes data in 4 KiB chunks, as the runtime writer would,
+// through the standard adapter's buffer capped at maxBytes, and reads back
+// a recorder snapshot whose go.trace provider is that adapter.
+func goTraceRetain(t *testing.T, data []byte, maxBytes uint64) *Bundle {
+	t.Helper()
+	b := &syncBuffer{maxBytes: maxBytes}
+	for p := data; len(p) > 0; {
+		n := min(len(p), 4096)
+		if m, err := b.Write(p[:n]); m != n || err != nil {
+			t.Fatalf("Write = %d, %v", m, err)
+		}
+		p = p[n:]
+	}
+	s := &standardTraceRecorder{buf: b, running: true}
+	r, err := New(Config{Capacity: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	r.SetGoTraceProvider(s.Snapshot)
+	var w bytes.Buffer
+	if _, err := r.Snapshot(context.Background(), &w, "c6d1 stage 2"); err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := ReadBundle(&w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bundle
+}
+
+// R9 (stage 2): the admitted decoder behind the recorder's own retention.
+// No loss is established by the stage-1 writer receipt and the recorder's
+// cap accounting, never by the decode: the decoder accepts the same trace
+// cut at its generation boundary, with the same unknown completeness.
+func TestStage2ValidateGoTraceAdmitted(t *testing.T) {
+	dec, p, data := goTraceStage2(t)
+	v := goTraceValidateBridge(dec, p)
+	const eog = 13936 // end of generation 1, as TestGoTraceQualificationCuts finds
+	if data[eog-1] != 52 {
+		t.Fatalf("byte %d is %d, not the end-of-generation marker", eog-1, data[eog-1])
+	}
+	admission := "cmd/trace admission 412bcbb8468cc211a261253540af8dd5c3ad1aa0ea9db326fafa84aa11e6bbb4; completeness unknown: decoder success does not establish completeness or absence of loss"
+	decoded := "decoded: caller assertion by " + admission + "; timing unvalidated; completeness unknown"
+
+	for _, limit := range []uint64{0, uint64(len(data))} {
+		b := goTraceRetain(t, data, limit)
+		status, loss := b.Manifest.ProviderStatus["go.trace"], strings.Join(b.Manifest.LossReasons, "\n")
+		if !bytes.Equal(b.Files["go.trace"], data) || !strings.HasPrefix(status, "unvalidated: ") || strings.Contains(loss, "truncated") {
+			t.Fatalf("cap %d: retained %d bytes, status %q, loss %q; want every byte and no truncation", limit, len(b.Files["go.trace"]), status, loss)
+		}
+		r, err := goTraceValidateCall(t, context.Background(), b, v)
+		if err != nil || r.Outcome != "decoded" || r.Status != decoded || r.Decoder != admission || r.InputSHA256 != goTraceAuthenticSHA256 {
+			t.Fatalf("cap %d: %+v, %v", limit, r, err)
+		}
+		t.Logf("cap %d: retained %d bytes, no loss; %s", limit, len(data), r.Status)
+	}
+
+	for _, limit := range []uint64{uint64(len(data) - 1), eog} {
+		b := goTraceRetain(t, data, limit)
+		want := fmt.Sprintf("unavailable: cudaflightrecorder: go trace truncated: retained %d bytes, dropped %d bytes", limit, uint64(len(data))-limit)
+		if _, ok := b.Files["go.trace"]; ok || b.Manifest.ProviderStatus["go.trace"] != want {
+			t.Errorf("cap %d: retained %v, status %q; want %q", limit, ok, b.Manifest.ProviderStatus["go.trace"], want)
+		}
+		if r, err := goTraceValidateCall(t, context.Background(), b, v); r != nil || !errors.Is(err, ErrGoTraceNotRetained) {
+			t.Errorf("cap %d: %+v, %v; want not retained", limit, r, err)
+		}
+	}
+
+	for _, tt := range []struct {
+		name    string
+		data    []byte
+		outcome string
+		want    error
+	}{
+		{"generation boundary", data[:eog], "decoded", nil},
+		{"header only", data[:16], "unavailable", stack.ErrGoTraceUnproven},
+		{"mid-payload", data[:eog-2], "unavailable", stack.ErrGoTraceDecoderFailed},
+		{"before end of generation", data[:eog-1], "rejected", stack.ErrGoTraceMalformed},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := goTraceValidateCall(t, context.Background(), goTraceValidateBundle(tt.data), v)
+			if r == nil || r.Outcome != tt.outcome || (err == nil) != (tt.want == nil) || tt.want != nil && !errors.Is(err, tt.want) {
+				t.Fatalf("got %+v, %v; want %s %v", r, err, tt.outcome, tt.want)
+			}
+			if tt.outcome == "decoded" && (r.Decoder != admission || r.Status != decoded) || tt.outcome == "unavailable" && errors.Is(err, ErrArtifactInvalid) {
+				t.Errorf("got %+v, %v", r, err)
+			}
+			t.Logf("%d bytes: %s", len(tt.data), r.Status)
+		})
+	}
 }
 
 func ExampleValidateGoTrace() {

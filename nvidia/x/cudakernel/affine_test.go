@@ -7,6 +7,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 )
 
 // affinePTX is a valid, hand-crafted PTX module implementing y[i] = a * x[i] + b.
@@ -111,7 +112,7 @@ func TestNativeAffineArtifact(t *testing.T) {
 	}
 
 	// 3. Host-only validation of ABI packing
-	packed, err := art.Schema.Pack(
+	packed, err := art.Pack(
 		driver.DevicePtr(0x1000), // y
 		driver.DevicePtr(0x2000), // x
 		float32(2.5),             // a
@@ -135,6 +136,10 @@ func TestNativeAffineArtifact(t *testing.T) {
 		t.Skip("native qualification pending: CUDA_COMPILER_TEST=1 required for hardware load")
 	}
 
+	if err := affineNativeAdmission(os.Getenv); err != nil {
+		t.Fatalf("native affine qualification requires an inherited GPU owner: %v", err)
+	}
+
 	dev, err := cuda.NewDevice(0)
 	if err != nil {
 		t.Skipf("CUDA device unavailable: %v", err)
@@ -156,4 +161,10 @@ func TestNativeAffineArtifact(t *testing.T) {
 	defer func() {
 		_ = dev.WithContext(mod.Close)
 	}()
+}
+
+// affineNativeAdmission validates the canonical inherited owner before device setup.
+func affineNativeAdmission(env func(string) string) error {
+	_, err := cudalock.Inherited(env)
+	return err
 }

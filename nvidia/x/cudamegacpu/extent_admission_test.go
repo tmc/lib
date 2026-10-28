@@ -40,9 +40,8 @@ func TestExtentAdmissionBeforeWorkers(t *testing.T) {
 		want     string
 	}{
 		{"above maximum", 0, 1, []uint32{7, 11}, "exceeds maximum"},
-		{"declared too long", 3, 0, []uint32{7, 11}, "declares extent"},
-		{"declared too short", 1, 0, []uint32{7, 11}, "declares extent"},
-		{"empty", 0, 0, nil, "invalid finite program extent"},
+		{"declared too long", 3, 3, []uint32{7, 11}, "requires 3 input elements"},
+		{"empty", 0, 1, nil, "invalid finite program extent"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := extentProgram(t, tc.declared, tc.maximum)
@@ -59,6 +58,22 @@ func TestExtentAdmissionBeforeWorkers(t *testing.T) {
 	}
 }
 
+func TestFixedPrefixExtent(t *testing.T) {
+	e, err := New(cudamega.Admission{ResidentCTAs: 1, WorkerThreads: 32, SharedBytes: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := extentProgram(t, 1, 2)
+	got, err := e.Run(p, []uint32{7, 11}, 1, 0)
+	if err != nil || !reflect.DeepEqual(got.Scratch, []uint32{10, 20}) {
+		t.Fatalf("fixed output extent = %v, %v", got.Scratch, err)
+	}
+	ref, err := Reference(p, []uint32{7, 11})
+	if err != nil || !reflect.DeepEqual(ref, []uint32{10, 20}) {
+		t.Fatalf("fixed ordinary output extent = %v, %v", ref, err)
+	}
+}
+
 func TestExtentAdmissionNumericalParity(t *testing.T) {
 	e, err := New(cudamega.Admission{ResidentCTAs: 1, WorkerThreads: 32, SharedBytes: 1})
 	if err != nil {
@@ -71,10 +86,10 @@ func TestExtentAdmissionNumericalParity(t *testing.T) {
 		declared uint64
 		maximum  uint32
 	}{
-		{"unset", 0, 0},
+		{"runtime", 0, 3},
 		{"at maximum", 0, 3},
 		{"below maximum", 0, 4},
-		{"exact declaration", 3, 0},
+		{"exact declaration", 3, 3},
 		{"declaration and maximum", 3, 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

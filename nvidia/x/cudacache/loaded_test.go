@@ -157,7 +157,7 @@ func TestProbeToolchainConcurrent(t *testing.T) {
 	digests := make([]ToolDigest, 16)
 	errs := make([]error, len(digests))
 	for i := range digests {
-		wg.Go(func() { digests[i], errs[i] = digestToolCached("nvrtc", path) })
+		wg.Go(func() { digests[i], errs[i] = DigestTool("nvrtc", path) })
 	}
 	wg.Wait()
 	for i := range digests {
@@ -170,7 +170,7 @@ func TestProbeToolchainConcurrent(t *testing.T) {
 	if err := os.WriteFile(path, []byte("NVRTC"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	d, err := digestToolCached("nvrtc", path)
+	d, err := DigestTool("nvrtc", path)
 	if err != nil {
 		t.Fatal(err)
 	}

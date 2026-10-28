@@ -30,7 +30,7 @@ func TestJITPublicZeroProducer(t *testing.T) {
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatal(err)
 	}
-	opts, vals := got.JITOptions.DriverOptions()
+	opts, vals := got.JITOptions().DriverOptions()
 	if !reflect.DeepEqual(opts, []driver.JITOption{driver.JITOptimizationLevel}) || !reflect.DeepEqual(vals, []uintptr{0}) {
 		t.Fatal(opts, vals)
 	}

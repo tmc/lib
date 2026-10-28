@@ -65,26 +65,37 @@ func indexedReadPacket(dir, name, source, entry string, schema cudakernel.Schema
 		return nil, err
 	}
 	var p indexedPacket
+	// Decode the nested wire separately: Artifact.UnmarshalJSON is permissive,
+	// but retained packets have always refused unknown fields.
+	wire := struct {
+		*indexedPacket
+		Artifact json.RawMessage
+	}{indexedPacket: &p}
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
-	if err := d.Decode(&p); err != nil {
+	if err := d.Decode(&wire); err != nil {
 		return nil, err
 	}
 	if err := d.Decode(new(any)); err != io.EOF {
 		return nil, fmt.Errorf("indexed packet trailing json")
 	}
+	artifact, err := cudakernel.ParseArtifact(wire.Artifact)
+	if err != nil {
+		return nil, err
+	}
+	p.Artifact = *artifact
 	validDigest := func(s string) bool {
 		b, err := hex.DecodeString(s)
 		return err == nil && len(b) == 32 && s == strings.ToLower(s)
 	}
-	if p.Version != 1 || p.SourceDigest != indexedDigest([]byte(source)) || p.ImageDigest != p.Artifact.Digest || p.CompilerVersion != "nvrtc 13.4" || p.Artifact.Toolchain != p.CompilerVersion || !filepath.IsAbs(p.CompilerPath) || filepath.Base(p.CompilerPath) != "libnvrtc.so.13.4.59" || !filepath.IsAbs(p.BuiltinsPath) || filepath.Base(p.BuiltinsPath) != "libnvrtc-builtins.so.13.4.59" || !validDigest(p.CompilerDigest) || !validDigest(p.BuiltinsDigest) {
+	if p.Version != 1 || p.SourceDigest != indexedDigest([]byte(source)) || p.ImageDigest != p.Artifact.Digest() || p.CompilerVersion != "nvrtc 13.4" || p.Artifact.Toolchain() != p.CompilerVersion || !filepath.IsAbs(p.CompilerPath) || filepath.Base(p.CompilerPath) != "libnvrtc.so.13.4.59" || !filepath.IsAbs(p.BuiltinsPath) || filepath.Base(p.BuiltinsPath) != "libnvrtc-builtins.so.13.4.59" || !validDigest(p.CompilerDigest) || !validDigest(p.BuiltinsDigest) {
 		return nil, fmt.Errorf("indexed compiler/source metadata disagreement")
 	}
 	a := &p.Artifact
 	if err := a.Validate(); err != nil {
 		return nil, err
 	}
-	if a.Kind != cudakernel.KindCUBIN || a.Target != "sm_121" || a.EntryPoint != entry || !reflect.DeepEqual(a.Schema, schema) || !reflect.DeepEqual(a.CompilerOpts, opts) {
+	if a.Kind() != cudakernel.KindCUBIN || a.Target() != "sm_121" || a.EntryPoint() != entry || !reflect.DeepEqual(a.Schema(), schema) || !reflect.DeepEqual(a.CompilerOptions(), opts) {
 		return nil, fmt.Errorf("indexed artifact contract mismatch")
 	}
 	path := "cudaattn_indexed.cu"
@@ -92,7 +103,7 @@ func indexedReadPacket(dir, name, source, entry string, schema cudakernel.Schema
 		path = "cudablock_topk.cu"
 	}
 	found := false
-	for _, dep := range a.Dependencies {
+	for _, dep := range a.Dependencies() {
 		if dep.Path != path {
 			continue
 		}
@@ -115,7 +126,7 @@ func indexedReadPacket(dir, name, source, entry string, schema cudakernel.Schema
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(image, a.Raw) || indexedDigest(image) != p.ImageDigest {
+	if !bytes.Equal(image, a.Bytes()) || indexedDigest(image) != p.ImageDigest {
 		return nil, fmt.Errorf("indexed retained image mismatch")
 	}
 	return &p, nil
@@ -161,19 +172,29 @@ func TestIndexedPacketMetadataControls(t *testing.T) {
 	if err := indexedAdmitArtifact(a); err != nil {
 		t.Fatal(err)
 	}
-	for _, edit := range []func(*cudakernel.Artifact){
-		func(a *cudakernel.Artifact) { a.CompilerOpts = []string{"--ftz=true"} },
-		func(a *cudakernel.Artifact) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) },
-		func(a *cudakernel.Artifact) { a.Dependencies[0].ErrorMsg = "untracked" },
-		func(a *cudakernel.Artifact) { a.Schema.Params[0].Offset++ },
+	for i, edit := range []func(*cudakernel.ArtifactSpec){
+		func(a *cudakernel.ArtifactSpec) { a.CompilerOpts = []string{"--ftz=true"} },
+		func(a *cudakernel.ArtifactSpec) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) },
+		func(a *cudakernel.ArtifactSpec) { a.Dependencies[0].ErrorMsg = "untracked" },
+		func(a *cudakernel.ArtifactSpec) { a.Schema.Params[0].Offset++ },
 	} {
-		q := indexedClone(a)
-		edit(q)
+		spec := a.Spec()
+		edit(&spec)
+		q, err := cudakernel.NewArtifactFromSpec(spec)
+		if i == 3 {
+			if err == nil {
+				t.Fatal("invalid schema accepted by constructor")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("metadata control construction: %v", err)
+		}
 		if indexedAdmitArtifact(q) == nil {
 			t.Fatal("damaged loaded artifact contract admitted")
 		}
 	}
-	p := indexedPacket{Version: 1, SourceDigest: indexedDigest([]byte(IndexedSource)), ImageDigest: a.Digest, CompilerPath: "/tool/libnvrtc.so.13.4.59", CompilerVersion: "nvrtc 13.4", CompilerDigest: strings.Repeat("a", 64), BuiltinsPath: "/tool/libnvrtc-builtins.so.13.4.59", BuiltinsDigest: strings.Repeat("b", 64), Artifact: *a}
+	p := indexedPacket{Version: 1, SourceDigest: indexedDigest([]byte(IndexedSource)), ImageDigest: a.Digest(), CompilerPath: "/tool/libnvrtc.so.13.4.59", CompilerVersion: "nvrtc 13.4", CompilerDigest: strings.Repeat("a", 64), BuiltinsPath: "/tool/libnvrtc-builtins.so.13.4.59", BuiltinsDigest: strings.Repeat("b", 64), Artifact: *a}
 	write := func(p indexedPacket) {
 		t.Helper()
 		b, err := json.Marshal(p)
@@ -194,6 +215,81 @@ func TestIndexedPacketMetadataControls(t *testing.T) {
 	if err := read(); err != nil {
 		t.Fatal(err)
 	} // Parser-only synthetic ELF, never loaded.
+	t.Run("unknown-artifact-field", func(t *testing.T) {
+		write(p)
+		path := filepath.Join(dir, "baseline.json")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var packet map[string]json.RawMessage
+		if err := json.Unmarshal(data, &packet); err != nil {
+			t.Fatal(err)
+		}
+		var artifact map[string]json.RawMessage
+		if err := json.Unmarshal(packet["Artifact"], &artifact); err != nil {
+			t.Fatal(err)
+		}
+		artifact["unknown_metadata"] = json.RawMessage(`true`)
+		packet["Artifact"], err = json.Marshal(artifact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err = json.Marshal(packet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := read(); err == nil {
+			t.Fatal("unknown nested artifact field accepted")
+		}
+	})
+	for _, damage := range []string{"unknown-packet-field", "claimed-artifact-digest", "trailing-json"} {
+		t.Run(damage, func(t *testing.T) {
+			write(p)
+			path := filepath.Join(dir, "baseline.json")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if damage == "trailing-json" {
+				data = append(data, []byte(` {}`)...)
+			} else {
+				var packet map[string]json.RawMessage
+				if err := json.Unmarshal(data, &packet); err != nil {
+					t.Fatal(err)
+				}
+				if damage == "unknown-packet-field" {
+					packet["unknown_metadata"] = json.RawMessage(`true`)
+				} else {
+					var artifact map[string]json.RawMessage
+					if err := json.Unmarshal(packet["Artifact"], &artifact); err != nil {
+						t.Fatal(err)
+					}
+					artifact["digest"], err = json.Marshal(strings.Repeat("0", 64))
+					if err != nil {
+						t.Fatal(err)
+					}
+					packet["Artifact"], err = json.Marshal(artifact)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				data, err = json.Marshal(packet)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(path, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := read(); err == nil {
+				t.Fatal("damaged retained packet accepted")
+			}
+		})
+	}
 	for _, tt := range []struct {
 		name string
 		edit func(*indexedPacket)

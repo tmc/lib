@@ -169,7 +169,7 @@ func ExampleMoEWeightConsumer_Submit() {
 		return
 	}
 	cleanup.add("abort", abort.Free)
-	order, err := cudamem.Alloc[uint64](dev, 2)
+	order, err := cudamem.Alloc[uint64](dev, 4)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -198,14 +198,14 @@ func ExampleMoEWeightConsumer_Submit() {
 		fmt.Println(err)
 		return
 	}
-	done, aborted, started := make([]uint32, 1), make([]uint32, 1), make([]uint64, 2)
+	done, aborted, started := make([]uint32, 1), make([]uint32, 1), make([]uint64, 4)
 	for _, read := range []func() error{func() error { return completed.CopyToHost(done) }, func() error { return abort.CopyToHost(aborted) }, func() error { return order.CopyToHost(started) }} {
 		if err := read(); err != nil {
 			fmt.Println(err)
 			return
 		}
 	}
-	if done[0] != 1 || aborted[0] != 0 || started[0] != 1 || started[1] != 1 {
+	if done[0] != 1 || aborted[0] != 0 || started[0] != 1 || started[1] != 1 || started[2] != 1 || started[3] != 1 {
 		fmt.Println("publication incomplete")
 		return
 	}

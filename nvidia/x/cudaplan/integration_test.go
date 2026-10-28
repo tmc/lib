@@ -19,6 +19,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudacache"
 	"github.com/tmc/lib/nvidia/x/cudagroup"
 	"github.com/tmc/lib/nvidia/x/cudair"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudalayout"
 	"github.com/tmc/lib/nvidia/x/cudapdl"
@@ -340,7 +341,45 @@ func TestCrossArchFallback(t *testing.T) {
 	}
 
 	// 4. cudapdl hardware capability check
-	pdlSM80 := cudapdl.CheckEligibility("sm_80", cudapdl.KernelDesc{HasLaunchDependents: true}, cudapdl.KernelDesc{HasWait: true})
+	pdlProd := cudapdl.KernelDesc{
+		Name:                "pdl_producer",
+		HasLaunchDependents: true,
+		ThreadsPerBlock:     128,
+		Resources: &cudakernel.ResourceRequirements{
+			StaticSharedMemory: 4096,
+			AllocatedRegisters: 32,
+			PeakLiveGPR:        24,
+		},
+		Effects: cudapdl.KernelEffects{
+			TriggerPlacement: cudapdl.TriggerAfterSharedWrites,
+			BeforeLaunchDependents: []cudapdl.PhaseEffect{
+				{Kind: cudapdl.EffectMemory, Resource: "handoff_buf", Access: cudapdl.AccessWrite, Base: 0x1000, Bytes: 4096},
+			},
+		},
+	}
+	pdlCons := cudapdl.KernelDesc{
+		Name:               "pdl_consumer",
+		HasWait:            true,
+		HasIndependentWork: true,
+		ThreadsPerBlock:    128,
+		Resources: &cudakernel.ResourceRequirements{
+			StaticSharedMemory: 4096,
+			AllocatedRegisters: 32,
+			PeakLiveGPR:        24,
+		},
+		Effects: cudapdl.KernelEffects{
+			WaitPlacement: cudapdl.WaitAfterIndependentPreamble,
+			BeforeWait: []cudapdl.PhaseEffect{
+				{Kind: cudapdl.EffectMemory, Resource: "indep_buf", Access: cudapdl.AccessRead, Base: 0x2000, Bytes: 4096},
+			},
+			AfterWait: []cudapdl.PhaseEffect{
+				{Kind: cudapdl.EffectMemory, Resource: "handoff_buf", Access: cudapdl.AccessRead, Base: 0x1000, Bytes: 4096},
+				{Kind: cudapdl.EffectMemory, Resource: "out_buf", Access: cudapdl.AccessWrite, Base: 0x3000, Bytes: 4096},
+			},
+		},
+	}
+
+	pdlSM80 := cudapdl.CheckEligibility("sm_80", pdlProd, pdlCons)
 	if pdlSM80.Eligible {
 		t.Fatal("sm_80 must not be eligible for PDL programmatic launch")
 	}
@@ -348,9 +387,12 @@ func TestCrossArchFallback(t *testing.T) {
 		t.Fatalf("sm_80 policy = %v, want PolicyStandardFallback", pdlSM80.Policy)
 	}
 
-	pdlSM121 := cudapdl.CheckEligibility("sm_121a", cudapdl.KernelDesc{HasLaunchDependents: true}, cudapdl.KernelDesc{HasWait: true})
+	pdlSM121 := cudapdl.CheckEligibility("sm_121a", pdlProd, pdlCons)
 	if !pdlSM121.Eligible || pdlSM121.Policy != cudapdl.PolicyProgrammatic {
 		t.Fatalf("sm_121a with launch_dependents and wait should be eligible: %+v", pdlSM121)
+	}
+	if pdlSM121.Provenance != cudapdl.ProvenanceOwnerDeclared || !pdlSM121.NoOverlapStillCorrect || pdlSM121.OverlapGuaranteed {
+		t.Fatalf("sm_121a unexpected provenance/overlap flags: %+v", pdlSM121)
 	}
 }
 
@@ -403,8 +445,8 @@ func TestSearchCacheEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetArtifact hit: %v", err)
 	}
-	if gotArt.Digest != art.Digest {
-		t.Fatalf("artifact digest mismatch: got %s, want %s", gotArt.Digest, art.Digest)
+	if gotArt.Digest() != art.Digest() {
+		t.Fatalf("artifact digest mismatch: got %s, want %s", gotArt.Digest(), art.Digest())
 	}
 
 	// Cache miss on keySM100
@@ -1274,7 +1316,7 @@ func TestSearchPolicyCacheIdentityEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetArtifact 2: %v", err)
 	}
-	if art1.Digest != art2.Digest {
-		t.Fatalf("both policies must share identical artifact digest, got %s != %s", art1.Digest, art2.Digest)
+	if art1.Digest() != art2.Digest() {
+		t.Fatalf("both policies must share identical artifact digest, got %s != %s", art1.Digest(), art2.Digest())
 	}
 }

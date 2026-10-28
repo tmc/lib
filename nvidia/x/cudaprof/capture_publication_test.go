@@ -46,7 +46,7 @@ func TestCapturePublicationRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Result.Identity != p.Result.Identity || !bytes.Equal(got.Artifact.Raw, p.Artifact.Raw) || !bytes.Equal(got.Result.Raw, p.Result.Raw) || got.Workload.Key() != p.Workload.Key() {
+	if got.Result.Identity != p.Result.Identity || !bytes.Equal(got.Artifact.Bytes(), p.Artifact.Bytes()) || !bytes.Equal(got.Result.Raw, p.Result.Raw) || got.Workload.Key() != p.Workload.Key() {
 		t.Fatal("publication changed identities or raw bytes")
 	}
 }
@@ -55,8 +55,7 @@ func TestCapturePublicationArtifactBinding(t *testing.T) {
 		name   string
 		change func(*cudaprof.CapturePublication)
 	}{
-		{"raw", func(p *cudaprof.CapturePublication) { p.Artifact.Raw[0] ^= 1 }},
-		{"digest", func(p *cudaprof.CapturePublication) { p.Artifact.Digest = strings.Repeat("4", 64) }},
+		{"invalid artifact", func(p *cudaprof.CapturePublication) { p.Artifact = &cudakernel.Artifact{} }},
 		{"workload", func(p *cudaprof.CapturePublication) { p.Workload.ProgramID = "swapped" }},
 		{"compiler", func(p *cudaprof.CapturePublication) { p.CompilerKey = strings.Repeat("5", 64) }},
 		{"missing artifact", func(p *cudaprof.CapturePublication) { p.Artifact = nil }},
@@ -123,10 +122,56 @@ func TestCapturePublicationJSONAndBudgets(t *testing.T) {
 	if _, err := cudaprof.ReadCapturePublication(strings.NewReader(whitespace), plan, 64<<20); err == nil {
 		t.Fatal("original whitespace not budgeted")
 	}
-	p.Artifact.Raw = make([]byte, plan.Budget.MaxBytes+1)
+	spec := p.Artifact.Spec()
+	spec.Raw = make([]byte, plan.Budget.MaxBytes+1)
+	big, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Artifact = big
 	b.Reset()
-	if cudaprof.WriteCapturePublication(&b, plan, p) == nil || b.Len() != 0 {
-		t.Fatal("oversized artifact wrote bytes")
+	if err := cudaprof.WriteCapturePublication(&b, plan, p); err == nil || !strings.Contains(err.Error(), "artifact byte budget") || b.Len() != 0 {
+		t.Fatalf("oversized artifact = %v, wrote %d bytes", err, b.Len())
+	}
+}
+
+// TestCapturePublicationCorruptArtifactWire edits the artifact inside a
+// written publication. The unedited re-encoding is read back, so only the
+// edit can cause the rejection.
+func TestCapturePublicationCorruptArtifactWire(t *testing.T) {
+	plan, p := publicationFixture(t)
+	var b bytes.Buffer
+	if err := cudaprof.WriteCapturePublication(&b, plan, p); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(artifact map[string]any)
+	}{
+		{"unchanged", func(map[string]any) {}},
+		{"raw", func(a map[string]any) {
+			raw := p.Artifact.Bytes()
+			raw[0] ^= 1
+			a["raw"] = raw
+		}},
+		{"digest", func(a map[string]any) { a["digest"] = strings.Repeat("4", 64) }},
+		{"missing digest", func(a map[string]any) { delete(a, "digest") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var m map[string]any
+			if err := json.Unmarshal(b.Bytes(), &m); err != nil {
+				t.Fatal(err)
+			}
+			tc.edit(m["artifact"].(map[string]any))
+			data, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = cudaprof.ReadCapturePublication(bytes.NewReader(data), plan, plan.Budget.MaxBytes)
+			if (err == nil) != (tc.name == "unchanged") {
+				t.Fatalf("ReadCapturePublication = %v", err)
+			}
+		})
 	}
 }
 

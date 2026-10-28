@@ -78,10 +78,10 @@ func TestMHCNativeCompilerCache(t *testing.T) {
 		if err := checkMHCCacheArtifact(r, id, a); err != nil {
 			t.Fatal(err)
 		}
-		if a.Kind != cudakernel.KindPTX || !reflect.DeepEqual(a, compiled[i]) {
+		if a.Kind() != cudakernel.KindPTX || !reflect.DeepEqual(a, compiled[i]) {
 			t.Fatal("real compiled artifact did not survive serialization")
 		}
-		t.Logf("entry=%s source-key=%s adapter-key=%s ptx-sha256=%s flags=%q toolchain=%s", a.EntryPoint, r.InputKey, cudacache.CompilerCacheKey(r.InputKey, id), a.Digest, a.CompilerOpts, a.Toolchain)
+		t.Logf("entry=%s source-key=%s adapter-key=%s ptx-sha256=%s flags=%q toolchain=%s", a.EntryPoint(), r.InputKey, cudacache.CompilerCacheKey(r.InputKey, id), a.Digest(), a.CompilerOptions(), a.Toolchain())
 	}
 	cached, err := CompileMHCCached(ctx, c, 12, 1, adapter, declared)
 	if err != nil || !reflect.DeepEqual(cached, compiled) {

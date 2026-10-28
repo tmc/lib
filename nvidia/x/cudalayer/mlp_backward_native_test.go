@@ -14,13 +14,14 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudaautograd"
 	"github.com/tmc/lib/nvidia/x/cudair"
+	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudatest"
 )
 
 func runNativeBackward(t *testing.T, m *FusedMLP, n int, mode cudair.GradientMode, input bool, previous []float32) (MLPGradients, []float32, []float32, []float32) {
 	t.Helper()
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Skip("SKIPPED, NOT VERIFIED: native backward requires gpu-lock")
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Skipf("SKIPPED, NOT VERIFIED: inherited GPU lock required: %v", err)
 	}
 	dev := cudatest.RequireDevice(t)
 	closeDevice := true
@@ -187,6 +188,9 @@ func TestMLPBackward_TrainingStepMatchesCPU(t *testing.T) {
 	before, after := loss(w), loss(updated)
 	if !(after < before) {
 		t.Fatalf("declared training fixture did not lower loss: %g -> %g", before, after)
+	}
+	if _, err := cudalock.Inherited(os.Getenv); err != nil {
+		t.Skipf("SKIPPED, NOT VERIFIED: inherited GPU lock required: %v", err)
 	}
 	dev := cudatest.RequireDevice(t)
 	closeDevice := true

@@ -1,0 +1,798 @@
+--- a/src/ras/progress_monitor.cc
++++ b/src/ras/progress_monitor.cc
+@@ -14,8 +14,15 @@
+ #include "compiler.h"
+ #include "utils.h"
+ #include "alloc.h"
++#include "progress_monitor_export.h"
+ 
+ #include <algorithm>
++#include <atomic>
++#include <cerrno>
++#include <cstdlib>
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <unistd.h>
+ #include <chrono>
+ #include <cinttypes>
+ #include <condition_variable>
+@@ -28,6 +35,87 @@
+ 
+ static constexpr int kProgressCounterMonitorMinPollMs = 50;
+ static constexpr int kProgressCounterMonitorMinStaleMs = 1000;
++
++// Each opt-in export is a new private regular file; no append, rotation or
++// overwrite. At most 64 files / 1 GiB per loaded NCCL image, and 16 MiB / file. File I/O
++// has byte/attempt bounds, not a filesystem-latency guarantee. Failure disables
++// only export. Missing terminal output means exporter coverage is unknown.
++struct ncclProgressDiagnosticExport {
++  ncclProgressExport::State state;
++  int fd;
++};
++static std::atomic<uint64_t> progressExportWorkers{0};
++
++static bool progressExportWrite(void* arg, const char* line, size_t size) {
++  auto* out = static_cast<ncclProgressDiagnosticExport*>(arg);
++  size_t done = 0;
++  for (int attempt = 0; done < size && attempt < 4; attempt++) {
++    ssize_t n = write(out->fd, line + done, size - done);
++    if (n > 0) done += static_cast<size_t>(n);
++    else if (n < 0 && errno == EINTR) continue;
++    else return false;
++  }
++  return done == size;
++}
++
++static ncclProgressDiagnosticExport* progressExportOpen(int cudaDev) {
++  const char* prefix = getenv("NCCL_PROGRESS_EXPORT_PREFIX");
++  if (prefix == nullptr || prefix[0] == 0) return nullptr; // default off
++  ncclProgressExport::Identity id;
++  if (prefix[0] != '/' || strnlen(prefix, 1025) > 1024 ||
++      !ncclProgressExport::copyToken(id.host, getenv("NCCL_PROGRESS_EXPORT_HOST")) ||
++      !ncclProgressExport::copyToken(id.boot, getenv("NCCL_PROGRESS_EXPORT_BOOT_EPOCH")) ||
++      !ncclProgressExport::copyToken(id.process, getenv("NCCL_PROGRESS_EXPORT_PROCESS_EPOCH")) ||
++      !ncclProgressExport::copyToken(id.capture, getenv("NCCL_PROGRESS_EXPORT_CAPTURE_ID")) ||
++      !ncclProgressExport::copyToken(id.build, getenv("NCCL_PROGRESS_EXPORT_BUILD_ID"))) {
++    WARN("NCCL progress export disabled: invalid explicit path or identity");
++    return nullptr;
++  }
++  // Saturating allocation of a per-image file budget, including failed opens.
++  uint64_t worker = progressExportWorkers.load();
++  do {
++    if (worker >= 64) {
++      WARN("NCCL progress export disabled: image file budget exhausted");
++      return nullptr;
++    }
++  } while (!progressExportWorkers.compare_exchange_weak(worker, worker + 1));
++  id.worker = worker + 1;
++  id.pid = static_cast<uint64_t>(getpid());
++  id.device = cudaDev;
++  id.pollMs = std::max((int)ncclParamProgressCounterMonitorPollMs(), kProgressCounterMonitorMinPollMs);
++  id.staleMs = std::max((int)ncclParamProgressCounterMonitorStaleMs(), kProgressCounterMonitorMinStaleMs);
++  char path[1152];
++  int n = snprintf(path, sizeof(path), "%s.%llu.%d.%llu.jsonl", prefix,
++                   (unsigned long long)id.pid, cudaDev, (unsigned long long)id.worker);
++  if (n < 0 || static_cast<size_t>(n) >= sizeof(path)) return nullptr;
++  int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, 0600);
++  if (fd < 0) {
++    WARN("NCCL progress export disabled: cannot create private output (errno %d)", errno);
++    return nullptr;
++  }
++  struct stat st;
++  if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) {
++    close(fd);
++    WARN("NCCL progress export disabled: output is not a regular file");
++    return nullptr;
++  }
++  auto* out = new (std::nothrow) ncclProgressDiagnosticExport{};
++  if (out == nullptr) { close(fd); return nullptr; }
++  out->fd = fd;
++  out->state.start(id, progressExportWrite, out);
++  return out;
++}
++
++static void progressExportClose(ncclProgressDiagnosticExport* out, const char* reason) {
++  if (out == nullptr) return;
++  out->state.finish(clockNano(), reason);
++  if (out->state.failed()) WARN("NCCL progress export incomplete: output or diagnostic-state failure");
++  if (close(out->fd) != 0) WARN("NCCL progress export close failed (errno %d)", errno);
++  delete out;
++}
++
++static_assert(NCCL_NUM_PROGRESS_COUNTERS == ncclProgressExport::Slots, "progress export slot profile changed");
++static_assert(MAXCHANNELS == ncclProgressExport::Channels, "progress export channel profile changed");
+ 
+ // One worker per CUDA device, shared by all registered communicators.
+ // mutex protects mutable worker state and the registration list;
+@@ -48,6 +136,8 @@
+   uint64_t lastStaleWarnNs;
+   uint64_t lastErrorWarnNs;
+   int destroyRefs; // Pins the worker during unregister cleanup.
++  ncclProgressDiagnosticExport* diagnosticExport;
++  uint64_t exportGeneration;
+   struct ncclIntruQueue<struct ncclComm, &ncclComm::nextProgressRegistration> registrations;
+ };
+ 
+@@ -151,7 +241,27 @@
+                  staleNs / 1e9, g->cudaDev, (size_t)g->registrations.nElems);
+           }
+         }
++        if (g->diagnosticExport != nullptr)
++          g->diagnosticExport->state.pending(g->exportGeneration, nowNs,
++            staleNs >= (uint64_t)progressCounterMonitorStaleThresholdMs() * 1000000ULL);
+         continue;
++      }
++      // The event covers only this batch. Check per-comm launch admission
++      // before reading a mirror; failed launches and newly registered comms
++      // cannot inherit another communicator's successful event.
++      if (g->diagnosticExport != nullptr) {
++        for (struct ncclComm* comm = ncclIntruQueueHead(&g->registrations); comm != nullptr;
++             comm = comm->nextProgressRegistration) {
++          ncclProgressExport::Snapshot snapshot;
++          const ncclProgressExport::Snapshot* observed = nullptr;
++          if (e == cudaSuccess && g->diagnosticExport->state.mayRead(comm, g->exportGeneration)) {
++            memcpy(snapshot.counts, comm->hostCountersBlock->completedWorkCount, sizeof(snapshot.counts));
++            memcpy(snapshot.gpuTimes, comm->hostCountersBlock->completedTimeNs, sizeof(snapshot.gpuTimes));
++            memcpy(snapshot.active, comm->hostCountersBlock->collOpActive, sizeof(snapshot.active));
++            observed = &snapshot;
++          }
++          g->diagnosticExport->state.complete(comm, g->exportGeneration, clockNano(), static_cast<int>(e), observed);
++        }
+       }
+       if (e != cudaSuccess && progressCounterMonitorErrorLogAllowed(g)) {
+         INFO(NCCL_RAS, "NCCL progress counter monitor: counter DMA completion check failed on cudaDev %d (%s)",
+@@ -162,6 +272,7 @@
+       g->copyStallWarned = false;
+     }
+ 
++    if (g->diagnosticExport != nullptr) g->exportGeneration = g->diagnosticExport->state.nextGeneration();
+     bool copiedAny = false;
+     int copyLaunchFailures = 0;
+     int firstFailRank = -1;
+@@ -170,8 +281,11 @@
+     for (struct ncclComm* comm = ncclIntruQueueHead(&g->registrations); comm != nullptr;
+          comm = comm->nextProgressRegistration) {
+       if (comm->deviceCountersBlock == nullptr || comm->hostCountersBlock == nullptr) continue;
++      uint64_t exportLaunchStart = g->diagnosticExport != nullptr ? clockNano() : 0;
+       cudaError_t e = cudaMemcpyAsync(comm->hostCountersBlock, comm->deviceCountersBlock,
+                                       sizeof(struct ncclProgressCountersBlock), cudaMemcpyDeviceToHost, g->sideStream);
++      if (g->diagnosticExport != nullptr)
++        g->diagnosticExport->state.launch(comm, g->exportGeneration, exportLaunchStart, clockNano(), static_cast<int>(e));
+       if (e != cudaSuccess) {
+         if (copyLaunchFailures == 0) {
+           firstFailRank = comm->rank;
+@@ -193,6 +307,8 @@
+ 
+     if (copiedAny) {
+       cudaError_t e = cudaEventRecord(g->copyDone, g->sideStream);
++      if (g->diagnosticExport != nullptr)
++        g->diagnosticExport->state.eventRecord(g->exportGeneration, clockNano(), static_cast<int>(e));
+       if (e == cudaSuccess) {
+         g->copyInFlight = true;
+         g->copyStartNs = clockNano();
+@@ -242,6 +358,7 @@
+   if (g->copyDone != nullptr) cudaEventDestroy(g->copyDone);
+   if (g->sideStream != nullptr) cudaStreamDestroy(g->sideStream);
+   restoreCudaDevice(g, savedDev, restore);
++  progressExportClose(g->diagnosticExport, "worker_closed");
+   delete g;
+ }
+ 
+@@ -264,6 +381,8 @@
+   g->lastStaleWarnNs = 0;
+   g->lastErrorWarnNs = 0;
+   g->destroyRefs = 0;
++  g->diagnosticExport = progressExportOpen(cudaDev);
++  g->exportGeneration = 0;
+   ncclIntruQueueConstruct(&g->registrations);
+ 
+   int param = (int)ncclParamProgressCounterMonitorPollMs();
+@@ -311,6 +430,7 @@
+   if (g->copyDone != nullptr) cudaEventDestroy(g->copyDone);
+   if (g->sideStream != nullptr) cudaStreamDestroy(g->sideStream);
+   restoreCudaDevice(g, savedDev, restore);
++  progressExportClose(g->diagnosticExport, "initialization_failed");
+   delete g;
+   return ret;
+ }
+@@ -337,6 +457,8 @@
+     {
+       std::lock_guard<std::mutex> lock(g->mutex);
+       ncclIntruQueueEnqueue(&g->registrations, comm);
++      if (g->diagnosticExport != nullptr)
++        g->diagnosticExport->state.add(comm, comm->commHash, comm->rank, clockNano());
+     }
+   }
+   g->cv.notify_one();
+@@ -359,6 +481,8 @@
+ 
+   struct ncclGpuProgressCounterMonitor* g = nullptr;
+   bool haveDestroyRef = false;
++  bool haveExportEntry = false;
++  ncclProgressExport::Entry exportEntry;
+ 
+   {
+     std::lock_guard<std::mutex> globalLock(gpuProgressCounterMonitorsMu);
+@@ -367,6 +491,8 @@
+       std::lock_guard<std::mutex> lock(g->mutex);
+       if (ncclIntruQueueDelete(&g->registrations, comm, progressCounterRegistrationMatches) != nullptr) {
+         comm->nextProgressRegistration = nullptr;
++        if (g->diagnosticExport != nullptr)
++          haveExportEntry = g->diagnosticExport->state.remove(comm, clockNano(), &exportEntry);
+         // Keep g alive while unregister synchronizes its stream.
+         g->destroyRefs++;
+         haveDestroyRef = true;
+@@ -384,6 +510,7 @@
+     int savedDev = -1;
+     bool restore = (cudaGetDevice(&savedDev) == cudaSuccess);
+     cudaError_t setErr = cudaSetDevice(g->cudaDev);
++    cudaError_t exportDrainResult = setErr;
+     if (setErr != cudaSuccess) {
+       if (progressCounterMonitorErrorLogAllowed(g)) {
+         INFO(NCCL_RAS, "NCCL progress counter monitor: cudaSetDevice(%d) during unregister failed (%s)", g->cudaDev,
+@@ -391,12 +518,19 @@
+       }
+     } else if (g->sideStream != nullptr) {
+       cudaError_t e = cudaStreamSynchronize(g->sideStream);
++      exportDrainResult = e;
+       if (e != cudaSuccess && progressCounterMonitorErrorLogAllowed(g)) {
+         INFO(NCCL_RAS, "NCCL progress counter monitor: side-stream sync during unregister failed on cudaDev %d (%s)",
+              g->cudaDev, cudaGetErrorString(e));
+       }
+     }
+     restoreCudaDevice(g, savedDev, restore);
++    if (haveExportEntry) {
++      std::lock_guard<std::mutex> lock(g->mutex);
++      // exportEntry is detached identity only. The comm/mirror is never read
++      // after removal; destroyRefs keeps this exporter alive through drain.
++      g->diagnosticExport->state.drained(exportEntry, clockNano(), static_cast<int>(exportDrainResult));
++    }
+   }
+ 
+   if (haveDestroyRef) releaseGpuProgressCounterMonitorDestroyRef(g);
+--- /dev/null
++++ b/src/ras/progress_monitor_export.h
+@@ -0,0 +1,292 @@
++/*************************************************************************
++ * SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
++ * SPDX-License-Identifier: Apache-2.0
++ *************************************************************************/
++#ifndef NCCL_PROGRESS_MONITOR_EXPORT_H_
++#define NCCL_PROGRESS_MONITOR_EXPORT_H_
++
++// Pure diagnostic state and JSONL encoding. No CUDA, file or thread operations.
++// The monitor owns serialization and communicator lifetimes under its mutex.
++#include <cstddef>
++#include <cstdint>
++#include <cstdarg>
++#include <cstdio>
++#include <cstring>
++#include <limits>
++
++namespace ncclProgressExport {
++static constexpr size_t Slots = 16;
++static constexpr size_t Channels = 64;
++static constexpr size_t MaxComms = 128;
++static constexpr size_t MaxLine = 16384;
++static constexpr uint64_t MaxRecords = 4096;
++static constexpr uint64_t MaxBytes = 16 * 1024 * 1024;
++
++struct Identity {
++  char host[129] = {};
++  char boot[129] = {};
++  char process[129] = {};
++  char capture[129] = {};
++  char build[129] = {};
++  uint64_t pid = 0;
++  uint64_t worker = 0;
++  int device = -1;
++  int pollMs = 0;
++  int staleMs = 0;
++};
++
++inline bool copyToken(char (&to)[129], const char* from) {
++  if (from == nullptr) return false;
++  size_t n = 0;
++  for (; from[n] != 0 && n < sizeof(to); n++) {
++    char c = from[n];
++    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
++          (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == ':')) return false;
++  }
++  if (n == 0 || n >= sizeof(to)) return false;
++  std::memcpy(to, from, n + 1);
++  return true;
++}
++
++struct Snapshot {
++  uint64_t counts[Slots] = {};
++  uint64_t gpuTimes[Slots] = {};
++  uint64_t active[Channels] = {};
++};
++
++struct Entry {
++  const void* key = nullptr; // compared only; never dereferenced or exported
++  uint64_t comm = 0;
++  int rank = -1;
++  uint64_t incarnation = 0; // this monitor registration, not application membership
++  uint64_t generation = 0;
++  uint64_t launchStart = 0;
++  uint64_t launchEnd = 0;
++  int launchCode = 0;
++  bool pending = false;
++  bool eventRecorded = false;
++  bool stale = false;
++};
++
++class Line {
++ public:
++  char data[MaxLine];
++  size_t size = 0;
++  bool ok = true;
++  void append(const char* format, ...) {
++    if (!ok) return;
++    va_list args;
++    va_start(args, format);
++    int n = std::vsnprintf(data + size, sizeof(data) - size, format, args);
++    va_end(args);
++    if (n < 0 || static_cast<size_t>(n) >= sizeof(data) - size) {
++      ok = false;
++      return;
++    }
++    size += static_cast<size_t>(n);
++  }
++  void array(const uint64_t* values, size_t n) {
++    append("[");
++    for (size_t i = 0; i < n; i++) append("%s%llu", i == 0 ? "" : ",", (unsigned long long)values[i]);
++    append("]");
++  }
++};
++
++// Sink returns true only when the entire line was retained. Failure is terminal;
++// a partial line is not repaired or retried as a new JSONL record.
++using Sink = bool (*)(void*, const char*, size_t);
++
++class State {
++ public:
++  State() = default;
++  void start(const Identity& identity, Sink sink, void* arg,
++             uint64_t maxRecords = MaxRecords, uint64_t maxBytes = MaxBytes) {
++    if (started_) { fail(); return; }
++    started_ = true;
++    id_ = identity;
++    sink_ = sink;
++    sinkArg_ = arg;
++    maxRecords_ = maxRecords;
++    maxBytes_ = maxBytes;
++    enabled_ = sink != nullptr && identity.pid != 0 && identity.worker != 0 && identity.device >= 0 && identity.pollMs >= 50 && identity.staleMs >= 1000 &&
++      validToken(identity.host) && validToken(identity.boot) && validToken(identity.process) &&
++      validToken(identity.capture) && validToken(identity.build) && maxRecords > 0 &&
++      maxRecords <= MaxRecords && maxBytes >= 2 * MaxLine && maxBytes <= MaxBytes;
++  }
++  bool enabled() const { return enabled_ && !closed_; }
++  bool failed() const { return failed_; }
++  uint64_t dropped() const { return dropped_; }
++  uint64_t retained() const { return retained_; }
++  uint64_t bytes() const { return bytes_; }
++  uint64_t untracked() const { return untracked_; }
++
++  Entry* find(const void* key) {
++    for (auto& e : entries_) if (key != nullptr && e.key == key) return &e;
++    return nullptr;
++  }
++  uint64_t nextGeneration() {
++    if (!enabled() || generation_ == UINT64_MAX) return 0;
++    return ++generation_;
++  }
++  void add(const void* key, uint64_t comm, int rank, uint64_t now) {
++    if (!enabled()) return;
++    if (key == nullptr || rank < 0 || find(key) != nullptr || incarnation_ == UINT64_MAX) {
++      fail();
++      return;
++    }
++    Entry e;
++    e.key = key;
++    e.comm = comm;
++    e.rank = rank;
++    e.incarnation = ++incarnation_;
++    for (auto& slot : entries_) {
++      if (slot.key != nullptr) continue;
++      slot = e;
++      emit("registered", &slot, now, 0, nullptr);
++      return;
++    }
++    increment(untracked_);
++    emit("registration_untracked", &e, now, 0, nullptr);
++  }
++  void launch(const void* key, uint64_t generation, uint64_t start, uint64_t end, int code) {
++    Entry* e = find(key);
++    if (!enabled() || e == nullptr) return;
++    if (generation == 0 || generation != generation_ || start > end || e->pending || generation <= e->generation) {
++      fail();
++      return;
++    }
++    e->generation = generation;
++    e->launchStart = start;
++    e->launchEnd = end;
++    e->launchCode = code;
++    e->pending = code == 0;
++    e->eventRecorded = false;
++    e->stale = false;
++    emit(code == 0 ? "copy_launched" : "copy_launch_failed", e, end, code, nullptr);
++  }
++  void eventRecord(uint64_t generation, uint64_t now, int code) {
++    if (!enabled()) return;
++    for (auto& e : entries_) {
++      if (e.key == nullptr || !e.pending || e.generation != generation) continue;
++      e.eventRecorded = code == 0;
++      if (code != 0) {
++        e.pending = false;
++        emit("event_record_failed", &e, now, code, nullptr);
++      }
++    }
++  }
++  bool mayRead(const void* key, uint64_t generation) {
++    Entry* e = find(key);
++    return enabled() && e != nullptr && e->pending && e->eventRecorded &&
++      e->launchCode == 0 && !e->stale && e->generation == generation && generation != 0;
++  }
++  // snapshot is a caller-owned value copied only after this generation's event
++  // completed successfully. Encoding does not retain any array or comm pointer.
++  void complete(const void* key, uint64_t generation, uint64_t now, int code, const Snapshot* snapshot) {
++    Entry* e = find(key);
++    if (!enabled() || e == nullptr || !e->pending || e->generation != generation) return;
++    if (now >= e->launchStart && now - e->launchStart >= static_cast<uint64_t>(id_.staleMs) * 1000000ULL) e->stale = true;
++    bool fresh = code == 0 && mayRead(key, generation) && snapshot != nullptr && now >= e->launchEnd;
++    e->pending = false;
++    emit(fresh ? "copy_complete" : "copy_completion_unavailable", e, now, code, fresh ? snapshot : nullptr);
++  }
++  void pending(uint64_t generation, uint64_t now, bool stale) {
++    if (!enabled()) return;
++    for (auto& e : entries_) {
++      if (e.key != nullptr && e.pending && e.generation == generation) {
++        e.stale = e.stale || stale;
++        emit(e.stale ? "copy_pending_stale" : "copy_pending", &e, now, 0, nullptr);
++      }
++    }
++  }
++  // Removal copies identity/state only. After removal no path in State can read
++  // a communicator or its mirror; a later reused address gets a new incarnation.
++  bool remove(const void* key, uint64_t now, Entry* detached) {
++    Entry* e = find(key);
++    if (e == nullptr) return false;
++    *detached = *e;
++    detached->key = nullptr;
++    emit("unregister_requested", e, now, 0, nullptr);
++    *e = Entry{};
++    return true;
++  }
++  void drained(const Entry& detached, uint64_t now, int code) {
++    if (enabled()) emit(code == 0 ? "unregistered_drained" : "unregister_drain_failed", &detached, now, code, nullptr);
++  }
++  // This terminal says only that exporter output is closed, not that CUDA
++  // resource destruction, synchronization, or application work succeeded.
++  void finish(uint64_t now, const char* reason) {
++    if (!enabled() || closed_) return;
++    if (std::strcmp(reason, "worker_closed") != 0 && std::strcmp(reason, "initialization_failed") != 0) {
++      fail();
++      return;
++    }
++    emit(reason, nullptr, now, 0, nullptr, true);
++    closed_ = true;
++  }
++
++ private:
++  Identity id_;
++  Entry entries_[MaxComms];
++  Sink sink_ = nullptr;
++  void* sinkArg_ = nullptr;
++  uint64_t sequence_ = 0, incarnation_ = 0, generation_ = 0;
++  uint64_t retained_ = 0, dropped_ = 0, untracked_ = 0, bytes_ = 0;
++  uint64_t maxRecords_ = MaxRecords, maxBytes_ = MaxBytes;
++  bool enabled_ = false, closed_ = false, failed_ = false, started_ = false;
++
++  static bool validToken(const char (&s)[129]) {
++    char copy[129];
++    if (std::memchr(s, 0, sizeof(s)) == nullptr) return false;
++    return copyToken(copy, s);
++  }
++  void increment(uint64_t& value) {
++    if (value == UINT64_MAX) fail(); else value++;
++  }
++  void fail() { failed_ = true; enabled_ = false; }
++  void emit(const char* event, const Entry* e, uint64_t now, int code, const Snapshot* snapshot, bool terminal = false) {
++    if (!enabled()) return;
++    if (sequence_ == UINT64_MAX) { fail(); return; }
++    uint64_t sequence = ++sequence_;
++    Line line;
++    line.append("{\"schema\":\"nccl.progress-monitor.diagnostic.v1\",\"source_commit\":\"12df1a11afad322be5a204a2db890161cbf8131d\","
++      "\"build_id\":\"%s\",\"host\":\"%s\",\"boot_epoch\":\"%s\",\"process_epoch\":\"%s\",\"capture_id\":\"%s\","
++      "\"pid\":%llu,\"device\":%d,\"worker\":%llu,\"sequence\":%llu,\"event\":\"%s\",\"observed_ns\":%llu,"
++      "\"host_clock\":\"std.chrono.steady_clock\",\"gpu_clock\":\"globaltimer\",\"time_unit\":\"nanoseconds\","
++      "\"counter_unit\":\"owned_completed_work\",\"snapshot_atomic\":false,\"upstream_loss\":\"unknown\","
++      "\"poll_ms\":%d,\"stale_ms\":%d,\"max_records\":%llu,\"max_bytes\":%llu,\"terminal\":%s,"
++      "\"exporter_retained_before\":%llu,\"exporter_dropped_before\":%llu,\"untracked_registrations\":%llu,\"code\":%d",
++      id_.build, id_.host, id_.boot, id_.process, id_.capture, (unsigned long long)id_.pid, id_.device,
++      (unsigned long long)id_.worker, (unsigned long long)sequence, event, (unsigned long long)now,
++      id_.pollMs, id_.staleMs, (unsigned long long)maxRecords_, (unsigned long long)maxBytes_, terminal ? "true" : "false",
++      (unsigned long long)retained_, (unsigned long long)dropped_, (unsigned long long)untracked_, code);
++    if (e != nullptr) {
++      line.append(",\"comm_hash\":\"%016llx\",\"rank\":%d,\"registration\":%llu,\"generation\":%llu,"
++        "\"launch_start_ns\":%llu,\"launch_end_ns\":%llu,\"launch_code\":%d,\"copy_pending\":%s,"
++        "\"event_recorded\":%s,\"copy_stale\":%s,\"counter_reset\":\"unknown\"",
++        (unsigned long long)e->comm, e->rank, (unsigned long long)e->incarnation,
++        (unsigned long long)e->generation, (unsigned long long)e->launchStart,
++        (unsigned long long)e->launchEnd, e->launchCode, e->pending ? "true" : "false", e->eventRecorded ? "true" : "false", e->stale ? "true" : "false");
++    }
++    line.append(",\"mirror_present\":%s", snapshot != nullptr ? "true" : "false");
++    if (snapshot != nullptr) {
++      line.append(",\"copy_success_min_ns\":%llu,\"copy_success_max_ns\":%llu",
++        (unsigned long long)e->launchStart, (unsigned long long)now);
++      line.append(",\"completed_work_count\":"); line.array(snapshot->counts, Slots);
++      line.append(",\"completed_time_ns\":"); line.array(snapshot->gpuTimes, Slots);
++      line.append(",\"channel_active_slot_mask\":"); line.array(snapshot->active, Channels);
++    }
++    line.append("}\n");
++    if (!line.ok) { increment(dropped_); fail(); return; }
++    uint64_t reserve = terminal ? 0 : MaxLine;
++    if ((!terminal && retained_ >= maxRecords_) || bytes_ > maxBytes_ - reserve || line.size > maxBytes_ - reserve - bytes_) {
++      increment(dropped_);
++      return;
++    }
++    if (!sink_(sinkArg_, line.data, line.size)) { increment(dropped_); fail(); return; }
++    bytes_ += line.size;
++    increment(retained_);
++  }
++};
++} // namespace ncclProgressExport
++#endif
+--- /dev/null
++++ b/tests/progress_monitor_export_test.cc
+@@ -0,0 +1,248 @@
++// Pure host controls for the actual production state/encoder; no CUDA headers,
++// calls, libraries, threads, files, environment access or process launches.
++#include "../src/ras/progress_monitor_export.h"
++#include <cstdlib>
++#include <iostream>
++#include <sstream>
++#include <string>
++#include <vector>
++
++using namespace ncclProgressExport;
++static int checks;
++#define CHECK(x) do { checks++; if (!(x)) { std::cerr << "FAIL " << __func__ << ":" << __LINE__ << " " #x "\n"; std::exit(1); } } while (false)
++
++struct Output {
++  std::vector<std::string> lines;
++  bool fail = false;
++  size_t calls = 0;
++  static bool write(void* p, const char* data, size_t n) {
++    auto* out = static_cast<Output*>(p);
++    out->calls++;
++    if (out->fail) return false;
++    out->lines.emplace_back(data, n);
++    return true;
++  }
++};
++static Identity identity() {
++  Identity id;
++  CHECK(copyToken(id.host, "constructed-host"));
++  CHECK(copyToken(id.boot, "constructed-boot"));
++  CHECK(copyToken(id.process, "constructed-process"));
++  CHECK(copyToken(id.capture, "constructed-capture"));
++  CHECK(copyToken(id.build, "constructed-build"));
++  id.pid = 123;
++  id.worker = 7;
++  id.device = 0;
++  id.pollMs = 1000;
++  id.staleMs = 5000;
++  return id;
++}
++static bool has(const std::string& line, const std::string& part) { return line.find(part) != std::string::npos; }
++static bool event(const std::string& line, const char* name) { return has(line, std::string("\"event\":\"") + name + "\""); }
++static std::string expectedArray(const uint64_t* values, size_t n) {
++  std::ostringstream out;
++  out << '[';
++  for (size_t i = 0; i < n; i++) { if (i) out << ','; out << values[i]; }
++  out << ']';
++  return out.str();
++}
++static void printRows(const Output& out) {
++  for (const auto& line : out.lines) std::cout << "JSON " << line;
++}
++static void disabled_and_identity() {
++  State s; Output out; int key = 0;
++  s.add(&key, 1, 0, 1);
++  CHECK(s.nextGeneration() == 0);
++  CHECK(out.calls == 0);
++  auto id = identity();
++  id.pid = 0;
++  s.start(id, Output::write, &out);
++  CHECK(!s.enabled());
++  char token[129];
++  CHECK(!copyToken(token, "bad\"identity"));
++  CHECK(!copyToken(token, "bad\nidentity"));
++  CHECK(!copyToken(token, ""));
++  CHECK(!copyToken(token, nullptr));
++  std::string longToken(129, 'a');
++  CHECK(!copyToken(token, longToken.c_str()));
++  CHECK(copyToken(token, std::string(128, 'a').c_str()));
++}
++static void exact_success_and_copy() {
++  State s; Output out; int key = 0;
++  s.start(identity(), Output::write, &out);
++  s.add(&key, UINT64_MAX, 2, 10);
++  auto gen = s.nextGeneration();
++  s.launch(&key, gen, 20, 21, 0);
++  CHECK(!s.mayRead(&key, gen));
++  s.eventRecord(gen, 22, 0);
++  CHECK(s.mayRead(&key, gen));
++  Snapshot raw;
++  for (size_t i = 0; i < Slots; i++) { raw.counts[i] = 9007199254740993ULL + i; raw.gpuTimes[i] = UINT64_MAX - i; }
++  for (size_t i = 0; i < Channels; i++) raw.active[i] = 1ULL << (i % Slots);
++  auto wantCounts = expectedArray(raw.counts, Slots);
++  auto wantTimes = expectedArray(raw.gpuTimes, Slots);
++  auto wantMasks = expectedArray(raw.active, Channels);
++  s.complete(&key, gen, 30, 0, &raw);
++  raw.counts[0] = 0; raw.gpuTimes[0] = 0; raw.active[0] = 0;
++  const auto& line = out.lines.back();
++  CHECK(event(line, "copy_complete"));
++  CHECK(has(line, "\"comm_hash\":\"ffffffffffffffff\""));
++  CHECK(has(line, "\"completed_work_count\":" + wantCounts));
++  CHECK(has(line, "\"completed_time_ns\":" + wantTimes));
++  CHECK(has(line, "\"channel_active_slot_mask\":" + wantMasks));
++  CHECK(has(line, "\"copy_success_min_ns\":20,\"copy_success_max_ns\":30"));
++  CHECK(has(line, "\"snapshot_atomic\":false,\"upstream_loss\":\"unknown\""));
++  CHECK(!s.mayRead(&key, gen));
++  s.finish(40, "worker_closed");
++  CHECK(event(out.lines.back(), "worker_closed"));
++  CHECK(has(out.lines.back(), "\"terminal\":true"));
++  CHECK(!s.enabled());
++  printRows(out);
++}
++static void per_comm_launch_admission() {
++  State s; Output out; int a = 0, b = 0;
++  s.start(identity(), Output::write, &out);
++  s.add(&a, 17, 0, 10); s.add(&b, 17, 1, 10);
++  auto gen = s.nextGeneration();
++  s.launch(&a, gen, 20, 21, 0); s.launch(&b, gen, 20, 21, 9);
++  s.eventRecord(gen, 22, 0);
++  CHECK(s.mayRead(&a, gen));
++  CHECK(!s.mayRead(&b, gen));
++  Snapshot raw; raw.counts[0] = 91;
++  s.complete(&a, gen, 30, 0, &raw);
++  auto n = out.lines.size();
++  s.complete(&b, gen, 30, 0, &raw);
++  CHECK(out.lines.size() == n);
++  size_t complete = 0;
++  for (const auto& row : out.lines) if (event(row, "copy_complete")) { complete++; CHECK(has(row, "\"rank\":0")); }
++  CHECK(complete == 1);
++  CHECK(event(out.lines[3], "copy_launch_failed"));
++}
++static void pending_and_failures() {
++  State s; Output out; int key = 0;
++  s.start(identity(), Output::write, &out); s.add(&key, 1, 0, 1);
++  auto g = s.nextGeneration(); s.launch(&key, g, 2, 3, 0); s.eventRecord(g, 4, 0);
++  s.pending(g, 10, false); s.pending(g, 100, true);
++  CHECK(event(out.lines[out.lines.size()-2], "copy_pending"));
++  CHECK(event(out.lines.back(), "copy_pending_stale"));
++  CHECK(!has(out.lines.back(), "completed_work_count"));
++  Snapshot raw;
++  s.complete(&key, g, 101, 7, &raw);
++  CHECK(event(out.lines.back(), "copy_completion_unavailable"));
++  CHECK(!has(out.lines.back(), "completed_work_count"));
++  CHECK(!s.mayRead(&key, g));
++  auto h = s.nextGeneration(); s.launch(&key, h, 102, 103, 0); s.eventRecord(h, 104, 5);
++  CHECK(!s.mayRead(&key, h));
++  CHECK(event(out.lines.back(), "event_record_failed"));
++  auto n = out.lines.size(); s.complete(&key, h, 105, 0, &raw);
++  CHECK(out.lines.size() == n);
++  auto j = s.nextGeneration(); s.launch(&key, j, 106, 107, 0); s.eventRecord(j, 108, 0);
++  CHECK(!s.mayRead(&key, g));
++  CHECK(s.mayRead(&key, j));
++  s.complete(&key, j, 109, 0, &raw);
++  CHECK(event(out.lines.back(), "copy_complete"));
++}
++static void missing_success_evidence() {
++  for (int mode = 0; mode < 3; mode++) {
++    State s; Output out; int key = 0; Snapshot raw;
++    s.start(identity(), Output::write, &out); s.add(&key, 1, 0, 1);
++    auto g = s.nextGeneration(); s.launch(&key, g, 20, 21, 0);
++    if (mode != 0) s.eventRecord(g, 22, 0);
++    s.complete(&key, g, mode == 2 ? 19 : 30, 0, mode == 1 ? nullptr : &raw);
++    CHECK(event(out.lines.back(), "copy_completion_unavailable"));
++    CHECK(!has(out.lines.back(), "completed_work_count"));
++  }
++}
++static void successful_but_stale_copy() {
++  State s; Output out; int key = 0; Snapshot raw;
++  s.start(identity(), Output::write, &out); s.add(&key, 1, 0, 1);
++  auto g = s.nextGeneration(); s.launch(&key, g, 2, 3, 0); s.eventRecord(g, 4, 0);
++  s.complete(&key, g, 5000000002ULL, 0, &raw);
++  CHECK(event(out.lines.back(), "copy_completion_unavailable"));
++  CHECK(has(out.lines.back(), "\"copy_stale\":true"));
++  CHECK(!has(out.lines.back(), "completed_work_count"));
++}
++static void unregister_and_address_reuse() {
++  State s; Output out; int key = 0; Snapshot raw;
++  s.start(identity(), Output::write, &out); s.add(&key, 1, 0, 1);
++  auto g = s.nextGeneration(); s.launch(&key, g, 2, 3, 0); s.eventRecord(g, 4, 0);
++  Entry old;
++  CHECK(s.remove(&key, 5, &old));
++  CHECK(old.key == nullptr);
++  CHECK(!s.mayRead(&key, g));
++  s.add(&key, 1, 0, 6);
++  CHECK(s.find(&key)->incarnation != old.incarnation);
++  CHECK(!s.mayRead(&key, g));
++  auto n = out.lines.size(); s.complete(&key, g, 7, 0, &raw);
++  CHECK(out.lines.size() == n);
++  s.drained(old, 8, 9);
++  CHECK(event(out.lines.back(), "unregister_drain_failed"));
++  CHECK(has(out.lines.back(), "\"registration\":1"));
++  CHECK(!has(out.lines.back(), "completed_work_count"));
++  auto h = s.nextGeneration(); s.launch(&key, h, 10, 11, 0); s.eventRecord(h, 12, 0);
++  CHECK(s.mayRead(&key, h));
++}
++static void output_budgets_and_loss() {
++  for (bool byteCap : {false, true}) {
++    State s; Output out; int key = 0; Snapshot raw;
++    s.start(identity(), Output::write, &out, byteCap ? MaxRecords : 4, byteCap ? 2*MaxLine : MaxBytes);
++    s.add(&key, 1, 0, 1);
++    for (uint64_t i = 0; i < 100; i++) {
++      auto g = s.nextGeneration(); s.launch(&key, g, 2+i*3, 3+i*3, 0); s.eventRecord(g, 3+i*3, 0);
++      s.complete(&key, g, 4+i*3, 0, &raw);
++    }
++    CHECK(s.dropped() > 0);
++    auto dropped = s.dropped();
++    auto retained = s.retained();
++    s.finish(1000, "worker_closed");
++    CHECK(s.retained() == retained + 1);
++    CHECK(event(out.lines.back(), "worker_closed"));
++    CHECK(has(out.lines.back(), "\"exporter_dropped_before\":" + std::to_string(dropped)));
++    CHECK(s.bytes() <= (byteCap ? 2*MaxLine : MaxBytes));
++    CHECK(!has(out.lines.back(), "\"upstream_loss\":0"));
++  }
++}
++static void sink_failure_and_finality() {
++  State s; Output out; int key = 0;
++  s.start(identity(), Output::write, &out); s.add(&key, 1, 0, 1);
++  out.fail = true;
++  auto g = s.nextGeneration(); s.launch(&key, g, 2, 3, 0);
++  CHECK(s.failed()); CHECK(s.dropped() == 1);
++  auto calls = out.calls;
++  s.eventRecord(g, 4, 0); s.pending(g, 5, true); s.finish(6, "worker_closed");
++  CHECK(out.calls == calls); CHECK(!s.enabled());
++  CHECK(!event(out.lines.back(), "worker_closed"));
++}
++static void registration_bounds_and_no_restart() {
++  State s; Output out; int keys[MaxComms+1] = {};
++  s.start(identity(), Output::write, &out);
++  for (size_t i = 0; i < MaxComms+1; i++) s.add(&keys[i], 1, 0, i);
++  CHECK(s.untracked() == 1); CHECK(s.find(&keys[MaxComms]) == nullptr);
++  CHECK(event(out.lines.back(), "registration_untracked"));
++  CHECK(has(out.lines.back(), "\"untracked_registrations\":1"));
++  s.finish(200, "worker_closed");
++  auto calls = out.calls;
++  s.start(identity(), Output::write, &out);
++  CHECK(s.failed()); CHECK(!s.enabled()); CHECK(out.calls == calls);
++}
++static void duplicate_launch_refused() {
++  State s; Output out; int key = 0;
++  s.start(identity(), Output::write, &out); s.add(&key, 1, 0, 1);
++  auto g = s.nextGeneration(); s.launch(&key, g, 2, 3, 9);
++  s.launch(&key, g, 4, 5, 0);
++  CHECK(s.failed()); CHECK(!s.mayRead(&key, g));
++}
++int main() {
++  disabled_and_identity();
++  exact_success_and_copy();
++  per_comm_launch_admission();
++  pending_and_failures();
++  missing_success_evidence();
++  successful_but_stale_copy();
++  unregister_and_address_reuse();
++  output_budgets_and_loss();
++  sink_failure_and_finality();
++  registration_bounds_and_no_restart();
++  duplicate_launch_refused();
++  std::cout << "PASS " << checks << " checks in 11 groups\n";
++}

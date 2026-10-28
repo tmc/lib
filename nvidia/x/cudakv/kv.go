@@ -303,9 +303,11 @@ func (c *FP8Cache) closeWith(free func(cudamem.Slice[uint8]) error, freeScale fu
 // starts a sequence on blocks another holder already has. Nothing here reads or
 // writes the blocks: that is the attention kernel's job, through Page.
 type PagedCache struct {
-	mu     sync.Mutex
-	closed bool
-	freed  int
+	mu               sync.Mutex
+	closed           bool
+	freed            int
+	residencies      int
+	compactionOwners int
 
 	dev         *cuda.Device
 	tracker     *cudamem.Tracker
@@ -495,6 +497,20 @@ func (pc *PagedCache) Page(layer, slot int) (Page, error) {
 	if slot < 0 || slot >= pc.totalBlocks {
 		return Page{}, fmt.Errorf("cudakv: block index %d out of bounds (total %d)", slot, pc.totalBlocks)
 	}
+	if pc.blocks.unavailable[slot] {
+		return Page{}, fmt.Errorf("cudakv: page is in a residency transition")
+	}
+	if err := pc.blocks.held(slot); err != nil {
+		return Page{}, err
+	}
+	return pc.pageViewLocked(layer, slot)
+}
+
+// pageViewLocked is used only after an allocator owner has reserved slot.
+func (pc *PagedCache) pageViewLocked(layer, slot int) (Page, error) {
+	if layer < 0 || layer >= pc.numLayers || slot < 0 || slot >= pc.totalBlocks || len(pc.kBlocks) != pc.numLayers || len(pc.vBlocks) != pc.numLayers {
+		return Page{}, fmt.Errorf("cudakv: native page storage unavailable")
+	}
 	elements := pc.blockSize * pc.numKVHeads * pc.headDim
 	start := slot * elements
 	return Page{K: pc.kBlocks[layer].Slice(start, start+elements), V: pc.vBlocks[layer].Slice(start, start+elements)}, nil
@@ -513,6 +529,9 @@ func (pc *PagedCache) closeWith(free func(cudamem.Slice[float32]) error) error {
 	}
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
+	if pc.residencies != 0 || pc.compactionOwners != 0 {
+		return cudamem.ErrInUse
+	}
 	pc.closed = true
 	pc.blocks = newBlockAllocator(pc.blockSize, 0)
 	pc.hostK, pc.hostV = nil, nil
@@ -624,6 +643,9 @@ func (pc *PagedCache) WriteToken(seqID int64, tokenIdx int, layer int, k, v []fl
 	if layer < 0 || layer >= pc.numLayers {
 		return fmt.Errorf("%s: layer index %d out of bounds (total %d)", pkgName, layer, pc.numLayers)
 	}
+	if pc.closed || pc.blocks.suspended[seqID] || tokenIdx < 0 {
+		return fmt.Errorf("cudakv: sequence is closed or not resident")
+	}
 	table, exists := pc.blocks.tables[seqID]
 	if !exists {
 		return fmt.Errorf("%s: sequence %d not found", pkgName, seqID)
@@ -654,6 +676,9 @@ func (pc *PagedCache) ReadToken(seqID int64, tokenIdx int, layer int) (k, v []fl
 	if layer < 0 || layer >= pc.numLayers {
 		return nil, nil, fmt.Errorf("%s: layer index %d out of bounds (total %d)", pkgName, layer, pc.numLayers)
 	}
+	if pc.closed || pc.blocks.suspended[seqID] || tokenIdx < 0 {
+		return nil, nil, fmt.Errorf("cudakv: sequence is closed or not resident")
+	}
 	table, exists := pc.blocks.tables[seqID]
 	if !exists {
 		return nil, nil, fmt.Errorf("%s: sequence %d not found", pkgName, seqID)
@@ -676,6 +701,9 @@ func (pc *PagedCache) ReadToken(seqID int64, tokenIdx int, layer int) (k, v []fl
 }
 
 func (pc *PagedCache) copyBlockAsync(srcSlot, dstSlot int, stream *cuda.Stream) error {
+	if pc.residencies != 0 {
+		return cudamem.ErrInUse
+	}
 	if pc.closed {
 		return fmt.Errorf("cudakv: paged cache closed")
 	}

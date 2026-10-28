@@ -81,7 +81,7 @@ func ExampleNVRTCAdapter_GetOrCompile() {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println(art.EntryPoint)
+		fmt.Println(art.EntryPoint())
 	}
 	fmt.Println("compiles:", compiles)
 	// Output:

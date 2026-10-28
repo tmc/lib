@@ -16,11 +16,12 @@ case 0: return op_0(x);
 case 1: return op_1(x);
 default: return 0; }}
 
-// start_order is the instrument, not part of the model: start_order[0] is a
+// start_order begins with the instrument: start_order[0] is a
 // ticket counter and start_order[1 + cta*task_count + task] is the ticket the
 // CTA held when it took that task, or zero for a task that CTA never took.
 // Tickets are dealt by one device-scope atomic add, so they are a total order
 // over task starts across the whole grid and can be compared between CTAs.
+// The final two words hold fresh zeroed entry arrivals and release state.
 extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
     unsigned *completed, unsigned long long *start_order, volatile unsigned *abort_code,
     unsigned n, unsigned long long epoch) {
@@ -32,6 +33,10 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
     if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 3u);
     return;
   }
+  if (n > 1048576u) {
+    if (threadIdx.x == 0) atomicCAS((unsigned *)abort_code, 0u, 3u);
+    return;
+  }
   __shared__ __align__(8) unsigned long long cta_barrier;
   if (threadIdx.x == 0) {
     asm volatile("mbarrier.init.shared::cta.b64 [%0], %1;" ::
@@ -40,6 +45,31 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
   __syncthreads();
   const unsigned cta_barrier_addr = (unsigned)__cvta_generic_to_shared(&cta_barrier);
   unsigned cta_phase = 0u;
+
+  // entry protocol begin
+  __shared__ unsigned entry_abort;
+  if (threadIdx.x==0) {
+    unsigned long long *arrivals=start_order+1+(unsigned long long)task_count*grid_ctas;
+    unsigned long long *released=arrivals+1;
+    for (unsigned long long i=blockIdx.x; i<task_count; i+=grid_ctas)
+      if (atomicAdd(completed+i,0u)!=0) atomicCAS((unsigned*)abort_code,0u,6u);
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    unsigned long long arrival=atomicAdd(arrivals,1ull);
+    if (arrival>=grid_ctas) atomicCAS((unsigned*)abort_code,0u,6u);
+    if (arrival==grid_ctas-1) {
+      asm volatile("fence.sc.gpu;" ::: "memory");
+      atomicExch(released,1ull);
+    }
+    unsigned long long spins=0;
+    while (atomicAdd(released,0ull)==0) {
+      if (++spins>=16777216ull) { atomicCAS((unsigned*)abort_code,0u,4u); break; }
+    }
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    entry_abort=atomicAdd((unsigned*)abort_code,0u);
+  }
+  __syncthreads();
+  if (entry_abort) return;
+  // entry protocol end
 
   __shared__ unsigned selection_abort;
   __shared__ unsigned task_ready;
@@ -64,6 +94,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)0*n + e] = op_0(src_0[e]);
         asm volatile("mbarrier.arrive.release.cta.shared::cta.b64 _, [%0];" :: "r"(cta_barrier_addr) : "memory"); // task 0: release at cta scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 0, 1u); // publish task 0
         done_0 = 1u; remaining--;
       }
@@ -88,6 +119,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
         for (size_t e = (size_t)blockIdx.x*blockDim.x + threadIdx.x; e < n; e += (size_t)1u*blockDim.x)
           scratch[(size_t)1*n + e] = op_1(src_1[e]);
         asm volatile("mbarrier.arrive.release.cta.shared::cta.b64 _, [%0];" :: "r"(cta_barrier_addr) : "memory"); // task 1: release at cta scope
+      __syncthreads();
         if (threadIdx.x == 0) atomicAdd(completed + 1, 1u); // publish task 1
         done_1 = 1u; remaining--;
       }
@@ -105,6 +137,7 @@ extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
 // equal to.
 extern "C" __global__ void ordinary_task(const unsigned *input, unsigned *scratch,
     unsigned n, unsigned task) {
+  if (n > 1048576u) return;
   size_t i = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
   int dep = dependency(task);
   if (i < n) {

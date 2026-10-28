@@ -39,9 +39,12 @@ files alone does not justify positioning CPU samples on a GPU timeline.
 
 Export decodes a retained Go trace only with a selected prebuilt cmd/trace whose
 digest, build identity, header and producer receipt match a reviewed admission
-record; none is admitted yet. Decoding is format evidence; clock placement still
-requires Linux go1.27.1 and native clock verification. The host-stack
-query retains timestamp quantization, clock snapshots, and observed read skew.
+record. One is admitted: cmd/trace built by go1.27.2 for darwin/arm64, decoding
+header-26 traces whose producer is asserted by the caller to be go1.27.2 on
+darwin/arm64. A successful decode leaves completeness unknown. Decoding is format
+evidence; clock placement still requires Linux go1.27.1 and native clock
+verification. The host-stack query retains timestamp quantization, clock
+snapshots, and observed read skew.
 
 ## Open question: native kernel-launch stacks
 

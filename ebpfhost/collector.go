@@ -46,7 +46,7 @@ type Collector struct {
 	mu                    sync.Mutex
 	root, instance, group string
 	probes                []string
-	fd                    int
+	fd                    traceFD
 	hasFD                 bool
 	pending               []byte
 	closed                bool
@@ -180,7 +180,7 @@ func Open(cfg Config) (_ *Collector, err error) {
 			}
 		}
 	}
-	c.fd, err = syscall.Open(filepath.Join(instance, "trace_pipe"), syscall.O_RDONLY|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0)
+	c.fd, err = openTracePipe(filepath.Join(instance, "trace_pipe"))
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (c *Collector) Read(ctx context.Context) (Record, error) {
 			c.mu.Unlock()
 			return Record{Line: line}, nil
 		}
-		n, err := syscall.Read(c.fd, buf[:])
+		n, err := readTracePipe(c.fd, buf[:])
 		if n > 0 {
 			c.pending = append(c.pending, buf[:n]...)
 		}
@@ -267,7 +267,7 @@ func (c *Collector) Close() error {
 	}
 	if c.hasFD {
 		c.hasFD = false
-		errs = append(errs, syscall.Close(c.fd))
+		errs = append(errs, closeTracePipe(c.fd))
 	} // Never retry close: fd may be reused, including EINTR.
 	if !c.eventsDisabled {
 		err := os.WriteFile(filepath.Join(c.instance, "events/enable"), []byte("0"), 0600)

@@ -133,3 +133,28 @@ func ExamplePromotionProposal_ValidateGeneration() {
 	// <nil>
 	// true
 }
+
+func TestPromotionConditionsCoverageDetached(t *testing.T) {
+	r, c := promotionFixture(t)
+	m, _ := cudatrial.NewThreadEdgeMap(16, 1)
+	m.Record(0, 3)
+	for _, candidate := range []*CandidatePlan{r.Winner, c} {
+		candidate.Receipt.Before.Values = map[cudatrial.ConditionKind]int64{cudatrial.ConditionHostAvailableBytes: 0}
+		candidate.Receipt.Coverage = m.Snapshot()
+		candidate.Trials[1].After.Values = map[cudatrial.ConditionKind]int64{cudatrial.ConditionHostTotalBytes: 100}
+		candidate.Trials[1].Coverage = m.Snapshot()
+	}
+	p, err := r.ProposePromotion(c, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range []*CandidatePlan{r.Winner, c} {
+		candidate.Receipt.Before.Values[cudatrial.ConditionHostAvailableBytes] = 55
+		candidate.Receipt.Coverage.Reset()
+		candidate.Trials[1].After.Values[cudatrial.ConditionHostTotalBytes] = 500
+		candidate.Trials[1].Coverage.Reset()
+	}
+	if p.Receipt.Before.Values[cudatrial.ConditionHostAvailableBytes] != 0 || p.HeldOutReceipt.Coverage.Bytes()[11] != 1 || p.ScreeningTrials[1].After.Values[cudatrial.ConditionHostTotalBytes] != 100 || p.HeldOutTrials[1].Coverage.Bytes()[11] != 1 {
+		t.Fatal("proposal aliases condition or coverage evidence")
+	}
+}

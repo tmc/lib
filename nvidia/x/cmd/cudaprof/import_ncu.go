@@ -19,12 +19,12 @@ import (
 const importNCUUsage = "usage: cudaprof import-ncu [-json] [-limit N] [-max-bytes N] [-capture capture.pprof -join-receipt receipt.json] envelope.json\n       cudaprof import-ncu -raw [-json] [-ceiling GB/s | -device name|auto] [-max-bytes N] raw.csv"
 
 // The receipt is a project producer record, not NVIDIA report metadata and not
-// a driver attestation. An alias prevents permissive Artifact.UnmarshalJSON
-// from bypassing the strict decoder's unknown-field checks.
-type ncuArtifact cudakernel.Artifact
+// a driver attestation. The artifact stays raw for cudakernel.ParseArtifact, so
+// permissive Artifact.UnmarshalJSON cannot bypass the strict decoder's
+// unknown-field checks.
 type ncuJoinReceipt struct {
 	SchemaVersion int                        `json:"schema_version"`
-	Artifact      *ncuArtifact               `json:"artifact"`
+	Artifact      json.RawMessage            `json:"artifact"`
 	Workload      cudacache.WorkloadIdentity `json:"workload"`
 	CompilerKey   string                     `json:"compiler_key"`
 }
@@ -105,11 +105,11 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 		if err := decodeNCUReceipt(b, &receipt); err != nil {
 			return fmt.Errorf("import-ncu: join receipt: %w", err)
 		}
-		if receipt.SchemaVersion != 1 || receipt.Artifact == nil {
+		if receipt.SchemaVersion != 1 || len(receipt.Artifact) == 0 || string(receipt.Artifact) == "null" {
 			return fmt.Errorf("import-ncu: incomplete or unknown join receipt")
 		}
-		a := cudakernel.Artifact(*receipt.Artifact)
-		if err := a.Validate(); err != nil {
+		a, err := cudakernel.ParseArtifact(receipt.Artifact)
+		if err != nil {
 			return fmt.Errorf("import-ncu: join artifact: %w", err)
 		}
 		b, err = readNCUFile(*capturePath, *maxBytes)
@@ -138,7 +138,7 @@ func runImportNCUCommand(args []string, stdout io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("import-ncu: capture: %w", err)
 		}
-		candidates = []nsightcompute.Candidate{{Capture: c, Artifact: &a, Workload: receipt.Workload, CompilerKey: receipt.CompilerKey}}
+		candidates = []nsightcompute.Candidate{{Capture: c, Artifact: a, Workload: receipt.Workload, CompilerKey: receipt.CompilerKey}}
 	}
 	report, err := nsightcompute.Import(envelope, candidates)
 	if err != nil {

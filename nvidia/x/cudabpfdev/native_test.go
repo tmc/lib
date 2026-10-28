@@ -69,7 +69,7 @@ func nativeInjectionFixture(target string, block uint32) (*ArtifactSource, Progr
 		{Op: Lane, Dst: 3}, {Op: Leader, Dst: 3, A: 3}, {Op: Exit, A: 3},
 	}}
 	b := Budget{MaxInstructions: 16, MaxSteps: 16, MaxRegisters: 128, MaxSlots: 2}
-	policy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{a.Digest, a.EntryPoint, a.Target}}, Entry: true, Exit: true, MemoryInstructions: []int{11}}
+	policy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{a.Digest(), a.EntryPoint(), a.Target()}}, Entry: true, Exit: true, MemoryInstructions: []int{11}}
 	return s, p, b, policy, err
 }
 
@@ -88,7 +88,7 @@ func nativeStubInjectionFixture(target string, block uint32) (*ArtifactSource, P
 	s, err := NewArtifactSource(a, Geometry{Grid: [3]uint32{2, 1, 1}, Block: [3]uint32{block, 1, 1}})
 	p := Program{Version: 1, Registers: 1, Slots: 1, Code: []Instruction{{Op: Const, Dst: 0, Imm: 1}, {Op: MapAdd, B: 0}, {Op: Exit}}}
 	b := Budget{MaxInstructions: 8, MaxSteps: 8, MaxRegisters: 128, MaxSlots: 1}
-	policy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{a.Digest, a.EntryPoint, a.Target}}, StubFunctions: []string{"trace_stub"}}
+	policy := InjectionPolicy{Enabled: true, Allowlist: []KernelIdentity{{a.Digest(), a.EntryPoint(), a.Target()}}, StubFunctions: []string{"trace_stub"}}
 	return s, p, b, policy, err
 }
 
@@ -123,7 +123,7 @@ func TestNativeInjectionFixture(t *testing.T) {
 		if a == nil {
 			t.Fatal(reason)
 		}
-		if _, err := cudaptx.ParseBytes(a.Raw); err != nil {
+		if _, err := cudaptx.ParseBytes(a.Bytes()); err != nil {
 			t.Fatalf("stub candidate is not parseable by cudaptx: %v", err)
 		}
 	}

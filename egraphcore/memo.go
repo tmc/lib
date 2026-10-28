@@ -35,6 +35,21 @@ func FindMemoCandidateIter[ID ~uint32, Node any](
 	canonicalize func(Node) Node,
 	equal func(Node, Node) bool,
 ) (ID, bool, error) {
+	if canonicalize == nil {
+		var zero ID
+		return zero, false, ErrInvalidMemoLookup
+	}
+	return FindMemoCandidateIterWithBudget(visitCandidates, want, find, classNodes,
+		func(node Node) (Node, error) { return canonicalize(node), nil }, equal, nil)
+}
+
+// FindMemoCandidateIterWithBudget admits lookup scratch before allocation.
+// Allocating callbacks must admit their own storage using the same scope.
+func FindMemoCandidateIterWithBudget[ID ~uint32, Node any](
+	visitCandidates func(func(ID) bool), want Node, find func(ID) ID,
+	classNodes func(ID) []Node, canonicalize func(Node) (Node, error),
+	equal func(Node, Node) bool, budget *WorkBudget,
+) (ID, bool, error) {
 	if visitCandidates == nil || find == nil || classNodes == nil || canonicalize == nil || equal == nil {
 		var zero ID
 		return zero, false, ErrInvalidMemoLookup
@@ -44,6 +59,7 @@ func FindMemoCandidateIter[ID ~uint32, Node any](
 	var seen map[ID]struct{}
 	var foundID ID
 	found := false
+	var lookupErr error
 	visitCandidates(func(candidate ID) bool {
 		root := find(candidate)
 		if seen != nil {
@@ -63,19 +79,38 @@ func FindMemoCandidateIter[ID ~uint32, Node any](
 			}
 		}
 		if seen != nil {
-			seen[root] = struct{}{}
+			if !memoryPut(budget, seen, root, struct{}{}) {
+				lookupErr = budget.MemoryError()
+				return false
+			}
 		} else if smallCount < len(small) {
 			small[smallCount] = root
 			smallCount++
 		} else {
-			seen = make(map[ID]struct{}, 16)
-			for i := 0; i < smallCount; i++ {
-				seen[small[i]] = struct{}{}
+			var ok bool
+			seen, ok = memoryMap[ID, struct{}](budget, 16)
+			if !ok {
+				lookupErr = budget.MemoryError()
+				return false
 			}
-			seen[root] = struct{}{}
+			for i := 0; i < smallCount; i++ {
+				if !memoryPut(budget, seen, small[i], struct{}{}) {
+					lookupErr = budget.MemoryError()
+					return false
+				}
+			}
+			if !memoryPut(budget, seen, root, struct{}{}) {
+				lookupErr = budget.MemoryError()
+				return false
+			}
 		}
 		for _, node := range classNodes(root) {
-			if equal(canonicalize(node), want) {
+			canonical, err := canonicalize(node)
+			if err != nil {
+				lookupErr = err
+				return false
+			}
+			if equal(canonical, want) {
 				foundID = root
 				found = true
 				return false
@@ -83,5 +118,5 @@ func FindMemoCandidateIter[ID ~uint32, Node any](
 		}
 		return true
 	})
-	return foundID, found, nil
+	return foundID, found, lookupErr
 }

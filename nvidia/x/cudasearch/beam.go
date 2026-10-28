@@ -32,12 +32,15 @@ type SearchBudget struct {
 	// buffers reserved by built-in compilers. Zero is unlimited. Accounting uses
 	// Go value sizes, slice capacities, strings and live map entries; it excludes
 	// allocator/map bucket overhead, runtime/driver/compiler internals and caller
-	// captures. Built-in matching, extraction and clone copies reserve their
-	// supported storage before allocation. Transition staging/growth and other
-	// evaluator/policy-setup bookkeeping remain partial, so this is not a complete
-	// owned cap. Frontier/tree containers, fingerprints and retained rejection
-	// copies reserve their declared storage before allocation. Their map units
-	// are a header and key/value slots, not a bound on runtime bucket storage.
+	// captures. Built-in matching, extraction, clone copies and rewrite transitions
+	// reserve their supported storage before allocation; post-transition reachable
+	// state measurement remains a conservative extra charge on the branch owner.
+	// Ordinary scoring/policy setup also reserves its supported copies and
+	// encodings. Profile/catalog setup and evaluator metadata remain partial, so
+	// this is not a complete owned cap. Frontier/tree containers, fingerprints
+	// and retained rejection copies reserve their declared storage before
+	// allocation. Their map units are a header and key/value slots, not a bound
+	// on runtime bucket storage.
 	MaxMemoryBytes int64
 	// CallbackMemoryBytes declares the maximum simultaneously owned storage of
 	// opaque evaluator/compiler callbacks, including opaque executable workspace.
@@ -139,24 +142,29 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 
 	startTime := time.Now()
 	budget := b.cfg.Budget
-	profile := freezeProfileActions(b.cfg.Profile)
 	if err := validateMemoryEvaluator(b.cfg.Memory, eval); err != nil {
 		return nil, err
 	}
-	if err := freezeSearchMemory(b.cfg.Memory, &profile); err != nil {
+	var priors profileActions
+	if err := freezeSearchMemory(b.cfg.Memory, &priors); err != nil {
 		return nil, err
 	}
 	ctx, work, err := searchWorkBudget(ctx, budget, eval)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { closeStateClones(work.memory.takeClones()) }()
+	defer work.closeSearch()
 	book, err := newSearchBookkeeping(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer book.close()
-	policy, policyComplete, err := makeSearchPolicy("beam", b.cfg.RootName, budget, map[string]string{"beam_width": fmt.Sprint(b.cfg.BeamWidth), "tie_order": "full-replay-path-v1"}, 0, rules, eval, work, profile, b.cfg.EvaluatorID)
+	profile, err := freezeBoundedProfile(b.cfg.Profile, book.temporary(), book.retained())
+	if err != nil {
+		return nil, err
+	}
+	profile.memory, profile.weights = priors.memory, priors.weights
+	policy, policyComplete, err := makeSearchPolicy("beam", b.cfg.RootName, budget, searchPolicyOptions{beamWidth: b.cfg.BeamWidth}, 0, rules, eval, work, profile, b.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +191,7 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 	if err := admitGraphBudget(initial, budget); err != nil {
 		return nil, err
 	}
-	if err := retainSearchValue(ctx, borrowedInitial); err != nil {
+	if err := retainSearchValue(ctx, borrowedInitial, false); err != nil {
 		return nil, err
 	}
 	rootID, ok := initial.CanonicalRoot(b.cfg.RootName)
@@ -326,6 +334,9 @@ func (b *BeamSearch) Search(ctx context.Context, initial *egraph.SearchState, ru
 				actionCount++
 				res, cloneOwner, applyErr := applySearchAction(ctx, item.state, act)
 				if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
+					if cloneOwner != nil {
+						work.memory.retainClone(cloneOwner)
+					}
 					return finish(applyErr)
 				}
 				if applyErr != nil || res.NoOp {

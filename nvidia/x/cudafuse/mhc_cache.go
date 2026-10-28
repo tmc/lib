@@ -252,12 +252,12 @@ func checkMHCCacheArtifact(r mhcCacheRequest, id cudacache.CompilerIdentity, art
 		return fmt.Errorf("%w: %w", cudacache.ErrCorruptArtifact, err)
 	}
 	var build mhcCacheBuild
-	if err := json.Unmarshal([]byte(art.Toolchain), &build); err != nil {
+	if err := json.Unmarshal([]byte(art.Toolchain()), &build); err != nil {
 		return fmt.Errorf("%w: invalid mhc compiler receipt", cudacache.ErrCorruptArtifact)
 	}
 	canonical, _ := json.Marshal(build)
 	key, err := hex.DecodeString(build.CompilerKey)
-	if art.EntryPoint != r.Source.Name || art.Target != r.Target || art.Kind != cudakernel.KindPTX || !reflect.DeepEqual(art.Schema, r.Schema) || !slices.Equal(art.CompilerOpts, r.Flags) || !reflect.DeepEqual(art.Dependencies, mhcCacheDependencies(r, id)) || build.Recipe != mhcCacheRecipe || build.Provenance != id.Provenance.Fingerprint() || err != nil || len(key) != sha256.Size || string(canonical) != art.Toolchain {
+	if art.EntryPoint() != r.Source.Name || art.Target() != r.Target || art.Kind() != cudakernel.KindPTX || !reflect.DeepEqual(art.Schema(), r.Schema) || !slices.Equal(art.CompilerOptions(), r.Flags) || !reflect.DeepEqual(art.Dependencies(), mhcCacheDependencies(r, id)) || build.Recipe != mhcCacheRecipe || build.Provenance != id.Provenance.Fingerprint() || err != nil || len(key) != sha256.Size || string(canonical) != art.Toolchain() {
 		return fmt.Errorf("%w: mhc source, abi, layout, flags or tool binding differs", cudacache.ErrCorruptArtifact)
 	}
 	return nil
@@ -273,7 +273,7 @@ func compileMHCCachedEntry(ctx context.Context, cache *cudacache.NVRTCAdapter, r
 			compileErr = err
 			return nil, cudacache.ToolProvenance{}, err
 		}
-		if len(produced.Dependencies) != 0 {
+		if len(produced.Dependencies()) != 0 {
 			return nil, cudacache.ToolProvenance{}, fmt.Errorf("%w: external mhc dependencies", ErrMHCCompilerCacheUnavailable)
 		}
 		actual, major, minor, driverName, err := mhcCacheEnvironment(id.Provenance.Tools)
@@ -283,10 +283,15 @@ func compileMHCCachedEntry(ctx context.Context, cache *cudacache.NVRTCAdapter, r
 		if actual.Fingerprint() != id.Provenance.Fingerprint() || fmt.Sprintf("%d.%d", major, minor) != id.NVRTCVersion || driverName != id.DriverSONAME {
 			return nil, cudacache.ToolProvenance{}, fmt.Errorf("%w: compiler environment changed during compilation", ErrMHCCompilerCacheUnavailable)
 		}
-		produced.CompilerOpts = slices.Clone(r.Flags)
-		produced.Dependencies = mhcCacheDependencies(r, id)
+		spec := produced.Spec()
+		spec.CompilerOpts = slices.Clone(r.Flags)
+		spec.Dependencies = mhcCacheDependencies(r, id)
 		receipt, _ := json.Marshal(mhcCacheBuild{mhcCacheRecipe, key, id.Provenance.Fingerprint()})
-		produced.Toolchain = string(receipt)
+		spec.Toolchain = string(receipt)
+		produced, err = cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			return nil, cudacache.ToolProvenance{}, err
+		}
 		if err := checkMHCCacheArtifact(r, id, produced); err != nil {
 			return nil, cudacache.ToolProvenance{}, err
 		}

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"debug/elf"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -97,11 +98,11 @@ func TestMoEWeightTypedRefusals(t *testing.T) {
 		t.Fatal("unqualified target admitted")
 	}
 	g, _ := cudataskgraph.New([]cudataskgraph.Task{{ID: "gate-up", Scope: cudataskgraph.ScopeDevice}})
-	if _, err := NewProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp}}, Grid{CTAs: 1, ThreadsPerCTA: 32}, "sm_121"); err == nil {
+	if _, err := NewProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp}}, Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 16}, "sm_121"); err == nil {
 		t.Fatal("public scalar admission accepted typed payload")
 	}
 	c := MoEWeightConfig{3, 2, 16, 17}
-	for _, grid := range []Grid{{CTAs: 2, ThreadsPerCTA: 32}, {CTAs: 1, ThreadsPerCTA: 64}} {
+	for _, grid := range []Grid{{CTAs: 2, ThreadsPerCTA: 32, MaxElements: 16}, {CTAs: 1, ThreadsPerCTA: 64, MaxElements: 16}} {
 		if _, err := newProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp, moe: &c}}, grid, "sm_121", true); err == nil {
 			t.Fatal("unsupported geometry admitted")
 		}
@@ -145,35 +146,79 @@ func moeHostArtifact(t *testing.T) *cudakernel.Artifact {
 func TestMoEWeightArtifactIdentity(t *testing.T) {
 	c := MoEWeightConfig{3, 2, 16, 17}
 	a := moeHostArtifact(t)
+	original := *a
 	owned, err := checkedMoEArtifact(c, a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.Raw[0] = 'x'
-	a.Schema.Params[0].Name = "x"
-	a.Dependencies[0].Digest = "x"
-	a.CompilerOpts[0] = "x"
-	if owned.Raw[0] == 'x' || owned.Schema.Params[0].Name == "x" || owned.Dependencies[0].Digest == "x" || owned.CompilerOpts[0] == "x" {
-		t.Fatal("artifact aliases caller")
+	// Readback is detached. Editing it cannot alter the captured descriptor.
+	spec := a.Spec()
+	spec.Raw[0] = 'x'
+	spec.Schema.Params[0].Name = "x"
+	spec.Dependencies[0].Digest = "x"
+	spec.CompilerOpts[0] = "x"
+	if owned.Bytes()[0] == 'x' || owned.Schema().Params[0].Name == "x" || owned.Dependencies()[0].Digest == "x" || owned.CompilerOptions()[0] == "x" {
+		t.Fatal("artifact aliases detached readback")
+	}
+	// A caller may replace its wrapper, but the consumer must retain the checked handle.
+	replacement := original.Spec()
+	replacement.EntryPoint = "replacement"
+	other, err := cudakernel.NewArtifactFromSpec(replacement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*a = *other
+	if *owned != original || owned.EntryPoint() != "moe_weight_worker" {
+		t.Fatal("consumer follows replaced wrapper")
+	}
+	// Invalid wire bytes must not replace either the caller or captured handle.
+	wire, err := json.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(wire, &fields); err != nil {
+		t.Fatal(err)
+	}
+	raw := original.Bytes()
+	raw[0] = 'x'
+	fields["raw"], err = json.Marshal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire, err = json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := *a
+	if err := json.Unmarshal(wire, a); err == nil {
+		t.Fatal("corrupt raw/digest pair admitted")
+	}
+	if *a != before || *owned != original {
+		t.Fatal("failed decode changed a handle")
 	}
 	for _, tt := range []struct {
 		name string
-		edit func(*cudakernel.Artifact)
+		edit func(*cudakernel.ArtifactSpec)
 	}{
-		{"entry", func(a *cudakernel.Artifact) { a.EntryPoint = "ordinary_task" }},
-		{"kind", func(a *cudakernel.Artifact) { a.Kind = cudakernel.KindPTX }},
-		{"target", func(a *cudakernel.Artifact) { a.Target = "sm_120" }},
-		{"schema", func(a *cudakernel.Artifact) { a.Schema.Params[0].Name = "different" }},
-		{"options", func(a *cudakernel.Artifact) { a.CompilerOpts = []string{"--use_fast_math"} }},
-		{"missing", func(a *cudakernel.Artifact) { a.Dependencies = nil }},
-		{"duplicate", func(a *cudakernel.Artifact) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) }},
-		{"untracked", func(a *cudakernel.Artifact) { a.Dependencies[0].Tracked = false }},
-		{"bytes", func(a *cudakernel.Artifact) { a.Raw[0] = 'x' }},
-		{"static-resource", func(a *cudakernel.Artifact) { a.Resources.StaticSharedMemory = math.MaxUint32 }},
+		{"entry", func(a *cudakernel.ArtifactSpec) { a.EntryPoint = "ordinary_task" }},
+		{"kind", func(a *cudakernel.ArtifactSpec) { a.Kind = cudakernel.KindPTX }},
+		{"target", func(a *cudakernel.ArtifactSpec) { a.Target = "sm_120" }},
+		{"schema", func(a *cudakernel.ArtifactSpec) { a.Schema.Params[0].Name = "different" }},
+		{"options", func(a *cudakernel.ArtifactSpec) { a.CompilerOpts = []string{"--use_fast_math"} }},
+		{"missing", func(a *cudakernel.ArtifactSpec) { a.Dependencies = nil }},
+		{"duplicate", func(a *cudakernel.ArtifactSpec) { a.Dependencies = append(a.Dependencies, a.Dependencies[0]) }},
+		{"untracked", func(a *cudakernel.ArtifactSpec) { a.Dependencies[0].Tracked = false }},
+		{"static-resource", func(a *cudakernel.ArtifactSpec) { a.Resources.StaticSharedMemory = math.MaxUint32 }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			a := moeHostArtifact(t)
-			tt.edit(a)
+			spec := moeHostArtifact(t).Spec()
+			tt.edit(&spec)
+			a, err := cudakernel.NewArtifactFromSpec(spec)
+			if err != nil {
+				t.Logf("constructor refused descriptor: %v", err)
+				return
+			}
 			if _, err := checkedMoEArtifact(c, a); err == nil {
 				t.Fatal("invalid identity admitted")
 			}

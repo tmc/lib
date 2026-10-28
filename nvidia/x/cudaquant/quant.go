@@ -213,8 +213,13 @@ func normQuantArtifacts(target, source string, entries []string, compile func(st
 		if artifact == nil {
 			return nil, fmt.Errorf("cudaquant: %s returned no artifact", entry)
 		}
-		artifact.CompilerOpts = append([]string(nil), flags...)
-		artifacts = append(artifacts, artifact)
+		spec := artifact.Spec()
+		spec.CompilerOpts = append([]string(nil), flags...)
+		sealed, err := cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			return nil, fmt.Errorf("cudaquant: %s artifact options: %w", entry, err)
+		}
+		artifacts = append(artifacts, sealed)
 	}
 	return artifacts, nil
 }

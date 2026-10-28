@@ -70,7 +70,7 @@ func Compare(a, b Record, p Policy) (Comparison, error) {
 		return out, err
 	}
 	out.CompilerChanged = a.CompilerKey != b.CompilerKey
-	out.CodeChanged = (a.Artifact == nil) != (b.Artifact == nil) || (a.Artifact != nil && b.Artifact != nil && a.Artifact.Digest != b.Artifact.Digest)
+	out.CodeChanged = (a.Artifact == nil) != (b.Artifact == nil) || (a.Artifact != nil && b.Artifact != nil && a.Artifact.Digest() != b.Artifact.Digest())
 	facts := func(r Record, axis string) map[string]Fact {
 		m := map[string]Fact{}
 		for _, f := range r.Facts {

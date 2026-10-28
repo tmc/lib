@@ -306,7 +306,7 @@ func TestHazardMatrix_SynchronizedOverlapIsClean(t *testing.T) {
 	}
 }
 
-func TestHazardMatrix_ClusterScopeSharedWithinCTAIsClean(t *testing.T) {
+func TestHazardMatrix_ClusterScopeSharedWithinCTARaces(t *testing.T) {
 	m := NewHazardMatrix("sm_90")
 	for _, access := range []MemoryAccess{
 		{Scope: ScopeCluster, ThreadID: 0, BlockID: 0, ClusterID: 1, Space: MemoryShared, Offset: 0x600, SizeBytes: 4, IsWrite: true, Stage: 0},
@@ -317,7 +317,7 @@ func TestHazardMatrix_ClusterScopeSharedWithinCTAIsClean(t *testing.T) {
 		}
 	}
 	hasRace, err := m.HasRace()
-	if err != nil || hasRace {
-		t.Fatalf("same-CTA shared overlap at cluster scope = %v, %v; want clean", hasRace, err)
+	if err != nil || !hasRace {
+		t.Fatalf("same-CTA shared overlap at cluster scope = %v, %v; want race", hasRace, err)
 	}
 }

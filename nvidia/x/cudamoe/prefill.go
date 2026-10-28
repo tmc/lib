@@ -66,8 +66,9 @@ func compilePrefill(target, source, entry string) (*cudakernel.Artifact, error) 
 	if err != nil {
 		return nil, fmt.Errorf("cudamoe: prefill artifact: %w", err)
 	}
-	a.CompilerOpts = flags
-	return a, nil
+	spec := a.Spec()
+	spec.CompilerOpts = flags
+	return cudakernel.NewArtifactFromSpec(spec)
 }
 
 const prefillW256ScalarSource = `#include <cuda_fp16.h>

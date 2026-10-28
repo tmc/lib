@@ -306,7 +306,7 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 	input := bufs[plan.Steps[u.steps[0]].Inputs[0]]
 	e.epoch++
 	args := []any{input.Ptr, scratch.Ptr(), completed.Ptr(), order.Ptr(), abort.Ptr(), uint32(n), e.epoch}
-	if _, err := art.Schema.Pack(args...); err != nil {
+	if _, err := art.Schema().Pack(args...); err != nil {
 		return nil, "", fmt.Errorf("cudaagreement: persistent worker arguments: %w", err)
 	}
 	for _, s := range []cudamem.Slice[uint32]{completed, abort} {
@@ -358,8 +358,8 @@ func (e *MegaExecutor) run(stream *cuda.Stream, plan *Plan, u megaUnit, bufs map
 			return nil, "", fmt.Errorf("cudaagreement: copy %s from worker scratch: %w", s.Name, err)
 		}
 		r := recordFor(s, cudaplan.BackendMega, cudaplan.BackendMega, "", out)
-		r.Program = art.Digest
-		r.EntryPoint = art.EntryPoint
+		r.Program = art.Digest()
+		r.EntryPoint = art.EntryPoint()
 		r.Grid, r.Block = grid.CTAs, grid.ThreadsPerCTA
 		recs = append(recs, r)
 	}
@@ -396,8 +396,12 @@ func (e *MegaExecutor) program(plan *Plan, u megaUnit) (*cudamega.Program, error
 // worker ran which task, and the record is made from it.
 func checkStartOrder(steps []cudamega.Step, ctas uint32, ord []uint64) error {
 	nt := len(steps)
-	if len(ord) < 1+nt*int(ctas) {
-		return fmt.Errorf("cudaagreement: start order has %d words, want %d", len(ord), 1+nt*int(ctas))
+	want, err := cudamega.StartOrderWords(uint64(nt), uint64(ctas))
+	if err != nil || uint64(len(ord)) != want {
+		return fmt.Errorf("cudaagreement: start order has %d words, want %d", len(ord), want)
+	}
+	if ord[len(ord)-2] != uint64(ctas) || ord[len(ord)-1] != 1 {
+		return errors.New("cudaagreement: persistent worker entry incomplete")
 	}
 	var total uint64
 	for _, s := range steps {
@@ -484,7 +488,7 @@ type megaAdmission struct {
 
 func prepareMegaLaunch(grid cudamega.Grid, tasks uint64, words int, dev, streamDev, modulesDev *cuda.Device, q megaLaunchQueries) (megaAdmission, string, error) {
 	a := megaAdmission{device: dev}
-	if words <= 0 || uint64(words) > math.MaxUint32 || grid.MaxElements != 0 && uint64(words) > uint64(grid.MaxElements) {
+	if words <= 0 || grid.MaxElements == 0 || uint64(words) > math.MaxUint32 || uint64(words) > uint64(grid.MaxElements) {
 		return a, "persistent worker extent exceeds declared maximum or uint32 range", nil
 	}
 	var err error

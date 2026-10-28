@@ -147,7 +147,7 @@ func joinedFixture(t *testing.T) (Envelope, Candidate) {
 		t.Fatal(err)
 	}
 	w := cudacache.WorkloadIdentity{ProgramID: "synthetic fill launch receipt", ShapeDims: []int{64}, NumericalMode: "fp32"}
-	key := cudacache.CompilerCacheKey(a.Digest, cudacache.CompilerIdentity{TargetArch: a.Target, OutputKind: nvrtcx.OutputCUBIN, Flags: []string{"retained fixture"}})
+	key := cudacache.CompilerCacheKey(a.Digest(), cudacache.CompilerIdentity{TargetArch: a.Target(), OutputKind: nvrtcx.OutputCUBIN, Flags: []string{"retained fixture"}})
 	id, err := cudaprof.BindEvidence(a, w, key)
 	if err != nil {
 		t.Fatal(err)
@@ -174,6 +174,18 @@ func joinedFixture(t *testing.T) (Envelope, Candidate) {
 	e.CSVDigest = fmtDigest(b.Bytes())
 	e.Bindings = []Binding{{Launch: LaunchKey{"0", "1", "1", "7"}, Identity: id}}
 	return e, Candidate{Capture: c, Artifact: a, Workload: w, CompilerKey: key}
+}
+
+// respec constructs a valid artifact from a's spec after edit.
+func respec(t *testing.T, a *cudakernel.Artifact, edit func(*cudakernel.ArtifactSpec)) *cudakernel.Artifact {
+	t.Helper()
+	s := a.Spec()
+	edit(&s)
+	b, err := cudakernel.NewArtifactFromSpec(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 func importJoined(t *testing.T, e Envelope, c []Candidate) *Report {
 	t.Helper()
@@ -218,7 +230,9 @@ func TestImportRejectsStaleImageJoin(t *testing.T) {
 		{"compiler", func(e *Envelope, c *Candidate) { e.Bindings[0].Identity.CompilerKey = strings.Repeat("2", 64) }},
 		{"workload", func(e *Envelope, c *Candidate) { e.Bindings[0].Identity.WorkloadKey = strings.Repeat("3", 64) }},
 		{"retained bytes", func(e *Envelope, c *Candidate) { c.Capture.Files["kernels.cubin"][0] ^= 1 }},
-		{"artifact bytes", func(e *Envelope, c *Candidate) { c.Artifact.Raw[0] ^= 1 }},
+		// A sealed artifact cannot hold corrupt bytes; an invalid handle
+		// must still fail the receipt check.
+		{"invalid artifact", func(e *Envelope, c *Candidate) { c.Artifact = &cudakernel.Artifact{} }},
 		{"capture workload", func(e *Envelope, c *Candidate) {
 			c.Capture.Identity = &cudacapture.ComparisonIdentity{WorkloadHash: strings.Repeat("4", 64)}
 		}},
@@ -252,7 +266,7 @@ func TestImportRefusesAmbiguousKernelJoin(t *testing.T) {
 
 func TestImportRejectsMislabeledNativeTarget(t *testing.T) {
 	e, c := joinedFixture(t)
-	c.Artifact.Target = "sm_80"
+	c.Artifact = respec(t, c.Artifact, func(s *cudakernel.ArtifactSpec) { s.Target = "sm_80" })
 	e.Bindings[0].Identity.Target = "sm_80"
 	e.CSV = strings.Replace(e.CSV, ",9.0,", ",8.0,", 1)
 	e.CSVDigest = fmtDigest([]byte(e.CSV))
@@ -265,18 +279,20 @@ func TestImportRejectsMislabeledNativeTarget(t *testing.T) {
 func TestImportBindingAndInventoryRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
-		change func(*Envelope, *Candidate)
+		change func(*testing.T, *Envelope, *Candidate)
 	}{
-		{"duplicate binding", func(e *Envelope, c *Candidate) { e.Bindings = append(e.Bindings, e.Bindings[0]) }},
-		{"missing exported launch", func(e *Envelope, c *Candidate) { e.Bindings[0].Launch.ID = "99" }},
-		{"partial binding", func(e *Envelope, c *Candidate) { e.Bindings[0].Identity.CompilerKey = "" }},
-		{"descriptor budget", func(e *Envelope, c *Candidate) { c.Artifact.CompilerOpts = make([]string, 129) }},
-		{"workload budget", func(e *Envelope, c *Candidate) { c.Workload.ShapeDims = make([]int, 1025) }},
-		{"module budget", func(e *Envelope, c *Candidate) { c.Capture.Modules = make([]cudacapture.Module, 65) }},
+		{"duplicate binding", func(t *testing.T, e *Envelope, c *Candidate) { e.Bindings = append(e.Bindings, e.Bindings[0]) }},
+		{"missing exported launch", func(t *testing.T, e *Envelope, c *Candidate) { e.Bindings[0].Launch.ID = "99" }},
+		{"partial binding", func(t *testing.T, e *Envelope, c *Candidate) { e.Bindings[0].Identity.CompilerKey = "" }},
+		{"descriptor budget", func(t *testing.T, e *Envelope, c *Candidate) {
+			c.Artifact = respec(t, c.Artifact, func(s *cudakernel.ArtifactSpec) { s.CompilerOpts = make([]string, 129) })
+		}},
+		{"workload budget", func(t *testing.T, e *Envelope, c *Candidate) { c.Workload.ShapeDims = make([]int, 1025) }},
+		{"module budget", func(t *testing.T, e *Envelope, c *Candidate) { c.Capture.Modules = make([]cudacapture.Module, 65) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e, c := joinedFixture(t)
-			tc.change(&e, &c)
+			tc.change(t, &e, &c)
 			if _, err := Import(e, []Candidate{c}); err == nil {
 				t.Fatal("invalid binding/inventory admitted")
 			}

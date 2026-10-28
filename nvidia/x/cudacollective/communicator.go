@@ -15,12 +15,12 @@ type Generation uint64
 // Its zero value is not usable; create one with NewCommunicator.
 type Communicator struct {
 	mu         sync.RWMutex
+	closeMu    sync.Mutex
 	rank       int
 	membership Membership
 	generation Generation
 	transport  Transport
 	closed     bool
-	closeDone  chan struct{}
 	closeErr   error
 	failed     bool
 	failErr    error
@@ -39,7 +39,7 @@ type InFlightTransfer struct {
 	BufferAddr uintptr
 	Bytes      int
 	Done       chan struct{}
-	Err        error
+	Err        error // read only after Done closes
 }
 
 // CommunicatorConfig provides parameters for creating a Communicator.
@@ -72,7 +72,6 @@ func NewCommunicator(cfg CommunicatorConfig) (*Communicator, error) {
 
 	return &Communicator{
 		rank:               cfg.Rank,
-		closeDone:          make(chan struct{}),
 		membership:         cfg.Membership,
 		generation:         cfg.Generation,
 		transport:          cfg.Transport,
@@ -137,8 +136,44 @@ func (c *Communicator) CheckAlive() error {
 	return nil
 }
 
-// AcquireTransferBuffer marks a buffer address as actively transferring in a double-buffered slot.
-// If the buffer is already registered in flight, it returns ErrBufferInUse.
+// ValidateRange verifies that [addr, addr+bytes) is non-nil, does not wrap
+// the address space, and lies completely within the reserved transfer buffer.
+func (tr *InFlightTransfer) ValidateRange(addr uintptr, bytes int) error {
+	if tr == nil || addr == 0 || tr.BufferAddr == 0 {
+		return ErrNilBuffer
+	}
+	if bytes <= 0 || tr.Bytes <= 0 {
+		return ErrBufferLengthMismatch
+	}
+	lo := uint64(addr)
+	n := uint64(bytes)
+	if lo > ^uint64(0)-n {
+		return fmt.Errorf("%w: buffer range [0x%x, +%d) wraps the address space", ErrBufferLengthMismatch, lo, bytes)
+	}
+	hi := lo + n
+	resLo := uint64(tr.BufferAddr)
+	resN := uint64(tr.Bytes)
+	if resLo > ^uint64(0)-resN {
+		return fmt.Errorf("%w: reservation range [0x%x, +%d) wraps the address space", ErrBufferLengthMismatch, resLo, tr.Bytes)
+	}
+	resHi := resLo + resN
+	if lo >= resLo && lo < resHi && hi > resHi {
+		return fmt.Errorf("%w: buffer range [0x%x, 0x%x) overruns reserved slot %d [0x%x, 0x%x)", ErrBufferLengthMismatch, lo, hi, tr.Slot, resLo, resHi)
+	}
+	if lo < resLo && hi > resLo {
+		return fmt.Errorf("%w: %w: buffer range [0x%x, 0x%x) partially overlaps reserved slot %d [0x%x, 0x%x)", ErrBufferOverlap, ErrBufferLengthMismatch, lo, hi, tr.Slot, resLo, resHi)
+	}
+	if lo < resLo || hi > resHi {
+		if n > resN {
+			return fmt.Errorf("%w: buffer extent %d exceeds reserved slot %d capacity %d", ErrBufferLengthMismatch, bytes, tr.Slot, tr.Bytes)
+		}
+		return fmt.Errorf("%w: buffer range [0x%x, 0x%x) outside reserved slot %d [0x%x, 0x%x)", ErrBufferUnbound, lo, hi, tr.Slot, resLo, resHi)
+	}
+	return nil
+}
+
+// AcquireTransferBuffer marks a buffer range [addr, addr+bytes) as actively transferring in a double-buffered slot.
+// If the buffer or any overlapping subrange is already registered in flight, it returns ErrBufferInUse.
 func (c *Communicator) AcquireTransferBuffer(addr uintptr, bytes int, slot int) (*InFlightTransfer, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -157,16 +192,32 @@ func (c *Communicator) AcquireTransferBuffer(addr uintptr, bytes int, slot int) 
 	if bytes <= 0 {
 		return nil, ErrBufferLengthMismatch
 	}
+	lo := uint64(addr)
+	n := uint64(bytes)
+	if lo > ^uint64(0)-n {
+		return nil, fmt.Errorf("%w: buffer range [0x%x, +%d) wraps the address space", ErrBufferLengthMismatch, lo, bytes)
+	}
+	hi := lo + n
 
 	c.inFlightMu.Lock()
 	defer c.inFlightMu.Unlock()
 
-	if existing, found := c.inFlight[addr]; found {
+	for base, existing := range c.inFlight {
 		select {
 		case <-existing.Done:
-			// Completed, safe to replace
+			// Completed, safe to prune
+			delete(c.inFlight, base)
+			continue
 		default:
-			return nil, fmt.Errorf("%w: address 0x%x in slot %d", ErrBufferInUse, addr, existing.Slot)
+		}
+		existingLo := uint64(existing.BufferAddr)
+		existingHi := existingLo + uint64(existing.Bytes)
+		if lo < existingHi && existingLo < hi {
+			if lo == existingLo && hi == existingHi {
+				return nil, fmt.Errorf("%w: address 0x%x in slot %d", ErrBufferInUse, addr, existing.Slot)
+			}
+			return nil, fmt.Errorf("%w: %w: range [0x%x, 0x%x) overlaps active transfer [0x%x, 0x%x) in slot %d",
+				ErrBufferInUse, ErrBufferOverlap, lo, hi, existingLo, existingHi, existing.Slot)
 		}
 	}
 
@@ -202,28 +253,38 @@ func (c *Communicator) ReleaseTransferBuffer(tr *InFlightTransfer, err error) {
 }
 
 // Close stops admission and waits for the transport to finish accepted work.
-// For native transports this wait is only bounded when native work completes.
+// A transport Close error retains every in-flight reservation and permits an
+// explicit Close retry. Concurrent attempts are serialized. Buffers and native
+// handles remain borrowed until Close succeeds; native waits may be unbounded.
 func (c *Communicator) Close() error {
+	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
 	c.mu.Lock()
-	if c.closed {
-		done := c.closeDone
+	if c.closed && c.closeErr == nil {
 		c.mu.Unlock()
-		<-done
-		c.mu.RLock()
-		defer c.mu.RUnlock()
-		return c.closeErr
+		return nil
 	}
 	c.closed = true
 	c.mu.Unlock()
 	// Do not hold c.mu while waiting: completion and failure reporting can
 	// still need the communicator while accepted native work drains.
 	err := c.transport.Close()
+	if err != nil {
+		c.mu.Lock()
+		c.closeErr = err
+		c.mu.Unlock()
+		return err
+	}
 	c.inFlightMu.Lock()
 	for _, tr := range c.inFlight {
 		select {
 		case <-tr.Done:
 		default:
-			tr.Err = ErrCommunicatorClosed
+			if tr.Err == nil {
+				tr.Err = ErrCommunicatorClosed
+			} else {
+				tr.Err = errors.Join(tr.Err, ErrCommunicatorClosed)
+			}
 			close(tr.Done)
 		}
 	}
@@ -231,7 +292,6 @@ func (c *Communicator) Close() error {
 	c.inFlightMu.Unlock()
 	c.mu.Lock()
 	c.closeErr = err
-	close(c.closeDone)
 	c.mu.Unlock()
 	return err
 }

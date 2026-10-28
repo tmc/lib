@@ -2,8 +2,8 @@
 // type models, textual MLIR parsing, and binary bytecode decoding
 // for CUDA Tile IR (.tilebc / .tileirbc).
 //
-// Decoding reads NVIDIA's files. There are two encoding paths and only one
-// of them does: see the Bytecode Encoding section before relying on either.
+// Bytecode encoding has separate paths for retained function bodies and
+// AST construction; see the Bytecode Encoding section for their limits.
 //
 // Tile IR represents computations at the tile and tensor-core abstraction level,
 // modeling multidimensional tiles, asynchronous TMA memory transfers, token-ordered
@@ -24,6 +24,7 @@
 // Binary Tile IR bytecode starts with the 8-byte magic "\x7fTileIR\x00" and
 // contains modular sections for string tables, types, constant pools, global
 // definitions, debug location records, and function bodies.
+// The following illustrative fragment uses an io.Reader named reader:
 //
 //	mod, err := tileir.DecodeBytecode(reader)
 //	if err != nil {
@@ -35,7 +36,8 @@
 //
 // # Textual Parsing
 //
-// Textual Tile IR is parsed into high-level SSA AST structures:
+// Textual Tile IR is parsed into high-level SSA AST structures.
+// This illustrative fragment assumes tileIRText defines matrix_mul:
 //
 //	mod, err := tileir.ParseString(tileIRText)
 //	if err != nil {
@@ -48,31 +50,20 @@
 //
 // # Bytecode Encoding
 //
-// [EncodeBytecode] serializes a [BytecodeModule] and is faithful: it
-// reproduces each vendor golden byte for byte, because a decoded function
-// keeps its body bytes and the serializer writes them back unchanged. Use it
-// to rewrite bytecode that NVIDIA produced.
+// [EncodeBytecode] serializes a [BytecodeModule]. Decoded functions retain
+// their raw body bytes, which this path writes back without reconstructing
+// operations. Unsupported module metadata can prevent re-encoding.
 //
-// [Module.EncodeBytecode] builds a body from an AST instead, and that path is
-// the broken one. It writes the header, string, type and signature
-// sections, but a function body it writes is not Tile IR: it holds one opcode
-// varint per operation, with a result type for the constant opcode and nothing
-// for any other. Operands, result types and attributes are absent. The real
-// assembler rejects such a body at the first operation that needs a result
-// type, which is nearly every one:
+// [Module.EncodeBytecode] constructs bytecode through [Module.ToBytecode].
+// It supports a bounded straight-line subset of numeric, token, vector and
+// pointer-memory operations, encoding operands, result types and supported
+// attributes. Constructs outside this subset, including nested regions, globals,
+// debug locations and unknown attributes, are refused. [ErrUnsupportedASTEncoding] identifies
+// unsupported AST encodings. The method returns no bytes on failure.
 //
-//	error at offset 2: failed to get result type 0 for MakeTokenOp
-//	input does not correspond to Tile IR bytecode
-//
-// [DecodeBytecode] reads that body back, because it reads exactly what the
-// encoder writes, and it does not reject an opcode it does not know. A round
-// trip through this package therefore proves nothing about the format: both
-// round-trip tests stay green when the encoder is made to write every opcode
-// as opcode+1. The golden re-encode test cannot see this path at all, since it
-// starts from vendor bytes and never builds a body. x/tileiras's
-// TestAssembleNative is the only gate that can, and it is expected to fail
-// until the body encoding is written against NVIDIA's specification rather
-// than against this package's own reader.
+// Raw-body preservation and host round trips do not establish acceptance by
+// NVIDIA's assembler or compiler, or successful device execution. Qualify
+// those separately with the actual tools and targets.
 //
 // See https://go.dev/doc/comment for formatting references.
 //

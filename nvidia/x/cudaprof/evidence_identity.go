@@ -18,7 +18,7 @@ func BindEvidence(a *cudakernel.Artifact, w cudacache.WorkloadIdentity, compiler
 	if a == nil {
 		return cudaevidence.Identity{}, fmt.Errorf("bind evidence: nil artifact")
 	}
-	if a.Kind < cudakernel.KindPTX || a.Kind > cudakernel.KindTileIR {
+	if kind := a.Kind(); kind < cudakernel.KindPTX || kind > cudakernel.KindTileIR {
 		return cudaevidence.Identity{}, fmt.Errorf("bind evidence: unknown artifact kind")
 	}
 	if err := a.Validate(); err != nil {
@@ -32,7 +32,7 @@ func BindEvidence(a *cudakernel.Artifact, w cudacache.WorkloadIdentity, compiler
 			return cudaevidence.Identity{}, fmt.Errorf("bind evidence: negative workload extent")
 		}
 	}
-	id := cudaevidence.Identity{ArtifactDigest: a.Digest, Entry: a.EntryPoint, Target: a.Target, CompilerKey: compilerKey, WorkloadKey: w.Key()}
+	id := cudaevidence.Identity{ArtifactDigest: a.Digest(), Entry: a.EntryPoint(), Target: a.Target(), CompilerKey: compilerKey, WorkloadKey: w.Key()}
 	if err := id.Validate(); err != nil {
 		return cudaevidence.Identity{}, fmt.Errorf("bind evidence: %w", err)
 	}

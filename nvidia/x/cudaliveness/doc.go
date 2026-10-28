@@ -27,9 +27,6 @@
 // equal its prediction by coincidence -- the patched site may never be
 // reached, or the prediction may be the unpatched output -- which is why the
 // unpatched run is required and a matching prediction alone does not pass.
-// Executed is the one control that can fail without running: a missing
-// derivation or a stale copy is known before any launch, and no launch would
-// change the answer, so it reports that failure rather than a pending run.
 //
 // A control that did not run is not a failing control. Its Check reports an
 // error matching [cudaerrors.ErrHardwarePending], because an unrun control is

@@ -902,8 +902,10 @@ func CompileSemanticTile(ctx context.Context, snap *cudair.Snapshot, opts LowerO
 	if err != nil {
 		return nil, compiled.Log(), err
 	}
-	artifact.Toolchain = fmt.Sprintf("nvrtc %d.%d", compilerMajor, compilerMinor)
+	spec := artifact.Spec()
+	spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", compilerMajor, compilerMinor)
 	// WithOutput adds this flag inside Compile after CompileFlags resolves includes.
-	artifact.CompilerOpts = append(append([]string(nil), flags...), nvrtc.FlagTileOnly)
-	return artifact, compiled.Log(), nil
+	spec.CompilerOpts = append(append([]string(nil), flags...), nvrtc.FlagTileOnly)
+	artifact, err = cudakernel.NewArtifactFromSpec(spec)
+	return artifact, compiled.Log(), err
 }

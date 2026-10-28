@@ -45,7 +45,7 @@ func (c *cudaSource) Begin(p *Program) error {
 		return fmt.Errorf("backend was built for another program")
 	}
 	for _, s := range p.steps {
-		if s.Operation.Kind != Add && s.Operation.Kind != Multiply || s.Operation.moe != nil {
+		if s.Operation.Body == nil && s.Operation.Kind != Add && s.Operation.Kind != Multiply || s.Operation.moe != nil {
 			return fmt.Errorf("scalar CUDA backend refuses typed payload")
 		}
 	}
@@ -76,6 +76,20 @@ func (c *cudaSource) Begin(p *Program) error {
 	}
 	c.defs.WriteString("static_assert(task_count >= 1, \"the generated worker has at least one task\");\n")
 	for i, s := range p.steps {
+		if s.Operation.Body != nil {
+			names := make([]string, len(p.inputSources(i)))
+			params := make([]string, len(names))
+			for j := range names {
+				names[j] = fmt.Sprintf("x%d", j)
+				params[j] = "unsigned " + names[j]
+			}
+			body, err := s.Operation.Body.Source(names, "result")
+			if err != nil {
+				return fmt.Errorf("task %q body: %w", s.Task.ID, err)
+			}
+			fmt.Fprintf(&c.defs, "__device__ unsigned op_%d(%s) { unsigned result; %s\nreturn result; }\n", i, strings.Join(params, ", "), body)
+			continue
+		}
 		operator := "+"
 		if s.Operation.Kind == Multiply {
 			operator = "*"
@@ -95,6 +109,38 @@ func (c *cudaSource) Begin(p *Program) error {
 // every guard: the guards below contain a __syncthreads, and a word another
 // CTA may be writing is not a thing the threads of one CTA can be relied on
 // to read alike.
+func (c *cudaSource) Entry() error {
+	// The appended words are separate from the task tickets. Every completion
+	// slot is checked once before the release of this all-worker entry barrier.
+	fmt.Fprintf(&c.body, `
+  // entry protocol begin
+  __shared__ unsigned entry_abort;
+  if (threadIdx.x==0) {
+    unsigned long long *arrivals=start_order+1+(unsigned long long)task_count*grid_ctas;
+    unsigned long long *released=arrivals+1;
+    for (unsigned long long i=blockIdx.x; i<task_count; i+=grid_ctas)
+      if (atomicAdd(completed+i,0u)!=0) atomicCAS((unsigned*)abort_code,0u,%du);
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    unsigned long long arrival=atomicAdd(arrivals,1ull);
+    if (arrival>=grid_ctas) atomicCAS((unsigned*)abort_code,0u,%du);
+    if (arrival==grid_ctas-1) {
+      asm volatile("fence.sc.gpu;" ::: "memory");
+      atomicExch(released,1ull);
+    }
+    unsigned long long spins=0;
+    while (atomicAdd(released,0ull)==0) {
+      if (++spins>=%dull) { atomicCAS((unsigned*)abort_code,0u,%du); break; }
+    }
+    asm volatile("fence.sc.gpu;" ::: "memory");
+    entry_abort=atomicAdd((unsigned*)abort_code,0u);
+  }
+  __syncthreads();
+  if (entry_abort) return;
+  // entry protocol end
+`, AbortStaleCompletion, AbortStaleCompletion, c.p.grid.spinLimit(), AbortSpinExhausted)
+	return nil
+}
+
 func (c *cudaSource) BeginSelection() error {
 	p := c.p
 	b := &c.body
@@ -248,8 +294,23 @@ func (c *cudaSource) Fence(i, dep int, s cudataskgraph.Scope, k Fence) error {
 // producer and consumer have different owners, the element a consumer reads
 // was written by another CTA, and a wait that did not happen is a wrong
 // answer rather than a coincidence.
-func (c *cudaSource) Compute(i, src int, op Operation) error {
+func (c *cudaSource) Compute(i int, sources []int, op Operation) error {
 	s := c.p.steps[i]
+	if c.p.bound {
+		args := make([]string, len(sources))
+		for j, d := range sources {
+			base := "input"
+			if d >= 0 {
+				base = "scratch + " + c.p.offsetExpression(d)
+			}
+			fmt.Fprintf(&c.body, "        const unsigned *src_%d_%d = %s;\n", i, j, base)
+			args[j] = fmt.Sprintf("src_%d_%d[e]", i, j)
+		}
+		fmt.Fprintf(&c.body, "        for (size_t e = (size_t)(blockIdx.x - %du)*blockDim.x + threadIdx.x; e < %s; e += (size_t)%du*blockDim.x)\n", s.Owner.Lo, c.p.extentExpression(i), s.Owner.Count())
+		fmt.Fprintf(&c.body, "          scratch[%s + e] = op_%d(%s);\n", c.p.offsetExpression(i), i, strings.Join(args, ", "))
+		return nil
+	}
+	src := sources[0]
 	expr := "input"
 	if src >= 0 {
 		expr = fmt.Sprintf("scratch + (size_t)%d*n", src)
@@ -267,6 +328,10 @@ func (c *cudaSource) Compute(i, src int, op Operation) error {
 }
 
 func (c *cudaSource) Publish(i int) error {
+	// Gather every lane's released stores before thread zero publishes.
+	if err := c.Barrier(); err != nil {
+		return err
+	}
 	fmt.Fprintf(&c.body, "        if (threadIdx.x == 0) atomicAdd(completed + %d, 1u); // publish task %d\n", i, i)
 	return nil
 }
@@ -305,6 +370,9 @@ func (c *cudaSource) EndSelection() error {
 // they are a summary of the whole task list, and the driver has no step at
 // which to ask for one.
 func (c *cudaSource) End() error {
+	if c.p.bound {
+		return c.boundReference()
+	}
 	c.defs.WriteString("__device__ int dependency(unsigned task) { switch(task) {\n")
 	for i, s := range c.p.steps {
 		dep := -1
@@ -323,9 +391,12 @@ func (c *cudaSource) End() error {
 
 // source returns the whole translation unit.
 func (c *cudaSource) source() string {
+	if c.p.bound {
+		return programPrologue + c.defs.String() + workerPrologue(c.p.needBarrier, c.p.needPhase, c.p.grid.MaxElements) + c.boundChecks() + c.body.String() + workerEpilogue
+	}
 	return programPrologue + c.defs.String() +
 		workerPrologue(c.p.needBarrier, c.p.needPhase, c.p.grid.MaxElements) + c.body.String() +
-		workerEpilogue + ordinaryKernel
+		workerEpilogue + fmt.Sprintf(ordinaryKernel, c.p.grid.MaxElements)
 }
 
 // ptxScope maps a synchronization domain to the PTX scope qualifier an

@@ -59,7 +59,9 @@ func newSearchBookkeeping(ctx context.Context) (*searchBookkeeping, error) {
 		scratch.Close()
 		return nil, err
 	}
-	if err := result.Reserve(int64(reflect.TypeFor[SearchResult]().Size())); err != nil {
+	// The result scopes retain the ledger after the per-search work owner
+	// closes. Bootstrap accounting covers it before these scopes exist.
+	if err := result.Reserve(int64(reflect.TypeFor[SearchResult]().Size() + reflect.TypeFor[memoryBudget]().Size())); err != nil {
 		scratch.Close()
 		result.Close()
 		return nil, err
@@ -386,7 +388,10 @@ func storageBytesWithMemory(value any, scope *egraphcore.MemoryScope) (int64, er
 	return total, err
 }
 
-func retainSearchValue(ctx context.Context, value any) error {
+// retainSearchValue is conservative post-hoc accounting, not allocation-site
+// admission. Borrowed initial state storage is charged while Search uses it;
+// candidate aliases remain charged through the returned result owner.
+func retainSearchValue(ctx context.Context, value any, retained bool) error {
 	b := searchMemoryBudget(ctx)
 	if b == nil {
 		return nil
@@ -397,6 +402,13 @@ func retainSearchValue(ctx context.Context, value any) error {
 			return nil
 		}
 		return err
+	}
+	if b.book != nil {
+		scope := b.book.temporary()
+		if retained {
+			scope = b.book.retained()
+		}
+		return scope.Reserve(bytes)
 	}
 	_, err = b.reserve(bytes)
 	return err
@@ -501,9 +513,10 @@ func cloneMemoryError(err error) error {
 	return err
 }
 
-// A no-op owner is returned for the caller to close after inspecting the
-// result. Productive owners transfer to the search/result list. Errors close
-// immediately. This avoids returning a usable clone after releasing its charge.
+// A failed transition or no-op owner is returned unlinked so the caller can
+// finish inspecting the error or result: terminal stop/error owners transfer
+// into the search/result list, while ordinary rejected or no-op owners close
+// after inspection. Productive owners transfer to the search/result list.
 func applySearchAction(ctx context.Context, state *egraph.SearchState, action egraph.ActionCandidate) (*egraph.TransitionResult, *stateClone, error) {
 	b := searchMemoryBudget(ctx)
 	if b == nil {
@@ -521,22 +534,20 @@ func applySearchAction(ctx context.Context, state *egraph.SearchState, action eg
 		result, err = state.ApplyActionWithCloneBudget(ctx, action, c.work)
 	}
 	if err != nil {
-		c.close()
-		return nil, nil, cloneMemoryError(err)
+		// The caller inspects the error before releasing or retaining its owner.
+		return nil, c, cloneMemoryError(err)
 	}
-	c.state = result.State
-	// Transition matching/staging/growth still has no preallocation contract.
-	// Keep its existing reachable-storage measurement as a conservative extra
-	// charge, now joined to the actual owner. This never qualifies its peak.
+	// Built-in transition matching, staging and growth reserve into the clone
+	// scope before allocation. Keep reachable-storage measurement as a
+	// conservative extra charge joined to the actual owner.
 	bytes, measureErr := storageBytes(result.State)
 	if measureErr != nil && b.limit > 0 {
-		c.close()
-		return nil, nil, measureErr
+		return nil, c, measureErr
 	}
 	if err := c.memory.Reserve(bytes); err != nil {
-		c.close()
-		return nil, nil, err
+		return nil, c, err
 	}
+	c.state = result.State
 	if !result.NoOp {
 		b.retainClone(c)
 	}
@@ -547,6 +558,11 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 	w, _ := ctx.Value(workBudgetKey{}).(*workBudget)
 	if w == nil {
 		return eval.Evaluate(ctx, state, root)
+	}
+	// A refusal is not a new callback attempt. Do not retain another unused
+	// opaque envelope while the previous attempt is awaiting cleanup.
+	if e, ok := eval.(*ExecutableEvaluator); ok && (len(e.pending) != 0 || e.pendingOutput != nil) {
+		return nil, fmt.Errorf("cudasearch: candidate cleanup pending")
 	}
 	known := false
 	if m, ok := eval.(*MockEvaluator); ok {
@@ -565,7 +581,7 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 		return nil, err
 	}
 	defer func() {
-		if e, ok := eval.(*ExecutableEvaluator); ok && len(e.pending) > 0 {
+		if e, ok := eval.(*ExecutableEvaluator); ok && (len(e.pending) > 0 || e.pendingOutput != nil) {
 			e.memoryReservations = append(e.memoryReservations, r)
 		} else {
 			r.release()
@@ -577,6 +593,11 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 		candidate.Close()
 		return nil, err
 	}
+	// MockEvaluator preflights and owns its complete supported metadata. Do
+	// not add a second post-hoc charge whose lifetime differs from that owner.
+	if candidate != nil && candidate.metadata != nil && candidate.metadataLedger == w.memory {
+		return candidate, nil
+	}
 	value := candidate
 	if candidate != nil && candidate.extraction != nil {
 		copy := *candidate
@@ -586,7 +607,7 @@ func evaluateSearch(ctx context.Context, eval Evaluator, state *egraph.SearchSta
 		}
 		value = &copy
 	}
-	if err := retainSearchValue(ctx, value); err != nil {
+	if err := retainSearchValue(ctx, value, true); err != nil {
 		candidate.Close()
 		return nil, err
 	}

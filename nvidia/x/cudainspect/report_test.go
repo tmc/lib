@@ -118,6 +118,7 @@ func TestReportRefusals(t *testing.T) {
 		{"x86_elf", metadataELF(true, 64, elf.EM_X86_64), Request{Symbol: "kernel"}, ErrNotCUDA},
 		{"e_version_2", elfVersion(1, 2), Request{Symbol: "kernel"}, ErrELFVersion},
 		{"ei_version_2", elfVersion(2, 2), Request{Symbol: "kernel"}, ErrELFVersion},
+		{"ei_version_2_e_version_1", elfVersion(2, 1), Request{Symbol: "kernel"}, ErrELFVersion},
 		{"input_limit", cuda, Request{Symbol: "kernel", MaxInputBytes: int64(len(cuda) - 1)}, ErrInputTooLarge},
 		{"limit_above_default", cuda, Request{Symbol: "kernel", MaxInputBytes: DefaultMaxInputBytes + 1}, ErrRequest},
 		{"negative_limit", cuda, Request{Symbol: "kernel", MaxInputBytes: -1}, ErrRequest},
@@ -143,6 +144,7 @@ func TestReportRefusalMessages(t *testing.T) {
 		want  string
 	}{
 		{"e_version", elfVersion(1, 2), "unsupported CUDA ELF version: EI_VERSION 1, e_version 2; only version 1 is supported"},
+		{"ei_version", elfVersion(2, 1), "unsupported CUDA ELF version: EI_VERSION 2, e_version 1; only version 1 is supported"},
 		{"not_elf", []byte("not an ELF image"), "not a CUDA ELF image: ELF parse failed: invalid ELF image"},
 		{"truncated", metadataELF(true, 0, elf.EM_CUDA)[:40], "not a CUDA ELF image: ELF parse failed: "},
 		{"x86_elf", metadataELF(true, 0, elf.EM_X86_64), `not a CUDA ELF image: machine "EM_X86_64"`},

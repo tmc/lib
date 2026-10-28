@@ -35,11 +35,10 @@ RestrictSUIDSGID=true
 LockPersonality=true
 MemoryDenyWriteExecute=true
 
-# Capabilities: optional CAP_PERFMON allows hardware performance counter access on Linux 5.8+.
-# Neither CAP_PERFMON nor CAP_SYS_ADMIN is proven or required for mock or standard NVML operation;
-# native hardware capability qualification remains pending.
-AmbientCapabilities=CAP_PERFMON
-CapabilityBoundingSet=CAP_PERFMON
+# NVML-only template: grant no Linux capabilities.
+# BPF and CUPTI capture require separately admitted modes, not an elevated unit.
+AmbientCapabilities=
+CapabilityBoundingSet=
 
 # Device access for NVIDIA accelerator character devices
 DeviceAllow=/dev/nvidiactl rw

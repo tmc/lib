@@ -1,6 +1,7 @@
 package cudamoe
 
 import (
+	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
@@ -56,10 +57,10 @@ func TestGatherArtifact(t *testing.T) {
 				if _, err := schema.Pack(driver.DevicePtr(16), driver.DevicePtr(32), driver.DevicePtr(48), int32(5), int32(33), int32(3)); err != nil {
 					t.Fatal(err)
 				}
-				return &cudakernel.Artifact{Kind: cudakernel.KindCUBIN, EntryPoint: entry, Target: target, Schema: schema, Resources: cudakernel.ResourceRequirements{AllocatedRegisters: 20}}, nil
+				return cudakernel.NewArtifact(cudakernel.KindCUBIN, artifactELFFixture(), entry, schema, target, cudakernel.WithResources(cudakernel.ResourceRequirements{AllocatedRegisters: 20}))
 			}), nil
 		})
-		if err != nil || a.Resources.AllocatedRegisters != 20 || len(a.CompilerOpts) == 0 {
+		if err != nil || a.Resources().AllocatedRegisters != 20 || len(a.CompilerOptions()) == 0 {
 			t.Fatalf("artifact=%+v err=%v", a, err)
 		}
 	}
@@ -92,13 +93,24 @@ func TestGatherCompile(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		info, err := cudakernel.ParseCUBIN(a.Raw)
+		info, err := cudakernel.ParseCUBIN(a.Bytes())
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !slices.Contains(info.Symbols, a.EntryPoint) {
-			t.Fatalf("missing entry %s", a.EntryPoint)
+		if !slices.Contains(info.Symbols, a.EntryPoint()) {
+			t.Fatalf("missing entry %s", a.EntryPoint())
 		}
-		t.Logf("tile=%d target=%s digest=%s resources=%+v flags=%v", tile, a.Target, a.Digest, a.Resources, a.CompilerOpts)
+		t.Logf("tile=%d target=%s digest=%s resources=%+v flags=%v", tile, a.Target(), a.Digest(), a.Resources(), a.CompilerOptions())
 	}
+}
+
+// artifactELFFixture is a parser-only CUDA ELF header, not executable device code.
+func artifactELFFixture() []byte {
+	image := make([]byte, 64)
+	copy(image, []byte{0x7f, 'E', 'L', 'F', 2, 1, 1, 0x33, 7})
+	binary.LittleEndian.PutUint16(image[16:], 2)
+	binary.LittleEndian.PutUint16(image[18:], 190)
+	binary.LittleEndian.PutUint32(image[20:], 1)
+	binary.LittleEndian.PutUint16(image[52:], 64)
+	return image
 }

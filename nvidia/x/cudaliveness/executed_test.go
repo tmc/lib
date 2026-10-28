@@ -40,7 +40,7 @@ func TestExecutedCheck(t *testing.T) {
 			want: cudaliveness.ErrUnexplainedPrediction, notWant: []error{cudaliveness.ErrNotLive, cudaerrors.ErrHardwarePending},
 			frag: "predicted p1"},
 		{name: "no derivation unrun", edit: func(e *cudaliveness.Executed) { e.Why = ""; e.Ran = false },
-			want: cudaliveness.ErrUnexplainedPrediction, notWant: []error{cudaerrors.ErrHardwarePending}},
+			want: cudaerrors.ErrHardwarePending, notWant: []error{cudaliveness.ErrUnexplainedPrediction, cudaliveness.ErrNotLive}},
 
 		{name: "mirrored", edit: func(e *cudaliveness.Executed) { e.Mirrors = []string{mirror} },
 			want: cudaliveness.ErrNotLive, notWant: []error{cudaerrors.ErrHardwarePending},
@@ -49,8 +49,7 @@ func TestExecutedCheck(t *testing.T) {
 			e.Mirrors = []string{mirror}
 			e.Ran, e.Patched, e.Unpatched = false, "", ""
 		},
-			want: cudaliveness.ErrNotLive, notWant: []error{cudaerrors.ErrHardwarePending},
-			frag: mirror},
+			want: cudaerrors.ErrHardwarePending, notWant: []error{cudaliveness.ErrUnexplainedPrediction, cudaliveness.ErrNotLive}},
 		{name: "mirrored and inert", edit: func(e *cudaliveness.Executed) { e.Mirrors = []string{mirror}; e.Patched = "u0" },
 			want: cudaliveness.ErrNotLive, frag: mirror, notFrag: "equals the unpatched"},
 		{name: "empty mirror name", edit: func(e *cudaliveness.Executed) { e.Mirrors = []string{""} },

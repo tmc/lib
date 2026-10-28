@@ -185,6 +185,9 @@ func (c *Compactor) CompactOnStream(pc *PagedCache, stream *cuda.Stream) (Compac
 
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
+	if pc.residencies != 0 {
+		return CompactionPlan{}, cudamem.ErrInUse
+	}
 
 	if c.tree != nil {
 		c.tree.mu.Lock()
@@ -231,6 +234,7 @@ func (c *Compactor) CompactOnStream(pc *PagedCache, stream *cuda.Stream) (Compac
 
 // CompactionGraph represents a captured CUDA execution graph of compaction memory copies.
 type CompactionGraph struct {
+	cache       *PagedCache // owns a pool lease until successful Destroy
 	closed      bool
 	graph       *cudagraph.Graph
 	exec        *cudagraph.Exec
@@ -252,7 +256,14 @@ func (c *Compactor) CaptureGraph(pc *PagedCache, stream *cuda.Stream, plan Compa
 		return nil, fmt.Errorf("%s: cannot capture empty compaction plan", pkgName)
 	}
 
-	return captureCompaction(plan, func(fn func()) (*cudagraph.Graph, error) {
+	pc.mu.Lock()
+	if pc.closed || pc.residencies != 0 {
+		pc.mu.Unlock()
+		return nil, cudamem.ErrInUse
+	}
+	pc.compactionOwners++
+	pc.mu.Unlock()
+	cg, err := captureCompaction(plan, func(fn func()) (*cudagraph.Graph, error) {
 		return cudagraph.Capture(stream, fn)
 	}, (*cudagraph.Graph).Instantiate, func() error {
 		pc.mu.Lock()
@@ -264,6 +275,14 @@ func (c *Compactor) CaptureGraph(pc *PagedCache, stream *cuda.Stream, plan Compa
 		}
 		return nil
 	})
+	if cg != nil {
+		cg.cache = pc
+	} else {
+		pc.mu.Lock()
+		pc.compactionOwners--
+		pc.mu.Unlock()
+	}
+	return cg, err
 }
 
 func captureCompaction(plan CompactionPlan, capture func(func()) (*cudagraph.Graph, error), instantiate func(*cudagraph.Graph) (*cudagraph.Exec, error), copyBlocks func() error) (*CompactionGraph, error) {
@@ -334,6 +353,12 @@ func (cg *CompactionGraph) destroyWith(destroyExec func(*cudagraph.Exec) error, 
 		}
 		cg.graph = nil
 	}
+	if cg.cache != nil {
+		cg.cache.mu.Lock()
+		cg.cache.compactionOwners--
+		cg.cache.mu.Unlock()
+		cg.cache = nil
+	}
 	return nil
 }
 
@@ -377,6 +402,9 @@ func (cg *CompactionGraph) ApplyToCache(pc *PagedCache, stream *cuda.Stream, tre
 	defer pc.mu.Unlock()
 	if pc.closed {
 		return fmt.Errorf("cudakv: paged cache closed")
+	}
+	if pc.residencies != 0 {
+		return cudamem.ErrInUse
 	}
 	pc.blocks.ApplyCompaction(cg.plan)
 	for _, t := range tree {

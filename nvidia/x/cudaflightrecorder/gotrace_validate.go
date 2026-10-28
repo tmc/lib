@@ -51,6 +51,10 @@ const maxGoTraceValidationBytes = 64 << 20
 // The recorder's own placeholder and magic checks run first and report
 // "rejected" without calling v. The error is nil only for the "decoded"
 // outcome; a cancelled ctx yields "unavailable" even if v returned.
+//
+// "decoded" means only that v accepted the bytes. It establishes neither
+// completeness nor absence of loss: a decoder may accept a trace cut short,
+// so the decoded Status always ends "completeness unknown".
 func ValidateGoTrace(ctx context.Context, b *Bundle, v GoTraceValidator) (*GoTraceValidation, error) {
 	return validateGoTraceBundle(ctx, b, v, bytes.Clone)
 }
@@ -110,7 +114,7 @@ func validateGoTraceBundle(ctx context.Context, b *Bundle, v GoTraceValidator, c
 		return unavailable(err)
 	}
 	r.Outcome = "decoded"
-	r.Status = "decoded: caller assertion by " + desc + "; timing unvalidated"
+	r.Status = "decoded: caller assertion by " + desc + "; timing unvalidated; completeness unknown"
 	r.Decoder = desc
 	return r, nil
 }

@@ -65,7 +65,7 @@ func chainGraph(t *testing.T) (cudataskgraph.Graph, map[string]cudamega.Operatio
 
 func buildPolicy(t *testing.T, g cudataskgraph.Graph, ops map[string]cudamega.Operation, ctas, threads uint32, policy cudamega.Policy) (*cudamega.Program, *cudamegacpu.Executor) {
 	t.Helper()
-	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads, Policy: policy}, cudamega.SM121a)
+	p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: ctas, ThreadsPerCTA: threads, Policy: policy, MaxElements: uint32(len(input()))}, cudamega.SM121a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ type startEvent struct {
 
 func events(t *testing.T, order []uint64, tasks int, ctas uint32) []startEvent {
 	t.Helper()
-	if want := 1 + tasks*int(ctas); len(order) != want {
+	if want := 3 + tasks*int(ctas); len(order) != want {
 		t.Fatalf("start-order buffer has %d words, want %d", len(order), want)
 	}
 	var out []startEvent

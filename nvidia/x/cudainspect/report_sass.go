@@ -68,9 +68,13 @@ func (r *Report) addSASS(ctx context.Context, sass string, image []byte, section
 		for _, name := range names {
 			r.unavailable(name, StateUnknown, "no SASS supplied")
 		}
+		if r.requested("precision_attribution") {
+			r.unavailable("precision_attribution", StateUnknown, "no SASS supplied")
+		}
 		r.unavailable("feature_suffix", StateUnknown, "numeric ELF target does not establish a or f suffix features")
 		return nil
 	}
+	names = append(names, "precision_attribution")
 	h := sha256.Sum256([]byte(sass))
 	r.SASS = &Digest{SHA256: hex.EncodeToString(h[:]), SizeBytes: int64(len(sass))}
 	d, err := cudasass.ParseString(sass)
@@ -146,11 +150,13 @@ func (r *Report) addSASS(ctx context.Context, sass string, image []byte, section
 		reason := fmt.Sprintf("%d quarantined instructions may be memory operations", hist.Quarantined)
 		r.unavailable("memory_access_widths", StateUnknown, reason)
 		r.unavailable("local_memory_ops", StateUnknown, reason)
+		r.addPrecisionAttribution(fn, state, evidence, hist.Quarantined)
 		return nil
 	}
 	r.set("memory_access_widths", state, widths, "instructions by width in bits", evidence)
 	r.set("local_memory_ops", state, local, "instructions", evidence)
 	r.Diagnostics = append(r.Diagnostics, Diagnostic{Feature: "local_memory_ops", Message: "local memory operations are observations; none is classified as a spill"})
+	r.addPrecisionAttribution(fn, state, evidence, 0)
 	return nil
 }
 

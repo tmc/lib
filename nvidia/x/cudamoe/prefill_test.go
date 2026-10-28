@@ -131,14 +131,14 @@ func TestPrefillW256Compile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			info, err := cudakernel.ParseCUBIN(a.Raw)
+			info, err := cudakernel.ParseCUBIN(a.Bytes())
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !slices.Contains(info.Symbols, a.EntryPoint) {
+			if !slices.Contains(info.Symbols, a.EntryPoint()) {
 				t.Fatal("missing compiled entry")
 			}
-			t.Logf("target=%s entry=%s digest=%s resources=%+v options=%v", a.Target, a.EntryPoint, a.Digest, a.Resources, a.CompilerOpts)
+			t.Logf("target=%s entry=%s digest=%s resources=%+v options=%v", a.Target(), a.EntryPoint(), a.Digest(), a.Resources(), a.CompilerOptions())
 		})
 	}
 }

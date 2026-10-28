@@ -844,6 +844,14 @@ func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultIn
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if fault.Candidate != nil {
+		if err := fault.Candidate.Validate(); err != nil {
+			return nil, err
+		}
+		if fault.ErrorName != CandidateReferenceMismatch || fault.ErrorCode != 0 {
+			return nil, fmt.Errorf("%w: candidate association requires comparison failure", ErrArtifactInvalid)
+		}
+	}
 
 	r.mu.Lock()
 	capacity := len(r.records)
@@ -905,10 +913,19 @@ func (r *Recorder) FaultSnapshot(ctx context.Context, w io.Writer, fault FaultIn
 		digest = ""
 		identityStatus = "quarantine withheld: exact SHA256 candidate identity unavailable"
 	}
+	failureClass := "gpu_fault"
+	if fault.ErrorName == CandidateReferenceMismatch {
+		failureClass = "comparison_failure"
+		identityStatus = "quarantine withheld: exact search invocation association unavailable"
+	}
+	if fault.Candidate != nil {
+		identityStatus = "candidate-only quarantine for exact search invocation; evaluator-observed comparison, caller-asserted identities; no reproduced rule policy"
+	}
 	negConstraint := NegativeRewriteConstraint{
+		Candidate:       fault.Candidate,
 		CandidateDigest: digest,
 		OffendingKernel: fault.OffendingKernel,
-		Reason:          fmt.Sprintf("%s; gpu_fault: %s (%d): %s", identityStatus, fault.ErrorName, fault.ErrorCode, fault.ErrorMessage),
+		Reason:          fmt.Sprintf("%s; %s: %s (%d): %s", identityStatus, failureClass, fault.ErrorName, fault.ErrorCode, fault.ErrorMessage),
 		Timestamp:       now,
 	}
 	negBytes, err := json.MarshalIndent(negConstraint, "", "  ")

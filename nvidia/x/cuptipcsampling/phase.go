@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
 // PhaseLimits specifies explicit bounds for bounded phase capture.
@@ -33,7 +34,14 @@ type PhaseLimits struct {
 type PhaseConfig struct {
 	Config   Config
 	Limits   PhaseLimits
-	Consumer func(Batch) error // Optional batch consumer
+	Consumer func(Batch) error // Optional batch consumer; returned batches are retained too.
+	// Modules supplies already observed module lifecycle metadata. Nil disables
+	// metadata reannouncement. MetadataLimits must be positive when Modules is set.
+	Modules        *cudacapture.ModuleTracker
+	MetadataLimits cudacapture.ReannouncementLimits
+	// MetadataConsumer receives detached start and terminal snapshots. Failure
+	// is reported separately and never changes PC sample accounting.
+	MetadataConsumer func(cudacapture.Reannouncement) error
 }
 
 // PhaseReport details the outcome of a bounded phase capture, separately reporting
@@ -46,8 +54,13 @@ type PhaseConfig struct {
 // the two may describe the same records, so it is not a count of distinct
 // records left behind.
 type PhaseReport struct {
+	// MetadataStart is captured before Start; MetadataEnd after the final drain
+	// and Close attempt. Nil means metadata was not requested or not reached.
+	MetadataStart  *cudacapture.Reannouncement
+	MetadataEnd    *cudacapture.Reannouncement
+	MetadataErr    error   // Snapshot or delivery failure, independent of PC sample loss.
 	Info           Info    // Diagnostic and session metadata
-	Batches        []Batch // Captured batches (populated when Consumer is nil)
+	Batches        []Batch // All drained batches, including those delivered to Consumer
 	TotalSamples   uint64  // Sum of all valid PC total samples observed
 	DroppedSamples uint64  // Sum of dropped samples reported by hardware or buffers
 	RemainingPCs   uint64  // Sum of PC record counts reported remaining after Stop and by the final batch
@@ -89,6 +102,12 @@ func (c *phaseController) validate() error {
 	if c.cfg.Limits.MaxBatches == 0 || c.cfg.Limits.DrainTimeout <= 0 {
 		return errors.New("cuptipcsampling: invalid phase limits")
 	}
+	if c.cfg.Modules != nil && (c.cfg.MetadataLimits.MaxEntries == 0 || c.cfg.MetadataLimits.MaxBytes == 0) {
+		return errors.New("cuptipcsampling: invalid metadata limits")
+	}
+	if c.cfg.Modules == nil && c.cfg.MetadataConsumer != nil {
+		return errors.New("cuptipcsampling: metadata consumer without module tracker")
+	}
 	if c.workload == nil {
 		return errors.New("cuptipcsampling: nil workload function")
 	}
@@ -119,15 +138,14 @@ func (c *phaseController) recordBatch(b Batch) error {
 		c.report.TotalSamples += b.TotalSamples
 	}
 
+	c.batches = append(c.batches, clonePhaseBatch(b))
 	if c.cfg.Consumer != nil {
-		if err := c.cfg.Consumer(b); err != nil {
+		if err := c.cfg.Consumer(clonePhaseBatch(b)); err != nil {
 			if c.consumerErr == nil {
 				c.consumerErr = fmt.Errorf("cuptipcsampling: consumer failure: %w", err)
 			}
 			return err
 		}
-	} else {
-		c.batches = append(c.batches, b)
 	}
 	return nil
 }
@@ -176,12 +194,15 @@ func capturePhase(
 		return PhaseReport{}, err
 	}
 
+	if err := pc.metadata(false); err != nil {
+		return pc.report, err
+	}
 	session, startErr := pc.starter(cuCtx, cfg.Config)
 	if startErr != nil {
 		if session != nil {
 			_ = session.Close()
 		}
-		return PhaseReport{}, fmt.Errorf("cuptipcsampling: start session: %w", startErr)
+		return pc.report, fmt.Errorf("cuptipcsampling: start session: %w", startErr)
 	}
 	pc.session = session
 
@@ -199,7 +220,7 @@ func capturePhase(
 		})
 		if dcErr != nil {
 			_ = session.Close()
-			return PhaseReport{}, fmt.Errorf("cuptipcsampling: start concurrent drain: %w", dcErr)
+			return pc.report, fmt.Errorf("cuptipcsampling: start concurrent drain: %w", dcErr)
 		}
 	} else if cfg.Limits.PollInterval > 0 {
 		pollCtx, cancel := context.WithCancel(context.Background())
@@ -348,16 +369,17 @@ func capturePhase(
 		}
 		if finalBatch.Valid {
 			pc.report.TotalSamples += finalBatch.TotalSamples
-			if cfg.Consumer != nil {
-				if err := cfg.Consumer(finalBatch); err != nil && pc.consumerErr == nil {
-					pc.consumerErr = fmt.Errorf("cuptipcsampling: consumer final batch: %w", err)
-				}
-			} else {
-				pc.batches = append(pc.batches, finalBatch)
-			}
-			pc.report.BatchesDrained++
-			pc.report.FinalBatch = true
 		}
+		// A final batch may carry a decode failure. Preserve that evidence too;
+		// validity controls sample accounting, not retention or delivery.
+		pc.batches = append(pc.batches, clonePhaseBatch(finalBatch))
+		if cfg.Consumer != nil {
+			if err := cfg.Consumer(clonePhaseBatch(finalBatch)); err != nil && pc.consumerErr == nil {
+				pc.consumerErr = fmt.Errorf("cuptipcsampling: consumer final batch: %w", err)
+			}
+		}
+		pc.report.BatchesDrained++
+		pc.report.FinalBatch = true
 	}
 
 	pc.report.Info = session.Info()
@@ -366,6 +388,8 @@ func capturePhase(
 	pc.report.ConsumerErr = pc.consumerErr
 	pc.report.Canceled = canceled
 
+	// Metadata observes terminal lifecycle even when native cleanup is pending.
+	_ = pc.metadata(true)
 	// Assemble composite error if any operational stage encountered failure.
 	var combinedErr error
 	if workloadErr != nil {
@@ -384,5 +408,35 @@ func capturePhase(
 		combinedErr = errors.Join(combinedErr, fmt.Errorf("close session: %w", closeErr))
 	}
 
-	return pc.report, combinedErr
+	return pc.report, errors.Join(combinedErr, pc.report.MetadataErr)
+}
+
+func (c *phaseController) metadata(terminal bool) error {
+	if c.cfg.Modules == nil {
+		return nil
+	}
+	r, err := c.cfg.Modules.Reannounce(c.cfg.MetadataLimits)
+	if err == nil {
+		if terminal {
+			c.report.MetadataEnd = &r
+		} else {
+			c.report.MetadataStart = &r
+		}
+		if c.cfg.MetadataConsumer != nil {
+			err = c.cfg.MetadataConsumer(r.Clone())
+		}
+	}
+	if err != nil {
+		err = fmt.Errorf("cuptipcsampling: metadata reannouncement: %w", err)
+		c.report.MetadataErr = errors.Join(c.report.MetadataErr, err)
+	}
+	return err
+}
+
+func clonePhaseBatch(b Batch) Batch {
+	b.PCs = append([]PC(nil), b.PCs...)
+	for i := range b.PCs {
+		b.PCs[i].Reasons = append([]StallSamples(nil), b.PCs[i].Reasons...)
+	}
+	return b
 }

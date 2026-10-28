@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync/atomic"
 
 	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/egraph"
@@ -52,23 +53,88 @@ type workBudget struct {
 	known                             bool
 	exhausted                         bool
 	scoring                           *scoringSnapshot
+	setup                             *egraphcore.MemoryScope
+	bootstrap                         int64
+	epoch                             *searchEpoch
+}
+
+// searchEpoch is the part of one Search that a measurement memo may retain
+// after Search returns: the evaluator Search was called with and whether
+// closeSearch has run. It is a separate object so that a memo does not keep
+// the workBudget alive.
+type searchEpoch struct {
+	owner   *ExecutableEvaluator
+	retired atomic.Bool
 }
 
 func searchWorkBudget(ctx context.Context, b SearchBudget, eval Evaluator) (context.Context, *workBudget, error) {
+	if err := ctx.Err(); err != nil {
+		return ctx, nil, fmt.Errorf("%w: %w", ErrSearchCancelled, err)
+	}
+	bootstrap := int64(reflect.TypeFor[workBudget]().Size() + reflect.TypeFor[memoryBudget]().Size())
+	if b.MaxMemoryBytes > 0 && bootstrap > b.MaxMemoryBytes {
+		return ctx, nil, ErrMemoryBudgetExceeded
+	}
 	w := &workBudget{memory: &memoryBudget{limit: b.MaxMemoryBytes}, callbackMemory: b.CallbackMemoryBytes, maxExtractions: b.MaxExtractions, maxCompilations: b.MaxCompilations}
+	if b.MaxMemoryBytes > 0 {
+		if err := w.memory.Reserve(bootstrap); err != nil {
+			return ctx, nil, err
+		}
+		w.bootstrap = bootstrap
+		var err error
+		w.setup, err = egraphcore.NewMemoryScope(w.memory)
+		if err != nil {
+			w.closeSearch()
+			return ctx, nil, err
+		}
+	}
+	ready := false
+	defer func() {
+		if !ready {
+			w.closeSearch()
+		}
+	}()
 	w.maxExtractionWork = b.MaxExtractionWork
 	switch e := eval.(type) {
 	case *ExecutableEvaluator:
 		w.known = true
+		if err := w.setup.Reserve(int64(reflect.TypeFor[searchEpoch]().Size())); err != nil {
+			return ctx, nil, err
+		}
+		w.epoch = &searchEpoch{owner: e}
 	case *MockEvaluator:
 		w.known = true
-		w.scoring = snapshotScoring(e)
+		var err error
+		w.scoring, err = snapshotScoringWithMemory(e, w.setup)
+		if err != nil {
+			return ctx, nil, fmt.Errorf("cudasearch: scoring setup: %w", err)
+		}
 	}
 	if (b.MaxExtractions > 0 || b.MaxCompilations > 0 || b.MaxExtractionWork > 0) && !w.known {
 		return ctx, nil, fmt.Errorf("cudasearch: evaluator does not support extraction and compilation budgets")
 	}
 	ctx = context.WithValue(ctx, memoryBudgetKey{}, w.memory)
+	ready = true
 	return context.WithValue(ctx, workBudgetKey{}, w), w, nil
+}
+
+// closeSearch ends the Search epoch and releases search-lifetime storage.
+// Returned result scopes and caller reservations keep their own owners;
+// neither is released here. Contexts that outlive Search still carry w, so
+// retiring the epoch revokes capabilities such as measurement reuse.
+func (w *workBudget) closeSearch() {
+	if w == nil {
+		return
+	}
+	if w.epoch != nil {
+		w.epoch.retired.Store(true)
+	}
+	closeStateClones(w.memory.takeClones())
+	w.scoring = nil
+	w.setup.Close()
+	w.setup = nil
+	w.memory.Release(w.bootstrap)
+	w.bootstrap = 0
 }
 
 func extractSearch(ctx context.Context, s *egraph.SearchState, root egraph.Id, model egraph.CostModel) (*egraph.Extraction, error) {

@@ -166,6 +166,7 @@ func compileGather(source, entry, target string, compile func(string, ...nvrtcx.
 	if artifact == nil {
 		return nil, fmt.Errorf("cudamoe: compile gather returned no artifact")
 	}
-	artifact.CompilerOpts = flags
-	return artifact, nil
+	spec := artifact.Spec()
+	spec.CompilerOpts = flags
+	return cudakernel.NewArtifactFromSpec(spec)
 }

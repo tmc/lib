@@ -132,7 +132,7 @@ func TestLowerRegionRoundTripsAPlanRegion(t *testing.T) {
 	for _, id := range low.TaskIDs() {
 		ops[id] = cudamega.Operation{Kind: cudamega.Add, Scalar: 1}
 	}
-	grid := cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128}
+	grid := cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128, MaxElements: 32} // fixture shape is 4×8
 	src, err := cudamega.ProgramSource(low.Graph(), ops, grid, cudamega.SM80)
 	if err != nil {
 		t.Fatalf("ProgramSource on the lowered graph: %v", err)
@@ -389,7 +389,7 @@ func TestSideTableRetainsDroppedStepFields(t *testing.T) {
 			t.Errorf("%s: NodeID = %d, want %d", s.NodeName, b.NodeID, s.NodeID)
 		case b.Backend != s.Backend:
 			t.Errorf("%s: Backend = %v, want %v", s.NodeName, b.Backend, s.Backend)
-		case b.Artifact != s.Artifact:
+		case *b.Artifact != *s.Artifact:
 			t.Errorf("%s: Artifact pointer not retained", s.NodeName)
 		case strings.Join(b.InputNames, ",") != strings.Join(s.InputNames, ","):
 			t.Errorf("%s: InputNames = %v, want %v", s.NodeName, b.InputNames, s.InputNames)

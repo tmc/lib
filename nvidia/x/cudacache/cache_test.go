@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 
@@ -61,14 +62,14 @@ func TestArtifactCacheRoundTrip(t *testing.T) {
 		t.Fatalf("GetArtifact: %v", err)
 	}
 
-	if got.EntryPoint != art.EntryPoint {
-		t.Errorf("entry point mismatch: got %q, want %q", got.EntryPoint, art.EntryPoint)
+	if got.EntryPoint() != art.EntryPoint() {
+		t.Errorf("entry point mismatch: got %q, want %q", got.EntryPoint(), art.EntryPoint())
 	}
-	if got.Digest != art.Digest {
-		t.Errorf("digest mismatch: got %q, want %q", got.Digest, art.Digest)
+	if got.Digest() != art.Digest() {
+		t.Errorf("digest mismatch: got %q, want %q", got.Digest(), art.Digest())
 	}
-	if got.Target != art.Target {
-		t.Errorf("target mismatch: got %q, want %q", got.Target, art.Target)
+	if got.Target() != art.Target() {
+		t.Errorf("target mismatch: got %q, want %q", got.Target(), art.Target())
 	}
 }
 
@@ -412,8 +413,8 @@ func TestArtifactReusableAcrossSearchPolicies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetArtifact shared: %v", err)
 	}
-	if gotArt.Digest != art.Digest {
-		t.Fatalf("artifact digest mismatch: got %q, want %q", gotArt.Digest, art.Digest)
+	if gotArt.Digest() != art.Digest() {
+		t.Fatalf("artifact digest mismatch: got %q, want %q", gotArt.Digest(), art.Digest())
 	}
 }
 
@@ -491,8 +492,8 @@ func TestMutantsAndNegativeControls(t *testing.T) {
 		if err != nil {
 			t.Fatalf("passing twin rejected: %v", err)
 		}
-		if got.Target != "sm_121a" || got.EntryPoint != "compat_kernel" || !bytes.Equal(got.Raw, rawBytes) {
-			t.Fatalf("passing twin mismatch: got target=%q entry=%q raw=%q", got.Target, got.EntryPoint, got.Raw)
+		if got.Target() != "sm_121a" || got.EntryPoint() != "compat_kernel" || !bytes.Equal(got.Bytes(), rawBytes) {
+			t.Fatalf("passing twin mismatch: got target=%q entry=%q raw=%q", got.Target(), got.EntryPoint(), got.Bytes())
 		}
 
 		// Single-field compatibility omissions derived from the passing twin.
@@ -589,7 +590,7 @@ func TestEntrySchemaVersion(t *testing.T) {
 		PolicyID:    policy,
 		WorkloadKey: "workload_schema_v1",
 		CandidateID: "cand_v1",
-		ArtifactKey: art.Digest,
+		ArtifactKey: art.Digest(),
 		Complete:    true,
 		TimingKind:  cudatrial.TimingWallElapsed,
 		Timings:     map[string]int64{string(cudatrial.TimingWallElapsed): 42000},
@@ -653,7 +654,7 @@ func TestEntrySchemaVersion(t *testing.T) {
 			}
 			got, err := c.GetArtifact(ctx, key)
 			if tc.wantOK {
-				if err != nil || got == nil || got.Digest != art.Digest {
+				if err != nil || got == nil || got.Digest() != art.Digest() {
 					t.Fatalf("expected valid v1 artifact load, got art=%v err=%v", got, err)
 				}
 				return
@@ -677,7 +678,7 @@ func TestEntrySchemaVersion(t *testing.T) {
 			}
 			got, err := c.GetArtifact(ctx, key)
 			if tc.wantOK {
-				if err != nil || got == nil || got.Digest != art.Digest {
+				if err != nil || got == nil || got.Digest() != art.Digest() {
 					t.Fatalf("expected valid v1 remote artifact, got art=%v err=%v", got, err)
 				}
 				return
@@ -823,5 +824,63 @@ func TestWorkloadIdentityBindingsKey(t *testing.T) {
 	diffPrepack.PrepackID = "prepack_nn_v2"
 	if got := diffPrepack.Key(); got == baseKey {
 		t.Fatalf("expected changing PrepackID to change WorkloadIdentity.Key(), both were %q", got)
+	}
+}
+
+// TestMarshalArtifactFieldOrder pins the field order cudacache has always
+// written, which differs from Artifact.MarshalJSON's.
+func TestMarshalArtifactFieldOrder(t *testing.T) {
+	data, err := cudacache.MarshalArtifact(newTestArtifact(t, "order_kernel", "sm_121a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := json.NewDecoder(bytes.NewReader(data))
+	if _, err := d.Token(); err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	for d.More() {
+		k, err := d.Token()
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys = append(keys, k.(string))
+		var v json.RawMessage
+		if err := d.Decode(&v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []string{"schema_version", "kind", "digest", "raw", "entry_point", "schema", "target", "resources", "jit_options"}
+	if !slices.Equal(keys, want) {
+		t.Fatalf("persisted keys = %q, want %q", keys, want)
+	}
+}
+
+// TestGetArtifactCopiesHandle checks that a caller replacing a returned
+// handle cannot replace the cached one, and that copies share identity.
+func TestGetArtifactCopiesHandle(t *testing.T) {
+	c, err := cudacache.New(cudacache.Config{RootDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := c.PutArtifact(ctx, "key", newTestArtifact(t, "handle_kernel", "sm_121a")); err != nil {
+		t.Fatal(err)
+	}
+	first, err := c.GetArtifact(ctx, "key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := c.GetArtifact(ctx, "key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second || *first != *second {
+		t.Fatal("GetArtifact returned a shared pointer or a new identity")
+	}
+	*first = cudakernel.Artifact{}
+	third, err := c.GetArtifact(ctx, "key")
+	if err != nil || *third != *second || third.Validate() != nil {
+		t.Fatalf("replaced handle changed cache: %v", err)
 	}
 }

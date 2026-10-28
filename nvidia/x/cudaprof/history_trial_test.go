@@ -31,7 +31,7 @@ func historyTrialFixture(t *testing.T) cudaprofilehistory.Record {
 	workload := cudacache.WorkloadIdentity{ProgramID: "test", ShapeDims: []int{1}, NumericalMode: "fp32"}
 	key := cudacache.CompilerCacheKey("source-input", compiler)
 	d := strings.Repeat("1", 64)
-	return cudaprofilehistory.Record{Version: 1, SourceDigest: d, InputDigest: d, PlanDigest: d, CompilerInputKey: "source-input", Compiler: compiler, CompilerKey: key, Workload: workload, WorkloadKey: workload.Key(), NumericalMode: "fp32", Entry: "kernel", Target: "sm_90", Artifact: a, Identity: cudaevidence.Identity{ArtifactDigest: a.Digest, Entry: "kernel", Target: "sm_90", CompilerKey: key, WorkloadKey: workload.Key()}}
+	return cudaprofilehistory.Record{Version: 1, SourceDigest: d, InputDigest: d, PlanDigest: d, CompilerInputKey: "source-input", Compiler: compiler, CompilerKey: key, Workload: workload, WorkloadKey: workload.Key(), NumericalMode: "fp32", Entry: "kernel", Target: "sm_90", Artifact: a, Identity: cudaevidence.Identity{ArtifactDigest: a.Digest(), Entry: "kernel", Target: "sm_90", CompilerKey: key, WorkloadKey: workload.Key()}}
 }
 
 func TestHistoryTrialKeepsExactInt64TimingsAndRefusesDetachedCorrectness(t *testing.T) {

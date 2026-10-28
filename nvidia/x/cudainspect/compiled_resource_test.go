@@ -136,9 +136,9 @@ func TestCompiledResources_MatchedCompilerAndSASS(t *testing.T) {
 		known       bool
 	}{{"exact", "compute", 4, true}, {"wrong kernel", "other", 4, false}, {"zero known", "compute", 0, true}} {
 		t.Run(tc.name, func(t *testing.T) {
-			in := CompiledResourceInput{Source: []byte("synthetic host control"), CompilerVersion: "ptxas test fixture", DisassemblerVersion: "nvdisasm test fixture", DiagnosticImage: a.Digest, SASSImage: a.Digest,
-				Diagnostics: "ptxas info : Compiling entry function '" + tc.entry + "' for '" + a.Target + "'\nptxas info : 0 bytes stack frame, " + strconv.FormatUint(tc.stores, 10) + " bytes spill stores, 0 bytes spill loads\n",
-				SASS:        ".target " + a.Target + "\nFunction : compute\n/*0000*/ STL [R1], R2;\n/*0010*/ EXIT;\n"}
+			in := CompiledResourceInput{Source: []byte("synthetic host control"), CompilerVersion: "ptxas test fixture", DisassemblerVersion: "nvdisasm test fixture", DiagnosticImage: a.Digest(), SASSImage: a.Digest(),
+				Diagnostics: "ptxas info : Compiling entry function '" + tc.entry + "' for '" + a.Target() + "'\nptxas info : 0 bytes stack frame, " + strconv.FormatUint(tc.stores, 10) + " bytes spill stores, 0 bytes spill loads\n",
+				SASS:        ".target " + a.Target() + "\nFunction : compute\n/*0000*/ STL [R1], R2;\n/*0010*/ EXIT;\n"}
 			modeled := uint64(12)
 			in.ModelRegisters = &modeled
 			in.LifeRanges = "Function : compute\n/*0000*/ STL [R1], R2; // | 2 | | | |\n/*0010*/ EXIT; // | 1 | | | |\n"
@@ -196,7 +196,7 @@ func TestCompiledResources_AbsentOwnerMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	i, _ := NewInspector(t.TempDir())
-	in := CompiledResourceInput{Source: []byte("synthetic register-ceiling-only ELF"), CompilerVersion: "host control", DisassemblerVersion: "host control", DiagnosticImage: a.Digest, SASSImage: a.Digest, SASS: "Function : kernel\n/*0000*/ EXIT;\n"}
+	in := CompiledResourceInput{Source: []byte("synthetic register-ceiling-only ELF"), CompilerVersion: "host control", DisassemblerVersion: "host control", DiagnosticImage: a.Digest(), SASSImage: a.Digest(), SASS: "Function : kernel\n/*0000*/ EXIT;\n"}
 	r, err := i.InspectCompiledResources(a, in)
 	if err != nil {
 		t.Fatal(err)
@@ -250,15 +250,15 @@ func FuzzCompiledResourceDiagnostics(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	f.Add("ptxas info : Compiling entry function 'compute' for '" + a.Target + "'\n0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n")
-	f.Add("ptxas info : Compiling entry function 'other' for '" + a.Target + "'\n0 bytes stack frame, 18446744073709551616 bytes spill stores, 0 bytes spill loads\n")
+	f.Add("ptxas info : Compiling entry function 'compute' for '" + a.Target() + "'\n0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n")
+	f.Add("ptxas info : Compiling entry function 'other' for '" + a.Target() + "'\n0 bytes stack frame, 18446744073709551616 bytes spill stores, 0 bytes spill loads\n")
 	f.Fuzz(func(t *testing.T, diag string) {
 		if len(diag) > 4096 {
 			return
 		}
 		i, _ := NewInspector(t.TempDir())
-		r, err := i.InspectCompiledResources(a, CompiledResourceInput{Source: []byte("fuzz host control"), CompilerVersion: "host control", DisassemblerVersion: "host control", DiagnosticImage: a.Digest, SASSImage: a.Digest, Diagnostics: diag, SASS: "Function : compute\n/*0000*/ EXIT;\n"})
-		if err == nil && (r.Allocated.Value == nil || *r.Allocated.Value != 8 || r.ImageDigest != a.Digest) {
+		r, err := i.InspectCompiledResources(a, CompiledResourceInput{Source: []byte("fuzz host control"), CompilerVersion: "host control", DisassemblerVersion: "host control", DiagnosticImage: a.Digest(), SASSImage: a.Digest(), Diagnostics: diag, SASS: "Function : compute\n/*0000*/ EXIT;\n"})
+		if err == nil && (r.Allocated.Value == nil || *r.Allocated.Value != 8 || r.ImageDigest != a.Digest()) {
 			t.Fatal("diagnostic text altered artifact allocation or identity")
 		}
 	})
@@ -332,9 +332,9 @@ func TestCompiledResources_PartialDisassemblyRefusesResidency(t *testing.T) {
 		t.Fatal(err)
 	}
 	i, _ := NewInspector(t.TempDir())
-	in := CompiledResourceInput{Source: []byte("source receipt"), CompilerVersion: "fixture", DisassemblerVersion: "fixture", DiagnosticImage: a.Digest, SASSImage: a.Digest,
-		Diagnostics: "Compiling entry function 'compute' for '" + a.Target + "'\n0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n",
-		SASS:        ".target " + a.Target + "\nFunction : compute\n/*0000*/ MOV R0, 0x1;\n", LifeRanges: "Function : compute\n/*0000*/ MOV R0, 0x1; // | 2 | | | |\n"}
+	in := CompiledResourceInput{Source: []byte("source receipt"), CompilerVersion: "fixture", DisassemblerVersion: "fixture", DiagnosticImage: a.Digest(), SASSImage: a.Digest(),
+		Diagnostics: "Compiling entry function 'compute' for '" + a.Target() + "'\n0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n",
+		SASS:        ".target " + a.Target() + "\nFunction : compute\n/*0000*/ MOV R0, 0x1;\n", LifeRanges: "Function : compute\n/*0000*/ MOV R0, 0x1; // | 2 | | | |\n"}
 	r, err := i.InspectCompiledResources(a, in)
 	if err != nil {
 		t.Fatal(err)
@@ -342,7 +342,7 @@ func TestCompiledResources_PartialDisassemblyRefusesResidency(t *testing.T) {
 	if r.PeakLive.Value != nil || r.PeakLive.Reason == "" {
 		t.Fatal("partial peak admitted")
 	}
-	l := LoadedResources{ImageDigest: a.Digest, Entry: a.EntryPoint, Target: a.Target, Registers: r.Allocated, LocalBytes: resourceFact(0, "runtime attribute")}
+	l := LoadedResources{ImageDigest: a.Digest(), Entry: a.EntryPoint(), Target: a.Target(), Registers: r.Allocated, LocalBytes: resourceFact(0, "runtime attribute")}
 	l.Registers.Category = "runtime attribute"
 	if err := r.CheckRegisterResidency(claimFor(r), l); err == nil {
 		t.Fatal("partial disassembly admitted as complete no-local residency evidence")
@@ -390,12 +390,12 @@ func TestCompiledResources_CompletePeakProducerControl(t *testing.T) {
 		t.Fatal(err)
 	}
 	i, _ := NewInspector(t.TempDir())
-	base, err := i.Inspect(image, a.EntryPoint)
+	base, err := i.Inspect(image, a.EntryPoint())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var sass, life strings.Builder
-	fmt.Fprintf(&sass, ".target %s\nFunction : compute\n", a.Target)
+	fmt.Fprintf(&sass, ".target %s\nFunction : compute\n", a.Target())
 	life.WriteString("Function : compute\n")
 	var count int
 	for _, section := range base.SectionDetails {
@@ -414,12 +414,54 @@ func TestCompiledResources_CompletePeakProducerControl(t *testing.T) {
 	if count == 0 {
 		t.Fatal("missing fixture text")
 	}
-	in := CompiledResourceInput{Source: []byte("synthetic full producer receipt"), CompilerVersion: "fixture", DisassemblerVersion: "fixture", DiagnosticImage: a.Digest, SASSImage: a.Digest, SASS: sass.String(), LifeRanges: life.String()}
+	in := CompiledResourceInput{Source: []byte("synthetic full producer receipt"), CompilerVersion: "fixture", DisassemblerVersion: "fixture", DiagnosticImage: a.Digest(), SASSImage: a.Digest(), SASS: sass.String(), LifeRanges: life.String()}
 	r, err := i.InspectCompiledResources(a, in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !r.InstructionsKnown || r.PeakLive.Value == nil || *r.PeakLive.Value != 2 {
 		t.Fatalf("complete producer receipt unavailable: instructions=%v reason=%s peak=%+v", r.InstructionsKnown, r.InstructionsReason, r.PeakLive)
+	}
+}
+
+func TestCompiledResources_BudgetBeforeImageCopy(t *testing.T) {
+	schema, err := cudakernel.NewSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name       string
+		imageBytes int
+		textBytes  int
+	}{
+		{"image", (64 << 20) + 1, 0},
+		{"text", 1 << 20, (16 << 20) + 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a, err := cudakernel.NewArtifactFromSpec(cudakernel.ArtifactSpec{
+				Kind: cudakernel.KindPTX, Raw: make([]byte, tc.imageBytes),
+				EntryPoint: "kernel", Schema: schema, Target: "sm_90",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			in := CompiledResourceInput{Source: make([]byte, tc.textBytes)}
+			i, err := NewInspector(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got *CompiledResources
+			var inspectErr error
+			allocs := testing.AllocsPerRun(1, func() {
+				got, inspectErr = i.InspectCompiledResources(a, in)
+			})
+			if got != nil || inspectErr == nil || inspectErr.Error() != "compiled resources: input budget exceeded" {
+				t.Fatalf("budget refusal = (%v, %v)", got, inspectErr)
+			}
+			// The refusal allocates its error; it must not also copy the image.
+			if allocs > 1 {
+				t.Fatalf("budget refusal allocated %g objects, want at most its error", allocs)
+			}
+		})
 	}
 }

@@ -100,15 +100,15 @@ func PrepareInjection(source LaunchSource, p Program, b Budget, policy Injection
 		return fallback("injection disabled")
 	}
 	a := original.launch.Artifact
-	key := KernelIdentity{a.Digest, a.EntryPoint, a.Target}
+	key := KernelIdentity{a.Digest(), a.EntryPoint(), a.Target()}
 	if !slices.Contains(policy.Allowlist, key) {
 		return fallback("kernel not allowlisted")
 	}
-	if a.Kind != cudakernel.KindPTX {
+	if a.Kind() != cudakernel.KindPTX {
 		return fallback("injection requires original PTX")
 	}
 	p.Code = slices.Clone(p.Code)
-	tr, err := Translate(p, b, a.Target)
+	tr, err := Translate(p, b, a.Target())
 	if err != nil {
 		return fallback(err.Error())
 	}
@@ -182,10 +182,9 @@ func PrepareInjection(source LaunchSource, p Program, b Budget, policy Injection
 			out.WriteByte('\n')
 		}
 	}
-	candidate := cloneArtifact(a)
 	// NewArtifact recomputes the image digest; retain original ABI and provenance.
-	candidate, err = cudakernel.NewArtifact(cudakernel.KindPTX, []byte(out.String()), a.EntryPoint, candidate.Schema, a.Target,
-		cudakernel.WithJIT(a.JITOptions), cudakernel.WithToolchain(a.Toolchain), cudakernel.WithCompilerOptions(a.CompilerOpts), cudakernel.WithDependencies(a.Dependencies))
+	candidate, err := cudakernel.NewArtifact(cudakernel.KindPTX, []byte(out.String()), a.EntryPoint(), a.Schema(), a.Target(),
+		cudakernel.WithJIT(a.JITOptions()), cudakernel.WithToolchain(a.Toolchain()), cudakernel.WithCompilerOptions(a.CompilerOptions()), cudakernel.WithDependencies(a.Dependencies()))
 	if err != nil {
 		return fallback(err.Error())
 	}
@@ -222,7 +221,8 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 	bad := func(reason string) (injectionLayout, error) {
 		return injectionLayout{}, fmt.Errorf("cudabpfdev: %s", reason)
 	}
-	text := strings.TrimRight(string(a.Raw), "\x00")
+	schema := a.Schema()
+	text := strings.TrimRight(string(a.Bytes()), "\x00")
 	if strings.Contains(text, "__cudabpfdev_") || strings.Contains(text, "/*") || strings.ContainsAny(text, "\"\\\r") {
 		return bad("ambiguous or reserved PTX text")
 	}
@@ -230,12 +230,12 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 	if err != nil {
 		return bad("PTX parsing failed")
 	}
-	if m.Version != "9.0" || m.Target != a.Target || m.AddressSize != 64 {
+	if m.Version != "9.0" || m.Target != a.Target() || m.AddressSize != 64 {
 		return bad("module outside injection contract")
 	}
 	var entryKernel *cudaptx.Kernel
 	for _, k := range m.Kernels {
-		if k.Entry && k.Name == a.EntryPoint {
+		if k.Entry && k.Name == a.EntryPoint() {
 			if entryKernel != nil {
 				return bad("multiple entry kernels with entry name")
 			}
@@ -306,15 +306,15 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 		}
 	}
 	k := *entryKernel
-	if !k.Entry || !k.Body || k.Name != a.EntryPoint || k.Tuning != (cudaptx.Tuning{}) || len(k.Instructions) == 0 {
+	if !k.Entry || !k.Body || k.Name != a.EntryPoint() || k.Tuning != (cudaptx.Tuning{}) || len(k.Instructions) == 0 {
 		return bad("kernel outside injection contract")
 	}
-	if len(k.Params) != len(a.Schema.Params) {
+	if len(k.Params) != len(schema.Params) {
 		return bad("parameter ABI unavailable")
 	}
 	var params []cudakernel.Param
 	for j, param := range k.Params {
-		want := a.Schema.Params[j]
+		want := schema.Params[j]
 		if param.Space != "param" || param.Size != 0 || param.Align != 0 || param.Name != want.Name || param.Type != want.Type {
 			return bad("parameter ABI mismatch or unsupported layout")
 		}
@@ -324,7 +324,7 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 		params = append(params, cudakernel.Param{Name: param.Name, Type: param.Type, IsPointer: want.IsPointer})
 	}
 	canonical, err := cudakernel.NewSchema(params...)
-	if err != nil || !reflect.DeepEqual(canonical, a.Schema) {
+	if err != nil || !reflect.DeepEqual(canonical, schema) {
 		return bad("parameter ABI width or offset mismatch")
 	}
 	l := injectionLayout{lines: strings.Split(text, "\n"), header: k.StartLine - 1, instructions: k.Instructions}
@@ -360,7 +360,7 @@ func inspectInjection(a *cudakernel.Artifact, policy InjectionPolicy) (injection
 			continue
 		}
 		s := clean(raw)
-		if s != "" && s != ".version 9.0" && s != ".target "+a.Target && s != ".address_size 64" {
+		if s != "" && s != ".version 9.0" && s != ".target "+a.Target() && s != ".address_size 64" {
 			return bad("module declarations outside injection contract")
 		}
 	}

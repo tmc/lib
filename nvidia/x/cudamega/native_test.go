@@ -67,15 +67,17 @@ int main() {
   const unsigned n = 1048576, nt = %[1]du, threads = %[2]du;
   const size_t words = (size_t)nt*n, sb = words*sizeof(unsigned), ib = (size_t)n*sizeof(unsigned);
   unsigned *h=(unsigned*)malloc(ib); for (unsigned i=0;i<n;i++) h[i]=i;
-  const size_t ow = (size_t)1 + (size_t)nt*grid_ctas, ob = ow*sizeof(unsigned long long);
+  const size_t ow = (size_t)3 + (size_t)nt*grid_ctas, ob = ow*sizeof(unsigned long long);
   unsigned *in=0,*sp=0,*so=0,*completed=0,*abort=0; unsigned long long *order=0;
   if (cudaMalloc(&in,ib)||cudaMalloc(&sp,sb)||cudaMalloc(&so,sb)||cudaMalloc(&order,ob)||
       cudaMalloc(&completed,nt*sizeof(unsigned))||cudaMalloc(&abort,sizeof(unsigned))) return 2;
   cudaMemcpy(in,h,ib,cudaMemcpyHostToDevice); free(h);
   cudaMemset(sp,0,sb); cudaMemset(so,0,sb); cudaMemset(order,0,ob);
   cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
-  int blocks=0, sms=0, dev=0;
+  int blocks=0, sms=0, dev=0, cooperative=0;
   if (cudaGetDevice(&dev)!=cudaSuccess||cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,dev)!=cudaSuccess||sms<1) return 3;
+  if (cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,dev)!=cudaSuccess||cooperative!=1) {
+    printf("cooperative launch unsupported\n"); return 3; }
   if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,dag_worker,threads,0)!=cudaSuccess||blocks<1) return 3;
   // Residency is blocks-per-SM times SM count. Comparing the per-SM figure
   // against the whole grid is a different quantity: it refuses every grid
@@ -83,7 +85,11 @@ int main() {
   // passes without ever reaching the admission it claims to check.
   if ((unsigned long long)blocks*(unsigned long long)sms < grid_ctas) {
     printf("residency %%d/SM * %%d SMs < grid_ctas %%u\n", blocks, sms, grid_ctas); return 3; }
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,1ull);
+  auto launch_worker = [&](unsigned long long epoch) {
+    void *args[]={(void*)&in,(void*)&sp,(void*)&completed,(void*)&order,(void*)&abort,(void*)&n,(void*)&epoch};
+    return cudaLaunchCooperativeKernel((const void*)dag_worker,dim3(grid_ctas),dim3(threads),args,0,0);
+  };
+  if (launch_worker(1ull)!=cudaSuccess) return 4;
   if (cudaDeviceSynchronize()!=cudaSuccess) { printf("persistent: %%s\n", cudaGetErrorString(cudaGetLastError())); return 4; }
   unsigned ac=0; cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   if (ac) { printf("persistent run aborted with code %%u\n", ac); return 9; }
@@ -124,9 +130,9 @@ int main() {
   cudaMemcpy(a,sp,sb,cudaMemcpyDeviceToHost); cudaMemcpy(b,so,sb,cudaMemcpyDeviceToHost);
   for (size_t i=0;i<words;i++) if (a[i]!=b[i]) {
     printf("task %%zu element %%zu: persistent %%u ordinary %%u\n", i/n, i%%n, a[i], b[i]); return 6; }
-  cudaMemset(sp,0xa5,sb); cudaMemset(completed,0,nt*sizeof(unsigned));
+  cudaMemset(sp,0xa5,sb); cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(order,0,ob);
   unsigned one=1; cudaMemcpy(abort,&one,sizeof one,cudaMemcpyHostToDevice);
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,2ull);
+  if (launch_worker(2ull)!=cudaSuccess) return 7;
   if (cudaDeviceSynchronize()!=cudaSuccess) return 7;
   cudaMemcpy(a,sp,sb,cudaMemcpyDeviceToHost);
   for (size_t i=0;i<words;i++) if (a[i]!=0xa5a5a5a5u) {
@@ -138,7 +144,7 @@ int main() {
   // is therefore the smallest epoch that tells the two widths apart.
   cudaMemset(sp,0,sb); cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
   cudaMemset(order,0,ob);
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,1ull<<32);
+  if (launch_worker(1ull<<32)!=cudaSuccess) return 10;
   if (cudaDeviceSynchronize()!=cudaSuccess) return 10;
   cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   if (ac) { printf("launch at epoch 2^32 aborted with code %%u\n", ac); return 11; }
@@ -284,14 +290,20 @@ func TestNativeSpinBoundReleasesAGridThatWouldHang(t *testing.T) {
 int main() {
   const unsigned n = 32, nt = 2u, threads = %du;
   unsigned h[n]; for (unsigned i=0;i<n;i++) h[i]=i;
-  const size_t ob = ((size_t)1+(size_t)nt*grid_ctas)*sizeof(unsigned long long);
+  const size_t ob = ((size_t)3+(size_t)nt*grid_ctas)*sizeof(unsigned long long);
   unsigned *in=0,*sp=0,*completed=0,*abort=0; unsigned long long *order=0;
   if (cudaMalloc(&in,sizeof h)||cudaMalloc(&sp,(size_t)nt*n*sizeof(unsigned))||cudaMalloc(&order,ob)||
       cudaMalloc(&completed,nt*sizeof(unsigned))||cudaMalloc(&abort,sizeof(unsigned))) return 2;
   cudaMemcpy(in,h,sizeof h,cudaMemcpyHostToDevice);
   cudaMemset(sp,0,(size_t)nt*n*sizeof(unsigned)); cudaMemset(order,0,ob);
   cudaMemset(completed,0,nt*sizeof(unsigned)); cudaMemset(abort,0,sizeof(unsigned));
-  dag_worker<<<grid_ctas,threads>>>(in,sp,completed,order,abort,n,1ull);
+  int dev=0,cooperative=0,blocks=0,sms=0;
+  if (cudaGetDevice(&dev)!=cudaSuccess||cudaDeviceGetAttribute(&cooperative,cudaDevAttrCooperativeLaunch,dev)!=cudaSuccess||cooperative!=1) {
+    printf("cooperative launch unsupported\n"); return 3; }
+  if (cudaDeviceGetAttribute(&sms,cudaDevAttrMultiProcessorCount,dev)!=cudaSuccess||sms<1||cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks,dag_worker,threads,0)!=cudaSuccess||blocks<1||(unsigned long long)blocks*sms<grid_ctas) return 3;
+  unsigned long long epoch=1;
+  void *args[]={(void*)&in,(void*)&sp,(void*)&completed,(void*)&order,(void*)&abort,(void*)&n,(void*)&epoch};
+  if (cudaLaunchCooperativeKernel((const void*)dag_worker,dim3(grid_ctas),dim3(threads),args,0,0)!=cudaSuccess) return 4;
   if (cudaDeviceSynchronize()!=cudaSuccess) { printf("sync: %%s\n", cudaGetErrorString(cudaGetLastError())); return 4; }
   unsigned ac=0; cudaMemcpy(&ac,abort,sizeof ac,cudaMemcpyDeviceToHost);
   printf("abort_code=%%u\n", ac);

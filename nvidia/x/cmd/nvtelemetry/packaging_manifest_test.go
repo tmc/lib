@@ -1,13 +1,132 @@
 package main
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestNVMLServiceCapabilities(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("packaging", "nvtelemetry.service"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateNVMLServiceTemplate(string(data)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNVMLServiceDirectiveControls(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("packaging", "nvtelemetry.service"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(data)
+	for _, tt := range []struct{ name, from, to string }{
+		{"ambient perfmon", "AmbientCapabilities=", "AmbientCapabilities=CAP_PERFMON"},
+		{"bounding perfmon", "CapabilityBoundingSet=", "CapabilityBoundingSet=CAP_PERFMON"},
+		{"ambient admin", "AmbientCapabilities=", "AmbientCapabilities=CAP_SYS_ADMIN"},
+		{"bounding bpf", "CapabilityBoundingSet=", "CapabilityBoundingSet=CAP_BPF"},
+		{"complement set", "CapabilityBoundingSet=", "CapabilityBoundingSet=~CAP_SYS_ADMIN"},
+		{"commented reset", "AmbientCapabilities=", "# AmbientCapabilities="},
+		{"missing reset", "CapabilityBoundingSet=\n", ""},
+		{"continued capability", "AmbientCapabilities=", "AmbientCapabilities=\\\n CAP_PERFMON"},
+		{"duplicate capability", "AmbientCapabilities=", "AmbientCapabilities=\nAmbientCapabilities=CAP_BPF"},
+		{"root user", "User=nvtelemetry", "User=root"},
+		{"disabled no-new-privileges", "NoNewPrivileges=true", "NoNewPrivileges=false"},
+		{"privileged command", "ExecStart=/usr/local/bin", "ExecStart=+/usr/local/bin"},
+		{"wrong section", "[Service]", "[Unit]"},
+		{"private devices", "PrivateDevices=false", "PrivateDevices=true"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if strings.Count(s, tt.from) != 1 {
+				t.Fatal("control must replace one actual directive")
+			}
+			if err := validateNVMLServiceTemplate(strings.Replace(s, tt.from, tt.to, 1)); err == nil {
+				t.Fatal("changed active service directive was accepted")
+			}
+		})
+	}
+	// A reset mentioned in comments or another section cannot substitute for
+	// a real [Service] assignment; a later section cannot add capabilities.
+	for _, text := range []string{
+		strings.Replace(s, "AmbientCapabilities=\n", "", 1) + "\n# AmbientCapabilities=\n",
+		strings.Replace(s, "AmbientCapabilities=\n", "", 1) + "\n[Unit]\nAmbientCapabilities=\n",
+		s + "\n[Service]\nAmbientCapabilities=CAP_SYS_ADMIN\n",
+	} {
+		if err := validateNVMLServiceTemplate(text); err == nil {
+			t.Fatal("inactive reset or appended capability bypassed directive checks")
+		}
+	}
+	for _, text := range []string{
+		s + "\n# AmbientCapabilities=CAP_PERFMON\n; CapabilityBoundingSet=CAP_SYS_ADMIN\n",
+		strings.ReplaceAll(s, "\n", "\r\n"),
+		strings.Replace(s, "AmbientCapabilities=", "  AmbientCapabilities =  ", 1),
+	} {
+		if err := validateNVMLServiceTemplate(text); err != nil {
+			t.Fatalf("comment/whitespace changed active semantics: %v", err)
+		}
+	}
+}
+
+// This is a strict guard for the checked-in template, not a systemd parser or
+// an evaluator of installed units/drop-ins. Duplicate settings and continued
+// lines require deliberate review rather than silently changing this contract.
+func validateNVMLServiceTemplate(text string) error {
+	service := make(map[string][]string)
+	section := ""
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.HasSuffix(line, "\\") {
+			return errors.New("continued service directives require review")
+		}
+		if strings.HasPrefix(line, "[") {
+			if !strings.HasSuffix(line, "]") {
+				return errors.New("malformed unit section")
+			}
+			section = strings.TrimSuffix(strings.TrimPrefix(line, "["), "]")
+			continue
+		}
+		if section != "Service" {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			return errors.New("malformed service directive")
+		}
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		service[key] = append(service[key], value)
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	for key, want := range map[string][]string{
+		"AmbientCapabilities": {""}, "CapabilityBoundingSet": {""},
+		"User": {"nvtelemetry"}, "Group": {"nvtelemetry"},
+		"ExecStart":       {"/usr/local/bin/nvtelemetry serve -config /etc/nvtelemetry/config.json"},
+		"ExecReload":      {"/bin/kill -HUP $MAINPID"},
+		"NoNewPrivileges": {"true"}, "ProtectSystem": {"strict"},
+		"ProtectHome": {"true"}, "PrivateTmp": {"true"}, "PrivateDevices": {"false"},
+		"ProtectKernelTunables": {"true"}, "ProtectControlGroups": {"true"},
+		"RestrictSUIDSGID": {"true"}, "LockPersonality": {"true"}, "MemoryDenyWriteExecute": {"true"},
+		"DeviceAllow": {"/dev/nvidiactl rw", "/dev/nvidia-uvm rw", "/dev/nvidia-uvm-tools rw", "/dev/nvidia-modeset rw", "char-nvidia* rw"},
+	} {
+		if !slices.Equal(service[key], want) {
+			return fmt.Errorf("service directive %s = %q, want %q", key, service[key], want)
+		}
+	}
+	return nil
+}
 
 func TestDaemonSetManifestLeastPrivilege(t *testing.T) {
 	manifest, err := os.ReadFile(filepath.Join("packaging", "daemonset.yaml"))

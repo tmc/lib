@@ -131,7 +131,7 @@ func TestBuildKDAPacket(t *testing.T) {
 		if err != nil {
 			t.Fatalf("compile %s: %v", name, err)
 		}
-		entry := kdaPacketEntry{name, kdaDigest([]byte(source)), a.Digest, target, nvrtc.Path(), digest, major, minor, append([]string(nil), a.CompilerOpts...)}
+		entry := kdaPacketEntry{name, kdaDigest([]byte(source)), a.Digest(), target, nvrtc.Path(), digest, major, minor, append([]string(nil), a.CompilerOptions()...)}
 		for suffix, value := range map[string]any{".artifact.json": a, ".receipt.json": entry} {
 			if err := kdaJSON(filepath.Join(dir, name+suffix), value); err != nil {
 				t.Fatal(err)
@@ -140,7 +140,7 @@ func TestBuildKDAPacket(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, name+".cu"), []byte(source), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, name+".cubin"), a.Raw, 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name+".cubin"), a.Bytes(), 0600); err != nil {
 			t.Fatal(err)
 		}
 		t.Logf("COMPILED %s source=%s image=%s target=%s compiler=%s sha256=%s version=%d.%d", name, entry.SourceSHA256, entry.ImageSHA256, target, entry.CompilerPath, digest, major, minor)
@@ -167,7 +167,7 @@ func kdaReadPacket(dir, name, source, target string) (*cudakernel.Artifact, kdaP
 	if err != nil {
 		return nil, entry, err
 	}
-	if !bytes.Equal(image, a.Raw) {
+	if !bytes.Equal(image, a.Bytes()) {
 		return nil, entry, fmt.Errorf("kda retained image bytes mismatch")
 	}
 	schema, err := KDASchema()
@@ -175,14 +175,14 @@ func kdaReadPacket(dir, name, source, target string) (*cudakernel.Artifact, kdaP
 		return nil, entry, err
 	}
 	opts := []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
-	if string(data) != source || entry.Name != name || entry.SourceSHA256 != kdaDigest(data) || entry.ImageSHA256 != a.Digest || entry.Target != target || a.Target != target || a.Kind != cudakernel.KindCUBIN || a.EntryPoint != "kda_fp32" || !reflect.DeepEqual(a.Schema, schema) {
+	if string(data) != source || entry.Name != name || entry.SourceSHA256 != kdaDigest(data) || entry.ImageSHA256 != a.Digest() || entry.Target != target || a.Target() != target || a.Kind() != cudakernel.KindCUBIN || a.EntryPoint() != "kda_fp32" || !reflect.DeepEqual(a.Schema(), schema) {
 		return nil, entry, fmt.Errorf("kda packet identity/ABI mismatch")
 	}
-	if !filepath.IsAbs(entry.CompilerPath) || strings.IndexByte(entry.CompilerPath, 0) >= 0 || entry.CompilerMajor <= 0 || entry.CompilerMinor < 0 || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(entry.CompilerSHA256) || a.Toolchain != fmt.Sprintf("nvrtc %d.%d", entry.CompilerMajor, entry.CompilerMinor) || !reflect.DeepEqual(entry.CompilerOptions, opts) || !reflect.DeepEqual(a.CompilerOpts, opts) {
+	if !filepath.IsAbs(entry.CompilerPath) || strings.IndexByte(entry.CompilerPath, 0) >= 0 || entry.CompilerMajor <= 0 || entry.CompilerMinor < 0 || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(entry.CompilerSHA256) || a.Toolchain() != fmt.Sprintf("nvrtc %d.%d", entry.CompilerMajor, entry.CompilerMinor) || !reflect.DeepEqual(entry.CompilerOptions, opts) || !reflect.DeepEqual(a.CompilerOptions(), opts) {
 		return nil, entry, fmt.Errorf("kda retained compiler metadata mismatch")
 	}
 	found := false
-	for _, d := range a.Dependencies {
+	for _, d := range a.Dependencies() {
 		if d.Path == "cudaattn_kda.cu" && d.Tracked && d.Digest == entry.SourceSHA256 && d.ErrorMsg == "" {
 			found = true
 		}
@@ -683,10 +683,15 @@ func TestKDAPacketAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.Toolchain = "nvrtc 13.4"
-	a.CompilerOpts = []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}
-	a.Dependencies = []cudakernel.Dependency{{Path: "cudaattn_kda.cu", Digest: kdaDigest([]byte(KDASource)), Tracked: true}}
-	entry := kdaPacketEntry{"baseline", kdaDigest([]byte(KDASource)), a.Digest, "sm_121", "/compiler/libnvrtc.so", strings.Repeat("a", 64), 13, 4, a.CompilerOpts}
+	spec := a.Spec()
+	spec.Toolchain = "nvrtc 13.4"
+	spec.CompilerOpts = []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}
+	spec.Dependencies = []cudakernel.Dependency{{Path: "cudaattn_kda.cu", Digest: kdaDigest([]byte(KDASource)), Tracked: true}}
+	a, err = cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := kdaPacketEntry{"baseline", kdaDigest([]byte(KDASource)), a.Digest(), "sm_121", "/compiler/libnvrtc.so", strings.Repeat("a", 64), 13, 4, a.CompilerOptions()}
 	for _, name := range []string{"valid", "empty-path", "relative-path", "nul-path", "zero-major", "negative-minor", "version-mismatch", "empty-options", "empty-digest", "oversize-cu", "oversize-cubin", "oversize-artifact"} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -714,7 +719,7 @@ func TestKDAPacketAdmission(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			for suffix, data := range map[string][]byte{".cu": []byte(KDASource), ".cubin": a.Raw} {
+			for suffix, data := range map[string][]byte{".cu": []byte(KDASource), ".cubin": a.Bytes()} {
 				if err := os.WriteFile(filepath.Join(dir, "baseline"+suffix), data, 0600); err != nil {
 					t.Fatal(err)
 				}

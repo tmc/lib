@@ -16,7 +16,7 @@ func TestCompletionCountRefusal(t *testing.T) {
 	if err != nil {
 		t.Skip("clang++ not installed")
 	}
-	source, err := cudamega.ProgramSource(programGraph(t, 16), programOps(), cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128}, goldenTarget)
+	source, err := cudamega.ProgramSource(programGraph(t, 16), programOps(), cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, MaxElements: 1}, goldenTarget)
 	if err != nil {
 		t.Fatal(err)
 	}

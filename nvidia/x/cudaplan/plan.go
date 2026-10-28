@@ -90,7 +90,7 @@ type ExecutablePlan struct {
 	snap             nodeSnapshot
 	steps            []StepPlan
 	workspace        *WorkspaceManager
-	modules          map[*cudakernel.Artifact]*cuda.Module
+	modules          map[cudakernel.Artifact]*cuda.Module
 	pendingModules   []driver.Module // Loaded modules whose context ownership was not adopted.
 	cublasEngine     *cublasltx.Engine
 	graphExec        *cudagraph.Exec
@@ -166,7 +166,7 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 		dev:             cfg.dev,
 		graphReplay:     cfg.enableGraph,
 		snap:            snap,
-		modules:         make(map[*cudakernel.Artifact]*cuda.Module),
+		modules:         make(map[cudakernel.Artifact]*cuda.Module),
 		requiredInputs:  make(map[string]int),
 		requiredOutputs: make(map[string]int),
 		intermediateLoc: make(map[string]int),
@@ -314,10 +314,10 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 			return nil, fmt.Errorf("%w: no kernel artifact for %s", ErrUnsupportedBackend, n.Name)
 		}
 		if cfg.dev != nil && art != nil && (backend == BackendLaunch || backend == BackendGraph) {
-			if len(art.Schema.Params) != len(n.Inputs)+1 {
-				return nil, fmt.Errorf("%w: artifact schema for %s has %d parameters, want %d", ErrUnsupportedBackend, n.Name, len(art.Schema.Params), len(n.Inputs)+1)
+			if len(art.Schema().Params) != len(n.Inputs)+1 {
+				return nil, fmt.Errorf("%w: artifact schema for %s has %d parameters, want %d", ErrUnsupportedBackend, n.Name, len(art.Schema().Params), len(n.Inputs)+1)
 			}
-			for i, param := range art.Schema.Params {
+			for i, param := range art.Schema().Params {
 				if !param.IsPointer || param.Type != "ptr" {
 					return nil, fmt.Errorf("%w: artifact schema for %s parameter %d is not a device pointer", ErrUnsupportedBackend, n.Name, i)
 				}
@@ -326,7 +326,7 @@ func Compile(source *cudair.Snapshot, opts ...PlanOption) (p *ExecutablePlan, er
 
 		// Load module if artifact is present and device is bound
 		if art != nil && cfg.dev != nil {
-			if _, exists := plan.modules[art]; !exists {
+			if _, exists := plan.modules[*art]; !exists {
 				load := func() (driver.Module, error) { return art.Load(cfg.dev) }
 				own := func(raw driver.Module) (*cuda.Module, error) { return cuda.OwnModule(cfg.dev, raw) }
 				if err := plan.loadModule(art, load, own); err != nil {
@@ -401,7 +401,7 @@ func (p *ExecutablePlan) loadModule(art *cudakernel.Artifact, load func() (drive
 	if err != nil {
 		return fmt.Errorf("retain context: %w", err)
 	}
-	p.modules[art] = mod
+	p.modules[*art] = mod
 	p.pendingModules = p.pendingModules[:len(p.pendingModules)-1]
 	return nil
 }
@@ -422,7 +422,7 @@ func (p *ExecutablePlan) RequiredInputs() map[string]int {
 
 // Steps returns the plan's dispatches in execution order.
 //
-// Step slices are copied. Artifact descriptors must be treated as immutable.
+// Step slices and artifact handles are detached from the execution owner.
 // It is here so that a region of a compiled plan can be lowered by
 // [LowerRegion] without the plan having to know what it is lowered into.
 func (p *ExecutablePlan) Steps() []StepPlan {
@@ -435,6 +435,7 @@ func (p *ExecutablePlan) Steps() []StepPlan {
 	for i := range steps {
 		steps[i].InputNames = append([]string(nil), steps[i].InputNames...)
 		steps[i].Dependencies = append([]int(nil), steps[i].Dependencies...)
+		steps[i].Artifact = captureArtifact(steps[i].Artifact)
 	}
 	return steps
 }
@@ -623,7 +624,7 @@ func (p *ExecutablePlan) enqueueWith(stream *cuda.Stream, nodePointers map[strin
 	if p.megaArtifact != nil {
 		for _, id := range p.megaLowering.TaskIDs() {
 			binding, ok := p.megaLowering.Binding(id)
-			if !ok || binding.Artifact != p.megaArtifact || binding.Backend != BackendMega {
+			if !ok || binding.Artifact == nil || *binding.Artifact != *p.megaArtifact || binding.Backend != BackendMega {
 				return fmt.Errorf("%w: finite worker task binding %s", ErrUnsupportedBackend, id)
 			}
 			for _, name := range binding.InputNames {
@@ -642,11 +643,11 @@ func (p *ExecutablePlan) enqueueWith(stream *cuda.Stream, nodePointers map[strin
 				nodePointers[binding.OutputName] = ptr
 			}
 		}
-		mod := p.modules[p.megaArtifact]
+		mod := p.modules[*p.megaArtifact]
 		if mod == nil {
 			return fmt.Errorf("%w: finite worker module missing", ErrUnsupportedBackend)
 		}
-		kernel, err := mod.Function(p.megaArtifact.EntryPoint)
+		kernel, err := mod.Function(p.megaArtifact.EntryPoint())
 		if err != nil {
 			return err
 		}
@@ -670,7 +671,7 @@ func (p *ExecutablePlan) enqueueWith(stream *cuda.Stream, nodePointers map[strin
 			}
 			args = append(args, state)
 		}
-		if _, err := p.megaArtifact.Schema.Pack(args...); err != nil {
+		if _, err := p.megaArtifact.Pack(args...); err != nil {
 			return err
 		}
 		grid := uint32(1)
@@ -729,13 +730,13 @@ func (p *ExecutablePlan) enqueueWith(stream *cuda.Stream, nodePointers map[strin
 				return fmt.Errorf("%w: missing artifact for %s", ErrUnsupportedBackend, step.NodeName)
 			}
 			if step.Artifact != nil {
-				mod := p.modules[step.Artifact]
+				mod := p.modules[*step.Artifact]
 				if mod == nil {
 					return fmt.Errorf("cudaplan: module not loaded for %s", step.NodeName)
 				}
-				kernel, err := mod.Function(step.Artifact.EntryPoint)
+				kernel, err := mod.Function(step.Artifact.EntryPoint())
 				if err != nil {
-					return fmt.Errorf("cudaplan: get function %s: %w", step.Artifact.EntryPoint, err)
+					return fmt.Errorf("cudaplan: get function %s: %w", step.Artifact.EntryPoint(), err)
 				}
 
 				args, blocks, err := p.kernelArguments(step, nodePointers)

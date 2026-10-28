@@ -71,7 +71,7 @@ func TestHistoryRejectsUnprovenClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Environment.Clock != "test-clock" || r.Artifact.Digest != o.Artifact.Digest || r.Facts[0].Samples != 1 {
+	if r.Environment.Clock != "test-clock" || r.Artifact.Digest() != o.Artifact.Digest() || r.Facts[0].Samples != 1 {
 		t.Fatalf("changed supplied closure: %+v", r)
 	}
 }
@@ -79,7 +79,14 @@ func TestHistoryRejectsUnprovenClosure(t *testing.T) {
 func TestComparisonWithholdsCandidateOnlyFamily(t *testing.T) {
 	p, e, _, _ := historyFixture(t)
 	p.StoppingRules.MinSamples = 1
-	e.ArmReceipts = append(e.ArmReceipts, cudatrial.Receipt{Name: "baseline", Complete: true, WallElapsed: time.Millisecond})
+	var err error
+	p.PlanDigest, err = ComputePlanDigest(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.PlanDigest = p.PlanDigest
+	e.RoundsCompleted = 1
+	e.ArmReceipts = []cudatrial.Receipt{{Name: "baseline", Round: 1, Complete: true, WallElapsed: time.Millisecond}, {Name: "candidate", Round: 1, Complete: true, WallElapsed: time.Millisecond}}
 	c, err := CompareExecution(p, e, ReplayOptions{BaselineFamilies: []string{"activity"}, CandidateFamilies: []string{"activity", "pc"}})
 	if err != nil {
 		t.Fatal(err)

@@ -112,10 +112,10 @@ func TestTargetFeatureMismatch(t *testing.T) {
 	}
 
 	// Negative control: Substituted target features
-	// Directly mutate artifact target to invalid arch
-	mutated := *art
+	// Invalid construction data cannot produce a sealed descriptor.
+	mutated := art.Spec()
 	mutated.Target = "invalid_arch_999"
-	if err := mutated.Validate(); err == nil {
+	if _, err := cudakernel.NewArtifactFromSpec(mutated); err == nil {
 		t.Fatal("negative control failed: invalid target passed validation")
 	}
 }

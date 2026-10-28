@@ -113,30 +113,35 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 
 	startTime := time.Now()
 	budget := m.cfg.Budget
-	profile := freezeProfileActions(m.cfg.Profile)
 	if err := validateMemoryEvaluator(m.cfg.Memory, eval); err != nil {
 		return nil, err
 	}
-	if err := freezeSearchMemory(m.cfg.Memory, &profile); err != nil {
+	var priors profileActions
+	if err := freezeSearchMemory(m.cfg.Memory, &priors); err != nil {
 		return nil, err
 	}
 	ctx, work, err := searchWorkBudget(ctx, budget, eval)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { closeStateClones(work.memory.takeClones()) }()
+	defer work.closeSearch()
 	book, err := newSearchBookkeeping(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer book.close()
+	profile, err := freezeBoundedProfile(m.cfg.Profile, book.temporary(), book.retained())
+	if err != nil {
+		return nil, err
+	}
+	profile.memory, profile.weights = priors.memory, priors.weights
 	if err := bookkeepingSlots[rand.Rand](book.temporary(), 1); err != nil {
 		return nil, err
 	}
 	// The standard library source's private implementation storage is outside
 	// our declared value/collection units, like runtime map buckets.
 	rng := rand.New(rand.NewSource(m.cfg.Seed))
-	policy, policyComplete, err := makeSearchPolicy("mcts", m.cfg.RootName, budget, map[string]string{"iterations": fmt.Sprint(m.cfg.Iterations), "rollout_depth": fmt.Sprint(m.cfg.RolloutDepth), "exploration": fmt.Sprint(m.cfg.ExplorationC)}, m.cfg.Seed, rules, eval, work, profile, m.cfg.EvaluatorID)
+	policy, policyComplete, err := makeSearchPolicy("mcts", m.cfg.RootName, budget, searchPolicyOptions{iterations: m.cfg.Iterations, rolloutDepth: m.cfg.RolloutDepth, exploration: m.cfg.ExplorationC}, m.cfg.Seed, rules, eval, work, profile, m.cfg.EvaluatorID)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +164,7 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 	if err := admitGraphBudget(initial, budget); err != nil {
 		return nil, err
 	}
-	if err := retainSearchValue(ctx, borrowedInitial); err != nil {
+	if err := retainSearchValue(ctx, borrowedInitial, false); err != nil {
 		return nil, err
 	}
 	rootID, ok := initial.CanonicalRoot(m.cfg.RootName)
@@ -279,6 +284,9 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 			stateCount++
 			res, cloneOwner, applyErr := applySearchAction(ctx, node.state, act)
 			if errors.Is(applyErr, ErrMemoryBudgetExceeded) || errors.Is(applyErr, ErrMemoryAccountingUnavailable) {
+				if cloneOwner != nil {
+					work.memory.retainClone(cloneOwner)
+				}
 				return finish(applyErr)
 			}
 			if applyErr != nil || res.NoOp {
@@ -391,6 +399,9 @@ func (m *MCTSSearchEngine) Search(ctx context.Context, initial *egraph.SearchSta
 				stateCount++
 				res, cloneOwner, err := applySearchAction(ctx, currState, act)
 				if errors.Is(err, ErrMemoryBudgetExceeded) || errors.Is(err, ErrMemoryAccountingUnavailable) {
+					if cloneOwner != nil {
+						work.memory.retainClone(cloneOwner)
+					}
 					return finish(err)
 				}
 				if err == nil && !res.NoOp {

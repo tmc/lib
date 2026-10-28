@@ -113,6 +113,9 @@ func CompilePlanEngine(source *cudair.Snapshot, stream *cuda.Stream, bind PlanBi
 
 // ExecuteForward validates, binds, submits, waits and samples the plan. Pending
 // completion is returned as PendingForwardError with storage still retained.
+// Metadata must come from BindAllocatedRows or BatchScheduler.BindIteration;
+// shape-only metadata does not establish allocation ownership. The pool must
+// remain unchanged through execution and completion.
 func (e *PlanEngine) ExecuteForward(ctx context.Context, step *ExecutionStep) (map[string]int32, map[string]error, error) {
 	if ctx == nil {
 		return nil, nil, errors.New("cudabatch: nil context")
@@ -308,6 +311,9 @@ func copyPlanStep(step *ExecutionStep) (*ExecutionStep, error) {
 		return nil, errors.New("cudabatch: nil execution step or metadata")
 	}
 	m := step.Metadata
+	if err := m.validateAllocation(); err != nil {
+		return nil, err
+	}
 	if step.Iteration != nil && (step.Iteration.StepID != step.StepID || !reflect.DeepEqual(step.Iteration.AllocatedRows, m.RowBindings) || step.Iteration.TotalTokens != m.TotalTokens) {
 		return nil, errors.New("cudabatch: iteration and metadata disagree")
 	}
@@ -349,6 +355,7 @@ func copyPlanStep(step *ExecutionStep) (*ExecutionStep, error) {
 	if err != nil {
 		return nil, err
 	}
+	expected.allocation = m.allocation
 	if expected.TotalTokens > m.MaxTokens || expected.TotalTokens != m.TotalTokens || !reflect.DeepEqual(expected.SequenceLens, m.SequenceLens) || !reflect.DeepEqual(expected.AttentionMask, m.AttentionMask) || !reflect.DeepEqual(expected.BlockTableFlat, m.BlockTableFlat) {
 		return nil, errors.New("cudabatch: inconsistent batch metadata")
 	}

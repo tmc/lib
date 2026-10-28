@@ -73,7 +73,7 @@ func TestTargetConditionalScopeRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	ops := map[string]cudamega.Operation{"x": {Kind: cudamega.Add, Scalar: 1}}
-	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}
+	grid := cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 1}
 
 	for _, tc := range []struct {
 		name    string
@@ -226,6 +226,7 @@ func (r *recording) Residency() cudamega.Admission {
 	return r.Backend.Residency()
 }
 func (r *recording) Begin(p *cudamega.Program) error { r.note("Begin"); return r.Backend.Begin(p) }
+func (r *recording) Entry() error                    { r.note("Entry"); return r.Backend.Entry() }
 func (r *recording) BeginTask(i int) (bool, error) {
 	r.note("BeginTask")
 	return r.Backend.BeginTask(i)
@@ -252,9 +253,9 @@ func (r *recording) Fence(i, dep int, s cudataskgraph.Scope, k cudamega.Fence) e
 	r.note("Fence")
 	return r.Backend.Fence(i, dep, s, k)
 }
-func (r *recording) Compute(i, src int, op cudamega.Operation) error {
+func (r *recording) Compute(i int, sources []int, op cudamega.Operation) error {
 	r.note("Compute")
-	return r.Backend.Compute(i, src, op)
+	return r.Backend.Compute(i, sources, op)
 }
 func (r *recording) Publish(i int) error { r.note("Publish"); return r.Backend.Publish(i) }
 func (r *recording) EndTask(i int) error { r.note("EndTask"); return r.Backend.EndTask(i) }

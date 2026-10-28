@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/nvrtc"
@@ -126,19 +125,18 @@ func toolsByName(tools []ToolDigest) map[string][]string {
 // and DriverVersion stays 0 unless the driver is loaded.
 //
 // A loaded library that cannot be located (see LoadedLibraryPath) or hashed
-// is an error. Digests are remembered per path and reused while the file's
-// identity is unchanged, so a repeated probe costs one stat per library.
+// is an error. Each probe rehashes every loaded library.
 func ProbeToolchain() (ToolProvenance, error) {
 	p := ToolProvenance{Recipe: RecipeVersion}
 	if nvrtc.Loaded() {
-		d, err := probeLoadedTool("nvrtc", nvrtc.Path())
+		d, err := probeLoadedTool("nvrtc", nvrtc.Path(), toolFileIdentity)
 		if err != nil {
 			return ToolProvenance{}, fmt.Errorf("probe toolchain: %w", err)
 		}
 		p.Tools = append(p.Tools, d)
 	}
 	if driver.Loaded() {
-		d, err := probeLoadedTool("driver", driver.Path())
+		d, err := probeLoadedTool("driver", driver.Path(), toolFileIdentity)
 		if err != nil {
 			return ToolProvenance{}, fmt.Errorf("probe toolchain: %w", err)
 		}
@@ -152,39 +150,10 @@ func ProbeToolchain() (ToolProvenance, error) {
 	return p, nil
 }
 
-func probeLoadedTool(name, opened string) (ToolDigest, error) {
+func probeLoadedTool(name, opened string, identity identityFunc) (ToolDigest, error) {
 	path, err := LoadedLibraryPath(opened)
 	if err != nil {
 		return ToolDigest{}, err
 	}
-	return digestToolCached(name, path)
-}
-
-var (
-	toolMemoMu sync.Mutex
-	toolMemo   = make(map[string]ToolDigest) // by name + "\x00" + path
-)
-
-// digestToolCached is DigestTool with the reuse rule of VerifyTool: a
-// remembered digest is returned while the file's Unix identity is unchanged.
-func digestToolCached(name, path string) (ToolDigest, error) {
-	cur, err := StatTool(path)
-	if err != nil {
-		return ToolDigest{}, fmt.Errorf("digest tool %s: %w", name, err)
-	}
-	key := name + "\x00" + path
-	toolMemoMu.Lock()
-	d, ok := toolMemo[key]
-	toolMemoMu.Unlock()
-	if ok && d.File.Unix && d.File == cur {
-		return d, nil
-	}
-	d, err = DigestTool(name, path)
-	if err != nil {
-		return ToolDigest{}, err
-	}
-	toolMemoMu.Lock()
-	toolMemo[key] = d
-	toolMemoMu.Unlock()
-	return d, nil
+	return digestTool(name, path, identity)
 }

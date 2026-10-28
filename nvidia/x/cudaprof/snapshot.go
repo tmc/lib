@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"sort"
 	"time"
 )
 
@@ -67,91 +66,74 @@ func NewProfileSnapshot(snap ProfileSnapshot) (*ProfileSnapshot, error) {
 	if snap.Version == 0 {
 		snap.Version = ProfileSnapshotVersion
 	}
+	if err := validateSnapshot(&snap); err != nil {
+		return nil, err
+	}
+	snap.Sampling = cloneSampling(snap.Sampling)
+	snap.Metrics = cloneMetrics(snap.Metrics)
+	snap.MetricUnits = maps.Clone(snap.MetricUnits)
+	snap.PCStalls = clonePCStalls(snap.PCStalls)
+	return &snap, nil
+}
+
+// validateSnapshot reports the first invalid field without allocating.
+func validateSnapshot(snap *ProfileSnapshot) error {
 	if snap.Version != ProfileSnapshotVersion {
-		return nil, fmt.Errorf("%w: version %d (supported %d)", ErrInvalidSnapshotVersion, snap.Version, ProfileSnapshotVersion)
+		return fmt.Errorf("%w: version %d (supported %d)", ErrInvalidSnapshotVersion, snap.Version, ProfileSnapshotVersion)
 	}
 	if snap.CodeDigest == "" {
-		return nil, errors.New("cudaprof: empty code digest")
+		return errors.New("cudaprof: empty code digest")
 	}
 	if len(snap.CodeDigest) != 2*sha256.Size {
-		return nil, fmt.Errorf("cudaprof: invalid sha256 code digest length %d", len(snap.CodeDigest))
+		return fmt.Errorf("cudaprof: invalid sha256 code digest length %d", len(snap.CodeDigest))
 	}
 	if _, err := hex.DecodeString(snap.CodeDigest); err != nil {
-		return nil, fmt.Errorf("cudaprof: malformed hex code digest: %w", err)
+		return fmt.Errorf("cudaprof: malformed hex code digest: %w", err)
 	}
 	if snap.Region == "" {
-		return nil, errors.New("cudaprof: empty region name")
+		return errors.New("cudaprof: empty region name")
 	}
 	if snap.Workload == "" {
-		return nil, errors.New("cudaprof: empty workload identifier")
+		return errors.New("cudaprof: empty workload identifier")
 	}
 	if snap.Device == "" {
-		return nil, errors.New("cudaprof: empty device identifier")
+		return errors.New("cudaprof: empty device identifier")
 	}
 	if snap.CollectorMode == "" {
-		return nil, errors.New("cudaprof: empty collector mode")
+		return errors.New("cudaprof: empty collector mode")
 	}
 	if math.IsNaN(snap.Coverage) || math.IsInf(snap.Coverage, 0) || snap.Coverage < 0.0 || snap.Coverage > 1.0 {
-		return nil, fmt.Errorf("cudaprof: invalid coverage %f (must be between 0.0 and 1.0)", snap.Coverage)
+		return fmt.Errorf("cudaprof: invalid coverage %f (must be between 0.0 and 1.0)", snap.Coverage)
 	}
 	if snap.ClockUncertaintyNs < -1 {
-		return nil, fmt.Errorf("cudaprof: invalid clock uncertainty %d", snap.ClockUncertaintyNs)
+		return fmt.Errorf("cudaprof: invalid clock uncertainty %d", snap.ClockUncertaintyNs)
 	}
-	var sampling *SamplingProvenance
 	if p := snap.Sampling; p != nil {
 		if p.RunID == "" || p.ModuleGeneration == 0 || p.KernelName == "" || p.CUPTIVersion == 0 || (p.CollectionMode != 1 && p.CollectionMode != 2) {
-			return nil, errors.New("cudaprof: incomplete sampling provenance")
+			return errors.New("cudaprof: incomplete sampling provenance")
 		}
 		if p.NonUserSamples > p.TotalSamples || snap.Losses > p.TotalSamples {
-			return nil, errors.New("cudaprof: sampling quality count exceeds native total")
+			return errors.New("cudaprof: sampling quality count exceeds native total")
 		}
-		copy := *p
-		sampling = &copy
 	}
-
-	metricsCopy := make(map[string]int64, len(snap.Metrics))
 	for metric, unit := range snap.MetricUnits {
 		if metric == "" || unit == "" {
-			return nil, errors.New("cudaprof: empty metric name or unit")
+			return errors.New("cudaprof: empty metric name or unit")
 		}
 	}
 	for k, v := range snap.Metrics {
 		if k == "" || v < 0 {
-			return nil, fmt.Errorf("cudaprof: invalid metric %q count %d", k, v)
+			return fmt.Errorf("cudaprof: invalid metric %q count %d", k, v)
 		}
-		metricsCopy[k] = v
 	}
-
-	var pcStallsCopy map[uint64]map[string]int64
-	if snap.PCStalls != nil {
-		pcStallsCopy = make(map[uint64]map[string]int64, len(snap.PCStalls))
-		for pc, m := range snap.PCStalls {
-			for metric, count := range m {
-				if metric == "" || count < 0 {
-					return nil, fmt.Errorf("cudaprof: invalid pc %#x metric %q count %d", pc, metric, count)
-				}
+	for pc, m := range snap.PCStalls {
+		for metric, count := range m {
+			if metric == "" || count < 0 {
+				return fmt.Errorf("cudaprof: invalid pc %#x metric %q count %d", pc, metric, count)
 			}
-			pcStallsCopy[pc] = maps.Clone(m)
 		}
 	}
-
-	return &ProfileSnapshot{
-		Version:            snap.Version,
-		Timestamp:          snap.Timestamp,
-		CodeDigest:         snap.CodeDigest,
-		Region:             snap.Region,
-		Workload:           snap.Workload,
-		TokensHash:         snap.TokensHash,
-		Device:             snap.Device,
-		CollectorMode:      snap.CollectorMode,
-		Coverage:           snap.Coverage,
-		ClockUncertaintyNs: snap.ClockUncertaintyNs,
-		Losses:             snap.Losses,
-		Sampling:           sampling,
-		Metrics:            metricsCopy,
-		MetricUnits:        maps.Clone(snap.MetricUnits),
-		PCStalls:           pcStallsCopy,
-	}, nil
+	return nil
 }
 
 // SearchGuidance provides attributed profile priors and bottleneck facts to compiler search lanes
@@ -188,89 +170,5 @@ type ProfileTarget struct {
 // Guidance extracts observations only when every target identity matches.
 // If the snapshot has zero coverage or missing metrics, ErrGuidanceUnavailable is returned.
 func (s *ProfileSnapshot) Guidance(target ProfileTarget) (*SearchGuidance, error) {
-	if s == nil {
-		return nil, errors.New("cudaprof: nil profile snapshot")
-	}
-	if s.Version != ProfileSnapshotVersion {
-		return nil, fmt.Errorf("%w: version %d", ErrInvalidSnapshotVersion, s.Version)
-	}
-	validated, err := NewProfileSnapshot(*s)
-	if err != nil {
-		return nil, err
-	}
-	s = validated
-	if target.CodeDigest != s.CodeDigest || target.Region != s.Region || target.CollectorMode != s.CollectorMode {
-		return nil, fmt.Errorf("%w: code digest, region or collector mode differs", ErrProfileTargetMismatch)
-	}
-	targetWorkload, targetTokensHash, targetDevice := target.Workload, target.TokensHash, target.Device
-	if targetWorkload == "" {
-		return nil, errors.New("cudaprof: empty target workload")
-	}
-	if targetDevice == "" {
-		return nil, errors.New("cudaprof: empty target device")
-	}
-
-	if targetWorkload != s.Workload {
-		return nil, fmt.Errorf("%w: target workload %q does not match snapshot %q",
-			ErrWorkloadMismatch, targetWorkload, s.Workload)
-	}
-	if targetTokensHash != s.TokensHash {
-		return nil, fmt.Errorf("%w: target tokens hash %q does not match snapshot %q",
-			ErrWorkloadMismatch, targetTokensHash, s.TokensHash)
-	}
-	if targetDevice != s.Device {
-		return nil, fmt.Errorf("%w: target device %q does not match snapshot %q",
-			ErrDeviceMismatch, targetDevice, s.Device)
-	}
-
-	guidance := &SearchGuidance{Workload: s.Workload, Device: s.Device, CodeDigest: s.CodeDigest, Region: s.Region, CollectorMode: s.CollectorMode, TokensHash: s.TokensHash, Timestamp: s.Timestamp, Losses: s.Losses, Coverage: s.Coverage, UncertaintyNs: s.ClockUncertaintyNs}
-	guidance.Sampling = s.Sampling
-	if s.Coverage <= 0.0 || len(s.Metrics) == 0 {
-		guidance.UnavailableReason = "insufficient coverage or missing telemetry metrics"
-		return guidance, ErrGuidanceUnavailable
-	}
-	guidance.MetricUnits = s.MetricUnits
-	for metric := range s.Metrics {
-		if s.MetricUnits[metric] == "" {
-			guidance.UnavailableReason = "missing unit for metric " + metric
-			return guidance, ErrGuidanceUnavailable
-		}
-	}
-	for _, counters := range s.PCStalls {
-		for metric := range counters {
-			if s.MetricUnits[metric] == "" {
-				guidance.UnavailableReason = "missing unit for pc metric " + metric
-				return guidance, ErrGuidanceUnavailable
-			}
-		}
-	}
-	guidance.Available = true
-	guidance.StallCounts = s.Metrics
-	guidance.PCStalls = s.PCStalls
-	guidance.HotPCs = make(map[string][]uint64)
-	// Rank each metric independently; never infer exclusivity between samples.
-	type pcHit struct {
-		pc    uint64
-		count int64
-	}
-	byMetric := make(map[string][]pcHit)
-	for pc, m := range s.PCStalls {
-		for metric, count := range m {
-			if count > 0 {
-				byMetric[metric] = append(byMetric[metric], pcHit{pc: pc, count: count})
-			}
-		}
-	}
-	for metric, hits := range byMetric {
-		sort.Slice(hits, func(i, j int) bool {
-			if hits[i].count == hits[j].count {
-				return hits[i].pc < hits[j].pc
-			}
-			return hits[i].count > hits[j].count
-		})
-		for i := 0; i < len(hits) && i < 10; i++ {
-			guidance.HotPCs[metric] = append(guidance.HotPCs[metric], hits[i].pc)
-		}
-	}
-	return guidance, nil
+	return s.GuidanceBounded(target, nil, nil, nil)
 }

@@ -129,48 +129,86 @@ func (f *flightRecorder) StartTime() time.Time {
 	return f.startTime
 }
 
+var errGoTraceTruncated = errors.New("cudaflightrecorder: go trace truncated")
+
+// goTraceLossError reports discarded bytes. An overflowed count is a lower bound.
+type goTraceLossError struct {
+	retained uint64
+	dropped  uint64
+	overflow bool
+}
+
+func (e *goTraceLossError) Error() string {
+	if e.overflow {
+		return fmt.Sprintf("%v: retained %d bytes, dropped at least %d bytes (count overflow)", errGoTraceTruncated, e.retained, e.dropped)
+	}
+	return fmt.Sprintf("%v: retained %d bytes, dropped %d bytes", errGoTraceTruncated, e.retained, e.dropped)
+}
+
+func (e *goTraceLossError) Unwrap() error { return errGoTraceTruncated }
+
 // syncBuffer provides a thread-safe in-memory buffer for standard execution tracing.
+// Write consumes the entire input, including bytes discarded at the cap, so the
+// runtime writer does not stop tracing because of a short write.
 type syncBuffer struct {
 	mu       sync.Mutex
 	buf      bytes.Buffer
 	maxBytes uint64
+	dropped  uint64
+	overflow bool
 }
 
 func (b *syncBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.maxBytes > 0 && uint64(b.buf.Len()+len(p)) > b.maxBytes {
-		remaining := int(b.maxBytes) - b.buf.Len()
-		if remaining <= 0 {
-			return len(p), nil // Silently discard when capped
+	keep := len(p)
+	if b.maxBytes > 0 {
+		retained := uint64(b.buf.Len())
+		if retained >= b.maxBytes {
+			keep = 0
+		} else if remaining := b.maxBytes - retained; uint64(keep) > remaining {
+			keep = int(remaining)
 		}
-		p = p[:remaining]
 	}
-	return b.buf.Write(p)
+	b.buf.Write(p[:keep])
+	dropped := uint64(len(p) - keep)
+	if dropped > ^uint64(0)-b.dropped {
+		b.dropped = ^uint64(0)
+		b.overflow = true
+	} else {
+		b.dropped += dropped
+	}
+	return len(p), nil
 }
 
-func (b *syncBuffer) Bytes() []byte {
+func (b *syncBuffer) snapshot() ([]byte, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	cp := make([]byte, b.buf.Len())
 	copy(cp, b.buf.Bytes())
-	return cp
+	if b.dropped != 0 || b.overflow {
+		return cp, &goTraceLossError{uint64(len(cp)), b.dropped, b.overflow}
+	}
+	return cp, nil
 }
 
 // standardTraceRecorder implements GoTraceRecorder using standard trace.Start
 // and trace.Stop as a fallback or adapter.
 type standardTraceRecorder struct {
-	mu        sync.Mutex
-	maxBytes  uint64
-	buf       *syncBuffer
-	startTime time.Time
-	running   bool
-	snapshot  []byte
+	mu          sync.Mutex
+	maxBytes    uint64
+	buf         *syncBuffer
+	startTime   time.Time
+	running     bool
+	snapshot    []byte
+	snapshotErr error
 }
 
 // NewStandardTraceAdapter returns a GoTraceRecorder that uses trace.Start and trace.Stop.
 // It serves as a clean fallback or adapter for tests and environments without FlightRecorder.
+// If the byte cap discards data, Snapshot returns the retained bytes with an
+// error reporting the loss. Stop and subsequent snapshots retain that error.
 func NewStandardTraceAdapter(maxBytes uint64) GoTraceRecorder {
 	return &standardTraceRecorder{
 		maxBytes: maxBytes,
@@ -193,23 +231,29 @@ func (s *standardTraceRecorder) Start() error {
 	s.running = true
 	s.startTime = time.Now()
 	s.snapshot = nil
+	s.snapshotErr = nil
 	return nil
 }
 
 func (s *standardTraceRecorder) Stop() error {
+	return s.stop(trace.Stop)
+}
+
+// stop separates the runtime stop from retention accounting for host-only tests.
+func (s *standardTraceRecorder) stop(stopTrace func()) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if !s.running {
-		return nil
+		return s.snapshotErr
 	}
 
-	trace.Stop()
+	stopTrace()
 	s.running = false
 	if s.buf != nil {
-		s.snapshot = s.buf.Bytes()
+		s.snapshot, s.snapshotErr = s.buf.snapshot()
 	}
-	return nil
+	return s.snapshotErr
 }
 
 func (s *standardTraceRecorder) Snapshot(ctx context.Context) ([]byte, error) {
@@ -224,7 +268,10 @@ func (s *standardTraceRecorder) Snapshot(ctx context.Context) ([]byte, error) {
 		if len(s.snapshot) > 0 {
 			cp := make([]byte, len(s.snapshot))
 			copy(cp, s.snapshot)
-			return cp, nil
+			return cp, s.snapshotErr
+		}
+		if s.snapshotErr != nil {
+			return nil, s.snapshotErr
 		}
 		return nil, errors.New("cudaflightrecorder: trace recorder not running")
 	}
@@ -233,7 +280,10 @@ func (s *standardTraceRecorder) Snapshot(ctx context.Context) ([]byte, error) {
 		return nil, errors.New("cudaflightrecorder: trace buffer is nil")
 	}
 
-	data := s.buf.Bytes()
+	data, err := s.buf.snapshot()
+	if err != nil {
+		return data, err
+	}
 	if len(data) == 0 {
 		return nil, errors.New("cudaflightrecorder: trace buffer empty")
 	}

@@ -224,9 +224,9 @@ func ReadManaged(ctx context.Context, r io.Reader, c ManagedImport) (Sample, err
 		if math.IsNaN(x) || math.IsInf(x, 0) {
 			rd.Evidence = EvidenceUnavailable
 			rd.UnavailableReason = "non_finite"
-		} else if c.Producer == "dcgm-exporter" && x >= 140737488355328 && x <= 140737488355343 && !f.Integer {
+		} else if reason := managedFloatBlank(c.Producer, f.Integer, x); reason != "" {
 			rd.Evidence = EvidenceUnavailable
-			rd.UnavailableReason = dcgmBlankReason(uint64(x - 140737488355328))
+			rd.UnavailableReason = reason
 		} else {
 			rat, ok := boundedDecimal(v.RawValue)
 			if !ok {
@@ -299,6 +299,15 @@ func validateManagedValue(r Reading) error {
 	if !r.IsAvailable() {
 		return nil
 	}
+	if s.Native == nil {
+		value, err := strconv.ParseFloat(s.RawValue, 64)
+		if err != nil {
+			return fmt.Errorf("invalid raw numeric value")
+		}
+		if managedFloatBlank(s.Producer, f.Integer, value) != "" {
+			return fmt.Errorf("available managed value is a dcgm blank")
+		}
+	}
 	x, ok := boundedDecimal(s.RawValue)
 	if !ok {
 		return fmt.Errorf("available raw value is not finite")
@@ -315,4 +324,23 @@ func validateManagedValue(r Reading) error {
 		}
 	}
 	return nil
+}
+
+// managedFloatBlank follows DCGM's floating no-data domain. Only exact named
+// reason values establish those errors; other offsets carry generic no-data.
+// Integer mappings and native status interpretation have separate contracts.
+func managedFloatBlank(producer string, integer bool, value float64) string {
+	const blank = 140737488355328.0
+	if producer != "dcgm-exporter" || integer || math.IsNaN(value) || math.IsInf(value, 0) || value < blank {
+		return ""
+	}
+	switch value {
+	case blank + 1:
+		return ReasonQueryFailure
+	case blank + 2:
+		return ReasonUnsupported
+	case blank + 3:
+		return ReasonPermissionDenied
+	}
+	return ReasonBlank
 }

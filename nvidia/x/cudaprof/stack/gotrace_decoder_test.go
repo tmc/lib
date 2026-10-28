@@ -21,12 +21,16 @@ import (
 )
 
 // Stage U and UP controls. None of them starts a child process or decodes a
-// trace: D1 admits no decoder. Stage 1 and 2 controls need a reviewed
-// decoder and a separate process grant and are not in this file.
+// trace. The controls that run the admitted decoder on the authentic trace
+// are in gotrace_qualification_test.go.
 
 var (
-	goTraceTestHeader   = []byte("go 1.26 trace\x00\x00\x00")
-	goTraceTestProducer = GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "arm64"}
+	goTraceTestHeader = []byte("go 1.26 trace\x00\x00\x00")
+
+	// goTraceTestProducer is not the admitted producer, so the synthetic
+	// header-26 input is refused by the production table and admitted only
+	// by in-test tables.
+	goTraceTestProducer = GoProducer{GoVersion: "go1.27.1", GOOS: "darwin", GOARCH: "arm64"}
 )
 
 // Absolute, clean, nonexistent paths: any file system step would turn them
@@ -220,13 +224,95 @@ func TestGoTraceAdmissionID(t *testing.T) {
 	}
 }
 
-// A2z: D1 admits nothing.
-func TestGoTraceAdmissionEmpty(t *testing.T) {
-	if len(goTraceAdmissions) != 0 {
-		t.Fatalf("goTraceAdmissions has %d entries; adoption needs its own reviewed grant", len(goTraceAdmissions))
+// goTraceC6D1 is the reviewed C6D1 admission record, typed in from the
+// grant. Tests that need the admitted tuple use it rather than indexing
+// goTraceAdmissions, so an edited table fails them instead of panicking.
+var goTraceC6D1 = goTraceAdmission{
+	ID:            "412bcbb8468cc211a261253540af8dd5c3ad1aa0ea9db326fafa84aa11e6bbb4",
+	ToolSHA256:    "83ebbf936c4bd31a9c84c94c2053a2ddb32de57129478a69b17c588f4f9ac463",
+	ToolBytes:     17985074,
+	ToolPath:      "cmd/trace",
+	ToolGoVersion: "go1.27.2",
+	ToolGOOS:      "darwin",
+	ToolGOARCH:    "arm64",
+	RecipeSHA256:  "7040c4abf09c4ef8295491c8887c17977a7edf8782079ddeb18cd313ae002a04",
+	Header:        26,
+	Producer:      GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "arm64"},
+	Receipt:       "d69f53b69fbe0a029e2bf1948ccf591e853eca17de7f58d0f3ec6adc1d0a1b8a",
+	Review:        "497d786245f03dc5fd4353e1bfe0e284e2ee9dfb90595a5dbf19fcc2d539f648",
+}
+
+// goTraceAdmitted returns the production admission record, failing t
+// unless goTraceAdmissions holds exactly goTraceC6D1.
+func goTraceAdmitted(t *testing.T) goTraceAdmission {
+	t.Helper()
+	if len(goTraceAdmissions) != 1 || goTraceAdmissions[0] != goTraceC6D1 {
+		t.Fatalf("goTraceAdmissions = %+v, want [%+v]", goTraceAdmissions, goTraceC6D1)
+	}
+	return goTraceAdmissions[0]
+}
+
+// A2z: the production table holds exactly the reviewed C6D1 record, and its
+// ID is the digest of the canonical encoding. Another record needs its own
+// reviewed grant.
+func TestGoTraceAdmissionTable(t *testing.T) {
+	rec := goTraceAdmitted(t)
+	if id := goTraceAdmissionID(encodeGoTraceAdmission(rec)); id != rec.ID {
+		t.Errorf("canonical ID = %s, want %s", id, rec.ID)
 	}
 	if err := validateGoTraceAdmissions(goTraceAdmissions, encodeGoTraceAdmission); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A2o: past the admitted header and producer, a decoder whose buildinfo is
+// not the admitted one (here the test binary) is refused before it is
+// copied, with no child.
+func TestGoTraceAdmittedOtherBuild(t *testing.T) {
+	tool, _ := goTraceCustodyTool(t)
+	scratch := t.TempDir()
+	goTraceMust(t, os.Chmod(scratch, 0o700))
+	d := &GoTraceDecoder{Tool: tool, Scratch: scratch}
+	goTraceNoChild(t, func() {
+		r, err := d.Validate(context.Background(), goTraceTestInput(64), goTraceC6D1.Producer)
+		if r != nil || !errors.Is(err, ErrGoTraceUnadmitted) || !strings.Contains(err.Error(), "decoder build") {
+			t.Errorf("Validate = %v, %v; want unadmitted decoder build", r, err)
+		}
+	})
+	if names := goTraceListing(t, scratch); len(names) != 0 {
+		t.Errorf("scratch holds %v", names)
+	}
+}
+
+// M1u: decoder output that proves nothing is unproven: empty, Sync-only, or
+// without a clock snapshot. The check is the same for Validate and Analyze.
+func TestGoTraceContent(t *testing.T) {
+	const (
+		clock  = "M=-1 P=-1 G=-1 Sync Time=10 N=1 Trace=10 Mono=20 Wall=x\n"
+		bare   = "M=-1 P=-1 G=-1 Sync Time=1 N=1\n"
+		event  = "M=1 P=0 G=2 StateTransition Time=11 Resource=Goroutine(2) Reason=\"\" GoID=2 Running->Runnable\n"
+		sample = "M=1 P=0 G=2 StackSample Time=12\nStack=\n\tmain.work @ 0x1\n\t\twork.go:7\n"
+	)
+	for _, tt := range []struct {
+		name, out, want string
+	}{
+		{"empty", "", "no event other than Sync"},
+		{"header-only decode", bare, "no event other than Sync"},
+		{"Sync with clock only", clock + bare, "no event other than Sync"},
+		{"events without clock", bare + event + sample, "no clock snapshot"},
+		{"clock text outside Sync", bare + "M=1 P=0 G=2 Log Time=11 Trace=10 Mono=20 \n", "no clock snapshot"},
+		{"events and clock", clock + event + sample + bare, ""},
+	} {
+		err := checkGoTraceContent([]byte(tt.out))
+		if tt.want == "" {
+			if err != nil {
+				t.Errorf("%s: %v", tt.name, err)
+			}
+			continue
+		}
+		if !errors.Is(err, ErrGoTraceUnproven) || errors.Is(err, ErrGoTraceMalformed) || !strings.Contains(fmt.Sprint(err), tt.want) {
+			t.Errorf("%s: %v, want unproven %q", tt.name, err, tt.want)
+		}
 	}
 }
 
@@ -260,6 +346,8 @@ func TestGoTracePrecheck(t *testing.T) {
 	sel := func() *GoTraceDecoder { return &GoTraceDecoder{Tool: goTraceNoTool, Scratch: goTraceNoScratch} }
 	with := func(f func(*GoTraceDecoder)) *GoTraceDecoder { d := sel(); f(d); return d }
 	header25 := append([]byte("go 1.25 trace\x00\x00\x00"), 1, 2, 3)
+	header27 := append([]byte("go 1.27 trace\x00\x00\x00"), 1, 2, 3)
+	admitted := goTraceC6D1.Producer
 	n9 := []byte("go 1.27 trace\x00not trace records")
 	oversized := goTraceTestInput(32<<20 + 1)
 	oversizedBad := make([]byte, 32<<20+1)
@@ -271,7 +359,12 @@ func TestGoTracePrecheck(t *testing.T) {
 		producer GoProducer
 		want     error
 	}{
-		{"A1 empty table", sel(), false, goTraceTestInput(64), goTraceTestProducer, ErrGoTraceUnadmitted},
+		{"A1 unadmitted producer", sel(), false, goTraceTestInput(64), goTraceTestProducer, ErrGoTraceUnadmitted},
+		{"A1 admitted tuple reaches scratch", sel(), false, goTraceTestInput(64), admitted, ErrGoTraceScratch},
+		{"A1 admitted producer, header 27", sel(), false, header27, admitted, ErrGoTraceUnadmitted},
+		{"A1 admitted producer, header 25", sel(), false, header25, admitted, ErrGoTraceUnadmitted},
+		{"A1 producer goos", sel(), false, goTraceTestInput(64), GoProducer{GoVersion: "go1.27.2", GOOS: "linux", GOARCH: "arm64"}, ErrGoTraceUnadmitted},
+		{"A1 producer goarch", sel(), false, goTraceTestInput(64), GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "amd64"}, ErrGoTraceUnadmitted},
 		{"A7 header 25", sel(), false, header25, goTraceTestProducer, ErrGoTraceUnadmitted},
 		{"C7a empty tool", with(func(d *GoTraceDecoder) { d.Tool = "" }), false, goTraceTestInput(64), goTraceTestProducer, ErrGoTraceDecoderUnselected},
 		{"C7a empty scratch", with(func(d *GoTraceDecoder) { d.Scratch = "" }), false, goTraceTestInput(64), goTraceTestProducer, ErrGoTraceDecoderUnselected},
@@ -1001,8 +1094,8 @@ func TestGoTraceFDCloseClass(t *testing.T) {
 	sentinels := []error{
 		ErrGoTraceDecoderUnselected, ErrGoTraceScratch, ErrGoTraceLimits, ErrGoTraceLimit,
 		ErrGoTraceHeader, ErrGoTraceUnadmitted, ErrGoTraceStart, ErrGoTraceSignal,
-		ErrGoTraceReap, ErrGoTraceDecoderFailed, ErrGoTraceMalformed, ErrGoTraceCleanup,
-		context.Canceled, context.DeadlineExceeded,
+		ErrGoTraceReap, ErrGoTraceDecoderFailed, ErrGoTraceMalformed, ErrGoTraceUnproven,
+		ErrGoTraceCleanup, context.Canceled, context.DeadlineExceeded,
 	}
 	for _, p := range pairs {
 		if p.primary == nil || !errors.Is(p.joined, errGoTraceFDCloseInjected) || !errors.Is(p.joined, ErrGoTraceCustody) {
@@ -1352,7 +1445,7 @@ func TestGoTraceAdmissionTupleMismatch(t *testing.T) {
 		change func(r *goTraceAdmission)
 	}{
 		{"header", func(r *goTraceAdmission) { r.Header = 25 }},
-		{"producer go version", func(r *goTraceAdmission) { r.Producer.GoVersion = "go1.27.1" }},
+		{"producer go version", func(r *goTraceAdmission) { r.Producer.GoVersion = "go1.27.0" }},
 		{"producer goos", func(r *goTraceAdmission) { r.Producer.GOOS = "linux" }},
 		{"producer goarch", func(r *goTraceAdmission) { r.Producer.GOARCH = "amd64" }},
 	} {

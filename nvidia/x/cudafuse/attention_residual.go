@@ -82,7 +82,7 @@ func loadAttentionResidualSources(dev *cuda.Device, c AttentionResidualConfig, p
 		}
 		x.raw = x.raw[:len(x.raw)-1]
 		x.modules = append(x.modules, m)
-		k, err := m.Function(a.EntryPoint)
+		k, err := m.Function(a.EntryPoint())
 		if err != nil {
 			return x, err
 		}

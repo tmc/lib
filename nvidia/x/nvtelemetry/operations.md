@@ -143,6 +143,11 @@ bundles are not automatically governed external publications.
 | Kubernetes | Non-root, no API-token/RBAC/capability NVML Pod template with UUID selection and resource/volume caps | Operator supplies immutable image and assigned UUID; device plugin/runtime and real cluster receipt pending |
 | BPF source | Existing caller-managed source/lease; governance adds no capabilities | Use BPF backend's exact-head privilege/native receipts; not NVML qualification |
 
+The [permission inventory](PERMISSIONS.md) maps collection modes to actual
+source calls, refusal behavior and external platform gates. It distinguishes
+client permissions from exporter/scheduler access and records the unqualified
+systemd capability grant separately from the NVML-only Kubernetes template.
+
 There is no installer, privilege escalation, background discovery, telemetry
 publication or shared deployment here. Profiles in `testdata/profiles` use
 the actual CLI UUID, byte and buffer flags. Native handle UUIDs are checked

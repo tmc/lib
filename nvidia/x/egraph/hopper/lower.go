@@ -53,7 +53,9 @@ func Compile(e *egraph.Expr, name string, out DType) (*Plan, error) {
 		inputs: make(map[string]bool),
 		done:   make(map[egraph.Id]string),
 		multi:  make(map[egraph.Id][]Tensor),
+		uses:   make(map[egraph.Id]int),
 	}
+	c.countUses(e, make(map[egraph.Id]bool))
 	if err := c.emit(e, name+"_out", out); err != nil {
 		return nil, fmt.Errorf("compile %s: %w", name, err)
 	}
@@ -65,7 +67,26 @@ type compiler struct {
 	inputs map[string]bool
 	done   map[egraph.Id]string   // e-class → buffer holding it
 	multi  map[egraph.Id][]Tensor // e-class → buffers holding a multi-output op
+	uses   map[egraph.Id]int      // e-class → terms reading it
 	temps  int
+}
+
+// countUses records in c.uses how many e-classes of e read each e-class.
+// An extracted term may repeat a class as distinct nodes, so readers are
+// counted once per class.
+func (c *compiler) countUses(e *egraph.Expr, seen map[egraph.Id]bool) {
+	if e.Class != 0 {
+		if seen[e.Class] {
+			return
+		}
+		seen[e.Class] = true
+	}
+	for _, k := range e.Children {
+		if k.Class != 0 {
+			c.uses[k.Class]++
+		}
+		c.countUses(k, seen)
+	}
 }
 
 func (c *compiler) input(t Tensor) {
@@ -106,8 +127,12 @@ func (c *compiler) emit(e *egraph.Expr, dst string, d DType) error {
 		if !ok {
 			return fmt.Errorf("cast without dtype")
 		}
-		if cd == d {
-			return c.emit(e.Children[1], dst, d)
+		// Computing the operand straight into d records dst as the
+		// operand's buffer, so it is right only when nothing else reads the
+		// operand or the operand is d already; otherwise the cast is a row
+		// kernel over the operand's own buffer.
+		if x := e.Children[1]; cd == d && (c.uses[x.Class] <= 1 || defaultTempDType(x) == d) {
+			return c.emit(x, dst, d)
 		}
 	}
 	shape, err := shapeOf(e)

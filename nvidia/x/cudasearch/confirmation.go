@@ -27,7 +27,9 @@ func inputKey(b WorkloadBindings) string {
 // The screened candidate must remain unchanged after evaluation. Operator Data
 // is borrowed and must not be mutated by the compiler.
 // The result records ConfirmationOf and retains numerical and ABBA evidence.
-// It does not authorize a promotion or mutate an executing graph.
+// An Observer records the start before the expression is copied and the
+// outcome after ConfirmationOf is set. Confirmation does not authorize a
+// promotion or mutate an executing graph.
 func (e *ExecutableEvaluator) Confirm(ctx context.Context, screened *CandidatePlan) (*CandidatePlan, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -48,16 +50,7 @@ func (e *ExecutableEvaluator) Confirm(ctx context.Context, screened *CandidatePl
 	if screened.VerificationPolicy != e.Policy {
 		return nil, fmt.Errorf("cudasearch: confirmation numerical policy differs from screening")
 	}
-	expr, err := confirmationExpr(ctx, screened.Expr)
-	if err != nil {
-		return nil, err
-	}
-	candidate, err := e.evaluate(ctx, nil, 0, expr)
-	if err != nil {
-		return nil, err
-	}
-	candidate.ConfirmationOf = screened.ID
-	return candidate, nil
+	return e.evaluate(ctx, nil, 0, nil, screened)
 }
 
 // Copy the bounded tree before passing it to a compiler. Data remains borrowed,

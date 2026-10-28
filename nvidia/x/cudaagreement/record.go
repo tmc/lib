@@ -61,8 +61,8 @@ func (p *Plan) Validate() error {
 		case s.Grid == 0 || s.Block == 0:
 			return fmt.Errorf("cudaagreement: step %s geometry is %dx%d", s.Name, s.Grid, s.Block)
 		}
-		if want := len(s.Inputs) + 1; len(s.Artifact.Schema.Params) != want {
-			return fmt.Errorf("cudaagreement: step %s artifact takes %d parameters, want %d", s.Name, len(s.Artifact.Schema.Params), want)
+		if want := len(s.Inputs) + 1; len(s.Artifact.Schema().Params) != want {
+			return fmt.Errorf("cudaagreement: step %s artifact takes %d parameters, want %d", s.Name, len(s.Artifact.Schema().Params), want)
 		}
 	}
 	return nil

@@ -40,16 +40,33 @@ func TestNativePhysical(t *testing.T) {
 	if os.Getenv("GPUDIAGDEMO_NATIVE_TEST") != "1" {
 		t.Skip("opt-in physical GPU execution requires GPUDIAGDEMO_NATIVE_TEST=1 and canonical lease")
 	}
-	result, err := RunNative(context.Background(), NativeConfig{Elements: 4096, Rounds: 2})
+	cfg := NativeConfig{Elements: 4096, Rounds: 2, DeviceIterations: 4}
+	result, err := RunNative(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Synthetic || result.Qualification != "partial" || len(result.Trials) != 4 {
+	if result.Synthetic || result.Qualification != "partial" || len(result.Trials) != 3*cfg.Rounds || len(result.Requests) != 3*cfg.Rounds || result.Composition == nil || len(result.Composition.Requests) != 3*cfg.Rounds {
 		t.Fatalf("invalid native receipt: %+v", result)
 	}
+	seen := map[string]bool{}
 	for _, trial := range result.Trials {
-		if !trial.Correct || len(trial.Calls) != 4 || trial.OutputSHA256 == "" {
+		launches := 1
+		switch trial.Arm {
+		case "baseline", "candidate":
+		case "device":
+			launches = cfg.DeviceIterations
+		default:
+			t.Fatalf("unexpected physical arm: %+v", trial)
+		}
+		key := fmt.Sprintf("%d/%s", trial.Round, trial.Arm)
+		if trial.Round < 1 || trial.Round > cfg.Rounds || seen[key] || trial.RequestID == "" || trial.Attempt != trial.Arm || trial.RequestedLaunches != launches || trial.KernelLaunches != launches || !trial.Correct || len(trial.Calls) != launches+3 || trial.OutputSHA256 == "" {
 			t.Fatalf("invalid physical trial: %+v", trial)
+		}
+		seen[key] = true
+	}
+	for _, request := range result.Composition.Requests {
+		if request.Diagnosis.Admitted || request.Refusal == "" {
+			t.Fatalf("partial native evidence promoted: %+v", request)
 		}
 	}
 }

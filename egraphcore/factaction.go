@@ -33,7 +33,10 @@ type ResolvedFactAction[ID ~uint32] struct {
 // It returns no partial plan on invalid input or work exhaustion. Class values
 // are canonicalized while resolving. A nil budget means unlimited work.
 func ResolveFactActions[ID ~uint32](store *FactStore[ID], actions []FactAction[ID], binding Binding[ID], canonicalize func(ID) ID, budget *WorkBudget) ([]ResolvedFactAction[ID], error) {
-	resolved := make([]ResolvedFactAction[ID], len(actions))
+	resolved, ok := memorySlice[ResolvedFactAction[ID]](budget, len(actions), len(actions))
+	if !ok {
+		return nil, budget.MemoryError()
+	}
 	for i, action := range actions {
 		if !spend(budget, 1) {
 			return nil, ErrMatchWorkLimit
@@ -45,11 +48,17 @@ func ResolveFactActions[ID ~uint32](store *FactStore[ID], actions []FactAction[I
 		if relation == nil {
 			return nil, errInvalidSchema
 		}
-		schema := relation.Schema()
+		schema, err := relation.SchemaWithBudget(budget)
+		if err != nil {
+			return nil, err
+		}
 		if len(action.Terms) != len(schema.Columns) {
 			return nil, errInvalidSchema
 		}
-		values := make([]Value[ID], len(action.Terms))
+		values, ok := memorySlice[Value[ID]](budget, len(action.Terms), len(action.Terms))
+		if !ok {
+			return nil, budget.MemoryError()
+		}
 		for column, term := range action.Terms {
 			if !spend(budget, 1) {
 				return nil, ErrMatchWorkLimit
@@ -73,7 +82,7 @@ func ResolveFactActions[ID ~uint32](store *FactStore[ID], actions []FactAction[I
 				return nil, errInvalidSchema
 			}
 		}
-		canonical, _, err := relation.prepare(values, canonicalize)
+		canonical, _, err := relation.prepareWithBudget(values, canonicalize, budget)
 		if err != nil {
 			return nil, err
 		}
@@ -103,12 +112,21 @@ func (s *FactStore[ID]) ApplyActionsDetailed(actions []ResolvedFactAction[ID], c
 	if s == nil {
 		return nil, 0, errInvalidSchema
 	}
-	if len(actions) == 1 {
+	if len(actions) == 1 && budget.MemoryScope() == nil {
 		return s.applySingleActionDetailed(actions[0], canonicalize, budget)
 	}
-	actionChanges := make([]bool, len(actions))
-	staged := make(map[string]*Relation[ID])
-	originals := make(map[string]*Relation[ID])
+	actionChanges, ok := memorySlice[bool](budget, len(actions), len(actions))
+	if !ok {
+		return nil, 0, budget.MemoryError()
+	}
+	staged, ok := memoryMap[string, *Relation[ID]](budget, 0)
+	if !ok {
+		return nil, 0, budget.MemoryError()
+	}
+	originals, ok := memoryMap[string, *Relation[ID]](budget, 0)
+	if !ok {
+		return nil, 0, budget.MemoryError()
+	}
 	for actionIndex, action := range actions {
 		if !spend(budget, 1) {
 			return nil, 0, ErrMatchWorkLimit
@@ -131,47 +149,81 @@ func (s *FactStore[ID]) ApplyActionsDetailed(actions []ResolvedFactAction[ID], c
 		}
 		copy, ok := staged[action.Relation]
 		if !ok {
-			schema := relation.Schema()
-			rows, columns := relation.Len(), len(schema.Columns)
+			rows, columns := relation.Len(), len(relation.schema.Columns)
 			if columns == math.MaxInt || rows != 0 && columns+1 > (math.MaxInt-1)/rows {
 				return nil, 0, ErrMatchWorkLimit
 			}
 			if !spend(budget, rows*(columns+1)+1) {
 				return nil, 0, ErrMatchWorkLimit
 			}
-			copy = relation.Clone()
+			if budget.MemoryScope() == nil {
+				copy = relation.Clone()
+			} else {
+				var err error
+				copy, err = relation.cloneWithBudget(budget)
+				if err != nil {
+					return nil, 0, err
+				}
+				if len(actions) == 1 {
+					// Transaction staging must not consume a cursor lineage step.
+					ancestors, ok := memorySlice[relationAncestor](budget, len(relation.ancestors), len(relation.ancestors))
+					if !ok {
+						return nil, 0, budget.MemoryError()
+					}
+					for i, ancestor := range relation.ancestors {
+						ancestors[i] = ancestor
+					}
+					if relation.ancestors == nil {
+						ancestors = nil
+					}
+					copy.epoch, copy.ancestors = relation.epoch, ancestors
+				}
+			}
 			if copy == nil {
 				return nil, 0, errInvalidSchema
 			}
-			staged[action.Relation] = copy
-			originals[action.Relation] = relation
+			if !memoryPut(budget, staged, action.Relation, copy) || !memoryPut(budget, originals, action.Relation, relation) {
+				return nil, 0, budget.MemoryError()
+			}
 		}
-		if _, _, err := relation.prepare(action.Values, canonicalize); err != nil {
+		if _, _, err := relation.prepareWithBudget(action.Values, canonicalize, budget); err != nil {
 			return nil, 0, err
 		}
 		var changed bool
 		var err error
-		switch action.Kind {
-		case FactInsert:
-			changed, err = copy.Add(action.Values, canonicalize)
-		case FactDelete:
-			changed, err = copy.Delete(action.Values, canonicalize)
-		case FactSubsume:
-			changed, err = copy.MarkSubsumed(action.Values, canonicalize)
+		if budget.MemoryScope() != nil {
+			var row []Value[ID]
+			var key string
+			row, key, err = copy.prepareWithBudget(action.Values, canonicalize, budget)
+			if err == nil {
+				changed, err = copy.applyPreparedWithBudget(action.Kind, row, key, budget)
+			}
+		} else {
+			switch action.Kind {
+			case FactInsert:
+				changed, err = copy.Add(action.Values, canonicalize)
+			case FactDelete:
+				changed, err = copy.Delete(action.Values, canonicalize)
+			case FactSubsume:
+				changed, err = copy.MarkSubsumed(action.Values, canonicalize)
+			}
 		}
 		if err != nil {
 			return nil, 0, err
 		}
 		actionChanges[actionIndex] = changed
 	}
-	changedRelations := make([]string, 0, len(staged))
+	changedRelations, ok := memorySlice[string](budget, 0, len(staged))
+	if !ok {
+		return nil, 0, budget.MemoryError()
+	}
 	for name, copy := range staged {
 		original := originals[name]
 		rows := original.Len()
 		if copy.Len() > rows {
 			rows = copy.Len()
 		}
-		columns := len(original.Schema().Columns)
+		columns := len(original.schema.Columns)
 		if columns == math.MaxInt || rows != 0 && columns+1 > (math.MaxInt-1)/rows {
 			return nil, 0, ErrMatchWorkLimit
 		}

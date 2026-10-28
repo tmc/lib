@@ -30,7 +30,7 @@ func fixture(t testing.TB) Record {
 	workload := cudacache.WorkloadIdentity{ProgramID: "affine", ShapeDims: []int{64}, NumericalMode: "fp32"}
 	r := Record{Version: Version, SourceDigest: digest([]byte("source")), InputDigest: digest([]byte("input")), CompilerInputKey: "source-with-headers", Compiler: compiler, CompilerKey: cudacache.CompilerCacheKey("source-with-headers", compiler), Workload: workload, WorkloadKey: workload.Key(), NumericalMode: "fp32", Entry: "kernel", Target: "sm_90", PlanDigest: digest([]byte("plan")), Receipt: []byte("physical producer receipt fixture"), Status: "complete", Environment: Environment{Device: "gpu", Driver: "driver", CUDA: "13", Clock: "gpu", Domain: "same"}, Artifact: a}
 	r.ReceiptDigest = digest(r.Receipt)
-	r.Identity = cudaevidence.Identity{ArtifactDigest: a.Digest, Entry: r.Entry, Target: r.Target, CompilerKey: r.CompilerKey, WorkloadKey: r.WorkloadKey}
+	r.Identity = cudaevidence.Identity{ArtifactDigest: a.Digest(), Entry: r.Entry, Target: r.Target, CompilerKey: r.CompilerKey, WorkloadKey: r.WorkloadKey}
 	r.Correctness = Correctness{Verdict: Pass, Method: "digest-exact", Oracle: "independent-affine", ExpectedDigest: digest([]byte("output")), ActualDigest: digest([]byte("output"))}
 	r.Facts = []Fact{fact(t, r, "resource", "registers", 32, cudaevidence.Derived), fact(t, r, "codegen", "sass_count", 4, cudaevidence.Derived), fact(t, r, "performance", "gpu_busy", 100, cudaevidence.Measured)}
 	if err := r.Validate(); err != nil {
@@ -77,17 +77,18 @@ func TestHistoryRejectsIdentityCollision(t *testing.T) {
 	if err != nil || first == second {
 		t.Fatalf("compiler-only change collapsed: %s %v", second, err)
 	}
-	r.Artifact.Raw[0] ^= 1
+	*r.Artifact = cudakernel.Artifact{}
 	r.Compiler.Flags[0] = "changed"
 	r.Workload.ShapeDims[0] = 99
 	r.Receipt[0] = 'X'
 	rows, err := s.Records()
-	if err != nil || len(rows) != 2 || rows[0].Artifact.Raw[0] != '.' || rows[0].Compiler.Flags[0] != "--std=c++20" || rows[0].Workload.ShapeDims[0] != 64 {
+	if err != nil || len(rows) != 2 || rows[0].Artifact.Bytes()[0] != '.' || rows[0].Compiler.Flags[0] != "--std=c++20" || rows[0].Workload.ShapeDims[0] != 64 {
 		t.Fatalf("store aliased caller: %+v %v", rows, err)
 	}
-	rows[0].Artifact.Raw[0] = 'X'
+	rows[0].Artifact.Bytes()[0] = 'X'
+	*rows[0].Artifact = cudakernel.Artifact{}
 	again, err := s.Records()
-	if err != nil || again[0].Artifact.Raw[0] != '.' {
+	if err != nil || again[0].Artifact.Bytes()[0] != '.' {
 		t.Fatal("snapshot mutated store")
 	}
 }
@@ -123,20 +124,41 @@ func TestHistoryPreservesFailedAndUnreadRows(t *testing.T) {
 }
 
 func TestHistoryRejectsStaleEvidence(t *testing.T) {
-	for _, kind := range []string{"bytes", "workload", "artifact missing", "artifact digest", "input", "fact", "unread fact", "receipt", "key", "empty provenance", "compile number"} {
+	for _, kind := range []string{"bytes", "workload", "artifact missing", "artifact digest", "invalid artifact", "input", "fact", "unread fact", "receipt", "key", "empty provenance", "compile number"} {
 		t.Run(kind, func(t *testing.T) {
 			r := fixture(t)
 			switch kind {
-			case "bytes":
-				r.Artifact.Raw[0] ^= 1
+			case "bytes", "artifact digest":
+				// A sealed artifact cannot hold a corrupt image or digest,
+				// so corrupt the encoded record. Its unedited encoding
+				// decodes, so only the edit can cause the rejection.
+				b, err := json.Marshal(r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := DecodeRecord(b, len(b)+4); err != nil {
+					t.Fatal(err)
+				}
+				edit := [2]string{`"raw":"`, `"raw":"AAAA`}
+				if kind == "artifact digest" {
+					edit = [2]string{`"digest":"` + r.Artifact.Digest() + `"`, `"digest":""`}
+				}
+				bad := bytes.Replace(b, []byte(edit[0]), []byte(edit[1]), 1)
+				if bytes.Equal(bad, b) {
+					t.Fatalf("encoded record lacks %s", edit[0])
+				}
+				if _, err := DecodeRecord(bad, len(bad)); err == nil {
+					t.Fatal("corrupt artifact accepted")
+				}
+				return
+			case "invalid artifact":
+				r.Artifact = &cudakernel.Artifact{}
+				r.Identity.ArtifactDigest = ""
+				r.Facts = nil
 			case "workload":
 				r.Workload.ProgramID = "different"
 			case "artifact missing":
 				r.Artifact = nil
-			case "artifact digest":
-				r.Artifact.Digest = ""
-				r.Identity.ArtifactDigest = ""
-				r.Facts = nil
 			case "input":
 				r.InputDigest = ""
 			case "receipt":
@@ -153,7 +175,7 @@ func TestHistoryRejectsStaleEvidence(t *testing.T) {
 				r.Facts[0].Value, _ = cudaevidence.New(v)
 			case "empty provenance":
 				b, _ := json.Marshal(r)
-				b = bytes.ReplaceAll(b, []byte(`"artifact_digest":"`+r.Artifact.Digest+`"`), []byte(`"artifact_digest":""`))
+				b = bytes.ReplaceAll(b, []byte(`"artifact_digest":"`+r.Artifact.Digest()+`"`), []byte(`"artifact_digest":""`))
 				if _, err := DecodeRecord(b, len(b)); err == nil {
 					t.Fatal("empty non-unread provenance accepted")
 				}
@@ -212,9 +234,14 @@ func TestHistoryStrictBoundedAtomicSnapshot(t *testing.T) {
 
 func TestCompareSeparatesCodegenResourceAndPerformance(t *testing.T) {
 	a, b := fixture(t), fixture(t)
-	b.Artifact.Raw = append(b.Artifact.Raw, []byte("// new code\n")...)
-	b.Artifact.Digest = digest(b.Artifact.Raw)
-	b.Identity.ArtifactDigest = b.Artifact.Digest
+	spec := b.Artifact.Spec()
+	spec.Raw = append(spec.Raw, []byte("// new code\n")...)
+	art, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.Artifact = art
+	b.Identity.ArtifactDigest = b.Artifact.Digest()
 	b.Facts = []Fact{fact(t, b, "resource", "registers", 64, cudaevidence.Derived), fact(t, b, "performance", "gpu_busy", 140, cudaevidence.Measured)}
 	report, err := Compare(a, b, policy())
 	if err != nil || !report.CodeChanged || report.Performance != Fail || len(report.Resources) != 1 || len(report.Codegen) != 1 || report.Codegen[0].After != nil {
@@ -490,7 +517,13 @@ func TestHistoryArtifactFormatAdmission(t *testing.T) {
 					r.Facts[i].Value, _ = cudaevidence.New(v)
 				}
 			} else {
-				r.Artifact.Kind = cudakernel.Kind(255)
+				spec := r.Artifact.Spec()
+				spec.Kind = cudakernel.Kind(255)
+				a, err := cudakernel.NewArtifactFromSpec(spec)
+				if err != nil {
+					t.Fatal(err)
+				}
+				r.Artifact = a
 			}
 			if err := r.Validate(); err == nil {
 				t.Fatal("inconsistent image format admitted")

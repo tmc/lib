@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/tmc/lib/nvidia/x/cudabatch"
@@ -26,6 +27,9 @@ type BatchCycleRequest struct {
 	PrefixSequence, Sequence          int64
 	Hidden, DraftWeights, HeadWeights []float32
 	MTP                               cudamtp.MTPConfig
+	// DraftProducer optionally computes synchronous MTP draft logits for this
+	// admitted request. When nil, ExecuteBatchCycle uses cudamtp.MTPReference.
+	DraftProducer *BatchDraftProducer
 }
 
 // BatchVerifier verifies target tokens through the existing batch row contract.
@@ -49,25 +53,27 @@ type BatchVerifier struct {
 // BatchCycleResult contains workload results and the branch's KV lease.
 // A fully accepted branch stays live until the caller closes KV after use.
 // Rejected branches are closed. Without independent Done proof, a drain error
-// leaves KV live even though
+// leaves KV or DraftOwner live even though
 // the cycle failed; the owner must establish quiescence before closing it.
 type BatchCycleResult struct {
 	// Key identifies the cycle's outcome for caching. Its DraftDigest is
 	// the verified digest of the request's draft weights.
-	Key      SpeculationCacheKey
-	Outcome  CycleOutcome
-	BranchID BranchID
-	KV       *BranchKV
+	Key        SpeculationCacheKey
+	Outcome    CycleOutcome
+	BranchID   BranchID
+	KV         *BranchKV
+	DraftOwner io.Closer
 }
 
-// ExecuteBatchCycle computes MTP reference drafts and verifies them through
-// validated decode rows. It is a synchronous, single-branch integration slice;
-// it does not claim native MTP execution, sampled verification, or asynchronous
-// separate-device speculation. Allocator and inputs must not change during it.
-// Callers that cache the outcome must key it by result.Key, which carries the
-// verified draft weight digest; req.Key may not.
+// ExecuteBatchCycle computes MTP drafts (via req.DraftProducer when configured
+// or cudamtp.MTPReference by default) and verifies them through validated
+// decode rows. It is a synchronous, single-branch integration slice; it does
+// not claim sampled verification or asynchronous separate-device speculation,
+// and device qualification requires separate native evidence. Allocator and
+// inputs must not change during it. Callers that cache the outcome must key it
+// by result.Key, which carries the verified draft weight digest; req.Key may not.
 func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchCycleRequest, v BatchVerifier) (result *BatchCycleResult, retErr error) {
-	if ctx == nil || a == nil || v.Engine == nil || v.Wait == nil || !v.ReadOnlyPrefix {
+	if ctx == nil || a == nil || v.Engine == nil || v.Wait == nil || !v.ReadOnlyPrefix || !validDraftProducer(req.DraftProducer) {
 		return nil, errors.New("cudaspec: missing batch cycle dependency")
 	}
 	if err := ctx.Err(); err != nil {
@@ -106,23 +112,11 @@ func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchC
 	if req.DraftDigest != digest {
 		return nil, errors.New("cudaspec: draft weight digest mismatch")
 	}
-	logits, err := cudamtp.MTPReference(req.Hidden, req.DraftWeights, req.HeadWeights, c)
+	key := expected
+	key.DraftDigest = digest
+	drafts, draftRes, err := executeBatchDrafts(ctx, req, key, digest)
 	if err != nil {
-		return nil, err
-	}
-	drafts := make([]int32, c.NumDraftHeads)
-	for h := range drafts {
-		row := logits[h*c.VocabSize : (h+1)*c.VocabSize]
-		best := 0
-		for j, x := range row {
-			if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
-				return nil, errors.New("cudaspec: nonfinite MTP output")
-			}
-			if x > row[best] {
-				best = j
-			}
-		}
-		drafts[h] = int32(best)
+		return draftRes, err
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -131,8 +125,6 @@ func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchC
 	if err != nil {
 		return nil, err
 	}
-	key := expected
-	key.DraftDigest = digest
 	result = &BatchCycleResult{Key: key, KV: kv}
 	release := true
 	defer func() {
@@ -158,7 +150,7 @@ func ExecuteBatchCycle(ctx context.Context, a *cudakv.BlockAllocator, req BatchC
 			return result, err
 		}
 		row := cudabatch.BatchRowBinding{RowIndex: 0, SeqID: rowID, Tokens: []int32{contextTokens[len(contextTokens)-1]}, StartPos: len(contextTokens) - 1, SequenceLength: len(contextTokens), BlockTable: table}
-		metadata, err := cudabatch.ValidateAndBindRows([]cudabatch.BatchRowBinding{row}, cudabatch.ShapeBucket{BatchSize: 1, MaxSeqLen: len(req.Prefix) + len(drafts), MaxTokens: 1}, a.BlockSize())
+		metadata, err := cudabatch.BindAllocatedRows([]cudabatch.BatchRowBinding{row}, cudabatch.ShapeBucket{BatchSize: 1, MaxSeqLen: len(req.Prefix) + len(drafts), MaxTokens: 1}, a, []int64{req.Sequence})
 		if err != nil {
 			return result, err
 		}

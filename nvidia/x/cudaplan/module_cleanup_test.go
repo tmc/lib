@@ -13,7 +13,7 @@ func TestModuleLoadOwnership(t *testing.T) {
 	failure := errors.New("injected")
 	for _, stage := range []string{"load", "own", "success"} {
 		t.Run(stage, func(t *testing.T) {
-			p := &ExecutablePlan{modules: make(map[*cudakernel.Artifact]*cuda.Module)}
+			p := &ExecutablePlan{modules: make(map[cudakernel.Artifact]*cuda.Module)}
 			art := &cudakernel.Artifact{}
 			owner := &cuda.Module{}
 			err := p.loadModule(art, func() (driver.Module, error) {
@@ -34,7 +34,7 @@ func TestModuleLoadOwnership(t *testing.T) {
 				return owner, nil
 			})
 			if stage == "success" {
-				if err != nil || p.modules[art] != owner || len(p.pendingModules) != 0 {
+				if err != nil || p.modules[*art] != owner || len(p.pendingModules) != 0 {
 					t.Fatal("ownership not transferred")
 				}
 				return

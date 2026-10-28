@@ -108,9 +108,88 @@ type spooledBatch struct {
 	payload []byte
 }
 
+// DurableDeliveryRecoverySchemaVersion identifies the recovery manifest schema for DurableDelivery.
+const DurableDeliveryRecoverySchemaVersion = 1
+
+// DurableDeliveryRecoveryManifest records the versioned recovery state of an owned durable delivery spool.
+type DurableDeliveryRecoveryManifest struct {
+	SchemaVersion    int    `json:"schema_version"`
+	MarkerVersion    int    `json:"marker_version"`
+	Owner            string `json:"owner"`
+	RecoveredLease   bool   `json:"recovered_lease"`
+	RemovedTempFiles int    `json:"removed_temp_files"`
+	PendingBatches   int    `json:"pending_batches"`
+	PendingBytes     int64  `json:"pending_bytes"`
+}
+
+// ValidateDurableDeliveryRecoveryManifest checks schema version, marker version, owner identity, and bounds.
+func ValidateDurableDeliveryRecoveryManifest(m DurableDeliveryRecoveryManifest) error {
+	if m.SchemaVersion != DurableDeliveryRecoverySchemaVersion {
+		return fmt.Errorf("telemetry delivery recovery manifest: unsupported schema version %d", m.SchemaVersion)
+	}
+	if m.MarkerVersion != 1 {
+		return fmt.Errorf("telemetry delivery recovery manifest: unsupported marker version %d", m.MarkerVersion)
+	}
+	if len(m.Owner) == 0 || len(m.Owner) > 128 {
+		return fmt.Errorf("telemetry delivery recovery manifest: invalid owner")
+	}
+	for _, b := range m.Owner {
+		if b < '!' || b > '~' {
+			return fmt.Errorf("telemetry delivery recovery manifest: invalid owner character")
+		}
+	}
+	if m.RemovedTempFiles < 0 || m.RemovedTempFiles > 65536 || m.PendingBatches < 0 || m.PendingBatches > 65536 || m.PendingBytes < 0 || m.PendingBytes > 1<<30 {
+		return fmt.Errorf("telemetry delivery recovery manifest: invalid bounds")
+	}
+	return nil
+}
+
+// WriteDurableDeliveryRecoveryManifest validates and writes one JSON recovery manifest line.
+func WriteDurableDeliveryRecoveryManifest(w io.Writer, m DurableDeliveryRecoveryManifest) error {
+	if w == nil {
+		return fmt.Errorf("telemetry delivery recovery manifest: nil writer")
+	}
+	if err := ValidateDurableDeliveryRecoveryManifest(m); err != nil {
+		return err
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	n, err := w.Write(b)
+	if err == nil && n != len(b) {
+		err = io.ErrShortWrite
+	}
+	return err
+}
+
+// ReadDurableDeliveryRecoveryManifest strictly decodes and validates a JSON recovery manifest.
+func ReadDurableDeliveryRecoveryManifest(r io.Reader) (DurableDeliveryRecoveryManifest, error) {
+	if r == nil {
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery recovery manifest: nil reader")
+	}
+	b, err := io.ReadAll(io.LimitReader(r, 4097))
+	if err != nil {
+		return DurableDeliveryRecoveryManifest{}, err
+	}
+	if len(b) == 0 || len(b) > 4096 {
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery recovery manifest: invalid byte length")
+	}
+	var m DurableDeliveryRecoveryManifest
+	if err := decodeOperationsJSON(b, &m); err != nil {
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery recovery manifest: decode: %w", err)
+	}
+	if err := ValidateDurableDeliveryRecoveryManifest(m); err != nil {
+		return DurableDeliveryRecoveryManifest{}, err
+	}
+	return m, nil
+}
+
 type spoolOwnerMarker struct {
-	Version int    `json:"version"`
-	Owner   string `json:"owner"`
+	Version       int    `json:"version"`
+	SchemaVersion int    `json:"schema_version,omitempty"`
+	Owner         string `json:"owner"`
 }
 
 func validateDurableDeliveryConfig(c *DurableDeliveryConfig) error {
@@ -235,7 +314,7 @@ func checkOrWriteOwnerMarker(root *os.Root, owner string) error {
 		if len(entries) != 0 {
 			return fmt.Errorf("telemetry delivery: spool directory contains foreign files")
 		}
-		data, _ := json.Marshal(spoolOwnerMarker{Version: 1, Owner: owner})
+		data, _ := json.Marshal(spoolOwnerMarker{Version: 1, SchemaVersion: DurableDeliveryRecoverySchemaVersion, Owner: owner})
 		if err := writeSpoolFile(root, "owner.json", data); err != nil {
 			return err
 		}
@@ -245,7 +324,7 @@ func checkOrWriteOwnerMarker(root *os.Root, owner string) error {
 		return err
 	}
 	var m spoolOwnerMarker
-	if err := json.Unmarshal(markerBytes, &m); err != nil || m.Version != 1 || m.Owner != owner {
+	if err := decodeOperationsJSON(markerBytes, &m); err != nil || m.Version != 1 || (m.SchemaVersion != 0 && m.SchemaVersion != DurableDeliveryRecoverySchemaVersion) || m.Owner != owner {
 		return fmt.Errorf("telemetry delivery: spool owner mismatch or corrupt marker")
 	}
 	return nil
@@ -517,53 +596,67 @@ func openDurableDelivery(c DurableDeliveryConfig, isLogs bool) (*DurableDelivery
 // owner identity before taking action, and refuses recovery if the lease is actively
 // held by a live writer.
 func RecoverDurableDelivery(path, owner string) error {
+	_, err := RecoverDurableDeliveryManifest(path, owner)
+	return err
+}
+
+// RecoverDurableDeliveryManifest cleans stale writer leases and temporary files after an
+// ungraceful process termination and returns a versioned recovery manifest describing the
+// recovered spool state. It requires an existing owned marker and validates all
+// committed OTLP requests and accounting bounds before removing anything.
+// Payloads may be metrics or logs; opening a writer applies its smaller limits.
+func RecoverDurableDeliveryManifest(path, owner string) (DurableDeliveryRecoveryManifest, error) {
 	if len(owner) == 0 || len(owner) > 128 {
-		return fmt.Errorf("telemetry delivery: invalid owner")
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: invalid owner")
 	}
 	for _, b := range owner {
 		if b < '!' || b > '~' {
-			return fmt.Errorf("telemetry delivery: invalid owner character")
+			return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: invalid owner character")
 		}
 	}
 	info, err := os.Lstat(path)
 	if err != nil {
-		return err
+		return DurableDeliveryRecoveryManifest{}, err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("telemetry delivery: spool directory cannot be a symbolic link")
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: spool directory cannot be a symbolic link")
 	}
 	if !info.IsDir() || info.Mode()&0077 != 0 {
-		return fmt.Errorf("telemetry delivery: spool directory must be private")
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: spool directory must be private")
 	}
 	root, err := os.OpenRoot(path)
 	if err != nil {
-		return err
+		return DurableDeliveryRecoveryManifest{}, err
 	}
 	defer root.Close()
-	if err := checkOrWriteOwnerMarker(root, owner); err != nil {
-		return err
+	if _, _, err := preflightDeliveryRecovery(root, owner); err != nil {
+		return DurableDeliveryRecoveryManifest{}, err
 	}
 
+	_, leaseStatErr := root.Lstat("lease")
+	hadLease := leaseStatErr == nil
+
 	if err := root.Mkdir("lease", 0700); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("telemetry delivery: recovery lease mkdir: %w", err)
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: recovery lease mkdir: %w", err)
 	}
 	_ = syncSpoolDir(root)
 	lockFile, err := root.OpenFile("lease/lock", os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
-		return fmt.Errorf("telemetry delivery: recovery lease open: %w", err)
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: recovery lease open: %w", err)
 	}
 	defer lockFile.Close()
 	if err := lockFileExclusive(lockFile); err != nil {
-		return fmt.Errorf("telemetry delivery: writer lease is actively held")
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: writer lease is actively held")
 	}
 	infoLock, err := lockFile.Stat()
 	if err != nil {
-		return fmt.Errorf("telemetry delivery: writer lease stat: %w", err)
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: writer lease stat: %w", err)
 	}
 	infoPath, err := root.Stat("lease/lock")
 	if err != nil || !os.SameFile(infoLock, infoPath) {
-		return fmt.Errorf("telemetry delivery: writer lease is actively held")
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: writer lease is actively held")
 	}
+	cleanupLease := !hadLease
 	defer func() {
 		infoLock, errLock := lockFile.Stat()
 		infoPath, errPath := root.Stat("lease/lock")
@@ -572,7 +665,7 @@ func RecoverDurableDelivery(path, owner string) error {
 		if err := lockFileExclusive(lockFile); err != nil {
 			lockHeldByOther = true
 		}
-		if stillLinked && !lockHeldByOther {
+		if cleanupLease && stillLinked && !lockHeldByOther {
 			_ = root.Remove("lease/lock")
 			_ = root.Remove("lease")
 			_ = syncSpoolDir(root)
@@ -580,21 +673,97 @@ func RecoverDurableDelivery(path, owner string) error {
 		_ = unlockFile(lockFile)
 	}()
 
-	entries, err := readSpoolDirEntries(root, 65536)
+	// Recheck under the exclusive lease: a previous writer may have finished
+	// between the read-only admission pass and acquisition.
+	m, temporary, err := preflightDeliveryRecovery(root, owner)
 	if err != nil {
-		return err
+		return DurableDeliveryRecoveryManifest{}, err
 	}
-	var removedPending bool
-	for _, e := range entries {
-		if isPendingTmpName(e.Name()) {
-			_ = root.Remove(e.Name())
-			removedPending = true
+	for _, name := range temporary {
+		if err := root.Remove(name); err != nil {
+			return DurableDeliveryRecoveryManifest{}, err
 		}
 	}
-	if removedPending {
+	if len(temporary) > 0 {
 		_ = syncSpoolDir(root)
 	}
-	return nil
+	cleanupLease = true
+	m.RecoveredLease = hadLease
+
+	return m, nil
+}
+
+// preflightDeliveryRecovery reads only. Recovery has no endpoint configuration,
+// so accept either request kind supported by Enqueue, using its public hard
+// limits. Configured smaller limits are checked again when a writer opens.
+func preflightDeliveryRecovery(root *os.Root, owner string) (DurableDeliveryRecoveryManifest, []string, error) {
+	m := DurableDeliveryRecoveryManifest{SchemaVersion: DurableDeliveryRecoverySchemaVersion, MarkerVersion: 1, Owner: owner}
+	entries, err := readSpoolDirEntries(root, 65536)
+	if err != nil {
+		return DurableDeliveryRecoveryManifest{}, nil, err
+	}
+	info, err := root.Lstat("owner.json")
+	if err != nil || !info.Mode().IsRegular() {
+		return DurableDeliveryRecoveryManifest{}, nil, fmt.Errorf("telemetry delivery: recovery requires an owned marker")
+	}
+	data, err := readSpoolMarker(root)
+	if err != nil {
+		return DurableDeliveryRecoveryManifest{}, nil, err
+	}
+	var marker spoolOwnerMarker
+	if err := decodeOperationsJSON(data, &marker); err != nil || marker.Version != 1 || (marker.SchemaVersion != 0 && marker.SchemaVersion != DurableDeliveryRecoverySchemaVersion) || marker.Owner != owner {
+		return DurableDeliveryRecoveryManifest{}, nil, fmt.Errorf("telemetry delivery: spool owner mismatch or corrupt marker")
+	}
+	var temporary []string
+	for _, e := range entries {
+		if e.Name() == "owner.json" || e.Name() == "lease" {
+			continue
+		}
+		st, err := root.Lstat(e.Name())
+		if err != nil {
+			return DurableDeliveryRecoveryManifest{}, nil, err
+		}
+		if !st.Mode().IsRegular() {
+			return DurableDeliveryRecoveryManifest{}, nil, fmt.Errorf("telemetry delivery: recovery entry is not a regular file")
+		}
+		if isPendingTmpName(e.Name()) {
+			temporary = append(temporary, e.Name())
+			continue
+		}
+		if _, err := parseSpoolID(e.Name()); err != nil {
+			return DurableDeliveryRecoveryManifest{}, nil, err
+		}
+		if st.Size() <= 0 || st.Size() > 4<<20 || st.Size() > (1<<30)-m.PendingBytes {
+			return DurableDeliveryRecoveryManifest{}, nil, fmt.Errorf("telemetry delivery: recovery spool exceeds byte bounds")
+		}
+		f, err := root.Open(e.Name())
+		if err != nil {
+			return DurableDeliveryRecoveryManifest{}, nil, err
+		}
+		opened, statErr := f.Stat()
+		if statErr != nil || !os.SameFile(st, opened) {
+			return DurableDeliveryRecoveryManifest{}, nil, errors.Join(fmt.Errorf("telemetry delivery: recovery spool identity changed"), statErr, f.Close())
+		}
+		payload, readErr := io.ReadAll(io.LimitReader(f, (4<<20)+1))
+		after, statErr := f.Stat()
+		closeErr := f.Close()
+		if err := errors.Join(readErr, statErr, closeErr); err != nil {
+			return DurableDeliveryRecoveryManifest{}, nil, err
+		}
+		if len(payload) != int(st.Size()) || after.Size() != st.Size() || after.ModTime() != st.ModTime() {
+			return DurableDeliveryRecoveryManifest{}, nil, fmt.Errorf("telemetry delivery: recovery spool changed while reading")
+		}
+		if validateDeliveryBatch(payload, 4096) != nil && validateLogsDeliveryBatch(payload, 4096) != nil {
+			return DurableDeliveryRecoveryManifest{}, nil, fmt.Errorf("telemetry delivery: recovery spool contains an invalid OTLP request")
+		}
+		m.PendingBatches++
+		m.PendingBytes += int64(len(payload))
+	}
+	m.RemovedTempFiles = len(temporary) // intended count; reported only after removal
+	if err := ValidateDurableDeliveryRecoveryManifest(m); err != nil {
+		return DurableDeliveryRecoveryManifest{}, nil, err
+	}
+	return m, temporary, nil
 }
 
 // Enqueue validates and commits one encoded OTLP request to the disk spool.

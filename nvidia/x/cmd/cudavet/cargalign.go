@@ -87,9 +87,15 @@ func checkNewSchemaCall(pass *analysis.Pass, call *ast.CallExpr) {
 	args := call.Args
 	if call.Ellipsis.IsValid() {
 		if len(args) != 1 {
+			reportUncheckable(pass, call.Pos(), "variadic parameters are not a single literal slice")
 			return
 		}
-		lit, ok := args[0].(*ast.CompositeLit)
+		arg := ast.Unparen(args[0])
+		if pass.TypesInfo.Types[arg].IsNil() {
+			checkLayout(pass, call.Pos(), nil, nil, nil, 0)
+			return
+		}
+		lit, ok := arg.(*ast.CompositeLit)
 		if !ok {
 			reportUncheckable(pass, call.Pos(), "parameters are not written as literals")
 			return
@@ -113,33 +119,41 @@ func checkSchemaLit(pass *analysis.Pass, lit *ast.CompositeLit) {
 	}
 	var (
 		paramsLit *ast.CompositeLit
-		totalExpr ast.Expr
+		totalExpr ast.Expr = lit
 		total     int
 	)
 	for _, elt := range lit.Elts {
 		kv, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
+			reportUncheckable(pass, lit.Pos(), "schema fields are not keyed literals")
 			return
 		}
 		key, ok := kv.Key.(*ast.Ident)
 		if !ok {
+			reportUncheckable(pass, lit.Pos(), "schema fields are not named")
 			return
 		}
 		switch key.Name {
 		case "Params":
-			if paramsLit, ok = kv.Value.(*ast.CompositeLit); !ok {
+			value := ast.Unparen(kv.Value)
+			if pass.TypesInfo.Types[value].IsNil() {
+				continue
+			}
+			if paramsLit, ok = value.(*ast.CompositeLit); !ok {
 				reportUncheckable(pass, lit.Pos(), "parameters are not written as constant literals")
 				return
 			}
 		case "TotalParamBytes":
 			v, ok := constInt(pass, kv.Value)
 			if !ok {
+				reportUncheckable(pass, lit.Pos(), "total parameter bytes are not constant")
 				return
 			}
 			totalExpr, total = kv.Value, v
 		}
 	}
 	if paramsLit == nil {
+		checkLayout(pass, lit.Pos(), nil, nil, totalExpr, total)
 		return
 	}
 	params, offsets, ok := paramsFromExprs(pass, paramsLit.Elts)
@@ -195,20 +209,20 @@ func checkParamStructs(pass *analysis.Pass, decl *ast.GenDecl) {
 		if !ok || !hasMarker(decl.Doc, spec.Doc) {
 			continue
 		}
-		named, ok := pass.TypesInfo.TypeOf(spec.Name).(*types.Named)
-		if !ok {
+		typ := pass.TypesInfo.TypeOf(spec.Name)
+		if typ == nil {
 			continue
 		}
-		st, ok := named.Underlying().(*types.Struct)
+		st, ok := typ.Underlying().(*types.Struct)
 		if !ok {
 			pass.Reportf(spec.Pos(), "%s is marked %s but is not a struct type", spec.Name.Name, kernelParamsMarker)
 			continue
 		}
-		checkParamStruct(pass, spec, named, st)
+		checkParamStruct(pass, spec, typ, st)
 	}
 }
 
-func checkParamStruct(pass *analysis.Pass, spec *ast.TypeSpec, named *types.Named, st *types.Struct) {
+func checkParamStruct(pass *analysis.Pass, spec *ast.TypeSpec, typ types.Type, st *types.Struct) {
 	params := make([]cudakernel.Param, 0, st.NumFields())
 	fields := make([]*types.Var, 0, st.NumFields())
 	supported := true
@@ -239,7 +253,7 @@ func checkParamStruct(pass *analysis.Pass, spec *ast.TypeSpec, named *types.Name
 				f.Name(), goOffsets[i], want)
 		}
 	}
-	if size := pass.TypesSizes.Sizeof(named); size != int64(computed.TotalParamBytes) {
+	if size := pass.TypesSizes.Sizeof(typ); size != int64(computed.TotalParamBytes) {
 		pass.Reportf(spec.Pos(), "kernel parameter block %s is %d bytes in Go; cudakernel.Schema computes %d total parameter bytes",
 			spec.Name.Name, size, computed.TotalParamBytes)
 	}
@@ -284,10 +298,10 @@ func paramForGoType(name string, t types.Type) (cudakernel.Param, bool) {
 // with a value the analyzer cannot see has no compile-time offsets.
 func paramsFromExprs(pass *analysis.Pass, exprs []ast.Expr) (params []cudakernel.Param, offsets []ast.Expr, ok bool) {
 	if len(exprs) == 0 {
-		return nil, nil, false
+		return nil, nil, true
 	}
 	for _, e := range exprs {
-		lit, ok := e.(*ast.CompositeLit)
+		lit, ok := ast.Unparen(e).(*ast.CompositeLit)
 		if !ok {
 			return nil, nil, false
 		}
@@ -364,16 +378,21 @@ func reportUncheckable(pass *analysis.Pass, pos token.Pos, why string) {
 }
 
 func isCudakernelFunc(pass *analysis.Pass, fun ast.Expr, name string) bool {
-	sel, ok := fun.(*ast.SelectorExpr)
-	if !ok {
+	var obj types.Object
+	switch fun := ast.Unparen(fun).(type) {
+	case *ast.SelectorExpr:
+		obj = pass.TypesInfo.Uses[fun.Sel]
+	case *ast.Ident:
+		obj = pass.TypesInfo.Uses[fun]
+	default:
 		return false
 	}
-	fn, ok := pass.TypesInfo.Uses[sel.Sel].(*types.Func)
+	fn, ok := obj.(*types.Func)
 	return ok && fn.Name() == name && fn.Pkg() != nil && fn.Pkg().Path() == cudakernelPath
 }
 
 func isCudakernelType(t types.Type, name string) bool {
-	named, ok := t.(*types.Named)
+	named, ok := types.Unalias(t).(*types.Named)
 	if !ok {
 		return false
 	}

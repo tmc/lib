@@ -6,7 +6,6 @@ import (
 	"math"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/tmc/lib/egraphcore"
 )
@@ -96,70 +95,8 @@ type RelationCondition struct {
 // Identity identifies the complete rule definition, including its conditions.
 // Names alone are intentionally insufficient for replay across rule sets.
 func (r *Rewrite) Identity() string {
-	if r == nil {
-		return "<nil>"
-	}
-	lhs, rhs := "<nil>", "<nil>"
-	if r.LHS != nil {
-		lhs = r.LHS.String()
-	}
-	if r.RHS != nil {
-		rhs = r.RHS.String()
-	}
-	identity := r.Name + "|" + lhs + "=>" + rhs
-	if r.subsumesLHS {
-		identity += " subsume-lhs"
-	}
-	if len(r.Conditions) != 0 {
-		conditions := make([]string, len(r.Conditions))
-		for i, condition := range r.Conditions {
-			if condition == nil {
-				conditions[i] = "<nil>"
-			} else {
-				conditions[i] = condition.String()
-			}
-		}
-		identity += " where " + strings.Join(conditions, " & ")
-	}
-	if len(r.RelationConditions) != 0 {
-		conditions := make([]string, len(r.RelationConditions))
-		for i, condition := range r.RelationConditions {
-			conditions[i] = relationConditionIdentity(condition)
-		}
-		identity += " facts " + strings.Join(conditions, " & ")
-	}
-	if len(r.RelationActions) != 0 {
-		actions := make([]string, len(r.RelationActions))
-		for i, action := range r.RelationActions {
-			actions[i] = factActionIdentity(action)
-		}
-		identity += " do " + strings.Join(actions, " & ")
-	}
+	identity, _ := ruleIdentityWithBudget(r, nil)
 	return identity
-}
-
-func relationConditionIdentity(condition RelationCondition) string {
-	var b strings.Builder
-	b.WriteString(condition.Name)
-	b.WriteByte('(')
-	for i, term := range condition.Terms {
-		if i != 0 {
-			b.WriteByte(',')
-		}
-		switch term.Kind {
-		case egraphcore.WildcardTerm:
-			b.WriteByte('_')
-		case egraphcore.VariableTerm:
-			b.WriteString("?")
-			b.WriteString(term.Name)
-		case egraphcore.ConstantTerm:
-			fmt.Fprintf(&b, "%d:%d:%d:%t:%d:%q", term.Value.Kind, uint32(term.Value.Class), term.Value.Int64, term.Value.Bool, term.Value.Float, term.Value.String)
-		default:
-			fmt.Fprintf(&b, "invalid:%d", term.Kind)
-		}
-	}
-	b.WriteByte(')')
-	return b.String()
 }
 
 // NewRewrite parses left-hand and right-hand pattern strings and creates a Rewrite rule.
@@ -273,26 +210,6 @@ func cloneFactActions(actions []egraphcore.FactAction[Id]) []egraphcore.FactActi
 		out[i] = egraphcore.FactAction[Id]{Kind: action.Kind, Relation: action.Relation, Terms: append([]egraphcore.Term[Id](nil), action.Terms...)}
 	}
 	return out
-}
-
-func factActionIdentity(action egraphcore.FactAction[Id]) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "%d:%s(", action.Kind, action.Relation)
-	for i, term := range action.Terms {
-		if i != 0 {
-			b.WriteByte(',')
-		}
-		switch term.Kind {
-		case egraphcore.VariableTerm:
-			fmt.Fprintf(&b, "?%s", term.Name)
-		case egraphcore.ConstantTerm:
-			fmt.Fprintf(&b, "=%#v", term.Value)
-		default:
-			fmt.Fprintf(&b, "invalid:%d", term.Kind)
-		}
-	}
-	b.WriteByte(')')
-	return b.String()
 }
 
 // MustRewrite creates a Rewrite or panics if parsing fails (useful for table-defined constants).
@@ -461,12 +378,18 @@ func resolveFactActions(g *EGraph, r *Rewrite, matches []MatchMatch, budget *egr
 	for _, match := range matches {
 		binding := match.Binding
 		if binding == nil {
-			binding = make(egraphcore.Binding[Id], len(match.Subst))
+			var err error
+			binding, err = graphMap[string, egraphcore.Value[Id]](budget, len(match.Subst))
+			if err != nil {
+				return nil, err
+			}
 			for name, id := range match.Subst {
 				if !budget.TrySpend(1) {
 					return nil, ErrMatchWorkLimit
 				}
-				binding[name] = egraphcore.Class(id)
+				if err := graphPut(budget, binding, name, egraphcore.Class(id)); err != nil {
+					return nil, err
+				}
 			}
 		}
 		actions, err := egraphcore.ResolveFactActions(g.Facts(), r.RelationActions, binding, g.Find, budget)
@@ -476,7 +399,10 @@ func resolveFactActions(g *EGraph, r *Rewrite, matches []MatchMatch, budget *egr
 			}
 			return nil, err
 		}
-		resolved = append(resolved, actions...)
+		resolved, err = graphAppend(budget, resolved, actions...)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return resolved, nil
 }
@@ -487,18 +413,18 @@ func validateRewrite(r *Rewrite) error {
 
 func validateRewriteWithBudget(r *Rewrite, budget *egraphcore.WorkBudget) error {
 	if r == nil || r.LHS == nil || r.RHS == nil && len(r.RelationActions) == 0 {
-		return fmt.Errorf("egraph: rewrite and patterns must be non-nil")
+		return graphErrorf(budget, "egraph: rewrite and patterns must be non-nil")
 	}
 	if err := validatePatternTreeWithBudget(r.LHS, budget); err != nil {
-		return fmt.Errorf("egraph: invalid lhs: %w", err)
+		return graphErrorf(budget, "egraph: invalid lhs: %w", err)
 	}
 	if r.RHS != nil {
 		if err := validatePatternTreeWithBudget(r.RHS, budget); err != nil {
-			return fmt.Errorf("egraph: invalid rhs: %w", err)
+			return graphErrorf(budget, "egraph: invalid rhs: %w", err)
 		}
 	}
 	if r.subsumesLHS && (r.LHS.IsVar || r.RHS == nil) {
-		return fmt.Errorf("egraph: rewrite %q can only subsume a concrete term pattern with an rhs", r.Name)
+		return graphErrorf(budget, "egraph: rewrite %q can only subsume a concrete term pattern with an rhs", r.Name)
 	}
 	bound, err := graphMap[string, bool](budget, 0)
 	if err != nil {
@@ -509,7 +435,7 @@ func validateRewriteWithBudget(r *Rewrite, budget *egraphcore.WorkBudget) error 
 	}
 	for i, condition := range r.Conditions {
 		if err := validatePatternTreeWithBudget(condition, budget); err != nil {
-			return fmt.Errorf("invalid condition %d: %w", i, err)
+			return graphErrorf(budget, "invalid condition %d: %w", i, err)
 		}
 		if err := patternVariablesWithBudget(condition, bound, budget); err != nil {
 			return err
@@ -517,49 +443,49 @@ func validateRewriteWithBudget(r *Rewrite, budget *egraphcore.WorkBudget) error 
 	}
 	for i, condition := range r.RelationConditions {
 		if condition.Name == "" {
-			return fmt.Errorf("invalid relation condition %d: empty relation name", i)
+			return graphErrorf(budget, "invalid relation condition %d: empty relation name", i)
 		}
 		for j, term := range condition.Terms {
 			switch term.Kind {
 			case egraphcore.WildcardTerm:
 			case egraphcore.VariableTerm:
 				if term.Name == "" {
-					return fmt.Errorf("invalid relation condition %d column %d: empty variable", i, j)
+					return graphErrorf(budget, "invalid relation condition %d column %d: empty variable", i, j)
 				}
 				if err := graphPut(budget, bound, term.Name, true); err != nil {
 					return err
 				}
 			case egraphcore.ConstantTerm:
 				if term.Value.Kind < egraphcore.ClassValue || term.Value.Kind > egraphcore.BigRatValue {
-					return fmt.Errorf("invalid relation condition %d column %d: invalid constant kind", i, j)
+					return graphErrorf(budget, "invalid relation condition %d column %d: invalid constant kind", i, j)
 				}
 			default:
-				return fmt.Errorf("invalid relation condition %d column %d: invalid term kind", i, j)
+				return graphErrorf(budget, "invalid relation condition %d column %d: invalid term kind", i, j)
 			}
 		}
 	}
 	for i, action := range r.RelationActions {
 		if action.Relation == "" {
-			return fmt.Errorf("invalid relation action %d: empty relation name", i)
+			return graphErrorf(budget, "invalid relation action %d: empty relation name", i)
 		}
 		if action.Kind < egraphcore.FactInsert || action.Kind > egraphcore.FactSubsume {
-			return fmt.Errorf("invalid relation action %d: invalid action kind", i)
+			return graphErrorf(budget, "invalid relation action %d: invalid action kind", i)
 		}
 		for j, term := range action.Terms {
 			switch term.Kind {
 			case egraphcore.VariableTerm:
 				if term.Name == "" {
-					return fmt.Errorf("invalid relation action %d column %d: empty variable", i, j)
+					return graphErrorf(budget, "invalid relation action %d column %d: empty variable", i, j)
 				}
 				if !bound[term.Name] {
-					return fmt.Errorf("relation action %d variable %q is not bound by lhs or conditions", i, term.Name)
+					return graphErrorf(budget, "relation action %d variable %q is not bound by lhs or conditions", i, term.Name)
 				}
 			case egraphcore.ConstantTerm:
 				if term.Name != "" || term.Value.Kind < egraphcore.ClassValue || term.Value.Kind > egraphcore.BigRatValue {
-					return fmt.Errorf("invalid relation action %d column %d: invalid constant", i, j)
+					return graphErrorf(budget, "invalid relation action %d column %d: invalid constant", i, j)
 				}
 			default:
-				return fmt.Errorf("invalid relation action %d column %d: only variables and constants are allowed", i, j)
+				return graphErrorf(budget, "invalid relation action %d column %d: only variables and constants are allowed", i, j)
 			}
 		}
 	}
@@ -587,7 +513,18 @@ func validateRewriteWithBudget(r *Rewrite, budget *egraphcore.WorkBudget) error 
 		if len(r.Conditions) != 0 {
 			source = "lhs or conditions"
 		}
-		return fmt.Errorf("rhs variables not bound by %s: %s", source, strings.Join(unbound, ", "))
+		joined := memoryText{budget: budget}
+		for i, name := range unbound {
+			if i > 0 {
+				joined.write(", ")
+			}
+			joined.write(name)
+		}
+		names, err := joined.finish()
+		if err != nil {
+			return err
+		}
+		return graphErrorf(budget, "rhs variables not bound by %s: %s", source, names)
 	}
 	return nil
 }
@@ -744,7 +681,7 @@ func relationConditionAtomsWithBudget(g *EGraph, r *Rewrite, budget *egraphcore.
 	for i, condition := range r.RelationConditions {
 		relation := g.Facts().Get(condition.Name)
 		if relation == nil {
-			return nil, fmt.Errorf("egraph: rewrite %q references unknown relation %q", r.Name, condition.Name)
+			return nil, graphErrorf(budget, "egraph: rewrite %q references unknown relation %q", r.Name, condition.Name)
 		}
 		terms, err := graphSlice[egraphcore.Term[Id]](budget, len(condition.Terms), len(condition.Terms))
 		if err != nil {
@@ -775,7 +712,7 @@ func validateRelationConditionTypesWithBudget(g *EGraph, r *Rewrite, atoms []egr
 		}
 		for name := range vars {
 			if old, ok := kinds[name]; ok && old != egraphcore.ClassValue {
-				return fmt.Errorf("egraph: rewrite %q variable %q has conflicting condition types", r.Name, name)
+				return graphErrorf(budget, "egraph: rewrite %q variable %q has conflicting condition types", r.Name, name)
 			}
 			if err := graphPut(budget, kinds, name, egraphcore.ClassValue); err != nil {
 				return err
@@ -802,18 +739,18 @@ func validateRelationConditionTypesWithBudget(g *EGraph, r *Rewrite, atoms []egr
 			return err
 		}
 		if len(atom.Terms) != len(schema.Columns) {
-			return fmt.Errorf("egraph: rewrite %q relation condition %d has %d terms for %d columns", r.Name, i, len(atom.Terms), len(schema.Columns))
+			return graphErrorf(budget, "egraph: rewrite %q relation condition %d has %d terms for %d columns", r.Name, i, len(atom.Terms), len(schema.Columns))
 		}
 		for column, term := range atom.Terms {
 			kind := schema.Columns[column].Kind
 			switch term.Kind {
 			case egraphcore.ConstantTerm:
 				if term.Value.Kind != kind {
-					return fmt.Errorf("egraph: rewrite %q relation condition %d column %d has constant kind %d, want %d", r.Name, i, column, term.Value.Kind, kind)
+					return graphErrorf(budget, "egraph: rewrite %q relation condition %d column %d has constant kind %d, want %d", r.Name, i, column, term.Value.Kind, kind)
 				}
 			case egraphcore.VariableTerm:
 				if old, ok := kinds[term.Name]; ok && old != kind {
-					return fmt.Errorf("egraph: rewrite %q variable %q has conflicting condition types", r.Name, term.Name)
+					return graphErrorf(budget, "egraph: rewrite %q variable %q has conflicting condition types", r.Name, term.Name)
 				}
 				if err := graphPut(budget, kinds, term.Name, kind); err != nil {
 					return err
@@ -824,29 +761,29 @@ func validateRelationConditionTypesWithBudget(g *EGraph, r *Rewrite, atoms []egr
 	for i, action := range r.RelationActions {
 		relation := g.Facts().Get(action.Relation)
 		if relation == nil {
-			return fmt.Errorf("egraph: rewrite %q references unknown relation action target %q", r.Name, action.Relation)
+			return graphErrorf(budget, "egraph: rewrite %q references unknown relation action target %q", r.Name, action.Relation)
 		}
 		schema, err := relation.SchemaWithBudget(budget)
 		if err != nil {
 			return err
 		}
 		if len(action.Terms) != len(schema.Columns) {
-			return fmt.Errorf("egraph: rewrite %q relation action %d has %d terms for %d columns", r.Name, i, len(action.Terms), len(schema.Columns))
+			return graphErrorf(budget, "egraph: rewrite %q relation action %d has %d terms for %d columns", r.Name, i, len(action.Terms), len(schema.Columns))
 		}
 		for column, term := range action.Terms {
 			kind := schema.Columns[column].Kind
 			switch term.Kind {
 			case egraphcore.ConstantTerm:
 				if term.Value.Kind != kind {
-					return fmt.Errorf("egraph: rewrite %q relation action %d column %d has constant kind %d, want %d", r.Name, i, column, term.Value.Kind, kind)
+					return graphErrorf(budget, "egraph: rewrite %q relation action %d column %d has constant kind %d, want %d", r.Name, i, column, term.Value.Kind, kind)
 				}
 			case egraphcore.VariableTerm:
 				boundKind, ok := kinds[term.Name]
 				if !ok {
-					return fmt.Errorf("egraph: rewrite %q relation action variable %q is not bound", r.Name, term.Name)
+					return graphErrorf(budget, "egraph: rewrite %q relation action variable %q is not bound", r.Name, term.Name)
 				}
 				if boundKind != kind {
-					return fmt.Errorf("egraph: rewrite %q relation action %d column %d variable %q has kind %d, want %d", r.Name, i, column, term.Name, boundKind, kind)
+					return graphErrorf(budget, "egraph: rewrite %q relation action %d column %d variable %q has kind %d, want %d", r.Name, i, column, term.Name, boundKind, kind)
 				}
 			}
 		}
@@ -862,7 +799,7 @@ func validateRelationConditionTypesWithBudget(g *EGraph, r *Rewrite, atoms []egr
 	}
 	for name := range rhs {
 		if kinds[name] != egraphcore.ClassValue {
-			return fmt.Errorf("egraph: rewrite %q rhs variable %q is not bound to an e-class", r.Name, name)
+			return graphErrorf(budget, "egraph: rewrite %q rhs variable %q is not bound to an e-class", r.Name, name)
 		}
 	}
 	return nil
@@ -925,10 +862,10 @@ func validatePatternTreeWithBudget(root *Pattern, budget *egraphcore.WorkBudget)
 		current := stack[last]
 		stack = stack[:last]
 		if current.pattern == nil {
-			return fmt.Errorf("nil pattern node")
+			return graphErrorf(budget, "nil pattern node")
 		}
 		if budget.MemoryScope() != nil && current.pattern.HasData && dataComparisonAllocates(reflect.TypeOf(current.pattern.Data)) {
-			return fmt.Errorf("%w: reference payload comparison", ErrMemoryOperation)
+			return graphErrorf(budget, "%w: reference payload comparison", ErrMemoryOperation)
 		}
 		if current.exit {
 			if err := graphPut(budget, state, current.pattern, uint8(2)); err != nil {
@@ -938,7 +875,7 @@ func validatePatternTreeWithBudget(root *Pattern, budget *egraphcore.WorkBudget)
 		}
 		switch state[current.pattern] {
 		case 1:
-			return fmt.Errorf("cyclic pattern")
+			return graphErrorf(budget, "cyclic pattern")
 		case 2:
 			continue
 		}
@@ -946,7 +883,7 @@ func validatePatternTreeWithBudget(root *Pattern, budget *egraphcore.WorkBudget)
 			return err
 		}
 		if current.pattern.IsVar && len(current.pattern.Children) != 0 {
-			return fmt.Errorf("variable pattern %q has children", current.pattern.Op)
+			return graphErrorf(budget, "variable pattern %q has children", current.pattern.Op)
 		}
 		stack, err = graphAppend(budget, stack, entry{pattern: current.pattern, exit: true})
 		if err != nil {
@@ -1058,16 +995,31 @@ func isMandatoryRule(name string) bool {
 }
 
 func isMandatoryRewrite(r *Rewrite) bool {
+	mandatory, _ := isMandatoryRewriteWithBudget(r, nil)
+	return mandatory
+}
+
+func isMandatoryRewriteWithBudget(r *Rewrite, budget *egraphcore.WorkBudget) (bool, error) {
 	if r == nil || r.LHS == nil || r.RHS == nil {
-		return false
+		return false, nil
 	}
-	sig := r.LHS.String() + "=>" + r.RHS.String()
-	for _, known := range MandatoryRewriteRules() {
-		if known.LHS.String()+"=>"+known.RHS.String() == sig {
-			return true
+	lhsText, rhsText := memoryText{budget: budget}, memoryText{budget: budget}
+	lhsText.pattern(r.LHS)
+	rhsText.pattern(r.RHS)
+	lhs, err := lhsText.finish()
+	if err != nil {
+		return false, err
+	}
+	rhs, err := rhsText.finish()
+	if err != nil {
+		return false, err
+	}
+	for _, known := range mandatoryRewriteDefinitions {
+		if known.lhs == lhs && known.rhs == rhs {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 const defaultSaturationIterations = 256

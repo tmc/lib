@@ -1,6 +1,7 @@
 package nvtelemetry
 
 import (
+	"fmt"
 	"math"
 	"math/bits"
 	"sort"
@@ -22,7 +23,12 @@ type SamplePoint struct {
 	Unit      string
 }
 
-// AggregateWindow computes time-weighted summaries for all device metrics within the window [startMono, endMono].
+// AggregateWindow computes time-weighted summaries for all device metrics within
+// the window [startMono, endMono]. It omits a device/metric group whose units
+// disagree or do not match the registered canonical unit. Unregistered metrics
+// retain their caller-supplied unit, including an empty unit, but every point in
+// a group must use the same unit. No unit conversion is performed. Other groups
+// remain available. AggregateWindowStrict reports unit errors instead.
 func AggregateWindow(windowName string, startMono, endMono int64, samples []Sample, opts WindowOptions) ([]WindowSummary, []EnergySummary) {
 	windowDuration := endMono - startMono
 	if windowDuration <= 0 {
@@ -86,6 +92,16 @@ func AggregateWindow(windowName string, startMono, endMono int64, samples []Samp
 		}
 
 		unit := points[0].Unit
+		validUnits := true
+		for _, point := range points {
+			if windowUnitError(k.metricName, point.Unit, unit) != nil {
+				validUnits = false
+				break
+			}
+		}
+		if !validUnits {
+			continue
+		}
 
 		// Calculate arithmetic stats across valid points
 		var validCount int
@@ -456,10 +472,13 @@ func cumulativeEnergy(windowName, deviceUUID string, points []SamplePoint, meta 
 	}
 }
 
-// IntegratePowerToEnergy computes energy by integrating power over time as a fallback.
+// IntegratePowerToEnergy computes energy by integrating milliwatt readings over
+// time as a fallback. Timestamps must be strictly increasing, including for
+// unavailable points. Unsorted points and all duplicate timestamps (even equal
+// values) are refused, rather than selecting or counting a repeated interval.
 func IntegratePowerToEnergy(windowName, deviceUUID string, powerReadings []SamplePoint, startMono, endMono int64, opts WindowOptions) EnergySummary {
 	windowDuration := endMono - startMono
-	if windowDuration <= 0 {
+	if endMono <= startMono || windowDuration <= 0 {
 		return EnergySummary{
 			StartMonoNanos: startMono, EndMonoNanos: endMono, WindowName: windowName, DeviceUUID: deviceUUID, Reason: "invalid_window_bounds"}
 	}
@@ -475,7 +494,12 @@ func IntegratePowerToEnergy(windowName, deviceUUID string, powerReadings []Sampl
 		}
 	}
 
-	for _, p := range powerReadings {
+	for i, p := range powerReadings {
+		if i > 0 && p.Timestamp <= powerReadings[i-1].Timestamp {
+			return EnergySummary{StartMonoNanos: startMono, EndMonoNanos: endMono,
+				WindowName: windowName, DeviceUUID: deviceUUID, Method: "integrated_power",
+				TotalDurationNanos: windowDuration, Reason: "non_increasing_sample_time"}
+		}
 		if p.Available && (p.Value < 0 || math.IsNaN(p.Value) || math.IsInf(p.Value, 0)) {
 			return EnergySummary{WindowName: windowName, DeviceUUID: deviceUUID, Method: "integrated_power", Reason: "invalid_power_value"}
 		}
@@ -505,9 +529,6 @@ func IntegratePowerToEnergy(windowName, deviceUUID string, powerReadings []Sampl
 	}
 
 	coverage := float64(covered) / float64(windowDuration)
-	if coverage > 1.0 {
-		coverage = 1.0
-	}
 
 	// 2^64 is the first float outside the uint64 range. MaxUint64 rounds
 	// to that same float, so comparison with MaxUint64 is insufficient.
@@ -531,9 +552,13 @@ func IntegratePowerToEnergy(windowName, deviceUUID string, powerReadings []Sampl
 	}
 }
 
-// AggregateWindowStrict aggregates metrics within the window, returning ErrBitmaskAveragingRefused
-// if any metric within the window has bitmask or event kind.
+// AggregateWindowStrict aggregates metrics within the window, returning
+// ErrBitmaskAveragingRefused if any metric has bitmask or event kind. It returns
+// an error for inconsistent units or a registered metric's noncanonical unit.
+// Unregistered metrics must use one consistent caller-supplied unit per group.
 func AggregateWindowStrict(windowName string, startMono, endMono int64, samples []Sample, opts WindowOptions) ([]WindowSummary, []EnergySummary, error) {
+	type key struct{ device, metric string }
+	units := make(map[key]string)
 	for _, s := range samples {
 		t := s.QueryStartNanos
 		if t < startMono || t > endMono {
@@ -543,8 +568,27 @@ func AggregateWindowStrict(windowName string, startMono, endMono int64, samples 
 			if err := ValidateMetricAveraging(r.Name); err != nil {
 				return nil, nil, err
 			}
+			k := key{r.DeviceUUID, r.Name}
+			unit, ok := units[k]
+			if !ok {
+				unit = r.Unit
+				units[k] = unit
+			}
+			if err := windowUnitError(r.Name, r.Unit, unit); err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 	summaries, energySummaries := AggregateWindow(windowName, startMono, endMono, samples, opts)
 	return summaries, energySummaries, nil
+}
+
+func windowUnitError(name, unit, first string) error {
+	if canonical, known := LookupMetricUnit(name); known && unit != canonical {
+		return fmt.Errorf("window: metric %q has unit %q, want %q", name, unit, canonical)
+	}
+	if unit != first {
+		return fmt.Errorf("window: metric %q has inconsistent units %q and %q", name, first, unit)
+	}
+	return nil
 }

@@ -42,7 +42,7 @@ func moeWeightProgram(c MoEWeightConfig, target Target) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp, moe: &c}}, Grid{CTAs: 1, ThreadsPerCTA: 32}, target, true)
+	return newProgram(g, map[string]Operation{"gate-up": {Kind: MoEGateUp, moe: &c}}, Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: uint32(c.Intermediate)}, target, true)
 }
 
 // moeWeightCUDA reuses the existing selection, task guard, ownership, fences
@@ -60,8 +60,8 @@ func (c *moeWeightCUDA) Begin(p *Program) error {
 	return nil
 }
 
-func (c *moeWeightCUDA) Compute(i, src int, op Operation) error {
-	if i != 0 || src != -1 || op.Kind != MoEGateUp || op.moe == nil || *op.moe != c.config {
+func (c *moeWeightCUDA) Compute(i int, sources []int, op Operation) error {
+	if i != 0 || len(sources) != 1 || sources[0] != -1 || op.Kind != MoEGateUp || op.moe == nil || *op.moe != c.config {
 		return errors.New("cudamega: unsupported typed task")
 	}
 	c.body.WriteString(`        for (unsigned neuron=threadIdx.x; neuron<n; neuron+=blockDim.x) {
@@ -141,12 +141,12 @@ func checkedMoEArtifact(config MoEWeightConfig, a *cudakernel.Artifact) (*cudake
 		return nil, err
 	}
 	schema, _ := MoEWeightSchema()
-	if a.Kind != cudakernel.KindCUBIN || a.Target != "sm_121" || a.EntryPoint != "moe_weight_worker" || !reflect.DeepEqual(a.Schema, schema) || !reflect.DeepEqual(a.CompilerOpts, []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}) {
+	if a.Kind() != cudakernel.KindCUBIN || a.Target() != "sm_121" || a.EntryPoint() != "moe_weight_worker" || !reflect.DeepEqual(a.Schema(), schema) || !reflect.DeepEqual(a.CompilerOptions(), []string{"--gpu-architecture=sm_121", "--std=c++17", "--fmad=false", "--ftz=false"}) {
 		return nil, errors.New("cudamega: typed weight artifact identity differs")
 	}
 	count := 0
 	want := fmt.Sprintf("%x", sha256.Sum256([]byte(s)))
-	for _, d := range a.Dependencies {
+	for _, d := range a.Dependencies() {
 		if d.Path == "cudamega_moe_weight.cu" {
 			count++
 			if !d.Tracked || d.Digest != want || d.ErrorMsg != "" {
@@ -157,11 +157,8 @@ func checkedMoEArtifact(config MoEWeightConfig, a *cudakernel.Artifact) (*cudake
 	if count != 1 {
 		return nil, errors.New("cudamega: typed source binding missing or duplicated")
 	}
+	// Capture the immutable handle, not the caller-owned wrapper.
 	b := *a
-	b.Raw = append([]byte(nil), a.Raw...)
-	b.Dependencies = append([]cudakernel.Dependency(nil), a.Dependencies...)
-	b.CompilerOpts = append([]string(nil), a.CompilerOpts...)
-	b.Schema.Params = append([]cudakernel.Param(nil), a.Schema.Params...)
 	return &b, nil
 }
 
@@ -187,6 +184,7 @@ type MoEWeightConsumer struct {
 	pending     moeWeightCompletion
 	failure     error
 	blocksPerSM int32
+	tasks       uint32
 }
 
 type moeWeightCompletion interface{ Wait(context.Context) error }
@@ -215,7 +213,7 @@ func loadMoEWeightImage(dev *cuda.Device, config MoEWeightConfig, owned *cudaker
 	if major != 12 || minor != 1 {
 		return nil, errors.New("cudamega: typed weight device differs")
 	}
-	c := &MoEWeightConsumer{device: dev, config: config}
+	c := &MoEWeightConsumer{device: dev, config: config, tasks: 1}
 	c.raw, err = owned.Load(dev)
 	if err != nil {
 		return c, err
@@ -225,7 +223,7 @@ func loadMoEWeightImage(dev *cuda.Device, config MoEWeightConfig, owned *cudaker
 		return c, err
 	}
 	c.raw = 0
-	c.kernel, err = c.module.Function(owned.EntryPoint)
+	c.kernel, err = c.module.Function(owned.EntryPoint())
 	if err != nil {
 		return c, err
 	}
@@ -251,7 +249,7 @@ func checkMoEOccupancy(blocks int32) error {
 }
 
 // BlocksPerSM returns the actual compiled-worker occupancy measurement, not an
-// SM-count guess. Only one CTA is launched by this finite consumer.
+// SM-count guess. The single and counted consumers launch one and two CTAs.
 func (c *MoEWeightConsumer) BlocksPerSM() int32 {
 	if c == nil {
 		return 0
@@ -326,6 +324,9 @@ func (c *MoEWeightConsumer) Submit(stream *cuda.Stream, view *cudamoe.MoEWeightV
 }
 
 func (c *MoEWeightConsumer) submit(stream *cuda.Stream, view *cudamoe.MoEWeightView, b MoEWeightBuffers, epoch uint64) error {
+	if c.tasks != 1 {
+		return errors.New("cudamega: counted tasks require both expert views")
+	}
 	if c.kernel == nil || c.blocksPerSM < 1 || stream == nil || stream.Device() != c.device || epoch == 0 {
 		return errors.New("cudamega: closed consumer, epoch or stream differs")
 	}
@@ -333,23 +334,37 @@ func (c *MoEWeightConsumer) submit(stream *cuda.Stream, view *cudamoe.MoEWeightV
 	if err != nil {
 		return err
 	}
-	releases := []func(){release}
-	d := owned.Descriptor
+	return c.submitBorrowed(stream, []cudamoe.MoEWeightBorrowed{owned}, []func(){release}, b, epoch)
+}
+
+func (c *MoEWeightConsumer) submitBorrowed(stream *cuda.Stream, owned []cudamoe.MoEWeightBorrowed, releases []func(), b MoEWeightBuffers, epoch uint64) error {
 	rollback := func() {
 		for _, r := range releases {
 			r()
 		}
 	}
-	if err := checkMoEBorrow(c.config, c.device, owned); err != nil {
+	if c.kernel == nil || c.blocksPerSM < 1 || stream == nil || stream.Device() != c.device || epoch == 0 || c.tasks < 1 || c.tasks > 2 || len(owned) != int(c.tasks) {
+		rollback()
+		return errors.New("cudamega: closed consumer, epoch, task count or stream differs")
+	}
+	var err error
+	if c.tasks == 2 {
+		err = checkMoECountedBorrow(c.config, c.device, owned)
+	} else {
+		err = checkMoEBorrow(c.config, c.device, owned[0])
+	}
+	if err != nil {
 		rollback()
 		return err
 	}
-	if b.Input.Len() != d.Hidden || b.Output.Len() != d.Intermediate || b.Completed.Len() != 1 || b.Abort.Len() != 1 || b.StartOrder.Len() != 2 {
+	d := owned[0].Descriptor
+	orderWords, _ := StartOrderWords(uint64(c.tasks), uint64(c.tasks))
+	if b.Input.Len() != d.Hidden || b.Output.Len() != int(c.tasks)*d.Intermediate || b.Completed.Len() != int(c.tasks) || b.Abort.Len() != 1 || b.StartOrder.Len() != int(orderWords) {
 		rollback()
 		return errors.New("cudamega: typed buffer extents differ")
 	}
 	rs := []moeWeightRegion{{b.Input.Ptr(), uint64(b.Input.SizeBytes()), func() (func(), error) { return b.Input.Borrow(c.device) }}, {b.Output.Ptr(), uint64(b.Output.SizeBytes()), func() (func(), error) { return b.Output.Borrow(c.device) }}, {b.Completed.Ptr(), uint64(b.Completed.SizeBytes()), func() (func(), error) { return b.Completed.Borrow(c.device) }}, {b.Abort.Ptr(), uint64(b.Abort.SizeBytes()), func() (func(), error) { return b.Abort.Borrow(c.device) }}, {b.StartOrder.Ptr(), uint64(b.StartOrder.SizeBytes()), func() (func(), error) { return b.StartOrder.Borrow(c.device) }}}
-	rs = append(rs, moeWeightRegion{d.WeightBase, owned.WeightBytes, nil}, moeWeightRegion{d.ScaleBase, owned.ScaleBytes, nil})
+	rs = append(rs, moeWeightRegion{d.WeightBase, owned[0].WeightBytes, nil}, moeWeightRegion{d.ScaleBase, owned[0].ScaleBytes, nil})
 	if err := checkMoERanges(rs); err != nil {
 		rollback()
 		return err
@@ -373,7 +388,7 @@ func (c *MoEWeightConsumer) submit(stream *cuda.Stream, view *cudamoe.MoEWeightV
 		rollback()
 		return err
 	}
-	for _, f := range []func() error{func() error { return b.Completed.CopyFromHost([]uint32{0}) }, func() error { return b.Abort.CopyFromHost([]uint32{0}) }, func() error { return b.StartOrder.CopyFromHost([]uint64{0, 0}) }} {
+	for _, f := range []func() error{func() error { return b.Completed.CopyFromHost(make([]uint32, c.tasks)) }, func() error { return b.Abort.CopyFromHost([]uint32{0}) }, func() error { return b.StartOrder.CopyFromHost(make([]uint64, orderWords)) }} {
 		if err := f(); err != nil {
 			rollback()
 			return err
@@ -388,7 +403,7 @@ func (c *MoEWeightConsumer) submit(stream *cuda.Stream, view *cudamoe.MoEWeightV
 	layer, expert, n := int32(d.Layer), int32(d.Expert), uint32(d.Intermediate)
 	args := []unsafe.Pointer{unsafe.Pointer(&w), unsafe.Pointer(&s), unsafe.Pointer(&in), unsafe.Pointer(&out), unsafe.Pointer(&completed), unsafe.Pointer(&order), unsafe.Pointer(&abort), unsafe.Pointer(&layer), unsafe.Pointer(&expert), unsafe.Pointer(&n), unsafe.Pointer(&epoch)}
 	c.failure = stream.WithHandle(func(raw driver.Stream) error {
-		return c.kernel.Raw().LaunchCooperativeKernel(driver.Dim3{X: 1, Y: 1, Z: 1}, driver.Dim3{X: 32, Y: 1, Z: 1}, 0, raw, args)
+		return c.kernel.Raw().LaunchCooperativeKernel(driver.Dim3{X: c.tasks, Y: 1, Z: 1}, driver.Dim3{X: 32, Y: 1, Z: 1}, 0, raw, args)
 	})
 	return nil
 }
@@ -423,9 +438,17 @@ func checkMoEInput(x []float32) error {
 }
 
 func checkMoEPublication(b MoEWeightBuffers) error {
-	completed := make([]uint32, 1)
+	tasks := uint32(b.Completed.Len())
+	if tasks < 1 || tasks > 2 {
+		return errors.New("cudamega: typed publication task count differs")
+	}
+	completed := make([]uint32, tasks)
 	abort := make([]uint32, 1)
-	order := make([]uint64, 2)
+	words, err := StartOrderWords(uint64(tasks), uint64(tasks))
+	if err != nil {
+		return err
+	}
+	order := make([]uint64, words)
 	if err := b.Completed.CopyToHost(completed); err != nil {
 		return err
 	}
@@ -435,8 +458,34 @@ func checkMoEPublication(b MoEWeightBuffers) error {
 	if err := b.StartOrder.CopyToHost(order); err != nil {
 		return err
 	}
-	if completed[0] != 1 || abort[0] != 0 || order[0] != 1 || order[1] != 1 {
+	return checkMoEPublicationWords(completed, abort, order)
+}
+
+func checkMoEPublicationWords(completed, abort []uint32, order []uint64) error {
+	tasks := uint32(len(completed))
+	if tasks < 1 || tasks > 2 || len(abort) != 1 || len(order) != 3+int(tasks*tasks) {
+		return errors.New("cudamega: typed publication dimensions differ")
+	}
+	if abort[0] != 0 || order[0] != uint64(tasks) || order[len(order)-2] != uint64(tasks) || order[len(order)-1] != 1 {
 		return errors.New("cudamega: typed task publication incomplete")
+	}
+	seen := make(map[uint64]bool)
+	for cta := uint32(0); cta < tasks; cta++ {
+		if completed[cta] != 1 {
+			return errors.New("cudamega: typed task publication incomplete")
+		}
+		for task := uint32(0); task < tasks; task++ {
+			ticket := order[1+cta*tasks+task]
+			if task != cta {
+				if ticket != 0 {
+					return errors.New("cudamega: task executed outside its owner range")
+				}
+			} else if ticket == 0 || ticket > uint64(tasks) || seen[ticket] {
+				return errors.New("cudamega: typed start-order instrument incomplete")
+			} else {
+				seen[ticket] = true
+			}
+		}
 	}
 	return nil
 }

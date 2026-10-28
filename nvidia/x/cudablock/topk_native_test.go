@@ -77,7 +77,7 @@ func TestBuildTopKPacket(t *testing.T) {
 		if err != nil {
 			t.Fatalf("compile %s: %v", name, err)
 		}
-		entry := topkPacketEntry{name, topkDigest([]byte(source)), artifact.Digest, target, nvrtc.Path(), major, minor, artifact.CompilerOpts}
+		entry := topkPacketEntry{name, topkDigest([]byte(source)), artifact.Digest(), target, nvrtc.Path(), major, minor, artifact.CompilerOptions()}
 		topkWriteJSON(t, filepath.Join(dir, name+".artifact.json"), artifact)
 		topkWriteJSON(t, filepath.Join(dir, name+".receipt.json"), entry)
 		if err := os.WriteFile(filepath.Join(dir, name+".cu"), []byte(source), 0600); err != nil {
@@ -109,14 +109,14 @@ func topkReadPacket(t *testing.T, dir, name, source, target string) (*cudakernel
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(s) != source || entry.Name != name || entry.SourceSHA256 != topkDigest([]byte(source)) || entry.ArtifactSHA256 != a.Digest || a.Target != target || entry.Target != target || a.EntryPoint != "topk_fp32" || a.Kind != cudakernel.KindCUBIN {
+	if string(s) != source || entry.Name != name || entry.SourceSHA256 != topkDigest([]byte(source)) || entry.ArtifactSHA256 != a.Digest() || a.Target() != target || entry.Target != target || a.EntryPoint() != "topk_fp32" || a.Kind() != cudakernel.KindCUBIN {
 		t.Fatal("topk packet identity mismatch")
 	}
 	schema, err := TopKSchema()
 	if err != nil {
 		t.Fatal(err)
 	}
-	aSchema, _ := json.Marshal(a.Schema)
+	aSchema, _ := json.Marshal(a.Schema())
 	wantSchema, _ := json.Marshal(schema)
 	if string(aSchema) != string(wantSchema) {
 		t.Fatal("topk packet schema mismatch")

@@ -2,6 +2,7 @@ package cudasearch
 
 import (
 	"maps"
+	"strings"
 
 	"github.com/tmc/lib/egraphcore"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
@@ -24,8 +25,7 @@ func cloneTrials(in []cudatrial.Receipt) []cudatrial.Receipt {
 	}
 	out := append([]cudatrial.Receipt(nil), in...)
 	for i := range out {
-		out[i].Timings = maps.Clone(in[i].Timings)
-		out[i].Provenance = maps.Clone(in[i].Provenance)
+		out[i] = in[i].Clone()
 	}
 	return out
 }
@@ -68,14 +68,7 @@ func rejectionWithMemory(scope *egraphcore.MemoryScope, s *egraph.SearchState, e
 		if err := bookkeepingSlots[cudatrial.Receipt](scope, len(e.Receipts)); err != nil {
 			return CandidateRejection{}, err
 		}
-		for _, receipt := range e.Receipts {
-			if err := reserveBookkeepingMap(scope, receipt.Timings); err != nil {
-				return CandidateRejection{}, err
-			}
-			if err := reserveBookkeepingMap(scope, receipt.Provenance); err != nil {
-				return CandidateRejection{}, err
-			}
-		}
+
 	}
 	var path []egraph.Action
 	if len(s.Derivation) != 0 {
@@ -93,11 +86,17 @@ func rejectionWithMemory(scope *egraphcore.MemoryScope, s *egraph.SearchState, e
 		}
 		copy(trials, e.Receipts)
 		for i := range trials {
-			trials[i].Timings = maps.Clone(trials[i].Timings)
-			trials[i].Provenance = maps.Clone(trials[i].Provenance)
+			var err error
+			trials[i], err = trials[i].CloneWithMemory(scope.Reserve)
+			if err != nil {
+				return CandidateRejection{}, err
+			}
 		}
-		r.Evidence = &EvaluationEvidence{ExecutableID: e.attemptIdentity,
-			ComparisonArm: e.comparisonArm, Comparison: maps.Clone(e.Comparison), Trials: trials}
+		if err := scope.Reserve(int64(len(e.attemptIdentity) + len(e.comparisonArm))); err != nil {
+			return CandidateRejection{}, err
+		}
+		r.Evidence = &EvaluationEvidence{ExecutableID: strings.Clone(e.attemptIdentity),
+			ComparisonArm: strings.Clone(e.comparisonArm), Comparison: maps.Clone(e.Comparison), Trials: trials}
 	}
 	return r, nil
 }

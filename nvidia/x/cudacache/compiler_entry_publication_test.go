@@ -120,7 +120,7 @@ func TestCompilerEntryMarkerFreshness(t *testing.T) {
 					}
 					replacement := original
 					if newPayload {
-						replacement, err = cudakernel.NewArtifact(original.Kind, append(append([]byte(nil), original.Raw...), []byte("\n// replacement\n")...), original.EntryPoint, original.Schema, original.Target)
+						replacement, err = cudakernel.NewArtifact(original.Kind(), append(original.Bytes(), []byte("\n// replacement\n")...), original.EntryPoint(), original.Schema(), original.Target())
 						if err != nil {
 							t.Fatal(err)
 						}

@@ -3,6 +3,7 @@ package cudarepro
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -35,8 +36,8 @@ func TestCaptureValidation(t *testing.T) {
 		change func(*Launch)
 	}{
 		{"arity", func(l *Launch) { l.Arguments = l.Arguments[:1] }},
-		{"width", func(l *Launch) { l.Artifact.Schema.Params[0].ByteWidth = 4 }},
-		{"image", func(l *Launch) { l.Artifact.Raw[0]++ }},
+		{"width", func(l *Launch) { l.Arguments[0] = Argument{Name: "out", Value: make([]byte, 4)} }},
+		{"image", func(l *Launch) { l.Artifact = new(cudakernel.Artifact) }},
 		{"unmapped", func(l *Launch) { l.Arguments[0].Address = 0x2000 }},
 		{"extent", func(l *Launch) { l.Arguments[0].Size = 17 }},
 		{"overflow", func(l *Launch) { l.Allocations[0].Address = ^uint64(0) - 4 }},
@@ -133,5 +134,63 @@ func TestAdjacentEmptySlice(t *testing.T) {
 	}
 	if got := l.allocation(0x1014, 0); got != -1 {
 		t.Fatalf("one-past address resolved to allocation %d", got)
+	}
+}
+
+func TestCaptureArtifactDetachedAccessors(t *testing.T) {
+	l := fixture(t)
+	artifact := *l.Artifact
+	digest := artifact.Digest()
+	schema := artifact.Schema()
+	schema.Params[0].ByteWidth = 4
+	raw := artifact.Bytes()
+	raw[0]++
+	spec := artifact.Spec()
+	spec.Raw[0]++
+	spec.Schema.Params[0].Name = "changed"
+	if err := l.Validate(); err != nil {
+		t.Fatalf("detached data changed capture: %v", err)
+	}
+	var b bytes.Buffer
+	if err := l.Write(&b); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(bytes.NewReader(b.Bytes()), int64(b.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	*l.Artifact = cudakernel.Artifact{}
+	if err := artifact.Validate(); err != nil {
+		t.Fatalf("wrapper replacement changed captured value: %v", err)
+	}
+	if err := got.Validate(); err != nil || got.Artifact.Digest() != digest {
+		t.Fatalf("wrapper replacement changed round trip: %v, digest %s", err, got.Artifact.Digest())
+	}
+}
+
+func TestReadCorruptArtifact(t *testing.T) {
+	l := fixture(t)
+	var b bytes.Buffer
+	if err := l.Write(&b); err != nil {
+		t.Fatal(err)
+	}
+	var launch map[string]json.RawMessage
+	if err := json.Unmarshal(b.Bytes(), &launch); err != nil {
+		t.Fatal(err)
+	}
+	var artifact map[string]json.RawMessage
+	if err := json.Unmarshal(launch["Artifact"], &artifact); err != nil {
+		t.Fatal(err)
+	}
+	raw := l.Artifact.Bytes()
+	raw[0]++
+	artifact["raw"], _ = json.Marshal(raw)
+	launch["Artifact"], _ = json.Marshal(artifact)
+	data, err := json.Marshal(launch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Read(bytes.NewReader(data), int64(len(data))); err == nil {
+		t.Fatal("accepted corrupted artifact")
 	}
 }

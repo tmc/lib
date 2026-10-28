@@ -37,7 +37,11 @@ func (t TransportType) String() string {
 	}
 }
 
-// Transport is the abstraction for data movement between ranks.
+// Transport is the abstraction for data movement between ranks. Execute must
+// establish quiescence before returning, or return a CompletionError retaining
+// the incomplete operation. Close must not return nil until all admitted work
+// is quiescent. On Close error the caller retains buffers and native handles
+// and may retry Close explicitly; cancellation alone never permits release.
 type Transport interface {
 	Type() TransportType
 	Available(membership Membership) bool

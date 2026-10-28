@@ -154,19 +154,24 @@ func TestBuildMoEMegaWeightPacket(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		a.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
-		a.CompilerOpts = append([]string(nil), moePacketOptions...)
-		a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: path, Tracked: true, Digest: moePacketHash([]byte(source))})
+		spec := a.Spec()
+		spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
+		spec.CompilerOpts = append([]string(nil), moePacketOptions...)
+		spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: path, Tracked: true, Digest: moePacketHash([]byte(source))})
+		a, err = cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if err := moePacketWrite(filepath.Join(dir, name+".artifact.json"), a); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(dir, name+".cu"), []byte(source), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, name+".cubin"), a.Raw, 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name+".cubin"), a.Bytes(), 0600); err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("compiled %s source=%s image=%s", name, moePacketHash([]byte(source)), a.Digest)
+		t.Logf("compiled %s source=%s image=%s", name, moePacketHash([]byte(source)), a.Digest())
 	}
 }
 
@@ -206,11 +211,11 @@ func moePacketArtifact(dir, name string) (*cudakernel.Artifact, error) {
 		schema, _ = cudamoe.MoEWeightSchema()
 		entry, path = "moe_weight_slab", "cudamoe_weight_storage.cu"
 	}
-	if string(cu) != source || !bytes.Equal(image, a.Raw) || a.Kind != cudakernel.KindCUBIN || a.Target != "sm_121" || a.EntryPoint != entry || !reflect.DeepEqual(a.Schema, schema) || !reflect.DeepEqual(a.CompilerOpts, moePacketOptions) {
+	if string(cu) != source || !bytes.Equal(image, a.Bytes()) || a.Kind() != cudakernel.KindCUBIN || a.Target() != "sm_121" || a.EntryPoint() != entry || !reflect.DeepEqual(a.Schema(), schema) || !reflect.DeepEqual(a.CompilerOptions(), moePacketOptions) {
 		return nil, errors.New("packet source/image/ABI/options differ")
 	}
 	count := 0
-	for _, d := range a.Dependencies {
+	for _, d := range a.Dependencies() {
 		if d.Path == path {
 			count++
 			if !d.Tracked || d.ErrorMsg != "" || d.Digest != moePacketHash(cu) {
@@ -362,7 +367,7 @@ func TestNativeMoEMegaSharedWeights(t *testing.T) {
 		if err != nil {
 			t.Fatal(name, err)
 		}
-		if a.Toolchain != "nvrtc 13.0" {
+		if a.Toolchain() != "nvrtc 13.0" {
 			t.Fatal("artifact compiler differs")
 		}
 		images[name] = a
@@ -458,7 +463,7 @@ func TestNativeMoEMegaSharedWeights(t *testing.T) {
 		t.Fatal(err)
 	}
 	frees = append(frees, abort.Free)
-	order, err := cudamem.Alloc[uint64](dev, 2)
+	order, err := cudamem.Alloc[uint64](dev, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -494,7 +499,7 @@ func TestNativeMoEMegaSharedWeights(t *testing.T) {
 		}
 		expected := moeNativeReference(raw, sc, x)
 		policy := cudatest.CUDAOutputPolicy{Target: "sm_121", DType: "fp32", MathMode: "manual-e4m3fn-fp32-silu-rn", SourceDigest: "", InputDigest: moePacketHash(append(append(append([]byte(nil), raw...), moeNativeScales(sc)...), moeNativeScales(x)...)), Elements: 16, Absolute: 1e-5, Relative: 5e-5, NaN: "reject", Infinity: "reject", Zero: "equal"}
-		for _, d := range image.Dependencies {
+		for _, d := range image.Dependencies() {
 			if d.Path == "cudamega_moe_weight.cu" || d.Path == "cudamoe_weight_storage.cu" {
 				policy.SourceDigest = d.Digest
 			}
@@ -523,7 +528,7 @@ func TestNativeMoEMegaSharedWeights(t *testing.T) {
 			Image                                          string
 			Policy                                         cudatest.CUDAOutputPolicy
 			Mutant, Publication                            bool
-		}{name, desc, raw, sc, x, got[1:17], expected, got, moeNativeRead(t, completed), moeNativeRead(t, abort), moeNativeRead(t, order), image.Digest, policy, mutant, publication}
+		}{name, desc, raw, sc, x, got[1:17], expected, got, moeNativeRead(t, completed), moeNativeRead(t, abort), moeNativeRead(t, order), image.Digest(), policy, mutant, publication}
 		if err := moePacketWrite(filepath.Join(out, name+".json"), data); err != nil {
 			t.Fatal(err)
 		}

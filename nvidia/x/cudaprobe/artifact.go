@@ -53,5 +53,5 @@ func Identify(e Event, bindings []Binding) (KernelIdentity, error) {
 		return KernelIdentity{}, fmt.Errorf("cudaprobe: bound artifact: %w", err)
 	}
 	a := selected.Artifact
-	return KernelIdentity{Digest: a.Digest, EntryPoint: a.EntryPoint, Target: a.Target, Evidence: selected.Evidence, ModuleGeneration: selected.ModuleGeneration}, nil
+	return KernelIdentity{Digest: a.Digest(), EntryPoint: a.EntryPoint(), Target: a.Target(), Evidence: selected.Evidence, ModuleGeneration: selected.ModuleGeneration}, nil
 }

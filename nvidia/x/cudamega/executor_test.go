@@ -160,7 +160,7 @@ func TestCTARankAssignmentValidation(t *testing.T) {
 	src, err := cudamega.ProgramSource(g, map[string]cudamega.Operation{
 		"p": {Kind: cudamega.Add, Scalar: 1},
 		"c": {Kind: cudamega.Multiply, Scalar: 2},
-	}, cudamega.Grid{CTAs: 3, ThreadsPerCTA: 64}, goldenTarget)
+	}, cudamega.Grid{CTAs: 3, ThreadsPerCTA: 64, MaxElements: 1}, goldenTarget)
 	if err != nil {
 		t.Fatal(err)
 	}

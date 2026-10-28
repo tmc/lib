@@ -105,6 +105,9 @@ func (opt *SGDOptimizer) Step(params map[string][]float32, grads map[string][]fl
 // 2. Evaluates backward graph to obtain parameter gradients.
 // 3. Updates parameters using optimizer.
 // Returns the scalar loss before the step and the updated parameters.
+// lossNode must be the objective captured by Differentiate; original nodes
+// and matching detached snapshot nodes are accepted. A different objective
+// reports ErrActivationsMismatch before evaluation or optimizer mutation.
 func TrainingStep(
 	fwdGraph *cudair.Graph,
 	lossNode *cudair.Node,
@@ -123,6 +126,11 @@ func TrainingStep(
 		return 0, nil, errors.New("cudaautograd: nil loss node")
 	}
 
+	loss, err := bwdRes.trainingLoss(lossNode)
+	if err != nil {
+		return 0, nil, err
+	}
+
 	// Merge params into inputs for forward evaluation
 	fullInputs := make(map[string][]float32, len(inputs)+len(params))
 	for k, v := range inputs {
@@ -138,9 +146,9 @@ func TrainingStep(
 		return 0, nil, fmt.Errorf("cudaautograd: forward pass: %w", err)
 	}
 
-	lossVal, ok := fwdOutputs[lossNode.Name]
+	lossVal, ok := fwdOutputs[loss.Name]
 	if !ok || len(lossVal) != 1 {
-		return 0, nil, fmt.Errorf("cudaautograd: missing or invalid scalar loss %q", lossNode.Name)
+		return 0, nil, fmt.Errorf("cudaautograd: missing or invalid scalar loss %q", loss.Name)
 	}
 	currentLoss := lossVal[0]
 

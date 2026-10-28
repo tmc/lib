@@ -346,7 +346,7 @@ func runNativePlanReferenceChecked(t *testing.T, kind string, mega bool, inspect
 		}
 		if mega {
 			artifact := p.Steps()[0].Artifact
-			t.Logf("finite_worker entry=%s target=%s digest=%s ptx=\n%s", artifact.EntryPoint, artifact.Target, artifact.Digest, artifact.Raw)
+			t.Logf("finite_worker entry=%s target=%s digest=%s ptx=\n%s", artifact.EntryPoint(), artifact.Target(), artifact.Digest(), artifact.Bytes())
 		}
 		for round := range 3 {
 			data := replayInputs(round)

@@ -10,10 +10,11 @@ import (
 // Entries expire at the lesser of their interval end and a caller supplied TTL.
 // It neither discovers nor authenticates assignments.
 type EntityCache struct {
-	mu      sync.Mutex
-	limit   int
-	ttl     int64
-	entries map[entityKey]entityCacheEntry
+	mu        sync.Mutex
+	limit     int
+	ttl       int64
+	entries   map[entityKey]entityCacheEntry
+	completed map[EntityOwner]bool
 }
 type entityKey struct {
 	boot, node, namespace, domain, epoch, device, migEpoch string
@@ -23,6 +24,7 @@ type entityKey struct {
 type entityCacheEntry struct {
 	assignments []EntityAssignment
 	expires     int64
+	inserted    int64
 }
 
 // NewEntityCache creates a cache with a positive capacity and TTL in nanoseconds.
@@ -30,7 +32,7 @@ func NewEntityCache(capacity int, ttlNanos int64) (*EntityCache, error) {
 	if capacity <= 0 || capacity > entityMaxRecords || ttlNanos <= 0 {
 		return nil, fmt.Errorf("entity cache: invalid capacity or ttl")
 	}
-	return &EntityCache{limit: capacity, ttl: ttlNanos, entries: make(map[entityKey]entityCacheEntry)}, nil
+	return &EntityCache{limit: capacity, ttl: ttlNanos, entries: make(map[entityKey]entityCacheEntry), completed: make(map[EntityOwner]bool)}, nil
 }
 func assignmentKey(a EntityAssignment) (entityKey, error) {
 	p := a.Process
@@ -62,6 +64,9 @@ func (c *EntityCache) Put(assignments []EntityAssignment, now int64) error {
 		if err := a.Validate(); err != nil {
 			return err
 		}
+		if c.completed[a.Owner] {
+			return fmt.Errorf("entity cache: job completed")
+		}
 		k, err := assignmentKey(a)
 		if err != nil {
 			return err
@@ -90,7 +95,7 @@ func (c *EntityCache) Put(assignments []EntityAssignment, now int64) error {
 	if _, ok := c.entries[key]; !ok && len(c.entries) >= c.limit {
 		return fmt.Errorf("entity cache: capacity exceeded")
 	}
-	c.entries[key] = entityCacheEntry{copy, expires}
+	c.entries[key] = entityCacheEntry{assignments: copy, expires: expires, inserted: now}
 	return nil
 }
 
@@ -110,6 +115,9 @@ func (c *EntityCache) Get(query EntityAssignment, now int64) []EntityAssignment 
 	if !ok {
 		return nil
 	}
+	if now < e.inserted {
+		return nil
+	}
 	if now >= e.expires {
 		delete(c.entries, key)
 		return nil
@@ -124,7 +132,8 @@ func (c *EntityCache) Get(query EntityAssignment, now int64) []EntityAssignment 
 	return out
 }
 
-// Clear removes all cached relationships, for example after metadata restart.
+// Clear removes all relationships and job completion markers, for example after
+// a metadata authority restart.
 func (c *EntityCache) Clear() {
 	if c == nil {
 		return
@@ -132,4 +141,33 @@ func (c *EntityCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	clear(c.entries)
+	clear(c.completed)
+}
+
+// CompleteJob removes every relationship set containing the exact owner and
+// prevents that owner from being reinserted until Clear. JobID must be present;
+// callers must supply the original stable allocation and attempt fields too.
+// Completion markers are bounded by the cache capacity and persisted by SaveFile.
+func (c *EntityCache) CompleteJob(owner EntityOwner) error {
+	if c == nil || owner.JobID == "" {
+		return fmt.Errorf("entity cache: missing cache or job identity")
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.entries == nil || c.completed == nil {
+		return fmt.Errorf("entity cache: uninitialized cache")
+	}
+	if !c.completed[owner] && len(c.completed) >= c.limit {
+		return fmt.Errorf("entity cache: completion capacity exceeded")
+	}
+	c.completed[owner] = true
+	for key, entry := range c.entries {
+		for _, a := range entry.assignments {
+			if a.Owner == owner {
+				delete(c.entries, key)
+				break
+			}
+		}
+	}
+	return nil
 }

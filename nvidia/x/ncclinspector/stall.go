@@ -39,9 +39,13 @@ const (
 	ClockDomainGPUDevice     ClockDomain = "gpu_device"
 )
 
-// ClockMapping defines a clock domain with measured offset and uncertainty.
+// ClockMapping defines an offset-only calibration or an explicit bounded transform.
 type ClockMapping struct {
-	Domain ClockDomain
+	// Transform, when present, supplies query-dependent affine bounds. Construct
+	// its matching mapping with ClockTransform.Mapping. Offset-only mappings and
+	// their existing behavior remain available when Transform is nil.
+	Transform *ClockTransform
+	Domain    ClockDomain
 	// Source epochs are supplied by the caller, never inferred from a PID.
 	SourceBootEpoch    string
 	SourceProcessEpoch string
@@ -51,7 +55,7 @@ type ClockMapping struct {
 	ValidFromNS        int64
 	ValidUntilNS       int64
 	OffsetNS           int64
-	UncertaintyNS      int64 // measured uncertainty (+/- nanoseconds, must be non-negative)
+	UncertaintyNS      int64 // constant offset-only uncertainty; affine bounds are on aligned timestamps
 	// ReferenceDomain and ReferenceEpoch identify the destination clock.
 	// EvidenceRef must name the measurement used for an inter-host mapping.
 	ReferenceDomain ClockDomain
@@ -70,6 +74,9 @@ type BoundedTimestamp struct {
 
 // Aligned maps a bounded timestamp to the reference timeline using a clock mapping.
 func (bt BoundedTimestamp) Aligned(m ClockMapping) (BoundedTimestamp, error) {
+	if m.Transform != nil {
+		return m.Transform.aligned(bt, m)
+	}
 	if m.ReferenceDomain != "" || m.ReferenceEpoch != "" || m.EvidenceRef != "" || m.OffsetNS != 0 {
 		if !m.CalibrationKnown || !m.UncertaintyKnown || !m.ValidityKnown || m.SourceBootEpoch == "" || m.SourceProcessEpoch == "" || m.ReferenceDomain == "" || m.ReferenceEpoch == "" || m.EvidenceRef == "" || m.ValidFromNS < 0 || m.ValidUntilNS < m.ValidFromNS || bt.Epoch != m.SourceProcessEpoch || bt.BootEpoch != m.SourceBootEpoch {
 			return BoundedTimestamp{}, fmt.Errorf("%w: missing calibration validity or source epoch", ErrIncompatibleClocks)
@@ -119,6 +126,8 @@ type CollectiveObservation struct {
 	SourceBootEpoch    string
 	SourceProcessEpoch string
 	mapping            *ClockMapping
+	clockInputs        [5]BoundedTimestamp
+	clockInputsKnown   bool
 	// ClockEpoch identifies an explicitly mapped common clock epoch. A clock
 	// domain name alone does not establish synchronization across hosts.
 	ClockEpoch       string
@@ -242,6 +251,9 @@ func ObservationFromRecord(r Record, clock ClockMapping) (CollectiveObservation,
 		return CollectiveObservation{}, errors.New("ncclinspector: invalid process ID")
 	}
 
+	if clock.Transform != nil && (len(clock.Transform.steps) == 0 || r.Metadata.Hostname != clock.Transform.steps[0].Source.Host || clock.Transform.steps[0].Source.PID <= 0 || r.Metadata.PID != clock.Transform.steps[0].Source.PID) {
+		return CollectiveObservation{}, clockTransformError("record host or PID does not match transform source")
+	}
 	if clock.Domain == "" || clock.UncertaintyNS < 0 {
 		return CollectiveObservation{}, fmt.Errorf("%w: missing domain or negative uncertainty", ErrIncompatibleClocks)
 	}
@@ -316,16 +328,17 @@ func ObservationFromRecord(r Record, clock ClockMapping) (CollectiveObservation,
 	}
 	// Aggregate duration and record publication time do not establish a
 	// device start/end interval. Preserve missing stage evidence.
-	if clock.ReferenceEpoch != "" || clock.ReferenceDomain != "" || clock.EvidenceRef != "" || clock.OffsetNS != 0 {
+	if clock.Transform != nil || clock.ReferenceEpoch != "" || clock.ReferenceDomain != "" || clock.EvidenceRef != "" || clock.OffsetNS != 0 {
 		if clock.ReferenceEpoch == "" || clock.ReferenceDomain == "" || clock.EvidenceRef == "" {
 			return CollectiveObservation{}, fmt.Errorf("%w: incomplete mapping evidence", ErrIncompatibleClocks)
 		}
-		align := func(ts *BoundedTimestamp) error {
+		align := func(ts *BoundedTimestamp, index int) error {
 			// The record has no independent timestamp uncertainty; the mapping
 			// uncertainty is added exactly once by Aligned.
 			ts.UncertaintyNS = 0
 			ts.Epoch = clock.SourceProcessEpoch
 			ts.BootEpoch = clock.SourceBootEpoch
+			obs.clockInputs[index] = *ts
 			mapped, err := ts.Aligned(clock)
 			if err != nil {
 				return err
@@ -334,26 +347,27 @@ func ObservationFromRecord(r Record, clock ClockMapping) (CollectiveObservation,
 			return nil
 		}
 		if obs.HasHostEnqueue {
-			if err := align(&obs.HostEnqueueStart); err != nil {
+			if err := align(&obs.HostEnqueueStart, 0); err != nil {
 				return CollectiveObservation{}, err
 			}
-			if err := align(&obs.HostEnqueueEnd); err != nil {
+			if err := align(&obs.HostEnqueueEnd, 1); err != nil {
 				return CollectiveObservation{}, err
 			}
 		}
 		if obs.HasDeviceActivity {
-			if err := align(&obs.DeviceStart); err != nil {
+			if err := align(&obs.DeviceStart, 2); err != nil {
 				return CollectiveObservation{}, err
 			}
-			if err := align(&obs.DeviceEnd); err != nil {
+			if err := align(&obs.DeviceEnd, 3); err != nil {
 				return CollectiveObservation{}, err
 			}
 		}
 		if obs.HasCompletion {
-			if err := align(&obs.Completion); err != nil {
+			if err := align(&obs.Completion, 4); err != nil {
 				return CollectiveObservation{}, err
 			}
 		}
+		obs.clockInputsKnown = true
 		mapping := clock
 		obs.mapping = &mapping
 		obs.ClockEpoch = clock.ReferenceEpoch
@@ -621,6 +635,17 @@ func (a *TwoRankAttributor) Attribute(commHash string, seq uint64) (TwoRankDelay
 		report.Reason = "same-host source boot epoch differs"
 		return report, nil
 	}
+	// Affine timestamps cannot be inverted after interval rounding. Require
+	// retained source inputs and the same full destination identity instead.
+	affine0 := r0.mapping != nil && r0.mapping.Transform != nil
+	affine1 := r1.mapping != nil && r1.mapping.Transform != nil
+	if affine0 || affine1 {
+		if !affine0 || !affine1 || !validObservationMapping(r0) || !validObservationMapping(r1) || r0.mapping.Transform.steps[len(r0.mapping.Transform.steps)-1].Reference != r1.mapping.Transform.steps[len(r1.mapping.Transform.steps)-1].Reference {
+			report.Diagnosis = DiagnosisIncompatibleClocks
+			report.Reason = "bounded clock transform evidence or reference identity differs"
+			return report, nil
+		}
+	}
 	if r0.Hostname != r1.Hostname && (!validObservationMapping(r0) || !validObservationMapping(r1) || r0.Hostname == "" || r1.Hostname == "" || r0.ClockEpoch == "" || r0.ClockEpoch != r1.ClockEpoch || r0.ClockEvidenceRef == "" || r1.ClockEvidenceRef == "") {
 		report.Diagnosis = DiagnosisIncompatibleClocks
 		report.Reason = "cross-host clock mapping evidence missing"
@@ -767,6 +792,18 @@ func validObservationMapping(obs CollectiveObservation) bool {
 	if m == nil || obs.SourceBootEpoch != m.SourceBootEpoch || obs.SourceProcessEpoch != m.SourceProcessEpoch || obs.ClockEpoch != m.ReferenceEpoch || obs.ClockEvidenceRef != m.EvidenceRef {
 		return false
 	}
+	if m.Transform != nil {
+		if !obs.clockInputsKnown || len(m.Transform.steps) == 0 || obs.Hostname != m.Transform.steps[0].Source.Host || m.Transform.steps[0].Source.PID <= 0 || obs.HostPID != m.Transform.steps[0].Source.PID {
+			return false
+		}
+		check := func(ts BoundedTimestamp, index int) bool {
+			expected, err := obs.clockInputs[index].Aligned(*m)
+			return err == nil && expected == ts
+		}
+		return (!obs.HasHostEnqueue || check(obs.HostEnqueueStart, 0) && check(obs.HostEnqueueEnd, 1)) &&
+			(!obs.HasDeviceActivity || check(obs.DeviceStart, 2) && check(obs.DeviceEnd, 3)) &&
+			(!obs.HasCompletion || check(obs.Completion, 4))
+	}
 	check := func(ts BoundedTimestamp) bool {
 		if ts.Domain != m.ReferenceDomain || ts.Epoch != m.ReferenceEpoch || ts.UncertaintyNS != m.UncertaintyNS {
 			return false
@@ -788,4 +825,21 @@ func validObservationMapping(obs CollectiveObservation) bool {
 		return false
 	}
 	return true
+}
+
+// WithCompletion attaches an independently supplied source-clock completion
+// timestamp through the observation's retained mapping. It preserves its input
+// for later lineage checks. It does not infer completion from Inspector record
+// publication or kernel duration, or authenticate the caller's observation.
+func (obs CollectiveObservation) WithCompletion(timestamp BoundedTimestamp) (CollectiveObservation, error) {
+	if obs.mapping == nil {
+		return CollectiveObservation{}, clockTransformError("completion has no retained mapping")
+	}
+	mapped, err := timestamp.Aligned(*obs.mapping)
+	if err != nil {
+		return CollectiveObservation{}, err
+	}
+	obs.Completion, obs.HasCompletion = mapped, true
+	obs.clockInputs[4] = timestamp
+	return obs, nil
 }

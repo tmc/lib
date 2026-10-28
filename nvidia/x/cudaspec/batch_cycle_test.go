@@ -186,15 +186,19 @@ func TestBranchKVBorrowedPrefixAndDuplicateRelease(t *testing.T) {
 func TestBranchKVRejectsDuplicatedPrefix(t *testing.T) {
 	a, _ := batchFixture(t)
 	root := a.Table(10)
-	if err := a.AllocSequence(12, []int{root[0], root[0]}, 4); err != nil {
+	before := a.NumFreeBlocks()
+	holders, err := a.Holders(root[0])
+	if err != nil {
 		t.Fatal(err)
 	}
-	before := a.NumFreeBlocks()
-	if _, err := NewBranchKV(a, 12, 13, 4, 2); err == nil {
-		t.Fatal("aliased prefix blocks admitted")
+	// The public allocator refuses this prefix before BranchKV can observe
+	// it. This does not independently cover BranchKV's private duplicate guard.
+	if err := a.AllocSequence(12, []int{root[0], root[0]}, 4); err == nil {
+		t.Fatal("duplicate shared prefix admitted by allocator")
 	}
-	if a.NumFreeBlocks() != before {
-		t.Fatal("refusal allocated blocks")
+	after, err := a.Holders(root[0])
+	if err != nil || after != holders || a.NumFreeBlocks() != before || len(a.Table(12)) != 0 {
+		t.Fatal("duplicate-prefix refusal changed allocations or holders")
 	}
 }
 

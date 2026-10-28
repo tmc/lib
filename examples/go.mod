@@ -28,6 +28,7 @@ require (
 	github.com/tmc/ffi v0.0.0-20260906092449-1be2d95a8044 // indirect
 	github.com/tmc/lib/ebpfhost v0.0.0 // indirect
 	golang.org/x/crypto v0.56.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 )

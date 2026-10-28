@@ -30,11 +30,19 @@ type ToolFileIdentity struct {
 
 // StatTool returns the identity of the regular file at path.
 func StatTool(path string) (ToolFileIdentity, error) {
+	return statTool(path, toolFileIdentity)
+}
+
+// An identityFunc reduces what stat reports about the file at path to a
+// ToolFileIdentity.
+type identityFunc func(path string, fi os.FileInfo) (ToolFileIdentity, error)
+
+func statTool(path string, identity identityFunc) (ToolFileIdentity, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return ToolFileIdentity{}, fmt.Errorf("stat tool: %w", err)
 	}
-	return toolFileIdentity(path, fi)
+	return identity(path, fi)
 }
 
 func toolFileIdentity(path string, fi os.FileInfo) (ToolFileIdentity, error) {
@@ -63,6 +71,10 @@ type ToolDigest struct {
 // reports ErrToolIdentityChanged if any of the three disagree: the file was
 // written to, or replaced, while it was being hashed.
 func DigestTool(name, path string) (ToolDigest, error) {
+	return digestTool(name, path, toolFileIdentity)
+}
+
+func digestTool(name, path string, identity identityFunc) (ToolDigest, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %w", name, err)
@@ -72,7 +84,7 @@ func DigestTool(name, path string) (ToolDigest, error) {
 	if err != nil {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %w", name, err)
 	}
-	before, err := toolFileIdentity(path, fi)
+	before, err := identity(path, fi)
 	if err != nil {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %w", name, err)
 	}
@@ -84,52 +96,42 @@ func DigestTool(name, path string) (ToolDigest, error) {
 	if err != nil {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %w", name, err)
 	}
-	after, err := toolFileIdentity(path, fi)
+	after, err := identity(path, fi)
 	if err != nil {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %w", name, err)
 	}
-	named, err := StatTool(path)
+	named, err := statTool(path, identity)
 	if err != nil {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %w: %w", name, ErrToolIdentityChanged, err)
 	}
 	if after != before || named != before {
 		return ToolDigest{}, fmt.Errorf("digest tool %s: %s changed while it was hashed: %w", name, path, ErrToolIdentityChanged)
 	}
-	d := ToolDigest{Name: name, SHA256: hex.EncodeToString(h.Sum(nil)), File: before}
-	toolMemoMu.Lock()
-	toolMemo[name+"\x00"+path] = d
-	toolMemoMu.Unlock()
-	return d, nil
+	return ToolDigest{Name: name, SHA256: hex.EncodeToString(h.Sum(nil)), File: before}, nil
 }
 
 // VerifyTool reports whether d.File.Path still holds the contents d recorded.
 // A missing file, a different digest, or a change during hashing reports
 // ErrToolIdentityChanged.
 //
-// When d.File.Unix is true, the current identity equals d.File, and this
-// process previously hashed that identity to d.SHA256, the recorded digest
-// is reused without reading the file. A caller's stat fields alone cannot
-// establish its claimed digest. The reuse assumes a write
-// changes the modification or change time; on a filesystem whose timestamps
-// are too coarse to record a same-size write, such a write goes undetected.
-// Without Unix identity the file is always rehashed.
+// VerifyTool rehashes the file on every call. An unchanged identity is not
+// evidence of unchanged bytes: on a filesystem whose timestamps are too
+// coarse to record a same-size write, stat reports the same identity before
+// and after it. A change of identity alone, such as a touch, is accepted
+// when the bytes still match. A write that is undone between two
+// observations is not detected.
 func VerifyTool(d ToolDigest) error {
+	return verifyTool(d, toolFileIdentity)
+}
+
+func verifyTool(d ToolDigest, identity identityFunc) error {
 	if d.File.Path == "" || d.SHA256 == "" {
 		return fmt.Errorf("verify tool %s: no recorded path or digest", d.Name)
 	}
-	cur, err := StatTool(d.File.Path)
-	if err != nil {
+	if _, err := statTool(d.File.Path, identity); err != nil {
 		return fmt.Errorf("verify tool %s: %w: %w", d.Name, ErrToolIdentityChanged, err)
 	}
-	if d.File.Unix && cur == d.File {
-		toolMemoMu.Lock()
-		known, ok := toolMemo[d.Name+"\x00"+d.File.Path]
-		toolMemoMu.Unlock()
-		if ok && known.File == d.File && known.SHA256 == d.SHA256 {
-			return nil
-		}
-	}
-	now, err := DigestTool(d.Name, d.File.Path)
+	now, err := digestTool(d.Name, d.File.Path, identity)
 	if err != nil {
 		if errors.Is(err, ErrToolIdentityChanged) {
 			return fmt.Errorf("verify tool: %w", err)

@@ -114,12 +114,12 @@ func checkedMoEWeightArtifact(kind MoEWeightConsumerKind, artifact *cudakernel.A
 	if err != nil {
 		return nil, err
 	}
-	if artifact.EntryPoint != entry || !reflect.DeepEqual(artifact.Schema, schema) || artifact.Kind != cudakernel.KindPTX && artifact.Kind != cudakernel.KindCUBIN {
+	if artifact.EntryPoint() != entry || !reflect.DeepEqual(artifact.Schema(), schema) || artifact.Kind() != cudakernel.KindPTX && artifact.Kind() != cudakernel.KindCUBIN {
 		return nil, errors.New("cudamoe: weight consumer entry, image kind or schema differs")
 	}
 	want := fmt.Sprintf("%x", sha256.Sum256([]byte(source)))
 	count := 0
-	for _, d := range artifact.Dependencies {
+	for _, d := range artifact.Dependencies() {
 		if d.Path == "cudamoe_weight_storage.cu" {
 			if !d.Tracked || d.Digest != want || d.ErrorMsg != "" {
 				return nil, errors.New("cudamoe: weight consumer source binding differs")
@@ -131,18 +131,13 @@ func checkedMoEWeightArtifact(kind MoEWeightConsumerKind, artifact *cudakernel.A
 		return nil, errors.New("cudamoe: missing or duplicate weight consumer source binding")
 	}
 	owned := *artifact
-	owned.Raw = append([]byte(nil), artifact.Raw...)
-	owned.Schema.Params = append([]cudakernel.Param(nil), artifact.Schema.Params...)
-	owned.Dependencies = append([]cudakernel.Dependency(nil), artifact.Dependencies...)
-	owned.CompilerOpts = append([]string(nil), artifact.CompilerOpts...)
 	return &owned, nil
 }
 
 // LoadMoEWeightConsumer loads a trusted compilation artifact of MoEWeightSource.
 // Its exact ABI, entry and tracked cudamoe_weight_storage.cu source digest must
 // match. Receipt checks associate source; they do not authenticate a compiler or
-// establish arbitrary machine-code semantics. Descriptor slices are copied;
-// callers must exclude mutation during the call. Close every nonnil error result.
+// establish arbitrary machine-code semantics. The immutable descriptor is captured by value. Close every nonnil error result.
 func LoadMoEWeightConsumer(dev *cuda.Device, kind MoEWeightConsumerKind, artifact *cudakernel.Artifact) (*MoEWeightConsumer, error) {
 	owned, err := checkedMoEWeightArtifact(kind, artifact)
 	if err != nil {
@@ -161,7 +156,7 @@ func LoadMoEWeightConsumer(dev *cuda.Device, kind MoEWeightConsumerKind, artifac
 		return c, err
 	}
 	c.raw = 0
-	c.kernel, err = c.module.Function(owned.EntryPoint)
+	c.kernel, err = c.module.Function(owned.EntryPoint())
 	return c, err
 }
 

@@ -36,7 +36,11 @@ func (c *controlledPlanCompletion) set(done bool, err error) {
 }
 func planTestStep(t *testing.T, id int64) *ExecutionStep {
 	t.Helper()
-	m, err := ValidateAndBindRows([]BatchRowBinding{{RowIndex: 0, SeqID: "a", Tokens: []int32{1}, StartPos: 0, SequenceLength: 1, BlockTable: []int{0}}}, ShapeBucket{1, 1, 1}, 1)
+	pool := cudakv.NewBlockAllocator(1, 1)
+	if err := pool.AllocSequence(1, nil, 1); err != nil {
+		t.Fatal(err)
+	}
+	m, err := BindAllocatedRows([]BatchRowBinding{{RowIndex: 0, SeqID: "a", Tokens: []int32{1}, StartPos: 0, SequenceLength: 1, BlockTable: pool.Table(1)}}, ShapeBucket{1, 1, 1}, pool, []int64{1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +317,7 @@ func TestPlanEngineSchedulerChunks(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		metadata, err := ValidateAndBindRows(iteration.AllocatedRows, ShapeBucket{1, 8, 2}, 2)
+		metadata, err := scheduler.BindIteration(iteration, ShapeBucket{1, 8, 2})
 		if err != nil {
 			t.Fatal(err)
 		}

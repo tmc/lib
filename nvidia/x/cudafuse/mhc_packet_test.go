@@ -138,10 +138,10 @@ func TestMHCOfflinePacketPreparation(t *testing.T) {
 					t.Fatal(err)
 				}
 				keys[i] = cm.Key()
-				if artifacts[i].Kind != cudakernel.KindPTX {
+				if artifacts[i].Kind() != cudakernel.KindPTX {
 					t.Fatal("expected PTX")
 				}
-				if c.mutation == nil && (publicArtifacts[i].Digest != artifacts[i].Digest || publicArtifacts[i].EntryPoint != artifacts[i].EntryPoint) {
+				if c.mutation == nil && (publicArtifacts[i].Digest() != artifacts[i].Digest() || publicArtifacts[i].EntryPoint() != artifacts[i].EntryPoint()) {
 					t.Fatal("public artifact differs from fresh producer")
 				}
 				if err := os.WriteFile(filepath.Join(dir, mhcPacketName(c)+fmt.Sprintf("-stage%d.cu", i)), []byte(s.Source), 0600); err != nil {

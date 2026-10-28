@@ -108,7 +108,7 @@ func TestNativePlanProfileSidecarIdentity(t *testing.T) {
 			t.Fatal(err)
 		}
 		device := fmt.Sprintf("GPU-%x-%x-%x-%x-%x", uuid.Bytes[:4], uuid.Bytes[4:6], uuid.Bytes[6:8], uuid.Bytes[8:10], uuid.Bytes[10:])
-		target := cudaprof.ProfileTarget{CodeDigest: steps[0].Artifact.Digest, Region: steps[0].NodeName, Workload: "cudaplan-native-kernel:inputs=" + integrationInputsHash(data), Device: device, CollectorMode: "pc_sampling"}
+		target := cudaprof.ProfileTarget{CodeDigest: steps[0].Artifact.Digest(), Region: steps[0].NodeName, Workload: "cudaplan-native-kernel:inputs=" + integrationInputsHash(data), Device: device, CollectorMode: "pc_sampling"}
 		t.Logf("expected_sidecar_target=%+v", target)
 		if _, err := snapshot.Guidance(target); err != nil {
 			t.Fatal(err)
@@ -198,7 +198,7 @@ func TestIntegrationSidecarUsesCompiledArtifactIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	data := replayInputs(0)
-	target := cudaprof.ProfileTarget{CodeDigest: step.Artifact.Digest, Region: step.NodeName, Workload: output + ":inputs=" + integrationInputsHash(data), Device: "synthetic-device", CollectorMode: "synthetic_fixture"}
+	target := cudaprof.ProfileTarget{CodeDigest: step.Artifact.Digest(), Region: step.NodeName, Workload: output + ":inputs=" + integrationInputsHash(data), Device: "synthetic-device", CollectorMode: "synthetic_fixture"}
 	sidecar, err := cudaprof.NewProfileSnapshot(cudaprof.ProfileSnapshot{Version: 1, CodeDigest: target.CodeDigest, Region: target.Region, Workload: target.Workload, TokensHash: target.TokensHash, Device: target.Device, CollectorMode: target.CollectorMode, Coverage: 1, Metrics: map[string]int64{"stall": 1}, MetricUnits: map[string]string{"stall": "samples"}})
 	if err != nil {
 		t.Fatal(err)

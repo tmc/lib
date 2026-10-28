@@ -16,7 +16,7 @@ func TestProbeRecorderRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.Identity.Provenance = "synthetic"
-	e.Identity.Interposed = true
+	e.Identity.Interposition = Interposition{Status: "declared_active", Evidence: "fixture declaration"}
 	r, err := cudaflightrecorder.New(cudaflightrecorder.Config{Capacity: 2})
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestProbeRecorderRoundTrip(t *testing.T) {
 		t.Fatalf("records=%d", len(records))
 	}
 	got := records[0]
-	for k, v := range map[string]string{"probe.build_id": "synthetic-build", "probe.symbol": "cuLaunchKernel", "probe.interposed": "true", "provenance": "synthetic", "probe.grid": "[2 3 4]", "probe.block": "[32 1 1]", "tensor_shapes": "unavailable", "tensor_dtypes": "unavailable", "duration_status": "unavailable", "timestamp_source": "collector_receipt", "probe.clock": "host_monotonic"} {
+	for k, v := range map[string]string{"probe.build_id": "synthetic-build", "probe.symbol": "cuLaunchKernel", "probe.interposition": "declared_active", "probe.interposition_source": "caller_reported", "probe.interposition_evidence": "fixture declaration", "provenance": "synthetic", "probe.grid": "[2 3 4]", "probe.block": "[32 1 1]", "tensor_shapes": "unavailable", "tensor_dtypes": "unavailable", "duration_status": "unavailable", "timestamp_source": "collector_receipt", "probe.clock": "host_monotonic"} {
 		if got.Labels[k] != v {
 			t.Errorf("%s=%q want %q", k, got.Labels[k], v)
 		}

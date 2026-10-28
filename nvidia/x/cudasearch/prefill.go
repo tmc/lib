@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"maps"
 	"math"
 	"slices"
@@ -127,9 +128,11 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 	if !c.checkLease() {
 		return nil, cudatrial.ErrHardwareLockRequired
 	}
+	ownedArtifact := *artifact
+	artifact = &ownedArtifact
 	x := &prefillExecutable{memory: searchMemoryBudget(ctx), dev: c.dev, checkLease: c.checkLease, closed: true, k: c.k, n: c.n, grid: grid, block: block}
 	x.preparation = c.Preparation()
-	x.identity = fmt.Sprintf("%s/%s/%v/%v/%s", artifact.Digest, artifact.EntryPoint, grid, block, c.bindings.Key())
+	x.identity = fmt.Sprintf("%s/%s/%v/%v/%s", artifact.Digest(), artifact.EntryPoint(), grid, block, c.bindings.Key())
 	x.raw, err = artifact.Load(c.dev)
 	if err != nil {
 		return x, err
@@ -139,7 +142,7 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 		return x, err
 	}
 	x.raw = 0
-	x.kernel, err = x.module.Function(artifact.EntryPoint)
+	x.kernel, err = x.module.Function(artifact.EntryPoint())
 	if err != nil {
 		return x, err
 	}
@@ -188,7 +191,7 @@ func (c *PrefillCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Work
 		return x, err
 	}
 	x.args = []any{x.a, x.b, x.out, uint32(c.k), uint32(c.n)}
-	if _, err := artifact.Schema.Pack(x.args...); err != nil {
+	if _, err := artifact.Pack(x.args...); err != nil {
 		return x, err
 	}
 	x.closed = false
@@ -206,6 +209,7 @@ func (c *PrefillCompiler) admit(expr *egraph.Expr, b WorkloadBindings) error {
 }
 
 type prefillExecutable struct {
+	outputMemory  *outputMemoryOwner
 	memory        *memoryBudget
 	releaseMemory func()
 	deviceBytes   int64
@@ -228,23 +232,54 @@ type prefillExecutable struct {
 }
 
 func (x *prefillExecutable) Identity() string { return x.identity }
+
+// Outputs retains its returned readbacks until Close. The evaluator uses
+// outputsOwned instead so a borrowed baseline does not retain every call.
 func (x *prefillExecutable) Outputs(ctx context.Context) (map[string][]float32, error) {
+	return x.outputsLegacyWith(ctx, x.outputOps())
+}
+
+func (x *prefillExecutable) outputsLegacyWith(ctx context.Context, ops outputReadOps) (map[string][]float32, error) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
-	if _, err := x.run(ctx, false); err != nil {
-		return nil, err
+	values, owner, err := x.outputsWith(ctx, ops)
+	retainBuiltInOutputs(&x.outputMemory, owner)
+	return values, err
+}
+
+func (x *prefillExecutable) outputsOwned(ctx context.Context) (map[string][]float32, io.Closer, error) {
+	return x.outputsOwnedWith(ctx, x.outputOps())
+}
+
+func (x *prefillExecutable) outputsOwnedWith(ctx context.Context, ops outputReadOps) (map[string][]float32, io.Closer, error) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return x.outputsWith(ctx, ops)
+}
+
+func (x *prefillExecutable) outputOps() outputReadOps {
+	return outputReadOps{
+		run:        func(ctx context.Context) error { _, err := x.run(ctx, false); return err },
+		length:     func(int) (int, error) { return x.out.Len(), nil },
+		readFloats: func(_ int, data []float32) error { return x.out.CopyToHost(data) },
 	}
-	reservation, err := reserveSearchMemory(ctx, int64(x.out.Len())*4)
-	if err != nil {
-		return nil, err
+}
+
+// outputsWith is called under mu; only its per-call device operations are
+// replaced by host controls. Output metadata and allocation stay on this path.
+func (x *prefillExecutable) outputsWith(ctx context.Context, ops outputReadOps) (map[string][]float32, io.Closer, error) {
+	read := ops.readFloats
+	ops.readFloats = func(i int, data []float32) error {
+		err := read(i, data)
+		if err != nil {
+			x.closed = true
+		}
+		return err
 	}
-	defer reservation.release()
-	data := make([]float32, x.out.Len())
-	if err := x.out.CopyToHost(data); err != nil {
-		x.closed = true
-		return nil, err
-	}
-	return map[string][]float32{"out": data}, nil
+	return readBuiltInOutputs(ctx, 1, func(i int) (outputDescription, error) {
+		n, err := ops.length(i)
+		return outputDescription{name: "out", length: n, format: outputFloats}, err
+	}, ops)
 }
 func (x *prefillExecutable) Run(ctx context.Context) (cudatrial.Receipt, error) {
 	x.mu.Lock()
@@ -339,9 +374,17 @@ func (x *prefillExecutable) runWith(ctx context.Context, measure bool, ops prefi
 }
 
 func (x *prefillExecutable) Close() error {
+	return x.closeWith(x.closeResources)
+}
+
+func (x *prefillExecutable) closeWith(closeResources func() error) error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	x.closed = true
+	return closeBuiltInOutputs(&x.outputMemory, closeResources)
+}
+
+func (x *prefillExecutable) closeResources() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if x.stream != nil {

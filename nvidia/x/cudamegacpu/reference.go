@@ -14,6 +14,8 @@ import (
 // of the primitives; it does not call the driver; and it applies the two
 // operations through its own switch rather than the backend's, so that an
 // operation implemented wrongly in one is not implemented wrongly in both.
+// A caller-supplied Body is an exception: its Evaluate method is shared with
+// the worker, so agreement does not independently validate Body.Source.
 // What it does share is [cudamega.Step], which is the statement of the
 // problem rather than a step of the solution.
 //
@@ -26,25 +28,55 @@ func Reference(p *cudamega.Program, input []uint32) ([]uint32, error) {
 	if p == nil {
 		return nil, fmt.Errorf("cudamegacpu: nil program")
 	}
+	for _, s := range p.Steps() {
+		if _, typed := s.Operation.MoE(); typed || s.Operation.Kind == cudamega.MoEGateUp || s.Operation.Kind == cudamega.MoECombine {
+			return nil, fmt.Errorf("cudamegacpu: typed program requires an ordinary-source reference")
+		}
+	}
 	inv, err := p.Invocation(uint64(len(input)))
 	if err != nil {
 		return nil, fmt.Errorf("cudamegacpu: invocation: %w", err)
 	}
 	steps := p.Steps()
-	n := len(input)
+	layout, err := p.Storage(uint64(len(input)))
+	if err != nil {
+		return nil, err
+	}
 	out := make([]uint32, inv.ScratchWords)
 	for i, s := range steps {
-		from := input
-		if len(s.Deps) > 0 {
-			d := s.Deps[0]
-			from = out[d*n : d*n+n]
+		// Resolve declared operand names independently of the Runner.
+		ids := s.Task.Inputs
+		if len(ids) == 0 && len(s.Deps) != 0 {
+			ids = []string{steps[s.Deps[0]].Task.ID}
 		}
-		for e := 0; e < n; e++ {
+		operands := [][]uint32{input}
+		if len(ids) != 0 {
+			operands = nil
+			for _, id := range ids {
+				for d := range steps[:i] {
+					if steps[d].Task.ID == id {
+						r := layout[d]
+						operands = append(operands, out[r.Offset:r.Offset+r.Elements])
+						break
+					}
+				}
+			}
+		}
+		r := layout[i]
+		values := make([]uint32, len(operands))
+		for e := 0; e < r.Elements; e++ {
+			for j := range operands {
+				values[j] = operands[j][e]
+			}
+			if s.Operation.Body != nil {
+				out[r.Offset+e] = s.Operation.Body.Evaluate(values)
+				continue
+			}
 			switch s.Operation.Kind {
 			case cudamega.Add:
-				out[i*n+e] = from[e] + s.Operation.Scalar
+				out[r.Offset+e] = values[0] + s.Operation.Scalar
 			case cudamega.Multiply:
-				out[i*n+e] = from[e] * s.Operation.Scalar
+				out[r.Offset+e] = values[0] * s.Operation.Scalar
 			default:
 				return nil, fmt.Errorf("cudamegacpu: task %q has unsupported operation %d", s.Task.ID, s.Operation.Kind)
 			}

@@ -1,9 +1,10 @@
 
-// start_order is the instrument, not part of the model: start_order[0] is a
+// start_order begins with the instrument: start_order[0] is a
 // ticket counter and start_order[1 + cta*task_count + task] is the ticket the
 // CTA held when it took that task, or zero for a task that CTA never took.
 // Tickets are dealt by one device-scope atomic add, so they are a total order
 // over task starts across the whole grid and can be compared between CTAs.
+// The final two words hold fresh zeroed entry arrivals and release state.
 extern "C" __global__ void dag_worker(const unsigned *input, unsigned *scratch,
     unsigned *completed, unsigned long long *start_order, volatile unsigned *abort_code,
     unsigned n, unsigned long long epoch) {

@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: Apache-2.0
+
+package cudaquant
+
+import (
+	"fmt"
+	"math"
+)
+
+// SwiGLUQuantConfig configures fused SwiGLU activation and per-token block FP8
+// E4M3 quantization.
+type SwiGLUQuantConfig struct {
+	Tokens              int
+	IntermediateDim     int
+	BlockSize           int
+	Recipe              ScaleRecipe
+	OutputRowAlignBytes int
+	ScaleColAlignBytes  int
+}
+
+func (c SwiGLUQuantConfig) normalize() (SwiGLUQuantConfig, int, int, error) {
+	if c.BlockSize == 0 {
+		c.BlockSize = 128
+	}
+	if c.OutputRowAlignBytes == 0 {
+		c.OutputRowAlignBytes = 32
+	}
+	if c.ScaleColAlignBytes == 0 {
+		c.ScaleColAlignBytes = 16
+	}
+	if c.Tokens <= 0 || c.IntermediateDim <= 0 || c.BlockSize <= 0 {
+		return c, 0, 0, fmt.Errorf("cudaquant: invalid swiglu dimensions tokens=%d intermediateDim=%d blockSize=%d", c.Tokens, c.IntermediateDim, c.BlockSize)
+	}
+	if c.IntermediateDim%c.BlockSize != 0 {
+		return c, 0, 0, fmt.Errorf("cudaquant: intermediateDim (%d) must be a multiple of blockSize (%d)", c.IntermediateDim, c.BlockSize)
+	}
+	if c.Recipe != ScaleRecipeFloat32 && c.Recipe != ScaleRecipeUE8M0 {
+		return c, 0, 0, fmt.Errorf("cudaquant: unsupported scale recipe %v", c.Recipe)
+	}
+	outStride, err := AlignedOutputStride(c.IntermediateDim, 1, c.OutputRowAlignBytes)
+	if err != nil {
+		return c, 0, 0, err
+	}
+	alignedRows, err := AlignedScaleRows(c.Tokens, c.ScaleColAlignBytes)
+	if err != nil {
+		return c, 0, 0, err
+	}
+	return c, outStride, alignedRows, nil
+}
+
+// SwiGLUPerTokenQuantCPU computes silu(gate) * up on a [Tokens, 2*IntermediateDim]
+// row-major tensor (where each token row stores [gate[0..D-1], up[0..D-1]]) and
+// quantizes each BlockSize tile into FP8 E4M3 with either float32 scales or
+// TMA-aligned column-major packed UE8M0 scales.
+func SwiGLUPerTokenQuantCPU(gateUp []float32, cfg SwiGLUQuantConfig) (fp8Out []uint8, scales []float32, packedUE8M0ColMajor []uint32, err error) {
+	cfg, outStride, alignedRows, err := cfg.normalize()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rowIn := 2 * cfg.IntermediateDim
+	if cfg.Tokens > math.MaxInt/rowIn || len(gateUp) != cfg.Tokens*rowIn {
+		return nil, nil, nil, fmt.Errorf("cudaquant: gateUp length %d, want %d", len(gateUp), cfg.Tokens*rowIn)
+	}
+	for i, v := range gateUp {
+		if !finite(v) {
+			return nil, nil, nil, fmt.Errorf("cudaquant: non-finite gateUp[%d] = %v", i, v)
+		}
+	}
+
+	blocksPerRow := cfg.IntermediateDim / cfg.BlockSize
+	scaleCols := (blocksPerRow + 3) / 4
+	fp8Out = make([]uint8, cfg.Tokens*outStride)
+	scales = make([]float32, cfg.Tokens*blocksPerRow)
+	var rowMajorPacked []uint32
+	if cfg.Recipe == ScaleRecipeUE8M0 {
+		rowMajorPacked = make([]uint32, cfg.Tokens*scaleCols)
+	}
+
+	tile := make([]float32, cfg.BlockSize)
+	rowExps := make([]uint8, blocksPerRow)
+
+	for t := 0; t < cfg.Tokens; t++ {
+		inBase := t * rowIn
+		outBase := t * outStride
+		for b := 0; b < blocksPerRow; b++ {
+			amax := float32(0)
+			for i := 0; i < cfg.BlockSize; i++ {
+				col := b*cfg.BlockSize + i
+				g := float64(gateUp[inBase+col])
+				u := float64(gateUp[inBase+cfg.IntermediateDim+col])
+				silu := g / (1.0 + math.Exp(-g))
+				val := float32(silu * u)
+				if !finite(val) {
+					return nil, nil, nil, fmt.Errorf("cudaquant: swiglu activation overflow at token %d col %d", t, col)
+				}
+				tile[i] = val
+				av := float32(math.Abs(float64(val)))
+				if av > amax {
+					amax = av
+				}
+			}
+
+			var scale float32
+			if cfg.Recipe == ScaleRecipeUE8M0 {
+				exp := QuantizeScaleUE8M0(amax, fp8E4M3Max)
+				rowExps[b] = exp
+				scale = DequantizeScaleUE8M0(exp)
+			} else {
+				scale = amax / fp8E4M3Max
+			}
+			scales[t*blocksPerRow+b] = scale
+
+			var invScale float32
+			if scale > 0 {
+				invScale = 1.0 / scale
+			}
+			for i := 0; i < cfg.BlockSize; i++ {
+				fp8Out[outBase+b*cfg.BlockSize+i] = float32ToFP8E4M3(tile[i] * invScale)
+			}
+		}
+		if cfg.Recipe == ScaleRecipeUE8M0 {
+			packedRow, err := PackUE8M0(rowExps)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			copy(rowMajorPacked[t*scaleCols:(t+1)*scaleCols], packedRow)
+		}
+	}
+
+	if cfg.Recipe == ScaleRecipeUE8M0 {
+		packedUE8M0ColMajor, err = TransformScaleLayoutColMajor(rowMajorPacked, cfg.Tokens, scaleCols, alignedRows)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	return fp8Out, scales, packedUE8M0ColMajor, nil
+}
+
+// FusedSwiGLUPerTokenCastSource generates a self-contained NVRTC-compilable
+// CUDA C++ kernel implementing fused SwiGLU activation, warp-level amax
+// reduction, power-of-two UE8M0 or float32 scale computation, 32B-aligned
+// output row stride, and TMA-aligned column-major packed scale output.
+func FusedSwiGLUPerTokenCastSource(cfg SwiGLUQuantConfig) (string, error) {
+	cfg, outStride, alignedRows, err := cfg.normalize()
+	if err != nil {
+		return "", err
+	}
+	blocksPerRow := cfg.IntermediateDim / cfg.BlockSize
+	scaleCols := (blocksPerRow + 3) / 4
+	useUE8M0 := 0
+	if cfg.Recipe == ScaleRecipeUE8M0 {
+		useUE8M0 = 1
+	}
+
+	return fmt.Sprintf(`// Code generated by cudaquant.FusedSwiGLUPerTokenCastSource; DO NOT EDIT.
+#define SWIGLU_TOKENS %d
+#define SWIGLU_INTERMEDIATE_DIM %d
+#define SWIGLU_BLOCK_SIZE %d
+#define SWIGLU_OUT_STRIDE %d
+#define SWIGLU_ALIGNED_ROWS %d
+#define SWIGLU_BLOCKS_PER_ROW %d
+#define SWIGLU_SCALE_COLS %d
+#define SWIGLU_USE_UE8M0 %d
+
+__device__ __forceinline__ unsigned char swiglu_quant_ue8m0_exp(float amax) {
+    float clamped = fmaxf(amax, 1e-12f) * (1.0f / 448.0f);
+    union { float f; unsigned int u; } bits;
+    bits.f = clamped;
+    int exp = (int)(((bits.u - 1u) >> 23) + 1u);
+    if (exp < 0) exp = 0;
+    if (exp > 254) exp = 254;
+    return (unsigned char)exp;
+}
+
+__device__ __forceinline__ float swiglu_dequant_ue8m0_exp(unsigned char exp) {
+    union { unsigned int u; float f; } bits;
+    bits.u = ((unsigned int)exp) << 23;
+    return bits.f;
+}
+
+__device__ __forceinline__ unsigned char swiglu_f32_to_e4m3(float x) {
+    unsigned char sign = 0;
+    if (x < 0.0f) {
+        sign = 0x80u;
+        x = -x;
+    }
+    if (x >= 448.0f) return sign | 0x7eu;
+    if (x < (1.0f / 1024.0f)) return sign;
+    union { float f; unsigned int u; } bits;
+    bits.f = x;
+    int fexp = (int)((bits.u >> 23) & 0xffu) - 127;
+    unsigned int fmant = bits.u & 0x7fffffu;
+    int e4 = fexp + 7;
+    if (e4 <= 0) {
+        int m = (int)roundf(x * 512.0f);
+        if (m > 7) m = 7;
+        return sign | (unsigned char)m;
+    }
+    unsigned int m3 = (fmant + 0x80000u) >> 20;
+    if (m3 == 8u) {
+        m3 = 0u;
+        e4 += 1;
+    }
+    if (e4 > 15 || (e4 == 15 && m3 >= 7u)) {
+        return sign | 0x7eu;
+    }
+    return sign | (unsigned char)((e4 << 3) | (int)m3);
+}
+
+extern "C" __global__ void fused_swiglu_per_token_fp8_quant(
+    const float* __restrict__ gate_up,
+    unsigned char* __restrict__ fp8_out,
+    float* __restrict__ scales_out,
+    unsigned int* __restrict__ packed_ue8m0_col_major,
+    int tokens
+) {
+    int token = blockIdx.x;
+    if (token >= tokens) return;
+
+    int lane = threadIdx.x & 31;
+    const float* row_in = gate_up + (size_t)token * (2 * SWIGLU_INTERMEDIATE_DIM);
+    unsigned char* row_out = fp8_out + (size_t)token * SWIGLU_OUT_STRIDE;
+
+    for (int b = 0; b < SWIGLU_BLOCKS_PER_ROW; ++b) {
+        int base_col = b * SWIGLU_BLOCK_SIZE;
+        float local_max = 0.0f;
+        for (int i = lane; i < SWIGLU_BLOCK_SIZE; i += 32) {
+            float g = row_in[base_col + i];
+            float u = row_in[SWIGLU_INTERMEDIATE_DIM + base_col + i];
+            float act = (g / (1.0f + expf(-g))) * u;
+            local_max = fmaxf(local_max, fabsf(act));
+        }
+        for (int offset = 16; offset > 0; offset >>= 1) {
+            local_max = fmaxf(local_max, __shfl_xor_sync(0xffffffffu, local_max, offset));
+        }
+
+        float scale = local_max * (1.0f / 448.0f);
+        unsigned char exp_byte = 0;
+        if (SWIGLU_USE_UE8M0) {
+            exp_byte = swiglu_quant_ue8m0_exp(local_max);
+            scale = swiglu_dequant_ue8m0_exp(exp_byte);
+        }
+        if (lane == 0 && scales_out != nullptr) {
+            scales_out[token * SWIGLU_BLOCKS_PER_ROW + b] = scale;
+        }
+        float inv_scale = scale > 0.0f ? (1.0f / scale) : 0.0f;
+        for (int i = lane; i < SWIGLU_BLOCK_SIZE; i += 32) {
+            float g = row_in[base_col + i];
+            float u = row_in[SWIGLU_INTERMEDIATE_DIM + base_col + i];
+            float act = (g / (1.0f + expf(-g))) * u;
+            row_out[base_col + i] = swiglu_f32_to_e4m3(act * inv_scale);
+        }
+        if (SWIGLU_USE_UE8M0 && lane == 0 && packed_ue8m0_col_major != nullptr) {
+            int sc = b / 4;
+            int shift = (b & 3) * 8;
+            if ((b & 3) == 0) {
+                packed_ue8m0_col_major[sc * SWIGLU_ALIGNED_ROWS + token] = (unsigned int)exp_byte;
+            } else {
+                packed_ue8m0_col_major[sc * SWIGLU_ALIGNED_ROWS + token] |= ((unsigned int)exp_byte) << shift;
+            }
+        }
+    }
+    for (int c = SWIGLU_INTERMEDIATE_DIM + lane; c < SWIGLU_OUT_STRIDE; c += 32) {
+        row_out[c] = 0;
+    }
+}
+`, cfg.Tokens, cfg.IntermediateDim, cfg.BlockSize, outStride, alignedRows, blocksPerRow, scaleCols, useUE8M0), nil
+}

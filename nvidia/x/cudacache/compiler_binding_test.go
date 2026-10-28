@@ -40,8 +40,12 @@ func TestAdapterRejectsWrongCompilerArtifact(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newToolchainFixture(t)
-			art := newTestArtifact(t, "k", tc.target)
-			art.Kind = tc.kind
+			spec := newTestArtifact(t, "k", tc.target).Spec()
+			spec.Kind = tc.kind
+			art, err := cudakernel.NewArtifactFromSpec(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
 			f.id.OutputKind = tc.output
 			if err := f.adapter.Store(context.Background(), "input", f.id, art); err == nil {
 				t.Fatal("inconsistent artifact stored")
@@ -67,14 +71,16 @@ func TestAdapterQuarantinesWrongArtifactMetadata(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var stored cudakernel.Artifact
+			// Rewrite one field of the persisted entry. Raw and its digest
+			// stay unchanged, so only the compiler binding can reject it.
+			var stored map[string]any
 			if err := json.Unmarshal(b, &stored); err != nil {
 				t.Fatal(err)
 			}
 			if field == "target" {
-				stored.Target = "sm_90"
+				stored["target"] = "sm_90"
 			} else {
-				stored.Kind = cudakernel.KindLTOIR
+				stored["kind"] = cudakernel.KindLTOIR
 			}
 			b, err = json.Marshal(stored)
 			if err != nil {

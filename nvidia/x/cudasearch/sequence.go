@@ -4,6 +4,12 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"math"
+	"slices"
+	"sync"
+	"time"
+
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudakernel"
@@ -11,17 +17,14 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudalayout"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudatrial"
-	"math"
-	"slices"
-	"sync"
-	"time"
 )
 
 type sequenceStage struct {
-	raw    driver.Module
-	module *cuda.Module
-	kernel *cuda.Kernel
-	args   []any
+	artifact cudakernel.Artifact
+	raw      driver.Module
+	module   *cuda.Module
+	kernel   *cuda.Kernel
+	args     []any
 }
 type sequenceLaunch struct{ grid, block [3]uint32 }
 type sequenceOutput struct {
@@ -35,21 +38,31 @@ func (x *sequenceExecutable) load(artifacts []*cudakernel.Artifact) error {
 	return measurePreparation(&x.preparation, "load_modules_stream_events", 0, 0, func() error { return x.loadResources(artifacts) })
 }
 
-func (x *sequenceExecutable) loadResources(artifacts []*cudakernel.Artifact) error {
-	if len(artifacts) == 0 || len(artifacts) != len(x.launches) {
-		return fmt.Errorf("cudasearch: sequence artifact/launch count mismatch")
+func sequenceArtifactHandles(artifacts []*cudakernel.Artifact, launches int) ([]cudakernel.Artifact, error) {
+	if len(artifacts) == 0 || len(artifacts) != launches {
+		return nil, fmt.Errorf("cudasearch: sequence artifact/launch count mismatch")
 	}
-	for _, a := range artifacts {
-		if a == nil {
-			return fmt.Errorf("cudasearch: nil sequence artifact")
-		}
-	}
+	captured := make([]cudakernel.Artifact, len(artifacts))
 	for i, a := range artifacts {
-		x.stages = append(x.stages, sequenceStage{})
+		if a == nil {
+			return nil, fmt.Errorf("cudasearch: nil sequence artifact")
+		}
+		captured[i] = *a
+	}
+	return captured, nil
+}
+
+func (x *sequenceExecutable) loadResources(artifacts []*cudakernel.Artifact) error {
+	captured, captureErr := sequenceArtifactHandles(artifacts, len(x.launches))
+	if captureErr != nil {
+		return captureErr
+	}
+	for i, a := range captured {
+		x.stages = append(x.stages, sequenceStage{artifact: a})
 		s := &x.stages[i]
-		x.identity += fmt.Sprintf("/%s/%s/%v/%v", a.Digest, a.EntryPoint, x.launches[i].grid, x.launches[i].block)
+		x.identity += fmt.Sprintf("/%s/%s/%v/%v", s.artifact.Digest(), s.artifact.EntryPoint(), x.launches[i].grid, x.launches[i].block)
 		var err error
-		s.raw, err = a.Load(x.dev)
+		s.raw, err = s.artifact.Load(x.dev)
 		if err != nil {
 			return err
 		}
@@ -58,7 +71,7 @@ func (x *sequenceExecutable) loadResources(artifacts []*cudakernel.Artifact) err
 			return err
 		}
 		s.raw = 0
-		s.kernel, err = s.module.Function(a.EntryPoint)
+		s.kernel, err = s.module.Function(s.artifact.EntryPoint())
 		if err != nil {
 			return err
 		}
@@ -121,6 +134,7 @@ func (x *sequenceExecutable) allocateBufferWith(name string, layout cudalayout.T
 }
 
 type sequenceExecutable struct {
+	outputMemory       *outputMemoryOwner
 	memory             *memoryBudget
 	memoryReservations map[string]*memoryReservation
 	preparation        []PreparationPhase
@@ -151,48 +165,71 @@ func (x *sequenceExecutable) upload(name string, data []byte) error {
 		return buffer.CopyFromHost(data)
 	})
 }
+
+// Outputs retains its returned readbacks until Close. outputsOwned transfers
+// each call's lifetime independently to the evaluator, including on a baseline.
 func (x *sequenceExecutable) Outputs(ctx context.Context) (map[string][]float32, error) {
+	return x.outputsLegacyWith(ctx, x.outputOps())
+}
+
+func (x *sequenceExecutable) outputsLegacyWith(ctx context.Context, ops outputReadOps) (map[string][]float32, error) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
-	if _, err := x.run(ctx, false); err != nil {
-		return nil, err
+	values, owner, err := x.outputsWith(ctx, ops)
+	retainBuiltInOutputs(&x.outputMemory, owner)
+	return values, err
+}
+
+func (x *sequenceExecutable) outputsOwned(ctx context.Context) (map[string][]float32, io.Closer, error) {
+	return x.outputsOwnedWith(ctx, x.outputOps())
+}
+
+func (x *sequenceExecutable) outputsOwnedWith(ctx context.Context, ops outputReadOps) (map[string][]float32, io.Closer, error) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	return x.outputsWith(ctx, ops)
+}
+
+func (x *sequenceExecutable) outputOps() outputReadOps {
+	return outputReadOps{
+		run: func(ctx context.Context) error { _, err := x.run(ctx, false); return err },
+		length: func(i int) (int, error) {
+			b, ok := x.buffers[x.outputs[i].buffer]
+			if !ok {
+				return 0, ErrMemoryAccountingUnavailable
+			}
+			return b.Len(), nil
+		},
+		readBytes: func(i int, data []byte) error { return x.buffers[x.outputs[i].buffer].CopyToHost(data) },
+		decode:    func(i int, data []byte) ([]float32, error) { return x.outputs[i].decode(data) },
 	}
-	var hostBytes int64
-	for _, output := range x.outputs {
-		scale := int64(2)
+}
+
+func (x *sequenceExecutable) outputsWith(ctx context.Context, ops outputReadOps) (map[string][]float32, io.Closer, error) {
+	read, decode := ops.readBytes, ops.decode
+	ops.readBytes = func(i int, data []byte) error {
+		err := read(i, data)
+		if err != nil {
+			x.closed = true
+		}
+		return err
+	}
+	ops.decode = func(i int, data []byte) ([]float32, error) {
+		values, err := decode(i, data)
+		if err != nil {
+			x.closed = true
+		}
+		return values, err
+	}
+	return readBuiltInOutputs(ctx, len(x.outputs), func(i int) (outputDescription, error) {
+		output := x.outputs[i]
+		n, err := ops.length(i)
+		format := outputFloatBytes
 		if output.bytes {
-			scale = 5
+			format = outputBytes
 		}
-		bytes, err := memoryProduct(x.buffers[output.buffer].Len(), scale)
-		if err != nil {
-			return nil, err
-		}
-		if bytes < 0 || bytes > math.MaxInt64-hostBytes {
-			return nil, ErrMemoryBudgetExceeded
-		}
-		hostBytes += bytes
-	}
-	host, err := reserveSearchMemory(ctx, hostBytes)
-	if err != nil {
-		return nil, err
-	}
-	defer host.release()
-	out := make(map[string][]float32)
-	for _, output := range x.outputs {
-		buffer := x.buffers[output.buffer]
-		data := make([]byte, buffer.Len())
-		if err := buffer.CopyToHost(data); err != nil {
-			x.closed = true
-			return nil, err
-		}
-		values, err := output.decode(data)
-		if err != nil {
-			x.closed = true
-			return nil, err
-		}
-		out[output.name] = values
-	}
-	return out, nil
+		return outputDescription{name: output.name, length: n, format: format}, err
+	}, ops)
 }
 
 func (output sequenceOutput) decode(data []byte) ([]float32, error) {
@@ -312,9 +349,17 @@ func (x *sequenceExecutable) runWith(ctx context.Context, measure bool, ops sequ
 }
 
 func (x *sequenceExecutable) Close() error {
+	return x.closeWith(x.closeResources)
+}
+
+func (x *sequenceExecutable) closeWith(closeResources func() error) error {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	x.closed = true
+	return closeBuiltInOutputs(&x.outputMemory, closeResources)
+}
+
+func (x *sequenceExecutable) closeResources() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if x.stream != nil {
@@ -341,6 +386,7 @@ func (x *sequenceExecutable) Close() error {
 				return err
 			}
 		}
+		s.artifact = cudakernel.Artifact{}
 	}
 	for i := range x.events {
 		if x.events[i] != 0 {

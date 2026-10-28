@@ -115,11 +115,11 @@ func (p *ExecutablePlan) addGraphStep(graph *cudagraph.Graph, step StepPlan, poi
 	if step.Backend != BackendGraph || step.Artifact == nil {
 		return nil, fmt.Errorf("%w: graph step %s", ErrUnsupportedBackend, step.NodeName)
 	}
-	mod := p.modules[step.Artifact]
+	mod := p.modules[*step.Artifact]
 	if mod == nil {
 		return nil, fmt.Errorf("cudaplan: missing graph module for %s", step.NodeName)
 	}
-	kernel, err := mod.Function(step.Artifact.EntryPoint)
+	kernel, err := mod.Function(step.Artifact.EntryPoint())
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (p *ExecutablePlan) kernelArguments(step StepPlan, pointers map[string]driv
 		}
 		args = append(args, ptr)
 	}
-	if _, err := step.Artifact.Schema.Pack(args...); err != nil {
+	if _, err := step.Artifact.Pack(args...); err != nil {
 		return nil, 0, fmt.Errorf("cudaplan: arguments for %s: %w", step.NodeName, err)
 	}
 	return args, blocks, nil

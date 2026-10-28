@@ -129,9 +129,9 @@ func (a *NVRTCAdapter) Lookup(ctx context.Context, inputKey string, id CompilerI
 	case err != nil:
 		return nil, false, err
 	}
-	if art.Digest != m.PayloadSHA256 {
+	if digest := art.Digest(); digest != m.PayloadSHA256 {
 		c.quarantineEntry(key, data, m.ArtifactKey)
-		return nil, false, fmt.Errorf("%w: artifact digest %s, manifest records %s", ErrCorruptArtifact, art.Digest, m.PayloadSHA256)
+		return nil, false, fmt.Errorf("%w: artifact digest %s, manifest records %s", ErrCorruptArtifact, digest, m.PayloadSHA256)
 	}
 	if err := checkCompilerArtifact(id, art); err != nil {
 		c.quarantineEntry(key, data, m.ArtifactKey)
@@ -165,7 +165,7 @@ func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerId
 		return err
 	}
 	key := CompilerCacheKey(inputKey, id)
-	artKey := key + "-" + art.Digest
+	artKey := key + "-" + art.Digest()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func (a *NVRTCAdapter) store(ctx context.Context, inputKey string, id CompilerId
 		Identity:      id,
 		Recorded:      recorded,
 		ArtifactKey:   artKey,
-		PayloadSHA256: art.Digest,
+		PayloadSHA256: art.Digest(),
 	}
 	manifestData, err := prepareManifest(m)
 	if err != nil {
@@ -205,27 +205,28 @@ func checkCompilerArtifact(id CompilerIdentity, art *cudakernel.Artifact) error 
 		return fmt.Errorf("cudacache: artifact: %w", err)
 	}
 	opts, vals := id.JITOptions.DriverOptions()
-	actual, values := art.JITOptions.DriverOptions()
+	actual, values := art.JITOptions().DriverOptions()
 	if !slices.Equal(opts, actual) || !slices.Equal(vals, values) {
 		return errors.New("cudacache: artifact JIT options differ from compiler identity")
 	}
-	if id.TargetArch == "" || id.TargetArch != art.Target {
-		return fmt.Errorf("%w: artifact target %q differs from compiler target %q", ErrIncompatibleTarget, art.Target, id.TargetArch)
+	if target := art.Target(); id.TargetArch == "" || id.TargetArch != target {
+		return fmt.Errorf("%w: artifact target %q differs from compiler target %q", ErrIncompatibleTarget, target, id.TargetArch)
 	}
+	kind := art.Kind()
 	valid := false
 	switch id.OutputKind {
 	case nvrtcx.OutputAuto:
-		valid = art.Kind == cudakernel.KindPTX || art.Kind == cudakernel.KindCUBIN
+		valid = kind == cudakernel.KindPTX || kind == cudakernel.KindCUBIN
 	case nvrtcx.OutputPTX:
-		valid = art.Kind == cudakernel.KindPTX
+		valid = kind == cudakernel.KindPTX
 	case nvrtcx.OutputCUBIN:
-		valid = art.Kind == cudakernel.KindCUBIN
+		valid = kind == cudakernel.KindCUBIN
 	case nvrtcx.OutputLTOIR:
-		valid = art.Kind == cudakernel.KindLTOIR
+		valid = kind == cudakernel.KindLTOIR
 	case nvrtcx.OutputTileIR:
-		valid = art.Kind == cudakernel.KindTileIR
+		valid = kind == cudakernel.KindTileIR
 	case nvrtcx.OutputPTXTileIR:
-		valid = art.Kind == cudakernel.KindPTX || art.Kind == cudakernel.KindTileIR
+		valid = kind == cudakernel.KindPTX || kind == cudakernel.KindTileIR
 	}
 	if !valid {
 		return errors.New("cudacache: artifact kind differs from compiler output or is unsupported")

@@ -1,7 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"math"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -83,22 +90,30 @@ func TestFusedRMSNormQKVParity(t *testing.T) {
 
 				// Fused kernel.
 				fused := []cudamem.Slice[float32]{d.upload(make([]float32, tt.qDim)), d.upload(make([]float32, tt.kvDim)), d.upload(make([]float32, tt.kvDim))}
-				if err := cudalaunch.Kernel(d.gm.fusedQKVFn).Grid(uint32(tt.qDim+2*tt.kvDim), 1, 1).Block(128, 1, 1).
-					Launch(dx, dg, dw[0], dw[1], dw[2], ptr(f.bq), ptr(f.bk), ptr(f.bv), fused[0], fused[1], fused[2],
-						int32(tt.in), int32(tt.qDim), int32(tt.kvDim), float32(qkvParityEps)); err != nil {
+				bq, bk, bv := ptr(f.bq), ptr(f.bk), ptr(f.bv)
+				if err := d.dev.WithContext(func() error {
+					return cudalaunch.Kernel(d.gm.fusedQKVFn).Grid(uint32(tt.qDim+2*tt.kvDim), 1, 1).Block(128, 1, 1).
+						Launch(dx, dg, dw[0], dw[1], dw[2], bq, bk, bv, fused[0], fused[1], fused[2],
+							int32(tt.in), int32(tt.qDim), int32(tt.kvDim), float32(qkvParityEps))
+				}); err != nil {
 					t.Fatal(err)
 				}
 				// Unfused path: RMSNorm then one LinearGEMV per projection.
 				dn := d.upload(make([]float32, tt.in))
-				if err := cudalaunch.Kernel(d.gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
-					Launch(dx, dg, dn, int32(tt.in), float32(qkvParityEps)); err != nil {
+				if err := d.dev.WithContext(func() error {
+					return cudalaunch.Kernel(d.gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
+						Launch(dx, dg, dn, int32(tt.in), float32(qkvParityEps))
+				}); err != nil {
 					t.Fatal(err)
 				}
 				unfused := make([]cudamem.Slice[float32], 3)
 				for i, b := range [][]float32{f.bq, f.bk, f.bv} {
 					unfused[i] = d.upload(make([]float32, dims[i]))
-					if err := cudalaunch.Kernel(d.gm.gemvFn).Grid(uint32(dims[i]), 1, 1).Block(128, 1, 1).
-						Launch(dn, dw[i], ptr(b), unfused[i], int32(tt.in), int32(dims[i])); err != nil {
+					db := ptr(b)
+					if err := d.dev.WithContext(func() error {
+						return cudalaunch.Kernel(d.gm.gemvFn).Grid(uint32(dims[i]), 1, 1).Block(128, 1, 1).
+							Launch(dn, dw[i], db, unfused[i], int32(tt.in), int32(dims[i]))
+					}); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -133,17 +148,23 @@ func TestFusedSwiGLUDownParity(t *testing.T) {
 			f := newSwiGLUFixture(tt.hidden, tt.inter, swigluGateSalt)
 			dg, du, dw := d.upload(f.gate), d.upload(f.up), d.upload(f.w)
 			fused := d.upload(make([]float32, tt.hidden))
-			if err := cudalaunch.Kernel(d.gm.fusedSwiGLUFn).Grid(uint32(tt.hidden), 1, 1).Block(128, 1, 1).
-				Launch(dg, du, dw, fused, int32(tt.hidden), int32(tt.inter)); err != nil {
+			if err := d.dev.WithContext(func() error {
+				return cudalaunch.Kernel(d.gm.fusedSwiGLUFn).Grid(uint32(tt.hidden), 1, 1).Block(128, 1, 1).
+					Launch(dg, du, dw, fused, int32(tt.hidden), int32(tt.inter))
+			}); err != nil {
 				t.Fatal(err)
 			}
 			da, unfused := d.upload(make([]float32, tt.inter)), d.upload(make([]float32, tt.hidden))
-			if err := cudalaunch.Kernel(d.gm.swigluFn).Grid(1, 1, 1).Block(256, 1, 1).
-				Launch(dg, du, da, int32(tt.inter)); err != nil {
+			if err := d.dev.WithContext(func() error {
+				return cudalaunch.Kernel(d.gm.swigluFn).Grid(1, 1, 1).Block(256, 1, 1).
+					Launch(dg, du, da, int32(tt.inter))
+			}); err != nil {
 				t.Fatal(err)
 			}
-			if err := cudalaunch.Kernel(d.gm.gemvFn).Grid(uint32(tt.hidden), 1, 1).Block(128, 1, 1).
-				Launch(da, dw, nullDevicePtr, unfused, int32(tt.inter), int32(tt.hidden)); err != nil {
+			if err := d.dev.WithContext(func() error {
+				return cudalaunch.Kernel(d.gm.gemvFn).Grid(uint32(tt.hidden), 1, 1).Block(128, 1, 1).
+					Launch(da, dw, nullDevicePtr, unfused, int32(tt.inter), int32(tt.hidden))
+			}); err != nil {
 				t.Fatal(err)
 			}
 			got := d.download(fused)
@@ -182,8 +203,10 @@ func TestOddRowCopies(t *testing.T) {
 	if err := dTok.CopyFromHost([]int32{token}); err != nil {
 		t.Fatal(err)
 	}
-	if err := cudalaunch.Kernel(d.gm.embedFn).Grid(1, 1, 1).Block(256, 1, 1).
-		Launch(dTable, dTok, dOut, int32(hidden)); err != nil {
+	if err := d.dev.WithContext(func() error {
+		return cudalaunch.Kernel(d.gm.embedFn).Grid(1, 1, 1).Block(256, 1, 1).
+			Launch(dTable, dTok, dOut, int32(hidden))
+	}); err != nil {
 		t.Fatal(err)
 	}
 	got := d.download(dOut)
@@ -201,8 +224,10 @@ func TestOddRowCopies(t *testing.T) {
 		cache[i] = sentinel
 	}
 	dk, dv, kc, vc := d.upload(k), d.upload(v), d.upload(cache), d.upload(cache)
-	if err := cudalaunch.Kernel(d.gm.storeKVFn).Grid(1, 1, 1).Block(128, 1, 1).
-		Launch(dk, dv, kc, vc, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
+	if err := d.dev.WithContext(func() error {
+		return cudalaunch.Kernel(d.gm.storeKVFn).Grid(1, 1, 1).Block(128, 1, 1).
+			Launch(dk, dv, kc, vc, int32(pos), int32(kvHeads), int32(headDim))
+	}); err != nil {
 		t.Fatal(err)
 	}
 	for name, pair := range map[string][2][]float32{"key": {d.download(kc), k}, "value": {d.download(vc), v}} {
@@ -233,7 +258,11 @@ func TestGPUForwardParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(releaseErrorOwner(err))
 	}
-	t.Cleanup(func() { attnMod.Close() })
+	t.Cleanup(func() {
+		if err := attnMod.Close(); err != nil {
+			t.Errorf("close attention module: %v", err)
+		}
+	})
 	attnFn, err := attnMod.Function("CausalFlashAttentionDecode")
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +275,11 @@ func TestGPUForwardParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(releaseErrorOwner(err))
 	}
-	t.Cleanup(func() { sampleMod.Close() })
+	t.Cleanup(func() {
+		if err := sampleMod.Close(); err != nil {
+			t.Errorf("close sampler module: %v", err)
+		}
+	})
 	sampleFn, err := sampleMod.Function("ArgmaxLogits")
 	if err != nil {
 		t.Fatal(err)
@@ -313,8 +346,12 @@ func TestGPUForwardParity(t *testing.T) {
 			tok := int32(7)
 			for pos := 0; pos < 6; pos++ {
 				want := Forward(w, &cfg, hostKV, tok, pos)
-				next, err := GPUForwardPass(gw, &cfg, kv, sp, d.gm, attnFn, sampleFn, tok, pos)
-				if err != nil {
+				var next int32
+				if err := d.dev.WithContext(func() error {
+					var err error
+					next, err = GPUForwardPass(gw, &cfg, kv, sp, d.gm, attnFn, sampleFn, tok, pos)
+					return err
+				}); err != nil {
 					t.Fatal(err)
 				}
 				got := d.download(sp.Logits)
@@ -331,14 +368,366 @@ func TestGPUForwardParity(t *testing.T) {
 }
 
 func TestFuseEGraphRefusedUntilQualified(t *testing.T) {
+	if fusedKernelsQualified {
+		t.Fatal("fusedKernelsQualified = true, want false until device qualification is reconciled")
+	}
 	saveFlag, saveQualified := *fuseEGraphFlag, fusedKernelsQualified
-	t.Cleanup(func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified })
+	defer func() { *fuseEGraphFlag, fusedKernelsQualified = saveFlag, saveQualified }()
 	*fuseEGraphFlag, fusedKernelsQualified = true, false
 	// The refusal precedes any device or argument use.
 	_, err := GPUForwardPass(nil, nil, nil, nil, nil, 0, 0, 0, 0)
 	if err == nil || !strings.Contains(err.Error(), "-fuse-egraph") {
 		t.Fatalf("unqualified -fuse-egraph: got %v, want refusal", err)
 	}
+
+	*fuseEGraphFlag, fusedKernelsQualified = true, true
+	var log []string
+	w := fakeModel(&log, true, 0)
+	cfg := DefaultModelConfig()
+	cfg.NumHiddenLayers = 1
+	if _, err := enqueueGPUForwardPass(w, &cfg, nil, nil, nil, 0, 0, -1, 0, nil); err == nil || !strings.Contains(err.Error(), "outside vocabulary") {
+		t.Fatalf("qualified -fuse-egraph token check: got %v, want outside vocabulary", err)
+	}
+	if _, err := enqueueGPUForwardPass(w, &cfg, nil, nil, nil, 0, 0, 0, -1, nil); err == nil || !strings.Contains(err.Error(), "outside the kv cache") {
+		t.Fatalf("qualified -fuse-egraph pos check: got %v, want outside the kv cache", err)
+	}
 }
 
 var nullDevicePtr = driver.DevicePtr(0)
+
+// withContextBody returns the FuncLit argument of the innermost enclosing
+// <recv>.WithContext(func() error { ... }) call on stack, or nil.
+func withContextBody(stack []ast.Node) *ast.FuncLit {
+	for i := len(stack) - 1; i >= 1; i-- {
+		lit, ok := stack[i].(*ast.FuncLit)
+		if !ok {
+			continue
+		}
+		call, ok := stack[i-1].(*ast.CallExpr)
+		if !ok || len(call.Args) != 1 || call.Args[0] != lit {
+			continue
+		}
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if ok && sel.Sel.Name == "WithContext" {
+			return lit
+		}
+	}
+	return nil
+}
+
+// containsUploadCall reports whether root contains a call to upload or
+// uploadBF16, which enter and exit WithContext and should happen outside the
+// launch closure.
+func containsUploadCall(root ast.Node) bool {
+	found := false
+	ast.Inspect(root, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		switch fn := call.Fun.(type) {
+		case *ast.Ident:
+			if fn.Name == "uploadBF16" {
+				found = true
+			}
+		case *ast.SelectorExpr:
+			if fn.Sel.Name == "upload" {
+				found = true
+			}
+		}
+		return !found
+	})
+	return found
+}
+
+// isEnclosingLaunchChain reports whether stack around a cudalaunch.Kernel(fn)
+// call is a chained .Launch(...) call, and returns that Launch CallExpr.
+func isEnclosingLaunchChain(stack []ast.Node, kernelCall *ast.CallExpr) *ast.CallExpr {
+	cur := ast.Expr(kernelCall)
+	for i := len(stack) - 1; i >= 0; i-- {
+		switch p := stack[i].(type) {
+		case *ast.SelectorExpr:
+			if p.X != cur {
+				return nil
+			}
+			if i == 0 {
+				return nil
+			}
+			call, ok := stack[i-1].(*ast.CallExpr)
+			if !ok || call.Fun != p {
+				return nil
+			}
+			if p.Sel.Name == "Launch" {
+				return call
+			}
+			cur = call
+			i--
+		default:
+			return nil
+		}
+	}
+	return nil
+}
+
+// uncontextualizedLaunches parses src and counts cudalaunch.Kernel(...).Launch
+// and device GPUForwardPass calls, reporting any that are not enclosed in a
+// <dev>.WithContext(func() error { ... }) closure or that call upload/uploadBF16
+// inside the WithContext closure.
+func uncontextualizedLaunches(name string, src []byte) (launches int, bad []string, err error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, name, src, 0)
+	if err != nil {
+		return 0, nil, err
+	}
+	var stack []ast.Node
+	ast.Inspect(f, func(n ast.Node) bool {
+		if n == nil {
+			stack = stack[:len(stack)-1]
+			return true
+		}
+		switch x := n.(type) {
+		case *ast.SelectorExpr:
+			pkg, ok := x.X.(*ast.Ident)
+			if !ok || pkg.Name != "cudalaunch" || x.Sel.Name != "Kernel" {
+				break
+			}
+			launches++
+			var kcall *ast.CallExpr
+			if len(stack) > 0 {
+				kcall, _ = stack[len(stack)-1].(*ast.CallExpr)
+			}
+			if kcall == nil || kcall.Fun != x {
+				bad = append(bad, fmt.Sprintf("%s: cudalaunch.Kernel referenced without calling it", fset.Position(x.Pos())))
+				return false
+			}
+			lcall := isEnclosingLaunchChain(stack[:len(stack)-1], kcall)
+			if lcall == nil {
+				bad = append(bad, fmt.Sprintf("%s: cudalaunch.Kernel without chained .Launch", fset.Position(x.Pos())))
+				return false
+			}
+			lit := withContextBody(stack)
+			if lit == nil {
+				bad = append(bad, fmt.Sprintf("%s: cudalaunch.Kernel.Launch outside WithContext", fset.Position(lcall.Pos())))
+				return false
+			}
+			if containsUploadCall(lit) {
+				bad = append(bad, fmt.Sprintf("%s: upload call inside WithContext launch closure", fset.Position(lcall.Pos())))
+			}
+			return false
+		case *ast.Ident:
+			if x.Name != "GPUForwardPass" {
+				break
+			}
+			if len(stack) > 0 {
+				if sel, ok := stack[len(stack)-1].(*ast.SelectorExpr); ok && sel.Sel == x {
+					return false
+				}
+			}
+			var call *ast.CallExpr
+			if len(stack) > 0 {
+				call, _ = stack[len(stack)-1].(*ast.CallExpr)
+			}
+			if call == nil || call.Fun != x {
+				launches++
+				bad = append(bad, fmt.Sprintf("%s: GPUForwardPass referenced without calling it", fset.Position(x.Pos())))
+				return false
+			}
+			if len(call.Args) > 0 {
+				if arg0, ok := call.Args[0].(*ast.Ident); ok && arg0.Name == "nil" {
+					return false
+				}
+			}
+			launches++
+			lit := withContextBody(stack)
+			if lit == nil {
+				bad = append(bad, fmt.Sprintf("%s: GPUForwardPass outside WithContext", fset.Position(call.Pos())))
+				return false
+			}
+			if containsUploadCall(lit) {
+				bad = append(bad, fmt.Sprintf("%s: upload call inside WithContext launch closure", fset.Position(call.Pos())))
+			}
+			return false
+		}
+		stack = append(stack, n)
+		return true
+	})
+	return launches, bad, nil
+}
+
+// TestCUDATestLaunchesInContext checks that every cudalaunch.Kernel.Launch
+// and device GPUForwardPass call in *_cuda_test.go runs inside a
+// WithContext closure, because cudamem and nvrtcx operations each restore the
+// previous CUDA context (0) on return.
+func TestCUDATestLaunchesInContext(t *testing.T) {
+	paths, err := filepath.Glob("*_cuda_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make(map[string]int)
+	var bad []string
+	for _, p := range paths {
+		src, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, b, err := uncontextualizedLaunches(p, src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got[p] = n
+		bad = append(bad, b...)
+	}
+	want := map[string]int{
+		"bf16_parity_cuda_test.go":        7,
+		"context_experiment_cuda_test.go": 0,
+		"fused_decode_cuda_test.go":       42,
+		"fused_parity_cuda_test.go":       10,
+		"graph_parity_cuda_test.go":       7,
+	}
+	for file, w := range want {
+		if got[file] != w {
+			t.Errorf("%s: %d launches found, want %d", file, got[file], w)
+		}
+	}
+	for _, b := range bad {
+		t.Error(b)
+	}
+}
+
+// TestApplyRoPEScaledParity verifies that ApplyRoPEScaled on the device matches
+// applyRoPEScaled on the CPU within 1e-5 across all three Llama-3 frequency
+// bands, and that unscaled RoPE on the same inputs differs by > 1e-3 at both
+// the intermediate smooth band (d=16) and the low-frequency band (d=30).
+func TestApplyRoPEScaledParity(t *testing.T) {
+	d := newParityDevice(t)
+	const (
+		qHeads  = 2
+		kvHeads = 1
+		headDim = 64
+		pos     = 32
+		theta   = float32(500000.0)
+	)
+	scaling := &RoPEScalingConfig{
+		RoPEType:                      "llama3",
+		Factor:                        32.0,
+		LowFreqFactor:                 1.0,
+		HighFreqFactor:                4.0,
+		OriginalMaxPositionEmbeddings: 8192,
+	}
+	qInit := make([]float32, qHeads*headDim)
+	for i := range qInit {
+		qInit[i] = 0.2 + 0.03*float32(i)
+	}
+	// Ensure the low-frequency pair d=30 (where unscaled freq ~ 4.5e-6) has
+	// sufficient partner magnitude at headDim/2 + 30 so that scaled vs unscaled
+	// at pos=32 differs by > 2e-3 while keeping 1-ULP GPU error < 1e-11.
+	qInit[30+headDim/2] = 15.0
+	kInit := make([]float32, kvHeads*headDim)
+	for i := range kInit {
+		kInit[i] = -0.15 + 0.04*float32(i)
+	}
+
+	wantQ, wantK := slices.Clone(qInit), slices.Clone(kInit)
+	applyRoPEScaled(wantQ, pos, qHeads, headDim, theta, scaling)
+	applyRoPEScaled(wantK, pos, kvHeads, headDim, theta, scaling)
+
+	unscaledQ, unscaledK := slices.Clone(qInit), slices.Clone(kInit)
+	applyRoPE(unscaledQ, pos, qHeads, headDim, theta)
+	applyRoPE(unscaledK, pos, kvHeads, headDim, theta)
+	if parityMismatch(wantQ, unscaledQ, 1e-4) < 0 || parityMismatch(wantK, unscaledK, 1e-4) < 0 {
+		t.Fatal("must-fail control: scaled vs unscaled RoPE Q/K did not exceed 1e-4")
+	}
+	for _, bandDim := range []int{16, 30} {
+		if diff := math.Abs(float64(wantQ[bandDim] - unscaledQ[bandDim])); diff <= 1e-3 {
+			t.Fatalf("must-fail control at d=%d: |wantQ[%d] - unscaledQ[%d]| = %g, want > 1e-3", bandDim, bandDim, bandDim, diff)
+		}
+	}
+
+	dq := d.upload(qInit)
+	dk := d.upload(kInit)
+	if err := d.dev.WithContext(func() error {
+		return cudalaunch.Kernel(d.gm.ropeScaledFn).Grid(qHeads, 1, 1).Block(headDim/2, 1, 1).
+			Launch(dq, dk, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim),
+				theta, scaling.Factor, scaling.LowFreqFactor, scaling.HighFreqFactor, int32(scaling.OriginalMaxPositionEmbeddings))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	gotQ := d.download(dq)
+	gotK := d.download(dk)
+	if i := parityMismatch(gotQ, wantQ, 1e-5); i >= 0 {
+		t.Errorf("ApplyRoPEScaled Q[%d] = %g, want %g", i, gotQ[i], wantQ[i])
+	}
+	if i := parityMismatch(gotK, wantK, 1e-5); i >= 0 {
+		t.Errorf("ApplyRoPEScaled K[%d] = %g, want %g", i, gotK[i], wantK[i])
+	}
+}
+
+// TestUncontextualizedLaunchesControls checks uncontextualizedLaunches on
+// positive and must-fail forms, and on mutations of fused_parity_cuda_test.go
+// and bf16_parity_cuda_test.go.
+func TestUncontextualizedLaunchesControls(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		body     string
+		launches int
+		bad      bool
+	}{
+		{"positive control: Kernel.Launch in WithContext", `
+		_ = d.dev.WithContext(func() error {
+			return cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(128, 1, 1).Launch(x)
+		})`, 1, false},
+		{"positive control: GPUForwardPass in WithContext", `
+		_ = d.dev.WithContext(func() error {
+			_, err := GPUForwardPass(gw, &cfg, kv, sp, gm, attnFn, sampleFn, tok, pos)
+			return err
+		})`, 1, false},
+		{"positive control: nil GPUForwardPass refusal check", `
+		_, _ = GPUForwardPass(nil, nil, nil, nil, nil, 0, 0, 0, 0)`, 0, false},
+		{"Kernel.Launch outside WithContext", `
+		_ = cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(128, 1, 1).Launch(x)`, 1, true},
+		{"GPUForwardPass outside WithContext", `
+		_, _ = GPUForwardPass(gw, &cfg, kv, sp, gm, attnFn, sampleFn, tok, pos)`, 1, true},
+		{"upload inside WithContext closure", `
+		_ = d.dev.WithContext(func() error {
+			return cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(128, 1, 1).Launch(d.upload(x))
+		})`, 1, true},
+		{"uploadBF16 inside WithContext closure", `
+		_ = d.dev.WithContext(func() error {
+			return cudalaunch.Kernel(fn).Grid(1, 1, 1).Block(128, 1, 1).Launch(uploadBF16(d, x))
+		})`, 1, true},
+		{"cudalaunch.Kernel without Launch", `
+		_ = d.dev.WithContext(func() error {
+			_ = cudalaunch.Kernel(fn)
+			return nil
+		})`, 1, true},
+		{"GPUForwardPass referenced as value", `
+		f := GPUForwardPass
+		_ = f`, 1, true},
+	} {
+		src := "package main\nfunc f() {\n" + tt.body + "\n}\n"
+		n, bad, err := uncontextualizedLaunches("control_cuda_test.go", []byte(src))
+		if err != nil {
+			t.Fatalf("%s: %v", tt.name, err)
+		}
+		if n != tt.launches {
+			t.Errorf("%s: launches = %d, want %d", tt.name, n, tt.launches)
+		}
+		if flagged := len(bad) > 0; flagged != tt.bad {
+			t.Errorf("%s: flagged = %v, want %v (%v)", tt.name, flagged, tt.bad, bad)
+		}
+	}
+
+	for _, file := range []string{"fused_parity_cuda_test.go", "bf16_parity_cuda_test.go"} {
+		src, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mutated := strings.Replace(string(src), ".WithContext(func() error {\n", ".WithoutContext(func() error {\n", 1)
+		if mutated == string(src) {
+			t.Fatalf("mutation did not apply to %s", file)
+		}
+		if _, bad, err := uncontextualizedLaunches(file, []byte(mutated)); err != nil || len(bad) == 0 {
+			t.Errorf("%s with unwrapped launch: %v, %v; want flagged", file, bad, err)
+		}
+	}
+}

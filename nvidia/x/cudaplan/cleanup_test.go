@@ -15,7 +15,7 @@ func cleanupFixture(close func(string) error) (*ExecutablePlan, planCloseOps) {
 	p := &ExecutablePlan{
 		graphExec: &cudagraph.Exec{}, graphObj: &cudagraph.Graph{},
 		cublasEngine: &cublasltx.Engine{}, workspace: &WorkspaceManager{},
-		modules: map[*cudakernel.Artifact]*cuda.Module{new(cudakernel.Artifact): {}},
+		modules: map[cudakernel.Artifact]*cuda.Module{{}: {}},
 	}
 	return p, planCloseOps{
 		graphExec: func(*cudagraph.Exec) error { return close("exec") },

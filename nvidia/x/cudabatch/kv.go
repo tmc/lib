@@ -2,6 +2,7 @@ package cudabatch
 
 import (
 	"fmt"
+	"github.com/tmc/lib/nvidia/x/cudakv"
 	"sync"
 )
 
@@ -23,30 +24,42 @@ type MemoryBudgetTracker struct {
 	mu           sync.Mutex
 	kvMgr        KVBlockManager
 	reservedReqs map[int64]int // seqID -> allocated block count
+	allocations  map[int64]uint64
 }
 
-// NewMemoryBudgetTracker creates a tracker wrapping a KVBlockManager.
+// NewMemoryBudgetTracker wraps a KVBlockManager. Allocation-bound scheduling
+// requires an actual *cudakv.BlockAllocator; unsupported managers refuse admission
+// and binding rather than inventing pool ownership.
 func NewMemoryBudgetTracker(kvMgr KVBlockManager) *MemoryBudgetTracker {
 	return &MemoryBudgetTracker{
 		kvMgr:        kvMgr,
 		reservedReqs: make(map[int64]int),
+		allocations:  make(map[int64]uint64),
 	}
 }
 
 // CanAdmit checks if the block manager has sufficient free blocks to admit a request
 // with promptTokens tokens and shared prefix blocks.
 func (t *MemoryBudgetTracker) CanAdmit(promptTokens int, sharedBlocks []int) bool {
-	if t.kvMgr == nil {
-		return true
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-
-	blockSize := t.kvMgr.BlockSize()
-	if blockSize <= 0 {
-		blockSize = 16
+	pool, ok := t.kvMgr.(*cudakv.BlockAllocator)
+	if !ok || pool == nil || pool.BlockSize() <= 0 || promptTokens <= 0 || pool.TotalBlocks() < 0 {
+		return false
 	}
-	neededBlocks := (promptTokens+blockSize-1)/blockSize - len(sharedBlocks)
+	blockSize := pool.BlockSize()
+	neededBlocks := (promptTokens-1)/blockSize + 1 - len(sharedBlocks)
+	if len(sharedBlocks) > promptTokens/blockSize {
+		return false
+	}
+	seen := map[int]bool{}
+	for _, block := range sharedBlocks {
+		n, err := pool.Holders(block)
+		if err != nil || n <= 0 || seen[block] {
+			return false
+		}
+		seen[block] = true
+	}
 	if neededBlocks <= 0 {
 		return true
 	}
@@ -55,27 +68,34 @@ func (t *MemoryBudgetTracker) CanAdmit(promptTokens int, sharedBlocks []int) boo
 
 // AllocSequence allocates initial physical KV blocks for seqID.
 func (t *MemoryBudgetTracker) AllocSequence(seqID int64, shared []int, promptTokens int) ([]int, error) {
-	if t.kvMgr == nil {
-		return nil, nil
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	pool, ok := t.kvMgr.(*cudakv.BlockAllocator)
+	if !ok || pool == nil || pool.BlockSize() <= 0 || promptTokens <= 0 {
+		return nil, fmt.Errorf("%w: actual initialized block allocator required", ErrCorruptBlockTable)
+	}
 
 	if err := t.kvMgr.AllocSequence(seqID, shared, promptTokens); err != nil {
 		return nil, fmt.Errorf("cudabatch: alloc sequence %d: %w", seqID, err)
 	}
 	tbl := t.kvMgr.Table(seqID)
 	t.reservedReqs[seqID] = len(tbl)
+	t.allocations[seqID], _ = pool.AllocationGeneration(seqID)
 	return tbl, nil
 }
 
 // AppendToken reserves room for an additional generated token.
 func (t *MemoryBudgetTracker) AppendToken(seqID int64) error {
-	if t.kvMgr == nil {
-		return nil
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	pool, ok := t.kvMgr.(*cudakv.BlockAllocator)
+	if !ok || pool == nil {
+		return ErrCorruptBlockTable
+	}
+	length, ok := pool.SequenceLength(seqID)
+	if !ok || pool.ValidateSequence(seqID, t.allocations[seqID], pool.Table(seqID), length) != nil {
+		return ErrCorruptBlockTable
+	}
 
 	if err := t.kvMgr.AppendToken(seqID); err != nil {
 		return fmt.Errorf("cudabatch: append token %d: %w", seqID, err)
@@ -92,9 +112,18 @@ func (t *MemoryBudgetTracker) FreeSequence(seqID int64) {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	pool, ok := t.kvMgr.(*cudakv.BlockAllocator)
+	if !ok || pool == nil {
+		return
+	}
+	length, ok := pool.SequenceLength(seqID)
+	if !ok || pool.ValidateSequence(seqID, t.allocations[seqID], pool.Table(seqID), length) != nil {
+		return
+	}
 
 	t.kvMgr.FreeSequence(seqID)
 	delete(t.reservedReqs, seqID)
+	delete(t.allocations, seqID)
 }
 
 // RetainPrefix marks prefix blocks as retained (e.g. for multi-turn continuations).

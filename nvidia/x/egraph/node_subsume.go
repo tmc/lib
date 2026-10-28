@@ -1,23 +1,24 @@
 package egraph
 
-import (
-	"fmt"
-
-	"github.com/tmc/lib/egraphcore"
-)
+import "github.com/tmc/lib/egraphcore"
 
 func subsumeMatchedNodes(g *EGraph, rule *Rewrite, matches []MatchMatch, budget *egraphcore.WorkBudget) (int, error) {
 	if rule == nil || !rule.subsumesLHS {
 		return 0, nil
 	}
-	variables := make(map[string]bool)
-	patternVariables(rule.LHS, variables)
+	variables, err := graphMap[string, bool](budget, 0)
+	if err != nil {
+		return 0, err
+	}
+	if err := patternVariablesWithBudget(rule.LHS, variables, budget); err != nil {
+		return 0, err
+	}
 	changes := 0
 	for _, match := range matches {
 		classID := g.Find(match.ClassID)
 		class := g.storage().Class(classID)
 		if class == nil {
-			return changes, fmt.Errorf("egraph: rewrite %q cannot subsume missing class %d", rule.Name, classID)
+			return changes, graphErrorf(budget, "egraph: rewrite %q cannot subsume missing class %d", rule.Name, classID)
 		}
 		matched := false
 		matchedSubsumed := false
@@ -28,7 +29,15 @@ func subsumeMatchedNodes(g *EGraph, rule *Rewrite, matches []MatchMatch, budget 
 			if !rule.LHS.matchesNode(node) {
 				continue
 			}
-			substitutions := []Subst{make(Subst)}
+			substitutions, err := graphSlice[Subst](budget, 1, 1)
+			if err != nil {
+				return changes, err
+			}
+			initial, err := graphMap[string, Id](budget, 0)
+			if err != nil {
+				return changes, err
+			}
+			substitutions[0] = Subst(initial)
 			for column, childPattern := range rule.LHS.Children {
 				var next []Subst
 				for _, subst := range substitutions {
@@ -36,7 +45,10 @@ func subsumeMatchedNodes(g *EGraph, rule *Rewrite, matches []MatchMatch, budget 
 					if err != nil {
 						return changes, err
 					}
-					next = append(next, matches...)
+					next, err = graphAppend(budget, next, matches...)
+					if err != nil {
+						return changes, err
+					}
 				}
 				substitutions = next
 				if len(substitutions) == 0 {
@@ -60,8 +72,12 @@ func subsumeMatchedNodes(g *EGraph, rule *Rewrite, matches []MatchMatch, budget 
 					matchedSubsumed = true
 					continue
 				}
+				worklist, err := graphAppend(budget, g.worklist, classID)
+				if err != nil {
+					return changes, err
+				}
 				class.Nodes[i].Subsumed = true
-				g.worklist = append(g.worklist, classID)
+				g.worklist = worklist
 				g.revision++
 				changes++
 				matched = true
@@ -72,7 +88,7 @@ func subsumeMatchedNodes(g *EGraph, rule *Rewrite, matches []MatchMatch, budget 
 			}
 		}
 		if !matched && !matchedSubsumed {
-			return changes, fmt.Errorf("egraph: rewrite %q match in class %d has no visible node to subsume", rule.Name, classID)
+			return changes, graphErrorf(budget, "egraph: rewrite %q match in class %d has no visible node to subsume", rule.Name, classID)
 		}
 	}
 	return changes, nil

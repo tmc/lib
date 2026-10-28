@@ -142,15 +142,8 @@ func (r *Relation[ID]) MarkSubsumed(values []Value[ID], canonicalize func(ID) ID
 }
 
 func (r *Relation[ID]) markSubsumedPrepared(row []Value[ID], key string) bool {
-	if _, ok := r.rows[key]; !ok {
-		r.addPrepared(row, key)
-	}
-	if _, ok := r.subsumed[key]; ok {
-		return false
-	}
-	r.subsumed[key] = struct{}{}
-	r.resetAdditions()
-	return true
+	changed, _ := r.applyPreparedWithBudget(FactSubsume, row, key, nil)
+	return changed
 }
 
 // Snapshot returns a cursor at the current insertion history position.
@@ -337,17 +330,8 @@ func (r *Relation[ID]) Add(values []Value[ID], canonicalize func(ID) ID) (bool, 
 }
 
 func (r *Relation[ID]) addPrepared(row []Value[ID], key string) bool {
-	if _, ok := r.rows[key]; ok {
-		return false
-	}
-	if r.version == ^uint64(0) {
-		r.resetAdditions()
-	}
-	r.rows[key] = row
-	r.index.Add(row, key)
-	r.version++
-	r.added = append(r.added, relationAddition[ID]{version: r.version, row: append([]Value[ID](nil), row...)})
-	return true
+	changed, _ := r.addPreparedWithBudget(row, key, nil)
+	return changed
 }
 
 // Delete removes a tuple after canonicalizing class values. A successful
@@ -362,15 +346,8 @@ func (r *Relation[ID]) Delete(values []Value[ID], canonicalize func(ID) ID) (boo
 }
 
 func (r *Relation[ID]) deletePrepared(key string) bool {
-	row, ok := r.rows[key]
-	if !ok {
-		return false
-	}
-	r.index.Remove(row, key)
-	delete(r.rows, key)
-	delete(r.subsumed, key)
-	r.resetAdditions()
-	return true
+	changed, _ := r.applyPreparedWithBudget(FactDelete, nil, key, nil)
+	return changed
 }
 
 func (r *Relation[ID]) resetAdditions() {

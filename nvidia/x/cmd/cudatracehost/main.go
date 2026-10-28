@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/tmc/lib/nvidia/x/cudaprobe"
 	"os"
 	"os/signal"
 	"strings"
@@ -24,6 +25,8 @@ func main() {
 func run() (err error) {
 	var cfg cudatracehost.Config
 	var symbols string
+	var declarations interpositionFlags
+	flag.Var(&declarations, "interposition", "repeat symbol=declared_active|declared_inactive=evidence (caller-reported; omitted symbols unknown)")
 	flag.StringVar(&cfg.Backend, "backend", "bpf", "bpf or tracefs; no automatic fallback")
 	flag.IntVar(&cfg.PID, "pid", 0, "target process ID")
 	flag.StringVar(&cfg.Library, "library", "", "absolute mapped CUDA library path")
@@ -37,6 +40,7 @@ func run() (err error) {
 	flag.IntVar(&cfg.MaxThreadRescans, "max-thread-rescans", 32, "maximum rescan attempts, 1 to 128")
 	flag.Parse()
 	cfg.Symbols = strings.Split(symbols, ",")
+	cfg.Interposition = declarations
 	c, err := cudatracehost.Open(cfg)
 	if err != nil {
 		return err
@@ -83,4 +87,25 @@ func run() (err error) {
 			return err
 		}
 	}
+}
+
+type interpositionFlags []cudatracehost.InterpositionDeclaration
+
+func (v *interpositionFlags) String() string { return "" }
+func (v *interpositionFlags) Set(value string) error {
+	fields := strings.SplitN(value, "=", 3)
+	if len(fields) != 3 || len(fields[0]) == 0 || len(fields[0]) > 256 || len(*v) >= 128 {
+		return fmt.Errorf("interposition: expected symbol=status=evidence")
+	}
+	d := cudatracehost.InterpositionDeclaration{Symbol: fields[0], Interposition: cudaprobe.Interposition{Status: fields[1], Evidence: fields[2]}}
+	if err := d.Interposition.Validate(); err != nil {
+		return err
+	}
+	for _, old := range *v {
+		if old.Symbol == d.Symbol {
+			return fmt.Errorf("interposition: duplicate symbol")
+		}
+	}
+	*v = append(*v, d)
+	return nil
 }

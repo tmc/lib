@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/cupti"
+	"github.com/tmc/lib/nvidia/x/cudacapture"
 )
 
 // PhaseRequest records what the caller asked of a phase capture, so a
@@ -70,6 +71,12 @@ const (
 // and are never added to Named or Unattributed. Unreported is the eligible
 // population no selected reason accounts for.
 type PhaseManifest struct {
+	// MetadataStart and MetadataEnd retain the actual phase snapshots. Nil means
+	// not requested or not reached, not an empty discovery of all loaded code.
+	MetadataStart  *cudacapture.Reannouncement
+	MetadataEnd    *cudacapture.Reannouncement
+	MetadataFailed bool // Snapshot or metadata delivery failed; independent of sample coverage.
+
 	RequestedPeriod uint32
 	ActualPeriod    uint32 // native readback; zero if the session reported none
 	PeriodVerified  bool   // readback matched the configuration
@@ -136,6 +143,22 @@ func SealPhase(req PhaseRequest, r PhaseReport, obs PhaseObservation) (PhaseMani
 		RawSHA256:        sha256.Sum256(obs.Raw),
 		SessionFailed:    r.Info.Failed,
 	}
+	for _, pair := range []struct {
+		src *cudacapture.Reannouncement
+		dst **cudacapture.Reannouncement
+	}{
+		{r.MetadataStart, &m.MetadataStart}, {r.MetadataEnd, &m.MetadataEnd},
+	} {
+		if pair.src == nil {
+			continue
+		}
+		if err := pair.src.Validate(); err != nil {
+			return PhaseManifest{}, fmt.Errorf("cuptipcsampling: metadata: %w", err)
+		}
+		detached := pair.src.Clone()
+		*pair.dst = &detached
+	}
+	m.MetadataFailed = r.MetadataErr != nil
 	if !obs.Start.IsZero() && !obs.End.IsZero() && obs.End.Before(obs.Start) {
 		return PhaseManifest{}, errors.New("cuptipcsampling: phase window ends before it starts")
 	}

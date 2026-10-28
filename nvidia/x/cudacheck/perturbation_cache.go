@@ -182,7 +182,7 @@ func (r traceCacheRequest) check(id cudacache.CompilerIdentity, art *cudakernel.
 	if err := art.Validate(); err != nil {
 		return err
 	}
-	if art.Kind != cudakernel.KindPTX || art.EntryPoint != r.entry || art.Target != r.target || !reflect.DeepEqual(art.Schema, r.schema) || !slices.Equal(art.CompilerOpts, id.Flags) || !sameTraceJIT(art.JITOptions, r.jit) || len(art.Dependencies) != 0 {
+	if art.Kind() != cudakernel.KindPTX || art.EntryPoint() != r.entry || art.Target() != r.target || !reflect.DeepEqual(art.Schema(), r.schema) || !slices.Equal(art.CompilerOptions(), id.Flags) || !sameTraceJIT(art.JITOptions(), r.jit) || len(art.Dependencies()) != 0 {
 		return fmt.Errorf("%w: cached source recipe, ABI or options differ", ErrPerturbationArtifactMismatch)
 	}
 	return nil

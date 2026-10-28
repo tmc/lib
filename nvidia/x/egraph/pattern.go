@@ -133,11 +133,11 @@ func (p *Pattern) SearchWithBudget(g *EGraph, budget *egraphcore.WorkBudget) ([]
 		return nil, egraphcore.ErrInvalidPattern
 	}
 	if err := validatePatternTreeWithBudget(p, budget); err != nil {
-		return nil, fmt.Errorf("egraph: invalid pattern: %w", err)
+		return nil, graphErrorf(budget, "egraph: invalid pattern: %w", err)
 	}
 	view, err := matchingView(g, budget)
 	if err != nil {
-		return nil, fmt.Errorf("egraph: rebuild before search: %w", err)
+		return nil, graphErrorf(budget, "egraph: rebuild before search: %w", err)
 	}
 	g = view
 	classCount := g.storage().ClassCount()
@@ -213,7 +213,7 @@ func (p *Pattern) SearchBoundedWithBudget(g *EGraph, limit int, budget *egraphco
 	}
 	view, err := matchingView(g, budget)
 	if err != nil {
-		return nil, false, fmt.Errorf("egraph: rebuild before bounded search: %w", err)
+		return nil, false, graphErrorf(budget, "egraph: rebuild before bounded search: %w", err)
 	}
 	g = view
 	classCount := g.storage().ClassCount()
@@ -327,7 +327,10 @@ func (p *Pattern) matchEClassBudget(g *EGraph, classID Id, current Subst, budget
 	if err != nil {
 		return nil, err
 	}
-	converted := make([]Subst, len(results))
+	converted, err := graphSlice[Subst](budget, len(results), len(results))
+	if err != nil {
+		return nil, err
+	}
 	for i, subst := range results {
 		converted[i] = Subst(subst)
 	}
@@ -366,20 +369,71 @@ func (p *Pattern) matchesNode(node ENode) bool {
 
 // Instantiate creates new ENodes in the E-Graph according to this pattern and the given substitution.
 func (p *Pattern) Instantiate(g *EGraph, s Subst) Id {
-	if p.IsVar {
-		if id, ok := s[p.Op]; ok {
-			return g.Find(id)
+	id, _ := p.instantiateWithBudget(g, s, nil)
+	return id
+}
+
+func (p *Pattern) instantiateWithBudget(g *EGraph, s Subst, budget *egraphcore.WorkBudget) (Id, error) {
+	type frame struct {
+		p        *Pattern
+		child    int
+		children []Id
+		entered  bool
+	}
+	stack, err := graphSlice[frame](budget, 1, 1)
+	if err != nil {
+		return 0, err
+	}
+	stack[0].p = p
+	for len(stack) > 0 {
+		i := len(stack) - 1
+		f := &stack[i]
+		if !f.entered {
+			if budget != nil && !budget.TrySpend(1) {
+				return 0, ErrMatchWorkLimit
+			}
+			f.entered = true
+			if !f.p.IsVar {
+				f.children, err = graphSlice[Id](budget, len(f.p.Children), len(f.p.Children))
+				if err != nil {
+					return 0, err
+				}
+			}
 		}
-		// Unbound variable becomes a leaf
-		return g.Add(NewLeaf(p.Op))
+		if !f.p.IsVar && f.child < len(f.p.Children) {
+			child := f.p.Children[f.child]
+			f.child++
+			stack, err = graphAppend(budget, stack, frame{p: child})
+			if err != nil {
+				return 0, err
+			}
+			continue
+		}
+		var id Id
+		if bound, ok := s[f.p.Op]; f.p.IsVar && ok {
+			id = g.Find(bound)
+		} else {
+			n := NewNode(f.p.Op, f.children...)
+			if f.p.IsVar {
+				n.Data = f.p.Op
+			}
+			origin := "input"
+			if g.insertionOriginSet {
+				origin = g.insertionOrigin
+			}
+			id, err = g.addFromWithBudget(n, origin, budget)
+			if err != nil {
+				return 0, err
+			}
+		}
+		stack = stack[:i]
+		if len(stack) == 0 {
+			return id, nil
+		}
+		parent := &stack[len(stack)-1]
+		parent.children[parent.child-1] = id
 	}
-
-	childIDs := make([]Id, len(p.Children))
-	for i, c := range p.Children {
-		childIDs[i] = c.Instantiate(g, s)
-	}
-
-	return g.Add(NewNode(p.Op, childIDs...))
+	return 0, ErrMemoryOperation
 }
 
 func (p *Pattern) String() string {

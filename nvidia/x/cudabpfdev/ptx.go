@@ -135,7 +135,7 @@ func Translate(p Program, b Budget, target string) (Translation, error) {
 	}
 	sealedSchema := schema
 	sealedSchema.Params = slices.Clone(schema.Params)
-	return Translation{Artifact: artifact, Analysis: a, DeclaredRegisters: declared, digest: artifact.Digest, target: artifact.Target, schema: sealedSchema, slots: p.Slots,
+	return Translation{Artifact: artifact, Analysis: a, DeclaredRegisters: declared, digest: artifact.Digest(), target: artifact.Target(), schema: sealedSchema, slots: p.Slots,
 		limits: resourceLimits{registers: min(b.MaxRegisters, 255), sharedBytes: min(b.MaxSharedBytes, info.MaxSharedMemoryBytes)}}, nil
 }
 
@@ -186,15 +186,15 @@ func assemble(t Translation, link func([]nvjitlinkx.Input, ...string) (*nvjitlin
 	if err := t.Artifact.Validate(); err != nil {
 		return nil, fmt.Errorf("cudabpfdev: PTX artifact: %w", err)
 	}
-	if t.Artifact.Kind != cudakernel.KindPTX {
+	if t.Artifact.Kind() != cudakernel.KindPTX {
 		return nil, fmt.Errorf("cudabpfdev: expected PTX artifact")
 	}
-	if t.digest == "" || t.Artifact.Digest != t.digest || t.Artifact.Target != t.target || t.Artifact.EntryPoint != "cudabpfdev_main" || !reflect.DeepEqual(t.Artifact.Schema, t.schema) {
+	if t.digest == "" || t.Artifact.Digest() != t.digest || t.Artifact.Target() != t.target || t.Artifact.EntryPoint() != "cudabpfdev_main" || !reflect.DeepEqual(t.Artifact.Schema(), t.schema) {
 		return nil, fmt.Errorf("cudabpfdev: translation identity changed or unavailable")
 	}
 	in, err := nvjitlinkx.InputFromKernelArtifact("cudabpfdev.ptx", t.Artifact)
 	if err != nil {
 		return nil, err
 	}
-	return link([]nvjitlinkx.Input{in}, "-arch="+t.Artifact.Target)
+	return link([]nvjitlinkx.Input{in}, "-arch="+t.Artifact.Target())
 }

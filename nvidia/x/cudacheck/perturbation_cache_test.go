@@ -171,12 +171,20 @@ func TestJITCachedArtifactBindingBeforeLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var art cudakernel.Artifact
-	if err := json.Unmarshal(data, &art); err != nil {
+	var wire map[string]json.RawMessage
+	if err := json.Unmarshal(data, &wire); err != nil {
 		t.Fatal(err)
 	}
-	art.Schema.Params[0].Name = "wrong_abi_name"
-	data, err = json.Marshal(art)
+	var schema cudakernel.Schema
+	if err := json.Unmarshal(wire["schema"], &schema); err != nil {
+		t.Fatal(err)
+	}
+	schema.Params[0].Name = "wrong_abi_name"
+	wire["schema"], err = json.Marshal(schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = json.Marshal(wire)
 	if err != nil {
 		t.Fatal(err)
 	}

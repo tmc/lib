@@ -63,7 +63,7 @@ func ctaFixture(t *testing.T) programFixture {
 			"add3":      {Kind: cudamega.Add, Scalar: 3},
 			"multiply2": {Kind: cudamega.Multiply, Scalar: 2},
 		},
-		grid:   cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128},
+		grid:   cudamega.Grid{CTAs: 1, ThreadsPerCTA: 128, MaxElements: 1048576},
 		target: goldenTarget,
 	}
 }
@@ -92,7 +92,7 @@ func deviceFixture(t *testing.T) programFixture {
 			"scale":  {Kind: cudamega.Multiply, Scalar: 2},
 			"offset": {Kind: cudamega.Add, Scalar: 7},
 		},
-		grid:   cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128},
+		grid:   cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128, MaxElements: 1048576},
 		target: goldenTarget,
 	}
 }
@@ -136,7 +136,7 @@ func crossFixture(t *testing.T) programFixture {
 			"cross": {Kind: cudamega.Multiply, Scalar: 2},
 			"swap":  {Kind: cudamega.Add, Scalar: 7},
 		},
-		grid:   cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy},
+		grid:   cudamega.Grid{CTAs: 2, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy, MaxElements: 1048576},
 		target: goldenTarget,
 	}
 }
@@ -190,7 +190,7 @@ func skewFixture(t *testing.T) programFixture {
 			"mirror": {Kind: cudamega.Multiply, Scalar: 2},
 			"tail":   {Kind: cudamega.Multiply, Scalar: 3},
 		},
-		grid:   cudamega.Grid{CTAs: 4, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy},
+		grid:   cudamega.Grid{CTAs: 4, ThreadsPerCTA: 128, Policy: cudamega.CountedPolicy, MaxElements: 1048576},
 		target: goldenTarget,
 	}
 }

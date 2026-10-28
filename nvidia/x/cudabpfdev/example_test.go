@@ -44,7 +44,7 @@ func ExampleTranslate() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(x.Artifact.Target, x.Artifact.EntryPoint, x.Artifact.Schema.TotalParamBytes)
+	fmt.Println(x.Artifact.Target(), x.Artifact.EntryPoint(), x.Artifact.Schema().TotalParamBytes)
 	// Output: sm_121a cudabpfdev_main 32
 }
 
@@ -74,7 +74,7 @@ func ExampleNewArtifactSource() {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println(launch.Artifact.EntryPoint, launch.Geometry.Block)
+	fmt.Println(launch.Artifact.EntryPoint(), launch.Geometry.Block)
 	// Output: noop [32 1 1]
 }
 
@@ -193,7 +193,7 @@ func ExamplePrepareInjection_stub() {
 	}}
 	b := cudabpfdev.Budget{MaxInstructions: 3, MaxSteps: 3, MaxRegisters: 128, MaxSlots: 1}
 	policy := cudabpfdev.InjectionPolicy{
-		Enabled: true, Allowlist: []cudabpfdev.KernelIdentity{{Digest: a.Digest, EntryPoint: a.EntryPoint, Target: a.Target}},
+		Enabled: true, Allowlist: []cudabpfdev.KernelIdentity{{Digest: a.Digest(), EntryPoint: a.EntryPoint(), Target: a.Target()}},
 		StubFunctions: []string{"trace_stub"},
 	}
 	i, err := cudabpfdev.PrepareInjection(s, p, b, policy)

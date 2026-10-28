@@ -4,6 +4,10 @@
 // Artifact represents a compiled CUDA kernel image (PTX, CUBIN, LTOIR, or TileIR)
 // along with its cryptographic digest, entry point symbol, parameter schema, target
 // compute architecture, and hardware resource requirements.
+// Constructors seal a copy of [ArtifactSpec] after applying options. Options
+// configure that mutable spec rather than the published artifact. Schema and
+// slice accessors return detached copies; replacing a handle does not change
+// copies captured earlier by registries or executable owners.
 //
 // # Hardware Resource Model
 //

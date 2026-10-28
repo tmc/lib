@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudabatch"
@@ -17,17 +18,26 @@ type BatchEngineAdapter struct {
 	execEngine  cudabatch.ExecutionEngine
 	tokenizer   Tokenizer
 	bucket      cudabatch.ShapeBucket
-	blockSize   int
 	stepTicker  time.Duration
 	contTracker *cudabatch.ContinuationTracker
 
 	iterationMu sync.Mutex
 	pending     *pendingIteration
 
-	mu        sync.Mutex
-	listeners map[string]chan string
-	doneChans map[string]chan error
+	mu          sync.Mutex
+	listeners   map[string]chan string
+	doneChans   map[string]chan error
+	completions map[string]*requestCompletion
 }
+
+// Closing done publishes the scheduler's detached snapshot even if its bounded
+// terminal history retires the request before the HTTP consumer receives it.
+type requestCompletion struct {
+	done    chan struct{}
+	request *cudabatch.Request
+}
+
+var nextBatchRequestID atomic.Uint64
 
 // pendingForward preserves native buffer ownership after a failed wait.
 // Done must include completion and release of the execution's buffer leases.
@@ -81,11 +91,11 @@ func NewBatchEngineAdapter(
 		execEngine:  execEngine,
 		tokenizer:   tokenizer,
 		bucket:      cudabatch.ShapeBucket{BatchSize: 16, MaxSeqLen: 2048, MaxTokens: 2048},
-		blockSize:   16,
 		stepTicker:  1 * time.Millisecond,
 		contTracker: cudabatch.NewContinuationTracker(),
 		listeners:   make(map[string]chan string),
 		doneChans:   make(map[string]chan error),
+		completions: make(map[string]*requestCompletion),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -143,7 +153,11 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 		usage.PromptTokens = len(tokens)
 	}
 
-	reqID := fmt.Sprintf("req-%d", time.Now().UnixNano())
+	id := nextBatchRequestID.Add(1)
+	if id == 0 {
+		return fmt.Errorf("cudasrv: request identity exhausted")
+	}
+	reqID := fmt.Sprintf("req-%d", id)
 	maxTokens := req.MaxTokens
 	if maxTokens <= 0 {
 		maxTokens = 16
@@ -163,6 +177,11 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 		Visibility:   vis,
 		SessionID:    req.SessionID,
 	}
+	completion := &requestCompletion{done: make(chan struct{})}
+	batchReq.OnFinish = func(r *cudabatch.Request) {
+		completion.request = r
+		close(completion.done)
+	}
 
 	// Session snapshots do not retain live KV ownership. Recompute the full
 	// request prompt; token history and block IDs alone cannot authorize
@@ -175,12 +194,14 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 	a.mu.Lock()
 	a.listeners[reqID] = tokListener
 	a.doneChans[reqID] = doneChan
+	a.completions[reqID] = completion
 	a.mu.Unlock()
 
 	defer func() {
 		a.mu.Lock()
 		delete(a.listeners, reqID)
 		delete(a.doneChans, reqID)
+		delete(a.completions, reqID)
 		a.mu.Unlock()
 	}()
 
@@ -203,8 +224,14 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 		}
 	}
 	// Forward tokens until finished or context canceled.
+	finished := completion.done
 	for {
 		select {
+		case <-finished:
+			finished = nil
+			if completion.request.State == cudabatch.StateCompleted && completion.request.Err() != nil || completion.request.State == cudabatch.StateCanceled && completion.request.PrefilledTokens == 0 && len(completion.request.GeneratedTokens) == 0 {
+				return completion.request.Err()
+			}
 		case <-ctx.Done():
 			// Request cancellation: do NOT immediately release KV blocks or output buffer;
 			// scheduler.Cancel defers release until the active GPU/host step completes.
@@ -239,8 +266,8 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 				}
 			}
 			if usage != nil {
-				request, ok := a.scheduler.Request(reqID)
-				if !ok {
+				request := completion.request
+				if request == nil {
 					return fmt.Errorf("cudasrv: completed request missing token usage")
 				}
 				usage.CompletionTokens = len(request.GeneratedTokens)
@@ -251,7 +278,7 @@ func (a *BatchEngineAdapter) generate(ctx context.Context, req ChatCompletionReq
 			}
 			// Save continuation in session if requested
 			if req.SessionID != "" && a.contTracker != nil {
-				if r, ok := a.scheduler.Request(reqID); ok {
+				if r := completion.request; r != nil {
 					a.contTracker.StoreSession(req.SessionID, r.TotalTokensSlice(), nil, vis, fullPrompt)
 				}
 			}
@@ -282,7 +309,7 @@ func (a *BatchEngineAdapter) StepIteration(ctx context.Context) error {
 	}
 
 	// Bind rows and validate shapes
-	metadata, err := cudabatch.ValidateAndBindRows(iter.AllocatedRows, a.bucket, a.blockSize)
+	metadata, err := a.scheduler.BindIteration(iter, a.bucket)
 	if err != nil {
 		_, finishErr := a.finishIteration(iter, nil, nil, fmt.Errorf("cudasrv: validate row bindings: %w", err))
 		return finishErr
@@ -383,7 +410,7 @@ func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration,
 		if rowErrors[seqID] != nil {
 			continue
 		}
-		if req, ok := a.scheduler.Request(seqID); !ok || req.State == cudabatch.StateCanceled {
+		if req, ok := a.requestSnapshotLocked(seqID); !ok || req.State == cudabatch.StateCanceled {
 			continue
 		}
 		if listener, ok := a.listeners[seqID]; ok {
@@ -416,7 +443,7 @@ func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration,
 
 	// Check completed or errored requests
 	for _, row := range iter.AllocatedRows {
-		if r, ok := a.scheduler.Request(row.SeqID); ok && r.IsFinished() {
+		if r, ok := a.requestSnapshotLocked(row.SeqID); ok && r.IsFinished() {
 			if done, ok := a.doneChans[row.SeqID]; ok {
 				err := rowErrors[row.SeqID]
 				if r.State == cudabatch.StateCanceled {
@@ -433,4 +460,15 @@ func (a *BatchEngineAdapter) finishIteration(iter *cudabatch.ScheduledIteration,
 		return true, fmt.Errorf("cudasrv: execute forward: %w", execErr)
 	}
 	return true, nil
+}
+
+func (a *BatchEngineAdapter) requestSnapshotLocked(id string) (*cudabatch.Request, bool) {
+	if c := a.completions[id]; c != nil {
+		select {
+		case <-c.done:
+			return c.request, true
+		default:
+		}
+	}
+	return a.scheduler.Request(id)
 }

@@ -246,10 +246,11 @@ func kdaCompileArtifact(source, target string) (*cudakernel.Artifact, error) {
 		return nil, err
 	}
 	sum := sha256.Sum256([]byte(source))
-	a.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
-	a.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
-	a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "cudaattn_kda.cu", Digest: hex.EncodeToString(sum[:]), Tracked: true})
-	return a, nil
+	spec := a.Spec()
+	spec.Toolchain = fmt.Sprintf("nvrtc %d.%d", major, minor)
+	spec.CompilerOpts = []string{"--gpu-architecture=" + target, "--std=c++17", "--fmad=false", "--ftz=false"}
+	spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "cudaattn_kda.cu", Digest: hex.EncodeToString(sum[:]), Tracked: true})
+	return cudakernel.NewArtifactFromSpec(spec)
 }
 
 // CompileKDA compiles the ordinary kernel for the actual device. A nonnil KDA
@@ -285,6 +286,7 @@ func kdaLoadArtifact(dev *cuda.Device, c KDAConfig, a *cudakernel.Artifact) (*KD
 	if dev == nil || a == nil {
 		return nil, fmt.Errorf("cudaattn: missing kda device/artifact")
 	}
+	a = indexedClone(a)
 	if err := a.Validate(); err != nil {
 		return nil, err
 	}
@@ -292,7 +294,7 @@ func kdaLoadArtifact(dev *cuda.Device, c KDAConfig, a *cudakernel.Artifact) (*KD
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(a.Schema, schema) || a.EntryPoint != "kda_fp32" {
+	if !reflect.DeepEqual(a.Schema(), schema) || a.EntryPoint() != "kda_fp32" {
 		return nil, fmt.Errorf("cudaattn: kda artifact ABI mismatch")
 	}
 	k := &KDA{dev: dev, config: c, artifact: a}
@@ -305,7 +307,7 @@ func kdaLoadArtifact(dev *cuda.Device, c KDAConfig, a *cudakernel.Artifact) (*KD
 		return k, err
 	}
 	k.raw = 0
-	k.kernel, err = k.module.Function(a.EntryPoint)
+	k.kernel, err = k.module.Function(a.EntryPoint())
 	if err != nil {
 		return k, err
 	}
@@ -338,10 +340,6 @@ func (k *KDA) Artifact() *cudakernel.Artifact {
 		return nil
 	}
 	a := *k.artifact
-	a.Raw = append([]byte(nil), a.Raw...)
-	a.Schema.Params = append([]cudakernel.Param(nil), a.Schema.Params...)
-	a.CompilerOpts = append([]string(nil), a.CompilerOpts...)
-	a.Dependencies = append([]cudakernel.Dependency(nil), a.Dependencies...)
 	return &a
 }
 
@@ -479,7 +477,7 @@ func (k *KDA) Execute(ctx context.Context, stream *cuda.Stream, initial *KDAStat
 		release()
 		return nil, err
 	}
-	args, err := kdaLaunchArguments(k.artifact.Schema, [10]driver.DevicePtr{b.Q.Ptr(), b.Key.Ptr(), b.Value.Ptr(), b.Decay.Ptr(), b.Beta.Ptr(), initial.data.Ptr(), k.offsets.Ptr(), k.scratchState.Ptr(), k.scratchOutput.Ptr(), k.status.Ptr()}, int32(k.config.Sequences), int32(k.config.Heads), k.config.Scale)
+	args, err := kdaLaunchArguments(k.artifact.Schema(), [10]driver.DevicePtr{b.Q.Ptr(), b.Key.Ptr(), b.Value.Ptr(), b.Decay.Ptr(), b.Beta.Ptr(), initial.data.Ptr(), k.offsets.Ptr(), k.scratchState.Ptr(), k.scratchOutput.Ptr(), k.status.Ptr()}, int32(k.config.Sequences), int32(k.config.Heads), k.config.Scale)
 	if err != nil {
 		release()
 		return nil, err

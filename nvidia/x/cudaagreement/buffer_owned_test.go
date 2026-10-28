@@ -40,7 +40,7 @@ func TestMegaRawOwnershipRefusedBeforeCompiler(t *testing.T) {
 	}
 	plan := &Plan{Name: "control", Steps: []Step{{Name: "add", Artifact: a, Inputs: []string{"x"}, Output: "y", Grid: 1, Block: 32}}}
 	calls := 0
-	e := &MegaExecutor{Device: &cuda.Device{}, Modules: &Modules{}, Grid: cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32}, Operations: map[string]cudamega.Operation{"add": {Kind: cudamega.Add, Scalar: 1}}, Compile: func(string, cudamega.Target) (cudakernel.Kind, []byte, error) {
+	e := &MegaExecutor{Device: &cuda.Device{}, Modules: &Modules{}, Grid: cudamega.Grid{CTAs: 1, ThreadsPerCTA: 32, MaxElements: 1}, Operations: map[string]cudamega.Operation{"add": {Kind: cudamega.Add, Scalar: 1}}, Compile: func(string, cudamega.Target) (cudakernel.Kind, []byte, error) {
 		calls++
 		return cudakernel.KindPTX, nil, nil
 	}}

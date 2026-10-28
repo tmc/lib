@@ -35,8 +35,13 @@ func TestExecutableObjectiveAdmission(t *testing.T) {
 			// Both executables and their timings are synthetic CPU fixtures.
 			e, base, compiled, order := executableFixture(t)
 			e.Workload.Objective = test.objective
-			if err := e.Workload.Validate(); err != nil {
-				t.Fatalf("generic workload validation rejected objective: %v", err)
+			genericErr := e.Workload.Validate()
+			if test.name == "unknown" {
+				if !errors.Is(genericErr, ErrMissingBinding) {
+					t.Fatalf("unknown generic objective admitted: %v", genericErr)
+				}
+			} else if genericErr != nil {
+				t.Fatalf("generic workload validation rejected objective: %v", genericErr)
 			}
 			model := &objectiveCostModel{}
 			e.CostModel = model
@@ -45,7 +50,11 @@ func TestExecutableObjectiveAdmission(t *testing.T) {
 			s := executableState()
 			candidate, err := e.Evaluate(context.Background(), s, s.Roots["root"])
 			if !test.valid {
-				if candidate != nil || !errors.Is(err, ErrMissingBinding) || !strings.Contains(err.Error(), "unsupported executable objective") {
+				want := "unsupported executable objective"
+				if test.name == "unknown" {
+					want = "unsupported objective"
+				}
+				if candidate != nil || !errors.Is(err, ErrMissingBinding) || !strings.Contains(err.Error(), want) {
 					t.Fatalf("candidate=%v error=%v", candidate, err)
 				}
 				if model.calls != 0 || leaseChecks != 0 || len(*order) != 0 || base.closed != 0 || compiled.closed != 0 {
@@ -79,7 +88,7 @@ func TestExecutableObjectiveAdmissionOrder(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			e, base, compiled, order := executableFixture(t)
-			e.Workload.Objective = Objective("unknown")
+			e.Workload.Objective = ObjectiveMaxThroughput
 			test.change(e)
 			leaseChecks := 0
 			e.HardwareLockChecker = func() bool { leaseChecks++; return true }

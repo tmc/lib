@@ -136,10 +136,15 @@ func compileAttentionResidualSources(sources []FusedKernel, major, minor int) ([
 		// ToArtifact does not retain compiler flags. These are the exact
 		// required numerical flags supplied above, not an invented compiler
 		// report. The real compiler key binds all effective flags and tools.
-		a.CompilerOpts = append([]string(nil), flags...)
-		a.Toolchain = "nvrtc compiler-key=" + cm.Key()
-		a.Dependencies = append(a.Dependencies, cudakernel.Dependency{Path: "attention_residual.cu", Digest: attentionResidualDigest(s.Source), Tracked: true}, cudakernel.Dependency{Path: "cudablock-owner.cuh", Digest: attentionResidualDigest(cudablock.Header), Tracked: true}, cudakernel.Dependency{Path: "cudablock-fp32.cuh", Digest: attentionResidualDigest(h), Tracked: true})
+		spec := a.Spec()
+		spec.CompilerOpts = append([]string(nil), flags...)
+		spec.Toolchain = "nvrtc compiler-key=" + cm.Key()
+		spec.Dependencies = append(spec.Dependencies, cudakernel.Dependency{Path: "attention_residual.cu", Digest: attentionResidualDigest(s.Source), Tracked: true}, cudakernel.Dependency{Path: "cudablock-owner.cuh", Digest: attentionResidualDigest(cudablock.Header), Tracked: true}, cudakernel.Dependency{Path: "cudablock-fp32.cuh", Digest: attentionResidualDigest(h), Tracked: true})
 		if err := a.Validate(); err != nil {
+			return nil, err
+		}
+		a, err = cudakernel.NewArtifactFromSpec(spec)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -155,7 +160,7 @@ func attentionResidualArtifact(a *cudakernel.Artifact, s FusedKernel) (*cudakern
 	if err != nil {
 		return nil, err
 	}
-	if a.EntryPoint != s.Name || !reflect.DeepEqual(a.Schema, schema) || a.Kind != cudakernel.KindPTX && a.Kind != cudakernel.KindCUBIN {
+	if a.EntryPoint() != s.Name || !reflect.DeepEqual(a.Schema(), schema) || a.Kind() != cudakernel.KindPTX && a.Kind() != cudakernel.KindCUBIN {
 		return nil, errors.New("cudafuse: attention residual artifact ABI differs")
 	}
 	h, err := attentionResidualHeader(cudablock.Header)
@@ -164,7 +169,7 @@ func attentionResidualArtifact(a *cudakernel.Artifact, s FusedKernel) (*cudakern
 	}
 	for p, want := range map[string]string{"attention_residual.cu": attentionResidualDigest(s.Source), "cudablock-owner.cuh": attentionResidualDigest(cudablock.Header), "cudablock-fp32.cuh": attentionResidualDigest(h)} {
 		count := 0
-		for _, d := range a.Dependencies {
+		for _, d := range a.Dependencies() {
 			if d.Path == p {
 				count++
 				if !d.Tracked || d.ErrorMsg != "" || d.Digest != want {
@@ -178,7 +183,7 @@ func attentionResidualArtifact(a *cudakernel.Artifact, s FusedKernel) (*cudakern
 	}
 	for _, flag := range []string{"--fmad=false", "--ftz=false", "--prec-div=true", "--prec-sqrt=true"} {
 		count := 0
-		for _, v := range a.CompilerOpts {
+		for _, v := range a.CompilerOptions() {
 			key := strings.Split(strings.TrimPrefix(flag, "--"), "=")[0]
 			if strings.Contains(v, key) && v != flag {
 				return nil, errors.New("cudafuse: contradictory numerical compiler identity")
@@ -195,10 +200,6 @@ func attentionResidualArtifact(a *cudakernel.Artifact, s FusedKernel) (*cudakern
 		}
 	}
 	owned := *a
-	owned.Raw = append([]byte(nil), a.Raw...)
-	owned.Schema.Params = append([]cudakernel.Param(nil), a.Schema.Params...)
-	owned.CompilerOpts = append([]string(nil), a.CompilerOpts...)
-	owned.Dependencies = append([]cudakernel.Dependency(nil), a.Dependencies...)
 	return &owned, nil
 }
 

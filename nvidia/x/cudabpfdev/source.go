@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"runtime"
-	"slices"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -55,13 +54,13 @@ func NewArtifactSource(artifact *cudakernel.Artifact, geometry Geometry) (*Artif
 	if err := a.Validate(); err != nil {
 		return nil, fmt.Errorf("cudabpfdev: source artifact: %w", err)
 	}
-	if a.Kind != cudakernel.KindPTX && a.Kind != cudakernel.KindCUBIN {
-		return nil, fmt.Errorf("cudabpfdev: source artifact kind %s is not directly loadable", a.Kind)
+	if a.Kind() != cudakernel.KindPTX && a.Kind() != cudakernel.KindCUBIN {
+		return nil, fmt.Errorf("cudabpfdev: source artifact kind %s is not directly loadable", a.Kind())
 	}
-	if strings.ContainsRune(a.EntryPoint, 0) {
+	if strings.ContainsRune(a.EntryPoint(), 0) {
 		return nil, fmt.Errorf("cudabpfdev: source entry point contains NUL")
 	}
-	if a.Kind == cudakernel.KindPTX && bytes.ContainsRune(bytes.TrimRight(a.Raw, "\x00"), 0) {
+	if a.Kind() == cudakernel.KindPTX && bytes.ContainsRune(bytes.TrimRight(a.Bytes(), "\x00"), 0) {
 		return nil, fmt.Errorf("cudabpfdev: source PTX contains interior NUL")
 	}
 	for i := range geometry.Grid {
@@ -84,10 +83,6 @@ func (s *ArtifactSource) DescribeLaunch() (Launch, error) {
 
 func cloneArtifact(a *cudakernel.Artifact) *cudakernel.Artifact {
 	c := *a
-	c.Raw = slices.Clone(a.Raw)
-	c.Schema.Params = slices.Clone(a.Schema.Params)
-	c.CompilerOpts = slices.Clone(a.CompilerOpts)
-	c.Dependencies = slices.Clone(a.Dependencies)
 	return &c
 }
 
@@ -126,11 +121,11 @@ func (s *ArtifactSource) load(run func(func() error) error, load func([]byte, cu
 		return 0, err
 	}
 	a := l.Artifact
-	image := a.Raw
+	image := a.Bytes()
 	jit := cudakernel.JITOptions{}
-	if a.Kind == cudakernel.KindPTX {
+	if a.Kind() == cudakernel.KindPTX {
 		image = append(bytes.TrimRight(image, "\x00"), 0)
-		jit = a.JITOptions
+		jit = a.JITOptions()
 	}
 	var mod driver.Module
 	err = run(func() error {

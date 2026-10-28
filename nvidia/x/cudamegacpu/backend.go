@@ -1,6 +1,7 @@
 package cudamegacpu
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -37,10 +38,14 @@ type Executor struct {
 // admit from -- and is required to be nonzero only because [cudamega.Admission]
 // validates it. An executor reports it back unchanged so that a program
 // admitted against a device's shared-memory limit is not silently admitted
-// against a different one here.
+// against a different one here. The CPU backend caps the total OS thread
+// count, ResidentCTAs times WorkerThreads, at 1024.
 func New(a cudamega.Admission) (*Executor, error) {
 	if err := a.Validate(); err != nil {
 		return nil, fmt.Errorf("cudamegacpu: %w", err)
+	}
+	if uint64(a.ResidentCTAs)*uint64(a.WorkerThreads) > 1024 {
+		return nil, fmt.Errorf("cudamegacpu: more than 1024 OS threads requested")
 	}
 	return &Executor{admission: a, progress: cudamega.IndependentThreads}, nil
 }
@@ -51,12 +56,14 @@ func (e *Executor) Admission() cudamega.Admission { return e.admission }
 // A Result is one run's output: the scratch buffer every task wrote into, and
 // the abort code the run ended with.
 type Result struct {
-	// Scratch holds len(steps)*len(input) words, task-major.
+	// Scratch holds Program.Invocation(len(input)).ScratchWords words, with
+	// each exact task range given by Program.Storage(len(input)).
 	Scratch []uint32
 	// StartOrder is the overlap instrument, laid out as the emitted worker's
 	// buffer is: word zero is the ticket counter, and word
 	// 1 + cta*len(steps) + task is the one-based ticket that worker held when
-	// it took that task, or zero if it never did. See [cudamega.StartOrderWords].
+	// it took that task, or zero if it never did. The final two words are entry
+	// arrivals and release state. See [cudamega.StartOrderWords].
 	StartOrder []uint64
 	// Abort is zero for a run that finished, and otherwise one of the
 	// cudamega.Abort constants.
@@ -77,18 +84,44 @@ type Result struct {
 // Extents and storage sizes are checked through [cudamega.Program.Invocation]
 // before allocating scratch or starting workers.
 func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort uint32) (Result, error) {
+	if p != nil {
+		for _, s := range p.Steps() {
+			if _, typed := s.Operation.MoE(); typed || s.Operation.Kind == cudamega.MoEGateUp || s.Operation.Kind == cudamega.MoECombine {
+				return Result{}, fmt.Errorf("cudamegacpu: typed program requires RunMoE")
+			}
+		}
+	}
+	return e.run(p, input, nil, len(input), epoch, abort)
+}
+
+func (e *Executor) run(p *cudamega.Program, input []uint32, moe *cudamega.MoEInput, n int, epoch uint64, abort uint32) (Result, error) {
+	if e == nil {
+		return Result{}, fmt.Errorf("cudamegacpu: nil executor")
+	}
+	if _, err := New(e.admission); err != nil {
+		return Result{}, err
+	}
 	if p == nil {
 		return Result{}, fmt.Errorf("cudamegacpu: nil program")
 	}
-	inv, err := p.Invocation(uint64(len(input)))
+	if epoch == 0 {
+		return Result{}, fmt.Errorf("cudamegacpu: zero epoch: abort code %d", cudamega.AbortBadExtent)
+	}
+	inv, err := p.Invocation(uint64(n))
 	if err != nil {
 		return Result{}, fmt.Errorf("cudamegacpu: invocation: %w", err)
 	}
 	steps := p.Steps()
+	layout, err := p.Storage(uint64(n))
+	if err != nil {
+		return Result{}, err
+	}
 	r := &run{
-		p:     p,
-		steps: steps,
-		n:     len(input),
+		p:      p,
+		steps:  steps,
+		n:      n,
+		moe:    moe,
+		layout: layout,
 		// The launch geometry is the executor's, not the program's. That is
 		// what the host does on a device -- it launches at the residency it
 		// measured -- and it is what leaves the emitted worker's geometry
@@ -148,13 +181,14 @@ func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort 
 			runtime.LockOSThread()
 			defer runtime.UnlockOSThread()
 			errs[i] = run.Run()
+			if errs[i] != nil {
+				r.fail()
+			}
 		}()
 	}
 	wg.Wait()
-	for _, err := range errs {
-		if err != nil {
-			return Result{}, fmt.Errorf("cudamegacpu: %w", err)
-		}
+	if err := errors.Join(errs...); err != nil {
+		return Result{}, fmt.Errorf("cudamegacpu: %w", err)
 	}
 	// Word zero is the ticket counter, the way it is in the emitted worker's
 	// buffer: there the counter is the word the atomic adds to, so it ends at
@@ -163,6 +197,8 @@ func (e *Executor) Run(p *cudamega.Program, input []uint32, epoch uint64, abort 
 	// by the same test, and a layout that differed between them would make
 	// that test's agreement meaningless.
 	r.startOrder[0] = r.ticket.Load()
+	r.startOrder[len(r.startOrder)-2] = r.arrivals.Load()
+	r.startOrder[len(r.startOrder)-1] = r.released.Load()
 	return Result{Scratch: r.scratch, StartOrder: r.startOrder, Abort: r.abort.Load()}, nil
 }
 
@@ -178,6 +214,7 @@ const spinLimit = 1 << 26
 // the buffers the emitted worker takes as parameters, plus one barrier per
 // worker.
 type run struct {
+	layout  []cudamega.TaskStorage
 	p       *cudamega.Program
 	steps   []cudamega.Step
 	n       int
@@ -187,18 +224,22 @@ type run struct {
 	exec    *Executor
 
 	input     []uint32
+	moe       *cudamega.MoEInput
+	failed    atomic.Bool
 	scratch   []uint32
 	completed []atomic.Uint32
 	abort     atomic.Uint32
 	cta       []ctaState
 
-	// startOrder and ticket are the overlap instrument, not part of the
-	// model. ticket is the device-scope atomic the emitted worker deals
+	// The ticket portion of startOrder is the overlap instrument. ticket is
+	// the device-scope atomic the emitted worker deals
 	// tickets from; startOrder is the buffer it writes them into. Each slot
 	// is written by exactly one thread of one worker and read only after
 	// every worker has finished, so the plain slice needs no atomics.
 	startOrder []uint64
 	ticket     atomic.Uint64
+	arrivals   atomic.Uint64
+	released   atomic.Uint64
 
 	// fence is the word a device- or system-scope fence performs a
 	// read-modify-write on. Go exposes no standalone fence; a
@@ -206,6 +247,15 @@ type run struct {
 	// offers, and performing one on a word every worker shares is the
 	// nearest thing to fence.sc.gpu the language has. See worker.Fence.
 	fence atomic.Uint64
+}
+
+// fail releases peers if one lane exits with an error. No task can publish
+// through a broken barrier, so a consumer cannot observe unfinished stores.
+func (r *run) fail() {
+	r.failed.Store(true)
+	for i := range r.cta {
+		r.cta[i].barrier.breakWait()
+	}
 }
 
 // A ctaState is one worker's private state: its barrier, and the two
@@ -265,6 +315,41 @@ func (w *worker) Begin(p *cudamega.Program) error {
 	return nil
 }
 
+func (w *worker) Entry() error {
+	if w.tid == 0 {
+		for i := int(w.cta); i < len(w.r.steps); i += int(w.r.ctas) {
+			if w.r.completed[i].Load() != 0 {
+				w.r.abort.CompareAndSwap(0, cudamega.AbortStaleCompletion)
+			}
+		}
+		// Go's sequentially consistent operations implement the CUDA
+		// release-arrive/acquire-release chain with a stronger ordering.
+		arrival := w.r.arrivals.Add(1)
+		if arrival > uint64(w.r.ctas) {
+			w.r.abort.CompareAndSwap(0, cudamega.AbortStaleCompletion)
+		}
+		if arrival == uint64(w.r.ctas) {
+			w.r.released.Store(1)
+		}
+		limit := w.r.p.Grid().SpinLimit
+		if limit == 0 {
+			limit = cudamega.DefaultSpinLimit
+		}
+		for spins := uint64(0); w.r.released.Load() == 0; spins++ {
+			if w.r.failed.Load() {
+				break
+			}
+			if spins+1 >= limit {
+				w.r.abort.CompareAndSwap(0, cudamega.AbortSpinExhausted)
+				break
+			}
+			runtime.Gosched()
+		}
+	}
+	w.observeAbort()
+	return nil
+}
+
 // BeginSelection takes stock of what this worker owns and makes the abort
 // observation the emitted worker makes at the top of its scan loop.
 //
@@ -290,13 +375,18 @@ func (w *worker) BeginSelection() error {
 func (w *worker) observeAbort() {
 	c := &w.r.cta[w.cta]
 	if w.tid == 0 {
-		c.aborted = w.r.abort.Load() != 0
+		c.aborted = w.r.abort.Load() != 0 || w.r.failed.Load()
 	}
-	c.barrier.wait()
+	if !c.barrier.wait() {
+		w.stopped = true
+		return
+	}
 	if c.aborted {
 		w.stopped = true
 	}
-	c.barrier.wait()
+	if !c.barrier.wait() {
+		w.stopped = true
+	}
 }
 
 // BeginTask makes the ownership test, and makes it uniformly across the
@@ -358,7 +448,9 @@ func (w *worker) Take(i int) (bool, error) {
 		// Ready while a slower thread is still reading this one's, and the
 		// two then disagree about a task the whole worker must agree on. The
 		// emitted worker carries the same barrier for the same reason.
-		c.barrier.wait()
+		if !c.barrier.wait() {
+			return false, fmt.Errorf("worker group canceled")
+		}
 	}
 	if !taken {
 		return false, nil
@@ -383,7 +475,7 @@ func (w *worker) EndTask(i int) error {
 	return nil
 }
 
-// NextRound is where this backend waits, and the only place it does.
+// NextRound is where this backend waits after entry.
 //
 // A worker reaches it having declined every task it owns, so what it waits
 // for is another worker's publication. The bound exists for the reason the
@@ -409,7 +501,9 @@ func (w *worker) EndSelection() error { return nil }
 
 // Barrier is the workgroup barrier over the threads of one worker.
 func (w *worker) Barrier() error {
-	w.r.cta[w.cta].barrier.wait()
+	if !w.r.cta[w.cta].barrier.wait() {
+		return fmt.Errorf("worker group canceled")
+	}
 	return nil
 }
 
@@ -439,8 +533,7 @@ func (w *worker) Fence(_, _ int, s cudataskgraph.Scope, k cudamega.Fence) error 
 	}
 	switch s {
 	case cudataskgraph.ScopeCTA:
-		w.r.cta[w.cta].barrier.wait()
-		return nil
+		return w.Barrier()
 	case cudataskgraph.ScopeDevice, cudataskgraph.ScopeSystem:
 		w.r.fence.Add(0)
 		return nil
@@ -457,17 +550,33 @@ func (w *worker) Fence(_, _ int, s cudataskgraph.Scope, k cudamega.Fence) error 
 // consumer reads one another worker wrote -- and therefore what makes the
 // dependency wait something the result depends on rather than a coincidence
 // of the fixture.
-func (w *worker) Compute(i, src int, op cudamega.Operation) error {
-	n := w.r.n
-	from := w.r.input
-	if src >= 0 {
-		from = w.r.scratch[src*n : src*n+n]
+func (w *worker) Compute(i int, sources []int, op cudamega.Operation) error {
+	if d, ok := op.MoE(); ok {
+		return w.computeMoE(i, sources, d)
 	}
-	to := w.r.scratch[i*n : i*n+n]
+	storage := w.r.layout[i]
+	n := storage.Elements
+	from := make([][]uint32, len(sources))
+	for j, src := range sources {
+		from[j] = w.r.input
+		if src >= 0 {
+			s := w.r.layout[src]
+			from[j] = w.r.scratch[s.Offset : s.Offset+s.Elements]
+		}
+	}
+	to := w.r.scratch[storage.Offset : storage.Offset+n]
+	values := make([]uint32, len(sources))
 	o := w.r.steps[i].Owner
 	stride := int(o.Count()) * int(w.r.threads)
 	for e := int(w.cta-o.Lo)*int(w.r.threads) + int(w.tid); e < n; e += stride {
-		v := from[e]
+		for j := range values {
+			values[j] = from[j][e]
+		}
+		if op.Body != nil {
+			to[e] = op.Body.Evaluate(values)
+			continue
+		}
+		v := values[0]
 		switch op.Kind {
 		case cudamega.Add:
 			to[e] = v + op.Scalar
@@ -486,7 +595,9 @@ func (w *worker) Compute(i, src int, op cudamega.Operation) error {
 // a consumer's Ready load. The consumer's barrier then carries the acquired
 // stores to its remaining threads. Other workers do not join this barrier.
 func (w *worker) Publish(i int) error {
-	w.r.cta[w.cta].barrier.wait()
+	if !w.r.cta[w.cta].barrier.wait() || w.r.failed.Load() {
+		return fmt.Errorf("worker group canceled")
+	}
 	if w.tid == 0 {
 		w.r.completed[i].Add(1)
 	}
@@ -502,11 +613,12 @@ func (w *worker) End() error { return nil }
 // had to be reset between waves would have a window in which an early arriver
 // passes the previous wave's barrier.
 type barrier struct {
-	n     uint32
-	mu    sync.Mutex
-	cond  *sync.Cond
-	count uint32
-	phase uint64
+	n      uint32
+	mu     sync.Mutex
+	cond   *sync.Cond
+	count  uint32
+	phase  uint64
+	broken bool
 }
 
 func newBarrier(n uint32) *barrier {
@@ -515,18 +627,28 @@ func newBarrier(n uint32) *barrier {
 	return b
 }
 
-func (b *barrier) wait() {
+func (b *barrier) wait() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.broken {
+		return false
+	}
 	phase := b.phase
 	b.count++
 	if b.count == b.n {
 		b.count = 0
 		b.phase++
 		b.cond.Broadcast()
-		return
+		return true
 	}
-	for phase == b.phase {
+	for phase == b.phase && !b.broken {
 		b.cond.Wait()
 	}
+	return !b.broken
+}
+func (b *barrier) breakWait() {
+	b.mu.Lock()
+	b.broken = true
+	b.cond.Broadcast()
+	b.mu.Unlock()
 }

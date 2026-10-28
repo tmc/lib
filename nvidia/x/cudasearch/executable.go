@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"math"
+	"runtime"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tmc/lib/egraphcore"
@@ -47,6 +50,12 @@ type OutputComparison struct {
 // must cover every externally observable output, including secondary consumers.
 // Held-out winner confirmation and promotion remain separate steps.
 type ExecutableEvaluator struct {
+	// MeasurementContext optionally admits empirical reuse within one Search.
+	// Empty context measures normally. Algorithm/state/static scoring work is
+	// never reused; each current compiled owner still needs successful Close.
+	MeasurementContext MeasurementContext
+	measurements       *measurementMemo
+
 	Generation int // Execution-owner generation; zero permits evaluation but not promotion.
 	Workload   WorkloadBindings
 	CostModel  egraph.CostModel
@@ -55,6 +64,14 @@ type ExecutableEvaluator struct {
 	// any retained expression references when Close succeeds. Failed cleanup
 	// keeps the expression and its reservations alive until evaluator Close.
 	Compile func(context.Context, *egraph.Expr, WorkloadBindings) (Executable, error)
+	// Run optionally observes an existing arm's execution. It is trusted caller
+	// code, like Compile: it must call x.Run(ctx) exactly once, propagate its
+	// error and retain its real timing evidence. It must not substitute results.
+	// The evaluator still owns reset, verification, ABBA ordering, receipt
+	// validation and accounting. A nil hook dispatches directly to x.Run.
+	// Keeping the original executable preserves its preparation and private
+	// output ownership capabilities.
+	Run func(ctx context.Context, arm string, x Executable) (cudatrial.Receipt, error)
 	// CompileTimeout limits compilation through its context. Zero uses the
 	// caller's deadline. Compile must honor cancellation; synchronous native
 	// calls cannot be forcibly interrupted. Late results are closed and rejected.
@@ -66,21 +83,41 @@ type ExecutableEvaluator struct {
 	TimingKind     cudatrial.TimingKind
 	// HardwareLockChecker must verify a live lease, not only an environment flag.
 	HardwareLockChecker func() bool
-	// Receipts and Comparison retain the last attempt, including failures.
+	// FailureEvidence optionally exports actual candidate comparison failures
+	// and checks caller-owned offline quarantine after compile-owner registration.
+	FailureEvidence *FailureEvidence
+	// Observer optionally records each admitted attempt's start before any
+	// extraction or compilation and its outcome after cleanup. A recording
+	// failure refuses the attempt or rejects its candidate. Observer belongs
+	// to the caller; the evaluator never closes it.
+	Observer EvaluationObserver
+	// Receipts, Comparison and Preparation retain the last admitted attempt,
+	// including failures, until another attempt is admitted or Close succeeds.
+	// With capped search accounting their retained metadata remains reserved;
+	// callers must Close the evaluator independently of returned candidates.
 	Receipts           []cudatrial.Receipt
 	Comparison         map[string]OutputComparison
 	Preparation        map[string][]PreparationPhase
 	pending            []Executable
+	pendingOutput      io.Closer
+	attemptMemory      *egraphcore.MemoryScope
 	pendingExtraction  *egraph.Extraction
 	pendingMemory      *egraphcore.MemoryScope
 	memoryReservations []*memoryReservation
 	attemptIdentity    string
 	comparisonArm      string
+	observations       uint64
 }
 
 // Close retries destruction of candidates retained after cleanup failure.
 // The borrowed baseline remains the caller's responsibility.
 func (e *ExecutableEvaluator) Close() error {
+	if e.pendingOutput != nil {
+		if err := e.pendingOutput.Close(); err != nil {
+			return err
+		}
+		e.pendingOutput = nil
+	}
 	for len(e.pending) > 0 {
 		if err := e.pending[0].Close(); err != nil {
 			return err
@@ -96,34 +133,60 @@ func (e *ExecutableEvaluator) Close() error {
 		reservation.release()
 	}
 	e.memoryReservations = nil
+	e.measurements.close()
+	e.measurements = nil
+	e.attemptMemory.Close()
+	e.attemptMemory = nil
+	e.Receipts = nil
+	e.Comparison = nil
+	e.Preparation = nil
+	e.attemptIdentity = ""
+	e.comparisonArm = ""
 	return nil
 }
 
 // Evaluate implements Evaluator. A correctness failure prevents timing. Every
 // run resets workload state; unavailable or mixed device timing is rejected.
 func (e *ExecutableEvaluator) Evaluate(ctx context.Context, s *egraph.SearchState, root egraph.Id) (candidate *CandidatePlan, err error) {
-	return e.evaluate(ctx, s, root, nil)
+	return e.evaluate(ctx, s, root, nil, nil)
 }
 
-func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchState, root egraph.Id, selection *egraph.Expr) (candidate *CandidatePlan, err error) {
-	e.Receipts = nil
-	e.attemptIdentity = ""
-	e.comparisonArm = ""
-	e.Comparison = make(map[string]OutputComparison)
-	e.Preparation = make(map[string][]PreparationPhase)
-	if len(e.pending) != 0 {
+// evaluate is the single owner of an attempt. It measures the extraction of
+// root in s; with selection set, that caller-owned copy (a SearchRegisters
+// option); or with screened set, a copy of the screened expression, which is
+// then recorded as ConfirmationOf. At most one of selection and screened is set.
+func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchState, root egraph.Id, selection *egraph.Expr, screened *CandidatePlan) (candidate *CandidatePlan, err error) {
+	if len(e.pending) != 0 || e.pendingOutput != nil {
 		return nil, fmt.Errorf("cudasearch: candidate cleanup pending")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if err := e.beginAttempt(ctx); err != nil {
+		return nil, err
+	}
+	resultMemory, err := mockMemoryScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil || candidate == nil {
+			resultMemory.Close()
+		}
+	}()
 	if e.CompileTimeout < 0 {
 		return nil, fmt.Errorf("cudasearch: negative compile timeout")
+	}
+	if c := e.FailureEvidence; c != nil && ((c.Recorder == nil) != (c.Writer == nil)) {
+		return nil, fmt.Errorf("cudasearch: incomplete failure evidence exporter")
+	}
+	if c := e.FailureEvidence; c != nil && c.Quarantine != nil && c.Quarantine.maxBytes == 0 {
+		return nil, fmt.Errorf("cudasearch: uninitialized quarantine")
 	}
 	if e.Generation < 0 {
 		return nil, ErrStaleGeneration
 	}
-	if (selection == nil && (s == nil || s.Graph == nil)) || e.Compile == nil || e.Baseline == nil || e.Baseline.Identity() == "" || len(e.References) == 0 {
+	if (selection != nil && screened != nil) || (selection == nil && screened == nil && (s == nil || s.Graph == nil)) || e.Compile == nil || e.Baseline == nil || e.Baseline.Identity() == "" || len(e.References) == 0 {
 		return nil, fmt.Errorf("cudasearch: incomplete executable evaluator")
 	}
 	if err := e.Workload.Validate(); err != nil {
@@ -156,10 +219,53 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if model == nil {
 		model = egraph.AstSizeCost{}
 	}
+	var measurements *measurementMemo
+	var measurementKey [32]byte
+	reusedMeasurement := false
+	cleanupStarted, cleanupCompleted := false, false
+	var start EvaluationStart
+	if e.Observer != nil {
+		var startErr error
+		start, startErr = e.evaluationStart(s, selection, screened)
+		if startErr != nil {
+			return nil, startErr
+		}
+		if startErr := e.Observer.StartEvaluation(ctx, start); startErr != nil {
+			return nil, fmt.Errorf("cudasearch: record evaluation start: %w", startErr)
+		}
+	}
+	// Registered before work owners, so publication follows ordinary cleanup.
+	// A built candidate is not proof that its deferred Close returned.
+	defer func() {
+		panicValue := recover()
+		abandoned := panicValue != nil || candidate == nil && err == nil || cleanupStarted && !cleanupCompleted
+		if abandoned {
+			// Preserve the original abnormal exit even if metadata cleanup or
+			// the terminal observer itself panics. Never retry executable.Close
+			// here: abnormal cleanup leaves its external resources unproven.
+			if panicValue != nil {
+				defer func() { panic(panicValue) }()
+			} else {
+				defer runtime.Goexit()
+			}
+			candidate.Close()
+			candidate = nil
+			err = errors.Join(err, errEvaluationAbandoned)
+		}
+		if e.Observer != nil {
+			candidate, err = e.finishEvaluation(ctx, start, candidate, err, reusedMeasurement)
+		}
+	}()
+
 	expr := selection
 	var extraction *egraph.Extraction
 	var derivation []egraph.Action
-	if expr == nil {
+	if screened != nil {
+		expr, err = confirmationExpr(ctx, screened.Expr)
+		if err != nil {
+			return nil, err
+		}
+	} else if expr == nil {
 		if err := chargeWork(ctx, false); err != nil {
 			return nil, err
 		}
@@ -173,16 +279,16 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 				extraction.Close()
 			}
 		}()
-		derivationBytes, memoryErr := storageBytes(s.Derivation)
+		derivationBytes, memoryErr := storageBytesWithMemory(s.Derivation, resultMemory)
 		if memoryErr != nil && searchMemoryBudget(ctx) != nil && searchMemoryBudget(ctx).limit > 0 {
 			return nil, memoryErr
 		}
-		pathMemory, memoryErr := reserveSearchMemory(ctx, derivationBytes)
+		memoryErr = resultMemory.Reserve(derivationBytes)
 		if memoryErr != nil {
 			return nil, memoryErr
 		}
-		defer pathMemory.release()
-		derivation = append([]egraph.Action(nil), s.Derivation...)
+		derivation = make([]egraph.Action, len(s.Derivation))
+		copy(derivation, s.Derivation)
 		for i := range derivation {
 			derivation[i].Subst = maps.Clone(derivation[i].Subst)
 			derivation[i].Binding = maps.Clone(derivation[i].Binding)
@@ -217,8 +323,8 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	}
 	cancelCompile()
 	if executable != nil {
-		e.attemptIdentity = executable.Identity()
 		defer func() {
+			cleanupStarted = true
 			if closeErr := executable.Close(); closeErr != nil {
 				if cleanupSlot == nil {
 					e.pending = append(e.pending, executable)
@@ -233,7 +339,22 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 				candidate = nil
 				err = errors.Join(err, fmt.Errorf("cudasearch: close candidate: %w", closeErr))
 			}
+			if candidate != nil && err == nil && measurements != nil && !reusedMeasurement {
+				if cacheErr := measurements.remember(measurementKey, e.Receipts, e.Comparison); cacheErr != nil {
+					candidate = nil
+					err = cacheErr
+				}
+			}
+			cleanupCompleted = true
 		}()
+	}
+	if executable != nil {
+		id := executable.Identity()
+		if memoryErr := e.attemptMemory.Reserve(int64(len(id))); memoryErr != nil {
+			err = errors.Join(err, memoryErr)
+		} else {
+			e.attemptIdentity = strings.Clone(id)
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -241,72 +362,126 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if executable == nil || executable.Identity() == "" {
 		return nil, fmt.Errorf("cudasearch: compiler returned no executable identity")
 	}
-	e.Preparation["baseline"] = preparationOf(e.Baseline)
-	e.Preparation["candidate"] = preparationOf(executable)
-	reset := func() error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if !e.HardwareLockChecker() {
-			return cudatrial.ErrHardwareLockRequired
-		}
-		if e.Workload.ResetState != nil {
-			return e.Workload.ResetState()
-		}
-		return nil
-	}
-	for i, arm := range []Executable{e.Baseline, executable} {
-		if err := reset(); err != nil {
-			return nil, err
-		}
-		e.comparisonArm = []string{"baseline", "candidate"}[i]
-		e.Comparison = nil
-		outputs, err := arm.Outputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		comparison, err := e.Policy.compare(outputs, e.References)
-		e.Comparison = comparison
-		if err != nil {
-			return nil, err
-		}
-	}
-	makeArm := func(name string, x Executable) cudatrial.Arm {
-		return cudatrial.Arm{Name: name, Run: func(ctx context.Context) (cudatrial.Receipt, error) {
-			if err := reset(); err != nil {
-				return cudatrial.Receipt{}, err
-			}
-			r, err := x.Run(ctx)
-			if err != nil {
-				return r, err
-			}
-			if !r.Complete || r.Err != nil {
-				return r, fmt.Errorf("cudasearch: incomplete execution receipt")
-			}
-			if r.TimingKind != e.TimingKind {
-				return r, ErrTimingKindMismatch
-			}
-			d, err := r.DurationFor(e.TimingKind)
-			if err != nil {
-				return r, err
-			}
-			if d <= 0 {
-				return r, fmt.Errorf("cudasearch: nonpositive measured duration")
-			}
-			r.Timings = maps.Clone(r.Timings)
-			r.Provenance = maps.Clone(r.Provenance)
-			if r.Provenance == nil {
-				r.Provenance = make(map[string]string)
-			}
-			r.Provenance["executable_identity"] = x.Identity()
-			return r, nil
-		}}
-	}
-	e.Receipts, err = cudatrial.InterleaveWithOptions(ctx, []cudatrial.Arm{makeArm("baseline", e.Baseline), makeArm("candidate", executable)}, e.Rounds, cudatrial.Options{RequireHardwareLock: true, HardwareLockChecker: e.HardwareLockChecker})
+	association, associationMemory, err := e.candidateAssociation(ctx, executable.Identity())
 	if err != nil {
 		return nil, err
 	}
-	var durations []time.Duration
+	defer associationMemory.release()
+	if e.FailureEvidence != nil {
+		if err := e.FailureEvidence.Quarantine.check(association); err != nil {
+			return nil, err
+		}
+	}
+	for _, arm := range []struct {
+		name string
+		x    Executable
+	}{{"baseline", e.Baseline}, {"candidate", executable}} {
+		if _, ok := arm.x.(preparationReporter); ok {
+			phases, copyErr := executablePreparation(e.attemptMemory, arm.x)
+			if copyErr != nil {
+				return nil, copyErr
+			}
+			e.Preparation[arm.name] = phases
+		}
+	}
+	// Compilation may outlive the original lease observation. Reuse must not
+	// turn a lost current lease into a successful measured candidate.
+	if !e.HardwareLockChecker() {
+		return nil, cudatrial.ErrHardwareLockRequired
+	}
+	measurements, measurementKey, err = e.measurementAttempt(ctx, selection != nil || screened != nil, executable.Identity())
+	if err != nil {
+		return nil, err
+	}
+	if measurements != nil && measurements.entries[measurementKey] != nil {
+		if err := e.reuseMeasurement(measurements.entries[measurementKey], measurementKey); err != nil {
+			return nil, err
+		}
+		reusedMeasurement = true
+	}
+	if !reusedMeasurement {
+		reset := func() error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if !e.HardwareLockChecker() {
+				return cudatrial.ErrHardwareLockRequired
+			}
+			if e.Workload.ResetState != nil {
+				return e.Workload.ResetState()
+			}
+			return nil
+		}
+		for i, arm := range []Executable{e.Baseline, executable} {
+			if err := reset(); err != nil {
+				return nil, err
+			}
+			e.comparisonArm = []string{"baseline", "candidate"}[i]
+			e.Comparison = nil
+			if err := e.compareExecutable(ctx, arm, i == 1, association); err != nil {
+				return nil, err
+			}
+		}
+		makeArm := func(name string, x Executable) cudatrial.Arm {
+			return cudatrial.Arm{Name: name, Run: func(ctx context.Context) (cudatrial.Receipt, error) {
+				if err := reset(); err != nil {
+					return cudatrial.Receipt{}, err
+				}
+				var r cudatrial.Receipt
+				var err error
+				if e.Run == nil {
+					r, err = x.Run(ctx)
+				} else {
+					r, err = e.Run(ctx, name, x)
+				}
+				detached, copyErr := r.CloneWithMemory(e.attemptMemory.Reserve)
+				if copyErr != nil {
+					return r, errors.Join(err, r.Err, copyErr)
+				}
+				r = detached
+				if err != nil {
+					return r, errors.Join(err, r.Err)
+				}
+				if !r.Complete || r.Err != nil {
+					return r, errors.Join(fmt.Errorf("cudasearch: incomplete execution receipt"), r.Err)
+				}
+				if r.TimingKind != e.TimingKind {
+					return r, ErrTimingKindMismatch
+				}
+				d, err := r.DurationFor(e.TimingKind)
+				if err != nil {
+					return r, err
+				}
+				if d <= 0 {
+					return r, fmt.Errorf("cudasearch: nonpositive measured duration")
+				}
+				r.Timings = maps.Clone(r.Timings)
+				r.Provenance = maps.Clone(r.Provenance)
+				if r.Provenance == nil {
+					r.Provenance = make(map[string]string)
+				}
+				id := x.Identity()
+				if reserveErr := e.attemptMemory.Reserve(256 + int64(len(id))); reserveErr != nil {
+					return r, reserveErr
+				}
+				r.Provenance["executable_identity"] = strings.Clone(id)
+				return r, nil
+			}}
+		}
+		e.Receipts, err = cudatrial.InterleaveWithOptions(ctx, []cudatrial.Arm{makeArm("baseline", e.Baseline), makeArm("candidate", executable)}, e.Rounds, cudatrial.Options{RequireHardwareLock: true, HardwareLockChecker: e.HardwareLockChecker, ReserveMemory: e.attemptMemory.Reserve})
+		if err != nil {
+			return nil, err
+		}
+		if measurements != nil {
+			if err := markMeasurement(e.attemptMemory, e.Receipts, measurementKey, e.MeasurementContext, false); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := bookkeepingSlots[time.Duration](e.attemptMemory, e.Rounds); err != nil {
+		return nil, err
+	}
+	durations := make([]time.Duration, 0, e.Rounds)
 	var selected cudatrial.Receipt
 	for _, r := range e.Receipts {
 		if r.Name == "candidate" {
@@ -323,14 +498,31 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 			break
 		}
 	}
-	trials := cloneTrials(e.Receipts)
-	selected.Timings = maps.Clone(selected.Timings)
-	selected.Provenance = maps.Clone(selected.Provenance)
 	ledger := searchMemoryBudget(ctx)
 	if extraction == nil {
 		ledger = nil
 	}
-	return &CandidatePlan{Generation: e.Generation, WorkloadKey: e.Workload.Key(), InputKey: inputKey(e.Workload), VerificationPolicy: e.Policy, ID: executable.Identity(), Expr: expr, Derivation: derivation, Cost: float64(median.Nanoseconds()), CostSource: CostMeasured, Receipt: &selected, Trials: trials, Validated: true, Comparison: maps.Clone(e.Comparison), Preparation: preparationOf(executable), extraction: extraction, extractionLedger: ledger}, nil
+	if err := bookkeepingSlots[CandidatePlan](resultMemory, 1); err != nil {
+		return nil, err
+	}
+	if err := bookkeepingSlots[cudatrial.Receipt](resultMemory, 1); err != nil {
+		return nil, err
+	}
+	candidate = &CandidatePlan{Generation: e.Generation, WorkloadKey: e.Workload.Key(), InputKey: inputKey(e.Workload), VerificationPolicy: e.Policy, ID: executable.Identity(), Expr: expr, Derivation: derivation, Cost: float64(median.Nanoseconds()), CostSource: CostMeasured, Receipt: &selected, Trials: nil, Validated: true, Comparison: nil, Preparation: e.Preparation["candidate"], extraction: extraction, extractionLedger: ledger, metadata: resultMemory, metadataLedger: searchMemoryBudget(ctx)}
+	if err := e.detachCandidate(resultMemory, candidate); err != nil {
+		return nil, err
+	}
+	if measurements != nil {
+		comparison, copyErr := cloneMeasurementComparison(resultMemory, candidate.Comparison)
+		if copyErr != nil {
+			return nil, copyErr
+		}
+		candidate.Comparison = comparison
+	}
+	if screened != nil {
+		candidate.ConfirmationOf = screened.ID
+	}
+	return candidate, nil
 }
 
 func (p OutputPolicy) validate() error {

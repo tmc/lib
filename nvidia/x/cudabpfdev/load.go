@@ -65,9 +65,9 @@ func (i *Injection) load(ops injectionLoadOps) (*LoadedInjection, error) {
 	if i == nil || i.original == nil {
 		return nil, fmt.Errorf("cudabpfdev: missing original source")
 	}
-	l := &LoadedInjection{ops: ops, geometry: i.original.launch.Geometry, schema: cloneArtifact(i.original.launch.Artifact).Schema, slots: i.slots}
+	l := &LoadedInjection{ops: ops, geometry: i.original.launch.Geometry, schema: i.original.launch.Artifact.Schema(), slots: i.slots}
 	a := i.original.launch.Artifact
-	l.selection = Selection{Kernel: KernelIdentity{a.Digest, a.EntryPoint, a.Target}, Reason: i.reason}
+	l.selection = Selection{Kernel: KernelIdentity{a.Digest(), a.EntryPoint(), a.Target()}, Reason: i.reason}
 	l.originalKernel = l.selection.Kernel
 	err := ops.run(func() error {
 		var err error
@@ -75,7 +75,7 @@ func (i *Injection) load(ops injectionLoadOps) (*LoadedInjection, error) {
 		if err != nil {
 			return err
 		}
-		l.function, err = ops.function(l.modules[0], a.EntryPoint)
+		l.function, err = ops.function(l.modules[0], a.EntryPoint())
 		if err != nil {
 			return fmt.Errorf("cudabpfdev: original function: %w", err)
 		}
@@ -110,7 +110,7 @@ func (i *Injection) load(ops injectionLoadOps) (*LoadedInjection, error) {
 		if err != nil {
 			return fallback(fmt.Errorf("cudabpfdev: candidate load: %w", err))
 		}
-		fn, err := ops.function(l.modules[1], a.EntryPoint)
+		fn, err := ops.function(l.modules[1], a.EntryPoint())
 		if err != nil {
 			return fallback(err)
 		}
@@ -159,7 +159,7 @@ func (i *Injection) load(ops injectionLoadOps) (*LoadedInjection, error) {
 		}
 		// Function selection changes only after all candidate checks succeed.
 		l.function = fn
-		l.selection = Selection{Kernel: KernelIdentity{candidate.Digest, candidate.EntryPoint, candidate.Target}, Candidate: true}
+		l.selection = Selection{Kernel: KernelIdentity{candidate.Digest(), candidate.EntryPoint(), candidate.Target()}, Candidate: true}
 		return nil
 	})
 	if err != nil {
@@ -268,13 +268,13 @@ func compileInjection(a *cudakernel.Artifact, link func([]nvjitlinkx.Input, ...s
 	if err != nil {
 		return nil, nil, err
 	}
-	r, err := link([]nvjitlinkx.Input{in}, "-arch="+a.Target)
+	r, err := link([]nvjitlinkx.Input{in}, "-arch="+a.Target())
 	if err != nil {
 		return nil, r, err
 	}
 	if r == nil || len(r.CUBIN) == 0 || len(r.PTX) != 0 {
 		return nil, r, fmt.Errorf("cudabpfdev: linker did not return CUBIN")
 	}
-	artifact, err := cudakernel.NewArtifact(cudakernel.KindCUBIN, r.CUBIN, a.EntryPoint, a.Schema, a.Target)
+	artifact, err := cudakernel.NewArtifact(cudakernel.KindCUBIN, r.CUBIN, a.EntryPoint(), a.Schema(), a.Target())
 	return artifact, r, err
 }

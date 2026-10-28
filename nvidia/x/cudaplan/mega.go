@@ -79,6 +79,7 @@ func (l Lowering) Binding(id string) (Binding, bool) {
 		return Binding{}, false
 	}
 	b.InputNames = append([]string(nil), b.InputNames...)
+	b.Artifact = captureArtifact(b.Artifact)
 	b.ExternalDeps = append([]int(nil), b.ExternalDeps...)
 	return b, true
 }
@@ -192,7 +193,7 @@ func LowerRegion(steps []StepPlan, r Region) (Lowering, error) {
 			NodeID:          s.NodeID,
 			NodeName:        s.NodeName,
 			Backend:         s.Backend,
-			Artifact:        s.Artifact,
+			Artifact:        captureArtifact(s.Artifact),
 			InputNames:      append([]string(nil), s.InputNames...),
 			OutputName:      s.OutputName,
 			IsOutput:        s.IsOutput,

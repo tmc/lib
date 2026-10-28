@@ -63,8 +63,8 @@ func compiledTargetFixture(t *testing.T, numeric uint32, declared string) (*cuda
 		t.Fatal(err)
 	}
 	in := cudainspect.CompiledResourceInput{
-		Source: []byte("constructed host target control"), CompilerVersion: artifact.Toolchain, CompilerOptions: options,
-		DiagnosticImage: artifact.Digest, SASSImage: artifact.Digest, DisassemblerVersion: "constructed disassembler receipt",
+		Source: []byte("constructed host target control"), CompilerVersion: artifact.Toolchain(), CompilerOptions: options,
+		DiagnosticImage: artifact.Digest(), SASSImage: artifact.Digest(), DisassemblerVersion: "constructed disassembler receipt",
 		Diagnostics: fmt.Sprintf("Compiling entry function 'kernel' for '%s'\n0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n", declared),
 		SASS:        fmt.Sprintf(".target sm_%d\nFunction : kernel\n/*0000*/ NOP; /* 0x0000000000000001 */\n/* 0x0000000000000002 */\n", numeric),
 	}
@@ -99,7 +99,7 @@ func TestCompiledTargetNumericCompatibility(t *testing.T) {
 			if r.Allocated.Value == nil || *r.Allocated.Value != 24 || r.Allocated.Category != "decoded" || r.StaticShared.Value == nil || *r.StaticShared.Value != 0 {
 				t.Fatal("actual metadata allocation/explicit zero was lost")
 			}
-			if r.ImageDigest != artifact.Digest || r.Entry != artifact.EntryPoint || r.CompilerVersion != in.CompilerVersion || r.CompilerOptions[0] != in.CompilerOptions[0] {
+			if r.ImageDigest != artifact.Digest() || r.Entry != artifact.EntryPoint() || r.CompilerVersion != in.CompilerVersion || r.CompilerOptions[0] != in.CompilerOptions[0] {
 				t.Fatal("declared compilation identity changed")
 			}
 			if r.StackBytes.Value == nil || *r.StackBytes.Value != 0 || r.StackBytes.Category != "compiler reported" {
@@ -119,15 +119,16 @@ func TestCompiledTargetContradictions(t *testing.T) {
 	for _, name := range []string{"numeric", "minor", "malformed", "small_numeric", "image_receipt", "sass_image_receipt", "compiler_version", "compiler_suffix_option", "wrong_entry"} {
 		t.Run(name, func(t *testing.T) {
 			artifact, in := compiledTargetFixture(t, 90, "sm_90a")
+			spec := artifact.Spec()
 			switch name {
 			case "numeric":
-				artifact.Target = "sm_100a"
+				spec.Target = "sm_100a"
 			case "minor":
-				artifact.Target = "sm_91a"
+				spec.Target = "sm_91a"
 			case "malformed":
-				artifact.Target = "sm_not-a-number"
+				spec.Target = "sm_not-a-number"
 			case "small_numeric":
-				artifact.Target = "sm_9a"
+				spec.Target = "sm_9a"
 			case "image_receipt":
 				in.DiagnosticImage = strings.Repeat("a", 64)
 			case "sass_image_receipt":
@@ -137,7 +138,19 @@ func TestCompiledTargetContradictions(t *testing.T) {
 			case "compiler_suffix_option":
 				in.CompilerOptions = []string{"--gpu-name=sm_90"}
 			case "wrong_entry":
-				artifact.EntryPoint = "other"
+				spec.EntryPoint = "other"
+			}
+			if spec.Target != artifact.Target() || spec.EntryPoint != artifact.EntryPoint() {
+				changed, err := cudakernel.NewArtifactFromSpec(spec)
+				if err != nil {
+					// Malformed target and absent entry are refused while sealing,
+					// before an invalid handle can reach the inspector.
+					if name != "malformed" && name != "small_numeric" && name != "wrong_entry" {
+						t.Fatalf("seal contradiction: %v", err)
+					}
+					return
+				}
+				artifact = changed
 			}
 			inspector, _ := cudainspect.NewInspector(t.TempDir())
 			if r, err := inspector.InspectCompiledResources(artifact, in); err == nil || r != nil {

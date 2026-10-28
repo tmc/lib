@@ -189,7 +189,12 @@ func mhcCacheMetadataArtifact(t *testing.T, r mhcCacheRequest, id cudacache.Comp
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.Toolchain = string(b)
+	spec := a.Spec()
+	spec.Toolchain = string(b)
+	a, err = cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return a
 }
 
@@ -203,16 +208,16 @@ func TestMHCCacheAdapterMetadataRefusal(t *testing.T) {
 	id := r.identity(13, 0, "host-metadata-no-driver", prov)
 	for _, tt := range []struct {
 		name   string
-		mutate func(*cudakernel.Artifact)
+		mutate func(*cudakernel.ArtifactSpec)
 	}{
-		{"entry", func(a *cudakernel.Artifact) { a.EntryPoint = "other_entry" }},
-		{"abi", func(a *cudakernel.Artifact) { a.Schema.Params[0].Name = "other_input" }},
-		{"flags", func(a *cudakernel.Artifact) {
+		{"entry", func(a *cudakernel.ArtifactSpec) { a.EntryPoint = "other_entry" }},
+		{"abi", func(a *cudakernel.ArtifactSpec) { a.Schema.Params[0].Name = "other_input" }},
+		{"flags", func(a *cudakernel.ArtifactSpec) {
 			a.CompilerOpts[1], a.CompilerOpts[2] = a.CompilerOpts[2], a.CompilerOpts[1]
 		}},
-		{"source", func(a *cudakernel.Artifact) { a.Dependencies[0].Digest = mhcCacheDigest("different source") }},
-		{"layout", func(a *cudakernel.Artifact) { a.Dependencies[3].Digest = mhcCacheDigest("different layout") }},
-		{"tool receipt", func(a *cudakernel.Artifact) { a.Toolchain = "nvrtc-default" }},
+		{"source", func(a *cudakernel.ArtifactSpec) { a.Dependencies[0].Digest = mhcCacheDigest("different source") }},
+		{"layout", func(a *cudakernel.ArtifactSpec) { a.Dependencies[3].Digest = mhcCacheDigest("different layout") }},
+		{"tool receipt", func(a *cudakernel.ArtifactSpec) { a.Toolchain = "nvrtc-default" }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := cudacache.Config{RootDir: t.TempDir()}
@@ -224,7 +229,12 @@ func TestMHCCacheAdapterMetadataRefusal(t *testing.T) {
 			if err := checkMHCCacheArtifact(r, id, a); err != nil {
 				t.Fatal(err)
 			}
-			tt.mutate(a)
+			spec := a.Spec()
+			tt.mutate(&spec)
+			a, err = cudakernel.NewArtifactFromSpec(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
 			adapter := cudacache.NewNVRTCAdapter(c)
 			if err := adapter.Store(context.Background(), r.InputKey, id, a); err != nil {
 				t.Fatalf("adapter itself must accept this metadata control: %v", err)

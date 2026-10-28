@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/tmc/lib/nvidia/x/cudaevidence"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 )
 
 // Limits bound encoded record storage and all snapshot input/output bytes,
@@ -247,6 +248,22 @@ func boundedValue(v reflect.Value, limit int) error {
 		if v.Type() == reflect.TypeOf(cudaevidence.Value{}) {
 			return walk(reflect.ValueOf(v.Interface().(cudaevidence.Value).Record()))
 		}
+		if v.Type() == reflect.TypeOf(cudakernel.Artifact{}) {
+			// Charge the image before copying anything from the handle,
+			// then walk the metadata with Raw left empty, so each byte is
+			// counted once, as it was for the former exported struct.
+			a := v.Interface().(cudakernel.Artifact)
+			if a.Size() > remaining {
+				return false
+			}
+			remaining -= a.Size()
+			spec := cudakernel.ArtifactSpec{
+				Kind: a.Kind(), EntryPoint: a.EntryPoint(), Schema: a.Schema(), Target: a.Target(),
+				Resources: a.Resources(), JITOptions: a.JITOptions(), Toolchain: a.Toolchain(),
+				CompilerOpts: a.CompilerOptions(), Dependencies: a.Dependencies(),
+			}
+			return walk(reflect.ValueOf(spec)) && walk(reflect.ValueOf(a.Digest()))
+		}
 		remaining--
 		switch v.Kind() {
 		case reflect.String:
@@ -279,6 +296,13 @@ func boundedValue(v reflect.Value, limit int) error {
 	return nil
 }
 
+// artifactJSON spells the JSON form of cudakernel.Artifact, which has no
+// exported fields, for checkJSON.
+type artifactJSON struct {
+	cudakernel.ArtifactSpec
+	Digest string `json:"digest"`
+}
+
 // checkJSON verifies exact schema spelling even for types with custom decoders.
 func checkJSON(d *json.Decoder, t reflect.Type, depth int) error {
 	if depth > 64 {
@@ -289,6 +313,9 @@ func checkJSON(d *json.Decoder, t reflect.Type, depth int) error {
 	}
 	if t == reflect.TypeOf(cudaevidence.Value{}) {
 		t = reflect.TypeOf(cudaevidence.Record{})
+	}
+	if t == reflect.TypeOf(cudakernel.Artifact{}) {
+		t = reflect.TypeOf(artifactJSON{})
 	}
 	tok, err := d.Token()
 	if err != nil {
@@ -305,9 +332,9 @@ func checkJSON(d *json.Decoder, t reflect.Type, depth int) error {
 	case '{':
 		fields := map[string]reflect.Type{}
 		if t.Kind() == reflect.Struct {
-			for i := 0; i < t.NumField(); i++ {
-				f := t.Field(i)
-				if f.PkgPath != "" {
+			// Visible fields include those promoted from artifactJSON's spec.
+			for _, f := range reflect.VisibleFields(t) {
+				if f.PkgPath != "" || f.Anonymous {
 					continue
 				}
 				name := strings.Split(f.Tag.Get("json"), ",")[0]

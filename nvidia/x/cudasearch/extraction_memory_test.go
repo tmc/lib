@@ -16,6 +16,7 @@ func extractionContext(t *testing.T, ctx context.Context, budget SearchBudget, e
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(work.closeSearch)
 	return ctx, work
 }
 
@@ -90,9 +91,21 @@ func TestExtractionMemoryMockFailureCleanup(t *testing.T) {
 	state, _ := beamContractState()
 	eval := &MockEvaluator{Scoring: DefaultScoringModel("epoch"), FailCandidate: func(*egraph.Expr) bool { return true }}
 	ctx, work := extractionContext(t, context.Background(), SearchBudget{MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: 1}, eval)
+	setupBytes := work.memory.live
+	if setupBytes <= 0 {
+		t.Fatal("missing search setup owner")
+	}
 	candidate, err := evaluateSearch(ctx, eval, state, state.Roots["root"])
-	if candidate != nil || err == nil || work.memory.live != 0 {
-		t.Fatal(candidate, err, work.memory.live)
+	if candidate != nil || err == nil || work.memory.live != setupBytes {
+		t.Fatal(candidate, err, work.memory.live, setupBytes)
+	}
+	work.closeSearch()
+	if work.memory.live != 0 {
+		t.Fatal("search setup leaked", work.memory.live)
+	}
+	work.closeSearch()
+	if work.memory.live != 0 {
+		t.Fatal("search setup released twice", work.memory.live)
 	}
 }
 
@@ -100,6 +113,11 @@ func TestExtractionMemoryExecutableOwnership(t *testing.T) {
 	for _, stage := range []string{"success", "compile", "outputs", "cleanup", "cancel"} {
 		t.Run(stage, func(t *testing.T) {
 			eval, baseline, compiled, _ := executableFixture(t)
+			t.Cleanup(func() {
+				if err := eval.Close(); err != nil {
+					t.Error(err)
+				}
+			})
 			state := executableState()
 			parent, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -130,6 +148,7 @@ func TestExtractionMemoryExecutableOwnership(t *testing.T) {
 			}
 			budget := SearchBudget{MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: 4096}
 			ctx, work := extractionContext(t, parent, budget, eval)
+			setupBytes := work.memory.live
 			candidate, err := evaluateSearch(ctx, eval, state, state.Roots["root"])
 			if baseline.closed != 0 || compiled.closed != 1 {
 				t.Fatal("executable ownership changed", baseline.closed, compiled.closed)
@@ -146,29 +165,48 @@ func TestExtractionMemoryExecutableOwnership(t *testing.T) {
 				if compiled.closed != 1 || baseline.closed != 0 {
 					t.Fatal("candidate close closed executables")
 				}
-				return
-			}
-			if err == nil || candidate != nil {
-				t.Fatal(candidate, err)
-			}
-			if stage == "cancel" && !errors.Is(err, context.Canceled) {
-				t.Fatal(err)
-			}
-			if stage == "cleanup" {
-				if eval.pendingExtraction == nil || eval.pendingExtraction.Expr == nil || eval.pendingExtraction.Expr != captured || eval.pendingMemory == nil || work.memory.live <= budget.CallbackMemoryBytes+eval.pendingMemory.Bytes() {
-					t.Fatal("pending executable lost extraction/slot/envelope ownership", work.memory.live)
+			} else {
+				if err == nil || candidate != nil {
+					t.Fatal(candidate, err)
 				}
-				held := work.memory.live
-				if err := eval.Close(); !errors.Is(err, failure) || work.memory.live != held {
-					t.Fatal("failed close released ownership", err, work.memory.live, held)
-				}
-				compiled.closeErr = nil
-				if err := eval.Close(); err != nil {
+				if stage == "cancel" && !errors.Is(err, context.Canceled) {
 					t.Fatal(err)
 				}
+				if stage == "cleanup" {
+					if eval.pendingExtraction == nil || eval.pendingExtraction.Expr == nil || eval.pendingExtraction.Expr != captured || eval.pendingMemory == nil || work.memory.live <= budget.CallbackMemoryBytes+eval.pendingMemory.Bytes() {
+						t.Fatal("pending executable lost extraction/slot/envelope ownership", work.memory.live)
+					}
+					held := work.memory.live
+					if err := eval.Close(); !errors.Is(err, failure) || work.memory.live != held {
+						t.Fatal("failed close released ownership", err, work.memory.live, held)
+					}
+					compiled.closeErr = nil
+					if err := eval.Close(); err != nil {
+						t.Fatal(err)
+					}
+				}
 			}
+			// Search setup and the evaluator's last attempt have independent
+			// owners; candidate extraction and the callback envelope are gone.
+			if work.memory.live != setupBytes+eval.attemptMemory.Bytes() {
+				t.Fatal("evaluation leaked storage", stage, work.memory.live, setupBytes, eval.attemptMemory.Bytes())
+			}
+			if stage != "cleanup" && eval.attemptMemory.Bytes() <= 0 {
+				t.Fatal("last attempt was released before evaluator close")
+			}
+			if err := eval.Close(); err != nil || work.memory.live != setupBytes {
+				t.Fatal("evaluator ownership did not retire", err, work.memory.live, setupBytes)
+			}
+			if err := eval.Close(); err != nil || work.memory.live != setupBytes {
+				t.Fatal("evaluator close released storage twice", err, work.memory.live)
+			}
+			work.closeSearch()
 			if work.memory.live != 0 {
-				t.Fatal("failed evaluation retained extraction", stage, work.memory.live)
+				t.Fatal("search setup leaked", work.memory.live)
+			}
+			work.closeSearch()
+			if work.memory.live != 0 {
+				t.Fatal("search setup released storage twice", work.memory.live)
 			}
 		})
 	}
@@ -188,11 +226,29 @@ func TestExtractionMemoryBeforeCompile(t *testing.T) {
 	if retained <= 0 || measurement.live != 0 {
 		t.Fatal("invalid retained-storage measurement", retained, measurement.live)
 	}
-	pathBytes, err := storageBytes(state.Derivation)
+	// The derivation's result scope also owns the guarded sizing scratch.
+	derivationMemory, err := egraphcore.NewMemoryScope(measurement)
 	if err != nil {
 		t.Fatal(err)
 	}
+	pathBytes, err := storageBytesWithMemory(state.Derivation, derivationMemory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := derivationMemory.Reserve(pathBytes); err != nil {
+		t.Fatal(err)
+	}
+	pathStorage := derivationMemory.Bytes()
+	derivationMemory.Close()
+	if measurement.live != 0 {
+		t.Fatal("derivation measurement leaked", measurement.live)
+	}
 	eval, baseline, compiled, _ := executableFixture(t)
+	t.Cleanup(func() {
+		if err := eval.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	calls := 0
 	original := eval.Compile
 	eval.Compile = func(ctx context.Context, expr *egraph.Expr, bindings WorkloadBindings) (Executable, error) {
@@ -200,11 +256,38 @@ func TestExtractionMemoryBeforeCompile(t *testing.T) {
 		return original(ctx, expr, bindings)
 	}
 	const envelope = 4096
-	limit := envelope + retained + pathBytes + int64(reflect.TypeFor[egraphcore.MemoryScope]().Size()+reflect.TypeFor[Executable]().Size()) - 1
-	ctx, work := extractionContext(t, context.Background(), SearchBudget{MaxMemoryBytes: limit, CallbackMemoryBytes: envelope}, eval)
+	ctx, work := extractionContext(t, context.Background(), SearchBudget{MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: envelope}, eval)
+	setupBytes := work.memory.live
+	// Measure the independent attempt owner before choosing the fixed limit.
+	// Do not call reservePendingExecutable while calibrating: omitting that
+	// reservation must still reach Compile under this same limit.
+	if err := eval.beginAttempt(ctx); err != nil {
+		t.Fatal(err)
+	}
+	attemptBytes := eval.attemptMemory.Bytes()
+	if err := eval.Close(); err != nil || work.memory.live != setupBytes || attemptBytes <= 0 {
+		t.Fatal("invalid attempt measurement", err, work.memory.live, setupBytes, attemptBytes)
+	}
+	slotBytes := int64(reflect.TypeFor[egraphcore.MemoryScope]().Size() + reflect.TypeFor[Executable]().Size())
+	limit := setupBytes + envelope + attemptBytes + retained + pathStorage + slotBytes - 1
+	work.closeSearch()
+	if work.memory.live != 0 {
+		t.Fatal("measurement search setup leaked", work.memory.live)
+	}
+	ctx, work = extractionContext(t, context.Background(), SearchBudget{MaxMemoryBytes: limit, CallbackMemoryBytes: envelope}, eval)
+	if work.memory.live != setupBytes {
+		t.Fatal("search setup measurement changed", work.memory.live, setupBytes)
+	}
 	candidate, err := evaluateSearch(ctx, eval, state, state.Roots["root"])
-	if candidate != nil || !errors.Is(err, ErrMemoryBudgetExceeded) || calls != 0 || work.compilations != 0 || work.memory.live != 0 || baseline.closed != 0 || compiled.closed != 0 {
+	if candidate != nil || !errors.Is(err, ErrMemoryBudgetExceeded) || calls != 0 || work.compilations != 0 || work.memory.live != setupBytes+eval.attemptMemory.Bytes() || baseline.closed != 0 || compiled.closed != 0 {
 		t.Fatal(candidate, err, calls, work.compilations, work.memory.live, baseline.closed, compiled.closed)
+	}
+	if err := eval.Close(); err != nil || work.memory.live != setupBytes {
+		t.Fatal("failed attempt leaked", err, work.memory.live, setupBytes)
+	}
+	work.closeSearch()
+	if work.memory.live != 0 {
+		t.Fatal("search setup leaked", work.memory.live)
 	}
 }
 
@@ -236,6 +319,10 @@ func TestExtractionMemoryCallbackEnvelope(t *testing.T) {
 			t.Fatal(err)
 		}
 		candidate.Close()
+		work.closeSearch()
+		if work.memory.live != 0 {
+			t.Fatal("callback evaluation leaked", i, work.memory.live)
+		}
 	}
 	adapterBytes := int64(reflect.TypeFor[declaredCostModel]().Size() + reflect.TypeFor[egraphcore.MemoryScope]().Size())
 	if observed[0] <= 256 || observed[1] != observed[0]+adapterBytes {
@@ -245,10 +332,15 @@ func TestExtractionMemoryCallbackEnvelope(t *testing.T) {
 	calls := 0
 	eval := &MockEvaluator{CostModel: declaredMemoryCost{call: func() float64 { calls++; return 1 }}, Scoring: DefaultScoringModel("epoch")}
 	ctx, work := extractionContext(t, context.Background(), SearchBudget{MaxMemoryBytes: 1 << 20, CallbackMemoryBytes: 256}, eval)
+	setupBytes := work.memory.live
 	// A configured declaration is insufficient without the actual outer reserve.
 	candidate, err := eval.Evaluate(ctx, state, state.Roots["root"])
-	if candidate != nil || !errors.Is(err, ErrMemoryAccountingUnavailable) || calls != 0 || work.memory.live != 0 {
+	if candidate != nil || !errors.Is(err, ErrMemoryAccountingUnavailable) || calls != 0 || work.memory.live != setupBytes {
 		t.Fatal(candidate, err, calls, work.memory.live)
+	}
+	work.closeSearch()
+	if work.memory.live != 0 {
+		t.Fatal("search setup leaked", work.memory.live)
 	}
 }
 

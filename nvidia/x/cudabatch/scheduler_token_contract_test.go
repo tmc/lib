@@ -383,12 +383,12 @@ func TestSchedulerNoInventedDecodeToken(t *testing.T) {
 	if err := scheduler.CompleteStep(step.Iteration, map[string]int32{"a": 9}, nil); err != nil {
 		t.Fatal(err)
 	}
-	// Retained input is caller-owned. Even with a nonempty prompt, losing the
-	// emitted token must refuse instead of replaying the prompt or inventing 0.
+	// Caller input is detached. Erasing it must not replay the prompt or
+	// invent a token instead of the emitted decode input.
 	request.GeneratedTokens = nil
 	free := allocator.NumFreeBlocks()
-	if iteration, err := scheduler.Schedule(); iteration != nil || !errors.Is(err, cudabatch.ErrInvalidRequest) || allocator.NumFreeBlocks() != free {
-		t.Fatalf("missing generated input was replaced: %+v, %v", iteration, err)
+	if iteration, err := scheduler.Schedule(); err != nil || len(iteration.AllocatedRows) != 1 || !reflect.DeepEqual(iteration.AllocatedRows[0].Tokens, []int32{9}) || allocator.NumFreeBlocks() != free {
+		t.Fatalf("owned generated input was replaced: %+v, %v", iteration, err)
 	}
 }
 

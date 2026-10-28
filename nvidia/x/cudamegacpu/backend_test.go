@@ -29,7 +29,7 @@ func TestPublicationWaitsForProducerThreads(t *testing.T) {
 				"consumer":    {Kind: cudamega.Multiply, Scalar: 7},
 				"other":       {Kind: cudamega.Multiply, Scalar: 11},
 			}
-			p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, Policy: cudamega.CountedPolicy}, cudamega.SM90)
+			p, err := cudamega.NewProgram(g, ops, cudamega.Grid{CTAs: 2, ThreadsPerCTA: 32, Policy: cudamega.CountedPolicy, MaxElements: 8}, cudamega.SM90)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -89,12 +89,12 @@ type publicationWorker struct {
 	probe *publicationProbe
 }
 
-func (w *publicationWorker) Compute(i, src int, op cudamega.Operation) error {
+func (w *publicationWorker) Compute(i int, sources []int, op cudamega.Operation) error {
 	if i == 1 && w.tid == 1 {
 		close(w.probe.held)
 		<-w.probe.release
 	}
-	if err := w.worker.Compute(i, src, op); err != nil {
+	if err := w.worker.Compute(i, sources, op); err != nil {
 		return err
 	}
 	if i == 2 && w.tid == 1 {

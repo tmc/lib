@@ -25,12 +25,14 @@ func TestMCTSEvaluatesRollout(t *testing.T) {
 				budget.MaxDepth = 1
 			case "memory":
 				budget.CallbackMemoryBytes = cloneCallbackBytes()
-				budget.MaxMemoryBytes = cloneRolloutRefusalBytes(t, s, rules, budget.MaxActions)
+				budget.MaxMemoryBytes = transitionIncumbentBudget(t, budget, 2, 9, func(budget SearchBudget, eval Evaluator) (*SearchResult, error) {
+					return NewMCTSSearch(MCTSConfig{Iterations: 1, RolloutDepth: 4, Budget: budget}).Search(context.Background(), s, rules, eval)
+				})
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			calls := 0
-			result, err := NewMCTSSearch(MCTSConfig{Iterations: 1, RolloutDepth: 4, Budget: budget}).Search(ctx, s, rules, beamEvaluatorFunc(func(_ context.Context, state *egraph.SearchState, _ egraph.Id) (*CandidatePlan, error) {
+			var eval Evaluator = beamEvaluatorFunc(func(_ context.Context, state *egraph.SearchState, _ egraph.Id) (*CandidatePlan, error) {
 				calls++
 				depth := len(state.Derivation)
 				if depth == 2 && limit == "rejected" {
@@ -40,7 +42,14 @@ func TestMCTSEvaluatesRollout(t *testing.T) {
 					cancel()
 				}
 				return &CandidatePlan{Cost: float64(10 - depth), Validated: true}, nil
-			}))
+			})
+			if limit == "memory" {
+				budget, eval = transitionSetupBudget(t, budget, eval)
+			}
+			result, err := NewMCTSSearch(MCTSConfig{Iterations: 1, RolloutDepth: 4, Budget: budget}).Search(ctx, s, rules, eval)
+			if limit == "memory" && result != nil {
+				defer result.Close()
+			}
 			wantCalls, wantCost := 2, float64(9)
 			switch limit {
 			case "none":

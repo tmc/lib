@@ -54,7 +54,9 @@ func TestExportGoTraceSourceGate(t *testing.T) {
 
 const goTraceExportReceiptFields = `"version":1,"pid":12,"process":"p","session":"s","generation":7,"start_wall_utc":"2026-10-12T00:00:00Z","end_wall_utc":"2026-10-12T00:00:01Z","gpu_clock_alignment":"unavailable","cpu_sample_timestamps":"not_retained","goos":"darwin"`
 
-var goTraceExportProducer = languagestack.GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "arm64"}
+// goTraceExportProducer is not the admitted producer, so no decoder may run
+// on goTraceExportCapture.
+var goTraceExportProducer = languagestack.GoProducer{GoVersion: "go1.27.1", GOOS: "darwin", GOARCH: "arm64"}
 
 // Q3 and Q4: the host receipt is read strictly before any decode.
 func TestExportGoTraceReceipt(t *testing.T) {
@@ -94,11 +96,11 @@ func TestExportGoTraceReceipt(t *testing.T) {
 }
 
 // goTraceExportCapture writes a capture holding a complete host receipt and a
-// header-26 trace attachment. The trace is not decodable; no decoder is
-// admitted, so none may run.
+// header-26 trace attachment. The trace is not decodable, and its producer,
+// goTraceExportProducer, is not admitted, so no decoder may run.
 func goTraceExportCapture(t *testing.T) string {
 	t.Helper()
-	return goTraceExportCaptureReceipt(t, `{`+goTraceExportReceiptFields+`,"goarch":"arm64","go_version":"go1.27.2"}`)
+	return goTraceExportCaptureReceipt(t, `{`+goTraceExportReceiptFields+`,"goarch":"arm64","go_version":"go1.27.1"}`)
 }
 
 func goTraceExportCaptureReceipt(t *testing.T, receipt string) string {
@@ -423,9 +425,9 @@ func TestExportGoTraceContext(t *testing.T) {
 }
 
 // Any Analyze error leaves the group unavailable, including a cleanup-only
-// error returned with a decoded trace. No admitted decoder exists, so no
-// zero-child run reaches the decoded-with-error case; this gate fixes the
-// branch in readLanguageSamples instead.
+// error returned with a decoded trace. No public option injects a cleanup
+// failure after a real decode, so no run reaches the decoded-with-error
+// case; this gate fixes the branch in readLanguageSamples instead.
 func TestExportGoTraceAnalyzeErrorUnavailable(t *testing.T) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "export_stack_samples.go", nil, 0)
@@ -1079,4 +1081,236 @@ func goTraceStdout(fn func()) (string, error) {
 	data := <-done
 	r.Close()
 	return string(data), nil
+}
+
+// The stage-2 inputs, pinned by digest: the admitted decoder; the authentic
+// trace and the writer receipt of one public cudaprof.StartHostProfile run
+// whose bounded writers fail rather than truncate (the receipt exists only
+// because Stop reported no write failure); and the strict host receipt
+// derived from that writer receipt.
+const (
+	goTraceStage2ToolSHA256          = "83ebbf936c4bd31a9c84c94c2053a2ddb32de57129478a69b17c588f4f9ac463"
+	goTraceStage2TraceSHA256         = "05a86dab1b8a7242fb1e04f55fd2f41535d73e6ea36a423b3b27791767164e90"
+	goTraceStage2WriterReceiptSHA256 = "e0e45625e6d3a6c3dc7f1aff8f9314384bcfe9ebf5e2e9d1c84897ddebf42607"
+	goTraceStage2HostReceiptSHA256   = "b9ddeee7544d7b618d2747ad6f6311a46a44b18166ec447da77a812f7adc0f57"
+	goTraceStage2Admission           = "412bcbb8468cc211a261253540af8dd5c3ad1aa0ea9db326fafa84aa11e6bbb4"
+)
+
+// goTraceStage2Inputs reads the files named by CUDAPROF_GO_TRACE_DECODER,
+// CUDAPROF_GO_TRACE_INPUT, CUDAPROF_GO_TRACE_WRITER_RECEIPT and
+// CUDAPROF_GO_TRACE_HOST_RECEIPT and checks each digest. It skips when any
+// is unset, or fails when CUDAPROF_GO_TRACE_REQUIRED=1.
+//
+// The host receipt is a derivative, not a StartCaptureHostProfile receipt:
+// StartHostProfile writes none, so the exact keys of goHostReceiptKeys were
+// projected, values unchanged, from the StartHostProfile writer receipt.
+// The check re-establishes that derivation and the writer receipt's
+// description of the trace.
+func goTraceStage2Inputs(t *testing.T) (tool string, trace, host []byte) {
+	t.Helper()
+	files := make(map[string][]byte)
+	for _, f := range []struct{ env, sha string }{
+		{"DECODER", goTraceStage2ToolSHA256},
+		{"INPUT", goTraceStage2TraceSHA256},
+		{"WRITER_RECEIPT", goTraceStage2WriterReceiptSHA256},
+		{"HOST_RECEIPT", goTraceStage2HostReceiptSHA256},
+	} {
+		path := os.Getenv("CUDAPROF_GO_TRACE_" + f.env)
+		if path == "" {
+			if os.Getenv("CUDAPROF_GO_TRACE_REQUIRED") == "1" {
+				t.Fatalf("CUDAPROF_GO_TRACE_%s is required", f.env)
+			}
+			t.Skipf("CUDAPROF_GO_TRACE_%s not set", f.env)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sum := sha256.Sum256(data); hex.EncodeToString(sum[:]) != f.sha {
+			t.Fatalf("CUDAPROF_GO_TRACE_%s: sha256 %x, want %s", f.env, sum, f.sha)
+		}
+		if f.env == "DECODER" {
+			tool = path
+		}
+		files[f.env] = data
+	}
+	var writer, derived map[string]json.RawMessage
+	if err := errors.Join(json.Unmarshal(files["WRITER_RECEIPT"], &writer), json.Unmarshal(files["HOST_RECEIPT"], &derived)); err != nil {
+		t.Fatal(err)
+	}
+	if len(derived) != len(goHostReceiptKeys) {
+		t.Fatalf("host receipt has %d keys, want %d", len(derived), len(goHostReceiptKeys))
+	}
+	for k, v := range derived {
+		if !goHostReceiptKeys[k] || !bytes.Equal(v, writer[k]) {
+			t.Fatalf("host receipt key %q is not projected from the writer receipt", k)
+		}
+	}
+	trace = files["INPUT"]
+	if string(writer["trace_sha256"]) != strconv.Quote(goTraceStage2TraceSHA256) || string(writer["trace_bytes"]) != strconv.Itoa(len(trace)) {
+		t.Fatalf("writer receipt does not describe the trace")
+	}
+	if _, unavailable, err := readGoHostReceipt(files["HOST_RECEIPT"]); unavailable != "" || err != nil {
+		t.Fatalf("host receipt: %q, %v", unavailable, err)
+	}
+	return tool, trace, files["HOST_RECEIPT"]
+}
+
+// goTraceStage2Capture writes the iteration capture with the host receipt
+// and trace attached as one Go group. Its native records and clocks are
+// synthetic: the capture proves the consumer path, not a native capture.
+func goTraceStage2Capture(t *testing.T, host, trace []byte) string {
+	t.Helper()
+	cap := compareCapture(iterationRecs(5), completeStatus())
+	cap.Files["stacks-go-1-host.json"] = host
+	cap.Files["stacks-go-1.trace"] = trace
+	path := filepath.Join(t.TempDir(), "go-trace.pprof")
+	writeTestCaptureFile(t, path, cap)
+	return path
+}
+
+// S2Q (stage 2): host-stacks with the paired options over the authentic
+// trace, its generation-boundary cut, a header-only cut and a mid-payload
+// cut. Decoded groups carry the admission receipt, unknown completeness and
+// CPU samples on the trace clock; the Darwin producer clock stays
+// unsupported, so the group stays unavailable for placement. Groups whose
+// decode proves nothing or fails carry no trace.
+func TestStage2ExportGoTraceAdmitted(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	tool, trace, host := goTraceStage2Inputs(t)
+	const eog = 13936 // end of generation 1
+	if trace[eog-1] != 52 {
+		t.Fatalf("byte %d is %d, not the end-of-generation marker", eog-1, trace[eog-1])
+	}
+	scratch := t.TempDir()
+	if err := os.Chmod(scratch, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	options := []string{"-go-trace-decoder=" + tool, "-go-trace-scratch=" + scratch}
+	admitted := languagestack.GoProducer{GoVersion: "go1.27.2", GOOS: "darwin", GOARCH: "arm64"}
+	for _, tt := range []struct {
+		name        string
+		data        []byte
+		samples     int // -1: some, but fewer than the whole trace
+		unavailable string
+	}{
+		{"authentic", trace, 116, "unsupported Go trace producer clock"},
+		{"generation boundary", trace[:eog], -1, "unsupported Go trace producer clock"},
+		{"header only", trace[:16], 0, "go trace decoded content unproven: no event other than Sync"},
+		{"mid-payload", trace[:eog-2], 0, "go trace decoder failed: exit status 1: failed to read full batch"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := goTraceQuery(t, context.Background(), goTraceStage2Capture(t, host, tt.data), options...)
+			sum := sha256.Sum256(tt.data)
+			if g.Journal != "stacks-go-1.trace" || g.SHA256 != hex.EncodeToString(sum[:]) || g.ReceiptSHA256 != goTraceStage2HostReceiptSHA256 || g.Producer == nil || *g.Producer != admitted {
+				t.Errorf("group identity %s %s receipt %s producer %v", g.Journal, g.SHA256, g.ReceiptSHA256, g.Producer)
+			}
+			t.Logf("%d bytes: %d samples, unavailable %q", len(tt.data), len(g.Samples), g.Unavailable)
+			if tt.samples == 0 {
+				if !strings.HasPrefix(g.Unavailable, tt.unavailable) || g.GoTrace != nil || len(g.Samples) != 0 {
+					t.Errorf("group = %q, trace %v, %d samples; want %q and no trace", g.Unavailable, g.GoTrace, len(g.Samples), tt.unavailable)
+				}
+				return
+			}
+			if g.Unavailable != tt.unavailable || g.GoTrace == nil || g.GoTrace.Decoder == nil {
+				t.Fatalf("group = %q, trace %v; want %q with a decoded trace", g.Unavailable, g.GoTrace, tt.unavailable)
+			}
+			d := g.GoTrace.Decoder
+			if d.Admission != goTraceStage2Admission || d.ToolSHA256 != goTraceStage2ToolSHA256 || d.InputSHA256 != hex.EncodeToString(sum[:]) || d.InputBytes != int64(len(tt.data)) ||
+				d.Completeness != "unknown: decoder success does not establish completeness or absence of loss" || d.Cleanup != "removed" {
+				t.Errorf("decoder receipt %+v", *d)
+			}
+			if g.GoTrace.ClockStatus != "unavailable" || len(g.GoTrace.ClockSnapshots) == 0 || len(g.GoTrace.Samples) != 0 {
+				t.Errorf("trace clock %q, %d snapshots, %d inline samples", g.GoTrace.ClockStatus, len(g.GoTrace.ClockSnapshots), len(g.GoTrace.Samples))
+			}
+			if tt.samples > 0 && len(g.Samples) != tt.samples || tt.samples < 0 && (len(g.Samples) == 0 || len(g.Samples) >= 116) {
+				t.Errorf("%d samples, want %d", len(g.Samples), tt.samples)
+			}
+			for i, s := range g.Samples {
+				if s.Clock != "go_trace" || s.Status != "clock_unavailable" || s.Provenance != "cpu_sample" || len(s.Frames) == 0 {
+					t.Fatalf("sample %d: clock %q status %q provenance %q, %d frames", i, s.Clock, s.Status, s.Provenance, len(s.Frames))
+				}
+			}
+		})
+	}
+	if entries, err := os.ReadDir(scratch); err != nil || len(entries) != 0 {
+		t.Errorf("scratch holds %v, %v", entries, err)
+	}
+}
+
+// S2E (stage 2): export and compare with the paired options over the
+// authentic trace. Decoded CPU stacks are not GPU time or placement
+// evidence: the export artifact, the compare traces and every arm verdict
+// equal those with no decoder selected, and only the reported detail
+// differs.
+func TestStage2ExportGoTraceAdmittedPlacement(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	tool, trace, host := goTraceStage2Inputs(t)
+	path := goTraceStage2Capture(t, host, trace)
+	scratch := t.TempDir()
+	if err := os.Chmod(scratch, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	artifacts := make(map[string][]byte)
+	members := make(map[string]map[string][]byte)
+	for _, run := range []struct {
+		name    string
+		options []string
+		detail  string
+	}{
+		{"selected", []string{"-go-trace-decoder=" + tool, "-go-trace-scratch=" + scratch}, "unsupported Go trace producer clock"},
+		{"unselected", nil, "go trace decoder not selected"},
+	} {
+		out := filepath.Join(dir, run.name+".pftrace")
+		stdout := captureStdout(t, func() error {
+			return runExport(context.Background(), goTraceArgs(path, append([]string{"-o", out}, run.options...)...))
+		})
+		want := `go trace "stacks-go-1.trace": unavailable: ` + run.detail
+		if got := goTraceUnavailableLines(stdout); len(got) != 1 || got[0] != want {
+			t.Errorf("%s export lines = %q, want [%q]", run.name, got, want)
+		}
+		data, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		artifacts[run.name] = data
+
+		tarPath := filepath.Join(dir, run.name+".tar")
+		stdout = captureStdout(t, func() error {
+			return runExportCompare(context.Background(), append(append([]string{"-o", tarPath, "-iteration-marker", "Embed", "-iteration-count", "2"}, run.options...), path, path))
+		})
+		if got := goTraceUnavailableLines(stdout); len(got) != 2 || got[0] != "base: "+want || got[1] != "target: "+want {
+			t.Errorf("%s compare lines = %q", run.name, got)
+		}
+		members[run.name] = goTraceTarMembers(t, tarPath)
+		var r alignmentReceipt
+		if err := json.Unmarshal(members[run.name][".alignment.json"], &r); err != nil {
+			t.Fatal(err)
+		}
+		if run.options != nil && r.GoTraceDecoder != tool {
+			t.Errorf("receipt decoder %q, want %q", r.GoTraceDecoder, tool)
+		}
+		sum := sha256.Sum256(trace)
+		entry := goTraceUnavailable{Journal: "stacks-go-1.trace", SHA256: hex.EncodeToString(sum[:]), Receipt: "stacks-go-1-host.json", ReceiptSHA256: goTraceStage2HostReceiptSHA256, Detail: run.detail}
+		for i, arm := range r.Arms {
+			if len(arm.GoTraceUnavailable) != 1 || arm.GoTraceUnavailable[0] != entry {
+				t.Errorf("%s arm %d go_trace_unavailable = %+v, want [%+v]", run.name, i, arm.GoTraceUnavailable, entry)
+			}
+		}
+	}
+	if !bytes.Equal(artifacts["selected"], artifacts["unselected"]) {
+		t.Error("decoded samples changed the export artifact")
+	}
+	if got, want := goTraceReceiptArms(t, members["selected"][".alignment.json"]), goTraceReceiptArms(t, members["unselected"][".alignment.json"]); got != want {
+		t.Errorf("arms differ from the unselected run:\n%s\nwant\n%s", got, want)
+	}
+	for _, name := range []string{"base.pftrace", "target.pftrace"} {
+		if !bytes.Equal(members["selected"][name], members["unselected"][name]) {
+			t.Errorf("decoded samples changed %s", name)
+		}
+	}
+	if entries, err := os.ReadDir(scratch); err != nil || len(entries) != 0 {
+		t.Errorf("scratch holds %v, %v", entries, err)
+	}
 }

@@ -280,9 +280,9 @@ func (m *HazardMatrix) Evaluate() ([]HazardRecord, error) {
 					// Threads in same CTA without __syncthreads().
 					scopeConflict = true
 				} else if a.Scope == ScopeCluster || b.Scope == ScopeCluster || a.Space == MemoryDSMEM {
-					// Same-CTA DSMEM aliases are still concurrent thread accesses;
-					// cross-CTA DSMEM requires cluster synchronization.
-					scopeConflict = a.ClusterID != b.ClusterID || a.BlockID != b.BlockID || a.Space == MemoryDSMEM
+					// A concurrency scope does not synchronize different threads.
+					// Same-stage overlapping accesses still conflict within one CTA.
+					scopeConflict = true
 				} else if a.Scope == ScopeHostDevice || b.Scope == ScopeHostDevice {
 					// Host and device without cudaDeviceSynchronize.
 					scopeConflict = true

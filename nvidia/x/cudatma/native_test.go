@@ -46,12 +46,12 @@ func TestCompileTMAFixture(t *testing.T) {
 	}
 }
 func TestNativeTMAReference(t *testing.T) {
-	if os.Getenv("CUDA_TMA_NATIVE") != "1" {
-		t.Skip("native qualification pending: CUDA_TMA_NATIVE=1 required")
+	enabled, err := tmaNativeAdmission(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// See cudashared/native_test.go: the lock exports the holder's pid, not "1".
-	if os.Getenv("GPU_LOCK_HELD") == "" {
-		t.Fatal("CUDA_TMA_NATIVE=1 requires running under the GPU lock")
+	if !enabled {
+		t.Skip("native qualification pending: CUDA_TMA_NATIVE=1 required")
 	}
 	target := tmaTarget()
 	s, err := FixtureSource(target, 32)
@@ -96,6 +96,8 @@ func TestFixtureEmissionErrorBeforeCompilation(t *testing.T) {
 		"CUDA_TMA_NATIVE_ARCH=invalid_fixture_target",
 		"GPU_LOCK_HELD="+strconv.Itoa(h.Owner().PID),
 		"GPU_LOCKDIR="+h.Dir(),
+		"GPU_LOCK_DISABLED=",
+		"CUDATEST_NO_LOCK=",
 	)
 	out, err := cmd.CombinedOutput()
 	var exitErr *exec.ExitError

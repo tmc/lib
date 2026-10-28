@@ -70,4 +70,7 @@ func (r *SearchResult) Close() {
 	r.bookkeeping = nil
 	r.AllCandidates = nil
 	r.Rejected = nil
+	r.PolicyID.Options = nil
+	r.PolicyID.RuleSet = ""
+	r.PolicyID.ScoringEpoch = ""
 }

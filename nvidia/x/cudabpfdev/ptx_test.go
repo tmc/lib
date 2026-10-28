@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/nvjitlink"
+	"github.com/tmc/lib/nvidia/x/cudakernel"
 	"github.com/tmc/lib/nvidia/x/cudaptx"
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 	"github.com/tmc/lib/nvidia/x/nvjitlinkx"
@@ -32,8 +34,8 @@ func FuzzPTXTranslation(f *testing.F) {
 		if err != nil {
 			return
 		}
-		if _, err := cudaptx.ParseBytes(x.Artifact.Raw); err != nil {
-			t.Fatalf("unparseable PTX: %v\n%s", err, x.Artifact.Raw)
+		if _, err := cudaptx.ParseBytes(x.Artifact.Bytes()); err != nil {
+			t.Fatalf("unparseable PTX: %v\n%s", err, x.Artifact.Bytes())
 		}
 		if err := x.Artifact.Validate(); err != nil {
 			t.Fatal(err)
@@ -52,16 +54,16 @@ func TestTranslationDeterministicAndParsed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(a.Artifact.Raw, b.Artifact.Raw) || a.Artifact.Digest != b.Artifact.Digest {
+		if !bytes.Equal(a.Artifact.Bytes(), b.Artifact.Bytes()) || a.Artifact.Digest() != b.Artifact.Digest() {
 			t.Fatal("nondeterministic translation")
 		}
-		if _, err := cudaptx.ParseBytes(a.Artifact.Raw); err != nil {
-			t.Fatalf("PTX parser: %v\n%s", err, a.Artifact.Raw)
+		if _, err := cudaptx.ParseBytes(a.Artifact.Bytes()); err != nil {
+			t.Fatalf("PTX parser: %v\n%s", err, a.Artifact.Bytes())
 		}
-		if len(a.Artifact.Schema.Params) != 4 || a.Artifact.Schema.TotalParamBytes != 32 || a.DeclaredRegisters != 28 {
-			t.Fatalf("translation=%+v schema=%+v", a, a.Artifact.Schema)
+		if len(a.Artifact.Schema().Params) != 4 || a.Artifact.Schema().TotalParamBytes != 32 || a.DeclaredRegisters != 28 {
+			t.Fatalf("translation=%+v schema=%+v", a, a.Artifact.Schema())
 		}
-		text := string(a.Artifact.Raw)
+		text := string(a.Artifact.Bytes())
 		for _, want := range []string{".reqntid 32, 1, 1", "vote.sync.ballot.b32", "shfl.sync.idx.b32", "@write_map atom.global.add.u32", "@write_map atom.global.add.u64", "setp.lt.u32 in_bounds, r2, 4", "mov.u32 loop4, 0"} {
 			if !strings.Contains(text, want) {
 				t.Errorf("missing %q", want)
@@ -72,9 +74,15 @@ func TestTranslationDeterministicAndParsed(t *testing.T) {
 
 func TestTranslationIdentityCannotBeRebound(t *testing.T) {
 	for _, change := range []func(*Translation){
-		func(t *Translation) { t.Artifact.Target = "sm_100a" },
-		func(t *Translation) { t.Artifact.EntryPoint = "other" },
-		func(t *Translation) { t.Artifact.Schema.Params[0].Name = "different" },
+		func(x *Translation) {
+			translationRespec(t, x, func(s *cudakernel.ArtifactSpec) { s.Target = "sm_100a" })
+		},
+		func(x *Translation) {
+			translationRespec(t, x, func(s *cudakernel.ArtifactSpec) { s.EntryPoint = "other" })
+		},
+		func(x *Translation) {
+			translationRespec(t, x, func(s *cudakernel.ArtifactSpec) { s.Schema.Params[0].Name = "different" })
+		},
 		func(t *Translation) { *t = Translation{Artifact: t.Artifact} },
 	} {
 		x, err := Translate(program(Instruction{Op: Exit}), budget(), "sm_121a")
@@ -113,7 +121,7 @@ func TestPTXAssembler(t *testing.T) {
 			dir := t.TempDir()
 			src := filepath.Join(dir, "program.ptx")
 			dst := filepath.Join(dir, "program.cubin")
-			if err := os.WriteFile(src, x.Artifact.Raw, 0600); err != nil {
+			if err := os.WriteFile(src, x.Artifact.Bytes(), 0600); err != nil {
 				t.Fatal(err)
 			}
 			out, err := cudatool.Run(ctx, tool, "", nil, "-arch="+target, "-v", src, "-o", dst)
@@ -139,7 +147,7 @@ func TestPTXAssembledThroughLinker(t *testing.T) {
 	called := false
 	got, err := assemble(x, func(inputs []nvjitlinkx.Input, options ...string) (*nvjitlinkx.Result, error) {
 		called = true
-		if len(inputs) != 1 || inputs[0].Kind != nvjitlink.InputPtx || !bytes.Equal(inputs[0].Data, x.Artifact.Raw) {
+		if len(inputs) != 1 || inputs[0].Kind != nvjitlink.InputPtx || !bytes.Equal(inputs[0].Data, x.Artifact.Bytes()) {
 			t.Fatalf("inputs=%+v", inputs)
 		}
 		if len(options) != 1 || options[0] != "-arch=sm_121a" {
@@ -150,7 +158,28 @@ func TestPTXAssembledThroughLinker(t *testing.T) {
 	if !called || got != want || !errors.Is(err, wantErr) {
 		t.Fatalf("result=%v err=%v", got, err)
 	}
-	x.Artifact.Raw[0] = '!'
+	// Immutable readback cannot corrupt the retained image. Corrupt persisted
+	// bytes while keeping the recorded digest instead: decoding must refuse
+	// before publishing a handle. Do not reseal the corruption as a valid image.
+	wire := struct {
+		cudakernel.ArtifactSpec
+		Digest string `json:"digest"`
+	}{ArtifactSpec: x.Artifact.Spec(), Digest: x.Artifact.Digest()}
+	wire.Raw[0] = '!'
+	encoded, err := json.Marshal(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var invalid cudakernel.Artifact
+	if err := json.Unmarshal(encoded, &invalid); err == nil || !strings.Contains(err.Error(), "digest") {
+		t.Fatalf("corrupted artifact decoded: %v", err)
+	}
+	if invalid.Validate() == nil {
+		t.Fatal("failed decode published an artifact")
+	}
+	// The invalid zero handle left by the failed constructor must also refuse
+	// before the linker. Corrupt nonzero handles cannot be publicly constructed.
+	x.Artifact = &invalid
 	called = false
 	_, err = assemble(x, func([]nvjitlinkx.Input, ...string) (*nvjitlinkx.Result, error) { called = true; return nil, nil })
 	if err == nil || called {
@@ -181,4 +210,17 @@ func TestTranslationRefusesUnsupportedResources(t *testing.T) {
 	if _, err := Translate(p, b, "sm_100a"); err == nil || !strings.Contains(err.Error(), "not emitted") {
 		t.Fatalf("sm100 staging gate=%v", err)
 	}
+}
+
+// translationRespec replaces the caller wrapper with a separately sealed image.
+// Its descriptor is valid; assemble must still reject its changed translation identity.
+func translationRespec(t *testing.T, x *Translation, edit func(*cudakernel.ArtifactSpec)) {
+	t.Helper()
+	spec := x.Artifact.Spec()
+	edit(&spec)
+	a, err := cudakernel.NewArtifactFromSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x.Artifact = a
 }

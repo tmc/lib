@@ -24,7 +24,7 @@ func TestCompilePrivatelyFreezesExecutionMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	raw := string(p.megaArtifact.Raw)
+	raw := string(p.megaArtifact.Bytes())
 	x.Shape[1] = 100
 	x.Strides[0] = 100
 	x.Type = cudair.Int32
@@ -41,7 +41,7 @@ func TestCompilePrivatelyFreezesExecutionMetadata(t *testing.T) {
 	if err := b.validateTypes(p.snap); err != nil {
 		t.Fatal(err)
 	}
-	if string(p.megaArtifact.Raw) != raw {
+	if string(p.megaArtifact.Bytes()) != raw {
 		t.Fatal("artifact changed")
 	}
 }
@@ -64,7 +64,7 @@ func TestCompileExcludesUnreachableUnsupportedWork(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	if len(p.Steps()) != 1 || len(p.requiredInputs) != 1 || p.snap.NodeByID(dead.ID) != nil || strings.Contains(string(p.megaArtifact.Raw), "ex2") {
+	if len(p.Steps()) != 1 || len(p.requiredInputs) != 1 || p.snap.NodeByID(dead.ID) != nil || strings.Contains(string(p.megaArtifact.Bytes()), "ex2") {
 		t.Fatal("unreachable work retained in execution plan")
 	}
 }

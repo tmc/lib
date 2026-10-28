@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -14,8 +15,10 @@ import (
 // NCCLTransport executes on caller-owned rank-ordered communicators and streams.
 // Comms and Streams must each contain WorldSize entries and remain unchanged.
 // The caller must establish the rank's CUDA context and retain buffers and
-// handles until Execute returns. Close waits for admitted work without
-// destroying borrowed handles. Stream zero selects the CUDA default stream.
+// handles until Execute establishes completion. An error containing a
+// CompletionError retains the affected buffers and handles until its Close or
+// the transport's Close succeeds. Close never destroys borrowed handles.
+// Stream zero selects the CUDA default stream.
 //
 // The caller coordinates admission of all ranks: cancelling one rank before
 // submission can strand admitted peers. After submission Execute waits for
@@ -28,8 +31,116 @@ type NCCLTransport struct {
 	mu      sync.Mutex
 	closed  bool
 	active  sync.WaitGroup
+	closeMu sync.Mutex
 	ranks   []sync.Mutex
+	pending []*CompletionError // at most one incomplete operation per rank
 	calls   *ncclCalls
+}
+
+// ErrCompletionPending means submitted work has not been proven quiescent.
+// Returning from a host call, cancellation, or a failed synchronization does
+// not permit reuse or destruction of its buffers and borrowed native handles.
+var ErrCompletionPending = errors.New("cudacollective: completion pending")
+
+// CompletionError retains one operation whose completion check failed. Use
+// errors.As to find it through wrapping. Close retries only that operation's
+// completion check, never submission, and returns nil only after it succeeds.
+// A failed Close retains ownership for another explicit attempt. The original
+// submission, completion and cancellation errors remain reachable via Unwrap,
+// including after successful cleanup. This is not proof the operation worked.
+// The zero value holds no operation.
+type CompletionError struct {
+	cause          error
+	transport      *NCCLTransport
+	rank           int
+	stream         driver.Stream
+	complete       func(driver.Stream) error
+	context        driver.Context
+	currentContext func() (driver.Context, error)
+	done           bool // protected by transport.mu
+}
+
+func (e *CompletionError) Error() string {
+	if e == nil || e.cause == nil {
+		return ErrCompletionPending.Error()
+	}
+	return e.cause.Error()
+}
+func (e *CompletionError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
+// Pending reports whether this operation still requires completion recovery.
+func (e *CompletionError) Pending() bool {
+	if e == nil || e.transport == nil {
+		return false
+	}
+	e.transport.mu.Lock()
+	defer e.transport.mu.Unlock()
+	return !e.done
+}
+
+// Close retries completion once. Calls are serialized with rank execution.
+// The caller must establish the same CUDA context used for submission. Native
+// synchronization can block; Close does not promise bounded cancellation.
+func (e *CompletionError) Close() error {
+	if e == nil || e.transport == nil {
+		return nil
+	}
+	return e.transport.completePending(e)
+}
+
+func pendingCompletion(err error) *CompletionError {
+	if pending, ok := err.(*CompletionError); ok {
+		if pending.Pending() {
+			return pending
+		}
+		return nil
+	}
+	switch e := err.(type) {
+	case interface{ Unwrap() []error }:
+		for _, child := range e.Unwrap() {
+			if pending := pendingCompletion(child); pending != nil {
+				return pending
+			}
+		}
+	case interface{ Unwrap() error }:
+		return pendingCompletion(e.Unwrap())
+	}
+	return nil
+}
+
+func (t *NCCLTransport) completePending(p *CompletionError) error {
+	t.ranks[p.rank].Lock()
+	defer t.ranks[p.rank].Unlock()
+	t.mu.Lock()
+	if p.done {
+		t.mu.Unlock()
+		return nil
+	}
+	t.mu.Unlock()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if p.currentContext != nil {
+		current, err := p.currentContext()
+		if err != nil {
+			return errors.Join(p, fmt.Errorf("nccl recovery context: %w", err))
+		}
+		if current != p.context {
+			return errors.Join(p, errors.New("nccl recovery context differs from submission"))
+		}
+	}
+	if err := p.complete(p.stream); err != nil {
+		return errors.Join(p, err)
+	}
+	t.mu.Lock()
+	p.done = true
+	t.pending[p.rank] = nil
+	t.mu.Unlock()
+	return nil
 }
 
 type ncclInvocation struct {
@@ -42,12 +153,14 @@ type ncclInvocation struct {
 	sendBytes, recvBytes uint64
 }
 type ncclCalls struct {
-	info     func(nccl.Comm) (int, int, error)
-	invoke   func(ncclInvocation) error
-	complete func(driver.Stream) error
+	info           func(nccl.Comm) (int, int, error)
+	invoke         func(ncclInvocation) error
+	complete       func(driver.Stream) error
+	currentContext func() (driver.Context, error)
 }
 
 var nativeNCCLCalls = ncclCalls{
+	currentContext: driver.CtxGetCurrent,
 	info: func(c nccl.Comm) (int, int, error) {
 		n, err := c.Count()
 		if err != nil {
@@ -83,6 +196,11 @@ func (t *NCCLTransport) Available(m Membership) bool {
 	if t.closed || len(t.Comms) != m.WorldSize() || len(t.Streams) != m.WorldSize() || m.WorldSize() == 0 {
 		return false
 	}
+	for _, p := range t.pending {
+		if p != nil {
+			return false
+		}
+	}
 	for _, c := range t.Comms {
 		if c == 0 {
 			return false
@@ -117,12 +235,19 @@ func (t *NCCLTransport) Execute(ctx context.Context, comm *Communicator, op Oper
 		t.mu.Unlock()
 		return ErrCommunicatorClosed
 	}
+	for _, p := range t.pending {
+		if p != nil {
+			t.mu.Unlock()
+			return ErrCompletionPending
+		}
+	}
 	if len(t.Comms) != world || len(t.Streams) != world || t.Comms[rank] == 0 {
 		t.mu.Unlock()
 		return ErrExecutionUnavailable
 	}
 	if t.ranks == nil {
 		t.ranks = make([]sync.Mutex, world)
+		t.pending = make([]*CompletionError, world)
 	}
 	q.comm, q.stream = t.Comms[rank], t.Streams[rank]
 	calls := t.calls
@@ -135,6 +260,12 @@ func (t *NCCLTransport) Execute(ctx context.Context, comm *Communicator, op Oper
 	defer t.active.Done()
 	rankMu.Lock()
 	defer rankMu.Unlock()
+	t.mu.Lock()
+	pending := t.pending[rank]
+	t.mu.Unlock()
+	if pending != nil {
+		return ErrCompletionPending
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -150,16 +281,66 @@ func (t *NCCLTransport) Execute(ctx context.Context, comm *Communicator, op Oper
 	}
 	// Enqueue errors may follow partial submission. Drain before Plan releases
 	// its in-flight buffer, including when cancellation arrives during enqueue.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	var submissionContext driver.Context
+	if calls.currentContext != nil {
+		submissionContext, err = calls.currentContext()
+		if err != nil {
+			return fmt.Errorf("nccl submission context: %w", err)
+		}
+		if submissionContext == 0 {
+			return errors.New("nccl submission context unavailable")
+		}
+	}
 	submitErr := calls.invoke(q)
 	completeErr := calls.complete(q.stream)
-	return errors.Join(submitErr, completeErr, ctx.Err())
+	err = errors.Join(submitErr, completeErr, ctx.Err())
+	if completeErr != nil {
+		pending := &CompletionError{cause: errors.Join(ErrCompletionPending, err), transport: t, rank: rank, stream: q.stream, complete: calls.complete, context: submissionContext, currentContext: calls.currentContext}
+		t.mu.Lock()
+		t.pending[rank] = pending
+		t.mu.Unlock()
+		err = pending
+	}
+	if err != nil {
+		// Publish the operation failure before active.Done lets transport Close
+		// finish. Plan may not yet have had a chance to retire its pipeline
+		// stage, and communicator Close must not replace this error meanwhile.
+		comm.inFlightMu.Lock()
+		for _, transfer := range comm.inFlight {
+			lo, hi := uint64(transfer.BufferAddr), uint64(transfer.BufferAddr)+uint64(transfer.Bytes)
+			if uint64(q.send) < hi && lo < uint64(q.send)+q.sendBytes || uint64(q.recv) < hi && lo < uint64(q.recv)+q.recvBytes {
+				transfer.Err = errors.Join(transfer.Err, err)
+			}
+		}
+		comm.inFlightMu.Unlock()
+	}
+	return err
 }
+
+// Close stops admission, waits for host calls, then checks each incomplete
+// rank once. A failure retains that rank for an explicit retry. A nil result
+// establishes quiescence only; it neither destroys handles nor repairs peers.
+// Recovery requires the submission CUDA context. For ranks using distinct
+// contexts, recover each CompletionError in its own context before Close.
 func (t *NCCLTransport) Close() error {
+	t.closeMu.Lock()
+	defer t.closeMu.Unlock()
 	t.mu.Lock()
 	t.closed = true
 	t.mu.Unlock()
 	t.active.Wait()
-	return nil
+	t.mu.Lock()
+	pending := append([]*CompletionError(nil), t.pending...)
+	t.mu.Unlock()
+	var err error
+	for _, p := range pending {
+		if p != nil {
+			err = errors.Join(err, p.Close())
+		}
+	}
+	return err
 }
 func ncclRequest(op OperationDescriptor, rank, world int, send, recv driver.DevicePtr) (ncclInvocation, error) {
 	q := ncclInvocation{op: op, send: send, recv: recv}

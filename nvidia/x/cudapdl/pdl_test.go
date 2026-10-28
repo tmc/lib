@@ -21,9 +21,76 @@ import (
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
 )
 
+func testProducerDesc(name string) cudapdl.KernelDesc {
+	return cudapdl.KernelDesc{
+		Name:                name,
+		HasLaunchDependents: true,
+		ThreadsPerBlock:     128,
+		Resources: &cudakernel.ResourceRequirements{
+			StaticSharedMemory: 4096,
+			AllocatedRegisters: 32,
+			PeakLiveGPR:        24,
+		},
+		Effects: cudapdl.KernelEffects{
+			TriggerPlacement: cudapdl.TriggerAfterSharedWrites,
+			BeforeLaunchDependents: []cudapdl.PhaseEffect{
+				{Kind: cudapdl.EffectMemory, Resource: "input", Access: cudapdl.AccessRead, Bytes: 1024},
+				{Kind: cudapdl.EffectMemory, Resource: "handoff", Access: cudapdl.AccessWrite, Bytes: 1024},
+			},
+			AfterLaunchDependents: []cudapdl.PhaseEffect{
+				{Kind: cudapdl.EffectPureCompute},
+			},
+		},
+	}
+}
+
+func testConsumerDesc(name string) cudapdl.KernelDesc {
+	return cudapdl.KernelDesc{
+		Name:               name,
+		HasWait:            true,
+		HasIndependentWork: true,
+		ThreadsPerBlock:    128,
+		Resources: &cudakernel.ResourceRequirements{
+			StaticSharedMemory: 4096,
+			AllocatedRegisters: 32,
+			PeakLiveGPR:        24,
+		},
+		Effects: cudapdl.KernelEffects{
+			WaitPlacement: cudapdl.WaitAfterIndependentPreamble,
+			BeforeWait: []cudapdl.PhaseEffect{
+				{Kind: cudapdl.EffectMemory, Resource: "weights", Access: cudapdl.AccessRead, Bytes: 1024},
+			},
+			AfterWait: []cudapdl.PhaseEffect{
+				{Kind: cudapdl.EffectMemory, Resource: "handoff", Access: cudapdl.AccessRead, Bytes: 1024},
+				{Kind: cudapdl.EffectMemory, Resource: "output", Access: cudapdl.AccessWrite, Bytes: 1024},
+			},
+		},
+	}
+}
+
 // TestPDLEligibility validates positive admission on sm_90+ targets and negative
 // controls for target < sm_90, vendor kernels, and missing intrinsics.
 func TestPDLEligibility(t *testing.T) {
+	prodSource := testProducerDesc("prod_ptx")
+	prodSource.Source = `asm volatile("griddepcontrol.launch_dependents;");`
+	consSource := testConsumerDesc("cons_ptx")
+	consSource.Source = `asm volatile("griddepcontrol.wait;":::"memory");`
+
+	prodArt := testProducerDesc("prod_art")
+	prodArt.Artifact = mustConstructPTXArtifact(t, "prod_art", "sm_121a")
+	consArt := testConsumerDesc("cons_art")
+	consArt.Artifact = mustConstructPTXArtifact(t, "cons_art", "sm_121a")
+
+	prodVendor := testProducerDesc("cublaslt_gemm")
+	prodVendor.IsVendor = true
+	consVendor := testConsumerDesc("cudnn_conv")
+	consVendor.IsVendor = true
+
+	prodNoTrigger := testProducerDesc("prod_plain")
+	prodNoTrigger.HasLaunchDependents = false
+	consNoWait := testConsumerDesc("cons_plain")
+	consNoWait.HasWait = false
+
 	tests := []struct {
 		name        string
 		target      string
@@ -34,158 +101,88 @@ func TestPDLEligibility(t *testing.T) {
 		containsErr string
 	}{
 		{
-			name:   "valid sm_90 pair",
-			target: "sm_90",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod",
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons",
-				HasWait: true,
-			},
+			name:       "valid sm_90 pair",
+			target:     "sm_90",
+			producer:   testProducerDesc("prod"),
+			consumer:   testConsumerDesc("cons"),
 			wantElig:   true,
 			wantPolicy: cudapdl.PolicyProgrammatic,
 		},
 		{
-			name:   "declared sm_100a source pair",
-			target: "sm_100a",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod_ptx",
-				Source:              `asm volatile("griddepcontrol.launch_dependents;");`,
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons_ptx",
-				Source:  `asm volatile("griddepcontrol.wait;":::"memory");`,
-				HasWait: true,
-			},
+			name:       "declared sm_100a source pair",
+			target:     "sm_100a",
+			producer:   prodSource,
+			consumer:   consSource,
 			wantElig:   true,
 			wantPolicy: cudapdl.PolicyProgrammatic,
 		},
 		{
-			name:   "declared sm_121a artifact pair",
-			target: "sm_121a",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod_art",
-				HasLaunchDependents: true,
-				Artifact: &cudakernel.Artifact{
-					Target: "sm_121a",
-				},
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons_art",
-				HasWait: true,
-				Artifact: &cudakernel.Artifact{
-					Target: "sm_121a",
-				},
-			},
+			name:       "declared sm_121a artifact pair",
+			target:     "sm_121a",
+			producer:   prodArt,
+			consumer:   consArt,
 			wantElig:   true,
 			wantPolicy: cudapdl.PolicyProgrammatic,
 		},
 		{
-			name:   "ineligible legacy target sm_80",
-			target: "sm_80",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod",
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons",
-				HasWait: true,
-			},
+			name:        "ineligible legacy target sm_80",
+			target:      "sm_80",
+			producer:    testProducerDesc("prod"),
+			consumer:    testConsumerDesc("cons"),
 			wantElig:    false,
 			wantPolicy:  cudapdl.PolicyStandardFallback,
 			containsErr: "sm_90 or higher required",
 		},
 		{
-			name:   "ineligible legacy target sm_75",
-			target: "sm_75",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod",
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons",
-				HasWait: true,
-			},
+			name:        "ineligible legacy target sm_75",
+			target:      "sm_75",
+			producer:    testProducerDesc("prod"),
+			consumer:    testConsumerDesc("cons"),
 			wantElig:    false,
 			wantPolicy:  cudapdl.PolicyStandardFallback,
 			containsErr: "sm_90 or higher required",
 		},
 		{
-			name:   "ineligible opaque vendor producer",
-			target: "sm_90",
-			producer: cudapdl.KernelDesc{
-				Name:                "cublaslt_gemm",
-				IsVendor:            true,
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons",
-				HasWait: true,
-			},
+			name:        "ineligible opaque vendor producer",
+			target:      "sm_90",
+			producer:    prodVendor,
+			consumer:    testConsumerDesc("cons"),
 			wantElig:    false,
 			wantPolicy:  cudapdl.PolicyStandardFallback,
 			containsErr: "opaque vendor kernel",
 		},
 		{
-			name:   "ineligible opaque vendor consumer",
-			target: "sm_90",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod",
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:     "cudnn_conv",
-				IsVendor: true,
-				HasWait:  true,
-			},
+			name:        "ineligible opaque vendor consumer",
+			target:      "sm_90",
+			producer:    testProducerDesc("prod"),
+			consumer:    consVendor,
 			wantElig:    false,
 			wantPolicy:  cudapdl.PolicyStandardFallback,
 			containsErr: "opaque vendor kernel",
 		},
 		{
-			name:   "ineligible missing producer trigger",
-			target: "sm_90",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod_plain",
-				HasLaunchDependents: false,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons",
-				HasWait: true,
-			},
+			name:        "ineligible missing producer trigger",
+			target:      "sm_90",
+			producer:    prodNoTrigger,
+			consumer:    testConsumerDesc("cons"),
 			wantElig:    false,
 			wantPolicy:  cudapdl.PolicyStandardFallback,
 			containsErr: "missing required trigger",
 		},
 		{
-			name:   "ineligible missing consumer wait",
-			target: "sm_90",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod",
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons_plain",
-				HasWait: false,
-			},
+			name:        "ineligible missing consumer wait",
+			target:      "sm_90",
+			producer:    testProducerDesc("prod"),
+			consumer:    consNoWait,
 			wantElig:    false,
 			wantPolicy:  cudapdl.PolicyStandardFallback,
 			containsErr: "missing required barrier",
 		},
 		{
-			name:   "invalid target syntax",
-			target: "invalid_arch",
-			producer: cudapdl.KernelDesc{
-				Name:                "prod",
-				HasLaunchDependents: true,
-			},
-			consumer: cudapdl.KernelDesc{
-				Name:    "cons",
-				HasWait: true,
-			},
+			name:        "invalid target syntax",
+			target:      "invalid_arch",
+			producer:    testProducerDesc("prod"),
+			consumer:    testConsumerDesc("cons"),
 			wantElig:    false,
 			wantPolicy:  cudapdl.PolicyStandardFallback,
 			containsErr: "invalid target architecture",
@@ -196,7 +193,7 @@ func TestPDLEligibility(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			el := cudapdl.CheckEligibility(tt.target, tt.producer, tt.consumer)
 			if el.Eligible != tt.wantElig {
-				t.Errorf("Eligible = %v, want %v", el.Eligible, tt.wantElig)
+				t.Errorf("Eligible = %v, want %v (reason: %s)", el.Eligible, tt.wantElig, el.FallbackReason)
 			}
 			if el.Policy != tt.wantPolicy {
 				t.Errorf("Policy = %v, want %v", el.Policy, tt.wantPolicy)
@@ -213,14 +210,9 @@ func TestPDLEligibility(t *testing.T) {
 // TestPDLFallback verifies that when eligibility fails, Compose creates a standard
 // dependency edge and records the exact fallback reason.
 func TestPDLFallback(t *testing.T) {
-	producerDesc := cudapdl.KernelDesc{
-		Name:     "cublas_opaque",
-		IsVendor: true,
-	}
-	consumerDesc := cudapdl.KernelDesc{
-		Name:    "cons",
-		HasWait: true,
-	}
+	producerDesc := testProducerDesc("cublas_opaque")
+	producerDesc.IsVendor = true
+	consumerDesc := testConsumerDesc("cons")
 
 	el := cudapdl.CheckEligibility("sm_90", producerDesc, consumerDesc)
 	if el.Eligible {
@@ -237,26 +229,18 @@ func TestPDLFallback(t *testing.T) {
 // TestPDLConsumerWaitRequired is the mutant control: removing the consumer wait
 // causes ineligibility and fallback to standard dependency.
 func TestPDLConsumerWaitRequired(t *testing.T) {
-	prod := cudapdl.KernelDesc{
-		Name:                "prod",
-		HasLaunchDependents: true,
-	}
+	prod := testProducerDesc("prod")
 
 	// Baseline: consumer with wait is eligible
-	consWithWait := cudapdl.KernelDesc{
-		Name:    "cons",
-		HasWait: true,
-	}
+	consWithWait := testConsumerDesc("cons")
 	elBaseline := cudapdl.CheckEligibility("sm_90", prod, consWithWait)
 	if !elBaseline.Eligible {
 		t.Fatalf("baseline with wait should be eligible: %s", elBaseline.FallbackReason)
 	}
 
 	// Mutant: consumer without wait is ineligible
-	consMutantNoWait := cudapdl.KernelDesc{
-		Name:    "cons_mutant",
-		HasWait: false,
-	}
+	consMutantNoWait := testConsumerDesc("cons_mutant")
+	consMutantNoWait.HasWait = false
 	elMutant := cudapdl.CheckEligibility("sm_90", prod, consMutantNoWait)
 	if elMutant.Eligible {
 		t.Fatal("mutant without wait must be marked ineligible")
@@ -415,13 +399,49 @@ type pdlReferenceArm struct {
 }
 
 func newPDLReferenceFixture(target string) pdlReferenceFixture {
+	const handoffBytes = nativePDLN * 4
 	return pdlReferenceFixture{
 		target: target,
 		producer: cudapdl.KernelDesc{
-			Name: "pdl_producer", Source: nativePDLProducerSource, HasLaunchDependents: true,
+			Name:                "pdl_producer",
+			Source:              nativePDLProducerSource,
+			HasLaunchDependents: true,
+			ThreadsPerBlock:     nativePDLBlock,
+			Resources: &cudakernel.ResourceRequirements{
+				AllocatedRegisters: 32,
+				PeakLiveGPR:        24,
+			},
+			Effects: cudapdl.KernelEffects{
+				TriggerPlacement: cudapdl.TriggerAfterSharedWrites,
+				BeforeLaunchDependents: []cudapdl.PhaseEffect{
+					{Kind: cudapdl.EffectMemory, Resource: "in", Access: cudapdl.AccessRead, Bytes: handoffBytes},
+					{Kind: cudapdl.EffectMemory, Resource: "intermediate", Access: cudapdl.AccessWrite, Bytes: handoffBytes},
+				},
+				AfterLaunchDependents: []cudapdl.PhaseEffect{
+					{Kind: cudapdl.EffectPureCompute},
+				},
+			},
 		},
 		consumer: cudapdl.KernelDesc{
-			Name: "pdl_consumer", Source: nativePDLConsumerSource, HasWait: true, HasIndependentWork: true,
+			Name:               "pdl_consumer",
+			Source:             nativePDLConsumerSource,
+			HasWait:            true,
+			HasIndependentWork: true,
+			ThreadsPerBlock:    nativePDLBlock,
+			Resources: &cudakernel.ResourceRequirements{
+				AllocatedRegisters: 32,
+				PeakLiveGPR:        24,
+			},
+			Effects: cudapdl.KernelEffects{
+				WaitPlacement: cudapdl.WaitAfterIndependentPreamble,
+				BeforeWait: []cudapdl.PhaseEffect{
+					{Kind: cudapdl.EffectPureCompute},
+				},
+				AfterWait: []cudapdl.PhaseEffect{
+					{Kind: cudapdl.EffectMemory, Resource: "intermediate", Access: cudapdl.AccessRead, Bytes: handoffBytes},
+					{Kind: cudapdl.EffectMemory, Resource: "out", Access: cudapdl.AccessWrite, Bytes: handoffBytes},
+				},
+			},
 		},
 		arms: [2]pdlReferenceArm{
 			{"ordinary", false, cudapdl.PolicyStandardFallback},

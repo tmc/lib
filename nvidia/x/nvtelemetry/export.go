@@ -150,7 +150,28 @@ func exportReading(r Reading) error {
 	if err := ValidateReadingSource(r.Source); err != nil {
 		return fmt.Errorf("export: source: %w", err)
 	}
-	if err := validateManagedValue(r); err != nil {
+	// Managed validators consume the legacy view, as in ReadStream's V3
+	// admission. This view is never encoded; Number remains exact in output.
+	managedReading := r
+	if r.Number != nil && r.Source != nil {
+		if r.IsInt || r.IntValue != 0 || r.Value != 0 {
+			return fmt.Errorf("export: conflicting scalar representations")
+		}
+		if err := validNumber(r.Number); err != nil {
+			return fmt.Errorf("export: invalid canonical number")
+		}
+		switch {
+		case r.Number.Uint != nil:
+			managedReading.IsInt = true
+			managedReading.IntValue = *r.Number.Uint
+			managedReading.Value = float64(*r.Number.Uint)
+		case r.Number.Float != nil:
+			managedReading.Value = *r.Number.Float
+		default:
+			return fmt.Errorf("export: signed managed mapping unsupported")
+		}
+	}
+	if err := validateManagedValue(managedReading); err != nil {
 		return fmt.Errorf("export: source value: %w", err)
 	}
 	if r.Source != nil {
@@ -186,7 +207,8 @@ func exportReading(r Reading) error {
 // gauges. Evidence and reported producer/backend metadata use at most 16 fixed
 // labels; raw source IDs and labels are omitted. Clock presence flags distinguish
 // known zero from unknown; numeric clock bounds remain in diagnostic JSON or OTLP.
-// Reported native origin does not establish independent acquisition.
+// Reported native origin does not establish independent acquisition. The fixed
+// exposition profile has device scope; entity-assigned readings require OTLP.
 func WriteExposition(w io.Writer, readings []Reading, o ExportOptions) error {
 	n, b, e := exportLimits(o)
 	if e != nil {
@@ -201,6 +223,9 @@ func WriteExposition(w io.Writer, readings []Reading, o ExportOptions) error {
 	for _, r := range readings {
 		if e := exportReading(r); e != nil {
 			return e
+		}
+		if r.Observation != nil && (r.Observation.Assignment != nil || r.Observation.Scope == "process") {
+			return fmt.Errorf("export: entity attribution requires OTLP")
 		}
 		if r.Evidence != EvidenceMeasured && r.Evidence != EvidenceDerived && r.Evidence != EvidenceUnavailable {
 			return fmt.Errorf("export: invalid evidence")
@@ -237,13 +262,14 @@ func WriteExposition(w io.Writer, readings []Reading, o ExportOptions) error {
 		available := 0
 		if r.IsAvailable() {
 			available = 1
-			if math.IsNaN(r.Value) || math.IsInf(r.Value, 0) {
-				return fmt.Errorf("export: non-finite value")
+			_, value, err := exportScalar(r)
+			if err != nil {
+				return err
 			}
-			value := strconv.FormatFloat(r.Value, 'g', -1, 64)
-			if r.IsInt {
-				value = strconv.FormatUint(r.IntValue, 10)
+			if kind == KindCounter && len(value) > 0 && value[0] == '-' && value != "-0" {
+				return fmt.Errorf("export: negative cumulative counter")
 			}
+
 			fmt.Fprintf(&out, "%s%s %s\n", name, label, value)
 		}
 		fmt.Fprintf(&out, "%s_available%s %d\n", name, label, available)
@@ -260,6 +286,10 @@ func WriteExposition(w io.Writer, readings []Reading, o ExportOptions) error {
 // WriteOTLPMetrics writes an OTLP/HTTP JSON ExportMetricsServiceRequest. Gauges
 // have no invented start time. Cumulative counters require an explicit epoch.
 // Bitmasks/events and unavailable readings are refused, not miscast as gauges.
+// Resource attributes preserve bounded caller-asserted entity relationships.
+// Owner attributes require explicit process scope, complete identity and a current
+// matching clock epoch; missing attribution remains device-only. This does not
+// divide or duplicate whole-device measurements across allocation recipients.
 // Point attributes preserve evidence, bounded reported provenance, and clock
 // presence. Known clock bounds use exact decimal intValue strings. Sensor
 // timestamps retain their declared domain without an inferred unit. timeUnixNano
@@ -289,7 +319,7 @@ func writeScalarOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) er
 	if len(readings) > n {
 		return fmt.Errorf("export: reading limit")
 	}
-	metrics := make([]any, 0, len(readings))
+	resources := newOTLPEntityExport("Metrics", b)
 	seen := map[string]bool{}
 	for _, r := range readings {
 		if e := exportReading(r); e != nil {
@@ -305,7 +335,11 @@ func writeScalarOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) er
 		if !ok || unit != r.Unit || r.TimestampUnix <= 0 || r.DeviceUUID == "" || len(r.DeviceUUID) > 256 {
 			return fmt.Errorf("export: invalid identity, unit or timestamp")
 		}
-		key := r.Name + "/" + r.DeviceUUID
+		attrs, resourceKey, err := exportEntityResource(r, o)
+		if err != nil {
+			return err
+		}
+		key := exportSeriesKey(r, resourceKey)
 		if seen[key] {
 			return fmt.Errorf("export: duplicate series")
 		}
@@ -315,16 +349,23 @@ func writeScalarOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) er
 			return fmt.Errorf("export: unsupported metric kind")
 		}
 		point := map[string]any{"timeUnixNano": strconv.FormatInt(r.TimestampUnix, 10), "attributes": otlpAttributes(r, o)}
-		if r.IsInt {
-			if r.IntValue > math.MaxInt64 {
-				return fmt.Errorf("export: otlp signed integer overflow")
-			}
-			point["asInt"] = strconv.FormatUint(r.IntValue, 10)
+		valueKind, value, err := exportScalar(r)
+		if err != nil {
+			return err
+		}
+		if kind == KindCounter && len(value) > 0 && value[0] == '-' && value != "-0" {
+			return fmt.Errorf("export: negative cumulative counter")
+		}
+		if valueKind == "float" {
+			point["asDouble"] = json.Number(value)
 		} else {
-			if math.IsNaN(r.Value) || math.IsInf(r.Value, 0) {
-				return fmt.Errorf("export: non-finite value")
+			if valueKind == "uint" {
+				n, _ := strconv.ParseUint(value, 10, 64)
+				if n > math.MaxInt64 {
+					return fmt.Errorf("export: otlp signed integer overflow")
+				}
 			}
-			point["asDouble"] = r.Value
+			point["asInt"] = value
 		}
 		ucum := map[string]string{"percent": "%", "bytes": "By", "bytes_per_sec": "By/s", "milliwatts": "mW", "millijoules": "mJ", "celsius": "Cel", "mhz": "MHz", "joules": "J"}[unit]
 		if ucum == "" {
@@ -341,13 +382,11 @@ func writeScalarOTLPMetrics(w io.Writer, readings []Reading, o ExportOptions) er
 		} else {
 			metric["gauge"] = map[string]any{"dataPoints": points}
 		}
-		metrics = append(metrics, metric)
+		if err := resources.add(resourceKey, attrs, metric); err != nil {
+			return err
+		}
 	}
-	data, e := json.Marshal(map[string]any{"resourceMetrics": []any{map[string]any{"scopeMetrics": []any{map[string]any{"scope": map[string]string{"name": "github.com/tmc/lib/nvidia/x/nvtelemetry"}, "metrics": metrics}}}}})
-	if e != nil {
-		return e
-	}
-	return exportWrite(w, data, b)
+	return resources.write(w)
 }
 
 // exportLogReason admits fixed status classes, never arbitrary driver text.
@@ -368,7 +407,8 @@ func exportLogReason(reason string) string {
 // No severity or sensor time is inferred. An unknown collector wall timestamp
 // omits timeUnixNano. Unavailable reasons retain fixed canonical status classes;
 // unrecognized reasons become "unknown". Raw labels, source IDs, and native
-// error text are omitted.
+// error text are omitted. Resource identity follows WriteOTLPMetrics. Canonical
+// signed diagnostic values use value_int64; uint64 values never pass through floats.
 func WriteOTLPLogs(w io.Writer, readings []Reading, o ExportOptions) error {
 	n, b, err := exportLimits(o)
 	if err != nil {
@@ -377,7 +417,7 @@ func WriteOTLPLogs(w io.Writer, readings []Reading, o ExportOptions) error {
 	if len(readings) > n {
 		return fmt.Errorf("export logs: reading limit")
 	}
-	records := make([]any, 0, len(readings))
+	resources := newOTLPEntityExport("Logs", b)
 	for _, r := range readings {
 		if err := exportReading(r); err != nil {
 			return err
@@ -393,8 +433,8 @@ func WriteOTLPLogs(w io.Writer, readings []Reading, o ExportOptions) error {
 		if !ok {
 			return fmt.Errorf("export logs: unsupported metric kind")
 		}
-		if r.IsAvailable() && (kind == KindBitmask || kind == KindEvent) && !r.IsInt {
-			return fmt.Errorf("export logs: event or bitmask requires integer")
+		if !r.IsAvailable() && r.Number != nil {
+			return fmt.Errorf("export logs: unavailable reading has a number")
 		}
 		fields := []any{}
 		add := func(key, value string) {
@@ -410,13 +450,23 @@ func WriteOTLPLogs(w io.Writer, readings []Reading, o ExportOptions) error {
 		}
 		if r.IsAvailable() {
 			fields[4] = map[string]any{"key": "status", "value": map[string]string{"stringValue": "available"}}
-			if r.IsInt {
-				add("value_uint64", strconv.FormatUint(r.IntValue, 10))
-			} else {
-				if math.IsNaN(r.Value) || math.IsInf(r.Value, 0) {
-					return fmt.Errorf("export logs: non-finite value")
-				}
-				add("value_float64", strconv.FormatFloat(r.Value, 'g', -1, 64))
+			valueKind, value, err := exportScalar(r)
+			if err != nil {
+				return err
+			}
+			if (kind == KindBitmask || kind == KindEvent) && valueKind != "uint" {
+				return fmt.Errorf("export logs: event or bitmask requires unsigned integer")
+			}
+			if kind == KindCounter && len(value) > 0 && value[0] == '-' && value != "-0" {
+				return fmt.Errorf("export logs: negative cumulative counter")
+			}
+			switch valueKind {
+			case "uint":
+				add("value_uint64", value)
+			case "int":
+				add("value_int64", value)
+			default:
+				add("value_float64", value)
 			}
 		}
 		attrs := otlpAttributes(r, o)
@@ -432,11 +482,13 @@ func WriteOTLPLogs(w io.Writer, readings []Reading, o ExportOptions) error {
 		if r.TimestampUnix > 0 {
 			record["timeUnixNano"] = strconv.FormatInt(r.TimestampUnix, 10)
 		}
-		records = append(records, record)
+		resourceAttrs, resourceKey, err := exportEntityResource(r, o)
+		if err != nil {
+			return err
+		}
+		if err := resources.add(resourceKey, resourceAttrs, record); err != nil {
+			return err
+		}
 	}
-	data, err := json.Marshal(map[string]any{"resourceLogs": []any{map[string]any{"scopeLogs": []any{map[string]any{"scope": map[string]string{"name": "github.com/tmc/lib/nvidia/x/nvtelemetry"}, "logRecords": records}}}}})
-	if err != nil {
-		return err
-	}
-	return exportWrite(w, data, b)
+	return resources.write(w)
 }

@@ -26,7 +26,7 @@ func TestCountedWorkerSharesScalarAbortWireValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	source := string(p.Steps()[0].Artifact.Raw)
+	source := string(p.Steps()[0].Artifact.Bytes())
 	for _, code := range []int{cudamega.AbortBadLaunch, cudamega.AbortSpinExhausted, cudamega.AbortBadCompletion} {
 		if !strings.Contains(source, fmt.Sprintf("atom.global.cas.b32 old, [state_ptr], 0, %d", code)) {
 			t.Fatalf("counted worker changed abort wire value %d", code)

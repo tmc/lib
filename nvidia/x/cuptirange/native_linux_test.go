@@ -18,7 +18,11 @@ import (
 )
 
 func TestNativeRangeCapture(t *testing.T) {
-	if os.Getenv("CUPTI_RANGE_TEST") != "1" {
+	enabled, err := rangeCaptureNativeAdmission(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !enabled {
 		t.Skip("CUPTI_RANGE_TEST=1 required")
 	}
 	chip := os.Getenv("CUPTI_CHIP")

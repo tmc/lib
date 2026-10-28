@@ -24,6 +24,7 @@ var (
 	ErrCountMismatch          = errors.New("cudacollective: element count mismatch")
 	ErrTopologyMismatch       = errors.New("cudacollective: topology requirement mismatch")
 	ErrNilBuffer              = errors.New("cudacollective: nil buffer")
+	ErrBufferUnbound          = errors.New("cudacollective: transfer buffer not bound to pipeline slot")
 )
 
 // Kind identifies the collective operation kind.
@@ -202,6 +203,42 @@ type OperationDescriptor struct {
 	PipelineSlot int // For double-buffered pipelines (0 or 1)
 }
 
+func dataTypeSizeBytes(dt cudair.DataType) (int, bool) {
+	switch dt {
+	case cudair.Float32, cudair.Int32:
+		return 4, true
+	case cudair.Float16, cudair.BFloat16:
+		return 2, true
+	case cudair.Int64:
+		return 8, true
+	case cudair.Uint8, cudair.Int8:
+		return 1, true
+	default:
+		return 0, false
+	}
+}
+
+func (k Kind) valid() bool {
+	return k >= KindAllReduce && k <= KindP2P
+}
+
+func (k Kind) usesReduction() bool {
+	switch k {
+	case KindAllReduce, KindReduceScatter, KindReduce:
+		return true
+	default:
+		return false
+	}
+}
+
+func (r Reduction) valid() bool {
+	return r >= ReductionSum && r <= ReductionAvg
+}
+
+func (t TopologyRequirement) valid() bool {
+	return t >= TopologyAny && t <= TopologyRDMA
+}
+
 // Validate checks internal consistency of the descriptor against world size.
 func (desc OperationDescriptor) Validate(worldSize int) error {
 	if worldSize <= 0 {
@@ -216,17 +253,85 @@ func (desc OperationDescriptor) Validate(worldSize int) error {
 	if desc.Kind == 0 {
 		return errors.New("cudacollective: collective kind must be specified")
 	}
+	if !desc.Kind.valid() {
+		return fmt.Errorf("cudacollective: unsupported collective kind %v", desc.Kind)
+	}
+	if _, ok := dataTypeSizeBytes(desc.DataType); !ok {
+		return fmt.Errorf("cudacollective: unsupported data type %v", desc.DataType)
+	}
+	if desc.Kind.usesReduction() {
+		if desc.Reduction == 0 {
+			return fmt.Errorf("cudacollective: reduction operation must be specified for %s", desc.Kind)
+		}
+		if !desc.Reduction.valid() {
+			return fmt.Errorf("cudacollective: unsupported reduction %v", desc.Reduction)
+		}
+	} else if desc.Reduction != 0 && !desc.Reduction.valid() {
+		return fmt.Errorf("cudacollective: unsupported reduction %v", desc.Reduction)
+	}
+	if !desc.Topology.valid() {
+		return fmt.Errorf("%w: unsupported topology requirement %v", ErrTopologyMismatch, desc.Topology)
+	}
 	if desc.PipelineSlot < 0 || desc.PipelineSlot > 1 {
 		return fmt.Errorf("cudacollective: pipeline slot %d must be 0 or 1", desc.PipelineSlot)
+	}
+	if _, _, err := desc.transferBytes(worldSize); err != nil {
+		return err
 	}
 	return nil
 }
 
-// ExpectedBytes returns the total byte size of one participant's input buffer.
+// ExpectedBytes returns the total byte size of one participant's base Count buffer,
+// or 0 if the data type is unknown, Count is non-positive, or the product overflows int.
 func (desc OperationDescriptor) ExpectedBytes() int {
-	elemSize := desc.DataType.SizeBytes()
-	if elemSize <= 0 {
-		elemSize = 4
+	if desc.Count <= 0 {
+		return 0
+	}
+	elemSize, ok := dataTypeSizeBytes(desc.DataType)
+	if !ok {
+		return 0
+	}
+	const maxInt = int(^uint(0) >> 1)
+	if uint64(desc.Count) > uint64(maxInt)/uint64(elemSize) {
+		return 0
 	}
 	return desc.Count * elemSize
+}
+
+func (desc OperationDescriptor) transferBytes(worldSize int) (sendBytes, recvBytes int, err error) {
+	if worldSize <= 0 {
+		return 0, 0, ErrInvalidWorldSize
+	}
+	if desc.Count <= 0 {
+		return 0, 0, fmt.Errorf("%w: count %d must be positive", ErrCountMismatch, desc.Count)
+	}
+	elemSize, ok := dataTypeSizeBytes(desc.DataType)
+	if !ok {
+		return 0, 0, fmt.Errorf("cudacollective: unsupported data type %v", desc.DataType)
+	}
+	const maxInt = int(^uint(0) >> 1)
+	if uint64(desc.Count) > uint64(maxInt)/uint64(elemSize) {
+		return 0, 0, fmt.Errorf("%w: count %d with %d-byte elements overflows byte extent", ErrBufferLengthMismatch, desc.Count, elemSize)
+	}
+	baseBytes := desc.Count * elemSize
+	sendBytes, recvBytes = baseBytes, baseBytes
+	switch desc.Kind {
+	case KindAllGather, KindGather:
+		if uint64(baseBytes) > uint64(maxInt)/uint64(worldSize) {
+			return 0, 0, fmt.Errorf("%w: receive byte extent %d * %d ranks overflows", ErrBufferLengthMismatch, baseBytes, worldSize)
+		}
+		recvBytes = baseBytes * worldSize
+	case KindReduceScatter, KindScatter:
+		if uint64(baseBytes) > uint64(maxInt)/uint64(worldSize) {
+			return 0, 0, fmt.Errorf("%w: send byte extent %d * %d ranks overflows", ErrBufferLengthMismatch, baseBytes, worldSize)
+		}
+		sendBytes = baseBytes * worldSize
+	case KindAllToAll:
+		if uint64(baseBytes) > uint64(maxInt)/uint64(worldSize) {
+			return 0, 0, fmt.Errorf("%w: all-to-all byte extent %d * %d ranks overflows", ErrBufferLengthMismatch, baseBytes, worldSize)
+		}
+		sendBytes = baseBytes * worldSize
+		recvBytes = baseBytes * worldSize
+	}
+	return sendBytes, recvBytes, nil
 }

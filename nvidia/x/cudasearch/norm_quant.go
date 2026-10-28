@@ -254,7 +254,7 @@ func (c *NormQuantCompiler) Compile(ctx context.Context, expr *egraph.Expr, b Wo
 	}
 	for i, launch := range candidate.Launches {
 		args := []any{x.buffers[launch.Input], x.buffers["weight"].Ptr(), x.buffers[launch.Output], uint32(c.w.Rows), uint32(c.w.Cols), c.w.Epsilon, weighted}
-		if _, err = artifacts[i].Schema.Pack(args...); err != nil {
+		if _, err = x.stages[i].artifact.Pack(args...); err != nil {
 			return x, err
 		}
 		x.stages[i].args = args
