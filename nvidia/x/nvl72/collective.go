@@ -194,9 +194,9 @@ EG_DEV void eg_multimem_ld_reduce_add_bf16x2(const uint16_t* sym_base, size_t el
     *lo = pair.x;
     *hi = pair.y;
 #elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-    // multimem.ld_reduce.global.add.bf16x2 (.v2.bf16)
+    // multimem.ld_reduce.global.add.bf16x2: one 32-bit register of two bf16
     uint32_t pair;
-    asm volatile("multimem.ld_reduce.global.add.v2.bf16 %0, [%1];" : "=r"(pair) : "l"(sym_base + elem_idx));
+    asm volatile("multimem.ld_reduce.global.add.bf16x2 %0, [%1];" : "=r"(pair) : "l"(sym_base + elem_idx));
     *lo = eg_bf16_to_f32(pair);
     *hi = eg_bf16_hi_to_f32(pair);
 #else
@@ -209,10 +209,10 @@ EG_DEV float eg_multimem_ld_reduce_add_bf16(const uint16_t* sym_base, size_t ele
 #if defined(EG_HOST_EMU) || defined(EG_EMU)
     return (float)eg_emu_multimem_ld_reduce_add_bf16(sym_base, elem_idx);
 #elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-    // multimem.ld_reduce.global.add.bf16x2 (.v2.bf16)
+    // multimem.ld_reduce.global.add.bf16x2: one 32-bit register of two bf16
     uint32_t pair;
     const size_t base_idx = elem_idx & ~size_t(1);
-    asm volatile("multimem.ld_reduce.global.add.v2.bf16 %0, [%1];" : "=r"(pair) : "l"(sym_base + base_idx));
+    asm volatile("multimem.ld_reduce.global.add.bf16x2 %0, [%1];" : "=r"(pair) : "l"(sym_base + base_idx));
     return (elem_idx & 1) ? eg_bf16_hi_to_f32(pair) : eg_bf16_to_f32(pair);
 #else
     return eg_bf16_to_f32(sym_base[elem_idx]);
