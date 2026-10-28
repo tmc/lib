@@ -530,7 +530,7 @@ func TestSM120PagedAttention(t *testing.T) {
 			{Name: "1bad", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64},
 			{Name: "bad_heads", NumQHeads: 7, NumKVHeads: 2, HeadDim: 64},
 			{Name: "bad_dim", NumQHeads: 8, NumKVHeads: 2, HeadDim: 48, KVFormat: WeightNVFP4},
-			{Name: "bad_target", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, Target: "sm_90a"},
+			{Name: "bad_target", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, Target: "sm_90a", KVFormat: WeightNVFP4},
 			{Name: "bad_kv", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, KVFormat: WeightE4M3},
 			{Name: "bad_splits", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, Splits: -1},
 			{Name: "bad_split_kv", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, KVFormat: WeightNVFP4, Splits: 2},
@@ -572,4 +572,29 @@ func ExampleSM120BlockScaledGEMM() {
 	// grid: [4 1 1] block: [128 1 1]
 	// has m16n8k64 mxf4nvf4: true
 	// has clc try_cancel: true
+}
+
+func TestSM120PagedAttentionTarget(t *testing.T) {
+	tests := []struct {
+		target string
+		kv     WeightFormat
+		ok     bool
+	}{
+		{"sm_121a", WeightBF16, true},
+		{"sm_121a", WeightNVFP4, true},
+		{"sm_120f", WeightNVFP4, true},
+		{"sm_103a", WeightBF16, true},
+		{"sm_90a", WeightBF16, true},
+		{"sm_100f", WeightBF16, true},
+		{"sm_103a", WeightNVFP4, false},
+		{"sm_75", WeightBF16, false},
+		{"gb300", WeightBF16, false},
+	}
+	for _, tt := range tests {
+		a := SM120PagedAttention{Name: "attn", Target: tt.target, KVFormat: tt.kv}
+		_, err := a.norm()
+		if (err == nil) != tt.ok {
+			t.Errorf("target %s, kv %v: err = %v, want ok %v", tt.target, tt.kv, err, tt.ok)
+		}
+	}
 }

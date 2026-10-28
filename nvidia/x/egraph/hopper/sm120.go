@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 )
 
@@ -183,6 +184,9 @@ EG_DEV uint32_t eg_sm120_clc_query_first_ctaid_x(uint4 resp) {
 
 #endif // EG_SM120_PRELUDE
 `
+
+// portableTarget matches the PTX targets from sm_80 on.
+var portableTarget = regexp.MustCompile(`^sm_([89]\d|[1-9]\d\d)[af]?$`)
 
 func validSM120Target(t string) bool {
 	switch t {
@@ -654,8 +658,11 @@ type SM120PagedAttention struct {
 	PageSize, MaxPages    int
 	SeqLen                int
 	Scale                 float32
-	Target                string       // "sm_120a" or "sm_121a" (defaults to "sm_121a")
-	KVFormat              WeightFormat // WeightBF16 or WeightNVFP4
+	// Target is "sm_120a", "sm_121a" or "sm_120f" (default "sm_121a").
+	// With WeightBF16 KV the kernel uses no sm_120 instructions, and
+	// Target may name any target from sm_80 on, such as "sm_103a".
+	Target   string
+	KVFormat WeightFormat // WeightBF16 or WeightNVFP4
 
 	// Splits, when > 0, divides each sequence's keys among Splits CTAs per
 	// KV head (split-KV, as in flash-decoding), so the grid is (batch,
@@ -703,11 +710,11 @@ func (a SM120PagedAttention) norm() (SM120PagedAttention, error) {
 	if a.Target == "" {
 		a.Target = "sm_121a"
 	}
-	if !validSM120Target(a.Target) {
-		return a, fmt.Errorf("sm120 paged attention %s: unsupported target %q (want sm_120a, sm_121a, or sm_120f)", a.Name, a.Target)
-	}
 	if a.KVFormat == 0 {
 		a.KVFormat = WeightBF16
+	}
+	if !validSM120Target(a.Target) && (a.KVFormat != WeightBF16 || !portableTarget.MatchString(a.Target)) {
+		return a, fmt.Errorf("sm120 paged attention %s: unsupported target %q (want sm_120a, sm_121a, or sm_120f, or with WeightBF16 KV any sm_80 or later target)", a.Name, a.Target)
 	}
 	if a.KVFormat != WeightBF16 && a.KVFormat != WeightNVFP4 {
 		return a, fmt.Errorf("sm120 paged attention %s: unsupported KVFormat %v (want WeightBF16 or WeightNVFP4)", a.Name, a.KVFormat)
