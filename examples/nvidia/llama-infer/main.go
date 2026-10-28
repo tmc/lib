@@ -58,6 +58,7 @@ var (
 	benchFlag         = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
 	benchCountFlag    = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 	weightDTypeFlag   = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
+	warmUpFlag        = flag.Bool("warmup", true, "with -egraph and -cuda-graph, run a throwaway prefill and decode step before the prompt; Ready Time includes it")
 	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
@@ -578,6 +579,11 @@ func runGPUInference(
 		return tok, nil
 	}
 
+	if *warmUpFlag && gm.eg != nil && gm.eg.pf != nil && dg != nil {
+		if err := warmUp(gm.eg, dg, gpuWeights, cfg, scratch, sampleFn); err != nil {
+			return err
+		}
+	}
 	fmt.Printf("Ready Time   : %v after startup\n", time.Since(processStart))
 	prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
 	if err != nil {
