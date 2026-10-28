@@ -75,3 +75,56 @@ func TestProjectToUnknown(t *testing.T) {
 		t.Error("source without a product: no error")
 	}
 }
+
+func TestProjectToShortKernels(t *testing.T) {
+	// 40 GEMVs of 200 us, each followed by six single-CTA kernels of 3 us,
+	// with 4 us gaps: on GB300 the GEMVs shrink to about 7 us and the 240
+	// short kernels keep their 0.72 ms.
+	var samples []*profile.Sample
+	start, corr := uint64(1_000_000), 1
+	add := func(name string, d uint64, grid string) {
+		s := microKernelSample(name, 7, start, start+d, corr)
+		if grid != "" {
+			s.Label["grid"] = []string{grid}
+		}
+		samples = append(samples, s)
+		start += d + 4_000
+		corr++
+	}
+	for range 40 {
+		add("gemv_bf16", 200_000, "64x1x1")
+		for range 6 {
+			add("rmsnorm_tail", 3_000, "1x1x1")
+		}
+	}
+	c := &cudacapture.Capture{
+		Metadata: []byte(`{"device":"NVIDIA GB10","arch":"sm_121a"}`),
+		Profile: &profile.Profile{
+			SampleType: []*profile.ValueType{{Type: "kernel_time", Unit: "nanoseconds"}},
+			Sample:     samples,
+		},
+	}
+	r := &Report{}
+	if err := r.ProjectTo(c, "gb300"); err != nil {
+		t.Fatal(err)
+	}
+	p := r.Target
+	if p.ShortKernels != 240 || p.SingleCTA != 240 || p.ShortNanos != 720_000 {
+		t.Errorf("short %d (single CTA %d) %d ns, want 240 (240) 720000 ns", p.ShortKernels, p.SingleCTA, p.ShortNanos)
+	}
+	if want := int64(40 * 200_000 * 273 / 8000); p.FloorNanos != want {
+		t.Errorf("floor = %d, want %d: short kernels must not scale", p.FloorNanos, want)
+	}
+	if want := p.FloorNanos + p.ShortNanos + p.IdleNanos; p.ProjectedNanos != want {
+		t.Errorf("projected = %d, want floor+short+idle %d", p.ProjectedNanos, want)
+	}
+	var short *Item
+	for i := range r.Items {
+		if r.Items[i].rule == "short-kernels" {
+			short = &r.Items[i]
+		}
+	}
+	if short == nil || short.EvidenceLevel != EvidenceModeled || !strings.Contains(short.ActionableRecommendation, "not its run time") {
+		t.Fatalf("items = %+v, want a modeled short-kernels finding", r.Items)
+	}
+}

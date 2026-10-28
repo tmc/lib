@@ -264,13 +264,13 @@ func AnalyzeRanks(ranks []Rank, align Alignment) (*Report, error) {
 			finding += fmt.Sprintf(" %d collectives appeared on some ranks and not others and were not matched.", tl.Unmatched)
 		}
 		report.Items = append(report.Items, Item{
-			rule:            "rank-skew",
-			Severity:        SeverityCost,
-			Category:        CategoryCommunication,
-			EvidenceLevel:   evidence,
-			DeviceTimeNanos: waited,
-			magnitude:       fmt.Sprintf("%.3f ms waited across ranks", float64(waited)/1e6),
-			Finding:         finding,
+			rule:                     "rank-skew",
+			Severity:                 SeverityCost,
+			Category:                 CategoryCommunication,
+			EvidenceLevel:            evidence,
+			DeviceTimeNanos:          waited,
+			magnitude:                fmt.Sprintf("%.3f ms waited across ranks", float64(waited)/1e6),
+			Finding:                  finding,
 			ActionableRecommendation: rec,
 			NextMeasurement:          "per-rank NVTX ranges around each step's pre-collective work, captured on every rank",
 		})
