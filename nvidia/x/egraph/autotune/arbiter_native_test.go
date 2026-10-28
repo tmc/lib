@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -31,6 +32,8 @@ type arbiterSteps struct {
 	timing        bool // time Iters launches with CUDA events before sampling
 	inventoryOnce bool // query the reason inventory once, not per session
 	noLaunch      bool // load the module but launch nothing while sampling
+	keepSessions  bool // keep every Session reachable until the last session ends
+	sync          bool // synchronize the context after each disable and Close
 }
 
 // arbiterVariants starts from the collector's sequence and removes one
@@ -51,6 +54,8 @@ var arbiterVariants = []struct {
 	{name: "no_timing", steps: arbiterSteps{module: true, warmup: true}},
 	{name: "inventory_once", steps: arbiterSteps{module: true, warmup: true, timing: true, inventoryOnce: true}},
 	{name: "no_sampled_launch", steps: arbiterSteps{module: true, warmup: true, timing: true, noLaunch: true}},
+	{name: "replica_keep_sessions", steps: arbiterSteps{module: true, warmup: true, timing: true, keepSessions: true}},
+	{name: "replica_sync", steps: arbiterSteps{module: true, warmup: true, timing: true, sync: true}},
 	{name: "collector", real: true},
 }
 
@@ -196,6 +201,8 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 		}))
 	}()
 	var inv *cuptipcsampling.ReasonInventory
+	var sessions []*cuptipcsampling.Session
+	defer func() { runtime.KeepAlive(sessions) }()
 	for i := range cands {
 		var bin []byte
 		if steps.module && !(steps.moduleOnce && i > 0) {
@@ -264,8 +271,13 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 					return fmt.Errorf("inventory: %w", err)
 				}
 				inv = &got
+				if steps.sync {
+					if err := driver.CtxSynchronize(); err != nil {
+						return fmt.Errorf("synchronize after inventory disable: %w", err)
+					}
+				}
 			}
-			return sampleSession(cuCtx, *inv, func() error {
+			s, err := sampleSession(cuCtx, *inv, func() error {
 				if !steps.module || steps.noLaunch {
 					return nil
 				}
@@ -276,6 +288,15 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 				}
 				return nil
 			})
+			if steps.keepSessions {
+				sessions = append(sessions, s)
+			}
+			if err == nil && steps.sync {
+				if err := driver.CtxSynchronize(); err != nil {
+					return fmt.Errorf("synchronize after close: %w", err)
+				}
+			}
+			return err
 		})
 		if err != nil {
 			return fmt.Errorf("session %d (%s): %w", i, cands[i].Name, err)
@@ -287,8 +308,9 @@ func (ar *arbiter) run(steps arbiterSteps, real bool) (err error) {
 
 // sampleSession is CUPTICollector's sampling sequence with its
 // configuration: Start, the workload, synchronize, Stop, Read until no PCs
-// remain, Close, Final.
-func sampleSession(cuCtx driver.Context, inv cuptipcsampling.ReasonInventory, work func() error) (err error) {
+// remain, Close, Final. It returns the session, closed, for callers that
+// keep it reachable.
+func sampleSession(cuCtx driver.Context, inv cuptipcsampling.ReasonInventory, work func() error) (s *cuptipcsampling.Session, err error) {
 	cfg := cuptipcsampling.Config{
 		Period: 12, WorkerSleepMS: 10,
 		MaxReasons:   len(inv.Reasons),
@@ -299,12 +321,12 @@ func sampleSession(cuCtx driver.Context, inv cuptipcsampling.ReasonInventory, wo
 	for _, r := range inv.Reasons {
 		cfg.ReasonIDs = append(cfg.ReasonIDs, r.Index)
 	}
-	s, err := cuptipcsampling.Start(cuCtx, cfg)
+	s, err = cuptipcsampling.Start(cuCtx, cfg)
 	if err != nil {
 		if s != nil {
 			err = errors.Join(err, s.Close())
 		}
-		return fmt.Errorf("start: %w", err)
+		return s, fmt.Errorf("start: %w", err)
 	}
 	closed := false
 	defer func() {
@@ -313,19 +335,19 @@ func sampleSession(cuCtx driver.Context, inv cuptipcsampling.ReasonInventory, wo
 		}
 	}()
 	if err := work(); err != nil {
-		return fmt.Errorf("sampled launches: %w", err)
+		return s, fmt.Errorf("sampled launches: %w", err)
 	}
 	if err := driver.CtxSynchronize(); err != nil {
-		return err
+		return s, err
 	}
 	if err := s.Stop(); err != nil {
-		return fmt.Errorf("stop: %w", err)
+		return s, fmt.Errorf("stop: %w", err)
 	}
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		b, err := s.Read()
 		if err != nil {
-			return fmt.Errorf("read: %w", err)
+			return s, fmt.Errorf("read: %w", err)
 		}
 		if b.RemainingPCs == 0 || time.Now().After(deadline) {
 			break
@@ -333,10 +355,10 @@ func sampleSession(cuCtx driver.Context, inv cuptipcsampling.ReasonInventory, wo
 	}
 	closed = true
 	if err := s.Close(); err != nil {
-		return fmt.Errorf("close: %w", err)
+		return s, fmt.Errorf("close: %w", err)
 	}
 	s.Final()
-	return nil
+	return s, nil
 }
 
 // timeLaunches records a CUDA event pair around each of iters launches, as
