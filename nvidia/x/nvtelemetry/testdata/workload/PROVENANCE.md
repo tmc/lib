@@ -67,8 +67,25 @@ records the real run ID and exact hash. `generate_mlflow.py` repeats the native
 SDK/serializer path in an isolated environment; it requires explicit new store
 and output directories and performs no endpoint or account operations.
 
-All other fixtures are hand-constructed protocol controls grounded in the
-versioned sources above. `sglang-v0.5.21.prom.control` and
+`wandb01911-sdk-decoded.jsonl` (SHA256
+`0166da6ec1fd06277146913760c73cc38d69fbd1881b8ca5983600a1b6776bb6`, 274 bytes,
+3 rows) is a derivative of an actual SDK capture, not an SDK output file. W&B
+`0.19.11` (commit `2a058902a2425bf79e5add34b30d0e9ea5e39951`) wrote offline run
+`5f5i3ig2` as its native `.wandb` transaction log (1523 bytes, 16 records, SHA256
+`dad963039ddd336f160c34182e2ba86ecbc436d3ea3c47692bbd5550ab7cd721`), which is
+retained outside this repository. A task decoder read that log through the
+SDK's official datastore reader and protobuf records and projected each history
+record's `value_json` items as one JSON row, with `nested_key` paths as nested
+objects. The W&B SDK did not emit this JSONL: it is not native
+`wandb-history.jsonl`, a vendor download or authentic training. Its values come
+from a controlled scalar run, loss 4, 2 and 1 at steps 0, 1 and 3.
+`wandb01911-sdk-decoded.meta.json` (SHA256
+`a731850e41b07fc78c4af06d8aeb88777fca52fd2091c0094398905b29bf6f89`) records the
+decoder hash, SDK wheel, core and protobuf pins, and the retained capture
+receipts.
+
+All other fixtures in this directory are hand-constructed protocol controls
+grounded in the versioned sources above. `sglang-v0.5.21.prom.control` and
 `dynamo-v1.5.1.prom.control` are constructed controls, not production traces or
 genuine captures from those pinned running frameworks. Their pending
 authentic-export gates are listed
