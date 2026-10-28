@@ -22,6 +22,9 @@ func runAdviseCommand(rawArgs []string) error {
 	if err != nil {
 		return err
 	}
+	if len(opts.ranks) > 0 {
+		return adviseRanks(opts, limits)
+	}
 
 	path, err := filepath.Abs(opts.capture)
 	if err != nil {
@@ -46,7 +49,36 @@ func runAdviseCommand(rawArgs []string) error {
 			return fmt.Errorf("advise: %w", err)
 		}
 	}
+	if opts.target != "" {
+		if err := report.ProjectTo(cap, opts.target); err != nil {
+			return fmt.Errorf("advise: %w", err)
+		}
+	}
+	return printAdvice(report, opts)
+}
 
+// adviseRanks analyzes the captures of several ranks of one job together.
+func adviseRanks(opts adviseOptions, limits cudacapture.Limits) error {
+	var ranks []advise.Rank
+	for _, name := range append([]string{opts.capture}, opts.ranks...) {
+		path, err := filepath.Abs(name)
+		if err != nil {
+			return err
+		}
+		cap, err := readCapturePathLimits(path, limits)
+		if err != nil {
+			return fmt.Errorf("read capture %s: %w", name, err)
+		}
+		ranks = append(ranks, advise.Rank{Name: strings.TrimSuffix(filepath.Base(name), filepath.Ext(name)), Capture: cap})
+	}
+	report, err := advise.AnalyzeRanks(ranks, opts.align)
+	if err != nil {
+		return fmt.Errorf("advise: %w", err)
+	}
+	return printAdvice(report, opts)
+}
+
+func printAdvice(report *advise.Report, opts adviseOptions) error {
 	if opts.format == "json" {
 		// -limit governs how much the markdown report prints, not how much
 		// the tool knows. The summary counts every finding, so one format has
@@ -64,12 +96,20 @@ func runAdviseCommand(rawArgs []string) error {
 	return nil
 }
 
-const adviseUsage = "usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] [-base base.pprof [-ops ops.txt] [-phase i]] [-iteration-marker RE [-nvtx] [-skip-iterations N] [-expect-markers N]] capture.pprof"
+const adviseUsage = "usage: cudaprof advise [-e] [-limit N] [--format=json|markdown] [-target sm_103a|gb300] [-base base.pprof [-ops ops.txt] [-phase i]] [-iteration-marker RE [-nvtx] [-skip-iterations N] [-expect-markers N]] capture.pprof\n       cudaprof advise [-e] [-limit N] [--format=json|markdown] [-align collective|clock] rank0.pprof rank1.pprof..."
 
 type adviseOptions struct {
 	format  string
 	limit   int
 	capture string
+
+	// ranks are the captures after the first, which select a multi-rank
+	// analysis aligned by align.
+	ranks []string
+	align advise.Alignment
+
+	// target names a device to project the step onto.
+	target string
 
 	// base, ops and phase select a comparison against a base capture, as
 	// compare's arguments of the same names do.
@@ -88,12 +128,13 @@ type adviseOptions struct {
 // parseAdviseArgs parses advise's flags, each spelled with one dash or two
 // and taking its value as -flag=v or -flag v.
 func parseAdviseArgs(args []string) (adviseOptions, error) {
-	opts := adviseOptions{limit: advise.DefaultLimit, phase: -1, skipIterations: 1}
+	opts := adviseOptions{limit: advise.DefaultLimit, phase: -1, skipIterations: 1, align: advise.AlignCollective}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if !strings.HasPrefix(arg, "-") {
 			if opts.capture != "" {
-				return opts, errors.New("multiple capture files specified")
+				opts.ranks = append(opts.ranks, arg)
+				continue
 			}
 			opts.capture = arg
 			continue
@@ -144,6 +185,12 @@ func parseAdviseArgs(args []string) (adviseOptions, error) {
 			opts.skipIterations, err = intValue()
 		case name == "expect-markers":
 			opts.expectMarkers, err = intValue()
+		case name == "target":
+			opts.target, err = value()
+		case name == "align":
+			var v string
+			v, err = value()
+			opts.align = advise.Alignment(v)
 		default:
 			return opts, fmt.Errorf("unknown flag: %s", arg)
 		}
@@ -159,6 +206,12 @@ func parseAdviseArgs(args []string) (adviseOptions, error) {
 	}
 	if opts.skipIterations < 0 {
 		return opts, fmt.Errorf("invalid -skip-iterations %d", opts.skipIterations)
+	}
+	if len(opts.ranks) > 0 && (opts.base != "" || opts.iterationMarker != "" || opts.target != "") {
+		return opts, errors.New("-base, -iteration-marker and -target take one capture, not several ranks")
+	}
+	if opts.align != advise.AlignCollective && opts.align != advise.AlignClock {
+		return opts, fmt.Errorf("invalid -align %q: want collective or clock", opts.align)
 	}
 	if opts.base == "" && (opts.ops != "" || opts.phase >= 0) {
 		return opts, errors.New("-ops and -phase select a comparison and need -base")

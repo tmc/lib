@@ -327,6 +327,23 @@ whole-capture idle findings, which count warm-up with the loop, drop to
 context beneath them. Without the marker too, a rule that fires once
 per kernel or kernel pair (IMAD.WIDE, occupancy, fusion pairs) keeps
 its three largest findings and folds the rest into one.
+
+Given several captures, one per rank of a job, `cudaprof advise
+rank0.pprof rank1.pprof ...` analyzes them together: how far apart the
+ranks enter each collective, which rank the others wait on, and each
+rank's exposed communication (collective time with no compute on any
+stream). `-align=collective` (the default) puts the ranks on one clock
+by the ends of matched collectives, which complete together on every
+rank; `-align=clock` takes the timestamps as they are, which is right
+for ranks captured on one host.
+
+`cudaprof advise -target gb300 run.pprof` models the captured step on
+another device from cudadevicetable's profiles: compute scaled by the
+memory bandwidth ratio, launch gaps and communication carried over. It
+says whether the gaps on the target can hide behind running kernels
+(programmatic dependent launch) or need a persistent kernel. The
+finding is labelled modeled.
+
 `cudaprof capture -o run.pprof --iteration-marker=RE` runs the gate on the
 capture it wrote, prints a one-line summary, and exits 2 when the gate
 fails, so a scripted capture cannot silently record the wrong window.
