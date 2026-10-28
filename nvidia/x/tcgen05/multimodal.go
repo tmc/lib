@@ -588,6 +588,9 @@ __global__ void __launch_bounds__(128) %[1]s(
     const int seq0 = cu_seqlens[seq], seq1 = cu_seqlens[seq + 1];
     const int q0 = seq0 + tile_idx[blockIdx.x] * 128;
     const int qrows = seq1 - q0 < 128 ? seq1 - q0 : 128;
+    // kv_end bounds the key loop to this sequence. Under CAUSAL it only
+    // bounds work: the per-key mask kv0 + j <= qi already excludes every
+    // key past the query, so any kv_end >= q0 + qrows gives the same output.
     const int kv_end = CAUSAL ? (q0 + qrows < seq1 ? q0 + qrows : seq1) : seq1;
     const size_t hoff = (size_t)blockIdx.y * tokens * D;
     EG_TM_BUF(tm);

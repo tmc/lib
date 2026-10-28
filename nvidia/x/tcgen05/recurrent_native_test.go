@@ -162,8 +162,14 @@ func tmNativeCases(t *testing.T) []tmNativeCase {
 		if causal {
 			name += "_causal"
 		}
-		c := newTMNativeCase(t, name, func(n string) (string, error) { a.Name = n; return a.CUDA() },
-			"const int kv_end = CAUSAL ? (q0 + qrows < seq1 ? q0 + qrows : seq1) : seq1;", "const int kv_end = tokens;")
+		// Under causal masking kv_end only bounds work, so the causal
+		// mutant instead starts the key loop at token 0, attending into
+		// earlier sequences.
+		old, new := "const int kv_end = CAUSAL ? (q0 + qrows < seq1 ? q0 + qrows : seq1) : seq1;", "const int kv_end = tokens;"
+		if causal {
+			old, new = "for (int kv0 = seq0; kv0 < kv_end; kv0 += KT)", "for (int kv0 = 0; kv0 < kv_end; kv0 += KT)"
+		}
+		c := newTMNativeCase(t, name, func(n string) (string, error) { a.Name = n; return a.CUDA() }, old, new)
 		cu, q, k, v, pos := jaggedInputs(rand.New(rand.NewPCG(34, 3)), []int{73, 300, 190}, a.MRoPE.HeadDim)
 		sched, err := BuildJaggedBatchSchedule(cu, 128)
 		if err != nil {
