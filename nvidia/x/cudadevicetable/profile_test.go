@@ -25,6 +25,13 @@ func TestLookupProfile(t *testing.T) {
 		{"NVIDIA GeForce RTX 5090", "sm_120a", "RTX 5090", 170, 99 << 10, false, false, false},
 		{"sm_121a", "sm_121a", "GB10", 48, 99 << 10, false, false, true},
 		{"NVIDIA GB10", "sm_121a", "GB10", 48, 99 << 10, false, false, true},
+		{"sm_110a", "sm_110a", "Thor", 20, 227 << 10, true, false, false},
+		{"sm_89", "sm_89", "L40S", 142, 99 << 10, false, false, false},
+		{"NVIDIA L4", "sm_89", "L4", 58, 99 << 10, false, false, false},
+		{"Orin", "sm_87", "Orin", 16, 163 << 10, false, false, false},
+		{"NVIDIA A10", "sm_86", "A10", 72, 99 << 10, false, false, false},
+		{"A100", "sm_80", "A100", 108, 163 << 10, false, false, false},
+		{"sm_75", "sm_75", "T4", 40, 64 << 10, false, false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -42,7 +49,9 @@ func TestLookupProfile(t *testing.T) {
 				t.Errorf("SMs source = %s, want probed %v", p.SMs.Source, tt.probedSMs)
 			}
 			edge := tt.target == "sm_120a" || tt.target == "sm_121a"
-			for feature, want := range map[string]bool{"tcgen05": tt.tcgen05, "wgmma": tt.wgmma, "mmasync": true, "mmasyncmxf4": edge} {
+			// The mmasync probe is a BF16 MMA, which sm_75 lacks.
+			mmasync := tt.target != "sm_75"
+			for feature, want := range map[string]bool{"tcgen05": tt.tcgen05, "wgmma": tt.wgmma, "mmasync": mmasync, "mmasyncmxf4": edge} {
 				got, err := p.Supports(feature)
 				if err != nil {
 					t.Fatal(err)
@@ -59,9 +68,10 @@ func TestLookupProfile(t *testing.T) {
 }
 
 func TestLookupProfileMiss(t *testing.T) {
-	_, err := LookupProfile("sm_75")
+	// CUDA 13 ptxas no longer accepts sm_70, so it has no profile.
+	_, err := LookupProfile("sm_70")
 	if err == nil || !strings.Contains(err.Error(), "sm_103a") {
-		t.Errorf("LookupProfile(sm_75) error = %v, want a miss listing the known names", err)
+		t.Errorf("LookupProfile(sm_70) error = %v, want a miss listing the known names", err)
 	}
 }
 

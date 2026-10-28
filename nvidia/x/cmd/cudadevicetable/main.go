@@ -79,7 +79,7 @@ func main() {
 	update := flag.String("update", "", "devices.json to update in place; empty prints to stdout")
 	host := flag.String("host", "", "host name to record in the probe (default: the system hostname)")
 	ptxas := flag.String("ptxas", "", "probe instruction-set features with this ptxas instead of reading a device")
-	targets := flag.String("targets", "sm_80,sm_90,sm_90a,sm_100,sm_100a,sm_103a,sm_110a,sm_120,sm_120a,sm_121,sm_121a", "comma-separated PTX targets for -ptxas")
+	targets := flag.String("targets", "sm_75,sm_80,sm_86,sm_87,sm_89,sm_90,sm_90a,sm_100,sm_100a,sm_103a,sm_110a,sm_120,sm_120a,sm_121,sm_121a", "comma-separated PTX targets for -ptxas")
 	flag.Parse()
 
 	// The two modes read different instruments and share only the output

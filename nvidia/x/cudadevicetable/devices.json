@@ -139,6 +139,12 @@
           "instrument": "ptxas -arch=sm_100 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -215,6 +221,12 @@
           "instrument": "ptxas -arch=sm_100a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -288,6 +300,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_103a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
@@ -363,6 +381,12 @@
           "instrument": "ptxas -arch=sm_110a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -436,6 +460,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_120 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
@@ -513,6 +543,12 @@
           "instrument": "ptxas -arch=sm_120a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -586,6 +622,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_121 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
@@ -663,6 +705,12 @@
           "instrument": "ptxas -arch=sm_121a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -715,6 +763,95 @@
         }
       }
     },
+    "sm_75": {
+      "target": "sm_75",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.4.59",
+        "ptxVersion": "9.0",
+        "host": "dgx",
+        "probedAt": "2026-10-28"
+      },
+      "features": {
+        "cluster": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx",
+          "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
+        },
+        "mbarrier": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx",
+          "diagnostic": "ptxas mbarrier.ptx, line 13; error   : Feature 'mbarrier.init' requires .target sm_80 or higher"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 15; error   : Feature 'mbarrier.init' requires .target sm_80 or higher"
+        },
+        "mmasync": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx",
+          "diagnostic": "ptxas mmasync.ptx, line 18; error   : Feature '.bf16' requires .target sm_80 or higher"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_75'"
+        },
+        "multimem": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx",
+          "diagnostic": "ptxas multimem.ptx, line 10; error   : Feature 'multimem.ld_reduce' requires .target sm_90 or higher"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_75'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_75'"
+        },
+        "tma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx",
+          "diagnostic": "ptxas tma.ptx, line 16; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "tmamulticast": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx",
+          "diagnostic": "ptxas tmamulticast.ptx, line 24; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_75'"
+        }
+      }
+    },
     "sm_80": {
       "target": "sm_80",
       "probe": {
@@ -733,11 +870,17 @@
           "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
         },
         "mbarrier": {
-          "supported": false,
+          "supported": true,
           "source": "probed",
           "instrument": "ptxas -arch=sm_80 mbarrier.ptx",
-          "fixture": "ptxprobe/mbarrier.ptx",
-          "diagnostic": "ptxas mbarrier.ptx, line 15; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
         },
         "mmasync": {
           "supported": true,
@@ -796,6 +939,267 @@
         }
       }
     },
+    "sm_86": {
+      "target": "sm_86",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.4.59",
+        "ptxVersion": "9.0",
+        "host": "dgx",
+        "probedAt": "2026-10-28"
+      },
+      "features": {
+        "cluster": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx",
+          "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_86'"
+        },
+        "multimem": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx",
+          "diagnostic": "ptxas multimem.ptx, line 10; error   : Feature 'multimem.ld_reduce' requires .target sm_90 or higher"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_86'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_86'"
+        },
+        "tma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx",
+          "diagnostic": "ptxas tma.ptx, line 16; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "tmamulticast": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx",
+          "diagnostic": "ptxas tmamulticast.ptx, line 24; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_86'"
+        }
+      }
+    },
+    "sm_87": {
+      "target": "sm_87",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.4.59",
+        "ptxVersion": "9.0",
+        "host": "dgx",
+        "probedAt": "2026-10-28"
+      },
+      "features": {
+        "cluster": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx",
+          "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_87'"
+        },
+        "multimem": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx",
+          "diagnostic": "ptxas multimem.ptx, line 10; error   : Feature 'multimem.ld_reduce' requires .target sm_90 or higher"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_87'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_87'"
+        },
+        "tma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx",
+          "diagnostic": "ptxas tma.ptx, line 16; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "tmamulticast": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx",
+          "diagnostic": "ptxas tmamulticast.ptx, line 24; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_87'"
+        }
+      }
+    },
+    "sm_89": {
+      "target": "sm_89",
+      "probe": {
+        "tool": "ptxas",
+        "toolVersion": "13.4.59",
+        "ptxVersion": "9.0",
+        "host": "dgx",
+        "probedAt": "2026-10-28"
+      },
+      "features": {
+        "cluster": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 cluster.ptx",
+          "fixture": "ptxprobe/cluster.ptx",
+          "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
+        },
+        "mbarrier": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 mbarrier.ptx",
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_89'"
+        },
+        "multimem": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 multimem.ptx",
+          "fixture": "ptxprobe/multimem.ptx",
+          "diagnostic": "ptxas multimem.ptx, line 10; error   : Feature 'multimem.ld_reduce' requires .target sm_90 or higher"
+        },
+        "setmaxnreg": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 setmaxnreg.ptx",
+          "fixture": "ptxprobe/setmaxnreg.ptx",
+          "diagnostic": "ptxas setmaxnreg.ptx, line 7; error   : Instruction 'setmaxnreg.dec' not supported on .target 'sm_89'"
+        },
+        "tcgen05": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 tcgen05.ptx",
+          "fixture": "ptxprobe/tcgen05.ptx",
+          "diagnostic": "ptxas tcgen05.ptx, line 9; error   : Instruction 'tcgen05.alloc' not supported on .target 'sm_89'"
+        },
+        "tma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 tma.ptx",
+          "fixture": "ptxprobe/tma.ptx",
+          "diagnostic": "ptxas tma.ptx, line 16; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "tmamulticast": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 tmamulticast.ptx",
+          "fixture": "ptxprobe/tmamulticast.ptx",
+          "diagnostic": "ptxas tmamulticast.ptx, line 24; error   : Feature 'cp.async.bulk.tensor' requires .target sm_90 or higher"
+        },
+        "wgmma": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 wgmma.ptx",
+          "fixture": "ptxprobe/wgmma.ptx",
+          "diagnostic": "ptxas wgmma.ptx, line 22; error   : Instruction 'wgmma.fence' not supported on .target 'sm_89'"
+        }
+      }
+    },
     "sm_90": {
       "target": "sm_90",
       "probe": {
@@ -817,6 +1221,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_90 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
@@ -893,6 +1303,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_90a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
