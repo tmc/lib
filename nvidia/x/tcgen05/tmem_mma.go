@@ -44,9 +44,11 @@ const tmPrelude = `#ifndef EG_TCGEN05_TM_PRELUDE
 #ifndef EG_TM_EMU_CTAS
 #define EG_TM_EMU_CTAS 8
 #endif
-// eg_tm_emu_backing holds emulated TMEM for up to EG_TM_EMU_CTAS resident CTAs.
+// eg_tm_emu_backing holds emulated TMEM per CTA, indexed by linear block
+// index. CTAs whose indices agree modulo EG_TM_EMU_CTAS share cells, so a
+// launch must either be at most EG_TM_EMU_CTAS CTAs or define it larger.
 static __device__ float eg_tm_emu_backing[EG_TM_EMU_CTAS * 128 * 512];
-#define EG_TM_BUF(name) float* const name = eg_tm_emu_backing + (size_t)(blockIdx.x % EG_TM_EMU_CTAS) * 128 * 512
+#define EG_TM_BUF(name) float* const name = eg_tm_emu_backing + (size_t)((blockIdx.x + gridDim.x * (blockIdx.y + gridDim.y * blockIdx.z)) % EG_TM_EMU_CTAS) * 128 * 512
 #else
 #define EG_TM_SHARED(T, name, dims) alignas(16) __shared__ T name dims
 #define EG_TM_BUF(name) float* const name = nullptr
