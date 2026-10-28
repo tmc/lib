@@ -115,6 +115,9 @@ type egraphDecoder struct {
 	posArgs    map[driver.Function][]egraphPosArg
 
 	pf *egraphPrefill // with plans.pf
+	// pfWS is the Stream-K workspace the prefill tile gemms share, when
+	// any of them uses Stream-K.
+	pfWS cudamem.Slice[float32]
 }
 
 func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, opt egraphOptions) (eg *egraphDecoder, err error) {
@@ -337,6 +340,14 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		}
 		if eg.pf.attnOut, err = cudamem.Alloc[uint16](dev, groups*pl.qtok*qDim); err != nil {
 			return nil, fmt.Errorf("alloc prefill attention: %w", err)
+		}
+		if n := prefillWorkspaceFloats(pl); n > 0 {
+			if eg.pfWS, err = cudamem.Alloc[float32](dev, n); err != nil {
+				return nil, fmt.Errorf("alloc prefill stream-k workspace: %w", err)
+			}
+			if err := eg.pfWS.CopyFromHost(make([]float32, n)); err != nil {
+				return nil, fmt.Errorf("zero prefill stream-k workspace: %w", err)
+			}
 		}
 		if err := eg.bindPrefill(dev, cfg, gpuW); err != nil {
 			return nil, err
@@ -643,6 +654,12 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 			}
 			l.args = append(l.args, ptr)
 		}
+		if k.Tile != nil && k.Tile.StreamK > 0 {
+			if eg.pfWS.Len() == 0 {
+				return nil, fmt.Errorf("%s: no Stream-K workspace", name)
+			}
+			l.args = append(l.args, eg.pfWS.Ptr())
+		}
 		out = append(out, l)
 	}
 	return out, nil
@@ -686,7 +703,7 @@ func (eg *egraphDecoder) Close() error {
 	errs = append(errs, freeOwned(&eg.ropePage), freeOwned(&eg.seqLen1), freeOwned(&eg.pages))
 	errs = append(errs, freeOwned(&eg.cs), freeOwned(&eg.qbf), freeOwned(&eg.ws))
 	if eg.pf != nil {
-		errs = append(errs, eg.pf.free())
+		errs = append(errs, eg.pf.free(), freeOwned(&eg.pfWS))
 	}
 	for p, r := range eg.ready {
 		errs = append(errs, freeOwned(&r))
