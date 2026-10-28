@@ -30,8 +30,12 @@
 //
 // Evidence: the plans and kernels are generated here; the tests check the
 // sharding numerically on the host (a TP=N layer against TP=1) and the
-// fused store under cudahostemu. Execution on one GB10 with N ranks is in
-// examples/nvidia/llama-infer (-tp). No multi-GPU run has checked it.
+// fused store under cudahostemu. On one GB10 on 2026-10-28,
+// examples/nvidia/llama-infer -tp ran Llama-3-8B at TP=1, 2 and 4 in serial,
+// streams and green modes, with the all-reduce as a kernel and fused as
+// [FuseReduceAdd], and generated the same 8 greedy tokens as the
+// single-GPU path. [FuseMultimem] kernels compile for sm_90a and sm_103a
+// but have not run. No multi-GPU run has checked any of it.
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch
