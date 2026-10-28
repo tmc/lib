@@ -36,6 +36,35 @@
 //     system-scope release/acquire ordering and optional C2C staging.
 //   - [PlanPDDisaggregation] selects optimal prefill/decode rack and GPU splits
 //     under TTFT and TPOT SLAs across GB200, GB300, and Vera Rubin pods.
+//   - [ComputeRoutingPlan] routes MoE tokens (DeepSeek-V3 sigmoid with
+//     selection-only bias, softmax, or Sinkhorn-Knopp), packs TMA .gather4
+//     row quads, and mirrors hot experts into shadow slots;
+//     [FusedMoERouter] emits the single-kernel router, checked against it
+//     under cudahostemu.
+//   - [PlanContextParallel] schedules striped (zig-zag) ring, Ulysses, and
+//     2D hybrid context-parallel causal attention with equal causal tile
+//     counts per rank and step; [SimulateContextParallel] and
+//     [MergeOnlineSoftmaxTiles] check it against monolithic attention, and
+//     [ContextParallelRingKernel] runs the ring on emulated ranks.
+//   - [AlgebraicCollectiveRules] and [ExtractOptimalDistSchedule] fuse
+//     collectives into adjacent GEMM and RMSNorm ops in an e-graph and pick
+//     the pulled multimem.ld_reduce form or the pushed per-tile switch
+//     reduction by batch size under [DistCostModel]; [EvalDistExpr] checks
+//     each rewrite numerically and [MultimemRMSNormKernel] emits the pull.
+//   - [ComputeMoEBackwardCombine] computes the MoE backward combine and the
+//     gate-logit gradient through normalized sigmoid gates, with traffic
+//     for home-rank versus in-fabric reduction;
+//     [EmitSwitchMoEBackwardEpiloguePTX] and [SwitchMoEBackwardKernel] emit
+//     the pre-scaled expert epilogue.
+//   - [DecideColdMoEPlacement] models running a cold expert in place on
+//     Grace or Vera cores versus copying it to the GPU over C2C;
+//     [EmitC2CSysDoorbellPTX], [AuditC2CCoherence] and [C2CDoorbellKernel]
+//     emit and check a .sys-scope release/acquire doorbell between a
+//     running kernel and a CPU worker.
+//
+// The native gate (CUDA_NVL72_NATIVE=1 under an inherited GPU lock, target
+// CUDA_NVL72_NATIVE_ARCH, default sm_121a) compiles emitted kernels with nvcc
+// and runs the single-GPU ones; multi-rank paths run only on cudahostemu.
 //
 // Basic usage:
 //
