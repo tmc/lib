@@ -20,8 +20,17 @@ func TestItem1CommentPanic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// None of these should panic.
-			_, _ = ParseString(tt.input)
-			_, _ = ParseLifeRangeCount(strings.NewReader(tt.input))
+			check := func(name string, f func()) {
+				t.Helper()
+				defer func() {
+					if v := recover(); v != nil {
+						t.Fatalf("%s panicked: %v", name, v)
+					}
+				}()
+				f()
+			}
+			check("ParseString", func() { _, _ = ParseString(tt.input) })
+			check("ParseLifeRangeCount", func() { _, _ = ParseLifeRangeCount(strings.NewReader(tt.input)) })
 			_ = NormalizeLine(tt.input)
 		})
 	}
