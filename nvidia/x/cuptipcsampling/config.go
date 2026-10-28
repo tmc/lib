@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"runtime"
 	"slices"
-	"sync"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/cupti"
@@ -104,43 +103,6 @@ func (c *samplingConfig) apply(ctx driver.Context, query func(*cupti.PCSamplingC
 	}
 	c.applied = true
 	return nil
-}
-
-// contextConfigs holds, for each context, the configurations CUPTI may still
-// reference. CUPTI keeps a context's PC sampling configuration after disable,
-// including the address of the sampling data buffer: a later enable on the
-// context runs with it, and the matching disable copies records into that
-// buffer. A configuration is therefore released only after a later one has
-// been applied in full to the same context.
-var contextConfigs struct {
-	sync.Mutex
-	m map[driver.Context][]*samplingConfig
-}
-
-// retire gives up c and its output buffer once sampling on its context is
-// disabled. A configuration CUPTI never saw is released at once; one it saw is
-// held until it is superseded. The newest configuration of each context is
-// therefore retained for the life of the process.
-func (c *samplingConfig) retire() {
-	if !c.attempted {
-		c.output.release()
-		c.release()
-		return
-	}
-	contextConfigs.Lock()
-	defer contextConfigs.Unlock()
-	if contextConfigs.m == nil {
-		contextConfigs.m = make(map[driver.Context][]*samplingConfig)
-	}
-	held := contextConfigs.m[c.ctx]
-	if c.applied {
-		for _, old := range held {
-			old.output.release()
-			old.release()
-		}
-		held = nil
-	}
-	contextConfigs.m[c.ctx] = append(held, c)
 }
 
 func (c *samplingConfig) release() {

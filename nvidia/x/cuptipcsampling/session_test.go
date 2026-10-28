@@ -50,12 +50,8 @@ func TestSamplingSessionFinalBuffer(t *testing.T) {
 	if err != nil || len(got.pcs) != 1 || got.pcs[0].crc != 99 {
 		t.Fatalf("got=%+v err=%v", got, err)
 	}
-	if !s.names.released || !s.drain.released {
+	if !s.names.released || !s.drain.released || !s.control.config.output.released {
 		t.Fatal("finish retained storage")
-	}
-	// CUPTI still holds the configured buffer's address after disable.
-	if s.control.config.output.released {
-		t.Fatal("finish released the configured output buffer")
 	}
 	if _, err := s.finish(true); err != nil {
 		t.Fatal("non-idempotent finish")

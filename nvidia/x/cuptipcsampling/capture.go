@@ -346,9 +346,6 @@ func (s *Session) Stop() error {
 }
 
 // Close disables sampling and copies final output before freeing owned storage.
-// The configured output buffer is the exception: CUPTI keeps the context's
-// configuration, and its address, after disable, so the buffer is held until a
-// later session applies its own configuration to the same context.
 // The caller must first reach its workload boundary and finish all consumers
 // sharing native names, including queued ring batches. A failed disable retains
 // ownership for explicit retry.
