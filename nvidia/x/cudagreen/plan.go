@@ -47,12 +47,26 @@ type Spec struct {
 	ClusterSize int
 }
 
-// A Granularity is the split quantum of a device: partitions hold at least
-// Min SMs and a multiple of Alignment SMs. The driver reports both in the
-// minSmPartitionSize and smCoscheduledAlignment fields of an SM resource.
+// A Granularity is how a device's SMs can be split. The driver reports Min
+// and Alignment in the minSmPartitionSize and smCoscheduledAlignment fields
+// of an SM resource. A partition is a whole number of groups of
+// [Granularity.Granule] SMs.
+//
+// The driver splits along the GPU's hardware hierarchy and makes only
+// groups that are alike, so it may make fewer groups than the SM count
+// divided by the granule: on GB10 (48 SMs, granule 8) it makes 4. Groups,
+// when nonzero, is that limit, as [DeviceSplit] discovers it; the SMs left
+// over are not assigned.
 type Granularity struct {
 	Min       int
 	Alignment int
+	Groups    int
+}
+
+// Granule returns the group size: Min rounded up to a multiple of
+// Alignment.
+func (g Granularity) Granule() int {
+	return roundUp(g.Min, g.Alignment)
 }
 
 // DefaultGranularity returns the split quantum the CUDA documentation gives
@@ -160,9 +174,10 @@ var ErrInfeasible = errors.New("cudagreen: minimum partitions exceed device")
 // ComputePlan carves totalSMs SMs among specs, in order. Each partition
 // starts at its target fraction rounded to the nearest legal size, and is
 // raised to its minimum. If the total exceeds the SMs available in whole
-// alignment units, the partition furthest above its target shrinks by one
-// unit at a time until the plan fits; ComputePlan returns an error wrapping
-// [ErrInfeasible] if the minimums alone do not fit.
+// granules, or in the groups the device makes, the partition furthest above
+// its target shrinks by one unit at a time until the plan fits; ComputePlan
+// returns an error wrapping [ErrInfeasible] if the minimums alone do not
+// fit.
 func ComputePlan(arch string, totalSMs int, g Granularity, specs []Spec) (Plan, error) {
 	if totalSMs <= 0 || totalSMs > MaxSMs {
 		return Plan{}, fmt.Errorf("cudagreen: %d SMs out of range [1, %d]", totalSMs, MaxSMs)
@@ -183,7 +198,13 @@ func ComputePlan(arch string, totalSMs int, g Granularity, specs []Spec) (Plan, 
 	if sum > 1+1e-9 {
 		return Plan{}, fmt.Errorf("cudagreen: fractions sum to %v > 1", sum)
 	}
-	usable := totalSMs / g.Alignment * g.Alignment
+	if g.Groups < 0 {
+		return Plan{}, fmt.Errorf("cudagreen: bad granularity %+v", g)
+	}
+	usable := totalSMs / g.Granule() * g.Granule()
+	if g.Groups > 0 {
+		usable = min(usable, g.Groups*g.Granule())
+	}
 
 	units := make([]int, len(specs))
 	mins := make([]int, len(specs))
@@ -232,11 +253,11 @@ func ComputePlan(arch string, totalSMs int, g Granularity, specs []Spec) (Plan, 
 	return plan, nil
 }
 
-// unit returns the size step for s: a multiple of both the split alignment
-// and the cluster size.
+// unit returns the size step for s: a multiple of both the granule and the
+// cluster size.
 func unit(g Granularity, s Spec) int {
-	c := max(s.ClusterSize, 1)
-	return g.Alignment / gcd(g.Alignment, c) * c
+	c, u := max(s.ClusterSize, 1), g.Granule()
+	return u / gcd(u, c) * c
 }
 
 func gcd(a, b int) int {
@@ -252,11 +273,15 @@ func roundUp(n, u int) int {
 
 // VerifyPlan checks that no two partitions share an SM, that each mask
 // holds exactly the partition's SM count and lies on the device, that each
-// count meets its minimum, the split granularity and its cluster size, and
-// that partitions and unassigned SMs account for the whole device.
+// count meets its minimum, the granule and its cluster size, that the
+// partitions fit in the groups the device makes, and that partitions and
+// unassigned SMs account for the whole device.
 func VerifyPlan(p Plan) error {
 	if p.TotalSMs <= 0 || p.TotalSMs > MaxSMs {
 		return fmt.Errorf("cudagreen: %d SMs out of range", p.TotalSMs)
+	}
+	if g := p.Granularity; g.Min <= 0 || g.Alignment <= 0 || g.Groups < 0 {
+		return fmt.Errorf("cudagreen: bad granularity %+v", g)
 	}
 	device := Range(0, p.TotalSMs)
 	assigned := 0
@@ -284,6 +309,9 @@ func VerifyPlan(p Plan) error {
 			}
 		}
 		assigned += q.SMs
+	}
+	if g := p.Granularity; g.Groups > 0 && assigned > g.Groups*g.Granule() {
+		return fmt.Errorf("cudagreen: partitions need %d groups of %d SMs, device makes %d", assigned/g.Granule(), g.Granule(), g.Groups)
 	}
 	if assigned+p.Unassigned != p.TotalSMs {
 		return fmt.Errorf("cudagreen: %d assigned + %d unassigned != %d SMs", assigned, p.Unassigned, p.TotalSMs)

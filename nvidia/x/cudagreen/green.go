@@ -51,12 +51,64 @@ func DeviceGranularity(dev driver.Device) (int, Granularity, error) {
 	return int(sm.SmCount), Granularity{Min: int(sm.MinSmPartitionSize), Alignment: int(sm.SmCoscheduledAlignment)}, nil
 }
 
+// DeviceSplit returns g with Groups set to the number of groups of
+// g.Granule() SMs the driver makes from dev's SMs, as a simulated
+// cuDevSmResourceSplitByCount reports it.
+func DeviceSplit(dev driver.Device, g Granularity) (Granularity, error) {
+	if g.Min <= 0 || g.Alignment <= 0 {
+		return Granularity{}, fmt.Errorf("cudagreen: bad granularity %+v", g)
+	}
+	root, err := dev.DevResource(driver.DevResourceTypeSm)
+	if err != nil {
+		return Granularity{}, fmt.Errorf("cudagreen: device sm resource: %w", err)
+	}
+	var n uint32
+	if err := driver.DevSmResourceSplitByCount(nil, &n, &root, nil, 0, uint32(g.Granule())); err != nil {
+		return Granularity{}, fmt.Errorf("cudagreen: simulate split by %d: %w", g.Granule(), err)
+	}
+	g.Groups = int(n)
+	return g, nil
+}
+
+// assignGroups returns, for each partition of plan, the index range
+// [lo, hi) of the split groups it combines, given the SM count of each
+// group the driver made. It fails if the groups are not all one granule or
+// are too few for the plan.
+func assignGroups(plan Plan, groups []int) ([][2]int, error) {
+	granule := plan.Granularity.Granule()
+	need := 0
+	for i, q := range plan.Partitions {
+		if q.SMs%granule != 0 {
+			return nil, fmt.Errorf("cudagreen: partition %d (%v): %d SMs not a multiple of granule %d", i, q.Spec.Role, q.SMs, granule)
+		}
+		need += q.SMs / granule
+	}
+	if len(groups) < need {
+		return nil, fmt.Errorf("cudagreen: driver made %d groups of %d SMs, plan needs %d", len(groups), granule, need)
+	}
+	for i, c := range groups {
+		if c != granule {
+			return nil, fmt.Errorf("cudagreen: group %d holds %d SMs, want %d", i, c, granule)
+		}
+	}
+	ranges := make([][2]int, len(plan.Partitions))
+	next := 0
+	for i, q := range plan.Partitions {
+		k := q.SMs / granule
+		ranges[i] = [2]int{next, next + k}
+		next += k
+	}
+	return ranges, nil
+}
+
 // Open creates one green context, with a non-blocking stream, for each of
-// plan's partitions on dev. It splits the device's SMs into groups of the
-// plan's granule (Min rounded up to Alignment), so every partition must be a
-// multiple of that granule, and combines each partition's groups into one
-// resource descriptor. Open checks that each green context reports the
-// planned SM count. The caller must have called [driver.Init].
+// plan's partitions on dev. It asks the driver to split the device's SMs
+// into as many groups of the plan's granule as the partitions need, and
+// combines each partition's groups into one resource descriptor. A plan
+// computed without the device's group limit (see [DeviceSplit]) may need
+// more groups than the driver makes, and fails here. Open checks that each
+// green context reports the planned SM count. The caller must have called
+// [driver.Init].
 func Open(dev driver.Device, plan Plan) (_ *Partitions, err error) {
 	if err := VerifyPlan(plan); err != nil {
 		return nil, err
@@ -79,30 +131,26 @@ func Open(dev driver.Device, plan Plan) (_ *Partitions, err error) {
 	if a := int(sm.SmCoscheduledAlignment); a > 0 && g.Alignment%a != 0 {
 		return nil, fmt.Errorf("cudagreen: plan alignment %d not a multiple of device %d", g.Alignment, a)
 	}
-	granule := roundUp(g.Min, g.Alignment)
 	need := 0
-	for i, q := range plan.Partitions {
-		if q.SMs%granule != 0 {
-			return nil, fmt.Errorf("cudagreen: partition %d (%v): %d SMs not a multiple of granule %d", i, q.Spec.Role, q.SMs, granule)
-		}
-		need += q.SMs / granule
+	for _, q := range plan.Partitions {
+		need += q.SMs / g.Granule()
+	}
+	if need == 0 {
+		return &Partitions{Plan: plan}, nil
 	}
 
-	groups := make([]driver.DevResource, plan.TotalSMs/granule)
-	n := uint32(len(groups))
-	if len(groups) == 0 || need > len(groups) {
-		return nil, fmt.Errorf("cudagreen: plan needs %d groups of %d SMs, device holds %d", need, granule, len(groups))
+	groups := make([]driver.DevResource, need)
+	n := uint32(need)
+	if err := driver.DevSmResourceSplitByCount(&groups[0], &n, &root, nil, 0, uint32(g.Granule())); err != nil {
+		return nil, fmt.Errorf("cudagreen: split %d SMs into %d groups of %d: %w", plan.TotalSMs, need, g.Granule(), err)
 	}
-	if err := driver.DevSmResourceSplitByCount(&groups[0], &n, &root, nil, 0, uint32(granule)); err != nil {
-		return nil, fmt.Errorf("cudagreen: split %d SMs by %d: %w", plan.TotalSMs, granule, err)
+	sizes := make([]int, n)
+	for i := range sizes {
+		sizes[i] = int(groups[i].Sm().SmCount)
 	}
-	if int(n) < need {
-		return nil, fmt.Errorf("cudagreen: driver made %d groups of %d SMs, plan needs %d", n, granule, need)
-	}
-	for i := range groups[:n] {
-		if c := int(groups[i].Sm().SmCount); c != granule {
-			return nil, fmt.Errorf("cudagreen: group %d holds %d SMs, want %d", i, c, granule)
-		}
+	ranges, err := assignGroups(plan, sizes)
+	if err != nil {
+		return nil, err
 	}
 
 	p := &Partitions{Plan: plan}
@@ -111,14 +159,12 @@ func Open(dev driver.Device, plan Plan) (_ *Partitions, err error) {
 			p.Close()
 		}
 	}()
-	next := 0
 	for i, q := range plan.Partitions {
-		k := q.SMs / granule
-		desc, err := driver.DevResourceGenerateDesc(&groups[next], uint32(k))
+		lo, hi := ranges[i][0], ranges[i][1]
+		desc, err := driver.DevResourceGenerateDesc(&groups[lo], uint32(hi-lo))
 		if err != nil {
 			return nil, fmt.Errorf("cudagreen: partition %d (%v): descriptor: %w", i, q.Spec.Role, err)
 		}
-		next += k
 		ctx, err := driver.NewGreenCtx(desc, dev, driver.GreenCtxDefaultStream)
 		if err != nil {
 			return nil, fmt.Errorf("cudagreen: partition %d (%v): create: %w", i, q.Spec.Role, err)
