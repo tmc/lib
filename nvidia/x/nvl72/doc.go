@@ -56,6 +56,11 @@
 //     for home-rank versus in-fabric reduction;
 //     [EmitSwitchMoEBackwardEpiloguePTX] and [SwitchMoEBackwardKernel] emit
 //     the pre-scaled expert epilogue.
+//   - [DecideColdMoEPlacement] models running a cold expert in place on
+//     Grace or Vera cores versus copying it to the GPU over C2C;
+//     [EmitC2CSysDoorbellPTX], [AuditC2CCoherence] and [C2CDoorbellKernel]
+//     emit and check a .sys-scope release/acquire doorbell between a
+//     running kernel and a CPU worker.
 //
 // The native gate (CUDA_NVL72_NATIVE=1 under an inherited GPU lock, target
 // CUDA_NVL72_NATIVE_ARCH, default sm_121a) compiles emitted kernels with nvcc
