@@ -67,6 +67,10 @@ var (
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
 )
 
+// processStart is when the program started, for the ready time it
+// reports before the prompt runs.
+var processStart = time.Now()
+
 func main() {
 	flag.Parse()
 	if err := run(); err != nil {
@@ -560,6 +564,7 @@ func runGPUInference(
 		return tok, nil
 	}
 
+	fmt.Printf("Ready Time   : %v after startup\n", time.Since(processStart))
 	prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
 	if err != nil {
 		return err
