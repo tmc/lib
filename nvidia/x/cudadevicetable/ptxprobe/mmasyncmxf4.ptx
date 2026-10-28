@@ -1,0 +1,22 @@
+// Feature: mmasyncmxf4 -- warp-level block-scaled NVFP4 MMA
+// (mma.sync m16n8k64 kind::mxf4nvf4), the FP4 path of sm_120-style targets.
+// Datacenter Blackwell has tcgen05 block-scaled MMA instead.
+.version 9.0
+.target TARGET
+.address_size 64
+.visible .entry probe(.param .u64 p)
+{
+  .reg .b32 %r<9>;
+  .reg .f32 %f<5>;
+  .reg .b64 %rd<2>;
+  ld.param.u64 %rd1, [p];
+  ld.global.v4.b32 {%r1,%r2,%r3,%r4}, [%rd1];
+  ld.global.v4.b32 {%r5,%r6,%r7,%r8}, [%rd1+16];
+  mov.f32 %f1, 0f00000000;
+  mov.f32 %f2, 0f00000000;
+  mov.f32 %f3, 0f00000000;
+  mov.f32 %f4, 0f00000000;
+  mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale.scale_vec::4X.f32.e2m1.e2m1.f32.ue4m3 {%f1,%f2,%f3,%f4}, {%r1,%r2,%r3,%r4}, {%r5,%r6}, {%f1,%f2,%f3,%f4}, {%r7}, {0, 0}, {%r8}, {0, 0};
+  st.global.v4.f32 [%rd1], {%f1,%f2,%f3,%f4};
+  ret;
+}
