@@ -61,6 +61,13 @@
 //     [EmitC2CSysDoorbellPTX], [AuditC2CCoherence] and [C2CDoorbellKernel]
 //     emit and check a .sys-scope release/acquire doorbell between a
 //     running kernel and a CPU worker.
+//   - [EstimateTPDecode] models a tensor-parallel dense LLaMA decode step on
+//     an [NVLinkFabric] ([GB300NVLink5], [GB10]): each rank's weight and KV
+//     streaming plus 2·layers+1 all-reduces priced by
+//     [NVLinkFabric.AllReduceUs] (one-shot, two-shot, ring or NVLS, with
+//     hop latency and link bandwidth), kernel gaps, and the effect of fusing
+//     the all-reduce into the GEMM epilogue. Its outputs are modelled; only
+//     the GB10 memory term is calibrated against a measured run.
 //
 // The native gate (CUDA_NVL72_NATIVE=1 under an inherited GPU lock, target
 // CUDA_NVL72_NATIVE_ARCH, default sm_121a) compiles emitted kernels with nvcc

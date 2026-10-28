@@ -117,6 +117,43 @@ type SkinnyGEMM struct {
 	// (sm_100a / sm_120a / sm_121a GB10) hardware cvt.rn.f16x2.e2m1x2 widening
 	// via eg_e2m1x8_to_bf16.
 	BlackwellFP4 bool
+
+	// Store says how the kernel writes out. The zero value overwrites it.
+	Store GEMMStore
+}
+
+// A GEMMStore is how a [SkinnyGEMM] writes its result. The reducing stores
+// fuse a tensor-parallel all-reduce into the epilogue: every rank's kernel
+// adds its partial product into the same output, which the caller
+// initializes (to zero, or to the residual) before any rank adds and reads
+// only after every rank has added. They need Out F32, and the order of the
+// additions is not fixed.
+type GEMMStore uint8
+
+const (
+	// StoreWrite writes out[m, n] = v.
+	StoreWrite GEMMStore = iota
+	// StoreReduceAdd adds v to out[m, n] with red.global.add.f32: ranks on
+	// one device, or on peers of one address space, share out.
+	StoreReduceAdd
+	// StoreMultimemReduceAdd adds v to every copy of out[m, n] with
+	// multimem.red.relaxed.sys.global.add.f32, where out is a multicast
+	// (NVLS) address bound to each rank's copy. It needs sm_90 or later;
+	// the emitted source fails to compile for an earlier target. Under
+	// cudahostemu it adds into out, the one copy the host emulates.
+	StoreMultimemReduceAdd
+)
+
+func (s GEMMStore) String() string {
+	switch s {
+	case StoreWrite:
+		return "write"
+	case StoreReduceAdd:
+		return "red.add"
+	case StoreMultimemReduceAdd:
+		return "multimem.red.add"
+	}
+	return fmt.Sprintf("GEMMStore(%d)", uint8(s))
 }
 
 // norm validates g and fills defaults.
@@ -176,6 +213,15 @@ func (g SkinnyGEMM) norm() (SkinnyGEMM, error) {
 	}
 	if g.BlackwellFP4 && g.Weight != WeightNVFP4 {
 		return g, fmt.Errorf("skinny gemm %s: BlackwellFP4 requires WeightNVFP4", g.Name)
+	}
+	switch g.Store {
+	case StoreWrite:
+	case StoreReduceAdd, StoreMultimemReduceAdd:
+		if g.Out != F32 {
+			return g, fmt.Errorf("skinny gemm %s: %v store needs f32 output, not %v", g.Name, g.Store, g.Out)
+		}
+	default:
+		return g, fmt.Errorf("skinny gemm %s: bad store %v", g.Name, g.Store)
 	}
 	return g, nil
 }
@@ -242,6 +288,9 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	var b strings.Builder
 	if g.BlackwellFP4 {
 		b.WriteString(blackwellFP4Helpers)
+	}
+	if g.Store == StoreMultimemReduceAdd {
+		b.WriteString("#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 900 && !defined(EG_EMU) && !defined(EG_HOST_EMU)\n#error \"multimem.red needs sm_90 or later\"\n#endif\n")
 	}
 	fmt.Fprintf(&b, "// %s: out[m,n] = %s over x[M,%d] bf16 · W[%d,%d] %s, M <= %d.\n", g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.MaxM)
 	fmt.Fprintf(&b, "template <int M>\n__global__ void __launch_bounds__(%d) %s(\n    %s) {\n", 32*W, g.Name, strings.Join(g.params(), ",\n    "))
@@ -437,9 +486,20 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if g.Out == BF16 {
+	switch {
+	case g.Store == StoreReduceAdd:
+		fmt.Fprintf(&b, "        atomicAdd(&out[(size_t)m * N + n], %s);\n", expr)
+	case g.Store == StoreMultimemReduceAdd:
+		fmt.Fprintf(&b, `        const float red = %s;
+#if defined(EG_EMU) || defined(EG_HOST_EMU)
+        atomicAdd(&out[(size_t)m * N + n], red);
+#else
+        asm volatile("multimem.red.relaxed.sys.global.add.f32 [%%0], %%1;" :: "l"(out + (size_t)m * N + n), "f"(red) : "memory");
+#endif
+`, expr)
+	case g.Out == BF16:
 		fmt.Fprintf(&b, "        out[(size_t)m * N + n] = eg_f32_to_bf16(%s);\n", expr)
-	} else {
+	default:
 		fmt.Fprintf(&b, "        out[(size_t)m * N + n] = %s;\n", expr)
 	}
 	b.WriteString("    }\n}\n")

@@ -161,6 +161,8 @@ func TestSkinnyGEMMErrors(t *testing.T) {
 		"split":    func(g *SkinnyGEMM) { g.SplitK = 2 },
 		"prefetch": func(g *SkinnyGEMM) { g.Prefetch = -1 },
 		"bw_fp4":   func(g *SkinnyGEMM) { g.BlackwellFP4 = true },
+		"red_bf16": func(g *SkinnyGEMM) { g.Store = StoreReduceAdd },
+		"store":    func(g *SkinnyGEMM) { g.Store = 9 },
 	} {
 		g := ok
 		mutate(&g)
@@ -170,6 +172,79 @@ func TestSkinnyGEMMErrors(t *testing.T) {
 	}
 	if _, err := ok.CUDA(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestSkinnyGEMMReduceAddEmulated runs a reducing-store gemm once per
+// rank, each rank with its own K slice of x and W, into one output that
+// starts at the residual: the output must be the residual plus the full
+// product, the row-parallel projection with its all-reduce fused into the
+// epilogue.
+func TestSkinnyGEMMReduceAddEmulated(t *testing.T) {
+	for _, store := range []GEMMStore{StoreReduceAdd, StoreMultimemReduceAdd} {
+		t.Run(store.String(), func(t *testing.T) {
+			const ranks, m, n, k = 2, 2, 8, 512
+			g := SkinnyGEMM{Name: "gemm_red", N: n, K: k / ranks, MaxM: m, Weight: WeightBF16, Out: F32, Store: store}
+			src, err := g.CUDA()
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := rand.New(rand.NewPCG(3, 4))
+			x := randBF16(r, m*k, 1)
+			w := randBF16(r, n*k, 0.05)
+			resid := make([]float32, m*n)
+			for i := range resid {
+				resid[i] = float32(r.NormFloat64())
+			}
+			full := SkinnyGEMM{Name: "gemm_full", N: n, K: k, MaxM: m, Weight: WeightBF16, Out: F32}
+			want, err := full.Reference(m, x, GEMMWeights{BF16: w}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range want {
+				want[i] += resid[i]
+			}
+			bufs := []emuBuf{{"out", "float", f32Bytes(resid)}}
+			grid, block, _ := g.Grid()
+			var launches []string
+			for rk := range ranks {
+				xs, ws := make([]uint16, 0, m*k/ranks), make([]uint16, 0, n*k/ranks)
+				for i := range m {
+					xs = append(xs, x[i*k+rk*k/ranks:i*k+(rk+1)*k/ranks]...)
+				}
+				for i := range n {
+					ws = append(ws, w[i*k+rk*k/ranks:i*k+(rk+1)*k/ranks]...)
+				}
+				xn, wn := fmt.Sprintf("x%d", rk), fmt.Sprintf("w%d", rk)
+				bufs = append(bufs, emuBuf{xn, "uint16_t", u16Bytes(xs)}, emuBuf{wn, "uint16_t", u16Bytes(ws)})
+				launches = append(launches, fmt.Sprintf("eg_emu_launch(dim3(%d, %d), dim3(%d), 0, gemm_red<%d>, %s, %s, out)", grid[0], grid[1], block[0], m, xn, wn))
+			}
+			res := runEmu(t, src, strings.Join(launches, "; "), bufs...)
+			got := bytesF32(res["out"])
+			if i, ok := closeTo(got, want, 1e-5, 1e-6); !ok {
+				t.Fatalf("out[%d] = %g, want %g", i, got[i], want[i])
+			}
+		})
+	}
+}
+
+// TestSkinnyGEMMMultimemSource checks the multimem store's PTX and its
+// guard against targets without multimem.
+func TestSkinnyGEMMMultimemSource(t *testing.T) {
+	g := SkinnyGEMM{Name: "g", N: 8, K: 256, MaxM: 1, Weight: WeightBF16, Out: F32, Store: StoreMultimemReduceAdd}
+	src, err := g.CUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"multimem.red.relaxed.sys.global.add.f32 [%0], %1;", "__CUDA_ARCH__ < 900", "#error"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("source lacks %q", want)
+		}
+	}
+	g.Store = StoreWrite
+	src, _ = g.CUDA()
+	if strings.Contains(src, "multimem") || strings.Contains(src, "atomicAdd") {
+		t.Error("write store emits a reduction")
 	}
 }
 

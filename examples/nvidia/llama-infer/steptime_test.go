@@ -589,7 +589,7 @@ func TestTeardownWiring(t *testing.T) {
 		last      string   // the release registered last, if it must be
 		guarded   int
 	}{
-		{"main.go", "runGPUInference", "if td.held() {\n\treturn\n}", "td.add(", []string{"timer"}, "timer", 7},
+		{"main.go", "runGPUInference", "if td.held() {\n\treturn\n}", "td.add(", []string{"timer"}, "timer", 8},
 		{"main.go", "run", "if errors.Is(rerr, errReleasesHeld) {\n\treturn\n}", "rerr = errors.Join(rerr, ", []string{"f", "profSession"}, "", 1},
 		{"profile_cuda_test.go", "TestStepTimerExcludesPostEnqueueHostDelay", "if undrained {\n\treturn\n}", "t.Error", []string{"timer"}, "timer", 3},
 	} {
