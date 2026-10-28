@@ -41,6 +41,11 @@
 //     row quads, and mirrors hot experts into shadow slots;
 //     [FusedMoERouter] emits the single-kernel router, checked against it
 //     under cudahostemu.
+//   - [PlanContextParallel] schedules striped (zig-zag) ring, Ulysses, and
+//     2D hybrid context-parallel causal attention with equal causal tile
+//     counts per rank and step; [SimulateContextParallel] and
+//     [MergeOnlineSoftmaxTiles] check it against monolithic attention, and
+//     [ContextParallelRingKernel] runs the ring on emulated ranks.
 //
 // The native gate (CUDA_NVL72_NATIVE=1 under an inherited GPU lock, target
 // CUDA_NVL72_NATIVE_ARCH, default sm_121a) compiles emitted kernels with nvcc
