@@ -181,6 +181,9 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 			break
 		}
 	}
+	if err := overridePrefillTiles(&pf, prefillRows); err != nil {
+		return nil, err
+	}
 	// A last group of fewer than qtok rows still covers qtok positions;
 	// pad the cache so they exist.
 	pf.cacheSlots = (cfg.MaxSeqLen + pf.qtok - 1 + egraphPageSize - 1) / egraphPageSize * egraphPageSize
