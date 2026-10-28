@@ -33,6 +33,10 @@
 //     loads and launches it through nvidia/driver without cgo
 //     ([AOTArtifact.EmitGoEmbedPackage]) or a C header
 //     ([AOTArtifact.EmitCHeader]).
+//   - [Gateway] serves generate requests over net/http, routing them by
+//     model name to registered [Engine] implementations with
+//     continuous-batching admission ([BatchConfig]) and server-sent token
+//     streaming. It schedules host-side only; the engine runs the steps.
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.
