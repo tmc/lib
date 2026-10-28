@@ -104,7 +104,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 		},
 	}
 
-	for _, arch := range []string{"", "sm_120", "unrecognized"} {
+	for _, arch := range []string{"", "sm_61", "unrecognized"} {
 		t.Run("unsupported/"+arch, func(t *testing.T) {
 			cap := &cudacapture.Capture{
 				Metadata: []byte(`{"architecture":"` + arch + `"}`),
@@ -112,7 +112,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 				Files:    map[string][]byte{"kernels.cubin": cubinBytes},
 			}
 			var report Report
-			auditCUBINResourceOccupancy(cap, &report, kernelResources([]kernelImage{{cubin: cubinBytes}}), nil, nil)
+			auditCUBINResourceOccupancy(cap, &report, kernelResources([]kernelImage{{cubin: cubinBytes}}), nil, nil, nil)
 			var frameFound bool
 			for _, item := range report.Items {
 				if strings.Contains(item.Finding, "Microarchitecture theoretical occupancy") {

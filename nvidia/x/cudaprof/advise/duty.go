@@ -116,6 +116,11 @@ func auditKernelFamilyDominance(cap *cudacapture.Capture, report *Report, kernel
 	}
 
 	for family, fTime := range familyTimes {
+		// Communication is reported by auditCommunication: its time is
+		// overlap and peer wait, not work to batch.
+		if commKindName(family) != "" {
+			continue
+		}
 		pct := float64(fTime) / float64(totalTime) * 100.0
 		cnt := familyCounts[family]
 		if pct < 50.0 || cnt < 10 {
@@ -412,6 +417,10 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 	} else if auditIdleAttribution(cap, report) {
 		rec = "Act on the idle attribution in this report -- the finding naming where this idle went -- before any kernel finding below it. A kernel-time ranking cannot distinguish a per-launch tax from a tail, and the two have opposite remedies."
 	}
+	// Communication is device work, but its duration includes waiting on
+	// peers, and idle that ends at a collective is this rank waiting to
+	// enter it. Neither is a stall this rank's launches explain.
+	comm, _ := summarizeCommunication(streams)
 	report.Items = append(report.Items, Item{
 		rule:            "capture-idle",
 		Severity:        SeverityReadFirst,
@@ -420,8 +429,8 @@ func auditDeviceDutyCycle(cap *cudacapture.Capture, report *Report) {
 		severityByKind:  true,
 		DeviceTimeNanos: int64(busyNs),
 		ShareOfProfile:  pct,
-		Finding: fmt.Sprintf("The device was idle for %.2f%% of %s: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.%s",
-			100.0-pct, scope, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct, opaque),
+		Finding: fmt.Sprintf("The device was idle for %.2f%% of %s: %.3f ms idle of a %.3f ms span, with %.3f ms of device work. Every finding below this one ranks that %.2f%% -- none of them can see the idle time, and on this capture the idle time is the larger quantity.%s%s",
+			100.0-pct, scope, float64(idleNs)/1e6, float64(spanNs)/1e6, float64(busyNs)/1e6, pct, opaque, comm.peerWaitNote()),
 		ActionableRecommendation: rec,
 		NextMeasurement:          "cudaprof gaps <capture> -- idle attribution and the gap distribution",
 	})
@@ -742,6 +751,10 @@ func auditIdleAttribution(cap *cudacapture.Capture, report *Report) bool {
 	// cannot see the mechanism": the unattributed time is real either way,
 	// and only the second is fixed by re-capturing rather than by changing
 	// the program.
+	streams, _ := timeline.Events(cap)
+	if comm, ok := summarizeCommunication(streams); ok && comm.idleBeforeComm > 0 {
+		finding += fmt.Sprintf(" %.3f ms of this idle ended at a communication op, which is this rank waiting to enter a collective: in whichever arm it falls, its cause is on another rank or in the communication library's proxy, not in this rank's launches.", float64(comm.idleBeforeComm)/1e6)
+	}
 	if attr.opaqueGraphs {
 		finding += " This capture holds graph replay envelopes with no per-node records, which carry no launch correlation, so idle beside a replay cannot be attributed and lands in the unattributed arm. That idle is real and unattributable here, not absent."
 	}
