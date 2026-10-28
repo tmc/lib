@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"go/ast"
@@ -12,6 +13,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -122,6 +125,143 @@ func TestFatbinRoundTrip(t *testing.T) {
 		if _, err := InspectFatbin(tt.data); err == nil || !strings.Contains(err.Error(), tt.want) {
 			t.Errorf("%s: err = %v, want %q", tt.name, err, tt.want)
 		}
+	}
+}
+
+// nvccFatbin reads a fatbin that nvcc 13.4 built from
+// testdata/nvcc-fill/fill.cu with
+//
+//	nvcc -fatbin -arch=sm_121a fill.cu                         # default
+//	nvcc -fatbin -arch=sm_121a --no-compress fill.cu           # nocompress
+//	nvcc -fatbin -arch=sm_121a -Xfatbin -compress-all fill.cu  # compressall
+//
+// stored as xxd -p hex. testdata/nvcc-fill/cuobjdump.txt lists each.
+func nvccFatbin(t *testing.T, name string) []byte {
+	t.Helper()
+	h, err := os.ReadFile(filepath.Join("testdata", "nvcc-fill", name+".fatbin.hex"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := hex.DecodeString(strings.Join(strings.Fields(string(h)), ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+// TestInspectFatbinNVCC checks the entry header fields against fatbins
+// from nvcc 13.4. cuobjdump lists each as PTX sm_121, ELF sm_121a and
+// PTX sm_121a, with the PTX compressed by default and the cubin only
+// under -compress-all.
+func TestInspectFatbinNVCC(t *testing.T) {
+	type entry struct {
+		kind, sm, major, minor   int
+		archSpecific, compressed bool
+		uncompressed, payload    int
+	}
+	tests := []struct {
+		name string
+		want []entry
+	}{
+		{"nocompress", []entry{
+			{FatbinKindPTX, 121, 9, 4, false, false, 0, 591},
+			{FatbinKindCubin, 121, 1, 8, true, false, 0, 5568},
+			{FatbinKindPTX, 121, 9, 4, true, false, 0, 592},
+		}},
+		{"default", []entry{
+			{FatbinKindPTX, 121, 9, 4, false, true, 592, 0},
+			{FatbinKindCubin, 121, 1, 8, true, false, 0, 5568},
+			{FatbinKindPTX, 121, 9, 4, true, true, 593, 0},
+		}},
+		{"compressall", []entry{
+			{FatbinKindPTX, 121, 9, 4, false, true, 592, 0},
+			{FatbinKindCubin, 121, 1, 8, true, true, 5568, 0},
+			{FatbinKindPTX, 121, 9, 4, true, true, 593, 0},
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entries, err := InspectFatbin(nvccFatbin(t, tt.name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []entry
+			for _, e := range entries {
+				got = append(got, entry{e.Kind, e.SM, e.Major, e.Minor, e.ArchSpecific, e.Compressed, e.UncompressedSize, len(e.Payload)})
+				switch {
+				case e.Compressed:
+				case e.Kind == FatbinKindCubin:
+					if sm := cubinSM(e.Payload); sm != 121 {
+						t.Errorf("cubin e_flags SM = %d, want 121", sm)
+					}
+				case e.ArchSpecific != strings.Contains(string(e.Payload), ".target sm_121a\n"):
+					t.Errorf("PTX entry arch-specific=%v disagrees with its .target", e.ArchSpecific)
+				}
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("entries:\n got %v\nwant %v", got, tt.want)
+			}
+
+			spec := ArchLaunchSpec{Arch: "sm_121a", KernelSymbol: "aot_fill", GridDim: [3]uint32{8, 1, 1}, BlockDim: [3]uint32{128, 1, 1}}
+			if _, err := PackAOTArtifact("fill", nvccFatbin(t, tt.name), []ArchLaunchSpec{spec}, nil); err != nil {
+				t.Fatalf("pack: %v", err)
+			}
+			spec.KernelSymbol = "other"
+			_, err = PackAOTArtifact("fill", nvccFatbin(t, tt.name), []ArchLaunchSpec{spec}, nil)
+			if tt.name == "compressall" {
+				// Nothing is checkable; compressed images match by SM.
+				if err != nil {
+					t.Fatalf("pack compressed with unknown symbol: %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), "other") {
+				t.Fatalf("pack with unknown symbol: err = %v", err)
+			}
+		})
+	}
+}
+
+// TestBuildFatbinMatchesNVCC rebuilds the uncompressed nvcc fatbin's
+// entries and compares the header fields BuildFatbin writes with nvcc's.
+func TestBuildFatbinMatchesNVCC(t *testing.T) {
+	ref := nvccFatbin(t, "nocompress")
+	in, err := InspectFatbin(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := BuildFatbin(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := InspectFatbin(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != len(in) {
+		t.Fatalf("%d entries, want %d", len(out), len(in))
+	}
+	if !bytes.Equal(data[:8], ref[:8]) {
+		t.Errorf("container header % x, nvcc % x", data[:8], ref[:8])
+	}
+	const known = fatbinFlag64Bit | fatbinFlagHostLinux | fatbinFlagArchSpecific | fatbinFlagCompressLZ4 | fatbinFlagCompressZstd
+	for i, p, q := 0, fatbinHeaderSize, fatbinHeaderSize; i < len(in); i++ {
+		if !reflect.DeepEqual(out[i], in[i]) {
+			t.Errorf("entry %d = %+v, want %+v", i, out[i], in[i])
+		}
+		h, r := data[p:p+fatbinEntrySize], ref[q:q+fatbinEntrySize]
+		for _, f := range []struct {
+			name string
+			off  int
+			size int
+		}{{"kind", 0, 2}, {"version", 24, 4}, {"sm", 28, 4}} {
+			if !bytes.Equal(h[f.off:f.off+f.size], r[f.off:f.off+f.size]) {
+				t.Errorf("entry %d %s % x, nvcc % x", i, f.name, h[f.off:f.off+f.size], r[f.off:f.off+f.size])
+			}
+		}
+		if hf, rf := binary.LittleEndian.Uint64(h[40:]), binary.LittleEndian.Uint64(r[40:])&known; hf != rf {
+			t.Errorf("entry %d flags %#x, nvcc %#x (masked)", i, hf, rf)
+		}
+		p += int(binary.LittleEndian.Uint32(h[4:])) + int(binary.LittleEndian.Uint64(h[8:]))
+		q += int(binary.LittleEndian.Uint32(r[4:])) + int(binary.LittleEndian.Uint64(r[8:]))
 	}
 }
 

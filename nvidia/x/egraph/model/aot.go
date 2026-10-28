@@ -28,35 +28,52 @@ const (
 	FatbinKindCubin = 2
 )
 
-// fatbinFlagCompressed marks an entry whose payload is compressed.
-const fatbinFlagCompressed = 0x2000
+// Fatbin entry flags.
+const (
+	fatbinFlag64Bit        = 0x1      // compile_size = 64bit
+	fatbinFlagHostLinux    = 0x10     // host = linux
+	fatbinFlagCompressLZ4  = 0x2000   // older toolkits; not seen from nvcc 13.4
+	fatbinFlagCompressZstd = 0x8000   // nvcc 13.4 default for PTX
+	fatbinFlagArchSpecific = 0x100000 // sm_NNNa image
+)
 
 // A FatbinEntry is one image in a fatbin container.
 type FatbinEntry struct {
-	Kind       int // FatbinKindPTX or FatbinKindCubin
-	SM         int // SM number, 121 for sm_121a
-	Compressed bool
+	Kind int // FatbinKindPTX or FatbinKindCubin
+	SM   int // SM number, 121 for sm_121 and sm_121a
+	// ArchSpecific marks an sm_NNNa image, which runs only on that SM.
+	ArchSpecific bool
+	// Major and Minor are the entry's code version: the PTX ISA version
+	// for PTX (9.4 from CUDA 13.4), 1.8 for cubins from nvcc 13.4.
+	Major, Minor int
+	Compressed   bool
+	// UncompressedSize is the payload size before compression,
+	// or 0 for an uncompressed entry.
+	UncompressedSize int
 	// Payload is the image: PTX text without trailing NULs, or a cubin.
-	// It is empty for a compressed entry.
+	// It is empty for a compressed entry; this package does not
+	// decompress.
 	Payload []byte
 }
 
-// The container layout read and written here follows the publicly
-// documented reverse-engineered format (cuobjdump-compatible tools): a
-// 16-byte header {magic u32, version u16, header size u16, entries size
-// u64} followed by entries, each a 64-byte header {kind u16, version u16,
-// header size u32, payload size u64, compressed size u32, u32, minor u16,
-// major u16, sm u32, name offset u32, name length u32, flags u64, u64,
-// uncompressed size u64} and its payload. Several containers may be
-// concatenated.
+// The container layout is a 16-byte header {magic u32, version u16,
+// header size u16, entries size u64} followed by entries, each a header
+// {kind u16, u16, header size u32, payload size u64, compressed size u32,
+// u32, minor u16, major u16, sm u32, u32, u32, flags u64, u64,
+// uncompressed size u64} of at least 64 bytes and its payload. nvcc 13.4
+// writes 80-byte PTX and 112-byte cubin headers whose tail holds options
+// this package skips; the field offsets above are checked against its
+// output in testdata/nvcc-fill. Several containers may be concatenated.
 const (
 	fatbinHeaderSize = 16
 	fatbinEntrySize  = 64
 )
 
-// BuildFatbin writes entries into one fatbin container in order. Payloads
-// are padded with NULs to 8 bytes. It is deterministic; it does not
-// compress.
+// BuildFatbin writes entries into one fatbin container in order, with
+// 64-byte entry headers and no options. Payloads are padded with NULs to
+// 8 bytes. A PTX entry's version is read from its .version directive;
+// a cubin's is 1.8, as nvcc 13.4 writes. It is deterministic; it does
+// not compress. Driver acceptance of its output is not tested here.
 func BuildFatbin(entries []FatbinEntry) ([]byte, error) {
 	var body bytes.Buffer
 	for i, e := range entries {
@@ -67,8 +84,17 @@ func BuildFatbin(entries []FatbinEntry) ([]byte, error) {
 			return nil, fmt.Errorf("build fatbin: entry %d: compression is not supported", i)
 		}
 		payload := e.Payload
+		major, minor := 1, 8
 		if e.Kind == FatbinKindPTX {
+			var ok bool
+			if major, minor, ok = ptxVersion(payload); !ok {
+				return nil, fmt.Errorf("build fatbin: entry %d: PTX has no .version", i)
+			}
 			payload = append(slices.Clone(payload), 0)
+		}
+		flags := uint64(fatbinFlag64Bit | fatbinFlagHostLinux)
+		if e.ArchSpecific {
+			flags |= fatbinFlagArchSpecific
 		}
 		padded := (len(payload) + 7) &^ 7
 		var h [fatbinEntrySize]byte
@@ -76,8 +102,10 @@ func BuildFatbin(entries []FatbinEntry) ([]byte, error) {
 		binary.LittleEndian.PutUint16(h[2:], 0x0101)
 		binary.LittleEndian.PutUint32(h[4:], fatbinEntrySize)
 		binary.LittleEndian.PutUint64(h[8:], uint64(padded))
-		binary.LittleEndian.PutUint32(h[24:], uint32(e.SM))
-		binary.LittleEndian.PutUint64(h[40:], 1) // 64-bit addresses
+		binary.LittleEndian.PutUint16(h[24:], uint16(minor))
+		binary.LittleEndian.PutUint16(h[26:], uint16(major))
+		binary.LittleEndian.PutUint32(h[28:], uint32(e.SM))
+		binary.LittleEndian.PutUint64(h[40:], flags)
 		body.Write(h[:])
 		body.Write(payload)
 		body.Write(make([]byte, padded-len(payload)))
@@ -121,12 +149,21 @@ func InspectFatbin(data []byte) ([]FatbinEntry, error) {
 			if kind != FatbinKindPTX && kind != FatbinKindCubin {
 				return nil, fmt.Errorf("inspect fatbin: entry at offset %d has kind %d", p, kind)
 			}
+			flags := binary.LittleEndian.Uint64(data[p+40:])
 			e := FatbinEntry{
-				Kind:       kind,
-				SM:         int(binary.LittleEndian.Uint32(data[p+24:])),
-				Compressed: binary.LittleEndian.Uint64(data[p+40:])&fatbinFlagCompressed != 0,
+				Kind:         kind,
+				SM:           int(binary.LittleEndian.Uint32(data[p+28:])),
+				ArchSpecific: flags&fatbinFlagArchSpecific != 0,
+				Minor:        int(binary.LittleEndian.Uint16(data[p+24:])),
+				Major:        int(binary.LittleEndian.Uint16(data[p+26:])),
+				Compressed:   flags&(fatbinFlagCompressLZ4|fatbinFlagCompressZstd) != 0,
 			}
-			if !e.Compressed {
+			if e.Compressed {
+				if csize := binary.LittleEndian.Uint32(data[p+16:]); uint64(csize) > psize {
+					return nil, fmt.Errorf("inspect fatbin: entry at offset %d has compressed size %d beyond its payload %d", p, csize, psize)
+				}
+				e.UncompressedSize = int(binary.LittleEndian.Uint64(data[p+56:]))
+			} else {
 				payload := data[p+ehsize : p+ehsize+int(psize)]
 				if kind == FatbinKindPTX {
 					payload = bytes.TrimRight(payload, "\x00")
@@ -253,8 +290,10 @@ type AOTArtifact struct {
 // and a .target naming the SM. An uncompressed cubin must be an ELF
 // defining KernelSymbol with a zero stack frame (no local-memory spills or
 // stack arrays); for ELF ABI version 8 and later the cubin's e_flags SM
-// must match. Compressed images are only matched by SM. Every template
-// must validate with Base 0.
+// must match. An sm_NNNa image only serves an sm_NNNa spec. One passing
+// uncompressed image suffices; compressed images, which are not checked,
+// satisfy a spec only when no uncompressed image for its SM exists. Every
+// template must validate with Base 0.
 func PackAOTArtifact(modelName string, fatbin []byte, specs []ArchLaunchSpec, tma map[string]cudatma.Descriptor) (AOTArtifact, error) {
 	if !isCIdent(modelName) {
 		return AOTArtifact{}, fmt.Errorf("pack aot artifact: bad model name %q", modelName)
@@ -307,12 +346,14 @@ func PackAOTArtifact(modelName string, fatbin []byte, specs []ArchLaunchSpec, tm
 func checkImage(entries []FatbinEntry, s ArchLaunchSpec) error {
 	sm, _ := smNumber(s.Arch)
 	var errs []string
+	compressed := false
 	for _, e := range entries {
-		if e.SM != sm {
+		if e.SM != sm || e.ArchSpecific && !strings.HasSuffix(s.Arch, "a") {
 			continue
 		}
 		if e.Compressed {
-			return nil
+			compressed = true
+			continue
 		}
 		var err error
 		if e.Kind == FatbinKindPTX {
@@ -325,10 +366,28 @@ func checkImage(entries []FatbinEntry, s ArchLaunchSpec) error {
 		}
 		errs = append(errs, err.Error())
 	}
+	if len(errs) == 0 && compressed {
+		return nil
+	}
 	if len(errs) == 0 {
 		return fmt.Errorf("%s: fatbin has no sm_%d image", s.Arch, sm)
 	}
 	return fmt.Errorf("%s: %s", s.Arch, strings.Join(errs, "; "))
+}
+
+// ptxVersion returns the PTX ISA version from ptx's .version directive.
+func ptxVersion(ptx []byte) (major, minor int, ok bool) {
+	for line := range strings.Lines(string(ptx)) {
+		f := strings.Fields(line)
+		if len(f) < 2 || f[0] != ".version" {
+			continue
+		}
+		maj, min, found := strings.Cut(f[1], ".")
+		a, err1 := strconv.Atoi(maj)
+		b, err2 := strconv.Atoi(min)
+		return a, b, found && err1 == nil && err2 == nil
+	}
+	return 0, 0, false
 }
 
 func checkPTX(ptx []byte, s ArchLaunchSpec, sm int) error {
