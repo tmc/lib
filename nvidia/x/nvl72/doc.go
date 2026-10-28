@@ -51,6 +51,11 @@
 //     the pulled multimem.ld_reduce form or the pushed per-tile switch
 //     reduction by batch size under [DistCostModel]; [EvalDistExpr] checks
 //     each rewrite numerically and [MultimemRMSNormKernel] emits the pull.
+//   - [ComputeMoEBackwardCombine] computes the MoE backward combine and the
+//     gate-logit gradient through normalized sigmoid gates, with traffic
+//     for home-rank versus in-fabric reduction;
+//     [EmitSwitchMoEBackwardEpiloguePTX] and [SwitchMoEBackwardKernel] emit
+//     the pre-scaled expert epilogue.
 //
 // The native gate (CUDA_NVL72_NATIVE=1 under an inherited GPU lock, target
 // CUDA_NVL72_NATIVE_ARCH, default sm_121a) compiles emitted kernels with nvcc
