@@ -433,9 +433,11 @@ func runGPUInference(
 			return fmt.Errorf("build decode graph: %w", err)
 		}
 		if gm.eg != nil && gm.eg.pf != nil {
+			t0 := time.Now()
 			if err := gm.eg.buildPrefillGraph(dev, gpuWeights, cfg); err != nil {
 				return fmt.Errorf("build prefill graph: %w", err)
 			}
+			fmt.Printf("[E-Graph] prefill graph: built and instantiated in %v\n", time.Since(t0))
 		}
 		dg.SetSyncArbiter(newDecodeSyncArbiter(syncMode, nil))
 		bucketRunner, berr := newDecodeBucketRunner(1, dg)
