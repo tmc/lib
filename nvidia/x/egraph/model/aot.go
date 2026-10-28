@@ -59,21 +59,27 @@ type FatbinEntry struct {
 // The container layout is a 16-byte header {magic u32, version u16,
 // header size u16, entries size u64} followed by entries, each a header
 // {kind u16, u16, header size u32, payload size u64, compressed size u32,
-// u32, minor u16, major u16, sm u32, u32, u32, flags u64, u64,
-// uncompressed size u64} of at least 64 bytes and its payload. nvcc 13.4
-// writes 80-byte PTX and 112-byte cubin headers whose tail holds options
-// this package skips; the field offsets above are checked against its
-// output in testdata/nvcc-fill. Several containers may be concatenated.
+// option block offset u32, minor u16, major u16, sm u32, u32, u32,
+// flags u64, u64, uncompressed size u64} of at least 64 bytes and its
+// payload. In nvcc 13.4 output the option block offset is 64 and the
+// block is {data offset u32 = 72, data length u32, data}, padded to 16
+// bytes: 80-byte PTX headers with no option data, 112-byte cubin headers
+// with 36 bytes of it. The field offsets are checked against nvcc output
+// in testdata/nvcc-fill. Several containers may be concatenated.
 const (
-	fatbinHeaderSize = 16
-	fatbinEntrySize  = 64
+	fatbinHeaderSize    = 16
+	fatbinEntrySize     = 64
+	fatbinPTXHeaderSize = 80
 )
 
-// BuildFatbin writes entries into one fatbin container in order, with
-// 64-byte entry headers and no options. Payloads are padded with NULs to
-// 8 bytes. A PTX entry's version is read from its .version directive;
-// a cubin's is 1.8, as nvcc 13.4 writes. It is deterministic; it does
-// not compress. Driver acceptance of its output is not tested here.
+// BuildFatbin writes entries into one fatbin container in order. PTX
+// entries get nvcc 13.4's 80-byte header with an empty option block,
+// byte for byte; the CUDA 13.4 driver's PTX path crashed on a 64-byte
+// header without one. Cubin entries get a 64-byte header with no option
+// block, which that driver loads. Payloads are padded with NULs to 8
+// bytes. A PTX entry's version is read from its .version directive; a
+// cubin's is 1.8, as nvcc 13.4 writes. It is deterministic; it does not
+// compress.
 func BuildFatbin(entries []FatbinEntry) ([]byte, error) {
 	var body bytes.Buffer
 	for i, e := range entries {
@@ -97,16 +103,24 @@ func BuildFatbin(entries []FatbinEntry) ([]byte, error) {
 			flags |= fatbinFlagArchSpecific
 		}
 		padded := (len(payload) + 7) &^ 7
-		var h [fatbinEntrySize]byte
+		hsize := fatbinEntrySize
+		if e.Kind == FatbinKindPTX {
+			hsize = fatbinPTXHeaderSize
+		}
+		h := make([]byte, hsize)
 		binary.LittleEndian.PutUint16(h[0:], uint16(e.Kind))
 		binary.LittleEndian.PutUint16(h[2:], 0x0101)
-		binary.LittleEndian.PutUint32(h[4:], fatbinEntrySize)
+		binary.LittleEndian.PutUint32(h[4:], uint32(hsize))
 		binary.LittleEndian.PutUint64(h[8:], uint64(padded))
+		if e.Kind == FatbinKindPTX {
+			binary.LittleEndian.PutUint32(h[20:], fatbinEntrySize)
+			binary.LittleEndian.PutUint32(h[fatbinEntrySize:], fatbinEntrySize+8) // option data follows; length 0
+		}
 		binary.LittleEndian.PutUint16(h[24:], uint16(minor))
 		binary.LittleEndian.PutUint16(h[26:], uint16(major))
 		binary.LittleEndian.PutUint32(h[28:], uint32(e.SM))
 		binary.LittleEndian.PutUint64(h[40:], flags)
-		body.Write(h[:])
+		body.Write(h)
 		body.Write(payload)
 		body.Write(make([]byte, padded-len(payload)))
 	}
