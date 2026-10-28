@@ -443,3 +443,22 @@ func (g SkinnyMMA) Reference(m int, x []uint16, w []uint16, extras [][]float32) 
 	}
 	return glu, nil
 }
+
+// UseSkinnyMMA replaces each tile gemm of p over at most 32 rows that a
+// [SkinnyMMA] computes (BF16 weights, not Grouped, Gather, SumSq or Stream-K)
+// with one scheduled for sms multiprocessors. Its arguments are unchanged;
+// a split-K kernel also takes a workspace of [SkinnyMMA.WorkspaceBytes]
+// after them.
+func (p *Plan) UseSkinnyMMA(sms int) {
+	for i := range p.Kernels {
+		k := &p.Kernels[i]
+		t := k.Tile
+		if t == nil || k.M > 32 || t.Weight != WeightBF16 || t.Grouped || t.Gather || t.SumSq || t.StreamK > 0 {
+			continue
+		}
+		g := SkinnyMMA{Name: t.Name, N: t.N, K: t.K, MaxM: k.M, Out: t.Out, Epilogue: t.Epilogue, Extras: t.Extras, GLU: t.GLU, SMs: sms}
+		if g, err := g.norm(); err == nil {
+			k.MMA, k.Tile = &g, nil
+		}
+	}
+}

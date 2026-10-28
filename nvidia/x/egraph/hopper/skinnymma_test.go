@@ -179,6 +179,84 @@ func TestSkinnyMMAGolden(t *testing.T) {
 	}
 }
 
+// TestPlanUseSkinnyMMA lowers a decoder layer's MLP over 21 of 32 rows
+// with tile gemms and with skinny mmas, runs both plans emulated, and
+// compares them.
+func TestPlanUseSkinnyMMA(t *testing.T) {
+	const m, rows, h, inter = 21, 32, 256, 512
+	b := NewBuilder()
+	x := b.Input("x", F32, rows, h)
+	norm := b.Cast(BF16, b.RMSNorm(x, b.Input("norm_w", F32, h), h, 1e-5))
+	act := b.SwiGLU(b.MatMul(norm, b.Input("w_gu", BF16, 2*inter, h)))
+	out := b.Map(MustLambda("(add $0 $1)"), b.MatMul(act, b.Input("w_down", BF16, h, inter)), x)
+	e, err := Optimize(b.G, out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := rand.New(rand.NewPCG(7, 8))
+	data := map[string][]byte{}
+	var outs [2][]float64
+	for i, use := range []bool{false, true} {
+		p, err := Compile(e, "mlp", F32)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gemms := 0
+		if use {
+			p.UseSkinnyMMA(1)
+			for _, k := range p.Kernels {
+				if k.Tile != nil {
+					t.Errorf("%s: tile gemm left after UseSkinnyMMA", k.Tile.Name)
+				}
+				if k.MMA != nil {
+					gemms++
+				}
+			}
+			if gemms != 2 {
+				t.Errorf("UseSkinnyMMA made %d skinny mmas, want 2", gemms)
+			}
+		}
+		src, err := p.Source()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var bufs []emuBuf
+		var args []string
+		for _, in := range p.Inputs {
+			if data[in.Name] == nil {
+				n := size(in.Shape)
+				switch {
+				case in.DType == BF16:
+					data[in.Name] = u16Bytes(randBF16(r, n, 0.05))
+				default:
+					v := make([]float32, n)
+					for j := range v {
+						v[j] = float32(r.NormFloat64())
+					}
+					data[in.Name] = f32Bytes(v)
+				}
+			}
+			bufs = append(bufs, emuBuf{in.Name, in.DType.cType(), data[in.Name]})
+			args = append(args, in.Name)
+		}
+		for _, tmp := range append(p.Temps, p.Output) {
+			bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), poison(size(tmp.Shape) * tmp.DType.Bits() / 8)})
+			args = append(args, tmp.Name)
+		}
+		// Run m of the plan's rows, as a prefill chunk does.
+		src = strings.ReplaceAll(src, fmt.Sprintf("_launch(%d, ", rows), fmt.Sprintf("_launch(%d, ", m))
+		res := runEmu(t, src, fmt.Sprintf("mlp_run(%s, nullptr)", strings.Join(args, ", ")), bufs...)
+		outs[i] = decode(F32, res[p.Output.Name])[:m*h]
+	}
+	got, want := make([]float32, m*h), make([]float32, m*h)
+	for i := range got {
+		got[i], want[i] = float32(outs[1][i]), float32(outs[0][i])
+	}
+	if i, ok := closeTo(got, want, 1e-3, 1e-4); !ok {
+		t.Fatalf("out[%d] = %g with skinny mmas, %g with tile gemms (relL2 %g)", i, got[i], want[i], relL2(got, want))
+	}
+}
+
 func ExampleSkinnyMMA() {
 	// Llama-3-8B's down projection over a 21-token prompt on 48 SMs.
 	g := SkinnyMMA{Name: "down", N: 4096, K: 14336, MaxM: 32, Out: F32, SMs: 48}

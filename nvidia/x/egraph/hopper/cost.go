@@ -335,6 +335,27 @@ func (k PlanKernel) Workload(cfg CostConfig) (bytes, flops uint64) {
 		flops = uint64(2*m*g.N*g.K + m*g.N*max(len(g.Extras)*2, 1))
 		return bytes, flops
 
+	case k.MMA != nil:
+		g := k.MMA
+		m := max(k.M, 1)
+		nout := g.N
+		if g.GLU {
+			nout = g.N / 2
+		}
+		bytes = weightFormatBytes(WeightBF16, g.N, g.K) + uint64(m*g.K*2+m*nout*g.Out.Bits()/8)
+		for _, e := range g.Extras {
+			elems := nout
+			switch e.Broadcast {
+			case PerRow:
+				elems = m
+			case Full:
+				elems = m * nout
+			}
+			bytes += uint64(elems * e.DType.Bits() / 8)
+		}
+		flops = uint64(2*m*g.N*g.K + m*nout*max(len(g.Extras)*2, 1))
+		return bytes, flops
+
 	case k.Tile != nil:
 		t := k.Tile
 		m := max(k.M, 1)
