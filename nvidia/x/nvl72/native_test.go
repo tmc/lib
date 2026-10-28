@@ -83,10 +83,22 @@ func nativeCompile(t *testing.T, nvcc, target, src, out string, flags ...string)
 // the program prints.
 func nativeRun(t *testing.T, nvcc, src string) string {
 	t.Helper()
+	return nativeExec(t, nativeBuild(t, nvcc, src))
+}
+
+// nativeBuild builds src plus a main for the native target and returns the
+// program's path.
+func nativeBuild(t *testing.T, nvcc, src string) string {
+	t.Helper()
 	bin := filepath.Join(t.TempDir(), "prog")
 	nativeCompile(t, nvcc, nativeTarget(), src, bin)
-	ctx := t.Context()
-	cmd := exec.CommandContext(ctx, bin)
+	return bin
+}
+
+// nativeExec runs bin with args and returns what it prints.
+func nativeExec(t *testing.T, bin string, args ...string) string {
+	t.Helper()
+	cmd := exec.CommandContext(t.Context(), bin, args...)
 	cmd.WaitDelay = 5 * time.Second
 	out, err := cmd.CombinedOutput()
 	if err != nil {
