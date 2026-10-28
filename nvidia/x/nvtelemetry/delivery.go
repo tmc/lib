@@ -203,6 +203,16 @@ func (d *Delivery) Stats() DeliveryStats {
 	return d.stats
 }
 
+// Done returns a channel closed after the delivery worker exits. A nil or
+// zero Delivery returns nil. Worker exit is distinct from successful delivery;
+// Close reports the final delivery outcome.
+func (d *Delivery) Done() <-chan struct{} {
+	if d == nil {
+		return nil
+	}
+	return d.done
+}
+
 // Close stops admission and drains within ShutdownTimeout or the first caller's
 // context deadline. A timed-out or partially rejected drain returns
 // ErrDeliveryIncomplete. Later callers may stop waiting with their own contexts,
