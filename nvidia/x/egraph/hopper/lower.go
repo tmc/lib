@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
@@ -17,17 +18,19 @@ type Plan struct {
 	Kernels []PlanKernel
 }
 
-// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, Row,
-// Attention, TopK, Align and ExpertSum is set.
+// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, UMMA,
+// Quant, Row, Attention, TopK, Align and ExpertSum is set.
 type PlanKernel struct {
 	GEMM      *SkinnyGEMM
 	Tile      *TileGEMM
+	UMMA      *UMMAGEMM
+	Quant     *NVFP4Quant
 	Row       *RowKernel
 	Attention *PagedAttention
 	TopK      *RowTopK
 	Align     *ExpertAlign
 	ExpertSum *ExpertSum
-	M         int      // GEMM, Tile: rows of x
+	M         int      // GEMM, Tile, UMMA, Quant: rows of x
 	MaxRows   int      // Grouped Tile: max rows per expert
 	Experts   int      // Grouped Tile: local expert count
 	Batch     int      // Attention: batch size
@@ -45,6 +48,18 @@ type PlanKernel struct {
 // inputs become row addressing. A gemm whose result feeds a row tree is
 // materialized to an FP32 temporary first.
 func Compile(e *egraph.Expr, name string, out DType) (*Plan, error) {
+	return CompileFor(e, name, out, "")
+}
+
+// CompileFor is [Compile] for the GPU named by target, an nvcc -arch value
+// such as "sm_103a"; "" means no particular GPU. For a target with tcgen05
+// (see [UMMATarget]), a gemm whose weight is BF16 or NVFP4
+// and whose shape fits becomes a [UMMAGEMM]: the decode form for up to 128
+// rows, the prefill form beyond. An NVFP4 gemm is preceded by an
+// [NVFP4Quant] of its x (once per x) into temporaries named after the gemm.
+// Other gemms, and every gemm for other targets, lower as Compile lowers
+// them.
+func CompileFor(e *egraph.Expr, name string, out DType, target string) (*Plan, error) {
 	if !cIdent(name) {
 		return nil, fmt.Errorf("compile: bad name %q", name)
 	}
@@ -54,6 +69,8 @@ func Compile(e *egraph.Expr, name string, out DType) (*Plan, error) {
 		done:   make(map[egraph.Id]string),
 		multi:  make(map[egraph.Id][]Tensor),
 		uses:   make(map[egraph.Id]int),
+		umma:   UMMATarget(target),
+		quant:  make(map[string][2]Tensor),
 	}
 	c.countUses(e, make(map[egraph.Id]bool))
 	if err := c.emit(e, name+"_out", out); err != nil {
@@ -69,6 +86,20 @@ type compiler struct {
 	multi  map[egraph.Id][]Tensor // e-class → buffers holding a multi-output op
 	uses   map[egraph.Id]int      // e-class → terms reading it
 	temps  int
+	umma   bool                 // lower gemms to UMMAGEMM where they fit
+	quant  map[string][2]Tensor // x → its NVFP4Quant outputs
+}
+
+// UMMATarget reports whether target, an nvcc -arch value, has the tcgen05
+// tensor cores [UMMAGEMM] uses, as probed with ptxas and recorded in
+// [cudadevicetable]. A target the table has not probed reports false.
+func UMMATarget(target string) bool {
+	t, ok := cudadevicetable.LookupTarget(target)
+	if !ok {
+		return false
+	}
+	yes, err := t.Supports("tcgen05")
+	return err == nil && yes
 }
 
 // countUses records in c.uses how many e-classes of e read each e-class.
@@ -246,6 +277,9 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 		args = append(args, t.Name)
 	}
 	args = append(args, out.Name)
+	if ok, err := c.ummaGEMM(g, x, args, m); ok || err != nil {
+		return err
+	}
 	if m > 16 {
 		t := TileGEMM{Name: g.Name, N: g.N, K: g.K, Weight: g.Weight, Out: g.Out, Epilogue: g.Epilogue, Extras: g.Extras}
 		if t.N%128 != 0 {
@@ -265,6 +299,44 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 	}
 	c.plan.Kernels = append(c.plan.Kernels, PlanKernel{GEMM: &g, M: m, Args: args})
 	return nil
+}
+
+// ummaGEMM appends g as a UMMAGEMM over m rows of x, reporting false if c
+// does not lower to UMMAGEMM or g does not fit one. args are g's
+// SkinnyGEMM arguments.
+func (c *compiler) ummaGEMM(g SkinnyGEMM, x Tensor, args []string, m int) (bool, error) {
+	if !c.umma || g.Weight != WeightBF16 && g.Weight != WeightNVFP4 {
+		return false, nil
+	}
+	u := UMMAGEMM{Name: g.Name, N: g.N, K: g.K, Weight: g.Weight, Out: g.Out, Epilogue: g.Epilogue, Extras: g.Extras}
+	switch {
+	case m <= 128:
+		u.MaxM = m
+	case g.N%128 == 0:
+		u.BN = 128
+	default:
+		u.BN = 64
+	}
+	if _, err := u.norm(); err != nil {
+		return false, nil
+	}
+	if g.Weight == WeightNVFP4 {
+		q, ok := c.quant[x.Name]
+		if !ok {
+			quant := NVFP4Quant{Name: g.Name + "_quant", K: g.K}
+			q = [2]Tensor{
+				{Name: g.Name + "_xq", DType: U8, Shape: []int{m, g.K / 2}},
+				{Name: g.Name + "_xsf", DType: U8, Shape: []int{m, g.K / 16}},
+			}
+			c.plan.Temps = append(c.plan.Temps, q[0], q[1])
+			c.plan.Kernels = append(c.plan.Kernels, PlanKernel{Quant: &quant, M: m, Args: []string{x.Name, q[0].Name, q[1].Name}})
+			c.quant[x.Name] = q
+		}
+		// args are x, w, w_sf, w_gs, extras..., out.
+		args = append([]string{q[0].Name, q[1].Name}, args[1:]...)
+	}
+	c.plan.Kernels = append(c.plan.Kernels, PlanKernel{UMMA: &u, M: m, Args: args})
+	return true, nil
 }
 
 func trim1(s []int) []int {
@@ -700,6 +772,14 @@ func (p *Plan) Source() (string, error) {
 			if src, err = k.Tile.CUDA(); err == nil {
 				l, err = k.Tile.Launcher()
 			}
+		case k.UMMA != nil:
+			if src, err = k.UMMA.CUDA(); err == nil {
+				l, err = k.UMMA.Launcher()
+			}
+		case k.Quant != nil:
+			if src, err = k.Quant.CUDA(); err == nil {
+				l, err = k.Quant.Launcher()
+			}
 		case k.Attention != nil:
 			if src, err = k.Attention.CUDA(); err == nil {
 				l, err = k.Attention.Launcher()
@@ -744,6 +824,10 @@ func (p *Plan) Source() (string, error) {
 			} else {
 				fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Tile.Name, k.M, strings.Join(k.Args, ", "))
 			}
+		case k.UMMA != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.UMMA.Name, k.M, strings.Join(k.Args, ", "))
+		case k.Quant != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Quant.Name, k.M, strings.Join(k.Args, ", "))
 		case k.Attention != nil:
 			// Args are q, k_cache, v_cache, page_table, seqlens, k_scale, v_scale, [gate,] out, ws;
 			// Launcher expects max_pages after page_table.
