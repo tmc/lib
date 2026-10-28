@@ -175,6 +175,41 @@ func TestFeatureSuffixIsLoadBearing(t *testing.T) {
 	}
 }
 
+// TestMBarrierSplitsAtHopper checks that the mbarrier probe asks for the sm_80
+// form and mbarriertx for the expect_tx and try_wait forms TMA needs. A single
+// fixture once used expect_tx and so recorded Ampere and Ada as having no
+// mbarrier at all.
+func TestMBarrierSplitsAtHopper(t *testing.T) {
+	tests := []struct {
+		target       string
+		mbarrier, tx bool
+	}{
+		{"sm_75", false, false},
+		{"sm_80", true, false},
+		{"sm_89", true, false},
+		{"sm_90", true, true},
+		{"sm_103a", true, true},
+		{"sm_121a", true, true},
+	}
+	for _, tt := range tests {
+		tgt, ok := LookupTarget(tt.target)
+		if !ok {
+			t.Errorf("%s not probed", tt.target)
+			continue
+		}
+		for feature, want := range map[string]bool{"mbarrier": tt.mbarrier, "mbarriertx": tt.tx} {
+			got, err := tgt.Supports(feature)
+			if err != nil {
+				t.Errorf("%s: %v", tt.target, err)
+				continue
+			}
+			if got != want {
+				t.Errorf("%s supports %s = %v, want %v", tt.target, feature, got, want)
+			}
+		}
+	}
+}
+
 // TestRecordedFixturesExist keeps a recorded claim re-runnable. A fixture path
 // that no longer resolves makes the fact it backs unreproducible.
 func TestRecordedFixturesExist(t *testing.T) {

@@ -139,6 +139,12 @@
           "instrument": "ptxas -arch=sm_100 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -215,6 +221,12 @@
           "instrument": "ptxas -arch=sm_100a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -288,6 +300,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_103a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
@@ -363,6 +381,12 @@
           "instrument": "ptxas -arch=sm_110a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -436,6 +460,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_120 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
@@ -513,6 +543,12 @@
           "instrument": "ptxas -arch=sm_120a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -586,6 +622,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_121 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
@@ -663,6 +705,12 @@
           "instrument": "ptxas -arch=sm_121a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -737,7 +785,14 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_75 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx",
-          "diagnostic": "ptxas mbarrier.ptx, line 14; error   : Feature 'mbarrier.init' requires .target sm_80 or higher"
+          "diagnostic": "ptxas mbarrier.ptx, line 13; error   : Feature 'mbarrier.init' requires .target sm_80 or higher"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_75 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 15; error   : Feature 'mbarrier.init' requires .target sm_80 or higher"
         },
         "mmasync": {
           "supported": false,
@@ -815,11 +870,17 @@
           "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
         },
         "mbarrier": {
-          "supported": false,
+          "supported": true,
           "source": "probed",
           "instrument": "ptxas -arch=sm_80 mbarrier.ptx",
-          "fixture": "ptxprobe/mbarrier.ptx",
-          "diagnostic": "ptxas mbarrier.ptx, line 15; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
         },
         "mmasync": {
           "supported": true,
@@ -896,11 +957,17 @@
           "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
         },
         "mbarrier": {
-          "supported": false,
+          "supported": true,
           "source": "probed",
           "instrument": "ptxas -arch=sm_86 mbarrier.ptx",
-          "fixture": "ptxprobe/mbarrier.ptx",
-          "diagnostic": "ptxas mbarrier.ptx, line 15; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_86 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
         },
         "mmasync": {
           "supported": true,
@@ -977,11 +1044,17 @@
           "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
         },
         "mbarrier": {
-          "supported": false,
+          "supported": true,
           "source": "probed",
           "instrument": "ptxas -arch=sm_87 mbarrier.ptx",
-          "fixture": "ptxprobe/mbarrier.ptx",
-          "diagnostic": "ptxas mbarrier.ptx, line 15; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_87 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
         },
         "mmasync": {
           "supported": true,
@@ -1058,11 +1131,17 @@
           "diagnostic": "ptxas cluster.ptx, line 10; error   : Feature 'barrier.cluster.arrive' requires .target sm_90 or higher"
         },
         "mbarrier": {
-          "supported": false,
+          "supported": true,
           "source": "probed",
           "instrument": "ptxas -arch=sm_89 mbarrier.ptx",
-          "fixture": "ptxprobe/mbarrier.ptx",
-          "diagnostic": "ptxas mbarrier.ptx, line 15; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+          "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_89 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx",
+          "diagnostic": "ptxas mbarriertx.ptx, line 16; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
         },
         "mmasync": {
           "supported": true,
@@ -1143,6 +1222,12 @@
           "instrument": "ptxas -arch=sm_90 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
         },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
+        },
         "mmasync": {
           "supported": true,
           "source": "probed",
@@ -1218,6 +1303,12 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_90a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mbarriertx": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a mbarriertx.ptx",
+          "fixture": "ptxprobe/mbarriertx.ptx"
         },
         "mmasync": {
           "supported": true,
