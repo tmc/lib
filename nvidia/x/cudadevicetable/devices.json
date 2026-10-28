@@ -121,10 +121,10 @@
       "target": "sm_100",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -138,6 +138,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_100 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_100'"
         },
         "multimem": {
           "supported": true,
@@ -184,10 +197,10 @@
       "target": "sm_100a",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -201,6 +214,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_100a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_100a mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_100a'"
         },
         "multimem": {
           "supported": true,
@@ -245,10 +271,10 @@
       "target": "sm_103a",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -262,6 +288,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_103a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_103a mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_103a'"
         },
         "multimem": {
           "supported": true,
@@ -306,10 +345,10 @@
       "target": "sm_110a",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -323,6 +362,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_110a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_110a mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_110a'"
         },
         "multimem": {
           "supported": true,
@@ -367,10 +419,10 @@
       "target": "sm_120",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -384,6 +436,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_120 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_120'"
         },
         "multimem": {
           "supported": true,
@@ -430,10 +495,10 @@
       "target": "sm_120a",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -447,6 +512,18 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_120a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_120a mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx"
         },
         "multimem": {
           "supported": true,
@@ -492,10 +569,10 @@
       "target": "sm_121",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -509,6 +586,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_121 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_121'"
         },
         "multimem": {
           "supported": true,
@@ -555,10 +645,10 @@
       "target": "sm_121a",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -572,6 +662,18 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_121a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_121a mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx"
         },
         "multimem": {
           "supported": true,
@@ -617,10 +719,10 @@
       "target": "sm_80",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -636,6 +738,19 @@
           "instrument": "ptxas -arch=sm_80 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx",
           "diagnostic": "ptxas mbarrier.ptx, line 15; error   : Feature 'mbarrier.expect_tx' requires .target sm_90 or higher"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_80 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_80'"
         },
         "multimem": {
           "supported": false,
@@ -685,10 +800,10 @@
       "target": "sm_90",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -702,6 +817,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_90 mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90 mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_90'"
         },
         "multimem": {
           "supported": true,
@@ -748,10 +876,10 @@
       "target": "sm_90a",
       "probe": {
         "tool": "ptxas",
-        "toolVersion": "13.0.88",
+        "toolVersion": "13.4.59",
         "ptxVersion": "9.0",
-        "host": "gpu-host",
-        "probedAt": "2026-09-18"
+        "host": "dgx",
+        "probedAt": "2026-10-28"
       },
       "features": {
         "cluster": {
@@ -765,6 +893,19 @@
           "source": "probed",
           "instrument": "ptxas -arch=sm_90a mbarrier.ptx",
           "fixture": "ptxprobe/mbarrier.ptx"
+        },
+        "mmasync": {
+          "supported": true,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a mmasync.ptx",
+          "fixture": "ptxprobe/mmasync.ptx"
+        },
+        "mmasyncmxf4": {
+          "supported": false,
+          "source": "probed",
+          "instrument": "ptxas -arch=sm_90a mmasyncmxf4.ptx",
+          "fixture": "ptxprobe/mmasyncmxf4.ptx",
+          "diagnostic": "ptxas mmasyncmxf4.ptx, line 19; error   : Instruction 'mma with block scale' not supported on .target 'sm_90a'"
         },
         "multimem": {
           "supported": true,
