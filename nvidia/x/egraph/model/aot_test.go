@@ -14,10 +14,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"unsafe"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudatma"
 	"github.com/tmc/lib/nvidia/x/internal/cudatest"
@@ -665,8 +668,10 @@ func TestAOTNativeProgramBuilds(t *testing.T) {
 	}
 }
 
-// TestAOTNative compiles a kernel to a fatbin with nvcc, packs it, and runs
-// the generated runner on the device. Run it with
+// TestAOTNative compiles a kernel with nvcc and runs it on the device two
+// ways: nvcc's own fatbin through PackAOTArtifact and the generated
+// runner, and BuildFatbin images wrapping nvcc's cubin and PTX, loaded
+// with cuModuleLoadData. Run it with
 //
 //	CUDA_EGRAPH_MODEL_NATIVE=1 gpu-lock go test ./x/egraph/model -run TestAOTNative -v
 func TestAOTNative(t *testing.T) {
@@ -682,34 +687,159 @@ func TestAOTNative(t *testing.T) {
 		target = "sm_121a"
 	}
 	tmp := t.TempDir()
-	cu, fb := filepath.Join(tmp, "fill.cu"), filepath.Join(tmp, "fill.fatbin")
+	cu := filepath.Join(tmp, "fill.cu")
 	if err := os.WriteFile(cu, []byte(aotNativeKernel), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(nvcc, "-fatbin", "-arch="+target, cu, "-o", fb).CombinedOutput(); err != nil {
-		t.Fatalf("nvcc -fatbin (%s, CUDA %s): %v\n%s", target, cudaVer, err, out)
+	compile := func(t *testing.T, mode, ext string) []byte {
+		out := filepath.Join(tmp, "fill"+ext)
+		if b, err := exec.Command(nvcc, mode, "-arch="+target, cu, "-o", out).CombinedOutput(); err != nil {
+			t.Fatalf("nvcc %s (%s, CUDA %s): %v\n%s", mode, target, cudaVer, err, b)
+		}
+		data, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
 	}
-	fatbin, err := os.ReadFile(fb)
+
+	t.Run("nvcc_fatbin", func(t *testing.T) {
+		fatbin := compile(t, "-fatbin", ".fatbin")
+		entries, err := InspectFatbin(fatbin)
+		if err != nil {
+			t.Fatalf("inspect nvcc fatbin: %v", err)
+		}
+		for _, e := range entries {
+			t.Logf("nvcc fatbin entry: kind=%d sm=%d arch_specific=%v compressed=%v bytes=%d", e.Kind, e.SM, e.ArchSpecific, e.Compressed, len(e.Payload))
+		}
+		spec := ArchLaunchSpec{Arch: target, KernelSymbol: "aot_fill", GridDim: [3]uint32{8, 1, 1}, BlockDim: [3]uint32{128, 1, 1}, ClusterDim: [3]uint32{2, 1, 1}, UsePDL: true}
+		a, err := PackAOTArtifact("fill", fatbin, []ArchLaunchSpec{spec}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("go", "run", writeAOTProgram(t, a))
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+		out, err := cmd.CombinedOutput()
+		if err != nil || !strings.Contains(string(out), "AOT_NATIVE_OK") {
+			t.Fatalf("aot native program: %v\n%s", err, out)
+		}
+		t.Logf("aot native passed (arch=%s, CUDA=%s):\n%s", target, cudaVer, strings.TrimSpace(string(out)))
+	})
+
+	t.Run("build_fatbin", func(t *testing.T) {
+		sm, err := smNumber(target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		special := strings.HasSuffix(target, "a")
+		cubin := FatbinEntry{Kind: FatbinKindCubin, SM: sm, ArchSpecific: special, Payload: compile(t, "-cubin", ".cubin")}
+		ptx := FatbinEntry{Kind: FatbinKindPTX, SM: sm, ArchSpecific: special, Payload: compile(t, "-ptx", ".ptx")}
+		build := func(entries ...FatbinEntry) []byte {
+			f, err := BuildFatbin(entries)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return f
+		}
+
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		if err := driver.Init(0); err != nil {
+			t.Fatalf("driver init: %v", err)
+		}
+		dev, err := driver.DeviceGet(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := dev.PrimaryCtxRetain()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer dev.PrimaryCtxRelease()
+		if err := ctx.SetCurrent(); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, tt := range []struct {
+			name   string
+			fatbin []byte
+		}{
+			{"cubin", build(cubin)},
+			{"cubin+ptx", build(cubin, ptx)},
+			{"ptx", build(ptx)},
+		} {
+			if err := launchFill(tt.fatbin); err != nil {
+				t.Errorf("BuildFatbin %s: %v", tt.name, err)
+				continue
+			}
+			t.Logf("BuildFatbin %s: loaded and ran (%d bytes)", tt.name, len(tt.fatbin))
+		}
+
+		// The mutant is the pre-261b5c565 layout: the SM at +24, where
+		// the code version belongs, and nothing at +28.
+		mutant := build(cubin)
+		h := mutant[fatbinHeaderSize:]
+		binary.LittleEndian.PutUint32(h[24:], uint32(sm))
+		binary.LittleEndian.PutUint32(h[28:], 0)
+		_, packErr := PackAOTArtifact("fill", mutant, []ArchLaunchSpec{{Arch: target, KernelSymbol: "aot_fill", GridDim: [3]uint32{8, 1, 1}, BlockDim: [3]uint32{128, 1, 1}}}, nil)
+		t.Logf("mutant (sm at +24) host check: %v", packErr)
+		if packErr == nil || !strings.Contains(packErr.Error(), fmt.Sprintf("no sm_%d image", sm)) {
+			t.Fatalf("host check of mutant: err = %v, want no sm_%d image", packErr, sm)
+		}
+		rejectedBy := "driver"
+		if err := launchFill(mutant); err != nil {
+			t.Logf("mutant (sm at +24) driver error: %v", err)
+		} else {
+			// The driver may pick the image from the cubin's e_flags
+			// alone; then only the host check stands between the
+			// old layout and a launch.
+			rejectedBy = "host"
+			t.Logf("mutant (sm at +24): driver loaded and ran it; rejected by the host check only")
+		}
+		fmt.Printf("BUILD_FATBIN_NATIVE_OK mutant_rejected=1 rejected_by=%s\n", rejectedBy)
+	})
+}
+
+// launchFill loads fatbin, runs aot_fill over 1024 elements, and checks
+// out[i] == 3i+1. The caller holds a current context.
+func launchFill(fatbin []byte) error {
+	mod, err := driver.ModuleLoadData(fatbin)
 	if err != nil {
-		t.Fatal(err)
+		return fmt.Errorf("load: %w", err)
 	}
-	entries, err := InspectFatbin(fatbin)
+	defer mod.Close()
+	fn, err := mod.Function("aot_fill")
 	if err != nil {
-		t.Fatalf("inspect nvcc fatbin: %v", err)
+		return fmt.Errorf("function: %w", err)
 	}
-	for _, e := range entries {
-		t.Logf("nvcc fatbin entry: kind=%d sm=%d compressed=%v bytes=%d", e.Kind, e.SM, e.Compressed, len(e.Payload))
-	}
-	spec := ArchLaunchSpec{Arch: target, KernelSymbol: "aot_fill", GridDim: [3]uint32{8, 1, 1}, BlockDim: [3]uint32{128, 1, 1}, ClusterDim: [3]uint32{2, 1, 1}, UsePDL: true}
-	a, err := PackAOTArtifact("fill", fatbin, []ArchLaunchSpec{spec}, nil)
+	const n = 1024
+	out, err := driver.MemAllocBytes(n * 4)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	cmd := exec.Command("go", "run", writeAOTProgram(t, a))
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	out, err := cmd.CombinedOutput()
-	if err != nil || !strings.Contains(string(out), "AOT_NATIVE_OK") {
-		t.Fatalf("aot native program: %v\n%s", err, out)
+	defer out.Free()
+	got := make([]int32, n)
+	for i := range got {
+		got[i] = -1
 	}
-	t.Logf("aot native passed (arch=%s, CUDA=%s):\n%s", target, cudaVer, strings.TrimSpace(string(out)))
+	if err := out.CopyFromHostPtr(unsafe.Pointer(&got[0]), n*4); err != nil {
+		return err
+	}
+	count := int32(n)
+	params := []unsafe.Pointer{unsafe.Pointer(&out), unsafe.Pointer(&count)}
+	if err := fn.LaunchKernel(driver.Dim3{X: n / 128, Y: 1, Z: 1}, driver.Dim3{X: 128, Y: 1, Z: 1}, 0, 0, params); err != nil {
+		return fmt.Errorf("launch: %w", err)
+	}
+	if err := driver.CtxSynchronize(); err != nil {
+		return fmt.Errorf("synchronize: %w", err)
+	}
+	if err := out.CopyToHostPtr(unsafe.Pointer(&got[0]), n*4); err != nil {
+		return err
+	}
+	for i, v := range got {
+		if v != int32(3*i+1) {
+			return fmt.Errorf("out[%d] = %d, want %d", i, v, 3*i+1)
+		}
+	}
+	return nil
 }
