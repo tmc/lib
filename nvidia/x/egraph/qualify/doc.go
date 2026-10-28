@@ -8,4 +8,11 @@
 // conversion, dual-target numerical agreement against Tile IR bytecode
 // modules, and Blackwell sm_100a Tensor Memory (TMEM) trace verification via
 // [cudatmem.VerifyTrace].
+//
+// Deterministic mode: [AuditPTXDeterminism] flags floating-point add
+// reductions through atomics and timer-derived stochastic-rounding bits in
+// PTX; [AuditSchedule] and [BatchInvarianceCheck] check that a reduction
+// schedule gives a row the same bits at every batch size and split count;
+// [EmitDeterministicStochasticRoundPTX] emits cvt.rs rounding keyed by a
+// [Philox4x32] counter, and [DeterministicCUDA] is its CUDA C++ twin.
 package qualify
