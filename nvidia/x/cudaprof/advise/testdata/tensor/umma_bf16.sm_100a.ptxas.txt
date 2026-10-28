@@ -1,0 +1,5 @@
+ptxas info    : Compiling entry function '_Z16umma_bf16_decodei14CUtensorMap_stS_Pf' for 'sm_100a'
+ptxas info    : Function properties for _Z16umma_bf16_decodei14CUtensorMap_stS_Pf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 25 registers, used 1 barriers
+ptxas info    : Compile time = 13.566 ms

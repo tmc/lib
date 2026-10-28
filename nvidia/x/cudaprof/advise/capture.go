@@ -2,6 +2,7 @@ package advise
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -132,7 +133,35 @@ func parseArchFromCapture(cap *cudacapture.Capture) string {
 			}
 		}
 	}
-	return ""
+	if data, ok := findCaptureCUBIN(cap); ok {
+		if arch := cubinArch(data); arch != "" {
+			return arch
+		}
+	}
+	return ptxasArch(capturePTXASReport(cap))
+}
+
+// cubinArch returns the "sm_NNN" architecture a cubin's ELF header records,
+// or "". From ELF ABI version 8 (CUDA 13) the SM number is bits 8-15 of
+// e_flags, and before it bits 0-7; read from cubins nvcc 13.4 built for
+// sm_80 through sm_121a. The feature suffix is not decoded.
+func cubinArch(data []byte) string {
+	if len(data) < 52 || string(data[:4]) != "\x7fELF" {
+		return ""
+	}
+	off := 48 // e_flags in a 64-bit header
+	if data[4] == 1 {
+		off = 36
+	}
+	flags := uint32(data[off]) | uint32(data[off+1])<<8 | uint32(data[off+2])<<16 | uint32(data[off+3])<<24
+	sm := flags & 0xff
+	if data[8] >= 8 {
+		sm = flags >> 8 & 0xff
+	}
+	if sm == 0 {
+		return ""
+	}
+	return fmt.Sprintf("sm_%d", sm)
 }
 
 func findArchInMap(m map[string]any) string {

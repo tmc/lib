@@ -1,0 +1,13 @@
+SASS and ptxas -v reports of single kernels, compiled compile-only on dgx
+with CUDA 13.4 (nvcc -cubin -arch=TARGET -O3 -Xptxas -v; cuobjdump -sass),
+2026-10-28. No kernel here ran on a device.
+
+gemm.*        llama_pf_post_t2, an e-graph prefill GEMM (Llama-3-8B emit,
+              examples/nvidia/llama-infer -egraph-emit) using mma.sync BF16
+nvfp4.*       ep_expert_t1, an e-graph NVFP4 MoE expert GEMM that decodes
+              E2M1 to BF16 in registers before mma.sync
+umma_bf16.*   umma_bf16_decode, tcgen05.mma kind::f16 (nvl72-tcgen05 lane)
+umma_nvfp4.*  umma_nvfp4_decode, tcgen05.mma kind::mxf4nvf4.block_scale
+
+The SASS keeps one function per file; encoding words are dropped and
+operand spacing collapsed.

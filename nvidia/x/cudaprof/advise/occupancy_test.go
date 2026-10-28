@@ -112,7 +112,7 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 				Files:    map[string][]byte{"kernels.cubin": cubinBytes},
 			}
 			var report Report
-			auditCUBINResourceOccupancy(cap, &report, kernelResources([]kernelImage{{cubin: cubinBytes}}), nil, nil)
+			auditCUBINResourceOccupancy(cap, &report, kernelResources([]kernelImage{{cubin: cubinBytes}}), nil, nil, nil)
 			var frameFound bool
 			for _, item := range report.Items {
 				if strings.Contains(item.Finding, "Microarchitecture theoretical occupancy") {

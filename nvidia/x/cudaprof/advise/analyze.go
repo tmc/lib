@@ -134,6 +134,9 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	images, unread := kernelImages(cap)
 	disasm, modules := adviseDisassembly(cap, images)
 	resources := kernelResources(images)
+	if len(resources) == 0 {
+		resources = ptxasResources(capturePTXASReport(cap), parseArchFromCapture(cap))
+	}
 
 	ptxData, ptxFile, _ := capturefiles.PTX(cap)
 	var ptxMod *cudaptx.Module
@@ -319,6 +322,8 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 		}
 	}
 
+	auditTensorPath(parseArchFromCapture(cap), disasm, modules, report)
+
 	// 3. PTX Architecture Audits (via x/cudaptx)
 	if mod := ptxMod; mod != nil {
 		target := mod.Target
@@ -445,7 +450,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	auditCaptureStatus(cap, report)
 
 	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
-	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math)
+	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math, ptxTensorMemory(ptxMod))
 
 	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
 	auditLaunchGeometry(cap, report)
@@ -476,7 +481,8 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	markUnreadSources(report, unread)
 
 	// Finalize device times and rank findings by device time
-	report.SampleOnly = !hasTiming
+	report.CompileOnly = cap.Profile == nil || len(cap.Profile.Sample) == 0
+	report.SampleOnly = !hasTiming && !report.CompileOnly
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
 	classifyProfileShares(cap, report, source)
 	for _, item := range report.Items {

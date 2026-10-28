@@ -137,6 +137,10 @@ var ruleNames = map[string]string{
 	"round-trip":          "intermediate tensor round-trip",
 	"shared-activation":   "shared activation load",
 	"fusion":              "pointwise fusion",
+	"tensor-path":         "tensor path",
+	"warp-mma-tcgen05":    "warp-level MMA where tcgen05 applies",
+	"warp-mma-wgmma":      "warp-level MMA where wgmma applies",
+	"fp4-dequant":         "FP4 decoded in registers",
 }
 
 // groupRules replaces the findings of each rule that fired more than once

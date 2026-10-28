@@ -10,6 +10,16 @@
 // [EvidenceLevel] saying how far to trust it, and the device or host time it
 // accounts for.
 //
+// A capture of code alone -- SASS, a cubin, PTX or a ptxas -v report
+// compiled for a target with no device, such as sm_103a -- yields the
+// findings the code supports: registers, shared memory, spills, Tensor
+// Memory and cluster occupancy limits, and which tensor-core instruction
+// family (mma.sync, wgmma, tcgen05) a GEMM-like kernel uses against what its
+// target offers. [Report.CompileOnly] marks such a report.
+//
+// [AnalyzeRanks] analyzes the captures of a job's ranks together, and
+// [Report.ProjectTo] models a capture's step on another device.
+//
 // [Report.RankAgainst] reorders a report by how much of the gap to a base
 // capture each finding could explain. The comparison itself is a [Baseline],
 // supplied by the caller.
