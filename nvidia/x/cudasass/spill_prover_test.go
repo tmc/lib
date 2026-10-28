@@ -202,13 +202,14 @@ var knownSpills = map[[2]string]string{
 	// moe8_qkv_gate<7> (egraph/hopper testdata/golden/moe8_qkv_gate.cu)
 	// spills on sm_100a and sm_121a: 128 registers, 4 STL and 2 LDL
 	// (dgx run of a559ca864); on sm_90a it uses 144 registers and does not
-	// spill. Neither the source nor this test's nvcc flags set a cap of
-	// 128: the kernel's only bound is __launch_bounds__(256) with no
-	// minimum-blocks argument, which permits 255 registers per thread, and
-	// there is no -maxrregcount. The 128 is ptxas's own choice for those
-	// targets; why was not established. The kernel belongs to egraph/hopper.
-	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_100a"}: "ptxas caps moe8_qkv_gate<7> at 128 registers on sm_100a",
-	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_121a"}: "ptxas caps moe8_qkv_gate<7> at 128 registers on sm_121a",
+	// spill. Nothing limits it to 128: the kernel's only bound is
+	// __launch_bounds__(256), which permits 255 registers per thread, and
+	// compiling for sm_121a with and without -Xptxas -maxrregcount=255
+	// gives the same "8 bytes stack frame, 16 bytes spill stores, 8 bytes
+	// spill loads". It is a small spill ptxas chooses on its own at 128
+	// registers on these targets. The kernel belongs to egraph/hopper.
+	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_100a"}: "ptxas chooses a 16-byte spill at 128 registers on sm_100a; -maxrregcount=255 does not remove it on sm_121a",
+	{"_Z13moe8_qkv_gateILi7EEvPKtS1_Pt", "sm_121a"}: "ptxas chooses a 16-byte spill at 128 registers on sm_121a; -maxrregcount=255 does not remove it",
 }
 
 // TestProveCubinNative compiles the egraph/hopper golden kernels with nvcc
