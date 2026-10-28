@@ -210,13 +210,29 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
             const int s = kt % STAGES;
             if (kt >= STAGES) eg_mbar_wait(&empty[s], (kt / STAGES - 1) & 1);
             unsigned char* const sa = smem + s * STAGE;
-            if (tid == 0) eg_mbar_arrive_expect_tx(&full[s], TX);
 `)
-	fmt.Fprintf(&b, `            for (int c = tid; c < BM * 8; c += 128) {
+	if g.VectorActivationLoads {
+		fmt.Fprintf(&b, `            for (int c = tid; c < BM * 8; c += 128) {
+                const int r = c / 8, ch = c %% 8;
+                const eg_u32x4 value = *reinterpret_cast<const eg_u32x4*>(x + (size_t)%s * K + kt * BK + ch * 8);
+                *reinterpret_cast<eg_u32x4*>(sa + eg_swizzle_128b(r * 128 + ch * 16)) = value;
+            }
+            eg_fence_proxy_async();
+#if defined(EG_HOST_EMU)
+            eg_emu_bar_sync(1, 128);
+#else
+            asm volatile("barrier.cta.sync 1, 128;" ::: "memory");
+#endif
+            if (tid == 0) eg_mbar_arrive_expect_tx(&full[s], WBYTES + SBYTES);
+`, xrow)
+	} else {
+		b.WriteString("            if (tid == 0) eg_mbar_arrive_expect_tx(&full[s], TX);\n")
+		fmt.Fprintf(&b, `            for (int c = tid; c < BM * 8; c += 128) {
                 const int r = c / 8, ch = c %% 8;
                 eg_bulk_copy(sa + eg_swizzle_128b(r * 128 + ch * 16), x + (size_t)%s * K + kt * BK + ch * %d, 16, &full[s]);
             }
 `, xrow, chunk)
+	}
 	if nvfp4 {
 		fmt.Fprintf(&b, `            if (tid == 0) {
                 eg_bulk_copy(sa + XBYTES, we + (size_t)kt * 256 * 4, WBYTES, &full[s]);

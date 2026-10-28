@@ -91,6 +91,14 @@ type TileGEMM struct {
 	// WeightNVFP4. StreamK and one-word DequantWords are not supported;
 	// DequantWords 2 uses RepackNVFP4Dequant2Word.
 	WarpSpecialized bool
+	// VectorActivationLoads replaces the warp-specialized activation bulk
+	// copies with aligned vector loads and shared stores. Every producer
+	// publishes its stores through an async-proxy fence and a 128-thread
+	// named barrier before thread 0 releases the full-stage mbarrier.
+	// It requires warp-specialized, repacked, two-word NVFP4 weights.
+	// The launcher returns cudaError_t; callers must check that status and
+	// separately observe asynchronous execution errors at their usual gate.
+	VectorActivationLoads bool
 	// BlackwellFP4, when Weight == WeightNVFP4 and !WGMMA, emits Blackwell
 	// (sm_100a / sm_120a / sm_121a GB10) hardware cvt.rn.f16x2.e2m1x2 nibble
 	// widening and block-scaled mma.sync.aligned.m16n8k64.kind::mxf4nvf4
@@ -191,6 +199,9 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	}
 	if g.CompactScales && (!swapAB || !g.Repacked) {
 		return g, fmt.Errorf("tile gemm %s: CompactScales requires warp-specialized repacked NVFP4", g.Name)
+	}
+	if g.VectorActivationLoads && (!swapAB || !g.Repacked || g.DequantWords != 2) {
+		return g, fmt.Errorf("tile gemm %s: VectorActivationLoads requires warp-specialized repacked two-word NVFP4", g.Name)
 	}
 	if swapAB && (!g.Repacked || g.SumSq) {
 		return g, fmt.Errorf("tile gemm %s: WarpSpecialized WeightNVFP4 requires Repacked and does not support SumSq", g.Name)
@@ -758,6 +769,8 @@ func tileCoord(b *strings.Builder, groupM int) {
 //
 // where m is x's row count and, when Grouped, max_rows bounds any expert's
 // rows (the grid is fixed by it, so the launch can be graph-captured).
+// With VectorActivationLoads, the return type is cudaError_t: attribute and
+// immediate launch errors are returned without a device synchronization.
 func (g TileGEMM) Launcher() (string, error) {
 	g, err := g.norm()
 	if err != nil {
@@ -774,6 +787,22 @@ func (g TileGEMM) Launcher() (string, error) {
 	rows, experts := "m", "1"
 	if g.Grouped {
 		head, rows, experts = "int m, int max_rows, int experts", "max_rows", "experts"
+	}
+	if g.VectorActivationLoads {
+		fmt.Fprintf(&b, "inline cudaError_t %s_launch(%s, %s, cudaStream_t stream) {\n", g.Name, head, strings.Join(params, ", "))
+		fmt.Fprintf(&b, "    constexpr int smem = %d;\n", g.SharedBytes())
+		if g.Grouped {
+			b.WriteString("    if (m < 0 || max_rows < 0 || experts < 0) return cudaErrorInvalidValue;\n")
+		} else {
+			b.WriteString("    if (m < 0) return cudaErrorInvalidValue;\n")
+		}
+		fmt.Fprintf(&b, "    const dim3 grid(%d, %s / %d + (%s %% %d != 0), %s), block(384);\n", g.N/g.BN, rows, g.BM, rows, g.BM, experts)
+		b.WriteString("    if (grid.y == 0 || grid.z == 0) return cudaSuccess;\n")
+		fmt.Fprintf(&b, "    const cudaError_t attr = cudaFuncSetAttribute(%s, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);\n", g.Name)
+		b.WriteString("    if (attr != cudaSuccess) return attr;\n")
+		fmt.Fprintf(&b, "    EG_LAUNCH(%s, grid, block, smem, stream, %s);\n", g.Name, strings.Join(names, ", "))
+		b.WriteString("    return cudaPeekAtLastError();\n}\n")
+		return b.String(), nil
 	}
 	fmt.Fprintf(&b, "inline void %s_launch(%s, %s, cudaStream_t stream) {\n", g.Name, head, strings.Join(params, ", "))
 	fmt.Fprintf(&b, "    constexpr int smem = %d;\n", g.SharedBytes())
