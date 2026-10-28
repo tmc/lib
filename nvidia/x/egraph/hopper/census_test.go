@@ -112,9 +112,11 @@ var censusRules = []struct {
 		name:  "no ld.global after the first bar.sync",
 		check: func(c ptxCensus) bool { return c.LateLoads == 0 },
 		exempt: map[string]string{
-			"moe8_align.cu":        "the scatter reads offsets the block computes",
-			"moe8_attn_sliding.cu": "the main loop reads the page table a step ahead of its copies; the last block reads the gate after the merge",
-			"moe8_expert_sum.cu":   "routes are read after the block sorts them",
+			"moe8_align.cu":              "the scatter reads offsets the block computes",
+			"moe8_attn_sliding.cu":       "the main loop reads the page table a step ahead of its copies; the last block reads the gate after the merge",
+			"moe8_expert_sum.cu":         "routes are read after the block sorts them",
+			"llama_pf_skinny_gate_up.cu": "the k loop streams weights across the barriers that stage each chunk of x",
+			"llama_pf_skinny_o_proj.cu":  "the k loop streams weights across the barriers that stage each chunk of x; the epilogue reads the residual",
 		},
 	},
 	{
