@@ -45,8 +45,15 @@
 //   - the same with a context synchronize after each disable: 1/5;
 //   - the same with a synchronize and a 50ms sleep after each load: 3/5;
 //   - no module at all: 5/5;
-//   - one module loaded before the first session: 5/5;
-//   - every session's module loaded before the first session: 5/5.
+//   - one module loaded before the first session: 5/5 and 4/5 in two
+//     batches; the one failure was the separate final-buffer loss error
+//     at Close, not an enable;
+//   - every session's module loaded before the first session: 5/5, and
+//     5/5 again in a later batch.
+//
+// In that later batch the autotune collector, preloading every candidate
+// module, passed 5/5, and its native qualification test 5/5; the collector
+// loading a module per session failed 5/5, every time at an enable.
 //
 // The CUPTI guide's PC sampling example configures and enables a context
 // once, samples ranges with Start and Stop, and disables it at the end. It
