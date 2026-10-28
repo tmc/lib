@@ -251,7 +251,25 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
         const eg_u32x4 q = *reinterpret_cast<const eg_u32x4*>(sa + XBYTES + ct * 16);
         const eg_u32x2 sc = *reinterpret_cast<const eg_u32x2*>(sa + XBYTES + WBYTES + ct * 8);
         const uint32_t qs[4] = {q.x, q.y, q.z, q.w};
+`)
+		if g.DequantWords == 2 {
+			b.WriteString(`#pragma unroll
+        for (int p = 0; p < 2; ++p) {
+            const uint32_t qpair[2] = {qs[2 * p], qs[2 * p + 1]};
+            uint32_t decoded[8];
+            eg_dequant_2w(qpair, decoded);
 #pragma unroll
+            for (int sub = 0; sub < 2; ++sub) {
+                const int ks = 2 * p + sub;
+                const uint32_t sw = (ks < 2 ? sc.x : sc.y) >> (16 * (ks & 1));
+                const uint32_t s0 = eg_scale_e4m3_bf16x2(sw), s1 = eg_scale_e4m3_bf16x2(sw >> 8);
+#pragma unroll
+                for (int j = 0; j < 4; ++j) av[ks][j] = eg_mul_bf16x2(decoded[4 * sub + j], (j & 1) ? s1 : s0);
+            }
+        }
+`)
+		} else {
+			b.WriteString(`#pragma unroll
         for (int ks = 0; ks < 4; ++ks) {
             // Scale byte 2*ks + h is row (lane/4) + 8h's scale for this 16 k.
             const uint32_t sw = (ks < 2 ? sc.x : sc.y) >> (16 * (ks & 1));
@@ -259,7 +277,9 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
 #pragma unroll
             for (int j = 0; j < 4; ++j) av[ks][j] = eg_mul_bf16x2(eg_wgmma_decode_nibble(qs[ks], j), (j & 1) ? s1 : s0);
         }
-        eg_wgmma_fence();
+`)
+		}
+		fmt.Fprintf(&b, `        eg_wgmma_fence();
 #pragma unroll
         for (int ks = 0; ks < 4; ++ks) %s(d, av[ks], eg_wgmma_desc_128b(sa + ks * 32, 1024));
         eg_wgmma_commit();

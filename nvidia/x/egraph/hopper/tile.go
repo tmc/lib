@@ -85,7 +85,8 @@ type TileGEMM struct {
 	// dequantized in registers from RepackNVFP4WGMMA fragments, each consumer
 	// warpgroup owning 64 of the tile's BN = 128 weight rows, and BM (64 or
 	// 128) tokens of x are the B operand. SumSq is not supported with
-	// WeightNVFP4. StreamK and DequantWords are not supported.
+	// WeightNVFP4. StreamK and one-word DequantWords are not supported;
+	// DequantWords 2 uses RepackNVFP4Dequant2Word.
 	WarpSpecialized bool
 	// BlackwellFP4, when Weight == WeightNVFP4 and !WGMMA, emits Blackwell
 	// (sm_100a / sm_120a / sm_121a GB10) hardware cvt.rn.f16x2.e2m1x2 nibble
@@ -182,8 +183,8 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.WarpSpecialized && (!g.WGMMA || !g.Swizzle128B) {
 		return g, fmt.Errorf("tile gemm %s: WarpSpecialized requires WGMMA and Swizzle128B", g.Name)
 	}
-	if g.WarpSpecialized && (g.StreamK > 0 || g.DequantWords > 0) {
-		return g, fmt.Errorf("tile gemm %s: WarpSpecialized does not support StreamK or DequantWords", g.Name)
+	if g.WarpSpecialized && (g.StreamK > 0 || g.DequantWords == 1) {
+		return g, fmt.Errorf("tile gemm %s: WarpSpecialized does not support StreamK or one-word DequantWords", g.Name)
 	}
 	if swapAB && (!g.Repacked || g.SumSq) {
 		return g, fmt.Errorf("tile gemm %s: WarpSpecialized WeightNVFP4 requires Repacked and does not support SumSq", g.Name)
