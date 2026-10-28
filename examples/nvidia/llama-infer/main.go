@@ -57,7 +57,7 @@ var (
 	benchFlag         = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
 	benchCountFlag    = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 	weightDTypeFlag   = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
-	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
+	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step, and an e-graph prefill of at most 32 tokens, as explicit CUDA graphs")
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
@@ -427,6 +427,11 @@ func runGPUInference(
 		defer closeDecodeGraph(td, &dg)
 		if dg, err = NewDecodeGraph(dev, gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn); err != nil {
 			return fmt.Errorf("build decode graph: %w", err)
+		}
+		if gm.eg != nil && gm.eg.pf != nil {
+			if err := gm.eg.buildPrefillGraph(dev, gpuWeights, cfg); err != nil {
+				return fmt.Errorf("build prefill graph: %w", err)
+			}
 		}
 		dg.SetSyncArbiter(newDecodeSyncArbiter(syncMode, nil))
 		bucketRunner, berr := newDecodeBucketRunner(1, dg)

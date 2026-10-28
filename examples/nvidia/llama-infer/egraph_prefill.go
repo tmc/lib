@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudagraph"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/egraph/hopper"
@@ -42,6 +44,8 @@ type egraphPrefill struct {
 	narrowIn, narrowPost [][]egraphLaunch // per layer
 	rope, attn           []egraphLaunch   // per layer; chunk arguments set per chunk
 	gather               driver.Function
+	graph                *cudagraph.Graph // with exec, from buildPrefillGraph
+	exec                 *cudagraph.Exec
 
 	tokens    cudamem.Slice[int32] // the prompt
 	positions cudamem.Slice[int32] // positions[i] = i
@@ -170,6 +174,38 @@ func (pf *egraphPrefill) launches() int {
 	return c
 }
 
+// chunk returns the launches of the prompt chunk of n rows at position
+// start, whose attention groups' lengths begin at seqLens[g0].
+func (pf *egraphPrefill) chunk(gpuW *GPUModelWeights, cfg *ModelConfig, start, n, g0 int) []egraphLaunch {
+	ls := []egraphLaunch{{fn: pf.gather, grid: [3]uint32{uint32(n), 1, 1}, block: [3]uint32{256, 1, 1}, epoch: -1,
+		args: []any{gpuW.EmbedTokens, pf.tokens.Ptr() + driver.DevicePtr(4*start), pf.x[0].Ptr(), int32(cfg.HiddenSize)}}}
+	positions := pf.positions.Ptr() + driver.DevicePtr(4*start)
+	seqLens := pf.seqLens.Ptr() + driver.DevicePtr(4*g0)
+	groups := (n + pf.qtok - 1) / pf.qtok
+	attnIn, post := pf.attnIn, pf.post
+	if n <= pf.narrow {
+		attnIn, post = pf.narrowIn, pf.narrowPost
+	}
+	for i := range cfg.NumHiddenLayers {
+		for _, l := range attnIn[i] {
+			ls = append(ls, l.withRows(n))
+		}
+		rope := pf.rope[i]
+		rope.args = slices.Clone(rope.args)
+		rope.args[2], rope.args[5] = positions, positions
+		rope.grid = [3]uint32{uint32(n), 1, 1}
+		a := pf.attn[i]
+		a.args = slices.Clone(a.args)
+		a.args[4] = seqLens
+		a.grid = [3]uint32{uint32(groups), uint32(cfg.NumKeyValueHeads), 1}
+		ls = append(ls, rope, a)
+		for _, l := range post[i] {
+			ls = append(ls, l.withRows(n))
+		}
+	}
+	return ls
+}
+
 // prefill runs prompt from position 0, filling the decoder's KV cache, and
 // leaves the argmax of the last token's logits in sp.TokenOut, which it
 // also returns.
@@ -197,6 +233,11 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 		groupStart = append(groupStart, len(lens))
 		lens = append(lens, prefillSeqLens(start, min(pf.rows, len(prompt)-start), pf.qtok)...)
 	}
+	// The graph runs all pf.narrow rows; see buildPrefillGraph.
+	graph := pf.exec != nil && len(prompt) <= pf.narrow
+	if graph {
+		lens = prefillSeqLens(0, pf.narrow, pf.qtok)
+	}
 	if err := pf.seqLens.CopyFromHost(lens); err != nil {
 		return 0, fmt.Errorf("upload attention lengths: %w", err)
 	}
@@ -205,49 +246,19 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 	launch := func(l egraphLaunch) error {
 		return cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]).SharedMem(l.smem).Launch(l.args...)
 	}
-	launchRows := func(ls []egraphLaunch, n int) error {
-		for _, l := range ls {
-			if err := launch(l.withRows(n)); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	var last driver.DevicePtr
 	for c, g0 := range groupStart {
 		start := c * pf.rows
 		n := min(pf.rows, len(prompt)-start)
-		groups := (n + pf.qtok - 1) / pf.qtok
-		if err := launch(egraphLaunch{fn: pf.gather, grid: [3]uint32{uint32(n), 1, 1}, block: [3]uint32{256, 1, 1},
-			args: []any{gpuW.EmbedTokens, pf.tokens.Ptr() + driver.DevicePtr(4*start), pf.x[0].Ptr(), int32(h)}}); err != nil {
-			return 0, err
-		}
-		positions := pf.positions.Ptr() + driver.DevicePtr(4*start)
-		seqLens := pf.seqLens.Ptr() + driver.DevicePtr(4*g0)
-		attnIn, post := pf.attnIn, pf.post
-		if n <= pf.narrow {
-			attnIn, post = pf.narrowIn, pf.narrowPost
-		}
-		for i := range cfg.NumHiddenLayers {
-			if err := launchRows(attnIn[i], n); err != nil {
+		if graph {
+			if err := pf.exec.Launch(nil); err != nil {
 				return 0, err
 			}
-			rope := pf.rope[i]
-			rope.args = append([]any(nil), rope.args...)
-			rope.args[2], rope.args[5] = positions, positions
-			rope.grid = [3]uint32{uint32(n), 1, 1}
-			if err := launch(rope); err != nil {
-				return 0, err
-			}
-			a := pf.attn[i]
-			a.args = append([]any(nil), a.args...)
-			a.args[4] = seqLens
-			a.grid = [3]uint32{uint32(groups), uint32(cfg.NumKeyValueHeads), 1}
-			if err := launch(a); err != nil {
-				return 0, err
-			}
-			if err := launchRows(post[i], n); err != nil {
-				return 0, err
+		} else {
+			for _, l := range pf.chunk(gpuW, cfg, start, n, g0) {
+				if err := launch(l); err != nil {
+					return 0, err
+				}
 			}
 		}
 		last = pf.x[cfg.NumHiddenLayers%2].Ptr() + driver.DevicePtr(4*h*(n-1))
@@ -279,7 +290,8 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 }
 
 func (pf *egraphPrefill) free() error {
-	return errors.Join(freeOwned(&pf.tokens), freeOwned(&pf.positions), freeOwned(&pf.seqLens), freeOwned(&pf.seqIDs),
+	return errors.Join(pf.exec.Destroy(), pf.graph.Destroy(),
+		freeOwned(&pf.tokens), freeOwned(&pf.positions), freeOwned(&pf.seqLens), freeOwned(&pf.seqIDs),
 		freeOwned(&pf.pages), freeOwned(&pf.x[0]), freeOwned(&pf.x[1]), freeOwned(&pf.qkv), freeOwned(&pf.q),
 		freeOwned(&pf.attnOut))
 }
