@@ -19,13 +19,13 @@ func TestTrainingOTLPRejectsUnpairedSurrogates(t *testing.T) {
 	options := nvtelemetry.TrainingWorkloadOTLPOptions{UnixClockProvenance: "controlled Unix seconds"}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			e, err := nvtelemetry.ReadWandBHistory(strings.NewReader(tc.raw), source, nvtelemetry.WorkloadLimits{})
-			if err != nil {
-				t.Fatalf("reader rejected baseline: %v", err)
+			if _, err := nvtelemetry.ReadWandBHistory(strings.NewReader(tc.raw), source, nvtelemetry.WorkloadLimits{}); err == nil {
+				t.Error("reader accepted invalid Unicode")
 			}
+			e := nvtelemetry.WorkloadExport{Source: source, Raw: []byte(tc.raw)}
 			var out bytes.Buffer
-			if err := nvtelemetry.WriteTrainingWorkloadOTLP(&out, e, options); err == nil {
-				t.Error("invalid Unicode accepted")
+			if err := nvtelemetry.WriteTrainingWorkloadOTLP(&out, e, options); err == nil || !strings.Contains(err.Error(), "workload JSON is not valid Unicode") {
+				t.Errorf("WriteTrainingWorkloadOTLP error = %v, want Unicode refusal", err)
 			}
 			if out.Len() != 0 {
 				t.Errorf("wrote %d bytes on refusal", out.Len())
@@ -53,13 +53,13 @@ func TestTrainingOTLPValidUnicodeEscapes(t *testing.T) {
 func TestTrainingOTLPRejectsMLflowUnpairedSurrogates(t *testing.T) {
 	const raw = `{"metrics":[{"key":"\ud800","value":1,"timestamp":1000,"step":0},{"key":"\ud801","value":2,"timestamp":2000,"step":1}]}`
 	source := nvtelemetry.WorkloadSource{Provider: "mlflow", Version: "2.22.0", RunID: "controlled", ClockDomain: "unix_utc"}
-	e, err := nvtelemetry.ReadMLflowHistory(strings.NewReader(raw), source, nvtelemetry.WorkloadLimits{})
-	if err != nil {
-		t.Fatalf("reader rejected baseline: %v", err)
+	if _, err := nvtelemetry.ReadMLflowHistory(strings.NewReader(raw), source, nvtelemetry.WorkloadLimits{}); err == nil {
+		t.Error("reader accepted invalid Unicode")
 	}
+	e := nvtelemetry.WorkloadExport{Source: source, Raw: []byte(raw)}
 	var out bytes.Buffer
-	if err := nvtelemetry.WriteTrainingWorkloadOTLP(&out, e, nvtelemetry.TrainingWorkloadOTLPOptions{UnixClockProvenance: "controlled Unix milliseconds"}); err == nil {
-		t.Error("invalid Unicode accepted")
+	if err := nvtelemetry.WriteTrainingWorkloadOTLP(&out, e, nvtelemetry.TrainingWorkloadOTLPOptions{UnixClockProvenance: "controlled Unix milliseconds"}); err == nil || !strings.Contains(err.Error(), "workload JSON is not valid Unicode") {
+		t.Errorf("WriteTrainingWorkloadOTLP error = %v, want Unicode refusal", err)
 	}
 	if out.Len() != 0 {
 		t.Errorf("wrote %d bytes on refusal", out.Len())

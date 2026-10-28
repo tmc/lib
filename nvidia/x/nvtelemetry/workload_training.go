@@ -9,7 +9,9 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 type workloadJSONNumber string
@@ -34,6 +36,9 @@ func (n *workloadJSONNumber) UnmarshalJSON(raw []byte) error {
 }
 
 func decodeWorkloadJSON(raw []byte, dst any) error {
+	if !utf8.Valid(raw) || !validJSONUnicodeScalars(raw) {
+		return errors.New("workload JSON is not valid Unicode")
+	}
 	// encoding/json normally accepts duplicate object keys. That would erase
 	// contradictory producer identities, timestamps or metric values.
 	check := json.NewDecoder(bytes.NewReader(raw))
@@ -261,4 +266,55 @@ func ReadClearMLScalars(r io.Reader, s WorkloadSource, l WorkloadLimits) (Worklo
 		e.Metrics = append(e.Metrics, p)
 	}
 	return e, nil
+}
+
+// validJSONUnicodeScalars rejects unpaired UTF-16 surrogate escapes inside
+// JSON strings. encoding/json otherwise replaces them with U+FFFD, which can
+// merge distinct producer metric names. The reader still validates JSON syntax.
+func validJSONUnicodeScalars(raw []byte) bool {
+	inString := false
+	for i := 0; i < len(raw); i++ {
+		if !inString {
+			if raw[i] == '"' {
+				inString = true
+			}
+			continue
+		}
+		if raw[i] == '"' {
+			inString = false
+			continue
+		}
+		if raw[i] != '\\' {
+			continue
+		}
+		i++
+		if i >= len(raw) {
+			return false
+		}
+		if raw[i] != 'u' {
+			continue
+		}
+		if i+4 >= len(raw) {
+			return false
+		}
+		v, err := strconv.ParseUint(string(raw[i+1:i+5]), 16, 16)
+		if err != nil {
+			return false
+		}
+		i += 4
+		if v >= 0xdc00 && v <= 0xdfff {
+			return false
+		}
+		if v >= 0xd800 && v <= 0xdbff {
+			if i+6 >= len(raw) || raw[i+1] != '\\' || raw[i+2] != 'u' {
+				return false
+			}
+			low, err := strconv.ParseUint(string(raw[i+3:i+7]), 16, 16)
+			if err != nil || low < 0xdc00 || low > 0xdfff {
+				return false
+			}
+			i += 6
+		}
+	}
+	return !inString
 }
