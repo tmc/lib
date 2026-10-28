@@ -27,6 +27,12 @@
 //     tensors in place from a read-only mapping, [PlanStream] schedules
 //     copy/repack overlap on two streams as a host model, and
 //     [SwizzleRepackCUDA] emits the device repack kernel.
+//   - [PackAOTArtifact] checks a fatbin ([InspectFatbin]) against per-target
+//     [ArchLaunchSpec] launch geometry and TMA descriptor templates, and the
+//     resulting [AOTArtifact] emits a standalone go:embed package that
+//     loads and launches it through nvidia/driver without cgo
+//     ([AOTArtifact.EmitGoEmbedPackage]) or a C header
+//     ([AOTArtifact.EmitCHeader]).
 //
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.
