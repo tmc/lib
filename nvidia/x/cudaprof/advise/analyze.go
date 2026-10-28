@@ -475,7 +475,8 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	markUnreadSources(report, unread)
 
 	// Finalize device times and rank findings by device time
-	report.SampleOnly = !hasTiming
+	report.NoProfileSamples = cap.Profile == nil || len(cap.Profile.Sample) == 0
+	report.SampleOnly = !hasTiming && !report.NoProfileSamples
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
 	classifyProfileShares(cap, report, source)
 	for _, item := range report.Items {

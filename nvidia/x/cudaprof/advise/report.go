@@ -218,6 +218,11 @@ type Report struct {
 	// "17.66% of observed samples" as "17.66% of elapsed time".
 	SampleOnly bool `json:"sample_only,omitempty"`
 
+	// NoProfileSamples reports an absent profile population. Compiler-only
+	// artifact envelopes can still yield static findings, but they do not
+	// establish that PC sampling observed any execution.
+	NoProfileSamples bool `json:"profile_samples_absent,omitempty"`
+
 	// SpanNanos is the captured device span, when a duty-cycle reading
 	// established one. Cost headers state a finding's share of device time,
 	// which is a share of however long the device was busy -- on an idle
@@ -245,6 +250,8 @@ type Report struct {
 // sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
 // only tier that records launch counts and inter-launch gaps, so on a
 // sample-only capture device idle is unmeasured rather than absent.
+const noProfileSamplesCaveat = "> **This input retains no profile samples.** Compiler artifacts alone do not establish runtime cost, sampled hot spots, or device idle. Capture a matched workload with activity tracing for runtime attribution.\n\n"
+
 const sampleOnlyCaveat = "> **This capture is PC samples only.** A share of observed samples says where " +
 	"execution was, and is *not a share of elapsed time*. PC sampling cannot observe " +
 	"device idle between launches; capture with activity tracing to measure that.\n\n"
@@ -266,7 +273,9 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 
 	var sb strings.Builder
 	sb.WriteString("# CUDA Kernel Advice Report\n\n")
-	if r.SampleOnly {
+	if r.NoProfileSamples {
+		sb.WriteString(noProfileSamplesCaveat)
+	} else if r.SampleOnly {
 		sb.WriteString(sampleOnlyCaveat)
 	}
 	if r.SourceFusion != "" {
