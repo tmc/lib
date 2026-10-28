@@ -48,6 +48,39 @@ var (
 	}
 )
 
+// Per-compute-capability limits before Hopper, and at 11.0. Nothing before
+// 9.0 has thread block clusters or Tensor Memory.
+func preHopper(cc string, optinKB, smKB, threads, blocks int64) Profile {
+	return Profile{
+		SharedPerBlock:      sheet(48<<10, "[cc] Table 31 note 3: above 48 KB a block needs dynamic shared memory and an opt-in"),
+		SharedPerBlockOptin: sheet(optinKB<<10, "[cc] Table 31: per thread block at "+cc),
+		SharedPerSM:         sheet(smKB<<10, "[cc] Table 31: per SM at "+cc),
+		ThreadsPerSM:        sheet(threads, "[cc] Table 30: resident threads per SM at "+cc),
+		BlocksPerSM:         sheet(blocks, "[cc] Table 30: resident blocks per SM at "+cc),
+		TMEMPerSM:           sheet(0, "no Tensor Memory before 10.0"),
+		ClusterSize:         sheet(0, "no thread block clusters before 9.0"),
+		ClusterSizeOptin:    sheet(0, "no thread block clusters before 9.0"),
+	}
+}
+
+var (
+	turing   = preHopper("7.5", 64, 64, 1024, 16)
+	ampereDC = preHopper("8.0", 163, 164, 2048, 32)
+	ampere   = preHopper("8.6", 99, 100, 1536, 16)
+	orin     = preHopper("8.7", 163, 164, 1536, 16)
+	ada      = preHopper("8.9", 99, 100, 1536, 24)
+	thor     = Profile{
+		SharedPerBlock:      sheet(48<<10, "[cc] Table 31 note 3: above 48 KB a block needs dynamic shared memory and an opt-in"),
+		SharedPerBlockOptin: sheet(227<<10, "[cc] Table 31: 227 KB per thread block at 11.0"),
+		SharedPerSM:         sheet(228<<10, "[cc] Table 31: 228 KB per SM at 11.0"),
+		ThreadsPerSM:        sheet(1536, "[cc] Table 30: 1536 resident threads per SM at 11.0"),
+		BlocksPerSM:         sheet(24, "[cc] Table 30: 24 resident blocks per SM at 11.0"),
+		TMEMPerSM:           sheet(256<<10, "uncertain: [ptx] gives 128 lanes × 512 columns × 4 bytes for tcgen05 targets, and ptxas accepts tcgen05 for sm_110a; no source states Thor's TMEM"),
+		ClusterSize:         sheet(8, "[cluster] the portable maximum"),
+		ClusterSizeOptin:    sheet(8, "uncertain: no source documents a non-portable cluster size at 11.0, so this is the portable maximum"),
+	}
+)
+
 // datasheet lists one Profile per product. The first product of a target
 // is the one a bare target name selects.
 var datasheet = []Profile{
@@ -107,6 +140,46 @@ var datasheet = []Profile{
 		p.SMs = sheet(48, "[product] DGX Spark GB10; replaced by the probe")
 		p.MemoryGBps = sheet(273, "[product] DGX Spark: 273 GB/s LPDDR5x; a streaming kernel on dgx sustains about 238")
 		p.NVLinkGBps = sheet(0, "[product] no GPU-to-GPU NVLink; NVLink-C2C joins the GPU to the Grace CPU")
+	}),
+	product("sm_110a", "Thor", thor, func(p *Profile) {
+		p.SMs = sheet(20, "uncertain: [product] Jetson AGX Thor has 2560 CUDA cores, 20 SMs at 128 per SM; its 96 Tensor Cores would make 24 at 4 per SM")
+		p.MemoryGBps = sheet(273, "[product] Jetson AGX Thor: 273 GB/s LPDDR5X")
+		p.NVLinkGBps = sheet(0, "[product] no NVLink")
+	}),
+	product("sm_89", "L40S", ada, func(p *Profile) {
+		p.SMs = sheet(142, "[product] L40S: 18176 CUDA cores, 128 per SM")
+		p.MemoryGBps = sheet(864, "[product] L40S: 864 GB/s GDDR6")
+		p.NVLinkGBps = sheet(0, "[product] no NVLink")
+	}),
+	product("sm_89", "L4", ada, func(p *Profile) {
+		p.SMs = sheet(58, "[product] L4: 7424 CUDA cores, 128 per SM")
+		p.MemoryGBps = sheet(300, "[product] L4: 300 GB/s GDDR6")
+		p.NVLinkGBps = sheet(0, "[product] no NVLink")
+	}),
+	product("sm_89", "RTX 4090", ada, func(p *Profile) {
+		p.SMs = sheet(128, "[product] RTX 4090: 16384 CUDA cores, 128 per SM")
+		p.MemoryGBps = sheet(1008, "[product] RTX 4090: 1008 GB/s GDDR6X")
+		p.NVLinkGBps = sheet(0, "[product] no NVLink")
+	}),
+	product("sm_87", "Orin", orin, func(p *Profile) {
+		p.SMs = sheet(16, "[product] Jetson AGX Orin 64GB: 2048 CUDA cores, 128 per SM")
+		p.MemoryGBps = sheet(204, "[product] Jetson AGX Orin 64GB: 204.8 GB/s LPDDR5")
+		p.NVLinkGBps = sheet(0, "[product] no NVLink")
+	}),
+	product("sm_86", "A10", ampere, func(p *Profile) {
+		p.SMs = sheet(72, "[product] A10: 9216 CUDA cores, 128 per SM")
+		p.MemoryGBps = sheet(600, "[product] A10: 600 GB/s GDDR6")
+		p.NVLinkGBps = sheet(0, "[product] no NVLink")
+	}),
+	product("sm_80", "A100", ampereDC, func(p *Profile) {
+		p.SMs = sheet(108, "[product] A100: 108 SMs (6912 CUDA cores, 64 per SM)")
+		p.MemoryGBps = sheet(2039, "[product] A100 80GB SXM: 2039 GB/s HBM2e; the 40GB part has 1555")
+		p.NVLinkGBps = sheet(600, "[product] A100 SXM: NVLink 3, 600 GB/s")
+	}),
+	product("sm_75", "T4", turing, func(p *Profile) {
+		p.SMs = sheet(40, "[product] T4: 2560 CUDA cores, 64 per SM")
+		p.MemoryGBps = sheet(320, "[product] T4: 320 GB/s GDDR6")
+		p.NVLinkGBps = sheet(0, "[product] no NVLink")
 	}),
 }
 
