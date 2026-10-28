@@ -83,6 +83,7 @@ func TestDecodeNativeHarnessBuilds(t *testing.T) {
 		"cudaGraphCondTypeWhile",
 		"tree_verify_native_reserve",
 		"PASS TreeSpecVerify",
+		"PASS GrammarSampler",
 		"DECODE_NATIVE_OK",
 	} {
 		if !strings.Contains(src, want) {
@@ -95,6 +96,7 @@ func buildDecodeNativeHarness(t *testing.T) string {
 	t.Helper()
 	cases := []decodeNativeCase{
 		treeSpecNativeCase(t),
+		samplerNativeCase(t),
 	}
 	var b strings.Builder
 	b.WriteString("#include <cuda_runtime.h>\n#include <cstdio>\n#include <cstring>\n#include <cmath>\n#include <vector>\n")
@@ -291,4 +293,113 @@ func treeSpecNativeCase(t *testing.T) decodeNativeCase {
 		s.Batch, s.MaxPages, s.PageSize, s.PageSize, s.PageSize, s.KVWords, s.KVWords,
 	)
 	return decodeNativeCase{name: "TreeSpecVerify", src: src.String(), main: m.String()}
+}
+
+// samplerNativeCase samples 32 rows of a 2053-token vocabulary greedily and
+// stochastically. Every token must be allowed by its row's grammar and lie
+// in the reference support; greedy tokens must equal the host's, and
+// stochastic ones may differ from the host's only at near ties of exp and
+// log rounding (at most 3 of 32 rows).
+func samplerNativeCase(t *testing.T) decodeNativeCase {
+	t.Helper()
+	const (
+		v    = 2053
+		rows = 32
+	)
+	r := rand.New(rand.NewPCG(18, 64))
+	var logits []float32
+	var mask, seen []uint32
+	var masks []GrammarBitmask
+	var seens [][]uint32
+	var steps []uint64
+	for i := range rows {
+		l, m, sn := randomSamplerRow(r, v)
+		logits = append(logits, l...)
+		mask = append(mask, m.Words...)
+		seen = append(seen, sn...)
+		masks = append(masks, m)
+		seens = append(seens, sn)
+		steps = append(steps, uint64(1000+i))
+	}
+	var src, m strings.Builder
+	fmt.Fprintf(&src, "static const uint32_t gs_logits[] = {%s};\n", cWords(f32le(logits)))
+	fmt.Fprintf(&src, "static const uint32_t gs_mask[] = {%s};\n", cWords(u32le(mask)))
+	fmt.Fprintf(&src, "static const uint32_t gs_seen[] = {%s};\n", cWords(u32le(seen)))
+	stepWords := make([]uint32, 0, 2*rows)
+	for _, st := range steps {
+		stepWords = append(stepWords, uint32(st), uint32(st>>32))
+	}
+	fmt.Fprintf(&src, "static const uint32_t gs_steps[] = {%s};\n", cWords(u32le(stepWords)))
+	fmt.Fprintf(&m, `        float* logits = reinterpret_cast<float*>(dn_dup(gs_logits, %d));
+        uint32_t* mask = dn_dup(gs_mask, %d);
+        uint32_t* seen = dn_dup(gs_seen, %d);
+        uint64_t* steps = reinterpret_cast<uint64_t*>(dn_dup(gs_steps, %d));
+        int32_t* tokens = nullptr;
+        float* logprobs = nullptr;
+        if (!logits || !mask || !seen || !steps) return 2;
+        DN_CHECK(cudaMalloc(&tokens, %d * sizeof(int32_t)));
+        DN_CHECK(cudaMalloc(&logprobs, %d * sizeof(float)));
+`, len(logits), len(mask), len(seen), len(stepWords), rows, rows)
+	for i, p := range []SamplingParams{
+		{},
+		{Temperature: 0.8, TopK: 40, TopP: 0.9, MinP: 0.02, RepetitionPenalty: 1.2},
+	} {
+		p.VocabSize, p.Seed = v, 0xabcdef12345+uint64(i)
+		g := GrammarSampler{Name: fmt.Sprintf("grammar_sampler_native_%d", i), Params: p}
+		k, err := g.CUDA()
+		if err != nil {
+			t.Fatal(err)
+		}
+		l, err := g.Launcher()
+		if err != nil {
+			t.Fatal(err)
+		}
+		src.WriteString(k + l)
+		want := make([]int32, rows)
+		support := make([]uint32, rows*((v+31)/32))
+		for row := range rows {
+			lr := logits[row*v : (row+1)*v]
+			want[row], _, err = g.Sample(lr, masks[row], seens[row], steps[row])
+			if err != nil {
+				t.Fatal(err)
+			}
+			probs, err := p.Probs(lr, masks[row], seens[row])
+			if err != nil {
+				t.Fatal(err)
+			}
+			for tok, pr := range probs {
+				if pr > 0 {
+					support[row*((v+31)/32)+tok/32] |= 1 << (tok % 32)
+				}
+			}
+		}
+		fmt.Fprintf(&src, "static const int32_t gs_want_%d[] = {%s};\n", i, formatI32List(want))
+		fmt.Fprintf(&src, "static const uint32_t gs_support_%d[] = {%s};\n", i, cWords(u32le(support)))
+		maxDiff := 3
+		if p.greedy() {
+			maxDiff = 0
+		}
+		fmt.Fprintf(&m, `        {
+            %s_launch(%d, logits, mask, seen, steps, tokens, logprobs, 0);
+            DN_CHECK(cudaDeviceSynchronize());
+            auto got = dn_get(tokens, %d);
+            int diff = 0;
+            for (int row = 0; row < %d; ++row) {
+                const int tok = got[row], w = (%d + 31) / 32;
+                if (tok < 0 || tok >= %d || !((gs_mask[row * w + tok / 32] >> (tok %% 32)) & 1u)) {
+                    std::printf("FAIL GrammarSampler %s row %%d token %%d disallowed\n", row, tok);
+                    return 4;
+                }
+                if (!((gs_support_%d[row * w + tok / 32] >> (tok %% 32)) & 1u)) {
+                    std::printf("FAIL GrammarSampler %s row %%d token %%d outside support\n", row, tok);
+                    return 4;
+                }
+                diff += tok != gs_want_%d[row];
+            }
+            if (diff > %d) { std::printf("FAIL GrammarSampler %s %%d rows differ from host\n", diff); return 4; }
+            std::printf("PASS GrammarSampler %s rows=%d host_mismatch=%%d\n", diff);
+        }
+`, g.Name, rows, rows, rows, v, v, g.Name, i, g.Name, i, maxDiff, g.Name, g.Name, rows)
+	}
+	return decodeNativeCase{name: "GrammarSampler", src: src.String(), main: m.String()}
 }
