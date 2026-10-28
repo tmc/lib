@@ -42,7 +42,7 @@ type SkinnyMMA struct {
 	Steps  int // steps of weight loads in flight per warp; 0 means 2
 	KChunk int // columns of x staged at once; 0 means at most 512
 	// SplitK is the number of blocks along K; 0 chooses the fewest that
-	// give at least two blocks per multiprocessor.
+	// give at least three blocks per multiprocessor.
 	SplitK int
 	SMs    int // multiprocessors to fill; 0 means 132
 }
@@ -109,12 +109,14 @@ func (g SkinnyMMA) norm() (SkinnyMMA, error) {
 		return g, fmt.Errorf("skinny mma %s: K %d not a multiple of %d", g.Name, g.K, unit)
 	}
 	if g.SplitK == 0 {
-		// The fewest splits of K into whole units that fill the device
-		// twice over, or one unit per block.
+		// The fewest splits of K into whole units that give three blocks
+		// per multiprocessor, or one unit per block. On GB10 (48 SMs),
+		// 128 blocks of 4096 rows stream about 4% faster split two ways;
+		// 192 blocks gain nothing from a split.
 		units, blocks := g.K/unit, g.N/rows
 		g.SplitK = units
 		for s := 1; s <= units; s++ {
-			if units%s == 0 && blocks*s >= 2*g.SMs {
+			if units%s == 0 && blocks*s >= 3*g.SMs {
 				g.SplitK = s
 				break
 			}

@@ -110,11 +110,13 @@ func TestSkinnyMMASchedule(t *testing.T) {
 		grid                 [3]int
 		kchunk, smem, wsSize int
 	}{
-		// Llama-3-8B prefill projections on GB10's 48 SMs need no split.
+		// On GB10's 48 SMs the 6144- and 28672-row Llama-3-8B prefill
+		// projections need no split; the 4096-row ones split two ways.
 		{"qkv", SkinnyMMA{N: 6144, K: 4096, MaxM: 32, Out: BF16, SMs: 48}, [3]int{192, 1, 1}, 512, 32 * 544 * 2, 0},
 		{"gate_up", SkinnyMMA{N: 28672, K: 4096, MaxM: 32, Out: F32, SMs: 48}, [3]int{896, 1, 1}, 512, 32 * 544 * 2, 0},
 		{"gate_up_glu", SkinnyMMA{N: 28672, K: 4096, MaxM: 32, Out: BF16, SMs: 48, GLU: true}, [3]int{448, 1, 1}, 512, 32 * 544 * 2, 0},
-		{"down", SkinnyMMA{N: 4096, K: 14336, MaxM: 32, Out: F32, SMs: 48}, [3]int{128, 1, 1}, 512, 32 * 544 * 2, 0},
+		{"o_proj", SkinnyMMA{N: 4096, K: 4096, MaxM: 32, Out: F32, SMs: 48}, [3]int{128, 2, 1}, 512, 32 * 544 * 2, 4*2*32*4096 + 4*128},
+		{"down", SkinnyMMA{N: 4096, K: 14336, MaxM: 32, Out: F32, SMs: 48}, [3]int{128, 2, 1}, 512, 32 * 544 * 2, 4*2*32*4096 + 4*128},
 		// On 132 SMs they split K: o_proj 3 ways would not divide K.
 		{"o_proj_132", SkinnyMMA{N: 4096, K: 4096, MaxM: 32, Out: F32}, [3]int{128, 4, 1}, 512, 32 * 544 * 2, 4*4*32*4096 + 4*128},
 		{"down_132", SkinnyMMA{N: 4096, K: 14336, MaxM: 16, Out: F32}, [3]int{128, 4, 1}, 512, 16 * 544 * 2, 4*4*16*4096 + 4*128},
@@ -262,5 +264,5 @@ func ExampleSkinnyMMA() {
 	g := SkinnyMMA{Name: "down", N: 4096, K: 14336, MaxM: 32, Out: F32, SMs: 48}
 	grid, block, _ := g.Grid()
 	fmt.Println(grid, block, g.SharedBytes())
-	// Output: [128 1 1] [128 1 1] 34816
+	// Output: [128 2 1] [128 1 1] 34816
 }

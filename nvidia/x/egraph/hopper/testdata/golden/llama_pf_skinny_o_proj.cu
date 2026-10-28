@@ -414,15 +414,16 @@ EG_DEV float eg_sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 EG_DEV float eg_silu(float x) { return x / (1.0f + expf(-x)); }
 #endif // EG_PRELUDE
 
-// llama_pf_skinny_o_proj: out = (add $0 $1) over x[M, 4096] · W[4096, 4096]ᵀ (bf16), M <= 32; 4 warps of 1 8-row tiles, 1-way split K.
+// llama_pf_skinny_o_proj: out = (add $0 $1) over x[M, 4096] · W[4096, 4096]ᵀ (bf16), M <= 32; 4 warps of 1 8-row tiles, 2-way split K.
 __global__ void __launch_bounds__(128) llama_pf_skinny_o_proj(
     int m_total,
     const uint16_t* __restrict__ x,
     const uint16_t* __restrict__ w,
     const float* __restrict__ e1,
-    float* __restrict__ out) {
+    float* __restrict__ out,
+    float* __restrict__ ws) {
     constexpr int N = 4096, K = 4096, NOUT = N, MP = 32, MT = MP / 16;
-    constexpr int WARPS = 4, NT = 1, C = 2, U = 2, SPLIT = 1, KS = K / SPLIT, KC = 512;
+    constexpr int WARPS = 4, NT = 1, C = 2, U = 2, SPLIT = 2, KS = K / SPLIT, KC = 512;
     constexpr int SS = 32 * C;    // columns per step: lane q holds 8 at 8·(4c + q), c < C
     constexpr int LDX = KC + 32;  // x row stride in shared memory
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane >> 2, q = lane & 3;
@@ -484,6 +485,45 @@ __global__ void __launch_bounds__(128) llama_pf_skinny_o_proj(
                 }
         }
     }
+    constexpr int MAXM = 32;
+    // Split K: publish this block's partial; the last block of the column group reduces.
+    int* const counters = reinterpret_cast<int*>(ws + (size_t)SPLIT * MAXM * N);
+    __shared__ int is_last;
+#pragma unroll
+    for (int mt = 0; mt < MT; ++mt)
+#pragma unroll
+        for (int nt = 0; nt < NT; ++nt)
+#pragma unroll
+            for (int h = 0; h < 2; ++h) {
+                const int m = mt * 16 + g + 8 * h;
+                if (m < m_total)
+                    *reinterpret_cast<float2*>(&ws[((size_t)blockIdx.y * MAXM + m) * N + wrow[nt] + 2 * q]) =
+                        float2{acc[mt][nt][2 * h], acc[mt][nt][2 * h + 1]};
+            }
+    __threadfence();
+    __syncthreads();
+    if (tid == 0) is_last = atomicAdd(&counters[blockIdx.x], 1) == SPLIT - 1;
+    __syncthreads();
+    if (!is_last) return;
+    __threadfence();
+#pragma unroll
+    for (int mt = 0; mt < MT; ++mt)
+#pragma unroll
+        for (int nt = 0; nt < NT; ++nt)
+#pragma unroll
+            for (int h = 0; h < 2; ++h) {
+                const int m = mt * 16 + g + 8 * h;
+                if (m >= m_total) continue;
+                float2 v = {0.0f, 0.0f};
+                for (int sp = 0; sp < SPLIT; ++sp) {
+                    const float2 p = eg_ld_cg2(&ws[((size_t)sp * MAXM + m) * N + wrow[nt] + 2 * q]);
+                    v.x += p.x;
+                    v.y += p.y;
+                }
+                acc[mt][nt][2 * h] = v.x;
+                acc[mt][nt][2 * h + 1] = v.y;
+            }
+    if (tid == 0) counters[blockIdx.x] = 0;
 #pragma unroll
     for (int mt = 0; mt < MT; ++mt)
 #pragma unroll
@@ -502,10 +542,10 @@ __global__ void __launch_bounds__(128) llama_pf_skinny_o_proj(
             }
 }
 
-inline void llama_pf_skinny_o_proj_launch(int m, const uint16_t* __restrict__ x, const uint16_t* __restrict__ w, const float* __restrict__ e1, float* __restrict__ out, cudaStream_t stream) {
+inline void llama_pf_skinny_o_proj_launch(int m, const uint16_t* __restrict__ x, const uint16_t* __restrict__ w, const float* __restrict__ e1, float* __restrict__ out, float* __restrict__ ws, cudaStream_t stream) {
     constexpr int smem = 34816;
     static const cudaError_t attr = cudaFuncSetAttribute(llama_pf_skinny_o_proj, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
     (void)attr;
-    const dim3 grid(128, 1), block(128);
-    if (m > 0) EG_LAUNCH(llama_pf_skinny_o_proj, grid, block, smem, stream, m, x, w, e1, out);
+    const dim3 grid(128, 2), block(128);
+    if (m > 0) EG_LAUNCH(llama_pf_skinny_o_proj, grid, block, smem, stream, m, x, w, e1, out, ws);
 }
