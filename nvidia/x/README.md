@@ -145,6 +145,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [perfetto](perfetto/) | Package perfetto implements a streaming wire-format encoder for Perfetto trace files (.pftrace) compatible with the Chrome / Perfetto UI trace viewer. |
 | [ptxasinfo](ptxasinfo/) | Package ptxasinfo parses the resource report that ptxas prints with -v (--verbose), as in nvcc -Xptxas -v. |
 | [puffernet](puffernet/) | Package puffernet runs the default PufferLib 5.0 policy network on CUDA. |
+| [rankgroup](rankgroup/) | Package rankgroup runs the ranks of a tensor-parallel group from one process, either all on one GPU or one per GPU, and sums buffers across them through an [AllReducer]. |
 | [safetensors](safetensors/) | Package safetensors reads and writes the Hugging Face safetensors format. |
 | [sassequiv](sassequiv/) | Package sassequiv compares two compilations of a kernel, from their SASS, to find a change in what they compute. |
 | [tcgen05](tcgen05/) | Package tcgen05 implements Blackwell (sm_100a, sm_103a, sm_100f, sm_103f) and Vera Rubin (sm_107a, sm_107f) Tensor Memory (TMEM) Fifth- and Sixth-Generation Tensor Core (tcgen05 / PTX ISA 9.4), FlashAttention-4 paged and absorbed Multi-head Latent Attention (MLA), 2:4 structured sparsity and spcompress, and Cluster Launch Control (CLC) kernel emitters, hardware descriptors, and GB200/GB300/VR200 residency planners. |
