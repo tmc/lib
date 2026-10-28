@@ -22,6 +22,23 @@
 // [Solution.Source] gives the packing: which input bit each output bit
 // reads.
 //
+// # Epilogue DAGs
+//
+// [SynthesizeEpilogueDAG] shortens a straight-line, multi-output epilogue
+// ([EpilogueDAG]) of integer, float32 and E2M1-conversion operations: it
+// merges common subexpressions, rebalances associative chains, replaces
+// small windows with smaller programs found by bounded enumeration, and
+// list-schedules the result against its tcgen05.ld load groups to lower
+// the live register count. Unlike [Solve], it is not exact: the search is
+// bounded and equivalence is tested on boundary and random vectors
+// ([TestVectors], [CheckEquivalent]), not proved. The E2M1 rounding and
+// float32 NaN results are this package's model of the PTX instructions,
+// not observed on hardware.
+//
+// [EpilogueDAG.PTX] emits the result for sm_100a. [VerifyWaitDataflow]
+// checks that no register a tcgen05.ld loads is touched before a
+// tcgen05.wait::ld, and [CoalesceWaits] sinks and merges those waits.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.
 package bitopt
