@@ -35,4 +35,9 @@
 // layouts in [cudahostemu] and [tcgen05], and checks that each computes
 // every scaled term exactly once; [VerifyAllTargetISAs] runs it against
 // sm_90a for all six targets.
+//
+// Performance regressions: [Roofline] places measured kernels under a
+// measured bandwidth and compute ceiling, and [CompareRuns] flags kernels
+// whose median duration rose past a threshold with a significant sign
+// test, refusing a baseline measured against a different ceiling.
 package qualify
