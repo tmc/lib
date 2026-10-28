@@ -431,3 +431,52 @@ func TestTMNativeQualification(t *testing.T) {
 		t.Logf("recurrent native qualification passed on %s (CUDA %s):\n%s", devArch, cudaVer, strings.TrimSpace(string(out)))
 	}
 }
+
+// passGuardedDeviceGlobals returns the __device__ variable declarations in
+// src that sit inside a preprocessor conditional naming __CUDA_ARCH__ or
+// EG_EMU. nvcc's host pass registers every device global, so such a
+// declaration compiles in the device pass and fails in the host pass. A
+// branch of a conditional counts as guarded by every condition of that
+// conditional before it.
+func passGuardedDeviceGlobals(src string) []string {
+	var stack []string
+	var bad []string
+	for _, line := range strings.Split(src, "\n") {
+		l := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(l, "#if"):
+			stack = append(stack, l)
+		case strings.HasPrefix(l, "#el") && len(stack) > 0:
+			stack[len(stack)-1] += " " + l
+		case strings.HasPrefix(l, "#endif") && len(stack) > 0:
+			stack = stack[:len(stack)-1]
+		case strings.Contains(l, "__device__") && !strings.HasPrefix(l, "#") && !strings.HasPrefix(l, "//") &&
+			!strings.Contains(l, "(") && strings.HasSuffix(l, ";"):
+			for _, cond := range stack {
+				c := strings.NewReplacer("EG_HOST_EMU", "", "EG_EMU_", "").Replace(cond)
+				if strings.Contains(c, "__CUDA_ARCH__") || strings.Contains(c, "EG_EMU") {
+					bad = append(bad, l+"  (under "+cond+")")
+					break
+				}
+			}
+		}
+	}
+	return bad
+}
+
+func TestTMNativeDeviceGlobalsUnguarded(t *testing.T) {
+	for _, tt := range []struct {
+		name, src string
+		bad       int
+	}{
+		{"harness", buildTMNativeHarness(tmNativeCases(t)), 0},
+		{"guarded", "#if defined(EG_EMU)\nstatic __device__ float x[4];\n#endif\n", 1},
+		{"else of arch", "#ifdef __CUDA_ARCH__\n#else\n__device__ int y;\n#endif\n", 1},
+		{"host emu else", "#if defined(EG_HOST_EMU)\n#else\nstatic __device__ float z[4];\n#endif\n", 0},
+		{"elif emu", "#if defined(EG_HOST_EMU)\n#elif defined(EG_EMU)\nstatic __device__ float w[4];\n#endif\n", 1},
+	} {
+		if got := passGuardedDeviceGlobals(tt.src); len(got) != tt.bad {
+			t.Errorf("%s: pass-guarded device globals %q, want %d", tt.name, got, tt.bad)
+		}
+	}
+}
