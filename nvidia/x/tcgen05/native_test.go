@@ -595,7 +595,7 @@ func TestTCGen05Wave12And13NativeSuiteStructure(t *testing.T) {
 		"tcgen05.ld.red.sync.aligned.32x32b.x4.max.abs.f32",
 		"tcgen05.ld.red.spcompress.sync.aligned.32x32b.x4.max.sp::2:4.abs.f32.b2",
 		"tcgen05.mma.ws.sp.cta_group::1.kind::ti16.collector::b0::fill",
-		"tcgen05.alloc.exclusive.cta_group::2.sync.aligned.shared::cta.b32",
+		"tcgen05.alloc.exclusive.cta_group::1.sync.aligned.shared::cta.b32",
 		"spcompress.b8.b2.sp::2:4.x4",
 		"spdecompress.b8.b2.sp::2:4.x32",
 		"TCGEN05_WAVE12_13_NATIVE_OK",
@@ -863,6 +863,9 @@ func buildTCGen05Wave12And13Fixtures(t *testing.T) tcgen05Wave12And13Fixtures {
 	b.WriteString("#include <cuda.h>\n#include <cuda_runtime.h>\n#include <cstdio>\n#include <cmath>\n#include <cstdint>\n#include <cstring>\n#include <vector>\n")
 	b.WriteString("#if !defined(__CUDA_ARCH__) || (__CUDA_ARCH__ != 1070)\n#define EG_EMU 1\n#endif\n")
 	b.WriteString(Prelude + "\n")
+	// TCGen05AdvancedPrelude declares templates, which may not have C linkage;
+	// emit it first so its include guard empties the copies inside extern "C".
+	b.WriteString(TCGen05AdvancedPrelude + "\n")
 	b.WriteString("extern \"C\" {\n")
 	b.WriteString(lutCUDA + "\n")
 	b.WriteString(prepareEarlyReleaseDeviceSource(erCUDA) + "\n")
@@ -1168,6 +1171,10 @@ func qualifyTCGen05Wave12And13Rubin(t *testing.T, nvcc string, cudaVer cudatool.
 	for name, tu := range fx.tuFiles {
 		cuPath := filepath.Join(dir, name+".cu")
 		cubinPath := filepath.Join(dir, name+"."+devArch+".cubin")
+		// The early-release and weights-stationary emitters stage more than
+		// 48 KB of static shared memory; under EG_EMU the device fallback uses
+		// global staging buffers instead.
+		tu = prepareWSDeviceSource(prepareEarlyReleaseDeviceSource(tu))
 		if err := os.WriteFile(cuPath, []byte(tu), 0o600); err != nil {
 			t.Fatalf("write %s: %v", cuPath, err)
 		}
@@ -1185,7 +1192,8 @@ func qualifyTCGen05Wave12And13Rubin(t *testing.T, nvcc string, cudaVer cudatool.
 			out107, err107 := exec.CommandContext(ctx107, nvcc, "-std=c++17", "-arch=sm_107a", "-cubin", cuPath, "-o", sm107Cubin).CombinedOutput()
 			cancel107()
 			if err107 != nil {
-				t.Fatalf("nvcc -arch=sm_107a -cubin %s (CUDA %s): %v\n%s", name, cudaVer, err107, out107)
+				t.Errorf("nvcc -arch=sm_107a -cubin %s (CUDA %s): %v\n%s", name, cudaVer, err107, out107)
+				continue
 			}
 			inspectCubinWithNVDisasm(t, sm107Cubin, "sm_107a")
 		}

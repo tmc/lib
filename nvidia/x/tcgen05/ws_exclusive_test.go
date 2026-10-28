@@ -12,7 +12,7 @@ func TestZeroColumnMaskDesc(t *testing.T) {
 	desc := ZeroColumnMaskDesc{
 		StartCount:  [8]uint8{2, 0, 4, 1, 5, 3, 6, 7},
 		SkipSpan:    [8]uint8{2, 3, 1, 4, 0, 2, 1, 0}, // spans: 3, 4, 2, 5, 1, 3, 2, 1
-		NonZeroMask: 0b01010101,                        // groups 0, 2, 4, 6 active
+		NonZeroMask: 0b01010101,                       // groups 0, 2, 4, 6 active
 	}
 	encoded := desc.Encode()
 	got := DecodeZeroColumnMaskDesc(encoded)
@@ -85,7 +85,7 @@ func TestTCGen05WeightsStationaryGEMM(t *testing.T) {
 		t.Fatalf("CUDA() failed: %v", err)
 	}
 	for _, wantSub := range []string{
-		"tcgen05.alloc.exclusive.cta_group::2.sync.aligned.shared::cta.b32",
+		"tcgen05.alloc.exclusive.cta_group::1.sync.aligned.shared::cta.b32",
 		"tcgen05.mma.ws.cta_group::1.kind::ti16.collector::b2::use",
 		"__CUDA_ARCH__ == 1000 || __CUDA_ARCH__ == 1030 || __CUDA_ARCH__ == 1070",
 	} {
@@ -183,7 +183,7 @@ func ExampleTCGen05WeightsStationaryGEMM() {
 		err == nil,
 		zmask.IsColumnZeroed(1),
 		zmask.IsColumnZeroed(2),
-		strings.Contains(src, "tcgen05.alloc.exclusive.cta_group::2"),
+		strings.Contains(src, "tcgen05.alloc.exclusive.cta_group::1"),
 		strings.Contains(src, "tcgen05.mma.ws.cta_group::1.kind::ti16.collector::b2::use"),
 	)
 	// Output:

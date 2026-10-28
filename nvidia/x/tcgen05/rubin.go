@@ -10,17 +10,17 @@ import (
 // RubinSpec describes the hardware capabilities of an NVIDIA Vera Rubin R100 or
 // Rubin Ultra R200 GPU (PTX architecture target sm_107a, family target sm_107f).
 type RubinSpec struct {
-	Name                    string  // GPU model name ("Vera Rubin R100" / "Rubin Ultra R200")
-	Target                  string  // PTX architecture-accelerated target ("sm_107a")
-	FamilyTarget            string  // PTX family-conditional target ("sm_107f")
-	HBM4Bytes               int64   // HBM4 capacity in bytes (288 GiB for R100, 576 GiB for R200 Ultra)
-	HBM4BandwidthGBps       float64 // HBM4 memory bandwidth in GB/s (13,000 for R100, 22,000 for R200 Ultra)
-	NVLink6BandwidthGBps    float64 // NVLink 6 bidirectional bandwidth in GB/s per die (3,600 GB/s)
-	MaxClusterCTAs          int     // maximum CTAs per cluster via .multicast::cluster::32b (32)
-	SupportsLUTDecompressB  bool    // true: supports .decompress::lut::b 3-bit weight LUT decompression in tcgen05.mma
-	SupportsCollectorB      bool    // true: supports .collector::b::{fill,use,lastuse,discard} reuse buffer control
-	SupportsSyncRestrictReadA bool  // true: supports .sync_restrict::shared::read::mma::a early-release commit
-	SupportsTI16            bool    // true: supports 16-bit Tensor Index (TI16) addressing modes
+	Name                      string  // GPU model name ("Vera Rubin R100" / "Rubin Ultra R200")
+	Target                    string  // PTX architecture-accelerated target ("sm_107a")
+	FamilyTarget              string  // PTX family-conditional target ("sm_107f")
+	HBM4Bytes                 int64   // HBM4 capacity in bytes (288 GiB for R100, 576 GiB for R200 Ultra)
+	HBM4BandwidthGBps         float64 // HBM4 memory bandwidth in GB/s (13,000 for R100, 22,000 for R200 Ultra)
+	NVLink6BandwidthGBps      float64 // NVLink 6 bidirectional bandwidth in GB/s per die (3,600 GB/s)
+	MaxClusterCTAs            int     // maximum CTAs per cluster via .multicast::cluster::32b (32)
+	SupportsLUTDecompressB    bool    // true: supports .decompress::lut::b 3-bit weight LUT decompression in tcgen05.mma
+	SupportsCollectorB        bool    // true: supports .collector::b::{fill,use,lastuse,discard} reuse buffer control
+	SupportsSyncRestrictReadA bool    // true: supports .sync_restrict::shared::read::mma::a early-release commit
+	SupportsTI16              bool    // true: supports 16-bit Tensor Index (TI16) addressing modes
 }
 
 // DefaultRubinSpec returns the canonical hardware specification for an NVIDIA

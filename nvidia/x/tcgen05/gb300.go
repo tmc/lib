@@ -110,19 +110,19 @@ func (k TCGen05ScaleVec4XGEMM) CUDAFile() (string, error) {
 // GB300ResidencyPlan summarizes the HBM3e memory residency and NVLink-C2C cold
 // spill fraction for a model deployed across numGPUs Blackwell Ultra GB300 GPUs.
 type GB300ResidencyPlan struct {
-	Target            string  // PTX target ("sm_103a")
-	NumGPUs           int     // number of GPUs in the deployment domain
-	HBMBytesPerGPU    int64   // HBM3e capacity per GPU in bytes
-	AvailableHBMBytes int64   // total HBM3e capacity across NumGPUs in bytes
-	WeightBytes       int64   // total quantized weight + block-scale footprint in bytes
-	KVCacheBytes      int64   // total KV cache footprint at (batchSize, seqLen) in bytes
-	ActivationBytes   int64   // activation and scratch workspace footprint in bytes
-	TotalRequiredBytes int64  // WeightBytes + KVCacheBytes + ActivationBytes
-	RemainingHBMBytes int64   // AvailableHBMBytes - TotalRequiredBytes (0 when spilling)
-	SpilledC2CBytes   int64   // bytes spilled to Grace LPDDR5X over NVLink-C2C (0 when FitsInHBM)
-	C2CColdFraction   float64 // fraction of WeightBytes spilled to Grace LPDDR5X in [0, 1]
-	MaxHBMContextLen  int64   // maximum sequence length per request that fits entirely in HBM3e
-	FitsInHBM         bool    // true when TotalRequiredBytes <= AvailableHBMBytes
+	Target             string  // PTX target ("sm_103a")
+	NumGPUs            int     // number of GPUs in the deployment domain
+	HBMBytesPerGPU     int64   // HBM3e capacity per GPU in bytes
+	AvailableHBMBytes  int64   // total HBM3e capacity across NumGPUs in bytes
+	WeightBytes        int64   // total quantized weight + block-scale footprint in bytes
+	KVCacheBytes       int64   // total KV cache footprint at (batchSize, seqLen) in bytes
+	ActivationBytes    int64   // activation and scratch workspace footprint in bytes
+	TotalRequiredBytes int64   // WeightBytes + KVCacheBytes + ActivationBytes
+	RemainingHBMBytes  int64   // AvailableHBMBytes - TotalRequiredBytes (0 when spilling)
+	SpilledC2CBytes    int64   // bytes spilled to Grace LPDDR5X over NVLink-C2C (0 when FitsInHBM)
+	C2CColdFraction    float64 // fraction of WeightBytes spilled to Grace LPDDR5X in [0, 1]
+	MaxHBMContextLen   int64   // maximum sequence length per request that fits entirely in HBM3e
+	FitsInHBM          bool    // true when TotalRequiredBytes <= AvailableHBMBytes
 }
 
 // PlanGB300Residency computes the HBM3e residency plan on 288 GiB/GPU Blackwell

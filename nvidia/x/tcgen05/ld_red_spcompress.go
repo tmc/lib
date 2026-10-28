@@ -290,7 +290,7 @@ func (k TCGen05LdRedConfig) Reference(in []float32) (data []float32, rowRed []fl
 // compression and optional inline reduction:
 //
 //	tcgen05.ld{.red}.spcompress.sync.aligned.32x32b.x4.<max|min>.sp::2:4{.abs}.f32.b2
-//	    mdata, {c0, c1}, {redval,} [taddr];
+//	    {mdata}, {c0, c1}, {redval,} [taddr];
 //
 // For each group of 4 consecutive FP32 elements along N, it selects the 2
 // elements with the largest (LdRedMax) or smallest (LdRedMin) value or
@@ -401,7 +401,7 @@ func (k TCGen05LdSpCompress) CUDA() (string, error) {
             float c0 = 0.0f, c1 = 0.0f, redval = 0.0f;
             const uint32_t taddr = ((uint32_t)row << 16) | ((base_taddr + (uint32_t)(4 * g)) & 0xffffu);
             asm volatile(
-                "%s %%0, {%%1, %%2}, %%3, [%%4];\n"
+                "%s {%%0}, {%%1, %%2}, %%3, [%%4];\n"
                 "tcgen05.wait::ld.sync.aligned;"
                 : "=r"(mdata_word), "=f"(c0), "=f"(c1), "=f"(redval)
                 : "r"(taddr)
@@ -411,7 +411,7 @@ func (k TCGen05LdSpCompress) CUDA() (string, error) {
             float c0 = 0.0f, c1 = 0.0f;
             const uint32_t taddr = ((uint32_t)row << 16) | ((base_taddr + (uint32_t)(4 * g)) & 0xffffu);
             asm volatile(
-                "%s %%0, {%%1, %%2}, [%%3];\n"
+                "%s {%%0}, {%%1, %%2}, [%%3];\n"
                 "tcgen05.wait::ld.sync.aligned;"
                 : "=r"(mdata_word), "=f"(c0), "=f"(c1)
                 : "r"(taddr)

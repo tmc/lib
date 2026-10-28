@@ -183,8 +183,8 @@ func TestTMEMExclusive576Columns(t *testing.T) {
 	if _, err := NewExclusiveMap(SM90A, CTAGroup2); !errors.Is(err, ErrUnsupportedTarget) {
 		t.Fatalf("NewExclusiveMap(SM90A, CTAGroup2) = %v, want ErrUnsupportedTarget", err)
 	}
-	if _, err := NewExclusiveMap(SM107F, CTAGroup1); !errors.Is(err, ErrParticipation) {
-		t.Fatalf("NewExclusiveMap(SM107F, CTAGroup1) = %v, want ErrParticipation", err)
+	if _, err := NewExclusiveMap(SM107F, CTAGroup(3)); !errors.Is(err, ErrParticipation) {
+		t.Fatalf("NewExclusiveMap(SM107F, CTAGroup(3)) = %v, want ErrParticipation", err)
 	}
 
 	// 1. Allocate 512 standard columns + 64 exclusive tail columns on SM107F CTAGroup2.
@@ -224,28 +224,52 @@ func TestTMEMExclusive576Columns(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	// 2. Allocate all 576 columns in a single tcgen05.alloc.exclusive.cta_group::2 call across supported targets.
-	for _, target := range []Target{SM100A, SM103A, SM107A, SM107F} {
-		m2, err := NewExclusiveMap(target, CTAGroup2)
+	// 2. Exclusive capacity is 576 columns on sm_107 and 512 on sm_100/sm_103,
+	// with either CTA group, and need not be a power of two (PTX ISA 9.4 Table 58).
+	tests := []struct {
+		target Target
+		group  CTAGroup
+		max    uint32
+	}{
+		{SM100A, CTAGroup1, 512},
+		{SM103A, CTAGroup2, 512},
+		{SM107A, CTAGroup1, MaxColumnsExclusive},
+		{SM107F, CTAGroup2, MaxColumnsExclusive},
+	}
+	for _, tt := range tests {
+		m2, err := NewExclusiveMap(tt.target, tt.group)
 		if err != nil {
-			t.Fatalf("NewExclusiveMap(%s, CTAGroup2): %v", target, err)
+			t.Fatalf("NewExclusiveMap(%s, %d): %v", tt.target, tt.group, err)
+		}
+		if got := m2.Capability().MaxColumns; got != tt.max {
+			t.Fatalf("NewExclusiveMap(%s).MaxColumns = %d, want %d", tt.target, got, tt.max)
 		}
 		p2, err := m2.AcquirePermit(32)
 		if err != nil {
-			t.Fatalf("AcquirePermit(%s): %v", target, err)
+			t.Fatalf("AcquirePermit(%s): %v", tt.target, err)
 		}
-		x576, err := m2.Allocate(p2, 32, MaxColumnsExclusive, 128)
-		if err != nil || x576.Columns() != MaxColumnsExclusive || x576.Offset() != 0 {
-			t.Fatalf("Allocate(%s, 576) = %+v, %v", target, x576, err)
+		if _, err := m2.Allocate(p2, 32, tt.max+32, 128); !errors.Is(err, ErrInvalidUnit) {
+			t.Fatalf("Allocate(%s, %d) = %v, want ErrInvalidUnit", tt.target, tt.max+32, err)
 		}
-		if err := m2.Release(p2, x576, 32); err != nil {
-			t.Fatalf("Release(%s, 576): %v", target, err)
+		x, err := m2.Allocate(p2, 32, tt.max, 128)
+		if err != nil || x.Columns() != tt.max || x.Offset() != 0 {
+			t.Fatalf("Allocate(%s, %d) = %+v, %v", tt.target, tt.max, x, err)
+		}
+		if err := m2.Release(p2, x, 32); err != nil {
+			t.Fatalf("Release(%s): %v", tt.target, err)
+		}
+		y, err := m2.Allocate(p2, 32, 96, 128) // multiple of 32, not a power of two
+		if err != nil || y.Columns() != 96 {
+			t.Fatalf("Allocate(%s, 96) = %+v, %v", tt.target, y, err)
+		}
+		if err := m2.Release(p2, y, 32); err != nil {
+			t.Fatalf("Release(%s, 96): %v", tt.target, err)
 		}
 		if err := m2.Relinquish(p2); err != nil {
-			t.Fatalf("Relinquish(%s): %v", target, err)
+			t.Fatalf("Relinquish(%s): %v", tt.target, err)
 		}
 		if err := m2.Close(); err != nil {
-			t.Fatalf("Close(%s): %v", target, err)
+			t.Fatalf("Close(%s): %v", tt.target, err)
 		}
 	}
 }

@@ -155,9 +155,9 @@ func TestVerifyTraceViolations(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:   "unsupported_target_sm121a",
-			target: SM121A,
-			mutate: validCTA1BlockScaledTrace,
+			name:    "unsupported_target_sm121a",
+			target:  SM121A,
+			mutate:  validCTA1BlockScaledTrace,
 			wantErr: ErrUnsupportedTarget,
 		},
 		{
