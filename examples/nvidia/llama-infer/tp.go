@@ -84,9 +84,11 @@ func newTPDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPU
 	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
 	d = &tpDecoder{fuse: opt.Fuse, hidden: cfg.HiddenSize, vocab: cfg.VocabSize, mods: make(map[*cuda.Device]driver.Module),
 		sample: sampleFn, logits: sp.Logits.Ptr(), tokenOut: sp.TokenOut, hostOut: make([]int32, 1)}
+	// Early returns assign nil to d, so close through a copy.
+	owned := d
 	defer func() {
 		if err != nil {
-			err = errors.Join(err, d.Close())
+			err = errors.Join(err, owned.Close())
 			d = nil
 		}
 	}()
