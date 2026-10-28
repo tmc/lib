@@ -39,6 +39,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudagradcheck](cudagradcheck/) | Package cudagradcheck checks gradients computed by hand-written GPU kernels against float64 host oracles. |
 | [cudagrammar](cudagrammar/) | Package cudagrammar constrains language model generation to JSON that conforms to a schema. |
 | [cudagraph](cudagraph/) | Package cudagraph provides an experimental Go interface for building, capturing, instantiating, and launching CUDA Graphs. |
+| [cudagreen](cudagreen/) | Package cudagreen plans and creates CUDA green contexts that partition a GPU's streaming multiprocessors among workloads. |
 | [cudagroup](cudagroup/) | Package cudagroup describes bounded CUDA execution-group contracts. |
 | [cudaheadroom](cudaheadroom/) | Package cudaheadroom checks shared-memory plans against a loaded CUDA kernel. |
 | [cudahf](cudahf/) | Package cudahf finds model files in the local Hugging Face hub cache. |
