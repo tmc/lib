@@ -9,14 +9,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudatmem"
 )
 
-func ones32() [32]float32 {
-	var h [32]float32
-	for i := range h {
-		h[i] = 1
-	}
-	return h
-}
-
 func sqnrDB(w, wHat []float32) float64 {
 	var s, e float64
 	for i := range w {
@@ -94,7 +86,7 @@ func TestFitBlock32LearnedLUTSQNR(t *testing.T) {
 	minGain := map[string]float64{"outlier": 5, "normal": 2, "skewed": 5, "bimodal": 5}
 	for _, tt := range lutTestBlocks() {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := FitBlock32LearnedLUT(tt.w, ones32(), 100)
+			b, err := FitBlock32LearnedLUT(tt.w, ones32f(), 100)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -139,7 +131,7 @@ func TestFitLUT8Monotone(t *testing.T) {
 
 func TestFitBlock32LearnedLUTRepresentable(t *testing.T) {
 	for _, tt := range lutTestBlocks() {
-		b, err := FitBlock32LearnedLUT(tt.w, ones32(), 100)
+		b, err := FitBlock32LearnedLUT(tt.w, ones32f(), 100)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -187,7 +179,7 @@ func TestFitBlock32LearnedLUTHessian(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plain, err := FitBlock32LearnedLUT(w, ones32(), 100)
+	plain, err := FitBlock32LearnedLUT(w, ones32f(), 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,19 +203,19 @@ func TestFitBlock32LearnedLUTHessian(t *testing.T) {
 
 func TestFitBlock32LearnedLUTErrors(t *testing.T) {
 	var w [32]float32
-	h := ones32()
+	h := ones32f()
 	h[5] = 0
 	if _, err := FitBlock32LearnedLUT(w, h, 10); err == nil {
 		t.Error("zero Hessian entry accepted")
 	}
 	w[0] = float32(math.Inf(1))
-	if _, err := FitBlock32LearnedLUT(w, ones32(), 10); err == nil {
+	if _, err := FitBlock32LearnedLUT(w, ones32f(), 10); err == nil {
 		t.Error("infinite weight accepted")
 	}
-	if _, err := FitBlock32LearnedLUT([32]float32{}, ones32(), 0); err == nil {
+	if _, err := FitBlock32LearnedLUT([32]float32{}, ones32f(), 0); err == nil {
 		t.Error("maxIters=0 accepted")
 	}
-	b, err := FitBlock32LearnedLUT([32]float32{}, ones32(), 10)
+	b, err := FitBlock32LearnedLUT([32]float32{}, ones32f(), 10)
 	if err != nil || b.WeightedMSE != 0 {
 		t.Errorf("all-zero block: %v, mse %v", err, b.WeightedMSE)
 	}
