@@ -63,24 +63,6 @@ func determineDeviceLimits(cap *cudacapture.Capture) (maxWarps int, maxBlocks in
 	return dev.MaxWarpsPerSM, dev.MaxBlocksPerSM, true
 }
 
-// determineSMCount returns the device SM count recorded in the capture's
-// metadata, or else implied by the capture's target architecture.
-// It returns ok=false when the capture determines neither.
-func determineSMCount(cap *cudacapture.Capture) (int, bool) {
-	if cap == nil {
-		return 0, false
-	}
-	if count := parseSMCountFromCapture(cap); count > 0 {
-		return count, true
-	}
-	if arch := parseArchFromCapture(cap); arch != "" {
-		if count := smCountForArch(arch); count > 0 {
-			return count, true
-		}
-	}
-	return 0, false
-}
-
 func parseSMCountFromCapture(cap *cudacapture.Capture) int {
 	if cap == nil {
 		return 0
@@ -90,29 +72,10 @@ func parseSMCountFromCapture(cap *cudacapture.Capture) int {
 			return count
 		}
 	}
-	for _, name := range []string{"capture-provenance.json", "capture-status.json", "status.json", "manifest.json", "provenance.json"} {
+	for _, name := range captureProvenanceFiles {
 		if data, ok := cap.Files[name]; ok && len(data) > 0 {
 			if count := parseSMCountFromJSON(data); count > 0 {
 				return count
-			}
-		}
-	}
-	if cap.Profile != nil {
-		for _, c := range cap.Profile.Comments {
-			cLower := strings.ToLower(c)
-			switch {
-			case strings.Contains(cLower, "gb10"):
-				return 48
-			case strings.Contains(cLower, "gb200"):
-				return 136
-			case strings.Contains(cLower, "b200") || strings.Contains(cLower, "b100"):
-				return 132
-			case strings.Contains(cLower, "h100"):
-				return 132
-			case strings.Contains(cLower, "rtx 4090"):
-				return 128
-			case strings.Contains(cLower, "a100"):
-				return 108
 			}
 		}
 	}
@@ -125,47 +88,6 @@ func parseSMCountFromJSON(data []byte) int {
 		return 0
 	}
 	return findSMCountInMap(m)
-}
-
-func findSMCountInMap(m map[string]any) int {
-	keys := []string{"sm_count", "smCount", "multiprocessor_count", "multiprocessorCount", "sms", "sm_num"}
-	for _, k := range keys {
-		if v, ok := m[k]; ok {
-			if f, ok := v.(float64); ok && f > 0 {
-				return int(f)
-			}
-			if s, ok := v.(string); ok {
-				if n, err := strconv.Atoi(s); err == nil && n > 0 {
-					return n
-				}
-			}
-		}
-	}
-	if dev, ok := m["device"].(string); ok && dev != "" {
-		devLower := strings.ToLower(dev)
-		switch {
-		case strings.Contains(devLower, "gb10"):
-			return 48
-		case strings.Contains(devLower, "gb200"):
-			return 136
-		case strings.Contains(devLower, "b200") || strings.Contains(devLower, "b100"):
-			return 132
-		case strings.Contains(devLower, "h100"):
-			return 132
-		case strings.Contains(devLower, "rtx 4090"):
-			return 128
-		case strings.Contains(devLower, "a100"):
-			return 108
-		}
-	}
-	for _, v := range m {
-		if subMap, ok := v.(map[string]any); ok {
-			if count := findSMCountInMap(subMap); count > 0 {
-				return count
-			}
-		}
-	}
-	return 0
 }
 
 func parseArchFromCapture(cap *cudacapture.Capture) string {
@@ -229,36 +151,6 @@ func findArchInMap(m map[string]any) string {
 		}
 	}
 	return ""
-}
-
-func smCountForArch(arch string) int {
-	arch = strings.ToLower(strings.TrimSpace(arch))
-	arch = strings.TrimPrefix(arch, "compute_")
-	arch = strings.TrimPrefix(arch, "sm_")
-	switch {
-	case strings.HasPrefix(arch, "121"):
-		// GB10 (SM 12.1). Measured on hardware; see x/cudaoccupancy SM121.
-		// GB200 is sm_100a, not sm_121a.
-		return 48
-	case strings.HasPrefix(arch, "120"):
-		return 136 // Blackwell sm_120
-	case strings.HasPrefix(arch, "100"):
-		return 132 // Blackwell sm_100 (B100)
-	case strings.HasPrefix(arch, "90"):
-		return 132 // Hopper H100 SXM (132 SMs) / PCIe (114 SMs)
-	case strings.HasPrefix(arch, "89"):
-		return 128 // Ada Lovelace AD102 (RTX 4090: 128, L40S: 142)
-	case strings.HasPrefix(arch, "86"):
-		return 84 // Ampere GA102
-	case strings.HasPrefix(arch, "80"):
-		return 108 // Ampere A100 SXM (108 SMs)
-	case strings.HasPrefix(arch, "75"):
-		return 72 // Turing TU102
-	case strings.HasPrefix(arch, "70"):
-		return 80 // Volta GV100
-	default:
-		return 0
-	}
 }
 
 type launchRecord struct {

@@ -152,10 +152,10 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	auditPreciseFloatMath(cap, report, mathKernels, math, frames)
 
 	if disasm != nil {
+		// No default: an occupancy figure computed for an architecture the
+		// capture does not name is another device's figure. The cliff
+		// findings below then state the register count without one.
 		arch := parseArchFromCapture(cap)
-		if arch == "" {
-			arch = "sm_121a"
-		}
 		for _, fn := range disasm.Functions {
 			var peakGPR, peakUGPR int
 			var peakGPRAddr, peakUGPRAddr uint64
