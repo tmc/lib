@@ -161,6 +161,11 @@ type Item struct {
 	NextMeasurement          string              `json:"next_measurement,omitempty"`
 	DeviceTimeNanos          int64               `json:"device_time_nanos,omitempty"`
 
+	// NoRuntimeAttribution prevents the analysis pipeline from assigning
+	// runtime time, profile share or baseline-gap bounds to this finding.
+	// Static code occurrence alone need not admit any such attribution.
+	NoRuntimeAttribution bool `json:"no_runtime_attribution,omitempty"`
+
 	// HostTimeNanos is host time a finding accounts for: time a host thread
 	// spent inside API calls, which no kernel profile holds. It is kept apart
 	// from DeviceTimeNanos so neither is read as the other, and the ranking

@@ -27,9 +27,13 @@ func finalizeAndRankFindingsWithTiming(report *Report, kernelTimes map[string]in
 	if report == nil || len(report.Items) == 0 {
 		return
 	}
+	clearNoRuntimeAttribution(report.Items, nil)
 	report.Items = foldKernelPatterns(report.Items)
 	for i := range report.Items {
 		item := &report.Items[i]
+		if item.NoRuntimeAttribution {
+			continue
+		}
 		if hasTiming {
 			if item.DeviceTimeNanos == 0 && item.Location.Kernel != "" {
 				item.DeviceTimeNanos = kernelTimes[item.Location.kernelKey()]
@@ -152,13 +156,13 @@ var ruleNames = map[string]string{
 func groupRules(items []Item) []Item {
 	count := make(map[string]int)
 	for _, item := range items {
-		if ruleNames[item.rule] != "" {
+		if !item.NoRuntimeAttribution && ruleNames[item.rule] != "" {
 			count[item.rule]++
 		}
 	}
 	held := make(map[string][]Item)
 	for _, item := range items {
-		if count[item.rule] > 1 {
+		if !item.NoRuntimeAttribution && count[item.rule] > 1 {
 			held[item.rule] = append(held[item.rule], item)
 		}
 	}
@@ -166,7 +170,7 @@ func groupRules(items []Item) []Item {
 	done := make(map[string]bool)
 	for _, item := range items {
 		r := item.rule
-		if count[r] <= 1 {
+		if item.NoRuntimeAttribution || count[r] <= 1 {
 			out = append(out, item)
 			continue
 		}
@@ -234,7 +238,7 @@ func groupItem(r string, held []Item) Item {
 // whose size is that kernel's time, filled in when the report is ranked.
 // A dispatch finding names a kernel for how it is launched, not for its code.
 func takesKernelTime(item Item) bool {
-	return item.Location.Kernel != "" && !strings.Contains(item.Location.Kernel, " -> ") &&
+	return !item.NoRuntimeAttribution && item.Location.Kernel != "" && !strings.Contains(item.Location.Kernel, " -> ") &&
 		!isDispatch(item.Category) &&
 		item.DeviceTimeNanos == 0 && item.HostTimeNanos == 0 && item.ShareOfProfile == 0 &&
 		item.magnitude == "" && !item.severityByKind && len(item.Patterns) == 0

@@ -150,6 +150,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 		frames[k.Name] = max(frames[k.Name], k.FrameSizeBytes)
 	}
 	auditPreciseFloatMath(cap, report, mathKernels, math, frames)
+	auditElectedBulkCopies(report, disasm, modules)
 
 	if disasm != nil {
 		arch := parseArchFromCapture(cap)
