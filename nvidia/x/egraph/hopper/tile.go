@@ -51,6 +51,9 @@ type TileGEMM struct {
 	// widens to core-matrix shared memory with 9-instruction dequant9 or
 	// nibble-shift + bf16x2 scale multiply.
 	Repacked bool
+	// CompactScales stores one eight-byte scale set per four consumer lanes.
+	// It requires warp-specialized, repacked NVFP4 weights.
+	CompactScales bool
 	// DequantWords selects the bitopt sub-byte unpack width when Repacked is
 	// true: 0 or 1 uses 1-word per-subtile unpacking, and 2 uses the 2-word
 	// bitopt.NVFP4Program2Word (eg_dequant_2w, 16 instructions across 2 words
@@ -186,6 +189,9 @@ func (g TileGEMM) norm() (TileGEMM, error) {
 	if g.WarpSpecialized && (g.StreamK > 0 || g.DequantWords == 1) {
 		return g, fmt.Errorf("tile gemm %s: WarpSpecialized does not support StreamK or one-word DequantWords", g.Name)
 	}
+	if g.CompactScales && (!swapAB || !g.Repacked) {
+		return g, fmt.Errorf("tile gemm %s: CompactScales requires warp-specialized repacked NVFP4", g.Name)
+	}
 	if swapAB && (!g.Repacked || g.SumSq) {
 		return g, fmt.Errorf("tile gemm %s: WarpSpecialized WeightNVFP4 requires Repacked and does not support SumSq", g.Name)
 	}
@@ -273,7 +279,11 @@ func (g TileGEMM) SharedBytes() int {
 	if g.WarpSpecialized {
 		stage := (g.BM + g.BN) * 128
 		if g.Weight == WeightNVFP4 {
-			stage = (g.BM*128 + 256*(16+8) + 1023) / 1024 * 1024
+			scaleBytes := 256 * 8
+			if g.CompactScales {
+				scaleBytes = 64 * 8
+			}
+			stage = (g.BM*128 + 256*16 + scaleBytes + 1023) / 1024 * 1024
 		}
 		// The stages, their full and empty mbarriers, and slack to align the
 		// ring to 1024 bytes.

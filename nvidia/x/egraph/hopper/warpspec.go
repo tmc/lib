@@ -142,10 +142,10 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
 		b.WriteString("    constexpr int NOUT = N;\n")
 	}
 	if nvfp4 {
-		b.WriteString(`    // Stage: x [BM][64] BF16, then 256 threads' fragment words and scales.
-    constexpr int XBYTES = BM * 128, WBYTES = 256 * 16, SBYTES = 256 * 8;
+		fmt.Fprintf(&b, `    // Stage: x [BM][64] BF16, then 256 threads' fragment words and scales.
+    constexpr int XBYTES = BM * 128, WBYTES = 256 * 16, SBYTES = %s;
     constexpr int TX = XBYTES + WBYTES + SBYTES, STAGE = (TX + 1023) / 1024 * 1024;
-`)
+`, scaleSize(g))
 	} else {
 		b.WriteString(`    // Stage: x [BM][BK], then W [BN][BK], in 128-byte swizzled rows.
     constexpr int TX = (BM + BN) * 128, STAGE = TX;
@@ -167,9 +167,9 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
 	switch g.Weight {
 	case WeightNVFP4:
 		fmt.Fprintf(&b, `    const uint32_t* const we = w + ((size_t)e * (N / 128) + %s) * KT * 256 * 4;
-    const uint8_t* const se = w_sf + ((size_t)e * (N / 128) + %s) * KT * 256 * 8;
+    const uint8_t* const se = w_sf + ((size_t)e * (N / 128) + %s) * KT * %s;
     const float gs = w_gs[e] * 256.0f;
-`, bx, bx)
+`, bx, bx, scaleSize(g))
 	case WeightE4M3:
 		b.WriteString("    const uint8_t* const we = w + (size_t)e * N * K;\n")
 	default:
@@ -218,11 +218,11 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
             }
 `, xrow, chunk)
 	if nvfp4 {
-		b.WriteString(`            if (tid == 0) {
+		fmt.Fprintf(&b, `            if (tid == 0) {
                 eg_bulk_copy(sa + XBYTES, we + (size_t)kt * 256 * 4, WBYTES, &full[s]);
-                eg_bulk_copy(sa + XBYTES + WBYTES, se + (size_t)kt * 256 * 8, SBYTES, &full[s]);
+                eg_bulk_copy(sa + XBYTES + WBYTES, se + (size_t)kt * %s, SBYTES, &full[s]);
             }
-`)
+`, scaleSize(g))
 	} else {
 		fmt.Fprintf(&b, `            unsigned char* const sb = sa + BM * 128;
             for (int c = tid; c < BN * 8; c += 128) {
@@ -249,9 +249,9 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
         eg_mbar_wait(&full[s], (kt / STAGES) & 1);
         const unsigned char* const sa = smem + s * STAGE;
         const eg_u32x4 q = *reinterpret_cast<const eg_u32x4*>(sa + XBYTES + ct * 16);
-        const eg_u32x2 sc = *reinterpret_cast<const eg_u32x2*>(sa + XBYTES + WBYTES + ct * 8);
+        const eg_u32x2 sc = *reinterpret_cast<const eg_u32x2*>(sa + XBYTES + WBYTES + %s * 8);
         const uint32_t qs[4] = {q.x, q.y, q.z, q.w};
-`)
+`, scaleIndex(g))
 		if g.DequantWords == 2 {
 			b.WriteString(`#pragma unroll
         for (int p = 0; p < 2; ++p) {
@@ -421,4 +421,18 @@ func wgmmaRSFunc(name string, n int) string {
 	fmt.Fprintf(&b, "        : %s\n", strings.Join(outLines, ",\n          "))
 	b.WriteString("        : \"r\"(a[0]), \"r\"(a[1]), \"r\"(a[2]), \"r\"(a[3]), \"l\"(db), \"r\"(1));\n#endif\n}\n\n")
 	return b.String()
+}
+
+func scaleSize(g TileGEMM) string {
+	if g.CompactScales {
+		return "64 * 8"
+	}
+	return "256 * 8"
+}
+
+func scaleIndex(g TileGEMM) string {
+	if g.CompactScales {
+		return "(ct / 4)"
+	}
+	return "ct"
 }
