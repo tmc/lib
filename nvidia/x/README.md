@@ -23,7 +23,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [cudabpfdev](cudabpfdev/) | Package cudabpfdev verifies and translates bounded warp instrumentation programs. |
 | [cudacache](cudacache/) | Package cudacache provides content-addressed local and remote caching for compiled CUDA kernel artifacts and search evaluation receipts. |
 | [cudacapture](cudacapture/) | Package cudacapture reads and writes portable CUDA execution captures containing pprof profiles, source code, compilation artifacts, and disassembly. |
-| [cudacc](cudacc/) | Package cudacc plans and checks the host side of NVIDIA Confidential Computing: single-GPU CC-On and multi-GPU protected PCIe/NVLink (PPCIE). |
+| [cudacc](cudacc/) | Package cudacc plans and checks the host side of NVIDIA Confidential Computing: single-GPU CC-On and multi-GPU protected PCIe (PPCIE) or NVLink encryption (NVLE). |
 | [cudacensus](cudacensus/) | Package cudacensus turns a GPU trace capture into a per-kernel census and, where the caller can supply a cost model, into roofline points. |
 | [cudacheck](cudacheck/) | Package cudacheck validates numerical accuracy and catches precision drift by comparing GPU activations against CPU reference implementations. |
 | [cudacluster](cudacluster/) | Package cudacluster expresses thread-block-cluster distributed shared memory. |

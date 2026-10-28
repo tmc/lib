@@ -1,5 +1,6 @@
 // Package cudacc plans and checks the host side of NVIDIA Confidential
-// Computing: single-GPU CC-On and multi-GPU protected PCIe/NVLink (PPCIE).
+// Computing: single-GPU CC-On and multi-GPU protected PCIe (PPCIE) or
+// NVLink encryption (NVLE).
 //
 // It provides:
 //
@@ -14,7 +15,9 @@
 //     buffer slots with a salt‖sequence IV, strictly increasing sequence
 //     numbers on send and a sliding replay window on receive;
 //   - [PlanBounceTransfer], a pipeline model of an encrypted transfer
-//     through a bounce ring.
+//     through a bounce ring;
+//   - [ModeFromNVML], which maps NVML's confidential-computing settings to
+//     a [CCMode].
 //
 // The report encoding and IV layout are this package's own; they are not
 // the DMTF SPDM message format or NVIDIA's copy-engine wire format, and

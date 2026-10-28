@@ -338,3 +338,25 @@ func ExampleEncryptedBounceRing() {
 	// 010203040000000000000000 "kv page 17" <nil>
 	// true
 }
+
+func TestModeFromNVML(t *testing.T) {
+	tests := []struct {
+		feature, multi uint32
+		want           CCMode
+		ok             bool
+	}{
+		{0, 0, CCModeOff, true},
+		{0, 1, CCModeOff, true},
+		{1, 0, CCModeOn, true},
+		{1, 1, CCModePPCIE, true},
+		{1, 2, CCModeNVLE, true},
+		{1, 3, CCModeOff, false},
+		{2, 0, CCModeOff, false},
+	}
+	for _, tc := range tests {
+		got, err := ModeFromNVML(tc.feature, tc.multi)
+		if (err == nil) != tc.ok || got != tc.want {
+			t.Errorf("ModeFromNVML(%d, %d) = %v, %v; want %v, ok=%v", tc.feature, tc.multi, got, err, tc.want, tc.ok)
+		}
+	}
+}

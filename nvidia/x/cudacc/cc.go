@@ -20,6 +20,7 @@ const (
 	CCModeOff   CCMode = iota
 	CCModeOn           // single-GPU TEE with encrypted copy-engine bounce buffers
 	CCModePPCIE        // multi-GPU protected PCIe/NVLink domain
+	CCModeNVLE         // multi-GPU domain with NVLink encryption
 )
 
 func (m CCMode) String() string {
@@ -30,8 +31,43 @@ func (m CCMode) String() string {
 		return "on"
 	case CCModePPCIE:
 		return "ppcie"
+	case CCModeNVLE:
+		return "nvle"
 	}
 	return fmt.Sprintf("CCMode(%d)", uint8(m))
+}
+
+// Values of the NVML confidential-computing settings that [ModeFromNVML]
+// reads (NVML_CC_SYSTEM_FEATURE_* and NVML_CC_SYSTEM_MULTIGPU_*).
+const (
+	nvmlCCFeatureDisabled = 0
+	nvmlCCFeatureEnabled  = 1
+	nvmlMultiGPUNone      = 0
+	nvmlMultiGPUPPCIE     = 1
+	nvmlMultiGPUNVLE      = 2
+)
+
+// ModeFromNVML maps the CcFeature and MultiGpuMode fields of NVML's
+// nvmlSystemConfComputeSettings_t to a CCMode. The CUDA driver API has no
+// device attribute for the confidential-computing mode; NVML is where the
+// driver reports it.
+func ModeFromNVML(ccFeature, multiGPUMode uint32) (CCMode, error) {
+	switch ccFeature {
+	case nvmlCCFeatureDisabled:
+		return CCModeOff, nil
+	case nvmlCCFeatureEnabled:
+	default:
+		return CCModeOff, fmt.Errorf("nvml cc feature %d: unknown value", ccFeature)
+	}
+	switch multiGPUMode {
+	case nvmlMultiGPUNone:
+		return CCModeOn, nil
+	case nvmlMultiGPUPPCIE:
+		return CCModePPCIE, nil
+	case nvmlMultiGPUNVLE:
+		return CCModeNVLE, nil
+	}
+	return CCModeOff, fmt.Errorf("nvml cc multi-gpu mode %d: unknown value", multiGPUMode)
 }
 
 // Errors reported by [VerifyFabricAttestation] and [EncryptedBounceRing].
@@ -175,7 +211,7 @@ func (r *AttestationReport) Sign(key *ecdsa.PrivateKey) error {
 
 // FabricPolicy is what [VerifyFabricAttestation] requires of a domain.
 type FabricPolicy struct {
-	Mode          CCMode // CCModeOn or CCModePPCIE
+	Mode          CCMode // CCModeOn, CCModePPCIE or CCModeNVLE
 	ExpectedNonce [32]byte
 	ExpectedRIM   [48]byte
 	ExpectedVBIOS [48]byte
@@ -195,7 +231,7 @@ type FabricPolicy struct {
 // The returned error wraps one of the package's Err values and names the
 // first failing device.
 func VerifyFabricAttestation(reports []AttestationReport, p FabricPolicy) error {
-	if p.Mode != CCModeOn && p.Mode != CCModePPCIE {
+	if p.Mode != CCModeOn && p.Mode != CCModePPCIE && p.Mode != CCModeNVLE {
 		return fmt.Errorf("verify fabric attestation: policy mode %v: %w", p.Mode, ErrModeMismatch)
 	}
 	want := p.Devices
