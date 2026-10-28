@@ -51,9 +51,17 @@ func DeviceGranularity(dev driver.Device) (int, Granularity, error) {
 	return int(sm.SmCount), Granularity{Min: int(sm.MinSmPartitionSize), Alignment: int(sm.SmCoscheduledAlignment)}, nil
 }
 
+// splitFlags returns the cuDevSmResourceSplitByCount flags for g.
+func splitFlags(g Granularity) driver.DevsmresourcesplitbycountFlags {
+	if g.IgnoreCoscheduling {
+		return driver.DevSmResourceSplitIgnoreSmCoscheduling
+	}
+	return 0
+}
+
 // DeviceSplit returns g with Groups set to the number of groups of
 // g.Granule() SMs the driver makes from dev's SMs, as a simulated
-// cuDevSmResourceSplitByCount reports it.
+// cuDevSmResourceSplitByCount with g's flags reports it.
 func DeviceSplit(dev driver.Device, g Granularity) (Granularity, error) {
 	if g.Min <= 0 || g.Alignment <= 0 {
 		return Granularity{}, fmt.Errorf("cudagreen: bad granularity %+v", g)
@@ -63,7 +71,7 @@ func DeviceSplit(dev driver.Device, g Granularity) (Granularity, error) {
 		return Granularity{}, fmt.Errorf("cudagreen: device sm resource: %w", err)
 	}
 	var n uint32
-	if err := driver.DevSmResourceSplitByCount(nil, &n, &root, nil, 0, uint32(g.Granule())); err != nil {
+	if err := driver.DevSmResourceSplitByCount(nil, &n, &root, nil, splitFlags(g), uint32(g.Granule())); err != nil {
 		return Granularity{}, fmt.Errorf("cudagreen: simulate split by %d: %w", g.Granule(), err)
 	}
 	g.Groups = int(n)
@@ -141,7 +149,7 @@ func Open(dev driver.Device, plan Plan) (_ *Partitions, err error) {
 
 	groups := make([]driver.DevResource, need)
 	n := uint32(need)
-	if err := driver.DevSmResourceSplitByCount(&groups[0], &n, &root, nil, 0, uint32(g.Granule())); err != nil {
+	if err := driver.DevSmResourceSplitByCount(&groups[0], &n, &root, nil, splitFlags(g), uint32(g.Granule())); err != nil {
 		return nil, fmt.Errorf("cudagreen: split %d SMs into %d groups of %d: %w", plan.TotalSMs, need, g.Granule(), err)
 	}
 	sizes := make([]int, n)

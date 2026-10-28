@@ -29,6 +29,19 @@
 // a small kernel beside a long one with and without them. The latencies are
 // logged, not asserted.
 //
+// On a GB10 (DGX Spark, 48 SMs, driver 13000) on 2026-10-27, the driver made
+// 4 groups of 8 SMs with default flags and 6 with IgnoreCoscheduling. With a
+// 100 ms spin kernel filling the device's thread slots, 200 sequential
+// launches of a small kernel measured, by CUDA events:
+//
+//	                               p50        p99        max
+//	green, 24 + 8 SMs              0.0031 ms  0.0091 ms  0.0424 ms
+//	shared primary context, 48 SMs 0.0028 ms  0.0076 ms  94.7842 ms
+//
+// In the shared run one launch waited about 95 ms for the spin kernel; in
+// the green run none did. The maximum improved; p99 did not, since a
+// single stalled launch in 200 lies above the 99th percentile.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch
 // releases.

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/driver"
 )
 
 // TestGB10Groups reproduces the GB10 failure seen on dgx: 48 SMs, granule
@@ -90,4 +92,49 @@ func TestAssignGroupsErrors(t *testing.T) {
 	if _, err := assignGroups(bad, []int{8, 8, 8, 8}); err == nil {
 		t.Error("assignGroups accepted a partition off the granule")
 	}
+}
+
+// TestIgnoreCoscheduling checks that the flag reaches the driver call and
+// that a plan for the 6 groups GB10 makes with it covers all 48 SMs.
+func TestIgnoreCoscheduling(t *testing.T) {
+	if f := splitFlags(Granularity{Min: 8, Alignment: 8}); f != 0 {
+		t.Errorf("default flags = %#x, want 0", uint32(f))
+	}
+	g := Granularity{Min: 8, Alignment: 8, Groups: 6, IgnoreCoscheduling: true}
+	if f := splitFlags(g); f != driver.DevSmResourceSplitIgnoreSmCoscheduling {
+		t.Errorf("flags = %#x, want IgnoreSmCoscheduling", uint32(f))
+	}
+	plan, err := ComputePlan("sm_121a", 48, g, sixWay())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyPlan(plan); err != nil {
+		t.Fatal(err)
+	}
+	if plan.Unassigned != 0 || len(plan.Partitions) != 6 {
+		t.Errorf("%d partitions, %d SMs unassigned; want 6, 0", len(plan.Partitions), plan.Unassigned)
+	}
+	ranges, err := assignGroups(plan, []int{8, 8, 8, 8, 8, 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(ranges) != "[[0 1] [1 2] [2 3] [3 4] [4 5] [5 6]]" {
+		t.Errorf("ranges = %v", ranges)
+	}
+
+	// The same plan on the default 4-group split does not fit.
+	g.Groups, g.IgnoreCoscheduling = 4, false
+	if _, err := ComputePlan("sm_121a", 48, g, sixWay()); err == nil {
+		t.Error("six 8-SM partitions fit a 4-group split")
+	}
+}
+
+// sixWay returns six specs of one sixth of the device each.
+func sixWay() []Spec {
+	roles := []Role{RoleCompute, RoleCompute, RoleCompute, RoleDecode, RoleFabric, RoleMaintenance}
+	specs := make([]Spec, len(roles))
+	for i, r := range roles {
+		specs[i] = Spec{Role: r, Fraction: 1.0 / 6, MinSMs: 8}
+	}
+	return specs
 }

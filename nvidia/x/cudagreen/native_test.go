@@ -126,6 +126,33 @@ func TestNativeOpen(t *testing.T) {
 			}
 		})
 	}
+	t.Run("ignore-coscheduling", func(t *testing.T) {
+		g := g
+		g.IgnoreCoscheduling = true
+		g, err := DeviceSplit(dev, g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("driver makes %d groups of %d SMs ignoring coscheduling", g.Groups, g.Granule())
+		plan, err := ComputePlan(arch, total, g, sixWay())
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := Open(dev, plan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer p.Close()
+		for i := range plan.Partitions {
+			if err := p.Stream(i).Synchronize(); err != nil {
+				t.Errorf("partition %d: %v", i, err)
+			}
+		}
+		t.Logf("%d partitions of %d SMs, %d SMs unassigned", len(plan.Partitions), plan.Partitions[0].SMs, plan.Unassigned)
+		if err := p.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 // jitterSource holds the two kernels of TestNativeJitter. spin keeps every

@@ -57,10 +57,18 @@ type Spec struct {
 // divided by the granule: on GB10 (48 SMs, granule 8) it makes 4. Groups,
 // when nonzero, is that limit, as [DeviceSplit] discovers it; the SMs left
 // over are not assigned.
+//
+// IgnoreCoscheduling asks the driver to split with
+// CU_DEV_SM_RESOURCE_SPLIT_IGNORE_SM_COSCHEDULING, which treats each SM
+// independently of the hierarchy. Partitions then cover more of the
+// device, at the cost of the guarantees that large thread-block clusters
+// need: on GB10 the driver makes 6 groups of 8 instead of 4. Kernels that
+// launch clusters should not run in partitions split this way.
 type Granularity struct {
-	Min       int
-	Alignment int
-	Groups    int
+	Min                int
+	Alignment          int
+	Groups             int
+	IgnoreCoscheduling bool
 }
 
 // Granule returns the group size: Min rounded up to a multiple of
