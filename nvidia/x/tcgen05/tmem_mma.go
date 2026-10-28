@@ -39,7 +39,7 @@ const tmPrelude = `#ifndef EG_TCGEN05_TM_PRELUDE
 #if defined(EG_HOST_EMU)
 #define EG_TM_SHARED(T, name, dims) EG_EMU_SHARED(T, name, dims)
 #define EG_TM_BUF(name) EG_EMU_SHARED(float, name##_cells, [128 * 512]); float* const name = name##_cells
-#elif defined(EG_EMU)
+#else
 #define EG_TM_SHARED(T, name, dims) alignas(16) __shared__ T name dims
 #ifndef EG_TM_EMU_CTAS
 #define EG_TM_EMU_CTAS 8
@@ -47,11 +47,14 @@ const tmPrelude = `#ifndef EG_TCGEN05_TM_PRELUDE
 // eg_tm_emu_backing holds emulated TMEM per CTA, indexed by linear block
 // index. CTAs whose indices agree modulo EG_TM_EMU_CTAS share cells, so a
 // launch must either be at most EG_TM_EMU_CTAS CTAs or define it larger.
+// It is declared in every nvcc pass, not only the EG_EMU device pass: the
+// host pass registers device globals and must see the same declaration.
 static __device__ float eg_tm_emu_backing[EG_TM_EMU_CTAS * 128 * 512];
+#if defined(EG_EMU)
 #define EG_TM_BUF(name) float* const name = eg_tm_emu_backing + (size_t)((blockIdx.x + gridDim.x * (blockIdx.y + gridDim.y * blockIdx.z)) % EG_TM_EMU_CTAS) * 128 * 512
 #else
-#define EG_TM_SHARED(T, name, dims) alignas(16) __shared__ T name dims
 #define EG_TM_BUF(name) float* const name = nullptr
+#endif
 #endif
 
 // eg_cm_idx returns the float index of element (r, k) of an R x K tile in the

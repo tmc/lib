@@ -162,8 +162,14 @@ func tmNativeCases(t *testing.T) []tmNativeCase {
 		if causal {
 			name += "_causal"
 		}
-		c := newTMNativeCase(t, name, func(n string) (string, error) { a.Name = n; return a.CUDA() },
-			"const int kv_end = CAUSAL ? (q0 + qrows < seq1 ? q0 + qrows : seq1) : seq1;", "const int kv_end = tokens;")
+		// Under causal masking kv_end only bounds work, so the causal
+		// mutant instead starts the key loop at token 0, attending into
+		// earlier sequences.
+		old, new := "const int kv_end = CAUSAL ? (q0 + qrows < seq1 ? q0 + qrows : seq1) : seq1;", "const int kv_end = tokens;"
+		if causal {
+			old, new = "for (int kv0 = seq0; kv0 < kv_end; kv0 += KT)", "for (int kv0 = 0; kv0 < kv_end; kv0 += KT)"
+		}
+		c := newTMNativeCase(t, name, func(n string) (string, error) { a.Name = n; return a.CUDA() }, old, new)
 		cu, q, k, v, pos := jaggedInputs(rand.New(rand.NewPCG(34, 3)), []int{73, 300, 190}, a.MRoPE.HeadDim)
 		sched, err := BuildJaggedBatchSchedule(cu, 128)
 		if err != nil {
@@ -429,5 +435,54 @@ func TestTMNativeQualification(t *testing.T) {
 		t.Logf("device arch %s has no TMEM (%v); ran the EG_EMU path:\n%s", devArch, err, strings.TrimSpace(string(out)))
 	} else {
 		t.Logf("recurrent native qualification passed on %s (CUDA %s):\n%s", devArch, cudaVer, strings.TrimSpace(string(out)))
+	}
+}
+
+// passGuardedDeviceGlobals returns the __device__ variable declarations in
+// src that sit inside a preprocessor conditional naming __CUDA_ARCH__ or
+// EG_EMU. nvcc's host pass registers every device global, so such a
+// declaration compiles in the device pass and fails in the host pass. A
+// branch of a conditional counts as guarded by every condition of that
+// conditional before it.
+func passGuardedDeviceGlobals(src string) []string {
+	var stack []string
+	var bad []string
+	for _, line := range strings.Split(src, "\n") {
+		l := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(l, "#if"):
+			stack = append(stack, l)
+		case strings.HasPrefix(l, "#el") && len(stack) > 0:
+			stack[len(stack)-1] += " " + l
+		case strings.HasPrefix(l, "#endif") && len(stack) > 0:
+			stack = stack[:len(stack)-1]
+		case strings.Contains(l, "__device__") && !strings.HasPrefix(l, "#") && !strings.HasPrefix(l, "//") &&
+			!strings.Contains(l, "(") && strings.HasSuffix(l, ";"):
+			for _, cond := range stack {
+				c := strings.NewReplacer("EG_HOST_EMU", "", "EG_EMU_", "").Replace(cond)
+				if strings.Contains(c, "__CUDA_ARCH__") || strings.Contains(c, "EG_EMU") {
+					bad = append(bad, l+"  (under "+cond+")")
+					break
+				}
+			}
+		}
+	}
+	return bad
+}
+
+func TestTMNativeDeviceGlobalsUnguarded(t *testing.T) {
+	for _, tt := range []struct {
+		name, src string
+		bad       int
+	}{
+		{"harness", buildTMNativeHarness(tmNativeCases(t)), 0},
+		{"guarded", "#if defined(EG_EMU)\nstatic __device__ float x[4];\n#endif\n", 1},
+		{"else of arch", "#ifdef __CUDA_ARCH__\n#else\n__device__ int y;\n#endif\n", 1},
+		{"host emu else", "#if defined(EG_HOST_EMU)\n#else\nstatic __device__ float z[4];\n#endif\n", 0},
+		{"elif emu", "#if defined(EG_HOST_EMU)\n#elif defined(EG_EMU)\nstatic __device__ float w[4];\n#endif\n", 1},
+	} {
+		if got := passGuardedDeviceGlobals(tt.src); len(got) != tt.bad {
+			t.Errorf("%s: pass-guarded device globals %q, want %d", tt.name, got, tt.bad)
+		}
 	}
 }

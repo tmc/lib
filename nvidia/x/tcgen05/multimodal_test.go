@@ -264,7 +264,7 @@ func runJagged(t *testing.T, a JaggedAttention, src string, cu []int32, q, k, v 
 // in one jagged batch, checks them against the float64 reference, and
 // checks that each sequence's output is bit-identical to running it alone
 // (batch isolation). A mutant whose key range runs to the end of the batch
-// instead of the end of the sequence must fail the isolation check.
+// (non-causal) or starts at the first token of the batch (causal) must fail.
 func TestJaggedAttentionEmulated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("emulated kernel run")
@@ -297,15 +297,20 @@ func TestJaggedAttentionEmulated(t *testing.T) {
 					t.Fatalf("sequence 1 alone differs at %d: %g vs %g", i, x, got[lo*d+i])
 				}
 			}
+			// Under causal masking kv_end only bounds work, so the causal
+			// mutant starts the key loop at token 0 instead, attending
+			// into earlier sequences.
+			old, new := "const int kv_end = CAUSAL ? (q0 + qrows < seq1 ? q0 + qrows : seq1) : seq1;", "const int kv_end = tokens;"
 			if causal {
-				return
+				old, new = "for (int kv0 = seq0; kv0 < kv_end; kv0 += KT)", "for (int kv0 = 0; kv0 < kv_end; kv0 += KT)"
 			}
-			const old = "const int kv_end = CAUSAL ? (q0 + qrows < seq1 ? q0 + qrows : seq1) : seq1;"
 			if !strings.Contains(src, old) {
 				t.Fatalf("source lacks %q", old)
 			}
-			mut := strings.Replace(src, old, "const int kv_end = tokens;", 1)
-			if e := relL2(runJagged(t, a, mut, cu, q, k, v, pos), flat(want)); e <= 1e-3 {
+			mut := strings.Replace(src, old, new, 1)
+			e = relL2(runJagged(t, a, mut, cu, q, k, v, pos), flat(want))
+			t.Logf("mutant rel L2 %.3g", e)
+			if e <= 1e-3 {
 				t.Fatalf("mutant passed: rel L2 = %g", e)
 			}
 		})
