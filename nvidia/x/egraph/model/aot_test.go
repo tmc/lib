@@ -17,6 +17,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
@@ -703,10 +704,11 @@ func TestAOTNative(t *testing.T) {
 	if err := os.WriteFile(cu, []byte(aotNativeKernel), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	compile := func(t *testing.T, mode, ext string) []byte {
+	compile := func(t *testing.T, ext string, args ...string) []byte {
 		out := filepath.Join(tmp, "fill"+ext)
-		if b, err := exec.Command(nvcc, mode, "-arch="+target, cu, "-o", out).CombinedOutput(); err != nil {
-			t.Fatalf("nvcc %s (%s, CUDA %s): %v\n%s", mode, target, cudaVer, err, b)
+		args = append(args, cu, "-o", out)
+		if b, err := exec.Command(nvcc, args...).CombinedOutput(); err != nil {
+			t.Fatalf("nvcc %s (CUDA %s): %v\n%s", strings.Join(args, " "), cudaVer, err, b)
 		}
 		data, err := os.ReadFile(out)
 		if err != nil {
@@ -716,7 +718,7 @@ func TestAOTNative(t *testing.T) {
 	}
 
 	t.Run("nvcc_fatbin", func(t *testing.T) {
-		fatbin := compile(t, "-fatbin", ".fatbin")
+		fatbin := compile(t, ".fatbin", "-fatbin", "-arch="+target)
 		entries, err := InspectFatbin(fatbin)
 		if err != nil {
 			t.Fatalf("inspect nvcc fatbin: %v", err)
@@ -745,8 +747,8 @@ func TestAOTNative(t *testing.T) {
 	special := strings.HasSuffix(target, "a")
 	var cubin, ptx FatbinEntry
 	t.Run("nvcc_cubin_ptx", func(t *testing.T) {
-		cubin = FatbinEntry{Kind: FatbinKindCubin, SM: sm, ArchSpecific: special, Payload: compile(t, "-cubin", ".cubin")}
-		ptx = FatbinEntry{Kind: FatbinKindPTX, SM: sm, ArchSpecific: special, Payload: compile(t, "-ptx", ".ptx")}
+		cubin = FatbinEntry{Kind: FatbinKindCubin, SM: sm, ArchSpecific: special, Payload: compile(t, ".cubin", "-cubin", "-arch="+target)}
+		ptx = FatbinEntry{Kind: FatbinKindPTX, SM: sm, ArchSpecific: special, Payload: compile(t, ".ptx", "-ptx", "-arch="+target)}
 	})
 	if cubin.Payload == nil || ptx.Payload == nil {
 		t.Fatal("nvcc -cubin or -ptx failed")
@@ -776,17 +778,77 @@ func TestAOTNative(t *testing.T) {
 	}{
 		{"cubin", []FatbinEntry{cubin}},
 		{"cubin_ptx", []FatbinEntry{cubin, ptx}},
-		{"ptx", []FatbinEntry{ptx}},
 	} {
 		t.Run("build_fatbin_"+tt.name, func(t *testing.T) {
 			path, f := writeImage(t, tt.name, nil, tt.entries...)
-			out, err := runFillChild(path)
-			if err != nil {
-				t.Fatalf("BuildFatbin %s (%d bytes): %v\n%s", tt.name, len(f), err, out)
+			c := runFillChild(path)
+			if !c.ok {
+				t.Fatalf("BuildFatbin %s (%d bytes): %v\n%s", tt.name, len(f), c.err, c.out)
 			}
 			t.Logf("BuildFatbin %s: loaded and ran (%d bytes)", tt.name, len(f))
 		})
 	}
+
+	// A PTX-only image needs the driver to JIT it, which a driver older
+	// than the PTX ISA refuses with CUDA_ERROR_UNSUPPORTED_PTX_VERSION.
+	ptxMajor, ptxMinor, _ := ptxVersion(ptx.Payload)
+	checkPTXOnly := func(t *testing.T, what, path string, size int) fillChild {
+		c := runFillChild(path)
+		dmaj, dmin, known := driverPTXISA(c.driverVersion)
+		switch {
+		case c.ok && known && (dmaj < ptxMajor || dmaj == ptxMajor && dmin < ptxMinor):
+			t.Fatalf("%s: driver %d (PTX ISA %d.%d) ran PTX %d.%d; the ISA table is wrong", what, c.driverVersion, dmaj, dmin, ptxMajor, ptxMinor)
+		case c.ok:
+			t.Logf("%s: loaded and ran (%d bytes, driver %d, PTX %d.%d)", what, size, c.driverVersion, ptxMajor, ptxMinor)
+		case c.result == driver.ErrUnsupportedPtxVersion.String() && known && (dmaj < ptxMajor || dmaj == ptxMajor && dmin < ptxMinor):
+			t.Logf("%s: driver too old to JIT PTX %d.%d (driver %d supports PTX %d.%d): %s", what, ptxMajor, ptxMinor, c.driverVersion, dmaj, dmin, c.result)
+		case c.result == driver.ErrUnsupportedPtxVersion.String() && !known:
+			t.Logf("%s: driver %d (PTX ISA not in table) refused PTX %d.%d: %s", what, c.driverVersion, ptxMajor, ptxMinor, c.result)
+		default:
+			t.Fatalf("%s (%d bytes, driver %d, PTX %d.%d): %v\n%s", what, size, c.driverVersion, ptxMajor, ptxMinor, c.err, c.out)
+		}
+		return c
+	}
+	var driverVersion int
+	t.Run("build_fatbin_ptx", func(t *testing.T) {
+		path, f := writeImage(t, "ptx", nil, ptx)
+		driverVersion = checkPTXOnly(t, "BuildFatbin ptx", path, len(f)).driverVersion
+	})
+	t.Run("nvcc_fatbin_ptx_control", func(t *testing.T) {
+		compute := strings.Replace(target, "sm_", "compute_", 1)
+		f := compile(t, ".compute.fatbin", "-fatbin", "-gencode", "arch="+compute+",code="+compute)
+		entries, err := InspectFatbin(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if e.Kind != FatbinKindPTX {
+				t.Fatalf("nvcc control has a kind %d entry, want PTX only", e.Kind)
+			}
+		}
+		checkPTXOnly(t, "nvcc ptx control", filepath.Join(tmp, "fill.compute.fatbin"), len(f))
+	})
+	t.Run("build_fatbin_ptx_downlevel", func(t *testing.T) {
+		// Rewriting .version is sound only because aot_fill uses
+		// nothing newer than the driver's ISA; recheck if it grows.
+		dmaj, dmin, known := driverPTXISA(driverVersion)
+		if !known || dmaj > ptxMajor || dmaj == ptxMajor && dmin >= ptxMinor {
+			t.Skipf("driver %d needs no downlevel PTX (or its ISA is not in the table)", driverVersion)
+		}
+		from := fmt.Sprintf(".version %d.%d\n", ptxMajor, ptxMinor)
+		to := fmt.Sprintf(".version %d.%d\n", dmaj, dmin)
+		if !bytes.Contains(ptx.Payload, []byte(from)) {
+			t.Fatalf("PTX has no %q", from)
+		}
+		down := ptx
+		down.Payload = bytes.Replace(ptx.Payload, []byte(from), []byte(to), 1)
+		path, f := writeImage(t, "ptx_downlevel", nil, down)
+		c := runFillChild(path)
+		if !c.ok {
+			t.Fatalf("BuildFatbin ptx at PTX %d.%d (%d bytes): %v\n%s", dmaj, dmin, len(f), c.err, c.out)
+		}
+		t.Logf("BuildFatbin ptx rewritten to PTX %d.%d: JIT-compiled, loaded and ran (%d bytes, driver %d)", dmaj, dmin, len(f), driverVersion)
+	})
 
 	t.Run("build_fatbin_mutant", func(t *testing.T) {
 		// The pre-261b5c565 layout: the SM at +24, where the code
@@ -802,9 +864,8 @@ func TestAOTNative(t *testing.T) {
 			t.Fatalf("host check of mutant: err = %v, want no sm_%d image", packErr, sm)
 		}
 		rejectedBy := "driver"
-		out, err := runFillChild(path)
-		if err != nil {
-			t.Logf("mutant (sm at +24) driver: %v\n%s", err, out)
+		if c := runFillChild(path); !c.ok {
+			t.Logf("mutant (sm at +24) driver: %v\n%s", c.err, c.out)
 		} else {
 			// The driver may pick the image from the cubin's e_flags
 			// alone; then only the host check stands between the
@@ -819,19 +880,53 @@ func TestAOTNative(t *testing.T) {
 // fillChildEnv names the fatbin TestAOTNativeChild loads.
 const fillChildEnv = "CUDA_EGRAPH_MODEL_FILL_CHILD"
 
+// A fillChild is the outcome of TestAOTNativeChild in a child process.
+type fillChild struct {
+	ok            bool   // the child loaded, ran and checked aot_fill
+	driverVersion int    // cuDriverGetVersion, 0 if not reported
+	result        string // driver.Result name of the failure, if any
+	out           string // child output, truncated
+	err           error
+}
+
 // runFillChild runs TestAOTNativeChild on the fatbin at path in a new
-// process and returns its output.
-func runFillChild(path string) (string, error) {
+// process.
+func runFillChild(path string) fillChild {
 	cmd := exec.Command(os.Args[0], "-test.run=^TestAOTNativeChild$", "-test.v", "-test.count=1")
 	cmd.Env = append(os.Environ(), fillChildEnv+"="+path)
 	out, err := cmd.CombinedOutput()
-	if err == nil && !strings.Contains(string(out), "LAUNCH_FILL_OK") {
+	var c fillChild
+	for line := range strings.Lines(string(out)) {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "DRIVER_VERSION="); ok {
+			c.driverVersion, _ = strconv.Atoi(v)
+		}
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "LAUNCH_FILL_ERR result="); ok {
+			c.result = v
+		}
+	}
+	c.ok = err == nil && strings.Contains(string(out), "LAUNCH_FILL_OK")
+	if err == nil && !c.ok {
 		err = errors.New("child did not report LAUNCH_FILL_OK")
 	}
+	c.err = err
 	if len(out) > 4096 {
 		out = append(out[:4096:4096], "\n[truncated]"...)
 	}
-	return string(out), err
+	c.out = string(out)
+	return c
+}
+
+// driverPTXISA returns the newest PTX ISA a driver of the given
+// cuDriverGetVersion can JIT. The table holds the CUDA releases the PTX
+// ISA manual pairs with each ISA, plus 13.4, whose nvcc emits PTX 9.4;
+// other versions report !ok.
+func driverPTXISA(v int) (major, minor int, ok bool) {
+	isa, ok := map[int][2]int{
+		12000: {8, 0}, 12010: {8, 1}, 12020: {8, 2}, 12030: {8, 3},
+		12040: {8, 4}, 12050: {8, 5}, 12060: {8, 5}, 12080: {8, 7},
+		12090: {8, 8}, 13000: {9, 0}, 13040: {9, 4},
+	}[v]
+	return isa[0], isa[1], ok
 }
 
 // TestAOTNativeChild loads the fatbin named by CUDA_EGRAPH_MODEL_FILL_CHILD
@@ -850,6 +945,9 @@ func TestAOTNativeChild(t *testing.T) {
 	if err := driver.Init(0); err != nil {
 		t.Fatalf("driver init: %v", err)
 	}
+	if v, err := driver.DriverGetVersion(); err == nil {
+		fmt.Printf("DRIVER_VERSION=%d\n", v)
+	}
 	dev, err := driver.DeviceGet(0)
 	if err != nil {
 		t.Fatal(err)
@@ -863,6 +961,10 @@ func TestAOTNativeChild(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := launchFill(fatbin); err != nil {
+		var r driver.Result
+		if errors.As(err, &r) {
+			fmt.Printf("LAUNCH_FILL_ERR result=%s\n", r.String())
+		}
 		t.Fatal(err)
 	}
 	fmt.Println("LAUNCH_FILL_OK")
