@@ -1,6 +1,7 @@
 package cudasass_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -159,9 +160,45 @@ func TestProveDisassembly(t *testing.T) {
 	}
 }
 
+// goldenBuildsFor reports whether a golden kernel source compiles for arch.
+// A golden that issues wgmma.mma_async is sm_90a-only: wgmma exists on no
+// other target, and ptxas rejects it for sm_100a and sm_121a. The wgmma
+// fence, commit and wait helpers every golden's prelude defines are inline
+// functions that only those goldens call.
+func goldenBuildsFor(src []byte, arch string) bool {
+	return arch == "sm_90a" || !bytes.Contains(src, []byte("wgmma.mma_async"))
+}
+
+func TestGoldenBuildsFor(t *testing.T) {
+	files, err := filepath.Glob("../egraph/hopper/testdata/golden/*.cu")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no golden kernels: %v", err)
+	}
+	wgmma := map[string]bool{
+		"moe8_e4m3_ws.cu":           true,
+		"moe8_moe_w13_ws.cu":        true,
+		"moe8_prefill_qkv_ws.cu":    true,
+		"moe8_prefill_qkv_wgmma.cu": true,
+	}
+	for _, f := range files {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := filepath.Base(f)
+		for _, arch := range []string{"sm_90a", "sm_100a", "sm_121a"} {
+			want := arch == "sm_90a" || !wgmma[name]
+			if got := goldenBuildsFor(src, arch); got != want {
+				t.Errorf("goldenBuildsFor(%s, %s) = %v, want %v", name, arch, got, want)
+			}
+		}
+	}
+}
+
 // TestProveCubinNative compiles the egraph/hopper golden kernels with nvcc
 // and checks each with ProveCubin: no spills, no stack frame and at most 232
-// registers. It runs only with CUDA_CUDASASS_SPILL_NATIVE=1 and needs nvcc
+// registers. A golden is compiled only for the targets [goldenBuildsFor]
+// allows; the others are logged as skipped. It runs only with CUDA_CUDASASS_SPILL_NATIVE=1 and needs nvcc
 // and nvdisasm on PATH, but no GPU. CUDA_CUDASASS_SPILL_NATIVE_ARCHS lists
 // the targets, comma-separated; the default is sm_90a,sm_100a,sm_121a.
 func TestProveCubinNative(t *testing.T) {
@@ -182,6 +219,14 @@ func TestProveCubinNative(t *testing.T) {
 	}
 	for _, arch := range strings.Split(archs, ",") {
 		for _, f := range files {
+			src, err := os.ReadFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !goldenBuildsFor(src, arch) {
+				t.Logf("%s: skipped on %s: issues wgmma, which only sm_90a has", filepath.Base(f), arch)
+				continue
+			}
 			t.Run(arch+"/"+filepath.Base(f), func(t *testing.T) {
 				cubin := filepath.Join(t.TempDir(), "k.cubin")
 				out, err := exec.Command(nvcc, "-std=c++20", "-O3", "-arch="+arch, "-cubin", "-Xptxas", "-v", "-o", cubin, f).CombinedOutput()
