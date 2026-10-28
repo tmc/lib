@@ -154,7 +154,9 @@ func SplitSteps(kernels []Span, end string) [][]Span {
 // the span: the device-side cost of launching and retiring the step's
 // kernels, which does not shrink when the kernels get faster. Under
 // programmatic dependent launch a kernel may start before its predecessor
-// ends; the overlap counts once in BusyNS.
+// ends; the overlap counts once in BusyNS. Such a kernel's duration includes
+// its wait for the predecessor, so the launch latency it hides moves from
+// IdleNS into BusyNS: compare SpanNS, not IdleNS, across launch modes.
 type LaunchGaps struct {
 	Launches int
 	SpanNS   int64
@@ -231,6 +233,37 @@ func (g LaunchGaps) GapPerLaunchNS() float64 {
 // faster device can expose host submission cost that this trace hid.
 func (g LaunchGaps) Project(floorNS int64) int64 {
 	return floorNS + g.IdleNS
+}
+
+// ShortKernels returns the number and total duration of the kernels in
+// step shorter than maxNS. Such kernels are bound by launch and drain
+// latency, not bandwidth, and keep their duration on a faster device.
+func ShortKernels(step []Span, maxNS int64) (n int, totalNS int64) {
+	for _, k := range step {
+		if d := k.EndNS - k.StartNS; d < maxNS {
+			n++
+			totalNS += d
+		}
+	}
+	return n, totalNS
+}
+
+// StepGaps returns the idle time between consecutive steps: from the end of
+// each step's last kernel to the start of the next step's first. It is the
+// host's turnaround between steps (synchronization, copies, parameter
+// updates and the next launch), which no kernel overlaps.
+func StepGaps(steps [][]Span) []int64 {
+	var gaps []int64
+	for i := 1; i < len(steps); i++ {
+		end := int64(0)
+		for _, k := range steps[i-1] {
+			end = max(end, k.EndNS)
+		}
+		if len(steps[i]) > 0 {
+			gaps = append(gaps, steps[i][0].StartNS-end)
+		}
+	}
+	return gaps
 }
 
 // APILaunches counts the host calls in api whose names contain one of

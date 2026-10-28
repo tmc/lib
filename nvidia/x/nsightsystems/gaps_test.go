@@ -127,3 +127,14 @@ func TestKernelSpans(t *testing.T) {
 		t.Errorf("KernelSpans = %v, want %v", got, want)
 	}
 }
+
+func TestShortKernelsAndStepGaps(t *testing.T) {
+	a := []Span{{"x", 0, 2, 7}, {"y", 3, 30, 7}, {"argmax", 30, 31, 7}}
+	b := []Span{{"x", 40, 42, 7}, {"argmax", 43, 44, 7}}
+	if n, ns := ShortKernels(a, 10); n != 2 || ns != 3 {
+		t.Errorf("ShortKernels = %d, %d, want 2, 3", n, ns)
+	}
+	if got := StepGaps([][]Span{a, b}); !slices.Equal(got, []int64{9}) {
+		t.Errorf("StepGaps = %v, want [9]", got)
+	}
+}

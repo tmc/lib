@@ -1,13 +1,15 @@
 # Three steps: the prefill, then two decode steps of three kernels each.
 # Decode step 1 idles 2µs+3µs, step 2 1µs+1µs; the median of two is the
-# longer.
+# longer. Step 1 has two kernels under 10µs and ends 75µs before step 2.
 nsysgaps -end argmax -floor 2ms -floor 100us -api $WORK/api.csv $WORK/gpu.csv
 stdout '9 kernels, 3 steps ending in "argmax"; skipping 1'
 stdout '^ +1 +3 +25µs +20µs +5µs +2.5µs +20.0%$'
 stdout 'median step: 3 launches, span 25µs, busy 20µs, idle 5µs \(2.5µs per launch\)'
 stdout '^ +3µs idle +1 launches +5µs busy  argmax$'
-stdout 'floor +2ms -> step +2.005ms, idle +0.2% of step'
-stdout 'floor +100µs -> step +105µs, idle +4.8% of step'
+stdout '2 kernels shorter than 10µs: 10µs'
+stdout 'median gap between steps: 75µs \(1 gaps\)'
+stdout 'floor +2ms: floor\+idle +2.005ms \(idle  0.2%\); \+short\+between +2.09ms \(overhead  4.3%\)'
+stdout 'floor +100µs: floor\+idle +105µs'
 stdout 'cuLaunchKernel +3 calls +9µs total +3µs mean'
 stdout 'cuGraphLaunch +1 calls +20µs total +20µs mean'
 

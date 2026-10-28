@@ -3,7 +3,7 @@
 //
 // Usage:
 //
-//	nsysgaps [-end NAME] [-skip N] [-floor DUR] [-top N] [-api API.csv] GPU.csv
+//	nsysgaps [-end NAME] [-skip N] [-floor DUR] [-short DUR] [-top N] [-api API.csv] GPU.csv
 //
 // GPU.csv is the output of
 //
@@ -17,9 +17,13 @@
 // prints the median step and the kernels with the most idle time before
 // them in that step.
 //
-// For each -floor duration (repeatable; default 2ms), it prints
-// floor + median idle: the step time on a device that runs the step's
-// kernels in floor but keeps this trace's launch gaps. That is a model,
-// not a measurement. With -api it also prints the host time spent in
-// kernel and graph launch calls.
+// For the median step it also prints the kernels shorter than -short
+// (default 10µs), which are bound by launch and drain latency rather than
+// bandwidth, and the median idle time between steps, the host's turnaround.
+// For each -floor duration (repeatable; default 2ms) it prints two models of
+// the step on a device that runs the step's bandwidth-bound work in floor:
+// floor + idle, and floor + idle + short kernels + gap between steps. Both
+// assume the latencies in this trace carry over unchanged; they are models,
+// not measurements. With -api it also prints the host time spent in kernel
+// and graph launch calls.
 package main
