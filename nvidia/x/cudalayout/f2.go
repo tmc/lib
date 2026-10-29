@@ -186,7 +186,7 @@ func TMASwizzleLayout(rows, cols, elementBytes int, mode TMASwizzle) (Layout, er
 // is a caller error, [ErrUnsupported].
 func (s XORSwizzle) CheckDevice(target string) error {
 	switch target {
-	case TargetSM100a, TargetSM121a:
+	case TargetSM100a, TargetSM103a, TargetSM107a, TargetSM100f, TargetSM103f, TargetSM107f, TargetSM121a:
 		return fmt.Errorf("cudalayout: %v on %s: no instrument has measured shared-memory addressing or bank conflicts: %w", s, target, cudaerrors.ErrHardwarePending)
 	}
 	return fmt.Errorf("cudalayout: unknown target %q: %w", target, ErrUnsupported)

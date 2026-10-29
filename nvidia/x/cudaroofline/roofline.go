@@ -101,6 +101,13 @@ type Ceiling struct {
 	Architecture string    // e.g. "sm_90", "sm_121"
 	Residency    Residency // memory path the bandwidth figures describe
 
+	// Device is the product name the numbers were measured on, as NVML and
+	// nvidia-smi report it (e.g. "NVIDIA H200"), for an entry from
+	// LookupDeviceCeiling. It is empty for an architecture-wide entry.
+	// It records where a table entry came from; DeviceName below is the
+	// caller's assertion that qualifies PrecisionPeaks.
+	Device string
+
 	// DeviceName and MaxSMClockMHz name the specific SKU and maximum SM clock
 	// (matching cudacensus.Identity) that qualify PrecisionPeaks. They are
 	// caller-supplied assertions checked for consistency, not hardware
@@ -271,6 +278,94 @@ func residenciesFor(arch string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// knownDeviceCeilings holds ceilings for one product rather than one
+// architecture. An architecture does not name a memory system: the H100 SXM
+// and the H200 are both sm_90 and differ by 1.4x in datasheet bandwidth, so
+// the sm_90 row above is right for at most one of them. Keys are product
+// names as NVML reports them, compared by normalizeDevice.
+//
+// NVIDIA H200 (SXM, 141 GB HBM3e, 132 SMs; 4.8 TB/s datasheet), measured
+// 2026-10-22 in the Open Kernel Challenge campaign
+// (h200-challenge-groundwork/methods/workload.py:67-83,
+// ATTENTION-CAMPAIGN.md:27): torch copy_ of 128 Mi fp32 elements, counted as
+// read plus write (1 GiB moved), timed as a CUDA-graph replay between events
+// with a 512 MiB cold-L2 flush before each sample; median of 20 samples:
+//
+//	2740.48 GB/s effective copy
+//
+// This is a weak ceiling in three ways, all of which make it low: it is one
+// kernel at one geometry, a median rather than a best, and the span includes
+// the graph replay intercept (about 4 us of about 392 us). It is 57% of the
+// datasheet figure. Expect it to move up when a read-only sweep is run, and
+// read an efficiency above 1.0 against it as a statement about the ceiling.
+// The highest native DRAM rate profiled in the same campaign was 1501.5 GB/s
+// (ncu dram__bytes, ATTENTION-CAMPAIGN.md). The same campaign timed a 4096^3
+// BF16 torch.mm at about 778 TFLOP/s; that is a tensor-core figure and has no
+// place in the FP32 PeakTFLOPS below, which is the datasheet's 67 TFLOPS.
+//
+// NVIDIA GB10 carries the sm_121 measurements documented on knownCeilings.
+// deviceKey identifies a knownDeviceCeilings entry by normalized product name.
+type deviceKey struct {
+	name      string
+	residency Residency
+}
+
+var knownDeviceCeilings = map[deviceKey]Ceiling{
+	{"nvidia h200", DeviceResident}: {
+		Architecture: "sm_90", Residency: DeviceResident, Device: "NVIDIA H200",
+		PeakTFLOPS: 67.0, PeakMemoryGBps: 2740.48,
+		ComputeProvenance: Unverified, MemoryProvenance: Measured,
+	},
+	{"nvidia gb10", DeviceResident}: {
+		Architecture: "sm_121", Residency: DeviceResident, Device: "NVIDIA GB10",
+		PeakTFLOPS: 40.0, PeakMemoryGBps: 239.6,
+		ComputeProvenance: Unverified, MemoryProvenance: Measured,
+	},
+	{"nvidia gb10", HostPageTableResident}: {
+		Architecture: "sm_121", Residency: HostPageTableResident, Device: "NVIDIA GB10",
+		PeakTFLOPS: 40.0, PeakMemoryGBps: 162.4,
+		ComputeProvenance: Unverified, MemoryProvenance: Measured,
+	},
+}
+
+// normalizeDevice folds case and runs of spaces, so "NVIDIA  H200" and
+// "nvidia h200" name the same product. It does not drop words: "NVIDIA H200
+// NVL" is a different part with a different power limit.
+func normalizeDevice(name string) string {
+	return strings.ToLower(strings.Join(strings.Fields(name), " "))
+}
+
+// LookupDeviceCeiling returns the ceiling measured on the named product (as
+// NVML, nvidia-smi or cudaGetDeviceProperties report it) at the given
+// residency. It never falls back to the architecture-wide table: a part the
+// table does not name has no measured ceiling here, and the caller should
+// measure one or choose LookupCeiling knowingly.
+func LookupDeviceCeiling(device string, residency Residency) (Ceiling, error) {
+	key := deviceKey{normalizeDevice(device), residency}
+	if c, ok := knownDeviceCeilings[key]; ok {
+		return c, nil
+	}
+	var residencies []string
+	devices := map[string]bool{}
+	for k, c := range knownDeviceCeilings {
+		if k.name == key.name {
+			residencies = append(residencies, string(k.residency))
+		}
+		devices[c.Device] = true
+	}
+	if len(residencies) > 0 {
+		sort.Strings(residencies)
+		return Ceiling{}, fmt.Errorf("cudaroofline: no ceiling for %q at %q residency (have: %s)",
+			device, residency, strings.Join(residencies, ", "))
+	}
+	names := make([]string, 0, len(devices))
+	for d := range devices {
+		names = append(names, d)
+	}
+	sort.Strings(names)
+	return Ceiling{}, fmt.Errorf("cudaroofline: no measured ceiling for device %q (have: %s)", device, strings.Join(names, ", "))
 }
 
 // Model evaluates kernel operational points against one ceiling.

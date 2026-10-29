@@ -1,0 +1,12 @@
+{
+  "source_sha256": "feaa85e6c97f0ea66676a38a735909f58418b1cf5892ecc823745e05bc583320",
+  "kernels": {
+    "_Z19moe8_prefill_qkv_wsiPKtS0_Pt": {
+      "loads": {},
+      "stores": {
+        "u32": 32
+      },
+      "late_loads": 0
+    }
+  }
+}

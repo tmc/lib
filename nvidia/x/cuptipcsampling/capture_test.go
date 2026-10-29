@@ -82,7 +82,7 @@ func TestPublicStartCleanup(t *testing.T) {
 				inventory := ReasonInventory{CUPTIVersion: version, Reasons: []StallReason{{Index: 7, Name: "reason"}}}
 				config := testPublicConfig()
 				s, err := startSession(5, config, api, func(driver.Context, int) (ReasonInventory, error) { return inventory, nil }, func(a, b, c int) (*samplingNames, error) {
-					return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil }, func(uintptr) {})
+					return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil })
 				}, func(*cupti.PCSamplingGetDataParams) error { return nil })
 				if s == nil || (failConfig && !errors.Is(err, failure)) || (!failConfig && err != nil) {
 					t.Fatalf("session=%v err=%v", s, err)

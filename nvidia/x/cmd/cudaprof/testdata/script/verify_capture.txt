@@ -1,0 +1,53 @@
+# cudaprof verify-capture validates capture completeness receipts against the strict gate.
+
+exec cudaprof verify-capture good.json
+stdout 'good.json: PASS \(run_completeness=complete, activity_records=24\)'
+
+exec cudaprof verify-capture -json good.json
+stdout '"status": "PASS"'
+stdout '"qualified": true'
+
+! exec cudaprof verify-capture partial.json
+stdout 'partial.json: HOLD'
+stderr 'run_completeness is "partial", want "complete"'
+stderr 'unqualified_generations is 1, want 0'
+
+! exec cudaprof verify-capture good.json a2_cupti_unknown.log a5_illegal_addr.json
+stdout 'good.json: PASS'
+stdout 'a2_cupti_unknown.log: HOLD'
+stdout 'a5_illegal_addr.json: HOLD'
+stderr 'CUPTI_ERROR_UNKNOWN'
+stderr 'an illegal memory access'
+
+-- good.json --
+{
+  "capture_success": true,
+  "run_completeness": "complete",
+  "target_exit_code": 0,
+  "collector_finalized": true,
+  "unqualified_generations": 0,
+  "activity_records": 24
+}
+-- partial.json --
+{
+  "capture_success": true,
+  "run_completeness": "partial",
+  "target_exit_code": 0,
+  "collector_finalized": true,
+  "unqualified_generations": 1,
+  "activity_records": 8
+}
+-- a2_cupti_unknown.log --
+/opt/sglang/lib/python3.12/site-packages/torch/cuda/__init__.py:1174: UserWarning: Can't initialize NVML
+{"capture_success":false,"target_exit_code":1,"collector_finalized":false,"activity_records":0,"run_completeness":"failed","unqualified_generations":1,"capture_error":"cupti_unavailable: cuptiActivityRegisterCallbacks: CUPTI_ERROR_UNKNOWN"}
+target exited with status 1
+-- a5_illegal_addr.json --
+{
+  "capture_success": true,
+  "run_completeness": "complete",
+  "target_exit_code": 0,
+  "collector_finalized": true,
+  "unqualified_generations": 0,
+  "activity_records": 4,
+  "stdout": "torch.AcceleratorError: CUDA error: an illegal memory access was encountered\n"
+}

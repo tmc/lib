@@ -49,8 +49,7 @@ func TestFlushBoundedStorage(t *testing.T) {
 func TestFlushBoundedNativeControls(t *testing.T) {
 	for _, mode := range []string{"healthy", "oversized properties", "flush error", "record growth", "instance growth", "record shrink", "instance shrink", "name error", "pointer changed", "instance pointer changed", "invalid limits"} {
 		t.Run(mode, func(t *testing.T) {
-			queries, flushes, names, freed := 0, 0, 0, 0
-			released := make(map[uintptr]int)
+			queries, flushes, names := 0, 0, 0
 			limits := FlushLimits{2, 2, 4096, 8}
 			if mode == "invalid limits" {
 				limits.MaxBytes = 0
@@ -89,7 +88,6 @@ func TestFlushBoundedNativeControls(t *testing.T) {
 					}
 					return nil
 				},
-				free: func(ptr uintptr) { freed++; released[ptr]++ },
 				name: func(_ uintptr, n uint64) (string, error) {
 					names++
 					if n != 8 {
@@ -119,18 +117,51 @@ func TestFlushBoundedNativeControls(t *testing.T) {
 				t.Fatal("properties queried more than once")
 			}
 			if mode == "oversized properties" {
-				if flushes != 0 || freed != 0 {
+				if flushes != 0 {
 					t.Fatal("oversized properties reached allocation/flush")
 				}
 				return
 			}
-			if flushes != 1 || freed != 2 || released[1] != 1 || released[2] != 1 {
-				t.Fatalf("flushes=%d freed=%d", flushes, freed)
+			if flushes != 1 {
+				t.Fatalf("flushes=%d", flushes)
 			}
 			if mode != "healthy" && mode != "name error" && names != 0 {
 				t.Fatal("invalid native capacities reached name decoder")
 			}
 		})
+	}
+}
+
+// CUPTI owns the function-name strings in flushed records: records for one
+// function may share a pointer, within a flush and across flushes, so the
+// flush must read them and never free them.
+func TestFlushBoundedSharedFunctionName(t *testing.T) {
+	native := map[uintptr]string{1: "gemm"}
+	api := flushAPI{
+		properties: func(p *cupti.SassMetricsGetDataPropertiesParams) error {
+			p.NumOfPatchedInstructionRecords, p.NumOfInstances = 2, 1
+			return nil
+		},
+		flush: func(_ *cupti.SassMetricsFlushDataParams, r []cupti.SassMetricsData, _ [][]cupti.SassMetricsInstanceValue) error {
+			for i := range r {
+				r[i].FunctionName = 1
+			}
+			return nil
+		},
+		name: func(ptr uintptr, _ uint64) (string, error) {
+			s, ok := native[ptr]
+			if !ok {
+				return "", errors.New("read of freed native name")
+			}
+			return s, nil
+		},
+	}
+	s := new(Session)
+	for flush := range 2 {
+		records, err := s.flushData(&FlushLimits{2, 1, 4096, 16}, api)
+		if err != nil || len(records) != 2 || records[0].FunctionName != "gemm" || records[1].FunctionName != "gemm" {
+			t.Errorf("flush %d: records=%v error=%v", flush, records, err)
+		}
 	}
 }
 

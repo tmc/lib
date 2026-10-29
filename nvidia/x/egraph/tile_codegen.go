@@ -3,11 +3,188 @@ package egraph
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/tileir"
 	"github.com/tmc/lib/nvidia/x/tileiras"
 )
+
+type rmsNormConfig struct {
+	hasWeight bool
+	wName     string
+	wVal      float32
+	hasWVal   bool
+	epsName   string
+	epsVal    float32
+	hasEps    bool
+}
+
+func numericValue(data any) (float32, bool) {
+	switch v := data.(type) {
+	case float32:
+		return v, true
+	case float64:
+		return float32(v), true
+	case int:
+		return float32(v), true
+	case int32:
+		return float32(v), true
+	case int64:
+		return float32(v), true
+	case string:
+		if f, err := strconv.ParseFloat(v, 32); err == nil {
+			return float32(f), true
+		}
+	}
+	return 0, false
+}
+
+func extractRMSNormConfig(expr *Expr) rmsNormConfig {
+	cfg := rmsNormConfig{
+		hasWeight: true,
+		wName:     "W_norm",
+		epsName:   "eps",
+		epsVal:    1e-5,
+	}
+	if expr == nil {
+		return cfg
+	}
+
+	var wExpr, epsExpr *Expr
+	switch expr.Op {
+	case "rmsnorm", "tile_rmsnorm", "fused_rmsnorm":
+		if len(expr.Children) == 2 {
+			cfg.hasWeight = false
+			epsExpr = expr.Children[1]
+		} else if len(expr.Children) >= 3 {
+			cfg.hasWeight = true
+			wExpr = expr.Children[1]
+			epsExpr = expr.Children[2]
+		}
+	case "tile_rmsnorm_qkv", "fused_rmsnorm_qkv", "tile_rmsnorm_proj", "fused_rmsnorm_proj", "fused_rmsnorm_gemv":
+		if len(expr.Children) == 3 {
+			cfg.hasWeight = false
+			epsExpr = expr.Children[1]
+		} else if len(expr.Children) >= 4 {
+			cfg.hasWeight = true
+			wExpr = expr.Children[1]
+			epsExpr = expr.Children[2]
+		}
+	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split":
+		if len(expr.Children) == 5 {
+			cfg.hasWeight = false
+			epsExpr = expr.Children[1]
+		} else if len(expr.Children) >= 6 {
+			cfg.hasWeight = true
+			wExpr = expr.Children[1]
+			epsExpr = expr.Children[2]
+		}
+	case "tile_rmsnorm_gemv_swiglu", "tile_rmsnorm_swiglu", "fused_rmsnorm_gemv_swiglu", "fused_rmsnorm_swiglu":
+		if len(expr.Children) == 6 {
+			cfg.hasWeight = false
+			epsExpr = expr.Children[1]
+		} else if len(expr.Children) >= 7 {
+			cfg.hasWeight = true
+			wExpr = expr.Children[1]
+			epsExpr = expr.Children[2]
+		}
+	default:
+		for _, ch := range expr.Children {
+			if ch != nil && (ch.Op == "rmsnorm" || strings.Contains(ch.Op, "rmsnorm")) {
+				return extractRMSNormConfig(ch)
+			}
+		}
+	}
+
+	if wExpr != nil {
+		if wExpr.Op != "" {
+			cfg.wName = wExpr.Op
+		}
+		if len(wExpr.Children) == 0 {
+			if v, ok := numericValue(wExpr.Data); ok {
+				cfg.wVal = v
+				cfg.hasWVal = true
+			} else if v, err := strconv.ParseFloat(wExpr.Op, 32); err == nil {
+				cfg.wVal = float32(v)
+				cfg.hasWVal = true
+			}
+		}
+	}
+
+	if epsExpr != nil {
+		if epsExpr.Op != "" {
+			cfg.epsName = epsExpr.Op
+		}
+		if len(epsExpr.Children) == 0 {
+			if v, ok := numericValue(epsExpr.Data); ok {
+				cfg.epsVal = v
+				cfg.hasEps = true
+			} else if v, err := strconv.ParseFloat(epsExpr.Op, 32); err == nil {
+				cfg.epsVal = float32(v)
+				cfg.hasEps = true
+			}
+		}
+	}
+
+	return cfg
+}
+
+func sanitizeTileIdent(s string) string {
+	var sb strings.Builder
+	for i, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (i > 0 && r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		} else if i == 0 && r >= '0' && r <= '9' {
+			sb.WriteByte('_')
+			sb.WriteRune(r)
+		} else {
+			sb.WriteByte('_')
+		}
+	}
+	out := sb.String()
+	if out == "" {
+		return "sym"
+	}
+	return out
+}
+
+func formatTileFloat(v float32) string {
+	s := strconv.FormatFloat(float64(v), 'g', -1, 32)
+	if !strings.ContainsAny(s, ".eE") {
+		s += ".0"
+	}
+	return s
+}
+
+func declarativeRMSNormPrelude(elemType string, cfg rmsNormConfig) (epsSetup, weightView, normTileExpr string) {
+	epsSetup = "    const float norm_eps = eps;"
+	if cfg.hasEps {
+		epsSetup = fmt.Sprintf("    const float norm_eps = %sf;\n    (void)eps;", strconv.FormatFloat(float64(cfg.epsVal), 'g', -1, 32))
+	} else if cfg.epsName != "" && cfg.epsName != "eps" {
+		epsSetup = fmt.Sprintf("    const float norm_eps = eps; // eps: %s", sanitizeTileIdent(cfg.epsName))
+	}
+
+	if !cfg.hasWeight {
+		weightView = "    (void)W_norm;"
+		normTileExpr = fmt.Sprintf("tile<%s, shape<TM, TK>>{x.load(m, k) * rms_scale}", elemType)
+		return epsSetup, weightView, normTileExpr
+	}
+
+	if cfg.hasWVal {
+		weightView = fmt.Sprintf("    (void)W_norm;\n    const %s w_norm_const = static_cast<%s>(%sf);", elemType, elemType, strconv.FormatFloat(float64(cfg.wVal), 'g', -1, 32))
+		normTileExpr = fmt.Sprintf("tile<%s, shape<TM, TK>>{(x.load(m, k) * rms_scale) * w_norm_const}", elemType)
+		return epsSetup, weightView, normTileExpr
+	}
+
+	wComment := ""
+	if cfg.wName != "" && cfg.wName != "w" && cfg.wName != "W_norm" {
+		wComment = fmt.Sprintf(" // weight: %s", sanitizeTileIdent(cfg.wName))
+	}
+	weightView = fmt.Sprintf("    auto w_norm_span = tensor_span{assume_aligned<16>(W_norm), extents{1, K}};%s\n    auto w_norm = partition_view{w_norm_span, shape<1, TK>{}};", wComment)
+	normTileExpr = fmt.Sprintf("tile<%s, shape<TM, TK>>{(x.load(m, k) * rms_scale) * w_norm.load(0, k)}", elemType)
+	return epsSetup, weightView, normTileExpr
+}
 
 // GenerateDeclarativeTile generates C++ Tile source. Normalized projections
 // require the shape and ABI contract documented by TileNormalizedProjection.
@@ -38,6 +215,12 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 		opts.Precision = "float"
 	}
 
+	if !strings.HasPrefix(expr.Op, "tile_") && len(expr.Children) > 0 {
+		if fused := fuseNode(expr); fused != nil && strings.HasPrefix(fused.Op, "tile_") {
+			expr = fused
+		}
+	}
+
 	elemType := "float"
 	switch opts.Precision {
 	case "float", "float32":
@@ -61,11 +244,16 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 	sb.WriteString("#include \"cuda_tile.h\"\n")
 	sb.WriteString("using namespace cuda::tiles;\n\n")
 
-	if !IsLowerableTileIROp(expr.Op) {
+	canLowerRootNorm := expr.Op == "rmsnorm" && len(expr.Children) > 0
+	if !IsLowerableTileIROp(expr.Op) && !canLowerRootNorm {
 		return "", fmt.Errorf("egraph: no Tile IR lowering for operator %q", expr.Op)
 	}
 
+	cfg := extractRMSNormConfig(expr)
+
 	switch expr.Op {
+	case "tile_rmsnorm", "fused_rmsnorm", "rmsnorm":
+		sb.WriteString(generateDeclarativeRMSNorm(opts.KernelName, elemType, cfg))
 	case "tile_swiglu", "fused_swiglu":
 		sb.WriteString(generateDeclarativeSwiGLU(opts.KernelName, elemType))
 	case "tile_geglu", "fused_geglu":
@@ -83,6 +271,42 @@ func GenerateDeclarativeTile(expr *Expr, opts CodegenOptions) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func generateDeclarativeRMSNorm(kernelName, elemType string, cfg rmsNormConfig) string {
+	epsSetup, weightView, normTileExpr := declarativeRMSNormPrelude(elemType, cfg)
+	return fmt.Sprintf(`extern "C" __tile_global__ void %s(
+    const %s* __restrict__ X,
+    const %s* __restrict__ W_norm,
+    %s* __restrict__ Out,
+    int M, int K,
+    float eps
+) {
+    constexpr int TM = 16, TK = 16;
+%s
+    auto x_span = tensor_span{assume_aligned<16>(X), extents{M, K}};
+%s
+    auto out_span = tensor_span{assume_aligned<16>(Out), extents{M, K}};
+
+    auto x = partition_view{x_span, shape<TM, TK>{}};
+    auto out = partition_view{out_span, shape<TM, TK>{}};
+
+    const int m_tiles = (M + TM - 1) / TM;
+    const int k_tiles = (K + TK - 1) / TK;
+    for (auto m : irange(0, m_tiles)) {
+        auto sq_sum = full<tile<float, shape<TM, 1>>>(0.0f);
+        for (auto k : irange(0, k_tiles)) {
+            auto x_tile = x.load(m, k);
+            sq_sum = sq_sum + row_sum(x_tile * x_tile);
+        }
+        auto rms_scale = rsqrt(sq_sum / static_cast<float>(K) + norm_eps);
+        for (auto k : irange(0, k_tiles)) {
+            auto x_norm = %s;
+            out.store(x_norm, m, k);
+        }
+    }
+}
+`, kernelName, elemType, elemType, elemType, epsSetup, weightView, normTileExpr)
 }
 
 func generateDeclarativeSwiGLU(kernelName, elemType string) string {
@@ -314,6 +538,58 @@ func (l *Lowerer) Generate(node *Node) (string, error) {
 	return mod.String(), nil
 }
 
+func buildTileIRRMSNormOps(cfg rmsNormConfig, tile64, tile64f32 *tileir.TileType) (wParamName string, loadWOp *tileir.Operation, normOps []*tileir.Operation, normedSSA string) {
+	epsSSA := "%cst_eps"
+	if !cfg.hasEps && cfg.epsName != "" && cfg.epsName != "eps" {
+		epsSSA = "%cst_" + sanitizeTileIdent(cfg.epsName)
+	}
+	epsAttr := fmt.Sprintf("<f32: %s>", formatTileFloat(cfg.epsVal))
+
+	normOps = []*tileir.Operation{
+		{OpCode: "cuda_tile.constant", Results: []string{"%cst_dim"}, Attributes: "<f32: 64.0>", Type: tile64f32.String(), TypeVal: tile64f32},
+		{OpCode: "cuda_tile.constant", Results: []string{epsSSA}, Attributes: epsAttr, Type: tile64f32.String(), TypeVal: tile64f32},
+		{OpCode: "cuda_tile.mulf", Results: []string{"%x_sq"}, Operands: []string{"%vX", "%vX"}, Type: tile64.String(), TypeVal: tile64},
+		{OpCode: "cuda_tile.reduce_sum", Results: []string{"%x_sq_sum"}, Operands: []string{"%x_sq"}, Type: tile64.String(), TypeVal: tile64},
+		{OpCode: "cuda_tile.divf", Results: []string{"%x_mean"}, Operands: []string{"%x_sq_sum", "%cst_dim"}, Type: tile64.String(), TypeVal: tile64},
+		{OpCode: "cuda_tile.addf", Results: []string{"%x_var"}, Operands: []string{"%x_mean", epsSSA}, Type: tile64.String(), TypeVal: tile64},
+		{OpCode: "cuda_tile.rsqrt", Results: []string{"%r_rms"}, Operands: []string{"%x_var"}, Type: tile64.String(), TypeVal: tile64},
+		{OpCode: "cuda_tile.mulf", Results: []string{"%x_norm"}, Operands: []string{"%vX", "%r_rms"}, Type: tile64.String(), TypeVal: tile64},
+	}
+
+	if !cfg.hasWeight {
+		return "", nil, normOps, "%x_norm"
+	}
+
+	wParamName = "%W_norm"
+	wSSA := "%vWnorm"
+	if !cfg.hasWVal && cfg.wName != "" && cfg.wName != "w" && cfg.wName != "W_norm" {
+		ident := sanitizeTileIdent(cfg.wName)
+		wParamName = "%W_norm_" + ident
+		wSSA = "%vWnorm_" + ident
+	}
+
+	if cfg.hasWVal {
+		wAttr := fmt.Sprintf("<f32: %s>", formatTileFloat(cfg.wVal))
+		normOps = append(normOps,
+			&tileir.Operation{OpCode: "cuda_tile.constant", Results: []string{"%cst_wnorm"}, Attributes: wAttr, Type: tile64.String(), TypeVal: tile64},
+			&tileir.Operation{OpCode: "cuda_tile.mulf", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", "%cst_wnorm"}, Type: tile64.String(), TypeVal: tile64},
+		)
+		return wParamName, nil, normOps, "%x_scaled"
+	}
+
+	loadWOp = &tileir.Operation{
+		OpCode:   "cuda_tile.load_view_tko",
+		Results:  []string{wSSA},
+		Operands: []string{wParamName, "%tok0"},
+		Type:     tile64.String(),
+		TypeVal:  tile64,
+	}
+	normOps = append(normOps,
+		&tileir.Operation{OpCode: "cuda_tile.mulf", Results: []string{"%x_scaled"}, Operands: []string{"%x_norm", wSSA}, Type: tile64.String(), TypeVal: tile64},
+	)
+	return wParamName, loadWOp, normOps, "%x_scaled"
+}
+
 // Lower lowers an extracted AST Node into an intermediate Tile IR Module (tileir.Module).
 func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 	if node == nil {
@@ -366,11 +642,37 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 	tile64 := tileir.NewTile([]int64{64, 64}, elemType)
 	tile64f32 := tileir.NewTile([]int64{64, 64}, tileir.Float32)
 
-	if !IsLowerableTileIROp(node.Op) {
+	canLowerRootNorm := node.Op == "rmsnorm" && len(node.Children) > 0
+	if !IsLowerableTileIROp(node.Op) && !canLowerRootNorm {
 		return nil, fmt.Errorf("egraph: no Tile IR lowering for operator %q", node.Op)
 	}
 
+	cfg := extractRMSNormConfig(node)
+
 	switch node.Op {
+	case "tile_rmsnorm", "fused_rmsnorm", "rmsnorm":
+		wParamName, loadWOp, normOps, normedSSA := buildTileIRRMSNormOps(cfg, tile64, tile64f32)
+		fn.Params = []*tileir.Param{
+			{Name: "%X", Type: tilePtr.String(), TypeVal: tilePtr},
+		}
+		if wParamName != "" {
+			fn.Params = append(fn.Params, &tileir.Param{Name: wParamName, Type: tilePtr.String(), TypeVal: tilePtr})
+		}
+		fn.Params = append(fn.Params, &tileir.Param{Name: "%Out", Type: tileF32Ptr.String(), TypeVal: tileF32Ptr})
+
+		ops := []*tileir.Operation{
+			{OpCode: "cuda_tile.make_token", Results: []string{"%tok0"}, Type: tileir.Token.String(), TypeVal: tileir.Token},
+			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vX"}, Operands: []string{"%X", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
+		}
+		if loadWOp != nil {
+			ops = append(ops, loadWOp)
+		}
+		ops = append(ops, normOps...)
+		ops = append(ops,
+			&tileir.Operation{OpCode: "cuda_tile.store_view_tko", Operands: []string{normedSSA, "%Out", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			&tileir.Operation{OpCode: "cuda_tile.return"},
+		)
+		fn.Operations = ops
 
 	case "tile_swiglu", "fused_swiglu":
 		fn.Params = []*tileir.Param{
@@ -397,6 +699,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.mulf", Results: []string{"%silu_gate"}, Operands: []string{"%gate", "%sig_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mulf", Results: []string{"%act"}, Operands: []string{"%silu_gate", "%up"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mmaf", Results: []string{"%acc"}, Operands: []string{"%act", "%vWd", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.store_view_tko", Operands: []string{"%acc", "%Out", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.return"},
 		}
 
@@ -425,6 +728,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.mulf", Results: []string{"%gelu_gate"}, Operands: []string{"%gate", "%sig_gate"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mulf", Results: []string{"%act"}, Operands: []string{"%gelu_gate", "%up"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mmaf", Results: []string{"%acc"}, Operands: []string{"%act", "%vWd", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.store_view_tko", Operands: []string{"%acc", "%Out", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.return"},
 		}
 
@@ -449,6 +753,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.divf", Results: []string{"%sig"}, Operands: []string{"%cst1", "%denom"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mulf", Results: []string{"%act"}, Operands: []string{"%mid", "%sig"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mmaf", Results: []string{"%acc"}, Operands: []string{"%act", "%vWout", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.store_view_tko", Operands: []string{"%acc", "%Out", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.return"},
 		}
 
@@ -472,6 +777,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.mmaf", Results: []string{"%raw"}, Operands: []string{"%vA", "%vB", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mulf", Results: []string{"%scale"}, Operands: []string{"%vSa", "%vSb"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mulf", Results: []string{"%acc"}, Operands: []string{"%raw", "%scale"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.store_view_tko", Operands: []string{"%acc", "%C", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.return"},
 		}
 
@@ -495,6 +801,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.mmaf", Results: []string{"%raw"}, Operands: []string{"%vA", "%vB", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mulf", Results: []string{"%scale"}, Operands: []string{"%vSa", "%vSb"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mulf", Results: []string{"%acc"}, Operands: []string{"%raw", "%scale"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.store_view_tko", Operands: []string{"%acc", "%C", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.return"},
 		}
 
@@ -510,6 +817,7 @@ func (l *Lowerer) Lower(node *Node) (*tileir.Module, error) {
 			{OpCode: "cuda_tile.load_view_tko", Results: []string{"%vB"}, Operands: []string{"%B", "%tok0"}, Type: tile64.String(), TypeVal: tile64},
 			{OpCode: "cuda_tile.constant", Results: []string{"%cst0"}, Attributes: "<f32: 0.0>", Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.mmaf", Results: []string{"%acc"}, Operands: []string{"%vA", "%vB", "%cst0"}, Type: tile64f32.String(), TypeVal: tile64f32},
+			{OpCode: "cuda_tile.store_view_tko", Operands: []string{"%acc", "%C", "%tok0"}, Type: tile64f32.String(), TypeVal: tile64f32},
 			{OpCode: "cuda_tile.return"},
 		}
 

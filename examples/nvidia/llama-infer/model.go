@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -10,21 +11,80 @@ import (
 	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
+// RoPEScalingConfig holds the optional Hugging Face rope_scaling parameters.
+type RoPEScalingConfig struct {
+	RoPEType                      string  `json:"rope_type"`
+	Type                          string  `json:"type"`
+	Factor                        float32 `json:"factor"`
+	LowFreqFactor                 float32 `json:"low_freq_factor"`
+	HighFreqFactor                float32 `json:"high_freq_factor"`
+	OriginalMaxPositionEmbeddings int     `json:"original_max_position_embeddings"`
+}
+
+func (s *RoPEScalingConfig) effectiveType() string {
+	if s == nil {
+		return ""
+	}
+	if s.RoPEType != "" {
+		return s.RoPEType
+	}
+	return s.Type
+}
+
+func (s *RoPEScalingConfig) hasLlama3Params() bool {
+	if s == nil {
+		return false
+	}
+	if t := s.effectiveType(); t != "" && t != "llama3" {
+		return false
+	}
+	return s.Factor > 0 && s.LowFreqFactor > 0 && s.HighFreqFactor > s.LowFreqFactor && s.OriginalMaxPositionEmbeddings > 0
+}
+
+// Validate checks that a non-empty RoPEScalingConfig specifies valid Llama-3
+// smooth wavelength scaling parameters.
+func (s *RoPEScalingConfig) Validate() error {
+	if s == nil || *s == (RoPEScalingConfig{}) {
+		return nil
+	}
+	t := s.effectiveType()
+	if t == "default" {
+		return nil
+	}
+	if t != "llama3" {
+		return fmt.Errorf("unsupported rope_scaling type %q", t)
+	}
+	if !(s.Factor > 0) || math.IsInf(float64(s.Factor), 0) {
+		return fmt.Errorf("rope_scaling factor %v must be > 0", s.Factor)
+	}
+	if !(s.LowFreqFactor > 0) || math.IsInf(float64(s.LowFreqFactor), 0) {
+		return fmt.Errorf("rope_scaling low_freq_factor %v must be > 0", s.LowFreqFactor)
+	}
+	if !(s.HighFreqFactor > s.LowFreqFactor) || math.IsInf(float64(s.HighFreqFactor), 0) {
+		return fmt.Errorf("rope_scaling high_freq_factor %v must be > low_freq_factor %v", s.HighFreqFactor, s.LowFreqFactor)
+	}
+	if s.OriginalMaxPositionEmbeddings <= 0 {
+		return fmt.Errorf("rope_scaling original_max_position_embeddings %d must be > 0", s.OriginalMaxPositionEmbeddings)
+	}
+	return nil
+}
+
 // ModelConfig holds the architecture parameters for a LLaMA or Qwen model.
 type ModelConfig struct {
-	ModelType         string       `json:"model_type"`
-	HiddenSize        int          `json:"hidden_size"`
-	IntermediateSize  int          `json:"intermediate_size"`
-	NumHiddenLayers   int          `json:"num_hidden_layers"`
-	NumAttentionHeads int          `json:"num_attention_heads"`
-	NumKeyValueHeads  int          `json:"num_key_value_heads"`
-	ExplicitHeadDim   int          `json:"head_dim"`
-	VocabSize         int          `json:"vocab_size"`
-	RmsNormEps        float32      `json:"rms_norm_eps"`
-	RopeTheta         float32      `json:"rope_theta"`
-	MaxSeqLen         int          `json:"max_position_embeddings"`
-	TieWordEmbeddings bool         `json:"tie_word_embeddings"`
-	TextConfig        *ModelConfig `json:"text_config,omitempty"`
+	ModelType         string             `json:"model_type"`
+	HiddenSize        int                `json:"hidden_size"`
+	IntermediateSize  int                `json:"intermediate_size"`
+	NumHiddenLayers   int                `json:"num_hidden_layers"`
+	NumAttentionHeads int                `json:"num_attention_heads"`
+	NumKeyValueHeads  int                `json:"num_key_value_heads"`
+	ExplicitHeadDim   int                `json:"head_dim"`
+	VocabSize         int                `json:"vocab_size"`
+	RmsNormEps        float32            `json:"rms_norm_eps"`
+	RopeTheta         float32            `json:"rope_theta"`
+	RoPEScaling       *RoPEScalingConfig `json:"rope_scaling,omitempty"`
+	MaxSeqLen         int                `json:"max_position_embeddings"`
+	TieWordEmbeddings bool               `json:"tie_word_embeddings"`
+	TextConfig        *ModelConfig       `json:"text_config,omitempty"`
 }
 
 // DefaultModelConfig provides a compact configuration for testing.
@@ -98,17 +158,22 @@ func NewKVCacheState(numLayers, maxSeqLen, kvDim int) *KVCacheState {
 	return &KVCacheState{K: k, V: v}
 }
 
-// LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
-func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
+// LoadModelConfig reads, normalizes, and validates config.json from dir.
+func LoadModelConfig(dir string) (*ModelConfig, error) {
+	cfg, _, err := loadModelConfig(dir)
+	return cfg, err
+}
+
+func loadModelConfig(dir string) (*ModelConfig, bool, error) {
 	configPath := filepath.Join(dir, "config.json")
 	cfgBytes, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read config.json: %w", err)
+		return nil, false, fmt.Errorf("read config.json: %w", err)
 	}
 
 	var raw ModelConfig
 	if err := json.Unmarshal(cfgBytes, &raw); err != nil {
-		return nil, nil, fmt.Errorf("parse config.json: %w", err)
+		return nil, false, fmt.Errorf("parse config.json: %w", err)
 	}
 	cfg := raw
 	// tie_word_embeddings defaults to true when absent, as in Hugging Face
@@ -120,7 +185,7 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		} `json:"text_config"`
 	}
 	if err := json.Unmarshal(cfgBytes, &tie); err != nil {
-		return nil, nil, fmt.Errorf("parse config.json: %w", err)
+		return nil, false, fmt.Errorf("parse config.json: %w", err)
 	}
 	tied := tie.Tie == nil || *tie.Tie
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 && tie.Text != nil && tie.Text.Tie != nil {
@@ -128,6 +193,13 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	}
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 {
 		cfg = *raw.TextConfig
+	}
+
+	if err := cfg.RoPEScaling.Validate(); err != nil {
+		return nil, false, fmt.Errorf("validate config.json: %w", err)
+	}
+	if cfg.RoPEScaling != nil && !cfg.RoPEScaling.hasLlama3Params() {
+		cfg.RoPEScaling = nil
 	}
 
 	if cfg.RmsNormEps == 0 {
@@ -142,12 +214,48 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 4096 {
 		cfg.MaxSeqLen = 2048
 	}
+	return &cfg, tied, nil
+}
 
+// LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
+func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
+	return loadModel(dir, openSharded)
+}
+
+// A tensorFile is the part of *safetensors.Sharded that loadModel uses.
+type tensorFile interface {
+	Info(name string) (safetensors.TensorInfo, bool)
+	Tensor(name string) (safetensors.Tensor, error)
+	Close() error
+}
+
+func openSharded(dir string) (tensorFile, error) {
 	sw, err := safetensors.OpenSharded(dir)
+	if err != nil {
+		return nil, err
+	}
+	return sw, nil
+}
+
+// loadModel is LoadModel with the checkpoint in dir opened by open. An
+// error closing the checkpoint is returned, joined with any load error, and
+// no weights are returned with it.
+func loadModel(dir string, open func(dir string) (tensorFile, error)) (mw *ModelWeights, mc *ModelConfig, err error) {
+	cfgPtr, tied, err := loadModelConfig(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg := *cfgPtr
+
+	sw, err := open(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
-	defer sw.Close()
+	defer func() {
+		if cerr := sw.Close(); cerr != nil {
+			mw, mc, err = nil, nil, errors.Join(err, fmt.Errorf("close safetensors: %w", cerr))
+		}
+	}()
 
 	headDim := cfg.HeadDim()
 	qDim := cfg.NumAttentionHeads * headDim
@@ -315,8 +423,8 @@ func Forward(weights *ModelWeights, cfg *ModelConfig, kv *KVCacheState, tokenID 
 		}
 
 		// Rotary Position Embedding (RoPE)
-		applyRoPE(q, pos, qHeads, headDim, cfg.RopeTheta)
-		applyRoPE(k, pos, kvHeads, headDim, cfg.RopeTheta)
+		applyRoPEScaled(q, pos, qHeads, headDim, cfg.RopeTheta, cfg.RoPEScaling)
+		applyRoPEScaled(k, pos, kvHeads, headDim, cfg.RopeTheta, cfg.RoPEScaling)
 
 		// Store in KV cache
 		if pos < len(kv.K[layerIdx]) {
@@ -421,11 +529,55 @@ func rmsNorm(x, weight []float32, eps float32) []float32 {
 	return out
 }
 
+// ropeInvFreq computes the rotary inverse frequency for dimension pair d in
+// [0, headDim/2). When scaling specifies valid Llama-3 smooth wavelength
+// parameters, it applies the 3-band wavelength scaling; otherwise it returns
+// the unscaled inverse frequency 1 / ropeTheta^(2d/headDim).
+func ropeInvFreq(d, headDim int, ropeTheta float32, scaling *RoPEScalingConfig) float32 {
+	freq := float32(1.0 / math.Pow(float64(ropeTheta), float64(2*d)/float64(headDim)))
+	if !scaling.hasLlama3Params() {
+		return freq
+	}
+	wavelen := float32(2.0*math.Pi) / freq
+	origMax := float32(scaling.OriginalMaxPositionEmbeddings)
+	lowFreqWavelen := origMax / scaling.LowFreqFactor
+	highFreqWavelen := origMax / scaling.HighFreqFactor
+	if wavelen < highFreqWavelen {
+		return freq
+	}
+	if wavelen > lowFreqWavelen {
+		return freq / scaling.Factor
+	}
+	smooth := (origMax/wavelen - scaling.LowFreqFactor) / (scaling.HighFreqFactor - scaling.LowFreqFactor)
+	return (1.0-smooth)*(freq/scaling.Factor) + smooth*freq
+}
+
 func applyRoPE(vec []float32, pos int, numHeads, headDim int, theta float32) {
 	for h := 0; h < numHeads; h++ {
 		headVec := vec[h*headDim : (h+1)*headDim]
 		for i := 0; i < headDim/2; i++ {
 			freq := 1.0 / math.Pow(float64(theta), float64(2*i)/float64(headDim))
+			val := float64(pos) * freq
+			cos := float32(math.Cos(val))
+			sin := float32(math.Sin(val))
+
+			v0 := headVec[i]
+			v1 := headVec[i+headDim/2]
+			headVec[i] = v0*cos - v1*sin
+			headVec[i+headDim/2] = v0*sin + v1*cos
+		}
+	}
+}
+
+func applyRoPEScaled(vec []float32, pos int, numHeads, headDim int, theta float32, scaling *RoPEScalingConfig) {
+	if !scaling.hasLlama3Params() {
+		applyRoPE(vec, pos, numHeads, headDim, theta)
+		return
+	}
+	for h := 0; h < numHeads; h++ {
+		headVec := vec[h*headDim : (h+1)*headDim]
+		for i := 0; i < headDim/2; i++ {
+			freq := float64(ropeInvFreq(i, headDim, theta, scaling))
 			val := float64(pos) * freq
 			cos := float32(math.Cos(val))
 			sin := float32(math.Sin(val))

@@ -3,20 +3,25 @@ package cuptipcsampling
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 )
 
-// samplingNames belongs to one coordinated sampling lifetime. The caller
-// reserves enough entries for every PC in a drain before invoking CUPTI, then
-// registers every returned name, even if copying an earlier name failed.
-// Native names may be shared with Activity records: release is legal only after
-// sampling is disabled and all sharing consumers have finished processing.
+// samplingNames copies the native function names of one sampling session.
+// The caller reserves enough entries for every PC in a drain before invoking
+// CUPTI, then registers every returned name, even if copying an earlier name
+// failed.
+//
+// The native strings are never freed. cupti_pcsampling.h allows free only
+// after every record that may share the string, Activity records included,
+// has been processed, and CUPTI returns one pointer per function that it hands
+// out again to later sessions in the same process. No session can know it has
+// seen the last such record, so freeing at Close would leave the next session
+// reading and freeing a dangling pointer. What is retained is one string per
+// distinct sampled function.
 type samplingNames struct {
 	entries                                       map[uintptr]samplingName
 	maxEntries, maxNameBytes, maxBytes, usedBytes int
 	read                                          func(uintptr, int) (string, error)
-	free                                          func(uintptr)
 	released                                      bool
 }
 
@@ -26,21 +31,14 @@ type samplingName struct {
 }
 
 func newNativeSamplingNames(maxEntries, maxNameBytes, maxBytes int) (*samplingNames, error) {
-	if maxEntries < 1 || maxNameBytes < 1 || maxBytes < 1 {
-		return nil, errors.New("cuptipcsampling: invalid native name limits")
-	}
-	free, err := samplingNameAllocator()
-	if err != nil {
-		return nil, err
-	}
-	return newSamplingNames(maxEntries, maxNameBytes, maxBytes, readSamplingName, free)
+	return newSamplingNames(maxEntries, maxNameBytes, maxBytes, readSamplingName)
 }
 
-func newSamplingNames(maxEntries, maxNameBytes, maxBytes int, read func(uintptr, int) (string, error), free func(uintptr)) (*samplingNames, error) {
-	if maxEntries < 1 || maxNameBytes < 1 || maxBytes < 1 || read == nil || free == nil {
-		return nil, errors.New("cuptipcsampling: invalid native name limits or allocator")
+func newSamplingNames(maxEntries, maxNameBytes, maxBytes int, read func(uintptr, int) (string, error)) (*samplingNames, error) {
+	if maxEntries < 1 || maxNameBytes < 1 || maxBytes < 1 || read == nil {
+		return nil, errors.New("cuptipcsampling: invalid native name limits or reader")
 	}
-	return &samplingNames{entries: make(map[uintptr]samplingName), maxEntries: maxEntries, maxNameBytes: maxNameBytes, maxBytes: maxBytes, read: read, free: free}, nil
+	return &samplingNames{entries: make(map[uintptr]samplingName), maxEntries: maxEntries, maxNameBytes: maxNameBytes, maxBytes: maxBytes, read: read}, nil
 }
 
 // reserve checks worst-case new pointers without making a native call. A
@@ -62,7 +60,8 @@ func (n *samplingNames) copy(ptr uintptr) (string, error) {
 	if err := n.reserve(1); err != nil {
 		return "", err
 	}
-	// Acquire ownership before copying, so failure cannot lose this allocation.
+	// Register before copying, so a failed copy still counts against the budget
+	// and is not retried.
 	n.entries[ptr] = samplingName{}
 	value, err := n.read(ptr, n.maxNameBytes)
 	if err == nil && (value == "" || len(value) >= n.maxNameBytes) {
@@ -82,18 +81,9 @@ func (n *samplingNames) copy(ptr uintptr) (string, error) {
 	return value, err
 }
 
+// release ends the session's access to native names. It frees nothing; see
+// samplingNames.
 func (n *samplingNames) release() {
-	if n.released {
-		return
-	}
-	ptrs := make([]uintptr, 0, len(n.entries))
-	for ptr := range n.entries {
-		ptrs = append(ptrs, ptr)
-	}
-	sort.Slice(ptrs, func(i, j int) bool { return ptrs[i] < ptrs[j] })
-	for _, ptr := range ptrs {
-		n.free(ptr)
-	}
 	n.released = true
 	clear(n.entries)
 }

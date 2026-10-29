@@ -1,0 +1,13 @@
+{
+  "architectures": ["NemotronHForCausalLM"],
+  "model_type": "nemotron_h",
+  "hidden_size": 256,
+  "intermediate_size": 512,
+  "num_hidden_layers": 4,
+  "num_attention_heads": 4,
+  "num_key_value_heads": 2,
+  "head_dim": 32,
+  "hybrid_override_pattern": "M-*-",
+  "layer_norm_epsilon": 1e-05,
+  "vocab_size": 1024
+}

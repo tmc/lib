@@ -85,6 +85,37 @@
 // an uncalibrated architecture returns an error that wraps [github.com/tmc/lib/nvidia/x/cudaerrors.ErrUnsupported],
 // allowing callers to test it with [errors.Is].
 //
+// # Spill and register gate
+//
+// [ProveDisassembly] checks each kernel of a listing against a
+// [CubinConstraint]: register count, STL and LDL instructions, ptxas-reported
+// spill bytes and stack frame, the presence of tensor-core MMA instructions,
+// and waits that cannot delay anything. [ProveCubin] runs nvdisasm first.
+// The checks count instructions; they do not reason about which paths
+// execute. [CheckRegisterFile] is the register-file equation for the warp
+// groups of one CTA.
+//
+// # Control-code optimization
+//
+// [OptimizeBasicBlockControl] rewrites only the control fields of a basic
+// block: it lowers stall counts to a latency table, moves a variable-latency
+// producer off a write barrier it shares, sets operand reuse flags and keeps
+// the warp from yielding inside runs of tensor-pipe instructions. Every
+// change is checked by [VerifyHazardSafety] against the register
+// dependencies of the block and kept only if it passes; a boundary check
+// keeps the distances that dependencies into and out of the block might
+// need. [OptimizeFunctionControl] returns the changes as [MutationPlan]
+// values for [CubinImage.Apply], and [CheckControlOnly] confirms that a plan
+// changes nothing outside the control field.
+//
+// The hazard model is calibrated against nothing but ptxas output: the
+// latencies in [ObservedLatencies] are the tightest separations ptxas
+// emitted in this package's sm_121a fixtures. Functional-unit pacing is not
+// modelled, which is why stalls next to variable-latency, branch or NOP
+// instructions are left alone. No optimized image has been run on a device
+// here, and the fixture CUBIN's capmerc mirror makes [PatchedImage.Loadable]
+// refuse it.
+//
 // # Cubin formats
 //
 // A cubin carries its producing toolkit's version in the ELF header: nvcc

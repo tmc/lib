@@ -10,7 +10,7 @@ import (
 // auditCUBINResourceOccupancy inspects CUBIN ELF .nv.info sections (EIATTR_REG_COUNT,
 // EIATTR_SHARED_SIZE_SYSMEM, EIATTR_FRAME_SIZE, EIATTR_MAXREG_COUNT) using x/cudaoccupancy
 // to calculate target-specific SM warp occupancy, occupancy cliffs, and hardware limiting factors.
-func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos []kernelResource, launchesByKernel map[string]launchRecord, math map[string]floatMath) {
+func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos []kernelResource, launchesByKernel map[string]launchRecord, math map[string]floatMath, tmem map[string]tensorMemory) {
 	if cap == nil || len(infos) == 0 {
 		return
 	}
@@ -20,10 +20,13 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 
 	for _, k := range infos {
 		threadsPerBlock := 128
+		assumed := ""
 		if l, ok := launchesByKernel[k.Name]; ok && l.BlockThreads > 0 {
 			threadsPerBlock = l.BlockThreads
 		} else if k.ReqNTID[0] > 0 {
 			threadsPerBlock = k.ReqNTID[0] * max(1, k.ReqNTID[1]) * max(1, k.ReqNTID[2])
+		} else {
+			assumed = "; no launch or .reqntid records the block size, so 128 threads assumed"
 		}
 
 		// 1. Stack frame size (EIATTR_FRAME_SIZE)
@@ -65,9 +68,15 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 		if deviceErr != nil {
 			continue
 		}
+		tm := tmem[k.Name]
 		kRes := cudaoccupancy.KernelResource{
 			Registers:       k.Registers,
 			StaticSharedMem: k.SharedMemBytes,
+			TMEMColumns:     tm.columns,
+			ClusterSize:     tm.cluster,
+			// A pair is checked against the cluster only when the PTX
+			// records one; a cluster set at launch is not in the code.
+			CTAPair: tm.pair && tm.cluster > 0,
 		}
 		rep := kRes.CalculateDevice(dev, threadsPerBlock, 0)
 		if rep.Occupancy < 1.0 {
@@ -80,6 +89,10 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 
 			finding := fmt.Sprintf("Microarchitecture theoretical occupancy on %s for kernel %q is %.1f%% (%d/%d active warps, %d blocks/SM) constrained by %s (limits: %d blocks from registers, %d from smem, %d from block count, %d from block size)",
 				dev.Architecture, k.Name, rep.Occupancy*100, rep.TheoreticalWarps, rep.MaxWarps, rep.ActiveBlocks, rep.LimitingFactor, rep.RegLimit, rep.SmemLimit, rep.BlockLimit, rep.WarpLimit)
+			if tm.columns > 0 {
+				finding += fmt.Sprintf(", %d from %d TMEM columns", rep.TMEMLimit, tm.columns)
+			}
+			finding += assumed
 
 			var rec string
 			switch rep.LimitingFactor {
@@ -98,6 +111,11 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 			case cudaoccupancy.LimitBlocks:
 				rec = fmt.Sprintf("Maximum thread blocks per SM (%d on %s) limits occupancy because block size (%d threads) is small. Restructure thread block geometry to >=128 or 256 threads to reach higher occupancy.",
 					dev.MaxBlocksPerSM, dev.Architecture, threadsPerBlock) + occupancyCaveat
+			case cudaoccupancy.LimitTensorMemory:
+				rec = fmt.Sprintf("Tensor Memory (%d columns/SM on %s) limits residency: each CTA allocates %d columns with tcgen05.alloc, so %d CTAs fit. Allocate fewer columns per CTA (a smaller accumulator tile, or one allocation shared by a CTA pair) to allow more.",
+					dev.TMEMColumnsPerSM, dev.Architecture, tm.columns, rep.ActiveBlocks) + occupancyCaveat
+			case cudaoccupancy.LimitCluster:
+				rec = fmt.Sprintf("The kernel's cluster (%d CTAs, cta_group::2 %v) does not fit %s, whose largest cluster is %d CTAs and whose CTA pairs need an even cluster: it cannot launch as compiled.", tm.cluster, tm.pair, dev.Architecture, dev.MaxClusterSize)
 			case cudaoccupancy.LimitBlockSize:
 				rec = "Restructure thread block geometry to fit within hardware block size limits (<= 1024 threads per block)."
 			default:

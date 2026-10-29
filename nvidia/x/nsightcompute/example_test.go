@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/nsightcompute"
 )
@@ -34,4 +35,24 @@ func ExampleImport() {
 	m := r.Rows[0].Metric
 	fmt.Println(m.Name, m.RawValue, m.Unit, m.Value.Record().Number)
 	// Output: gpu__time_duration.sum 42 ns <nil>
+}
+
+func ExampleReadRaw() {
+	export := `==PROF== Connected to process 1382
+"ID","Kernel Name","Block Size","Grid Size","gpu__time_duration.sum","dram__bytes_read.sum"
+"","","","","ns","byte"
+"0","copy_kernel","(256, 1, 1)","(132, 1, 1)","16,608","8,617,984"
+`
+	t, err := nsightcompute.ReadRaw(strings.NewReader(export), nsightcompute.MaxBytes)
+	if err != nil {
+		panic(err)
+	}
+	for i := range t.Launches {
+		l := &t.Launches[i]
+		ns, _, _ := t.Value(l, "gpu__time_duration.sum")
+		bytes, _, _ := t.Value(l, "dram__bytes_read.sum")
+		fmt.Printf("%s: %.0f ns, %.1f GB/s\n", l.Kernel, ns, bytes/ns)
+	}
+	// Output:
+	// copy_kernel: 16608 ns, 518.9 GB/s
 }

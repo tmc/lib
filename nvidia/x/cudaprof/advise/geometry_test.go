@@ -565,9 +565,10 @@ func TestAdvice_UnderSubscribedWithoutSMCount(t *testing.T) {
 // audit needing a device fact the capture lacks is disclosed on its own, and
 // that an architecture outside the occupancy table is not reported as absent.
 //
-// The gb10 and gb200 rows name architectures that are in the occupancy table
-// but that smCountForArch does not map to an SM count: the occupancy audit
-// runs, and only the starvation audit is skipped unless sm_count is recorded.
+// The gb10 and gb200 rows name products rather than architectures: both
+// audits run, the starvation audit on the product's SM count. The sm_90 row
+// names an architecture whose products differ in SM count, so only the
+// occupancy audit runs.
 func TestAdvice_SkippedGeometryAuditsAreDisclosed(t *testing.T) {
 	const (
 		archAbsent  = "Device architecture is not recorded in this capture"
@@ -587,9 +588,10 @@ func TestAdvice_SkippedGeometryAuditsAreDisclosed(t *testing.T) {
 		{"arch unsupported", `{"arch":"sm_61"}`, [][]string{{archUnknown, occupancy}, {smAbsent, starvation}}, nil},
 		{"arch unsupported with sm_count", `{"arch":"sm_61","sm_count":28}`, [][]string{{archUnknown, occupancy}}, []string{starvation}},
 		{"both supported", `{"arch":"sm_121a","sm_count":48}`, nil, []string{occupancy, starvation}},
-		{"gb10 in table, sm_count not derivable", `{"arch":"gb10"}`, [][]string{{smAbsent, starvation}}, []string{occupancy}},
+		{"gb10 names its product", `{"arch":"gb10"}`, nil, []string{occupancy, starvation}},
 		{"gb10 in table with sm_count", `{"arch":"gb10","sm_count":48}`, nil, []string{occupancy, starvation}},
-		{"gb200 in table, sm_count not derivable", `{"arch":"gb200"}`, [][]string{{smAbsent, starvation}}, []string{occupancy}},
+		{"gb200 names its product", `{"arch":"gb200"}`, nil, []string{occupancy, starvation}},
+		{"sm_90 names no product", `{"arch":"sm_90a"}`, [][]string{{smAbsent, starvation}}, []string{occupancy}},
 		{"gb200 in table with sm_count", `{"arch":"gb200","sm_count":132}`, nil, []string{occupancy, starvation}},
 	}
 	for _, tt := range tests {
@@ -622,7 +624,7 @@ func TestAdvice_SkippedGeometryAuditsAreDisclosed(t *testing.T) {
 					got = append(got, item)
 				case strings.Contains(item.Finding, "theoretical occupancy"):
 					ran[occupancy] = true
-				case strings.Contains(item.Finding, "SMs)"):
+				case strings.Contains(item.Finding, "fewer grid blocks than the GPU has SMs"):
 					ran[starvation] = true
 				}
 			}

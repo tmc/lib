@@ -1,0 +1,5 @@
+ptxas info    : Compiling entry function '_Z22ep_expert_ep_expert_t1iPKtPKhS2_PKfPKiS0_PtPf' for 'sm_103a'
+ptxas info    : Function properties for _Z22ep_expert_ep_expert_t1iPKtPKhS2_PKfPKiS0_PtPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 64 registers, used 1 barriers, 1024 bytes smem
+ptxas info    : Compile time = 32.098 ms

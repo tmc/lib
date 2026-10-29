@@ -79,6 +79,24 @@ func ExtractBounded(ctx context.Context, g *EGraph, root Id, model CostModel, li
 // The graph must be clean; call RebuildChecked first. WorkExhausted
 // distinguishes work exhaustion from output size/depth limits.
 func ExtractBoundedWithStats(ctx context.Context, g *EGraph, root Id, model CostModel, limits ExtractionLimits) (expr *Expr, cost float64, stats ExtractionStats, err error) {
+	return extractBounded(ctx, g, root, model, limits, false)
+}
+
+// ExtractDAG is [ExtractBoundedWithStats] with shared subterms: each e-class
+// of the extracted term is materialized once, as one *Expr that every parent
+// using it references. The result is a DAG whose size is the number of
+// selected classes. A tree, as [ExtractBounded] returns, grows exponentially
+// with the depth of reuse: a decoder layer reads its residual input three
+// times, so an L-layer stack expands to about 10^L nodes. The choice of
+// node in each class, and the cost reported, are the same as
+// [ExtractBounded]'s. Limits apply as there, with MaxNodes counting
+// distinct nodes and MaxDepth the depth of the depth-first walk that
+// materializes them. Callers must not mutate the result.
+func ExtractDAG(ctx context.Context, g *EGraph, root Id, model CostModel, limits ExtractionLimits) (expr *Expr, cost float64, stats ExtractionStats, err error) {
+	return extractBounded(ctx, g, root, model, limits, true)
+}
+
+func extractBounded(ctx context.Context, g *EGraph, root Id, model CostModel, limits ExtractionLimits, dag bool) (expr *Expr, cost float64, stats ExtractionStats, err error) {
 	if ctx == nil || g == nil || limits.MaxWork <= 0 || limits.MaxNodes <= 0 || limits.MaxDepth <= 0 {
 		return nil, 0, stats, fmt.Errorf("egraph: invalid bounded extraction request")
 	}
@@ -111,7 +129,11 @@ func ExtractBoundedWithStats(ctx context.Context, g *EGraph, root Id, model Cost
 	if !ok || math.IsNaN(cost) || math.IsInf(cost, 0) {
 		return nil, 0, stats, fmt.Errorf("egraph: no finite expression for e-class %d", root)
 	}
-	expr, err = ext.buildExprBounded(id, make(map[Id]bool), b, 1)
+	var memo map[Id]*Expr
+	if dag {
+		memo = make(map[Id]*Expr)
+	}
+	expr, err = ext.buildExprShared(id, make(map[Id]bool), b, 1, memo)
 	if err != nil {
 		return nil, 0, stats, err
 	}

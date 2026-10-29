@@ -18,20 +18,35 @@ var ForwardKernelsCUDA string
 
 // GPUModules holds compiled and loaded CUDA functions for model execution.
 type GPUModules struct {
-	mod           driver.Module
-	ptx           string
-	embedFn       driver.Function
-	normFn        driver.Function
-	gemvFn        driver.Function
-	ropeFn        driver.Function
-	storeKVFn     driver.Function
-	swigluFn      driver.Function
-	addResFn      driver.Function
-	fusedQKVFn    driver.Function
-	fusedSwiGLUFn driver.Function
-	gemvBF16Fn    driver.Function
-	convertBF16Fn driver.Function
-	embedBF16Fn   driver.Function
+	mod                     driver.Module
+	ptx                     string
+	embedFn                 driver.Function
+	normFn                  driver.Function
+	gemvFn                  driver.Function
+	ropeFn                  driver.Function
+	storeKVFn               driver.Function
+	swigluFn                driver.Function
+	addResFn                driver.Function
+	fusedQKVFn              driver.Function
+	fusedSwiGLUFn           driver.Function
+	gemvBF16Fn              driver.Function
+	convertBF16Fn           driver.Function
+	embedBF16Fn             driver.Function
+	fusedQKVBF16Fn          driver.Function
+	fusedSwiGLUBF16Fn       driver.Function
+	fusedQKVRoPEStoreFn     driver.Function
+	fusedOutProjResFn       driver.Function
+	fusedGateUpSwiGLUFn     driver.Function
+	fusedDownProjResFn      driver.Function
+	fusedQKVRoPEStoreBF16Fn driver.Function
+	fusedOutProjResBF16Fn   driver.Function
+	fusedGateUpSwiGLUBF16Fn driver.Function
+	fusedDownProjResBF16Fn  driver.Function
+	ropeScaledFn            driver.Function
+	gemvBF16WideFn          driver.Function
+
+	// eg, when set, runs the decode step with e-graph generated kernels.
+	eg *egraphDecoder
 }
 
 // PTX returns the exact JIT-compiled PTX assembly string.
@@ -41,7 +56,7 @@ func (gm *GPUModules) PTX() string {
 
 // CompileGPUModules compiles and loads the forward kernels onto dev.
 func CompileGPUModules(dev *cuda.Device) (*GPUModules, error) {
-	return compileGPUModules(dev, ForwardKernelsCUDA+"\n"+forwardBF16CUDA)
+	return compileGPUModules(dev, ForwardKernelsCUDA+"\n"+forwardBF16CUDA+"\n"+fusedDecodeCUDA)
 }
 
 // compileGPUModules compiles src, which must define every forward kernel,
@@ -85,19 +100,31 @@ func lookupModules(loaded driver.Module, lookup func(string) (driver.Function, e
 		return f
 	}
 	gm := &GPUModules{
-		mod:           loaded,
-		embedFn:       fn("EmbeddingLookup"),
-		normFn:        fn("RMSNorm"),
-		gemvFn:        fn("LinearGEMV"),
-		ropeFn:        fn("ApplyRoPE"),
-		storeKVFn:     fn("StoreKVCache"),
-		swigluFn:      fn("SwiGLU"),
-		addResFn:      fn("AddResidual"),
-		fusedQKVFn:    fn("FusedRMSNormQKV"),
-		fusedSwiGLUFn: fn("FusedSwiGLUDown"),
-		gemvBF16Fn:    fn("LinearGEMVBF16"),
-		convertBF16Fn: fn("WeightConvertProbeBF16"),
-		embedBF16Fn:   fn("EmbeddingLookupBF16"),
+		mod:                     loaded,
+		embedFn:                 fn("EmbeddingLookup"),
+		normFn:                  fn("RMSNorm"),
+		gemvFn:                  fn("LinearGEMV"),
+		ropeFn:                  fn("ApplyRoPE"),
+		storeKVFn:               fn("StoreKVCache"),
+		swigluFn:                fn("SwiGLU"),
+		addResFn:                fn("AddResidual"),
+		fusedQKVFn:              fn("FusedRMSNormQKV"),
+		fusedSwiGLUFn:           fn("FusedSwiGLUDown"),
+		gemvBF16Fn:              fn("LinearGEMVBF16"),
+		convertBF16Fn:           fn("WeightConvertProbeBF16"),
+		embedBF16Fn:             fn("EmbeddingLookupBF16"),
+		fusedQKVBF16Fn:          fn("FusedRMSNormQKVBF16"),
+		fusedSwiGLUBF16Fn:       fn("FusedSwiGLUDownBF16"),
+		fusedQKVRoPEStoreFn:     fn("FusedRMSNormQKVRoPEStore"),
+		fusedOutProjResFn:       fn("FusedOutProjResidual"),
+		fusedGateUpSwiGLUFn:     fn("FusedRMSNormGateUpSwiGLU"),
+		fusedDownProjResFn:      fn("FusedDownProjResidual"),
+		fusedQKVRoPEStoreBF16Fn: fn("FusedRMSNormQKVRoPEStoreBF16"),
+		fusedOutProjResBF16Fn:   fn("FusedOutProjResidualBF16"),
+		fusedGateUpSwiGLUBF16Fn: fn("FusedRMSNormGateUpSwiGLUBF16"),
+		fusedDownProjResBF16Fn:  fn("FusedDownProjResidualBF16"),
+		ropeScaledFn:            fn("ApplyRoPEScaled"),
+		gemvBF16WideFn:          fn("LinearGEMVBF16Wide"),
 	}
 	if err != nil {
 		if cerr := gm.close(unload); cerr != nil {

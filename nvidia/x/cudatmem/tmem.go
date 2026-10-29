@@ -23,16 +23,38 @@ var (
 type Target string
 
 const (
+	SM90A  Target = "sm_90a"
 	SM100A Target = "sm_100a"
+	SM103A Target = "sm_103a"
+	SM107A Target = "sm_107a"
+	SM100F Target = "sm_100f"
+	SM103F Target = "sm_103f"
+	SM107F Target = "sm_107f"
 	SM121A Target = "sm_121a"
 )
 
+// MaxColumnsExclusive is the largest tcgen05.alloc.exclusive column count,
+// available only on sm_107a/sm_107f (PTX ISA 9.4 section 9.7.18.7.1, Table
+// 58); sm_100 and sm_103 exclusive allocations are limited to 512 columns.
+const MaxColumnsExclusive = 576
+
+// CTAGroup identifies a 1-CTA or 2-CTA cooperative tcgen05 allocation group.
+type CTAGroup int
+
+const (
+	CTAGroup1 CTAGroup = 1
+	CTAGroup2 CTAGroup = 2
+)
+
+// Map aliases Allocator for TMEM column-map capacity modeling.
+type Map = Allocator
+
 func ParseTarget(s string) (Target, error) {
 	switch Target(s) {
-	case SM100A:
-		return SM100A, nil
-	case SM121A:
-		return SM121A, ErrUnsupportedTarget
+	case SM100A, SM103A, SM107A, SM100F, SM103F, SM107F:
+		return Target(s), nil
+	case SM90A, SM121A:
+		return Target(s), ErrUnsupportedTarget
 	default:
 		return "", fmt.Errorf("%w: %q", ErrUnsupportedTarget, s)
 	}
@@ -40,7 +62,7 @@ func ParseTarget(s string) (Target, error) {
 
 // Capability describes the target-specific hardware allocation limits used by
 // this bounded model. MaxRows and MaxColumns follow PTX ISA 9.4 section
-// 9.7.18.1 for sm_100a; target admission remains package policy.
+// 9.7.18.1 for sm_100a/sm_103a/sm_107a/sm_100f/sm_103f/sm_107f; target admission remains package policy.
 type Capability struct {
 	Target     Target
 	MaxColumns uint32
@@ -50,10 +72,12 @@ type Capability struct {
 }
 
 func capability(target Target) (Capability, error) {
-	if target != SM100A {
+	switch target {
+	case SM100A, SM103A, SM107A, SM100F, SM103F, SM107F:
+		return Capability{Target: target, MaxColumns: 512, MaxRows: 128, ColumnUnit: 32, RowUnit: 1}, nil
+	default:
 		return Capability{}, fmt.Errorf("%w: %s", ErrUnsupportedTarget, target)
 	}
-	return Capability{Target: target, MaxColumns: 512, MaxRows: 128, ColumnUnit: 32, RowUnit: 1}, nil
 }
 
 // Permit models one CTA's tcgen05 allocation permit and the allocation
@@ -139,6 +163,8 @@ func (a *Allocation) CompleteUser() error {
 type Allocator struct {
 	mu            sync.Mutex
 	cap           Capability
+	exclusive     bool
+	group         CTAGroup
 	next          uint32
 	free          []columnRange
 	permits       uint32
@@ -181,12 +207,90 @@ func New(target Target) (*Allocator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Allocator{cap: c, allocations: make(map[*Allocation]struct{}), activePermits: make(map[*Permit]struct{})}, nil
+	return &Allocator{
+		cap:           c,
+		group:         CTAGroup1,
+		allocations:   make(map[*Allocation]struct{}),
+		activePermits: make(map[*Permit]struct{}),
+	}, nil
 }
+
+// NewExclusiveMap constructs a TMEM column map for .exclusive allocation per
+// PTX ISA 9.4 section 9.7.18.7.1:
+//
+//	tcgen05.alloc.exclusive.cta_group::1.sync.aligned.shared::cta.b32 [sMemAddr], 576;
+//
+// Exclusive allocation is supported on SM100A, SM103A, SM107A, SM100F, SM103F,
+// and SM107F with either CTA group. An exclusive allocation may request any
+// multiple of 32 columns up to 576 on SM107A/SM107F and up to 512 elsewhere.
+func NewExclusiveMap(target Target, group CTAGroup) (*Map, error) {
+	a, err := New(target)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.EnableExclusive(group); err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
+// EnableExclusive enables .exclusive allocation on an empty allocator for a
+// supported tcgen05 target and CTA group.
+func (a *Allocator) EnableExclusive(group CTAGroup) error {
+	if a == nil {
+		return ErrClosed
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed || a.cap.ColumnUnit == 0 {
+		return ErrClosed
+	}
+	maxCols := uint32(512)
+	switch a.cap.Target {
+	case SM107A, SM107F:
+		maxCols = MaxColumnsExclusive
+	case SM100A, SM103A, SM100F, SM103F:
+	default:
+		return fmt.Errorf("%w: %s", ErrUnsupportedTarget, a.cap.Target)
+	}
+	if group != CTAGroup1 && group != CTAGroup2 {
+		return fmt.Errorf("%w: .exclusive requires cta_group::1 or cta_group::2, got %d", ErrParticipation, group)
+	}
+	if len(a.allocations) != 0 || a.next != 0 {
+		return ErrBusy
+	}
+	a.exclusive = true
+	a.group = group
+	a.cap.MaxColumns = maxCols
+	return nil
+}
+
+// Exclusive reports whether the allocator has 576-column .exclusive mode enabled.
+func (a *Allocator) Exclusive() bool {
+	if a == nil {
+		return false
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.exclusive
+}
+
+// CTAGroup returns the CTA group configured on the allocator.
+func (a *Allocator) CTAGroup() CTAGroup {
+	if a == nil {
+		return 0
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.group
+}
+
 func (a *Allocator) Capability() Capability {
 	if a == nil {
 		return Capability{}
 	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	return a.cap
 }
 
@@ -256,7 +360,9 @@ func (a *Allocator) allocateLocked(p *Permit, participants, columns, rows uint32
 	if participants != p.participants {
 		return nil, ErrParticipation
 	}
-	if columns == 0 || rows == 0 || rows > a.cap.MaxRows || columns%a.cap.ColumnUnit != 0 || columns&(columns-1) != 0 || rows%a.cap.RowUnit != 0 || columns > a.cap.MaxColumns {
+	// Exclusive allocations need only be a multiple of the column unit.
+	pow2OK := a.exclusive || columns&(columns-1) == 0
+	if columns == 0 || rows == 0 || rows > a.cap.MaxRows || columns%a.cap.ColumnUnit != 0 || !pow2OK || rows%a.cap.RowUnit != 0 || columns > a.cap.MaxColumns {
 		return nil, ErrInvalidUnit
 	}
 	if p.lastColumns != 0 && columns > p.lastColumns {

@@ -13,6 +13,8 @@ func TestParseExplicitTarget(t *testing.T) {
 		{"both identical", ".target sm_121\ncode for sm_121\n", "sm_121"},
 		{"duplicate identical", ".target sm_121\n.target sm_121\n", "sm_121"},
 		{"suffix retained", ".target sm_121a\n", "sm_121a"},
+		{"rubin sm_107a", ".target sm_107a\n", "sm_107a"},
+		{"rubin sm_107f", ".target sm_107f\n", "sm_107f"},
 		{"directive options", ".target sm_90, texmode_independent\n", "sm_90"},
 		{"tab", ".target\tsm_121\n", "sm_121"},
 		{"missing", "", ""},

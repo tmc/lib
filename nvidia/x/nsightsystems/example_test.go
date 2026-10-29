@@ -92,3 +92,17 @@ func ExampleReport() {
 	fmt.Println(r.Basis)
 	// Output: external:nsys
 }
+
+func ExampleAnalyzeLaunchGaps() {
+	step := []nsightsystems.Span{
+		{Name: "rmsnorm", StartNS: 0, EndNS: 4000},
+		{Name: "gemv", StartNS: 6000, EndNS: 20000},
+		{Name: "argmax", StartNS: 23000, EndNS: 24000},
+	}
+	g := nsightsystems.AnalyzeLaunchGaps(step)
+	fmt.Println(g.Launches, g.IdleNS, g.GapPerLaunchNS())
+	fmt.Println(g.Project(2000))
+	// Output:
+	// 3 5000 2500
+	// 7000
+}

@@ -1,0 +1,5 @@
+ptxas info    : Compiling entry function '_Z30llama_pf_post_llama_pf_post_t2iPKtS0_Pf' for 'sm_103a'
+ptxas info    : Function properties for _Z30llama_pf_post_llama_pf_post_t2iPKtS0_Pf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 1 barriers
+ptxas info    : Compile time = 15.570 ms

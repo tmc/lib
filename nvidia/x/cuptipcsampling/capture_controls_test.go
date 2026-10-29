@@ -48,7 +48,7 @@ func testPublicInventory(driver.Context, int) (ReasonInventory, error) {
 }
 
 func testPublicNames(entries, nameBytes, totalBytes int) (*samplingNames, error) {
-	return newSamplingNames(entries, nameBytes, totalBytes, func(uintptr, int) (string, error) { return "kernel", nil }, func(uintptr) {})
+	return newSamplingNames(entries, nameBytes, totalBytes, func(uintptr, int) (string, error) { return "kernel", nil })
 }
 
 func testPublicEmptyQuery(*cupti.PCSamplingGetDataParams) error { return nil }

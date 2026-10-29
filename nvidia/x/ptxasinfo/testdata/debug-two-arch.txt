@@ -1,0 +1,28 @@
+ptxas info    : 0 bytes gmem
+ptxas info    : Function properties for _Z6helperfi
+    128 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Compile time = 1.387 ms
+ptxas info    : Compiling entry function '_Z5spillPfPKf' for 'sm_90a'
+ptxas info    : Function properties for _Z5spillPfPKf
+    384 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 20 registers, used 0 barriers, 384 bytes cumulative stack size
+ptxas info    : Compile time = 1.723 ms
+ptxas info    : Compiling entry function '_Z5scaleILi128EEvPfPKfi' for 'sm_90a'
+ptxas info    : Function properties for _Z5scaleILi128EEvPfPKfi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 1 barriers, 128 bytes cumulative stack size, 512 bytes smem
+ptxas info    : Compile time = 1.964 ms
+ptxas info    : 0 bytes gmem
+ptxas info    : Function properties for _Z6helperfi
+    136 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Compile time = 1.217 ms
+ptxas info    : Compiling entry function '_Z5spillPfPKf' for 'sm_100a'
+ptxas info    : Function properties for _Z5spillPfPKf
+    384 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 20 registers, used 0 barriers, 384 bytes cumulative stack size
+ptxas info    : Compile time = 1.707 ms
+ptxas info    : Compiling entry function '_Z5scaleILi128EEvPfPKfi' for 'sm_100a'
+ptxas info    : Function properties for _Z5scaleILi128EEvPfPKfi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 1 barriers, 136 bytes cumulative stack size, 512 bytes smem
+ptxas info    : Compile time = 1.799 ms

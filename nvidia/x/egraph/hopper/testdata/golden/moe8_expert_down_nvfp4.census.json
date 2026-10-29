@@ -1,0 +1,53 @@
+{
+  "source_sha256": "6d5f53830564bf9bff3a6eef51f8f82f11f726e34d95ec2a58476567a5c025d7",
+  "kernels": {
+    "_Z22moe8_expert_down_nvfp4ILi1EEvPKtPKhS3_PKfPf": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.f32": 1,
+        "nc.u16": 8,
+        "nc.v4.u32": 16
+      },
+      "stores": {
+        "f32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z22moe8_expert_down_nvfp4ILi2EEvPKtPKhS3_PKfPf": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.f32": 1,
+        "nc.u16": 8,
+        "nc.v4.u32": 32
+      },
+      "stores": {
+        "f32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z22moe8_expert_down_nvfp4ILi3EEvPKtPKhS3_PKfPf": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.f32": 1,
+        "nc.u16": 8,
+        "nc.v4.u32": 48
+      },
+      "stores": {
+        "f32": 1
+      },
+      "late_loads": 0
+    },
+    "_Z22moe8_expert_down_nvfp4ILi4EEvPKtPKhS3_PKfPf": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.f32": 1,
+        "nc.u16": 8,
+        "nc.v4.u32": 64
+      },
+      "stores": {
+        "f32": 1
+      },
+      "late_loads": 0
+    }
+  }
+}

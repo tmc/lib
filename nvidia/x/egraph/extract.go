@@ -453,6 +453,13 @@ func (ext *Extractor) buildExprChecked(id Id, visited map[Id]bool) (*Expr, error
 }
 
 func (ext *Extractor) buildExprBounded(id Id, visited map[Id]bool, budget *extractionBudget, depth int) (*Expr, error) {
+	return ext.buildExprShared(id, visited, budget, depth, nil)
+}
+
+// buildExprShared materializes id's best expression. When memo is not nil,
+// it holds each class already materialized, and a class is built once and
+// shared by every parent.
+func (ext *Extractor) buildExprShared(id Id, visited map[Id]bool, budget *extractionBudget, depth int, memo map[Id]*Expr) (*Expr, error) {
 	type frame struct {
 		id        Id
 		node      ENode
@@ -498,6 +505,11 @@ func (ext *Extractor) buildExprBounded(id Id, visited map[Id]bool, budget *extra
 		current := &stack[last]
 		if current.nextChild < len(current.node.Children) {
 			childID := current.node.Children[current.nextChild]
+			if e, ok := memo[ext.g.Find(childID)]; ok {
+				current.expr.Children[current.nextChild] = e
+				current.nextChild++
+				continue
+			}
 			child, err := newFrame(childID, current.depth+1)
 			if err != nil {
 				return nil, err
@@ -508,6 +520,9 @@ func (ext *Extractor) buildExprBounded(id Id, visited map[Id]bool, budget *extra
 
 		completed := current.expr
 		delete(visited, current.id)
+		if memo != nil {
+			memo[current.id] = completed
+		}
 		stack[last] = frame{}
 		stack = stack[:last]
 		if len(stack) == 0 {

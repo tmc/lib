@@ -76,8 +76,8 @@ type Config struct {
 	// MaxTotalNameBytes bounds their sum.
 	//
 	// Names accumulate for the whole session: every distinct pointer stays
-	// registered until Close, because native names may be shared with Activity
-	// records and are freed only once. Repeated names cost nothing, so size
+	// registered until Close. CUPTI returns one pointer per function, which
+	// the package copies and never frees. Repeated names cost nothing, so size
 	// MaxNames for the distinct functions the workload is expected to sample,
 	// not for one read. Start enforces only the per-drain worst case, that is
 	// MaxNames >= 2*PCsPerBuffer, since each drain reserves both buffers. A

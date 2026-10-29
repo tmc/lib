@@ -31,3 +31,19 @@ version marker. The importer therefore wraps it in an explicitly project-owned
 versioned envelope and leaves its kernels unjoined. Tests with synthetic launch
 bindings are separately labeled; they are not metadata from this sample.
 No `.ncu-rep` binary is shipped or parsed by this package.
+
+# Nsight Compute raw-page fixture
+
+`h200-raw.csv` is an unmodified `ncu --csv --page raw` log file from one H200
+SXM profiling arm (nine launches of an attention decode step, SGLang image
+with CUDA 13.0.3; the ncu build was not recorded). It was written by:
+
+```sh
+ncu --profile-from-start off --replay-mode application --graph-profiling node \
+  --metrics gpu__time_duration.sum,dram__bytes_read.sum,dram__bytes_write.sum,sm__warps_active.avg.pct_of_peak_sustained_active,sm__ctas_launched.sum \
+  --csv --page raw --log-file baseline-counters.csv <workload>
+```
+
+SHA256 `ae885913b70094a220f65866adeec674b73a4a6aa2c256718e9e4d61dd37b440`.
+It keeps the three `==PROF==` lines ncu writes before the header, and its
+values use thousands separators (`4,512`).

@@ -22,15 +22,14 @@ func TestAdvice_DetermineSMCountPrecedence(t *testing.T) {
 		t.Fatalf("determineSMCount(capExplicit) = (%d, %v), want (48, true)", count, ok)
 	}
 
-	// 2. SM count derived from target arch takes precedence over missing explicit count.
+	// 2. An architecture whose products differ implies no SM count.
 	capArchOnly := &cudacapture.Capture{
 		Files: map[string][]byte{
 			"kernels.ptx": []byte(".version 8.0\n.target sm_90\n"),
 		},
 	}
-	count, ok = determineSMCount(capArchOnly)
-	if !ok || count != 132 {
-		t.Fatalf("determineSMCount(capArchOnly) = (%d, %v), want (132, true)", count, ok)
+	if count, ok := determineSMCount(capArchOnly); ok {
+		t.Fatalf("determineSMCount(capArchOnly) = (%d, true), want unknown", count)
 	}
 
 	// 3. A capture with no device identity is unknown, on every host.
@@ -42,6 +41,58 @@ func TestAdvice_DetermineSMCountPrecedence(t *testing.T) {
 	}
 	if w, b, ok := determineDeviceLimits(&cudacapture.Capture{}); ok {
 		t.Fatalf("determineDeviceLimits(no identity) = (%d, %d, true), want unknown", w, b)
+	}
+}
+
+// TestCaptureSMCount checks where each SM count comes from, for every
+// architecture advise may see.
+func TestCaptureSMCount(t *testing.T) {
+	tests := []struct {
+		name      string
+		metadata  string
+		want      int
+		datasheet bool
+	}{
+		{"recorded wins", `{"device":"NVIDIA B200","arch":"sm_100a","sm_count":144}`, 144, false},
+		{"GB10 probed", `{"device":"NVIDIA GB10"}`, 48, false},
+		{"sm_121a alone is GB10", `{"arch":"sm_121a"}`, 48, false},
+		{"H100 SXM", `{"device":"NVIDIA H100 80GB HBM3"}`, 132, true},
+		{"H100 PCIe refused", `{"device":"NVIDIA H100 PCIe"}`, 0, false},
+		{"H200", `{"device":"NVIDIA H200"}`, 132, true},
+		{"GB200 not B200", `{"device":"NVIDIA GB200"}`, 148, true},
+		{"B200", `{"device":"NVIDIA B200"}`, 148, true},
+		{"GB300", `{"device":"NVIDIA GB300"}`, 160, true},
+		{"RTX 5090", `{"device":"NVIDIA GeForce RTX 5090"}`, 170, true},
+		{"RTX PRO 6000", `{"device":"NVIDIA RTX PRO 6000 Blackwell Server Edition"}`, 188, true},
+		{"sm_70 alone", `{"arch":"sm_70"}`, 0, false},
+		{"sm_75 alone", `{"arch":"sm_75"}`, 0, false},
+		{"T4", `{"device":"Tesla T4"}`, 40, true},
+		{"sm_80 alone", `{"arch":"sm_80"}`, 0, false},
+		{"A100 SXM", `{"device":"NVIDIA A100-SXM4-80GB"}`, 108, true},
+		{"A100 PCIe refused", `{"device":"NVIDIA A100 80GB PCIe"}`, 0, false},
+		{"sm_86 alone", `{"arch":"sm_86"}`, 0, false},
+		{"A10 not A100", `{"device":"NVIDIA A10"}`, 72, true},
+		{"sm_87 alone", `{"arch":"sm_87"}`, 0, false},
+		{"Orin", `{"device":"Orin"}`, 16, true},
+		{"sm_89 alone", `{"arch":"sm_89"}`, 0, false},
+		{"L4 not L40S", `{"device":"NVIDIA L4"}`, 58, true},
+		{"L40S", `{"device":"NVIDIA L40S"}`, 142, true},
+		{"RTX 4090", `{"device":"NVIDIA GeForce RTX 4090"}`, 128, true},
+		{"Thor", `{"device":"NVIDIA Thor"}`, 20, true},
+		{"sm_90a alone", `{"arch":"sm_90a"}`, 0, false},
+		{"sm_100a alone", `{"arch":"sm_100a"}`, 0, false},
+		{"sm_103a alone", `{"arch":"sm_103a"}`, 0, false},
+		{"sm_110a alone", `{"arch":"sm_110a"}`, 0, false},
+		{"sm_120a alone", `{"arch":"sm_120a"}`, 0, false},
+		{"nothing", `{}`, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := captureSMCount(&cudacapture.Capture{Metadata: []byte(tt.metadata)})
+			if ok != (tt.want > 0) || got.n != tt.want || got.datasheet != tt.datasheet {
+				t.Errorf("captureSMCount = %+v, %v; want %d SMs, datasheet %v", got, ok, tt.want, tt.datasheet)
+			}
+		})
 	}
 }
 

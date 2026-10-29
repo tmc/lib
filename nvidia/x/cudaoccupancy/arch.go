@@ -22,6 +22,18 @@ type DeviceProperties struct {
 	RegAllocationUnit       int    // Register allocation granularity in registers per warp
 	SmemAllocationUnit      int    // Shared memory allocation granularity in bytes
 
+	// TMEMColumnsPerSM is the Tensor Memory an SM holds, in 32-bit columns
+	// of 128 lanes: 512 where tcgen05 exists, 0 elsewhere. A CTA allocates
+	// a power of two from 32 to 512 columns with tcgen05.alloc, so TMEM
+	// caps residency at TMEMColumnsPerSM / columns blocks per SM however
+	// few registers and how little shared memory the kernel uses.
+	TMEMColumnsPerSM int
+
+	// MaxClusterSize is the largest thread block cluster a kernel may
+	// launch with when it opts in to non-portable sizes; 0 where clusters
+	// do not exist. The portable maximum is 8 everywhere clusters exist.
+	MaxClusterSize int
+
 	// Source names the device these values were read from, or is empty when
 	// they were hand-entered from a datasheet and no device has confirmed
 	// them. Every field above renders identically either way, which is the
@@ -111,6 +123,23 @@ var (
 		SmemAllocationUnit:      128,
 	}
 
+	// Ampere Jetson Orin (SM 8.7). CUDA Programming Guide 13.x, Compute
+	// Capabilities, Tables 30 and 31: 16 blocks, 48 warps, 164 KB per SM,
+	// 163 KB per block.
+	SM87 = DeviceProperties{
+		Architecture:            "sm_87",
+		MaxThreadsPerBlock:      1024,
+		WarpSize:                32,
+		MaxWarpsPerSM:           48,
+		MaxBlocksPerSM:          16,
+		MaxRegistersPerSM:       65536,
+		MaxSharedMemoryPerSM:    167936,
+		MaxSharedMemoryPerBlock: 49152,
+		MaxSharedMemoryOptin:    166912,
+		RegAllocationUnit:       256,
+		SmemAllocationUnit:      128,
+	}
+
 	// Hopper H100 (SM 9.0)
 	SM90 = DeviceProperties{
 		Architecture:            "sm_90",
@@ -124,6 +153,7 @@ var (
 		MaxSharedMemoryOptin:    232448,
 		RegAllocationUnit:       256,
 		SmemAllocationUnit:      128,
+		MaxClusterSize:          16,
 	}
 
 	// Blackwell GB200 (SM 10.0 / SM 10.0a)
@@ -139,6 +169,67 @@ var (
 		MaxSharedMemoryOptin:    232448,
 		RegAllocationUnit:       256,
 		SmemAllocationUnit:      128,
+		TMEMColumnsPerSM:        512,
+		MaxClusterSize:          16,
+	}
+
+	// Blackwell Ultra GB300 / B300 (SM 10.3 / SM 10.3a). CUDA Programming
+	// Guide 13.x, Tables 30 and 31 give 10.3 the limits of 10.0; PTX ISA,
+	// Tensor Memory, gives 512 columns. The non-portable cluster size of 16
+	// is documented for B200 and assumed unchanged.
+	SM103 = DeviceProperties{
+		Architecture:            "sm_103",
+		MaxThreadsPerBlock:      1024,
+		WarpSize:                32,
+		MaxWarpsPerSM:           64,
+		MaxBlocksPerSM:          32,
+		MaxRegistersPerSM:       65536,
+		MaxSharedMemoryPerSM:    233472,
+		MaxSharedMemoryPerBlock: 49152,
+		MaxSharedMemoryOptin:    232448,
+		RegAllocationUnit:       256,
+		SmemAllocationUnit:      128,
+		TMEMColumnsPerSM:        512,
+		MaxClusterSize:          16,
+	}
+
+	// Jetson Thor (SM 11.0, formerly SM 10.1). CUDA Programming Guide
+	// 13.x, Tables 30 and 31: 24 blocks, 48 warps, 228 KB per SM, 227 KB
+	// per block. sm_110a assembles tcgen05 (cudadevicetable feature probe),
+	// so TMEM is assumed to be the 512 columns of 10.x; the cluster limit
+	// is the portable 8.
+	SM110 = DeviceProperties{
+		Architecture:            "sm_110",
+		MaxThreadsPerBlock:      1024,
+		WarpSize:                32,
+		MaxWarpsPerSM:           48,
+		MaxBlocksPerSM:          24,
+		MaxRegistersPerSM:       65536,
+		MaxSharedMemoryPerSM:    233472,
+		MaxSharedMemoryPerBlock: 49152,
+		MaxSharedMemoryOptin:    232448,
+		RegAllocationUnit:       256,
+		SmemAllocationUnit:      128,
+		TMEMColumnsPerSM:        512,
+		MaxClusterSize:          8,
+	}
+
+	// Blackwell RTX PRO 6000 / RTX 5090 (SM 12.0). CUDA Programming Guide
+	// 13.x, Tables 30 and 31 give 12.x one set of limits; these are the
+	// probed GB10 values below, which agree with them.
+	SM120 = DeviceProperties{
+		Architecture:            "sm_120",
+		MaxThreadsPerBlock:      1024,
+		WarpSize:                32,
+		MaxWarpsPerSM:           48,
+		MaxBlocksPerSM:          24,
+		MaxRegistersPerSM:       65536,
+		MaxSharedMemoryPerSM:    102400,
+		MaxSharedMemoryPerBlock: 49152,
+		MaxSharedMemoryOptin:    101376,
+		RegAllocationUnit:       256,
+		SmemAllocationUnit:      128,
+		MaxClusterSize:          8,
 	}
 
 	// Blackwell GB10 (SM 12.1)
@@ -159,16 +250,16 @@ var (
 		MaxSharedMemoryOptin:    101376,
 		RegAllocationUnit:       256,
 		SmemAllocationUnit:      128,
+		MaxClusterSize:          8,
 	}
 )
 
 // knownArchitectures maps an architecture string to its properties. A key may
 // only name the architecture its value describes: "sm_90a" reaches SM90
 // because a feature suffix does not change SM geometry, but no key reaches a
-// different part. sm_120 (GB20x) was once aliased to SM121; LookupDevice now reports an
-// error for that part rather than returning a neighbour's geometry.
-// SM100 has its own explicit properties. Add an entry when the part has been measured, not when a caller asks
-// for it. TestEveryAliasNamesItsOwnArchitecture enforces this.
+// different part: sm_120 was once aliased to SM121, and now has its own
+// entry. Add an entry from a measurement or a cited NVIDIA table, not because
+// a caller asks for it. TestEveryAliasNamesItsOwnArchitecture enforces this.
 var knownArchitectures = map[string]DeviceProperties{
 	"sm_70":   SM70,
 	"sm70":    SM70,
@@ -178,6 +269,8 @@ var knownArchitectures = map[string]DeviceProperties{
 	"sm80":    SM80,
 	"sm_86":   SM86,
 	"sm86":    SM86,
+	"sm_87":   SM87,
+	"sm87":    SM87,
 	"sm_89":   SM89,
 	"sm89":    SM89,
 	"sm_90":   SM90,
@@ -189,6 +282,19 @@ var knownArchitectures = map[string]DeviceProperties{
 	"sm_100a": SM100,
 	"sm100a":  SM100,
 	"gb200":   SM100,
+	"sm_103":  SM103,
+	"sm103":   SM103,
+	"sm_103a": SM103,
+	"sm103a":  SM103,
+	"gb300":   SM103,
+	"sm_110":  SM110,
+	"sm110":   SM110,
+	"sm_110a": SM110,
+	"sm110a":  SM110,
+	"sm_120":  SM120,
+	"sm120":   SM120,
+	"sm_120a": SM120,
+	"sm120a":  SM120,
 	"sm_121":  SM121,
 	"sm121":   SM121,
 	"sm_121a": SM121,

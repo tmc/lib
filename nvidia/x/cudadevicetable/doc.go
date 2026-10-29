@@ -55,6 +55,15 @@
 // non-zero exit as "unsupported" reported wgmma unsupported on sm_90a, the one
 // target that supports it.
 //
+// A code generator planning for hardware nobody here has attached still
+// needs SM counts and shared-memory limits, so the package also holds a
+// datasheet: one [Profile] per product (H200, B200, GB300, GB10, ...), in
+// which every value is [Unverified] and cites its source. [LookupProfile]
+// replaces a product's datasheet values with probed ones wherever this
+// table holds a probe of that product, and answers feature questions from
+// the probed targets. The datasheet is the one hand-entered table here; a
+// generator that must not act on it can check each value's Source.
+//
 // Regenerate on a host with the device attached:
 //
 //	go run ./cmd/cudadevicetable -update x/cudadevicetable/devices.json

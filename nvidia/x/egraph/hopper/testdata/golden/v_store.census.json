@@ -1,0 +1,16 @@
+{
+  "source_sha256": "7bd55048c1be6b41b2e0f2d85ca1f51bc23104508e526ff4dc9e8297aa55acbd",
+  "kernels": {
+    "_Z7v_storeiPKtPKfPhPKl": {
+      "loads": {
+        "nc.f32": 1,
+        "nc.u32": 1,
+        "nc.u64": 1
+      },
+      "stores": {
+        "u16": 1
+      },
+      "late_loads": 0
+    }
+  }
+}

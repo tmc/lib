@@ -27,7 +27,8 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 		return
 	}
 
-	smCount, hasSMCount := determineSMCount(cap)
+	sms, hasSMCount := captureSMCount(cap)
+	smCount := sms.n
 	maxWarpsPerSM, maxBlocksPerSM, hasLimits := determineDeviceLimits(cap)
 
 	if cap.Profile != nil && len(launches) > 0 {
@@ -39,7 +40,7 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 		}
 		if !hasSMCount {
 			report.Items = append(report.Items, skippedAuditItem(
-				"Device SM count is not recorded in this capture and not implied by its architecture; advise does not query the local host's device, so the SM grid starvation audit was skipped.",
+				"Device SM count is not recorded in this capture and not implied by the device it names (an architecture alone does not imply one: its products differ); advise does not query the local host's device, so the SM grid starvation audit was skipped.",
 				"device SM count",
 			))
 		}
@@ -173,13 +174,17 @@ func auditLaunchGeometry(cap *cudacapture.Capture, report *Report) {
 			if len(list) == 1 {
 				loc = Location{Kernel: list[0].kernel}
 			}
+			evidence := EvidenceObserved
+			if sms.datasheet {
+				evidence = EvidenceSuspected
+			}
 			report.Items = append(report.Items, Item{
 				Severity:      SeverityContext,
 				Category:      CategoryArchitecture,
-				EvidenceLevel: EvidenceObserved,
+				EvidenceLevel: evidence,
 				Location:      loc,
-				Finding: fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%d SMs): %s. Whether that is a shortfall depends on how much work there is; this capture does not record how the grids were chosen.",
-					len(list), smCount, strings.Join(parts, ", ")),
+				Finding: fmt.Sprintf("%d kernel(s) launched with fewer grid blocks than the GPU has SMs (%s): %s. Whether that is a shortfall depends on how much work there is; this capture does not record how the grids were chosen.",
+					len(list), sms.describe(), strings.Join(parts, ", ")),
 				ActionableRecommendation: "Compare achieved occupancy against these grids before changing any of them. A grid smaller than the SM count is a fact about the launch, not a defect: it is a problem only where there is more work available than the grid exposes.",
 				NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active per kernel, against the grid sizes above",
 			})

@@ -208,7 +208,7 @@ __device__ __forceinline__ void egraph_trigger_programmatic_launch_completion(vo
 	case "rms_quant_q8_1":
 		sb.WriteString(generateRMSQuantQ81Kernel(opts))
 	case "fused_rmsnorm_gemv", "tile_rmsnorm_qkv", "tile_rmsnorm_proj":
-		sb.WriteString(generateRMSNormGEMVKernel(opts))
+		sb.WriteString(generateRMSNormGEMVKernel(expr, opts))
 	case "fused_gemv_pipeline":
 		sb.WriteString(generateFusedGEMVPipelineKernel(opts))
 	case "q8_0_matvec":
@@ -373,7 +373,24 @@ func generateSwiGLUQ8_0Kernel(opts CodegenOptions) string {
 `, opts.KernelName)
 }
 
-func generateRMSNormGEMVKernel(opts CodegenOptions) string {
+func generateRMSNormGEMVKernel(expr *Expr, opts CodegenOptions) string {
+	cfg := extractRMSNormConfig(expr)
+	epsExpr := "eps"
+	if cfg.hasEps {
+		lit := floatLiteral(cfg.epsVal)
+		epsExpr = fmt.Sprintf("((eps > 0.0f && eps != %s) ? eps : %s)", lit, lit)
+	} else if cfg.epsName != "" && cfg.epsName != "eps" {
+		epsExpr = fmt.Sprintf("eps /* %s */", sanitizeTileIdent(cfg.epsName))
+	}
+	weightExpr := "EG_TO_F32(weight[i])"
+	if !cfg.hasWeight {
+		weightExpr = "1.0f"
+	} else if cfg.hasWVal {
+		lit := floatLiteral(cfg.wVal)
+		weightExpr = fmt.Sprintf("(weight != nullptr ? EG_TO_F32(weight[i]) : %s)", lit)
+	} else if cfg.wName != "" && cfg.wName != "w" && cfg.wName != "weight" && cfg.wName != "w_norm" && cfg.wName != "W_norm" {
+		weightExpr = fmt.Sprintf("EG_TO_F32(weight[i]) /* %s */", sanitizeTileIdent(cfg.wName))
+	}
 	src := `extern "C" __global__ void KERNEL_NAME(
     const SCALAR_T* __restrict__ x,
     const SCALAR_T* __restrict__ weight,
@@ -408,7 +425,7 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
         float total = (lane < n_warps) ? s_sum[lane] : 0.0f;
         total = warp_sum(total);
         if (lane == 0) {
-            s_scale = rsqrtf(total / (float)in_dim + eps);
+            s_scale = rsqrtf(total / (float)in_dim + EPS_EXPR);
         }
     }
     __syncthreads();
@@ -419,7 +436,7 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
     const SCALAR_T* w_row = W_proj + row * in_dim;
     float sum = 0.0f;
     for (int i = tid; i < in_dim; i += blockDim.x) {
-        sum += (EG_TO_F32(x[i]) * scale * EG_TO_F32(weight[i])) * EG_TO_F32(w_row[i]);
+        sum += (EG_TO_F32(x[i]) * scale * WEIGHT_EXPR) * EG_TO_F32(w_row[i]);
     }
     sum = warp_sum(sum);
     if (lane == 0) {
@@ -435,6 +452,8 @@ func generateRMSNormGEMVKernel(opts CodegenOptions) string {
     }
 }
 `
+	src = strings.ReplaceAll(src, "EPS_EXPR", epsExpr)
+	src = strings.ReplaceAll(src, "WEIGHT_EXPR", weightExpr)
 	src = strings.ReplaceAll(src, "SCALAR_T", scalarTypeFor(opts.Precision))
 	src = applyScalarConv(src, opts.Precision)
 	return strings.ReplaceAll(src, "KERNEL_NAME", opts.KernelName)
@@ -960,7 +979,8 @@ func IsLowerableCUDAOp(op string) bool {
 // and symbolic operands; a matching name alone does not validate a workload.
 func IsLowerableTileIROp(op string) bool {
 	switch op {
-	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
+	case "tile_rmsnorm", "fused_rmsnorm",
+		"tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
 		"tile_rmsnorm_qkv", "fused_rmsnorm_qkv",
 		"tile_rmsnorm_proj", "fused_rmsnorm_proj",
 		"tile_swiglu", "fused_swiglu",

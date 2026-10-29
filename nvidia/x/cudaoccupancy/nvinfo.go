@@ -31,6 +31,20 @@ type KernelResource struct {
 	StaticSharedMem  int
 	StackFrameBytes  int // Local stack frame size per thread in bytes (EIATTR_FRAME_SIZE)
 	ConstantBankSize int // Constant memory parameter bank 0 size in bytes (.nv.constant0 / EIATTR_PARAM_CBANK)
+
+	// TMEMColumns is the Tensor Memory one CTA allocates with
+	// tcgen05.alloc, in columns; 0 when it allocates none. No ELF
+	// attribute records it, so InspectCubin leaves it 0 and a caller
+	// reads it from the PTX.
+	TMEMColumns int
+
+	// ClusterSize is the number of CTAs in the kernel's thread block
+	// cluster; 0 or 1 without one.
+	ClusterSize int
+
+	// CTAPair reports that the kernel issues tcgen05 MMAs with
+	// cta_group::2, which pairs each CTA with a peer CTA of its cluster.
+	CTAPair bool
 }
 
 // InspectCubin parses a CUBIN ELF image and extracts resource usage for all kernels.

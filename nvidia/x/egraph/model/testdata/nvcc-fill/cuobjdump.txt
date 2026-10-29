@@ -1,0 +1,54 @@
+Cuda compilation tools, release 13.4, V13.4.59
+Build cuda_13.4.r13.4/compiler.38657139_0
+ 6528 fill.fatbin
+ 7048 fill_nz.fatbin
+ 2352 fill_z.fatbin
+15928 total
+== fill.fatbin
+PTX file    1: fill.1.sm_121.ptx
+ELF file    1: fill.1.sm_121a.cubin
+PTX file    2: fill.2.sm_121a.ptx
+
+Fatbin ptx code:
+================
+arch = sm_121
+code version = [9,4]
+host = linux
+compile_size = 64bit
+compressed
+ptxasOptions = 
+
+Fatbin elf code:
+================
+== fill_nz.fatbin
+PTX file    1: fill_nz.1.sm_121.ptx
+ELF file    1: fill_nz.1.sm_121a.cubin
+PTX file    2: fill_nz.2.sm_121a.ptx
+
+Fatbin ptx code:
+================
+arch = sm_121
+code version = [9,4]
+host = linux
+compile_size = 64bit
+ptxasOptions = 
+
+Fatbin elf code:
+================
+arch = sm_121a
+== fill_z.fatbin
+PTX file    1: fill_z.1.sm_121.ptx
+ELF file    1: fill_z.1.sm_121a.cubin
+PTX file    2: fill_z.2.sm_121a.ptx
+
+Fatbin ptx code:
+================
+arch = sm_121
+code version = [9,4]
+host = linux
+compile_size = 64bit
+compressed
+ptxasOptions = 
+
+Fatbin elf code:
+================
