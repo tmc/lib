@@ -51,15 +51,18 @@ func TestBuildEgraphPlans(t *testing.T) {
 		plan              *hopper.Plan
 		skinny, tile, row int
 	}{
-		// rmsnorm row, qkv gemm.
-		{p.attnIn, 1, 0, 1},
+		// The first layer's rmsnorm row; the others' run in post.
+		{p.norm, 0, 0, 1},
+		// qkv gemm over the normalized residual; prefill normalizes first.
+		{p.attnIn, 1, 0, 0},
 		{p.pf.attnIn, 0, 1, 1},
-		// o_proj+x gemm reading F32 attn, rmsnorm row, gate_up gemm with
-		// the SwiGLU epilogue, down_proj+h gemm. Prefill keeps the swiglu
-		// row: its tile gemms have no paired epilogue.
-		{p.post, 3, 0, 1},
+		// o_proj+x gemm reading F32 attn with the rmsnorm as its tail,
+		// gate_up gemm with the SwiGLU epilogue, down_proj+h gemm with the
+		// next layer's rmsnorm as its tail. Prefill keeps the swiglu row:
+		// its tile gemms have no paired epilogue.
+		{p.post, 3, 0, 0},
 		{p.pf.post, 0, 3, 2},
-		{p.head, 1, 0, 1},
+		{p.head, 1, 0, 0},
 	}
 	for _, tt := range tests {
 		skinny, tile, row := count(tt.plan)

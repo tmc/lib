@@ -94,12 +94,14 @@ type egraphDecoder struct {
 	wqkv, wgu []deviceWeight
 	bqkv      []cudamem.Slice[float32]
 	qkv, x2   cudamem.Slice[float32]
+	xn        cudamem.Slice[uint16]             // the normalized residual a layer reads
 	temps32   map[string]cudamem.Slice[float32] // by name
 	temps16   map[string]cudamem.Slice[uint16]
+	tempsI32  map[string]cudamem.Slice[int32] // gemm tail counters
 	tempPtr   map[string]driver.DevicePtr
 
 	attnIn, post [][]egraphLaunch // per layer
-	head         []egraphLaunch
+	norm, head   []egraphLaunch
 
 	// With plans.attn: the BF16 KV cache, the rotary cos|sin table, the
 	// page tables and seqlens the emitted kernels read, q in BF16, and the
@@ -113,7 +115,6 @@ type egraphDecoder struct {
 	rope, sdpa []egraphLaunch
 	ws         cudamem.Slice[float32] // split attention partials
 	combine    []egraphLaunch         // with splits: merges ws into sp.AttnOut
-	qcast      []egraphLaunch
 	posKind    map[driver.Function]string
 	posArgs    map[driver.Function][]egraphPosArg
 
@@ -136,16 +137,17 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
 	eg = &egraphDecoder{
-		plans:   plans,
-		megas:   make(map[*hopper.Plan]hopper.Megakernel),
-		fns:     make(map[string]driver.Function),
-		pdl:     make(map[driver.Function]bool),
-		ready:   make(map[*hopper.Plan]cudamem.Slice[uint64]),
-		temps32: make(map[string]cudamem.Slice[float32]),
-		temps16: make(map[string]cudamem.Slice[uint16]),
-		tempPtr: make(map[string]driver.DevicePtr),
-		posKind: make(map[driver.Function]string),
-		posArgs: make(map[driver.Function][]egraphPosArg),
+		plans:    plans,
+		megas:    make(map[*hopper.Plan]hopper.Megakernel),
+		fns:      make(map[string]driver.Function),
+		pdl:      make(map[driver.Function]bool),
+		ready:    make(map[*hopper.Plan]cudamem.Slice[uint64]),
+		temps32:  make(map[string]cudamem.Slice[float32]),
+		temps16:  make(map[string]cudamem.Slice[uint16]),
+		tempsI32: make(map[string]cudamem.Slice[int32]),
+		tempPtr:  make(map[string]driver.DevicePtr),
+		posKind:  make(map[driver.Function]string),
+		posArgs:  make(map[driver.Function][]egraphPosArg),
 	}
 	defer func() {
 		if err != nil {
@@ -202,6 +204,9 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	if eg.x2, err = cudamem.Alloc[float32](dev, cfg.HiddenSize); err != nil {
 		return nil, fmt.Errorf("alloc residual: %w", err)
 	}
+	if eg.xn, err = cudamem.Alloc[uint16](dev, cfg.HiddenSize); err != nil {
+		return nil, fmt.Errorf("alloc normalized residual: %w", err)
+	}
 	for _, p := range eg.planList() {
 		for _, t := range p.Temps {
 			n := 1
@@ -219,19 +224,41 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 					return nil, fmt.Errorf("alloc %s: %w", t.Name, err)
 				}
 				eg.tempPtr[t.Name] = eg.temps16[t.Name].Ptr()
+			case hopper.I32:
+				// A gemm tail's counter: zero before the first launch.
+				if eg.tempsI32[t.Name], err = cudamem.Alloc[int32](dev, n); err != nil {
+					return nil, fmt.Errorf("alloc %s: %w", t.Name, err)
+				}
+				if err := eg.tempsI32[t.Name].CopyFromHost(make([]int32, n)); err != nil {
+					return nil, fmt.Errorf("zero %s: %w", t.Name, err)
+				}
+				eg.tempPtr[t.Name] = eg.tempsI32[t.Name].Ptr()
 			default:
 				return nil, fmt.Errorf("temporary %s has dtype %v", t.Name, t.DType)
 			}
 		}
 	}
 
-	// The residual stream alternates between sp.X and x2, one layer each.
+	if eg.norm, err = eg.bind(plans.norm, map[string]driver.DevicePtr{
+		"x":                    sp.X.Ptr(),
+		"norm":                 gpuW.Layers[0].InputNorm.Ptr(),
+		plans.norm.Output.Name: eg.xn.Ptr(),
+	}); err != nil {
+		return nil, err
+	}
+	// The residual stream alternates between sp.X and x2, one layer each,
+	// and each layer's post normalizes it into xn for the next layer, or
+	// for the head after the last.
 	cur, next := sp.X, eg.x2
 	for i := range gpuW.Layers {
 		lw := &gpuW.Layers[i]
+		nextNorm := gpuW.Norm.Ptr()
+		if i+1 < len(gpuW.Layers) {
+			nextNorm = gpuW.Layers[i+1].InputNorm.Ptr()
+		}
 		bufs := map[string]driver.DevicePtr{
+			"xn":                     eg.xn.Ptr(),
 			"x":                      cur.Ptr(),
-			"attn_norm":              lw.InputNorm.Ptr(),
 			"w_qkv":                  eg.wqkv[i].Ptr(),
 			plans.attnIn.Output.Name: eg.qkv.Ptr(),
 			"attn":                   sp.AttnOut.Ptr(),
@@ -239,7 +266,9 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 			"ffn_norm":               lw.PostNorm.Ptr(),
 			"w_gu":                   eg.wgu[i].Ptr(),
 			"w_down":                 lw.WDown.Ptr(),
-			plans.post.Output.Name:   next.Ptr(),
+			"next_norm":              nextNorm,
+			plans.postRes:            next.Ptr(),
+			plans.post.Output.Name:   eg.xn.Ptr(),
 		}
 		if bias {
 			bufs["b_qkv"] = eg.bqkv[i].Ptr()
@@ -257,8 +286,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		cur, next = next, cur
 	}
 	eg.head, err = eg.bind(plans.head, map[string]driver.DevicePtr{
-		"x":                    cur.Ptr(),
-		"norm":                 gpuW.Norm.Ptr(),
+		"xn":                   eg.xn.Ptr(),
 		"lm_head":              gpuW.LMHead.Ptr(),
 		plans.head.Output.Name: sp.Logits.Ptr(),
 	})
@@ -406,24 +434,17 @@ func (eg *egraphDecoder) bindAttention(cfg *ModelConfig, sp *GPUScratchpad) erro
 			return fmt.Errorf("upload attention tables: %w", err)
 		}
 	}
-	var err error
-	if eg.qcast, err = eg.bind(eg.plans.qcast, map[string]driver.DevicePtr{
-		"q":                        eg.qbf.Ptr(),
-		eg.plans.qcast.Output.Name: sp.Q.Ptr(),
-	}); err != nil {
-		return err
-	}
-
 	ropeFn, sdpaFn := eg.fns[eg.plans.rope.Name], eg.fns[eg.plans.sdpa.Name]
 	row := driver.DevicePtr(2 * kvDim)
 	eg.posKind[ropeFn], eg.posKind[sdpaFn] = "rope_kv", "attn"
 	eg.posArgs[ropeFn] = []egraphPosArg{{idx: 1, stride: driver.DevicePtr(4 * hd)}, {idx: 8, stride: row}, {idx: 9, stride: row}}
 	eg.posArgs[sdpaFn] = []egraphPosArg{{idx: 7}}
+	rg, rb := eg.plans.rope.Grid(1)
 	for i := range cfg.NumHiddenLayers {
 		// qkv, cos_sin_table, positions, seq_ids, seqlens, kv_positions,
 		// page_table, q_out, k_cache, v_cache
 		eg.rope = append(eg.rope, egraphLaunch{
-			fn: ropeFn, grid: [3]uint32{1, 1, 1}, block: [3]uint32{128, 1, 1}, epoch: -1,
+			fn: ropeFn, grid: [3]uint32{uint32(rg[0]), uint32(rg[1]), uint32(rg[2])}, block: [3]uint32{uint32(rb[0]), uint32(rb[1]), uint32(rb[2])}, epoch: -1,
 			args: []any{eg.qkv.Ptr(), eg.cs.Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), eg.seqLen1.Ptr(), driver.DevicePtr(0),
 				eg.ropePage.Ptr(), eg.qbf.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
 			pos: eg.posArgs[ropeFn],
@@ -438,7 +459,7 @@ func (eg *egraphDecoder) bindAttention(cfg *ModelConfig, sp *GPUScratchpad) erro
 		}
 		eg.sdpa = append(eg.sdpa, egraphLaunch{
 			fn: sdpaFn, grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(b[0]), uint32(b[1]), uint32(b[2])}, epoch: -1,
-			args: []any{sp.Q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), eg.pages.Ptr(), out, int32(1)},
+			args: []any{eg.qbf.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), eg.pages.Ptr(), out, int32(1)},
 			pos:  eg.posArgs[sdpaFn],
 		})
 	}
@@ -477,11 +498,7 @@ func concat(parts ...[]float32) []float32 {
 // decodePlans returns the decode step's plans, which -egraph-mega runs as
 // megakernels.
 func (eg *egraphDecoder) decodePlans() []*hopper.Plan {
-	ps := []*hopper.Plan{eg.plans.attnIn, eg.plans.post, eg.plans.head}
-	if eg.plans.attn {
-		ps = append(ps, eg.plans.qcast)
-	}
-	return ps
+	return []*hopper.Plan{eg.plans.norm, eg.plans.attnIn, eg.plans.post, eg.plans.head}
 }
 
 func (eg *egraphDecoder) planList() []*hopper.Plan {
@@ -720,9 +737,9 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 
 // Kernels returns the number of generated launches per decode step.
 func (eg *egraphDecoder) Kernels() int {
-	n := len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
+	n := len(eg.norm) + len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
 	if eg.plans.attn {
-		n += len(eg.rope) + len(eg.sdpa) + len(eg.attnIn)*(len(eg.qcast)+len(eg.combine))
+		n += len(eg.rope) + len(eg.sdpa) + len(eg.attnIn)*len(eg.combine)
 	}
 	return n
 }
@@ -747,6 +764,10 @@ func (eg *egraphDecoder) Close() error {
 		errs = append(errs, freeOwned(&s))
 		delete(eg.temps16, name)
 	}
+	for name, s := range eg.tempsI32 {
+		errs = append(errs, freeOwned(&s))
+		delete(eg.tempsI32, name)
+	}
 	for i := range eg.kc {
 		errs = append(errs, freeOwned(&eg.kc[i]))
 	}
@@ -762,7 +783,7 @@ func (eg *egraphDecoder) Close() error {
 		errs = append(errs, freeOwned(&r))
 		delete(eg.ready, p)
 	}
-	errs = append(errs, freeOwned(&eg.qkv), freeOwned(&eg.x2))
+	errs = append(errs, freeOwned(&eg.qkv), freeOwned(&eg.x2), freeOwned(&eg.xn))
 	if eg.mod != 0 {
 		errs = append(errs, eg.mod.Close())
 	}
@@ -816,6 +837,9 @@ func (eg *egraphDecoder) emitStep(
 		gpuW.EmbedTokens, tokenSrc, sp.X, int32(cfg.HiddenSize)); err != nil {
 		return err
 	}
+	if err := launch(eg.norm); err != nil {
+		return err
+	}
 	attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
 	for i := range cfg.NumHiddenLayers {
 		lkv, err := layerKV(i)
@@ -827,9 +851,6 @@ func (eg *egraphDecoder) emitStep(
 		}
 		if eg.plans.attn {
 			if err := launch([]egraphLaunch{eg.rope[i]}); err != nil {
-				return err
-			}
-			if err := launch(eg.qcast); err != nil {
 				return err
 			}
 			if err := launch([]egraphLaunch{eg.sdpa[i]}); err != nil {

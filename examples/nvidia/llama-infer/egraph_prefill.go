@@ -125,8 +125,9 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 
 		// qkv, cos_sin_table, positions, seq_ids, seqlens, kv_positions,
 		// page_table, q_out, k_cache, v_cache
+		rg, rb := pl.rope.Grid(1)
 		pf.rope = append(pf.rope, egraphLaunch{
-			fn: eg.fns[pl.rope.Name], block: [3]uint32{128, 1, 1}, epoch: -1,
+			fn: eg.fns[pl.rope.Name], grid: [3]uint32{0, uint32(rg[1]), 1}, block: [3]uint32{uint32(rb[0]), 1, 1}, epoch: -1,
 			args: []any{pf.qkv.Ptr(), eg.cs.Ptr(), pf.positions.Ptr(), pf.seqIDs.Ptr(), eg.seqLen1.Ptr(), pf.positions.Ptr(),
 				eg.pages.Ptr(), pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
 		})
@@ -223,7 +224,7 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 			rope := pf.rope[i]
 			rope.args = append([]any(nil), rope.args...)
 			rope.args[2], rope.args[5] = positions, positions
-			rope.grid = [3]uint32{uint32(n), 1, 1}
+			rope.grid = [3]uint32{uint32(n), rope.grid[1], 1}
 			if err := launch(rope); err != nil {
 				return 0, err
 			}
@@ -240,16 +241,23 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 		}
 		last = pf.x[cfg.NumHiddenLayers%2].Ptr() + driver.DevicePtr(4*h*(n-1))
 	}
-	head, err := eg.bind(eg.plans.head, map[string]driver.DevicePtr{
+	norm, err := eg.bind(eg.plans.norm, map[string]driver.DevicePtr{
 		"x":                       last,
 		"norm":                    gpuW.Norm.Ptr(),
+		eg.plans.norm.Output.Name: eg.xn.Ptr(),
+	})
+	if err != nil {
+		return 0, err
+	}
+	head, err := eg.bind(eg.plans.head, map[string]driver.DevicePtr{
+		"xn":                      eg.xn.Ptr(),
 		"lm_head":                 gpuW.LMHead.Ptr(),
 		eg.plans.head.Output.Name: sp.Logits.Ptr(),
 	})
 	if err != nil {
 		return 0, err
 	}
-	for _, l := range head {
+	for _, l := range append(norm, head...) {
 		if err := launch(l); err != nil {
 			return 0, err
 		}
