@@ -194,7 +194,7 @@ func (c *rollbackCustody) verifyInherited() error {
 	if c == nil {
 		return nil
 	}
-	if filepath.Clean(c.dir) != filepath.Clean(cudalock.DefaultDir()) {
+	if !cudalock.IsDefaultDir(c.dir) {
 		return errors.New("rollback custody: lock directory changed")
 	}
 	if c.inherited {

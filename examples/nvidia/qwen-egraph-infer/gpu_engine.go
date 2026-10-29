@@ -114,7 +114,7 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 		}
 
 		// 1. Embedding lookup
-		if err := cudalaunch.Kernel(rt.engine.embedFn).Grid(1).Block(256).
+		if err := cudalaunch.Kernel(rt.engine.embedFn).Grid(1, 1, 1).Block(256, 1, 1).
 			Launch(rt.weights.EmbedTokens, rt.sp.TokenIn, rt.sp.X, int32(cfg.HiddenSize)); err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 			}
 
 			// (a) Pre-Attention RMSNorm
-			if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
+			if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1, 1, 1).Block(256, 1, 1).
 				Launch(rt.sp.X, layerW.InputNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 				maxQKV = kvDim
 			}
 			if err := cudalaunch.Kernel(rt.engine.fusedQKVFn).
-				Grid(uint32((maxQKV+127)/128)).Block(128).
+				Grid(uint32((maxQKV+127)/128), 1, 1).Block(128, 1, 1).
 				Launch(rt.sp.NormX, layerW.WQ, layerW.WK, layerW.WV,
 					rt.sp.Q, rt.sp.K, rt.sp.V,
 					int32(cfg.HiddenSize), int32(qDim), int32(kvDim)); err != nil {
@@ -148,7 +148,7 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 
 			// (c) Fused RoPE + Paged KV Cache Store
 			if err := cudalaunch.Kernel(rt.engine.fusedRoPEKV).
-				Grid(uint32(cfg.NumAttentionHeads)).Block(uint32(headDim/2)).
+				Grid(uint32(cfg.NumAttentionHeads), 1, 1).Block(uint32(headDim/2), 1, 1).
 				Launch(rt.sp.Q, rt.sp.K, rt.sp.V,
 					layerKV.K, layerKV.V,
 					int32(pos), int32(cfg.NumAttentionHeads), int32(cfg.NumKeyValueHeads),
@@ -157,14 +157,14 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 			}
 
 			// (d) Post-Attention RMSNorm
-			if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1).Block(256).
+			if err := cudalaunch.Kernel(rt.engine.normFn).Grid(1, 1, 1).Block(256, 1, 1).
 				Launch(rt.sp.X, layerW.PostNorm, rt.sp.NormX, int32(cfg.HiddenSize), cfg.RmsNormEps); err != nil {
 				return err
 			}
 
 			// (e) Fused Gate + Up + SiLU + Product
 			if err := cudalaunch.Kernel(rt.engine.fusedGateUp).
-				Grid(uint32((cfg.IntermediateSize+127)/128)).Block(128).
+				Grid(uint32((cfg.IntermediateSize+127)/128), 1, 1).Block(128, 1, 1).
 				Launch(rt.sp.NormX, layerW.WGate, layerW.WUp, rt.sp.FFNAct,
 					int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
 				return err
@@ -172,7 +172,7 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 
 			// (f) Fused Down-Projection + Residual Add
 			if err := cudalaunch.Kernel(rt.engine.fusedDownAdd).
-				Grid(uint32((cfg.HiddenSize+127)/128)).Block(128).
+				Grid(uint32((cfg.HiddenSize+127)/128), 1, 1).Block(128, 1, 1).
 				Launch(rt.sp.FFNAct, layerW.WDown, rt.sp.X, rt.sp.X,
 					int32(cfg.HiddenSize), int32(cfg.IntermediateSize)); err != nil {
 				return err
@@ -180,7 +180,7 @@ func (rt *QwenInferenceRuntime) ForwardToken(tokenID int32, pos int) (int32, err
 		}
 
 		// 3. Argmax Next-Token Sampling
-		if err := cudalaunch.Kernel(rt.engine.argmaxFn).Grid(1).Block(1).
+		if err := cudalaunch.Kernel(rt.engine.argmaxFn).Grid(1, 1, 1).Block(1, 1, 1).
 			Launch(rt.sp.X, rt.sp.TokenOut, int32(cfg.HiddenSize)); err != nil {
 			return err
 		}
