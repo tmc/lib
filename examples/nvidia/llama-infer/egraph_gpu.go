@@ -719,6 +719,14 @@ func (eg *egraphDecoder) source() (string, []string, error) {
 		}
 		src.WriteString("\n" + embedGatherCUDA + "\n")
 		names = append(names, pf.rope.Name, pf.attn.Name, pf.narrowAttn.Name, embedGatherName)
+		if pf.flash != nil {
+			cu, err := pf.flash.CUDA()
+			if err != nil {
+				return "", nil, fmt.Errorf("emit prefill attention: %w", err)
+			}
+			src.WriteString("\n" + cu + "\n")
+			names = append(names, pf.flash.Name)
+		}
 	}
 	return src.String(), names, nil
 }

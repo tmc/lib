@@ -44,6 +44,7 @@ type egraphPrefill struct {
 	narrowIn, narrowPost [][]egraphLaunch // per layer
 	rope, attn           []egraphLaunch   // per layer; chunk arguments set per chunk
 	narrowAttn           []egraphLaunch   // per layer; chunk arguments set per chunk
+	flash                []egraphLaunch   // per layer, with plans' flash; chunk arguments set per chunk
 	gather               driver.Function
 
 	tokens    cudamem.Slice[int32] // the prompt
@@ -157,6 +158,14 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 				args: []any{pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), pf.pages.Ptr(), pf.seqLens.Ptr(), driver.DevicePtr(0), pf.attnOut.Ptr()},
 			})
 		}
+		if pl.flash != nil {
+			// q, k_cache, v_cache, page_table, start, n, out
+			_, block := pl.flash.Grid(1)
+			pf.flash = append(pf.flash, egraphLaunch{
+				fn: eg.fns[pl.flash.Name], block: [3]uint32{uint32(block[0]), uint32(block[1]), uint32(block[2])}, epoch: -1,
+				args: []any{pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), pf.pages.Ptr(), int32(0), int32(0), pf.attnOut.Ptr()},
+			})
+		}
 	}
 	// Tile gemms use more dynamic shared memory than a launch gets by
 	// default.
@@ -264,8 +273,17 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 			}
 			a := attn[i]
 			a.args = append([]any(nil), a.args...)
-			a.args[4] = seqLens
-			a.grid = [3]uint32{uint32(groups), uint32(cfg.NumKeyValueHeads), 1}
+			if n > pf.narrow && len(pf.flash) > 0 {
+				a = pf.flash[i]
+				a.args = append([]any(nil), a.args...)
+				a.args[4], a.args[5] = int32(start), int32(n)
+				g, blk := eg.plans.pf.flash.Grid(n)
+				a.grid = [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}
+				a.block = [3]uint32{uint32(blk[0]), uint32(blk[1]), uint32(blk[2])}
+			} else {
+				a.args[4] = seqLens
+				a.grid = [3]uint32{uint32(groups), uint32(cfg.NumKeyValueHeads), 1}
+			}
 			if err := launch(a); err != nil {
 				return 0, err
 			}

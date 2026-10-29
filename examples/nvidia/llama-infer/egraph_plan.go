@@ -103,11 +103,12 @@ func (p *egraphPlans) ops() (generated, fallback []string) {
 // its weights costs, and a skinny mma streams them as the decode GEMV
 // does, where a 64-row tile gemm does not. The rotary kernel indexes
 // the cache through the attention page table, so it writes each token's
-// row without pointer offsets. Attention is one
-// [hopper.MTPPagedAttention] launch per chunk: each CTA serves qtok
-// consecutive rows of one KV head, attending the cache before its first
-// row and, causally, its own rows. A narrow chunk's attention, narrowAttn,
-// serves narrowQTok rows per CTA.
+// row without pointer offsets. Attention is one launch per chunk: with a
+// head dim of 64 or 128, flash, a [hopper.PrefillAttention] on tensor
+// cores; otherwise attn, a [hopper.MTPPagedAttention] whose CTAs each serve
+// qtok consecutive rows of one KV head, attending the cache before its
+// first row and, causally, its own rows. A narrow chunk's attention,
+// narrowAttn, serves narrowQTok rows per CTA.
 type egraphPrefillPlans struct {
 	rows       int
 	attnIn     *hopper.Plan
@@ -117,6 +118,7 @@ type egraphPrefillPlans struct {
 	narrowPost *hopper.Plan
 	rope       hopper.QKNormRoPEKVAppend
 	attn       hopper.MTPPagedAttention
+	flash      *hopper.PrefillAttention // nil: attn serves wide chunks
 	qtok       int
 	narrowAttn hopper.MTPPagedAttention
 	narrowQTok int
@@ -250,6 +252,16 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 		PageSize:      egraphPageSize,
 		MaxPages:      pf.cacheSlots / egraphPageSize,
 		QTokensPerSeq: pf.qtok,
+	}
+	if hd == 64 || hd == 128 {
+		pf.flash = &hopper.PrefillAttention{
+			Name:     "llama_pf_flash",
+			NumHeads: cfg.NumAttentionHeads,
+			KVHeads:  cfg.NumKeyValueHeads,
+			HeadDim:  hd,
+			PageSize: egraphPageSize,
+			MaxPages: pf.cacheSlots / egraphPageSize,
+		}
 	}
 	if err := pf.planNarrow(cfg, qkvBias, opt.SMs); err != nil {
 		return nil, err
