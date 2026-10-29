@@ -170,3 +170,78 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 		})
 	}
 }
+
+// These are CPU model controls, not admitted hardware measurements.
+func TestOccupancyJointLimitsAndUnknownInputs(t *testing.T) {
+	tests := []struct {
+		name                                              string
+		registers, shared, requiredThreads, launchThreads int
+		want                                              []string
+		absent                                            []string
+	}{
+		{
+			name: "joint register and shared limits", registers: 128, shared: 112656, requiredThreads: 256,
+			want:   []string{"<=80 GPRs still models 2 blocks/SM", "other known resource limits prevent 3 blocks/SM", "Register reduction alone is insufficient", "dynamic shared memory is unknown and excluded", "CUBIN required dimensions"},
+			absent: []string{"would allow 3 blocks/SM", "could model 3 blocks/SM", "<=85 GPRs"},
+		},
+		{
+			name: "register-only static counterfactual is conditional", registers: 128, requiredThreads: 256,
+			want:   []string{"<=80 GPRs could model 3 blocks/SM", "same known static inputs", "dynamic shared memory is unknown and excluded", "sufficient grid work"},
+			absent: []string{"would allow 3 blocks/SM", "Register reduction alone is insufficient"},
+		},
+		{
+			name: "allocation granularity", registers: 85, shared: 77824, requiredThreads: 256,
+			want:   []string{"from 85 to <=80 GPRs could model 3 blocks/SM"},
+			absent: []string{"to <=85 GPRs"},
+		},
+		{
+			name: "recorded block overrides required metadata", registers: 128, requiredThreads: 128, launchThreads: 256,
+			want:   []string{"256 threads/block (recorded launch)", "<=80 GPRs could model 3 blocks/SM"},
+			absent: []string{"128 threads/block", "assumed default"},
+		},
+		{
+			name: "missing block metadata", registers: 128,
+			want: []string{"128 threads/block (assumed default; actual block geometry unknown)", "Conditional static-resource model", "dynamic shared memory is unknown and excluded", "not achieved or complete launch residency"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := kernelResource{KernelResourceInfo: cudaoccupancy.KernelResourceInfo{Name: "cpu_model", Registers: tt.registers, SharedMemBytes: tt.shared}}
+			if tt.requiredThreads > 0 {
+				k.ReqNTID = [3]int{tt.requiredThreads, 1, 1}
+			}
+			var launches map[string]launchRecord
+			if tt.launchThreads > 0 {
+				launches = map[string]launchRecord{"cpu_model": {BlockThreads: tt.launchThreads}}
+			}
+			var report Report
+			auditCUBINResourceOccupancy(&cudacapture.Capture{Metadata: []byte(`{"architecture":"sm_90"}`)}, &report, []kernelResource{k}, launches, nil)
+			var item *Item
+			for i := range report.Items {
+				if report.Items[i].rule == "occupancy" {
+					item = &report.Items[i]
+				}
+			}
+			if item == nil {
+				t.Fatal("missing conditional occupancy finding")
+			}
+			text := item.Finding + " " + item.ActionableRecommendation
+			for _, want := range tt.want {
+				if !strings.Contains(text, want) {
+					t.Errorf("missing %q in %s", want, text)
+				}
+			}
+			for _, absent := range tt.absent {
+				if strings.Contains(text, absent) {
+					t.Errorf("unqualified claim %q in %s", absent, text)
+				}
+			}
+			if !strings.Contains(item.NextMeasurement, "dynamic shared bytes") {
+				t.Errorf("next measurement omits missing dynamic input: %s", item.NextMeasurement)
+			}
+			if item.EvidenceLevel != EvidenceSuspected {
+				t.Errorf("evidence %s, want suspected", item.EvidenceLevel)
+			}
+		})
+	}
+}
