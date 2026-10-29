@@ -423,9 +423,9 @@ func runGPUInference(
 			fmt.Printf("[E-Graph] prefill: %d-row chunks, %d launches per chunk then head (%d) and argmax (1); "+
 				"generated: tile gemm (mma.sync) %s, in chunks of at most %d rows skinny mma (mma.sync) %s, "+
 				"rope+kv_append (generated, direct emitter) 1 per layer, "+
-				"attention (generated, direct emitter: MTPPagedAttention, causal groups of %d rows) 1 per layer; "+
+				"attention (generated, direct emitter: MTPPagedAttention, causal groups of %d rows, %d in a skinny chunk) 1 per layer; "+
 				"hand-written, not generated: embedding gather (1 per chunk); llama-infer kernels: argmax\n",
-				eg.pf.rows, eg.pf.launches(), len(eg.head), strings.Join(tiles, ", "), eg.pf.narrow, strings.Join(skinny, ", "), eg.pf.qtok)
+				eg.pf.rows, eg.pf.launches(), len(eg.head), strings.Join(tiles, ", "), eg.pf.narrow, strings.Join(skinny, ", "), eg.pf.qtok, eg.pf.narrowQTok)
 		} else {
 			fmt.Printf("[E-Graph] prefill: token by token (%s)\n", prefillOff)
 		}

@@ -82,7 +82,8 @@ func (p *egraphPlans) ops() (generated, fallback []string) {
 // row without pointer offsets. Attention is one
 // [hopper.MTPPagedAttention] launch per chunk: each CTA serves qtok
 // consecutive rows of one KV head, attending the cache before its first
-// row and, causally, its own rows.
+// row and, causally, its own rows. A narrow chunk's attention, narrowAttn,
+// serves narrowQTok rows per CTA.
 type egraphPrefillPlans struct {
 	rows       int
 	attnIn     *hopper.Plan
@@ -93,6 +94,8 @@ type egraphPrefillPlans struct {
 	rope       hopper.QKNormRoPEKVAppend
 	attn       hopper.MTPPagedAttention
 	qtok       int
+	narrowAttn hopper.MTPPagedAttention
+	narrowQTok int
 	cacheSlots int // KV cache rows, MaxSeqLen padded for a last partial group
 }
 

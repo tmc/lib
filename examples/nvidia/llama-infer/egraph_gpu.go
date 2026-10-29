@@ -324,9 +324,10 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
 		groups := (pl.rows + pl.qtok - 1) / pl.qtok
 		// Every chunk but the last fills its groups, so the prompt needs
-		// at most one partial group per chunk beyond MaxSeqLen/qtok.
-		maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows
-		eg.pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, narrow: pl.narrow, gather: eg.fns[embedGatherName]}
+		// at most one partial group per chunk beyond MaxSeqLen/qtok, and
+		// a narrow last chunk at most its narrowQTok-row groups.
+		maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows + (pl.narrow+pl.narrowQTok-1)/pl.narrowQTok
+		eg.pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, narrow: pl.narrow, narrowQTok: pl.narrowQTok, gather: eg.fns[embedGatherName]}
 		if eg.pf.tokens, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); err != nil {
 			return nil, fmt.Errorf("alloc prefill tokens: %w", err)
 		}
@@ -591,7 +592,7 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 	if pf := eg.plans.pf; pf != nil {
 		for _, k := range []interface {
 			CUDA() (string, error)
-		}{pf.rope, pf.attn} {
+		}{pf.rope, pf.attn, pf.narrowAttn} {
 			cu, err := k.CUDA()
 			if err != nil {
 				return fmt.Errorf("emit prefill attention: %w", err)
@@ -599,7 +600,7 @@ func (eg *egraphDecoder) compile(dev *cuda.Device) error {
 			src.WriteString("\n" + cu + "\n")
 		}
 		src.WriteString("\n" + embedGatherCUDA + "\n")
-		names = append(names, pf.rope.Name, pf.attn.Name, embedGatherName)
+		names = append(names, pf.rope.Name, pf.attn.Name, pf.narrowAttn.Name, embedGatherName)
 	}
 	cm, err := nvrtcx.Compile(src.String(),
 		nvrtcx.WithName("llama_egraph.cu"),

@@ -35,12 +35,15 @@ extern "C" __global__ void llama_embed_gather(
 // one rotary launch that appends the chunk's keys and values to the
 // decoder's BF16 cache, one attention launch over all the chunk's rows,
 // and the post plan's launches. A chunk of at most narrow rows makes the
-// narrow plans' launches in place of attnIn's and post's.
+// narrow plans' launches in place of attnIn's and post's, and attends in
+// groups of narrowQTok rows rather than qtok.
 type egraphPrefill struct {
 	rows, qtok, narrow   int
+	narrowQTok           int
 	attnIn, post         [][]egraphLaunch // per layer
 	narrowIn, narrowPost [][]egraphLaunch // per layer
 	rope, attn           []egraphLaunch   // per layer; chunk arguments set per chunk
+	narrowAttn           []egraphLaunch   // per layer; chunk arguments set per chunk
 	gather               driver.Function
 
 	tokens    cudamem.Slice[int32] // the prompt
@@ -143,11 +146,16 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 				eg.pages.Ptr(), pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
 		})
 		// q, k_cache, v_cache, page_table, seqlens, draft_mask, out
-		_, block := pl.attn.Grid(1)
-		pf.attn = append(pf.attn, egraphLaunch{
-			fn: eg.fns[pl.attn.Name], block: [3]uint32{uint32(block[0]), uint32(block[1]), uint32(block[2])}, epoch: -1,
-			args: []any{pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), pf.pages.Ptr(), pf.seqLens.Ptr(), driver.DevicePtr(0), pf.attnOut.Ptr()},
-		})
+		for _, a := range []struct {
+			k  hopper.MTPPagedAttention
+			ls *[]egraphLaunch
+		}{{pl.attn, &pf.attn}, {pl.narrowAttn, &pf.narrowAttn}} {
+			_, block := a.k.Grid(1)
+			*a.ls = append(*a.ls, egraphLaunch{
+				fn: eg.fns[a.k.Name], block: [3]uint32{uint32(block[0]), uint32(block[1]), uint32(block[2])}, epoch: -1,
+				args: []any{pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), pf.pages.Ptr(), pf.seqLens.Ptr(), driver.DevicePtr(0), pf.attnOut.Ptr()},
+			})
+		}
 	}
 	// Tile gemms use more dynamic shared memory than a launch gets by
 	// default.
@@ -159,6 +167,15 @@ func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *G
 		}
 	}
 	return nil
+}
+
+// chunkQTok returns the query rows per attention group of a chunk of n
+// rows.
+func (pf *egraphPrefill) chunkQTok(n int) int {
+	if n <= pf.narrow {
+		return pf.narrowQTok
+	}
+	return pf.qtok
 }
 
 // launches returns the launches one chunk makes, before the head.
@@ -194,8 +211,9 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 	var lens []int32
 	var groupStart []int
 	for start := 0; start < len(prompt); start += pf.rows {
+		n := min(pf.rows, len(prompt)-start)
 		groupStart = append(groupStart, len(lens))
-		lens = append(lens, prefillSeqLens(start, min(pf.rows, len(prompt)-start), pf.qtok)...)
+		lens = append(lens, prefillSeqLens(start, n, pf.chunkQTok(n))...)
 	}
 	if err := pf.seqLens.CopyFromHost(lens); err != nil {
 		return 0, fmt.Errorf("upload attention lengths: %w", err)
@@ -217,16 +235,16 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 	for c, g0 := range groupStart {
 		start := c * pf.rows
 		n := min(pf.rows, len(prompt)-start)
-		groups := (n + pf.qtok - 1) / pf.qtok
+		groups := (n + pf.chunkQTok(n) - 1) / pf.chunkQTok(n)
 		if err := launch(egraphLaunch{fn: pf.gather, grid: [3]uint32{uint32(n), 1, 1}, block: [3]uint32{256, 1, 1},
 			args: []any{gpuW.EmbedTokens, pf.tokens.Ptr() + driver.DevicePtr(4*start), pf.x[0].Ptr(), int32(h)}}); err != nil {
 			return 0, err
 		}
 		positions := pf.positions.Ptr() + driver.DevicePtr(4*start)
 		seqLens := pf.seqLens.Ptr() + driver.DevicePtr(4*g0)
-		attnIn, post := pf.attnIn, pf.post
+		attnIn, post, attn := pf.attnIn, pf.post, pf.attn
 		if n <= pf.narrow {
-			attnIn, post = pf.narrowIn, pf.narrowPost
+			attnIn, post, attn = pf.narrowIn, pf.narrowPost, pf.narrowAttn
 		}
 		for i := range cfg.NumHiddenLayers {
 			if err := launchRows(attnIn[i], n); err != nil {
@@ -239,7 +257,7 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 			if err := launch(rope); err != nil {
 				return 0, err
 			}
-			a := pf.attn[i]
+			a := attn[i]
 			a.args = append([]any(nil), a.args...)
 			a.args[4] = seqLens
 			a.grid = [3]uint32{uint32(groups), uint32(cfg.NumKeyValueHeads), 1}
