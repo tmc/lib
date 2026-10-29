@@ -84,25 +84,25 @@ func TestArtifactSourceRejects(t *testing.T) {
 	g := Geometry{Grid: [3]uint32{1, 1, 1}, Block: [3]uint32{32, 1, 1}}
 	for _, tc := range []struct {
 		name   string
-		change func(*cudakernel.Artifact, *Geometry)
+		change func(*testing.T, *cudakernel.Artifact, *Geometry)
 	}{
-		{"digest", func(a *cudakernel.Artifact, _ *Geometry) {
+		{"digest", func(t *testing.T, a *cudakernel.Artifact, _ *Geometry) {
 			raw := a.Bytes()
 			raw[0]++
 			*a = rewriteSourceWire(t, a, "raw", raw, true)
 		}},
-		{"kind", func(a *cudakernel.Artifact, _ *Geometry) {
+		{"kind", func(t *testing.T, a *cudakernel.Artifact, _ *Geometry) {
 			*a = rewriteSourceWire(t, a, "kind", cudakernel.KindLTOIR, false)
 		}},
-		{"entry", func(a *cudakernel.Artifact, _ *Geometry) {
-			*a = rewriteSourceWire(t, a, "entry_point", "kernel\x00other", false)
+		{"entry", func(t *testing.T, a *cudakernel.Artifact, _ *Geometry) {
+			*a = rewriteSourceWire(t, a, "entry_point", "kernel\x00other", true)
 		}},
-		{"grid", func(_ *cudakernel.Artifact, g *Geometry) { g.Grid[1] = 0 }},
-		{"block", func(_ *cudakernel.Artifact, g *Geometry) { g.Block[2] = 0 }},
+		{"grid", func(_ *testing.T, _ *cudakernel.Artifact, g *Geometry) { g.Grid[1] = 0 }},
+		{"block", func(_ *testing.T, _ *cudakernel.Artifact, g *Geometry) { g.Block[2] = 0 }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, geom := sourceFixture(t), g
-			tc.change(a, &geom)
+			tc.change(t, a, &geom)
 			if _, err := NewArtifactSource(a, geom); err == nil {
 				t.Fatal("accepted invalid source")
 			}
