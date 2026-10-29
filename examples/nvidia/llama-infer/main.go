@@ -540,7 +540,7 @@ func runGPUInference(
 			if pos < len(promptTokens)-1 {
 				return 0, nil
 			}
-			return gm.eg.prefill(gpuWeights, cfg, scratch, sampleFn, promptTokens)
+			return gm.eg.prefill(gpuWeights, cfg, scratch, sampleFn, promptTokens, 0, nil)
 		}
 	}
 

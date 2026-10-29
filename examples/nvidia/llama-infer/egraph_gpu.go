@@ -147,6 +147,13 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
+	var prefillGroups int
+	if pl := plans.pf; pl != nil && opt.PrefillMinRows != 0 {
+		rows := min(pl.rows, opt.PrefillMinRows)
+		if prefillGroups, err = prefillSeqLenCapacity(cfg.MaxSeqLen, rows, pl.qtok); err != nil {
+			return nil, err
+		}
+	}
 	eg = &egraphDecoder{
 		plans:   plans,
 		megas:   make(map[*hopper.Plan]hopper.Megakernel),
@@ -326,6 +333,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		// Every chunk but the last fills its groups, so the prompt needs
 		// at most one partial group per chunk beyond MaxSeqLen/qtok.
 		maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows
+		maxGroups = max(maxGroups, prefillGroups)
 		eg.pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, narrow: pl.narrow, gather: eg.fns[embedGatherName]}
 		if eg.pf.tokens, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); err != nil {
 			return nil, fmt.Errorf("alloc prefill tokens: %w", err)

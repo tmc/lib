@@ -17,7 +17,7 @@ func warmUp(eg *egraphDecoder, dg *DecodeGraph, gpuW *GPUModelWeights, cfg *Mode
 		return nil
 	}
 	for _, m := range []int{n - 1, n} {
-		if _, err := eg.prefill(gpuW, cfg, sp, sampleFn, make([]int32, m)); err != nil {
+		if _, err := eg.prefill(gpuW, cfg, sp, sampleFn, make([]int32, m), 0, nil); err != nil {
 			return fmt.Errorf("warm-up prefill of %d tokens: %w", m, err)
 		}
 	}

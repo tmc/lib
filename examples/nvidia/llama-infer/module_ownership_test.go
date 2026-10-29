@@ -975,6 +975,7 @@ var ownerCalls = map[string]callCount{
 	"fused_decode_cuda_test.go": {1, 1},
 	"graph_parity_cuda_test.go": {12, 12},
 	"profile_cuda_test.go":      {2, 2},
+	"hf_parity_cuda_test.go":    {6, 6},
 	"gpu_kernels.go":            {1, 0},
 	"gpu_model.go":              {6, 0},
 	"decode_graph.go":           {1, 0},
@@ -1461,6 +1462,7 @@ var loadCalls = map[string]callCount{
 	"fused_parity_cuda_test.go":       {4, 4},
 	"bf16_parity_cuda_test.go":        {4, 4},
 	"context_experiment_cuda_test.go": {2, 2},
+	"hf_parity_cuda_test.go":          {4, 4},
 	"gpu_kernels.go":                  {2, 2},
 	"egraph_gpu.go":                   {2, 2},
 }

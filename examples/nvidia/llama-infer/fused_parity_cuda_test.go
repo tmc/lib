@@ -583,6 +583,7 @@ func TestCUDATestLaunchesInContext(t *testing.T) {
 		"fused_decode_cuda_test.go":       42,
 		"fused_parity_cuda_test.go":       10,
 		"graph_parity_cuda_test.go":       7,
+		"hf_parity_cuda_test.go":          1,
 	}
 	for file, w := range want {
 		if got[file] != w {
