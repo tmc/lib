@@ -219,6 +219,9 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 			for _, k := range pl.Kernels {
 				if k.Tile != nil {
 					k.Tile.BM, k.Tile.Stages = tile.bm, tile.stages
+					if tile.swizzle {
+						k.Tile.Swizzle128B = true
+					}
 					fits = fits && k.Tile.SharedBytes() <= smem
 				}
 			}
@@ -255,17 +258,23 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	return &p, nil
 }
 
-// prefillTiles are the prefill tile heights and pipeline depths, in order
-// of preference. Stages 3 is [hopper.TileGEMM]'s default. A 128-row tile
-// at 2 stages comes before a 64-row one at 3: on GB10, whose 99 KB of
-// shared memory per block holds no 3-stage 128-row tile, it cuts Llama-3-8B
-// prefill by a third (128 to 1980 tokens), reading the weights once per
-// 128 rows instead of per 64, with twice the mma per ldmatrix.
-var prefillTiles = []struct{ bm, stages int }{
-	{128, 3},
-	{128, 2},
-	{64, 3},
-	{64, 2},
+// prefillTiles are the prefill tile heights, pipeline depths and shared
+// memory layouts, in order of preference. Stages 3 is [hopper.TileGEMM]'s
+// default. On GB10, whose 99 KB of shared memory per block holds no padded
+// 3-stage 128-row tile, the unpadded swizzled layout
+// ([hopper.TileGEMM.Swizzle128B]) holds one. A 128-row tile at 2 stages
+// comes before a 64-row one at 3: it cuts Llama-3-8B prefill by a third
+// (128 to 1980 tokens), reading the weights once per 128 rows instead of
+// per 64, with twice the mma per ldmatrix.
+var prefillTiles = []struct {
+	bm, stages int
+	swizzle    bool
+}{
+	{128, 3, false},
+	{128, 3, true},
+	{128, 2, false},
+	{64, 3, false},
+	{64, 2, false},
 }
 
 // attnSplits returns the decode attention splits per KV head that make

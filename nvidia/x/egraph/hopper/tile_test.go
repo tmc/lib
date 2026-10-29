@@ -18,6 +18,11 @@ func TestTileGEMMEmulated(t *testing.T) {
 		offsets []int32 // Grouped
 	}{
 		{"bf16_64_s2", TileGEMM{N: 128, K: 192, Weight: WeightBF16, Out: F32, BM: 64, BN: 64, Stages: 2}, 70, 0, nil},
+		{"bf16_128_swizzle", TileGEMM{N: 256, K: 192, Weight: WeightBF16, Out: F32, Swizzle128B: true}, 150, 0, nil},
+		{"bf16_64_swizzle_epilogue", TileGEMM{N: 128, K: 128, Weight: WeightBF16, Out: BF16, BM: 64, BN: 64, Swizzle128B: true, Stages: 4,
+			Epilogue: MustLambda("(add $0 $1)"), Extras: []Operand{{"resid", F32, Full}}}, 70, 0, nil},
+		{"glu_bf16_swizzle", TileGEMM{N: 256, K: 128, Weight: WeightBF16, Out: BF16, GLU: true, Swizzle128B: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 40, 0, nil},
 		{"bf16_128_epilogue", TileGEMM{N: 128, K: 256, Weight: WeightBF16, Out: BF16,
 			Epilogue: MustLambda("(add (mul $0 $1) (mul $2 $3))"),
 			Extras:   []Operand{{"scale", BF16, PerCol}, {"resid", F32, Full}, {"rw", F32, PerRow}}}, 130, 0, nil},
@@ -287,7 +292,7 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"wgmma_bm", func(g *TileGEMM) { g.WGMMA, g.BM = true, 64 }},
 		{"repacked_no_wgmma", func(g *TileGEMM) { g.Weight, g.Repacked = WeightNVFP4, true }},
 		{"repacked_bf16", func(g *TileGEMM) { g.WGMMA, g.Repacked = true, true }},
-		{"swizzle128b_no_wgmma", func(g *TileGEMM) { g.Swizzle128B = true }},
+		{"swizzle128b_nvfp4_no_wgmma", func(g *TileGEMM) { g.Swizzle128B, g.Weight = true, WeightNVFP4 }},
 		{"groupm_neg", func(g *TileGEMM) { g.GroupM = -1 }},
 		{"streamk_neg", func(g *TileGEMM) { g.StreamK = -1 }},
 		{"streamk_grouped", func(g *TileGEMM) { g.StreamK, g.Grouped = 4, true }},

@@ -114,11 +114,11 @@ func TestEgraphPlansTarget(t *testing.T) {
 		stages  int
 		maxSmem int
 	}{
-		{"sm_121a", 6, 128, 2, 99 << 10},
+		{"sm_121a", 6, 128, 3, 99 << 10},
 		{"sm_103a", 20, 128, 3, 227 << 10},
 		{"sm_100a", 18, 128, 3, 227 << 10},
 		{"sm_90a", 16, 128, 3, 227 << 10},
-		{"sm_120a", 23, 128, 2, 99 << 10},
+		{"sm_120a", 23, 128, 3, 99 << 10},
 	}
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
