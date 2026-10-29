@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 )
 
 // ArchFamily identifies a Hopper or Blackwell hardware capability family.
@@ -236,32 +238,26 @@ func (b *MultiArchBundle) NVCCFlags() [][]string {
 }
 
 func estimateTargetLatencyUs(cfg ArchConfig, spec ArchTargetSpec) float64 {
-	var bwGBps, peakTFLOPS float64
+	var peakTFLOPS float64
 	switch spec.Family {
 	case FamilyRubin_SM107:
-		bwGBps = 22000.0
 		peakTFLOPS = 25000.0
 	case FamilyBlackwellUltra_SM103:
-		bwGBps = 12000.0
 		peakTFLOPS = 4500.0
 	case FamilyBlackwellDC_SM100:
-		bwGBps = 8000.0
 		peakTFLOPS = 2250.0
 	case FamilyHopperSM90:
-		bwGBps = 4800.0
 		peakTFLOPS = 989.0
 	case FamilyBlackwellEdge_SM120:
 		if spec.ComputeMinor == 1 {
-			bwGBps = 273.0
 			peakTFLOPS = 500.0
 		} else {
-			bwGBps = 1792.0
 			peakTFLOPS = 1600.0
 		}
 	default:
-		bwGBps = 4800.0
 		peakTFLOPS = 989.0
 	}
+	bwGBps := targetMemoryGBps(spec)
 	breakdown, err := EstimateLayerCost(cfg, 1, 1024, "NVIDIA H200")
 	if err != nil || breakdown.TotalBytes == 0 {
 		return 10.0
@@ -272,6 +268,21 @@ func estimateTargetLatencyUs(cfg ArchConfig, spec ArchTargetSpec) float64 {
 		return compUs + 2.0
 	}
 	return memUs + 2.0
+}
+
+// targetMemoryGBps returns the device memory bandwidth of the first product
+// cudadevicetable lists for spec's architecture, such as the H200 for
+// sm_90a. Rubin has no profile, and an unknown architecture is costed as
+// an H200.
+func targetMemoryGBps(spec ArchTargetSpec) float64 {
+	if spec.Family == FamilyRubin_SM107 {
+		return 22000.0
+	}
+	p, err := cudadevicetable.LookupProfile(fmt.Sprintf("sm_%d%da", spec.ComputeMajor, spec.ComputeMinor))
+	if err != nil {
+		return 4800.0
+	}
+	return float64(p.MemoryGBps.Value)
 }
 
 func emitTargetUnitCUDA(layerName string, cfg ArchConfig, spec ArchTargetSpec) (entry string, src string) {
