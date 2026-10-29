@@ -1,6 +1,8 @@
 package safetensors
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -67,12 +69,22 @@ func TestOpenSharded(t *testing.T) {
 				if int64(len(x.Data)) != info.Size || x.Dtype != info.Dtype || !slices.Equal(x.Shape, info.Shape) {
 					t.Errorf("Tensor(%q) = %s%v with %d bytes, want %+v", name, x.Dtype, x.Shape, len(x.Data), info)
 				}
+				r, err := s.TensorReader(name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if data, err := io.ReadAll(r); err != nil || !bytes.Equal(data, x.Data) {
+					t.Errorf("TensorReader(%q) read %v, %v; want %v", name, data, err, x.Data)
+				}
 			}
 			if _, ok := s.Info("missing"); ok {
 				t.Error("Info reported a tensor that is not in the checkpoint")
 			}
 			if _, err := s.Tensor("missing"); err == nil {
 				t.Error("Tensor read a tensor that is not in the checkpoint")
+			}
+			if _, err := s.TensorReader("missing"); err == nil {
+				t.Error("TensorReader read a tensor that is not in the checkpoint")
 			}
 		})
 	}

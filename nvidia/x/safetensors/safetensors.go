@@ -381,6 +381,18 @@ func (f *File) Tensor(name string) (Tensor, error) {
 	return Tensor{Name: info.Name, Dtype: info.Dtype, Shape: slices.Clone(info.Shape), Data: data}, nil
 }
 
+// TensorReader returns a reader of the named tensor's bytes, for reading a
+// large tensor a piece at a time rather than whole, as [File.Tensor] does.
+// The reader is valid until f is closed.
+func (f *File) TensorReader(name string) (*io.SectionReader, error) {
+	i, ok := f.index[name]
+	if !ok {
+		return nil, fmt.Errorf("safetensors: no tensor %q", name)
+	}
+	info := f.Tensors[i]
+	return io.NewSectionReader(f.r, f.base+info.Offset, info.Size), nil
+}
+
 // Close closes the underlying file if the File came from [Open].
 func (f *File) Close() error {
 	if f.c == nil {
