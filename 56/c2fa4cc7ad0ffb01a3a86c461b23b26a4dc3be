@@ -1,0 +1,5 @@
+commit 56c2fa4cc7ad0ffb01a3a86c461b23b26a4dc3be
+date 2026-10-29T13:30:09-07:00
+claude-code 2.1.284, model claude-opus-5-5, pid 67274, ITERM_SESSION_ID=w2t1p2:96935236-73AE-46D0-8740-9197D78C4486
+session=4f4f4f72-98c3-4d17-af9f-cd14788572a2
+EXECUTED-GB10: dgx ~/tmp/lib-wt-llama-megakernel/20261029-models/swz.log (label models-swz). EMULATED: TestTileGEMMEmulated swizzle cases. egraph tests ok.
