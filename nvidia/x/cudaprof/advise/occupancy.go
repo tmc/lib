@@ -10,7 +10,7 @@ import (
 // auditCUBINResourceOccupancy inspects CUBIN ELF .nv.info sections (EIATTR_REG_COUNT,
 // EIATTR_SHARED_SIZE_SYSMEM, EIATTR_FRAME_SIZE, EIATTR_MAXREG_COUNT) using x/cudaoccupancy
 // to calculate target-specific SM warp occupancy, occupancy cliffs, and hardware limiting factors.
-func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos []kernelResource, launchesByKernel map[string]launchRecord, math map[string]floatMath) {
+func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos []kernelResource, launchesByKernel map[string]launchRecord) {
 	if cap == nil || len(infos) == 0 {
 		return
 	}
@@ -31,20 +31,17 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 
 		// 1. Stack frame size (EIATTR_FRAME_SIZE)
 		if k.FrameSizeBytes > 0 {
-			rec := "Reduce local variable lifetimes, eliminate large stack arrays, or apply __launch_bounds__ to eliminate local memory stack frame spills."
-			if math[k.Name].costs(k.FrameSizeBytes) {
-				rec += fastMathLead
-			}
 			report.Items = append(report.Items, Item{
-				rule:          "frame-size",
-				Severity:      SeverityReadFirst,
-				Category:      CategoryRegisterPressure,
-				EvidenceLevel: EvidenceObserved,
-				Location:      Location{Kernel: k.Name, Module: k.module},
-				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE), causing spills to high-latency local memory",
+				rule:                 "frame-size",
+				Severity:             SeverityContext,
+				Category:             CategoryRegisterPressure,
+				EvidenceLevel:        EvidenceObserved,
+				NoRuntimeAttribution: true,
+				Location:             Location{Kernel: k.Name, Module: k.module},
+				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE). Static frame allocation alone does not establish register spilling, executed local-memory traffic or latency cost.",
 					k.Name, k.FrameSizeBytes),
-				ActionableRecommendation: rec,
-				NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
+				ActionableRecommendation: "Inspect compiler spill diagnostics and source-correlated local-memory instructions. Measure dynamic local reads and writes for the same kernel and case before attributing cost or choosing a register, stack-array or math-mode change.",
+				NextMeasurement:          "inspect ptxas spill-load/store diagnostics; collect source-bound dynamic local-load and local-store traffic, then compare matched-case timing",
 			})
 		}
 

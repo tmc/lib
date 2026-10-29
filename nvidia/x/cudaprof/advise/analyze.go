@@ -442,7 +442,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	auditCaptureStatus(cap, report)
 
 	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
-	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math)
+	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel)
 
 	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
 	auditLaunchGeometry(cap, report)
