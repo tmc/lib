@@ -45,16 +45,18 @@ func TestCapabilityOf(t *testing.T) {
 // TestCluster_UnsupportedPartReturnsPending is lane 56's acceptance test, and
 // it distinguishes the two answers that a single bool would collapse.
 //
-// sm_80 was probed and refused, so it is ErrUnsupported. sm_86 and sm_89 are
-// below the fence and have no recorded refusal, so they remain pending.
+// sm_80, sm_86 and sm_89 were probed and refused, so they are
+// ErrUnsupported. sm_72 is below the fence and has no recorded refusal, so
+// it remains pending.
 func TestCluster_UnsupportedPartReturnsPending(t *testing.T) {
 	tests := []struct {
 		target string
 		want   error
 	}{
 		{"sm_80", ErrUnsupported},
-		{"sm_86", ErrHardwarePending},
-		{"sm_89", ErrHardwarePending},
+		{"sm_86", ErrUnsupported},
+		{"sm_89", ErrUnsupported},
+		{"sm_72", ErrHardwarePending},
 		{"sm_98a", ErrHardwarePending}, // above the fence, no record anywhere
 		{"sm_121a", nil},
 		{"sm_90a", nil},
@@ -107,8 +109,8 @@ func TestClusterRejectsPositiveRecordBelowCapabilityFence(t *testing.T) {
 }
 
 func TestCluster_PointerFromUnsupportedTargetIsRefused(t *testing.T) {
-	if _, err := Open("sm_86"); !errors.Is(err, ErrHardwarePending) {
-		t.Fatalf("Open(sm_86) = %v, want ErrHardwarePending", err)
+	if _, err := Open("sm_86"); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("Open(sm_86) = %v, want ErrUnsupported", err)
 	}
 }
 
