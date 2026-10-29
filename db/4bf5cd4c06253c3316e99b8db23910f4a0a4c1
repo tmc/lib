@@ -1,0 +1,11 @@
+commit: db4bf5cd4c06253c3316e99b8db23910f4a0a4c1
+date: 2026-10-29T14:04:55.038530+00:00
+agent: Codex
+version: codex-cli 0.165.0
+model: exact root runtime model not exposed; workhorse gpt-6.1-sol
+tty: noninteractive tool command
+pid: 10762 (commit-note helper), parent 10758
+ITERM_SESSION_ID: w2t1p3:5A13F225-0BE7-4762-AF12-D906D7813F28
+claude-code version: not applicable
+review: 165784e6cd55c0b97c5da5c62e6030caf9c30286e7320d99cefb740b7b504ab0
+scope: CPU source/capture attribution guard; runtime advice NOT_EVALUATED
