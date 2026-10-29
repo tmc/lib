@@ -71,6 +71,39 @@ type ArchTargetSpec struct {
 // capability (major, minor). Supported capabilities are (9,0), (10,0), (10,3),
 // (10,7), (12,0), and (12,1).
 func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
+	spec, err := handSpec(major, minor)
+	if err != nil {
+		return ArchTargetSpec{}, err
+	}
+	if t, ok := cudadevicetable.LookupTarget(spec.Target); ok {
+		for _, f := range specFeatures {
+			v, err := t.Supports(f.name)
+			if err != nil {
+				return ArchTargetSpec{}, fmt.Errorf("classify compute capability %d.%d: %w", major, minor, err)
+			}
+			f.set(&spec, v)
+		}
+	}
+	return spec, nil
+}
+
+// specFeatures maps the capability flags of an [ArchTargetSpec] to the
+// cudadevicetable feature probe that answers each. Tensor Memory is
+// addressable only through tcgen05, so tcgen05 answers both.
+var specFeatures = []struct {
+	name string
+	set  func(*ArchTargetSpec, bool)
+}{
+	{"wgmma", func(s *ArchTargetSpec, v bool) { s.HasWGMMA = v }},
+	{"tcgen05", func(s *ArchTargetSpec, v bool) { s.HasTCGen05, s.HasTMEM = v, v }},
+	{"tma", func(s *ArchTargetSpec, v bool) { s.HasTMA = v }},
+	{"mmasyncmxf4", func(s *ArchTargetSpec, v bool) { s.HasWarpBlockScaledMMA = v }},
+}
+
+// handSpec returns the hand-entered part of the spec for major.minor. The
+// flags the ptxas feature probe answers are left false for every target
+// the probe covers; sm_107a, which it does not, keeps hand-entered ones.
+func handSpec(major, minor int) (ArchTargetSpec, error) {
 	switch {
 	case major == 9 && minor == 0:
 		return ArchTargetSpec{
@@ -79,8 +112,6 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 			Target:         "sm_90a",
 			FamilyTarget:   "sm_90a",
 			Family:         FamilyHopperSM90,
-			HasWGMMA:       true,
-			HasTMA:         true,
 			MMAInstruction: "wgmma.mma_async",
 		}, nil
 	case major == 10 && minor == 0:
@@ -90,10 +121,7 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 			Target:         "sm_100a",
 			FamilyTarget:   "sm_100f",
 			Family:         FamilyBlackwellDC_SM100,
-			HasTCGen05:     true,
-			HasTMEM:        true,
 			HasCLC:         true,
-			HasTMA:         true,
 			MMAInstruction: "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale",
 		}, nil
 	case major == 10 && minor == 3:
@@ -103,10 +131,7 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 			Target:         "sm_103a",
 			FamilyTarget:   "sm_103f",
 			Family:         FamilyBlackwellUltra_SM103,
-			HasTCGen05:     true,
-			HasTMEM:        true,
 			HasCLC:         true,
-			HasTMA:         true,
 			HasScaleVec4X:  true,
 			MMAInstruction: "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X",
 		}, nil
@@ -126,27 +151,23 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 		}, nil
 	case major == 12 && minor == 0:
 		return ArchTargetSpec{
-			ComputeMajor:          12,
-			ComputeMinor:          0,
-			Target:                "sm_120a",
-			FamilyTarget:          "sm_120f",
-			Family:                FamilyBlackwellEdge_SM120,
-			HasCLC:                true,
-			HasTMA:                true,
-			HasWarpBlockScaledMMA: true,
-			MMAInstruction:        "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
+			ComputeMajor:   12,
+			ComputeMinor:   0,
+			Target:         "sm_120a",
+			FamilyTarget:   "sm_120f",
+			Family:         FamilyBlackwellEdge_SM120,
+			HasCLC:         true,
+			MMAInstruction: "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
 		}, nil
 	case major == 12 && minor == 1:
 		return ArchTargetSpec{
-			ComputeMajor:          12,
-			ComputeMinor:          1,
-			Target:                "sm_121a",
-			FamilyTarget:          "sm_120f",
-			Family:                FamilyBlackwellEdge_SM120,
-			HasCLC:                true,
-			HasTMA:                true,
-			HasWarpBlockScaledMMA: true,
-			MMAInstruction:        "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
+			ComputeMajor:   12,
+			ComputeMinor:   1,
+			Target:         "sm_121a",
+			FamilyTarget:   "sm_120f",
+			Family:         FamilyBlackwellEdge_SM120,
+			HasCLC:         true,
+			MMAInstruction: "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
 		}, nil
 	default:
 		return ArchTargetSpec{}, fmt.Errorf("classify compute capability: unsupported compute capability %d.%d", major, minor)

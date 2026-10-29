@@ -27,3 +27,17 @@ func TestTargetMemoryGBps(t *testing.T) {
 		}
 	}
 }
+
+// TestClassifyHasTMA pins the one capability flag TestClassifyComputeCapability
+// does not check: every supported architecture has TMA.
+func TestClassifyHasTMA(t *testing.T) {
+	for _, cc := range [][2]int{{9, 0}, {10, 0}, {10, 3}, {10, 7}, {12, 0}, {12, 1}} {
+		spec, err := ClassifyComputeCapability(cc[0], cc[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !spec.HasTMA {
+			t.Errorf("%s: HasTMA = false, want true", spec.Target)
+		}
+	}
+}
