@@ -30,6 +30,7 @@ func TestBuildEgraphPlansTCGen05(t *testing.T) {
 				plan         *hopper.Plan
 				decode, fill int // UMMAGEMMs in the decode and prefill forms
 			}{
+				{p.norm, 0, 0},
 				{p.attnIn, 1, 0},
 				{p.post, 3, 0},
 				{p.head, 1, 0},
@@ -73,7 +74,7 @@ func TestEgraphPlansTCGen05Compiled(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, pl := range []*hopper.Plan{p.attnIn, p.post, p.head, p.pf.attnIn, p.pf.post} {
+		for _, pl := range []*hopper.Plan{p.norm, p.attnIn, p.post, p.head, p.pf.attnIn, p.pf.post} {
 			t.Run(target+"/"+pl.Name, func(t *testing.T) {
 				src, err := pl.Source()
 				if err != nil {

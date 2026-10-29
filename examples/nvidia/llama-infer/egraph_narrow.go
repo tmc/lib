@@ -18,7 +18,7 @@ const prefillNarrowRows = 32
 func (pf *egraphPrefillPlans) planNarrow(cfg *ModelConfig, qkvBias bool, sms int) error {
 	var err error
 	pf.narrow = prefillNarrowRows
-	if pf.narrowIn, pf.narrowPost, err = buildLayerPlans(cfg, qkvBias, true, "llama_pfn", pf.narrow, hopper.BF16, ""); err != nil {
+	if pf.narrowIn, pf.narrowPost, err = buildLayerPlans(cfg, qkvBias, true, "llama_pfn", pf.narrow, hopper.BF16, "", false); err != nil {
 		return err
 	}
 	pf.narrowIn.UseSkinnyMMA(sms)

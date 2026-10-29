@@ -12,25 +12,38 @@ import (
 // (nvidia/x/egraph/hopper) builds for one token of a dense LLaMA model.
 // Every layer shares the same plans; only the bound buffers change.
 //
-//	attnIn: qkv = cast_bf16(rmsnorm(x, attn_norm)) · w_qkvᵀ [+ b_qkv]
+//	norm:   xn = cast_bf16(rmsnorm(x, norm))
+//	attnIn: qkv = xn · w_qkvᵀ [+ b_qkv]
 //	post:   h = cast_bf16(attn) · w_oᵀ + x
-//	        out = swiglu(cast_bf16(rmsnorm(h, ffn_norm)) · w_guᵀ) · w_downᵀ + h
-//	head:   logits = cast_bf16(rmsnorm(x, norm)) · lm_headᵀ
+//	        res = swiglu(cast_bf16(rmsnorm(h, ffn_norm)) · w_guᵀ) · w_downᵀ + h
+//	        xn = cast_bf16(rmsnorm(res, next_norm))
+//	head:   logits = xn · lm_headᵀ
+//
+// Each layer's post normalizes its residual res for the next layer's
+// attnIn, with next_norm the next layer's attention norm, or the final
+// norm after the last layer; res is a temporary of post (postRes) that the
+// decoder binds to the residual buffer. norm normalizes the embedding for
+// the first layer.
 //
 // The embedding lookup and argmax are not expressed as terms; llama-infer's
 // own kernels run them. Without attn, neither are RoPE, the KV-cache store
 // and attention. With attn, the generator's direct emitters run them on a
 // BF16 KV cache: [hopper.QKNormRoPEKVAppend] rotates q and k and appends k
-// and v, qcast widens q to F32, and [hopper.SM120PagedAttention] attends.
+// and v, and [hopper.SM120PagedAttention] attends, reading q in BF16.
 // Those two kernels are emitted directly, not lowered from terms; the
 // generator has no term for them.
+//
+// On targets without tcgen05 every decode kernel but norm is a skinny
+// gemm: the casts of attn and of the SwiGLU product fold into the gemms
+// that read them ([hopper.SkinnyGEMM] X and GLU), and post's two RMSNorms
+// run as the o_proj and down_proj gemms' tails ([hopper.Plan.FuseTails]).
 type egraphPlans struct {
-	attnIn, post, head *hopper.Plan
+	norm, attnIn, post, head *hopper.Plan
+	postRes                  string
 
-	attn  bool
-	rope  hopper.QKNormRoPEKVAppend
-	qcast *hopper.Plan
-	sdpa  hopper.SM120PagedAttention
+	attn bool
+	rope hopper.QKNormRoPEKVAppend
+	sdpa hopper.SM120PagedAttention
 
 	pf *egraphPrefillPlans // with prefill
 }
@@ -72,11 +85,11 @@ const egraphPageSize = 16
 func (p *egraphPlans) ops() (generated, fallback []string) {
 	generated = []string{"rmsnorm", "qkv_proj(+bias)", "o_proj+residual", "rmsnorm", "gate_up_proj", "swiglu", "down_proj+residual", "final_rmsnorm", "lm_head"}
 	if p.attn {
-		a := "attention (generated, direct emitter)"
+		a := "attention (generated, direct emitter, bf16 q)"
 		if p.sdpa.Splits > 0 {
 			a = fmt.Sprintf("attention (generated, direct emitter: split-KV, %d splits per KV head, + combine)", p.sdpa.Splits)
 		}
-		generated = append(generated, "rope+kv_store (generated, direct emitter)", "q_cast", a)
+		generated = append(generated, "rope+kv_store (generated, direct emitter)", a)
 		return generated, []string{"embedding", "argmax"}
 	}
 	return generated, []string{"embedding", "rope", "kv_store", "attention", "argmax"}
@@ -132,13 +145,21 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	attn, prefillRows := opt.Attn, opt.PrefillRows
 	p := egraphPlans{attn: attn}
 	var err error
-	if p.attnIn, p.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama", 1, hopper.F32, prof.Target); err != nil {
+	if p.attnIn, p.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama", 1, hopper.F32, prof.Target, true); err != nil {
 		return nil, err
 	}
+	if p.postRes, err = normInput(p.post); err != nil {
+		return nil, err
+	}
+	h := cfg.HiddenSize
 	b := hopper.NewBuilder()
-	x := b.Input("x", hopper.F32, 1, cfg.HiddenSize)
-	norm := b.Cast(hopper.BF16, b.RMSNorm(x, b.Input("norm", hopper.F32, cfg.HiddenSize), cfg.HiddenSize, cfg.RmsNormEps))
-	logits := b.MatMul(norm, b.Input("lm_head", hopper.BF16, cfg.VocabSize, cfg.HiddenSize))
+	x := b.Input("x", hopper.F32, 1, h)
+	norm := b.Cast(hopper.BF16, b.RMSNorm(x, b.Input("norm", hopper.F32, h), h, cfg.RmsNormEps))
+	if p.norm, err = compilePlan("llama_norm", b, norm, hopper.BF16, prof.Target); err != nil {
+		return nil, err
+	}
+	b = hopper.NewBuilder()
+	logits := b.MatMul(b.Input("xn", hopper.BF16, 1, h), b.Input("lm_head", hopper.BF16, cfg.VocabSize, h))
 	if p.head, err = compilePlan("llama_head", b, logits, hopper.F32, prof.Target); err != nil {
 		return nil, err
 	}
@@ -158,9 +179,6 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 		MaxPages: 1,
 		DType:    hopper.BF16,
 	}
-	if p.qcast, err = buildQCastPlan(cfg, "llama_qcast", 1); err != nil {
-		return nil, err
-	}
 	maxPages := (cfg.MaxSeqLen + egraphPageSize - 1) / egraphPageSize
 	p.sdpa = hopper.SM120PagedAttention{
 		Name:       "llama_sdpa",
@@ -173,6 +191,7 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 		Target:     prof.Target,
 		KVFormat:   hopper.WeightBF16,
 		Splits:     opt.AttnSplits,
+		Q:          hopper.BF16,
 	}
 	if p.sdpa.Splits < 0 {
 		p.sdpa.Splits = attnSplits(prof, cfg.NumKeyValueHeads)
@@ -192,7 +211,7 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	fits := false
 	for _, tile := range prefillTiles {
 		pf.rows = (prefillRows + tile.bm - 1) / tile.bm * tile.bm
-		if pf.attnIn, pf.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pf", pf.rows, hopper.BF16, prof.Target); err != nil {
+		if pf.attnIn, pf.post, err = buildLayerPlans(cfg, qkvBias, attn, "llama_pf", pf.rows, hopper.BF16, prof.Target, false); err != nil {
 			return nil, err
 		}
 		fits = true
@@ -250,19 +269,28 @@ func attnSplits(p cudadevicetable.Profile, kvHeads int) int {
 	return max(1, int(p.SMs.Value)/kvHeads)
 }
 
+// compilePlan optimizes and lowers root, running single-CTA row kernels as
+// the tails of the gemms before them ([hopper.Plan.FuseTails]).
 func compilePlan(name string, b *hopper.Builder, root egraph.Id, out hopper.DType, target string) (*hopper.Plan, error) {
 	e, err := hopper.Optimize(b.G, root)
 	if err != nil {
 		return nil, fmt.Errorf("optimize %s: %w", name, err)
 	}
-	return hopper.CompileFor(e, name, out, target)
+	p, err := hopper.CompileFor(e, name, out, target)
+	if err != nil {
+		return nil, err
+	}
+	p.FuseTails()
+	return p, nil
 }
 
 // buildLayerPlans builds a decoder layer's attnIn and post plans over m
 // rows, named prefix_attn_in and prefix_post. The post plan reads the
-// attention output in attnDType. The gemms are lowered for target, an nvcc
-// -arch value or "".
-func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int, attnDType hopper.DType, target string) (attnIn, post *hopper.Plan, err error) {
+// attention output in attnDType. With chain, attnIn reads the normalized
+// input xn and post writes the next layer's xn (see [egraphPlans]);
+// otherwise attnIn normalizes x and post writes the residual. The gemms
+// are lowered for target, an nvcc -arch value or "".
+func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int, attnDType hopper.DType, target string, chain bool) (attnIn, post *hopper.Plan, err error) {
 	h := cfg.HiddenSize
 	qDim := cfg.NumAttentionHeads * cfg.HeadDim()
 	kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
@@ -276,8 +304,13 @@ func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int,
 		qkvOut = hopper.BF16
 	}
 	b := hopper.NewBuilder()
-	x := b.Input("x", hopper.F32, m, h)
-	norm := b.Cast(hopper.BF16, b.RMSNorm(x, b.Input("attn_norm", hopper.F32, h), h, eps))
+	var norm egraph.Id
+	if chain {
+		norm = b.Input("xn", hopper.BF16, m, h)
+	} else {
+		x := b.Input("x", hopper.F32, m, h)
+		norm = b.Cast(hopper.BF16, b.RMSNorm(x, b.Input("attn_norm", hopper.F32, h), h, eps))
+	}
 	qkv := b.MatMul(norm, b.Input("w_qkv", hopper.BF16, qDim+2*kvDim, h))
 	if qkvBias {
 		qkv = b.Map(hopper.MustLambda("(add $0 $1)"), qkv, b.Input("b_qkv", hopper.F32, qDim+2*kvDim))
@@ -291,20 +324,40 @@ func buildLayerPlans(cfg *ModelConfig, qkvBias, attn bool, prefix string, m int,
 	if attnDType != hopper.BF16 {
 		ao = b.Cast(hopper.BF16, ao)
 	}
-	x = b.Input("x", hopper.F32, m, h)
+	x := b.Input("x", hopper.F32, m, h)
 	hid := b.Map(hopper.MustLambda("(add $0 $1)"), b.MatMul(ao, b.Input("w_o", hopper.BF16, h, qDim)), x)
 	norm = b.Cast(hopper.BF16, b.RMSNorm(hid, b.Input("ffn_norm", hopper.F32, h), h, eps))
 	act := b.SwiGLU(b.MatMul(norm, b.Input("w_gu", hopper.BF16, 2*inter, h)))
 	out := b.Map(hopper.MustLambda("(add $0 $1)"), b.MatMul(act, b.Input("w_down", hopper.BF16, h, inter)), hid)
-	if post, err = compilePlan(prefix+"_post", b, out, hopper.F32, target); err != nil {
+	outDType := hopper.F32
+	if chain {
+		out = b.Cast(hopper.BF16, b.RMSNorm(out, b.Input("next_norm", hopper.F32, h), h, eps))
+		outDType = hopper.BF16
+	}
+	if post, err = compilePlan(prefix+"_post", b, out, outDType, target); err != nil {
 		return nil, nil, err
 	}
 	return attnIn, post, nil
 }
 
-// buildQCastPlan builds the plan widening m rows of BF16 q to F32.
-func buildQCastPlan(cfg *ModelConfig, name string, m int) (*hopper.Plan, error) {
-	b := hopper.NewBuilder()
-	qf := b.Cast(hopper.F32, b.Input("q", hopper.BF16, m, cfg.NumAttentionHeads*cfg.HeadDim()))
-	return compilePlan(name, b, qf, hopper.F32, "")
+// normInput returns the temporary that p's output RMSNorm reads: the row
+// kernel writing p's output, or the gemm whose tail it is, reads it.
+func normInput(p *hopper.Plan) (string, error) {
+	for _, k := range p.Kernels {
+		r := k.Row
+		if k.GEMM != nil {
+			r = k.GEMM.Tail
+		}
+		if r == nil || len(r.Outputs) != 1 || r.Outputs[0].Name != p.Output.Name {
+			continue
+		}
+		for _, in := range r.Inputs {
+			for _, t := range p.Temps {
+				if in.Buffer == t.Name || in.Name == t.Name {
+					return t.Name, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("%s: no row kernel normalizes a temporary into %s", p.Name, p.Output.Name)
 }

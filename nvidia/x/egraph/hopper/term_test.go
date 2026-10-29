@@ -145,6 +145,9 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 		if z, ok := wsZero[tmp.Name]; ok && z <= len(raw) {
 			clear(raw[:z])
 		}
+		if tmp.DType == I32 && strings.HasSuffix(tmp.Name, "_count") {
+			clear(raw) // a FuseTails counter
+		}
 		bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), raw})
 	}
 	res := runEmu(t, src.String(), strings.Join(launches, ";\n    "), bufs...)
@@ -291,8 +294,8 @@ func TestCompileGEMMThenNorm(t *testing.T) {
 	agree(t, "chain", F32, runPlan(t, plan, env), want.Data)
 }
 
-// TestCompileCastInputGEMM rounds an F32 input to BF16 for a projection: the
-// cast of a bare input is its own row kernel.
+// TestCompileCastInputGEMM rounds an F32 input to BF16 for a projection: a
+// skinny gemm casts a bare input as it loads it, with no row kernel.
 func TestCompileCastInputGEMM(t *testing.T) {
 	b := NewBuilder()
 	x := b.Input("x", F32, 2, 256)
@@ -305,7 +308,8 @@ func TestCompileCastInputGEMM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Kernels) != 2 || plan.Kernels[0].Row == nil || plan.Kernels[1].GEMM == nil {
+	// The skinny gemm reads the F32 input and rounds it as it loads.
+	if len(plan.Kernels) != 1 || plan.Kernels[0].GEMM == nil || plan.Kernels[0].GEMM.X != F32 {
 		t.Fatalf("plan: %+v", plan.Kernels)
 	}
 	env := randEnv(rand.New(rand.NewPCG(17, 18)), Tensor{"x", F32, []int{2, 256}}, Tensor{"w", BF16, []int{64, 256}})

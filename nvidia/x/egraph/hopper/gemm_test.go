@@ -47,6 +47,14 @@ func TestSkinnyGEMMEmulated(t *testing.T) {
 		{"nvfp4_prefetch2", SkinnyGEMM{N: 4, K: 4096, MaxM: 2, Weight: WeightNVFP4, Out: F32, RowsPerBlock: 2, Warps: 1, Prefetch: 2}, 2},
 		{"nvfp4_blackwell", SkinnyGEMM{N: 4, K: 2048, MaxM: 2, Weight: WeightNVFP4, Out: F32, RowsPerBlock: 2, BlackwellFP4: true, Prefetch: 2}, 2},
 		{"bf16_split_prefetch4", SkinnyGEMM{N: 4, K: 2048, MaxM: 4, Weight: WeightBF16, Out: BF16, SplitK: 2, RowsPerBlock: 2, Warps: 1, Prefetch: 4}, 4},
+		{"x_f32", SkinnyGEMM{N: 8, K: 512, MaxM: 4, Weight: WeightBF16, Out: F32, X: F32}, 3},
+		{"x_f32_nvfp4", SkinnyGEMM{N: 4, K: 2048, MaxM: 2, Weight: WeightNVFP4, Out: F32, RowsPerBlock: 2, X: F32}, 2},
+		{"glu", SkinnyGEMM{N: 16, K: 512, MaxM: 2, Weight: WeightBF16, Out: BF16, GLU: true, RowsPerBlock: 4,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 2},
+		{"glu_split_extra", SkinnyGEMM{N: 8, K: 1024, MaxM: 2, Weight: WeightBF16, Out: F32, GLU: true, SplitK: 2,
+			Epilogue: MustLambda("(add (mul (silu $0) $1) $2)"), Extras: []Operand{{"resid", F32, Full}}}, 2},
+		{"glu_nvfp4_x_f32", SkinnyGEMM{N: 4, K: 2048, MaxM: 1, Weight: WeightNVFP4, Out: F32, GLU: true, X: F32,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 1},
 	}
 	r := rand.New(rand.NewPCG(1, 2))
 	for _, tt := range tests {
@@ -61,6 +69,19 @@ func TestSkinnyGEMMEmulated(t *testing.T) {
 			x := randBF16(r, m*k, 1)
 			var w GEMMWeights
 			bufs := []emuBuf{{"x", "uint16_t", u16Bytes(x)}}
+			if g.X == F32 {
+				// The kernel rounds x to BF16: the reference reads the rounded values.
+				xf := make([]float32, m*k)
+				for i := range xf {
+					xf[i] = float32(r.NormFloat64())
+					x[i] = BF16Bits(xf[i])
+				}
+				bufs[0] = emuBuf{"x", "float", f32Bytes(xf)}
+			}
+			cols := n
+			if g.GLU {
+				cols = n / 2
+			}
 			args := []string{"x"}
 			switch g.Weight {
 			case WeightBF16:
@@ -82,9 +103,9 @@ func TestSkinnyGEMMEmulated(t *testing.T) {
 			}
 			var extras [][]float32
 			for _, e := range g.Extras {
-				size := n
+				size := cols
 				if e.Broadcast == Full {
-					size = m * n
+					size = m * cols
 				}
 				v := make([]float32, size)
 				for i := range v {
@@ -102,7 +123,7 @@ func TestSkinnyGEMMEmulated(t *testing.T) {
 				}
 				args = append(args, e.Name)
 			}
-			outBytes := m * n * g.Out.Bits() / 8
+			outBytes := m * cols * g.Out.Bits() / 8
 			bufs = append(bufs, emuBuf{"out", g.Out.cType(), poison(outBytes)})
 			args = append(args, "out")
 			if ws := g.WorkspaceBytes(); ws > 0 {

@@ -321,7 +321,7 @@ var ownerSites = []struct {
 			"its deferred release frees on error"},
 	{ownerSite{"decode_graph.go", "NewDecodeGraph", "newDecodeGraphWith", "return"}, 1, "",
 		"hands the owner and error to the callers of NewDecodeGraph, whose calls are checked"},
-	{ownerSite{"egraph_gpu.go", "newEgraphDecoder", libX + "cudamem.Alloc", "owner field"}, 26, "",
+	{ownerSite{"egraph_gpu.go", "newEgraphDecoder", libX + "cudamem.Alloc", "owner field"}, 28, "",
 		"each buffer lies in eg, which the constructor's deferred eg.Close frees on error"},
 	{ownerSite{"main.go", "runGPUInference", "NewDecodeGraph", "call"}, 1, "TestCloseDecodeGraph",
 		"runGPUInference defers closeDecodeGraph(td, &dg) before calling NewDecodeGraph, which closes a non-nil dg when !td.held() and records its error in td"},
@@ -991,7 +991,7 @@ var ownerCalls = map[string]callCount{
 	"weights_bf16.go":           {2, 0},
 	"gpu_model_test.go":         {4, 0},
 	"decode_graph_test.go":      {1, 0},
-	"egraph_gpu.go":             {26, 0},
+	"egraph_gpu.go":             {28, 0},
 	"weights_stream.go":         {4, 0},
 	"weights_stream_test.go":    {1, 0},
 }

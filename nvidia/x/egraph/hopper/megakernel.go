@@ -112,15 +112,19 @@ func (p *Plan) Megakernel(name string) (Megakernel, error) {
 				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: skinny gemm block size %d != 256", name, i, block[0])
 			}
 			pk.GEMM = &normed
-			outIdx := len(pk.Args) - 1
-			if normed.SplitK > 1 {
-				outIdx--
-			}
-			if outIdx < 0 || outIdx >= len(pk.Args) {
+			if len(pk.Args) != len(normed.params()) {
 				return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: bad skinny gemm args %v", name, i, pk.Args)
 			}
-			inNames = pk.Args[:outIdx]
-			outName = []string{pk.Args[outIdx]}
+			// out, then a tail's outputs and counter, are written; the
+			// split-K workspace is the stage's own.
+			for j, p := range normed.params() {
+				switch a := pk.Args[j]; {
+				case strings.HasPrefix(p, "const "):
+					inNames = append(inNames, a)
+				case paramName(p) != "ws":
+					outName = append(outName, a)
+				}
+			}
 
 		case pk.Tile != nil:
 			g := *pk.Tile

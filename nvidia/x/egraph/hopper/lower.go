@@ -179,11 +179,11 @@ func (c *compiler) emit(e *egraph.Expr, dst string, d DType) error {
 			Class:    e.Class,
 			Children: []*egraph.Expr{{Op: "fn:$0"}, e.Children[0], e.Children[1]},
 		}
-		if err := c.gemm(gemmExpr, t); err != nil {
+		if err := c.gemm(gemmExpr, t, false); err != nil {
 			return err
 		}
 	case e.Op == OpGEMM:
-		if err := c.gemm(e, t); err != nil {
+		if err := c.gemm(e, t, false); err != nil {
 			return err
 		}
 	case isModelOp(e.Op):
@@ -206,20 +206,23 @@ func (c *compiler) emit(e *egraph.Expr, dst string, d DType) error {
 	return nil
 }
 
-func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
+// gemm appends the kernel computing the gemm term e into out. With glu,
+// e's weight rows are two halves whose products the epilogue pairs (see
+// [SkinnyGEMM.GLU]); the caller checks [compiler.skinny] first.
+func (c *compiler) gemm(e *egraph.Expr, out Tensor, glu bool) error {
 	f, ok := lambdaOf(egraph.ENode{Op: e.Children[0].Op})
 	if !ok {
 		return fmt.Errorf("gemm: bad epilogue %q", e.Children[0].Op)
 	}
-	x, err := c.buffer(e.Children[1])
+	x, err := c.gemmX(e.Children[1])
 	if err != nil {
 		return err
 	}
-	if x.DType != BF16 || len(x.Shape) != 2 {
+	if x.DType != BF16 && (x.DType != F32 || !c.skinny(x.Shape)) || len(x.Shape) != 2 {
 		return fmt.Errorf("gemm: x must be a BF16 matrix, have %v %v (cast it)", x.DType, x.Shape)
 	}
 	w := e.Children[2]
-	g := SkinnyGEMM{Name: c.plan.Name + "_" + out.Name, MaxM: x.Shape[0], Out: out.DType, Epilogue: f, K: x.Shape[1]}
+	g := SkinnyGEMM{Name: c.plan.Name + "_" + out.Name, MaxM: x.Shape[0], Out: out.DType, Epilogue: f, K: x.Shape[1], X: x.DType, GLU: glu}
 	args := []string{x.Name}
 	switch w.Op {
 	case OpHiLo:
@@ -255,6 +258,9 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 		args = append(args, t.Name)
 	}
 	m, n := x.Shape[0], g.N
+	if glu {
+		n /= 2
+	}
 	for i, k := range e.Children[3:] {
 		t, err := c.buffer(k)
 		if err != nil {
@@ -278,8 +284,10 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 		args = append(args, t.Name)
 	}
 	args = append(args, out.Name)
-	if ok, err := c.ummaGEMM(g, x, args, m); ok || err != nil {
-		return err
+	if g.X == BF16 && !glu {
+		if ok, err := c.ummaGEMM(g, x, args, m); ok || err != nil {
+			return err
+		}
 	}
 	if m > 16 {
 		t := TileGEMM{Name: g.Name, N: g.N, K: g.K, Weight: g.Weight, Out: g.Out, Epilogue: g.Epilogue, Extras: g.Extras}
@@ -300,6 +308,90 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 	}
 	c.plan.Kernels = append(c.plan.Kernels, PlanKernel{GEMM: &g, M: m, Args: args})
 	return nil
+}
+
+// FuseTails runs each row kernel that would launch a single CTA right
+// after the skinny gemm whose output it reads, over that gemm's rows, as
+// the gemm's tail ([SkinnyGEMM.Tail]): the gemm's last block runs it, so
+// the plan launches one kernel fewer. Each fused gemm gets an I32 counter
+// temporary named after it, which the caller zeroes once before the first
+// launch. FuseTails reports the number of row kernels it folded.
+func (p *Plan) FuseTails() int {
+	var ks []PlanKernel
+	n := 0
+	for i := 0; i < len(p.Kernels); i++ {
+		k := p.Kernels[i]
+		if i+1 < len(p.Kernels) {
+			if f, count, ok := tailOf(k, p.Kernels[i+1]); ok {
+				ks = append(ks, f)
+				p.Temps = append(p.Temps, count)
+				n++
+				i++
+				continue
+			}
+		}
+		ks = append(ks, k)
+	}
+	p.Kernels = ks
+	return n
+}
+
+// tailOf returns gk with rk as its tail and the tail's counter, if rk can
+// be gk's tail.
+func tailOf(gk, rk PlanKernel) (PlanKernel, Tensor, bool) {
+	if gk.GEMM == nil || gk.GEMM.Tail != nil || rk.Row == nil || rk.Rows != gk.M {
+		return gk, Tensor{}, false
+	}
+	if grid, _ := rk.Row.Grid(rk.Rows); grid[0] != 1 {
+		return gk, Tensor{}, false
+	}
+	g, err := gk.GEMM.norm()
+	if err != nil {
+		return gk, Tensor{}, false
+	}
+	out := len(gk.Args) - 1
+	if g.SplitK > 1 {
+		out--
+	}
+	if out < 0 || !slices.Contains(rk.Args, gk.Args[out]) {
+		return gk, Tensor{}, false
+	}
+	t := *gk.GEMM
+	t.Tail, t.TailIn = rk.Row, gk.Args[out]
+	if _, err := t.norm(); err != nil {
+		return gk, Tensor{}, false
+	}
+	count := Tensor{Name: t.Name + "_count", DType: I32, Shape: []int{1}}
+	gk.GEMM = &t
+	gk.Args = slices.Clone(gk.Args)
+	for _, a := range rk.Args {
+		if a != t.TailIn {
+			gk.Args = append(gk.Args, a)
+		}
+	}
+	gk.Args = append(gk.Args, count.Name)
+	return gk, count, true
+}
+
+// skinny reports whether a gemm over x shaped xs lowers to a
+// [SkinnyGEMM], the form whose x may be F32 and whose epilogue may pair
+// weight rows.
+func (c *compiler) skinny(xs []int) bool {
+	return !c.umma && len(xs) == 2 && xs[0] <= 16
+}
+
+// gemmX returns the buffer holding a gemm's x. A skinny gemm reads a cast
+// of an F32 input to BF16 from the input itself and rounds as it loads, so
+// the cast needs no kernel.
+func (c *compiler) gemmX(x *egraph.Expr) (Tensor, error) {
+	if x.Op == OpCast && len(x.Children) == 2 {
+		t, ok := x.Children[1].Data.(Tensor)
+		if d, _ := x.Children[0].Data.(DType); ok && d == BF16 && t.DType == F32 && c.skinny(t.Shape) {
+			c.input(t)
+			return t, nil
+		}
+	}
+	return c.buffer(x)
 }
 
 // ummaGEMM appends g as a UMMAGEMM over m rows of x, reporting false if c

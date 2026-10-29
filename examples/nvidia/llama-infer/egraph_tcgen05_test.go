@@ -226,12 +226,12 @@ func newEmuDecoder(t *testing.T, cfg *ModelConfig, w *ModelWeights, target strin
 	e.b = egraphBuffers{
 		x:        e.alloc("x", cudahostemu.Poison(4*h)),
 		x2:       e.alloc("x2", cudahostemu.Poison(4*h)),
+		xn:       e.alloc("xn", cudahostemu.Poison(2*h)),
 		qkv:      e.alloc("qkv", cudahostemu.Poison(2*(qDim+2*kvDim))),
 		attnOut:  e.alloc("attn_out", cudahostemu.Poison(4*qDim)),
 		norm:     e.alloc("norm", f32le(w.Norm)),
 		lmHead:   e.alloc("lm_head", bf16le(w.LMHead)),
 		logits:   e.alloc("logits", cudahostemu.Poison(4*cfg.VocabSize)),
-		q:        e.alloc("q", cudahostemu.Poison(4*qDim)),
 		qbf:      e.alloc("qbf", cudahostemu.Poison(2*qDim)),
 		cs:       e.alloc("cos_sin", f32le(cs)),
 		ropePage: e.alloc("rope_page", i32le([]int32{0})),
@@ -347,6 +347,9 @@ func (e *emuDecoder) run(t *testing.T, first int32, steps int) ([][]float32, []i
 	fmt.Fprintf(&b, "int32_t tok = %d;\nfor (int pos = 0; pos < %d; ++pos) {\n", first, steps)
 	fmt.Fprintf(&b, "for (int i = 0; i < %d; ++i) { uint32_t u = (uint32_t)((uint16_t*)embed)[tok * %d + i] << 16; memcpy((float*)x + i, &u, 4); }\n",
 		cfg.HiddenSize, cfg.HiddenSize)
+	for _, l := range e.eg.norm {
+		b.WriteString(e.launch(t, l) + "\n")
+	}
 	for i := range cfg.NumHiddenLayers {
 		for _, l := range e.eg.layerLaunches(i) {
 			b.WriteString(e.launch(t, l) + "\n")
