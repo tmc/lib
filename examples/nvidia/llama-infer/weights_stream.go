@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
+	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -40,7 +42,7 @@ func openCheckpoint(dir string) (checkpoint, *ModelConfig, bool, error) {
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("load model %s: open safetensors: %w", dir, err)
 	}
-	return ck, cfg, tied, nil
+	return &recordingCheckpoint{ck, make(map[string]bool)}, cfg, tied, nil
 }
 
 // streamChunk is the most checkpoint bytes streamModel holds on the host at
@@ -264,12 +266,42 @@ func streamModelWith(ck checkpoint, cfg *ModelConfig, tied bool, dtype weightDTy
 			return nil, fmt.Errorf("missing tensor lm_head.weight and tie_word_embeddings is false")
 		}
 		gw.LMHead = gw.EmbedTokens.borrow()
-		return gw, nil
-	}
-	if err := matrix(&gw.LMHead, part{"lm_head.weight", vocab * hidden, nil}); err != nil {
+	} else if err := matrix(&gw.LMHead, part{"lm_head.weight", vocab * hidden, nil}); err != nil {
 		return nil, err
 	}
+	if rc, ok := ck.(*recordingCheckpoint); ok {
+		if names := rc.unread(); len(names) > 0 {
+			return nil, fmt.Errorf("checkpoint has %d tensors the decoder does not read, such as %s", len(names), names[0])
+		}
+	}
 	return gw, nil
+}
+
+// A recordingCheckpoint is a checkpoint that records the tensors looked up
+// in it, so that streamModel can reject a checkpoint holding weights it
+// never reads: they belong to computation it would skip.
+type recordingCheckpoint struct {
+	*safetensors.Sharded
+	seen map[string]bool
+}
+
+func (c *recordingCheckpoint) Info(name string) (safetensors.TensorInfo, bool) {
+	c.seen[name] = true
+	return c.Sharded.Info(name)
+}
+
+// unread returns the sorted names of the tensors never looked up, other
+// than the rotary inverse frequencies some checkpoints store, which the
+// decoder computes from rope_theta.
+func (c *recordingCheckpoint) unread() []string {
+	var names []string
+	for name := range c.Shard {
+		if !c.seen[name] && !strings.HasSuffix(name, ".rotary_emb.inv_freq") {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names
 }
 
 // streamTensor reads the elements of dtype from in r, converts them to the

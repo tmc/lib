@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -464,5 +465,61 @@ func TestOpenCheckpointTestingModel(t *testing.T) {
 	}
 	if err := errors.Join(gw.free(d.free), ck.Close()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestStreamModelUnreadTensors(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		extra   string // tensor added to the checkpoint, or ""
+		wantErr string
+	}{
+		{name: "none"},
+		{name: "rotary inv_freq", extra: "model.layers.0.self_attn.rotary_emb.inv_freq"},
+		{name: "q norm", extra: "model.layers.0.self_attn.q_norm.weight", wantErr: "1 tensors the decoder does not read, such as model.layers.0.self_attn.q_norm.weight"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w, cfg := streamTestModel(false, false)
+			f, err := w.checkpoint(cfg, safetensors.BF16)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var ts []safetensors.Tensor
+			for _, info := range f.Tensors {
+				tensor, err := f.Tensor(info.Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ts = append(ts, tensor)
+			}
+			if tt.extra != "" {
+				ts = append(ts, safetensors.Tensor{Name: tt.extra, Dtype: safetensors.BF16, Shape: []int{2}, Data: make([]byte, 4)})
+			}
+			dir := t.TempDir()
+			if err := safetensors.WriteFile(filepath.Join(dir, "model.safetensors"), ts, nil); err != nil {
+				t.Fatal(err)
+			}
+			sh, err := safetensors.OpenSharded(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := sh.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			ck := &recordingCheckpoint{sh, make(map[string]bool)}
+			d := newMemDevice()
+			_, err = streamFake(d, ck, cfg, false, weightBF16, make([]byte, 4096))
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Fatalf("streamModel: %v", err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Fatalf("streamModel: err = %v, want %q", err, tt.wantErr)
+			}
+			if tt.wantErr != "" {
+				freedOnce(t, d)
+			}
+		})
 	}
 }
