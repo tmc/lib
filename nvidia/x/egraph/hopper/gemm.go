@@ -114,6 +114,16 @@ type SkinnyGEMM struct {
 	// index the [M, N/2] output.
 	GLU bool
 
+	// Tail, when set, is a row kernel over out's M rows that the block
+	// finishing last runs once every block has written out, in place of a
+	// launch of its own: a normalization of a one-row out need not run on
+	// one CTA after the gemm. TailIn names the Tail parameter that reads
+	// out. The kernel takes Tail's other parameters after its own, then
+	// tail_count, an int that is zero before the first launch and that
+	// the kernel leaves zero. Tail must use 32·Warps threads per block.
+	Tail   *RowKernel
+	TailIn string
+
 	RowsPerBlock int // 0 chooses
 	Warps        int // per block; 0 means 8
 	SplitK       int // 0 or 1 means no split
@@ -242,6 +252,11 @@ func (g SkinnyGEMM) norm() (SkinnyGEMM, error) {
 	if g.BlackwellFP4 && g.Weight != WeightNVFP4 {
 		return g, fmt.Errorf("skinny gemm %s: BlackwellFP4 requires WeightNVFP4", g.Name)
 	}
+	if g.Tail != nil {
+		if err := g.checkTail(); err != nil {
+			return g, err
+		}
+	}
 	switch g.Store {
 	case StoreWrite:
 	case StoreReduceAdd, StoreMultimemReduceAdd:
@@ -292,7 +307,74 @@ func (g SkinnyGEMM) params() []string {
 	if g.SplitK > 1 {
 		p = append(p, "float* __restrict__ ws")
 	}
+	if g.Tail != nil {
+		for _, tp := range g.Tail.params()[1:] {
+			if paramName(tp) != g.TailIn {
+				p = append(p, tp)
+			}
+		}
+		p = append(p, "int* __restrict__ tail_count")
+	}
 	return p
+}
+
+// paramName returns the name a C parameter declaration declares.
+func paramName(decl string) string {
+	f := strings.Fields(decl)
+	return f[len(f)-1]
+}
+
+// checkTail checks that g.Tail can run in g's blocks over g's out.
+func (g SkinnyGEMM) checkTail() error {
+	t := *g.Tail
+	if t.Cluster || t.Slots > 0 {
+		return fmt.Errorf("skinny gemm %s: tail %s: cluster and slot row kernels cannot be tails", g.Name, t.Name)
+	}
+	if _, err := t.check(); err != nil {
+		return fmt.Errorf("skinny gemm %s: tail: %w", g.Name, err)
+	}
+	if _, block := t.Grid(1); block[0] != 32*g.Warps {
+		return fmt.Errorf("skinny gemm %s: tail %s needs %d threads, have %d", g.Name, t.Name, block[0], 32*g.Warps)
+	}
+	own := make(map[string]bool)
+	tail := g
+	tail.Tail = nil
+	for _, p := range tail.params() {
+		own[paramName(p)] = true
+	}
+	reads := false
+	for _, p := range t.params()[1:] {
+		name := paramName(p)
+		reads = reads || name == g.TailIn
+		if own[name] || name == "tail_count" {
+			return fmt.Errorf("skinny gemm %s: tail %s parameter %s collides with the gemm's", g.Name, t.Name, name)
+		}
+	}
+	if !reads {
+		return fmt.Errorf("skinny gemm %s: tail %s has no parameter %s", g.Name, t.Name, g.TailIn)
+	}
+	for _, in := range t.Inputs {
+		if in.buffer() == g.TailIn && in.DType != g.Out {
+			return fmt.Errorf("skinny gemm %s: tail %s reads %s as %v, out is %v", g.Name, t.Name, g.TailIn, in.DType, g.Out)
+		}
+	}
+	return nil
+}
+
+// tailCUDA returns g.Tail as a device function of the block index, which
+// runs one block's rows of the row kernel.
+func (g SkinnyGEMM) tailCUDA() (string, error) {
+	t := *g.Tail
+	body, err := t.body()
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "// %s: row kernel over rows of %d values, run as a skinny gemm's tail.\n", t.Name, t.D)
+	fmt.Fprintf(&b, "EG_DEV void %s(\n    unsigned eg_tail_block,\n    %s) {\n", t.Name, strings.Join(t.params(), ",\n    "))
+	b.WriteString(strings.ReplaceAll(body, "blockIdx.x", "eg_tail_block"))
+	b.WriteString("}\n")
+	return b.String(), nil
 }
 
 // CUDA returns the kernel source (without [Prelude]). The kernel is
@@ -316,6 +398,13 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	var b strings.Builder
 	if g.BlackwellFP4 {
 		b.WriteString(blackwellFP4Helpers)
+	}
+	if g.Tail != nil {
+		tail, err := g.tailCUDA()
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(tail)
 	}
 	if g.Store == StoreMultimemReduceAdd {
 		b.WriteString("#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 900 && !defined(EG_EMU) && !defined(EG_HOST_EMU)\n#error \"multimem.red needs sm_90 or later\"\n#endif\n")
@@ -567,7 +656,35 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	default:
 		fmt.Fprintf(&b, "        out[(size_t)m * %s + n] = %s;\n", cols, expr)
 	}
-	b.WriteString("    }\n}\n")
+	b.WriteString("    }\n")
+	if g.Tail != nil {
+		// One block per column group reaches the epilogue, split-K or not.
+		// No block reads out before the tail, so no SM holds a stale copy.
+		var args []string
+		for _, p := range g.Tail.params()[1:] {
+			if name := paramName(p); name == g.TailIn {
+				args = append(args, "out")
+			} else {
+				args = append(args, name)
+			}
+		}
+		blocks := "M"
+		if threads, _, _ := g.Tail.geometry(); threads == 32 {
+			blocks = "(M + 7) / 8"
+		}
+		fmt.Fprintf(&b, `    // Tail: the last block to write out runs %[1]s over its rows.
+    __shared__ int tail_last;
+    __threadfence();
+    __syncthreads();
+    if (t == 0) tail_last = atomicAdd(tail_count, 1) == (int)gridDim.x - 1;
+    __syncthreads();
+    if (!tail_last) return;
+    __threadfence();
+    for (unsigned b = 0; b < %[2]s; ++b) %[1]s(b, M, %[3]s);
+    if (t == 0) *tail_count = 0;
+`, g.Tail.Name, blocks, strings.Join(args, ", "))
+	}
+	b.WriteString("}\n")
 	return b.String(), nil
 }
 

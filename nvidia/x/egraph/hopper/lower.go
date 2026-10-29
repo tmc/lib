@@ -309,6 +309,69 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor, glu bool) error {
 	return nil
 }
 
+// FuseTails runs each row kernel that would launch a single CTA right
+// after the skinny gemm whose output it reads, over that gemm's rows, as
+// the gemm's tail ([SkinnyGEMM.Tail]): the gemm's last block runs it, so
+// the plan launches one kernel fewer. Each fused gemm gets an I32 counter
+// temporary named after it, which the caller zeroes once before the first
+// launch. FuseTails reports the number of row kernels it folded.
+func (p *Plan) FuseTails() int {
+	var ks []PlanKernel
+	n := 0
+	for i := 0; i < len(p.Kernels); i++ {
+		k := p.Kernels[i]
+		if i+1 < len(p.Kernels) {
+			if f, count, ok := tailOf(k, p.Kernels[i+1]); ok {
+				ks = append(ks, f)
+				p.Temps = append(p.Temps, count)
+				n++
+				i++
+				continue
+			}
+		}
+		ks = append(ks, k)
+	}
+	p.Kernels = ks
+	return n
+}
+
+// tailOf returns gk with rk as its tail and the tail's counter, if rk can
+// be gk's tail.
+func tailOf(gk, rk PlanKernel) (PlanKernel, Tensor, bool) {
+	if gk.GEMM == nil || gk.GEMM.Tail != nil || rk.Row == nil || rk.Rows != gk.M {
+		return gk, Tensor{}, false
+	}
+	if grid, _ := rk.Row.Grid(rk.Rows); grid[0] != 1 {
+		return gk, Tensor{}, false
+	}
+	g, err := gk.GEMM.norm()
+	if err != nil {
+		return gk, Tensor{}, false
+	}
+	out := len(gk.Args) - 1
+	if g.SplitK > 1 {
+		out--
+	}
+	if out < 0 || !slices.Contains(rk.Args, gk.Args[out]) {
+		return gk, Tensor{}, false
+	}
+	t := *gk.GEMM
+	t.Tail, t.TailIn = rk.Row, gk.Args[out]
+	if _, err := t.norm(); err != nil {
+		return gk, Tensor{}, false
+	}
+	count := Tensor{Name: t.Name + "_count", DType: I32, Shape: []int{1}}
+	gk.GEMM = &t
+	gk.Args = slices.Clone(gk.Args)
+	for _, a := range rk.Args {
+		if a != t.TailIn {
+			gk.Args = append(gk.Args, a)
+		}
+	}
+	gk.Args = append(gk.Args, count.Name)
+	return gk, count, true
+}
+
 // skinny reports whether a gemm over x shaped xs lowers to a
 // [SkinnyGEMM], the form whose x may be F32 and whose epilogue may pair
 // weight rows.

@@ -145,6 +145,9 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 		if z, ok := wsZero[tmp.Name]; ok && z <= len(raw) {
 			clear(raw[:z])
 		}
+		if tmp.DType == I32 && strings.HasSuffix(tmp.Name, "_count") {
+			clear(raw) // a FuseTails counter
+		}
 		bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), raw})
 	}
 	res := runEmu(t, src.String(), strings.Join(launches, ";\n    "), bufs...)
