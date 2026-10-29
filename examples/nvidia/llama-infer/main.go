@@ -67,6 +67,7 @@ var (
 	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
 	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
+	maxContextFlag    = flag.Int("max-context", 0, "KV cache length in tokens (0: the model's max_position_embeddings; more is an error)")
 	egraphPDLFlag     = flag.Bool("egraph-pdl", false, "with -egraph, launch each generated kernel as the programmatic dependent of the one before it (sm_90 and newer; ignored on older devices)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
 	egraphEmitFlag    = flag.String("egraph-emit", "", "write the e-graph kernels for -egraph-target, planned for -model's config.json, to this directory and exit; needs no GPU")
@@ -96,6 +97,9 @@ func run() (rerr error) {
 		cfg, err := LoadModelConfig(findDefaultModelPath())
 		if err != nil {
 			return err
+		}
+		if err := limitContext(cfg, *maxContextFlag); err != nil {
+			return fmt.Errorf("-max-context: %w", err)
 		}
 		prefillRows := -1
 		if !*egraphPrefillFlag || !*egraphAttnFlag {
@@ -185,6 +189,9 @@ func run() (rerr error) {
 			return err
 		}
 		defer closeInto(&rerr, ck, "close checkpoint")
+		if err := limitContext(cfg, *maxContextFlag); err != nil {
+			return fmt.Errorf("-max-context: %w", err)
+		}
 		// The tensor-parallel decoder cuts each rank's shard from the
 		// float32 host weights.
 		if *tpFlag > 0 {
@@ -196,6 +203,9 @@ func run() (rerr error) {
 		weights, cfg, err = loadWeights(effectivePath)
 		if err != nil {
 			return err
+		}
+		if err := limitContext(cfg, *maxContextFlag); err != nil {
+			return fmt.Errorf("-max-context: %w", err)
 		}
 	}
 	if effectivePath != "" {
