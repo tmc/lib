@@ -10,15 +10,12 @@ import (
 // TestTPPlansBindable checks that Llama-3-8B's sharded decode plans use
 // only the kernels tpDecoder.bindPlan launches: skinny gemms without a
 // split-K workspace and row kernels, for every TP degree and fusion.
-// TP=8 is not among them: the SwiGLU row kernel over 14336/8 = 1792
-// columns is a width the generator's row kernels do not support (above
-// 1024 they need a multiple of 512).
+// TP=8 shards because SwiGLU runs in the gate·up gemm's epilogue: as a
+// row kernel over 14336/8 = 1792 columns it would need a width the
+// generator's row kernels do not support (above 1024, a multiple of 512).
 func TestTPPlansBindable(t *testing.T) {
-	if _, err := tensorparallel.Shard(llama8B(), tensorparallel.Options{TP: 8}); err == nil {
-		t.Error("tp 8 sharded; update the comment above and test it")
-	}
 	l := llama8B()
-	for _, tp := range []int{1, 2, 4} {
+	for _, tp := range []int{1, 2, 4, 8} {
 		for _, fusion := range []tensorparallel.Fusion{tensorparallel.FuseNone, tensorparallel.FuseReduceAdd} {
 			p, err := tensorparallel.Shard(l, tensorparallel.Options{TP: tp, Fusion: fusion})
 			if err != nil {

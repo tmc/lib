@@ -54,9 +54,10 @@ func TestBuildEgraphPlans(t *testing.T) {
 		// rmsnorm row, qkv gemm.
 		{p.attnIn, 1, 0, 1},
 		{p.pf.attnIn, 0, 1, 1},
-		// cast row, o_proj+x gemm, rmsnorm row, gate_up gemm, swiglu row,
-		// down_proj+h gemm. Prefill attention writes BF16: no cast.
-		{p.post, 3, 0, 3},
+		// o_proj+x gemm reading F32 attn, rmsnorm row, gate_up gemm with
+		// the SwiGLU epilogue, down_proj+h gemm. Prefill keeps the swiglu
+		// row: its tile gemms have no paired epilogue.
+		{p.post, 3, 0, 1},
 		{p.pf.post, 0, 3, 2},
 		{p.head, 1, 0, 1},
 	}
