@@ -47,8 +47,15 @@ type DeviceProperties struct {
 }
 
 // Predefined device specifications for modern NVIDIA GPU architectures.
+//
+// Every architecture but sm_70 takes its per-SM limits -- warps, blocks,
+// shared memory, Tensor Memory and the cluster limit -- from the
+// [cudadevicetable] profile of its "a" target, which holds a probed value
+// where a device was probed and a cited datasheet value elsewhere. What is
+// written here is what that table does not hold: registers and allocation
+// granularities.
 var (
-	// Volta V100 (SM 7.0)
+	// Volta V100 (SM 7.0). cudadevicetable has no sm_70 profile.
 	SM70 = DeviceProperties{
 		Architecture:            "sm_70",
 		MaxThreadsPerBlock:      1024,
@@ -63,196 +70,44 @@ var (
 		SmemAllocationUnit:      128,
 	}
 
-	// Turing T4 / RTX 2080 (SM 7.5)
-	SM75 = DeviceProperties{
-		Architecture:            "sm_75",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           32,
-		MaxBlocksPerSM:          16,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    65536,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    65536,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-	}
-
-	// Ampere A100 (SM 8.0)
-	SM80 = DeviceProperties{
-		Architecture:            "sm_80",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           64,
-		MaxBlocksPerSM:          32,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    167936,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    166912,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-	}
-
-	// Ampere RTX 3080/3090 / A10 (SM 8.6)
-	SM86 = DeviceProperties{
-		Architecture:            "sm_86",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           48,
-		MaxBlocksPerSM:          16,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    102400,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    101376,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-	}
-
-	// Ada Lovelace RTX 4090 / L40 (SM 8.9)
-	SM89 = DeviceProperties{
-		Architecture:            "sm_89",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           48,
-		MaxBlocksPerSM:          24,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    102400,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    101376,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-	}
-
-	// Ampere Jetson Orin (SM 8.7). CUDA Programming Guide 13.x, Compute
-	// Capabilities, Tables 30 and 31: 16 blocks, 48 warps, 164 KB per SM,
-	// 163 KB per block.
-	SM87 = DeviceProperties{
-		Architecture:            "sm_87",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           48,
-		MaxBlocksPerSM:          16,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    167936,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    166912,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-	}
-
-	// Hopper H100 (SM 9.0)
-	SM90 = DeviceProperties{
-		Architecture:            "sm_90",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           64,
-		MaxBlocksPerSM:          32,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    233472,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    232448,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-		MaxClusterSize:          16,
-	}
-
-	// Blackwell GB200 (SM 10.0 / SM 10.0a)
-	SM100 = DeviceProperties{
-		Architecture:            "sm_100",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           64,
-		MaxBlocksPerSM:          32,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    233472,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    232448,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-		TMEMColumnsPerSM:        512,
-		MaxClusterSize:          16,
-	}
-
-	// Blackwell Ultra GB300 / B300 (SM 10.3 / SM 10.3a). CUDA Programming
-	// Guide 13.x, Tables 30 and 31 give 10.3 the limits of 10.0; PTX ISA,
-	// Tensor Memory, gives 512 columns. The non-portable cluster size of 16
-	// is documented for B200 and assumed unchanged.
-	SM103 = DeviceProperties{
-		Architecture:            "sm_103",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           64,
-		MaxBlocksPerSM:          32,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    233472,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    232448,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-		TMEMColumnsPerSM:        512,
-		MaxClusterSize:          16,
-	}
-
-	// Jetson Thor (SM 11.0, formerly SM 10.1). CUDA Programming Guide
-	// 13.x, Tables 30 and 31: 24 blocks, 48 warps, 228 KB per SM, 227 KB
-	// per block. sm_110a assembles tcgen05 (cudadevicetable feature probe),
-	// so TMEM is assumed to be the 512 columns of 10.x; the cluster limit
-	// is the portable 8.
-	SM110 = DeviceProperties{
-		Architecture:            "sm_110",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           48,
-		MaxBlocksPerSM:          24,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    233472,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    232448,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-		TMEMColumnsPerSM:        512,
-		MaxClusterSize:          8,
-	}
-
-	// Blackwell RTX PRO 6000 / RTX 5090 (SM 12.0). CUDA Programming Guide
-	// 13.x, Tables 30 and 31 give 12.x one set of limits; these are the
-	// probed GB10 values below, which agree with them.
-	SM120 = DeviceProperties{
-		Architecture:            "sm_120",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           48,
-		MaxBlocksPerSM:          24,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    102400,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    101376,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-		MaxClusterSize:          8,
-	}
-
-	// Blackwell GB10 (SM 12.1)
-	// Provenance: measured on physical NVIDIA GB10 hardware via cudaGetDeviceProperties /
-	// cudaDeviceGetAttribute (CUDA 13.0.85, driver 580.173.02):
-	// SMs=48, maxThreadsPerSM=1536 (48 warps/SM), regsPerSM=65536, smemPerSM=102400,
-	// smemPerBlock=49152, smemOptin=101376 (102400 - 1024 B), maxBlocksPerSM=24.
-	// Note: GB200 is a different architecture (sm_100a, 64 warps/SM, tcgen05).
-	SM121 = DeviceProperties{
-		Architecture:            "sm_121",
-		MaxThreadsPerBlock:      1024,
-		WarpSize:                32,
-		MaxWarpsPerSM:           48,
-		MaxBlocksPerSM:          24,
-		MaxRegistersPerSM:       65536,
-		MaxSharedMemoryPerSM:    102400,
-		MaxSharedMemoryPerBlock: 49152,
-		MaxSharedMemoryOptin:    101376,
-		RegAllocationUnit:       256,
-		SmemAllocationUnit:      128,
-		MaxClusterSize:          8,
-	}
+	SM75  = profileLimits("sm_75", "sm_75")    // Turing T4
+	SM80  = profileLimits("sm_80", "sm_80")    // Ampere A100
+	SM86  = profileLimits("sm_86", "sm_86")    // Ampere A10, RTX 30xx
+	SM87  = profileLimits("sm_87", "sm_87")    // Jetson Orin
+	SM89  = profileLimits("sm_89", "sm_89")    // Ada L40S, L4, RTX 40xx
+	SM90  = profileLimits("sm_90", "sm_90a")   // Hopper H100, H200
+	SM100 = profileLimits("sm_100", "sm_100a") // Blackwell B200, GB200
+	SM103 = profileLimits("sm_103", "sm_103a") // Blackwell Ultra B300, GB300
+	SM110 = profileLimits("sm_110", "sm_110a") // Jetson Thor
+	SM120 = profileLimits("sm_120", "sm_120a") // Blackwell RTX PRO 6000, RTX 5090
+	SM121 = profileLimits("sm_121", "sm_121a") // Blackwell GB10
 )
+
+// profileLimits returns the properties of arch with its per-SM limits read
+// from the cudadevicetable profile of target. Profiles of one target share
+// those limits, so the first listed product serves.
+func profileLimits(arch, target string) DeviceProperties {
+	p, err := cudadevicetable.LookupProfile(target)
+	if err != nil {
+		panic("cudaoccupancy: " + err.Error())
+	}
+	const warpSize, tmemColumnBytes = 32, 128 * 4
+	return DeviceProperties{
+		Architecture:            arch,
+		MaxThreadsPerBlock:      1024,
+		WarpSize:                warpSize,
+		MaxWarpsPerSM:           int(p.ThreadsPerSM.Value) / warpSize,
+		MaxBlocksPerSM:          int(p.BlocksPerSM.Value),
+		MaxRegistersPerSM:       65536,
+		MaxSharedMemoryPerSM:    int(p.SharedPerSM.Value),
+		MaxSharedMemoryPerBlock: int(p.SharedPerBlock.Value),
+		MaxSharedMemoryOptin:    int(p.SharedPerBlockOptin.Value),
+		RegAllocationUnit:       256,
+		SmemAllocationUnit:      128,
+		TMEMColumnsPerSM:        int(p.TMEMPerSM.Value) / tmemColumnBytes,
+		MaxClusterSize:          int(p.ClusterSizeOptin.Value),
+	}
+}
 
 // knownArchitectures maps an architecture string to its properties. A key may
 // only name the architecture its value describes: "sm_90a" reaches SM90
