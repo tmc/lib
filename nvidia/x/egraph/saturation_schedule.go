@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
+	"time"
 
 	"github.com/tmc/lib/egraphcore"
 )
@@ -69,51 +71,93 @@ func SaturateScheduleWithReport(g *EGraph, schedule *egraphcore.Schedule[*Rewrit
 		return result, nil
 	}
 	budget := egraphcore.NewWorkBudget(opts.MaxMatchWork)
+	started := time.Now()
 	var mergesTotal, factsTotal, subsumptionsTotal int
-	stopReason := SaturationStopReason(0)
+	var stopReason SaturationStopReason
+	var stopRun, stopRule, cappedRule string
 	searchStates := make(map[*Rewrite]*RewriteSearchState)
-	groupRun := func(_ string, rules []*Rewrite) (int, bool, error) {
+	applied := make(map[string]int) // committed matches by rule name
+	var stats []RuleStats
+	statIndex := make(map[[2]string]int)
+	// stat returns the statistics of rule in the run group at path, keyed
+	// by the group's name so repeated passes accumulate.
+	stat := func(path, rule string) *RuleStats {
+		run := path
+		if i := strings.LastIndex(path, "/run("); i >= 0 {
+			run = strings.TrimSuffix(path[i+len("/run("):], ")")
+		}
+		key := [2]string{run, rule}
+		i, ok := statIndex[key]
+		if !ok {
+			i = len(stats)
+			statIndex[key] = i
+			stats = append(stats, RuleStats{Run: run, Name: rule})
+		}
+		return &stats[i]
+	}
+	stop := func(reason SaturationStopReason, run, rule string) (int, bool, error) {
+		stopReason, stopRun, stopRule = reason, run, rule
+		return 0, true, nil
+	}
+	groupRun := func(run string, rules []*Rewrite) (int, bool, error) {
+		if opts.MaxDuration > 0 && time.Since(started) >= opts.MaxDuration {
+			return stop(SaturationTimeLimit, run, "")
+		}
 		_, committedNodes := g.Size()
 		if !budget.TrySpend(committedNodes) {
-			stopReason = SaturationMatchWorkLimit
-			return 0, true, nil
+			return stop(SaturationMatchWorkLimit, run, "")
 		}
 		pass := g.Clone()
 		passSearchStates := cloneRewriteSearchStates(searchStates)
+		passApplied := make([]ruleApply, len(rules))
 		merges, factChanges, subsumptions := 0, 0, 0
-		for _, rule := range rules {
+		for i, rule := range rules {
+			limit := 0
+			if n := opts.RuleMatches[rule.Name]; n > 0 {
+				limit = n - applied[rule.Name]
+				if limit <= 0 {
+					stat(run, rule.Name).Capped = true
+					if cappedRule == "" {
+						cappedRule = rule.Name
+					}
+					continue
+				}
+			}
 			searchState := passSearchStates[rule]
 			if searchState == nil {
 				searchState = &RewriteSearchState{}
 				passSearchStates[rule] = searchState
 			}
-			m, f, s, err := rule.applyWithSearchState(pass, budget, searchState, opts.MaxNodes, false)
+			ruleStarted := time.Now()
+			a, err := rule.applyWithSearchState(pass, budget, searchState, opts.MaxNodes, limit, false)
+			st := stat(run, rule.Name)
+			st.Calls++
+			st.Found += a.found
+			st.Duration += time.Since(ruleStarted)
 			if errors.Is(err, ErrMatchWorkLimit) {
-				stopReason = SaturationMatchWorkLimit
-				return 0, true, nil
+				return stop(SaturationMatchWorkLimit, run, rule.Name)
 			}
 			if errors.Is(err, egraphcore.ErrRewriteNodeLimit) {
-				stopReason = SaturationNodeLimit
-				return 0, true, nil
+				return stop(SaturationNodeLimit, run, rule.Name)
 			}
 			if err != nil {
-				return 0, true, err
+				return 0, true, fmt.Errorf("rule %q: %w", rule.Name, err)
 			}
+			m, f, s := a.merges, a.factChanges, a.subsumptions
 			if m > math.MaxInt-merges || f > math.MaxInt-factChanges || s > math.MaxInt-subsumptions {
 				return 0, true, fmt.Errorf("egraph: schedule change count overflow")
 			}
 			merges += m
 			factChanges += f
 			subsumptions += s
+			passApplied[i] = a
 		}
 		_, nodes := pass.Size()
 		if nodes > opts.MaxNodes {
-			stopReason = SaturationNodeLimit
-			return 0, true, nil
+			return stop(SaturationNodeLimit, run, "")
 		}
 		if tupleCount(pass) > opts.MaxTuples {
-			stopReason = SaturationTupleLimit
-			return 0, true, nil
+			return stop(SaturationTupleLimit, run, "")
 		}
 		if merges > math.MaxInt-factChanges || merges+factChanges > math.MaxInt-subsumptions || merges > math.MaxInt-mergesTotal || factChanges > math.MaxInt-factsTotal || subsumptions > math.MaxInt-subsumptionsTotal {
 			return 0, true, fmt.Errorf("egraph: schedule change count overflow")
@@ -123,6 +167,22 @@ func SaturateScheduleWithReport(g *EGraph, schedule *egraphcore.Schedule[*Rewrit
 		// this group again after a later group changes facts; retaining the
 		// cursors avoids rescanning the old relation contents.
 		searchStates = passSearchStates
+		for i, rule := range rules {
+			a := passApplied[i]
+			if a.found == 0 {
+				continue
+			}
+			st := stat(run, rule.Name)
+			st.Applied += a.applied
+			st.Merges += a.merges
+			applied[rule.Name] += a.applied
+			if a.applied < a.found {
+				st.Capped = true
+				if cappedRule == "" {
+					cappedRule = rule.Name
+				}
+			}
+		}
 		if merges != 0 || factChanges != 0 || subsumptions != 0 {
 			*g = *pass
 			mergesTotal += merges
@@ -143,15 +203,18 @@ func SaturateScheduleWithReport(g *EGraph, schedule *egraphcore.Schedule[*Rewrit
 		Nodes:        nodes,
 		Tuples:       tupleCount(g),
 		Phases:       scheduled.Reports,
+		Rules:        stats,
 	}
 	if err != nil {
 		return result, err
 	}
 	switch {
 	case stopReason != 0:
-		result.StopReason = stopReason
+		result.StopReason, result.StopRun, result.StopRule = stopReason, stopRun, stopRule
 	case scheduled.RunLimitReached:
 		result.StopReason = SaturationIterationLimit
+	case cappedRule != "":
+		result.StopReason, result.StopRule = SaturationRuleMatchLimit, cappedRule
 	default:
 		result.StopReason = SaturationScheduleDone
 	}
