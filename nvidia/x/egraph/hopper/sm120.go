@@ -677,6 +677,10 @@ type SM120PagedAttention struct {
 	// it needs WeightBF16.
 	Splits       int
 	MinSplitKeys int // at least this many keys per split: a multiple of 16; 0 means 64
+
+	// Q is q's dtype: F32 (the zero value) or BF16, which the kernel
+	// widens as it loads, so a BF16 q needs no cast kernel.
+	Q DType
 }
 
 func (a SM120PagedAttention) norm() (SM120PagedAttention, error) {
@@ -712,6 +716,12 @@ func (a SM120PagedAttention) norm() (SM120PagedAttention, error) {
 	}
 	if a.KVFormat == 0 {
 		a.KVFormat = WeightBF16
+	}
+	if a.Q == 0 {
+		a.Q = F32
+	}
+	if a.Q != F32 && a.Q != BF16 {
+		return a, fmt.Errorf("sm120 paged attention %s: q must be f32 or bf16, not %v", a.Name, a.Q)
 	}
 	if !validSM120Target(a.Target) && (a.KVFormat != WeightBF16 || !portableTarget.MatchString(a.Target)) {
 		return a, fmt.Errorf("sm120 paged attention %s: unsupported target %q (want sm_120a, sm_121a, or sm_120f, or with WeightBF16 KV any sm_80 or later target)", a.Name, a.Target)
@@ -795,7 +805,7 @@ func (a SM120PagedAttention) params() []string {
 		out = "float* __restrict__ ws"
 	}
 	return []string{
-		"const float* __restrict__ q",
+		"const " + a.Q.cType() + "* __restrict__ q",
 		"const uint8_t* __restrict__ k_pages",
 		"const uint8_t* __restrict__ v_pages",
 		"const uint8_t* __restrict__ k_scales",
@@ -854,8 +864,13 @@ func (a SM120PagedAttention) CUDA() (string, error) {
             for (int dp = 0; dp < DPT; ++dp) {
                 const int d = lane + dp * 32;
                 if (d < D) {
-                    q_reg[rp][dp] = q[q_base + d];
-                }
+`)
+	if a.Q == BF16 {
+		b.WriteString("                    q_reg[rp][dp] = eg_bf16_to_f32(q[q_base + d]);\n")
+	} else {
+		b.WriteString("                    q_reg[rp][dp] = q[q_base + d];\n")
+	}
+	b.WriteString(`                }
             }
         }
     }
@@ -1083,16 +1098,16 @@ func (a SM120PagedAttention) Launcher() (string, error) {
 	block := a.Block()
 	var b strings.Builder
 	if a.Splits > 0 {
-		fmt.Fprintf(&b, "inline void %s_launch(\n    int batch,\n    const float* q,\n    const uint8_t* k_pages,\n    const uint8_t* v_pages,\n    const uint8_t* k_scales,\n    const uint8_t* v_scales,\n    const int32_t* page_table,\n    float* ws,\n    float* out,\n    int seq_len,\n    cudaStream_t stream = nullptr) {\n",
-			a.Name)
+		fmt.Fprintf(&b, "inline void %s_launch(\n    int batch,\n    const %s* q,\n    const uint8_t* k_pages,\n    const uint8_t* v_pages,\n    const uint8_t* k_scales,\n    const uint8_t* v_scales,\n    const int32_t* page_table,\n    float* ws,\n    float* out,\n    int seq_len,\n    cudaStream_t stream = nullptr) {\n",
+			a.Name, a.Q.cType())
 		fmt.Fprintf(&b, "    const dim3 grid(batch, %d, %d), block(%d, %d, %d);\n", a.NumKVHeads, a.Splits, block[0], block[1], block[2])
 		fmt.Fprintf(&b, "    if (batch <= 0 || seq_len <= 0) return;\n")
 		fmt.Fprintf(&b, "    EG_LAUNCH(%s, grid, block, 0, stream, q, k_pages, v_pages, k_scales, v_scales, page_table, ws, seq_len);\n", a.Name)
 		fmt.Fprintf(&b, "    EG_LAUNCH(%s_combine, dim3(batch * %d, 1, 1), dim3(128, 1, 1), 0, stream, ws, out);\n}\n", a.Name, a.NumQHeads)
 		return b.String(), nil
 	}
-	fmt.Fprintf(&b, "inline void %s_launch(\n    int batch,\n    const float* q,\n    const uint8_t* k_pages,\n    const uint8_t* v_pages,\n    const uint8_t* k_scales,\n    const uint8_t* v_scales,\n    const int32_t* page_table,\n    float* out,\n    int seq_len,\n    cudaStream_t stream = nullptr) {\n",
-		a.Name)
+	fmt.Fprintf(&b, "inline void %s_launch(\n    int batch,\n    const %s* q,\n    const uint8_t* k_pages,\n    const uint8_t* v_pages,\n    const uint8_t* k_scales,\n    const uint8_t* v_scales,\n    const int32_t* page_table,\n    float* out,\n    int seq_len,\n    cudaStream_t stream = nullptr) {\n",
+		a.Name, a.Q.cType())
 	fmt.Fprintf(&b, "    const dim3 grid(batch, %d, 1), block(%d, %d, %d);\n", a.NumKVHeads, block[0], block[1], block[2])
 	fmt.Fprintf(&b, "    if (batch > 0 && seq_len > 0) EG_LAUNCH(%s, grid, block, 0, stream, q, k_pages, v_pages, k_scales, v_scales, page_table, out, seq_len);\n}\n", a.Name)
 	return b.String(), nil

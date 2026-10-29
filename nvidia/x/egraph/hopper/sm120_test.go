@@ -352,6 +352,25 @@ func TestSM120PagedAttention(t *testing.T) {
 			physPool: 8,
 		},
 		{
+			name: "bf16_q_split_kv_sm121a",
+			a: SM120PagedAttention{
+				Name:         "sm121a_paged_attn_q_bf16",
+				NumQHeads:    8,
+				NumKVHeads:   2,
+				HeadDim:      64,
+				PageSize:     16,
+				MaxPages:     4,
+				SeqLen:       53,
+				Target:       "sm_121a",
+				KVFormat:     WeightBF16,
+				Splits:       2,
+				MinSplitKeys: 16,
+				Q:            BF16,
+			},
+			batch:    2,
+			physPool: 8,
+		},
+		{
 			name: "nvfp4_gqa_noncontiguous_sm121a",
 			a: SM120PagedAttention{
 				Name:       "sm121a_paged_attn_nvfp4",
@@ -401,6 +420,15 @@ func TestSM120PagedAttention(t *testing.T) {
 			q := make([]float32, tt.batch*tt.a.NumQHeads*tt.a.HeadDim)
 			for i := range q {
 				q[i] = float32(rng.NormFloat64() * 0.25)
+			}
+			qBuf := cudahostemu.Buffer{Name: "q", CType: "float", Data: f32Bytes(q)}
+			if tt.a.Q == BF16 {
+				qb := make([]uint16, len(q))
+				for i := range q {
+					qb[i] = BF16Bits(q[i])
+					q[i] = FromBF16Bits(qb[i])
+				}
+				qBuf = cudahostemu.Buffer{Name: "q", CType: "uint16_t", Data: u16Bytes(qb)}
 			}
 
 			// Non-contiguous page table mapping across a larger physical page pool.
@@ -480,7 +508,7 @@ func TestSM120PagedAttention(t *testing.T) {
 
 			ws := ""
 			buffers := []cudahostemu.Buffer{
-				{Name: "q", CType: "float", Data: f32Bytes(q)},
+				qBuf,
 				{Name: "k_pages", CType: "uint8_t", Data: kPages},
 				{Name: "v_pages", CType: "uint8_t", Data: vPages},
 				{Name: "k_scales", CType: "uint8_t", Data: kScales},
