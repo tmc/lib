@@ -364,6 +364,10 @@ func Consume(root string, r Record, link *Link) (Result, error) {
 			return nil, fmt.Errorf("upstream validator receipt failed or mismatched")
 		}
 		for _, m := range p.Metrics {
+			// The arm comes from the validated capture proof, never a metric.
+			if _, ok := m["arm"]; ok {
+				return nil, fmt.Errorf("hardware metric contains reserved arm field")
+			}
 			var name, unit, class string
 			var value json.Number
 			if json.Unmarshal(m["name"], &name) != nil || name == "" || json.Unmarshal(m["unit"], &unit) != nil || unit == "" || json.Unmarshal(m["quantity_class"], &class) != nil || class != "measured" || json.Unmarshal(m["value"], &value) != nil {

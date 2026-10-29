@@ -362,3 +362,40 @@ func TestCorpusAndLinkRejectInvalidUnicode(t *testing.T) {
 		t.Fatalf("link did not reject Unicode before decoding: %v", err)
 	}
 }
+
+// A measured quantity must keep the arm whose source and capture were validated.
+func TestRejectMetricArmOverride(t *testing.T) {
+	for _, arm := range []string{"baseline", "candidate"} {
+		for _, claimed := range []any{"baseline", "candidate", nil, 0} {
+			t.Run(fmt.Sprintf("%s/%v", arm, claimed), func(t *testing.T) {
+				f := newFixture(t)
+				f.runtime(t)
+				f.mutateProof(t, arm, func(p map[string]any) {
+					metrics := p["metrics"].([]any)
+					metrics[0].(map[string]any)["arm"] = claimed
+				})
+				if _, err := Consume(f.root, f.r, &f.link); err == nil || !strings.Contains(err.Error(), "reserved arm") {
+					t.Fatalf("Consume error = %v, want reserved arm rejection", err)
+				}
+			})
+		}
+	}
+}
+
+func TestRuntimeMetricArmComesFromProof(t *testing.T) {
+	f := newFixture(t)
+	f.runtime(t)
+	r, err := Consume(f.root, f.r, &f.link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metrics := r["hardware_metrics"].([]any)
+	if len(metrics) != 2 {
+		t.Fatalf("got %d metrics, want 2", len(metrics))
+	}
+	for i, arm := range []string{"baseline", "candidate"} {
+		if got := metrics[i].(map[string]any)["arm"]; got != arm {
+			t.Fatalf("metric %d arm = %v, want %s", i, got, arm)
+		}
+	}
+}
