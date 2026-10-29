@@ -66,6 +66,7 @@ var (
 	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
 	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
+	egraphStageFlag   = flag.Bool("egraph-stage-weights", false, "with -egraph, stage QKV, gate/up and down narrow-prefill weights in shared memory")
 	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
 	egraphPDLFlag     = flag.Bool("egraph-pdl", false, "with -egraph, launch each generated kernel as the programmatic dependent of the one before it (sm_90 and newer; ignored on older devices)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
@@ -108,10 +109,11 @@ func run() (rerr error) {
 			splits = 0
 		}
 		return emitEgraph(*egraphEmitFlag, *egraphTargetFlag, cfg, egraphOptions{
-			Mega:        *egraphMegaFlag,
-			Attn:        *egraphAttnFlag,
-			PrefillRows: prefillRows,
-			AttnSplits:  splits,
+			Mega:         *egraphMegaFlag,
+			Attn:         *egraphAttnFlag,
+			PrefillRows:  prefillRows,
+			StageWeights: *egraphStageFlag,
+			AttnSplits:   splits,
 		})
 	}
 
@@ -507,12 +509,13 @@ func runGPUInference(
 			}
 		}
 		eg, err := newEgraphDecoder(dev, cfg, gpuWeights, scratch, egraphOptions{
-			Profile:     prof,
-			Mega:        *egraphMegaFlag,
-			PDL:         pdl,
-			Attn:        *egraphAttnFlag,
-			PrefillRows: prefillRows,
-			AttnSplits:  splits,
+			Profile:      prof,
+			Mega:         *egraphMegaFlag,
+			PDL:          pdl,
+			Attn:         *egraphAttnFlag,
+			PrefillRows:  prefillRows,
+			StageWeights: *egraphStageFlag,
+			AttnSplits:   splits,
 		})
 		if eg != nil {
 			defer func() {

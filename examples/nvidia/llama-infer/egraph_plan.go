@@ -66,6 +66,9 @@ type egraphOptions struct {
 	// prefills token by token, < 0 picks the cache length.
 	PrefillRows int
 
+	// StageWeights stages selected narrow-prefill weight tiles in shared memory.
+	StageWeights bool
+
 	// AttnSplits divides decode attention's keys among this many CTAs per
 	// KV head, with a combine kernel; 0 runs one CTA per KV head, and < 0
 	// picks Profile's SMs / KV heads, so the CTAs cover the SMs once.
@@ -248,7 +251,7 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 		MaxPages:      pf.cacheSlots / egraphPageSize,
 		QTokensPerSeq: pf.qtok,
 	}
-	if err := pf.planNarrow(cfg, qkvBias, opt.SMs); err != nil {
+	if err := pf.planNarrow(cfg, qkvBias, opt.SMs, opt.StageWeights); err != nil {
 		return nil, err
 	}
 	p.pf = &pf
