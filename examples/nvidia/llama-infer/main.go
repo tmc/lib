@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -58,6 +59,7 @@ var (
 	benchFlag         = flag.Bool("bench", false, "run benchstat-compatible benchmark suite")
 	benchCountFlag    = flag.Int("bench-count", 10, "number of benchmark iterations to run")
 	weightDTypeFlag   = flag.String("weight-dtype", "f32", "device storage of matrix weights: f32 or bf16 (bf16 rounds to nearest even; exact for BF16 checkpoints)")
+	warmUpFlag        = flag.Bool("warmup", true, "with -egraph and -cuda-graph, run a throwaway prefill and decode step before the prompt; Ready Time includes it")
 	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
@@ -74,6 +76,10 @@ var (
 	tpBackendFlag     = flag.String("tp-backend", "device", "with -tp, the all-reduce: device (a kernel reading every rank's buffer; all ranks on one GPU) or nccl (one GPU per rank)")
 	tpFuseFlag        = flag.Bool("tp-fuse", false, "with -tp, fuse each all-reduce into the row-parallel GEMM epilogue (red.global.add into one shared buffer; one GPU only)")
 )
+
+// processStart is when the program started, for the ready time it
+// reports before the prompt runs.
+var processStart = time.Now()
 
 func main() {
 	flag.Parse()
@@ -149,6 +155,23 @@ func run() (rerr error) {
 		return errors.New("-cuda-graph cannot be combined with -draft")
 	}
 
+	// Retain the device's context, if there is one, for 100% GPU-resident
+	// execution before loading the weights: on a GPU that shares system
+	// memory (GB10), the float32 host weights can leave so little memory
+	// free that creating the context fails with out of memory.
+	dev, devErr := cuda.NewDevice(0)
+	if devErr == nil {
+		defer func() {
+			// Work on an undrained stream may still use the context.
+			if errors.Is(rerr, errReleasesHeld) {
+				return
+			}
+			if cerr := dev.Close(); cerr != nil {
+				rerr = errors.Join(rerr, fmt.Errorf("close device: %w", cerr))
+			}
+		}()
+	}
+
 	// 2. Load or generate Model Weights
 	weights, cfg, err := loadWeights(effectivePath)
 	if err != nil {
@@ -202,18 +225,7 @@ func run() (rerr error) {
 			*swaWindowFlag, win.ActiveTokens, win.RequiredPages)
 	}
 
-	// Check if CUDA device is available for 100% GPU-resident execution
-	dev, err := cuda.NewDevice(0)
-	if err == nil {
-		defer func() {
-			// Work on an undrained stream may still use the context.
-			if errors.Is(rerr, errReleasesHeld) {
-				return
-			}
-			if cerr := dev.Close(); cerr != nil {
-				rerr = errors.Join(rerr, fmt.Errorf("close device: %w", cerr))
-			}
-		}()
+	if devErr == nil {
 		name, err := dev.Name()
 		if err != nil {
 			return fmt.Errorf("device name: %w", err)
@@ -225,7 +237,11 @@ func run() (rerr error) {
 		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
 
 		return dev.WithContext(func() error {
-			err := runGPUInference(dev, weights, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
+			// runGPUInference holds the only reference to the host
+			// weights, so it can release them once they are on the GPU.
+			w := weights
+			weights = nil
+			err := runGPUInference(dev, w, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
 			// Nsight Systems flushes its trace from a C atexit handler,
 			// which a Go exit skips; without this stop its report of the
 			// run holds no kernels.
@@ -234,12 +250,12 @@ func run() (rerr error) {
 	}
 
 	if dtype != weightF32 {
-		return fmt.Errorf("-weight-dtype %s needs a CUDA device (%v); the CPU reference runs float32 only", dtype, err)
+		return fmt.Errorf("-weight-dtype %s needs a CUDA device (%v); the CPU reference runs float32 only", dtype, devErr)
 	}
 	if *cudaGraphFlag {
-		return fmt.Errorf("-cuda-graph needs a CUDA device (%v); the CPU reference has no graph executor", err)
+		return fmt.Errorf("-cuda-graph needs a CUDA device (%v); the CPU reference has no graph executor", devErr)
 	}
-	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", err)
+	fmt.Printf("[Execution Target] CUDA device unavailable (%v). Running CPU reference executor.\n", devErr)
 	return runCPUInference(weights, cfg, tokenizer, promptTokens, tracer, profSession)
 }
 
@@ -486,15 +502,25 @@ func runGPUInference(
 			fmt.Printf("[E-Graph] programmatic dependent launch: %d generated kernels wait at entry\n", len(eg.pdl))
 		}
 		if eg.pf != nil {
+			tiles, skinny := eg.prefillGEMMs()
 			fmt.Printf("[E-Graph] prefill: %d-row chunks, %d launches per chunk then head (%d) and argmax (1); "+
-				"generated: tile gemm (mma.sync) %s, rope+kv_append (generated, direct emitter) 1 per layer, "+
-				"attention (generated, direct emitter: MTPPagedAttention, causal groups of %d rows) 1 per layer; "+
+				"generated: tile gemm (mma.sync) %s, in chunks of at most %d rows skinny mma (mma.sync) %s, "+
+				"rope+kv_append (generated, direct emitter) 1 per layer, "+
+				"attention (generated, direct emitter: MTPPagedAttention, causal groups of %d rows, %d in a skinny chunk) 1 per layer; "+
 				"hand-written, not generated: embedding gather (1 per chunk); llama-infer kernels: argmax\n",
-				eg.pf.rows, eg.pf.launches(), len(eg.head), strings.Join(eg.prefillTiles(), ", "), eg.pf.qtok)
+				eg.pf.rows, eg.pf.launches(), len(eg.head), strings.Join(tiles, ", "), eg.pf.narrow, strings.Join(skinny, ", "), eg.pf.qtok, eg.pf.narrowQTok)
 		} else {
 			fmt.Printf("[E-Graph] prefill: token by token (%s)\n", prefillOff)
 		}
 	}
+
+	// The GPU has the weights now. Drop this function's reference to the
+	// host copy, which is float32 (twice the BF16 bytes), and return its
+	// memory to the system: on a GPU that shares system memory, a prompt
+	// that runs with little free memory waits on the kernel to reclaim
+	// and compact it.
+	w = nil
+	debug.FreeOSMemory()
 
 	var dg *DecodeGraph
 	if *cudaGraphFlag {
@@ -644,6 +670,12 @@ func runGPUInference(
 		return tok, nil
 	}
 
+	if *warmUpFlag && gm.eg != nil && gm.eg.pf != nil && dg != nil {
+		if err := warmUp(gm.eg, dg, gpuWeights, cfg, scratch, sampleFn); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("Ready Time   : %v after startup\n", time.Since(processStart))
 	prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
 	if err != nil {
 		return err

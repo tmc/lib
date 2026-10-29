@@ -29,11 +29,13 @@ func TestBuildEgraphPlans(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	count := func(p *hopper.Plan) (skinny, tile, row int) {
+	count := func(p *hopper.Plan) (skinny, tile, mma, row int) {
 		for _, k := range p.Kernels {
 			switch {
 			case k.GEMM != nil:
 				skinny++
+			case k.MMA != nil:
+				mma++
 			case k.Tile != nil:
 				tile++
 				if k.Tile.WGMMA {
@@ -48,24 +50,29 @@ func TestBuildEgraphPlans(t *testing.T) {
 		return
 	}
 	tests := []struct {
-		plan              *hopper.Plan
-		skinny, tile, row int
+		plan                   *hopper.Plan
+		skinny, tile, mma, row int
 	}{
 		// rmsnorm row, qkv gemm.
-		{p.attnIn, 1, 0, 1},
-		{p.pf.attnIn, 0, 1, 1},
+		{p.attnIn, 1, 0, 0, 1},
+		{p.pf.attnIn, 0, 1, 0, 1},
+		{p.pf.narrowIn, 0, 0, 1, 1},
 		// cast row, o_proj+x gemm, rmsnorm row, gate_up gemm, swiglu row,
 		// down_proj+h gemm. Prefill attention writes BF16: no cast.
-		{p.post, 3, 0, 3},
-		{p.pf.post, 0, 3, 2},
-		{p.head, 1, 0, 1},
+		{p.post, 3, 0, 0, 3},
+		{p.pf.post, 0, 3, 0, 2},
+		{p.pf.narrowPost, 0, 0, 3, 2},
+		{p.head, 1, 0, 0, 1},
 	}
 	for _, tt := range tests {
-		skinny, tile, row := count(tt.plan)
-		if skinny != tt.skinny || tile != tt.tile || row != tt.row {
-			t.Errorf("%s: %d skinny gemms, %d tile gemms, %d row kernels; want %d, %d, %d",
-				tt.plan.Name, skinny, tile, row, tt.skinny, tt.tile, tt.row)
+		skinny, tile, mma, row := count(tt.plan)
+		if skinny != tt.skinny || tile != tt.tile || mma != tt.mma || row != tt.row {
+			t.Errorf("%s: %d skinny gemms, %d tile gemms, %d skinny mmas, %d row kernels; want %d, %d, %d, %d",
+				tt.plan.Name, skinny, tile, mma, row, tt.skinny, tt.tile, tt.mma, tt.row)
 		}
+	}
+	if p.pf.narrow != 32 {
+		t.Errorf("narrow prefill chunks = %d rows, want 32", p.pf.narrow)
 	}
 	for _, pl := range []*hopper.Plan{p.pf.attnIn, p.pf.post} {
 		for _, k := range pl.Kernels {

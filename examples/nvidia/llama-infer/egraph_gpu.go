@@ -39,6 +39,11 @@ func (l egraphLaunch) withRows(n int) egraphLaunch {
 	switch {
 	case k == nil || k.GEMM != nil:
 		return l
+	case k.MMA != nil:
+		// The grid covers MaxM rows whatever the count.
+		l.args = slices.Clone(l.args)
+		l.args[0] = int32(n)
+		return l
 	case k.Tile != nil:
 		grid, block = k.Tile.Grid(n, 1)
 	case k.Row != nil:
@@ -121,6 +126,11 @@ type egraphDecoder struct {
 	// pfWS is the Stream-K workspace the prefill tile gemms share, when
 	// any of them uses Stream-K.
 	pfWS cudamem.Slice[float32]
+	// mmaWS holds a workspace for each split-K skinny mma, at mmaOff[name]
+	// floats. Every layer's launch of a kernel shares its workspace: they
+	// run one after another, and each leaves the counters zero.
+	mmaWS  cudamem.Slice[float32]
+	mmaOff map[string]int
 }
 
 func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, opt egraphOptions) (eg *egraphDecoder, err error) {
@@ -129,6 +139,11 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 	}
 	if (opt.PrefillRows != 0 || opt.AttnSplits != 0) && !opt.Attn {
 		return nil, errors.New("e-graph prefill and attention splits need generated attention")
+	}
+	if opt.SMs == 0 {
+		if opt.SMs, err = dev.Attribute(driver.DevAttrMultiprocessorCount); err != nil {
+			return nil, fmt.Errorf("read SM count: %w", err)
+		}
 	}
 	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
 	plans, err := buildEgraphPlans(cfg, bias, opt)
@@ -146,6 +161,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		tempPtr: make(map[string]driver.DevicePtr),
 		posKind: make(map[driver.Function]string),
 		posArgs: make(map[driver.Function][]egraphPosArg),
+		mmaOff:  make(map[string]int),
 	}
 	defer func() {
 		if err != nil {
@@ -312,9 +328,10 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
 		groups := (pl.rows + pl.qtok - 1) / pl.qtok
 		// Every chunk but the last fills its groups, so the prompt needs
-		// at most one partial group per chunk beyond MaxSeqLen/qtok.
-		maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows
-		eg.pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, gather: eg.fns[embedGatherName]}
+		// at most one partial group per chunk beyond MaxSeqLen/qtok, and
+		// a narrow last chunk at most its narrowQTok-row groups.
+		maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows + (pl.narrow+pl.narrowQTok-1)/pl.narrowQTok
+		eg.pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, narrow: pl.narrow, narrowQTok: pl.narrowQTok, gather: eg.fns[embedGatherName]}
 		if eg.pf.tokens, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); err != nil {
 			return nil, fmt.Errorf("alloc prefill tokens: %w", err)
 		}
@@ -344,6 +361,23 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		}
 		if eg.pf.attnOut, err = cudamem.Alloc[uint16](dev, groups*pl.qtok*qDim); err != nil {
 			return nil, fmt.Errorf("alloc prefill attention: %w", err)
+		}
+		n := 0
+		for _, p := range []*hopper.Plan{pl.narrowIn, pl.narrowPost} {
+			for _, k := range p.Kernels {
+				if k.MMA != nil && k.MMA.WorkspaceBytes() > 0 {
+					eg.mmaOff[k.MMA.Name] = n
+					n += k.MMA.WorkspaceBytes() / 4
+				}
+			}
+		}
+		if n > 0 {
+			if eg.mmaWS, err = cudamem.Alloc[float32](dev, n); err != nil {
+				return nil, fmt.Errorf("alloc prefill skinny mma workspace: %w", err)
+			}
+			if err := eg.mmaWS.CopyFromHost(make([]float32, n)); err != nil {
+				return nil, fmt.Errorf("zero prefill skinny mma workspace: %w", err)
+			}
 		}
 		if n := prefillWorkspaceFloats(pl); n > 0 {
 			if eg.pfWS, err = cudamem.Alloc[float32](dev, n); err != nil {
@@ -487,7 +521,7 @@ func (eg *egraphDecoder) decodePlans() []*hopper.Plan {
 func (eg *egraphDecoder) planList() []*hopper.Plan {
 	ps := eg.decodePlans()
 	if pf := eg.plans.pf; pf != nil {
-		ps = append(ps, pf.attnIn, pf.post)
+		ps = append(ps, pf.attnIn, pf.post, pf.narrowIn, pf.narrowPost)
 	}
 	return ps
 }
@@ -499,6 +533,8 @@ func kernelName(k hopper.PlanKernel) (string, error) {
 		return fmt.Sprintf("%s<%d>", k.GEMM.Name, k.M), nil
 	case k.Tile != nil:
 		return k.Tile.Name, nil
+	case k.MMA != nil:
+		return k.MMA.Name, nil
 	case k.Row != nil:
 		return k.Row.Name, nil
 	case k.UMMA != nil:
@@ -538,6 +574,8 @@ func (eg *egraphDecoder) source() (string, []string, error) {
 				cu, err = k.GEMM.CUDA()
 			case k.Tile != nil:
 				cu, err = k.Tile.CUDA()
+			case k.MMA != nil:
+				cu, err = k.MMA.CUDA()
 			case k.UMMA != nil:
 				cu, err = k.UMMA.CUDA()
 			case k.Quant != nil:
@@ -570,7 +608,7 @@ func (eg *egraphDecoder) source() (string, []string, error) {
 	if pf := eg.plans.pf; pf != nil {
 		for _, k := range []interface {
 			CUDA() (string, error)
-		}{pf.rope, pf.attn} {
+		}{pf.rope, pf.attn, pf.narrowAttn} {
 			cu, err := k.CUDA()
 			if err != nil {
 				return "", nil, fmt.Errorf("emit prefill attention: %w", err)
@@ -578,7 +616,7 @@ func (eg *egraphDecoder) source() (string, []string, error) {
 			src.WriteString("\n" + cu + "\n")
 		}
 		src.WriteString("\n" + embedGatherCUDA + "\n")
-		names = append(names, pf.rope.Name, pf.attn.Name, embedGatherName)
+		names = append(names, pf.rope.Name, pf.attn.Name, pf.narrowAttn.Name, embedGatherName)
 	}
 	return src.String(), names, nil
 }
@@ -693,6 +731,12 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 			grid, block = k.Tile.Grid(k.M, 1)
 			l.smem = uint32(k.Tile.SharedBytes())
 			l.args = append(l.args, int32(k.M))
+		case k.MMA != nil:
+			if grid, block, err = k.MMA.Grid(); err != nil {
+				return nil, fmt.Errorf("%s: %w", name, err)
+			}
+			l.smem = uint32(k.MMA.SharedBytes())
+			l.args = append(l.args, int32(k.M))
 		default:
 			grid, block = k.Row.Grid(k.Rows)
 			l.args = append(l.args, int32(k.Rows))
@@ -712,6 +756,13 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 				return nil, fmt.Errorf("%s: no Stream-K workspace", name)
 			}
 			l.args = append(l.args, eg.pfWS.Ptr())
+		}
+		if k.MMA != nil && k.MMA.WorkspaceBytes() > 0 {
+			off, ok := eg.mmaOff[name]
+			if !ok {
+				return nil, fmt.Errorf("%s: no split-K workspace", name)
+			}
+			l.args = append(l.args, eg.mmaWS.Ptr()+driver.DevicePtr(4*off))
 		}
 		out = append(out, l)
 	}
@@ -758,6 +809,7 @@ func (eg *egraphDecoder) Close() error {
 	if eg.pf != nil {
 		errs = append(errs, eg.pf.free(), freeOwned(&eg.pfWS))
 	}
+	errs = append(errs, freeOwned(&eg.mmaWS))
 	for p, r := range eg.ready {
 		errs = append(errs, freeOwned(&r))
 		delete(eg.ready, p)

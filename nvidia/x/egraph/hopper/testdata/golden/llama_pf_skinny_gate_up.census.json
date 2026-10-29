@@ -1,0 +1,15 @@
+{
+  "source_sha256": "d9db91a3c03a37caf99080b38c118b5333074c0b4bffe42d90f00d8c3ebfa6f6",
+  "kernels": {
+    "_Z23llama_pf_skinny_gate_upiPKtS0_Pt": {
+      "loads": {
+        "nc.L1::no_allocate.v4.u32": 8,
+        "nc.v4.u32": 7
+      },
+      "stores": {
+        "u32": 4
+      },
+      "late_loads": 7
+    }
+  }
+}

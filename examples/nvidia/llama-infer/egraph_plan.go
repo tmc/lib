@@ -57,6 +57,10 @@ type egraphOptions struct {
 	// KV head, with a combine kernel; 0 runs one CTA per KV head, and < 0
 	// picks Profile's SMs / KV heads, so the CTAs cover the SMs once.
 	AttnSplits int
+
+	// SMs is the device's multiprocessor count, which the prefill skinny
+	// mmas split K to fill; 0 means hopper's default.
+	SMs int
 }
 
 // egraphPageSize is the attention page size. The cache is contiguous: page
@@ -80,19 +84,29 @@ func (p *egraphPlans) ops() (generated, fallback []string) {
 
 // egraphPrefillPlans are the plans of a batched prefill over up to rows
 // prompt tokens. With more than 16 rows the generator lowers every
-// projection to an mma.sync [hopper.TileGEMM]. The rotary kernel indexes
+// projection to an mma.sync [hopper.TileGEMM]. A chunk of at most narrow
+// rows runs narrowIn and narrowPost instead, whose projections are
+// [hopper.SkinnyMMA]s: with so few rows a projection costs what streaming
+// its weights costs, and a skinny mma streams them as the decode GEMV
+// does, where a 64-row tile gemm does not. The rotary kernel indexes
 // the cache through the attention page table, so it writes each token's
 // row without pointer offsets. Attention is one
 // [hopper.MTPPagedAttention] launch per chunk: each CTA serves qtok
 // consecutive rows of one KV head, attending the cache before its first
-// row and, causally, its own rows.
+// row and, causally, its own rows. A narrow chunk's attention, narrowAttn,
+// serves narrowQTok rows per CTA.
 type egraphPrefillPlans struct {
 	rows       int
 	attnIn     *hopper.Plan
 	post       *hopper.Plan
+	narrow     int
+	narrowIn   *hopper.Plan
+	narrowPost *hopper.Plan
 	rope       hopper.QKNormRoPEKVAppend
 	attn       hopper.MTPPagedAttention
 	qtok       int
+	narrowAttn hopper.MTPPagedAttention
+	narrowQTok int
 	cacheSlots int // KV cache rows, MaxSeqLen padded for a last partial group
 }
 
@@ -214,6 +228,9 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 		PageSize:      egraphPageSize,
 		MaxPages:      pf.cacheSlots / egraphPageSize,
 		QTokensPerSeq: pf.qtok,
+	}
+	if err := pf.planNarrow(cfg, qkvBias, opt.SMs); err != nil {
+		return nil, err
 	}
 	p.pf = &pf
 	return &p, nil

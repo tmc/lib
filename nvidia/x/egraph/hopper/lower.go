@@ -18,11 +18,12 @@ type Plan struct {
 	Kernels []PlanKernel
 }
 
-// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, UMMA,
-// Quant, Row, Attention, TopK, Align and ExpertSum is set.
+// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, MMA,
+// UMMA, Quant, Row, Attention, TopK, Align and ExpertSum is set.
 type PlanKernel struct {
 	GEMM      *SkinnyGEMM
 	Tile      *TileGEMM
+	MMA       *SkinnyMMA
 	UMMA      *UMMAGEMM
 	Quant     *NVFP4Quant
 	Row       *RowKernel
@@ -30,7 +31,7 @@ type PlanKernel struct {
 	TopK      *RowTopK
 	Align     *ExpertAlign
 	ExpertSum *ExpertSum
-	M         int      // GEMM, Tile, UMMA, Quant: rows of x
+	M         int      // GEMM, Tile, MMA, UMMA, Quant: rows of x
 	MaxRows   int      // Grouped Tile: max rows per expert
 	Experts   int      // Grouped Tile: local expert count
 	Batch     int      // Attention: batch size
@@ -756,7 +757,8 @@ func shapeOf(e *egraph.Expr) ([]int, error) {
 //
 //	void Name_run(<inputs...>, <temps...>, <output>, cudaStream_t stream)
 //
-// that launches them in order. Split-K GEMMs are not used by plans.
+// that launches them in order. Split-K GEMMs are not used by plans, and
+// a split-K [SkinnyMMA] is an error.
 func (p *Plan) Source() (string, error) {
 	var b strings.Builder
 	b.WriteString(Prelude)
@@ -771,6 +773,13 @@ func (p *Plan) Source() (string, error) {
 		case k.Tile != nil:
 			if src, err = k.Tile.CUDA(); err == nil {
 				l, err = k.Tile.Launcher()
+			}
+		case k.MMA != nil:
+			if k.MMA.WorkspaceBytes() > 0 {
+				return "", fmt.Errorf("plan %s: %s splits K and needs a workspace", p.Name, k.MMA.Name)
+			}
+			if src, err = k.MMA.CUDA(); err == nil {
+				l, err = k.MMA.Launcher()
 			}
 		case k.UMMA != nil:
 			if src, err = k.UMMA.CUDA(); err == nil {
@@ -824,6 +833,8 @@ func (p *Plan) Source() (string, error) {
 			} else {
 				fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Tile.Name, k.M, strings.Join(k.Args, ", "))
 			}
+		case k.MMA != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.MMA.Name, k.M, strings.Join(k.Args, ", "))
 		case k.UMMA != nil:
 			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.UMMA.Name, k.M, strings.Join(k.Args, ", "))
 		case k.Quant != nil:

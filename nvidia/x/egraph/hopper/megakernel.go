@@ -90,6 +90,8 @@ func (p *Plan) Megakernel(name string) (Megakernel, error) {
 		switch {
 		case pk.Attention != nil:
 			return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: paged attention stage not supported", name, i)
+		case pk.MMA != nil:
+			return Megakernel{}, fmt.Errorf("megakernel %s: stage %d: skinny mma stage not supported", name, i)
 
 		case pk.GEMM != nil:
 			g := *pk.GEMM
