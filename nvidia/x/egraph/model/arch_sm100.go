@@ -149,7 +149,7 @@ func SM100ACostCeiling(dev string) cudaroofline.Ceiling {
 		Residency:         cudaroofline.DeviceResident,
 		Device:            dev,
 		PeakTFLOPS:        90.0,
-		PeakMemoryGBps:    8000.0,
+		PeakMemoryGBps:    targetMemoryGBps(ArchTargetSpec{ComputeMajor: 10, ComputeMinor: 0}),
 		ComputeProvenance: cudaroofline.Unverified,
 		MemoryProvenance:  cudaroofline.Unverified,
 	}

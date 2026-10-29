@@ -41,3 +41,9 @@ func TestClassifyHasTMA(t *testing.T) {
 		}
 	}
 }
+
+func TestSM100ACostCeilingBandwidth(t *testing.T) {
+	if got := SM100ACostCeiling("NVIDIA B200").PeakMemoryGBps; got != 8000 {
+		t.Errorf("SM100ACostCeiling PeakMemoryGBps = %v, want 8000", got)
+	}
+}
