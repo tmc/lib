@@ -278,10 +278,14 @@ func TestCollectiveSchedule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	q, err := cudacollective.NewClique(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	tr := cudacollective.NewDeterministicTestTransport(tp)
 	var comms []*cudacollective.Communicator
 	for r := range tp {
-		c, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: r, Membership: m, Generation: 1, Transport: tr})
+		c, err := cudacollective.NewCommunicator(cudacollective.CommunicatorConfig{Rank: r, Clique: q, Generation: 1, Transport: tr})
 		if err != nil {
 			t.Fatal(err)
 		}
