@@ -3,6 +3,7 @@ package tcgen05
 import (
 	"fmt"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudatmem"
 )
 
@@ -279,9 +280,20 @@ func allocColumns(cols int) uint32 {
 	return n
 }
 
-// maxDynamicShared is the largest dynamic shared memory a CTA may opt into
-// on sm_100a, sm_103a and sm_107a.
-const maxDynamicShared = 227 * 1024
+// maxDynamicShared is the dynamic shared memory limit used by these schedules.
+// TestMaxDynamicSharedAgreesWithProfiles checks the sm_100a and sm_103a
+// profiles. Targets without a profile retain the same planning limit.
+var maxDynamicShared = int(mustProfile("sm_100a").SharedPerBlockOptin.Value)
+
+// mustProfile returns the cudadevicetable profile named name. The table is
+// embedded, so a miss is a programming error, not a runtime condition.
+func mustProfile(name string) cudadevicetable.Profile {
+	p, err := cudadevicetable.LookupProfile(name)
+	if err != nil {
+		panic("tcgen05: " + err.Error())
+	}
+	return p
+}
 
 // tmTrace builds the cudatmem events of a single-CTA kernel that allocates
 // one TMEM range from warp 0.

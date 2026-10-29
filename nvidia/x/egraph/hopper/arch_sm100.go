@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudatmem"
 	"github.com/tmc/lib/nvidia/x/egraph/model"
 )
@@ -59,13 +60,17 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 		base, err = CompileLayer(baseCfg, opts.BatchM, seqLen, "NVIDIA GB10")
 		if err == nil {
 			base.Device = dev
+			prof, err := cudadevicetable.LookupProfile("sm_100a")
+			if err != nil {
+				return nil, err
+			}
 			ceil := model.SM100ACostCeiling(dev)
 			sm100Cost := CostConfig{
 				Device:       dev,
 				Residency:    ceil.Residency,
 				Ceiling:      ceil,
 				TensorTFLOPS: 2250.0,
-				SMs:          148,
+				SMs:          int(prof.SMs.Value),
 				LaunchNs:     2000.0,
 				MaxKeys:      seqLen,
 			}

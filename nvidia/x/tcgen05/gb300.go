@@ -31,7 +31,7 @@ func DefaultGB300Spec() GB300Spec {
 		FamilyTarget:           "sm_100f",
 		HBMBytes:               288 * gib,
 		RackHBMBytes:           72 * 288 * gib,
-		HBMBandwidthGBps:       8000,
+		HBMBandwidthGBps:       float64(mustProfile("GB300").MemoryGBps.Value),
 		DenseFP4TFLOPS:         15000,
 		DenseFP8TFLOPS:         5000,
 		AttentionSFUMultiplier: 2.0,
