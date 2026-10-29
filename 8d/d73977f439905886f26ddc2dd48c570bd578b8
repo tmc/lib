@@ -1,0 +1,11 @@
+commit: 8dd73977f439905886f26ddc2dd48c570bd578b8
+date: 2026-10-29T08:56:42.609362+00:00
+agent: Codex
+version: codex-cli 0.165.0
+model: exact runtime model not exposed
+tty: noninteractive tool command
+pid: 70850 (commit-note helper), parent 70847
+ITERM_SESSION_ID: w2t1p3:5A13F225-0BE7-4762-AF12-D906D7813F28
+claude-code version: not applicable
+review: 912f6a045f76a5c50ec72c7306da7e73433f4f2bce08f971b9efa3d1c66362c9
+scope: CPU source/model accuracy only, no native or latency claim
