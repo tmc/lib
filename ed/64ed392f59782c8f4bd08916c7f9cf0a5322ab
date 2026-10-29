@@ -1,0 +1,13 @@
+commit: ed64ed392f59782c8f4bd08916c7f9cf0a5322ab
+date: 2026-10-29T07:19:50.439112+00:00
+agent: Codex
+version: codex-cli 0.165.0
+model: exact runtime model not exposed
+tty: noninteractive tool command
+pid: 32185 (commit-note helper)
+ITERM_SESSION_ID: w2t1p3:5A13F225-0BE7-4762-AF12-D906D7813F28
+claude-code version: not applicable
+compiler: CUDA 13.4.92 ARM64, sm_90a PTX
+compiler sha256: 6b76d931c20f4a26448332d5a53d96e5f7c1ccb5a7e77fa2d5a0e3db9c368d0a
+PTX sha256: b77409eeea37ad524ee26766b8d3f855c42a9552b055b69fb828fe3ae28bca56, 05a0e052456d6db21074c8b49ac16fe92c886ffbf9520cecd6b971e2862d29ca
+proof: methods/top20-20261028/root-integration/census-local-20261029T0623Z; static census only
