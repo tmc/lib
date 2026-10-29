@@ -15,10 +15,14 @@
 // weights. [Eval] is their CPU reference. [Optimize] saturates them with
 // [Rules] and [FuseEpilogues] (maps folded into a GEMM's epilogue) and
 // extracts by [Cost]; [Compile] lowers the result to a [Plan] of
-// [SkinnyGEMM], [TileGEMM] and [RowKernel] launches. For wide rows, setting
-// [RowKernel.Cluster] emits an 8-CTA distributed shared memory reduction
-// schedule with a matching single-block wide schedule for large batches, and
-// [SourceTVMFFI] emits TVM-FFI host wrapper headers for load_jit.
+// [SkinnyGEMM], [TileGEMM] and [RowKernel] launches. A skinny gemm reads a
+// cast of an F32 input itself ([SkinnyGEMM.X]) and applies SwiGLU in its
+// epilogue ([SkinnyGEMM.GLU]), and [Plan.FuseTails] runs a single-CTA row
+// kernel that follows it, such as a decode RMSNorm, in its last block.
+// For wide rows, setting [RowKernel.Cluster] emits an 8-CTA distributed
+// shared memory reduction schedule with a matching single-block wide
+// schedule for large batches, and [SourceTVMFFI] emits TVM-FFI host
+// wrapper headers for load_jit.
 //
 // [CompileFor] lowers for a named GPU. On targets with tcgen05 ([UMMATarget]:
 // sm_100a, sm_103a and sm_110a, as probed in cudadevicetable) BF16 and
