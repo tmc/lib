@@ -111,13 +111,14 @@ func TestEgraphPlansTarget(t *testing.T) {
 		target  string
 		splits  int // llama3_8B has 8 KV heads
 		bm      int
+		stages  int
 		maxSmem int
 	}{
-		{"sm_121a", 6, 64, 99 << 10},
-		{"sm_103a", 20, 128, 227 << 10},
-		{"sm_100a", 18, 128, 227 << 10},
-		{"sm_90a", 16, 128, 227 << 10},
-		{"sm_120a", 23, 64, 99 << 10},
+		{"sm_121a", 6, 128, 2, 99 << 10},
+		{"sm_103a", 20, 128, 3, 227 << 10},
+		{"sm_100a", 18, 128, 3, 227 << 10},
+		{"sm_90a", 16, 128, 3, 227 << 10},
+		{"sm_120a", 23, 128, 2, 99 << 10},
 	}
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
@@ -136,8 +137,9 @@ func TestEgraphPlansTarget(t *testing.T) {
 					if k.Tile == nil {
 						continue
 					}
-					if k.Tile.BM != tt.bm || k.Tile.SharedBytes() > tt.maxSmem {
-						t.Errorf("%s: BM %d, %d bytes of shared memory; want BM %d within %d", k.Tile.Name, k.Tile.BM, k.Tile.SharedBytes(), tt.bm, tt.maxSmem)
+					if k.Tile.BM != tt.bm || k.Tile.Stages != tt.stages || k.Tile.SharedBytes() > tt.maxSmem {
+						t.Errorf("%s: BM %d, %d stages, %d bytes of shared memory; want BM %d, %d stages within %d",
+							k.Tile.Name, k.Tile.BM, k.Tile.Stages, k.Tile.SharedBytes(), tt.bm, tt.stages, tt.maxSmem)
 					}
 				}
 			}

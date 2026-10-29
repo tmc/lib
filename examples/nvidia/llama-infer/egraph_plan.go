@@ -256,9 +256,14 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 }
 
 // prefillTiles are the prefill tile heights and pipeline depths, in order
-// of preference. Stages 3 is [hopper.TileGEMM]'s default.
+// of preference. Stages 3 is [hopper.TileGEMM]'s default. A 128-row tile
+// at 2 stages comes before a 64-row one at 3: on GB10, whose 99 KB of
+// shared memory per block holds no 3-stage 128-row tile, it cuts Llama-3-8B
+// prefill by a third (128 to 1980 tokens), reading the weights once per
+// 128 rows instead of per 64, with twice the mma per ldmatrix.
 var prefillTiles = []struct{ bm, stages int }{
 	{128, 3},
+	{128, 2},
 	{64, 3},
 	{64, 2},
 }
