@@ -24,6 +24,11 @@ const ummaHelpers = `#ifndef EG_UMMA_HELPERS
 #include "umma.h"
 typedef eg_emu_tensor_map eg_tmap;
 #define EG_TMAP const eg_tmap
+#elif defined(__CUDACC_RTC__)
+// NVRTC has no cuda.h. The host encodes the maps with the driver and
+// passes their 128 bytes by value.
+struct alignas(64) eg_tmap { unsigned long long opaque[16]; };
+#define EG_TMAP const __grid_constant__ eg_tmap
 #else
 #include <cuda.h>
 typedef CUtensorMap eg_tmap;
@@ -214,6 +219,7 @@ EG_DEV uint32_t eg_umma_e2m1(float f) {
     return c | (f < 0.0f && c != 0u ? 8u : 0u);
 }
 
+#if !defined(__CUDACC_RTC__)
 // eg_umma_tmap_2d encodes a 2D tensor map over a row-major [outer, inner]
 // tensor of elem_bytes elements (BF16 for 2, bytes for 1), rows stride
 // bytes apart, read in boxes of box_inner by box_outer elements.
@@ -240,6 +246,7 @@ static inline eg_tmap eg_umma_tmap_2d(const void* base, int elem_bytes, uint64_t
     return m;
 #endif
 }
+#endif // !__CUDACC_RTC__
 #endif // EG_UMMA_HELPERS
 `
 
@@ -276,7 +283,8 @@ static inline eg_tmap eg_umma_tmap_2d(const void* base, int elem_bytes, uint64_t
 // N must be a multiple of 128 (decode form) or BN (prefill form), and K a
 // multiple of 64 (BF16) or 256 (NVFP4). The launcher encodes its tensor maps
 // on every call with cuTensorMapEncodeTiled, through the runtime's driver
-// entry point.
+// entry point; a caller that launches the kernel itself can encode them
+// once per buffer from [UMMAGEMM.TensorMaps].
 type UMMAGEMM struct {
 	Name     string
 	N, K     int
@@ -403,8 +411,14 @@ func (g UMMAGEMM) tmemCols() int {
 	return n
 }
 
-// SharedBytes returns the dynamic shared memory one CTA uses.
+// SharedBytes returns the dynamic shared memory one CTA uses, with Stages 0
+// meaning the default.
 func (g UMMAGEMM) SharedBytes() int {
+	if g.Stages == 0 {
+		if n, err := g.norm(); err == nil {
+			g = n
+		}
+	}
 	return g.fixedShared() + g.Stages*g.stageBytes()
 }
 
@@ -422,7 +436,11 @@ func (g UMMAGEMM) Grid(m int) (grid, block [3]int) {
 	if g.MaxM > 0 {
 		return [3]int{g.N / 128, 1, 1}, [3]int{128, 1, 1}
 	}
-	return [3]int{g.N / g.BN, (m + 127) / 128, 1}, [3]int{128, 1, 1}
+	bn := g.BN
+	if bn == 0 {
+		bn = 128
+	}
+	return [3]int{g.N / bn, (m + 127) / 128, 1}, [3]int{128, 1, 1}
 }
 
 func (g UMMAGEMM) params() []string {
@@ -691,6 +709,61 @@ func (g UMMAGEMM) Launcher() (string, error) {
 	return b.String(), nil
 }
 
+// A TensorMap2D is one 2D tiled tensor map an [UMMAGEMM] kernel takes, as
+// its launcher encodes it with cuTensorMapEncodeTiled: a row-major [Outer,
+// Inner] tensor of ElemBytes-byte elements (2 for BF16, 1 for bytes) whose
+// rows are Stride bytes apart, read in boxes of BoxInner by BoxOuter
+// elements, rows past Outer reading as zeros. Operand is the index of the
+// tensor in the launcher's operands (x, w for BF16; xq, xsf, w, w_sf, w_gs
+// for NVFP4), which are a [PlanKernel]'s first Args.
+type TensorMap2D struct {
+	Operand            int
+	ElemBytes          int
+	Inner, Outer       uint64
+	Stride             uint64
+	BoxInner, BoxOuter uint32
+	Swizzle128         bool
+}
+
+// TensorMaps returns the tensor maps g's kernel takes for m rows, in
+// parameter order. The kernel's parameters are m, these maps, then the
+// launcher's operands after the last one a map covers (w_gs for NVFP4),
+// the extras and out.
+func (g UMMAGEMM) TensorMaps(m int) ([]TensorMap2D, error) {
+	g, err := g.norm()
+	if err != nil {
+		return nil, err
+	}
+	if m <= 0 || g.MaxM > 0 && m > g.MaxM {
+		return nil, fmt.Errorf("umma gemm %s: %d rows outside 1..%d", g.Name, m, max(g.MaxM, m))
+	}
+	k, n := uint64(g.K), uint64(g.N)
+	aRows, bRows := uint64(m), n
+	aBox, bBox := uint32(128), uint32(g.nq())
+	if g.Weight == WeightNVFP4 {
+		a, b, sa, sb := 0, 2, 1, 3 // xq, w, xsf, w_sf
+		if g.MaxM > 0 {
+			a, b, sa, sb = 2, 0, 3, 1
+			aRows, bRows = n, uint64(m)
+		}
+		return []TensorMap2D{
+			{a, 1, k / 2, aRows, k / 2, 128, aBox, true},
+			{b, 1, k / 2, bRows, k / 2, 128, bBox, true},
+			{sa, 1, k / 16, aRows, k / 16, 16, aBox, false},
+			{sb, 1, k / 16, bRows, k / 16, 16, bBox, false},
+		}, nil
+	}
+	a, b := 0, 1 // x, w
+	if g.MaxM > 0 {
+		a, b = 1, 0
+		aRows, bRows = n, uint64(m)
+	}
+	return []TensorMap2D{
+		{a, 2, k, aRows, 2 * k, 64, aBox, true},
+		{b, 2, k, bRows, 2 * k, 64, bBox, true},
+	}, nil
+}
+
 // Source returns [Prelude], the kernel and its launcher.
 func (g UMMAGEMM) Source() (string, error) {
 	src, err := g.CUDA()
@@ -752,6 +825,12 @@ __global__ void __launch_bounds__(256) %s(int m_total, const uint16_t* __restric
 }
 `, q.Name, q.Name, q.K/16)
 	return b.String(), nil
+}
+
+// Grid returns the launch dimensions for m rows: a thread per 16-element
+// block.
+func (q NVFP4Quant) Grid(m int) (grid, block [3]int) {
+	return [3]int{(m*q.K/16 + 255) / 256, 1, 1}, [3]int{256, 1, 1}
 }
 
 // Launcher returns a host function

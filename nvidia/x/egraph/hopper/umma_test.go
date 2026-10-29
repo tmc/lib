@@ -1,9 +1,11 @@
 package hopper
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"testing"
 
@@ -241,6 +243,113 @@ func TestUMMAGEMMEmulatedMutations(t *testing.T) {
 			t.Errorf("mutation %q went undetected", tt.name)
 		})
 	}
+}
+
+// TestUMMAGEMMTensorMapsEmulated launches each kernel twice, once through
+// its launcher and once directly with the maps TensorMaps describes, as a
+// caller that encodes them once per buffer would, and checks that the two
+// outputs agree bit for bit. A mutated map must not.
+func TestUMMAGEMMTensorMapsEmulated(t *testing.T) {
+	tests := []struct {
+		name string
+		g    UMMAGEMM
+		m    int
+	}{
+		{"decode bf16", UMMAGEMM{N: 256, K: 192, Weight: WeightBF16, Out: F32, MaxM: 3}, 3},
+		{"prefill bf16", UMMAGEMM{N: 128, K: 128, Weight: WeightBF16, Out: BF16, BN: 64, Stages: 2}, 130},
+		{"decode nvfp4", UMMAGEMM{N: 128, K: 512, Weight: WeightNVFP4, Out: F32, MaxM: 2}, 2},
+		{"prefill nvfp4", UMMAGEMM{N: 128, K: 256, Weight: WeightNVFP4, Out: F32, Stages: 2}, 129},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := tt.g
+			g.Name = fmt.Sprintf("umma_tm_%d", i)
+			g, err := g.norm()
+			if err != nil {
+				t.Fatal(err)
+			}
+			m, n, k := tt.m, g.N, g.K
+			r := rand.New(rand.NewPCG(uint64(i), 11))
+			src, err := g.Source()
+			if err != nil {
+				t.Fatal(err)
+			}
+			src = strings.TrimPrefix(src, Prelude)
+			maps, err := g.TensorMaps(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var bufs []emuBuf
+			var operands []string
+			if g.Weight == WeightNVFP4 {
+				w := randNVFP4(r, n, k)
+				bufs = []emuBuf{
+					{"xq", "uint8_t", randBytes(r, m*k/2)},
+					{"xsf", "uint8_t", e4m3Bytes(r, m*k/16)},
+					{"w", "uint8_t", w.Packed},
+					{"w_sf", "uint8_t", w.Scales},
+					{"w_gs", "float", f32Bytes([]float32{w.GlobalScal})},
+				}
+				operands = []string{"xq", "xsf", "w", "w_sf", "w_gs"}
+			} else {
+				bufs = []emuBuf{{"x", "uint16_t", u16Bytes(randBF16(r, m*k, 1))}, {"w", "uint16_t", u16Bytes(randBF16(r, n*k, 1))}}
+				operands = []string{"x", "w"}
+			}
+			outBytes := 4 * m * n
+			if g.Out == BF16 {
+				outBytes = 2 * m * n
+			}
+			ctype := g.Out.cType()
+			bufs = append(bufs, emuBuf{"out", ctype, make([]byte, outBytes)}, emuBuf{"direct", ctype, make([]byte, outBytes)})
+			direct := func(maps []TensorMap2D) string {
+				var b strings.Builder
+				args := []string{fmt.Sprint(m)}
+				last := 0
+				for j, tm := range maps {
+					fmt.Fprintf(&b, "const eg_tmap t%d = eg_umma_tmap_2d(%s, %d, %d, %d, %d, %d, %d, %v);\n",
+						j, operands[tm.Operand], tm.ElemBytes, tm.Inner, tm.Outer, tm.Stride, tm.BoxInner, tm.BoxOuter, tm.Swizzle128)
+					args = append(args, fmt.Sprintf("t%d", j))
+					last = max(last, tm.Operand)
+				}
+				args = append(append(args, operands[last+1:]...), "direct")
+				grid, block := g.Grid(m)
+				fmt.Fprintf(&b, "eg_emu_launch(dim3(%d, %d, %d), dim3(%d), %d, %s, %s)",
+					grid[0], grid[1], grid[2], block[0], g.SharedBytes(), g.Name, strings.Join(args, ", "))
+				return b.String()
+			}
+			launch := fmt.Sprintf("%s_launch(%d, %s, out, 0); %s", g.Name, m, strings.Join(operands, ", "), direct(maps))
+			res := runEmu(t, src, launch, bufs...)
+			if !bytes.Equal(res["out"], res["direct"]) {
+				t.Fatalf("direct launch with TensorMaps differs from the launcher's")
+			}
+			// A map over the wrong rows must change the result.
+			bad := slices.Clone(maps)
+			bad[0].Stride *= 2
+			bad[0].Outer /= 2
+			res = runEmu(t, src, launch[:strings.Index(launch, ";")+1]+" "+direct(bad), bufs...)
+			if bytes.Equal(res["out"], res["direct"]) {
+				t.Fatalf("mutated map went undetected")
+			}
+			t.Logf("EMULATED: %s m=%d: %d maps from TensorMaps match the launcher's", g.Name, m, len(maps))
+		})
+	}
+}
+
+func randBytes(r *rand.Rand, n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(r.Uint32())
+	}
+	return b
+}
+
+// e4m3Bytes returns n finite positive E4M3 scales near 1.
+func e4m3Bytes(r *rand.Rand, n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = E4M3Bits(float32(0.5 + r.Float64()))
+	}
+	return b
 }
 
 // TestCompileForUMMA lowers a decoder-style projection, RMSNorm then a gemm

@@ -8,9 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/nvrtc"
 	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudasass"
 	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+	"github.com/tmc/lib/nvidia/x/nvrtcx"
 	"github.com/tmc/lib/nvidia/x/ptxasinfo"
 )
 
@@ -133,6 +135,65 @@ func TestEgraphPlansTCGen05Compiled(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// TestEgraphSourceNVRTCTCGen05 compiles the source the e-graph decoder hands
+// NVRTC at run time, with its tcgen05 plans, for sm_100a and sm_103a (no GPU
+// needed), and checks that every UMMAGEMM kernel's SASS issues tcgen05
+// MMAs, TMA loads, commits and TMEM loads. Without NVRTC it skips.
+func TestEgraphSourceNVRTCTCGen05(t *testing.T) {
+	if err := nvrtc.Load(""); err != nil {
+		t.Skipf("no NVRTC: %v", err)
+	}
+	for _, target := range []string{"sm_100a", "sm_103a"} {
+		t.Run(target, func(t *testing.T) {
+			p, err := buildEgraphPlans(&llama3_8B, false, egraphOptions{Attn: true, PrefillRows: -1, Profile: targetProfile(t, target)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			eg := &egraphDecoder{plans: p, megas: make(map[*hopper.Plan]hopper.Megakernel)}
+			src, names, err := eg.source()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cm, err := nvrtcx.Compile(src,
+				nvrtcx.WithName("llama_egraph.cu"),
+				nvrtcx.WithPhysicalArchTarget(target),
+				nvrtcx.WithStandard("c++20"),
+				nvrtcx.WithNameExpressions(names...))
+			if err != nil {
+				t.Fatalf("nvrtc: %v", releaseErrorOwner(err))
+			}
+			d, err := cudasass.DisassembleCUBIN(cm.CUBIN())
+			if err != nil {
+				t.Skipf("no SASS disassembler: %v", err)
+			}
+			n := 0
+			for _, pl := range eg.planList() {
+				for _, k := range pl.Kernels {
+					if k.UMMA == nil {
+						continue
+					}
+					var fn *cudasass.Function
+					for _, f := range d.Functions {
+						if strings.Contains(f.Name, k.UMMA.Name+"i7eg_tmap") {
+							fn = f
+						}
+					}
+					if fn == nil {
+						t.Errorf("no SASS for %s", k.UMMA.Name)
+						continue
+					}
+					s := cudasass.SummarizeSM100Function(*fn)
+					if s.UTMMA == 0 || s.UTMALDG == 0 || s.UTMACMDFLUSH == 0 || s.LDTM == 0 {
+						t.Errorf("%s: SASS lacks tcgen05 MMA, TMA, commit or TMEM load: %+v", k.UMMA.Name, s)
+					}
+					n++
+				}
+			}
+			t.Logf("COMPILED (NVRTC) %s: %d kernels, %d UMMAGEMMs with tcgen05 MMA, TMA, commit and TMEM load", target, len(names), n)
+		})
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudalaunch"
 	"github.com/tmc/lib/nvidia/x/cudamem"
@@ -30,9 +31,9 @@ type egraphLaunch struct {
 	kern        *hopper.PlanKernel // the plan kernel, for row-count changes
 }
 
-// withRows returns l over the first n rows of its plan's M: a tile gemm or
-// row kernel takes the row count as its first argument and sizes its grid
-// by it.
+// withRows returns l over the first n rows of its plan's M: a tile, tcgen05
+// or quantize kernel, or a row kernel, takes the row count as its first
+// argument and sizes its grid by it.
 func (l egraphLaunch) withRows(n int) egraphLaunch {
 	k := l.kern
 	var grid, block [3]int
@@ -48,6 +49,12 @@ func (l egraphLaunch) withRows(n int) egraphLaunch {
 		grid, block = k.Tile.Grid(n, 1)
 	case k.Row != nil:
 		grid, block = k.Row.Grid(n)
+	case k.UMMA != nil:
+		// The tensor maps cover the plan's M rows; the kernel stores
+		// only the first n.
+		grid, block = k.UMMA.Grid(n)
+	case k.Quant != nil:
+		grid, block = k.Quant.Grid(n)
 	}
 	l.args = slices.Clone(l.args)
 	l.args[0] = int32(n)
@@ -100,6 +107,7 @@ type egraphDecoder struct {
 	qkv, x2 cudamem.Slice[float32]
 	temps32 map[string]cudamem.Slice[float32] // by name
 	temps16 map[string]cudamem.Slice[uint16]
+	temps8  map[string]cudamem.Slice[uint8] // NVFP4 activations and scales
 	tempPtr map[string]driver.DevicePtr
 
 	attnIn, post [][]egraphLaunch // per layer
@@ -130,6 +138,40 @@ type egraphDecoder struct {
 	// run one after another, and each leaves the counters zero.
 	mmaWS  cudamem.Slice[float32]
 	mmaOff map[string]int
+
+	// tmaps are the tensor maps of the tcgen05 gemms ([hopper.UMMAGEMM]),
+	// encoded by encode (nil means [encodeTensorMap]) once per buffer and
+	// shape when the launches are bound. Each launch passes its maps by
+	// pointer, so cuLaunchKernel copies them into the parameter space.
+	tmaps  map[egraphTensorMap]*driver.TensorMap
+	encode func(hopper.TensorMap2D, driver.DevicePtr) (*driver.TensorMap, error)
+}
+
+// An egraphTensorMap is a tensor map's shape and the buffer it covers.
+type egraphTensorMap struct {
+	hopper.TensorMap2D // Operand zero
+	base               driver.DevicePtr
+}
+
+// egraphBuffers are the device buffers the decode step's launches read and
+// write, other than the plans' temporaries.
+type egraphBuffers struct {
+	x, x2        driver.DevicePtr // the residual stream, alternating by layer
+	qkv          driver.DevicePtr
+	attnOut      driver.DevicePtr
+	norm, lmHead driver.DevicePtr
+	logits       driver.DevicePtr
+	layers       []egraphLayerBuffers
+
+	// With generated attention: q in F32 and BF16, the rotary cos|sin
+	// table, the rotary page table {0}, seqlens {1}, the attention page
+	// table, and the split attention workspace (0 without splits).
+	q, qbf, cs, ropePage, seqLen1, pages, ws driver.DevicePtr
+}
+
+type egraphLayerBuffers struct {
+	attnNorm, wqkv, bqkv, wo, ffnNorm, wgu, wdown driver.DevicePtr // bqkv 0 without biases
+	k, v                                          driver.DevicePtr // with generated attention: the BF16 cache
 }
 
 func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, opt egraphOptions) (eg *egraphDecoder, err error) {
@@ -149,6 +191,13 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 			return nil, fmt.Errorf("read SM count: %w", err)
 		}
 	}
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		return nil, fmt.Errorf("read compute capability: %w", err)
+	}
+	if err := checkEgraphTarget(fmt.Sprintf("sm_%d%da", major, minor), opt.Profile); err != nil {
+		return nil, err
+	}
 	bias := len(gpuW.Layers) > 0 && gpuW.Layers[0].QBias.Len() > 0
 	plans, err := buildEgraphPlans(cfg, bias, opt)
 	if err != nil {
@@ -162,10 +211,12 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 		ready:   make(map[*hopper.Plan]cudamem.Slice[uint64]),
 		temps32: make(map[string]cudamem.Slice[float32]),
 		temps16: make(map[string]cudamem.Slice[uint16]),
+		temps8:  make(map[string]cudamem.Slice[uint8]),
 		tempPtr: make(map[string]driver.DevicePtr),
 		posKind: make(map[driver.Function]string),
 		posArgs: make(map[driver.Function][]egraphPosArg),
 		mmaOff:  make(map[string]int),
+		tmaps:   make(map[egraphTensorMap]*driver.TensorMap),
 	}
 	defer func() {
 		if err != nil {
@@ -234,52 +285,17 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 					return nil, fmt.Errorf("alloc %s: %w", t.Name, err)
 				}
 				eg.tempPtr[t.Name] = eg.temps16[t.Name].Ptr()
+			case hopper.U8:
+				if eg.temps8[t.Name], err = cudamem.Alloc[uint8](dev, n); err != nil {
+					return nil, fmt.Errorf("alloc %s: %w", t.Name, err)
+				}
+				eg.tempPtr[t.Name] = eg.temps8[t.Name].Ptr()
 			default:
 				return nil, fmt.Errorf("temporary %s has dtype %v", t.Name, t.DType)
 			}
 		}
 	}
 
-	// The residual stream alternates between sp.X and x2, one layer each.
-	cur, next := sp.X, eg.x2
-	for i := range gpuW.Layers {
-		lw := &gpuW.Layers[i]
-		bufs := map[string]driver.DevicePtr{
-			"x":                      cur.Ptr(),
-			"attn_norm":              lw.InputNorm.Ptr(),
-			"w_qkv":                  lw.WQKV.Ptr(),
-			plans.attnIn.Output.Name: eg.qkv.Ptr(),
-			"attn":                   sp.AttnOut.Ptr(),
-			"w_o":                    lw.WO.Ptr(),
-			"ffn_norm":               lw.PostNorm.Ptr(),
-			"w_gu":                   lw.WGateUp.Ptr(),
-			"w_down":                 lw.WDown.Ptr(),
-			plans.post.Output.Name:   next.Ptr(),
-		}
-		if bias {
-			bufs["b_qkv"] = eg.bqkv[i].Ptr()
-		}
-		in, err := eg.bind(plans.attnIn, bufs)
-		if err != nil {
-			return nil, err
-		}
-		post, err := eg.bind(plans.post, bufs)
-		if err != nil {
-			return nil, err
-		}
-		eg.attnIn = append(eg.attnIn, in)
-		eg.post = append(eg.post, post)
-		cur, next = next, cur
-	}
-	eg.head, err = eg.bind(plans.head, map[string]driver.DevicePtr{
-		"x":                    cur.Ptr(),
-		"norm":                 gpuW.Norm.Ptr(),
-		"lm_head":              gpuW.LMHead.Ptr(),
-		plans.head.Output.Name: sp.Logits.Ptr(),
-	})
-	if err != nil {
-		return nil, err
-	}
 	if opt.Attn {
 		hd := cfg.HeadDim()
 		slots := cfg.MaxSeqLen
@@ -317,9 +333,32 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 				return nil, fmt.Errorf("alloc attention workspace: %w", err)
 			}
 		}
-		if err := eg.bindAttention(cfg, sp); err != nil {
+		if err := eg.uploadAttention(cfg); err != nil {
 			return nil, err
 		}
+	}
+	b := egraphBuffers{
+		x: sp.X.Ptr(), x2: eg.x2.Ptr(), qkv: eg.qkv.Ptr(), attnOut: sp.AttnOut.Ptr(),
+		norm: gpuW.Norm.Ptr(), lmHead: gpuW.LMHead.Ptr(), logits: sp.Logits.Ptr(),
+		q: sp.Q.Ptr(), qbf: eg.qbf.Ptr(), cs: eg.cs.Ptr(), ropePage: eg.ropePage.Ptr(),
+		seqLen1: eg.seqLen1.Ptr(), pages: eg.pages.Ptr(), ws: eg.ws.Ptr(),
+	}
+	for i := range gpuW.Layers {
+		lw := &gpuW.Layers[i]
+		lb := egraphLayerBuffers{
+			attnNorm: lw.InputNorm.Ptr(), wqkv: lw.WQKV.Ptr(), wo: lw.WO.Ptr(),
+			ffnNorm: lw.PostNorm.Ptr(), wgu: lw.WGateUp.Ptr(), wdown: lw.WDown.Ptr(),
+		}
+		if bias {
+			lb.bqkv = eg.bqkv[i].Ptr()
+		}
+		if opt.Attn {
+			lb.k, lb.v = eg.kc[i].Ptr(), eg.vc[i].Ptr()
+		}
+		b.layers = append(b.layers, lb)
+	}
+	if err := eg.bindDecode(cfg, b); err != nil {
+		return nil, err
 	}
 	if pl := plans.pf; pl != nil {
 		h := cfg.HiddenSize
@@ -393,11 +432,10 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 	return eg, nil
 }
 
-// bindAttention fills the BF16 KV cache with zeros and the tables the
-// emitted rotary and attention kernels read, and binds their launches.
-func (eg *egraphDecoder) bindAttention(cfg *ModelConfig, sp *GPUScratchpad) error {
+// uploadAttention fills the BF16 KV cache with zeros and uploads the tables
+// the emitted rotary and attention kernels read.
+func (eg *egraphDecoder) uploadAttention(cfg *ModelConfig) error {
 	hd := cfg.HeadDim()
-	kvDim := cfg.NumKeyValueHeads * hd
 	maxSeq := cfg.MaxSeqLen
 	// Prefill attention loads, and masks, cache rows past a chunk's last
 	// token; a NaN there would still poison the output (0·NaN), so start
@@ -439,52 +477,109 @@ func (eg *egraphDecoder) bindAttention(cfg *ModelConfig, sp *GPUScratchpad) erro
 			return fmt.Errorf("upload attention tables: %w", err)
 		}
 	}
+	return nil
+}
+
+// bindDecode binds the decode step's launches to b: every layer's plans,
+// the head and, with generated attention, the rotary, attention and q cast
+// launches.
+func (eg *egraphDecoder) bindDecode(cfg *ModelConfig, b egraphBuffers) error {
+	plans := eg.plans
+	// The residual stream alternates between b.x and b.x2, one layer each.
+	cur, next := b.x, b.x2
+	for _, lb := range b.layers {
+		bufs := map[string]driver.DevicePtr{
+			"x":                      cur,
+			"attn_norm":              lb.attnNorm,
+			"w_qkv":                  lb.wqkv,
+			plans.attnIn.Output.Name: b.qkv,
+			"attn":                   b.attnOut,
+			"w_o":                    lb.wo,
+			"ffn_norm":               lb.ffnNorm,
+			"w_gu":                   lb.wgu,
+			"w_down":                 lb.wdown,
+			plans.post.Output.Name:   next,
+		}
+		if lb.bqkv != 0 {
+			bufs["b_qkv"] = lb.bqkv
+		}
+		in, err := eg.bind(plans.attnIn, bufs)
+		if err != nil {
+			return err
+		}
+		post, err := eg.bind(plans.post, bufs)
+		if err != nil {
+			return err
+		}
+		eg.attnIn = append(eg.attnIn, in)
+		eg.post = append(eg.post, post)
+		cur, next = next, cur
+	}
 	var err error
-	if eg.qcast, err = eg.bind(eg.plans.qcast, map[string]driver.DevicePtr{
-		"q":                        eg.qbf.Ptr(),
-		eg.plans.qcast.Output.Name: sp.Q.Ptr(),
+	eg.head, err = eg.bind(plans.head, map[string]driver.DevicePtr{
+		"x":                    cur,
+		"norm":                 b.norm,
+		"lm_head":              b.lmHead,
+		plans.head.Output.Name: b.logits,
+	})
+	if err != nil || !plans.attn {
+		return err
+	}
+
+	hd := cfg.HeadDim()
+	kvDim := cfg.NumKeyValueHeads * hd
+	if eg.qcast, err = eg.bind(plans.qcast, map[string]driver.DevicePtr{
+		"q":                     b.qbf,
+		plans.qcast.Output.Name: b.q,
 	}); err != nil {
 		return err
 	}
 
-	ropeFn, sdpaFn := eg.fns[eg.plans.rope.Name], eg.fns[eg.plans.sdpa.Name]
+	ropeFn, sdpaFn := eg.fns[plans.rope.Name], eg.fns[plans.sdpa.Name]
 	row := driver.DevicePtr(2 * kvDim)
 	eg.posKind[ropeFn], eg.posKind[sdpaFn] = "rope_kv", "attn"
 	eg.posArgs[ropeFn] = []egraphPosArg{{idx: 1, stride: driver.DevicePtr(4 * hd)}, {idx: 8, stride: row}, {idx: 9, stride: row}}
 	eg.posArgs[sdpaFn] = []egraphPosArg{{idx: 7}}
-	for i := range cfg.NumHiddenLayers {
+	for _, lb := range b.layers {
 		// qkv, cos_sin_table, positions, seq_ids, seqlens, kv_positions,
 		// page_table, q_out, k_cache, v_cache
 		eg.rope = append(eg.rope, egraphLaunch{
 			fn: ropeFn, grid: [3]uint32{1, 1, 1}, block: [3]uint32{128, 1, 1}, epoch: -1,
-			args: []any{eg.qkv.Ptr(), eg.cs.Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), eg.seqLen1.Ptr(), driver.DevicePtr(0),
-				eg.ropePage.Ptr(), eg.qbf.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
+			args: []any{b.qkv, b.cs, driver.DevicePtr(0), driver.DevicePtr(0), b.seqLen1, driver.DevicePtr(0),
+				b.ropePage, b.qbf, lb.k, lb.v},
 			pos: eg.posArgs[ropeFn],
 		})
 		// q, k_pages, v_pages, k_scales, v_scales, page_table, out (ws
 		// with splits), seq_len
-		g := eg.plans.sdpa.Grid(1)
-		b := eg.plans.sdpa.Block()
-		out := sp.AttnOut.Ptr()
-		if eg.ws.Len() > 0 {
-			out = eg.ws.Ptr()
+		g := plans.sdpa.Grid(1)
+		blk := plans.sdpa.Block()
+		out := b.attnOut
+		if b.ws != 0 {
+			out = b.ws
 		}
 		eg.sdpa = append(eg.sdpa, egraphLaunch{
-			fn: sdpaFn, grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(b[0]), uint32(b[1]), uint32(b[2])}, epoch: -1,
-			args: []any{sp.Q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), driver.DevicePtr(0), driver.DevicePtr(0), eg.pages.Ptr(), out, int32(1)},
+			fn: sdpaFn, grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(blk[0]), uint32(blk[1]), uint32(blk[2])}, epoch: -1,
+			args: []any{b.q, lb.k, lb.v, driver.DevicePtr(0), driver.DevicePtr(0), b.pages, out, int32(1)},
 			pos:  eg.posArgs[sdpaFn],
 		})
 	}
-	if eg.ws.Len() > 0 {
+	if b.ws != 0 {
 		// ws, out
-		g, b := eg.plans.sdpa.CombineGrid(1)
+		g, blk := plans.sdpa.CombineGrid(1)
 		eg.combine = []egraphLaunch{{
-			fn: eg.fns[eg.plans.sdpa.Name+"_combine"], epoch: -1,
-			grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(b[0]), uint32(b[1]), uint32(b[2])},
-			args: []any{eg.ws.Ptr(), sp.AttnOut.Ptr()},
+			fn: eg.fns[plans.sdpa.Name+"_combine"], epoch: -1,
+			grid: [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}, block: [3]uint32{uint32(blk[0]), uint32(blk[1]), uint32(blk[2])},
+			args: []any{b.ws, b.attnOut},
 		}}
 	}
 	return nil
+}
+
+// layerLaunches returns layer i's generated launches in order, with
+// generated attention: the QKV projection, rotary and cache store, q cast,
+// attention and its combine, and the rest of the layer.
+func (eg *egraphDecoder) layerLaunches(i int) []egraphLaunch {
+	return slices.Concat(eg.attnIn[i], eg.rope[i:i+1], eg.qcast, eg.sdpa[i:i+1], eg.combine, eg.post[i])
 }
 
 // positionArgs reports how a DecodeGraph must update a node running fn
@@ -709,6 +804,7 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 		}
 		l := egraphLaunch{fn: eg.fns[name], epoch: -1, kern: k}
 		var grid, block [3]int
+		args := k.Args
 		switch {
 		case k.GEMM != nil:
 			if grid, block, err = k.GEMM.Grid(); err != nil {
@@ -724,6 +820,32 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 			}
 			l.smem = uint32(k.MMA.SharedBytes())
 			l.args = append(l.args, int32(k.M))
+		case k.UMMA != nil:
+			// m, the operands' tensor maps, then the other buffers.
+			grid, block = k.UMMA.Grid(k.M)
+			l.smem = uint32(k.UMMA.SharedBytes())
+			l.args = append(l.args, int32(k.M))
+			maps, err := k.UMMA.TensorMaps(k.M)
+			if err != nil {
+				return nil, err
+			}
+			last := -1
+			for _, tm := range maps {
+				ptr, err := lookup(name, k.Args[tm.Operand])
+				if err != nil {
+					return nil, err
+				}
+				m, err := eg.tensorMap(tm, ptr)
+				if err != nil {
+					return nil, fmt.Errorf("%s: %w", name, err)
+				}
+				l.args = append(l.args, m)
+				last = max(last, tm.Operand)
+			}
+			args = k.Args[last+1:]
+		case k.Quant != nil:
+			grid, block = k.Quant.Grid(k.M)
+			l.args = append(l.args, int32(k.M))
 		default:
 			grid, block = k.Row.Grid(k.Rows)
 			l.args = append(l.args, int32(k.Rows))
@@ -731,7 +853,7 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 		for i := range 3 {
 			l.grid[i], l.block[i] = uint32(grid[i]), uint32(block[i])
 		}
-		for _, a := range k.Args {
+		for _, a := range args {
 			ptr, err := lookup(name, a)
 			if err != nil {
 				return nil, err
@@ -756,6 +878,63 @@ func (eg *egraphDecoder) bind(p *hopper.Plan, bufs map[string]driver.DevicePtr) 
 	return out, nil
 }
 
+// tensorMap returns the tensor map tm over base, encoding it on first use.
+func (eg *egraphDecoder) tensorMap(tm hopper.TensorMap2D, base driver.DevicePtr) (*driver.TensorMap, error) {
+	tm.Operand = 0
+	key := egraphTensorMap{tm, base}
+	if m, ok := eg.tmaps[key]; ok {
+		return m, nil
+	}
+	encode := eg.encode
+	if encode == nil {
+		encode = encodeTensorMap
+	}
+	m, err := encode(tm, base)
+	if err != nil {
+		return nil, err
+	}
+	if eg.tmaps == nil {
+		eg.tmaps = make(map[egraphTensorMap]*driver.TensorMap)
+	}
+	eg.tmaps[key] = m
+	return m, nil
+}
+
+// encodeTensorMap encodes tm over base with cuTensorMapEncodeTiled, as
+// [hopper.UMMAGEMM]'s launcher does.
+func encodeTensorMap(tm hopper.TensorMap2D, base driver.DevicePtr) (*driver.TensorMap, error) {
+	dt := driver.TensorMapDataTypeUint8
+	if tm.ElemBytes == 2 {
+		dt = driver.TensorMapDataTypeBfloat16
+	}
+	sw := driver.TensorMapSwizzleNone
+	if tm.Swizzle128 {
+		sw = driver.TensorMapSwizzle128B
+	}
+	dims := [2]uint64{tm.Inner, tm.Outer}
+	strides := [1]uint64{tm.Stride}
+	box := [2]uint32{tm.BoxInner, tm.BoxOuter}
+	elems := [2]uint32{1, 1}
+	m := driver.NewTensorMap()
+	if err := driver.TensorMapEncodeTiled(m, dt, 2, base, &dims[0], &strides[0], &box[0], &elems[0],
+		driver.TensorMapInterleaveNone, sw, driver.TensorMapL2PromotionL2256B, driver.TensorMapFloatOobFillNone); err != nil {
+		return nil, fmt.Errorf("encode tensor map: %w", err)
+	}
+	return m, nil
+}
+
+// checkEgraphTarget reports whether plans for p can run on a device whose
+// target is dev: NVRTC compiles them for the device, so p must name it.
+func checkEgraphTarget(dev string, p cudadevicetable.Profile) error {
+	if p.Target == dev {
+		return nil
+	}
+	if hopper.UMMATarget(p.Target) && !hopper.UMMATarget(dev) {
+		return fmt.Errorf("e-graph target %s (%s) lowers its gemms to tcgen05, which this %s device lacks; use -egraph-emit to compile for it", p.Target, p.Product, dev)
+	}
+	return fmt.Errorf("e-graph target %s (%s) is not this device's %s", p.Target, p.Product, dev)
+}
+
 // Kernels returns the number of generated launches per decode step.
 func (eg *egraphDecoder) Kernels() int {
 	n := len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
@@ -778,6 +957,10 @@ func (eg *egraphDecoder) Close() error {
 	for name, s := range eg.temps16 {
 		errs = append(errs, freeOwned(&s))
 		delete(eg.temps16, name)
+	}
+	for name, s := range eg.temps8 {
+		errs = append(errs, freeOwned(&s))
+		delete(eg.temps8, name)
 	}
 	for i := range eg.kc {
 		errs = append(errs, freeOwned(&eg.kc[i]))
@@ -855,26 +1038,14 @@ func (eg *egraphDecoder) emitStep(
 		if err != nil {
 			return err
 		}
-		if err := launch(eg.attnIn[i]); err != nil {
-			return err
-		}
 		if eg.plans.attn {
-			if err := launch([]egraphLaunch{eg.rope[i]}); err != nil {
-				return err
-			}
-			if err := launch(eg.qcast); err != nil {
-				return err
-			}
-			if err := launch([]egraphLaunch{eg.sdpa[i]}); err != nil {
-				return err
-			}
-			if err := launch(eg.combine); err != nil {
-				return err
-			}
-			if err := launch(eg.post[i]); err != nil {
+			if err := launch(eg.layerLaunches(i)); err != nil {
 				return err
 			}
 			continue
+		}
+		if err := launch(eg.attnIn[i]); err != nil {
+			return err
 		}
 		if cfg.RoPEScaling.hasLlama3Params() {
 			rs := cfg.RoPEScaling
