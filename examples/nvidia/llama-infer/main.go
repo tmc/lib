@@ -16,7 +16,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -156,9 +155,7 @@ func run() (rerr error) {
 	}
 
 	// Retain the device's context, if there is one, for 100% GPU-resident
-	// execution before loading the weights: on a GPU that shares system
-	// memory (GB10), the float32 host weights can leave so little memory
-	// free that creating the context fails with out of memory.
+	// execution. Whether there is one decides how the weights load.
 	dev, devErr := cuda.NewDevice(0)
 	if devErr == nil {
 		defer func() {
@@ -172,10 +169,33 @@ func run() (rerr error) {
 		}()
 	}
 
-	// 2. Load or generate Model Weights
-	weights, cfg, err := loadWeights(effectivePath)
-	if err != nil {
-		return err
+	// 2. Load or generate Model Weights. The GPU path streams them from
+	// the checkpoint to the device as it uploads them; only the CPU
+	// reference reads them all into host memory, as float32.
+	var (
+		weights *ModelWeights
+		ck      checkpoint
+		tied    bool
+		cfg     *ModelConfig
+	)
+	if devErr == nil {
+		ck, cfg, tied, err = openCheckpoint(effectivePath)
+		if err != nil {
+			return err
+		}
+		defer closeInto(&rerr, ck, "close checkpoint")
+		// The tensor-parallel decoder cuts each rank's shard from the
+		// float32 host weights.
+		if *tpFlag > 0 {
+			if weights, _, err = loadWeights(effectivePath); err != nil {
+				return err
+			}
+		}
+	} else {
+		weights, cfg, err = loadWeights(effectivePath)
+		if err != nil {
+			return err
+		}
 	}
 	if effectivePath != "" {
 		fmt.Printf("[Model Loader] Loaded real weights from %s (layers: %d, hidden: %d)\n",
@@ -237,11 +257,7 @@ func run() (rerr error) {
 		fmt.Printf("[Execution Target] Running 100%% GPU-Resident on %s (sm_%d%d)\n", name, major, minor)
 
 		return dev.WithContext(func() error {
-			// runGPUInference holds the only reference to the host
-			// weights, so it can release them once they are on the GPU.
-			w := weights
-			weights = nil
-			err := runGPUInference(dev, w, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)
+			err := runGPUInference(dev, ck, weights, cfg, tied, tokenizer, promptTokens, major, minor, tracer, profSession)
 			// Nsight Systems flushes its trace from a C atexit handler,
 			// which a Go exit skips; without this stop its report of the
 			// run holds no kernels.
@@ -261,8 +277,10 @@ func run() (rerr error) {
 
 func runGPUInference(
 	dev *cuda.Device,
+	ck checkpoint,
 	w *ModelWeights,
 	cfg *ModelConfig,
+	tied bool,
 	tokenizer Tokenizer,
 	promptTokens []int32,
 	major, minor int,
@@ -341,9 +359,9 @@ func runGPUInference(
 	if err != nil {
 		return err
 	}
-	// uploadModel can return the weights it could not free along with its
+	// streamModel can return the weights it could not free along with its
 	// error; release them on every path.
-	gpuWeights, err := uploadModel(dev, w, cfg, dtype)
+	gpuWeights, err := streamModel(dev, ck, cfg, tied, dtype)
 	if gpuWeights != nil {
 		defer func() {
 			if td.held() {
@@ -473,7 +491,7 @@ func runGPUInference(
 				pdl = false
 			}
 		}
-		eg, err := newEgraphDecoder(dev, w, cfg, gpuWeights, scratch, egraphOptions{
+		eg, err := newEgraphDecoder(dev, cfg, gpuWeights, scratch, egraphOptions{
 			Profile:     prof,
 			Mega:        *egraphMegaFlag,
 			PDL:         pdl,
@@ -513,14 +531,6 @@ func runGPUInference(
 			fmt.Printf("[E-Graph] prefill: token by token (%s)\n", prefillOff)
 		}
 	}
-
-	// The GPU has the weights now. Drop this function's reference to the
-	// host copy, which is float32 (twice the BF16 bytes), and return its
-	// memory to the system: on a GPU that shares system memory, a prompt
-	// that runs with little free memory waits on the kernel to reclaim
-	// and compact it.
-	w = nil
-	debug.FreeOSMemory()
 
 	var dg *DecodeGraph
 	if *cudaGraphFlag {

@@ -713,6 +713,11 @@ var deviceClosures = []struct {
 		[]string{"uploadWeight(dev, %[1]s, %[2]s)", "cudamem.Alloc[float32](dev, %[1]s)"},
 	},
 	{
+		"weights_stream.go", "streamModel",
+		"streamModelWith(ck, cfg, tied, dtype, make([]byte, streamChunk), (func(n int, dtype weightDType) (deviceWeight, error) literal), (func(n int) (cudamem.Slice[float32], error) literal), writeDevice, freeOwned[cudamem.Slice[float32]])",
+		[]string{"allocWeight(dev, %[1]s, %[2]s)", "cudamem.Alloc[float32](dev, %[1]s)"},
+	},
+	{
 		"gpu_model.go", "NewGPUScratchpad",
 		"newGPUScratchpadWith(cfg, (func(n int) (cudamem.Slice[float32], error) literal), (func(n int) (cudamem.Slice[int32], error) literal), freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])",
 		[]string{"cudamem.Alloc[float32](dev, %[1]s)", "cudamem.Alloc[int32](dev, %[1]s)"},
@@ -792,7 +797,7 @@ func singleReturn(body *ast.BlockStmt) ast.Expr {
 	return ret.Results[0]
 }
 
-// TestDeviceClosures checks that uploadWeight, uploadModel and
+// TestDeviceClosures checks that uploadWeight, uploadModel, streamModel and
 // NewGPUScratchpad pass the real device operations, which no CPU test
 // runs, to the functions tested with fakes: in particular that each
 // allocation closure allocates exactly the length it is asked for.
@@ -831,6 +836,9 @@ func TestDeviceClosures(t *testing.T) {
 		{"C10 scratch f32 allocates n+1", "gpu_model.go", "\treturn newGPUScratchpadWith(cfg,\n\t\tfunc(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) }", "\treturn newGPUScratchpadWith(cfg,\n\t\tfunc(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n+1) }"},
 		{"C11 token allocates 2*n", "gpu_model.go", "return cudamem.Alloc[int32](dev, n) }", "return cudamem.Alloc[int32](dev, 2*n) }"},
 		{"C12 token free does not zero", "gpu_model.go", "freeOwned[cudamem.Slice[int32]])\n}", "func(s *cudamem.Slice[int32]) error { return s.Free() })\n}"},
+		{"C14 streamed matrices allocated as f32", "weights_stream.go", "return allocWeight(dev, n, dtype) }", "return allocWeight(dev, n, weightF32) }"},
+		{"C15 streamed vector allocates n+1", "weights_stream.go", "{ return cudamem.Alloc[float32](dev, n) },\n\t\twriteDevice", "{ return cudamem.Alloc[float32](dev, n+1) },\n\t\twriteDevice"},
+		{"C16 streamed vector free does not zero", "weights_stream.go", "\t\tfreeOwned[cudamem.Slice[float32]])\n}", "\t\tfunc(s *cudamem.Slice[float32]) error { return s.Free() })\n}"},
 		{"C13 scratchpad frees dropped", "gpu_model.go", "freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])\n}", "func(*cudamem.Slice[float32]) error { return nil }, freeOwned[cudamem.Slice[int32]])\n}"},
 	} {
 		src := srcs[m.file]

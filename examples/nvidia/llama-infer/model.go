@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -257,10 +258,7 @@ func loadModel(dir string, open func(dir string) (tensorFile, error)) (mw *Model
 		}
 	}()
 
-	headDim := cfg.HeadDim()
-	qDim := cfg.NumAttentionHeads * headDim
-	kvDim := cfg.NumKeyValueHeads * headDim
-	hidden, inter, vocab := cfg.HiddenSize, cfg.IntermediateSize, cfg.VocabSize
+	hidden, vocab := cfg.HiddenSize, cfg.VocabSize
 
 	// tensor reads the named tensor and checks its element count. A tensor
 	// absent from the checkpoint is an error unless optional is set, in which
@@ -308,28 +306,8 @@ func loadModel(dir string, open func(dir string) (tensorFile, error)) (mw *Model
 
 	layers := make([]LayerWeights, cfg.NumHiddenLayers)
 	for i := range layers {
-		prefix := fmt.Sprintf("model.layers.%d.", i)
-		l := &layers[i]
-		for _, t := range []struct {
-			dst      *[]float32
-			name     string
-			n        int
-			optional bool
-		}{
-			{&l.InputNorm, "input_layernorm.weight", hidden, false},
-			{&l.PostNorm, "post_attention_layernorm.weight", hidden, false},
-			{&l.WQ, "self_attn.q_proj.weight", qDim * hidden, false},
-			{&l.WK, "self_attn.k_proj.weight", kvDim * hidden, false},
-			{&l.WV, "self_attn.v_proj.weight", kvDim * hidden, false},
-			{&l.QBias, "self_attn.q_proj.bias", qDim, true},
-			{&l.KBias, "self_attn.k_proj.bias", kvDim, true},
-			{&l.VBias, "self_attn.v_proj.bias", kvDim, true},
-			{&l.WO, "self_attn.o_proj.weight", hidden * qDim, false},
-			{&l.WGate, "mlp.gate_proj.weight", inter * hidden, false},
-			{&l.WUp, "mlp.up_proj.weight", inter * hidden, false},
-			{&l.WDown, "mlp.down_proj.weight", hidden * inter, false},
-		} {
-			if *t.dst, err = tensor(prefix+t.name, t.n, t.optional); err != nil {
+		for _, t := range layerTensors(&cfg, i, &layers[i]) {
+			if *t.dst, err = tensor(t.name, t.n, t.optional); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -341,6 +319,82 @@ func loadModel(dir string, open func(dir string) (tensorFile, error)) (mw *Model
 		Norm:        norm,
 		LMHead:      lmHead,
 	}, &cfg, nil
+}
+
+// A layerTensor is a layer's tensor: the field of LayerWeights that holds
+// it, its checkpoint name, its element count, and whether the checkpoint
+// may omit it.
+type layerTensor struct {
+	dst      *[]float32
+	name     string
+	n        int
+	optional bool
+}
+
+// layerTensors lists the tensors of layer i, whose weights l holds, for a
+// model with configuration cfg.
+func layerTensors(cfg *ModelConfig, i int, l *LayerWeights) []layerTensor {
+	headDim := cfg.HeadDim()
+	qDim := cfg.NumAttentionHeads * headDim
+	kvDim := cfg.NumKeyValueHeads * headDim
+	hidden, inter := cfg.HiddenSize, cfg.IntermediateSize
+	p := fmt.Sprintf("model.layers.%d.", i)
+	return []layerTensor{
+		{&l.InputNorm, p + "input_layernorm.weight", hidden, false},
+		{&l.PostNorm, p + "post_attention_layernorm.weight", hidden, false},
+		{&l.WQ, p + "self_attn.q_proj.weight", qDim * hidden, false},
+		{&l.WK, p + "self_attn.k_proj.weight", kvDim * hidden, false},
+		{&l.WV, p + "self_attn.v_proj.weight", kvDim * hidden, false},
+		{&l.QBias, p + "self_attn.q_proj.bias", qDim, true},
+		{&l.KBias, p + "self_attn.k_proj.bias", kvDim, true},
+		{&l.VBias, p + "self_attn.v_proj.bias", kvDim, true},
+		{&l.WO, p + "self_attn.o_proj.weight", hidden * qDim, false},
+		{&l.WGate, p + "mlp.gate_proj.weight", inter * hidden, false},
+		{&l.WUp, p + "mlp.up_proj.weight", inter * hidden, false},
+		{&l.WDown, p + "mlp.down_proj.weight", hidden * inter, false},
+	}
+}
+
+// checkpoint returns w, a model with configuration cfg, as an in-memory
+// safetensors file of dtype tensors, rounded to nearest even. LoadModel
+// reads an F32 checkpoint back as w. An lm_head tied to the embedding
+// table, and absent optional tensors, are left out.
+func (w *ModelWeights) checkpoint(cfg *ModelConfig, dtype safetensors.Dtype) (*safetensors.File, error) {
+	var ts []safetensors.Tensor
+	add := func(name string, v []float32) error {
+		if len(v) == 0 {
+			return nil
+		}
+		data, err := safetensors.EncodeFloat32(dtype, v)
+		if err != nil {
+			return fmt.Errorf("encode %s: %w", name, err)
+		}
+		ts = append(ts, safetensors.Tensor{Name: name, Dtype: dtype, Shape: []int{len(v)}, Data: data})
+		return nil
+	}
+	if err := add("model.embed_tokens.weight", w.EmbedTokens); err != nil {
+		return nil, err
+	}
+	for i := range w.Layers {
+		for _, t := range layerTensors(cfg, i, &w.Layers[i]) {
+			if err := add(t.name, *t.dst); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := add("model.norm.weight", w.Norm); err != nil {
+		return nil, err
+	}
+	if !tiedHead(w) {
+		if err := add("lm_head.weight", w.LMHead); err != nil {
+			return nil, err
+		}
+	}
+	var buf bytes.Buffer
+	if err := safetensors.Write(&buf, ts, nil); err != nil {
+		return nil, err
+	}
+	return safetensors.NewFile(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
 }
 
 // GenerateDeterministicWeights generates initialized weights for self-contained testing.
