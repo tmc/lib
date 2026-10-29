@@ -414,14 +414,14 @@ EG_DEV float eg_sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 EG_DEV float eg_silu(float x) { return x / (1.0f + expf(-x)); }
 #endif // EG_PRELUDE
 
-// llama_pf_skinny_gate_up: out = (mul (silu $0) $1) over x[M, 4096] · W[28672, 4096]ᵀ (bf16), M <= 32; 4 warps of 2 8-row tiles, 1-way split K.
-__global__ void __launch_bounds__(128) llama_pf_skinny_gate_up(
+// llama_pf_skinny_gate_up: out = (mul (silu $0) $1) over x[M, 4096] · W[28672, 4096]ᵀ (bf16), M <= 32; 2 warps of 2 8-row tiles, 1-way split K.
+__global__ void __launch_bounds__(64) llama_pf_skinny_gate_up(
     int m_total,
     const uint16_t* __restrict__ x,
     const uint16_t* __restrict__ w,
     uint16_t* __restrict__ out) {
     constexpr int N = 28672, K = 4096, NOUT = N / 2, MP = 32, MT = MP / 16;
-    constexpr int WARPS = 4, NT = 2, C = 2, U = 2, SPLIT = 1, KS = K / SPLIT, KC = 512;
+    constexpr int WARPS = 2, NT = 2, C = 4, U = 1, SPLIT = 1, KS = K / SPLIT, KC = 512;
     constexpr int SS = 32 * C;    // columns per step: lane q holds 8 at 8·(4c + q), c < C
     constexpr int LDX = KC + 32;  // x row stride in shared memory
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane >> 2, q = lane & 3;
@@ -508,6 +508,6 @@ inline void llama_pf_skinny_gate_up_launch(int m, const uint16_t* __restrict__ x
     constexpr int smem = 34816;
     static const cudaError_t attr = cudaFuncSetAttribute(llama_pf_skinny_gate_up, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
     (void)attr;
-    const dim3 grid(448, 1), block(128);
+    const dim3 grid(896, 1), block(64);
     if (m > 0) EG_LAUNCH(llama_pf_skinny_gate_up, grid, block, smem, stream, m, x, w, out);
 }

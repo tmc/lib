@@ -114,7 +114,7 @@ func TestSkinnyMMASchedule(t *testing.T) {
 		// projections need no split; the 4096-row ones split two ways.
 		{"qkv", SkinnyMMA{N: 6144, K: 4096, MaxM: 32, Out: BF16, SMs: 48}, [3]int{192, 1, 1}, 512, 32 * 544 * 2, 0},
 		{"gate_up", SkinnyMMA{N: 28672, K: 4096, MaxM: 32, Out: F32, SMs: 48}, [3]int{896, 1, 1}, 512, 32 * 544 * 2, 0},
-		{"gate_up_glu", SkinnyMMA{N: 28672, K: 4096, MaxM: 32, Out: BF16, SMs: 48, GLU: true}, [3]int{448, 1, 1}, 512, 32 * 544 * 2, 0},
+		{"gate_up_glu", SkinnyMMA{N: 28672, K: 4096, MaxM: 32, Out: BF16, SMs: 48, GLU: true}, [3]int{896, 1, 1}, 512, 32 * 544 * 2, 0},
 		{"o_proj", SkinnyMMA{N: 4096, K: 4096, MaxM: 32, Out: F32, SMs: 48}, [3]int{128, 2, 1}, 512, 32 * 544 * 2, 4*2*32*4096 + 4*128},
 		{"down", SkinnyMMA{N: 4096, K: 14336, MaxM: 32, Out: F32, SMs: 48}, [3]int{128, 2, 1}, 512, 32 * 544 * 2, 4*2*32*4096 + 4*128},
 		// On 132 SMs they split K: o_proj 3 ways would not divide K.

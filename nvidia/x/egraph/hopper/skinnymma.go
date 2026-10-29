@@ -36,10 +36,10 @@ type SkinnyMMA struct {
 	Extras   []Operand
 	GLU      bool
 
-	Warps  int // per block; 0 means 4
+	Warps  int // per block; 0 means 4 / Tiles, at least 1
 	Tiles  int // 8-row tiles per warp, even with GLU; 0 means 1, or 2 with GLU
-	Chunks int // 16-byte loads per lane per tile and step; 0 means 2
-	Steps  int // steps of weight loads in flight per warp; 0 means 2
+	Chunks int // 16-byte loads per lane per tile and step; 0 means 2, or 4 with GLU
+	Steps  int // steps of weight loads in flight per warp; 0 means 2, or 1 with GLU
 	KChunk int // columns of x staged at once; 0 means at most 512
 	// SplitK is the number of blocks along K; 0 chooses the fewest that
 	// give at least three blocks per multiprocessor.
@@ -59,16 +59,22 @@ func (g SkinnyMMA) norm() (SkinnyMMA, error) {
 		return g, fmt.Errorf("skinny mma %s: MaxM %d outside 1..32", g.Name, g.MaxM)
 	}
 	// GB10 streams Llama-3-8B's projections fastest (about 220 GB/s,
-	// against 175 for a 64-row tile gemm) with small blocks: 4 warps of
-	// one tile, 4 weight loads in flight per lane.
-	if g.Warps == 0 {
-		g.Warps = 4
-	}
+	// against 175 for a 64-row tile gemm) with blocks of 32 rows: 4 warps
+	// of one tile, 4 weight loads in flight per lane. With GLU a warp has
+	// two tiles, so a block has 2 warps, each with its 4 loads in flight
+	// as one step of 4 chunks: at 21 rows the gate and up projection
+	// streams 1028-1050 us that way, against 1050-1249 with 4 warps.
 	if g.Tiles == 0 {
 		g.Tiles = 1
 		if g.GLU {
 			g.Tiles = 2
 		}
+	}
+	if g.Warps == 0 {
+		g.Warps = max(4/g.Tiles, 1)
+	}
+	if g.Chunks == 0 && g.Steps == 0 && g.GLU {
+		g.Chunks, g.Steps = 4, 1
 	}
 	if g.Chunks == 0 {
 		g.Chunks = 2
