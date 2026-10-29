@@ -22,6 +22,9 @@ import (
 // path. It never consults an installed gpu-lock command or canonical GPU path.
 func TestGuardChild(t *testing.T) {
 	dir, mode := os.Getenv("CUDALOCK_GUARD_TEST_DIR"), os.Getenv("CUDALOCK_GUARD_TEST_MODE")
+	if dir == "" && mode == "" {
+		t.Skip("helper process for startGuardChild")
+	}
 	if !filepath.IsAbs(dir) || mode == "" {
 		t.Fatal("explicit private child configuration required")
 	}
@@ -198,6 +201,17 @@ func (c *guardChild) wait(t *testing.T, killed bool) {
 func privateGuardDir(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), "lock")
+}
+
+// canonicalGuardDir returns dir as Acquire records it: processHolds and
+// Handle.Dir use the path with its parent's symbolic links resolved.
+func canonicalGuardDir(t *testing.T, dir string) string {
+	t.Helper()
+	parent, err := filepath.EvalSymlinks(filepath.Dir(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(parent, filepath.Base(dir))
 }
 
 func TestGuardRecoveryBlocksThirdContender(t *testing.T) {

@@ -20,6 +20,9 @@ import (
 
 func TestSuccessorInheritedChild(t *testing.T) {
 	dir, mode := os.Getenv("GPU_LOCKDIR"), os.Getenv("SUCCESSOR_MODE")
+	if mode == "" {
+		t.Skip("helper process for successorInheritedChild")
+	}
 	if !filepath.IsAbs(dir) || !strings.Contains(dir, "TestSuccessor") {
 		t.Fatal("explicit task-private inherited fixture required")
 	}
@@ -426,7 +429,7 @@ func TestSuccessorDeadlineAfterProcessWait(t *testing.T) {
 				t.Fatalf("expired admission returned handle=%v error=%v", got.h, got.err)
 			}
 			processMu.Lock()
-			hold := processHolds[dir]
+			hold := processHolds[canonicalGuardDir(t, dir)]
 			valid := hold == nil
 			if root != nil {
 				valid = hold == root.hold && hold.count == 1
@@ -527,10 +530,10 @@ func TestSuccessorCanceledPublication(t *testing.T) {
 					if readErr != nil || string(after) != string(data) {
 						t.Fatal("cleanup refusal changed owner")
 					}
-					// Pass the actual environment left by public Acquire unchanged.
+					// Pass the actual environment left by public Acquire, plus the helper marker.
 					cmdCtx, stop := context.WithTimeout(t.Context(), 3*time.Second)
 					cmd := exec.CommandContext(cmdCtx, os.Args[0], "-test.run=^TestSuccessorCanceledAuthorityChild$", "-test.v")
-					cmd.Env = os.Environ()
+					cmd.Env = append(os.Environ(), "CUDALOCK_CANCELED_AUTHORITY_CHILD=1")
 					out, childErr := cmd.CombinedOutput()
 					stop()
 					if childErr != nil {
@@ -552,7 +555,7 @@ func TestSuccessorCanceledPublication(t *testing.T) {
 					t.Fatalf("canceled publication remained after successful cleanup: %v", err)
 				}
 				processMu.Lock()
-				hold := processHolds[dir]
+				hold := processHolds[canonicalGuardDir(t, dir)]
 				processMu.Unlock()
 				if hold != nil || os.Getenv("GPU_LOCK_HELD") != "" {
 					t.Fatal("successful canceled-publication cleanup retained authority")
@@ -617,6 +620,9 @@ func TestSuccessorCanceledCleanupPreservesNewRoot(t *testing.T) {
 }
 
 func TestSuccessorCanceledAuthorityChild(t *testing.T) {
+	if os.Getenv("CUDALOCK_CANCELED_AUTHORITY_CHILD") == "" {
+		t.Skip("helper process for TestSuccessorCanceledPublication")
+	}
 	dir := os.Getenv("GPU_LOCKDIR")
 	if !filepath.IsAbs(dir) || !strings.Contains(dir, "TestSuccessorCanceledPublication") {
 		t.Fatal("explicit private canceled-publication fixture required")
