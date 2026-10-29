@@ -1,0 +1,8 @@
+commit: 0750599fdfcf7568f7a38b1c7242ec0c59d05550
+commit date: 2026-10-29
+agent: Codex CLI 0.165.0; Claude Code not used
+model: GPT-6; exact serving model identifier unavailable
+tty: no controlling tty in tool shell
+tool shell pid at metadata capture: 49424
+ITERM_SESSION_ID: w2t6p8:D1AA3E70-57F5-406D-96B0-629D770FC19E
+Host tests/race/vet and Linux amd64/arm64 cross-compilation passed. Native BPF/GPU admission not run. git-auto-commit-message attempted once and unavailable because Anthropic API key was absent; manual Go-style fallback used.
