@@ -1,0 +1,5 @@
+commit a3d97179379265ec8815aad3bcaa28174dfbcca2
+date 2026-10-29T12:14:34-07:00
+claude-code 2.1.284, model claude-opus-5-5, pid 3439, ITERM_SESSION_ID=w2t1p2:96935236-73AE-46D0-8740-9197D78C4486
+session=4f4f4f72-98c3-4d17-af9f-cd14788572a2
+note: merge resolution loads host float32 weights only for -tp, whose decoder shards from them
