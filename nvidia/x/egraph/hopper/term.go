@@ -1,6 +1,7 @@
 package hopper
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"slices"
@@ -317,7 +318,7 @@ func (Cost) NodeCost(n egraph.ENode, children []float64) float64 {
 }
 
 // Optimize saturates the term graph with [Rules] and [FuseEpilogues] and
-// extracts the cheapest form of root under [Cost].
+// extracts the cheapest form of root with [Extract].
 func Optimize(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
 	for range 8 {
 		if _, err := egraph.SaturateChecked(g, Rules(), egraph.SaturationOptions{MaxIterations: 16}); err != nil {
@@ -331,11 +332,24 @@ func Optimize(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
 			break
 		}
 	}
-	expr, _, err := egraph.ExtractBest(g, root, Cost{})
+	expr, err := Extract(g, root)
 	if err != nil {
 		return nil, fmt.Errorf("optimize: %w", err)
 	}
 	return expr, nil
+}
+
+// Extract extracts the cheapest form of root under [Cost] with
+// [egraph.ExtractSegmented]: a stack of layers is extracted layer by layer,
+// and identical layers once, so the work is linear in the number of
+// layers. The result shares common subterms.
+func Extract(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
+	if err := g.RebuildChecked(); err != nil {
+		return nil, err
+	}
+	limits := egraph.ExtractionLimits{MaxWork: 1 << 40, MaxNodes: 1 << 30, MaxDepth: 1 << 30}
+	expr, _, _, err := egraph.ExtractSegmented(context.Background(), g, root, Cost{}, limits)
+	return expr, err
 }
 
 // A Value is a dense row-major tensor of values, for [Eval].

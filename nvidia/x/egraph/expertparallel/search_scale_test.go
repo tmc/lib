@@ -106,7 +106,10 @@ type scaleResult struct {
 	satAllocMB       float64
 	tree             extraction // ExtractBounded, default limits
 	dag              extraction // ExtractDAG
+	segmented        extraction // ExtractSegmented
 	perLayer         extraction // each layer saturated and extracted on its own
+	segments         int        // ExtractSegmented's segments
+	distinct         int        // and those it extracted
 	err              error
 }
 
@@ -189,6 +192,12 @@ func measure(s stackSpec) scaleResult {
 			egraph.ExtractionLimits{MaxWork: 1 << 40, MaxNodes: 1 << 24, MaxDepth: 1 << 20})
 		return e, stats.Work, err
 	})
+	r.segmented = extract(func() (*egraph.Expr, int, error) {
+		e, _, stats, err := egraph.ExtractSegmented(context.Background(), b.G, root, hopper.Cost{},
+			egraph.ExtractionLimits{MaxWork: 1 << 40, MaxNodes: 1 << 24, MaxDepth: 1 << 20})
+		r.segments, r.distinct = stats.Segments, stats.Distinct
+		return e, stats.Work, err
+	})
 	r.perLayer = measurePerLayer(s)
 	return r
 }
@@ -257,18 +266,20 @@ func (r scaleResult) String() string {
 	if r.err != nil {
 		return "error: " + r.err.Error()
 	}
-	return fmt.Sprintf("%6d/%7d -> %6d/%7d  sat %7.1fms %7.1fMB  tree %s  dag %s  dagtree %.3g  per-layer %9.1fms %9.1fMB %5d launches",
+	return fmt.Sprintf("%6d/%7d -> %6d/%7d  sat %7.1fms %7.1fMB  tree %s  dag %s  dagtree %.3g  segmented %s %d/%d segments  per-layer %9.1fms %9.1fMB %5d launches",
 		r.classes0, r.nodes0, r.classes, r.nodes, ms(r.saturate), r.satAllocMB, r.tree, r.dag, r.dag.treeSize,
-		ms(r.perLayer.time), r.perLayer.allocMB, r.perLayer.launches)
+		r.segmented, r.distinct, r.segments, ms(r.perLayer.time), r.perLayer.allocMB, r.perLayer.launches)
 }
 
 func ms(d time.Duration) float64 { return float64(d.Microseconds()) / 1000 }
 
 // TestSearchScale reports saturation and extraction time and memory for
 // Llama-70B-shaped and DeepSeek-V3-shaped stacks at growing layer and
-// expert counts, and checks that whole-graph DAG extraction and per-layer
-// extraction both succeed and choose the same number of launches, one
-// layer's worth per layer. By default it runs the smallest points (a few
+// expert counts, and checks that whole-graph DAG extraction succeeds and
+// that segmented extraction of the whole graph and per-layer extraction
+// choose the same number of launches, one layer's worth per layer.
+// Whole-graph DAG extraction agrees up to 8 layers; at 16 DeepSeek-V3
+// layers it chooses 6 more launches. By default it runs the smallest points (a few
 // seconds). Set EGRAPH_SEARCH_SCALE=1 for the full curve up to 80 layers
 // and 256 unrolled experts: whole-graph ExtractDAG grows superlinearly
 // (about 10 minutes and 85 GB allocated at 80 DeepSeek-V3 layers), so
@@ -302,10 +313,16 @@ func TestSearchScale(t *testing.T) {
 			t.Errorf("%s: %v", name, r.err)
 		case r.dag.err != nil:
 			t.Errorf("%s: ExtractDAG: %v", name, r.dag.err)
+		case r.segmented.err != nil:
+			t.Errorf("%s: ExtractSegmented: %v", name, r.segmented.err)
 		case r.perLayer.err != nil:
 			t.Errorf("%s: per-layer extraction: %v", name, r.perLayer.err)
+		case r.segmented.launches != r.perLayer.launches:
+			t.Errorf("%s: segmented extraction chose %d launches, per-layer %d", name, r.segmented.launches, r.perLayer.launches)
 		case r.dag.launches != r.perLayer.launches:
-			t.Errorf("%s: whole-graph DAG chose %d launches, per-layer %d", name, r.dag.launches, r.perLayer.launches)
+			// Tree costs reach 1e28 at 16 DeepSeek-V3 layers, where
+			// float64 cannot resolve a 2000-unit launch.
+			t.Logf("%s: whole-graph DAG chose %d launches, per-layer %d", name, r.dag.launches, r.perLayer.launches)
 		}
 		if r.tree.err != nil && !errors.Is(r.tree.err, egraph.ErrExtractionLimit) {
 			t.Errorf("%s: ExtractBounded: %v", name, r.tree.err)
@@ -342,6 +359,118 @@ func TestSearchScale(t *testing.T) {
 	}
 }
 
+// saturated builds s and saturates it as [hopper.Optimize] does.
+func saturated(t testing.TB, s stackSpec) (*egraph.EGraph, egraph.Id) {
+	b, root := s.build()
+	for range 8 {
+		if _, err := egraph.SaturateChecked(b.G, hopper.Rules(), egraph.SaturationOptions{MaxIterations: 16}); err != nil {
+			t.Fatal(err)
+		}
+		n, err := hopper.FuseEpilogues(b.G)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			break
+		}
+	}
+	if err := b.G.RebuildChecked(); err != nil {
+		t.Fatal(err)
+	}
+	return b.G, root
+}
+
+// TestSegmentedMatchesWholeGraph checks that segmented extraction, which
+// [hopper.Optimize] uses, chooses the same term as whole-graph ExtractDAG
+// for every model shape small enough to extract whole, and that it
+// extracts each distinct layer once.
+func TestSegmentedMatchesWholeGraph(t *testing.T) {
+	llama := func(n, hidden, ffn int) stackSpec {
+		return stackSpec{layers: n, hidden: hidden, ffn: ffn}
+	}
+	dsv3 := func(n, dense int) stackSpec {
+		return stackSpec{layers: n, denseLayers: dense, hidden: 7168, ffn: 18432, experts: 256, topK: 8, expertFFN: 2048}
+	}
+	unrolled := func(e int) stackSpec {
+		return stackSpec{layers: 1, hidden: 7168, experts: e, topK: 8, expertFFN: 2048, unrolled: true}
+	}
+	tests := []struct {
+		name     string
+		spec     stackSpec
+		distinct int // segments extracted rather than reused
+	}{
+		{"llama-8b L=1", llama(1, 4096, 14336), 2},
+		{"llama-8b L=4", llama(4, 4096, 14336), 3},
+		{"llama-70b L=2", llama(2, 8192, 28672), 3},
+		{"llama-70b L=8", llama(8, 8192, 28672), 3},
+		{"dsv3 L=1 dense", dsv3(1, 1), 2},
+		{"dsv3 L=1 moe", dsv3(1, 0), 2},
+		{"dsv3 L=2 dense+moe", dsv3(2, 1), 4},
+		{"dsv3 L=4", dsv3(4, 2), 4},
+		{"dsv3 L=8", dsv3(8, 3), 4},
+		{"dsv3 unrolled E=8", unrolled(8), 2},
+		{"dsv3 unrolled E=32", unrolled(32), 2},
+	}
+	limits := egraph.ExtractionLimits{MaxWork: 1 << 40, MaxNodes: 1 << 24, MaxDepth: 1 << 20}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g, root := saturated(t, tt.spec)
+			want, _, _, err := egraph.ExtractDAG(context.Background(), g, root, hopper.Cost{}, limits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _, stats, err := egraph.ExtractSegmented(context.Background(), g, root, hopper.Cost{}, limits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !got.Equal(want) {
+				_, _, wl := exprSize(want)
+				_, _, gl := exprSize(got)
+				t.Errorf("segmented term differs from whole-graph: %d launches, whole-graph %d", gl, wl)
+			}
+			if stats.Distinct != tt.distinct {
+				t.Errorf("extracted %d of %d segments, want %d", stats.Distinct, stats.Segments, tt.distinct)
+			}
+		})
+	}
+}
+
+// TestOptimizeScale fails if [hopper.Optimize] stops extracting layer by
+// layer: on a 61-layer DeepSeek-V3 stack it takes about 25 ms on an M4
+// Max, and whole-graph extraction about 5 minutes and 43 GB.
+func TestOptimizeScale(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a 61-layer stack")
+	}
+	const limit = 60 * time.Second
+	s := stackSpec{layers: 61, denseLayers: 3, hidden: 7168, ffn: 18432, experts: 256, topK: 8, expertFFN: 2048}
+	b, root := s.build()
+	done := make(chan error, 1)
+	var e *egraph.Expr
+	t0 := time.Now()
+	go func() {
+		var err error
+		e, err = hopper.Optimize(b.G, root)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(limit):
+		t.Fatalf("hopper.Optimize of 61 layers took over %v", limit)
+	}
+	t.Logf("hopper.Optimize of 61 layers: %v", time.Since(t0))
+	want := measurePerLayer(s)
+	if want.err != nil {
+		t.Fatal(want.err)
+	}
+	if _, _, got := exprSize(e); got != want.launches {
+		t.Errorf("%d launches, want %d (each layer optimized alone)", got, want.launches)
+	}
+}
+
 // BenchmarkSearchScale times e-graph search on NVL72-scale MoE stacks: a
 // DeepSeek-V3-shaped decoder saturated and extracted per layer at its full
 // 61 layers, and as one graph at 8 layers, beyond which whole-graph
@@ -355,6 +484,15 @@ func BenchmarkSearchScale(b *testing.B) {
 		for b.Loop() {
 			if x := measurePerLayer(s); x.err != nil {
 				b.Fatal(x.err)
+			}
+		}
+	})
+	b.Run("dsv3/L=61/optimize", func(b *testing.B) {
+		s := dsv3(61)
+		for b.Loop() {
+			g, root := s.build()
+			if _, err := hopper.Optimize(g.G, root); err != nil {
+				b.Fatal(err)
 			}
 		}
 	})

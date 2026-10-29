@@ -386,8 +386,8 @@ func (l *lowerer) finish(root value) (ImportResult, error) {
 }
 
 // Optimize saturates g with [hopper.Rules], [FuseMaps] and
-// [hopper.FuseEpilogues] and extracts the cheapest term for root under
-// [hopper.Cost].
+// [hopper.FuseEpilogues] and extracts the cheapest term for root with
+// [hopper.Extract].
 func Optimize(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
 	for range 8 {
 		if _, err := egraph.SaturateChecked(g, hopper.Rules(), egraph.SaturationOptions{MaxIterations: 16}); err != nil {
@@ -405,7 +405,7 @@ func Optimize(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
 			break
 		}
 	}
-	expr, _, err := egraph.ExtractBest(g, root, hopper.Cost{})
+	expr, err := hopper.Extract(g, root)
 	if err != nil {
 		return nil, fmt.Errorf("optimize: %w", err)
 	}
