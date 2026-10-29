@@ -1,0 +1,765 @@
+[
+  {
+    "id": "hand-attention-b16-h/attention/0",
+    "kernel": "void moe8::attn_kernel<(int)8>(moe8::Params)",
+    "acquisition_id": "hand-attention-b16-h",
+    "identity": {
+      "source_selection_sha256": "22c2ac80519d2fb17436a9a3e5085f8d28efc4f63fd3d291c20b04f6357c08e9",
+      "candidate_source_sha256": "822cecfbdcaa20df3a8cd387a541de4c4b7762cbd39def3625e6fa92e6a20911",
+      "case_config_sha256": "936e81ea99258634bd5de92232561128d4ccc40691d42bfb76cd0297bad91c33",
+      "image_sha256": "8cfc5a72cb296771f5f8a4a4688cb6d05685610a830cbb616fa4ab0eb7bb2b0a",
+      "device_uuid": "GPU-8585045d-7caa-798d-1176-b925bce17455",
+      "raw_report": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-attention-b16-h/worker/capture.ncu-rep",
+        "sha256": "a87e36129cfed2f345436148e5d6132ffbdde9c0e9ac12d0ca08cc749858f128"
+      },
+      "typed_census": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-attention-b16-h/worker/report-census.json",
+        "sha256": "c45d27a2adb74650c381845c2916936fd38b70e923df2b3d8a4514bb50fe8d84"
+      },
+      "admission": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/top20-20261028/root-integration/D5-NATIVE-ADMISSION-2/ADMISSION.json",
+        "sha256": "17b54b208145bf7d7e2eaee34918af4e55ef4f2e504ac11c04dc098057b4f3be"
+      }
+    },
+    "descriptors": [
+      {
+        "id": "gpu__time_duration.sum",
+        "namespace": "nsight-compute",
+        "name": "gpu__time_duration.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "ns",
+        "numeric_type": "double",
+        "aggregation": "sum",
+        "scope": "ACTION",
+        "denominator": "action",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "l1tex__data_pipe_lsu_wavefronts_mem_shared.avg.pct_of_peak_sustained_elapsed",
+        "namespace": "nsight-compute",
+        "name": "l1tex__data_pipe_lsu_wavefronts_mem_shared.avg.pct_of_peak_sustained_elapsed",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"peak sustained elapsed; not active denominator\", \"domain\": \"vendor_percentage\"}}",
+        "unit": "%",
+        "numeric_type": "double",
+        "aggregation": "avg",
+        "scope": "ACTION",
+        "denominator": "elapsed",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "l1tex__data_pipe_lsu_wavefronts_mem_shared.sum",
+        "namespace": "nsight-compute",
+        "name": "l1tex__data_pipe_lsu_wavefronts_mem_shared.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"sum; raw unit empty, not bytes\", \"domain\": \"shared_wavefront_count\"}}",
+        "unit": "",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__context_id",
+        "namespace": "nsight-compute",
+        "name": "launch__context_id",
+        "definition": "{\"native_kind\": 6, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "",
+        "numeric_type": "uint64",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__occupancy_limit_barriers",
+        "namespace": "nsight-compute",
+        "name": "launch__occupancy_limit_barriers",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"blocks; not achieved resident CTAs\", \"domain\": \"launch_resource_residency_limit\"}}",
+        "unit": "block",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "BLOCK_LIMIT",
+        "denominator": "blocks_per_sm",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__occupancy_limit_blocks",
+        "namespace": "nsight-compute",
+        "name": "launch__occupancy_limit_blocks",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"blocks; not achieved resident CTAs\", \"domain\": \"launch_resource_residency_limit\"}}",
+        "unit": "block",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "BLOCK_LIMIT",
+        "denominator": "blocks_per_sm",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__occupancy_limit_registers",
+        "namespace": "nsight-compute",
+        "name": "launch__occupancy_limit_registers",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"blocks; not achieved resident CTAs\", \"domain\": \"launch_resource_residency_limit\"}}",
+        "unit": "block",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "BLOCK_LIMIT",
+        "denominator": "blocks_per_sm",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__occupancy_limit_shared_mem",
+        "namespace": "nsight-compute",
+        "name": "launch__occupancy_limit_shared_mem",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"blocks; not achieved resident CTAs\", \"domain\": \"launch_resource_residency_limit\"}}",
+        "unit": "block",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "BLOCK_LIMIT",
+        "denominator": "blocks_per_sm",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__occupancy_limit_warps",
+        "namespace": "nsight-compute",
+        "name": "launch__occupancy_limit_warps",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"blocks; not achieved resident CTAs\", \"domain\": \"launch_resource_residency_limit\"}}",
+        "unit": "block",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "BLOCK_LIMIT",
+        "denominator": "blocks_per_sm",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__stream_id",
+        "namespace": "nsight-compute",
+        "name": "launch__stream_id",
+        "definition": "{\"native_kind\": 6, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "",
+        "numeric_type": "uint64",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "profiler__replayer_passes",
+        "namespace": "nsight-compute",
+        "name": "profiler__replayer_passes",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"pass; count not invocation custody proof\", \"domain\": \"reported_replay_pass_count\"}}",
+        "unit": "pass",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "profiler__replayer_passes_type_warmup",
+        "namespace": "nsight-compute",
+        "name": "profiler__replayer_passes_type_warmup",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"pass; count not invocation custody proof\", \"domain\": \"reported_replay_pass_count\"}}",
+        "unit": "pass",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "sm__warps_active.avg.pct_of_peak_sustained_active",
+        "namespace": "nsight-compute",
+        "name": "sm__warps_active.avg.pct_of_peak_sustained_active",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"peak sustained active; retain metric aggregation\", \"domain\": \"vendor_percentage\"}}",
+        "unit": "%",
+        "numeric_type": "double",
+        "aggregation": "avg",
+        "scope": "ACTION",
+        "denominator": "active",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "smsp__inst_executed_pipe_lsu.sum",
+        "namespace": "nsight-compute",
+        "name": "smsp__inst_executed_pipe_lsu.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "inst",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+        "namespace": "nsight-compute",
+        "name": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"peak sustained active; retain metric aggregation\", \"domain\": \"vendor_percentage\"}}",
+        "unit": "%",
+        "numeric_type": "double",
+        "aggregation": "avg",
+        "scope": "ACTION",
+        "denominator": "active",
+        "collector": "Nsight Compute 2025.3.1"
+      }
+    ],
+    "observations": [
+      {
+        "descriptor_id": "gpu__time_duration.sum",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 177888.0
+      },
+      {
+        "descriptor_id": "l1tex__data_pipe_lsu_wavefronts_mem_shared.avg.pct_of_peak_sustained_elapsed",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 35.825343943616765
+      },
+      {
+        "descriptor_id": "l1tex__data_pipe_lsu_wavefronts_mem_shared.sum",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 14717464.0
+      },
+      {
+        "descriptor_id": "launch__context_id",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 1
+      },
+      {
+        "descriptor_id": "launch__occupancy_limit_barriers",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 4.0
+      },
+      {
+        "descriptor_id": "launch__occupancy_limit_blocks",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 32.0
+      },
+      {
+        "descriptor_id": "launch__occupancy_limit_registers",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 2.0
+      },
+      {
+        "descriptor_id": "launch__occupancy_limit_shared_mem",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 2.0
+      },
+      {
+        "descriptor_id": "launch__occupancy_limit_warps",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 8.0
+      },
+      {
+        "descriptor_id": "launch__stream_id",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 7
+      },
+      {
+        "descriptor_id": "profiler__replayer_passes",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 1.0
+      },
+      {
+        "descriptor_id": "profiler__replayer_passes_type_warmup",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 0.0
+      },
+      {
+        "descriptor_id": "sm__warps_active.avg.pct_of_peak_sustained_active",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 22.180520803297636
+      },
+      {
+        "descriptor_id": "smsp__inst_executed_pipe_lsu.sum",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 6843858.0
+      },
+      {
+        "descriptor_id": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+        "entity_id": "hand-attention-b16-h/attention/0",
+        "run_id": "hand-attention-b16-h",
+        "availability": "MEASURED",
+        "value": 52.882861572236095
+      }
+    ],
+    "launch": {
+      "grid": [
+        16,
+        1,
+        16
+      ],
+      "source": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-attention-b16-h/worker/report-census.json",
+        "sha256": "c45d27a2adb74650c381845c2916936fd38b70e923df2b3d8a4514bb50fe8d84"
+      }
+    }
+  },
+  {
+    "id": "hand-moe-bs128-d/K1/1",
+    "kernel": "void moe::moe_gemm<(int)4, (bool)1, (bool)1, (int)4, (int)1, (int)2, (int)5, (int)1>(const unsigned char *, const float *, const __nv_bfloat16 *, const int *, int, int, __nv_bfloat16 *, moe::Norm)",
+    "acquisition_id": "hand-moe-bs128-d",
+    "identity": {
+      "source_selection_sha256": "22c2ac80519d2fb17436a9a3e5085f8d28efc4f63fd3d291c20b04f6357c08e9",
+      "candidate_source_sha256": "0ff942dc4e3b1e234d34e9b4c9e21bdcf17767784c38aadc57839d28a2d616e9",
+      "case_config_sha256": "06d74bcd06d4ff40f7f94050fc2832c032e2bb541c4bc272b5f9b7d6cae869a1",
+      "image_sha256": "8cfc5a72cb296771f5f8a4a4688cb6d05685610a830cbb616fa4ab0eb7bb2b0a",
+      "device_uuid": "GPU-8585045d-7caa-798d-1176-b925bce17455",
+      "raw_report": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-moe-bs128-d/worker/capture.ncu-rep",
+        "sha256": "50a30f8486372fd3514e402d8cc7c0eea37ef0bd11cef19ef373204b35170023"
+      },
+      "typed_census": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-moe-bs128-d/worker/report-census.json",
+        "sha256": "da0d3071bc4ad4803a85aa9785e3feb99eb15415003ae1cf4e15d8fd3ff2100f"
+      },
+      "admission": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/top20-20261028/root-integration/D5-NATIVE-ADMISSION-2/ADMISSION.json",
+        "sha256": "17b54b208145bf7d7e2eaee34918af4e55ef4f2e504ac11c04dc098057b4f3be"
+      }
+    },
+    "descriptors": [
+      {
+        "id": "dram__bytes_read.sum",
+        "namespace": "nsight-compute",
+        "name": "dram__bytes_read.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"sum; not weight-only bytes\", \"domain\": \"action_DRAM_byte_count\"}}",
+        "unit": "byte",
+        "numeric_type": "double",
+        "aggregation": "sum",
+        "scope": "ACTION",
+        "denominator": "action",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "dram__bytes_write.sum",
+        "namespace": "nsight-compute",
+        "name": "dram__bytes_write.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"sum; not weight-only bytes\", \"domain\": \"action_DRAM_byte_count\"}}",
+        "unit": "byte",
+        "numeric_type": "double",
+        "aggregation": "sum",
+        "scope": "ACTION",
+        "denominator": "action",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "gpu__time_duration.sum",
+        "namespace": "nsight-compute",
+        "name": "gpu__time_duration.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "ns",
+        "numeric_type": "double",
+        "aggregation": "sum",
+        "scope": "ACTION",
+        "denominator": "action",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__context_id",
+        "namespace": "nsight-compute",
+        "name": "launch__context_id",
+        "definition": "{\"native_kind\": 6, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "",
+        "numeric_type": "uint64",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__stream_id",
+        "namespace": "nsight-compute",
+        "name": "launch__stream_id",
+        "definition": "{\"native_kind\": 6, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "",
+        "numeric_type": "uint64",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "profiler__replayer_passes",
+        "namespace": "nsight-compute",
+        "name": "profiler__replayer_passes",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"pass; count not invocation custody proof\", \"domain\": \"reported_replay_pass_count\"}}",
+        "unit": "pass",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "profiler__replayer_passes_type_warmup",
+        "namespace": "nsight-compute",
+        "name": "profiler__replayer_passes_type_warmup",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"pass; count not invocation custody proof\", \"domain\": \"reported_replay_pass_count\"}}",
+        "unit": "pass",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "sm__ctas_launched.sum",
+        "namespace": "nsight-compute",
+        "name": "sm__ctas_launched.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"sum; not simultaneous residency\", \"domain\": \"total_launched_CTAs\"}}",
+        "unit": "block",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "sm__warps_active.avg.pct_of_peak_sustained_active",
+        "namespace": "nsight-compute",
+        "name": "sm__warps_active.avg.pct_of_peak_sustained_active",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"peak sustained active; retain metric aggregation\", \"domain\": \"vendor_percentage\"}}",
+        "unit": "%",
+        "numeric_type": "double",
+        "aggregation": "avg",
+        "scope": "ACTION",
+        "denominator": "active",
+        "collector": "Nsight Compute 2025.3.1"
+      }
+    ],
+    "observations": [
+      {
+        "descriptor_id": "dram__bytes_read.sum",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 380062976.0
+      },
+      {
+        "descriptor_id": "dram__bytes_write.sum",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 28116480.0
+      },
+      {
+        "descriptor_id": "gpu__time_duration.sum",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 143616.0
+      },
+      {
+        "descriptor_id": "launch__context_id",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 1
+      },
+      {
+        "descriptor_id": "launch__stream_id",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 7
+      },
+      {
+        "descriptor_id": "profiler__replayer_passes",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 1.0
+      },
+      {
+        "descriptor_id": "profiler__replayer_passes_type_warmup",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 0.0
+      },
+      {
+        "descriptor_id": "sm__ctas_launched.sum",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 396.0
+      },
+      {
+        "descriptor_id": "sm__warps_active.avg.pct_of_peak_sustained_active",
+        "entity_id": "hand-moe-bs128-d/K1/1",
+        "run_id": "hand-moe-bs128-d",
+        "availability": "MEASURED",
+        "value": 21.690099094935395
+      }
+    ],
+    "launch": {
+      "grid": [
+        396,
+        1,
+        1
+      ],
+      "source": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-moe-bs128-d/worker/report-census.json",
+        "sha256": "da0d3071bc4ad4803a85aa9785e3feb99eb15415003ae1cf4e15d8fd3ff2100f"
+      }
+    }
+  },
+  {
+    "id": "hand-moe-bs128-i/K1/4",
+    "kernel": "void moe::moe_gemm<(int)4, (bool)1, (bool)1, (int)4, (int)1, (int)2, (int)5, (int)1>(const unsigned char *, const float *, const __nv_bfloat16 *, const int *, int, int, __nv_bfloat16 *, moe::Norm)",
+    "acquisition_id": "hand-moe-bs128-i",
+    "identity": {
+      "source_selection_sha256": "22c2ac80519d2fb17436a9a3e5085f8d28efc4f63fd3d291c20b04f6357c08e9",
+      "candidate_source_sha256": "0ff942dc4e3b1e234d34e9b4c9e21bdcf17767784c38aadc57839d28a2d616e9",
+      "case_config_sha256": "06d74bcd06d4ff40f7f94050fc2832c032e2bb541c4bc272b5f9b7d6cae869a1",
+      "image_sha256": "8cfc5a72cb296771f5f8a4a4688cb6d05685610a830cbb616fa4ab0eb7bb2b0a",
+      "device_uuid": "GPU-8585045d-7caa-798d-1176-b925bce17455",
+      "raw_report": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-moe-bs128-i/worker/capture.ncu-rep",
+        "sha256": "62846513a45b577ece59f52c417cd69d78f0660af48008e82de0c419dd7f1da7"
+      },
+      "typed_census": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-moe-bs128-i/worker/report-census.json",
+        "sha256": "f3c3b798c74cb15402db87f12567e62b8d62c40bef4921a9b7b2bd8bb6e6bf2a"
+      },
+      "admission": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/top20-20261028/root-integration/D5-NATIVE-ADMISSION-2/ADMISSION.json",
+        "sha256": "17b54b208145bf7d7e2eaee34918af4e55ef4f2e504ac11c04dc098057b4f3be"
+      }
+    },
+    "descriptors": [
+      {
+        "id": "gpu__time_duration.sum",
+        "namespace": "nsight-compute",
+        "name": "gpu__time_duration.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "ns",
+        "numeric_type": "double",
+        "aggregation": "sum",
+        "scope": "ACTION",
+        "denominator": "action",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__context_id",
+        "namespace": "nsight-compute",
+        "name": "launch__context_id",
+        "definition": "{\"native_kind\": 6, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "",
+        "numeric_type": "uint64",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "launch__stream_id",
+        "namespace": "nsight-compute",
+        "name": "launch__stream_id",
+        "definition": "{\"native_kind\": 6, \"original_semantics\": {\"denominator\": \"retain original unit/name/aggregation, no inferred semantics\", \"domain\": \"vendor_named_quantity\"}}",
+        "unit": "",
+        "numeric_type": "uint64",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "profiler__replayer_passes",
+        "namespace": "nsight-compute",
+        "name": "profiler__replayer_passes",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"pass; count not invocation custody proof\", \"domain\": \"reported_replay_pass_count\"}}",
+        "unit": "pass",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "profiler__replayer_passes_type_warmup",
+        "namespace": "nsight-compute",
+        "name": "profiler__replayer_passes_type_warmup",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"pass; count not invocation custody proof\", \"domain\": \"reported_replay_pass_count\"}}",
+        "unit": "pass",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed",
+        "namespace": "nsight-compute",
+        "name": "sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"peak sustained elapsed; not active denominator\", \"domain\": \"vendor_percentage\"}}",
+        "unit": "%",
+        "numeric_type": "double",
+        "aggregation": "avg",
+        "scope": "ACTION",
+        "denominator": "elapsed",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "smsp__inst_executed_pipe_tensor.sum",
+        "namespace": "nsight-compute",
+        "name": "smsp__inst_executed_pipe_tensor.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"sum; not comparable directly to thread integer count\", \"domain\": \"warp_level_tensor_pipe_instruction_count\"}}",
+        "unit": "inst",
+        "numeric_type": "double",
+        "aggregation": "sum",
+        "scope": "WARP",
+        "denominator": "tensor_pipe",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "smsp__inst_issued.avg.per_cycle_active",
+        "namespace": "nsight-compute",
+        "name": "smsp__inst_issued.avg.per_cycle_active",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"active cycle; not elapsed cycle\", \"domain\": \"issued_instruction_rate\"}}",
+        "unit": "inst/cycle",
+        "numeric_type": "double",
+        "aggregation": "value",
+        "scope": "UNKNOWN",
+        "denominator": "unknown",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+        "namespace": "nsight-compute",
+        "name": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"peak sustained active; retain metric aggregation\", \"domain\": \"vendor_percentage\"}}",
+        "unit": "%",
+        "numeric_type": "double",
+        "aggregation": "avg",
+        "scope": "ACTION",
+        "denominator": "active",
+        "collector": "Nsight Compute 2025.3.1"
+      },
+      {
+        "id": "smsp__sass_thread_inst_executed_op_integer_pred_on.sum",
+        "namespace": "nsight-compute",
+        "name": "smsp__sass_thread_inst_executed_op_integer_pred_on.sum",
+        "definition": "{\"native_kind\": 4, \"original_semantics\": {\"denominator\": \"sum; not warp issues or opcode latency\", \"domain\": \"predicated_on_thread_instruction_count\"}}",
+        "unit": "inst",
+        "numeric_type": "double",
+        "aggregation": "sum",
+        "scope": "THREAD",
+        "denominator": "predicated_on",
+        "collector": "Nsight Compute 2025.3.1"
+      }
+    ],
+    "observations": [
+      {
+        "descriptor_id": "gpu__time_duration.sum",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 141248.0
+      },
+      {
+        "descriptor_id": "launch__context_id",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 1
+      },
+      {
+        "descriptor_id": "launch__stream_id",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 7
+      },
+      {
+        "descriptor_id": "profiler__replayer_passes",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 4.0
+      },
+      {
+        "descriptor_id": "profiler__replayer_passes_type_warmup",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 0.0
+      },
+      {
+        "descriptor_id": "sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 22.86404964800125
+      },
+      {
+        "descriptor_id": "smsp__inst_executed_pipe_tensor.sum",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 4849664.0
+      },
+      {
+        "descriptor_id": "smsp__inst_issued.avg.per_cycle_active",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 0.5080827429574509
+      },
+      {
+        "descriptor_id": "smsp__issue_active.avg.pct_of_peak_sustained_active",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 50.80827429574509
+      },
+      {
+        "descriptor_id": "smsp__sass_thread_inst_executed_op_integer_pred_on.sum",
+        "entity_id": "hand-moe-bs128-i/K1/4",
+        "run_id": "hand-moe-bs128-i",
+        "availability": "MEASURED",
+        "value": 823866916.0
+      }
+    ],
+    "launch": {
+      "grid": [
+        396,
+        1,
+        1
+      ],
+      "source": {
+        "locator": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/receipts/20261029T135032Z-4b573fdb26cd-D5-run/required-received/files/receipts/hand-moe-bs128-i/worker/report-census.json",
+        "sha256": "f3c3b798c74cb15402db87f12567e62b8d62c40bef4921a9b7b2bd8bb6e6bf2a"
+      }
+    }
+  }
+]
