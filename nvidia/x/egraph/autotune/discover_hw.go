@@ -3,6 +3,8 @@ package autotune
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 )
 
 // HardwareTwin models discovered or calibrated GPU device, toolchain, and
@@ -34,78 +36,119 @@ const (
 	gib = 1024 * 1024 * 1024
 )
 
+// twinProducts names the product whose [cudadevicetable.Profile] supplies a
+// target's SM count, memory and NVLink bandwidth, Tensor Memory, cluster
+// limit and tcgen05 support. Where the table holds a probe of the product,
+// the probed values, including its L2 size, replace the datasheet ones.
+// sm_107a and sm_107f have no profile and are entirely hand-entered.
+var twinProducts = map[string]string{
+	"sm_90a":  "H200",
+	"sm_100a": "B200",
+	"sm_103a": "GB300",
+	"sm_120a": "RTX 5090",
+	"sm_121a": "GB10",
+}
+
+// tmemColumnBytes is the size of one Tensor Memory column: 128 lanes of 32
+// bits.
+const tmemColumnBytes = 128 * 4
+
 // TwinForTarget returns the calibrated [HardwareTwin] for one of the supported
 // target architecture identifiers: "sm_90a", "sm_100a", "sm_103a", "sm_107a",
 // "sm_107f", "sm_120a", or "sm_121a".
 func TwinForTarget(target string) (HardwareTwin, error) {
 	t := strings.ToLower(strings.TrimSpace(target))
+	twin, ok := handTwin(t)
+	if !ok {
+		return HardwareTwin{}, fmt.Errorf("twin for target: unsupported target %q", target)
+	}
+	product, ok := twinProducts[t]
+	if !ok {
+		return twin, nil
+	}
+	p, err := cudadevicetable.LookupProfile(product)
+	if err != nil {
+		return HardwareTwin{}, fmt.Errorf("twin for target %s: %w", t, err)
+	}
+	tcgen05, err := p.Supports("tcgen05")
+	if err != nil {
+		return HardwareTwin{}, fmt.Errorf("twin for target %s: %w", t, err)
+	}
+	twin.SMCount = int(p.SMs.Value)
+	twin.HBMBandwidthGBps = float64(p.MemoryGBps.Value)
+	twin.NVLinkBandwidthGBps = float64(p.NVLinkGBps.Value)
+	twin.TMEMColumns = int(p.TMEMPerSM.Value / tmemColumnBytes)
+	twin.MaxClusterCTAs = int(p.ClusterSizeOptin.Value)
+	twin.SupportsTCGen05 = tcgen05
+	if l2, ok := probedL2(t, product); ok {
+		twin.L2CacheBytes = l2
+	}
+	return twin, nil
+}
+
+// probedL2 returns the L2 size the table read from product, if the table's
+// probe of target's architecture is of that product.
+func probedL2(target, product string) (int64, bool) {
+	a, ok := cudadevicetable.Lookup(target)
+	if !ok || a.Probe == nil || !strings.EqualFold(strings.TrimPrefix(a.Probe.Device, "NVIDIA "), product) {
+		return 0, false
+	}
+	l2, err := a.ProbedAttr("l2CacheSize")
+	return l2, err == nil
+}
+
+// handTwin returns the hand-entered part of target's twin: the facts the
+// device table does not hold.
+func handTwin(t string) (HardwareTwin, bool) {
 	switch t {
 	case "sm_90a":
 		return HardwareTwin{
 			Target:                       "sm_90a",
 			ComputeMajor:                 9,
 			ComputeMinor:                 0,
-			SMCount:                      132,
 			L2CacheBytes:                 50 * mib,
 			HBMBytes:                     141 * gib,
-			HBMBandwidthGBps:             4800.0,
-			TMEMColumns:                  0,
-			MaxClusterCTAs:               8,
-			SupportsTCGen05:              false,
 			SupportsScaleVec4X:           false,
 			SupportsLUTDecompressB:       false,
 			SupportsSyncRestrictReadA:    false,
 			SupportsHardwareCvtE2M1ToF16: false,
 			SupportsFabricAsyncTensor:    false,
 			PTXISAVersion:                "8.5",
-			NVLinkBandwidthGBps:          900.0,
 			C2CBandwidthGBps:             900.0,
 			RackRanks:                    8,
-		}, nil
+		}, true
 	case "sm_100a":
 		return HardwareTwin{
 			Target:                       "sm_100a",
 			ComputeMajor:                 10,
 			ComputeMinor:                 0,
-			SMCount:                      148,
 			L2CacheBytes:                 126 * mib,
 			HBMBytes:                     192 * gib,
-			HBMBandwidthGBps:             8000.0,
-			TMEMColumns:                  512,
-			MaxClusterCTAs:               16,
-			SupportsTCGen05:              true,
 			SupportsScaleVec4X:           false,
 			SupportsLUTDecompressB:       false,
 			SupportsSyncRestrictReadA:    false,
 			SupportsHardwareCvtE2M1ToF16: true,
 			SupportsFabricAsyncTensor:    false,
 			PTXISAVersion:                "8.5",
-			NVLinkBandwidthGBps:          1800.0,
 			C2CBandwidthGBps:             900.0,
 			RackRanks:                    72,
-		}, nil
+		}, true
 	case "sm_103a":
 		return HardwareTwin{
 			Target:                       "sm_103a",
 			ComputeMajor:                 10,
 			ComputeMinor:                 3,
-			SMCount:                      160,
 			L2CacheBytes:                 126 * mib,
 			HBMBytes:                     288 * gib,
-			HBMBandwidthGBps:             12000.0,
-			TMEMColumns:                  512,
-			MaxClusterCTAs:               16,
-			SupportsTCGen05:              true,
 			SupportsScaleVec4X:           true,
 			SupportsLUTDecompressB:       false,
 			SupportsSyncRestrictReadA:    false,
 			SupportsHardwareCvtE2M1ToF16: true,
 			SupportsFabricAsyncTensor:    false,
 			PTXISAVersion:                "9.0",
-			NVLinkBandwidthGBps:          1800.0,
 			C2CBandwidthGBps:             900.0,
 			RackRanks:                    72,
-		}, nil
+		}, true
 	case "sm_107a":
 		return HardwareTwin{
 			Target:                       "sm_107a",
@@ -127,7 +170,7 @@ func TwinForTarget(target string) (HardwareTwin, error) {
 			NVLinkBandwidthGBps:          3600.0,
 			C2CBandwidthGBps:             1800.0,
 			RackRanks:                    72,
-		}, nil
+		}, true
 	case "sm_107f":
 		return HardwareTwin{
 			Target:                       "sm_107f",
@@ -149,53 +192,40 @@ func TwinForTarget(target string) (HardwareTwin, error) {
 			NVLinkBandwidthGBps:          3600.0,
 			C2CBandwidthGBps:             1800.0,
 			RackRanks:                    144,
-		}, nil
+		}, true
 	case "sm_120a":
 		return HardwareTwin{
 			Target:                       "sm_120a",
 			ComputeMajor:                 12,
 			ComputeMinor:                 0,
-			SMCount:                      170,
 			L2CacheBytes:                 96 * mib,
 			HBMBytes:                     32 * gib,
-			HBMBandwidthGBps:             1792.0,
-			TMEMColumns:                  0,
-			MaxClusterCTAs:               1,
-			SupportsTCGen05:              false,
 			SupportsScaleVec4X:           false,
 			SupportsLUTDecompressB:       false,
 			SupportsSyncRestrictReadA:    false,
 			SupportsHardwareCvtE2M1ToF16: true,
 			SupportsFabricAsyncTensor:    false,
 			PTXISAVersion:                "8.5",
-			NVLinkBandwidthGBps:          0.0,
 			C2CBandwidthGBps:             0.0,
 			RackRanks:                    1,
-		}, nil
+		}, true
 	case "sm_121a":
 		return HardwareTwin{
 			Target:                       "sm_121a",
 			ComputeMajor:                 12,
 			ComputeMinor:                 1,
-			SMCount:                      48,
-			L2CacheBytes:                 32 * mib,
 			HBMBytes:                     128 * gib,
-			HBMBandwidthGBps:             273.0,
-			TMEMColumns:                  0,
-			MaxClusterCTAs:               1,
-			SupportsTCGen05:              false,
 			SupportsScaleVec4X:           false,
 			SupportsLUTDecompressB:       false,
 			SupportsSyncRestrictReadA:    false,
 			SupportsHardwareCvtE2M1ToF16: false,
 			SupportsFabricAsyncTensor:    false,
 			PTXISAVersion:                "9.0",
-			NVLinkBandwidthGBps:          0.0,
 			C2CBandwidthGBps:             600.0,
 			RackRanks:                    1,
-		}, nil
+		}, true
 	default:
-		return HardwareTwin{}, fmt.Errorf("twin for target: unsupported target %q", target)
+		return HardwareTwin{}, false
 	}
 }
 

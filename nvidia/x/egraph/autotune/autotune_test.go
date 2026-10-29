@@ -27,7 +27,7 @@ func TestTwinForTargetAndAutoDiscover(t *testing.T) {
 			major:          9,
 			minor:          0,
 			tmemCols:       0,
-			maxCluster:     8,
+			maxCluster:     16,
 			tcgen05:        false,
 			scaleVec4X:     false,
 			lutB:           false,
@@ -97,7 +97,7 @@ func TestTwinForTargetAndAutoDiscover(t *testing.T) {
 			major:          12,
 			minor:          0,
 			tmemCols:       0,
-			maxCluster:     1,
+			maxCluster:     8,
 			tcgen05:        false,
 			scaleVec4X:     false,
 			lutB:           false,
@@ -111,7 +111,7 @@ func TestTwinForTargetAndAutoDiscover(t *testing.T) {
 			major:          12,
 			minor:          1,
 			tmemCols:       0,
-			maxCluster:     1,
+			maxCluster:     8,
 			tcgen05:        false,
 			scaleVec4X:     false,
 			lutB:           false,
@@ -186,6 +186,45 @@ func TestTwinForTargetAndAutoDiscover(t *testing.T) {
 	}
 	if _, err := autotune.AutoDiscoverTarget(8, 0, false, false); err == nil {
 		t.Errorf("AutoDiscoverTarget(8, 0) succeeded, want error")
+	}
+}
+
+// TestTwinDeviceFacts pins the per-device numbers of each twin.
+func TestTwinDeviceFacts(t *testing.T) {
+	const mib, gib = 1 << 20, 1 << 30
+	tests := []struct {
+		target     string
+		sms        int
+		l2         int64
+		hbm        int64
+		hbmGBps    float64
+		nvlinkGBps float64
+		c2cGBps    float64
+		ranks      int
+	}{
+		{"sm_90a", 132, 50 * mib, 141 * gib, 4800, 900, 900, 8},
+		{"sm_100a", 148, 126 * mib, 192 * gib, 8000, 1800, 900, 72},
+		{"sm_103a", 160, 126 * mib, 288 * gib, 8000, 1800, 900, 72},
+		{"sm_107a", 224, 256 * mib, 288 * gib, 22000, 3600, 1800, 72},
+		{"sm_107f", 224, 256 * mib, 288 * gib, 22000, 3600, 1800, 144},
+		{"sm_120a", 170, 96 * mib, 32 * gib, 1792, 0, 0, 1},
+		{"sm_121a", 48, 24 * mib, 128 * gib, 273, 0, 600, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.target, func(t *testing.T) {
+			tw, err := autotune.TwinForTarget(tt.target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := []any{tw.SMCount, tw.L2CacheBytes, tw.HBMBytes, tw.HBMBandwidthGBps, tw.NVLinkBandwidthGBps, tw.C2CBandwidthGBps, tw.RackRanks}
+			want := []any{tt.sms, tt.l2, tt.hbm, tt.hbmGBps, tt.nvlinkGBps, tt.c2cGBps, tt.ranks}
+			for i := range got {
+				if got[i] != want[i] {
+					t.Errorf("SMs, L2, HBM, HBM GB/s, NVLink GB/s, C2C GB/s, ranks = %v, want %v", got, want)
+					break
+				}
+			}
+		})
 	}
 }
 

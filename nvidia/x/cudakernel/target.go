@@ -54,76 +54,36 @@ type TargetInfo struct {
 	Estimated bool
 }
 
-// Known target specifications.
-var knownTargets = map[string]TargetInfo{
-	// Hopper SM90
-	"sm_90": {
-		Arch:                 "sm_90",
-		Major:                9,
-		Minor:                0,
-		MaxSharedMemoryBytes: 233472,
-		MaxOptInSharedBytes:  232448,
-		WarpsPerSM:           64,
-		MaxBlocksPerSM:       32,
-		RegisterQuantum:      256,
-	},
-	"sm_90a": {
-		Arch:                 "sm_90a",
-		Major:                9,
-		Minor:                0,
-		Suffix:               "a",
-		MaxSharedMemoryBytes: 233472,
-		MaxOptInSharedBytes:  232448,
-		WarpsPerSM:           64,
-		MaxBlocksPerSM:       32,
-		RegisterQuantum:      256,
-	},
+// knownTargets holds the targets whose geometry is recorded, keyed by
+// target name. It is filled at startup from [cudadevicetable].
+var knownTargets = map[string]TargetInfo{}
 
-	// Blackwell SM100 (DGX GB200 / B100)
-	"sm_100": {
-		Arch:                 "sm_100",
-		Major:                10,
-		Minor:                0,
-		MaxSharedMemoryBytes: 233472,
-		MaxOptInSharedBytes:  232448,
-		WarpsPerSM:           64,
-		MaxBlocksPerSM:       32,
-		RegisterQuantum:      256,
-	},
-	"sm_100a": {
-		Arch:                 "sm_100a",
-		Major:                10,
-		Minor:                0,
-		Suffix:               "a",
-		MaxSharedMemoryBytes: 233472,
-		MaxOptInSharedBytes:  232448,
-		WarpsPerSM:           64,
-		MaxBlocksPerSM:       32,
-		RegisterQuantum:      256,
-	},
+// recordedTargets lists the targets knownTargets describes.
+var recordedTargets = []string{"sm_90", "sm_90a", "sm_100", "sm_100a", "sm_121", "sm_121a"}
 
-	// Blackwell SM121 (DGX GB10)
-	"sm_121": {
-		Arch:                 "sm_121",
-		Major:                12,
-		Minor:                1,
-		MaxSharedMemoryBytes: 102400,
-		MaxOptInSharedBytes:  101376,
-		WarpsPerSM:           48,
-		MaxBlocksPerSM:       24,
+// profileTarget returns the geometry of arch from the cudadevicetable
+// profile of its architecture. A feature suffix selects an instruction set,
+// not different hardware, so sm_90 and sm_90a share sm_90a's profile.
+func profileTarget(arch string) (TargetInfo, error) {
+	major, minor, suffix, err := ParseArch(arch)
+	if err != nil {
+		return TargetInfo{}, err
+	}
+	p, err := cudadevicetable.LookupProfile(fmt.Sprintf("sm_%d%da", major, minor))
+	if err != nil {
+		return TargetInfo{}, err
+	}
+	return TargetInfo{
+		Arch:                 arch,
+		Major:                major,
+		Minor:                minor,
+		Suffix:               suffix,
+		MaxSharedMemoryBytes: uint32(p.SharedPerSM.Value),
+		MaxOptInSharedBytes:  uint32(p.SharedPerBlockOptin.Value),
+		WarpsPerSM:           uint32(p.ThreadsPerSM.Value / 32),
+		MaxBlocksPerSM:       uint32(p.BlocksPerSM.Value),
 		RegisterQuantum:      256,
-	},
-	"sm_121a": {
-		Arch:                 "sm_121a",
-		Major:                12,
-		Minor:                1,
-		Suffix:               "a",
-		MaxSharedMemoryBytes: 102400,
-		MaxOptInSharedBytes:  101376,
-		WarpsPerSM:           48,
-		MaxBlocksPerSM:       24,
-		RegisterQuantum:      256,
-	},
+	}, nil
 }
 
 // featureNames maps a TargetInfo capability to the probed feature that answers
@@ -135,10 +95,19 @@ var featureNames = map[string]func(*TargetInfo, bool){
 	"tmamulticast": func(t *TargetInfo, v bool) { t.SupportsMulticast = v },
 }
 
-// init fills the capability fields from the probed table. A target the table
-// does not cover keeps its zero values and an empty FeatureSource, which is
-// the honest record of "not measured" rather than a row of confident falses.
+// init fills knownTargets from the device table: geometry from the
+// profiles, capability fields from the probed feature table. A target the
+// feature table does not cover keeps zero capability fields and an empty
+// FeatureSource, which is the honest record of "not measured" rather than
+// a row of confident falses.
 func init() {
+	for _, arch := range recordedTargets {
+		info, err := profileTarget(arch)
+		if err != nil {
+			panic("cudakernel: " + err.Error())
+		}
+		knownTargets[arch] = info
+	}
 	for arch, info := range knownTargets {
 		tgt, ok := cudadevicetable.LookupTarget(arch)
 		if !ok {

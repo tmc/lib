@@ -136,11 +136,15 @@ func newTPDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPU
 	if d.qcast, err = compilePlan("tp_qcast", b, b.Cast(hopper.F32, b.Input("q", hopper.BF16, 1, local.Heads*hd)), hopper.F32, ""); err != nil {
 		return nil, err
 	}
+	prof, err := deviceProfile(dev)
+	if err != nil {
+		return nil, err
+	}
 	d.rope = hopper.QKNormRoPEKVAppend{Name: "tp_rope_kv", NumHeads: local.Heads, KVHeads: local.KVHeads, HeadDim: hd, PageSize: 1, MaxPages: 1, DType: hopper.BF16}
 	d.sdpa = hopper.SM120PagedAttention{
 		Name: "tp_sdpa", NumQHeads: local.Heads, NumKVHeads: local.KVHeads, HeadDim: hd,
 		PageSize: egraphPageSize, MaxPages: (cfg.MaxSeqLen + egraphPageSize - 1) / egraphPageSize, SeqLen: cfg.MaxSeqLen,
-		Target: "sm_121a", KVFormat: hopper.WeightBF16, Splits: opt.Splits,
+		Target: prof.Target, KVFormat: hopper.WeightBF16, Splits: opt.Splits,
 	}
 	err = d.g.Do(func() error {
 		if err := d.compile(); err != nil {
