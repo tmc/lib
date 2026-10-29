@@ -39,7 +39,7 @@ func RunBenchmarkComparison(batchSize, steps int, budget egraph.AutotuneBudget) 
 	if err != nil {
 		return nil, fmt.Errorf("cuda stream: %w", err)
 	}
-	defer stream.Destroy()
+	defer stream.Close()
 
 	ctx := context.Background()
 
@@ -115,30 +115,30 @@ func RunBenchmarkComparison(batchSize, steps int, budget egraph.AutotuneBudget) 
 	// 1. Unfused Schedule (Multiple intermediate allocations & kernel launch transitions)
 	t0 := time.Now()
 	for s := 0; s < steps; s++ {
-		_ = cudalaunch.Kernel(kRMSNorm).Grid(uint32((hiddenDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kRMSNorm).Grid(uint32((hiddenDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(xBuf, wNormBuf, normOutBuf, int32(hiddenDim), float32(1e-5))
 
-		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((hiddenDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((hiddenDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(normOutBuf, wqBuf, qBuf, int32(hiddenDim), int32(hiddenDim))
-		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((kvDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((kvDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(normOutBuf, wkBuf, kBuf, int32(hiddenDim), int32(kvDim))
-		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((kvDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((kvDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(normOutBuf, wvBuf, vBuf, int32(hiddenDim), int32(kvDim))
 
-		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((intermediateDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((intermediateDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(xBuf, wGateBuf, gateBuf, int32(hiddenDim), int32(intermediateDim))
-		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((intermediateDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((intermediateDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(xBuf, wUpBuf, upBuf, int32(hiddenDim), int32(intermediateDim))
 
-		_ = cudalaunch.Kernel(kSiLU).Grid(uint32((intermediateDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kSiLU).Grid(uint32((intermediateDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(gateBuf, gateBuf, int32(intermediateDim))
-		_ = cudalaunch.Kernel(kMul).Grid(uint32((intermediateDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kMul).Grid(uint32((intermediateDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(gateBuf, upBuf, gateBuf, int32(intermediateDim))
 
-		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((hiddenDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kGEMV).Grid(uint32((hiddenDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(gateBuf, wDownBuf, ffnOutBuf, int32(intermediateDim), int32(hiddenDim))
 
-		_ = cudalaunch.Kernel(kAdd).Grid(uint32((hiddenDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kAdd).Grid(uint32((hiddenDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(qBuf, ffnOutBuf, layerOutBuf, int32(hiddenDim))
 	}
 	_ = stream.Synchronize(ctx)
@@ -148,18 +148,18 @@ func RunBenchmarkComparison(batchSize, steps int, budget egraph.AutotuneBudget) 
 	t1 := time.Now()
 	for s := 0; s < steps; s++ {
 		// (a) Fused RMSNorm + QKV Projection
-		_ = cudalaunch.Kernel(kFusedRMSNormGEMV).Grid(uint32((hiddenDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kFusedRMSNormGEMV).Grid(uint32((hiddenDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(xBuf, wNormBuf, wqBuf, wkBuf, wvBuf,
 				qBuf, kBuf, vBuf,
 				int32(hiddenDim), int32(hiddenDim), int32(kvDim), float32(1e-5))
 
 		// (b) Fused SwiGLU Block (Zero intermediate DRAM writes)
-		_ = cudalaunch.Kernel(kFusedSwiGLU).Grid(uint32(hiddenDim)).Block(128).
+		_ = cudalaunch.Kernel(kFusedSwiGLU).Grid(uint32(hiddenDim), 1, 1).Block(128, 1, 1).
 			Launch(gateBuf, upBuf, wDownBuf, ffnOutBuf,
 				int32(hiddenDim), int32(intermediateDim))
 
 		// (c) Residual Add
-		_ = cudalaunch.Kernel(kAdd).Grid(uint32((hiddenDim+127)/128)).Block(128).
+		_ = cudalaunch.Kernel(kAdd).Grid(uint32((hiddenDim+127)/128), 1, 1).Block(128, 1, 1).
 			Launch(qBuf, ffnOutBuf, layerOutBuf, int32(hiddenDim))
 	}
 	_ = stream.Synchronize(ctx)
