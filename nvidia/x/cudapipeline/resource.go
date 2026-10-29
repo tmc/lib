@@ -9,6 +9,9 @@ import (
 // - Max warps per SM: 48
 // - Max blocks per SM: 24
 // - Register allocation quantum: 256 registers per warp (65,536 registers per SM)
+//
+// They are constants for callers that need one; the values were probed on a
+// GB10 and are recorded in [cudadevicetable], which a test checks them against.
 const (
 	SM121MaxOptinSharedMemBytes = 101376 // 99 KB max opt-in
 	SM121TotalSharedMemBytes    = 102400 // 100 KB total SM smem
