@@ -192,8 +192,16 @@ func loadModelConfig(dir string) (*ModelConfig, bool, error) {
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 && tie.Text != nil && tie.Text.Tie != nil {
 		tied = *tie.Text.Tie
 	}
+	text := cfgBytes
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 {
 		cfg = *raw.TextConfig
+		var outer struct {
+			Text json.RawMessage `json:"text_config"`
+		}
+		if err := json.Unmarshal(cfgBytes, &outer); err != nil {
+			return nil, false, fmt.Errorf("parse config.json: %w", err)
+		}
+		text = outer.Text
 	}
 
 	if err := cfg.RoPEScaling.Validate(); err != nil {
@@ -215,7 +223,49 @@ func loadModelConfig(dir string) (*ModelConfig, bool, error) {
 	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 4096 {
 		cfg.MaxSeqLen = 2048
 	}
+	if err := checkArchitecture(cfg.ModelType, text, cfg.MaxSeqLen); err != nil {
+		return nil, false, fmt.Errorf("validate config.json: %w", err)
+	}
 	return &cfg, tied, nil
+}
+
+// checkArchitecture reports an error for a config, given as JSON, that asks
+// for computation this decoder does not do and would otherwise silently
+// skip: another model family (Qwen3's q and k norms, Gemma's embedding
+// scale), an activation other than SiLU, attention output or MLP biases,
+// or an attention window shorter than maxSeq. An empty modelType is the
+// testing model.
+func checkArchitecture(modelType string, config []byte, maxSeq int) error {
+	switch modelType {
+	case "", "llama", "mistral", "qwen2":
+	default:
+		return fmt.Errorf("unsupported model_type %q (want llama, mistral or qwen2)", modelType)
+	}
+	var c struct {
+		HiddenAct        string `json:"hidden_act"`
+		AttentionBias    bool   `json:"attention_bias"`
+		MLPBias          bool   `json:"mlp_bias"`
+		SlidingWindow    *int   `json:"sliding_window"`
+		UseSlidingWindow *bool  `json:"use_sliding_window"`
+	}
+	if err := json.Unmarshal(config, &c); err != nil {
+		return err
+	}
+	if c.HiddenAct != "" && c.HiddenAct != "silu" {
+		return fmt.Errorf("unsupported hidden_act %q (want silu)", c.HiddenAct)
+	}
+	// Qwen2 biases q, k and v, which the decoder applies; attention_bias
+	// in a Llama config also biases o_proj, which it does not.
+	if c.AttentionBias {
+		return errors.New("unsupported attention_bias: o_proj bias is not applied")
+	}
+	if c.MLPBias {
+		return errors.New("unsupported mlp_bias")
+	}
+	if c.SlidingWindow != nil && *c.SlidingWindow < maxSeq && (c.UseSlidingWindow == nil || *c.UseSlidingWindow) {
+		return fmt.Errorf("unsupported sliding_window %d < %d positions: attention is full", *c.SlidingWindow, maxSeq)
+	}
+	return nil
 }
 
 // LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
