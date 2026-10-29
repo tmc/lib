@@ -9,6 +9,11 @@
 // [EvidenceLevel] saying how far to trust it, and the device or host time it
 // accounts for.
 //
+// Wide address instructions are static context observations. Their presence
+// alone proves neither compiler fallback nor inefficiency, even alongside
+// vector or TMA operations. These findings cannot acquire runtime share or
+// comparison-gap credit; inspect memory width, stride and layout first.
+//
 // [Report.RankAgainst] reorders a report by how much of the gap to a base
 // capture each finding could explain. The comparison itself is a [Baseline],
 // supplied by the caller.
