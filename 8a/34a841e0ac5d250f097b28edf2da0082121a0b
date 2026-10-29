@@ -1,0 +1,11 @@
+commit: 8a34a841e0ac5d250f097b28edf2da0082121a0b
+date: 2026-10-29T13:57:22.119443+00:00
+agent: Codex
+version: codex-cli 0.165.0
+model: exact runtime model not exposed
+tty: noninteractive tool command
+pid: 363 (commit-note helper), parent 360
+ITERM_SESSION_ID: w2t1p3:5A13F225-0BE7-4762-AF12-D906D7813F28
+claude-code version: not applicable
+review: df03e5f56d52823ebf6b6ba6e9abc61fe8e5e72c8ca9e528e64843be5da4a25e
+scope: source/host claim accuracy only, no native performance claim
