@@ -1,0 +1,5 @@
+commit b7290d97a81839a08a30d6a183f10f9399dc33f6
+date 2026-10-29T12:16:53-07:00
+claude-code 2.1.284, model claude-opus-5-5, pid 6940, ITERM_SESSION_ID=w2t1p2:96935236-73AE-46D0-8740-9197D78C4486
+session=4f4f4f72-98c3-4d17-af9f-cd14788572a2
+note: resolution binds streamed fused WQKV/WGateUp in egraphBuffers, keeps HEAD's split-K MMA workspace with tcgen05 tensor maps, moves concat to the tcgen05 test, ledger 25->26. sm_121a emit identical; sm_103a adds NVRTC tmap path.
