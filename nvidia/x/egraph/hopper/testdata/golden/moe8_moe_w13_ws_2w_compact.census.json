@@ -1,0 +1,15 @@
+{
+  "source_sha256": "0d4a5f31054377cbe3e7adc0900911f3bc581acd7a01402632216270caf523f3",
+  "kernels": {
+    "_Z26moe8_moe_w13_ws_2w_compactiPKtPKiPKjPKhPKfS2_Pt": {
+      "loads": {
+        "nc.f32": 1,
+        "nc.u32": 7
+      },
+      "stores": {
+        "u32": 16
+      },
+      "late_loads": 0
+    }
+  }
+}
