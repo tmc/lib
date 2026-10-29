@@ -1,0 +1,8 @@
+commit: 1b232c3370b53499bb3aa4b8ae505610dea1ddd8
+commit date: 2026-10-29
+agent: Codex CLI 0.165.0; Claude Code not used
+model: GPT-6; exact serving model identifier unavailable
+tty: no controlling tty in tool shell
+tool shell pid at metadata capture: 49424
+ITERM_SESSION_ID: w2t6p8:D1AA3E70-57F5-406D-96B0-629D770FC19E
+GOWORK=off host test/race/vet ./... passed. Linux amd64/arm64 tests cross-compiled. Portable controls prove canonical duplicate lookup despite caller fd reuse, missing/new-leader task storage, dead-task/error propagation, exact nonzero cookie comparison, explicit owner/budget errors and query/revocation after Disable. Three permissive query mutations fail semantically. Actual native/probe/GPU admission NOT_RUN. Manual Go-style fallback continues after prior git-auto-commit-message failure for absent Anthropic API key.
