@@ -1,0 +1,5 @@
+commit 995dd1db687da128befa5cc86892dbbddb838723
+date 2026-10-29T13:04:51-07:00
+claude-code 2.1.284, model claude-opus-5-5, pid 52007, ITERM_SESSION_ID=w2t1p2:96935236-73AE-46D0-8740-9197D78C4486
+session=4f4f4f72-98c3-4d17-af9f-cd14788572a2
+EXECUTED-GB10: dgx ~/tmp/lib-wt-llama-megakernel/20261029-models/t128.log (label models-t128).
