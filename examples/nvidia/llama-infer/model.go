@@ -220,8 +220,12 @@ func loadModelConfig(dir string) (*ModelConfig, bool, error) {
 	if cfg.NumKeyValueHeads == 0 {
 		cfg.NumKeyValueHeads = cfg.NumAttentionHeads
 	}
-	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 4096 {
+	switch {
+	case cfg.MaxSeqLen == 0:
+		// Hugging Face's LlamaConfig default.
 		cfg.MaxSeqLen = 2048
+	case cfg.MaxSeqLen < 0:
+		return nil, false, fmt.Errorf("config.json: max_position_embeddings is %d, want > 0", cfg.MaxSeqLen)
 	}
 	if err := checkArchitecture(cfg.ModelType, text, cfg.MaxSeqLen); err != nil {
 		return nil, false, fmt.Errorf("validate config.json: %w", err)
@@ -264,6 +268,21 @@ func checkArchitecture(modelType string, config []byte, maxSeq int) error {
 	}
 	if c.SlidingWindow != nil && *c.SlidingWindow < maxSeq && (c.UseSlidingWindow == nil || *c.UseSlidingWindow) {
 		return fmt.Errorf("unsupported sliding_window %d < %d positions: attention is full", *c.SlidingWindow, maxSeq)
+	}
+	return nil
+}
+
+// limitContext sets cfg's context, the KV cache length, to n tokens. Zero
+// keeps max_position_embeddings from the model configuration. A nonzero n
+// must not exceed that configured limit.
+func limitContext(cfg *ModelConfig, n int) error {
+	switch {
+	case n < 0:
+		return fmt.Errorf("context of %d tokens, want >= 0", n)
+	case n > cfg.MaxSeqLen:
+		return fmt.Errorf("context of %d tokens exceeds the model's %d (max_position_embeddings)", n, cfg.MaxSeqLen)
+	case n > 0:
+		cfg.MaxSeqLen = n
 	}
 	return nil
 }
