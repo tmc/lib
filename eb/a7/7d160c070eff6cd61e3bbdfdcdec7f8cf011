@@ -1,0 +1,5 @@
+commit eba77d160c070eff6cd61e3bbdfdcdec7f8cf011
+date 2026-10-29T12:20:33-07:00
+claude-code 2.1.284, model claude-opus-5-5, pid 12269, ITERM_SESSION_ID=w2t1p2:96935236-73AE-46D0-8740-9197D78C4486
+session=4f4f4f72-98c3-4d17-af9f-cd14788572a2
+note: ports fuse-cta's decode chain (norm plan, xn, gemm tail counters, no q cast, rope CTA grid) into tcgen05's bindDecode/egraphBuffers; narrow prefill chain=false; emu test launches eg.norm; ledger 26->28. EMULATED tcgen05 decode passes; GB10 not yet run.
