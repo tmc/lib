@@ -355,9 +355,38 @@ func (ext *Extractor) computeCostsBounded(budget *extractionBudget) error {
 			maxVisits = maxIters * totalNodes
 		}
 	}
+	best, err := ext.relax(classIDs, nil, budget, maxVisits)
+	if errors.Is(err, egraphcore.ErrCostRelaxationLimit) {
+		if budgetLimitedVisits {
+			budget.workExhausted = true
+			return ErrExtractionLimit
+		}
+		return fmt.Errorf("egraph: cost relaxation did not converge within %d node visits: %w", maxVisits, err)
+	}
+	if err != nil {
+		return err
+	}
+	for classID, result := range best {
+		ext.costs[classID] = result.Cost
+		ext.bestNodes[classID] = result.Node
+	}
+	return nil
+}
+
+// A fixedCost node stands for a class whose cost is already known: it has
+// no children and costs the given amount.
+type fixedCost float64
+
+// relax computes the best node of each class in classIDs. Classes in fixed
+// are priced at the given cost and have no node to choose; every other
+// class's children must be in classIDs.
+func (ext *Extractor) relax(classIDs []Id, fixed map[Id]float64, budget *extractionBudget, maxVisits int) (map[Id]egraphcore.RankedBestCostNode[ENode, *big.Int], error) {
 	best, _, err := egraphcore.RelaxBestCostsWorklist(
 		classIDs,
 		func(classID Id) []ENode {
+			if c, ok := fixed[classID]; ok {
+				return []ENode{{Data: fixedCost(c)}}
+			}
 			class := ext.g.class(classID)
 			if class == nil {
 				return nil
@@ -370,6 +399,9 @@ func (ext *Extractor) computeCostsBounded(budget *extractionBudget) error {
 		func(node ENode) error { return budget.take(1 + len(node.Children)) },
 		func(node ENode) error { return budget.take(1 + len(node.Children)) },
 		func(node ENode, childStates []egraphcore.RankedBestCostNode[ENode, *big.Int], allChildrenKnown bool) (float64, *big.Int, bool, error) {
+			if c, ok := node.Data.(fixedCost); ok {
+				return float64(c), big.NewInt(1), true, nil
+			}
 			if node.Subsumed || !allChildrenKnown {
 				return 0, nil, false, nil
 			}
@@ -412,21 +444,7 @@ func (ext *Extractor) computeCostsBounded(budget *extractionBudget) error {
 		},
 		maxVisits,
 	)
-	if errors.Is(err, egraphcore.ErrCostRelaxationLimit) {
-		if budgetLimitedVisits {
-			budget.workExhausted = true
-			return ErrExtractionLimit
-		}
-		return fmt.Errorf("egraph: cost relaxation did not converge within %d node visits: %w", maxVisits, err)
-	}
-	if err != nil {
-		return err
-	}
-	for classID, result := range best {
-		ext.costs[classID] = result.Cost
-		ext.bestNodes[classID] = result.Node
-	}
-	return nil
+	return best, err
 }
 
 // Extract returns the minimum-cost AST Expr and its total cost for the specified e-class root.
