@@ -1,0 +1,8 @@
+commit: 57456b916047d1c950a245a61042c097d1b61bf9
+commit date: 2026-10-29
+agent: Codex CLI 0.165.0; Claude Code not used
+model: GPT-6; exact serving model identifier unavailable
+tty: no controlling tty in tool shell
+tool shell pid at metadata capture: 49424
+ITERM_SESSION_ID: w2t6p8:D1AA3E70-57F5-406D-96B0-629D770FC19E
+Host test/race/vet ./... passed with GOWORK=off. Linux amd64/arm64 test binaries cross-compiled after updating the opt-in native CPU gate to128-byte reads. Both-ABI VM checks every stack access/helper output, <=376-byte maximum frame, all old/new wire sizes, and65/72/128-byte entry/paired-return capture. Footer-overlap and relaxed128-byte-limit mutations fail semantically. Actual kernel verifier/native and GPU admission NOT_RUN. Manual Go-style fallback continues after prior git-auto-commit-message failure for absent Anthropic API key.
