@@ -161,76 +161,79 @@ func runQKNormRoPEKVAppendEmu(t *testing.T, k QKNormRoPEKVAppend, m int, in *QKN
 }
 
 func TestQKNormRoPEKVAppend(t *testing.T) {
-	t.Run("bf16_qknorm_neox_bf16kv", func(t *testing.T) {
-		const (
-			M        = 4
-			NumHeads = 4
-			KVHeads  = 2
-			HeadDim  = 64
-			PageSize = 16
-			MaxPages = 4
-		)
-		k := QKNormRoPEKVAppend{
-			Name:            "qk_rope_kv_bf16_neox",
-			NumHeads:        NumHeads,
-			KVHeads:         KVHeads,
-			HeadDim:         HeadDim,
-			RotaryDim:       HeadDim,
-			PageSize:        PageSize,
-			MaxPages:        MaxPages,
-			Eps:             1e-5,
-			QKNorm:          true,
-			InterleavedRoPE: false,
-			KVFP8:           false,
-			DType:           BF16,
-		}
+	// 20/10 heads spread over three CTAs per token, the last with fewer
+	// than four heads.
+	for _, heads := range [][2]int{{4, 2}, {20, 10}} {
+		NumHeads, KVHeads := heads[0], heads[1]
+		t.Run(fmt.Sprintf("bf16_qknorm_neox_bf16kv_%dh", NumHeads), func(t *testing.T) {
+			const (
+				M        = 4
+				HeadDim  = 64
+				PageSize = 16
+				MaxPages = 4
+			)
+			k := QKNormRoPEKVAppend{
+				Name:            "qk_rope_kv_bf16_neox",
+				NumHeads:        NumHeads,
+				KVHeads:         KVHeads,
+				HeadDim:         HeadDim,
+				RotaryDim:       HeadDim,
+				PageSize:        PageSize,
+				MaxPages:        MaxPages,
+				Eps:             1e-5,
+				QKNorm:          true,
+				InterleavedRoPE: false,
+				KVFP8:           false,
+				DType:           BF16,
+			}
 
-		r := rand.New(rand.NewPCG(11, 22))
-		qkvStride := (NumHeads + 2*KVHeads) * HeadDim
-		totalPages := M * MaxPages
-		cacheElems := totalPages * PageSize * KVHeads * HeadDim
+			r := rand.New(rand.NewPCG(11, 22))
+			qkvStride := (NumHeads + 2*KVHeads) * HeadDim
+			totalPages := M * MaxPages
+			cacheElems := totalPages * PageSize * KVHeads * HeadDim
 
-		pageTable := make([]int32, M*MaxPages)
-		perm := r.Perm(totalPages)
-		for i := range pageTable {
-			pageTable[i] = int32(perm[i])
-		}
-		seqLens := []int32{1, 17, 32, 45}
-		positions := []int32{0, 16, 31, 44}
+			pageTable := make([]int32, M*MaxPages)
+			perm := r.Perm(totalPages)
+			for i := range pageTable {
+				pageTable[i] = int32(perm[i])
+			}
+			seqLens := []int32{1, 17, 32, 45}
+			positions := []int32{0, 16, 31, 44}
 
-		initK := randVals(r, cacheElems, 0.25)
-		initV := randVals(r, cacheElems, 0.25)
-		for i := range cacheElems {
-			initK[i] = float64(BF16.Round(float32(initK[i])))
-			initV[i] = float64(BF16.Round(float32(initV[i])))
-		}
+			initK := randVals(r, cacheElems, 0.25)
+			initV := randVals(r, cacheElems, 0.25)
+			for i := range cacheElems {
+				initK[i] = float64(BF16.Round(float32(initK[i])))
+				initV[i] = float64(BF16.Round(float32(initV[i])))
+			}
 
-		inRef := &QKNormRoPEKVInputs{
-			QKV:         randVals(r, M*qkvStride, 1.2),
-			QNormWeight: randVals(r, HeadDim, 0.8),
-			KNormWeight: randVals(r, HeadDim, 0.8),
-			CosSinTable: buildCosSinTable(64, HeadDim, false, 10000.0),
-			Positions:   positions,
-			SeqIDs:      []int32{0, 1, 2, 3},
-			SeqLens:     seqLens,
-			PageTable:   pageTable,
-			KCache:      append([]float64(nil), initK...),
-			VCache:      append([]float64(nil), initV...),
-		}
-		inEmu := *inRef
-		inEmu.KCache = append([]float64(nil), initK...)
-		inEmu.VCache = append([]float64(nil), initV...)
+			inRef := &QKNormRoPEKVInputs{
+				QKV:         randVals(r, M*qkvStride, 1.2),
+				QNormWeight: randVals(r, HeadDim, 0.8),
+				KNormWeight: randVals(r, HeadDim, 0.8),
+				CosSinTable: buildCosSinTable(64, HeadDim, false, 10000.0),
+				Positions:   positions,
+				SeqIDs:      []int32{0, 1, 2, 3},
+				SeqLens:     seqLens,
+				PageTable:   pageTable,
+				KCache:      append([]float64(nil), initK...),
+				VCache:      append([]float64(nil), initV...),
+			}
+			inEmu := *inRef
+			inEmu.KCache = append([]float64(nil), initK...)
+			inEmu.VCache = append([]float64(nil), initV...)
 
-		wantQ, err := k.Reference(M, inRef)
-		if err != nil {
-			t.Fatal(err)
-		}
-		gotQ, gotK, gotV := runQKNormRoPEKVAppendEmu(t, k, M, &inEmu)
+			wantQ, err := k.Reference(M, inRef)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotQ, gotK, gotV := runQKNormRoPEKVAppendEmu(t, k, M, &inEmu)
 
-		agree(t, "q_out", BF16, gotQ, wantQ)
-		agree(t, "k_cache", BF16, gotK, inRef.KCache)
-		agree(t, "v_cache", BF16, gotV, inRef.VCache)
-	})
+			agree(t, "q_out", BF16, gotQ, wantQ)
+			agree(t, "k_cache", BF16, gotK, inRef.KCache)
+			agree(t, "v_cache", BF16, gotV, inRef.VCache)
+		})
+	}
 
 	t.Run("bf16_qknorm_interleaved_partial_rotary_fp8kv", func(t *testing.T) {
 		const (
