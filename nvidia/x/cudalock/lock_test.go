@@ -1091,3 +1091,28 @@ func TestInteropReferenceScript(t *testing.T) {
 		}
 	})
 }
+
+func TestIsDefaultDirSymlinkParent(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GPU_LOCKDIR", filepath.Join(link, "lock"))
+	t.Setenv("GPU_LOCK_HELD", "")
+	h, err := Acquire(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Release()
+	if !IsDefaultDir(h.Dir()) {
+		t.Errorf("IsDefaultDir(%q) = false with GPU_LOCKDIR=%q", h.Dir(), DefaultDir())
+	}
+	if IsDefaultDir(filepath.Join(real, "other")) {
+		t.Error("IsDefaultDir accepted a sibling directory")
+	}
+	t.Setenv("GPU_LOCKDIR", filepath.Join(t.TempDir(), "lock"))
+	if IsDefaultDir(h.Dir()) {
+		t.Error("IsDefaultDir accepted a changed default directory")
+	}
+}

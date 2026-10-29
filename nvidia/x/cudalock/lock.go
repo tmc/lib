@@ -57,6 +57,14 @@ func DefaultDir() string {
 	return defaultDir(os.Getenv)
 }
 
+// IsDefaultDir reports whether dir, a canonical path as returned by
+// [Handle.Dir], names the current default lock directory.
+// The comparison resolves symbolic links in the default directory's parent,
+// as [Acquire] does.
+func IsDefaultDir(dir string) bool {
+	return isDefaultDir(dir)
+}
+
 func defaultDir(env func(string) string) string {
 	if dir := env("GPU_LOCKDIR"); dir != "" {
 		return dir
@@ -124,7 +132,8 @@ type Handle struct {
 	hold     *dirHold
 }
 
-// Dir returns the directory path of the acquired lock.
+// Dir returns the directory path of the acquired lock, with symbolic links
+// in its parent resolved.
 func (h *Handle) Dir() string {
 	return h.dir
 }
