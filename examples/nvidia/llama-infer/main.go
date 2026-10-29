@@ -24,6 +24,7 @@ import (
 	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cuda"
 	"github.com/tmc/lib/nvidia/x/cudaattn"
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudagrammar"
 	"github.com/tmc/lib/nvidia/x/cudakv"
 	"github.com/tmc/lib/nvidia/x/cudaprof"
@@ -68,7 +69,7 @@ var (
 	egraphPDLFlag     = flag.Bool("egraph-pdl", false, "with -egraph, launch each generated kernel as the programmatic dependent of the one before it (sm_90 and newer; ignored on older devices)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
 	egraphEmitFlag    = flag.String("egraph-emit", "", "write the e-graph kernels for -egraph-target, planned for -model's config.json, to this directory and exit; needs no GPU")
-	egraphTargetFlag  = flag.String("egraph-target", "sm_121a", "with -egraph-emit, the target or product to plan for, such as sm_103a, GB300 or H200")
+	egraphTargetFlag  = flag.String("egraph-target", "sm_121a", "with -egraph-emit, the target or product to plan for, such as sm_103a, GB300 or H200; with -egraph, it must name this device's target (default: the device's)")
 	tpFlag            = flag.Int("tp", 0, "with -egraph, run the decode step tensor-parallel over this many ranks (Megatron-sharded layers, an all-reduce after o_proj and down); prompts prefill token by token")
 	tpModeFlag        = flag.String("tp-mode", "serial", "with -tp and -tp-backend device, how ranks share the one GPU: serial (one stream), streams (one stream per rank) or green (one green-context SM partition per rank)")
 	tpBackendFlag     = flag.String("tp-backend", "device", "with -tp, the all-reduce: device (a kernel reading every rank's buffer; all ranks on one GPU) or nccl (one GPU per rank)")
@@ -261,6 +262,20 @@ func runGPUInference(
 	defer func() {
 		rerr = errors.Join(rerr, td.err())
 	}()
+
+	// Refuse an e-graph target other than the device's before uploading
+	// anything.
+	targetSet := false
+	flag.Visit(func(f *flag.Flag) { targetSet = targetSet || f.Name == "egraph-target" })
+	if *egraphFlag && targetSet {
+		want, err := cudadevicetable.LookupProfile(*egraphTargetFlag)
+		if err != nil {
+			return fmt.Errorf("e-graph target: %w", err)
+		}
+		if err := checkEgraphTarget(fmt.Sprintf("sm_%d%da", major, minor), want); err != nil {
+			return err
+		}
+	}
 
 	// Compile GPU kernel modules
 	gm, err := CompileGPUModules(dev)
