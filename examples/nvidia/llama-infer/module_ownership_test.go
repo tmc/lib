@@ -200,6 +200,7 @@ const libX = "github.com/tmc/lib/nvidia/x/"
 // "if owner != nil".
 var ownerReturning = map[string]bool{
 	"uploadModel": true, "uploadModelWith": true, "UploadModelToGPU": true,
+	"streamModel": true, "streamModelWith": true,
 	"NewGPUScratchpad": true, "newGPUScratchpadWith": true,
 	"CompileGPUModules": true, "compileGPUModules": true,
 	"NewDecodeGraph": true, "newDecodeGraphWith": true,
@@ -304,6 +305,15 @@ var ownerSites = []struct {
 	{ownerSite{"gpu_model.go", "uploadModel", libX + "cudamem.Alloc", "allocator for uploadModelWith"}, 1, "TestUploadModelWith",
 		"uploadModelWith stores what alloc returns in the weights its deferred free releases on error; " +
 			"its fakes return only zero slices, so a nonzero slice returned with an error is not exercised"},
+	{ownerSite{"weights_stream.go", "streamModel", "streamModelWith", "return"}, 1, "",
+		"hands the owner and error to the callers of streamModel, whose calls are checked"},
+	{ownerSite{"weights_stream.go", "streamModel", libX + "cudamem.Alloc", "allocator for streamModelWith"}, 1, "TestStreamModelWithErrors",
+		"streamModelWith stores what allocVector returns, with its error too, in the weights its deferred free releases on error"},
+	{ownerSite{"weights_stream.go", "allocWeight", libX + "cudamem.Alloc", "allocator for allocAs"}, 2, "TestStreamModelWithErrors",
+		"allocAs returns a nonzero slice with its allocation error, and streamModelWith stores it in the weights " +
+			"its deferred free releases on error"},
+	{ownerSite{"weights_stream_test.go", "streamFake", "streamModelWith", "call"}, 1, "TestStreamModelWith",
+		"called with fake device operations, so nothing is allocated on a device"},
 	{ownerSite{"gpu_model.go", "NewGPUScratchpad", "newGPUScratchpadWith", "return"}, 1, "",
 		"hands the owner and error to the callers of NewGPUScratchpad, whose calls are checked"},
 	{ownerSite{"gpu_model.go", "NewGPUScratchpad", libX + "cudamem.Alloc", "allocator for newGPUScratchpadWith"}, 2, "TestNewGPUScratchpadWith",
@@ -982,6 +992,8 @@ var ownerCalls = map[string]callCount{
 	"gpu_model_test.go":         {4, 0},
 	"decode_graph_test.go":      {1, 0},
 	"egraph_gpu.go":             {25, 0},
+	"weights_stream.go":         {4, 0},
+	"weights_stream_test.go":    {1, 0},
 }
 
 // testFuncs returns the names of the functions declared in the package's

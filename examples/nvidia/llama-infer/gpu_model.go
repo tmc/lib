@@ -15,6 +15,11 @@ import (
 
 // GPULayerWeights holds GPU-resident parameter slices for one transformer layer.
 // Matrices are stored as the model's weight dtype; norms and biases are float32.
+//
+// A layer that [streamModel] loaded keeps its q, k and v projections in one
+// buffer, WQKV, and its gate and up projections in another, WGateUp, as the
+// e-graph decoder reads them; WQ, WK, WV, WGate and WUp are borrowed views
+// of them. Otherwise WQKV and WGateUp are zero.
 type GPULayerWeights struct {
 	InputNorm cudamem.Slice[float32]
 	PostNorm  cudamem.Slice[float32]
@@ -28,6 +33,8 @@ type GPULayerWeights struct {
 	WGate     deviceWeight
 	WUp       deviceWeight
 	WDown     deviceWeight
+	WQKV      deviceWeight
+	WGateUp   deviceWeight
 }
 
 // GPUModelWeights holds all model parameters in device GPU memory. A tied
@@ -168,6 +175,16 @@ func (w *GPUModelWeights) matrices() []*deviceWeight {
 	return m
 }
 
+// fused returns pointers to every layer's WQKV and WGateUp.
+func (w *GPUModelWeights) fused() []*deviceWeight {
+	var m []*deviceWeight
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		m = append(m, &l.WQKV, &l.WGateUp)
+	}
+	return m
+}
+
 // vectors returns pointers to every norm and bias in w, in upload order.
 func (w *GPUModelWeights) vectors() []*cudamem.Slice[float32] {
 	v := []*cudamem.Slice[float32]{&w.Norm}
@@ -233,7 +250,8 @@ func (w *GPUModelWeights) Free() error {
 // zero a vector only when its free succeeds, as freeOwned does.
 func (w *GPUModelWeights) free(vec func(*cudamem.Slice[float32]) error) error {
 	var errs []error
-	for _, m := range w.matrices() {
+	// Release the views of the fused weights before the fused weights.
+	for _, m := range append(w.matrices(), w.fused()...) {
 		errs = append(errs, m.release())
 	}
 	for _, v := range w.vectors() {

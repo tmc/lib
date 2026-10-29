@@ -58,6 +58,21 @@ func (w deviceWeight) borrow() deviceWeight {
 	return w
 }
 
+// view returns a borrowed view of elements [lo, hi) of w.
+func (w deviceWeight) view(lo, hi int) (deviceWeight, error) {
+	switch b := w.buf.(type) {
+	case cudamem.Slice[uint16]:
+		w.buf = b.Slice(lo, hi)
+	case cudamem.Slice[float32]:
+		w.buf = b.Slice(lo, hi)
+	case interface{ view(lo, hi int) deviceBuffer }:
+		w.buf = b.view(lo, hi)
+	default:
+		return deviceWeight{}, fmt.Errorf("cannot view %T", w.buf)
+	}
+	return w.borrow(), nil
+}
+
 // release frees w's memory if w owns it, then zeroes w. If the free fails,
 // w is left as it was, so that release can be called again, and the error
 // is returned unwrapped.
@@ -153,6 +168,11 @@ func (w *GPUModelWeights) checkDTypes() error {
 		}
 		if d, ok := m.storedAs(); ok && d != m.dtype {
 			return fmt.Errorf("matrix weight %d is labelled %s but stored as %s", i, m.dtype, d)
+		}
+	}
+	for i, m := range w.fused() {
+		if m.buf != nil && m.dtype != w.DType {
+			return fmt.Errorf("fused weight %d is %s, model is %s", i, m.dtype, w.DType)
 		}
 	}
 	return nil

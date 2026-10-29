@@ -269,6 +269,7 @@ func runWiringProblems(src []byte) ([]string, error) {
 		`closeInto(&rerr, f, "close trace file")`,
 		`closeInto(&rerr, f, "close profile file")`,
 		`closeInto(&rerr, profSession, "close profile session")`,
+		`closeInto(&rerr, ck, "close checkpoint")`,
 	}
 	if !slices.Equal(deferred, wantDeferred) {
 		bad = append(bad, fmt.Sprintf("run defers %q, want %q", deferred, wantDeferred))

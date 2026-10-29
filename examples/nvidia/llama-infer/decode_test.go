@@ -235,11 +235,7 @@ func TestProfilerStopWiring(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "\t\treturn dev.WithContext(func() error {\n" +
-		"\t\t\t// runGPUInference holds the only reference to the host\n" +
-		"\t\t\t// weights, so it can release them once they are on the GPU.\n" +
-		"\t\t\tw := weights\n" +
-		"\t\t\tweights = nil\n" +
-		"\t\t\terr := runGPUInference(dev, w, cfg, tokenizer, promptTokens, major, minor, tracer, profSession)\n"
+		"\t\t\terr := runGPUInference(dev, ck, cfg, tied, tokenizer, promptTokens, major, minor, tracer, profSession)\n"
 	stop := "\t\t\treturn errors.Join(err, driver.ProfilerStop())\n\t\t})\n"
 	i := strings.Index(string(src), want)
 	if i < 0 || strings.Count(string(src), want) != 1 {

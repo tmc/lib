@@ -93,12 +93,11 @@ type egraphDecoder struct {
 	ready map[*hopper.Plan]cudamem.Slice[uint64]
 	epoch uint32
 
-	wqkv, wgu []deviceWeight
-	bqkv      []cudamem.Slice[float32]
-	qkv, x2   cudamem.Slice[float32]
-	temps32   map[string]cudamem.Slice[float32] // by name
-	temps16   map[string]cudamem.Slice[uint16]
-	tempPtr   map[string]driver.DevicePtr
+	bqkv    []cudamem.Slice[float32]
+	qkv, x2 cudamem.Slice[float32]
+	temps32 map[string]cudamem.Slice[float32] // by name
+	temps16 map[string]cudamem.Slice[uint16]
+	tempPtr map[string]driver.DevicePtr
 
 	attnIn, post [][]egraphLaunch // per layer
 	head         []egraphLaunch
@@ -130,9 +129,14 @@ type egraphDecoder struct {
 	mmaOff map[string]int
 }
 
-func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, opt egraphOptions) (eg *egraphDecoder, err error) {
+func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights, sp *GPUScratchpad, opt egraphOptions) (eg *egraphDecoder, err error) {
 	if gpuW.DType != weightBF16 {
 		return nil, errors.New("-egraph needs -weight-dtype bf16")
+	}
+	for i, l := range gpuW.Layers {
+		if l.WQKV.buf == nil || l.WGateUp.buf == nil {
+			return nil, fmt.Errorf("layer %d has no fused qkv and gate_up weights: load the model with streamModel", i)
+		}
 	}
 	if (opt.PrefillRows != 0 || opt.AttnSplits != 0) && !opt.Attn {
 		return nil, errors.New("e-graph prefill and attention splits need generated attention")
@@ -142,7 +146,7 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 			return nil, fmt.Errorf("read SM count: %w", err)
 		}
 	}
-	bias := len(w.Layers) > 0 && len(w.Layers[0].QBias) > 0
+	bias := len(gpuW.Layers) > 0 && gpuW.Layers[0].QBias.Len() > 0
 	plans, err := buildEgraphPlans(cfg, bias, opt)
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
@@ -186,25 +190,20 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		return nil, err
 	}
 
-	eg.wqkv = make([]deviceWeight, len(w.Layers))
-	eg.wgu = make([]deviceWeight, len(w.Layers))
 	if bias {
-		eg.bqkv = make([]cudamem.Slice[float32], len(w.Layers))
-	}
-	for i := range w.Layers {
-		l := &w.Layers[i]
-		if eg.wqkv[i], err = uploadWeight(dev, concat(l.WQ, l.WK, l.WV), weightBF16); err != nil {
-			return nil, fmt.Errorf("upload layer %d qkv: %w", i, err)
-		}
-		if eg.wgu[i], err = uploadWeight(dev, concat(l.WGate, l.WUp), weightBF16); err != nil {
-			return nil, fmt.Errorf("upload layer %d gate_up: %w", i, err)
-		}
-		if bias {
-			if eg.bqkv[i], err = cudamem.Alloc[float32](dev, len(l.QBias)+len(l.KBias)+len(l.VBias)); err != nil {
+		eg.bqkv = make([]cudamem.Slice[float32], len(gpuW.Layers))
+		for i := range gpuW.Layers {
+			l := &gpuW.Layers[i]
+			q, k, v := l.QBias.Len(), l.KBias.Len(), l.VBias.Len()
+			if eg.bqkv[i], err = cudamem.Alloc[float32](dev, q+k+v); err != nil {
 				return nil, fmt.Errorf("alloc layer %d qkv bias: %w", i, err)
 			}
-			if err := eg.bqkv[i].CopyFromHost(concat(l.QBias, l.KBias, l.VBias)); err != nil {
-				return nil, fmt.Errorf("upload layer %d qkv bias: %w", i, err)
+			b := eg.bqkv[i]
+			if err := errors.Join(
+				b.Slice(0, q).CopyDeviceToDevice(l.QBias),
+				b.Slice(q, q+k).CopyDeviceToDevice(l.KBias),
+				b.Slice(q+k, q+k+v).CopyDeviceToDevice(l.VBias)); err != nil {
+				return nil, fmt.Errorf("copy layer %d qkv bias: %w", i, err)
 			}
 		}
 	}
@@ -244,12 +243,12 @@ func newEgraphDecoder(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, gpuW 
 		bufs := map[string]driver.DevicePtr{
 			"x":                      cur.Ptr(),
 			"attn_norm":              lw.InputNorm.Ptr(),
-			"w_qkv":                  eg.wqkv[i].Ptr(),
+			"w_qkv":                  lw.WQKV.Ptr(),
 			plans.attnIn.Output.Name: eg.qkv.Ptr(),
 			"attn":                   sp.AttnOut.Ptr(),
 			"w_o":                    lw.WO.Ptr(),
 			"ffn_norm":               lw.PostNorm.Ptr(),
-			"w_gu":                   eg.wgu[i].Ptr(),
+			"w_gu":                   lw.WGateUp.Ptr(),
 			"w_down":                 lw.WDown.Ptr(),
 			plans.post.Output.Name:   next.Ptr(),
 		}
@@ -491,18 +490,6 @@ func (eg *egraphDecoder) positionArgs(fn driver.Function) (kind string, pa []egr
 	return eg.posKind[fn], pa, ok
 }
 
-func concat(parts ...[]float32) []float32 {
-	n := 0
-	for _, p := range parts {
-		n += len(p)
-	}
-	out := make([]float32, 0, n)
-	for _, p := range parts {
-		out = append(out, p...)
-	}
-	return out
-}
-
 // decodePlans returns the decode step's plans, which -egraph-mega runs as
 // megakernels.
 func (eg *egraphDecoder) decodePlans() []*hopper.Plan {
@@ -727,12 +714,6 @@ func (eg *egraphDecoder) Kernels() int {
 // Close releases eg's module and buffers.
 func (eg *egraphDecoder) Close() error {
 	var errs []error
-	for i := range eg.wqkv {
-		errs = append(errs, eg.wqkv[i].release())
-	}
-	for i := range eg.wgu {
-		errs = append(errs, eg.wgu[i].release())
-	}
 	for i := range eg.bqkv {
 		errs = append(errs, freeOwned(&eg.bqkv[i]))
 	}

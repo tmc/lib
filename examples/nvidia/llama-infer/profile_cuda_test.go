@@ -157,10 +157,15 @@ func TestPinnedProfileTokenParity(t *testing.T) {
 			t.Errorf("close device: %v", err)
 		}
 	}()
-	w, cfg, err := LoadModel(dir)
+	ck, cfg, tied, err := openCheckpoint(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := ck.Close(); err != nil {
+			t.Errorf("close checkpoint: %v", err)
+		}
+	}()
 	tok, err := LoadHFTokenizer(filepath.Join(dir, "tokenizer.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +186,7 @@ func TestPinnedProfileTokenParity(t *testing.T) {
 			session = cudaprof.NewSession(&profile)
 		}
 		err := dev.WithContext(func() error {
-			return runGPUInference(dev, w, cfg, r, []int32{1, 450, 7483, 310, 3444, 338}, major, minor, nil, session)
+			return runGPUInference(dev, ck, cfg, tied, r, []int32{1, 450, 7483, 310, 3444, 338}, major, minor, nil, session)
 		})
 		if session != nil {
 			if closeErr := session.Close(); closeErr != nil {
