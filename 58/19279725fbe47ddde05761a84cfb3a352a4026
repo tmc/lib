@@ -1,0 +1,11 @@
+commit: 5819279725fbe47ddde05761a84cfb3a352a4026
+date: 2026-10-30T05:54:59.904856+00:00
+codex-version: codex-cli 0.166.0
+claude-code-version: not applicable
+model: GPT-6 (exact runtime identifier unavailable)
+tty: non-interactive
+pid: 24910
+ITERM_SESSION_ID: 289E4C27-1C25-4FD2-BA9C-DA19E318BB4C
+validation: final combined AFMoE host tests PASS; independent source/fixture reviews; CUDA13 CPU codegen PASS
+native: NOT_RUN; explicit qualification guard closed by default
+publication: not pushed
