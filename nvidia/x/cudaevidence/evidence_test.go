@@ -254,3 +254,29 @@ func TestEvidenceIdentityValidation(t *testing.T) {
 		}
 	}
 }
+
+// TestOccupancyAndPressureRemainClassified checks that derived occupancy and
+// modeled register-pressure records cannot claim measured status.
+func TestOccupancyAndPressureRemainClassified(t *testing.T) {
+	// An occupancy record classified as derived retains that classification.
+	occRecord := record(cudaevidence.Derived)
+	occRecord.Unit = "ratio"
+	occVal := mustValue(t, occRecord)
+	if err := occVal.CheckClaim(cudaevidence.Derived, occRecord.Source.Identity); err != nil {
+		t.Fatalf("occupancy claim check failed: %v", err)
+	}
+	if err := occVal.CheckClaim(cudaevidence.Measured, occRecord.Source.Identity); err == nil {
+		t.Fatalf("occupancy derived evidence must not be promoted to measured")
+	}
+
+	// A register-pressure record classified as modeled retains that classification.
+	pressRecord := record(cudaevidence.Modeled)
+	pressRecord.Unit = "registers"
+	pressVal := mustValue(t, pressRecord)
+	if err := pressVal.CheckClaim(cudaevidence.Modeled, pressRecord.Source.Identity); err != nil {
+		t.Fatalf("pressure claim check failed: %v", err)
+	}
+	if err := pressVal.CheckClaim(cudaevidence.Measured, pressRecord.Source.Identity); err == nil {
+		t.Fatalf("pressure modeled evidence must not be promoted to measured")
+	}
+}
