@@ -661,29 +661,32 @@ func functionSymbol(line string) (string, bool) {
 		return "", false
 	}
 	rest = strings.TrimSpace(rest)
-	// A trailing comment cannot supply the type attribute. A quoted name
-	// can contain a literal //, so find the comment outside its quotes.
-	quoted := false
-	for i := 0; i < len(rest); i++ {
-		switch {
-		case quoted && rest[i] == '\\':
-			i++
-		case rest[i] == '"':
-			quoted = !quoted
-		case !quoted && strings.HasPrefix(rest[i:], "//"):
-			rest = strings.TrimSpace(rest[:i])
-		}
+	if i := lineComment(rest); i >= 0 {
+		rest = rest[:i]
 	}
-	name, ok := strings.CutSuffix(rest, ",@function")
-	if !ok {
+	i := strings.LastIndexByte(rest, ',')
+	if i < 0 || strings.TrimSpace(rest[i+1:]) != "@function" {
 		return "", false
 	}
-	name = strings.TrimSpace(name)
-	if strings.HasPrefix(name, "\"") && strings.HasSuffix(name, "\"") && len(name) >= 2 {
-		name = name[1 : len(name)-1]
-	}
+	name := strings.TrimSpace(rest[:i])
 	if name == "" {
 		return "", false
+	}
+	if name[0] == '"' {
+		end := literalEnd(name, 0)
+		if end != len(name)-1 || end == 1 {
+			return "", false
+		}
+		return name[1:end], true
+	}
+	for i := 0; i < len(name); i++ {
+		if name[i] == '"' || name[i] == '\'' {
+			end := literalEnd(name, i)
+			if end < 0 {
+				return "", false
+			}
+			i = end
+		}
 	}
 	return name, true
 }
