@@ -1,0 +1,12 @@
+commit: 469d3ad7979ca035d3a63c4c1dc10dabbf9832c4
+date: 2026-10-30T02:28:38-07:00
+agent: Codex
+model: GPT-6 family; exact API model identifier unavailable
+claude-code-version: 2.1.284 installed; not the agent used for this port
+tty: ttys116; API tool stdin is a pipe
+pid: 97675 (note writer); agent pid: 48996
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+source: constructor portion of 3a1ec00793300efccced3b43814b2a09326e3edd, adapted to current per-call hooks
+validation: focused host tests and package race test passed; lost-handle regression rejected for stream and event; no native CUDA run
+commit creation: manual fallback after git-auto-commit-message failed for missing ANTHROPIC_API_KEY
+promotion: prepared local candidate; live-agent kept trunks were not changed
