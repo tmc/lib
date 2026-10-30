@@ -567,8 +567,8 @@ func PlanPDDisaggregation(gen string, totalRacks int, sla PDSLA, model PDModelSp
 	}
 
 	var (
-		bestPlan     PDDisaggPlan
-		haveFeasible bool
+		bestPlan      PDDisaggPlan
+		haveFeasible  bool
 		bestViolation = math.MaxFloat64
 	)
 
@@ -597,7 +597,7 @@ func PlanPDDisaggregation(gen string, totalRacks int, sla PDSLA, model PDModelSp
 			return PDDisaggPlan{}, err
 		}
 		prefillCommMs := float64(model.NumLayers) * (prefillEP.TBOTwoBatchNs / 2.0) / 1e6
-		prefillComputeMs := (((linearFLOPs+attnFLOPs)/tensorRate + sfuOps/sfuRate) * 1e3 + prefillCommMs) * loadFactor
+		prefillComputeMs := (((linearFLOPs+attnFLOPs)/tensorRate+sfuOps/sfuRate)*1e3 + prefillCommMs) * loadFactor
 		estimatedTTFTMs := prefillComputeMs + kvTransferMs
 
 		// 2. Decode TPOT latency across decodeRacks / decodeGPUs using EstimateMultiRackPodEP.

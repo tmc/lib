@@ -225,11 +225,11 @@ EG_DEV size_t eg_tcgen05_swizzle_scale_offset(int row, int kb, int m_rows, int n
 //  3. For each 16-element block b in [0, Cols/16):
 //     - Finds amax_b = max_{0 <= t < 16} |y[m, 16*b + t]|,
 //     - Encodes scale_u8 = eg_f32_to_ue4m3(amax_b / 6.0f) and decodes the exact
-//       representable FP32 scale s_rep = eg_e4m3_to_f32(scale_u8),
+//     representable FP32 scale s_rep = eg_e4m3_to_f32(scale_u8),
 //     - Quantizes each of the 16 elements q_t = eg_f32_to_e2m1_code(y[m, 16*b+t] / s_rep)
-//       and packs 8 bytes of e2m1x2 (q_{2i} | (q_{2i+1} << 4)),
+//     and packs 8 bytes of e2m1x2 (q_{2i} | (q_{2i+1} << 4)),
 //     - Stores scale_u8 into out_scales using ScaleLayoutRowMajor or
-//       ScaleLayoutTCGen05Swizzled.
+//     ScaleLayoutTCGen05Swizzled.
 type RMSNormDynamicNVFP4Quant struct {
 	Name        string
 	Cols        int         // K: row width, a positive multiple of 16

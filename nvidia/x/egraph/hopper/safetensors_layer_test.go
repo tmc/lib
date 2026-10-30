@@ -416,20 +416,20 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 	}
 
 	env := map[string]Value{
-		"x":            {Shape: []int{batchM, H}, Data: hiddenF64},
-		"attn_norm_w":  {Shape: []int{H}, Data: inNormF64},
-		"wq":           {Shape: []int{qDim, H}, Data: wqF64},
-		"k_cache":      {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: kCacheF64},
-		"v_cache":      {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: vCacheF64},
-		"page_table":   {Shape: []int{batchM, maxPages}, Data: pageTableF64},
-		"seqlens":      {Shape: []int{batchM}, Data: seqLensF64},
-		"k_scale":      {Shape: []int{1}, Data: []float64{1.0}},
-		"v_scale":      {Shape: []int{1}, Data: []float64{1.0}},
-		"wo":           {Shape: []int{H, qDim}, Data: woF64},
-		"ffn_norm_w":   {Shape: []int{H}, Data: postNormF64},
-		"w_gate_up":    {Shape: []int{2 * I, H}, Data: slices.Concat(wGateF64, wUpF64)},
-		"w_down":       {Shape: []int{H, I}, Data: wDownF64},
-		"post_norm_w":  {Shape: []int{H}, Data: postNormF64},
+		"x":           {Shape: []int{batchM, H}, Data: hiddenF64},
+		"attn_norm_w": {Shape: []int{H}, Data: inNormF64},
+		"wq":          {Shape: []int{qDim, H}, Data: wqF64},
+		"k_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: kCacheF64},
+		"v_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: vCacheF64},
+		"page_table":  {Shape: []int{batchM, maxPages}, Data: pageTableF64},
+		"seqlens":     {Shape: []int{batchM}, Data: seqLensF64},
+		"k_scale":     {Shape: []int{1}, Data: []float64{1.0}},
+		"v_scale":     {Shape: []int{1}, Data: []float64{1.0}},
+		"wo":          {Shape: []int{H, qDim}, Data: woF64},
+		"ffn_norm_w":  {Shape: []int{H}, Data: postNormF64},
+		"w_gate_up":   {Shape: []int{2 * I, H}, Data: slices.Concat(wGateF64, wUpF64)},
+		"w_down":      {Shape: []int{H, I}, Data: wDownF64},
+		"post_norm_w": {Shape: []int{H}, Data: postNormF64},
 	}
 	wantRef := denseLayerGoReference(t, cfg, batchM, env)
 
@@ -521,20 +521,20 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 			return out
 		}
 		nvEnv := map[string]Value{
-			"x":            {Shape: []int{batchM, H}, Data: hiddenF64},
-			"attn_norm_w":  {Shape: []int{H}, Data: inNormF64},
-			"wq":           {Shape: []int{qDim, H}, Data: dequantMat(qP, qS, qDim, H)},
-			"k_cache":      {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: kCacheF64},
-			"v_cache":      {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: vCacheF64},
-			"page_table":   {Shape: []int{batchM, maxPages}, Data: pageTableF64},
-			"seqlens":      {Shape: []int{batchM}, Data: seqLensF64},
-			"k_scale":      {Shape: []int{1}, Data: []float64{1.0}},
-			"v_scale":      {Shape: []int{1}, Data: []float64{1.0}},
-			"wo":           {Shape: []int{H, qDim}, Data: dequantMat(oP, oS, H, qDim)},
-			"ffn_norm_w":   {Shape: []int{H}, Data: postNormF64},
-			"w_gate_up":    {Shape: []int{2 * I, H}, Data: dequantMat(slices.Concat(gP, uP), slices.Concat(gS, uS), 2*I, H)},
-			"w_down":       {Shape: []int{H, I}, Data: dequantMat(dP, dS, H, I)},
-			"post_norm_w":  {Shape: []int{H}, Data: postNormF64},
+			"x":           {Shape: []int{batchM, H}, Data: hiddenF64},
+			"attn_norm_w": {Shape: []int{H}, Data: inNormF64},
+			"wq":          {Shape: []int{qDim, H}, Data: dequantMat(qP, qS, qDim, H)},
+			"k_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: kCacheF64},
+			"v_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: vCacheF64},
+			"page_table":  {Shape: []int{batchM, maxPages}, Data: pageTableF64},
+			"seqlens":     {Shape: []int{batchM}, Data: seqLensF64},
+			"k_scale":     {Shape: []int{1}, Data: []float64{1.0}},
+			"v_scale":     {Shape: []int{1}, Data: []float64{1.0}},
+			"wo":          {Shape: []int{H, qDim}, Data: dequantMat(oP, oS, H, qDim)},
+			"ffn_norm_w":  {Shape: []int{H}, Data: postNormF64},
+			"w_gate_up":   {Shape: []int{2 * I, H}, Data: dequantMat(slices.Concat(gP, uP), slices.Concat(gS, uS), 2*I, H)},
+			"w_down":      {Shape: []int{H, I}, Data: dequantMat(dP, dS, H, I)},
+			"post_norm_w": {Shape: []int{H}, Data: postNormF64},
 		}
 		wantNVRef := denseLayerGoReference(t, cfg, batchM, nvEnv)
 		gotNVF64 := make([]float64, len(gotNV))

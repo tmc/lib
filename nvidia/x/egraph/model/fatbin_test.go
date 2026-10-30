@@ -13,19 +13,19 @@ import (
 
 func TestClassifyComputeCapability(t *testing.T) {
 	tests := []struct {
-		name              string
-		major, minor      int
-		wantErr           bool
-		wantTarget        string
-		wantFamilyTarget  string
-		wantFamily        ArchFamily
-		wantWGMMA         bool
-		wantTCGen05       bool
-		wantTMEM          bool
-		wantCLC           bool
-		wantScaleVec4X    bool
-		wantWarpBlockMMA  bool
-		wantMMAInstrSub   string
+		name             string
+		major, minor     int
+		wantErr          bool
+		wantTarget       string
+		wantFamilyTarget string
+		wantFamily       ArchFamily
+		wantWGMMA        bool
+		wantTCGen05      bool
+		wantTMEM         bool
+		wantCLC          bool
+		wantScaleVec4X   bool
+		wantWarpBlockMMA bool
+		wantMMAInstrSub  string
 	}{
 		{
 			name:             "hopper_sm90a",
