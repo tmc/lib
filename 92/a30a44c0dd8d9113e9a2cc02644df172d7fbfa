@@ -1,0 +1,11 @@
+Commit: 92a30a44c0dd8d9113e9a2cc02644df172d7fbfa
+Commit date: 2026-10-30T04:15:18-07:00
+Agent: OpenAI Codex
+Model: GPT-6 family; exact API model identifier unavailable
+Claude Code version: not used
+TTY: no controlling terminal in API subprocess
+PID: 17821
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Source prepared commit: 469d3ad7979ca035d3a63c4c1dc10dabbf9832c4
+Commit helper previously failed with missing ANTHROPIC_API_KEY; authorized signed manual fallback
+Native execution NOT_RUN; promotion requires committed-tree host gates and fresh idle-owner check
