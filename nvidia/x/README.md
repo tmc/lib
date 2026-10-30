@@ -129,6 +129,7 @@ From the nvidia module, run `go run ./internal/cmd/xinventory`; use
 | [nsightcompute](nsightcompute/) | Package nsightcompute reads a bounded project envelope around an offline NVIDIA Nsight Compute details CSV export. |
 | [nsightsystems](nsightsystems/) | Package nsightsystems imports a bounded subset of documented Nsight Systems SQLite exports through a small read-only database boundary. |
 | [nvfatbinx](nvfatbinx/) | Package nvfatbinx packages alternative CUDA device images into a fatbinary. |
+| [nvidiasmi](nvidiasmi/) | Package nvidiasmi parses the output of nvidia-smi and runs its GPU reset. |
 | [nvjitlinkx](nvjitlinkx/) | Package nvjitlinkx links CUDA device-code inputs with nvJitLink. |
 | [nvl72](nvl72/) | Package nvl72 emits multi-GPU NVLink 5 and NVLink 6 symmetric-memory collective kernels, 72-rank and 144-rank Wide Expert Parallelism (Wide-EP) pipelines, O(1) NVSwitch multicast barriers, fabric tensor descriptors, and 4-tier GB200/GB300 NVL72 and Vera Rubin NVL144/NVL576 rack and pod planners. |
 | [nvlshm](nvlshm/) | Package nvlshm provides cross-process NVLink shared GPU buffers built on the CUDA virtual memory management (VMM) API, with optional NVSwitch multicast mappings. |
