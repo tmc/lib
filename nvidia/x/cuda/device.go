@@ -151,51 +151,65 @@ func (d *Device) DefaultStream() *Stream {
 }
 
 // NewStream creates a new asynchronous stream on the device with default flags.
+// The caller must close any nonnil stream, including when an error is returned.
 func (d *Device) NewStream() (*Stream, error) {
 	return d.NewStreamWithFlags(0)
 }
 
 // NewStreamWithFlags creates a new asynchronous stream on the device with specified flags (e.g. driver.StreamNonBlocking).
+// If creation succeeds but context restoration fails, it returns the stream and
+// an error. The caller must close every nonnil stream.
 func (d *Device) NewStreamWithFlags(flags driver.StreamFlags) (*Stream, error) {
-	var s Stream
-	err := d.WithContext(func() error {
-		raw, err := driver.NewStream(flags)
+	return d.newStreamWith(flags, d.WithContext, driver.NewStream)
+}
+
+func (d *Device) newStreamWith(flags driver.StreamFlags, run func(func() error) error, create func(driver.StreamFlags) (driver.Stream, error)) (*Stream, error) {
+	var s *Stream
+	err := run(func() error {
+		raw, err := create(flags)
 		if err != nil {
 			return err
 		}
-		s = Stream{
+		s = &Stream{
 			raw:    raw,
 			device: d,
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cuda: create stream: %w", err)
+		return s, fmt.Errorf("cuda: create stream: %w", err)
 	}
-	return &s, nil
+	return s, nil
 }
 
 // NewEvent creates a new CUDA event on the device with default flags.
+// The caller must close any nonnil event, including when an error is returned.
 func (d *Device) NewEvent() (*Event, error) {
 	return d.NewEventWithFlags(0)
 }
 
 // NewEventWithFlags creates a new CUDA event on the device with specified flags (e.g. driver.EventDisableTiming, driver.EventBlockingSync).
+// If creation succeeds but context restoration fails, it returns the event and
+// an error. The caller must close every nonnil event.
 func (d *Device) NewEventWithFlags(flags driver.EventFlags) (*Event, error) {
-	var e Event
-	err := d.WithContext(func() error {
-		raw, err := driver.NewEvent(flags)
+	return d.newEventWith(flags, d.WithContext, driver.NewEvent)
+}
+
+func (d *Device) newEventWith(flags driver.EventFlags, run func(func() error) error, create func(driver.EventFlags) (driver.Event, error)) (*Event, error) {
+	var e *Event
+	err := run(func() error {
+		raw, err := create(flags)
 		if err != nil {
 			return err
 		}
-		e = Event{
+		e = &Event{
 			raw:    raw,
 			device: d,
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cuda: create event: %w", err)
+		return e, fmt.Errorf("cuda: create event: %w", err)
 	}
-	return &e, nil
+	return e, nil
 }
