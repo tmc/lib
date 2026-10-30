@@ -49,12 +49,12 @@ func TestQualifyStep(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		step        Step
-		M, N, K     int
-		eps         float32
-		wantSASS    bool
-		wantTileIR  bool
+		name       string
+		step       Step
+		M, N, K    int
+		eps        float32
+		wantSASS   bool
+		wantTileIR bool
 	}{
 		{
 			name:       "RowKernel_RMSNorm",

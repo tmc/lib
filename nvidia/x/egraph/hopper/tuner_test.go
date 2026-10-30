@@ -234,8 +234,8 @@ func TestTunerSelectByPairedTiming(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name:     "promotes_clean_winner_rejects_noisy_and_subthreshold",
-			variants: []Variant{vBase, vSub, vNoisy, vBad, vFast, vFaster},
+			name:      "promotes_clean_winner_rejects_noisy_and_subthreshold",
+			variants:  []Variant{vBase, vSub, vNoisy, vBad, vFast, vFaster},
 			intercept: 2.0,
 			timings: map[string][]pairedtiming.Block{
 				// 0.8% gain (< 1.015 threshold) -> rejected.

@@ -116,11 +116,11 @@ func TestSASSListingAndProveSASSEquiv(t *testing.T) {
 	p1WrongMask.Parts[0][0].Mask = 0x80c080c0
 
 	tests := []struct {
-		name    string
-		a, b    *Program
-		want    sassequiv.Verdict
-		wantEq  bool
-		verify  bool
+		name   string
+		a, b   *Program
+		want   sassequiv.Verdict
+		wantEq bool
+		verify bool
 	}{
 		{
 			name:   "1-word self equivalence",

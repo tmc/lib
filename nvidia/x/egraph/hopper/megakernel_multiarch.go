@@ -36,18 +36,18 @@ var AllMegakernelArchTargets = []string{
 // (TMEM) allocation, warp-specialized register budgets, and software pipeline
 // depth selected for a [MultiArchMegakernel] target.
 type ArchDispatchPlan struct {
-	Target                      string
-	TensorCoreMnemonic          string
-	DequantMnemonic             string
-	CollectiveMnemonic          string
-	WorkStealMnemonic           string
-	UsesTMEM                    bool
-	TMEMColumns                 int
-	PipelineStages              int
-	ProducerMaxRegs             int
-	ConsumerMaxRegs             int
+	Target                       string
+	TensorCoreMnemonic           string
+	DequantMnemonic              string
+	CollectiveMnemonic           string
+	WorkStealMnemonic            string
+	UsesTMEM                     bool
+	TMEMColumns                  int
+	PipelineStages               int
+	ProducerMaxRegs              int
+	ConsumerMaxRegs              int
 	UsesEarlyReleaseSyncRestrict bool
-	UsesLUTDecompressB          bool
+	UsesLUTDecompressB           bool
 }
 
 // OnlineMegakernelProfile carries runtime CUPTI / ptxas feedback used by

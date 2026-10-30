@@ -148,8 +148,8 @@ func TestEstimateRubinPodWideEP(t *testing.T) {
 
 func TestPlanRubinDisaggregation(t *testing.T) {
 	plan, err := PlanRubinDisaggregation(RubinDisaggConfig{
-		PrefillSpec: DefaultVeraRubinNVL144Spec(),
-		DecodeSpec:  DefaultRubinUltraNVL576Spec(),
+		PrefillSpec:  DefaultVeraRubinNVL144Spec(),
+		DecodeSpec:   DefaultRubinUltraNVL576Spec(),
 		PrefillRacks: 2,
 		DecodeRacks:  1,
 		Model: PDModelSpec{

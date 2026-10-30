@@ -359,29 +359,29 @@ type RubinDisaggConfig struct {
 // transfer latency over ConnectX-9 (1600 Gb/s) + NVLink 6 (1800 GB/s unidir) +
 // Vera CPU C2C (1.8 TB/s bidir), and TTFT/TPOT SLA satisfaction.
 type RubinDisaggPlan struct {
-	PrefillTier                   RubinRackTier
-	DecodeTier                    RubinRackTier
-	PrefillRacks                  int
-	DecodeRacks                   int
-	PrefillDies                   int
-	DecodeDies                    int
-	PrefillTargetArch             string
-	KVBytesPerToken               int64
-	KVPageBytes                   int64
-	TotalKVPages                  int
-	TotalKVTransferBytes          int64
-	KVPageTransferUS              float64
-	TotalKVTransferMS             float64
-	VeraC2CStagingBandwidthGBps   float64
+	PrefillTier                    RubinRackTier
+	DecodeTier                     RubinRackTier
+	PrefillRacks                   int
+	DecodeRacks                    int
+	PrefillDies                    int
+	DecodeDies                     int
+	PrefillTargetArch              string
+	KVBytesPerToken                int64
+	KVPageBytes                    int64
+	TotalKVPages                   int
+	TotalKVTransferBytes           int64
+	KVPageTransferUS               float64
+	TotalKVTransferMS              float64
+	VeraC2CStagingBandwidthGBps    float64
 	ConnectX9TransferBandwidthGBps float64
-	NVLink6IntraRackBandwidthGBps float64
-	PrefillComputeMS              float64
-	EstimatedTTFTMS               float64
-	EstimatedTPOTMS               float64
-	MeetsTTFT                     bool
-	MeetsTPOT                     bool
-	MeetsSLA                      bool
-	ClusterTokensPerSec           float64
+	NVLink6IntraRackBandwidthGBps  float64
+	PrefillComputeMS               float64
+	EstimatedTTFTMS                float64
+	EstimatedTPOTMS                float64
+	MeetsTTFT                      bool
+	MeetsTPOT                      bool
+	MeetsSLA                       bool
+	ClusterTokensPerSec            float64
 }
 
 // PlanRubinDisaggregation models disaggregated Prefill racks (Vera Rubin NVL144

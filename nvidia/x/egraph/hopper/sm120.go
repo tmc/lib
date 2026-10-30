@@ -648,14 +648,14 @@ func (g SM120BlockScaledGEMM) Reference(aPacked, aScales, bPacked, bScales []uin
 // cache table with either BF16 or block-scaled NVFP4 (with per-16-element UE4M3
 // scales) KV storage.
 type SM120PagedAttention struct {
-	Name                   string
-	NumQHeads, NumKVHeads  int
-	HeadDim                int
-	PageSize, MaxPages     int
-	SeqLen                 int
-	Scale                  float32
-	Target                 string       // "sm_120a" or "sm_121a" (defaults to "sm_121a")
-	KVFormat               WeightFormat // WeightBF16 or WeightNVFP4
+	Name                  string
+	NumQHeads, NumKVHeads int
+	HeadDim               int
+	PageSize, MaxPages    int
+	SeqLen                int
+	Scale                 float32
+	Target                string       // "sm_120a" or "sm_121a" (defaults to "sm_121a")
+	KVFormat              WeightFormat // WeightBF16 or WeightNVFP4
 }
 
 func (a SM120PagedAttention) norm() (SM120PagedAttention, error) {

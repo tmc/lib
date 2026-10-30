@@ -179,7 +179,7 @@ func (p *Plan) EmitPDL(name string) (*PDLPlanSource, error) {
 	}
 
 	usedNames := map[string]bool{
-		name:                    true,
+		name:                      true,
 		"launch_" + name + "_pdl": true,
 	}
 	uniqueStageName := func(base string, idx int) string {

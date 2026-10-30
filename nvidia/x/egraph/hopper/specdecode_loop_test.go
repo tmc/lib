@@ -34,13 +34,13 @@ func TestSpeculativeDecodeController(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		ctrl           SpeculativeDecodeController
-		in             SpeculativeDecodeInput
-		wantTokens     []int32
-		wantAccepted   []int32
-		wantSteps      int
-		wantTrace      []uint32
+		name         string
+		ctrl         SpeculativeDecodeController
+		in           SpeculativeDecodeInput
+		wantTokens   []int32
+		wantAccepted []int32
+		wantSteps    int
+		wantTrace    []uint32
 	}{
 		{
 			name: "mixed_100pct_partial_0pct_and_eos_termination",

@@ -234,8 +234,8 @@ func (a PagedAttention) norm() (PagedAttention, attnGeom, error) {
 	return a, g, nil
 }
 
-	// SharedBytes returns the kernel's static shared memory in bytes, or 0 if a
-	// is invalid.
+// SharedBytes returns the kernel's static shared memory in bytes, or 0 if a
+// is invalid.
 func (a PagedAttention) SharedBytes() int {
 	if a.Hkv < 1 || a.Hq%a.Hkv != 0 || a.QLen < 1 {
 		return 0
