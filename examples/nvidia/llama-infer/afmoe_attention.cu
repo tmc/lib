@@ -1,5 +1,4 @@
 #include <cuda_bf16.h>
-#include <math.h>
 
 // Storage is float32; every activation boundary explicitly rounds to BF16.
 // These baseline kernels follow eager AFMoE operation boundaries. Their scalar
@@ -63,7 +62,7 @@ extern "C" __global__ void AfmoeAttentionDecode(
     extern __shared__ float shared[];
     float* scores = shared;
     float* reduction = shared + count;
-    float max_score = -INFINITY;
+    float max_score = -__int_as_float(0x7f800000);
     float scale = 1.0f / sqrtf(float(head_dim));
     for (int t = threadIdx.x; t < count; t += blockDim.x) {
         float dot = 0.0f;
