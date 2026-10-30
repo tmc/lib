@@ -68,6 +68,7 @@ var (
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
 	egraphChunkFlag   = flag.Int("egraph-prefill-rows", 0, "with -egraph, the prefill chunk in rows (0: the KV cache length, so a prompt is one chunk)")
 	maxContextFlag    = flag.Int("max-context", 0, "KV cache length in tokens (0: the model's max_position_embeddings; more is an error)")
+	afmoeScatterFlag  = flag.String("afmoe-scatter", "", "with explicitly enabled AFMoE: bf16-expert-order or fp32-then-bf16")
 	egraphPDLFlag     = flag.Bool("egraph-pdl", false, "with -egraph, launch each generated kernel as the programmatic dependent of the one before it (sm_90 and newer; ignored on older devices)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
 	egraphEmitFlag    = flag.String("egraph-emit", "", "write the e-graph kernels for -egraph-target, planned for -model's config.json, to this directory and exit; needs no GPU")
@@ -90,6 +91,9 @@ func main() {
 }
 
 func run() (rerr error) {
+	if routed, err := routeAfmoeFromFlags(); routed || err != nil {
+		return err
+	}
 	if *disasmFlag != "" {
 		return printKernelDisassembly(*disasmFlag, *disasmModeFlag)
 	}
