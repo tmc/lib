@@ -472,14 +472,17 @@ EG_DEV void eg_tmem_dealloc(uint32_t tmem_addr, uint32_t num_cols) {
 #endif
 }
 
-EG_DEV void eg_tcgen05_mma_bf16(uint32_t tmem_d, const void* smem_a, const void* smem_b, int M, int N, int K, int accum_enable) {
+// eg_tcgen05_mma_bf16, eg_tcgen05_mma_e4m3, and eg_tcgen05_mma_nvfp4 issue one
+// tcgen05.mma with the instruction descriptor idesc, which the emitting Go code
+// encodes for the instruction's kind and shape.
+EG_DEV void eg_tcgen05_mma_bf16(uint32_t tmem_d, const void* smem_a, const void* smem_b, int M, int N, int K, uint32_t idesc, int accum_enable) {
 #if defined(EG_EMU) || defined(EG_HOST_EMU)
+    (void)idesc;
     if (threadIdx.x == 0) eg_emu_tcgen05_mma_bf16(tmem_d, smem_a, smem_b, M, N, K, accum_enable);
 #elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 1000
     if (threadIdx.x == 0) {
         const uint64_t da = eg_wgmma_desc(smem_a, (uint32_t)(K * 2), (uint32_t)(8 * K * 2));
         const uint64_t db = eg_wgmma_desc(smem_b, (uint32_t)(K * 2), (uint32_t)(8 * K * 2));
-        const uint32_t idesc = ((uint32_t)M << 24) | ((uint32_t)N << 16) | (uint32_t)K;
         asm volatile(
             "{\n.reg .pred p;\nsetp.ne.b32 p, %4, 0;\n"
             "tcgen05.mma.cta_group::1.kind::f16 [%0], %1, %2, %3, p;\n}\n"
@@ -488,14 +491,14 @@ EG_DEV void eg_tcgen05_mma_bf16(uint32_t tmem_d, const void* smem_a, const void*
 #endif
 }
 
-EG_DEV void eg_tcgen05_mma_e4m3(uint32_t tmem_d, const void* smem_a, const void* smem_b, int M, int N, int K, int accum_enable) {
+EG_DEV void eg_tcgen05_mma_e4m3(uint32_t tmem_d, const void* smem_a, const void* smem_b, int M, int N, int K, uint32_t idesc, int accum_enable) {
 #if defined(EG_EMU) || defined(EG_HOST_EMU)
+    (void)idesc;
     if (threadIdx.x == 0) eg_emu_tcgen05_mma_e4m3(tmem_d, smem_a, smem_b, M, N, K, accum_enable);
 #elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 1000
     if (threadIdx.x == 0) {
         const uint64_t da = eg_wgmma_desc(smem_a, (uint32_t)K, (uint32_t)(8 * K));
         const uint64_t db = eg_wgmma_desc(smem_b, (uint32_t)K, (uint32_t)(8 * K));
-        const uint32_t idesc = ((uint32_t)M << 24) | ((uint32_t)N << 16) | (uint32_t)K;
         asm volatile(
             "{\n.reg .pred p;\nsetp.ne.b32 p, %4, 0;\n"
             "tcgen05.mma.cta_group::1.kind::f8f6f4 [%0], %1, %2, %3, p;\n}\n"
@@ -508,8 +511,9 @@ EG_DEV void eg_tcgen05_mma_nvfp4(
     uint32_t tmem_d,
     const uint8_t* smem_a_fp4, const uint8_t* smem_a_scale,
     const uint8_t* smem_b_fp4, const uint8_t* smem_b_scale,
-    int M, int N, int K, int accum_enable) {
+    int M, int N, int K, uint32_t idesc, int accum_enable) {
 #if defined(EG_EMU) || defined(EG_HOST_EMU)
+    (void)idesc;
     if (threadIdx.x == 0) {
         eg_emu_tcgen05_mma_nvfp4(tmem_d, smem_a_fp4, smem_a_scale, smem_b_fp4, smem_b_scale, M, N, K, accum_enable);
     }
@@ -519,7 +523,6 @@ EG_DEV void eg_tcgen05_mma_nvfp4(
         const uint64_t db = eg_wgmma_desc(smem_b_fp4, (uint32_t)(K / 2), (uint32_t)(8 * (K / 2)));
         const uint32_t sfa = (uint32_t)__cvta_generic_to_shared(smem_a_scale);
         const uint32_t sfb = (uint32_t)__cvta_generic_to_shared(smem_b_scale);
-        const uint32_t idesc = ((uint32_t)M << 24) | ((uint32_t)N << 16) | (uint32_t)K;
         asm volatile(
             "{\n.reg .pred p;\nsetp.ne.b32 p, %6, 0;\n"
             "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], [%5], p;\n}\n"
@@ -669,11 +672,28 @@ func (g TCGen05GEMM) params() []string {
 	}
 }
 
+// instDesc returns the instruction descriptor of the BM x BN tcgen05.mma g
+// issues: .kind::f16 (BF16, K=16), .kind::f8f6f4 (E4M3, K=32), or
+// .kind::mxf4nvf4 (E2M1 with UE4M3 scales, K=64), accumulating in F32.
+func (g TCGen05GEMM) instDesc() InstDesc {
+	switch g.Weight {
+	case WeightE4M3:
+		return InstDesc{Kind: KindF8F6F4, DType: ElemF32, AType: ElemE4M3, BType: ElemE4M3, M: g.BM, N: g.BN, K: 32}
+	case WeightNVFP4:
+		return InstDesc{Kind: KindMXF4NVF4, AType: ElemE2M1, BType: ElemE2M1, M: g.BM, N: g.BN, K: 64, ScaleType: ScaleUE4M3}
+	}
+	return InstDesc{Kind: KindF16, DType: ElemF32, AType: ElemBF16, BType: ElemBF16, M: g.BM, N: g.BN, K: 16}
+}
+
 // CUDA returns the kernel source without [Prelude].
 func (g TCGen05GEMM) CUDA() (string, error) {
 	g, err := g.norm()
 	if err != nil {
 		return "", err
+	}
+	idesc, err := g.instDesc().Encode()
+	if err != nil {
+		return "", fmt.Errorf("tcgen05 gemm %s: %w", g.Name, err)
 	}
 	var b strings.Builder
 	b.WriteString(tcgen05DeviceHelpers)
@@ -683,6 +703,7 @@ func (g TCGen05GEMM) CUDA() (string, error) {
 		g.Name, strings.Join(g.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, BM = %d, BN = %d, BK = %d, KT = K / BK;\n",
 		g.N, g.K, g.BM, g.BN, g.BK)
+	fmt.Fprintf(&b, "    constexpr uint32_t IDESC = 0x%08xu;\n", idesc)
 	if g.Epilogue == TileGLU {
 		b.WriteString("    constexpr int NOUT = N / 2;\n")
 	} else {
@@ -726,7 +747,7 @@ func (g TCGen05GEMM) CUDA() (string, error) {
         }
         eg_fence_proxy_async();
         __syncthreads();
-        eg_tcgen05_mma_bf16(tmem_d, sa, sb, BM, BN, BK, kt > 0 ? 1 : 0);
+        eg_tcgen05_mma_bf16(tmem_d, sa, sb, BM, BN, BK, IDESC, kt > 0 ? 1 : 0);
         __syncthreads();
     }
 `)
@@ -746,7 +767,7 @@ func (g TCGen05GEMM) CUDA() (string, error) {
         }
         eg_fence_proxy_async();
         __syncthreads();
-        eg_tcgen05_mma_e4m3(tmem_d, sa, sb, BM, BN, BK, kt > 0 ? 1 : 0);
+        eg_tcgen05_mma_e4m3(tmem_d, sa, sb, BM, BN, BK, IDESC, kt > 0 ? 1 : 0);
         __syncthreads();
     }
 `)
@@ -780,7 +801,7 @@ func (g TCGen05GEMM) CUDA() (string, error) {
         }
         eg_fence_proxy_async();
         __syncthreads();
-        eg_tcgen05_mma_nvfp4(tmem_d, sa_fp4, sa_sf, sb_fp4, sb_sf, BM, BN, BK, kt > 0 ? 1 : 0);
+        eg_tcgen05_mma_nvfp4(tmem_d, sa_fp4, sa_sf, sb_fp4, sb_sf, BM, BN, BK, IDESC, kt > 0 ? 1 : 0);
         __syncthreads();
     }
 `)

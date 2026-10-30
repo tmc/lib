@@ -275,16 +275,15 @@ EG_DEV float eg_tcgen05_decode_e2m1(uint32_t code) {
 }
 
 // eg_tcgen05_mma_cta2_f32 issues a 2-CTA cooperative tcgen05.mma.cta_group::2
-// from CTA 0's elected thread.
+// from CTA 0's elected thread with the .kind::tf32 instruction descriptor idesc.
 EG_DEV void eg_tcgen05_mma_cta2_f32(
     float* local_tmem, uint32_t d_taddr,
-    float* local_smem_a, float* local_smem_b, int k_dim) {
+    float* local_smem_a, float* local_smem_b, int k_dim, uint32_t idesc) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
     (void)local_tmem;
     (void)k_dim;
     const uint64_t desc_a = eg_wgmma_desc(local_smem_a, 128, 1024);
     const uint64_t desc_b = eg_wgmma_desc(local_smem_b, 128, 1024);
-    const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
@@ -292,6 +291,7 @@ EG_DEV void eg_tcgen05_mma_cta2_f32(
         "tcgen05.mma.cta_group::2.kind::tf32 [%0], %1, %2, %3, p;\n"
         "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc) : "memory");
 #else
+    (void)idesc;
     const float* b0 = eg_tcgen05_map_shared_rank(local_smem_b, 0);
     const float* b1 = eg_tcgen05_map_shared_rank(local_smem_b, 1);
     for (int cta = 0; cta < 2; ++cta) {
@@ -313,11 +313,12 @@ EG_DEV void eg_tcgen05_mma_cta2_f32(
 }
 
 // eg_tcgen05_mma_block_scale_nvfp4 issues tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale
-// reading UE4M3 block scales previously staged into TMEM at scale_taddr by tcgen05.cp.
+// with instruction descriptor idesc, reading UE4M3 block scales previously
+// staged into TMEM at scale_taddr by tcgen05.cp.
 EG_DEV void eg_tcgen05_mma_block_scale_nvfp4(
     float* tmem, uint32_t d_taddr, uint32_t scale_taddr,
     const uint8_t* smem_a_packed, const uint8_t* smem_b_packed,
-    int m_rows, int n_cols, int k_dim) {
+    int m_rows, int n_cols, int k_dim, uint32_t idesc) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
     (void)tmem;
     (void)m_rows;
@@ -327,7 +328,6 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4(
     const uint64_t desc_b = eg_wgmma_desc(smem_b_packed, 32, 256);
     const uint32_t sfa_taddr = scale_taddr;
     const uint32_t sfb_taddr = scale_taddr + 16u;
-    const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
@@ -335,6 +335,7 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4(
         "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::2X [%0], %1, %2, %3, [%4], [%5], p;\n"
         "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
 #else
+    (void)idesc;
     const int k_blocks = k_dim / 16;
     const int k_bytes = k_dim / 2;
     for (int r = 0; r < m_rows; ++r) {
@@ -363,11 +364,12 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4(
 
 // eg_tcgen05_mma_block_scale_nvfp4_4x issues sm_103a (GB300 / B300)
 // tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X with
-// K = 128 FP4 elements (4 E4M3 block scales per 64-byte K-step) staged in TMEM.
+// instruction descriptor idesc and E4M3 block scales (one per 16 FP4
+// elements) staged in TMEM.
 EG_DEV void eg_tcgen05_mma_block_scale_nvfp4_4x(
     float* tmem, uint32_t d_taddr, uint32_t scale_taddr,
     const uint8_t* smem_a_packed, const uint8_t* smem_b_packed,
-    int m_rows, int n_cols, int k_dim) {
+    int m_rows, int n_cols, int k_dim, uint32_t idesc) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
     (void)tmem;
     (void)m_rows;
@@ -377,7 +379,6 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4_4x(
     const uint64_t desc_b = eg_wgmma_desc(smem_b_packed, 64, 512);
     const uint32_t sfa_taddr = scale_taddr;
     const uint32_t sfb_taddr = scale_taddr + 16u;
-    const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
@@ -385,6 +386,7 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4_4x(
         "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X [%0], %1, %2, %3, [%4], [%5], p;\n"
         "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "r"(sfa_taddr), "r"(sfb_taddr) : "memory");
 #else
+    (void)idesc;
     const int k_blocks = k_dim / 16;
     const int k_bytes = k_dim / 2;
     for (int r = 0; r < m_rows; ++r) {
@@ -411,12 +413,13 @@ EG_DEV void eg_tcgen05_mma_block_scale_nvfp4_4x(
 #endif
 }
 
-// eg_tcgen05_mma_smem_ab issues tcgen05.mma.cta_group::1 with both operands A
-// and B in shared memory (e.g., S = Q * K^T into TMEM [d_taddr]).
+// eg_tcgen05_mma_smem_ab issues tcgen05.mma.cta_group::1.kind::tf32 with
+// instruction descriptor idesc and both operands A and B in shared memory
+// (e.g., S = Q * K^T into TMEM [d_taddr]).
 EG_DEV void eg_tcgen05_mma_smem_ab(
     float* tmem, uint32_t d_taddr,
     const float* smem_a, const float* smem_b_trans,
-    int m_rows, int n_cols, int k_dim) {
+    int m_rows, int n_cols, int k_dim, uint32_t idesc) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
     (void)tmem;
     (void)m_rows;
@@ -424,7 +427,6 @@ EG_DEV void eg_tcgen05_mma_smem_ab(
     (void)k_dim;
     const uint64_t desc_a = eg_wgmma_desc(smem_a, 128, 1024);
     const uint64_t desc_b = eg_wgmma_desc(smem_b_trans, 128, 1024);
-    const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
@@ -432,6 +434,7 @@ EG_DEV void eg_tcgen05_mma_smem_ab(
         "tcgen05.mma.cta_group::1.kind::tf32 [%0], %1, %2, %3, p;\n"
         "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc) : "memory");
 #else
+    (void)idesc;
     for (int r = 0; r < m_rows; ++r) {
         for (int n = 0; n < n_cols; ++n) {
             float acc = tmem[r * 512 + d_taddr + n];
@@ -444,19 +447,19 @@ EG_DEV void eg_tcgen05_mma_smem_ab(
 #endif
 }
 
-// eg_tcgen05_mma_tmem_a issues tcgen05.mma.cta_group::1 with operand A read
-// directly from TMEM [a_taddr] and operand B read from shared memory (e.g.,
-// O += P * V without spilling P back to shared memory).
+// eg_tcgen05_mma_tmem_a issues tcgen05.mma.cta_group::1.kind::tf32 with
+// instruction descriptor idesc, operand A read directly from TMEM [a_taddr],
+// and operand B read from shared memory (e.g., O += P * V without spilling P
+// back to shared memory).
 EG_DEV void eg_tcgen05_mma_tmem_a(
     float* tmem, uint32_t d_taddr, uint32_t a_taddr,
-    const float* smem_v, int m_rows, int n_cols, int k_dim) {
+    const float* smem_v, int m_rows, int n_cols, int k_dim, uint32_t idesc) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
     (void)tmem;
     (void)m_rows;
     (void)n_cols;
     (void)k_dim;
     const uint64_t desc_v = eg_wgmma_desc(smem_v, 128, 1024);
-    const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
@@ -464,6 +467,7 @@ EG_DEV void eg_tcgen05_mma_tmem_a(
         "tcgen05.mma.cta_group::1.kind::tf32 [%0], [%1], %2, %3, p;\n"
         "}" :: "r"(d_taddr), "r"(a_taddr), "l"(desc_v), "r"(idesc) : "memory");
 #else
+    (void)idesc;
     for (int r = 0; r < m_rows; ++r) {
         for (int d = 0; d < n_cols; ++d) {
             float acc = tmem[r * 512 + d_taddr + d];
@@ -559,6 +563,10 @@ func (k TCGen05Cluster2GEMM) CUDA() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	idesc, err := tf32InstDesc(k.M, k.N)
+	if err != nil {
+		return "", fmt.Errorf("tcgen05 cluster2 gemm %s: %w", k.Name, err)
+	}
 	var b strings.Builder
 	b.WriteString(TCGen05AdvancedPrelude)
 	b.WriteString("\n")
@@ -568,6 +576,7 @@ func (k TCGen05Cluster2GEMM) CUDA() (string, error) {
     const float* __restrict__ b,
     float* __restrict__ out) {
     constexpr int K = %d;
+    constexpr uint32_t IDESC = 0x%08xu;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
     const int rank = eg_tcgen05_cluster_rank();
 
@@ -597,7 +606,7 @@ func (k TCGen05Cluster2GEMM) CUDA() (string, error) {
 
     // 3. Single elected thread on CTA 0 issues tcgen05.mma.cta_group::2 + commit.
     if (rank == 0 && warp == 0 && eg_elect_one_sync()) {
-        eg_tcgen05_mma_cta2_f32(tmem, taddr, smem_a, smem_b, K);
+        eg_tcgen05_mma_cta2_f32(tmem, taddr, smem_a, smem_b, K, IDESC);
         eg_tcgen05_commit_cta2(&mbar[0]);
     }
     eg_tcgen05_cluster_sync();
@@ -617,7 +626,7 @@ func (k TCGen05Cluster2GEMM) CUDA() (string, error) {
     }
 }
 EG_REGISTER_CLUSTER2(%s)
-`, k.Name, k.K, k.Name)
+`, k.Name, k.K, idesc, k.Name)
 	return b.String(), nil
 }
 
@@ -714,6 +723,20 @@ func (k TCGen05BlockScaledGEMM) CUDA() (string, error) {
 	if k.ScaleVec4X {
 		mmaHelper = "eg_tcgen05_mma_block_scale_nvfp4_4x"
 	}
+	// One mxf4nvf4 instruction covers dense K=64 on sm_100a/sm_103a
+	// (K=128 needs sm_107f), for both scale_vec::2X and scale_vec::4X.
+	idesc, err := InstDesc{
+		Kind:      KindMXF4NVF4,
+		AType:     ElemE2M1,
+		BType:     ElemE2M1,
+		M:         k.M,
+		N:         k.N,
+		K:         64,
+		ScaleType: ScaleUE4M3,
+	}.Encode()
+	if err != nil {
+		return "", fmt.Errorf("tcgen05 block scaled gemm %s: %w", k.Name, err)
+	}
 	var b strings.Builder
 	b.WriteString(TCGen05AdvancedPrelude)
 	b.WriteString("\n")
@@ -726,6 +749,7 @@ func (k TCGen05BlockScaledGEMM) CUDA() (string, error) {
     float* __restrict__ out) {
     constexpr int M = %d, N = %d, K = %d;
     constexpr int K_BYTES = K / 2, K_BLOCKS = K / 16;
+    constexpr uint32_t IDESC = 0x%08xu;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
 
     EG_TCGEN05_SHARED(uint8_t, smem_a_packed, [M * K_BYTES]);
@@ -757,7 +781,7 @@ func (k TCGen05BlockScaledGEMM) CUDA() (string, error) {
     //    and issues block-scaled tcgen05.mma.
     if (warp == 0 && eg_elect_one_sync()) {
         eg_tcgen05_cp_scales_32x128b(tmem, s_taddr, smem_a_scales, smem_b_scales, M, N, K_BLOCKS);
-        %s(tmem, d_taddr, s_taddr, smem_a_packed, smem_b_packed, M, N, K);
+        %s(tmem, d_taddr, s_taddr, smem_a_packed, smem_b_packed, M, N, K, IDESC);
         eg_tcgen05_commit_cta1(&mbar[0]);
     }
     __syncthreads();
@@ -776,7 +800,7 @@ func (k TCGen05BlockScaledGEMM) CUDA() (string, error) {
         eg_tcgen05_dealloc_cta1(s_taddr, 32u);
     }
 }
-`, k.Name, k.M, k.N, k.K, mmaHelper)
+`, k.Name, k.M, k.N, k.K, idesc, mmaHelper)
 	return b.String(), nil
 }
 
@@ -873,6 +897,14 @@ func (k TCGen05TMEMFlashAttention) CUDA() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	idescS, err := tf32InstDesc(k.M, k.KV)
+	if err != nil {
+		return "", fmt.Errorf("tcgen05 tmem flash attention %s: %w", k.Name, err)
+	}
+	idescO, err := tf32InstDesc(k.M, k.D)
+	if err != nil {
+		return "", fmt.Errorf("tcgen05 tmem flash attention %s: %w", k.Name, err)
+	}
 	var b strings.Builder
 	b.WriteString(TCGen05AdvancedPrelude)
 	b.WriteString("\n")
@@ -884,6 +916,7 @@ func (k TCGen05TMEMFlashAttention) CUDA() (string, error) {
     float* __restrict__ out) {
     constexpr int M = %d, KV = %d, D = %d;
     constexpr float SCALE = %s;
+    constexpr uint32_t IDESC_S = 0x%08xu, IDESC_O = 0x%08xu;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
 
     EG_TCGEN05_SHARED(float, smem_q, [M * D]);
@@ -911,7 +944,7 @@ func (k TCGen05TMEMFlashAttention) CUDA() (string, error) {
 
     // 3. First MMA: S = Q * K^T accumulated into TMEM [tmem_s].
     if (warp == 0 && eg_elect_one_sync()) {
-        eg_tcgen05_mma_smem_ab(tmem, tmem_s, smem_q, smem_k, M, KV, D);
+        eg_tcgen05_mma_smem_ab(tmem, tmem_s, smem_q, smem_k, M, KV, D, IDESC_S);
         eg_tcgen05_commit_cta1(&mbar[0]);
     }
     __syncthreads();
@@ -940,7 +973,7 @@ func (k TCGen05TMEMFlashAttention) CUDA() (string, error) {
 
     // 5. Second MMA: O = P * V reading operand A (P) directly from TMEM [tmem_s].
     if (warp == 0 && eg_elect_one_sync()) {
-        eg_tcgen05_mma_tmem_a(tmem, tmem_o, tmem_s, smem_v, M, D, KV);
+        eg_tcgen05_mma_tmem_a(tmem, tmem_o, tmem_s, smem_v, M, D, KV, IDESC_O);
         eg_tcgen05_commit_cta1(&mbar[0]);
     }
     __syncthreads();
@@ -959,6 +992,20 @@ func (k TCGen05TMEMFlashAttention) CUDA() (string, error) {
         eg_tcgen05_dealloc_cta1(tmem_o, 64u);
     }
 }
-`, k.Name, k.M, k.KV, k.D, floatLiteral(k.Scale))
+`, k.Name, k.M, k.KV, k.D, floatLiteral(k.Scale), idescS, idescO)
 	return b.String(), nil
+}
+
+// tf32InstDesc returns the dense .kind::tf32 instruction descriptor
+// (TF32 x TF32 -> F32, K=8) for an M x N MMA.
+func tf32InstDesc(m, n int) (uint32, error) {
+	return InstDesc{
+		Kind:  KindTF32,
+		DType: ElemF32,
+		AType: ElemTF32,
+		BType: ElemTF32,
+		M:     m,
+		N:     n,
+		K:     8,
+	}.Encode()
 }

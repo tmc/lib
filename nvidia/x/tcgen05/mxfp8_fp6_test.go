@@ -220,19 +220,21 @@ func ExampleTCGen05MXFP8GEMM() {
 		UseShiftDown: true,
 	}
 	idesc, _ := k.InstDescriptor()
-	dec := DecodeInstDesc(idesc)
+	dec, _ := DecodeInstDesc(KindMXF8F6F4, idesc)
 	sum, err := cudatmem.VerifyTrace(cudatmem.SM100A, k.TraceEvents())
 	src, _ := k.CUDA()
+	fmt.Printf("0x%08x\n", idesc)
 	fmt.Println(
 		err == nil,
 		dec.AType,
 		dec.BType,
-		dec.ScaleVec,
+		dec.ScaleType,
 		sum.MMAs,
 		sum.Shifts,
 		strings.Contains(src, "tcgen05.mma.cta_group::1.kind::mxf8f6f4.block_scale.scale_vec::1X"),
 		strings.Contains(src, "tcgen05.shift.cta_group::1.down"),
 	)
 	// Output:
-	// true e4m3 e2m1 1X 1 1 true true
+	// 0x08a01400
+	// true e4m3 e2m1 ue8m0 1 1 true true
 }

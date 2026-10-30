@@ -292,21 +292,23 @@ func (k TCGen05LUTDecompressGEMM) Grid() (grid, block [3]int) {
 	return [3]int{1, 1, 1}, [3]int{128, 1, 1}
 }
 
-// InstDescriptor packs the 32-bit tcgen05.mma instruction descriptor (idesc)
-// for kind::mxf8f6f4.block_scale.decompress::lut::b.block32.
+// InstDescriptor returns the 32-bit tcgen05.mma instruction descriptor
+// (idesc) for kind::mxf8f6f4.block_scale.decompress::lut::b.block32: E4M3 A,
+// E4M3 B (the LUT entries), UE8M0 scales, dense K=32.
 func (k TCGen05LUTDecompressGEMM) InstDescriptor() (uint32, error) {
 	k, err := k.norm()
 	if err != nil {
 		return 0, err
 	}
 	return InstDesc{
-		DType:    F32,
-		AType:    E4M3,
-		BType:    E4M3,
-		M:        uint16(k.M),
-		N:        uint16(k.N),
-		ScaleVec: ScaleVec1X,
-	}.Encode(), nil
+		Kind:      KindMXF8F6F4,
+		AType:     ElemE4M3,
+		BType:     ElemE4M3,
+		M:         k.M,
+		N:         k.N,
+		K:         32,
+		ScaleType: ScaleUE8M0,
+	}.Encode()
 }
 
 func (k TCGen05LUTDecompressGEMM) collectorQualifiers() string {
@@ -640,6 +642,18 @@ func (k TCGen05EarlyReleasePipelineGEMM) CUDA() (string, error) {
 		return "", err
 	}
 	ctaMask := k.ctaMask()
+	idesc, err := InstDesc{
+		Kind:  KindTF32,
+		DType: ElemF32,
+		AType: ElemTF32,
+		BType: ElemTF32,
+		M:     k.M,
+		N:     k.N,
+		K:     8,
+	}.Encode()
+	if err != nil {
+		return "", fmt.Errorf("tcgen05 early release pipeline gemm %s: %w", k.Name, err)
+	}
 
 	var b strings.Builder
 	b.WriteString(TCGen05AdvancedPrelude)
@@ -724,7 +738,7 @@ EG_DEV void eg_tcgen05_commit_multicast_32b(uint64_t* mbar_done, uint32_t cta_ma
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
             const uint64_t desc_a = eg_wgmma_desc(stage_a, 128, 1024);
             const uint64_t desc_b = eg_wgmma_desc(stage_b, 128, 1024);
-            const uint32_t idesc = 0u;
+            const uint32_t idesc = 0x%08xu;
             asm volatile(
                 "{\n"
                 ".reg .pred p;\n"
@@ -767,7 +781,7 @@ EG_DEV void eg_tcgen05_commit_multicast_32b(uint64_t* mbar_done, uint32_t cta_ma
         eg_tcgen05_dealloc_cta1(d_taddr, 128u);
     }
 }
-`, k.Name, k.M, k.N, k.K, k.Stages, ctaMask)
+`, k.Name, k.M, k.N, k.K, k.Stages, ctaMask, idesc)
 
 	return b.String(), nil
 }

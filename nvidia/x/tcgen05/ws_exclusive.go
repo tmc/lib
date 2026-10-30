@@ -110,7 +110,7 @@ type TCGen05WeightsStationaryGEMM struct {
 	Kind                string
 	UseExclusive576Cols bool
 	ZeroColumnMask      ZeroColumnMaskDesc
-	Sparse              bool
+	Sparse              bool // not supported: no sparsity metadata is staged in TMEM
 	Target              string
 }
 
@@ -165,6 +165,12 @@ func (k TCGen05WeightsStationaryGEMM) norm() (TCGen05WeightsStationaryGEMM, erro
 	if k.M != 128 || k.N <= 0 || k.N > 256 || k.N%32 != 0 || k.K <= 0 || k.K%16 != 0 {
 		return k, fmt.Errorf("tcgen05 ws gemm %s: invalid shape M=%d N=%d K=%d (want M=128, N in 32..256 multiple of 32, K multiple of 16)", k.Name, k.M, k.N, k.K)
 	}
+	if k.Sparse {
+		// tcgen05.mma.ws.sp reads 2:4 metadata from [sp-meta-tmem], whose
+		// TMEM layout (PTX ISA 9.4 section 9.7.18.10.9) this kernel does not
+		// produce, and A would have to be staged compressed.
+		return k, fmt.Errorf("tcgen05 ws gemm %s: sparse form unsupported: kernel does not stage 2:4 sparsity metadata in tmem", k.Name)
+	}
 	return k, nil
 }
 
@@ -179,13 +185,38 @@ func (k TCGen05WeightsStationaryGEMM) Grid() (grid, block [3]int) {
 	return [3]int{1, 1, 1}, [3]int{128, 1, 1}
 }
 
+// InstDescriptor returns the 32-bit tcgen05.mma.ws instruction descriptor
+// (idesc) for k.Kind: TF32, BF16, E4M3, S8, or S1Z4M11 inputs with an F32
+// (S32 for i8 and ti16) accumulator, M=128, N=k.N, and the kind's dense K.
+func (k TCGen05WeightsStationaryGEMM) InstDescriptor() (uint32, error) {
+	k, err := k.norm()
+	if err != nil {
+		return 0, err
+	}
+	kind, _ := parseKind(k.Kind)
+	d := InstDesc{Kind: kind, DType: ElemF32, M: k.M, N: k.N}
+	switch kind {
+	case KindTF32:
+		d.AType, d.K = ElemTF32, 8
+	case KindF16:
+		d.AType, d.K = ElemBF16, 16
+	case KindF8F6F4:
+		d.AType, d.K = ElemE4M3, 32
+	case KindI8:
+		d.AType, d.DType = ElemS8, ElemS32
+	case KindTI16:
+		d.AType, d.DType = ElemS1Z4M11, ElemS32
+	}
+	d.BType = d.AType
+	if err := d.ValidateForTarget(k.Target); err != nil {
+		return 0, fmt.Errorf("tcgen05 ws gemm %s: %w", k.Name, err)
+	}
+	return d.Encode()
+}
+
 func (k TCGen05WeightsStationaryGEMM) mmaMnemonic() string {
 	var b strings.Builder
-	b.WriteString("tcgen05.mma.ws")
-	if k.Sparse {
-		b.WriteString(".sp")
-	}
-	b.WriteString(".cta_group::1.kind::")
+	b.WriteString("tcgen05.mma.ws.cta_group::1.kind::")
 	b.WriteString(k.Kind)
 	b.WriteString(".collector::")
 	b.WriteString(string(k.CollectorBuffer))
@@ -202,18 +233,10 @@ func (k TCGen05WeightsStationaryGEMM) CUDA() (string, error) {
 	}
 	maskWord := k.ZeroColumnMask.Encode()
 	mnemonic := k.mmaMnemonic()
-	spVersion := uint8(0)
-	if k.Sparse && (k.Target == "sm_107a" || k.Target == "sm_107f") {
-		spVersion = 1
+	idesc, err := k.InstDescriptor()
+	if err != nil {
+		return "", err
 	}
-	idesc := InstDesc{
-		SparsityVersion: spVersion,
-		DType:           F32,
-		AType:           F32,
-		BType:           F32,
-		M:               uint16(k.M),
-		N:               uint16(k.N),
-	}.Encode()
 
 	var b strings.Builder
 	b.WriteString(TCGen05AdvancedPrelude)
@@ -311,35 +334,27 @@ EG_DEV void eg_tcgen05_dealloc_exclusive(uint32_t taddr) {
         const uint64_t desc_b = eg_wgmma_desc(smem_b, 128, 1024);
         const uint32_t idesc = `)
 	fmt.Fprintf(&b, "0x%08xu;\n", idesc)
-	// tcgen05.mma.ws.sp takes the sparsity metadata TMEM address
-	// ([sp-meta-tmem]) between b-desc and idesc (PTX ISA 9.4 §9.7.18.10.10.4);
-	// it lives in the columns allocated past the N accumulator columns.
-	fmt.Fprintf(&b, "        const uint32_t meta_taddr = d_taddr + %du;\n", k.N)
-	spMetaOperand := ""
-	if k.Sparse {
-		spMetaOperand = "[%5], "
-	}
 	if maskWord != 0 {
 		fmt.Fprintf(&b, `        const uint64_t zmask = ZERO_COL_MASK;
         asm volatile(
             "{\n"
             ".reg .pred p;\n"
             "setp.ne.b32 p, 1, 0;\n"
-            "%s [%%0], %%1, %%2, %s%%3, p, %%4;\n"
+            "%s [%%0], %%1, %%2, %%3, p, %%4;\n"
             "}"
-            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "l"(zmask), "r"(meta_taddr)
+            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "l"(zmask)
             : "memory");
-`, mnemonic, spMetaOperand)
+`, mnemonic)
 	} else {
 		fmt.Fprintf(&b, `        asm volatile(
             "{\n"
             ".reg .pred p;\n"
             "setp.ne.b32 p, 1, 0;\n"
-            "%s [%%0], %%1, %%2, %s%%3, p;\n"
+            "%s [%%0], %%1, %%2, %%3, p;\n"
             "}"
-            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc), "l"(0ULL), "r"(meta_taddr)
+            :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc)
             : "memory");
-`, mnemonic, spMetaOperand)
+`, mnemonic)
 	}
 	b.WriteString(`#else
         for (int r = 0; r < M; ++r) {
@@ -420,11 +435,7 @@ func (k TCGen05WeightsStationaryGEMM) Reference(a, b []float32) ([]float32, erro
 }
 
 // allocCols reports the TMEM columns k allocates without .exclusive: the N
-// accumulator columns, doubled for the sparse form so the [sp-meta-tmem]
-// operand at d_taddr+N lies inside the allocation.
+// accumulator columns.
 func (k TCGen05WeightsStationaryGEMM) allocCols() int {
-	if k.Sparse {
-		return 2 * k.N
-	}
 	return k.N
 }

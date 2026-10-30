@@ -265,13 +265,14 @@ EG_DEV void eg_tmem_cp_scales_group(
 #endif
 }
 
-// eg_tmem_mma_s_dense computes S = Q * K_page^T in TMEM [s_taddr] for BF16/FP8 formats.
+// eg_tmem_mma_s_dense computes S = Q * K_page^T in TMEM [s_taddr] for BF16/FP8
+// formats with the .kind::f16 instruction descriptor idesc.
 template <int CTA_GROUP>
 EG_DEV void eg_tmem_mma_s_dense(
     float* local_tmem, uint32_t s_taddr,
     const float* local_smem_q, const float* local_smem_k,
     int q_rows_per_cta, int num_q_heads, int num_kv_heads,
-    int page_size, int head_dim, int accum_enable) {
+    int page_size, int head_dim, int accum_enable, uint32_t idesc) {
 #ifdef __CUDA_ARCH__
     (void)local_tmem;
     (void)q_rows_per_cta;
@@ -281,7 +282,6 @@ EG_DEV void eg_tmem_mma_s_dense(
     (void)head_dim;
     const uint64_t desc_q = eg_wgmma_desc(local_smem_q, 128, 1024);
     const uint64_t desc_k = eg_wgmma_desc(local_smem_k, 128, 1024);
-    const uint32_t idesc = 0u;
     if constexpr (CTA_GROUP == 2) {
         asm volatile(
             "{\n"
@@ -298,6 +298,7 @@ EG_DEV void eg_tmem_mma_s_dense(
             "}" :: "r"(s_taddr), "l"(desc_q), "l"(desc_k), "r"(idesc), "r"(accum_enable) : "memory");
     }
 #else
+    (void)idesc;
     const int gqa_group = num_q_heads / num_kv_heads;
     for (int cta = 0; cta < CTA_GROUP; ++cta) {
         float* tmem_cta = (CTA_GROUP == 2) ? eg_tcgen05_map_shared_rank(local_tmem, cta) : local_tmem;
@@ -321,13 +322,14 @@ EG_DEV void eg_tmem_mma_s_dense(
 #endif
 }
 
-// eg_tmem_mma_s_nvfp4 computes S = Q * K_page^T in TMEM [s_taddr] using NVFP4 block scales in TMEM [scale_taddr].
+// eg_tmem_mma_s_nvfp4 computes S = Q * K_page^T in TMEM [s_taddr] using NVFP4 block scales in TMEM [scale_taddr]
+// and the .kind::mxf4nvf4 instruction descriptor idesc.
 template <int CTA_GROUP, bool SCALE_VEC_4X>
 EG_DEV void eg_tmem_mma_s_nvfp4(
     float* local_tmem, uint32_t s_taddr, uint32_t scale_taddr,
     const uint8_t* local_q_packed, const uint8_t* local_k_packed,
     int q_rows_per_cta, int num_q_heads, int num_kv_heads,
-    int page_size, int head_dim) {
+    int page_size, int head_dim, uint32_t idesc) {
 #ifdef __CUDA_ARCH__
     (void)local_tmem;
     (void)q_rows_per_cta;
@@ -339,7 +341,6 @@ EG_DEV void eg_tmem_mma_s_nvfp4(
     const uint64_t desc_k = eg_wgmma_desc(local_k_packed, 64, 512);
     const uint32_t sfa_taddr = scale_taddr;
     const uint32_t sfb_taddr = scale_taddr + 16u;
-    const uint32_t idesc = 0u;
     if constexpr (CTA_GROUP == 2) {
         if constexpr (SCALE_VEC_4X) {
             asm volatile(
@@ -374,6 +375,7 @@ EG_DEV void eg_tmem_mma_s_nvfp4(
         }
     }
 #else
+    (void)idesc;
     const int k_blocks = head_dim / 16;
     const int k_bytes = head_dim / 2;
     const int gqa_group = num_q_heads / num_kv_heads;
@@ -411,13 +413,14 @@ EG_DEV void eg_tmem_mma_s_nvfp4(
 #endif
 }
 
-// eg_tmem_mma_o_tmem_a accumulates O += P * V in TMEM [o_taddr] with operand A (P) read directly from TMEM [p_taddr].
+// eg_tmem_mma_o_tmem_a accumulates O += P * V in TMEM [o_taddr] with operand A (P) read directly from TMEM [p_taddr]
+// and the .kind::f16 instruction descriptor idesc.
 template <int CTA_GROUP>
 EG_DEV void eg_tmem_mma_o_tmem_a(
     float* local_tmem, uint32_t o_taddr, uint32_t p_taddr,
     const float* local_smem_v,
     int q_rows_per_cta, int num_q_heads, int num_kv_heads,
-    int page_size, int out_dim) {
+    int page_size, int out_dim, uint32_t idesc) {
 #ifdef __CUDA_ARCH__
     (void)local_tmem;
     (void)q_rows_per_cta;
@@ -426,7 +429,6 @@ EG_DEV void eg_tmem_mma_o_tmem_a(
     (void)page_size;
     (void)out_dim;
     const uint64_t desc_v = eg_wgmma_desc(local_smem_v, 128, 1024);
-    const uint32_t idesc = 0u;
     if constexpr (CTA_GROUP == 2) {
         asm volatile(
             "{\n"
@@ -443,6 +445,7 @@ EG_DEV void eg_tmem_mma_o_tmem_a(
             "}" :: "r"(o_taddr), "r"(p_taddr), "l"(desc_v), "r"(idesc) : "memory");
     }
 #else
+    (void)idesc;
     const int gqa_group = num_q_heads / num_kv_heads;
     for (int cta = 0; cta < CTA_GROUP; ++cta) {
         float* tmem_cta = (CTA_GROUP == 2) ? eg_tcgen05_map_shared_rank(local_tmem, cta) : local_tmem;
@@ -528,6 +531,27 @@ func (k TCGen05PagedAttention) norm() TCGen05PagedAttention {
 		k.KVFormat = WeightBF16
 	}
 	return k
+}
+
+// idescDecls declares the kernel's instruction descriptors: IDESC_S for
+// S = Q * K^T (.kind::f16, or .kind::mxf4nvf4 with UE4M3 scales for NVFP4)
+// and IDESC_O for O += P * V (.kind::f16), each with M = 128 * CTAGroup.
+func (k TCGen05PagedAttention) idescDecls() string {
+	k = k.norm()
+	m := 128 * k.CTAGroup
+	s := bf16InstDesc(m, k.PageSize)
+	if k.KVFormat == WeightNVFP4 {
+		s = InstDesc{
+			Kind:      KindMXF4NVF4,
+			AType:     ElemE2M1,
+			BType:     ElemE2M1,
+			M:         m,
+			N:         k.PageSize,
+			K:         64,
+			ScaleType: ScaleUE4M3,
+		}
+	}
+	return idescDecl("IDESC_S", s) + idescDecl("IDESC_O", bf16InstDesc(m, k.HeadDim))
 }
 
 func (k TCGen05PagedAttention) isSM103() bool {
@@ -770,7 +794,7 @@ func (k TCGen05PagedAttention) CUDA() string {
     constexpr int Q_ROWS_PER_CTA = %d;
     constexpr int STAGES = %d;
     constexpr float SCALE_LOG2E = %s;
-    const float NEG_INF = -__uint_as_float(0x7f800000u);
+%s    const float NEG_INF = -__uint_as_float(0x7f800000u);
 
     const int tid = threadIdx.x;
     const int warp = tid >> 5;
@@ -790,7 +814,7 @@ func (k TCGen05PagedAttention) CUDA() string {
     EG_TCGEN05_SHARED(uint64_t, mbar, [1]);
 `, clusterAttr, block[0], k.Name,
 		k.NumQHeads, k.NumKVHeads, k.HeadDim, k.PageSize, k.SeqLen, k.numPages(),
-		k.CTAGroup, qPerCTA, stages, floatLiteral(k.Scale*1.4426950408889634))
+		k.CTAGroup, qPerCTA, stages, floatLiteral(k.Scale*1.4426950408889634), k.idescDecls())
 
 	if k.KVFormat == WeightNVFP4 {
 		b.WriteString(`    constexpr int K_BYTES = HEAD_DIM / 2;
@@ -935,11 +959,11 @@ func (k TCGen05PagedAttention) CUDA() string {
 `)
 	if k.KVFormat == WeightNVFP4 {
 		fmt.Fprintf(&b, `            eg_tmem_cp_scales_group<CTA_GROUP>(tmem, tmem_scale, smem_q_scales, smem_k_scales, 128, KV_ROWS, K_BLOCKS);
-            eg_tmem_mma_s_nvfp4<CTA_GROUP, %s>(tmem, tmem_s, tmem_scale, smem_q_packed, smem_k_packed, Q_ROWS_PER_CTA, NUM_Q_HEADS, NUM_KV_HEADS, PAGE_SIZE, HEAD_DIM);
+            eg_tmem_mma_s_nvfp4<CTA_GROUP, %s>(tmem, tmem_s, tmem_scale, smem_q_packed, smem_k_packed, Q_ROWS_PER_CTA, NUM_Q_HEADS, NUM_KV_HEADS, PAGE_SIZE, HEAD_DIM, IDESC_S);
             eg_tmem_commit_group<CTA_GROUP>(&mbar[0]);
 `, scaleVec4X)
 	} else {
-		b.WriteString(`            eg_tmem_mma_s_dense<CTA_GROUP>(tmem, tmem_s, smem_q, cur_k, Q_ROWS_PER_CTA, NUM_Q_HEADS, NUM_KV_HEADS, PAGE_SIZE, HEAD_DIM, 0);
+		b.WriteString(`            eg_tmem_mma_s_dense<CTA_GROUP>(tmem, tmem_s, smem_q, cur_k, Q_ROWS_PER_CTA, NUM_Q_HEADS, NUM_KV_HEADS, PAGE_SIZE, HEAD_DIM, 0, IDESC_S);
             eg_tmem_commit_group<CTA_GROUP>(&mbar[0]);
 `)
 	}
@@ -1019,7 +1043,7 @@ func (k TCGen05PagedAttention) CUDA() string {
 	// Step C: Second MMA O += P * V_page with operand A read directly from TMEM [tmem_s].
 	b.WriteString(`        // Step C: Elected leader issues tcgen05.mma for O += P * V_page reading P from TMEM [tmem_s].
         if (rank == 0 && warp == 0 && eg_elect_one_sync()) {
-            eg_tmem_mma_o_tmem_a<CTA_GROUP>(tmem, tmem_o, tmem_s, cur_v, Q_ROWS_PER_CTA, NUM_Q_HEADS, NUM_KV_HEADS, PAGE_SIZE, HEAD_DIM);
+            eg_tmem_mma_o_tmem_a<CTA_GROUP>(tmem, tmem_o, tmem_s, cur_v, Q_ROWS_PER_CTA, NUM_Q_HEADS, NUM_KV_HEADS, PAGE_SIZE, HEAD_DIM, IDESC_O);
             eg_tmem_commit_group<CTA_GROUP>(&mbar[0]);
         }
 `)
@@ -1210,6 +1234,15 @@ func (k TCGen05MLAPagedAttention) norm() TCGen05MLAPagedAttention {
 		k.CTAGroup = 1
 	}
 	return k
+}
+
+// idescDecls declares the kernel's .kind::f16 instruction descriptors:
+// IDESC_S for S = Q * C_KV^T (and the RoPE term) and IDESC_O for
+// O += P * C_KV, each with M = 128 * CTAGroup.
+func (k TCGen05MLAPagedAttention) idescDecls() string {
+	k = k.norm()
+	m := 128 * k.CTAGroup
+	return idescDecl("IDESC_S", bf16InstDesc(m, k.PageSize)) + idescDecl("IDESC_O", bf16InstDesc(m, k.KVLoRARank))
 }
 
 func (k TCGen05MLAPagedAttention) isSM103() bool {
@@ -1422,7 +1455,7 @@ func (k TCGen05MLAPagedAttention) CUDA() string {
     constexpr int HEADS_PER_CTA = %d;
     constexpr int STAGES = %d;
     constexpr float SCALE_LOG2E = %s;
-    const float NEG_INF = -__uint_as_float(0x7f800000u);
+%s    const float NEG_INF = -__uint_as_float(0x7f800000u);
 
     const int tid = threadIdx.x;
     const int warp = tid >> 5;
@@ -1468,7 +1501,7 @@ func (k TCGen05MLAPagedAttention) CUDA() string {
     __syncthreads();
 `, clusterAttr, block[0], k.Name,
 		k.NumHeads, k.KVLoRARank, k.RoPEDim, k.PageSize, k.SeqLen, k.numPages(),
-		k.CTAGroup, headsPerCTA, stages, floatLiteral(k.Scale*1.4426950408889634))
+		k.CTAGroup, headsPerCTA, stages, floatLiteral(k.Scale*1.4426950408889634), k.idescDecls())
 
 	if k.PingPong {
 		b.WriteString(`    if (wg == 2 && lane == 0) {
@@ -1511,8 +1544,8 @@ func (k TCGen05MLAPagedAttention) CUDA() string {
 
 	b.WriteString(`        // Step A: Compute S = Q_absorbed * C_KV^T + Q_rope * K_rope^T in TMEM [tmem_s].
         if (rank == 0 && warp == 0 && eg_elect_one_sync()) {
-            eg_tmem_mma_s_dense<CTA_GROUP>(tmem, tmem_s, smem_q_abs, cur_c_kv, HEADS_PER_CTA, NUM_HEADS, 1, PAGE_SIZE, KV_LORA_RANK, 0);
-            eg_tmem_mma_s_dense<CTA_GROUP>(tmem, tmem_s, smem_q_rope, cur_k_rope, HEADS_PER_CTA, NUM_HEADS, 1, PAGE_SIZE, ROPE_DIM, 1);
+            eg_tmem_mma_s_dense<CTA_GROUP>(tmem, tmem_s, smem_q_abs, cur_c_kv, HEADS_PER_CTA, NUM_HEADS, 1, PAGE_SIZE, KV_LORA_RANK, 0, IDESC_S);
+            eg_tmem_mma_s_dense<CTA_GROUP>(tmem, tmem_s, smem_q_rope, cur_k_rope, HEADS_PER_CTA, NUM_HEADS, 1, PAGE_SIZE, ROPE_DIM, 1, IDESC_S);
             eg_tmem_commit_group<CTA_GROUP>(&mbar[0]);
         }
 `)
@@ -1586,7 +1619,7 @@ func (k TCGen05MLAPagedAttention) CUDA() string {
 
 	b.WriteString(`        // Step C: Accumulate O_latent += P * C_KV in TMEM [tmem_o] with TMEM-resident operand A [tmem_s].
         if (rank == 0 && warp == 0 && eg_elect_one_sync()) {
-            eg_tmem_mma_o_tmem_a<CTA_GROUP>(tmem, tmem_o, tmem_s, cur_c_kv, HEADS_PER_CTA, NUM_HEADS, 1, PAGE_SIZE, KV_LORA_RANK);
+            eg_tmem_mma_o_tmem_a<CTA_GROUP>(tmem, tmem_o, tmem_s, cur_c_kv, HEADS_PER_CTA, NUM_HEADS, 1, PAGE_SIZE, KV_LORA_RANK, IDESC_O);
             eg_tmem_commit_group<CTA_GROUP>(&mbar[0]);
         }
 `)
@@ -1713,4 +1746,29 @@ func (k TCGen05MLAPagedAttention) Reference(qAbsorbed, qRope, cKVPages, kRopePag
 		}
 	}
 	return out
+}
+
+// bf16InstDesc returns the dense .kind::f16 instruction descriptor
+// (BF16 x BF16 -> F32, K=16) for an M x N MMA.
+func bf16InstDesc(m, n int) InstDesc {
+	return InstDesc{
+		Kind:  KindF16,
+		DType: ElemF32,
+		AType: ElemBF16,
+		BType: ElemBF16,
+		M:     m,
+		N:     n,
+		K:     16,
+	}
+}
+
+// idescDecl declares the C constant name holding d's encoding. If d cannot
+// be encoded it returns an #error directive instead, so the kernel fails to
+// compile rather than issue an MMA with an undefined descriptor.
+func idescDecl(name string, d InstDesc) string {
+	w, err := d.Encode()
+	if err != nil {
+		return fmt.Sprintf("#error \"%s: %v\"\n", name, err)
+	}
+	return fmt.Sprintf("    constexpr uint32_t %s = 0x%08xu;\n", name, w)
 }

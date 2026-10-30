@@ -130,11 +130,13 @@ func TestTCGen05SparseGEMM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InstDescriptor() failed: %v", err)
 	}
-	if !UnpackInstDesc(d).Sparsity {
-		t.Fatalf("UnpackInstDesc(0x%08x).Sparsity = false, want true", d)
+	// .kind::tf32 sparse: sparse 1<<2, dtype F32 1<<4, atype/btype TF32 2<<7 | 2<<10,
+	// N>>3 = 16 <<17, M>>4 = 8 <<24, sparse K=16 → bit 29 clear.
+	if want := uint32(0x08200914); d != want {
+		t.Fatalf("InstDescriptor() = 0x%08x, want 0x%08x", d, want)
 	}
-	if got := DecodeInstDesc(d); got.Sparsity == 0 || got.M != 128 || got.N != 128 {
-		t.Fatalf("DecodeInstDesc(0x%08x) = %+v, want Sparsity != 0, M=128, N=128", d, got)
+	if got, err := DecodeInstDesc(KindTF32, d); err != nil || !got.Sparse || got.M != 128 || got.N != 128 || got.K != 16 {
+		t.Fatalf("DecodeInstDesc(tf32, 0x%08x) = %+v, %v; want sparse M=128 N=128 K=16", d, got, err)
 	}
 
 	for _, target := range []cudatmem.Target{cudatmem.SM100A, cudatmem.SM103A, cudatmem.SM107A, cudatmem.SM100F, cudatmem.SM103F, cudatmem.SM107F} {
@@ -147,9 +149,9 @@ func TestTCGen05SparseGEMM(t *testing.T) {
 		}
 	}
 
-	// Verify SparsityVersion (bit 12) is 0 on sm_100a/sm_103a and 1 on sm_107a/sm_107f.
-	if UnpackInstDesc(d).SparsityVersion != 0 || ((d>>12)&1) != 0 {
-		t.Fatalf("sm_100a descriptor 0x%08x SparsityVersion = %d, want 0", d, UnpackInstDesc(d).SparsityVersion)
+	// The mxf4nvf4 sparsity version (bit 12) is v1 on sm_107a/sm_107f; tf32 has no such bit.
+	if d>>12&1 != 0 {
+		t.Fatalf("tf32 descriptor 0x%08x sets bit 12, which is btype bit 2 for tf32", d)
 	}
 	for _, rubinTarget := range []string{"sm_107a", "sm_107f"} {
 		kRubin := TCGen05SparseGEMM{
@@ -165,13 +167,17 @@ func TestTCGen05SparseGEMM(t *testing.T) {
 		if err != nil {
 			t.Fatalf("kRubin(%s).InstDescriptor() failed: %v", rubinTarget, err)
 		}
-		unpackedRubin := UnpackInstDesc(dRubin)
-		if !unpackedRubin.Sparsity || unpackedRubin.SparsityVersion != 1 || ((dRubin>>12)&1) != 1 {
-			t.Fatalf("kRubin(%s) descriptor 0x%08x unpacked = %+v, want Sparsity=true SparsityVersion=1 (bit 12 = 1)",
-				rubinTarget, dRubin, unpackedRubin)
+		// sparse 1<<2, atype/btype E2M1 1<<7 | 1<<10, v1 1<<12, N>>3 = 16 <<17,
+		// scale UE4M3 0, M>>7 = 1 <<27, sparse K=128 → K code 0.
+		if want := uint32(0x08201484); dRubin != want {
+			t.Fatalf("kRubin(%s).InstDescriptor() = 0x%08x, want 0x%08x", rubinTarget, dRubin, want)
 		}
-		if err := DecodeInstDesc(dRubin).ValidateForTarget(rubinTarget); err != nil {
-			t.Fatalf("DecodeInstDesc(dRubin).ValidateForTarget(%s) failed: %v", rubinTarget, err)
+		decRubin, err := DecodeInstDesc(KindMXF4NVF4, dRubin)
+		if err != nil {
+			t.Fatalf("DecodeInstDesc(mxf4nvf4, 0x%08x): %v", dRubin, err)
+		}
+		if err := decRubin.ValidateForTarget(rubinTarget); err != nil {
+			t.Fatalf("ValidateForTarget(%s) failed: %v", rubinTarget, err)
 		}
 		srcRubin, err := kRubin.CUDA()
 		if err != nil {
@@ -281,17 +287,19 @@ func ExampleTCGen05SparseGEMM() {
 		BlockScaledNVFP4: true,
 	}
 	idesc, _ := k.InstDescriptor()
-	unpacked := UnpackInstDesc(idesc)
+	dec, _ := DecodeInstDesc(KindMXF4NVF4, idesc)
 	sum, err := cudatmem.VerifyTrace(cudatmem.SM103A, k.TraceEvents())
 	src, _ := k.CUDA()
+	fmt.Printf("0x%08x\n", idesc)
 	fmt.Println(
 		err == nil,
-		unpacked.Sparsity,
-		unpacked.ScaleVec,
+		dec.Sparse,
+		dec.ScaleType,
 		sum.MMAs,
 		sum.MaxAllocatedColumns,
 		strings.Contains(src, "tcgen05.mma.sp.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X"),
 	)
 	// Output:
-	// true true 4X 1 160 true
+	// 0x08200484
+	// true true ue4m3 1 160 true
 }

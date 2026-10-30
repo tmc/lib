@@ -141,16 +141,16 @@ EG_DEV void eg_tma_multicast_2d_f32(
 
 // eg_tcgen05_mma_cta2_multicast_f32 issues a 2-CTA cooperative tcgen05.mma.cta_group::2
 // where each CTA holds its gathered 128xK activation slice in local_smem_a and
-// the multicast-replicated Kx128 weight tile in local_smem_b.
+// the multicast-replicated Kx128 weight tile in local_smem_b, using the
+// .kind::tf32 instruction descriptor idesc.
 EG_DEV void eg_tcgen05_mma_cta2_multicast_f32(
     float* local_tmem, uint32_t d_taddr,
-    float* local_smem_a, float* local_smem_b, int k_dim) {
+    float* local_smem_a, float* local_smem_b, int k_dim, uint32_t idesc) {
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000) && !defined(EG_EMU)
     (void)local_tmem;
     (void)k_dim;
     const uint64_t desc_a = eg_wgmma_desc(local_smem_a, 128, 1024);
     const uint64_t desc_b = eg_wgmma_desc(local_smem_b, 128, 1024);
-    const uint32_t idesc = 0u;
     asm volatile(
         "{\n"
         ".reg .pred p;\n"
@@ -158,6 +158,7 @@ EG_DEV void eg_tcgen05_mma_cta2_multicast_f32(
         "tcgen05.mma.cta_group::2.kind::tf32 [%0], %1, %2, %3, p;\n"
         "}" :: "r"(d_taddr), "l"(desc_a), "l"(desc_b), "r"(idesc) : "memory");
 #else
+    (void)idesc;
     for (int cta = 0; cta < 2; ++cta) {
         const float* a_cta = eg_tcgen05_map_shared_rank(local_smem_a, cta);
         const float* b_cta = eg_tcgen05_map_shared_rank(local_smem_b, cta);
@@ -279,6 +280,10 @@ func (k TCGen05TMAMulticastGatherGEMM) CUDA() (string, error) {
 	if k.ScatterOutput {
 		scatterFlag = 1
 	}
+	idesc, err := tf32InstDesc(k.M, k.N)
+	if err != nil {
+		return "", fmt.Errorf("tcgen05 tma multicast gather gemm %s: %w", k.Name, err)
+	}
 	var b strings.Builder
 	b.WriteString(TCGen05AdvancedPrelude)
 	b.WriteString("\n")
@@ -294,6 +299,7 @@ func (k TCGen05TMAMulticastGatherGEMM) CUDA() (string, error) {
     constexpr int K = %d;
     constexpr int N = %d;
     constexpr int SCATTER_OUT = %d;
+    constexpr uint32_t IDESC = 0x%08xu;
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31;
     const int rank = eg_tcgen05_cluster_rank();
 
@@ -339,7 +345,7 @@ func (k TCGen05TMAMulticastGatherGEMM) CUDA() (string, error) {
 
     // 5. CTA 0's elected leader thread issues cooperative tcgen05.mma.cta_group::2 + commit.
     if (rank == 0 && warp == 0 && eg_elect_one_sync()) {
-        eg_tcgen05_mma_cta2_multicast_f32(tmem, taddr, smem_a, smem_b, K);
+        eg_tcgen05_mma_cta2_multicast_f32(tmem, taddr, smem_a, smem_b, K, IDESC);
         eg_tcgen05_commit_cta2(&mbar_mma[0]);
     }
     eg_tcgen05_cluster_sync();
@@ -380,7 +386,7 @@ func (k TCGen05TMAMulticastGatherGEMM) CUDA() (string, error) {
     }
 }
 EG_REGISTER_CLUSTER2(%s)
-`, k.Name, k.K, k.N, scatterFlag, k.Name)
+`, k.Name, k.K, k.N, scatterFlag, idesc, k.Name)
 	return b.String(), nil
 }
 

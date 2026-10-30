@@ -319,25 +319,27 @@ func (k TCGen05MXFP8GEMM) norm() (TCGen05MXFP8GEMM, error) {
 	return k, nil
 }
 
-// InstDescriptor packs the 32-bit tcgen05.mma instruction descriptor (idesc)
-// for kind::mxf8f6f4.block_scale.scale_vec::1X.
+// InstDescriptor returns the 32-bit tcgen05.mma instruction descriptor
+// (idesc) for kind::mxf8f6f4.block_scale.scale_vec::1X: E4M3 A, E4M3 or
+// (MixedW4A8) E2M1 B, UE8M0 scales, dense K=32.
 func (k TCGen05MXFP8GEMM) InstDescriptor() (uint32, error) {
 	k, err := k.norm()
 	if err != nil {
 		return 0, err
 	}
-	bType := E4M3
+	bType := ElemE4M3
 	if k.MixedW4A8 {
-		bType = E2M1
+		bType = ElemE2M1
 	}
 	return InstDesc{
-		DType:    F32,
-		AType:    E4M3,
-		BType:    bType,
-		M:        uint16(k.M),
-		N:        uint16(k.N),
-		ScaleVec: ScaleVec1X,
-	}.Encode(), nil
+		Kind:      KindMXF8F6F4,
+		AType:     ElemE4M3,
+		BType:     bType,
+		M:         k.M,
+		N:         k.N,
+		K:         32,
+		ScaleType: ScaleUE8M0,
+	}.Encode()
 }
 
 // Grid returns the single-CTA grid and 128-thread (4-warp) block dimensions.

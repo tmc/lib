@@ -8,53 +8,6 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudatmem"
 )
 
-// Pack encodes d into a 32-bit tcgen05.mma instruction descriptor word.
-func (d InstDesc) Pack() uint32 {
-	return d.Encode()
-}
-
-// SparseInstDesc is the unpacked view of a 32-bit tcgen05.mma instruction
-// descriptor word with a boolean Sparsity flag for 2:4 structured sparsity.
-type SparseInstDesc struct {
-	Sparsity         bool
-	SparsitySelector uint8
-	SparsityVersion  uint8
-	Saturate         bool
-	DType            DType
-	AType            DType
-	BType            DType
-	NegateA          bool
-	NegateB          bool
-	TransposeA       bool
-	TransposeB       bool
-	M                uint16
-	N                uint16
-	ScaleVec         ScaleVec
-}
-
-// UnpackInstDesc decodes a 32-bit tcgen05.mma instruction descriptor word into
-// a SparseInstDesc, reporting Sparsity == true when the 2:4 structured sparsity
-// descriptor bits are non-zero.
-func UnpackInstDesc(w uint32) SparseInstDesc {
-	raw := DecodeInstDesc(w)
-	return SparseInstDesc{
-		Sparsity:         raw.Sparsity != 0,
-		SparsitySelector: raw.Sparsity,
-		SparsityVersion:  raw.SparsityVersion,
-		Saturate:         raw.Saturate,
-		DType:            raw.DType,
-		AType:            raw.AType,
-		BType:            raw.BType,
-		NegateA:          raw.NegateA,
-		NegateB:          raw.NegateB,
-		TransposeA:       raw.TransposeA,
-		TransposeB:       raw.TransposeB,
-		M:                raw.M,
-		N:                raw.N,
-		ScaleVec:         raw.ScaleVec,
-	}
-}
-
 // selectTop2Of4 returns the column indices (0 <= idx0 < idx1 <= 3) of the two
 // elements in mag[0..3] with the largest magnitude, breaking ties
 // deterministically by lower index (0 < 1 < 2 < 3).
@@ -269,41 +222,44 @@ func (k TCGen05SparseGEMM) norm() (TCGen05SparseGEMM, error) {
 	return k, nil
 }
 
-// InstDescriptor packs the 32-bit tcgen05.mma.sp instruction descriptor (idesc)
-// with the 2:4 structured sparsity bit set and the target-appropriate
-// SparsityVersion (v0 on sm_100a/sm_103a, v1 on sm_107a/sm_107f).
+// InstDescriptor returns the 32-bit tcgen05.mma.sp instruction descriptor
+// (idesc) for the kind k emits: .kind::tf32 (TF32 x TF32 -> F32, K=16) or,
+// with BlockScaledNVFP4, .kind::mxf4nvf4 (E2M1 x E2M1, UE4M3 scales, K=128)
+// with the target's sparsity version (v0 on sm_100/sm_103, v1 on sm_107).
 func (k TCGen05SparseGEMM) InstDescriptor() (uint32, error) {
 	k, err := k.norm()
 	if err != nil {
 		return 0, err
 	}
-	var spVer uint8
-	if k.Target == "sm_107a" || k.Target == "sm_107f" {
-		spVer = 1
-	}
-	desc := InstDesc{
-		Sparsity:        1,
-		SparsityVersion: spVer,
-		DType:           F32,
-		AType:           F32,
-		BType:           F32,
-		M:               uint16(k.M),
-		N:               uint16(k.N),
-		ScaleVec:        ScaleVecNone,
+	d := InstDesc{
+		Kind:   KindTF32,
+		Sparse: true,
+		DType:  ElemF32,
+		AType:  ElemTF32,
+		BType:  ElemTF32,
+		M:      k.M,
+		N:      k.N,
+		K:      16,
 	}
 	if k.BlockScaledNVFP4 {
-		desc.AType = E2M1
-		desc.BType = E2M1
-		if k.Target == "sm_103a" || k.Target == "sm_103f" || k.Target == "sm_107a" || k.Target == "sm_107f" {
-			desc.ScaleVec = ScaleVec4X
-		} else {
-			desc.ScaleVec = ScaleVec2X
+		d = InstDesc{
+			Kind:      KindMXF4NVF4,
+			Sparse:    true,
+			AType:     ElemE2M1,
+			BType:     ElemE2M1,
+			M:         k.M,
+			N:         k.N,
+			K:         128,
+			ScaleType: ScaleUE4M3,
+		}
+		if k.Target == "sm_107a" || k.Target == "sm_107f" {
+			d.SparsityVersion = 1
 		}
 	}
-	if err := desc.ValidateForTarget(k.Target); err != nil {
-		return 0, err
+	if err := d.ValidateForTarget(k.Target); err != nil {
+		return 0, fmt.Errorf("tcgen05 sparse gemm %s: %w", k.Name, err)
 	}
-	return desc.Pack(), nil
+	return d.Encode()
 }
 
 // Grid returns the launch grid and 128-thread (4-warp) block dimensions.

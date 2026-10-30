@@ -180,8 +180,8 @@ func TestTCGen05NativeClosedGateControl(t *testing.T) {
 		if err != nil {
 			t.Fatalf("TCGen05SparseGEMM(%s).InstDescriptor: %v", target, err)
 		}
-		if !UnpackInstDesc(idesc).Sparsity {
-			t.Fatalf("TCGen05SparseGEMM(%s) UnpackInstDesc(0x%08x).Sparsity = false, want true", target, idesc)
+		if d, err := DecodeInstDesc(KindMXF4NVF4, idesc); err != nil || !d.Sparse {
+			t.Fatalf("TCGen05SparseGEMM(%s) DecodeInstDesc(mxf4nvf4, 0x%08x) = %+v, %v; want sparse", target, idesc, d, err)
 		}
 		spSrc, err := sp.CUDAFile()
 		if err != nil || !strings.Contains(spSrc, "tcgen05.mma.sp") {
@@ -380,8 +380,8 @@ func TestTCGen05NativeQualification(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sparse100.InstDescriptor: %v", err)
 	}
-	if !UnpackInstDesc(sparse100Desc).Sparsity {
-		t.Fatalf("sparse100 UnpackInstDesc(0x%08x).Sparsity = false, want true", sparse100Desc)
+	if d, err := DecodeInstDesc(KindMXF4NVF4, sparse100Desc); err != nil || !d.Sparse {
+		t.Fatalf("sparse100 DecodeInstDesc(mxf4nvf4, 0x%08x) = %+v, %v; want sparse", sparse100Desc, d, err)
 	}
 	if _, err := cudatmem.VerifyTrace(cudatmem.SM100A, sparse100.TraceEvents()); err != nil {
 		t.Fatalf("VerifyTrace(SM100A, sparse100): %v", err)
@@ -594,7 +594,7 @@ func TestTCGen05Wave12And13NativeSuiteStructure(t *testing.T) {
 		"tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.multicast::cluster::32b.b64",
 		"tcgen05.ld.red.sync.aligned.32x32b.x4.max.abs.f32",
 		"tcgen05.ld.red.spcompress.sync.aligned.32x32b.x4.max.sp::2:4.abs.f32.b2",
-		"tcgen05.mma.ws.sp.cta_group::1.kind::ti16.collector::b0::fill",
+		"tcgen05.mma.ws.cta_group::1.kind::ti16.collector::b0::fill",
 		"tcgen05.alloc.exclusive.cta_group::1.sync.aligned.shared::cta.b32",
 		"spcompress.b8.b2.sp::2:4.x4",
 		"spdecompress.b8.b2.sp::2:4.x32",
@@ -783,7 +783,7 @@ func buildTCGen05Wave12And13Fixtures(t *testing.T) tcgen05Wave12And13Fixtures {
 		t.Fatalf("ldSpK.Reference: %v", err)
 	}
 
-	// 5. TCGen05WeightsStationaryGEMM (M=128, N=128, K=64, Kind="ti16", Sparse=true, UseExclusive576Cols=true)
+	// 5. TCGen05WeightsStationaryGEMM (M=128, N=128, K=64, Kind="ti16", UseExclusive576Cols=true)
 	var zmask ZeroColumnMaskDesc
 	zmask.NonZeroMask = 0x03 // zero columns in groups 0 and 1
 	zmask.StartCount[0] = 2
@@ -800,7 +800,6 @@ func buildTCGen05Wave12And13Fixtures(t *testing.T) tcgen05Wave12And13Fixtures {
 		Kind:                "ti16",
 		UseExclusive576Cols: true,
 		ZeroColumnMask:      zmask,
-		Sparse:              true,
 		Target:              "sm_107a",
 	}
 	wsTU, err := wsK.CUDAFile()
