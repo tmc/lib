@@ -1,0 +1,32 @@
+Commit: 47d4eab2d1494d78f929621504b2d0bfa839e70b
+Commit date: 2026-10-30T04:47:18-07:00
+Agent: OpenAI Codex
+Model: GPT-6 family; exact API model identifier unavailable
+Claude Code version: not used
+TTY: no controlling terminal in API subprocess
+PID: 8855
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Source branch: nscq at b108f6ae9bf2bb5ba92f22051febce580700e18d
+Commit helper previously failed with missing ANTHROPIC_API_KEY; authorized signed manual fallback
+Host race tests and generated inventory check PASS; TestLoadConflict and TestBoundSymbols SKIP (library unavailable)
+Native NSCQ/NVSwitch NOT_RUN; upstream version unrecorded and generator unavailable in current generator checkout; PREPARED/HOLD
+
+Rebased commit: 81e1effd631e96e57569c661bb64ec457578d6b1
+Date: 2026-10-30T05:10:49-07:00
+Agent: OpenAI Codex
+Model: GPT-6 family; exact API model identifier unavailable
+Claude Code version: not used
+TTY: no controlling terminal in API subprocess
+PID: 76556
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Rebase of prepared 47d4eab2d1494d78f929621504b2d0bfa839e70b onto be69e3555b6c9878fe994dfc75658a93de5c846c; NSCQ package blobs unchanged
+Native and regeneration qualification remain PREPARED/HOLD
+
+rebased commit: 92e8058fc15a51a929b5f9f01f9e354983953798
+date: 2026-10-30T07:10:31-07:00
+agent: Codex
+model: GPT-6 family; exact API model identifier unavailable
+claude-code: not used
+tty: no controlling tty
+pid: 13654
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
