@@ -92,17 +92,19 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 			mod = m
 			return err
 		}
+		var cubinErr error
 		if len(cm.cubin) > 0 {
 			m, err := driver.ModuleLoadData(cm.cubin)
 			if err == nil {
 				mod = m
 				return nil
 			}
+			cubinErr = fmt.Errorf("load cubin: %w", err)
 			if cm.ptx == "" {
-				return fmt.Errorf("load cubin: %w", err)
+				return cubinErr
 			}
 		}
-		// Fallback to loading PTX string
+		// Fall back to JIT-compiling the PTX.
 		if cm.ptx != "" {
 			cstr := append([]byte(cm.ptx), 0)
 			jitOpts, jitVals := cm.jitOptions.DriverOptions()
@@ -114,6 +116,10 @@ func (cm *CompiledModule) Load(dev *cuda.Device) (driver.Module, error) {
 				m, err = driver.ModuleLoadData(cstr)
 			}
 			if err != nil {
+				err = ptxVersionError(cm.ptx, err)
+				if cubinErr != nil {
+					return errors.Join(cubinErr, fmt.Errorf("load ptx: %w", err))
+				}
 				return err
 			}
 			mod = m
@@ -315,6 +321,10 @@ func WithName(name string) Option {
 // WithArch configures the target virtual compute architecture (for example,
 // compute_80 for major=8, minor=0). Use WithArch when generating virtual PTX
 // for multi-target binaries or cross-compilation.
+//
+// Loading PTX requires a driver JIT that supports its ISA version; unsupported
+// versions return [driver.ErrUnsupportedPtxVersion]. For a local device, prefer
+// [WithDeviceArch] or [WithPhysicalArch], which produce CUBIN.
 func WithArch(major, minor int) Option {
 	return func(o *options) {
 		if major <= 0 || minor < 0 {

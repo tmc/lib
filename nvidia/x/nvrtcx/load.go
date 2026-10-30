@@ -2,8 +2,10 @@ package nvrtcx
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"runtime"
+	"strings"
 	"unsafe"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -68,9 +70,50 @@ func (cm *CompiledModule) LoadOutputWithLog(dev *cuda.Device, kind OutputKind) (
 	runtime.KeepAlive(errors)
 	log.Info, log.Error = jitLogString(info), jitLogString(errors)
 	if err != nil {
+		if kind == OutputPTX {
+			err = ptxVersionError(cm.ptx, err)
+		}
 		err = fmt.Errorf("nvrtcx: load output %d: %w", kind, err)
 	}
 	return mod, log, err
+}
+
+// ptxVersionError explains err when the driver rejects ptx as too new
+// for its JIT compiler. Other errors are returned unchanged.
+func ptxVersionError(ptx string, err error) error {
+	if !errors.Is(err, driver.ErrUnsupportedPtxVersion) {
+		return err
+	}
+	v, verr := driver.DriverGetVersion()
+	if verr != nil {
+		v = 0
+	}
+	return unsupportedPTXError(ptxISA(ptx), v, err)
+}
+
+// unsupportedPTXError wraps err with the PTX ISA version isa and the CUDA
+// driver version v (as reported by cuDriverGetVersion, 0 if unknown).
+func unsupportedPTXError(isa string, v int, err error) error {
+	if isa == "" {
+		isa = "unknown"
+	}
+	jit := "driver JIT"
+	if v > 0 {
+		jit = fmt.Sprintf("CUDA %d.%d driver JIT", v/1000, v%1000/10)
+	}
+	return fmt.Errorf("PTX .version %s is too new for the %s; compile CUBIN with WithDeviceArch or WithPhysicalArch: %w", isa, jit, err)
+}
+
+// ptxISA returns the ISA version from ptx's .version directive,
+// or "" if there is none.
+func ptxISA(ptx string) string {
+	for line := range strings.Lines(ptx) {
+		f := strings.Fields(line)
+		if len(f) >= 2 && f[0] == ".version" {
+			return f[1]
+		}
+	}
+	return ""
 }
 
 func jitLogString(b []byte) string {

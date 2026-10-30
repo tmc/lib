@@ -47,10 +47,14 @@
 //
 // # Usage
 //
+// To load on a local device, compile CUBIN with [WithDeviceArch] or
+// [WithPhysicalArch]. PTX from [WithArch] is JIT-compiled by the driver,
+// which must support the emitted PTX ISA version.
+//
 // Illustrative fragment; sourceCode and dev are supplied by the caller:
 //
 //	mod, err := nvrtcx.Compile(sourceCode,
-//		nvrtcx.WithArch(8, 0),
+//		nvrtcx.WithDeviceArch(dev),
 //		nvrtcx.WithStandard("c++17"),
 //		nvrtcx.WithFastMath(),
 //	)
