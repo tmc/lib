@@ -31,6 +31,8 @@ func TestMatchKey(t *testing.T) {
 		{"_Z3fooIiEvPT_", "foo"},
 		{"foo<int>(int*)", "foo"},
 		{"void foo<int>(int*)", "void foo"},
+		{"void mlx::core::cu::binary_vv<mlx::core::cu::Add, __nv_bfloat16, __nv_bfloat16, unsigned int, 8>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, unsigned int)",
+			"void mlx::core::cu::binary_vv"},
 
 		// extern "C" and hand-written PTX carry no encoding, and are left alone.
 		{"compute", "compute"},
@@ -75,6 +77,7 @@ func TestMatchKeyUnifiesSpellings(t *testing.T) {
 		{"_Z10atomicDropPfPKfi", "atomicDrop(float *, const float *, int)"},
 		{"_ZN5cudnn6kernel6matmulEPfS1_", "cudnn::kernel::matmul(float*, float*)"},
 		{"_ZNK3foo3barEv", "foo::bar()"},
+		{"_ZNK3foo3barEv", "foo::bar() const"},
 		{"_ZL10staticFuncPf", "staticFunc(float*)"},
 		{"_ZN3fooC1Ev", "foo::foo()"},
 		{"_ZN3fooD1Ev", "foo::~foo()"},

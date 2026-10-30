@@ -90,6 +90,16 @@ func headerELFSection(trimmed string) string {
 	return ""
 }
 
+// sectionBody returns a directive's trimmed body without its trailing line comment.
+func sectionBody(trimmed string) string {
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, ".section"))
+	if i := lineComment(rest); i >= 0 {
+		rest = strings.TrimSpace(rest[:i])
+	}
+	return rest
+}
+
+
 // openedSection reports whether trimmed opens a section of the listing, the
 // section's name, and whether that section is code other than
 // .text.<kernel>. Only a ".section" directive or a banner comment opens a
@@ -101,7 +111,7 @@ func openedSection(trimmed string) (name string, nonText, opens bool) {
 	case strings.HasPrefix(trimmed, "//--"):
 		name = strings.TrimSpace(strings.Trim(strings.TrimPrefix(trimmed, "//"), "-"))
 	case isSectionDirective(trimmed):
-		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, ".section"))
+		rest := sectionBody(trimmed)
 		name = rest
 		if i, f := sectionFlags(rest); i >= 0 {
 			name, flags = strings.TrimSpace(rest[:i]), f
@@ -208,7 +218,7 @@ func malformedSectionDirective(trimmed string) bool {
 	if !isSectionDirective(trimmed) {
 		return false
 	}
-	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, ".section"))
+	rest := sectionBody(trimmed)
 	flags, _ := sectionFlags(rest)
 	for i, refused := range sectionNameRefusals(rest) {
 		switch {

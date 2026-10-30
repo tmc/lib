@@ -572,7 +572,7 @@ func DisassembleCFG(cubin []byte, basicBlocks bool) (string, error) {
 // malformedTextLabel rejects before extractFunctionName reads them.
 func extractFunctionName(line string) string {
 	if isSectionDirective(line) {
-		rest := strings.TrimSpace(strings.TrimPrefix(line, ".section"))
+		rest := sectionBody(line)
 		if i, _ := sectionFlags(rest); i >= 0 {
 			rest = strings.TrimSpace(rest[:i])
 		}
