@@ -35,6 +35,8 @@ import (
 	"github.com/tmc/lib/nvidia/x/rankgroup"
 )
 
+var engineStepTimesFlag = flag.Bool("engine-step-times", false, "record synchronized CPU-wall input-to-host-token steps (requires explicit tokens, greedy N128)")
+
 var (
 	modelPath         = flag.String("model", "", "path to model directory containing config.json, tokenizer.json, and model.safetensors")
 	promptFlag        = flag.String("prompt", "The capital of France is", "text prompt for model generation")
@@ -90,6 +92,18 @@ func main() {
 }
 
 func run() (rerr error) {
+	if *engineStepTimesFlag {
+		if err := validateEngineStepOptions(engineStepOptions{
+			Steps: *stepsFlag, Draft: *specDraftFlag, TP: *tpFlag, Bench: *benchFlag,
+			StepTimes: *stepTimesFlag, Trace: *tracePath != "", Profile: *profilePath != "",
+			Disasm: *disasmFlag != "", Emit: *egraphEmitFlag != "",
+			Greedy:         *tempFlag == 0 && *topKFlag == 0 && *topPFlag == 1 && *minPFlag == 0 && *jsonSchemaFlag == "",
+			ExplicitTokens: *tokenIDsFlag != "",
+		}); err != nil {
+			return err
+		}
+	}
+
 	if *disasmFlag != "" {
 		return printKernelDisassembly(*disasmFlag, *disasmModeFlag)
 	}
@@ -162,6 +176,9 @@ func run() (rerr error) {
 	// Retain the device's context, if there is one, for 100% GPU-resident
 	// execution. Whether there is one decides how the weights load.
 	dev, devErr := cuda.NewDevice(0)
+	if *engineStepTimesFlag && devErr != nil {
+		return fmt.Errorf("-engine-step-times requires CUDA: %w", devErr)
+	}
 	if devErr == nil {
 		defer func() {
 			// Work on an undrained stream may still use the context.
@@ -705,13 +722,35 @@ func runGPUInference(
 		return tok, nil
 	}
 
-	if *warmUpFlag && gm.eg != nil && gm.eg.pf != nil && dg != nil {
+	if *engineStepTimesFlag {
+		reset := func() error { kvCache.Reset(); return nil }
+		ids, werr := warmupEngineSteps(promptTokens, *stepsFlag, cfg.MaxSeqLen, reset, driver.CtxSynchronize, prefill, plain, time.Now)
+		if werr != nil {
+			return werr
+		}
+		fmt.Printf("ENGINE_WARMUP requests=1 prompt_tokens=%d generated_tokens=%d kv_reset=position_rewind stale_rows=masked_or_overwritten\nWARMUP_GEN_IDS: %v\n", len(promptTokens), len(ids), ids)
+	} else if *warmUpFlag && gm.eg != nil && gm.eg.pf != nil && dg != nil {
 		if err := warmUp(gm.eg, dg, gpuWeights, cfg, scratch, sampleFn); err != nil {
 			return err
 		}
 	}
 	fmt.Printf("Ready Time   : %v after startup\n", time.Since(processStart))
-	prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
+	var prefillDuration, genDuration time.Duration
+	if *engineStepTimesFlag {
+		emit := func(tok int32) error { st.emit(tok); return show(tok) }
+		var packets []engineStep
+		packets, err = generateEngineSteps(promptTokens, *stepsFlag, cfg.MaxSeqLen, driver.CtxSynchronize, prefill, plain, emit, time.Now)
+		if err == nil {
+			prefillDuration = time.Duration(packets[0].WallNS)
+			for _, p := range packets[1:] {
+				genDuration += time.Duration(p.WallNS)
+			}
+			fmt.Printf("\nENGINE_REQUEST boundary=%s request_id=cli prompt_tokens=%d generated_tokens=%d decode_steps=%d decode_time=step_wall_sum\n", engineStepBoundary, len(promptTokens), len(packets), len(packets)-1)
+			err = writeEngineSteps(os.Stdout, packets)
+		}
+	} else {
+		prefillDuration, genDuration, err = generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)
+	}
 	if err != nil {
 		return err
 	}
@@ -722,6 +761,11 @@ func runGPUInference(
 		for i, s := range timer.steps {
 			fmt.Printf("STEP %d wall_ns=%d event_ns=%d\n", i, s.wall.Nanoseconds(), s.event.Nanoseconds())
 		}
+	}
+
+	if *engineStepTimesFlag {
+		fmt.Printf("ENGINE_TIMING prefill_wall_ns=%d decode_wall_sum_ns=%d decode_intervals=%d legacy_metrics=omitted\n", prefillDuration.Nanoseconds(), genDuration.Nanoseconds(), len(st.generated)-1)
+		return nil
 	}
 
 	tokensPerSec := float64(len(st.generated)) / genDuration.Seconds()

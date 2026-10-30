@@ -215,7 +215,7 @@ func TestGenerateWiring(t *testing.T) {
 	for _, want := range []string{
 		"\tif *benchFlag {\n\t\tforward := func(tok int32, pos int) (int32, error) {\n\t\t\tif dg != nil && pos >= len(promptTokens) {\n\t\t\t\treturn dg.Step(pos, nil)\n\t\t\t}\n\t\t\treturn GPUForwardPass(gpuWeights, cfg, kvCache, scratch, gm, attnFn, sampleFn, tok, pos)\n\t\t}\n\t\treturn runBenchmark(os.Stdout, dtype, promptTokens, *stepsFlag, *benchCountFlag, cfg.MaxSeqLen, kvCache.Reset, forward)\n\t}\n",
 		"st := newDecodeState(promptTokens, *stepsFlag, drafter)\n",
-		"prefillDuration, genDuration, err := generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)\n\tif err != nil {\n\t\treturn err\n\t}\n",
+		"\t} else {\n\t\tprefillDuration, genDuration, err = generate(st, promptTokens, prefill, forward, plain, show, cfg.MaxSeqLen, *stepsFlag, *specDraftFlag)\n\t}\n\tif err != nil {\n\t\treturn err\n\t}\n",
 		"\t\t\tif err == nil {\n\t\t\t\ttok = scratch.HostTokenOut[0]\n\t\t\t}\n\t\t})\n\t\treturn tok, err\n\t}\n\tforward := func(",
 		"\tif len(st.generated) > 0 {\n\t\ttpot := genDuration / time.Duration(len(st.generated))\n\t\tif bw := formatBenchmarkBandwidth(gpuWeights.StreamedBytesPerToken(), tpot); bw != \"\" {\n\t\t\tfmt.Printf(\"Bandwidth    : %s\\n\", bw)\n\t\t}\n\t}\n",
 	} {
