@@ -1,0 +1,29 @@
+{
+  "commit": "0ab031e3424008adea09a2b89c5d4dc8890099a7",
+  "date_utc": "2026-10-30T05:40:57.778093+00:00",
+  "authoring_harness": "Codex",
+  "versions_observed": {
+    "codex": {
+      "exit": 0,
+      "stdout": "codex-cli 0.166.0",
+      "stderr": ""
+    },
+    "claude_code": {
+      "exit": 0,
+      "stdout": "2.1.284 (Claude Code)",
+      "stderr": ""
+    },
+    "tty": {
+      "exit": 1,
+      "stdout": "not a tty",
+      "stderr": ""
+    }
+  },
+  "model": "not exposed to tool process; not inferred from another pane or installed CLI",
+  "pid": 84877,
+  "pid_scope": "note-writer tool process, not asserted agent PID",
+  "ITERM_SESSION_ID": "w2t1p4:5A13F225-0BE7-4762-AF12-D906D7813F28",
+  "source_session": "5A13F225-0BE7-4762-AF12-D906D7813F28",
+  "source_review_sha256": "c43a637500ce2a7b24eb4d4e9405d7d47941f234a1589168a589b8535e4622d0",
+  "scope": "exact-context whole-variant selection tool; no native performance/optimizer dispatch/publication claim"
+}
