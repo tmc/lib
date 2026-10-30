@@ -1,0 +1,11 @@
+Commit: be69e3555b6c9878fe994dfc75658a93de5c846c
+Date: 2026-10-30T05:02:45-07:00
+Agent: OpenAI Codex
+Model: GPT-6 family; exact API model identifier unavailable
+Claude Code version: not used
+TTY: no controlling terminal in API subprocess
+PID: 41315
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Commit helper previously failed with missing ANTHROPIC_API_KEY; authorized manual signed fallback
+Source: nvrtcx-ptxver at 53e936521b797c57323e874695d790c5b1547fdb
+Physical-test proposals remain unmerged on the original branch; native execution NOT_RUN
