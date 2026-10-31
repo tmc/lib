@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"regexp"
@@ -543,5 +544,304 @@ func TestRunAutonomousStackPipeline(t *testing.T) {
 	}
 	if stackRes.Flight.SelectedState.Version != 2 {
 		t.Fatalf("Flight.SelectedState.Version = %d, want 2", stackRes.Flight.SelectedState.Version)
+	}
+}
+
+type autonomousTestSASSAnalyzer struct {
+	calls int
+}
+
+func (a *autonomousTestSASSAnalyzer) ParseSASSDisassembly(cudaOrSASSSrc string) ([]qualify.StageSASSMetrics, error) {
+	a.calls++
+	matches := globalKernelRe.FindAllStringSubmatch(cudaOrSASSSrc, -1)
+	var b strings.Builder
+	if len(matches) == 0 {
+		b.WriteString(".text.kernel_step:\n")
+		b.WriteString("/*0000*/ LOP3.LUT R4, R4, 0x3c, R5, 0xc0, !PT ; // swizzle128b\n")
+		b.WriteString("/*0010*/ LDG.E.128 R8, [R2] ;\n")
+		b.WriteString("/*0020*/ LDS.128 R12, [R4] ;\n")
+		b.WriteString("/*0030*/ HMMA.16816.F32 R16, R12, R8, R16 ;\n")
+		b.WriteString("/*0040*/ EXIT ;\n")
+	} else {
+		for _, m := range matches {
+			fnName := m[1]
+			b.WriteString(".text." + fnName + ":\n")
+			b.WriteString("/*0000*/ LOP3.LUT R4, R4, 0x3c, R5, 0xc0, !PT ; // swizzle128b\n")
+			b.WriteString("/*0010*/ LDG.E.128 R8, [R2] ;\n")
+			b.WriteString("/*0020*/ LDS.128 R12, [R4] ;\n")
+			b.WriteString("/*0030*/ HMMA.16816.F32 R16, R12, R8, R16 ;\n")
+			b.WriteString("/*0040*/ EXIT ;\n")
+		}
+	}
+	return qualify.ParseSASSDisassembly(b.String())
+}
+
+func TestAutonomousFlightPipelineIntegratedWaveBD(t *testing.T) {
+	t.Setenv("GPU_LOCKDIR", filepath.Join(t.TempDir(), "gpu-lock"))
+	ctx := context.Background()
+
+	g, root, postPlan, nextAttnInPlan := buildAutonomousTestGraph(t)
+	glue := hopper.CrossLayerGlue{
+		Name:               "llama_cross_l0_l1",
+		LayerLPrefix:       "l0_",
+		LayerNextPrefix:    "l1_",
+		BridgeInput:        "xn",
+		RetainBridgeOutput: true,
+	}
+	_, crossMega, err := hopper.BuildCrossLayerMegakernel(postPlan, nextAttnInPlan, glue)
+	if err != nil {
+		t.Fatalf("BuildCrossLayerMegakernel: %v", err)
+	}
+	_, spans, err := crossMega.LineInfoSource()
+	if err != nil || len(spans) == 0 {
+		t.Fatalf("crossMega.LineInfoSource: len=%d err=%v", len(spans), err)
+	}
+	lineToPC := make(map[int][2]uint64, len(spans))
+	for i, sp := range spans {
+		base := uint64(i+1) * 0x1000
+		lineToPC[sp.StartLine] = [2]uint64{base, base + 0x200}
+	}
+	pcBatch := cuptipcsampling.Batch{
+		PCs: []cuptipcsampling.PC{
+			{
+				Name:   crossMega.Name,
+				Offset: 0x1040,
+				Reasons: []cuptipcsampling.StallSamples{
+					{Index: 5, Samples: 160}, // LongScoreboard
+				},
+			},
+			{
+				Name:   crossMega.Name,
+				Offset: 0x2040,
+				Reasons: []cuptipcsampling.StallSamples{
+					{Index: 2, Samples: 64}, // WaitMBarrier
+				},
+			},
+		},
+	}
+
+	cacheDir := filepath.Join(t.TempDir(), "pgo-cache-wave-bd")
+	pgoCache := autotune.NewVerifiedPGOCache(cacheDir)
+	seedKey := autotune.PGOCacheKey{
+		Arch:          "sm_90a",
+		DriverVersion: "570.86.10",
+		CUDAVersion:   "12.8",
+		WeightDigest:  "sha256:llama3_8b_bf16",
+		PlanKey:       "seed_plan",
+		ShapeBucket:   1,
+	}
+	seedCubin := []byte("SEED-CUBIN-BINARY")
+	seedProof := autotune.PGOPromotionProof{
+		Key:            seedKey,
+		CandidateName:  "seed_fused_epilogue",
+		ScheduleJSON:   []byte(`{"op":"gemm","schedule_key":"fused_epilogue"}`),
+		CubinSHA256:    sha256.Sum256(seedCubin),
+		SourceSHA256:   sha256.Sum256([]byte("seed_source")),
+		ScreenBlocks:   3,
+		HoldoutBlocks:  6,
+		ScreenRatio:    1.15,
+		HoldoutRatio:   1.15,
+		AANullRatio:    1.00,
+		OneSidedPValue: 0.015625,
+		TokensMatched:  true,
+		PromotedAt:     time.Now().UTC(),
+	}
+	if err := pgoCache.Store(seedKey, seedProof, seedCubin); err != nil {
+		t.Fatalf("pgoCache.Store seed: %v", err)
+	}
+
+	calibrator := qualify.NewCalibratedCostModel(nil)
+	surrogate := autotune.NewFleetThroughputSurrogate(0.05)
+	sassAnalyzer := &autonomousTestSASSAnalyzer{}
+	wsCfg := hopper.DefaultWarpSpecializedConfig()
+	telemetry := autotune.NewFlightTelemetryRecorder()
+
+	loader := &flightTestLoader{}
+	svc, err := cudahotswap.NewService(loader)
+	if err != nil {
+		t.Fatalf("cudahotswap.NewService: %v", err)
+	}
+	defer func() {
+		if err := svc.Close(ctx); err != nil {
+			t.Errorf("svc.Close: %v", err)
+		}
+	}()
+
+	bucketCtrl, err := specdecode.NewAdaptiveBucketController(specdecode.AdaptiveBucketConfig{
+		HysteresisSteps:       1,
+		InitialAcceptanceRate: 0.50,
+		InitialBucketM:        1,
+	})
+	if err != nil {
+		t.Fatalf("NewAdaptiveBucketController: %v", err)
+	}
+
+	activeKey := seedKey
+	activeKey.PlanKey = "llama_wave_bd_active"
+	activeKey.ShapeBucket = 4
+
+	cfg := AutonomousPipelineConfig{
+		Cache:             pgoCache,
+		CacheKey:          activeKey,
+		Device:            "NVIDIA H100",
+		Arch:              "sm_90a",
+		DeviceSMs:         132,
+		BeamWidth:         4,
+		PTXASCompiler:     &autonomousTestPTXASCompiler{},
+		PTXASGate:         qualify.StaticGate{NoSpills: true, MaxRegisters: 255, MinCTAsPerSM: 1},
+		MaxPTXASIters:     4,
+		HotSwapService:    svc,
+		BucketController:  bucketCtrl,
+		CostCalibrator:    calibrator,
+		FleetSurrogate:    surrogate,
+		SASSAnalyzer:      sassAnalyzer,
+		L2CapacityBytes:   50 * 1024 * 1024, // 50 MiB Hopper L2
+		WarpSpecConfig:    &wsCfg,
+		Telemetry:         telemetry,
+	}
+
+	id := qualify.MeasuredIdentity{
+		Context:   sha256.Sum256([]byte("ctx:wavebd:sm_90a")),
+		Admission: sha256.Sum256([]byte("adm:wavebd:trusted")),
+	}
+	ev := testWinningHoldoutEvidence(id)
+	winningCubin := []byte("ELF-CUBIN-WAVEBD-SM90A-VERIFIED")
+
+	res, err := RunAutonomousFlightPipeline(ctx, g, root, "llama_wave_bd", hopper.BF16, cfg, AutonomousEvalRequest{
+		CrossLayerPost:       postPlan,
+		CrossLayerNextAttnIn: nextAttnInPlan,
+		CrossLayerGlue:       glue,
+		PCBatch:              pcBatch,
+		LineToPC:             lineToPC,
+		Identity:             id,
+		DefaultEvidence:      &ev,
+		WinningCubin:         winningCubin,
+		ActiveBatch:          1,
+		DraftedTokens:        4,
+		AcceptedTokens:       3,
+	})
+	if err != nil {
+		t.Fatalf("RunAutonomousFlightPipeline (Wave B-D integrated): %v", err)
+	}
+
+	// 1. Verify CalibratedCostModel + FleetThroughputSurrogate zero-shot ranking.
+	if len(res.SurrogateRankOrder) == 0 || len(res.SurrogateScores) != len(res.SurrogateRankOrder) {
+		t.Fatalf("SurrogateRankOrder=%v SurrogateScores=%v, expected non-empty matching lengths",
+			res.SurrogateRankOrder, res.SurrogateScores)
+	}
+	for i := 1; i < len(res.SurrogateScores); i++ {
+		if res.SurrogateScores[i] > res.SurrogateScores[i-1] {
+			t.Fatalf("SurrogateScores not sorted descending at %d: %v", i, res.SurrogateScores)
+		}
+	}
+
+	// 2. Verify FormalBarrierReport generation and safety pass on all candidates.
+	if len(res.BarrierReports) == 0 {
+		t.Fatal("expected non-empty res.BarrierReports from formal barrier verifier")
+	}
+	for i, rep := range res.BarrierReports {
+		if rep == nil || !rep.Passed() {
+			t.Fatalf("BarrierReports[%d] failed unexpectedly: %+v", i, rep)
+		}
+	}
+
+	// 3. Verify SASSAnalyzer triggered RefinePlanByPTXASAndSASSLoop and populated SASSMetrics.
+	if sassAnalyzer.calls == 0 {
+		t.Fatal("expected SASSAnalyzer.ParseSASSDisassembly to be called")
+	}
+	if len(res.SASSMetrics) == 0 || len(res.SASSMetrics[0]) == 0 {
+		t.Fatalf("expected non-empty res.SASSMetrics, got %+v", res.SASSMetrics)
+	}
+	if res.SASSMetrics[0][0].TotalInsts == 0 {
+		t.Fatalf("expected SASSMetrics[0][0].TotalInsts > 0, got %+v", res.SASSMetrics[0][0])
+	}
+
+	// 4. Verify L2CapacityBytes populated res.L2Persistence and WarpSpecConfig populated res.WarpSpecialized.
+	if res.L2Persistence == nil {
+		t.Fatal("expected non-nil res.L2Persistence when L2CapacityBytes > 0")
+	}
+	if res.L2Persistence.PersistedWindowBytes <= 0 {
+		t.Fatalf("L2Persistence.PersistedWindowBytes = %d, want > 0", res.L2Persistence.PersistedWindowBytes)
+	}
+	if pol, ok := res.L2Persistence.ByName["eg_arena_even"]; !ok || pol.Policy != hopper.L2PolicyEvictLast {
+		t.Fatalf("eg_arena_even policy = %+v (ok=%v), want evict_last", pol, ok)
+	}
+	if res.WarpSpecialized == nil {
+		t.Fatal("expected non-nil res.WarpSpecialized when WarpSpecConfig != nil")
+	}
+	if !strings.Contains(res.WarpSpecialized.CUDA(), "setmaxnreg") || !strings.Contains(res.WarpSpecialized.PTXPreview(), "mbarrier") {
+		t.Fatal("expected WarpSpecialized CUDA/PTXPreview to contain setmaxnreg and mbarrier")
+	}
+
+	// 5. Verify FlightTelemetryRecorder exports valid Chrome Trace JSON containing PTXAS, stall, hot-swap, and bucket events.
+	var traceBuf bytes.Buffer
+	if err := telemetry.ExportChromeTraceJSON(&traceBuf); err != nil {
+		t.Fatalf("telemetry.ExportChromeTraceJSON: %v", err)
+	}
+	var doc autotune.ChromeTraceDocument
+	if err := json.Unmarshal(traceBuf.Bytes(), &doc); err != nil {
+		t.Fatalf("json.Unmarshal ChromeTraceDocument: %v", err)
+	}
+	seenCats := make(map[string]bool)
+	for _, ev := range doc.TraceEvents {
+		seenCats[ev.Cat] = true
+	}
+	for _, wantCat := range []string{
+		"ptxas.compile_loop",
+		"cupti.pcsampling",
+		"qualify.holdout",
+		"cudahotswap.epoch",
+		"specdecode.bucket",
+	} {
+		if !seenCats[wantCat] {
+			t.Fatalf("ChromeTraceDocument missing category %q; seen=%v", wantCat, seenCats)
+		}
+	}
+
+	// 6. Negative test: confirm a candidate with a corrupted megakernel barrier is blocked from promotion.
+	corruptedMega := crossMega
+	corruptedMega.Name = "corrupted_raw_barrier_mega"
+	corruptedMega.Stages = append([]hopper.MegaStage(nil), crossMega.Stages...)
+	// Corrupt the final stage's WaitSlots and SignalSlot so it violates formal barrier safety.
+	lastIdx := len(corruptedMega.Stages) - 1
+	corruptedMega.Stages[lastIdx].WaitSlots = nil
+	corruptedMega.Stages[0].SignalSlot = corruptedMega.EpochSlot()
+
+	corruptedCand := qualify.StructuralBeamCandidate{
+		Name:          "corrupted_raw_barrier_cand",
+		Plan:          res.CrossLayerPlan,
+		Megakernel:    &corruptedMega,
+		PlanSignature: "sig_corrupted_raw_barrier_cand",
+		EstimatedNs:   100,
+	}
+
+	priorSvcState, err := svc.Status("llama_wave_bd")
+	if err != nil {
+		t.Fatalf("svc.Status before negative test: %v", err)
+	}
+
+	negCfg := cfg
+	negCfg.Cache = nil // bypass warm-start cache so candidate goes through barrier check
+	badRes, badErr := RunAutonomousFlightPipeline(ctx, nil, 0, "llama_wave_bd", hopper.BF16, negCfg, AutonomousEvalRequest{
+		Candidates:      []qualify.StructuralBeamCandidate{corruptedCand},
+		Identity:        id,
+		DefaultEvidence: &ev,
+	})
+	if badErr == nil {
+		t.Fatal("expected error when sole candidate has a corrupted megakernel barrier, got nil")
+	}
+	if badRes == nil || len(badRes.BarrierReports) == 0 {
+		t.Fatalf("expected non-empty BarrierReports on rejected candidate, got %+v", badRes)
+	}
+	if badRes.BarrierReports[0].Passed() || len(badRes.BarrierReports[0].Violations) == 0 {
+		t.Fatalf("expected BarrierReports[0].Passed() == false with violations, got %+v", badRes.BarrierReports[0])
+	}
+	if badRes.Winner != nil && badRes.Winner.Promoted {
+		t.Fatalf("corrupted candidate must NEVER be promoted: %+v", badRes.Winner)
+	}
+	afterSvcState, err := svc.Status("llama_wave_bd")
+	if err != nil || afterSvcState.Version != priorSvcState.Version {
+		t.Fatalf("HotSwapService version changed from %d to %d after rejected barrier candidate (err=%v)",
+			priorSvcState.Version, afterSvcState.Version, err)
 	}
 }

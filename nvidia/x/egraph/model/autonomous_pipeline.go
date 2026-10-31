@@ -41,6 +41,14 @@ type AutonomousPipelineConfig struct {
 	KernelName       string
 	PostSwapCheck    cudahotswap.Checker
 	EpochTracker     *MegakernelEpochTracker
+
+	CostCalibrator            *qualify.CalibratedCostModel
+	FleetSurrogate            *autotune.FleetThroughputSurrogate
+	DisableFormalBarrierCheck bool
+	SASSAnalyzer              qualify.SASSAnalyzer
+	L2CapacityBytes           int64
+	WarpSpecConfig            *hopper.WarpSpecializedConfig
+	Telemetry                 *autotune.FlightTelemetryRecorder
 }
 
 // AutonomousEvalRequest supplies optional cross-layer fusion plans, CUPTI
@@ -52,6 +60,7 @@ type AutonomousEvalRequest struct {
 	CrossLayerPost       *hopper.Plan
 	CrossLayerNextAttnIn *hopper.Plan
 	CrossLayerGlue       hopper.CrossLayerGlue
+	Candidates           []qualify.StructuralBeamCandidate
 
 	PCBatch            cuptipcsampling.Batch
 	LineToPC           map[int][2]uint64
@@ -85,8 +94,14 @@ type AutonomousPipelineResult struct {
 	CachedCubin          []byte
 	BeamCandidates       []qualify.StructuralBeamCandidate
 	PTXASRefinements     []*qualify.PTXASLoopResult
+	SASSMetrics          [][]qualify.StageSASSMetrics
+	BarrierReports       []*qualify.FormalBarrierReport
+	SurrogateRankOrder   []int
+	SurrogateScores      []float64
 	CrossLayerPlan       *hopper.Plan
 	CrossLayerMegakernel *hopper.Megakernel
+	L2Persistence        *hopper.L2PersistencePlan
+	WarpSpecialized      *hopper.WarpSpecializedMegakernel
 	StageProfiles        []StageProfile
 	Winner               *qualify.StructuralBeamWinner
 	PromotedVersion      string
@@ -107,8 +122,9 @@ type AutonomousPipelineResult struct {
 // fusion and arena packing outcome ([hopper.CrossLayerStack]) alongside the
 // autonomous flight pipeline execution result ([AutonomousPipelineResult]).
 type AutonomousStackResult struct {
-	Stack  *hopper.CrossLayerStack
-	Flight *AutonomousPipelineResult
+	Stack         *hopper.CrossLayerStack
+	Flight        *AutonomousPipelineResult
+	L2Persistence *hopper.L2PersistencePlan
 }
 
 // RunAutonomousStackPipeline fuses an N-layer decoder stack via
@@ -130,6 +146,13 @@ func RunAutonomousStackPipeline(
 	stack, err := hopper.FuseDecoderLayerStack(layers, stackCfg)
 	if err != nil {
 		return nil, fmt.Errorf("autonomous stack pipeline fuse stack: %w", err)
+	}
+	var stackL2 *hopper.L2PersistencePlan
+	if cfg.L2CapacityBytes > 0 {
+		stackL2, err = hopper.PlanL2Persistence(stack, cfg.L2CapacityBytes)
+		if err != nil {
+			return &AutonomousStackResult{Stack: stack}, fmt.Errorf("autonomous stack pipeline l2 persistence: %w", err)
+		}
 	}
 	if len(layers) >= 2 && req.CrossLayerPost == nil && req.CrossLayerNextAttnIn == nil {
 		req.CrossLayerPost = layers[0].Post
@@ -205,12 +228,16 @@ func RunAutonomousStackPipeline(
 		outDType = stack.FinalPost.Output.DType
 	}
 	flightRes, err := RunAutonomousFlightPipeline(ctx, nil, 0, planName, outDType, cfg, req)
+	if flightRes != nil && flightRes.L2Persistence == nil && stackL2 != nil {
+		flightRes.L2Persistence = stackL2
+	}
 	if err != nil {
-		return &AutonomousStackResult{Stack: stack, Flight: flightRes}, err
+		return &AutonomousStackResult{Stack: stack, Flight: flightRes, L2Persistence: stackL2}, err
 	}
 	return &AutonomousStackResult{
-		Stack:  stack,
-		Flight: flightRes,
+		Stack:         stack,
+		Flight:        flightRes,
+		L2Persistence: stackL2,
 	}, nil
 }
 
@@ -377,6 +404,13 @@ func RunAutonomousFlightPipeline(
 		normCostCfg = costCfg
 	}
 
+	if cfg.CostCalibrator != nil && cfg.Cache != nil {
+		_ = cfg.CostCalibrator.IngestVerifiedPGOCache(cfg.Cache)
+	}
+	if cfg.FleetSurrogate != nil && cfg.Cache != nil {
+		_, _ = cfg.FleetSurrogate.IngestVerifiedCache(cfg.Cache)
+	}
+
 	var (
 		beam    []qualify.StructuralBeamCandidate
 		seenSig = make(map[string]bool)
@@ -396,11 +430,19 @@ func RunAutonomousFlightPipeline(
 	}
 
 	if g != nil {
-		extracted, err := qualify.ExtractStructuralPlanBeam(g, root, name, out, normCostCfg, beamWidth)
+		var extracted []qualify.StructuralBeamCandidate
+		if cfg.CostCalibrator != nil {
+			extracted, err = qualify.ExtractCalibratedStructuralBeam(g, root, beamWidth, cfg.CostCalibrator)
+		} else {
+			extracted, err = qualify.ExtractStructuralPlanBeam(g, root, name, out, normCostCfg, beamWidth)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("autonomous flight pipeline extract beam: %w", err)
 		}
 		for _, c := range extracted {
+			if c.CostConfig.Device == "" && c.CostConfig.SMs == 0 {
+				c.CostConfig = normCostCfg
+			}
 			addBeamCandidate(c)
 		}
 	}
@@ -430,11 +472,67 @@ func RunAutonomousFlightPipeline(
 		})
 	}
 
+	for _, c := range req.Candidates {
+		if c.CostConfig.Device == "" && c.CostConfig.SMs == 0 {
+			c.CostConfig = normCostCfg
+		}
+		addBeamCandidate(c)
+	}
+
 	if len(beam) == 0 && req.Baseline != nil && req.Baseline.Plan != nil {
 		addBeamCandidate(*req.Baseline)
 	}
 	if len(beam) == 0 {
 		return nil, errors.New("autonomous flight pipeline: no structural candidates in beam")
+	}
+
+	checkedMegas := make(map[string]bool)
+	var lastBarrierErr error
+	filterBeamByFormalBarriers := func(cands []qualify.StructuralBeamCandidate) ([]qualify.StructuralBeamCandidate, error) {
+		if cfg.DisableFormalBarrierCheck {
+			return cands, nil
+		}
+		filtered := make([]qualify.StructuralBeamCandidate, 0, len(cands))
+		for _, cand := range cands {
+			if cand.Megakernel == nil {
+				filtered = append(filtered, cand)
+				continue
+			}
+			mKey := fmt.Sprintf("%s|%s|%+v", cand.Handle(), cand.Megakernel.Name, cand.Megakernel.Stages)
+			if passed, seen := checkedMegas[mKey]; seen {
+				if passed {
+					filtered = append(filtered, cand)
+				}
+				continue
+			}
+			rep, bErr := qualify.VerifyMegakernelBarrierSafety(cand.Megakernel)
+			if rep != nil {
+				res.BarrierReports = append(res.BarrierReports, rep)
+			}
+			if bErr != nil || rep == nil || !rep.Passed() {
+				checkedMegas[mKey] = false
+				if bErr != nil {
+					lastBarrierErr = bErr
+				} else {
+					lastBarrierErr = fmt.Errorf("candidate %s failed formal barrier check", cand.Handle())
+				}
+				continue
+			}
+			checkedMegas[mKey] = true
+			filtered = append(filtered, cand)
+		}
+		if len(filtered) == 0 {
+			if lastBarrierErr == nil {
+				lastBarrierErr = errors.New("all candidates rejected by formal barrier check")
+			}
+			return nil, fmt.Errorf("autonomous flight pipeline formal barrier check: %w", lastBarrierErr)
+		}
+		return filtered, nil
+	}
+
+	beam, err = filterBeamByFormalBarriers(beam)
+	if err != nil {
+		return res, err
 	}
 
 	// Keep pre-refinement megakernel snapshots so PC attribution line spans
@@ -464,11 +562,47 @@ func RunAutonomousFlightPipeline(
 		refinedBeam := make([]qualify.StructuralBeamCandidate, 0, len(beam))
 		refinedSeen := make(map[string]bool, len(beam))
 		for _, cand := range beam {
-			loopRes, err := qualify.RefinePlanByPTXASLoop(ctx, cand.Plan, cfg.PTXASCompiler, loopCfg)
-			if err != nil {
-				return nil, fmt.Errorf("autonomous flight pipeline ptxas loop (%s): %w", cand.Handle(), err)
+			t0 := time.Now().UTC()
+			var (
+				loopRes     *qualify.PTXASLoopResult
+				sassMetrics []qualify.StageSASSMetrics
+				loopErr     error
+			)
+			if cfg.SASSAnalyzer != nil {
+				loopRes, sassMetrics, loopErr = qualify.RefinePlanByPTXASAndSASSLoop(
+					ctx, cand.Plan, cfg.PTXASCompiler, cfg.SASSAnalyzer, cfg.PTXASGate, cfg.MaxPTXASIters,
+				)
+				if loopErr == nil {
+					res.SASSMetrics = append(res.SASSMetrics, sassMetrics)
+				}
+			} else {
+				loopRes, loopErr = qualify.RefinePlanByPTXASLoop(ctx, cand.Plan, cfg.PTXASCompiler, loopCfg)
+			}
+			if loopErr != nil {
+				return nil, fmt.Errorf("autonomous flight pipeline ptxas loop (%s): %w", cand.Handle(), loopErr)
 			}
 			res.PTXASRefinements = append(res.PTXASRefinements, loopRes)
+
+			if cfg.Telemetry != nil && loopRes != nil {
+				nIters := max(len(loopRes.Iterations), 1)
+				iterDur := max(time.Since(t0)/time.Duration(nIters), time.Microsecond)
+				for idx, it := range loopRes.Iterations {
+					var maxRegs int
+					for _, obs := range it.Observations {
+						if obs.Registers > maxRegs {
+							maxRegs = obs.Registers
+						}
+					}
+					cfg.Telemetry.RecordPTXASIteration(
+						cand.Handle(),
+						it.Iteration,
+						t0.Add(time.Duration(idx)*iterDur),
+						iterDur,
+						maxRegs,
+						it.TotalSpillBytes,
+					)
+				}
+			}
 
 			updated := cand
 			if loopRes.RefinedPlan != nil {
@@ -519,6 +653,20 @@ func RunAutonomousFlightPipeline(
 		}
 		res.StageProfiles = profiles
 
+		if cfg.Telemetry != nil {
+			now := time.Now().UTC()
+			for _, prof := range profiles {
+				cfg.Telemetry.RecordPCStallAttribution(
+					prof.StageName,
+					now,
+					prof.Stalls.LongScoreboard,
+					prof.Stalls.WaitMBarrier+prof.Stalls.WaitTMEM,
+					prof.Stalls.MIOThrottle,
+					prof.Stalls.TotalSamples,
+				)
+			}
+		}
+
 		stalls := buildBeamStallMap(profiles, beam)
 		maxExpanded := req.MaxExpandedBeam
 		if maxExpanded <= 0 {
@@ -529,7 +677,33 @@ func RunAutonomousFlightPipeline(
 		}
 	}
 
+	beam, err = filterBeamByFormalBarriers(beam)
+	if err != nil {
+		return res, err
+	}
+
 	res.BeamCandidates = slices.Clone(beam)
+
+	if cfg.FleetSurrogate != nil {
+		candPlans := make([]*hopper.Plan, 0, len(beam))
+		for _, c := range beam {
+			if c.Plan != nil && len(c.Plan.Kernels) > 0 {
+				candPlans = append(candPlans, c.Plan)
+			}
+		}
+		if len(candPlans) > 0 {
+			surrogateArch := strings.TrimSpace(cfg.Arch)
+			if surrogateArch == "" {
+				surrogateArch = "sm_90a"
+			}
+			order, scores, sErr := cfg.FleetSurrogate.RankCandidatesZeroShot(surrogateArch, candPlans)
+			if sErr != nil {
+				return res, fmt.Errorf("autonomous flight pipeline fleet surrogate rank: %w", sErr)
+			}
+			res.SurrogateRankOrder = order
+			res.SurrogateScores = scores
+		}
+	}
 
 	baseline := selectBaselineCandidate(beam, req.Baseline)
 	identity := resolveHoldoutIdentity(req, cfg, name)
@@ -539,6 +713,7 @@ func RunAutonomousFlightPipeline(
 	}
 	evidence := resolveBeamHoldoutEvidence(beam, baseline, identity, req)
 
+	holdoutStart := time.Now().UTC()
 	winner, err := qualify.SelectStructuralBeamWithHoldout(identity, baseline, beam, evidence, verify)
 	if err != nil {
 		return res, fmt.Errorf("autonomous flight pipeline holdout tournament: %w", err)
@@ -547,7 +722,53 @@ func RunAutonomousFlightPipeline(
 
 	// Step 4: Live Hot-Swap + Adaptive Bucket Update + Verified Cache Store.
 	if !winner.Promoted {
+		if cfg.Telemetry != nil {
+			cfg.Telemetry.RecordHoldoutAndHotSwap(
+				winner.Winner.Handle(),
+				0,
+				holdoutStart,
+				max(time.Since(holdoutStart), time.Microsecond),
+				winner.Holdout.Ratio,
+				winner.OneSidedSignP,
+				false,
+			)
+		}
 		return res, nil
+	}
+
+	if cfg.L2CapacityBytes > 0 {
+		winPlan := winner.Winner.Plan
+		if winPlan == nil {
+			winPlan = res.CrossLayerPlan
+		}
+		if winPlan != nil && len(winPlan.Kernels) > 0 {
+			l2Plan, l2Err := hopper.PlanL2PersistenceForPlan(winPlan, cfg.L2CapacityBytes)
+			if l2Err != nil {
+				return res, fmt.Errorf("autonomous flight pipeline l2 persistence: %w", l2Err)
+			}
+			res.L2Persistence = l2Plan
+		}
+	}
+
+	if cfg.WarpSpecConfig != nil {
+		winMega := winner.Winner.Megakernel
+		if winMega == nil && res.CrossLayerMegakernel != nil {
+			winMega = res.CrossLayerMegakernel
+		}
+		if winMega == nil && winner.Winner.Plan != nil {
+			if _, builtMega, ok := rebuildPlanMegakernel(winner.Winner.Plan, sanitizeCIdentifier(winner.Winner.Handle()+"_mega")); ok {
+				winMega = &builtMega
+			}
+		}
+		if winMega != nil {
+			megaCopy := *winMega
+			megaCopy.Name = sanitizeCIdentifier(megaCopy.Name)
+			wsMega, wsErr := hopper.BuildWarpSpecializedMegakernel(&megaCopy, *cfg.WarpSpecConfig)
+			if wsErr != nil {
+				return res, fmt.Errorf("autonomous flight pipeline warp-specialized megakernel: %w", wsErr)
+			}
+			res.WarpSpecialized = wsMega
+		}
 	}
 
 	winnerSrc, winnerSrcSum, err := emitCandidateHotSwapSource(winner.Winner, kernelName)
@@ -630,6 +851,24 @@ func RunAutonomousFlightPipeline(
 		res.PromotedVersion = winner.Winner.Handle()
 	}
 
+	if cfg.Telemetry != nil {
+		epoch := uint64(1)
+		if cfg.EpochTracker != nil && cfg.EpochTracker.Epoch > 0 {
+			epoch = cfg.EpochTracker.Epoch
+		} else if res.SelectedState.Version > 0 {
+			epoch = uint64(res.SelectedState.Version)
+		}
+		cfg.Telemetry.RecordHoldoutAndHotSwap(
+			winner.Winner.Handle(),
+			epoch,
+			holdoutStart,
+			max(time.Since(holdoutStart), time.Microsecond),
+			winner.Holdout.Ratio,
+			winner.OneSidedSignP,
+			winner.Promoted,
+		)
+	}
+
 	if cfg.BucketController != nil {
 		trans, bErr := updateBucketController(ctx, cfg.BucketController, cfg, req, winner.Winner, winnerSrc, winnerGeom)
 		if bErr != nil {
@@ -637,6 +876,14 @@ func RunAutonomousFlightPipeline(
 		}
 		if trans != nil {
 			res.BucketTransition = trans
+			if cfg.Telemetry != nil {
+				cfg.Telemetry.RecordBucketTransition(
+					time.Now().UTC(),
+					trans.PriorBucket.BucketM,
+					trans.NewBucket.BucketM,
+					cfg.BucketController.AcceptanceRate(),
+				)
+			}
 		}
 	}
 
