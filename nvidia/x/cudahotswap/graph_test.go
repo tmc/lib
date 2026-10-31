@@ -460,3 +460,46 @@ func TestGraphClosedTableRefusesBeforeWork(t *testing.T) {
 		t.Fatal("closed table launched", p, err)
 	}
 }
+
+func TestGraphBindConfig3DBlockAndSharedMemPatchAndRollback(t *testing.T) {
+	r, old, _, e, s := graphFixture(t, 0)
+	node := new(cudagraph.Node)
+	wantCfg := GraphLaunchConfig{
+		Grid:           driver.Dims(64, 1, 1),
+		Block:          driver.Dims(128, 2, 1),
+		SharedMemBytes: 49152,
+	}
+	var gotFn driver.Function
+	var gotCfg GraphLaunchConfig
+	r.ops.patchConfig = func(_ *cudagraph.Exec, n *cudagraph.Node, fn driver.Function, cfg GraphLaunchConfig, _ []any) error {
+		if n != node {
+			t.Fatal("unexpected node")
+		}
+		gotFn, gotCfg = fn, cfg
+		return nil
+	}
+	if _, err := r.bindConfig("kernel", e, node, s, wantCfg, nil); err != nil {
+		t.Fatal(err)
+	}
+	if gotFn != old.function || gotCfg != wantCfg {
+		t.Fatalf("bindConfig got fn=%v cfg=%+v, want fn=%v cfg=%+v", gotFn, gotCfg, old.function, wantCfg)
+	}
+
+	cand, owner := testGeneration(t, 2, "")
+	tx, err := r.prepare("kernel", cand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotFn != cand.function || gotCfg != wantCfg {
+		t.Fatalf("prepare got fn=%v cfg=%+v, want fn=%v cfg=%+v", gotFn, gotCfg, cand.function, wantCfg)
+	}
+
+	// Aborting the transaction rolls back to old.function while preserving the full 3D Block and SharedMemBytes config.
+	gotCfg = GraphLaunchConfig{}
+	if err := tx.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if gotFn != old.function || gotCfg != wantCfg || owner.count() != 1 {
+		t.Fatalf("abort rollback got fn=%v cfg=%+v closes=%d, want fn=%v cfg=%+v closes=1", gotFn, gotCfg, owner.count(), old.function, wantCfg)
+	}
+}

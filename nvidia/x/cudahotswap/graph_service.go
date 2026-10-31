@@ -12,6 +12,16 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudagraph"
 )
 
+// GraphLaunchConfig specifies the launch geometry for a registered CUDA
+// graph kernel node. Grid is required; when Block is non-zero or
+// SharedMemBytes is positive, graph patches also update the node's block
+// dimensions and dynamic shared memory size.
+type GraphLaunchConfig struct {
+	Grid           driver.Dim3
+	Block          driver.Dim3
+	SharedMemBytes uint32
+}
+
 // RegisterGraph binds a caller-owned kernel node to the selected version.
 // The exec, node and stream must belong to the loader's device. The caller keeps
 // these objects and arguments alive and unchanged until Service.Close succeeds,
@@ -22,6 +32,28 @@ import (
 // pin. Keep the caller-owned objects alive until Service.Close releases it.
 // Registration does not change the selected code or its mutation revision.
 func (s *Service) RegisterGraph(ctx context.Context, name string, exec *cudagraph.Exec, node *cudagraph.Node, stream *cuda.Stream, grid driver.Dim3, args ...any) (state State, err error) {
+	cfg := GraphLaunchConfig{Grid: grid}
+	if s != nil {
+		s.mu.Lock()
+		if geom := s.settings[name].geometry; geom != nil {
+			cfg.Block = geom.Block
+			cfg.SharedMemBytes = geom.SharedMem
+		}
+		s.mu.Unlock()
+	}
+	return s.registerGraphWithConfig(ctx, name, exec, node, stream, cfg, args...)
+}
+
+// RegisterGraphWithConfig binds a caller-owned kernel node to the selected
+// version using cfg's launch geometry and dynamic shared memory size.
+func RegisterGraphWithConfig(ctx context.Context, s *Service, name string, exec *cudagraph.Exec, node *cudagraph.Node, stream *cuda.Stream, cfg GraphLaunchConfig, args ...any) (state State, err error) {
+	if s == nil {
+		return State{}, errors.New("register graph: service, exec, node and stream are required")
+	}
+	return s.registerGraphWithConfig(ctx, name, exec, node, stream, cfg, args...)
+}
+
+func (s *Service) registerGraphWithConfig(ctx context.Context, name string, exec *cudagraph.Exec, node *cudagraph.Node, stream *cuda.Stream, cfg GraphLaunchConfig, args ...any) (state State, err error) {
 	if ctx == nil {
 		return State{}, errors.New("register graph: nil context")
 	}
@@ -31,8 +63,15 @@ func (s *Service) RegisterGraph(ctx context.Context, name string, exec *cudagrap
 	if err := ctx.Err(); err != nil {
 		return State{}, err
 	}
+	grid := cfg.Grid
 	if grid.X == 0 || grid.X > 1<<31-1 || grid.Y == 0 || grid.Y > 65535 || grid.Z == 0 || grid.Z > 65535 {
 		return State{}, errors.New("register graph: unsupported grid dimensions")
+	}
+	if cfg.Block != (driver.Dim3{}) {
+		b := cfg.Block
+		if b.X == 0 || b.X > 1024 || b.Y == 0 || b.Y > 1024 || b.Z == 0 || b.Z > 64 || uint64(b.X)*uint64(b.Y)*uint64(b.Z) > 1024 {
+			return State{}, errors.New("register graph: unsupported block dimensions")
+		}
 	}
 	if loader, ok := s.loader.(*NVRTCLoader); ok && (loader == nil || loader.dev == nil || stream.Device() != loader.dev) {
 		return State{}, errors.New("register graph: stream belongs to another device owner")
@@ -66,7 +105,7 @@ func (s *Service) RegisterGraph(ctx context.Context, name string, exec *cudagrap
 	if err := ctx.Err(); err != nil {
 		return State{}, err
 	}
-	binding, err := s.graphs.bind(name, exec, node, stream, grid, args)
+	binding, err := s.graphs.bindConfig(name, exec, node, stream, cfg, args)
 	if binding != nil {
 		s.mu.Lock()
 		state = s.states[name]

@@ -224,3 +224,60 @@ func TestServiceGraphRegistrationRefusedDuringApplicationCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestServiceRegisterGraphWithConfig3DBlockAndSharedMem(t *testing.T) {
+	l := &serviceLoader{kernel: &serviceKernel{raw: 1}}
+	s, _ := testService(t, l)
+	registerService(t, s)
+	exec, node, stream := new(cudagraph.Exec), new(cudagraph.Node), new(cuda.Stream)
+
+	badBlocks := []driver.Dim3{
+		{X: 128, Y: 0, Z: 1},
+		{X: 0, Y: 2, Z: 1},
+		{X: 128, Y: 2, Z: 0},
+		{X: 2048, Y: 1, Z: 1},
+		{X: 1, Y: 2048, Z: 1},
+		{X: 1, Y: 1, Z: 65},
+		{X: 512, Y: 4, Z: 1}, // 2048 > 1024 threads
+	}
+	for _, b := range badBlocks {
+		cfg := GraphLaunchConfig{Grid: driver.Dims(1, 1, 1), Block: b}
+		if _, err := RegisterGraphWithConfig(context.Background(), s, "kernel", exec, node, stream, cfg); err == nil {
+			t.Fatalf("RegisterGraphWithConfig accepted invalid block %+v", b)
+		}
+	}
+
+	wantCfg := GraphLaunchConfig{
+		Grid:           driver.Dims(148, 1, 1),
+		Block:          driver.Dims(128, 2, 1),
+		SharedMemBytes: 32768,
+	}
+	var gotFn driver.Function
+	var gotCfg GraphLaunchConfig
+	s.graphs.ops.patchConfig = func(_ *cudagraph.Exec, _ *cudagraph.Node, fn driver.Function, cfg GraphLaunchConfig, _ []any) error {
+		gotFn, gotCfg = fn, cfg
+		return nil
+	}
+	state, err := RegisterGraphWithConfig(context.Background(), s, "kernel", exec, node, stream, wantCfg)
+	if err != nil || state.Version != 1 || gotFn != 1 || gotCfg != wantCfg {
+		t.Fatalf("RegisterGraphWithConfig: state=%+v err=%v fn=%d cfg=%+v", state, err, gotFn, gotCfg)
+	}
+
+	// Verify Push (which prepares and commits or rolls back on check failure) preserves wantCfg.
+	checkErr := errors.New("reject candidate")
+	if _, err := s.SetCheck("kernel", CheckConfig{Checker: func(context.Context, State) error {
+		return checkErr
+	}}, "reject"); err != nil {
+		t.Fatal(err)
+	}
+	l.kernel = &serviceKernel{raw: 2}
+	if _, err := s.Push(context.Background(), "kernel", Source{Code: "cand2", Entry: "entry"}, "rollback test"); !errors.Is(err, checkErr) {
+		t.Fatalf("Push err = %v, want %v", err, checkErr)
+	}
+	if gotFn != 1 || gotCfg != wantCfg {
+		t.Fatalf("after rollback: fn=%d cfg=%+v, want fn=1 cfg=%+v", gotFn, gotCfg, wantCfg)
+	}
+	if err := s.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}

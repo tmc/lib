@@ -46,6 +46,7 @@ func (f *fakeService) Push(context.Context, string, cudahotswap.Source, string) 
 	return &cudahotswap.PushResult{Report: cudahotswap.Report{Outcome: out, Reason: "CPU reference differs", Generation: 9, ConfigRevision: 7}}, f.pushErr
 }
 func (f *fakeService) List() []cudahotswap.State                { return []cudahotswap.State{f.mark("List")} }
+func (f *fakeService) Waiting() []cudahotswap.LockWait          { f.mark("Waiting"); return nil }
 func (f *fakeService) Status(string) (cudahotswap.State, error) { return f.mark("Status"), nil }
 func (f *fakeService) Versions(string) ([]cudahotswap.Version, error) {
 	f.mark("Versions")

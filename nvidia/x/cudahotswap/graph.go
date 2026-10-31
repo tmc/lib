@@ -27,19 +27,54 @@ type graphRegistry struct {
 }
 
 type graphOps struct {
-	patch  func(*cudagraph.Exec, *cudagraph.Node, driver.Function, driver.Dim3, []any) error
-	launch func(*cudagraph.Exec, *cuda.Stream) error
-	wait   func(context.Context, *cuda.Stream) error
+	patch       func(*cudagraph.Exec, *cudagraph.Node, driver.Function, driver.Dim3, []any) error
+	patchConfig func(*cudagraph.Exec, *cudagraph.Node, driver.Function, GraphLaunchConfig, []any) error
+	launch      func(*cudagraph.Exec, *cuda.Stream) error
+	wait        func(context.Context, *cuda.Stream) error
 }
 
 func newGraphRegistry(table *generationTable) *graphRegistry {
 	return &graphRegistry{table: table, ops: graphOps{
-		patch: func(e *cudagraph.Exec, n *cudagraph.Node, f driver.Function, g driver.Dim3, a []any) error {
-			return e.HotSwapNode(n, f, g, a...)
-		},
 		launch: func(e *cudagraph.Exec, s *cuda.Stream) error { return e.Launch(s) },
 		wait:   func(ctx context.Context, s *cuda.Stream) error { return s.Synchronize(ctx) },
 	}, pending: make(map[*cudagraph.Exec]*graphPending)}
+}
+
+func (r *graphRegistry) patchNode(e *cudagraph.Exec, n *cudagraph.Node, f driver.Function, cfg GraphLaunchConfig, a []any) error {
+	if r.ops.patchConfig != nil {
+		return r.ops.patchConfig(e, n, f, cfg, a)
+	}
+	if r.ops.patch != nil {
+		return r.ops.patch(e, n, f, cfg.Grid, a)
+	}
+	return defaultGraphPatch(e, n, f, cfg, a)
+}
+
+func defaultGraphPatch(e *cudagraph.Exec, n *cudagraph.Node, f driver.Function, cfg GraphLaunchConfig, a []any) error {
+	if err := e.HotSwapNode(n, f, cfg.Grid, a...); err != nil {
+		return err
+	}
+	if cfg.Block != (driver.Dim3{}) {
+		if err := e.SetKernelNodeLaunch(n, cfg.Grid, cfg.Block); err != nil {
+			return err
+		}
+	}
+	if cfg.SharedMemBytes != 0 && n != nil && n.Graph() != nil {
+		params, err := n.Params()
+		if err != nil {
+			return err
+		}
+		params.Func = f
+		params.GridDim = cfg.Grid
+		if cfg.Block != (driver.Dim3{}) {
+			params.BlockDim = cfg.Block
+		}
+		params.SharedMemBytes = cfg.SharedMemBytes
+		if err := e.SetKernelNodeParams(n, &params); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type graphBinding struct {
@@ -48,6 +83,7 @@ type graphBinding struct {
 	node   *cudagraph.Node
 	stream *cuda.Stream
 	grid   driver.Dim3
+	cfg    GraphLaunchConfig
 	args   []any
 	pin    *generationPin
 	failed bool
@@ -66,6 +102,10 @@ func graphRelease(p *generationPin) error {
 // An error may follow an applied driver patch; the returned binding therefore
 // remains registered and pinned even when patch reports an error.
 func (r *graphRegistry) bind(name string, e *cudagraph.Exec, n *cudagraph.Node, stream *cuda.Stream, grid driver.Dim3, args []any) (*graphBinding, error) {
+	return r.bindConfig(name, e, n, stream, GraphLaunchConfig{Grid: grid}, args)
+}
+
+func (r *graphRegistry) bindConfig(name string, e *cudagraph.Exec, n *cudagraph.Node, stream *cuda.Stream, cfg GraphLaunchConfig, args []any) (*graphBinding, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.closed || r.patch != nil || len(r.pending) != 0 || r.table == nil || e == nil || n == nil || stream == nil {
@@ -80,9 +120,9 @@ func (r *graphRegistry) bind(name string, e *cudagraph.Exec, n *cudagraph.Node, 
 	if err != nil {
 		return nil, err
 	}
-	b := &graphBinding{name: name, exec: e, node: n, stream: stream, grid: grid, args: append([]any(nil), args...), pin: p}
+	b := &graphBinding{name: name, exec: e, node: n, stream: stream, grid: cfg.Grid, cfg: cfg, args: append([]any(nil), args...), pin: p}
 	r.bindings = append(r.bindings, b)
-	err = r.ops.patch(e, n, p.gen.function, grid, b.args)
+	err = r.patchNode(e, n, p.gen.function, cfg, b.args)
 	b.failed = err != nil
 	return b, err
 }
@@ -150,7 +190,7 @@ func (r *graphRegistry) prepareLocked(name string, candidate *generation, retain
 	r.patch = t
 	for i, b := range t.bindings {
 		t.attempted = i + 1 // Include a possibly applied failing patch in rollback.
-		if err := r.ops.patch(b.exec, b.node, candidate.function, b.grid, b.args); err != nil {
+		if err := r.patchNode(b.exec, b.node, candidate.function, b.cfg, b.args); err != nil {
 			return t, fmt.Errorf("patch graph node: %w", err)
 		}
 	}
@@ -233,7 +273,7 @@ func (t *graphPatch) abort() error {
 	}
 	for t.attempted != 0 {
 		b := t.bindings[t.attempted-1]
-		if err := r.ops.patch(b.exec, b.node, b.pin.gen.function, b.grid, b.args); err != nil {
+		if err := r.patchNode(b.exec, b.node, b.pin.gen.function, b.cfg, b.args); err != nil {
 			return fmt.Errorf("rollback graph node: %w", err)
 		}
 		t.attempted--

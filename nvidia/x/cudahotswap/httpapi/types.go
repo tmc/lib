@@ -124,6 +124,7 @@ type Response struct {
 	RequestLabel string                  `json:"request_label,omitempty"`
 	State        *cudahotswap.State      `json:"state,omitempty"`
 	States       []cudahotswap.State     `json:"states,omitempty"`
+	Waiting      []cudahotswap.LockWait  `json:"waiting,omitempty"`
 	Versions     []cudahotswap.Version   `json:"versions,omitempty"`
 	Push         *cudahotswap.PushResult `json:"push,omitempty"`
 	Paths        *cudahotswap.WatchPaths `json:"paths,omitempty"`

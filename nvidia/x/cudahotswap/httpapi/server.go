@@ -25,7 +25,7 @@ var serviceMethods = map[string]string{
 	"Subscribe": "events", "Pin": "pin", "Launch": "launch", "RecordFixture": "record_fixture", "RegisterGraph": "register_graph",
 	"LaunchGraph": "launch_graph", "Close": "close",
 	"RegisterStage": "register_stage", "PushStage": "push_stage", "RevertStage": "revert_stage",
-	"RunStage": "run_stage", "RecordStageFixture": "record_stage_fixture",
+	"RunStage": "run_stage", "RecordStageFixture": "record_stage_fixture", "Waiting": "waiting",
 }
 
 // Endpoints returns the HTTP endpoint for each exported Service method.
@@ -279,7 +279,7 @@ func (h *Handler) call(ctx context.Context, method string, q Request) (response 
 	if mutating && !validName(q.Label) {
 		return response, bad("caller label required")
 	}
-	if method != "list" && method != "err" && method != "release_pin" && method != "wait" && method != "close_fixture" && method != "launch_graph" && !validName(q.Name) {
+	if method != "list" && method != "waiting" && method != "err" && method != "release_pin" && method != "wait" && method != "close_fixture" && method != "launch_graph" && !validName(q.Name) {
 		return response, bad("kernel name required")
 	}
 	state := func(s cudahotswap.State, e error) (Response, error) { response.State = &s; return response, e }
@@ -288,6 +288,11 @@ func (h *Handler) call(ctx context.Context, method string, q Request) (response 
 		return response, h.service.Err()
 	case "list":
 		response.States = h.service.List()
+		return response, nil
+	case "waiting":
+		if w, ok := h.service.(interface{ Waiting() []cudahotswap.LockWait }); ok {
+			response.Waiting = w.Waiting()
+		}
 		return response, nil
 	case "status":
 		return state(h.service.Status(q.Name))
