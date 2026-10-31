@@ -115,7 +115,8 @@ func (b NVRTCBuilder) Build(ctx context.Context, c ScheduleCandidate) (Variant, 
 type CUPTICollector struct {
 	Device *cuda.Device
 	Run    func(fn driver.Function, c ScheduleCandidate) error
-	Period uint32 // PC sampling period exponent, 5 to 31; default 12
+	Period uint32    // PC sampling period exponent, 5 to 31; default 12
+	Ranges []PCRange // default PC attribution ranges for SampleKernelAttributed
 
 	mu     sync.Mutex
 	loaded map[string]loadedModule // by candidate name
@@ -224,13 +225,53 @@ func (col *CUPTICollector) SampleKernel(ctx context.Context, v Variant, iters in
 		if obs.MedianUS, err = col.time(fn, v.Candidate, iters); err != nil {
 			return err
 		}
-		hist, err = col.sample(ctx, fn, v, iters)
+		hist, _, err = col.samplePCs(ctx, fn, v, iters)
 		return err
 	})
 	if err != nil {
 		return ProfileObservation{}, StallHistogram{}, fmt.Errorf("cupti collector %s: %w", v.Candidate.Name, err)
 	}
 	return obs, hist, nil
+}
+
+// SampleKernelAttributed times and samples v over iters launches like
+// [CUPTICollector.SampleKernel] and attributes the collected per-PC stall
+// histograms across ranges (falling back to col.Ranges when ranges is empty)
+// using [AttributionMap].
+func (col *CUPTICollector) SampleKernelAttributed(ctx context.Context, v Variant, iters int, ranges []PCRange) (ProfileObservation, StallHistogram, map[string]StallHistogram, error) {
+	if len(ranges) == 0 {
+		ranges = col.Ranges
+	}
+	if _, err := AttributionMap(ranges, nil); err != nil {
+		return ProfileObservation{}, StallHistogram{}, nil, fmt.Errorf("cupti collector %s: %w", v.Candidate.Name, err)
+	}
+	var obs ProfileObservation
+	var hist StallHistogram
+	var pcs map[uint64]StallHistogram
+	err := col.withFunction(v, func(fn driver.Function) error {
+		regs, err := fn.Attribute(driver.FuncAttributeNumRegs)
+		if err != nil {
+			return err
+		}
+		obs.Metrics.RegisterCount = int(regs)
+		// Warm up once, then time each launch.
+		if err := col.Run(fn, v.Candidate); err != nil {
+			return err
+		}
+		if obs.MedianUS, err = col.time(fn, v.Candidate, iters); err != nil {
+			return err
+		}
+		hist, pcs, err = col.samplePCs(ctx, fn, v, iters)
+		return err
+	})
+	if err != nil {
+		return ProfileObservation{}, StallHistogram{}, nil, fmt.Errorf("cupti collector %s: %w", v.Candidate.Name, err)
+	}
+	regions, err := AttributionMap(ranges, pcs)
+	if err != nil {
+		return ProfileObservation{}, StallHistogram{}, nil, fmt.Errorf("cupti collector %s: %w", v.Candidate.Name, err)
+	}
+	return obs, hist, regions, nil
 }
 
 func (col *CUPTICollector) time(fn driver.Function, c ScheduleCandidate, iters int) (us float64, err error) {
@@ -268,23 +309,23 @@ func (col *CUPTICollector) time(fn driver.Function, c ScheduleCandidate, iters i
 	return ts[len(ts)/2], nil
 }
 
-// sample runs iters launches under PC sampling and sums the entry
-// function's per-PC histograms.
-func (col *CUPTICollector) sample(ctx context.Context, fn driver.Function, v Variant, iters int) (h StallHistogram, err error) {
+// samplePCs runs iters launches under PC sampling and returns both the summed
+// kernel-total histogram and the per-PC offset histograms for the entry function.
+func (col *CUPTICollector) samplePCs(ctx context.Context, fn driver.Function, v Variant, iters int) (h StallHistogram, pcs map[uint64]StallHistogram, err error) {
 	cuCtx, err := driver.CtxGetCurrent()
 	if err != nil {
-		return h, err
+		return h, nil, err
 	}
 	disable, err := cuptipcsampling.Enable(cuCtx)
 	if err != nil {
 		if disable != nil {
 			err = errors.Join(err, disable())
 		}
-		return h, fmt.Errorf("enable pc sampling: %w", err)
+		return h, nil, fmt.Errorf("enable pc sampling: %w", err)
 	}
 	inv, err := cuptipcsampling.StallReasons(cuCtx, 1<<10)
 	if err = errors.Join(err, disable()); err != nil {
-		return h, fmt.Errorf("stall reasons: %w", err)
+		return h, nil, fmt.Errorf("stall reasons: %w", err)
 	}
 	period := col.Period
 	if period == 0 {
@@ -305,7 +346,7 @@ func (col *CUPTICollector) sample(ctx context.Context, fn driver.Function, v Var
 		if session != nil {
 			err = errors.Join(err, session.Close())
 		}
-		return h, fmt.Errorf("start pc sampling: %w", err)
+		return h, nil, fmt.Errorf("start pc sampling: %w", err)
 	}
 	closed := false
 	defer func() {
@@ -315,28 +356,30 @@ func (col *CUPTICollector) sample(ctx context.Context, fn driver.Function, v Var
 	}()
 	for range max(iters, 1) {
 		if err := ctx.Err(); err != nil {
-			return h, err
+			return h, nil, err
 		}
 		if err := col.Run(fn, v.Candidate); err != nil {
-			return h, err
+			return h, nil, err
 		}
 	}
 	if err := driver.CtxSynchronize(); err != nil {
-		return h, err
+		return h, nil, err
 	}
 	if err := session.Stop(); err != nil {
-		return h, fmt.Errorf("stop pc sampling: %w", err)
+		return h, nil, fmt.Errorf("stop pc sampling: %w", err)
 	}
+	pcs = make(map[uint64]StallHistogram)
 	add := func(b cuptipcsampling.Batch) {
-		for _, x := range HistogramsFromBatch(b, inv, v.Source.Entry) {
+		for pc, x := range HistogramsFromBatch(b, inv, v.Source.Entry) {
 			h = h.Add(x)
+			pcs[pc] = pcs[pc].Add(x)
 		}
 	}
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		b, err := session.Read()
 		if err != nil {
-			return h, fmt.Errorf("read pc samples: %w", err)
+			return h, nil, fmt.Errorf("read pc samples: %w", err)
 		}
 		add(b)
 		if b.RemainingPCs == 0 || time.Now().After(deadline) {
@@ -346,10 +389,10 @@ func (col *CUPTICollector) sample(ctx context.Context, fn driver.Function, v Var
 	// The final buffer is available only after Close disables sampling.
 	closed = true
 	if err := session.Close(); err != nil {
-		return h, fmt.Errorf("close pc sampling: %w", err)
+		return h, nil, fmt.Errorf("close pc sampling: %w", err)
 	}
 	if b, ok := session.Final(); ok {
 		add(b)
 	}
-	return h, nil
+	return h, pcs, nil
 }

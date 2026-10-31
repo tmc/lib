@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"slices"
 	"sync"
@@ -20,6 +21,26 @@ var ErrSpillDisqualified = errors.New("autotune: candidate spills registers")
 // ErrNumericalDrift reports a candidate whose outputs disagree with the
 // serving kernel's. Such candidates are never selected.
 var ErrNumericalDrift = errors.New("autotune: candidate output drifts from serving kernel")
+
+// ErrTokenTrajectoryDrift reports a candidate whose greedy token-ID trajectory
+// diverges from the serving kernel's on frozen prompts.
+var ErrTokenTrajectoryDrift = errors.New("autotune: candidate greedy token trajectory drifts from serving kernel")
+
+// ErrThrottled reports that a maintenance step was deferred by the bandwidth
+// or utilization throttle gate.
+var ErrThrottled = errors.New("autotune: daemon step throttled")
+
+// A ThrottleGate reports whether background profiling and hot-swap maintenance
+// may proceed without disturbing active serving traffic.
+type ThrottleGate interface {
+	Allow() bool
+}
+
+// ThrottleFunc adapts a function to a [ThrottleGate].
+type ThrottleFunc func() bool
+
+// Allow calls f().
+func (f ThrottleFunc) Allow() bool { return f() }
 
 // A Variant is a compiled schedule candidate.
 type Variant struct {
@@ -94,15 +115,19 @@ func (s ServiceSwapper) Swap(ctx context.Context, v Variant) error {
 
 // DaemonConfig configures a [Daemon].
 type DaemonConfig struct {
-	Twin           HardwareTwin
-	ShapeKey       string        // the workload the candidates implement, e.g. a graph hash
-	MaxTrials      int           // candidates sampled per Step; default 2
-	Iters          int           // launches per sample; default 20
-	ImproveFloor   float64       // fractional speedup required to swap; default 0.015
-	SampleInterval time.Duration // time between steps in Run; default 1s
-	Builder        Builder
-	Agreement      Agreement // nil skips the numerical agreement check
-	Swapper        Swapper   // nil records the winner without publishing it
+	Twin              HardwareTwin
+	ShapeKey          string        // the workload the candidates implement, e.g. a graph hash
+	MaxTrials         int           // candidates sampled per Step; default 2
+	Iters             int           // launches per sample; default 20
+	ImproveFloor      float64       // fractional speedup required to swap; default 0.015
+	SampleInterval    time.Duration // time between steps in Run; default 1s
+	Builder           Builder
+	Agreement         Agreement                                               // nil skips the numerical agreement check
+	TokenAgree        func(ctx context.Context, serving, candidate Variant) error // nil skips the pre-exposure greedy token-ID gate
+	Swapper           Swapper                                                 // nil records the winner without publishing it
+	NewEpochCollector func() (LiveCollector, io.Closer, error)                // optional factory creating an isolated per-step profiling collector closed before Swap
+	Throttle          func() bool                                             // optional gate; returning false defers Step with ErrThrottled
+	ThrottleGate      ThrottleGate                                            // optional gate interface; Allow() == false defers Step with ErrThrottled
 }
 
 // A Trial is one candidate sampled by [Daemon.Step].
@@ -115,14 +140,15 @@ type Trial struct {
 
 // A StepResult reports one [Daemon.Step].
 type StepResult struct {
-	Trials     []Trial
-	Winner     ScheduleCandidate // the fastest qualified measured candidate
-	WinnerUS   float64
-	BaselineUS float64 // measured latency of the analytical model's choice
-	Speedup    float64 // BaselineUS / WinnerUS
-	Serving    ScheduleCandidate
-	Swapped    bool
-	Weights    ScheduleWeights
+	Trials            []Trial
+	Winner            ScheduleCandidate // the fastest qualified measured candidate
+	WinnerUS          float64
+	BaselineUS        float64 // measured latency of the analytical model's choice
+	Speedup           float64 // BaselineUS / WinnerUS
+	Serving           ScheduleCandidate
+	Swapped           bool
+	TokenRejectReason string
+	Weights           ScheduleWeights
 }
 
 type measurement struct {
@@ -159,9 +185,9 @@ type prebuilt struct {
 	err     error
 }
 
-// NewDaemon returns a daemon sampling through collector.
+// NewDaemon returns a daemon sampling through collector (or cfg.NewEpochCollector).
 func NewDaemon(cfg DaemonConfig, collector LiveCollector) (*Daemon, error) {
-	if collector == nil {
+	if collector == nil && cfg.NewEpochCollector == nil {
 		return nil, errors.New("new daemon: nil collector")
 	}
 	if cfg.Builder == nil {
@@ -226,9 +252,12 @@ func (d *Daemon) Model() *OnlineCostModel { return d.model }
 // Step that brings new candidates loads them after sampling has been
 // configured, so pass every candidate to the first Step and set MaxTrials
 // to cover them.
-func (d *Daemon) Step(ctx context.Context, candidates []ScheduleCandidate) (StepResult, error) {
+func (d *Daemon) Step(ctx context.Context, candidates []ScheduleCandidate) (res StepResult, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if (d.cfg.Throttle != nil && !d.cfg.Throttle()) || (d.cfg.ThrottleGate != nil && !d.cfg.ThrottleGate.Allow()) {
+		return StepResult{}, ErrThrottled
+	}
 	var valid []ScheduleCandidate
 	for _, c := range candidates {
 		if c.Validate(d.cfg.Twin) == nil {
@@ -238,26 +267,68 @@ func (d *Daemon) Step(ctx context.Context, candidates []ScheduleCandidate) (Step
 	if len(valid) == 0 {
 		return StepResult{}, errors.New("daemon step: no valid candidates")
 	}
-	if p, ok := d.collector.(Preloader); ok {
+
+	col := d.collector
+	var epochRelease func() error
+	var epochCloser io.Closer
+	epochClosed := false
+	closeEpoch := func() error {
+		if epochClosed {
+			return nil
+		}
+		epochClosed = true
+		var errs []error
+		if epochRelease != nil {
+			errs = append(errs, epochRelease())
+		}
+		if epochCloser != nil {
+			errs = append(errs, epochCloser.Close())
+		}
+		return errors.Join(errs...)
+	}
+	defer func() {
+		err = errors.Join(err, closeEpoch())
+	}()
+
+	if d.cfg.NewEpochCollector != nil {
+		var newErr error
+		col, epochCloser, newErr = d.cfg.NewEpochCollector()
+		if newErr != nil {
+			return StepResult{}, fmt.Errorf("daemon step: %w", newErr)
+		}
+		if col == nil {
+			return StepResult{}, errors.New("daemon step: nil epoch collector")
+		}
+		if p, ok := col.(Preloader); ok {
+			epochRelease, err = d.preloadEpoch(ctx, p, valid)
+			if err != nil {
+				return StepResult{}, fmt.Errorf("daemon step: %w", err)
+			}
+		}
+	} else if p, ok := col.(Preloader); ok {
 		if err := d.preload(ctx, p, valid); err != nil {
 			return StepResult{}, fmt.Errorf("daemon step: %w", err)
 		}
 	}
+
 	baseline := slices.MinFunc(valid, func(a, b ScheduleCandidate) int {
 		return cmp.Compare(a.AnalyticalCostUS, b.AnalyticalCostUS)
 	})
 
-	var res StepResult
 	for range d.cfg.MaxTrials {
 		c, ok := d.next(valid, baseline)
 		if !ok {
 			break
 		}
-		res.Trials = append(res.Trials, d.trial(ctx, c))
+		res.Trials = append(res.Trials, d.trialWith(ctx, col, c))
 	}
 	if len(res.Trials) == 0 && d.serving != "" {
 		// Everything is measured: re-sample the serving kernel.
-		res.Trials = append(res.Trials, d.trial(ctx, d.measured[d.serving].variant.Candidate))
+		res.Trials = append(res.Trials, d.trialWith(ctx, col, d.measured[d.serving].variant.Candidate))
+	}
+	// Close the ephemeral profiling collector before any live serving Swap.
+	if err := closeEpoch(); err != nil {
+		return res, fmt.Errorf("daemon step: close epoch collector: %w", err)
 	}
 	if d.serving == "" {
 		if m := d.measured[baseline.Name]; m != nil && m.err == nil {
@@ -288,14 +359,15 @@ func (d *Daemon) Step(ctx context.Context, candidates []ScheduleCandidate) (Step
 	if winner != d.serving {
 		cur, w := d.measured[d.serving], d.measured[winner]
 		if w.obs.MedianUS < cur.obs.MedianUS*(1-d.cfg.ImproveFloor) {
-			swapped, err := d.swap(ctx, cur, w)
-			if err != nil {
-				return res, err
+			swapped, tokenReject, swapErr := d.swap(ctx, cur, w)
+			if swapErr != nil {
+				return res, swapErr
 			}
 			res.Swapped = swapped
+			res.TokenRejectReason = tokenReject
 		}
 	}
-	// Agreement may have disqualified the winner.
+	// Agreement or TokenAgree may have disqualified the winner.
 	if d.measured[winner].err != nil {
 		winner = d.serving
 	}
@@ -367,10 +439,43 @@ func (d *Daemon) preload(ctx context.Context, p Preloader, valid []ScheduleCandi
 	return nil
 }
 
-// trial builds and samples c, records the observation and refines the
-// weights. A candidate that fails to build, spills in SASS, or fails to
+// preloadEpoch builds any unbuilt unmeasured candidates in valid and loads
+// all unmeasured non-spilling variants into the ephemeral Preloader p.
+func (d *Daemon) preloadEpoch(ctx context.Context, p Preloader, valid []ScheduleCandidate) (func() error, error) {
+	var vs []Variant
+	for _, c := range valid {
+		if d.measured[c.Name] != nil {
+			continue
+		}
+		pb, ok := d.prebuilt[c.Name]
+		if !ok {
+			v, err := d.cfg.Builder.Build(ctx, c)
+			pb = prebuilt{v, err}
+			d.prebuilt[c.Name] = pb
+		}
+		if pb.err == nil && pb.variant.SpillStores == 0 && pb.variant.SpillLoads == 0 {
+			vs = append(vs, pb.variant)
+		}
+	}
+	if len(vs) == 0 && d.serving != "" {
+		if m := d.measured[d.serving]; m != nil && m.err == nil {
+			vs = append(vs, m.variant)
+		}
+	}
+	if len(vs) == 0 {
+		return nil, nil
+	}
+	release, err := p.Preload(ctx, vs)
+	if err != nil {
+		return nil, fmt.Errorf("preload %d variants: %w", len(vs), err)
+	}
+	return release, nil
+}
+
+// trialWith builds and samples c on col, records the observation and refines
+// the weights. A candidate that fails to build, spills in SASS, or fails to
 // sample is recorded as disqualified so it is not tried again.
-func (d *Daemon) trial(ctx context.Context, c ScheduleCandidate) Trial {
+func (d *Daemon) trialWith(ctx context.Context, col LiveCollector, c ScheduleCandidate) Trial {
 	t := Trial{Candidate: c}
 	fail := func(v Variant, err error) Trial {
 		t.Err = err
@@ -391,7 +496,7 @@ func (d *Daemon) trial(ctx context.Context, c ScheduleCandidate) Trial {
 	if v.SpillStores > 0 || v.SpillLoads > 0 {
 		return fail(v, fmt.Errorf("%s: %d STL and %d LDL in SASS: %w", c.Name, v.SpillStores, v.SpillLoads, ErrSpillDisqualified))
 	}
-	obs, h, err := d.collector.SampleKernel(ctx, v, d.cfg.Iters)
+	obs, h, err := col.SampleKernel(ctx, v, d.cfg.Iters)
 	if err != nil {
 		return fail(v, fmt.Errorf("sample %s: %w", c.Name, err))
 	}
@@ -412,31 +517,46 @@ func (d *Daemon) trial(ctx context.Context, c ScheduleCandidate) Trial {
 	return t
 }
 
-// swap checks agreement and publishes w in place of cur.
-func (d *Daemon) swap(ctx context.Context, cur, w *measurement) (bool, error) {
+// swap checks numerical agreement and pre-exposure token-ID agreement before
+// publishing w in place of cur.
+func (d *Daemon) swap(ctx context.Context, cur, w *measurement) (swapped bool, tokenReject string, err error) {
 	if d.cfg.Agreement != nil {
 		if err := d.cfg.Agreement.Agree(ctx, cur.variant, w.variant); err != nil {
 			w.err = fmt.Errorf("%s: %w: %w", w.variant.Candidate.Name, ErrNumericalDrift, err)
-			return false, nil
+			return false, "", nil
+		}
+	}
+	if d.cfg.TokenAgree != nil {
+		if err := d.cfg.TokenAgree(ctx, cur.variant, w.variant); err != nil {
+			w.err = fmt.Errorf("%s: %w: %w", w.variant.Candidate.Name, ErrTokenTrajectoryDrift, err)
+			return false, err.Error(), nil
 		}
 	}
 	if d.cfg.Swapper != nil {
 		if err := d.cfg.Swapper.Swap(ctx, w.variant); err != nil {
-			return false, fmt.Errorf("daemon step: %w", err)
+			return false, "", fmt.Errorf("daemon step: %w", err)
 		}
 	}
 	d.serving = w.variant.Candidate.Name
-	return true, nil
+	return true, "", nil
 }
 
 // Run calls Step every SampleInterval until ctx is done, sending each
 // result to results if it is not nil. It returns ctx's error, or the first
-// Step error.
+// non-throttled Step error.
 func (d *Daemon) Run(ctx context.Context, candidates []ScheduleCandidate, results chan<- StepResult) error {
 	tick := time.NewTicker(d.cfg.SampleInterval)
 	defer tick.Stop()
 	for {
 		res, err := d.Step(ctx, candidates)
+		if errors.Is(err, ErrThrottled) {
+			select {
+			case <-tick.C:
+				continue
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
 		if err != nil {
 			return err
 		}

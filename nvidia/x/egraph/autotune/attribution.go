@@ -1,7 +1,9 @@
 package autotune
 
 import (
+	"cmp"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -164,4 +166,102 @@ func HistogramsFromBatch(b cuptipcsampling.Batch, inv cuptipcsampling.ReasonInve
 		out[pc.Offset] = h
 	}
 	return out
+}
+
+// A PCFilePoint associates a SASS PC offset and instruction byte length with
+// a source file name from line info (such as cudalineinfo).
+type PCFilePoint struct {
+	Offset uint64
+	Size   uint64 // defaults to 16 (one SASS instruction) when 0
+	File   string
+}
+
+// PCRangesFromFilePoints coalesces contiguous SASS instruction ranges whose
+// source file maps to a non-empty label in fileLabels (falling back to the
+// basename of p.File when fileLabels is nil). Points are sorted by Offset
+// and adjacent or overlapping intervals with the same label are merged into
+// disjoint [PCRange]s suitable for [AttributionMap].
+func PCRangesFromFilePoints(points []PCFilePoint, fileLabels map[string]string) ([]PCRange, error) {
+	var raw []PCRange
+	for _, p := range points {
+		var label string
+		if fileLabels != nil {
+			var ok bool
+			label, ok = fileLabels[p.File]
+			if !ok && p.File != "" {
+				label = fileLabels[filepath.Base(p.File)]
+			}
+		} else if p.File != "" {
+			base := filepath.Base(p.File)
+			if base != "." && base != "/" && base != string(filepath.Separator) {
+				label = base
+			}
+		}
+		if label == "" {
+			continue
+		}
+		size := p.Size
+		if size == 0 {
+			size = 16
+		}
+		raw = append(raw, PCRange{
+			Start: p.Offset,
+			End:   p.Offset + size,
+			Label: label,
+		})
+	}
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	slices.SortFunc(raw, func(a, b PCRange) int {
+		if c := cmp.Compare(a.Start, b.Start); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.End, b.End); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Label, b.Label)
+	})
+	out := make([]PCRange, 0, len(raw))
+	for _, r := range raw {
+		if len(out) == 0 {
+			out = append(out, r)
+			continue
+		}
+		prev := &out[len(out)-1]
+		if r.Start < prev.End {
+			if r.Label != prev.Label {
+				return nil, fmt.Errorf("pc ranges from file points: conflicting labels %q and %q overlap at %#x", prev.Label, r.Label, r.Start)
+			}
+			if r.End > prev.End {
+				prev.End = r.End
+			}
+			continue
+		}
+		if r.Start == prev.End && r.Label == prev.Label {
+			prev.End = r.End
+			continue
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// AttributeBatch aggregates PC-sampling batches for function fn ("" for every
+// function) into a kernel-total [StallHistogram] and a per-region
+// [AttributionMap] over ranges.
+func AttributeBatch(batches []cuptipcsampling.Batch, inv cuptipcsampling.ReasonInventory, fn string, ranges []PCRange) (StallHistogram, map[string]StallHistogram, error) {
+	var total StallHistogram
+	pcs := make(map[uint64]StallHistogram)
+	for _, b := range batches {
+		for pc, h := range HistogramsFromBatch(b, inv, fn) {
+			total = total.Add(h)
+			pcs[pc] = pcs[pc].Add(h)
+		}
+	}
+	regions, err := AttributionMap(ranges, pcs)
+	if err != nil {
+		return StallHistogram{}, nil, err
+	}
+	return total, regions, nil
 }

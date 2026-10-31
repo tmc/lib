@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -584,5 +585,175 @@ func TestDaemonPreloadsGenerationBeforeSampling(t *testing.T) {
 	}
 	if dev.released != 1 {
 		t.Errorf("released %d generations, want 1", dev.released)
+	}
+}
+
+type closeFunc func() error
+
+func (f closeFunc) Close() error { return f() }
+
+type epochCheckSwapper struct {
+	t      *testing.T
+	active *int
+	swaps  []string
+}
+
+func (s *epochCheckSwapper) Swap(_ context.Context, v autotune.Variant) error {
+	if *s.active != 0 {
+		s.t.Fatalf("Swap(%s) called while %d profiling epochs are still open", v.Candidate.Name, *s.active)
+	}
+	s.swaps = append(s.swaps, v.Candidate.Name)
+	return nil
+}
+
+func TestDaemonEphemeralEpochNovelCandidatesAndCloseBeforeSwap(t *testing.T) {
+	cands, syn := tmaCandidates()
+	twin, err := autotune.TwinForTarget("sm_100a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var epochsCreated, epochsClosed, preloadsReleased, activeEpochs int
+	swap := &epochCheckSwapper{t: t, active: &activeEpochs}
+
+	d, err := autotune.NewDaemon(autotune.DaemonConfig{
+		Twin:      twin,
+		ShapeKey:  "llama3-ephemeral-epoch",
+		MaxTrials: 2,
+		Builder:   knobBuilder{twin},
+		Swapper:   swap,
+		NewEpochCollector: func() (autotune.LiveCollector, io.Closer, error) {
+			epochsCreated++
+			activeEpochs++
+			dev := &preloadingDevice{synthetic: syn, loaded: make(map[string]bool)}
+			closer := closeFunc(func() error {
+				if dev.released != 1 {
+					t.Errorf("epoch %d closed before preload release (released=%d)", epochsCreated, dev.released)
+				}
+				preloadsReleased += dev.released
+				epochsClosed++
+				activeEpochs--
+				return nil
+			})
+			return dev, closer, nil
+		},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Step 1 only passes the shallow subset (s2 and s3).
+	step1Cands := []autotune.ScheduleCandidate{cands[0], cands[4]} // s2, s3
+	res1, err := d.Step(t.Context(), step1Cands)
+	if err != nil {
+		t.Fatalf("step 1: %v", err)
+	}
+	if !res1.Swapped || res1.Serving.Name != "s3" {
+		t.Fatalf("step 1: swapped=%v serving=%s, want true and s3", res1.Swapped, res1.Serving.Name)
+	}
+	if epochsCreated != 1 || epochsClosed != 1 || activeEpochs != 0 {
+		t.Fatalf("after step 1: created=%d closed=%d active=%d", epochsCreated, epochsClosed, activeEpochs)
+	}
+
+	// Step 2 adds novel candidates (s4, s6) that were not in Step 1.
+	// Because Step 2 uses a fresh isolated profiling epoch, preloading and
+	// sampling s4/s6 succeeds and closes the epoch before Swapper.Swap runs.
+	res2, err := d.Step(t.Context(), cands)
+	if err != nil {
+		t.Fatalf("step 2 with novel candidates: %v", err)
+	}
+	if !res2.Swapped || res2.Serving.Name != "s4" {
+		t.Fatalf("step 2: swapped=%v serving=%s, want true and s4", res2.Swapped, res2.Serving.Name)
+	}
+	if epochsCreated != 2 || epochsClosed != 2 || preloadsReleased != 2 || activeEpochs != 0 {
+		t.Fatalf("after step 2: created=%d closed=%d released=%d active=%d", epochsCreated, epochsClosed, preloadsReleased, activeEpochs)
+	}
+	if got, want := strings.Join(swap.swaps, ","), "s3,s4"; got != want {
+		t.Fatalf("swaps = %q, want %q", got, want)
+	}
+}
+
+func TestDaemonThrottleGateBlocksStep(t *testing.T) {
+	cands, dev := tmaCandidates()
+	twin, err := autotune.TwinForTarget("sm_100a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	allow := false
+	swap := &recordSwapper{}
+	d, err := autotune.NewDaemon(autotune.DaemonConfig{
+		Twin:         twin,
+		ShapeKey:     "llama3-throttle",
+		MaxTrials:    2,
+		Builder:      knobBuilder{twin},
+		Swapper:      swap,
+		ThrottleGate: autotune.ThrottleFunc(func() bool { return allow }),
+	}, dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := d.Step(t.Context(), cands); !errors.Is(err, autotune.ErrThrottled) {
+		t.Fatalf("Step when throttled = %v, want ErrThrottled", err)
+	}
+	if len(dev.sampled) != 0 || len(swap.swaps) != 0 {
+		t.Fatalf("throttled step sampled %v or swapped %v", dev.sampled, swap.swaps)
+	}
+
+	allow = true
+	res, err := d.Step(t.Context(), cands)
+	if err != nil {
+		t.Fatalf("Step when unthrottled: %v", err)
+	}
+	if !res.Swapped || res.Serving.Name != "s3" {
+		t.Fatalf("unthrottled step: swapped=%v serving=%s, want true and s3", res.Swapped, res.Serving.Name)
+	}
+}
+
+func TestDaemonTokenAgreeBlocksSwapBeforeServingExposure(t *testing.T) {
+	cands, dev := tmaCandidates()
+	twin, err := autotune.TwinForTarget("sm_100a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	swap := &recordSwapper{}
+	const wantReason = "greedy token-ID flip at pos 17: serving=128009 candidate=42"
+	d, err := autotune.NewDaemon(autotune.DaemonConfig{
+		Twin:      twin,
+		ShapeKey:  "llama3-token-gate",
+		MaxTrials: 2,
+		Builder:   knobBuilder{twin},
+		Swapper:   swap,
+		Agreement: driftOn(""), // numerical Agreement passes for all candidates
+		TokenAgree: func(_ context.Context, serving, cand autotune.Variant) error {
+			if cand.Candidate.Name == "s3" {
+				return errors.New(wantReason)
+			}
+			return nil
+		},
+	}, dev)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Step 1 samples s2 (30us) and s3 (22us). Numerical Agreement passes,
+	// but TokenAgree rejects s3 before Swapper.Swap is ever called.
+	res1, err := d.Step(t.Context(), cands)
+	if err != nil {
+		t.Fatalf("step 1: %v", err)
+	}
+	if res1.Swapped || len(swap.swaps) != 0 || res1.Serving.Name != "s2" {
+		t.Fatalf("step 1: swapped=%v swaps=%v serving=%s, want no swap and serving s2", res1.Swapped, swap.swaps, res1.Serving.Name)
+	}
+	if res1.TokenRejectReason != wantReason {
+		t.Fatalf("step 1: TokenRejectReason = %q, want %q", res1.TokenRejectReason, wantReason)
+	}
+
+	// Step 2 samples s4 (15us), which passes both numerical Agreement and TokenAgree.
+	res2, err := d.Step(t.Context(), cands)
+	if err != nil {
+		t.Fatalf("step 2: %v", err)
+	}
+	if !res2.Swapped || res2.TokenRejectReason != "" || res2.Serving.Name != "s4" || strings.Join(swap.swaps, ",") != "s4" {
+		t.Fatalf("step 2: swapped=%v reject=%q serving=%s swaps=%v, want s4 swapped", res2.Swapped, res2.TokenRejectReason, res2.Serving.Name, swap.swaps)
 	}
 }

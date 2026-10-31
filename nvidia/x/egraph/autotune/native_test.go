@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/tmc/lib/nvidia/x/cudalock"
 	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cudasass"
+	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 	"github.com/tmc/lib/nvidia/x/egraph/autotune"
 	"github.com/tmc/lib/nvidia/x/internal/cudatool"
 	"github.com/tmc/lib/nvidia/x/nvrtcx"
@@ -447,4 +449,153 @@ type agreeFunc func(ctx context.Context, serving, cand autotune.Variant) error
 
 func (f agreeFunc) Agree(ctx context.Context, serving, cand autotune.Variant) error {
 	return f(ctx, serving, cand)
+}
+
+func TestPCRangesFromFilePointsAndAttributeBatch(t *testing.T) {
+	labels := map[string]string{
+		"qkv_proj.cu": "qkv_proj",
+		"rmsnorm.cu":  "rmsnorm",
+		"prelude.cuh": "",
+	}
+	tests := []struct {
+		name       string
+		points     []autotune.PCFilePoint
+		fileLabels map[string]string
+		want       []autotune.PCRange
+		wantErr    bool
+	}{
+		{
+			name:   "empty",
+			points: nil,
+			want:   nil,
+		},
+		{
+			name: "unsorted_coalesced_and_filtered",
+			points: []autotune.PCFilePoint{
+				{Offset: 0x00, File: "/tmp/prelude.cuh"},
+				{Offset: 0x30, File: "/tmp/rmsnorm.cu"},
+				{Offset: 0x10, File: "qkv_proj.cu"},
+				{Offset: 0x20, File: "/build/qkv_proj.cu"},
+				{Offset: 0x40, Size: 32, File: "rmsnorm.cu"},
+				{Offset: 0x18, Size: 8, File: "qkv_proj.cu"}, // overlapping same label
+				{Offset: 0x80, File: "unmapped.cu"},
+			},
+			fileLabels: labels,
+			want: []autotune.PCRange{
+				{Start: 0x10, End: 0x30, Label: "qkv_proj"},
+				{Start: 0x30, End: 0x60, Label: "rmsnorm"},
+			},
+		},
+		{
+			name: "nil_file_labels_uses_basename",
+			points: []autotune.PCFilePoint{
+				{Offset: 0x20, File: "/dir/stage1.cu"},
+				{Offset: 0x00, File: ""},
+				{Offset: 0x10, File: "/dir/stage0.cu"},
+			},
+			fileLabels: nil,
+			want: []autotune.PCRange{
+				{Start: 0x10, End: 0x20, Label: "stage0.cu"},
+				{Start: 0x20, End: 0x30, Label: "stage1.cu"},
+			},
+		},
+		{
+			name: "conflicting_overlap_rejected",
+			points: []autotune.PCFilePoint{
+				{Offset: 0x10, Size: 32, File: "qkv_proj.cu"},
+				{Offset: 0x20, Size: 16, File: "rmsnorm.cu"},
+			},
+			fileLabels: labels,
+			wantErr:    true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := autotune.PCRangesFromFilePoints(tc.points, tc.fileLabels)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("PCRangesFromFilePoints err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if !tc.wantErr && !slices.Equal(got, tc.want) {
+				t.Fatalf("PCRangesFromFilePoints = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+
+	// Verify AttributeBatch end-to-end with ranges built from PCRangesFromFilePoints.
+	ranges, err := autotune.PCRangesFromFilePoints([]autotune.PCFilePoint{
+		{Offset: 0x10, File: "qkv_proj.cu"},
+		{Offset: 0x20, File: "qkv_proj.cu"},
+		{Offset: 0x40, File: "rmsnorm.cu"},
+	}, labels)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inv := cuptipcsampling.ReasonInventory{Reasons: []cuptipcsampling.StallReason{
+		{Index: 1, Name: "smsp__pcsamp_warps_issue_stalled_long_scoreboard"},
+		{Index: 2, Name: "smsp__pcsamp_warps_issue_stalled_long_scoreboard_not_issued"},
+		{Index: 3, Name: "smsp__pcsamp_warps_issue_stalled_barrier"},
+		{Index: 4, Name: "smsp__pcsamp_warps_issue_stalled_math_pipe_throttle"},
+	}}
+	batches := []cuptipcsampling.Batch{
+		{PCs: []cuptipcsampling.PC{
+			{Offset: 0x10, Name: "mega", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 10}, {Index: 2, Samples: 10}}},
+			{Offset: 0x20, Name: "mega", Reasons: []cuptipcsampling.StallSamples{{Index: 4, Samples: 5}}},
+			{Offset: 0x10, Name: "other_kernel", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 99}}},
+		}},
+		{PCs: []cuptipcsampling.PC{
+			{Offset: 0x40, Name: "mega", Reasons: []cuptipcsampling.StallSamples{{Index: 3, Samples: 7}}},
+			{Offset: 0x90, Name: "mega", Reasons: []cuptipcsampling.StallSamples{{Index: 1, Samples: 2}}},
+		}},
+	}
+	total, regions, err := autotune.AttributeBatch(batches, inv, "mega", ranges)
+	if err != nil {
+		t.Fatalf("AttributeBatch: %v", err)
+	}
+	wantTotal := autotune.StallHistogram{
+		TotalSamples:   24,
+		LongScoreboard: 12,
+		WaitMBarrier:   7,
+		MathThrottle:   5,
+	}
+	if total != wantTotal {
+		t.Errorf("total = %+v, want %+v", total, wantTotal)
+	}
+	wantQKV := autotune.StallHistogram{
+		TotalSamples:   15,
+		LongScoreboard: 10,
+		MathThrottle:   5,
+	}
+	if regions["qkv_proj"] != wantQKV {
+		t.Errorf("regions[qkv_proj] = %+v, want %+v", regions["qkv_proj"], wantQKV)
+	}
+	wantNorm := autotune.StallHistogram{
+		TotalSamples: 7,
+		WaitMBarrier: 7,
+	}
+	if regions["rmsnorm"] != wantNorm {
+		t.Errorf("regions[rmsnorm] = %+v, want %+v", regions["rmsnorm"], wantNorm)
+	}
+	wantUnattr := autotune.StallHistogram{
+		TotalSamples:   2,
+		LongScoreboard: 2,
+	}
+	if regions[autotune.Unattributed] != wantUnattr {
+		t.Errorf("regions[Unattributed] = %+v, want %+v", regions[autotune.Unattributed], wantUnattr)
+	}
+
+	if _, _, err := autotune.AttributeBatch(batches, inv, "mega", []autotune.PCRange{{Start: 0x10, End: 0x10, Label: "empty"}}); err == nil {
+		t.Error("AttributeBatch with empty range succeeded, want error")
+	}
+
+	col := &autotune.CUPTICollector{
+		Ranges: []autotune.PCRange{{Start: 0x0, End: 0x20, Label: "a"}, {Start: 0x10, End: 0x30, Label: "b"}},
+	}
+	if _, _, _, err := col.SampleKernelAttributed(t.Context(), autotune.Variant{Candidate: autotune.ScheduleCandidate{Name: "cand"}}, 1, nil); err == nil {
+		t.Error("SampleKernelAttributed with overlapping collector Ranges succeeded, want error")
+	}
+	col.Ranges = ranges
+	if _, _, _, err := col.SampleKernelAttributed(t.Context(), autotune.Variant{Candidate: autotune.ScheduleCandidate{Name: "cand"}}, 1, nil); err == nil {
+		t.Error("SampleKernelAttributed with nil Device succeeded, want error")
+	}
 }
