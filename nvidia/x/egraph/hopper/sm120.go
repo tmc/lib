@@ -196,6 +196,28 @@ func validSM120Target(t string) bool {
 	return false
 }
 
+// TileEpilogue selects the elementwise epilogue applied to tile GEMM accumulators.
+type TileEpilogue uint8
+
+const (
+	TileLinear TileEpilogue = iota // identity: y = acc
+	TileSiLU                       // SiLU: y = acc / (1 + exp(-acc))
+	TileGLU                        // SwiGLU over paired (gate, up) columns: y = silu(gate) * up
+)
+
+func (e TileEpilogue) String() string {
+	switch e {
+	case TileLinear:
+		return "linear"
+	case TileSiLU:
+		return "silu"
+	case TileGLU:
+		return "glu"
+	default:
+		return fmt.Sprintf("TileEpilogue(%d)", uint8(e))
+	}
+}
+
 // SM120BlockScaledGEMM configures a workstation/edge Blackwell (sm_120a / sm_121a / sm_120f)
 // NVFP4 block-scaled GEMM schedule that accumulates warp-synchronous
 // mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale.scale_vec::2X.f32.e2m1.e2m1.f32.ue4m3

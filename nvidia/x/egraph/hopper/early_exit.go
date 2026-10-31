@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/tcgen05"
 )
 
 // An ExitCriterion selects the per-token test that lets a token leave the
@@ -270,7 +272,7 @@ func (c EarlyExitConfig) CUDA() (string, error) {
 	var b strings.Builder
 	b.WriteString(specDecodeCondPrelude)
 	if c.CLC {
-		b.WriteString(CLCHelpers())
+		b.WriteString(tcgen05.CLCHelpers())
 	}
 	fmt.Fprintf(&b, "\n// %s: on-device early exit (%v, threshold %v), %d tokens, %d layers, tile %d, propagate KV %v.\n",
 		c.Name, c.Criterion, c.Threshold, c.Tokens, c.NumLayers, c.TileM, c.PropagateSkipKV)

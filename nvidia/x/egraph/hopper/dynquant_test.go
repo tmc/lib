@@ -6,6 +6,8 @@ import (
 	"math"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/tcgen05"
 )
 
 func cosineSimF32(a, b []float32) float64 {
@@ -465,7 +467,7 @@ func TestDynamicQuantEndToEndGEMM(t *testing.T) {
 	}
 
 	// Step 3: Run TCGen05BlockScaledGEMM in cudahostemu consuming aFP4 and aScale directly.
-	gemmBlockScaled := TCGen05BlockScaledGEMM{
+	gemmBlockScaled := tcgen05.TCGen05BlockScaledGEMM{
 		Name: "block_scaled_gemm_e2e",
 		M:    M,
 		N:    N,
@@ -488,11 +490,11 @@ func TestDynamicQuantEndToEndGEMM(t *testing.T) {
 	gotD := bytesF32(gemmRes["out"])
 
 	// Step 4: Verify against TCGen05GEMM{Weight: WeightNVFP4}.ReferenceNVFP4.
-	gemmRef := TCGen05GEMM{
+	gemmRef := tcgen05.TCGen05GEMM{
 		Name:   "tcgen05_nvfp4_ref",
 		N:      N,
 		K:      K,
-		Weight: WeightNVFP4,
+		Weight: tcgen05.WeightNVFP4,
 	}
 	wantNVFP4D, err := gemmRef.ReferenceNVFP4(M, aFP4, aScale, bFP4, bScale)
 	if err != nil {

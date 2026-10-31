@@ -10,6 +10,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
 	"github.com/tmc/lib/nvidia/x/cudatmem"
+	"github.com/tmc/lib/nvidia/x/nvl72"
 )
 
 func TestCompileExtendedLayer(t *testing.T) {
@@ -250,12 +251,12 @@ func TestCompileExtendedLayer(t *testing.T) {
 		}
 
 		// 1. Execute AllReduceResidualRMSNorm via cudahostemu.RunMultiRank.
-		ar := AllReduceResidualRMSNorm{
+		ar := nvl72.AllReduceResidualRMSNorm{
 			Name:    "allreduce_residual_rmsnorm",
 			Cols:    cols,
 			Ranks:   ranks,
 			Eps:     cfg.RMSNormEps,
-			DType:   BF16,
+			DType:   nvl72.BF16,
 			Threads: 64,
 		}
 		elemsPerRank := rows * cols
@@ -318,12 +319,12 @@ func TestCompileExtendedLayer(t *testing.T) {
 		}
 
 		// 2. Execute NVLinkMoECombine via cudahostemu.RunMultiRank.
-		ep := NVLinkMoECombine{
+		ep := nvl72.NVLinkMoECombine{
 			Name:    "nvlink_moe_combine",
 			Cols:    cols,
 			TopK:    topK,
 			Ranks:   ranks,
-			DType:   BF16,
+			DType:   nvl72.BF16,
 			Threads: 64,
 		}
 		totalExperts := ranks * expertsPerRank
