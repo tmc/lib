@@ -1,4 +1,4 @@
-package hopper
+package specdecode
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
 
 func TestPhilox4x32(t *testing.T) {
@@ -152,7 +153,7 @@ type treeToyModel struct {
 func newTreeToyModel(r *rand.Rand, vocab, dim int) *treeToyModel {
 	m := &treeToyModel{vocab: vocab, dim: dim, emb: make([]uint16, vocab*dim), head: make([]float64, vocab*dim)}
 	for i := range m.emb {
-		m.emb[i] = BF16Bits(float32(r.NormFloat64()))
+		m.emb[i] = hopper.BF16Bits(float32(r.NormFloat64()))
 		m.head[i] = r.NormFloat64()
 	}
 	return m
@@ -166,7 +167,7 @@ func (m *treeToyModel) forward(t *testing.T, seq []int32, q int, mask []uint64) 
 	pages := (len(seq) + page - 1) / page
 	// A small softmax scale keeps attention close to an average of the
 	// visible tokens, so the context, not the query token, decides.
-	a := MTPPagedAttention{NumHeads: 1, KVHeads: 1, HeadDim: m.dim, PageSize: page, MaxPages: pages, QTokensPerSeq: q, Scale: 0.05}
+	a := hopper.MTPPagedAttention{NumHeads: 1, KVHeads: 1, HeadDim: m.dim, PageSize: page, MaxPages: pages, QTokensPerSeq: q, Scale: 0.05}
 	kv := make([]uint16, pages*page*m.dim)
 	pt := make([]int32, pages)
 	for i := range pt {
@@ -180,7 +181,7 @@ func (m *treeToyModel) forward(t *testing.T, seq []int32, q int, mask []uint64) 
 	for _, tok := range seq[len(seq)-q:] {
 		qv = append(qv, m.emb[int(tok)*m.dim:int(tok+1)*m.dim]...)
 	}
-	out, err := a.Reference(qv, MTPPagedCache{KBF16: kv, VBF16: kv, PageTable: pt, SeqLens: []int32{int32(len(seq))}, DraftMask: mask})
+	out, err := a.Reference(qv, hopper.MTPPagedCache{KBF16: kv, VBF16: kv, PageTable: pt, SeqLens: []int32{int32(len(seq))}, DraftMask: mask})
 	if err != nil {
 		t.Fatal(err)
 	}

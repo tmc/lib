@@ -1,4 +1,4 @@
-package hopper
+package specdecode
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
 
 // SpeculativeDecodeController configures a device-side speculative draft
@@ -84,7 +85,7 @@ __device__ __forceinline__ void eg_native_set_conditional(cudaGraphConditionalHa
 #endif
 `
 
-// CUDA returns the device kernel source (without [Prelude]).
+// CUDA returns the device kernel source (without [hopper.Prelude]).
 func (c SpeculativeDecodeController) CUDA() (string, error) {
 	c, err := c.norm()
 	if err != nil {
@@ -163,7 +164,7 @@ func (c SpeculativeDecodeController) Launcher() (string, error) {
 	return b.String(), nil
 }
 
-// Source returns [Prelude], the kernel, and its launcher.
+// Source returns [hopper.Prelude], the kernel, and its launcher.
 func (c SpeculativeDecodeController) Source() (string, error) {
 	src, err := c.CUDA()
 	if err != nil {
@@ -173,7 +174,7 @@ func (c SpeculativeDecodeController) Source() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Prelude + "\n" + src + "\n" + l, nil
+	return hopper.Prelude + "\n" + src + "\n" + l, nil
 }
 
 // SpeculativeDecodeStep holds the device inputs for one speculative decode

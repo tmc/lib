@@ -1,4 +1,4 @@
-package hopper
+package specdecode
 
 import (
 	"errors"

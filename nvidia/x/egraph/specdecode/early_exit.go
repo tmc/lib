@@ -1,10 +1,11 @@
-package hopper
+package specdecode
 
 import (
 	"fmt"
 	"math"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 	"github.com/tmc/lib/nvidia/x/tcgen05"
 )
 
@@ -258,7 +259,7 @@ func (c EarlyExitConfig) tileParams() []string {
 	}
 }
 
-// CUDA returns Name_probe and Name_tiles (without [Prelude]). Buffers:
+// CUDA returns Name_probe and Name_tiles (without [hopper.Prelude]). Buffers:
 // h and hprev [Tokens][Dim]; kv [NumLayers][Tokens][Dim]; exit_layer
 // [Tokens], NumLayers while active; active_idx [StaticTiles*TileM];
 // ctrl {next layer, active tokens, active tiles}, initially
@@ -434,7 +435,7 @@ func (c EarlyExitConfig) Launcher() (string, error) {
 	return b.String(), nil
 }
 
-// Source returns [Prelude], the kernels and their launchers. The caller
+// Source returns [hopper.Prelude], the kernels and their launchers. The caller
 // appends the definition of Name_row.
 func (c EarlyExitConfig) Source() (string, error) {
 	src, err := c.CUDA()
@@ -445,5 +446,5 @@ func (c EarlyExitConfig) Source() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Prelude + "\n" + src + "\n" + l, nil
+	return hopper.Prelude + "\n" + src + "\n" + l, nil
 }

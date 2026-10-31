@@ -1,4 +1,4 @@
-package hopper
+package specdecode
 
 import (
 	"context"
@@ -14,8 +14,34 @@ import (
 	"time"
 
 	"github.com/tmc/lib/nvidia/x/cudalock"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 	"github.com/tmc/lib/nvidia/x/internal/cudatest"
 )
+
+const hopperNativeEnv = "CUDA_EGRAPH_HOPPER_NATIVE"
+
+func hopperNativeArch() string {
+	if arch := os.Getenv("CUDA_EGRAPH_HOPPER_NATIVE_ARCH"); arch != "" {
+		return arch
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader").Output(); err == nil {
+		fields := strings.Fields(string(out))
+		if len(fields) > 0 {
+			cc := strings.ReplaceAll(strings.TrimSpace(fields[0]), ".", "")
+			switch cc {
+			case "90", "100", "103", "120", "121":
+				return "sm_" + cc + "a"
+			default:
+				if cc != "" {
+					return "sm_" + cc
+				}
+			}
+		}
+	}
+	return "sm_90a"
+}
 
 // A decodeNativeCase is one kernel's part of the decode native harness:
 // device code, and a block of host code inside main that returns nonzero
@@ -28,7 +54,7 @@ type decodeNativeCase struct {
 
 // TestHopperNativeDecodeKernels compiles and runs the decode-loop kernels
 // of buildDecodeNativeHarness on the GPU behind the same gate as
-// [TestHopperNativeQualification], driving the device-side loops through
+// hopper's native qualification suite, driving the device-side loops through
 // real CUDA graph conditional WHILE nodes. It is a separate binary so a
 // toolchain that rejects one of these kernels does not hide the results of
 // the existing qualification suite.
@@ -81,6 +107,8 @@ func TestDecodeNativeHarnessBuilds(t *testing.T) {
 	src := buildDecodeNativeHarness(t)
 	for _, want := range []string{
 		"cudaGraphCondTypeWhile",
+		"specdecode_ctrl_native",
+		"PASS SpeculativeDecodeController",
 		"tree_verify_native_reserve",
 		"PASS TreeSpecVerify",
 		"PASS GrammarSampler",
@@ -96,6 +124,7 @@ func TestDecodeNativeHarnessBuilds(t *testing.T) {
 func buildDecodeNativeHarness(t *testing.T) string {
 	t.Helper()
 	cases := []decodeNativeCase{
+		specDecodeControllerNativeCase(t),
 		treeSpecNativeCase(t),
 		samplerNativeCase(t),
 		earlyExitNativeCase(t),
@@ -103,7 +132,7 @@ func buildDecodeNativeHarness(t *testing.T) string {
 	var b strings.Builder
 	b.WriteString("#include <cuda_runtime.h>\n#include <cstdio>\n#include <cstring>\n#include <cmath>\n#include <vector>\n")
 	b.WriteString("#if CUDART_VERSION < 12040\n#error \"conditional WHILE graph nodes need CUDA 12.4 or later\"\n#endif\n")
-	b.WriteString(Prelude)
+	b.WriteString(hopper.Prelude)
 	b.WriteString(decodeNativeHelpers)
 	for _, c := range cases {
 		fmt.Fprintf(&b, "\n// ---- %s ----\n%s\n", c.name, c.src)
@@ -177,6 +206,93 @@ func cWords(b []byte) string {
 		fmt.Fprintf(&s, "0x%xu", x)
 	}
 	return s.String()
+}
+
+// specDecodeControllerNativeCase runs a single-step SpeculativeDecodeController
+// inside a CUDA graph conditional WHILE node (terminating on EOS in the bonus
+// token) and compares the final sequence state against Reference.
+func specDecodeControllerNativeCase(t *testing.T) decodeNativeCase {
+	t.Helper()
+	spec := SpeculativeDecodeController{
+		Name:        "specdecode_ctrl_native",
+		DraftTokens: 4,
+		MaxSteps:    4,
+	}
+	specCUDA, err := spec.CUDA()
+	if err != nil {
+		t.Fatalf("spec.CUDA: %v", err)
+	}
+	specLaunch, err := spec.Launcher()
+	if err != nil {
+		t.Fatalf("spec.Launcher: %v", err)
+	}
+	specIn := SpeculativeDecodeInput{
+		InitialTokens: []int32{10, 20},
+		EOSTokenID:    33,
+		MaxSeqLen:     16,
+		Steps: []SpeculativeDecodeStep{
+			{
+				Draft:        []int32{30, 31, 32, 99},
+				TargetGreedy: []int32{30, 31, 32, 33, 34},
+			},
+		},
+	}
+	specRef, err := spec.Reference(specIn)
+	if err != nil {
+		t.Fatalf("spec.Reference: %v", err)
+	}
+
+	var src, m strings.Builder
+	src.WriteString(specCUDA + "\n" + specLaunch + "\n")
+	fmt.Fprintf(&src, "static const int32_t sdc_want_toks[] = {%s};\n", formatI32List(specRef.OutputTokens))
+
+	fmt.Fprintf(&m, `        const int32_t h_draft[] = {30, 31, 32, 99};
+        const int32_t h_target[] = {30, 31, 32, 33, 34};
+        int32_t h_out_toks[16] = {10, 20};
+        int32_t h_cur_seq = 2, h_acc_step[4] = {}, h_step_idx = 0;
+        int32_t eos_token_id = 33, max_seq_len = 16;
+
+        auto* d_draft = dn_dup(h_draft, 4);
+        auto* d_target = dn_dup(h_target, 5);
+        auto* d_out_toks = dn_dup(h_out_toks, 16);
+        auto* d_cur_seq = dn_dup(&h_cur_seq, 1);
+        auto* d_acc_step = dn_dup(h_acc_step, 4);
+        auto* d_step_idx = dn_dup(&h_step_idx, 1);
+        if (!d_draft || !d_target || !d_out_toks || !d_cur_seq || !d_acc_step || !d_step_idx) return 2;
+
+        cudaGraph_t graph, body;
+        cudaGraphConditionalHandle cond_handle;
+        DN_CHECK(cudaGraphCreate(&graph, 0));
+        DN_CHECK(cudaGraphConditionalHandleCreate(&cond_handle, graph, 1, cudaGraphCondAssignDefault));
+        DN_CHECK(dn_add_while(graph, cond_handle, &body));
+        void* ctrl_args[] = {&d_draft, &d_target, &eos_token_id, &max_seq_len, &d_out_toks, &d_cur_seq, &d_acc_step, &d_step_idx, &cond_handle};
+        cudaGraphNode_t prev = nullptr;
+        DN_CHECK(dn_add_kernel(body, &prev, (void*)specdecode_ctrl_native, ctrl_args));
+        cudaGraphExec_t exec;
+        DN_CHECK(cudaGraphInstantiate(&exec, graph, 0));
+        DN_CHECK(cudaGraphLaunch(exec, 0));
+        DN_CHECK(cudaDeviceSynchronize());
+
+        auto got_toks = dn_get(d_out_toks, %d);
+        auto got_seq = dn_get(d_cur_seq, 1);
+        auto got_acc = dn_get(d_acc_step, 1);
+        auto got_step = dn_get(d_step_idx, 1);
+        if (got_seq.empty() || got_seq[0] != %d || got_acc[0] != %d || got_step[0] != 1) {
+            std::printf("FAIL SpeculativeDecodeController state seq=%%d acc=%%d step=%%d\n",
+                        got_seq.empty() ? -1 : got_seq[0], got_acc.empty() ? -1 : got_acc[0], got_step.empty() ? -1 : got_step[0]);
+            return 8;
+        }
+        if (std::memcmp(got_toks.data(), sdc_want_toks, sizeof(sdc_want_toks)) != 0) {
+            std::printf("FAIL SpeculativeDecodeController tokens mismatch\n");
+            return 8;
+        }
+        std::printf("PASS SpeculativeDecodeController seq=%%d accepted=%%d\n", got_seq[0], got_acc[0]);
+`,
+		len(specRef.OutputTokens),
+		specRef.FinalSeqLen,
+		specRef.AcceptedPerStep[0],
+	)
+	return decodeNativeCase{name: "SpeculativeDecodeController", src: src.String(), main: m.String()}
 }
 
 // treeSpecNativeCase runs the 32-step greedy tree verification loop of

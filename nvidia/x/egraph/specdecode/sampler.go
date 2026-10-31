@@ -1,10 +1,12 @@
-package hopper
+package specdecode
 
 import (
 	"fmt"
 	"math"
 	"slices"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
 
 // A GrammarBitmask is the set of tokens a structured-output grammar allows
@@ -276,7 +278,7 @@ func (g GrammarSampler) params() []string {
 	}
 }
 
-// CUDA returns the kernel (without [Prelude]). Its parameters are
+// CUDA returns the kernel (without [hopper.Prelude]). Its parameters are
 // row-major logits [rows][VocabSize], mask and seen [rows][(VocabSize+31)/32]
 // (seen may be null), steps [rows], and the outputs tokens and logprobs
 // [rows]. A row whose grammar allows no token gets token -1.
@@ -468,7 +470,7 @@ func (g GrammarSampler) Launcher() (string, error) {
 	return b.String(), nil
 }
 
-// Source returns [Prelude], the kernel and its launcher.
+// Source returns [hopper.Prelude], the kernel and its launcher.
 func (g GrammarSampler) Source() (string, error) {
 	src, err := g.CUDA()
 	if err != nil {
@@ -478,7 +480,7 @@ func (g GrammarSampler) Source() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Prelude + "\n" + src + "\n" + l, nil
+	return hopper.Prelude + "\n" + src + "\n" + l, nil
 }
 
 // Sample runs the kernel's algorithm for one row on the host, in float32,

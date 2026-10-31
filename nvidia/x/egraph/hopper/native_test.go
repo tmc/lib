@@ -124,7 +124,6 @@ func TestHopperNativeClosedGateControl(t *testing.T) {
 		"qk_norm_rope_kv_native",
 		"mtp_paged_attn_native",
 		"mla_paged_attn_native",
-		"specdecode_ctrl_native",
 		"rmsnorm_dyn_nvfp4_native",
 		"swiglu_dyn_nvfp4_native",
 		"sm120_paged_attn_native",
@@ -260,7 +259,7 @@ func TestHopperWave12And13NativeSuiteStructure(t *testing.T) {
 
 // TestHopperNativeQualification compiles and runs the native device
 // qualification suite for QKNormRoPEKVAppend, MTPPagedAttention,
-// MLAPagedAttention, SpeculativeDecodeController, RMSNormDynamicNVFP4Quant,
+// MLAPagedAttention, RMSNormDynamicNVFP4Quant,
 // SwiGLUDynamicNVFP4Quant, and SM120PagedAttention, plus a device mutant
 // control that perturbs the attention input and verifies the check rejects it.
 func TestHopperNativeQualification(t *testing.T) {
@@ -462,36 +461,6 @@ func buildHopperNativeHarness(t *testing.T) string {
 	mlaRef, err := mla.Reference(mlaQNope, mlaQPe, mlaCache)
 	if err != nil {
 		t.Fatalf("mla.Reference: %v", err)
-	}
-
-	// 4. SpeculativeDecodeController fixture (DraftTokens=4, MaxSteps=4).
-	spec := SpeculativeDecodeController{
-		Name:        "specdecode_ctrl_native",
-		DraftTokens: 4,
-		MaxSteps:    4,
-	}
-	specCUDA, err := spec.CUDA()
-	if err != nil {
-		t.Fatalf("spec.CUDA: %v", err)
-	}
-	specLaunch, err := spec.Launcher()
-	if err != nil {
-		t.Fatalf("spec.Launcher: %v", err)
-	}
-	specIn := SpeculativeDecodeInput{
-		InitialTokens: []int32{10, 20},
-		EOSTokenID:    999,
-		MaxSeqLen:     16,
-		Steps: []SpeculativeDecodeStep{
-			{
-				Draft:        []int32{30, 31, 32, 99},
-				TargetGreedy: []int32{30, 31, 32, 33, 34},
-			},
-		},
-	}
-	specRef, err := spec.Reference(specIn)
-	if err != nil {
-		t.Fatalf("spec.Reference: %v", err)
 	}
 
 	// 5. RMSNormDynamicNVFP4Quant fixture (M=1, Cols=64, Eps=1e-5, In=F32, Residual=true, ScaleLayoutTCGen05Swizzled).
@@ -698,7 +667,6 @@ func buildHopperNativeHarness(t *testing.T) string {
 	b.WriteString(qkCUDA + "\n" + qkLaunch + "\n")
 	b.WriteString(mtpCUDA + "\n" + mtpLaunch + "\n")
 	b.WriteString(mlaCUDA + "\n" + mlaLaunch + "\n")
-	b.WriteString(specCUDA + "\n" + specLaunch + "\n")
 	b.WriteString(rmsCUDA + "\n" + rmsLaunch + "\n")
 	b.WriteString(swigluCUDA + "\n" + swigluLaunch + "\n")
 	b.WriteString(sm120CUDA + "\n" + sm120Launch + "\n")
@@ -852,45 +820,6 @@ int main() {
     uint16_t h_mla_out[32] = {};
     if (cudaMemcpy(h_mla_out, d_mla_out, sizeof(h_mla_out), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
     if (!check_close("MLAPagedAttention", h_mla_out, want_mla, 32, 1e-2f)) return 6;
-
-    // 4. SpeculativeDecodeController check
-    const int32_t h_draft[] = {30, 31, 32, 99};
-    const int32_t h_target[] = {30, 31, 32, 33, 34};
-    int32_t h_out_toks[16] = {10, 20};
-    int32_t h_cur_seq = 2, h_acc_step[4] = {}, h_step_idx = 0;
-    unsigned int h_cond_slot = 1u;
-
-    auto* d_draft = dev_dup(h_draft, 4);
-    auto* d_target = dev_dup(h_target, 5);
-    auto* d_out_toks = dev_dup(h_out_toks, 16);
-    auto* d_cur_seq = dev_dup(&h_cur_seq, 1);
-    auto* d_acc_step = dev_dup(h_acc_step, 4);
-    auto* d_step_idx = dev_dup(&h_step_idx, 1);
-    auto* d_cond_slot = dev_dup(&h_cond_slot, 1);
-
-    specdecode_ctrl_native_launch(
-        d_draft, d_target, 999, 16, d_out_toks, d_cur_seq, d_acc_step, d_step_idx,
-        reinterpret_cast<cudaGraphConditionalHandle>(d_cond_slot), 0);
-    if (cudaDeviceSynchronize() != cudaSuccess) return 4;
-    if (cudaMemcpy(h_out_toks, d_out_toks, sizeof(h_out_toks), cudaMemcpyDeviceToHost) != cudaSuccess ||
-        cudaMemcpy(&h_cur_seq, d_cur_seq, sizeof(h_cur_seq), cudaMemcpyDeviceToHost) != cudaSuccess ||
-        cudaMemcpy(h_acc_step, d_acc_step, sizeof(h_acc_step), cudaMemcpyDeviceToHost) != cudaSuccess ||
-        cudaMemcpy(&h_step_idx, d_step_idx, sizeof(h_step_idx), cudaMemcpyDeviceToHost) != cudaSuccess ||
-        cudaMemcpy(&h_cond_slot, d_cond_slot, sizeof(h_cond_slot), cudaMemcpyDeviceToHost) != cudaSuccess) return 5;
-
-    const int32_t want_toks[] = {%s};
-    if (h_cur_seq != %d || h_acc_step[0] != %d || h_step_idx != 1 || h_cond_slot != 1u) {
-        std::printf("FAIL SpeculativeDecodeController state seq=%%d acc=%%d step=%%d cond=%%u\n",
-                    h_cur_seq, h_acc_step[0], h_step_idx, h_cond_slot);
-        return 8;
-    }
-    for (int i = 0; i < %d; ++i) {
-        if (h_out_toks[i] != want_toks[i]) {
-            std::printf("FAIL SpeculativeDecodeController tok[%%d]=%%d want=%%d\n", i, h_out_toks[i], want_toks[i]);
-            return 8;
-        }
-    }
-    std::printf("PASS SpeculativeDecodeController seq=%%d accepted=%%d cond=%%u\n", h_cur_seq, h_acc_step[0], h_cond_slot);
 
     // 5. RMSNormDynamicNVFP4Quant check (0 byte differences against Reference)
     const float h_rms_x[] = {%s};
@@ -1095,10 +1024,6 @@ int main() {
 		formatU16List(mlaCKV),
 		formatU16List(mlaKPE),
 		formatF64AsF32List(mlaRef),
-		formatI32List(specRef.OutputTokens),
-		specRef.FinalSeqLen,
-		specRef.AcceptedPerStep[0],
-		len(specRef.OutputTokens),
 		formatF32List(rmsX),
 		formatF32List(rmsRes),
 		formatF32List(rmsW),

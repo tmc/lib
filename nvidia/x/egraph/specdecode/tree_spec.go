@@ -1,4 +1,4 @@
-package hopper
+package specdecode
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
 
 // A DraftTreeTopology is a speculative draft tree of at most 64 nodes in
@@ -24,10 +25,11 @@ type DraftTreeTopology struct {
 }
 
 // BuildDraftTreeTopology validates parentIdx and computes the ancestor masks
-// that [MTPPagedAttention] takes as its draft mask. Unlike [TreeDraftMask] it
-// requires a single tree: only node 0 may have parent -1.
+// that [hopper.MTPPagedAttention] takes as its draft mask. Unlike
+// [hopper.TreeDraftMask] it requires a single tree: only node 0 may have
+// parent -1.
 func BuildDraftTreeTopology(parentIdx []int) (DraftTreeTopology, error) {
-	mask, err := TreeDraftMask(parentIdx)
+	mask, err := hopper.TreeDraftMask(parentIdx)
 	if err != nil {
 		return DraftTreeTopology{}, fmt.Errorf("build draft tree: %w", err)
 	}
@@ -200,7 +202,7 @@ func sampleResidual(r []float32, u float32) int32 {
 // with no host round trip. Name_reserve and Name are emitted here; the draft
 // and target forward passes are the caller's. The target forward writes
 // node i's KV at sequence position seqlen+i, using the tree mask from
-// [BuildDraftTreeTopology] in [MTPPagedAttention].
+// [BuildDraftTreeTopology] in [hopper.MTPPagedAttention].
 //
 // Both kernels run as one warp; lane b handles sequence b and lane 0
 // updates the shared free-page stack in sequence order, so the page
@@ -301,7 +303,7 @@ func (s TreeSpecVerify) params() []string {
 	)
 }
 
-// CUDA returns both kernels (without [Prelude]).
+// CUDA returns both kernels (without [hopper.Prelude]).
 func (s TreeSpecVerify) CUDA() (string, error) {
 	s, err := s.norm()
 	if err != nil {
@@ -495,7 +497,7 @@ func (s TreeSpecVerify) Launcher() (string, error) {
 	return b.String(), nil
 }
 
-// Source returns [Prelude], the kernels and their launchers.
+// Source returns [hopper.Prelude], the kernels and their launchers.
 func (s TreeSpecVerify) Source() (string, error) {
 	src, err := s.CUDA()
 	if err != nil {
@@ -505,7 +507,7 @@ func (s TreeSpecVerify) Source() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return Prelude + "\n" + src + "\n" + l, nil
+	return hopper.Prelude + "\n" + src + "\n" + l, nil
 }
 
 // TreeSpecSeqStep is one sequence's draft tree for one step: what the draft

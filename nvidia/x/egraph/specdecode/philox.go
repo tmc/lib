@@ -1,4 +1,4 @@
-package hopper
+package specdecode
 
 // Philox4x32 is the Philox-4x32-10 counter-based generator of Salmon et al.
 // (SC'11), the generator behind curand's Philox engine. It maps a 128-bit
@@ -46,7 +46,7 @@ func philoxOpenUniform(word uint32) float32 {
 // emulator.
 const philoxDevice = `#ifndef EG_PHILOX_DEFINED
 #define EG_PHILOX_DEFINED 1
-// eg_philox4x32 is Philox-4x32-10; it matches hopper.Philox4x32.
+// eg_philox4x32 is Philox-4x32-10; it matches specdecode.Philox4x32.
 EG_DEV void eg_philox4x32(uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3,
                           uint32_t k0, uint32_t k1, uint32_t out[4]) {
 #pragma unroll
