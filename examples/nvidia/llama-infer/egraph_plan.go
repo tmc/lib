@@ -66,6 +66,10 @@ type egraphOptions struct {
 	// prefills token by token, < 0 picks the cache length.
 	PrefillRows int
 
+	// PrefillMinRows reserves metadata for smaller logical chunks without
+	// changing the kernel plans; 0 uses the planned row count.
+	PrefillMinRows int
+
 	// AttnSplits divides decode attention's keys among this many CTAs per
 	// KV head, with a combine kernel; 0 runs one CTA per KV head, and < 0
 	// picks Profile's SMs / KV heads, so the CTAs cover the SMs once.

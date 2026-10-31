@@ -57,6 +57,21 @@ type egraphPrefill struct {
 	attnOut   cudamem.Slice[uint16]
 }
 
+// prefillSeqLenCapacity bounds the metadata for chunks of at least rows
+// tokens in a sequence of at most maxSeq tokens, with qtok rows per group.
+// Each chunk can add one partial group beyond maxSeq/qtok.
+func prefillSeqLenCapacity(maxSeq, rows, qtok int) (int, error) {
+	if maxSeq <= 0 || rows <= 0 || qtok <= 0 {
+		return 0, fmt.Errorf("prefill sequence lengths: nonpositive size (%d, %d, %d)", maxSeq, rows, qtok)
+	}
+	groups := (maxSeq-1)/qtok + 1
+	chunks := (maxSeq-1)/rows + 1
+	if groups > int(^uint(0)>>1)-chunks {
+		return 0, errors.New("prefill sequence lengths: capacity overflow")
+	}
+	return groups + chunks, nil
+}
+
 // prefillSeqLens returns the attention sequence lengths of a chunk of n
 // prompt rows that starts at position start. Group g holds the qtok rows
 // from g·qtok; [hopper.MTPPagedAttention] lets it attend every position
@@ -197,33 +212,39 @@ func (pf *egraphPrefill) launches() int {
 	return c
 }
 
-// prefill runs prompt from position 0, filling the decoder's KV cache, and
-// leaves the argmax of the last token's logits in sp.TokenOut, which it
-// also returns.
-func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GPUScratchpad, sampleFn driver.Function, prompt []int32) (int32, error) {
+// prefill runs seq[start:] from position start, extending a KV cache that
+// already holds seq[:start], and leaves the argmax of the last token's
+// logits in sp.TokenOut, which it also returns. Chunks of up to pf.rows
+// tokens begin at start.
+//
+// If logits is non-nil, prefill also runs the head after every chunk and
+// calls logits with the position of the chunk's last row once the device
+// has written that row's logits to sp.Logits.
+func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GPUScratchpad, sampleFn driver.Function, seq []int32, start int, logits func(pos int) error) (int32, error) {
 	pf := eg.pf
-	if len(prompt) == 0 {
-		return 0, errors.New("e-graph prefill: empty prompt")
+	if start < 0 || start >= len(seq) {
+		return 0, fmt.Errorf("e-graph prefill: start %d outside %d tokens", start, len(seq))
 	}
-	if err := checkPos(len(prompt)-1, cfg.MaxSeqLen); err != nil {
+	if err := checkPos(len(seq)-1, cfg.MaxSeqLen); err != nil {
 		return 0, err
 	}
-	for _, tok := range prompt {
+	for _, tok := range seq[start:] {
 		if err := checkToken(tok, cfg.VocabSize); err != nil {
 			return 0, err
 		}
 	}
-	// Upload the prompt and every chunk's attention lengths before the
+	// Upload the tokens and every chunk's attention lengths before the
 	// first launch.
-	if err := pf.tokens.CopyFromHost(prompt); err != nil {
+	if err := pf.tokens.CopyFromHost(seq); err != nil {
 		return 0, fmt.Errorf("upload prompt: %w", err)
 	}
 	var lens []int32
-	var groupStart []int
-	for start := 0; start < len(prompt); start += pf.rows {
-		n := min(pf.rows, len(prompt)-start)
+	var chunkStart, groupStart []int
+	for c := start; c < len(seq); c += pf.rows {
+		n := min(pf.rows, len(seq)-c)
+		chunkStart = append(chunkStart, c)
 		groupStart = append(groupStart, len(lens))
-		lens = append(lens, prefillSeqLens(start, n, pf.chunkQTok(n))...)
+		lens = append(lens, prefillSeqLens(c, n, pf.chunkQTok(n))...)
 	}
 	if err := pf.seqLens.CopyFromHost(lens); err != nil {
 		return 0, fmt.Errorf("upload attention lengths: %w", err)
@@ -245,16 +266,39 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 		}
 		return nil
 	}
-	var last driver.DevicePtr
+	head := func(x driver.DevicePtr) error {
+		norm, err := eg.bind(eg.plans.norm, map[string]driver.DevicePtr{
+			"x":                       x,
+			"norm":                    gpuW.Norm.Ptr(),
+			eg.plans.norm.Output.Name: eg.xn.Ptr(),
+		})
+		if err != nil {
+			return err
+		}
+		hd, err := eg.bind(eg.plans.head, map[string]driver.DevicePtr{
+			"xn":                      eg.xn.Ptr(),
+			"lm_head":                 gpuW.LMHead.Ptr(),
+			eg.plans.head.Output.Name: sp.Logits.Ptr(),
+		})
+		if err != nil {
+			return err
+		}
+		for _, l := range append(norm, hd...) {
+			if err := launch(l); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for c, g0 := range groupStart {
-		start := c * pf.rows
-		n := min(pf.rows, len(prompt)-start)
+		at := chunkStart[c]
+		n := min(pf.rows, len(seq)-at)
 		groups := (n + pf.chunkQTok(n) - 1) / pf.chunkQTok(n)
 		if err := launch(egraphLaunch{fn: pf.gather, grid: [3]uint32{uint32(n), 1, 1}, block: [3]uint32{256, 1, 1},
-			args: []any{gpuW.EmbedTokens, pf.tokens.Ptr() + driver.DevicePtr(4*start), pf.x[0].Ptr(), int32(h)}}); err != nil {
+			args: []any{gpuW.EmbedTokens, pf.tokens.Ptr() + driver.DevicePtr(4*at), pf.x[0].Ptr(), int32(h)}}); err != nil {
 			return 0, err
 		}
-		positions := pf.positions.Ptr() + driver.DevicePtr(4*start)
+		positions := pf.positions.Ptr() + driver.DevicePtr(4*at)
 		seqLens := pf.seqLens.Ptr() + driver.DevicePtr(4*g0)
 		attnIn, post, attn := pf.attnIn, pf.post, pf.attn
 		if n <= pf.narrow {
@@ -276,7 +320,7 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 			if n > pf.narrow && len(pf.flash) > 0 {
 				a = pf.flash[i]
 				a.args = append([]any(nil), a.args...)
-				a.args[4], a.args[5] = int32(start), int32(n)
+				a.args[4], a.args[5] = int32(at), int32(n)
 				g, blk := eg.plans.pf.flash.Grid(n)
 				a.grid = [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}
 				a.block = [3]uint32{uint32(blk[0]), uint32(blk[1]), uint32(blk[2])}
@@ -291,26 +335,23 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 				return 0, err
 			}
 		}
-		last = pf.x[cfg.NumHiddenLayers%2].Ptr() + driver.DevicePtr(4*h*(n-1))
-	}
-	norm, err := eg.bind(eg.plans.norm, map[string]driver.DevicePtr{
-		"x":                       last,
-		"norm":                    gpuW.Norm.Ptr(),
-		eg.plans.norm.Output.Name: eg.xn.Ptr(),
-	})
-	if err != nil {
-		return 0, err
-	}
-	head, err := eg.bind(eg.plans.head, map[string]driver.DevicePtr{
-		"xn":                      eg.xn.Ptr(),
-		"lm_head":                 gpuW.LMHead.Ptr(),
-		eg.plans.head.Output.Name: sp.Logits.Ptr(),
-	})
-	if err != nil {
-		return 0, err
-	}
-	for _, l := range append(norm, head...) {
-		if err := launch(l); err != nil {
+		last := pf.x[cfg.NumHiddenLayers%2].Ptr() + driver.DevicePtr(4*h*(n-1))
+		if c == len(groupStart)-1 {
+			if err := head(last); err != nil {
+				return 0, err
+			}
+			break
+		}
+		if logits == nil {
+			continue
+		}
+		if err := head(last); err != nil {
+			return 0, err
+		}
+		if err := driver.CtxSynchronize(); err != nil {
+			return 0, err
+		}
+		if err := logits(at + n - 1); err != nil {
 			return 0, err
 		}
 	}
@@ -319,6 +360,11 @@ func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GP
 	}
 	if err := driver.CtxSynchronize(); err != nil {
 		return 0, err
+	}
+	if logits != nil {
+		if err := logits(len(seq) - 1); err != nil {
+			return 0, err
+		}
 	}
 	if err := sp.TokenOut.CopyToHost(sp.HostTokenOut); err != nil {
 		return 0, err

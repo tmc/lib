@@ -205,6 +205,17 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 	if err != nil {
 		return nil, fmt.Errorf("build e-graph plans: %w", err)
 	}
+	var prefillGroups int
+	if pl := plans.pf; pl != nil && opt.PrefillMinRows != 0 {
+		rows := min(pl.rows, opt.PrefillMinRows)
+		qtok := pl.qtok
+		if rows <= pl.narrow && pl.narrowQTok > 0 {
+			qtok = pl.narrowQTok
+		}
+		if prefillGroups, err = prefillSeqLenCapacity(cfg.MaxSeqLen, rows, qtok); err != nil {
+			return nil, err
+		}
+	}
 	eg = &egraphDecoder{
 		plans:    plans,
 		megas:    make(map[*hopper.Plan]hopper.Megakernel),
@@ -381,9 +392,11 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 		kvDim := cfg.NumKeyValueHeads * cfg.HeadDim()
 		groups := (pl.rows + pl.qtok - 1) / pl.qtok
 		// Every chunk but the last fills its groups, so the prompt needs
+		// Every chunk but the last fills its groups, so the prompt needs
 		// at most one partial group per chunk beyond MaxSeqLen/qtok, and
 		// a narrow last chunk at most its narrowQTok-row groups.
 		maxGroups := (cfg.MaxSeqLen+pl.qtok-1)/pl.qtok + (cfg.MaxSeqLen+pl.rows-1)/pl.rows + (pl.narrow+pl.narrowQTok-1)/pl.narrowQTok
+		maxGroups = max(maxGroups, prefillGroups)
 		eg.pf = &egraphPrefill{rows: pl.rows, qtok: pl.qtok, narrow: pl.narrow, narrowQTok: pl.narrowQTok, gather: eg.fns[embedGatherName]}
 		if eg.pf.tokens, err = cudamem.Alloc[int32](dev, cfg.MaxSeqLen); err != nil {
 			return nil, fmt.Errorf("alloc prefill tokens: %w", err)
