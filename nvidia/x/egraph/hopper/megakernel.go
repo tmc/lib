@@ -42,6 +42,32 @@ type MegaStage struct {
 	Outputs    []Tensor // intermediate tensors published on SignalSlot
 }
 
+// A StageLineSpan maps a megakernel stage to its synthetic #line file and
+// 1-based line span in the emitted translation unit.
+type StageLineSpan struct {
+	StageIndex int
+	StageName  string
+	File       string // e.g. "<StageName>.cu"
+	StartLine  int    // 1-based line in the emitted string where stage device function begins
+	EndLine    int    // 1-based line in the emitted string where stage device function ends
+}
+
+// StageFileLabels returns a map from synthetic #line file names emitted by
+// [Megakernel.LineInfoCUDA] and [Megakernel.LineInfoSource] to stage names
+// (and "<m.Name>.cu" mapped to m.Name).
+func (m Megakernel) StageFileLabels() map[string]string {
+	labels := make(map[string]string, len(m.Stages)+1)
+	if m.Name != "" {
+		labels[m.Name+".cu"] = m.Name
+	}
+	for _, st := range m.Stages {
+		if st.Name != "" {
+			labels[st.Name+".cu"] = st.Name
+		}
+	}
+	return labels
+}
+
 // Megakernel lowers p into a persistent multi-stage [Megakernel] named name
 // (or p.Name+"_mega" when name is empty).
 func (p *Plan) Megakernel(name string) (Megakernel, error) {
@@ -361,11 +387,11 @@ func (m Megakernel) params() []string {
 	return params
 }
 
-// stageDeviceCUDA converts a stage kernel's __global__ CUDA source into a
-// __device__ function taking (dim3 eg_bidx, dim3 eg_gdim, ...).
-func stageDeviceCUDA(st MegaStage, seenHelpers map[string]bool) (string, error) {
+// stageDeviceParts converts a stage kernel's __global__ CUDA source into its
+// helper/comment prelude and its EG_DEV __device__ function taking
+// (dim3 eg_bidx, dim3 eg_gdim, ...).
+func stageDeviceParts(st MegaStage, seenHelpers map[string]bool) (prelude, fnBody string, err error) {
 	var raw string
-	var err error
 	k := st.Kernel
 	switch {
 	case k.GEMM != nil:
@@ -381,15 +407,15 @@ func stageDeviceCUDA(st MegaStage, seenHelpers map[string]bool) (string, error) 
 	case k.Align != nil:
 		raw, err = k.Align.CUDA()
 	default:
-		return "", fmt.Errorf("stage %s: empty kernel", st.Name)
+		return "", "", fmt.Errorf("stage %s: empty kernel", st.Name)
 	}
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	marker := "__global__ void __launch_bounds__(256) " + st.Name + "(\n    "
 	idx := strings.Index(raw, marker)
 	if idx < 0 {
-		return "", fmt.Errorf("stage %s: unexpected kernel header in generated CUDA", st.Name)
+		return "", "", fmt.Errorf("stage %s: unexpected kernel header in generated CUDA", st.Name)
 	}
 	prefix := raw[:idx]
 	body := raw[idx+len(marker):]
@@ -406,45 +432,77 @@ func stageDeviceCUDA(st MegaStage, seenHelpers map[string]bool) (string, error) 
 			helperLines = append(helperLines, line)
 		}
 	}
-	var b strings.Builder
+	var pre strings.Builder
 	if helperBlock := strings.TrimSpace(strings.Join(helperLines, "\n")); helperBlock != "" && !seenHelpers[helperBlock] {
 		seenHelpers[helperBlock] = true
-		b.WriteString(helperBlock)
-		b.WriteString("\n\n")
+		pre.WriteString(helperBlock)
+		pre.WriteString("\n\n")
 	}
 	for _, line := range commentLines {
-		b.WriteString(line)
-		b.WriteString("\n")
+		pre.WriteString(line)
+		pre.WriteString("\n")
 	}
-	fmt.Fprintf(&b, "EG_DEV void %s_dev(\n    dim3 eg_bidx,\n    dim3 eg_gdim,\n    %s", st.Name, body)
-	return b.String(), nil
+	fnBody = fmt.Sprintf("EG_DEV void %s_dev(\n    dim3 eg_bidx,\n    dim3 eg_gdim,\n    %s", st.Name, body)
+	return pre.String(), fnBody, nil
 }
 
-// CUDA returns the megakernel device source (with [ReadyPrelude], without [Prelude]).
-func (m Megakernel) CUDA() (string, error) {
+// stageDeviceCUDA converts a stage kernel's __global__ CUDA source into a
+// __device__ function taking (dim3 eg_bidx, dim3 eg_gdim, ...).
+func stageDeviceCUDA(st MegaStage, seenHelpers map[string]bool) (string, error) {
+	pre, fnBody, err := stageDeviceParts(st, seenHelpers)
+	if err != nil {
+		return "", err
+	}
+	return pre + fnBody, nil
+}
+
+func (m Megakernel) cudaSource(lineInfo bool) (string, []StageLineSpan, error) {
 	if len(m.Stages) == 0 || !cIdent(m.Name) {
-		return "", fmt.Errorf("megakernel: invalid megakernel %q", m.Name)
+		return "", nil, fmt.Errorf("megakernel: invalid megakernel %q", m.Name)
 	}
 	var b strings.Builder
 	b.WriteString(ReadyPrelude)
 	seenHelpers := make(map[string]bool)
-	for _, st := range m.Stages {
+	var spans []StageLineSpan
+	if lineInfo {
+		spans = make([]StageLineSpan, len(m.Stages))
+	}
+	for i, st := range m.Stages {
 		if st.Kernel.Row != nil && st.Kernel.Row.Slots > 0 && !seenHelpers["cluster_prelude"] {
 			seenHelpers["cluster_prelude"] = true
 			b.WriteString("\n")
 			b.WriteString(ClusterPrelude)
 		}
-		dsrc, err := stageDeviceCUDA(st, seenHelpers)
+		pre, fnBody, err := stageDeviceParts(st, seenHelpers)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		b.WriteString("\n")
-		b.WriteString(dsrc)
+		b.WriteString(pre)
+		if lineInfo {
+			file := st.Name + ".cu"
+			fmt.Fprintf(&b, "#line 1 %q\n", file)
+			startLine := 1 + strings.Count(b.String(), "\n")
+			b.WriteString(fnBody)
+			endLine := startLine + strings.Count(strings.TrimSuffix(fnBody, "\n"), "\n")
+			spans[i] = StageLineSpan{
+				StageIndex: i,
+				StageName:  st.Name,
+				File:       file,
+				StartLine:  startLine,
+				EndLine:    endLine,
+			}
+		} else {
+			b.WriteString(fnBody)
+		}
 	}
 
 	grid, _ := m.Grid()
 	fmt.Fprintf(&b, "\n// %s: persistent %d-stage megakernel (%d blocks, %d ready counter words).\n",
 		m.Name, len(m.Stages), grid[0], m.ReadyWords())
+	if lineInfo {
+		fmt.Fprintf(&b, "#line 1 %q\n", m.Name+".cu")
+	}
 	fmt.Fprintf(&b, "__global__ void __launch_bounds__(256) %s(\n    %s) {\n",
 		m.Name, strings.Join(m.params(), ",\n    "))
 	b.WriteString("    const int eg_bid = blockIdx.x;\n")
@@ -494,7 +552,20 @@ func (m Megakernel) CUDA() (string, error) {
 		b.WriteString("        return;\n    }\n")
 	}
 	b.WriteString("}\n")
-	return b.String(), nil
+	return b.String(), spans, nil
+}
+
+// CUDA returns the megakernel device source (with [ReadyPrelude], without [Prelude]).
+func (m Megakernel) CUDA() (string, error) {
+	src, _, err := m.cudaSource(false)
+	return src, err
+}
+
+// LineInfoCUDA returns the megakernel device source annotated with synthetic
+// #line directives for each stage device function and the megakernel entry,
+// along with the 1-based [StageLineSpan] for each stage in the returned string.
+func (m Megakernel) LineInfoCUDA() (string, []StageLineSpan, error) {
+	return m.cudaSource(true)
 }
 
 // Launcher returns the host functions
@@ -544,4 +615,25 @@ func (m Megakernel) Source() (string, error) {
 		return "", err
 	}
 	return Prelude + "\n" + src + "\n" + l, nil
+}
+
+// LineInfoSource returns a complete translation unit with [Prelude],
+// [ReadyPrelude], the #line-annotated stage device functions and megakernel
+// entry, and its host launchers, along with the 1-based [StageLineSpan] for
+// each stage in the returned translation unit.
+func (m Megakernel) LineInfoSource() (string, []StageLineSpan, error) {
+	src, spans, err := m.LineInfoCUDA()
+	if err != nil {
+		return "", nil, err
+	}
+	l, err := m.Launcher()
+	if err != nil {
+		return "", nil, err
+	}
+	shift := strings.Count(Prelude, "\n") + 1
+	for i := range spans {
+		spans[i].StartLine += shift
+		spans[i].EndLine += shift
+	}
+	return Prelude + "\n" + src + "\n" + l, spans, nil
 }

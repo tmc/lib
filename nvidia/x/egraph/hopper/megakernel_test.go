@@ -583,6 +583,115 @@ func TestMegakernelErrors(t *testing.T) {
 	if _, err := pAttn.Megakernel("pa_mega"); err == nil {
 		t.Error("attention stage: expected error")
 	}
+	if _, _, err := (Megakernel{}).LineInfoCUDA(); err == nil {
+		t.Error("empty megakernel LineInfoCUDA: expected error")
+	}
+	if _, _, err := (Megakernel{}).LineInfoSource(); err == nil {
+		t.Error("empty megakernel LineInfoSource: expected error")
+	}
+}
+
+func TestMegakernelLineInfoAttribution(t *testing.T) {
+	b := NewBuilder()
+	x := b.Input("x", BF16, 2, 256)
+	w := b.Input("w", BF16, 64, 256)
+	y := b.MatMul(x, w)
+	ss := b.ReduceSum(b.Map(MustLambda("(mul $0 $0)"), y))
+	root := b.Map(MustLambda("(mul $0 (rsqrt (add (div $1 64) 1e-5)))"), y, ss)
+
+	expr, err := Optimize(b.G, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Compile(expr, "lineinfo_proj", BF16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mega, err := plan.Megakernel("lineinfo_proj_mega")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	labels := mega.StageFileLabels()
+	if got := labels[mega.Name+".cu"]; got != mega.Name {
+		t.Fatalf("StageFileLabels[%q] = %q, want %q", mega.Name+".cu", got, mega.Name)
+	}
+	for _, st := range mega.Stages {
+		if got := labels[st.Name+".cu"]; got != st.Name {
+			t.Fatalf("StageFileLabels[%q] = %q, want %q", st.Name+".cu", got, st.Name)
+		}
+	}
+
+	cudaSrc, cudaSpans, err := mega.LineInfoCUDA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fullSrc, fullSpans, err := mega.LineInfoSource()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name  string
+		src   string
+		spans []StageLineSpan
+	}{
+		{"LineInfoCUDA", cudaSrc, cudaSpans},
+		{"LineInfoSource", fullSrc, fullSpans},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if len(tc.spans) != len(mega.Stages) {
+				t.Fatalf("len(spans) = %d, want %d", len(tc.spans), len(mega.Stages))
+			}
+			lines := strings.Split(tc.src, "\n")
+			for i, sp := range tc.spans {
+				st := mega.Stages[i]
+				wantFile := st.Name + ".cu"
+				if sp.StageIndex != i || sp.StageName != st.Name || sp.File != wantFile {
+					t.Fatalf("span[%d] = %+v, want StageIndex=%d StageName=%q File=%q", i, sp, i, st.Name, wantFile)
+				}
+				if sp.StartLine < 2 || sp.EndLine < sp.StartLine || sp.EndLine > len(lines) {
+					t.Fatalf("span[%d] lines [%d, %d] out of range 1..%d", i, sp.StartLine, sp.EndLine, len(lines))
+				}
+				wantLineDirective := fmt.Sprintf("#line 1 %q", wantFile)
+				if got := lines[sp.StartLine-2]; got != wantLineDirective {
+					t.Errorf("line before StartLine (%d) = %q, want %q", sp.StartLine-1, got, wantLineDirective)
+				}
+				wantDecl := "EG_DEV void " + st.Name + "_dev("
+				if got := lines[sp.StartLine-1]; !strings.HasPrefix(got, wantDecl) {
+					t.Errorf("StartLine (%d) = %q, want prefix %q", sp.StartLine, got, wantDecl)
+				}
+				if got := lines[sp.EndLine-1]; got != "}" {
+					t.Errorf("EndLine (%d) = %q, want %q", sp.EndLine, got, "}")
+				}
+			}
+			wantEntryDirective := fmt.Sprintf("#line 1 %q\n__global__ void __launch_bounds__(256) %s(", mega.Name+".cu", mega.Name)
+			if !strings.Contains(tc.src, wantEntryDirective) {
+				t.Errorf("missing entry #line directive %q", wantEntryDirective)
+			}
+		})
+	}
+
+	// Verify #line-annotated translation unit compiles and matches Source() across epochs.
+	r := rand.New(rand.NewPCG(71, 72))
+	envs := []map[string]Value{
+		randEnv(r, Tensor{"x", BF16, []int{2, 256}}, Tensor{"w", BF16, []int{64, 256}}),
+		randEnv(r, Tensor{"x", BF16, []int{2, 256}}, Tensor{"w", BF16, []int{64, 256}}),
+	}
+	wantOuts, wantReady, err := runMegakernelEpochs(t, mega, envs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotOuts, gotReady, err := runMegakernelSourceEpochs(t, mega, fullSrc, envs)
+	if err != nil {
+		t.Fatalf("LineInfoSource execution failed: %v", err)
+	}
+	for ep := range envs {
+		agree(t, fmt.Sprintf("lineinfo_epoch_%d", ep+1), BF16, gotOuts[ep], wantOuts[ep])
+	}
+	if len(gotReady) != len(wantReady) || gotReady[0] != wantReady[0] {
+		t.Fatalf("ready = %#x, want %#x", gotReady, wantReady)
+	}
 }
 
 func ExamplePlan_Megakernel() {
