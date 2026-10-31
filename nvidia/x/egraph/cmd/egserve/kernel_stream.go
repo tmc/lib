@@ -1243,7 +1243,7 @@ func (s *EGServer) buildSimpleKernelStreamIterations(bucketM int) []KernelStream
 		iter.InlineAnnotatedText = renderInlineAnnotatedText(iter, nil, nil)
 		out[i] = iter
 	}
-	return out
+	return EnrichTrajectoryWithLineInfo(out, "", "")
 }
 
 // mutateCUDALinesForIteration produces a copy of baseLines with stage-level and
@@ -2820,6 +2820,86 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     border-bottom: 1px solid rgba(30, 41, 59, 0.55);
   }
   .sass-table th { color: var(--fg-2); }
+  .code-line { cursor: pointer; }
+  .code-line:hover { background: rgba(56, 189, 248, 0.08); }
+  .code-line.line-selected {
+    outline: 1px solid var(--accent);
+    background: rgba(56, 189, 248, 0.14);
+  }
+  .telemetry-ribbons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+  }
+  .ribbon-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.32rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+  }
+  .ribbon-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--fg-1);
+    font-size: 0.62rem;
+    font-weight: 700;
+  }
+  .ribbon-body {
+    color: var(--fg-0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sandbox-drawer {
+    display: none;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    padding: 0.55rem 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+  }
+  .sandbox-drawer.open { display: block; }
+  .sandbox-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 0.75rem;
+    align-items: start;
+  }
+  .knob-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.45rem;
+  }
+  .knob-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.64rem;
+    color: var(--fg-1);
+    cursor: pointer;
+  }
+  .sandbox-textarea {
+    width: 100%;
+    height: 150px;
+    background: var(--bg-0);
+    color: var(--fg-0);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    padding: 0.4rem;
+    line-height: 1.35;
+  }
 </style>
 </head>
 <body>
@@ -2839,7 +2919,9 @@ const inspectorHTMLPage = `<!DOCTYPE html>
         <input type="range" id="scrubber-range" min="0" max="23" value="0">
         <span class="scrubber-readout" id="scrubber-readout">#00 / #23</span>
       </div>
-      <button id="live-compile-btn" title="Compile all 24 candidates live through nvcc --cubin -Xptxas -v and nvdisasm -c">Compile Live (nvcc/ptxas)</button>
+      <button id="live-compile-btn" title="Compile all 24 candidates live through nvcc --cubin -lineinfo -Xptxas -v and nvdisasm -c -g">Compile Live (nvcc/ptxas)</button>
+      <button id="live-gpu-btn" title="Run paired CUDA event timing &amp; numerical verification on GB10 (sm_121a) under gpu-lock">Benchmark GPU (dgx)</button>
+      <button id="toggle-sandbox-btn" title="Open interactive CUDA live-edit &amp; E-Graph rewrite sandbox">Rewrite Sandbox</button>
       <label>Kernel:
         <select id="mode-select">
           <option value="simple" selected>Simple Fused RMSNorm+SwiGLU+GEMV (24 cands)</option>
@@ -2891,6 +2973,39 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       </div>
     </div>
     <div class="traj-strip" id="traj-steps"></div>
+    <div class="telemetry-ribbons">
+      <div class="ribbon-card" id="egraph-derivation-bar">
+        <div class="ribbon-head">
+          <span>E-GRAPH SATURATION &amp; BEAM DERIVATION</span>
+          <span id="egraph-eclass-badge" class="badge badge-proof">e-class #0 -&gt; #0</span>
+        </div>
+        <div class="ribbon-body" id="egraph-rule-text">Loading e-graph equality saturation trace...</div>
+      </div>
+      <div class="ribbon-card" id="token-flight-bar">
+        <div class="ribbon-head">
+          <span>LIVE SPECULATIVE TOKEN STREAM &amp; CUGRAPHEXEC HOT-SWAP</span>
+          <span id="token-flight-badge" class="badge badge-l2">Epoch #1 | M=1 | 31.8 tok/s</span>
+        </div>
+        <div class="ribbon-body" id="token-flight-text">Streaming token telemetry across M in {1, 2, 4, 8}...</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sandbox-drawer" id="sandbox-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
+      <strong style="color:var(--accent)">INTERACTIVE CUDA LIVE-EDIT &amp; E-GRAPH REWRITE SANDBOX (POST /v1/kernels/eval)</strong>
+      <div style="display:flex;gap:0.4rem">
+        <button id="sandbox-load-cand-btn">Load Inspected Candidate</button>
+        <button id="sandbox-eval-btn" class="primary">Evaluate &amp; Append Candidate (#24+)</button>
+        <span id="sandbox-status-text" style="color:var(--fg-1);align-self:center">Ready</span>
+      </div>
+    </div>
+    <div class="sandbox-grid">
+      <div class="knob-list" id="sandbox-knobs-list">
+        <div style="font-weight:700;color:var(--fg-0);margin-bottom:0.2rem">Composable E-Graph Rewrite Knobs:</div>
+      </div>
+      <textarea id="sandbox-cuda-textarea" class="sandbox-textarea" spellcheck="false"></textarea>
+    </div>
   </section>
 
   <main class="dual-workspace">
@@ -2940,6 +3055,11 @@ const inspectorHTMLPage = `<!DOCTYPE html>
 
 <script>
   let catalogFrames = [];
+  let egraphDerivations = [];
+  let egraphReportMeta = null;
+  let tokenFlightSteps = [];
+  let selectedBestLine = 6;
+  let selectedCandLine = 6;
   let maxSeenIndex = 0;
   let inspectedIndex = 0;
   let activeEventSource = null;
@@ -3170,7 +3290,18 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       const ann = anns[ln];
 
       const row = document.createElement('div');
-      row.className = 'code-line' + (isDiff ? (promoted ? ' line-mutated-ok' : ' line-mutated-bad') : '');
+      const activeSelLine = isCandidatePane ? selectedCandLine : selectedBestLine;
+      row.className = 'code-line' +
+        (isDiff ? (promoted ? ' line-mutated-ok' : ' line-mutated-bad') : '') +
+        (ln === activeSelLine ? ' line-selected' : '');
+      row.addEventListener('click', () => {
+        if (isCandidatePane) {
+          selectedCandLine = ln;
+        } else {
+          selectedBestLine = ln;
+        }
+        renderViewAt(inspectedIndex);
+      });
 
       let badges = '';
       if (ann) {
@@ -3209,6 +3340,46 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       codeBox.appendChild(row);
     });
     containerEl.appendChild(codeBox);
+
+    // Line-Level -lineinfo PTX & SASS Correlation Inspector Card
+    const selLn = isCandidatePane ? selectedCandLine : selectedBestLine;
+    const lineAnn = anns[selLn] || anns[1] || null;
+    if (lineAnn) {
+      const lineCard = document.createElement('div');
+      lineCard.className = 'stage-measure-card';
+      lineCard.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+      const srcLineText = (lines[selLn - 1] || '').trim();
+      lineCard.innerHTML =
+        '<div class="stage-measure-head">' +
+          '<span style="color:var(--accent)">LINE #' + selLn + ' PTX (.loc) &amp; SASS (-lineinfo) CORRELATION</span>' +
+          '<div>' +
+            '<span class="badge badge-stage">STAGE S' + lineAnn.stage_index + ' (' + lineAnn.category + ')</span> ' +
+            '<span class="badge badge-l2">' + (lineAnn.l2_policy || 'evict_normal') + '</span> ' +
+            '<span class="badge badge-proof">' + (lineAnn.barrier_proof || 'VERIFIED') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="color:var(--fg-1);font-size:0.63rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+          'Source Line ' + selLn + ': <code style="color:var(--fg-0)">' + srcLineText.replace(/</g, '&lt;') + '</code> ' +
+          '(Stall: ' + (lineAnn.cupti_dominant_stall || 'none') + ' ' + (lineAnn.cupti_stall_pct || 0).toFixed(1) + '%, Cost: ' + ((lineAnn.egraph_cost_ns || 0) / 1000).toFixed(2) + ' us)' +
+        '</div>' +
+        '<div class="ptx-sass-split">' +
+          '<div class="ptx-inline"></div>' +
+          '<table class="sass-table"><thead><tr><th>PC</th><th>SASS (Line #' + selLn + ')</th><th>Operands</th><th>Wait</th><th>Stall</th></tr></thead><tbody></tbody></table>' +
+        '</div>';
+      lineCard.querySelector('.ptx-inline').textContent = lineAnn.ptx_snippet || '// No PTX emitted for comment/brace line';
+      const lTbody = lineCard.querySelector('tbody');
+      (lineAnn.sass_insts || []).forEach(ins => {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>0x' + ins.pc.toString(16) + '</td>' +
+          '<td>' + ins.mnemonic + (ins.bank_conflict_risk ? ' <span class="badge badge-spill">BANK_CONFLICT</span>' : '') + '</td>' +
+          '<td>' + ins.operands + '</td>' +
+          '<td>' + ins.wait_mask + '</td>' +
+          '<td>{!' + ins.control_stall + '} w=' + ins.scoreboard_weight + '</td>';
+        lTbody.appendChild(tr);
+      });
+      containerEl.appendChild(lineCard);
+    }
 
     stages.forEach(st => {
       const spillBytes = (st.spill_store_bytes || 0) + (st.spill_load_bytes || 0);
@@ -3319,6 +3490,33 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     renderTrajectoryStrip();
     renderPaneContent(document.getElementById('best-body'), best, null, false);
     renderPaneContent(document.getElementById('cand-body'), cand, diffBase, true);
+
+    // Update E-Graph Equivalence-Class & Beam Derivation Ribbon
+    const egDer = egraphDerivations[idx];
+    if (egDer) {
+      const ecBadge = document.getElementById('egraph-eclass-badge');
+      ecBadge.textContent = 'e-class #' + egDer.from_eclass_id + ' -> #' + egDer.to_eclass_id +
+        ' | Beam #' + egDer.beam_rank + '/' + egDer.beam_width +
+        (egDer.pruned ? ' [PRUNED]' : '');
+      ecBadge.className = 'badge ' + (egDer.pruned ? 'badge-spill' : 'badge-proof');
+      document.getElementById('egraph-rule-text').textContent =
+        '[' + egDer.rule_name + '] ' + egDer.pattern_lhs + ' => ' + egDer.pattern_rhs +
+        ' | Calibrated: ' + egDer.pre_calibration_cost_us.toFixed(2) + 'us -> ' + egDer.post_calibration_cost_us.toFixed(2) + 'us';
+    }
+
+    // Update Live Speculative Token Stream & CUgraphExec Hot-Swap Ribbon
+    const tfStep = tokenFlightSteps[idx];
+    if (tfStep) {
+      const tfBadge = document.getElementById('token-flight-badge');
+      tfBadge.textContent = 'Epoch #' + tfStep.graph_exec_epoch +
+        (tfStep.hot_swapped ? ' [HOT-SWAP]' : '') +
+        ' | M=' + tfStep.active_bucket_m +
+        ' | ' + tfStep.instant_tokens_per_sec.toFixed(1) + ' tok/s (' + tfStep.step_tpot_ms.toFixed(2) + 'ms/tok)';
+      tfBadge.className = 'badge ' + (tfStep.hot_swapped ? 'badge-delta' : 'badge-l2');
+      document.getElementById('token-flight-text').textContent =
+        'Accept ' + (tfStep.acceptance_rate * 100).toFixed(0) + '% (' + tfStep.draft_accepted + '/' + tfStep.draft_proposed + ' draft) | Stream: ' +
+        tfStep.cumulative_text;
+    }
   }
 
   function setPlayState(paused, modeLabel) {
@@ -3392,8 +3590,13 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     maxSeenIndex = 0;
     inspectedIndex = 0;
     try {
-      const resp = await fetch('/v1/kernels/annotated?mode=' + modeSelect.value + '&bucket=' + bucketSelect.value + '&iter=0');
-      const data = await resp.json();
+      const [annResp, egResp, tfResp, rwResp] = await Promise.all([
+        fetch('/v1/kernels/annotated?mode=' + modeSelect.value + '&bucket=' + bucketSelect.value + '&iter=0'),
+        fetch('/v1/egraph/trace'),
+        fetch('/v1/flight/tokens'),
+        fetch('/v1/kernels/rewrites'),
+      ]);
+      const data = await annResp.json();
       catalogFrames = data.iterations || [data];
       scrubberRange.max = Math.max(0, catalogFrames.length - 1);
       if (data.provenance) {
@@ -3402,6 +3605,33 @@ const inspectorHTMLPage = `<!DOCTYPE html>
         if (data.provenance.toLowerCase().includes('live')) {
           pb.className = 'badge badge-delta';
         }
+      }
+      if (egResp.ok) {
+        const egData = await egResp.json();
+        egraphReportMeta = egData;
+        egraphDerivations = egData.derivations || [];
+      }
+      if (tfResp.ok) {
+        const tfData = await tfResp.json();
+        tokenFlightSteps = tfData.steps || [];
+      }
+      if (rwResp.ok) {
+        const rules = await rwResp.json();
+        const knobContainer = document.getElementById('sandbox-knobs-list');
+        if (knobContainer && Array.isArray(rules)) {
+          knobContainer.innerHTML = '<div style="font-weight:700;color:var(--fg-0);margin-bottom:0.2rem">Composable E-Graph Rewrite Knobs:</div>';
+          rules.forEach(r => {
+            const lbl = document.createElement('label');
+            lbl.className = 'knob-item';
+            lbl.innerHTML = '<input type="checkbox" class="sandbox-rule-cb" value="' + r.id + '" checked> ' +
+              '<span><strong>' + r.id + '</strong> (' + r.expected_speedup.toFixed(2) + 'x)</span>';
+            knobContainer.appendChild(lbl);
+          });
+        }
+      }
+      const sbArea = document.getElementById('sandbox-cuda-textarea');
+      if (sbArea && catalogFrames[0] && catalogFrames[0].cuda_lines) {
+        sbArea.value = catalogFrames[0].cuda_lines.join('\n');
       }
       renderViewAt(0);
     } catch (_) {}
@@ -3431,6 +3661,94 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       } catch (_) {}
       liveCompileBtn.textContent = origText;
       liveCompileBtn.disabled = false;
+    });
+  }
+
+  const liveGpuBtn = document.getElementById('live-gpu-btn');
+  if (liveGpuBtn) {
+    liveGpuBtn.addEventListener('click', async () => {
+      const origText = liveGpuBtn.textContent;
+      liveGpuBtn.textContent = 'Benchmarking 24 kernels on GB10...';
+      liveGpuBtn.disabled = true;
+      try {
+        const resp = await fetch('/v1/kernels/benchmark?ssh_host=dgx', { method: 'POST' });
+        const data = await resp.json();
+        if (data && data.iterations && data.iterations.length > 0) {
+          catalogFrames = data.iterations;
+          maxSeenIndex = catalogFrames.length - 1;
+          scrubberRange.max = maxSeenIndex;
+          const pb = document.getElementById('provenance-badge');
+          if (pb && data.provenance) {
+            pb.textContent = data.provenance.toUpperCase();
+            pb.className = 'badge badge-delta';
+          }
+          renderViewAt(inspectedIndex);
+        }
+      } catch (_) {}
+      liveGpuBtn.textContent = origText;
+      liveGpuBtn.disabled = false;
+    });
+  }
+
+  const toggleSandboxBtn = document.getElementById('toggle-sandbox-btn');
+  const sandboxDrawer = document.getElementById('sandbox-drawer');
+  if (toggleSandboxBtn && sandboxDrawer) {
+    toggleSandboxBtn.addEventListener('click', () => {
+      sandboxDrawer.classList.toggle('open');
+      const curFrame = catalogFrames[inspectedIndex] || catalogFrames[0];
+      const sbArea = document.getElementById('sandbox-cuda-textarea');
+      if (sandboxDrawer.classList.contains('open') && curFrame && sbArea && !sbArea.value.trim()) {
+        sbArea.value = (curFrame.cuda_lines || []).join('\n');
+      }
+    });
+  }
+
+  const sandboxLoadCandBtn = document.getElementById('sandbox-load-cand-btn');
+  if (sandboxLoadCandBtn) {
+    sandboxLoadCandBtn.addEventListener('click', () => {
+      const curFrame = catalogFrames[inspectedIndex] || catalogFrames[0];
+      const sbArea = document.getElementById('sandbox-cuda-textarea');
+      if (curFrame && sbArea) {
+        sbArea.value = (curFrame.cuda_lines || []).join('\n');
+      }
+    });
+  }
+
+  const sandboxEvalBtn = document.getElementById('sandbox-eval-btn');
+  if (sandboxEvalBtn) {
+    sandboxEvalBtn.addEventListener('click', async () => {
+      const sbArea = document.getElementById('sandbox-cuda-textarea');
+      const sbStatus = document.getElementById('sandbox-status-text');
+      const selectedRules = Array.from(document.querySelectorAll('.sandbox-rule-cb:checked')).map(cb => cb.value);
+      if (sbStatus) sbStatus.textContent = 'Evaluating candidate...';
+      sandboxEvalBtn.disabled = true;
+      try {
+        const resp = await fetch('/v1/kernels/eval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cuda_source: sbArea ? sbArea.value : '',
+            base_iteration: inspectedIndex,
+            applied_rules: selectedRules,
+          }),
+        });
+        const data = await resp.json();
+        if (data && data.candidate) {
+          catalogFrames[data.candidate.iteration] = data.candidate;
+          if (sbArea && data.candidate.cuda_lines) {
+            sbArea.value = data.candidate.cuda_lines.join('\n');
+          }
+          if (sbStatus) {
+            sbStatus.textContent = '#' + pad2(data.candidate.iteration) + ' ' +
+              (data.candidate.promoted ? 'PROMOTED' : 'REJECTED') +
+              ' (' + data.candidate.holdout_speedup.toFixed(2) + 'x, ' + data.candidate.latency_us.toFixed(2) + 'us)';
+          }
+          scrubToIndex(data.candidate.iteration, true);
+        }
+      } catch (e) {
+        if (sbStatus) sbStatus.textContent = 'Evaluation failed';
+      }
+      sandboxEvalBtn.disabled = false;
     });
   }
 

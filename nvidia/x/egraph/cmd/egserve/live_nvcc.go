@@ -220,8 +220,8 @@ func runLocalNVCCPipeline(ctx context.Context, cudaSrc, arch string, cfg LiveNVC
 		return "", "", "", "", fmt.Errorf("write trajectory.cu: %w", err)
 	}
 
-	// 1. nvcc --cubin -arch=<arch> -Xptxas -v
-	cmdCubin := exec.CommandContext(ctx, nvcc, "--cubin", "-arch="+arch, "-Xptxas", "-v", cuPath, "-o", cubinPath)
+	// 1. nvcc --cubin -lineinfo -arch=<arch> -Xptxas -v
+	cmdCubin := exec.CommandContext(ctx, nvcc, "--cubin", "-lineinfo", "-arch="+arch, "-Xptxas", "-v", cuPath, "-o", cubinPath)
 	var cubinOut bytes.Buffer
 	cmdCubin.Stdout = &cubinOut
 	cmdCubin.Stderr = &cubinOut
@@ -230,8 +230,8 @@ func runLocalNVCCPipeline(ctx context.Context, cudaSrc, arch string, cfg LiveNVC
 	}
 	ptxasOut = cubinOut.String()
 
-	// 2. nvcc --ptx -arch=<arch>
-	cmdPTX := exec.CommandContext(ctx, nvcc, "--ptx", "-arch="+arch, cuPath, "-o", ptxPath)
+	// 2. nvcc --ptx -lineinfo -arch=<arch>
+	cmdPTX := exec.CommandContext(ctx, nvcc, "--ptx", "-lineinfo", "-arch="+arch, cuPath, "-o", ptxPath)
 	var ptxErr bytes.Buffer
 	cmdPTX.Stderr = &ptxErr
 	if err := cmdPTX.Run(); err == nil {
@@ -240,8 +240,8 @@ func runLocalNVCCPipeline(ctx context.Context, cudaSrc, arch string, cfg LiveNVC
 		}
 	}
 
-	// 3. nvdisasm -c
-	cmdDis := exec.CommandContext(ctx, nvdisasm, "-c", cubinPath)
+	// 3. nvdisasm -c -g
+	cmdDis := exec.CommandContext(ctx, nvdisasm, "-c", "-g", cubinPath)
 	var disOut, disErr bytes.Buffer
 	cmdDis.Stdout = &disOut
 	cmdDis.Stderr = &disErr
@@ -253,7 +253,7 @@ func runLocalNVCCPipeline(ctx context.Context, cudaSrc, arch string, cfg LiveNVC
 	verCmd := exec.CommandContext(ctx, nvcc, "--version")
 	verOut, _ := verCmd.Output()
 	verLine := extractNVCCReleaseLine(string(verOut))
-	provenance = fmt.Sprintf("live local nvcc (%s, arch=%s) + ptxas -v + nvdisasm -c", verLine, arch)
+	provenance = fmt.Sprintf("live local nvcc (%s, arch=%s, -lineinfo) + ptxas -v + nvdisasm -c -g", verLine, arch)
 	return ptxasOut, ptxText, sassText, provenance, nil
 }
 
@@ -277,11 +277,11 @@ cat > "$WDIR/trajectory.cu"
 echo "===EG_VERSION==="
 %s --version | tail -n 2
 echo "===EG_PTXAS==="
-%s --cubin -arch=%s -Xptxas -v "$WDIR/trajectory.cu" -o "$WDIR/trajectory.cubin" 2>&1
+%s --cubin -lineinfo -arch=%s -Xptxas -v "$WDIR/trajectory.cu" -o "$WDIR/trajectory.cubin" 2>&1
 echo "===EG_PTX==="
-%s --ptx -arch=%s "$WDIR/trajectory.cu" -o "$WDIR/trajectory.ptx" 2>/dev/null && cat "$WDIR/trajectory.ptx"
+%s --ptx -lineinfo -arch=%s "$WDIR/trajectory.cu" -o "$WDIR/trajectory.ptx" 2>/dev/null && cat "$WDIR/trajectory.ptx"
 echo "===EG_SASS==="
-%s -c "$WDIR/trajectory.cubin" 2>/dev/null
+%s -c -g "$WDIR/trajectory.cubin" 2>/dev/null
 `, nvcc, nvcc, arch, nvcc, arch, nvdisasm)
 
 	cmd := exec.CommandContext(ctx, "ssh", host, "bash -s")
@@ -445,6 +445,7 @@ func applyLiveCompilerOutputs(iters []KernelStreamIteration, ptxasOut, ptxText, 
 		it.InlineAnnotatedText = renderInlineAnnotatedText(it, nil, nil)
 		out[i] = it
 	}
+	out = EnrichTrajectoryWithLineInfo(out, ptxText, sassText)
 	return out, provenance, nil
 }
 
