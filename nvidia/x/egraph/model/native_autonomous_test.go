@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -406,7 +407,7 @@ func TestAutonomousFlightNativeSM121A(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cudamem.Reinterpret: %v", err)
 	}
-	if err := outView.CopyFromHost([]float32{0, 0, 0, 0}); err != nil {
+	if err := outView.CopyFromHost(make([]float32, 16)); err != nil {
 		t.Fatalf("outView.CopyFromHost: %v", err)
 	}
 
@@ -499,7 +500,7 @@ func TestAutonomousFlightNativeSM121A(t *testing.T) {
 	if err != nil {
 		t.Fatalf("svc.LaunchGraph(v1): %v", err)
 	}
-	hostOut := make([]float32, 4)
+	hostOut := make([]float32, 16)
 	if err := outView.CopyToHost(hostOut); err != nil {
 		t.Fatalf("outView.CopyToHost(v1): %v", err)
 	}
@@ -574,7 +575,7 @@ func TestAutonomousFlightNativeSM121A(t *testing.T) {
 		if lErr != nil {
 			return fmt.Errorf("post-swap LaunchGraph: %w", lErr)
 		}
-		got := make([]float32, 4)
+		got := make([]float32, 16)
 		if cErr := outView.CopyToHost(got); cErr != nil {
 			return fmt.Errorf("post-swap CopyToHost: %w", cErr)
 		}
@@ -798,11 +799,13 @@ func TestAutonomousFlightNativeSM121A(t *testing.T) {
 // translation units and entry wrappers compile and hot-swap live CUgraphExec
 // nodes on sm_121a.
 type nvccNativeHotSwapLoader struct {
-	dev  *cuda.Device
-	nvcc string
-	arch string
-	dir  string
-	seq  atomic.Int64
+	dev    *cuda.Device
+	nvcc   string
+	arch   string
+	dir    string
+	seq    atomic.Int64
+	mu     sync.Mutex
+	cubins map[string][]byte
 }
 
 func (l *nvccNativeHotSwapLoader) Compile(ctx context.Context, source cudahotswap.Source) (*cudahotswap.Compilation, error) {
@@ -821,6 +824,7 @@ func (l *nvccNativeHotSwapLoader) Compile(ctx context.Context, source cudahotswa
 
 	cuPath := filepath.Join(l.dir, fmt.Sprintf("hs_%d.cu", id))
 	ptxPath := filepath.Join(l.dir, fmt.Sprintf("hs_%d.ptx", id))
+	cubinPath := filepath.Join(l.dir, fmt.Sprintf("hs_%d.cubin", id))
 	if err := os.WriteFile(cuPath, []byte(code), 0o600); err != nil {
 		return nil, err
 	}
@@ -832,10 +836,25 @@ func (l *nvccNativeHotSwapLoader) Compile(ctx context.Context, source cudahotswa
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256(ptxBytes)
+	cubinCmd := exec.CommandContext(ctx, l.nvcc, "-std=c++17", "-O3", "-arch="+l.arch, "--cubin", cuPath, "-o", cubinPath)
+	if out, err := cubinCmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("nvcc --cubin (%s): %w: %s", l.arch, err, strings.TrimSpace(string(out)))
+	}
+	cubinBytes, err := os.ReadFile(cubinPath)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(cubinBytes)
+	key := fmt.Sprintf("nvcc-%s-%x", l.arch, sum[:8])
+	l.mu.Lock()
+	if l.cubins == nil {
+		l.cubins = make(map[string][]byte)
+	}
+	l.cubins[key] = cubinBytes
+	l.mu.Unlock()
 	return &cudahotswap.Compilation{
 		PTX:   string(ptxBytes),
-		Key:   fmt.Sprintf("nvcc-%s-%x", l.arch, sum[:8]),
+		Key:   key,
 		Entry: source.Entry,
 	}, nil
 }
@@ -848,7 +867,13 @@ func (l *nvccNativeHotSwapLoader) Load(ctx context.Context, c *cudahotswap.Compi
 	if err != nil {
 		return nil, err
 	}
-	mod, err := cuda.LoadModule(l.dev, []byte(c.PTX))
+	l.mu.Lock()
+	image := l.cubins[c.Key]
+	l.mu.Unlock()
+	if len(image) == 0 {
+		image = []byte(c.PTX)
+	}
+	mod, err := cuda.LoadModule(l.dev, image)
 	if err != nil {
 		return nil, err
 	}
