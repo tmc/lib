@@ -93,11 +93,17 @@ func SelectMeasuredWithHoldout(query MeasuredIdentity, ev HoldoutCandidateEviden
 // SelectMeasuredWithHoldout on compiled hopper.TileGEMM and hopper.SkinnyGEMM
 // steps.
 func TestQualifyHoldoutNativeClosedGateControl(t *testing.T) {
+	closedGetenv := os.Getenv
 	if os.Getenv(qualifyHoldoutNativeEnv) == "1" {
-		t.Skip("closed-gate control applies when CUDATEST_NATIVE != 1")
+		closedGetenv = func(k string) string {
+			if k == qualifyHoldoutNativeEnv {
+				return ""
+			}
+			return os.Getenv(k)
+		}
 	}
 
-	err := checkQualifyHoldoutNativeGate(os.Getenv)
+	err := checkQualifyHoldoutNativeGate(closedGetenv)
 	if !errors.Is(err, cudaerrors.ErrHardwarePending) {
 		t.Fatalf("checkQualifyHoldoutNativeGate(closed) = %v, want errors.Is(..., cudaerrors.ErrHardwarePending)", err)
 	}
@@ -469,6 +475,10 @@ func TestQualifyHoldoutNativeSM121A(t *testing.T) {
 	if !promo.TokensMatched {
 		t.Fatalf("SelectMeasuredWithHoldout TokensMatched=false: %+v", promo)
 	}
+	if promo.Status != "EXACT_HOLDOUT_PROMOTED" {
+		t.Fatalf("SelectMeasuredWithHoldout Status=%q (state=%q reason=%q), want EXACT_HOLDOUT_PROMOTED",
+			promo.Status, promo.CandidateState, promo.Reason)
+	}
 	if promo.ScreenObserved == nil {
 		t.Fatalf("SelectMeasuredWithHoldout ScreenObserved is nil: %+v", promo)
 	}
@@ -486,7 +496,7 @@ func TestQualifyHoldoutNativeSM121A(t *testing.T) {
 		aaRatio = sum.Ratio
 	}
 
-	t.Logf("CLAIM: native-qualified on %s (%s), CUDA %s; workload TestQualifyHoldoutNativeSM121A (SkinnyGEMM 16x256 M=4 + TileGEMM 64x64 M=64, 3-screen + 6-holdout + 3-AA-null ABBA); metric status=%s state=%s screen_ratio=%.4f holdout_ratio=%.4f aa_null_ratio=%.4f sign_p=%.4f logit_max_abs=%.6f tokens_matched=%v",
+	t.Logf("CLAIM: native-qualified on %s (%s), CUDA %s; workload TestQualifyHoldoutNativeSM121A (SkinnyGEMM 4x2048 M=2 + TileGEMM 64x4096 M=64, 3-screen + 6-holdout + 3-AA-null ABBA); metric status=%s state=%s screen_ratio=%.4f holdout_ratio=%.4f aa_null_ratio=%.4f sign_p=%.4f logit_max_abs=%.6f tokens_matched=%v",
 		parsed.deviceLine, target, cudaVer, promo.Status, promo.CandidateState,
 		promo.ScreenObserved.Ratio, holdoutRatio, aaRatio, promo.OneSidedSignP, parsed.logitMaxAbs, promo.TokensMatched)
 }
@@ -708,7 +718,7 @@ func buildQualifyHoldoutNativeHarness(t *testing.T) (fullHarness, baseUnit, cand
 	baseTile := hopper.TileGEMM{
 		Name:   "holdout_tile_gemm_base",
 		N:      64,
-		K:      64,
+		K:      4096,
 		BM:     64,
 		BN:     64,
 		Stages: 2,
@@ -936,15 +946,45 @@ int main() {
     CK(cudaMemcpy(d_w, h_w, sizeof(h_w), cudaMemcpyHostToDevice));
     CK(cudaMemcpy(d_wsf, h_wsf, sizeof(h_wsf), cudaMemcpyHostToDevice));
 
+    // Allocate and verify TileGEMM (M=64, N=64, K=4096) baseline vs guided Stream-K candidate.
+    const int tile_m = 64, tile_n = %d, tile_k = %d;
+    uint16_t *d_tx = nullptr, *d_tw = nullptr;
+    float *d_tout_ref = nullptr, *d_tout_cand = nullptr, *d_tws = nullptr;
+    CK(cudaMalloc(&d_tx, (size_t)tile_m * tile_k * sizeof(uint16_t)));
+    CK(cudaMalloc(&d_tw, (size_t)tile_n * tile_k * sizeof(uint16_t)));
+    CK(cudaMalloc(&d_tout_ref, (size_t)tile_m * tile_n * sizeof(float)));
+    CK(cudaMalloc(&d_tout_cand, (size_t)tile_m * tile_n * sizeof(float)));
+    CK(cudaMalloc(&d_tws, %d));
+    CK(cudaMemset(d_tx, 0x3c, (size_t)tile_m * tile_k * sizeof(uint16_t)));
+    CK(cudaMemset(d_tw, 0x3c, (size_t)tile_n * tile_k * sizeof(uint16_t)));
+    CK(cudaMemset(d_tws, 0, %d));
+
+    holdout_tile_gemm_base_launch(tile_m, d_tx, d_tw, d_tout_ref, 0);
+    holdout_tile_gemm_guided_launch(tile_m, d_tx, d_tw, d_tout_cand, d_tws, 0);
+    CK(cudaDeviceSynchronize());
+
+    float h_tref[64 * 64] = {};
+    float h_tcand[64 * 64] = {};
+    CK(cudaMemcpy(h_tref, d_tout_ref, sizeof(h_tref), cudaMemcpyDeviceToHost));
+    CK(cudaMemcpy(h_tcand, d_tout_cand, sizeof(h_tcand), cudaMemcpyDeviceToHost));
+    for (int i = 0; i < tile_m * tile_n; ++i) {
+        if (std::isnan(h_tref[i]) || std::isnan(h_tcand[i]) || std::fabs(h_tref[i] - h_tcand[i]) > 1e-2f) {
+            std::printf("FAIL tile_gemm idx=%%d ref=%%f cand=%%f\n", i, h_tref[i], h_tcand[i]);
+            return 8;
+        }
+    }
+
     cudaEvent_t ev0, ev1;
     CK(cudaEventCreate(&ev0));
     CK(cudaEventCreate(&ev1));
     const int reps = 50;
     auto runBase = [&]() {
         holdout_skinny_gemm_base_launch(%d, d_x, d_w, d_wsf, d_wgs, d_out_ref, 0);
+        holdout_tile_gemm_base_launch(tile_m, d_tx, d_tw, d_tout_ref, 0);
     };
     auto runCand = [&]() {
         holdout_skinny_gemm_guided_launch(%d, d_x, d_w, d_wsf, d_wgs, d_out_cand, 0);
+        holdout_tile_gemm_guided_launch(tile_m, d_tx, d_tw, d_tout_cand, d_tws, 0);
     };
 
     // Warmup
@@ -989,6 +1029,8 @@ int main() {
 		mRows*baseSkinnyNorm.K, mRows*baseSkinnyNorm.K,
 		mRows, mRows*baseSkinnyNorm.N,
 		mRows, baseSkinnyNorm.N, baseSkinnyNorm.N, baseSkinnyNorm.N, baseSkinnyNorm.N,
+		baseTileNorm.N, baseTileNorm.K,
+		max(candTileNorm.WorkspaceBytes(), 64), max(candTileNorm.WorkspaceBytes(), 64),
 		mRows, mRows,
 	)
 
