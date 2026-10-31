@@ -10,3 +10,12 @@ tty: no controlling tty
 pid: 99995
 ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
 Signed isolated rebase of lane/63-open-lane onto fafa24c02711c65d266d95092555d4459011db25; validation pending, original branch unchanged.
+
+commit: 4aaca549df38c8212a68cc443714a8e05c845f08
+commit date: 2026-10-30T20:14:42-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 41072
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Signed rebase of prepared transport onto externally advanced integration aae18d3ba9617e5fa327611eb9b6b6441c665f4f. Kept new integration IsDefaultDir implementation and retained alias-custody tests. Prior fafa-based qualification remains historical; same-tree current-base host/portability gates pending. Original lane/63-open-lane untouched.
