@@ -320,3 +320,54 @@ func TestInspectorUIAndDemoStreamCLIFlag(t *testing.T) {
 		}
 	}
 }
+
+func TestSimpleKernelEvolutionCurrentBestVsCandidate(t *testing.T) {
+	srv, err := NewEGServer(ServerConfig{
+		Arch:      "sm_121a",
+		HiddenDim: 256,
+		IntermDim: 512,
+		Layers:    4,
+	})
+	if err != nil {
+		t.Fatalf("NewEGServer: %v", err)
+	}
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	resp, err := ts.Client().Get(ts.URL + "/v1/kernels/annotated?mode=simple&bucket=1")
+	if err != nil {
+		t.Fatalf("GET simple annotated: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var annotated AnnotatedKernelResponse
+	if err := json.NewDecoder(resp.Body).Decode(&annotated); err != nil {
+		t.Fatalf("decode simple annotated: %v", err)
+	}
+	if len(annotated.Iterations) != 7 {
+		t.Fatalf("len(Iterations) = %d, want 7 evolutionary candidates", len(annotated.Iterations))
+	}
+	var promotedCount, rejectedCount int
+	for _, it := range annotated.Iterations {
+		if len(it.CUDALines) != 30 {
+			t.Fatalf("cand %d CUDALines = %d, want 30", it.Iteration, len(it.CUDALines))
+		}
+		if it.Promoted {
+			promotedCount++
+		} else {
+			rejectedCount++
+			if it.RejectReason == "" {
+				t.Fatalf("rejected candidate %d missing RejectReason", it.Iteration)
+			}
+		}
+	}
+	if promotedCount != 4 || rejectedCount != 3 {
+		t.Fatalf("promoted=%d rejected=%d, want 4 promoted and 3 rejected", promotedCount, rejectedCount)
+	}
+	last := annotated.Iterations[len(annotated.Iterations)-1]
+	if !last.Promoted || last.HoldoutSpeedup < 6.0 || last.LatencyUs >= annotated.Iterations[0].LatencyUs {
+		t.Fatalf("unexpected final promoted simple kernel: %+v", last)
+	}
+}

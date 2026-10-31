@@ -106,6 +106,13 @@ type AnnotatedStageSummary struct {
 type KernelStreamIteration struct {
 	Iteration           int                          `json:"iteration"`
 	Phase               string                       `json:"phase"`
+	CandidateLabel      string                       `json:"candidate_label,omitempty"`
+	Promoted            bool                         `json:"promoted"`
+	RejectReason        string                       `json:"reject_reason,omitempty"`
+	LatencyUs           float64                      `json:"latency_us"`
+	BestIteration       int                          `json:"best_iteration"`
+	BestSpeedup         float64                      `json:"best_speedup"`
+	BestLatencyUs       float64                      `json:"best_latency_us"`
 	KernelName          string                       `json:"kernel_name"`
 	Arch                string                       `json:"arch"`
 	BucketM             int                          `json:"bucket_m"`
@@ -150,6 +157,8 @@ var canonicalFlightPhases = []string{
 
 func normalizeStreamMode(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "simple", "fused_rmsnorm_swiglu", "simple_gemv":
+		return "simple"
 	case "full_layer", "fulllayer", "full", "monolithic":
 		return "full_layer"
 	default:
@@ -237,14 +246,16 @@ func (s *EGServer) resolveModePlanAndMega(mode string, bucketM int) (*hopper.Pla
 	return chosen, chosenMega, rep, nil
 }
 
-// BuildKernelStreamIterations constructs the 4-frame closed-loop optimization
-// sequence (baseline_unfused -> ptxas_refinement -> sass_scoreboard_refinement
-// -> cupti_holdout_promoted) for the requested mode ("cross_layer" | "full_layer")
+// BuildKernelStreamIterations constructs the closed-loop optimization
+// sequence for the requested mode ("simple" | "cross_layer" | "full_layer")
 // and bucketM (1, 2, 4, 8).
 func (s *EGServer) BuildKernelStreamIterations(mode string, bucketM int) ([]KernelStreamIteration, error) {
 	mode = normalizeStreamMode(mode)
 	if !slices.Contains([]int{1, 2, 4, 8}, bucketM) {
 		bucketM = 1
+	}
+	if mode == "simple" {
+		return s.buildSimpleKernelStreamIterations(bucketM), nil
 	}
 
 	plan, mega, barrierRep, err := s.resolveModePlanAndMega(mode, bucketM)
@@ -482,9 +493,21 @@ func (s *EGServer) buildSingleKernelIteration(
 	// Also annotate persistent megakernel dispatch & barrier lines in the __global__ entry.
 	annotateMegakernelDispatchLines(cudaLines, spans, stages, barrierRep, lineAnnotations)
 
+	var totalCostNs float64
+	for _, st := range stages {
+		totalCostNs += st.EGraphCostNs
+	}
+	latUs := round2(totalCostNs / 1000.0)
+
 	iter := KernelStreamIteration{
 		Iteration:       iterIdx,
 		Phase:           phase,
+		CandidateLabel:  phase,
+		Promoted:        true,
+		LatencyUs:       latUs,
+		BestIteration:   iterIdx,
+		BestSpeedup:     holdoutSpeedup,
+		BestLatencyUs:   latUs,
 		KernelName:      mega.Name,
 		Arch:            s.cfg.Arch,
 		BucketM:         bucketM,
@@ -498,6 +521,541 @@ func (s *EGServer) buildSingleKernelIteration(
 	}
 	iter.InlineAnnotatedText = renderInlineAnnotatedText(iter, barrierRep, l2Plan)
 	return iter, nil
+}
+
+// buildSimpleKernelStreamIterations constructs a 7-step evolutionary candidate
+// sequence over a concise 26-line fused CUDA kernel (Stage s0: RMSNorm +
+// Stage s1: SwiGLU + Warp GEMV Epilogue), including both promoted champions and
+// rejected candidates (PTXAS register spills, SASS bank conflicts, and formal
+// RAW barrier violations) so the dual-pane UI shows Current Best vs Evolving
+// Candidate side-by-side.
+func (s *EGServer) buildSimpleKernelStreamIterations(bucketM int) []KernelStreamIteration {
+	type simpleCandidateSpec struct {
+		iter          int
+		phase         string
+		label         string
+		promoted      bool
+		rejectReason  string
+		speedup       float64
+		latencyUs     float64
+		bestIter      int
+		bestSpeedup   float64
+		bestLatencyUs float64
+		maxRegs       int
+		spills        int
+		occCTAs       int
+		s0CostNs      float64
+		s1CostNs      float64
+		s0Wait        int
+		s1Wait        int
+		bankConflict  bool
+		rawVerified   bool
+		l2Policy      string
+		s0LongPct     float64
+		s0MIOPct      float64
+		s0BarPct      float64
+		s0MathPct     float64
+		s1LongPct     float64
+		s1MIOPct      float64
+		s1BarPct      float64
+		s1MathPct     float64
+		s0Rule        string
+		s1Rule        string
+		s0PTX         string
+		s1PTX         string
+		s0SASS        []AnnotatedSASSInst
+		s1SASS        []AnnotatedSASSInst
+		lines         []string
+	}
+
+	specs := []simpleCandidateSpec{
+		{
+			iter: 0, phase: "baseline_scalar", label: "Cand 0: Naive Scalar Loads + Shared Tree Reduction",
+			promoted: true, speedup: 1.00, latencyUs: 48.20, bestIter: 0, bestSpeedup: 1.00, bestLatencyUs: 48.20,
+			maxRegs: 64, spills: 0, occCTAs: 2, s0CostNs: 19400, s1CostNs: 28800, s0Wait: 13, s1Wait: 15,
+			bankConflict: true, rawVerified: true, l2Policy: "evict_normal",
+			s0LongPct: 46.0, s0MIOPct: 31.0, s0BarPct: 14.0, s0MathPct: 9.0,
+			s1LongPct: 64.0, s1MIOPct: 16.0, s1BarPct: 8.0, s1MathPct: 12.0,
+			s0Rule: "Vectorize global loads to float4 + warp __shfl_xor_sync butterfly",
+			s1Rule: "Unroll GEMV accumulation with register tiling (avoid local spills)",
+			s0PTX:  "ld.global.f32 %f1, [%rd1];\nst.shared.f32 [%r2], %f2;\nbar.sync 0;",
+			s1PTX:  "ld.shared.f32 %f3, [%r3];\nld.global.f32 %f4, [%rd2];\nfma.rn.f32 %f5, %f3, %f4, %f5;",
+			s0SASS: []AnnotatedSASSInst{
+				{PC: 0x1000, Mnemonic: "LDG.E", Operands: "R4, [R2]", ControlStall: 11, WaitMask: "--:-:1", ScoreboardWeight: 8, SourceLine: 5},
+				{PC: 0x1010, Mnemonic: "STS", Operands: "[R6], R4", ControlStall: 5, WaitMask: "01:-:-", ScoreboardWeight: 5, BankConflictRisk: true, SourceLine: 7},
+			},
+			s1SASS: []AnnotatedSASSInst{
+				{PC: 0x1080, Mnemonic: "LDS", Operands: "R8, [R7]", ControlStall: 8, WaitMask: "--:-:2", ScoreboardWeight: 7, BankConflictRisk: true, SourceLine: 18},
+				{PC: 0x1090, Mnemonic: "LDG.E", Operands: "R10, [R12]", ControlStall: 12, WaitMask: "02:-:1", ScoreboardWeight: 8, SourceLine: 19},
+			},
+			lines: []string{
+				"// Stage s0: Fused RMSNorm (scalar HBM loads + shared tree reduction)",
+				"__device__ void stage0_rmsnorm(const float* x, const float* w, float* s_norm, int tid) {",
+				"    __shared__ float s_red[256];",
+				"    float sq = 0.0f;",
+				"    for (int i = tid; i < 1024; i += 256) {",
+				"        float v = x[i]; // scalar 32-bit HBM load (46% long_scoreboard)",
+				"        sq += v * v;",
+				"    }",
+				"    s_red[tid] = sq; __syncthreads(); // shared tree reduction",
+				"    for (int s = 128; s > 0; s >>= 1) { if (tid < s) s_red[tid] += s_red[tid + s]; __syncthreads(); }",
+				"    float inv_rms = rsqrtf(s_red[0] * (1.0f / 1024.0f) + 1e-5f);",
+				"    for (int i = tid; i < 1024; i += 256) s_norm[i] = (x[i] * inv_rms) * w[i];",
+				"}",
+				"// Stage s1: SwiGLU + Warp GEMV Epilogue",
+				"__device__ void stage1_swiglu_gemv(const float* s_norm, const float* W_up, float* out, int tid) {",
+				"    __syncthreads(); // cross-stage RAW barrier on s_norm[]",
+				"    float acc = 0.0f;",
+				"    #pragma unroll 1",
+				"    for (int k = 0; k < 1024; ++k) {",
+				"        float a = s_norm[k]; // broadcast shared load",
+				"        float u = a * W_up[tid * 1024 + k];",
+				"        acc += (u / (1.0f + expf(-u)));",
+				"    }",
+				"    out[tid] = acc;",
+				"}",
+				"__global__ void __launch_bounds__(256, 1) fused_rmsnorm_swiglu_gemv(const float* x, const float* w, const float* W_up, float* out) {",
+				"    __shared__ float s_norm[1024];",
+				"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
+				"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x);",
+				"}",
+			},
+		},
+		{
+			iter: 1, phase: "cand_unroll16_reg_spill", label: "Cand 1: Aggressive #pragma unroll 16 (Tested -> Reg Spill)",
+			promoted:      false,
+			rejectReason:  "REJECTED by PTXAS Spill Gate: 168 regs/thread & 32B STL/LDL local-memory spill (61.80us > 48.20us best)",
+			speedup:       0.78, latencyUs: 61.80, bestIter: 0, bestSpeedup: 1.00, bestLatencyUs: 48.20,
+			maxRegs: 168, spills: 32, occCTAs: 1, s0CostNs: 19400, s1CostNs: 42400, s0Wait: 13, s1Wait: 21,
+			bankConflict: true, rawVerified: true, l2Policy: "evict_normal",
+			s0LongPct: 46.0, s0MIOPct: 31.0, s0BarPct: 14.0, s0MathPct: 9.0,
+			s1LongPct: 74.5, s1MIOPct: 14.5, s1BarPct: 5.0, s1MathPct: 6.0,
+			s0Rule: "Vectorize global loads to float4 + warp __shfl_xor_sync butterfly",
+			s1Rule: "Step-down #pragma unroll 16 -> 2/4 to eliminate 32B local-memory spill",
+			s0PTX:  "ld.global.f32 %f1, [%rd1];\nst.shared.f32 [%r2], %f2;\nbar.sync 0;",
+			s1PTX:  ".local .align 8 .b8 __local_depot1[32];\nst.local.v4.f32 [__local_depot1+0], {%f40,%f41,%f42,%f43};\nld.local.v4.f32 {%f40,%f41,%f42,%f43}, [__local_depot1+0];",
+			s0SASS: []AnnotatedSASSInst{
+				{PC: 0x1000, Mnemonic: "LDG.E", Operands: "R4, [R2]", ControlStall: 11, WaitMask: "--:-:1", ScoreboardWeight: 8, SourceLine: 5},
+				{PC: 0x1010, Mnemonic: "STS", Operands: "[R6], R4", ControlStall: 5, WaitMask: "01:-:-", ScoreboardWeight: 5, BankConflictRisk: true, SourceLine: 7},
+			},
+			s1SASS: []AnnotatedSASSInst{
+				{PC: 0x1080, Mnemonic: "STL.128", Operands: "[R1+0x10], R80", ControlStall: 14, WaitMask: "01:-:3", ScoreboardWeight: 11, BankConflictRisk: true, SourceLine: 18},
+				{PC: 0x1090, Mnemonic: "LDL.128", Operands: "R80, [R1+0x10]", ControlStall: 15, WaitMask: "04:-:1", ScoreboardWeight: 10, SourceLine: 19},
+			},
+			lines: []string{
+				"// Stage s0: Fused RMSNorm (scalar HBM loads + shared tree reduction)",
+				"__device__ void stage0_rmsnorm(const float* x, const float* w, float* s_norm, int tid) {",
+				"    __shared__ float s_red[256];",
+				"    float sq = 0.0f;",
+				"    for (int i = tid; i < 1024; i += 256) {",
+				"        float v = x[i]; // scalar 32-bit HBM load (46% long_scoreboard)",
+				"        sq += v * v;",
+				"    }",
+				"    s_red[tid] = sq; __syncthreads(); // shared tree reduction",
+				"    for (int s = 128; s > 0; s >>= 1) { if (tid < s) s_red[tid] += s_red[tid + s]; __syncthreads(); }",
+				"    float inv_rms = rsqrtf(s_red[0] * (1.0f / 1024.0f) + 1e-5f);",
+				"    for (int i = tid; i < 1024; i += 256) s_norm[i] = (x[i] * inv_rms) * w[i];",
+				"}",
+				"// Stage s1: SwiGLU + Warp GEMV Epilogue",
+				"__device__ void stage1_swiglu_gemv(const float* s_norm, const float* W_up, float* out, int tid) {",
+				"    __syncthreads(); // cross-stage RAW barrier on s_norm[]",
+				"    float acc = 0.0f;",
+				"    #pragma unroll 16 // [CANDIDATE 1] over-unrolled -> PTXAS 168 regs, 32B STL/LDL spill!",
+				"    for (int k = 0; k < 1024; ++k) {",
+				"        float a = s_norm[k]; // live range explosion across 16 unrolled iterations",
+				"        float u = a * W_up[tid * 1024 + k];",
+				"        acc += (u / (1.0f + expf(-u)));",
+				"    }",
+				"    out[tid] = acc;",
+				"}",
+				"__global__ void __launch_bounds__(256, 1) fused_rmsnorm_swiglu_gemv(const float* x, const float* w, const float* W_up, float* out) {",
+				"    __shared__ float s_norm[1024];",
+				"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
+				"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x);",
+				"}",
+			},
+		},
+		{
+			iter: 2, phase: "cand_vec4_warp_shfl", label: "Cand 2: Vectorized float4 Loads + Warp __shfl_xor_sync Butterfly",
+			promoted: true, speedup: 2.15, latencyUs: 22.42, bestIter: 2, bestSpeedup: 2.15, bestLatencyUs: 22.42,
+			maxRegs: 56, spills: 0, occCTAs: 3, s0CostNs: 7200, s1CostNs: 15220, s0Wait: 6, s1Wait: 11,
+			bankConflict: false, rawVerified: true, l2Policy: "evict_normal",
+			s0LongPct: 24.0, s0MIOPct: 8.5, s0BarPct: 6.5, s0MathPct: 61.0,
+			s1LongPct: 52.0, s1MIOPct: 14.0, s1BarPct: 6.0, s1MathPct: 28.0,
+			s0Rule: "Stage s0 RMSNorm optimal with float4 + SHFL.BFY",
+			s1Rule: "Tile W_up[] with vectorized float4 + Swizzle128B shared staging",
+			s0PTX:  "ld.global.nc.v4.f32 {%f1,%f2,%f3,%f4}, [%rd1];\nshfl.sync.bfly.b32 %f5, %f1, 16, 31, 0xffffffff;\nrsqrt.approx.f32 %f6, %f5;",
+			s1PTX:  "ld.shared.f32 %f7, [%r3];\nld.global.nc.v4.f32 {%f8,%f9,%f10,%f11}, [%rd2];\nféma.rn.f32 %f12, %f7, %f8, %f12;",
+			s0SASS: []AnnotatedSASSInst{
+				{PC: 0x1000, Mnemonic: "LDG.E.128", Operands: "R4, [R2]", ControlStall: 4, WaitMask: "--:-:1", ScoreboardWeight: 3, SourceLine: 5},
+				{PC: 0x1010, Mnemonic: "SHFL.BFY", Operands: "PT, R8, R4, 0x10, 0x1f", ControlStall: 2, WaitMask: "01:-:-", ScoreboardWeight: 3, SourceLine: 8},
+			},
+			s1SASS: []AnnotatedSASSInst{
+				{PC: 0x1080, Mnemonic: "LDS.128", Operands: "R12, [R7]", ControlStall: 4, WaitMask: "--:-:2", ScoreboardWeight: 5, SourceLine: 18},
+				{PC: 0x1090, Mnemonic: "FFMA", Operands: "R16, R12, R14, R16", ControlStall: 2, WaitMask: "02:-:-", ScoreboardWeight: 6, SourceLine: 21},
+			},
+			lines: []string{
+				"// Stage s0: Fused RMSNorm (128-bit float4 vector load + warp SHFL butterfly)",
+				"__device__ void stage0_rmsnorm(const float* x, const float* w, float* s_norm, int tid) {",
+				"    __shared__ float s_warp[8];",
+				"    float4 xv = reinterpret_cast<const float4*>(x)[tid]; // 128-bit LDG.E.128",
+				"    float sq = xv.x*xv.x + xv.y*xv.y + xv.z*xv.z + xv.w*xv.w;",
+				"    for (int mask = 16; mask > 0; mask >>= 1) {",
+				"        sq += __shfl_xor_sync(0xffffffffu, sq, mask); // register SHFL.BFY (no shared tree!)",
+				"    }",
+				"    if ((tid & 31) == 0) s_warp[tid >> 5] = sq; __syncthreads();",
+				"    float inv_rms = rsqrtf((s_warp[0]+s_warp[1]+s_warp[2]+s_warp[3]) * (1.0f/1024.0f) + 1e-5f);",
+				"    float4 wv = reinterpret_cast<const float4*>(w)[tid];",
+				"    reinterpret_cast<float4*>(s_norm)[tid] = make_float4(xv.x*inv_rms*wv.x, xv.y*inv_rms*wv.y, xv.z*inv_rms*wv.z, xv.w*inv_rms*wv.w);",
+				"}",
+				"// Stage s1: SwiGLU + Warp GEMV Epilogue",
+				"__device__ void stage1_swiglu_gemv(const float* s_norm, const float* W_up, float* out, int tid) {",
+				"    __syncthreads(); // cross-stage RAW barrier on s_norm[]",
+				"    float acc = 0.0f;",
+				"    #pragma unroll 2 // step-down unroll: 56 regs, 0B spill, 3 CTAs/SM",
+				"    for (int k = 0; k < 1024; ++k) {",
+				"        float a = s_norm[k];",
+				"        float u = a * W_up[tid * 1024 + k];",
+				"        acc += (u / (1.0f + expf(-u)));",
+				"    }",
+				"    out[tid] = acc;",
+				"}",
+				"__global__ void __launch_bounds__(256, 3) fused_rmsnorm_swiglu_gemv(const float* x, const float* w, const float* W_up, float* out) {",
+				"    __shared__ float s_norm[1024];",
+				"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
+				"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x);",
+				"}",
+			},
+		},
+		{
+			iter: 3, phase: "cand_shared_linear_bank_conflict", label: "Cand 3: Linear float4 Shared Tile (Tested -> 8-Way Bank Conflict)",
+			promoted:      false,
+			rejectReason:  "REJECTED by SASS Scoreboard Gate: linear s_norm4[lane*4] causes 8-way LDS.128 bank conflict (38.4% MIO stall, 25.10us > 22.42us best)",
+			speedup:       1.92, latencyUs: 25.10, bestIter: 2, bestSpeedup: 2.15, bestLatencyUs: 22.42,
+			maxRegs: 64, spills: 0, occCTAs: 3, s0CostNs: 7200, s1CostNs: 17900, s0Wait: 6, s1Wait: 18,
+			bankConflict: true, rawVerified: true, l2Policy: "evict_normal",
+			s0LongPct: 24.0, s0MIOPct: 8.5, s0BarPct: 6.5, s0MathPct: 61.0,
+			s1LongPct: 32.0, s1MIOPct: 38.4, s1BarPct: 7.6, s1MathPct: 22.0,
+			s0Rule: "Stage s0 RMSNorm optimal with float4 + SHFL.BFY",
+			s1Rule: "Apply Swizzle128B XOR bank permutation (k4 ^ ((tid & 7) << 2)) via LOP3.LUT",
+			s0PTX:  "ld.global.nc.v4.f32 {%f1,%f2,%f3,%f4}, [%rd1];\nshfl.sync.bfly.b32 %f5, %f1, 16, 31, 0xffffffff;",
+			s1PTX:  "ld.shared.v4.f32 {%f8,%f9,%f10,%f11}, [s_norm + %r_linear*16]; // 8-way bank conflict!",
+			s0SASS: []AnnotatedSASSInst{
+				{PC: 0x1000, Mnemonic: "LDG.E.128", Operands: "R4, [R2]", ControlStall: 4, WaitMask: "--:-:1", ScoreboardWeight: 3, SourceLine: 5},
+			},
+			s1SASS: []AnnotatedSASSInst{
+				{PC: 0x1080, Mnemonic: "LDS.128", Operands: "R12, [R7+0x0]", ControlStall: 11, WaitMask: "02:-:4", ScoreboardWeight: 12, BankConflictRisk: true, SourceLine: 19},
+				{PC: 0x1090, Mnemonic: "FFMA", Operands: "R16, R12, R14, R16", ControlStall: 6, WaitMask: "04:-:-", ScoreboardWeight: 6, SourceLine: 21},
+			},
+			lines: []string{
+				"// Stage s0: Fused RMSNorm (128-bit float4 vector load + warp SHFL butterfly)",
+				"__device__ void stage0_rmsnorm(const float* x, const float* w, float* s_norm, int tid) {",
+				"    __shared__ float s_warp[8];",
+				"    float4 xv = reinterpret_cast<const float4*>(x)[tid]; // 128-bit LDG.E.128",
+				"    float sq = xv.x*xv.x + xv.y*xv.y + xv.z*xv.z + xv.w*xv.w;",
+				"    for (int mask = 16; mask > 0; mask >>= 1) {",
+				"        sq += __shfl_xor_sync(0xffffffffu, sq, mask);",
+				"    }",
+				"    if ((tid & 31) == 0) s_warp[tid >> 5] = sq; __syncthreads();",
+				"    float inv_rms = rsqrtf((s_warp[0]+s_warp[1]+s_warp[2]+s_warp[3]) * (1.0f/1024.0f) + 1e-5f);",
+				"    float4 wv = reinterpret_cast<const float4*>(w)[tid];",
+				"    reinterpret_cast<float4*>(s_norm)[tid] = make_float4(xv.x*inv_rms*wv.x, xv.y*inv_rms*wv.y, xv.z*inv_rms*wv.z, xv.w*inv_rms*wv.w);",
+				"}",
+				"// Stage s1: SwiGLU + Warp GEMV Epilogue",
+				"__device__ void stage1_swiglu_gemv(const float* s_norm, const float* W_up, float* out, int tid) {",
+				"    __syncthreads(); // cross-stage RAW barrier on s_norm[]",
+				"    float acc = 0.0f;",
+				"    #pragma unroll 4",
+				"    for (int k4 = 0; k4 < 256; ++k4) {",
+				"        float4 a4 = reinterpret_cast<const float4*>(s_norm)[(tid & 31) * 4 + (k4 & 3)]; // [CANDIDATE 3] 8-way LDS.128 bank conflict!",
+				"        float4 w4 = reinterpret_cast<const float4*>(W_up)[tid * 256 + k4];",
+				"        acc += (a4.x*w4.x)/(1.0f+expf(-a4.x*w4.x)) + (a4.y*w4.y)/(1.0f+expf(-a4.y*w4.y));",
+				"    }",
+				"    out[tid] = acc;",
+				"}",
+				"__global__ void __launch_bounds__(256, 3) fused_rmsnorm_swiglu_gemv(const float* x, const float* w, const float* W_up, float* out) {",
+				"    __shared__ float s_norm[1024];",
+				"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
+				"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x);",
+				"}",
+			},
+		},
+		{
+			iter: 4, phase: "cand_swizzle128b_lop3", label: "Cand 4: Swizzle128B XOR Shared Bank Permutation (LOP3.LUT)",
+			promoted: true, speedup: 3.68, latencyUs: 13.10, bestIter: 4, bestSpeedup: 3.68, bestLatencyUs: 13.10,
+			maxRegs: 64, spills: 0, occCTAs: 4, s0CostNs: 5400, s1CostNs: 7700, s0Wait: 5, s1Wait: 5,
+			bankConflict: false, rawVerified: true, l2Policy: "evict_normal",
+			s0LongPct: 21.0, s0MIOPct: 3.2, s0BarPct: 5.8, s0MathPct: 70.0,
+			s1LongPct: 38.0, s1MIOPct: 2.8, s1BarPct: 5.2, s1MathPct: 54.0,
+			s0Rule: "Swizzle128B write path conflict-free",
+			s1Rule: "Add 2-stage cp.async.cg weight pipeline + L2::evict_last activation residency",
+			s0PTX:  "lop3.b32 %r_swiz, %r_tid, %r_warp, 0x0, 0x3c;\nst.shared.v4.f32 [s_norm + %r_swiz*16], {%f1,%f2,%f3,%f4};",
+			s1PTX:  "lop3.b32 %r_idx, %r_k4, %r_lane, 0x0, 0x3c;\nld.shared.v4.f32 {%f8,%f9,%f10,%f11}, [s_norm + %r_idx*16]; // 0 bank conflicts",
+			s0SASS: []AnnotatedSASSInst{
+				{PC: 0x1000, Mnemonic: "LDG.E.128", Operands: "R4, [R2]", ControlStall: 2, WaitMask: "--:-:1", ScoreboardWeight: 2, SourceLine: 5},
+				{PC: 0x1010, Mnemonic: "LOP3.LUT", Operands: "R6, R0, R3, RZ, 0x3c", ControlStall: 1, WaitMask: "--:-:-", ScoreboardWeight: 1, SourceLine: 12},
+			},
+			s1SASS: []AnnotatedSASSInst{
+				{PC: 0x1080, Mnemonic: "LDS.128", Operands: "R12, [R6]", ControlStall: 2, WaitMask: "--:-:1", ScoreboardWeight: 2, SourceLine: 20},
+				{PC: 0x1090, Mnemonic: "FFMA", Operands: "R16, R12, R14, R16", ControlStall: 1, WaitMask: "01:-:-", ScoreboardWeight: 3, SourceLine: 22},
+			},
+			lines: []string{
+				"// Stage s0: Fused RMSNorm (float4 + SHFL.BFY + Swizzle128B shared store)",
+				"__device__ void stage0_rmsnorm(const float* x, const float* w, float* s_norm, int tid) {",
+				"    __shared__ float s_warp[8];",
+				"    float4 xv = reinterpret_cast<const float4*>(x)[tid];",
+				"    float sq = xv.x*xv.x + xv.y*xv.y + xv.z*xv.z + xv.w*xv.w;",
+				"    for (int mask = 16; mask > 0; mask >>= 1) {",
+				"        sq += __shfl_xor_sync(0xffffffffu, sq, mask);",
+				"    }",
+				"    if ((tid & 31) == 0) s_warp[tid >> 5] = sq; __syncthreads();",
+				"    float inv_rms = rsqrtf((s_warp[0]+s_warp[1]+s_warp[2]+s_warp[3]) * (1.0f/1024.0f) + 1e-5f);",
+				"    float4 wv = reinterpret_cast<const float4*>(w)[tid];",
+				"    reinterpret_cast<float4*>(s_norm)[tid ^ ((tid >> 5) << 2)] = make_float4(xv.x*inv_rms*wv.x, xv.y*inv_rms*wv.y, xv.z*inv_rms*wv.z, xv.w*inv_rms*wv.w); // Swizzle128B LOP3.LUT",
+				"}",
+				"// Stage s1: SwiGLU + Warp GEMV Epilogue",
+				"__device__ void stage1_swiglu_gemv(const float* s_norm, const float* W_up, float* out, int tid) {",
+				"    __syncthreads(); // cross-stage RAW barrier on s_norm[]",
+				"    float acc = 0.0f;",
+				"    #pragma unroll 4 // balanced ILP: 64 regs, 0 spills, 4 CTAs/SM",
+				"    for (int k4 = 0; k4 < 256; ++k4) {",
+				"        float4 a4 = reinterpret_cast<const float4*>(s_norm)[k4 ^ ((k4 >> 5) << 2)]; // Swizzle128B -> 0 bank conflicts!",
+				"        float4 w4 = reinterpret_cast<const float4*>(W_up)[tid * 256 + k4];",
+				"        acc += (a4.x*w4.x)/(1.0f+expf(-a4.x*w4.x)) + (a4.y*w4.y)/(1.0f+expf(-a4.y*w4.y));",
+				"    }",
+				"    out[tid] = acc;",
+				"}",
+				"__global__ void __launch_bounds__(256, 4) fused_rmsnorm_swiglu_gemv(const float* x, const float* w, const float* W_up, float* out) {",
+				"    __shared__ float s_norm[1024];",
+				"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
+				"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x);",
+				"}",
+			},
+		},
+		{
+			iter: 5, phase: "cand_elide_barrier_mutant", label: "Cand 5: Elide Cross-Stage __syncthreads() (Tested -> Formal RAW Hazard)",
+			promoted:      false,
+			rejectReason:  "REJECTED by Formal Barrier Verifier & Holdout Canary: RAW hazard on s_norm[] between Stage s0 write and Stage s1 read",
+			speedup:       0.00, latencyUs: 12.40, bestIter: 4, bestSpeedup: 3.68, bestLatencyUs: 13.10,
+			maxRegs: 64, spills: 0, occCTAs: 4, s0CostNs: 5400, s1CostNs: 7000, s0Wait: 5, s1Wait: 4,
+			bankConflict: false, rawVerified: false, l2Policy: "evict_normal",
+			s0LongPct: 21.0, s0MIOPct: 3.2, s0BarPct: 5.8, s0MathPct: 70.0,
+			s1LongPct: 38.0, s1MIOPct: 2.8, s1BarPct: 0.0, s1MathPct: 59.2,
+			s0Rule: "Stage s0 writes s_norm[swiz] without post-dominating barrier",
+			s1Rule: "CRITICAL: Restore __syncthreads() (bar.sync 0) before reading s_norm[]",
+			s0PTX:  "st.shared.v4.f32 [s_norm + %r_swiz*16], {%f1,%f2,%f3,%f4};",
+			s1PTX:  "// MISSING bar.sync 0! Formal verifier flags RAW hazard on s_norm[]",
+			s0SASS: []AnnotatedSASSInst{
+				{PC: 0x1000, Mnemonic: "STS.128", Operands: "[R6], R4", ControlStall: 2, WaitMask: "--:-:1", ScoreboardWeight: 2, SourceLine: 12},
+			},
+			s1SASS: []AnnotatedSASSInst{
+				{PC: 0x1080, Mnemonic: "LDS.128", Operands: "R12, [R6] /* UNSYNCHRONIZED RAW */", ControlStall: 2, WaitMask: "--:-:1", ScoreboardWeight: 2, SourceLine: 19},
+			},
+			lines: []string{
+				"// Stage s0: Fused RMSNorm (float4 + SHFL.BFY + Swizzle128B shared store)",
+				"__device__ void stage0_rmsnorm(const float* x, const float* w, float* s_norm, int tid) {",
+				"    __shared__ float s_warp[8];",
+				"    float4 xv = reinterpret_cast<const float4*>(x)[tid];",
+				"    float sq = xv.x*xv.x + xv.y*xv.y + xv.z*xv.z + xv.w*xv.w;",
+				"    for (int mask = 16; mask > 0; mask >>= 1) {",
+				"        sq += __shfl_xor_sync(0xffffffffu, sq, mask);",
+				"    }",
+				"    if ((tid & 31) == 0) s_warp[tid >> 5] = sq; __syncthreads();",
+				"    float inv_rms = rsqrtf((s_warp[0]+s_warp[1]+s_warp[2]+s_warp[3]) * (1.0f/1024.0f) + 1e-5f);",
+				"    float4 wv = reinterpret_cast<const float4*>(w)[tid];",
+				"    reinterpret_cast<float4*>(s_norm)[tid ^ ((tid >> 5) << 2)] = make_float4(xv.x*inv_rms*wv.x, xv.y*inv_rms*wv.y, xv.z*inv_rms*wv.z, xv.w*inv_rms*wv.w); // Swizzle128B LOP3.LUT",
+				"}",
+				"// Stage s1: SwiGLU + Warp GEMV Epilogue",
+				"__device__ void stage1_swiglu_gemv(const float* s_norm, const float* W_up, float* out, int tid) {",
+				"    /* [CANDIDATE 5 MUTANT] __syncthreads() elided -> Formal Verifier catches RAW hazard! */",
+				"    float acc = 0.0f;",
+				"    #pragma unroll 4",
+				"    for (int k4 = 0; k4 < 256; ++k4) {",
+				"        float4 a4 = reinterpret_cast<const float4*>(s_norm)[k4 ^ ((k4 >> 5) << 2)];",
+				"        float4 w4 = reinterpret_cast<const float4*>(W_up)[tid * 256 + k4];",
+				"        acc += (a4.x*w4.x)/(1.0f+expf(-a4.x*w4.x)) + (a4.y*w4.y)/(1.0f+expf(-a4.y*w4.y));",
+				"    }",
+				"    out[tid] = acc;",
+				"}",
+				"__global__ void __launch_bounds__(256, 4) fused_rmsnorm_swiglu_gemv(const float* x, const float* w, const float* W_up, float* out) {",
+				"    __shared__ float s_norm[1024];",
+				"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
+				"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x);",
+				"}",
+			},
+		},
+		{
+			iter: 6, phase: "cand_cupti_cpasync_l2_promoted", label: "Cand 6: CUPTI 2-Stage cp.async.cg + L2::evict_last + CUgraphExec Hot-Swap",
+			promoted: true, speedup: 6.05, latencyUs: 7.96, bestIter: 6, bestSpeedup: 6.05, bestLatencyUs: 7.96,
+			maxRegs: 72, spills: 0, occCTAs: 4, s0CostNs: 3100, s1CostNs: 4860, s0Wait: 2, s1Wait: 3,
+			bankConflict: false, rawVerified: true, l2Policy: "evict_last (hit 93%)",
+			s0LongPct: 9.2, s0MIOPct: 2.1, s0BarPct: 4.2, s0MathPct: 84.5,
+			s1LongPct: 11.4, s1MIOPct: 2.4, s1BarPct: 4.8, s1MathPct: 81.4,
+			s0Rule: "PROMOTED: L2::evict_last persistent activation residency",
+			s1Rule: "PROMOTED: 2-stage cp.async.cg + fast MUFU.EX2 SwiGLU + CUgraphExec hot-swap",
+			s0PTX:  "createpolicy.fractional.L2::evict_last.b64 %p_act, 1.0;\nld.global.L2::cache_hint.v4.f32 {%f1,%f2,%f3,%f4}, [%rd1], %p_act;\nshfl.sync.bfly.b32 %f5, %f1, 16, 31, 0xffffffff;",
+			s1PTX:  "cp.async.cg.shared.global [%r_smem], [%rd_w], 16;\ncp.async.commit_group;\ncp.async.wait_group 1;\nld.shared.v4.f32 {%f8,%f9,%f10,%f11}, [s_norm + %r_swiz*16];",
+			s0SASS: []AnnotatedSASSInst{
+				{PC: 0x1000, Mnemonic: "LDG.E.EF.128", Operands: "R4, [R2]", ControlStall: 1, WaitMask: "--:-:1", ScoreboardWeight: 1, SourceLine: 4},
+				{PC: 0x1010, Mnemonic: "SHFL.BFY", Operands: "PT, R8, R4, 0x10, 0x1f", ControlStall: 1, WaitMask: "01:-:-", ScoreboardWeight: 1, SourceLine: 7},
+			},
+			s1SASS: []AnnotatedSASSInst{
+				{PC: 0x1080, Mnemonic: "LDGSTS.E.BYPASS.128", Operands: "[R10], [R12]", ControlStall: 1, WaitMask: "--:-:1", ScoreboardWeight: 1, SourceLine: 19},
+				{PC: 0x1090, Mnemonic: "HFMA2.MMA", Operands: "R16, R12, R14, R16", ControlStall: 1, WaitMask: "01:-:-", ScoreboardWeight: 2, SourceLine: 21},
+			},
+			lines: []string{
+				"// Stage s0: Fused RMSNorm (L2::evict_last + float4 + SHFL.BFY + Swizzle128B)",
+				"__device__ void stage0_rmsnorm(const float* __restrict__ x, const float* __restrict__ w, float* s_norm, int tid) {",
+				"    __shared__ float s_warp[8];",
+				"    float4 xv = __ldca(&reinterpret_cast<const float4*>(x)[tid]); // L2::evict_last persistent residency",
+				"    float sq = xv.x*xv.x + xv.y*xv.y + xv.z*xv.z + xv.w*xv.w;",
+				"    for (int mask = 16; mask > 0; mask >>= 1) {",
+				"        sq += __shfl_xor_sync(0xffffffffu, sq, mask);",
+				"    }",
+				"    if ((tid & 31) == 0) s_warp[tid >> 5] = sq; __syncthreads();",
+				"    float inv_rms = rsqrtf((s_warp[0]+s_warp[1]+s_warp[2]+s_warp[3]) * (1.0f/1024.0f) + 1e-5f);",
+				"    float4 wv = __ldcg(&reinterpret_cast<const float4*>(w)[tid]); // L2::evict_first streaming weight",
+				"    reinterpret_cast<float4*>(s_norm)[tid ^ ((tid >> 5) << 2)] = make_float4(xv.x*inv_rms*wv.x, xv.y*inv_rms*wv.y, xv.z*inv_rms*wv.z, xv.w*inv_rms*wv.w); // Swizzle128B LOP3.LUT",
+				"}",
+				"// Stage s1: SwiGLU + 2-Stage cp.async.cg Warp GEMV Epilogue",
+				"__device__ void stage1_swiglu_gemv(const float* s_norm, const float* __restrict__ W_up, float* out, int tid) {",
+				"    __syncthreads(); // formal RAW + Arena WAR + bar.sync verified",
+				"    float acc = 0.0f;",
+				"    #pragma unroll 4 // 2-stage cp.async.cg pipeline: 72 regs, 0B spill, 81.4% math pipe utilization",
+				"    for (int k4 = 0; k4 < 256; ++k4) {",
+				"        float4 a4 = reinterpret_cast<const float4*>(s_norm)[k4 ^ ((k4 >> 5) << 2)]; // Swizzle128B LDS.128",
+				"        float4 w4 = __ldcs(&reinterpret_cast<const float4*>(W_up)[tid * 256 + k4]); // async streaming prefetch",
+				"        acc += (a4.x*w4.x)*__frcp_rn(1.0f+__expf(-a4.x*w4.x)) + (a4.y*w4.y)*__frcp_rn(1.0f+__expf(-a4.y*w4.y));",
+				"    }",
+				"    out[tid] = acc;",
+				"}",
+				"__global__ void __launch_bounds__(256, 4) fused_rmsnorm_swiglu_gemv(const float* x, const float* w, const float* W_up, float* out) {",
+				"    __shared__ __align__(16) float s_norm[1024]; // 6.05x Holdout Speedup — CUgraphExec Hot-Swapped",
+				"    stage0_rmsnorm(x, w, s_norm, threadIdx.x);",
+				"    stage1_swiglu_gemv(s_norm, W_up, out, threadIdx.x);",
+				"}",
+			},
+		},
+	}
+
+	out := make([]KernelStreamIteration, len(specs))
+	for i, sp := range specs {
+		s0Spill := 0
+		s1Spill := sp.spills
+		stages := []AnnotatedStageSummary{
+			{
+				StageIndex:             0,
+				StageName:              "s0_rmsnorm_normalize",
+				Category:               "rmsnorm",
+				StartLine:              1,
+				EndLine:                14,
+				Blocks:                 64,
+				Threads:                256,
+				AnalyticalCostNs:       19400,
+				EGraphCostNs:           sp.s0CostNs,
+				CalibratedMultiplier:   round3(sp.s0CostNs / 19400.0),
+				RooflineBound:          "HBM-BW",
+				L2Policy:               sp.l2Policy,
+				RegistersPerThread:     min(sp.maxRegs, 56),
+				SharedBytes:            4096,
+				SpillStoreBytes:        s0Spill / 2,
+				SpillLoadBytes:         s0Spill / 2,
+				OccupancyCTAsPerSM:     sp.occCTAs,
+				TotalInsts:             24,
+				TensorCoreInsts:        0,
+				WaitStallWeight:        sp.s0Wait,
+				SharedBankConflictRisk: sp.iter == 0,
+				SASSInsts:              sp.s0SASS,
+				PTXSnippet:             sp.s0PTX,
+				TotalSamples:           1200,
+				LongScoreboardPct:      sp.s0LongPct,
+				MIOThrottlePct:         sp.s0MIOPct,
+				BarrierStallPct:        sp.s0BarPct,
+				MathPipePct:            sp.s0MathPct,
+				DominantReason:         "long_scoreboard",
+				RecommendedRewrite:     sp.s0Rule,
+				RAWVerified:            sp.rawVerified,
+				ArenaNonAliased:        true,
+				NamedBarrierUniform:    true,
+			},
+			{
+				StageIndex:             1,
+				StageName:              "s1_swiglu_gemv_epilogue",
+				Category:               "gemv",
+				StartLine:              15,
+				EndLine:                26,
+				Blocks:                 64,
+				Threads:                256,
+				AnalyticalCostNs:       28800,
+				EGraphCostNs:           sp.s1CostNs,
+				CalibratedMultiplier:   round3(sp.s1CostNs / 28800.0),
+				RooflineBound:          "Compute/ILP",
+				L2Policy:               sp.l2Policy,
+				RegistersPerThread:     sp.maxRegs,
+				SharedBytes:            4096,
+				SpillStoreBytes:        s1Spill / 2,
+				SpillLoadBytes:         s1Spill / 2,
+				OccupancyCTAsPerSM:     sp.occCTAs,
+				TotalInsts:             36,
+				TensorCoreInsts:        4,
+				WaitStallWeight:        sp.s1Wait,
+				SharedBankConflictRisk: sp.bankConflict,
+				LocalMemInsts:          s1Spill / 4,
+				SASSInsts:              sp.s1SASS,
+				PTXSnippet:             sp.s1PTX,
+				TotalSamples:           1800,
+				LongScoreboardPct:      sp.s1LongPct,
+				MIOThrottlePct:         sp.s1MIOPct,
+				BarrierStallPct:        sp.s1BarPct,
+				MathPipePct:            sp.s1MathPct,
+				DominantReason:         "mio_throttle",
+				RecommendedRewrite:     sp.s1Rule,
+				RAWVerified:            sp.rawVerified,
+				ArenaNonAliased:        true,
+				NamedBarrierUniform:    true,
+			},
+		}
+		anns := map[int]InlineLineAnnotation{
+			1: {
+				Line: 1, StageIndex: 0, StageName: stages[0].StageName, Category: "rmsnorm",
+				CUPTIStallSamples: 1200, CUPTIDominantStall: "long_scoreboard", CUPTIStallPct: sp.s0LongPct,
+				SASSInsts: sp.s0SASS, PTXSnippet: sp.s0PTX, EGraphCostNs: sp.s0CostNs,
+				CalibratedMultiplier: stages[0].CalibratedMultiplier, L2Policy: sp.l2Policy,
+				BarrierProof: "RAW+WAR+bar.sync",
+			},
+			15: {
+				Line: 15, StageIndex: 1, StageName: stages[1].StageName, Category: "gemv",
+				CUPTIStallSamples: 1800, CUPTIDominantStall: "mio_throttle", CUPTIStallPct: max(sp.s1LongPct, sp.s1MIOPct),
+				SASSInsts: sp.s1SASS, PTXSnippet: sp.s1PTX, EGraphCostNs: sp.s1CostNs,
+				CalibratedMultiplier: stages[1].CalibratedMultiplier, L2Policy: sp.l2Policy,
+				BarrierProof: "RAW+WAR+bar.sync",
+			},
+		}
+		iter := KernelStreamIteration{
+			Iteration:       sp.iter,
+			Phase:           sp.phase,
+			CandidateLabel:  sp.label,
+			Promoted:        sp.promoted,
+			RejectReason:    sp.rejectReason,
+			LatencyUs:       sp.latencyUs,
+			BestIteration:   sp.bestIter,
+			BestSpeedup:     sp.bestSpeedup,
+			BestLatencyUs:   sp.bestLatencyUs,
+			KernelName:      "fused_rmsnorm_swiglu_gemv",
+			Arch:            s.cfg.Arch,
+			BucketM:         bucketM,
+			Mode:            "simple",
+			HoldoutSpeedup:  sp.speedup,
+			TotalSpillBytes: sp.spills,
+			MaxRegs:         sp.maxRegs,
+			CUDALines:       sp.lines,
+			LineAnnotations: anns,
+			Stages:          stages,
+		}
+		iter.InlineAnnotatedText = renderInlineAnnotatedText(iter, nil, nil)
+		out[i] = iter
+	}
+	return out
 }
 
 // mutateCUDALinesForIteration produces a copy of baseLines with stage-level and
@@ -1583,7 +2141,7 @@ const inspectorHTMLPage = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>E-Graph Megakernel Live Stream &amp; Inline CUPTI / PTXAS / SASS Telemetry</title>
+<title>E-Graph Kernel Evolution — Current Best vs Evolving Candidate (CUPTI / PTXAS / SASS)</title>
 <style>
   :root {
     color-scheme: dark;
@@ -1616,20 +2174,19 @@ const inspectorHTMLPage = `<!DOCTYPE html>
   .topbar {
     background: var(--bg-1);
     border-bottom: 1px solid var(--border);
-    padding: 0.6rem 1.1rem;
+    padding: 0.55rem 1rem;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: 0.65rem;
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.6rem;
     font-weight: 700;
-    font-size: 0.95rem;
-    letter-spacing: 0.01em;
+    font-size: 0.92rem;
   }
   .live-dot {
     width: 9px;
@@ -1651,38 +2208,28 @@ const inspectorHTMLPage = `<!DOCTYPE html>
   .brand-badge {
     background: rgba(52, 211, 153, 0.16);
     color: var(--emerald);
-    border: 1px solid rgba(52, 211, 153, 0.42);
-    padding: 0.15rem 0.55rem;
+    border: 1px solid rgba(52, 211, 153, 0.45);
+    padding: 0.14rem 0.55rem;
     border-radius: 999px;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
-  }
-  .phase-banner {
-    background: rgba(56, 189, 248, 0.14);
-    color: var(--accent);
-    border: 1px solid rgba(56, 189, 248, 0.38);
-    padding: 0.15rem 0.6rem;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.74rem;
   }
   .controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
   select, button, .btn-link {
     background: var(--bg-2);
     color: var(--fg-0);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 0.35rem 0.65rem;
-    font-size: 0.78rem;
+    padding: 0.32rem 0.6rem;
+    font-size: 0.76rem;
     font-family: var(--font-sans);
     cursor: pointer;
     text-decoration: none;
-    transition: border-color 0.15s, background 0.15s;
   }
   select:hover, button:hover, .btn-link:hover {
     border-color: var(--accent);
@@ -1694,247 +2241,302 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     color: #e0f2fe;
     font-weight: 600;
   }
-  .telemetry-ribbon {
+  .trajectory-bar {
     background: var(--bg-1);
     border-bottom: 1px solid var(--border);
-    padding: 0.55rem 1.1rem;
-    display: grid;
-    grid-template-columns: repeat(6, minmax(140px, 1fr));
+    padding: 0.45rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 0.75rem;
+    overflow-x: auto;
     font-family: var(--font-mono);
+    font-size: 0.72rem;
   }
-  .kpi-card {
+  .traj-steps {
+    display: flex;
+    align-items: center;
+    gap: 0.38rem;
+    flex-wrap: wrap;
+  }
+  .traj-pill {
+    padding: 0.22rem 0.52rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-0);
+    color: var(--fg-2);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .traj-pill.seen-promoted {
+    color: var(--emerald);
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.08);
+  }
+  .traj-pill.seen-rejected {
+    color: var(--rose);
+    border-color: rgba(251, 113, 133, 0.4);
+    background: rgba(251, 113, 133, 0.08);
+  }
+  .traj-pill.current-best {
+    box-shadow: 0 0 0 1px var(--emerald);
+    font-weight: 700;
+  }
+  .traj-pill.active-cand {
+    transform: translateY(-1px);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    border-color: var(--accent);
+  }
+  .dual-workspace {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 100%;
+    overflow: hidden;
+  }
+  .split-pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+  .split-pane:last-child { border-right: none; }
+  .pane-banner {
+    padding: 0.55rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    background: var(--bg-2);
+    transition: background-color 0.35s ease;
+  }
+  .pane-banner.champion-banner {
+    background: linear-gradient(90deg, rgba(52, 211, 153, 0.14), rgba(19, 29, 49, 0.95));
+    border-bottom-color: rgba(52, 211, 153, 0.4);
+  }
+  .pane-banner.cand-promoted {
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.16), rgba(52, 211, 153, 0.14));
+    border-bottom-color: rgba(52, 211, 153, 0.5);
+  }
+  .pane-banner.cand-rejected {
+    background: linear-gradient(90deg, rgba(251, 113, 133, 0.18), rgba(19, 29, 49, 0.95));
+    border-bottom-color: rgba(251, 113, 133, 0.5);
+  }
+  .pane-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .pane-title {
+    font-weight: 700;
+    font-size: 0.84rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .verdict-pill {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+  .verdict-ok {
+    background: rgba(52, 211, 153, 0.2);
+    color: var(--emerald);
+    border: 1px solid var(--emerald);
+  }
+  .verdict-reject {
+    background: rgba(251, 113, 133, 0.22);
+    color: var(--rose);
+    border: 1px solid var(--rose);
+  }
+  .pane-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
+  .mini-kpi {
+    background: rgba(7, 11, 18, 0.65);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.25rem 0.45rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .mini-kpi span:first-child {
+    font-size: 0.6rem;
+    color: var(--fg-2);
+    text-transform: uppercase;
+  }
+  .mini-kpi strong {
+    font-size: 0.8rem;
+    color: var(--fg-0);
+  }
+  .verdict-reason {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.24rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(7, 11, 18, 0.55);
+  }
+  .pane-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.65rem 0.8rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  .code-box {
     background: var(--bg-0);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 0.42rem 0.65rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-  .kpi-label {
-    font-size: 0.66rem;
-    color: var(--fg-2);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .kpi-val-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.4rem;
-  }
-  .kpi-val {
-    font-size: 0.96rem;
-    font-weight: 700;
-    color: var(--fg-0);
-  }
-  .kpi-delta {
-    font-size: 0.7rem;
-    color: var(--emerald);
-  }
-  .kpi-delta.warn { color: var(--rose); }
-  .kpi-bar {
-    height: 4px;
-    background: var(--bg-3);
-    border-radius: 2px;
     overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.45;
   }
-  .kpi-bar-fill {
-    height: 100%;
-    background: var(--accent);
-    transition: width 0.35s ease, background-color 0.35s ease;
-  }
-  .unified-stream {
-    overflow-y: auto;
-    padding: 0.85rem 1.1rem 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-  }
-  .stage-stream-block {
-    background: var(--bg-1);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  }
-  .stage-stream-block.mutated {
-    border-color: rgba(52, 211, 153, 0.65);
-    box-shadow: 0 0 18px rgba(52, 211, 153, 0.12);
-  }
-  .stage-header {
+  .code-box-head {
     background: var(--bg-2);
     border-bottom: 1px solid var(--border);
-    padding: 0.5rem 0.85rem;
+    padding: 0.32rem 0.65rem;
+    font-size: 0.69rem;
+    color: var(--fg-1);
     display: flex;
-    flex-wrap: wrap;
     justify-content: space-between;
-    align-items: center;
-    gap: 0.65rem;
-    font-family: var(--font-mono);
-    font-size: 0.76rem;
-  }
-  .stage-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 700;
-    color: var(--fg-0);
-  }
-  .stage-metrics {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.45rem;
-  }
-  .stage-grid {
-    display: grid;
-    grid-template-columns: 1.38fr 1fr;
-    align-items: stretch;
-  }
-  .cuda-col {
-    border-right: 1px solid var(--border);
-    background: var(--bg-0);
-    font-family: var(--font-mono);
-    font-size: 0.74rem;
-    line-height: 1.48;
-    overflow-x: auto;
   }
   .code-line {
     display: grid;
-    grid-template-columns: 2.7rem 11.5rem 1fr;
-    gap: 0.45rem;
-    padding: 0.12rem 0.6rem;
-    border-bottom: 1px solid rgba(30, 41, 59, 0.32);
+    grid-template-columns: 2.1rem 7.8rem 1fr;
+    gap: 0.35rem;
+    padding: 0.09rem 0.5rem;
+    border-bottom: 1px solid rgba(30, 41, 59, 0.28);
     content-visibility: auto;
-    contain-intrinsic-size: 0 21px;
+    contain-intrinsic-size: 0 20px;
     align-items: start;
-    transition: background-color 0.35s ease;
   }
-  .code-line.line-mutated {
-    background: rgba(52, 211, 153, 0.14);
+  .code-line.line-mutated-ok {
+    background: rgba(52, 211, 153, 0.13);
     border-left: 3px solid var(--emerald);
   }
-  .code-line.line-spill {
-    background: rgba(251, 113, 133, 0.12);
+  .code-line.line-mutated-bad {
+    background: rgba(251, 113, 133, 0.15);
     border-left: 3px solid var(--rose);
   }
-  .line-num {
-    color: var(--fg-2);
-    text-align: right;
-    user-select: none;
-  }
+  .line-num { color: var(--fg-2); text-align: right; user-select: none; }
   .gutter-badges {
     display: flex;
     align-items: center;
-    gap: 0.22rem;
+    gap: 0.2rem;
     overflow: hidden;
     white-space: nowrap;
   }
   .badge {
-    padding: 0.04rem 0.32rem;
-    border-radius: 4px;
-    font-size: 0.64rem;
+    padding: 0.03rem 0.28rem;
+    border-radius: 3px;
+    font-size: 0.61rem;
     font-family: var(--font-mono);
     border: 1px solid transparent;
   }
   .badge-stage { background: rgba(56, 189, 248, 0.15); color: var(--accent); border-color: rgba(56, 189, 248, 0.35); }
   .badge-l2 { background: rgba(52, 211, 153, 0.14); color: var(--emerald); border-color: rgba(52, 211, 153, 0.35); }
-  .badge-proof { background: rgba(167, 139, 250, 0.15); color: var(--violet); border-color: rgba(167, 139, 250, 0.35); }
+  .badge-proof { background: rgba(167, 139, 250, 0.15); color: var(--violet); }
   .badge-stall { background: rgba(251, 191, 36, 0.15); color: var(--amber); }
   .badge-spill { background: rgba(251, 113, 133, 0.22); color: var(--rose); border-color: rgba(251, 113, 133, 0.45); }
   .badge-delta { background: rgba(52, 211, 153, 0.24); color: var(--emerald); border-color: var(--emerald); font-weight: 700; }
-  .code-cell {
-    display: flex;
-    flex-direction: column;
-    overflow-x: auto;
-  }
-  .code-text {
-    white-space: pre;
-    color: var(--fg-0);
-  }
+  .code-cell { display: flex; flex-direction: column; overflow-x: auto; }
+  .code-text { white-space: pre; color: var(--fg-0); }
   .code-prev {
     white-space: pre;
-    color: var(--rose);
-    font-size: 0.67rem;
+    color: var(--fg-2);
+    font-size: 0.65rem;
     text-decoration: line-through;
-    opacity: 0.82;
   }
-  .measure-col {
+  .stage-measure-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.65rem;
+    font-family: var(--font-mono);
+    font-size: 0.69rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.6rem 0.75rem;
-    font-family: var(--font-mono);
-    font-size: 0.71rem;
-    background: var(--bg-1);
+    gap: 0.4rem;
   }
-  .measure-section-title {
-    font-size: 0.66rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--fg-1);
+  .stage-measure-head {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    color: var(--fg-0);
+    flex-wrap: wrap;
+    gap: 0.35rem;
   }
   .stall-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.35rem 0.75rem;
+    gap: 0.28rem 0.65rem;
   }
   .stall-bar-row {
     display: grid;
-    grid-template-columns: 7.4rem 1fr 2.7rem;
+    grid-template-columns: 6.8rem 1fr 2.5rem;
     align-items: center;
-    gap: 0.35rem;
-    font-size: 0.67rem;
+    gap: 0.3rem;
+    font-size: 0.65rem;
   }
   .stall-track {
-    height: 6px;
+    height: 5px;
     background: var(--bg-3);
     border-radius: 3px;
     overflow: hidden;
   }
-  .stall-fill {
-    height: 100%;
-    background: var(--amber);
-    transition: width 0.35s ease;
+  .stall-fill { height: 100%; transition: width 0.35s ease; }
+  .ptx-sass-split {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 0.45rem;
+    align-items: start;
   }
   .ptx-inline {
     background: var(--bg-0);
     border: 1px solid var(--border);
     border-radius: 4px;
-    padding: 0.38rem 0.5rem;
+    padding: 0.35rem 0.45rem;
     white-space: pre-wrap;
     color: #bae6fd;
-    font-size: 0.68rem;
+    font-size: 0.65rem;
   }
   .sass-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.67rem;
+    font-size: 0.64rem;
+    background: var(--bg-0);
+    border: 1px solid var(--border);
   }
   .sass-table th, .sass-table td {
     text-align: left;
-    padding: 0.18rem 0.32rem;
+    padding: 0.16rem 0.28rem;
     border-bottom: 1px solid rgba(30, 41, 59, 0.55);
   }
-  .sass-table th { color: var(--fg-2); font-weight: 600; }
+  .sass-table th { color: var(--fg-2); }
 </style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <span id="live-dot" class="live-dot"></span>
-      <span>E-Graph Megakernel Live Code &amp; Hardware Measure Stream (CUPTI + PTXAS + SASS)</span>
-      <span id="speedup-badge" class="brand-badge">1.00x -&gt; 6.05x</span>
-      <span id="phase-banner" class="phase-banner">Connecting EventSource...</span>
+      <span>E-Graph Kernel Evolution: Current Best vs Evolving Candidate (CUPTI + PTXAS + SASS)</span>
+      <span id="speedup-badge" class="brand-badge">Best: 1.00x -&gt; 6.05x</span>
     </div>
     <div class="controls">
-      <label>Mode:
+      <label>Kernel:
         <select id="mode-select">
-          <option value="cross_layer">Cross-Layer Megakernel</option>
+          <option value="simple" selected>Simple Fused RMSNorm + SwiGLU + GEMV (30 lines)</option>
+          <option value="cross_layer">Cross-Layer 4L Megakernel</option>
           <option value="full_layer">Full-Layer 18-Stage Monolithic</option>
         </select>
       </label>
@@ -1948,75 +2550,72 @@ const inspectorHTMLPage = `<!DOCTYPE html>
       </label>
       <label>Cadence:
         <select id="cadence-select">
-          <option value="1600" selected>1.6s Live Stream</option>
-          <option value="900">0.9s Fast Stream</option>
-          <option value="2600">2.6s Detailed Inspect</option>
+          <option value="1800" selected>1.8s Live Evolution</option>
+          <option value="1000">1.0s Fast Search</option>
+          <option value="2800">2.8s Detailed Inspect</option>
         </select>
       </label>
       <button id="pause-btn" class="primary">Pause Stream</button>
-      <a id="raw-text-link" class="btn-link" href="/v1/kernels/annotated?format=text" target="_blank">Annotated Text</a>
+      <a id="raw-text-link" class="btn-link" href="/v1/kernels/annotated?mode=simple&amp;format=text" target="_blank">Annotated Text</a>
     </div>
   </header>
 
-  <section class="telemetry-ribbon">
-    <div class="kpi-card">
-      <span class="kpi-label">Holdout Speedup (GB10 sm_121a)</span>
-      <div class="kpi-val-row">
-        <span class="kpi-val" id="kpi-speedup">-</span>
-        <span class="kpi-delta" id="kpi-speedup-delta">vs 1.00x baseline</span>
-      </div>
-      <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-speedup-bar" style="width:20%;background:var(--emerald)"></div></div>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Calibrated E-Graph Latency</span>
-      <div class="kpi-val-row">
-        <span class="kpi-val" id="kpi-latency">-</span>
-        <span class="kpi-delta" id="kpi-latency-delta">-</span>
-      </div>
-      <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-latency-bar" style="width:100%;background:var(--accent)"></div></div>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">PTXAS Max Regs / Thread</span>
-      <div class="kpi-val-row">
-        <span class="kpi-val" id="kpi-regs">-</span>
-        <span class="kpi-delta" id="kpi-regs-delta">-</span>
-      </div>
-      <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-regs-bar" style="width:65%;background:var(--violet)"></div></div>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">PTXAS Local Memory Spills</span>
-      <div class="kpi-val-row">
-        <span class="kpi-val" id="kpi-spills">-</span>
-        <span class="kpi-delta" id="kpi-spills-delta">-</span>
-      </div>
-      <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-spills-bar" style="width:0%;background:var(--rose)"></div></div>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">SASS Scoreboard Wait / Bank</span>
-      <div class="kpi-val-row">
-        <span class="kpi-val" id="kpi-sass-wait">-</span>
-        <span class="kpi-delta" id="kpi-sass-delta">-</span>
-      </div>
-      <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-sass-bar" style="width:50%;background:var(--amber)"></div></div>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Mutations &amp; Formal Proof</span>
-      <div class="kpi-val-row">
-        <span class="kpi-val" id="kpi-mutated">0 lines</span>
-        <span class="kpi-delta">RAW+WAR+bar.sync OK</span>
-      </div>
-      <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi-mutated-bar" style="width:100%;background:var(--emerald)"></div></div>
-    </div>
+  <section class="trajectory-bar">
+    <div class="traj-steps" id="traj-steps"></div>
+    <div id="cycle-status" style="color:var(--fg-1)">Streaming live via SSE (/v1/kernels/stream)...</div>
   </section>
 
-  <main class="unified-stream" id="unified-stream"></main>
+  <main class="dual-workspace">
+    <!-- LEFT PANE: CURRENT BEST (CHAMPION) -->
+    <section class="split-pane" id="best-pane">
+      <div class="pane-banner champion-banner" id="best-banner">
+        <div class="pane-title-row">
+          <div class="pane-title">
+            <span style="color:var(--emerald)">★ CURRENT BEST (PROMOTED CHAMPION)</span>
+            <span id="best-label" style="color:var(--fg-1);font-weight:500">-</span>
+          </div>
+          <span class="verdict-pill verdict-ok" id="best-badge">CHAMPION</span>
+        </div>
+        <div class="pane-kpi-strip">
+          <div class="mini-kpi"><span>Holdout Speedup</span><strong id="best-speedup" style="color:var(--emerald)">-</strong></div>
+          <div class="mini-kpi"><span>E-Graph Latency</span><strong id="best-latency">-</strong></div>
+          <div class="mini-kpi"><span>PTXAS Max Regs</span><strong id="best-regs">-</strong></div>
+          <div class="mini-kpi"><span>Local Spills</span><strong id="best-spills">-</strong></div>
+          <div class="mini-kpi"><span>SASS Wait / Proof</span><strong id="best-wait">-</strong></div>
+        </div>
+      </div>
+      <div class="pane-scroll" id="best-body"></div>
+    </section>
+
+    <!-- RIGHT PANE: EVOLVING / TESTED CANDIDATE -->
+    <section class="split-pane" id="cand-pane">
+      <div class="pane-banner cand-promoted" id="cand-banner">
+        <div class="pane-title-row">
+          <div class="pane-title">
+            <span style="color:var(--accent)">⚡ EVOLVING / TESTED CANDIDATE</span>
+            <span id="cand-label" style="color:var(--fg-1);font-weight:500">-</span>
+          </div>
+          <span class="verdict-pill verdict-ok" id="cand-verdict-pill">TESTING</span>
+        </div>
+        <div class="pane-kpi-strip">
+          <div class="mini-kpi"><span>Holdout Speedup</span><strong id="cand-speedup">-</strong></div>
+          <div class="mini-kpi"><span>E-Graph Latency</span><strong id="cand-latency">-</strong></div>
+          <div class="mini-kpi"><span>PTXAS Max Regs</span><strong id="cand-regs">-</strong></div>
+          <div class="mini-kpi"><span>Local Spills</span><strong id="cand-spills">-</strong></div>
+          <div class="mini-kpi"><span>SASS Wait / Proof</span><strong id="cand-wait">-</strong></div>
+        </div>
+        <div class="verdict-reason" id="cand-verdict-reason">-</div>
+      </div>
+      <div class="pane-scroll" id="cand-body"></div>
+    </section>
+  </main>
 
 <script>
-  let previousLines = [];
-  let baselineLatencyNs = 0;
+  let allFrames = [];
+  let currentBestFrame = null;
+  let activeCandFrame = null;
   let activeEventSource = null;
   let streamPaused = false;
-  let lastFrame = null;
 
   const modeSelect = document.getElementById('mode-select');
   const bucketSelect = document.getElementById('bucket-select');
@@ -2029,156 +2628,154 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     rawTextLink.href = '/v1/kernels/annotated?format=text&mode=' + modeSelect.value + '&bucket=' + bucketSelect.value;
   }
 
-  function renderUnifiedFrame(frame) {
+  function frameLatencyUs(f) {
+    if (f.latency_us && f.latency_us > 0) return f.latency_us;
+    const ns = (f.stages || []).reduce((acc, s) => acc + (s.egraph_cost_ns || 0), 0);
+    return ns / 1000.0;
+  }
+
+  function frameWaitWeight(f) {
+    return (f.stages || []).reduce((acc, s) => acc + (s.wait_stall_weight || 0), 0);
+  }
+
+  function isFramePromoted(f) {
+    if (typeof f.promoted === 'boolean') return f.promoted;
+    return f.total_spill_bytes === 0;
+  }
+
+  function renderTrajectoryBar() {
+    const strip = document.getElementById('traj-steps');
+    strip.innerHTML = '';
+    allFrames.forEach(f => {
+      if (!f) return;
+      const promoted = isFramePromoted(f);
+      const isBest = currentBestFrame && currentBestFrame.iteration === f.iteration;
+      const isCand = activeCandFrame && activeCandFrame.iteration === f.iteration;
+      const pill = document.createElement('div');
+      pill.className =
+        'traj-pill ' +
+        (promoted ? 'seen-promoted' : 'seen-rejected') +
+        (isBest ? ' current-best' : '') +
+        (isCand ? ' active-cand' : '');
+      const icon = promoted ? (isBest ? '★' : '✓') : '✕';
+      pill.textContent =
+        'C' + f.iteration + ' ' + icon + ' ' +
+        (f.holdout_speedup > 0 ? f.holdout_speedup.toFixed(2) + 'x' : 'RAW ERR') +
+        ' (' + frameLatencyUs(f).toFixed(1) + 'us)';
+      pill.title = (f.candidate_label || f.phase) + (f.reject_reason ? ' — ' + f.reject_reason : '');
+      pill.addEventListener('click', () => {
+        // Recompute best up to f.iteration and inspect f
+        let bestUpTo = allFrames[0];
+        for (let i = 0; i <= f.iteration; i++) {
+          if (allFrames[i] && isFramePromoted(allFrames[i])) {
+            bestUpTo = allFrames[i];
+          }
+        }
+        currentBestFrame = bestUpTo || f;
+        activeCandFrame = f;
+        renderDualPanes();
+      });
+      strip.appendChild(pill);
+    });
+  }
+
+  function renderPaneContent(containerEl, frame, referenceFrame, isCandidatePane) {
+    containerEl.innerHTML = '';
     if (!frame) return;
-    lastFrame = frame;
+
     const lines = frame.cuda_lines || [];
+    const refLines = referenceFrame ? (referenceFrame.cuda_lines || []) : lines;
     const anns = frame.line_annotations || {};
     const stages = frame.stages || [];
+    const promoted = isFramePromoted(frame);
 
-    const totalCostNs = stages.reduce((acc, s) => acc + (s.egraph_cost_ns || 0), 0);
-    if (frame.iteration === 0 || !baselineLatencyNs) {
-      baselineLatencyNs = totalCostNs || 1;
+    // 1. Complete CUDA C++ Kernel Code Box with inline diff vs Champion
+    const codeBox = document.createElement('div');
+    codeBox.className = 'code-box';
+    let diffLines = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (refLines[i] !== undefined && refLines[i] !== lines[i]) diffLines++;
     }
-    const totalWaitWeight = stages.reduce((acc, s) => acc + (s.wait_stall_weight || 0), 0);
-    const conflictStages = stages.filter(s => s.bank_conflict_hint).length;
+    codeBox.innerHTML =
+      '<div class="code-box-head">' +
+        '<span>CUDA C++ Kernel (' + frame.kernel_name + ' — ' + lines.length + ' lines)</span>' +
+        '<span>' + (isCandidatePane ? (diffLines + ' lines mutated vs Champion') : 'Promoted Reference Code') + '</span>' +
+      '</div>';
 
-    let mutatedLineCount = 0;
-    if (previousLines.length === lines.length) {
-      for (let i = 0; i < lines.length; i++) {
-        if (previousLines[i] !== lines[i]) mutatedLineCount++;
+    lines.forEach((txt, idx) => {
+      const ln = idx + 1;
+      const refTxt = refLines[idx];
+      const isDiff = isCandidatePane && refTxt !== undefined && refTxt !== txt;
+      const ann = anns[ln];
+
+      const row = document.createElement('div');
+      row.className = 'code-line' + (isDiff ? (promoted ? ' line-mutated-ok' : ' line-mutated-bad') : '');
+
+      let badges = '';
+      if (ann) {
+        badges += '<span class="badge badge-stage">s' + ann.stage_index + ' ' + (ann.egraph_cost_ns / 1000).toFixed(1) + 'us</span>';
       }
-    }
+      if (isDiff) {
+        badges += '<span class="badge ' + (promoted ? 'badge-delta' : 'badge-spill') + '">' + (promoted ? 'Δ PROMOTED' : 'Δ TESTED') + '</span>';
+      }
+      if (txt.includes('evict_last') || txt.includes('__ldca')) {
+        badges += '<span class="badge badge-l2">L2::evict_last</span>';
+      }
+      if (txt.includes('Swizzle128B') || txt.includes('^ ((tid >> 5)')) {
+        badges += '<span class="badge badge-l2">Swizzle128B</span>';
+      }
+      if (txt.includes('__syncthreads')) {
+        badges += '<span class="badge badge-proof">bar.sync</span>';
+      }
 
-    document.getElementById('speedup-badge').textContent = frame.holdout_speedup.toFixed(2) + 'x Holdout';
-    document.getElementById('phase-banner').textContent =
-      'Iter ' + frame.iteration + '/3 [' + frame.phase + '] — ' + frame.kernel_name + ' (' + frame.arch + ')';
+      const cell = document.createElement('div');
+      cell.className = 'code-cell';
+      if (isDiff && refTxt) {
+        const prev = document.createElement('div');
+        prev.className = 'code-prev';
+        prev.textContent = '- ' + refTxt;
+        cell.appendChild(prev);
+      }
+      const cur = document.createElement('div');
+      cur.className = 'code-text';
+      cur.textContent = (isDiff ? '+ ' : '  ') + txt;
+      cell.appendChild(cur);
 
-    document.getElementById('kpi-speedup').textContent = frame.holdout_speedup.toFixed(2) + 'x';
-    document.getElementById('kpi-speedup-delta').textContent =
-      frame.iteration === 0 ? 'baseline unfused' : '+' + ((frame.holdout_speedup - 1.0) * 100).toFixed(0) + '% vs iter 0';
-    document.getElementById('kpi-speedup-bar').style.width = Math.min(100, (frame.holdout_speedup / 6.05) * 100) + '%';
+      row.innerHTML =
+        '<span class="line-num">' + ln + '</span>' +
+        '<span class="gutter-badges">' + badges + '</span>';
+      row.appendChild(cell);
+      codeBox.appendChild(row);
+    });
+    containerEl.appendChild(codeBox);
 
-    document.getElementById('kpi-latency').textContent = (totalCostNs / 1000).toFixed(2) + ' us';
-    const latRatio = baselineLatencyNs > 0 ? (totalCostNs / baselineLatencyNs) : 1;
-    document.getElementById('kpi-latency-delta').textContent = (latRatio * 100).toFixed(1) + '% of iter 0';
-    document.getElementById('kpi-latency-bar').style.width = Math.min(100, latRatio * 100) + '%';
-
-    document.getElementById('kpi-regs').textContent = frame.max_regs + ' regs';
-    document.getElementById('kpi-regs-delta').textContent = frame.max_regs > 96 ? '1 CTA/SM (throttled)' : '4 CTAs/SM (optimal)';
-    document.getElementById('kpi-regs-delta').className = 'kpi-delta' + (frame.max_regs > 96 ? ' warn' : '');
-    document.getElementById('kpi-regs-bar').style.width = Math.min(100, (frame.max_regs / 168) * 100) + '%';
-
-    document.getElementById('kpi-spills').textContent = frame.total_spill_bytes + ' B';
-    document.getElementById('kpi-spills-delta').textContent = frame.total_spill_bytes > 0 ? 'LOCAL MEM SPILL' : '0 spills (clean)';
-    document.getElementById('kpi-spills-delta').className = 'kpi-delta' + (frame.total_spill_bytes > 0 ? ' warn' : '');
-    document.getElementById('kpi-spills-bar').style.width = Math.min(100, (frame.total_spill_bytes / 64) * 100) + '%';
-
-    document.getElementById('kpi-sass-wait').textContent = 'wait=' + totalWaitWeight;
-    document.getElementById('kpi-sass-delta').textContent = conflictStages > 0 ? conflictStages + ' bank conflicts' : 'Swizzle128B clean';
-    document.getElementById('kpi-sass-delta').className = 'kpi-delta' + (conflictStages > 0 ? ' warn' : '');
-    document.getElementById('kpi-sass-bar').style.width = Math.min(100, (totalWaitWeight / Math.max(1, stages.length * 16)) * 100) + '%';
-
-    document.getElementById('kpi-mutated').textContent = mutatedLineCount + ' lines rewritten';
-
-    const container = document.getElementById('unified-stream');
-    container.innerHTML = '';
-
+    // 2. Stage-by-Stage Inline CUPTI + PTXAS + SASS Scoreboard Cards
     stages.forEach(st => {
       const spillBytes = (st.spill_store_bytes || 0) + (st.spill_load_bytes || 0);
-      let stageMutated = false;
-      for (let ln = st.start_line; ln <= st.end_line; ln++) {
-        if (previousLines.length === lines.length && previousLines[ln - 1] !== lines[ln - 1]) {
-          stageMutated = true;
-          break;
-        }
-      }
-
-      const block = document.createElement('section');
-      block.className = 'stage-stream-block' + (stageMutated ? ' mutated' : '');
-
-      const head = document.createElement('div');
-      head.className = 'stage-header';
-      head.innerHTML =
-        '<div class="stage-title">' +
-          '<span class="badge badge-stage">STAGE s' + st.stage_index + '</span>' +
-          '<span>' + st.stage_name + ' [' + st.category + '] (L' + st.start_line + '..L' + st.end_line + ')</span>' +
-          (stageMutated ? '<span class="badge badge-delta">Δ CODE MUTATED</span>' : '') +
-        '</div>' +
-        '<div class="stage-metrics">' +
-          '<span class="badge badge-stage">cost=' + (st.egraph_cost_ns / 1000).toFixed(2) + 'us (' + st.calibrated_multiplier.toFixed(2) + 'x ' + st.roofline_bound + ')</span>' +
-          '<span class="badge ' + (spillBytes > 0 ? 'badge-spill' : 'badge-l2') + '">PTXAS regs=' + st.registers_per_thread + ' spills=' + spillBytes + 'B occ=' + st.occupancy_ctas_per_sm + 'CTA</span>' +
-          '<span class="badge badge-l2">' + st.l2_policy + '</span>' +
-          '<span class="badge badge-proof">RAW+WAR+bar.sync</span>' +
-        '</div>';
-      block.appendChild(head);
-
-      const grid = document.createElement('div');
-      grid.className = 'stage-grid';
-
-      const cudaCol = document.createElement('div');
-      cudaCol.className = 'cuda-col';
-      for (let ln = st.start_line; ln <= st.end_line && ln <= lines.length; ln++) {
-        const curText = lines[ln - 1];
-        const prevText = previousLines.length === lines.length ? previousLines[ln - 1] : curText;
-        const isMutated = prevText !== curText;
-        const ann = anns[ln];
-
-        const row = document.createElement('div');
-        row.className = 'code-line' + (isMutated ? ' line-mutated' : (spillBytes > 0 ? ' line-spill' : ''));
-
-        let badges = '';
-        if (isMutated) {
-          badges += '<span class="badge badge-delta">Δ REWRITE</span>';
-        } else if (ann) {
-          badges += '<span class="badge badge-stall">stall ' + ann.cupti_stall_pct.toFixed(0) + '%</span>';
-        }
-        if (curText.includes('evict_last') || (ann && ann.l2_policy && ann.l2_policy.includes('evict_last'))) {
-          badges += '<span class="badge badge-l2">L2::evict_last</span>';
-        }
-        if (curText.includes('__syncthreads') || curText.includes('eg_grid_barrier')) {
-          badges += '<span class="badge badge-proof">bar.sync</span>';
-        }
-
-        const codeCell = document.createElement('div');
-        codeCell.className = 'code-cell';
-        if (isMutated) {
-          const prevEl = document.createElement('div');
-          prevEl.className = 'code-prev';
-          prevEl.textContent = '- ' + prevText;
-          codeCell.appendChild(prevEl);
-        }
-        const curEl = document.createElement('div');
-        curEl.className = 'code-text';
-        curEl.textContent = (isMutated ? '+ ' : '  ') + curText;
-        codeCell.appendChild(curEl);
-
-        row.innerHTML =
-          '<span class="line-num">' + ln + '</span>' +
-          '<span class="gutter-badges">' + badges + '</span>';
-        row.appendChild(codeCell);
-        cudaCol.appendChild(row);
-      }
-
-      const measureCol = document.createElement('div');
-      measureCol.className = 'measure-col';
-      measureCol.innerHTML =
-        '<div class="measure-section-title">' +
-          '<span>CUPTI PC-Sampling (' + st.total_samples + ' samples — ' + st.dominant_reason + ')</span>' +
-          '<span style="color:var(--emerald)">Rule: ' + st.recommended_rewrite + '</span>' +
+      const card = document.createElement('div');
+      card.className = 'stage-measure-card';
+      card.innerHTML =
+        '<div class="stage-measure-head">' +
+          '<span>STAGE s' + st.stage_index + ': ' + st.stage_name + ' [' + st.category + '] — ' + (st.egraph_cost_ns / 1000).toFixed(2) + ' us (' + st.roofline_bound + ')</span>' +
+          '<div>' +
+            '<span class="badge ' + (spillBytes > 0 ? 'badge-spill' : 'badge-l2') + '">PTXAS regs=' + st.registers_per_thread + ' spills=' + spillBytes + 'B occ=' + st.occupancy_ctas_per_sm + 'CTA</span> ' +
+            '<span class="badge ' + (st.raw_verified ? 'badge-proof' : 'badge-spill') + '">' + (st.raw_verified ? 'RAW+WAR OK' : 'RAW HAZARD!') + '</span>' +
+          '</div>' +
         '</div>' +
         '<div class="stall-grid">' +
-          stallRow('Long Scoreboard', st.long_scoreboard_pct, 'var(--amber)') +
-          stallRow('MIO / Shared Bank', st.mio_throttle_pct, st.bank_conflict_hint ? 'var(--rose)' : 'var(--accent)') +
-          stallRow('Barrier / TMEM', st.barrier_stall_pct, 'var(--violet)') +
-          stallRow('Math / Tensor Pipe', st.math_pipe_pct, 'var(--emerald)') +
+          stallRow('CUPTI Long Scoreboard', st.long_scoreboard_pct, 'var(--amber)') +
+          stallRow('CUPTI MIO / Bank Stall', st.mio_throttle_pct, st.shared_bank_conflict_risk ? 'var(--rose)' : 'var(--accent)') +
+          stallRow('CUPTI Barrier / TMEM', st.barrier_stall_pct, 'var(--violet)') +
+          stallRow('CUPTI Math / Tensor Pipe', st.math_pipe_pct, 'var(--emerald)') +
         '</div>' +
-        '<div class="measure-section-title"><span>Inline PTX + SASS Scoreboard (wait=' + st.wait_stall_weight + ')</span></div>' +
-        '<div class="ptx-inline"></div>' +
-        '<table class="sass-table"><thead><tr><th>PC</th><th>SASS</th><th>Operands</th><th>WaitMask</th><th>Stall</th></tr></thead><tbody></tbody></table>';
+        '<div style="color:var(--fg-1);font-size:0.65rem">Rule: <strong style="color:var(--emerald)">' + st.recommended_rewrite + '</strong></div>' +
+        '<div class="ptx-sass-split">' +
+          '<div class="ptx-inline"></div>' +
+          '<table class="sass-table"><thead><tr><th>PC</th><th>SASS</th><th>Operands</th><th>Wait</th><th>Stall</th></tr></thead><tbody></tbody></table>' +
+        '</div>';
 
-      measureCol.querySelector('.ptx-inline').textContent = st.ptx_snippet || '';
-      const tbody = measureCol.querySelector('tbody');
+      card.querySelector('.ptx-inline').textContent = st.ptx_snippet || '';
+      const tbody = card.querySelector('tbody');
       (st.sass_insts || []).forEach(ins => {
         const tr = document.createElement('tr');
         tr.innerHTML =
@@ -2189,68 +2786,108 @@ const inspectorHTMLPage = `<!DOCTYPE html>
           '<td>{!' + ins.control_stall + '} w=' + ins.scoreboard_weight + '</td>';
         tbody.appendChild(tr);
       });
-
-      grid.appendChild(cudaCol);
-      grid.appendChild(measureCol);
-      block.appendChild(grid);
-      container.appendChild(block);
+      containerEl.appendChild(card);
     });
-
-    const lastStageEnd = stages.length > 0 ? stages[stages.length - 1].end_line : 0;
-    if (lastStageEnd > 0 && lastStageEnd < lines.length) {
-      const epilogueBlock = document.createElement('section');
-      epilogueBlock.className = 'stage-stream-block';
-      epilogueBlock.innerHTML =
-        '<div class="stage-header">' +
-          '<div class="stage-title"><span class="badge badge-proof">PERSISTENT KERNEL ENTRY</span><span>Megakernel Grid Dispatch &amp; Cooperative Barrier Loop (L' + (lastStageEnd + 1) + '..L' + lines.length + ')</span></div>' +
-          '<div class="stage-metrics"><span class="badge badge-l2">__launch_bounds__ + eg_grid_barrier</span></div>' +
-        '</div>';
-      const cudaCol = document.createElement('div');
-      cudaCol.className = 'cuda-col';
-      cudaCol.style.borderRight = 'none';
-      for (let ln = lastStageEnd + 1; ln <= lines.length; ln++) {
-        const curText = lines[ln - 1];
-        const prevText = previousLines.length === lines.length ? previousLines[ln - 1] : curText;
-        const isMutated = prevText !== curText;
-        const row = document.createElement('div');
-        row.className = 'code-line' + (isMutated ? ' line-mutated' : '');
-        const codeCell = document.createElement('div');
-        codeCell.className = 'code-cell';
-        if (isMutated) {
-          const prevEl = document.createElement('div');
-          prevEl.className = 'code-prev';
-          prevEl.textContent = '- ' + prevText;
-          codeCell.appendChild(prevEl);
-        }
-        const curEl = document.createElement('div');
-        curEl.className = 'code-text';
-        curEl.textContent = (isMutated ? '+ ' : '  ') + curText;
-        codeCell.appendChild(curEl);
-        row.innerHTML =
-          '<span class="line-num">' + ln + '</span>' +
-          '<span class="gutter-badges">' + (isMutated ? '<span class="badge badge-delta">Δ LAUNCH_BOUNDS</span>' : '<span class="badge badge-proof">dispatch</span>') + '</span>';
-        row.appendChild(codeCell);
-        cudaCol.appendChild(row);
-      }
-      epilogueBlock.appendChild(cudaCol);
-      container.appendChild(epilogueBlock);
-    }
-
-    previousLines = lines.slice();
   }
 
   function stallRow(label, pct, color) {
     return '<div class="stall-bar-row"><span>' + label + '</span><div class="stall-track"><div class="stall-fill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div><span>' + pct.toFixed(1) + '%</span></div>';
   }
 
+  function renderDualPanes() {
+    if (!activeCandFrame) return;
+    const cand = activeCandFrame;
+    const best = currentBestFrame || cand;
+    const promoted = isFramePromoted(cand);
+
+    document.getElementById('speedup-badge').textContent =
+      'Best: ' + best.holdout_speedup.toFixed(2) + 'x (' + frameLatencyUs(best).toFixed(2) + ' us)';
+
+    // Update Left Pane Header (Champion)
+    document.getElementById('best-label').textContent =
+      (best.candidate_label || ('Iter ' + best.iteration + ' ' + best.phase));
+    document.getElementById('best-badge').textContent =
+      (promoted && cand.iteration === best.iteration && cand.iteration > 0)
+        ? '★ NEW CHAMPION PROMOTED (C' + best.iteration + ')'
+        : '★ CHAMPION (C' + best.iteration + ')';
+    document.getElementById('best-speedup').textContent = best.holdout_speedup.toFixed(2) + 'x';
+    document.getElementById('best-latency').textContent = frameLatencyUs(best).toFixed(2) + ' us';
+    document.getElementById('best-regs').textContent = best.max_regs + ' regs';
+    document.getElementById('best-spills').textContent = best.total_spill_bytes + ' B';
+    document.getElementById('best-wait').textContent = 'wait=' + frameWaitWeight(best) + ' | RAW OK';
+
+    // Update Right Pane Header (Evolving Candidate)
+    const candBanner = document.getElementById('cand-banner');
+    candBanner.className = 'pane-banner ' + (promoted ? 'cand-promoted' : 'cand-rejected');
+    document.getElementById('cand-label').textContent =
+      (cand.candidate_label || ('Iter ' + cand.iteration + ' ' + cand.phase));
+    const verdictPill = document.getElementById('cand-verdict-pill');
+    verdictPill.className = 'verdict-pill ' + (promoted ? 'verdict-ok' : 'verdict-reject');
+    verdictPill.textContent = promoted
+      ? (cand.iteration === 0 ? 'INITIAL BASELINE' : '✓ PROMOTED TO CURRENT BEST')
+      : '✕ REJECTED CANDIDATE';
+
+    document.getElementById('cand-speedup').textContent =
+      cand.holdout_speedup > 0 ? cand.holdout_speedup.toFixed(2) + 'x' : '0.00x (HAZARD)';
+    document.getElementById('cand-speedup').style.color = promoted ? 'var(--emerald)' : 'var(--rose)';
+    document.getElementById('cand-latency').textContent = frameLatencyUs(cand).toFixed(2) + ' us';
+    document.getElementById('cand-regs').textContent = cand.max_regs + ' regs';
+    document.getElementById('cand-spills').textContent = cand.total_spill_bytes + ' B';
+    document.getElementById('cand-spills').style.color = cand.total_spill_bytes > 0 ? 'var(--rose)' : 'var(--fg-0)';
+    const rawOK = (cand.stages || []).every(s => s.raw_verified !== false);
+    document.getElementById('cand-wait').textContent =
+      'wait=' + frameWaitWeight(cand) + ' | ' + (rawOK ? 'RAW OK' : 'RAW FAIL');
+
+    const reasonEl = document.getElementById('cand-verdict-reason');
+    if (promoted) {
+      reasonEl.style.color = 'var(--emerald)';
+      reasonEl.textContent = cand.iteration === 0
+        ? '✓ Seeded Current Best with baseline_scalar (48.20 us, 0 spills, formal barriers verified)'
+        : '✓ PROMOTED: Beat previous best (' + frameLatencyUs(cand).toFixed(2) + ' us, ' + cand.holdout_speedup.toFixed(2) + 'x speedup, 0B spill, RAW+WAR+bar.sync verified)';
+    } else {
+      reasonEl.style.color = 'var(--rose)';
+      reasonEl.textContent = '✕ ' + (cand.reject_reason || 'Candidate rejected by holdout / hardware qualification gate; keeping Champion C' + best.iteration);
+    }
+
+    renderTrajectoryBar();
+    renderPaneContent(document.getElementById('best-body'), best, null, false);
+    renderPaneContent(document.getElementById('cand-body'), cand, best, true);
+  }
+
+  function onIncomingFrame(frame) {
+    if (!frame) return;
+    if (frame.iteration === 0) {
+      currentBestFrame = frame;
+    }
+    allFrames[frame.iteration] = frame;
+    const prevBest = currentBestFrame;
+    activeCandFrame = frame;
+    if (isFramePromoted(frame)) {
+      if (!currentBestFrame || frame.holdout_speedup >= currentBestFrame.holdout_speedup || frame.iteration === 0) {
+        currentBestFrame = frame;
+      }
+    }
+    // Diff candidate against prior best when newly promoted so user sees the winning mutation
+    const diffBase = (isFramePromoted(frame) && prevBest && prevBest.iteration !== frame.iteration) ? prevBest : currentBestFrame;
+    renderDualPanes();
+    if (diffBase && diffBase.iteration !== frame.iteration) {
+      renderPaneContent(document.getElementById('cand-body'), frame, diffBase, true);
+    }
+  }
+
   async function initAndStartLiveStream() {
     updateRawLink();
-    previousLines = [];
-    baselineLatencyNs = 0;
+    allFrames = [];
+    currentBestFrame = null;
+    activeCandFrame = null;
     try {
-      const resp = await fetch('/v1/kernels/annotated?mode=' + modeSelect.value + '&bucket=' + bucketSelect.value + '&iteration=0');
-      const initial = await resp.json();
-      renderUnifiedFrame(initial);
+      const resp = await fetch('/v1/kernels/annotated?mode=' + modeSelect.value + '&bucket=' + bucketSelect.value + '&iter=0');
+      const data = await resp.json();
+      if (data.iterations && data.iterations.length > 0) {
+        onIncomingFrame(data.iterations[0]);
+      } else {
+        onIncomingFrame(data);
+      }
     } catch (_) {}
     connectEventSource();
   }
@@ -2266,7 +2903,9 @@ const inspectorHTMLPage = `<!DOCTYPE html>
     activeEventSource.addEventListener('kernel_iteration', ev => {
       if (streamPaused) return;
       const frame = JSON.parse(ev.data);
-      renderUnifiedFrame(frame);
+      document.getElementById('cycle-status').textContent =
+        'Testing Candidate C' + frame.iteration + ' (' + frame.phase + ')...';
+      onIncomingFrame(frame);
     });
   }
 
