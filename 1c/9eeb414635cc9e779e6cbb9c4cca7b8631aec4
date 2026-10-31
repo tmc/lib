@@ -15,3 +15,5 @@ tty: no controlling tty
 pid: 20651
 ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
 Branch audit: signed host-observer rebase onto fafa24c02711c65d266d95092555d4459011db25; validation pending.
+
+Branch audit signed private host-observer refresh 1c9eeb414635cc9e779e6cbb9c4cca7b8631aec4; date 2026-10-30T20:36:00-07:00. Codex; GPT-6 family exact model ID unavailable; Claude Code not used; tty none; pid 97378; ITERM_SESSION_ID w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215. Original source retained, native BPF NOT_RUN.
