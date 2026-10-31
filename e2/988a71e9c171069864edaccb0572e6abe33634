@@ -1,0 +1,8 @@
+commit: b35af3831342db31e04e5adff5a9de8e9af54380
+commit date: 2026-10-30T19:07:48-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 28559
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Manual Go-style commit fallback continues after prior helper failures (two attempts exhausted). Full ebpfhost host race and vet PASS. Four package Linux amd64/arm64 test compilation PASS; native execution NOT_RUN. Three semantic mutation controls killed. Candidate remains under full-scope review.
