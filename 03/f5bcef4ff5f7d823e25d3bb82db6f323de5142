@@ -6,3 +6,12 @@ tty: no controlling tty in tool shell
 tool shell pid at metadata capture: 49424
 ITERM_SESSION_ID: w2t6p8:D1AA3E70-57F5-406D-96B0-629D770FC19E
 Host test/race/vet ./... passed with GOWORK=off. Linux amd64/arm64 test binaries cross-compiled after updating the opt-in native CPU gate to128-byte reads. Both-ABI VM checks every stack access/helper output, <=376-byte maximum frame, all old/new wire sizes, and65/72/128-byte entry/paired-return capture. Footer-overlap and relaxed128-byte-limit mutations fail semantically. Actual kernel verifier/native and GPU admission NOT_RUN. Manual Go-style fallback continues after prior git-auto-commit-message failure for absent Anthropic API key.
+
+commit: 03f5bcef4ff5f7d823e25d3bb82db6f323de5142
+commit date: 2026-10-30T19:04:35-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 20651
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Branch audit: signed host-observer rebase onto fafa24c02711c65d266d95092555d4459011db25; validation pending.
