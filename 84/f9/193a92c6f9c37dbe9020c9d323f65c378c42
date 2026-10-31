@@ -15,3 +15,12 @@ tty: no controlling tty
 pid: 41072
 ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
 Signed rebase of prepared transport onto externally advanced integration aae18d3ba9617e5fa327611eb9b6b6441c665f4f. Kept new integration IsDefaultDir implementation and retained alias-custody tests. Prior fafa-based qualification remains historical; same-tree current-base host/portability gates pending. Original lane/63-open-lane untouched.
+
+commit: 84f9193a92c6f9c37dbe9020c9d323f65c378c42
+commit date: 2026-10-30T20:15:00-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 49592
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Current-base gate: exact tree 8e264c7c2ca378ff6a7481d9933fcacd67a15c5a on aae18d3b. Service/HTTP/client and standalone MCP host race PASS: 936 test passes, one TestCompilationImageActualCPU skip retained. Both module vet gates PASS; four packages Linux amd64/arm64 compile PASS, binaries removed. Three semantic mutation controls killed; source byte hashes restored. No GPU/live-client admission or promotion; recent external integration ref update protected.
