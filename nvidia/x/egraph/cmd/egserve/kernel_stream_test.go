@@ -346,8 +346,8 @@ func TestSimpleKernelEvolutionCurrentBestVsCandidate(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&annotated); err != nil {
 		t.Fatalf("decode simple annotated: %v", err)
 	}
-	if len(annotated.Iterations) != 7 {
-		t.Fatalf("len(Iterations) = %d, want 7 evolutionary candidates", len(annotated.Iterations))
+	if len(annotated.Iterations) != 24 {
+		t.Fatalf("len(Iterations) = %d, want 24 evolutionary candidates", len(annotated.Iterations))
 	}
 	var promotedCount, rejectedCount int
 	for _, it := range annotated.Iterations {
@@ -363,11 +363,32 @@ func TestSimpleKernelEvolutionCurrentBestVsCandidate(t *testing.T) {
 			}
 		}
 	}
-	if promotedCount != 4 || rejectedCount != 3 {
-		t.Fatalf("promoted=%d rejected=%d, want 4 promoted and 3 rejected", promotedCount, rejectedCount)
+	if promotedCount != 15 || rejectedCount != 9 {
+		t.Fatalf("promoted=%d rejected=%d, want 15 promoted and 9 rejected", promotedCount, rejectedCount)
 	}
 	last := annotated.Iterations[len(annotated.Iterations)-1]
 	if !last.Promoted || last.HoldoutSpeedup < 6.0 || last.LatencyUs >= annotated.Iterations[0].LatencyUs {
 		t.Fatalf("unexpected final promoted simple kernel: %+v", last)
+	}
+
+	rootResp, err := ts.Client().Get(ts.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	defer rootResp.Body.Close()
+	body, err := io.ReadAll(rootResp.Body)
+	if err != nil {
+		t.Fatalf("read GET /: %v", err)
+	}
+	html := string(body)
+	for _, want := range []string{
+		"speedup-spark-svg",
+		"latency-spark-svg",
+		"replay-btn",
+		"scrubber-range",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("GET / missing %q", want)
+		}
 	}
 }
