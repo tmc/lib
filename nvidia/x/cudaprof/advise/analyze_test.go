@@ -238,8 +238,8 @@ func TestAdvice_TargetArchitectureFallback(t *testing.T) {
 	ret;
 }`,
 			wantCategory: CategoryArchitecture,
-			wantSeverity: SeverityCost,
-			wantFinding:  "Scalar address arithmetic fallback",
+			wantSeverity: SeverityContext,
+			wantFinding:  "Wide address arithmetic",
 		},
 		{
 			name: "architecture_incompatibility_sm100_on_sm90",
@@ -265,8 +265,8 @@ compute:
         /*0010*/                   EXIT ;
 `,
 			wantCategory: CategoryArchitecture,
-			wantSeverity: SeverityCost,
-			wantFinding:  "Scalar address arithmetic fallback (IMAD.WIDE)",
+			wantSeverity: SeverityContext,
+			wantFinding:  "Wide address arithmetic (IMAD.WIDE)",
 		},
 	}
 
@@ -414,12 +414,12 @@ func TestAdvice_SASSIMADCapping(t *testing.T) {
 
 	var imad []string
 	for _, item := range report.Items {
-		if strings.Contains(item.Finding, "Scalar address arithmetic fallback") {
+		if strings.Contains(item.Finding, "Wide address arithmetic") {
 			imad = append(imad, item.Finding)
 		}
 	}
 	// One finding for the kernel's pattern, however many instructions show it.
-	const want = "Scalar address arithmetic fallback (IMAD.WIDE) in kernel \"imad_kernel\": 10 instructions, at 0x0000, 0x0010, 0x0020, +7 more"
+	const want = "Wide address arithmetic (IMAD.WIDE) in kernel \"imad_kernel\": 10 instructions, at 0x0000, 0x0010, 0x0020, +7 more"
 	if len(imad) != 1 || imad[0] != want {
 		t.Errorf("IMAD findings = %q, want [%q]", imad, want)
 	}

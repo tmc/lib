@@ -17,6 +17,11 @@
 // family (mma.sync, wgmma, tcgen05) a GEMM-like kernel uses against what its
 // target offers. [Report.CompileOnly] marks such a report.
 //
+// Wide address instructions are static context observations. Their presence
+// alone proves neither compiler fallback nor inefficiency, even alongside
+// vector or TMA operations. These findings cannot acquire runtime share or
+// comparison-gap credit; inspect memory width, stride and layout first.
+//
 // [AnalyzeRanks] analyzes the captures of a job's ranks together, and
 // [Report.ProjectTo] models a capture's step on another device.
 //

@@ -420,9 +420,8 @@ func TestAdvice_PreciseFloatMath(t *testing.T) {
 	}
 }
 
-// TestAdvice_LocalMemoryNamesFastMath checks that the stack-frame and spill
-// findings point at fast math only for a kernel whose precise math costs it
-// that memory.
+// TestAdvice_LocalMemoryNamesFastMath keeps a static frame allocation separate
+// from the existing instruction-based spill finding and its fast-math lead.
 func TestAdvice_LocalMemoryNamesFastMath(t *testing.T) {
 	tests := []struct {
 		name string
@@ -452,8 +451,9 @@ func TestAdvice_LocalMemoryNamesFastMath(t *testing.T) {
 					continue
 				}
 				n++
-				if got := strings.Contains(item.ActionableRecommendation, fastMathLead); got != tt.want {
-					t.Errorf("%s: names fast math = %v, want %v", item.Finding, got, tt.want)
+				want := tt.want && strings.Contains(item.Finding, "Register spill point")
+				if got := strings.Contains(item.ActionableRecommendation, fastMathLead); got != want {
+					t.Errorf("%s: names fast math = %v, want %v", item.Finding, got, want)
 				}
 			}
 			if n != 2 {

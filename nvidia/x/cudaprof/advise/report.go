@@ -161,6 +161,11 @@ type Item struct {
 	NextMeasurement          string              `json:"next_measurement,omitempty"`
 	DeviceTimeNanos          int64               `json:"device_time_nanos,omitempty"`
 
+	// NoRuntimeAttribution prevents the analysis pipeline from assigning
+	// runtime time, profile share or baseline-gap bounds to this finding.
+	// Static code occurrence alone need not admit any such attribution.
+	NoRuntimeAttribution bool `json:"no_runtime_attribution,omitempty"`
+
 	// HostTimeNanos is host time a finding accounts for: time a host thread
 	// spent inside API calls, which no kernel profile holds. It is kept apart
 	// from DeviceTimeNanos so neither is read as the other, and the ranking
@@ -223,6 +228,11 @@ type Report struct {
 	// findings are read from the code alone and none of them is timed.
 	CompileOnly bool `json:"compile_only,omitempty"`
 
+	// NoProfileSamples reports an absent profile population. Compiler-only
+	// artifact envelopes can still yield static findings, but they do not
+	// establish that PC sampling observed any execution.
+	NoProfileSamples bool `json:"profile_samples_absent,omitempty"`
+
 	// SpanNanos is the captured device span, when a duty-cycle reading
 	// established one. Cost headers state a finding's share of device time,
 	// which is a share of however long the device was busy -- on an idle
@@ -258,6 +268,8 @@ type Report struct {
 // sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
 // only tier that records launch counts and inter-launch gaps, so on a
 // sample-only capture device idle is unmeasured rather than absent.
+const noProfileSamplesCaveat = "> **This input retains no profile samples.** Compiler artifacts alone do not establish runtime cost, sampled hot spots, or device idle. Capture a matched workload with activity tracing for runtime attribution.\n\n"
+
 const sampleOnlyCaveat = "> **This capture is PC samples only.** A share of observed samples says where " +
 	"execution was, and is *not a share of elapsed time*. PC sampling cannot observe " +
 	"device idle between launches; capture with activity tracing to measure that.\n\n"
@@ -284,7 +296,9 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 
 	var sb strings.Builder
 	sb.WriteString("# CUDA Kernel Advice Report\n\n")
-	if r.SampleOnly {
+	if r.NoProfileSamples {
+		sb.WriteString(noProfileSamplesCaveat)
+	} else if r.SampleOnly {
 		sb.WriteString(sampleOnlyCaveat)
 	}
 	if r.CompileOnly {

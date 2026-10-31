@@ -549,3 +549,22 @@ func UnpackNVFP4Dequant2Word(wq []uint32, ws []uint8, n, k int, glu bool) (packe
 	}
 	return packed, scales, nil
 }
+
+// CompactNVFP4Scales removes the fourfold lane-quad duplication from the
+// scale bytes returned by RepackNVFP4WGMMA or RepackNVFP4Dequant2Word.
+// The result is the scale layout used by TileGEMM with CompactScales.
+func CompactNVFP4Scales(scales []byte) ([]byte, error) {
+	if len(scales)%32 != 0 {
+		return nil, fmt.Errorf("compact nvfp4 scales: length %d is not a multiple of 32", len(scales))
+	}
+	out := make([]byte, 0, len(scales)/4)
+	for i := 0; i < len(scales); i += 32 {
+		for j := 8; j < 32; j++ {
+			if scales[i+j] != scales[i+j%8] {
+				return nil, fmt.Errorf("compact nvfp4 scales: lane quad differs at byte %d", i+j)
+			}
+		}
+		out = append(out, scales[i:i+8]...)
+	}
+	return out, nil
+}

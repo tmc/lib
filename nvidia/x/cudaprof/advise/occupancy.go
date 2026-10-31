@@ -21,30 +21,30 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 	for _, k := range infos {
 		threadsPerBlock := 128
 		assumed := ""
+		blockBasis := "assumed default; actual block geometry unknown"
 		if l, ok := launchesByKernel[k.Name]; ok && l.BlockThreads > 0 {
 			threadsPerBlock = l.BlockThreads
+			blockBasis = "recorded launch"
 		} else if k.ReqNTID[0] > 0 {
 			threadsPerBlock = k.ReqNTID[0] * max(1, k.ReqNTID[1]) * max(1, k.ReqNTID[2])
+			blockBasis = "CUBIN required dimensions"
 		} else {
 			assumed = "; no launch or .reqntid records the block size, so 128 threads assumed"
 		}
 
 		// 1. Stack frame size (EIATTR_FRAME_SIZE)
 		if k.FrameSizeBytes > 0 {
-			rec := "Reduce local variable lifetimes, eliminate large stack arrays, or apply __launch_bounds__ to eliminate local memory stack frame spills."
-			if math[k.Name].costs(k.FrameSizeBytes) {
-				rec += fastMathLead
-			}
 			report.Items = append(report.Items, Item{
-				rule:          "frame-size",
-				Severity:      SeverityReadFirst,
-				Category:      CategoryRegisterPressure,
-				EvidenceLevel: EvidenceObserved,
-				Location:      Location{Kernel: k.Name, Module: k.module},
-				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE), causing spills to high-latency local memory",
+				rule:                 "frame-size",
+				Severity:             SeverityContext,
+				Category:             CategoryRegisterPressure,
+				EvidenceLevel:        EvidenceObserved,
+				NoRuntimeAttribution: true,
+				Location:             Location{Kernel: k.Name, Module: k.module},
+				Finding: fmt.Sprintf("Kernel %q allocates %d bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE). Static frame allocation alone does not establish register spilling, executed local-memory traffic or latency cost.",
 					k.Name, k.FrameSizeBytes),
-				ActionableRecommendation: rec,
-				NextMeasurement:          "verify zero local memory traffic with l1tex__t_sectors_pipe_lsu_mem_local_op_st.sum",
+				ActionableRecommendation: "Inspect compiler spill diagnostics and source-correlated local-memory instructions. Measure dynamic local reads and writes for the same kernel and case before attributing cost or choosing a register, stack-array or math-mode change.",
+				NextMeasurement:          "inspect ptxas spill-load/store diagnostics; collect source-bound dynamic local-load and local-store traffic, then compare matched-case timing",
 			})
 		}
 
@@ -78,6 +78,8 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 			// records one; a cluster set at launch is not in the code.
 			CTAPair: tm.pair && tm.cluster > 0,
 		}
+		// This is a conditional static-resource model, not a complete launch:
+		// the capture does not provide dynamic shared bytes here.
 		rep := kRes.CalculateDevice(dev, threadsPerBlock, 0)
 		if rep.Occupancy < 1.0 {
 			warpsPerBlock := (threadsPerBlock + dev.WarpSize - 1) / dev.WarpSize
@@ -93,6 +95,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 				finding += fmt.Sprintf(", %d from %d TMEM columns", rep.TMEMLimit, tm.columns)
 			}
 			finding += assumed
+			finding += fmt.Sprintf(" Conditional static-resource model: %d threads/block (%s); dynamic shared memory is unknown and excluded. This is not achieved or complete launch residency.", threadsPerBlock, blockBasis)
 
 			var rec string
 			switch rep.LimitingFactor {
@@ -100,13 +103,22 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 				targetBlocks := rep.ActiveBlocks + 1
 				regsPerBlockTarget := dev.MaxRegistersPerSM / targetBlocks
 				regsPerWarpTarget := regsPerBlockTarget / warpsPerBlock
+				regsPerWarpTarget -= regsPerWarpTarget % dev.RegAllocationUnit
 				maxRegsTarget := regsPerWarpTarget / dev.WarpSize
-				targetWarps := targetBlocks * warpsPerBlock
-				targetOcc := (float64(targetWarps) / float64(dev.MaxWarpsPerSM)) * 100
-				rec = fmt.Sprintf("Register file capacity (%d regs/SM) limits residency to %d blocks/SM. Reducing registers from %d to <=%d GPRs would allow %d blocks/SM (%d warps, %.1f%% occupancy). Test with __launch_bounds__ or -maxrregcount=%d.",
-					dev.MaxRegistersPerSM, rep.ActiveBlocks, k.Registers, maxRegsTarget, targetBlocks, targetWarps, targetOcc, maxRegsTarget) + occupancyCaveat
+				candidate := kRes
+				candidate.Registers = maxRegsTarget
+				next := candidate.CalculateDevice(dev, threadsPerBlock, 0)
+				rec = fmt.Sprintf("Register file capacity (%d regs/SM) limits residency to %d blocks/SM in this static-resource model. ", dev.MaxRegistersPerSM, rep.ActiveBlocks)
+				if next.ActiveBlocks < targetBlocks {
+					rec += fmt.Sprintf("Reducing registers from %d to <=%d GPRs still models %d blocks/SM: other known resource limits prevent %d blocks/SM (registers %d, smem %d, block count %d, block size %d). Register reduction alone is insufficient in this model.",
+						k.Registers, maxRegsTarget, next.ActiveBlocks, targetBlocks, next.RegLimit, next.SmemLimit, next.BlockLimit, next.WarpLimit)
+				} else {
+					rec += fmt.Sprintf("Reducing registers from %d to <=%d GPRs could model %d blocks/SM (%d warps, %.1f%% occupancy) with the same known static inputs. Test with __launch_bounds__ or -maxrregcount=%d.",
+						k.Registers, maxRegsTarget, next.ActiveBlocks, next.TheoreticalWarps, next.Occupancy*100, maxRegsTarget)
+				}
+				rec += " Verify actual block geometry, dynamic shared bytes and sufficient grid work before using this residency target." + occupancyCaveat
 			case cudaoccupancy.LimitSharedMemory:
-				rec = fmt.Sprintf("Static shared memory (%d bytes/block) limits residency to %d blocks/SM on %s (%d bytes/SM). Reduce shared memory or dynamically allocate to allow higher CTA residency.",
+				rec = fmt.Sprintf("Static shared memory (%d bytes/block) limits residency to %d blocks/SM on %s (%d bytes/SM). A higher-residency target also depends on registers, block geometry and unknown dynamic shared memory; moving static allocation to dynamic does not itself free SM capacity.",
 					k.SharedMemBytes, rep.ActiveBlocks, dev.Architecture, dev.MaxSharedMemoryPerSM) + occupancyCaveat
 			case cudaoccupancy.LimitBlocks:
 				rec = fmt.Sprintf("Maximum thread blocks per SM (%d on %s) limits occupancy because block size (%d threads) is small. Restructure thread block geometry to >=128 or 256 threads to reach higher occupancy.",
@@ -130,7 +142,7 @@ func auditCUBINResourceOccupancy(cap *cudacapture.Capture, report *Report, infos
 				Location:                 Location{Kernel: k.Name, Module: k.module},
 				Finding:                  finding,
 				ActionableRecommendation: rec,
-				NextMeasurement:          "sm__warps_active.avg.pct_of_peak_sustained_active or A/B wall-clock timing",
+				NextMeasurement:          "record actual block geometry and dynamic shared bytes, then measure sm__warps_active.avg.pct_of_peak_sustained_active and A/B wall-clock timing",
 			})
 		}
 	}

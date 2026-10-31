@@ -2,11 +2,15 @@ package advise
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudacapture"
+	"github.com/tmc/lib/nvidia/x/cudaevidence"
 	"github.com/tmc/lib/nvidia/x/cudaoccupancy"
 )
 
@@ -63,14 +67,14 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 		wantCaveat   bool // recommendation is derived from an occupancy figure
 	}{
 		{
-			name:         "frame_size_spill_detection",
+			name:         "observed_frame_allocation",
 			targetArch:   "sm_121a",
 			wantKernel:   "spilling_kernel",
 			wantFinding:  "allocates 256 bytes of local stack frame per thread in CUBIN ELF (EIATTR_FRAME_SIZE)",
-			wantRec:      "eliminate local memory stack frame spills",
-			wantSeverity: SeverityCost,
+			wantRec:      "Measure dynamic local reads and writes",
+			wantSeverity: SeverityContext,
 			wantEvidence: EvidenceObserved,
-			wantCaveat:   false, // a local stack frame spill is real work, not a residency figure
+			wantCaveat:   false, // observed allocation is not a measured cost or residency figure
 		},
 		{
 			name:         "blackwell_sm121_reg_cliff",
@@ -168,5 +172,181 @@ func TestAdvice_CUBINResourceOccupancyAndTargetDisambiguation(t *testing.T) {
 					tt.wantKernel, tt.wantFinding, tt.wantSeverity, report.Items)
 			}
 		})
+	}
+}
+
+// These are CPU model controls, not admitted hardware measurements.
+func TestOccupancyJointLimitsAndUnknownInputs(t *testing.T) {
+	tests := []struct {
+		name                                              string
+		registers, shared, requiredThreads, launchThreads int
+		want                                              []string
+		absent                                            []string
+	}{
+		{
+			name: "joint register and shared limits", registers: 128, shared: 112656, requiredThreads: 256,
+			want:   []string{"<=80 GPRs still models 2 blocks/SM", "other known resource limits prevent 3 blocks/SM", "Register reduction alone is insufficient", "dynamic shared memory is unknown and excluded", "CUBIN required dimensions"},
+			absent: []string{"would allow 3 blocks/SM", "could model 3 blocks/SM", "<=85 GPRs"},
+		},
+		{
+			name: "register-only static counterfactual is conditional", registers: 128, requiredThreads: 256,
+			want:   []string{"<=80 GPRs could model 3 blocks/SM", "same known static inputs", "dynamic shared memory is unknown and excluded", "sufficient grid work"},
+			absent: []string{"would allow 3 blocks/SM", "Register reduction alone is insufficient"},
+		},
+		{
+			name: "allocation granularity", registers: 85, shared: 77824, requiredThreads: 256,
+			want:   []string{"from 85 to <=80 GPRs could model 3 blocks/SM"},
+			absent: []string{"to <=85 GPRs"},
+		},
+		{
+			name: "recorded block overrides required metadata", registers: 128, requiredThreads: 128, launchThreads: 256,
+			want:   []string{"256 threads/block (recorded launch)", "<=80 GPRs could model 3 blocks/SM"},
+			absent: []string{"128 threads/block", "assumed default"},
+		},
+		{
+			name: "missing block metadata", registers: 128,
+			want: []string{"128 threads/block (assumed default; actual block geometry unknown)", "Conditional static-resource model", "dynamic shared memory is unknown and excluded", "not achieved or complete launch residency"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := kernelResource{KernelResourceInfo: cudaoccupancy.KernelResourceInfo{Name: "cpu_model", Registers: tt.registers, SharedMemBytes: tt.shared}}
+			if tt.requiredThreads > 0 {
+				k.ReqNTID = [3]int{tt.requiredThreads, 1, 1}
+			}
+			var launches map[string]launchRecord
+			if tt.launchThreads > 0 {
+				launches = map[string]launchRecord{"cpu_model": {BlockThreads: tt.launchThreads}}
+			}
+			var report Report
+			auditCUBINResourceOccupancy(&cudacapture.Capture{Metadata: []byte(`{"architecture":"sm_90"}`)}, &report, []kernelResource{k}, launches, nil, nil)
+			var item *Item
+			for i := range report.Items {
+				if report.Items[i].rule == "occupancy" {
+					item = &report.Items[i]
+				}
+			}
+			if item == nil {
+				t.Fatal("missing conditional occupancy finding")
+			}
+			text := item.Finding + " " + item.ActionableRecommendation
+			for _, want := range tt.want {
+				if !strings.Contains(text, want) {
+					t.Errorf("missing %q in %s", want, text)
+				}
+			}
+			for _, absent := range tt.absent {
+				if strings.Contains(text, absent) {
+					t.Errorf("unqualified claim %q in %s", absent, text)
+				}
+			}
+			if !strings.Contains(item.NextMeasurement, "dynamic shared bytes") {
+				t.Errorf("next measurement omits missing dynamic input: %s", item.NextMeasurement)
+			}
+			if item.EvidenceLevel != EvidenceSuspected {
+				t.Errorf("evidence %s, want suspected", item.EvidenceLevel)
+			}
+		})
+	}
+}
+
+func TestFrameAllocationIsNotDynamicSpillEvidence(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		frame int
+	}{
+		{"no allocation", 0},
+		{"observed allocation", 256},
+		{"small observed allocation", 32},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			info := kernelResource{KernelResourceInfo: cudaoccupancy.KernelResourceInfo{Name: "cpu_frame", FrameSizeBytes: tt.frame}}
+			var report Report
+			auditCUBINResourceOccupancy(&cudacapture.Capture{}, &report, []kernelResource{info}, nil, nil, nil)
+			if tt.frame == 0 {
+				if len(report.Items) != 0 {
+					t.Fatalf("zero allocation produced finding: %+v", report.Items)
+				}
+				return
+			}
+			if len(report.Items) != 1 {
+				t.Fatalf("got %d allocation findings, want 1", len(report.Items))
+			}
+			item := report.Items[0]
+			if item.EvidenceLevel != EvidenceObserved || item.Severity != SeverityContext || !item.NoRuntimeAttribution {
+				t.Fatalf("static allocation misclassified: %+v", item)
+			}
+			if !strings.Contains(item.Finding, "does not establish register spilling") {
+				t.Errorf("allocation limit missing: %s", item.Finding)
+			}
+			for _, claim := range []string{"causing spills", "eliminate local memory stack frame spills", fastMathLead} {
+				if strings.Contains(item.Finding+item.ActionableRecommendation, claim) {
+					t.Errorf("unsupported allocation claim %q", claim)
+				}
+			}
+			for _, measurement := range []string{"spill-load/store diagnostics", "dynamic local-load and local-store traffic", "matched-case timing"} {
+				if !strings.Contains(item.NextMeasurement, measurement) {
+					t.Errorf("missing concrete measurement %q: %s", measurement, item.NextMeasurement)
+				}
+			}
+		})
+	}
+}
+
+func TestFrameAllocationReportDoesNotAcquireMeasuredCost(t *testing.T) {
+	// Supplied CPU records exercise the consumer, not native hardware evidence.
+	cap, source := consumerCapture(1_000_000)
+	var nv bytes.Buffer
+	nv.Write([]byte{0x04, cudaoccupancy.EIATTR_FRAME_SIZE, 0x04, 0x00})
+	binary.Write(&nv, binary.LittleEndian, uint32(256))
+	cap.Code.CUBIN = "frame.cubin"
+	cap.Files["frame.cubin"] = synthesizeTestELFForAdvise(map[string][]byte{
+		".text.kernel": make([]byte, 32), ".nv.info.kernel": nv.Bytes(),
+	})
+	source.Identity.ArtifactDigest = fmt.Sprintf("%x", sha256.Sum256(cap.Files["frame.cubin"]))
+	report, err := AnalyzeWithEvidence(cap, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := func(r *Report) {
+		t.Helper()
+		count := 0
+		for _, item := range findings(r) {
+			if !strings.Contains(item.Finding, "EIATTR_FRAME_SIZE") {
+				continue
+			}
+			count++
+			assertNoRuntimeAttribution(t, item)
+			if !strings.Contains(item.Finding, "allocates 256 bytes of local stack frame per thread") || item.EvidenceLevel != EvidenceObserved {
+				t.Fatalf("observed quantity lost: %+v", item)
+			}
+			if item.Severity != SeverityContext || gapSection(item) != gapNoTerm {
+				t.Fatalf("allocation acquired ranked cost: %+v", item)
+			}
+		}
+		if count != 1 {
+			t.Fatalf("got %d allocation findings, want 1", count)
+		}
+	}
+	check(report)
+	report.RankAgainst(testBaseline{})
+	check(report)
+	raw, err := report.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded struct {
+		Items []Item `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	round := &Report{Items: decoded.Items}
+	round.RankAgainst(testBaseline{})
+	check(round)
+	// A distinct normal finding on the same timed input still retains evidence.
+	normal := consumerFinding(t, cap, &source)
+	if normal.NoRuntimeAttribution || normal.DeviceTimeNanos == 0 || normal.ClassifiedShare.Record().Class != cudaevidence.Derived {
+		t.Fatalf("normal measured control lost: %+v", normal)
 	}
 }
