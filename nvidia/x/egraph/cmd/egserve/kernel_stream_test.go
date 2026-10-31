@@ -239,6 +239,22 @@ func TestKernelsStreamSSEProgression(t *testing.T) {
 	if last.MaxRegs >= first.MaxRegs {
 		t.Fatalf("expected final MaxRegs (%d) < baseline MaxRegs (%d)", last.MaxRegs, first.MaxRegs)
 	}
+	for i := 1; i < len(frames); i++ {
+		prevLines := frames[i-1].CUDALines
+		curLines := frames[i].CUDALines
+		if len(prevLines) != len(curLines) {
+			t.Fatalf("iteration %d CUDALines len = %d, want %d", i, len(curLines), len(prevLines))
+		}
+		var diffCount int
+		for j := range curLines {
+			if prevLines[j] != curLines[j] {
+				diffCount++
+			}
+		}
+		if diffCount == 0 {
+			t.Fatalf("expected CUDALines to mutate between iteration %d and %d, got 0 line diffs", i-1, i)
+		}
+	}
 }
 
 func TestInspectorUIAndDemoStreamCLIFlag(t *testing.T) {
