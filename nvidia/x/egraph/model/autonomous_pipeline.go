@@ -103,6 +103,117 @@ type AutonomousPipelineResult struct {
 	Epoch            *MegakernelEpochTracker
 }
 
+// AutonomousStackResult reports the full N-layer decoder stack cross-layer
+// fusion and arena packing outcome ([hopper.CrossLayerStack]) alongside the
+// autonomous flight pipeline execution result ([AutonomousPipelineResult]).
+type AutonomousStackResult struct {
+	Stack  *hopper.CrossLayerStack
+	Flight *AutonomousPipelineResult
+}
+
+// RunAutonomousStackPipeline fuses an N-layer decoder stack via
+// [hopper.FuseDecoderLayerStack], populates default cross-layer boundary plans
+// on req when not already specified, and runs [RunAutonomousFlightPipeline].
+func RunAutonomousStackPipeline(
+	ctx context.Context,
+	cfg AutonomousPipelineConfig,
+	stackCfg hopper.CrossLayerStackConfig,
+	layers []hopper.DecoderLayerPlans,
+	req AutonomousEvalRequest,
+) (*AutonomousStackResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	stack, err := hopper.FuseDecoderLayerStack(layers, stackCfg)
+	if err != nil {
+		return nil, fmt.Errorf("autonomous stack pipeline fuse stack: %w", err)
+	}
+	if len(layers) >= 2 && req.CrossLayerPost == nil && req.CrossLayerNextAttnIn == nil {
+		req.CrossLayerPost = layers[0].Post
+		req.CrossLayerNextAttnIn = layers[1].AttnIn
+		if req.CrossLayerGlue == (hopper.CrossLayerGlue{}) {
+			prefix := strings.TrimSpace(stackCfg.NamePrefix)
+			if prefix == "" {
+				prefix = "cross"
+			}
+			bridge := strings.TrimSpace(stackCfg.BridgeInput)
+			if bridge == "" {
+				bridge = "xn"
+			}
+			l0Idx := layers[0].LayerIndex
+			l1Idx := layers[1].LayerIndex
+			if l1Idx == 0 {
+				l1Idx = 1
+			}
+			if l0Idx == l1Idx {
+				l0Idx = 0
+				l1Idx = 1
+			}
+			req.CrossLayerGlue = hopper.CrossLayerGlue{
+				Name:               fmt.Sprintf("%s_l%d_l%d", prefix, l0Idx, l1Idx),
+				LayerLPrefix:       fmt.Sprintf("l%d_", l0Idx),
+				LayerNextPrefix:    fmt.Sprintf("l%d_", l1Idx),
+				BridgeInput:        bridge,
+				RetainBridgeOutput: stackCfg.RetainBridgeOutput,
+			}
+		}
+	}
+	if req.Baseline == nil && len(layers) > 0 && layers[0].Post != nil {
+		costCfg := hopper.CostConfig{
+			Device: cfg.Device,
+			SMs:    cfg.DeviceSMs,
+		}
+		if costCfg.Device == "" && cfg.Arch != "" {
+			costCfg.Device = cfg.Arch
+		}
+		if normed, cErr := costCfg.Norm(); cErr == nil {
+			costCfg = normed
+		}
+		basePlan := cloneHopperPlan(layers[0].Post)
+		baseName := basePlan.Name
+		if baseName == "" {
+			baseName = "l0_post_base"
+		}
+		req.Baseline = &qualify.StructuralBeamCandidate{
+			Name:          baseName + "_base",
+			Plan:          basePlan,
+			PlanSignature: qualify.ComputePlanSignature(basePlan, nil),
+			EstimatedNs:   basePlan.EstimateNs(costCfg),
+			CostConfig:    costCfg,
+		}
+	}
+	planName := cfg.KernelName
+	if strings.TrimSpace(planName) == "" {
+		planName = req.KernelName
+	}
+	if strings.TrimSpace(planName) == "" && len(stack.CrossBoundaries) > 0 && stack.CrossBoundaries[0] != nil {
+		planName = stack.CrossBoundaries[0].Name
+	}
+	if strings.TrimSpace(planName) == "" && stack.FinalPost != nil {
+		planName = stack.FinalPost.Name
+	}
+	if strings.TrimSpace(planName) == "" {
+		planName = "autonomous_stack_plan"
+	}
+	outDType := hopper.BF16
+	if len(stack.CrossBoundaries) > 0 && stack.CrossBoundaries[0] != nil && stack.CrossBoundaries[0].Output.DType != 0 {
+		outDType = stack.CrossBoundaries[0].Output.DType
+	} else if stack.FinalPost != nil && stack.FinalPost.Output.DType != 0 {
+		outDType = stack.FinalPost.Output.DType
+	}
+	flightRes, err := RunAutonomousFlightPipeline(ctx, nil, 0, planName, outDType, cfg, req)
+	if err != nil {
+		return &AutonomousStackResult{Stack: stack, Flight: flightRes}, err
+	}
+	return &AutonomousStackResult{
+		Stack:  stack,
+		Flight: flightRes,
+	}, nil
+}
+
 // RestorePrevious rolls the promoted kernel in r.Service (and any bucket
 // transition in r.BucketController) back to the immediate prior retained
 // version recorded before this pipeline promotion.
@@ -319,6 +430,9 @@ func RunAutonomousFlightPipeline(
 		})
 	}
 
+	if len(beam) == 0 && req.Baseline != nil && req.Baseline.Plan != nil {
+		addBeamCandidate(*req.Baseline)
+	}
 	if len(beam) == 0 {
 		return nil, errors.New("autonomous flight pipeline: no structural candidates in beam")
 	}

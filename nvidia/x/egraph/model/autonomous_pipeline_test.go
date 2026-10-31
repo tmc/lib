@@ -451,3 +451,97 @@ func TestAutonomousFlightPipelineCrossLayerAndRollback(t *testing.T) {
 		t.Fatalf("svc.Status after RestorePrevious = %+v (err=%v), want Version=1", curState, err)
 	}
 }
+
+func TestRunAutonomousStackPipeline(t *testing.T) {
+	t.Setenv("GPU_LOCKDIR", filepath.Join(t.TempDir(), "gpu-lock"))
+	ctx := context.Background()
+
+	_, _, postPlan, nextAttnInPlan := buildAutonomousTestGraph(t)
+	const numLayers = 4
+	layers := make([]hopper.DecoderLayerPlans, numLayers)
+	for i := 0; i < numLayers; i++ {
+		attnIn := cloneHopperPlan(nextAttnInPlan)
+		attnIn.Name = "l" + string(rune('0'+i)) + "_attn_in"
+		post := cloneHopperPlan(postPlan)
+		post.Name = "l" + string(rune('0'+i)) + "_post"
+		layers[i] = hopper.DecoderLayerPlans{
+			LayerIndex: i,
+			AttnIn:     attnIn,
+			Post:       post,
+		}
+	}
+
+	loader := &flightTestLoader{}
+	svc, err := cudahotswap.NewService(loader)
+	if err != nil {
+		t.Fatalf("cudahotswap.NewService: %v", err)
+	}
+	defer func() {
+		if err := svc.Close(ctx); err != nil {
+			t.Errorf("svc.Close: %v", err)
+		}
+	}()
+
+	cfg := AutonomousPipelineConfig{
+		Device:         "NVIDIA H100",
+		Arch:           "sm_90a",
+		DeviceSMs:      132,
+		BeamWidth:      4,
+		PTXASCompiler:  &autonomousTestPTXASCompiler{},
+		PTXASGate:      qualify.StaticGate{NoSpills: true, MaxRegisters: 255, MinCTAsPerSM: 1},
+		MaxPTXASIters:  4,
+		HotSwapService: svc,
+		KernelName:     "llama_stack_cross",
+	}
+	stackCfg := hopper.CrossLayerStackConfig{
+		NamePrefix:         "llama_cross",
+		BridgeInput:        "xn",
+		RetainBridgeOutput: true,
+		PackArena:          true,
+		Mega:               true,
+	}
+
+	id := qualify.MeasuredIdentity{
+		Context:   sha256.Sum256([]byte("ctx:stack:sm_90a")),
+		Admission: sha256.Sum256([]byte("adm:stack:trusted")),
+	}
+	ev := testWinningHoldoutEvidence(id)
+
+	stackRes, err := RunAutonomousStackPipeline(ctx, cfg, stackCfg, layers, AutonomousEvalRequest{
+		Identity:        id,
+		DefaultEvidence: &ev,
+	})
+	if err != nil {
+		t.Fatalf("RunAutonomousStackPipeline: %v", err)
+	}
+	if stackRes == nil || stackRes.Stack == nil || stackRes.Flight == nil {
+		t.Fatalf("unexpected nil in AutonomousStackResult: %+v", stackRes)
+	}
+	if stackRes.Stack.NumLayers != numLayers {
+		t.Fatalf("Stack.NumLayers = %d, want %d", stackRes.Stack.NumLayers, numLayers)
+	}
+	if got, want := len(stackRes.Stack.CrossBoundaries), numLayers-1; got != want {
+		t.Fatalf("len(Stack.CrossBoundaries) = %d, want %d", got, want)
+	}
+	if got, want := len(stackRes.Stack.CrossMegakernels), numLayers-1; got != want {
+		t.Fatalf("len(Stack.CrossMegakernels) = %d, want %d", got, want)
+	}
+	if stackRes.Stack.ArenaBytes == 0 {
+		t.Fatal("expected non-zero Stack.ArenaBytes")
+	}
+	if got, want := stackRes.Stack.UnfusedLaunchCount(), 2*numLayers; got != want {
+		t.Fatalf("UnfusedLaunchCount = %d, want %d", got, want)
+	}
+	if got, want := stackRes.Stack.FusedLaunchCount(), numLayers+1; got != want {
+		t.Fatalf("FusedLaunchCount = %d, want %d", got, want)
+	}
+	if stackRes.Flight.CrossLayerPlan == nil || stackRes.Flight.CrossLayerMegakernel == nil {
+		t.Fatal("expected Flight.CrossLayerPlan and Flight.CrossLayerMegakernel to be populated from layers[0]->layers[1]")
+	}
+	if stackRes.Flight.Winner == nil || !stackRes.Flight.Winner.Promoted {
+		t.Fatalf("expected Flight.Winner to be promoted, got %+v", stackRes.Flight.Winner)
+	}
+	if stackRes.Flight.SelectedState.Version != 2 {
+		t.Fatalf("Flight.SelectedState.Version = %d, want 2", stackRes.Flight.SelectedState.Version)
+	}
+}
