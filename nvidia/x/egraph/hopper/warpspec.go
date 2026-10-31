@@ -142,10 +142,10 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
 		b.WriteString("    constexpr int NOUT = N;\n")
 	}
 	if nvfp4 {
-		b.WriteString(`    // Stage: x [BM][64] BF16, then 256 threads' fragment words and scales.
-    constexpr int XBYTES = BM * 128, WBYTES = 256 * 16, SBYTES = 256 * 8;
+		fmt.Fprintf(&b, `    // Stage: x [BM][64] BF16, then 256 threads' fragment words and scales.
+    constexpr int XBYTES = BM * 128, WBYTES = 256 * 16, SBYTES = %s;
     constexpr int TX = XBYTES + WBYTES + SBYTES, STAGE = (TX + 1023) / 1024 * 1024;
-`)
+`, scaleSize(g))
 	} else {
 		b.WriteString(`    // Stage: x [BM][BK], then W [BN][BK], in 128-byte swizzled rows.
     constexpr int TX = (BM + BN) * 128, STAGE = TX;
@@ -167,9 +167,9 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
 	switch g.Weight {
 	case WeightNVFP4:
 		fmt.Fprintf(&b, `    const uint32_t* const we = w + ((size_t)e * (N / 128) + %s) * KT * 256 * 4;
-    const uint8_t* const se = w_sf + ((size_t)e * (N / 128) + %s) * KT * 256 * 8;
+    const uint8_t* const se = w_sf + ((size_t)e * (N / 128) + %s) * KT * %s;
     const float gs = w_gs[e] * 256.0f;
-`, bx, bx)
+`, bx, bx, scaleSize(g))
 	case WeightE4M3:
 		b.WriteString("    const uint8_t* const we = w + (size_t)e * N * K;\n")
 	default:
@@ -210,19 +210,35 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
             const int s = kt % STAGES;
             if (kt >= STAGES) eg_mbar_wait(&empty[s], (kt / STAGES - 1) & 1);
             unsigned char* const sa = smem + s * STAGE;
-            if (tid == 0) eg_mbar_arrive_expect_tx(&full[s], TX);
 `)
-	fmt.Fprintf(&b, `            for (int c = tid; c < BM * 8; c += 128) {
+	if g.VectorActivationLoads {
+		fmt.Fprintf(&b, `            for (int c = tid; c < BM * 8; c += 128) {
+                const int r = c / 8, ch = c %% 8;
+                const eg_u32x4 value = *reinterpret_cast<const eg_u32x4*>(x + (size_t)%s * K + kt * BK + ch * 8);
+                *reinterpret_cast<eg_u32x4*>(sa + eg_swizzle_128b(r * 128 + ch * 16)) = value;
+            }
+            eg_fence_proxy_async();
+#if defined(EG_HOST_EMU)
+            eg_emu_bar_sync(1, 128);
+#else
+            asm volatile("barrier.cta.sync 1, 128;" ::: "memory");
+#endif
+            if (tid == 0) eg_mbar_arrive_expect_tx(&full[s], WBYTES + SBYTES);
+`, xrow)
+	} else {
+		b.WriteString("            if (tid == 0) eg_mbar_arrive_expect_tx(&full[s], TX);\n")
+		fmt.Fprintf(&b, `            for (int c = tid; c < BM * 8; c += 128) {
                 const int r = c / 8, ch = c %% 8;
                 eg_bulk_copy(sa + eg_swizzle_128b(r * 128 + ch * 16), x + (size_t)%s * K + kt * BK + ch * %d, 16, &full[s]);
             }
 `, xrow, chunk)
+	}
 	if nvfp4 {
-		b.WriteString(`            if (tid == 0) {
+		fmt.Fprintf(&b, `            if (tid == 0) {
                 eg_bulk_copy(sa + XBYTES, we + (size_t)kt * 256 * 4, WBYTES, &full[s]);
-                eg_bulk_copy(sa + XBYTES + WBYTES, se + (size_t)kt * 256 * 8, SBYTES, &full[s]);
+                eg_bulk_copy(sa + XBYTES + WBYTES, se + (size_t)kt * %s, SBYTES, &full[s]);
             }
-`)
+`, scaleSize(g))
 	} else {
 		fmt.Fprintf(&b, `            unsigned char* const sb = sa + BM * 128;
             for (int c = tid; c < BN * 8; c += 128) {
@@ -249,9 +265,27 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
         eg_mbar_wait(&full[s], (kt / STAGES) & 1);
         const unsigned char* const sa = smem + s * STAGE;
         const eg_u32x4 q = *reinterpret_cast<const eg_u32x4*>(sa + XBYTES + ct * 16);
-        const eg_u32x2 sc = *reinterpret_cast<const eg_u32x2*>(sa + XBYTES + WBYTES + ct * 8);
+        const eg_u32x2 sc = *reinterpret_cast<const eg_u32x2*>(sa + XBYTES + WBYTES + %s * 8);
         const uint32_t qs[4] = {q.x, q.y, q.z, q.w};
+`, scaleIndex(g))
+		if g.DequantWords == 2 {
+			b.WriteString(`#pragma unroll
+        for (int p = 0; p < 2; ++p) {
+            const uint32_t qpair[2] = {qs[2 * p], qs[2 * p + 1]};
+            uint32_t decoded[8];
+            eg_dequant_2w(qpair, decoded);
 #pragma unroll
+            for (int sub = 0; sub < 2; ++sub) {
+                const int ks = 2 * p + sub;
+                const uint32_t sw = (ks < 2 ? sc.x : sc.y) >> (16 * (ks & 1));
+                const uint32_t s0 = eg_scale_e4m3_bf16x2(sw), s1 = eg_scale_e4m3_bf16x2(sw >> 8);
+#pragma unroll
+                for (int j = 0; j < 4; ++j) av[ks][j] = eg_mul_bf16x2(decoded[4 * sub + j], (j & 1) ? s1 : s0);
+            }
+        }
+`)
+		} else {
+			b.WriteString(`#pragma unroll
         for (int ks = 0; ks < 4; ++ks) {
             // Scale byte 2*ks + h is row (lane/4) + 8h's scale for this 16 k.
             const uint32_t sw = (ks < 2 ? sc.x : sc.y) >> (16 * (ks & 1));
@@ -259,7 +293,9 @@ func (g TileGEMM) cudaWarpSpecialized() (string, error) {
 #pragma unroll
             for (int j = 0; j < 4; ++j) av[ks][j] = eg_mul_bf16x2(eg_wgmma_decode_nibble(qs[ks], j), (j & 1) ? s1 : s0);
         }
-        eg_wgmma_fence();
+`)
+		}
+		fmt.Fprintf(&b, `        eg_wgmma_fence();
 #pragma unroll
         for (int ks = 0; ks < 4; ++ks) %s(d, av[ks], eg_wgmma_desc_128b(sa + ks * 32, 1024));
         eg_wgmma_commit();
@@ -401,4 +437,18 @@ func wgmmaRSFunc(name string, n int) string {
 	fmt.Fprintf(&b, "        : %s\n", strings.Join(outLines, ",\n          "))
 	b.WriteString("        : \"r\"(a[0]), \"r\"(a[1]), \"r\"(a[2]), \"r\"(a[3]), \"l\"(db), \"r\"(1));\n#endif\n}\n\n")
 	return b.String()
+}
+
+func scaleSize(g TileGEMM) string {
+	if g.CompactScales {
+		return "64 * 8"
+	}
+	return "256 * 8"
+}
+
+func scaleIndex(g TileGEMM) string {
+	if g.CompactScales {
+		return "(ct / 4)"
+	}
+	return "ct"
 }

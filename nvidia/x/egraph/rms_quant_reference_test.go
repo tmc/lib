@@ -215,12 +215,14 @@ int main(int argc, char** argv) {
     float* x = (float*)calloc((size_t)cols, sizeof(float));
     float* weight = (float*)calloc((size_t)cols, sizeof(float));
     int nblocks = (cols + 31) / 32;
-    block_q8_1* out = (block_q8_1*)calloc((size_t)(nblocks > 0 ? nblocks : 1), sizeof(block_q8_1));
+    block_q8_1* out = (block_q8_1*)malloc((size_t)(nblocks > 0 ? nblocks : 1) * sizeof(block_q8_1));
     if (!x || !weight || !out) {
         fprintf(stderr, "alloc failed\n");
         fclose(fin);
         return 2;
     }
+    // Every output byte starts nonzero: padding must be written by the kernel.
+    memset(out, 0x5a, (size_t)(nblocks > 0 ? nblocks : 1) * sizeof(block_q8_1));
     if ((cols > 0 && fread(x, sizeof(float), (size_t)cols, fin) != (size_t)cols) ||
         (cols > 0 && fread(weight, sizeof(float), (size_t)cols, fin) != (size_t)cols)) {
         fprintf(stderr, "short payload read\n");
@@ -446,7 +448,7 @@ func TestRMSQuantQ81EmittedKernelMatchesUnfusedReference(t *testing.T) {
 		compareRMSQuantBlocks(t, got, want, cols)
 	})
 
-	for _, cols := range []int{45, 50} {
+	for _, cols := range []int{1, 31, 33, 45, 50, 63} {
 		t.Run(fmt.Sprintf("tail_block_cols_%d", cols), func(t *testing.T) {
 			const eps = float32(1e-4)
 			x := make([]float32, cols)

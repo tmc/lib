@@ -176,8 +176,10 @@ type AttributionRead struct {
 
 // SlurmAttributionSource names explicitly configured attribution inputs in an
 // fs.FS. File names are fs.ValidPath names. The reader opens exactly Squeue,
-// Mappings, Executions and, for each PID, ProcDir/PID/stat, status and cgroup.
-// It never opens environ and never lists a directory.
+// Mappings, Executions and, for each PID, ProcDir/PID/stat, status and cgroup,
+// followed by an optional environ observation after valid process identity.
+// Missing, inaccessible or invalid environ supplies no self-reported value;
+// it does not discard separately valid cgroup facts. It never lists a directory.
 //
 // Squeue is squeue --json data_parser v0.0.43 output read by
 // ReadSlurmSqueueJSON. Mappings is a version 1 document
@@ -308,6 +310,7 @@ func readProcFiles(fsys fs.FS, src SlurmAttributionSource, pid uint32) (ProcEnti
 	if p.Process.Process.PID != pid {
 		return ProcEntityFacts{}, fmt.Errorf("slurm attribution: pid %d: stat names pid %d", pid, p.Process.Process.PID)
 	}
+	p.SelfReported = readProcEnvironFile(fsys, path.Join(dir, "environ"))
 	return p, nil
 }
 

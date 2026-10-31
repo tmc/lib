@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"text/tabwriter"
 
@@ -28,6 +29,9 @@ const ncuDisplayName = "device__attribute_display_name"
 // any other device name, every launch that records a name must agree with
 // it: a ceiling measured on another part is the wrong denominator.
 func resolveNCUCeiling(t *nsightcompute.RawTable, gbps float64, device string) (ncuCeiling, error) {
+	if gbps < 0 || math.IsNaN(gbps) || math.IsInf(gbps, 0) {
+		return ncuCeiling{}, fmt.Errorf("invalid DRAM bandwidth ceiling %g", gbps)
+	}
 	if device == "" {
 		return ncuCeiling{GBps: gbps}, nil
 	}
@@ -84,8 +88,9 @@ var ncuDurationNS = map[string]float64{
 // ncuRawLaunches derives per-launch rates. DRAM bytes are read plus write;
 // GB/s is decimal. Occupancy is taken only from a "%" unit, and a CTA count
 // only from "block" or "cta", because the same metric name in another unit
-// is a different quantity.
+// is a different quantity. Invalid counts and nonfinite derived values are absent.
 func ncuRawLaunches(t *nsightcompute.RawTable, ceilingGBps float64) []ncuRawLaunch {
+	finite := func(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 	value := func(l *nsightcompute.RawLaunch, metric string, units ...string) *float64 {
 		v, unit, err := t.Value(l, metric)
 		if err != nil {
@@ -105,27 +110,37 @@ func ncuRawLaunches(t *nsightcompute.RawTable, ceilingGBps float64) []ncuRawLaun
 		if v, unit, err := t.Value(l, "gpu__time_duration.sum"); err == nil {
 			if scale, ok := ncuDurationNS[unit]; ok && v > 0 {
 				ns := v * scale
-				r.DurationNS = &ns
+				if ns > 0 && finite(ns) {
+					r.DurationNS = &ns
+				}
 			}
 		}
 		rd := value(l, "dram__bytes_read.sum", "byte")
 		wr := value(l, "dram__bytes_write.sum", "byte")
-		if rd != nil && wr != nil {
+		if rd != nil && wr != nil && *rd >= 0 && *wr >= 0 {
 			b := *rd + *wr
-			r.DRAMBytes = &b
-			if r.DurationNS != nil {
+			if finite(b) {
+				r.DRAMBytes = &b
+			}
+			if r.DRAMBytes != nil && r.DurationNS != nil {
 				gbps := b / *r.DurationNS
-				r.DRAMGBps = &gbps
-				if ceilingGBps > 0 {
+				if finite(gbps) {
+					r.DRAMGBps = &gbps
+				}
+				if r.DRAMGBps != nil && ceilingGBps > 0 && finite(ceilingGBps) {
 					f := gbps / ceilingGBps
-					r.CeilingFrac = &f
+					if finite(f) {
+						r.CeilingFrac = &f
+					}
 				}
 			}
 		}
 		if v := value(l, "sm__warps_active.avg.pct_of_peak_sustained_active", "%"); v != nil && *v >= 0 && *v <= 100 {
 			r.WarpsActive = v
 		}
-		r.CTAsLaunched = value(l, "sm__ctas_launched.sum", "block", "cta")
+		if v := value(l, "sm__ctas_launched.sum", "block", "cta"); v != nil && *v >= 0 {
+			r.CTAsLaunched = v
+		}
 		out = append(out, r)
 	}
 	return out

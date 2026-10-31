@@ -1,6 +1,7 @@
 package hopper
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"slices"
@@ -127,7 +128,7 @@ func Rules() []*egraph.Rewrite {
 		{Name: "matmul-gemm",
 			LHS: egraph.Pat(OpMatMul, egraph.Var("x"), egraph.Var("w")),
 			RHS: egraph.Pat(OpGEMM, egraph.Pat("fn:$0"), egraph.Var("x"), egraph.Var("w"))},
-	}, modelRules()...)
+	}, append(modelRules(), ssmRules()...)...)
 }
 
 func lambdaOf(n egraph.ENode) (Lambda, bool) {
@@ -140,11 +141,13 @@ func lambdaOf(n egraph.ENode) (Lambda, bool) {
 }
 
 // FuseEpilogues adds, for every (map f (gemm g x w e...) a...) in g whose
-// operands a... are inputs or slices and reshapes of inputs, the equivalent
-// (gemm f∘g x w e... a...), and returns how many it added. A gemm whose
-// result has other users is not fused, so W is streamed once. Operands computed
-// by other terms are left to a row kernel, since reading them from an
-// epilogue would cost the kernels that produce them. It rebuilds the graph.
+// operands a... are inputs, slices and reshapes of inputs, or gemm results,
+// the equivalent (gemm f∘g x w e... a...), and returns how many it added. A
+// gemm whose result has other users is not fused, so W is streamed once.
+// A gemm result is in memory whatever reads it, as a residual stream is;
+// operands computed by row trees are left to a row kernel, since reading
+// them from an epilogue would cost the kernels that produce them. It
+// rebuilds the graph.
 func FuseEpilogues(g *egraph.EGraph) (int, error) {
 	// users[c] counts the classes with a node reading class c. Fusing a
 	// map into a gemm whose result has other users would stream W twice.
@@ -170,7 +173,7 @@ func FuseEpilogues(g *egraph.EGraph) (int, error) {
 			if !ok {
 				continue
 			}
-			if !allLeafViews(g, n.Children[2:]) || len(users[g.Find(n.Children[1])]) > 1 {
+			if !allEpilogueOperands(g, n.Children[2:]) || len(users[g.Find(n.Children[1])]) > 1 {
 				continue
 			}
 			for _, inner := range g.Class(n.Children[1]).Nodes {
@@ -207,9 +210,10 @@ func FuseEpilogues(g *egraph.EGraph) (int, error) {
 	return added + mAdded, nil
 }
 
-// allLeafViews reports whether every class holds a Tensor leaf or a slice
-// or reshape of one: operands an epilogue can read without another kernel.
-func allLeafViews(g *egraph.EGraph, ids []egraph.Id) bool {
+// allEpilogueOperands reports whether every class holds a Tensor leaf, a
+// gemm result, or a slice or reshape of one: operands an epilogue can read
+// from memory without a kernel of their own.
+func allEpilogueOperands(g *egraph.EGraph, ids []egraph.Id) bool {
 	var leafView func(id egraph.Id, depth int) bool
 	leafView = func(id egraph.Id, depth int) bool {
 		if depth > 8 {
@@ -217,6 +221,9 @@ func allLeafViews(g *egraph.EGraph, ids []egraph.Id) bool {
 		}
 		for _, n := range g.Class(id).Nodes {
 			if _, ok := n.Data.(Tensor); ok {
+				return true
+			}
+			if n.Op == OpGEMM {
 				return true
 			}
 			if (n.Op == OpSlice || n.Op == OpReshape) && leafView(n.Children[0], depth+1) {
@@ -311,7 +318,7 @@ func (Cost) NodeCost(n egraph.ENode, children []float64) float64 {
 }
 
 // Optimize saturates the term graph with [Rules] and [FuseEpilogues] and
-// extracts the cheapest form of root under [Cost].
+// extracts the cheapest form of root with [Extract].
 func Optimize(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
 	for range 8 {
 		if _, err := egraph.SaturateChecked(g, Rules(), egraph.SaturationOptions{MaxIterations: 16}); err != nil {
@@ -325,11 +332,24 @@ func Optimize(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
 			break
 		}
 	}
-	expr, _, err := egraph.ExtractBest(g, root, Cost{})
+	expr, err := Extract(g, root)
 	if err != nil {
 		return nil, fmt.Errorf("optimize: %w", err)
 	}
 	return expr, nil
+}
+
+// Extract extracts the cheapest form of root under [Cost] with
+// [egraph.ExtractSegmented]: a stack of layers is extracted layer by layer,
+// and identical layers once, so the work is linear in the number of
+// layers. The result shares common subterms.
+func Extract(g *egraph.EGraph, root egraph.Id) (*egraph.Expr, error) {
+	if err := g.RebuildChecked(); err != nil {
+		return nil, err
+	}
+	limits := egraph.ExtractionLimits{MaxWork: 1 << 40, MaxNodes: 1 << 30, MaxDepth: 1 << 30}
+	expr, _, _, err := egraph.ExtractSegmented(context.Background(), g, root, Cost{}, limits)
+	return expr, err
 }
 
 // A Value is a dense row-major tensor of values, for [Eval].

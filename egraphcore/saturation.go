@@ -23,7 +23,27 @@ const (
 	SaturationNodeLimit
 	SaturationScheduleDone
 	SaturationTupleLimit
+	SaturationTimeLimit
+	SaturationRuleMatchLimit
 )
+
+var saturationStopReasons = [...]string{
+	SaturationFixedPoint:     "fixed point",
+	SaturationIterationLimit: "iteration limit",
+	SaturationWorkLimit:      "work limit",
+	SaturationNodeLimit:      "node limit",
+	SaturationScheduleDone:   "schedule done",
+	SaturationTupleLimit:     "tuple limit",
+	SaturationTimeLimit:      "time limit",
+	SaturationRuleMatchLimit: "rule match limit",
+}
+
+func (r SaturationStopReason) String() string {
+	if int(r) < len(saturationStopReasons) && saturationStopReasons[r] != "" {
+		return saturationStopReasons[r]
+	}
+	return fmt.Sprintf("SaturationStopReason(%d)", r)
+}
 
 
 var (

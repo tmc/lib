@@ -142,7 +142,7 @@ func TestNVLinkCounterCanonicalReplay(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if m.MetricRegistryVersion != "2026.10-v3" || m.SchemaVersion != 3 {
+			if m.MetricRegistryVersion != "2026.10-v4" || m.SchemaVersion != 3 {
 				t.Fatalf("dictionary/stream versions conflated: %+v", m)
 			}
 			readings := samples[0].Readings

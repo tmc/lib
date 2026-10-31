@@ -161,8 +161,8 @@ func TestTransformerTileRulesTable(t *testing.T) {
 				if !strings.Contains(src, "ct::store_masked(") || !strings.Contains(src, "ct::rsqrt(") {
 					t.Fatal("missing normalized projection memory/math")
 				}
-			} else if !strings.Contains(src, "assume_aligned<16>") {
-				t.Errorf("expected source to enforce 16-byte TMA alignment:\n%s", src)
+			} else if !strings.Contains(src, "egraph_tile_load(") || !strings.Contains(src, "egraph_tile_store(") {
+				t.Errorf("expected ordinary source to use masked complete-matrix loads/stores:\n%s", src)
 			}
 		})
 	}

@@ -191,6 +191,33 @@ type Epoch struct {
 func NewEpoch(n uint64) *Epoch {
 	return &Epoch{Number: n, published: map[string]bool{}, owned: map[string]bool{}}
 }
+
+// Clone returns an independent snapshot of the epoch, including its publication
+// and ownership records. Later changes to either epoch do not affect the other.
+// Like the other epoch methods, Clone does not synchronize direct assignments
+// to the public Number field.
+func (e *Epoch) Clone() *Epoch {
+	if e == nil {
+		return nil
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	r := &Epoch{Number: e.Number, aborted: e.aborted, drained: e.drained}
+	if e.published != nil {
+		r.published = make(map[string]bool, len(e.published))
+		for id, published := range e.published {
+			r.published[id] = published
+		}
+	}
+	if e.owned != nil {
+		r.owned = make(map[string]bool, len(e.owned))
+		for id, owned := range e.owned {
+			r.owned[id] = owned
+		}
+	}
+	return r
+}
+
 func (e *Epoch) Publish(id string, g Graph) error {
 	if e == nil {
 		return fmt.Errorf("nil epoch")

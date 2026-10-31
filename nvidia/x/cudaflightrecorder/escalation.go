@@ -379,14 +379,15 @@ func NewDirectoryWriterFactory(dir string) *DirectoryWriterFactory {
 	return &DirectoryWriterFactory{dir: dir}
 }
 
-// CreateWriter creates a new tar file in the configured directory.
+// CreateWriter creates a new tar file in the configured directory. An existing
+// path, including a symlink, is refused without changing the retained bundle.
 func (d *DirectoryWriterFactory) CreateWriter(incidentID string, tenantID string) (io.Writer, func() error, error) {
 	if err := os.MkdirAll(d.dir, 0755); err != nil {
 		return nil, nil, fmt.Errorf("create incident dir: %w", err)
 	}
 	name := fmt.Sprintf("incident-%x-%x.tar", sha256.Sum256([]byte(tenantID)), sha256.Sum256([]byte(incidentID)))
 	path := filepath.Join(d.dir, name)
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create incident file: %w", err)
 	}

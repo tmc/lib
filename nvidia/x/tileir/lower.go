@@ -48,10 +48,10 @@ type LoweringResult struct {
 	Module *Module
 	Schema cudakernel.Schema
 	Source string
-	// Grid is the standalone launch grid for an ordered reduction region.
-	// Other lowerings leave it zero because their launch policy is external.
+	// Grid is the standalone launch grid for a bound pointer-memory region.
+	// Legacy analysis lowerings leave it zero; their launch policy is external.
 	Grid [3]uint32
-	// Memory binds a singleton pointer-memory module to its source/ABI map.
+	// Memory binds a pointer-memory module to its source/ABI map.
 	// It is nil for legacy analysis and C++ lowerings.
 	Memory *SemanticMemoryBinding
 	// Vector describes the logical extent and launch of a vector memory route.
@@ -71,6 +71,9 @@ func LowerSemanticRegion(snap *cudair.Snapshot, opts LowerOptions) (*LoweringRes
 	}
 	if vectorMemoryCandidate(snap) && snap.Inputs()[0].Shape[0] != 1 && vectorMemoryOptions(opts) {
 		return LowerSemanticVector(snap, opts)
+	}
+	if matmulMemoryCandidate(snap) && matmulMemoryOptions(opts) {
+		return LowerSemanticMatMul(snap, opts)
 	}
 	for _, n := range snap.Nodes() {
 		if n.Kind == cudair.KindReduce {

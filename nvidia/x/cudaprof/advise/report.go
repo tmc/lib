@@ -161,6 +161,11 @@ type Item struct {
 	NextMeasurement          string              `json:"next_measurement,omitempty"`
 	DeviceTimeNanos          int64               `json:"device_time_nanos,omitempty"`
 
+	// NoRuntimeAttribution prevents the analysis pipeline from assigning
+	// runtime time, profile share or baseline-gap bounds to this finding.
+	// Static code occurrence alone need not admit any such attribution.
+	NoRuntimeAttribution bool `json:"no_runtime_attribution,omitempty"`
+
 	// HostTimeNanos is host time a finding accounts for: time a host thread
 	// spent inside API calls, which no kernel profile holds. It is kept apart
 	// from DeviceTimeNanos so neither is read as the other, and the ranking
@@ -218,6 +223,16 @@ type Report struct {
 	// "17.66% of observed samples" as "17.66% of elapsed time".
 	SampleOnly bool `json:"sample_only,omitempty"`
 
+	// CompileOnly reports that the capture holds code and no profile: a
+	// cubin, SASS or PTX compiled for a target with no device run. Its
+	// findings are read from the code alone and none of them is timed.
+	CompileOnly bool `json:"compile_only,omitempty"`
+
+	// NoProfileSamples reports an absent profile population. Compiler-only
+	// artifact envelopes can still yield static findings, but they do not
+	// establish that PC sampling observed any execution.
+	NoProfileSamples bool `json:"profile_samples_absent,omitempty"`
+
 	// SpanNanos is the captured device span, when a duty-cycle reading
 	// established one. Cost headers state a finding's share of device time,
 	// which is a share of however long the device was busy -- on an idle
@@ -240,14 +255,29 @@ type Report struct {
 	// Base is the comparison against a base capture that ranks the items,
 	// when [Report.RankAgainst] was given one. It is marshaled as itself.
 	Base Baseline `json:"base,omitempty"`
+
+	// Ranks is the cross-rank timeline of a report from [AnalyzeRanks],
+	// and nil for a report of one capture.
+	Ranks *RankTimeline `json:"ranks,omitempty"`
+
+	// Target is the projection of the findings onto another device, when
+	// [Report.ProjectTo] was given one.
+	Target *Projection `json:"target,omitempty"`
 }
 
 // sampleOnlyCaveat names what PC sampling cannot see. Activity tracing is the
 // only tier that records launch counts and inter-launch gaps, so on a
 // sample-only capture device idle is unmeasured rather than absent.
+const noProfileSamplesCaveat = "> **This input retains no profile samples.** Compiler artifacts alone do not establish runtime cost, sampled hot spots, or device idle. Capture a matched workload with activity tracing for runtime attribution.\n\n"
+
 const sampleOnlyCaveat = "> **This capture is PC samples only.** A share of observed samples says where " +
 	"execution was, and is *not a share of elapsed time*. PC sampling cannot observe " +
 	"device idle between launches; capture with activity tracing to measure that.\n\n"
+
+// compileOnlyCaveat names what a capture of code alone cannot say.
+const compileOnlyCaveat = "> **This capture is compiled code only.** No kernel ran, so nothing below is timed: " +
+	"findings are read from the code (registers, shared memory, spills, instruction classes, occupancy limits) " +
+	"and order by kind, not by cost.\n\n"
 
 // DefaultLimit is the number of findings [Report.Markdown] prints.
 const DefaultLimit = 10
@@ -266,8 +296,13 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 
 	var sb strings.Builder
 	sb.WriteString("# CUDA Kernel Advice Report\n\n")
-	if r.SampleOnly {
+	if r.NoProfileSamples {
+		sb.WriteString(noProfileSamplesCaveat)
+	} else if r.SampleOnly {
 		sb.WriteString(sampleOnlyCaveat)
+	}
+	if r.CompileOnly {
+		sb.WriteString(compileOnlyCaveat)
 	}
 	if r.SourceFusion != "" {
 		sb.WriteString(sourceFusionMarkdownCaveat(r.SourceFusion))
@@ -278,6 +313,9 @@ func (r *Report) MarkdownWithLimit(limit int) string {
 	}
 	if r.Base != nil {
 		r.writeBase(&sb)
+	}
+	if r.Ranks != nil {
+		r.Ranks.writeRanks(&sb)
 	}
 	// The caveats above are written before this return, not after it: a report
 	// with no findings on a capture that refused its source binding is not the
@@ -379,6 +417,19 @@ func groupedLine(p Item) string {
 	where := p.Location.String()
 	if where == "" {
 		where = p.Finding
+	}
+	// A kernel's folded patterns are named here, or the line says only
+	// where and a group of kernels reads as a list with nothing in it.
+	if len(p.Patterns) > 0 {
+		var names []string
+		for _, q := range p.Patterns {
+			if n := ruleNames[q.rule]; n != "" {
+				names = append(names, n)
+			}
+		}
+		if len(names) > 0 {
+			where += ": " + strings.Join(names, ", ")
+		}
 	}
 	switch {
 	case p.magnitude != "":

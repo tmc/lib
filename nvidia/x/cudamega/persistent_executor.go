@@ -3,6 +3,7 @@ package cudamega
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/tmc/lib/nvidia/x/cudataskgraph"
 )
@@ -181,8 +182,15 @@ func ParityAt(wave int) uint32 { return uint32(wave & 1) }
 type Executor struct {
 	grid     Grid
 	progress ProgressArgument
-	epoch    *cudataskgraph.Epoch
+	state    *executorState
 	graph    cudataskgraph.Graph
+}
+
+// executorState is shared by value copies of an Executor. Its mutex serializes
+// lifecycle transactions, including checks followed by ownership changes.
+type executorState struct {
+	mu    sync.Mutex
+	epoch *cudataskgraph.Epoch
 }
 
 // NewExecutor validates the plan against the compiled worker and returns the
@@ -195,13 +203,13 @@ func NewExecutor(g cudataskgraph.Graph, a Admission, epoch uint64) (*Executor, e
 	if err != nil {
 		return nil, err
 	}
-	e := &Executor{grid: p.Grid, progress: p, epoch: cudataskgraph.NewEpoch(epoch), graph: g.Clone()}
+	e := &Executor{grid: p.Grid, progress: p, state: &executorState{epoch: cudataskgraph.NewEpoch(epoch)}, graph: g.Clone()}
 	// The device owns every task's output storage from the moment the launch
 	// is planned, not from the moment the worker reaches that task: the
 	// worker is persistent, so there is no point after launch at which a
 	// later task's buffer is known to be untouched.
 	for _, t := range e.graph.Tasks() {
-		if err := e.epoch.Claim(t.ID, e.graph); err != nil {
+		if err := e.state.epoch.Claim(t.ID, e.graph); err != nil {
 			return nil, err
 		}
 	}
@@ -214,15 +222,49 @@ func (e *Executor) Grid() Grid { return e.grid }
 // Progress returns the scheduler's progress argument.
 func (e *Executor) Progress() ProgressArgument { return e.progress }
 
-// Epoch returns the publication and ownership record for this launch.
-func (e *Executor) Epoch() *cudataskgraph.Epoch { return e.epoch }
+// Epoch returns an independent snapshot of this launch's publication and
+// ownership record. Later executor changes are not reflected in the snapshot,
+// and changing the snapshot does not change the executor. Use Drain, Release
+// and Abort to change the executor's lifecycle.
+func (e *Executor) Epoch() *cudataskgraph.Epoch {
+	if e.state == nil {
+		return nil
+	}
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	return e.state.epoch.Clone()
+}
 
 // Drain records that the host has observed the launch finish. Nothing may be
 // released before it.
-func (e *Executor) Drain() { e.epoch.Drain() }
+func (e *Executor) Drain() {
+	if e.state == nil {
+		return
+	}
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	e.state.epoch.Drain()
+}
 
 // Release relinquishes the device's ownership of one task's output storage.
-func (e *Executor) Release(id string) error { return e.epoch.Release(id) }
+// It refuses to release claimed storage until Drain records quiescence,
+// including when the launch was aborted. If no work was submitted, the caller
+// may call Drain to acknowledge that no work remains before releasing storage.
+func (e *Executor) Release(id string) error {
+	if e.state == nil {
+		return fmt.Errorf("nil epoch")
+	}
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	if !e.state.epoch.Drained() && !e.state.epoch.Aborted() {
+		for _, owned := range e.state.epoch.Retained() {
+			if owned == id {
+				return fmt.Errorf("task %q output storage may not be released: the launch has not been drained", id)
+			}
+		}
+	}
+	return e.state.epoch.Release(id)
+}
 
 // Abort requests termination through the volatile abort word: contract 6.
 //
@@ -231,6 +273,11 @@ func (e *Executor) Release(id string) error { return e.epoch.Release(id) }
 // mid-store in them, and an abort is a request the worker observes at its next
 // poll, not a fence it has already passed.
 func (e *Executor) Abort() []string {
-	e.epoch.Abort()
-	return e.epoch.Retained()
+	if e.state == nil {
+		return nil
+	}
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	e.state.epoch.Abort()
+	return e.state.epoch.Retained()
 }

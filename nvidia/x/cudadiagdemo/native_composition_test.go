@@ -186,26 +186,27 @@ func TestNativeCompositionPartialAndJSON(t *testing.T) {
 	}
 }
 
-func TestNativeCompositionExistingReplayChain(t *testing.T) {
-	sf, r, packet, source := compositionFixture(t)
-	raw := compositionRaw(t, packet)
-	dir := t.TempDir()
-	ref := func(name string, body []byte, role string) cudaregress.ArtifactRef {
-		path := filepath.Join(dir, name)
-		if err := os.WriteFile(path, body, 0600); err != nil {
-			t.Fatal(err)
-		}
-		return cudaregress.ArtifactRef{Name: name, Path: path, Digest: digestBytes(body), SizeBytes: int64(len(body)), Role: role}
+// compositionRef retains body under dir as an immutable closure artifact.
+func compositionRef(t *testing.T, dir, name string, body []byte, role string) cudaregress.ArtifactRef {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, body, 0600); err != nil {
+		t.Fatal(err)
 	}
-	capture := ref("observations.json", raw, "trace")
-	sourceRef := ref("service-capture.tar", source, "source")
-	input := ref("input.json", []byte(`[-3,0,2.5]`), "input")
-	reference := ref("reference.json", []byte(`[-5,1,6]`), "reference")
+	return cudaregress.ArtifactRef{Name: name, Path: path, Digest: digestBytes(body), SizeBytes: int64(len(body)), Role: role}
+}
+
+// compositionReplay selects attempt for the existing plan and replay protocol
+// with the existing portable service runner over sources; counter counts its
+// executed requests. It is neither a native nor a second runner.
+func compositionReplay(t *testing.T, sf *ServiceFixture, dir, attempt string, capture cudaregress.ArtifactRef, sources []cudaregress.ArtifactRef, counter *int) *NativeReplay {
+	t.Helper()
+	input := compositionRef(t, dir, "input.json", []byte(`[-3,0,2.5]`), "input")
+	reference := compositionRef(t, dir, "reference.json", []byte(`[-5,1,6]`), "reference")
 	environment := cudaregress.Environment{Model: "portable synthetic service", Clock: portableClock}
-	counter := 0
 	runner := cudaregress.ReplayFunc(func(ctx context.Context, arm string, round int) (cudatrial.Receipt, []float64, error) {
-		counter++
-		request := Request{ID: fmt.Sprintf("executed-%d", counter), Data: []float64{-3, 0, 2.5}, Mode: ModeHostSubmissionDelay, Delay: 5 * time.Millisecond}
+		*counter++
+		request := Request{ID: fmt.Sprintf("executed-%d", *counter), Data: []float64{-3, 0, 2.5}, Mode: ModeHostSubmissionDelay, Delay: 5 * time.Millisecond}
 		if arm == "candidate" {
 			request.Mode = ModeBaseline
 			request.Delay = 0
@@ -222,7 +223,17 @@ func TestNativeCompositionExistingReplayChain(t *testing.T) {
 		}
 		return receipt, response.Output, nil
 	})
-	replay := &NativeReplay{RequestID: "same", Attempt: r.Requests[0].Attempt, Capture: capture, Environment: environment, Runner: runner, PlanOptions: cudaregress.PlanOptions{WarmupRuns: 1, Rounds: 3, Order: "ABBA", ExecutionScope: cudaregress.TimingScope{Channel: cudatrial.TimingWallElapsed, Interval: "portable_service"}, Sources: []cudaregress.ArtifactRef{capture, sourceRef}, Inputs: []cudaregress.InputRef{{Name: input.Name, Path: input.Path, Digest: input.Digest, ShapeDims: []int64{3}, NumericalMode: "float64_cpu"}}, Oracle: cudaregress.CorrectnessOracle{Method: "numerical-tolerance", Tolerance: 1e-6, ReferencePath: reference.Path, ReferenceDigest: reference.Digest}, NullControls: cudaregress.NullControlConfig{Enabled: true, BasketRuns: 3, MaxNoiseFloorNs: 100 * time.Millisecond}, StoppingRules: cudaregress.StoppingRules{MaxTrials: 10, RelativeThreshold: .1, MinSamples: 3, HaltOnDrift: false}}, ReplayOptions: cudaregress.ReplayOptions{CurrentEnvironment: environment, ReferenceValues: []float64{-5, 1, 6}}}
+	return &NativeReplay{RequestID: "same", Attempt: attempt, Capture: capture, Environment: environment, Runner: runner, PlanOptions: cudaregress.PlanOptions{WarmupRuns: 1, Rounds: 3, Order: "ABBA", ExecutionScope: cudaregress.TimingScope{Channel: cudatrial.TimingWallElapsed, Interval: "portable_service"}, Sources: sources, Inputs: []cudaregress.InputRef{{Name: input.Name, Path: input.Path, Digest: input.Digest, ShapeDims: []int64{3}, NumericalMode: "float64_cpu"}}, Oracle: cudaregress.CorrectnessOracle{Method: "numerical-tolerance", Tolerance: 1e-6, ReferencePath: reference.Path, ReferenceDigest: reference.Digest}, NullControls: cudaregress.NullControlConfig{Enabled: true, BasketRuns: 3, MaxNoiseFloorNs: 100 * time.Millisecond}, StoppingRules: cudaregress.StoppingRules{MaxTrials: 10, RelativeThreshold: .1, MinSamples: 3, HaltOnDrift: false}}, ReplayOptions: cudaregress.ReplayOptions{CurrentEnvironment: environment, ReferenceValues: []float64{-5, 1, 6}}}
+}
+
+func TestNativeCompositionExistingReplayChain(t *testing.T) {
+	sf, r, packet, source := compositionFixture(t)
+	raw := compositionRaw(t, packet)
+	dir := t.TempDir()
+	capture := compositionRef(t, dir, "observations.json", raw, "trace")
+	sourceRef := compositionRef(t, dir, "service-capture.tar", source, "source")
+	counter := 0
+	replay := compositionReplay(t, sf, dir, r.Requests[0].Attempt, capture, []cudaregress.ArtifactRef{capture, sourceRef}, &counter)
 	out, err := ComposeNativeEvidence(context.Background(), r, NativeCompositionOptions{Evidence: bytes.NewReader(raw), Replay: replay})
 	if err != nil || out.Incident == nil || out.Plan == nil || out.PlanReceipt == nil || !out.PlanReceipt.ArtifactClosureValid || out.Execution == nil || !out.Execution.OutputsVerified || out.Execution.RoundsCompleted != 3 || out.Comparison == nil || counter == 0 {
 		t.Fatal(out, err, counter)

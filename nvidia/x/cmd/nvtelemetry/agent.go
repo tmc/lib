@@ -429,6 +429,21 @@ func (a *Agent) startTarget(t *runningTarget) {
 	}()
 }
 
+// closeDelivery distinguishes a completed delivery with a failed outcome from
+// an incomplete close while its worker is still running.
+func closeDelivery(ctx context.Context, d *nvtelemetry.Delivery) (bool, error) {
+	if d == nil {
+		return true, nil
+	}
+	err := d.Close(ctx)
+	select {
+	case <-d.Done():
+		return true, err
+	default:
+		return false, err
+	}
+}
+
 func (a *Agent) transitionTarget(ctx context.Context, newCfg *ParsedConfig) error {
 	a.targetMu.Lock()
 	defer a.targetMu.Unlock()
@@ -472,25 +487,35 @@ func (a *Agent) transitionTarget(ctx context.Context, newCfg *ParsedConfig) erro
 			return fmt.Errorf("active target failed to drain within %v: blocked source retained", drainTimeout)
 		}
 
-		// Drain deliveries
-		drainCtx, drainCancel := context.WithTimeout(context.Background(), drainTimeout)
+		// Close can return incomplete before the worker exits. Keep the old
+		// owner until both workers have actually stopped.
+		drainCtx, drainCancel := context.WithTimeout(ctx, drainTimeout)
+		metricsDone, metricsErr := closeDelivery(drainCtx, oldTgt.metricsDelivery)
+		logsDone, logsErr := closeDelivery(drainCtx, oldTgt.logsDelivery)
+		drainCancel()
+		deliveryErr := errors.Join(metricsErr, logsErr)
+		if !metricsDone || !logsDone {
+			return fmt.Errorf("drain old target delivery: %w", errors.Join(nvtelemetry.ErrDeliveryIncomplete, deliveryErr))
+		}
 		if oldTgt.metricsDelivery != nil {
-			_ = oldTgt.metricsDelivery.Close(drainCtx)
 			st := oldTgt.metricsDelivery.Stats()
 			a.metrics.retiredDeliverySuccesses.Add(st.SucceededBatches)
 			a.metrics.retiredDeliveryFailures.Add(st.FailedBatches + st.TransportFailures + st.RejectedBatches + st.AuthFailures)
 			a.metrics.retiredDeliveryDropped.Add(st.DroppedBatches)
 		}
 		if oldTgt.logsDelivery != nil {
-			_ = oldTgt.logsDelivery.Close(drainCtx)
 			st := oldTgt.logsDelivery.Stats()
 			a.metrics.retiredDeliverySuccesses.Add(st.SucceededBatches)
 			a.metrics.retiredDeliveryFailures.Add(st.FailedBatches + st.TransportFailures + st.RejectedBatches + st.AuthFailures)
 			a.metrics.retiredDeliveryDropped.Add(st.DroppedBatches)
 		}
-		drainCancel()
 		oldTgt.cleanup()
 		a.target = nil
+		if deliveryErr != nil {
+			// Report the lost or rejected delivery before a later reload may
+			// start a replacement. The worker and target are already retired.
+			return fmt.Errorf("drain old target delivery: %w", deliveryErr)
+		}
 	}
 
 	// 2. Acquire replacement target ONLY AFTER old target drained cleanly
@@ -714,7 +739,9 @@ func (a *Agent) Addr() string {
 	return a.listener.Addr().String()
 }
 
-// Shutdown gracefully shuts down the HTTP server, collector, and delivery queues within the timeout.
+// Shutdown stops the HTTP server, collector, and delivery queues within the
+// timeout. If an owner has not stopped, Shutdown reports the incomplete result
+// and defers target cleanup until the collector and delivery workers exit.
 func (a *Agent) Shutdown(ctx context.Context) error {
 	a.shutdownOnce.Do(func() {
 		a.shuttingDown.Store(true)
@@ -768,8 +795,10 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 				terminal = errors.Join(terminal, errors.New("collector drain timed out"))
 			}
 
+			metricsDone, metricsErr := closeDelivery(shutdownCtx, tgt.metricsDelivery)
+			logsDone, logsErr := closeDelivery(shutdownCtx, tgt.logsDelivery)
+			terminal = errors.Join(terminal, metricsErr, logsErr)
 			if tgt.metricsDelivery != nil {
-				terminal = errors.Join(terminal, tgt.metricsDelivery.Close(shutdownCtx))
 				st := tgt.metricsDelivery.Stats()
 				a.metrics.retiredDeliverySuccesses.Add(st.SucceededBatches)
 				a.metrics.retiredDeliveryFailures.Add(st.FailedBatches + st.TransportFailures + st.RejectedBatches + st.AuthFailures)
@@ -780,7 +809,6 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 				}{"metrics", st}))
 			}
 			if tgt.logsDelivery != nil {
-				terminal = errors.Join(terminal, tgt.logsDelivery.Close(shutdownCtx))
 				st := tgt.logsDelivery.Stats()
 				a.metrics.retiredDeliverySuccesses.Add(st.SucceededBatches)
 				a.metrics.retiredDeliveryFailures.Add(st.FailedBatches + st.TransportFailures + st.RejectedBatches + st.AuthFailures)
@@ -791,12 +819,18 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 				}{"logs", st}))
 			}
 
-			if drainedCleanly {
+			if drainedCleanly && metricsDone && logsDone {
 				tgt.cleanup()
 			} else {
-				// Source is blocked during shutdown; clean up only when the blocked source actually returns.
+				// Keep all target resources until each owner has stopped.
 				go func() {
 					<-tgt.collectorDone
+					if tgt.metricsDelivery != nil {
+						<-tgt.metricsDelivery.Done()
+					}
+					if tgt.logsDelivery != nil {
+						<-tgt.logsDelivery.Done()
+					}
 					tgt.cleanup()
 				}()
 			}

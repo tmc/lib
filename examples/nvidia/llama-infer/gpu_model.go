@@ -15,6 +15,11 @@ import (
 
 // GPULayerWeights holds GPU-resident parameter slices for one transformer layer.
 // Matrices are stored as the model's weight dtype; norms and biases are float32.
+//
+// A layer that [streamModel] loaded keeps its q, k and v projections in one
+// buffer, WQKV, and its gate and up projections in another, WGateUp, as the
+// e-graph decoder reads them; WQ, WK, WV, WGate and WUp are borrowed views
+// of them. Otherwise WQKV and WGateUp are zero.
 type GPULayerWeights struct {
 	InputNorm cudamem.Slice[float32]
 	PostNorm  cudamem.Slice[float32]
@@ -28,6 +33,8 @@ type GPULayerWeights struct {
 	WGate     deviceWeight
 	WUp       deviceWeight
 	WDown     deviceWeight
+	WQKV      deviceWeight
+	WGateUp   deviceWeight
 }
 
 // GPUModelWeights holds all model parameters in device GPU memory. A tied
@@ -62,7 +69,23 @@ type GPUScratchpad struct {
 // NewGPUScratchpad allocates all intermediate scratchpad activation buffers on dev.
 // On error it frees whatever it allocated. If that free fails too, it returns
 // the scratchpad holding the buffers it could not free, with both errors.
-func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (res *GPUScratchpad, err error) {
+func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (*GPUScratchpad, error) {
+	return newGPUScratchpadWith(cfg,
+		func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) },
+		func(n int) (cudamem.Slice[int32], error) { return cudamem.Alloc[int32](dev, n) },
+		freeOwned[cudamem.Slice[float32]], freeOwned[cudamem.Slice[int32]])
+}
+
+// newGPUScratchpadWith is NewGPUScratchpad with its device operations as
+// arguments: allocF32 and allocI32 allocate n elements, and freeF32 and
+// freeI32 free a buffer, which they must zero only when the free
+// succeeds, as freeOwned does. A buffer an allocation returns with its
+// error is kept, and freed with the rest.
+func newGPUScratchpadWith(cfg *ModelConfig,
+	allocF32 func(n int) (cudamem.Slice[float32], error),
+	allocI32 func(n int) (cudamem.Slice[int32], error),
+	freeF32 func(*cudamem.Slice[float32]) error,
+	freeI32 func(*cudamem.Slice[int32]) error) (res *GPUScratchpad, err error) {
 	headDim := cfg.HeadDim()
 	qDim := cfg.NumAttentionHeads * headDim
 	kvDim := cfg.NumKeyValueHeads * headDim
@@ -73,7 +96,7 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (res *GPUScratchpad, e
 	}
 	defer func() {
 		if err != nil {
-			if ferr := sp.Free(); ferr != nil {
+			if ferr := sp.release(freeF32, freeI32); ferr != nil {
 				err = errors.Join(err, ferr)
 				res = sp
 			}
@@ -95,14 +118,14 @@ func NewGPUScratchpad(dev *cuda.Device, cfg *ModelConfig) (res *GPUScratchpad, e
 		{&sp.FFNOut, cfg.HiddenSize},
 		{&sp.Logits, cfg.VocabSize},
 	} {
-		if *b.dst, err = cudamem.Alloc[float32](dev, b.n); err != nil {
+		if *b.dst, err = allocF32(b.n); err != nil {
 			return nil, fmt.Errorf("alloc scratch: %w", err)
 		}
 	}
-	if sp.TokenIn, err = cudamem.Alloc[int32](dev, 1); err != nil {
+	if sp.TokenIn, err = allocI32(1); err != nil {
 		return nil, fmt.Errorf("alloc token in: %w", err)
 	}
-	if sp.TokenOut, err = cudamem.Alloc[int32](dev, 1); err != nil {
+	if sp.TokenOut, err = allocI32(1); err != nil {
 		return nil, fmt.Errorf("alloc token out: %w", err)
 	}
 	return sp, nil
@@ -152,6 +175,16 @@ func (w *GPUModelWeights) matrices() []*deviceWeight {
 	return m
 }
 
+// fused returns pointers to every layer's WQKV and WGateUp.
+func (w *GPUModelWeights) fused() []*deviceWeight {
+	var m []*deviceWeight
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		m = append(m, &l.WQKV, &l.WGateUp)
+	}
+	return m
+}
+
 // vectors returns pointers to every norm and bias in w, in upload order.
 func (w *GPUModelWeights) vectors() []*cudamem.Slice[float32] {
 	v := []*cudamem.Slice[float32]{&w.Norm}
@@ -162,18 +195,67 @@ func (w *GPUModelWeights) vectors() []*cudamem.Slice[float32] {
 	return v
 }
 
+// Bytes returns the size in bytes of the device buffer w refers to, or 0 for
+// no weight. A borrowed weight reports the full size of the buffer it views.
+func (w deviceWeight) Bytes() int64 {
+	if w.buf == nil {
+		return 0
+	}
+	switch b := w.buf.(type) {
+	case cudamem.Slice[float32]:
+		return int64(b.Len()) * 4
+	case cudamem.Slice[uint16]:
+		return int64(b.Len()) * 2
+	case interface{ Bytes() int64 }:
+		return b.Bytes()
+	case interface{ Len() int }:
+		switch w.dtype {
+		case weightF32:
+			return int64(b.Len()) * 4
+		case weightBF16:
+			return int64(b.Len()) * 2
+		}
+	}
+	return 0
+}
+
+// StreamedBytesPerToken returns the total bytes of model weights and norm/bias
+// vectors streamed across one single-token decode step. EmbedTokens is a
+// single-row lookup and is excluded, whereas LMHead is streamed across the
+// full vocabulary matrix even when tied to EmbedTokens.
+func (w *GPUModelWeights) StreamedBytesPerToken() int64 {
+	if w == nil {
+		return 0
+	}
+	total := w.LMHead.Bytes() + int64(w.Norm.Len())*4
+	for i := range w.Layers {
+		l := &w.Layers[i]
+		total += l.WQ.Bytes() + l.WK.Bytes() + l.WV.Bytes() + l.WO.Bytes() +
+			l.WGate.Bytes() + l.WUp.Bytes() + l.WDown.Bytes()
+		total += int64(l.InputNorm.Len()+l.PostNorm.Len()+l.QBias.Len()+l.KBias.Len()+l.VBias.Len()) * 4
+	}
+	return total
+}
+
 // Free releases all GPU weight memory, each allocation once: a tied LMHead
 // is a borrowed view and never frees the embedding table. A weight whose
 // free fails is kept, so that Free can be called again; the errors are
 // joined and keep their identity for errors.Is. After a successful Free,
 // calling it again does nothing.
 func (w *GPUModelWeights) Free() error {
+	return w.free(freeOwned[cudamem.Slice[float32]])
+}
+
+// free releases every matrix and frees every vector with vec, which must
+// zero a vector only when its free succeeds, as freeOwned does.
+func (w *GPUModelWeights) free(vec func(*cudamem.Slice[float32]) error) error {
 	var errs []error
-	for _, m := range w.matrices() {
+	// Release the views of the fused weights before the fused weights.
+	for _, m := range append(w.matrices(), w.fused()...) {
 		errs = append(errs, m.release())
 	}
 	for _, v := range w.vectors() {
-		errs = append(errs, freeOwned(v))
+		errs = append(errs, vec(v))
 	}
 	return errors.Join(errs...)
 }
@@ -194,14 +276,30 @@ func tiedHead(w *ModelWeights) bool {
 // matrices as dtype. A tied lm_head is uploaded once and borrowed. On error
 // it frees whatever it uploaded. If that free fails too, it returns the
 // weights it could not free, with both errors, so the caller can retry Free.
-func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weightDType) (res *GPUModelWeights, err error) {
+func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weightDType) (*GPUModelWeights, error) {
+	return uploadModelWith(w, cfg, dtype,
+		func(host []float32, dtype weightDType) (deviceWeight, error) { return uploadWeight(dev, host, dtype) },
+		func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) },
+		(*cudamem.Slice[float32]).CopyFromHost,
+		freeOwned[cudamem.Slice[float32]])
+}
+
+// uploadModelWith is uploadModel with its device operations as arguments:
+// upload uploads a matrix as dtype, alloc allocates a vector of n elements,
+// fill copies host values into a vector, and free frees a vector, which it
+// must zero only when the free succeeds, as freeOwned does.
+func uploadModelWith(w *ModelWeights, cfg *ModelConfig, dtype weightDType,
+	upload func(host []float32, dtype weightDType) (deviceWeight, error),
+	alloc func(n int) (cudamem.Slice[float32], error),
+	fill func(dst *cudamem.Slice[float32], host []float32) error,
+	free func(*cudamem.Slice[float32]) error) (res *GPUModelWeights, err error) {
 	if len(w.Layers) != cfg.NumHiddenLayers {
 		return nil, fmt.Errorf("model has %d layers, config says %d", len(w.Layers), cfg.NumHiddenLayers)
 	}
 	gw := &GPUModelWeights{DType: dtype, Layers: make([]GPULayerWeights, cfg.NumHiddenLayers)}
 	defer func() {
 		if err != nil {
-			if ferr := gw.Free(); ferr != nil {
+			if ferr := gw.free(free); ferr != nil {
 				err = errors.Join(err, ferr)
 				res = gw
 			}
@@ -222,7 +320,7 @@ func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weig
 		if len(host) == 0 {
 			return nil, fmt.Errorf("upload matrix weight %d: empty", i)
 		}
-		if *mats[i], err = uploadWeight(dev, host, dtype); err != nil {
+		if *mats[i], err = upload(host, dtype); err != nil {
 			return nil, fmt.Errorf("upload matrix weight %d: %w", i, err)
 		}
 	}
@@ -237,19 +335,21 @@ func uploadModel(dev *cuda.Device, w *ModelWeights, cfg *ModelConfig, dtype weig
 		if len(host) == 0 {
 			continue // absent optional tensor, such as a bias
 		}
-		if *vecs[i], err = cudamem.Alloc[float32](dev, len(host)); err != nil {
+		if *vecs[i], err = alloc(len(host)); err != nil {
 			return nil, fmt.Errorf("upload vector weight %d: %w", i, err)
 		}
-		if err = vecs[i].CopyFromHost(host); err != nil {
+		if err = fill(vecs[i], host); err != nil {
 			return nil, fmt.Errorf("upload vector weight %d: %w", i, err)
 		}
 	}
 	return gw, nil
 }
 
-// fusedKernelsQualified reports whether FusedRMSNormQKV and FusedSwiGLUDown
-// have passed fused_parity_cuda_test.go on a device. Until then -fuse-egraph
-// is refused rather than silently running unqualified kernels.
+// fusedKernelsQualified reports whether FusedRMSNormQKV, FusedSwiGLUDown,
+// FusedRMSNormQKVBF16, FusedSwiGLUDownBF16, and the 5-node/layer fused_decode
+// kernels have reconciled native device qualification evidence across all
+// supported dtypes and schedules. When false, -fuse-egraph and -fuse-decode
+// are refused rather than running unqualified kernels.
 var fusedKernelsQualified = false
 
 // attnThreads is the decode attention block width. CausalFlashAttentionDecode
@@ -290,9 +390,10 @@ func GPUForwardPassStream(
 		return token, err
 	}
 	// Even an enqueue error may leave work using the scratch buffers. Drain
-	// before returning ownership to the caller.
-	if waitErr := stream.Synchronize(context.Background()); err == nil {
-		err = waitErr
+	// before returning ownership to the caller, and report a failed drain
+	// after any enqueue error.
+	if waitErr := stream.Synchronize(context.Background()); waitErr != nil {
+		err = errors.Join(err, waitErr)
 	}
 	if err != nil {
 		return 0, err
@@ -337,6 +438,9 @@ func enqueueGPUForwardPass(
 	if *fuseEGraphFlag && !fusedKernelsQualified {
 		return 0, fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
 	}
+	if *fuseDecodeFlag && !fusedKernelsQualified {
+		return 0, fmt.Errorf("-fuse-decode: fused kernels are not qualified on a device; run without it")
+	}
 	if err := gpuW.checkDTypes(); err != nil {
 		return 0, err
 	}
@@ -346,19 +450,6 @@ func enqueueGPUForwardPass(
 	if err := checkPos(pos, cfg.MaxSeqLen); err != nil {
 		return 0, err
 	}
-	gemv, embed := gm.gemvFn, gm.embedFn
-	if gpuW.DType == weightBF16 {
-		if *fuseEGraphFlag {
-			return 0, fmt.Errorf("-fuse-egraph: fused kernels take float32 weights, not %s", gpuW.DType)
-		}
-		gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn
-	}
-	headDim := cfg.HeadDim()
-	qHeads := cfg.NumAttentionHeads
-	kvHeads := cfg.NumKeyValueHeads
-	hiddenSize := cfg.HiddenSize
-	interSize := cfg.IntermediateSize
-	vocabSize := cfg.VocabSize
 	seqLen := pos + 1
 	attnShared, err := cudaattn.DecodeSharedMemoryBytes(seqLen, attnThreads)
 	if err != nil {
@@ -377,163 +468,32 @@ func enqueueGPUForwardPass(
 		}
 	}
 
-	ptrOrNull := func(s cudamem.Slice[float32]) driver.DevicePtr {
-		if s.Len() == 0 {
-			return driver.DevicePtr(0)
-		}
-		return s.Ptr()
-	}
-	nullPtr := driver.DevicePtr(0)
-
-	launcher := func(fn driver.Function) *cudalaunch.Launcher {
-		l := cudalaunch.Kernel(fn)
-		if stream != nil {
-			l = l.On(stream)
-		}
-		return l
-	}
-
-	// 1. Embedding lookup
-	if err := launcher(embed).Grid(1, 1, 1).Block(256, 1, 1).
-		Launch(gpuW.EmbedTokens, sp.TokenIn, sp.X, int32(hiddenSize)); err != nil {
-		return 0, err
-	}
-
 	// The attention kernel's dynamic shared memory grows with the position.
 	// Check it against the device limit and raise the kernel attribute once per
 	// step; an oversized request fails here instead of at launch.
-	if err := launcher(attnFn).SharedMem(uint32(attnShared)).PrepareSharedMem(sp.X.Device()); err != nil {
+	attnPrep := cudalaunch.Kernel(attnFn).SharedMem(uint32(attnShared))
+	if stream != nil {
+		attnPrep = attnPrep.On(stream)
+	}
+	if err := attnPrep.PrepareSharedMem(sp.X.Device()); err != nil {
 		return 0, fmt.Errorf("attention launch at position %d: %w", pos, err)
 	}
 
-	// 2. Transformer Decoder Layers
-	for i := 0; i < cfg.NumHiddenLayers; i++ {
-		layerW := &gpuW.Layers[i]
-		layerKV, err := kv.Layer(i)
-		if err != nil {
-			return 0, err
+	if err := emitForwardStep(gpuW, cfg, kv.Layer, sp, gm, attnFn, sampleFn, sp.TokenIn, pos, uint32(attnShared), func(l *cudalaunch.Launcher, args ...any) error {
+		if stream != nil {
+			l = l.On(stream)
 		}
-
-		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
-		if *fuseEGraphFlag && gm.fusedQKVFn != 0 {
-			// Fused RMSNorm + QKV projection: one block per Q, K and V row.
-			if err := launcher(gm.fusedQKVFn).Grid(uint32(qHeads*headDim+2*kvHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
-					ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
-					sp.Q, sp.K, sp.V,
-					int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
-				return 0, err
+		if gm.eg != nil {
+			desc, err := l.Describe()
+			if err != nil {
+				return err
 			}
-		} else {
-			// Unfused fallback path
-			if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
-				Launch(sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-				return 0, err
-			}
-			if err := launcher(gemv).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
-				return 0, err
-			}
-			if err := launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-				return 0, err
-			}
-			if err := launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1).
-				Launch(sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
-				return 0, err
+			if gm.eg.programmatic(desc.Function) {
+				l = l.WithProgrammaticStreamSerialization(true)
 			}
 		}
-
-		// Step 2c: RoPE
-		if err := launcher(gm.ropeFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1).
-			Launch(sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
-			return 0, err
-		}
-
-		// Step 2d: Store K and V in KV Cache
-		if err := launcher(gm.storeKVFn).Grid(1, 1, 1).Block(128, 1, 1).
-			Launch(sp.K, sp.V, layerKV.K, layerKV.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
-			return 0, err
-		}
-
-		// Step 2e: Causal FlashAttention Decode
-		attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
-		if err := launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(attnThreads, 1, 1).SharedMem(uint32(attnShared)).
-			Launch(sp.Q, layerKV.K, layerKV.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
-			return 0, err
-		}
-
-		// Step 2f: Output GEMV
-		if err := launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
-			Launch(sp.AttnOut, layerW.WO, nullPtr, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
-			return 0, err
-		}
-
-		// Step 2g: Residual 1
-		if err := launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1).
-			Launch(sp.X, sp.NormX, int32(hiddenSize)); err != nil {
-			return 0, err
-		}
-
-		// Step 2h: FFN Pre-RMSNorm
-		if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
-			Launch(sp.X, layerW.PostNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-			return 0, err
-		}
-
-		// Step 2i: Gate & Up GEMVs
-		if err := launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
-			Launch(sp.NormX, layerW.WGate, nullPtr, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
-			return 0, err
-		}
-		if err := launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1).
-			Launch(sp.NormX, layerW.WUp, nullPtr, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
-			return 0, err
-		}
-
-		// Step 2j & 2k: Fused SwiGLU + Down GEMV
-		if *fuseEGraphFlag && gm.fusedSwiGLUFn != 0 {
-			// Fused SwiGLU Down Projection (Single kernel launch)
-			if err := launcher(gm.fusedSwiGLUFn).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
-				Launch(sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
-				return 0, err
-			}
-		} else {
-			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
-			if err := launcher(gm.swigluFn).Grid(1, 1, 1).Block(256, 1, 1).
-				Launch(sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
-				return 0, err
-			}
-
-			// Step 2k: Down GEMV
-			if err := launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1).
-				Launch(sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
-				return 0, err
-			}
-		}
-
-		// Step 2l: Residual 2
-		if err := launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1).
-			Launch(sp.X, sp.FFNOut, int32(hiddenSize)); err != nil {
-			return 0, err
-		}
-	}
-
-	// 3. Final RMSNorm
-	if err := launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1).
-		Launch(sp.X, gpuW.Norm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
-		return 0, err
-	}
-
-	// 4. LM Head Logits GEMV
-	if err := launcher(gemv).Grid(uint32(vocabSize), 1, 1).Block(128, 1, 1).
-		Launch(sp.NormX, gpuW.LMHead, nullPtr, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
-		return 0, err
-	}
-
-	// 5. In-GPU Argmax Sampling
-	if err := launcher(sampleFn).Grid(1, 1, 1).Block(256, 1, 1).
-		Launch(sp.Logits, sp.TokenOut, int32(vocabSize)); err != nil {
+		return l.Launch(args...)
+	}); err != nil {
 		return 0, err
 	}
 
@@ -554,4 +514,243 @@ func enqueueGPUForwardPass(
 	}
 
 	return sp.HostTokenOut[0], nil
+}
+
+// emitForwardStep emits the per-token decoder kernel sequence (15L+4 unfused
+// or 11L+4 fused) in launch order, reading the input token ID from tokenSrc
+// and passing each configured *cudalaunch.Launcher and its arguments to emit.
+// Callers must prepare dynamic shared memory on attnFn for at least attnShared
+// bytes before executing the emitted launches.
+func emitForwardStep(
+	gpuW *GPUModelWeights,
+	cfg *ModelConfig,
+	layerKV func(int) (cudakv.LayerCache, error),
+	sp *GPUScratchpad,
+	gm *GPUModules,
+	attnFn driver.Function,
+	sampleFn driver.Function,
+	tokenSrc cudamem.Slice[int32],
+	pos int,
+	attnShared uint32,
+	emit func(l *cudalaunch.Launcher, args ...any) error,
+) error {
+	if *fuseEGraphFlag && !fusedKernelsQualified {
+		return fmt.Errorf("-fuse-egraph: fused kernels are not qualified on a device; run without it")
+	}
+	if *fuseDecodeFlag && !fusedKernelsQualified {
+		return fmt.Errorf("-fuse-decode: fused kernels are not qualified on a device; run without it")
+	}
+	if err := gpuW.checkDTypes(); err != nil {
+		return err
+	}
+	if gm.eg != nil {
+		return gm.eg.emitStep(gpuW, cfg, layerKV, sp, gm, attnFn, sampleFn, tokenSrc, pos, attnShared, emit)
+	}
+	if err := checkPos(pos, cfg.MaxSeqLen); err != nil {
+		return err
+	}
+	gemv, embed := gm.gemvFn, gm.embedFn
+	fusedQKV, fusedSwiGLU := gm.fusedQKVFn, gm.fusedSwiGLUFn
+	fusedQKVRoPEStore, fusedOutProjRes := gm.fusedQKVRoPEStoreFn, gm.fusedOutProjResFn
+	fusedGateUpSwiGLU, fusedDownProjRes := gm.fusedGateUpSwiGLUFn, gm.fusedDownProjResFn
+	if gpuW.DType == weightBF16 {
+		gemv, embed = gm.gemvBF16Fn, gm.embedBF16Fn
+		fusedQKV, fusedSwiGLU = gm.fusedQKVBF16Fn, gm.fusedSwiGLUBF16Fn
+		fusedQKVRoPEStore, fusedOutProjRes = gm.fusedQKVRoPEStoreBF16Fn, gm.fusedOutProjResBF16Fn
+		fusedGateUpSwiGLU, fusedDownProjRes = gm.fusedGateUpSwiGLUBF16Fn, gm.fusedDownProjResBF16Fn
+	}
+	headDim := cfg.HeadDim()
+	qHeads := cfg.NumAttentionHeads
+	kvHeads := cfg.NumKeyValueHeads
+	hiddenSize := cfg.HiddenSize
+	interSize := cfg.IntermediateSize
+	vocabSize := cfg.VocabSize
+	ropeFactor, ropeLow, ropeHigh := float32(0), float32(0), float32(0)
+	ropeOrigMax := int32(0)
+	if cfg.RoPEScaling.hasLlama3Params() {
+		rs := cfg.RoPEScaling
+		ropeFactor, ropeLow, ropeHigh = rs.Factor, rs.LowFreqFactor, rs.HighFreqFactor
+		ropeOrigMax = int32(rs.OriginalMaxPositionEmbeddings)
+	}
+
+	ptrOrNull := func(s cudamem.Slice[float32]) driver.DevicePtr {
+		if s.Len() == 0 {
+			return driver.DevicePtr(0)
+		}
+		return s.Ptr()
+	}
+	nullPtr := driver.DevicePtr(0)
+	launcher := cudalaunch.Kernel
+
+	// 1. Embedding lookup
+	if err := emit(launcher(embed).Grid(1, 1, 1).Block(256, 1, 1),
+		gpuW.EmbedTokens, tokenSrc, sp.X, int32(hiddenSize)); err != nil {
+		return err
+	}
+
+	// 2. Transformer Decoder Layers
+	attnCfg := cudaattn.DefaultConfig(qHeads, kvHeads, headDim)
+	for i := 0; i < cfg.NumHiddenLayers; i++ {
+		layerW := &gpuW.Layers[i]
+		lkv, err := layerKV(i)
+		if err != nil {
+			return err
+		}
+
+		if *fuseDecodeFlag && fusedQKVRoPEStore != 0 && fusedOutProjRes != 0 && fusedGateUpSwiGLU != 0 && fusedDownProjRes != 0 {
+			if err := emit(launcher(fusedQKVRoPEStore).Grid(uint32((qHeads+kvHeads)*(headDim/2)), 1, 1).Block(128, 1, 1),
+				sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
+				ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
+				sp.Q, lkv.K, lkv.V,
+				int32(hiddenSize), int32(qHeads), int32(kvHeads), int32(headDim), int32(pos),
+				cfg.RmsNormEps, cfg.RopeTheta, ropeFactor, ropeLow, ropeHigh, ropeOrigMax); err != nil {
+				return err
+			}
+			if err := emit(launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(attnThreads, 1, 1).SharedMem(attnShared),
+				sp.Q, lkv.K, lkv.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
+				return err
+			}
+			if err := emit(launcher(fusedOutProjRes).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.AttnOut, sp.X, layerW.WO, sp.X, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
+				return err
+			}
+			if err := emit(launcher(fusedGateUpSwiGLU).Grid(uint32(interSize), 1, 1).Block(128, 1, 1),
+				sp.X, layerW.PostNorm, layerW.WGate, layerW.WUp, sp.FFNAct, int32(hiddenSize), int32(interSize), cfg.RmsNormEps); err != nil {
+				return err
+			}
+			if err := emit(launcher(fusedDownProjRes).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.FFNAct, sp.X, layerW.WDown, sp.X, int32(interSize), int32(hiddenSize)); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Step 2a & 2b: Input RMSNorm + QKV Linear Projection
+		if *fuseEGraphFlag && fusedQKV != 0 {
+			// Fused RMSNorm + QKV projection: one block per Q, K and V row.
+			if err := emit(launcher(fusedQKV).Grid(uint32(qHeads*headDim+2*kvHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.X, layerW.InputNorm, layerW.WQ, layerW.WK, layerW.WV,
+				ptrOrNull(layerW.QBias), ptrOrNull(layerW.KBias), ptrOrNull(layerW.VBias),
+				sp.Q, sp.K, sp.V,
+				int32(hiddenSize), int32(qHeads*headDim), int32(kvHeads*headDim), cfg.RmsNormEps); err != nil {
+				return err
+			}
+		} else {
+			// Unfused fallback path
+			if err := emit(launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1),
+				sp.X, layerW.InputNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+				return err
+			}
+			if err := emit(launcher(gemv).Grid(uint32(qHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.NormX, layerW.WQ, ptrOrNull(layerW.QBias), sp.Q, int32(hiddenSize), int32(qHeads*headDim)); err != nil {
+				return err
+			}
+			if err := emit(launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.NormX, layerW.WK, ptrOrNull(layerW.KBias), sp.K, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+				return err
+			}
+			if err := emit(launcher(gemv).Grid(uint32(kvHeads*headDim), 1, 1).Block(128, 1, 1),
+				sp.NormX, layerW.WV, ptrOrNull(layerW.VBias), sp.V, int32(hiddenSize), int32(kvHeads*headDim)); err != nil {
+				return err
+			}
+		}
+
+		// Step 2c: RoPE
+		if cfg.RoPEScaling.hasLlama3Params() && gm.ropeScaledFn != 0 {
+			rs := cfg.RoPEScaling
+			if err := emit(cudalaunch.Kernel(gm.ropeScaledFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1),
+				sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim),
+				cfg.RopeTheta, rs.Factor, rs.LowFreqFactor, rs.HighFreqFactor, int32(rs.OriginalMaxPositionEmbeddings)); err != nil {
+				return err
+			}
+		} else {
+			if err := emit(launcher(gm.ropeFn).Grid(uint32(qHeads), 1, 1).Block(uint32(headDim/2), 1, 1),
+				sp.Q, sp.K, int32(pos), int32(qHeads), int32(kvHeads), int32(headDim), cfg.RopeTheta); err != nil {
+				return err
+			}
+		}
+
+		// Step 2d: Store K and V in KV Cache
+		if err := emit(launcher(gm.storeKVFn).Grid(1, 1, 1).Block(128, 1, 1),
+			sp.K, sp.V, lkv.K, lkv.V, int32(pos), int32(kvHeads), int32(headDim)); err != nil {
+			return err
+		}
+
+		// Step 2e: Causal FlashAttention Decode
+		if err := emit(launcher(attnFn).Grid(uint32(qHeads), 1, 1).Block(attnThreads, 1, 1).SharedMem(attnShared),
+			sp.Q, lkv.K, lkv.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
+			return err
+		}
+
+		// Step 2f: Output GEMV
+		if err := emit(launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+			sp.AttnOut, layerW.WO, nullPtr, sp.NormX, int32(qHeads*headDim), int32(hiddenSize)); err != nil {
+			return err
+		}
+
+		// Step 2g: Residual 1
+		if err := emit(launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1),
+			sp.X, sp.NormX, int32(hiddenSize)); err != nil {
+			return err
+		}
+
+		// Step 2h: FFN Pre-RMSNorm
+		if err := emit(launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1),
+			sp.X, layerW.PostNorm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+			return err
+		}
+
+		// Step 2i: Gate & Up GEMVs
+		if err := emit(launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1),
+			sp.NormX, layerW.WGate, nullPtr, sp.Gate, int32(hiddenSize), int32(interSize)); err != nil {
+			return err
+		}
+		if err := emit(launcher(gemv).Grid(uint32(interSize), 1, 1).Block(128, 1, 1),
+			sp.NormX, layerW.WUp, nullPtr, sp.Up, int32(hiddenSize), int32(interSize)); err != nil {
+			return err
+		}
+
+		// Step 2j & 2k: Fused SwiGLU + Down GEMV
+		if *fuseEGraphFlag && fusedSwiGLU != 0 {
+			// Fused SwiGLU Down Projection (Single kernel launch)
+			if err := emit(launcher(fusedSwiGLU).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.Gate, sp.Up, layerW.WDown, sp.FFNOut, int32(hiddenSize), int32(interSize)); err != nil {
+				return err
+			}
+		} else {
+			// Step 2j: SwiGLU: ffnAct = silu(gate) * up
+			if err := emit(launcher(gm.swigluFn).Grid(1, 1, 1).Block(256, 1, 1),
+				sp.Gate, sp.Up, sp.FFNAct, int32(interSize)); err != nil {
+				return err
+			}
+
+			// Step 2k: Down GEMV
+			if err := emit(launcher(gemv).Grid(uint32(hiddenSize), 1, 1).Block(128, 1, 1),
+				sp.FFNAct, layerW.WDown, nullPtr, sp.FFNOut, int32(interSize), int32(hiddenSize)); err != nil {
+				return err
+			}
+		}
+
+		// Step 2l: Residual 2
+		if err := emit(launcher(gm.addResFn).Grid(1, 1, 1).Block(256, 1, 1),
+			sp.X, sp.FFNOut, int32(hiddenSize)); err != nil {
+			return err
+		}
+	}
+
+	// 3. Final RMSNorm
+	if err := emit(launcher(gm.normFn).Grid(1, 1, 1).Block(256, 1, 1),
+		sp.X, gpuW.Norm, sp.NormX, int32(hiddenSize), cfg.RmsNormEps); err != nil {
+		return err
+	}
+
+	// 4. LM Head Logits GEMV
+	if err := emit(launcher(gemv).Grid(uint32(vocabSize), 1, 1).Block(128, 1, 1),
+		sp.NormX, gpuW.LMHead, nullPtr, sp.Logits, int32(hiddenSize), int32(vocabSize)); err != nil {
+		return err
+	}
+
+	// 5. In-GPU Argmax Sampling
+	return emit(launcher(sampleFn).Grid(1, 1, 1).Block(256, 1, 1),
+		sp.Logits, sp.TokenOut, int32(vocabSize))
 }

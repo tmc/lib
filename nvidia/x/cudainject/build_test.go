@@ -2,6 +2,7 @@ package cudainject_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,6 +30,19 @@ func TestInstalledModuleAgentBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := "module consumer.example/agent\n\ngo 1.27.0\n\nrequire github.com/tmc/lib/nvidia v0.0.0\nreplace github.com/tmc/lib/nvidia => " + installed + "\n"
+	// Replacements in a dependency's go.mod do not apply to its consumers,
+	// so install the nvidia module's directory replacements alongside it.
+	deps := localReplacements(t, module)
+	for path, dir := range deps {
+		dst := filepath.Join(root, "deps", path)
+		if err := os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if b, err := exec.Command("cp", "-R", dir, dst).CombinedOutput(); err != nil {
+			t.Fatalf("dependency copy: %v %s", err, b)
+		}
+		mod += "replace " + path + " => " + dst + "\n"
+	}
 	if err := os.WriteFile(filepath.Join(consumer, "go.mod"), []byte(mod), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +57,7 @@ func TestInstalledModuleAgentBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 	binary := filepath.Join(root, "consumer-bin")
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	build := exec.CommandContext(ctx, "go", "build", "-mod=mod", "-trimpath", "-o", binary, ".")
 	build.Dir = consumer
@@ -55,6 +69,9 @@ func TestInstalledModuleAgentBuild(t *testing.T) {
 	// consumer have gone. Neither trimpath nor an installed module offers a
 	// runtime path back to the agent C inputs.
 	if err := os.RemoveAll(installed); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(root, "deps")); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.RemoveAll(consumer); err != nil {
@@ -87,6 +104,39 @@ printf 'compiler fixture, not a native shared object' > "$out"
 	if b, err := run.CombinedOutput(); err != nil || string(b) != "3\n" {
 		t.Fatalf("installed consumer: %v %s", err, b)
 	}
+}
+
+// localReplacements returns the module paths that module's go.mod replaces
+// with local directories, mapped to those directories.
+func localReplacements(t *testing.T, module string) map[string]string {
+	t.Helper()
+	cmd := exec.Command("go", "mod", "edit", "-json")
+	cmd.Dir = module
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go mod edit -json: %v", err)
+	}
+	var mf struct {
+		Replace []struct {
+			Old struct{ Path string }
+			New struct{ Path, Version string }
+		}
+	}
+	if err := json.Unmarshal(out, &mf); err != nil {
+		t.Fatal(err)
+	}
+	deps := make(map[string]string)
+	for _, r := range mf.Replace {
+		if r.New.Version != "" {
+			continue
+		}
+		dir := r.New.Path
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(module, dir)
+		}
+		deps[r.Old.Path] = dir
+	}
+	return deps
 }
 
 func TestBuildRefusesUnboundedAndInvalidOptions(t *testing.T) {

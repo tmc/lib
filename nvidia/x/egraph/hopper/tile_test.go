@@ -18,6 +18,11 @@ func TestTileGEMMEmulated(t *testing.T) {
 		offsets []int32 // Grouped
 	}{
 		{"bf16_64_s2", TileGEMM{N: 128, K: 192, Weight: WeightBF16, Out: F32, BM: 64, BN: 64, Stages: 2}, 70, 0, nil},
+		{"bf16_128_swizzle", TileGEMM{N: 256, K: 192, Weight: WeightBF16, Out: F32, Swizzle128B: true}, 150, 0, nil},
+		{"bf16_64_swizzle_epilogue", TileGEMM{N: 128, K: 128, Weight: WeightBF16, Out: BF16, BM: 64, BN: 64, Swizzle128B: true, Stages: 4,
+			Epilogue: MustLambda("(add $0 $1)"), Extras: []Operand{{"resid", F32, Full}}}, 70, 0, nil},
+		{"glu_bf16_swizzle", TileGEMM{N: 256, K: 128, Weight: WeightBF16, Out: BF16, GLU: true, Swizzle128B: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 40, 0, nil},
 		{"bf16_128_epilogue", TileGEMM{N: 128, K: 256, Weight: WeightBF16, Out: BF16,
 			Epilogue: MustLambda("(add (mul $0 $1) (mul $2 $3))"),
 			Extras:   []Operand{{"scale", BF16, PerCol}, {"resid", F32, Full}, {"rw", F32, PerRow}}}, 130, 0, nil},
@@ -81,6 +86,18 @@ func TestTileGEMMEmulated(t *testing.T) {
 		{"ws_nvfp4_glu_grouped_gather", TileGEMM{N: 256, K: 384, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 128, WGMMA: true,
 			Swizzle128B: true, Repacked: true, WarpSpecialized: true, Stages: 2, GLU: true, Grouped: true, Gather: true,
 			Epilogue: MustLambda("(mul (silu $0) $1)")}, 100, 30, []int32{0, 37, 37, 100}},
+		{"ws_nvfp4_2w_odd", TileGEMM{N: 128, K: 192, Weight: WeightNVFP4, Out: F32, BM: 64, BN: 128, WGMMA: true, Swizzle128B: true,
+			Repacked: true, DequantWords: 2, WarpSpecialized: true, Stages: 2}, 35, 0, nil},
+		{"ws_nvfp4_2w_64", TileGEMM{N: 128, K: 512, Weight: WeightNVFP4, Out: F32, BM: 64, BN: 128, WGMMA: true, Swizzle128B: true,
+			Repacked: true, DequantWords: 2, WarpSpecialized: true, Stages: 2}, 90, 0, nil},
+		{"ws_nvfp4_2w_grouped_gather_glu", TileGEMM{N: 256, K: 384, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 128, WGMMA: true,
+			Swizzle128B: true, Repacked: true, DequantWords: 2, WarpSpecialized: true, Stages: 2, GLU: true, Grouped: true, Gather: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 100, 30, []int32{0, 37, 37, 100}},
+		{"ws_nvfp4_2w_compact_grouped", TileGEMM{N: 256, K: 384, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 128, WGMMA: true,
+			Swizzle128B: true, Repacked: true, DequantWords: 2, CompactScales: true, WarpSpecialized: true, Stages: 2, GLU: true, Grouped: true, Gather: true,
+			Epilogue: MustLambda("(mul (silu $0) $1)")}, 100, 30, []int32{0, 37, 37, 100}},
+		{"ws_nvfp4_2w_128", TileGEMM{N: 256, K: 640, Weight: WeightNVFP4, Out: BF16, BM: 128, BN: 128, WGMMA: true, Swizzle128B: true,
+			Repacked: true, DequantWords: 2, WarpSpecialized: true, Stages: 3, GroupM: 2}, 200, 0, nil},
 		{"blackwell_nvfp4_64", TileGEMM{N: 64, K: 256, Weight: WeightNVFP4, Out: F32, BM: 64, BN: 64, Stages: 3, BlackwellFP4: true}, 40, 0, nil},
 		{"blackwell_nvfp4_grouped_gather_glu_sumsq", TileGEMM{N: 128, K: 128, Weight: WeightNVFP4, Out: BF16, BM: 64, BN: 64,
 			BlackwellFP4: true, Grouped: true, Gather: true, GLU: true, SumSq: true,
@@ -135,14 +152,30 @@ func TestTileGEMMEmulated(t *testing.T) {
 				switch g.Weight {
 				case WeightNVFP4:
 					w = randNVFP4(r, n, k)
+					if g.DequantWords == 2 {
+						w.Scales[0] = 0x03 // subnormal scale exercises the general conversion path
+					}
 					w.GlobalScal = float32(0.01 + r.Float64()*0.01)
 					if g.WGMMA {
 						w.GlobalScal = float32(1.0 / 64.0)
 					}
 					if g.Repacked {
-						q, sf, err := RepackNVFP4WGMMA(w.Packed, w.Scales, n, k, g.GLU)
+						var q []uint32
+						var sf []uint8
+						var err error
+						if g.DequantWords == 2 {
+							q, sf, err = RepackNVFP4Dequant2Word(w.Packed, w.Scales, n, k, g.GLU)
+						} else {
+							q, sf, err = RepackNVFP4WGMMA(w.Packed, w.Scales, n, k, g.GLU)
+						}
 						if err != nil {
 							t.Fatal(err)
+						}
+						if g.CompactScales {
+							sf, err = CompactNVFP4Scales(sf)
+							if err != nil {
+								t.Fatal(err)
+							}
 						}
 						repackedW = append(repackedW, q...)
 						repackedSF = append(repackedSF, sf...)
@@ -285,9 +318,10 @@ func TestTileGEMMErrors(t *testing.T) {
 		{"extra_name", func(g *TileGEMM) { g.Extras = []Operand{{"rows", F32, PerCol}} }},
 		{"extra_ss", func(g *TileGEMM) { g.Extras = []Operand{{"ss", F32, PerCol}} }},
 		{"wgmma_bm", func(g *TileGEMM) { g.WGMMA, g.BM = true, 64 }},
+		{"compact_no_wgmma", func(g *TileGEMM) { g.CompactScales = true }},
 		{"repacked_no_wgmma", func(g *TileGEMM) { g.Weight, g.Repacked = WeightNVFP4, true }},
 		{"repacked_bf16", func(g *TileGEMM) { g.WGMMA, g.Repacked = true, true }},
-		{"swizzle128b_no_wgmma", func(g *TileGEMM) { g.Swizzle128B = true }},
+		{"swizzle128b_nvfp4_no_wgmma", func(g *TileGEMM) { g.Swizzle128B, g.Weight = true, WeightNVFP4 }},
 		{"groupm_neg", func(g *TileGEMM) { g.GroupM = -1 }},
 		{"streamk_neg", func(g *TileGEMM) { g.StreamK = -1 }},
 		{"streamk_grouped", func(g *TileGEMM) { g.StreamK, g.Grouped = 4, true }},
@@ -304,8 +338,8 @@ func TestTileGEMMErrors(t *testing.T) {
 			g.Weight, g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.Repacked, g.SumSq = WeightNVFP4, true, true, true, true, true
 		}},
 		{"ws_stream_k", func(g *TileGEMM) { g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.StreamK = true, true, true, 132 }},
-		{"ws_dequant_words", func(g *TileGEMM) {
-			g.Weight, g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.Repacked, g.DequantWords = WeightNVFP4, true, true, true, true, 2
+		{"ws_dequant_one_word", func(g *TileGEMM) {
+			g.Weight, g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.Repacked, g.DequantWords = WeightNVFP4, true, true, true, true, 1
 		}},
 		{"ws_bf16_bm64", func(g *TileGEMM) { g.WGMMA, g.Swizzle128B, g.WarpSpecialized, g.BM = true, true, true, 64 }},
 		{"blackwell_fp4_bf16", func(g *TileGEMM) { g.BlackwellFP4 = true }},
@@ -339,6 +373,10 @@ func TestTileGEMMGolden(t *testing.T) {
 			WGMMA: true, Swizzle128B: true, WarpSpecialized: true},
 		{Name: "moe8_moe_w13_ws", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, BN: 128, Stages: 4, Grouped: true, Gather: true,
 			GLU: true, Epilogue: MustLambda("(mul (silu $0) $1)"), WGMMA: true, Swizzle128B: true, Repacked: true, WarpSpecialized: true},
+		{Name: "moe8_moe_w13_ws_2w", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, BN: 128, Stages: 4, Grouped: true, Gather: true,
+			GLU: true, Epilogue: MustLambda("(mul (silu $0) $1)"), WGMMA: true, Swizzle128B: true, Repacked: true, DequantWords: 2, WarpSpecialized: true},
+		{Name: "moe8_moe_w13_ws_2w_compact", N: 8192, K: 4096, Weight: WeightNVFP4, Out: BF16, BN: 128, Stages: 4, Grouped: true, Gather: true,
+			GLU: true, Epilogue: MustLambda("(mul (silu $0) $1)"), WGMMA: true, Swizzle128B: true, Repacked: true, DequantWords: 2, CompactScales: true, WarpSpecialized: true},
 	} {
 		src, err := g.Source()
 		if err != nil {

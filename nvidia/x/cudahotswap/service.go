@@ -68,12 +68,14 @@ func (l requestLease) Close() error { return l.handle.Release() }
 // requestCleanup retains the lease until every dependent owner has closed.
 // Successful steps are not repeated when a later step needs retry.
 type requestCleanup struct {
-	mu      sync.Mutex
-	service *Service
-	owners  []io.Closer
-	collect func() error
-	lease   io.Closer
-	drain   func(context.Context) error
+	mu        sync.Mutex
+	service   *Service
+	owners    []io.Closer
+	collect   func() error
+	lease     io.Closer
+	drain     func(context.Context) error
+	ambiguous bool
+	identity  *CleanupIdentityError
 }
 
 func (s *Service) retainCleanup(lease io.Closer) *requestCleanup {
@@ -91,12 +93,26 @@ func (r *requestCleanup) adopt(owner io.Closer) {
 	if owner == nil {
 		return
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ambiguous := false
 	for _, old := range r.owners {
-		if reflect.TypeOf(owner).Comparable() && old == owner {
+		if old == nil || reflect.TypeOf(old) != reflect.TypeOf(owner) {
+			continue
+		}
+		if !reflect.ValueOf(old).Comparable() || !reflect.ValueOf(owner).Comparable() {
+			ambiguous = true
+			continue
+		}
+		if old == owner {
 			return
 		}
 	}
 	r.owners = append(r.owners, owner)
+	r.ambiguous = r.ambiguous || ambiguous
+	// An earlier error names an exact owner list. It must not resolve a list
+	// that has since acquired another obligation.
+	r.identity = nil
 }
 
 func (r *requestCleanup) Close() error {
@@ -106,6 +122,18 @@ func (r *requestCleanup) Close() error {
 func (r *requestCleanup) close(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.ambiguous {
+		if r.identity == nil {
+			var owners []io.Closer
+			for _, owner := range r.owners {
+				if owner != nil {
+					owners = append(owners, owner)
+				}
+			}
+			r.identity = &CleanupIdentityError{cleanup: r, owners: owners}
+		}
+		return r.identity
+	}
 	if r.drain != nil {
 		if err := r.drain(ctx); err != nil {
 			return err

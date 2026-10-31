@@ -39,6 +39,14 @@
     "wandb.jsonl": {
       "sha256": "3c7db6657a28ecd2ae56212fe3dd9788990da98af4a712a35abe9b3c39c8d740",
       "kind": "source_derived_protocol_control"
+    },
+    "wandb01911-sdk-decoded.jsonl": {
+      "sha256": "0166da6ec1fd06277146913760c73cc38d69fbd1881b8ca5983600a1b6776bb6",
+      "kind": "sdk_datastore_decoded_derivative"
+    },
+    "wandb01911-sdk-decoded.meta.json": {
+      "sha256": "a731850e41b07fc78c4af06d8aeb88777fca52fd2091c0094398905b29bf6f89",
+      "kind": "sdk_datastore_decoded_derivative"
     }
   },
   "source_files": {

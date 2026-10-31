@@ -55,21 +55,18 @@
 // Function definitions must end with a bare closing brace; trailing comments
 // on the closing-brace line are refused as unterminated input.
 //
-// Inference uses a 3-element lattice over slots:
+// Inference has separate reachability and dependency-refinement phases. With N
+// slots, reachability changes each slot from unreachable to reachable at most
+// once and takes at most N + 1 passes. Safe, reachable candidate slots start
+// refinement as StateShared; unsafe candidates start as StateGenericRequired.
+// Other slots remain StateUnconstrained.
 //
-//	StateUnconstrained (top: no writes observed yet)
-//	       |
-//	       v
-//	  StateShared (all observed writes are addrspace(3))
-//	       |
-//	       v
-//	StateGenericRequired (bottom: absorbing, at least one write is non-shared)
-//
-// The lattice cannot oscillate and is guaranteed to terminate. Transitions are
-// strictly monotonic downward along the finite partial order (height 2).
-// StateGenericRequired is an absorbing state with no outgoing transitions.
-// For a function with N slots, fixed-point iteration performs at most 2*N state
-// changes and terminates in at most 2*N + 1 passes over the body.
+// Refinement can withdraw StateShared to StateUnconstrained or
+// StateGenericRequired, and StateUnconstrained to StateGenericRequired. It never
+// promotes a slot back to StateShared. StateGenericRequired is absorbing, so
+// refinement makes at most 2*N state changes and takes at most 2*N + 1 passes.
+// InferenceReport.Iterations and SlotInfo.IterationCount report the maximum of
+// the two phase counts, not their sum.
 //
 // An explicit source declaration always wins over inference: a slot declared
 // in addrspace(1) or addrspace(3) is never overridden. Cluster-mapped pointers

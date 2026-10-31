@@ -218,7 +218,7 @@ func TestNativeGatherSearch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		e := &ExecutableEvaluator{Workload: compiler.Bindings(), Compile: compiler.Compile, Baseline: baseline, References: ref, Policy: OutputPolicy{}, Rounds: 2, TimingKind: cudatrial.TimingGPUBusy, HardwareLockChecker: check, CostModel: gatherExtractionCost{}}
+		e := &ExecutableEvaluator{Workload: compiler.Bindings(), Compile: compiler.Compile, Baseline: baseline, References: ref, Policy: OutputPolicy{}, Rounds: 2, TimingKind: cudatrial.TimingCUDAEvent, HardwareLockChecker: check, CostModel: gatherExtractionCost{}}
 		evaluators = append(evaluators, e)
 		return e
 	}

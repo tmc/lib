@@ -317,6 +317,8 @@ func stepKernelName(k PlanKernel) string {
 		return k.GEMM.Name
 	case k.Tile != nil:
 		return k.Tile.Name
+	case k.MMA != nil:
+		return k.MMA.Name
 	case k.Attention != nil:
 		return k.Attention.Name
 	case k.Row != nil:

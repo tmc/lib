@@ -1,0 +1,179 @@
+# Evaluate the facts nvl72doctor -save-facts captured on a GB10 (sm_121,
+# driver 580.173.02, nvcc 13.4) on 2026-10-28 against the GB300 profile.
+# The GB10 is not a rack node, so the NVLink, fabric, MNNVL and IMEX checks
+# skip. Two checks fail. The NCCL sweep is reported as timed out: the
+# binary that made this capture misreported every finished child probe as
+# a timeout (a direct run of the probe on the same GPU passed every size).
+# The BF16 multimem all-reduce does not assemble (fixed on work/nvl72-tp).
+
+! exec nvl72doctor -facts gb10-dgx.json
+stdout '^nvl72doctor: gb300-nvl72 on spark-31db \(linux/arm64\)$'
+stdout '^pass driver \[observed\]$'
+stdout '^warn gpus \[observed\]$'
+stdout 'NVIDIA GB10 is sm_121, not sm_103'
+stdout '^skip nvlink gpu0 \[observed\]$'
+stdout '^skip mnnvl clique \[observed\]$'
+stdout '^skip imex domain \[observed\]$'
+stdout '^fail nccl \[executed\]$'
+stdout '^skip nccl cross-tray$'
+stdout '^pass compile tcgen05_scale_vec_4x sm_103a \[compiled\]$'
+stdout '^pass compile tile_bf16 sm_103a \[compiled\]$'
+stdout 'shared 0 static \+ 110592 dynamic of 232448'
+stdout '^fail compile allreduce_rmsnorm_72 sm_103a \[compiled\]$'
+! stdout '^pass nvlink'
+
+# The GB200 profile skips the same checks.
+! exec nvl72doctor -profile gb200-nvl72 -facts gb10-dgx.json
+stdout 'NVIDIA GB10 is sm_121, not sm_100'
+
+# -json carries the profile, the facts and the checks.
+! exec nvl72doctor -json -facts gb10-dgx.json
+stdout '"profile": "gb300-nvl72"'
+stdout '"name": "nccl cross-tray",'
+stdout '"cluster_uuid": "00000000-0000-0000-0000-000000000000"'
+
+-- gb10-dgx.json --
+{
+  "schema": 1,
+  "host": "spark-31db",
+  "os": "linux/arm64",
+  "nvml_version": "13.580.173.02",
+  "driver": "580.173.02",
+  "cuda_driver_version": 13000,
+  "nvcc": {
+    "path": "/usr/local/cuda/bin/nvcc",
+    "version": "13.4"
+  },
+  "gpus": [
+    {
+      "index": 0,
+      "uuid": "GPU-0b2649cd-f5c3-ee67-5b8e-b18d60595e9d",
+      "name": "NVIDIA GB10",
+      "bus_id": "0000000F:01:00.0",
+      "major": 12,
+      "minor": 1,
+      "link_error": "nvmlDeviceGetNvLinkState: nvidia-ml: Not Supported (3)",
+      "fabric": {
+        "cluster_uuid": "00000000-0000-0000-0000-000000000000",
+        "clique_id": 0,
+        "state": 0,
+        "status": 0,
+        "health_mask": 0,
+        "health_summary": 0
+      }
+    }
+  ],
+  "imex_channels_error": "open /dev/nvidia-caps-imex-channels: no such file or directory",
+  "imex_domain_error": "nvidia-imex-ctl not found",
+  "fabric_manager": {
+    "error": "fabricmanager: cannot open libnvfm: tried libnvfm.so.1, libnvfm.so: libnvfm.so: cannot open shared object file: No such file or directory; set FM_LIB_PATH to the library path",
+    "partitions": 0,
+    "failed_gpus": 0,
+    "failed_switches": 0
+  },
+  "nccl_error": "nccl all_reduce: timed out after 5m0s",
+  "compile": [
+    {
+      "kernel": "tile_bf16",
+      "arch": "sm_121a",
+      "entries": 1,
+      "max_registers": 95,
+      "spill_bytes": 0,
+      "static_shared": 0,
+      "dynamic_shared": 73728,
+      "seconds": 0.275489768
+    },
+    {
+      "kernel": "moe_w13_nvfp4",
+      "arch": "sm_121a",
+      "entries": 1,
+      "max_registers": 123,
+      "spill_bytes": 0,
+      "static_shared": 512,
+      "dynamic_shared": 75264,
+      "seconds": 0.314240651
+    },
+    {
+      "kernel": "tile_fp4_mma",
+      "arch": "sm_121a",
+      "entries": 1,
+      "max_registers": 115,
+      "spill_bytes": 0,
+      "static_shared": 0,
+      "dynamic_shared": 75264,
+      "seconds": 0.341761306
+    },
+    {
+      "kernel": "allreduce_rmsnorm_72",
+      "arch": "sm_121a",
+      "error": "nvcc exit 255: ptxas /tmp/tmpxft_00057ef6_00000000-6_allreduce_rmsnorm_72.ptx, line 48; error   : Arguments mismatch for instruction 'multimem.ld_reduce'; ptxas /tmp/tmpxft_00057ef6_00000000-6_allreduce_rmsnorm_72.ptx, line 69; error   : Arguments mismatch for instruction 'multimem.ld_reduce'; ptxas /tmp/tmpxft_00057ef6_00000000-6_allreduce_rmsnorm_72.ptx, line 86; error   : Arguments mismatch for instruction 'multimem.ld_reduce' (and 30 more)",
+      "entries": 0,
+      "max_registers": 0,
+      "spill_bytes": 0,
+      "static_shared": 0,
+      "dynamic_shared": 0,
+      "seconds": 0.224133109
+    },
+    {
+      "kernel": "moe_combine_72",
+      "arch": "sm_121a",
+      "entries": 1,
+      "max_registers": 31,
+      "spill_bytes": 0,
+      "static_shared": 0,
+      "dynamic_shared": 0,
+      "seconds": 0.195771888
+    },
+    {
+      "kernel": "tile_bf16",
+      "arch": "sm_103a",
+      "entries": 1,
+      "max_registers": 95,
+      "spill_bytes": 0,
+      "static_shared": 0,
+      "dynamic_shared": 110592,
+      "seconds": 0.246733471
+    },
+    {
+      "kernel": "moe_w13_nvfp4",
+      "arch": "sm_103a",
+      "entries": 1,
+      "max_registers": 122,
+      "spill_bytes": 0,
+      "static_shared": 512,
+      "dynamic_shared": 75264,
+      "seconds": 0.323687794
+    },
+    {
+      "kernel": "tcgen05_scale_vec_4x",
+      "arch": "sm_103a",
+      "entries": 1,
+      "max_registers": 40,
+      "spill_bytes": 0,
+      "static_shared": 17448,
+      "dynamic_shared": 0,
+      "seconds": 0.248621662
+    },
+    {
+      "kernel": "allreduce_rmsnorm_72",
+      "arch": "sm_103a",
+      "error": "nvcc exit 255: ptxas /tmp/tmpxft_00057f68_00000000-6_allreduce_rmsnorm_72.ptx, line 48; error   : Arguments mismatch for instruction 'multimem.ld_reduce'; ptxas /tmp/tmpxft_00057f68_00000000-6_allreduce_rmsnorm_72.ptx, line 69; error   : Arguments mismatch for instruction 'multimem.ld_reduce'; ptxas /tmp/tmpxft_00057f68_00000000-6_allreduce_rmsnorm_72.ptx, line 86; error   : Arguments mismatch for instruction 'multimem.ld_reduce' (and 30 more)",
+      "entries": 0,
+      "max_registers": 0,
+      "spill_bytes": 0,
+      "static_shared": 0,
+      "dynamic_shared": 0,
+      "seconds": 0.227418046
+    },
+    {
+      "kernel": "moe_combine_72",
+      "arch": "sm_103a",
+      "entries": 1,
+      "max_registers": 30,
+      "spill_bytes": 0,
+      "static_shared": 0,
+      "dynamic_shared": 0,
+      "seconds": 0.205115335
+    }
+  ]
+}

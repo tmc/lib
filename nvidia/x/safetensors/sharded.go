@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -98,6 +99,16 @@ func (s *Sharded) Tensor(name string) (Tensor, error) {
 		return Tensor{}, fmt.Errorf("safetensors: no tensor %q", name)
 	}
 	return f.Tensor(name)
+}
+
+// TensorReader returns a reader of the named tensor's bytes in the file
+// that holds it, as [File.TensorReader] does.
+func (s *Sharded) TensorReader(name string) (*io.SectionReader, error) {
+	f := s.files[s.Shard[name]]
+	if f == nil {
+		return nil, fmt.Errorf("safetensors: no tensor %q", name)
+	}
+	return f.TensorReader(name)
 }
 
 // Close closes every file in the checkpoint.

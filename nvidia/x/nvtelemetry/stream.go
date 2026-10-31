@@ -30,32 +30,40 @@ var (
 
 // Canonical metric unit expectations.
 var expectedMetricUnits = map[string]string{
-	"nvlink_dl_replay_errors":   "count",
-	"nvlink_dl_recovery_errors": "count",
-	"nvlink_dl_crc_flit_errors": "count",
-	"nvlink_dl_crc_data_errors": "count",
-	"nvlink_dl_ecc_data_errors": "count",
-	"imex_domain_status":        "code",
-	"imex_daemon_status":        "code",
-	MetricGPUUtilization:        UnitPercent,
-	MetricMemoryUtilization:     UnitPercent,
-	MetricMemoryUsedBytes:       UnitBytes,
-	MetricMemoryTotalBytes:      UnitBytes,
-	MetricPowerUsageMW:          UnitMilliwatts,
-	MetricTotalEnergyMJ:         UnitMillijoules,
-	MetricTemperatureC:          UnitCelsius,
-	MetricSMClockMHz:            UnitMHz,
-	MetricMemoryClockMHz:        UnitMHz,
-	MetricClocksEventReasons:    UnitBitmask,
-	MetricSMActivity:            UnitPercent,
-	MetricTensorActivity:        UnitPercent,
-	MetricDRAMActivity:          UnitPercent,
-	MetricPCIeRxBytesPerSec:     UnitBytesPerSec,
-	MetricPCIeTxBytesPerSec:     UnitBytesPerSec,
-	MetricNVLinkRxBytesPerSec:   UnitBytesPerSec,
-	MetricNVLinkTxBytesPerSec:   UnitBytesPerSec,
-	MetricPCIERxBytes:           UnitBytes,
-	MetricPCIETxBytes:           UnitBytes,
+	"ecc_error_event":                       "code",
+	"job_start_event":                       "code",
+	"job_end_event":                         "code",
+	"device_reset_event":                    "code",
+	"ecc_corrected_errors":                  "count",
+	"ecc_uncorrected_errors":                "count",
+	"retired_pages_multiple_single_bit_ecc": "count",
+	"retired_pages_double_bit_ecc":          "count",
+	"nvlink_dl_replay_errors":               "count",
+	"nvlink_dl_recovery_errors":             "count",
+	"nvlink_dl_crc_flit_errors":             "count",
+	"nvlink_dl_crc_data_errors":             "count",
+	"nvlink_dl_ecc_data_errors":             "count",
+	"imex_domain_status":                    "code",
+	"imex_daemon_status":                    "code",
+	MetricGPUUtilization:                    UnitPercent,
+	MetricMemoryUtilization:                 UnitPercent,
+	MetricMemoryUsedBytes:                   UnitBytes,
+	MetricMemoryTotalBytes:                  UnitBytes,
+	MetricPowerUsageMW:                      UnitMilliwatts,
+	MetricTotalEnergyMJ:                     UnitMillijoules,
+	MetricTemperatureC:                      UnitCelsius,
+	MetricSMClockMHz:                        UnitMHz,
+	MetricMemoryClockMHz:                    UnitMHz,
+	MetricClocksEventReasons:                UnitBitmask,
+	MetricSMActivity:                        UnitPercent,
+	MetricTensorActivity:                    UnitPercent,
+	MetricDRAMActivity:                      UnitPercent,
+	MetricPCIeRxBytesPerSec:                 UnitBytesPerSec,
+	MetricPCIeTxBytesPerSec:                 UnitBytesPerSec,
+	MetricNVLinkRxBytesPerSec:               UnitBytesPerSec,
+	MetricNVLinkTxBytesPerSec:               UnitBytesPerSec,
+	MetricPCIERxBytes:                       UnitBytes,
+	MetricPCIETxBytes:                       UnitBytes,
 }
 
 // StreamRecord is the envelope for lines in a telemetry JSONL stream.
@@ -708,6 +716,16 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 	if version < SchemaVersionLegacy || version > SchemaVersionV5 {
 		return ErrUnsupportedSchema
 	}
+	if rec.Sample != nil {
+		for _, r := range rec.Sample.Readings {
+			if version < SchemaVersionV3 && suppliedLogEvent(r.Name) {
+				return fmt.Errorf("%w: event category in legacy sample", ErrMalformedStream)
+			}
+			if err := validateSuppliedLogEvent(r); err != nil {
+				return fmt.Errorf("%w: %v", ErrMalformedStream, err)
+			}
+		}
+	}
 	if version < SchemaVersionV5 && rec.Sample != nil {
 		for _, r := range rec.Sample.Readings {
 			if o := r.Observation; o != nil {
@@ -787,7 +805,7 @@ func validateVersionedRecord(rec StreamRecord, version int) error {
 				return fmt.Errorf("%w: unknown source class", ErrMalformedStream)
 			}
 			switch o.Kind {
-			case "", "gauge", "counter", "histogram", "host_call", "kernel", "sched_running", "sched_runnable", "sched_blocked":
+			case "", "gauge", "counter", "histogram", "host_call", "kernel", "sched_running", "sched_runnable", "sched_blocked", "event":
 			default:
 				return fmt.Errorf("%w: unknown observation kind", ErrMalformedStream)
 			}

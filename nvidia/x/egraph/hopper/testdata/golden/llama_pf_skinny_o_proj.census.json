@@ -1,0 +1,19 @@
+{
+  "source_sha256": "fd44a293a132fd69e7ccc5061de2c3b1a9b8679f8f78232871633d378a3ef153",
+  "kernels": {
+    "_Z22llama_pf_skinny_o_projiPKtS0_PKfPfS3_": {
+      "loads": {
+        "cg.v2.f32": 8,
+        "nc.L1::no_allocate.v4.u32": 4,
+        "nc.f32": 8,
+        "nc.v4.u32": 7
+      },
+      "stores": {
+        "f32": 2,
+        "u32": 1,
+        "v2.f32": 7
+      },
+      "late_loads": 15
+    }
+  }
+}

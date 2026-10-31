@@ -8,6 +8,18 @@ claim compatibility with pinned versions.
 - Triton core `r25.06` [metrics.cc](https://github.com/triton-inference-server/core/blob/r25.06/src/metrics.cc): counter/gauge families, cache lookups and first-response histogram.
 - vLLM `v0.8.5` [engine/metrics.py](https://github.com/vllm-project/vllm/blob/v0.8.5/vllm/engine/metrics.py): legacy-engine counters, finish-reason labels, KV-cache fractions and histogram families. V1-specific metrics are a separate pending mapping.
 - Ray `ray-2.44.0` [metric_defs.cc](https://github.com/ray-project/ray/blob/ray-2.44.0/src/ray/stats/metric_defs.cc), [metric_defs.h](https://github.com/ray-project/ray/blob/ray-2.44.0/src/ray/stats/metric_defs.h) and [reporter_agent.py](https://github.com/ray-project/ray/blob/ray-2.44.0/python/ray/dashboard/modules/reporter/reporter_agent.py): logical resource gauges and selected reporter GPU gauges.
+  The GPU memory units follow tag `ray-2.44.0` commit
+  `36bed82414635fdf15aad132280c4dc16c2224d3`, `reporter_agent.py` SHA256
+  `c1a6295cc7a24f1263435f0404539d2f22228a27508c09f2a9cf6ba078e6960c` (the
+  retained `ray-reporter.py`, also in the official 2.44.0 wheel): `MB = 1024 * 1024`
+  (line 311), `int(memory_info.used) // MB` and `int(memory_info.total) // MB`
+  (551–552), and the `node_gram_used`/`node_gram_available` records (1055–1087).
+  The emitter conflicts with the `Gauge` declarations at lines 138–149, which
+  give unit `bytes` and generic HELP text; `ray/_private/prometheus_exporter.py`
+  (SHA256 `090450df907f267f1d654b9452b9056380306ab1f7dc40b1e9940c131d3228ee`,
+  lines 207–216) exports gauges with that HELP text, no unit and the recorded
+  value. The values are integer MiB; `ray.prom` has no GPU memory series and is
+  unchanged.
 - SGLang `v0.5.21` peeled commit `e00930c5489053f26d86b179cee0d087f846acbb` [metrics_collector.py](https://github.com/sgl-project/sglang/blob/e00930c5489053f26d86b179cee0d087f846acbb/python/sglang/srt/observability/metrics_collector.py): exact metric families, types, label names and family-specific units. SHA256 `b1821b90ad18ce82d75648a1da76f850b5d5c7c3fadc1b39a7cc694d00533136`.
 - Dynamo `v1.5.1` commit `2093662a4d4e5fd318732935213dde08dc7be818` [metrics catalog](https://github.com/ai-dynamo/dynamo/blob/2093662a4d4e5fd318732935213dde08dc7be818/docs/fern/pages/reference/observability/metrics-catalog.mdx), [metric labels](https://github.com/ai-dynamo/dynamo/blob/2093662a4d4e5fd318732935213dde08dc7be818/docs/fern/pages/reference/observability/metric-labels.mdx): runtime family types, meanings, scopes and labels. Snapshot SHA256 values are `255672389599da2493aab1206101851d54f42a98132475c310089297d3768d43` (catalog), `1534082dbc8a1eebdfbb9186110c3b16a8c99f806c09c7e25f0ace1b6459407b` (labels), and `38e7078609d29ce26e8edf1fc15336e79bb7c81999f56860be765596c9d82c8a` (runtime Dockerfile). The tagged runtime Dockerfile uses `${RUNTIME_IMAGE}:${RUNTIME_IMAGE_TAG}` and does not pin SGLang, so this does not establish a compatible binary pairing.
 - The Dynamo engine gauges `dynamo_component_total_blocks`, `dynamo_component_gpu_cache_usage_percent`, and `dynamo_component_model_load_time_seconds` are defined by the pinned implementation at `components/src/dynamo/common/utils/prometheus.py` and names at `lib/runtime/src/metrics/prometheus_names.rs`, commit `2093662a4d4e5fd318732935213dde08dc7be818`. Retained snapshot SHA256 values are `44965a5ff37346c2e6456f87c7f3a454ef0148e1777fbf44fb38f4afb530851c` and `f1ffbad29088e6512add04208364db766b67dee0635747795c9450e2f3fefdef`. The implementation requires `model` and `dp_rank` in addition to hierarchy labels for total blocks and GPU cache usage, and `model` in addition to hierarchy labels for model-load time. Its explicit `component` label is the injected `dynamo_component` label.
@@ -24,14 +36,56 @@ authentic producer scrape. The reader recomputes and preserves each raw hash.
 - ClearML `v1.18.0` [v2_9/events.py](https://github.com/clearml/clearml/blob/v1.18.0/clearml/backend_api/services/v2_9/events.py) and [callresult.py](https://github.com/clearml/clearml/blob/v1.18.0/clearml/backend_api/session/callresult.py): scalar-event schema, response-data envelope and successful result code.
 - PyTorch `v2.7.0` [test_profiler.py](https://github.com/pytorch/pytorch/blob/v2.7.0/test/profiler/test_profiler.py) and Kineto `v0.4.0` [output_json.cpp](https://github.com/pytorch/kineto/blob/v0.4.0/libkineto/src/output_json.cpp): user annotations and Chrome-trace timestamp/duration serialization. No claim that a bounded profile is a live workload metric stream.
 
+The historical `pytorch.json` in this directory remains a constructed 2.7.0
+protocol control. The sibling
+[`pytorch-2.10.0-cpu-eager.chrome.json`](../pytorch-2.10.0-cpu-eager.chrome.json)
+and
+[`pytorch-2.10.0-cpu-inductor.chrome.json`](../pytorch-2.10.0-cpu-inductor.chrome.json)
+are untouched exports from an actual local CPU experiment captured on
+2026-10-27. Their SHA-256 values are respectively
+`da43e72ecac5387566568d1f139af9b4aaefa3cb5861ce11ff5028e6e96cad47` and
+`39a23a35df382fc29e27e3781849810c74d66d294ed3eac4a9bed401486f01ad`.
+The producer reports PyTorch 2.10.0, Git
+`449b1768410104d3ed79d3bcfe4ba1d65c7f22c0`, from a macOS ARM64 wheel.
+The experiment selected CPU tensors and profiler activities. Its eager and real
+Inductor executions used the same 32-element input and
+matched an independent literal float32 output oracle. These are controlled
+CPU arithmetic captures, not serving, optimizer-training or GPU evidence.
+
+The reader returns two eager and four compiled annotations, including both
+repeated `## Call CompiledFxGraph None ##` records. The imported CPU summary preserves
+their raw references with native population uncollected and compiler membership
+unavailable; an annotation name or profiler `External id` is not a native
+submission or member identity. The runtime inventory pins selected installed
+files, but reproducible wheel-to-Kineto source pairing remains unestablished.
+This additional fixed CPU profile does not qualify all 2.10.0 formats, HTTP,
+native correlation, clocks, compiler membership or the other provider rows.
+
 `mlflow-native.json` is an actual vendor SDK file-store history/response
 serialization captured on 2026-10-10 with `mlflow-skinny==2.22.0`. The receipt
 records the real run ID and exact hash. `generate_mlflow.py` repeats the native
 SDK/serializer path in an isolated environment; it requires explicit new store
 and output directories and performs no endpoint or account operations.
 
-All other fixtures are hand-constructed protocol controls grounded in the
-versioned sources above. `sglang-v0.5.21.prom.control` and
+`wandb01911-sdk-decoded.jsonl` (SHA256
+`0166da6ec1fd06277146913760c73cc38d69fbd1881b8ca5983600a1b6776bb6`, 274 bytes,
+3 rows) is a derivative of an actual SDK capture, not an SDK output file. W&B
+`0.19.11` (commit `2a058902a2425bf79e5add34b30d0e9ea5e39951`) wrote offline run
+`5f5i3ig2` as its native `.wandb` transaction log (1523 bytes, 16 records, SHA256
+`dad963039ddd336f160c34182e2ba86ecbc436d3ea3c47692bbd5550ab7cd721`), which is
+retained outside this repository. A task decoder read that log through the
+SDK's official datastore reader and protobuf records and projected each history
+record's `value_json` items as one JSON row, with `nested_key` paths as nested
+objects. The W&B SDK did not emit this JSONL: it is not native
+`wandb-history.jsonl`, a vendor download or authentic training. Its values come
+from a controlled scalar run, loss 4, 2 and 1 at steps 0, 1 and 3.
+`wandb01911-sdk-decoded.meta.json` (SHA256
+`a731850e41b07fc78c4af06d8aeb88777fca52fd2091c0094398905b29bf6f89`) records the
+decoder hash, SDK wheel, core and protobuf pins, and the retained capture
+receipts.
+
+All other fixtures in this directory are hand-constructed protocol controls
+grounded in the versioned sources above. `sglang-v0.5.21.prom.control` and
 `dynamo-v1.5.1.prom.control` are constructed controls, not production traces or
 genuine captures from those pinned running frameworks. Their pending
 authentic-export gates are listed

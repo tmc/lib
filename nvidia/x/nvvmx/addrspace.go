@@ -35,20 +35,14 @@ const (
 	AddrSpaceCluster AddrSpace = 7
 )
 
-// LatticeState represents the state of a local slot in the address-space
-// inference lattice. The lattice is a 3-element chain ordered by precision:
-//
-//	StateUnconstrained (top: no writes observed yet)
-//	       |
-//	       v
-//	  StateShared (all writes are addrspace(3))
-//	       |
-//	       v
-//	StateGenericRequired (bottom: absorbing, at least one write is non-shared)
-//
-// Because transitions are strictly monotonic and StateGenericRequired is
-// absorbing, fixed-point iteration over N slots cannot oscillate and must
-// terminate in at most 2*N + 1 passes.
+// LatticeState represents the state of a local slot in address-space inference.
+// A bounded reachability phase seeds the states before dependency refinement.
+// During refinement, StateShared may become StateUnconstrained or
+// StateGenericRequired, and StateUnconstrained may become StateGenericRequired.
+// No state becomes StateShared again, and StateGenericRequired is absorbing.
+// With N slots, refinement therefore makes at most 2*N state changes and
+// terminates in at most 2*N + 1 passes. Reachability takes at most N + 1 passes;
+// reported iteration counts are the maximum of the two phase counts.
 type LatticeState int
 
 const (

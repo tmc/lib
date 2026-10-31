@@ -61,6 +61,24 @@ API_TYPE(cudaintercept_decisions_enable_v1, policy_t);
 API_TYPE(cudaintercept_decision_drain_v1, decision_drain_t);
 #endif
 
+#ifdef CUDAINTERCEPT_HAVE_REPLAY_H
+#include "replay.h"
+_Static_assert(CUDAINTERCEPT_OWNED_VERSION == 2, "owned request version");
+_Static_assert(sizeof(struct cudaintercept_replay_request_v2) == 984, "owned request size");
+_Static_assert(offsetof(struct cudaintercept_replay_request_v2, operation) == 8, "owned operation offset");
+_Static_assert(offsetof(struct cudaintercept_replay_request_v2, baseline_image) == 752, "owned image offset");
+_Static_assert(offsetof(struct cudaintercept_replay_request_v2, qualifier) == 784, "owned qualifier offset");
+_Static_assert(sizeof(struct cudaintercept_owned_decision_v2) == 128, "owned decision size");
+_Static_assert(offsetof(struct cudaintercept_owned_decision_v2, capsule) == 56, "owned capsule offset");
+typedef uint32_t (*owned_prepare_t)(const struct cudaintercept_replay_request_v2 *, struct cudaintercept_replay_owner_v2 **);
+typedef uint32_t (*owned_launch_t)(struct cudaintercept_replay_owner_v2 *, uint64_t, int *);
+API_TYPE(cudaintercept_replay_prepare_v2, owned_prepare_t);
+API_TYPE(cudaintercept_replay_qualify_v2, owned_prepare_t);
+API_TYPE(cudaintercept_replay_launch_v2, owned_launch_t);
+_Static_assert(sizeof(struct cudaintercept_replay_evidence_v2) == 1128, "owned evidence size");
+_Static_assert(offsetof(struct cudaintercept_replay_evidence_v2, outputs) == 92, "observed outputs offset");
+#endif
+
 #ifdef CUDAINTERCEPT_HAVE_CUDA_H
 #include <cuda.h>
 

@@ -404,6 +404,10 @@ func TestRMSNormWeightAndEpsilonSensitivity(t *testing.T) {
 		wProj[i] = float32(((i*11)%23)-11) * 0.04
 	}
 
+	// Tile lowerings of normalized projections take only symbolic operands
+	// (see TileNormalizedProjection), so weight and epsilon constants reach
+	// Tile source through the standalone RMSNorm and CUDA source through the
+	// fused projection.
 	buildFusedProjExpr := func(wLeaf, epsLeaf *Expr) *Expr {
 		return &Expr{
 			Op: "tile_rmsnorm_proj",
@@ -414,6 +418,9 @@ func TestRMSNormWeightAndEpsilonSensitivity(t *testing.T) {
 				{Op: "w_proj"},
 			},
 		}
+	}
+	tileNorm := func(e *Expr) *Expr {
+		return &Expr{Op: "tile_rmsnorm", Children: e.Children[:3]}
 	}
 
 	cases := []struct {
@@ -478,11 +485,11 @@ func TestRMSNormWeightAndEpsilonSensitivity(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			declA, err := GenerateDeclarativeTile(tc.exprA, CodegenOptions{KernelName: "k_test"})
+			declA, err := GenerateDeclarativeTile(tileNorm(tc.exprA), CodegenOptions{KernelName: "k_test"})
 			if err != nil {
 				t.Fatalf("GenerateDeclarativeTile(A): %v", err)
 			}
-			declB, err := GenerateDeclarativeTile(tc.exprB, CodegenOptions{KernelName: "k_test"})
+			declB, err := GenerateDeclarativeTile(tileNorm(tc.exprB), CodegenOptions{KernelName: "k_test"})
 			if err != nil {
 				t.Fatalf("GenerateDeclarativeTile(B): %v", err)
 			}
@@ -490,11 +497,11 @@ func TestRMSNormWeightAndEpsilonSensitivity(t *testing.T) {
 				t.Errorf("GenerateDeclarativeTile output did not change between A and B")
 			}
 
-			irA, err := GenerateTileIR(tc.exprA, CodegenOptions{KernelName: "k_test"})
+			irA, err := GenerateTileIR(tileNorm(tc.exprA), CodegenOptions{KernelName: "k_test"})
 			if err != nil {
 				t.Fatalf("GenerateTileIR(A): %v", err)
 			}
-			irB, err := GenerateTileIR(tc.exprB, CodegenOptions{KernelName: "k_test"})
+			irB, err := GenerateTileIR(tileNorm(tc.exprB), CodegenOptions{KernelName: "k_test"})
 			if err != nil {
 				t.Fatalf("GenerateTileIR(B): %v", err)
 			}
@@ -571,8 +578,9 @@ func TestRMSNormWeightAndEpsilonSensitivity(t *testing.T) {
 				t.Errorf("ReferenceGraph evaluation did not change between A and B (maxDiff=%g)", maxAbsSliceDiff(evalA, evalB))
 			}
 
-			// Execute the declarative Tile C++ kernel on host across M=32, N=32, K=32.
-			runtimeDecl, err := GenerateDeclarativeTile(refExpr, CodegenOptions{KernelName: "rms_proj_kernel"})
+			// Execute the declarative Tile C++ RMSNorm on host across M=32, K=32
+			// and project its rows on the host.
+			runtimeDecl, err := GenerateDeclarativeTile(tileNorm(refExpr), CodegenOptions{KernelName: "rms_kernel"})
 			if err != nil {
 				t.Fatalf("GenerateDeclarativeTile(runtime): %v", err)
 			}
@@ -580,11 +588,10 @@ func TestRMSNormWeightAndEpsilonSensitivity(t *testing.T) {
 %s
 %s
 %s
-%s
 alignas(16) float OutA[%d] = {0};
 alignas(16) float OutB[%d] = {0};
-rms_proj_kernel(X, W_norm_A, W_proj, OutA, %d, %d, %d, %.8ff);
-rms_proj_kernel(X, W_norm_B, W_proj, OutB, %d, %d, %d, %.8ff);
+rms_kernel(X, W_norm_A, OutA, %d, %d, %.8ff);
+rms_kernel(X, W_norm_B, OutB, %d, %d, %.8ff);
 for (int i = 0; i < %d; ++i) {
     std::printf("%%.8f ", OutA[i]);
 }
@@ -595,19 +602,18 @@ for (int i = 0; i < %d; ++i) {
 				formatCPPFloatArray("X", x),
 				formatCPPFloatArray("W_norm_A", tc.wSliceA),
 				formatCPPFloatArray("W_norm_B", tc.wSliceB),
-				formatCPPFloatArray("W_proj", wProj),
-				m*n, m*n,
-				m, n, k, tc.epsA,
-				m, n, k, tc.epsB,
-				m*n, m*n,
+				m*k, m*k,
+				m, k, tc.epsA,
+				m, k, tc.epsB,
+				m*k, m*k,
 			)
 			rawOut := runDeclarativeKernelHost(t, runtimeDecl, mainBody)
 			vals := parseFloatsOutput(t, rawOut)
-			if len(vals) != 2*m*n {
-				t.Fatalf("expected %d output floats, got %d", 2*m*n, len(vals))
+			if len(vals) != 2*m*k {
+				t.Fatalf("expected %d output floats, got %d", 2*m*k, len(vals))
 			}
-			gotA := vals[:m*n]
-			gotB := vals[m*n:]
+			gotA := referenceMatMul(vals[:m*k], wProj, m, k, n)
+			gotB := referenceMatMul(vals[m*k:], wProj, m, k, n)
 
 			wantA := referenceMatMul(referenceRMSNormRows(x, tc.wSliceA, m, k, tc.epsA), wProj, m, k, n)
 			wantB := referenceMatMul(referenceRMSNormRows(x, tc.wSliceB, m, k, tc.epsB), wProj, m, k, n)
@@ -635,211 +641,8 @@ for (int i = 0; i < %d; ++i) {
 	}
 }
 
-// TestQKVSplitDistinctOutputsAndReferenceParity verifies that QKV split
-// produces distinct Q, K, and V outputs matching the reference graph and
-// rejects the buggy Q+K+V sum and unnormalized mutants.
-func TestQKVSplitDistinctOutputsAndReferenceParity(t *testing.T) {
-	cases := []struct {
-		name      string
-		m, n, k   int
-		eps       float32
-		buildExpr func() *Expr
-	}{
-		{
-			name: "unfused_qkv_split_gemv_32x32x32",
-			m:    32, n: 32, k: 32,
-			eps: 1e-5,
-			buildExpr: func() *Expr {
-				norm := &Expr{
-					Class: 1,
-					Op:    "rmsnorm",
-					Children: []*Expr{
-						{Class: 2, Op: "x"},
-						{Class: 3, Op: "w"},
-						{Class: 4, Op: "eps"},
-					},
-				}
-				return &Expr{
-					Class: 10,
-					Op:    "qkv_split",
-					Children: []*Expr{
-						{Class: 7, Op: "gemv", Children: []*Expr{norm, {Class: 5, Op: "wq"}}},
-						{Class: 8, Op: "gemv", Children: []*Expr{norm, {Class: 6, Op: "wk"}}},
-						{Class: 9, Op: "gemv", Children: []*Expr{norm, {Class: 11, Op: "wv"}}},
-					},
-				}
-			},
-		},
-		{
-			name: "fused_tile_rmsnorm_qkv_split_16x32x48",
-			m:    16, n: 32, k: 48,
-			eps: 1e-3,
-			buildExpr: func() *Expr {
-				return &Expr{
-					Op: "tile_rmsnorm_qkv_split",
-					Children: []*Expr{
-						{Op: "x"},
-						{Op: "w"},
-						{Op: "eps"},
-						{Op: "wq"},
-						{Op: "wk"},
-						{Op: "wv"},
-					},
-				}
-			},
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			x := make([]float32, tc.m*tc.k)
-			for i := range x {
-				x[i] = float32(((i*5)%17)-8) * 0.07
-			}
-			wNorm := make([]float32, tc.k)
-			for i := range wNorm {
-				wNorm[i] = 0.5 + 0.15*float32((i*7)%9)
-			}
-			wq := make([]float32, tc.k*tc.n)
-			wk := make([]float32, tc.k*tc.n)
-			wv := make([]float32, tc.k*tc.n)
-			for i := range wq {
-				wq[i] = float32(((i*3)%13)-6) * 0.05
-				wk[i] = float32(((i*7+2)%15)-7) * 0.06
-				wv[i] = float32(((i*11+5)%19)-9) * 0.04
-			}
-
-			expr := tc.buildExpr()
-			declSrc, err := GenerateDeclarativeTile(expr, CodegenOptions{KernelName: "qkv_split_kernel"})
-			if err != nil {
-				t.Fatalf("GenerateDeclarativeTile: %v", err)
-			}
-			if strings.Contains(declSrc, "sum_q + sum_k + sum_v") {
-				t.Fatalf("GenerateDeclarativeTile still contains buggy sum_q + sum_k + sum_v store")
-			}
-			for _, want := range []string{"out_q.store(sum_q, m, n)", "out_k.store(sum_k, m, n)", "out_v.store(sum_v, m, n)"} {
-				if !strings.Contains(declSrc, want) {
-					t.Errorf("GenerateDeclarativeTile missing %q", want)
-				}
-			}
-
-			mainBody := fmt.Sprintf(`
-%s
-%s
-%s
-%s
-%s
-alignas(16) float Out[%d] = {0};
-qkv_split_kernel(X, W_norm, W_q, W_k, W_v, Out, %d, %d, %d, %.8ff);
-for (int i = 0; i < %d; ++i) {
-    std::printf("%%.8f ", Out[i]);
-}
-`,
-				formatCPPFloatArray("X", x),
-				formatCPPFloatArray("W_norm", wNorm),
-				formatCPPFloatArray("W_q", wq),
-				formatCPPFloatArray("W_k", wk),
-				formatCPPFloatArray("W_v", wv),
-				3*tc.m*tc.n,
-				tc.m, tc.n, tc.k, tc.eps,
-				3*tc.m*tc.n,
-			)
-			rawOut := runDeclarativeKernelHost(t, declSrc, mainBody)
-			gotAll := parseFloatsOutput(t, rawOut)
-			partLen := tc.m * tc.n
-			if len(gotAll) != 3*partLen {
-				t.Fatalf("expected %d output elements, got %d", 3*partLen, len(gotAll))
-			}
-			gotQ := gotAll[:partLen]
-			gotK := gotAll[partLen : 2*partLen]
-			gotV := gotAll[2*partLen : 3*partLen]
-
-			normX := referenceRMSNormRows(x, wNorm, tc.m, tc.k, tc.eps)
-			wantQ := referenceMatMul(normX, wq, tc.m, tc.k, tc.n)
-			wantK := referenceMatMul(normX, wk, tc.m, tc.k, tc.n)
-			wantV := referenceMatMul(normX, wv, tc.m, tc.k, tc.n)
-
-			if diff := maxAbsSliceDiff(gotQ, wantQ); diff > 1e-4 {
-				t.Errorf("Q partition mismatch vs reference: maxDiff=%g", diff)
-			}
-			if diff := maxAbsSliceDiff(gotK, wantK); diff > 1e-4 {
-				t.Errorf("K partition mismatch vs reference: maxDiff=%g", diff)
-			}
-			if diff := maxAbsSliceDiff(gotV, wantV); diff > 1e-4 {
-				t.Errorf("V partition mismatch vs reference: maxDiff=%g", diff)
-			}
-
-			// Verify Q, K, and V are genuinely distinct.
-			if maxAbsSliceDiff(gotQ, gotK) < 1e-2 || maxAbsSliceDiff(gotK, gotV) < 1e-2 || maxAbsSliceDiff(gotQ, gotV) < 1e-2 {
-				t.Errorf("expected distinct Q, K, V outputs")
-			}
-
-			// Negative control: the old buggy Q + K + V sum must not match Q, K, or V.
-			buggySum := make([]float32, partLen)
-			for i := range buggySum {
-				buggySum[i] = wantQ[i] + wantK[i] + wantV[i]
-			}
-			if maxAbsSliceDiff(gotQ, buggySum) < 1e-2 {
-				t.Errorf("negative control failed: Q partition matches buggy Q+K+V sum")
-			}
-
-			// Verify ReferenceGraph parity across all shapes.
-			src, err := EmitCUDA(expr, EmitOptions{
-				Parameters: []Parameter{
-					{Name: "x", Shape: []int{tc.k}},
-					{Name: "w", Shape: []int{tc.k}},
-					{Name: "eps", Shape: []int{1}},
-					{Name: "wq", Shape: []int{tc.n, tc.k}},
-					{Name: "wk", Shape: []int{tc.n, tc.k}},
-					{Name: "wv", Shape: []int{tc.n, tc.k}},
-				},
-			})
-			if err != nil {
-				t.Fatalf("EmitCUDA: %v", err)
-			}
-			refGraph, err := src.ReferenceGraph()
-			if err != nil {
-				t.Fatalf("ReferenceGraph: %v", err)
-			}
-			transpose := func(mat []float32, rows, cols int) []float32 {
-				out := make([]float32, rows*cols)
-				for r := 0; r < rows; r++ {
-					for c := 0; c < cols; c++ {
-						out[c*rows+r] = mat[r*cols+c]
-					}
-				}
-				return out
-			}
-			refMap, err := cudaref.Evaluate(refGraph, map[string][]float32{
-				"x":   x[:tc.k],
-				"w":   wNorm,
-				"eps": {tc.eps},
-				"wq":  transpose(wq, tc.k, tc.n),
-				"wk":  transpose(wk, tc.k, tc.n),
-				"wv":  transpose(wv, tc.k, tc.n),
-			})
-			if err != nil {
-				t.Fatalf("cudaref.Evaluate: %v", err)
-			}
-			refOut := refMap["result"]
-			if len(refOut) != 3*tc.n {
-				t.Fatalf("expected ReferenceGraph output len %d, got %d", 3*tc.n, len(refOut))
-			}
-			if diff := maxAbsSliceDiff(refOut[:tc.n], gotQ[:tc.n]); diff > 1e-4 {
-				t.Errorf("ReferenceGraph Q mismatch vs declarative row 0: maxDiff=%g", diff)
-			}
-			if diff := maxAbsSliceDiff(refOut[tc.n:2*tc.n], gotK[:tc.n]); diff > 1e-4 {
-				t.Errorf("ReferenceGraph K mismatch vs declarative row 0: maxDiff=%g", diff)
-			}
-			if diff := maxAbsSliceDiff(refOut[2*tc.n:3*tc.n], gotV[:tc.n]); diff > 1e-4 {
-				t.Errorf("ReferenceGraph V mismatch vs declarative row 0: maxDiff=%g", diff)
-			}
-		})
-	}
-}
-
-// TestToTileIRNormalizationLowering verifies that ToTileIR on root and fused
-// normalization graphs emits mean division, epsilon addition before rsqrt,
+// TestToTileIRNormalizationLowering verifies that ToTileIR on root and tile
+// RMSNorm graphs emits mean division, epsilon addition before rsqrt,
 // weight multiplication when present, and final output store(s).
 func TestToTileIRNormalizationLowering(t *testing.T) {
 	cases := []struct {
@@ -847,7 +650,6 @@ func TestToTileIRNormalizationLowering(t *testing.T) {
 		expr           *Expr
 		wantWeightMult bool
 		wantStores     int
-		forbidQKVAdd   bool
 	}{
 		{
 			name: "root_rmsnorm_weighted",
@@ -875,75 +677,13 @@ func TestToTileIRNormalizationLowering(t *testing.T) {
 			wantStores:     1,
 		},
 		{
-			name: "tile_rmsnorm_proj_weighted",
+			name: "tile_rmsnorm_weighted",
 			expr: &Expr{
-				Op: "tile_rmsnorm_proj",
+				Op: "tile_rmsnorm",
 				Children: []*Expr{
 					{Op: "x"},
 					{Op: "w"},
 					{Op: "eps", Data: float32(1e-5)},
-					{Op: "w_proj"},
-				},
-			},
-			wantWeightMult: true,
-			wantStores:     1,
-		},
-		{
-			name: "tile_rmsnorm_proj_unweighted",
-			expr: &Expr{
-				Op: "tile_rmsnorm_proj",
-				Children: []*Expr{
-					{Op: "x"},
-					{Op: "eps", Data: float32(1e-5)},
-					{Op: "w_proj"},
-				},
-			},
-			wantWeightMult: false,
-			wantStores:     1,
-		},
-		{
-			name: "tile_rmsnorm_qkv_weighted",
-			expr: &Expr{
-				Op: "tile_rmsnorm_qkv",
-				Children: []*Expr{
-					{Op: "x"},
-					{Op: "w"},
-					{Op: "eps", Data: float32(1e-5)},
-					{Op: "w_qkv"},
-				},
-			},
-			wantWeightMult: true,
-			wantStores:     1,
-		},
-		{
-			name: "tile_rmsnorm_qkv_split_weighted",
-			expr: &Expr{
-				Op: "tile_rmsnorm_qkv_split",
-				Children: []*Expr{
-					{Op: "x"},
-					{Op: "w"},
-					{Op: "eps", Data: float32(1e-5)},
-					{Op: "wq"},
-					{Op: "wk"},
-					{Op: "wv"},
-				},
-			},
-			wantWeightMult: true,
-			wantStores:     3,
-			forbidQKVAdd:   true,
-		},
-		{
-			name: "tile_rmsnorm_gemv_swiglu_weighted",
-			expr: &Expr{
-				Op: "tile_rmsnorm_gemv_swiglu",
-				Children: []*Expr{
-					{Op: "x"},
-					{Op: "w"},
-					{Op: "eps", Data: float32(1e-5)},
-					{Op: "w_proj"},
-					{Op: "w_gate"},
-					{Op: "w_up"},
-					{Op: "w_down"},
 				},
 			},
 			wantWeightMult: true,
@@ -1033,13 +773,6 @@ func TestToTileIRNormalizationLowering(t *testing.T) {
 					storeCount++
 					if retIdx >= 0 && i > retIdx {
 						t.Errorf("store_view_tko at %d occurs after return at %d", i, retIdx)
-					}
-				}
-				if tc.forbidQKVAdd && op.OpCode == "cuda_tile.addf" {
-					for _, opnd := range op.Operands {
-						if opnd == "%q" || opnd == "%k" || opnd == "%v" || opnd == "%kv" {
-							t.Errorf("forbidden QKV sum operation in QKV split lowering: %v", op)
-						}
 					}
 				}
 			}

@@ -143,7 +143,7 @@ func twoDevices() ([]nvtelemetry.NVMLProcessDevice, *processQuery, *processQuery
 }
 
 // strictFS records every open and refuses any name not in allow, including
-// directories, environ, cmdline and the files of unrelated PIDs.
+// directories, cmdline and the files of unrelated PIDs.
 type strictFS struct {
 	recordingFS
 	allow map[string]bool
@@ -154,7 +154,7 @@ var errRefusedOpen = errors.New("strict fs: refused open")
 func newStrictFS(fsys fs.FS, pids ...uint32) *strictFS {
 	s := &strictFS{recordingFS: recordingFS{fsys: fsys}, allow: map[string]bool{"squeue.json": true, "mappings.json": true, "executions.json": true}}
 	for _, pid := range pids {
-		for _, name := range []string{"stat", "status", "cgroup"} {
+		for _, name := range []string{"stat", "status", "cgroup", "environ"} {
 			s.allow["proc/"+strconv.FormatUint(uint64(pid), 10)+"/"+name] = true
 		}
 	}
@@ -171,7 +171,7 @@ func (s *strictFS) Open(name string) (fs.File, error) {
 	return s.recordingFS.Open(name)
 }
 
-var procReads1234 = []string{"squeue.json", "mappings.json", "executions.json", "proc/1234/stat", "proc/1234/status", "proc/1234/cgroup"}
+var procReads1234 = []string{"squeue.json", "mappings.json", "executions.json", "proc/1234/stat", "proc/1234/status", "proc/1234/cgroup", "proc/1234/environ"}
 
 func TestQueryNVMLProcessesPreservesFacts(t *testing.T) {
 	devices, a, b := twoDevices()

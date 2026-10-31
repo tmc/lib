@@ -17,13 +17,29 @@ work from a metric's name.
 | --- | --- | --- | --- | --- |
 | Triton | `25.06` | `ReadServingExposition` | Requests, failed requests, uncached inference items, uncached batch executions, response-cache lookups, cumulative durations, pending requests, first-response histogram | Source-derived protocol controls pass; pinned server capture pending |
 | vLLM | `0.8.5` | `ReadServingExposition` | Legacy `engine/metrics.py` prefill/generation counters, finish-reason labels, scheduler gauges, KV-cache fractions and latency/token histograms | Source-derived protocol controls pass; pinned engine capture pending; V1-specific and later-version mappings pending |
-| Ray | `2.44.0` | `ReadServingExposition` | Logical resource assignment, tasks/actors by state and selected reporter node-GPU gauges | Source-derived protocol controls pass; pinned cluster capture pending |
+| Ray | `2.44.0` | `ReadServingExposition` | Logical resource assignment, tasks/actors by state and selected reporter node-GPU gauges; GPU memory in integer MiB | Source-derived protocol controls pass; pinned cluster capture pending |
 | SGLang | `0.5.21` | `ReadServingExposition` | Aggregate request/token counters, scheduler and KV-cache gauges, request/queue/token histograms, disaggregated queue and KV transfer, plus documented host-cache capacity/eviction families; source labels retained | Pinned source-derived constructed controls pass; authentic producer capture pending; no per-request identity or independent outcomes |
 | Dynamo | `1.5.1` | `ReadServingExposition` | Runtime worker and frontend request, cancellation/rejection, token, latency, routing/backpressure, KV-cache event, and per-worker aggregate families; runtime labels retained | Pinned source-derived constructed controls pass; authentic scrape and exact image/build identity pending; not an authenticated SGLang 0.5.21 image pairing |
 | MLflow | `2.22.0` | `ReadMLflowHistory` | Native metric-history response, user-defined scalar values, Unix milliseconds, explicit steps and pagination | Native offline file-store SDK/serializer capture and public reader-to-step-report replay pass; endpoint capture pending |
 | W&B | `0.19.11` | `ReadWandBHistory` | Native history JSONL numeric scalars, `_timestamp` seconds and `_step`; media/nested values remain raw | Source-derived protocol controls pass; pinned native history export pending |
 | ClearML | `1.18.0/api-2.9` | `ReadClearMLScalars` | `events.get_task_events` response data or successful HTTP envelope; `training_stats_scalar`, variant, iteration, task, Unix milliseconds and scroll token | Source-derived protocol controls pass; pinned task export pending; scalar-histogram endpoint intentionally unsupported because its schema is opaque |
-| PyTorch | `2.7.0` | `ReadPyTorchAnnotations` | Native Chrome-trace complete CPU `user_annotation` intervals; exact names, PID/TID and args retained | Source-derived protocol controls pass; pinned profiler export pending; a bounded profile is not a continuous metric stream |
+| PyTorch | `2.7.0` | `ReadPyTorchAnnotations` | Chrome-trace complete CPU `user_annotation` intervals; exact names, PID/TID and args retained | Historical source-derived protocol controls; authentic 2.7 profiler export pending |
+| PyTorch | `2.10.0`, selected CPU subset | `ReadPyTorchAnnotations` | Complete CPU annotations from the selected eager and Inductor exports; repeated names, raw numeric spelling, PID/TID and args retained | Actual local CPU exports replay through the reader and imported CPU summary; native IDs, compiler membership, training and HTTP qualification remain open |
+
+The 2.10.0 profile requires `schemaVersion: 1`, a present empty
+`deviceProperties` array, and only `user_annotation`, `cpu_op`, `Trace` or
+uncategorized events. This checks a caller-selected version contract; it does
+not authenticate the producer or prove a complete population with no native work.
+The historical 2.7.0 schema, device and raw GPU/flow behavior is unchanged.
+The selected 2.10.0 profile is offline only; `FetchWorkload` still admits only
+2.7.0 PyTorch downloads. A bounded annotation profile is not a continuous stream.
+
+Both profiles retain timestamp and duration spelling and convert event
+microseconds exactly to integer nanoseconds. Chrome display formatting and the
+raw base-time header do not establish an absolute clock mapping. The genuine
+2.10.0 fixtures are siblings of `testdata/workload`, not replacements for its
+constructed 2.7.0 fixture; their provenance and remaining limits are recorded in
+`testdata/workload/PROVENANCE.md`.
 
 Unknown provider/version combinations are errors. Unmapped Prometheus metric
 names are reported in `UnmappedNames` and preserved in `Raw`. Summaries,
@@ -61,6 +77,19 @@ cache hits, successful requests, uncached inference items and uncached batch
 executions remain separate denominators. KV-cache fractions are not total device
 memory. Ray logical GPU assignment is not GPU activity. No goodput or
 tokens-per-joule policy is inferred by these readers.
+
+Ray 2.44.0 `ray_node_gram_used` and `ray_node_gram_available` have unit `MiB`.
+The pinned `reporter_agent.py` floors NVML byte counts to integer MiB
+(`int(bytes) // MB` with `MB = 1024 * 1024`) and records the used value and the
+difference of floored total and used unchanged. Its `Gauge` declarations say
+`bytes`, and the exported HELP text ("Total GPU RAM usage on a ray node") names
+no unit; the emitted values govern. Earlier readers labelled these same values
+`bytes`; that label was wrong. Values are not multiplied back into bytes: used
+memory was floored, and available memory, a difference of two floored values,
+can exceed the floored free memory by 1 MiB. Raw bytes, hashes, numeric
+spelling and the retained fixtures are unchanged, and a result typed by an
+earlier reader is corrected by rereading its `Raw`. This is a source-conformance
+correction; no Ray process was run and authentic capture remains pending.
 
 SGLang `num_requests_total` counts requests processed; it is not a successful
 request count. Its abort, retraction, retry, transfer-failure, queue, cache and

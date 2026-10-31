@@ -2,9 +2,14 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"math"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tmc/lib/nvidia/x/nsightcompute"
 )
 
 func TestImportNCURaw(t *testing.T) {
@@ -52,6 +57,8 @@ func TestImportNCURawFlags(t *testing.T) {
 		{"-raw", "-capture", "c.pprof", "x.csv"},
 		{"-ceiling", "100", "x.json"},
 		{"-raw", "-ceiling", "-1", "x.csv"},
+		{"-raw", "-ceiling", "+Inf", "../../nsightcompute/testdata/h200-raw.csv"},
+		{"-raw", "-ceiling", "NaN", "../../nsightcompute/testdata/h200-raw.csv"},
 		{"-raw", "-ceiling", "100", "-device", "auto", "x.csv"},
 		{"-device", "auto", "x.json"},
 	} {
@@ -103,5 +110,75 @@ func TestImportNCURawDevice(t *testing.T) {
 	err = runImportNCURaw([]byte(csv), 1<<20, 0, "auto", false, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "names 0 devices") {
 		t.Errorf("auto without display name: %v", err)
+	}
+}
+
+func TestNCURawDerivedValues(t *testing.T) {
+	tests := []struct {
+		name                                             string
+		duration, durationUnit, read, write, warps, ctas string
+		ceiling                                          float64
+		want                                             map[string]float64
+	}{
+		{"valid", "2", "us", "1000", "1000", "50", "4", 2, map[string]float64{"duration_ns": 2000, "dram_bytes": 2000, "dram_gbps": 1, "ceiling_fraction": 0.5, "warps_active_pct": 50, "ctas_launched": 4}},
+		{"zero counts", "1", "ns", "0", "0", "0", "0", 2, map[string]float64{"duration_ns": 1, "dram_bytes": 0, "dram_gbps": 0, "ceiling_fraction": 0, "warps_active_pct": 0, "ctas_launched": 0}},
+		{"negative read", "1", "ns", "-1", "2", "n/a", "n/a", 0, map[string]float64{"duration_ns": 1}},
+		{"negative write", "1", "ns", "2", "-1", "n/a", "n/a", 0, map[string]float64{"duration_ns": 1}},
+		{"negative duration", "-1", "ns", "1", "1", "n/a", "n/a", 0, map[string]float64{"dram_bytes": 2}},
+		{"zero duration", "0", "ns", "1", "1", "n/a", "n/a", 0, map[string]float64{"dram_bytes": 2}},
+		{"missing duration", "n/a", "ns", "1", "1", "n/a", "n/a", 0, map[string]float64{"dram_bytes": 2}},
+		{"missing duration unit", "1", "", "1", "1", "n/a", "n/a", 0, map[string]float64{"dram_bytes": 2}},
+		{"conversion overflow", "1e308", "s", "1", "1", "n/a", "n/a", 0, map[string]float64{"dram_bytes": 2}},
+		{"sum overflow", "1", "ns", "1e308", "1e308", "n/a", "n/a", 0, map[string]float64{"duration_ns": 1}},
+		{"rate overflow", "1e-308", "ns", "1e308", "0", "n/a", "n/a", 0, map[string]float64{"duration_ns": 1e-308, "dram_bytes": 1e308}},
+		{"fraction overflow", "1", "ns", "1e308", "0", "n/a", "n/a", 1e-308, map[string]float64{"duration_ns": 1, "dram_bytes": 1e308, "dram_gbps": 1e308}},
+		{"negative occupancy and CTAs", "1", "ns", "n/a", "n/a", "-1", "-1", 0, map[string]float64{"duration_ns": 1}},
+		{"occupancy above 100", "1", "ns", "n/a", "n/a", "101", "2", 0, map[string]float64{"duration_ns": 1, "ctas_launched": 2}},
+		{"occupancy upper bound", "1", "ns", "n/a", "n/a", "100", "2", 0, map[string]float64{"duration_ns": 1, "warps_active_pct": 100, "ctas_launched": 2}},
+		{"infinite input", "1e309", "ns", "1e309", "1", "1e309", "1e309", 0, map[string]float64{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			table := &nsightcompute.RawTable{
+				Metrics:  []string{"gpu__time_duration.sum", "dram__bytes_read.sum", "dram__bytes_write.sum", "sm__warps_active.avg.pct_of_peak_sustained_active", "sm__ctas_launched.sum"},
+				Units:    []string{tt.durationUnit, "byte", "byte", "%", "cta"},
+				Launches: []nsightcompute.RawLaunch{{ID: "0", Kernel: "k", Raw: []string{tt.duration, tt.read, tt.write, tt.warps, tt.ctas}}},
+			}
+			got := ncuRawLaunches(table, tt.ceiling)[0]
+			fields := map[string]*float64{"duration_ns": got.DurationNS, "dram_bytes": got.DRAMBytes, "dram_gbps": got.DRAMGBps, "ceiling_fraction": got.CeilingFrac, "warps_active_pct": got.WarpsActive, "ctas_launched": got.CTAsLaunched}
+			for name, p := range fields {
+				want, ok := tt.want[name]
+				if !ok {
+					if p != nil {
+						t.Errorf("%s = %g, want absent", name, *p)
+					}
+					continue
+				}
+				if p == nil || *p != want {
+					t.Errorf("%s = %v, want %g", name, p, want)
+				}
+			}
+			if _, err := json.Marshal(got); err != nil {
+				t.Errorf("derived launch cannot be encoded: %v", err)
+			}
+			csv := fmt.Sprintf("\"ID\",\"Kernel Name\",\"gpu__time_duration.sum\",\"dram__bytes_read.sum\",\"dram__bytes_write.sum\",\"sm__warps_active.avg.pct_of_peak_sustained_active\",\"sm__ctas_launched.sum\"\n\"\",\"\",%q,\"byte\",\"byte\",\"%%\",\"cta\"\n\"0\",\"k\",%q,%q,%q,%q,%q\n", tt.durationUnit, tt.duration, tt.read, tt.write, tt.warps, tt.ctas)
+			for _, isJSON := range []bool{false, true} {
+				var out bytes.Buffer
+				if err := runImportNCURaw([]byte(csv), 1<<20, tt.ceiling, "", isJSON, &out); err != nil {
+					t.Fatal(err)
+				}
+				if strings.Contains(out.String(), "Inf") || strings.Contains(out.String(), "NaN") {
+					t.Errorf("nonfinite output: %s", out.String())
+				}
+			}
+		})
+	}
+}
+
+func TestNCURawInvalidCeiling(t *testing.T) {
+	for _, v := range []float64{-1, math.Inf(1), math.Inf(-1), math.NaN()} {
+		if _, err := resolveNCUCeiling(&nsightcompute.RawTable{}, v, ""); err == nil {
+			t.Errorf("ceiling %g accepted", v)
+		}
 	}
 }

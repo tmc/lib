@@ -125,6 +125,22 @@ int main(int argc, char **argv) {
     struct cudaintercept_replay_v1 e = entry(), call = e;
     launch_params = opaque_params;
     check(cudaintercept_decisions_enable_v1(1) == 0);
+    if (!strcmp(mode, "owned_absent")) {
+        check(cudaintercept_replay_register_v1(&e) == 0);
+        check(cudaintercept_replay_enable_v1(1) == 0);
+        struct cudaintercept_owned_capsule_v2 declared = {.operation=e};
+        struct cudaintercept_owned_frame_v2 frame = {.owner=&declared, .params=opaque_params};
+        check(cudaintercept_owned_arm_v2(&frame));
+        check(launch() == wanted_result);
+        struct cudaintercept_owned_decision_v2 record;
+        uint64_t dropped = 99;
+        check(cudaintercept_owned_drain_v2(&record, 1, &dropped) == 1);
+        check(record.reason == CUDAINTERCEPT_ADAPTER_UNQUALIFIED);
+        check(record.requested_function == record.dispatched_function && dropped == 0);
+        check(atomic_load(&calls) == 1);
+        printf("mode=%s bad=%d calls=%u\n", mode, atomic_load(&bad), atomic_load(&calls));
+        return atomic_load(&bad) ? 1 : 0;
+    }
     if (!strcmp(mode, "concurrent")) {
         check(cudaintercept_replay_enable_v1(1) == 0);
         pthread_t threads[16];

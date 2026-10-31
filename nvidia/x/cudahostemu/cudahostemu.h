@@ -62,6 +62,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <math.h>
 #include <memory>
@@ -228,6 +229,7 @@ struct eg_emu_mbar {
     int64_t tx = 0;
     int64_t phase = 0;
     std::vector<std::pair<unsigned char*, uint64_t>> copies;  // undelivered bulk copies: dst, seq
+    std::vector<std::pair<int64_t, std::function<void()>>> effects;  // undelivered arrival effects: phase, effect
     std::vector<eg_emu_mbar_waiter*> waiters;
 };
 
@@ -816,6 +818,15 @@ inline void eg_emu_mbar_deliver(eg_emu_block* b, eg_emu_mbar& m, int64_t c) {
         b->bulk.erase(it);
     }
     m.copies.swap(rest);
+    std::vector<std::pair<int64_t, std::function<void()>>> later;
+    for (auto& [phase, effect] : m.effects) {
+        if (phase > c) {
+            later.push_back({phase, std::move(effect)});
+            continue;
+        }
+        effect();
+    }
+    m.effects.swap(later);
 }
 
 // eg_emu_mbar_init is mbarrier.init: count arrivals complete each phase.
@@ -865,6 +876,30 @@ inline void eg_emu_mbar_arrive_tx(uint64_t* bar, uint32_t tx, const char* op) {
 
 // eg_emu_mbar_arrive is mbarrier.arrive.
 inline void eg_emu_mbar_arrive(uint64_t* bar) { eg_emu_mbar_arrive_tx(bar, 0, "eg_emu_mbar_arrive"); }
+
+// eg_emu_mbar_arrive_effect is an arrival on bar by an asynchronous
+// operation, such as tcgen05.commit, whose result effect makes visible. Like
+// a bulk copy's data, the effect takes place only when a thread's wait
+// observes the completion of the phase the arrival belongs to, or a later
+// one; with EG_EMU_SYNC_MBAR defined it takes place at once. effect runs
+// with the block's barrier mutex held.
+inline void eg_emu_mbar_arrive_effect(uint64_t* bar, std::function<void()> effect) {
+    eg_emu_block* b = eg_emu_cur_block;
+#if defined(EG_EMU_SYNC_MBAR)
+    {
+        std::lock_guard<std::mutex> lock(b->bar_mu);
+        effect();
+    }
+    eg_emu_mbar_arrive_tx(bar, 0, "eg_emu_mbar_arrive_effect");
+#else
+    {
+        std::lock_guard<std::mutex> lock(b->bar_mu);
+        eg_emu_mbar& m = eg_emu_mbar_get(b, bar, "eg_emu_mbar_arrive_effect");
+        m.effects.push_back({m.phase, std::move(effect)});
+    }
+    eg_emu_mbar_arrive_tx(bar, 0, "eg_emu_mbar_arrive_effect");
+#endif
+}
 
 // eg_emu_mbar_arrive_expect_tx is mbarrier.arrive.expect_tx: the phase
 // also waits for tx more bytes of copies.

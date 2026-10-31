@@ -523,6 +523,9 @@ func evalModel(e *egraph.Expr, env map[string]Value, memo map[*egraph.Expr]Value
 		}
 		return eval(e.Children[i], env, memo)
 	}
+	if isSSMOp(e.Op) {
+		return evalSSM(e, env, memo)
+	}
 	switch e.Op {
 	case OpPagedAttn, OpPagedAttnGated:
 		cfg, ok := e.Children[0].Data.(PagedAttention)
@@ -1302,13 +1305,33 @@ func (c *compiler) rmsNormGate(e *egraph.Expr, out Tensor) error {
 	return c.rows(gated, out)
 }
 
+// swiGLU lowers e to a row kernel over its gemm's output or, when only e
+// reads a plain skinny gemm, to that gemm with a paired SwiGLU epilogue.
 func (c *compiler) swiGLU(e *egraph.Expr, out Tensor) error {
 	x := e.Children[0]
+	if g := plainGEMM(x); g != nil && c.uses[x.Class] <= 1 {
+		if xs, err := shapeOf(g.Children[1]); err == nil && c.skinny(xs) {
+			glu := &egraph.Expr{Op: OpGEMM, Class: x.Class, Children: []*egraph.Expr{{Op: "fn:(mul (silu $0) $1)"}, g.Children[1], g.Children[2]}}
+			return c.gemm(glu, out, true)
+		}
+	}
 	d := out.Shape[len(out.Shape)-1]
 	s0 := &egraph.Expr{Op: OpSlice, Children: []*egraph.Expr{x, {Data: 0}, {Data: d}}}
 	s1 := &egraph.Expr{Op: OpSlice, Children: []*egraph.Expr{x, {Data: d}, {Data: d}}}
 	mapped := &egraph.Expr{Op: OpMap, Children: []*egraph.Expr{{Op: "fn:(mul (silu $0) $1)"}, s0, s1}}
 	return c.rows(mapped, out)
+}
+
+// plainGEMM returns e as a gemm term with the identity epilogue and no
+// epilogue operands, or nil.
+func plainGEMM(e *egraph.Expr) *egraph.Expr {
+	switch {
+	case e.Op == OpMatMul && len(e.Children) == 2:
+		return &egraph.Expr{Op: OpGEMM, Class: e.Class, Children: []*egraph.Expr{{Op: "fn:$0"}, e.Children[0], e.Children[1]}}
+	case e.Op == OpGEMM && len(e.Children) == 3 && e.Children[0].Op == "fn:$0":
+		return e
+	}
+	return nil
 }
 
 func (c *compiler) postExpertNorm(e *egraph.Expr, out Tensor) error {

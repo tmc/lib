@@ -134,6 +134,9 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	images, unread := kernelImages(cap)
 	disasm, modules := adviseDisassembly(cap, images)
 	resources := kernelResources(images)
+	if len(resources) == 0 {
+		resources = ptxasResources(capturePTXASReport(cap), parseArchFromCapture(cap))
+	}
 
 	ptxData, ptxFile, _ := capturefiles.PTX(cap)
 	var ptxMod *cudaptx.Module
@@ -150,12 +153,13 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 		frames[k.Name] = max(frames[k.Name], k.FrameSizeBytes)
 	}
 	auditPreciseFloatMath(cap, report, mathKernels, math, frames)
+	auditElectedBulkCopies(report, disasm, modules)
 
 	if disasm != nil {
+		// No default: an occupancy figure computed for an architecture the
+		// capture does not name is another device's figure. The cliff
+		// findings below then state the register count without one.
 		arch := parseArchFromCapture(cap)
-		if arch == "" {
-			arch = "sm_121a"
-		}
 		for _, fn := range disasm.Functions {
 			var peakGPR, peakUGPR int
 			var peakGPRAddr, peakUGPRAddr uint64
@@ -180,7 +184,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 					spills = append(spills, inst)
 				}
 
-				// Check SASS for IMAD.WIDE scalar fallback
+				// Wide address arithmetic can occur in scalar, vector, and TMA paths.
 				if strings.HasPrefix(inst.Opcode, "IMAD.WIDE") || inst.Opcode == "IMAD.WIDE" {
 					imadWides = append(imadWides, inst)
 				}
@@ -190,17 +194,12 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 			// a finding per instruction charged the kernel's time to each.
 			if len(imadWides) > 0 {
 				first := imadWides[0]
-				severity := SeverityCost
-				recommendation := "If address patterns are regular and aligned, use vectorized 128-bit memory addressing or hardware TMA descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications."
-				if isStreamingKernelName(fn.Name) {
-					severity = SeverityContext
-					recommendation = "This kernel name suggests a streaming copy or elementwise workload. Scalar address arithmetic is a low-priority static-code observation here; check global-memory throughput and transaction efficiency before changing address calculations."
-				}
 				report.Items = append(report.Items, Item{
-					rule:          "imad-wide",
-					Severity:      severity,
-					Category:      CategoryArchitecture,
-					EvidenceLevel: EvidenceSuspected,
+					rule:                 "imad-wide",
+					Severity:             SeverityContext,
+					NoRuntimeAttribution: true,
+					Category:             CategoryArchitecture,
+					EvidenceLevel:        EvidenceSuspected,
 					Location: Location{
 						Kernel: fn.Name,
 						Module: modules[fn],
@@ -208,9 +207,9 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 						File:   first.SourceFile,
 						Line:   first.SourceLine,
 					},
-					Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) in kernel %q: %d instructions, at %s", first.Opcode, fn.Name, len(imadWides), formatPCs(imadWides)),
-					ActionableRecommendation: recommendation,
-					NextMeasurement:          "A/B wall-clock timing or profiling with hardware instruction counters",
+					Finding:                  fmt.Sprintf("Wide address arithmetic (%s) in kernel %q: %d instructions, at %s", first.Opcode, fn.Name, len(imadWides), formatPCs(imadWides)),
+					ActionableRecommendation: "Wide address arithmetic is normal in many memory paths, including vectorized and TMA kernels. Inspect actual memory widths, strides, alignment and layout before considering a vector or TMA alternative; instruction presence alone establishes neither compiler fallback nor inefficiency.",
+					NextMeasurement:          "Inspect source-to-SASS memory operations and layout, then compare exact-case timings and instruction/issue counters before attributing cost.",
 				})
 			}
 
@@ -319,6 +318,8 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 		}
 	}
 
+	auditTensorPath(parseArchFromCapture(cap), disasm, modules, report)
+
 	// 3. PTX Architecture Audits (via x/cudaptx)
 	if mod := ptxMod; mod != nil {
 		target := mod.Target
@@ -412,7 +413,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 					})
 				}
 
-				// Report scalar address arithmetic
+				// PTX wide arithmetic is a static occurrence, not a cost estimate.
 				for i, mad := range madWides {
 					if i >= 2 {
 						break
@@ -428,13 +429,14 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 					}
 					report.Items = append(report.Items, Item{
 						rule:                     "ptx-mad-wide",
-						Severity:                 SeverityCost,
+						Severity:                 SeverityContext,
+						NoRuntimeAttribution:     true,
 						Category:                 CategoryArchitecture,
 						EvidenceLevel:            EvidenceSuspected,
 						Location:                 loc,
-						Finding:                  fmt.Sprintf("Scalar address arithmetic fallback (%s) detected in kernel %q on target %s", mad.Opcode, k.Name, target),
-						ActionableRecommendation: "If indexing into contiguous arrays or structured tensors, use vectorized pointer indexing or TMA multidimensional tensor descriptors on sm_90+ to eliminate scalar 64-bit integer address multiplications.",
-						NextMeasurement:          "A/B wall-clock timing",
+						Finding:                  fmt.Sprintf("Wide address arithmetic (%s) detected in kernel %q on target %s", mad.Opcode, k.Name, target),
+						ActionableRecommendation: "Wide address arithmetic can remain in vectorized and TMA paths. Inspect actual memory widths, strides, alignment and layout before considering an alternative; PTX presence alone establishes neither compiler fallback nor inefficiency.",
+						NextMeasurement:          "Inspect final SASS memory operations and layout, then compare exact-case timings and instruction/issue counters before attributing cost.",
 					})
 				}
 			}
@@ -445,7 +447,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	auditCaptureStatus(cap, report)
 
 	// 3. CUBIN ELF Resource & Microarchitecture Occupancy Audit (via x/cudaoccupancy)
-	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math)
+	auditCUBINResourceOccupancy(cap, report, resources, launchesByKernel, math, ptxTensorMemory(ptxMod))
 
 	// 4. Launch Geometry Audits (Underpopulated Thread Block & SM Grid Starvation)
 	auditLaunchGeometry(cap, report)
@@ -464,6 +466,7 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	// 7a. Whole-capture duty cycle. This runs before the dominance audit so
 	// that an idle-dominated capture says so above every kernel-time finding.
 	auditDeviceDutyCycle(cap, report)
+	auditCommunication(cap, report)
 
 	// 8. Kernel Family Dominance Audit (Macro Architectural Bottlenecks)
 	kernelTimes, totalTime := computeProfileTimes(cap)
@@ -475,7 +478,9 @@ func analyze(cap *cudacapture.Capture, source *cudaevidence.Source) (*Report, er
 	markUnreadSources(report, unread)
 
 	// Finalize device times and rank findings by device time
-	report.SampleOnly = !hasTiming
+	report.CompileOnly = cap.Profile == nil || len(cap.Profile.Sample) == 0
+	report.NoProfileSamples = report.CompileOnly
+	report.SampleOnly = !hasTiming && !report.CompileOnly
 	finalizeAndRankFindingsWithTiming(report, kernelTimes, totalTime, hasTiming)
 	classifyProfileShares(cap, report, source)
 	for _, item := range report.Items {

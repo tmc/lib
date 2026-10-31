@@ -527,6 +527,9 @@ func generateRMSQuantQ81Kernel(opts CodegenOptions) string {
             float v = x[i] * weight[i] * norm;
             out[block].qs[i - begin] = d == 0.0f ? 0 : (int8_t)roundf(v / d);
         }
+        for (int i = end - begin; i < 32; i++) {
+            out[block].qs[i] = 0;
+        }
     }
 }`, "KERNEL_NAME", opts.KernelName)
 }
@@ -976,7 +979,8 @@ func IsLowerableCUDAOp(op string) bool {
 // and symbolic operands; a matching name alone does not validate a workload.
 func IsLowerableTileIROp(op string) bool {
 	switch op {
-	case "tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
+	case "tile_rmsnorm", "fused_rmsnorm",
+		"tile_rmsnorm_qkv_split", "fused_rmsnorm_qkv_split",
 		"tile_rmsnorm_qkv", "fused_rmsnorm_qkv",
 		"tile_rmsnorm_proj", "fused_rmsnorm_proj",
 		"tile_swiglu", "fused_swiglu",

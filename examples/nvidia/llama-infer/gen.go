@@ -43,6 +43,9 @@ var source string
 //go:embed forward_bf16.cu
 var bf16Source string
 
+//go:embed fused_decode.cu
+var fusedDecodeSource string
+
 func main() {
 	log.SetFlags(0)
 	log.SetPrefix("gen: ")
@@ -56,7 +59,7 @@ func main() {
 }
 
 func run(ctx context.Context, arch, out string) error {
-	mod, err := nvrtcx.Compile(source+"\n"+bf16Source,
+	mod, err := nvrtcx.Compile(source+"\n"+bf16Source+"\n"+fusedDecodeSource,
 		nvrtcx.WithName("llama_forward.cu"),
 		nvrtcx.WithPhysicalArchTarget(arch),
 	)

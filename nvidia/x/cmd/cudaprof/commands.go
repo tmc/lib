@@ -54,6 +54,9 @@ To view automated kernel optimization advice:
   cudaprof advise [-e] [-limit N] capture.pprof
   cudaprof inspect --advise capture.pprof
 
+To analyze source-bound counter actions without a profile or CUDA:
+  cudaprof advise-counters [-json] [-max-bytes N] actions.json|-
+
 To analyze GPU idle gaps and duty cycle from the capture journal:
   cudaprof gaps [--warmup-ms=N] [--json] capture.pprof
 
@@ -199,6 +202,7 @@ func commands() []command {
 		{name: "bbcfg", usage: bbcfgUsage, run: runCFGCommand},
 		{name: "view", aliases: []string{"web"}, run: runViewCommand},
 		{name: "advise", usage: adviseUsage, run: func(args []string) error { return runAdviseCommand(args[1:]) }},
+		{name: "advise-counters", usage: adviseCountersUsage, run: func(args []string) error { return runAdviseCountersCommand(args[1:], os.Stdin, os.Stdout) }},
 		{name: "gaps", run: func(args []string) error { return runGapsCommand(args[1:]) }},
 		{name: "gemms", usage: gemmsUsage, run: runGEMMsCommand},
 		{name: "shape-compare", run: func(args []string) error { return runShapeCompareCommand(args[1:]) }},

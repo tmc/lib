@@ -16,8 +16,11 @@ import (
 type TimingKind string
 
 const (
-	TimingUnspecified  TimingKind = ""
-	TimingWallElapsed  TimingKind = "wall_elapsed"
+	TimingUnspecified TimingKind = ""
+	TimingWallElapsed TimingKind = "wall_elapsed"
+	// TimingCUDAEvent measures elapsed time between CUDA events, in nanoseconds.
+	// It is not a sum of kernel durations or a device busy interval.
+	TimingCUDAEvent    TimingKind = "cuda_event_elapsed"
 	TimingSummedKernel TimingKind = "summed_kernel"
 	TimingGPUBusy      TimingKind = "gpu_busy"
 	TimingAPICall      TimingKind = "api_call"
@@ -514,6 +517,8 @@ func FormatSummary(receipts []Receipt) string {
 			switch r.TimingKind {
 			case TimingGPUBusy, TimingSummedKernel:
 				clocks["dev"] = true
+			case TimingCUDAEvent:
+				clocks["event"] = true
 			case TimingAPICall:
 				clocks["api"] = true
 			case TimingWallElapsed:

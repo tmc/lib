@@ -83,6 +83,7 @@ func gapSection(item Item) int {
 // the items by section, and within a section by bound. Read first stays
 // first: it says how to read the rest, whatever its bound.
 func (r *Report) RankAgainst(base Baseline) {
+	clearNoRuntimeAttribution(r.Items, nil)
 	r.Base = base
 	for i := range r.Items {
 		r.Items[i].Gap = gapBound(r.Items[i], base)
@@ -99,6 +100,9 @@ func (r *Report) RankAgainst(base Baseline) {
 // gapBound returns what item could explain of base's gap, or nil when it
 // moves no term.
 func gapBound(item Item, base Baseline) *GapBound {
+	if item.NoRuntimeAttribution {
+		return nil
+	}
 	var names []string
 	var delta int64
 	switch {

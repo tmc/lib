@@ -206,6 +206,8 @@ func (p *Plan) EmitPDL(name string) (*PDLPlanSource, error) {
 		switch {
 		case pk.Attention != nil:
 			return nil, fmt.Errorf("pdl %s: stage %d: paged attention stage not supported", name, i)
+		case pk.MMA != nil:
+			return nil, fmt.Errorf("pdl %s: stage %d: skinny mma stage not supported", name, i)
 
 		case pk.GEMM != nil:
 			g := *pk.GEMM

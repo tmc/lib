@@ -18,7 +18,7 @@
 // Execution proceeds through interleaved ABBA rounds via package
 // [github.com/tmc/lib/nvidia/x/cudatrial] with baseline-versus-baseline null controls
 // to establish empirical noise floors. Latency is decomposed into non-additive
-// channels ([cudatrial.TimingWallElapsed], [cudatrial.TimingSummedKernel],
+// channels ([cudatrial.TimingWallElapsed], [cudatrial.TimingCUDAEvent], [cudatrial.TimingSummedKernel],
 // [cudatrial.TimingGPUBusy], and [cudatrial.TimingAPICall]), preserving missing
 // architectural families versus measured zero durations, and hardware/resource
 // changes versus performance changes.

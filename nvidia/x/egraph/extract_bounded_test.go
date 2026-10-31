@@ -99,3 +99,52 @@ func ExampleExtractBoundedWithStats() {
 	fmt.Println(expr, usage.Work, usage.Nodes, err)
 	// Output: leaf 3 1 <nil>
 }
+
+func TestExtractDAGSharesClasses(t *testing.T) {
+	tests := []struct {
+		name      string
+		levels    int
+		wantNodes int
+	}{
+		{"leaf", 0, 1},
+		{"one pair", 1, 2},
+		{"twenty pairs", 20, 21},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := New()
+			root := g.Add(ENode{Op: "leaf"})
+			for range tt.levels {
+				root = g.Add(ENode{Op: "pair", Children: []Id{root, root}})
+			}
+			limits := DefaultExtractionLimits()
+			limits.MaxNodes = 100
+			expr, cost, stats, err := ExtractDAG(context.Background(), g, root, nil, limits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stats.Nodes != tt.wantNodes {
+				t.Errorf("materialized %d nodes, want %d", stats.Nodes, tt.wantNodes)
+			}
+			// AstSizeCost prices the tree: 2^(levels+1) - 1 nodes.
+			if want := float64(int(1)<<(tt.levels+1) - 1); cost != want {
+				t.Errorf("cost %g, want %g", cost, want)
+			}
+			for e := expr; len(e.Children) == 2; e = e.Children[0] {
+				if e.Children[0] != e.Children[1] {
+					t.Fatalf("children of %s are distinct expressions, want one shared", e.Op)
+				}
+			}
+			if tt.levels > 6 {
+				return
+			}
+			tree, treeCost, err := ExtractBounded(context.Background(), g, root, nil, limits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if treeCost != cost || !tree.Equal(expr) {
+				t.Errorf("tree extraction %s (cost %g), DAG %s (cost %g)", tree, treeCost, expr, cost)
+			}
+		})
+	}
+}

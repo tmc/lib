@@ -1,0 +1,396 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/tmc/lib/nvidia/driver"
+	"github.com/tmc/lib/nvidia/x/cuda"
+	"github.com/tmc/lib/nvidia/x/cudalaunch"
+	"github.com/tmc/lib/nvidia/x/cudamem"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+)
+
+// embedGatherCUDA is the prefill embedding lookup: one block per prompt
+// row widens that token's BF16 table row to FP32. It is hand-written, not
+// generated; the generator has no gather term.
+const (
+	embedGatherName = "llama_embed_gather"
+	embedGatherCUDA = `// llama_embed_gather: hand-written, not generated.
+extern "C" __global__ void llama_embed_gather(
+    const uint16_t* __restrict__ table, const int32_t* __restrict__ tokens,
+    float* __restrict__ out, int hidden) {
+    const uint16_t* src = table + (size_t)tokens[blockIdx.x] * hidden;
+    float* dst = out + (size_t)blockIdx.x * hidden;
+    for (int i = threadIdx.x; i < hidden; i += blockDim.x) {
+        dst[i] = __uint_as_float((uint32_t)src[i] << 16);
+    }
+}
+`
+)
+
+// An egraphPrefill runs a prompt through the generated prefill plans
+// ([egraphPrefillPlans]) up to rows tokens per chunk. Per chunk it makes
+// one embedding gather launch and, per layer, the attnIn plan's launches,
+// one rotary launch that appends the chunk's keys and values to the
+// decoder's BF16 cache, one attention launch over all the chunk's rows,
+// and the post plan's launches. A chunk of at most narrow rows makes the
+// narrow plans' launches in place of attnIn's and post's, and attends in
+// groups of narrowQTok rows rather than qtok.
+type egraphPrefill struct {
+	rows, qtok, narrow   int
+	narrowQTok           int
+	attnIn, post         [][]egraphLaunch // per layer
+	narrowIn, narrowPost [][]egraphLaunch // per layer
+	rope, attn           []egraphLaunch   // per layer; chunk arguments set per chunk
+	narrowAttn           []egraphLaunch   // per layer; chunk arguments set per chunk
+	flash                []egraphLaunch   // per layer, with plans' flash; chunk arguments set per chunk
+	gather               driver.Function
+
+	tokens    cudamem.Slice[int32] // the prompt
+	positions cudamem.Slice[int32] // positions[i] = i
+	seqLens   cudamem.Slice[int32] // per attention group, for the whole prompt
+	seqIDs    cudamem.Slice[int32] // zeros
+	pages     cudamem.Slice[int32] // identity page table, one row per group
+	x         [2]cudamem.Slice[float32]
+	qkv, q    cudamem.Slice[uint16]
+	attnOut   cudamem.Slice[uint16]
+}
+
+// prefillSeqLenCapacity bounds the metadata for chunks of at least rows
+// tokens in a sequence of at most maxSeq tokens, with qtok rows per group.
+// Each chunk can add one partial group beyond maxSeq/qtok.
+func prefillSeqLenCapacity(maxSeq, rows, qtok int) (int, error) {
+	if maxSeq <= 0 || rows <= 0 || qtok <= 0 {
+		return 0, fmt.Errorf("prefill sequence lengths: nonpositive size (%d, %d, %d)", maxSeq, rows, qtok)
+	}
+	groups := (maxSeq-1)/qtok + 1
+	chunks := (maxSeq-1)/rows + 1
+	if groups > int(^uint(0)>>1)-chunks {
+		return 0, errors.New("prefill sequence lengths: capacity overflow")
+	}
+	return groups + chunks, nil
+}
+
+// prefillSeqLens returns the attention sequence lengths of a chunk of n
+// prompt rows that starts at position start. Group g holds the qtok rows
+// from g·qtok; [hopper.MTPPagedAttention] lets it attend every position
+// before its first row and, causally, its own rows, so its length is the
+// position after its last row. A last group of fewer than qtok rows keeps
+// the full length so its real rows keep their positions; its missing rows
+// are computed and ignored.
+func prefillSeqLens(start, n, qtok int) []int32 {
+	lens := make([]int32, (n+qtok-1)/qtok)
+	for g := range lens {
+		lens[g] = int32(start + (g+1)*qtok)
+	}
+	return lens
+}
+
+// bindPrefill fills the prefill tables newEgraphDecoder allocated in eg.pf
+// and binds its launches.
+func (eg *egraphDecoder) bindPrefill(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights) error {
+	pl, pf := eg.plans.pf, eg.pf
+	pos := make([]int32, cfg.MaxSeqLen)
+	for i := range pos {
+		pos[i] = int32(i)
+	}
+	if err := pf.positions.CopyFromHost(pos); err != nil {
+		return fmt.Errorf("upload prefill positions: %w", err)
+	}
+	if err := pf.seqIDs.CopyFromHost(make([]int32, pf.seqIDs.Len())); err != nil {
+		return fmt.Errorf("upload prefill seq ids: %w", err)
+	}
+	pages := make([]int32, pf.pages.Len())
+	for i := range pages {
+		pages[i] = int32(i % pl.attn.MaxPages)
+	}
+	if err := pf.pages.CopyFromHost(pages); err != nil {
+		return fmt.Errorf("upload prefill page table: %w", err)
+	}
+	// A partial last group reads q rows past the chunk; zero them so the
+	// rows it computes and ignores stay finite.
+	if err := pf.q.CopyFromHost(make([]uint16, pf.q.Len())); err != nil {
+		return fmt.Errorf("zero prefill q: %w", err)
+	}
+
+	cur, next := pf.x[0], pf.x[1]
+	for i := range gpuW.Layers {
+		lw := &gpuW.Layers[i]
+		bufs := map[string]driver.DevicePtr{
+			"x":                       cur.Ptr(),
+			"attn_norm":               lw.InputNorm.Ptr(),
+			"w_qkv":                   lw.WQKV.Ptr(),
+			pl.attnIn.Output.Name:     pf.qkv.Ptr(),
+			pl.narrowIn.Output.Name:   pf.qkv.Ptr(),
+			"attn":                    pf.attnOut.Ptr(),
+			"w_o":                     lw.WO.Ptr(),
+			"ffn_norm":                lw.PostNorm.Ptr(),
+			"w_gu":                    lw.WGateUp.Ptr(),
+			"w_down":                  lw.WDown.Ptr(),
+			pl.post.Output.Name:       next.Ptr(),
+			pl.narrowPost.Output.Name: next.Ptr(),
+		}
+		if len(eg.bqkv) > 0 {
+			bufs["b_qkv"] = eg.bqkv[i].Ptr()
+		}
+		in, err := eg.bind(pl.attnIn, bufs)
+		if err != nil {
+			return err
+		}
+		post, err := eg.bind(pl.post, bufs)
+		if err != nil {
+			return err
+		}
+		pf.attnIn = append(pf.attnIn, in)
+		pf.post = append(pf.post, post)
+		if in, err = eg.bind(pl.narrowIn, bufs); err != nil {
+			return err
+		}
+		if post, err = eg.bind(pl.narrowPost, bufs); err != nil {
+			return err
+		}
+		pf.narrowIn = append(pf.narrowIn, in)
+		pf.narrowPost = append(pf.narrowPost, post)
+		cur, next = next, cur
+
+		// qkv, cos_sin_table, positions, seq_ids, seqlens, kv_positions,
+		// page_table, q_out, k_cache, v_cache
+		rg, rb := pl.rope.Grid(1)
+		pf.rope = append(pf.rope, egraphLaunch{
+			fn: eg.fns[pl.rope.Name], grid: [3]uint32{0, uint32(rg[1]), 1}, block: [3]uint32{uint32(rb[0]), 1, 1}, epoch: -1,
+			args: []any{pf.qkv.Ptr(), eg.cs.Ptr(), pf.positions.Ptr(), pf.seqIDs.Ptr(), eg.seqLen1.Ptr(), pf.positions.Ptr(),
+				eg.pages.Ptr(), pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr()},
+		})
+		// q, k_cache, v_cache, page_table, seqlens, draft_mask, out
+		for _, a := range []struct {
+			k  hopper.MTPPagedAttention
+			ls *[]egraphLaunch
+		}{{pl.attn, &pf.attn}, {pl.narrowAttn, &pf.narrowAttn}} {
+			_, block := a.k.Grid(1)
+			*a.ls = append(*a.ls, egraphLaunch{
+				fn: eg.fns[a.k.Name], block: [3]uint32{uint32(block[0]), uint32(block[1]), uint32(block[2])}, epoch: -1,
+				args: []any{pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), pf.pages.Ptr(), pf.seqLens.Ptr(), driver.DevicePtr(0), pf.attnOut.Ptr()},
+			})
+		}
+		if pl.flash != nil {
+			// q, k_cache, v_cache, page_table, start, n, out
+			_, block := pl.flash.Grid(1)
+			pf.flash = append(pf.flash, egraphLaunch{
+				fn: eg.fns[pl.flash.Name], block: [3]uint32{uint32(block[0]), uint32(block[1]), uint32(block[2])}, epoch: -1,
+				args: []any{pf.q.Ptr(), eg.kc[i].Ptr(), eg.vc[i].Ptr(), pf.pages.Ptr(), int32(0), int32(0), pf.attnOut.Ptr()},
+			})
+		}
+	}
+	// Tile gemms use more dynamic shared memory than a launch gets by
+	// default.
+	for _, ls := range [][]egraphLaunch{pf.attnIn[0], pf.post[0], pf.narrowIn[0], pf.narrowPost[0]} {
+		for _, l := range ls {
+			if err := cudalaunch.Kernel(l.fn).SharedMem(l.smem).PrepareSharedMem(dev); err != nil {
+				return fmt.Errorf("prefill gemm shared memory: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+// chunkQTok returns the query rows per attention group of a chunk of n
+// rows.
+func (pf *egraphPrefill) chunkQTok(n int) int {
+	if n <= pf.narrow {
+		return pf.narrowQTok
+	}
+	return pf.qtok
+}
+
+// launches returns the launches one chunk makes, before the head.
+func (pf *egraphPrefill) launches() int {
+	c := 1
+	for i := range pf.attnIn {
+		c += len(pf.attnIn[i]) + 2 + len(pf.post[i])
+	}
+	return c
+}
+
+// prefill runs seq[start:] from position start, extending a KV cache that
+// already holds seq[:start], and leaves the argmax of the last token's
+// logits in sp.TokenOut, which it also returns. Chunks of up to pf.rows
+// tokens begin at start.
+//
+// If logits is non-nil, prefill also runs the head after every chunk and
+// calls logits with the position of the chunk's last row once the device
+// has written that row's logits to sp.Logits.
+func (eg *egraphDecoder) prefill(gpuW *GPUModelWeights, cfg *ModelConfig, sp *GPUScratchpad, sampleFn driver.Function, seq []int32, start int, logits func(pos int) error) (int32, error) {
+	pf := eg.pf
+	if start < 0 || start >= len(seq) {
+		return 0, fmt.Errorf("e-graph prefill: start %d outside %d tokens", start, len(seq))
+	}
+	if err := checkPos(len(seq)-1, cfg.MaxSeqLen); err != nil {
+		return 0, err
+	}
+	for _, tok := range seq[start:] {
+		if err := checkToken(tok, cfg.VocabSize); err != nil {
+			return 0, err
+		}
+	}
+	// Upload the tokens and every chunk's attention lengths before the
+	// first launch.
+	if err := pf.tokens.CopyFromHost(seq); err != nil {
+		return 0, fmt.Errorf("upload prompt: %w", err)
+	}
+	var lens []int32
+	var chunkStart, groupStart []int
+	for c := start; c < len(seq); c += pf.rows {
+		n := min(pf.rows, len(seq)-c)
+		chunkStart = append(chunkStart, c)
+		groupStart = append(groupStart, len(lens))
+		lens = append(lens, prefillSeqLens(c, n, pf.chunkQTok(n))...)
+	}
+	if err := pf.seqLens.CopyFromHost(lens); err != nil {
+		return 0, fmt.Errorf("upload attention lengths: %w", err)
+	}
+
+	h := cfg.HiddenSize
+	launch := func(l egraphLaunch) error {
+		k := cudalaunch.Kernel(l.fn).Grid(l.grid[0], l.grid[1], l.grid[2]).Block(l.block[0], l.block[1], l.block[2]).SharedMem(l.smem)
+		if eg.programmatic(l.fn) {
+			k = k.WithProgrammaticStreamSerialization(true)
+		}
+		return k.Launch(l.args...)
+	}
+	launchRows := func(ls []egraphLaunch, n int) error {
+		for _, l := range ls {
+			if err := launch(l.withRows(n)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	head := func(x driver.DevicePtr) error {
+		norm, err := eg.bind(eg.plans.norm, map[string]driver.DevicePtr{
+			"x":                       x,
+			"norm":                    gpuW.Norm.Ptr(),
+			eg.plans.norm.Output.Name: eg.xn.Ptr(),
+		})
+		if err != nil {
+			return err
+		}
+		hd, err := eg.bind(eg.plans.head, map[string]driver.DevicePtr{
+			"xn":                      eg.xn.Ptr(),
+			"lm_head":                 gpuW.LMHead.Ptr(),
+			eg.plans.head.Output.Name: sp.Logits.Ptr(),
+		})
+		if err != nil {
+			return err
+		}
+		for _, l := range append(norm, hd...) {
+			if err := launch(l); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for c, g0 := range groupStart {
+		at := chunkStart[c]
+		n := min(pf.rows, len(seq)-at)
+		groups := (n + pf.chunkQTok(n) - 1) / pf.chunkQTok(n)
+		if err := launch(egraphLaunch{fn: pf.gather, grid: [3]uint32{uint32(n), 1, 1}, block: [3]uint32{256, 1, 1},
+			args: []any{gpuW.EmbedTokens, pf.tokens.Ptr() + driver.DevicePtr(4*at), pf.x[0].Ptr(), int32(h)}}); err != nil {
+			return 0, err
+		}
+		positions := pf.positions.Ptr() + driver.DevicePtr(4*at)
+		seqLens := pf.seqLens.Ptr() + driver.DevicePtr(4*g0)
+		attnIn, post, attn := pf.attnIn, pf.post, pf.attn
+		if n <= pf.narrow {
+			attnIn, post, attn = pf.narrowIn, pf.narrowPost, pf.narrowAttn
+		}
+		for i := range cfg.NumHiddenLayers {
+			if err := launchRows(attnIn[i], n); err != nil {
+				return 0, err
+			}
+			rope := pf.rope[i]
+			rope.args = append([]any(nil), rope.args...)
+			rope.args[2], rope.args[5] = positions, positions
+			rope.grid = [3]uint32{uint32(n), rope.grid[1], 1}
+			if err := launch(rope); err != nil {
+				return 0, err
+			}
+			a := attn[i]
+			a.args = append([]any(nil), a.args...)
+			if n > pf.narrow && len(pf.flash) > 0 {
+				a = pf.flash[i]
+				a.args = append([]any(nil), a.args...)
+				a.args[4], a.args[5] = int32(at), int32(n)
+				g, blk := eg.plans.pf.flash.Grid(n)
+				a.grid = [3]uint32{uint32(g[0]), uint32(g[1]), uint32(g[2])}
+				a.block = [3]uint32{uint32(blk[0]), uint32(blk[1]), uint32(blk[2])}
+			} else {
+				a.args[4] = seqLens
+				a.grid = [3]uint32{uint32(groups), uint32(cfg.NumKeyValueHeads), 1}
+			}
+			if err := launch(a); err != nil {
+				return 0, err
+			}
+			if err := launchRows(post[i], n); err != nil {
+				return 0, err
+			}
+		}
+		last := pf.x[cfg.NumHiddenLayers%2].Ptr() + driver.DevicePtr(4*h*(n-1))
+		if c == len(groupStart)-1 {
+			if err := head(last); err != nil {
+				return 0, err
+			}
+			break
+		}
+		if logits == nil {
+			continue
+		}
+		if err := head(last); err != nil {
+			return 0, err
+		}
+		if err := driver.CtxSynchronize(); err != nil {
+			return 0, err
+		}
+		if err := logits(at + n - 1); err != nil {
+			return 0, err
+		}
+	}
+	if err := cudalaunch.Kernel(sampleFn).Grid(1, 1, 1).Block(256, 1, 1).Launch(sp.Logits, sp.TokenOut, int32(cfg.VocabSize)); err != nil {
+		return 0, err
+	}
+	if err := driver.CtxSynchronize(); err != nil {
+		return 0, err
+	}
+	if logits != nil {
+		if err := logits(len(seq) - 1); err != nil {
+			return 0, err
+		}
+	}
+	if err := sp.TokenOut.CopyToHost(sp.HostTokenOut); err != nil {
+		return 0, err
+	}
+	return sp.HostTokenOut[0], nil
+}
+
+func (pf *egraphPrefill) free() error {
+	return errors.Join(freeOwned(&pf.tokens), freeOwned(&pf.positions), freeOwned(&pf.seqLens), freeOwned(&pf.seqIDs),
+		freeOwned(&pf.pages), freeOwned(&pf.x[0]), freeOwned(&pf.x[1]), freeOwned(&pf.qkv), freeOwned(&pf.q),
+		freeOwned(&pf.attnOut))
+}
+
+// prefillGEMMs returns the names of the prefill plans' tile gemms and of
+// the narrow plans' skinny mmas.
+func (eg *egraphDecoder) prefillGEMMs() (tiles, skinny []string) {
+	pf := eg.plans.pf
+	for _, p := range []*hopper.Plan{pf.attnIn, pf.post, pf.narrowIn, pf.narrowPost} {
+		for _, k := range p.Kernels {
+			switch {
+			case k.Tile != nil:
+				tiles = append(tiles, k.Tile.Name)
+			case k.MMA != nil:
+				skinny = append(skinny, k.MMA.Name)
+			}
+		}
+	}
+	return tiles, skinny
+}

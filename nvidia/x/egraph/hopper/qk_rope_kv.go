@@ -78,10 +78,12 @@ func (k QKNormRoPEKVAppend) norm() (QKNormRoPEKVAppend, error) {
 	return k, nil
 }
 
-// Grid returns the launch grid and block dimensions for m tokens.
-// One CTA of 128 threads (4 warps) processes one token row m.
+// Grid returns the launch grid and block dimensions for m tokens. Each
+// token row has a CTA of 128 threads (4 warps) per 4 heads, so a single
+// token's heads still spread across SMs. The kernel is correct for any
+// gridDim.y: each CTA strides over the heads by 4·gridDim.y.
 func (k QKNormRoPEKVAppend) Grid(m int) (grid, block [3]int) {
-	return [3]int{m, 1, 1}, [3]int{128, 1, 1}
+	return [3]int{m, (max(k.NumHeads, k.KVHeads) + 3) / 4, 1}, [3]int{128, 1, 1}
 }
 
 func (k QKNormRoPEKVAppend) params() []string {
@@ -196,7 +198,7 @@ EG_DEV uint8_t eg_f32_to_e4m3(float v) {
 	b.WriteString(`    alignas(16) __shared__ float s_head[4][D];
 
     // 1. Process Q heads: optional per-head RMSNorm + RoPE -> q_out[m, h, d].
-    for (int h = warp; h < HQ; h += 4) {
+    for (int h = blockIdx.y * 4 + warp; h < HQ; h += 4 * gridDim.y) {
 `)
 	fmt.Fprintf(&b, "        const %s* const src = q_in + h * D;\n", qType)
 	if k.QKNorm {
@@ -259,7 +261,7 @@ EG_DEV uint8_t eg_f32_to_e4m3(float v) {
     const int page_offset = token_pos % PAGE;
     const size_t kv_slot = (size_t)page_id * PAGE + page_offset;
 
-    for (int kh = warp; kh < HKV; kh += 4) {
+    for (int kh = blockIdx.y * 4 + warp; kh < HKV; kh += 4 * gridDim.y) {
 `)
 	fmt.Fprintf(&b, "        const %s* const k_src = k_in + kh * D;\n", qType)
 	fmt.Fprintf(&b, "        const %s* const v_src = v_in + kh * D;\n", qType)
@@ -339,7 +341,8 @@ func (k QKNormRoPEKVAppend) Launcher() (string, error) {
 	names := paramNames(params)
 	var b strings.Builder
 	fmt.Fprintf(&b, "inline void %s_launch(int m, %s, cudaStream_t stream) {\n", k.Name, strings.Join(params, ", "))
-	b.WriteString("    const dim3 grid(m, 1, 1), block(128, 1, 1);\n")
+	_, block := k.Grid(1)
+	fmt.Fprintf(&b, "    const dim3 grid(m, %d, 1), block(%d, 1, 1);\n", (max(k.NumHeads, k.KVHeads)+3)/4, block[0])
 	fmt.Fprintf(&b, "    if (m > 0) EG_LAUNCH(%s, grid, block, 0, stream, %s);\n}\n", k.Name, strings.Join(names, ", "))
 	return b.String(), nil
 }

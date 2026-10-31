@@ -180,16 +180,22 @@ func registrationKeys(b json.RawMessage, t reflect.Type) error {
 			return errors.New("registration: null object")
 		}
 		fields := map[string]reflect.Type{}
+		optional := map[string]bool{}
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
 			name := strings.Split(f.Tag.Get("json"), ",")[0]
 			fields[name] = f.Type
+			for _, option := range strings.Split(f.Tag.Get("json"), ",")[1:] {
+				if option == "omitempty" {
+					optional[name] = true
+				}
+			}
 		}
 		// New registration schema fields are explicit even when zero or null.
 		// Missing clock bounds/warmup/loss may not silently become known zeros.
-		if t.PkgPath() == reflect.TypeFor[Registration]().PkgPath() && strings.HasPrefix(t.Name(), "Registration") {
+		if t.PkgPath() == reflect.TypeFor[Registration]().PkgPath() && (strings.HasPrefix(t.Name(), "Registration") || t == reflect.TypeFor[ObserverPhasePlan]() || t == reflect.TypeFor[ObserverPhaseConfiguration]() || t == reflect.TypeFor[ObserverPhaseSettings]()) {
 			for name := range fields {
-				if _, ok := m[name]; !ok {
+				if _, ok := m[name]; !ok && !optional[name] {
 					return fmt.Errorf("registration: missing explicit field %q", name)
 				}
 			}

@@ -104,6 +104,8 @@ type Ceiling struct {
 	// Device is the product name the numbers were measured on, as NVML and
 	// nvidia-smi report it (e.g. "NVIDIA H200"), for an entry from
 	// LookupDeviceCeiling. It is empty for an architecture-wide entry.
+	// It records where a table entry came from; DeviceName below is the
+	// caller's assertion that qualifies PrecisionPeaks.
 	Device string
 
 	// DeviceName and MaxSMClockMHz name the specific SKU and maximum SM clock

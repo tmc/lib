@@ -80,11 +80,7 @@ func makeTraceCacheRequest(cfg *CompareConfig, source, entry string, snap *cudai
 	}
 	params := []cudakernel.Param{{Name: "num_elements", Type: "s32"}, {Name: "trace_fold_limit", Type: "u32"}}
 	for _, arg := range kernelArgumentLayout(snap) {
-		name := "in_" + arg.Name
-		if arg.Output {
-			name = "out_" + arg.Name
-		}
-		params = append(params, cudakernel.Param{Name: name, Type: "ptr", IsPointer: true})
+		params = append(params, cudakernel.Param{Name: arg.Symbol, Type: "ptr", IsPointer: true})
 	}
 	schema, err := cudakernel.NewSchema(params...)
 	if err != nil {

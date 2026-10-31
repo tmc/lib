@@ -332,6 +332,45 @@ func TestSM120PagedAttention(t *testing.T) {
 			physPool: 16,
 		},
 		{
+			// Four splits of 16 keys over 32-key pages: the boundaries at
+			// keys 16 and 48 fall inside pages.
+			name: "bf16_gqa_split_kv_sm121a",
+			a: SM120PagedAttention{
+				Name:         "sm121a_paged_attn_split",
+				NumQHeads:    8,
+				NumKVHeads:   2,
+				HeadDim:      64,
+				PageSize:     32,
+				MaxPages:     3,
+				SeqLen:       53,
+				Target:       "sm_121a",
+				KVFormat:     WeightBF16,
+				Splits:       4,
+				MinSplitKeys: 16,
+			},
+			batch:    2,
+			physPool: 8,
+		},
+		{
+			name: "bf16_q_split_kv_sm121a",
+			a: SM120PagedAttention{
+				Name:         "sm121a_paged_attn_q_bf16",
+				NumQHeads:    8,
+				NumKVHeads:   2,
+				HeadDim:      64,
+				PageSize:     16,
+				MaxPages:     4,
+				SeqLen:       53,
+				Target:       "sm_121a",
+				KVFormat:     WeightBF16,
+				Splits:       2,
+				MinSplitKeys: 16,
+				Q:            BF16,
+			},
+			batch:    2,
+			physPool: 8,
+		},
+		{
 			name: "nvfp4_gqa_noncontiguous_sm121a",
 			a: SM120PagedAttention{
 				Name:       "sm121a_paged_attn_nvfp4",
@@ -381,6 +420,15 @@ func TestSM120PagedAttention(t *testing.T) {
 			q := make([]float32, tt.batch*tt.a.NumQHeads*tt.a.HeadDim)
 			for i := range q {
 				q[i] = float32(rng.NormFloat64() * 0.25)
+			}
+			qBuf := cudahostemu.Buffer{Name: "q", CType: "float", Data: f32Bytes(q)}
+			if tt.a.Q == BF16 {
+				qb := make([]uint16, len(q))
+				for i := range q {
+					qb[i] = BF16Bits(q[i])
+					q[i] = FromBF16Bits(qb[i])
+				}
+				qBuf = cudahostemu.Buffer{Name: "q", CType: "uint16_t", Data: u16Bytes(qb)}
 			}
 
 			// Non-contiguous page table mapping across a larger physical page pool.
@@ -458,21 +506,27 @@ func TestSM120PagedAttention(t *testing.T) {
 				t.Fatalf("Reference() error: %v", err)
 			}
 
-			launch := fmt.Sprintf("%s_launch(%d, q, k_pages, v_pages, k_scales, v_scales, page_table, out, %d)",
-				tt.a.Name, tt.batch, tt.a.SeqLen)
+			ws := ""
+			buffers := []cudahostemu.Buffer{
+				qBuf,
+				{Name: "k_pages", CType: "uint8_t", Data: kPages},
+				{Name: "v_pages", CType: "uint8_t", Data: vPages},
+				{Name: "k_scales", CType: "uint8_t", Data: kScales},
+				{Name: "v_scales", CType: "uint8_t", Data: vScales},
+				{Name: "page_table", CType: "int32_t", Data: i32Bytes(pageTable)},
+				{Name: "out", CType: "float", Data: poison(4 * len(q))},
+			}
+			if n := tt.a.WorkspaceFloats(tt.batch); n > 0 {
+				ws = "ws, "
+				buffers = append(buffers, cudahostemu.Buffer{Name: "ws", CType: "float", Data: poison(4 * n)})
+			}
+			launch := fmt.Sprintf("%s_launch(%d, q, k_pages, v_pages, k_scales, v_scales, page_table, %sout, %d)",
+				tt.a.Name, tt.batch, ws, tt.a.SeqLen)
 			res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
-				Source: src,
-				Launch: launch,
-				Buffers: []cudahostemu.Buffer{
-					{Name: "q", CType: "float", Data: f32Bytes(q)},
-					{Name: "k_pages", CType: "uint8_t", Data: kPages},
-					{Name: "v_pages", CType: "uint8_t", Data: vPages},
-					{Name: "k_scales", CType: "uint8_t", Data: kScales},
-					{Name: "v_scales", CType: "uint8_t", Data: vScales},
-					{Name: "page_table", CType: "int32_t", Data: i32Bytes(pageTable)},
-					{Name: "out", CType: "float", Data: poison(4 * len(q))},
-				},
-				Flags: strings.Fields(os.Getenv("EG_EMU_FLAGS")),
+				Source:  src,
+				Launch:  launch,
+				Buffers: buffers,
+				Flags:   strings.Fields(os.Getenv("EG_EMU_FLAGS")),
 			})
 			if errors.Is(err, cudahostemu.ErrNoCompiler) {
 				t.Skip(err)
@@ -504,8 +558,11 @@ func TestSM120PagedAttention(t *testing.T) {
 			{Name: "1bad", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64},
 			{Name: "bad_heads", NumQHeads: 7, NumKVHeads: 2, HeadDim: 64},
 			{Name: "bad_dim", NumQHeads: 8, NumKVHeads: 2, HeadDim: 48, KVFormat: WeightNVFP4},
-			{Name: "bad_target", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, Target: "sm_90a"},
+			{Name: "bad_target", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, Target: "sm_90a", KVFormat: WeightNVFP4},
 			{Name: "bad_kv", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, KVFormat: WeightE4M3},
+			{Name: "bad_splits", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, Splits: -1},
+			{Name: "bad_split_kv", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, KVFormat: WeightNVFP4, Splits: 2},
+			{Name: "bad_split_keys", NumQHeads: 8, NumKVHeads: 2, HeadDim: 64, Splits: 2, MinSplitKeys: 24},
 		}
 		for _, b := range bad {
 			if b.Name == "bad_dim" {
@@ -543,4 +600,29 @@ func ExampleSM120BlockScaledGEMM() {
 	// grid: [4 1 1] block: [128 1 1]
 	// has m16n8k64 mxf4nvf4: true
 	// has clc try_cancel: true
+}
+
+func TestSM120PagedAttentionTarget(t *testing.T) {
+	tests := []struct {
+		target string
+		kv     WeightFormat
+		ok     bool
+	}{
+		{"sm_121a", WeightBF16, true},
+		{"sm_121a", WeightNVFP4, true},
+		{"sm_120f", WeightNVFP4, true},
+		{"sm_103a", WeightBF16, true},
+		{"sm_90a", WeightBF16, true},
+		{"sm_100f", WeightBF16, true},
+		{"sm_103a", WeightNVFP4, false},
+		{"sm_75", WeightBF16, false},
+		{"gb300", WeightBF16, false},
+	}
+	for _, tt := range tests {
+		a := SM120PagedAttention{Name: "attn", Target: tt.target, KVFormat: tt.kv}
+		_, err := a.norm()
+		if (err == nil) != tt.ok {
+			t.Errorf("target %s, kv %v: err = %v, want ok %v", tt.target, tt.kv, err, tt.ok)
+		}
+	}
 }

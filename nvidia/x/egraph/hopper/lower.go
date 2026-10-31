@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
 
@@ -17,17 +18,20 @@ type Plan struct {
 	Kernels []PlanKernel
 }
 
-// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, Row,
-// Attention, TopK, Align and ExpertSum is set.
+// A PlanKernel is one launch of a Plan. Exactly one of GEMM, Tile, MMA,
+// UMMA, Quant, Row, Attention, TopK, Align and ExpertSum is set.
 type PlanKernel struct {
 	GEMM      *SkinnyGEMM
 	Tile      *TileGEMM
+	MMA       *SkinnyMMA
+	UMMA      *UMMAGEMM
+	Quant     *NVFP4Quant
 	Row       *RowKernel
 	Attention *PagedAttention
 	TopK      *RowTopK
 	Align     *ExpertAlign
 	ExpertSum *ExpertSum
-	M         int      // GEMM, Tile: rows of x
+	M         int      // GEMM, Tile, MMA, UMMA, Quant: rows of x
 	MaxRows   int      // Grouped Tile: max rows per expert
 	Experts   int      // Grouped Tile: local expert count
 	Batch     int      // Attention: batch size
@@ -45,6 +49,18 @@ type PlanKernel struct {
 // inputs become row addressing. A gemm whose result feeds a row tree is
 // materialized to an FP32 temporary first.
 func Compile(e *egraph.Expr, name string, out DType) (*Plan, error) {
+	return CompileFor(e, name, out, "")
+}
+
+// CompileFor is [Compile] for the GPU named by target, an nvcc -arch value
+// such as "sm_103a"; "" means no particular GPU. For a target with tcgen05
+// (see [UMMATarget]), a gemm whose weight is BF16 or NVFP4
+// and whose shape fits becomes a [UMMAGEMM]: the decode form for up to 128
+// rows, the prefill form beyond. An NVFP4 gemm is preceded by an
+// [NVFP4Quant] of its x (once per x) into temporaries named after the gemm.
+// Other gemms, and every gemm for other targets, lower as Compile lowers
+// them.
+func CompileFor(e *egraph.Expr, name string, out DType, target string) (*Plan, error) {
 	if !cIdent(name) {
 		return nil, fmt.Errorf("compile: bad name %q", name)
 	}
@@ -53,7 +69,11 @@ func Compile(e *egraph.Expr, name string, out DType) (*Plan, error) {
 		inputs: make(map[string]bool),
 		done:   make(map[egraph.Id]string),
 		multi:  make(map[egraph.Id][]Tensor),
+		uses:   make(map[egraph.Id]int),
+		umma:   UMMATarget(target),
+		quant:  make(map[string][2]Tensor),
 	}
+	c.countUses(e, make(map[egraph.Id]bool))
 	if err := c.emit(e, name+"_out", out); err != nil {
 		return nil, fmt.Errorf("compile %s: %w", name, err)
 	}
@@ -65,7 +85,40 @@ type compiler struct {
 	inputs map[string]bool
 	done   map[egraph.Id]string   // e-class → buffer holding it
 	multi  map[egraph.Id][]Tensor // e-class → buffers holding a multi-output op
+	uses   map[egraph.Id]int      // e-class → terms reading it
 	temps  int
+	umma   bool                 // lower gemms to UMMAGEMM where they fit
+	quant  map[string][2]Tensor // x → its NVFP4Quant outputs
+}
+
+// UMMATarget reports whether target, an nvcc -arch value, has the tcgen05
+// tensor cores [UMMAGEMM] uses, as probed with ptxas and recorded in
+// [cudadevicetable]. A target the table has not probed reports false.
+func UMMATarget(target string) bool {
+	t, ok := cudadevicetable.LookupTarget(target)
+	if !ok {
+		return false
+	}
+	yes, err := t.Supports("tcgen05")
+	return err == nil && yes
+}
+
+// countUses records in c.uses how many e-classes of e read each e-class.
+// An extracted term may repeat a class as distinct nodes, so readers are
+// counted once per class.
+func (c *compiler) countUses(e *egraph.Expr, seen map[egraph.Id]bool) {
+	if e.Class != 0 {
+		if seen[e.Class] {
+			return
+		}
+		seen[e.Class] = true
+	}
+	for _, k := range e.Children {
+		if k.Class != 0 {
+			c.uses[k.Class]++
+		}
+		c.countUses(k, seen)
+	}
 }
 
 func (c *compiler) input(t Tensor) {
@@ -106,8 +159,12 @@ func (c *compiler) emit(e *egraph.Expr, dst string, d DType) error {
 		if !ok {
 			return fmt.Errorf("cast without dtype")
 		}
-		if cd == d {
-			return c.emit(e.Children[1], dst, d)
+		// Computing the operand straight into d records dst as the
+		// operand's buffer, so it is right only when nothing else reads the
+		// operand or the operand is d already; otherwise the cast is a row
+		// kernel over the operand's own buffer.
+		if x := e.Children[1]; cd == d && (c.uses[x.Class] <= 1 || defaultTempDType(x) == d) {
+			return c.emit(x, dst, d)
 		}
 	}
 	shape, err := shapeOf(e)
@@ -122,11 +179,11 @@ func (c *compiler) emit(e *egraph.Expr, dst string, d DType) error {
 			Class:    e.Class,
 			Children: []*egraph.Expr{{Op: "fn:$0"}, e.Children[0], e.Children[1]},
 		}
-		if err := c.gemm(gemmExpr, t); err != nil {
+		if err := c.gemm(gemmExpr, t, false); err != nil {
 			return err
 		}
 	case e.Op == OpGEMM:
-		if err := c.gemm(e, t); err != nil {
+		if err := c.gemm(e, t, false); err != nil {
 			return err
 		}
 	case isModelOp(e.Op):
@@ -149,20 +206,23 @@ func (c *compiler) emit(e *egraph.Expr, dst string, d DType) error {
 	return nil
 }
 
-func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
+// gemm appends the kernel computing the gemm term e into out. With glu,
+// e's weight rows are two halves whose products the epilogue pairs (see
+// [SkinnyGEMM.GLU]); the caller checks [compiler.skinny] first.
+func (c *compiler) gemm(e *egraph.Expr, out Tensor, glu bool) error {
 	f, ok := lambdaOf(egraph.ENode{Op: e.Children[0].Op})
 	if !ok {
 		return fmt.Errorf("gemm: bad epilogue %q", e.Children[0].Op)
 	}
-	x, err := c.buffer(e.Children[1])
+	x, err := c.gemmX(e.Children[1])
 	if err != nil {
 		return err
 	}
-	if x.DType != BF16 || len(x.Shape) != 2 {
+	if x.DType != BF16 && (x.DType != F32 || !c.skinny(x.Shape)) || len(x.Shape) != 2 {
 		return fmt.Errorf("gemm: x must be a BF16 matrix, have %v %v (cast it)", x.DType, x.Shape)
 	}
 	w := e.Children[2]
-	g := SkinnyGEMM{Name: c.plan.Name + "_" + out.Name, MaxM: x.Shape[0], Out: out.DType, Epilogue: f, K: x.Shape[1]}
+	g := SkinnyGEMM{Name: c.plan.Name + "_" + out.Name, MaxM: x.Shape[0], Out: out.DType, Epilogue: f, K: x.Shape[1], X: x.DType, GLU: glu}
 	args := []string{x.Name}
 	switch w.Op {
 	case OpHiLo:
@@ -198,6 +258,9 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 		args = append(args, t.Name)
 	}
 	m, n := x.Shape[0], g.N
+	if glu {
+		n /= 2
+	}
 	for i, k := range e.Children[3:] {
 		t, err := c.buffer(k)
 		if err != nil {
@@ -221,6 +284,11 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 		args = append(args, t.Name)
 	}
 	args = append(args, out.Name)
+	if g.X == BF16 && !glu {
+		if ok, err := c.ummaGEMM(g, x, args, m); ok || err != nil {
+			return err
+		}
+	}
 	if m > 16 {
 		t := TileGEMM{Name: g.Name, N: g.N, K: g.K, Weight: g.Weight, Out: g.Out, Epilogue: g.Epilogue, Extras: g.Extras}
 		if t.N%128 != 0 {
@@ -240,6 +308,128 @@ func (c *compiler) gemm(e *egraph.Expr, out Tensor) error {
 	}
 	c.plan.Kernels = append(c.plan.Kernels, PlanKernel{GEMM: &g, M: m, Args: args})
 	return nil
+}
+
+// FuseTails runs each row kernel that would launch a single CTA right
+// after the skinny gemm whose output it reads, over that gemm's rows, as
+// the gemm's tail ([SkinnyGEMM.Tail]): the gemm's last block runs it, so
+// the plan launches one kernel fewer. Each fused gemm gets an I32 counter
+// temporary named after it, which the caller zeroes once before the first
+// launch. FuseTails reports the number of row kernels it folded.
+func (p *Plan) FuseTails() int {
+	var ks []PlanKernel
+	n := 0
+	for i := 0; i < len(p.Kernels); i++ {
+		k := p.Kernels[i]
+		if i+1 < len(p.Kernels) {
+			if f, count, ok := tailOf(k, p.Kernels[i+1]); ok {
+				ks = append(ks, f)
+				p.Temps = append(p.Temps, count)
+				n++
+				i++
+				continue
+			}
+		}
+		ks = append(ks, k)
+	}
+	p.Kernels = ks
+	return n
+}
+
+// tailOf returns gk with rk as its tail and the tail's counter, if rk can
+// be gk's tail.
+func tailOf(gk, rk PlanKernel) (PlanKernel, Tensor, bool) {
+	if gk.GEMM == nil || gk.GEMM.Tail != nil || rk.Row == nil || rk.Rows != gk.M {
+		return gk, Tensor{}, false
+	}
+	if grid, _ := rk.Row.Grid(rk.Rows); grid[0] != 1 {
+		return gk, Tensor{}, false
+	}
+	g, err := gk.GEMM.norm()
+	if err != nil {
+		return gk, Tensor{}, false
+	}
+	out := len(gk.Args) - 1
+	if g.SplitK > 1 {
+		out--
+	}
+	if out < 0 || !slices.Contains(rk.Args, gk.Args[out]) {
+		return gk, Tensor{}, false
+	}
+	t := *gk.GEMM
+	t.Tail, t.TailIn = rk.Row, gk.Args[out]
+	if _, err := t.norm(); err != nil {
+		return gk, Tensor{}, false
+	}
+	count := Tensor{Name: t.Name + "_count", DType: I32, Shape: []int{1}}
+	gk.GEMM = &t
+	gk.Args = slices.Clone(gk.Args)
+	for _, a := range rk.Args {
+		if a != t.TailIn {
+			gk.Args = append(gk.Args, a)
+		}
+	}
+	gk.Args = append(gk.Args, count.Name)
+	return gk, count, true
+}
+
+// skinny reports whether a gemm over x shaped xs lowers to a
+// [SkinnyGEMM], the form whose x may be F32 and whose epilogue may pair
+// weight rows.
+func (c *compiler) skinny(xs []int) bool {
+	return !c.umma && len(xs) == 2 && xs[0] <= 16
+}
+
+// gemmX returns the buffer holding a gemm's x. A skinny gemm reads a cast
+// of an F32 input to BF16 from the input itself and rounds as it loads, so
+// the cast needs no kernel.
+func (c *compiler) gemmX(x *egraph.Expr) (Tensor, error) {
+	if x.Op == OpCast && len(x.Children) == 2 {
+		t, ok := x.Children[1].Data.(Tensor)
+		if d, _ := x.Children[0].Data.(DType); ok && d == BF16 && t.DType == F32 && c.skinny(t.Shape) {
+			c.input(t)
+			return t, nil
+		}
+	}
+	return c.buffer(x)
+}
+
+// ummaGEMM appends g as a UMMAGEMM over m rows of x, reporting false if c
+// does not lower to UMMAGEMM or g does not fit one. args are g's
+// SkinnyGEMM arguments.
+func (c *compiler) ummaGEMM(g SkinnyGEMM, x Tensor, args []string, m int) (bool, error) {
+	if !c.umma || g.Weight != WeightBF16 && g.Weight != WeightNVFP4 {
+		return false, nil
+	}
+	u := UMMAGEMM{Name: g.Name, N: g.N, K: g.K, Weight: g.Weight, Out: g.Out, Epilogue: g.Epilogue, Extras: g.Extras}
+	switch {
+	case m <= 128:
+		u.MaxM = m
+	case g.N%128 == 0:
+		u.BN = 128
+	default:
+		u.BN = 64
+	}
+	if _, err := u.norm(); err != nil {
+		return false, nil
+	}
+	if g.Weight == WeightNVFP4 {
+		q, ok := c.quant[x.Name]
+		if !ok {
+			quant := NVFP4Quant{Name: g.Name + "_quant", K: g.K}
+			q = [2]Tensor{
+				{Name: g.Name + "_xq", DType: U8, Shape: []int{m, g.K / 2}},
+				{Name: g.Name + "_xsf", DType: U8, Shape: []int{m, g.K / 16}},
+			}
+			c.plan.Temps = append(c.plan.Temps, q[0], q[1])
+			c.plan.Kernels = append(c.plan.Kernels, PlanKernel{Quant: &quant, M: m, Args: []string{x.Name, q[0].Name, q[1].Name}})
+			c.quant[x.Name] = q
+		}
+		// args are x, w, w_sf, w_gs, extras..., out.
+		args = append([]string{q[0].Name, q[1].Name}, args[1:]...)
+	}
+	c.plan.Kernels = append(c.plan.Kernels, PlanKernel{UMMA: &u, M: m, Args: args})
+	return true, nil
 }
 
 func trim1(s []int) []int {
@@ -659,7 +849,8 @@ func shapeOf(e *egraph.Expr) ([]int, error) {
 //
 //	void Name_run(<inputs...>, <temps...>, <output>, cudaStream_t stream)
 //
-// that launches them in order. Split-K GEMMs are not used by plans.
+// that launches them in order. Split-K GEMMs are not used by plans, and
+// a split-K [SkinnyMMA] is an error.
 func (p *Plan) Source() (string, error) {
 	var b strings.Builder
 	b.WriteString(Prelude)
@@ -674,6 +865,21 @@ func (p *Plan) Source() (string, error) {
 		case k.Tile != nil:
 			if src, err = k.Tile.CUDA(); err == nil {
 				l, err = k.Tile.Launcher()
+			}
+		case k.MMA != nil:
+			if k.MMA.WorkspaceBytes() > 0 {
+				return "", fmt.Errorf("plan %s: %s splits K and needs a workspace", p.Name, k.MMA.Name)
+			}
+			if src, err = k.MMA.CUDA(); err == nil {
+				l, err = k.MMA.Launcher()
+			}
+		case k.UMMA != nil:
+			if src, err = k.UMMA.CUDA(); err == nil {
+				l, err = k.UMMA.Launcher()
+			}
+		case k.Quant != nil:
+			if src, err = k.Quant.CUDA(); err == nil {
+				l, err = k.Quant.Launcher()
 			}
 		case k.Attention != nil:
 			if src, err = k.Attention.CUDA(); err == nil {
@@ -719,6 +925,12 @@ func (p *Plan) Source() (string, error) {
 			} else {
 				fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Tile.Name, k.M, strings.Join(k.Args, ", "))
 			}
+		case k.MMA != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.MMA.Name, k.M, strings.Join(k.Args, ", "))
+		case k.UMMA != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.UMMA.Name, k.M, strings.Join(k.Args, ", "))
+		case k.Quant != nil:
+			fmt.Fprintf(&b, "    %s_launch(%d, %s, stream);\n", k.Quant.Name, k.M, strings.Join(k.Args, ", "))
 		case k.Attention != nil:
 			// Args are q, k_cache, v_cache, page_table, seqlens, k_scale, v_scale, [gate,] out, ws;
 			// Launcher expects max_pages after page_table.

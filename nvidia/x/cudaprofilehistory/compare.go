@@ -20,7 +20,7 @@ type Policy struct {
 
 func (p Policy) validate() error {
 	switch p.Timing {
-	case "wall_elapsed", "summed_kernel", "gpu_busy", "api_call":
+	case "wall_elapsed", "cuda_event_elapsed", "summed_kernel", "gpu_busy", "api_call":
 	default:
 		return fmt.Errorf("history: unsupported timing channel")
 	}

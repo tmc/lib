@@ -468,7 +468,7 @@ type MutationPlan struct {
 	FormTo   string
 	Before   Encoding
 	After    Encoding
-	Control  ControlCode // carried unchanged from Before; see [Verdict.ControlCodeIsOutOfBand]
+	Control  ControlCode // carried unchanged from Before, or the new code in a plan from [OptimizeFunctionControl]
 }
 
 // CheckMutation decides whether m may be applied to fn, and returns the plan

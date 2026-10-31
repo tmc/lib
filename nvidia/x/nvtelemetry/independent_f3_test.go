@@ -106,12 +106,12 @@ func TestIndependentWithholdMutations(t *testing.T) {
 	}
 }
 func TestIndependentParserBoundaries(t *testing.T) {
-	for _, p := range []string{"0::/system.slice/slurmstepd.scope/job_42/step_batch/task_0", "/slurm/job_42/step_extern", "/slurm/job_42/step_0/task_1"} {
+	for _, p := range []string{"0::/system.slice/slurmstepd.scope/job_42/step_batch/task_0", "/slurm/job_42/step_extern", "/slurm/job_42/step_0/task_1", "1:devices:/slurm/job_42"} {
 		if _, e := n.ParseSlurmCgroupPath(p); e != nil {
 			t.Error(e)
 		}
 	}
-	for _, p := range []string{"0::/slurm/job_42/../job_99", "0::/slurm/job_42/step_0/task_1\n0::/slurm/job_99/step_0/task_1", "/sys/fs/cgroup/not-a-slurm/job_42/step_0/task_1\x00", "1:devices:/slurm/job_42"} {
+	for _, p := range []string{"0::/slurm/job_42/../job_99", "0::/slurm/job_42/step_0/task_1\n0::/slurm/job_99/step_0/task_1", "/sys/fs/cgroup/not-a-slurm/job_42/step_0/task_1\x00", "1:name=systemd:/slurm/job_42"} {
 		if _, e := n.ParseSlurmCgroupPath(p); e == nil {
 			t.Errorf("invalid cgroup accepted %q", p)
 		}

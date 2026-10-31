@@ -16,6 +16,27 @@
 // and warp-specialized register budgets, adapting schedules in response to
 // [OnlineStallFeedback] and persisting results in a JSON [Rulebook].
 //
+// Program search ([RunMCTSDiscovery]) is Monte Carlo tree search with UCB1
+// over straight-line PTX basic blocks ([Program]) in a carry-free 32-bit
+// alphabet: not, and, or, xor, shl, shr, shf.l.wrap, lop3 and prmt. Starting
+// from a baseline program, it rewrites cones of instructions into single
+// lop3 or prmt instructions, forwards operands, reorders independent
+// instructions and tries random replacements, rewarding verified programs by
+// their saving in modelled cycles ([CostModel]), peak live registers
+// ([PeakRegs]) and instruction count. Candidates are checked against a
+// [SpecFunc] on 64 boundary vectors and 10,000 pseudo-random vectors
+// ([Oracle]); a new best program must also be proven equivalent to the
+// baseline by [ProveEquivalent], which enumerates each result bit's input
+// support. [Oracle.CheckMutants] verifies that single-point mutants of the
+// result are rejected, and [Rule] promotes the result to an
+// e-graph rewrite.
+//
+// Cycle counts come from a latency model, not from hardware. Discovered
+// programs are emitted as PTX ([Program.PTX]) and as CUDA device functions
+// with inline PTX ([Program.CUDA]); they run on the host through
+// [Program.Eval]. The CUDA_EGRAPH_DISCOVER_NATIVE=1 test compiles and runs
+// them on a GPU.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia.
 package discover

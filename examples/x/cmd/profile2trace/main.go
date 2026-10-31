@@ -1,4 +1,4 @@
-// profile2trace converts Nsight SQLite, ds4-min host spans, and Metal regions
+// profile2trace converts Nsight SQLite, PyTorch CPU annotations, host spans, and Metal regions
 // to native Perfetto protobuf. See README.md for clock alignment.
 package main
 
@@ -49,6 +49,9 @@ func runContext(ctx context.Context, args []string, out, log io.Writer, process 
 	inputBytes := fs.Int64("nsys-input-bytes", 1<<30, "maximum original SQLite bytes (maximum 64 GiB)")
 	bytesLimit := fs.Int("nsys-bytes", 16<<20, "maximum cumulative SQLite stdout and imported row bytes (maximum 64 MiB)")
 	rowsLimit := fs.Int("nsys-rows", 65536, "maximum cumulative imported rows including diagnostics (maximum 262144)")
+	pytorch := fs.String("pytorch", "", "PyTorch 2.10.0 CPU Chrome export (complete user annotations only)")
+	pytorchVersion := fs.String("pytorch-version", "", "declared PyTorch CPU profile version: 2.10.0")
+	pytorchSHA := fs.String("pytorch-sha256", "", "required SHA256 of the original PyTorch export")
 	spans := fs.String("spans", "", "gputrace.host-event/v1 JSONL")
 	metal := fs.String("metal", "", "Metal region receipt JSON")
 	hostOffset := fs.Int64("spans-offset-ns", 0, "add to host timestamps to align with the reference clock")
@@ -66,13 +69,19 @@ func runContext(ctx context.Context, args []string, out, log io.Writer, process 
 		return errors.New("unexpected arguments")
 	}
 	count := 0
-	for _, path := range []string{*nsys, *spans, *metal} {
+	for _, path := range []string{*nsys, *spans, *metal, *pytorch} {
 		if path != "" {
 			count++
 		}
 	}
 	if count == 0 {
-		return errors.New("specify -nsys, -spans, or -metal")
+		return errors.New("specify -nsys, -spans, -metal, or -pytorch")
+	}
+	if *pytorch != "" && count != 1 {
+		return errors.New("PyTorch CPU input cannot be merged without an admitted clock transform")
+	}
+	if *pytorch == "" && (*pytorchVersion != "" || *pytorchSHA != "") {
+		return errors.New("PyTorch profile flags require -pytorch")
 	}
 	if *maxSlices < 1 {
 		return errors.New("-max-slices must be positive")
@@ -88,6 +97,16 @@ func runContext(ctx context.Context, args []string, out, log io.Writer, process 
 		}
 	}
 	var all []slice
+	if *pytorch != "" {
+		rows, err := readFile(*pytorch, func(r io.Reader) ([]slice, error) {
+			return readPyTorch(ctx, r, *pytorchVersion, *pytorchSHA, *maxSlices)
+		})
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(log, "PyTorch CPU user annotations: %d; other source events not transformed\n", len(rows))
+		all = append(all, rows...)
+	}
 	if *nsys != "" {
 		if count > 1 && *clock == "unestablished" {
 			return errors.New("merging Nsight requires an established declared reference clock")

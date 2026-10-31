@@ -195,7 +195,7 @@ func (e *ExecutableEvaluator) evaluate(ctx context.Context, s *egraph.SearchStat
 	if e.Rounds < 2 || e.Rounds > 1024 || e.Rounds%2 != 0 {
 		return nil, fmt.Errorf("cudasearch: ABBA rounds must be even and in [2,1024]")
 	}
-	if e.TimingKind != cudatrial.TimingSummedKernel && e.TimingKind != cudatrial.TimingGPUBusy {
+	if e.TimingKind != cudatrial.TimingSummedKernel && e.TimingKind != cudatrial.TimingGPUBusy && e.TimingKind != cudatrial.TimingCUDAEvent {
 		return nil, ErrTimingKindMismatch
 	}
 	if err := e.Policy.validate(); err != nil {

@@ -272,6 +272,18 @@ type options struct {
 	ctx               context.Context
 	jitOptions        cudakernel.JITOptions
 	strictNVRTC       bool
+	cachePreflight    *compileCachePreflight
+}
+
+// compileCachePreflight supplies asserted metadata for a cache-only call.
+// It does not describe loaded-library capability. The required miss error
+// prevents such a call from creating a native program.
+type compileCachePreflight struct {
+	major, minor int32
+	path         string
+	identity     string
+	verify       func(string, string) error
+	miss         error
 }
 
 // Option configures JIT compilation.
@@ -679,22 +691,45 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 
 	// Resolve the loaded compiler before looking up any compiled artifact.
 	// A cache hit must not bypass a missing or incompatible compiler installation.
-	major, minor, err := nvrtc.Version()
-	if err != nil {
-		return nil, fmt.Errorf("nvrtcx: compiler version: %w", err)
+	var preflight *compileCachePreflight
+	if cfg.cachePreflight != nil {
+		p := *cfg.cachePreflight
+		if p.major <= 0 || p.minor < 0 || p.path == "" || p.identity == "" || p.verify == nil || p.miss == nil {
+			return nil, fmt.Errorf("nvrtcx: incomplete cache preflight")
+		}
+		preflight = &p
+	}
+	compilerPath := nvrtc.Path
+	verifyIdentity := verifyLoadedCompilerIdentity
+	var major, minor int32
+	if preflight == nil {
+		major, minor, err = nvrtc.Version()
+		if err != nil {
+			return nil, fmt.Errorf("nvrtcx: compiler version: %w", err)
+		}
+	} else {
+		major, minor = preflight.major, preflight.minor
+		compilerPath = func() string { return preflight.path }
+		verifyIdentity = preflight.verify
 	}
 	if !hasNVRTCCache(major, minor) {
 		cfg.flags = slices.DeleteFunc(cfg.flags, isNoCacheFlag)
 		sourceFlags = slices.DeleteFunc(sourceFlags, isNoCacheFlag)
 	}
-	toolIdentity, toolQualified, err := loadedCompilerIdentity(nvrtc.Path())
-	if err != nil {
-		return nil, err
+	var toolIdentity string
+	if preflight == nil {
+		var toolQualified bool
+		toolIdentity, toolQualified, err = loadedCompilerIdentity(compilerPath())
+		if err != nil {
+			return nil, err
+		}
+		if !toolQualified {
+			cfg.useCache = false
+		}
+	} else {
+		toolIdentity = preflight.identity
 	}
-	if !toolQualified {
-		cfg.useCache = false
-	}
-	identity := fmt.Sprintf("nvrtc %d.%d %s %s output=%d cache=%q", major, minor, nvrtc.Path(), toolIdentity, cfg.output, cacheMagic)
+	identity := fmt.Sprintf("nvrtc %d.%d %s %s output=%d cache=%q", major, minor, compilerPath(), toolIdentity, cfg.output, cacheMagic)
 	inputKey := computeCacheKey(src, cfg.name, cfg.flags, cfg.headers)
 	inputKey = jitCacheKey(inputKey, cfg.jitOptions)
 	inputKey = computeCacheKey(inputKey, "name-expressions-v1", cfg.expressions, nil)
@@ -705,7 +740,7 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 	key := compilerCacheKey(inputKey, identity)
 	if cfg.useCache {
 		if cached, ok := lookupCache(key); ok {
-			if err := verifyLoadedCompilerIdentity(nvrtc.Path(), toolIdentity); err != nil {
+			if err := verifyIdentity(compilerPath(), toolIdentity); err != nil {
 				return nil, err
 			}
 			return cached, nil
@@ -716,11 +751,15 @@ func Compile(src string, opts ...Option) (*CompiledModule, error) {
 		// Recheck cache inside singleflight
 		if cfg.useCache {
 			if cached, ok := lookupCache(key); ok {
-				if err := verifyLoadedCompilerIdentity(nvrtc.Path(), toolIdentity); err != nil {
+				if err := verifyIdentity(compilerPath(), toolIdentity); err != nil {
 					return nil, err
 				}
 				return cached, nil
 			}
+		}
+
+		if preflight != nil {
+			return nil, preflight.miss
 		}
 
 		headers := make([]nvrtc.Header, 0, len(cfg.headers))

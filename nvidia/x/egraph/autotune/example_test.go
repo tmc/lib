@@ -63,3 +63,32 @@ func ExampleOnlineCostModel() {
 	// Output:
 	// target=sm_107f tmem=576 best=tcgen05_4stage_lut_sync_restrict bottleneck=memory_latency stages=4 early_release=true
 }
+
+func ExampleKnobPreamble() {
+	twin, err := autotune.TwinForTarget("sm_100a")
+	if err != nil {
+		panic(err)
+	}
+	src, err := autotune.KnobPreamble(twin, autotune.ScheduleCandidate{
+		Name:            "tma4_cta1",
+		Stages:          4,
+		CTAGroup:        1,
+		ProducerMaxRegs: 40,
+		ConsumerMaxRegs: 232,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Print(src)
+	// Output:
+	// // autotune schedule tma4_cta1 for sm_100a
+	// #define AUTOTUNE_TMA_STAGES 4
+	// #define AUTOTUNE_CTA_GROUP 1
+	// #define AUTOTUNE_SWIZZLE_128B 0
+	// #define AUTOTUNE_DOUBLE_BUFFER_TMEM 0
+	// #define AUTOTUNE_SPARSE_2TO4 0
+	// #define AUTOTUNE_PRODUCER_MAXNREG 40
+	// __device__ __forceinline__ void autotune_producer_regs() { asm volatile("setmaxnreg.dec.sync.aligned.u32 40;\n" ::: "memory"); }
+	// #define AUTOTUNE_CONSUMER_MAXNREG 232
+	// __device__ __forceinline__ void autotune_consumer_regs() { asm volatile("setmaxnreg.inc.sync.aligned.u32 232;\n" ::: "memory"); }
+}

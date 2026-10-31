@@ -58,6 +58,21 @@ func (w deviceWeight) borrow() deviceWeight {
 	return w
 }
 
+// view returns a borrowed view of elements [lo, hi) of w.
+func (w deviceWeight) view(lo, hi int) (deviceWeight, error) {
+	switch b := w.buf.(type) {
+	case cudamem.Slice[uint16]:
+		w.buf = b.Slice(lo, hi)
+	case cudamem.Slice[float32]:
+		w.buf = b.Slice(lo, hi)
+	case interface{ view(lo, hi int) deviceBuffer }:
+		w.buf = b.view(lo, hi)
+	default:
+		return deviceWeight{}, fmt.Errorf("cannot view %T", w.buf)
+	}
+	return w.borrow(), nil
+}
+
 // release frees w's memory if w owns it, then zeroes w. If the free fails,
 // w is left as it was, so that release can be called again, and the error
 // is returned unwrapped.
@@ -89,15 +104,27 @@ func roundBF16(host []float32) []uint16 {
 // copy fails, the returned weight still owns any memory allocated, for the
 // caller to release.
 func uploadWeight(dev *cuda.Device, host []float32, dtype weightDType) (deviceWeight, error) {
+	return uploadWeightWith(host, dtype,
+		func(n int) (cudamem.Slice[float32], error) { return cudamem.Alloc[float32](dev, n) },
+		func(n int) (cudamem.Slice[uint16], error) { return cudamem.Alloc[uint16](dev, n) })
+}
+
+// A hostBuffer is device memory that host values of type T copy into.
+// cudamem.Slice[T] satisfies it.
+type hostBuffer[T any] interface {
+	deviceBuffer
+	CopyFromHost([]T) error
+}
+
+// uploadWeightWith is uploadWeight with its allocators as arguments:
+// alloc32 for f32 weights and alloc16 for bf16 weights, which are rounded
+// with roundBF16 before the copy.
+func uploadWeightWith[S32 hostBuffer[float32], S16 hostBuffer[uint16]](host []float32, dtype weightDType, alloc32 func(n int) (S32, error), alloc16 func(n int) (S16, error)) (deviceWeight, error) {
 	switch dtype {
 	case weightF32:
-		return uploadAs(dtype, host, func(n int) (cudamem.Slice[float32], error) {
-			return cudamem.Alloc[float32](dev, n)
-		})
+		return uploadAs(dtype, host, alloc32)
 	case weightBF16:
-		return uploadAs(dtype, roundBF16(host), func(n int) (cudamem.Slice[uint16], error) {
-			return cudamem.Alloc[uint16](dev, n)
-		})
+		return uploadAs(dtype, roundBF16(host), alloc16)
 	}
 	return deviceWeight{}, fmt.Errorf("unknown weight dtype %q", dtype)
 }
@@ -106,10 +133,7 @@ func uploadWeight(dev *cuda.Device, host []float32, dtype weightDType) (deviceWe
 // cudamem.Alloc can return a nonzero slice, which the caller owns, along
 // with its error, so the returned weight holds any nonzero allocation
 // whatever the error. A zero allocation gives a zero weight.
-func uploadAs[T any, S interface {
-	deviceBuffer
-	CopyFromHost([]T) error
-}](dtype weightDType, host []T, alloc func(n int) (S, error)) (deviceWeight, error) {
+func uploadAs[T any, S hostBuffer[T]](dtype weightDType, host []T, alloc func(n int) (S, error)) (deviceWeight, error) {
 	s, err := alloc(len(host))
 	if err != nil {
 		if s.Ptr() == 0 {
@@ -144,6 +168,11 @@ func (w *GPUModelWeights) checkDTypes() error {
 		}
 		if d, ok := m.storedAs(); ok && d != m.dtype {
 			return fmt.Errorf("matrix weight %d is labelled %s but stored as %s", i, m.dtype, d)
+		}
+	}
+	for i, m := range w.fused() {
+		if m.buf != nil && m.dtype != w.DType {
+			return fmt.Errorf("fused weight %d is %s, model is %s", i, m.dtype, w.DType)
 		}
 	}
 	return nil

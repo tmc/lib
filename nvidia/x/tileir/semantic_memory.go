@@ -22,7 +22,7 @@ type MemorySource struct {
 	Location   cudair.SourceLocation
 }
 
-// SemanticMemoryBinding binds a singleton lowering's bytes, ABI, launch grid
+// SemanticMemoryBinding binds a pointer-memory lowering's bytes, ABI, launch grid
 // and source map. Its zero value is not usable. Accessors return copies.
 type SemanticMemoryBinding struct {
 	byteDigest     string

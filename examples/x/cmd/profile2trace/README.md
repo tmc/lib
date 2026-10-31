@@ -175,3 +175,38 @@ The preceding Perfetto results are historical output observations, not evidence
 that a current canonical import or an authentic export passed this revision.
 For windowed input, compare the kernel count with the same start predicate,
 not the full source table count.
+
+## Selected PyTorch CPU annotations
+
+Use the already supported PyTorch 2.10.0 CPU Chrome profile with an explicit
+version and the SHA256 of the untouched export:
+
+```sh
+GOWORK=off go run ./x/cmd/profile2trace -pytorch eager.chrome.json \
+  -pytorch-version 2.10.0 -pytorch-sha256 "$CAPTURE_SHA256" > cpu.pftrace
+```
+
+The existing `nvtelemetry.ReadPyTorchAnnotations` validates schema 1, an empty
+present device inventory and the selected CPU categories. Its default bounds
+are 4 MiB, 10000 source events and 4096-byte annotation names. `-max-slices`
+additionally bounds selected annotations. Only complete `user_annotation`
+intervals are transformed; CPU operators and other events remain in the original
+artifact. Repeated names are retained as distinct slices. This does not select
+the historical 2.7.0 profile, arbitrary Chrome traces or CUDA events.
+
+Tracks are qualified by the original artifact hash and raw trace-local PID/TID.
+Debug annotations retain the declared profile, source hash, selected annotation
+ordinal, original PID/TID/args JSON, raw microsecond timestamps/durations and
+selection policy. The ordinal is within the selected annotations, not the
+original trace event array. Keep the original artifact beside the output.
+
+Single-source timestamp origin normalization retains `trace_origin_ns` and
+`aligned_start_ns`; it does not establish UTC, sensor time or a measured clock
+transform. Mixed-source conversion is refused. Completeness, native membership
+and producer authentication remain unestablished. A producer annotation or
+`External id` does not identify a generated kernel, graph or GPU submission.
+
+The two retained authentic 2.10.0 CPU eager/Inductor exports are useful selected
+reader/transform controls. They do not qualify authentic training, all Kineto
+formats or independent Perfetto Trace Processor interpretation. That external
+query requires a separate pinned tool receipt; protobuf tests are host controls.

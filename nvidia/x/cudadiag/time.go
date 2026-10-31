@@ -1,6 +1,8 @@
 package cudadiag
 
 import (
+	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -49,15 +51,39 @@ type TimeAccounting struct {
 	WaitDuration      time.Duration  `json:"wait_duration"`
 }
 
-// SumDuration computes the arithmetic sum of durations across all provided intervals.
-func SumDuration(intervals []tracecontract.Interval) time.Duration {
-	var total int64
+// SumDuration computes the arithmetic sum of positive interval durations.
+// Empty, zero-length and inverted intervals contribute zero. It returns an error
+// if an interval duration or the total cannot be represented by time.Duration.
+func SumDuration(intervals []tracecontract.Interval) (time.Duration, error) {
+	var total time.Duration
 	for _, iv := range intervals {
-		if iv.End > iv.Start {
-			total += iv.End - iv.Start
+		d, err := intervalDuration(iv)
+		if err != nil {
+			return 0, err
+		}
+		total, err = addDuration(total, d)
+		if err != nil {
+			return 0, err
 		}
 	}
-	return time.Duration(total) * time.Nanosecond
+	return total, nil
+}
+
+func intervalDuration(iv tracecontract.Interval) (time.Duration, error) {
+	if iv.End <= iv.Start {
+		return 0, nil
+	}
+	if iv.Start < 0 && iv.End > math.MaxInt64+iv.Start {
+		return 0, fmt.Errorf("interval duration overflows time.Duration")
+	}
+	return time.Duration(iv.End - iv.Start), nil
+}
+
+func addDuration(total, d time.Duration) (time.Duration, error) {
+	if d > time.Duration(math.MaxInt64)-total {
+		return 0, fmt.Errorf("duration total overflows time.Duration")
+	}
+	return total + d, nil
 }
 
 // ComputeIntervalUnion takes a set of intervals and merges all overlapping or contiguous spans.
@@ -101,46 +127,57 @@ func ComputeIntervalUnion(intervals []tracecontract.Interval) []tracecontract.In
 	return merged
 }
 
-// UnionDuration calculates the Lebesgue measure (total non-overlapping duration)
-// of the union of the given intervals.
-func UnionDuration(intervals []tracecontract.Interval) time.Duration {
-	merged := ComputeIntervalUnion(intervals)
-	var total int64
-	for _, iv := range merged {
-		total += iv.End - iv.Start
-	}
-	return time.Duration(total) * time.Nanosecond
+// UnionDuration computes the duration of the interval union. Empty, zero-length
+// and inverted intervals contribute zero. It returns an error if the duration
+// cannot be represented by time.Duration.
+func UnionDuration(intervals []tracecontract.Interval) (time.Duration, error) {
+	return SumDuration(ComputeIntervalUnion(intervals))
 }
 
-// ComputeTimeAccounting computes the separated time metrics across host, device,
-// and scheduler states.
+// ComputeTimeAccounting computes separate host, device and scheduler durations.
+// It returns zero accounting and an error if any duration is unrepresentable.
 func ComputeTimeAccounting(
 	wall tracecontract.Interval,
 	hostCalls []HostCallEvent,
 	kernels []KernelEvent,
 	sched SchedEvidence,
-) TimeAccounting {
+) (TimeAccounting, error) {
+	if _, err := intervalDuration(wall); err != nil {
+		return TimeAccounting{}, fmt.Errorf("wall: %w", err)
+	}
 	kernelIntervals := make([]tracecontract.Interval, 0, len(kernels))
 	for _, k := range kernels {
 		kernelIntervals = append(kernelIntervals, k.Span)
 	}
-
 	hostIntervals := make([]tracecontract.Interval, 0, len(hostCalls))
 	for _, h := range hostCalls {
 		if h.HasReturn {
 			hostIntervals = append(hostIntervals, h.Span)
 		}
 	}
-
-	runnable, scheduled, wait := sched.Durations()
-
+	summed, err := SumDuration(kernelIntervals)
+	if err != nil {
+		return TimeAccounting{}, fmt.Errorf("summed kernel duration: %w", err)
+	}
+	busy, err := UnionDuration(kernelIntervals)
+	if err != nil {
+		return TimeAccounting{}, fmt.Errorf("device busy duration: %w", err)
+	}
+	host, err := UnionDuration(hostIntervals)
+	if err != nil {
+		return TimeAccounting{}, fmt.Errorf("host API duration: %w", err)
+	}
+	runnable, scheduled, wait, err := sched.Durations()
+	if err != nil {
+		return TimeAccounting{}, fmt.Errorf("scheduler durations: %w", err)
+	}
 	return TimeAccounting{
 		WallInterval:         wall,
-		SummedKernelDuration: SumDuration(kernelIntervals),
-		BusyDuration:         UnionDuration(kernelIntervals),
-		HostAPIDuration:      UnionDuration(hostIntervals),
+		SummedKernelDuration: summed,
+		BusyDuration:         busy,
+		HostAPIDuration:      host,
 		RunnableDuration:     runnable,
 		ScheduledDuration:    scheduled,
 		WaitDuration:         wait,
-	}
+	}, nil
 }

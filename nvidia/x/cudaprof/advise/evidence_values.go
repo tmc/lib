@@ -27,6 +27,9 @@ import (
 // An observed profile share is Derived from the stated denominator; suspected
 // bottleneck attribution remains Inferred. No result is a measured cause.
 func (item Item) WithShareEvidence(source cudaevidence.Source, known bool, basis string) (Item, error) {
+	if item.NoRuntimeAttribution {
+		return item.withoutRuntimeAttribution(&source), nil
+	}
 	var record cudaevidence.Record
 	record.Source = source
 	record.Unit = "percent"
@@ -83,6 +86,11 @@ func classifyProfileShares(cap *cudacapture.Capture, report *Report, supplied *c
 	classify = func(items []Item) {
 		for i := range items {
 			item := &items[i]
+			if item.NoRuntimeAttribution {
+				*item = item.withoutRuntimeAttribution(&source)
+				classify(item.Patterns)
+				continue
+			}
 			why := reason
 			n, present := counts[item.Location.Kernel]
 			if why == "" && (item.Location.Kernel != source.Identity.Entry || item.Location.Module != "") {

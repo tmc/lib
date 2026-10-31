@@ -207,7 +207,7 @@ func TestNativeNormQuantSearch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		e := &ExecutableEvaluator{Generation: 1, Workload: compiler.Bindings(), Compile: compiler.Compile, Baseline: baseline, References: reference, Policy: OutputPolicy{}, Rounds: 2, TimingKind: cudatrial.TimingGPUBusy, HardwareLockChecker: check, CostModel: normQuantExtractionCost{}}
+		e := &ExecutableEvaluator{Generation: 1, Workload: compiler.Bindings(), Compile: compiler.Compile, Baseline: baseline, References: reference, Policy: OutputPolicy{}, Rounds: 2, TimingKind: cudatrial.TimingCUDAEvent, HardwareLockChecker: check, CostModel: normQuantExtractionCost{}}
 		evaluators = append(evaluators, e)
 		return e
 	}

@@ -61,7 +61,7 @@ func TestPermissionOptionalProcess(t *testing.T) {
 			}
 			allowed := map[string]bool{"squeue.json": true, "mappings.json": true, "executions.json": true}
 			for _, pid := range []string{"1234", "5678"} {
-				for _, part := range []string{"stat", "status", "cgroup"} {
+				for _, part := range []string{"stat", "status", "cgroup", "environ"} {
 					allowed["proc/"+pid+"/"+part] = true
 				}
 			}

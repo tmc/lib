@@ -9,7 +9,7 @@ import (
 // This is the actual constructor's bounded, non-driver preflight. Passing it
 // never establishes a device or changes PendingHardware.
 func admitTrajectoryReceipts(r *TrajectoryReceipt, baseline, candidate Receipt) (time.Duration, time.Duration, error) {
-	if !baseline.Complete || !candidate.Complete || baseline.Err != nil || candidate.Err != nil || !baseline.HasTiming(TimingSummedKernel) || !candidate.HasTiming(TimingSummedKernel) || baseline.Provenance["timer"] != "cuda_event" || candidate.Provenance["timer"] != "cuda_event" {
+	if !baseline.Complete || !candidate.Complete || baseline.Err != nil || candidate.Err != nil || !baseline.HasTiming(TimingCUDAEvent) || !candidate.HasTiming(TimingCUDAEvent) || baseline.Provenance["timer"] != "cuda_event" || candidate.Provenance["timer"] != "cuda_event" {
 		return 0, 0, fmt.Errorf("%w: incomplete or non-event receipts", ErrUnqualifiedOutcome)
 	}
 	if baseline.Timings == nil || candidate.Timings == nil {
@@ -23,11 +23,11 @@ func admitTrajectoryReceipts(r *TrajectoryReceipt, baseline, candidate Receipt) 
 	if err := r.validateIdentity(); err != nil {
 		return 0, 0, fmt.Errorf("%w: %w", ErrUnqualifiedOutcome, err)
 	}
-	a, err := baseline.DurationFor(TimingSummedKernel)
+	a, err := baseline.DurationFor(TimingCUDAEvent)
 	if err != nil {
 		return 0, 0, err
 	}
-	b, err := candidate.DurationFor(TimingSummedKernel)
+	b, err := candidate.DurationFor(TimingCUDAEvent)
 	if err != nil {
 		return 0, 0, err
 	}

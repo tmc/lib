@@ -1,0 +1,45 @@
+{
+  "fixture": "wandb01911-sdk-decoded.jsonl",
+  "sha256": "0166da6ec1fd06277146913760c73cc38d69fbd1881b8ca5983600a1b6776bb6",
+  "bytes": 274,
+  "rows": 3,
+  "kind": "sdk_datastore_decoded_derivative",
+  "sdk_emitted_jsonl": false,
+  "statement": "Byte-identical copy of a derivative decoded from the native W&B 0.19.11 offline .wandb transaction log through the official SDK datastore reader. The W&B SDK did not emit this JSONL. It is not native wandb-history.jsonl, not a vendor download and not authentic training.",
+  "run_id": "5f5i3ig2",
+  "native_source": {
+    "file": "run-5f5i3ig2.wandb",
+    "sha256": "dad963039ddd336f160c34182e2ba86ecbc436d3ea3c47692bbd5550ab7cd721",
+    "bytes": 1523,
+    "records": 16,
+    "retained": "external; not in this repository"
+  },
+  "decoder": {
+    "file": "r5/decode.py",
+    "sha256": "562bb18a717b7991ff63652cda8cf7727bba4b25bf9657ea125b46a202f3efbf",
+    "official": [
+      "wandb/sdk/internal/datastore.py",
+      "wandb/sdk/lib/proto_util.py",
+      "wandb.proto.wandb_internal_pb2"
+    ],
+    "recipe": "value_json tokens of each HistoryRecord, in record and item order, nested_key paths as nested objects; checked equal to wandb.sdk.lib.proto_util.dict_from_proto_list"
+  },
+  "sdk": {
+    "name": "wandb",
+    "version": "0.19.11",
+    "commit": "2a058902a2425bf79e5add34b30d0e9ea5e39951",
+    "wheel": "wandb-0.19.11-py3-none-macosx_11_0_arm64.whl",
+    "wheel_sha256": "c758ef5439599d9023db5b3cf1698477055d82f9fae48af2779f63f1d289167c",
+    "core_sha256": "06f458af6c6bca63eb43bdf783d3d006adef1cc0dab0db4f6caf67a5dcb80905",
+    "protobuf": "4.25.8"
+  },
+  "retained_evidence": {
+    "r5/FREEZE.sha256": "2f114fd8a35e65d4e5bd1a7921aeb47b3ad057b8ea6e44d90d648a09b3710d7d",
+    "r5/ENV.json": "07a857efbcc6e71c7d31d620f6016c174dce14a9afd8b8ac54c8e36aa0c68d40",
+    "SOURCE-READY.json": "aa8f86a26138a0968f59d196ff671f0f34fede3e69e4a22f8637f617217a089a",
+    "r5/run/capture/CAPTURE-MANIFEST.json": "cb42e713a549a98e625aacdafaf3473a813963ed582e9de86f9c172ead08edff",
+    "r5/run/decode/DECODE-MANIFEST.json": "6503c89766a81f39e8077e3df2c7051175753980c75bc1f3ffc866a4d1f417b4",
+    "r5/run/decode/decoded-history.meta.json": "df55f7586f3c49c96bc0a1dd4b2aba1b31476290a197c3aaac6f108927a7d629",
+    "r5/run/decode/ledger.json": "7f9ea394f64a9454eb1450ce948368983b291632f777d5c5d7052f58c5f09c1d"
+  }
+}

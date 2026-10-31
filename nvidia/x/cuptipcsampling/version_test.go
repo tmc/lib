@@ -70,7 +70,7 @@ func TestPublicStartRejectsUnwitnessedVersions(t *testing.T) {
 			s, err := startSession(5, testPublicConfig(), api,
 				func(driver.Context, int) (ReasonInventory, error) { return inventory, nil },
 				func(a, b, c int) (*samplingNames, error) {
-					return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil }, func(uintptr) {})
+					return newSamplingNames(a, b, c, func(uintptr, int) (string, error) { return "name", nil })
 				},
 				func(*cupti.PCSamplingGetDataParams) error { return nil })
 			if err == nil {

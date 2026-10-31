@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -10,21 +12,80 @@ import (
 	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
+// RoPEScalingConfig holds the optional Hugging Face rope_scaling parameters.
+type RoPEScalingConfig struct {
+	RoPEType                      string  `json:"rope_type"`
+	Type                          string  `json:"type"`
+	Factor                        float32 `json:"factor"`
+	LowFreqFactor                 float32 `json:"low_freq_factor"`
+	HighFreqFactor                float32 `json:"high_freq_factor"`
+	OriginalMaxPositionEmbeddings int     `json:"original_max_position_embeddings"`
+}
+
+func (s *RoPEScalingConfig) effectiveType() string {
+	if s == nil {
+		return ""
+	}
+	if s.RoPEType != "" {
+		return s.RoPEType
+	}
+	return s.Type
+}
+
+func (s *RoPEScalingConfig) hasLlama3Params() bool {
+	if s == nil {
+		return false
+	}
+	if t := s.effectiveType(); t != "" && t != "llama3" {
+		return false
+	}
+	return s.Factor > 0 && s.LowFreqFactor > 0 && s.HighFreqFactor > s.LowFreqFactor && s.OriginalMaxPositionEmbeddings > 0
+}
+
+// Validate checks that a non-empty RoPEScalingConfig specifies valid Llama-3
+// smooth wavelength scaling parameters.
+func (s *RoPEScalingConfig) Validate() error {
+	if s == nil || *s == (RoPEScalingConfig{}) {
+		return nil
+	}
+	t := s.effectiveType()
+	if t == "default" {
+		return nil
+	}
+	if t != "llama3" {
+		return fmt.Errorf("unsupported rope_scaling type %q", t)
+	}
+	if !(s.Factor > 0) || math.IsInf(float64(s.Factor), 0) {
+		return fmt.Errorf("rope_scaling factor %v must be > 0", s.Factor)
+	}
+	if !(s.LowFreqFactor > 0) || math.IsInf(float64(s.LowFreqFactor), 0) {
+		return fmt.Errorf("rope_scaling low_freq_factor %v must be > 0", s.LowFreqFactor)
+	}
+	if !(s.HighFreqFactor > s.LowFreqFactor) || math.IsInf(float64(s.HighFreqFactor), 0) {
+		return fmt.Errorf("rope_scaling high_freq_factor %v must be > low_freq_factor %v", s.HighFreqFactor, s.LowFreqFactor)
+	}
+	if s.OriginalMaxPositionEmbeddings <= 0 {
+		return fmt.Errorf("rope_scaling original_max_position_embeddings %d must be > 0", s.OriginalMaxPositionEmbeddings)
+	}
+	return nil
+}
+
 // ModelConfig holds the architecture parameters for a LLaMA or Qwen model.
 type ModelConfig struct {
-	ModelType         string       `json:"model_type"`
-	HiddenSize        int          `json:"hidden_size"`
-	IntermediateSize  int          `json:"intermediate_size"`
-	NumHiddenLayers   int          `json:"num_hidden_layers"`
-	NumAttentionHeads int          `json:"num_attention_heads"`
-	NumKeyValueHeads  int          `json:"num_key_value_heads"`
-	ExplicitHeadDim   int          `json:"head_dim"`
-	VocabSize         int          `json:"vocab_size"`
-	RmsNormEps        float32      `json:"rms_norm_eps"`
-	RopeTheta         float32      `json:"rope_theta"`
-	MaxSeqLen         int          `json:"max_position_embeddings"`
-	TieWordEmbeddings bool         `json:"tie_word_embeddings"`
-	TextConfig        *ModelConfig `json:"text_config,omitempty"`
+	ModelType         string             `json:"model_type"`
+	HiddenSize        int                `json:"hidden_size"`
+	IntermediateSize  int                `json:"intermediate_size"`
+	NumHiddenLayers   int                `json:"num_hidden_layers"`
+	NumAttentionHeads int                `json:"num_attention_heads"`
+	NumKeyValueHeads  int                `json:"num_key_value_heads"`
+	ExplicitHeadDim   int                `json:"head_dim"`
+	VocabSize         int                `json:"vocab_size"`
+	RmsNormEps        float32            `json:"rms_norm_eps"`
+	RopeTheta         float32            `json:"rope_theta"`
+	RoPEScaling       *RoPEScalingConfig `json:"rope_scaling,omitempty"`
+	MaxSeqLen         int                `json:"max_position_embeddings"`
+	TieWordEmbeddings bool               `json:"tie_word_embeddings"`
+	TextConfig        *ModelConfig       `json:"text_config,omitempty"`
 }
 
 // DefaultModelConfig provides a compact configuration for testing.
@@ -98,17 +159,22 @@ func NewKVCacheState(numLayers, maxSeqLen, kvDim int) *KVCacheState {
 	return &KVCacheState{K: k, V: v}
 }
 
-// LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
-func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
+// LoadModelConfig reads, normalizes, and validates config.json from dir.
+func LoadModelConfig(dir string) (*ModelConfig, error) {
+	cfg, _, err := loadModelConfig(dir)
+	return cfg, err
+}
+
+func loadModelConfig(dir string) (*ModelConfig, bool, error) {
 	configPath := filepath.Join(dir, "config.json")
 	cfgBytes, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read config.json: %w", err)
+		return nil, false, fmt.Errorf("read config.json: %w", err)
 	}
 
 	var raw ModelConfig
 	if err := json.Unmarshal(cfgBytes, &raw); err != nil {
-		return nil, nil, fmt.Errorf("parse config.json: %w", err)
+		return nil, false, fmt.Errorf("parse config.json: %w", err)
 	}
 	cfg := raw
 	// tie_word_embeddings defaults to true when absent, as in Hugging Face
@@ -120,14 +186,29 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		} `json:"text_config"`
 	}
 	if err := json.Unmarshal(cfgBytes, &tie); err != nil {
-		return nil, nil, fmt.Errorf("parse config.json: %w", err)
+		return nil, false, fmt.Errorf("parse config.json: %w", err)
 	}
 	tied := tie.Tie == nil || *tie.Tie
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 && tie.Text != nil && tie.Text.Tie != nil {
 		tied = *tie.Text.Tie
 	}
+	text := cfgBytes
 	if raw.TextConfig != nil && raw.TextConfig.HiddenSize > 0 {
 		cfg = *raw.TextConfig
+		var outer struct {
+			Text json.RawMessage `json:"text_config"`
+		}
+		if err := json.Unmarshal(cfgBytes, &outer); err != nil {
+			return nil, false, fmt.Errorf("parse config.json: %w", err)
+		}
+		text = outer.Text
+	}
+
+	if err := cfg.RoPEScaling.Validate(); err != nil {
+		return nil, false, fmt.Errorf("validate config.json: %w", err)
+	}
+	if cfg.RoPEScaling != nil && !cfg.RoPEScaling.hasLlama3Params() {
+		cfg.RoPEScaling = nil
 	}
 
 	if cfg.RmsNormEps == 0 {
@@ -139,20 +220,114 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 	if cfg.NumKeyValueHeads == 0 {
 		cfg.NumKeyValueHeads = cfg.NumAttentionHeads
 	}
-	if cfg.MaxSeqLen == 0 || cfg.MaxSeqLen > 4096 {
+	switch {
+	case cfg.MaxSeqLen == 0:
+		// Hugging Face's LlamaConfig default.
 		cfg.MaxSeqLen = 2048
+	case cfg.MaxSeqLen < 0:
+		return nil, false, fmt.Errorf("config.json: max_position_embeddings is %d, want > 0", cfg.MaxSeqLen)
 	}
+	if err := checkArchitecture(cfg.ModelType, text, cfg.MaxSeqLen); err != nil {
+		return nil, false, fmt.Errorf("validate config.json: %w", err)
+	}
+	return &cfg, tied, nil
+}
 
+// checkArchitecture reports an error for a config, given as JSON, that asks
+// for computation this decoder does not do and would otherwise silently
+// skip: another model family (Qwen3's q and k norms, Gemma's embedding
+// scale), an activation other than SiLU, attention output or MLP biases,
+// or an attention window shorter than maxSeq. An empty modelType is the
+// testing model.
+func checkArchitecture(modelType string, config []byte, maxSeq int) error {
+	switch modelType {
+	case "", "llama", "mistral", "qwen2":
+	default:
+		return fmt.Errorf("unsupported model_type %q (want llama, mistral or qwen2)", modelType)
+	}
+	var c struct {
+		HiddenAct        string `json:"hidden_act"`
+		AttentionBias    bool   `json:"attention_bias"`
+		MLPBias          bool   `json:"mlp_bias"`
+		SlidingWindow    *int   `json:"sliding_window"`
+		UseSlidingWindow *bool  `json:"use_sliding_window"`
+	}
+	if err := json.Unmarshal(config, &c); err != nil {
+		return err
+	}
+	if c.HiddenAct != "" && c.HiddenAct != "silu" {
+		return fmt.Errorf("unsupported hidden_act %q (want silu)", c.HiddenAct)
+	}
+	// Qwen2 biases q, k and v, which the decoder applies; attention_bias
+	// in a Llama config also biases o_proj, which it does not.
+	if c.AttentionBias {
+		return errors.New("unsupported attention_bias: o_proj bias is not applied")
+	}
+	if c.MLPBias {
+		return errors.New("unsupported mlp_bias")
+	}
+	if c.SlidingWindow != nil && *c.SlidingWindow < maxSeq && (c.UseSlidingWindow == nil || *c.UseSlidingWindow) {
+		return fmt.Errorf("unsupported sliding_window %d < %d positions: attention is full", *c.SlidingWindow, maxSeq)
+	}
+	return nil
+}
+
+// limitContext sets cfg's context, the KV cache length, to n tokens. Zero
+// keeps max_position_embeddings from the model configuration. A nonzero n
+// must not exceed that configured limit.
+func limitContext(cfg *ModelConfig, n int) error {
+	switch {
+	case n < 0:
+		return fmt.Errorf("context of %d tokens, want >= 0", n)
+	case n > cfg.MaxSeqLen:
+		return fmt.Errorf("context of %d tokens exceeds the model's %d (max_position_embeddings)", n, cfg.MaxSeqLen)
+	case n > 0:
+		cfg.MaxSeqLen = n
+	}
+	return nil
+}
+
+// LoadModel loads model configuration and weights from a directory containing config.json and .safetensors.
+func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
+	return loadModel(dir, openSharded)
+}
+
+// A tensorFile is the part of *safetensors.Sharded that loadModel uses.
+type tensorFile interface {
+	Info(name string) (safetensors.TensorInfo, bool)
+	Tensor(name string) (safetensors.Tensor, error)
+	Close() error
+}
+
+func openSharded(dir string) (tensorFile, error) {
 	sw, err := safetensors.OpenSharded(dir)
+	if err != nil {
+		return nil, err
+	}
+	return sw, nil
+}
+
+// loadModel is LoadModel with the checkpoint in dir opened by open. An
+// error closing the checkpoint is returned, joined with any load error, and
+// no weights are returned with it.
+func loadModel(dir string, open func(dir string) (tensorFile, error)) (mw *ModelWeights, mc *ModelConfig, err error) {
+	cfgPtr, tied, err := loadModelConfig(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfg := *cfgPtr
+
+	sw, err := open(dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open safetensors: %w", err)
 	}
-	defer sw.Close()
+	defer func() {
+		if cerr := sw.Close(); cerr != nil {
+			mw, mc, err = nil, nil, errors.Join(err, fmt.Errorf("close safetensors: %w", cerr))
+		}
+	}()
 
-	headDim := cfg.HeadDim()
-	qDim := cfg.NumAttentionHeads * headDim
-	kvDim := cfg.NumKeyValueHeads * headDim
-	hidden, inter, vocab := cfg.HiddenSize, cfg.IntermediateSize, cfg.VocabSize
+	hidden, vocab := cfg.HiddenSize, cfg.VocabSize
 
 	// tensor reads the named tensor and checks its element count. A tensor
 	// absent from the checkpoint is an error unless optional is set, in which
@@ -200,28 +375,8 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 
 	layers := make([]LayerWeights, cfg.NumHiddenLayers)
 	for i := range layers {
-		prefix := fmt.Sprintf("model.layers.%d.", i)
-		l := &layers[i]
-		for _, t := range []struct {
-			dst      *[]float32
-			name     string
-			n        int
-			optional bool
-		}{
-			{&l.InputNorm, "input_layernorm.weight", hidden, false},
-			{&l.PostNorm, "post_attention_layernorm.weight", hidden, false},
-			{&l.WQ, "self_attn.q_proj.weight", qDim * hidden, false},
-			{&l.WK, "self_attn.k_proj.weight", kvDim * hidden, false},
-			{&l.WV, "self_attn.v_proj.weight", kvDim * hidden, false},
-			{&l.QBias, "self_attn.q_proj.bias", qDim, true},
-			{&l.KBias, "self_attn.k_proj.bias", kvDim, true},
-			{&l.VBias, "self_attn.v_proj.bias", kvDim, true},
-			{&l.WO, "self_attn.o_proj.weight", hidden * qDim, false},
-			{&l.WGate, "mlp.gate_proj.weight", inter * hidden, false},
-			{&l.WUp, "mlp.up_proj.weight", inter * hidden, false},
-			{&l.WDown, "mlp.down_proj.weight", hidden * inter, false},
-		} {
-			if *t.dst, err = tensor(prefix+t.name, t.n, t.optional); err != nil {
+		for _, t := range layerTensors(&cfg, i, &layers[i]) {
+			if *t.dst, err = tensor(t.name, t.n, t.optional); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -233,6 +388,82 @@ func LoadModel(dir string) (*ModelWeights, *ModelConfig, error) {
 		Norm:        norm,
 		LMHead:      lmHead,
 	}, &cfg, nil
+}
+
+// A layerTensor is a layer's tensor: the field of LayerWeights that holds
+// it, its checkpoint name, its element count, and whether the checkpoint
+// may omit it.
+type layerTensor struct {
+	dst      *[]float32
+	name     string
+	n        int
+	optional bool
+}
+
+// layerTensors lists the tensors of layer i, whose weights l holds, for a
+// model with configuration cfg.
+func layerTensors(cfg *ModelConfig, i int, l *LayerWeights) []layerTensor {
+	headDim := cfg.HeadDim()
+	qDim := cfg.NumAttentionHeads * headDim
+	kvDim := cfg.NumKeyValueHeads * headDim
+	hidden, inter := cfg.HiddenSize, cfg.IntermediateSize
+	p := fmt.Sprintf("model.layers.%d.", i)
+	return []layerTensor{
+		{&l.InputNorm, p + "input_layernorm.weight", hidden, false},
+		{&l.PostNorm, p + "post_attention_layernorm.weight", hidden, false},
+		{&l.WQ, p + "self_attn.q_proj.weight", qDim * hidden, false},
+		{&l.WK, p + "self_attn.k_proj.weight", kvDim * hidden, false},
+		{&l.WV, p + "self_attn.v_proj.weight", kvDim * hidden, false},
+		{&l.QBias, p + "self_attn.q_proj.bias", qDim, true},
+		{&l.KBias, p + "self_attn.k_proj.bias", kvDim, true},
+		{&l.VBias, p + "self_attn.v_proj.bias", kvDim, true},
+		{&l.WO, p + "self_attn.o_proj.weight", hidden * qDim, false},
+		{&l.WGate, p + "mlp.gate_proj.weight", inter * hidden, false},
+		{&l.WUp, p + "mlp.up_proj.weight", inter * hidden, false},
+		{&l.WDown, p + "mlp.down_proj.weight", hidden * inter, false},
+	}
+}
+
+// checkpoint returns w, a model with configuration cfg, as an in-memory
+// safetensors file of dtype tensors, rounded to nearest even. LoadModel
+// reads an F32 checkpoint back as w. An lm_head tied to the embedding
+// table, and absent optional tensors, are left out.
+func (w *ModelWeights) checkpoint(cfg *ModelConfig, dtype safetensors.Dtype) (*safetensors.File, error) {
+	var ts []safetensors.Tensor
+	add := func(name string, v []float32) error {
+		if len(v) == 0 {
+			return nil
+		}
+		data, err := safetensors.EncodeFloat32(dtype, v)
+		if err != nil {
+			return fmt.Errorf("encode %s: %w", name, err)
+		}
+		ts = append(ts, safetensors.Tensor{Name: name, Dtype: dtype, Shape: []int{len(v)}, Data: data})
+		return nil
+	}
+	if err := add("model.embed_tokens.weight", w.EmbedTokens); err != nil {
+		return nil, err
+	}
+	for i := range w.Layers {
+		for _, t := range layerTensors(cfg, i, &w.Layers[i]) {
+			if err := add(t.name, *t.dst); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := add("model.norm.weight", w.Norm); err != nil {
+		return nil, err
+	}
+	if !tiedHead(w) {
+		if err := add("lm_head.weight", w.LMHead); err != nil {
+			return nil, err
+		}
+	}
+	var buf bytes.Buffer
+	if err := safetensors.Write(&buf, ts, nil); err != nil {
+		return nil, err
+	}
+	return safetensors.NewFile(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
 }
 
 // GenerateDeterministicWeights generates initialized weights for self-contained testing.
@@ -315,8 +546,8 @@ func Forward(weights *ModelWeights, cfg *ModelConfig, kv *KVCacheState, tokenID 
 		}
 
 		// Rotary Position Embedding (RoPE)
-		applyRoPE(q, pos, qHeads, headDim, cfg.RopeTheta)
-		applyRoPE(k, pos, kvHeads, headDim, cfg.RopeTheta)
+		applyRoPEScaled(q, pos, qHeads, headDim, cfg.RopeTheta, cfg.RoPEScaling)
+		applyRoPEScaled(k, pos, kvHeads, headDim, cfg.RopeTheta, cfg.RoPEScaling)
 
 		// Store in KV cache
 		if pos < len(kv.K[layerIdx]) {
@@ -421,11 +652,55 @@ func rmsNorm(x, weight []float32, eps float32) []float32 {
 	return out
 }
 
+// ropeInvFreq computes the rotary inverse frequency for dimension pair d in
+// [0, headDim/2). When scaling specifies valid Llama-3 smooth wavelength
+// parameters, it applies the 3-band wavelength scaling; otherwise it returns
+// the unscaled inverse frequency 1 / ropeTheta^(2d/headDim).
+func ropeInvFreq(d, headDim int, ropeTheta float32, scaling *RoPEScalingConfig) float32 {
+	freq := float32(1.0 / math.Pow(float64(ropeTheta), float64(2*d)/float64(headDim)))
+	if !scaling.hasLlama3Params() {
+		return freq
+	}
+	wavelen := float32(2.0*math.Pi) / freq
+	origMax := float32(scaling.OriginalMaxPositionEmbeddings)
+	lowFreqWavelen := origMax / scaling.LowFreqFactor
+	highFreqWavelen := origMax / scaling.HighFreqFactor
+	if wavelen < highFreqWavelen {
+		return freq
+	}
+	if wavelen > lowFreqWavelen {
+		return freq / scaling.Factor
+	}
+	smooth := (origMax/wavelen - scaling.LowFreqFactor) / (scaling.HighFreqFactor - scaling.LowFreqFactor)
+	return (1.0-smooth)*(freq/scaling.Factor) + smooth*freq
+}
+
 func applyRoPE(vec []float32, pos int, numHeads, headDim int, theta float32) {
 	for h := 0; h < numHeads; h++ {
 		headVec := vec[h*headDim : (h+1)*headDim]
 		for i := 0; i < headDim/2; i++ {
 			freq := 1.0 / math.Pow(float64(theta), float64(2*i)/float64(headDim))
+			val := float64(pos) * freq
+			cos := float32(math.Cos(val))
+			sin := float32(math.Sin(val))
+
+			v0 := headVec[i]
+			v1 := headVec[i+headDim/2]
+			headVec[i] = v0*cos - v1*sin
+			headVec[i+headDim/2] = v0*sin + v1*cos
+		}
+	}
+}
+
+func applyRoPEScaled(vec []float32, pos int, numHeads, headDim int, theta float32, scaling *RoPEScalingConfig) {
+	if !scaling.hasLlama3Params() {
+		applyRoPE(vec, pos, numHeads, headDim, theta)
+		return
+	}
+	for h := 0; h < numHeads; h++ {
+		headVec := vec[h*headDim : (h+1)*headDim]
+		for i := 0; i < headDim/2; i++ {
+			freq := float64(ropeInvFreq(i, headDim, theta, scaling))
 			val := float64(pos) * freq
 			cos := float32(math.Cos(val))
 			sin := float32(math.Sin(val))

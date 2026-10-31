@@ -293,11 +293,15 @@ type diffContext struct {
 	adjoints         map[int][]*cudair.Node
 }
 
+func savedActivationName(fwd *cudair.Node) string {
+	return fmt.Sprintf("saved_%d_%s", fwd.ID, fwd.Name)
+}
+
 func (ctx *diffContext) saveActivation(fwd *cudair.Node) *cudair.Node {
 	if saved, ok := ctx.savedActivations[fwd.ID]; ok {
 		return saved
 	}
-	saved := ctx.bwd.AddInput("saved_"+fwd.Name, fwd.Shape, fwd.Type)
+	saved := ctx.bwd.AddInput(savedActivationName(fwd), fwd.Shape, fwd.Type)
 	ctx.savedActivations[fwd.ID] = saved
 	return saved
 }

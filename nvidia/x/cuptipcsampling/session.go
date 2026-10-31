@@ -2,6 +2,7 @@ package cuptipcsampling
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/tmc/lib/nvidia/cupti"
@@ -134,7 +135,8 @@ func (s *samplingSession) finish(sharingComplete bool) (samplingBatch, error) {
 	s.nameMu.Unlock()
 	var lossErr error
 	if s.lossObserved || consumerLoss || batch.remaining != 0 || batch.dropped != 0 || batch.hardwareFull != 0 {
-		lossErr = errors.New("cuptipcsampling: final sampling output has loss or remaining PCs")
+		lossErr = fmt.Errorf("cuptipcsampling: final sampling output has loss or remaining PCs: remaining %d, dropped %d, hardware buffer full %d, earlier read loss %v, consumer loss %v",
+			batch.remaining, batch.dropped, batch.hardwareFull, s.lossObserved, consumerLoss)
 	}
 	s.final, s.finalErr = batch, errors.Join(stopErr, copyErr, lossErr, consumerErr)
 	if s.control.failed && s.finalErr == nil {

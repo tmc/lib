@@ -51,6 +51,20 @@ func TestParseSlurmCgroupPath_Positive(t *testing.T) {
 			wantCgroup: "/job_777/step_interactive/task_1",
 		},
 		{
+			name:       "cgroup v1 hierarchy",
+			path:       "1:devices:/job_123",
+			wantJob:    "123",
+			wantCgroup: "1:devices:/job_123",
+		},
+		{
+			name:       "cgroup v1 controllers",
+			path:       "2:cpu,cpuacct:/job_123/step_0/task_2",
+			wantJob:    "123",
+			wantStep:   "0",
+			wantTask:   "2",
+			wantCgroup: "2:cpu,cpuacct:/job_123/step_0/task_2",
+		},
+		{
 			name:       "job only without step",
 			path:       "/job_999",
 			wantJob:    "999",
@@ -88,8 +102,12 @@ func TestParseSlurmCgroupPath_Negative(t *testing.T) {
 		path string
 	}{
 		{"empty path", ""},
-		{"cgroup v1 hierarchy", "1:devices:/job_123"},
-		{"cgroup v1 controllers", "2:cpu,cpuacct:/job_123"},
+		{"v1 empty controllers", "1::/job_123"},
+		{"v1 repeated controller", "2:cpu,cpu:/job_123"},
+		{"v1 named hierarchy outside profile", "1:name=systemd:/job_123"},
+		{"v1 malformed hierarchy", "+1:devices:/job_123"},
+		{"v1 invalid controller", "1:dev ices:/job_123"},
+		{"v2 unexpected controller", "0:devices:/job_123"},
 		{"missing job segment", "/sys/fs/cgroup/system.slice/sshd.service"},
 		{"empty job id", "/job_/step_0"},
 		{"non-numeric job id", "/job_abc/step_0"},

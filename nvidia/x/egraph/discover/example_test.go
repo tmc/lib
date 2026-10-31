@@ -30,3 +30,27 @@ func ExampleDiscoverSubByteIdiom() {
 	// sm_100a: native_cvt_f16x2_e2m1x2 (1 inst, verified=true)
 	// sm_107f: ptx94_quad_fma_e2m1p4x4 (1 inst, verified=true)
 }
+
+func ExampleRunMCTSDiscovery() {
+	// (x & 0x00FF00FF) | ((y & 0x00FF00FF) << 8)
+	baseline := discover.Program{NumInputs: 2, Insts: []discover.Inst{
+		{Op: discover.OpAnd, Src: [3]discover.Operand{discover.R(0), discover.I(0x00FF00FF)}},
+		{Op: discover.OpAnd, Src: [3]discover.Operand{discover.R(1), discover.I(0x00FF00FF)}},
+		{Op: discover.OpShl, Src: [3]discover.Operand{discover.R(3)}, Imm: 8},
+		{Op: discover.OpOr, Src: [3]discover.Operand{discover.R(2), discover.R(4)}},
+	}}
+	spec := func(in []uint32) uint32 { return in[0]&0x00FF00FF | (in[1]&0x00FF00FF)<<8 }
+	idiom, err := discover.RunMCTSDiscovery("byte_plane", spec, baseline, discover.MCTSConfig{Seed: 1})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%d -> %d insts, %d -> %d cycles, mutants rejected %d/%d\n",
+		idiom.BaselineInsts, idiom.DiscoveredInsts, idiom.BaselineCycles, idiom.DiscoveredCycles,
+		idiom.Mutants.Rejected, idiom.Mutants.Total)
+	fmt.Print(idiom.PTX)
+	fmt.Println(idiom.RuleRHS)
+	// Output:
+	// 4 -> 1 insts, 13 -> 4 cycles, mutants rejected 16/16
+	// prmt.b32 %t0, %in0, %in1, 0x6240;
+	// (prmt_6240 ?a ?b)
+}

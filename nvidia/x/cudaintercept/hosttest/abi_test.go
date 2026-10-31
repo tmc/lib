@@ -71,6 +71,20 @@ func readObserveH(t *testing.T) string {
 	return string(b)
 }
 
+func TestOwnedReplayAPIABI(t *testing.T) {
+	files := make(map[string]string)
+	for _, name := range []string{"registry.h", "replay.h"} {
+		b, err := os.ReadFile("../" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[name] = string(b)
+	}
+	if out, err := compileABI(t, readObserveH(t), files, "-DCUDAINTERCEPT_HAVE_REGISTRY_H", "-DCUDAINTERCEPT_HAVE_REPLAY_H", "-fsyntax-only"); err != nil {
+		t.Fatalf("owned public C ABI assertions: %v\n%s", err, out)
+	}
+}
+
 func TestRecordLayout(t *testing.T) {
 	observe := readObserveH(t)
 	if out, err := compileABI(t, observe, nil, "-fsyntax-only"); err != nil {

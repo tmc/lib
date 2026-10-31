@@ -239,7 +239,9 @@ func digestSnapshot(snap *cudair.Snapshot) [32]byte {
 
 // Forward evaluates g on the CPU and records the activations that the
 // backward pass of res reads. It returns the value of every non-input node,
-// keyed by node name, and the activations to pass to [Backward].
+// keyed by node name, and the activations to pass to [Backward]. Distinct
+// non-input nodes must have distinct names; an ambiguous name returns an
+// error with no values or activation record.
 //
 // The graph g must retain the executable semantics res was derived from;
 // Forward reports [ErrActivationsMismatch] if any node or output differs.
@@ -284,15 +286,9 @@ func Forward(res *BackwardResult, g *cudair.Graph, inputs map[string][]float32) 
 		return nil, nil, fmt.Errorf("%w: forward graph semantics changed after differentiation", ErrActivationsMismatch)
 	}
 
-	valuesByID, err := cudaref.EvaluateSnapshotAll(res.forward, inputs)
+	values, valuesByID, err := evaluateForward(res.forward, inputs)
 	if err != nil {
 		return nil, nil, err
-	}
-	values := make(map[string][]float32, len(res.forward.Nodes()))
-	for _, n := range res.forward.Nodes() {
-		if n.Kind != cudair.KindInput {
-			values[n.Name] = valuesByID[n.ID]
-		}
 	}
 
 	saved := make([]savedActivation, 0, len(res.SavedActivations))
@@ -317,7 +313,9 @@ func Forward(res *BackwardResult, g *cudair.Graph, inputs map[string][]float32) 
 	return values, acts, nil
 }
 
-// EvaluateForward executes the forward graph on CPU and returns all node values (both outputs and intermediate nodes).
+// EvaluateForward executes the forward graph on CPU and returns non-input node
+// values keyed by name, including intermediate nodes. Distinct non-input nodes
+// must have distinct names; an ambiguous name returns an error and a nil map.
 func EvaluateForward(g *cudair.Graph, inputs map[string][]float32) (map[string][]float32, error) {
 	if g == nil {
 		return nil, errors.New("cudaautograd: nil forward graph")
@@ -326,17 +324,34 @@ func EvaluateForward(g *cudair.Graph, inputs map[string][]float32) (map[string][
 	if err != nil {
 		return nil, fmt.Errorf("cudaautograd: forward snapshot failed: %w", err)
 	}
+	values, _, err := evaluateForward(snap, inputs)
+	return values, err
+}
+
+// evaluateForward checks that the name-keyed result can represent every
+// non-input node before evaluating the snapshot. Input names are not projected.
+func evaluateForward(snap *cudair.Snapshot, inputs map[string][]float32) (map[string][]float32, map[int][]float32, error) {
+	names := make(map[string]int, len(snap.Nodes()))
+	for _, n := range snap.Nodes() {
+		if n.Kind == cudair.KindInput {
+			continue
+		}
+		if id, ok := names[n.Name]; ok && id != n.ID {
+			return nil, nil, fmt.Errorf("cudaautograd: forward name %q is shared by nodes %d and %d", n.Name, id, n.ID)
+		}
+		names[n.Name] = n.ID
+	}
 	valuesByID, err := cudaref.EvaluateSnapshotAll(snap, inputs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	values := make(map[string][]float32, len(snap.Nodes()))
+	values := make(map[string][]float32, len(names))
 	for _, n := range snap.Nodes() {
 		if n.Kind != cudair.KindInput {
 			values[n.Name] = valuesByID[n.ID]
 		}
 	}
-	return values, nil
+	return values, valuesByID, nil
 }
 
 // Backward evaluates the backward graph of res on the CPU using activations

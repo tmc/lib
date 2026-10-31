@@ -20,32 +20,38 @@ type historyWire struct {
 }
 
 // WriteHistory writes a version 1 or 2 offline replay corpus. It validates every
-// snapshot and refuses more than 4096 snapshots or 16 MiB of encoded data.
+// snapshot and refuses more than 4096 snapshots or 16 MiB of encoded data
+// before encoding the history, without writing to w.
 // A stateful policy requires a complete history from its initial state;
 // a wrapped evaluator's retained suffix is not necessarily replayable.
 func WriteHistory(w io.Writer, snapshots []Snapshot) error {
 	if w == nil {
 		return errors.New("cudashadow: nil history writer")
 	}
-	if len(snapshots) > maxHistorySnapshots {
-		return errors.New("cudashadow: history capacity exceeded")
-	}
-	version := historyVersion
-	for i, snapshot := range snapshots {
-		if successorSnapshot(snapshot) {
-			version = descriptionHistoryVersion
-		}
-		if err := snapshot.Validate(); err != nil {
-			return fmt.Errorf("cudashadow history snapshot %d: %w", i, err)
-		}
-	}
-	data, err := json.Marshal(historyWire{Version: version, Snapshots: snapshots})
+	version, size, err := checkHistory(snapshots, "cudashadow history snapshot")
 	if err != nil {
 		return err
 	}
-	if len(data) > maxHistoryBytes {
-		return errors.New("cudashadow: history exceeds 16 MiB")
+	buf := bytes.NewBuffer(make([]byte, 0, size))
+	fmt.Fprintf(buf, `{"version":%d,"snapshots":`, version)
+	if snapshots == nil {
+		buf.WriteString("null")
+	} else {
+		enc := json.NewEncoder(buf)
+		buf.WriteByte('[')
+		for i, snapshot := range snapshots {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			if err := enc.Encode(snapshot); err != nil {
+				return err
+			}
+			buf.Truncate(buf.Len() - 1) // newline added by Encode
+		}
+		buf.WriteByte(']')
 	}
+	buf.WriteByte('}')
+	data := buf.Bytes()
 	n, err := w.Write(data)
 	if err != nil {
 		return err
@@ -54,6 +60,50 @@ func WriteHistory(w io.Writer, snapshots []Snapshot) error {
 		return io.ErrShortWrite
 	}
 	return nil
+}
+
+// checkHistory validates snapshots against the history bounds and returns
+// the minimal history version and the exact size of the compact encoding.
+// It refuses more than 4096 snapshots or 16 MiB, encoding one validated,
+// individually bounded snapshot at a time rather than the whole history.
+// Validation errors are prefixed by step and the snapshot index.
+func checkHistory(snapshots []Snapshot, step string) (version, size int, err error) {
+	if len(snapshots) > maxHistorySnapshots {
+		return 0, 0, errors.New("cudashadow: history capacity exceeded")
+	}
+	version = historyVersion
+	for i, snapshot := range snapshots {
+		if successorSnapshot(snapshot) {
+			version = descriptionHistoryVersion
+		}
+		if err := snapshot.Validate(); err != nil {
+			return 0, 0, fmt.Errorf("%s %d: %w", step, i, err)
+		}
+	}
+	if snapshots == nil {
+		return version, len(`{"version":1,"snapshots":null}`), nil
+	}
+	// Brackets, braces and commas; each Encode also adds a newline.
+	size = len(`{"version":1,"snapshots":[]}`) + max(len(snapshots)-1, 0)
+	var n byteCounter
+	enc := json.NewEncoder(&n)
+	for i, snapshot := range snapshots {
+		if err := enc.Encode(snapshot); err != nil {
+			return 0, 0, err
+		}
+		if size+int(n)-(i+1) > maxHistoryBytes {
+			return 0, 0, errors.New("cudashadow: history exceeds 16 MiB")
+		}
+	}
+	return version, size + int(n) - len(snapshots), nil
+}
+
+// A byteCounter is an io.Writer that counts the bytes written to it.
+type byteCounter int64
+
+func (c *byteCounter) Write(p []byte) (int, error) {
+	*c += byteCounter(len(p))
+	return len(p), nil
 }
 
 // ReadHistory reads a bounded version 1 or 2 replay corpus, rejecting unknown

@@ -141,27 +141,27 @@ func TestParseAdviseArgs(t *testing.T) {
 		{
 			name: "plain",
 			args: []string{"go.pprof"},
-			want: adviseOptions{limit: advise.DefaultLimit, phase: -1, skipIterations: 1, capture: "go.pprof"},
+			want: adviseOptions{limit: advise.DefaultLimit, align: advise.AlignCollective, phase: -1, skipIterations: 1, capture: "go.pprof"},
 		},
 		{
 			name: "base and ops as separate values",
 			args: []string{"-base", "c.pprof", "-ops", "ds4.ops", "go.pprof"},
-			want: adviseOptions{limit: advise.DefaultLimit, phase: -1, skipIterations: 1, capture: "go.pprof", base: "c.pprof", ops: "ds4.ops"},
+			want: adviseOptions{limit: advise.DefaultLimit, align: advise.AlignCollective, phase: -1, skipIterations: 1, capture: "go.pprof", base: "c.pprof", ops: "ds4.ops"},
 		},
 		{
 			name: "base, ops and phase with =",
 			args: []string{"--base=c.pprof", "-ops=ds4.ops", "-phase=1", "-e", "--format=json", "go.pprof"},
-			want: adviseOptions{format: "json", limit: 0, phase: 1, skipIterations: 1, capture: "go.pprof", base: "c.pprof", ops: "ds4.ops"},
+			want: adviseOptions{format: "json", limit: 0, align: advise.AlignCollective, phase: 1, skipIterations: 1, capture: "go.pprof", base: "c.pprof", ops: "ds4.ops"},
 		},
 		{
 			name: "limit",
 			args: []string{"-limit", "3", "go.pprof"},
-			want: adviseOptions{limit: 3, phase: -1, skipIterations: 1, capture: "go.pprof"},
+			want: adviseOptions{limit: 3, align: advise.AlignCollective, phase: -1, skipIterations: 1, capture: "go.pprof"},
 		},
 		{
 			name: "iterations",
 			args: []string{"-iteration-marker", "^Embed$", "-nvtx", "-skip-iterations=2", "-expect-markers", "11", "go.pprof"},
-			want: adviseOptions{limit: advise.DefaultLimit, phase: -1, capture: "go.pprof", iterationMarker: "^Embed$", nvtx: true, skipIterations: 2, expectMarkers: 11},
+			want: adviseOptions{limit: advise.DefaultLimit, align: advise.AlignCollective, phase: -1, capture: "go.pprof", iterationMarker: "^Embed$", nvtx: true, skipIterations: 2, expectMarkers: 11},
 		},
 		{name: "skip without marker", args: []string{"-skip-iterations=2", "go.pprof"}, wantErr: "need -iteration-marker"},
 		{name: "negative skip", args: []string{"-iteration-marker=x", "-skip-iterations=-1", "go.pprof"}, wantErr: "invalid -skip-iterations -1"},
@@ -170,7 +170,19 @@ func TestParseAdviseArgs(t *testing.T) {
 		{name: "base without value", args: []string{"go.pprof", "-base"}, wantErr: "flag -base requires an argument"},
 		{name: "bad phase", args: []string{"-base", "c.pprof", "-phase", "x", "go.pprof"}, wantErr: "invalid -phase value: x"},
 		{name: "no capture", args: []string{"-base", "c.pprof"}, wantErr: "usage: cudaprof advise"},
-		{name: "two captures", args: []string{"a.pprof", "b.pprof"}, wantErr: "multiple capture files"},
+		{
+			name: "ranks",
+			args: []string{"-align=clock", "r0.pprof", "r1.pprof", "r2.pprof"},
+			want: adviseOptions{limit: advise.DefaultLimit, align: advise.AlignClock, phase: -1, skipIterations: 1, capture: "r0.pprof", ranks: []string{"r1.pprof", "r2.pprof"}},
+		},
+		{
+			name: "target",
+			args: []string{"-target", "gb300", "go.pprof"},
+			want: adviseOptions{limit: advise.DefaultLimit, align: advise.AlignCollective, phase: -1, skipIterations: 1, capture: "go.pprof", target: "gb300"},
+		},
+		{name: "ranks with base", args: []string{"-base", "c.pprof", "a.pprof", "b.pprof"}, wantErr: "take one capture"},
+		{name: "ranks with target", args: []string{"-target", "gb300", "a.pprof", "b.pprof"}, wantErr: "take one capture"},
+		{name: "bad align", args: []string{"-align", "best", "a.pprof", "b.pprof"}, wantErr: "invalid -align"},
 		{name: "unknown", args: []string{"-bogus", "go.pprof"}, wantErr: "unknown flag: -bogus"},
 	}
 	for _, tt := range tests {
@@ -185,7 +197,7 @@ func TestParseAdviseArgs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got != tt.want {
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("options = %+v, want %+v", got, tt.want)
 			}
 		})

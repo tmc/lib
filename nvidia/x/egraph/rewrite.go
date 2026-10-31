@@ -6,6 +6,8 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
+	"time"
 
 	"github.com/tmc/lib/egraphcore"
 )
@@ -231,26 +233,33 @@ func (r *Rewrite) Apply(g *EGraph) int {
 // before mutating g. If the budget is exhausted, it returns
 // ErrMatchWorkLimit without applying any matches.
 func (r *Rewrite) ApplyWithBudget(g *EGraph, budget *egraphcore.WorkBudget) (int, error) {
-	merges, _, _, err := r.applyWithBudget(g, budget)
-	return merges, err
+	a, err := r.applyWithBudget(g, budget)
+	return a.merges, err
 }
 
-func (r *Rewrite) applyWithBudget(g *EGraph, budget *egraphcore.WorkBudget) (int, int, int, error) {
-	return r.applyWithSearchState(g, budget, nil, 0, true)
+func (r *Rewrite) applyWithBudget(g *EGraph, budget *egraphcore.WorkBudget) (ruleApply, error) {
+	return r.applyWithSearchState(g, budget, nil, 0, 0, true)
 }
 
-func (r *Rewrite) applyWithSearchState(g *EGraph, budget *egraphcore.WorkBudget, searchState *RewriteSearchState, maxNodes int, outerTransaction bool) (int, int, int, error) {
+// A ruleApply counts one rule application: the matches its search found,
+// the matches it applied after any match cap, and the changes they made.
+type ruleApply struct {
+	found, applied                    int
+	merges, factChanges, subsumptions int
+}
+
+func (r *Rewrite) applyWithSearchState(g *EGraph, budget *egraphcore.WorkBudget, searchState *RewriteSearchState, maxNodes, maxMatches int, outerTransaction bool) (ruleApply, error) {
 	if err := validateRewrite(r); err != nil {
-		return 0, 0, 0, err
+		return ruleApply{}, err
 	}
 	if g == nil || budget == nil {
-		return 0, 0, 0, fmt.Errorf("egraph: nil graph or work budget")
+		return ruleApply{}, fmt.Errorf("egraph: nil graph or work budget")
 	}
 	// Apply has no typed proof state.  Hardware-sensitive rules must go
 	// through SearchState.ApplyAction, where their operand contracts are
 	// checked, so the legacy entry point always fails closed.
 	if isMandatoryRule(r.Name) || isMandatoryRewrite(r) {
-		return 0, 0, 0, nil
+		return ruleApply{}, nil
 	}
 	var err error
 	var matches []MatchMatch
@@ -260,32 +269,36 @@ func (r *Rewrite) applyWithSearchState(g *EGraph, budget *egraphcore.WorkBudget,
 		matches, err = r.SearchWithDelta(g, searchState, budget)
 	}
 	if err != nil {
-		return 0, 0, 0, err
+		return ruleApply{}, err
+	}
+	found := len(matches)
+	if maxMatches > 0 && len(matches) > maxMatches {
+		matches = matches[:maxMatches]
 	}
 	rhsWork := 0
 	if r.RHS != nil {
 		rhsWork, err = patternWork(r.RHS)
 		if err != nil {
-			return 0, 0, 0, fmt.Errorf("egraph: rewrite %q rhs: %w", r.Name, err)
+			return ruleApply{}, fmt.Errorf("egraph: rewrite %q rhs: %w", r.Name, err)
 		}
 	}
 	applyWork := rhsWork
 	if maxNodes > 0 {
 		if applyWork > math.MaxInt-applyWork {
-			return 0, 0, 0, fmt.Errorf("egraph: rewrite %q rhs work count overflow", r.Name)
+			return ruleApply{}, fmt.Errorf("egraph: rewrite %q rhs work count overflow", r.Name)
 		}
 		applyWork += applyWork
 	}
 	resolved, err := resolveFactActions(g, r, matches, budget)
 	if err != nil {
-		return 0, 0, 0, err
+		return ruleApply{}, err
 	}
 	if len(resolved) != 0 {
 		staged := g
 		if outerTransaction {
 			_, cloneWork := g.Size()
 			if !budget.TrySpend(cloneWork) {
-				return 0, 0, 0, ErrMatchWorkLimit
+				return ruleApply{}, ErrMatchWorkLimit
 			}
 			staged = g.Clone()
 		}
@@ -302,36 +315,36 @@ func (r *Rewrite) applyWithSearchState(g *EGraph, budget *egraphcore.WorkBudget,
 				true,
 			)
 			if errors.Is(err, egraphcore.ErrRewriteWorkBudget) {
-				return 0, 0, 0, ErrMatchWorkLimit
+				return ruleApply{}, ErrMatchWorkLimit
 			}
 			if err != nil {
-				return 0, 0, 0, fmt.Errorf("egraph: rewrite %q apply: %w", r.Name, err)
+				return ruleApply{}, fmt.Errorf("egraph: rewrite %q apply: %w", r.Name, err)
 			}
 			merges = report.Merges
 		}
 		factChanges, err := staged.Facts().ApplyActions(resolved, staged.Find, budget)
 		if err != nil {
 			if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
-				return 0, 0, 0, ErrMatchWorkLimit
+				return ruleApply{}, ErrMatchWorkLimit
 			}
-			return 0, 0, 0, err
+			return ruleApply{}, err
 		}
 		subsumptions, err := subsumeMatchedNodes(staged, r, matches, budget)
 		if err != nil {
-			return 0, 0, 0, err
+			return ruleApply{}, err
 		}
 		if outerTransaction {
 			facts := g.Facts()
 			if err := facts.ReplaceFrom(staged.Facts(), budget); err != nil {
 				if errors.Is(err, egraphcore.ErrMatchWorkLimit) {
-					return 0, 0, 0, ErrMatchWorkLimit
+					return ruleApply{}, ErrMatchWorkLimit
 				}
-				return 0, 0, 0, err
+				return ruleApply{}, err
 			}
 			staged.facts = facts
 			*g = *staged
 		}
-		return merges, factChanges, subsumptions, nil
+		return ruleApply{found, len(matches), merges, factChanges, subsumptions}, nil
 	}
 
 	merges := 0
@@ -340,7 +353,7 @@ func (r *Rewrite) applyWithSearchState(g *EGraph, budget *egraphcore.WorkBudget,
 		if outerTransaction {
 			_, cloneWork := g.Size()
 			if !budget.TrySpend(cloneWork) {
-				return 0, 0, 0, ErrMatchWorkLimit
+				return ruleApply{}, ErrMatchWorkLimit
 			}
 			staged = g.Clone()
 		}
@@ -355,22 +368,22 @@ func (r *Rewrite) applyWithSearchState(g *EGraph, budget *egraphcore.WorkBudget,
 			true,
 		)
 		if errors.Is(err, egraphcore.ErrRewriteWorkBudget) {
-			return 0, 0, 0, ErrMatchWorkLimit
+			return ruleApply{}, ErrMatchWorkLimit
 		}
 		if err != nil {
-			return 0, 0, 0, fmt.Errorf("egraph: rewrite %q apply: %w", r.Name, err)
+			return ruleApply{}, fmt.Errorf("egraph: rewrite %q apply: %w", r.Name, err)
 		}
 		merges = report.Merges
 		subsumptions, err := subsumeMatchedNodes(staged, r, matches, budget)
 		if err != nil {
-			return 0, 0, 0, err
+			return ruleApply{}, err
 		}
 		if outerTransaction {
 			*g = *staged
 		}
-		return merges, 0, subsumptions, nil
+		return ruleApply{found, len(matches), merges, 0, subsumptions}, nil
 	}
-	return merges, 0, 0, nil
+	return ruleApply{found, len(matches), merges, 0, 0}, nil
 }
 
 func resolveFactActions(g *EGraph, r *Rewrite, matches []MatchMatch, budget *egraphcore.WorkBudget) ([]egraphcore.ResolvedFactAction[Id], error) {
@@ -1034,11 +1047,20 @@ const defaultSaturationTuples = 10_000_000
 // SaturateScheduleWithReport, MaxIterations caps Run-group callback
 // invocations; SaturateWithReport uses a single Run group inside a fixed-point
 // schedule, so the same limit counts fixed-point passes.
+//
+// MaxDuration, if positive, stops saturation before the first run group that
+// would start after it has elapsed. RuleMatches caps, by rule name, the total
+// matches a rule may apply across all passes, counting a match again each
+// time a search finds it. Once a rule reaches its cap it is skipped, and a
+// saturation that otherwise completes reports SaturationRuleMatchLimit, since
+// the capped rule may still have unapplied matches.
 type SaturationOptions struct {
 	MaxIterations int
 	MaxNodes      int
 	MaxMatchWork  int
 	MaxTuples     int
+	MaxDuration   time.Duration
+	RuleMatches   map[string]int
 }
 
 type SaturationStopReason = egraphcore.SaturationStopReason
@@ -1050,10 +1072,15 @@ const (
 	SaturationNodeLimit      = egraphcore.SaturationNodeLimit
 	SaturationTupleLimit     = egraphcore.SaturationTupleLimit
 	SaturationScheduleDone   = egraphcore.SaturationScheduleDone
+	SaturationTimeLimit      = egraphcore.SaturationTimeLimit
+	SaturationRuleMatchLimit = egraphcore.SaturationRuleMatchLimit
 )
 
 // SaturationResult reports pass invocations, successful class merges, work,
-// the graph's committed node count, and why saturation stopped.
+// the graph's committed node count, per-rule statistics, and why saturation
+// stopped. Phases times each run group (ruleset). When a limit stopped
+// saturation, StopRun names the run group and StopRule the rule that reached
+// it, if one did.
 type SaturationResult struct {
 	Iterations   int
 	Merges       int
@@ -1063,7 +1090,40 @@ type SaturationResult struct {
 	Nodes        int
 	Tuples       int
 	Phases       []egraphcore.ScheduleRunReport
+	Rules        []RuleStats
 	StopReason   SaturationStopReason
+	StopRun      string
+	StopRule     string
+}
+
+// RuleStats reports one rule's work in one named run group, summed over
+// the group's runs, in order of first run.
+// Calls, Duration and Found include applications in discarded passes;
+// Applied and Merges count only committed ones. Found and Applied count a
+// match each time a search finds it, even if applying it changes nothing. Capped reports that the
+// rule reached its SaturationOptions.RuleMatches cap.
+type RuleStats struct {
+	Run      string
+	Name     string
+	Calls    int
+	Found    int
+	Applied  int
+	Merges   int
+	Duration time.Duration
+	Capped   bool
+}
+
+// stop describes why saturation stopped, naming the run and rule that
+// reached a limit.
+func (r SaturationResult) stop() string {
+	s := r.StopReason.String()
+	if r.StopRule != "" {
+		s += " at rule " + strconv.Quote(r.StopRule)
+	}
+	if r.StopRun != "" {
+		s += " in " + r.StopRun
+	}
+	return s
 }
 
 // SaturateWithReport repeatedly applies rules until they make no changes or a
@@ -1088,7 +1148,7 @@ func SaturateChecked(g *EGraph, rules []*Rewrite, opts SaturationOptions) (Satur
 		return result, err
 	}
 	if result.StopReason != SaturationFixedPoint {
-		return result, fmt.Errorf("egraph: saturation stopped before fixed point: %d", result.StopReason)
+		return result, fmt.Errorf("egraph: saturation stopped before fixed point: %s", result.stop())
 	}
 	return result, nil
 }

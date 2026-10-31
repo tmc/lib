@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -33,9 +34,22 @@ func (c *delayedWait) Done() <-chan struct{} {
 
 func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	dev := cudatest.Require(t)
-	defer dev.Close()
+	// undrained is set when the timer's stream does not drain; the
+	// buffers and device below are then kept, since its work may use them.
+	var undrained bool
+	defer func() {
+		if undrained {
+			return
+		}
+		if err := dev.Close(); err != nil {
+			t.Errorf("close device: %v", err)
+		}
+	}()
 	src, err := cudamem.Alloc[byte](dev, 1<<20)
 	defer func() {
+		if undrained {
+			return
+		}
 		if err := src.Free(); err != nil {
 			t.Error(err)
 		}
@@ -45,6 +59,9 @@ func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	}
 	dst, err := cudamem.Alloc[byte](dev, 1<<20)
 	defer func() {
+		if undrained {
+			return
+		}
 		if err := dst.Free(); err != nil {
 			t.Error(err)
 		}
@@ -52,11 +69,20 @@ func TestStepTimerExcludesPostEnqueueHostDelay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// newStepTimer can return a timer it could not release along with its
+	// error; close it on every path.
 	timer, err := newStepTimer(dev, nil, nil, "probe")
+	if timer != nil {
+		defer func() {
+			if err := timer.close(); err != nil {
+				t.Errorf("close step timer: %v", err)
+				undrained = errors.Is(err, errUndrained)
+			}
+		}()
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer timer.close()
 	ctx := &delayedWait{Context: context.Background()}
 	if err := timer.measure(ctx, "copy", nil, func(s *cuda.Stream) error {
 		return dst.CopyDeviceToDeviceAsync(src, s)
@@ -115,7 +141,9 @@ func TestPinnedProfileTokenParity(t *testing.T) {
 		}
 		h := sha256.New()
 		_, err = io.Copy(h, f)
-		f.Close()
+		if cerr := f.Close(); cerr != nil {
+			t.Errorf("close %s: %v", name, cerr)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,11 +152,20 @@ func TestPinnedProfileTokenParity(t *testing.T) {
 		}
 	}
 	dev := cudatest.Require(t)
-	defer dev.Close()
-	w, cfg, err := LoadModel(dir)
+	defer func() {
+		if err := dev.Close(); err != nil {
+			t.Errorf("close device: %v", err)
+		}
+	}()
+	ck, cfg, tied, err := openCheckpoint(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := ck.Close(); err != nil {
+			t.Errorf("close checkpoint: %v", err)
+		}
+	}()
 	tok, err := LoadHFTokenizer(filepath.Join(dir, "tokenizer.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +186,7 @@ func TestPinnedProfileTokenParity(t *testing.T) {
 			session = cudaprof.NewSession(&profile)
 		}
 		err := dev.WithContext(func() error {
-			return runGPUInference(dev, w, cfg, r, []int32{1, 450, 7483, 310, 3444, 338}, major, minor, nil, session)
+			return runGPUInference(dev, ck, nil, cfg, tied, r, []int32{1, 450, 7483, 310, 3444, 338}, major, minor, nil, session)
 		})
 		if session != nil {
 			if closeErr := session.Close(); closeErr != nil {

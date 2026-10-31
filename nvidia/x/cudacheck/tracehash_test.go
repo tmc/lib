@@ -86,20 +86,21 @@ func TestTraceHash_CPUFoldGoldenAndOneULP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	results := map[string][]float32{
-		"h":   {0.5, -1, 6, 4, 5, 3, -14, 2},
-		"act": {0.5, 0, 6, 4, 5, 3, 0, 2},
+	results := map[int][]float32{
+		2: {0.5, -1, 6, 4, 5, 3, -14, 2},
+		3: {0.5, 0, 6, 4, 5, 3, 0, 2},
 	}
+	byName := map[string][]float32{"h": results[2], "act": results[3]}
 	replay := NewAccumulator()
 	for _, fold := range buildTraceFoldPlan(snap) {
-		replay.FoldFloat32Named(fold.Node, results[fold.Node][fold.Element])
+		replay.FoldFloat32Named(fold.Node, byName[fold.Node][fold.Element])
 	}
 	if replay.Hash() != acc.Hash() {
 		t.Fatalf("synthesized fold-plan replay = 0x%016x, CPU = 0x%016x", replay.Hash(), acc.Hash())
 	}
-	changed := append([]float32(nil), results["h"]...)
+	changed := append([]float32(nil), results[2]...)
 	changed[3] = math.Float32frombits(math.Float32bits(changed[3]) + 1)
-	mutated := map[string][]float32{"h": changed, "act": results["act"]}
+	mutated := map[int][]float32{2: changed, 3: results[3]}
 	base := foldGraphResults(snap, results, PolicyRawBits, true)
 	other := foldGraphResults(snap, mutated, PolicyRawBits, true)
 	if base.Hash() == other.Hash() {
@@ -130,7 +131,7 @@ func TestSynthesizedFoldPlanAndArgumentLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	args := kernelArgumentLayout(snap)
-	wantArgs := []kernelArgument{{Name: "A"}, {Name: "B"}, {Name: "adjusted", Output: true}, {Name: "negative", Output: true}}
+	wantArgs := []kernelArgument{{Name: "A", Symbol: "in_n0"}, {Name: "B", Symbol: "in_n1"}, {Name: "adjusted", Output: true, Symbol: "out_0"}, {Name: "negative", Output: true, Symbol: "out_1"}}
 	if !reflect.DeepEqual(args, wantArgs) {
 		t.Fatalf("argument layout = %#v, want %#v", args, wantArgs)
 	}
@@ -147,7 +148,7 @@ func TestSynthesizedFoldPlanAndArgumentLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"const float constant_C[] = {0.100000001f, -0.200000003f};", "out_adjusted", "out_negative", "trace_ordered_float(var_C, 0U + (unsigned int)idx, trace_fold_limit)", "trace_ordered_float(var_difference, 2U + (unsigned int)idx, trace_fold_limit)"} {
+	for _, want := range []string{"const float constant_n2[] = {0.100000001f, -0.200000003f};", "out_0", "out_1", "trace_ordered_float(var_n2, 0U + (unsigned int)idx, trace_fold_limit)", "trace_ordered_float(var_n3, 2U + (unsigned int)idx, trace_fold_limit)"} {
 		if !strings.Contains(source, want) {
 			t.Errorf("synthesized source missing %q", want)
 		}
@@ -207,7 +208,7 @@ func TestSynthesizeVectorConstantKeepsIntegerFloatSyntax(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(source, "const float constant_integer_vector[] = {1.0f, 0.0f, -0.0f};") {
+	if !strings.Contains(source, "const float constant_n0[] = {1.0f, 0.0f, -0.0f};") {
 		t.Fatalf("integer-valued vector elements are not valid floating literals:\n%s", source)
 	}
 }

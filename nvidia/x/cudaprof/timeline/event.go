@@ -55,6 +55,7 @@ func JournalEvents(cap *cudacapture.Capture) (events []Event, graphsOpaque bool,
 			GraphID:     a.GraphID,
 			Grid:        a.Grid,
 			Block:       a.Block,
+			CopyKind:    a.CopyKind,
 		})
 	}
 	return events, graphsOpaque, nil
@@ -138,6 +139,10 @@ type Event struct {
 	Buffer  string
 	Grid    [3]int
 	Block   [3]int
+
+	// CopyKind is a memcpy's cupti.ActivityMemcpyKind, which says whether
+	// it crossed to a peer device; zero when the record does not say.
+	CopyKind uint8
 }
 
 // An APICall is a host driver or runtime API call. Its timestamps describe the
@@ -339,6 +344,11 @@ func Events(cap *cudacapture.Capture) (map[uint32][]Event, bool) {
 				buffer = s.Label["buffer"][0]
 			}
 
+			var copyKind uint8
+			if len(s.NumLabel["copy_kind"]) > 0 {
+				copyKind = uint8(s.NumLabel["copy_kind"][0])
+			}
+
 			var grid, block [3]int
 			if len(s.Label["grid"]) > 0 {
 				grid = parseDim3(s.Label["grid"][0])
@@ -361,6 +371,7 @@ func Events(cap *cudacapture.Capture) (map[uint32][]Event, bool) {
 					Buffer:      buffer,
 					Grid:        grid,
 					Block:       block,
+					CopyKind:    copyKind,
 				})
 			}
 		}
@@ -464,6 +475,9 @@ func parseStreamEventsFromJSON(data []byte) []Event {
 		}
 		if g, ok := m["graph_id"].(float64); ok && g > 0 {
 			ev.GraphID = uint32(g)
+		}
+		if k, ok := m["copy_kind"].(float64); ok && k > 0 {
+			ev.CopyKind = uint8(k)
 		}
 		if d, ok := m["duration"].(float64); ok && d > 0 {
 			ev.DurationNs = uint64(d)

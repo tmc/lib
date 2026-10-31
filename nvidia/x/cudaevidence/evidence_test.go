@@ -255,9 +255,9 @@ func TestEvidenceIdentityValidation(t *testing.T) {
 	}
 }
 
-// TestOccupancyAndPressureRemainClassified checks that derived occupancy and
+// TestOccupancyAndPressureRecordsRemainClassified checks that derived occupancy and
 // modeled register-pressure records cannot claim measured status.
-func TestOccupancyAndPressureRemainClassified(t *testing.T) {
+func TestOccupancyAndPressureRecordsRemainClassified(t *testing.T) {
 	// An occupancy record classified as derived retains that classification.
 	occRecord := record(cudaevidence.Derived)
 	occRecord.Unit = "ratio"

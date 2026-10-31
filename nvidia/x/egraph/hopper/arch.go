@@ -568,6 +568,13 @@ func describePlanKernel(k PlanKernel) (name, op, sched string) {
 		if g.BlackwellFP4 {
 			parts = append(parts, "blackwell_fp4")
 		}
+	case k.MMA != nil:
+		g := k.MMA
+		name, op = g.Name, "skinny_mma"
+		parts = append(parts, fmt.Sprintf("tiles=%dx%d", g.Warps, g.Tiles), fmt.Sprintf("split=%d", g.SplitK))
+		if g.GLU {
+			parts = append(parts, "glu")
+		}
 	case k.Tile != nil:
 		t := k.Tile
 		name, op = t.Name, "tile_gemm"

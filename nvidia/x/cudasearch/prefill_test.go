@@ -89,7 +89,7 @@ func TestPrefillExecutionFailures(t *testing.T) {
 				if len(calls) != failureAt+1 {
 					t.Fatal("submitted after failure")
 				}
-			} else if err != nil || !r.Complete || r.SummedKernel != 500000 || x.closed {
+			} else if err != nil || !r.Complete || r.Timings[cudatrial.TimingCUDAEvent] != 500000 || r.HasTiming(cudatrial.TimingSummedKernel) || x.closed {
 				t.Fatalf("receipt=%+v err=%v", r, err)
 			}
 		})

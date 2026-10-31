@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 
 	"github.com/tmc/lib/nvidia/x/cudaprof/tracecontract"
 	"github.com/tmc/lib/nvidia/x/cudaworkload"
@@ -73,7 +74,13 @@ type ServingSummary struct {
 	Movement      *MovementSummary                  `json:"movement,omitempty"`
 	Aggregate     []nvtelemetry.WorkloadDelta       `json:"aggregate"`
 	AggregateRaw  []string                          `json:"aggregate_raw_sha256"`
-	Limits        []string                          `json:"limits"`
+	// AggregateSource retains the before-export's supplied context after the
+	// endpoint identities have passed window validation. It is separate from
+	// Source, which identifies the application serving context. Nil means no
+	// aggregate window; a nil Rank remains unknown, not rank zero. Neither
+	// the source nor its rank is authenticated by this report.
+	AggregateSource *nvtelemetry.WorkloadSource `json:"aggregate_source,omitempty"`
+	Limits          []string                    `json:"limits"`
 }
 
 // SummarizeServing reads a version 2 serving context, summarizes its
@@ -121,6 +128,13 @@ func SummarizeServing(ctx context.Context, in ServingInput) (ServingSummary, err
 		}
 		out.Aggregate = deltas
 		out.AggregateRaw = []string{in.Before.RawSHA256, in.After.RawSHA256}
+		source := in.Before.Source
+		if source.Rank != nil {
+			rank := *source.Rank
+			source.Rank = &rank
+		}
+		source.Units = maps.Clone(source.Units)
+		out.AggregateSource = &source
 	}
 	out.Limits = []string{
 		"application-supplied serving context; producer authenticity unverified and not a provider request-log import",

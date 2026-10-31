@@ -16,9 +16,10 @@ import (
 const (
 	Header     = "cudahostemu.h" // the emulator
 	SGLangMock = "sgl_mock.h"    // SGLang and tvm-ffi host mock; includes Header
+	UMMA       = "umma.h"        // tcgen05 descriptor-level MMA and TMEM; include after Header
 )
 
-//go:embed cudahostemu.h sgl_mock.h
+//go:embed cudahostemu.h sgl_mock.h umma.h
 var headers embed.FS
 
 // Source returns the text of the named header.
@@ -28,7 +29,7 @@ func Source(name string) ([]byte, error) {
 
 // WriteHeaders writes every header into dir, which must exist.
 func WriteHeaders(dir string) error {
-	for _, name := range []string{Header, SGLangMock} {
+	for _, name := range []string{Header, SGLangMock, UMMA} {
 		b, err := headers.ReadFile(name)
 		if err != nil {
 			return err

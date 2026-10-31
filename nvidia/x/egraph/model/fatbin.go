@@ -3,6 +3,8 @@ package model
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 )
 
 // ArchFamily identifies a Hopper or Blackwell hardware capability family.
@@ -69,6 +71,39 @@ type ArchTargetSpec struct {
 // capability (major, minor). Supported capabilities are (9,0), (10,0), (10,3),
 // (10,7), (12,0), and (12,1).
 func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
+	spec, err := handSpec(major, minor)
+	if err != nil {
+		return ArchTargetSpec{}, err
+	}
+	if t, ok := cudadevicetable.LookupTarget(spec.Target); ok {
+		for _, f := range specFeatures {
+			v, err := t.Supports(f.name)
+			if err != nil {
+				return ArchTargetSpec{}, fmt.Errorf("classify compute capability %d.%d: %w", major, minor, err)
+			}
+			f.set(&spec, v)
+		}
+	}
+	return spec, nil
+}
+
+// specFeatures maps the capability flags of an [ArchTargetSpec] to the
+// cudadevicetable feature probe that answers each. Tensor Memory is
+// addressable only through tcgen05, so tcgen05 answers both.
+var specFeatures = []struct {
+	name string
+	set  func(*ArchTargetSpec, bool)
+}{
+	{"wgmma", func(s *ArchTargetSpec, v bool) { s.HasWGMMA = v }},
+	{"tcgen05", func(s *ArchTargetSpec, v bool) { s.HasTCGen05, s.HasTMEM = v, v }},
+	{"tma", func(s *ArchTargetSpec, v bool) { s.HasTMA = v }},
+	{"mmasyncmxf4", func(s *ArchTargetSpec, v bool) { s.HasWarpBlockScaledMMA = v }},
+}
+
+// handSpec returns the hand-entered part of the spec for major.minor. The
+// flags the ptxas feature probe answers are left false for every target
+// the probe covers; sm_107a, which it does not, keeps hand-entered ones.
+func handSpec(major, minor int) (ArchTargetSpec, error) {
 	switch {
 	case major == 9 && minor == 0:
 		return ArchTargetSpec{
@@ -77,8 +112,6 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 			Target:         "sm_90a",
 			FamilyTarget:   "sm_90a",
 			Family:         FamilyHopperSM90,
-			HasWGMMA:       true,
-			HasTMA:         true,
 			MMAInstruction: "wgmma.mma_async",
 		}, nil
 	case major == 10 && minor == 0:
@@ -88,10 +121,7 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 			Target:         "sm_100a",
 			FamilyTarget:   "sm_100f",
 			Family:         FamilyBlackwellDC_SM100,
-			HasTCGen05:     true,
-			HasTMEM:        true,
 			HasCLC:         true,
-			HasTMA:         true,
 			MMAInstruction: "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale",
 		}, nil
 	case major == 10 && minor == 3:
@@ -101,10 +131,7 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 			Target:         "sm_103a",
 			FamilyTarget:   "sm_103f",
 			Family:         FamilyBlackwellUltra_SM103,
-			HasTCGen05:     true,
-			HasTMEM:        true,
 			HasCLC:         true,
-			HasTMA:         true,
 			HasScaleVec4X:  true,
 			MMAInstruction: "tcgen05.mma.cta_group::1.kind::mxf4nvf4.block_scale.scale_vec::4X",
 		}, nil
@@ -124,27 +151,23 @@ func ClassifyComputeCapability(major, minor int) (ArchTargetSpec, error) {
 		}, nil
 	case major == 12 && minor == 0:
 		return ArchTargetSpec{
-			ComputeMajor:          12,
-			ComputeMinor:          0,
-			Target:                "sm_120a",
-			FamilyTarget:          "sm_120f",
-			Family:                FamilyBlackwellEdge_SM120,
-			HasCLC:                true,
-			HasTMA:                true,
-			HasWarpBlockScaledMMA: true,
-			MMAInstruction:        "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
+			ComputeMajor:   12,
+			ComputeMinor:   0,
+			Target:         "sm_120a",
+			FamilyTarget:   "sm_120f",
+			Family:         FamilyBlackwellEdge_SM120,
+			HasCLC:         true,
+			MMAInstruction: "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
 		}, nil
 	case major == 12 && minor == 1:
 		return ArchTargetSpec{
-			ComputeMajor:          12,
-			ComputeMinor:          1,
-			Target:                "sm_121a",
-			FamilyTarget:          "sm_120f",
-			Family:                FamilyBlackwellEdge_SM120,
-			HasCLC:                true,
-			HasTMA:                true,
-			HasWarpBlockScaledMMA: true,
-			MMAInstruction:        "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
+			ComputeMajor:   12,
+			ComputeMinor:   1,
+			Target:         "sm_121a",
+			FamilyTarget:   "sm_120f",
+			Family:         FamilyBlackwellEdge_SM120,
+			HasCLC:         true,
+			MMAInstruction: "mma.sync.aligned.m16n8k64.row.col.kind::mxf4nvf4.block_scale",
 		}, nil
 	default:
 		return ArchTargetSpec{}, fmt.Errorf("classify compute capability: unsupported compute capability %d.%d", major, minor)
@@ -236,32 +259,26 @@ func (b *MultiArchBundle) NVCCFlags() [][]string {
 }
 
 func estimateTargetLatencyUs(cfg ArchConfig, spec ArchTargetSpec) float64 {
-	var bwGBps, peakTFLOPS float64
+	var peakTFLOPS float64
 	switch spec.Family {
 	case FamilyRubin_SM107:
-		bwGBps = 22000.0
 		peakTFLOPS = 25000.0
 	case FamilyBlackwellUltra_SM103:
-		bwGBps = 12000.0
 		peakTFLOPS = 4500.0
 	case FamilyBlackwellDC_SM100:
-		bwGBps = 8000.0
 		peakTFLOPS = 2250.0
 	case FamilyHopperSM90:
-		bwGBps = 4800.0
 		peakTFLOPS = 989.0
 	case FamilyBlackwellEdge_SM120:
 		if spec.ComputeMinor == 1 {
-			bwGBps = 273.0
 			peakTFLOPS = 500.0
 		} else {
-			bwGBps = 1792.0
 			peakTFLOPS = 1600.0
 		}
 	default:
-		bwGBps = 4800.0
 		peakTFLOPS = 989.0
 	}
+	bwGBps := targetMemoryGBps(spec)
 	breakdown, err := EstimateLayerCost(cfg, 1, 1024, "NVIDIA H200")
 	if err != nil || breakdown.TotalBytes == 0 {
 		return 10.0
@@ -272,6 +289,21 @@ func estimateTargetLatencyUs(cfg ArchConfig, spec ArchTargetSpec) float64 {
 		return compUs + 2.0
 	}
 	return memUs + 2.0
+}
+
+// targetMemoryGBps returns the device memory bandwidth of the first product
+// cudadevicetable lists for spec's architecture, such as the H200 for
+// sm_90a. Rubin has no profile, and an unknown architecture is costed as
+// an H200.
+func targetMemoryGBps(spec ArchTargetSpec) float64 {
+	if spec.Family == FamilyRubin_SM107 {
+		return 22000.0
+	}
+	p, err := cudadevicetable.LookupProfile(fmt.Sprintf("sm_%d%da", spec.ComputeMajor, spec.ComputeMinor))
+	if err != nil {
+		return 4800.0
+	}
+	return float64(p.MemoryGBps.Value)
 }
 
 func emitTargetUnitCUDA(layerName string, cfg ArchConfig, spec ArchTargetSpec) (entry string, src string) {

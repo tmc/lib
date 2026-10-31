@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 
 	"github.com/tmc/lib/nvidia/x/cudamtp"
 )
@@ -56,7 +57,13 @@ type BatchDraftProducer struct {
 	Engine DraftLogitsEngine
 	Wait   func(*BatchDraftStep) error
 	Done   func(*BatchDraftStep) bool
-	Owner  io.Closer
+	// Owner, when non-nil, must have a comparable Go value. Equal Owner and
+	// error-closer values identify the same cleanup owner and are closed once;
+	// distinct values must own distinct cleanup obligations. A pointer to an
+	// owner supports this identity even when its fields are not comparable.
+	// A noncomparable Owner is refused before ProduceDraftLogits is called,
+	// leaving its ownership with the caller.
+	Owner io.Closer
 }
 
 func validDraftProducer(p *BatchDraftProducer) bool {
@@ -89,6 +96,9 @@ func executeBatchDrafts(ctx context.Context, req BatchCycleRequest, key Speculat
 	}
 
 	p := req.DraftProducer
+	if p.Owner != nil && !reflect.ValueOf(p.Owner).Comparable() {
+		return nil, nil, errors.New("cudaspec: configured draft owner has noncomparable identity")
+	}
 	step := &BatchDraftStep{
 		StepID:       1,
 		Key:          key,

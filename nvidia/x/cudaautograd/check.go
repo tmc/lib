@@ -203,7 +203,7 @@ func CheckGradients(
 		if err := checkNodeMetadata("saved input", in, canonical); err != nil {
 			return err
 		}
-		if !bwdSnap.Contains(in) || canonical.Kind != cudair.KindInput || canonical.Name != "saved_"+fwd.Name || !slices.Equal(canonical.Shape, fwd.Shape) {
+		if !bwdSnap.Contains(in) || canonical.Kind != cudair.KindInput || canonical.Name != savedActivationName(fwd) || !slices.Equal(canonical.Shape, fwd.Shape) {
 			return fmt.Errorf("%w: saved input role for forward node id %d", ErrActivationsMismatch, id)
 		}
 	}

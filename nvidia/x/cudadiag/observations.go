@@ -53,7 +53,8 @@ func Observe(in DiagnosticInput) []tracecontract.Finding {
 	for _, kernel := range in.Kernels {
 		intervals = append(intervals, kernel.Span)
 	}
-	value := float64(UnionDuration(intervals).Nanoseconds())
+	busy, busyErr := UnionDuration(intervals)
+	value := float64(busy.Nanoseconds())
 	clock := in.Receipt.ClockDomain
 	if len(intervals) > 0 {
 		clock = intervals[0].Clock
@@ -65,10 +66,13 @@ func Observe(in DiagnosticInput) []tracecontract.Finding {
 	reqs := []tracecontract.Requirement{{Name: "activity_loss", Family: "activity"}, {Name: "device_clock", ClockDomain: clock}, {Name: "activity_probe", Probe: probe, MinProbeCoverage: 1}}
 	ctx := tracecontract.EvidenceContext{Receipt: in.Receipt, Intervals: intervals, Artifacts: []string{in.Receipt.InputSHA256}}
 	f := tracecontract.Admit("device-busy", "device_busy_duration", tracecontract.FindingObserved, "interval-union duration of captured kernels; not a contention diagnosis", &value, "ns", reqs, ctx)
-	if len(intervals) == 0 || clock == "" {
+	if len(intervals) == 0 || clock == "" || busyErr != nil {
 		f.Class = tracecontract.FindingUnavailable
 		f.Value = nil
 		f.Admission = tracecontract.Admission{Status: "withheld", ReasonCode: tracecontract.ReasonEvidenceUnavailable, Reason: "no timed device activity"}
+		if busyErr != nil {
+			f.Admission.Reason = busyErr.Error()
+		}
 	}
 	if len(in.PreEntries) != 0 && in.PreEntries[0].SourceClass != "native" && f.Admission.Admitted {
 		f.Class = tracecontract.FindingAssociated

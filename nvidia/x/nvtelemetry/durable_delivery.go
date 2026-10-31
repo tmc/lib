@@ -98,7 +98,10 @@ type DurableDelivery struct {
 	shutdownExpired  chan struct{}
 	cancel           context.CancelFunc
 	closeOnce        sync.Once
-	leaseOnce        sync.Once
+	leaseMu          sync.Mutex
+	leaseErr         error
+	leaseLockRemoved bool
+	leaseDirRemoved  bool
 }
 
 type spooledBatch struct {
@@ -605,7 +608,10 @@ func RecoverDurableDelivery(path, owner string) error {
 // recovered spool state. It requires an existing owned marker and validates all
 // committed OTLP requests and accounting bounds before removing anything.
 // Payloads may be metrics or logs; opening a writer applies its smaller limits.
-func RecoverDurableDeliveryManifest(path, owner string) (DurableDeliveryRecoveryManifest, error) {
+// Cleanup failures return an error and no manifest. Any unfinished on-disk state
+// remains for an explicit subsequent recovery after the failure is corrected;
+// this call closes its handles and does not retain a writer lease on return.
+func RecoverDurableDeliveryManifest(path, owner string) (m DurableDeliveryRecoveryManifest, err error) {
 	if len(owner) == 0 || len(owner) > 128 {
 		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: invalid owner")
 	}
@@ -628,7 +634,14 @@ func RecoverDurableDeliveryManifest(path, owner string) (DurableDeliveryRecovery
 	if err != nil {
 		return DurableDeliveryRecoveryManifest{}, err
 	}
-	defer root.Close()
+	defer func() {
+		if closeErr := root.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("telemetry delivery: close recovery spool root: %w", closeErr))
+		}
+		if err != nil {
+			m = DurableDeliveryRecoveryManifest{}
+		}
+	}()
 	if _, _, err := preflightDeliveryRecovery(root, owner); err != nil {
 		return DurableDeliveryRecoveryManifest{}, err
 	}
@@ -639,12 +652,18 @@ func RecoverDurableDeliveryManifest(path, owner string) (DurableDeliveryRecovery
 	if err := root.Mkdir("lease", 0700); err != nil && !os.IsExist(err) {
 		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: recovery lease mkdir: %w", err)
 	}
-	_ = syncSpoolDir(root)
+	if err := syncSpoolDir(root); err != nil {
+		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: sync recovery lease: %w", err)
+	}
 	lockFile, err := root.OpenFile("lease/lock", os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: recovery lease open: %w", err)
 	}
-	defer lockFile.Close()
+	defer func() {
+		if closeErr := lockFile.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("telemetry delivery: close recovery lease lock: %w", closeErr))
+		}
+	}()
 	if err := lockFileExclusive(lockFile); err != nil {
 		return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: writer lease is actively held")
 	}
@@ -658,19 +677,39 @@ func RecoverDurableDeliveryManifest(path, owner string) (DurableDeliveryRecovery
 	}
 	cleanupLease := !hadLease
 	defer func() {
-		infoLock, errLock := lockFile.Stat()
-		infoPath, errPath := root.Stat("lease/lock")
-		stillLinked := (errLock == nil && errPath == nil && os.SameFile(infoLock, infoPath))
-		lockHeldByOther := false
-		if err := lockFileExclusive(lockFile); err != nil {
-			lockHeldByOther = true
+		if cleanupLease {
+			cleanupErr := func() error {
+				infoLock, statErr := lockFile.Stat()
+				if statErr != nil {
+					return fmt.Errorf("telemetry delivery: stat recovery lease lock: %w", statErr)
+				}
+				infoPath, statErr := root.Stat("lease/lock")
+				if statErr != nil {
+					return fmt.Errorf("telemetry delivery: stat recovery lease path: %w", statErr)
+				}
+				if !os.SameFile(infoLock, infoPath) {
+					return fmt.Errorf("telemetry delivery: recovery lease lock identity changed")
+				}
+				if lockErr := lockFileExclusive(lockFile); lockErr != nil {
+					return fmt.Errorf("telemetry delivery: acquire recovery lease for cleanup: %w", lockErr)
+				}
+				if removeErr := root.Remove("lease/lock"); removeErr != nil {
+					return fmt.Errorf("telemetry delivery: remove recovery lease lock: %w", removeErr)
+				}
+				var cleanupErr error
+				if removeErr := root.Remove("lease"); removeErr != nil {
+					cleanupErr = fmt.Errorf("telemetry delivery: remove recovery lease directory: %w", removeErr)
+				}
+				if syncErr := syncSpoolDir(root); syncErr != nil {
+					cleanupErr = errors.Join(cleanupErr, fmt.Errorf("telemetry delivery: sync recovery lease cleanup: %w", syncErr))
+				}
+				return cleanupErr
+			}()
+			err = errors.Join(err, cleanupErr)
 		}
-		if cleanupLease && stillLinked && !lockHeldByOther {
-			_ = root.Remove("lease/lock")
-			_ = root.Remove("lease")
-			_ = syncSpoolDir(root)
+		if unlockErr := unlockFile(lockFile); unlockErr != nil {
+			err = errors.Join(err, fmt.Errorf("telemetry delivery: unlock recovery lease: %w", unlockErr))
 		}
-		_ = unlockFile(lockFile)
 	}()
 
 	// Recheck under the exclusive lease: a previous writer may have finished
@@ -685,7 +724,9 @@ func RecoverDurableDeliveryManifest(path, owner string) (DurableDeliveryRecovery
 		}
 	}
 	if len(temporary) > 0 {
-		_ = syncSpoolDir(root)
+		if err := syncSpoolDir(root); err != nil {
+			return DurableDeliveryRecoveryManifest{}, fmt.Errorf("telemetry delivery: sync recovered temporary files: %w", err)
+		}
 	}
 	cleanupLease = true
 	m.RecoveredLease = hadLease
@@ -959,7 +1000,11 @@ func (d *DurableDelivery) Recover(ctx context.Context) error {
 // Close stops admission and drains spooled batches within ShutdownTimeout or
 // caller's context deadline. If shutdown expires or is cancelled before draining,
 // pending batches remain spooled on disk for restart recovery, and ErrDeliveryIncomplete
-// is returned. Close always releases the directory writer lease.
+// is returned. After the worker and admissions finish, Close releases the writer
+// lease. A cleanup error is returned without discarding handles needed to retry;
+// after correcting its cause, call Close again. A file or root Close consumes
+// that handle even when it reports an error; that error remains visible on later
+// calls. Cleanup does not resume admission or retry delivery.
 func (d *DurableDelivery) Close(ctx context.Context) error {
 	if ctx == nil {
 		return fmt.Errorf("telemetry delivery: nil context")
@@ -990,12 +1035,13 @@ func (d *DurableDelivery) Close(ctx context.Context) error {
 	})
 	select {
 	case <-d.done:
+		cleanupErr := d.releaseLease()
 		d.mu.Lock()
 		defer d.mu.Unlock()
 		if (d.stats.PendingSpool > 0 || d.activeAdmissions > 0) && d.terminal == nil {
-			return ErrDeliveryIncomplete
+			return errors.Join(ErrDeliveryIncomplete, cleanupErr)
 		}
-		return d.terminal
+		return errors.Join(d.terminal, cleanupErr)
 	case <-ctx.Done():
 		d.cancel()
 		return errors.Join(ErrDeliveryIncomplete, ctx.Err())
@@ -1005,40 +1051,86 @@ func (d *DurableDelivery) Close(ctx context.Context) error {
 }
 
 func (d *DurableDelivery) tryReleaseLeaseLocked() bool {
-	if !d.leaseReleased && d.workerDone && d.activeAdmissions == 0 {
-		d.leaseReleased = true
-		return true
-	}
-	return false
+	return !d.leaseReleased && d.workerDone && d.activeAdmissions == 0
 }
 
-func (d *DurableDelivery) releaseLease() {
+// releaseLease serializes the worker's automatic cleanup with Close retries.
+// The worker and every admission must be quiescent before root can be closed.
+func (d *DurableDelivery) releaseLease() error {
+	d.leaseMu.Lock()
+	defer d.leaseMu.Unlock()
 	d.mu.Lock()
-	d.leaseReleased = true
+	if d.leaseReleased {
+		err := d.leaseErr
+		d.mu.Unlock()
+		return err
+	}
+	ready := d.tryReleaseLeaseLocked()
 	d.mu.Unlock()
-	d.leaseOnce.Do(func() {
-		if d.lockFile != nil {
-			infoLock, errLock := d.lockFile.Stat()
-			infoPath, errPath := d.root.Stat("lease/lock")
-			stillLinked := (errLock == nil && errPath == nil && os.SameFile(infoLock, infoPath))
-			lockHeldByOther := false
+	if !ready {
+		return nil
+	}
+
+	err := d.releaseLeaseFiles()
+	d.mu.Lock()
+	d.leaseErr = err
+	d.leaseReleased = d.lockFile == nil && d.root == nil
+	d.mu.Unlock()
+	return err
+}
+
+func (d *DurableDelivery) releaseLeaseFiles() error {
+	if d.lockFile != nil {
+		if !d.leaseLockRemoved {
+			infoLock, err := d.lockFile.Stat()
+			if err != nil {
+				return fmt.Errorf("telemetry delivery: stat owned lease lock: %w", err)
+			}
+			infoPath, err := d.root.Stat("lease/lock")
+			if err != nil {
+				return fmt.Errorf("telemetry delivery: stat lease lock path: %w", err)
+			}
+			if !os.SameFile(infoLock, infoPath) {
+				return fmt.Errorf("telemetry delivery: lease lock identity changed")
+			}
 			if err := lockFileExclusive(d.lockFile); err != nil {
-				lockHeldByOther = true
+				return fmt.Errorf("telemetry delivery: acquire owned lease lock for cleanup: %w", err)
 			}
-			if stillLinked && !lockHeldByOther {
-				_ = d.root.Remove("lease/lock")
-				_ = d.root.Remove("lease")
-				_ = syncSpoolDir(d.root)
+			if err := d.root.Remove("lease/lock"); err != nil {
+				return fmt.Errorf("telemetry delivery: remove lease lock: %w", err)
 			}
-			_ = unlockFile(d.lockFile)
-			_ = d.lockFile.Close()
-			d.lockFile = nil
+			d.leaseLockRemoved = true
 		}
-		if d.root != nil {
-			_ = d.root.Close()
-			d.root = nil
+		if !d.leaseDirRemoved {
+			if err := d.root.Remove("lease"); err != nil {
+				return fmt.Errorf("telemetry delivery: remove lease directory: %w", err)
+			}
+			d.leaseDirRemoved = true
 		}
-	})
+		if err := syncSpoolDir(d.root); err != nil {
+			return fmt.Errorf("telemetry delivery: sync released lease: %w", err)
+		}
+		if err := unlockFile(d.lockFile); err != nil {
+			return fmt.Errorf("telemetry delivery: unlock lease: %w", err)
+		}
+	}
+
+	// Close consumes each handle even on error. Keep such errors rather than
+	// retrying a closed descriptor; retryable path operations returned above.
+	var err error
+	if d.lockFile != nil {
+		if closeErr := d.lockFile.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("telemetry delivery: close lease lock: %w", closeErr))
+		}
+		d.lockFile = nil
+	}
+	if d.root != nil {
+		if closeErr := d.root.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("telemetry delivery: close spool root: %w", closeErr))
+		}
+		d.root = nil
+	}
+	return err
 }
 
 func (d *DurableDelivery) signal() {

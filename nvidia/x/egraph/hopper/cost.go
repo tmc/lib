@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudaroofline"
 	"github.com/tmc/lib/nvidia/x/egraph"
 )
@@ -30,7 +31,8 @@ type CostConfig struct {
 	// Ceiling.PeakTFLOPS.
 	TensorTFLOPS float64
 
-	// SMs is the streaming multiprocessor count (0 defaults to 132 on H200/sm_90).
+	// SMs is the streaming multiprocessor count. Zero uses the device
+	// profile, then the ceiling architecture's first profile, or 132.
 	SMs int
 
 	// LaunchNs is the per-kernel launch overhead in nanoseconds (0 defaults to 2000).
@@ -49,6 +51,25 @@ func (c CostConfig) isHopper() bool {
 	return c.Ceiling.Architecture == "sm_90" ||
 		strings.Contains(strings.ToLower(c.Device), "h200") ||
 		strings.Contains(strings.ToLower(c.Ceiling.Device), "h200")
+}
+
+// profile returns the cudadevicetable profile of the device c describes:
+// its product if Device or the ceiling names one, or else the first listed
+// product of the ceiling's architecture.
+func (c CostConfig) profile() (cudadevicetable.Profile, bool) {
+	for _, name := range []string{c.Device, c.Ceiling.Device} {
+		if name == "" {
+			continue
+		}
+		if p, err := cudadevicetable.LookupProfile(name); err == nil {
+			return p, true
+		}
+	}
+	if c.Ceiling.Architecture == "" {
+		return cudadevicetable.Profile{}, false
+	}
+	p, err := cudadevicetable.LookupProfile(cudadevicetable.Normalize(c.Ceiling.Architecture) + "a")
+	return p, err == nil
 }
 
 func (c CostConfig) norm() (CostConfig, error) {
@@ -81,13 +102,9 @@ func (c CostConfig) norm() (CostConfig, error) {
 		}
 	}
 	if c.SMs <= 0 {
-		switch {
-		case isHopper:
-			c.SMs = 132
-		case strings.HasPrefix(c.Ceiling.Architecture, "sm_121"):
-			c.SMs = 48
-		default:
-			c.SMs = 132
+		c.SMs = 132
+		if p, ok := c.profile(); ok {
+			c.SMs = int(p.SMs.Value)
 		}
 	}
 	if c.LaunchNs <= 0 {
@@ -333,6 +350,27 @@ func (k PlanKernel) Workload(cfg CostConfig) (bytes, flops uint64) {
 		outBytes := uint64(m * g.N * g.Out.Bits() / 8)
 		bytes = wBytes + xBytes + extraBytes + outBytes
 		flops = uint64(2*m*g.N*g.K + m*g.N*max(len(g.Extras)*2, 1))
+		return bytes, flops
+
+	case k.MMA != nil:
+		g := k.MMA
+		m := max(k.M, 1)
+		nout := g.N
+		if g.GLU {
+			nout = g.N / 2
+		}
+		bytes = weightFormatBytes(WeightBF16, g.N, g.K) + uint64(m*g.K*2+m*nout*g.Out.Bits()/8)
+		for _, e := range g.Extras {
+			elems := nout
+			switch e.Broadcast {
+			case PerRow:
+				elems = m
+			case Full:
+				elems = m * nout
+			}
+			bytes += uint64(elems * e.DType.Bits() / 8)
+		}
+		flops = uint64(2*m*g.N*g.K + m*nout*max(len(g.Extras)*2, 1))
 		return bytes, flops
 
 	case k.Tile != nil:

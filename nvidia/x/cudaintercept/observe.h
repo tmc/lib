@@ -179,4 +179,30 @@ int cudaintercept_decisions_enable_v1(int enable);
 long cudaintercept_decision_drain_v1(struct cudaintercept_decision_v1 *out,
     size_t cap, uint64_t *dropped);
 
+/* Separate owned-dispatch ABI. A REPLACED decision means host submission only,
+ * never completion or independent qualification. v1 layouts/reasons unchanged. */
+enum cudaintercept_owned_reason_v2 {
+    CUDAINTERCEPT_OUTPUT_MISMATCH = 1001,
+    CUDAINTERCEPT_DRIVER_ERROR,
+    CUDAINTERCEPT_COMPLETION_UNKNOWN,
+    CUDAINTERCEPT_IMAGE_INVALID,
+    CUDAINTERCEPT_OWNED_FRAME,
+    CUDAINTERCEPT_OWNER_REUSED,
+    CUDAINTERCEPT_REPLACED,
+    CUDAINTERCEPT_OWNER_LIFETIME,
+};
+struct cudaintercept_owned_decision_v2 {
+    uint32_t version, size;
+    uint64_t seq;
+    uint32_t reason;
+    int32_t result;
+    uint64_t caller_generation, requested_function, dispatched_function, stream;
+    char capsule[65];
+    unsigned char reserved[7];
+};
+_Static_assert(sizeof(struct cudaintercept_owned_decision_v2) == 128, "owned decision layout");
+/* Uses the existing decision opt-in. New recording makes one CAS attempt and
+ * drops on contention/fullness, not an extra retry loop in the hook. */
+long cudaintercept_owned_drain_v2(struct cudaintercept_owned_decision_v2 *, size_t, uint64_t *);
+
 #endif

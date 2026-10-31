@@ -1,0 +1,15 @@
+{
+  "source_sha256": "d185f2505bff468a12db385a5a3d1596868c0798247d3c47e8b674c56e271db1",
+  "kernels": {
+    "_Z18moe8_moe_w13_ws_2wiPKtPKiPKjPKhPKfS2_Pt": {
+      "loads": {
+        "nc.f32": 1,
+        "nc.u32": 7
+      },
+      "stores": {
+        "u32": 16
+      },
+      "late_loads": 0
+    }
+  }
+}

@@ -251,11 +251,22 @@ type UncertaintyCheck struct {
 
 // EnvironmentCheck retains explicit bounded evidence identities, not acquisition authority.
 type EnvironmentCheck struct {
-	SourceClosure          QualificationClosure `json:"source_closure"`
-	LeaseArtifact          RegistrationArtifact `json:"lease_artifact"`
-	ClockBounds            []AcquisitionBounds  `json:"clock_bounds"`
-	ObserverContractDigest string               `json:"observer_contract_digest"`
-	WorkloadContractDigest string               `json:"workload_contract_digest"`
+	SourceClosure          QualificationClosure      `json:"source_closure"`
+	LeaseArtifact          RegistrationArtifact      `json:"lease_artifact"`
+	ClockBounds            []AcquisitionBounds       `json:"clock_bounds"`
+	ObserverContractDigest string                    `json:"observer_contract_digest"`
+	ObserverPhase          *ObserverPhaseAcquisition `json:"observer_phase,omitempty"`
+	WorkloadContractDigest string                    `json:"workload_contract_digest"`
+}
+
+// ObserverPhaseAcquisition identifies an original acquired configuration record.
+// Version is 1. Record contains canonical ObserverPhaseConfiguration JSON and
+// references the actual configuration bytes. Independent policy must establish
+// that the producer used those settings; neither this reference nor equality
+// with registration establishes authentic acquisition.
+type ObserverPhaseAcquisition struct {
+	Version int                  `json:"version"`
+	Record  RegistrationArtifact `json:"record"`
 }
 
 // PairIdentity retains explicit bounded evidence identities, not acquisition authority.

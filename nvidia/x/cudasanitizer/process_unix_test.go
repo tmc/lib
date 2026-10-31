@@ -53,27 +53,10 @@ func TestExitedParentKillsDescendant(t *testing.T) {
 			if res.ExitCode != tc.exit {
 				t.Errorf("recorded parent exit = %d, want %d", res.ExitCode, tc.exit)
 			}
-			deadline := time.Now().Add(time.Second)
-			for {
-				err := syscall.Kill(pid, 0)
-				if errors.Is(err, syscall.ESRCH) {
-					pid = 0
-					break
-				}
-				if err != nil {
-					t.Fatal(err)
-				}
-				// An orphan can remain a zombie until init reaps it; it is terminated.
-				out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output()
-				if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "Z") {
-					pid = 0
-					break
-				}
-				if time.Now().After(deadline) {
-					t.Fatalf("child %d still running after parent exit; outcome=%v error=%v", pid, res.Outcome, res.Err)
-				}
-				time.Sleep(10 * time.Millisecond)
+			if !waitTerminated(t, pid) {
+				t.Fatalf("child %d still running after parent exit; outcome=%v error=%v", pid, res.Outcome, res.Err)
 			}
+			pid = 0
 		})
 	}
 	t.Run("context expires after parent", testExpiredContextKillsDescendant)
@@ -146,25 +129,72 @@ func testExpiredContextKillsDescendant(t *testing.T) {
 	if cmd.ProcessState == nil || cmd.ProcessState.ExitCode() != 0 {
 		t.Errorf("parent state = %v, want clean exit", cmd.ProcessState)
 	}
-	deadline = time.Now().Add(time.Second)
+	if !waitTerminated(t, pid) {
+		t.Fatalf("child %d still running after context expiry", pid)
+	}
+	pid = 0
+}
+
+// waitTerminated reports whether pid has exited or been killed within a
+// bound generous enough for a loaded host. A SIGKILLed orphan remains a
+// zombie until init reaps it; it is terminated.
+func waitTerminated(t *testing.T, pid int) bool {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
 	for {
 		err := syscall.Kill(pid, 0)
 		if errors.Is(err, syscall.ESRCH) {
-			pid = 0
-			break
+			return true
 		}
 		if err != nil {
 			t.Fatal(err)
 		}
 		out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output()
 		if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "Z") {
-			pid = 0
-			break
+			return true
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("child %d still running after context expiry", pid)
+			return false
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// pidFileContext expires with [context.DeadlineExceeded] once a fixture has
+// written its child's PID file, so a timeout never races fixture startup.
+type pidFileContext struct {
+	context.Context
+	done chan struct{}
+}
+
+func newPIDFileContext(t *testing.T, path string) *pidFileContext {
+	ctx := &pidFileContext{Context: context.Background(), done: make(chan struct{})}
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	go func() {
+		defer close(ctx.done)
+		for {
+			if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+				return
+			}
+			select {
+			case <-stop:
+				return
+			case <-time.After(10 * time.Millisecond):
+			}
+		}
+	}()
+	return ctx
+}
+
+func (c *pidFileContext) Done() <-chan struct{} { return c.done }
+
+func (c *pidFileContext) Err() error {
+	select {
+	case <-c.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
 	}
 }
 
@@ -186,12 +216,16 @@ func TestToolVersionKillsDescendant(t *testing.T) {
 					_ = syscall.Kill(pid, syscall.SIGKILL)
 				}
 			}()
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
+			// Fixture startup is not part of the timeout: the slow arm expires
+			// only once its child is running.
+			var ctx context.Context = context.Background()
+			if timeout {
+				ctx = newPIDFileContext(t, pidFile)
+			}
 			version, err := ToolVersion(ctx, tool)
 			data, readErr := os.ReadFile(pidFile)
 			if readErr != nil {
-				t.Fatal(readErr)
+				t.Fatalf("version=%q err=%v: %v", version, err, readErr)
 			}
 			pid, readErr = strconv.Atoi(string(data))
 			if readErr != nil || pid <= 1 {
@@ -204,26 +238,10 @@ func TestToolVersionKillsDescendant(t *testing.T) {
 			} else if err != nil || version != "fixture version" {
 				t.Errorf("version = %q, %v", version, err)
 			}
-			deadline := time.Now().Add(time.Second)
-			for {
-				err := syscall.Kill(pid, 0)
-				if errors.Is(err, syscall.ESRCH) {
-					pid = 0
-					break
-				}
-				if err != nil {
-					t.Fatal(err)
-				}
-				out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output()
-				if err == nil && strings.HasPrefix(strings.TrimSpace(string(out)), "Z") {
-					pid = 0
-					break
-				}
-				if time.Now().After(deadline) {
-					t.Fatalf("version query left child %d running", pid)
-				}
-				time.Sleep(10 * time.Millisecond)
+			if !waitTerminated(t, pid) {
+				t.Fatalf("version query left child %d running", pid)
 			}
+			pid = 0
 		})
 	}
 }

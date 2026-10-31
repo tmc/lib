@@ -31,7 +31,6 @@ func (s *Session) FlushBounded(limits FlushLimits) ([]Record, error) {
 type flushAPI struct {
 	properties func(*cupti.SassMetricsGetDataPropertiesParams) error
 	flush      func(*cupti.SassMetricsFlushDataParams, []cupti.SassMetricsData, [][]cupti.SassMetricsInstanceValue) error
-	free       func(uintptr)
 	name       func(uintptr, uint64) (string, error)
 }
 
@@ -41,7 +40,6 @@ func nativeFlushAPI() flushAPI {
 		flush: func(p *cupti.SassMetricsFlushDataParams, _ []cupti.SassMetricsData, _ [][]cupti.SassMetricsInstanceValue) error {
 			return cupti.SassMetricsFlushData(p)
 		},
-		free: nativeFree,
 		name: boundedFunctionName,
 	}
 }
@@ -50,7 +48,7 @@ func boundedFunctionName(ptr uintptr, limit uint64) (string, error) {
 	if ptr == 0 {
 		return "", nil
 	}
-	// Native allocations are owned by CUPTI and stay live until the flush cleanup.
+	// The string is owned by CUPTI, which frees it in cuptiSassMetricsUnsetConfig.
 	base := *(*unsafe.Pointer)(unsafe.Pointer(&ptr))
 	for i := uint64(0); i < limit; i++ {
 		if *(*byte)(unsafe.Add(base, uintptr(i))) == 0 {
@@ -130,14 +128,6 @@ func (s *Session) flushData(limits *FlushLimits, api flushAPI) ([]Record, error)
 	var pin runtime.Pinner
 	pin.Pin(&raw[0])
 	defer pin.Unpin()
-	// Scan every allocated slot even when CUPTI returns an error or smaller counts.
-	defer func() {
-		for i := range raw {
-			if raw[i].FunctionName != 0 {
-				api.free(raw[i].FunctionName)
-			}
-		}
-	}()
 	for i := range raw {
 		values[i] = make([]cupti.SassMetricsInstanceValue, m)
 		pin.Pin(&values[i][0])

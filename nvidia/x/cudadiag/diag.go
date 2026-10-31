@@ -198,7 +198,10 @@ func Diagnose(target cudaworkload.WorkloadIdentity, opID cudaworkload.OpID, in D
 		Artifacts:    []string{in.Receipt.InputSHA256},
 	}
 
-	ta := ComputeTimeAccounting(in.WallInterval, in.HostCalls, in.Kernels, in.Sched)
+	ta, err := ComputeTimeAccounting(in.WallInterval, in.HostCalls, in.Kernels, in.Sched)
+	if err != nil {
+		return withheldDiagnosis(res, in, "invalid time accounting: "+err.Error())
+	}
 	if len(in.PreEntries) != 0 {
 		d := time.Duration(in.PreEntries[0].Span.Duration())
 		ta.PreEntryDuration = &d

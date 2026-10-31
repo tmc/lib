@@ -116,7 +116,7 @@ func TestReadSlurmAttributionSnapshot(t *testing.T) {
 	if p.Process.Process != (cudaworkload.ProcessGenID{PID: 1234, Generation: 1000}) || p.StartTimeTicks != 1000 {
 		t.Fatalf("process = %+v", p)
 	}
-	want := []string{"squeue.json", "mappings.json", "executions.json", "proc/1234/stat", "proc/1234/status", "proc/1234/cgroup"}
+	want := []string{"squeue.json", "mappings.json", "executions.json", "proc/1234/stat", "proc/1234/status", "proc/1234/cgroup", "proc/1234/environ"}
 	if opens := rec.names(); !slices.Equal(opens, want) {
 		t.Fatalf("opened %q, want only %q", opens, want)
 	}

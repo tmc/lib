@@ -1,0 +1,10 @@
+{
+  "model": "arcee-ai/Trinity-Mini",
+  "revision": "cdb81e8130815fec299cccc8f8700004b8366e1e",
+  "index_sha256": "b475bd6e2804a015f44feb1c48c8720c8d0209ba426e0fc8178195ce3af51e4e",
+  "tensor_count": 12031,
+  "sorted_names_sha256": "666fbf2936939799bbdefd5fa47ac9166a297e1048c512ffb3f928d9411e7960",
+  "metadata_total_size": 52247948800,
+  "qualification": "shape/name contract derived from pinned config/source and independently verified against all11 Mini shard headers; allBF16 including expert_bias",
+  "header_receipt_sha256": "359f11a507bf93c850f02b651b1d0e565c89788ea16ea5fc2875e0571fd3fa42"
+}

@@ -102,6 +102,28 @@ type SkinnyGEMM struct {
 	Epilogue Lambda // $0 is the accumulator; zero value means $0
 	Extras   []Operand
 
+	// X is x's dtype: BF16 (the zero value) or F32. The kernel rounds an
+	// F32 x to BF16 as it loads it, so casting an FP32 activation to BF16
+	// needs no kernel of its own.
+	X DType
+
+	// GLU pairs the two halves of W's rows: out has N/2 columns and
+	// out[m, n] = Epilogue(acc[m, n], acc[m, N/2+n], extras...), so a gated
+	// activation such as SwiGLU's (mul (silu $0) $1) needs no kernel of
+	// its own. Each block owns RowsPerBlock/2 rows of each half; extras
+	// index the [M, N/2] output.
+	GLU bool
+
+	// Tail, when set, is a row kernel over out's M rows that the block
+	// finishing last runs once every block has written out, in place of a
+	// launch of its own: a normalization of a one-row out need not run on
+	// one CTA after the gemm. TailIn names the Tail parameter that reads
+	// out. The kernel takes Tail's other parameters after its own, then
+	// tail_count, an int that is zero before the first launch and that
+	// the kernel leaves zero. Tail must use 32·Warps threads per block.
+	Tail   *RowKernel
+	TailIn string
+
 	RowsPerBlock int // 0 chooses
 	Warps        int // per block; 0 means 8
 	SplitK       int // 0 or 1 means no split
@@ -117,6 +139,43 @@ type SkinnyGEMM struct {
 	// (sm_100a / sm_120a / sm_121a GB10) hardware cvt.rn.f16x2.e2m1x2 widening
 	// via eg_e2m1x8_to_bf16.
 	BlackwellFP4 bool
+
+	// Store says how the kernel writes out. The zero value overwrites it.
+	Store GEMMStore
+}
+
+// A GEMMStore is how a [SkinnyGEMM] writes its result. The reducing stores
+// fuse a tensor-parallel all-reduce into the epilogue: every rank's kernel
+// adds its partial product into the same output, which the caller
+// initializes (to zero, or to the residual) before any rank adds and reads
+// only after every rank has added. They need Out F32, and the order of the
+// additions is not fixed.
+type GEMMStore uint8
+
+const (
+	// StoreWrite writes out[m, n] = v.
+	StoreWrite GEMMStore = iota
+	// StoreReduceAdd adds v to out[m, n] with red.global.add.f32: ranks on
+	// one device, or on peers of one address space, share out.
+	StoreReduceAdd
+	// StoreMultimemReduceAdd adds v to every copy of out[m, n] with
+	// multimem.red.relaxed.sys.global.add.f32, where out is a multicast
+	// (NVLS) address bound to each rank's copy. It needs sm_90 or later;
+	// the emitted source fails to compile for an earlier target. Under
+	// cudahostemu it adds into out, the one copy the host emulates.
+	StoreMultimemReduceAdd
+)
+
+func (s GEMMStore) String() string {
+	switch s {
+	case StoreWrite:
+		return "write"
+	case StoreReduceAdd:
+		return "red.add"
+	case StoreMultimemReduceAdd:
+		return "multimem.red.add"
+	}
+	return fmt.Sprintf("GEMMStore(%d)", uint8(s))
 }
 
 // norm validates g and fills defaults.
@@ -145,8 +204,18 @@ func (g SkinnyGEMM) norm() (SkinnyGEMM, error) {
 	if g.Epilogue.root == nil {
 		g.Epilogue = Identity
 	}
-	if g.Epilogue.Arity() > 1+len(g.Extras) {
-		return g, fmt.Errorf("skinny gemm %s: epilogue %s uses %d operands, have %d", g.Name, g.Epilogue, g.Epilogue.Arity(), 1+len(g.Extras))
+	accs := 1
+	if g.GLU {
+		accs = 2
+	}
+	if g.Epilogue.Arity() > accs+len(g.Extras) {
+		return g, fmt.Errorf("skinny gemm %s: epilogue %s uses %d operands, have %d", g.Name, g.Epilogue, g.Epilogue.Arity(), accs+len(g.Extras))
+	}
+	if g.X == 0 {
+		g.X = BF16
+	}
+	if g.X != BF16 && g.X != F32 {
+		return g, fmt.Errorf("skinny gemm %s: x must be bf16 or f32, not %v", g.Name, g.X)
 	}
 	for _, e := range g.Extras {
 		if !cIdent(e.Name) || e.DType != F32 && e.DType != BF16 || e.Broadcast < PerCol || e.Broadcast > Full {
@@ -165,8 +234,14 @@ func (g SkinnyGEMM) norm() (SkinnyGEMM, error) {
 			}
 		}
 	}
+	if g.GLU && g.RowsPerBlock == 1 {
+		g.RowsPerBlock = 2
+	}
 	if g.N <= 0 || g.N%g.RowsPerBlock != 0 {
 		return g, fmt.Errorf("skinny gemm %s: N %d not a multiple of %d rows per block", g.Name, g.N, g.RowsPerBlock)
+	}
+	if g.GLU && g.RowsPerBlock%2 != 0 {
+		return g, fmt.Errorf("skinny gemm %s: glu needs an even number of rows per block, have %d", g.Name, g.RowsPerBlock)
 	}
 	if per := 32 * g.Weight.chunk() * g.SplitK; g.K <= 0 || g.K%per != 0 {
 		return g, fmt.Errorf("skinny gemm %s: K %d not a multiple of %d", g.Name, g.K, per)
@@ -176,6 +251,20 @@ func (g SkinnyGEMM) norm() (SkinnyGEMM, error) {
 	}
 	if g.BlackwellFP4 && g.Weight != WeightNVFP4 {
 		return g, fmt.Errorf("skinny gemm %s: BlackwellFP4 requires WeightNVFP4", g.Name)
+	}
+	if g.Tail != nil {
+		if err := g.checkTail(); err != nil {
+			return g, err
+		}
+	}
+	switch g.Store {
+	case StoreWrite:
+	case StoreReduceAdd, StoreMultimemReduceAdd:
+		if g.Out != F32 {
+			return g, fmt.Errorf("skinny gemm %s: %v store needs f32 output, not %v", g.Name, g.Store, g.Out)
+		}
+	default:
+		return g, fmt.Errorf("skinny gemm %s: bad store %v", g.Name, g.Store)
 	}
 	return g, nil
 }
@@ -202,7 +291,7 @@ func (g SkinnyGEMM) WorkspaceBytes() int {
 
 // params lists the kernel's parameters as C declarations.
 func (g SkinnyGEMM) params() []string {
-	p := []string{"const uint16_t* __restrict__ x"}
+	p := []string{"const " + g.X.cType() + "* __restrict__ x"}
 	switch g.Weight {
 	case WeightBF16:
 		p = append(p, "const uint16_t* __restrict__ w")
@@ -218,7 +307,74 @@ func (g SkinnyGEMM) params() []string {
 	if g.SplitK > 1 {
 		p = append(p, "float* __restrict__ ws")
 	}
+	if g.Tail != nil {
+		for _, tp := range g.Tail.params()[1:] {
+			if paramName(tp) != g.TailIn {
+				p = append(p, tp)
+			}
+		}
+		p = append(p, "int* __restrict__ tail_count")
+	}
 	return p
+}
+
+// paramName returns the name a C parameter declaration declares.
+func paramName(decl string) string {
+	f := strings.Fields(decl)
+	return f[len(f)-1]
+}
+
+// checkTail checks that g.Tail can run in g's blocks over g's out.
+func (g SkinnyGEMM) checkTail() error {
+	t := *g.Tail
+	if t.Cluster || t.Slots > 0 {
+		return fmt.Errorf("skinny gemm %s: tail %s: cluster and slot row kernels cannot be tails", g.Name, t.Name)
+	}
+	if _, err := t.check(); err != nil {
+		return fmt.Errorf("skinny gemm %s: tail: %w", g.Name, err)
+	}
+	if _, block := t.Grid(1); block[0] != 32*g.Warps {
+		return fmt.Errorf("skinny gemm %s: tail %s needs %d threads, have %d", g.Name, t.Name, block[0], 32*g.Warps)
+	}
+	own := make(map[string]bool)
+	tail := g
+	tail.Tail = nil
+	for _, p := range tail.params() {
+		own[paramName(p)] = true
+	}
+	reads := false
+	for _, p := range t.params()[1:] {
+		name := paramName(p)
+		reads = reads || name == g.TailIn
+		if own[name] || name == "tail_count" {
+			return fmt.Errorf("skinny gemm %s: tail %s parameter %s collides with the gemm's", g.Name, t.Name, name)
+		}
+	}
+	if !reads {
+		return fmt.Errorf("skinny gemm %s: tail %s has no parameter %s", g.Name, t.Name, g.TailIn)
+	}
+	for _, in := range t.Inputs {
+		if in.buffer() == g.TailIn && in.DType != g.Out {
+			return fmt.Errorf("skinny gemm %s: tail %s reads %s as %v, out is %v", g.Name, t.Name, g.TailIn, in.DType, g.Out)
+		}
+	}
+	return nil
+}
+
+// tailCUDA returns g.Tail as a device function of the block index, which
+// runs one block's rows of the row kernel.
+func (g SkinnyGEMM) tailCUDA() (string, error) {
+	t := *g.Tail
+	body, err := t.body()
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "// %s: row kernel over rows of %d values, run as a skinny gemm's tail.\n", t.Name, t.D)
+	fmt.Fprintf(&b, "EG_DEV void %s(\n    unsigned eg_tail_block,\n    %s) {\n", t.Name, strings.Join(t.params(), ",\n    "))
+	b.WriteString(strings.ReplaceAll(body, "blockIdx.x", "eg_tail_block"))
+	b.WriteString("}\n")
+	return b.String(), nil
 }
 
 // CUDA returns the kernel source (without [Prelude]). The kernel is
@@ -243,6 +399,27 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 	if g.BlackwellFP4 {
 		b.WriteString(blackwellFP4Helpers)
 	}
+	if g.Tail != nil {
+		tail, err := g.tailCUDA()
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(tail)
+	}
+	if g.Store == StoreMultimemReduceAdd {
+		b.WriteString("#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 900 && !defined(EG_EMU) && !defined(EG_HOST_EMU)\n#error \"multimem.red needs sm_90 or later\"\n#endif\n")
+	}
+	// ldx loads the 8 x values at p as packed BF16 pairs.
+	ldx := "eg_ldg16"
+	if g.X == F32 {
+		b.WriteString(ldgF32BF16x8)
+		ldx = "eg_ldg_f32_bf16x8"
+	}
+	// wrow is weight row r of the block.
+	wrow := "(n0 + r)"
+	if g.GLU {
+		wrow = "(r < R / 2 ? h0 + r : N / 2 + h0 + r - R / 2)"
+	}
 	fmt.Fprintf(&b, "// %s: out[m,n] = %s over x[M,%d] bf16 · W[%d,%d] %s, M <= %d.\n", g.Name, g.Epilogue, g.K, g.N, g.K, g.Weight, g.MaxM)
 	fmt.Fprintf(&b, "template <int M>\n__global__ void __launch_bounds__(%d) %s(\n    %s) {\n", 32*W, g.Name, strings.Join(g.params(), ",\n    "))
 	fmt.Fprintf(&b, "    constexpr int N = %d, K = %d, R = %d, WARPS = %d, U = %d, SPLIT = %d, MAXM = %d;\n", g.N, g.K, R, W, u, g.SplitK, g.MaxM)
@@ -252,6 +429,9 @@ func (g SkinnyGEMM) CUDA() (string, error) {
     const int n0 = blockIdx.x * R;
     const int first = blockIdx.y * (STEPS / SPLIT), last = first + STEPS / SPLIT;
 `)
+	if g.GLU {
+		b.WriteString("    const int h0 = blockIdx.x * (R / 2); // first column of each half\n")
+	}
 	if g.Weight == WeightNVFP4 {
 		b.WriteString("    const float gs = w_gs[0]; // read before the reduction's barriers\n")
 	}
@@ -280,7 +460,7 @@ func (g SkinnyGEMM) CUDA() (string, error) {
             for (int r = 0; r < R; ++r) {
 `)
 		for i, p := range planes {
-			fmt.Fprintf(&b, "                wv[u][r][%d] = s < last ? eg_ldg_stream(%s + (size_t)(n0 + r) * K + s * 256 + lane * 8) : eg_u32x4{0, 0, 0, 0};\n", i, p)
+			fmt.Fprintf(&b, "                wv[u][r][%d] = s < last ? eg_ldg_stream(%s + (size_t)%s * K + s * 256 + lane * 8) : eg_u32x4{0, 0, 0, 0};\n", i, p, wrow)
 		}
 		b.WriteString(`            }
         }
@@ -290,8 +470,9 @@ func (g SkinnyGEMM) CUDA() (string, error) {
             if (s >= last) break;
 #pragma unroll
             for (int m = 0; m < M; ++m) {
-                const eg_u32x4 xv = eg_ldg16(x + (size_t)m * K + s * 256 + lane * 8);
-                const uint32_t xw[4] = {xv.x, xv.y, xv.z, xv.w};
+`)
+		fmt.Fprintf(&b, "                const eg_u32x4 xv = %s(x + (size_t)m * K + s * 256 + lane * 8);\n", ldx)
+		b.WriteString(`                const uint32_t xw[4] = {xv.x, xv.y, xv.z, xv.w};
 #pragma unroll
                 for (int r = 0; r < R; ++r) {
                     float a = acc[r][m];
@@ -321,9 +502,10 @@ func (g SkinnyGEMM) CUDA() (string, error) {
 #pragma unroll
             for (int r = 0; r < R; ++r) {
                 // 16 bytes hold 32 codes, k = s*1024 + lane*32 + [0, 32); two block scales.
-                wv[u][r] = s < last ? eg_ldg_stream(w + (size_t)(n0 + r) * (K / 2) + s * 512 + lane * 16) : eg_u32x4{0, 0, 0, 0};
-                sv[u][r] = s < last ? *reinterpret_cast<const uint16_t*>(w_sf + (size_t)(n0 + r) * (K / 16) + s * 64 + lane * 2) : 0u;
-            }
+`)
+		fmt.Fprintf(&b, "                wv[u][r] = s < last ? eg_ldg_stream(w + (size_t)%s * (K / 2) + s * 512 + lane * 16) : eg_u32x4{0, 0, 0, 0};\n", wrow)
+		fmt.Fprintf(&b, "                sv[u][r] = s < last ? *reinterpret_cast<const uint16_t*>(w_sf + (size_t)%s * (K / 16) + s * 64 + lane * 2) : 0u;\n", wrow)
+		b.WriteString(`            }
         }
 #pragma unroll
         for (int u = 0; u < U; ++u) {
@@ -365,8 +547,9 @@ func (g SkinnyGEMM) CUDA() (string, error) {
                 float xf[32];
 #pragma unroll
                 for (int c = 0; c < 4; ++c) {
-                    const eg_u32x4 xv = eg_ldg16(x + (size_t)m * K + s * 1024 + lane * 32 + c * 8);
-                    const uint32_t xw[4] = {xv.x, xv.y, xv.z, xv.w};
+`)
+		fmt.Fprintf(&b, "                    const eg_u32x4 xv = %s(x + (size_t)m * K + s * 1024 + lane * 32 + c * 8);\n", ldx)
+		b.WriteString(`                    const uint32_t xw[4] = {xv.x, xv.y, xv.z, xv.w};
 #pragma unroll
                     for (int j = 0; j < 4; ++j) {
                         xf[8 * c + 2 * j] = eg_bf16_to_f32(xw[j]);
@@ -425,26 +608,97 @@ func (g SkinnyGEMM) CUDA() (string, error) {
     if (t == 0) counters[blockIdx.x] = 0;
 `)
 	}
-	b.WriteString("    if (t < R * M) {\n        const int n = n0 + t / M, m = t % M;\n")
-	if g.Weight == WeightNVFP4 {
-		b.WriteString("        v *= gs;\n")
-	}
+	// cols is out's row length.
+	cols := "N"
 	args := []string{"v"}
+	if g.GLU {
+		// Pair each first-half accumulator with its second-half one.
+		cols = "(N / 2)"
+		args = append(args, "up")
+		b.WriteString("    __shared__ float glu[R][M];\n    if (t < R * M) {\n")
+		if g.Weight == WeightNVFP4 {
+			b.WriteString("        v *= gs;\n")
+		}
+		b.WriteString(`        glu[t / M][t % M] = v;
+    }
+    __syncthreads();
+    if (t < R / 2 * M) {
+        const int n = h0 + t / M, m = t % M;
+        v = glu[t / M][m];
+        const float up = glu[R / 2 + t / M][m];
+`)
+	} else {
+		b.WriteString("    if (t < R * M) {\n        const int n = n0 + t / M, m = t % M;\n")
+		if g.Weight == WeightNVFP4 {
+			b.WriteString("        v *= gs;\n")
+		}
+	}
 	for _, e := range g.Extras {
-		args = append(args, e.load("m", "n", "N"))
+		args = append(args, e.load("m", "n", cols))
 	}
 	expr, err := g.Epilogue.CUDA(args...)
 	if err != nil {
 		return "", err
 	}
-	if g.Out == BF16 {
-		fmt.Fprintf(&b, "        out[(size_t)m * N + n] = eg_f32_to_bf16(%s);\n", expr)
-	} else {
-		fmt.Fprintf(&b, "        out[(size_t)m * N + n] = %s;\n", expr)
+	switch {
+	case g.Store == StoreReduceAdd:
+		fmt.Fprintf(&b, "        atomicAdd(&out[(size_t)m * %s + n], %s);\n", cols, expr)
+	case g.Store == StoreMultimemReduceAdd:
+		fmt.Fprintf(&b, `        const float red = %[1]s;
+#if defined(EG_EMU) || defined(EG_HOST_EMU)
+        atomicAdd(&out[(size_t)m * %[2]s + n], red);
+#else
+        asm volatile("multimem.red.relaxed.sys.global.add.f32 [%%0], %%1;" :: "l"(out + (size_t)m * %[2]s + n), "f"(red) : "memory");
+#endif
+`, expr, cols)
+	case g.Out == BF16:
+		fmt.Fprintf(&b, "        out[(size_t)m * %s + n] = eg_f32_to_bf16(%s);\n", cols, expr)
+	default:
+		fmt.Fprintf(&b, "        out[(size_t)m * %s + n] = %s;\n", cols, expr)
 	}
-	b.WriteString("    }\n}\n")
+	b.WriteString("    }\n")
+	if g.Tail != nil {
+		// One block per column group reaches the epilogue, split-K or not.
+		// No block reads out before the tail, so no SM holds a stale copy.
+		var args []string
+		for _, p := range g.Tail.params()[1:] {
+			if name := paramName(p); name == g.TailIn {
+				args = append(args, "out")
+			} else {
+				args = append(args, name)
+			}
+		}
+		blocks := "M"
+		if threads, _, _ := g.Tail.geometry(); threads == 32 {
+			blocks = "(M + 7) / 8"
+		}
+		fmt.Fprintf(&b, `    // Tail: the last block to write out runs %[1]s over its rows.
+    __shared__ int tail_last;
+    __threadfence();
+    __syncthreads();
+    if (t == 0) tail_last = atomicAdd(tail_count, 1) == (int)gridDim.x - 1;
+    __syncthreads();
+    if (!tail_last) return;
+    __threadfence();
+    for (unsigned b = 0; b < %[2]s; ++b) %[1]s(b, M, %[3]s);
+    if (t == 0) *tail_count = 0;
+`, g.Tail.Name, blocks, strings.Join(args, ", "))
+	}
+	b.WriteString("}\n")
 	return b.String(), nil
 }
+
+// ldgF32BF16x8 loads 8 FP32 values and rounds them to packed BF16 pairs,
+// as eg_store does when a row kernel writes BF16.
+const ldgF32BF16x8 = `#ifndef EG_LDG_F32_BF16X8
+#define EG_LDG_F32_BF16X8
+EG_DEV eg_u32x4 eg_ldg_f32_bf16x8(const float* p) {
+    const eg_u32x4 a = eg_ldg16(p), b = eg_ldg16(p + 4);
+    return eg_u32x4{eg_pack_bf16x2(__uint_as_float(a.x), __uint_as_float(a.y)), eg_pack_bf16x2(__uint_as_float(a.z), __uint_as_float(a.w)),
+                    eg_pack_bf16x2(__uint_as_float(b.x), __uint_as_float(b.y)), eg_pack_bf16x2(__uint_as_float(b.z), __uint_as_float(b.w))};
+}
+#endif
+`
 
 // Launcher returns a host function
 //
@@ -483,10 +737,10 @@ type GEMMWeights struct {
 	E4M3       []uint8  // WeightE4M3 [N*K]
 }
 
-// Reference computes g's output for m rows of x (BF16 bits, [m, K]) in
-// float64, as moe8_bf16_proj/reference.py:72-76 does, then applies the
-// epilogue in FP32 and rounds to g.Out. extras holds each operand's values
-// as FP32.
+// Reference computes g's output for m rows of x (BF16 bits, [m, K]; an F32
+// x rounded to BF16) in float64, as moe8_bf16_proj/reference.py:72-76 does,
+// then applies the epilogue in FP32 and rounds to g.Out. extras holds each
+// operand's values as FP32.
 func (g SkinnyGEMM) Reference(m int, x []uint16, w GEMMWeights, extras [][]float32) ([]float32, error) {
 	g, err := g.norm()
 	if err != nil {
@@ -495,14 +749,39 @@ func (g SkinnyGEMM) Reference(m int, x []uint16, w GEMMWeights, extras [][]float
 	if m < 1 || m > g.MaxM || len(x) != m*g.K || len(extras) != len(g.Extras) {
 		return nil, fmt.Errorf("skinny gemm %s reference: bad inputs", g.Name)
 	}
-	out := make([]float32, m*g.N)
 	rows := make([]int, m)
 	for i := range rows {
 		rows[i] = i
 	}
 	xRow := func(i int) []uint16 { return x[i*g.K : (i+1)*g.K] }
-	if err := gemmRows(g.N, g.K, g.Weight, w, xRow, rows, g.Epilogue, g.Extras, extras, g.Out, out); err != nil {
+	if !g.GLU {
+		out := make([]float32, m*g.N)
+		if err := gemmRows(g.N, g.K, g.Weight, w, xRow, rows, g.Epilogue, g.Extras, extras, g.Out, out); err != nil {
+			return nil, fmt.Errorf("skinny gemm %s reference: %w", g.Name, err)
+		}
+		return out, nil
+	}
+	acc := make([]float32, m*g.N)
+	if err := gemmRows(g.N, g.K, g.Weight, w, xRow, rows, Identity, nil, nil, F32, acc); err != nil {
 		return nil, fmt.Errorf("skinny gemm %s reference: %w", g.Name, err)
+	}
+	h := g.N / 2
+	out := make([]float32, m*h)
+	for i := range m {
+		for n := range h {
+			args := []float32{acc[i*g.N+n], acc[i*g.N+h+n]}
+			for e, o := range g.Extras {
+				switch o.Broadcast {
+				case PerCol:
+					args = append(args, extras[e][n])
+				case PerRow:
+					args = append(args, extras[e][i])
+				default:
+					args = append(args, extras[e][i*h+n])
+				}
+			}
+			out[i*h+n] = g.Out.Round(g.Epilogue.Eval(args...))
+		}
 	}
 	return out, nil
 }

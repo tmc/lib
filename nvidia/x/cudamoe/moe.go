@@ -36,11 +36,16 @@ func Gather16(experts [][]float32, indices []int, width int) ([]float32, error) 
 	if width <= 0 || width%16 != 0 {
 		return nil, fmt.Errorf("cudamoe: width must be a positive multiple of 16")
 	}
-	out := make([]float32, len(indices)*width)
-	for r, idx := range indices {
+	if len(indices) > math.MaxInt/width {
+		return nil, fmt.Errorf("cudamoe: gather output extent overflows int")
+	}
+	for _, idx := range indices {
 		if idx < 0 || idx >= len(experts) || len(experts[idx]) < width {
 			return nil, fmt.Errorf("cudamoe: expert index out of range")
 		}
+	}
+	out := make([]float32, len(indices)*width)
+	for r, idx := range indices {
 		copy(out[r*width:], experts[idx][:width])
 	}
 	return out, nil

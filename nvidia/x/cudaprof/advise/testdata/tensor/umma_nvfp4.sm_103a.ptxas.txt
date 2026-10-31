@@ -1,0 +1,5 @@
+ptxas info    : Compiling entry function '_Z17umma_nvfp4_decodei14CUtensorMap_stS_S_S_PKfPf' for 'sm_103a'
+ptxas info    : Function properties for _Z17umma_nvfp4_decodei14CUtensorMap_stS_S_S_PKfPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 1 barriers
+ptxas info    : Compile time = 25.913 ms

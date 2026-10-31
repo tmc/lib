@@ -44,6 +44,27 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 			}
 			continue
 		}
+		if k.UMMA != nil || k.Quant != nil {
+			var s, l, name string
+			var err error
+			if k.UMMA != nil {
+				name = k.UMMA.Name
+				if s, err = k.UMMA.CUDA(); err == nil {
+					l, err = k.UMMA.Launcher()
+				}
+			} else {
+				name = k.Quant.Name
+				if s, err = k.Quant.CUDA(); err == nil {
+					l, err = k.Quant.Launcher()
+				}
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			src.WriteString(s + "\n" + l)
+			launches = append(launches, fmt.Sprintf("%s_launch(%d, %s, nullptr)", name, k.M, strings.Join(k.Args, ", ")))
+			continue
+		}
 		if k.Attention != nil {
 			s, err := k.Attention.CUDA()
 			if err != nil {
@@ -123,6 +144,9 @@ func runPlan(t *testing.T, p *Plan, env map[string]Value) []float64 {
 		raw := poison(size(tmp.Shape) * tmp.DType.Bits() / 8)
 		if z, ok := wsZero[tmp.Name]; ok && z <= len(raw) {
 			clear(raw[:z])
+		}
+		if tmp.DType == I32 && strings.HasSuffix(tmp.Name, "_count") {
+			clear(raw) // a FuseTails counter
 		}
 		bufs = append(bufs, emuBuf{tmp.Name, tmp.DType.cType(), raw})
 	}
@@ -270,8 +294,8 @@ func TestCompileGEMMThenNorm(t *testing.T) {
 	agree(t, "chain", F32, runPlan(t, plan, env), want.Data)
 }
 
-// TestCompileCastInputGEMM rounds an F32 input to BF16 for a projection: the
-// cast of a bare input is its own row kernel.
+// TestCompileCastInputGEMM rounds an F32 input to BF16 for a projection: a
+// skinny gemm casts a bare input as it loads it, with no row kernel.
 func TestCompileCastInputGEMM(t *testing.T) {
 	b := NewBuilder()
 	x := b.Input("x", F32, 2, 256)
@@ -284,7 +308,8 @@ func TestCompileCastInputGEMM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Kernels) != 2 || plan.Kernels[0].Row == nil || plan.Kernels[1].GEMM == nil {
+	// The skinny gemm reads the F32 input and rounds it as it loads.
+	if len(plan.Kernels) != 1 || plan.Kernels[0].GEMM == nil || plan.Kernels[0].GEMM.X != F32 {
 		t.Fatalf("plan: %+v", plan.Kernels)
 	}
 	env := randEnv(rand.New(rand.NewPCG(17, 18)), Tensor{"x", F32, []int{2, 256}}, Tensor{"w", BF16, []int{64, 256}})
@@ -293,6 +318,43 @@ func TestCompileCastInputGEMM(t *testing.T) {
 		t.Fatal(err)
 	}
 	agree(t, "castproj", F32, runPlan(t, plan, env), want.Data)
+}
+
+// TestFuseEpilogueGEMMOperand folds a residual that is itself a projection's
+// result into the next projection's epilogue: out = (cast(h) · w2ᵀ) + h with
+// h = x · w1ᵀ is two gemms and the cast, with no row kernel for the add.
+func TestFuseEpilogueGEMMOperand(t *testing.T) {
+	b := NewBuilder()
+	x := b.Input("x", BF16, 2, 256)
+	h := b.MatMul(x, b.Input("w1", BF16, 256, 256))
+	y := b.MatMul(b.Cast(BF16, h), b.Input("w2", BF16, 256, 256))
+	expr, err := Optimize(b.G, b.Map(MustLambda("(add $0 $1)"), y, h))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Compile(expr, "resid", F32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gemms, rows int
+	for _, k := range plan.Kernels {
+		switch {
+		case k.GEMM != nil:
+			gemms++
+		case k.Row != nil:
+			rows++
+		}
+	}
+	last := plan.Kernels[len(plan.Kernels)-1]
+	if gemms != 2 || rows != 1 || last.GEMM == nil || len(last.GEMM.Extras) != 1 {
+		t.Fatalf("plan: %d gemms, %d row kernels, last %+v; want the add in the last gemm's epilogue", gemms, rows, last)
+	}
+	env := randEnv(rand.New(rand.NewPCG(19, 20)), Tensor{"x", BF16, []int{2, 256}}, Tensor{"w1", BF16, []int{256, 256}}, Tensor{"w2", BF16, []int{256, 256}})
+	want, err := Eval(expr, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agree(t, "resid", F32, runPlan(t, plan, env), want.Data)
 }
 
 // TestCompilePrefillGEMM lowers a many-row projection with a fused

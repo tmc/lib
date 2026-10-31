@@ -36,6 +36,15 @@
 // on small inputs. It does not model timing, memory ordering beyond
 // barriers, or the GPU's floating-point contraction choices.
 //
+// Timing is estimated separately, without running kernel source:
+// [SimulateTimeline] schedules a [TimelineProgram], each warp's TMA,
+// mbarrier, MMA and tensor-memory instructions, against a fixed latency
+// table and reports tensor-core utilization, TMA overlap, consumer stalls
+// and tensor-memory occupancy. [TimelineSummary.WritePerfettoJSON] writes
+// the result as Chrome trace-event JSON for ui.perfetto.dev. The latencies
+// are round figures, not measurements; the estimates rank schedules of one
+// kernel and do not predict a device's run time.
+//
 // This package is outside the compatibility promise of
 // github.com/tmc/lib/nvidia. Its API may change or be removed in patch releases.
 package cudahostemu
