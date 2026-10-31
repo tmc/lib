@@ -17,6 +17,8 @@ import (
 // tile at columns 8·(4c + q) of each 32·Chunks-column step. The k order the
 // mma sees is a permutation of memory order applied to x and W alike, so
 // no shuffle or shared memory stands between a weight load and its mma.
+// With StageWeights, weights instead pass through a warp-private shared tile,
+// filled by contiguous row loads before the same register fragments are read.
 // x is staged in shared memory KChunk columns at a time, its rows padded
 // with zeros to 16 or 32.
 //
@@ -40,7 +42,10 @@ type SkinnyMMA struct {
 	Tiles  int // 8-row tiles per warp, even with GLU; 0 means 1, or 2 with GLU
 	Chunks int // 16-byte loads per lane per tile and step; 0 means 2, or 4 with GLU
 	Steps  int // steps of weight loads in flight per warp; 0 means 2, or 1 with GLU
-	KChunk int // columns of x staged at once; 0 means at most 512
+	KChunk int // columns staged at once; 0 means at most 512, or 256 with StageWeights
+	// StageWeights stages warp-private weight tiles through shared memory.
+	// It preserves the MMA order and limits KChunk to at most 256.
+	StageWeights bool
 	// SplitK is the number of blocks along K; 0 chooses the fewest that
 	// give at least three blocks per multiprocessor.
 	SplitK int
@@ -106,9 +111,15 @@ func (g SkinnyMMA) norm() (SkinnyMMA, error) {
 		}
 		seen[e.Name] = true
 	}
+	if g.StageWeights && g.Tiles > int(^uint(0)>>1)/(8*g.Warps) {
+		return g, fmt.Errorf("skinny mma %s: staged weight row count overflows", g.Name)
+	}
 	rows := 8 * g.Warps * g.Tiles
 	if g.N < 1 || g.N%rows != 0 {
 		return g, fmt.Errorf("skinny mma %s: N %d not a multiple of %d rows per block", g.Name, g.N, rows)
+	}
+	if g.StageWeights && (g.Chunks > 8 || g.Steps > 8/g.Chunks) {
+		return g, fmt.Errorf("skinny mma %s: staged step exceeds 256 columns", g.Name)
 	}
 	unit := 32 * g.Chunks * g.Steps
 	if g.K < unit || g.K%unit != 0 {
@@ -128,21 +139,37 @@ func (g SkinnyMMA) norm() (SkinnyMMA, error) {
 			}
 		}
 	}
+	if g.StageWeights && g.SplitK > g.K/unit {
+		return g, fmt.Errorf("skinny mma %s: staged split exceeds K units", g.Name)
+	}
 	if g.K%(g.SplitK*unit) != 0 {
 		return g, fmt.Errorf("skinny mma %s: K %d does not split %d ways into multiples of %d", g.Name, g.K, g.SplitK, unit)
 	}
 	split := g.K / g.SplitK
 	if g.KChunk == 0 {
-		// The widest multiple of unit up to 512 that divides the split.
+		// The widest allowed multiple of unit that divides the split.
 		g.KChunk = unit
-		for c := unit; c <= max(512, unit) && c <= split; c += unit {
+		limit := 512
+		if g.StageWeights {
+			limit = 256
+		}
+		for c := unit; c <= max(limit, unit) && c <= split; c += unit {
 			if split%c == 0 {
 				g.KChunk = c
 			}
 		}
 	}
+	if g.StageWeights && g.KChunk > 256 {
+		return g, fmt.Errorf("skinny mma %s: staged KChunk exceeds 256 columns", g.Name)
+	}
 	if g.KChunk%unit != 0 || split%g.KChunk != 0 {
 		return g, fmt.Errorf("skinny mma %s: KChunk %d must be a multiple of %d dividing %d", g.Name, g.KChunk, unit, split)
+	}
+	if g.StageWeights {
+		maxInt := int(^uint(0) >> 1)
+		if rows > maxInt-g.paddedRows() || rows+g.paddedRows() > maxInt/2/(g.KChunk+32) {
+			return g, fmt.Errorf("skinny mma %s: staged shared memory size overflows", g.Name)
+		}
 	}
 	return g, nil
 }
@@ -161,13 +188,18 @@ func (g SkinnyMMA) Grid() (grid, block [3]int, err error) {
 
 // SharedBytes returns the dynamic shared memory one block uses: KChunk
 // columns of the padded x rows, each row padded by 64 bytes so that the
-// fragment loads of a quarter warp hit distinct banks.
+// fragment loads of a quarter warp hit distinct banks. With StageWeights,
+// an additional padded shared row is allocated per weight row in the block.
 func (g SkinnyMMA) SharedBytes() int {
 	g, err := g.norm()
 	if err != nil {
 		return 0
 	}
-	return g.paddedRows() * (g.KChunk + 32) * 2
+	rows := g.paddedRows()
+	if g.StageWeights {
+		rows += 8 * g.Warps * g.Tiles
+	}
+	return rows * (g.KChunk + 32) * 2
 }
 
 // WorkspaceBytes reports the bytes of zero-initialized workspace the kernel
@@ -238,7 +270,30 @@ func (g SkinnyMMA) CUDA() (string, error) {
     const int k0 = blockIdx.y * KS;
     float acc[MT][NT][4] = {};
     for (int kc = k0; kc < k0 + KS; kc += KC) {
-        for (int s = 0; s < KC; s += U * SS) {
+`)
+	if g.StageWeights {
+		b.WriteString(`        uint16_t* const wshared = xs + MP * LDX; // [WARPS][NT][8][LDX]
+        __syncthreads(); // finish the preceding chunk before reusing shared memory
+        for (int i = tid; i < MP * (KC / 8); i += WARPS * 32) {
+            const int r = i / (KC / 8), ch = i % (KC / 8);
+            eg_u32x4 v = {0, 0, 0, 0};
+            if (r < m_total) v = eg_ldg16(x + (size_t)r * K + kc + ch * 8);
+            *reinterpret_cast<eg_u32x4*>(&xs[r * LDX + ch * 8]) = v;
+        }
+#pragma unroll
+        for (int nt = 0; nt < NT; ++nt)
+#pragma unroll
+            for (int r = 0; r < 8; ++r) {
+                const int col = lane * 8;
+                if (col < KC) {
+                    const eg_u32x4 v = eg_ldg_stream(w + (size_t)(wrow[nt] + r) * K + kc + col);
+                    *reinterpret_cast<eg_u32x4*>(&wshared[((warp * NT + nt) * 8 + r) * LDX + col]) = v;
+                }
+            }
+        __syncthreads(); // publish x and weight tiles to all fragment readers
+`)
+	}
+	b.WriteString(`        for (int s = 0; s < KC; s += U * SS) {
             eg_u32x4 wv[U][NT][C];
 #pragma unroll
             for (int u = 0; u < U; ++u)
@@ -246,7 +301,12 @@ func (g SkinnyMMA) CUDA() (string, error) {
                 for (int nt = 0; nt < NT; ++nt)
 #pragma unroll
                     for (int c = 0; c < C; ++c)
-                        wv[u][nt][c] = eg_ldg_stream(w + (size_t)(wrow[nt] + g) * K + kc + s + u * SS + (4 * c + q) * 8);
+`)
+	if g.StageWeights {
+		b.WriteString(`                        wv[u][nt][c] = *reinterpret_cast<const eg_u32x4*>(&wshared[((warp * NT + nt) * 8 + g) * LDX + s + u * SS + (4 * c + q) * 8]);
+`)
+	} else {
+		b.WriteString(`                        wv[u][nt][c] = eg_ldg_stream(w + (size_t)(wrow[nt] + g) * K + kc + s + u * SS + (4 * c + q) * 8);
             if (s == 0) {
                 // Stage x's next KC columns while the weight loads are in flight.
                 __syncthreads();
@@ -258,7 +318,9 @@ func (g SkinnyMMA) CUDA() (string, error) {
                 }
                 __syncthreads();
             }
-#pragma unroll
+`)
+	}
+	b.WriteString(`#pragma unroll
             for (int u = 0; u < U; ++u)
 #pragma unroll
                 for (int c = 0; c < C; ++c) {
