@@ -50,3 +50,5 @@ pid: 80671
 ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
 
 Branch audit: signed private NSCQ refresh 83014811fc1d44a2f7413cf43bdb97da6905471e; commit date 2026-10-30T20:35:01-07:00. Agent Codex; model GPT-6 family (exact ID unavailable); Claude Code not used; tty none; pid 95273; ITERM_SESSION_ID w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215. Original source retained; native/regeneration HOLD.
+
+Current-base host qualification: 37 passed, explicit skips TestLoadConflict, TestBoundSymbols; inventory check PASS. Package blobs unchanged; inventory delta unchanged against new base. Native NSCQ NOT_RUN; upstream regeneration UNVERIFIED. Receipt nscq-aae-current-prepared.json.
