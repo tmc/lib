@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/tmc/lib/nvidia/driver"
@@ -105,14 +106,75 @@ func (b NVRTCBuilder) Build(ctx context.Context, c ScheduleCandidate) (Variant, 
 // Collection follows [cuptipcsampling]: Linux only, an admitted CUPTI
 // version, exclusive use of PC sampling, and profiling permitted for the
 // user. Callers must call [driver.ProfilerStop] before the process exits.
+//
+// CUPTICollector is a [Preloader]: a preloaded variant's module stays
+// loaded and is reused by SampleKernel and Execute; any other variant is
+// loaded for the call and unloaded after it. Load every variant to be
+// sampled before the first SampleKernel on the device's context; see
+// [Daemon.Step].
 type CUPTICollector struct {
 	Device *cuda.Device
 	Run    func(fn driver.Function, c ScheduleCandidate) error
 	Period uint32 // PC sampling period exponent, 5 to 31; default 12
+
+	mu     sync.Mutex
+	loaded map[string]loadedModule // by candidate name
+}
+
+type loadedModule struct {
+	cubin []byte
+	mod   driver.Module
+}
+
+// Preload implements [Preloader]. It loads every variant's cubin on Device
+// and returns a function that unloads them.
+func (col *CUPTICollector) Preload(ctx context.Context, vs []Variant) (release func() error, err error) {
+	if col.Device == nil {
+		return nil, errors.New("cupti collector: Device is required")
+	}
+	var mods []driver.Module
+	var names []string
+	unload := func() error {
+		col.mu.Lock()
+		for _, name := range names {
+			delete(col.loaded, name)
+		}
+		col.mu.Unlock()
+		return col.Device.WithContext(func() error {
+			var errs []error
+			for _, m := range mods {
+				errs = append(errs, m.Close())
+			}
+			return errors.Join(errs...)
+		})
+	}
+	err = col.Device.WithContext(func() error {
+		for _, v := range vs {
+			m, err := driver.ModuleLoadData(v.Cubin)
+			if err != nil {
+				return fmt.Errorf("preload %s: %w", v.Candidate.Name, err)
+			}
+			mods = append(mods, m)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Join(err, unload())
+	}
+	col.mu.Lock()
+	defer col.mu.Unlock()
+	if col.loaded == nil {
+		col.loaded = make(map[string]loadedModule)
+	}
+	for i, v := range vs {
+		col.loaded[v.Candidate.Name] = loadedModule{cubin: v.Cubin, mod: mods[i]}
+		names = append(names, v.Candidate.Name)
+	}
+	return unload, nil
 }
 
 // Execute loads v and launches it once, synchronously.
-func (col CUPTICollector) Execute(ctx context.Context, v Variant) error {
+func (col *CUPTICollector) Execute(ctx context.Context, v Variant) error {
 	return col.withFunction(v, func(fn driver.Function) error {
 		if err := col.Run(fn, v.Candidate); err != nil {
 			return err
@@ -121,16 +183,22 @@ func (col CUPTICollector) Execute(ctx context.Context, v Variant) error {
 	})
 }
 
-func (col CUPTICollector) withFunction(v Variant, f func(driver.Function) error) error {
+func (col *CUPTICollector) withFunction(v Variant, f func(driver.Function) error) error {
 	if col.Device == nil || col.Run == nil {
 		return errors.New("cupti collector: Device and Run are required")
 	}
+	col.mu.Lock()
+	pre, ok := col.loaded[v.Candidate.Name]
+	col.mu.Unlock()
 	return col.Device.WithContext(func() (err error) {
-		mod, err := driver.ModuleLoadData(v.Cubin)
-		if err != nil {
-			return fmt.Errorf("load %s: %w", v.Candidate.Name, err)
+		mod := pre.mod
+		if !ok || !bytes.Equal(pre.cubin, v.Cubin) {
+			mod, err = driver.ModuleLoadData(v.Cubin)
+			if err != nil {
+				return fmt.Errorf("load %s: %w", v.Candidate.Name, err)
+			}
+			defer func() { err = errors.Join(err, mod.Close()) }()
 		}
-		defer func() { err = errors.Join(err, mod.Close()) }()
 		fn, err := mod.Function(v.Source.Entry)
 		if err != nil {
 			return fmt.Errorf("function %s: %w", v.Source.Entry, err)
@@ -140,7 +208,7 @@ func (col CUPTICollector) withFunction(v Variant, f func(driver.Function) error)
 }
 
 // SampleKernel implements [LiveCollector].
-func (col CUPTICollector) SampleKernel(ctx context.Context, v Variant, iters int) (ProfileObservation, StallHistogram, error) {
+func (col *CUPTICollector) SampleKernel(ctx context.Context, v Variant, iters int) (ProfileObservation, StallHistogram, error) {
 	var obs ProfileObservation
 	var hist StallHistogram
 	err := col.withFunction(v, func(fn driver.Function) error {
@@ -165,7 +233,7 @@ func (col CUPTICollector) SampleKernel(ctx context.Context, v Variant, iters int
 	return obs, hist, nil
 }
 
-func (col CUPTICollector) time(fn driver.Function, c ScheduleCandidate, iters int) (us float64, err error) {
+func (col *CUPTICollector) time(fn driver.Function, c ScheduleCandidate, iters int) (us float64, err error) {
 	start, err := driver.NewEvent(driver.EventDefault)
 	if err != nil {
 		return 0, err
@@ -202,7 +270,7 @@ func (col CUPTICollector) time(fn driver.Function, c ScheduleCandidate, iters in
 
 // sample runs iters launches under PC sampling and sums the entry
 // function's per-PC histograms.
-func (col CUPTICollector) sample(ctx context.Context, fn driver.Function, v Variant, iters int) (h StallHistogram, err error) {
+func (col *CUPTICollector) sample(ctx context.Context, fn driver.Function, v Variant, iters int) (h StallHistogram, err error) {
 	cuCtx, err := driver.CtxGetCurrent()
 	if err != nil {
 		return h, err

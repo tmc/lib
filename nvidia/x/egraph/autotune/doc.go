@@ -33,7 +33,10 @@
 // times launches with CUDA events and collects stall histograms with CUPTI
 // PC sampling. It does not use CUPTI range profiling; RangeMetrics carries
 // only the register count. Programs using it must call driver.ProfilerStop
-// before exit.
+// before exit. It is a [Preloader]: the daemon loads every candidate of a
+// step before sampling any, because loading a module into a context after
+// PC sampling was configured on it made later enables fail on GB10 (see
+// package cuptipcsampling). Give the first [Daemon.Step] every candidate.
 //
 // Ordinary tests drive the loop against a synthetic device model. With
 // CUDA_EGRAPH_AUTOTUNE_NATIVE=1 under an inherited gpu-lock,

@@ -311,7 +311,7 @@ func TestAutotuneNativeQualification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	col := autotune.CUPTICollector{
+	col := &autotune.CUPTICollector{
 		Device: dev,
 		Run: func(fn driver.Function, cand autotune.ScheduleCandidate) error {
 			tm := uint32(cand.TileM)
@@ -363,9 +363,11 @@ func TestAutotuneNativeQualification(t *testing.T) {
 		t.Logf("%s: STL=%d LDL=%d in %s SASS", c.Name, v.SpillStores, v.SpillLoads, target)
 	}
 	d, err := autotune.NewDaemon(autotune.DaemonConfig{
-		Twin:      twin,
-		ShapeKey:  fmt.Sprintf("sgemm_%dx%dx%d", m, n, k),
-		MaxTrials: 5,
+		Twin:     twin,
+		ShapeKey: fmt.Sprintf("sgemm_%dx%dx%d", m, n, k),
+		// One step tries every candidate: the daemon preloads them all
+		// before sampling configures the context.
+		MaxTrials: len(gemmCandidates()),
 		Iters:     20,
 		Builder:   builder,
 		Agreement: agreeFunc(func(_ context.Context, serving, cand autotune.Variant) error {
@@ -380,17 +382,18 @@ func TestAutotuneNativeQualification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := d.Close(); err != nil {
+			t.Errorf("daemon close: %v", err)
+		}
+	})
 
 	cands := gemmCandidates()
-	var res autotune.StepResult
-	var trials []autotune.Trial
-	for step := range 2 {
-		res, err = d.Step(t.Context(), cands)
-		if err != nil {
-			t.Fatalf("step %d: %v", step, err)
-		}
-		trials = append(trials, res.Trials...)
+	res, err := d.Step(t.Context(), cands)
+	if err != nil {
+		t.Fatalf("step: %v", err)
 	}
+	trials := res.Trials
 	sampled := false
 	spillRejected := false
 	for _, tr := range trials {

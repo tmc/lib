@@ -50,6 +50,13 @@ type LiveCollector interface {
 	SampleKernel(ctx context.Context, v Variant, iters int) (ProfileObservation, StallHistogram, error)
 }
 
+// A Preloader is a [LiveCollector] that can load a generation of variants
+// before it samples any of them. The variants stay loaded, and SampleKernel
+// uses the loaded code, until release is called.
+type Preloader interface {
+	Preload(ctx context.Context, vs []Variant) (release func() error, err error)
+}
+
 // An Agreement compares a candidate variant's outputs with the serving
 // variant's and returns an error if they differ beyond tolerance.
 type Agreement interface {
@@ -141,8 +148,15 @@ type Daemon struct {
 	weights  ScheduleWeights
 	model    *OnlineCostModel
 	measured map[string]*measurement
+	prebuilt map[string]prebuilt // built for a preload, not yet tried
+	releases []func() error      // unload preloaded generations
 	serving  string
 	warm     string // cached winner to sample first
+}
+
+type prebuilt struct {
+	variant Variant
+	err     error
 }
 
 // NewDaemon returns a daemon sampling through collector.
@@ -170,7 +184,21 @@ func NewDaemon(cfg DaemonConfig, collector LiveCollector) (*Daemon, error) {
 		collector: collector,
 		model:     NewOnlineCostModel(),
 		measured:  make(map[string]*measurement),
+		prebuilt:  make(map[string]prebuilt),
 	}, nil
+}
+
+// Close unloads every generation a [Preloader] collector loaded for the
+// daemon. The daemon must not be stepped after Close.
+func (d *Daemon) Close() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	var errs []error
+	for _, release := range d.releases {
+		errs = append(errs, release())
+	}
+	d.releases = nil
+	return errors.Join(errs...)
 }
 
 // Weights returns the daemon's current schedule weights.
@@ -186,7 +214,18 @@ func (d *Daemon) Model() *OnlineCostModel { return d.model }
 // Step runs one closed-loop iteration over candidates. The first step
 // samples the candidate with the lowest analytical cost, which is taken to
 // be serving. Candidates that fail [ScheduleCandidate.Validate] are
-// skipped. Step returns an error only if no candidate could be measured.
+// skipped. Step returns an error only if no candidate could be measured,
+// or if a [Preloader] collector fails to preload.
+//
+// If the collector is a Preloader, Step first builds every valid
+// unmeasured candidate and preloads, as one generation, those that built
+// without spills; they stay loaded until [Daemon.Close]. On CUPTI 13.x
+// with a GB10, loading a module into a context after PC sampling had been
+// configured on it made a later enable fail (see package cuptipcsampling),
+// while modules loaded before the first configuration did not. A later
+// Step that brings new candidates loads them after sampling has been
+// configured, so pass every candidate to the first Step and set MaxTrials
+// to cover them.
 func (d *Daemon) Step(ctx context.Context, candidates []ScheduleCandidate) (StepResult, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -198,6 +237,11 @@ func (d *Daemon) Step(ctx context.Context, candidates []ScheduleCandidate) (Step
 	}
 	if len(valid) == 0 {
 		return StepResult{}, errors.New("daemon step: no valid candidates")
+	}
+	if p, ok := d.collector.(Preloader); ok {
+		if err := d.preload(ctx, p, valid); err != nil {
+			return StepResult{}, fmt.Errorf("daemon step: %w", err)
+		}
 	}
 	baseline := slices.MinFunc(valid, func(a, b ScheduleCandidate) int {
 		return cmp.Compare(a.AnalyticalCostUS, b.AnalyticalCostUS)
@@ -295,6 +339,34 @@ func (d *Daemon) next(valid []ScheduleCandidate, baseline ScheduleCandidate) (Sc
 	}), true
 }
 
+// preload builds every unmeasured candidate in valid and loads those that
+// built without spills through p.
+func (d *Daemon) preload(ctx context.Context, p Preloader, valid []ScheduleCandidate) error {
+	var vs []Variant
+	for _, c := range valid {
+		if d.measured[c.Name] != nil {
+			continue
+		}
+		if _, ok := d.prebuilt[c.Name]; ok {
+			continue
+		}
+		v, err := d.cfg.Builder.Build(ctx, c)
+		d.prebuilt[c.Name] = prebuilt{v, err}
+		if err == nil && v.SpillStores == 0 && v.SpillLoads == 0 {
+			vs = append(vs, v)
+		}
+	}
+	if len(vs) == 0 {
+		return nil
+	}
+	release, err := p.Preload(ctx, vs)
+	if err != nil {
+		return fmt.Errorf("preload %d variants: %w", len(vs), err)
+	}
+	d.releases = append(d.releases, release)
+	return nil
+}
+
 // trial builds and samples c, records the observation and refines the
 // weights. A candidate that fails to build, spills in SASS, or fails to
 // sample is recorded as disqualified so it is not tried again.
@@ -305,7 +377,14 @@ func (d *Daemon) trial(ctx context.Context, c ScheduleCandidate) Trial {
 		d.measured[c.Name] = &measurement{variant: v, err: err}
 		return t
 	}
-	v, err := d.cfg.Builder.Build(ctx, c)
+	var v Variant
+	var err error
+	if pb, ok := d.prebuilt[c.Name]; ok {
+		v, err = pb.variant, pb.err
+		delete(d.prebuilt, c.Name)
+	} else {
+		v, err = d.cfg.Builder.Build(ctx, c)
+	}
 	if err != nil {
 		return fail(Variant{Candidate: c}, fmt.Errorf("build %s: %w", c.Name, err))
 	}

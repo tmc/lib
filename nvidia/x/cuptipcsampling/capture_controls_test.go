@@ -345,7 +345,7 @@ func TestPublicCloseWithPriorReadLoss(t *testing.T) {
 		t.Fatalf("batch=%+v err=%v", b, err)
 	}
 	err = s.Close()
-	if err == nil || !strings.Contains(err.Error(), "final sampling output has loss or remaining PCs") {
+	if err == nil || !strings.Contains(err.Error(), "final sampling output has loss or remaining PCs: remaining 0, dropped 0, hardware buffer full 0, earlier read loss true") {
 		t.Fatalf("close=%v", err)
 	}
 	final, ok := s.Final()
