@@ -113,7 +113,7 @@ func TestAfmoeCoreRejectsInvalidLaunches(t *testing.T) {
 	emit := func(*cudalaunch.Launcher, ...any) error { t.Fatal("invalid launch reached emitter"); return nil }
 	for _, tc := range []struct {
 		name string
-		run  func() error
+		call func() error
 	}{
 		{"linear rows", func() error { return m.emitLinear(w, in, out, 0, 4, true, emit) }},
 		{"linear short weight", func() error { return m.emitLinear(afmoeCoreTestWeight(t, 0x100000, 11), in, out, 3, 4, true, emit) }},
@@ -129,7 +129,7 @@ func TestAfmoeCoreRejectsInvalidLaunches(t *testing.T) {
 		{"missing module", func() error { return (*afmoeCoreModule)(nil).emitLinear(w, in, out, 3, 4, true, emit) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := tc.run(); err == nil {
+			if err := tc.call(); err == nil {
 				t.Fatal("accepted invalid launch")
 			}
 		})

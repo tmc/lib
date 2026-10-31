@@ -55,6 +55,9 @@ type egraphOptions struct {
 	// and SM count choose tile heights and attention splits.
 	Profile cudadevicetable.Profile
 
+	// TempBytes limits the shared generated-plan temporary arena; 0 is unlimited.
+	TempBytes uint64
+
 	Mega bool // run each decode plan as one persistent megakernel
 	Attn bool // generate RoPE, the KV-cache store and attention
 

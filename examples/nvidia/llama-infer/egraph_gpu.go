@@ -240,6 +240,11 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 			eg = nil
 		}
 	}()
+	if opt.TempBytes > 0 {
+		if _, err := hopper.PlanArena(eg.planList(), opt.TempBytes, !opt.Mega); err != nil {
+			return nil, fmt.Errorf("plan temporary arena: %w", err)
+		}
+	}
 	if opt.Mega {
 		for _, p := range eg.decodePlans() {
 			m, err := p.Megakernel("")

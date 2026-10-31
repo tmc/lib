@@ -423,7 +423,7 @@ func newParityEngine(t *testing.T, td *teardown, dev *cuda.Device, dir, kind str
 		if err != nil {
 			return nil, err
 		}
-		eg, err := newEgraphDecoder(dev, w, cfg, e.gpuW, e.sp, egraphOptions{
+		eg, err := newEgraphDecoder(dev, cfg, e.gpuW, e.sp, egraphOptions{
 			Attn:           true,
 			PrefillRows:    -1,
 			PrefillMinRows: 1,
@@ -660,7 +660,7 @@ func (r *parityResult) add(pos int, ours, ref []float32, hf float64, tol parityT
 	if hf > 0 {
 		r.MaxBF16Ratio = max(r.MaxBF16Ratio, maxAbs/hf)
 	}
-	a, b := argmax(ours), argmax(ref)
+	a, b := int(argmax(ours)), int(argmax(ref))
 	if greedy {
 		r.GreedyRows++
 	}
@@ -677,16 +677,6 @@ func (r *parityResult) add(pos int, ours, ref []float32, hf float64, tol parityT
 		})
 	}
 	r.Passed = r.MaxTolRatio <= 1
-}
-
-func argmax(x []float32) int {
-	best := 0
-	for i, v := range x {
-		if v > x[best] {
-			best = i
-		}
-	}
-	return best
 }
 
 // secondMax returns the largest element of x other than x[skip].

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -183,8 +184,22 @@ func TestEngineStepValidation(t *testing.T) {
 
 // The CLI must reject incompatible requests before opening a model or CUDA.
 func TestEngineStepConflictBeforeCUDA(t *testing.T) {
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = devNull
 	oldMode, oldSteps, oldTokens := *engineStepTimesFlag, *stepsFlag, *tokenIDsFlag
-	t.Cleanup(func() { *engineStepTimesFlag = oldMode; *stepsFlag = oldSteps; *tokenIDsFlag = oldTokens })
+	t.Cleanup(func() {
+		*engineStepTimesFlag = oldMode
+		*stepsFlag = oldSteps
+		*tokenIDsFlag = oldTokens
+		os.Stdout = stdout
+		if err := devNull.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	*engineStepTimesFlag = true
 	*stepsFlag = 127
 	*tokenIDsFlag = "1"

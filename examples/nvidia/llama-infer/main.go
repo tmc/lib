@@ -65,6 +65,7 @@ var (
 	cudaGraphFlag     = flag.Bool("cuda-graph", false, "replay the single-token decode step as an explicit CUDA graph")
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
+	egraphTempFlag    = flag.Uint64("egraph-temp-bytes", 0, "with -egraph, maximum generated-plan temporary arena bytes (0: unlimited)")
 	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
 	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
@@ -541,6 +542,7 @@ func runGPUInference(
 		}
 		eg, err := newEgraphDecoder(dev, cfg, gpuWeights, scratch, egraphOptions{
 			Profile:      prof,
+			TempBytes:    *egraphTempFlag,
 			Mega:         *egraphMegaFlag,
 			PDL:          pdl,
 			Attn:         *egraphAttnFlag,

@@ -323,6 +323,10 @@ var ownerSites = []struct {
 		"hands the owner and error to the callers of NewDecodeGraph, whose calls are checked"},
 	{ownerSite{"egraph_gpu.go", "newEgraphDecoder", libX + "cudamem.Alloc", "owner field"}, 28, "",
 		"each buffer lies in eg, which the constructor's deferred eg.Close frees on error"},
+	{ownerSite{"afmoe_moe_launch.go", "newAFMoEExpertTables", libX + "cudamem.Alloc", "call"}, 1, "TestAFMoEMoERejectsUnpreparedLaunch",
+		"each table lies in t, which the constructor's deferred t.Close frees on error"},
+	{ownerSite{"afmoe_runtime.go", "newAfmoeDecoder", libX + "cudamem.Alloc", "call"}, 6, "TestAfmoeRuntimeClosedWithoutPreparation",
+		"each buffer lies in d, which the constructor's deferred d.Close frees on error"},
 	{ownerSite{"main.go", "runGPUInference", "NewDecodeGraph", "call"}, 1, "TestCloseDecodeGraph",
 		"runGPUInference defers closeDecodeGraph(td, &dg) before calling NewDecodeGraph, which closes a non-nil dg when !td.held() and records its error in td"},
 	{ownerSite{"decode_graph_test.go", "build", "newDecodeGraphWith", "call"}, 1, "TestDecodeGraphCloseAndSetupErrors",
@@ -995,6 +999,9 @@ var ownerCalls = map[string]callCount{
 	"egraph_gpu.go":             {28, 0},
 	"weights_stream.go":         {4, 0},
 	"weights_stream_test.go":    {1, 0},
+	"afmoe_moe_launch.go":       {1, 0},
+	"afmoe_native_test.go":      {1, 1},
+	"afmoe_runtime.go":          {6, 0},
 }
 
 // testFuncs returns the names of the functions declared in the package's
@@ -1479,6 +1486,9 @@ var loadCalls = map[string]callCount{
 	"egraph_gpu.go":                   {2, 2},
 	"egraph_plan_tcgen05_test.go":     {1, 1},
 	"tp.go":                           {2, 2},
+	"afmoe_attention_gpu.go":          {2, 2},
+	"afmoe_core_gpu.go":               {2, 2},
+	"afmoe_moe_kernels.go":            {2, 2},
 }
 
 // TestCallErrorsReleased checks that every module compile and load in the

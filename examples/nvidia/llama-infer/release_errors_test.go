@@ -35,6 +35,8 @@ var discardAllowed = map[string]int{
 	// error of its private release; dropping it is what they test.
 	"weights_bf16_test.go: sp.release(f32, i32)": 1,
 	"weights_bf16_test.go: w.free(vec)":          1,
+	// cudakv.Cache.Reset rewinds the host position counter and returns no error.
+	"main.go: kvCache.Reset()": 1,
 }
 
 // discard is a statement that drops the error of a release call.

@@ -81,10 +81,8 @@ func newAfmoeDecoder(dev *cuda.Device, cfg *afmoeConfig, weights *afmoeWeights, 
 		"shared_act": cfg.MoEIntermediateSize, "shared_out": h,
 		"routed_act": cfg.NumExpertsPerTok * cfg.MoEIntermediateSize, "routed_out": cfg.NumExpertsPerTok * h,
 	} {
-		s, aerr := cudamem.Alloc[float32](dev, n)
-		d.f32[name] = s
-		if aerr != nil {
-			return nil, fmt.Errorf("allocate afmoe %s: %w", name, aerr)
+		if d.f32[name], err = cudamem.Alloc[float32](dev, n); err != nil {
+			return nil, fmt.Errorf("allocate afmoe %s: %w", name, err)
 		}
 	}
 	if d.token, err = cudamem.Alloc[int32](dev, 1); err != nil {

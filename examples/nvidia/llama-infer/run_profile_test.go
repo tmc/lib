@@ -203,6 +203,7 @@ func TestInferenceTestsSilenceStdout(t *testing.T) {
 	}
 	wantFiles := map[string]int{
 		"dropped_errors_test.go": 1,
+		"engine_steps_test.go":   1,
 		"fallbacks_test.go":      3,
 		"run_profile_test.go":    1,
 	}
