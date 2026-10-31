@@ -6,3 +6,12 @@ tty: no controlling tty in tool shell
 tool shell pid at metadata capture: 49424
 ITERM_SESSION_ID: w2t6p8:D1AA3E70-57F5-406D-96B0-629D770FC19E
 GOWORK=off terminal test/race/vet ./... passed. Linux amd64/arm64 and unsupported386 tests cross-compiled. Both-ABI VM proves tracked metadata-only exec, updated exec identity, worker/leader early-exit refusal, atomic last-group exit claim and duplicate suppression. BTF malformed signal/live/counter and shared owner/tag/budget/constructor rollback controls passed. Six permissive mutations fail semantically. Primary Linux5.13/6.12 exit.c confirms live decrement before sched_process_exit;6.12 exec.c updates self_exec_id before sched_process_exec. No native tracepoint/probe/GPU admission; no tracefs/sysctl writes. Manual Go-style fallback continues after prior git-auto-commit-message failure for absent Anthropic API key.
+
+commit: 09b004a0ec2f292d295e5ff0510001056d24d12d
+commit date: 2026-10-30T19:04:35-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 20651
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Branch audit: signed host-observer rebase onto fafa24c02711c65d266d95092555d4459011db25; validation pending.
