@@ -1,0 +1,8 @@
+commit: 246e9443e06b36c20fdbf35ab9a924b2e96050b1
+commit date: 2026-10-30T19:55:56-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 83574
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Manual Go-style fallback continues after prior helper failures (two attempts exhausted). Service/HTTP/client and MCP host race gates PASS. Three semantic mutation controls killed after retaining one timed-out harness attempt and fixing its recorder. Native BPF/GPU NOT_RUN; portability checks pending.
