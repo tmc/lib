@@ -69,6 +69,21 @@ func emitEgraph(dir, target string, cfg *ModelConfig, opt egraphOptions) error {
 		return fmt.Errorf("build e-graph plans for %s: %w", target, err)
 	}
 	eg := &egraphDecoder{plans: plans, megas: make(map[*hopper.Plan]hopper.Megakernel)}
+	if (opt.Autonomous || opt.PGOCacheDir != "") && cfg.NumHiddenLayers > 1 {
+		if eg.autonomous, err = NewAutonomousDecodeEngine(AutonomousDecodeConfig{
+			Model:     cfg,
+			QKVBias:   bias,
+			LayerL:    0,
+			LayerNext: min(1, max(0, cfg.NumHiddenLayers-1)),
+			BatchM:    1,
+			Target:    p.Target,
+			Device:    p.Product,
+			DeviceSMs: int(p.SMs.Value),
+			CacheDir:  opt.PGOCacheDir,
+		}); err != nil {
+			return err
+		}
+	}
 	if opt.Mega {
 		for _, pl := range eg.decodePlans() {
 			if eg.megas[pl], err = pl.Megakernel(""); err != nil {

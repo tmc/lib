@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
@@ -23,6 +25,7 @@ type AutonomousDecodeConfig struct {
 	LayerL           int
 	LayerNext        int
 	BatchM           int
+	Buckets          []int
 	Target           string
 	Device           string
 	DeviceSMs        int
@@ -56,6 +59,8 @@ type AutonomousDecodeEngine struct {
 	LayerNextAttnInPlan  *hopper.Plan
 	CrossLayerPlan       *hopper.Plan
 	CrossLayerMegakernel hopper.Megakernel
+	BucketPlans          map[int]*hopper.Plan
+	BucketMegakernels    map[int]hopper.Megakernel
 	Glue                 hopper.CrossLayerGlue
 	KernelName           string
 }
@@ -99,6 +104,29 @@ func NewAutonomousDecodeEngine(cfg AutonomousDecodeConfig) (*AutonomousDecodeEng
 	)
 	if err != nil {
 		return nil, fmt.Errorf("autonomous decode engine: %w", err)
+	}
+
+	bucketPlans := map[int]*hopper.Plan{
+		cfg.BatchM: crossPlan,
+	}
+	bucketMegas := map[int]hopper.Megakernel{
+		cfg.BatchM: crossMega,
+	}
+	for _, m := range cfg.Buckets {
+		if m <= 0 {
+			return nil, fmt.Errorf("autonomous decode engine: invalid bucket M=%d", m)
+		}
+		if _, ok := bucketPlans[m]; ok {
+			continue
+		}
+		bPlan, bMega, err := buildCrossLayerDecodeMegakernel(
+			cfg.Model, cfg.QKVBias, cfg.LayerL, cfg.LayerNext, m, target,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("autonomous decode engine bucket M=%d: %w", m, err)
+		}
+		bucketPlans[m] = bPlan
+		bucketMegas[m] = bMega
 	}
 
 	prefixL := fmt.Sprintf("l%d", cfg.LayerL)
@@ -159,6 +187,8 @@ func NewAutonomousDecodeEngine(cfg AutonomousDecodeConfig) (*AutonomousDecodeEng
 		LayerNextAttnInPlan:  attnInNext,
 		CrossLayerPlan:       crossPlan,
 		CrossLayerMegakernel: crossMega,
+		BucketPlans:          bucketPlans,
+		BucketMegakernels:    bucketMegas,
 		Glue:                 glue,
 		KernelName:           kernelName,
 	}, nil
@@ -259,6 +289,147 @@ func (e *AutonomousDecodeEngine) StepBuckets(ctx context.Context, batchSize, dra
 		return specdecode.BucketTransition{}, errors.New("autonomous decode engine: nil bucket controller")
 	}
 	return e.BucketController.Step(ctx, batchSize, draftedTokens, acceptedTokens)
+}
+
+// ObserveStep records a decode or speculative verification step with
+// activeTokens total tokens and observed acceptanceRate in [0, 1], updating
+// the engine's [specdecode.AdaptiveBucketController] and returning the
+// resulting [specdecode.BucketTransition].
+func (e *AutonomousDecodeEngine) ObserveStep(activeTokens int, acceptanceRate float64) (specdecode.BucketTransition, error) {
+	if e == nil || e.BucketController == nil {
+		return specdecode.BucketTransition{}, errors.New("autonomous decode engine: nil bucket controller")
+	}
+	if activeTokens <= 0 {
+		activeTokens = 1
+	}
+	priorBucket := e.BucketController.CurrentBucket()
+	rate := min(max(acceptanceRate, 0.0), 1.0)
+	drafted := max(0, activeTokens-1)
+	accepted := int(math.Round(rate * float64(drafted)))
+	var trans specdecode.BucketTransition
+	if drafted > 0 {
+		var err error
+		trans, err = e.BucketController.Step(context.Background(), 1, drafted, accepted)
+		if err != nil {
+			return trans, err
+		}
+	} else {
+		trans = specdecode.BucketTransition{
+			PriorBucket: priorBucket,
+			NewBucket:   priorBucket,
+			State:       e.BucketController.CurrentState(),
+			Geometry:    e.BucketController.CurrentGeometry(),
+		}
+	}
+
+	buckets := e.availableBuckets()
+	targetM := buckets[len(buckets)-1]
+	if activeTokens <= 1 {
+		targetM = buckets[0]
+	} else if acceptanceRate > 0 && rate < 0.30 {
+		want := 1
+		if rate >= 0.15 {
+			want = 2
+		}
+		for _, m := range buckets {
+			if m >= want {
+				targetM = m
+				break
+			}
+		}
+	} else {
+		for _, m := range buckets {
+			if m >= activeTokens {
+				targetM = m
+				break
+			}
+		}
+	}
+
+	if e.BucketController.CurrentBucket().BucketM != targetM {
+		spec := specdecode.BucketSpec{BucketM: targetM}
+		if defSpecs, dErr := specdecode.DefaultBucketSpecs(); dErr == nil {
+			for _, ds := range defSpecs {
+				if ds.BucketM == targetM {
+					spec = ds
+					break
+				}
+			}
+		}
+		var err error
+		trans, err = e.BucketController.SwitchBucket(context.Background(), spec)
+		if err != nil {
+			return trans, err
+		}
+	}
+	trans.PriorBucket = priorBucket
+	trans.Swapped = priorBucket.BucketM != trans.NewBucket.BucketM
+	return trans, nil
+}
+
+func (e *AutonomousDecodeEngine) availableBuckets() []int {
+	var out []int
+	for _, m := range e.Config.Buckets {
+		if m > 0 && !slices.Contains(out, m) {
+			out = append(out, m)
+		}
+	}
+	for m := range e.BucketPlans {
+		if m > 0 && !slices.Contains(out, m) {
+			out = append(out, m)
+		}
+	}
+	if len(out) == 0 {
+		out = []int{1, 2, 4, 8}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// SelectBucketMegakernel observes a decode or speculative verification step
+// with draftTokens proposed draft tokens and acceptanceRate, selects the
+// active bucket M, and returns the bucket's cross-layer [*hopper.Plan] and
+// [hopper.Megakernel].
+func (e *AutonomousDecodeEngine) SelectBucketMegakernel(draftTokens int, acceptanceRate float64) (int, *hopper.Plan, hopper.Megakernel, specdecode.BucketTransition, error) {
+	if e == nil {
+		return 0, nil, hopper.Megakernel{}, specdecode.BucketTransition{}, errors.New("autonomous decode engine: nil engine")
+	}
+	activeTokens := max(1, 1+draftTokens)
+	trans, err := e.ObserveStep(activeTokens, acceptanceRate)
+	if err != nil {
+		return 0, nil, hopper.Megakernel{}, trans, err
+	}
+	bucketM := trans.NewBucket.BucketM
+	if bucketM <= 0 {
+		bucketM = max(1, e.Config.BatchM)
+	}
+	if e.BucketPlans == nil {
+		e.BucketPlans = make(map[int]*hopper.Plan)
+	}
+	if e.BucketMegakernels == nil {
+		e.BucketMegakernels = make(map[int]hopper.Megakernel)
+	}
+	plan, okP := e.BucketPlans[bucketM]
+	mega, okM := e.BucketMegakernels[bucketM]
+	if !okP || !okM || plan == nil {
+		var bErr error
+		plan, mega, bErr = buildCrossLayerDecodeMegakernel(
+			e.Config.Model, e.Config.QKVBias, e.Config.LayerL, e.Config.LayerNext, bucketM, e.Config.Target,
+		)
+		if bErr != nil {
+			return 0, nil, hopper.Megakernel{}, trans, bErr
+		}
+		e.BucketPlans[bucketM] = plan
+		e.BucketMegakernels[bucketM] = mega
+	}
+	e.CrossLayerPlan = plan
+	e.CrossLayerMegakernel = mega
+	return bucketM, plan, mega, trans, nil
+}
+
+// ObserveAndSelectBucket is an alias for [AutonomousDecodeEngine.SelectBucketMegakernel].
+func (e *AutonomousDecodeEngine) ObserveAndSelectBucket(draftTokens int, acceptanceRate float64) (int, *hopper.Plan, hopper.Megakernel, specdecode.BucketTransition, error) {
+	return e.SelectBucketMegakernel(draftTokens, acceptanceRate)
 }
 
 // RestorePrevious rolls the engine's hot-swap service and bucket controller

@@ -609,8 +609,8 @@ func (f *egraphFlightLoop) PromoteCandidate(
 		return nil, HoldoutReceipt{}, fmt.Errorf("promote candidate: %d profiling epochs still active; close before swap", f.activeEpochs)
 	}
 	if err := VerifyTokenSequence(ev.ReferenceTokens, ev.CandidateTokens, ev.LogitMaxAbs); err != nil {
-		receipt, _ := SelectMeasuredWithHoldout(gateCfg, ev, verify)
-		return nil, receipt, err
+		receipt, hErr := SelectMeasuredWithHoldout(gateCfg, ev, verify)
+		return nil, receipt, errors.Join(err, hErr)
 	}
 	receipt, err := SelectMeasuredWithHoldout(gateCfg, ev, verify)
 	if err != nil {

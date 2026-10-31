@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 
 	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/egraph"
 	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+	"github.com/tmc/lib/nvidia/x/egraph/qualify"
 )
 
 // egraphPlans are the decode-step kernels the e-graph generator
@@ -38,8 +42,8 @@ import (
 // that read them ([hopper.SkinnyGEMM] X and GLU), and post's two RMSNorms
 // run as the o_proj and down_proj gemms' tails ([hopper.Plan.FuseTails]).
 type egraphPlans struct {
-	norm, attnIn, post, head *hopper.Plan
-	postRes                  string
+	norm, attnIn, post, cross, head *hopper.Plan
+	postRes                         string
 
 	attn bool
 	rope hopper.QKNormRoPEKVAppend
@@ -60,6 +64,12 @@ type egraphOptions struct {
 
 	Mega bool // run each decode plan as one persistent megakernel
 	Attn bool // generate RoPE, the KV-cache store and attention
+
+	CrossLayer    bool                  // fuse post[i] and attnIn[i+1] across inter-layer boundaries
+	PTXASLoop     bool                  // refine decode plans with qualify.RefinePlanByPTXASLoop
+	PTXASCompiler qualify.PTXASCompiler // optional compiler override for PTXASLoop
+	PGOCacheDir   string                // directory for autotune.VerifiedPGOCache
+	Autonomous    bool                  // attach AutonomousDecodeEngine for flight-control and PGO cache
 
 	// PDL launches each generated kernel as the programmatic dependent of
 	// the kernel before it. The caller sets it only for sm_90 and newer.
@@ -94,6 +104,9 @@ const egraphPageSize = 16
 // still run.
 func (p *egraphPlans) ops() (generated, fallback []string) {
 	generated = []string{"rmsnorm", "qkv_proj(+bias)", "o_proj+residual", "rmsnorm", "gate_up_proj", "swiglu", "down_proj+residual", "final_rmsnorm", "lm_head"}
+	if p.cross != nil {
+		generated = append(generated, "cross_layer_post_qkv")
+	}
 	if p.attn {
 		a := "attention (generated, direct emitter, bf16 q)"
 		if p.sdpa.Splits > 0 {
@@ -162,6 +175,50 @@ func buildEgraphPlans(cfg *ModelConfig, qkvBias bool, opt egraphOptions) (*egrap
 	}
 	if p.postRes, err = normInput(p.post); err != nil {
 		return nil, err
+	}
+	if (opt.CrossLayer || opt.Autonomous) && cfg.NumHiddenLayers > 1 {
+		p.cross, err = hopper.FuseCrossLayerPlans(p.post, p.attnIn, hopper.CrossLayerGlue{
+			Name:               "llama_cross",
+			LayerLPrefix:       "l0_",
+			LayerNextPrefix:    "l1_",
+			BridgeInput:        "xn",
+			RetainBridgeOutput: true,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	if opt.PTXASLoop {
+		compiler := opt.PTXASCompiler
+		if compiler == nil {
+			compiler = qualify.NVCCPTXASCompiler{}
+		}
+		loopCfg := qualify.PTXASLoopConfig{
+			Arch:          prof.Target,
+			Device:        prof.Product,
+			DeviceSMs:     int(prof.SMs.Value),
+			MaxIterations: 4,
+			Gate: qualify.StaticGate{
+				NoSpills:     true,
+				MaxRegisters: qualify.HopperMaxRegistersPerTh,
+				MinCTAsPerSM: 1,
+			},
+		}
+		for _, pl := range []**hopper.Plan{&p.attnIn, &p.post, &p.cross} {
+			if *pl == nil {
+				continue
+			}
+			res, err := qualify.RefinePlanByPTXASLoop(context.Background(), *pl, compiler, loopCfg)
+			if err != nil {
+				if opt.PTXASCompiler == nil && errors.Is(err, exec.ErrNotFound) {
+					break
+				}
+				return nil, err
+			}
+			if res != nil && res.RefinedPlan != nil {
+				*pl = res.RefinedPlan
+			}
+		}
 	}
 	h := cfg.HiddenSize
 	b := hopper.NewBuilder()

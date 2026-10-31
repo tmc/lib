@@ -5,14 +5,20 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"flag"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/tmc/lib/nvidia/driver"
 	"github.com/tmc/lib/nvidia/x/cudahotswap"
+	"github.com/tmc/lib/nvidia/x/cudakv"
+	"github.com/tmc/lib/nvidia/x/cudamem"
 	"github.com/tmc/lib/nvidia/x/cuptipcsampling"
 	"github.com/tmc/lib/nvidia/x/egraph/autotune"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 	"github.com/tmc/lib/nvidia/x/egraph/model"
 	"github.com/tmc/lib/nvidia/x/egraph/qualify"
 	"github.com/tmc/lib/nvidia/x/egraph/specdecode"
@@ -367,5 +373,327 @@ func TestEGraphAutonomousRollbackAndBucketAdaptation(t *testing.T) {
 	}
 	if restored.Version != 1 {
 		t.Fatalf("restored.Version = %d, want 1", restored.Version)
+	}
+}
+
+func TestEGraphAutonomousCLIFlagsAndPlanWiring(t *testing.T) {
+	for _, name := range []string{
+		"egraph-cross-layer",
+		"egraph-ptxas-loop",
+		"egraph-pgo-cache-dir",
+		"egraph-autonomous",
+	} {
+		if flag.Lookup(name) == nil {
+			t.Errorf("missing CLI flag -%s", name)
+		}
+	}
+
+	cfg := llama3_8B
+	cfg.NumHiddenLayers = 2
+	prof := mustProfile(t, "GB10")
+	compiler := &autonomousStubPTXASCompiler{}
+	cacheDir := filepath.Join(t.TempDir(), "pgo")
+	emitDir := t.TempDir()
+
+	if err := emitEgraph(emitDir, "GB10", &cfg, egraphOptions{
+		Profile:       prof,
+		Mega:          true,
+		Attn:          true,
+		AttnSplits:    2,
+		Autonomous:    true,
+		PTXASLoop:     true,
+		PTXASCompiler: compiler,
+		PGOCacheDir:   cacheDir,
+	}); err != nil {
+		t.Fatalf("emitEgraph Autonomous+PTXASLoop: %v", err)
+	}
+	if len(compiler.calls) == 0 {
+		t.Fatal("expected PTXASCompiler to be invoked during buildEgraphPlans with PTXASLoop=true")
+	}
+
+	plans, err := buildEgraphPlans(&cfg, false, egraphOptions{
+		Profile:       prof,
+		Autonomous:    true,
+		PTXASLoop:     true,
+		PTXASCompiler: compiler,
+		PGOCacheDir:   cacheDir,
+	})
+	if err != nil {
+		t.Fatalf("buildEgraphPlans Autonomous: %v", err)
+	}
+	if plans.cross == nil {
+		t.Fatal("expected plans.cross != nil when Autonomous=true")
+	}
+	gen, _ := plans.ops()
+	if !slices.Contains(gen, "cross_layer_post_qkv") {
+		t.Fatalf("plans.ops() = %v, missing cross_layer_post_qkv", gen)
+	}
+}
+
+func TestEGraphAutonomousMultiBucketPreWarmingAndSelection(t *testing.T) {
+	modelCfg := ModelConfig{
+		ModelType:         "llama",
+		HiddenSize:        256,
+		IntermediateSize:  256,
+		NumHiddenLayers:   2,
+		NumAttentionHeads: 4,
+		NumKeyValueHeads:  1,
+		VocabSize:         256,
+		RmsNormEps:        1e-5,
+		RopeTheta:         10000,
+		MaxSeqLen:         16,
+	}
+
+	buckets := []int{1, 2, 4, 8}
+	eng, err := NewAutonomousDecodeEngine(AutonomousDecodeConfig{
+		Model:     &modelCfg,
+		QKVBias:   true,
+		LayerL:    0,
+		LayerNext: 1,
+		BatchM:    1,
+		Buckets:   buckets,
+		Target:    "sm_121a",
+		Device:    "NVIDIA GB10",
+		DeviceSMs: 48,
+	})
+	if err != nil {
+		t.Fatalf("NewAutonomousDecodeEngine: %v", err)
+	}
+	for _, m := range buckets {
+		plan, okP := eng.BucketPlans[m]
+		mega, okM := eng.BucketMegakernels[m]
+		if !okP || !okM || plan == nil {
+			t.Fatalf("missing pre-warmed bucket M=%d in BucketPlans/BucketMegakernels", m)
+		}
+		if len(mega.Stages) != 6 {
+			t.Fatalf("bucket M=%d len(mega.Stages) = %d, want 6", m, len(mega.Stages))
+		}
+		if gotM := plan.Output.Shape[0]; gotM != m {
+			t.Fatalf("bucket M=%d plan.Output.Shape = %v, want M=%d", m, plan.Output.Shape, m)
+		}
+	}
+
+	steps := []struct {
+		name           string
+		draftTokens    int
+		acceptanceRate float64
+		wantBucketM    int
+		wantSwapped    bool
+	}{
+		{
+			name:           "single-token decode M=1",
+			draftTokens:    0,
+			acceptanceRate: 0.0,
+			wantBucketM:    1,
+			wantSwapped:    false,
+		},
+		{
+			name:           "speculative tree verify draft=3 -> M=4",
+			draftTokens:    3,
+			acceptanceRate: 0.60,
+			wantBucketM:    4,
+			wantSwapped:    true,
+		},
+		{
+			name:           "speculative tree verify draft=7 -> M=8",
+			draftTokens:    7,
+			acceptanceRate: 0.85,
+			wantBucketM:    8,
+			wantSwapped:    true,
+		},
+		{
+			name:           "low acceptance collapse -> M=1",
+			draftTokens:    7,
+			acceptanceRate: 0.10,
+			wantBucketM:    1,
+			wantSwapped:    true,
+		},
+		{
+			name:           "return to single-token decode M=1",
+			draftTokens:    0,
+			acceptanceRate: 0.0,
+			wantBucketM:    1,
+			wantSwapped:    false,
+		},
+	}
+
+	for _, tc := range steps {
+		t.Run(tc.name, func(t *testing.T) {
+			bucketM, plan, mega, trans, err := eng.SelectBucketMegakernel(tc.draftTokens, tc.acceptanceRate)
+			if err != nil {
+				t.Fatalf("SelectBucketMegakernel(draft=%d, rate=%.2f): %v", tc.draftTokens, tc.acceptanceRate, err)
+			}
+			if bucketM != tc.wantBucketM {
+				t.Fatalf("bucketM = %d, want %d", bucketM, tc.wantBucketM)
+			}
+			if trans.Swapped != tc.wantSwapped {
+				t.Fatalf("trans.Swapped = %v, want %v", trans.Swapped, tc.wantSwapped)
+			}
+			if plan == nil || plan.Output.Shape[0] != tc.wantBucketM {
+				t.Fatalf("plan output shape = %v, want first dim %d", plan.Output.Shape, tc.wantBucketM)
+			}
+			if len(mega.Stages) != 6 {
+				t.Fatalf("len(mega.Stages) = %d, want 6", len(mega.Stages))
+			}
+		})
+	}
+}
+
+func TestDecodeGraphWithEGraphMegaAndCrossLayer(t *testing.T) {
+	const (
+		attnFn   = driver.Function(200)
+		sampleFn = driver.Function(201)
+	)
+	gpuW, cfg, sp, kvs, gm := fakeStepFixture(t, 2, weightBF16)
+	cfg.HiddenSize = 256
+	cfg.IntermediateSize = 256
+	cfg.NumAttentionHeads = 4
+	cfg.NumKeyValueHeads = 1
+	cfg.ExplicitHeadDim = 64
+	cfg.VocabSize = 256
+	layerKV := func(i int) (cudakv.LayerCache, error) { return kvs[i], nil }
+
+	prof := mustProfile(t, "GB10")
+	plans, err := buildEgraphPlans(cfg, false, egraphOptions{
+		Profile:    prof,
+		Mega:       true,
+		Attn:       true,
+		AttnSplits: 2,
+		CrossLayer: true,
+	})
+	if err != nil {
+		t.Fatalf("buildEgraphPlans: %v", err)
+	}
+	if plans.cross == nil {
+		t.Fatal("expected non-nil plans.cross with CrossLayer=true")
+	}
+
+	qkvSlice, ok := fakeDeviceSliceLen[float32](0x700000, plans.attnIn.Output.Shape[1])
+	if !ok {
+		t.Fatal("fakeDeviceSliceLen[float32] failed")
+	}
+	eg := &egraphDecoder{
+		plans:       plans,
+		megas:       make(map[*hopper.Plan]hopper.Megakernel),
+		fns:         make(map[string]driver.Function),
+		pdl:         make(map[driver.Function]bool),
+		ready:       make(map[*hopper.Plan]cudamem.Slice[uint64]),
+		deviceEpoch: true,
+		tempPtr:     make(map[string]driver.DevicePtr),
+		posKind:     make(map[driver.Function]string),
+		posArgs:     make(map[driver.Function][]egraphPosArg),
+		qkv:         qkvSlice,
+	}
+
+	nextFn := driver.Function(300)
+	readyPtr := driver.DevicePtr(0x800000)
+	megaFns := make(map[driver.Function]string)
+	for _, p := range eg.decodePlans() {
+		m, err := p.Megakernel("")
+		if err != nil {
+			t.Fatalf("Megakernel(%s): %v", p.Name, err)
+		}
+		eg.megas[p] = m
+		words := max(m.ReadyWords(), len(m.Stages)+1)
+		rs, ok := fakeDeviceSliceLen[uint64](readyPtr, words)
+		if !ok {
+			t.Fatal("fakeDeviceSliceLen[uint64] failed")
+		}
+		eg.ready[p] = rs
+		readyPtr += driver.DevicePtr(words * 8)
+		eg.fns[m.Name] = nextFn
+		megaFns[nextFn] = m.Name
+		nextFn++
+	}
+	eg.fns[plans.rope.Name] = nextFn
+	nextFn++
+	eg.fns[plans.sdpa.Name] = nextFn
+	nextFn++
+	eg.fns[plans.sdpa.Name+"_combine"] = nextFn
+	nextFn++
+
+	tempBase := driver.DevicePtr(0x900000)
+	for _, p := range eg.planList() {
+		for _, tmp := range p.Temps {
+			if _, ok := eg.tempPtr[tmp.Name]; !ok {
+				eg.tempPtr[tmp.Name] = tempBase
+				tempBase += 0x1000
+			}
+		}
+	}
+
+	b := egraphBuffers{
+		x:        sp.X.Ptr(),
+		x2:       0xA00000,
+		xn:       0xA10000,
+		qkv:      eg.qkv.Ptr(),
+		attnOut:  sp.AttnOut.Ptr(),
+		norm:     gpuW.Norm.Ptr(),
+		lmHead:   gpuW.LMHead.Ptr(),
+		logits:   sp.Logits.Ptr(),
+		qbf:      0xA20000,
+		cs:       0xA30000,
+		ropePage: 0xA40000,
+		seqLen1:  0xA50000,
+		pages:    0xA60000,
+		ws:       0xA70000,
+	}
+	for i := range gpuW.Layers {
+		lw := &gpuW.Layers[i]
+		b.layers = append(b.layers, egraphLayerBuffers{
+			attnNorm: lw.InputNorm.Ptr(),
+			wqkv:     0xB00000 + driver.DevicePtr(i*0x10000),
+			wo:       lw.WO.Ptr(),
+			ffnNorm:  lw.PostNorm.Ptr(),
+			wgu:      0xB80000 + driver.DevicePtr(i*0x10000),
+			wdown:    lw.WDown.Ptr(),
+			k:        0xC00000 + driver.DevicePtr(i*0x10000),
+			v:        0xC80000 + driver.DevicePtr(i*0x10000),
+		})
+	}
+	if err := eg.bindDecode(cfg, b); err != nil {
+		t.Fatalf("bindDecode: %v", err)
+	}
+	gm.eg = eg
+
+	h := newFakeGraphHarness()
+	dg, err := h.build(gpuW, cfg, layerKV, sp, gm, attnFn, sampleFn)
+	if err != nil {
+		t.Fatalf("build DecodeGraph with -egraph-mega -egraph-cross-layer: %v", err)
+	}
+
+	megaNodeCount := 0
+	sawCrossMega := false
+	for i, n := range h.added {
+		name, ok := megaFns[n.desc.Function]
+		if !ok {
+			continue
+		}
+		megaNodeCount++
+		if name == eg.megas[plans.cross].Name {
+			sawCrossMega = true
+		}
+		if len(n.args) < 2 {
+			t.Fatalf("megakernel node %d (%s) has %d args, want >= 2", i, name, len(n.args))
+		}
+		gotEpoch, ok := n.args[len(n.args)-1].(uint32)
+		if !ok || gotEpoch != 0 {
+			t.Fatalf("megakernel node %d (%s) epoch arg = %v (%T), want uint32(0) for device-resolved epoch",
+				i, name, n.args[len(n.args)-1], n.args[len(n.args)-1])
+		}
+	}
+	// For 2 layers with CrossLayer=true and Mega=true:
+	// norm (1) + attnIn[0] (1) + cross[0] (1) + post[1] (1) + head (1) = 5 megakernel nodes.
+	if megaNodeCount != 5 {
+		t.Fatalf("megaNodeCount = %d, want 5", megaNodeCount)
+	}
+	if !sawCrossMega {
+		t.Fatal("DecodeGraph did not capture cross-layer megakernel node")
+	}
+
+	for _, pos := range []int{0, 1, 7, cfg.MaxSeqLen - 1} {
+		if err := dg.SetPosition(pos); err != nil {
+			t.Fatalf("SetPosition(%d): %v", pos, err)
+		}
 	}
 }

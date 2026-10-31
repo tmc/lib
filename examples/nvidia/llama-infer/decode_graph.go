@@ -157,6 +157,9 @@ func newDecodeGraphWith(
 
 	var prev []*cudagraph.Node
 	qkvRoPEStoreLayer, ropeLayer, storeLayer, attnLayer := 0, 0, 0, 0
+	if gm != nil && gm.eg != nil && len(gm.eg.megas) > 0 {
+		gm.eg.deviceEpoch = true
+	}
 	if err = emitForwardStep(gpuW, cfg, layerKV, sp, gm, attnFn, sampleFn, sp.TokenOut, 0, uint32(attnShared), func(l *cudalaunch.Launcher, args ...any) error {
 		desc, derr := l.Describe()
 		if derr != nil {

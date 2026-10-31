@@ -66,7 +66,7 @@ var (
 	stepTimesFlag     = flag.Bool("step-times", false, "time every forward pass with CUDA events and print each step's wall and event nanoseconds")
 	egraphFlag        = flag.Bool("egraph", false, "run norms, projections, SwiGLU and residuals as nvidia/x/egraph/hopper generated kernels (needs -weight-dtype bf16)")
 	egraphTempFlag    = flag.Uint64("egraph-temp-bytes", 0, "with -egraph, maximum generated-plan temporary arena bytes (0: unlimited)")
-	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch (not with -cuda-graph)")
+	egraphMegaFlag    = flag.Bool("egraph-mega", false, "with -egraph, run each generated plan as one persistent megakernel launch")
 	egraphAttnFlag    = flag.Bool("egraph-attn", true, "with -egraph, run RoPE, the KV-cache store and attention as generated kernels over a BF16 KV cache; false keeps llama-infer's and prefills token by token")
 	egraphPrefillFlag = flag.Bool("egraph-prefill", true, "with -egraph, prefill a prompt of more than one token in batched chunks; false prefills token by token")
 	egraphStageFlag   = flag.Bool("egraph-stage-weights", false, "with -egraph, stage QKV, gate/up and down narrow-prefill weights in shared memory")
@@ -75,9 +75,13 @@ var (
 	afmoeScatterFlag  = flag.String("afmoe-scatter", "", "with explicitly enabled AFMoE: bf16-expert-order or fp32-then-bf16")
 	egraphPDLFlag     = flag.Bool("egraph-pdl", false, "with -egraph, launch each generated kernel as the programmatic dependent of the one before it (sm_90 and newer; ignored on older devices)")
 	egraphSplitsFlag  = flag.Int("egraph-attn-splits", -1, "with -egraph-attn, split decode attention's keys among this many CTAs per KV head (-1: SMs / KV heads; 0: no splits)")
-	egraphEmitFlag    = flag.String("egraph-emit", "", "write the e-graph kernels for -egraph-target, planned for -model's config.json, to this directory and exit; needs no GPU")
-	egraphTargetFlag  = flag.String("egraph-target", "sm_121a", "with -egraph-emit, the target or product to plan for, such as sm_103a, GB300 or H200; with -egraph, it must name this device's target (default: the device's)")
-	tpFlag            = flag.Int("tp", 0, "with -egraph, run the decode step tensor-parallel over this many ranks (Megatron-sharded layers, an all-reduce after o_proj and down); prompts prefill token by token")
+	egraphEmitFlag        = flag.String("egraph-emit", "", "write the e-graph kernels for -egraph-target, planned for -model's config.json, to this directory and exit; needs no GPU")
+	egraphTargetFlag      = flag.String("egraph-target", "sm_121a", "with -egraph-emit, the target or product to plan for, such as sm_103a, GB300 or H200; with -egraph, it must name this device's target (default: the device's)")
+	egraphCrossLayerFlag  = flag.Bool("egraph-cross-layer", false, "with -egraph, fuse each layer's post plan with the next layer's attn_in plan across the inter-layer boundary")
+	egraphPTXASLoopFlag   = flag.Bool("egraph-ptxas-loop", false, "with -egraph, refine generated decode plans with closed-loop ptxas -v spill and register feedback")
+	egraphPGOCacheDirFlag = flag.String("egraph-pgo-cache-dir", "", "with -egraph, directory for verified on-disk PGO schedules and cubins")
+	egraphAutonomousFlag  = flag.Bool("egraph-autonomous", false, "with -egraph, enable the autonomous cross-layer flight-control decode engine")
+	tpFlag                = flag.Int("tp", 0, "with -egraph, run the decode step tensor-parallel over this many ranks (Megatron-sharded layers, an all-reduce after o_proj and down); prompts prefill token by token")
 	tpModeFlag        = flag.String("tp-mode", "serial", "with -tp and -tp-backend device, how ranks share the one GPU: serial (one stream), streams (one stream per rank) or green (one green-context SM partition per rank)")
 	tpBackendFlag     = flag.String("tp-backend", "device", "with -tp, the all-reduce: device (a kernel reading every rank's buffer; all ranks on one GPU) or nccl (one GPU per rank)")
 	tpFuseFlag        = flag.Bool("tp-fuse", false, "with -tp, fuse each all-reduce into the row-parallel GEMM epilogue (red.global.add into one shared buffer; one GPU only)")
@@ -137,6 +141,10 @@ func run() (rerr error) {
 			PrefillRows:  prefillRows,
 			StageWeights: *egraphStageFlag,
 			AttnSplits:   splits,
+			CrossLayer:   *egraphCrossLayerFlag || *egraphAutonomousFlag,
+			PTXASLoop:    *egraphPTXASLoopFlag,
+			PGOCacheDir:  *egraphPGOCacheDirFlag,
+			Autonomous:   *egraphAutonomousFlag,
 		})
 	}
 
@@ -458,8 +466,8 @@ func runGPUInference(
 		return fmt.Errorf("alloc scratchpad: %w", err)
 	}
 
-	if *egraphMegaFlag && (!*egraphFlag || *cudaGraphFlag) {
-		return errors.New("-egraph-mega needs -egraph and cannot replay in a -cuda-graph: its ready-counter epoch is a launch argument")
+	if *egraphMegaFlag && !*egraphFlag {
+		return errors.New("-egraph-mega needs -egraph")
 	}
 	if *tpFlag > 0 && (!*egraphFlag || !*egraphAttnFlag || *egraphMegaFlag || *egraphPDLFlag || *cudaGraphFlag || *specDraftFlag > 0 || *benchFlag) {
 		return errors.New("-tp needs -egraph with -egraph-attn, and not -egraph-mega, -egraph-pdl, -cuda-graph, -draft or -bench")
@@ -549,6 +557,10 @@ func runGPUInference(
 			PrefillRows:  prefillRows,
 			StageWeights: *egraphStageFlag,
 			AttnSplits:   splits,
+			CrossLayer:   *egraphCrossLayerFlag || *egraphAutonomousFlag,
+			PTXASLoop:    *egraphPTXASLoopFlag,
+			PGOCacheDir:  *egraphPGOCacheDirFlag,
+			Autonomous:   *egraphAutonomousFlag,
 		})
 		if eg != nil {
 			defer func() {

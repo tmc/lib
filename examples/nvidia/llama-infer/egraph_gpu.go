@@ -99,9 +99,10 @@ type egraphDecoder struct {
 	fns   map[string]driver.Function // kernel name -> function
 	// pdl holds the functions that wait for their predecessor grid at
 	// entry ([hopper.AddPDLEntry]), which may launch programmatically.
-	pdl   map[driver.Function]bool
-	ready map[*hopper.Plan]cudamem.Slice[uint64]
-	epoch uint32
+	pdl         map[driver.Function]bool
+	ready       map[*hopper.Plan]cudamem.Slice[uint64]
+	epoch       uint32
+	deviceEpoch bool
 
 	bqkv     []cudamem.Slice[float32]
 	qkv, x2  cudamem.Slice[float32]
@@ -112,8 +113,9 @@ type egraphDecoder struct {
 	tempsI32 map[string]cudamem.Slice[int32] // gemm tail counters
 	tempPtr  map[string]driver.DevicePtr
 
-	attnIn, post [][]egraphLaunch // per layer
-	norm, head   []egraphLaunch
+	attnIn, post, cross [][]egraphLaunch // per layer (cross: boundaries 0..L-2)
+	norm, head          []egraphLaunch
+	autonomous          *AutonomousDecodeEngine
 
 	// With plans.attn: the BF16 KV cache, the rotary cos|sin table, the
 	// page tables and seqlens the emitted kernels read, q in BF16, and the
@@ -217,20 +219,21 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 		}
 	}
 	eg = &egraphDecoder{
-		plans:    plans,
-		megas:    make(map[*hopper.Plan]hopper.Megakernel),
-		fns:      make(map[string]driver.Function),
-		pdl:      make(map[driver.Function]bool),
-		ready:    make(map[*hopper.Plan]cudamem.Slice[uint64]),
-		temps32:  make(map[string]cudamem.Slice[float32]),
-		temps16:  make(map[string]cudamem.Slice[uint16]),
-		temps8:   make(map[string]cudamem.Slice[uint8]),
-		tempsI32: make(map[string]cudamem.Slice[int32]),
-		tempPtr:  make(map[string]driver.DevicePtr),
-		posKind:  make(map[driver.Function]string),
-		posArgs:  make(map[driver.Function][]egraphPosArg),
-		mmaOff:   make(map[string]int),
-		tmaps:    make(map[egraphTensorMap]*driver.TensorMap),
+		plans:       plans,
+		megas:       make(map[*hopper.Plan]hopper.Megakernel),
+		fns:         make(map[string]driver.Function),
+		pdl:         make(map[driver.Function]bool),
+		ready:       make(map[*hopper.Plan]cudamem.Slice[uint64]),
+		deviceEpoch: opt.Mega,
+		temps32:     make(map[string]cudamem.Slice[float32]),
+		temps16:     make(map[string]cudamem.Slice[uint16]),
+		temps8:      make(map[string]cudamem.Slice[uint8]),
+		tempsI32:    make(map[string]cudamem.Slice[int32]),
+		tempPtr:     make(map[string]driver.DevicePtr),
+		posKind:     make(map[driver.Function]string),
+		posArgs:     make(map[driver.Function][]egraphPosArg),
+		mmaOff:      make(map[string]int),
+		tmaps:       make(map[egraphTensorMap]*driver.TensorMap),
 	}
 	defer func() {
 		if err != nil {
@@ -252,10 +255,11 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 				return nil, err
 			}
 			eg.megas[p] = m
-			if eg.ready[p], err = cudamem.Alloc[uint64](dev, m.ReadyWords()); err != nil {
+			words := max(m.ReadyWords(), len(m.Stages)+1)
+			if eg.ready[p], err = cudamem.Alloc[uint64](dev, words); err != nil {
 				return nil, fmt.Errorf("alloc %s ready counters: %w", m.Name, err)
 			}
-			if err := eg.ready[p].CopyFromHost(make([]uint64, m.ReadyWords())); err != nil {
+			if err := eg.ready[p].CopyFromHost(make([]uint64, words)); err != nil {
 				return nil, fmt.Errorf("zero %s ready counters: %w", m.Name, err)
 			}
 		}
@@ -292,6 +296,9 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 	}
 	for _, p := range eg.planList() {
 		for _, t := range p.Temps {
+			if _, ok := eg.tempPtr[t.Name]; ok {
+				continue
+			}
 			n := 1
 			for _, d := range t.Shape {
 				n *= d
@@ -390,6 +397,23 @@ func newEgraphDecoder(dev *cuda.Device, cfg *ModelConfig, gpuW *GPUModelWeights,
 	}
 	if err := eg.bindDecode(cfg, b); err != nil {
 		return nil, err
+	}
+	if (opt.Autonomous || opt.PGOCacheDir != "") && cfg.NumHiddenLayers > 1 {
+		eg.autonomous, err = NewAutonomousDecodeEngine(AutonomousDecodeConfig{
+			Model:     cfg,
+			QKVBias:   bias,
+			LayerL:    0,
+			LayerNext: min(1, max(0, cfg.NumHiddenLayers-1)),
+			BatchM:    1,
+			Buckets:   []int{1, 2, 4, 8},
+			Target:    opt.Profile.Target,
+			Device:    opt.Profile.Product,
+			DeviceSMs: int(opt.Profile.SMs.Value),
+			CacheDir:  opt.PGOCacheDir,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	if pl := plans.pf; pl != nil {
 		h := cfg.HiddenSize
@@ -564,6 +588,50 @@ func (eg *egraphDecoder) bindDecode(cfg *ModelConfig, b egraphBuffers) error {
 		eg.post = append(eg.post, post)
 		cur, next = next, cur
 	}
+	if plans.cross != nil && len(b.layers) > 1 {
+		cur, next = b.x, b.x2
+		for i := 0; i+1 < len(b.layers); i++ {
+			lb := b.layers[i]
+			lbNext := b.layers[i+1]
+			crossBufs := map[string]driver.DevicePtr{
+				"x":                             cur,
+				"l0_x":                          cur,
+				"attn":                          b.attnOut,
+				"l0_attn":                       b.attnOut,
+				"w_o":                           lb.wo,
+				"l0_w_o":                        lb.wo,
+				"ffn_norm":                      lb.ffnNorm,
+				"l0_ffn_norm":                   lb.ffnNorm,
+				"w_gu":                          lb.wgu,
+				"l0_w_gu":                       lb.wgu,
+				"w_down":                        lb.wdown,
+				"l0_w_down":                     lb.wdown,
+				"next_norm":                     lbNext.attnNorm,
+				"l0_next_norm":                  lbNext.attnNorm,
+				plans.postRes:                   next,
+				"l0_" + plans.postRes:           next,
+				plans.post.Output.Name:          b.xn,
+				"l0_" + plans.post.Output.Name:  b.xn,
+				"xn":                            b.xn,
+				"l1_xn":                         b.xn,
+				"w_qkv":                         lbNext.wqkv,
+				"l1_w_qkv":                      lbNext.wqkv,
+				plans.attnIn.Output.Name:        b.qkv,
+				"l1_" + plans.attnIn.Output.Name: b.qkv,
+				plans.cross.Output.Name:         b.qkv,
+			}
+			if lbNext.bqkv != 0 {
+				crossBufs["b_qkv"] = lbNext.bqkv
+				crossBufs["l1_b_qkv"] = lbNext.bqkv
+			}
+			cr, err := eg.bind(plans.cross, crossBufs)
+			if err != nil {
+				return err
+			}
+			eg.cross = append(eg.cross, cr)
+			cur, next = next, cur
+		}
+	}
 	eg.head, err = eg.bind(plans.head, map[string]driver.DevicePtr{
 		"xn":                   b.xn,
 		"lm_head":              b.lmHead,
@@ -621,6 +689,17 @@ func (eg *egraphDecoder) bindDecode(cfg *ModelConfig, b egraphBuffers) error {
 // generated attention: the QKV projection, rotary and cache store,
 // attention and its combine, and the rest of the layer.
 func (eg *egraphDecoder) layerLaunches(i int) []egraphLaunch {
+	if len(eg.cross) > 0 && len(eg.attnIn) > 1 {
+		var in []egraphLaunch
+		if i == 0 {
+			in = eg.attnIn[0]
+		}
+		post := eg.post[i]
+		if i < len(eg.cross) {
+			post = eg.cross[i]
+		}
+		return slices.Concat(in, eg.rope[i:i+1], eg.sdpa[i:i+1], eg.combine, post)
+	}
 	return slices.Concat(eg.attnIn[i], eg.rope[i:i+1], eg.sdpa[i:i+1], eg.combine, eg.post[i])
 }
 
@@ -635,7 +714,11 @@ func (eg *egraphDecoder) positionArgs(fn driver.Function) (kind string, pa []egr
 // decodePlans returns the decode step's plans, which -egraph-mega runs as
 // megakernels.
 func (eg *egraphDecoder) decodePlans() []*hopper.Plan {
-	return []*hopper.Plan{eg.plans.norm, eg.plans.attnIn, eg.plans.post, eg.plans.head}
+	ps := []*hopper.Plan{eg.plans.norm, eg.plans.attnIn, eg.plans.post}
+	if eg.plans.cross != nil {
+		ps = append(ps, eg.plans.cross)
+	}
+	return append(ps, eg.plans.head)
 }
 
 func (eg *egraphDecoder) planList() []*hopper.Plan {
@@ -984,6 +1067,9 @@ func checkEgraphTarget(dev string, p cudadevicetable.Profile) error {
 // Kernels returns the number of generated launches per decode step.
 func (eg *egraphDecoder) Kernels() int {
 	n := len(eg.norm) + len(eg.attnIn)*(len(eg.attnIn[0])+len(eg.post[0])) + len(eg.head)
+	if len(eg.cross) > 0 && len(eg.attnIn) > 1 {
+		n = len(eg.norm) + len(eg.attnIn[0]) + len(eg.cross)*len(eg.cross[0]) + len(eg.post[len(eg.post)-1]) + len(eg.head)
+	}
 	if eg.plans.attn {
 		n += len(eg.rope) + len(eg.sdpa) + len(eg.attnIn)*len(eg.combine)
 	}
@@ -1063,8 +1149,12 @@ func (eg *egraphDecoder) emitStep(
 	launch := func(ls []egraphLaunch) error {
 		for _, l := range ls {
 			if l.epoch >= 0 {
-				eg.epoch++
-				l.args[l.epoch] = eg.epoch
+				if eg.deviceEpoch {
+					l.args[l.epoch] = uint32(0)
+				} else {
+					eg.epoch++
+					l.args[l.epoch] = eg.epoch
+				}
 			}
 			args := l.args
 			if l.pos != nil {
@@ -1097,8 +1187,10 @@ func (eg *egraphDecoder) emitStep(
 			}
 			continue
 		}
-		if err := launch(eg.attnIn[i]); err != nil {
-			return err
+		if i == 0 || len(eg.cross) == 0 || cfg.NumHiddenLayers <= 1 {
+			if err := launch(eg.attnIn[i]); err != nil {
+				return err
+			}
 		}
 		if cfg.RoPEScaling.hasLlama3Params() {
 			rs := cfg.RoPEScaling
@@ -1121,8 +1213,14 @@ func (eg *egraphDecoder) emitStep(
 			q, lkv.K, lkv.V, sp.AttnOut, int32(pos), int32(cfg.MaxSeqLen), int32(qHeads), int32(kvHeads), int32(headDim), attnCfg.Scale); err != nil {
 			return err
 		}
-		if err := launch(eg.post[i]); err != nil {
-			return err
+		if len(eg.cross) > 0 && cfg.NumHiddenLayers > 1 && i < len(eg.cross) {
+			if err := launch(eg.cross[i]); err != nil {
+				return err
+			}
+		} else {
+			if err := launch(eg.post[i]); err != nil {
+				return err
+			}
 		}
 	}
 	if err := launch(eg.head); err != nil {
