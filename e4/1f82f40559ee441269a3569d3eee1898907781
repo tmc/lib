@@ -1,0 +1,8 @@
+commit: eb7ea2c39801f9baa7e7f790f9f91078377cbca5
+commit date: 2026-10-29
+agent: Codex CLI 0.165.0; Claude Code not used
+model: GPT-6; exact serving model identifier unavailable
+tty: no controlling tty in tool shell
+tool shell pid at metadata capture: 49424
+ITERM_SESSION_ID: w2t6p8:D1AA3E70-57F5-406D-96B0-629D770FC19E
+GOWORK=off terminal host test/race/vet ./... and Linux amd64/arm64/unsupported386 cross-compilation passed. Both-ABI VM controls cover no-argument entry with no pt_regs/user reads, sparse exact stack ranges, masked missing stack, requested bad stack remaining unknown, unchanged return metadata, legacy zero/all mask equivalence, pointer/pair refusal, and arm64 entry return-register alias leakage. Five permissive mutations fail semantically. Native/probe/GPU admission NOT_RUN. Manual Go-style fallback continues after prior git-auto-commit-message failure for absent Anthropic API key.

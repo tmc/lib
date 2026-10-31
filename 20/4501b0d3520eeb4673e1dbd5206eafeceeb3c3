@@ -1,0 +1,8 @@
+commit: fb05626f3d2f0cb710fd01f1997cb347b8580edb
+commit date: 2026-10-29
+agent: Codex CLI 0.165.0; Claude Code not used
+model: GPT-6; exact serving model identifier unavailable
+tty: no controlling tty in tool shell
+tool shell pid at metadata capture: 49424
+ITERM_SESSION_ID: w2t6p8:D1AA3E70-57F5-406D-96B0-629D770FC19E
+GOWORK=off terminal host/race/vet ./... passed. Linux amd64/arm64 and unsupported386 tests cross-compiled. Both-ABI VM refuses unselected task argument/user-memory observations, including absent/zero cookie, child, PID reuse and task-address reuse. Fake syscall/map owner proves duplicate-pidfd ownership and revocation independent of caller descriptor reuse. Three permissive selection mutations fail semantically. Primary upstream sources establish tracing task-storage dispatch from5.13;5.11 map presence alone is insufficient. Actual kernel verifier/native probes/GPU and dependency publication NOT_RUN. Manual Go-style fallback continues after prior git-auto-commit-message failure for absent Anthropic API key.
