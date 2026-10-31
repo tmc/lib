@@ -1,0 +1,12 @@
+commit a9cf48cdb 2026-10-08T03:58:33Z
+agent: antigravity model=gemini-3.8-flash pid=98469 tty=/dev/ttys277 session=w3t0p17:99591DF4-A362-4486-A9AC-85F88B03AA41
+role: lane-63-hotswap-transports
+
+commit: b32a03ab630f2154b7beb67ee03487204da827cf
+commit date: 2026-10-30T19:33:32-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 99995
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Signed isolated rebase of lane/63-open-lane onto fafa24c02711c65d266d95092555d4459011db25; validation pending, original branch unchanged.
