@@ -383,6 +383,10 @@ func NewEGServer(cfg ServerConfig) (*EGServer, error) {
 	}
 	srv.pdEngine = pdEngine
 
+	srv.mux.HandleFunc("/", srv.handleUI)
+	srv.mux.HandleFunc("/ui", srv.handleUI)
+	srv.mux.HandleFunc("/v1/kernels/annotated", srv.handleKernelsAnnotated)
+	srv.mux.HandleFunc("/v1/kernels/stream", srv.handleKernelsStream)
 	srv.mux.HandleFunc("/v1/completions", srv.handleCompletions)
 	srv.mux.HandleFunc("/v1/chat/completions", srv.handleChatCompletions)
 	srv.mux.HandleFunc("/v1/flight/trace.json", srv.handleFlightTrace)
@@ -915,9 +919,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	layers := fs.Int("layers", 4, "number of transformer layers")
 	pgoCacheDir := fs.String("pgo-cache-dir", "", "optional directory for VerifiedPGOCache")
 	selfTest := fs.Bool("self-test", false, "run deterministic multi-turn request cycle and print JSON summary")
+	demoStream := fs.Bool("demo-stream", false, "print inline-annotated megakernel stream preview and inspector URLs")
 
 	fs.Usage = func() {
-		fmt.Fprintf(stderr, "usage: egserve [-addr :8080] [-arch sm_121a] [-hidden-dim 256] [-interm-dim 512] [-layers 4] [-pgo-cache-dir dir] [-self-test]\n")
+		fmt.Fprintf(stderr, "usage: egserve [-addr :8080] [-arch sm_121a] [-hidden-dim 256] [-interm-dim 512] [-layers 4] [-pgo-cache-dir dir] [-self-test] [-demo-stream]\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -932,8 +937,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	rawAddr := strings.TrimSpace(*addr)
 	srv, err := NewEGServer(ServerConfig{
-		Addr:        *addr,
+		Addr:        rawAddr,
 		Arch:        *arch,
 		HiddenDim:   *hiddenDim,
 		IntermDim:   *intermDim,
@@ -943,6 +949,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "egserve: %v\n", err)
 		return 1
+	}
+
+	if *demoStream {
+		preview, err := srv.FormatDemoStreamSummary(rawAddr)
+		if err != nil {
+			fmt.Fprintf(stderr, "egserve demo-stream: %v\n", err)
+			return 1
+		}
+		_, _ = io.WriteString(stdout, preview)
+		if rawAddr == "" && !*selfTest {
+			return 0
+		}
 	}
 
 	if *selfTest {
