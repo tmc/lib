@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+	"github.com/tmc/lib/nvidia/x/egraph/model"
 )
 
 func main() {
@@ -62,11 +62,11 @@ func compileAndWrite(cfgFile, device, mSpec string, seqLen int, format string, s
 	if err != nil {
 		return err
 	}
-	cfg, err := hopper.ParseArchConfig(data)
+	cfg, err := model.ParseArchConfig(data)
 	if err != nil {
 		return fmt.Errorf("%s: %w", cfgFile, err)
 	}
-	bundle, err := hopper.CompileMultiBucketLayer(cfg, buckets, seqLen, device)
+	bundle, err := model.CompileMultiBucketLayer(cfg, buckets, seqLen, device)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+	"github.com/tmc/lib/nvidia/x/egraph/model"
 )
 
 func TestEGCompileCLI(t *testing.T) {
@@ -91,18 +92,18 @@ func TestEGCompileCLI(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit %d: %s", code, errBuf.String())
 		}
-		var bundle hopper.MultiBucketBundle
+		var bundle model.MultiBucketBundle
 		if err := json.Unmarshal(out.Bytes(), &bundle); err != nil {
 			t.Fatalf("unmarshal json output: %v", err)
 		}
 		if bundle.DispatchFunc != "dispatch_layer_m" || len(bundle.Buckets) != 2 {
 			t.Errorf("bundle = {DispatchFunc:%q Buckets:%v}", bundle.DispatchFunc, bundle.Buckets)
 		}
-		if bundle.Layers[2].Mode != hopper.ModePersistentMegakernel {
-			t.Errorf("M=2 mode = %q, want %q", bundle.Layers[2].Mode, hopper.ModePersistentMegakernel)
+		if bundle.Layers[2].Mode != model.ModePersistentMegakernel {
+			t.Errorf("M=2 mode = %q, want %q", bundle.Layers[2].Mode, model.ModePersistentMegakernel)
 		}
-		if bundle.Layers[64].Mode != hopper.ModeStreamKWarpSpec {
-			t.Errorf("M=64 mode = %q, want %q", bundle.Layers[64].Mode, hopper.ModeStreamKWarpSpec)
+		if bundle.Layers[64].Mode != model.ModeStreamKWarpSpec {
+			t.Errorf("M=64 mode = %q, want %q", bundle.Layers[64].Mode, model.ModeStreamKWarpSpec)
 		}
 	})
 

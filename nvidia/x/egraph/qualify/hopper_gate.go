@@ -1,4 +1,4 @@
-package hopper
+package qualify
 
 import (
 	"context"
@@ -8,12 +8,9 @@ import (
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
-	"github.com/tmc/lib/nvidia/x/egraph/qualify"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+	"github.com/tmc/lib/nvidia/x/egraph/tilebridge"
 )
-
-// QualificationReceipt records the outcome of all host-side formal and
-// adversarial checks for a compiled hopper Step or Plan.
-type QualificationReceipt = qualify.QualificationReceipt
 
 // QualifyStep runs the unified host-side static and dynamic qualification gate
 // on step.
@@ -25,13 +22,13 @@ func QualifyStep(ctx context.Context, step Step, M, N, K int, eps float32) (*Qua
 	if err != nil {
 		return receipt, err
 	}
-	return qualify.QualifyStepSpec(ctx, spec)
+	return QualifyStepSpec(ctx, spec)
 }
 
-// QualifyPlan runs QualifyStep across every step in plan.Steps(), and when
+// QualifyPlan runs [QualifyStep] across every step in plan.Steps(), and when
 // plan is megakernel- or PDL-compatible, also verifies that plan.Megakernel
 // and plan.EmitPDL succeed cleanly.
-func QualifyPlan(ctx context.Context, plan *Plan, M, N, K int, eps float32) ([]QualificationReceipt, error) {
+func QualifyPlan(ctx context.Context, plan *hopper.Plan, M, N, K int, eps float32) ([]QualificationReceipt, error) {
 	if plan == nil || len(plan.Kernels) == 0 {
 		return nil, fmt.Errorf("qualify plan: empty plan")
 	}
@@ -72,17 +69,7 @@ func QualifyPlan(ctx context.Context, plan *Plan, M, N, K int, eps float32) ([]Q
 	return receipts, nil
 }
 
-// QualifySM100Kernels verifies the sm_100a Blackwell tcgen05 kernel suite.
-func QualifySM100Kernels(ctx context.Context) (*QualificationReceipt, error) {
-	return qualify.QualifySM100Kernels(ctx)
-}
-
-// QualifySM100Suite is an alias for [QualifySM100Kernels].
-func QualifySM100Suite(ctx context.Context) (*QualificationReceipt, error) {
-	return qualify.QualifySM100Suite(ctx)
-}
-
-func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelStepSpec, *QualificationReceipt, error) {
+func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (KernelStepSpec, *QualificationReceipt, error) {
 	switch {
 	case step.Row != nil:
 		rk := *step.Row
@@ -109,30 +96,30 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 		receipt := &QualificationReceipt{Name: rk.Name}
 		src, err := rk.CUDA()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("row kernel %s CUDA: %w", rk.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("row kernel %s CUDA: %w", rk.Name, err)
 		}
 		launcher, err := rk.Launcher()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("row kernel %s Launcher: %w", rk.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("row kernel %s Launcher: %w", rk.Name, err)
 		}
 		hazRows := min(max(rows, 1), 8)
 		grid, block := rk.Grid(hazRows)
-		spec := qualify.KernelStepSpec{
+		spec := KernelStepSpec{
 			Name:            rk.Name,
 			Kind:            "row kernel",
-			CUDASource:      Prelude + "\n" + src,
+			CUDASource:      hopper.Prelude + "\n" + src,
 			LauncherSource:  launcher,
 			Launch:          cudahostemu.Launch{Kernel: rk.Name, Grid: cudahostemu.Dim3{X: grid[0], Y: grid[1], Z: grid[2]}, Block: cudahostemu.Dim3{X: block[0], Y: block[1], Z: block[2]}},
 			LeadingIntArgs:  []int{hazRows},
-			ParamDecls:      rk.params()[1:],
+			ParamDecls:      rk.Params()[1:],
 			DefaultBufBytes: max(hazRows*rk.D*8, 65536),
 			Eps:             eps,
 		}
 		if canLowerRowToTileIR(rk) {
 			dualM := min(max(rows, 1), 4)
-			tb, err := toTileBridgeStep(rk, dualM, true)
+			tb, err := tilebridge.ToTileBridgeStep(rk, dualM, true)
 			if err != nil {
-				return qualify.KernelStepSpec{}, receipt, err
+				return KernelStepSpec{}, receipt, err
 			}
 			spec.TileIRDualTarget = &tb
 			spec.DualM, spec.DualN, spec.DualK = dualM, N, rk.D
@@ -164,32 +151,32 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			m = sg.MaxM
 		}
 		receipt := &QualificationReceipt{Name: sg.Name}
-		normed, err := sg.norm()
+		normed, err := sg.Norm()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s norm: %w", sg.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s norm: %w", sg.Name, err)
 		}
 		src, err := normed.CUDA()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s CUDA: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s CUDA: %w", normed.Name, err)
 		}
 		launcher, err := normed.Launcher()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s Launcher: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s Launcher: %w", normed.Name, err)
 		}
 		grid, block, err := normed.Grid()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s Grid: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s Grid: %w", normed.Name, err)
 		}
-		tbBC, err := toTileBridgeStep(normed, 0, false)
+		tbBC, err := tilebridge.ToTileBridgeStep(normed, 0, false)
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s TileIR: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s TileIR: %w", normed.Name, err)
 		}
-		surrogate := SkinnyGEMM{
+		surrogate := hopper.SkinnyGEMM{
 			Name:     normed.Name,
 			N:        min(normed.N, 64),
 			K:        min(normed.K, 256),
 			MaxM:     min(max(m, 1), 4),
-			Weight:   WeightBF16,
+			Weight:   hopper.WeightBF16,
 			Out:      normed.Out,
 			Epilogue: normed.Epilogue,
 			Extras:   normed.Extras,
@@ -201,20 +188,20 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			surrogate.N = 64
 		}
 		dualM := min(max(m, 1), 4)
-		tbDual, err := toTileBridgeStep(surrogate, dualM, true)
+		tbDual, err := tilebridge.ToTileBridgeStep(surrogate, dualM, true)
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s surrogate TileIR: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("skinny gemm %s surrogate TileIR: %w", normed.Name, err)
 		}
-		return qualify.KernelStepSpec{
+		return KernelStepSpec{
 			Name:             normed.Name,
 			Kind:             "skinny gemm",
-			CUDASource:       Prelude + "\n" + src,
+			CUDASource:       hopper.Prelude + "\n" + src,
 			LauncherSource:   launcher,
 			Launch:           cudahostemu.Launch{Grid: cudahostemu.Dim3{X: min(grid[0], 2), Y: grid[1], Z: 1}, Block: cudahostemu.Dim3{X: block[0], Y: 1, Z: 1}},
 			TemplateM:        m,
-			ParamDecls:       normed.params(),
+			ParamDecls:       normed.Params(),
 			DefaultBufBytes:  max(normed.N*normed.K*2, max(normed.WorkspaceBytes(), 65536)),
-			CheckNVFP4SASS:   normed.Weight == WeightNVFP4,
+			CheckNVFP4SASS:   normed.Weight == hopper.WeightNVFP4,
 			TileIRBytecode:   &tbBC,
 			TileIRDualTarget: &tbDual,
 			DualM:            dualM,
@@ -242,17 +229,17 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			m = 16
 		}
 		receipt := &QualificationReceipt{Name: tg.Name}
-		normed, err := tg.norm()
+		normed, err := tg.Norm()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s norm: %w", tg.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s norm: %w", tg.Name, err)
 		}
 		src, err := normed.CUDA()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s CUDA: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s CUDA: %w", normed.Name, err)
 		}
 		launcher, err := normed.Launcher()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s Launcher: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s Launcher: %w", normed.Name, err)
 		}
 		experts := max(step.Experts, 1)
 		grid, block := normed.Grid(m, experts)
@@ -268,9 +255,9 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			}
 			namedBufs = map[string][]byte{"offsets": offBytes}
 		}
-		tbBC, err := toTileBridgeStep(normed, 0, false)
+		tbBC, err := tilebridge.ToTileBridgeStep(normed, 0, false)
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s TileIR: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s TileIR: %w", normed.Name, err)
 		}
 		surrogateN := min(normed.N, 128)
 		if surrogateN < 64 || surrogateN%64 != 0 {
@@ -283,34 +270,34 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 		if surrogateK < 64 || surrogateK%64 != 0 {
 			surrogateK = 64
 		}
-		surrogate := TileGEMM{
+		surrogate := hopper.TileGEMM{
 			Name:     normed.Name,
 			N:        surrogateN,
 			K:        surrogateK,
 			BM:       64,
 			BN:       64,
 			Stages:   2,
-			Weight:   WeightBF16,
+			Weight:   hopper.WeightBF16,
 			Out:      normed.Out,
 			GLU:      normed.GLU,
 			Epilogue: normed.Epilogue,
 			Extras:   normed.Extras,
 		}
-		tbDual, err := toTileBridgeStep(surrogate, 16, true)
+		tbDual, err := tilebridge.ToTileBridgeStep(surrogate, 16, true)
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s surrogate TileIR: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("tile gemm %s surrogate TileIR: %w", normed.Name, err)
 		}
-		return qualify.KernelStepSpec{
+		return KernelStepSpec{
 			Name:             normed.Name,
 			Kind:             "tile gemm",
-			CUDASource:       Prelude + "\n" + src,
+			CUDASource:       hopper.Prelude + "\n" + src,
 			LauncherSource:   launcher,
 			Launch:           cudahostemu.Launch{Kernel: normed.Name, Grid: cudahostemu.Dim3{X: gx, Y: gy, Z: gz}, Block: cudahostemu.Dim3{X: block[0], Y: block[1], Z: block[2]}, SharedBytes: max(normed.SharedBytes(), 65536)},
 			LeadingIntArgs:   []int{m},
-			ParamDecls:       normed.params()[1:],
+			ParamDecls:       normed.Params()[1:],
 			NamedBuffers:     namedBufs,
 			DefaultBufBytes:  max(max(m, normed.BM)*normed.N*4, max(normed.N*normed.K*2*experts, max(normed.WorkspaceBytes(), 65536))),
-			CheckNVFP4SASS:   normed.Weight == WeightNVFP4,
+			CheckNVFP4SASS:   normed.Weight == hopper.WeightNVFP4,
 			TileIRBytecode:   &tbBC,
 			TileIRDualTarget: &tbDual,
 			DualM:            16,
@@ -325,17 +312,17 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			pa.Name = "paged_attention"
 		}
 		receipt := &QualificationReceipt{Name: pa.Name}
-		normed, _, err := pa.norm()
+		normed, err := pa.Norm()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("paged attention %s norm: %w", pa.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("paged attention %s norm: %w", pa.Name, err)
 		}
 		src, err := normed.CUDA()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("paged attention %s CUDA: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("paged attention %s CUDA: %w", normed.Name, err)
 		}
 		launcher, err := normed.Launcher()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("paged attention %s Launcher: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("paged attention %s Launcher: %w", normed.Name, err)
 		}
 		batch := max(step.Batch, 1)
 		maxKeys := step.MaxKeys
@@ -349,7 +336,7 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 		grid, block := normed.Grid(batch, maxKeys)
 		gx, cluster := 1, 1
 		if normed.ClusterCombine {
-			gx, cluster = ClusterSize, ClusterSize
+			gx, cluster = hopper.ClusterSize, hopper.ClusterSize
 		}
 		seqBytes := make([]byte, max(batch, 1)*4)
 		for b := 0; b < max(batch, 1); b++ {
@@ -357,13 +344,13 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 		}
 		oneBytes := make([]byte, 4)
 		binary.LittleEndian.PutUint32(oneBytes, math.Float32bits(1.0))
-		return qualify.KernelStepSpec{
+		return KernelStepSpec{
 			Name:            normed.Name,
 			Kind:            "paged attention",
-			CUDASource:      Prelude + "\n" + src,
+			CUDASource:      hopper.Prelude + "\n" + src,
 			LauncherSource:  launcher,
 			Launch:          cudahostemu.Launch{Kernel: normed.Name, Grid: cudahostemu.Dim3{X: gx, Y: min(max(grid[1], 1), 1), Z: 1}, Block: cudahostemu.Dim3{X: block[0], Y: block[1], Z: block[2]}, Cluster: cluster, SharedBytes: max(normed.SharedBytes(), 65536)},
-			ParamDecls:      normed.params(),
+			ParamDecls:      normed.Params(),
 			NamedInts:       map[string]int{"max_pages": maxPages, "chunk": normed.Chunk},
 			NamedBuffers:    map[string][]byte{"seqlens": seqBytes, "k_scale": oneBytes, "v_scale": oneBytes},
 			DefaultBufBytes: max(normed.WorkspaceBytes(batch, maxKeys), 65536),
@@ -375,28 +362,28 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			tk.Name = "row_topk"
 		}
 		receipt := &QualificationReceipt{Name: tk.Name}
-		normed, err := tk.norm()
+		normed, err := tk.Norm()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("row topk %s norm: %w", tk.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("row topk %s norm: %w", tk.Name, err)
 		}
 		src, err := normed.CUDA()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("row topk %s CUDA: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("row topk %s CUDA: %w", normed.Name, err)
 		}
 		launcher, err := normed.Launcher()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("row topk %s Launcher: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("row topk %s Launcher: %w", normed.Name, err)
 		}
 		hazRows := min(max(step.Rows, max(M, 1)), 8)
 		grid, block := normed.Grid(hazRows)
-		return qualify.KernelStepSpec{
+		return KernelStepSpec{
 			Name:            normed.Name,
 			Kind:            "row topk",
-			CUDASource:      Prelude + "\n" + src,
+			CUDASource:      hopper.Prelude + "\n" + src,
 			LauncherSource:  launcher,
 			Launch:          cudahostemu.Launch{Kernel: normed.Name, Grid: cudahostemu.Dim3{X: grid[0], Y: grid[1], Z: grid[2]}, Block: cudahostemu.Dim3{X: block[0], Y: block[1], Z: block[2]}},
 			LeadingIntArgs:  []int{hazRows},
-			ParamDecls:      normed.params()[1:],
+			ParamDecls:      normed.Params()[1:],
 			DefaultBufBytes: 65536,
 		}, receipt, nil
 
@@ -406,27 +393,27 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			al.Name = "expert_align"
 		}
 		receipt := &QualificationReceipt{Name: al.Name}
-		normed, err := al.norm()
+		normed, err := al.Norm()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("expert align %s norm: %w", al.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("expert align %s norm: %w", al.Name, err)
 		}
 		src, err := normed.CUDA()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("expert align %s CUDA: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("expert align %s CUDA: %w", normed.Name, err)
 		}
 		launcher, err := normed.Launcher()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("expert align %s Launcher: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("expert align %s Launcher: %w", normed.Name, err)
 		}
 		tokens := min(max(step.Rows, max(M, 1)), 4)
-		return qualify.KernelStepSpec{
+		return KernelStepSpec{
 			Name:            normed.Name,
 			Kind:            "expert align",
-			CUDASource:      Prelude + "\n" + src,
+			CUDASource:      hopper.Prelude + "\n" + src,
 			LauncherSource:  launcher,
 			Launch:          cudahostemu.Launch{Kernel: normed.Name, Grid: cudahostemu.Dim3{X: 1, Y: 1, Z: 1}, Block: cudahostemu.Dim3{X: 32 * normed.Warps, Y: 1, Z: 1}},
 			LeadingIntArgs:  []int{tokens},
-			ParamDecls:      normed.params()[1:],
+			ParamDecls:      normed.Params()[1:],
 			DefaultBufBytes: 65536,
 		}, receipt, nil
 
@@ -436,45 +423,45 @@ func buildQualifyStepSpec(step Step, M, N, K int, eps float32) (qualify.KernelSt
 			es.Name = "expert_sum"
 		}
 		receipt := &QualificationReceipt{Name: es.Name}
-		normed, err := es.norm()
+		normed, err := es.Norm()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("expert sum %s norm: %w", es.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("expert sum %s norm: %w", es.Name, err)
 		}
 		src, err := normed.CUDA()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("expert sum %s CUDA: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("expert sum %s CUDA: %w", normed.Name, err)
 		}
 		launcher, err := normed.Launcher()
 		if err != nil {
-			return qualify.KernelStepSpec{}, receipt, fmt.Errorf("expert sum %s Launcher: %w", normed.Name, err)
+			return KernelStepSpec{}, receipt, fmt.Errorf("expert sum %s Launcher: %w", normed.Name, err)
 		}
 		tokens := min(max(step.Rows, max(M, 1)), 2)
 		grid, block := normed.Grid(tokens)
-		return qualify.KernelStepSpec{
+		return KernelStepSpec{
 			Name:            normed.Name,
 			Kind:            "expert sum",
-			CUDASource:      Prelude + "\n" + src,
+			CUDASource:      hopper.Prelude + "\n" + src,
 			LauncherSource:  launcher,
 			Launch:          cudahostemu.Launch{Kernel: normed.Name, Grid: cudahostemu.Dim3{X: grid[0], Y: grid[1], Z: grid[2]}, Block: cudahostemu.Dim3{X: block[0], Y: block[1], Z: block[2]}},
 			LeadingIntArgs:  []int{tokens},
-			ParamDecls:      normed.params()[1:],
+			ParamDecls:      normed.Params()[1:],
 			DefaultBufBytes: 65536,
 		}, receipt, nil
 
 	default:
-		return qualify.KernelStepSpec{}, nil, fmt.Errorf("qualify step: empty step")
+		return KernelStepSpec{}, nil, fmt.Errorf("qualify step: empty step")
 	}
 }
 
-func canLowerRowToTileIR(rk RowKernel) bool {
+func canLowerRowToTileIR(rk hopper.RowKernel) bool {
 	if rk.Cluster || rk.Slots > 0 || len(rk.Outputs) != 1 {
 		return false
 	}
-	if rk.Outputs[0].Index != "" || rk.Outputs[0].DType != F32 {
+	if rk.Outputs[0].Index != "" || rk.Outputs[0].DType != hopper.F32 {
 		return false
 	}
 	for _, in := range rk.Inputs {
-		if in.DType != F32 || in.Padded > 0 || in.Group > 1 || (in.RowStride != 0 && in.RowStride != rk.D) {
+		if in.DType != hopper.F32 || in.Padded > 0 || in.Group > 1 || (in.RowStride != 0 && in.RowStride != rk.D) {
 			return false
 		}
 	}
@@ -509,7 +496,7 @@ func stepName(st Step) string {
 	}
 }
 
-func canEmitPDL(p *Plan) bool {
+func canEmitPDL(p *hopper.Plan) bool {
 	if p == nil || len(p.Kernels) == 0 {
 		return false
 	}
@@ -524,7 +511,7 @@ func canEmitPDL(p *Plan) bool {
 	return true
 }
 
-func canEmitMegakernel(p *Plan) bool {
+func canEmitMegakernel(p *hopper.Plan) bool {
 	if !canEmitPDL(p) {
 		return false
 	}

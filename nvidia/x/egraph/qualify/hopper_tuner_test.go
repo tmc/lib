@@ -1,22 +1,145 @@
-package hopper
+package qualify
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/tmc/lib/nvidia/x/cudahostemu"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 	"github.com/tmc/lib/nvidia/x/pairedtiming"
 	"github.com/tmc/lib/nvidia/x/ptxasinfo"
 )
 
-func TestFilterVariantsByPTXAS(t *testing.T) {
-	swept, err := SweepTileGEMM(TileGEMM{Name: "proj", N: 256, K: 256, Weight: WeightBF16, Out: BF16})
+type hopperEmuBuf struct {
+	name  string
+	ctype string
+	data  []byte
+}
+
+func runHopperEmu(t *testing.T, src, launch string, bufs ...hopperEmuBuf) map[string][]byte {
+	t.Helper()
+	cbufs := make([]cudahostemu.Buffer, len(bufs))
+	for i, b := range bufs {
+		cbufs[i] = cudahostemu.Buffer{Name: b.name, CType: b.ctype, Data: b.data}
+	}
+	res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+		Source:  hopper.Prelude + src,
+		Launch:  launch,
+		Buffers: cbufs,
+		Flags:   strings.Fields(os.Getenv("EG_EMU_FLAGS")),
+	})
+	if errors.Is(err, cudahostemu.ErrNoCompiler) {
+		t.Skip("no host C++ compiler; emulated kernel not run")
+	}
+	if err != nil {
+		t.Fatalf("emulated kernel: %v", err)
+	}
+	return res
+}
+
+func u16Bytes(v []uint16) []byte {
+	b := make([]byte, 2*len(v))
+	for i, x := range v {
+		binary.LittleEndian.PutUint16(b[2*i:], x)
+	}
+	return b
+}
+
+func bytesU16(b []byte) []uint16 {
+	v := make([]uint16, len(b)/2)
+	for i := range v {
+		v[i] = binary.LittleEndian.Uint16(b[2*i:])
+	}
+	return v
+}
+
+func u32Bytes(v []uint32) []byte {
+	b := make([]byte, 4*len(v))
+	for i, x := range v {
+		binary.LittleEndian.PutUint32(b[4*i:], x)
+	}
+	return b
+}
+
+func i32Bytes(v []int32) []byte {
+	b := make([]byte, 4*len(v))
+	for i, x := range v {
+		binary.LittleEndian.PutUint32(b[4*i:], uint32(x))
+	}
+	return b
+}
+
+func i64Bytes(v []int64) []byte {
+	b := make([]byte, 8*len(v))
+	for i, x := range v {
+		binary.LittleEndian.PutUint64(b[8*i:], uint64(x))
+	}
+	return b
+}
+
+func i32s(raw []byte) []int32 {
+	v := make([]int32, len(raw)/4)
+	for i := range v {
+		v[i] = int32(binary.LittleEndian.Uint32(raw[4*i:]))
+	}
+	return v
+}
+
+func bytesU64(b []byte) []uint64 {
+	v := make([]uint64, len(b)/8)
+	for i := range v {
+		v[i] = binary.LittleEndian.Uint64(b[8*i:])
+	}
+	return v
+}
+
+func poison(n int) []byte { return bytes.Repeat([]byte{0xff}, n) }
+
+func randBF16(r *rand.Rand, n int, scale float64) []uint16 {
+	v := make([]uint16, n)
+	for i := range v {
+		v[i] = hopper.BF16Bits(float32(r.NormFloat64() * scale))
+	}
+	return v
+}
+
+func randNVFP4(r *rand.Rand, n, k int) hopper.GEMMWeights {
+	w := hopper.GEMMWeights{Packed: make([]uint8, n*k/2), Scales: make([]uint8, n*k/16), GlobalScal: 0.0123}
+	for i := range w.Packed {
+		w.Packed[i] = uint8(r.IntN(256))
+	}
+	for i := range w.Scales {
+		w.Scales[i] = hopper.E4M3Bits(float32(8 + r.Float64()*400))
+	}
+	return w
+}
+
+func closeTo(got, want []float32, rel, abs float64) (int, bool) {
+	if len(got) != len(want) {
+		return 0, false
+	}
+	for i := range want {
+		d := math.Abs(float64(got[i]) - float64(want[i]))
+		if math.IsNaN(float64(got[i])) != math.IsNaN(float64(want[i])) || d > abs+rel*math.Abs(float64(want[i])) {
+			return i, false
+		}
+	}
+	return 0, true
+}
+
+func TestFilterHopperVariantsByPTXAS(t *testing.T) {
+	swept, err := hopper.SweepTileGEMM(hopper.TileGEMM{Name: "proj", N: 256, K: 256, Weight: hopper.WeightBF16, Out: hopper.BF16})
 	if err != nil {
 		t.Fatal(err)
 	}
-	byName := make(map[string]Variant, len(swept))
+	byName := make(map[string]hopper.Variant, len(swept))
 	for _, v := range swept {
 		byName[v.Name] = v
 	}
@@ -55,7 +178,7 @@ ptxas info    : Used 120 registers, 1024 bytes smem, 384 bytes cmem[0]
 		t.Fatal(err)
 	}
 
-	candidates := []Variant{vClean, vSpill, vSerial, vHighReg, vLowOccSmem}
+	candidates := []hopper.Variant{vClean, vSpill, vSerial, vHighReg, vLowOccSmem}
 
 	tests := []struct {
 		name         string
@@ -87,7 +210,7 @@ ptxas info    : Used 120 registers, 1024 bytes smem, 384 bytes cmem[0]
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kept, rejected := FilterVariantsByPTXAS(candidates, *rep, "sm_90a", tt.gate)
+			kept, rejected := FilterHopperVariantsByPTXAS(candidates, *rep, "sm_90a", tt.gate)
 			var gotKept []string
 			for _, v := range kept {
 				gotKept = append(gotKept, v.Name)
@@ -115,27 +238,24 @@ ptxas info    : Used 120 registers, 1024 bytes smem, 384 bytes cmem[0]
 	}
 }
 
-func TestRankVariantsWaveQuantized(t *testing.T) {
-	cfg := CostConfig{Device: "NVIDIA H200"} // 132 SMs
+func TestRankHopperVariantsWaveQuantized(t *testing.T) {
+	cfg := hopper.CostConfig{Device: "NVIDIA H200"} // 132 SMs
 
 	t.Run("paged_attention_c320_1wave_beats_c256_1_19wave_tail", func(t *testing.T) {
-		base := PagedAttention{
+		base := hopper.PagedAttention{
 			Name: "attn", Hq: 16, Hkv: 2, QLen: 1, Page: 1,
-			Q: E4M3, Out: BF16, QKFP8: true, Swizzle: true,
+			Q: hopper.E4M3, Out: hopper.BF16, QKFP8: true, Swizzle: true,
 			Gate: true, GateStride: 2304, GateOffset: 1280,
 		}
-		vs, err := SweepPagedAttention(base)
+		vs, err := hopper.SweepPagedAttention(base)
 		if err != nil {
 			t.Fatal(err)
 		}
-		// At Batch=1, Hkv=2, MaxKeys=80000 on 132 SMs (4 CTAs/SM -> 528 slots):
-		//   C=256 launches 2 * ceil(80000/256) = 626 CTAs -> 626/528 = 1.1856 (~1.19) waves (2 quantized waves).
-		//   C=320 launches 2 * ceil(80000/320) = 500 CTAs -> 500/528 = 0.9470 waves (1 quantized wave).
-		ranked := RankVariants(vs, TuningShape{Batch: 1, MaxKeys: 80000}, cfg)
+		ranked := RankHopperVariants(vs, TuningShape{Batch: 1, MaxKeys: 80000}, cfg)
 		if len(ranked) == 0 {
 			t.Fatal("no ranked variants")
 		}
-		byName := make(map[string]RankedVariant, len(ranked))
+		byName := make(map[string]RankedHopperVariant, len(ranked))
 		for _, r := range ranked {
 			byName[r.Variant.Name] = r
 		}
@@ -160,26 +280,22 @@ func TestRankVariantsWaveQuantized(t *testing.T) {
 	})
 
 	t.Run("tile_gemm_streamk_beats_1_19wave_data_parallel_tail", func(t *testing.T) {
-		// M=1792 (14 tiles of 128), N=2816 (22 tiles of 128) -> 308 tiles.
-		// With 2 resident CTAs/SM on 132 SMs (264 slots), 308/264 = 1.167 waves (2 quantized waves).
-		// With 4 stages (128 KiB smem -> 1 resident CTA/SM, 132 slots), M=1408 (11 tiles), N=1792 (14 tiles)
-		// gives 154 tiles -> 154/132 = 1.167 waves (2 quantized waves), while StreamK=132 runs in 1 wave.
-		dp, err := TileGEMM{
-			Name: "gemm_dp", N: 1792, K: 2048, Weight: WeightBF16, Out: BF16,
+		dp, err := hopper.TileGEMM{
+			Name: "gemm_dp", N: 1792, K: 2048, Weight: hopper.WeightBF16, Out: hopper.BF16,
 			BM: 128, BN: 128, Stages: 4, WGMMA: true, Swizzle128B: true,
 		}.Variant()
 		if err != nil {
 			t.Fatal(err)
 		}
-		sk, err := TileGEMM{
-			Name: "gemm_sk", N: 1792, K: 2048, Weight: WeightBF16, Out: BF16,
+		sk, err := hopper.TileGEMM{
+			Name: "gemm_sk", N: 1792, K: 2048, Weight: hopper.WeightBF16, Out: hopper.BF16,
 			BM: 128, BN: 128, Stages: 4, WGMMA: true, Swizzle128B: true, StreamK: 132,
 		}.Variant()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		ranked := RankVariants([]Variant{dp, sk}, TuningShape{M: 1408}, cfg)
+		ranked := RankHopperVariants([]hopper.Variant{dp, sk}, TuningShape{M: 1408}, cfg)
 		if ranked[0].Variant.Name != "gemm_sk" {
 			t.Fatalf("winner = %s (%.1f ns), want gemm_sk over gemm_dp (%.1f ns)",
 				ranked[0].Variant.Name, ranked[0].EstimatedNs, ranked[1].EstimatedNs)
@@ -193,21 +309,21 @@ func TestRankVariantsWaveQuantized(t *testing.T) {
 	})
 
 	t.Run("cluster_combine_reduces_combine_traffic", func(t *testing.T) {
-		noCluster, err := PagedAttention{
+		noCluster, err := hopper.PagedAttention{
 			Name: "attn_global", Hq: 16, Hkv: 2, QLen: 1, Page: 1,
-			Q: E4M3, Out: BF16, Chunk: 256, Swizzle: true,
+			Q: hopper.E4M3, Out: hopper.BF16, Chunk: 256, Swizzle: true,
 		}.Variant()
 		if err != nil {
 			t.Fatal(err)
 		}
-		cluster, err := PagedAttention{
+		cluster, err := hopper.PagedAttention{
 			Name: "attn_cluster", Hq: 16, Hkv: 2, QLen: 1, Page: 1,
-			Q: E4M3, Out: BF16, Chunk: 256, Swizzle: true, ClusterCombine: true,
+			Q: hopper.E4M3, Out: hopper.BF16, Chunk: 256, Swizzle: true, ClusterCombine: true,
 		}.Variant()
 		if err != nil {
 			t.Fatal(err)
 		}
-		ranked := RankVariants([]Variant{noCluster, cluster}, TuningShape{Batch: 2, MaxKeys: 4096}, cfg)
+		ranked := RankHopperVariants([]hopper.Variant{noCluster, cluster}, TuningShape{Batch: 2, MaxKeys: 4096}, cfg)
 		if ranked[0].Variant.Name != "attn_cluster" {
 			t.Errorf("winner = %s, want attn_cluster", ranked[0].Variant.Name)
 		}
@@ -217,17 +333,17 @@ func TestRankVariantsWaveQuantized(t *testing.T) {
 	})
 }
 
-func TestTunerSelectByPairedTiming(t *testing.T) {
-	vBase := Variant{Name: "v_base"}
-	vSub := Variant{Name: "v_sub_threshold"}
-	vNoisy := Variant{Name: "v_noisy"}
-	vBad := Variant{Name: "v_below_intercept"}
-	vFast := Variant{Name: "v_fast"}
-	vFaster := Variant{Name: "v_faster"}
+func TestHopperTunerSelectByPairedTiming(t *testing.T) {
+	vBase := hopper.Variant{Name: "v_base"}
+	vSub := hopper.Variant{Name: "v_sub_threshold"}
+	vNoisy := hopper.Variant{Name: "v_noisy"}
+	vBad := hopper.Variant{Name: "v_below_intercept"}
+	vFast := hopper.Variant{Name: "v_fast"}
+	vFaster := hopper.Variant{Name: "v_faster"}
 
 	tests := []struct {
 		name      string
-		variants  []Variant
+		variants  []hopper.Variant
 		timings   map[string][]pairedtiming.Block
 		intercept float64
 		wantName  string
@@ -235,32 +351,27 @@ func TestTunerSelectByPairedTiming(t *testing.T) {
 	}{
 		{
 			name:      "promotes_clean_winner_rejects_noisy_and_subthreshold",
-			variants:  []Variant{vBase, vSub, vNoisy, vBad, vFast, vFaster},
+			variants:  []hopper.Variant{vBase, vSub, vNoisy, vBad, vFast, vFaster},
 			intercept: 2.0,
 			timings: map[string][]pairedtiming.Block{
-				// 0.8% gain (< 1.015 threshold) -> rejected.
 				"v_sub_threshold": {
 					{A1: 102.0, B1: 101.2, B2: 101.2, A2: 102.0},
 					{A1: 102.0, B1: 101.2, B2: 101.2, A2: 102.0},
 					{A1: 102.0, B1: 101.2, B2: 101.2, A2: 102.0},
 				},
-				// High median from one outlier block, but loses in two blocks (MinRatio < 1.0) -> rejected.
 				"v_noisy": {
 					{A1: 102.0, B1: 60.0, B2: 60.0, A2: 102.0},
 					{A1: 102.0, B1: 110.0, B2: 110.0, A2: 102.0},
 					{A1: 102.0, B1: 108.0, B2: 108.0, A2: 102.0},
 				},
-				// Sample below intercept -> rejected by pairedtiming.Analyze.
 				"v_below_intercept": {
 					{A1: 102.0, B1: 1.5, B2: 90.0, A2: 102.0},
 				},
-				// Clean 1.08x speedup across all blocks -> valid.
 				"v_fast": {
 					{A1: 110.0, B1: 102.0, B2: 102.0, A2: 110.0},
 					{A1: 110.0, B1: 101.8, B2: 102.2, A2: 110.0},
 					{A1: 110.0, B1: 102.0, B2: 102.0, A2: 110.0},
 				},
-				// Clean 1.15x speedup across all blocks -> promoted as overall winner.
 				"v_faster": {
 					{A1: 117.0, B1: 102.0, B2: 102.0, A2: 117.0},
 					{A1: 117.0, B1: 101.5, B2: 102.5, A2: 117.0},
@@ -271,7 +382,7 @@ func TestTunerSelectByPairedTiming(t *testing.T) {
 		},
 		{
 			name:      "keeps_baseline_when_all_candidates_subthreshold",
-			variants:  []Variant{vBase, vSub},
+			variants:  []hopper.Variant{vBase, vSub},
 			intercept: 2.0,
 			timings: map[string][]pairedtiming.Block{
 				"v_sub_threshold": {
@@ -283,7 +394,7 @@ func TestTunerSelectByPairedTiming(t *testing.T) {
 		},
 		{
 			name:      "errors_when_no_baseline_and_subthreshold",
-			variants:  []Variant{vSub},
+			variants:  []hopper.Variant{vSub},
 			intercept: 2.0,
 			timings: map[string][]pairedtiming.Block{
 				"v_sub_threshold": {
@@ -296,9 +407,9 @@ func TestTunerSelectByPairedTiming(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, sum, err := SelectByPairedTiming(tt.variants, tt.timings, tt.intercept)
+			got, sum, err := SelectHopperByPairedTiming(tt.variants, tt.timings, tt.intercept)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("SelectByPairedTiming() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("SelectHopperByPairedTiming() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantErr {
 				return
@@ -310,24 +421,24 @@ func TestTunerSelectByPairedTiming(t *testing.T) {
 	}
 }
 
-func TestBuildShapeDispatcherEmulated(t *testing.T) {
+func TestBuildHopperShapeDispatcherEmulated(t *testing.T) {
 	const n, k = 64, 512
-	vM1, err := SkinnyGEMM{
-		Name: "proj_m1", N: n, K: k, MaxM: 4, Weight: WeightBF16, Out: F32,
+	vM1, err := hopper.SkinnyGEMM{
+		Name: "proj_m1", N: n, K: k, MaxM: 4, Weight: hopper.WeightBF16, Out: hopper.F32,
 		RowsPerBlock: 1, Warps: 4, SplitK: 1, Prefetch: 2,
 	}.Variant()
 	if err != nil {
 		t.Fatal(err)
 	}
-	vM4, err := SkinnyGEMM{
-		Name: "proj_m4", N: n, K: k, MaxM: 8, Weight: WeightBF16, Out: F32,
+	vM4, err := hopper.SkinnyGEMM{
+		Name: "proj_m4", N: n, K: k, MaxM: 8, Weight: hopper.WeightBF16, Out: hopper.F32,
 		RowsPerBlock: 2, Warps: 8, SplitK: 2,
 	}.Variant()
 	if err != nil {
 		t.Fatal(err)
 	}
-	vM16, err := TileGEMM{
-		Name: "proj_m16", N: n, K: k, Weight: WeightBF16, Out: F32,
+	vM16, err := hopper.TileGEMM{
+		Name: "proj_m16", N: n, K: k, Weight: hopper.WeightBF16, Out: hopper.F32,
 		BM: 64, BN: 64, Stages: 2,
 	}.Variant()
 	if err != nil {
@@ -335,12 +446,12 @@ func TestBuildShapeDispatcherEmulated(t *testing.T) {
 	}
 
 	shapes := []int{16, 1, 4} // intentionally unsorted to test bucket sorting
-	winners := map[int]Variant{
+	winners := map[int]hopper.Variant{
 		1:  vM1,
 		4:  vM4,
 		16: vM16,
 	}
-	src, err := BuildShapeDispatcher("proj_shape_dispatch", shapes, winners)
+	src, err := BuildHopperShapeDispatcher("proj_shape_dispatch", shapes, winners)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,23 +466,23 @@ func TestBuildShapeDispatcherEmulated(t *testing.T) {
 	}
 
 	r := rand.New(rand.NewPCG(701, 702))
-	w := GEMMWeights{BF16: randBF16(r, n*k, 0.05)}
-	wsBytes := SkinnyGEMM{
-		Name: "s", N: n, K: k, MaxM: 8, Weight: WeightBF16, Out: F32,
+	w := hopper.GEMMWeights{BF16: randBF16(r, n*k, 0.05)}
+	wsBytes := hopper.SkinnyGEMM{
+		Name: "s", N: n, K: k, MaxM: 8, Weight: hopper.WeightBF16, Out: hopper.F32,
 		RowsPerBlock: 2, Warps: 8, SplitK: 2,
 	}.WorkspaceBytes()
 
 	for _, m := range []int{1, 4, 16} {
 		t.Run(fmt.Sprintf("m=%d", m), func(t *testing.T) {
 			x := randBF16(r, m*k, 1.0)
-			res := runEmu(t, src, fmt.Sprintf("proj_shape_dispatch(%d, x, w, out, ws, nullptr)", m),
-				emuBuf{"x", "uint16_t", u16Bytes(x)},
-				emuBuf{"w", "uint16_t", u16Bytes(w.BF16)},
-				emuBuf{"out", "float", poison(4 * m * n)},
-				emuBuf{"ws", "float", make([]byte, wsBytes)})
-			want, err := TileGEMM{
-				Name: "ref", N: n, K: k, Weight: WeightBF16, Out: F32, BN: 64,
-			}.Reference(m, x, nil, nil, []GEMMWeights{w}, nil)
+			res := runHopperEmu(t, src, fmt.Sprintf("proj_shape_dispatch(%d, x, w, out, ws, nullptr)", m),
+				hopperEmuBuf{"x", "uint16_t", u16Bytes(x)},
+				hopperEmuBuf{"w", "uint16_t", u16Bytes(w.BF16)},
+				hopperEmuBuf{"out", "float", poison(4 * m * n)},
+				hopperEmuBuf{"ws", "float", make([]byte, wsBytes)})
+			want, err := hopper.TileGEMM{
+				Name: "ref", N: n, K: k, Weight: hopper.WeightBF16, Out: hopper.F32, BN: 64,
+			}.Reference(m, x, nil, nil, []hopper.GEMMWeights{w}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -383,18 +494,17 @@ func TestBuildShapeDispatcherEmulated(t *testing.T) {
 	}
 }
 
-func TestTunerClosedLoop(t *testing.T) {
-	skinny, err := SweepSkinnyGEMM(SkinnyGEMM{Name: "proj_skinny", N: 256, K: 512, MaxM: 8, Weight: WeightBF16, Out: BF16, Prefetch: 1})
+func TestHopperTunerClosedLoop(t *testing.T) {
+	skinny, err := hopper.SweepSkinnyGEMM(hopper.SkinnyGEMM{Name: "proj_skinny", N: 256, K: 512, MaxM: 8, Weight: hopper.WeightBF16, Out: hopper.BF16, Prefetch: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	tile, err := SweepTileGEMM(TileGEMM{Name: "proj_tile", N: 256, K: 512, Weight: WeightBF16, Out: BF16})
+	tile, err := hopper.SweepTileGEMM(hopper.TileGEMM{Name: "proj_tile", N: 256, K: 512, Weight: hopper.WeightBF16, Out: hopper.BF16})
 	if err != nil {
 		t.Fatal(err)
 	}
 	all := append(skinny, tile...)
 
-	// Simulate ptxas -v log where one skinny variant spills and one wgmma tile variant serializes (C7519).
 	log := fmt.Sprintf(`
 ptxas info    : 0 bytes gmem
 ptxas info    : Compiling entry function '_Z%d%sILi1EEvPKtS1_Pt' for 'sm_90a'
@@ -418,10 +528,10 @@ ptxas info    : Used 128 registers, 1024 bytes smem, 384 bytes cmem[0]
 		t.Fatal(err)
 	}
 
-	tuner := Tuner{
+	tuner := HopperTuner{
 		Arch:      "sm_90a",
 		Gate:      StaticGate{NoSpills: true, MaxRegisters: 255, MinCTAsPerSM: 1},
-		Cost:      CostConfig{Device: "NVIDIA H200"},
+		Cost:      hopper.CostConfig{Device: "NVIDIA H200"},
 		MinGain:   DefaultMinGain,
 		Intercept: 1.0,
 	}
@@ -444,8 +554,8 @@ ptxas info    : Used 128 registers, 1024 bytes smem, 384 bytes cmem[0]
 	}
 }
 
-func ExampleFilterVariantsByPTXAS() {
-	vs, _ := SweepTileGEMM(TileGEMM{Name: "proj", N: 256, K: 256, Weight: WeightBF16, Out: BF16})
+func ExampleFilterHopperVariantsByPTXAS() {
+	vs, _ := hopper.SweepTileGEMM(hopper.TileGEMM{Name: "proj", N: 256, K: 256, Weight: hopper.WeightBF16, Out: hopper.BF16})
 	const log = `
 ptxas info    : 0 bytes gmem
 ptxas info    : Compiling entry function '_Z13proj_wg_n64s2iPKtS0_Pt' for 'sm_90a'
@@ -458,17 +568,17 @@ ptxas info    : Function properties for _Z13proj_wg_n64s3iPKtS0_Pt
 ptxas info    : Used 128 registers, 1024 bytes smem, 384 bytes cmem[0]
 `
 	rep, _ := ptxasinfo.Parse(strings.NewReader(log))
-	kept, rejected := FilterVariantsByPTXAS(vs[:2], *rep, "sm_90a", StaticGate{NoSpills: true})
+	kept, rejected := FilterHopperVariantsByPTXAS(vs[:2], *rep, "sm_90a", StaticGate{NoSpills: true})
 	fmt.Println(len(kept), kept[0].Name, len(rejected), rejected[0].Variant.Name)
 	// Output: 1 proj_wg_n64s2 1 proj_wg_n64s3
 }
 
-func ExampleRankVariants() {
-	vs, _ := SweepPagedAttention(PagedAttention{
+func ExampleRankHopperVariants() {
+	vs, _ := hopper.SweepPagedAttention(hopper.PagedAttention{
 		Name: "attn", Hq: 16, Hkv: 2, QLen: 1, Page: 1,
-		Q: E4M3, Out: BF16, QKFP8: true, Swizzle: true,
+		Q: hopper.E4M3, Out: hopper.BF16, QKFP8: true, Swizzle: true,
 	})
-	ranked := RankVariants(vs, TuningShape{Batch: 1, MaxKeys: 80000}, CostConfig{Device: "NVIDIA H200"})
+	ranked := RankHopperVariants(vs, TuningShape{Batch: 1, MaxKeys: 80000}, hopper.CostConfig{Device: "NVIDIA H200"})
 	fmt.Println(ranked[0].Variant.Name, ranked[0].Waves, ranked[0].NumCTAs)
 	// Output: attn_kv320 1 500
 }

@@ -38,6 +38,7 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudaroofline"
 	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+	"github.com/tmc/lib/nvidia/x/egraph/qualify"
 	"github.com/tmc/lib/nvidia/x/ptxasinfo"
 )
 
@@ -56,10 +57,10 @@ type spec struct {
 }
 
 type rankedGroup struct {
-	Key        string                 `json:"key"`
-	Dispatcher string                 `json:"dispatcher"`
-	Winners    map[int]string         `json:"winners"`
-	Ranked     []hopper.RankedVariant `json:"ranked"`
+	Key        string                        `json:"key"`
+	Dispatcher string                        `json:"dispatcher"`
+	Winners    map[int]string                `json:"winners"`
+	Ranked     []qualify.RankedHopperVariant `json:"ranked"`
 }
 
 func main() {
@@ -117,7 +118,7 @@ func write(specPath, dir string, sweep bool, ptxasFile, rankDevice string) error
 		if len(rep.Errors) > 0 {
 			return fmt.Errorf("%s: ptxas error: %s", ptxasFile, rep.Errors[0])
 		}
-		vs, _ = hopper.FilterVariantsByPTXAS(vs, *rep, "", hopper.StaticGate{NoSpills: true})
+		vs, _ = qualify.FilterHopperVariantsByPTXAS(vs, *rep, "", qualify.StaticGate{NoSpills: true})
 		if len(vs) == 0 {
 			return fmt.Errorf("%s: all variants rejected by ptxas gate", ptxasFile)
 		}
@@ -155,7 +156,7 @@ func write(specPath, dir string, sweep bool, ptxasFile, rankDevice string) error
 			winners := make(map[int]hopper.Variant, len(shapes))
 			winNames := make(map[int]string, len(shapes))
 			for _, sh := range shapes {
-				rk := hopper.RankVariants(gvs, hopper.TuningShape{M: sh, Batch: sh, MaxKeys: 80000}, cfg)
+				rk := qualify.RankHopperVariants(gvs, qualify.TuningShape{M: sh, Batch: sh, MaxKeys: 80000}, cfg)
 				winners[sh] = rk[0].Variant
 				winNames[sh] = rk[0].Variant.Name
 			}
@@ -166,14 +167,14 @@ func write(specPath, dir string, sweep bool, ptxasFile, rankDevice string) error
 			if !strings.HasSuffix(dispName, "_dispatch") {
 				dispName += "_dispatch"
 			}
-			src, err := hopper.BuildShapeDispatcher(dispName, shapes, winners)
+			src, err := qualify.BuildHopperShapeDispatcher(dispName, shapes, winners)
 			if err != nil {
 				return err
 			}
 			if err := os.WriteFile(filepath.Join(dir, dispName+".cu"), []byte(src), 0o644); err != nil {
 				return err
 			}
-			repRanked := hopper.RankVariants(gvs, hopper.TuningShape{M: shapes[len(shapes)-1], Batch: shapes[0], MaxKeys: 80000}, cfg)
+			repRanked := qualify.RankHopperVariants(gvs, qualify.TuningShape{M: shapes[len(shapes)-1], Batch: shapes[0], MaxKeys: 80000}, cfg)
 			groups = append(groups, rankedGroup{
 				Key:        key,
 				Dispatcher: dispName,
@@ -196,10 +197,10 @@ func write(specPath, dir string, sweep bool, ptxasFile, rankDevice string) error
 			winners := make(map[int]hopper.Variant, len(d.Shapes))
 			for _, sh := range d.Shapes {
 				m := max(sh, 1)
-				rk := hopper.RankVariants(gvs, hopper.TuningShape{M: m, Batch: m, MaxKeys: 80000}, cfg)
+				rk := qualify.RankHopperVariants(gvs, qualify.TuningShape{M: m, Batch: m, MaxKeys: 80000}, cfg)
 				winners[sh] = rk[0].Variant
 			}
-			src, err := hopper.BuildShapeDispatcher(d.Name, d.Shapes, winners)
+			src, err := qualify.BuildHopperShapeDispatcher(d.Name, d.Shapes, winners)
 			if err != nil {
 				return err
 			}
@@ -259,7 +260,7 @@ func bestMatchingPrefix(vs []hopper.Variant, prefix string, m int, cfg hopper.Co
 	if len(cands) == 0 {
 		return hopper.Variant{}, false
 	}
-	rk := hopper.RankVariants(cands, hopper.TuningShape{M: m, Batch: m, MaxKeys: 80000}, cfg)
+	rk := qualify.RankHopperVariants(cands, qualify.TuningShape{M: m, Batch: m, MaxKeys: 80000}, cfg)
 	return rk[0].Variant, true
 }
 

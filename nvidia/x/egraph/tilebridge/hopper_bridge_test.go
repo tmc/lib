@@ -1,4 +1,4 @@
-package hopper
+package tilebridge
 
 import (
 	"bytes"
@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 	"github.com/tmc/lib/nvidia/x/tileir"
 )
 
-func TestStepToTileIR(t *testing.T) {
+func TestHopperStepToTileIR(t *testing.T) {
 	tests := []struct {
 		name     string
 		step     TileIRStep
@@ -20,66 +21,66 @@ func TestStepToTileIR(t *testing.T) {
 	}{
 		{
 			name:     "RowKernel_RMSNorm",
-			step:     NewRMSNormKernel("rmsnorm_f32", 64, 1e-5),
+			step:     NewHopperRMSNormKernel("rmsnorm_f32", 64, 1e-5),
 			wantOps:  []string{"make_token", "get_tile_block_id", "iota", "load_ptr_tko", "ftof", "mulf", "subf", "store_ptr_tko", "return"},
 			wantFunc: "rmsnorm_f32",
 		},
 		{
 			name:     "RowKernel_ResidualRMSNorm",
-			step:     NewResidualRMSNormKernel("residual_rmsnorm_f32", 64, 1e-5),
+			step:     NewHopperResidualRMSNormKernel("residual_rmsnorm_f32", 64, 1e-5),
 			wantOps:  []string{"make_token", "load_ptr_tko", "addf", "ftof", "mulf", "store_ptr_tko", "return"},
 			wantFunc: "residual_rmsnorm_f32",
 		},
 		{
 			name:     "RowKernel_SwiGLU",
-			step:     NewSwiGLUKernel("swiglu_f32", 64),
+			step:     NewHopperSwiGLUKernel("swiglu_f32", 64),
 			wantOps:  []string{"make_token", "load_ptr_tko", "negf", "divf", "mulf", "store_ptr_tko", "return"},
 			wantFunc: "swiglu_f32",
 		},
 		{
 			name: "TileGEMM_Identity",
-			step: TileGEMM{
+			step: hopper.TileGEMM{
 				Name:     "tile_gemm_f32",
 				N:        64,
 				K:        64,
 				BM:       64,
 				BN:       64,
 				Stages:   2,
-				Weight:   WeightBF16,
-				Out:      F32,
-				Epilogue: Identity,
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
+				Epilogue: hopper.Identity,
 			},
 			wantOps:  []string{"make_token", "get_tile_block_id", "load_ptr_tko", "reshape", "mmaf", "store_ptr_tko", "return"},
 			wantFunc: "tile_gemm_f32",
 		},
 		{
 			name: "TileGEMM_GLU_WithResidual",
-			step: TileGEMM{
+			step: hopper.TileGEMM{
 				Name:     "tile_gemm_glu_res_f32",
 				N:        128,
 				K:        64,
 				BM:       64,
 				BN:       64,
 				Stages:   2,
-				Weight:   WeightBF16,
-				Out:      F32,
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
 				GLU:      true,
-				Epilogue: MustLambda("(add (mul (silu $0) $1) $2)"),
-				Extras:   []Operand{{Name: "residual", DType: F32, Broadcast: Full}},
+				Epilogue: hopper.MustLambda("(add (mul (silu $0) $1) $2)"),
+				Extras:   []hopper.Operand{{Name: "residual", DType: hopper.F32, Broadcast: hopper.Full}},
 			},
 			wantOps:  []string{"make_token", "load_ptr_tko", "mmaf", "negf", "divf", "mulf", "addf", "store_ptr_tko", "return"},
 			wantFunc: "tile_gemm_glu_res_f32",
 		},
 		{
 			name: "SkinnyGEMM_SiLU",
-			step: SkinnyGEMM{
+			step: hopper.SkinnyGEMM{
 				Name:     "skinny_gemm_silu_f32",
 				N:        64,
 				K:        256,
 				MaxM:     4,
-				Weight:   WeightBF16,
-				Out:      F32,
-				Epilogue: MustLambda("(silu $0)"),
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
+				Epilogue: hopper.MustLambda("(silu $0)"),
 			},
 			wantOps:  []string{"make_token", "load_ptr_tko", "mmaf", "negf", "divf", "mulf", "store_ptr_tko", "return"},
 			wantFunc: "skinny_gemm_silu_f32",
@@ -88,9 +89,9 @@ func TestStepToTileIR(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mod, err := StepToTileIR(tc.step)
+			mod, err := StepHopperToTileIR(tc.step)
 			if err != nil {
-				t.Fatalf("StepToTileIR failed: %v", err)
+				t.Fatalf("StepHopperToTileIR failed: %v", err)
 			}
 			if len(mod.Functions) != 1 {
 				t.Fatalf("got %d functions, want 1", len(mod.Functions))
@@ -153,53 +154,56 @@ func TestStepToTileIR(t *testing.T) {
 
 func TestPlanToTileIR(t *testing.T) {
 	// 1. Multi-step Plan compiled via e-graph Builder + Optimize + Compile (GEMM -> RMSNorm).
-	b := NewBuilder()
-	x := b.Input("x", BF16, 4, 256)
-	w := b.Input("w", BF16, 64, 256)
-	nw := b.Input("norm_w", F32, 64)
+	b := hopper.NewBuilder()
+	x := b.Input("x", hopper.BF16, 4, 256)
+	w := b.Input("w", hopper.BF16, 64, 256)
+	nw := b.Input("norm_w", hopper.F32, 64)
 	mm := b.MatMul(x, w)
-	ss := b.ReduceSum(b.Map(MustLambda("(mul $0 $0)"), mm))
-	normed := b.Map(MustLambda("(mul (mul $0 (rsqrt (add (div $1 64) 1e-5))) $2)"), mm, ss, nw)
+	ss := b.ReduceSum(b.Map(hopper.MustLambda("(mul $0 $0)"), mm))
+	normed := b.Map(hopper.MustLambda("(mul (mul $0 (rsqrt (add (div $1 64) 1e-5))) $2)"), mm, ss, nw)
 
-	expr, err := Optimize(b.G, normed)
+	expr, err := hopper.Optimize(b.G, normed)
 	if err != nil {
 		t.Fatalf("Optimize failed: %v", err)
 	}
-	compiledPlan, err := Compile(expr, "gemm_norm", F32)
+	compiledPlan, err := hopper.Compile(expr, "gemm_norm", hopper.F32)
 	if err != nil {
 		t.Fatalf("Compile failed: %v", err)
 	}
-	compiledMods, err := compiledPlan.ToTileIRModules()
+	compiledMods, err := PlanToTileIRModules(compiledPlan)
 	if err != nil {
-		t.Fatalf("compiledPlan.ToTileIRModules() failed: %v", err)
+		t.Fatalf("PlanToTileIRModules(compiledPlan) failed: %v", err)
 	}
 	if len(compiledMods) != len(compiledPlan.Kernels) {
 		t.Fatalf("got %d modules, want %d", len(compiledMods), len(compiledPlan.Kernels))
 	}
 
 	// 2. Explicit 3-step Plan (RMSNorm -> TileGEMM -> SwiGLU).
-	plan := &Plan{
+	rk0 := NewHopperRMSNormKernel("step0_rmsnorm", 64, 1e-5)
+	tg1 := hopper.TileGEMM{
+		Name:     "step1_tile_gemm",
+		N:        64,
+		K:        64,
+		BM:       64,
+		BN:       64,
+		Stages:   2,
+		Weight:   hopper.WeightBF16,
+		Out:      hopper.F32,
+		Epilogue: hopper.Identity,
+	}
+	rk2 := NewHopperSwiGLUKernel("step2_swiglu", 64)
+	plan := &hopper.Plan{
 		Name: "rmsnorm_gemm_swiglu",
-		Kernels: []PlanKernel{
-			NewRMSNormKernel("step0_rmsnorm", 64, 1e-5).stepKernel(),
-			(TileGEMM{
-				Name:     "step1_tile_gemm",
-				N:        64,
-				K:        64,
-				BM:       64,
-				BN:       64,
-				Stages:   2,
-				Weight:   WeightBF16,
-				Out:      F32,
-				Epilogue: Identity,
-			}).stepKernel(),
-			NewSwiGLUKernel("step2_swiglu", 64).stepKernel(),
+		Kernels: []hopper.PlanKernel{
+			{Row: &rk0},
+			{Tile: &tg1},
+			{Row: &rk2},
 		},
 	}
 
-	mods, err := plan.ToTileIRModules()
+	mods, err := PlanToTileIRModules(plan)
 	if err != nil {
-		t.Fatalf("plan.ToTileIRModules() failed: %v", err)
+		t.Fatalf("PlanToTileIRModules(plan) failed: %v", err)
 	}
 	if len(mods) != 3 {
 		t.Fatalf("got %d modules, want 3", len(mods))
@@ -215,7 +219,7 @@ func TestPlanToTileIR(t *testing.T) {
 	}
 }
 
-func TestVerifyDualTarget(t *testing.T) {
+func TestVerifyHopperDualTarget(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
@@ -226,7 +230,7 @@ func TestVerifyDualTarget(t *testing.T) {
 	}{
 		{
 			name: "RMSNorm",
-			step: NewRMSNormKernel("rmsnorm_f32", 64, 1e-5),
+			step: NewHopperRMSNormKernel("rmsnorm_f32", 64, 1e-5),
 			M:    4,
 			N:    64,
 			K:    64,
@@ -234,7 +238,7 @@ func TestVerifyDualTarget(t *testing.T) {
 		},
 		{
 			name: "ResidualRMSNorm",
-			step: NewResidualRMSNormKernel("residual_rmsnorm_f32", 64, 1e-5),
+			step: NewHopperResidualRMSNormKernel("residual_rmsnorm_f32", 64, 1e-5),
 			M:    4,
 			N:    64,
 			K:    64,
@@ -242,7 +246,7 @@ func TestVerifyDualTarget(t *testing.T) {
 		},
 		{
 			name: "SwiGLU_Row",
-			step: NewSwiGLUKernel("swiglu_f32", 64),
+			step: NewHopperSwiGLUKernel("swiglu_f32", 64),
 			M:    4,
 			N:    64,
 			K:    64,
@@ -250,16 +254,16 @@ func TestVerifyDualTarget(t *testing.T) {
 		},
 		{
 			name: "TileGEMM_Identity",
-			step: TileGEMM{
+			step: hopper.TileGEMM{
 				Name:     "tile_gemm_f32",
 				N:        64,
 				K:        64,
 				BM:       64,
 				BN:       64,
 				Stages:   2,
-				Weight:   WeightBF16,
-				Out:      F32,
-				Epilogue: Identity,
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
+				Epilogue: hopper.Identity,
 			},
 			M:   16,
 			N:   64,
@@ -268,16 +272,16 @@ func TestVerifyDualTarget(t *testing.T) {
 		},
 		{
 			name: "TileGEMM_SiLU",
-			step: TileGEMM{
+			step: hopper.TileGEMM{
 				Name:     "tile_gemm_silu_f32",
 				N:        64,
 				K:        64,
 				BM:       64,
 				BN:       64,
 				Stages:   2,
-				Weight:   WeightBF16,
-				Out:      F32,
-				Epilogue: MustLambda("(silu $0)"),
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
+				Epilogue: hopper.MustLambda("(silu $0)"),
 			},
 			M:   16,
 			N:   64,
@@ -286,18 +290,18 @@ func TestVerifyDualTarget(t *testing.T) {
 		},
 		{
 			name: "TileGEMM_GLU_ExtraAdd",
-			step: TileGEMM{
+			step: hopper.TileGEMM{
 				Name:     "tile_gemm_glu_add_f32",
 				N:        128,
 				K:        64,
 				BM:       64,
 				BN:       64,
 				Stages:   2,
-				Weight:   WeightBF16,
-				Out:      F32,
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
 				GLU:      true,
-				Epilogue: MustLambda("(add (mul (silu $0) $1) $2)"),
-				Extras:   []Operand{{Name: "residual", DType: F32, Broadcast: Full}},
+				Epilogue: hopper.MustLambda("(add (mul (silu $0) $1) $2)"),
+				Extras:   []hopper.Operand{{Name: "residual", DType: hopper.F32, Broadcast: hopper.Full}},
 			},
 			M:   16,
 			N:   128,
@@ -306,14 +310,14 @@ func TestVerifyDualTarget(t *testing.T) {
 		},
 		{
 			name: "SkinnyGEMM_Identity",
-			step: SkinnyGEMM{
+			step: hopper.SkinnyGEMM{
 				Name:     "skinny_gemm_f32",
 				N:        64,
 				K:        256,
 				MaxM:     4,
-				Weight:   WeightBF16,
-				Out:      F32,
-				Epilogue: Identity,
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
+				Epilogue: hopper.Identity,
 			},
 			M:   4,
 			N:   64,
@@ -322,14 +326,14 @@ func TestVerifyDualTarget(t *testing.T) {
 		},
 		{
 			name: "SkinnyGEMM_SiLU",
-			step: SkinnyGEMM{
+			step: hopper.SkinnyGEMM{
 				Name:     "skinny_gemm_silu_f32",
 				N:        64,
 				K:        256,
 				MaxM:     4,
-				Weight:   WeightBF16,
-				Out:      F32,
-				Epilogue: MustLambda("(silu $0)"),
+				Weight:   hopper.WeightBF16,
+				Out:      hopper.F32,
+				Epilogue: hopper.MustLambda("(silu $0)"),
 			},
 			M:   4,
 			N:   64,
@@ -340,12 +344,12 @@ func TestVerifyDualTarget(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			report, err := VerifyDualTargetAgreement(ctx, tc.step, tc.M, tc.N, tc.K, tc.eps)
+			report, err := VerifyHopperDualTargetAgreement(ctx, tc.step, tc.M, tc.N, tc.K, tc.eps)
 			if errors.Is(err, cudahostemu.ErrNoCompiler) {
 				t.Skip("no host C++ compiler; skipping dual-target host emulation check")
 			}
 			if err != nil {
-				t.Fatalf("VerifyDualTargetAgreement(%s) failed: %v", tc.name, err)
+				t.Fatalf("VerifyHopperDualTargetAgreement(%s) failed: %v", tc.name, err)
 			}
 			t.Logf("%s: maxAbsDiff=%.3e (len=%d, bytecode=%d bytes)",
 				report.KernelName, report.MaxAbsDiff, len(report.CUDAOutput), len(report.Bytecode))

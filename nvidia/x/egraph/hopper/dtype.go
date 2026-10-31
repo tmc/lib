@@ -19,8 +19,9 @@ const (
 	I64
 	F16 // IEEE binary16 (half precision), round to nearest even
 
-	FP16 = F16
-	FP32 = F32
+	FP16  = F16
+	FP32  = F32
+	NVFP4 = E2M1
 )
 
 var dtypeNames = [...]string{F32: "f32", BF16: "bf16", E4M3: "e4m3", E2M1: "e2m1", U8: "u8", I32: "i32", I64: "i64"}

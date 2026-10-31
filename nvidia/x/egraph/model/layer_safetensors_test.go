@@ -1,4 +1,4 @@
-package hopper
+package model
 
 import (
 	"bytes"
@@ -9,113 +9,12 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 	"github.com/tmc/lib/nvidia/x/safetensors"
 )
 
-func TestLoadLayerSafetensors(t *testing.T) {
-	t.Run("separate_qkv_and_gate_up_bf16", func(t *testing.T) {
-		const (
-			H   = 128
-			I   = 256
-			G   = 2
-			KVH = 1
-			D   = 64
-		)
-		cfg := ArchConfig{
-			HiddenSize:        H,
-			IntermediateSize:  I,
-			NumHiddenLayers:   1,
-			NumAttentionHeads: G,
-			NumKeyValueHeads:  KVH,
-			HeadDim:           D,
-			RMSNormEps:        1e-5,
-			WeightDType:       BF16,
-			KVDType:           BF16,
-		}
-
-		r := rand.New(rand.NewPCG(101, 202))
-		randBytes := func(n int) []byte {
-			b := make([]byte, n)
-			for i := range b {
-				b[i] = byte(r.IntN(256))
-			}
-			return b
-		}
-		inNorm := make([]uint16, H)
-		postNorm := make([]uint16, H)
-		for i := range H {
-			inNorm[i] = BF16Bits(float32(0.8 + 0.4*r.Float64()))
-			postNorm[i] = BF16Bits(float32(0.8 + 0.4*r.Float64()))
-		}
-
-		qBytes := randBytes(G * D * H * 2)
-		kBytes := randBytes(KVH * D * H * 2)
-		vBytes := randBytes(KVH * D * H * 2)
-		oBytes := randBytes(H * G * D * 2)
-		gateBytes := randBytes(I * H * 2)
-		upBytes := randBytes(I * H * 2)
-		downBytes := randBytes(H * I * 2)
-
-		prefix := "model.layers.0"
-		tensors := []safetensors.Tensor{
-			{Name: prefix + ".input_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(inNorm)},
-			{Name: prefix + ".self_attn.q_proj.weight", Dtype: safetensors.BF16, Shape: []int{G * D, H}, Data: qBytes},
-			{Name: prefix + ".self_attn.k_proj.weight", Dtype: safetensors.BF16, Shape: []int{KVH * D, H}, Data: kBytes},
-			{Name: prefix + ".self_attn.v_proj.weight", Dtype: safetensors.BF16, Shape: []int{KVH * D, H}, Data: vBytes},
-			{Name: prefix + ".self_attn.o_proj.weight", Dtype: safetensors.BF16, Shape: []int{H, G * D}, Data: oBytes},
-			{Name: prefix + ".post_attention_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(postNorm)},
-			{Name: prefix + ".mlp.gate_proj.weight", Dtype: safetensors.BF16, Shape: []int{I, H}, Data: gateBytes},
-			{Name: prefix + ".mlp.up_proj.weight", Dtype: safetensors.BF16, Shape: []int{I, H}, Data: upBytes},
-			{Name: prefix + ".mlp.down_proj.weight", Dtype: safetensors.BF16, Shape: []int{H, I}, Data: downBytes},
-		}
-		var buf bytes.Buffer
-		if err := safetensors.Write(&buf, tensors, nil); err != nil {
-			t.Fatalf("safetensors.Write: %v", err)
-		}
-
-		w, err := LoadLayerSafetensors(buf.Bytes(), cfg, prefix, false)
-		if err != nil {
-			t.Fatalf("LoadLayerSafetensors: %v", err)
-		}
-		if w.Prefix != prefix {
-			t.Errorf("Prefix = %q, want %q", w.Prefix, prefix)
-		}
-		if !slices.Equal(w.InputNorm, inNorm) {
-			t.Errorf("InputNorm mismatch")
-		}
-		if !slices.Equal(w.PostAttnNorm, postNorm) {
-			t.Errorf("PostAttnNorm mismatch")
-		}
-		wantQKV := slices.Concat(qBytes, kBytes, vBytes)
-		if !slices.Equal(w.QKVWeight, wantQKV) {
-			t.Errorf("QKVWeight concatenation mismatch: got %d bytes, want %d", len(w.QKVWeight), len(wantQKV))
-		}
-		wantGateUp := slices.Concat(gateBytes, upBytes)
-		if !slices.Equal(w.GateUpWeight, wantGateUp) {
-			t.Errorf("GateUpWeight concatenation mismatch: got %d bytes, want %d", len(w.GateUpWeight), len(wantGateUp))
-		}
-		if !slices.Equal(w.OWeight, oBytes) {
-			t.Errorf("OWeight mismatch")
-		}
-		if !slices.Equal(w.DownWeight, downBytes) {
-			t.Errorf("DownWeight mismatch")
-		}
-
-		// Verify EncodeLayerSafetensors round-trip.
-		encoded, err := EncodeLayerSafetensors(w, cfg)
-		if err != nil {
-			t.Fatalf("EncodeLayerSafetensors: %v", err)
-		}
-		w2, err := LoadLayerSafetensors(encoded, cfg, prefix, false)
-		if err != nil {
-			t.Fatalf("LoadLayerSafetensors(encoded): %v", err)
-		}
-		if !slices.Equal(w2.QKVWeight, wantQKV) || !slices.Equal(w2.GateUpWeight, wantGateUp) {
-			t.Errorf("round-trip QKV or GateUp mismatch")
-		}
-	})
-
-	t.Run("nvfp4_wgmma_repack_roundtrip", func(t *testing.T) {
+func TestSafetensorsLayerRoundTrip(t *testing.T) {
+	t.Run("nvfp4_wgmma_repack_all_projections", func(t *testing.T) {
 		const (
 			H   = 128
 			I   = 128
@@ -146,15 +45,15 @@ func TestLoadLayerSafetensors(t *testing.T) {
 		randScales := func(n int) []byte {
 			b := make([]byte, n)
 			for i := range b {
-				b[i] = E4M3Bits(float32(0.125 + 0.5*r.Float64()))
+				b[i] = hopper.E4M3Bits(float32(0.125 + 0.5*r.Float64()))
 			}
 			return b
 		}
 		inNorm := make([]uint16, H)
 		postNorm := make([]uint16, H)
 		for i := range H {
-			inNorm[i] = BF16Bits(1.0)
-			postNorm[i] = BF16Bits(1.0)
+			inNorm[i] = hopper.BF16Bits(1.0)
+			postNorm[i] = hopper.BF16Bits(1.0)
 		}
 
 		qDim := G * D
@@ -181,7 +80,7 @@ func TestLoadLayerSafetensors(t *testing.T) {
 
 		prefix := "model.layers.0"
 		tensors := []safetensors.Tensor{
-			{Name: prefix + ".input_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(inNorm)},
+			{Name: prefix + ".input_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: EncodeU16LE(inNorm)},
 			{Name: prefix + ".self_attn.q_proj.weight", Dtype: safetensors.U8, Shape: []int{qDim, H / 2}, Data: qW},
 			{Name: prefix + ".self_attn.q_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{qDim, H / 16}, Data: qS},
 			{Name: prefix + ".self_attn.k_proj.weight", Dtype: safetensors.U8, Shape: []int{kvDim, H / 2}, Data: kW},
@@ -190,7 +89,7 @@ func TestLoadLayerSafetensors(t *testing.T) {
 			{Name: prefix + ".self_attn.v_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{kvDim, H / 16}, Data: vS},
 			{Name: prefix + ".self_attn.o_proj.weight", Dtype: safetensors.U8, Shape: []int{H, qDim / 2}, Data: oW},
 			{Name: prefix + ".self_attn.o_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{H, qDim / 16}, Data: oS},
-			{Name: prefix + ".post_attention_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(postNorm)},
+			{Name: prefix + ".post_attention_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: EncodeU16LE(postNorm)},
 			{Name: prefix + ".mlp.gate_proj.weight", Dtype: safetensors.U8, Shape: []int{I, H / 2}, Data: gateW},
 			{Name: prefix + ".mlp.gate_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{I, H / 16}, Data: gateS},
 			{Name: prefix + ".mlp.up_proj.weight", Dtype: safetensors.U8, Shape: []int{I, H / 2}, Data: upW},
@@ -216,7 +115,6 @@ func TestLoadLayerSafetensors(t *testing.T) {
 		wantGateUpW := slices.Concat(gateW, upW)
 		wantGateUpS := slices.Concat(gateS, upS)
 
-		// Verify that UnpackNVFP4Weights and UnpackNVFP4Scales recover original bytes bit-for-bit.
 		unpackedQKVW, err := UnpackNVFP4Weights(w.QKVWeight, qkvDim, H)
 		if err != nil {
 			t.Fatalf("UnpackNVFP4Weights(QKV): %v", err)
@@ -277,7 +175,6 @@ func TestLoadLayerSafetensors(t *testing.T) {
 			t.Errorf("UnpackNVFP4Scales(Down) mismatch")
 		}
 
-		// Verify EncodeLayerSafetensors preserves repacked weights and can unpack back when repackForWGMMA=false.
 		encRepacked, err := EncodeLayerSafetensors(w, cfg)
 		if err != nil {
 			t.Fatalf("EncodeLayerSafetensors(repacked): %v", err)
@@ -295,7 +192,7 @@ func TestLoadLayerSafetensors(t *testing.T) {
 	})
 }
 
-func TestRunCompiledDenseLayer(t *testing.T) {
+func TestSafetensorsRunCompiledDenseLayer(t *testing.T) {
 	if _, err := cudahostemu.Compiler(); errors.Is(err, cudahostemu.ErrNoCompiler) {
 		t.Skip("no host C++ compiler; emulated kernel not run")
 	}
@@ -327,15 +224,15 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 		u := make([]uint16, n)
 		f := make([]float64, n)
 		for i := range n {
-			v := BF16.Round(float32(r.NormFloat64()) * scale)
-			u[i] = BF16Bits(v)
+			v := hopper.BF16.Round(float32(r.NormFloat64()) * scale)
+			u[i] = hopper.BF16Bits(v)
 			f[i] = float64(v)
 		}
 		return u, f
 	}
 
-	qDim := G * HeadDim
-	kvDim := KVH * HeadDim
+	qDim := G * hopper.HeadDim
+	kvDim := KVH * hopper.HeadDim
 
 	inNormU16, inNormF64 := randBF16Slice(H, 0.2)
 	postNormU16, postNormF64 := randBF16Slice(H, 0.2)
@@ -349,15 +246,15 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 
 	prefix := "model.layers.0"
 	tensors := []safetensors.Tensor{
-		{Name: prefix + ".input_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(inNormU16)},
-		{Name: prefix + ".self_attn.q_proj.weight", Dtype: safetensors.BF16, Shape: []int{qDim, H}, Data: encodeU16LE(wqU16)},
-		{Name: prefix + ".self_attn.k_proj.weight", Dtype: safetensors.BF16, Shape: []int{kvDim, H}, Data: encodeU16LE(wkU16)},
-		{Name: prefix + ".self_attn.v_proj.weight", Dtype: safetensors.BF16, Shape: []int{kvDim, H}, Data: encodeU16LE(wvU16)},
-		{Name: prefix + ".self_attn.o_proj.weight", Dtype: safetensors.BF16, Shape: []int{H, qDim}, Data: encodeU16LE(woU16)},
-		{Name: prefix + ".post_attention_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(postNormU16)},
-		{Name: prefix + ".mlp.gate_proj.weight", Dtype: safetensors.BF16, Shape: []int{I, H}, Data: encodeU16LE(wGateU16)},
-		{Name: prefix + ".mlp.up_proj.weight", Dtype: safetensors.BF16, Shape: []int{I, H}, Data: encodeU16LE(wUpU16)},
-		{Name: prefix + ".mlp.down_proj.weight", Dtype: safetensors.BF16, Shape: []int{H, I}, Data: encodeU16LE(wDownU16)},
+		{Name: prefix + ".input_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: EncodeU16LE(inNormU16)},
+		{Name: prefix + ".self_attn.q_proj.weight", Dtype: safetensors.BF16, Shape: []int{qDim, H}, Data: EncodeU16LE(wqU16)},
+		{Name: prefix + ".self_attn.k_proj.weight", Dtype: safetensors.BF16, Shape: []int{kvDim, H}, Data: EncodeU16LE(wkU16)},
+		{Name: prefix + ".self_attn.v_proj.weight", Dtype: safetensors.BF16, Shape: []int{kvDim, H}, Data: EncodeU16LE(wvU16)},
+		{Name: prefix + ".self_attn.o_proj.weight", Dtype: safetensors.BF16, Shape: []int{H, qDim}, Data: EncodeU16LE(woU16)},
+		{Name: prefix + ".post_attention_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: EncodeU16LE(postNormU16)},
+		{Name: prefix + ".mlp.gate_proj.weight", Dtype: safetensors.BF16, Shape: []int{I, H}, Data: EncodeU16LE(wGateU16)},
+		{Name: prefix + ".mlp.up_proj.weight", Dtype: safetensors.BF16, Shape: []int{I, H}, Data: EncodeU16LE(wUpU16)},
+		{Name: prefix + ".mlp.down_proj.weight", Dtype: safetensors.BF16, Shape: []int{H, I}, Data: EncodeU16LE(wDownU16)},
 	}
 	var stBuf bytes.Buffer
 	if err := safetensors.Write(&stBuf, tensors, nil); err != nil {
@@ -377,25 +274,25 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 	hiddenIn := make([]float32, batchM*H)
 	hiddenF64 := make([]float64, batchM*H)
 	for i := range hiddenIn {
-		v := BF16.Round(float32(r.NormFloat64() * 0.2))
+		v := hopper.BF16.Round(float32(r.NormFloat64() * 0.2))
 		hiddenIn[i] = v
 		hiddenF64[i] = float64(v)
 	}
 
 	const pageSize = 16
 	maxPages := max((seqLen+pageSize-1)/pageSize, 1)
-	cacheElems := batchM * maxPages * pageSize * KVH * HeadDim
+	cacheElems := batchM * maxPages * pageSize * KVH * hopper.HeadDim
 	kCache := make([]float32, cacheElems)
 	vCache := make([]float32, cacheElems)
 	kCacheF64 := make([]float64, cacheElems)
 	vCacheF64 := make([]float64, cacheElems)
 	for i := range cacheElems {
-		kv := E4M3.Round(float32(r.NormFloat64() * 0.25))
-		vv := E4M3.Round(float32(r.NormFloat64() * 0.25))
+		kv := hopper.E4M3.Round(float32(r.NormFloat64() * 0.25))
+		vv := hopper.E4M3.Round(float32(r.NormFloat64() * 0.25))
 		kCache[i] = kv
 		vCache[i] = vv
-		kCacheF64[i] = float64(E4M3Bits(kv))
-		vCacheF64[i] = float64(E4M3Bits(vv))
+		kCacheF64[i] = float64(hopper.E4M3Bits(kv))
+		vCacheF64[i] = float64(hopper.E4M3Bits(vv))
 	}
 
 	pageTable := make([]int32, batchM*maxPages)
@@ -415,12 +312,12 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 		t.Fatalf("len(got) = %d, want %d", len(got), batchM*H)
 	}
 
-	env := map[string]Value{
+	env := map[string]hopper.Value{
 		"x":           {Shape: []int{batchM, H}, Data: hiddenF64},
 		"attn_norm_w": {Shape: []int{H}, Data: inNormF64},
 		"wq":          {Shape: []int{qDim, H}, Data: wqF64},
-		"k_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: kCacheF64},
-		"v_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: vCacheF64},
+		"k_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, hopper.HeadDim}, Data: kCacheF64},
+		"v_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, hopper.HeadDim}, Data: vCacheF64},
 		"page_table":  {Shape: []int{batchM, maxPages}, Data: pageTableF64},
 		"seqlens":     {Shape: []int{batchM}, Data: seqLensF64},
 		"k_scale":     {Shape: []int{1}, Data: []float64{1.0}},
@@ -457,7 +354,7 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 				packed[i] = byte(r.IntN(256))
 			}
 			for i := range scales {
-				scales[i] = E4M3Bits(float32(0.0625 + 0.125*r.Float64()))
+				scales[i] = hopper.E4M3Bits(float32(0.0625 + 0.125*r.Float64()))
 			}
 			return packed, scales
 		}
@@ -470,7 +367,7 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 		dP, dS := randNVFP4Tensor(H, I)
 
 		nvTensors := []safetensors.Tensor{
-			{Name: prefix + ".input_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(inNormU16)},
+			{Name: prefix + ".input_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: EncodeU16LE(inNormU16)},
 			{Name: prefix + ".self_attn.q_proj.weight", Dtype: safetensors.U8, Shape: []int{qDim, H / 2}, Data: qP},
 			{Name: prefix + ".self_attn.q_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{qDim, H / 16}, Data: qS},
 			{Name: prefix + ".self_attn.k_proj.weight", Dtype: safetensors.U8, Shape: []int{kvDim, H / 2}, Data: kP},
@@ -479,7 +376,7 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 			{Name: prefix + ".self_attn.v_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{kvDim, H / 16}, Data: vS},
 			{Name: prefix + ".self_attn.o_proj.weight", Dtype: safetensors.U8, Shape: []int{H, qDim / 2}, Data: oP},
 			{Name: prefix + ".self_attn.o_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{H, qDim / 16}, Data: oS},
-			{Name: prefix + ".post_attention_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: encodeU16LE(postNormU16)},
+			{Name: prefix + ".post_attention_layernorm.weight", Dtype: safetensors.BF16, Shape: []int{H}, Data: EncodeU16LE(postNormU16)},
 			{Name: prefix + ".mlp.gate_proj.weight", Dtype: safetensors.U8, Shape: []int{I, H / 2}, Data: gP},
 			{Name: prefix + ".mlp.gate_proj.weight_scale", Dtype: safetensors.F8E4M3, Shape: []int{I, H / 16}, Data: gS},
 			{Name: prefix + ".mlp.up_proj.weight", Dtype: safetensors.U8, Shape: []int{I, H / 2}, Data: uP},
@@ -511,21 +408,21 @@ func TestRunCompiledDenseLayer(t *testing.T) {
 			for row := range rows {
 				pRow := packed[row*(cols/2) : (row+1)*(cols/2)]
 				sRow := scales[row*(cols/16) : (row+1)*(cols/16)]
-				if err := DequantNVFP4(rowDst, pRow, sRow, 1.0); err != nil {
+				if err := hopper.DequantNVFP4(rowDst, pRow, sRow, 1.0); err != nil {
 					t.Fatal(err)
 				}
 				for col, v := range rowDst {
-					out[row*cols+col] = float64(BF16.Round(v))
+					out[row*cols+col] = float64(hopper.BF16.Round(v))
 				}
 			}
 			return out
 		}
-		nvEnv := map[string]Value{
+		nvEnv := map[string]hopper.Value{
 			"x":           {Shape: []int{batchM, H}, Data: hiddenF64},
 			"attn_norm_w": {Shape: []int{H}, Data: inNormF64},
 			"wq":          {Shape: []int{qDim, H}, Data: dequantMat(qP, qS, qDim, H)},
-			"k_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: kCacheF64},
-			"v_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, HeadDim}, Data: vCacheF64},
+			"k_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, hopper.HeadDim}, Data: kCacheF64},
+			"v_cache":     {Shape: []int{batchM * maxPages * pageSize, KVH, hopper.HeadDim}, Data: vCacheF64},
 			"page_table":  {Shape: []int{batchM, maxPages}, Data: pageTableF64},
 			"seqlens":     {Shape: []int{batchM}, Data: seqLensF64},
 			"k_scale":     {Shape: []int{1}, Data: []float64{1.0}},

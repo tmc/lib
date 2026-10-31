@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/egraph"
@@ -119,6 +120,52 @@ func (b *Builder) Sgn(x egraph.Id) egraph.Id { return b.node(OpSgn, x) }
 
 // Pair swaps columns 2i and 2i+1 of x.
 func (b *Builder) Pair(x egraph.Id) egraph.Id { return b.node(OpPair, x) }
+
+// RMSNorm adds a per-row RMSNorm term over the last axis of width dim scaled
+// by weight [dim]:
+//
+//	(x * rsqrt(mean(x^2) + eps)) * weight
+func (b *Builder) RMSNorm(x, weight egraph.Id, dim int, eps float32) egraph.Id {
+	if eps <= 0 {
+		eps = 1e-5
+	}
+	ss := b.ReduceSum(b.Map(MustLambda("(mul $0 $0)"), x))
+	fn := MustLambda(fmt.Sprintf("(mul (mul $0 (rsqrt (add (div $1 %d) %s))) $2)",
+		dim, strconv.FormatFloat(float64(eps), 'g', -1, 32)))
+	return b.Map(fn, x, ss, weight)
+}
+
+// ResidualRMSNorm adds x + residual followed by per-row [Builder.RMSNorm] over
+// width dim with weight [dim].
+func (b *Builder) ResidualRMSNorm(x, residual, weight egraph.Id, dim int, eps float32) egraph.Id {
+	res := b.Map(MustLambda("(add $0 $1)"), x, residual)
+	return b.RMSNorm(res, weight, dim, eps)
+}
+
+// AttentionWithGate adds a [Builder.PagedAttention] term followed by
+// [Builder.RMSNormGate] so equality saturation ([Optimize]) rewrites the pair
+// into a single gated [PagedAttention] launch (PagedAttention{Gate: true}).
+func (b *Builder) AttentionWithGate(cfg PagedAttention, q, kCache, vCache, pageTable, seqLens, kScale, vScale, gate egraph.Id, eps float32) egraph.Id {
+	attn := b.PagedAttention(cfg, q, kCache, vCache, pageTable, seqLens, kScale, vScale)
+	return b.RMSNormGate(attn, gate, eps)
+}
+
+// MoEChain adds the routed Mixture-of-Experts operator sequence:
+//
+//	RowTopK -> ExpertAlign -> GroupedMatMul(w13) -> SwiGLU -> GroupedMatMul(w2) -> PostExpertNorm -> WeightedTopKSum
+//
+// which equality saturation ([Optimize]) rewrites into:
+//
+//	RowTopK -> ExpertAlign -> TileGEMM(GLU) -> TileGEMM(SumSq) -> ExpertSum
+func (b *Builder) MoEChain(routeCfg RowTopK, alignCfg ExpertAlign, x, logits, bias, localStart, w13, w2, postW egraph.Id, eps float32) egraph.Id {
+	ids, weights := b.RowTopK(routeCfg, logits, bias)
+	offsets, rows, slots := b.ExpertAlign(alignCfg, ids, localStart)
+	mm13 := b.GroupedMatMul(x, w13, offsets, rows)
+	inter := b.SwiGLU(mm13)
+	mm2 := b.GroupedMatMul(inter, w2, offsets)
+	normed := b.PostExpertNorm(mm2, postW, eps)
+	return b.WeightedTopKSum(normed, slots, weights)
+}
 
 // Rules returns the rewrites that make matmuls lowerable and fuse cross-op
 // attention and MoE subgraphs:

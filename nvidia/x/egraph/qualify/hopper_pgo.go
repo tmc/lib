@@ -1,76 +1,19 @@
-package hopper
+package qualify
 
 import (
 	"fmt"
 	"slices"
 
-	"github.com/tmc/lib/nvidia/x/egraph/qualify"
-	"github.com/tmc/lib/nvidia/x/ptxasinfo"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
 
-// BottleneckKind classifies a measured or compiled hardware bottleneck.
-type BottleneckKind = qualify.BottleneckKind
+// Step is an alias for [hopper.PlanKernel] used by profile-guided refinement
+// and qualification gates.
+type Step = hopper.PlanKernel
 
-const (
-	BottleneckBankConflict   = qualify.BottleneckBankConflict
-	BottleneckWGMMASerial    = qualify.BottleneckWGMMASerial
-	BottleneckRegisterSpill  = qualify.BottleneckRegisterSpill
-	BottleneckLowOccupancy   = qualify.BottleneckLowOccupancy
-	BottleneckWaveTail       = qualify.BottleneckWaveTail
-	BottleneckLaunchOverhead = qualify.BottleneckLaunchOverhead
-	BottleneckMemoryBoundKV  = qualify.BottleneckMemoryBoundKV
-)
-
-// KernelObservation holds measured profiling and compiler telemetry for a
-// single kernel or plan step.
-type KernelObservation = qualify.KernelObservation
-
-// CounterMetrics holds measured hardware performance counter values and
-// CUDA event timing for a single kernel.
-type CounterMetrics = qualify.CounterMetrics
-
-// StallSample holds issued-reason warp stall sample counts from CUPTI PC
-// sampling.
-type StallSample = qualify.StallSample
-
-// StallHypothesis is a prioritized candidate-generation hypothesis derived
-// from warp stall sample shares.
-type StallHypothesis = qualify.StallHypothesis
-
-// ProfileReceipt aggregates per-step observations and device metadata.
-type ProfileReceipt = qualify.ProfileReceipt
-
-// Step is an alias for [PlanKernel] used by profile-guided refinement.
-type Step = PlanKernel
-
-// MegakernelSource is an alias for [Megakernel] returned when a plan is
+// MegakernelSource is an alias for [hopper.Megakernel] returned when a plan is
 // promoted to a persistent megakernel.
-type MegakernelSource = Megakernel
-
-// ClassifyBottlenecks classifies the hardware bottlenecks present in obs in a
-// deterministic order.
-func ClassifyBottlenecks(obs KernelObservation) []BottleneckKind {
-	return qualify.ClassifyBottlenecks(obs)
-}
-
-// ObservationFromPTXAS constructs a [KernelObservation] from a parsed
-// [ptxasinfo.Function] report entry and launch geometry.
-func ObservationFromPTXAS(fn ptxasinfo.Function, gridBlocks, deviceSMs int) KernelObservation {
-	return qualify.ObservationFromPTXAS(fn, gridBlocks, deviceSMs)
-}
-
-// ObservationFromCountersAndPTXAS constructs a [KernelObservation] from a
-// parsed [ptxasinfo.Function] report entry, measured hardware performance
-// counters, and launch geometry.
-func ObservationFromCountersAndPTXAS(fn ptxasinfo.Function, cm CounterMetrics, gridBlocks, deviceSMs int) KernelObservation {
-	return qualify.ObservationFromCountersAndPTXAS(fn, cm, gridBlocks, deviceSMs)
-}
-
-// HypothesesFromStalls returns candidate-generation hypotheses ordered by
-// descending issued-stall share for stall buckets with share >= 0.15.
-func HypothesesFromStalls(s StallSample) []StallHypothesis {
-	return qualify.HypothesesFromStalls(s)
-}
+type MegakernelSource = hopper.Megakernel
 
 // A CandidateStepProposal is a legal schedule rewrite candidate proposed by
 // [ProposeStepCandidates], distinguishing direct causal counter/compiler
@@ -164,17 +107,16 @@ func syntheticObservationForBottleneck(name string, deviceSMs int, b BottleneckK
 func stepValid(k Step) bool {
 	switch {
 	case k.Tile != nil:
-		_, err := k.Tile.norm()
+		_, err := k.Tile.Norm()
 		return err == nil
 	case k.GEMM != nil:
-		_, err := k.GEMM.norm()
+		_, err := k.GEMM.Norm()
 		return err == nil
 	case k.Attention != nil:
-		_, _, err := k.Attention.norm()
+		_, err := k.Attention.Norm()
 		return err == nil
 	case k.Row != nil:
-		_, err := k.Row.check()
-		return err == nil
+		return k.Row.Validate() == nil
 	default:
 		return false
 	}
@@ -233,7 +175,7 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 	switch {
 	case out.Tile != nil:
 		g := *out.Tile
-		apply := func(k qualify.TileGEMMKnobs) TileGEMM {
+		apply := func(k TileGEMMKnobs) hopper.TileGEMM {
 			cand := g
 			cand.BM = k.BM
 			cand.BN = k.BN
@@ -247,7 +189,7 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 			cand.GroupM = k.GroupM
 			return cand
 		}
-		knobs, reasons := qualify.RefineTileGEMMKnobs(qualify.TileGEMMKnobs{
+		knobs, reasons := RefineTileGEMMKnobs(TileGEMMKnobs{
 			Name:            g.Name,
 			BM:              g.BM,
 			BN:              g.BN,
@@ -260,10 +202,10 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 			StreamK:         g.StreamK,
 			GroupM:          g.GroupM,
 			Grouped:         g.Grouped,
-			IsNVFP4:         g.Weight == WeightNVFP4,
-			LinearEpilogue:  g.Epilogue.root == nil || g.Epilogue.IsIdentity(),
-		}, obs, bns, func(ck qualify.TileGEMMKnobs) bool {
-			_, err := apply(ck).norm()
+			IsNVFP4:         g.Weight == hopper.WeightNVFP4,
+			LinearEpilogue:  g.Epilogue.IsZero() || g.Epilogue.IsIdentity(),
+		}, obs, bns, func(ck TileGEMMKnobs) bool {
+			_, err := apply(ck).Norm()
 			return err == nil
 		})
 		t := apply(knobs)
@@ -272,14 +214,14 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 
 	case out.GEMM != nil:
 		g := *out.GEMM
-		normed, err := g.norm()
+		normed, err := g.Norm()
 		normR, normW, normS, normU := g.RowsPerBlock, g.Warps, g.SplitK, g.Unroll
-		chunk := g.Weight.chunk()
+		chunk := g.Weight.Chunk()
 		if err == nil {
 			normR, normW, normS, normU = normed.RowsPerBlock, normed.Warps, normed.SplitK, normed.Unroll
-			chunk = normed.Weight.chunk()
+			chunk = normed.Weight.Chunk()
 		}
-		apply := func(k qualify.SkinnyGEMMKnobs) SkinnyGEMM {
+		apply := func(k SkinnyGEMMKnobs) hopper.SkinnyGEMM {
 			cand := g
 			cand.RowsPerBlock = k.RowsPerBlock
 			cand.Unroll = k.Unroll
@@ -287,7 +229,7 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 			cand.BlackwellFP4 = k.BlackwellFP4
 			return cand
 		}
-		knobs, reasons := qualify.RefineSkinnyGEMMKnobs(qualify.SkinnyGEMMKnobs{
+		knobs, reasons := RefineSkinnyGEMMKnobs(SkinnyGEMMKnobs{
 			Name:             g.Name,
 			N:                g.N,
 			K:                g.K,
@@ -301,10 +243,10 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 			NormUnroll:       normU,
 			Prefetch:         g.Prefetch,
 			BlackwellFP4:     g.BlackwellFP4,
-			IsNVFP4:          g.Weight == WeightNVFP4,
+			IsNVFP4:          g.Weight == hopper.WeightNVFP4,
 			WeightChunk:      chunk,
-		}, obs, bns, func(ck qualify.SkinnyGEMMKnobs) bool {
-			_, err := apply(ck).norm()
+		}, obs, bns, func(ck SkinnyGEMMKnobs) bool {
+			_, err := apply(ck).Norm()
 			return err == nil
 		})
 		sg := apply(knobs)
@@ -315,13 +257,13 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 		a := *out.Attention
 		normStages := a.Stages
 		if normStages == 0 {
-			if normed, _, err := a.norm(); err == nil {
+			if normed, err := a.Norm(); err == nil {
 				normStages = normed.Stages
 			} else {
 				normStages = 2
 			}
 		}
-		apply := func(k qualify.PagedAttentionKnobs) PagedAttention {
+		apply := func(k PagedAttentionKnobs) hopper.PagedAttention {
 			cand := a
 			cand.Chunk = k.Chunk
 			cand.Depth = k.Depth
@@ -333,13 +275,13 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 			cand.ClusterCombine = k.ClusterCombine
 			return cand
 		}
-		knobs, reasons := qualify.RefinePagedAttentionKnobs(qualify.PagedAttentionKnobs{
+		knobs, reasons := RefinePagedAttentionKnobs(PagedAttentionKnobs{
 			Name:            a.Name,
 			Hq:              a.Hq,
 			Hkv:             a.Hkv,
 			QLen:            a.QLen,
 			Window:          a.Window,
-			QIsE4M3:         a.Q == E4M3,
+			QIsE4M3:         a.Q == hopper.E4M3,
 			KVHeadsPerBlock: a.KVHeadsPerBlock,
 			Chunk:           a.Chunk,
 			Depth:           a.Depth,
@@ -350,8 +292,8 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 			QKFP8:           a.QKFP8,
 			Swizzle:         a.Swizzle,
 			ClusterCombine:  a.ClusterCombine,
-		}, out.Batch, out.MaxKeys, obs, bns, func(ck qualify.PagedAttentionKnobs) bool {
-			_, _, err := apply(ck).norm()
+		}, out.Batch, out.MaxKeys, obs, bns, func(ck PagedAttentionKnobs) bool {
+			_, err := apply(ck).Norm()
 			return err == nil
 		})
 		pa := apply(knobs)
@@ -360,15 +302,14 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 
 	case out.Row != nil:
 		r := *out.Row
-		knobs, reasons := qualify.RefineRowKernelKnobs(qualify.RowKernelKnobs{
+		knobs, reasons := RefineRowKernelKnobs(RowKernelKnobs{
 			Name:       r.Name,
 			Cluster:    r.Cluster,
 			CanCluster: r.CanCluster(),
-		}, bns, func(ck qualify.RowKernelKnobs) bool {
+		}, bns, func(ck RowKernelKnobs) bool {
 			cand := r
 			cand.Cluster = ck.Cluster
-			_, err := cand.check()
-			return err == nil
+			return cand.Validate() == nil
 		})
 		r.Cluster = knobs.Cluster
 		out.Row = &r
@@ -384,14 +325,14 @@ func RefineStep(step Step, obs KernelObservation) (Step, []string) {
 // [BottleneckLaunchOverhead] is present on at least one consumer step of a
 // megakernel-compatible plan, lowers the refined plan to a persistent
 // [MegakernelSource] named plan.Name+"_mega".
-func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, []string, error) {
+func RefinePlan(plan *hopper.Plan, receipt ProfileReceipt) (*hopper.Plan, *MegakernelSource, []string, error) {
 	if plan == nil {
 		return nil, nil, nil, fmt.Errorf("refine plan: nil plan")
 	}
 	refined := clonePlan(plan)
 	defaultSMs := 0
 	if receipt.Device != "" {
-		if cfg, err := (CostConfig{Device: receipt.Device}).norm(); err == nil {
+		if cfg, err := (hopper.CostConfig{Device: receipt.Device}).Norm(); err == nil {
 			defaultSMs = cfg.SMs
 		}
 	}
@@ -403,7 +344,7 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 	)
 	matched := make([]bool, len(receipt.Observations))
 	for i := range refined.Kernels {
-		obs, ok := qualify.MatchObservation(stepKernelName(refined.Kernels[i]), i, receipt.Observations, matched)
+		obs, ok := MatchObservation(stepKernelName(refined.Kernels[i]), i, receipt.Observations, matched)
 		if !ok {
 			continue
 		}
@@ -441,9 +382,9 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 		if step.Tile != nil && step.Tile.StreamK > 0 && !prevTileStreamK {
 			if wsBytes := step.Tile.WorkspaceBytes(); wsBytes > 0 {
 				wsName := fmt.Sprintf("%s_sk_ws%d", refined.Name, i+1)
-				refined.Temps = append(refined.Temps, Tensor{
+				refined.Temps = append(refined.Temps, hopper.Tensor{
 					Name:  wsName,
-					DType: F32,
+					DType: hopper.F32,
 					Shape: []int{(wsBytes + 3) / 4},
 				})
 				refined.Kernels[i].Args = append(slices.Clone(refined.Kernels[i].Args), wsName)
@@ -481,11 +422,11 @@ func RefinePlan(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, [
 }
 
 // RefineFromProfile is a convenience alias for [RefinePlan].
-func RefineFromProfile(plan *Plan, receipt ProfileReceipt) (*Plan, *MegakernelSource, []string, error) {
+func RefineFromProfile(plan *hopper.Plan, receipt ProfileReceipt) (*hopper.Plan, *MegakernelSource, []string, error) {
 	return RefinePlan(plan, receipt)
 }
 
-func stepKernelName(k PlanKernel) string {
+func stepKernelName(k hopper.PlanKernel) string {
 	switch {
 	case k.GEMM != nil:
 		return k.GEMM.Name
@@ -508,7 +449,7 @@ func stepKernelName(k PlanKernel) string {
 	}
 }
 
-func cloneStep(k PlanKernel) PlanKernel {
+func cloneStep(k hopper.PlanKernel) hopper.PlanKernel {
 	out := k
 	out.Args = slices.Clone(k.Args)
 	if k.GEMM != nil {
@@ -528,7 +469,7 @@ func cloneStep(k PlanKernel) PlanKernel {
 	if k.Row != nil {
 		r := *k.Row
 		r.Inputs = slices.Clone(k.Row.Inputs)
-		r.Values = make([]RowValue, len(k.Row.Values))
+		r.Values = make([]hopper.RowValue, len(k.Row.Values))
 		for i, v := range k.Row.Values {
 			v.Args = slices.Clone(v.Args)
 			r.Values[i] = v
@@ -551,22 +492,22 @@ func cloneStep(k PlanKernel) PlanKernel {
 	return out
 }
 
-func clonePlan(p *Plan) *Plan {
+func clonePlan(p *hopper.Plan) *hopper.Plan {
 	if p == nil {
 		return nil
 	}
-	out := &Plan{
+	out := &hopper.Plan{
 		Name:    p.Name,
-		Inputs:  make([]Tensor, len(p.Inputs)),
-		Temps:   make([]Tensor, len(p.Temps)),
-		Output:  Tensor{Name: p.Output.Name, DType: p.Output.DType, Shape: slices.Clone(p.Output.Shape)},
-		Kernels: make([]PlanKernel, len(p.Kernels)),
+		Inputs:  make([]hopper.Tensor, len(p.Inputs)),
+		Temps:   make([]hopper.Tensor, len(p.Temps)),
+		Output:  hopper.Tensor{Name: p.Output.Name, DType: p.Output.DType, Shape: slices.Clone(p.Output.Shape)},
+		Kernels: make([]hopper.PlanKernel, len(p.Kernels)),
 	}
 	for i, t := range p.Inputs {
-		out.Inputs[i] = Tensor{Name: t.Name, DType: t.DType, Shape: slices.Clone(t.Shape)}
+		out.Inputs[i] = hopper.Tensor{Name: t.Name, DType: t.DType, Shape: slices.Clone(t.Shape)}
 	}
 	for i, t := range p.Temps {
-		out.Temps[i] = Tensor{Name: t.Name, DType: t.DType, Shape: slices.Clone(t.Shape)}
+		out.Temps[i] = hopper.Tensor{Name: t.Name, DType: t.DType, Shape: slices.Clone(t.Shape)}
 	}
 	for i, k := range p.Kernels {
 		out.Kernels[i] = cloneStep(k)

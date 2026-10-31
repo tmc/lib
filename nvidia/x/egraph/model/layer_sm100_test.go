@@ -1,15 +1,17 @@
-package hopper
+package model
 
 import (
 	"errors"
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
 	"github.com/tmc/lib/nvidia/x/cudatmem"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 	"github.com/tmc/lib/nvidia/x/nvl72"
 )
 
@@ -72,7 +74,7 @@ func TestCompileExtendedLayer(t *testing.T) {
 			qTokensPerSeq = 4
 			seqLen        = 64
 		)
-		treeMask, err := TreeDraftMask([]int{-1, 0, 1, 0})
+		treeMask, err := hopper.TreeDraftMask([]int{-1, 0, 1, 0})
 		if err != nil {
 			t.Fatalf("TreeDraftMask: %v", err)
 		}
@@ -267,13 +269,13 @@ func TestCompileExtendedLayer(t *testing.T) {
 			for row := range rows {
 				for col := range cols {
 					idx := r*elemsPerRank + row*cols + col
-					symInF64[idx] = float64(BF16.Round(float32(((r+1)*(row+1)+col)%7-3) * 0.25))
-					resInF64[idx] = float64(BF16.Round(float32((r+row*3+col*5)%9-4) * 0.125))
+					symInF64[idx] = float64(hopper.BF16.Round(float32(((r+1)*(row+1)+col)%7-3) * 0.25))
+					resInF64[idx] = float64(hopper.BF16.Round(float32((r+row*3+col*5)%9-4) * 0.125))
 				}
 			}
 		}
 		for col := range cols {
-			weightF64[col] = float64(BF16.Round(1.0 + float32((col%5)-2)*0.125))
+			weightF64[col] = float64(hopper.BF16.Round(1.0 + float32((col%5)-2)*0.125))
 		}
 		wantRes, wantNorm, err := ar.Reference(rows, symInF64, resInF64, weightF64)
 		if err != nil {
@@ -282,7 +284,7 @@ func TestCompileExtendedLayer(t *testing.T) {
 		encodeBF16 := func(vals []float64) []byte {
 			u16 := make([]uint16, len(vals))
 			for i, v := range vals {
-				u16[i] = BF16Bits(float32(v))
+				u16[i] = hopper.BF16Bits(float32(v))
 			}
 			return u16Bytes(u16)
 		}
@@ -310,11 +312,11 @@ func TestCompileExtendedLayer(t *testing.T) {
 		gotRes := bytesU16(resOutBytes)
 		gotNorm := bytesU16(normOutBytes)
 		for i := range wantRes {
-			if gotRes[i] != BF16Bits(float32(wantRes[i])) {
-				t.Fatalf("residual_out[%d] = %#04x, want %#04x", i, gotRes[i], BF16Bits(float32(wantRes[i])))
+			if gotRes[i] != hopper.BF16Bits(float32(wantRes[i])) {
+				t.Fatalf("residual_out[%d] = %#04x, want %#04x", i, gotRes[i], hopper.BF16Bits(float32(wantRes[i])))
 			}
-			if gotNorm[i] != BF16Bits(float32(wantNorm[i])) {
-				t.Fatalf("norm_out[%d] = %#04x, want %#04x", i, gotNorm[i], BF16Bits(float32(wantNorm[i])))
+			if gotNorm[i] != hopper.BF16Bits(float32(wantNorm[i])) {
+				t.Fatalf("norm_out[%d] = %#04x, want %#04x", i, gotNorm[i], hopper.BF16Bits(float32(wantNorm[i])))
 			}
 		}
 
@@ -331,7 +333,7 @@ func TestCompileExtendedLayer(t *testing.T) {
 		sliceElems := expertsPerRank * rows * cols
 		symExpertF64 := make([]float64, ranks*sliceElems)
 		for i := range symExpertF64 {
-			symExpertF64[i] = float64(BF16.Round(float32((i%13)-6) * 0.25))
+			symExpertF64[i] = float64(hopper.BF16.Round(float32((i%13)-6) * 0.25))
 		}
 		routesPerRank := rows * topK
 		expertIDs := make([]int32, ranks*routesPerRank)
@@ -374,8 +376,8 @@ func TestCompileExtendedLayer(t *testing.T) {
 		}
 		gotEP := bytesU16(epOutBytes)
 		for i, w := range wantEP {
-			if gotEP[i] != BF16Bits(float32(w)) {
-				t.Fatalf("ep out[%d] = %#04x, want %#04x", i, gotEP[i], BF16Bits(float32(w)))
+			if gotEP[i] != hopper.BF16Bits(float32(w)) {
+				t.Fatalf("ep out[%d] = %#04x, want %#04x", i, gotEP[i], hopper.BF16Bits(float32(w)))
 			}
 		}
 	})
@@ -403,4 +405,228 @@ func ExampleCompileExtendedLayer() {
 	fmt.Println(bundle.Mode, len(bundle.TCGen05Traces) > 0, len(bundle.CLCKernels) > 0)
 	// Output:
 	// blackwell_cta2_clc true true
+}
+
+func runPDLPlanChain(t *testing.T, pdl *hopper.PDLPlanSource, env map[string]hopper.Value) ([]float64, error) {
+	t.Helper()
+	var args []cudahostemu.Arg
+	for _, in := range pdl.Inputs {
+		args = append(args, cudahostemu.BufferArg(
+			in.Name,
+			in.DType.CType(),
+			encodeTyped(in.DType, env[in.Name].Data),
+		))
+	}
+	for _, tmp := range pdl.Temps {
+		nbytes := tensorSize(tmp.Shape) * tmp.DType.Bits() / 8
+		args = append(args, cudahostemu.BufferArg(
+			tmp.Name,
+			tmp.DType.CType(),
+			cudahostemu.Poison(nbytes),
+		))
+	}
+	outBytes := cudahostemu.Poison(tensorSize(pdl.Output.Shape) * pdl.Output.DType.Bits() / 8)
+	args = append(args, cudahostemu.BufferArg(
+		pdl.Output.Name,
+		pdl.Output.DType.CType(),
+		outBytes,
+	))
+
+	stages := make([]cudahostemu.PDLStage, len(pdl.Stages))
+	for i, st := range pdl.Stages {
+		var bufNames []string
+		for _, out := range st.Outputs {
+			bufNames = append(bufNames, out.Name)
+		}
+		sid := st.TriggerStage
+		if sid == 0 {
+			sid = st.WaitStage
+		}
+		stages[i] = cudahostemu.PDLStage{
+			Kernel:      st.Name,
+			Grid:        cudahostemu.Dim3{X: st.Grid[0], Y: st.Grid[1], Z: st.Grid[2]},
+			Block:       cudahostemu.Dim3{X: st.Block[0], Y: st.Block[1], Z: st.Block[2]},
+			SharedBytes: st.SharedBytes,
+			StageID:     sid,
+			Buffers:     bufNames,
+			Args:        st.Args,
+		}
+	}
+
+	err := cudahostemu.RunPDLChain(t.Context(), pdl.Source, stages, args...)
+	if errors.Is(err, cudahostemu.ErrNoCompiler) {
+		t.Skip("no host C++ compiler; emulated PDL chain not run")
+	}
+	return decodeTyped(pdl.Output.DType, outBytes), err
+}
+
+func runPDLPlanLauncher(t *testing.T, pdl *hopper.PDLPlanSource, env map[string]hopper.Value) []float64 {
+	t.Helper()
+	var cbufs []cudahostemu.Buffer
+	var callArgs []string
+	for _, in := range pdl.Inputs {
+		cbufs = append(cbufs, cudahostemu.Buffer{
+			Name:  in.Name,
+			CType: in.DType.CType(),
+			Data:  encodeTyped(in.DType, env[in.Name].Data),
+		})
+		callArgs = append(callArgs, in.Name)
+	}
+	for _, tmp := range pdl.Temps {
+		cbufs = append(cbufs, cudahostemu.Buffer{
+			Name:  tmp.Name,
+			CType: tmp.DType.CType(),
+			Data:  cudahostemu.Poison(tensorSize(tmp.Shape) * tmp.DType.Bits() / 8),
+		})
+		callArgs = append(callArgs, tmp.Name)
+	}
+	cbufs = append(cbufs, cudahostemu.Buffer{
+		Name:  pdl.Output.Name,
+		CType: pdl.Output.DType.CType(),
+		Data:  cudahostemu.Poison(tensorSize(pdl.Output.Shape) * pdl.Output.DType.Bits() / 8),
+	})
+	callArgs = append(callArgs, pdl.Output.Name, "nullptr")
+
+	launch := fmt.Sprintf("launch_%s_pdl(%s); if (eg_emu_pdl_violation_count() != 0) std::_Exit(4)",
+		pdl.Name, strings.Join(callArgs, ", "))
+	res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+		Source:  cudahostemu.PDLHeader() + "\n" + pdl.Source,
+		Launch:  launch,
+		Buffers: cbufs,
+	})
+	if errors.Is(err, cudahostemu.ErrNoCompiler) {
+		t.Skip("no host C++ compiler; emulated PDL launcher not run")
+	}
+	if err != nil {
+		t.Fatalf("emulated launch_%s_pdl: %v", pdl.Name, err)
+	}
+	return decodeTyped(pdl.Output.DType, res[pdl.Output.Name])
+}
+
+func buildMTPTestCase(r *rand.Rand, a hopper.MTPPagedAttention, seqlens []int32, draftMask []uint64, kvScale float32) ([]uint16, hopper.MTPPagedCache) {
+	batch := len(seqlens)
+	totalPages := batch * a.MaxPages
+	c := hopper.MTPPagedCache{
+		PageTable: make([]int32, batch*a.MaxPages),
+		SeqLens:   seqlens,
+		DraftMask: draftMask,
+		KScale:    kvScale,
+		VScale:    kvScale,
+	}
+	perm := r.Perm(totalPages)
+	for i := range c.PageTable {
+		c.PageTable[i] = int32(perm[i])
+	}
+	for b, s := range seqlens {
+		used := (int(s) + a.PageSize - 1) / a.PageSize
+		for p := used; p < a.MaxPages; p++ {
+			c.PageTable[b*a.MaxPages+p] = -1
+		}
+	}
+	totalSlots := totalPages * a.PageSize
+	live := make([]bool, totalSlots)
+	for b, s := range seqlens {
+		for t := range int(s) {
+			page := int(c.PageTable[b*a.MaxPages+t/a.PageSize])
+			live[page*a.PageSize+t%a.PageSize] = true
+		}
+	}
+	kvElems := totalSlots * a.KVHeads * a.HeadDim
+	if a.KVFP8 {
+		c.KFP8 = make([]uint8, kvElems)
+		c.VFP8 = make([]uint8, kvElems)
+		for i := range kvElems {
+			c.KFP8[i], c.VFP8[i] = 0x7f, 0x7f
+			if live[i/(a.KVHeads*a.HeadDim)] {
+				c.KFP8[i] = hopper.E4M3Bits(float32(r.NormFloat64()*0.5) / kvScale)
+				c.VFP8[i] = hopper.E4M3Bits(float32(r.NormFloat64()*0.5) / kvScale)
+			}
+		}
+	} else {
+		c.KBF16 = make([]uint16, kvElems)
+		c.VBF16 = make([]uint16, kvElems)
+		for i := range kvElems {
+			c.KBF16[i], c.VBF16[i] = 0x7fc0, 0x7fc0
+			if live[i/(a.KVHeads*a.HeadDim)] {
+				c.KBF16[i] = hopper.BF16Bits(float32(r.NormFloat64() * 0.5))
+				c.VBF16[i] = hopper.BF16Bits(float32(r.NormFloat64() * 0.5))
+			}
+		}
+	}
+	qElems := batch * a.QTokensPerSeq * a.NumHeads * a.HeadDim
+	q := make([]uint16, qElems)
+	for i := range q {
+		v := float32(r.NormFloat64() * 0.5)
+		if a.WGMMA {
+			v = hopper.FromE4M3Bits(hopper.E4M3Bits(v))
+		}
+		q[i] = hopper.BF16Bits(v)
+	}
+	if a.Gate {
+		c.Gate = make([]uint16, qElems)
+		for i := range c.Gate {
+			c.Gate[i] = hopper.BF16Bits(float32(r.NormFloat64()))
+		}
+	}
+	return q, c
+}
+
+func runMTPPaged(t *testing.T, a hopper.MTPPagedAttention, q []uint16, c hopper.MTPPagedCache) []float64 {
+	t.Helper()
+	src, err := a.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := len(c.SeqLens)
+	cbufs := []cudahostemu.Buffer{
+		{Name: "q", CType: "uint16_t", Data: u16Bytes(q)},
+		{Name: "page_table", CType: "int32_t", Data: i32Bytes(c.PageTable)},
+		{Name: "seqlens", CType: "int32_t", Data: i32Bytes(c.SeqLens)},
+	}
+	if a.KVFP8 {
+		cbufs = append(cbufs,
+			cudahostemu.Buffer{Name: "k_cache", CType: "uint8_t", Data: c.KFP8},
+			cudahostemu.Buffer{Name: "v_cache", CType: "uint8_t", Data: c.VFP8},
+			cudahostemu.Buffer{Name: "k_scale", CType: "float", Data: f32Bytes([]float32{c.KScale})},
+			cudahostemu.Buffer{Name: "v_scale", CType: "float", Data: f32Bytes([]float32{c.VScale})},
+		)
+	} else {
+		cbufs = append(cbufs,
+			cudahostemu.Buffer{Name: "k_cache", CType: "uint16_t", Data: u16Bytes(c.KBF16)},
+			cudahostemu.Buffer{Name: "v_cache", CType: "uint16_t", Data: u16Bytes(c.VBF16)},
+		)
+	}
+	maskArg := "nullptr"
+	if c.DraftMask != nil {
+		cbufs = append(cbufs, cudahostemu.Buffer{Name: "draft_mask", CType: "uint64_t", Data: u64Bytes(c.DraftMask)})
+		maskArg = "draft_mask"
+	}
+	if a.Gate {
+		cbufs = append(cbufs, cudahostemu.Buffer{Name: "gate", CType: "uint16_t", Data: u16Bytes(c.Gate)})
+	}
+	cbufs = append(cbufs, cudahostemu.Buffer{Name: "out", CType: "uint16_t", Data: cudahostemu.Poison(2 * len(q))})
+
+	args := []string{"q", "k_cache", "v_cache", "page_table", "seqlens", maskArg}
+	if a.KVFP8 {
+		args = append(args, "k_scale", "v_scale")
+	}
+	if a.Gate {
+		args = append(args, "gate")
+	}
+	args = append(args, "out", "nullptr")
+	launch := fmt.Sprintf("%s_launch(%d, %s)", a.Name, batch, strings.Join(args, ", "))
+
+	res, err := cudahostemu.Run(t.Context(), t.TempDir(), cudahostemu.Program{
+		Source:  src,
+		Launch:  launch,
+		Buffers: cbufs,
+		Flags:   strings.Fields(os.Getenv("EG_EMU_FLAGS")),
+	})
+	if errors.Is(err, cudahostemu.ErrNoCompiler) {
+		t.Skip("no host C++ compiler; emulated kernel not run")
+	}
+	if err != nil {
+		t.Fatalf("emulated kernel: %v", err)
+	}
+	return decodeTyped(hopper.BF16, res["out"])
 }

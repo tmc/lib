@@ -1,4 +1,4 @@
-package hopper
+package model
 
 import (
 	"fmt"
@@ -6,18 +6,8 @@ import (
 
 	"github.com/tmc/lib/nvidia/x/cudadevicetable"
 	"github.com/tmc/lib/nvidia/x/cudatmem"
-	"github.com/tmc/lib/nvidia/x/egraph/model"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
-
-// Extended execution mode names selected by [CompileExtendedLayer].
-const (
-	ModePDLChain         = model.ModePDLChain
-	ModeBlackwellTCGen05 = model.ModeBlackwellTCGen05
-	ModeBlackwellCTA2CLC = model.ModeBlackwellCTA2CLC
-)
-
-// ExtendedArchOptions aliases [model.ExtendedArchOptions].
-type ExtendedArchOptions = model.ExtendedArchOptions
 
 // ExtendedLayerBundle holds the base [CompiledLayer] together with the
 // hardware-specialized kernels, PDL launch chain, MTP attention descriptor,
@@ -26,8 +16,8 @@ type ExtendedArchOptions = model.ExtendedArchOptions
 type ExtendedLayerBundle struct {
 	Base             *CompiledLayer
 	Mode             string
-	PDL              *PDLPlanSource
-	MTPAttention     *MTPPagedAttention
+	PDL              *hopper.PDLPlanSource
+	MTPAttention     *hopper.MTPPagedAttention
 	TCGen05Kernels   []string
 	TCGen05Traces    [][]cudatmem.TraceEvent
 	CLCKernels       []string
@@ -44,11 +34,10 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 		err    error
 		sm100a bool
 	)
-	mcfg, opts, sm100a, err := model.ValidateExtendedArchOptions(cfg.toModelArch(), opts)
+	cfg, opts, sm100a, err = ValidateExtendedArchOptions(cfg, opts)
 	if err != nil {
 		return nil, err
 	}
-	cfg = fromModelArch(mcfg)
 	dev := opts.Device
 	seqLen := opts.SeqLen
 	baseCfg := cfg
@@ -64,8 +53,8 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 			if err != nil {
 				return nil, err
 			}
-			ceil := model.SM100ACostCeiling(dev)
-			sm100Cost := CostConfig{
+			ceil := SM100ACostCeiling(dev)
+			sm100Cost := hopper.CostConfig{
 				Device:       dev,
 				Residency:    ceil.Residency,
 				Ceiling:      ceil,
@@ -95,7 +84,7 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 		Mode: base.Mode,
 	}
 
-	hopperOrBlackwell := sm100a || model.IsHopperOrBlackwellDevice(dev)
+	hopperOrBlackwell := sm100a || IsHopperOrBlackwellDevice(dev)
 
 	// 1. Programmatic Dependent Launch (PDL) chain for medium-batch Hopper/Blackwell.
 	if opts.EnablePDL || (hopperOrBlackwell && opts.BatchM > 8 && opts.BatchM < 64) {
@@ -117,7 +106,7 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 		maxPages := max((seqLen+pageSize-1)/pageSize, 1)
 		g := cfg.NumAttentionHeads / cfg.NumKeyValueHeads
 		wgmma := cfg.KVDType == E4M3 && headDim%32 == 0 && g*opts.QTokensPerSeq >= 8
-		mtp := MTPPagedAttention{
+		mtp := hopper.MTPPagedAttention{
 			Name:          base.Plan.Name + "_mtp_paged_attn",
 			NumHeads:      cfg.NumAttentionHeads,
 			KVHeads:       cfg.NumKeyValueHeads,
@@ -130,7 +119,7 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 			Swizzle:       true,
 			WGMMA:         wgmma,
 		}
-		mtp, err = mtp.norm()
+		mtp, err = mtp.Norm()
 		if err != nil {
 			return nil, err
 		}
@@ -142,8 +131,7 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 
 	// 3. Datacenter Blackwell sm_100a (NVIDIA B200 / NVIDIA GB200) tcgen05 & CLC.
 	if sm100a {
-		mcfg := cfg.toModelArch()
-		tcKernels, tcTraces, ctaGroup, err := model.EmitSM100TCGen05Suite(base.Plan.Name, mcfg, opts)
+		tcKernels, tcTraces, ctaGroup, err := EmitSM100TCGen05Suite(base.Plan.Name, cfg, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -151,20 +139,20 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 		bundle.TCGen05Traces = tcTraces
 
 		if (opts.EnableCLC && opts.BatchM >= 64) || opts.BatchM >= 128 {
-			var clcTiles []model.CLCTileSpec
+			var clcTiles []CLCTileSpec
 			for idx, pk := range base.Plan.Kernels {
 				if pk.Tile != nil && !pk.Tile.Grouped {
-					clcTiles = append(clcTiles, model.CLCTileSpec{
+					clcTiles = append(clcTiles, CLCTileSpec{
 						Index:  idx,
 						Name:   pk.Tile.Name,
 						N:      pk.Tile.N,
 						K:      pk.Tile.K,
 						GLU:    pk.Tile.GLU,
-						Weight: model.WeightFormat(pk.Tile.Weight),
+						Weight: WeightFormat(pk.Tile.Weight),
 					})
 				}
 			}
-			clcKernels, err := model.EmitLayerCLCKernels(base.Plan.Name, clcTiles, mcfg)
+			clcKernels, err := EmitLayerCLCKernels(base.Plan.Name, clcTiles, cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -180,7 +168,7 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 
 	// 4. Multi-GPU NVLink TP and EP collectives.
 	if opts.TPRanks > 1 || opts.EPRanks > 1 {
-		colSrc, err := model.EmitLayerCollectives(Prelude, cfg.toModelArch(), opts.TPRanks, opts.EPRanks)
+		colSrc, err := EmitLayerCollectives(hopper.Prelude, cfg, opts.TPRanks, opts.EPRanks)
 		if err != nil {
 			return nil, err
 		}
@@ -194,7 +182,7 @@ func CompileExtendedLayer(cfg ArchConfig, opts ExtendedArchOptions) (*ExtendedLa
 
 // emitLayerPDL lowers p (or its longest PDL-compatible non-attention segment)
 // via Plan.EmitPDL.
-func emitLayerPDL(p *Plan, pdlName string) (*PDLPlanSource, error) {
+func emitLayerPDL(p *hopper.Plan, pdlName string) (*hopper.PDLPlanSource, error) {
 	if p == nil || len(p.Kernels) == 0 {
 		return nil, fmt.Errorf("compile extended layer: empty plan for PDL")
 	}
@@ -202,7 +190,7 @@ func emitLayerPDL(p *Plan, pdlName string) (*PDLPlanSource, error) {
 		return src, nil
 	}
 
-	tensorByName := make(map[string]Tensor)
+	tensorByName := make(map[string]hopper.Tensor)
 	for _, t := range p.Inputs {
 		tensorByName[t.Name] = t
 	}
@@ -213,8 +201,8 @@ func emitLayerPDL(p *Plan, pdlName string) (*PDLPlanSource, error) {
 		tensorByName[p.Output.Name] = p.Output
 	}
 
-	var segments [][]PlanKernel
-	var cur []PlanKernel
+	var segments [][]hopper.PlanKernel
+	var cur []hopper.PlanKernel
 	flush := func() {
 		if len(cur) >= 2 {
 			segments = append(segments, slices.Clone(cur))

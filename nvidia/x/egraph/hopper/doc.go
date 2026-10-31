@@ -50,9 +50,25 @@
 //     amax reduction and hardware FP4/MXFP8 dynamic activation quantization.
 //
 // Kernels that terms do not yet describe are emitted directly:
-// [PagedAttention] (paged FP8 split-KV attention), [RowTopK] (biased top-k
-// routing) and [ExpertAlign] (expert-sorted MoE routes for a grouped
-// [TileGEMM]).
+// [PagedAttention] and [MTPPagedAttention] (paged FP8 split-KV and multi-token
+// tree-verify attention), [RowTopK] (biased top-k routing), [ExpertAlign]
+// (expert-sorted MoE routes for a grouped [TileGEMM]), and [ExpertSum] (weighted
+// MoE reduction).
+//
+// Higher-level model compilation, qualification, TileIR lowering, and
+// speculative decoding live in subpackages built on top of hopper:
+//
+//   - [github.com/tmc/lib/nvidia/x/egraph/model] parses HuggingFace
+//     architectures, lowers transformer decoder layers to e-graph [Plan]s and
+//     multi-bucket dispatchers, repacks safetensors weights, and packages
+//     multi-architecture fatbinaries.
+//   - [github.com/tmc/lib/nvidia/x/egraph/qualify] provides PTX/SASS static
+//     qualification, autotuning, and profile-guided schedule refinement.
+//   - [github.com/tmc/lib/nvidia/x/egraph/tilebridge] lowers schedules to CUDA
+//     TileIR modules and cuTile JSON descriptors.
+//   - [github.com/tmc/lib/nvidia/x/egraph/specdecode] implements Philox-4x32-10
+//     Gumbel-max sampling, speculative decoding loops, tree verification, and
+//     adaptive early-exit routing.
 //
 // Emitted CUDA uses raw integer types for low-precision data and routes every
 // PTX instruction through a small device prelude, so the same source compiles

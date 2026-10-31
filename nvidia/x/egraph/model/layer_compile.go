@@ -1,175 +1,25 @@
-package hopper
+package model
 
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/tmc/lib/nvidia/x/egraph"
-	"github.com/tmc/lib/nvidia/x/egraph/model"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
 )
-
-// NVFP4 is the DType alias for 4-bit E2M1 block-scaled weights.
-const NVFP4 = E2M1
-
-// Execution mode names selected by [CompileLayer].
-const (
-	ModePersistentMegakernel = model.ModePersistentMegakernel
-	ModeStreamKWarpSpec      = model.ModeStreamKWarpSpec
-	ModeMultiLaunch          = model.ModeMultiLaunch
-)
-
-// ArchConfig describes a transformer decoder architecture (dense GQA or
-// routed MoE, optional gated attention and QK norm, BF16/E4M3/NVFP4 weights).
-// It unmarshals directly from standard HuggingFace config.json bytes via
-// [ParseArchConfig].
-type ArchConfig struct {
-	Architectures       []string `json:"architectures,omitempty"`
-	HiddenSize          int      `json:"hidden_size"`
-	IntermediateSize    int      `json:"intermediate_size"`
-	MoEIntermediateSize int      `json:"moe_intermediate_size,omitempty"`
-	NumHiddenLayers     int      `json:"num_hidden_layers"`
-	NumAttentionHeads   int      `json:"num_attention_heads"`
-	NumKeyValueHeads    int      `json:"num_key_value_heads"`
-	HeadDim             int      `json:"head_dim,omitempty"`
-	NumLocalExperts     int      `json:"num_local_experts,omitempty"`
-	NumExperts          int      `json:"num_experts,omitempty"`
-	NumExpertsPerTok    int      `json:"num_experts_per_tok,omitempty"`
-	RMSNormEps          float32  `json:"rms_norm_eps,omitempty"`
-	QKNorm              bool     `json:"qk_norm,omitempty"`
-	AttentionGate       bool     `json:"attention_gate,omitempty"`
-	WeightDType         DType    `json:"-"` // BF16, E4M3, NVFP4 (inferred from quantization_config or explicit)
-	KVDType             DType    `json:"-"` // BF16 or E4M3
-}
-
-func (c ArchConfig) toModelArch() model.ArchConfig {
-	return model.ArchConfig{
-		Architectures:       c.Architectures,
-		HiddenSize:          c.HiddenSize,
-		IntermediateSize:    c.IntermediateSize,
-		MoEIntermediateSize: c.MoEIntermediateSize,
-		NumHiddenLayers:     c.NumHiddenLayers,
-		NumAttentionHeads:   c.NumAttentionHeads,
-		NumKeyValueHeads:    c.NumKeyValueHeads,
-		HeadDim:             c.HeadDim,
-		NumLocalExperts:     c.NumLocalExperts,
-		NumExperts:          c.NumExperts,
-		NumExpertsPerTok:    c.NumExpertsPerTok,
-		RMSNormEps:          c.RMSNormEps,
-		QKNorm:              c.QKNorm,
-		AttentionGate:       c.AttentionGate,
-		WeightDType:         model.DType(c.WeightDType),
-		KVDType:             model.DType(c.KVDType),
-	}
-}
-
-func fromModelArch(mc model.ArchConfig) ArchConfig {
-	return ArchConfig{
-		Architectures:       mc.Architectures,
-		HiddenSize:          mc.HiddenSize,
-		IntermediateSize:    mc.IntermediateSize,
-		MoEIntermediateSize: mc.MoEIntermediateSize,
-		NumHiddenLayers:     mc.NumHiddenLayers,
-		NumAttentionHeads:   mc.NumAttentionHeads,
-		NumKeyValueHeads:    mc.NumKeyValueHeads,
-		HeadDim:             mc.HeadDim,
-		NumLocalExperts:     mc.NumLocalExperts,
-		NumExperts:          mc.NumExperts,
-		NumExpertsPerTok:    mc.NumExpertsPerTok,
-		RMSNormEps:          mc.RMSNormEps,
-		QKNorm:              mc.QKNorm,
-		AttentionGate:       mc.AttentionGate,
-		WeightDType:         DType(mc.WeightDType),
-		KVDType:             DType(mc.KVDType),
-	}
-}
-
-// ParseArchConfig unmarshals a HuggingFace-style config.json payload into an
-// [ArchConfig], inferring WeightDType and KVDType from quantization_config when
-// present and filling defaults.
-func ParseArchConfig(data []byte) (ArchConfig, error) {
-	mc, err := model.ParseArchConfig(data)
-	if err != nil {
-		return ArchConfig{}, err
-	}
-	return fromModelArch(mc), nil
-}
-
-// IsMoE reports whether c configures a routed Mixture-of-Experts layer.
-func (c ArchConfig) IsMoE() bool {
-	return c.toModelArch().IsMoE()
-}
-
-// WeightFormat returns the [WeightFormat] corresponding to c.WeightDType.
-func (c ArchConfig) WeightFormat() WeightFormat {
-	return WeightFormat(c.toModelArch().WeightFormat())
-}
-
-func (c ArchConfig) norm() (ArchConfig, error) {
-	mc, err := model.ValidateArchConfig(c.toModelArch())
-	if err != nil {
-		return c, err
-	}
-	return fromModelArch(mc), nil
-}
-
-// RMSNorm adds a per-row RMSNorm term over the last axis of width dim scaled
-// by weight [dim]:
-//
-//	(x * rsqrt(mean(x^2) + eps)) * weight
-func (b *Builder) RMSNorm(x, weight egraph.Id, dim int, eps float32) egraph.Id {
-	if eps <= 0 {
-		eps = 1e-5
-	}
-	ss := b.ReduceSum(b.Map(MustLambda("(mul $0 $0)"), x))
-	fn := MustLambda(fmt.Sprintf("(mul (mul $0 (rsqrt (add (div $1 %d) %s))) $2)",
-		dim, strconv.FormatFloat(float64(eps), 'g', -1, 32)))
-	return b.Map(fn, x, ss, weight)
-}
-
-// ResidualRMSNorm adds x + residual followed by per-row [Builder.RMSNorm] over
-// width dim with weight [dim].
-func (b *Builder) ResidualRMSNorm(x, residual, weight egraph.Id, dim int, eps float32) egraph.Id {
-	res := b.Map(MustLambda("(add $0 $1)"), x, residual)
-	return b.RMSNorm(res, weight, dim, eps)
-}
-
-// AttentionWithGate adds a [Builder.PagedAttention] term followed by
-// [Builder.RMSNormGate] so equality saturation ([Optimize]) rewrites the pair
-// into a single gated [PagedAttention] launch (PagedAttention{Gate: true}).
-func (b *Builder) AttentionWithGate(cfg PagedAttention, q, kCache, vCache, pageTable, seqLens, kScale, vScale, gate egraph.Id, eps float32) egraph.Id {
-	attn := b.PagedAttention(cfg, q, kCache, vCache, pageTable, seqLens, kScale, vScale)
-	return b.RMSNormGate(attn, gate, eps)
-}
-
-// MoEChain adds the routed Mixture-of-Experts operator sequence:
-//
-//	RowTopK -> ExpertAlign -> GroupedMatMul(w13) -> SwiGLU -> GroupedMatMul(w2) -> PostExpertNorm -> WeightedTopKSum
-//
-// which equality saturation ([Optimize]) rewrites into:
-//
-//	RowTopK -> ExpertAlign -> TileGEMM(GLU) -> TileGEMM(SumSq) -> ExpertSum
-func (b *Builder) MoEChain(routeCfg RowTopK, alignCfg ExpertAlign, x, logits, bias, localStart, w13, w2, postW egraph.Id, eps float32) egraph.Id {
-	ids, weights := b.RowTopK(routeCfg, logits, bias)
-	offsets, rows, slots := b.ExpertAlign(alignCfg, ids, localStart)
-	mm13 := b.GroupedMatMul(x, w13, offsets, rows)
-	inter := b.SwiGLU(mm13)
-	mm2 := b.GroupedMatMul(inter, w2, offsets)
-	normed := b.PostExpertNorm(mm2, postW, eps)
-	return b.WeightedTopKSum(normed, slots, weights)
-}
 
 // A TermProgram holds the e-graph and root term of a transformer decoder layer
 // built by [BuildLayerProgram].
 type TermProgram struct {
-	Builder *Builder
-	G       *egraph.EGraph
-	Root    egraph.Id
-	Config  ArchConfig
-	BatchM  int
-	SeqLen  int
-	OutType DType
+	Builder *hopper.Builder `json:"-"`
+	G       *egraph.EGraph  `json:"-"`
+	Root    egraph.Id       `json:"root"`
+	Config  ArchConfig      `json:"config"`
+	BatchM  int             `json:"batch_m"`
+	SeqLen  int             `json:"seq_len"`
+	OutType DType           `json:"out_type"`
+	Ops     []LayerOp       `json:"ops,omitempty"`
 }
 
 // Optimize saturates p.G and extracts the minimum-cost expression for p.Root.
@@ -177,16 +27,16 @@ func (p *TermProgram) Optimize() (*egraph.Expr, error) {
 	if p == nil || p.G == nil {
 		return nil, fmt.Errorf("optimize term program: nil program")
 	}
-	return Optimize(p.G, p.Root)
+	return hopper.Optimize(p.G, p.Root)
 }
 
 // Eval saturates p.G and evaluates the extracted layer expression on env.
-func (p *TermProgram) Eval(env map[string]Value) (Value, error) {
+func (p *TermProgram) Eval(env map[string]hopper.Value) (hopper.Value, error) {
 	expr, err := p.Optimize()
 	if err != nil {
-		return Value{}, err
+		return hopper.Value{}, err
 	}
-	return Eval(expr, env)
+	return hopper.Eval(expr, env)
 }
 
 // BuildLayerProgram constructs the complete e-graph [TermProgram] for one
@@ -194,7 +44,7 @@ func (p *TermProgram) Eval(env map[string]Value) (Value, error) {
 // length seqLen.
 func BuildLayerProgram(cfg ArchConfig, batchM, seqLen int) (*TermProgram, error) {
 	var err error
-	cfg, err = cfg.norm()
+	cfg, err = ValidateArchConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -208,62 +58,62 @@ func BuildLayerProgram(cfg ArchConfig, batchM, seqLen int) (*TermProgram, error)
 	H := cfg.HiddenSize
 	hq := cfg.NumAttentionHeads
 	hkv := cfg.NumKeyValueHeads
-	qDim := hq * HeadDim
+	qDim := hq * hopper.HeadDim
 	eps := cfg.RMSNormEps
 	useNVFP4 := cfg.WeightDType == NVFP4 && H >= 64 && H%16 == 0
 
-	b := NewBuilder()
+	b := hopper.NewBuilder()
 	addWeight2D := func(name string, n, k int) egraph.Id {
 		if useNVFP4 && k >= 64 && k%16 == 0 {
-			return b.NVFP4(b.Input(name+"_q", U8, n, k/2), b.Input(name+"_sf", U8, n, k/16), b.Input(name+"_gs", F32, 1))
+			return b.NVFP4(b.Input(name+"_q", hopper.U8, n, k/2), b.Input(name+"_sf", hopper.U8, n, k/16), b.Input(name+"_gs", hopper.F32, 1))
 		}
-		return b.Input(name, BF16, n, k)
+		return b.Input(name, hopper.BF16, n, k)
 	}
 	addWeight3D := func(name string, local, n, k int) egraph.Id {
 		if useNVFP4 && k >= 64 && k%16 == 0 {
-			return b.NVFP4(b.Input(name+"_q", U8, local, n, k/2), b.Input(name+"_sf", U8, local, n, k/16), b.Input(name+"_gs", F32, local))
+			return b.NVFP4(b.Input(name+"_q", hopper.U8, local, n, k/2), b.Input(name+"_sf", hopper.U8, local, n, k/16), b.Input(name+"_gs", hopper.F32, local))
 		}
-		return b.Input(name, BF16, local, n, k)
+		return b.Input(name, hopper.BF16, local, n, k)
 	}
 
-	x := b.Input("x", BF16, batchM, H)
-	attnNormW := b.Input("attn_norm_w", BF16, H)
-	norm1 := b.Cast(BF16, b.RMSNorm(x, attnNormW, H, eps))
+	x := b.Input("x", hopper.BF16, batchM, H)
+	attnNormW := b.Input("attn_norm_w", hopper.BF16, H)
+	norm1 := b.Cast(hopper.BF16, b.RMSNorm(x, attnNormW, H, eps))
 
 	wQ := addWeight2D("wq", qDim, H)
 	qProj := b.MatMul(norm1, wQ)
 	if cfg.QKNorm {
-		qProj = b.RMSNorm(qProj, b.Input("qk_norm_w", BF16, qDim), qDim, eps)
+		qProj = b.RMSNorm(qProj, b.Input("qk_norm_w", hopper.BF16, qDim), qDim, eps)
 	}
-	qDType := BF16
+	qDType := hopper.BF16
 	if cfg.KVDType == E4M3 && cfg.WeightDType == E4M3 {
-		qDType = E4M3
+		qDType = hopper.E4M3
 	}
 	q := b.Cast(qDType, qProj)
 
 	const pageSize = 16
 	maxPages := max((seqLen+pageSize-1)/pageSize, 1)
 	cacheRows := batchM * maxPages * pageSize
-	kCache := b.Input("k_cache", U8, cacheRows, hkv, HeadDim)
-	vCache := b.Input("v_cache", U8, cacheRows, hkv, HeadDim)
-	pageTable := b.Input("page_table", I32, batchM, maxPages)
-	seqLens := b.Input("seqlens", I32, batchM)
-	kScale := b.Input("k_scale", F32, 1)
-	vScale := b.Input("v_scale", F32, 1)
+	kCache := b.Input("k_cache", hopper.U8, cacheRows, hkv, hopper.HeadDim)
+	vCache := b.Input("v_cache", hopper.U8, cacheRows, hkv, hopper.HeadDim)
+	pageTable := b.Input("page_table", hopper.I32, batchM, maxPages)
+	seqLens := b.Input("seqlens", hopper.I32, batchM)
+	kScale := b.Input("k_scale", hopper.F32, 1)
+	vScale := b.Input("v_scale", hopper.F32, 1)
 
-	attnCfg := PagedAttention{Hq: hq, Hkv: hkv, QLen: 1, Page: pageSize, Q: qDType, Chunk: 64}
+	attnCfg := hopper.PagedAttention{Hq: hq, Hkv: hkv, QLen: 1, Page: pageSize, Q: qDType, Chunk: 64}
 	var attn egraph.Id
 	if cfg.AttentionGate {
-		gate := b.Cast(BF16, b.MatMul(norm1, addWeight2D("w_attn_gate", qDim, H)))
+		gate := b.Cast(hopper.BF16, b.MatMul(norm1, addWeight2D("w_attn_gate", qDim, H)))
 		attn = b.AttentionWithGate(attnCfg, q, kCache, vCache, pageTable, seqLens, kScale, vScale, gate, eps)
 	} else {
 		attn = b.PagedAttention(attnCfg, q, kCache, vCache, pageTable, seqLens, kScale, vScale)
 	}
-	attnBF16 := b.Cast(BF16, attn)
+	attnBF16 := b.Cast(hopper.BF16, attn)
 
 	oProj := b.MatMul(attnBF16, addWeight2D("wo", H, qDim))
-	h1 := b.Map(MustLambda("(add $0 $1)"), oProj, x)
-	norm2 := b.Cast(BF16, b.RMSNorm(h1, b.Input("ffn_norm_w", BF16, H), H, eps))
+	h1 := b.Map(hopper.MustLambda("(add $0 $1)"), oProj, x)
+	norm2 := b.Cast(hopper.BF16, b.RMSNorm(h1, b.Input("ffn_norm_w", hopper.BF16, H), H, eps))
 
 	var mlpOut egraph.Id
 	if cfg.IsMoE() {
@@ -271,18 +121,18 @@ func BuildLayerProgram(cfg ArchConfig, batchM, seqLen int) (*TermProgram, error)
 		local := min(max(cfg.NumLocalExperts, 1), min(32, experts))
 		kRoutes := min(max(cfg.NumExpertsPerTok, 1), min(16, experts))
 		moeI := cfg.MoEIntermediateSize
-		logits := b.Input("router_logits", F32, batchM, experts)
-		bias := b.Input("router_bias", F32, experts)
-		localStart := b.Input("local_start", I32, 1)
+		logits := b.Input("router_logits", hopper.F32, batchM, experts)
+		bias := b.Input("router_bias", hopper.F32, experts)
+		localStart := b.Input("local_start", hopper.I32, 1)
 		w13 := addWeight3D("w13", local, 2*moeI, H)
 		w2 := addWeight3D("w2", local, H, moeI)
-		postExpertW := b.Input("post_expert_w", BF16, H)
-		routeCfg := RowTopK{
-			D: experts, K: kRoutes, X: F32, Bias: F32,
-			Score: MustLambda("(sigmoid $0)"), Key: MustLambda("(add $0 $1)"),
+		postExpertW := b.Input("post_expert_w", hopper.BF16, H)
+		routeCfg := hopper.RowTopK{
+			D: experts, K: kRoutes, X: hopper.F32, Bias: hopper.F32,
+			Score: hopper.MustLambda("(sigmoid $0)"), Key: hopper.MustLambda("(add $0 $1)"),
 			Normalize: true, Eps: 1e-15, Scale: 1,
 		}
-		alignCfg := ExpertAlign{K: kRoutes, Experts: experts, Local: local, Warps: 4}
+		alignCfg := hopper.ExpertAlign{K: kRoutes, Experts: experts, Local: local, Warps: 4}
 		mlpOut = b.MoEChain(routeCfg, alignCfg, norm2, logits, bias, localStart, w13, w2, postExpertW, 1e-8)
 	} else {
 		I := cfg.IntermediateSize
@@ -290,43 +140,46 @@ func BuildLayerProgram(cfg ArchConfig, batchM, seqLen int) (*TermProgram, error)
 		mlpOut = b.MatMul(b.SwiGLU(gateUp), addWeight2D("w_down", H, I))
 	}
 
-	root := b.ResidualRMSNorm(mlpOut, h1, b.Input("post_norm_w", BF16, H), H, eps)
+	root := b.ResidualRMSNorm(mlpOut, h1, b.Input("post_norm_w", hopper.BF16, H), H, eps)
 	return &TermProgram{
-		Builder: b, G: b.G, Root: root, Config: cfg,
-		BatchM: batchM, SeqLen: seqLen, OutType: BF16,
+		Builder: b,
+		G:       b.G,
+		Root:    root,
+		Config:  cfg,
+		BatchM:  batchM,
+		SeqLen:  seqLen,
+		OutType: BF16,
+		Ops:     buildLayerOps(cfg, batchM, seqLen),
 	}, nil
 }
 
-// CostEstimate aliases [model.CostEstimate].
-type CostEstimate = model.CostEstimate
-
-// A CompiledLayer holds the optimized [Plan], per-step [CostEstimate] breakdown,
-// execution mode, and emitted CUDA / Megakernel / TVM-FFI sources for one
-// transformer decoder layer.
+// A CompiledLayer holds the optimized [hopper.Plan], per-step [CostEstimate]
+// breakdown, execution mode, and emitted CUDA / Megakernel / TVM-FFI sources
+// for one transformer decoder layer.
 type CompiledLayer struct {
-	Config           ArchConfig     `json:"config"`
-	BatchM           int            `json:"batch_m"`
-	SeqLen           int            `json:"seq_len"`
-	Device           string         `json:"device"`
-	Mode             string         `json:"mode"`
-	ExecutionMode    string         `json:"execution_mode"`
-	Plan             *Plan          `json:"plan"`
-	Estimates        []CostEstimate `json:"estimates"`
-	TotalNs          float64        `json:"total_ns"`
-	CUDASource       string         `json:"cuda_source,omitempty"`
-	MegakernelSource string         `json:"megakernel_source,omitempty"`
-	TVMFFISource     string         `json:"tvmffi_source,omitempty"`
-	Megakernels      []Megakernel   `json:"-"`
+	Config           ArchConfig          `json:"config"`
+	BatchM           int                 `json:"batch_m"`
+	SeqLen           int                 `json:"seq_len"`
+	Device           string              `json:"device"`
+	Mode             string              `json:"mode"`
+	ExecutionMode    string              `json:"execution_mode"`
+	Plan             *hopper.Plan        `json:"plan"`
+	Estimates        []CostEstimate      `json:"estimates"`
+	TotalNs          float64             `json:"total_ns"`
+	CUDASource       string              `json:"cuda_source,omitempty"`
+	MegakernelSource string              `json:"megakernel_source,omitempty"`
+	TVMFFISource     string              `json:"tvmffi_source,omitempty"`
+	Megakernels      []hopper.Megakernel `json:"-"`
 }
 
-// CompileWithCost saturates p.G, lowers the optimal expression to a [Plan] named
-// "layer", selects hardware schedules for device, and returns the plan and its
-// per-step [CostEstimate] slice.
-func (p *TermProgram) CompileWithCost(device string) (*Plan, []CostEstimate, error) {
+// CompileWithCost saturates p.G, lowers the optimal expression to a
+// [hopper.Plan] named "layer", selects hardware schedules for device, and
+// returns the plan and its per-step [CostEstimate] slice.
+func (p *TermProgram) CompileWithCost(device string) (*hopper.Plan, []CostEstimate, error) {
 	return p.compileNamedWithCost("layer", device)
 }
 
-func (p *TermProgram) compileNamedWithCost(name, device string) (*Plan, []CostEstimate, error) {
+func (p *TermProgram) compileNamedWithCost(name, device string) (*hopper.Plan, []CostEstimate, error) {
 	if p == nil || p.G == nil {
 		return nil, nil, fmt.Errorf("compile term program: nil program")
 	}
@@ -334,11 +187,11 @@ func (p *TermProgram) compileNamedWithCost(name, device string) (*Plan, []CostEs
 	if err != nil {
 		return nil, nil, err
 	}
-	outType := p.OutType
+	outType := hopper.DType(p.OutType)
 	if outType == 0 {
-		outType = BF16
+		outType = hopper.BF16
 	}
-	costCfg, err := (CostConfig{Device: device, MaxKeys: p.SeqLen}).norm()
+	costCfg, err := (hopper.CostConfig{Device: device, MaxKeys: p.SeqLen}).Norm()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -352,8 +205,8 @@ func (p *TermProgram) compileNamedWithCost(name, device string) (*Plan, []CostEs
 	return plan, estimatePlanSteps(plan, costCfg), nil
 }
 
-func compileArchExpr(expr *egraph.Expr, name string, out DType, batchM int) (*Plan, error) {
-	plan, err := Compile(expr, name, out)
+func compileArchExpr(expr *egraph.Expr, name string, out hopper.DType, batchM int) (*hopper.Plan, error) {
+	plan, err := hopper.Compile(expr, name, out)
 	if err == nil {
 		return plan, nil
 	}
@@ -362,7 +215,7 @@ func compileArchExpr(expr *egraph.Expr, name string, out DType, batchM int) (*Pl
 	}
 	const inflatedM = 32
 	inflated := rescaleExprBatch(expr, batchM, inflatedM, make(map[*egraph.Expr]*egraph.Expr))
-	plan, err = Compile(inflated, name, out)
+	plan, err = hopper.Compile(inflated, name, out)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +240,7 @@ func rescaleExprBatch(e *egraph.Expr, fromM, toM int, memo map[*egraph.Expr]*egr
 		return c
 	}
 	cp := *e
-	if t, ok := cp.Data.(Tensor); ok {
+	if t, ok := cp.Data.(hopper.Tensor); ok {
 		t.Shape = slices.Clone(t.Shape)
 		if isBatchInputTensor(t.Name) {
 			if (t.Name == "k_cache" || t.Name == "v_cache") && len(t.Shape) >= 2 && t.Shape[0]%fromM == 0 {
@@ -397,7 +250,7 @@ func rescaleExprBatch(e *egraph.Expr, fromM, toM int, memo map[*egraph.Expr]*egr
 			}
 		}
 		cp.Data = t
-	} else if d, ok := cp.Data.(Dims); ok {
+	} else if d, ok := cp.Data.(hopper.Dims); ok {
 		d.Shape = slices.Clone(d.Shape)
 		if len(d.Shape) >= 2 && d.Shape[0] == fromM {
 			d.Shape[0] = toM
@@ -414,7 +267,7 @@ func rescaleExprBatch(e *egraph.Expr, fromM, toM int, memo map[*egraph.Expr]*egr
 	return &cp
 }
 
-func rescalePlanBatch(p *Plan, fromM, toM int) {
+func rescalePlanBatch(p *hopper.Plan, fromM, toM int) {
 	for i := range p.Inputs {
 		t := &p.Inputs[i]
 		if !isBatchInputTensor(t.Name) {
@@ -445,11 +298,11 @@ func rescalePlanBatch(p *Plan, fromM, toM int) {
 				k.MaxRows = (k.MaxRows / fromM) * toM
 			}
 			if !k.Tile.Grouped && !k.Tile.GLU && !k.Tile.SumSq && k.M <= 16 {
-				sg := SkinnyGEMM{
+				sg := hopper.SkinnyGEMM{
 					Name: k.Tile.Name, N: k.Tile.N, K: k.Tile.K, MaxM: k.M,
 					Weight: k.Tile.Weight, Out: k.Tile.Out, Epilogue: k.Tile.Epilogue, Extras: k.Tile.Extras,
 				}
-				if normed, err := sg.norm(); err == nil {
+				if normed, err := sg.Norm(); err == nil {
 					k.GEMM = &normed
 					k.Tile = nil
 				}
@@ -475,12 +328,12 @@ func rescalePlanBatch(p *Plan, fromM, toM int) {
 	}
 }
 
-func selectArchSchedules(p *Plan, archCfg ArchConfig, batchM int, costCfg CostConfig) error {
+func selectArchSchedules(p *hopper.Plan, archCfg ArchConfig, batchM int, costCfg hopper.CostConfig) error {
 	if err := p.SelectSchedules(costCfg); err != nil {
 		return err
 	}
-	hopperArch := costCfg.isHopper()
-	blackwellArch := costCfg.isBlackwell()
+	hopperArch := costCfg.IsHopper()
+	blackwellArch := costCfg.IsBlackwell()
 	for i := range p.Kernels {
 		k := &p.Kernels[i]
 		if k.Tile == nil {
@@ -488,33 +341,33 @@ func selectArchSchedules(p *Plan, archCfg ArchConfig, batchM int, costCfg CostCo
 		}
 		t := *k.Tile
 		switch {
-		case blackwellArch && t.Weight == WeightNVFP4:
+		case blackwellArch && t.Weight == hopper.WeightNVFP4:
 			cand := t
 			cand.WGMMA, cand.Swizzle128B, cand.Repacked, cand.WarpSpecialized = false, false, false, false
 			cand.DequantWords, cand.BlackwellFP4 = 0, true
 			if k.M >= 64 || batchM >= 64 {
 				cand.GroupM = 8
 			}
-			if normed, err := cand.norm(); err == nil {
+			if normed, err := cand.Norm(); err == nil {
 				*k.Tile = normed
 			}
-		case hopperArch && t.Weight == WeightNVFP4:
+		case hopperArch && t.Weight == hopper.WeightNVFP4:
 			cand := t
 			cand.BlackwellFP4, cand.BM, cand.BN = false, 128, 128
 			cand.WGMMA, cand.Swizzle128B, cand.Repacked = true, true, true
 			cand.DequantWords, cand.GroupM = 2, 8
-			if normed, err := cand.norm(); err == nil {
+			if normed, err := cand.Norm(); err == nil {
 				*k.Tile = normed
 			} else {
 				cand.Repacked, cand.DequantWords = false, 0
 				if cand.N%128 != 0 || (cand.GLU && (cand.N/2)%64 != 0) {
 					cand.BN = 64
 				}
-				if normed2, err2 := cand.norm(); err2 == nil {
+				if normed2, err2 := cand.Norm(); err2 == nil {
 					*k.Tile = normed2
 				}
 			}
-		case hopperArch && (k.M >= 64 || batchM >= 64) && t.K >= 64 && t.K%64 == 0 && t.Weight != WeightBF16HiLo:
+		case hopperArch && (k.M >= 64 || batchM >= 64) && t.K >= 64 && t.K%64 == 0 && t.Weight != hopper.WeightBF16HiLo:
 			cand := t
 			cand.BM = 128
 			if cand.N%128 == 0 && (!cand.GLU || (cand.N/2)%64 == 0) {
@@ -523,15 +376,15 @@ func selectArchSchedules(p *Plan, archCfg ArchConfig, batchM int, costCfg CostCo
 				cand.BN = 64
 			}
 			cand.WGMMA, cand.Swizzle128B, cand.GroupM = true, true, 8
-			if batchM >= 64 && !cand.Grouped && cand.Weight == WeightBF16 {
+			if batchM >= 64 && !cand.Grouped && cand.Weight == hopper.WeightBF16 {
 				wsCand := cand
 				wsCand.WarpSpecialized = true
-				if normedWS, err := wsCand.norm(); err == nil {
+				if normedWS, err := wsCand.Norm(); err == nil {
 					*k.Tile = normedWS
 					continue
 				}
 			}
-			if normed, err := cand.norm(); err == nil {
+			if normed, err := cand.Norm(); err == nil {
 				*k.Tile = normed
 			}
 		}
@@ -540,22 +393,22 @@ func selectArchSchedules(p *Plan, archCfg ArchConfig, batchM int, costCfg CostCo
 	return nil
 }
 
-func estimatePlanSteps(p *Plan, costCfg CostConfig) []CostEstimate {
-	normCfg, err := costCfg.norm()
+func estimatePlanSteps(p *hopper.Plan, costCfg hopper.CostConfig) []CostEstimate {
+	normCfg, err := costCfg.Norm()
 	if err != nil {
 		normCfg = costCfg
 	}
 	out := make([]CostEstimate, len(p.Kernels))
 	for i, k := range p.Kernels {
 		bytes, flops := k.Workload(normCfg)
-		ns := k.estimateStepNs(normCfg)
+		ns := k.EstimateStepNs(normCfg)
 		name, op, sched := describePlanKernel(k)
 		out[i] = CostEstimate{Name: name, Op: op, Schedule: sched, Bytes: bytes, FLOPs: flops, EstimatedNs: ns}
 	}
 	return out
 }
 
-func describePlanKernel(k PlanKernel) (name, op, sched string) {
+func describePlanKernel(k hopper.PlanKernel) (name, op, sched string) {
 	var parts []string
 	switch {
 	case k.GEMM != nil:
@@ -652,7 +505,7 @@ func CompileLayer(cfg ArchConfig, batchM, seqLen int, device string) (*CompiledL
 
 func compileLayerNamed(cfg ArchConfig, batchM, seqLen int, device, planName string) (*CompiledLayer, error) {
 	var err error
-	cfg, err = cfg.norm()
+	cfg, err = ValidateArchConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -671,9 +524,9 @@ func compileLayerNamed(cfg ArchConfig, batchM, seqLen int, device, planName stri
 	for _, est := range estimates {
 		totalNs += est.EstimatedNs
 	}
-	mode := model.SelectLayerExecutionMode(batchM)
+	mode := SelectLayerExecutionMode(batchM)
 	var (
-		megas   []Megakernel
+		megas   []hopper.Megakernel
 		megaSrc string
 	)
 	if mode == ModePersistentMegakernel {
@@ -695,11 +548,11 @@ func compileLayerNamed(cfg ArchConfig, batchM, seqLen int, device, planName stri
 	}, nil
 }
 
-func buildLayerMegakernels(p *Plan) ([]Megakernel, string) {
+func buildLayerMegakernels(p *hopper.Plan) ([]hopper.Megakernel, string) {
 	if p == nil || len(p.Kernels) < 2 {
 		return nil, ""
 	}
-	tensorByName := make(map[string]Tensor)
+	tensorByName := make(map[string]hopper.Tensor)
 	for _, t := range p.Inputs {
 		tensorByName[t.Name] = t
 	}
@@ -709,8 +562,8 @@ func buildLayerMegakernels(p *Plan) ([]Megakernel, string) {
 	if p.Output.Name != "" {
 		tensorByName[p.Output.Name] = p.Output
 	}
-	var segments [][]PlanKernel
-	var cur []PlanKernel
+	var segments [][]hopper.PlanKernel
+	var cur []hopper.PlanKernel
 	flush := func() {
 		if len(cur) >= 2 {
 			segments = append(segments, cur)
@@ -737,7 +590,7 @@ func buildLayerMegakernels(p *Plan) ([]Megakernel, string) {
 	}
 	flush()
 	var (
-		megas []Megakernel
+		megas []hopper.Megakernel
 		srcs  []string
 	)
 	for idx, seg := range segments {
@@ -756,9 +609,9 @@ func buildLayerMegakernels(p *Plan) ([]Megakernel, string) {
 	return megas, strings.Join(srcs, "\n")
 }
 
-func buildSubPlan(name string, seg []PlanKernel, tensorByName map[string]Tensor) *Plan {
+func buildSubPlan(name string, seg []hopper.PlanKernel, tensorByName map[string]hopper.Tensor) *hopper.Plan {
 	produced := make(map[string]bool)
-	var inputs, temps []Tensor
+	var inputs, temps []hopper.Tensor
 	seenIn := make(map[string]bool)
 	seenTmp := make(map[string]bool)
 	for i, pk := range seg {
@@ -785,7 +638,7 @@ func buildSubPlan(name string, seg []PlanKernel, tensorByName map[string]Tensor)
 			}
 		}
 	}
-	var outTensor Tensor
+	var outTensor hopper.Tensor
 	if lastOuts := kernelOutputNames(seg[len(seg)-1]); len(lastOuts) > 0 {
 		outTensor = tensorByName[lastOuts[0]]
 		for _, extraOut := range lastOuts[1:] {
@@ -795,10 +648,10 @@ func buildSubPlan(name string, seg []PlanKernel, tensorByName map[string]Tensor)
 			}
 		}
 	}
-	return &Plan{Name: name, Inputs: inputs, Temps: temps, Output: outTensor, Kernels: seg}
+	return &hopper.Plan{Name: name, Inputs: inputs, Temps: temps, Output: outTensor, Kernels: seg}
 }
 
-func kernelOutputNames(pk PlanKernel) []string {
+func kernelOutputNames(pk hopper.PlanKernel) []string {
 	switch {
 	case pk.GEMM != nil:
 		outIdx := len(pk.Args) - 1
@@ -836,7 +689,7 @@ func kernelOutputNames(pk PlanKernel) []string {
 	return nil
 }
 
-func planCUDASource(p *Plan, megaSrc string) (string, error) {
+func planCUDASource(p *hopper.Plan, megaSrc string) (string, error) {
 	src, err := p.Source()
 	if err != nil {
 		return "", err
@@ -844,11 +697,11 @@ func planCUDASource(p *Plan, megaSrc string) (string, error) {
 	if megaSrc == "" {
 		return src, nil
 	}
-	return src + "\n" + strings.TrimPrefix(megaSrc, Prelude+"\n"), nil
+	return src + "\n" + strings.TrimPrefix(megaSrc, hopper.Prelude+"\n"), nil
 }
 
-func planTVMFFISource(p *Plan) (string, error) {
-	var rows []RowKernel
+func planTVMFFISource(p *hopper.Plan) (string, error) {
+	var rows []hopper.RowKernel
 	for _, pk := range p.Kernels {
 		if pk.Row != nil {
 			rows = append(rows, *pk.Row)
@@ -857,7 +710,7 @@ func planTVMFFISource(p *Plan) (string, error) {
 	if len(rows) == 0 {
 		return "", fmt.Errorf("plan %s: no row kernels for TVM-FFI export", p.Name)
 	}
-	return SourceTVMFFI(rows...)
+	return hopper.SourceTVMFFI(rows...)
 }
 
 // A MultiBucketBundle holds per-bucket [CompiledLayer] plans across a set of M
@@ -880,11 +733,11 @@ type MultiBucketBundle struct {
 // dispatch_layer_m(int M, ...) shape dispatcher entry point.
 func CompileMultiBucketLayer(cfg ArchConfig, buckets []int, seqLen int, device string) (*MultiBucketBundle, error) {
 	var err error
-	cfg, err = cfg.norm()
+	cfg, err = ValidateArchConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	sorted, err := model.ValidateBuckets(buckets)
+	sorted, err := ValidateBuckets(buckets)
 	if err != nil {
 		return nil, err
 	}
@@ -893,8 +746,8 @@ func CompileMultiBucketLayer(cfg ArchConfig, buckets []int, seqLen int, device s
 	}
 	layers := make(map[int]*CompiledLayer, len(sorted))
 	ordered := make([]*CompiledLayer, 0, len(sorted))
-	var allRows []RowKernel
-	var planSpecs []model.BucketPlanSpec
+	var allRows []hopper.RowKernel
+	var planSpecs []BucketPlanSpec
 
 	for _, m := range sorted {
 		cl, err := compileLayerNamed(cfg, m, seqLen, device, fmt.Sprintf("layer_m%d", m))
@@ -912,7 +765,7 @@ func CompileMultiBucketLayer(cfg ArchConfig, buckets []int, seqLen int, device s
 		if err != nil {
 			return nil, err
 		}
-		planSpecs = append(planSpecs, model.BucketPlanSpec{
+		planSpecs = append(planSpecs, BucketPlanSpec{
 			M:          m,
 			PlanName:   cl.Plan.Name,
 			Mode:       cl.Mode,
@@ -924,17 +777,17 @@ func CompileMultiBucketLayer(cfg ArchConfig, buckets []int, seqLen int, device s
 	refPlan := layers[sorted[len(sorted)-1]].Plan
 	var params, callArgs []string
 	for _, t := range refPlan.Inputs {
-		params = append(params, "const "+t.DType.cType()+"* "+t.Name)
+		params = append(params, "const "+t.DType.CType()+"* "+t.Name)
 		callArgs = append(callArgs, t.Name)
 	}
 	for _, t := range append(slices.Clone(refPlan.Temps), refPlan.Output) {
-		params = append(params, t.DType.cType()+"* "+t.Name)
+		params = append(params, t.DType.CType()+"* "+t.Name)
 		callArgs = append(callArgs, t.Name)
 	}
-	cudaSrc := model.BuildMultiBucketDispatcherSource(Prelude, planSpecs, params, callArgs)
+	cudaSrc := BuildMultiBucketDispatcherSource(hopper.Prelude, planSpecs, params, callArgs)
 	var ffiSrc string
 	if len(allRows) > 0 {
-		ffiSrc, err = SourceTVMFFI(allRows...)
+		ffiSrc, err = hopper.SourceTVMFFI(allRows...)
 		if err != nil {
 			return nil, err
 		}

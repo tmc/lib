@@ -8,6 +8,12 @@
 //
 // Production lowering entry points:
 //
+//   - [BuildLayerProgram], [CompileLayer], [CompileMultiBucketLayer],
+//     [CompileExtendedLayer], and [RunCompiledDenseLayer] construct e-graph
+//     [TermProgram]s for dense GQA and routed MoE transformer decoder layers
+//     and lower them to [github.com/tmc/lib/nvidia/x/egraph/hopper] [hopper.Plan]s,
+//     persistent megakernels, PDL chains, Blackwell sm_100a tcgen05/CLC suites,
+//     and NVLink TP/EP collectives.
 //   - [CompileProductionModel] compiles a parsed [ModelConfig] and target SM
 //     compute capability (`sm_90a`, `sm_100a`, `sm_103a`, `sm_107a`, `sm_107f`,
 //     `sm_120a`, `sm_121a`) into a verified [ProductionModelPlan] containing

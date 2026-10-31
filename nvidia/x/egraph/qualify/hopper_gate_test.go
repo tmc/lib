@@ -1,4 +1,4 @@
-package hopper
+package qualify
 
 import (
 	"context"
@@ -6,22 +6,24 @@ import (
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/cudahostemu"
+	"github.com/tmc/lib/nvidia/x/egraph/hopper"
+	"github.com/tmc/lib/nvidia/x/egraph/tilebridge"
 )
 
 func TestQualifyStep(t *testing.T) {
 	ctx := context.Background()
 
-	rmsnorm := NewRMSNormKernel("qualify_rmsnorm_f32", 64, 1e-5)
-	skinny := SkinnyGEMM{
+	rmsnorm := tilebridge.NewHopperRMSNormKernel("qualify_rmsnorm_f32", 64, 1e-5)
+	skinny := hopper.SkinnyGEMM{
 		Name:     "qualify_skinny_gemm",
 		N:        64,
 		K:        256,
 		MaxM:     4,
-		Weight:   WeightBF16,
-		Out:      F32,
-		Epilogue: Identity,
+		Weight:   hopper.WeightBF16,
+		Out:      hopper.F32,
+		Epilogue: hopper.Identity,
 	}
-	tileNVFP4 := TileGEMM{
+	tileNVFP4 := hopper.TileGEMM{
 		Name:     "qualify_tile_gemm_wgmma_nvfp4",
 		N:        128,
 		K:        64,
@@ -30,19 +32,19 @@ func TestQualifyStep(t *testing.T) {
 		Stages:   2,
 		WGMMA:    true,
 		Repacked: true,
-		Weight:   WeightNVFP4,
-		Out:      F32,
-		Epilogue: Identity,
+		Weight:   hopper.WeightNVFP4,
+		Out:      hopper.F32,
+		Epilogue: hopper.Identity,
 	}
-	pagedAttn := PagedAttention{
+	pagedAttn := hopper.PagedAttention{
 		Name:   "qualify_paged_attention",
 		Hq:     8,
 		Hkv:    2,
 		QLen:   1,
 		Window: 0,
 		Page:   16,
-		Q:      E4M3,
-		Out:    F32,
+		Q:      hopper.E4M3,
+		Out:    hopper.F32,
 		Chunk:  64,
 		Depth:  1,
 		Stages: 2,
@@ -132,19 +134,19 @@ func TestQualifyStep(t *testing.T) {
 func TestQualifyPlan(t *testing.T) {
 	ctx := context.Background()
 
-	b := NewBuilder()
-	x := b.Input("x", BF16, 4, 256)
-	w := b.Input("w", BF16, 64, 256)
-	nw := b.Input("norm_w", F32, 64)
+	b := hopper.NewBuilder()
+	x := b.Input("x", hopper.BF16, 4, 256)
+	w := b.Input("w", hopper.BF16, 64, 256)
+	nw := b.Input("norm_w", hopper.F32, 64)
 	mm := b.MatMul(x, w)
-	ss := b.ReduceSum(b.Map(MustLambda("(mul $0 $0)"), mm))
-	normed := b.Map(MustLambda("(mul (mul $0 (rsqrt (add (div $1 64) 1e-5))) $2)"), mm, ss, nw)
+	ss := b.ReduceSum(b.Map(hopper.MustLambda("(mul $0 $0)"), mm))
+	normed := b.Map(hopper.MustLambda("(mul (mul $0 (rsqrt (add (div $1 64) 1e-5))) $2)"), mm, ss, nw)
 
-	expr, err := Optimize(b.G, normed)
+	expr, err := hopper.Optimize(b.G, normed)
 	if err != nil {
 		t.Fatalf("Optimize failed: %v", err)
 	}
-	plan, err := Compile(expr, "qualify_plan", F32)
+	plan, err := hopper.Compile(expr, "qualify_plan", hopper.F32)
 	if err != nil {
 		t.Fatalf("Compile failed: %v", err)
 	}
@@ -172,37 +174,5 @@ func TestQualifyPlan(t *testing.T) {
 		if !r.TileIRAgreement {
 			t.Errorf("step %d (%s): TileIRAgreement = false, want true", i, r.Name)
 		}
-	}
-}
-
-func TestQualifySM100Kernels(t *testing.T) {
-	ctx := context.Background()
-
-	receipt, err := QualifySM100Kernels(ctx)
-	if err != nil {
-		t.Fatalf("QualifySM100Kernels failed: %v", err)
-	}
-	if !receipt.Passed() {
-		t.Fatalf("QualifySM100Kernels: receipt.Passed() = false: %+v", receipt)
-	}
-	if !receipt.CUDAValid {
-		t.Errorf("QualifySM100Kernels: CUDAValid = false")
-	}
-	if !receipt.TMEMTraceVerified {
-		t.Errorf("QualifySM100Kernels: TMEMTraceVerified = false")
-	}
-	if !receipt.SASSEquivVerified {
-		t.Errorf("QualifySM100Kernels: SASSEquivVerified = false")
-	}
-	if receipt.TMEMPeakColumns != 160 {
-		t.Errorf("QualifySM100Kernels: TMEMPeakColumns = %d, want 160", receipt.TMEMPeakColumns)
-	}
-
-	suiteReceipt, err := QualifySM100Suite(ctx)
-	if err != nil {
-		t.Fatalf("QualifySM100Suite failed: %v", err)
-	}
-	if !suiteReceipt.Passed() || suiteReceipt.TMEMPeakColumns != receipt.TMEMPeakColumns {
-		t.Errorf("QualifySM100Suite receipt mismatch: %+v vs %+v", suiteReceipt, receipt)
 	}
 }

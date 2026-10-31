@@ -370,31 +370,10 @@ type LayerOp struct {
 	K       int         `json:"k,omitempty"`
 }
 
-// A LayerProgram holds the normalized architecture configuration and ordered
-// operator DAG for one transformer decoder layer.
-type LayerProgram struct {
-	Config  ArchConfig `json:"config"`
-	BatchM  int        `json:"batch_m"`
-	SeqLen  int        `json:"seq_len"`
-	OutType DType      `json:"out_type"`
-	Ops     []LayerOp  `json:"ops"`
-}
+// LayerProgram is an alias for [TermProgram].
+type LayerProgram = TermProgram
 
-// BuildLayerProgram constructs the structural [LayerProgram] for one
-// transformer decoder layer under cfg at batchM and seqLen.
-func BuildLayerProgram(cfg ArchConfig, batchM, seqLen int) (*LayerProgram, error) {
-	var err error
-	cfg, err = ValidateArchConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	if batchM <= 0 {
-		return nil, fmt.Errorf("build layer program: batchM %d must be positive", batchM)
-	}
-	if seqLen <= 0 {
-		return nil, fmt.Errorf("build layer program: seqLen %d must be positive", seqLen)
-	}
-
+func buildLayerOps(cfg ArchConfig, batchM, seqLen int) []LayerOp {
 	H := cfg.HiddenSize
 	qDim := cfg.NumAttentionHeads * 64
 	var ops []LayerOp
@@ -440,14 +419,7 @@ func BuildLayerProgram(cfg ArchConfig, batchM, seqLen int) (*LayerProgram, error
 	ops = append(ops,
 		LayerOp{Name: "post_residual_rmsnorm", Kind: OpResidualRMSNorm, Inputs: []string{"mlp_out", "h1", "post_norm_w"}, Outputs: []string{"out"}, M: batchM, K: H},
 	)
-
-	return &LayerProgram{
-		Config:  cfg,
-		BatchM:  batchM,
-		SeqLen:  seqLen,
-		OutType: BF16,
-		Ops:     ops,
-	}, nil
+	return ops
 }
 
 // A CostEstimate records the roofline traffic, FLOPs, estimated latency, and
