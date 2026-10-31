@@ -1,0 +1,62 @@
+{
+  "commit": "0138b0caf94423d805cd84379b80443c203c8b52",
+  "date_utc": "2026-10-31T02:49:15.073317+00:00",
+  "agent": "Codex root",
+  "model": "not exposed by tool runtime; no inferred model identity",
+  "installed_cli_versions": {
+    "codex": {
+      "exit": 0,
+      "version": "codex-cli 0.166.0",
+      "stderr": ""
+    },
+    "claude": {
+      "exit": 0,
+      "version": "2.1.284 (Claude Code)",
+      "stderr": ""
+    }
+  },
+  "tty": "not a tty",
+  "note_writer_pid": 52128,
+  "process_ancestry": [
+    {
+      "pid": 52128,
+      "ppid": 52125,
+      "command": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python"
+    },
+    {
+      "pid": 52125,
+      "ppid": 81094,
+      "command": "/bin/bash"
+    },
+    {
+      "pid": 81094,
+      "ppid": 7147,
+      "command": "codex"
+    },
+    {
+      "pid": 7147,
+      "ppid": 7074,
+      "command": "-bash"
+    },
+    {
+      "pid": 7074,
+      "ppid": 5460,
+      "command": "/usr/bin/login"
+    },
+    {
+      "pid": 5460,
+      "ppid": 924,
+      "command": "/Users/tmc/Library/Application Support/iTerm2/iTermServer-3.7.4"
+    },
+    {
+      "pid": 924,
+      "ppid": 1,
+      "command": "/Applications/iTerm 2.app/Contents/MacOS/iTerm2"
+    }
+  ],
+  "ITERM_SESSION_ID": "w2t1p4:5A13F225-0BE7-4762-AF12-D906D7813F28",
+  "commit_method": "manual fallback after the two previously retained git-auto-commit-message authentication failures; tool not retried",
+  "scope": "two Go source files only; no numeric/schema/admission change, push or native/financial action",
+  "installed_version_observation_source": "/Users/tmc/tmp/lib-wt-llama-megakernel/20261022-h200-challenge-groundwork/methods/top20-20261028/root-integration/comparison-accounting-commit/NOTE.json",
+  "root_test_delta": "synthetic stop edge now names cuProfilerStop, matching actual API contract"
+}
