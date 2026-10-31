@@ -6,3 +6,12 @@ tty: no controlling tty
 pid: 83574
 ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
 Manual Go-style fallback continues after prior helper failures (two attempts exhausted). Service/HTTP/client and MCP host race gates PASS. Three semantic mutation controls killed after retaining one timed-out harness attempt and fixing its recorder. Native BPF/GPU NOT_RUN; portability checks pending.
+
+commit: 84f9193a92c6f9c37dbe9020c9d323f65c378c42
+commit date: 2026-10-30T20:15:00-07:00
+agent: Codex; Claude Code not used
+model: GPT-6 family; exact API identifier unavailable
+tty: no controlling tty
+pid: 41072
+ITERM_SESSION_ID: w2t1p9:5F115775-C0E8-401A-8938-3F7F36CE7215
+Signed rebase of prepared transport onto externally advanced integration aae18d3ba9617e5fa327611eb9b6b6441c665f4f. Kept new integration IsDefaultDir implementation and retained alias-custody tests. Prior fafa-based qualification remains historical; same-tree current-base host/portability gates pending. Original lane/63-open-lane untouched.
