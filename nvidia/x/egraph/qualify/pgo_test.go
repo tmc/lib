@@ -1,6 +1,7 @@
 package qualify
 
 import (
+	"math"
 	"slices"
 	"testing"
 
@@ -65,5 +66,143 @@ func TestRefineKnobs(t *testing.T) {
 	})
 	if !refined.Swizzle128B || !refined.WarpSpecialized || len(reasons) < 2 {
 		t.Fatalf("unexpected refined knobs: %+v (reasons: %v)", refined, reasons)
+	}
+}
+
+func TestPGOObservationFromCountersAndPTXAS(t *testing.T) {
+	f64 := func(v float64) *float64 { return &v }
+	b := func(v bool) *bool { return &v }
+
+	fn := ptxasinfo.Function{
+		Name:      "gemm_k0",
+		Registers: 168,
+	}
+
+	tests := []struct {
+		name     string
+		cm       CounterMetrics
+		wantBank float64
+		wantOcc  float64
+		wantKV   bool
+		wantBns  []BottleneckKind
+	}{
+		{
+			name:     "unmeasured_nil_counters",
+			cm:       CounterMetrics{DurationNs: 10000, LaunchGapNs: 500},
+			wantBank: 0,
+			wantOcc:  0,
+			wantKV:   false,
+			wantBns:  nil,
+		},
+		{
+			name: "measured_zero_vs_positive",
+			cm: CounterMetrics{
+				DurationNs:         10000,
+				LaunchGapNs:        2000,
+				SharedBankConflict: f64(0.0),
+				AchievedOccupancy:  f64(0.18),
+				MemoryBoundKV:      b(true),
+			},
+			wantBank: 0,
+			wantOcc:  0.18,
+			wantKV:   true,
+			wantBns: []BottleneckKind{
+				BottleneckLowOccupancy,
+				BottleneckMemoryBoundKV,
+				BottleneckLaunchOverhead,
+			},
+		},
+		{
+			name: "clamping_and_invalid_counter_values",
+			cm: CounterMetrics{
+				SharedBankConflict: f64(1.4),
+				AchievedOccupancy:  f64(math.NaN()),
+				MemoryBoundKV:      b(false),
+			},
+			wantBank: 1.0,
+			wantOcc:  0,
+			wantKV:   false,
+			wantBns:  []BottleneckKind{BottleneckBankConflict},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obs := ObservationFromCountersAndPTXAS(fn, tt.cm, 264, 132)
+			if obs.SharedBankConflict != tt.wantBank || obs.AchievedOccupancy != tt.wantOcc || obs.MemoryBoundKV != tt.wantKV {
+				t.Fatalf("got obs=%+v, want bank=%v occ=%v kv=%v", obs, tt.wantBank, tt.wantOcc, tt.wantKV)
+			}
+			gotBns := ClassifyBottlenecks(obs)
+			if !slices.Equal(gotBns, tt.wantBns) {
+				t.Fatalf("ClassifyBottlenecks = %v, want %v", gotBns, tt.wantBns)
+			}
+		})
+	}
+}
+
+func TestPGOHypothesesFromStalls(t *testing.T) {
+	tests := []struct {
+		name   string
+		stalls StallSample
+		want   []BottleneckKind
+	}{
+		{
+			name:   "zero_samples",
+			stalls: StallSample{},
+			want:   nil,
+		},
+		{
+			name: "math_throttle_only_not_bottleneck",
+			stalls: StallSample{
+				TotalSamples: 100,
+				MathThrottle: 85,
+				MIOThrottle:  10, // 0.10 < 0.15
+			},
+			want: nil,
+		},
+		{
+			name: "descending_share_order",
+			stalls: StallSample{
+				TotalSamples:   100,
+				MIOThrottle:    20, // 0.20 -> BottleneckBankConflict
+				LongScoreboard: 45, // 0.45 -> BottleneckMemoryBoundKV
+				WaitMBarrier:   15, // 0.15 -> BottleneckWGMMASerial
+				WaitTMEM:       10, // 0.10 < 0.15
+			},
+			want: []BottleneckKind{
+				BottleneckMemoryBoundKV,
+				BottleneckBankConflict,
+				BottleneckWGMMASerial,
+			},
+		},
+		{
+			name: "deterministic_tie_break",
+			stalls: StallSample{
+				TotalSamples:   100,
+				WaitTMEM:       25,
+				WaitMBarrier:   25,
+				MIOThrottle:    25,
+				LongScoreboard: 25,
+			},
+			want: []BottleneckKind{
+				BottleneckBankConflict,
+				BottleneckMemoryBoundKV,
+				BottleneckWGMMASerial,
+				BottleneckLowOccupancy,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hyps := HypothesesFromStalls(tt.stalls)
+			var got []BottleneckKind
+			for _, h := range hyps {
+				got = append(got, h.Bottleneck)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("HypothesesFromStalls(%+v) = %v, want %v", tt.stalls, got, tt.want)
+			}
+		})
 	}
 }

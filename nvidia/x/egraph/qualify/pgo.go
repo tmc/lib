@@ -106,6 +106,130 @@ func ObservationFromPTXAS(fn ptxasinfo.Function, gridBlocks, deviceSMs int) Kern
 	return obs
 }
 
+// CounterMetrics holds measured hardware performance counter values and
+// CUDA event timing for a single kernel. Pointer fields distinguish an
+// unmeasured counter (nil) from a measured zero.
+type CounterMetrics struct {
+	DurationNs         float64
+	LaunchGapNs        float64
+	SharedBankConflict *float64 // measured bank-conflict wavefront ratio in [0, 1]
+	AchievedOccupancy  *float64 // measured achieved occupancy in [0, 1]
+	MemoryBoundKV      *bool    // explicit DRAM/KV bandwidth-bound counter diagnosis
+}
+
+// ObservationFromCountersAndPTXAS constructs a [KernelObservation] from a
+// parsed [ptxasinfo.Function] report entry, measured hardware performance
+// counters, and launch geometry. Unmeasured counter fields (nil pointers in cm)
+// remain zero/false on the returned observation.
+func ObservationFromCountersAndPTXAS(fn ptxasinfo.Function, cm CounterMetrics, gridBlocks, deviceSMs int) KernelObservation {
+	obs := ObservationFromPTXAS(fn, gridBlocks, deviceSMs)
+	if !math.IsNaN(cm.DurationNs) && !math.IsInf(cm.DurationNs, 0) && cm.DurationNs >= 0 {
+		obs.DurationNs = cm.DurationNs
+	}
+	if !math.IsNaN(cm.LaunchGapNs) && !math.IsInf(cm.LaunchGapNs, 0) && cm.LaunchGapNs >= 0 {
+		obs.LaunchGapNs = cm.LaunchGapNs
+	}
+	if cm.SharedBankConflict != nil {
+		if v := *cm.SharedBankConflict; !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0 {
+			obs.SharedBankConflict = min(v, 1.0)
+		}
+	}
+	if cm.AchievedOccupancy != nil {
+		if v := *cm.AchievedOccupancy; !math.IsNaN(v) && !math.IsInf(v, 0) && v >= 0 {
+			obs.AchievedOccupancy = min(v, 1.0)
+		}
+	}
+	if cm.MemoryBoundKV != nil {
+		obs.MemoryBoundKV = *cm.MemoryBoundKV
+	}
+	return obs
+}
+
+// StallSample holds issued-reason warp stall sample counts from CUPTI PC
+// sampling. Because PC-sampling stall reasons are symptoms rather than
+// direct hardware root-cause counters (for example, MIOThrottle mixes
+// shared-memory pipe throttle, TMA queue pressure, and short-scoreboard
+// waits), StallSample never populates causal fields on [KernelObservation].
+// Instead, [HypothesesFromStalls] emits ordered candidate-generation
+// hypotheses for schedule exploration.
+type StallSample struct {
+	TotalSamples   uint64
+	WaitTMEM       uint64
+	WaitMBarrier   uint64
+	MIOThrottle    uint64
+	MathThrottle   uint64
+	LongScoreboard uint64
+}
+
+// A StallHypothesis is a prioritized candidate-generation hypothesis
+// derived from warp stall sample shares.
+type StallHypothesis struct {
+	Bottleneck BottleneckKind
+	Share      float64
+	Reason     string
+}
+
+// HypothesesFromStalls returns candidate-generation hypotheses ordered by
+// descending issued-stall share for stall buckets with share >= 0.15.
+// It never modifies a [KernelObservation] or analytical cost model.
+func HypothesesFromStalls(s StallSample) []StallHypothesis {
+	sum := s.WaitTMEM + s.WaitMBarrier + s.MIOThrottle + s.MathThrottle + s.LongScoreboard
+	denom := max(s.TotalSamples, sum)
+	if denom == 0 {
+		return nil
+	}
+	buckets := []struct {
+		count      uint64
+		bottleneck BottleneckKind
+		reason     string
+	}{
+		{
+			count:      s.MIOThrottle,
+			bottleneck: BottleneckBankConflict,
+			reason:     "MIOThrottle stall share >= 0.15: hypothesize shared-memory bank conflict or pipe throttle",
+		},
+		{
+			count:      s.LongScoreboard,
+			bottleneck: BottleneckMemoryBoundKV,
+			reason:     "LongScoreboard stall share >= 0.15: hypothesize global/KV memory latency stall",
+		},
+		{
+			count:      s.WaitMBarrier,
+			bottleneck: BottleneckWGMMASerial,
+			reason:     "WaitMBarrier stall share >= 0.15: hypothesize mbarrier/WGMMA synchronization stall",
+		},
+		{
+			count:      s.WaitTMEM,
+			bottleneck: BottleneckLowOccupancy,
+			reason:     "WaitTMEM stall share >= 0.15: hypothesize TMEM/register occupancy pressure",
+		},
+	}
+	var out []StallHypothesis
+	for _, b := range buckets {
+		if b.count == 0 {
+			continue
+		}
+		share := float64(b.count) / float64(denom)
+		if share >= 0.15-1e-12 {
+			out = append(out, StallHypothesis{
+				Bottleneck: b.bottleneck,
+				Share:      share,
+				Reason:     b.reason,
+			})
+		}
+	}
+	slices.SortStableFunc(out, func(a, b StallHypothesis) int {
+		if a.Share > b.Share {
+			return -1
+		}
+		if a.Share < b.Share {
+			return 1
+		}
+		return 0
+	})
+	return out
+}
+
 // MatchObservation matches a step kernel name and step index against obs,
 // marking matched entries in used.
 func MatchObservation(kName string, idx int, obs []KernelObservation, used []bool) (KernelObservation, bool) {

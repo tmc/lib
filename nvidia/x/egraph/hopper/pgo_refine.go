@@ -25,6 +25,18 @@ const (
 // single kernel or plan step.
 type KernelObservation = qualify.KernelObservation
 
+// CounterMetrics holds measured hardware performance counter values and
+// CUDA event timing for a single kernel.
+type CounterMetrics = qualify.CounterMetrics
+
+// StallSample holds issued-reason warp stall sample counts from CUPTI PC
+// sampling.
+type StallSample = qualify.StallSample
+
+// StallHypothesis is a prioritized candidate-generation hypothesis derived
+// from warp stall sample shares.
+type StallHypothesis = qualify.StallHypothesis
+
 // ProfileReceipt aggregates per-step observations and device metadata.
 type ProfileReceipt = qualify.ProfileReceipt
 
@@ -45,6 +57,168 @@ func ClassifyBottlenecks(obs KernelObservation) []BottleneckKind {
 // [ptxasinfo.Function] report entry and launch geometry.
 func ObservationFromPTXAS(fn ptxasinfo.Function, gridBlocks, deviceSMs int) KernelObservation {
 	return qualify.ObservationFromPTXAS(fn, gridBlocks, deviceSMs)
+}
+
+// ObservationFromCountersAndPTXAS constructs a [KernelObservation] from a
+// parsed [ptxasinfo.Function] report entry, measured hardware performance
+// counters, and launch geometry.
+func ObservationFromCountersAndPTXAS(fn ptxasinfo.Function, cm CounterMetrics, gridBlocks, deviceSMs int) KernelObservation {
+	return qualify.ObservationFromCountersAndPTXAS(fn, cm, gridBlocks, deviceSMs)
+}
+
+// HypothesesFromStalls returns candidate-generation hypotheses ordered by
+// descending issued-stall share for stall buckets with share >= 0.15.
+func HypothesesFromStalls(s StallSample) []StallHypothesis {
+	return qualify.HypothesesFromStalls(s)
+}
+
+// A CandidateStepProposal is a legal schedule rewrite candidate proposed by
+// [ProposeStepCandidates], distinguishing direct causal counter/compiler
+// refinements from stall-sample hypotheses.
+type CandidateStepProposal struct {
+	Step       Step
+	Causal     bool
+	Hypothesis BottleneckKind
+	Share      float64
+	Rationale  []string
+}
+
+// ProposeStepCandidates returns legal, distinct candidate step rewrites for
+// Phase 1 ABBA evaluation. If causal has classified bottlenecks, the causal
+// refinement is emitted first with Causal: true. Then each hypothesis in
+// [HypothesesFromStalls](stalls) is evaluated on a synthetic single-bottleneck
+// trial observation without mutating causal; distinct valid steps are appended
+// with Causal: false.
+func ProposeStepCandidates(step Step, causal KernelObservation, stalls StallSample) []CandidateStepProposal {
+	var proposals []CandidateStepProposal
+	if bns := ClassifyBottlenecks(causal); len(bns) > 0 {
+		cand, reasons := RefineStep(step, causal)
+		if len(reasons) > 0 && stepValid(cand) && !stepSameSchedule(cand, step) {
+			proposals = append(proposals, CandidateStepProposal{
+				Step:      cand,
+				Causal:    true,
+				Rationale: reasons,
+			})
+		}
+	}
+
+	name := causal.Name
+	if name == "" {
+		name = stepKernelName(step)
+	}
+	for _, h := range HypothesesFromStalls(stalls) {
+		trialObs := syntheticObservationForBottleneck(name, causal.DeviceSMs, h.Bottleneck)
+		cand, reasons := RefineStep(step, trialObs)
+		if len(reasons) == 0 || !stepValid(cand) || stepSameSchedule(cand, step) {
+			continue
+		}
+		dup := false
+		for _, prev := range proposals {
+			if stepSameSchedule(cand, prev.Step) {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			continue
+		}
+		proposals = append(proposals, CandidateStepProposal{
+			Step:       cand,
+			Causal:     false,
+			Hypothesis: h.Bottleneck,
+			Share:      h.Share,
+			Rationale:  reasons,
+		})
+	}
+	return proposals
+}
+
+func syntheticObservationForBottleneck(name string, deviceSMs int, b BottleneckKind) KernelObservation {
+	obs := KernelObservation{
+		Name:      name,
+		DeviceSMs: deviceSMs,
+	}
+	switch b {
+	case BottleneckBankConflict:
+		obs.SharedBankConflict = 0.25
+	case BottleneckWGMMASerial:
+		obs.WGMMASerialized = true
+	case BottleneckRegisterSpill:
+		obs.SpillStoreBytes = 16
+	case BottleneckLowOccupancy:
+		obs.AchievedOccupancy = 0.15
+		obs.Registers = 192
+	case BottleneckMemoryBoundKV:
+		obs.MemoryBoundKV = true
+	case BottleneckWaveTail:
+		sms := max(deviceSMs, 132)
+		obs.DeviceSMs = sms
+		obs.GridBlocks = sms + max(sms/5, 1)
+	case BottleneckLaunchOverhead:
+		obs.DurationNs = 10000
+		obs.LaunchGapNs = 2000
+	}
+	return obs
+}
+
+func stepValid(k Step) bool {
+	switch {
+	case k.Tile != nil:
+		_, err := k.Tile.norm()
+		return err == nil
+	case k.GEMM != nil:
+		_, err := k.GEMM.norm()
+		return err == nil
+	case k.Attention != nil:
+		_, _, err := k.Attention.norm()
+		return err == nil
+	case k.Row != nil:
+		_, err := k.Row.check()
+		return err == nil
+	default:
+		return false
+	}
+}
+
+func stepSameSchedule(a, b Step) bool {
+	switch {
+	case a.Tile != nil && b.Tile != nil:
+		ta, tb := *a.Tile, *b.Tile
+		return ta.BM == tb.BM &&
+			ta.BN == tb.BN &&
+			ta.Stages == tb.Stages &&
+			ta.WGMMA == tb.WGMMA &&
+			ta.Swizzle128B == tb.Swizzle128B &&
+			ta.WarpSpecialized == tb.WarpSpecialized &&
+			ta.Repacked == tb.Repacked &&
+			ta.DequantWords == tb.DequantWords &&
+			ta.StreamK == tb.StreamK &&
+			ta.GroupM == tb.GroupM
+	case a.GEMM != nil && b.GEMM != nil:
+		ga, gb := *a.GEMM, *b.GEMM
+		return ga.RowsPerBlock == gb.RowsPerBlock &&
+			ga.Warps == gb.Warps &&
+			ga.SplitK == gb.SplitK &&
+			ga.Unroll == gb.Unroll &&
+			ga.Prefetch == gb.Prefetch &&
+			ga.BlackwellFP4 == gb.BlackwellFP4
+	case a.Attention != nil && b.Attention != nil:
+		aa, ab := *a.Attention, *b.Attention
+		return aa.Chunk == ab.Chunk &&
+			aa.Depth == ab.Depth &&
+			aa.Stages == ab.Stages &&
+			aa.TableAhead == ab.TableAhead &&
+			aa.WGMMA == ab.WGMMA &&
+			aa.QKFP8 == ab.QKFP8 &&
+			aa.Swizzle == ab.Swizzle &&
+			aa.ClusterCombine == ab.ClusterCombine &&
+			aa.KVHeadsPerBlock == ab.KVHeadsPerBlock &&
+			aa.DeviceSplits == ab.DeviceSplits
+	case a.Row != nil && b.Row != nil:
+		return a.Row.Cluster == b.Row.Cluster
+	default:
+		return false
+	}
 }
 
 // RefineStep deterministically rewrites step's schedule parameters to cure each

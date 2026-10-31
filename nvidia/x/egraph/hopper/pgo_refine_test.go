@@ -522,6 +522,73 @@ func absDiff(a, b float64) float64 {
 	return b - a
 }
 
+func TestPGORefineProposeStepCandidates(t *testing.T) {
+	baseTile := TileGEMM{
+		Name:   "pgo_tile_cand",
+		N:      128,
+		K:      128,
+		Weight: WeightBF16,
+		Out:    F32,
+		BM:     128,
+		BN:     128,
+		Stages: 3,
+		WGMMA:  true,
+	}
+	step := Step{Tile: &baseTile, M: 128}
+
+	fn := ptxasinfo.Function{
+		Name:      baseTile.Name,
+		Registers: 128,
+	}
+	causal := ObservationFromCountersAndPTXAS(fn, CounterMetrics{
+		DurationNs:  15000,
+		LaunchGapNs: 500,
+	}, 264, 132)
+	if causal.SharedBankConflict != 0 {
+		t.Fatalf("expected unmeasured SharedBankConflict == 0, got %v", causal.SharedBankConflict)
+	}
+	if bns := ClassifyBottlenecks(causal); len(bns) != 0 {
+		t.Fatalf("expected no causal bottlenecks, got %v", bns)
+	}
+
+	stalls := StallSample{
+		TotalSamples: 100,
+		MIOThrottle:  35, // 0.35 -> BottleneckBankConflict
+		WaitTMEM:     20, // 0.20 -> BottleneckLowOccupancy
+	}
+	proposals := ProposeStepCandidates(step, causal, stalls)
+	if causal.SharedBankConflict != 0 {
+		t.Fatalf("ProposeStepCandidates mutated causal observation: %+v", causal)
+	}
+	if len(proposals) != 2 {
+		t.Fatalf("expected 2 stall-hypothesis proposals, got %d: %+v", len(proposals), proposals)
+	}
+	if proposals[0].Causal || proposals[0].Hypothesis != BottleneckBankConflict || !proposals[0].Step.Tile.Swizzle128B {
+		t.Fatalf("unexpected first proposal: %+v", proposals[0])
+	}
+	if proposals[1].Causal || proposals[1].Hypothesis != BottleneckLowOccupancy || proposals[1].Step.Tile.BN != 64 {
+		t.Fatalf("unexpected second proposal: %+v", proposals[1])
+	}
+
+	// When a causal counter is measured (SharedBankConflict = 0.25), the causal
+	// proposal appears first with Causal: true, and duplicate stall hypotheses
+	// producing the identical schedule are deduplicated.
+	bank := 0.25
+	causalWithBank := ObservationFromCountersAndPTXAS(fn, CounterMetrics{
+		SharedBankConflict: &bank,
+	}, 264, 132)
+	proposalsWithCausal := ProposeStepCandidates(step, causalWithBank, stalls)
+	if len(proposalsWithCausal) != 2 {
+		t.Fatalf("expected 1 causal + 1 distinct stall proposal, got %d: %+v", len(proposalsWithCausal), proposalsWithCausal)
+	}
+	if !proposalsWithCausal[0].Causal || !proposalsWithCausal[0].Step.Tile.Swizzle128B {
+		t.Fatalf("expected first proposal to be Causal: true Swizzle128B, got %+v", proposalsWithCausal[0])
+	}
+	if proposalsWithCausal[1].Causal || proposalsWithCausal[1].Hypothesis != BottleneckLowOccupancy {
+		t.Fatalf("expected second proposal to be non-causal BottleneckLowOccupancy, got %+v", proposalsWithCausal[1])
+	}
+}
+
 func ExampleRefinePlan() {
 	b := NewBuilder()
 	x := b.Input("x", BF16, 2, 256)

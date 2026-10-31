@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/tmc/lib/nvidia/x/pairedtiming"
@@ -131,5 +132,126 @@ func TestSelectMeasuredVerifierCannotRewriteSamples(t *testing.T) {
 	})
 	if err != nil || got.Observed == nil || got.Observed.Ratio != .5 || got.CandidateState != "MEASURED_LOSS" {
 		t.Fatalf("callback rewrote measured data: %+v %v", got, err)
+	}
+}
+
+func TestHoldoutPromotionGate(t *testing.T) {
+	id := MeasuredIdentity{
+		Context:   sha256.Sum256([]byte("SYNTHETIC_HOLDOUT_CONTEXT")),
+		Admission: sha256.Sum256([]byte("SYNTHETIC_HOLDOUT_ADMISSION")),
+	}
+	winBlock := pairedtiming.Block{A1: 12, B1: 10, B2: 10, A2: 12} // ratio 1.20
+	nullBlock := pairedtiming.Block{A1: 10, B1: 10, B2: 10, A2: 10}
+	driftBlock := pairedtiming.Block{A1: 11, B1: 10, B2: 10, A2: 11} // false 1.10 A/A speedup
+
+	baseEvidence := func() HoldoutCandidateEvidence {
+		return HoldoutCandidateEvidence{
+			Screen: MeasuredPair{
+				Identity:  id,
+				Reference: "ref_v0",
+				Candidate: "cand_v1",
+				Blocks:    []pairedtiming.Block{winBlock, winBlock, winBlock},
+			},
+			HoldoutBlocks: []pairedtiming.Block{
+				winBlock, winBlock, winBlock, winBlock, winBlock, winBlock,
+			},
+			AANullBlocks:    []pairedtiming.Block{nullBlock, nullBlock, nullBlock},
+			ReferenceTokens: []int{128000, 791, 6864, 315, 9822, 13},
+			CandidateTokens: []int{128000, 791, 6864, 315, 9822, 13},
+			LogitMaxAbs:     1e-4,
+		}
+	}
+
+	tests := []struct {
+		name           string
+		mutate         func(*HoldoutCandidateEvidence)
+		wantStatus     string
+		wantState      string
+		wantSelected   string
+		wantReasonSub  string
+		wantTokMatched bool
+	}{
+		{
+			name:           "all_gates_pass_promoted",
+			mutate:         func(*HoldoutCandidateEvidence) {},
+			wantStatus:     "EXACT_HOLDOUT_PROMOTED",
+			wantState:      "PROMOTED_HOLDOUT_VERIFIED",
+			wantSelected:   "cand_v1",
+			wantTokMatched: true,
+		},
+		{
+			name: "reject_3_block_only_insufficient_holdout",
+			mutate: func(ev *HoldoutCandidateEvidence) {
+				ev.HoldoutBlocks = ev.HoldoutBlocks[:3]
+			},
+			wantStatus:     "REJECTED_HOLDOUT",
+			wantState:      "MEASURED_NO_PROMOTION",
+			wantSelected:   "ref_v0",
+			wantReasonSub:  "at least 6 held-out ABBA blocks required",
+			wantTokMatched: true,
+		},
+		{
+			name: "reject_single_token_flip_despite_tiny_logit_diff",
+			mutate: func(ev *HoldoutCandidateEvidence) {
+				ev.LogitMaxAbs = 1e-4
+				ev.CandidateTokens[4] = 9823
+			},
+			wantStatus:     "REJECTED_TOKEN_MISMATCH",
+			wantState:      "REJECTED_TOKEN_MISMATCH",
+			wantSelected:   "ref_v0",
+			wantReasonSub:  "index 4",
+			wantTokMatched: false,
+		},
+		{
+			name: "reject_aa_null_drift",
+			mutate: func(ev *HoldoutCandidateEvidence) {
+				ev.AANullBlocks = []pairedtiming.Block{driftBlock, driftBlock, driftBlock}
+			},
+			wantStatus:     "REJECTED_AA_NULL_DRIFT",
+			wantState:      "MEASURED_NO_PROMOTION",
+			wantSelected:   "ref_v0",
+			wantReasonSub:  "A/A null control falsely promoted",
+			wantTokMatched: true,
+		},
+		{
+			name: "reject_holdout_sign_test_and_min_ratio",
+			mutate: func(ev *HoldoutCandidateEvidence) {
+				// 5 wins, 1 loss -> one-sided p = 7/64 = 0.109375 > 0.05 and MinRatio < 1.0
+				ev.HoldoutBlocks[5] = pairedtiming.Block{A1: 9.8, B1: 10, B2: 10, A2: 9.8}
+			},
+			wantStatus:     "REJECTED_HOLDOUT",
+			wantState:      "MEASURED_NO_PROMOTION",
+			wantSelected:   "ref_v0",
+			wantReasonSub:  "held-out ABBA gate failed",
+			wantTokMatched: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ev := baseEvidence()
+			tt.mutate(&ev)
+			got, err := SelectHoldoutPromoted(id, ev, func(MeasuredPair) error { return nil })
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.Status != tt.wantStatus || got.CandidateState != tt.wantState {
+				t.Fatalf("Status=%q CandidateState=%q, want %q / %q (reason: %s)", got.Status, got.CandidateState, tt.wantStatus, tt.wantState, got.Reason)
+			}
+			if got.Selected == nil || got.Selected.Name != tt.wantSelected {
+				t.Fatalf("Selected=%+v, want %q", got.Selected, tt.wantSelected)
+			}
+			if got.TokensMatched != tt.wantTokMatched {
+				t.Fatalf("TokensMatched=%v, want %v", got.TokensMatched, tt.wantTokMatched)
+			}
+			if tt.wantReasonSub != "" && !strings.Contains(got.Reason, tt.wantReasonSub) {
+				t.Fatalf("Reason=%q, want substring %q", got.Reason, tt.wantReasonSub)
+			}
+			if tt.wantStatus == "EXACT_HOLDOUT_PROMOTED" {
+				if got.OneSidedSignP > 0.05 || math.Abs(got.OneSidedSignP-1.0/64.0) > 1e-12 {
+					t.Fatalf("OneSidedSignP=%v, want 1/64 (0.015625)", got.OneSidedSignP)
+				}
+			}
+		})
 	}
 }
